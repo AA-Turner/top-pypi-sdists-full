@@ -22,8 +22,10 @@ from pathlib import Path
 import pytest
 
 from probe.shared.updates import pins
-from probe.service import client, paths, recorders
-from probe.service.protocol import Method
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.service.sessions import recorders
+from probe.foundation.service_api.wire import Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the service is POSIX-only until R3")
@@ -420,7 +422,7 @@ def test_a_worker_the_services_recorder_started_is_a_live_sessions(monkeypatch):
 
 
 def test_the_client_side_knows_the_methods():
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     assert {Method.SESSION_RECORD, Method.SESSION_RECORDING, Method.SESSION_FINISH} <= protocol.METHODS
     assert recorders.RETRY_ENV in client.ENV_ALLOWLIST
@@ -510,9 +512,9 @@ def test_a_tap_this_service_cannot_run_is_left_to_tap_watch(tmp_path, monkeypatc
         monkeypatch.delitem(sys.modules, name)
     host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
     root = _tap(tmp_path / "tap-a", "0.10.0")
-    monkeypatch.setattr(recorders, "MIN_PYTHON", (99, 0))
+    monkeypatch.setattr(recorders.tap, "MIN_PYTHON", (99, 0))
     assert host._load(str(root), "0.10.0") is False
-    monkeypatch.setattr(recorders, "MIN_PYTHON", (3, 0))
+    monkeypatch.setattr(recorders.tap, "MIN_PYTHON", (3, 0))
     broken = _tap(tmp_path / "tap-b", "0.10.0")
     (broken / "tap" / "main.py").write_text("raise ImportError('needs StrEnum')\n")
     assert host._load(str(broken), "0.10.0") is False
@@ -862,7 +864,7 @@ def test_a_tap_that_cannot_be_copied_loads_in_place(tmp_path, monkeypatch):
     def refuse(root, version):
         raise OSError("no space left on device")
 
-    monkeypatch.setattr(recorders, "_pin", refuse)
+    monkeypatch.setattr(recorders.tap, "_pin", refuse)
     lines = []
     host = recorders.RecorderHost(log=lines.append, loop_getter=lambda: None)
     root = _late_tap(tmp_path / "cache" / "0.10.18", "0.10.18")

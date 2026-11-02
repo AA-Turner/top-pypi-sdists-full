@@ -1,0 +1,40 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: alphavantage
+version: 0.0.1
+name: Alpha Vantage
+description: Financial market data and stock information
+
+command: uvx
+args:
+  - "av-mcp==0.2.1"
+  - "${ALPHAVANTAGE_API_KEY}"
+
+transport: stdio
+
+envvars:
+  - ALPHAVANTAGE_API_KEY:0.0.1
+
+env:
+  MAX_RESPONSE_TOKENS: "100000"
+
+# Not offered on the platform yet: the integrations page lists it as not available.
+enabled: false
+
+tags:
+  - finance
+  - stocks
+  - market-data
+
+icon: "@primer/octicons-react:graph"
+emoji: 💹
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: null
+  note: >-
+    Not read off the running server yet: its tools are unknown, and unknown is the most
+    restricted. Run the server, list its tools, and class each one here.
+  tools: {}

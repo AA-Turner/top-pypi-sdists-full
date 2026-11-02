@@ -405,7 +405,7 @@ def test_a_session_that_is_ending_polls_no_more(tmp_path, monkeypatch):
 
 
 def _handoff(alerts: "list | None", *, age: float = 0.0, refused_until: "float | None" = None) -> None:
-    """What `probe.service.alertpoll` leaves for the session's worker."""
+    """What `probe.service.watch.alertpoll` leaves for the session's worker."""
     path = mailbox.alerts_handoff_path(SID)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"sid": SID, "polled_at": time.time() - age, "alerts": alerts,

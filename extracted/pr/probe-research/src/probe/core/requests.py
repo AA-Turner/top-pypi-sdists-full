@@ -46,16 +46,16 @@ class ActionName(StrEnum):
     REPORT = "report"
     #: Not an action either: one desktop management request (the JSON object
     #: `probe desktop request --json` reads) in, its v1 envelope out (API v1
-    #: `desktop.request`). `probe.cli.desktop` reads and checks the request
+    #: `desktop.request`). `probe.cli.imports.desktop` reads and checks the request
     #: itself, so it never goes through `parse`.
     DESKTOP = "desktop"
     #: Limit what Probe on this computer reads to one workspace, or lift the
-    #: limit: `probe workspace limit` (`probe.cli.workspace_limit_cmd`).
+    #: limit: `probe workspace limit` (`probe.cli.commands.account.workspace_limit`).
     WORKSPACE_LIMIT = "workspace_limit"
     #: A read in form, though it approves: Probe's own hooks in Codex, as an
     #: update does (`probe.shared.harness.harnesses.codex.hooks.heal`), `{"outcome", "approved",
     #: "error"}` back. The Probe service's healer asks it when Codex rewrote
-    #: its copies of Probe's plugins (`probe.service.codextrust`, #3617).
+    #: its copies of Probe's plugins (`probe.service.hooks.codex_trust`, #3617).
     CODEX_TRUST = "codex_trust"
 
 

@@ -164,7 +164,7 @@ class Target:
 
 def resolve_target(client, project: str | None, experiment: str | None) -> Target:
     """`--experiment E [--project P]` or `--project P`; exactly one entity."""
-    from ....cli import refs
+    from ....cli.commands import ref_syntax as refs
 
     if experiment is not None:
         hint = _main()._project_id(client, project) if project is not None else None

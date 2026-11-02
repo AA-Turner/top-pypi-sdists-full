@@ -1,0 +1,1870 @@
+use super::{BoolSet, Class, Component, Descr, Label, Lines, Op, Value, Verdict, Whole};
+use crate::descr::budget;
+use crate::descr::lattice_tests::Algebra;
+use crate::descr::lines;
+use crate::descr::records::RecordLattice;
+use crate::descr::symbolic::{Edge, Guard, MAX_STATES};
+use crate::kind::Kind;
+use core::mem::size_of;
+use proptest::prelude::*;
+use std::sync::{Arc, LazyLock};
+
+/// A guard met or joined with itself is that guard, and the handle settles
+/// it without a walk or a third allocation.
+///
+/// The automaton's product asks both laws of every pair of states that reach
+/// on the same letter, and after a clone the two sides are the same handle --
+/// which is the case this exists for. Two handles onto equal sets are not the
+/// same case: comparing them is the work being avoided, so the shortcut is
+/// about identity and says nothing about equality.
+#[test]
+fn a_guard_met_with_itself_is_shared_rather_than_rebuilt() {
+    let guard = Arc::new(Descr::of_kind(Kind::Int));
+    let same = Arc::clone(&guard);
+    let met = Guard::meet(&guard, &same).expect("a meet with itself");
+    assert!(Arc::ptr_eq(&met, &guard));
+    let joined = Guard::join(&guard, &same).expect("a join with itself");
+    assert!(Arc::ptr_eq(&joined, &guard));
+
+    // A separate handle onto the same set takes the long way, and arrives at
+    // the same set.
+    let twin = Arc::new(Descr::of_kind(Kind::Int));
+    let met = Guard::meet(&guard, &twin).expect("a meet with its twin");
+    assert!(!Arc::ptr_eq(&met, &guard));
+    assert_eq!(*met, *guard);
+}
+
+/// A guard is held by handle, so an edge pays a pointer for it rather than a
+/// descriptor.
+///
+/// This is the property the nesting rests on. A `Descr` is one component per
+/// kind stored inline, so it is the same size whatever it describes; an edge
+/// holding one *by value* is that size again, and an edge's guard has its own
+/// automaton with its own edges. Held that way the size would multiply
+/// through the levels rather than add, and a clone would deep-copy every level
+/// -- which is what a product of two automata does to their guards, once per
+/// pair of states.
+///
+/// Pinned by size because size is what a guard stored by value changes: it
+/// would pass every behavioral law in this file and bring the growth with
+/// it.
+#[test]
+fn an_edge_holds_its_guard_by_handle() {
+    assert_eq!(size_of::<Arc<Descr>>(), size_of::<usize>());
+    assert!(
+        size_of::<Edge<Arc<Descr>>>() * 16 < size_of::<Descr>(),
+        "an edge costs {} bytes against a descriptor's {}, which is not a handle",
+        size_of::<Edge<Arc<Descr>>>(),
+        size_of::<Descr>()
+    );
+}
+
+/// A meet past the build's allowance refuses, and the same meet succeeds
+/// under one that covers it.
+#[test]
+fn a_meet_past_the_allowance_refuses() {
+    let words = Descr::of_kind(Kind::Str);
+
+    assert!(budget::under(0, || words.intersect(&words)).is_none());
+    assert!(budget::under(64, || words.intersect(&words)).is_some());
+}
+
+/// The product of two kinds' lines is one of the places the allowance is
+/// charged, and it is asked here rather than through a whole descriptor
+/// meet.
+///
+/// A meet charges in several places, so any one of them refusing gives the
+/// same answer and none of them is pinned by the descriptor-level test
+/// above. This one calls the line union's own meet, where the product is
+/// the only charge there is.
+#[test]
+fn a_line_product_past_the_allowance_refuses() {
+    let whole = Whole::Kind(Kind::Str);
+    let lines = Lines::everything(Component::top(Kind::Str));
+    let meet = || lines.combine(&lines, Op::Intersect, whole);
+
+    // One unit, not none: meeting two lines meets the objects under them
+    // too, and that charges. An empty allowance would be refused by either
+    // charge and so would not say which one is here.
+    assert!(budget::under(1, meet).is_none());
+    assert!(budget::under(8, meet).is_some());
+}
+
+/// A kind's union past the line bound refuses rather than holding a form it
+/// cannot complement.
+///
+/// Asked of the lines directly, because no schema builds this: a kind
+/// reaches the bound through lines that differ in their *objects*, and the
+/// bound is what keeps the complement -- which doubles the count -- from
+/// returning a set narrower than the one it was asked for.
+#[test]
+fn a_kind_past_its_line_bound_refuses() {
+    let whole = Component::top(Kind::Dict);
+    let slot = Whole::Kind(Kind::Dict);
+    let line = |n: i64| {
+        Lines::objects(
+            &whole,
+            RecordLattice::attribute("x", Arc::new(Descr::integer(n)), false),
+        )
+    };
+    let mut wide = line(0);
+    for n in 1..i64::try_from(lines::MAX_LINES).unwrap_or(i64::MAX) {
+        wide = wide
+            .combine(&line(n), Op::Union, slot)
+            .expect("inside the bound");
+    }
+    assert!(wide.combine(&line(-1), Op::Union, slot).is_none());
+}
+
+/// Every value the descriptor can tell apart.
+///
+/// One per coarse kind, both booleans, and one of no listed kind. A law is
+/// checked by asking every descriptor about every one of these, which is
+/// what makes "these two sets are equal" a statement about *values* rather
+/// than about the two representations agreeing with each other.
+fn universe() -> Vec<Value> {
+    let mut values: Vec<Value> = Kind::ALL
+        .iter()
+        .filter(|kind| {
+            !matches!(
+                kind,
+                Kind::Bool
+                    | Kind::Int
+                    | Kind::Float
+                    | Kind::Str
+                    | Kind::Bytes
+                    | Kind::List
+                    | Kind::Tuple
+                    | Kind::Set
+                    | Kind::FrozenSet
+                    | Kind::Dict
+            )
+        })
+        .map(|kind| Value::of_kind(*kind))
+        .collect();
+    values.push(Value::boolean(true));
+    values.push(Value::boolean(false));
+    // Enough integers to separate every step and bound the generator uses:
+    // a window narrower than the periods would agree by accident.
+    values.extend((-14i64..=14).map(Value::integer));
+    // The three floats that make the kind its own case, and a point strictly
+    // inside every gap the generator's endpoints leave -- the unbounded ones
+    // included, where a set like `(-inf, -1.0)` is inhabited by values no
+    // endpoint names.
+    values.extend(
+        [
+            f64::NEG_INFINITY,
+            -2.0,
+            -1.0,
+            -0.5,
+            -0.0,
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            f64::INFINITY,
+            f64::NAN,
+        ]
+        .map(Value::float),
+    );
+    // Words over the alphabet the generated patterns are written in, plus
+    // one non-ASCII, for both word kinds.
+    for kind in [Kind::Str, Kind::Bytes] {
+        for word in [
+            b"".as_slice(),
+            b"a",
+            b"b",
+            b"c",
+            b"ab",
+            b"ba",
+            b"aba",
+            "\u{e9}".as_bytes(),
+        ] {
+            values.push(Value::word(word, kind));
+        }
+    }
+    // Sequences over the letters the generated guards separate, for both
+    // sequence kinds. The empty one and the two lengths are what tell a
+    // chain from a loop: `tuple[int]` and `list[int]` agree on every
+    // one-element sequence and part on the others.
+    for kind in [Kind::List, Kind::Tuple] {
+        values.extend(SEQUENCES.map(|elements| Value::sequence(elements, kind)));
+    }
+    // The same member lists read as sets, for both set kinds. The empty one
+    // carries the weight here: it inhabits every powerset, so it is what
+    // separates `set[nothing]` from `nothing`.
+    for kind in [Kind::Set, Kind::FrozenSet] {
+        values.extend(SEQUENCES.map(|members| Value::sequence(members, kind)));
+    }
+    // Dicts, as the entries they carry. The empty one separates a map that
+    // constrains a key from one that forbids it; the two values under one
+    // key separate a label's type from its neighbor's; and the integer key
+    // is what tells one part of the key partition from another.
+    values.extend(DICTS.map(Value::dict));
+    // Objects of no listed kind, described by the attributes they carry.
+    // The one with an attribute nobody names is what holds the record open.
+    values.extend(OBJECTS.map(Value::object));
+    // The same objects under each class of the little order below, plus the
+    // one whose class the oracle is never told.
+    for class in [&ANIMAL, &DOG, &MINERAL] {
+        values.extend(OBJECTS.map(|attributes| Value::instance(class, attributes)));
+    }
+    // Values that have a kind *and* a class, which is what a line holds and
+    // what the kindless slot could not describe. One per kind whose values
+    // the components tell apart, so a law that reads only the structure and
+    // a law that reads only the class both meet a value the other decides.
+    for class in [&ANIMAL, &DOG] {
+        for base in KINDED {
+            values.push(base.of_class(class, &[]));
+            values.push(base.of_class(class, CARRYING_A));
+        }
+    }
+    values
+}
+
+/// A class order small enough to enumerate and wide enough to separate the
+/// three answers: deriving, unrelated, and laid out apart. An animal lays down
+/// a layout of its own -- `__slots__`, over no builtin -- which a dog inherits
+/// and a mineral lays down apart from.
+static ANIMAL: LazyLock<Class> = LazyLock::new(|| Class::laid_out(1, 1));
+static DOG: LazyLock<Class> =
+    LazyLock::new(|| Class::new(2, Some(1), std::slice::from_ref(&ANIMAL)));
+static MINERAL: LazyLock<Class> = LazyLock::new(|| Class::laid_out(3, 3));
+/// Deriving from nothing and laying down no layout: the pair with an animal
+/// whose meet only a class outside the order could inhabit.
+static UNRELATED: LazyLock<Class> = LazyLock::new(|| Class::plain(4));
+/// A plain class and a plain subclass of it, the open world: a class deriving
+/// from either and from anything else may exist, so a meet with a kind is an
+/// unknown rather than a proof.
+static OPEN: LazyLock<Class> = LazyLock::new(|| Class::plain(6));
+static OPEN_DOG: LazyLock<Class> =
+    LazyLock::new(|| Class::new(7, None, std::slice::from_ref(&OPEN)));
+/// A class whose instances are strings, which is what `Class::of_kind` says.
+static SUBSTR: LazyLock<Class> = LazyLock::new(|| Class::new(5, Some(5), &[]).of_kind(Kind::Str));
+
+/// The attribute lists the universe's objects carry.
+const OBJECTS: [&[(&str, Value)]; 7] = [
+    &[],
+    &[("x", Value::integer(0))],
+    &[("x", Value::integer(1))],
+    &[("y", Value::integer(0))],
+    &[("x", Value::integer(0)), ("y", Value::integer(1))],
+    &[("x", Value::word(b"a", Kind::Str))],
+    &[("z", Value::integer(0))],
+];
+
+/// The distinction the coarse component could not make.
+///
+/// `list[int]` and `list[str]` are one component while a kind is coarse, so
+/// their meet is the whole kind rather than the one sequence they share.
+/// With the automaton they are two languages over different letters, and
+/// what they share is the empty list -- which both hold, and which is the
+/// answer a coarse component cannot give.
+#[test]
+fn two_lists_of_different_elements_share_only_the_empty_one() {
+    const NOTHING: &[Value] = &[];
+    const INTS: &[Value] = &[Value::integer(1)];
+    const WORDS: &[Value] = &[Value::word(b"a", Kind::Str)];
+
+    let ints = Descr::sequence(&[], Some(&Descr::of_kind(Kind::Int)), Kind::List)
+        .expect("list is a sequence kind");
+    let words = Descr::sequence(&[], Some(&Descr::of_kind(Kind::Str)), Kind::List)
+        .expect("list is a sequence kind");
+
+    assert!(!ints.is_empty() && !words.is_empty());
+    let shared = ints.intersect(&words).expect("two small automata");
+    assert!(shared.admits(Value::sequence(NOTHING, Kind::List)));
+    assert!(!shared.admits(Value::sequence(INTS, Kind::List)));
+    assert!(!shared.admits(Value::sequence(WORDS, Kind::List)));
+    assert!(ints.admits(Value::sequence(INTS, Kind::List)));
+    assert!(words.admits(Value::sequence(WORDS, Kind::List)));
+    assert!(!ints.admits(Value::sequence(WORDS, Kind::List)));
+}
+
+/// A chain is not a loop: `tuple[int]` holds one element and `list[int]`
+/// holds any number, which is the length the prefix pins and the tail does
+/// not.
+#[test]
+fn a_prefix_pins_the_length_and_a_tail_does_not() {
+    const ONE: &[Value] = &[Value::integer(1)];
+    const TWO: &[Value] = &[Value::integer(1), Value::integer(1)];
+
+    let int = Descr::of_kind(Kind::Int);
+    let pair = Descr::sequence(&[int.clone(), int.clone()], None, Kind::Tuple)
+        .expect("tuple is a sequence kind");
+    let many = Descr::sequence(&[], Some(&int), Kind::Tuple).expect("tuple is a sequence kind");
+
+    assert!(!pair.admits(Value::sequence(ONE, Kind::Tuple)));
+    assert!(pair.admits(Value::sequence(TWO, Kind::Tuple)));
+    assert!(many.admits(Value::sequence(ONE, Kind::Tuple)));
+    assert!(many.admits(Value::sequence(TWO, Kind::Tuple)));
+}
+
+// THEORY: kinds-decompose-emptiness
+/// The kind is what separates a list from a tuple, not the language: the
+/// same shape under two kinds is two components, and they do not meet.
+#[test]
+fn the_same_shape_under_two_kinds_does_not_meet() {
+    const ELEMENTS: &[Value] = &[Value::integer(1)];
+
+    let int = Descr::of_kind(Kind::Int);
+    let one = std::slice::from_ref(&int);
+    let list = Descr::sequence(one, None, Kind::List).expect("a sequence kind");
+    let tuple = Descr::sequence(one, None, Kind::Tuple).expect("a sequence kind");
+
+    assert!(list.admits(Value::sequence(ELEMENTS, Kind::List)));
+    assert!(!list.admits(Value::sequence(ELEMENTS, Kind::Tuple)));
+    assert!(
+        list.intersect(&tuple)
+            .expect("two small automata")
+            .is_empty()
+    );
+}
+
+/// A letter is a descriptor, so a sequence of sequences is a sequence: the
+/// recursion the component carries is the one the values have.
+#[test]
+fn a_sequence_of_sequences_reads_its_elements() {
+    const INNER: &[Value] = &[Value::integer(1)];
+    const OUTER: &[Value] = &[Value::sequence(INNER, Kind::List)];
+    const FLAT: &[Value] = &[Value::integer(1)];
+
+    let inner = Descr::sequence(&[], Some(&Descr::of_kind(Kind::Int)), Kind::List)
+        .expect("a sequence kind");
+    let outer = Descr::sequence(&[], Some(&inner), Kind::List).expect("a sequence kind");
+
+    assert!(outer.admits(Value::sequence(OUTER, Kind::List)));
+    assert!(!outer.admits(Value::sequence(FLAT, Kind::List)));
+}
+
+/// A word kind refuses the sequence constructor rather than building a set
+/// over letters it has none of.
+#[test]
+fn a_kind_whose_values_are_not_sequences_refuses() {
+    assert!(Descr::sequence(&[], None, Kind::Str).is_none());
+    assert!(Descr::sequence(&[], None, Kind::Set).is_none());
+}
+
+/// The allowance every case below runs under; see [`budget::law`].
+///
+/// Armed here as well as at the four lattices' own laws, because a law over a
+/// whole descriptor reaches every one of them. The lattice laws over `descr()`
+/// further down are not armed: they read a refusal in the shared body as a
+/// skip and compare the two orders' refusals, which an allowance spent by the
+/// first order could part, so what one of their cases costs is its draw's.
+fn allowance() -> budget::Allowance {
+    budget::law()
+}
+
+proptest! {
+    // The same bounds, for the same reasons.
+    #![proptest_config(ProptestConfig {
+        cases: ProptestConfig::default().cases / 4,
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    // THEORY: lattice-theory, property-testing, each-kind-is-closed
+    /// The lattice laws, over descriptors that hold sets.
+    #[test]
+    fn the_lattice_laws_hold_of_the_sets(
+        a in descr_with_sets(),
+        b in descr_with_sets(),
+        c in descr_with_sets(),
+    ) {
+        let _allowance = allowance();
+        BY_VALUES.lattice_laws(&a, &b, &c)?;
+    }
+
+    /// The complement laws, over descriptors that hold sets.
+    #[test]
+    fn the_complement_laws_hold_of_the_sets(
+        a in descr_with_sets(),
+        b in descr_with_sets(),
+    ) {
+        let _allowance = allowance();
+        BY_VALUES.complement_laws(&a, &b)?;
+    }
+
+    /// A verdict is a claim about the values, and each of the three says
+    /// something different.
+    ///
+    /// `Empty` is a proof that no value is admitted, so the universe must
+    /// hold none. `Inhabited` is a proof that one is, and while the universe
+    /// cannot always exhibit it -- a set may live entirely outside a finite
+    /// list -- a value it *does* admit forbids `Empty`. `Unknown` claims
+    /// nothing and so cannot be contradicted.
+    #[test]
+    fn a_verdict_is_a_claim_about_the_values(a in descr_with_sets()) {
+        let _allowance = allowance();
+        let admitted = universe().into_iter().filter(|v| a.admits(*v)).count();
+        match a.emptiness() {
+            Verdict::Empty => prop_assert_eq!(admitted, 0, "empty admits nothing"),
+            Verdict::Inhabited | Verdict::Unknown => {}
+        }
+        if admitted > 0 {
+            prop_assert_ne!(a.emptiness(), Verdict::Empty, "a value forbids empty");
+        }
+    }
+
+    /// Subtyping reduces to emptiness, and the reduction is sound.
+    ///
+    /// The property the whole representation is for: proving `a ∧ ¬b` empty
+    /// is proving that every value of `a` is a value of `b`. The converse is
+    /// not asked -- failing to prove it is not a proof that a value escapes.
+    #[test]
+    fn an_empty_difference_is_containment(a in descr_with_sets(), b in descr_with_sets()) {
+        let _allowance = allowance();
+        let Some(difference) = a.intersect(&b.complement()) else {
+            return Ok(());
+        };
+        if difference.emptiness() == Verdict::Empty {
+            for value in universe() {
+                prop_assert!(
+                    !a.admits(value) || b.admits(value),
+                    "an empty difference leaves no value of a outside b"
+                );
+            }
+        }
+    }
+
+    /// A value the descriptor admits is a value its complement does not,
+    /// with the sets in.
+    #[test]
+    fn a_complement_holds_every_set_the_descriptor_does_not(a in descr_with_sets()) {
+        let _allowance = allowance();
+        let complement = a.complement();
+        for value in universe() {
+            prop_assert_ne!(a.admits(value), complement.admits(value));
+        }
+    }
+}
+
+/// A meet of two powersets is a powerset, not the empty set.
+///
+/// `set[int] & set[str]` is not empty and is not either operand: a meet of
+/// two powersets is the powerset of the meet, so it holds exactly the sets
+/// drawn from `int ∧ str` -- which is the empty set and nothing else.
+#[test]
+fn two_sets_of_disjoint_elements_meet_in_the_empty_set() {
+    const NOTHING: &[Value] = &[];
+    const ONE: &[Value] = &[Value::integer(1)];
+
+    let ints = Descr::set(&Descr::of_kind(Kind::Int), Kind::Set).expect("a set kind");
+    let words = Descr::set(&Descr::of_kind(Kind::Str), Kind::Set).expect("a set kind");
+    let none = Descr::set(&Descr::nothing(), Kind::Set).expect("a set kind");
+
+    let shared = ints.intersect(&words).expect("two small powersets");
+    assert!(!shared.is_empty(), "the empty set is drawn from both");
+    assert_eq!(shared, none, "and it is the only one");
+    assert!(shared.admits(Value::sequence(NOTHING, Kind::Set)));
+    assert!(!shared.admits(Value::sequence(ONE, Kind::Set)));
+}
+
+/// The distinction row 22 asks for: a set of an unhashable element holds
+/// only the empty set, because no value of that kind can be a member.
+/// Hashability is a property of a value, not of its kind, so the members of a
+/// set are the element schema as written.
+///
+/// `class L(list): __hash__ = object.__hash__` is a list and a legal member, so
+/// `{L([1])}` is a value of `set[list[int]]`. Cutting the list kind out of the
+/// members would make that schema equal to `set[nothing]` while a value stands
+/// against it -- a set smaller than the schema denotes, which is what a subtype
+/// proof rests on.
+#[test]
+fn a_set_of_an_unhashable_kind_keeps_its_elements() {
+    const NOTHING: &[Value] = &[];
+    const A_LIST: &[Value] = &[Value::sequence(&[], Kind::List)];
+
+    let lists = Descr::sequence(&[], Some(&Descr::of_kind(Kind::Int)), Kind::List)
+        .expect("a sequence kind");
+    let of_lists = Descr::set(&lists, Kind::Set).expect("a set kind");
+    let none = Descr::set(&Descr::nothing(), Kind::Set).expect("a set kind");
+
+    assert!(!of_lists.is_empty(), "the empty set is still a set");
+    assert_ne!(of_lists, none);
+    assert!(of_lists.admits(Value::sequence(NOTHING, Kind::Set)));
+    assert!(of_lists.admits(Value::sequence(A_LIST, Kind::Set)));
+}
+
+/// The element schema reaches the members whichever set kind holds them.
+#[test]
+fn either_set_kind_holds_the_elements_it_is_given() {
+    let frozen = Descr::set(&Descr::of_kind(Kind::Int), Kind::FrozenSet).expect("a set kind");
+    let mutable = Descr::set(&Descr::of_kind(Kind::Int), Kind::Set).expect("a set kind");
+    let none = Descr::set(&Descr::nothing(), Kind::Set).expect("a set kind");
+
+    for members in [&frozen, &mutable] {
+        let outer = Descr::set(members, Kind::Set).expect("a set kind");
+        assert!(
+            !outer.is_empty(),
+            "a set of sets holds more than the empty set"
+        );
+        assert_ne!(outer, none);
+    }
+}
+
+/// The two set kinds are separate components, so a set is never a frozenset.
+#[test]
+fn the_two_set_kinds_do_not_meet() {
+    let mutable = Descr::set(&Descr::of_kind(Kind::Int), Kind::Set).expect("a set kind");
+    let frozen = Descr::set(&Descr::of_kind(Kind::Int), Kind::FrozenSet).expect("a set kind");
+
+    assert!(
+        mutable
+            .intersect(&frozen)
+            .expect("two small powersets")
+            .is_empty()
+    );
+}
+
+/// A kind whose values are not sets refuses the constructor.
+#[test]
+fn a_kind_whose_values_are_not_sets_refuses() {
+    assert!(Descr::set(&Descr::nothing(), Kind::List).is_none());
+    assert!(Descr::set(&Descr::nothing(), Kind::Str).is_none());
+}
+
+/// The sets of `elements` that are outside the set of each of `minus`.
+fn escaping(elements: &Descr, minus: &[Descr]) -> Descr {
+    let set_of = |members: &Descr| Descr::set(members, Kind::Set).expect("a set kind");
+    minus.iter().fold(set_of(elements), |line, excluded| {
+        line.intersect(&set_of(excluded).complement())
+            .expect("a small difference")
+    })
+}
+
+/// The union of a list of descriptors.
+fn either(members: &[Descr]) -> Descr {
+    members
+        .iter()
+        .try_fold(Descr::nothing(), |all, member| all.union(member))
+        .expect("a small union")
+}
+
+/// A set escaping two others, one member each, is not read inhabited where
+/// the two members are one number in two kinds: `{1, True}` is `{1}`.
+#[test]
+fn two_members_python_equates_do_not_make_a_set() {
+    let (one, yes, one_float) = (Descr::integer(1), Descr::boolean(true), Descr::float(1.0));
+    for (a, b) in [(&one, &yes), (&one, &one_float), (&yes, &one_float)] {
+        let line = escaping(&either(&[a.clone(), b.clone()]), &[a.clone(), b.clone()]);
+        assert_ne!(line.emptiness(), Verdict::Inhabited, "{a:?} and {b:?}");
+    }
+    // Three subtractions, each escaped only by the one number the others are.
+    let all = [one, yes, one_float];
+    assert_ne!(
+        escaping(&either(&all), &all).emptiness(),
+        Verdict::Inhabited
+    );
+}
+
+/// And where nothing equates the members, the set is there: one member each
+/// of two kinds, of one kind, or of two number kinds with room to choose. An
+/// escape holding one number in two kinds is a choice between the two rather
+/// than a collision, since the set takes one of them: `{1, 2}` escapes both
+/// `{2}` and `{1, True}`.
+#[test]
+fn members_nothing_equates_make_a_set() {
+    let int = Descr::of_kind(Kind::Int);
+    let float = Descr::of_kind(Kind::Float);
+    let words = Descr::of_kind(Kind::Str);
+    let flags = Descr::of_kind(Kind::Bool);
+    let none = Descr::of_kind(Kind::NoneType);
+    let (one, two, yes) = (Descr::integer(1), Descr::integer(2), Descr::boolean(true));
+    for parts in [
+        vec![int.clone(), words.clone()],
+        vec![one.clone(), two.clone()],
+        vec![int.clone(), float],
+        vec![flags, words.clone()],
+        vec![none, int.clone()],
+        vec![two.clone(), yes.clone()],
+        vec![two, either(&[one, yes])],
+        vec![int, words, Descr::of_kind(Kind::Bytes)],
+    ] {
+        let line = escaping(&either(&parts), &parts);
+        assert_eq!(line.emptiness(), Verdict::Inhabited, "{parts:?}");
+    }
+}
+
+/// The numbers a set line's law draws from: three kinds, and the values
+/// Python's `==` joins across them.
+const NUMBERS: [(Kind, f64); 6] = [
+    (Kind::Bool, 0.0),
+    (Kind::Bool, 1.0),
+    (Kind::Int, 1.0),
+    (Kind::Int, 2.0),
+    (Kind::Float, 1.0),
+    (Kind::Float, 2.5),
+];
+
+/// The descriptor holding the numbers a mask picks out of [`NUMBERS`].
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the numbers are small and integral where an integer is built"
+)]
+fn numbers(mask: u8) -> Descr {
+    let picked: Vec<Descr> = NUMBERS
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| mask & (1 << index) != 0)
+        .map(|(_, &(kind, number))| match kind {
+            Kind::Bool => Descr::boolean(number > 0.5),
+            Kind::Int => Descr::integer(number as i64),
+            _ => Descr::float(number),
+        })
+        .collect();
+    either(&picked)
+}
+
+/// Whether some Python set of members of `elements` is outside the set of
+/// each of `minus`: members pairwise unequal under `==`, which equates the
+/// numbers of [`NUMBERS`] by value whatever their kind.
+fn python_escapes(elements: u8, minus: &[u8]) -> bool {
+    (0..=u8::MAX)
+        .filter(|chosen| chosen & !elements == 0)
+        .any(|chosen| {
+            let members: Vec<usize> = (0..NUMBERS.len())
+                .filter(|i| chosen & (1 << i) != 0)
+                .collect();
+            let apart = members.iter().all(|&a| {
+                members
+                    .iter()
+                    .all(|&b| a == b || NUMBERS[a].1.total_cmp(&NUMBERS[b].1).is_ne())
+            });
+            apart && minus.iter().all(|excluded| chosen & !excluded != 0)
+        })
+}
+
+/// Whether two escapes hold one number in two kinds between them.
+fn one_number_in_two_kinds(escapes: &[u8]) -> bool {
+    let kinds_of = |mask: u8| (0..NUMBERS.len()).filter(move |i| mask & (1 << i) != 0);
+    escapes.iter().enumerate().any(|(i, &mine)| {
+        escapes.iter().skip(i + 1).any(|&theirs| {
+            kinds_of(mine).any(|a| {
+                kinds_of(theirs).any(|b| {
+                    NUMBERS[a].0 != NUMBERS[b].0 && NUMBERS[a].1.total_cmp(&NUMBERS[b].1).is_eq()
+                })
+            })
+        })
+    })
+}
+
+proptest! {
+    // A bounded shrink, as every law here has. Not armed with the allowance:
+    // it asserts that its operations succeed, and its descriptors are a
+    // handful of numbers.
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    // THEORY: property-testing, a-set-is-a-powerset
+    /// A set line's verdict is a claim about Python's sets, whose members are
+    /// unequal under `==`: an inhabited line holds one, an empty line none. And
+    /// where no two escapes hold one number in two kinds, a line holding one is
+    /// read inhabited -- the refutations a set relation stands on.
+    #[test]
+    fn a_set_line_is_read_as_python_holds_its_members(
+        elements in 0u8..64,
+        minus in prop::collection::vec(0u8..64, 2..=3),
+    ) {
+        let excluded: Vec<Descr> = minus.iter().map(|&mask| numbers(mask)).collect();
+        let verdict = escaping(&numbers(elements), &excluded).emptiness();
+        let holds = python_escapes(elements, &minus);
+        match verdict {
+            Verdict::Inhabited => prop_assert!(holds, "inhabited holds a set"),
+            Verdict::Empty => prop_assert!(!holds, "empty holds none"),
+            Verdict::Unknown => {}
+        }
+        let escapes: Vec<u8> = minus.iter().map(|&mask| elements & !mask).collect();
+        if holds && !one_number_in_two_kinds(&escapes) {
+            prop_assert_eq!(verdict, Verdict::Inhabited, "nothing equates the members");
+        }
+    }
+}
+
+/// The third answer, and where it comes from.
+///
+/// Two classes a value must both be an instance of, neither deriving from
+/// the other and neither laid out apart, are satisfied only by a class
+/// deriving from both. Whether one exists is not something a snapshot of the
+/// order can say, so the verdict says so rather than guessing.
+#[test]
+fn two_unrelated_classes_meet_in_an_unknown() {
+    let met = Descr::instance_of(ANIMAL.clone())
+        .intersect(&Descr::instance_of(UNRELATED.clone()))
+        .expect("two small atoms");
+
+    assert_eq!(met.emptiness(), Verdict::Unknown);
+    assert!(!met.is_empty(), "unknown is not a proof of emptiness");
+}
+
+/// The other two answers are proofs, and a proof beats the open world.
+#[test]
+fn deriving_and_layout_are_proofs_either_way() {
+    let dogs = Descr::instance_of(DOG.clone());
+
+    // Laid out apart: proved empty, whatever classes exist.
+    assert_eq!(
+        dogs.intersect(&Descr::instance_of(MINERAL.clone()))
+            .expect("two small atoms")
+            .emptiness(),
+        Verdict::Empty
+    );
+    // Deriving: proved inhabited, because the class itself is a witness.
+    assert_eq!(
+        dogs.intersect(&Descr::instance_of(ANIMAL.clone()))
+            .expect("two small atoms")
+            .emptiness(),
+        Verdict::Inhabited
+    );
+}
+
+/// An unknown in one kind does not decide the descriptor: a component proved
+/// inhabited settles the union whatever the others cannot say.
+#[test]
+fn a_proof_in_one_kind_outranks_an_unknown_in_another() {
+    let unknown = Descr::instance_of(ANIMAL.clone())
+        .intersect(&Descr::instance_of(UNRELATED.clone()))
+        .expect("two small atoms");
+    assert_eq!(unknown.emptiness(), Verdict::Unknown);
+
+    let joined = unknown
+        .union(&Descr::of_kind(Kind::Int))
+        .expect("a small union");
+    assert_eq!(joined.emptiness(), Verdict::Inhabited);
+}
+
+/// A class is a set, and so is its complement -- which is what the tree
+/// could not say about an instance schema.
+#[test]
+fn a_class_and_its_complement_are_both_descriptors() {
+    let dogs = Descr::instance_of(DOG.clone());
+    let animals = Descr::instance_of(ANIMAL.clone());
+
+    assert!(dogs.admits(Value::instance(&DOG, &[])));
+    assert!(!dogs.admits(Value::instance(&ANIMAL, &[])));
+    assert!(!dogs.admits(Value::other()), "no class is not this class");
+
+    // A dog is an animal, so meeting the two changes nothing and meeting the
+    // complement leaves nothing.
+    assert!(
+        dogs.intersect(&animals)
+            .expect("two small atoms")
+            .admits(Value::instance(&DOG, &[]))
+    );
+    assert!(
+        dogs.intersect(&animals.complement())
+            .expect("two small atoms")
+            .is_empty()
+    );
+}
+
+/// The world stays open: excluding a class nothing derives from leaves the
+/// set inhabited, because the class list is never complete.
+#[test]
+fn excluding_an_unrelated_class_decides_nothing() {
+    let animals = Descr::instance_of(ANIMAL.clone());
+    let not_mineral = Descr::instance_of(MINERAL.clone()).complement();
+
+    let met = animals.intersect(&not_mineral).expect("two small atoms");
+    assert!(!met.is_empty());
+    assert!(met.admits(Value::instance(&ANIMAL, &[])));
+}
+
+/// A class and an attribute constrain one value, which is why they share an
+/// atom rather than sitting in two slots a complement would have to split.
+#[test]
+fn a_class_meets_a_builtin_kind() {
+    let dog = Descr::instance_of(OPEN_DOG.clone());
+    let ints = Descr::of_kind(Kind::Int);
+    let dog_int = Value::integer(1).of_class(&OPEN_DOG, &[]);
+
+    // A class constrains a value within its kind, so the two meet in the
+    // values that are both -- which is a set the kindless slot could not
+    // name, and which every question about a dataclass deriving from `int`
+    // is asked of.
+    let both = dog.intersect(&ints).expect("an int that is a Dog");
+    assert!(both.admits(dog_int));
+
+    // And whether that set holds a value is not something this can say. The
+    // class lays down no layout, so an integer that is one of it needs a class
+    // deriving from both -- the open world the atom rule already declines two
+    // unrelated classes for. Membership is a different question and keeps its
+    // answer: handed a value that is both, the set admits it.
+    assert_eq!(both.emptiness(), Verdict::Unknown);
+
+    // A class that *does* lay down the kind's layout is the case the reading
+    // is not conservative about: every instance of it is a string, so the
+    // meet with `str` holds whatever the class holds.
+    let substr = Descr::instance_of(SUBSTR.clone())
+        .intersect(&Descr::of_kind(Kind::Str))
+        .expect("a string that is a SubStr");
+    assert_eq!(substr.emptiness(), Verdict::Inhabited);
+
+    // And it is *both*, not either: an integer nobody gave a class to is
+    // outside it, and so is an instance of the class of no listed kind.
+    assert!(!both.admits(Value::integer(1)));
+    assert!(!both.admits(Value::instance(&OPEN_DOG, &[])));
+
+    // Each half on its own still admits what it always did.
+    assert!(dog.admits(dog_int) && dog.admits(Value::instance(&OPEN_DOG, &[])));
+    assert!(ints.admits(dog_int) && ints.admits(Value::integer(1)));
+
+    // The order the classes stand in is read through the kind, not around
+    // it: the subclass is its base whatever kind the value also has.
+    let animal_int = Descr::instance_of(OPEN.clone())
+        .intersect(&ints)
+        .expect("an int that is an Open");
+    assert!(animal_int.admits(dog_int));
+    assert!(!animal_int.admits(Value::integer(1).of_class(&MINERAL, &[])));
+}
+
+/// A class that confines its instances to a kind stands on that kind's line
+/// alone; one that confines none stands on every line.
+///
+/// `Class::of_kind` is the only thing that separates the two, and the pair
+/// below is what it buys: `MyStr <= str` is decided here, and it is decided
+/// because the class said which kind its instances have. Without that the
+/// class would keep the open world's answer -- a subclass may lay down any
+/// layout, so it might be an integer -- and no meet with a kind would ever be
+/// a proof.
+#[test]
+fn a_class_confined_to_a_kind_is_on_that_kind_alone() {
+    let words = Descr::instance_of(SUBSTR.clone());
+    let ints = Descr::of_kind(Kind::Int);
+
+    // A value of the class that is a string is one of its instances.
+    assert!(words.admits(Value::word(b"x", Kind::Str).of_class(&SUBSTR, &[])));
+    // The same class carried by a value of another kind is not, because the
+    // class named the kind its instances have.
+    assert!(!words.admits(Value::integer(1).of_class(&SUBSTR, &[])));
+
+    // So the meet with another kind is *proved* empty rather than left open.
+    assert_eq!(
+        words.intersect(&ints).expect("two small atoms").emptiness(),
+        Verdict::Empty
+    );
+    // And the class that confines nothing keeps the open world's answer, which
+    // is the contrast the confinement is for.
+    assert!(
+        !Descr::instance_of(OPEN.clone())
+            .intersect(&ints)
+            .expect("two small atoms")
+            .is_empty(),
+        "a plain class may yet be laid out as an int"
+    );
+}
+
+/// A class laying down a layout that is no builtin's confines its instances
+/// to the kindless slot: no subclass of it can take on a builtin's layout, so
+/// the meet with any listed kind is proved empty, as it is for a class laid
+/// out apart.
+#[test]
+fn a_class_laying_down_its_own_layout_is_off_every_kind() {
+    let animals = Descr::instance_of(ANIMAL.clone());
+    assert!(animals.admits(Value::instance(&ANIMAL, &[])));
+    assert!(animals.admits(Value::instance(&DOG, &[])));
+    assert!(!animals.admits(Value::integer(1).of_class(&ANIMAL, &[])));
+    for kind in Kind::ALL {
+        assert_eq!(
+            animals
+                .intersect(&Descr::of_kind(kind))
+                .expect("two small atoms")
+                .emptiness(),
+            Verdict::Empty,
+            "no {kind:?} is an Animal"
+        );
+    }
+    // The plain class beside it keeps the open world's answer on every kind.
+    assert_eq!(
+        Descr::instance_of(UNRELATED.clone())
+            .intersect(&Descr::of_kind(Kind::Int))
+            .expect("two small atoms")
+            .emptiness(),
+        Verdict::Unknown
+    );
+}
+
+/// An attribute constrains a value of a listed kind, for the same reason a
+/// class does: it is a narrowing *within* the kind.
+#[test]
+fn an_attribute_meets_a_builtin_kind() {
+    let carrying = Descr::attribute("a", &Descr::of_kind(Kind::Int), false);
+    let ints = Descr::of_kind(Kind::Int);
+    let both = ints.intersect(&carrying).expect("an int carrying `a`");
+    assert!(both.admits(Value::integer(1).of_class(&DOG, CARRYING_A)));
+    assert!(!both.admits(Value::integer(1)));
+    // The complement is taken inside the kind too: an integer carrying no
+    // `a` is outside the meet and inside its complement.
+    assert!(both.complement().admits(Value::integer(1)));
+}
+
+#[test]
+fn a_class_meets_an_attribute_in_one_object() {
+    const NAMED: &[(&str, Value)] = &[("x", Value::integer(0))];
+
+    let met = Descr::instance_of(DOG.clone())
+        .intersect(&Descr::attribute("x", &Descr::of_kind(Kind::Int), false))
+        .expect("two small atoms");
+
+    assert!(met.admits(Value::instance(&DOG, NAMED)));
+    assert!(!met.admits(Value::instance(&DOG, &[])));
+    assert!(
+        !met.admits(Value::object(NAMED)),
+        "the class is required too"
+    );
+}
+
+/// The carrier-free record: a set of values fixed by the attributes alone,
+/// with no class in it.
+///
+/// A dataclass `D(x: int)` is the meet of a class and this record -- which is
+/// what the IR spells, `Instance(D) ∧ AttrRecord` -- and the record on
+/// its own is the half that makes the complement representable, because the
+/// complement of an attribute constraint is another one.
+#[test]
+fn an_attribute_record_is_a_set_without_a_class_in_it() {
+    const HAS_INT: &[(&str, Value)] = &[("x", Value::integer(1))];
+    const HAS_WORD: &[(&str, Value)] = &[("x", Value::word(b"a", Kind::Str))];
+    const HAS_NEITHER: &[(&str, Value)] = &[("y", Value::integer(1))];
+
+    let with_int = Descr::attribute("x", &Descr::of_kind(Kind::Int), false);
+
+    assert!(!with_int.is_empty());
+    assert!(with_int.admits(Value::object(HAS_INT)));
+    assert!(!with_int.admits(Value::object(HAS_WORD)));
+    assert!(!with_int.admits(Value::object(HAS_NEITHER)));
+
+    // The complement is a set of the same kind rather than an absence of
+    // one, which is what the tree could not represent.
+    let without_int = with_int.complement();
+    assert!(without_int.admits(Value::object(HAS_WORD)));
+    assert!(without_int.admits(Value::object(HAS_NEITHER)));
+    assert!(!without_int.admits(Value::object(HAS_INT)));
+}
+
+/// The record is **open**: it constrains what it names and nothing else.
+///
+/// The only sound reading for a Python object, which may carry attributes no
+/// schema mentions -- and the reason a complement stays finite, since an
+/// attribute nobody named cannot make an object fail.
+#[test]
+fn a_record_constrains_the_attributes_it_names_and_no_others() {
+    const NAMED: &[(&str, Value)] = &[("x", Value::integer(1))];
+    const AND_MORE: &[(&str, Value)] = &[("x", Value::integer(1)), ("z", Value::integer(9))];
+
+    let with_int = Descr::attribute("x", &Descr::of_kind(Kind::Int), false);
+
+    assert!(with_int.admits(Value::object(NAMED)));
+    assert!(with_int.admits(Value::object(AND_MORE)));
+}
+
+/// Meeting two records over different attributes is the object carrying
+/// both, which is [Cas23, (12)] pointwise.
+#[test]
+fn two_attributes_meet_rather_than_conflict() {
+    const BOTH: &[(&str, Value)] = &[("x", Value::integer(1)), ("y", Value::integer(0))];
+    const ONE: &[(&str, Value)] = &[("x", Value::integer(1))];
+
+    let met = Descr::attribute("x", &Descr::of_kind(Kind::Int), false)
+        .intersect(&Descr::attribute("y", &Descr::of_kind(Kind::Int), false))
+        .expect("two small records");
+
+    assert!(!met.is_empty());
+    assert!(met.admits(Value::object(BOTH)));
+    assert!(!met.admits(Value::object(ONE)));
+}
+
+/// An attribute required to hold nothing admits no object at all, which is
+/// emptiness (11); an optional one still admits the object without it.
+#[test]
+fn a_required_attribute_of_no_values_is_empty_and_an_optional_one_is_not() {
+    const NOTHING: &[(&str, Value)] = &[];
+
+    let required = Descr::attribute("x", &Descr::nothing(), false);
+    let optional = Descr::attribute("x", &Descr::nothing(), true);
+
+    assert!(required.is_empty());
+    assert!(!optional.is_empty());
+    assert!(optional.admits(Value::object(NOTHING)));
+    assert_eq!(optional, Descr::without_attribute("x"));
+}
+
+/// An object is of no listed kind, so a record never admits one that is.
+#[test]
+fn a_record_admits_no_value_of_a_listed_kind() {
+    let with_int = Descr::attribute("x", &Descr::of_kind(Kind::Int), false);
+
+    assert!(!with_int.admits(Value::integer(1)));
+    assert!(!with_int.admits(Value::sequence(&[], Kind::List)));
+}
+
+/// A loop guarded by every value *is* the set of every sequence, and has to
+/// be the same descriptor.
+///
+/// Two spellings of one table, and the reason the row carries an else edge
+/// rather than a guard for the rest: a guard that leaves nothing leaves the
+/// else edge dead, and a dead else edge is not written down. Without that,
+/// two equal languages compare unequal and the lattice laws fail on a
+/// difference that is not one.
+#[test]
+fn a_loop_on_every_value_is_the_set_of_every_sequence() {
+    let anything = Descr::anything();
+    for kind in [Kind::List, Kind::Tuple] {
+        let looped = Descr::sequence(&[], Some(&anything), kind).expect("a sequence kind");
+        assert_eq!(looped, Descr::of_kind(kind), "{kind:?}");
+    }
+}
+
+/// One integer, as the elements of a sequence or the members of a set.
+const ONE_INT: &[Value] = &[Value::integer(1)];
+
+/// One value of each kind whose values the components tell apart, for the
+/// universe to put a class and an attribute beside.
+const KINDED: [Value; 6] = [
+    Value::boolean(true),
+    Value::integer(1),
+    Value::float(1.0),
+    Value::word(b"a", Kind::Str),
+    Value::sequence(ONE_INT, Kind::List),
+    Value::sequence(ONE_INT, Kind::Set),
+];
+
+/// One attribute, for a value that carries one beside its kind.
+const CARRYING_A: &[(&str, Value)] = &[("a", Value::integer(1))];
+
+/// Dicts the laws are asked about, as their entries.
+const DICTS: [&[(Value, Value)]; 8] = [
+    &[],
+    &[(Value::word(b"a", Kind::Str), Value::integer(1))],
+    &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str))],
+    &[(Value::word(b"b", Kind::Str), Value::integer(1))],
+    &[
+        (Value::word(b"a", Kind::Str), Value::integer(1)),
+        (Value::word(b"b", Kind::Str), Value::integer(1)),
+    ],
+    &[(Value::integer(1), Value::integer(1))],
+    &[(Value::integer(1), Value::word(b"x", Kind::Str))],
+    // A key of no listed kind: an object whose class defines `__hash__`. It
+    // is the part of the key partition that has no kind, and a default that
+    // did not cover it would leave the dict governed by nothing.
+    &[(Value::other(), Value::integer(1))],
+];
+
+/// The element sequences the universe is built from.
+const SEQUENCES: [&[Value]; 6] = [
+    &[],
+    &[Value::integer(0)],
+    &[Value::integer(1)],
+    &[Value::word(b"a", Kind::Str)],
+    &[Value::integer(0), Value::integer(1)],
+    &[Value::integer(0), Value::integer(0), Value::integer(0)],
+];
+
+/// Whether two descriptors agree about every value in the universe.
+///
+/// The direction enumeration can support. Equality is stronger: two regular
+/// languages agree exactly when they agree on every word shorter than the
+/// product of their state counts, which no universe can list -- so the full
+/// canonicity claim is held in each component's own module, where the word
+/// component checks it against the emptiness decision instead.
+fn agree_on_values(a: &Descr, b: &Descr) -> bool {
+    universe().into_iter().all(|v| a.admits(v) == b.admits(v))
+}
+
+/// The descriptors' operations, as the shared laws ask them, compared by
+/// equality: one component per kind, each canonical for its representation,
+/// so equality is equality of the sets and a law is checked at full strength
+/// rather than over whatever values a universe can list.
+const DESCRIPTORS: Algebra<Descr> = Algebra {
+    join: Descr::union,
+    meet: Descr::intersect,
+    complement: Descr::complement,
+    same: |a, b| a == b,
+    holds_nothing: Descr::is_empty,
+    holds_everything: |a| *a == Descr::anything(),
+};
+
+/// The same operations compared against the values, for the descriptors that
+/// hold a component whose union of lines is not canonical.
+const BY_VALUES: Algebra<Descr> = Algebra {
+    same: agree_on_values,
+    holds_everything: |a| agree_on_values(a, &Descr::anything()),
+    ..DESCRIPTORS
+};
+
+/// The word descriptors the generator draws from, built once.
+///
+/// A pattern's automaton is determinized and minimized, which is far more
+/// work than drawing a number: built per draw it dominates the suite, and
+/// proptest's shrinking -- thousands of draws over one failure -- turns a
+/// caught mutation into a run that does not finish.
+static WORD_SETS: LazyLock<Vec<Descr>> = LazyLock::new(|| {
+    ["a", "b", "ab?", "[ab]+"]
+        .iter()
+        .filter_map(|pattern| Descr::pattern(pattern, Kind::Str))
+        .collect()
+});
+
+/// Descriptors whose every component compares as a set.
+///
+/// No sequence, set or object: those three are held as a union or as a
+/// table a guard's own bound can leave coarse, so two of them can admit the
+/// same values and compare unequal. Keeping them out is what lets the laws
+/// below be checked *by equality*, which is stronger than any universe can
+/// be -- two regular languages agree exactly when they agree on every word
+/// shorter than the product of their state counts, and no list of values
+/// says that. [`descr_with_sets`] puts them back and checks the same laws
+/// against the values.
+///
+/// The integer sets stay: their spelling is not canonical, but their equality
+/// lifts to the period a pair shares and so answers for the integers, which is
+/// what a law checked by equality asks of a component.
+fn descr() -> impl Strategy<Value = Descr> {
+    let leaf = prop_oneof![
+        Just(Descr::nothing()),
+        Just(Descr::anything()),
+        (0..Kind::ALL.len())
+            .prop_map(|i| Descr::of_kind(Kind::ALL.get(i).copied().unwrap_or(Kind::Int))),
+        proptest::bool::ANY.prop_map(Descr::boolean),
+        (-9i64..=9).prop_map(Descr::integer),
+        (1i64..=5).prop_map(|step| Descr::multiple_of(step).expect("a small step")),
+        prop_oneof![Just(-1.0f64), Just(0.0), Just(1.0), Just(f64::NAN)].prop_map(Descr::float),
+        (0..WORD_SETS.len())
+            .prop_map(|i| { WORD_SETS.get(i).cloned().unwrap_or_else(Descr::nothing) }),
+    ];
+    leaf.prop_recursive(3, 16, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone())
+                .prop_map(|(a, b)| a.union(&b).unwrap_or_else(Descr::anything)),
+            (inner.clone(), inner.clone())
+                .prop_map(|(a, b)| a.intersect(&b).unwrap_or_else(Descr::nothing)),
+            inner.prop_map(|a| a.complement()),
+        ]
+    })
+}
+
+/// The same descriptors, plus the sequences, sets, maps and objects the four
+/// non-canonical components hold.
+///
+/// A second generator rather than a branch of the first, because those three
+/// components are the ones that are **not canonical**: a union of powerset lines
+/// can hold the same sets two ways. Every law below is therefore checked
+/// against the values rather than by equality of the forms, which would fail
+/// on a difference that is not a difference. The generator above stays free
+/// of sets so the laws that *can* be checked at full strength still are.
+fn descr_with_sets() -> impl Strategy<Value = Descr> {
+    let leaf = prop_oneof![
+        4 => descr(),
+        2 => (descr(), prop_oneof![Just(Kind::Set), Just(Kind::FrozenSet)])
+            .prop_map(|(elements, kind)| {
+                Descr::set(&elements, kind).unwrap_or_else(Descr::nothing)
+            }),
+        2 => (
+            proptest::collection::vec(descr(), 0..=2),
+            proptest::option::of(descr()),
+            prop_oneof![Just(Kind::List), Just(Kind::Tuple)],
+        )
+            .prop_map(|(prefix, tail, kind)| {
+                Descr::sequence(&prefix, tail.as_ref(), kind).unwrap_or_else(Descr::nothing)
+            }),
+        2 => (
+            prop_oneof![Just("x"), Just("y")],
+            descr(),
+            proptest::bool::ANY,
+        )
+            .prop_map(|(label, ty, optional)| Descr::attribute(label, &ty, optional)),
+        1 => prop_oneof![Just("x"), Just("y")].prop_map(Descr::without_attribute),
+        2 => (
+            prop_oneof![Just("a"), Just("b")],
+            descr(),
+            proptest::bool::ANY,
+        )
+            .prop_map(|(label, ty, optional)| Descr::label(Label::str(label), &ty, optional)),
+        2 => (
+            prop_oneof![Just(Kind::Str), Just(Kind::Int)],
+            descr(),
+        )
+            .prop_map(|(kind, ty)| Descr::mapping(kind, &ty)),
+        1 => prop_oneof![Just(Kind::Str), Just(Kind::Int)]
+            .prop_map(|kind| Descr::keys_among(&[Some(kind)])),
+        // A record: named keys, and a *closed* rest. The shape the two above
+        // cannot reach between them -- a label leaves every other key free
+        // and `keys_among` names no key -- and the one whose complement is
+        // hardest, because closing is what puts a negative constraint on
+        // every part at once. A record complemented twice can come back
+        // forbidding the key it is about, and only a leaf like this one draws
+        // it.
+        3 => (
+            proptest::collection::vec(
+                (prop_oneof![Just("a"), Just("b")], descr(), proptest::bool::ANY),
+                0..=2,
+            ),
+            proptest::option::of((prop_oneof![Just(Kind::Str), Just(Kind::Int)], descr())),
+        )
+            .prop_map(|(labels, opened)| {
+                Descr::keyed_map(
+                    labels
+                        .into_iter()
+                        .map(|(name, ty, optional)| (Label::str(name), ty, optional)),
+                    opened.map(|(kind, ty)| (Some(kind), ty)),
+                )
+                .unwrap_or_else(Descr::nothing)
+            }),
+        1 => prop_oneof![
+            Just(ANIMAL.clone()),
+            Just(DOG.clone()),
+            Just(MINERAL.clone()),
+        ]
+        .prop_map(Descr::instance_of),
+    ];
+    leaf.prop_recursive(2, 8, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone())
+                .prop_map(|(a, b)| a.union(&b).unwrap_or_else(Descr::anything)),
+            (inner.clone(), inner.clone())
+                .prop_map(|(a, b)| a.intersect(&b).unwrap_or_else(Descr::nothing)),
+            inner.prop_map(|a| a.complement()),
+        ]
+    })
+}
+
+proptest! {
+    // A quarter of the default, and a bounded shrink, because a word or
+    // sequence component's operations are automaton products. The fraction is
+    // what keeps a pass cheap -- at the library's default this suite would
+    // spend most of the run's time -- and it is a *fraction* so a deeper run
+    // reaches here too: a count fixed at sixty-four is the same sixty-four
+    // under `PROPTEST_CASES`, which is a suite the deep lane cannot deepen.
+    // The shrink bound is what keeps a *failure* cheap, and it is the one that
+    // matters to the mutation sweep -- a broken invariant makes every draw
+    // larger, so shrinking one counterexample takes longer than the sweep
+    // waits, and a caught mutation reads as a run that hangs.
+    #![proptest_config(ProptestConfig {
+        cases: ProptestConfig::default().cases / 4,
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    // THEORY: kinds-decompose-emptiness
+    /// Each kind is an independent question, over drawn descriptors.
+    ///
+    /// A descriptor cut to one kind meets nothing of another kind, whatever
+    /// the two carry: positives of mixed kind are empty outright. And a
+    /// negative of another kind is dropped: meeting the cut with the
+    /// complement of the other gives the cut back, by equality of the forms.
+    #[test]
+    fn a_kind_is_an_independent_question(
+        a in descr(),
+        b in descr(),
+        i in 0..Kind::ALL.len(),
+        j in 0..Kind::ALL.len(),
+    ) {
+        prop_assume!(i != j);
+        let kind_a = Kind::ALL.get(i).copied().unwrap_or(Kind::Int);
+        let kind_b = Kind::ALL.get(j).copied().unwrap_or(Kind::Str);
+        let (Some(x), Some(y)) = (
+            a.intersect(&Descr::of_kind(kind_a)),
+            b.intersect(&Descr::of_kind(kind_b)),
+        ) else {
+            return Ok(());
+        };
+        prop_assert!(x.intersect(&y).is_some_and(|met| met.is_empty()));
+        prop_assert_eq!(x.intersect(&y.complement()), Some(x.clone()));
+    }
+
+    // THEORY: the-descriptor
+    /// The Boolean algebra, checked by equality of the canonical forms.
+    ///
+    /// One component per kind, each canonical for its representation, so
+    /// equality is equality of the sets and a law is checked at full
+    /// strength rather than over whatever values a universe can list.
+    #[test]
+    fn the_lattice_laws_hold_of_the_descriptors(a in descr(), b in descr(), c in descr()) {
+        DESCRIPTORS.lattice_laws(&a, &b, &c)?;
+        // A canonical form refuses alike whichever side comes first, which
+        // the shared laws leave to the representations that are canonical.
+        prop_assert_eq!(a.union(&b).is_some(), b.union(&a).is_some());
+        prop_assert_eq!(a.intersect(&b).is_some(), b.intersect(&a).is_some());
+    }
+
+    // THEORY: the-descriptor
+    /// The complement laws, and the two the structural procedure declines.
+    #[test]
+    fn the_complement_laws_hold_of_the_descriptors(a in descr(), b in descr()) {
+        DESCRIPTORS.complement_laws(&a, &b)?;
+        // And a descriptor met or joined with its own complement builds.
+        prop_assert!(a.intersect(&a.complement()).is_some());
+        prop_assert!(a.union(&a.complement()).is_some());
+    }
+
+    /// Two equal descriptors agree about every value.
+    #[test]
+    fn equal_descriptors_agree_about_every_value(a in descr(), b in descr()) {
+        if a == b {
+            prop_assert!(agree_on_values(&a, &b));
+        }
+    }
+
+    // THEORY: the-descriptor
+    /// An empty descriptor admits no value, and one that admits a value of
+    /// the universe is not empty.
+    #[test]
+    fn emptiness_agrees_with_the_values(a in descr()) {
+        if a.is_empty() {
+            prop_assert!(universe().into_iter().all(|v| !a.admits(v)));
+        } else if universe().into_iter().any(|v| a.admits(v)) {
+            prop_assert!(!a.is_empty());
+        }
+    }
+
+    /// A complement saturates the kinds it does not mention.
+    #[test]
+    fn a_complement_holds_every_value_the_set_does_not(a in descr()) {
+        for value in universe() {
+            prop_assert_eq!(a.admits(value), !a.complement().admits(value));
+        }
+    }
+}
+
+// THEORY: kinds-decompose-emptiness
+/// The kind list is the partition, so it must hold every kind exactly once.
+///
+/// A `match` over `Kind` is exhaustive and this array is not, so the list is
+/// counted against the variants rather than trusted: a kind added without a
+/// component here would be a kind the descriptor silently cannot represent.
+#[test]
+fn every_kind_has_exactly_one_component() {
+    let mut seen = Kind::ALL.to_vec();
+    seen.sort_by_key(|kind| format!("{kind:?}"));
+    seen.dedup();
+    assert_eq!(seen.len(), Kind::ALL.len(), "a kind is listed twice");
+
+    // Exhaustive by construction: the match forces a new variant to be
+    // added here, and the count then forces it into the list.
+    let counted = Kind::ALL
+        .iter()
+        .filter(|kind| {
+            matches!(
+                kind,
+                Kind::NoneType
+                    | Kind::Bool
+                    | Kind::Int
+                    | Kind::Float
+                    | Kind::Str
+                    | Kind::Bytes
+                    | Kind::List
+                    | Kind::Tuple
+                    | Kind::Set
+                    | Kind::FrozenSet
+                    | Kind::Dict
+            )
+        })
+        .count();
+    assert_eq!(counted, Kind::ALL.len());
+}
+
+/// `bool` is its two values, which is what makes the union of the two
+/// singletons the whole kind rather than a shape a rule must recognize.
+#[test]
+fn the_two_booleans_are_the_bool_kind() {
+    let both = Descr::boolean(true).union(&Descr::boolean(false));
+    assert_eq!(both, Some(Descr::of_kind(Kind::Bool)));
+    assert!(Descr::boolean(true).admits(Value::boolean(true)));
+    assert!(!Descr::boolean(true).admits(Value::boolean(false)));
+    // And the complement of one singleton, inside the kind, is the other.
+    let not_true = Descr::boolean(true).complement();
+    assert!(not_true.admits(Value::boolean(false)));
+    assert!(!not_true.admits(Value::boolean(true)));
+    // ... while still holding every value of every other kind.
+    assert!(not_true.admits(Value::integer(0)));
+    assert!(not_true.admits(Value::word(b"a", Kind::Str)));
+    assert!(not_true.admits(Value::other()));
+}
+
+/// A coarse component combines as the boolean it is.
+///
+/// Read here rather than through a descriptor, because a descriptor cannot
+/// reach the interesting pair: a line whose structure is proved empty is
+/// dropped, so a `Coarse(false)` never meets a `Coarse(true)` in a union. The
+/// arm is still what a union and a meet of two kinds mean, and this is where
+/// it says so.
+#[test]
+fn a_coarse_component_combines_as_a_boolean() {
+    let yes = Component::Coarse(true);
+    let no = Component::Coarse(false);
+    assert_eq!(yes.combine(&no, Op::Union), Some(Component::Coarse(true)));
+    assert_eq!(no.combine(&yes, Op::Union), Some(Component::Coarse(true)));
+    assert_eq!(
+        yes.combine(&no, Op::Intersect),
+        Some(Component::Coarse(false))
+    );
+    assert_eq!(
+        yes.combine(&yes, Op::Intersect),
+        Some(Component::Coarse(true))
+    );
+}
+
+/// Two maps that disagree about a key, decided.
+///
+/// `{"a": int}` and `dict[str, str]` share no dict, because the key `a` must
+/// map into both and nothing does. A coarse component -- every dict or none --
+/// could not tell one map from another at all, and the two would meet in "some
+/// dict".
+#[test]
+fn two_maps_that_disagree_about_a_key_share_no_dict() {
+    const A_STR: &[(Value, Value)] =
+        &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str))];
+    let ints = Descr::of_kind(Kind::Int);
+    let strs = Descr::of_kind(Kind::Str);
+    let a_is_int = Descr::label(Label::str("a"), &ints, false);
+    let strs_to_strs = Descr::mapping(Kind::Str, &strs);
+    let met = a_is_int
+        .intersect(&strs_to_strs)
+        .expect("the two maps meet");
+    assert!(met.is_empty());
+
+    // And two that agree do share one, so the emptiness above is the types
+    // disagreeing rather than the meet collapsing.
+    let a_is_str = Descr::label(Label::str("a"), &strs, false);
+    let agreeing = a_is_str
+        .intersect(&strs_to_strs)
+        .expect("the two maps meet");
+    assert!(!agreeing.is_empty());
+    assert!(agreeing.admits(Value::dict(A_STR)));
+}
+
+/// A label's type distributes over the union: a map whose `a` is an `int` or
+/// a `str` is one of the two maps that say which.
+///
+/// So `{"a": int|str} ≤ {"a": int} ∨ {"a": str}` holds, because the atom is a
+/// *function* on the labels -- the union splits at the one label rather than
+/// having to be searched for.
+#[test]
+fn a_label_of_a_union_is_the_union_of_the_labels() {
+    let ints = Descr::of_kind(Kind::Int);
+    let strs = Descr::of_kind(Kind::Str);
+    let either = ints.union(&strs).expect("int or str");
+    let wide = Descr::label(Label::str("a"), &either, false);
+    let split = Descr::label(Label::str("a"), &ints, false)
+        .union(&Descr::label(Label::str("a"), &strs, false))
+        .expect("the two maps join");
+    let outside = wide
+        .intersect(&split.complement())
+        .expect("the difference is a map");
+    assert!(outside.is_empty(), "{outside:?}");
+}
+
+// THEORY: records-maps-and-structs, a-clause-is-a-region, clauses-are-quasi-k-step
+/// The key partition is read per part: a map that says what its `str` keys
+/// map to says nothing about its `int` keys.
+///
+/// The default is a *function* on the parts, which is what Castagna requires of
+/// a key type [Cas23, §4.4] and what the kind partition supplies. Reading one
+/// part for another would make `dict[str, int]` a claim about every key.
+#[test]
+fn a_map_constrains_one_part_of_the_key_partition() {
+    const INT_KEY: &[(Value, Value)] = &[(Value::integer(1), Value::word(b"x", Kind::Str))];
+    const STR_KEY: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    let ints = Descr::of_kind(Kind::Int);
+    let str_keys = Descr::mapping(Kind::Str, &ints);
+    let int_keys = Descr::mapping(Kind::Int, &ints);
+
+    // `dict[str, int]` says nothing about an integer key, and the other way
+    // round.
+    assert!(str_keys.admits(Value::dict(INT_KEY)));
+    assert!(!int_keys.admits(Value::dict(INT_KEY)));
+    assert!(int_keys.admits(Value::dict(STR_KEY)));
+    assert!(str_keys.admits(Value::dict(STR_KEY)));
+
+    // And closing the map is a claim about the other parts, not this one.
+    let only_strs = Descr::keys_among(&[Some(Kind::Str)]);
+    assert!(only_strs.admits(Value::dict(STR_KEY)));
+    assert!(!only_strs.admits(Value::dict(INT_KEY)));
+}
+
+/// A constraint made before a label was known keeps its meaning after.
+///
+/// The paper fixes one label set for every atom of a normal form, so its `S`
+/// is always about a key outside *that* set. Here an atom carries its own
+/// labels and a meet unions them, so a constraint read against "the atom's
+/// labels" would quietly strengthen as the atom learned names, and the meet
+/// would hold fewer dicts than its operands share.
+#[test]
+fn a_constraint_keeps_its_meaning_when_a_label_arrives() {
+    const A_IS_INT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const B_IS_STR: &[(Value, Value)] =
+        &[(Value::word(b"b", Kind::Str), Value::word(b"x", Kind::Str))];
+    let ints = Descr::of_kind(Kind::Int);
+    let strs = Descr::of_kind(Kind::Str);
+    // "not every str key maps into int" -- which carries a constraint
+    // wanting some str key outside no labels at all.
+    let some_key_is_not_an_int = Descr::mapping(Kind::Str, &ints).complement();
+    let b_is_str = Descr::label(Label::str("b"), &strs, false);
+    let met = some_key_is_not_an_int
+        .intersect(&b_is_str)
+        .expect("the two maps meet");
+    // `{"b": "x"}` is one: `b` is the key that is not an integer, and it is a
+    // label of the meet rather than a key outside it.
+    assert!(met.admits(Value::dict(B_IS_STR)));
+    assert!(!met.is_empty());
+    // And a union of two maps is a map, rather than a refusal the caller has
+    // to widen away.
+    let ints = Descr::of_kind(Kind::Int);
+    let joined = Descr::label(Label::str("a"), &ints, false)
+        .union(&Descr::label(Label::str("b"), &ints, false))
+        .expect("the two maps join");
+    assert!(!joined.is_empty());
+    assert!(joined.admits(Value::dict(A_IS_INT)));
+}
+
+/// A map's complement is a map, which is what the negative set is for.
+///
+/// A dict fails `{"a": int}` by carrying no `a` at all, or by carrying one
+/// that is not an integer -- and both are dicts the complement holds.
+#[test]
+fn a_map_fails_by_a_missing_key_or_a_wrong_one() {
+    const A_INT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const A_STR: &[(Value, Value)] =
+        &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str))];
+    let ints = Descr::of_kind(Kind::Int);
+    let a_is_int = Descr::label(Label::str("a"), &ints, false);
+    let outside = a_is_int.complement();
+    assert!(a_is_int.admits(Value::dict(A_INT)));
+    assert!(!a_is_int.admits(Value::dict(&[])));
+    assert!(!a_is_int.admits(Value::dict(A_STR)));
+    assert!(!outside.admits(Value::dict(A_INT)));
+    assert!(outside.admits(Value::dict(&[])));
+    assert!(outside.admits(Value::dict(A_STR)));
+}
+
+/// A coarse component is all-or-nothing, and the tests must not read that as
+/// a distinction the descriptor makes.
+#[test]
+fn a_coarse_kind_admits_all_of_its_values_or_none() {
+    let dicts = Descr::of_kind(Kind::Dict);
+    assert!(dicts.admits(Value::dict(&[])));
+    assert!(!dicts.admits(Value::of_kind(Kind::NoneType)));
+    assert!(!dicts.admits(Value::other()));
+    assert!(!dicts.is_empty());
+    assert!(
+        dicts
+            .intersect(&Descr::of_kind(Kind::NoneType))
+            .is_some_and(|met| met.is_empty())
+    );
+    assert!(
+        dicts
+            .union(&Descr::of_kind(Kind::NoneType))
+            .is_some_and(|joined| !joined.is_empty())
+    );
+}
+
+/// A kind's complement holds only the values that kind takes.
+///
+/// One automaton carries both word kinds, and their universes are not one set:
+/// every byte string is a `bytes`, and a `str` is one that encodes a sequence of
+/// code points. So the raw flip of a `str` table holds the rest of the byte
+/// strings, where no value of the kind lives -- and a difference holding only
+/// those reads as inhabited and refutes an inclusion nothing stands against.
+///
+/// What cuts them back is the fold in `complement_lines`, which starts from the
+/// kind's own top and meets each line's complement into it. The rows below are
+/// the answers that fold has to give, asked of the kind whose table is wider
+/// than the kind and of the one whose table spells it exactly.
+#[test]
+fn a_kinds_complement_holds_only_the_values_that_kind_takes() {
+    let text = Descr::pattern("a", Kind::Str).expect("a small pattern");
+    let rest = text.complement();
+    // The words of the kind the pattern misses are in the complement.
+    assert!(rest.admits(Value::word(b"b", Kind::Str)));
+    assert!(rest.admits(Value::word("\u{e9}".as_bytes(), Kind::Str)));
+    // The byte strings no `str` encodes are not: a lone continuation byte, a
+    // lead byte with nothing after it, and a code point past the range.
+    for outside in [
+        b"\xff".as_slice(),
+        b"\x80",
+        b"\xed\xa0",
+        b"\xf5\x80\x80\x80",
+    ] {
+        assert!(
+            !rest.admits(Value::word(outside, Kind::Str)),
+            "a str's complement holds only words a str takes: {outside:?}"
+        );
+    }
+    // And the pattern's own word is in neither the complement nor outside it.
+    assert!(!rest.admits(Value::word(b"a", Kind::Str)));
+    assert!(text.admits(Value::word(b"a", Kind::Str)));
+
+    // The `bytes` kind's table spells its kind exactly, so its complement is
+    // the flip and holds every byte string the pattern misses.
+    let raw = Descr::pattern("a", Kind::Bytes).expect("a small pattern");
+    let others = raw.complement();
+    assert!(others.admits(Value::word(b"\xff", Kind::Bytes)));
+    assert!(others.admits(Value::word(b"b", Kind::Bytes)));
+    assert!(!others.admits(Value::word(b"a", Kind::Bytes)));
+}
+
+/// The two word kinds are exact and separate: a pattern over one says
+/// nothing about the other, which is what keeps `str` and `bytes` disjoint
+/// while sharing a representation.
+#[test]
+fn the_word_kinds_are_languages_and_stay_apart() {
+    let text = Descr::pattern("ab?", Kind::Str).expect("a small pattern");
+    assert!(text.admits(Value::word(b"a", Kind::Str)));
+    assert!(text.admits(Value::word(b"ab", Kind::Str)));
+    assert!(!text.admits(Value::word(b"b", Kind::Str)));
+    // The same word as `bytes` is a different value, in a component this
+    // descriptor leaves empty.
+    assert!(!text.admits(Value::word(b"a", Kind::Bytes)));
+    assert!(
+        text.intersect(&Descr::of_kind(Kind::Bytes))
+            .is_some_and(|met| met.is_empty())
+    );
+
+    // One pattern inside another, which the structural procedure declines:
+    // it relates two patterns only when they are written identically.
+    let narrow = Descr::pattern("a", Kind::Str).expect("a small pattern");
+    assert!(
+        narrow
+            .intersect(&text.complement())
+            .is_some_and(|met| met.is_empty())
+    );
+    // And a pattern whose language is one word is that word.
+    assert_eq!(narrow, Descr::word(b"a", Kind::Str).expect("a word kind"));
+    // The bytes kind is a word kind too, and its patterns land in its own
+    // component: the same pattern over the two kinds is two disjoint sets.
+    let raw = Descr::pattern("a", Kind::Bytes).expect("a small pattern");
+    assert!(raw.admits(Value::word(b"a", Kind::Bytes)));
+    assert!(!raw.admits(Value::word(b"a", Kind::Str)));
+    assert!(raw.intersect(&narrow).is_some_and(|met| met.is_empty()));
+    // And the two kinds read a pattern over different alphabets: a byte
+    // class outside UTF-8 is a language for `bytes` and no language at all
+    // for `str`.
+    assert!(Descr::pattern(r"(?-u:\xFF)", Kind::Bytes).is_some());
+    assert!(Descr::pattern(r"(?-u:\xFF)", Kind::Str).is_none());
+
+    // A pattern over a kind with no words is a caller error, not a set.
+    assert!(Descr::pattern("a", Kind::Int).is_none());
+    assert!(Descr::word(b"a", Kind::List).is_none());
+}
+
+/// The integers are exact, so a bound conjunction that cannot hold is
+/// decided rather than declined -- and a step is a set the coarse
+/// representation had no way to express at all.
+#[test]
+fn the_integers_are_a_set_rather_than_a_kind() {
+    let ints = Descr::of_kind(Kind::Int);
+    assert!(ints.admits(Value::integer(7)));
+    assert!(!ints.admits(Value::of_kind(Kind::Str)));
+    // A boolean is its own kind, so `int` does not admit one.
+    assert!(!ints.admits(Value::boolean(true)));
+
+    let evens = Descr::multiple_of(2).expect("two is inside the bound");
+    assert!(evens.admits(Value::integer(4)));
+    assert!(!evens.admits(Value::integer(3)));
+    // The evens and the odds together are the kind, which no union of
+    // intervals could say.
+    let odds = evens.complement().intersect(&ints).expect("a small meet");
+    assert_eq!(evens.union(&odds), Some(ints.clone()));
+
+    // Two singletons meet in nothing, and each is inside the kind.
+    assert!(
+        Descr::integer(1)
+            .intersect(&Descr::integer(2))
+            .is_some_and(|met| met.is_empty())
+    );
+    assert!(
+        Descr::integer(1)
+            .intersect(&ints)
+            .is_some_and(|met| !met.is_empty())
+    );
+}
+
+/// The set operations on the two booleans, driven directly: the descriptor
+/// laws above exercise them through a component, and these pin the set.
+#[test]
+fn the_boolean_set_is_a_two_element_boolean_algebra() {
+    assert!(BoolSet::EMPTY.is_empty());
+    assert!(!BoolSet::BOTH.is_empty());
+    assert!(BoolSet::BOTH.holds(true) && BoolSet::BOTH.holds(false));
+    assert!(BoolSet::just(true).holds(true) && !BoolSet::just(true).holds(false));
+    assert_eq!(BoolSet::just(true).complement(), BoolSet::just(false));
+    assert_eq!(
+        BoolSet::just(true).union(BoolSet::just(false)),
+        BoolSet::BOTH
+    );
+    assert_eq!(
+        BoolSet::just(true).intersect(BoolSet::just(false)),
+        BoolSet::EMPTY
+    );
+    assert_eq!(BoolSet::BOTH.complement(), BoolSet::EMPTY);
+}
+
+/// The bottom and top of one kind, which every constructor is written from.
+///
+/// A kind's bottom is *no lines* and its top is one line over the whole of
+/// the kind with no object constraint on it, and each complements into the
+/// other. The empty union is what makes the bottom free: a descriptor
+/// holding one kind carries eleven empty vectors.
+#[test]
+fn a_kind_is_bottom_or_top_of_its_own_lines() {
+    for kind in Kind::ALL {
+        let whole = Whole::Kind(kind);
+        let bottom = Lines::bottom();
+        let top = Lines::everything(Component::top(kind));
+        assert_eq!(bottom.emptiness(whole), Verdict::Empty, "{kind:?} bottom");
+        assert_eq!(top.emptiness(whole), Verdict::Inhabited, "{kind:?} top");
+        assert_eq!(bottom.complement(whole), top, "{kind:?} bottom");
+        assert_eq!(top.complement(whole), bottom, "{kind:?} top");
+    }
+}
+
+/// A length bound over a sequence kind is the sequences of that length: "at
+/// least n" admits n and more, "at most n" admits n and fewer, and the bound
+/// past the state budget refuses rather than building one state per element.
+#[test]
+fn a_length_bound_over_a_sequence_kind_counts_its_elements() {
+    const NONE: &[Value] = &[];
+    const ONE: &[Value] = &[Value::integer(1)];
+    const TWO: &[Value] = &[Value::integer(1), Value::integer(1)];
+
+    let at_least_one = Descr::sequences_at_least(1, Kind::List).expect("a small bound");
+    assert!(!at_least_one.admits(Value::sequence(NONE, Kind::List)));
+    assert!(at_least_one.admits(Value::sequence(ONE, Kind::List)));
+    assert!(at_least_one.admits(Value::sequence(TWO, Kind::List)));
+
+    let at_most_one = Descr::sequences_at_most(1, Kind::List).expect("a small bound");
+    assert!(at_most_one.admits(Value::sequence(NONE, Kind::List)));
+    assert!(at_most_one.admits(Value::sequence(ONE, Kind::List)));
+    assert!(!at_most_one.admits(Value::sequence(TWO, Kind::List)));
+    // Inside the kind: a tuple of one is not a list of one.
+    assert!(!at_most_one.admits(Value::sequence(ONE, Kind::Tuple)));
+
+    // The state bound counts the chain as built, its sink included, so two
+    // elements short of it builds and one more refuses. A bound no allocation
+    // could hold refuses as well, because it is refused before the letters are
+    // made.
+    let edge = MAX_STATES - 2;
+    assert!(Descr::sequences_at_least(edge, Kind::List).is_some());
+    assert!(Descr::sequences_at_least(edge + 1, Kind::List).is_none());
+    assert!(Descr::sequences_at_least(usize::MAX, Kind::List).is_none());
+    assert!(Descr::sequences_at_most(edge - 1, Kind::List).is_some());
+    assert!(Descr::sequences_at_most(edge, Kind::List).is_none());
+}
+
+/// The kinds a set lies within, read off the components rather than built.
+///
+/// [`Descr::within`] answers what a constraint asks of the base it narrows:
+/// is every value of this base one of these kinds? Asked by meeting the base
+/// with the complement of a union of those kinds and testing the result, it
+/// builds a whole descriptor to ask one question of it, which costs two thirds
+/// of the relation matrix.
+///
+/// A read is only equal to the build where it reads the same components, so
+/// both halves of the representation are exercised here: the **kindless** slot,
+/// which a value of no listed kind lands in and which a caller cannot name, and
+/// a **negated** line list, which the complement of a kind leaves behind.
+#[test]
+fn a_set_lies_within_the_kinds_its_components_hold() {
+    let int = Descr::of_kind(Kind::Int);
+    let word = Descr::of_kind(Kind::Str);
+
+    // A kind lies within itself and within any list naming it.
+    assert!(int.within(&[Kind::Int]));
+    assert!(int.within(&[Kind::Int, Kind::Bool]));
+    assert!(int.within(&Kind::ALL));
+    // ...and not within a list that leaves it out, however long.
+    assert!(!int.within(&[Kind::Bool]));
+    assert!(!int.within(&[]));
+
+    // A union lies within the two kinds it is made of and neither alone.
+    let numbers = int.union(&word).expect("a union of two kinds");
+    assert!(numbers.within(&[Kind::Int, Kind::Str]));
+    assert!(!numbers.within(&[Kind::Int]));
+    assert!(!numbers.within(&[Kind::Str]));
+
+    // The empty set lies within every list, including the empty one: it has no
+    // value to be of the wrong kind.
+    assert!(Descr::nothing().within(&[]));
+
+    // The **kindless** slot is the half a caller cannot name. Everything is not
+    // within the eleven kinds, because a value of no kind the partition lists
+    // is still a value; the complement of an int is the same.
+    assert!(!Descr::anything().within(&Kind::ALL));
+    assert!(!int.complement().within(&Kind::ALL));
+
+    // A **negated** line list, which is what a complement leaves behind: the
+    // complement of an int holds every other kind, so it lies within none of
+    // the lists an int does.
+    assert!(!int.complement().within(&[Kind::Int]));
+    assert!(!int.complement().within(&[Kind::Str]));
+    // And complementing twice returns a set that reads as the kind again.
+    assert!(int.complement().complement().within(&[Kind::Int]));
+}
+
+/// The kinds a set reaches, asked one at a time.
+///
+/// The companion of [`Descr::within`]: having established that a base lies
+/// within a handful of kinds, a length bound asks which of them it actually
+/// holds values of, so it builds a language for those and not for the rest.
+#[test]
+fn a_set_reaches_the_kinds_it_holds_a_value_of() {
+    let int = Descr::of_kind(Kind::Int);
+    let word = Descr::of_kind(Kind::Str);
+
+    assert!(int.reaches(Kind::Int));
+    assert!(!int.reaches(Kind::Str));
+    assert!(!int.reaches(Kind::List));
+
+    let either = int.union(&word).expect("a union of two kinds");
+    assert!(either.reaches(Kind::Int));
+    assert!(either.reaches(Kind::Str));
+    assert!(!either.reaches(Kind::Bytes));
+
+    // The empty set reaches nothing, and the universe reaches every kind.
+    for kind in Kind::ALL {
+        assert!(!Descr::nothing().reaches(kind), "{kind:?}");
+        assert!(Descr::anything().reaches(kind), "{kind:?}");
+    }
+
+    // A negated list again: the complement of an int reaches every kind but
+    // the two that share the integers' values.
+    let not_int = int.complement();
+    assert!(!not_int.reaches(Kind::Int));
+    assert!(not_int.reaches(Kind::Str));
+    assert!(not_int.reaches(Kind::Dict));
+}
+
+// THEORY: the-second-decider
+/// A union of lines the allowance cannot expand is *unknown*, never inhabited.
+///
+/// The third component to be held to the third verdict. A negated union has to
+/// be turned positive before its emptiness can be read, and the expansion is a
+/// product: past the allowance there is no union left to read, and answering
+/// either way would be a claim standing on nothing. `Inhabited` says some value
+/// satisfies it with no witness; `Empty` is the one a caller may act on and is
+/// worse still.
+///
+/// The negated form has to be reached rather than written: complementing
+/// rebuilds a positive union wherever the product fits, so the shape only
+/// survives a complement taken with the allowance already spent -- which is
+/// what a caller holds after a build that ran out.
+#[test]
+fn a_negated_union_of_lines_the_allowance_cannot_expand_declines() {
+    let whole = Whole::Kind(Kind::Str);
+    let everything = Lines::everything(Component::top(Kind::Str));
+    let negated = budget::under(0, || everything.complement(whole));
+
+    // Expanded under an allowance that covers it, the verdict is decided: the
+    // complement of everything holds nothing.
+    assert_eq!(
+        budget::under(4096, || negated.emptiness(whole)),
+        Verdict::Empty
+    );
+
+    // Without one, the same union declines rather than guessing either way.
+    let starved = budget::under(0, || negated.emptiness(whole));
+    assert_eq!(starved, Verdict::Unknown, "starved gave {starved:?}");
+}

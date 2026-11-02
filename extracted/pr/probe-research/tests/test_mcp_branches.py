@@ -5,7 +5,7 @@ On the swarm fixture's real reads: `fixtures/branches_swarm.json` holds what
 `GET /v1/workspaces/{W}/branches`, `/v1/projects/{P1}/branches` and
 `/v1/projects/{P1}/experiments/{I1b}/branch` answered for
 `tests/fixtures/branches_swarm.py` (8 branches, 5 projects).
-`tests/integration/test_branches_agent_view.py` holds it to the live shape and
+`tests/integration/runs/branches/test_branches_agent_view.py` holds it to the live shape and
 rewrites it with `BRANCHES_SWARM_SNAPSHOT=<path>`.
 
 Sizes are measured where an agent meets them: the real MCP boundary (`_wire`)

@@ -10,7 +10,7 @@ from enum import Enum
 
 from trilogy.core import graph as nx
 from trilogy.core.constants import ALL_ROWS_ADDRESS
-from trilogy.core.enums import Derivation
+from trilogy.core.enums import ComparisonOperator, Derivation
 from trilogy.core.exceptions import (
     DisconnectedConceptsException,
     UnresolvableQueryException,
@@ -18,7 +18,9 @@ from trilogy.core.exceptions import (
 from trilogy.core.models.build import (
     BoolExpr,
     BuildAggregateWrapper,
+    BuildComparison,
     BuildConcept,
+    BuildConceptArgs,
     BuildRowsetItem,
     BuildWhereClause,
 )
@@ -26,6 +28,7 @@ from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.models.keyspace import Keyspace
 from trilogy.core.processing.condition_utility import (
     decompose_condition,
+    gather_non_null_proofs,
 )
 from trilogy.core.processing.discovery_utility import (
     _output_is_rootless,
@@ -141,6 +144,22 @@ def _reachable_input(
     for anc in ancestors:
         reachable |= group_members.get(anc, set())
     return reachable
+
+
+def _merged_elements(
+    bucket: GroupBucket, concept_attrs: dict[str, ConceptAttrs] | None
+) -> set[str]:
+    """The key an unnested element is merged into: the expansion emits it
+    under that spelling too (`merge tree_eco_region into ecoregion_id`)."""
+    if bucket.derivation != Derivation.UNNEST or not concept_attrs:
+        return set()
+    pseudonyms = {
+        p
+        for ca in concept_attrs.values()
+        if ca.address in bucket.primary_members
+        for p in ca.pseudonyms
+    }
+    return set(bucket.grain_components) & pseudonyms
 
 
 def _candidate_groups(
@@ -303,13 +322,14 @@ def _producer_closures(
     row_inputs: set[str],
     group_graph: nx.DiGraph,
     buckets: dict[str, GroupBucket],
+    group_outputs: dict[str, set[str]],
 ) -> list[set[str]]:
     closures: list[set[str]] = []
     for addr in row_inputs:
         producers = [
             gid
             for gid, b in buckets.items()
-            if b.depth_label == DepthLabel.D0 and addr in set(b.primary_members)
+            if b.depth_label == DepthLabel.D0 and addr in group_outputs[gid]
         ]
         if not producers:
             continue
@@ -323,12 +343,11 @@ def _producer_closures(
 def _producer_groups(
     row_inputs: set[str],
     buckets: dict[str, GroupBucket],
+    group_outputs: dict[str, set[str]],
 ) -> set[str]:
     producer_groups: set[str] = set()
     for addr in row_inputs:
-        producers = [
-            gid for gid, b in buckets.items() if addr in set(b.primary_members)
-        ]
+        producers = [gid for gid in buckets if addr in group_outputs[gid]]
         main_producers = [
             gid
             for gid in producers
@@ -475,6 +494,7 @@ def _uncovered_exposing_output_contributor(
     group_graph: nx.DiGraph,
     mandatory_addrs: set[str],
     environment: BuildEnvironment,
+    accepts_absent: bool = False,
 ) -> bool:
     """Whether some select-phase group producing a mandatory output sits outside
     the chosen hosts' downstream cover AND can expose every atom input, i.e. an
@@ -551,14 +571,53 @@ def _uncovered_exposing_output_contributor(
                 build_fd_determines_all(environment, host.grain_components, own_outputs)
                 for host in collapsing_hosts
             )
-            and row_inputs <= final_exposable
-            and not all(
-                _decided_per_group(row_inputs, host, buckets)
-                for host in collapsing_hosts
+            and (
+                accepts_absent
+                or (
+                    row_inputs <= final_exposable
+                    and not all(
+                        _decided_per_group(row_inputs, host, buckets)
+                        for host in collapsing_hosts
+                    )
+                )
             )
         ):
             return True
     return False
+
+
+_ABSENT_COMPARISONS = (
+    (ComparisonOperator.EQ, lambda a, b: a == b),
+    (ComparisonOperator.NE, lambda a, b: a != b),
+    (ComparisonOperator.GT, lambda a, b: a > b),
+    (ComparisonOperator.LT, lambda a, b: a < b),
+    (ComparisonOperator.GTE, lambda a, b: a >= b),
+    (ComparisonOperator.LTE, lambda a, b: a <= b),
+)
+
+
+def holds_on_absent_group(atom: BoolExpr) -> bool:
+    """Whether `atom` can hold for a key no group of the aggregate it reads
+    formed: a COUNT reads 0 there, any other aggregate NULL. Joining the rows to
+    the groups the atom kept cannot decide such an atom, since a key it
+    rejected looks the same there as a key with no rows."""
+    if not isinstance(atom, BuildConceptArgs):
+        return False
+    aggregates = [c for c in atom.row_arguments if c.is_aggregate]
+    if not aggregates:
+        return False
+    if (
+        isinstance(atom, BuildComparison)
+        and isinstance(atom.left, BuildConcept)
+        and atom.left.zero_on_empty
+        and isinstance(atom.right, (int, float))
+        and not isinstance(atom.right, bool)
+    ):
+        for operator, test in _ABSENT_COMPARISONS:
+            if atom.operator == operator:
+                return bool(test(0, atom.right))
+    proofs = gather_non_null_proofs(atom)
+    return not any(c.address in proofs and not c.zero_on_empty for c in aggregates)
 
 
 def _decided_per_group(
@@ -1075,6 +1134,8 @@ class _PlacementScope:
     lineage_ancestors_graph: nx.DiGraph
     host_graph: nx.DiGraph
     group_members: dict[str, set[str]]
+    # primary members, plus the key an unnested element is merged into
+    group_outputs: dict[str, set[str]]
     attrs_by_address: dict[str, ConceptAttrs]
     group_own_keys: dict[str, set[str]]
     group_relatable: dict[str, set[str]]
@@ -1400,7 +1461,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
                 )
             )
             return out
-    closures = _producer_closures(row_inputs, group_graph, buckets)
+    closures = _producer_closures(row_inputs, group_graph, buckets, scope.group_outputs)
     restricted = [gid for gid in candidates if all(gid in reach for reach in closures)]
     # A self-contained membership whose ONLY hosts are membership-set
     # producers (output and set share one scan, so the set's producer is
@@ -1513,7 +1574,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
         # selected aggregate and window reads (`sum(x) by *` included): host
         # it on the row stream that joins its inputs, never on a group that
         # produces one of them. FINAL only when no such host exists.
-        producers = set(_producer_groups(row_inputs, buckets))
+        producers = set(_producer_groups(row_inputs, buckets, scope.group_outputs))
         restricted = [gid for gid in restricted if gid not in producers]
         if not restricted:
             out.append(
@@ -1530,7 +1591,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
     # two boundaries' presence probes) can end up with only such hosts;
     # its correct home is then FINAL, above every barrier.
     if restricted:
-        producer_groups = _producer_groups(row_inputs, buckets)
+        producer_groups = _producer_groups(row_inputs, buckets, scope.group_outputs)
         consumed_barriers: set[str] = set(producer_groups)
         for producer in producer_groups:
             consumed_barriers |= nx.ancestors(group_graph, producer)
@@ -1598,6 +1659,7 @@ def _place_atom(atom: BoolExpr, scope: _PlacementScope) -> list[ConditionPlaceme
             group_graph,
             {c.address for c in mandatory_list},
             environment,
+            accepts_absent=holds_on_absent_group(atom),
         )
     ):
         out.append(
@@ -1692,8 +1754,12 @@ def plan_condition_placements(
         group_graph, group_edges, EdgeKind.LINEAGE, EdgeKind.CONSTRAINT
     )
     host_graph = _host_election_graph(lineage_ancestors_graph, group_edges, buckets)
+    group_outputs = {
+        gid: set(b.primary_members) | _merged_elements(b, concept_attrs)
+        for gid, b in buckets.items()
+    }
     group_members: dict[str, set[str]] = {
-        gid: set(b.primary_members) | b.carried for gid, b in buckets.items()
+        gid: group_outputs[gid] | b.carried for gid, b in buckets.items()
     }
     # Addresses a group can pair a relation on beyond its listed members: the
     # KEYS of its members (a group hosting only `a.aw` still joins on a.aw's
@@ -1771,6 +1837,7 @@ def plan_condition_placements(
         lineage_ancestors_graph=lineage_ancestors_graph,
         host_graph=host_graph,
         group_members=group_members,
+        group_outputs=group_outputs,
         attrs_by_address=attrs_by_address,
         group_own_keys=group_own_keys,
         group_relatable=group_relatable,
@@ -1852,31 +1919,28 @@ def _pin_input_placements(
             is_presence_probe(addr) for addr in row_inputs
         ):
             continue
-        input_keys: set[str] = set()
-        for addr in row_inputs:
-            ca = scope.attrs_by_address.get(addr)
-            if ca is None:
-                break
-            input_keys |= ca.keys or {addr}
-        else:
-            for gid, anchors in hosts.items():
-                if gid in placement.group_ids:
-                    continue
-                if input_keys <= anchors or (
-                    not row_inputs & scope.group_members[gid]
-                    and any(
-                        h not in scope.pin_sealed_relatable
-                        and anchors <= scope.group_members[h]
-                        for h in placement.group_ids
+        if any(addr not in scope.attrs_by_address for addr in row_inputs):
+            continue
+        for gid, anchors in hosts.items():
+            if gid in placement.group_ids:
+                continue
+            if build_fd_determines_all(
+                scope.environment, anchors, row_inputs, include_empty_grain=False
+            ) or (
+                not row_inputs & scope.group_members[gid]
+                and any(
+                    h not in scope.pin_sealed_relatable
+                    and anchors <= scope.group_members[h]
+                    for h in placement.group_ids
+                )
+            ):
+                extra.append(
+                    ConditionPlacement(
+                        atom=atom,
+                        group_ids=(gid,),
+                        reason=PlacementReason.PIN_INPUT,
                     )
-                ):
-                    extra.append(
-                        ConditionPlacement(
-                            atom=atom,
-                            group_ids=(gid,),
-                            reason=PlacementReason.PIN_INPUT,
-                        )
-                    )
+                )
     return extra
 
 

@@ -25,7 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from contextlib import contextmanager, nullcontext
+from contextlib import chdir, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import cached_property, partial
 from itertools import zip_longest
@@ -35,14 +35,11 @@ import click
 import click.testing
 from cloup import Color
 
-from ._deprecated import warn_deprecated_argument
 from ._utils import patch_attr
+from .ansi import strip_ansi
 
-# The CLI-invocation serialization and disclosure atoms moved to
-# click_extra.execution once production code (subprocess wrappers, not just
-# tests) started depending on them. They are imported under private names so
-# this module's namespace does not re-export them: their canonical home is
-# click_extra.execution.
+# Imported under private names, so this module does not re-export them: their
+# home is click_extra.execution, where production code reaches them too.
 from .execution import (
     INDENT as _INDENT,
     args_cleanup as _args_cleanup,
@@ -54,7 +51,7 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
     from contextlib import AbstractContextManager
-    from typing import IO, Any, Literal
+    from typing import IO, Any
 
     from .envvar import TEnvVars
     from .execution import TArg, TNestedArgs
@@ -72,6 +69,30 @@ STDERR_LABEL = "<stderr>"
 EXIT_CODE_LABEL = "<exit_code>"
 """Label for the process exit code."""
 
+REGEX_NEWLINE = "\\n"
+"""Newline token used to split a multi-line regex pattern for line-by-line
+matching."""
+
+INVOKE_ARGS = set(inspect.getfullargspec(click.testing.CliRunner.invoke).args)
+"""Parameter names of {meth}`click.testing.CliRunner.invoke`.
+
+An extra keyword of {meth}`CliRunner.invoke` named like one of them collides with
+Click's own parameter, and reaches `Context` through a patched `Command.main()`
+call instead ([pallets/click#2110](https://github.com/pallets/click/issues/2110)).
+
+```{todo}
+[pallets/click#3896](https://github.com/pallets/click/pull/3896) adds a
+`context_settings` parameter to `click.testing.CliRunner.invoke()`. It sets the
+context color without the `Command.main()` patch in
+{meth}`~click_extra.testing.CliRunner.invoke`.
+
+On a Click release that carries it, this constant also catches
+`context_settings`, and the patch sends it to `Context`, which rejects it. On
+such a release, keep `context_settings` out of the collision set and pass
+`force_color` through it. Drop this constant and the patch once the Click floor
+of this package reaches that release.
+```
+"""
 
 STREAM_FIELDS = {
     "output_": (OUTPUT_LABEL, "output"),
@@ -85,6 +106,13 @@ target the separate streams. Both {func}`render_cli_run` and
 {meth}`click_extra.test_suite.CLITestCase.run_cli_test` read this single table so the
 rendered trace and the assertion loop agree on labels and stream selection.
 """
+
+_STREAM_COLORS = {
+    OUTPUT_LABEL: Color.blue,
+    STDOUT_LABEL: Color.green,
+    STDERR_LABEL: Color.red,
+}
+"""Color of each stream label in the trace {func}`render_cli_run` draws."""
 
 
 @dataclass(frozen=True)
@@ -149,31 +177,22 @@ def render_cli_run(
     result: click.testing.Result | subprocess.CompletedProcess,
     env: TEnvVars | None = None,
 ) -> str:
-    """Generates the full simulation of CLI execution, including output.
+    """Render the full simulation of a CLI execution, output included.
 
-    Mostly used to print debug traces to user or in test results.
+    {meth}`CliRunner.invoke` prints it after every run, so a failing test shows
+    the session that produced it.
     """
-    prompt = _format_cli_prompt(args, env)
-
     if isinstance(result, click.testing.Result):
         view = StreamView.from_result(result)
     else:
         view = StreamView.from_completed_process(result)
 
-    # Per-stream colors for the rendered trace, keyed by the shared stream labels.
-    stream_colors = {
-        OUTPUT_LABEL: Color.blue,
-        STDOUT_LABEL: Color.green,
-        STDERR_LABEL: Color.red,
-    }
-
-    # Render the execution trace.
-    trace = [prompt]
+    trace = [_format_cli_prompt(args, env)]
     for label, attr in STREAM_FIELDS.values():
         content = getattr(view, attr)
         if content:
             trace.extend((
-                f"{Style(fg=stream_colors[label])(label)} stream:",
+                f"{Style(fg=_STREAM_COLORS[label])(label)} stream:",
                 indent(content, _INDENT),
             ))
     if view.exit_code is not None:
@@ -186,7 +205,7 @@ def _print_cli_run(
     result: click.testing.Result | subprocess.CompletedProcess,
     env: TEnvVars | None = None,
 ) -> None:
-    """Prints the full simulation of CLI execution, including output.
+    """Print the full simulation of a CLI execution, output included.
 
     The trace embeds the CLI's captured streams verbatim, and those are whatever
     bytes a subprocess happened to write rather than text this library produced.
@@ -209,32 +228,6 @@ def _print_cli_run(
         print(trace.encode(encoding, "replace").decode(encoding, "replace"))
 
 
-INVOKE_ARGS = set(inspect.getfullargspec(click.testing.CliRunner.invoke).args)
-"""Parameter IDs of `click.testing.CliRunner.invoke()`.
-
-We need to collect them to help us identify which extra parameters passed to
-`invoke()` collides with its original signature.
-
-```{warning}
-This has been [reported upstream to Click project](https://github.com/pallets/click/issues/2110) but has been rejected and not
-considered an issue worth fixing.
-```
-
-```{todo}
-[pallets/click#3896](https://github.com/pallets/click/pull/3896) adds a
-`context_settings` parameter to `click.testing.CliRunner.invoke()`. It sets the
-context color without the `Command.main()` patch in
-{meth}`~click_extra.testing.CliRunner.invoke`.
-
-On a Click release that carries it, this constant also catches
-`context_settings`, and the patch sends it to `Context`, which rejects it. On
-such a release, keep `context_settings` out of the collision set and pass
-`force_color` through it. Drop this constant and the patch once the Click floor
-of this package reaches that release.
-```
-"""
-
-
 class Result(click.testing.Result):
     """A `Result` subclass with automatic traceback formatting.
 
@@ -248,10 +241,10 @@ class Result(click.testing.Result):
         if self.exception is None:
             return None
         if self.exc_info:
-            # Deferred import: keeps boltons.tbutils off the startup path of the CLI.
-            from boltons.tbutils import ExceptionInfo
+            # Deferred import: keeps traceback off the startup path of the CLI.
+            import traceback
 
-            return ExceptionInfo.from_exc_info(*self.exc_info).get_formatted()
+            return "".join(traceback.format_exception(*self.exc_info)).rstrip("\n")
         return f"Exception occurred: {self.exception}"
 
     def __repr__(self) -> str:
@@ -267,14 +260,14 @@ def isolated_filesystem(
 ) -> Generator[str, None, None]:
     """Create a temporary directory and change the working directory to it.
 
-    Reimplements {meth}`click.testing.CliRunner.isolated_filesystem`, which Click
-    deprecated in `8.5.0` and removes in `9.0`. Click points at
+    Replaces {meth}`click.testing.CliRunner.isolated_filesystem`, which Click
+    deprecates and removes in `9.0`. Click points at
     {class}`tempfile.TemporaryDirectory` and pytest's `tmp_path` fixture, and
     neither replaces it: what isolates a CLI here is the *working directory*,
     which a command reads through relative paths and configuration-file globs.
     The `runner` pytest fixture and the `click:run` Sphinx directive both call
-    this on every test and every documented example, so the deprecated version
-    buries a suite run under thousands of warnings, then stops working.
+    this on every test and every documented example, where Click's version
+    would raise a deprecation warning each time.
 
     ```{warning}
     The isolation is process-global, because it calls {func}`os.chdir`.
@@ -285,13 +278,11 @@ def isolated_filesystem(
         the directory is left in place on exit.
     :return: path of the directory the working directory was changed to.
     """
-    previous_cwd = os.getcwd()
     target = tempfile.mkdtemp(dir=temp_dir)
-    os.chdir(target)
     try:
-        yield target
+        with chdir(target):
+            yield target
     finally:
-        os.chdir(previous_cwd)
         if temp_dir is None:
             shutil.rmtree(target, ignore_errors=True)
 
@@ -311,8 +302,8 @@ class CliRunner(click.testing.CliRunner):
         *args: TArg | TNestedArgs,
         input: str | bytes | IO | None = None,
         env: TEnvVars | None = None,
-        catch_exceptions: bool = True,
-        color: bool | Literal["forced"] | None = None,
+        catch_exceptions: bool | None = None,
+        color: bool | None = None,
         force_color: bool | None = None,
         **extra: Any,
     ) -> Result:
@@ -326,8 +317,9 @@ class CliRunner(click.testing.CliRunner):
           [useful for argument composition of test cases with @pytest.mark.parametrize](https://docs.pytest.org/en/stable/example/parametrize.html).
 
         - Adds `force_color`, which keeps colored output while initializing
-          `Context.color = True`. This is [not allowed in current implementation](https://github.com/pallets/click/issues/2110) of
-          `click.testing.CliRunner.invoke()` because of colliding parameters.
+          `Context.color = True`. `click.testing.CliRunner.invoke()` cannot express
+          it, its `color` parameter colliding with the `Context` one
+          ([pallets/click#2110](https://github.com/pallets/click/issues/2110)).
           The {attr}`force_color` class attribute sets it for every run.
 
         - Strips all ANSI codes from results if `color` was explicitly set to
@@ -340,17 +332,17 @@ class CliRunner(click.testing.CliRunner):
 
         :param cli: CLI to invoke.
         :param args: can be nested iterables composed of `str`,
-            :py:class:`pathlib.Path` objects and `None` values. The nested structure
+            {class}`pathlib.Path` objects and `None` values. The nested structure
             will be flattened and `None` values will be filtered out. Then all
             elements will be cast to `str`. See
             {func}`~click_extra.execution.args_cleanup` for details.
         :param input: same as `click.testing.CliRunner.invoke()`.
         :param env: same as `click.testing.CliRunner.invoke()`.
-        :param catch_exceptions: same as `click.testing.CliRunner.invoke()`.
+        :param catch_exceptions: same as `click.testing.CliRunner.invoke()`:
+            `None` (the default) follows the runner's own `catch_exceptions`.
         :param color: whether the captured streams keep ANSI codes, passed to
             `click.testing.CliRunner.isolation()`. `False` also scrubs the
-            result bytes. The string `"forced"` is deprecated: pass
-            `force_color=True` instead.
+            result bytes.
         :param force_color: keep the ANSI codes *and* initialize the invoked
             CLI's `Context.color` to `True`, so it takes its colored branch.
             `None` (the default) follows the {attr}`force_color` class
@@ -368,11 +360,6 @@ class CliRunner(click.testing.CliRunner):
         # Flatten and filters out CLI arguments.
         clean_args = _args_cleanup(*cli_args)
 
-        if color == "forced":
-            warn_deprecated_argument(
-                "CliRunner.invoke", 'color="forced"', "force_color=True"
-            )
-            color, force_color = None, True
         if force_color is None:
             # An explicit color=False on one call wins over the class default.
             force_color = self.force_color and color is not False
@@ -380,38 +367,28 @@ class CliRunner(click.testing.CliRunner):
             raise ValueError("color=False contradicts force_color=True.")
 
         if force_color:
-            # Pass the color argument as an extra parameter to the invoked CLI.
-            # This works around Click issue #2110: `CliRunner.invoke(color=True)`
-            # controls the test "terminal" but cannot simultaneously pass `color`
-            # through to `Context`.
+            # `CliRunner.invoke(color=True)` controls the test "terminal" but
+            # cannot pass `color` through to `Context` as well: send it as an
+            # extra parameter of the invoked CLI (pallets/click#2110).
             extra["color"] = True
         isolation_color = force_color or bool(color)
-
-        # No-op context manager without any effects.
-        extra_params_bypass: AbstractContextManager = nullcontext()
 
         # Capture a simulated prog name before `extra` is consumed: an explicit
         # `prog_name` (how multicall personalities are simulated) is what the
         # printed command line should show, not the CLI's own name.
         simulated_prog_name = extra.get("prog_name") or self.get_default_prog_name(cli)
 
-        # If `extra` contains parameters that collide with the original `invoke()`
-        # parameters, we need to remove them from `extra`, then use a monkeypatch to
-        # properly pass them to the CLI.
-        colliding_params = INVOKE_ARGS.intersection(extra)
-        if colliding_params:
-            # Transfer colliding parameters from `extra` to `extra_bypass`.
-            extra_bypass = {pid: extra.pop(pid) for pid in colliding_params}
-            # Monkeypatch the original command's `main()` call to pass extra
-            # parameter for `Context` initialization. Because we cannot simply add
-            # colliding parameter IDs to `**extra`.
-            extra_params_bypass = patch_attr(
-                cli,
-                "main",
-                partial(cli.main, **extra_bypass),
-            )
+        # An extra parameter named like one of `invoke()`'s own cannot travel
+        # through `**extra`: take it out, and hand it to the `Context` through a
+        # patched `main()` call instead.
+        bypass = {name: extra.pop(name) for name in INVOKE_ARGS.intersection(extra)}
+        main_patch: AbstractContextManager = (
+            patch_attr(cli, "main", partial(cli.main, **bypass))
+            if bypass
+            else nullcontext()
+        )
 
-        with extra_params_bypass:
+        with main_patch:
             result = super().invoke(
                 cli=cli,
                 args=clean_args,
@@ -422,18 +399,15 @@ class CliRunner(click.testing.CliRunner):
                 **extra,
             )
 
-        # Upgrade the result to our subclass for automatic traceback formatting.
+        # Upgrade the result to the subclass formatting its traceback.
         result.__class__ = Result
         extra_result: Result = result  # type: ignore[assignment]
 
         # `color` has been explicitly set to `False`, so strip all ANSI codes.
         if color is False:
-            # Deferred import: keeps boltons.strutils off the startup path of the CLI.
-            from boltons.strutils import strip_ansi
-
-            extra_result.stdout_bytes = strip_ansi(extra_result.stdout_bytes)  # type: ignore[assignment,arg-type]
-            extra_result.stderr_bytes = strip_ansi(extra_result.stderr_bytes)  # type: ignore[assignment,arg-type]
-            extra_result.output_bytes = strip_ansi(extra_result.output_bytes)  # type: ignore[assignment,arg-type]
+            extra_result.stdout_bytes = strip_ansi(extra_result.stdout_bytes)
+            extra_result.stderr_bytes = strip_ansi(extra_result.stderr_bytes)
+            extra_result.output_bytes = strip_ansi(extra_result.output_bytes)
 
         _print_cli_run(
             [simulated_prog_name, *clean_args],
@@ -495,11 +469,6 @@ class RegexLineMismatch(AssertionError):
         super().__init__(message)
 
 
-REGEX_NEWLINE = "\\n"
-"""Newline token used to split a multi-line regex pattern for line-by-line
-matching."""
-
-
 def regex_fullmatch_line_by_line(regex: re.Pattern | str, content: str) -> None:
     """Check that the `content` matches the given `regex`.
 
@@ -521,8 +490,8 @@ def regex_fullmatch_line_by_line(regex: re.Pattern | str, content: str) -> None:
 
     # Pad the shorter side with empty lines so a length mismatch is reported as
     # a regular line mismatch instead of crashing on an out-of-range index.
-    for i, (regex_line, content_line) in enumerate(
-        zip_longest(regex_lines, content_lines, fillvalue=""),
+    for number, (regex_line, content_line) in enumerate(
+        zip_longest(regex_lines, content_lines, fillvalue=""), start=1
     ):
         try:
             matched = re.fullmatch(regex_line, content_line)
@@ -532,11 +501,8 @@ def regex_fullmatch_line_by_line(regex: re.Pattern | str, content: str) -> None:
             # the overall content so the mismatch is diagnosable.
             msg = f"Full regex does not match output.\nContent:\n{content}"
             raise AssertionError(msg) from None
-        if matched:
-            logging.debug(
-                f"Line #{i + 1} match.\n"
-                f"Regex : {regex_line!r}\n"
-                f"Output: {content_line!r}"
-            )
-        else:
-            raise RegexLineMismatch(regex_line, content_line, i + 1)
+        if not matched:
+            raise RegexLineMismatch(regex_line, content_line, number)
+        logging.debug(
+            "Line #%d match.\nRegex : %r\nOutput: %r", number, regex_line, content_line
+        )

@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Window Functions - Rolling Averages, Rankings, Running Totals, and t.all()."""
+
+import ibis
+from ibis import _
+
+from boring_semantic_layer import to_semantic_table
+
+# CI runs this example with and without xorq. xibis matches BSL's active ibis
+# flavor in both modes; users who are not using xorq can simply use `import ibis`.
+from boring_semantic_layer._xorq import ibis as xibis
+
+BASE_URL = "https://pub-a45a6a332b4646f2a6f44775695c64df.r2.dev"
+
+
+def main():
+    con = ibis.duckdb.connect(":memory:")
+    flights_tbl = con.read_parquet(f"{BASE_URL}/flights.parquet")
+
+    flights_with_date = flights_tbl.mutate(
+        flight_date=flights_tbl.dep_time.date(),
+    )
+
+    flights = to_semantic_table(flights_with_date, name="flights").with_measures(
+        flight_count=lambda t: t.count(),
+        avg_delay=lambda t: t.dep_delay.mean(),
+    )
+
+    daily_stats = (
+        flights.group_by("flight_date", "carrier")
+        .aggregate("flight_count", "avg_delay")
+        .filter(lambda t: t.carrier == "WN")
+    )
+
+    # A filtered query result is a plain table, so row math over it drops to
+    # ibis explicitly via .to_untagged() (mutate on the *aggregate itself*
+    # stays semantic — see the percent_manual example below).
+    result = (
+        daily_stats.to_untagged()
+        .mutate(
+            rolling_avg=lambda t: t.flight_count.mean().over(
+                xibis.window(order_by=t.flight_date, preceding=6, following=0),
+            ),
+            rank=lambda t: xibis.dense_rank().over(
+                xibis.window(order_by=xibis.desc(t.flight_count)),
+            ),
+            running_total=lambda t: t.flight_count.sum().over(
+                xibis.window(order_by=t.flight_date),
+            ),
+        )
+        .order_by("flight_date")
+        .limit(20)
+        .execute()
+    )
+
+    flights_with_share = flights.with_measures(
+        percent_of_total=lambda t: (t.flight_count / t.all(t.flight_count)) * 100,
+    )
+
+    result = (
+        flights_with_share.group_by("carrier")
+        .aggregate("flight_count", "percent_of_total")
+        .order_by(_.percent_of_total.desc())
+        .limit(10)
+        .execute()
+    )
+
+    print("\n using t.all():")
+    print(result)
+
+    carrier_stats = flights.group_by("carrier").aggregate("flight_count")
+
+    result = (
+        carrier_stats.mutate(
+            total_flights=lambda t: t.flight_count.sum().over(xibis.window()),
+            percent_manual=lambda t: (t.flight_count / t.flight_count.sum().over(xibis.window()))
+            * 100,
+        )
+        .order_by(_.percent_manual.desc())
+        .limit(10)
+        .execute()
+    )
+
+    print("\n window functions:")
+    print(result)
+
+
+if __name__ == "__main__":
+    main()

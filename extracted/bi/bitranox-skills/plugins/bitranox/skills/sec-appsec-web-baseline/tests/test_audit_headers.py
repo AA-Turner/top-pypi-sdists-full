@@ -1,0 +1,633 @@
+"""Behaviour tests for the pure graders in audit_headers (no network)."""
+
+import audit_headers as a
+import pytest
+
+
+def sev(finding):
+    return finding.severity
+
+
+# ---- HSTS ----
+def test_hsts_missing_on_https_is_severe():
+    assert sev(a._hsts(None, https=True)) == "SEVERE"
+
+
+def test_hsts_not_applicable_on_http():
+    assert sev(a._hsts(None, https=False)) == "OK"
+
+
+def test_hsts_short_max_age_is_medium():
+    assert sev(a._hsts("max-age=300; includeSubDomains", https=True)) == "MEDIUM"
+
+
+def test_hsts_strong_is_ok():
+    assert sev(a._hsts("max-age=31536000; includeSubDomains", https=True)) == "OK"
+
+
+def test_hsts_long_but_no_subdomains_is_minor():
+    assert sev(a._hsts("max-age=31536000", https=True)) == "MINOR"
+
+
+# ---- CSP ----
+def test_csp_missing_is_severe():
+    assert sev(a._csp(None)) == "SEVERE"
+
+
+def test_csp_unsafe_inline_script_is_medium():
+    assert sev(a._csp("default-src 'self'; script-src 'self' 'unsafe-inline'")) == "MEDIUM"
+
+
+def test_csp_unsafe_eval_is_medium():
+    assert sev(a._csp("default-src 'self'; script-src 'self' 'unsafe-eval'")) == "MEDIUM"
+
+
+def test_csp_unsafe_inline_only_in_style_is_ok():
+    # unsafe-inline in style-src must NOT trip the script check
+    assert sev(a._csp("default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'")) == "OK"
+
+
+def test_csp_reasonable_is_ok():
+    assert sev(a._csp("default-src 'self'; object-src 'none'; frame-ancestors 'none'")) == "OK"
+
+
+# ---- nosniff / clickjacking / referrer / permissions / xss / server ----
+def test_nosniff_present_ok_missing_medium():
+    assert sev(a._nosniff("nosniff")) == "OK"
+    assert sev(a._nosniff(None)) == "MEDIUM"
+
+
+def test_clickjacking_csp_frame_ancestors_ok():
+    assert sev(a._clickjacking(None, "default-src 'self'; frame-ancestors 'none'")) == "OK"
+
+
+def test_clickjacking_xfo_ok():
+    assert sev(a._clickjacking("DENY", None)) == "OK"
+
+
+def test_clickjacking_neither_is_medium():
+    assert sev(a._clickjacking(None, "default-src 'self'")) == "MEDIUM"
+
+
+def test_referrer_policy_safe_ok_missing_minor():
+    assert sev(a._referrer_policy("strict-origin-when-cross-origin")) == "OK"
+    assert sev(a._referrer_policy(None)) == "MINOR"
+
+
+def test_permissions_policy_present_ok_missing_minor():
+    assert sev(a._permissions_policy("geolocation=()")) == "OK"
+    assert sev(a._permissions_policy(None)) == "MINOR"
+
+
+def test_xss_auditor_enabled_is_medium_off_is_ok():
+    assert sev(a._xss_auditor("1; mode=block")) == "MEDIUM"
+    assert sev(a._xss_auditor("0")) == "OK"
+    assert sev(a._xss_auditor(None)) == "OK"
+
+
+def test_server_token_version_leak_is_minor():
+    assert sev(a._server_token("nginx/1.24.0")) == "MINOR"
+    assert sev(a._server_token("nginx")) == "OK"
+
+
+# ---- cookies ----
+def test_cookie_without_secure_on_https_is_severe():
+    findings = a._cookies(["sid=abc; Path=/"], https=True)
+    assert any(f.severity == "SEVERE" for f in findings)
+
+
+def test_cookie_secure_httponly_samesite_is_clean():
+    findings = a._cookies(["sid=abc; Secure; HttpOnly; SameSite=Lax"], https=True)
+    assert findings == []
+
+
+def test_cookie_missing_httponly_and_samesite():
+    findings = a._cookies(["sid=abc; Secure"], https=True)
+    sevs = sorted(f.severity for f in findings)
+    assert sevs == ["MEDIUM", "MINOR"]
+
+
+# ---- redirect ----
+def test_redirect_301_to_https_ok():
+    assert sev(a._redirect(301, "https://x/")) == "OK"
+
+
+def test_redirect_missing_is_severe():
+    assert sev(a._redirect(200, None)) == "SEVERE"
+
+
+def test_redirect_probe_failed_is_minor():
+    assert sev(a._redirect(None, None)) == "MINOR"
+
+
+# ---- mixed content ----
+def test_mixed_content_flags_http_subresource():
+    html = '<img src="http://cdn/x.png"><script src="https://ok/y.js"></script>'
+    findings = a._mixed_content(html, https=True)
+    assert findings and findings[0].severity == "SEVERE"
+
+
+def test_mixed_content_clean_https_only():
+    assert a._mixed_content('<img src="https://cdn/x.png">', https=True) == []
+
+
+def test_mixed_content_skipped_on_http_page():
+    assert a._mixed_content('<img src="http://cdn/x.png">', https=False) == []
+
+
+# ---- grade() + summarize() integration ----
+def test_grade_clean_site_has_no_severe_or_medium():
+    headers = {
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Content-Security-Policy": "default-src 'self'; object-src 'none'; frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=()",
+        "Server": "nginx",
+    }
+    findings = a.grade(headers, [], https=True, http_status=301, http_location="https://x/", html="")
+    counts = a.summarize(findings)
+    assert counts["SEVERE"] == 0 and counts["MEDIUM"] == 0
+
+
+def test_grade_bare_site_flags_severe():
+    findings = a.grade({}, [], https=True, http_status=200, http_location=None, html="")
+    counts = a.summarize(findings)
+    # missing HSTS, missing CSP, no https redirect -> at least 3 SEVERE
+    assert counts["SEVERE"] >= 3
+
+
+def test_summarize_counts_all_levels():
+    findings = [a.Finding("a", "SEVERE", ""), a.Finding("b", "MEDIUM", ""), a.Finding("c", "OK", "")]
+    counts = a.summarize(findings)
+    assert counts["SEVERE"] == 1 and counts["MEDIUM"] == 1 and counts["OK"] == 1 and counts["MINOR"] == 0
+
+
+# ---- regression: review fixes ----
+def test_mixed_content_ignores_anchor_href():
+    # a plain <a href="http://"> navigates away - it is NOT a mixed-content subresource
+    assert a._mixed_content('<a href="http://wikipedia.org/x">link</a>', https=True) == []
+
+
+def test_mixed_content_flags_srcset():
+    findings = a._mixed_content('<img srcset="http://cdn/x.png 1x, https://cdn/x2.png 2x">', https=True)
+    assert findings and findings[0].severity == "SEVERE"
+
+
+def test_mixed_content_flags_link_stylesheet():
+    findings = a._mixed_content('<link rel="stylesheet" href="http://cdn/x.css">', https=True)
+    assert findings and findings[0].severity == "SEVERE"
+
+
+def test_csp_report_only_is_minor():
+    assert a._csp("default-src 'self'", enforced=False).severity == "MINOR"
+
+
+def test_grade_report_only_csp_is_minor_and_clickjacking_still_flags():
+    # report-only CSP protects nothing: csp -> MINOR, and clickjacking must NOT read it as OK
+    headers = {"Content-Security-Policy-Report-Only": "default-src 'self'; frame-ancestors 'none'"}
+    findings = a.grade(headers, [], https=True, http_status=301, http_location="https://x/", html="")
+    by = {f.check: f.severity for f in findings}
+    assert by["csp"] == "MINOR"
+    assert by["clickjacking"] == "MEDIUM"
+
+
+def test_referrer_no_referrer_when_downgrade_is_minor():
+    assert a._referrer_policy("no-referrer-when-downgrade").severity == "MINOR"
+
+
+def test_coop_present_ok_missing_minor():
+    assert a._coop("same-origin-allow-popups").severity == "OK"
+    assert a._coop("same-origin").severity == "OK"
+    assert a._coop(None).severity == "MINOR"
+
+
+def test_redirect_302_to_https_is_medium():
+    assert a._redirect(302, "https://x/").severity == "MEDIUM"
+    assert a._redirect(307, "https://x/").severity == "MEDIUM"
+
+
+def test_server_token_product_name_with_digit_is_ok():
+    # AmazonS3 has a digit but no version pattern - must not be flagged
+    assert a._server_token("AmazonS3").severity == "OK"
+    assert a._server_token("nginx/1.24.0").severity == "MINOR"
+
+
+# ---- same-subnet / internal-target detection (enforce egress for public sites) ----
+def test_is_internal_ip_private_loopback_linklocal():
+    assert a._is_internal_ip("192.168.168.62")  # same-subnet split-horizon
+    assert a._is_internal_ip("10.0.0.1")
+    assert a._is_internal_ip("172.16.5.5")
+    assert a._is_internal_ip("127.0.0.1")  # loopback
+    assert a._is_internal_ip("169.254.1.1")  # link-local
+
+
+def test_is_internal_ip_public_and_garbage():
+    assert not a._is_internal_ip("88.116.105.146")  # public WAN
+    assert not a._is_internal_ip("8.8.8.8")
+    assert not a._is_internal_ip("not-an-ip")
+
+
+# --- mixed content: a <link> only counts when its rel actually LOADS something ---------------
+
+def _mixed(html):
+    return a._mixed_content(html, https=True)
+
+
+def test_link_canonical_over_http_is_not_mixed_content():
+    """rel=canonical is metadata; it loads nothing, so it cannot be mixed content."""
+    assert _mixed('<link rel="canonical" href="http://example.com/page">') == []
+
+
+def test_non_loading_link_rels_are_not_mixed_content():
+    for rel in ("canonical", "alternate", "dns-prefetch", "preconnect", "author", "license", "next"):
+        html = '<link rel="%s" href="http://example.com/x">' % rel
+        assert _mixed(html) == [], "rel=%s loads nothing" % rel
+
+
+def test_loading_link_rels_are_still_mixed_content():
+    for rel in ("stylesheet", "preload", "icon", "shortcut icon", "manifest", "apple-touch-icon"):
+        html = '<link rel="%s" href="http://example.com/x.css">' % rel
+        assert _mixed(html), "rel=%s does load a subresource" % rel
+
+
+def test_a_link_with_no_rel_is_treated_as_loading():
+    """Unknown or absent rel stays a finding: a security check fails loud, not silent."""
+    assert _mixed('<link href="http://example.com/x.css">')
+
+
+def test_other_subresource_tags_are_unaffected():
+    assert _mixed('<img src="http://example.com/a.png">')
+    assert _mixed('<script src="http://example.com/a.js"></script>')
+    assert _mixed('<a href="http://example.com/page">x</a>') == []      # navigation, not a load
+
+
+# ---- mixed content: unquoted attribute values (minified HTML) ----
+def test_mixed_content_flags_unquoted_http_src():
+    assert _mixed('<script src=http://cdn.example.com/app.js></script>')
+    assert _mixed('<img src=http://cdn.example.com/a.png>')
+
+
+def test_mixed_content_unquoted_https_src_is_clean():
+    assert _mixed('<script src=https://cdn.example.com/app.js></script>') == []
+
+
+# ---- cookies: attributes are compared by NAME, never as substrings of the line ----
+def test_cookie_name_containing_secure_is_not_the_secure_attribute():
+    findings = a._cookies(["secure_session=abc; HttpOnly; SameSite=Lax"], https=True)
+    assert [f.severity for f in findings] == ["SEVERE"]
+
+
+def test_cookie_path_or_domain_containing_secure_is_not_the_secure_attribute():
+    for raw in ("sid=abc; Path=/secure; HttpOnly; SameSite=Lax",
+                "sid=abc; Domain=secure.example.com; HttpOnly; SameSite=Lax"):
+        assert [f.severity for f in a._cookies([raw], https=True)] == ["SEVERE"], raw
+
+
+def test_cookie_value_containing_httponly_is_not_the_httponly_attribute():
+    findings = a._cookies(["pref=httponly; Secure; SameSite=Lax"], https=True)
+    assert [f.severity for f in findings] == ["MEDIUM"]
+
+
+def test_cookie_attribute_names_are_case_and_space_insensitive():
+    assert a._cookies(["sid=abc;secure ;  HTTPONLY; samesite=Strict"], https=True) == []
+
+
+# ---- clickjacking: frame-ancestors must actually restrict framing ----
+def test_clickjacking_frame_ancestors_wildcard_is_medium():
+    assert sev(a._clickjacking(None, "default-src 'self'; frame-ancestors *")) == "MEDIUM"
+
+
+def test_clickjacking_frame_ancestors_scheme_only_source_is_medium():
+    assert sev(a._clickjacking(None, "frame-ancestors https:")) == "MEDIUM"
+    assert sev(a._clickjacking(None, "frame-ancestors 'self' https:")) == "MEDIUM"
+
+
+def test_clickjacking_frame_ancestors_wildcard_is_not_rescued_by_xfo():
+    # browsers ignore X-Frame-Options when an enforced frame-ancestors is present
+    assert sev(a._clickjacking("DENY", "frame-ancestors *")) == "MEDIUM"
+
+
+def test_clickjacking_frame_ancestors_self_and_explicit_origins_ok():
+    assert sev(a._clickjacking(None, "frame-ancestors 'self'")) == "OK"
+    assert sev(a._clickjacking(None, "frame-ancestors 'self' https://partner.example.com")) == "OK"
+    assert sev(a._clickjacking(None, "FRAME-ANCESTORS 'NONE'")) == "OK"
+
+
+# CSP 3 host-source = [scheme "://"] host-part [":" port-part] [path-part]. A host-part that is a
+# bare "*" matches EVERY host, whatever scheme, port or path surrounds it.
+_ANY_HOST_SOURCES = [
+    "https://*", "http://*", "HTTPS://*", "wss://*",
+    "*:*", "*:443", "http://*:*", "https://*:443",
+    "*/", "https://*/", "*:*/x",
+]
+
+
+@pytest.mark.parametrize("source", _ANY_HOST_SOURCES)
+def test_clickjacking_frame_ancestors_bare_star_host_source_is_medium(source):
+    finding = a._clickjacking(None, f"frame-ancestors {source}")
+    assert sev(finding) == "MEDIUM", f"{source!r} lets any site frame the page but graded {finding}"
+    assert source.lower() in finding.detail
+
+
+def test_clickjacking_frame_ancestors_bare_star_host_beside_self_is_medium():
+    # one permissive source widens the whole list: 'self' does not narrow it back
+    assert sev(a._clickjacking(None, "frame-ancestors 'self' https://*:443")) == "MEDIUM"
+
+
+# ---- D12: a wildcard over ONE label (*.com) lets a whole top-level domain frame the page ----
+@pytest.mark.parametrize("source", ["*.com", "*.co", "https://*.com", "*.COM", "*.com:443",
+                                    "https://*.io:*", "*.com/"])
+def test_clickjacking_frame_ancestors_single_label_wildcard_is_minor(source):
+    finding = a._clickjacking(None, f"frame-ancestors {source}")
+    assert sev(finding) == "MINOR", f"{source!r} graded {finding}"
+    assert source.lower() in finding.detail
+    # The finding states its own blind spot: a two-label public suffix is not detected.
+    assert "*.co.uk" in finding.detail and "Public Suffix List" in finding.detail
+
+
+@pytest.mark.parametrize("source", ["*.example.com", "https://*.example.com", "*.co.uk"])
+def test_clickjacking_frame_ancestors_multi_label_wildcard_stays_ok(source):
+    """The control, and the stated gap: *.co.uk is a public suffix with two labels, and without
+    the Public Suffix List it reads exactly like the scoped *.example.com."""
+    assert sev(a._clickjacking(None, f"frame-ancestors {source}")) == "OK"
+
+
+def test_clickjacking_single_label_wildcard_beside_self_is_minor():
+    assert sev(a._clickjacking(None, "frame-ancestors 'self' *.com")) == "MINOR"
+
+
+def test_clickjacking_any_site_source_outranks_a_single_label_wildcard():
+    assert sev(a._clickjacking(None, "frame-ancestors *.com *")) == "MEDIUM"
+
+
+def test_clickjacking_across_policies_the_most_restrictive_list_decides():
+    # A frame loads only when EVERY enforced list allows it.
+    assert sev(a._frame_ancestors_finding(["*.com", "'none'"])) == "OK"
+    assert sev(a._frame_ancestors_finding(["*", "*.com"])) == "MINOR"
+    assert sev(a._frame_ancestors_finding(["*", "https:"])) == "MEDIUM"
+
+
+def test_clickjacking_frame_ancestors_bare_star_host_is_not_rescued_by_xfo():
+    assert sev(a._clickjacking("DENY", "frame-ancestors https://*")) == "MEDIUM"
+
+
+def test_grade_flags_bare_star_host_frame_ancestors_through_the_response_headers():
+    headers = {"Content-Security-Policy": "default-src 'self'; frame-ancestors https://*:443",
+               "X-Frame-Options": "DENY"}
+    findings = a.grade(headers, [], https=True, http_status=301, http_location="https://h/")
+    clickjacking = [f for f in findings if f.check == "clickjacking"]
+    assert [f.severity for f in clickjacking] == ["MEDIUM"]
+
+
+# Scoped wildcards and explicit origins restrict framing: they must stay OK.
+_RESTRICTING_SOURCES = [
+    "'self'", "'none'", "https://app.example.com", "https://*.example.com", "*.example.com",
+    "https://*.example.com:443", "https://app.example.com:*", "app.example.com:*",
+    "https://app.example.com/*", "'self' https://*.example.com:*",
+]
+
+
+@pytest.mark.parametrize("sources", _RESTRICTING_SOURCES)
+def test_clickjacking_frame_ancestors_scoped_sources_stay_ok(sources):
+    finding = a._clickjacking(None, f"frame-ancestors {sources}")
+    assert sev(finding) == "OK", f"{sources!r} restricts framing but graded {finding}"
+
+
+def test_clickjacking_directive_named_like_frame_ancestors_does_not_count():
+    # only a directive whose NAME is frame-ancestors counts, not a substring elsewhere
+    assert sev(a._clickjacking(None, "default-src 'self'; report-uri /frame-ancestors")) == "MEDIUM"
+
+
+# ---- CSP: directives are matched by name, not by prefix ----
+def test_csp_script_src_elem_before_script_src_does_not_hide_unsafe_inline():
+    policy = "script-src-elem 'self'; script-src 'self' 'unsafe-inline'; object-src 'none'"
+    assert sev(a._csp(policy)) == "MEDIUM"
+
+
+def test_csp_default_src_fallback_is_graded():
+    assert sev(a._csp("default-src 'self' 'unsafe-inline'")) == "MEDIUM"
+
+
+@pytest.mark.parametrize("policy", [
+    "object-src 'none'; frame-ancestors 'none'",       # no script directive and no default-src
+    "object-src 'none', object-src 'none'",            # two policies, neither restricts scripts
+    "script-src-elem 'self'; object-src 'none'",       # handlers and CSP 2 browsers unrestricted
+])
+def test_csp_that_restricts_no_scripts_is_medium(policy):
+    """A policy with no script-src and no default-src places no restriction on scripts at all,
+    which mitigates XSS less than 'unsafe-inline' does."""
+    finding = a._csp(policy)
+    assert sev(finding) == "MEDIUM"
+    assert "script" in finding.detail
+
+
+def test_csp_one_policy_restricting_scripts_is_enough():
+    """Control: every policy is enforced, so one that restricts scripts restricts them."""
+    assert sev(a._csp("object-src 'none', default-src 'self'")) == "OK"
+
+
+def test_csp_without_object_or_default_src_is_minor():
+    assert sev(a._csp("script-src 'self'")) == "MINOR"
+
+
+def test_csp_nonce_or_hash_makes_fallback_unsafe_inline_ignored():
+    strict = "script-src 'nonce-r4nd0m' 'strict-dynamic' 'unsafe-inline' https:; object-src 'none'; base-uri 'none'"
+    assert sev(a._csp(strict)) == "OK"
+    hashed = "script-src 'sha256-abc=' 'unsafe-inline'; object-src 'none'"
+    assert sev(a._csp(hashed)) == "OK"
+
+
+def test_csp_unsafe_inline_without_nonce_or_hash_still_medium():
+    assert sev(a._csp("script-src 'self' 'unsafe-inline'; object-src 'none'")) == "MEDIUM"
+
+
+# ---- HSTS: the quoted max-age form is legal (RFC 6797) ----
+def test_hsts_quoted_max_age_is_read():
+    assert sev(a._hsts('max-age="31536000"; includeSubDomains', https=True)) == "OK"
+
+
+# ---- repeated headers arrive joined with ", " ----
+def test_nosniff_repeated_header_is_ok():
+    assert sev(a._nosniff("nosniff, nosniff")) == "OK"
+    assert sev(a._nosniff("nosniff, garbage")) == "OK"  # Fetch: the FIRST value decides
+
+
+def test_nosniff_first_value_not_nosniff_is_medium():
+    assert sev(a._nosniff("garbage, nosniff")) == "MEDIUM"
+
+
+def test_xfo_repeated_identical_values_ok():
+    assert sev(a._clickjacking("DENY, DENY", None)) == "OK"
+
+
+# HTML "check a navigation response's adherence to X-Frame-Options": more than one distinct value,
+# any of them deny / sameorigin / allowall, BLOCKS framing outright - Chrome logs "conflicting
+# values ... Falling back to 'deny'". Grading that as unprotected is a false FAIL.
+@pytest.mark.parametrize("xfo", ["DENY, SAMEORIGIN", "sameorigin, deny", "deny, allowall",
+                                 "allowall, garbage"])
+def test_xfo_conflicting_values_block_framing_and_grade_ok(xfo):
+    finding = a._clickjacking(xfo, None)
+    assert sev(finding) == "OK", finding
+    assert "conflicting" in finding.detail
+
+
+@pytest.mark.parametrize("xfo", ["allowall", "ALLOWALL, allowall", "garbage, junk",
+                                 "ALLOW-FROM https://partner.example"])
+def test_xfo_values_that_allow_framing_stay_medium_and_name_the_value(xfo):
+    finding = a._clickjacking(xfo, None)
+    assert sev(finding) == "MEDIUM", finding
+    assert "no X-Frame-Options" not in finding.detail
+    assert xfo.split(",")[0].strip().lower() in finding.detail.lower()
+
+
+def test_xfo_absent_still_reads_as_missing():
+    assert "no X-Frame-Options" in a._clickjacking(None, None).detail
+
+
+def test_referrer_policy_repeated_header_uses_last_recognised_token():
+    assert sev(a._referrer_policy("strict-origin-when-cross-origin, strict-origin-when-cross-origin")) == "OK"
+    assert sev(a._referrer_policy("no-referrer, unsafe-url")) == "MINOR"
+    assert sev(a._referrer_policy("unsafe-url, no-referrer")) == "OK"
+
+
+def test_grade_repeated_nosniff_and_xfo_headers_do_not_read_as_missing():
+    headers = {"X-Content-Type-Options": "nosniff, nosniff", "X-Frame-Options": "DENY, DENY"}
+    by = {f.check: f.severity for f in a.grade(headers, [], https=True, http_status=301,
+                                                   http_location="https://x/", html="")}
+    assert by["x-content-type-options"] == "OK"
+    assert by["clickjacking"] == "OK"
+
+
+# ---- information leakage: framework version headers ----
+def test_grade_flags_x_powered_by_version():
+    findings = a.grade({"X-Powered-By": "PHP/8.1.2", "Server": "nginx"}, [], https=True,
+                       http_status=301, http_location="https://x/")
+    by = {f.check: f for f in findings}
+    assert by["server-token"].severity == "OK"
+    assert by["x-powered-by-token"].severity == "MINOR"
+    assert "8.1.2" in by["x-powered-by-token"].detail
+
+
+def test_grade_flags_x_aspnet_version():
+    findings = a.grade({"X-AspNet-Version": "4.0.30319"}, [], https=True,
+                       http_status=301, http_location="https://x/")
+    assert {f.check: f.severity for f in findings}["x-aspnet-version-token"] == "MINOR"
+
+
+def test_grade_x_powered_by_without_version_is_ok_and_absent_adds_nothing():
+    by = {f.check: f.severity for f in a.grade({"X-Powered-By": "Express"}, [], https=True,
+                                               http_status=301, http_location="https://x/")}
+    assert by["x-powered-by-token"] == "OK"
+    absent = {f.check for f in a.grade({}, [], https=True, http_status=301, http_location="https://x/")}
+    assert "x-powered-by-token" not in absent
+
+
+# ---- internal-target detection: CGNAT / Tailscale ----
+def test_is_internal_ip_cgnat():
+    assert a._is_internal_ip("100.101.102.103")
+    assert a._is_internal_ip("100.64.0.1")
+    assert not a._is_internal_ip("100.128.0.1")  # just outside 100.64.0.0/10
+
+
+# ---- mixed content: only a real loading ATTRIBUTE counts, matched by its whole name ----
+def test_mixed_content_ignores_data_prefixed_lazy_load_attributes():
+    # data-src / data-href are inert until page JS copies them; the browser loads the https src.
+    assert _mixed('<img src="https://cdn/x.png" data-src="http://cdn/lazy.png">') == []
+    assert _mixed('<link rel="stylesheet" href="https://cdn/x.css" data-href="http://cdn/y.css">') == []
+    assert _mixed('<img src="https://cdn/x.png" data-srcset="http://cdn/a.png 1x">') == []
+
+
+def test_mixed_content_ignores_attribute_names_inside_another_value():
+    assert _mixed('<img alt="see src=http://cdn/a.png" src="https://cdn/x.png">') == []
+
+
+def test_mixed_content_still_flags_real_attributes_next_to_data_ones():
+    assert _mixed('<img data-src="https://cdn/lazy.png" src="http://cdn/x.png">')
+    assert _mixed('<object data="http://cdn/x.swf"></object>')
+    assert _mixed('<img\nsrc=http://cdn/a.png>')
+
+
+def test_mixed_content_ignores_markup_inside_comments_and_script_text():
+    assert _mixed('<!-- <img src="http://cdn/old.png"> --><img src="https://cdn/x.png">') == []
+    assert _mixed('<script>var t = \'<img src="http://cdn/x.png">\';</script>') == []
+
+
+def test_mixed_content_reads_a_quoted_value_holding_a_closing_bracket():
+    assert _mixed('<img alt="a > b" src="http://cdn/x.png">')
+
+
+def test_mixed_content_flags_video_poster():
+    assert _mixed('<video poster="http://cdn/p.jpg" src="https://cdn/v.mp4"></video>')
+
+
+# ---- CSP Level 3: script-src-elem / script-src-attr override script-src ----
+def test_csp_unsafe_inline_in_script_src_elem_is_medium():
+    finding = a._csp("script-src 'self'; script-src-elem 'self' 'unsafe-inline'; object-src 'none'")
+    assert sev(finding) == "MEDIUM"
+    assert "script-src-elem" in finding.detail
+
+
+def test_csp_unsafe_inline_in_script_src_attr_is_medium():
+    finding = a._csp("script-src 'self'; script-src-attr 'unsafe-inline'; object-src 'none'")
+    assert sev(finding) == "MEDIUM"
+    assert "script-src-attr" in finding.detail
+
+
+def test_csp_elem_and_attr_without_unsafe_inline_stay_ok():
+    policy = "script-src 'self'; script-src-elem 'self'; script-src-attr 'none'; object-src 'none'"
+    assert sev(a._csp(policy)) == "OK"
+
+
+def test_csp_nonce_in_script_src_elem_neutralises_its_unsafe_inline():
+    policy = "script-src 'self'; script-src-elem 'nonce-r4nd0m' 'unsafe-inline'; object-src 'none'"
+    assert sev(a._csp(policy)) == "OK"
+
+
+def test_csp_unsafe_eval_is_governed_by_script_src_only():
+    # eval() consults script-src (then default-src); an 'unsafe-eval' in script-src-elem is ignored
+    policy = "script-src 'self'; script-src-elem 'self' 'unsafe-eval'; object-src 'none'"
+    assert sev(a._csp(policy)) == "OK"
+
+
+def test_csp_unsafe_eval_falls_back_to_default_src():
+    # no script-src, so eval() is governed by default-src
+    finding = a._csp("default-src 'self' 'unsafe-eval'")
+    assert sev(finding) == "MEDIUM"
+    assert "'unsafe-eval'" in finding.detail
+
+
+def test_csp_script_src_overrides_a_default_src_unsafe_eval():
+    assert sev(a._csp("default-src 'self' 'unsafe-eval'; script-src 'self'")) == "OK"
+
+
+# ---- a CSP header sent twice reaches us joined with ", ": that is TWO policies ----
+# CSP 3 parses a header value as a comma-separated LIST of policies and enforces every one, so
+# something is allowed only when every policy allows it. Read as one policy, the comma glues the
+# second policy's first directive onto the first policy's last source list.
+def test_joined_csp_frame_ancestors_star_in_the_first_policy_is_medium():
+    finding = a._clickjacking(None, "frame-ancestors *, default-src 'self'")
+    assert sev(finding) == "MEDIUM", finding
+
+
+def test_joined_csp_any_restrictive_frame_ancestors_protects_the_page():
+    assert sev(a._clickjacking(None, "frame-ancestors *, frame-ancestors 'self'")) == "OK"
+    assert sev(a._clickjacking(None, "default-src 'self'; frame-ancestors 'none', script-src *")) == "OK"
+
+
+def test_joined_csp_frame_ancestors_in_the_second_policy_counts():
+    assert sev(a._clickjacking("SAMEORIGIN", "default-src 'self', frame-ancestors *")) == "MEDIUM"
+
+
+def test_joined_csp_unsafe_inline_is_medium_when_no_other_policy_restricts_scripts():
+    assert sev(a._csp("script-src 'unsafe-inline', img-src 'self'")) == "MEDIUM"
+
+
+def test_joined_csp_unsafe_inline_is_blocked_by_a_second_policy():
+    assert sev(a._csp("script-src 'self', script-src 'unsafe-inline'; object-src 'none'")) == "OK"
+    assert sev(a._csp("default-src 'self', script-src 'self' 'unsafe-eval'")) == "OK"
+
+
+def test_joined_csp_unsafe_eval_is_medium_when_every_policy_allows_it():
+    policy = "default-src 'self' 'unsafe-eval', script-src 'unsafe-eval'"
+    assert sev(a._csp(policy)) == "MEDIUM"

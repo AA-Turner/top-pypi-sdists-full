@@ -1,0 +1,1658 @@
+"""Move an entity along a trajectory: the engine behind ``RoutingAction``.
+
+What OpenSCENARIO's trajectory-following action does, with the same four parts
+-- the trajectory, its time reference, the following mode and an initial
+distance offset (see :mod:`autoware_carla_scenario.trajectory.model`).  It is
+not a scenario action of its own any more: a
+:class:`~autoware_carla_scenario.actions.RoutingAction` in ``follow`` or
+``position`` mode runs on it, and so do the adversities that drive a planned
+path (:mod:`._adversarial_execution`, :mod:`.stalled_object`).
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+from typing import TYPE_CHECKING, Callable, Optional, Union
+
+from ..action_state import ActionState
+from ..conditions import BaseCondition
+from ..conditions.base import ScenarioResult
+from ..coordinate.poses import CarlaWorldPose
+from ..entity.pedestrian_entity import (
+    WALKER_LOOKAHEAD_M,
+    steer_walker,
+    walker_control_speed,
+)
+from ..entity.registry import find_pedestrian_entity, find_vehicle_entity
+from ..entity_role import EntityRole
+from ..kinematics.vector import Vector3
+from ..kinematics.walker_motion import WalkerVelocities, is_walker, simulated_seconds
+from ..trajectory.model import (
+    ReferenceContext,
+    ResolvedTrajectory,
+    Trajectory,
+    TrajectoryFollowingMode,
+    TrajectorySample,
+    TrajectoryTiming,
+)
+from ._departures import DepartureTimeline, TimelineVertex
+from ..utils.vehicles import as_vehicle
+from ..control_domain import ControlDomain, movement_of
+from .base import BaseAction, TickTiming
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+    from carla_driver_interface.geometry import Trajectory as _Plan
+
+    from ..driver.control import ControlConfig, TrajectoryFollower
+    from ..entity.pedestrian_entity import PedestrianEntity
+    from ..traffic.driven import BackendDriven
+
+logger = logging.getLogger(__name__)
+
+#: How far before its end (s) a run that does not stop is sampled at last, so
+#: the entity keeps the last segment's velocity there.
+_END_EPSILON_S = 1e-6
+
+__all__ = ["ARRIVAL_TOLERANCE_M", "HIDDEN_DEPTH_M", "TrajectoryRun"]
+
+#: How near the end of the path (m) a followed trajectory counts as finished.
+#: A controller tracks a target rather than sitting on it, so ``follow`` mode
+#: needs a band; ``position`` mode is on the path and needs none.
+ARRIVAL_TOLERANCE_M: float = 1.0
+
+#: How far under the road (m) a hidden entity is parked: out of every sensor's
+#: view and of every other actor's way.
+HIDDEN_DEPTH_M: float = 500.0
+
+#: How far ahead of the entity (m) the controller is shown the path.  Past the
+#: lookahead the controller never looks, and a window keeps a path that passes
+#: the same place twice from being steered towards its other pass.
+_PLAN_HORIZON_M = 60.0
+#: How far behind the entity (m) the plan starts, so the controller's own
+#: projection onto it has a segment to land on.
+_PLAN_BEHIND_M = 2.0
+#: Below this speed (m/s) an untimed trajectory is not moving at all.
+_STANDSTILL_MPS = 0.05
+#: How far ahead (m) a walker following the path is aimed.
+_WALKER_LOOKAHEAD_M = WALKER_LOOKAHEAD_M
+#: How near (m) a walker has to come to a waiting vertex to have reached it.
+#: A walker stops where it is told to, so it needs less of a band than a car.
+_WALKER_GATE_TOLERANCE_M = 0.3
+#: The slowest (m/s) a walker is sent towards a waiting vertex it has not
+#: reached yet, so that it gets there rather than creeping up on it for ever.
+_WALKER_GATE_CREEP_MPS = 0.5
+#: The deceleration (m/s²) a ``FOLLOW`` plan brakes at to stop at a vertex
+#: whose condition has not held yet.
+_GATE_DECELERATION_MPS2 = 2.0
+#: A timed path that moves less than this (m) over its last
+#: _AT_REST_WINDOW_S ends at rest: a vehicle there waits for its end time.
+_AT_REST_DISTANCE_M = 0.05
+_AT_REST_WINDOW_S = 0.5
+#: How far past now (s) a plan stamp may lie: a segment that is never
+#: finished (no speed to go at) is stamped this far off rather than at
+#: infinity.
+_PLAN_FAR_S = 3600.0
+
+
+class TrajectoryRun(BaseAction):
+    """Make an entity follow a trajectory (as OpenSCENARIO follows one).
+
+    **Time reference.**  With a :class:`~autoware_carla_scenario.TrajectoryTiming`
+    the entity is where the trajectory says at each moment: a vertex at time
+    ``τ`` is reached at ``τ * scale + offset`` seconds after the scenario
+    (``ReferenceContext.ABSOLUTE``) or the action (``RELATIVE``) started.  With
+    ``None`` -- OpenSCENARIO's ``<None/>`` -- the vertex times are ignored and
+    the entity goes along the path at the speed it had when the action
+    started, so give it an initial speed or use a timing.
+
+    **Following mode.**  ``POSITION`` places the entity on the trajectory every
+    tick, with the velocity the trajectory implies: a kinematic replay that
+    reproduces a recording exactly, whatever the vehicle could actually do.
+    ``FOLLOW`` drives it there with the pure-pursuit and speed controller the
+    driver interface uses (:class:`~autoware_carla_scenario.driver.control.TrajectoryFollower`,
+    by default with its ``time_indexed`` longitudinal controller, which tracks
+    the trajectory's clock), so the motion is the vehicle's own.  A pedestrian is walked towards the
+    path in ``FOLLOW`` mode.
+
+    **Who drives.**  For the length of the run the action is the entity's only
+    driver: a vehicle is taken back from the traffic backend first (see
+    :meth:`~autoware_carla_scenario.traffic.base.TrafficBackend.release`), and
+    an ego driven by an external stack (Autoware, a driver policy) is refused,
+    because two authorities on one vehicle is not a scenario anyone wrote.
+    When the run ends a vehicle is braked to a stop (unless *stop_at_end* is
+    off) and a walker stood still, where the trajectory ended.
+
+    **Waypoint conditions.**  Each vertex is departed on its condition
+    (:attr:`~autoware_carla_scenario.TrajectoryVertex.advance`): a time
+    (``TrajectoryTimeCondition``) -- on the trajectory's clock, so only with a
+    time reference, and ignored without one -- any other condition, or
+    nothing (on arrival).  A trajectory whose vertices carry
+    times alone, or nothing at all, moves exactly as described above.  Once a
+    vertex carries another condition (:attr:`Trajectory.is_gated`), the
+    segment from a vertex departed at scenario time ``T`` to the next one
+    arrives at the next vertex's time if it has one not before ``T`` (the
+    timed interpolation), and otherwise goes at the action's *speed* -- so
+    after a late departure, a next vertex whose time is at or just after it
+    is reached at once (a jump in ``POSITION``; ``FOLLOW`` cannot keep up and
+    drives as fast as it can).  In ``POSITION`` mode a vertex's condition is
+    checked from the tick the entity reaches it (``FOLLOW``: see below), then
+    every tick while it waits there -- standing still, at zero velocity -- with
+    the scenario's elapsed time, as a trigger is; once it holds it is passed
+    for that run (and, on a closed path, that lap).  If it holds on arrival
+    the entity does not stop.  A condition that never holds keeps the entity
+    there until ``until=`` ends the run.
+
+    In ``FOLLOW`` mode a vehicle cannot stop in a tick, so a vertex with a
+    condition still to hold is a stop line: the controller's plan ends on it,
+    braking at 2 m/s².  So the condition is checked *before* arrival, from
+    as far off as stopping there takes, and one that holds then is passed --
+    the vehicle goes through at speed even if it would no longer hold on
+    arrival, and a ``PersistentCondition`` starts counting from there; one
+    that does not is looked at every tick after.  The last vertex of an open
+    path is the exception: it is checked only on arrival.  The
+    vehicle has reached the vertex within :data:`ARRIVAL_TOLERANCE_M` of it
+    along the path (a walker within 0.3 m), and waits there on the brake (a
+    walker standing).  On a closed path ``FOLLOW`` finds where the entity is
+    by projecting it near where it was, which does not wrap from the end of
+    the path to its start, so its gates are reliable on the first lap only;
+    ``POSITION`` re-arms them on every lap.
+
+    **End.**  The run is
+    :attr:`~autoware_carla_scenario.action_state.ActionState.RUNNING` until the
+    entity reaches the end of the trajectory: the last vertex's time with a
+    timing, the end of the path without one (never, for a closed trajectory),
+    within :data:`ARRIVAL_TOLERANCE_M` of it in ``FOLLOW`` mode.  A last vertex
+    with another condition is waited at, and the run ends when it holds.
+
+    Args:
+        entity_name: ``role_name`` of the vehicle or pedestrian to move.
+        trajectory: What to follow.
+        time_reference: How the vertex times map onto the scenario clock;
+            ``None`` ignores them.  A timing needs a timed trajectory.
+        following_mode: ``POSITION`` (default) or ``FOLLOW``.
+        initial_distance_offset: Start this many metres along the trajectory
+            instead of at its first vertex.  With a timing, the clock starts at
+            the time the trajectory reaches that point.
+        condition: Trigger condition (see :class:`BaseCondition`).
+        timing: Tick phase.  Pre-tick (default), so the pose set is the one the
+            world then advances from.
+        label: Human-readable identifier.
+        once: If ``True`` (default) the action fires at most once.
+        overrides: Take over a control domain of the entity another action
+            holds (:attr:`~BaseAction.overrides`).
+        until: Overrides what ends the run; defaults to reaching the end of
+            the trajectory as above.  One that ends a run before the entity
+            reaches the end stops the entity and gives a vehicle back to its
+            traffic backend, as an override does; one that ends it after
+            leaves the entity held at the end.
+        control_config: Gains for ``FOLLOW`` mode; ``None`` uses the
+            controller's defaults with the ``time_indexed`` longitudinal
+            controller, which keeps the vehicle where the trajectory's clock
+            has it (the ego's default, Autoware's ``pid``, follows a plan's
+            speeds wherever the vehicle is on it).
+        speed: The speed (m/s) the entity goes at where no vertex time paces
+            it: without a time reference, and on a gated trajectory's segments
+            that end at no time (or a time already past).  ``None`` (default)
+            takes the speed the entity had when the run started.
+        hidden_outside_trajectory: Keep the entity out of the world while the
+            trajectory's clock is before its first vertex or past its last:
+            parked under the map with its physics off, so it neither shows nor
+            collides.  What a recording needs for a road user that enters it
+            late or leaves it early, since an entity cannot be spawned once a
+            run has started.  Not part of OpenSCENARIO; needs ``POSITION`` mode
+            and a time reference.  On a gated trajectory: until the first
+            vertex is departed on its time, and after the run ends.
+        stop_at_end: Brake a vehicle to a stop where the trajectory ends
+            (default).  ``False`` leaves it moving as it arrived, for an
+            action that hands it back to traffic at once (an adversarial
+            manoeuvre, :meth:`~autoware_carla_scenario.traffic.driven.BackendDriven.resume_traffic`);
+            a walker is stood still either way.
+
+    Raises:
+        ValueError: If a timing is given for an untimed trajectory, the
+            initial distance offset or the speed is negative,
+            or *hidden_outside_trajectory* is asked for without ``POSITION``
+            mode and a time reference.
+    """
+
+    #: The command is a pose (or a control) for this tick only: the action
+    #: moves the entity by being executed again on every tick of the run.
+    REISSUES_BY_DEFAULT = True
+
+    _entity_name: Union[EntityRole, str]
+    _trajectory: Trajectory
+    _time_reference: Optional[TrajectoryTiming]
+    _following_mode: TrajectoryFollowingMode
+    _initial_distance_offset: float
+    _given_offset: float
+    _control_config: Optional[ControlConfig]
+    _hidden_outside: bool
+    _stop_at_end: bool
+    _given_speed: Optional[float]
+    _gated: bool
+    _timeline: Optional[DepartureTimeline]
+    _waiting: bool
+    _held_at: Optional[int]
+    _progress: float
+    _last_here: float
+    _resolved: Optional[ResolvedTrajectory]
+    _elapsed: float
+    _finished: bool
+    _warned_missing: bool
+    _warned_absent: bool
+    _start_time: float
+    _clock_shift: float
+    _distance: float
+    _speed: float
+    _follower: Optional[TrajectoryFollower]
+    _released: bool
+    _hidden: bool
+    _begun: bool
+
+    def __init__(
+        self,
+        entity_name: Union[EntityRole, str],
+        trajectory: Trajectory,
+        time_reference: Optional[TrajectoryTiming] = None,
+        following_mode: TrajectoryFollowingMode = TrajectoryFollowingMode.POSITION,
+        initial_distance_offset: float = 0.0,
+        condition: Optional[BaseCondition] = None,
+        timing: TickTiming = TickTiming.PRE_TICK,
+        *,
+        label: str = "trajectory_run",
+        once: bool = True,
+        overrides: bool = False,
+        until: Optional[BaseCondition] = None,
+        control_config: Optional["ControlConfig"] = None,
+        hidden_outside_trajectory: bool = False,
+        speed: Optional[float] = None,
+        stop_at_end: bool = True,
+    ) -> None:
+        if hidden_outside_trajectory and (
+            time_reference is None
+            or following_mode is not TrajectoryFollowingMode.POSITION
+        ):
+            raise ValueError(
+                "hidden_outside_trajectory needs POSITION mode and a time "
+                "reference: only a timed replay knows when the entity is absent"
+            )
+        if time_reference is not None and not trajectory.has_times:
+            raise ValueError(
+                f"trajectory {trajectory.name!r} has no vertex times, so a "
+                "time reference has nothing to apply to; pass time_reference=None"
+            )
+        if initial_distance_offset < 0.0:
+            raise ValueError("initial_distance_offset must not be negative")
+        if speed is not None and not speed >= 0.0:
+            raise ValueError("speed must not be negative")
+        # An if statement, not a conditional expression: Codon does not take
+        # a subclass for an Optional of its base there (docs/typecheck.md).
+        ending: Optional[BaseCondition] = until
+        if ending is None:
+            end: BaseCondition = _TrajectoryEnd(self, label)
+            ending = end
+        super().__init__(
+            label=label,
+            condition=condition,
+            timing=timing,
+            once=once,
+            overrides=overrides,
+            until=ending,
+        )
+        self._entity_name = entity_name
+        self._trajectory = trajectory
+        self._time_reference = time_reference
+        self._following_mode = following_mode
+        self._initial_distance_offset = float(initial_distance_offset)
+        # As given: a run may move the offset to where its entity stands.
+        self._given_offset = self._initial_distance_offset
+        self._control_config = control_config
+        self._hidden_outside = hidden_outside_trajectory
+        self._stop_at_end = stop_at_end
+        self._given_speed = None if speed is None else float(speed)
+        # Departure conditions other than times: the timeline engine.
+        self._gated = trajectory.is_gated
+        self._timeline = None
+        self._waiting = False
+        self._held_at = None
+        self._progress = 0.0
+        self._last_here = 0.0
+
+        self._resolved = None
+        self._elapsed = 0.0
+        # Per run.
+        self._finished = False
+        self._warned_missing = False
+        self._warned_absent = False
+        self._start_time = 0.0
+        self._clock_shift = 0.0
+        self._distance = 0.0
+        self._speed = 0.0
+        self._follower = None
+        self._released = False
+        self._hidden = False
+        self._begun = False
+
+    def reset(self) -> None:
+        """Forget the earlier runs (:meth:`BaseAction.reset`): the trajectory
+        is placed, and the entity -- the run's own, spawned anew -- taken
+        from its driver, afresh."""
+        super().reset()
+        self._initial_distance_offset = self._given_offset
+        self._timeline = None
+        self._waiting = False
+        self._held_at = None
+        self._progress = 0.0
+        self._last_here = 0.0
+        self._resolved = None
+        self._elapsed = 0.0
+        self._finished = False
+        self._warned_missing = False
+        self._warned_absent = False
+        self._start_time = 0.0
+        self._clock_shift = 0.0
+        self._distance = 0.0
+        self._speed = 0.0
+        self._follower = None
+        self._released = False
+        self._hidden = False
+        self._begun = False
+
+    # ------------------------------------------------------------------
+    # Public state
+    # ------------------------------------------------------------------
+
+    @property
+    def trajectory(self) -> Trajectory:
+        """The trajectory followed."""
+        return self._trajectory
+
+    @property
+    def needs_tick_loop(self) -> bool:
+        """Always: the entity is moved (or held, or hidden) a tick at a time
+        until the trajectory, or *until*, ends the run."""
+        return True
+
+    @property
+    def finished(self) -> bool:
+        """Whether the current run has reached the end of the trajectory."""
+        return self._finished
+
+    @property
+    def held_vertex(self) -> Optional[int]:
+        """The vertex (0-based) the entity waits at for its ``advance`` condition.
+
+        ``None`` while it moves, waits on a time, and before and after a run
+        -- however the run ended, an ``until=`` condition included.
+        """
+        if self._finished or self.state is not ActionState.RUNNING:
+            return None
+        return self._held_at
+
+    # ------------------------------------------------------------------
+    # BaseAction interface
+    # ------------------------------------------------------------------
+
+    def tick(self, world: "carla.World", elapsed: float) -> None:
+        """Remember the scenario time, which :meth:`execute` is not given;
+        a run its ``until`` condition ends before the trajectory's end gives
+        its entity back, as an overridden one does (:meth:`_stopped`)."""
+        self._elapsed = elapsed
+        super().tick(world, elapsed)
+        if self.state is ActionState.END_TRANSITION and not self._finished:
+            # OpenSCENARIO's stop transition, not arrival: an entity that
+            # reached the end is held there instead (stop_at_end).
+            self._stopped(world)
+
+    def _control_claims(self) -> list[tuple[str, ControlDomain]]:
+        """The entity's movement: it is driven, or placed, along the trajectory."""
+        return movement_of(str(self._entity_name))
+
+    def execute(self, world: "carla.World") -> None:
+        """Move the entity one tick along the trajectory."""
+        if self.state is ActionState.STANDBY:
+            # The trigger's call: a new run begins, on the first call that
+            # finds the entity (and, for a relative trajectory, its references).
+            self._begun = False
+            # Not until it has run: a run waiting for its entity or its
+            # references must not end on the last run's arrival.
+            self._finished = False
+            self._warned_missing = False
+            if self._trajectory.is_relative:
+                # Placed against where the reference entities are now, at
+                # every start of a run rather than once for all of them.
+                self._resolved = None
+        self._drive_target(world)
+
+    def _drive_target(self, world: "carla.World") -> None:
+        """Move what this action drives one tick: the entity its role names."""
+        # The entity of any kind the role names: a vehicle first, then a
+        # pedestrian, as find_entity_by_role_name finds it.  Looked up by
+        # kind, so the static check knows its type (docs/typecheck.md).
+        vehicle = find_vehicle_entity(self._entity_name)
+        if vehicle is not None:
+            driven: BackendDriven = vehicle
+            self._move(world, driven)
+            return
+        pedestrian = find_pedestrian_entity(self._entity_name)
+        if pedestrian is None:
+            self._entity_absent()
+            return
+        walking: PedestrianEntity = pedestrian
+        self._move(world, walking)
+
+    def _entity_absent(self) -> None:
+        """The entity is not (or no longer) in the world -- despawned, or
+        never spawned: said once, and a run it was on ends."""
+        if not self._warned_absent:
+            self._warned_absent = True
+            logger.warning(
+                "%s: entity '%s' not found; nothing to move",
+                self.label,
+                str(self._entity_name),
+            )
+        if self._begun:
+            self._finished = True
+
+    def _move(
+        self, world: "carla.World", entity: Union[BackendDriven, PedestrianEntity]
+    ) -> None:
+        """Move the *entity* :meth:`execute` found one tick along the trajectory."""
+        # `hasattr`, which Codon decides by the static type: BackendDriven, the
+        # mixin, declares no actor (the entities it is mixed into do).  At run
+        # time it reads the actor as getattr(entity, "actor", None) did.
+        maybe_actor: Optional[carla.Actor] = None
+        if hasattr(entity, "actor"):
+            maybe_actor = entity.actor
+        if maybe_actor is None:
+            logger.warning("%s: '%s' has no actor", self.label, str(self._entity_name))
+            return
+        actor: carla.Actor = maybe_actor
+        if hasattr(entity, "use_autopilot") and entity.use_autopilot is False:
+            logger.warning(
+                "%s: '%s' is driven by an external stack and "
+                "cannot also follow a trajectory",
+                self.label,
+                str(self._entity_name),
+            )
+            return
+        if self._resolved is None:
+            self._resolved = self._resolve(world)
+            if self._resolved is None:
+                return
+        if not self._begun:
+            # The trigger's call begins a run -- or, when the entity was not
+            # there to begin it with, the first call that finds it.
+            self._begin(world, actor)
+            self._take_over(world, entity)
+        self._advance(world, actor)
+
+    def _take_over(
+        self, world: "carla.World", entity: Union[BackendDriven, PedestrianEntity]
+    ) -> None:
+        """Take *entity* from its traffic backend, once for the action."""
+        if self._released:
+            return
+        if TYPE_CHECKING:
+            # Codon decides hasattr by the static type: a vehicle has the
+            # method, a pedestrian does not.
+            if hasattr(entity, "release_from_traffic"):
+                entity.release_from_traffic(world)
+        else:
+            # At run time an entity may also have it as None, which
+            # releases nothing (Codon has no getattr default).
+            release = getattr(entity, "release_from_traffic", None)
+            if release is not None:
+                release(world)
+        self._released = True
+
+    def _stopped(self, world: "carla.World") -> None:
+        """Overridden mid-run (:meth:`BaseAction._stopped`), or ended before
+        the trajectory's end by ``until``: the entity the run
+        took from its driver is stopped where it is -- a vehicle braked, a
+        walker stood still -- and a vehicle handed back to its traffic backend
+        (:meth:`~autoware_carla_scenario.traffic.driven.BackendDriven.resume_traffic`),
+        so that the action taking over commands it from a standstill rather
+        than leave it on the follower's last pedals and steer, out of reach
+        of the backend's speed commands.
+
+        An actor hidden by ``hidden_outside_trajectory`` is left where it is
+        parked, below the ground: showing it would need a pose outside the
+        trajectory's times.
+        """
+        if not self._released or self._hidden:
+            return
+        # Given back: a later run of the action takes it over afresh.
+        self._released = False
+        self._follower = None
+        name = str(self._entity_name)
+        actor = _entity_actor(name)
+        if actor is not None:
+            moving: "carla.Actor" = actor
+            try:
+                _stop(moving, _is_walker(moving))
+            except RuntimeError:
+                pass  # the actor is gone from the world
+        vehicle = find_vehicle_entity(name)
+        if vehicle is None:
+            # A walker: stood still.  A traffic backend has no call that takes
+            # back a pedestrian it released (release_pedestrian).
+            return
+        driven: BackendDriven = vehicle
+        try:
+            driven.resume_traffic(world)
+        except RuntimeError:
+            return  # the actor is gone from the world
+        logger.info("%s: '%s' stopped and handed back to traffic", self.label, name)
+
+    def close(self) -> None:
+        """Close the conditions and give back the domains, as
+        :meth:`BaseAction.close` does.
+
+        Defined here, and not only inherited, because a subclass overrides it
+        (:meth:`RoutingAction.close`): Codon 0.19 dispatches a call on a
+        ``TrajectoryRun`` through a thunk typed for ``TrajectoryRun``, which
+        refuses ``BaseAction``'s method, two classes up from the override."""
+        super().close()
+
+    def _advance(self, world: "carla.World", actor: "carla.Actor") -> None:
+        """Move *actor* one tick along the trajectory of the run begun."""
+        if self._finished:
+            return
+
+        walker = _is_walker(actor)
+        if self._following_mode is TrajectoryFollowingMode.POSITION:
+            sample = self._position_sample(world)
+            if self._hidden_outside and self._absent():
+                self._hide(actor, sample)
+                return
+            self._show(actor)
+            _place(actor, sample, walker)
+        elif walker:
+            self._walk(world, actor)
+        else:
+            self._drive(world, actor)
+        if self._finished:
+            if not self._hidden and (self._stop_at_end or walker):
+                _stop(actor, walker)
+            logger.info(
+                "%s: '%s' reached the end of %r",
+                self.label,
+                str(self._entity_name),
+                self._trajectory.name,
+            )
+
+    # ------------------------------------------------------------------
+    # Run
+    # ------------------------------------------------------------------
+
+    def _resolve(self, world: "carla.World") -> Optional[ResolvedTrajectory]:
+        """The trajectory in CARLA world coordinates, or ``None`` to retry.
+
+        A :class:`~autoware_carla_scenario.trajectory.RelativeLanePose` is
+        placed against where its reference entity is now; one not (yet) in the
+        world puts the start off to a later tick.
+        """
+        try:
+            return _resolve_in_world(self._trajectory, world, self._reference_pose)
+        except _ReferenceMissing as missing:
+            # Once a run: the action waits for it every tick, indefinitely.
+            if not self._warned_missing:
+                self._warned_missing = True
+                logger.warning(
+                    "%s: %r is placed relative to '%s', "
+                    "which is not in the world yet; waiting for it",
+                    self.label,
+                    self._trajectory.name,
+                    missing.name,
+                )
+            return None
+
+    def _reference_pose(
+        self, entity_ref: Optional[Union[EntityRole, str]]
+    ) -> CarlaWorldPose:
+        """Where a relative vertex's reference entity is now."""
+        # The lookup takes the role as a string, as str(role) is what it keys
+        # on anyway; one string, as Codon has no one type for either.
+        name = str(self._entity_name) if entity_ref is None else str(entity_ref)
+        actor = _entity_actor(name)
+        if actor is None:
+            raise _ReferenceMissing(name)
+        found: carla.Actor = actor
+        return CarlaWorldPose.from_carla_transform(found.get_transform())
+
+    def _begin(self, world: "carla.World", actor: "carla.Actor") -> None:
+        """Start a run: set the clock or the distance, and the follower."""
+        assert self._resolved is not None
+        self._begun = True
+        self._finished = False
+        self._start_time = self._elapsed
+        self._distance = self._initial_distance_offset
+        self._clock_shift = 0.0
+        if (
+            self._time_reference is not None
+            and self._initial_distance_offset > 0.0
+            and not self._gated
+        ):
+            # Start that far along: the trajectory's clock begins where it is
+            # there, not at its first vertex.
+            self._clock_shift = (
+                self._resolved.time_at_distance(self._initial_distance_offset)
+                - self._resolved.start_time
+            )
+        velocity = actor.get_velocity()
+        self._speed = (
+            math.hypot(velocity.x, velocity.y)
+            if self._given_speed is None
+            else self._given_speed
+        )
+        if self._time_reference is None and self._speed < _STANDSTILL_MPS:
+            logger.warning(
+                "%s: '%s' is standing still and %r has no "
+                "time reference, so it will not move along it",
+                self.label,
+                self._entity_name,
+                self._trajectory.name,
+            )
+        elif self._gated and self._speed < _STANDSTILL_MPS:
+            logger.warning(
+                "%s: '%s' is standing still and has no "
+                "speed, so it will not move along a segment of %r that no "
+                "vertex time paces",
+                self.label,
+                self._entity_name,
+                self._trajectory.name,
+            )
+        self._held_at = None
+        self._waiting = False
+        if self._gated:
+            self._begin_timeline()
+        if self._following_mode is TrajectoryFollowingMode.FOLLOW and not _is_walker(
+            actor
+        ):
+            from ..driver.control import (  # noqa: PLC0415
+                ControlConfig,
+                TrajectoryFollower,
+            )
+            from ..utils.powertrain import ChaosPowertrain  # noqa: PLC0415
+
+            config = self._control_config
+            if config is None:
+                # A timed trajectory is a clock to keep, not a plan's speeds.
+                # Its crawling pull-aways need the MKZ's 0.25 throttle floor.
+                config = ControlConfig(
+                    longitudinal_controller="time_indexed", throttle_deadband=0.25
+                )
+            elif config.longitudinal_controller != "time_indexed":
+                logger.warning(
+                    "%s: '%s' follows %r with the %s longitudinal "
+                    "controller, which follows the plan's speeds, not the "
+                    "trajectory's clock; longitudinal_controller='time_indexed' "
+                    "keeps its timing",
+                    self.label,
+                    self._entity_name,
+                    self._trajectory.name,
+                    config.longitudinal_controller,
+                )
+            self._follower = TrajectoryFollower(
+                config,
+                ChaosPowertrain.from_physics_control(
+                    as_vehicle(actor).get_physics_control()
+                ),
+            )
+
+    def _absent(self) -> bool:
+        """Whether the trajectory's clock is outside its vertices' times."""
+        assert self._resolved is not None
+        # The scenario clock is a running sum of the tick, so a time that is
+        # a whole number of ticks can come out a hair short of it; without
+        # the tolerance the entity would appear (and go) one tick late.
+        if self._timeline is not None:
+            # Before the first departure (on its time), and once ended.
+            return self._finished or self._elapsed < self._timeline.times[0] - 1e-9
+        now = self._trajectory_time()
+        return (
+            now < self._resolved.start_time - 1e-9
+            or now >= self._resolved.end_time - 1e-9
+        )
+
+    def _hide(self, actor: "carla.Actor", sample: TrajectorySample) -> None:
+        """Park *actor* under where *sample* is, out of the simulation."""
+        import typesafe_carla.carla as carla  # noqa: PLC0415
+
+        if not self._hidden:
+            actor.set_simulate_physics(False)
+            self._hidden = True
+        actor.set_transform(
+            carla.Transform(
+                carla.Location(x=sample.x, y=sample.y, z=sample.z - HIDDEN_DEPTH_M),
+                carla.Rotation(yaw=sample.yaw),
+            )
+        )
+
+    def _show(self, actor: "carla.Actor") -> None:
+        """Bring a hidden *actor* back into the simulation."""
+        if self._hidden:
+            actor.set_simulate_physics(True)
+            self._hidden = False
+
+    def _trajectory_time(self) -> float:
+        """The vertex time the trajectory is at, now."""
+        assert self._time_reference is not None and self._resolved is not None
+        return (
+            self._time_reference.trajectory_time(self._elapsed, self._start_time)
+            + self._clock_shift
+        )
+
+    def _position_sample(self, world: "carla.World") -> TrajectorySample:
+        """Where ``POSITION`` mode puts the entity this tick."""
+        resolved = self._resolved
+        assert resolved is not None
+        if self._timeline is not None:
+            return self._timeline_sample(world)
+        if self._time_reference is not None:
+            now = self._trajectory_time()
+            # Within the tolerance of _absent: it ends on the tick it goes.
+            if now >= resolved.end_time - 1e-9:
+                self._finished = True
+                if not self._stop_at_end:
+                    # At the end, but with the last segment's velocity rather
+                    # than at rest: handed back to traffic still moving.
+                    now = resolved.end_time - _END_EPSILON_S
+            sample = resolved.at_time(now)
+            # The sample moves in vertex time; the world, in scenario time,
+            # which runs `scale` times slower.
+            scale = self._time_reference.scale
+            return TrajectorySample(
+                sample.x,
+                sample.y,
+                sample.z,
+                sample.yaw,
+                vx=sample.vx / scale,
+                vy=sample.vy / scale,
+                yaw_rate=sample.yaw_rate / scale,
+            )
+        sample = resolved.at_distance(self._distance, self._speed)
+        if not resolved.closed and self._distance >= resolved.length:
+            self._finished = True
+        self._distance += self._speed * _tick_seconds(world)
+        return sample
+
+    def _drive(self, world: "carla.World", actor: "carla.Actor") -> None:
+        """One tick of ``FOLLOW`` mode for a vehicle."""
+        from carla_driver_interface.geometry import Pose  # noqa: PLC0415
+
+        resolved = self._resolved
+        assert resolved is not None and self._follower is not None
+        transform = actor.get_transform()
+        here = resolved.project(
+            transform.location.x, transform.location.y, near=self._distance
+        )
+        self._distance = here
+        stop: Optional[float] = None
+        if self._timeline is not None:
+            velocity = actor.get_velocity()
+            stop = self._follow_gates(
+                world, here, ARRIVAL_TOLERANCE_M, math.hypot(velocity.x, velocity.y)
+            )
+            if self._held_at is not None:
+                # Waiting at the vertex: on the brake, and the controller's
+                # memory of the run up to it cleared, so it pulls away cleanly.
+                import typesafe_carla.carla as carla  # noqa: PLC0415
+
+                self._follower.reset()
+                as_vehicle(actor).apply_control(
+                    carla.VehicleControl(throttle=0.0, brake=1.0)
+                )
+                return
+            if self._finished:
+                return
+        if not resolved.closed and here >= resolved.length - ARRIVAL_TOLERANCE_M:
+            if self._held_at_end():
+                import typesafe_carla.carla as carla  # noqa: PLC0415
+
+                self._follower.reset()
+                as_vehicle(actor).apply_control(
+                    carla.VehicleControl(throttle=0.0, brake=1.0)
+                )
+                return
+            self._finished = True
+            return
+        plan = (
+            self._plan(here)
+            if self._timeline is None
+            else self._timeline_plan(here, stop)
+        )
+        velocity = actor.get_velocity()
+        angular = actor.get_angular_velocity()
+        control = as_vehicle(actor).get_control()
+        # A control without a gear (a test double) reads as gear 0, as
+        # getattr(control, "gear", 0) did; Codon has no getattr default.
+        try:
+            gear = control.gear
+        except AttributeError:
+            gear = 0
+        if _walker_in_way(actor, transform, math.hypot(velocity.x, velocity.y)):
+            # A walker in its way: stopped for, as the TrafficManager would.
+            import typesafe_carla.carla as carla  # noqa: PLC0415
+
+            as_vehicle(actor).apply_control(
+                carla.VehicleControl(throttle=0.0, brake=1.0)
+            )
+            return
+        command = self._follower.step(
+            plan,
+            # The plan's frame is CARLA's with y flipped: right-handed, as the
+            # controller expects.
+            Pose.from_xyz_yaw(
+                transform.location.x,
+                -transform.location.y,
+                transform.location.z,
+                -math.radians(transform.rotation.yaw),
+            ),
+            math.hypot(velocity.x, velocity.y),
+            _tick_seconds(world),
+            yaw_rate_rps=-math.radians(angular.z),
+            now_us=int(round(self._elapsed * 1e6)),
+            gear=int(gear),
+        )
+        as_vehicle(actor).apply_control(command.to_carla_control())
+
+    def _plan(self, here: float) -> "_Plan":
+        """The path ahead of *here*, timed on the scenario clock, for the controller."""
+        from carla_driver_interface.geometry import Pose  # noqa: PLC0415
+        from carla_driver_interface.geometry import Trajectory as Plan  # noqa: PLC0415
+
+        resolved = self._resolved
+        assert resolved is not None
+        plan = Plan.empty()
+        step = 1.0
+        distance = max(0.0, here - _PLAN_BEHIND_M)
+        last = here + _PLAN_HORIZON_M
+        if not resolved.closed:
+            last = min(last, resolved.length)
+        previous_us: Optional[int] = None
+        while distance <= last + 1e-9:
+            sample = resolved.at_distance(distance)
+            if self._time_reference is not None:
+                stamp = self._scenario_time_at(distance)
+            else:
+                speed = max(self._speed, _STANDSTILL_MPS)
+                stamp = self._elapsed + (distance - here) / speed
+            stamp_us = int(round(stamp * 1e6))
+            if previous_us is not None and stamp_us <= previous_us:
+                # Standing still on the recording: one microsecond on, so the
+                # plan's clock keeps running forward.
+                stamp_us = previous_us + 1
+            plan.append(
+                stamp_us,
+                Pose.from_xyz_yaw(
+                    sample.x, -sample.y, sample.z, -math.radians(sample.yaw)
+                ),
+            )
+            previous_us = stamp_us
+            distance += step
+        return plan
+
+    def _scenario_time_at(self, distance: float) -> float:
+        """The scenario time at which a timed trajectory is *distance* along."""
+        assert self._time_reference is not None and self._resolved is not None
+        reference = self._time_reference
+        vertex_time = self._resolved.time_at_distance(distance) - self._clock_shift
+        origin = (
+            0.0 if reference.domain is ReferenceContext.ABSOLUTE else self._start_time
+        )
+        return origin + reference.offset + vertex_time * reference.scale
+
+    def _held_at_end(self) -> bool:
+        """Whether a ``FOLLOW`` vehicle within the arrival band of the
+        end of an open path, is to stand there rather than end: the path is
+        timed, ends at rest, and its last vertex's time has not come.  A
+        brake check is 2 s of braking that stops a few metres on; ended by
+        distance, the vehicle would be let go still braking.  A path that
+        ends in motion still ends on arrival."""
+        resolved = self._resolved
+        assert resolved is not None
+        if self._time_reference is None or resolved.times is None:
+            return False
+        end = resolved.end_time
+        if self._trajectory_time() >= end - 1e-9:
+            return False
+        last = resolved.distance_at_time(end) - resolved.distance_at_time(
+            max(resolved.start_time, end - _AT_REST_WINDOW_S)
+        )
+        return last < _AT_REST_DISTANCE_M
+
+    def _walk(self, world: "carla.World", actor: "carla.Actor") -> None:
+        """One tick of ``FOLLOW`` mode for a pedestrian."""
+        resolved = self._resolved
+        assert resolved is not None
+        location = actor.get_transform().location
+        here = resolved.project(location.x, location.y, near=self._distance)
+        self._distance = here
+        if self._timeline is not None:
+            self._walk_timeline(world, actor, here)
+            return
+        if not resolved.closed and here >= resolved.length - ARRIVAL_TOLERANCE_M:
+            self._finished = True
+            return
+        if self._time_reference is not None:
+            now = self._trajectory_time()
+            wanted = resolved.distance_at_time(now)
+            # The recorded speed in scenario time, plus a catch-up of the
+            # distance it is behind, closed over about a second.
+            speed = resolved.at_time(now).speed / self._time_reference.scale + max(
+                0.0, wanted - here
+            )
+        else:
+            speed = self._speed
+        steer_walker(actor, location, resolved, here, speed)
+
+    # ------------------------------------------------------------------
+    # Waypoint conditions: the departure timeline
+    # ------------------------------------------------------------------
+
+    def _scenario_time_of(self, vertex_time: float) -> float:
+        """The scenario time the trajectory's clock reads *vertex_time* at."""
+        assert self._time_reference is not None
+        reference = self._time_reference
+        origin = (
+            0.0 if reference.domain is ReferenceContext.ABSOLUTE else self._start_time
+        )
+        return (
+            origin
+            + reference.offset
+            + (vertex_time - self._clock_shift) * reference.scale
+        )
+
+    def _begin_timeline(self) -> None:
+        """Lay out the run's timeline from where it starts."""
+        resolved = self._resolved
+        assert resolved is not None
+        vertices = self._trajectory.vertices
+        timed = self._time_reference is not None
+        offset = self._initial_distance_offset
+        closed = resolved.closed and resolved.length > 1e-6
+        count = len(vertices)
+
+        def distance(k: int) -> float:
+            if not closed:
+                return resolved.vertex_distance(min(k, count - 1))
+            lap, index = divmod(k, count)
+            return lap * resolved.length + resolved.vertex_distance(index)
+
+        # The vertex the run starts at, or the one before the point it does.
+        k = 0
+        while (closed or k + 1 < count) and distance(k + 1) <= offset + 1e-9:
+            k += 1
+        at_vertex = abs(distance(k) - offset) <= 1e-9
+        start_point = distance(k) if at_vertex else offset
+        point_time: Optional[float] = None
+        if timed:
+            index = k % count
+            here = vertices[index].time
+            if at_vertex:
+                point_time = here
+            elif not closed and k + 1 < count:
+                there = vertices[k + 1].time
+                if here is not None and there is not None:
+                    span = distance(k + 1) - distance(k)
+                    fraction = 0.0 if span <= 1e-9 else (offset - distance(k)) / span
+                    point_time = here + fraction * (there - here)
+            if offset > 0.0 and point_time is not None:
+                # As for a timed trajectory: the clock starts where it is there.
+                first = vertices[0].time
+                self._clock_shift = point_time - (first if first is not None else 0.0)
+        self._timeline = DepartureTimeline(
+            [
+                TimelineVertex(
+                    distance=resolved.vertex_distance(index),
+                    time=(
+                        None
+                        if not timed or (time := vertex.time) is None
+                        else self._scenario_time_of(time)
+                    ),
+                    gate=vertex.gate,
+                )
+                for index, vertex in enumerate(vertices)
+            ],
+            resolved.length,
+            closed,
+            self._speed,
+        )
+        self._progress = start_point
+        self._last_here = start_point % resolved.length if closed else start_point
+        if at_vertex and vertices[k % count].gate is not None:
+            self._timeline.start_waiting(k, self._elapsed)
+            return
+        departure = (
+            self._scenario_time_of(point_time)
+            if point_time is not None
+            else self._elapsed
+        )
+        self._timeline.start(k, start_point, departure)
+
+    def _gate_opens(
+        self,
+        world: "carla.World",
+        condition: BaseCondition,
+        index: int,
+        *,
+        early: bool = False,
+    ) -> bool:
+        """Whether vertex *index*'s *condition* holds now; logs waits and departures.
+
+        *early* is a ``FOLLOW`` entity looking ahead before it has reached the
+        vertex: a ``None`` then neither waits nor logs.
+        """
+        opened = condition.check(world, self._elapsed) is not None
+        if opened:
+            self._gate_opened(index)
+        if early and not opened:
+            return False
+        if opened and self._waiting:
+            logger.info(
+                "%s: '%s' departs vertex %d of %r: %s holds",
+                self.label,
+                self._entity_name,
+                index,
+                self._trajectory.name,
+                condition.label,
+            )
+        elif not opened and not self._waiting:
+            logger.info(
+                "%s: '%s' waits at vertex %d of %r until %s " "holds",
+                self.label,
+                self._entity_name,
+                index,
+                self._trajectory.name,
+                condition.label,
+            )
+        return opened
+
+    def _gate_opened(self, index: int) -> None:
+        """Vertex *index*'s condition held this tick: a hook for a subclass
+        that keeps a record of it (a :class:`~.routing.RoutingAction`'s
+        arrival times)."""
+        return
+
+    def _timeline_sample(self, world: "carla.World") -> TrajectorySample:
+        """``POSITION`` mode on a gated trajectory: where the timeline has it now."""
+        resolved = self._resolved
+        timeline = self._timeline
+        assert resolved is not None and timeline is not None
+        elapsed = self._elapsed
+        self._held_at = None
+        last = timeline.count - 1
+        for _ in range(timeline.count + 2):
+            # Within the tolerance of _absent: the scenario clock is a running
+            # sum of the tick, so an arrival on a whole number of ticks comes
+            # out a hair short of it, and it would end one tick late.
+            if elapsed < timeline.end_arrival - 1e-9:
+                break
+            index = timeline.index(timeline.end_vertex)
+            if timeline.end_kind == "end":
+                self._finished = True
+                return resolved.at_vertex(index)
+            # Read by a function: Codon narrows an Optional local after an
+            # assert or a None test, so the next lap's assignment of the
+            # Optional to it fails (docs/typecheck.md).
+            condition = _gate_at(timeline, timeline.end_vertex)
+            if not self._gate_opens(world, condition, index):
+                self._waiting = True
+                self._held_at = index
+                return resolved.at_vertex(index)
+            # Departed on the tick it held: on arrival, it does not stop.
+            departure = elapsed if self._waiting else timeline.end_arrival
+            self._waiting = False
+            if not resolved.closed and index == last:
+                self._finished = True
+                return resolved.at_vertex(index)
+            timeline.depart(departure)
+        distance, speed = timeline.at(elapsed)
+        return resolved.at_distance(distance, speed)
+
+    def _track(self, here: float) -> float:
+        """*here* unwrapped across the laps of a closed path."""
+        resolved = self._resolved
+        assert resolved is not None
+        if not resolved.closed or resolved.length <= 1e-6:
+            self._progress = here
+            return here
+        delta = here - self._last_here
+        half = resolved.length / 2.0
+        if delta < -half:
+            delta += resolved.length
+        elif delta > half:
+            delta -= resolved.length
+        self._last_here = here
+        self._progress += delta
+        return self._progress
+
+    def _follow_gates(
+        self, world: "carla.World", here: float, tolerance: float, speed: float
+    ) -> Optional[float]:
+        """Check the vertices a ``FOLLOW`` entity is at or nearing; the stop ahead.
+
+        A vertex waiting for its condition is looked at from as far off as it
+        would take to stop there (:func:`_approach_m`): a condition that holds
+        then departs it at the time the timeline had the entity arrive (or
+        now, if later), so it costs the schedule nothing.  One that does not
+        is the stop line, and is looked at again every tick; reached and still
+        not holding, the entity waits (:attr:`_held_at`).  The last vertex of
+        an open path is not looked at early: departing it ends the run
+        (:attr:`_finished`), so it is checked only once the entity is there.
+
+        Returns:
+            The stop line, as a distance in the frame of *here*, or ``None``.
+        """
+        resolved = self._resolved
+        timeline = self._timeline
+        assert resolved is not None and timeline is not None
+        self._held_at = None
+        progress = self._track(here)
+        last = timeline.count - 1
+        for _ in range(timeline.count + 2):
+            if timeline.end_kind != "gate":
+                return None
+            k = timeline.end_vertex
+            index = timeline.index(k)
+            at = timeline.distance(k)
+            stop = here + (at - progress)
+            if timeline.vertex(k).gate is None:
+                return stop  # a segment it has no speed for: never reached
+            # Read by a function, as in _timeline_sample (docs/typecheck.md).
+            condition = _gate_at(timeline, k)
+            if progress >= at - tolerance:
+                if not self._gate_opens(world, condition, index):
+                    self._waiting = True
+                    self._held_at = index
+                    return stop
+                departure = (
+                    self._elapsed
+                    if self._waiting
+                    else max(timeline.end_arrival, self._elapsed)
+                )
+            elif (
+                # The end is not a vertex to pass: departing it ends the run,
+                # so it is only ever checked once the entity is there.
+                (resolved.closed or index != last)
+                and progress >= at - _approach_m(speed, tolerance)
+                and self._gate_opens(world, condition, index, early=True)
+            ):
+                departure = max(timeline.end_arrival, self._elapsed)
+            else:
+                return stop
+            self._waiting = False
+            if not resolved.closed and index == last:
+                self._finished = True
+                return None
+            timeline.depart(departure)
+        return None
+
+    def _timeline_plan(self, here: float, stop: Optional[float]) -> "_Plan":
+        """The path ahead of *here*, stamped from the timeline, for the controller."""
+        from carla_driver_interface.geometry import Pose  # noqa: PLC0415
+        from carla_driver_interface.geometry import Trajectory as Plan  # noqa: PLC0415
+
+        resolved = self._resolved
+        timeline = self._timeline
+        assert resolved is not None and timeline is not None
+        distances: list[float] = []
+        distance = max(0.0, here - _PLAN_BEHIND_M)
+        last = here + _PLAN_HORIZON_M
+        if not resolved.closed:
+            last = min(last, resolved.length)
+        if stop is not None:
+            last = min(last, stop)
+        while distance <= last + 1e-9:
+            distances.append(distance)
+            distance += 1.0
+        if stop is not None and stop <= last + 1e-9:
+            if not distances or distances[-1] < stop - 1e-6:
+                distances.append(stop)
+        shift = self._progress - here
+        far = self._elapsed + _PLAN_FAR_S
+        stamps = [
+            min(timeline.stamp(distance + shift, self._speed), far)
+            for distance in distances
+        ]
+        if stop is not None:
+            stamps = _brake_to(stop, distances, stamps)
+        plan = Plan.empty()
+        previous_us: Optional[int] = None
+        for distance, stamp in zip(distances, stamps):
+            sample = resolved.at_distance(distance)
+            stamp_us = int(round(stamp * 1e6))
+            if previous_us is not None and stamp_us <= previous_us:
+                stamp_us = previous_us + 1
+            plan.append(
+                stamp_us,
+                Pose.from_xyz_yaw(
+                    sample.x, -sample.y, sample.z, -math.radians(sample.yaw)
+                ),
+            )
+            previous_us = stamp_us
+        return plan
+
+    def _walk_timeline(
+        self, world: "carla.World", actor: "carla.Actor", here: float
+    ) -> None:
+        """One ``FOLLOW`` tick for a pedestrian on a gated trajectory."""
+        import typesafe_carla.carla as carla  # noqa: PLC0415
+
+        resolved = self._resolved
+        timeline = self._timeline
+        assert resolved is not None and timeline is not None
+        velocity = actor.get_velocity()
+        stop = self._follow_gates(
+            world, here, _WALKER_GATE_TOLERANCE_M, math.hypot(velocity.x, velocity.y)
+        )
+        if self._held_at is not None or self._finished:
+            _as_walker(actor).apply_control(
+                carla.WalkerControl(direction=carla.Vector3D(1.0, 0.0, 0.0), speed=0.0)
+            )
+            return
+        if not resolved.closed and here >= resolved.length - ARRIVAL_TOLERANCE_M:
+            self._finished = True
+            return
+        wanted, pace = timeline.at(self._elapsed)
+        # The timeline's pace, plus a catch-up of the distance it is behind,
+        # closed over about a second.
+        speed = pace + max(0.0, wanted - self._progress)
+        aim = here + _WALKER_LOOKAHEAD_M
+        if stop is not None:
+            # Slow down onto the vertex rather than walk past it.
+            speed = min(speed, max(stop - here, _WALKER_GATE_CREEP_MPS))
+            aim = min(aim, stop)
+        target = resolved.at_distance(aim)
+        dx, dy = (
+            target.x - actor.get_transform().location.x,
+            (target.y - actor.get_transform().location.y),
+        )
+        norm = math.hypot(dx, dy)
+        if norm < 1e-6:
+            speed, dx, dy, norm = 0.0, 1.0, 0.0, 1.0
+        _as_walker(actor).apply_control(
+            carla.WalkerControl(
+                direction=carla.Vector3D(dx / norm, dy / norm, 0.0),
+                speed=_walker_speed(speed),
+            )
+        )
+
+
+def _walker_in_way(
+    actor: "carla.Actor", transform: "carla.Transform", speed: float
+) -> bool:
+    """Whether a walker stands in *actor*'s way within its stopping distance
+    (braking at 4 m/s², and 4 m more), across its width and
+    :data:`~._road_threat.PASSING_CLEARANCE_M` to each side (a bicycle passed
+    0.5 m off its side toppled), looked along from its bounding box's
+    centre."""
+    from ..utils.clearance import actor_box_centre, first_in_way  # noqa: PLC0415
+    from ._road_threat import PASSING_CLEARANCE_M  # noqa: PLC0415
+
+    try:
+        half_width = float(actor.bounding_box.extent.y) + PASSING_CLEARANCE_M
+        # From its box's centre, as _vehicle_in_way looks (#884).
+        x, y = actor_box_centre(actor, transform)
+        found = first_in_way(
+            actor.get_world(),
+            int(actor.id),
+            x,
+            y,
+            transform.rotation.yaw,
+            "walker",
+            speed * speed / 8.0 + 4.0,
+            half_width,
+        )
+    except (AttributeError, RuntimeError):
+        return False
+    return found is not None
+
+
+#: A walker walking at least this fast (m/s) across a vehicle's way, away from
+#: it, is leaving the way.
+_LEAVING_MPS = 0.3
+
+#: The walkers' velocities this module decides on (:func:`_in_way_ahead`,
+#: :func:`_vehicle_before_walker`), each measured from where the walker stood
+#: when last read: a walker on CARLA's controller is placed, and its
+#: ``get_velocity()`` reads 0.  One for every reader, so two reading a walker
+#: on the same tick read the same; cleared when a run ends
+#: (:func:`forget_walkers`).
+_WALKERS = WalkerVelocities()
+
+
+def forget_walkers() -> None:
+    """Forget every walker measured (a run ended)."""
+    _WALKERS.clear()
+
+
+def _measured_velocity(
+    world: "carla.World",
+    actor: "carla.Actor",
+    location: Optional["carla.Location"] = None,
+) -> Vector3:
+    """*actor*'s velocity: a walker's measured where it stands (*location*,
+    where already read, else asked), on *world*'s simulated clock
+    (:data:`_WALKERS`), any other actor's what CARLA reports (one that does
+    not say what it is, too: a test double)."""
+    try:
+        walking = is_walker(actor)
+    except AttributeError:
+        walking = False
+    if walking:
+        return _WALKERS.walker(actor, simulated_seconds(world), location)
+    return Vector3.from_carla_vector3d(actor.get_velocity())
+
+
+def _in_way_ahead(
+    world: "carla.World",
+    own: int,
+    x: float,
+    y: float,
+    heading: float,
+    kind: str,
+    distance: float,
+    half_width: float,
+    behind: tuple[float, float, float, float],
+    body_half_width: float = 0.0,
+) -> int:
+    """The *kind* actor other than *own* standing within *distance* ahead of
+    ``(x, y)`` facing *heading* (deg, CARLA), *half_width* across -- one piece
+    of a path looked along (traffic.final_approach) -- or ``-1``.  One behind
+    *behind* -- ``(x, y, heading_deg, back_m)``: the vehicle's own centre,
+    heading and how far behind its centre counts as behind it -- does not
+    count: a
+    path's first piece, from where the vehicle stands to the route's next
+    point, may run off sideways.  A walker walking away from the piece, off
+    the vehicle's own *body_half_width*, does not count either: it is leaving
+    the way (pedestrian_66, walking off the corner vehicle_56 turned round)."""
+    from ..utils.clearance import first_box_in_way  # noqa: PLC0415
+
+    try:
+        found = first_box_in_way(world, own, x, y, heading, kind, distance, half_width)
+    except (AttributeError, RuntimeError):
+        return -1
+    if found is None:
+        return -1
+    bx, by, bheading, rear = behind
+    yaw = math.radians(bheading)
+    if (found.x - bx) * math.cos(yaw) + (found.y - by) * math.sin(yaw) < -rear:
+        return -1
+    if kind == "walker" and abs(found.side) > body_half_width:
+        across = 0.0
+        try:
+            other = world.get_actor(int(found.id))
+            if other is not None:
+                # Measured, not reported: a walker on its controller reports
+                # standing while it walks off the way (#929).
+                velocity = _measured_velocity(world, other)
+                across = -float(velocity.x) * math.sin(math.radians(heading)) + float(
+                    velocity.y
+                ) * math.cos(math.radians(heading))
+        except (AttributeError, RuntimeError):
+            across = 0.0
+        if across * found.side > 0.0 and abs(across) >= _LEAVING_MPS:
+            return -1
+    return int(found.id)
+
+
+def _vehicle_before_walker(walker: "carla.Actor") -> bool:
+    """Whether a vehicle's outline stands within 1.5 m (and a second's walk)
+    ahead of *walker*, the way it faces, across its width and 0.2 m: one it
+    would walk (or ride) into.  Its speed is measured, not reported
+    (:func:`_measured_velocity`): on its controller it reports standing."""
+    from ..utils.clearance import first_box_in_way  # noqa: PLC0415
+
+    try:
+        world = walker.get_world()
+        transform = walker.get_transform()
+        velocity = _measured_velocity(world, walker, transform.location)
+        extent = walker.bounding_box.extent
+        reach = 1.5 + math.hypot(float(velocity.x), float(velocity.y)) + float(extent.x)
+        found = first_box_in_way(
+            world,
+            int(walker.id),
+            transform.location.x,
+            transform.location.y,
+            transform.rotation.yaw,
+            "vehicle",
+            reach,
+            float(extent.y) + 0.2,
+        )
+    except (AttributeError, RuntimeError):
+        return False
+    return found is not None
+
+
+def _vehicle_in_way(
+    actor: "carla.Actor", transform: "carla.Transform", speed: float
+) -> bool:
+    """Whether another vehicle stands in *actor*'s way within its stopping
+    distance (braking at 4 m/s²) past its own front and 2 m more, across its
+    width and 0.3 m, looked along from its bounding box's centre."""
+    from ..utils.clearance import actor_box_centre, first_in_way  # noqa: PLC0415
+
+    try:
+        extent = actor.bounding_box.extent
+        # From its box's centre, which its half length is measured from.
+        x, y = actor_box_centre(actor, transform)
+        found = first_in_way(
+            actor.get_world(),
+            int(actor.id),
+            x,
+            y,
+            transform.rotation.yaw,
+            "vehicle",
+            speed * speed / 8.0 + float(extent.x) + 2.0,
+            float(extent.y) + 0.3,
+        )
+    except (AttributeError, RuntimeError):
+        return False
+    return found is not None
+
+
+def _gate_at(timeline: DepartureTimeline, k: int) -> BaseCondition:
+    """The condition vertex number *k* waits for, which it has."""
+    condition = timeline.vertex(k).gate
+    assert condition is not None
+    return condition
+
+
+def _approach_m(speed: float, tolerance: float) -> float:
+    """From how far off (m) a ``FOLLOW`` entity looks at the vertex it may wait at.
+
+    What stopping from *speed* at :data:`_GATE_DECELERATION_MPS2` takes, plus
+    a second at that speed (the controller reads its plan a second ahead) and
+    the arrival band.
+    """
+    return speed * speed / (2.0 * _GATE_DECELERATION_MPS2) + speed + tolerance
+
+
+def _brake_to(stop: float, distances: list[float], stamps: list[float]) -> list[float]:
+    """*stamps* slowed so the plan comes to rest at *stop*.
+
+    Each step takes at least as long as braking at
+    :data:`_GATE_DECELERATION_MPS2` towards *stop* would: the speed cap at a
+    point *d* short of the stop is ``sqrt(2 * a * d)``, and a step between two
+    caps takes ``2 * length / (v0 + v1)``.  The first stamp stays where it was.
+    """
+    caps = [
+        math.sqrt(2.0 * _GATE_DECELERATION_MPS2 * max(0.0, stop - distance))
+        for distance in distances
+    ]
+    out = stamps[:1]
+    for index in range(1, len(stamps)):
+        length = distances[index] - distances[index - 1]
+        given = stamps[index] - stamps[index - 1]
+        both = caps[index - 1] + caps[index]
+        braking = 2.0 * length / both if both > 1e-9 else given
+        out.append(out[-1] + max(given, braking))
+    return out
+
+
+class _ReferenceMissing(Exception):
+    """A relative vertex's reference entity is not in the world."""
+
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self.name = name
+
+
+class _TrajectoryEnd(BaseCondition):
+    """Satisfied once the action it watches has reached the end of its trajectory."""
+
+    _action: TrajectoryRun
+
+    def __init__(self, action: TrajectoryRun, label: str) -> None:
+        super().__init__(label=f"{label}_end")
+        self._action = action
+
+    def check(self, world: "carla.World", elapsed: float) -> Optional[ScenarioResult]:
+        if not self._action.finished:
+            return None
+        return ScenarioResult(
+            passed=True,
+            message=f"{self._action.trajectory.name!r} followed to its end",
+            elapsed_seconds=elapsed,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Actuation
+# ---------------------------------------------------------------------------
+
+
+def _ground_z(world: "carla.World", sample: TrajectorySample) -> float:
+    """The ground's height under *sample*, or the sample's own where none is hit."""
+    from ..coordinate.snap import refine_z_with_ground_projection  # noqa: PLC0415
+
+    try:
+        return refine_z_with_ground_projection(sample.x, sample.y, sample.z, world)
+    except RuntimeError:
+        return sample.z
+
+
+def _is_walker(actor: "carla.Actor") -> bool:
+    # A type id read once, and "" for an actor without one (a test double),
+    # as getattr(actor, "type_id", "") did; Codon has no getattr default.
+    try:
+        type_id = actor.type_id
+    except AttributeError:
+        type_id = ""
+    return str(type_id).startswith("walker.")
+
+
+def _as_walker(actor: "carla.Actor") -> "carla.Walker":
+    """*actor* as the walker a ``WalkerControl`` is applied to (:func:`~autoware_carla_scenario.utils.vehicles.as_vehicle`)."""
+    if TYPE_CHECKING:
+        return actor.as_walker()
+    else:
+        return actor
+
+
+def _entity_actor(name: str) -> Optional["carla.Actor"]:
+    """The actor of the entity *name* names, a vehicle first, or ``None``.
+
+    What ``getattr(find_entity_by_role_name(name), "actor", None)`` read,
+    looked up by kind (docs/typecheck.md).
+    """
+    vehicle = find_vehicle_entity(name)
+    if vehicle is not None:
+        driven: BackendDriven = vehicle
+        # Codon decides hasattr by the static type: BackendDriven declares no
+        # actor, the entities it is mixed into do.
+        if hasattr(driven, "actor"):
+            return driven.actor
+        return None
+    pedestrian = find_pedestrian_entity(name)
+    if pedestrian is None:
+        return None
+    walker: PedestrianEntity = pedestrian
+    if hasattr(walker, "actor"):
+        return walker.actor
+    return None
+
+
+def _resolve_in_world(
+    trajectory: Trajectory,
+    world: "carla.World",
+    reference: Callable[[Optional[Union[EntityRole, str]]], CarlaWorldPose],
+) -> ResolvedTrajectory:
+    """*trajectory* in CARLA world coordinates, on the road of *world*'s map.
+
+    Imports :mod:`~autoware_carla_scenario.trajectory.resolve` (lanelet2)
+    here, as it always has: only a run that follows a trajectory loads it.
+    """
+    from ..coordinate.map_manager import run_carla_map  # noqa: PLC0415
+    from ..trajectory.resolve import resolve_trajectory, road_height  # noqa: PLC0415
+
+    return resolve_trajectory(
+        trajectory, road_height(run_carla_map(world)), reference=reference
+    )
+
+
+def _tick_seconds(world: "carla.World") -> float:
+    """How much simulated time the last tick covered."""
+    return float(world.get_snapshot().timestamp.delta_seconds)
+
+
+def _walker_speed(speed_mps: float) -> float:
+    """The ``WalkerControl`` speed for *speed_mps*, capped at what CARLA can walk.
+
+    Capped here rather than left to warn: the command is re-sent every tick,
+    and a recording of someone jogging would otherwise log on every one.
+    """
+    return walker_control_speed(speed_mps)
+
+
+def _place(actor: "carla.Actor", sample: TrajectorySample, walker: bool) -> None:
+    """Put *actor* at *sample*, moving with the sample's velocity.
+
+    The velocity goes with the pose so that what reads the actor's speed -- a
+    speed condition, the recorder, a TrafficManager car behind it -- sees the
+    trajectory's, and so that the tick the world then takes carries the actor
+    towards where the next sample will put it rather than leaving it parked.
+    A walker's origin is at its middle, so it is raised by half its height.
+    """
+    import typesafe_carla.carla as carla  # noqa: PLC0415
+
+    lift = float(actor.bounding_box.extent.z) if walker else 0.0
+    actor.set_transform(
+        carla.Transform(
+            carla.Location(x=sample.x, y=sample.y, z=sample.z + lift),
+            carla.Rotation(yaw=sample.yaw),
+        )
+    )
+    if walker:
+        speed = sample.speed
+        direction = (
+            carla.Vector3D(sample.vx / speed, sample.vy / speed, 0.0)
+            if speed > 1e-6
+            else carla.Vector3D(1.0, 0.0, 0.0)
+        )
+        _as_walker(actor).apply_control(
+            carla.WalkerControl(direction=direction, speed=_walker_speed(speed))
+        )
+        return
+    actor.set_target_velocity(carla.Vector3D(sample.vx, sample.vy, 0.0))
+    actor.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, sample.yaw_rate))
+
+
+def _stop(actor: "carla.Actor", walker: bool) -> None:
+    """Leave *actor* standing where the trajectory ended."""
+    import typesafe_carla.carla as carla  # noqa: PLC0415
+
+    if walker:
+        _as_walker(actor).apply_control(
+            carla.WalkerControl(direction=carla.Vector3D(1.0, 0.0, 0.0), speed=0.0)
+        )
+        return
+    actor.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+    as_vehicle(actor).apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))

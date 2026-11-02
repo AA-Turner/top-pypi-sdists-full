@@ -1,0 +1,747 @@
+"""TorchVision-style color adjustment and superpixel functional helpers."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import cast
+
+from ._functional_color import (
+    channel_shuffle,
+    grayscale_to_multichannel,
+    to_gray_average,
+    to_gray_weighted_average,
+)
+from ._functional_noise import get_safe_brightness_contrast_params
+from ._functional_shared import (
+    MAX_VALUES_BY_DTYPE,
+    ImageType,
+    ImageUInt8,
+    add_weighted,
+    clip,
+    clipped,
+    cv2,
+    fgeometric,
+    float32_io,
+    get_num_channels,
+    is_grayscale_image,
+    is_rgb_image,
+    mean,
+    multiply,
+    multiply_add,
+    np,
+    preserve_channel_dim,
+    std,
+    sz_lut,
+    uint8_io,
+)
+
+
+def _initialize_slic_centers(height: int, width: int, grid_step: int) -> np.ndarray:
+    x_range = np.arange(grid_step // 2, width, grid_step, dtype=np.float32)
+    y_range = np.arange(grid_step // 2, height, grid_step, dtype=np.float32)
+    if x_range.size == 0:
+        x_range = np.array([width // 2], dtype=np.float32)
+    if y_range.size == 0:
+        y_range = np.array([height // 2], dtype=np.float32)
+
+    centers = np.empty((x_range.size * y_range.size, 2), dtype=np.float32)
+    centers[:, 0] = np.tile(x_range, y_range.size)
+    centers[:, 1] = np.repeat(y_range, x_range.size)
+    return centers
+
+
+def _validate_slic_params(n_segments: int, max_iterations: int) -> None:
+    if n_segments <= 0:
+        msg = "n_segments must be positive"
+        raise ValueError(msg)
+    if max_iterations <= 0:
+        msg = "max_iterations must be positive"
+        raise ValueError(msg)
+
+
+def _update_slic_centers(
+    labels: np.ndarray,
+    centers: np.ndarray,
+    x_coordinates: np.ndarray,
+    y_coordinates: np.ndarray,
+) -> None:
+    labels_flat = labels.reshape(-1)
+    counts = np.bincount(labels_flat, minlength=len(centers))
+    nonempty = counts > 0
+    x_sums = np.bincount(labels_flat, weights=x_coordinates, minlength=len(centers))
+    y_sums = np.bincount(labels_flat, weights=y_coordinates, minlength=len(centers))
+    np.divide(x_sums, counts, out=centers[:, 0], where=nonempty)
+    np.divide(y_sums, counts, out=centers[:, 1], where=nonempty)
+
+
+def _replace_segments_with_mean(
+    image: np.ndarray,
+    segments: np.ndarray,
+    replace_samples: Sequence[bool],
+) -> np.ndarray:
+    unique_labels = np.unique(segments)
+    replace_start = 1 if unique_labels[0] == 0 else 0
+    num_replaceable = len(unique_labels) - replace_start
+    if num_replaceable == 0:
+        return image.copy()
+
+    num_labels = int(unique_labels[-1]) + 1
+    replace_by_label = np.zeros(num_labels, dtype=bool)
+    replace_by_label[unique_labels[replace_start:]] = np.resize(
+        np.asarray(replace_samples, dtype=bool),
+        num_replaceable,
+    )
+    labels_flat = segments.reshape(-1)
+    replace_mask = replace_by_label[labels_flat]
+    replace_labels = labels_flat[replace_mask]
+
+    result = image.copy()
+    result_flat = result.reshape(-1, result.shape[-1])
+    counts = np.bincount(labels_flat, minlength=num_labels)
+    nonempty = counts > 0
+    segment_means = np.empty(num_labels, dtype=np.uint8)
+
+    for channel_index in range(result.shape[-1]):
+        sums = np.bincount(
+            labels_flat,
+            weights=result_flat[:, channel_index],
+            minlength=num_labels,
+        )
+        segment_means[nonempty] = np.rint(sums[nonempty] / counts[nonempty]).astype(np.uint8)
+        result_flat[replace_mask, channel_index] = segment_means[replace_labels]
+
+    return result
+
+
+@float32_io
+@clipped
+@preserve_channel_dim
+def fancy_pca(img: ImageType, alpha_vector: np.ndarray) -> ImageType:
+    """Fancy PCA color augmentation: add noise along principal components. alpha_vector; any channel
+    count. float32 I/O, clipped.
+
+    Args:
+        img (ImageType): Input image
+        alpha_vector (np.ndarray): Vector of scale factors for each principal component.
+                                   Should have the same length as the number of channels in the image.
+
+    Returns:
+        ImageType: Augmented image of the same shape, type, and range as the input.
+
+    Image types:
+        uint8, float32
+
+    Number of channels:
+        Any
+
+    Note:
+        - This function generalizes the Fancy PCA augmentation to work with any number of channels.
+        - It preserves the original range of the image ([0, 255] for uint8, [0, 1] for float32).
+        - For single-channel images, the augmentation is applied as a simple scaling of pixel intensity variation.
+        - For multi-channel images, PCA is performed on the entire image, treating each pixel
+          as a point in N-dimensional space (where N is the number of channels).
+        - The augmentation preserves the correlation between channels while adding controlled noise.
+        - Computation time may increase significantly for images with a large number of channels.
+
+    References:
+        ImageNet classification with deep convolutional neural networks: Krizhevsky, A., Sutskever, I.,
+            & Hinton, G. E. (2012): In Advances in neural information processing systems (pp. 1097-1105).
+
+    """
+    orig_shape = img.shape
+    num_channels = get_num_channels(img)
+
+    img_reshaped = img.reshape(-1, num_channels)
+
+    # Center the pixel values
+    img_mean = mean(img_reshaped, axis=0, dtype=np.float32)
+    img_centered = img_reshaped - img_mean
+
+    if num_channels == 1:
+        # For grayscale images, apply a simple scaling
+        std_dev = std(img_centered, eps=0)
+        noise = alpha_vector[0] * std_dev * img_centered
+    else:
+        img_cov = np.cov(img_centered, rowvar=False)
+
+        eig_vals, eig_vecs = np.linalg.eigh(img_cov)
+
+        # Sort eigenvectors by eigenvalues in descending order
+        sort_perm = eig_vals[::-1].argsort()
+        eig_vals = eig_vals[sort_perm]
+        eig_vecs = eig_vecs[:, sort_perm]
+
+        noise = np.dot(
+            np.dot(eig_vecs, np.diag(alpha_vector * eig_vals)),
+            img_centered.T,
+        ).T
+
+    # Add noise to the image
+    img_pca = img_reshaped + noise
+
+    img_pca = img_pca.reshape(orig_shape)
+
+    # Clip values to [0, 1] range
+    return np.clip(img_pca, 0, 1, out=img_pca)
+
+
+@clipped
+@preserve_channel_dim
+def adjust_saturation_torchvision(
+    img: ImageType,
+    factor: float,
+    gamma: float = 0,
+) -> ImageType:
+    """Adjust saturation by blending with grayscale. Factor in [0, inf]; uses
+    to_gray (weighted_average for RGB). Torchvision-compatible.
+
+    Uses to_gray for conversion: weighted_average for RGB (matches OpenCV), average for
+    arbitrary channels. Works on four- and five-dimensional batch data.
+
+    Args:
+        img (ImageType): Input image as a numpy array.
+        factor (float): The factor to adjust the saturation by.
+        gamma (float): Unused, kept for API compatibility.
+
+    Returns:
+        ImageType: The adjusted image.
+
+    """
+    if factor == 1 or is_grayscale_image(img):
+        return img
+
+    gray = to_gray_weighted_average(img) if is_rgb_image(img) else to_gray_average(img)
+    gray_expanded = grayscale_to_multichannel(gray, img.shape[-1])
+
+    return gray_expanded if factor == 0 else add_weighted(img, factor, gray_expanded, 1 - factor)
+
+
+def _adjust_hue_torchvision_uint8(img: ImageUInt8, factor: float) -> ImageUInt8:
+    img = cast("ImageUInt8", cv2.cvtColor(img, cv2.COLOR_RGB2HSV))
+
+    lut = np.arange(0, 256, dtype=np.int16)
+    lut = np.mod(lut + 180 * factor, 180).astype(np.uint8)
+    img[..., 0] = sz_lut(img[..., 0], lut, inplace=False)
+
+    return cast("ImageUInt8", cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
+
+
+def adjust_hue_torchvision(img: ImageType, factor: float) -> ImageType:
+    """Adjust hue by shifting in HSV. factor in [-0.5, 0.5]. Torchvision-compatible; RGB only.
+    LUT for uint8; in-place mod for float32.
+
+    This function adjusts the hue of an image by adding a factor to the hue value.
+
+    Args:
+        img (ImageType): Input image.
+        factor (float): The factor to adjust the hue by.
+
+    Returns:
+        ImageType: The adjusted image.
+
+    """
+    if is_grayscale_image(img) or factor == 0:
+        return img
+
+    if img.dtype == np.uint8:
+        return _adjust_hue_torchvision_uint8(cast("ImageUInt8", img), factor)
+
+    img = cast("ImageType", cv2.cvtColor(img, cv2.COLOR_RGB2HSV))
+    img[..., 0] = np.mod(img[..., 0] + factor * 360, 360)
+    return cast("ImageType", cv2.cvtColor(img, cv2.COLOR_HSV2RGB))
+
+
+def _apply_brightness_only_torchvision(img: ImageType, brightness_factor: float) -> ImageType:
+    if brightness_factor == 0:
+        return np.zeros_like(img)
+    if brightness_factor == 1:
+        return img
+
+    result = multiply(img, brightness_factor, inplace=False)
+    return np.clip(result, 0.0, 1.0, out=result) if result.dtype == np.float32 else result
+
+
+def _apply_contrast_only_torchvision(img: ImageType, contrast_factor: float) -> ImageType:
+    gray_img = img if is_grayscale_image(img) else cast("ImageType", cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+    img_mean = float(mean(gray_img))
+    if contrast_factor == 0:
+        if img.dtype != np.float32:
+            img_mean = int(img_mean + 0.5)
+        return cast("ImageType", np.full_like(img, img_mean, dtype=img.dtype))
+
+    result = multiply_add(img, contrast_factor, img_mean * (1 - contrast_factor), inplace=False)
+    return np.clip(result, 0.0, 1.0, out=result) if result.dtype == np.float32 else result
+
+
+def _apply_brightness_contrast_uint8(
+    img: ImageType,
+    brightness_factor: float,
+    contrast_factor: float,
+    mean_at_contrast: float,
+    brightness_first: bool,
+) -> ImageType:
+    lut = np.arange(256, dtype=np.float32)
+    if brightness_first:
+        lut = np.clip(lut * brightness_factor, 0.0, 255.0)
+        lut = np.clip(lut * contrast_factor + mean_at_contrast * 255.0 * (1.0 - contrast_factor), 0.0, 255.0)
+    else:
+        lut = np.clip(lut * contrast_factor + mean_at_contrast * 255.0 * (1.0 - contrast_factor), 0.0, 255.0)
+        # Values are non-negative after clipping, so floor matches the uint8 cast between torchvision operations.
+        np.floor(lut, out=lut)
+        lut = np.clip(lut * brightness_factor, 0.0, 255.0)
+    return sz_lut(cast("ImageUInt8", img), lut.astype(np.uint8), inplace=False)
+
+
+def _apply_brightness_contrast_float32(
+    img: ImageType,
+    brightness_factor: float,
+    contrast_factor: float,
+    mean_at_contrast: float,
+    brightness_first: bool,
+) -> ImageType:
+    offset = mean_at_contrast * (1.0 - contrast_factor)
+    out = np.empty_like(img)
+    if brightness_first:
+        np.multiply(img, brightness_factor, out=out)
+        np.clip(out, 0.0, 1.0, out=out)
+        np.multiply(out, contrast_factor, out=out)
+        np.add(out, offset, out=out)
+        np.clip(out, 0.0, 1.0, out=out)
+    else:
+        np.multiply(img, contrast_factor, out=out)
+        np.add(out, offset, out=out)
+        np.clip(out, 0.0, 1.0, out=out)
+        np.multiply(out, brightness_factor, out=out)
+        np.clip(out, 0.0, 1.0, out=out)
+    return out
+
+
+def apply_brightness_contrast_torchvision(
+    img: ImageType,
+    brightness_factor: float,
+    contrast_factor: float,
+    brightness_first: bool,
+) -> ImageType:
+    """Fused brightness and contrast: single LUT (uint8) or two passes (float32). clip(a*x+b);
+    torchvision-compatible; order via brightness_first.
+
+    Both operations are `clip(a*x + b)`. The image grayscale mean is computed once and propagated
+    analytically through the pipeline: if brightness comes first, `mean_at_contrast = mean * brightness_factor`
+    (clipped to valid range). This avoids re-reading the image after brightness is applied.
+
+    For uint8 images the composition is pre-computed over all 256 input values into a single
+    256-entry LUT. Contrast-then-brightness quantizes the intermediate contrast result before
+    composing the brightness LUT, matching torchvision's sequential uint8 operations. For float32,
+    two sequential clipped passes are used.
+
+    Args:
+        img (ImageType): Input image (uint8 or float32).
+        brightness_factor (float): Brightness multiplicative factor.
+        contrast_factor (float): Contrast multiplicative factor.
+        brightness_first (bool): Whether brightness is applied before contrast.
+
+    Returns:
+        ImageType: Adjusted image with the same dtype as input.
+
+    """
+    if contrast_factor == 1:
+        return _apply_brightness_only_torchvision(img, brightness_factor)
+
+    if brightness_factor == 1:
+        return _apply_contrast_only_torchvision(img, contrast_factor)
+
+    # Compute original grayscale mean once, normalised to [0, 1].
+    # For non-RGB inputs, the global mean is unchanged by first averaging each
+    # pixel's channels, so no intermediate grayscale array is needed.
+    img_mean = float(mean(to_gray_weighted_average(img))) if is_rgb_image(img) else float(mean(img))
+    if img.dtype == np.uint8:
+        img_mean /= 255.0
+
+    # Propagate mean analytically: brightness scales the mean, clipped to [0, 1].
+    mean_at_contrast = float(np.clip(img_mean * brightness_factor, 0.0, 1.0)) if brightness_first else img_mean
+
+    if img.dtype == np.uint8:
+        return _apply_brightness_contrast_uint8(
+            img,
+            brightness_factor,
+            contrast_factor,
+            mean_at_contrast,
+            brightness_first,
+        )
+    return _apply_brightness_contrast_float32(
+        img,
+        brightness_factor,
+        contrast_factor,
+        mean_at_contrast,
+        brightness_first,
+    )
+
+
+def apply_color_jitter(
+    img: ImageType,
+    brightness: float,
+    contrast: float,
+    saturation: float,
+    hue: float,
+    order: list[str],
+) -> ImageType:
+    """Apply ColorJitter's sampled brightness, contrast, saturation, and hue operations in randomized order to a
+    prevalidated one- or three-channel image.
+    """
+    for operation in order:
+        if operation == "brightness_contrast":
+            img = apply_brightness_contrast_torchvision(img, brightness, contrast, brightness_first=True)
+        elif operation == "contrast_brightness":
+            img = apply_brightness_contrast_torchvision(img, brightness, contrast, brightness_first=False)
+        elif operation == "brightness":
+            img = apply_brightness_contrast_torchvision(img, brightness, 1.0, brightness_first=True)
+        elif operation == "contrast":
+            img = apply_brightness_contrast_torchvision(img, 1.0, contrast, brightness_first=False)
+        elif operation == "saturation":
+            img = adjust_saturation_torchvision(img, saturation)
+        elif operation == "hue":
+            img = adjust_hue_torchvision(img, hue)
+    return img
+
+
+def apply_photometric_distort(
+    img: ImageType,
+    brightness_factor: float | None,
+    contrast_factor: float | None,
+    saturation_factor: float | None,
+    hue_factor: float | None,
+    contrast_before: bool,
+    channel_permutation: list[int] | None,
+) -> ImageType:
+    """Apply PhotoMetricDistort's sampled brightness, contrast, saturation, hue, and channel permutation to a
+    prevalidated one- or three-channel image.
+    """
+    if contrast_before:
+        img = _apply_optional_brightness_contrast(img, brightness_factor, contrast_factor)
+    elif brightness_factor is not None:
+        img = apply_brightness_contrast_torchvision(img, brightness_factor, 1.0, brightness_first=True)
+    if saturation_factor is not None:
+        img = adjust_saturation_torchvision(img, saturation_factor)
+    if hue_factor is not None:
+        img = adjust_hue_torchvision(img, hue_factor)
+    if not contrast_before and contrast_factor is not None:
+        img = apply_brightness_contrast_torchvision(img, 1.0, contrast_factor, brightness_first=False)
+    return channel_shuffle(img, channel_permutation) if channel_permutation is not None else img
+
+
+def _apply_optional_brightness_contrast(
+    img: ImageType,
+    brightness_factor: float | None,
+    contrast_factor: float | None,
+) -> ImageType:
+    if brightness_factor is not None and contrast_factor is not None:
+        return apply_brightness_contrast_torchvision(img, brightness_factor, contrast_factor, brightness_first=True)
+    if brightness_factor is not None:
+        return apply_brightness_contrast_torchvision(img, brightness_factor, 1.0, brightness_first=True)
+    if contrast_factor is not None:
+        return apply_brightness_contrast_torchvision(img, 1.0, contrast_factor, brightness_first=False)
+    return img
+
+
+def apply_random_brightness_contrast(
+    img: ImageType,
+    alpha: float,
+    beta: float,
+    brightness_by_max: bool,
+    ensure_safe_output: bool,
+) -> ImageType:
+    """Apply RandomBrightnessContrast coefficients using the requested brightness mode, output-safety policy,
+    dtype routing, and clipping semantics.
+    """
+    max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+    if not brightness_by_max:
+        brightness_factor = 1.0 + beta
+        if not ensure_safe_output:
+            return apply_brightness_contrast_torchvision(img, brightness_factor, alpha, brightness_first=False)
+        image_mean = float(mean(to_gray_weighted_average(img))) if is_rgb_image(img) else float(mean(img))
+        beta = brightness_factor * (1.0 - alpha) * image_mean
+        alpha *= brightness_factor
+    else:
+        beta *= max_value
+    if ensure_safe_output:
+        alpha, beta = get_safe_brightness_contrast_params(alpha, beta, max_value)
+    result = multiply_add(img, alpha, beta, inplace=False)
+    return clip(result, img.dtype, inplace=True) if img.dtype == np.float32 else result
+
+
+def _batch_brightness_contrast_coefficients(
+    image_means: np.ndarray,
+    brightness_factor: float,
+    contrast_factor: float,
+    max_value: float,
+    ensure_safe_output: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    if ensure_safe_output:
+        offsets = brightness_factor * (1.0 - contrast_factor) * image_means
+        gains = np.full_like(image_means, brightness_factor * contrast_factor)
+        if gains[0] > 0:
+            offsets = np.clip(offsets, 0, max_value)
+            gains = np.minimum(gains, (max_value - offsets) / max_value)
+        else:
+            offsets = np.minimum(offsets, max_value)
+            gains = np.maximum(gains, -offsets / max_value)
+    else:
+        offsets = image_means * (1.0 - contrast_factor)
+        gains = np.full_like(image_means, contrast_factor)
+    return gains, offsets
+
+
+def _apply_brightness_contrast_batch_uint8(
+    images: ImageUInt8,
+    image_means: np.ndarray,
+    brightness_factor: float,
+    contrast_factor: float,
+    ensure_safe_output: bool,
+) -> ImageType:
+    gains, offsets = _batch_brightness_contrast_coefficients(
+        image_means,
+        brightness_factor,
+        contrast_factor,
+        255.0,
+        ensure_safe_output,
+    )
+    domain = np.arange(256, dtype=np.float32)
+    if not ensure_safe_output:
+        if brightness_factor != 1:
+            # Match the single-image route's normalize-then-rescale order before rounding the LUT.
+            offsets = image_means / 255.0 * 255.0 * (1.0 - contrast_factor)
+        elif contrast_factor == 0:
+            offsets = np.floor(image_means + 0.5)
+    tables = np.clip(
+        domain[None, :] * gains.astype(np.float32)[:, None] + offsets.astype(np.float32)[:, None],
+        0,
+        255,
+    )
+    if not ensure_safe_output and brightness_factor != 1:
+        np.floor(tables, out=tables)
+        np.multiply(tables, brightness_factor, out=tables)
+        np.clip(tables, 0, 255, out=tables)
+    flat_images = images.reshape(len(images), -1)
+    return cast("ImageType", np.take_along_axis(tables.astype(np.uint8), flat_images, axis=1).reshape(images.shape))
+
+
+def apply_brightness_contrast_torchvision_batch(
+    images: ImageType,
+    brightness_factor: float,
+    contrast_factor: float,
+    *,
+    ensure_safe_output: bool = False,
+) -> ImageType:
+    """Apply one brightness/contrast pair to a batch, using an independent mean per image."""
+    if images.shape[0] == 0:
+        return images
+    if contrast_factor == 1 and not ensure_safe_output:
+        return _apply_brightness_only_torchvision(images, brightness_factor)
+
+    if contrast_factor == 1:
+        image_means = np.zeros(len(images), dtype=np.float64)
+    elif is_rgb_image(images):
+        image_means = cast("np.ndarray", mean(to_gray_weighted_average(images), axis=(1, 2, 3)))
+    else:
+        image_means = cast("np.ndarray", mean(images, axis=(1, 2, 3)))
+    if images.dtype == np.uint8:
+        return _apply_brightness_contrast_batch_uint8(
+            cast("ImageUInt8", images),
+            image_means,
+            brightness_factor,
+            contrast_factor,
+            ensure_safe_output,
+        )
+
+    gains, offsets = _batch_brightness_contrast_coefficients(
+        image_means,
+        brightness_factor,
+        contrast_factor,
+        MAX_VALUES_BY_DTYPE[images.dtype],
+        ensure_safe_output,
+    )
+
+    broadcast_shape = (len(images), 1, 1, 1)
+    if ensure_safe_output:
+        result = np.multiply(images, gains.reshape(broadcast_shape), dtype=np.float32)
+        np.add(result, offsets.reshape(broadcast_shape), out=result)
+        np.clip(result, 0.0, 1.0, out=result)
+        return cast("ImageType", result)
+
+    result = np.multiply(images, contrast_factor, dtype=np.float32)
+    np.add(result, offsets.reshape(broadcast_shape), out=result)
+    np.clip(result, 0.0, 1.0, out=result)
+    np.multiply(result, brightness_factor, out=result)
+    np.clip(result, 0.0, 1.0, out=result)
+    return cast("ImageType", result)
+
+
+@uint8_io
+@preserve_channel_dim
+def superpixels(
+    image: np.ndarray,
+    n_segments: int,
+    replace_samples: Sequence[bool],
+    max_size: int | None,
+    interpolation: int,
+) -> np.ndarray:
+    """Apply superpixels using SLIC: replace pixels with segment mean. n_segments, replace_samples,
+    max_size, interpolation. uint8 I/O.
+
+    This function applies superpixels to an image using the SLIC algorithm.
+    The superpixels are applied by replacing the pixels in the image with the mean intensity of the superpixel.
+
+    Args:
+        image (np.ndarray): Input image as a numpy array.
+        n_segments (int): The number of segments to use for the superpixels.
+        replace_samples (Sequence[bool]): The samples to replace.
+        max_size (int | None): The maximum size of the superpixels.
+        interpolation (int): The interpolation method to use.
+
+    Returns:
+        np.ndarray: The superpixels applied to the image.
+
+    """
+    if not np.any(replace_samples):
+        return image
+
+    orig_shape = image.shape
+    if max_size is not None:
+        size = max(image.shape[:2])
+        if size > max_size:
+            scale = max_size / size
+            height, width = image.shape[:2]
+            new_height, new_width = int(height * scale), int(width * scale)
+            image = fgeometric.resize(image, (new_height, new_width), interpolation)
+
+    segments = slic(
+        image,
+        n_segments=n_segments,
+        compactness=10,
+    )
+
+    image = _replace_segments_with_mean(image, segments, replace_samples)
+
+    return fgeometric.resize(image, orig_shape[:2], interpolation) if orig_shape != image.shape else image
+
+
+def slic(
+    image: np.ndarray,
+    n_segments: int,
+    compactness: float = 10.0,
+    max_iterations: int = 10,
+) -> np.ndarray:
+    """SLIC superpixel segmentation. n_segments, compactness, max_iterations. Returns label mask for
+    oversegmentation; used by superpixels() or standalone.
+
+    Args:
+        image (np.ndarray): Input image (3D numpy array with shape (H, W, C)).
+        n_segments (int): Approximate number of superpixels to generate.
+        compactness (float): Balance between color proximity and space proximity.
+        max_iterations (int): Maximum number of iterations for k-means.
+
+    Returns:
+        np.ndarray: Segmentation mask where each superpixel has a unique label.
+
+    Raises:
+        ValueError: If n_segments or max_iterations is not positive.
+
+    """
+    _validate_slic_params(n_segments, max_iterations)
+
+    height, width = image.shape[:2]
+    grid_step = max(1, int((height * width / n_segments) ** 0.5))
+
+    # Normalize image to [0, 1] range
+    max_value = np.float32(image.max())
+    image_normalized = image.astype(np.float32)
+    np.divide(image_normalized, max_value + np.float32(1e-6), out=image_normalized)
+    single_channel = image_normalized.shape[-1] == 1
+
+    centers = _initialize_slic_centers(height, width, grid_step)
+
+    labels = np.full((height, width), -1, dtype=np.int32)
+
+    x_coordinates_flat = np.tile(np.arange(width, dtype=np.float32), height)
+    y_coordinates_flat = np.repeat(np.arange(height, dtype=np.float32), width)
+    distances = np.empty((height, width), dtype=np.float32)
+
+    max_window_height = min(height, 2 * grid_step + 1)
+    max_window_width = min(width, 2 * grid_step + 1)
+    color_diff_buffer = (
+        np.empty(0, dtype=np.float32)
+        if single_channel
+        else np.empty((max_window_height, max_window_width, image.shape[-1]), dtype=np.float32)
+    )
+    distance_buffer = np.empty((max_window_height, max_window_width), dtype=np.float32)
+    update_mask_buffer = np.empty((max_window_height, max_window_width), dtype=bool)
+
+    offsets_squared = np.arange(-grid_step, grid_step + 1, dtype=np.float32)
+    np.square(offsets_squared, out=offsets_squared)
+    spatial_distances = np.add.outer(offsets_squared, offsets_squared)
+    spatial_distances *= np.float32(compactness / (grid_step * grid_step))
+
+    for iteration in range(max_iterations):
+        # Compare pixels only with the cluster centers from the current k-means iteration.
+        distances.fill(np.inf)
+        for center_index, center in enumerate(centers):
+            center_y, center_x = int(center[1]), int(center[0])
+
+            y_low, y_high = max(0, center_y - grid_step), min(height, center_y + grid_step + 1)
+            x_low, x_high = max(0, center_x - grid_step), min(width, center_x + grid_step + 1)
+            window_height = y_high - y_low
+            window_width = x_high - x_low
+
+            crop = image_normalized[y_low:y_high, x_low:x_high]
+            distance = distance_buffer[:window_height, :window_width]
+            if single_channel:
+                np.subtract(crop[..., 0], image_normalized[center_y, center_x, 0], out=distance)
+                np.square(distance, out=distance)
+            else:
+                color_diff = color_diff_buffer[:window_height, :window_width]
+                np.subtract(crop, image_normalized[center_y, center_x], out=color_diff)
+                np.einsum(
+                    "...c,...c->...",
+                    color_diff,
+                    color_diff,
+                    dtype=np.float32,
+                    optimize=False,
+                    out=distance,
+                )
+
+            offset_y_low = y_low - center_y + grid_step
+            offset_x_low = x_low - center_x + grid_step
+            spatial_distance = spatial_distances[
+                offset_y_low : offset_y_low + window_height,
+                offset_x_low : offset_x_low + window_width,
+            ]
+            np.add(distance, spatial_distance, out=distance)
+
+            distance_slice = distances[y_low:y_high, x_low:x_high]
+            update_mask = update_mask_buffer[:window_height, :window_width]
+            np.less(distance, distance_slice, out=update_mask)
+            np.minimum(distance, distance_slice, out=distance_slice)
+            label_slice = labels[y_low:y_high, x_low:x_high]
+            label_slice[update_mask] = center_index
+
+        if iteration == max_iterations - 1:
+            break
+
+        _update_slic_centers(labels, centers, x_coordinates_flat, y_coordinates_flat)
+
+    return labels
+
+
+__all__ = [
+    "_adjust_hue_torchvision_uint8",
+    "adjust_hue_torchvision",
+    "adjust_saturation_torchvision",
+    "apply_brightness_contrast_torchvision",
+    "apply_brightness_contrast_torchvision_batch",
+    "apply_color_jitter",
+    "apply_photometric_distort",
+    "apply_random_brightness_contrast",
+    "fancy_pca",
+    "slic",
+    "superpixels",
+]

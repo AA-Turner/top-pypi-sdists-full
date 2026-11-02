@@ -1,0 +1,163 @@
+#  This Source Code Form is subject to the terms of the Mozilla Public
+#  License, v. 2.0. If a copy of the MPL was not distributed with this
+#  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+import asyncio
+import os
+import tempfile
+from dataclasses import fields
+
+import pytest
+from support import InstanceTestCase
+
+from minizinc.instance import Method
+from minizinc.result import Status
+
+
+class TestSatisfy(InstanceTestCase):
+    code = "var 1..5: x"
+
+    def test_solve(self):
+        assert self.instance.method == Method.SATISFY
+        result = self.instance.solve()
+        assert result.status == Status.SATISFIED
+        assert result["x"] in range(1, 5 + 1)
+
+    def test_all_solution(self):
+        result = self.instance.solve(all_solutions=True)
+        assert result.status == Status.ALL_SOLUTIONS
+        assert len(result) == 5
+        assert sorted([sol.x for sol in result.solution]) == list(
+            range(1, 5 + 1)
+        )
+
+    def test_nr_solutions(self):
+        result = self.instance.solve(nr_solutions=3)
+        assert result.status == Status.SATISFIED
+        assert len(result) == 3
+        for sol in result.solution:
+            assert sol.x in range(1, 5 + 1)
+
+
+class TestChecker(InstanceTestCase):
+    code = "var 1..5: x"
+
+    def test_checker(self):
+        try:
+            checker = tempfile.NamedTemporaryFile(
+                prefix="checker_test_", suffix=".mzc.mzn", delete=False
+            )
+            checker.write(b'output["SIMPLE CHECK"];\n')
+            checker.close()
+            self.instance.add_file(checker.name)
+            assert self.instance.method == Method.SATISFY
+            result = self.instance.solve()
+            assert result.status == Status.SATISFIED
+            assert result["x"] in range(1, 5 + 1)
+            assert result.solution.check().strip() == "SIMPLE CHECK"
+        finally:
+            os.remove(checker.name)
+
+    def test_no_output_checker(self):
+        try:
+            checker = tempfile.NamedTemporaryFile(
+                prefix="checker_test_", suffix=".mzc.mzn", delete=False
+            )
+            checker.write(b"int: data :: add_to_output = 2;\n")
+            checker.close()
+            self.instance.add_file(checker.name)
+            assert self.instance.method == Method.SATISFY
+            result = self.instance.solve()
+            assert result.status == Status.SATISFIED
+            assert result["x"] in range(1, 5 + 1)
+            assert result.solution.check().strip() == "data = 2;"
+        finally:
+            os.remove(checker.name)
+
+
+class TestMaximise(InstanceTestCase):
+    code = """
+        array[1..5] of var 1..5: x;
+        solve ::int_search(x, input_order, indomain_min) maximize sum(x);
+    """
+
+    def test_solve(self):
+        assert self.instance.method == Method.MAXIMIZE
+        result = self.instance.solve()
+        assert result.status == Status.OPTIMAL_SOLUTION
+        assert result.objective == 25
+
+    def test_intermediate(self):
+        result = self.instance.solve(intermediate_solutions=True)
+        assert len(result) == 21
+        assert result.objective == 25
+
+    def test_solutions_no_intermediate(self):
+        async def run():
+            results = []
+            async for result in self.instance.solutions(
+                intermediate_solutions=False
+            ):
+                results.append(result)
+            return results
+
+        results = asyncio.run(run())
+        assert len(results) == 1
+        assert results[0].solution.objective == 25
+
+
+class TestParameter(InstanceTestCase):
+    code = """
+        int: n; % The number of queens.
+        array [1..n] of var 1..n: q;
+
+        include "alldifferent.mzn";
+
+        constraint alldifferent(q);
+        constraint alldifferent(i in 1..n)(q[i] + i);
+        constraint alldifferent(i in 1..n)(q[i] - i);
+    """
+
+    def test_2(self):
+        self.instance["n"] = 2
+        assert self.instance.method == Method.SATISFY
+        result = self.instance.solve()
+        assert result.status == Status.UNSATISFIABLE
+
+    def test_4(self):
+        self.instance["n"] = 4
+        assert self.instance.method == Method.SATISFY
+        result = self.instance.solve()
+        assert result.status == Status.SATISFIED
+        assert len(result["q"]) == 4
+
+
+class CheckEmpty(InstanceTestCase):
+    code = """int: x = 5;"""
+
+    def test_empty(self):
+        assert self.instance.method == Method.SATISFY
+        result = self.instance.solve()
+        assert len(fields(result.solution)) == 0
+        assert result.status == Status.SATISFIED
+
+
+class FromAsync(InstanceTestCase):
+    code = """int: x ::add_to_output = 5;"""
+
+    def test_async_error(self):
+        async def bad_run():
+            return self.instance.solve()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            _ = asyncio.run(bad_run())
+
+        assert "solve_async" in str(exc_info.value)
+
+    def test_async_success(self):
+        async def good_run():
+            return await self.instance.solve_async()
+
+        result = asyncio.run(good_run())
+        assert result.status == Status.SATISFIED
+        assert result["x"] == 5

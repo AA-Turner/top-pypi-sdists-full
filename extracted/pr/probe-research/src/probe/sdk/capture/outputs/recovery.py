@@ -47,12 +47,38 @@ def _claim(entry: Path) -> bool:
     return False
 
 
+def _is_offline_queue(journal_dir: str | None) -> bool:
+    """Whether ``journal_dir`` is an offline run's queue (it holds the offline manifest)."""
+    if not journal_dir:
+        return False
+    from ...delivery.offline.offline import MANIFEST_NAME
+
+    return (Path(journal_dir) / MANIFEST_NAME).is_file()
+
+
+def _is_offline_record(record: dict) -> bool:
+    """Whether the dead process recorded an offline run: its queue, or its `local:` id."""
+    from ...delivery.offline.offline import LOCAL_PREFIX
+
+    return _is_offline_queue(record.get("journal_dir")) or str(record.get("run_id") or "").startswith(LOCAL_PREFIX)
+
+
 def _recovery_client(record: dict) -> tuple[Any, Any]:
     """``(client, journal)`` for the context the run was opened under -- never
     whatever context is current where recovery happens to run. When that
     context no longer resolves to the same server, only the journal: the ops
     wait there for a drain under the right credentials."""
     context = record.get("context") or {}
+    if _is_offline_record(record):
+        # An offline run's own queue: only `probe sync` delivers it, after its server and team
+        # checks. Recovery queues into it and never sends; a queue deleted since gets nothing.
+        if not _is_offline_queue(record.get("journal_dir")):
+            return None, None
+        from ...delivery.journal.journal import Journal
+
+        journal = Journal(record.get("journal_dir"), context=context)
+        journal.op_ceiling = 0  # as the live offline client: nothing drains it before `probe sync`
+        return None, journal
     try:
         from ...client.client import Client
         from ...settings.settings import resolve
@@ -96,6 +122,8 @@ def recover(entry_path: str) -> dict | None:
         return None
     client, journal = _recovery_client(record)
     try:
+        if client is None and journal is None:
+            return None  # an offline run whose queue was deleted: nothing to queue into
         capture = OutputCapture(
             client,
             record["run_id"],

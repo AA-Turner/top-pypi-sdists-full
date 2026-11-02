@@ -1,0 +1,23 @@
+[tool.vendoring]
+destination = "vendored/"
+requirements = "vendor.txt"
+namespace = "transformations.vendored"
+
+[tool.vendoring.transformations]
+substitute = [
+  # pkg_resource's vendored packages are directly vendored in pip.
+  { match='pkg_resources\.extern', replace="transformations.vendored" },
+]
+drop = [
+  "bin/",                           # top-level folder
+  "pkg_resources/_vendor/",         # non-top-level folder
+  "pkg_resources/extern/",          # non-top-level folder
+  "easy_install.py",                # top-level file
+  "setuptools/wheel.py",            # non-top-level file
+  "setuptools/_*",                  # glob
+  "setuptools/*.exe",               # glob
+  '^setuptools/py\d\dcompat\.py$',  # regex
+  '^setuptools/.+\.tmpl$',          # regex
+  "*.dist-info",
+  "*.egg-info",
+]

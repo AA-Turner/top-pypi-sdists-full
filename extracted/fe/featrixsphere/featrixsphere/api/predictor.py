@@ -287,16 +287,13 @@ class Predictor:
                 best_metric_preference=best_metric_preference
             )
 
-            # Compare: importance = |original_confidence - ablated_confidence|
+            # Compare: importance = how far the answer moved
             original = results[0]
             importance = {}
-            original_conf = original.confidence or 0.0
 
             for i, col in enumerate(columns):
-                ablated_result = results[i + 1]
-                ablated_conf = ablated_result.confidence or 0.0
                 # Higher delta = more important
-                delta = abs(original_conf - ablated_conf)
+                delta = abs(original.ablation_score() - results[i + 1].ablation_score())
                 importance[col] = round(delta, 4)
 
             # Sort by importance (highest first)
@@ -576,37 +573,23 @@ class Predictor:
             best_metric_preference=best_metric_preference
         )
 
-    def explain(
-        self,
-        record: Dict[str, Any],
-        class_idx: Optional[int] = None
-    ) -> Dict[str, Any]:
+    def explain(self, record: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Explain a prediction using gradient attribution.
+        Explain a prediction by leave-one-out ablation: mask each column, re-predict,
+        and rank columns by how far the answer moved. See predict(feature_importance=True).
 
         Args:
             record: Input record to explain
-            class_idx: Class index to explain (for multi-class)
 
         Returns:
-            Explanation dictionary with feature attributions
+            Dictionary with prediction, confidence and feature_importance
         """
-        if not self._ctx:
-            raise ValueError("Predictor not connected to client")
-
-        cleaned_record = clean_record(record)
-
-        request_payload = {
-            "query_record": cleaned_record,
-            "predictor_id": self.id,
+        result = self.predict(record, feature_importance=True)
+        return {
+            "prediction": result.prediction,
+            "confidence": result.confidence,
+            "feature_importance": result.feature_importance,
         }
-        if class_idx is not None:
-            request_payload["class_idx"] = class_idx
-
-        return self._ctx.post_json(
-            f"/session/{self.session_id}/explain",
-            data=request_payload
-        )
 
     def get_columns(self) -> List[str]:
         """

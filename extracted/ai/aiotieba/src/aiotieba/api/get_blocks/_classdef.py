@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import dataclasses as dcs
+from datetime import datetime
+from typing import TYPE_CHECKING, Self
+
+import bs4
+
+from ...exception import TbErrorExt
+from ...helper import default_datetime
+from .._classdef import Containers
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+
+@dcs.dataclass
+class Block:
+    """
+    待解封用户信息
+
+    Attributes:
+        user_id (int): user_id
+        user_name (str): 用户名
+        nick_name_new (str): 新版昵称
+        day (int): 封禁天数
+
+        block_time (datetime): 封禁时间
+    """
+
+    user_id: int = 0
+    user_name: str = ""
+    nick_name_new: str = ""
+    day: int = 0
+
+    block_time: datetime = dcs.field(default_factory=default_datetime)
+
+    @classmethod
+    def from_xml(cls, data_tag: bs4.element.Tag) -> Self:
+        id_tag = data_tag.a
+        user_id = int(id_tag["attr-uid"])
+        user_name = id_tag["attr-un"]
+        nick_name_new = id_tag["attr-nn"]
+        day = int(id_tag["attr-blockday"])
+
+        block_time_item = data_tag.find("span", class_="block_list_item_time")
+        block_time = datetime.strptime(block_time_item.string, "%Y-%m-%d %H:%M")
+
+        return cls(user_id, user_name, nick_name_new, day, block_time)
+
+
+@dcs.dataclass
+class Page_block:
+    """
+    页信息
+
+    Attributes:
+        page_size (int): 页大小
+        current_page (int): 当前页码
+        total_page (int): 总页码
+        total_count (int): 总计数
+
+        has_more (bool): 是否有后继页
+        has_prev (bool): 是否有前驱页
+    """
+
+    page_size: int = 0
+    current_page: int = 0
+    total_page: int = 0
+    total_count: int = 0
+
+    has_more: bool = False
+    has_prev: bool = False
+
+    @classmethod
+    def from_json(cls, data_map: Mapping) -> Self:
+        page_size = data_map["size"]
+        current_page = data_map["pn"]
+        total_page = data_map["total_page"]
+        total_count = data_map["total_count"]
+        has_more = data_map["have_next"]
+        has_prev = current_page > 1
+        return cls(page_size, current_page, total_page, total_count, has_more, has_prev)
+
+
+@dcs.dataclass
+class Blocks(TbErrorExt, Containers[Block]):
+    """
+    待解封用户列表
+
+    Attributes:
+        objs (list[Block]): 待解封用户列表
+        err (Exception | None): 捕获的异常
+
+        page (Page_block): 页信息
+        has_more (bool): 是否还有下一页
+    """
+
+    page: Page_block = dcs.field(default_factory=Page_block)
+
+    @classmethod
+    def from_json(cls, data_map: Mapping) -> Self:
+        data_soup = bs4.BeautifulSoup(data_map["data"]["content"], "lxml")
+        objs = [Block.from_xml(t) for t in data_soup("li")]
+        page = Page_block.from_json(data_map["data"]["page"])
+        return cls(objs, page)
+
+    @property
+    def has_more(self) -> bool:
+        return self.page.has_more

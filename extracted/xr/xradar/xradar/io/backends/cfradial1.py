@@ -1,0 +1,638 @@
+#!/usr/bin/env python
+# Copyright (c) 2022-2024, openradar developers.
+# Distributed under the MIT License. See LICENSE for more info.
+
+"""
+
+CfRadial1
+=========
+
+This sub-module contains the CfRadial1 xarray backend for reading CfRadial1-based radar
+data into Xarray structures as well as a reader to create a complete datatree.Datatree.
+
+Code ported from wradlib.
+
+Example::
+
+    import xradar as xd
+    dtree = xd.io.open_cfradial1_datatree(filename)
+
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+
+   {}
+
+"""
+
+__all__ = [
+    "CfRadial1BackendEntrypoint",
+    "open_cfradial1_datatree",
+]
+
+__doc__ = __doc__.format("\n   ".join(__all__))
+
+import reprlib
+
+import numpy as np
+from xarray import Dataset, open_dataset
+from xarray.backends import NetCDF4DataStore
+from xarray.backends.common import BackendEntrypoint, datatree_from_dict_with_io_cleanup
+from xarray.backends.store import StoreBackendEntrypoint
+
+from ...model import (
+    conform_cfradial2_sweep_group,
+    georeferencing_correction_subgroup,
+    optional_root_attrs,
+    optional_root_vars,
+    radar_calibration_subgroup,
+    radar_parameters_subgroup,
+    required_global_attrs,
+    required_root_vars,
+)
+from .common import (
+    _STATION_VARS,
+    REINDEX_PARAMS_DOC,
+    SITE_COORDS_PARAM_DOC,
+    _apply_fix_second_angle,
+    _apply_reindex_coord,
+    _apply_site_as_coords,
+    _compose_docstring,
+    _deprecation_warning,
+    _get_reindex_coord,
+    _input_kind,
+    _keep_close,
+    _maybe_decode,
+    _open_legacy_datatree,
+    _read_nc_header,
+    _resolve_sweeps,
+)
+
+
+def _get_required_root_dataset(ds, optional=True):
+    """Extract Root Dataset."""
+    # keep only defined mandatory and defined optional variables per default
+    var = ds.variables.keys()
+    remove_root = set(var) ^ set(required_root_vars)
+    if optional:
+        remove_root ^= set(optional_root_vars)
+    remove_root ^= {"sweep_number", "fixed_angle"}
+    remove_root &= var
+    root = ds.drop_vars(remove_root)
+
+    # rename variables
+    # todo: find a more easy method not iterating over all variables
+    for k in root.data_vars:
+        rename = optional_root_vars.get(k, None)
+        if rename:
+            root = root.rename_vars({k: rename})
+
+    # keep only defined mandatory and defined optional attributes per default
+    attrs = root.attrs.keys()
+    remove_attrs = set(attrs) ^ set(required_global_attrs)
+    if optional:
+        remove_attrs ^= set(optional_root_attrs)
+    for k in remove_attrs:
+        root.attrs.pop(k, None)
+
+    # handle sweep variables and dimension
+    root = root.rename_vars(
+        {"sweep_number": "sweep_group_name", "fixed_angle": "sweep_fixed_angle"}
+    )
+    root["sweep_group_name"].values = np.array(
+        [f"sweep_{i}" for i in root["sweep_group_name"].values]
+    )
+    # fix dtype in encoding
+    root.sweep_group_name.encoding["dtype"] = root.sweep_group_name.dtype
+    # remove cf standard name
+    root.sweep_group_name.attrs = []
+
+    # Promote station location to coordinates on the root node.
+    promote = _STATION_VARS & set(root.data_vars)
+    if promote:
+        root = root.set_coords(list(promote))
+
+    return root
+
+
+def _get_sweep_groups(
+    obj, sweep=None, first_dim="auto", optional=True, site_as_coords=True
+):
+    """Extract Sweep Groups.
+
+    Parameters
+    ----------
+    obj : xarray.Dataset
+        CfRadial1 Dataset
+
+    Keyword Arguments
+    -----------------
+    sweep : str, int, optional
+        Sweep/Group to extract, default to None.
+    first_dim : str
+        Can be ``time`` or ``auto`` first dimension. If set to ``auto``,
+        first dimension will be either ``azimuth`` or ``elevation`` depending on
+        type of sweep. Defaults to ``auto``.
+    optional : bool
+        Import optional mandatory data and metadata, defaults to ``True``.
+    site_as_coords : bool
+        Attach radar site-coordinates to Dataset, defaults to ``True``.
+
+    Ported from wradlib.
+    """
+    # get hold of sweep start/stop indices and remove variables
+    start_idx = obj.sweep_start_ray_index.values.astype(int)
+    end_idx = obj.sweep_end_ray_index.values.astype(int)
+    root = obj.drop_vars(["sweep_start_ray_index", "sweep_end_ray_index"])
+
+    ray_n_gates = root.get("ray_n_gates", False)
+    ray_start_index = root.get("ray_start_index", False)
+
+    # strip variables and attributes
+    anc_dims = set(root.dims) ^ {"time", "range", "sweep", "n_points"}
+    anc_dims &= set(root.dims)
+
+    root = root.drop_dims(anc_dims)
+
+    root = root.rename({"fixed_angle": "sweep_fixed_angle"})
+
+    # conform to cfradial2 standard
+    data = conform_cfradial2_sweep_group(root, optional, "time")
+    data_vars = {
+        k
+        for k, v in data.data_vars.items()
+        if any(d in v.dims for d in ["range", "n_points"])
+    }
+
+    # which sweeps to load
+    # sweep is assumed a list of strings with elements like "sweep_0"
+    sweep_groups = {}
+    if isinstance(sweep, str):
+        sweep = [sweep]
+    elif isinstance(sweep, int):
+        sweep = [f"sweep_{sweep}"]
+
+    # iterate over sweeps
+    for i in range(root.sizes["sweep"]):
+        sw = f"sweep_{i}"
+        if sweep is not None and not (sw in sweep or i in sweep):
+            continue
+
+        # slice time and sweep dimension
+        tslice = slice(start_idx[i], end_idx[i] + 1)
+        swslice = slice(i, i + 1)
+        ds = data.isel(time=tslice, sweep=swslice).squeeze("sweep")
+
+        ds["sweep_mode"] = _maybe_decode(ds.sweep_mode.compute())
+        dim0 = "elevation" if str(ds["sweep_mode"].values) == "rhi" else "azimuth"
+
+        # check and extract for variable number of gates
+        if ray_n_gates is not False:
+            # gates per ray may vary within a sweep (#322), so unpack each ray
+            # by its own gate count and pad shorter rays with NaN
+            current_ray_n_gates = ray_n_gates.values[tslice].astype(int)
+            nrays = current_ray_n_gates.size
+            first_point = int(ray_start_index.values[start_idx[i]])
+            nslice = slice(first_point, first_point + current_ray_n_gates.sum())
+            rslice = slice(0, current_ray_n_gates.max())
+            ds = ds.isel(range=rslice)
+            ds = ds.isel(n_points=nslice)
+            ragged_vars = [k for k in data_vars if "n_points" in ds[k].dims]
+            ds_vars = ds[ragged_vars].reset_coords(drop=True)
+
+            # (ray, gate) position of every point, by ray index, so duplicate
+            # times do not matter
+            ray_idx = np.repeat(np.arange(nrays), current_ray_n_gates)
+            gate_idx = np.arange(ray_idx.size) - np.repeat(
+                np.cumsum(current_ray_n_gates) - current_ray_n_gates,
+                current_ray_n_gates,
+            )
+            ds_vars = (
+                ds_vars.assign_coords(
+                    time=("n_points", ray_idx),
+                    range=("n_points", gate_idx),
+                )
+                .set_index(n_points=["time", "range"])
+                .unstack("n_points")
+            )
+            # reindex to full grid in case of rays without any gates
+            ds_vars = ds_vars.reindex(
+                time=np.arange(nrays), range=np.arange(rslice.stop)
+            )
+            ds_vars = ds_vars.drop_vars(["time", "range"])
+
+            ds = ds.drop_vars(ragged_vars)
+            ds = ds.assign(ds_vars.data_vars)
+
+        # Always assign station vars (conform_cfradial2_sweep_group strips them).
+        # _apply_site_as_coords promotes to coords or keeps as data vars.
+        ds = ds.assign(
+            {
+                "latitude": root.latitude,
+                "longitude": root.longitude,
+                "altitude": root.altitude,
+            }
+        )
+        ds = _apply_site_as_coords(ds, site_as_coords)
+
+        # handling first dimension
+        # for CfRadial1 first dimension is time
+        if first_dim == "auto":
+            if "time" in ds.dims:
+                ds = ds.swap_dims({"time": dim0})
+            ds = ds.sortby(dim0)
+        else:
+            if "time" not in ds.dims:
+                ds = ds.swap_dims({dim0: "time"})
+            ds = ds.sortby("time")
+
+        # reassign azimuth/elevation coordinates
+        ds = ds.set_coords(["azimuth", "elevation"])
+
+        sweep_groups[sw] = ds
+
+    return sweep_groups
+
+
+def _get_cfradial2_group(
+    ds, sweep="sweep_0", first_dim="time", optional=True, site_as_coords=False
+):
+    """Assign CfRadial2 group from CfRadial1 data structure.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset of CfRadial1 file
+    sweep : str, int, optional
+        Sweep/Group to extract, default to first sweep.
+    first_dim : str
+        Can be ``time`` or ``auto`` first dimension. If set to ``auto``,
+        first dimension will be either ``azimuth`` or ``elevation`` depending on
+        type of sweep. Defaults to ``auto``.
+    optional : bool
+        Import optional mandatory data and metadata, defaults to ``True``.
+    site_as_coords : bool
+        Attach radar site-coordinates to Dataset, defaults to ``True``.
+
+    Returns
+    -------
+    sweep : xarray.Dataset
+        CfRadial2 group.
+    """
+    if sweep in ["/", "root"]:
+        return _get_required_root_dataset(ds, optional=optional)
+    elif sweep in ["radar_calibration", "calib", "r_calib"]:
+        return _get_radar_calibration(ds)
+    elif sweep in ["radar_parameters"]:
+        return _get_subgroup(ds, radar_parameters_subgroup)
+    elif sweep in ["georeferencing_correction"]:
+        return _get_subgroup(ds, georeferencing_correction_subgroup)
+    elif "sweep" in sweep:
+        return list(
+            _get_sweep_groups(
+                ds,
+                sweep,
+                first_dim=first_dim,
+                optional=optional,
+                site_as_coords=site_as_coords,
+            ).values()
+        )[0]
+    else:
+        return None
+
+
+def _get_subgroup(ds, subdict):
+    """Get CfRadial2 root metadata group.
+
+    Variables are fetched from the provided Dataset according to the subdict dictionary.
+    """
+    meta_vars = subdict
+    extract_vars = set(ds.data_vars) & set(meta_vars)
+    subgroup = ds[extract_vars]
+    for k in subgroup.data_vars:
+        rename = meta_vars[k]
+        if rename:
+            subgroup = subgroup.rename_vars({k: rename})
+    subgroup.attrs = {}
+    return subgroup
+
+
+def _get_radar_calibration(ds):
+    """Get radar calibration root metadata group."""
+    # radar_calibration is connected with calib-dimension
+    calib = [anc for anc in ds.dims if "calib" in anc]
+    if calib:
+        # extract group variables
+        subgroup = ds.drop_dims(list(set(ds.dims) ^ {calib[0]}))
+        drop = [k for k, v in subgroup.variables.items() if calib[0] not in v.dims]
+        subgroup = subgroup.drop_vars(drop).squeeze(calib[0])
+        calib_vars = {}
+        for name in subgroup.data_vars:
+            # exact lookup, unknown names are kept as they are (#419)
+            key = name.removeprefix("r_calib_")
+            if key in radar_calibration_subgroup:
+                calib_vars[name] = radar_calibration_subgroup[key] or key
+        subgroup = subgroup.rename_vars(calib_vars)
+        subgroup.attrs = {}
+        return subgroup
+    else:
+        return Dataset()
+
+
+def open_cfradial1_datatree(filename_or_obj, **kwargs):
+    """Open CfRadial1 dataset as :py:class:`xarray.DataTree`.
+
+    .. deprecated::
+        Use ``xd.open_datatree(file, engine="cfradial1")`` or
+        ``xr.open_datatree(file, engine="cfradial1")`` instead.
+
+    Parameters
+    ----------
+    filename_or_obj : str, Path, file-like or xarray.DataStore
+        Strings and Path objects are interpreted as a path to a local or remote
+        radar file
+
+    Keyword Arguments
+    -----------------
+    sweep : int, list of int, optional
+        Sweep number(s) to extract, default to first sweep. If None, all sweeps are
+        extracted into a list.
+    first_dim : str
+        Can be ``time`` or ``auto`` first dimension. If set to ``auto``,
+        first dimension will be either ``azimuth`` or ``elevation`` depending on
+        type of sweep. Defaults to ``auto``.
+    reindex_coord : dict, optional
+        Defaults to None, no reindexing. Nested dict with optional keys
+        ``angle`` and ``range`` holding the kwargs for
+        :func:`xradar.util.reindex_angle` and :func:`xradar.util.reindex_range`,
+        e.g. ``dict(angle=dict(start_angle=0, stop_angle=360, angle_res=1.0,
+        direction=1))``. Only invoked if ``decode_coords=True``.
+    reindex_angle : dict, optional
+        Deprecated, use ``reindex_coord=dict(angle=...)`` instead.
+    fix_second_angle : bool
+        If True, fixes erroneous second angle data. Defaults to ``False``.
+    optional : bool
+        Import optional mandatory data and metadata, defaults to ``True``.
+    site_as_coords : bool
+        Attach radar site-coordinates to Dataset, defaults to ``True``.
+    engine: str
+        Engine that will be passed to Xarray.open_dataset, defaults to "netcdf4"
+
+    Returns
+    -------
+    dtree: xarray.DataTree
+        DataTree with CfRadial2 groups.
+    """
+    _deprecation_warning("open_cfradial1_datatree", "cfradial1")
+
+    # `engine` here is the inner netCDF engine, `netcdf_engine` in the backend
+    if "engine" in kwargs:
+        kwargs["netcdf_engine"] = kwargs.pop("engine")
+    backend_kwargs = kwargs.get("backend_kwargs") or {}
+    if "engine" in backend_kwargs:
+        backend_kwargs = dict(backend_kwargs)
+        backend_kwargs["netcdf_engine"] = backend_kwargs.pop("engine")
+        kwargs["backend_kwargs"] = backend_kwargs
+    return _open_legacy_datatree(CfRadial1BackendEntrypoint, filename_or_obj, kwargs)
+
+
+def _cfradial1_groups(
+    ds,
+    sweeps,
+    *,
+    first_dim,
+    optional,
+    optional_groups,
+    site_coords,
+    reindex_coord,
+    decode_coords,
+    fix_second_angle,
+):
+    """Split the CfRadial1 dataset ``ds`` into the CfRadial2 groups dict."""
+    groups_dict = {
+        "/": _get_required_root_dataset(ds, optional=optional),
+    }
+    if optional_groups:
+        groups_dict["/radar_parameters"] = _get_subgroup(ds, radar_parameters_subgroup)
+        groups_dict["/georeferencing_correction"] = _get_subgroup(
+            ds, georeferencing_correction_subgroup
+        )
+        groups_dict["/radar_calibration"] = _get_radar_calibration(ds)
+
+    sweep_datasets = _get_sweep_groups(
+        ds,
+        sweep=sweeps,
+        first_dim=first_dim,
+        optional=optional,
+        site_as_coords=site_coords,
+    ).values()
+    for i, sw_ds in enumerate(sweep_datasets):
+        if decode_coords and reindex_coord:
+            sw_ds = _apply_reindex_coord(sw_ds, reindex_coord)
+        # the same fix as open_dataset applies to a sweep group
+        if fix_second_angle and first_dim == "auto":
+            sw_ds = _apply_fix_second_angle(sw_ds)
+        # Drop station coords from per-sweep datasets — they live on root.
+        sw = sw_ds.drop_vars(_STATION_VARS, errors="ignore")
+        groups_dict[f"/sweep_{i}"] = sw.drop_attrs(deep=False)
+    return groups_dict
+
+
+class CfRadial1BackendEntrypoint(BackendEntrypoint):
+    """Xarray BackendEntrypoint for CfRadial1 data.
+
+    Keyword Arguments
+    -----------------
+    first_dim : str
+        Can be ``time`` or ``auto`` first dimension. If set to ``auto``,
+        first dimension will be either ``azimuth`` or ``elevation`` depending on
+        type of sweep. Defaults to ``auto``.
+    reindex_coord : dict, optional
+        Defaults to None, no reindexing. Nested dict with optional keys
+        ``angle`` and ``range`` holding the kwargs for
+        :func:`xradar.util.reindex_angle` and :func:`xradar.util.reindex_range`,
+        e.g. ``dict(angle=dict(start_angle=0, stop_angle=360, angle_res=1.0,
+        direction=1))``. Only invoked if ``decode_coords=True``.
+    reindex_angle : dict, optional
+        Deprecated, use ``reindex_coord=dict(angle=...)`` instead.
+    fix_second_angle : bool
+        For PPI only. If True, fixes erroneous second angle data. Defaults to False.
+    site_as_coords : bool
+        Attach radar site-coordinates to Dataset, defaults to ``True``.
+    kwargs : dict
+        Additional kwargs are fed to :py:func:`xarray.open_dataset`.
+    """
+
+    description = "Open CfRadial1 (.nc, .nc4) using netCDF4 in Xarray"
+    url = "https://xradar.rtfd.io/en/latest/io.html#cfradial1"
+    supports_groups = True
+
+    def guess_can_open(self, filename_or_obj):
+        """CfRadial1 file (netCDF with ``sweep_start_ray_index`` and a
+        ``Conventions`` or ``version`` mentioning CF/Radial)."""
+        if _input_kind(filename_or_obj) not in ("path", "bytes"):
+            return False
+        header = _read_nc_header(filename_or_obj)
+        if header is None:
+            return False
+        attrs, variables, _ = header
+        convention = " ".join(
+            str(attrs.get(name, ""))
+            for name in ["Conventions", "conventions", "version"]
+        ).lower()
+        return "radial" in convention and "sweep_start_ray_index" in variables
+
+    def open_dataset(
+        self,
+        filename_or_obj,
+        *,
+        mask_and_scale=True,
+        decode_times=True,
+        concat_characters=True,
+        decode_coords=True,
+        drop_variables=None,
+        use_cftime=None,
+        decode_timedelta=False,
+        format=None,
+        group="/",
+        first_dim="auto",
+        reindex_coord=None,
+        reindex_angle=False,
+        fix_second_angle=False,
+        site_as_coords=True,
+        optional=True,
+    ):
+        store = NetCDF4DataStore.open(
+            filename_or_obj,
+            format=format,
+            group=None,
+        )
+
+        store_entrypoint = StoreBackendEntrypoint()
+
+        ds0 = store_entrypoint.open_dataset(
+            store,
+            mask_and_scale=mask_and_scale,
+            decode_times=decode_times,
+            concat_characters=concat_characters,
+            decode_coords=decode_coords,
+            drop_variables=drop_variables,
+            use_cftime=use_cftime,
+            decode_timedelta=decode_timedelta,
+        )
+
+        ds = _get_cfradial2_group(
+            ds0,
+            sweep=group,
+            first_dim=first_dim,
+            optional=optional,
+            site_as_coords=site_as_coords,
+        )
+        if ds is None:
+            raise ValueError(f"Group `{group}` missing from file `{filename_or_obj}`.")
+
+        reindex_coord = _get_reindex_coord(reindex_coord, reindex_angle)
+        if decode_coords and reindex_coord:
+            ds = _apply_reindex_coord(ds, reindex_coord)
+
+        if fix_second_angle and first_dim == "auto":
+            ds = _apply_fix_second_angle(ds)
+
+        # ensure close works
+        ds._close = store.close
+
+        return ds
+
+    def open_groups_as_dict(
+        self,
+        filename_or_obj,
+        *,
+        mask_and_scale=True,
+        decode_times=True,
+        concat_characters=True,
+        decode_coords=True,
+        drop_variables=None,
+        use_cftime=None,
+        decode_timedelta=False,
+        first_dim="auto",
+        reindex_coord=None,
+        reindex_angle=False,
+        fix_second_angle=False,
+        site_coords=True,
+        optional=True,
+        optional_groups=False,
+        sweep=None,
+        netcdf_engine="netcdf4",
+    ):
+        # CfRadial1 opens the entire file once
+        ds = open_dataset(
+            filename_or_obj,
+            engine=netcdf_engine,
+            mask_and_scale=mask_and_scale,
+            decode_times=decode_times,
+            concat_characters=concat_characters,
+            decode_coords=decode_coords,
+            drop_variables=drop_variables,
+            use_cftime=use_cftime,
+            decode_timedelta=decode_timedelta,
+            # xr.open_datatree caches the result; a second cache layer here
+            # would hold the data twice
+            cache=False,
+        )
+
+        available = [f"sweep_{i}" for i in range(ds.sizes["sweep"])]
+        try:
+            sweeps = _resolve_sweeps(sweep, lambda: available)
+            if missing := [name for name in sweeps if name not in available]:
+                raise ValueError(
+                    f"Sweep(s) {reprlib.repr(missing)} not found in file, "
+                    f"available: {reprlib.repr(available)}."
+                )
+        except (TypeError, ValueError):
+            ds.close()
+            raise
+
+        try:
+            groups_dict = _cfradial1_groups(
+                ds,
+                sweeps,
+                first_dim=first_dim,
+                optional=optional,
+                optional_groups=optional_groups,
+                site_coords=site_coords,
+                reindex_coord=_get_reindex_coord(reindex_coord, reindex_angle),
+                decode_coords=decode_coords,
+                fix_second_angle=fix_second_angle,
+            )
+        except Exception:
+            ds.close()
+            raise
+        # the groups are new datasets; the root keeps the file's close (#471, #502)
+        _keep_close(groups_dict["/"], ds)
+        return groups_dict
+
+    def open_datatree(
+        self,
+        filename_or_obj,
+        **kwargs,
+    ):
+        groups_dict = self.open_groups_as_dict(filename_or_obj, **kwargs)
+        return datatree_from_dict_with_io_cleanup(groups_dict)
+
+
+_CFRADIAL1_PARAMS_DOC = """
+    netcdf_engine : {"netcdf4", "h5netcdf"}, optional
+        Underlying NetCDF engine used by ``xr.open_dataset`` to read the
+        CfRadial1 file. Defaults to ``"netcdf4"``.
+"""
+
+CfRadial1BackendEntrypoint.open_groups_as_dict.__doc__ = _compose_docstring(
+    "Open a CfRadial1 file as a CfRadial2-shaped dict of group datasets.",
+    REINDEX_PARAMS_DOC,
+    SITE_COORDS_PARAM_DOC,
+    _CFRADIAL1_PARAMS_DOC,
+)
+CfRadial1BackendEntrypoint.open_datatree.__doc__ = (
+    "Open a CfRadial1 file as :py:class:`xarray.DataTree`. "
+    "See :meth:`open_groups_as_dict` for keyword arguments.\n"
+)

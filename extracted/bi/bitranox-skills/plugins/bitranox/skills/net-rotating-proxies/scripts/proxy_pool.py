@@ -1,0 +1,847 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.14"
+# dependencies = ["httpx2", "httpcore2"]
+# ///
+"""Rotating free-proxy pool: discover, validate, and run a worklist through proxies.
+
+Run with `uv run proxy_pool.py ...` so uv fetches httpx2 into an isolated env. httpcore2 is
+listed too because chunked_fetch imports it directly; it is left unpinned, since httpx2 pins the
+exact httpcore2 it was built against and any other pin here could only conflict with that.
+HTTP uses httpx2 (HTTP/2, sync + async, clean proxy support); everything else is
+stdlib, portable across Linux/macOS/Windows. The proxy pool is a persistent
+store that is never trusted as-is, because free proxies constantly die, recover,
+and appear: validate tests only candidates not yet in live.txt or bad.txt, so
+live.txt accumulates, and freshness comes from the ban path (a proxy that fails at
+the connection level during a job goes to bad.txt, and every reader uses
+live - bad). These files live under --store (default ./.proxies):
+
+  pool.txt    all discovered candidate IP:PORT (grow-only, deduped)
+  live.txt    candidates that passed reachability validation on some run (accumulates)
+  good.txt    proxies that actually completed a real download (weighted up)
+  bad.txt     proxies that failed at the connection level (excluded)
+  speeds.tsv  measured validation latency per proxy (proxy<TAB>seconds); selection
+              weights faster proxies up so they are picked more often
+
+Subcommands:
+  discover   fetch public proxy lists -> merge into pool.txt
+  validate   test pool entries for reachability -> grow live.txt (parallel)
+  run        run a worklist through rotating proxies, N-wide parallel, good-first,
+             optionally with a background discover+validate loop refreshing live.txt
+  fetch      download ONE large file as byte-range chunks over rotating proxies (resumable)
+
+OS-independent by design: --cmd is parsed into an argv list and run WITHOUT a shell
+(no shell=True), so it behaves the same on Linux/macOS/Windows and is injection-safe.
+It is split by the host's own command-line rules: POSIX shlex, or on Windows the
+CommandLineToArgvW rules, where a backslash in a path is literal and only double
+quotes group.
+Do not put shell operators (|, ||, $?, redirects) in --cmd; success is decided by the
+tool here, not by shell glue:
+  - success  = return code 0 AND, if --success-glob is given, a matching output file exists
+               (many tools exit 0 without producing output, so prefer --success-glob)
+               -> record proxy in good.txt, stop rotating this item
+  - dead     = the proxy failed at the connection level (return code matched the tool's
+               combined stdout+stderr against --dead-regex) -> record in bad.txt, skip next time
+  - otherwise (incl. timeout / 429 / transient) -> rotate to the next proxy, do not ban
+    (a proxy that keeps failing this way is dropped from THIS run's working set only)
+
+Exit codes: 0 = every item succeeded (discover: at least one source answered),
+1 = some items did not succeed, 2 = error (the --cmd binary was not found, no usable
+proxy in the store, every discovery source failed, a --cmd that cannot be parsed, an invalid
+--dead-regex, a --worklist that is not UTF-8). validate is a report: it exits 0 even when no
+candidate turned out live. fetch: 0 = complete file (hash-verified when --sha256 is given),
+1 = chunks still missing or the probe settled nothing (the message names what the proxies
+answered, e.g. "3 proxies answered HTTP 404"; a rerun, which resumes its manifest with no
+probe, adds the two files to delete if the file changed on the server), 2 = no proxies, bad
+argument (a URL that is not http or https included), a manifest that is damaged or was written
+for another URL or --chunk-size, a hash mismatch, or an output that cannot be written. What
+proxies answer, however many agree, never makes exit 2 except a hash mismatch (bytes altered
+behind correct headers): free proxies often inject the same page alike.
+
+The --cmd template may contain {proxy} (host:port) and {item}. Example:
+  uv run proxy_pool.py run --worklist ids.txt --workers 16 --success-glob 'out/{item}*.vtt'
+     --cmd 'yt-dlp --proxy http://{proxy} --skip-download --write-auto-subs
+            --sub-langs en.*,en --sub-format vtt -o out/{item}.%(ext)s
+            https://www.youtube.com/watch?v={item}'
+"""
+import argparse, concurrent.futures as cf, glob, os, random, re, shlex, subprocess, sys, tempfile, threading, time
+import chunked_fetch as cfetch
+import httpx2
+
+DEAD_DEFAULT = r"connection refused|connection reset|timed out|cannot connect|unreachable|EOF occurred|proxy|tunnel|ProxyError"
+
+IPPORT = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}")
+DEFAULT_SOURCES = [
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+    "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+    "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt",
+    "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+    "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all",
+]
+_lock = threading.Lock()
+
+
+class CommandNotFound(Exception):
+    """The --cmd binary does not exist, so no proxy can ever make an item succeed."""
+
+
+class NoProxies(Exception):
+    """The store holds no usable proxy, so every item would fail without being attempted."""
+
+
+class BadInput(Exception):
+    """An argument cannot be used (a malformed --cmd, an invalid --dead-regex, a --worklist that
+    is not UTF-8): the run never starts, exit 2."""
+
+
+def _p(store, name):
+    return os.path.join(store, name)
+
+
+# Seconds slept between attempts; about 0.8 s in all before the error is raised.
+_SHARING_RETRY_DELAYS = (0.01, 0.02, 0.05, 0.1, 0.2, 0.4)
+
+
+def _retry_sharing_violation(op, windows=os.name == "nt", sleep=time.sleep):
+    """Return op(), retrying a bounded number of times while Windows reports a sharing violation.
+
+    Store files are replaced with os.replace while other threads (and other runs on the same
+    store) read them. On Windows the replace holds a DELETE-access handle on the file it moves and
+    open() does not grant FILE_SHARE_DELETE, so a reader opening the file in that window fails with
+    PermissionError (errno 13), and a replace onto a file a reader holds open fails the same way.
+    Both clear within milliseconds, so the operation is retried; a PermissionError that outlasts
+    the delays is raised. Off Windows a PermissionError is an access right, never a race, and is
+    raised at once."""
+    for delay in _SHARING_RETRY_DELAYS:
+        try:
+            return op()
+        except PermissionError:
+            if not windows:
+                raise
+            sleep(delay)
+    return op()
+
+
+def _read(path, opener=open, retry=_retry_sharing_violation):
+    # utf-8-sig: a list saved by a Windows editor starts with a BOM, which would otherwise glue
+    # itself onto the first entry and make it match nothing.
+    def load():
+        with opener(path, encoding="utf-8-sig") as f:
+            return {l.strip() for l in f if l.strip()}
+
+    try:
+        return retry(load)
+    except FileNotFoundError:
+        return set()
+
+
+def _atomic_write(path, text, replace=os.replace, retry=_retry_sharing_violation):
+    """Replace `path` with `text` in one step, through a temp file no other writer can share.
+
+    _lock serialises threads, not processes: two runs on one store each wrote `path + ".tmp"`,
+    so one truncated the other's half-written file, moved it into place, and the first
+    writer's os.replace then failed because its temp file was gone."""
+    directory, name = os.path.split(os.path.abspath(path))
+    fd, tmp = tempfile.mkstemp(prefix=name + ".", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        retry(lambda: replace(tmp, path))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _grow(path, items):
+    """Atomic grow-only merge: never shrinks the file.
+
+    Threads are serialised; two PROCESSES on one store are not, so one run's merge can drop
+    entries the other added in the same moment (measured: 166 of 600 under two writers merging
+    in a tight loop, none serially). That is left unlocked on purpose: every file merged here is a
+    cache of work that is redone. A live.txt entry that is lost stays in pool.txt, and validate
+    tests pool - live - bad, so the next validate re-tests it; a lost speeds.tsv value is
+    re-measured; a lost pool.txt entry comes back with the next discover while its source still
+    lists it. bad.txt and good.txt are appended, never merged here. The temp file from mkstemp is
+    0600, so a store file this writes is owner-only, which is kept: the store is per-user state."""
+    with _lock:
+        cur = _read(path)
+        cur |= set(items)
+        _atomic_write(path, "\n".join(sorted(cur)) + "\n")
+
+
+def _append(path, line):
+    with _lock:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+
+
+def discover(store, sources):
+    """Merge every source's IP:PORT entries into pool.txt; return how many sources answered.
+
+    A caller must be able to tell "every list was unreachable" from "the lists were fetched",
+    because both leave a pool that looks the same.
+    """
+    found = set()
+    answered = 0
+    for url in sources:
+        try:
+            r = httpx2.get(url, timeout=25, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True)
+            r.raise_for_status()
+            hits = set(IPPORT.findall(r.text))
+            found |= hits
+            answered += 1
+            print(f"  {len(hits):5d} from {url[:60]}")
+        except Exception as e:
+            print(f"  ERR  {url[:60]}: {e}")
+    found.discard("0.0.0.0:80")
+    _grow(_p(store, "pool.txt"), found)
+    print(f"pool now: {len(_read(_p(store, 'pool.txt')))} candidates")
+    return answered
+
+
+def _parse_speeds(f):
+    d = {}
+    for line in f:
+        a = line.rstrip("\n").split("\t")
+        if len(a) == 2:
+            try:
+                d[a[0]] = float(a[1])
+            except ValueError:
+                pass
+    return d
+
+
+def _read_speeds(path, opener=open, retry=_retry_sharing_violation):
+    def load():
+        with opener(path, encoding="utf-8") as f:
+            return _parse_speeds(f)
+
+    try:
+        return retry(load)
+    except FileNotFoundError:
+        return {}
+
+
+def _upsert_speeds(path, new):
+    if not new:
+        return
+    with _lock:
+        d = _read_speeds(path)
+        d.update(new)
+        _atomic_write(path, "".join(f"{p}\t{s:.3f}\n" for p, s in sorted(d.items())))
+
+
+def _median(xs):
+    xs = sorted(x for x in xs if x)
+    if not xs:
+        return 0.0
+    n, m = len(xs), len(xs) // 2
+    return xs[m] if n % 2 else (xs[m - 1] + xs[m]) / 2
+
+
+def _reachable(proxy, test_url, timeout):
+    """Return (ok, latency_seconds). latency is None on failure."""
+    t0 = time.perf_counter()
+    try:
+        with httpx2.Client(proxy=f"http://{proxy}", timeout=timeout, follow_redirects=True) as c:
+            ok = c.get(test_url).status_code in (200, 204)
+    except Exception:
+        return (False, None)
+    return (ok, time.perf_counter() - t0)
+
+
+def validate(store, test_url, workers, timeout, need=None):
+    """Test pool candidates for reachability, growing live.txt.
+
+    ``need`` right-sizes the work: stop as soon as ``need`` live proxies are found this run and
+    cancel the rest, instead of testing the whole pool. A small job (a handful of requests) only
+    needs a few live proxies plus a flakiness margin - pass ``need = concurrency + margin`` rather
+    than validating thousands. ``need=None`` tests every candidate (the exhaustive default).
+    """
+    pool = _read(_p(store, "pool.txt"))
+    live = _read(_p(store, "live.txt"))
+    bad = _read(_p(store, "bad.txt"))
+    todo = sorted(pool - live - bad)  # only test ones we have not already cleared
+    goal = f", stopping at +{need} live" if need else ""
+    print(f"validating up to {len(todo)} candidates against {test_url} ({workers}-wide){goal}...")
+    winners, speeds = [], {}
+    with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(_reachable, p, test_url, timeout): p for p in todo}
+        try:
+            for fut in cf.as_completed(futures):
+                ok, lat = fut.result()
+                if ok:
+                    winners.append(futures[fut])
+                    speeds[futures[fut]] = lat
+                    if need and len(winners) >= need:
+                        break  # right-sized: enough live found, do not test the rest
+        finally:
+            for fut in futures:  # cancel any not-yet-started work after an early stop
+                fut.cancel()
+    _grow(_p(store, "live.txt"), winners)
+    _upsert_speeds(_p(store, "speeds.tsv"), speeds)
+    med = _median(list(speeds.values()))
+    print(f"+{len(winners)} live (median latency {med:.2f}s); live total now {len(_read(_p(store, 'live.txt')))}")
+
+
+def _pick(store, n):
+    """Weighted sample of n proxies. Faster proxies (lower latency) and proven-good
+    proxies are picked more often, via Efraimidis-Spirakis weighted sampling without
+    replacement (key = U**(1/weight), take the top n)."""
+    bad = _read(_p(store, "bad.txt"))
+    speeds = _read_speeds(_p(store, "speeds.tsv"))
+    good = _read(_p(store, "good.txt")) - bad
+    live = _read(_p(store, "live.txt")) - bad
+    cands = {p: 1.0 for p in live}
+    for p in good:
+        cands[p] = 3.0                  # proven proxies get a higher base weight
+    if not cands:
+        return []
+    default_lat = _median(list(speeds.values())) or 3.0
+    keyed = []
+    for p, base in cands.items():
+        lat = speeds.get(p) or default_lat
+        weight = base / max(lat, 0.05)  # faster -> larger weight -> picked more often
+        u = random.random() or 1e-12
+        keyed.append((u ** (1.0 / weight), p))
+    keyed.sort(reverse=True)
+    return [p for _, p in keyed[:n]]
+
+
+def _weighted_lru_pick(weights, last_used, now, cooldown, n):
+    """Efraimidis-Spirakis weighted pick of up to n proxies that also SPREADS load.
+
+    ``weights`` maps proxy -> selection weight (higher = fitter, e.g. faster). A proxy
+    used within ``cooldown`` seconds is RESTED (held out) so no single fast proxy gets
+    hammered back-to-back; the pick is drawn from the rested remainder by weight so fast
+    proxies are still favoured among the eligible. If cool-down would leave fewer than n
+    eligible, the most-rested recently-used proxies (oldest ``last_used`` first) are added
+    back until n are available, so a small pool never starves. Pure and deterministic given
+    the ``random`` state; holds no shared state and does no I/O."""
+    if not weights or n <= 0:
+        return []
+    eligible = [p for p in weights if now - last_used.get(p, float("-inf")) >= cooldown]
+    if len(eligible) < n:
+        resting = sorted((p for p in weights if p not in eligible), key=lambda p: last_used.get(p, float("-inf")))
+        eligible += resting[: n - len(eligible)]
+    keyed = []
+    for p in eligible:
+        w = max(weights[p], 1e-9)
+        u = random.random() or 1e-12
+        keyed.append((u ** (1.0 / w), p))
+    keyed.sort(reverse=True)
+    return [p for _, p in keyed[:n]]
+
+
+def _swap_candidate(pool_speed, in_use, candidate_speed):
+    """Return the in-pool proxy a fresh candidate should replace, or None.
+
+    Steady state is the N FASTEST healthy proxies. A fresh candidate measured at
+    ``candidate_speed`` (latency, seconds) swaps out the SLOWEST currently-idle in-pool
+    proxy when it is strictly faster than that one; a proxy that is mid-request (in
+    ``in_use``) is never swapped out. Returns None when no idle member is slower than the
+    candidate, so a swap only ever raises pool speed. Pure; no shared state, no I/O."""
+    idle = [(lat, p) for p, lat in pool_speed.items() if p not in in_use]
+    if not idle:
+        return None
+    slowest_lat, slowest = max(idle)
+    return slowest if candidate_speed < slowest_lat else None
+
+
+def _is_flaky(successes, failures, min_samples=4, max_fail_ratio=0.5):
+    """True when a proxy fails intermittently past the tolerated ratio.
+
+    Requires at least ``min_samples`` recorded attempts before judging (so one early
+    failure does not evict an otherwise-good proxy), then flags it when the failure
+    fraction exceeds ``max_fail_ratio``. A flaky proxy is evicted and replaced just like a
+    hard-dead one. Pure; no shared state, no I/O."""
+    total = successes + failures
+    if total < min_samples:
+        return False
+    return failures / total > max_fail_ratio
+
+
+class ProxyPool:
+    """Self-optimizing in-memory working set of proxies for one ``run``.
+
+    Holds the ``need`` fastest healthy proxies as the ACTIVE set and hands them out
+    rotated (cool-down / weighted-LRU via ``_weighted_lru_pick``) so load spreads instead
+    of hammering the single fastest exit-IP. Tracks per-proxy latency, last-used time,
+    in-flight status, and success/failure counts; a proxy that goes hard-dead OR turns
+    flaky (``_is_flaky``) is evicted and backfilled from the live pool. A background
+    benchmark loop (``benchmark_loop``) continuously re-times active proxies and trials
+    fresh candidates, swapping a faster fresh one in for the slowest idle member
+    (``_swap_candidate``) so steady state stays the N fastest.
+
+    All mutation is guarded by ``self._lock``; the decision logic lives in the pure module
+    functions so it is unit-testable without threads. ``self._lock`` and the module-level
+    ``_lock`` (used by ``_append`` / ``_upsert_speeds``) are distinct objects that are
+    never held in a cycle, so calling those helpers while holding ``self._lock`` is safe."""
+
+    def __init__(self, store, need, test_url=None, vtimeout=7.0, cooldown=5.0,
+                 flaky_min_samples=4, flaky_max_fail_ratio=0.5, bench_batch=25):
+        self.store = store
+        self.need = need or 0
+        self.test_url = test_url
+        self.vtimeout = vtimeout
+        self.cooldown = cooldown
+        self.flaky_min_samples = flaky_min_samples
+        self.flaky_max_fail_ratio = flaky_max_fail_ratio
+        self.bench_batch = bench_batch
+        self._lock = threading.Lock()
+        self._speed = _read_speeds(_p(store, "speeds.tsv"))
+        self._last_used = {}
+        self._in_use = set()
+        self._ok = {}
+        self._fail = {}
+        self._banned = set()
+        self._active = set()
+        with self._lock:
+            self._refill_active_locked()
+
+    # -- internal helpers; caller must hold self._lock -----------------------
+    def _candidates_locked(self):
+        bad = _read(_p(self.store, "bad.txt"))
+        live = _read(_p(self.store, "live.txt"))
+        good = _read(_p(self.store, "good.txt"))
+        return (live | good) - bad - self._banned
+
+    def _refill_active_locked(self):
+        cands = self._candidates_locked()
+        default_lat = _median(list(self._speed.values())) or 3.0
+        ranked = sorted(cands, key=lambda p: self._speed.get(p) or default_lat)
+        target = self.need or len(ranked)
+        self._active = set(ranked[:target])
+
+    def _weights_locked(self):
+        good = _read(_p(self.store, "good.txt")) - self._banned
+        default_lat = _median(list(self._speed.values())) or 3.0
+        weights = {}
+        for p in self._active:
+            base = 3.0 if p in good else 1.0
+            lat = self._speed.get(p) or default_lat
+            weights[p] = base / max(lat, 0.05)
+        return weights
+
+    def _ban_locked(self, proxy):
+        self._banned.add(proxy)
+        self._active.discard(proxy)
+        self._in_use.discard(proxy)
+
+    def _try_swap_locked(self, candidate, cand_lat):
+        target = self.need or (len(self._active) + 1)
+        if len(self._active) < target:
+            self._active.add(candidate)
+            return
+        default_lat = _median(list(self._speed.values())) or 3.0
+        pool_speed = {p: (self._speed.get(p) or default_lat) for p in self._active}
+        victim = _swap_candidate(pool_speed, self._in_use, cand_lat)
+        if victim is not None:
+            self._active.discard(victim)
+            self._active.add(candidate)
+
+    # -- public API ----------------------------------------------------------
+    def active(self):
+        with self._lock:
+            return set(self._active)
+
+    def acquire(self, n):
+        """Pick up to n proxies for one item, rotated so no proxy is hammered.
+
+        Refills the active set first if it has dropped below target, then draws a
+        speed-weighted, cool-down-respecting pick and stamps each with the current time so
+        the next acquire rests them. Returns the ordered fallback chain to try for the item."""
+        now = time.monotonic()
+        with self._lock:
+            if len(self._active) < (self.need or 1):
+                self._refill_active_locked()
+            picks = _weighted_lru_pick(self._weights_locked(), self._last_used, now, self.cooldown, n)
+            for p in picks:
+                self._last_used[p] = now
+            return picks
+
+    def mark_in_use(self, proxy):
+        with self._lock:
+            self._in_use.add(proxy)
+
+    def record(self, proxy, ok):
+        """Record an attempt's outcome; evict + backfill if the proxy has turned flaky.
+
+        The eviction is for THIS run only and is never written to bad.txt. These failures are
+        the non-dead kind (429, timeouts, a blocked item) - often the target throttling rather
+        than the proxy failing - and bad.txt is permanent: validate and every later pick would
+        skip the proxy forever.
+        """
+        with self._lock:
+            self._in_use.discard(proxy)
+            counter = self._ok if ok else self._fail
+            counter[proxy] = counter.get(proxy, 0) + 1
+            if _is_flaky(self._ok.get(proxy, 0), self._fail.get(proxy, 0),
+                         self.flaky_min_samples, self.flaky_max_fail_ratio):
+                self._ban_locked(proxy)
+                self._refill_active_locked()
+
+    def evict(self, proxy):
+        """Drop a proxy from THIS run's working set at once and backfill; never writes bad.txt.
+
+        For an answer that may be the target's fault rather than the proxy's (fetch: a changed
+        ETag, a 404): acting on it now is right, persisting it is not, however many give it."""
+        with self._lock:
+            self._ban_locked(proxy)
+            self._refill_active_locked()
+
+    def ban(self, proxy):
+        """Evict a hard-dead proxy (connection-level failure), persist it, and backfill."""
+        with self._lock:
+            self._ban_locked(proxy)
+            _append(_p(self.store, "bad.txt"), proxy)
+            self._refill_active_locked()
+
+    def benchmark_once(self):
+        """Re-time active proxies (evicting any gone dead) and trial fresh candidates,
+        swapping a faster fresh one in for the slowest idle member (swap-up)."""
+        if not self.test_url:
+            return
+        with self._lock:
+            members = list(self._active)
+            fresh = list(self._candidates_locked() - self._active)[: self.bench_batch]
+        for p in members:
+            ok, lat = _reachable(p, self.test_url, self.vtimeout)
+            with self._lock:
+                if ok and lat is not None:
+                    self._speed[p] = lat
+                elif not ok:
+                    self._ban_locked(p)
+                    _append(_p(self.store, "bad.txt"), p)
+        for c in fresh:
+            ok, lat = _reachable(c, self.test_url, self.vtimeout)
+            if not ok or lat is None:
+                continue
+            with self._lock:
+                self._speed[c] = lat
+                self._try_swap_locked(c, lat)
+        with self._lock:
+            snapshot = {p: self._speed[p] for p in members + fresh if p in self._speed}
+        _upsert_speeds(_p(self.store, "speeds.tsv"), snapshot)
+
+    def benchmark_loop(self, stop, interval=120):
+        while not stop.is_set():
+            if stop.wait(interval):
+                break
+            try:
+                self.benchmark_once()
+            except Exception as e:
+                print(f"benchmark error: {e}")
+
+
+def _bg_refresh(store, test_url, workers, timeout, stop, need=None, interval=600, sources=None):
+    """Keep live.txt healthy while a job runs. Proxies that die get banned to bad.txt by the worker,
+    which shrinks the effective pool (live - bad); this loop refills it. With ``need`` set it tops up
+    ONLY to the target (validating just the deficit), so it replaces proxies that went away without
+    re-over-provisioning; with ``need=None`` it re-validates the whole pool (exhaustive).
+    ``interval`` (default 10 min) and ``sources`` (default the public lists) exist so the loop can
+    be driven against a local source in tests."""
+    while not stop.is_set():
+        if stop.wait(interval):
+            break
+        try:
+            discover(store, sources or DEFAULT_SOURCES)
+            if need is None:
+                validate(store, test_url, workers, timeout)
+                continue
+            available = _read(_p(store, "live.txt")) - _read(_p(store, "bad.txt"))
+            deficit = need - len(available)
+            if deficit > 0:             # one (or more) went away -> top back up to the target
+                validate(store, test_url, workers, timeout, need=deficit)
+        except Exception as e:
+            print(f"bg refresh error: {e}")
+
+
+def _run_item(store, item, argv_tpl, per_item, item_timeout, success_glob, dead_re, pool=None):
+    # With a ProxyPool the chain is drawn rotated (cool-down/weighted-LRU) and outcomes are
+    # fed back for flaky tracking; without one it falls back to the stateless speed-weighted pick.
+    proxies = pool.acquire(per_item) if pool is not None else _pick(store, per_item)
+    for proxy in proxies:
+        if pool is not None:
+            pool.mark_in_use(proxy)
+        # argv list, NO shell: identical behaviour on Linux/macOS/Windows, injection-safe.
+        argv = [tok.replace("{proxy}", proxy).replace("{item}", item) for tok in argv_tpl]
+        try:
+            # Explicit UTF-8 with replacement: the locale codec raises UnicodeDecodeError on POSIX
+            # (past every handler here) and loses stdout on Windows when the tool prints bytes it
+            # cannot decode.
+            r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", timeout=item_timeout)
+            rc, out = r.returncode, (r.stdout or "") + (r.stderr or "")
+        except subprocess.TimeoutExpired:
+            rc, out = 124, ""
+        except FileNotFoundError as exc:
+            raise CommandNotFound(f"cmd not found: {argv[0]!r}") from exc
+        ok = rc == 0
+        if ok and success_glob:
+            # The item is data, not a pattern: an id like "a[1]" would otherwise be a character class.
+            ok = bool(glob.glob(success_glob.replace("{item}", glob.escape(item))))
+        if ok:
+            _append(_p(store, "good.txt"), proxy)
+            if pool is not None:
+                pool.record(proxy, True)
+            return (item, proxy)
+        if dead_re.search(out):          # connection-level failure: ban this proxy
+            if pool is not None:
+                pool.ban(proxy)
+            else:
+                _append(_p(store, "bad.txt"), proxy)
+        elif pool is not None:           # transient / blocked (e.g. 429): rotate, count as a failure
+            pool.record(proxy, False)
+    return (item, None)
+
+
+def _split_windows(text):
+    """Split a command line the way the Microsoft C runtime (CommandLineToArgvW) does.
+
+    A backslash is literal unless a run of them ends in a double quote: 2n backslashes then a quote
+    give n backslashes and toggle quoting, 2n+1 give n backslashes and a literal quote. There is no
+    single-quoting. Pure Python rather than ctypes so the same rules are testable on every OS.
+    """
+    args, current = [], []
+    in_quotes = in_arg = False
+    i = 0
+    while i < len(text):
+        char = text[i]
+        if char == "\\":
+            end = i
+            while end < len(text) and text[end] == "\\":
+                end += 1
+            count = end - i
+            if end < len(text) and text[end] == '"':
+                current.append("\\" * (count // 2))
+                if count % 2:
+                    current.append('"')
+                    end += 1
+            else:
+                current.append("\\" * count)
+            in_arg, i = True, end
+            continue
+        if char == '"':
+            in_quotes, in_arg = not in_quotes, True
+        elif char in " \t" and not in_quotes:
+            if in_arg:
+                args.append("".join(current))
+                current, in_arg = [], False
+        else:
+            current.append(char)
+            in_arg = True
+        i += 1
+    if in_arg:
+        args.append("".join(current))
+    return args
+
+
+def split_command(text, windows=os.name == "nt"):
+    """Split --cmd by the rules of the platform it runs on.
+
+    POSIX shlex reads a backslash as an escape, so on Windows it eats the separators out of every
+    path (`C:\\tools\\yt-dlp.exe` becomes `C:toolsyt-dlp.exe`) and the tool is "not found".
+    """
+    return _split_windows(text) if windows else shlex.split(text)
+
+
+def _parse_run_inputs(cmd, dead_regex, worklist):
+    """(argv template, compiled dead regex, items), or BadInput naming the argument at fault.
+
+    Each used to escape main as a traceback (exit 1, which reads as 'some items failed')."""
+    try:
+        argv_tpl = split_command(cmd)    # parse template once; substituted per attempt, no shell
+    except ValueError as exc:            # shlex: "No closing quotation", "No escaped character"
+        raise BadInput(f"--cmd cannot be parsed: {exc}") from exc
+    try:
+        dead_re = re.compile(dead_regex, re.I)
+    except re.error as exc:
+        raise BadInput(f"--dead-regex is not a valid regex: {exc}") from exc
+    try:
+        with open(worklist, encoding="utf-8-sig") as f:
+            items = [l.strip() for l in f if l.strip()]
+    except UnicodeDecodeError as exc:
+        raise BadInput(f"--worklist {worklist} is not UTF-8 text: {exc}") from exc
+    return argv_tpl, dead_re, items
+
+
+def run(store, worklist, cmd, workers, per_item, item_timeout, bg, test_url, vworkers, vtimeout,
+        success_glob, dead_regex, need=None, cooldown=5.0, bench_interval=120, flaky_fail_ratio=0.5):
+    """Run the worklist; return (succeeded, total).
+
+    Raises CommandNotFound when the --cmd binary does not exist, and NoProxies when the store
+    holds no usable proxy - both make every item fail, so running them would only print noise.
+    """
+    argv_tpl, dead_re, items = _parse_run_inputs(cmd, dead_regex, worklist)
+    # Self-optimizing working set: rotates the pick (no hammering), tracks flaky proxies,
+    # and (with --background-discovery) benchmarks + swaps fresh fast proxies in for slow ones.
+    pool = ProxyPool(store, need, test_url=test_url, vtimeout=vtimeout, cooldown=cooldown,
+                     flaky_max_fail_ratio=flaky_fail_ratio)
+    if items and not pool.active():
+        raise NoProxies(f"no usable proxies in {store} (live + good - bad is empty); "
+                        f"run discover and validate first")
+    stop = threading.Event()
+    if bg:
+        refresh_t = threading.Thread(target=_bg_refresh, args=(store, test_url, vworkers, vtimeout, stop, need), daemon=True)
+        bench_t = threading.Thread(target=pool.benchmark_loop, args=(stop, bench_interval), daemon=True)
+        refresh_t.start()
+        bench_t.start()
+        print("background discover+validate and benchmark+swap loops started")
+    ok = 0
+    try:
+        with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = [ex.submit(_run_item, store, it, argv_tpl, per_item, item_timeout, success_glob, dead_re, pool) for it in items]
+            try:
+                for fut in cf.as_completed(futs):
+                    item, proxy = fut.result()
+                    if proxy:
+                        ok += 1
+                        print(f"OK {item} via {proxy}  ({ok}/{len(items)})")
+            except CommandNotFound:
+                for pending in futs:  # it can never succeed; do not start the rest
+                    pending.cancel()
+                raise
+    finally:
+        stop.set()
+    print(f"done: {ok}/{len(items)} succeeded; good={len(_read(_p(store,'good.txt')))} bad={len(_read(_p(store,'bad.txt')))}")
+    return ok, len(items)
+
+
+def _tolerate_unencodable_output():
+    """Replace, rather than crash on, a character the console cannot encode.
+
+    A Windows pipe defaults to cp1252, so an item name outside it raised UnicodeEncodeError from
+    the report line and killed the run.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
+def main(argv=None):
+    """CLI entry. Returns the exit code: 0 all good, 1 some items failed, 2 error."""
+    _tolerate_unencodable_output()
+    ap = argparse.ArgumentParser(description="Rotating free-proxy pool harness.")
+    ap.add_argument("--store", default="./.proxies")
+    sub = ap.add_subparsers(dest="action", required=True)
+    d = sub.add_parser("discover"); d.add_argument("--sources", nargs="*", default=DEFAULT_SOURCES)
+    v = sub.add_parser("validate")
+    v.add_argument("--test-url", default="https://www.youtube.com/generate_204")
+    v.add_argument("--workers", type=int, default=150); v.add_argument("--timeout", type=float, default=7)
+    v.add_argument("--need", type=int, default=None,
+                   help="stop once N live proxies are found (right-size: N = concurrency + margin); "
+                        "omit to test the whole pool")
+    r = sub.add_parser("run")
+    r.add_argument("--worklist", required=True); r.add_argument("--cmd", required=True)
+    r.add_argument("--workers", type=int, default=8); r.add_argument("--per-item-proxies", type=int, default=8)
+    r.add_argument("--item-timeout", type=float, default=90)
+    r.add_argument("--success-glob", default=None, help="path glob (may contain {item}) that must exist for success")
+    r.add_argument("--dead-regex", default=DEAD_DEFAULT, help="regex on cmd output marking a dead proxy")
+    r.add_argument("--background-discovery", action="store_true")
+    r.add_argument("--test-url", default="https://www.youtube.com/generate_204")
+    r.add_argument("--vworkers", type=int, default=150); r.add_argument("--vtimeout", type=float, default=7)
+    r.add_argument("--need", type=int, default=None,
+                   help="target live-pool size to maintain (right-size: concurrency + margin); the "
+                        "background refresh tops up to this when proxies die, instead of re-validating all")
+    r.add_argument("--cooldown", type=float, default=5.0,
+                   help="seconds a proxy rests between uses so no single fast exit-IP is hammered")
+    r.add_argument("--bench-interval", type=float, default=120,
+                   help="seconds between background re-benchmark + swap-up passes (needs --background-discovery)")
+    r.add_argument("--flaky-fail-ratio", type=float, default=0.5,
+                   help="evict a proxy once its failure fraction exceeds this (after a few attempts)")
+    f = sub.add_parser("fetch", help="download one large file as byte-range chunks over the pool")
+    f.add_argument("url")
+    f.add_argument("-o", "--output", required=True)
+    f.add_argument("--chunk-size", default="8M", help="bytes per range, e.g. 8M, 512K (default 8M)")
+    f.add_argument("--workers", type=int, default=8)
+    f.add_argument("--need", type=int, default=None, help="working-set size, as for run")
+    f.add_argument("--sha256", default=None, help="expected hex digest; strongly recommended")
+    f.add_argument("--chunk-timeout", type=float, default=120,
+                   help="seconds one attempt may take, connect to last byte (redirects included), "
+                        "before it counts as cut; the bytes it received are kept. From an origin "
+                        "without Range support one attempt is the whole file, which must then "
+                        "arrive within this (default 120)")
+    f.add_argument("--max-attempts-per-chunk", type=int, default=20)
+    f.add_argument("--cooldown", type=float, default=5.0)
+    f.add_argument("--flaky-fail-ratio", type=float, default=0.5)
+    a = ap.parse_args(argv)
+    try:
+        os.makedirs(a.store, exist_ok=True)
+        return _dispatch(a)
+    except (CommandNotFound, NoProxies, BadInput, cfetch.FetchError, OSError) as e:
+        print(f"proxy_pool: {e}", file=sys.stderr)
+        return 2
+
+
+def _dispatch(a):
+    # A negative --need slices the ranked pool from the end, so the store reads as empty and the
+    # refusal names the wrong cause. 0 stays legal: it means no cap, like omitting the flag.
+    if getattr(a, "need", None) is not None and a.need < 0:
+        raise BadInput("--need must not be negative")
+    if a.action == "discover":
+        if discover(a.store, a.sources) == 0 and a.sources:
+            print("proxy_pool: no discovery source answered", file=sys.stderr)
+            return 2
+        return 0
+    if a.action == "validate":
+        validate(a.store, a.test_url, a.workers, a.timeout, a.need)
+        return 0
+    if a.action == "fetch":
+        return _fetch(a)
+    succeeded, total = run(a.store, a.worklist, a.cmd, a.workers, a.per_item_proxies, a.item_timeout,
+                           a.background_discovery, a.test_url, a.vworkers, a.vtimeout, a.success_glob,
+                           a.dead_regex, a.need, a.cooldown, a.bench_interval, a.flaky_fail_ratio)
+    return 0 if succeeded == total else 1
+
+
+def _fetch(a):
+    """The fetch subcommand: 0 verified file, 1 work left undone, 2 cannot work."""
+    cfetch.check_url(a.url)       # a FetchError: exit 2 before the pool is even read
+    try:
+        chunk_size = cfetch.parse_size(a.chunk_size)
+    except ValueError as exc:
+        raise BadInput(f"--chunk-size: {exc}") from exc
+    if a.sha256 is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", a.sha256):
+        raise BadInput("--sha256 must be 64 hex digits")
+    # A zero timeout makes every connect time out, which the probe reads as a dead proxy and
+    # bans: one typo would poison the whole store. The comparison also refuses nan.
+    if not 0 < a.chunk_timeout < float("inf"):
+        raise BadInput("--chunk-timeout must be a positive number of seconds")
+    if a.max_attempts_per_chunk < 1:
+        raise BadInput("--max-attempts-per-chunk must be at least 1")
+    pool = ProxyPool(a.store, a.need, cooldown=a.cooldown, flaky_max_fail_ratio=a.flaky_fail_ratio)
+    if not pool.active():
+        raise NoProxies(f"no usable proxies in {a.store} (live + good - bad is empty); "
+                        f"run discover and validate first")
+    if not a.sha256:
+        print("proxy_pool: no --sha256 given: size and identity are checked only where the origin "
+              "sends them, and bytes altered behind correct headers go unnoticed", file=sys.stderr)
+    recorded = set()
+
+    def record_good(proxy):
+        # One line per proxy, not per chunk: a large file would otherwise add a line for every
+        # chunk, and every acquire re-reads the file. A race writes one extra line at worst.
+        if proxy not in recorded:
+            recorded.add(proxy)
+            _append(_p(a.store, "good.txt"), proxy)
+
+    result = cfetch.fetch(a.url, a.output, pool, chunk_size=chunk_size, workers=a.workers,
+                          sha256=a.sha256, timeout=a.chunk_timeout,
+                          max_attempts=a.max_attempts_per_chunk, on_success=record_good)
+    if not result.ok:
+        print(f"proxy_pool: {result.note}", file=sys.stderr)
+        return 1
+    print(f"done: {a.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

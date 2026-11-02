@@ -1,0 +1,94 @@
+[build-system]
+requires = ["flit_core>=3.12.0", "flit_scm", "wheel"]
+build-backend = "flit_scm:buildapi"
+
+[project]
+name = "dramatiq-crontab"
+authors = [
+  { name = "Rust Saiargaliev", email = "fly.amureki@gmail.com" },
+  { name = "Johannes Maron", email = "johannes@maron.family" },
+  { name = "Mostafa Mohamed", email = "mostafa.anm91@gmail.com" },
+  { name = "Jacqueline Kraus", email = "jacquelinekraus1992@gmail.com" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["Django", "Dramatiq", "tasks", "scheduler"]
+dynamic = ["version", "description"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "License :: OSI Approved :: BSD License",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Communications :: Email",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Topic :: Software Development",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Framework :: Django",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
+]
+requires-python = ">=3.11"
+dependencies = ["dramatiq>=1.18.0", "apscheduler>=3.11.0,<4", "django>=5.2.18"]
+
+[project.optional-dependencies]
+test = ["pytest>=9.0.3", "pytest-cov>=6.0.0", "pytest-django>=4.11.1"]
+sentry = ["sentry-sdk>=2.8.0"]
+redis = ["redis>=5.0.0"]
+
+[project.urls]
+Project-URL = "https://github.com/voiio/dramatiq-crontab"
+Changelog = "https://github.com/voiio/dramatiq-crontab/releases"
+
+[tool.flit.module]
+name = "dramatiq_crontab"
+
+[tool.setuptools_scm]
+write_to = "dramatiq_crontab/_version.py"
+
+[tool.pytest.ini_options]
+minversion = "9.0.3"
+addopts = "--cov --cov-report=xml --cov-report=term --tb=short -rxs"
+testpaths = ["tests"]
+DJANGO_SETTINGS_MODULE = "tests.testapp.settings"
+
+[tool.coverage.run]
+source = ["dramatiq_crontab"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+src = ["dramatiq_crontab", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "S", # flake8-bandit
+    "D", # pydocstyle
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "C", # flake8-comprehensions
+]
+
+ignore = ["B904", "D1", "E501", "S101"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-wrap-aliases = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

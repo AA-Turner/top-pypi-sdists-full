@@ -6,10 +6,13 @@ import shlex
 
 import pytest
 
-from probe.cli import backfill as bf, backfill_import as imp, import_jobs, import_jobs_ui, tui
-from probe.cli.backfill_coverage import Coverage, CoverageError
-from probe.cli.backfill_ledger import Ledger, MAX_UNIT_ATTEMPTS, UnitState
-from probe.cli.import_jobs import enqueue as enqueue_job
+from probe.cli.imports import folder as bf, jobs as import_jobs
+from probe.cli.imports.folder import flow as imp
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import Coverage, CoverageError
+from probe.cli.imports.folder.upload.ledger import Ledger, MAX_UNIT_ATTEMPTS, UnitState
+from probe.cli.imports.jobs.jobs import enqueue as enqueue_job
 from tests import test_backfill_background, test_import_jobs
 
 background_harness = test_backfill_background.background_harness
@@ -48,7 +51,7 @@ def test_unretired_exhausted_unit_recovers_manifest_without_another_agent_attemp
         manifest = Path(payload["directory"]) / "manifests" / f"{unit.unit_id}.jsonl"
         manifest.write_text("".join(json.dumps({"path": path}) + "\n"
                                     for path in ("a.py", "b.py")[:manifest_files]))
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: pytest.fail("attempt limit exceeded"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", lambda *a, **k: pytest.fail("attempt limit exceeded"))
 
     for _ in range(2):
         if manifest_files == 2:
@@ -83,10 +86,11 @@ def test_last_attempt_is_retired_before_flush_can_interrupt_it(
         raise interruption("flush interrupted")
 
     with monkeypatch.context() as patch:
-        patch.setattr(imp, "_flush_uploads", interrupted_flush)
+        patch.setattr("probe.cli.imports.folder.upload.flush._flush_uploads", interrupted_flush)
+        patch.setattr(imp.deliver, "_flush_uploads", interrupted_flush)
         with pytest.raises(expected):
             _resume(payload)
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: pytest.fail("retired unit restarted"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", lambda *a, **k: pytest.fail("retired unit restarted"))
     with pytest.raises(CoverageError, match="failed repeatedly"):
         _resume(payload)
     assert ledger.read().units[unit.unit_id].attempts == MAX_UNIT_ATTEMPTS
@@ -102,7 +106,7 @@ def test_worker_error_and_import_details_explain_fresh_review_without_resetting_
     harness.folder = renamed
     h, payload, ledger, unit = _approved(background_harness)
     _fail_attempts(ledger, unit)
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: pytest.fail("retired unit restarted"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", lambda *a, **k: pytest.fail("retired unit restarted"))
     job = enqueue_job(import_jobs.Kind.FOLDER, payload, "Reviewed folder")
 
     for _ in range(2):
@@ -140,7 +144,7 @@ def test_explicit_retry_dead_reviews_a_new_plan_and_keeps_old_job_approval(
         reviews.append(title)
         return "import"
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     h.run(retry_dead=True, interactive=True, yes=False, background=True)
     assert "Review the import plan" in reviews
@@ -184,7 +188,7 @@ def test_retirement_interruption_is_repaired_without_poisoning_a_fresh_retry(
         reviews.append(title)
         return "import"
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     h.run(retry_dead=True, interactive=True, yes=False, background=True)
     assert "Review the import plan" in reviews

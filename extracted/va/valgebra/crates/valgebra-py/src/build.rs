@@ -1,0 +1,1811 @@
+//! The schema frontend: build the IR from Python types, typing annotations,
+//! native container forms, and already-compiled validators.
+
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use std::sync::Arc;
+
+use pyo3::PyTypeInfo;
+use pyo3::exceptions::{PyImportError, PyNotImplementedError, PyValueError};
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{
+    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyModule, PySet, PyString,
+    PyTuple, PyType,
+};
+use valgebra_core::{
+    ClassIx, ConstIx, DefIx, DefShift, Guarded, OperandIx, PredIx, Schema, fresh_self_token,
+};
+
+use crate::errors::summarize;
+use crate::validator::{MAX_SCHEMA_NODES, Validator};
+
+/// The `build_schema` recursion running on this thread, read and written once on
+/// each side of a descent.
+struct Build {
+    /// How deep it is, bounding it so a self-referential class (whose field type
+    /// names the class) fails cleanly instead of recursing until the native
+    /// stack overflows.
+    depth: Cell<usize>,
+    /// How many descents it has made, which decides how a result is counted.
+    descents: Cell<usize>,
+    /// The schema nodes it holds: what its finished descents returned that
+    /// their parents have not yet been built from.
+    ///
+    /// An annotation names a class, an alias or any annotation object once,
+    /// and the frontend builds it once per place it is named -- so a part
+    /// shared through several levels is built as a tree whose size multiplies
+    /// with each level. Holding the count to the node bound as the build goes
+    /// is what refuses that tree instead of building it.
+    held: Cell<usize>,
+}
+
+thread_local! {
+    static BUILD: Build = const {
+        Build {
+            depth: Cell::new(0),
+            descents: Cell::new(0),
+            held: Cell::new(0),
+        }
+    };
+
+    /// The PEP 695 aliases whose bodies are being built on this thread.
+    static OPEN_ALIASES: RefCell<Vec<OpenAlias>> = const { RefCell::new(Vec::new()) };
+}
+
+/// One alias whose body is being built, and the token standing for it.
+///
+/// An alias reached again while its own body is being built is the fixpoint's
+/// back edge, and this is what tells the two apart. A plain alias is found by
+/// its address, because it is one object and `__value__` yields the same one
+/// however many times it is read. A generic one is found by its address and
+/// the arguments it is applied to, compared by Python equality: `Tree[int]` is
+/// a fresh object at every read, and the substituted body names an equal one.
+struct OpenAlias {
+    address: usize,
+    /// The type arguments it is applied to, defaults filled in; `None` for an
+    /// alias declaring no parameter.
+    arguments: Option<Py<PyTuple>>,
+    token: u64,
+    /// Whether the token was handed out, which makes the body a definition.
+    /// Shared, so the lookup that finds the entry can mark it after the
+    /// borrow it was found under has ended.
+    used: Rc<Cell<bool>>,
+}
+
+/// Build the body of a PEP 695 alias, tying the knot where it names itself.
+///
+/// `type Json = int | str | list[Json] | dict[str, Json]` is the standard
+/// spelling of a recursive type, and the annotation is the whole definition: the
+/// alias object is reached again while its own body is being read, and there is
+/// no lambda to carry the fixpoint. So the alias *is* the binder. A token stands
+/// for it while the body is built, every occurrence of the token becomes a
+/// reference to the definition the body turns into, and an alias that never
+/// names itself builds what it would without the token -- one schema, no
+/// definition, nothing to resolve.
+///
+/// A generic alias written bare is its defaults, as PEP 696 reads it, and is
+/// refused where a parameter has none: PEP 695 gives a bare one "an implied
+/// type argument of Any, which is rarely the intent".
+fn build_alias(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    if !type_parameters(obj)?.is_empty() {
+        return build_applied_alias(obj, &PyTuple::empty(obj.py()), obj, lits, defs);
+    }
+    tie_alias(
+        obj,
+        None,
+        &obj.getattr(intern!(obj.py(), "__value__"))?,
+        lits,
+        defs,
+    )
+}
+
+/// Build a generic PEP 695 alias applied to its type arguments, `Pair[int]`.
+///
+/// The arguments are substituted into the body through the body's own
+/// `__parameters__`, which lists its type variables in the order the body
+/// first names them: `type Swap[T, U] = dict[U, T]` indexed in the alias's
+/// order would come out transposed. A parameter with no argument takes its
+/// default, which may name an earlier one, and the runtime checks no count, so
+/// a missing or a surplus argument is refused here by the alias's name. Bounds
+/// and constraints on a parameter are a checker's to hold and are not read.
+///
+/// `spelling` is the annotation as written -- the alias itself where it is
+/// bare -- carried for the refusals.
+pub(super) fn build_applied_alias(
+    alias: &Bound<'_, PyAny>,
+    args: &Bound<'_, PyTuple>,
+    spelling: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let (arguments, body) = applied_body(alias, args, spelling)?;
+    tie_alias(alias, Some(&arguments), &body, lits, defs)
+}
+
+/// The arguments a generic alias is applied to, its defaults filled in, and
+/// its body with them substituted: what [`build_applied_alias`] builds, read
+/// without building it.
+fn applied_body<'py>(
+    alias: &Bound<'py, PyAny>,
+    args: &Bound<'py, PyTuple>,
+    spelling: &Bound<'_, PyAny>,
+) -> PyResult<(Bound<'py, PyTuple>, Bound<'py, PyAny>)> {
+    let py = alias.py();
+    let name = declared_name(alias)?;
+    let parameters = type_parameters(alias)?;
+    let type_var = forms(py)?.type_var.bind(py);
+    let count = parameters.len();
+    let s = if count == 1 { "" } else { "s" };
+    // A parameter that is no type variable is refused before any count, since
+    // what counts as one argument for it is not a type.
+    for parameter in parameters.iter() {
+        if !parameter.get_type().is(type_var) {
+            return Err(not_implemented(format!(
+                "{name} declares {}, which stands for a list of types or a \
+                 signature rather than for one type, so no argument here \
+                 substitutes it: write the alias over TypeVars alone",
+                declared_name(&parameter)?
+            )));
+        }
+    }
+    if args.len() > parameters.len() {
+        return Err(not_implemented(format!(
+            "{name} takes {count} type argument{s}, and {} gives it {}",
+            summarize(spelling)?,
+            args.len()
+        )));
+    }
+    let mut arguments: Vec<Bound<'_, PyAny>> = Vec::with_capacity(parameters.len());
+    for (index, parameter) in parameters.iter().enumerate() {
+        if let Ok(argument) = args.get_item(index) {
+            arguments.push(argument);
+            continue;
+        }
+        let Some(default) = default_of(&parameter)? else {
+            return Err(not_implemented(if args.is_empty() {
+                format!(
+                    "{name} is a generic alias, and its parameter {} has no \
+                     default: write {name}[...] with the type it stands for",
+                    declared_name(&parameter)?
+                )
+            } else {
+                format!(
+                    "{name} takes {count} type argument{s}, and {} gives it {}: {} \
+                     has no default to stand in",
+                    summarize(spelling)?,
+                    args.len(),
+                    declared_name(&parameter)?
+                )
+            }));
+        };
+        arguments.push(substitute(&default, &parameters, &arguments)?);
+    }
+    let arguments = PyTuple::new(py, arguments)?;
+    let value = alias.getattr(intern!(py, "__value__"))?;
+    refuse_a_growing_argument(alias, &name, &value, &parameters)?;
+    let body = substitute(&value, &parameters, &arguments.iter().collect::<Vec<_>>())?;
+    Ok((arguments, body))
+}
+
+/// The form `form` stands for where it is a PEP 695 alias, bare or applied to
+/// arguments, with the alias read; `None` where it is no alias.
+///
+/// A bare alias stands for its value, a generic one written bare for its value
+/// with its defaults in place, and one applied to arguments for its value with
+/// them substituted, as [`build_applied_alias`] reads each.
+pub(super) fn alias_value<'py>(
+    form: &Bound<'py, PyAny>,
+) -> PyResult<Option<(Bound<'py, PyAny>, Bound<'py, PyAny>)>> {
+    let py = form.py();
+    let (alias, args) = if is_type_alias(form)? {
+        (form.clone(), PyTuple::empty(py))
+    } else if let Some(origin) = form.getattr_opt(intern!(py, "__origin__"))?
+        && is_type_alias(&origin)?
+    {
+        let args = form
+            .getattr(intern!(py, "__args__"))?
+            .cast_into::<PyTuple>()?;
+        (origin, args)
+    } else {
+        return Ok(None);
+    };
+    let value = if args.is_empty() && type_parameters(&alias)?.is_empty() {
+        alias.getattr(intern!(py, "__value__"))?
+    } else {
+        applied_body(&alias, &args, form)?.1
+    };
+    Ok(Some((alias, value)))
+}
+
+/// An open alias as a lookup copies it out of the list: the arguments it is
+/// applied to, its token, and the flag that says the token was handed out.
+type Found = (Option<Py<PyTuple>>, u64, Rc<Cell<bool>>);
+
+/// Build an alias's body as the fixpoint the alias binds.
+///
+/// The contractivity check is the same one `recursive` runs [Cas23, Def. 2.1],
+/// for the same reason: `type X = int | X` names a set no value settles, and a
+/// walk over it would not terminate.
+fn tie_alias(
+    alias: &Bound<'_, PyAny>,
+    arguments: Option<&Bound<'_, PyTuple>>,
+    body: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let py = alias.py();
+    let address = alias.as_ptr() as usize;
+    // The arguments are compared outside the borrow: an equality is Python
+    // code, and code that builds a validator would borrow the list again.
+    let open: Vec<Found> = OPEN_ALIASES.with_borrow(|open| {
+        open.iter()
+            .filter(|entry| entry.address == address)
+            .map(|entry| {
+                let held = entry.arguments.as_ref().map(|held| held.clone_ref(py));
+                (held, entry.token, Rc::clone(&entry.used))
+            })
+            .collect()
+    });
+    for (held, token, used) in open {
+        // One address is one alias, which declares parameters or does not, so
+        // arguments are held on both sides or on neither.
+        if let (Some(held), Some(these)) = (held, arguments)
+            && !held.bind(py).eq(these)?
+        {
+            continue;
+        }
+        used.set(true);
+        return Ok(Schema::SelfRef(token));
+    }
+
+    let token = fresh_self_token();
+    OPEN_ALIASES.with_borrow_mut(|open| {
+        open.push(OpenAlias {
+            address,
+            arguments: arguments.map(|these| these.clone().unbind()),
+            token,
+            used: Rc::new(Cell::new(false)),
+        });
+    });
+    // The value is a type *argument*, as a `NewType`'s supertype is: a string
+    // there is a forward reference, where the constant reading would make
+    // `TypeAliasType("A", "int")` and `type A = "int"` the literal `'int'`.
+    let body = generics::build_type_argument(body, lits, defs);
+    let recursive = OPEN_ALIASES
+        .with_borrow_mut(Vec::pop)
+        .is_some_and(|entry| entry.used.get());
+    let body = body?;
+    if !recursive {
+        return Ok(body);
+    }
+
+    // The body becomes a definition and every occurrence of the token becomes a
+    // reference to it -- in the body, and in any definition the body's own build
+    // appended, since an inner fixpoint may name this one.
+    let ref_id = DefIx::new(defs.len());
+    for definition in defs.iter_mut() {
+        *definition = definition.resolve_self(token, ref_id);
+    }
+    let resolved = body.resolve_self(token, ref_id);
+    if resolved.occurs_unguarded_under(ref_id, Guarded::No, defs) {
+        return Err(PyValueError::new_err(
+            "recursive type alias is not contractive: the alias names itself \
+             outside any structural constructor, so it denotes no set. Put the \
+             self-reference under a list, tuple, set, dict, record, or object",
+        ));
+    }
+    // A definition the table already holds is that definition: `type A = int |
+    // list[A]` beside a `B` spelled alike, or `A` built twice in one schema, is
+    // one definition and not two, which `A | B` would keep as two members. An
+    // inner fixpoint naming this one is never dropped by it: it was built while
+    // this one was open, so it is newer than every definition held before, and
+    // the body naming it equals none of those.
+    if let Some(held) = held_already(&resolved, ref_id, defs) {
+        return Ok(Schema::Ref(held));
+    }
+    defs.push(resolved);
+    Ok(Schema::Ref(ref_id))
+}
+
+/// The definition of `defs` that `body`, about to be added at `at`, is: the
+/// one it equals once its references to itself name that one instead.
+fn held_already(body: &Schema, at: DefIx, defs: &[Schema]) -> Option<DefIx> {
+    let mut table = vec![None; at.get() + 1];
+    (0..defs.len()).map(DefIx::new).find(|&held| {
+        if let Some(own) = table.get_mut(at.get()) {
+            *own = Some(held);
+        }
+        defs.get(held.get()) == Some(&body.renumbered(&table))
+    })
+}
+
+/// Whether `obj` is a PEP 695 alias, `typing`'s or `typing_extensions`'.
+pub(super) fn is_type_alias(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    if let Some(alias_type) = &forms(py)?.type_alias_type
+        && obj.is_instance(alias_type.bind(py))?
+    {
+        return Ok(true);
+    }
+    match extensions(py)?.and_then(|held| held.type_alias_type.as_ref()) {
+        Some(alias_type) => obj.is_instance(alias_type.bind(py)),
+        None => Ok(false),
+    }
+}
+
+/// An alias's declared type parameters, the empty tuple for a plain one.
+fn type_parameters<'py>(alias: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
+    Ok(alias
+        .getattr(intern!(alias.py(), "__type_params__"))?
+        .cast_into::<PyTuple>()?)
+}
+
+/// The name an alias or a type parameter declares, for the refusals that name
+/// it: a `TypeVar` prints as `~T` below 3.12 and is declared `T`.
+fn declared_name(alias: &Bound<'_, PyAny>) -> PyResult<String> {
+    Ok(alias
+        .getattr(intern!(alias.py(), "__name__"))?
+        .str()?
+        .to_string())
+}
+
+/// A type variable's default, as PEP 696 declares one, or `None`.
+///
+/// Asked through `has_default`, which a variable without a default answers
+/// `False` and a release older than PEP 696 does not carry at all -- its
+/// `TypeVar` has no default to give.
+fn default_of<'py>(parameter: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let py = parameter.py();
+    let Some(has_default) = parameter.getattr_opt(intern!(py, "has_default"))? else {
+        return Ok(None);
+    };
+    if !has_default.call0()?.is_truthy()? {
+        return Ok(None);
+    }
+    parameter.getattr(intern!(py, "__default__")).map(Some)
+}
+
+/// Substitute `arguments` for the `parameters` they stand for in `value`.
+///
+/// A parameter is replaced outright, and a form naming one is indexed by its
+/// own `__parameters__`, each replaced by its argument. A form naming none of
+/// them is left as written: a generic class has `__parameters__` of its own,
+/// and indexing it would turn the class into an application of it.
+fn substitute<'py>(
+    value: &Bound<'py, PyAny>,
+    parameters: &Bound<'py, PyTuple>,
+    arguments: &[Bound<'py, PyAny>],
+) -> PyResult<Bound<'py, PyAny>> {
+    let argument_for = |variable: &Bound<'py, PyAny>| {
+        parameters
+            .iter()
+            .position(|parameter| parameter.is(variable))
+            .and_then(|at| arguments.get(at))
+    };
+    if let Some(argument) = argument_for(value) {
+        return Ok(argument.clone());
+    }
+    let Some(variables) = value.getattr_opt(intern!(value.py(), "__parameters__"))? else {
+        return Ok(value.clone());
+    };
+    let Ok(variables) = variables.cast_into::<PyTuple>() else {
+        return Ok(value.clone());
+    };
+    if !variables
+        .iter()
+        .any(|variable| argument_for(&variable).is_some())
+    {
+        return Ok(value.clone());
+    }
+    let replaced: Vec<Bound<'py, PyAny>> = variables
+        .iter()
+        .map(|variable| argument_for(&variable).cloned().unwrap_or(variable))
+        .collect();
+    value.get_item(PyTuple::new(value.py(), replaced)?)
+}
+
+/// Refuse a body that applies its own alias to an argument nesting one of
+/// the alias's parameters.
+///
+/// `type Nest[T] = T | list[Nest[list[T]]]` unfolds `Nest[int]` into
+/// `Nest[list[int]]` and that into `Nest[list[list[int]]]`: every unfolding is
+/// an alias the build has not met, so no key repeats and no fixpoint ties it,
+/// and the type would have infinitely many distinct subterms, which regularity
+/// excludes [Cas23, Def. 2.1]. mypy refuses the shape where it is defined
+/// ("type variable nesting on right hand side"), and the same rule is asked
+/// here before the body is built. A recursion over the parameters alone, or
+/// over arguments naming none of them, repeats a key and is tied.
+///
+/// The body is walked through a list rather than the native stack, since an
+/// annotation can be nested deeper than a stack holds before the build's own
+/// depth bound refuses it.
+fn refuse_a_growing_argument(
+    alias: &Bound<'_, PyAny>,
+    name: &str,
+    value: &Bound<'_, PyAny>,
+    parameters: &Bound<'_, PyTuple>,
+) -> PyResult<()> {
+    let py = alias.py();
+    let forms = forms(py)?;
+    let mut pending = vec![value.clone()];
+    while let Some(form) = pending.pop() {
+        let Ok(args) = forms
+            .get_args
+            .bind(py)
+            .call1((&form,))?
+            .cast_into::<PyTuple>()
+        else {
+            continue;
+        };
+        if forms.get_origin.bind(py).call1((&form,))?.is(alias) {
+            for argument in args.iter() {
+                let bare = parameters.iter().any(|parameter| parameter.is(&argument));
+                if !bare && names_a_parameter(&argument, parameters)? {
+                    return Err(not_implemented(format!(
+                        "{name} applies itself to {}, an argument nesting its own \
+                         type parameter, so every unfolding is an alias not met \
+                         before and no schema ties the recursion: recur on the \
+                         parameters alone",
+                        summarize(&form)?
+                    )));
+                }
+            }
+        }
+        pending.extend(args.iter());
+    }
+    Ok(())
+}
+
+/// Whether `argument` names one of `parameters` anywhere inside it.
+fn names_a_parameter(
+    argument: &Bound<'_, PyAny>,
+    parameters: &Bound<'_, PyTuple>,
+) -> PyResult<bool> {
+    let Some(variables) = argument.getattr_opt(intern!(argument.py(), "__parameters__"))? else {
+        return Ok(false);
+    };
+    let Ok(variables) = variables.cast_into::<PyTuple>() else {
+        return Ok(false);
+    };
+    Ok(variables
+        .iter()
+        .any(|variable| parameters.iter().any(|parameter| parameter.is(&variable))))
+}
+
+/// The most levels of schema nesting the frontend descends while compiling.
+///
+/// One level above the published construction depth, so the frontend never
+/// rejects a schema the construction bounds would accept: below this,
+/// `Validator::checked` owns the verdict and reports which bound tripped. A
+/// self-referential class is the shape that reaches this one, because its field
+/// type names the class and the descent does not terminate.
+///
+/// The margin is what makes the ownership hold rather than happen to hold. Each
+/// level the frontend descends builds at least one schema node, so the deepest
+/// schema `checked` accepts is reached in at most that many descents; one more
+/// lets the schema *past* the bound be built and refused by name.
+const MAX_BUILD_DEPTH: usize = crate::validator::MAX_SCHEMA_DEPTH + 1;
+
+/// RAII guard over one `build_schema` descent: it bounds the recursion's depth
+/// and holds what the build has built to the node bound. Entering past either
+/// bound is an error; leaving (including on an early `?`) restores the depth and
+/// leaves what the descent built counted.
+///
+/// **What a result counts for.** A descent's result is built from the parts
+/// the descents below it returned and replaces them, so the count is every
+/// finished part still waiting for its parent. A leaf counts one; a result
+/// built from parts counts them and nothing of its own, which is what keeps an
+/// alias or `NotRequired[...]` -- a descent passing its one part through -- from
+/// counting that part twice; a compiled validator named in an annotation, the
+/// one form bringing many nodes in one descent, counts every node of its schema
+/// (`hold_whole`), as a `Literal`'s callable constant, built without a descent
+/// of its own, counts its one. So the count is never more than `Validator::checked`
+/// counts of the schema returned, except where a fold drops a part -- a member a
+/// union absorbs into `Any` still counts -- and a schema within the bound is
+/// never refused here.
+///
+/// **Past as many descents as the bound, a result is counted by a walk.** A
+/// count of leaves leaves out the nodes above them, and a build that names a
+/// chain of containers from many places builds many more nodes than leaves. A
+/// build that has made more descents than the bound walks each result it
+/// returns from then on, whose nodes then count exactly; a smaller one never
+/// walks.
+///
+/// **The bound is asked as a descent begins.** A descent that finds the build
+/// holding more than the bound refuses, which is the step after the one that
+/// passed it, and the result a finished descent hands back is never replaced:
+/// the build makes nothing past the bound but the step that crossed it, and a
+/// crossing at the last step is `Validator::checked`'s to refuse.
+struct BuildGuard {
+    /// What the build held when this descent began.
+    before: usize,
+    /// Whether the build had made more descents than the node bound when this
+    /// one began, so that its result is counted by a walk.
+    walks: bool,
+    /// The nodes its result spans, where it was counted by a walk.
+    walked: Option<usize>,
+}
+
+impl BuildGuard {
+    fn enter() -> PyResult<Self> {
+        let (depth, descents, before) = BUILD.with(|build| {
+            let depth = build.depth.get() + 1;
+            build.depth.set(depth);
+            let descents = build.descents.get() + 1;
+            build.descents.set(descents);
+            (depth, descents, build.held.get())
+        });
+        if depth > MAX_BUILD_DEPTH {
+            BUILD.with(|build| build.depth.set(depth - 1));
+            return Err(not_implemented(format!(
+                "schema nesting is too deep to compile: the frontend descended \
+                 past {MAX_BUILD_DEPTH} levels, one more than a schema may nest. \
+                 A class whose own type appears in its fields never bottoms out; \
+                 write it with recursive(...), which ties the fixpoint explicitly."
+            )));
+        }
+        if before > MAX_SCHEMA_NODES {
+            BUILD.with(|build| build.depth.set(depth - 1));
+            return Err(too_large(before));
+        }
+        Ok(BuildGuard {
+            before,
+            walks: descents > MAX_SCHEMA_NODES,
+            walked: None,
+        })
+    }
+}
+
+/// The refusal of a build holding `held` nodes, out of the descent's line: it
+/// is built once per refused annotation and never on the way to a schema.
+#[cold]
+#[inline(never)]
+fn too_large(held: usize) -> PyErr {
+    PyValueError::new_err(format!(
+        "schema is too large: reading this annotation counts {held} nodes before it \
+         finishes, past the limit of {MAX_SCHEMA_NODES}. Each class, alias or \
+         annotation object is built once per place it is named, so a part shared \
+         through several levels multiplies the size with each; the frontend \
+         refuses at the step after the one that passes the limit rather than \
+         building the rest."
+    ))
+}
+
+/// Hold a schema a descent brings whole as nodes of that descent: every one of
+/// them, the top included. A compiled validator named in an annotation is one,
+/// and a `Literal`'s callable constant ([`build_constant`]) another.
+fn hold_whole(schema: &Schema) {
+    let nodes = schema.node_count();
+    BUILD.with(|build| build.held.set(build.held.get() + nodes));
+}
+
+impl Drop for BuildGuard {
+    fn drop(&mut self) {
+        BUILD.with(|build| {
+            let depth = build.depth.get() - 1;
+            build.depth.set(depth);
+            let held = build.held.get();
+            // A failed descent fails every descent above it, so what it leaves
+            // counted is read by no other.
+            build.held.set(if depth == 0 {
+                // The outermost leaves nothing, so the next build starts from
+                // an empty count.
+                build.descents.set(0);
+                0
+            } else if let Some(nodes) = self.walked {
+                self.before + nodes
+            } else if held == self.before {
+                // A leaf: nothing was built below it.
+                held + 1
+            } else {
+                held
+            });
+        });
+    }
+}
+
+/// Per-interpreter cache of the typing and builtins special-form objects the
+/// frontend compares schema descriptions against. Resolved once on first
+/// compile rather than re-fetched on every node, so a deep schema does not
+/// re-import a module and re-`getattr` the same singleton dozens of times. The
+/// handles are immutable interpreter singletons; the optional ones are absent on
+/// older Pythons (`Never`/`TypeAliasType`).
+struct Forms {
+    any: Py<PyAny>,
+    never: Option<Py<PyAny>>,
+    noreturn: Option<Py<PyAny>>,
+    type_alias_type: Option<Py<PyAny>>,
+    union: Py<PyAny>,
+    optional: Py<PyAny>,
+    union_type: Py<PyAny>,
+    /// `types.GenericAlias`, the class of `list[int]`, which `PyPy` defines in a
+    /// module of its own, so it is known by identity rather than by module.
+    generic_alias: Py<PyAny>,
+    literal: Py<PyAny>,
+    /// `typing.Annotated` itself, which is a class below 3.13: written bare it
+    /// read as an `isinstance` test no value passes.
+    annotated: Py<PyAny>,
+    /// The class of an `Annotated[T, ...]` alias, `typing._AnnotatedAlias`,
+    /// which `typing_extensions` spells with `typing`'s own `Annotated`.
+    annotated_alias: Py<PyType>,
+    /// `typing.get_origin` and `typing.get_args`, the spec's own introspection,
+    /// held as the callables they are.
+    ///
+    /// Every node asks both, and asking them through the module would import
+    /// `typing` and resolve the name per node: the import machinery alone is
+    /// 7.7% of building a fifty-field validator that way, for a module
+    /// `sys.modules` has held since the first one.
+    get_origin: Py<PyAny>,
+    get_args: Py<PyAny>,
+    /// `typing.TypeVar`, the one kind of type parameter an alias's arguments
+    /// substitute, asked by exact type: `typing_extensions`' `TypeVarTuple` is
+    /// an instance of it below 3.11.
+    type_var: Py<PyAny>,
+    /// `typing.ForwardRef`, and the four classes a type variable or special
+    /// form is an instance of, in the order they are asked.
+    forward_ref: Option<Py<PyAny>>,
+    type_variables: Vec<Py<PyAny>>,
+    /// The `TypedDict` field qualifiers: `Required`, `NotRequired`,
+    /// `ReadOnly`. Absent where the runtime is older than the one that spells
+    /// them.
+    required: Option<Py<PyAny>>,
+    not_required: Option<Py<PyAny>>,
+    read_only: Option<Py<PyAny>>,
+    /// `typing.Unpack`, the origin of an unpacked tuple.
+    unpack: Option<Py<PyAny>>,
+    /// `typing.get_type_hints`, which resolves a class's annotations.
+    get_type_hints: Py<PyAny>,
+    object: Py<PyAny>,
+    /// `builtins.frozendict` (PEP 814), absent below 3.15.
+    frozendict: Option<Py<PyAny>>,
+    /// `typing.TypedDict` and `typing.NamedTuple`, the bases a class is
+    /// declared from, which a bare annotation names in place of a class.
+    class_factories: Vec<Py<PyAny>>,
+    enum_class: Py<PyAny>,
+    callable: Py<PyAny>,
+    ellipsis: Py<PyAny>,
+    /// `typing.Generic`, the base a generic class is declared from, which names
+    /// no set: a class deriving from it is the set, and `typing_extensions`
+    /// spells it with the same object.
+    generic: Py<PyAny>,
+    /// `typing.Protocol`, the base a protocol is declared from, which names no
+    /// set of its own.
+    protocol: Py<PyAny>,
+    /// `typing._get_protocol_attrs`, the derivation of a protocol's member
+    /// names that `typing` caches as `__protocol_attrs__` from 3.12. Read only
+    /// where a protocol carries no cache, and absent on a release that has
+    /// neither.
+    get_protocol_attrs: Option<Py<PyAny>>,
+    /// `typing.ClassVar` and `typing.Final`, which say where a protocol
+    /// member's value lives rather than what it is.
+    class_var: Py<PyAny>,
+    final_qualifier: Py<PyAny>,
+    /// `builtins.property` and `functools.cached_property`, the class
+    /// attributes a protocol member is read through the function of: the
+    /// value's attribute is what the getter, or the cached function, returns.
+    property: Py<PyAny>,
+    cached_property: Py<PyAny>,
+}
+
+static FORMS: PyOnceLock<Forms> = PyOnceLock::new();
+
+/// The module `name`, or `None` where the release has none: an `ImportError`
+/// reads as the module missing, and any other error -- a signal among them --
+/// is the caller's, so a cache built from the answer never keeps a signal as a
+/// module the release lacks.
+fn optional_module<'py>(py: Python<'py>, name: &str) -> PyResult<Option<Bound<'py, PyModule>>> {
+    match py.import(name) {
+        Ok(module) => Ok(Some(module)),
+        Err(err) if err.is_instance_of::<PyImportError>(py) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+/// The special-form cache for this interpreter, built once. `PyOnceLock` makes
+/// the one-time initialization safe under free-threading.
+///
+/// **`annotationlib` is imported before `typing` is read**, and `ForwardRef` is
+/// read out of it. On 3.15 `typing` serves `ForwardRef` through its module
+/// `__getattr__`, which reaches `annotationlib` through a lazy import, and
+/// resolving a lazy import holds the interpreter's global import lock while it
+/// waits for the module. A thread importing `annotationlib` at that moment --
+/// through `dataclasses` or `inspect`, say -- needs that lock for the imports
+/// its body makes, so read through `typing` the two wait on each other for
+/// good, and building the first validator hangs the process. An ordinary
+/// import waits on the module's own lock alone, and once it returns every lazy
+/// import of the module finds it loaded and waits on nothing. The module exists
+/// from 3.14, where the two `ForwardRef`s are one class; a release without it
+/// reads `typing`'s, as every optional form here is read.
+fn forms(py: Python<'_>) -> PyResult<&'static Forms> {
+    FORMS.get_or_try_init(py, || {
+        let annotationlib = optional_module(py, "annotationlib")?;
+        let typing = py.import("typing")?;
+        let builtins = py.import("builtins")?;
+        // A form the release lacks reads as absent, and any other error
+        // raises: the cache holds what it reads for the process's life, and a
+        // signal folded into an absent form would keep the form refused after
+        // the interrupt had passed.
+        let optional_form =
+            |module: &Bound<'_, PyModule>, name: &str| -> PyResult<Option<Py<PyAny>>> {
+                Ok(module.getattr_opt(name)?.map(Bound::unbind))
+            };
+        Ok(Forms {
+            any: typing.getattr("Any")?.unbind(),
+            never: optional_form(&typing, "Never")?,
+            noreturn: optional_form(&typing, "NoReturn")?,
+            type_alias_type: optional_form(&typing, "TypeAliasType")?,
+            union: typing.getattr("Union")?.unbind(),
+            optional: typing.getattr("Optional")?.unbind(),
+            union_type: py.import("types")?.getattr("UnionType")?.unbind(),
+            generic_alias: py.import("types")?.getattr("GenericAlias")?.unbind(),
+            literal: typing.getattr("Literal")?.unbind(),
+            annotated: typing.getattr("Annotated")?.unbind(),
+            annotated_alias: typing
+                .getattr("Annotated")?
+                .get_item((py.get_type::<PyInt>(), 0))?
+                .get_type()
+                .unbind(),
+            get_origin: typing.getattr("get_origin")?.unbind(),
+            get_args: typing.getattr("get_args")?.unbind(),
+            type_var: typing.getattr("TypeVar")?.unbind(),
+            forward_ref: optional_form(annotationlib.as_ref().unwrap_or(&typing), "ForwardRef")?,
+            type_variables: ["TypeVar", "ParamSpec", "TypeVarTuple", "_SpecialForm"]
+                .iter()
+                .filter_map(|name| optional_form(&typing, name).transpose())
+                .collect::<PyResult<_>>()?,
+            required: optional_form(&typing, "Required")?,
+            not_required: optional_form(&typing, "NotRequired")?,
+            read_only: optional_form(&typing, "ReadOnly")?,
+            unpack: optional_form(&typing, "Unpack")?,
+            get_type_hints: typing.getattr("get_type_hints")?.unbind(),
+            object: builtins.getattr("object")?.unbind(),
+            frozendict: optional_form(&builtins, "frozendict")?,
+            class_factories: ["TypedDict", "NamedTuple"]
+                .iter()
+                .filter_map(|name| optional_form(&typing, name).transpose())
+                .collect::<PyResult<_>>()?,
+            enum_class: py.import("enum")?.getattr("Enum")?.unbind(),
+            callable: py.import("collections.abc")?.getattr("Callable")?.unbind(),
+            ellipsis: builtins.getattr("Ellipsis")?.unbind(),
+            generic: typing.getattr("Generic")?.unbind(),
+            protocol: typing.getattr("Protocol")?.unbind(),
+            get_protocol_attrs: optional_form(&typing, "_get_protocol_attrs")?,
+            class_var: typing.getattr("ClassVar")?.unbind(),
+            final_qualifier: typing.getattr("Final")?.unbind(),
+            property: builtins.getattr("property")?.unbind(),
+            cached_property: py.import("functools")?.getattr("cached_property")?.unbind(),
+        })
+    })
+}
+
+/// The special forms `typing_extensions` spells with objects of its own.
+///
+/// Before the release that adds a form to `typing`, `typing_extensions` defines
+/// it itself, so the name is a different object from anything [`Forms`] holds:
+/// `Any`, `Never`, `Self` and the `TypedDict` qualifiers on 3.10, and
+/// `TypeAliasType` before 3.15. Asked against `typing` alone, such a form reads
+/// as something it is not -- `Never` as a literal of the form object, `Any` as
+/// a class nothing is an instance of, `Required[int]` as an unsupported form.
+/// Where a release spells the form in `typing`, the two names are one object
+/// and nothing here changes a reading.
+///
+/// Asked only where a form would otherwise be read as something else, so a
+/// schema that names none of them pays nothing for it.
+pub(crate) struct Extensions {
+    pub(crate) any: Option<Py<PyAny>>,
+    pub(crate) never: Option<Py<PyAny>>,
+    type_alias_type: Option<Py<PyAny>>,
+    /// The class `Self`, `LiteralString` and `Never` are instances of below
+    /// 3.11, which is not `typing._SpecialForm`.
+    special_form: Option<Py<PyAny>>,
+    pub(crate) required: Option<Py<PyAny>>,
+    pub(crate) not_required: Option<Py<PyAny>>,
+    pub(crate) read_only: Option<Py<PyAny>>,
+    pub(crate) unpack: Option<Py<PyAny>>,
+    /// Its `Protocol`, which is its own below 3.14.
+    protocol: Option<Py<PyAny>>,
+    /// Its `TypedDict` and `NamedTuple`, which are its own on some releases.
+    class_factories: Vec<Py<PyAny>>,
+}
+
+static EXTENSIONS: PyOnceLock<Extensions> = PyOnceLock::new();
+
+/// `sys.modules`, held so that asking whether a module is loaded is one
+/// dictionary lookup rather than an import of `sys` per question.
+static MODULES: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
+
+/// The table of loaded modules, `sys.modules`, read once per interpreter.
+///
+/// An import of `sys` is `__import__` called through the import machinery,
+/// with its arguments built by format string, every time it is asked: some two
+/// thousand instructions, which a lookup the build makes per class pays again
+/// for every class it compiles.
+pub(crate) fn loaded_modules(py: Python<'_>) -> PyResult<&Bound<'_, PyDict>> {
+    MODULES
+        .get_or_try_init(py, || -> PyResult<Py<PyDict>> {
+            Ok(py
+                .import(intern!(py, "sys"))?
+                .getattr(intern!(py, "modules"))?
+                .cast_into::<PyDict>()?
+                .unbind())
+        })
+        .map(|modules| modules.bind(py))
+}
+
+/// The `typing_extensions` forms, once the module is loaded.
+///
+/// Looked up in `sys.modules` rather than imported: an object of the module
+/// exists only once the module is loaded, and a lookup runs no module's code.
+/// Held once found loaded; until then every call looks again, since a program
+/// may import the module after its first validator, or on another thread
+/// while one is built.
+pub(crate) fn extensions(py: Python<'_>) -> PyResult<Option<&'static Extensions>> {
+    if let Some(held) = EXTENSIONS.get(py) {
+        return Ok(Some(held));
+    }
+    let Some(module) = loaded_modules(py)?.get_item(intern!(py, "typing_extensions"))? else {
+        return Ok(None);
+    };
+    // A module is in `sys.modules` before its body has run, and another thread
+    // may be running it: a form the body has not reached yet would be held as
+    // absent for good. `importlib` marks the module's spec while it loads, and
+    // until the mark is gone the module is read as not loaded.
+    if let Some(spec) = module.getattr_opt(intern!(py, "__spec__"))?
+        && let Some(loading) = spec.getattr_opt(intern!(py, "_initializing"))?
+        && loading.is_truthy()?
+    {
+        return Ok(None);
+    }
+    let form = |name: &str| -> PyResult<Option<Py<PyAny>>> {
+        Ok(module.getattr_opt(name)?.map(Bound::unbind))
+    };
+    let found = Extensions {
+        any: form("Any")?,
+        never: form("Never")?,
+        type_alias_type: form("TypeAliasType")?,
+        special_form: form("_SpecialForm")?,
+        required: form("Required")?,
+        not_required: form("NotRequired")?,
+        read_only: form("ReadOnly")?,
+        unpack: form("Unpack")?,
+        protocol: form("Protocol")?,
+        class_factories: ["TypedDict", "NamedTuple"]
+            .into_iter()
+            .map(form)
+            .filter_map(Result::transpose)
+            .collect::<PyResult<_>>()?,
+    };
+    Ok(Some(EXTENSIONS.get_or_init(py, || found)))
+}
+
+/// Whether `obj` is the `typing_extensions` form `pick` names.
+pub(crate) fn is_extension(
+    obj: &Bound<'_, PyAny>,
+    pick: fn(&Extensions) -> &Option<Py<PyAny>>,
+) -> PyResult<bool> {
+    let py = obj.py();
+    Ok(extensions(py)?
+        .and_then(|held| pick(held).as_ref())
+        .is_some_and(|form| obj.is(form.bind(py))))
+}
+
+/// What a `typing_extensions` form with no `typing` counterpart here reads as:
+/// `Never` is the bottom and a `TypeAliasType` its aliased type, as their
+/// `typing` spellings are.
+fn read_extension(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Option<Schema>> {
+    let py = obj.py();
+    let Some(held) = extensions(py)? else {
+        return Ok(None);
+    };
+    if held
+        .never
+        .as_ref()
+        .is_some_and(|never| obj.is(never.bind(py)))
+    {
+        return Ok(Some(Schema::Nothing));
+    }
+    if let Some(alias_type) = &held.type_alias_type
+        && obj.is_instance(alias_type.bind(py))?
+    {
+        return build_alias(obj, lits, defs).map(Some);
+    }
+    Ok(None)
+}
+
+/// The state a build in progress keeps on this thread, set aside while a build
+/// begun from the API runs and handed back when it ends.
+///
+/// The guard's counts and the open aliases are the thread's, and a build can
+/// begin inside another: an annotation the frontend evaluates may construct a
+/// `Validator` of its own. Without this the inner build would start at the
+/// outer one's depth and node count, and a schema within the bounds would be
+/// refused for the build around it.
+struct RootScope {
+    depth: usize,
+    descents: usize,
+    held: usize,
+    aliases: Vec<OpenAlias>,
+}
+
+impl RootScope {
+    fn enter() -> RootScope {
+        let (depth, descents, held) = BUILD.with(|build| {
+            (
+                build.depth.replace(0),
+                build.descents.replace(0),
+                build.held.replace(0),
+            )
+        });
+        let aliases = OPEN_ALIASES.with_borrow_mut(std::mem::take);
+        RootScope {
+            depth,
+            descents,
+            held,
+            aliases,
+        }
+    }
+}
+
+impl Drop for RootScope {
+    fn drop(&mut self) {
+        BUILD.with(|build| {
+            build.depth.set(self.depth);
+            build.descents.set(self.descents);
+            build.held.set(self.held);
+        });
+        OPEN_ALIASES.with_borrow_mut(|open| *open = std::mem::take(&mut self.aliases));
+    }
+}
+
+/// Build the IR from a native Python schema description, as a build of its
+/// own: the entry every caller outside the frontend takes, where
+/// [`build_schema`] is one descent inside a build.
+pub(crate) fn build_root(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let _scope = RootScope::enter();
+    build_schema(obj, lits, defs)
+}
+
+/// Build the IR from a native Python schema description.
+///
+/// Recognized forms: the scalar types and `None`/`type(None)`; `object` as the
+/// top schema and `Never`/`NoReturn` as the bottom; the list literal `[T]`
+/// (homogeneous), `[A, B]` (fixed-length), and `[A, B, ...]` (prefix-plus-tail);
+/// a single `{KeyType: ValueType}` entry as a mapping; an all-string-key dict as
+/// a closed record (a trailing `"?"` marks an optional key); any other value as
+/// an exact-value literal. Set literals (`{T}`) and tuple literals (`(A, B)`)
+/// are rejected: they duplicate `set[T]`/`tuple[...]`, which typing spells.
+pub(crate) fn build_schema(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let mut guard = BuildGuard::enter()?;
+    if !guard.walks {
+        return read_annotation(obj, lits, defs);
+    }
+    let built = read_apart(obj, lits, defs);
+    guard.walked = built.as_ref().ok().map(Schema::node_count);
+    built
+}
+
+/// [`read_annotation`] in a frame of its own, for a build past as many descents
+/// as the node bound, which walks each result.
+///
+/// The dispatch is inlined into [`build_schema`] for the descent every build
+/// takes, and a second copy there is a second set of slots in every unoptimized
+/// descent: with both in one frame, the 129-level chain of
+/// `the_build_descends_one_level_past_the_construction_bound` needed 2,146 KiB
+/// of stack on 3.11, past the 2 MiB a test thread is given, against 1,673 KiB
+/// with one.
+#[cold]
+#[inline(never)]
+fn read_apart(obj: &Bound<'_, PyAny>, lits: &mut Pool, defs: &mut Vec<Schema>) -> PyResult<Schema> {
+    read_annotation(obj, lits, defs)
+}
+
+/// One descent of [`build_schema`] inside its guard: the dispatch on what `obj`
+/// is.
+///
+/// Inlined at both of its call sites -- the one every descent takes, and
+/// [`read_apart`] -- because a call to a function this size costs each
+/// descent a frame of its own: the fifty-field record build of
+/// `scripts/perf_gate.py --binding-build` read +2.44% against its base with the
+/// call and +1.64% inlined.
+#[expect(
+    clippy::inline_always,
+    reason = "measured: a call per descent read +2.44% on the record build, inlined +1.64%"
+)]
+#[inline(always)]
+fn read_annotation(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let py = obj.py();
+    if obj.is_none() {
+        return Ok(Schema::NoneType);
+    }
+    let forms = forms(py)?;
+
+    // `typing.Any` is a singleton special form: the gradual dynamic type. It is
+    // checked before the type-object dispatch below because on 3.11+ `Any` is
+    // itself a class and would otherwise be taken for an ordinary type.
+    if obj.is(forms.any.bind(py)) {
+        return Ok(Schema::ANY);
+    }
+
+    // `typing.Never`/`NoReturn` are the empty type: the lattice bottom, the
+    // typing-native spelling of `nothing`. (`object` maps to the top below.)
+    // `Never` is 3.11+, so it is absent (skipped) on older Pythons.
+    for form in [&forms.never, &forms.noreturn].into_iter().flatten() {
+        if obj.is(form.bind(py)) {
+            return Ok(Schema::Nothing);
+        }
+    }
+
+    // `Annotated` written bare annotates nothing. Below 3.13 it is a class,
+    // which the dispatch below would read as an `isinstance` test no value
+    // passes; from 3.13 it is a special form, which the dispatch would refuse
+    // in words about type variables. Asked by identity, once, ahead of both.
+    if obj.is(forms.annotated.bind(py)) {
+        return Err(not_implemented(
+            "typing.Annotated written bare annotates nothing: write \
+             Annotated[T, metadata] for the type T with its metadata",
+        ));
+    }
+
+    // A plain type or class (a scalar, `object`, TypedDict, dataclass, enum,
+    // protocol, ...) is dispatched here, before the typing introspection below.
+    // A type never has a typing origin, so taking this path first skips a
+    // `get_origin` call per scalar and class node on the common compile path.
+    if let Ok(ty) = obj.cast::<PyType>() {
+        return build_type_object(ty, lits, defs);
+    }
+
+    // Two readings every arm below would reach, answered before any of them,
+    // and after the type branch, because the fields of a record are types and
+    // a type is answered above for a flag test.
+    //
+    // An exact `bool`, `int`, `float`, `str` or `bytes` is a constant: its type
+    // carries no `__metadata__` or `__supertype__`, `get_origin` answers `None`
+    // for it, and it is no container and no special form, so the fallthrough
+    // interns it -- after an attribute read, a call into `typing` and a dozen
+    // tests, which would be most of compiling a wide `Literal`. A validator
+    // composes in, and a validator has no subclass and matches no arm below
+    // before its own.
+    if let Some(constant) = builtin_constant(obj, lits) {
+        return Ok(constant);
+    }
+    // Asked exactly, which a class with no subclass answers as `cast` would,
+    // without the walk of the object's `__mro__` a subclass test takes.
+    if let Ok(compiled) = obj.cast_exact::<Validator>() {
+        let schema = compose(py, compiled.get(), lits, defs);
+        hold_whole(&schema);
+        return Ok(schema);
+    }
+
+    // Annotated[T, m1, ...]: the base type T with refinement metadata.
+    //
+    // Asked once rather than twice, and asked with names the interpreter
+    // already holds. Spelled `hasattr` then `getattr`, this read the metadata
+    // twice and decoded three attribute names from UTF-8 and hashed them --
+    // per node, on a path every non-class form crosses, whether or not it is
+    // annotated at all. Both names are asked optionally: an object carrying
+    // `__metadata__` and no `__origin__` is not an `Annotated` form, and is
+    // read as whatever else it is rather than failing on the name it lacks.
+    if let Some(metadata) = obj.getattr_opt(intern!(py, "__metadata__"))?
+        && let Some(base) = obj.getattr_opt(intern!(py, "__origin__"))?
+    {
+        return build_refine(&base, metadata.cast::<PyTuple>()?, lits, defs);
+    }
+
+    // Typing constructs (list[int], dict[K, V], tuple[...], X | Y, Literal,
+    // ...) are read through the typing spec's own introspection, so the builtin
+    // and legacy aliases share one path. A non-typing object has origin None and
+    // falls through to the native handling below.
+    let origin = forms.get_origin.bind(py).call1((obj,))?;
+    if !origin.is_none() {
+        let args = forms.get_args.bind(py).call1((obj,))?;
+        let args = args.cast::<PyTuple>()?;
+        // A *bare* legacy alias -- `typing.List`, `typing.Tuple` -- is the class
+        // it aliases, so it is compiled as that class rather than as a
+        // parametrization with no arguments.
+        //
+        // The two are told apart by whether the form carries a type argument
+        // list at all, rather than by whether that list is empty. A bare alias
+        // carries none; a parametrization carries one even where it is empty,
+        // and `typing.Tuple[()]` is exactly that -- the empty tuple, a different
+        // type from every tuple. `get_args` answers `()` for both, so reading it
+        // made `typing.Tuple[()]` admit `(1,)`.
+        if !obj.hasattr(intern!(py, "__args__"))?
+            && let Ok(class) = origin.cast::<PyType>()
+        {
+            return build_type_object(class, lits, defs);
+        }
+        return build_parametrized(obj, &origin, args, lits, defs);
+    }
+
+    // PEP 695 `type X = ...` alias (3.12+): validate the aliased type, tying
+    // the fixpoint where the alias names itself.
+    if let Some(alias_type) = &forms.type_alias_type
+        && obj.is_instance(alias_type.bind(py))?
+    {
+        return build_alias(obj, lits, defs);
+    }
+
+    // NewType: validate the supertype it wraps.
+    // Asked once, with a name the interpreter already holds -- the reading the
+    // `__metadata__` arm above states the reason for. Spelled `hasattr` then
+    // `getattr`, this would decode the name from UTF-8 and hash it twice per
+    // node, on the path every form that is not a class and has no origin
+    // crosses.
+    //
+    // The supertype is a type *argument*: a string there is a forward reference,
+    // and read as the constant fallthrough reads one, `NewType("N", "int")`
+    // would be the literal `'int'`.
+    if let Some(supertype) = obj.getattr_opt(intern!(py, "__supertype__"))? {
+        return generics::build_type_argument(&supertype, lits, defs);
+    }
+
+    if let Ok(list) = obj.cast::<PyList>() {
+        return build_sequence(list, lits, defs);
+    }
+    // A tuple literal duplicates `tuple[...]`, which typing spells, so it is not
+    // a native form. (The list literal exists only because typing cannot spell a
+    // fixed-length list: `[A, B]` is the fixed list, `tuple[A, B]` the tuple.)
+    if obj.is_instance_of::<PyTuple>() {
+        return Err(not_implemented(
+            "a tuple literal is not a schema; write a fixed-length tuple as \
+             tuple[A, B] (the list literal [A, B] is the fixed-length list)",
+        ));
+    }
+    // A set literal duplicates `set[T]`, which typing spells, so it is not a
+    // native form either.
+    if obj.is_instance_of::<PySet>() {
+        return Err(not_implemented(
+            "a set literal is not a schema; write a set as set[T]",
+        ));
+    }
+    // And the frozen one for the same reason. Asked separately because a
+    // `frozenset` is not a `set`: the arm above does not see it, and the
+    // constant below would intern it. `frozenset({int})` -- which names a
+    // frozen set of integers -- would become a schema admitting one frozen set
+    // holding the `int` *type object*, and no value a caller has.
+    if obj.is_instance_of::<PyFrozenSet>() {
+        return Err(not_implemented(
+            "a frozen set literal is not a schema; write a frozen set as \
+             frozenset[T]",
+        ));
+    }
+    // And the dict literal's frozen sibling. A `frozendict` is not a `dict`, so
+    // the arm below does not see it, and past it the constant fallthrough would
+    // intern `frozendict(a=int)` as a schema admitting that one mapping of a
+    // type object. It names a record, which the dict literal spells.
+    if let Some(frozendict) = &forms.frozendict
+        && obj.is_instance(frozendict.bind(py))?
+    {
+        return Err(not_implemented(
+            "a frozen dict literal is not a schema; write a record as a dict \
+             literal {\"key\": T}, or a mapping as dict[K, V]",
+        ));
+    }
+    if let Ok(dict) = obj.cast::<PyDict>() {
+        return build_dict(dict, lits, defs);
+    }
+
+    build_unrecognized(obj, lits, defs)
+}
+
+/// The literal an exact `bool`, `int`, `float`, `str` or `bytes` is, or `None`
+/// for any other object: a value [`build_schema`] can only read as the constant
+/// it is. A subclass is not one -- an `IntEnum` member is an `int` -- and takes
+/// the walk every other object takes.
+fn builtin_constant(obj: &Bound<'_, PyAny>, lits: &mut Pool) -> Option<Schema> {
+    is_builtin_scalar(obj).then(|| Schema::Literal(lits.intern_const(obj)))
+}
+
+/// Whether `obj` is an exact `bool`, `int`, `float`, `str` or `bytes`: a value
+/// and never a typing form, whichever reading asks.
+pub(crate) fn is_builtin_scalar(obj: &Bound<'_, PyAny>) -> bool {
+    obj.is_exact_instance_of::<PyInt>()
+        || obj.is_exact_instance_of::<PyString>()
+        || obj.is_exact_instance_of::<PyBool>()
+        || obj.is_exact_instance_of::<PyFloat>()
+        || obj.is_exact_instance_of::<PyBytes>()
+}
+
+/// An already-compiled validator, composed into the schema being built: its
+/// pooled constants interned (so a constant one already present matches, by
+/// value for an exact builtin scalar and by identity otherwise, keeps that
+/// index, which keeps structurally-equal schemas equal across a merge), its
+/// definitions appended, and its schema's indices remapped.
+fn compose(py: Python<'_>, inner: &Validator, lits: &mut Pool, defs: &mut Vec<Schema>) -> Schema {
+    // Keys a relation already read for this validator are read again from the
+    // cache rather than from the interpreter; composing validators reads them
+    // fresh and caches nothing.
+    let lit_map: Vec<usize> = match inner.keys.get(py) {
+        Some(keys) => inner
+            .literals
+            .iter()
+            .zip(&keys.keys)
+            .map(|(o, key)| lits.intern_keyed(o.bind(py), key.clone()))
+            .collect(),
+        None => inner
+            .literals
+            .iter()
+            .map(|o| lits.intern(o.bind(py)))
+            .collect(),
+    };
+    match place_definitions(&inner.definitions, &lit_map, defs) {
+        Placed::Shifted(offset) => inner.schema.reindexed(&lit_map, DefShift::new(offset)),
+        Placed::Renamed(table) => inner
+            .schema
+            .reindexed(&lit_map, DefShift::new(0))
+            .renumbered(&table),
+    }
+}
+
+/// Where a merged validator's definitions went.
+///
+/// Two answers rather than a table for both, because the common one is read
+/// by a single pass: a block found where it already is, or appended whole,
+/// sits at an offset past the indices it was built with, and one shift moves
+/// every reference to it in the pass that moves the constants. A table is
+/// what a placement that paired some definitions and appended others needs,
+/// and it costs a second pass over the tree.
+enum Placed {
+    /// Every definition `offset` past its own index.
+    Shifted(usize),
+    /// Each definition at the index the table gives it.
+    Renamed(Vec<Option<DefIx>>),
+}
+
+/// An object [`build_schema`] has no other reading for: a literal of itself,
+/// unless it is a typing form that a literal would misread.
+fn build_unrecognized(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    // A type variable or typing special form reaches the constant fallthrough
+    // only because it has no typing origin and is not a value. Reject it with a
+    // clear message rather than interning it as a literal that would match
+    // almost nothing (a free `T` accepts only objects equal to the TypeVar).
+    // A forward reference names a type rather than being one, and the constant
+    // fallthrough would intern it as a literal of the `ForwardRef` object --
+    // matching nothing a caller has. The same refusal a type *argument* already
+    // gives, reached at the top level too.
+    if is_forward_reference(obj)? {
+        return Err(not_implemented(format!(
+            "{} is a forward reference, and a schema is built from the types \
+             themselves: resolve the annotation first with typing.get_type_hints(\
+             ..., include_extras=True), or write the type rather than its name",
+            summarize(obj)?
+        )));
+    }
+
+    if let Some(schema) = read_extension(obj, lits, defs)? {
+        return Ok(schema);
+    }
+
+    if is_init_var(obj)? {
+        return Err(not_implemented(format!(
+            "{} names a dataclass's constructor parameter, which is no field and \
+             no value of one: write the type it carries",
+            summarize(obj)?
+        )));
+    }
+
+    if is_class_factory(obj)? {
+        return Err(not_implemented(format!(
+            "{} is the base a class is declared from, not a type: pass the \
+             TypedDict or named tuple class itself, or tuple[...] for the fields a \
+             named tuple lays out",
+            summarize(obj)?
+        )));
+    }
+
+    if is_typing_construct(obj)? {
+        return Err(not_implemented(format!(
+            "{} is a typing construct, not a value: a type variable, ParamSpec, \
+             TypeVarTuple, or special form (such as Final or ClassVar) cannot be a \
+             schema; use a concrete type",
+            summarize(obj)?
+        )));
+    }
+
+    // A callable that is no class, which the type branch answered: a function,
+    // a bound method, a `partial`, an object defining `__call__`. The typing
+    // spec's grammar for a type has no production for one, and read as a
+    // constant it would be the set holding that one object, which no value a
+    // caller checks is: `intersection(record, check)` would be the record met
+    // with a function, a set with no member, and nothing would say so. What is
+    // meant is one of two spellings, and each reads it: a predicate in
+    // `Annotated` metadata, or the object itself in `Literal`
+    // ([`build_constant`]).
+    if obj.is_callable() {
+        return Err(not_implemented(format!(
+            "{} is callable, and a callable is not a schema: write \
+             Annotated[T, fn] for the values of T it accepts, or Literal[fn] for \
+             the object itself",
+            summarize(obj)?
+        )));
+    }
+
+    Ok(Schema::Literal(lits.intern_const(obj)))
+}
+
+/// A `Literal` argument: the one object it is.
+///
+/// Read as [`build_schema`] reads an object, except a callable, which the
+/// constant fallthrough refuses where a schema is read and which a `Literal`
+/// names as itself. It is interned here and counted as the leaf it is, without
+/// a descent: a second caller of the guard's entry costs every descent of a
+/// build its inlining, and the fifty-field record build of
+/// `scripts/perf_gate.py --binding-build` read +1.77% with one, +0.00% without.
+/// Two kinds of callable keep the reading the dispatch gives them, which is a
+/// refusal of their own: `TypedDict` and `NamedTuple`, which are functions, and
+/// a special form such as `ClassVar` -- `Annotated` written bare among them from
+/// 3.13, and a class below it, which the `Literal` arm refuses as a type.
+pub(super) fn build_constant(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    if obj.is_callable() && !is_class_factory(obj)? && !is_typing_construct(obj)? {
+        let constant = Schema::Literal(lits.intern_const(obj));
+        hold_whole(&constant);
+        return Ok(constant);
+    }
+    build_schema(obj, lits, defs)
+}
+
+/// True if `obj` is a `dataclasses.InitVar[...]`, which is an instance of the
+/// class rather than a typing form, and so reached the constant fallthrough.
+///
+/// Looked up in `sys.modules` rather than imported: an instance exists only once
+/// the module is loaded, and importing `dataclasses` from here is the import
+/// that deadlocks against a lazy import on 3.15 (`docs/dev/08-testing.md`).
+fn is_init_var(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    let Some(module) = loaded_modules(py)?.get_item(intern!(py, "dataclasses"))? else {
+        return Ok(false);
+    };
+    match module.getattr_opt(intern!(py, "InitVar"))? {
+        Some(class) => obj.is_instance(&class),
+        None => Ok(false),
+    }
+}
+
+/// True if `obj` is `TypedDict` or `NamedTuple` itself, from either module.
+///
+/// Each is a function or a form at runtime, so the literal fallback would read
+/// it as the one object it is, which no value a caller has belongs to. A
+/// checker reads `NamedTuple` as every named tuple class and refuses
+/// `TypedDict` as a type; neither is a question `isinstance` can ask.
+fn is_class_factory(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    let named = |factories: &[Py<PyAny>]| factories.iter().any(|factory| obj.is(factory.bind(py)));
+    Ok(named(&forms(py)?.class_factories)
+        || extensions(py)?.is_some_and(|held| named(&held.class_factories)))
+}
+
+/// True if `obj` is a `typing.ForwardRef`, on a runtime that has one.
+fn is_forward_reference(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    match &forms(py)?.forward_ref {
+        Some(class) => obj.is_instance(class.bind(py)),
+        None => Ok(false),
+    }
+}
+
+/// True if `obj` is a type variable or a typing special form (`Final`,
+/// `ClassVar`, a bare `Optional`/`Union`/`Literal`, ...): a type-system
+/// construct carrying no runtime value, so it cannot denote a set of values.
+fn is_typing_construct(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    for class in &forms(py)?.type_variables {
+        if obj.is_instance(class.bind(py))? {
+            return Ok(true);
+        }
+    }
+    match extensions(py)?.and_then(|held| held.special_form.as_ref()) {
+        Some(class) => obj.is_instance(class.bind(py)),
+        None => Ok(false),
+    }
+}
+
+/// Compile arguments into one shared pool and combine them with `make`.
+pub(crate) fn combine(
+    args: &Bound<'_, PyTuple>,
+    make: impl FnOnce(Vec<Schema>, &[Schema]) -> Schema,
+) -> PyResult<Validator> {
+    let mut literals = Pool::default();
+    let mut definitions = Vec::new();
+    let mut members = Vec::with_capacity(args.len());
+    for arg in args.iter() {
+        members.push(build_root(&arg, &mut literals, &mut definitions)?);
+    }
+    // The definitions go to the fold as well as to the validator: a member that
+    // is a reference is not a set on its own evidence, and the complement law
+    // needs to read what it names.
+    let schema = make(members, &definitions);
+    Validator::checked(schema, literals.into_items(), definitions)
+}
+
+/// Where a merged validator's definitions live in the target list: the index
+/// each one has there.
+///
+/// A definition the target already holds, up to a renaming of the definitions,
+/// is that definition, and the rest are appended. That is what makes a
+/// recursive schema equal to itself once combined: without it,
+/// `intersection(json, complement(json))` copies one definition twice, the two
+/// occurrences become `Ref(0)` and `Ref(1)`, and the fold that cancels a schema
+/// against its own complement compares terms and sees two. Every law about a
+/// recursive schema failed on that, including the one a reader tries first.
+///
+/// The whole block is looked for first, at each offset it could sit at,
+/// shifted there: a definition's body names its siblings by index, so a block
+/// is self-consistent only at the offset it was built for. That finds every
+/// validator composed with itself or with one it was built from, comparing
+/// each body once and none inside another.
+///
+/// Where no offset holds it, each definition is looked for up to a renaming,
+/// because a table is numbered in the order construction met its definitions:
+/// `union(r1, r2)` and `union(r2, r1)` hold one pair of definitions in two
+/// orders, and the second sits at no offset of the first, so `ab | ba` kept
+/// four members and `ab | ~ba` stood unfolded beside an `ab` equal to `ba`. The
+/// pairing is [`crate::equality::placement`], the comparison `==` reads
+/// definitions by, with constants read by slot; what it does not pair is
+/// appended. Both searches are quadratic in the definition count, which
+/// `MAX_DEFINITIONS` holds at 128, and paid once per merged validator.
+fn place_definitions(inner: &[Schema], lit_map: &[usize], defs: &mut Vec<Schema>) -> Placed {
+    if inner.is_empty() {
+        return Placed::Shifted(defs.len());
+    }
+    let at_offset = |start: usize| -> Vec<Schema> {
+        inner
+            .iter()
+            .map(|d| d.reindexed(lit_map, DefShift::new(start)))
+            .collect()
+    };
+    for start in 0..=defs.len().saturating_sub(inner.len()) {
+        if let Some(held) = defs.get(start..start + inner.len())
+            && held == at_offset(start).as_slice()
+        {
+            return Placed::Shifted(start);
+        }
+    }
+    if !defs.is_empty() {
+        let interned: Vec<Schema> = inner
+            .iter()
+            .map(|definition| definition.reindexed(lit_map, DefShift::new(0)))
+            .collect();
+        let paired = crate::equality::placement(&interned, defs);
+        if paired.iter().any(Option::is_some) {
+            let mut next = defs.len();
+            let table: Vec<Option<DefIx>> = paired
+                .iter()
+                .map(|found| {
+                    Some(DefIx::new(found.unwrap_or_else(|| {
+                        let at = next;
+                        next += 1;
+                        at
+                    })))
+                })
+                .collect();
+            for (body, found) in interned.iter().zip(&paired) {
+                if found.is_none() {
+                    defs.push(body.renumbered(&table));
+                }
+            }
+            return Placed::Renamed(table);
+        }
+    }
+    let start = defs.len();
+    defs.extend(at_offset(start));
+    Placed::Shifted(start)
+}
+
+/// What two pooled objects have to agree on to be one constant.
+///
+/// A builtin scalar is keyed by its exact type and its value, which is the rule
+/// a literal is read by everywhere else: `Literal[1]` and `Literal[True]` name
+/// different singletons although `1 == True`, and two equal strings name one
+/// however they were built. Anything else is keyed by address, because `==` on
+/// it is the object's own and an object that answers it inconsistently would
+/// merge two constants that are not one.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum Constant {
+    /// An object this cannot read by value: a class, a callable, a container, a
+    /// scalar too wide for the key below.
+    Address(usize),
+    NoneType,
+    Bool(bool),
+    Int(i64),
+    /// A float by its bits, with the one value whose bits are not its identity
+    /// folded: `0.0 == -0.0`, so the two are one constant. A `nan` never reaches
+    /// here -- it equals nothing, itself included, so it is keyed by address.
+    Float(u64),
+    /// Shared rather than owned, so a key a [`PoolKeys`] holds is handed to a
+    /// second pool for a reference count rather than a copy.
+    Str(Arc<str>),
+    Bytes(Arc<[u8]>),
+}
+
+/// The key an object interns under.
+fn constant_of(obj: &Bound<'_, PyAny>) -> Constant {
+    let py = obj.py();
+    let address = Constant::Address(obj.as_ptr() as usize);
+    if obj.is_none() {
+        return Constant::NoneType;
+    }
+    // Exact types only. A subclass carries its own `__eq__`, so two of its
+    // instances comparing equal is not the literal rule holding of them.
+    let ty = obj.get_type();
+    let is = |exact: Bound<'_, PyType>| ty.is(&exact);
+    if is(PyBool::type_object(py)) {
+        return obj.extract::<bool>().map_or(address, Constant::Bool);
+    }
+    if is(PyInt::type_object(py)) {
+        // An `int` wider than the key falls back to its address, which pools it
+        // once per object rather than once per value -- correct, just coarser.
+        return obj.extract::<i64>().map_or(address, Constant::Int);
+    }
+    if is(PyFloat::type_object(py)) {
+        return match obj.extract::<f64>() {
+            Ok(value) if !value.is_nan() => Constant::Float((value + 0.0).to_bits()),
+            _ => address,
+        };
+    }
+    if let Ok(text) = obj.cast_exact::<PyString>() {
+        return text
+            .to_str()
+            .map_or(address, |text| Constant::Str(Arc::from(text)));
+    }
+    if let Ok(raw) = obj.cast_exact::<PyBytes>() {
+        return Constant::Bytes(Arc::from(raw.as_bytes()));
+    }
+    address
+}
+
+/// A pool's keys, slot for slot, and the index a new constant is looked up in.
+///
+/// Built once per validator, by the first relation it is a side of, and shared
+/// by every relation after it. Rebuilt per relation, it would read each
+/// constant back out of the interpreter and copy each string: 70% of relating
+/// two tables of ten thousand codes, against the 20% the rules take to decide
+/// the pair.
+pub(crate) struct PoolKeys {
+    keys: Vec<Constant>,
+    index: rustc_hash::FxHashMap<Constant, usize>,
+}
+
+impl PoolKeys {
+    /// The keys of `items`, the later of two slots under one key winning it, as
+    /// [`Pool::seeded`] has it.
+    pub(crate) fn of(py: Python<'_>, items: &[Py<PyAny>]) -> Self {
+        let keys: Vec<Constant> = items.iter().map(|obj| constant_of(obj.bind(py))).collect();
+        let index = keys.iter().cloned().zip(0..).collect();
+        PoolKeys { keys, index }
+    }
+}
+
+/// The constants pool a compile builds, plus an index into it. Pooling
+/// deduplicates by [`Constant`]; the index makes each `intern` a hash lookup
+/// rather than a linear scan, so compiling a wide `Literal[...]` or merging many
+/// validators stays linear in the number of constants instead of quadratic.
+///
+/// The address key is stable for the pooled objects: every interned value is
+/// kept alive by `items`, so no live pool entry is freed and reallocated during a
+/// compile.
+#[derive(Default)]
+pub(crate) struct Pool {
+    items: Vec<Py<PyAny>>,
+    index: rustc_hash::FxHashMap<Constant, usize>,
+    /// The keys of the validator this pool was seeded from, shared rather than
+    /// rebuilt. A constant is looked up here after `index`, and one new to both
+    /// goes into `index`, so the two read as one index.
+    seed: Option<Arc<PoolKeys>>,
+}
+
+impl Pool {
+    /// Seed a pool with an existing validator's constants, rebuilding the index,
+    /// so a second schema interns into the same pool when validators merge.
+    ///
+    /// A seeded pool can hold two slots under one key -- each pooled by a
+    /// different pool -- and the later slot wins the key. Both stay in `items`,
+    /// because a compiled schema already names the earlier one; what the key
+    /// decides is only which slot a *new* occurrence joins.
+    pub(crate) fn seeded(py: Python<'_>, items: Vec<Py<PyAny>>) -> Self {
+        let index = items
+            .iter()
+            .enumerate()
+            .map(|(at, obj)| (constant_of(obj.bind(py)), at))
+            .collect();
+        Pool {
+            items,
+            index,
+            seed: None,
+        }
+    }
+
+    /// Seed a pool with a validator's constants and the keys it already holds
+    /// for them: [`seeded`](Self::seeded) without rebuilding the index.
+    pub(crate) fn seeded_by(items: Vec<Py<PyAny>>, keys: Arc<PoolKeys>) -> Self {
+        Pool {
+            items,
+            index: rustc_hash::FxHashMap::default(),
+            seed: Some(keys),
+        }
+    }
+
+    /// Pool `obj` and return its slot, deduplicating by [`Constant`].
+    ///
+    /// Private, and reached only through the four typed forms below. One pool
+    /// serves four index spaces, so the slot acquires its meaning here, at the
+    /// line that decides what the object is being pooled *as*. Two occurrences
+    /// of one constant land in one slot whichever space they arrive through,
+    /// which is what makes two spellings of a literal one schema node.
+    fn intern(&mut self, obj: &Bound<'_, PyAny>) -> usize {
+        self.intern_keyed(obj, constant_of(obj))
+    }
+
+    /// [`intern`](Self::intern), with the key already read.
+    ///
+    /// The seed is asked first. The two indices share no key, so the order
+    /// answers nothing, and a relation pools mostly constants its subject
+    /// already holds: asked second, each of those would be hashed twice.
+    fn intern_keyed(&mut self, obj: &Bound<'_, PyAny>, key: Constant) -> usize {
+        let seeded = self.seed.as_ref().and_then(|seed| seed.index.get(&key));
+        if let Some(&index) = seeded.or_else(|| self.index.get(&key)) {
+            return index;
+        }
+        let index = self.items.len();
+        self.items.push(obj.clone().unbind());
+        self.index.insert(key, index);
+        index
+    }
+
+    /// Make room for `additional` constants, so a wide `Literal` is one
+    /// allocation of the index rather than a rehash per doubling.
+    pub(crate) fn reserve(&mut self, additional: usize) {
+        self.items.reserve(additional);
+        self.index.reserve(additional);
+    }
+
+    /// Pool `obj` as a literal's constant.
+    fn intern_const(&mut self, obj: &Bound<'_, PyAny>) -> ConstIx {
+        ConstIx::new(self.intern(obj))
+    }
+
+    /// Pool `obj` as the class of an `isinstance` atom or an attribute record.
+    fn intern_class(&mut self, obj: &Bound<'_, PyAny>) -> ClassIx {
+        ClassIx::new(self.intern(obj))
+    }
+
+    /// Pool `obj` as a comparison or multiple-of operand.
+    fn intern_operand(&mut self, obj: &Bound<'_, PyAny>) -> OperandIx {
+        OperandIx::new(self.intern(obj))
+    }
+
+    /// Pool `obj` as a user predicate's callable.
+    fn intern_predicate(&mut self, obj: &Bound<'_, PyAny>) -> PredIx {
+        PredIx::new(self.intern(obj))
+    }
+
+    /// The pooled constants, for reading against a compiled schema.
+    pub(crate) fn items(&self) -> &[Py<PyAny>] {
+        &self.items
+    }
+
+    /// Consume the pool, yielding the constants a validator stores.
+    pub(crate) fn into_items(self) -> Vec<Py<PyAny>> {
+        self.items
+    }
+}
+
+/// Refuse a map key schema narrowed by a constraint or a predicate.
+///
+/// A clause's key says which keys it governs, and a map reads that as whole
+/// *kinds* of key -- `str`, `int`, and the rest -- or as the constants a
+/// `Literal` names. A key narrowed by a bound, a pattern or a callback is
+/// neither: it names part of a kind, and two such clauses can overlap without
+/// either containing the other. Overlapping key domains are a different theory
+/// from the one this library's maps are built on -- with them "there would not
+/// be any difference between record types and an intersection of function
+/// types" [Cas23, §4.5], which is why the paper forbids them [Cas23, §4.4] --
+/// and reading them as this library does, one clause at a time, answers a
+/// question the two spellings do not agree on.
+///
+/// So it is refused where it is written, which is the rule the zero divisor and
+/// the invalid pattern already follow.
+fn checked_key(schema: &Schema, spelling: &Bound<'_, PyAny>) -> PyResult<()> {
+    if !narrows_its_keys(schema) {
+        return Ok(());
+    }
+    Err(not_implemented(format!(
+        "{} narrows the keys it governs, and a map key must be a key type or a \
+         Literal: write dict[str, V] to key every string, or dict[Literal[\"a\"], V] \
+         (or {{\"a\": V}}) to key one. To constrain the keys themselves, check them \
+         beside the mapping rather than inside it",
+        summarize(spelling)?
+    )))
+}
+
+/// Whether a key schema narrows its keys by a constraint or a predicate, at any
+/// depth a union or a complement can hide one.
+fn narrows_its_keys(schema: &Schema) -> bool {
+    match schema {
+        Schema::Refine { constraints, .. } => !constraints.is_empty(),
+        Schema::Union(members) | Schema::Intersection(members) => {
+            members.iter().any(narrows_its_keys)
+        }
+        Schema::Complement(inner) => narrows_its_keys(inner),
+        _ => false,
+    }
+}
+
+/// The refusal of a form this frontend has no reading for, carrying the message
+/// as it was built: a `format!` at the call site is moved in, not copied.
+pub(crate) fn not_implemented(message: impl Into<String>) -> PyErr {
+    PyNotImplementedError::new_err(message.into())
+}
+
+mod classes;
+mod dialect;
+mod generics;
+mod refine;
+
+#[cfg(all(test, feature = "interpreter-tests"))]
+use classes::annotations_as_written;
+use classes::build_type_object;
+pub(crate) use classes::{build_instances, declares_fields};
+use generics::{build_dict, build_parametrized, build_sequence};
+use refine::build_refine;
+
+// Needs a live interpreter; compiled and run only under the `interpreter-tests`
+// feature, which links an embedded Python.
+/// The frontend, driven against real annotations through a real interpreter.
+///
+/// Why this module exists rather than leaving the frontend to pytest: pytest
+/// exercises this file thoroughly and a mutation harness cannot observe pytest,
+/// so without it every mutant of this file reads as a survivor, and the file
+/// would be excluded from the sweep by name. An exclusion is a hole in the
+/// coverage claim, and this one would cover the widest file in the binding --
+/// the one place a wrong arm turns a written annotation into a schema that
+/// denotes something else, silently, with every downstream test still passing.
+///
+/// The corpus is a table rather than a test per case, because the frontend is a
+/// dispatch and the thing worth asserting is that each spelling lands on its own
+/// arm. Each row is an annotation as a caller writes it and the schema it must
+/// build, spelled as the render of that schema -- which is the same string
+/// `repr(Validator(...))` prints, so a row can be read against the docs.
+///
+/// The refinement markers are built here rather than imported. An embedded
+/// interpreter starts on the base prefix and does not see a virtual
+/// environment's packages, so importing `annotated_types` would make this corpus
+/// depend on how the harness was launched. It costs nothing to do without: the
+/// frontend reads a marker's constraint off a class whose method resolution
+/// order names `annotated_types` as its `__module__`, never by importing the
+/// module, so a class here that sets its `__module__` to that name exercises
+/// the same arm as the vocabulary's own.
+#[cfg(all(test, feature = "interpreter-tests"))]
+mod interpreter;
+
+#[cfg(all(test, feature = "interpreter-tests"))]
+mod tests;

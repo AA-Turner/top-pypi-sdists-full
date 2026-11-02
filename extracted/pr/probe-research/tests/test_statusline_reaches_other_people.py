@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import setup as wizard
+from probe.cli import wizard as wizard
 from probe.shared.harness.harnesses.claude_code import statusline
 
 _ROOT = Path(__file__).resolve().parent.parent

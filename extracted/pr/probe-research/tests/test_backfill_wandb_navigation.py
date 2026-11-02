@@ -2,7 +2,7 @@
 
 import pytest
 
-from probe.cli import backfill_wandb as wb
+from probe.cli.imports.folder.sources import wandb as wb
 from tests.test_backfill_wandb import CONNECTION, OTHER, PROJECT, admit
 from tests.test_backfill_wandb import harness as harness
 

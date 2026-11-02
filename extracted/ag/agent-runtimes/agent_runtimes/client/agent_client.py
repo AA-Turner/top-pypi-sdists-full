@@ -1,0 +1,2001 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""Agent client for agent-runtimes.
+
+Extends the account-only ``datalayer_core.DatalayerClient`` with runtime
+creation, environments, snapshots, Ray, evals, code execution, and local/remote
+agent lifecycle helpers — migrated out of datalayer-core.
+"""
+
+import json
+import logging
+import os
+import socket
+import subprocess
+import time
+import uuid
+from dataclasses import dataclass, field
+from functools import lru_cache
+from typing import Any, Optional, Union
+from urllib.parse import urlparse
+
+import requests
+from code_sandboxes import CodeSandboxClient
+from datalayer_core.client.client import DatalayerClient as _BaseDatalayerClient
+from datalayer_core.utils.defaults import (
+    DEFAULT_ENVIRONMENT,
+    DEFAULT_TIME_RESERVATION,
+)
+from datalayer_core.utils.types import Minutes
+
+from agent_runtimes.mixins.environments import EnvironmentsMixin
+from agent_runtimes.mixins.evals import EvalsMixin
+from agent_runtimes.mixins.events import EventsMixin
+from agent_runtimes.mixins.ray import RayMixin
+from agent_runtimes.mixins.sandbox_snapshots import SandboxSnapshotsMixin
+from agent_runtimes.models.environment import (
+    EnvironmentModel,
+    EnvironmentPublicationRecord,
+)
+from agent_runtimes.models.sandbox_snapshot import SandboxSnapshotModel
+from agent_runtimes.runtimes import RuntimeService
+from agent_runtimes.runtimes.client import RuntimesMixin
+from agent_runtimes.sandboxes.code_sandbox_snapshots import (
+    as_code_sandbox_snapshots,
+    create_snapshot,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _runtime_environment_name(runtime_data: dict[str, Any]) -> str:
+    environment = runtime_data.get("environment")
+    if isinstance(environment, dict):
+        name = str(environment.get("name") or "").strip()
+        if name:
+            return name
+    return str(runtime_data.get("environment_name") or "").strip()
+
+
+DEFAULT_LOCAL_HOST = "127.0.0.1"
+DEFAULT_LOCAL_AGENT_NAME = "default"
+DEFAULT_LOCAL_PROTOCOL = "vercel-ai"
+DEFAULT_LOCAL_LOG_LEVEL = "info"
+
+# Map Datalayer Bedrock credentials onto the AWS variables the local
+# agent-runtimes server expects.
+_BEDROCK_ENV_MAPPINGS = {
+    "DATALAYER_BEDROCK_AWS_ACCESS_KEY_ID": "AWS_ACCESS_KEY_ID",
+    "DATALAYER_BEDROCK_AWS_SECRET_ACCESS_KEY": "AWS_SECRET_ACCESS_KEY",
+    "DATALAYER_BEDROCK_AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
+}
+
+
+@dataclass
+class LocalAgentRuntime:
+    """Handle to a running local ``agent-runtimes`` server."""
+
+    base_url: str
+    agent_name: str
+    agent_spec_id: str
+    process: Optional[subprocess.Popen[Any]] = field(default=None, repr=False)
+
+    @property
+    def chat_endpoint(self) -> str:
+        """Vercel AI chat endpoint for this runtime's agent."""
+        return f"{self.base_url.rstrip('/')}/api/v1/vercel-ai/{self.agent_name}"
+
+    def terminate(self) -> None:
+        """Terminate the underlying server process (if any)."""
+        terminate_local_agent_runtime(self)
+
+
+def find_free_port(host: str = DEFAULT_LOCAL_HOST) -> int:
+    """Return a free TCP port bound on ``host``."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
+def build_agent_runtime_env() -> tuple[dict[str, str], list[str]]:
+    """Build subprocess env with Bedrock-to-AWS variable mappings."""
+    runtime_env = os.environ.copy()
+    mapped_targets: list[str] = []
+    for source, target in _BEDROCK_ENV_MAPPINGS.items():
+        value = (runtime_env.get(source) or "").strip()
+        if value:
+            runtime_env[target] = value
+            mapped_targets.append(target)
+    return runtime_env, mapped_targets
+
+
+def wait_for_local_runtime(base_url: str, timeout_seconds: int = 25) -> None:
+    """Block until the local runtime ``/health`` endpoint responds."""
+    endpoint = f"{base_url.rstrip('/')}/health"
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        try:
+            response = requests.get(endpoint, timeout=2)
+            if response.status_code < 500:
+                return
+        except Exception:
+            pass
+        time.sleep(0.5)
+    raise RuntimeError(
+        f"Local agent-runtimes server did not become ready at {endpoint} "
+        f"within {timeout_seconds}s."
+    )
+
+
+def start_local_agent_runtime(
+    *,
+    agent_spec_id: str,
+    agent_name: str = DEFAULT_LOCAL_AGENT_NAME,
+    host: str = DEFAULT_LOCAL_HOST,
+    port: Optional[int] = None,
+    protocol: str = DEFAULT_LOCAL_PROTOCOL,
+    log_level: str = DEFAULT_LOCAL_LOG_LEVEL,
+    wait: bool = True,
+    disable_tool_approvals: bool = False,
+) -> LocalAgentRuntime:
+    """Launch a local ``agent-runtimes`` server as a subprocess."""
+    resolved_port = port or find_free_port(host)
+    base_url = f"http://{host}:{resolved_port}"
+
+    command = [
+        "agent-runtimes",
+        "serve",
+        "--host",
+        host,
+        "--port",
+        str(resolved_port),
+        "--protocol",
+        protocol,
+        "--agent-id",
+        agent_spec_id,
+        "--agent-name",
+        agent_name,
+        "--log-level",
+        log_level,
+    ]
+    if disable_tool_approvals:
+        command.append("--disable-tool-approvals")
+
+    runtime_env, mapped_targets = build_agent_runtime_env()
+    if mapped_targets:
+        logger.info(
+            "Launching local agent-runtimes with Bedrock env mapping: "
+            "DATALAYER_BEDROCK_* -> %s",
+            ", ".join(mapped_targets),
+        )
+    else:
+        logger.info(
+            "Launching local agent-runtimes without DATALAYER_BEDROCK_* mapping "
+            "(no DATALAYER_BEDROCK_AWS_* variables detected)."
+        )
+
+    try:
+        process = subprocess.Popen(command, env=runtime_env)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "Could not start local agent runtime: the 'agent-runtimes' command "
+            "was not found on PATH. Install the agent-runtimes package first."
+        ) from exc
+    except Exception as exc:
+        raise RuntimeError(f"Failed to start local agent runtime: {exc}") from exc
+
+    runtime = LocalAgentRuntime(
+        base_url=base_url,
+        agent_name=agent_name,
+        agent_spec_id=agent_spec_id,
+        process=process,
+    )
+
+    if wait:
+        try:
+            wait_for_local_runtime(base_url)
+        except Exception:
+            terminate_local_agent_runtime(runtime)
+            raise
+
+    return runtime
+
+
+def terminate_local_agent_runtime(runtime: LocalAgentRuntime) -> None:
+    """Terminate a local runtime process, escalating to kill if needed."""
+    process = runtime.process
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+def _agent_transport(agent: dict[str, Any]) -> str:
+    """The transport an agent listing says an agent answers on.
+
+    The listing calls it ``protocol``; older servers and the create request
+    call it ``transport``. Read both, or an agent is torn down and recreated
+    on every check because its transport read as unknown.
+    """
+    value = agent.get("transport") or agent.get("protocol") or ""
+    return str(value).strip().lower().replace("_", "-")
+
+
+def ensure_local_agent(
+    *,
+    base_url: str,
+    agent_name: str,
+    token: str,
+    agent_spec_id: str | None = None,
+    fields: Optional[dict] = None,
+    agent_library: str = "pydantic-ai",
+    transport: str = DEFAULT_LOCAL_PROTOCOL,
+    enable_skills: bool = True,
+    description: Optional[str] = None,
+    timeout: int = 120,
+    disable_tool_approvals: bool = False,
+) -> str:
+    """Ensure an agent with the expected transport is registered on an agent-runtimes server.
+
+    The server may be the local one or the one on a cloud runtime; only its
+    base URL differs. An agent of that name already answering on ``transport``
+    is kept; one on another transport is replaced. Returns the agent's id.
+
+    An agent an agentspec defines is registered by its id. One defined inline
+    is registered from ``fields``: its system prompt, model, tools and MCP
+    servers (a team's seat, O2-09).
+    """
+    base = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    wanted_transport = str(transport or "").strip().lower().replace("_", "-")
+    try:
+        response = requests.get(f"{base}/api/v1/agents", headers=headers, timeout=30)
+        payload = response.json() if response.content else {}
+    except Exception:
+        payload = {}
+    existing_agents = payload.get("agents") if isinstance(payload, dict) else []
+    if not isinstance(existing_agents, list):
+        existing_agents = []
+    for agent in existing_agents:
+        if not isinstance(agent, dict):
+            continue
+        existing_id = str(agent.get("id") or "").strip()
+        existing_name = str(agent.get("name") or "").strip()
+        if agent_name and (existing_id == agent_name or existing_name == agent_name):
+            existing_transport = _agent_transport(agent)
+            if existing_transport == wanted_transport:
+                return existing_id or agent_name
+            delete_target = existing_id or agent_name
+            try:
+                requests.delete(
+                    f"{base}/api/v1/agents/{delete_target}",
+                    headers=headers,
+                    timeout=30,
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Agent exists with incompatible transport "
+                    f"'{existing_transport or 'unknown'}' and could not be "
+                    f"replaced: {exc}"
+                ) from exc
+            break
+    body = {
+        "name": agent_name,
+        "description": description
+        or f"Agent '{agent_name}' registered by agent-runtimes.",
+        "agent_library": agent_library,
+        "transport": transport,
+        "agent_spec_id": agent_spec_id,
+        "enable_skills": enable_skills,
+        "backendTools": [],
+        "disableToolApprovals": disable_tool_approvals,
+        **(fields or {}),
+    }
+    try:
+        response = requests.post(
+            f"{base}/api/v1/agents",
+            json=body,
+            headers=headers,
+            timeout=timeout,
+        )
+    except requests.exceptions.RequestException as exc:
+        parsed = urlparse(base_url)
+        host = parsed.hostname or DEFAULT_LOCAL_HOST
+        port = parsed.port or 8000
+        scheme = parsed.scheme or "http"
+        raise RuntimeError(
+            "Agent bootstrap request failed: "
+            f"{exc}. Start agent-runtimes first, for example: "
+            f"agent-runtimes serve --host {host} --port {port} "
+            f"--agent-id {agent_spec_id} --agent-name {agent_name} "
+            f"(base URL: {scheme}://{host}:{port})."
+        ) from exc
+    if response.status_code < 400:
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+        agent_id = data.get("id") if isinstance(data, dict) else None
+        return str(agent_id or agent_name)
+    body_text = response.text or ""
+    if response.status_code == 409 and "already exists" in body_text.lower():
+        return agent_name
+    raise RuntimeError(
+        f"Agent bootstrap failed ({response.status_code}): "
+        f"{body_text or 'unknown error'}"
+    )
+
+
+def delete_local_agents(*, base_url: str, token: str) -> tuple[int, int]:
+    """Delete all locally-registered agents."""
+    base = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.get(f"{base}/api/v1/agents", headers=headers, timeout=30)
+        payload = response.json() if response.content else {}
+    except Exception as exc:
+        logger.warning("Unable to list local agents for cleanup: %s", exc)
+        return (0, 0)
+
+    agents = payload.get("agents") if isinstance(payload, dict) else []
+    if not isinstance(agents, list):
+        agents = []
+
+    deleted = 0
+    for agent in agents:
+        if not isinstance(agent, dict):
+            continue
+        agent_id = str(agent.get("id") or "").strip()
+        if not agent_id:
+            continue
+        try:
+            requests.delete(
+                f"{base}/api/v1/agents/{agent_id}",
+                headers=headers,
+                timeout=30,
+            )
+            deleted += 1
+        except Exception as exc:
+            logger.warning("Unable to delete local agent %s: %s", agent_id, exc)
+
+    return (len(agents), deleted)
+
+
+def delete_local_agent(*, base_url: str, token: str, agent_name: str) -> bool:
+    """Delete a single locally-registered agent by id or name."""
+    target_name = str(agent_name or "").strip()
+    if not target_name:
+        return False
+
+    base = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.get(f"{base}/api/v1/agents", headers=headers, timeout=30)
+        payload = response.json() if response.content else {}
+    except Exception as exc:
+        logger.warning("Unable to list local agents for cleanup: %s", exc)
+        return False
+
+    agents = payload.get("agents") if isinstance(payload, dict) else []
+    if not isinstance(agents, list):
+        return False
+
+    for agent in agents:
+        if not isinstance(agent, dict):
+            continue
+        agent_id = str(agent.get("id") or "").strip()
+        name = str(agent.get("name") or "").strip()
+        if target_name not in {agent_id, name}:
+            continue
+        delete_target = agent_id or target_name
+        try:
+            response = requests.delete(
+                f"{base}/api/v1/agents/{delete_target}",
+                headers=headers,
+                timeout=30,
+            )
+            return response.status_code < 400
+        except Exception as exc:
+            logger.warning("Unable to delete local agent %s: %s", delete_target, exc)
+            return False
+
+    return False
+
+
+def extract_vercel_stream_text(raw: str) -> str:
+    """Extract concatenated text deltas from a Vercel AI SSE stream."""
+    text_parts: list[str] = []
+    for line in raw.splitlines():
+        if not line.startswith("data: "):
+            continue
+        payload = line[6:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+
+        if isinstance(event, str):
+            if event.strip():
+                text_parts.append(event)
+            continue
+        if not isinstance(event, dict):
+            continue
+
+        for key in ("delta", "text", "content", "outputText", "textDelta"):
+            value = event.get(key)
+            if isinstance(value, str) and value:
+                text_parts.append(value)
+
+    return "".join(text_parts).strip()
+
+
+def _coerce_usage_payload(candidate: Any) -> dict[str, Any]:
+    if not isinstance(candidate, dict) or not candidate:
+        return {}
+    nested = candidate.get("usage")
+    if isinstance(nested, dict) and nested:
+        merged = dict(nested)
+        for key, value in candidate.items():
+            if key == "usage":
+                continue
+            merged.setdefault(str(key), value)
+        return merged
+    return dict(candidate)
+
+
+def _usage_payload_score(payload: dict[str, Any]) -> int:
+    if not payload:
+        return 0
+    token_keys = {
+        "prompt_tokens",
+        "promptTokens",
+        "input_tokens",
+        "inputTokens",
+        "completion_tokens",
+        "completionTokens",
+        "output_tokens",
+        "outputTokens",
+        "total_tokens",
+        "totalTokens",
+        "tokens_total",
+        "token_total",
+    }
+    score = len(payload)
+    if any(key in payload for key in token_keys):
+        score += 100
+    if any(
+        key in payload
+        for key in (
+            "credits_consumed",
+            "creditsConsumed",
+            "credits",
+            "total_credits",
+            "cost_credits",
+        )
+    ):
+        score += 10
+    return score
+
+
+def extract_vercel_stream_usage(raw: str) -> dict[str, Any]:
+    """Extract best-effort pydantic usage metadata from a Vercel AI SSE stream."""
+    best: dict[str, Any] = {}
+    best_score = 0
+    for line in raw.splitlines():
+        if not line.startswith("data: "):
+            continue
+        payload = line[6:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+
+        candidates: list[dict[str, Any]] = []
+        message_metadata = event.get("messageMetadata")
+        if isinstance(message_metadata, dict):
+            candidates.extend(
+                [
+                    _coerce_usage_payload(message_metadata.get("pydantic_ai")),
+                    _coerce_usage_payload(message_metadata.get("pydanticAI")),
+                    _coerce_usage_payload(message_metadata.get("usage")),
+                ]
+            )
+        candidates.extend(
+            [
+                _coerce_usage_payload(event.get("pydantic_ai_usage")),
+                _coerce_usage_payload(event.get("pydantic_ai")),
+                _coerce_usage_payload(event.get("usage")),
+            ]
+        )
+        for candidate in candidates:
+            score = _usage_payload_score(candidate)
+            if score > best_score:
+                best = candidate
+                best_score = score
+    return best
+
+
+def _vercel_ai_error_message(raw: str) -> Optional[str]:
+    """Detect a non-stream error body returned with an HTTP 200 status."""
+    text = (raw or "").strip()
+    if not text:
+        return "Empty response body"
+    if "data:" in text:
+        return None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(payload, dict):
+        error = payload.get("error") or payload.get("message")
+        if error:
+            return str(error)
+    return None
+
+
+def _post_vercel_ai_chat(
+    *,
+    endpoint: str,
+    token: str,
+    prompt: str,
+    timeout: int,
+    source_label: str,
+    chat_id: str = "",
+) -> dict[str, Any]:
+    """POST a single prompt to a Vercel AI chat endpoint.
+
+    ``chat_id`` is the chat's id, the conversation the runtime records the
+    turn under (an application's session, R-07): a caller that reads
+    the record afterwards (the Evals engine, V-08) names it; one is
+    made up otherwise.
+    """
+    message_id = f"chat-{int(time.time() * 1000)}"
+    parts = [{"type": "text", "text": prompt}]
+    message = {"id": message_id, "role": "user", "parts": parts}
+    body = {
+        "trigger": "submit-message",
+        "id": chat_id or f"chat-{message_id}",
+        "message": message,
+        "messages": [message],
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+    try:
+        response = requests.post(
+            endpoint,
+            json=body,
+            headers=headers,
+            timeout=timeout,
+        )
+    except requests.exceptions.RequestException as exc:
+        message_text = f"{source_label} chat request failed: {exc}"
+        return {
+            "status": "failed",
+            "output": {"text": "", "raw_stream_excerpt": ""},
+            "failure_cause": {
+                "stage": "runtime_execution",
+                "type": "runtime_unreachable",
+                "message": message_text,
+                "detail_excerpt": message_text,
+                "execution_url": endpoint,
+            },
+        }
+
+    raw = response.text or ""
+    if response.status_code >= 400:
+        message_text = f"{source_label} chat failed (HTTP {response.status_code})"
+        return {
+            "status": "failed",
+            "output": {"text": "", "raw_stream_excerpt": raw[:2000]},
+            "failure_cause": {
+                "stage": "runtime_execution",
+                "type": "runtime_http_error",
+                "message": message_text,
+                "detail_excerpt": raw[:2000] or message_text,
+                "execution_url": endpoint,
+            },
+        }
+
+    output_text = extract_vercel_stream_text(raw)
+    usage = extract_vercel_stream_usage(raw)
+    if not output_text:
+        error_message = _vercel_ai_error_message(raw)
+        if error_message is not None:
+            message_text = f"{source_label} chat returned no output: {error_message}"
+            return {
+                "status": "failed",
+                "output": {"text": "", "raw_stream_excerpt": raw[:2000]},
+                "failure_cause": {
+                    "stage": "runtime_execution",
+                    "type": "runtime_agent_unavailable",
+                    "message": message_text,
+                    "detail_excerpt": raw[:2000] or message_text,
+                    "execution_url": endpoint,
+                },
+            }
+    output: dict[str, Any] = {
+        "text": output_text,
+        "raw_stream_excerpt": raw[:2000],
+    }
+    result: dict[str, Any] = {
+        "status": "completed",
+        "output": output,
+    }
+    if usage:
+        output["pydantic_ai_usage"] = usage
+        result["usage"] = usage
+    return result
+
+
+def run_local_agent_chat(
+    *,
+    base_url: str,
+    agent_name: str,
+    token: str,
+    prompt: str,
+    timeout: int = 300,
+) -> dict[str, Any]:
+    """Send a single prompt to a local agent via the Vercel AI endpoint."""
+    endpoint = f"{base_url.rstrip('/')}/api/v1/vercel-ai/{agent_name}"
+    return _post_vercel_ai_chat(
+        endpoint=endpoint,
+        token=token,
+        prompt=prompt,
+        timeout=timeout,
+        source_label="Local agent",
+    )
+
+
+def build_agent_runtimes_base_url(ingress: str) -> str:
+    """Derive cloud ``agent-runtimes`` base URL from a runtime ingress."""
+    base = (ingress or "").rstrip("/")
+    if "/jupyter/server/" in base:
+        base = base.replace("/jupyter/server/", "/agent-runtimes/", 1)
+    return base
+
+
+def runtime_route_candidates(
+    *,
+    agent_name: Optional[str] = None,
+    agent_spec_id: Optional[str] = None,
+    runtime_name: Optional[str] = None,
+) -> list[str]:
+    """Build ordered and de-duplicated Vercel AI route candidates."""
+    candidates: list[str] = []
+    for value in (agent_name, agent_spec_id, runtime_name, DEFAULT_LOCAL_AGENT_NAME):
+        token = str(value or "").strip()
+        if token and token not in candidates:
+            candidates.append(token)
+    return candidates
+
+
+def run_cloud_agent_chat(
+    *,
+    ingress: str,
+    token: str,
+    prompt: str,
+    route_candidates: list[str],
+    timeout: int = 300,
+    chat_id: str = "",
+) -> dict[str, Any]:
+    """Send a single prompt to a cloud runtime agent via Vercel AI.
+
+    ``chat_id`` names the chat — the session an application records the
+    turn under — for a caller that reads that record afterwards.
+    """
+    base_url = build_agent_runtimes_base_url(ingress)
+    candidates = [c for c in route_candidates if str(c or "").strip()]
+    if not candidates:
+        candidates = [DEFAULT_LOCAL_AGENT_NAME]
+
+    attempted: list[str] = []
+    last_result: dict[str, Any] | None = None
+    for route in candidates:
+        endpoint = f"{base_url}/api/v1/vercel-ai/{route}"
+        attempted.append(endpoint)
+        result = _post_vercel_ai_chat(
+            endpoint=endpoint,
+            token=token,
+            prompt=prompt,
+            timeout=timeout,
+            source_label="Cloud agent",
+            chat_id=chat_id,
+        )
+        if str(result.get("status") or "").strip().lower() == "completed":
+            return result
+        last_result = result
+
+    if last_result is None:
+        last_result = {
+            "status": "failed",
+            "output": {"text": "", "raw_stream_excerpt": ""},
+            "failure_cause": {
+                "stage": "runtime_execution",
+                "type": "runtime_unreachable",
+                "message": "No cloud agent route candidates available.",
+                "detail_excerpt": "No cloud agent route candidates available.",
+                "execution_url": base_url,
+            },
+        }
+    elif len(attempted) > 1:
+        failure_cause = last_result.get("failure_cause")
+        if isinstance(failure_cause, dict):
+            tried = "; ".join(attempted)
+            base_detail = str(failure_cause.get("detail_excerpt") or "")
+            failure_cause["detail_excerpt"] = (
+                f"{base_detail}\nAttempted routes: {tried}"
+            ).strip()
+            failure_cause["attempted_urls"] = attempted
+    return last_result
+
+
+#: What a turn of a test's conversation does: exactly one of these (E-01).
+TURN_DOINGS = ("say", "choose", "press")
+
+
+def _conversation_turn(raw: Any) -> dict[str, Any]:
+    """A turn of a test's conversation as its case carries it, checked: what
+    it says, chooses or presses — exactly one — and a press's payload.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError(f"A turn of a test's conversation is a mapping, not {raw!r}.")
+    does = [key for key in TURN_DOINGS if str(raw.get(key) or "").strip()]
+    if len(does) != 1:
+        raise ValueError(
+            f"A turn of a test's conversation says, chooses or presses one thing: {raw!r}."
+        )
+    payload = raw.get("payload") or {}
+    if not isinstance(payload, dict) or (payload and does[0] != "press"):
+        raise ValueError(f"A turn's payload is a mapping, with a press: {raw!r}.")
+    return {"does": does[0], "what": str(raw[does[0]]).strip(), "payload": payload}
+
+
+def _turn_in_words(turn: dict[str, Any]) -> str:
+    """A turn as the judge reads it in the conversation."""
+    if turn["does"] == "say":
+        return f"The person says: {turn['what']}"
+    if turn["does"] == "choose":
+        return f"The person chooses: {turn['what']}"
+    given = json.dumps(turn["payload"], ensure_ascii=False) if turn["payload"] else ""
+    return f"The person presses {turn['what']}" + (f" with {given}" if given else "")
+
+
+def _session_offers(lines: list[str]) -> dict[str, dict[str, Any]]:
+    """The actions a session offers, by name, as its ``loop.session`` event
+    says them (RU-5): each with the display that offers it and its
+    token.
+    """
+    offers: dict[str, dict[str, Any]] = {}
+    for line in lines:
+        if not line.startswith("data:"):
+            continue
+        try:
+            event = json.loads(line[len("data:") :].strip())
+        except ValueError:
+            continue
+        if (
+            isinstance(event, dict)
+            and event.get("type") == "CUSTOM"
+            and event.get("name") == "loop.session"
+        ):
+            for offer in (event.get("value") or {}).get("actions") or []:
+                offers[str(offer["name"])] = offer
+    return offers
+
+
+def run_cloud_app_conversation(
+    *,
+    ingress: str,
+    token: str,
+    agent: str,
+    session: str,
+    turns: list[Any],
+    timeout: int = 300,
+) -> dict[str, Any]:
+    """Play a test that is a conversation (E-01) on an application's
+    session, as its page has it: the session opened on the session API
+    (``/api/v1/apps/sessions``, named ``session`` — the record it is kept
+    under), then each turn sent once the one before was answered — a message
+    for what the person says, the option's words for a choice they pick (as
+    the chat answers a choice), and for what they press the action the
+    session offered under that name, its token and its payload
+    (``/sessions/{uid}/press``, RU-5) — an action it did not offer
+    is a failure. ``agent`` is the application's agent on the runtime, made on
+    AG-UI, which the session API runs on.
+
+    Answers ``status`` ``completed`` with the whole conversation in words
+    (``output.text``) and each turn with what it answered (``turns``), or
+    ``failed`` with ``failure_cause`` when a request was refused or a turn
+    failed — a question left waiting is an answer, not a failure.
+    """
+    from agent_runtimes.apps.deployments import UNFINISHED, session_result
+
+    played = [_conversation_turn(raw) for raw in turns]
+    if not played:
+        raise ValueError("A test's conversation has at least one turn.")
+    base = build_agent_runtimes_base_url(ingress).rstrip("/") + "/api/v1/apps/sessions"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "Authorization": f"Bearer {token}",
+    }
+    lines: list[str] = []
+    said: list[dict[str, Any]] = []
+    # What the session offers of its code's actions, with their tokens: each
+    # stream starts with what the session is (``loop.session``).
+    offered: dict[str, dict[str, Any]] = {}
+
+    def failed(kind: str, message: str, detail: str, url: str) -> dict[str, Any]:
+        return {
+            "status": "failed",
+            "output": {"text": "\n".join(lines), "raw_stream_excerpt": detail[:2000]},
+            "turns": said,
+            "failure_cause": {
+                "stage": "runtime_execution",
+                "type": kind,
+                "message": message,
+                "detail_excerpt": detail[:2000] or message,
+                "execution_url": url,
+            },
+        }
+
+    def send(
+        url: str, body: dict[str, Any], words: str, *, framed: bool = True
+    ) -> Optional[dict[str, Any]]:
+        try:
+            response = requests.post(
+                url, json=body, headers=headers, timeout=timeout, stream=True
+            )
+        except requests.exceptions.RequestException as exc:
+            message = f"The application's session could not be reached: {exc}"
+            return failed("runtime_unreachable", message, message, url)
+        with response:
+            if response.status_code >= 300:
+                detail = response.text or ""
+                return failed(
+                    "runtime_http_error",
+                    f"The session refused the turn (HTTP {response.status_code})",
+                    detail,
+                    url,
+                )
+            response.encoding = "utf-8"
+            streamed = list(response.iter_lines(decode_unicode=True))
+            _, result = session_result(streamed)
+            offered.update(_session_offers(streamed))
+        answer = str((result.get("output") or {}).get("text") or "").strip()
+        if words:
+            lines.append(words)
+        if answer:
+            lines.append(f"It says: {answer}")
+        said.append({"turn": words, "answer": answer, "status": result["status"]})
+        cause = str(result.get("failure_cause") or "")
+        # An opening with nothing to say runs nothing of an application
+        # without code: no run frames it, and it is not a failure.
+        if result["status"] == "failed" and (framed or cause != UNFINISHED):
+            return failed("turn_failed", cause or "The turn failed.", cause, url)
+        return None
+
+    # The first thing the person says opens the session, as the page's first
+    # message does; a conversation that starts with a choice opens it bare,
+    # its code asking first.
+    first = played[0]
+    opener = first["what"] if first["does"] == "say" else ""
+    if opener:
+        played = played[1:]
+    stopped = send(
+        base,
+        {"agent": agent, "session": session, "opener": opener},
+        _turn_in_words(first) if opener else "",
+        framed=bool(opener),
+    )
+    if stopped is not None:
+        return stopped
+    for number, turn in enumerate(played):
+        if turn["does"] == "press":
+            url = f"{base}/{session}/press"
+            offer = offered.get(turn["what"])
+            if offer is None:
+                message = (
+                    f"The session offered no action {turn['what']!r}: it offers "
+                    f"{', '.join(sorted(offered)) or 'none'}."
+                )
+                return failed("press_not_offered", message, message, url)
+            body: dict[str, Any] = {
+                "action": turn["what"],
+                "display_id": offer["display_id"],
+                "token": offer["token"],
+                "payload": turn["payload"],
+                "idempotency_id": f"{session}-{number}",
+            }
+        else:
+            url = f"{base}/{session}/messages"
+            body = {"text": turn["what"]}
+        stopped = send(url, body, _turn_in_words(turn))
+        if stopped is not None:
+            return stopped
+    return {
+        "status": "completed",
+        "output": {"text": "\n".join(lines), "raw_stream_excerpt": ""},
+        "turns": said,
+    }
+
+
+class AgentClient(
+    _BaseDatalayerClient,
+    RuntimesMixin,
+    EnvironmentsMixin,
+    EvalsMixin,
+    EventsMixin,
+    RayMixin,
+    SandboxSnapshotsMixin,
+):
+    """Datalayer client with runtime creation, code execution, and agent lifecycle.
+
+    Supports both remote (cloud runtime) and local (``agent-runtimes`` server)
+    agent execution via the ``start_local_agent_runtime``, ``ensure_local_agent``,
+    ``run_local_agent_chat``, and ``run_cloud_agent_chat`` helpers exposed as
+    methods.
+    """
+
+    @lru_cache
+    def list_environments(
+        self,
+        owner: Optional[str] = None,
+        origin: Optional[str] = None,
+        variant: Optional[str] = None,
+        q: Optional[str] = None,
+    ) -> list[EnvironmentModel]:
+        """
+        List all available environments.
+
+        The platform's, then the user environments of the caller and of its
+        organizations (E1-01), every page of them.
+
+        Parameters
+        ----------
+        owner : Optional[str]
+            Only one owner's: an account uid, or a platform entry's owner such
+            as ``datalayer``.
+        origin : Optional[str]
+            Only ``platform`` or only ``user`` environments.
+        variant : Optional[str]
+            Only the environments offered on this variant.
+        q : Optional[str]
+            Only the environments whose name or title holds this.
+
+        Returns
+        -------
+        list[Environment]
+            A list of available environments.
+        """
+        environments_raw: list[Any] = []
+        cursor: Optional[str] = None
+        cursors_read: set[str] = set()
+        while True:
+            response = self._list_environments(
+                owner=owner, origin=origin, variant=variant, q=q, cursor=cursor
+            )
+
+            # Some API failures return payloads without an `environments` key.
+            # Surface a clear runtime error instead of raising KeyError.
+            if not response.get("success", True):
+                raise RuntimeError(
+                    f"Failed to list environments: {response.get('message', 'Unknown error')}"
+                )
+
+            page = response.get("environments")
+            if page is None:
+                raise RuntimeError(
+                    "Failed to list environments: missing 'environments' field in response"
+                )
+
+            if not isinstance(page, list):
+                raise RuntimeError(
+                    "Failed to list environments: invalid 'environments' field type"
+                )
+
+            environments_raw.extend(page)
+            cursor = response.get("nextCursor")
+            if not cursor or cursor in cursors_read:
+                break
+            cursors_read.add(cursor)
+
+        # `create_runtime` checks a name against the whole list, never a filtered one.
+        unfiltered = not (owner or origin or variant or q)
+        if unfiltered:
+            self._available_environments = environments_raw
+            self._available_environments_names = []
+        env_objs = []
+        for env in environments_raw:
+            if not isinstance(env, dict):
+                continue
+            if unfiltered:
+                self._available_environments_names.append(env.get("name"))
+            env_data = dict(env)
+            env_objs.append(
+                EnvironmentModel(
+                    name=env_data.pop("name"),
+                    title=env_data.pop("title"),
+                    burning_rate=env_data.pop("burning_rate", 0.0),
+                    language=env_data.pop("language"),
+                    owner=env_data.pop("owner"),
+                    visibility=env_data.pop("visibility"),
+                    uid=env_data.pop("uid", None),
+                    origin=env_data.pop("origin", None),
+                    promoted_version=env_data.pop("promotedVersion", None),
+                    variants=env_data.pop("variants", None),
+                    available_variants=env_data.pop("availableVariants", None),
+                    size_class=env_data.pop("sizeClass", None) or None,
+                    metadata=env_data,
+                )
+            )
+        return env_objs
+
+    def _publication_to_launch(
+        self, environment: str, version: Optional[Union[int, str]]
+    ) -> Optional[EnvironmentPublicationRecord]:
+        """The publication a stranger's launch names, or ``None`` when it names none.
+
+        Only a version uid finds one: a version number means something only
+        inside an environment the caller can already see. The publication
+        must still be public, and must be of the environment named, by its
+        uid or by its name after the account (``<account>/<name>``).
+        """
+        if (
+            version is None
+            or isinstance(version, int)
+            or str(version).strip().isdigit()
+        ):
+            return None
+        try:
+            publication = self.get_environment_publication(str(version).strip())
+        except Exception:  # noqa: BLE001 - not a publication this caller can read
+            return None
+        if publication.status != "published":
+            return None
+        named = environment.strip()
+        if (
+            named
+            not in (
+                publication.environment_uid,
+                publication.snapshot.environment_name,
+            )
+            and named.rsplit("/", 1)[-1] != publication.snapshot.environment_name
+        ):
+            return None
+        return publication
+
+    def create_runtime(
+        self,
+        name: Optional[str] = None,
+        environment: str = DEFAULT_ENVIRONMENT,
+        time_reservation: Minutes = DEFAULT_TIME_RESERVATION,
+        snapshot_name: Optional[str] = None,
+        agent_spec_id: Optional[str] = None,
+        agent_spec: Optional[dict[str, Any]] = None,
+        billing_entity_uid: Optional[str] = None,
+        billing_entity_type: Optional[str] = None,
+        billing_entity_handle: Optional[str] = None,
+        api_key: Optional[str] = None,
+        runtime_name: Optional[str] = None,
+        content_attachment_uids: Optional[list[str]] = None,
+        from_snapshot_uid: Optional[str] = None,
+        parent_reservation_uid: Optional[str] = None,
+        version: Optional[Union[int, str]] = None,
+        app_spec: Optional[dict[str, Any]] = None,
+    ) -> RuntimeService:
+        """
+        Create a new runtime (kernel) for code execution.
+
+        Parameters
+        ----------
+        name : str, optional
+            Name of the runtime to create.
+        environment : str, optional
+            Environment type (e.g., "ai-agents-env"). Type of resources needed
+            (cpu, gpu, etc.). A user environment is named through the same
+            argument, as ``<account-handle>/<name>`` or by its uid (D-2).
+        version : Optional[Union[int, str]], optional
+            The version of a user environment to launch: its number, or a
+            version uid. Without one the promoted version launches (E1-19).
+        time_reservation : Minutes, optional
+            Time reservation in minutes for the runtime. Defaults to 10 minutes.
+        snapshot_name : Optional[str], optional
+            Name of the snapshot to create from. If provided, the runtime will be created from this snapshot.
+        runtime_name : Optional[str], optional
+            The runtime's uid (a ULID) the Contents attachments were made for;
+            the runtime is created under it.
+        content_attachment_uids : Optional[list[str]], optional
+            Contents attachments to mount, created for ``runtime_name`` before the
+            runtime: a Home Folder attachment mounts the caller's home folders,
+            a Volume attachment mounts its Volume.
+        from_snapshot_uid : Optional[str], optional
+            The uid of the snapshot to restore into the runtime, when the caller
+            holds the uid rather than the name (a benchmark task's sandbox is restored from the snapshot its result names, B3-05).
+            ``snapshot_name`` looks the uid up by name; this skips the lookup.
+        parent_reservation_uid : Optional[str], optional
+            The execution tree the runtime is metered against (O1-07):
+            its reservation gets no more than the tree has left.
+        app_spec : Optional[dict[str, Any]], optional
+            The Appspec of the application the runtime is launched for: its
+            connections' secrets are given to it before its agent is made
+            (R-19), as `loop apps run --cloud` launches one.
+
+        Returns
+        -------
+        Runtime
+            A runtime object for code execution.
+        """
+        envs = self.list_environments()
+        entry = next((env for env in envs if env.name == environment), None)
+        if entry is not None:
+            # What a second costs is READ FROM THE LISTING, never written
+            # here: a platform entry carries its pool's rate, and a user
+            # environment the rate of the size class its promoted version
+            # names (D-4, E1-19).
+            burning_rate, size_class = entry.burning_rate, entry.size_class
+        else:
+            # Somebody else's published version is in nobody's listing but
+            # its owner's: it is launched by its version uid, priced by the
+            # rate its publication carries (D-12, E2-15).
+            publication = self._publication_to_launch(environment, version)
+            if publication is None:
+                raise ValueError(
+                    f"Environment '{environment}' not found. Available environments: "
+                    f"{self._available_environments_names}"
+                )
+            environment = publication.environment_uid
+            burning_rate = publication.burning_rate
+            size_class = publication.snapshot.size_class
+        # A class nothing prices is refused rather than reserved at zero,
+        # which would ask the platform for a runtime it will not start.
+        if size_class and not burning_rate:
+            raise ValueError(
+                f"Environment '{environment}' runs on the size class '{size_class}', "
+                "which has no burning rate: it cannot be priced, so no runtime is created."
+            )
+        credits_limit = burning_rate * 60.0 * time_reservation
+
+        if name is None:
+            name = f"runtime-{environment}-{uuid.uuid4()}"
+
+        # print(f"Runtime {name}")
+
+        client_for_request = self
+        if api_key:
+            client_for_request = _BaseDatalayerClient(urls=self._urls, api_key=api_key)
+
+        if snapshot_name is not None or from_snapshot_uid:
+            snapshot_uid = from_snapshot_uid or None
+            if snapshot_uid is None:
+                snapshots = self.list_snapshots()
+                for snapshot in snapshots:
+                    if snapshot.name == snapshot_name:
+                        snapshot_uid = snapshot.uid
+                        break
+                if snapshot_uid is None:
+                    raise ValueError(
+                        f"Snapshot '{snapshot_name}' not found. Available snapshots: {[s.name for s in snapshots]}"
+                    )
+
+            response = client_for_request.runtimes.create(
+                given_name=name,
+                environment_name=environment,
+                environment_version=version,
+                from_snapshot_uid=snapshot_uid,
+                agent_spec_id=agent_spec_id,
+                agent_spec=agent_spec,
+                credits_limit=credits_limit,
+                billing_entity_uid=billing_entity_uid,
+                billing_entity_type=billing_entity_type,
+                billing_entity_handle=billing_entity_handle,
+                runtime_name=runtime_name,
+                content_attachment_uids=content_attachment_uids,
+                parent_reservation_uid=parent_reservation_uid,
+                app_spec=app_spec or None,
+            )
+        else:
+            # Create runtime without snapshot
+            response = client_for_request.runtimes.create(
+                given_name=name,
+                environment_name=environment,
+                environment_version=version,
+                agent_spec_id=agent_spec_id,
+                agent_spec=agent_spec,
+                credits_limit=credits_limit,
+                billing_entity_uid=billing_entity_uid,
+                billing_entity_type=billing_entity_type,
+                billing_entity_handle=billing_entity_handle,
+                runtime_name=runtime_name,
+                content_attachment_uids=content_attachment_uids,
+                parent_reservation_uid=parent_reservation_uid,
+                app_spec=app_spec or None,
+            )
+
+        # Process the response and create RuntimesService object
+        if not response.get("success", True):
+            message = response.get("message", "Unknown error")
+            context_parts = [f"environment='{environment}'"]
+            if agent_spec_id:
+                context_parts.append(f"agent_spec_id='{agent_spec_id}'")
+            if agent_spec:
+                context_parts.append("agent_spec=<inline>")
+            reason = response.get("reason")
+            if reason:
+                context_parts.append(f"reason='{reason}'")
+            retry_after = response.get("retry_after_seconds")
+            if retry_after:
+                context_parts.append(f"retry_after_seconds={retry_after}")
+            context = ", ".join(context_parts)
+            raise RuntimeError(f"Runtime creation failed ({context}): {message}")
+
+        runtime_data = response["runtime"]
+        runtime = RuntimeService(
+            name=runtime_data["given_name"],
+            environment=_runtime_environment_name(runtime_data),
+            runtimes_url=self._urls.runtimes_url,
+            iam_url=self._urls.iam_url,
+            token=api_key or self._get_api_key(),
+            ingress=runtime_data["ingress"],
+            jupyter_token=runtime_data["token"],
+            # The name the runtimes API knows it by, and the only handle that
+            # can stop it or snapshot it.
+            #
+            # Omitting this was a silent, expensive bug. `RuntimeService` takes
+            # the "already provisioned" path when it is handed an ingress and a
+            # token, so it never learned the name the way it does when it
+            # provisions one itself — which left `stop()` with nothing to stop.
+            # Every runtime created through this method ran until it expired,
+            # whatever the caller did, and `create_snapshot` refused with
+            # "Runtime not started!" on a runtime that was plainly running.
+            runtime_name=runtime_data.get("runtime_name"),
+            uid=runtime_data.get("uid"),
+            reservation_id=runtime_data.get("reservation_id"),
+            burning_rate=runtime_data.get("burning_rate"),
+            started_at=runtime_data.get("started_at"),
+            expired_at=runtime_data.get("expired_at"),
+            unmetered=bool(runtime_data.get("unmetered", False)),
+        )
+        return runtime
+
+    def list_runtimes(self) -> list[RuntimeService]:
+        """
+        List all running runtimes.
+
+        Returns
+        -------
+        list[Runtime]
+            List of Runtime objects representing active runtimes.
+        """
+        response = self.runtimes.list()
+
+        if not response.get("success", True):
+            message = response.get("message", "Unknown error")
+            logger.error("Failed to list runtimes: %s", message)
+            raise RuntimeError(f"Failed to list runtimes: {message}")
+
+        runtimes_raw = response.get("runtimes")
+        if runtimes_raw is None:
+            logger.error("Failed to list runtimes: missing 'runtimes' field")
+            raise RuntimeError(
+                "Failed to list runtimes: missing 'runtimes' field in response"
+            )
+        if not isinstance(runtimes_raw, list):
+            logger.error("Failed to list runtimes: invalid 'runtimes' field type")
+            raise RuntimeError("Failed to list runtimes: invalid 'runtimes' field type")
+
+        runtimes: list[dict[str, Any]] = runtimes_raw
+        runtime_services = []
+        for runtime in runtimes:
+            runtime_services.append(
+                RuntimeService(
+                    name=runtime["given_name"],
+                    environment=_runtime_environment_name(runtime),
+                    runtime_name=runtime["runtime_name"],
+                    token=self._get_api_key(),
+                    ingress=runtime["ingress"],
+                    reservation_id=runtime["reservation_id"],
+                    uid=runtime["uid"],
+                    burning_rate=runtime["burning_rate"],
+                    jupyter_token=runtime["token"],
+                    runtimes_url=self._urls.runtimes_url,
+                    iam_url=self._urls.iam_url,
+                    started_at=runtime["started_at"],
+                    expired_at=runtime["expired_at"],
+                    unmetered=bool(runtime.get("unmetered", False)),
+                )
+            )
+        return runtime_services
+
+    def stop_runtime(
+        self,
+        runtime: Union[RuntimeService, str],
+        api_key: Optional[str] = None,
+    ) -> bool:
+        """
+        Stop a Runtime, running or paused.
+
+        Named for the lifecycle vocabulary in `code_sandboxes.lifecycle`: a pod
+        and a sandbox stop the same way, so callers that hold either can say the
+        same word.
+
+        Parameters
+        ----------
+        runtime : Union[RuntimeService, str]
+            Runtime object or pod name string to stop.
+        api_key : Optional[str]
+            Act as a different caller than the one this client authenticated as.
+
+        Returns
+        -------
+        bool
+            True if the runtime was stopped, False otherwise.
+        """
+        return self._lifecycle("stop", runtime, api_key)
+
+    def pause_runtime(
+        self,
+        runtime: Union[RuntimeService, str],
+        api_key: Optional[str] = None,
+    ) -> bool:
+        """
+        Suspend a Runtime, keeping its state so it can be resumed.
+
+        Asynchronous: the service accepts the request and checkpoints in the
+        background, so a True answer means "accepted", not "already paused".
+
+        Parameters
+        ----------
+        runtime : Union[RuntimeService, str]
+            Runtime object or pod name string to pause.
+        api_key : Optional[str]
+            Act as a different caller than the one this client authenticated as.
+
+        Returns
+        -------
+        bool
+            True if the pause was accepted, False otherwise.
+        """
+        return self._lifecycle("pause", runtime, api_key)
+
+    def resume_runtime(
+        self,
+        runtime: Union[RuntimeService, str],
+        api_key: Optional[str] = None,
+    ) -> bool:
+        """
+        Bring a paused Runtime back with its state intact.
+
+        Also asynchronous — the restore runs in the background.
+
+        Parameters
+        ----------
+        runtime : Union[RuntimeService, str]
+            Runtime object or pod name string to resume.
+        api_key : Optional[str]
+            Act as a different caller than the one this client authenticated as.
+
+        Returns
+        -------
+        bool
+            True if the resume was accepted, False otherwise.
+        """
+        return self._lifecycle("resume", runtime, api_key)
+
+    def snapshot_runtime(
+        self,
+        runtime: Union[RuntimeService, str],
+        name: str,
+        api_key: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Capture a Runtime's state under a name, without ending it.
+
+        Parameters
+        ----------
+        runtime : Union[RuntimeService, str]
+            Runtime object or pod name string to snapshot.
+        name : str
+            Name to give the snapshot.
+        api_key : Optional[str]
+            Act as a different caller than the one this client authenticated as.
+
+        Returns
+        -------
+        dict[str, Any]
+            The snapshot payload, or a failure with its message.
+        """
+        runtime_name = (
+            runtime.runtime_name if isinstance(runtime, RuntimeService) else runtime
+        )
+        if not runtime_name:
+            return {"success": False, "message": "No pod name to snapshot."}
+        return self._runtimes_as(api_key).snapshot(runtime_name, name)
+
+    def _runtimes_as(self, api_key: Optional[str]) -> Any:
+        """The Runtimes API, as this client or as whoever ``api_key`` names."""
+        if api_key:
+            return _BaseDatalayerClient(urls=self._urls, api_key=api_key).runtimes
+        return self.runtimes
+
+    def _lifecycle(
+        self,
+        verb: str,
+        runtime: Union[RuntimeService, str],
+        api_key: Optional[str],
+    ) -> bool:
+        """Ask the Runtimes API for one lifecycle verb, by name.
+
+        The three verbs differ only in which word they send, so they say so
+        here rather than each repeating the same unwrapping.
+        """
+        runtime_name = (
+            runtime.runtime_name if isinstance(runtime, RuntimeService) else runtime
+        )
+        if not runtime_name:
+            return False
+        response = getattr(self._runtimes_as(api_key), verb)(runtime_name)
+        return bool(response.get("success", False))
+
+    def get_runtime(self, runtime: Union[RuntimeService, str]) -> RuntimeService:
+        """
+        Get a single running Runtime by pod name.
+
+        Parameters
+        ----------
+        runtime : Union[Runtime, str]
+            Runtime object or pod name string to fetch.
+
+        Returns
+        -------
+        Runtime
+            The Runtime object matching the pod name.
+
+        Raises
+        ------
+        RuntimeError
+            If the runtime cannot be retrieved.
+        """
+        runtime_name = (
+            runtime.runtime_name if isinstance(runtime, RuntimeService) else runtime
+        )
+        if not runtime_name:
+            raise RuntimeError("A pod name is required to get a runtime.")
+
+        response = self.runtimes.get(runtime_name)
+        if not response.get("success", True):
+            message = response.get("message", "Unknown error")
+            raise RuntimeError(f"Failed to get runtime '{runtime_name}': {message}")
+
+        runtime_data = response.get("runtime")
+        if not isinstance(runtime_data, dict):
+            raise RuntimeError(
+                f"Failed to get runtime '{runtime_name}': missing 'runtime' field in response"
+            )
+
+        return RuntimeService(
+            name=runtime_data.get("given_name", runtime_name),
+            environment=_runtime_environment_name(runtime_data),
+            runtime_name=runtime_data.get("runtime_name", runtime_name),
+            token=self._get_api_key(),
+            ingress=runtime_data.get("ingress"),
+            reservation_id=runtime_data.get("reservation_id"),
+            uid=runtime_data.get("uid"),
+            burning_rate=runtime_data.get("burning_rate"),
+            jupyter_token=runtime_data.get("token"),
+            runtimes_url=self._urls.runtimes_url,
+            iam_url=self._urls.iam_url,
+            started_at=runtime_data.get("started_at"),
+            expired_at=runtime_data.get("expired_at"),
+            unmetered=bool(runtime_data.get("unmetered", False)),
+        )
+
+    def update_runtime(
+        self,
+        runtime: Union[RuntimeService, str],
+        capabilities: list[str],
+    ) -> bool:
+        """
+        Update a running Runtime's capabilities.
+
+        Parameters
+        ----------
+        runtime : Union[Runtime, str]
+            Runtime object or pod name string to update.
+        capabilities : list[str]
+            New capabilities to apply to the runtime.
+
+        Returns
+        -------
+        bool
+            True if the update succeeded.
+
+        Raises
+        ------
+        RuntimeError
+            If the update fails.
+        """
+        runtime_name = (
+            runtime.runtime_name if isinstance(runtime, RuntimeService) else runtime
+        )
+        if not runtime_name:
+            raise RuntimeError("A pod name is required to update a runtime.")
+
+        response = self.runtimes.update(runtime_name, capabilities)
+        if not response.get("success", True):
+            message = response.get("message", "Unknown error")
+            raise RuntimeError(f"Failed to update runtime '{runtime_name}': {message}")
+        return True
+
+    def check_runtime_health(
+        self,
+        runtime: Union[RuntimeService, str],
+        probe_code: str = "print('datalayer runtime health probe')",
+        timeout: float = 20.0,
+        api_key: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Check runtime reachability and execute a probe on the sandbox.
+
+        Parameters
+        ----------
+        runtime : Union[RuntimeService, str]
+            Runtime object or runtime identifier (pod name/uid/name).
+        probe_code : str
+            Python code to execute as health probe on the sandbox.
+        timeout : float
+            Probe execution timeout in seconds.
+        api_key : Optional[str]
+            Optional API key override used for runtime lookup.
+
+        Returns
+        -------
+        dict[str, Any]
+            Health result with success flag and diagnostics.
+        """
+        client_for_request = self
+        if api_key:
+            client_for_request = _BaseDatalayerClient(urls=self._urls, api_key=api_key)
+
+        runtime_service = (
+            runtime
+            if isinstance(runtime, RuntimeService)
+            else client_for_request.get_runtime(runtime)
+        )
+
+        endpoint = str(runtime_service.ingress or "").rstrip("/")
+        runtime_token = str(
+            runtime_service.jupyter_token or client_for_request._get_api_key() or ""
+        ).strip()
+
+        result: dict[str, Any] = {
+            "success": False,
+            "runtime_uid": runtime_service.uid,
+            "runtime_name": runtime_service.runtime_name,
+            "given_name": runtime_service.name,
+            "ingress": endpoint,
+            "probe_mode": "sandbox_execute_code",
+        }
+
+        if not endpoint:
+            result["message"] = "runtime ingress is missing"
+            return result
+        if not runtime_token:
+            result["message"] = "runtime token is missing"
+            return result
+
+        sandbox_client: Optional[CodeSandboxClient] = None
+        try:
+            sandbox_client = CodeSandboxClient.create(
+                variant="jupyter-server",
+                server_url=endpoint,
+                token=runtime_token,
+            )
+            sandbox_client.start()
+            reply = sandbox_client.execute(probe_code, timeout=timeout)
+            outputs = reply.get("outputs", [])
+            if not isinstance(outputs, list):
+                outputs = []
+
+            error_outputs = [
+                output
+                for output in outputs
+                if isinstance(output, dict)
+                and str(output.get("output_type") or "") == "error"
+            ]
+
+            if error_outputs:
+                first_error = error_outputs[0]
+                result["message"] = "sandbox probe execution failed"
+                result["error_name"] = first_error.get("ename")
+                result["error_value"] = first_error.get("evalue")
+                traceback_lines = first_error.get("traceback")
+                if isinstance(traceback_lines, list):
+                    result["traceback_tail"] = "\n".join(
+                        [str(line) for line in traceback_lines if line is not None]
+                    )[-4000:]
+                return result
+
+            stream_text_parts = []
+            for output in outputs:
+                if not isinstance(output, dict):
+                    continue
+                if str(output.get("output_type") or "") == "stream":
+                    stream_text_parts.append(str(output.get("text") or ""))
+
+            result["success"] = True
+            result["message"] = "runtime reachable and sandbox probe executed"
+            result["stdout_tail"] = "".join(stream_text_parts)[-1000:]
+            return result
+        except Exception as exc:
+            result["message"] = f"runtime health probe exception: {exc}"
+            return result
+        finally:
+            if sandbox_client is not None:
+                try:
+                    sandbox_client.stop()
+                except Exception:
+                    pass
+
+    def create_snapshot(
+        self,
+        runtime: Optional["RuntimeService"] = None,
+        runtime_name: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        stop: bool = True,
+    ) -> "SandboxSnapshotModel":
+        """
+        Create a snapshot of the current runtime state.
+
+        Parameters
+        ----------
+        runtime : Optional[Runtime]
+            The runtime object to create a snapshot from.
+        runtime_name : Optional[str]
+            The pod name of the runtime.
+        name : Optional[str]
+            Name for the new snapshot.
+        description : Optional[str]
+            Description for the new snapshot.
+        stop : bool
+            Whether to stop the runtime after creating snapshot.
+
+        Returns
+        -------
+        SandboxSnapshotModel
+            The created snapshot object.
+        """
+        if runtime_name is None and runtime is None:
+            raise ValueError(
+                "Either 'runtime' or 'runtime_name' must be provided to create a snapshot."
+            )
+        elif runtime is not None:
+            runtime_name = runtime.runtime_name
+
+        if runtime_name is None:
+            raise ValueError(
+                "Pod name is required to create a snapshot. Ensure the runtime has a valid runtime_name."
+            )
+
+        name, description = create_snapshot(name=name, description=description)
+        response = self._create_snapshot(
+            runtime_name=runtime_name,
+            name=name,
+            description=description,
+            stop=stop,
+        )
+        if isinstance(response, dict) and not response.get("success", True):
+            raise RuntimeError(
+                f"Failed to create snapshot '{name}': {response.get('message', 'unknown error')}"
+            )
+        snapshot: Optional[SandboxSnapshotModel] = None
+        max_poll_attempts = max(
+            1,
+            int(os.getenv("DATALAYER_SNAPSHOT_POLL_ATTEMPTS", "30")),
+        )
+        poll_interval_seconds = max(
+            0.1,
+            float(os.getenv("DATALAYER_SNAPSHOT_POLL_INTERVAL", "1.0")),
+        )
+        for _ in range(max_poll_attempts):
+            snapshots_objects = self.list_snapshots()
+            snapshot = next((s for s in snapshots_objects if s.name == name), None)
+            if snapshot is not None:
+                break
+            time.sleep(poll_interval_seconds)
+
+        if snapshot is None:
+            raise RuntimeError(
+                f"Snapshot '{name}' was created but not found in snapshot listing"
+            )
+
+        return SandboxSnapshotModel(
+            uid=snapshot.uid,
+            name=name,
+            description=description,
+            environment=snapshot.environment,
+            metadata=response,
+        )
+
+    def list_snapshots(self) -> list[SandboxSnapshotModel]:
+        """
+        List all snapshots.
+
+        Returns
+        -------
+        list[SandboxSnapshotModel]
+            A list of snapshots associated with the user.
+        """
+        response = self._list_snapshots()
+        snapshot_objects = as_code_sandbox_snapshots(response)
+        return snapshot_objects
+
+    def delete_snapshot(
+        self, snapshot: Union[str, SandboxSnapshotModel]
+    ) -> dict[str, str]:
+        """
+        Delete a specific snapshot.
+
+        Parameters
+        ----------
+        snapshot : Union[str, SandboxSnapshotModel]
+            Snapshot object or UID string to delete.
+
+        Returns
+        -------
+        dict[str, str]
+            The result of the deletion operation.
+        """
+        snapshot_uid = (
+            snapshot.uid if isinstance(snapshot, SandboxSnapshotModel) else snapshot
+        )
+        return self._delete_snapshot(snapshot_uid)
+
+    # ------------------------------------------------------------------
+    # Local / remote agent lifecycle
+    # ------------------------------------------------------------------
+
+    def start_local_agent_runtime(
+        self,
+        *,
+        agent_spec_id: str,
+        agent_name: str = DEFAULT_LOCAL_AGENT_NAME,
+        host: str = "127.0.0.1",
+        port: Optional[int] = None,
+        protocol: str = "vercel-ai",
+        log_level: str = "info",
+        wait: bool = True,
+        disable_tool_approvals: bool = False,
+    ) -> LocalAgentRuntime:
+        """Launch a local ``agent-runtimes`` server as a subprocess.
+
+        Parameters
+        ----------
+        agent_spec_id : str
+            Agentspec id to boot the runtime with.
+        agent_name : str
+            Registered agent name/id served by the runtime.
+        host : str
+            Host interface to bind to.
+        port : Optional[int]
+            Port to bind to. A free port is selected when omitted.
+        protocol : str
+            Transport protocol exposed by the runtime (e.g. ``vercel-ai``).
+        log_level : str
+            Log level for the runtime process.
+        wait : bool
+            Whether to block until the runtime reports healthy.
+        disable_tool_approvals : bool
+            Whether to disable tool approvals on the launched runtime.
+
+        Returns
+        -------
+        LocalAgentRuntime
+            Handle pointing at the running server.
+        """
+        return start_local_agent_runtime(
+            agent_spec_id=agent_spec_id,
+            agent_name=agent_name,
+            host=host,
+            port=port,
+            protocol=protocol,
+            log_level=log_level,
+            wait=wait,
+            disable_tool_approvals=disable_tool_approvals,
+        )
+
+    def ensure_local_agent(
+        self,
+        *,
+        base_url: str,
+        agent_name: str,
+        agent_spec_id: str,
+        token: Optional[str] = None,
+        transport: str = "vercel-ai",
+        enable_skills: bool = True,
+        description: Optional[str] = None,
+        timeout: int = 120,
+        disable_tool_approvals: bool = False,
+    ) -> str:
+        """Ensure a local agent with the expected transport is registered.
+
+        Parameters
+        ----------
+        base_url : str
+            Local ``agent-runtimes`` base URL.
+        agent_name : str
+            Agent name/id to register.
+        agent_spec_id : str
+            Agentspec id backing the agent.
+        token : Optional[str]
+            Bearer token; falls back to this client's API key when omitted.
+        transport : str
+            Transport protocol to register (e.g. ``vercel-ai``).
+        enable_skills : bool
+            Whether to enable skills for the registered agent.
+        description : Optional[str]
+            Optional description for the agent.
+        timeout : int
+            Registration request timeout in seconds.
+        disable_tool_approvals : bool
+            Whether to disable tool approvals for the agent.
+        """
+        return ensure_local_agent(
+            base_url=base_url,
+            agent_name=agent_name,
+            token=str(token or self._get_api_key() or ""),
+            agent_spec_id=agent_spec_id,
+            transport=transport,
+            enable_skills=enable_skills,
+            description=description,
+            timeout=timeout,
+            disable_tool_approvals=disable_tool_approvals,
+        )
+
+    def delete_local_agent(
+        self, *, base_url: str, agent_name: str, token: Optional[str] = None
+    ) -> bool:
+        """Delete a single locally-registered agent by id or name.
+
+        Parameters
+        ----------
+        base_url : str
+            Local ``agent-runtimes`` base URL.
+        agent_name : str
+            Agent id or name to delete.
+        token : Optional[str]
+            Bearer token; falls back to this client's API key when omitted.
+
+        Returns
+        -------
+        bool
+            ``True`` when a matching agent was found and delete accepted.
+        """
+        return delete_local_agent(
+            base_url=base_url,
+            token=str(token or self._get_api_key() or ""),
+            agent_name=agent_name,
+        )
+
+    def delete_local_agents(
+        self, *, base_url: str, token: Optional[str] = None
+    ) -> tuple[int, int]:
+        """Delete all locally-registered agents.
+
+        Parameters
+        ----------
+        base_url : str
+            Local ``agent-runtimes`` base URL.
+        token : Optional[str]
+            Bearer token; falls back to this client's API key when omitted.
+
+        Returns
+        -------
+        tuple[int, int]
+            ``(total_agents, deleted_agents)``.
+        """
+        return delete_local_agents(
+            base_url=base_url,
+            token=str(token or self._get_api_key() or ""),
+        )
+
+    def run_local_agent_chat(
+        self,
+        *,
+        base_url: str,
+        agent_name: str,
+        prompt: str,
+        token: Optional[str] = None,
+        timeout: int = 300,
+    ) -> dict[str, Any]:
+        """Send a single prompt to a local agent via the Vercel AI endpoint.
+
+        Parameters
+        ----------
+        base_url : str
+            Local ``agent-runtimes`` base URL.
+        agent_name : str
+            Registered agent name/id to target.
+        prompt : str
+            Prompt to send.
+        token : Optional[str]
+            Bearer token; falls back to this client's API key when omitted.
+        timeout : int
+            Per-request timeout in seconds.
+
+        Returns
+        -------
+        dict[str, Any]
+            Structured chat result (``status``/``output``/``failure_cause``).
+        """
+        return run_local_agent_chat(
+            base_url=base_url,
+            agent_name=agent_name,
+            token=str(token or self._get_api_key() or ""),
+            prompt=prompt,
+            timeout=timeout,
+        )
+
+    def run_cloud_agent_chat(
+        self,
+        *,
+        ingress: str,
+        prompt: str,
+        route_candidates: Optional[list[str]] = None,
+        agent_name: Optional[str] = None,
+        agent_spec_id: Optional[str] = None,
+        runtime_name: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: int = 300,
+    ) -> dict[str, Any]:
+        """Send a single prompt to a cloud runtime agent via Vercel AI.
+
+        Parameters
+        ----------
+        ingress : str
+            Runtime ingress URL.
+        prompt : str
+            Prompt to send.
+        route_candidates : Optional[list[str]]
+            Explicit ordered route candidates. When omitted they are derived
+            from ``agent_name``/``agent_spec_id``/``runtime_name``.
+        agent_name : Optional[str]
+            Agent name used to derive route candidates.
+        agent_spec_id : Optional[str]
+            Agentspec id used to derive route candidates.
+        runtime_name : Optional[str]
+            Runtime pod name used to derive route candidates.
+        token : Optional[str]
+            Bearer token; falls back to this client's API key when omitted.
+        timeout : int
+            Per-request timeout in seconds.
+
+        Returns
+        -------
+        dict[str, Any]
+            Structured chat result (``status``/``output``/``failure_cause``).
+        """
+        candidates = route_candidates or runtime_route_candidates(
+            agent_name=agent_name,
+            agent_spec_id=agent_spec_id,
+            runtime_name=runtime_name,
+        )
+        return run_cloud_agent_chat(
+            ingress=ingress,
+            token=str(token or self._get_api_key() or ""),
+            prompt=prompt,
+            route_candidates=candidates,
+            timeout=timeout,
+        )

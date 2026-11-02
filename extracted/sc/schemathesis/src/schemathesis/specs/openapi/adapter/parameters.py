@@ -29,7 +29,7 @@ from schemathesis.core.jsonschema import (
     schema_with_bundle,
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
-from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
+from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, as_object_schema, get_type
 from schemathesis.core.media_types import FORM_MEDIA_TYPES
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation, SkippedParameter
@@ -48,8 +48,14 @@ from schemathesis.generation.value import (
 from schemathesis.python._constants.pool import ConstantDraw, ConstantsPool, ConstantType, ConstantValue, Origin
 from schemathesis.resources import ExtraDataSource, SemanticDraw
 from schemathesis.schemas import APIOperation, ParameterSet
-from schemathesis.specs.openapi.adapter.protocol import ParameterAdapter
-from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
+from schemathesis.specs.openapi.adapter.protocol import ParameterAdapter, is_draft_2020_12
+from schemathesis.specs.openapi.adapter.references import (
+    example_object_value,
+    iter_example_values,
+    maybe_resolve_with_resolver,
+    resolve_example_references,
+    resolve_media_type_object,
+)
 from schemathesis.specs.openapi.adapter.validators import ensure_object
 from schemathesis.specs.openapi.converter import permit_forbidden_properties, to_json_schema
 from schemathesis.specs.openapi.formats import HEADER_FORMAT, STRING_FORMATS
@@ -1255,7 +1261,7 @@ class OpenApiComponent(ABC):
             self.raw_schema,
             nullable_keyword=self.adapter.nullable_keyword,
             update_quantifiers=False,
-            upgrade_legacy_exclusive_bounds=self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator,
+            upgrade_legacy_exclusive_bounds=is_draft_2020_12(self.adapter),
             convert_prefix_items=False,
             convert_if_then_else=False,
             name_to_uri=self.name_to_uri,
@@ -1304,15 +1310,15 @@ class OpenApiComponent(ABC):
 
     def _build_schema(self, *, optimize: bool) -> JsonSchema:
         """Build JSON schema with optional optimizations for data generation."""
-        is_draft_2020_12 = self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
+        is_2020_12 = is_draft_2020_12(self.adapter)
         schema = to_json_schema(
             self.raw_schema,
             nullable_keyword=self.adapter.nullable_keyword,
             update_quantifiers=optimize,
-            upgrade_legacy_exclusive_bounds=is_draft_2020_12,
+            upgrade_legacy_exclusive_bounds=is_2020_12,
             # Draft 2020-12 generation reads `prefixItems` and `contains` natively; the Draft 4
             # rewrite emits `items: [...]` that 2020-12 canonicalization rejects.
-            convert_prefix_items=not is_draft_2020_12,
+            convert_prefix_items=not is_2020_12,
             name_to_uri=self.name_to_uri,
             merge_ref_siblings=self.adapter.ref_siblings,
         )
@@ -1348,9 +1354,9 @@ class OpenApiComponent(ABC):
         if not isinstance(container, dict):
             return {}
         return {
-            name: example["value"]
+            name: value
             for name, example in container.items()
-            if isinstance(example, dict) and "value" in example
+            if isinstance(example, dict) and not isinstance(value := example_object_value(example), NotSet)
         }
 
     @property
@@ -1380,12 +1386,7 @@ class OpenApiComponent(ABC):
         examples: list[object] = []
 
         # Extract from top-level definition
-        container = self.definition.get(self.adapter.examples_container_keyword)
-        if isinstance(container, dict):
-            examples.extend(ex["value"] for ex in container.values() if isinstance(ex, dict) and "value" in ex)
-        elif isinstance(container, list):
-            # Items may be Example Objects or raw values
-            examples.extend(ex["value"] if isinstance(ex, dict) and "value" in ex else ex for ex in container)
+        examples.extend(iter_example_values(self.definition.get(self.adapter.examples_container_keyword)))
         examples.extend(self._iter_single_and_schema_examples())
         return examples
 
@@ -1450,6 +1451,11 @@ class OpenApiParameter(OpenApiComponent):
     def media_type(self) -> None:
         """Non-body parameters have no media type."""
         return None
+
+    @property
+    def content_media_type(self) -> str | None:
+        """The media type a `content` parameter is serialized in; `None` for one described by `schema`."""
+        return next(iter(self.definition.get("content", {})), None)
 
     @property
     def name(self) -> str:
@@ -1988,7 +1994,7 @@ class OpenApiBody(OpenApiComponent):
         return _mix_negative_into_positive(positive_strategy, negative_strategy)
 
 
-OPENAPI_20_EXCLUDE_KEYS = frozenset(["required", "name", "in", "title", "description"])
+OPENAPI_20_EXCLUDE_KEYS = frozenset(["required", "name", "in", "title", "description", "x-example"])
 
 
 def extract_parameter_schema_v2(parameter: Mapping[str, Any]) -> JsonSchemaObject:
@@ -2081,7 +2087,7 @@ def _bundle_parameter(
         return deepclone(cached_definition), dict(cached_name_to_uri)
 
     parameter_resolver, definition = maybe_resolve_with_resolver(parameter, resolver)
-    definition = _resolve_example_references(definition, parameter_resolver)
+    definition = resolve_example_references(definition, parameter_resolver)
     schema = definition.get("schema")
     name_to_uri = {}
     if schema is not None:
@@ -2114,12 +2120,15 @@ def _bundle_parameter(
                 if not isinstance(media_type_object, Mapping):
                     updated_content[media_type] = media_type_object
                     continue
+                media_type_resolver, media_type_object = maybe_resolve_with_resolver(
+                    media_type_object, parameter_resolver, allow_boolean=True
+                )
                 media_type_object = dict(media_type_object)
                 nested_schema = media_type_object.get("schema")
                 if isinstance(nested_schema, dict):
                     bundled = bundler.bundle(
                         nested_schema,
-                        parameter_resolver,
+                        media_type_resolver,
                     )
                     media_type_object["schema"] = bundled.schema
                     name_to_uri.update(bundled.name_to_uri)
@@ -2143,30 +2152,12 @@ def _bundle_parameter(
     return result
 
 
-def _resolve_example_references(definition: Mapping[str, Any], resolver: Resolver) -> Mapping[str, Any]:
-    """Inline referenced Example Objects so every phase sees their values."""
-    updated: dict[str, Any] | None = None
-    for keyword in ("examples", "x-examples"):
-        container = definition.get(keyword)
-        if not isinstance(container, dict) or not any(
-            isinstance(example, dict) and "$ref" in example for example in container.values()
-        ):
-            continue
-        resolved = {}
-        for name, example in container.items():
-            if isinstance(example, dict) and isinstance(example.get("$ref"), str):
-                try:
-                    _, target = resolve_reference(resolver, example["$ref"])
-                except RefResolutionError:
-                    # Kept as is, so the examples phase reports the broken reference.
-                    target = None
-                if isinstance(target, dict):
-                    example = target
-            resolved[name] = example
-        if updated is None:
-            updated = dict(definition)
-        updated[keyword] = resolved
-    return definition if updated is None else updated
+def _skipped_body(error: RefResolutionError, *, required: bool) -> SkippedParameter:
+    """Record a body left out over a reference that does not resolve, or re-raise when it cannot be left out."""
+    reference = unresolvable_reference(error)
+    if required and not _is_recoverable_body_reference(reference):
+        raise error
+    return SkippedParameter(location=ParameterLocation.BODY.value, name=None, reference=reference, required=required)
 
 
 def _is_recoverable_body_reference(reference: str) -> bool:
@@ -2266,7 +2257,11 @@ def iter_parameters_v2(
             for param in chain(operation_parameters, shared_parameters):
                 _, param = maybe_resolve_with_resolver(param, resolver)
                 schema = param.get("schema")
-                if param.get("in") == ParameterLocation.BODY and isinstance(schema, dict) and "$ref" in schema:
+                if (
+                    param.get("in") == ParameterLocation.BODY
+                    and isinstance(schema, dict)
+                    and isinstance(schema.get("$ref"), str)
+                ):
                     resource_name = resource_name_from_ref(schema["$ref"])
             for media_type in body_media_types:
                 yield OpenApiBody.from_definition(
@@ -2352,16 +2347,21 @@ def iter_parameters_v3(
         ensure_object(request_body["content"], "`requestBody.content`")
         for media_type, content in request_body["content"].items():
             ensure_object(content, f"Media type `{media_type}`")
+            try:
+                content_resolver, content = resolve_media_type_object(content, body_resolver)
+            except RefResolutionError as exc:
+                skipped.append(_skipped_body(exc, required=required))
+                continue
             resource_name = None
             schema = content.get("schema")
             name_to_uri = {}
             if isinstance(schema, dict):
                 content = dict(content)
-                if "$ref" in schema:
+                if isinstance(schema.get("$ref"), str):
                     resource_name = resource_name_from_ref(schema["$ref"])
                 else:
                     items = schema.get("items")
-                    if isinstance(items, dict) and "$ref" in items:
+                    if isinstance(items, dict) and isinstance(items.get("$ref"), str):
                         resource_name = resource_name_from_ref(items["$ref"])
                 try:
                     to_bundle = cast(dict[str, Any], schema)
@@ -2369,24 +2369,14 @@ def iter_parameters_v3(
                     # their converted schemas.
                     bundled = Bundler(ref_siblings=bundler.ref_siblings).bundle(
                         to_bundle,
-                        body_resolver,
+                        content_resolver,
                     )
                     content["schema"] = bundled.schema
                     name_to_uri = bundled.name_to_uri
                 except BundleError as exc:
                     raise InvalidSchema.from_bundle_error(exc, "body") from exc
                 except RefResolutionError as exc:
-                    reference = unresolvable_reference(exc)
-                    if required and not _is_recoverable_body_reference(reference):
-                        raise
-                    skipped.append(
-                        SkippedParameter(
-                            location=ParameterLocation.BODY.value,
-                            name=None,
-                            reference=reference,
-                            required=required,
-                        )
-                    )
+                    skipped.append(_skipped_body(exc, required=required))
                     continue
             yield OpenApiBody.from_definition(
                 definition=content,

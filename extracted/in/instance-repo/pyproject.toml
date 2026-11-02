@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "instance-repo"
+version = "1.4.0"
+description = "InstanceRepo SDK — 评测 Instance 统一存储客户端（SDK-only；控制面由 apiserver 承载）"
+requires-python = ">=3.10"
+readme = "README.md"
+# tomllib 是 3.11 内置；3.10 上回退到 tomli（见 validate.py），故按 Python 版本条件依赖。
+dependencies = [
+    "irepo-artifact>=0.1.1,<0.3.0",
+    "tomli>=1.1.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+# oss2/skopeo 为运行时数据面依赖；单测通过注入 fake 后端，不需要它们
+oss = ["oss2>=2.19"]
+dev = ["pytest>=8", "coverage>=7"]
+
+[project.scripts]
+irepo = "instance_repo.cli:cli_main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["instance_repo*"]
+
+[tool.coverage.run]
+branch = true
+source = ["instance_repo"]
+omit = ["*/tests/*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: 真连 apiserver/OSS/ACR 的端到端测试（默认跳过；设 INSTANCEREPO_LIVE=1 开启）",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]

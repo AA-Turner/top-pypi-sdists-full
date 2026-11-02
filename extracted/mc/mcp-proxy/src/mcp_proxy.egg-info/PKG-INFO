@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-proxy
-Version: 0.13.0
+Version: 0.13.2
 Summary: A MCP server which proxies requests to a remote MCP server over streamable HTTP or SSE.
 Author-email: Sergey Parfenyuk <sergey.parfenyuk@gmail.com>
 License-Expression: MIT
@@ -30,8 +30,15 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: anyio>=4.14.2
+Requires-Dist: certifi>=2026.10.19
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: httpx-auth>=0.23.1
 Requires-Dist: mcp<2,>=1.27.1
+Requires-Dist: pydantic-settings>=2.14.2
+Requires-Dist: pyjwt>=2.15.0
+Requires-Dist: python-multipart>=0.0.31
+Requires-Dist: starlette>=1.3.1
 Requires-Dist: uvicorn>=0.47.0
 Dynamic: license-file
 

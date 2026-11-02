@@ -19,7 +19,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 from probe.cli import backfill_run as br
 
 

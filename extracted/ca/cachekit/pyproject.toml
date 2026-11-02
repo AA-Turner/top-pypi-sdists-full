@@ -1,0 +1,295 @@
+[build-system]
+# 1.15: the 3.15+ wheel is abi3t. maturin added abi3t in 1.14, fixed building it alongside abi3 in
+# 1.14.1, and fixed its ELF PyModExport check in 1.15.0.
+requires = ["maturin>=1.15,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cachekit"
+version = "0.25.1"
+description = "Backend-agnostic caching for Python — intent-based decorators with circuit breaker, distributed locking, Prometheus metrics, and optional zero-knowledge AES-256-GCM encryption, on a Rust-powered core. Zero-config L1 in-memory; scales to Redis, Memcached, File, or CachekitIO."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "cachekit Contributors", email = "noreply@cachekit.io"}
+]
+maintainers = [
+    {name = "cachekit Contributors", email = "noreply@cachekit.io"}
+]
+keywords = [
+    "redis",
+    "cache",
+    "caching",
+    "decorator",
+    "rust",
+    "performance",
+    "reliability",
+    "production",
+    "encryption",
+    "security",
+    "circuit-breaker",
+    "prometheus",
+    "messagepack",
+    "distributed-locking",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: System :: Monitoring",
+    "Topic :: Security :: Cryptography",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+requires-python = ">=3.11"
+dependencies = [
+    # Core Redis functionality. 4.6.0 is the oldest release on which every URL scheme creates a client:
+    # redis.asyncio arrived in 4.2.0, and before 4.6.0 a unix:// connection rejects socket_connect_timeout.
+    # Below the floor, client creation fails and every decorated call runs uncached. CI runs the unit suite
+    # on exactly this version (the redis-py floor job), so raise it here when the code needs a newer release.
+    "redis[hiredis]>=4.6.0",
+    # Configuration and validation
+    "pydantic>=2.0.0",
+    # 2.12.0 lets an explicit constructor kwarg beat an aliased env var: before it,
+    # RedisBackendConfig(redis_url=...) raised extra_forbidden whenever REDIS_URL was set (#225).
+    # 2.13.0 fixed a hash-order race in that change (pydantic/pydantic-settings#746), so it is the floor.
+    "pydantic-settings>=2.13.0",
+    # Monitoring and observability
+    "prometheus-client>=0.22.1",
+    # Serialization and hashing
+    "blake3>=1.0.5",
+    "msgpack>=1.2.1",
+    "xxhash>=3.5.0",
+    # HTTP client for the SaaS backend (cachekit.io). It has no dependencies of its own. 2.8.0 fixes
+    # GHSA-8988-9cw3-xx77 (HTTPS proxy TLS config ignored), GHSA-gh4c-6fx4-qh6g (chunked deflate
+    # infinite loop) and GHSA-vxq7-64xx-v4gw (unbounded chunk-size line buffering).
+    "urllib3>=2.8.0",
+]
+
+[project.optional-dependencies]
+# User-facing optional features only - dev deps are in [dependency-groups]
+data = [
+    "numpy>=2.0.2",
+    # 2.2.2 is the first pandas release built against numpy 2, so an older pandas cannot install
+    # beside the numpy floor above.
+    "pandas>=2.2.2",
+    "pyarrow>=21.0.0",
+]
+json = [
+    # OrjsonSerializer (serializer="orjson") — fast JSON via orjson
+    "orjson>=3.9.0",
+]
+memcached = [
+    "pymemcache>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/cachekit-io/cachekit-py"
+Documentation = "https://github.com/cachekit-io/cachekit-py#readme"
+Repository = "https://github.com/cachekit-io/cachekit-py.git"
+Issues = "https://github.com/cachekit-io/cachekit-py/issues"
+Changelog = "https://github.com/cachekit-io/cachekit-py/blob/main/CHANGELOG.md"
+
+# Maturin configuration for Rust extensions
+[tool.maturin]
+python-source = "src"
+module-name = "cachekit._rust_serializer"
+features = ["pyo3/extension-module", "encryption"]
+strip = true
+include = ["LICENSE", "README.md"]
+
+# Ruff configuration
+[tool.ruff]
+line-length = 129
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (security)
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "UP007",  # Use X | Y for type unions (requires Python 3.10+)
+    "UP045",  # Use X | None instead of Optional[X] (requires Python 3.10+)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*" = ["S101", "S105", "S110", "S112", "S311", "D", "F841", "N802"]
+"journeys/**/*" = ["S101"]  # a journey states its promise as an assert
+"src/cachekit/logging.py" = ["S110"]  # Logging errors would create recursion
+"src/cachekit/reliability/async_metrics.py" = ["S101"]  # Internal invariant checks
+"src/cachekit/serializers/__init__.py" = ["S101"]  # Module-level validation
+"src/cachekit/serializers/standard_serializer.py" = ["S110"]  # Fallback deserialization patterns
+
+[tool.ruff.lint.isort]
+known-first-party = ["cachekit"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# Pytest configuration
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# An xfail that starts passing fails the run, so a fixed defect cannot hide behind its marker.
+xfail_strict = true
+addopts = [
+    "--strict-markers",
+    "--verbose",
+    "--doctest-modules",              # Validate docstring examples
+    "--doctest-continue-on-failure",  # Report all doctest failures, not just first
+    "--markdown-docs",                # Validate markdown documentation examples
+    "--benchmark-skip",               # pytest-benchmark tests run only via --benchmark-only (make benchmark)
+]
+markers = [
+    "asyncio: Async tests using pytest-asyncio",
+    "critical: Critical path tests (fast, essential functionality)",
+    "integration: Integration tests (require Redis)",
+    "markdown-docs: Markdown documentation tests",
+    "performance: Performance benchmark tests",
+    "security: Security-critical edge case tests",
+    "slow: Slow tests that allocate large amounts of memory or take significant time",
+    "unit: Unit tests (fast, mocked dependencies)",
+]
+
+# Doctest configuration
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "ELLIPSIS",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src/cachekit"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@overload",
+    "class .*\\bProtocol\\b.*:",
+]
+
+[dependency-groups]
+# Core test toolchain — everything tests/unit + tests/critical need on ANY
+# interpreter, including free-threaded CPython: the free-threaded CI lane
+# installs ONLY this group. A dep may live here only if it ships
+# free-threaded wheels or builds cleanly from source on 3.14t and 3.15t.
+# orjson stays in dev below because it ships no free-threaded wheels;
+# numpy, pandas and pyarrow (the [data] extra) stay in dev because the
+# free-threaded lane does not exercise [data] yet.
+test = [
+    "fakeredis>=2.21.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-benchmark>=4.0.0",
+    "pytest-cov>=7.0.0",
+    "pytest-markdown-docs>=0.6.0",
+    "pytest-redis>=3.0.0",
+    "pymemcache>=4.0.0",
+    # Utilities
+    "faker>=20.0.0",
+    "hypothesis>=6.0.0",
+    "requests>=2.33.0",
+    "psutil>=5.9.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.3",
+    "pytest-xdist>=3.8.0",
+    "time-machine>=2.19.0",
+    "h11>=0.16.0",
+]
+dev = [
+    { include-group = "test" },
+    # Competitive comparison suite (tests/competitive/ benchmarks cachekit vs these)
+    "cachetools>=5.3.0",
+    "aiocache>=0.12.0",
+    # Code quality
+    "basedpyright>=1.32.1",
+    "ruff>=0.6.0",
+    # Utilities
+    "bashlex>=0.18",
+    "pip-audit>=2.7.0",
+    # Data science support (for testing AutoSerializer with numpy/pandas)
+    "numpy>=2.0.2",
+    # The lock holds pandas 2.x on purpose: the test-pandas3 CI job overlays 3.x. 3.15 is the
+    # exception, because 3.0.6 is the first pandas release with cp315 wheels.
+    "pandas>=2.2.2,<3; python_version < '3.15'",
+    "pandas>=3.0.6; python_version >= '3.15'",
+    "pyarrow>=21.0.0",
+    # OrjsonSerializer support — now the [json] optional extra; kept here so the
+    # orjson tests, doctests, and markdown-docs still resolve it in dev/CI.
+    "orjson>=3.9.0",
+    # ArrowSerializer return_format="polars" tests (zero-copy column aliasing). Not in `test`:
+    # polars ships abi3 wheels only, which a free-threaded interpreter cannot install.
+    "polars>=2.0.0",
+]
+# Linux CI only - Atheris requires libFuzzer (not available on macOS without building LLVM)
+fuzz = [
+    "atheris>=2.3.0",
+]
+
+# Override vulnerable DEV-ONLY transitive dependencies.
+# This table is uv-local: it constrains resolution of this repo's lockfile and
+# never reaches requires-dist, so a floor placed here does NOT protect anyone who
+# runs `pip install cachekit`. A transitive that reaches users belongs in
+# [project] dependencies instead — see the urllib3 entry above.
+[tool.uv]
+constraint-dependencies = [
+    "fonttools>=4.60.2",
+    "werkzeug>=3.1.4",
+    # pip is a dev-only transitive dep (pip-audit -> pip-api -> pip). 26.1.2 fixes
+    # PYSEC-2026-196 (entry-point path traversal), GHSA-58qw-9mgm-455v (tar/zip
+    # confusion) and GHSA-jp4c-xjxw-mgf9 (self-update import ordering); 26.2 fixes
+    # PYSEC-2026-3721 (doubly-encoded index URLs install to arbitrary paths).
+    "pip>=26.2",
+    # certifi is a dev-only transitive dep (pip-audit -> requests -> certifi).
+    # 2026.10.19 fixes PYSEC-2026-4320 (distrusts the emSign ECC Root CA - G3,
+    # whose intermediates had compromised keys).
+    "certifi>=2026.10.19",
+    # filelock is a dev-only transitive dep (pip-audit -> cachecontrol[filecache] ->
+    # filelock). 4.2.1 fixes GHSA-v4x8-3wr5-3wq8, GHSA-9vhv-jxww-xfm5 and
+    # GHSA-567q-5qvw-pf92.
+    "filelock>=4.2.1",
+]

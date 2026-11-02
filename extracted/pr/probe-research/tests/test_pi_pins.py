@@ -319,7 +319,7 @@ def test_sessions_follow_reads_every_live_pi_process(pi):
 
 
 def test_the_update_says_no_restart_only_when_open_sessions_switch(pi, monkeypatch):
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
     from probe.shared.harness.harnesses.claude_code.binary import Result
 
     versions = iter([(0, 6, 3), (0, 7, 0)])

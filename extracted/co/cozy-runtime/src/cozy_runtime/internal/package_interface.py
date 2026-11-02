@@ -33,7 +33,6 @@ from cozy_runtime.author._model import ENCODED_LEAVES
 from cozy_runtime.author._model_defaults import model_default
 from cozy_runtime.author._recipes import DeclaredRecipe
 from cozy_runtime.author._signature import AssetInputValue, Declaration, Slot
-from cozy_runtime.author._video import Implements
 from cozy_runtime.internal import canonical, invocable_interface, memo_implementation, schema
 from cozy_runtime.internal.canonical import Json
 
@@ -161,6 +160,8 @@ class WeightsOutputDeclaration(msgspec.Struct, frozen=True, kw_only=True):
 
 class CallableDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     name: str
+    #: Its docstring's first paragraph, for people choosing a function.
+    description: str = ""
     request: JsonValue
     result: JsonValue
     #: A child task (`app.child_task`): cozy and TensorD refuse it as a root request.
@@ -175,8 +176,6 @@ class CallableDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True)
         Annotated[tuple[WeightsOutputDeclaration, ...], msgspec.Meta(min_length=1, max_length=16)]
         | msgspec.UnsetType
     ) = msgspec.UNSET
-    #: The interface it implements (`video/shot`, …) and that interface's facts.
-    implements: Implements | msgspec.UnsetType = msgspec.UNSET
 
 
 class PackageInterface(msgspec.Struct, frozen=True, kw_only=True):
@@ -257,6 +256,8 @@ def entry(declared: Declaration) -> dict[str, Json]:
         "request": schema.request(payload),
         "result": schema.render(result, decoded_bounds=True),
     }
+    if declared.description:
+        doc["description"] = declared.description
     if declared.child_task:
         doc["internal"] = True
     if declared.slots:
@@ -285,8 +286,6 @@ def entry(declared: Declaration) -> dict[str, Json]:
         doc["publishes"] = True
     if not declared.accelerator:
         doc["accelerator"] = False
-    if declared.implements is not None:
-        doc["implements"] = msgspec.to_builtins(declared.implements)
     if declared.weights_outputs:
         doc["weights_outputs"] = [
             {

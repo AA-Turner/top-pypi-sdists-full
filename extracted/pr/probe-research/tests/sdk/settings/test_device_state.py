@@ -24,8 +24,8 @@ from types import SimpleNamespace
 import pytest
 
 from probe.shared.updates import version_policy
-from probe.cli import capabilities as caps_mod
-from probe.cli import doctor
+from probe.cli.wizard import state as caps_mod
+from probe.cli.wizard import doctor
 
 cli_main = importlib.import_module("probe.cli.main")
 
@@ -53,8 +53,6 @@ class _Served:
         }
         #: Answers for the OLD calls, for an older server without the route.
         self.legacy = False
-        #: Serve the unfiled-runs list even when the route exists.
-        self.legacy_runs = False
         #: Serve `/v1/me` even when the route exists.
         self.legacy_me = False
         #: Answer these paths with this status (and an empty object), whatever else.
@@ -105,8 +103,6 @@ def _serve():
                 status, payload = 200, json.dumps({"email": "old-way@example.test"}).encode()
             elif served.legacy and path == "/ingest/v1/sessions/status":
                 status, payload = 200, b'{"ingest_enabled": true}'
-            elif (served.legacy or served.legacy_runs) and path == "/v1/runs":
-                status, payload = 200, b'{"items": [], "next_cursor": null}'
             else:
                 status, payload = 404, b'{"detail": "Not Found"}'
             self.send_response(status)
@@ -300,12 +296,14 @@ def test_the_worker_writes_no_cache_after_the_readers_gave_up(home, server, monk
 
     _sign_in(server.url)
     version_policy.write_cache({"cli": {"latest": "1.0.0"}}, True)
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
-    monkeypatch.setattr(caps_mod, "DEVICE_STATE_TIMEOUT_S", 0.2)
-    monkeypatch.setattr(caps_mod, "DEVICE_STATE_GRACE_S", 0.0)
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
+    monkeypatch.setattr(caps_mod.device_state, "DEVICE_STATE_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(caps_mod.device_state, "DEVICE_STATE_GRACE_S", 0.0)
     gate = _threading.Event()
     real_opener = caps_mod._credential_opener
-    monkeypatch.setattr(caps_mod, "_credential_opener", lambda: gate.wait(5) and real_opener())
+    monkeypatch.setattr(caps_mod.credential_http, "_credential_opener", lambda: gate.wait(5) and real_opener())
+    monkeypatch.setattr(caps_mod.capture_credentials, "_credential_opener", lambda: gate.wait(5) and real_opener())
+    monkeypatch.setattr(caps_mod.device_state, "_credential_opener", lambda: gate.wait(5) and real_opener())
 
     resolve = caps_mod.start_device_state(_request(server.url))
     assert resolve().outcome is caps_mod.DeviceStateOutcome.UNREACHABLE
@@ -373,7 +371,7 @@ def test_an_older_server_is_unsupported_and_refreshes_the_manifest(home, server,
     warmed: list[bool] = []
     monkeypatch.setattr(versions, "warm_manifest", lambda **_: warmed.append(True))
 
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
     state = caps_mod.start_device_state(_request(server.url))()
     assert state.outcome is caps_mod.DeviceStateOutcome.UNSUPPORTED
     time.sleep(0.2)
@@ -396,7 +394,7 @@ def test_unsupported_is_published_before_the_manifest_is_warmed(home, server, mo
     server.status = 404
     release = threading.Event()
     monkeypatch.setattr(versions, "warm_manifest", lambda **_: release.wait(10))
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
     try:
         started = time.monotonic()
         state = caps_mod.start_device_state(_request(server.url), warm_manifest_on_fallback=True)()
@@ -415,7 +413,7 @@ def test_an_oversized_answer_is_unreachable(home, server) -> None:
 def test_an_answer_past_the_deadline_is_nobodys_and_writes_no_cache(home, server, monkeypatch) -> None:
     _sign_in(server.url)
     version_policy.write_cache({"cli": {"latest": "1.0.0"}}, True)
-    monkeypatch.setattr(caps_mod, "DEVICE_STATE_GRACE_S", -60.0)  # already late
+    monkeypatch.setattr(caps_mod.device_state, "DEVICE_STATE_GRACE_S", -60.0)  # already late
     state = _REAL_FETCH(_request(server.url))
     assert state.outcome is caps_mod.DeviceStateOutcome.UNREACHABLE
     assert version_policy.read_cache()[0] == {"cli": {"latest": "1.0.0"}}
@@ -498,7 +496,7 @@ def test_every_reader_shares_one_deadline_and_one_answer() -> None:
 
 
 def test_start_answers_from_a_background_thread(home, server, monkeypatch) -> None:
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
     _sign_in(server.url)
     assert caps_mod.start_device_state(_request(server.url))().answered
 
@@ -534,9 +532,10 @@ def old_way(monkeypatch):
         calls.append("login")
         return doctor._LoginCheck(logged_in_as="old-way@example.test", api_credential_valid=True)
 
-    monkeypatch.setattr(doctor, "_check_login", login)
+    monkeypatch.setattr(doctor.server_state, "_check_login", login)
+    monkeypatch.setattr(doctor.doctor, "_check_login", login)
     monkeypatch.setattr(
-        caps_mod, "verify_capture_credential", lambda *a, **k: calls.append("capture") or True
+        caps_mod.capture_credentials, "verify_capture_credential", lambda *a, **k: calls.append("capture") or True
     )
     return calls
 
@@ -548,7 +547,6 @@ def test_an_answer_means_collect_asks_nothing_of_its_own(codex_paired, old_way) 
     assert caps.logged_in_as == EMAIL
     assert caps.api_credential_valid is True
     assert caps.capture_credential_valid is True
-    assert caps.unfiled_runs is None  # the wizard never shows it; nobody fetched it
 
 
 def test_a_refused_account_is_the_only_false(codex_paired, old_way) -> None:
@@ -613,7 +611,7 @@ def test_the_answer_is_awaited_after_the_local_checks(codex_paired, old_way, mon
     order: list[str] = []
     real_plugins = caps_mod.installed_plugins
     monkeypatch.setattr(
-        caps_mod,
+        caps_mod.plugins,
         "installed_plugins",
         lambda **kw: order.append("plugins") or real_plugins(**kw),
     )
@@ -633,9 +631,9 @@ def test_probe_doctor_still_asks_the_old_way(codex_paired, old_way) -> None:
 def _run_wizard(server, monkeypatch, *argv: str):
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     if not argv:
         argv = ("--action", "diagnose", "--yes")
@@ -643,10 +641,8 @@ def _run_wizard(server, monkeypatch, *argv: str):
 
 
 def test_the_wizard_asks_the_server_exactly_once(home, server, monkeypatch) -> None:
-    """THE CONTRACT: account, both agents' capture and the manifest, one request.
-    Diagnose is the one screen that also shows the unfiled-runs count, so it
-    adds exactly that list -- once, for both agents' reports -- and nothing of
-    the old per-agent calls."""
+    """THE CONTRACT: account, both agents' capture and the manifest, one request,
+    and nothing of the old per-agent calls -- Diagnose included."""
     _pair("claude_code", CLAUDE_TOKEN)
     _pair("codex", CODEX_TOKEN)
     _sign_in(server.url)
@@ -654,19 +650,8 @@ def test_the_wizard_asks_the_server_exactly_once(home, server, monkeypatch) -> N
     result = _run_wizard(server, monkeypatch)
 
     assert result.exit_code == 0, result.output
-    assert server.paths() == ["POST /v1/device-state", "GET /v1/runs"]
+    assert server.paths() == ["POST /v1/device-state"]
     assert EMAIL in result.output
-
-
-def test_diagnose_still_shows_the_unfiled_runs(home, server, monkeypatch) -> None:
-    _pair("claude_code", CLAUDE_TOKEN)
-    _sign_in(server.url)
-    server.legacy_runs = True
-
-    result = _run_wizard(server, monkeypatch)
-
-    assert result.exit_code == 0, result.output
-    assert "Unfiled runs" in result.output
 
 
 def test_an_older_server_gets_the_old_calls_through_the_wizard(home, server, monkeypatch) -> None:
@@ -685,7 +670,7 @@ def test_an_older_server_gets_the_old_calls_through_the_wizard(home, server, mon
 def test_signing_in_asks_again_and_clears_the_refusal(home, server, monkeypatch) -> None:
     """Before sign-in the server refuses the old credential; the wizard signs
     in, asks once more, and the new answer -- not the stale refusal -- decides."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     _pair("claude_code", CLAUDE_TOKEN)
     _sign_in(server.url)
@@ -697,7 +682,8 @@ def test_signing_in_asks_again_and_clears_the_refusal(home, server, monkeypatch)
         signed.append(True)
         return setup.SignInResult(ok=True, lines=[])
 
-    monkeypatch.setattr(setup, "sign_in", sign_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", sign_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", sign_in)
 
     result = _run_wizard(server, monkeypatch, "ABCDEFGHJK", "--action", "diagnose", "--yes")
 
@@ -718,7 +704,7 @@ def test_an_install_code_names_the_account_the_old_way_before_switching(
     refused headless when the account being replaced can be NAMED. The one call
     could not name it (unknown), so the wizard must ask the old way rather than
     decide there is nothing to switch from."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     _pair("claude_code", CLAUDE_TOKEN)
     _sign_in(server.url)
@@ -728,7 +714,8 @@ def test_an_install_code_names_the_account_the_old_way_before_switching(
     def must_not_sign_in(**_kwargs):
         raise AssertionError("switched accounts without confirmation")
 
-    monkeypatch.setattr(setup, "sign_in", must_not_sign_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", must_not_sign_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", must_not_sign_in)
 
     result = _run_wizard(server, monkeypatch, "ABCDEFGHJK", "--action", "diagnose")
 
@@ -757,8 +744,8 @@ def test_diagnose_asks_again_when_the_held_answer_was_not_one(home, server, monk
             recover()
         return real_fetch(request, **kwargs)
 
-    monkeypatch.setattr(caps_mod, "fetch_device_state", fetch)
-    from probe.cli import bootstrap
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", fetch)
+    from probe.cli.install import bootstrap
     from typer.testing import CliRunner
 
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
@@ -769,7 +756,6 @@ def test_diagnose_asks_again_when_the_held_answer_was_not_one(home, server, monk
     assert result.exit_code == 0, result.output
     assert len(calls) == 2
     assert first["account"]["email"] in result.output
-    assert "Unfiled runs" in result.output  # the single-agent path shows it too
 
 
 def test_the_call_goes_to_the_server_collect_reports_on(home, server, monkeypatch) -> None:
@@ -777,8 +763,8 @@ def test_the_call_goes_to_the_server_collect_reports_on(home, server, monkeypatc
     API `doctor.collect()` resolves and grades against."""
     _pair("claude_code", CLAUDE_TOKEN)
     _sign_in(server.url)
-    monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
-    from probe.cli import bootstrap
+    monkeypatch.setattr(caps_mod.device_state, "fetch_device_state", _REAL_FETCH)
+    from probe.cli.install import bootstrap
     from typer.testing import CliRunner
 
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
@@ -812,7 +798,7 @@ def test_the_daemon_libraries_are_located_not_imported(tmp_path) -> None:
 def test_a_missing_daemon_library_still_reads_missing(monkeypatch) -> None:
     import importlib.util
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     real = importlib.util.find_spec
     monkeypatch.setattr(
@@ -839,7 +825,7 @@ def test_the_readiness_check_still_imports(tmp_path) -> None:
 
 
 def test_this_install_needs_no_version_subprocess(tmp_path, monkeypatch) -> None:
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     prefix = tmp_path / "tools" / "probe-research"
     (prefix / "bin").mkdir(parents=True)
@@ -860,7 +846,7 @@ def test_this_install_needs_no_version_subprocess(tmp_path, monkeypatch) -> None
 
 def test_another_install_is_still_asked_its_version(tmp_path, monkeypatch) -> None:
     from probe import __version__
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     other = tmp_path / "elsewhere" / "bin" / "probe"
     other.parent.mkdir(parents=True)

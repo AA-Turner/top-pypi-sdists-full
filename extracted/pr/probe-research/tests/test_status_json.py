@@ -31,12 +31,15 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import autoupdate, capabilities, doctor, setup, wizard_lock
+from probe.cli import autoupdate, wizard as setup
+from probe.cli.wizard import state as capabilities, doctor
+from probe.cli.wizard.session import lock as wizard_lock
 from probe.shared.harness.harnesses import pi as pi_config
 from probe.shared.harness import plugins as plugin_cli
 from probe.shared.updates import updates as versions
-from probe.cli import status as status_impl
-from probe.cli.capabilities import DeviceState, DeviceStateOutcome, McpState
+from probe.cli.wizard.state import status as status_impl
+from probe.cli.wizard.state.device_state import DeviceState, DeviceStateOutcome
+from probe.cli.wizard.state.state import McpState
 from probe.shared.updates.updates import VersionStatus
 from probe.sdk import agent_session, session_marker
 from probe.sdk.settings.settings import resolve, save_context
@@ -125,10 +128,10 @@ def machine(tmp_path, monkeypatch):
             capture={source: True for source in request.capture_tokens},
         )
 
-    monkeypatch.setattr(capabilities, "fetch_device_state", fetch_device_state)
+    monkeypatch.setattr(capabilities.device_state, "fetch_device_state", fetch_device_state)
     monkeypatch.setattr(main, "_verify_read", lambda token, base_url: answers["token"])
     # A verdict another test recorded in this process is not this device's.
-    monkeypatch.setattr(capabilities, "_MCP_TOKEN_VERDICT", None)
+    monkeypatch.setattr(capabilities.mcp_checks, "_MCP_TOKEN_VERDICT", None)
     return SimpleNamespace(home=home, bin=bin_dir, calls=calls, answers=answers, tmp=tmp_path)
 
 
@@ -644,7 +647,7 @@ def test_the_probe_creates_nothing(machine):
 
 
 def _documented_schema() -> dict:
-    """The SCHEMA block of `probe.cli.status`'s docstring, as a JSON shape."""
+    """The SCHEMA block of `probe.cli.wizard.state.status`'s docstring, as a JSON shape."""
     doc = status_impl.__doc__
     block = doc[doc.index("    {\n") : doc.index("    CHECK =")]
     check = '{"state": null, "checked": null, "error": null}'
@@ -793,7 +796,7 @@ def old_slow_server(machine, monkeypatch):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base_url = f"http://127.0.0.1:{server.server_address[1]}"
     monkeypatch.setenv("PROBE_BASE_URL", base_url)
-    monkeypatch.setattr(capabilities, "fetch_device_state", REAL_FETCH_DEVICE_STATE)
+    monkeypatch.setattr(capabilities.device_state, "fetch_device_state", REAL_FETCH_DEVICE_STATE)
     monkeypatch.setattr(main, "_verify_read", REAL_VERIFY)
     for variable in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
         monkeypatch.delenv(variable, raising=False)
@@ -832,7 +835,7 @@ def test_hung_agents_server_and_token_check_all_fit_one_budget(machine, monkeypa
     hung(machine, "codex")
     hung(machine, "pi")
     REAL_PI_SNIFF.cache_clear()
-    monkeypatch.setattr(setup, "pi_binary_available", REAL_PI_SNIFF)
+    monkeypatch.setattr(setup.agents, "pi_binary_available", REAL_PI_SNIFF)
 
     def slow(seconds, answer):
         def call(*_a, **_k):
@@ -841,7 +844,7 @@ def test_hung_agents_server_and_token_check_all_fit_one_budget(machine, monkeypa
 
         return call
 
-    monkeypatch.setattr(capabilities, "fetch_device_state", slow(5, DeviceState(DeviceStateOutcome.ANSWERED)))
+    monkeypatch.setattr(capabilities.device_state, "fetch_device_state", slow(5, DeviceState(DeviceStateOutcome.ANSWERED)))
     monkeypatch.setattr(main, "_verify_read", slow(5, ("ok", {"email": EMAIL})))
     try:
         state, elapsed, _ = status("--refresh", "--timeout", "1")

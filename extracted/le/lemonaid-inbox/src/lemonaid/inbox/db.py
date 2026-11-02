@@ -1,0 +1,1189 @@
+"""SQLite database for lemonaid notifications."""
+
+import json
+import os
+import sqlite3
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Self
+
+from ..log import get_logger
+
+_log = get_logger(__name__)
+# Words in a notification type that mean the lemon stopped to ask you for something,
+# across backends: Claude's `permission_prompt`, Codex and OpenClaw approvals, and so on.
+_ASKING = ("permission", "approval", "elicitation", "question")
+
+
+@dataclass(frozen=True)
+class Notification:
+    """A notification in the lemonaid inbox."""
+
+    id: int
+    channel: str
+    message: str
+    name: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    status: str = "unread"
+    created_at: float = field(default_factory=time.time)
+    read_at: float | None = None
+    switch_source: str | None = None
+    snooze_until: float | None = None
+    snooze_prev_status: str | None = None
+    snooze_through_turns: bool = False
+    turn_at: float | None = None  # newest transcript entry of a turn in progress
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> Self:
+        """Create a Notification from a database row."""
+        # Handle columns which may not exist in older DBs
+        switch_source = None
+        name = None
+        snooze_until = None
+        snooze_prev_status = None
+        snooze_through_turns = False
+        turn_at = None
+        with suppress(IndexError, KeyError):
+            switch_source = row["switch_source"]
+        with suppress(IndexError, KeyError):
+            name = row["name"]
+        with suppress(IndexError, KeyError):
+            snooze_until = row["snooze_until"]
+        with suppress(IndexError, KeyError):
+            snooze_prev_status = row["snooze_prev_status"]
+        with suppress(IndexError, KeyError):
+            snooze_through_turns = bool(row["snooze_through_turns"])
+        with suppress(IndexError, KeyError):
+            turn_at = row["turn_at"]
+
+        return cls(
+            id=row["id"],
+            channel=row["channel"],
+            message=row["message"],
+            name=name,
+            metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+            status=row["status"],
+            created_at=row["created_at"],
+            read_at=row["read_at"],
+            switch_source=switch_source,
+            snooze_until=snooze_until,
+            snooze_prev_status=snooze_prev_status,
+            snooze_through_turns=snooze_through_turns,
+            turn_at=turn_at,
+        )
+
+    @property
+    def is_read(self) -> bool:
+        return self.status == "read"
+
+    @property
+    def is_unread(self) -> bool:
+        return self.status == "unread"
+
+    @property
+    def asks(self) -> bool:
+        """Whether its lemon is stuck on a permission prompt or question for you.
+
+        Reading the row doesn't answer the prompt, so a read row still asks while
+        its turn is open and its transcript hasn't moved past the prompt; the next
+        hook replaces the type. A snoozed or archived row doesn't ask.
+        """
+        kind = str(self.metadata.get("notification_type", "")).lower()
+        return any(word in kind for word in _ASKING) and (
+            self.is_unread
+            or (self.is_read and self.turn_at is not None and self.turn_at <= self.created_at)
+        )
+
+    @property
+    def is_archived(self) -> bool:
+        return self.status == "archived"
+
+    @property
+    def is_snoozed(self) -> bool:
+        return self.status == "snoozed"
+
+
+def get_db_path() -> Path:
+    """Where the inbox lives, `LEMONAID_DB` overriding the XDG default.
+
+    The override is what makes it safe to run a second `lma` against invented
+    sessions - a demo, a screenshot, an experiment - without the watchers of
+    either one archiving the other's rows.
+    """
+    override = os.environ.get("LEMONAID_DB")
+    if override:
+        path = Path(override).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    lemonaid_dir = Path.home() / ".local" / "share" / "lemonaid"
+    lemonaid_dir.mkdir(parents=True, exist_ok=True)
+    return lemonaid_dir / "lemonaid.db"
+
+
+def _init_schema(conn: sqlite3.Connection) -> None:
+    """Initialize the database schema.
+
+    This creates the baseline schema (version 0). Migrations bring it up to date.
+    Keep this as the original schema to ensure migrations work on fresh databases.
+    """
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT,
+            metadata TEXT,
+            status TEXT DEFAULT 'unread',
+            created_at REAL NOT NULL,
+            read_at REAL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+        CREATE INDEX IF NOT EXISTS idx_notifications_channel ON notifications(channel);
+        CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+    """)
+    conn.commit()
+
+
+_initialized_dbs: set[Path] = set()
+
+UI_TIMEOUT_SECONDS = 5.0
+
+
+@contextmanager
+def connect(db_path: Path | None = None, *, timeout: float = 30.0) -> Iterator[sqlite3.Connection]:
+    """Context manager for database connections.
+
+    *timeout* is how long a statement waits for another process's lock. The
+    default suits processes that start together; the inbox's UI thread passes
+    `UI_TIMEOUT_SECONDS`, since keys and the mouse wait with it.
+    """
+    if db_path is None:
+        db_path = get_db_path()
+
+    conn = sqlite3.connect(db_path, timeout=timeout)
+    conn.row_factory = sqlite3.Row
+
+    if db_path not in _initialized_dbs:
+        from . import migrations
+
+        _init_schema(conn)
+        migrations.run_migrations(conn)
+        _initialized_dbs.add(db_path)
+
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+# --- Queries ---
+
+
+def get(conn: sqlite3.Connection, notification_id: int) -> Notification | None:
+    """Get a notification by ID."""
+    row = conn.execute(
+        "SELECT * FROM notifications WHERE id = ?",
+        (notification_id,),
+    ).fetchone()
+    return Notification.from_row(row) if row else None
+
+
+def get_unread(conn: sqlite3.Connection) -> list[Notification]:
+    """Get all unread notifications, newest first."""
+    rows = conn.execute(
+        """
+        SELECT * FROM notifications
+        WHERE status = 'unread'
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+    return [Notification.from_row(row) for row in rows]
+
+
+_HIDDEN_STATUSES = ("archived", "snoozed")
+
+
+def get_active(conn: sqlite3.Connection, switch_source: str | None = None) -> list[Notification]:
+    """Get active sessions (one per channel), pinned first, then unread, then by recency.
+
+    Returns only the most recent notification per channel, excluding archived
+    and snoozed ones. If switch_source is provided, filters to only
+    notifications with that exact source.
+
+    A pinned session holds its place whatever its status, so an unread pin
+    stays where it was put rather than rising to the top. Unpinned sessions sort
+    as they always did, below every pin.
+
+    The channel is last, and has to stay there. It is only a tiebreak for two
+    pins that somehow share a position - above the status test it sorts every
+    unpinned row too, since those all tie on a NULL position.
+
+    Callers that render the inbox should call wake_expired() first; this query
+    does not itself resurrect sessions whose snooze has run out.
+    """
+    if switch_source:
+        rows = conn.execute(
+            """
+            SELECT n.* FROM notifications n
+            INNER JOIN (
+                SELECT channel, MAX(id) as max_id
+                FROM notifications
+                WHERE status NOT IN ('archived', 'snoozed')
+                GROUP BY channel
+            ) latest ON n.id = latest.max_id
+            LEFT JOIN pins p ON p.channel = n.channel
+            WHERE n.status NOT IN ('archived', 'snoozed')
+            AND n.switch_source = ?
+            ORDER BY
+                CASE WHEN p.position IS NULL THEN 1 ELSE 0 END,
+                p.position,
+                CASE n.status WHEN 'unread' THEN 0 ELSE 1 END,
+                n.created_at DESC,
+                n.channel
+            """,
+            (switch_source,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT n.* FROM notifications n
+            INNER JOIN (
+                SELECT channel, MAX(id) as max_id
+                FROM notifications
+                WHERE status NOT IN ('archived', 'snoozed')
+                GROUP BY channel
+            ) latest ON n.id = latest.max_id
+            LEFT JOIN pins p ON p.channel = n.channel
+            WHERE n.status NOT IN ('archived', 'snoozed')
+            ORDER BY
+                CASE WHEN p.position IS NULL THEN 1 ELSE 0 END,
+                p.position,
+                CASE n.status WHEN 'unread' THEN 0 ELSE 1 END,
+                n.created_at DESC,
+                n.channel
+            """
+        ).fetchall()
+    return [Notification.from_row(row) for row in rows]
+
+
+def get_snoozed(conn: sqlite3.Connection) -> list[Notification]:
+    """Get snoozed sessions, soonest to wake first."""
+    rows = conn.execute(
+        """
+        SELECT n.* FROM notifications n
+        INNER JOIN (
+            SELECT channel, MAX(id) as max_id
+            FROM notifications
+            WHERE status = 'snoozed'
+            GROUP BY channel
+        ) latest ON n.id = latest.max_id
+        WHERE n.status = 'snoozed'
+        ORDER BY n.snooze_until ASC
+        """
+    ).fetchall()
+    return [Notification.from_row(row) for row in rows]
+
+
+def substring_pattern(query: str) -> str:
+    """Escape LIKE operators so a query matches its literal characters."""
+    escaped = query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    return f"%{escaped}%"
+
+
+def get_history(
+    conn: sqlite3.Connection,
+    limit: int = 200,
+    search: str = "",
+) -> list[Notification]:
+    """Get resumable sessions for the history view, newest first.
+
+    Includes archived/read sessions plus headless sessions (switch_source IS NULL)
+    regardless of status — headless sessions have no tmux/wezterm to switch to,
+    so they're only reachable via history. Optionally filters by substring match
+    on name, message, channel, cwd, or git_branch. Returns only the most recent
+    notification per channel.
+    """
+    status_cond = (
+        "n.status != 'snoozed' AND (n.status IN ('archived', 'read') OR n.switch_source IS NULL)"
+    )
+    latest_cond = (
+        "status != 'snoozed' AND (status IN ('archived', 'read') OR switch_source IS NULL)"
+    )
+    if search:
+        pattern = substring_pattern(search)
+        rows = conn.execute(
+            f"""
+            SELECT n.* FROM notifications n
+            INNER JOIN (
+                SELECT channel, MAX(id) as max_id
+                FROM notifications
+                WHERE {latest_cond}
+                GROUP BY channel
+            ) latest ON n.id = latest.max_id
+            WHERE {status_cond}
+            AND (
+                n.name LIKE ? ESCAPE '!'
+                OR n.message LIKE ? ESCAPE '!'
+                OR n.channel LIKE ? ESCAPE '!'
+                OR json_extract(n.metadata, '$.cwd') LIKE ? ESCAPE '!'
+                OR json_extract(n.metadata, '$.git_branch') LIKE ? ESCAPE '!'
+                OR EXISTS (
+                    SELECT 1 FROM session_briefs b
+                    JOIN lemon_identities i ON i.path = b.path
+                    WHERE b.channel = n.channel AND i.lemon_id LIKE ? ESCAPE '!'
+                )
+            )
+            ORDER BY n.created_at DESC
+            LIMIT ?
+            """,
+            (pattern, pattern, pattern, pattern, pattern, pattern, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"""
+            SELECT n.* FROM notifications n
+            INNER JOIN (
+                SELECT channel, MAX(id) as max_id
+                FROM notifications
+                WHERE {latest_cond}
+                GROUP BY channel
+            ) latest ON n.id = latest.max_id
+            WHERE {status_cond}
+            ORDER BY n.created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [Notification.from_row(row) for row in rows]
+
+
+def get_by_channel(
+    conn: sqlite3.Connection,
+    channel: str,
+    unread_only: bool = True,
+) -> Notification | None:
+    """Get the most recent notification for a channel."""
+    query = "SELECT * FROM notifications WHERE channel = ?"
+    if unread_only:
+        query += " AND status = 'unread'"
+    query += " ORDER BY created_at DESC LIMIT 1"
+
+    row = conn.execute(query, (channel,)).fetchone()
+    return Notification.from_row(row) if row else None
+
+
+# --- Mutations ---
+
+
+def is_backend_name(name_source: Any) -> bool:
+    """Whether a name_source denotes a real backend title rather than a placeholder.
+
+    Placeholders come from the environment (tmux session, cwd). Backend titles
+    come from the agent itself — an AI-generated title or a user's /rename.
+    """
+    return bool(name_source) and name_source != "environment"
+
+
+def _reconcile_name(
+    existing: Notification,
+    name: str | None,
+    metadata: dict[str, Any],
+) -> str | None:
+    """Decide the name to store when re-observing a known session.
+
+    A user rename always wins and is never overwritten. Otherwise the incoming
+    name replaces the stored one, which lets a placeholder derived from tmux or
+    cwd be upgraded once the backend produces a real title. `metadata` is
+    mutated to carry forward the preserved rename bookkeeping.
+    """
+    if "auto_name" in existing.metadata:
+        # The user renamed this session; keep their name. The stored auto-name is
+        # only upgraded by a real backend title, so clearing the override later
+        # restores a good name rather than whatever tmux happened to be called.
+        if name and is_backend_name(metadata.get("name_source")):
+            metadata["auto_name"] = name
+        else:
+            metadata["auto_name"] = existing.metadata["auto_name"]
+        return existing.name
+
+    if not name:
+        return existing.name
+
+    if not is_backend_name(metadata.get("name_source")) and is_backend_name(
+        existing.metadata.get("name_source")
+    ):
+        # Don't regress a real backend title back to a tmux/cwd placeholder.
+        metadata["name_source"] = existing.metadata["name_source"]
+        return existing.name
+
+    return name
+
+
+# Facts about where a session lives, which a later observation may simply not be
+# able to see. A hook can fire from a subprocess with no TMUX_PANE, and metadata
+# is replaced wholesale on update - so without this, one such observation erases
+# the location that `tmux restore` needs after a crash.
+_STICKY_METADATA = (
+    "place_teardown",
+    "tmux_session",
+    "tmux_window",
+    "tmux_socket",
+    "tmux_pane_identity",
+    "tmux_session_order",
+    "cmux_surface",
+    "transcript_path",
+    "model_provider",
+    "model",
+    "context_tokens",
+    "context_window",
+)
+
+
+def _carry_forward(existing: Notification, metadata: dict[str, Any]) -> None:
+    """Keep known facts that this observation couldn't see. Mutates *metadata*."""
+    for key in _STICKY_METADATA:
+        if key == "place_teardown" and existing.is_archived:
+            continue
+
+        if key not in metadata and key in existing.metadata:
+            metadata[key] = existing.metadata[key]
+
+
+def record_location(
+    conn: sqlite3.Connection,
+    channel: str,
+    session: str,
+    window: str,
+    socket: str | None = None,
+    session_order: tuple[int, ...] | None = None,
+) -> bool:
+    """Note where *channel* is sitting in tmux. True if anything changed.
+
+    Only the location is touched - not status, message, or created_at - because
+    this runs on the watcher's poll for sessions that are doing nothing. Writing
+    anything else would make an idle session look like it had just spoken.
+
+    *socket* is optional so a caller that saw the pane but not which server it
+    was on cannot blank a socket already recorded by the hook. *session_order*
+    is when tmux made the session (see `PaneLocation`), which is how `tmux
+    restore` puts sessions back in the order they were in.
+    """
+    existing = get_by_channel(conn, channel, unread_only=False)
+    if existing is None:
+        return False
+
+    location: dict[str, Any] = {"tmux_session": session, "tmux_window": window}
+    if socket:
+        location["tmux_socket"] = socket
+    if session_order:
+        location["tmux_session_order"] = list(session_order)  # as JSON gives it back
+
+    if all(existing.metadata.get(k) == v for k, v in location.items()):
+        return False
+
+    conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ?",
+        (json.dumps({**existing.metadata, **location}), existing.id),
+    )
+    conn.commit()
+
+    return True
+
+
+def record_model(conn: sqlite3.Connection, channel: str, provider: str, model: str) -> bool:
+    """Record the latest model observed in a session transcript."""
+    existing = get_by_channel(conn, channel, unread_only=False)
+    if existing is None:
+        return False
+
+    observed = {"model_provider": provider, "model": model}
+    if all(existing.metadata.get(k) == v for k, v in observed.items()):
+        return False
+
+    conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ?",
+        (json.dumps({**existing.metadata, **observed}), existing.id),
+    )
+    conn.commit()
+
+    return True
+
+
+def record_exit(conn: sqlite3.Connection, channel: str, at: float, reason: str) -> bool:
+    """Record that a session's harness exited and the reason it gave.
+
+    The session's next registration or report (`add`, `register_working`) replaces
+    its metadata and so drops this; the watcher's own observations keep it.
+    """
+    existing = get_by_channel(conn, channel, unread_only=False)
+    if existing is None:
+        return False
+
+    conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ?",
+        (json.dumps({**existing.metadata, "exited_at": at, "exit_reason": reason}), existing.id),
+    )
+    conn.commit()
+
+    return True
+
+
+def record_context(conn: sqlite3.Connection, channel: str, used: int, window: int) -> bool:
+    """Record a session's latest context reading; a window of 0 keeps the one known."""
+    existing = get_by_channel(conn, channel, unread_only=False)
+    if existing is None:
+        return False
+
+    observed = {"context_tokens": used, **({"context_window": window} if window else {})}
+    if all(existing.metadata.get(k) == v for k, v in observed.items()):
+        return False
+
+    conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ?",
+        (json.dumps({**existing.metadata, **observed}), existing.id),
+    )
+    conn.commit()
+
+    return True
+
+
+def add(
+    conn: sqlite3.Connection,
+    channel: str,
+    message: str,
+    name: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    upsert: bool = True,
+    switch_source: str | None = None,
+    created_at: float | None = None,
+    status: str = "unread",
+    keep_existing_message: bool = False,
+    ends_turn: bool = False,
+) -> Notification:
+    """Add a notification or update existing one if upsert=True.
+
+    If upsert=True and a notification exists for the channel (even if read or archived),
+    it will be updated and set to `status` - unread unless the caller decided a
+    finished turn needs no attention.
+
+    `keep_existing_message` leaves a row's existing message text alone. It is for
+    callers that know a turn ended but not what was said in it: the transcript
+    watcher writes the better message, and only rewrites when the transcript
+    itself changes, so a message overwritten here does not come back.
+
+    Any notification cancels a snooze, except that one marked
+    `snooze_through_turns` stays snoozed when `ends_turn`; it then wakes unread
+    if any turn it held ended unread.
+    """
+    now = created_at if created_at is not None else time.time()
+    metadata = metadata or {}
+    read_at = time.time() if status == "read" else None
+
+    if upsert:
+        # Look for any existing notification for this channel (including read/archived)
+        existing = get_by_channel(conn, channel, unread_only=False)
+        if existing:
+            name = _reconcile_name(existing, name, metadata)
+            _carry_forward(existing, metadata)
+            if keep_existing_message and existing.message:
+                message = existing.message
+
+            handoff_now = time.time()
+            handing_off = (
+                conn.execute(
+                    """SELECT 1 FROM brief_handoffs h
+                       JOIN session_briefs b ON b.path = h.path
+                       WHERE b.channel = ? AND h.source = ?
+                         AND h.phase IN ('requested', 'prepared', 'launched') AND h.deadline > ?""",
+                    (channel, channel, handoff_now),
+                ).fetchone()
+                if existing.is_snoozed
+                and existing.snooze_until
+                and existing.snooze_until > handoff_now
+                else None
+            )
+            held = (
+                existing.is_snoozed
+                and existing.snooze_until is not None
+                and (
+                    (ends_turn and existing.snooze_through_turns)
+                    or (handing_off is not None and existing.snooze_until > handoff_now)
+                )
+            )
+            woken_as = "unread" if "unread" in (status, existing.snooze_prev_status) else status
+            snooze = (
+                (existing.snooze_until, woken_as, existing.snooze_through_turns)
+                if held
+                else (None, None, False)
+            )
+            conn.execute(
+                """
+                UPDATE notifications
+                SET message = ?, name = ?, metadata = ?, created_at = ?, status = ?, read_at = ?, switch_source = ?,
+                    snooze_until = ?, snooze_prev_status = ?, snooze_through_turns = ?
+                WHERE id = ?
+                """,
+                (
+                    message,
+                    name,
+                    json.dumps(metadata),
+                    now,
+                    "snoozed" if held else status,
+                    read_at,
+                    switch_source,
+                    *snooze,
+                    existing.id,
+                ),
+            )
+            conn.commit()
+            if status == "archived" and not existing.is_archived:
+                _log.info("archive channel=%s reason=add-status rows=1", channel)
+            return Notification(
+                id=existing.id,
+                channel=channel,
+                message=message,
+                name=name,
+                metadata=metadata,
+                status="snoozed" if held else status,
+                created_at=now,
+                switch_source=switch_source,
+                snooze_until=snooze[0],
+                snooze_prev_status=snooze[1],
+                snooze_through_turns=snooze[2],
+            )
+
+    cursor = conn.execute(
+        """
+        INSERT INTO notifications (channel, message, name, metadata, created_at, switch_source, status, read_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (channel, message, name, json.dumps(metadata), now, switch_source, status, read_at),
+    )
+    conn.commit()
+
+    return Notification(
+        id=cursor.lastrowid or 0,
+        channel=channel,
+        message=message,
+        name=name,
+        metadata=metadata,
+        status=status,
+        created_at=now,
+        switch_source=switch_source,
+    )
+
+
+def register_working(
+    conn: sqlite3.Connection,
+    channel: str,
+    message: str,
+    name: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    switch_source: str | None = None,
+) -> Notification:
+    """Register a session that has started working (e.g. on prompt submit).
+
+    Unlike add(), this never flags the session for attention: a brand-new
+    session is inserted as 'read', and an existing session keeps its current
+    status (so a session already 'unread' from a Stop/Notification hook is not
+    silently dismissed, and a 'read' working session is not re-flagged).
+
+    created_at is the session's birth time and is never overwritten on update,
+    so actively-driven sessions hold a stable position rather than churning to
+    the top of the active list on every turn. An archived session reappears as
+    'read' (you're driving it again) but keeps its original created_at.
+    """
+    metadata = metadata or {}
+    existing = get_by_channel(conn, channel, unread_only=False)
+
+    if existing:
+        name = _reconcile_name(existing, name, metadata)
+        _carry_forward(existing, metadata)
+
+        new_status = "read" if existing.is_archived else existing.status
+        conn.execute(
+            """
+            UPDATE notifications
+            SET message = ?, name = ?, metadata = ?, switch_source = ?, status = ?
+            WHERE id = ?
+            """,
+            (message, name, json.dumps(metadata), switch_source, new_status, existing.id),
+        )
+        conn.commit()
+        return Notification(
+            id=existing.id,
+            channel=channel,
+            message=message,
+            name=name,
+            metadata=metadata,
+            status=new_status,
+            created_at=existing.created_at,
+            switch_source=switch_source,
+        )
+
+    now = time.time()
+    cursor = conn.execute(
+        """
+        INSERT INTO notifications (channel, message, name, metadata, created_at, switch_source, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'read')
+        """,
+        (channel, message, name, json.dumps(metadata), now, switch_source),
+    )
+    conn.commit()
+    return Notification(
+        id=cursor.lastrowid or 0,
+        channel=channel,
+        message=message,
+        name=name,
+        metadata=metadata,
+        status="read",
+        created_at=now,
+        switch_source=switch_source,
+    )
+
+
+def mark_read(conn: sqlite3.Connection, notification_id: int) -> None:
+    """Mark a notification as read."""
+    conn.execute(
+        "UPDATE notifications SET status = 'read', read_at = ? WHERE id = ?",
+        (time.time(), notification_id),
+    )
+    conn.commit()
+
+
+def mark_unread(conn: sqlite3.Connection, notification_id: int) -> None:
+    """Return a session to the inbox's unread group at its existing age.
+
+    Unlike mark_unread_for_channel(), created_at is left alone: this says "I have
+    not dealt with this yet", not "this just spoke", so the session sorts among
+    the unreads where its age puts it rather than jumping to the top.
+    """
+    conn.execute(
+        "UPDATE notifications SET status = 'unread', read_at = NULL WHERE id = ?",
+        (notification_id,),
+    )
+    conn.commit()
+
+
+def mark_unread_for_channel(conn: sqlite3.Connection, channel: str) -> int:
+    """Mark all notifications for a channel as unread (needs attention).
+
+    Used when an agent finishes and is waiting for user input.
+    Also updates created_at to now, so that should_dismiss() only looks
+    at entries after this point (prevents flip-flopping).
+
+    This cancels an active snooze: fresh output means the session wants the user
+    again, and a snooze only defers the state it was applied to.
+    Returns count of notifications marked as unread.
+    """
+    now = time.time()
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET status = 'unread', read_at = NULL, created_at = ?,
+            snooze_until = NULL, snooze_prev_status = NULL, snooze_through_turns = 0
+        WHERE channel = ? AND status IN ('read', 'snoozed')
+        """,
+        (now, channel),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def mark_read_after_turn(conn: sqlite3.Connection, channel: str) -> int:
+    """Record a finished turn on a read session without flagging it.
+
+    created_at moves to now, as mark_unread_for_channel() does, so the watcher's
+    dismissal only considers activity after this turn; otherwise a user who
+    marked the session unread would see that same turn mark it read again.
+    """
+    now = time.time()
+    cursor = conn.execute(
+        "UPDATE notifications SET created_at = ?, read_at = ? WHERE channel = ? AND status = 'read'",
+        (now, now, channel),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def mark_all_read_for_channel(
+    conn: sqlite3.Connection,
+    channel: str,
+    message: str | None = None,
+) -> int:
+    """Mark all notifications for a channel as read, optionally updating message.
+
+    Args:
+        conn: Database connection
+        channel: Channel to mark as read
+        message: Optional new message (e.g., what Claude is now doing)
+
+    Returns:
+        Count of notifications marked as read
+    """
+    now = time.time()
+    if message:
+        cursor = conn.execute(
+            """
+            UPDATE notifications
+            SET status = 'read', read_at = ?, message = ?
+            WHERE channel = ? AND status = 'unread'
+            """,
+            (now, message, channel),
+        )
+    else:
+        cursor = conn.execute(
+            """
+            UPDATE notifications
+            SET status = 'read', read_at = ?
+            WHERE channel = ? AND status = 'unread'
+            """,
+            (now, channel),
+        )
+    conn.commit()
+    return cursor.rowcount
+
+
+def hold_snooze_through_turns(conn: sqlite3.Connection, notification_id: int) -> None:
+    """Keep a snoozed row snoozed through the turns that end from now on."""
+    conn.execute(
+        "UPDATE notifications SET snooze_through_turns = 1 WHERE id = ? AND status = 'snoozed'",
+        (notification_id,),
+    )
+    conn.commit()
+
+
+def record_turn(conn: sqlite3.Connection, channel: str, at: float | None) -> int:
+    """Record that *channel* is mid-turn as of *at*, or between turns when None."""
+    cursor = conn.execute("UPDATE notifications SET turn_at = ? WHERE channel = ?", (at, channel))
+    conn.commit()
+    return cursor.rowcount
+
+
+def update_message(conn: sqlite3.Connection, channel: str, message: str) -> int:
+    """Update the message for a channel without changing read/unread status.
+
+    Used for real-time activity updates while Claude is working. A row that `asks`
+    keeps its message: the transcript doesn't show the pending question, so its
+    newest entry is older news. Returns count of notifications updated.
+    """
+    existing = get_by_channel(conn, channel, unread_only=False)
+    if existing and existing.asks:
+        return 0
+
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET message = ?
+        WHERE channel = ?
+        """,
+        (message, channel),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def update_name(
+    conn: sqlite3.Connection,
+    notification_id: int,
+    name: str | None,
+    extra_metadata: dict[str, Any] | None = None,
+) -> bool:
+    """Update (or clear) the user-override name for a notification.
+
+    When setting a name, preserves the current auto-detected name in metadata.
+    When clearing (name=None), restores the auto-detected name if available.
+    If extra_metadata is provided, those keys are merged into metadata.
+
+    Returns True if a row was updated.
+    """
+    notification = get(conn, notification_id)
+    if not notification:
+        return False
+
+    metadata = dict(notification.metadata)
+
+    if name:
+        # Setting a custom name - preserve current name as auto_name (if not already overridden)
+        if "auto_name" not in metadata and notification.name:
+            metadata["auto_name"] = notification.name
+        final_name = name
+    else:
+        # Clearing - restore auto_name if we have one
+        final_name = metadata.pop("auto_name", None)
+
+    if extra_metadata:
+        metadata.update(extra_metadata)
+
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET name = ?, metadata = ?
+        WHERE id = ?
+        """,
+        (final_name, json.dumps(metadata), notification_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def refresh_auto_name(
+    conn: sqlite3.Connection,
+    notification_id: int,
+    name: str,
+    name_source: str,
+) -> bool:
+    """Apply a freshly-discovered backend title to a session.
+
+    Backends name a session only after it has run for a while, so the inbox
+    holds a placeholder until then. This upgrades that placeholder without
+    disturbing a name the user set inside lemonaid, which stays visible while its
+    stored auto-name is brought up to date. Returns True if anything changed.
+    """
+    notification = get(conn, notification_id)
+    if not notification or not name:
+        return False
+
+    metadata = dict(notification.metadata)
+    renamed = "auto_name" in metadata
+
+    if renamed:
+        if metadata["auto_name"] == name and metadata.get("name_source") == name_source:
+            return False
+        metadata["auto_name"] = name
+        final_name = notification.name
+    else:
+        if notification.name == name and metadata.get("name_source") == name_source:
+            return False
+        final_name = name
+
+    metadata["name_source"] = name_source
+    conn.execute(
+        "UPDATE notifications SET name = ?, metadata = ? WHERE channel = ?",
+        (final_name, json.dumps(metadata), notification.channel),
+    )
+    conn.commit()
+    return True
+
+
+def mark_read_by_tty(conn: sqlite3.Connection, tty: str) -> int:
+    """Mark all unread notifications from a TTY as read."""
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET status = 'read', read_at = ?
+        WHERE json_extract(metadata, '$.tty') = ?
+          AND status = 'unread'
+        """,
+        (time.time(), tty),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def mark_unread_by_tty(conn: sqlite3.Connection, tty: str) -> int:
+    """Return a TTY's read sessions to the unread group, keeping their age."""
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET status = 'unread', read_at = NULL
+        WHERE json_extract(metadata, '$.tty') = ?
+          AND status = 'read'
+        """,
+        (tty,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def archive(conn: sqlite3.Connection, notification_id: int, reason: str = "user-action") -> None:
+    """Archive a notification and all other rows sharing its channel.
+
+    Archiving drops any pin on the channel. Snoozing deliberately does not:
+    snooze is "not now" and the session comes back to its place, where archive
+    is "done" and would otherwise leave a pin on a session absent from the list.
+    """
+    row = conn.execute(
+        "SELECT channel FROM notifications WHERE id = ?", (notification_id,)
+    ).fetchone()
+    if row:
+        archive_channel(conn, row["channel"], reason, commit=False)
+        conn.execute("DELETE FROM pins WHERE channel = ?", (row["channel"],))
+    else:
+        _log.info("archive channel=<missing> reason=%s notification_id=%s", reason, notification_id)
+    conn.commit()
+
+
+def archive_channel(
+    conn: sqlite3.Connection, channel: str, reason: str, *, commit: bool = True
+) -> int:
+    """Archive every row for *channel*, recording why the channel was archived."""
+    cursor = conn.execute(
+        "UPDATE notifications SET status = 'archived' WHERE channel = ? AND status != 'archived'",
+        (channel,),
+    )
+    if cursor.rowcount:
+        _log.info("archive channel=%s reason=%s rows=%d", channel, reason, cursor.rowcount)
+    if commit:
+        conn.commit()
+    return cursor.rowcount
+
+
+def snooze(
+    conn: sqlite3.Connection, notification_id: int, until: float, through_turns: bool = False
+) -> None:
+    """Hold a session out of the inbox until `until`, then return it as unread.
+
+    Applies to every row on the channel, matching archive()'s scope. The current
+    status is recorded so wake_expired() can tell whether the session was
+    demanding attention when it was snoozed; snoozing again only moves the wake
+    time. `through_turns` keeps the snooze through the session's turn ends; see add().
+    """
+    row = conn.execute(
+        "SELECT channel, status FROM notifications WHERE id = ?", (notification_id,)
+    ).fetchone()
+    if not row:
+        return
+
+    conn.execute(
+        """
+        UPDATE notifications
+        SET snooze_prev_status = CASE WHEN status = 'snoozed' THEN snooze_prev_status ELSE status END,
+            status = 'snoozed', snooze_until = ?, snooze_through_turns = ?
+        WHERE channel = ?
+        """,
+        (until, through_turns, row["channel"]),
+    )
+    conn.commit()
+
+
+def unsnooze(conn: sqlite3.Connection, channel: str) -> int:
+    """Return a snoozed channel to the inbox, restoring its pre-snooze status.
+
+    Used both by the expiry sweep and by an explicit un-snooze. Returns the
+    number of rows woken.
+    """
+    cursor = conn.execute(
+        """
+        UPDATE notifications
+        SET status = COALESCE(snooze_prev_status, 'unread'),
+            snooze_until = NULL,
+            snooze_prev_status = NULL,
+            snooze_through_turns = 0
+        WHERE channel = ? AND status = 'snoozed'
+        """,
+        (channel,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def wake_expired(conn: sqlite3.Connection, now: float | None = None) -> list[str]:
+    """Wake every snoozed session whose timer has passed. Returns woken channels.
+
+    A session that was unread when snoozed comes back unread; one that was
+    merely read comes back read, so snoozing a quiet session doesn't manufacture
+    a notification out of nothing.
+    """
+    now = now if now is not None else time.time()
+    channels = [
+        row["channel"]
+        for row in conn.execute(
+            "SELECT DISTINCT channel FROM notifications WHERE status = 'snoozed' AND snooze_until <= ?",
+            (now,),
+        ).fetchall()
+    ]
+    for channel in channels:
+        unsnooze(conn, channel)
+
+    return channels
+
+
+def clear_old(conn: sqlite3.Connection, days: int = 7) -> int:
+    """Delete read/archived notifications older than N days. Returns count."""
+    cutoff = time.time() - (days * 24 * 60 * 60)
+    cursor = conn.execute(
+        """
+        DELETE FROM notifications
+        WHERE status IN ('read', 'archived')
+        AND (read_at < ? OR (read_at IS NULL AND created_at < ?))
+        """,
+        (cutoff, cutoff),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+# --- Legacy aliases for existing code ---
+
+
+def add_notification(
+    channel: str,
+    message: str,
+    name: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    conn: sqlite3.Connection | None = None,
+    upsert: bool = True,
+) -> int:
+    """Legacy wrapper - prefer using add() with connect() context manager."""
+    if conn is not None:
+        return add(conn, channel, message, name, metadata, upsert).id
+
+    with connect() as conn:
+        return add(conn, channel, message, name, metadata, upsert).id
+
+
+def repair_location(
+    conn: sqlite3.Connection, notification: Notification, location: dict[str, Any]
+) -> bool:
+    """Replace verified terminal ownership fields if the row has not changed."""
+    row = conn.execute(
+        "SELECT metadata FROM notifications WHERE id = ? AND channel = ?",
+        (notification.id, notification.channel),
+    ).fetchone()
+    if row is None or json.loads(row["metadata"] or "{}") != notification.metadata:
+        return False
+    updated = {**notification.metadata, **location}
+    if updated == notification.metadata:
+        return False
+    changed = conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ? AND channel = ? AND metadata IS ?",
+        (json.dumps(updated), notification.id, notification.channel, row["metadata"]),
+    ).rowcount
+    conn.commit()
+    return bool(changed)
+
+
+def forget_pane(conn: sqlite3.Connection, notification: Notification) -> bool:
+    """Drop the row's pane on the current tmux server, if the row has not changed.
+
+    For a lemon that is not running where its row says: after tmux restarts, the
+    recorded tty can belong to some other lemon's pane. The session and window
+    stay, so a later restore can still put it back.
+    """
+    row = conn.execute(
+        "SELECT metadata FROM notifications WHERE id = ? AND channel = ?",
+        (notification.id, notification.channel),
+    ).fetchone()
+    if row is None or json.loads(row["metadata"] or "{}") != notification.metadata:
+        return False
+
+    updated = {
+        key: value
+        for key, value in notification.metadata.items()
+        if key not in ("tty", "tmux_pane_identity", "tmux_session_order")
+    }
+    if updated == notification.metadata:
+        return False
+
+    changed = conn.execute(
+        "UPDATE notifications SET metadata = ? WHERE id = ? AND channel = ? AND metadata IS ?",
+        (json.dumps(updated), notification.id, notification.channel, row["metadata"]),
+    ).rowcount
+    conn.commit()
+    return bool(changed)

@@ -1,0 +1,51 @@
+"""Shared utilities and unified watcher for LLM session monitoring."""
+
+from .common import (
+    ModelInfo,
+    detect_terminal_switch_source,
+    fish_path,
+    get_cmux_surface,
+    get_git_branch,
+    get_name_from_cwd,
+    get_tmux_pane_tty,
+    get_tmux_session_name,
+    get_tmux_session_order,
+    get_tmux_socket,
+    get_tmux_window_index,
+    get_tty,
+    short_filename,
+    shorten_path,
+)
+from .watcher import (
+    WatcherBackend,
+    get_latest_activity,
+    has_activity_since,
+    parse_timestamp,
+    read_jsonl_tail,
+    start_unified_watcher,
+    stop_unified_watcher,
+)
+
+__all__ = [
+    "WatcherBackend",
+    "ModelInfo",
+    "detect_terminal_switch_source",
+    "fish_path",
+    "get_cmux_surface",
+    "get_latest_activity",
+    "get_git_branch",
+    "get_name_from_cwd",
+    "get_tmux_pane_tty",
+    "get_tmux_session_name",
+    "get_tmux_session_order",
+    "get_tmux_socket",
+    "get_tmux_window_index",
+    "get_tty",
+    "has_activity_since",
+    "parse_timestamp",
+    "read_jsonl_tail",
+    "short_filename",
+    "shorten_path",
+    "start_unified_watcher",
+    "stop_unified_watcher",
+]

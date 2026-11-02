@@ -1,0 +1,1878 @@
+"""Bounded staging and persistence for client-provided remote file handles."""
+
+from __future__ import annotations
+
+import hashlib
+import http.client
+import ipaddress
+import logging
+import mimetypes
+import os
+import re
+import socket
+import ssl
+import tempfile
+import threading
+import time
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
+from functools import partial
+from pathlib import Path, PurePosixPath
+from queue import Empty, Queue
+from urllib.parse import urljoin, urlsplit
+
+from .cli_ops import OpError
+from .preserve import (
+    _ADOPTION_RECEIPT_FIELD,
+    _ADOPTION_RECEIPT_FIELDS,
+    _ADOPTION_RECEIPT_VERSION,
+    DESTINATION_ACCEPTED_FORM,
+    DuplicateArtifact,
+    PreserveError,
+    destination_duplicate_index,
+    destination_segment_refusal,
+    preserve_stream,
+    validate_raw_capture,
+)
+from .vault import (
+    FrontmatterError,
+    PathGuard,
+    PathGuardError,
+    kb_root,
+    parse_frontmatter,
+    read_bounded_guarded_bytes,
+    read_guarded_text,
+    walk_vault_md,
+)
+from .writer_lease import active_manager, active_mutation_request_id, mark_active_mutation_committed
+
+MAX_FILES = 8
+#: The per-file and per-call caps on a Cloud cell. The artifact broker's grants
+#: carry exactly this `max_bytes`, so raising it is a gateway change. A standalone server
+#: takes larger files: see `fetch_budget`.
+MAX_FILE_BYTES = 100 * 1024 * 1024
+MAX_TOTAL_BYTES = MAX_FILE_BYTES
+MAX_REDIRECTS = 3
+_CHUNK_SIZE = 1024 * 1024
+#: The longest wait for one read: a pull that receives nothing for this long has stalled.
+_TIMEOUT_SECONDS = 20.0
+#: The fixed allowance of one file's pull, and of one call's pulls.
+_RETRIEVAL_DEADLINE_SECONDS = 20.0
+_BATCH_DEADLINE_SECONDS = 60.0
+#: The slowest average rate a standalone server's pull may keep beyond its fixed allowance:
+#: 2 Mbit/s, below any broadband link, so only a pull that trickles or stalls runs out.
+_MIN_BYTES_PER_SECOND = 256 * 1024
+#: A Cloud cell's default staged-file ceiling: 200 MiB is about 17 s of the 25 s that one 50 s call leaves for a
+#: commit, at the ~12 MiB/s that apply measured (the batch re-reads its copy 15 times); a measured volume replaces it.
+_CLOUD_ADOPTION_CEILING = 200 * 1024 * 1024
+ADOPTION_CEILING_ENV = "EXOMEM_ADOPTION_MAX_FILE_BYTES"
+_MAX_FILE_ID_CHARS = 256
+_MAX_CONTENT_TYPE_CHARS = 255
+_MAX_ADOPTION_KEY_CHARS = 512
+_MAX_ADOPTION_TRIGGER_CHARS = 64
+_monotonic = time.monotonic
+_log = logging.getLogger(__name__)
+_DNS_WORKERS = threading.BoundedSemaphore(4)
+_RETRIEVAL_WORKERS = threading.BoundedSemaphore(4)
+
+
+class SafeFetchError(Exception):
+    """A stable, content-free artifact retrieval failure."""
+
+    def __init__(self, code: str, reason: str) -> None:
+        super().__init__(reason)
+        self.code = code
+        self.reason = reason
+
+
+@dataclass
+class FetchBudget:
+    max_file_bytes: int = MAX_FILE_BYTES
+    max_total_bytes: int = MAX_TOTAL_BYTES
+    total_bytes: int = 0
+    #: Each byte a pull receives moves its deadlines `1 / min_bytes_per_second` seconds
+    #: later. Zero keeps them fixed, as a cell and the artifact broker's own deadline expect.
+    min_bytes_per_second: int = 0
+
+    def validate_content_length(self, length: int) -> None:
+        if length < 0 or length > self.max_file_bytes or self.total_bytes + length > self.max_total_bytes:
+            raise SafeFetchError("TOO_LARGE", "download exceeds the size limit")
+
+    def consume(self, size: int) -> None:
+        self.validate_content_length(size)
+        self.total_bytes += size
+
+    def extended(self, deadline: float, received: int) -> float:
+        """`deadline` once `received` bytes have arrived."""
+        if not self.min_bytes_per_second:
+            return deadline
+        return deadline + received / self.min_bytes_per_second
+
+
+def fetch_budget() -> FetchBudget:
+    """The limits of one call's pulls on this runtime.
+
+    A standalone server serves upload sessions, so it takes a file handle, and a
+    call's handles together, as large as a session may be. It bounds a pull by a
+    minimum rate rather than a fixed time: a fixed time either stops a healthy
+    multi-gigabyte pull or lets a trickle run as long. A Cloud cell keeps
+    the broker-bound cap and fixed deadlines.
+    """
+    from .cloud_cell import cloud_mode_enabled
+
+    if cloud_mode_enabled():
+        return FetchBudget()
+    from .upload_sessions import max_bytes_from_env
+
+    cap = max_bytes_from_env()
+    return FetchBudget(
+        max_file_bytes=cap, max_total_bytes=cap, min_bytes_per_second=_MIN_BYTES_PER_SECOND
+    )
+
+
+def adoption_ceiling() -> int:
+    """The largest staged file one adoption copies, on every runtime.
+
+    A staged file is already on the volume, so the gateway's client-pull cap does not apply to it.
+    `EXOMEM_ADOPTION_MAX_FILE_BYTES` sets it. Without that, a Cloud cell takes `_CLOUD_ADOPTION_CEILING`
+    and any other server keeps the largest upload session, as before.
+    """
+    raw = os.environ.get(ADOPTION_CEILING_ENV, "").strip()
+    if raw.isascii() and raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    if raw:
+        _log.warning("%s is not a positive integer; using the default", ADOPTION_CEILING_ENV)
+    from .cloud_cell import cloud_mode_enabled
+
+    if cloud_mode_enabled():
+        return _CLOUD_ADOPTION_CEILING
+    from .upload_sessions import max_bytes_from_env
+
+    return max_bytes_from_env()
+
+
+def adoption_budget() -> FetchBudget:
+    """An adoption-keyed call's limits: this runtime's deadlines with the cell cap on every server,
+    because replaying the call re-verifies the stored file in memory."""
+    return replace(fetch_budget(), max_file_bytes=MAX_FILE_BYTES, max_total_bytes=MAX_TOTAL_BYTES)
+
+
+@dataclass(frozen=True)
+class StagedArtifact:
+    file_id: str
+    path: Path
+    size: int
+    sha256: str
+    content_type: str | None
+    filename: str
+    #: The claimed hold behind a local client's held upload, so a command that
+    #: stores nothing can put it back.
+    held: object | None = None
+
+
+@dataclass(frozen=True)
+class AdoptionEnvelope:
+    """Validated semantic selection supplied by the active agent."""
+
+    key_digest: str
+    trigger: str
+    selected_file_id: str
+
+    def seed(self, *, lane: str, destination: str) -> dict[str, object]:
+        return {
+            "key_digest": self.key_digest,
+            "trigger": self.trigger,
+            "selected_file_id": self.selected_file_id,
+            "lane": lane,
+            "destination": destination,
+        }
+
+
+@dataclass(frozen=True)
+class AdoptionReceiptSnapshot:
+    """One parsed portable receipt bound to the exact page bytes read."""
+
+    receipt: dict[str, object]
+    page_guard: PathGuard
+
+
+def remaining_retrieval_timeout(
+    deadline: float, *, clock: Callable[[], float] | None = None
+) -> float:
+    """Return the remaining absolute retrieval budget or fail content-free."""
+    remaining = deadline - (clock or _monotonic)()
+    if remaining <= 0:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download retrieval timed out")
+    return min(_TIMEOUT_SECONDS, remaining)
+
+
+def _cancel_connection(connection: http.client.HTTPConnection) -> None:
+    """Interrupt a timed-out HTTP response before its buffered reader is closed."""
+    sock = connection.sock
+    if sock is not None:
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except (AttributeError, OSError):
+            pass
+        try:
+            sock.close()
+        except (AttributeError, OSError):
+            pass
+    try:
+        connection.close()
+    except (OSError, http.client.HTTPException):
+        pass
+
+
+def _bounded_retrieval_call(
+    operation: Callable[[], object], *, deadline: float, cancel: Callable[[], None] | None = None
+) -> object:
+    """Run a blocking HTTP operation within the remaining wall-clock budget."""
+    def timed_out() -> SafeFetchError:
+        if cancel is not None:
+            try:
+                cancel()
+            except (AttributeError, OSError, http.client.HTTPException):
+                pass
+        return SafeFetchError("SAFE_FETCH_FAILED", "download retrieval timed out")
+
+    try:
+        timeout = remaining_retrieval_timeout(deadline)
+    except SafeFetchError as error:
+        raise timed_out() from error
+    if not _RETRIEVAL_WORKERS.acquire(timeout=timeout):
+        raise timed_out()
+    result: Queue[tuple[bool, object]] = Queue(maxsize=1)
+
+    def _run() -> None:
+        try:
+            result.put((True, operation()))
+        except Exception as error:  # noqa: BLE001 - preserved for the caller
+            result.put((False, error))
+        finally:
+            _RETRIEVAL_WORKERS.release()
+
+    threading.Thread(target=_run, daemon=True).start()
+    try:
+        timeout = remaining_retrieval_timeout(deadline)
+        succeeded, value = result.get(timeout=timeout)
+    except SafeFetchError as error:
+        raise timed_out() from error
+    except Empty as error:
+        raise timed_out() from error
+    if not succeeded:
+        assert isinstance(value, Exception)
+        if isinstance(value, TimeoutError):
+            raise timed_out() from value
+        raise value
+    return value
+
+
+def validate_download_url(value: object):
+    """Parse an HTTPS download URL without ever reflecting it into errors."""
+    try:
+        parsed = urlsplit(str(value))
+        _ = parsed.port
+    except (TypeError, ValueError) as error:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download URL is not allowed") from error
+    if parsed.scheme.lower() != "https":
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download URL must use HTTPS")
+    if not parsed.hostname or parsed.username is not None or parsed.password is not None or parsed.fragment:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download URL is not allowed")
+    try:
+        parsed.hostname.encode("idna").decode("ascii")
+    except UnicodeError as error:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download URL is not allowed") from error
+    return parsed
+
+
+def validate_redirect_url(current_url: str, location: str):
+    """Resolve and validate one redirect target under the same hostile-input rules."""
+    return validate_download_url(urljoin(current_url, location))
+
+
+def _bounded_resolve(
+    resolver: Callable[[], list[str]], *, deadline: float
+) -> list[str]:
+    """Bound one blocking resolver call without retaining unbounded workers."""
+    timeout = remaining_retrieval_timeout(deadline)
+    if not _DNS_WORKERS.acquire(timeout=timeout):
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination could not be resolved")
+    result: Queue[tuple[bool, object]] = Queue(maxsize=1)
+
+    def _resolve() -> None:
+        try:
+            result.put((True, resolver()))
+        except Exception as error:  # noqa: BLE001 - normalized below
+            result.put((False, error))
+        finally:
+            _DNS_WORKERS.release()
+
+    threading.Thread(target=_resolve, daemon=True).start()
+    try:
+        succeeded, value = result.get(timeout=remaining_retrieval_timeout(deadline))
+    except Empty as error:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination could not be resolved") from error
+    if not succeeded:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination could not be resolved") from value
+    return value  # type: ignore[return-value]
+
+
+def resolve_public_addresses(
+    host: str,
+    port: int,
+    *,
+    resolver: Callable[..., list[str]] | None = None,
+    deadline: float | None = None,
+) -> tuple[str, ...]:
+    """Return DNS answers only when every answer is globally routable."""
+    def resolve() -> list[str]:
+        if resolver is None:
+            return [entry[4][0] for entry in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)]
+        return resolver(host, port)
+
+    try:
+        answers = _bounded_resolve(resolve, deadline=deadline) if deadline is not None else resolve()
+    except OSError as error:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination could not be resolved") from error
+    public: list[str] = []
+    try:
+        for answer in answers:
+            address = ipaddress.ip_address(answer)
+            if not address.is_global:
+                raise SafeFetchError("SAFE_FETCH_FAILED", "download destination is not public")
+            rendered = str(address)
+            if rendered not in public:
+                public.append(rendered)
+    except (TypeError, ValueError) as error:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination is not public") from error
+    if not public:
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download destination is not public")
+    return tuple(public)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Connect to a validated address while retaining the URL hostname for TLS."""
+
+    def __init__(
+        self, address: str, port: int, *, server_hostname: str, timeout: float
+    ) -> None:
+        super().__init__(address, port=port, timeout=timeout, context=ssl.create_default_context())
+        self._server_hostname = server_hostname
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self.host, self.port), self.timeout, self.source_address)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self._server_hostname)
+
+
+def fallback_filename(sha256: str, content_type: str | None) -> str:
+    """Generate a deterministic, sanitized filename for unnamed attachments."""
+    extension = mimetypes.guess_extension((content_type or "").split(";", 1)[0].strip()) or ".bin"
+    return f"attachment-{sha256[:16]}.{extension.lstrip('.')}"
+
+
+def _file_id(file: Mapping[str, object]) -> str:
+    value = file.get("file_id")
+    if not isinstance(value, str) or not value.strip() or len(value.strip()) > _MAX_FILE_ID_CHARS:
+        raise SafeFetchError("INVALID_FILE", "file_id is required")
+    return value.strip()
+
+
+def _content_type(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise SafeFetchError("INVALID_FILE", "content type is invalid")
+    content_type = value.split(";", 1)[0].strip() or None
+    if content_type is not None and len(content_type) > _MAX_CONTENT_TYPE_CHARS:
+        raise SafeFetchError("INVALID_FILE", "content type is invalid")
+    return content_type
+
+
+def _validate_destination(scope: str, category: str) -> None:
+    """Refuse a malformed destination before a single handle is fetched.
+
+    A whole-call refusal rather than per-file rows: the destination is one
+    property of the call, not of any file in it, and a caller that mistyped it
+    has nothing to salvage from a partial batch.
+    """
+    for field, value in (("scope", scope), ("category", category)):
+        reason = destination_segment_refusal(value, field=field)
+        if reason is not None:
+            raise OpError(
+                "INVALID_PRESERVE",
+                reason,
+                "Supply the segment as one path segment and nest with `category`.",
+                details={
+                    "field": field,
+                    "reason": reason,
+                    "accepted_form": DESTINATION_ACCEPTED_FORM,
+                },
+            )
+
+
+def _yaml_page_path_safe(value: str) -> bool:
+    return not any(
+        0x7F <= ord(char) <= 0x9F or ord(char) in {0x2028, 0x2029}
+        for char in value
+    )
+
+
+def _redeem_held(
+    file: Mapping[str, object], budget: FetchBudget, *, vault_root: Path | None, lane: str | None
+) -> StagedArtifact:
+    """Claim a local client's held upload instead of fetching anything."""
+    from . import held_uploads
+
+    file_id = _file_id(file)
+    if vault_root is None:
+        raise SafeFetchError("HELD_UPLOAD_UNAVAILABLE", held_uploads.UNAVAILABLE_REASON)
+    try:
+        held = held_uploads.redeem(
+            vault_root,
+            str(file.get("download_url")),
+            lane=lane,
+            admit=budget.validate_content_length,
+        )
+    except held_uploads.HeldUploadError as error:
+        raise SafeFetchError(error.code, error.reason) from None
+    try:
+        budget.consume(held.size)
+        content_type = held.content_type or _content_type(file.get("mime_type"))
+    except BaseException:
+        held_uploads.restore(vault_root, held)
+        raise
+    filename = (
+        str(file.get("file_name") or "").strip()
+        or held.filename
+        or fallback_filename(held.sha256, content_type)
+    )
+    return StagedArtifact(
+        file_id, held.path, held.size, held.sha256, content_type, filename, held=held
+    )
+
+
+def _release_staged(
+    vault_root: Path, staged: Mapping[int, StagedArtifact], outcomes: list[dict | None]
+) -> None:
+    """Remove staged bytes, putting back each claimed hold whose file was not stored.
+
+    A hold is spent only by storing its file (or finding it already stored); a
+    per-file failure after the claim leaves the handle redeemable until expiry.
+    """
+    from . import held_uploads
+
+    for index, artifact in staged.items():
+        outcome = outcomes[index] if index < len(outcomes) else None
+        try:
+            if artifact.held is not None and (
+                outcome is None or outcome.get("outcome") != "stored"
+            ):
+                held_uploads.restore(vault_root, artifact.held)
+            else:
+                artifact.path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def stage_artifact(
+    file: Mapping[str, object],
+    budget: FetchBudget,
+    *,
+    batch_deadline: float | None = None,
+    vault_root: Path | None = None,
+    lane: str | None = None,
+    index: int = 0,
+) -> StagedArtifact:
+    """Download one handle to a private temporary file before vault mutation.
+
+    A local client's held upload (`exomem-held:`) is claimed from machine-local
+    state instead; it never reaches the network code below.
+    """
+    from .held_uploads import is_held_reference
+
+    if is_held_reference(file.get("download_url")):
+        return _redeem_held(file, budget, vault_root=vault_root, lane=lane)
+    from .cloud_cell import cloud_mode_enabled
+
+    if cloud_mode_enabled():
+        from .cloud_artifact_transport import stage_cloud_artifact
+
+        return stage_cloud_artifact(
+            file, budget, index=index, lane=lane, batch_deadline=batch_deadline
+        )
+    return stage_direct_artifact(file, budget, batch_deadline=batch_deadline)
+
+
+def stage_direct_artifact(
+    file: Mapping[str, object],
+    budget: FetchBudget,
+    *,
+    batch_deadline: float | None = None,
+    allowed_ports: frozenset[int] | None = None,
+    cancelled: threading.Event | None = None,
+) -> StagedArtifact:
+    """Canonical safe fetch, also used by the isolated artifact broker."""
+    file_id = _file_id(file)
+    current_url = str(file.get("download_url") or "")
+    redirects = 0
+    destination: Path | None = None
+    file_deadline = _monotonic() + _RETRIEVAL_DEADLINE_SECONDS
+    call_deadline = batch_deadline or float("inf")
+    # The call keeps the time its earlier files earned.
+    deadline = min(file_deadline, budget.extended(call_deadline, budget.total_bytes))
+    try:
+        while True:
+            if cancelled is not None and cancelled.is_set():
+                raise SafeFetchError("SAFE_FETCH_FAILED", "download retrieval cancelled")
+            remaining_retrieval_timeout(deadline)
+            parsed = validate_download_url(current_url)
+            host = (parsed.hostname or "").encode("idna").decode("ascii")
+            port = parsed.port or 443
+            if allowed_ports is not None and port not in allowed_ports:
+                raise SafeFetchError("SAFE_FETCH_FAILED", "download port is not allowed")
+            addresses = resolve_public_addresses(host, port, deadline=deadline)
+            remaining_retrieval_timeout(deadline)
+            target = parsed.path or "/"
+            if parsed.query:
+                target += f"?{parsed.query}"
+            response = None
+            selected_connection = None
+            last_error: Exception | None = None
+            for address in addresses:
+                connection = _PinnedHTTPSConnection(
+                    address,
+                    port,
+                    server_hostname=host,
+                    timeout=remaining_retrieval_timeout(deadline),
+                )
+                try:
+                    connection.putrequest("GET", target, skip_host=True, skip_accept_encoding=True)
+                    host_header = host if port == 443 else f"{host}:{port}"
+                    connection.putheader("Host", host_header)
+                    connection.putheader("Accept-Encoding", "identity")
+                    connection.endheaders()
+                    response = _bounded_retrieval_call(
+                        connection.getresponse,
+                        deadline=deadline,
+                        cancel=partial(_cancel_connection, connection),
+                    )
+                    selected_connection = connection
+                    remaining_retrieval_timeout(deadline)
+                    break
+                except SafeFetchError:
+                    _cancel_connection(connection)
+                    if response is not None:
+                        response.close()
+                    connection.close()
+                    raise
+                except (OSError, ssl.SSLError, http.client.HTTPException) as error:
+                    last_error = error
+                    connection.close()
+            if response is None:
+                raise SafeFetchError("SAFE_FETCH_FAILED", "download could not be retrieved") from last_error
+            status = response.status
+            if status in {301, 302, 303, 307, 308}:
+                location = response.getheader("Location")
+                response.close()
+                selected_connection.close()
+                if not location or redirects >= MAX_REDIRECTS:
+                    raise SafeFetchError("SAFE_FETCH_FAILED", "download redirected too many times")
+                parsed_next = validate_redirect_url(current_url, location)
+                current_url = parsed_next.geturl()
+                redirects += 1
+                continue
+            if not 200 <= status < 300:
+                response.close()
+                selected_connection.close()
+                raise SafeFetchError("SAFE_FETCH_FAILED", "download response was not successful")
+            content_length = response.getheader("Content-Length")
+            try:
+                response_content_type = _content_type(response.getheader("Content-Type"))
+            except SafeFetchError:
+                response.close()
+                selected_connection.close()
+                raise
+            declared_size: int | None = None
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                    budget.validate_content_length(declared_size)
+                except (ValueError, SafeFetchError) as error:
+                    response.close()
+                    selected_connection.close()
+                    if isinstance(error, SafeFetchError):
+                        raise
+                    raise SafeFetchError("SAFE_FETCH_FAILED", "download response is invalid") from error
+            fd, raw_path = tempfile.mkstemp(prefix="exomem-artifact-")
+            destination = Path(raw_path)
+            try:
+                os.chmod(destination, 0o600)
+            except OSError:
+                pass
+            digest = hashlib.sha256()
+            written = 0
+            try:
+                try:
+                    with os.fdopen(fd, "wb") as output:
+                        while True:
+                            if cancelled is not None and cancelled.is_set():
+                                raise SafeFetchError("SAFE_FETCH_FAILED", "download retrieval cancelled")
+                            if selected_connection.sock is not None:
+                                selected_connection.sock.settimeout(remaining_retrieval_timeout(deadline))
+                            block = _bounded_retrieval_call(
+                                partial(response.read, _CHUNK_SIZE),
+                                deadline=deadline,
+                                cancel=partial(_cancel_connection, selected_connection),
+                            )
+                            remaining_retrieval_timeout(deadline)
+                            if not block:
+                                break
+                            written += len(block)
+                            budget.validate_content_length(written)
+                            digest.update(block)
+                            output.write(block)
+                            deadline = min(
+                                budget.extended(file_deadline, written),
+                                budget.extended(call_deadline, budget.total_bytes + written),
+                            )
+                except SafeFetchError:
+                    _cancel_connection(selected_connection)
+                    raise
+            finally:
+                response.close()
+                selected_connection.close()
+            if declared_size is not None and written != declared_size:
+                raise SafeFetchError(
+                    "SAFE_FETCH_FAILED", "download Content-Length did not match streamed bytes"
+                )
+            budget.consume(written)
+            content_type = response_content_type or _content_type(file.get("mime_type"))
+            filename = str(file.get("file_name") or "").strip() or fallback_filename(
+                digest.hexdigest(), content_type
+            )
+            return StagedArtifact(file_id, destination, written, digest.hexdigest(), content_type, filename)
+    except (OSError, http.client.HTTPException) as error:
+        if destination is not None:
+            destination.unlink(missing_ok=True)
+        raise SafeFetchError("SAFE_FETCH_FAILED", "download could not be retrieved") from error
+    except BaseException:
+        if destination is not None:
+            destination.unlink(missing_ok=True)
+        raise
+
+
+def _failed(file_id: str, error: SafeFetchError | PreserveError) -> dict[str, str]:
+    reason = "artifact already exists" if error.code == "ARTIFACT_EXISTS" else error.reason[:300]
+    return {"file_id": file_id, "outcome": "failed", "code": error.code, "reason": reason}
+
+
+#: The three terminal states one preserved file can end in. `outcome` mirrors
+#: them for one release -- an existing client branching on `stored`/`failed`
+#: keeps working, and `already_stored` reports `outcome="stored"` beside a
+#: `duplicate_of` naming what was already there.
+_PRESERVE_STATES = ("stored", "already_stored", "failed")
+
+
+def _batch_result(rows: list[dict | None]) -> dict:
+    """One ordered outcome per input file, each with a terminal state."""
+    files: list[dict] = []
+    for row in rows:
+        if row is None:
+            continue
+        files.append(row if "state" in row else {**row, "state": row["outcome"]})
+    return {
+        "files": files,
+        "summary": {
+            state: sum(row["state"] == state for row in files) for state in _PRESERVE_STATES
+        },
+    }
+
+
+def _bounded_file_id(file: object) -> str:
+    if not isinstance(file, Mapping):
+        return ""
+    value = file.get("file_id")
+    return value[:_MAX_FILE_ID_CHARS] if isinstance(value, str) else ""
+
+
+def _validate_adoption(value: object) -> AdoptionEnvelope:
+    if not isinstance(value, Mapping) or set(value) != {"key", "trigger", "selected_file_id"}:
+        raise SafeFetchError(
+            "INVALID_ADOPTION",
+            "adoption must contain exactly key, trigger, and selected_file_id",
+        )
+    key = value.get("key")
+    trigger = value.get("trigger")
+    selected_file_id = value.get("selected_file_id")
+    if (
+        not isinstance(key, str)
+        or not key
+        or key != key.strip()
+        or len(key) > _MAX_ADOPTION_KEY_CHARS
+        or any(ord(char) < 32 for char in key)
+    ):
+        raise SafeFetchError("INVALID_ADOPTION", "adoption key is invalid")
+    try:
+        encoded_key = key.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise SafeFetchError("INVALID_ADOPTION", "adoption key is invalid") from error
+    if (
+        not isinstance(trigger, str)
+        or not trigger.strip()
+        or len(trigger.strip()) > _MAX_ADOPTION_TRIGGER_CHARS
+        or any(ord(char) < 32 for char in trigger)
+    ):
+        raise SafeFetchError("INVALID_ADOPTION", "adoption trigger is invalid")
+    try:
+        selected = _file_id({"file_id": selected_file_id})
+    except SafeFetchError as error:
+        raise SafeFetchError("INVALID_ADOPTION", "selected_file_id is invalid") from error
+    return AdoptionEnvelope(
+        key_digest=hashlib.sha256(encoded_key).hexdigest(),
+        trigger=trigger.strip(),
+        selected_file_id=selected,
+    )
+
+
+def _selected_index(files: list[Mapping[str, object]], envelope: AdoptionEnvelope) -> int:
+    selected_index: int | None = None
+    for index, file in enumerate(files):
+        if not isinstance(file, Mapping):
+            continue
+        try:
+            file_id = _file_id(file)
+        except SafeFetchError:
+            continue
+        if file_id == envelope.selected_file_id:
+            if selected_index is not None:
+                raise SafeFetchError(
+                    "INVALID_ADOPTION",
+                    "selected_file_id must match exactly one supplied handle",
+                )
+            selected_index = index
+    if selected_index is None:
+        raise SafeFetchError(
+            "INVALID_ADOPTION",
+            "selected_file_id must match exactly one supplied handle",
+        )
+    return selected_index
+
+
+def _adoption_error_result(
+    files: list[Mapping[str, object]], error: SafeFetchError | PreserveError
+) -> dict:
+    outcomes = [_failed(_bounded_file_id(file), error) for file in files[:MAX_FILES]]
+    summary = {"stored": 0, "failed": len(files)}
+    if len(files) > len(outcomes):
+        summary["omitted"] = len(files) - len(outcomes)
+    return {"files": outcomes, "summary": summary}
+
+
+def _oversized_adoption_result(
+    files: list[Mapping[str, object]],
+    envelope: AdoptionEnvelope,
+    selected_index: int,
+) -> dict:
+    represented = list(range(MAX_FILES))
+    if selected_index >= MAX_FILES:
+        represented[-1] = selected_index
+    error = SafeFetchError("TOO_MANY_FILES", "too many files in one request")
+    outcomes = [
+        _failed(envelope.selected_file_id, error)
+        if index == selected_index
+        else {"file_id": _bounded_file_id(files[index]), "outcome": "unselected"}
+        for index in represented
+    ]
+    return {
+        "files": outcomes,
+        "summary": {
+            "stored": 0,
+            "replayed": 0,
+            "failed": 1,
+            "unselected": len(files) - 1,
+            "omitted": len(files) - len(outcomes),
+        },
+    }
+
+
+def _adoption_outcomes(
+    files: list[Mapping[str, object]], selected_index: int
+) -> list[dict[str, object] | None]:
+    return [
+        None
+        if index == selected_index
+        else {"file_id": _bounded_file_id(file), "outcome": "unselected"}
+        for index, file in enumerate(files)
+    ]
+
+
+def _finish_adoption(outcomes: list[dict[str, object] | None]) -> dict:
+    final = [outcome for outcome in outcomes if outcome is not None]
+    return {
+        "files": final,
+        "summary": {
+            "stored": sum(item.get("outcome") == "stored" for item in final),
+            "replayed": sum(item.get("outcome") == "replayed" for item in final),
+            "failed": sum(item.get("outcome") == "failed" for item in final),
+            "unselected": sum(item.get("outcome") == "unselected" for item in final),
+        },
+    }
+
+
+def _media_commit_guard(manager, vault_root: Path):  # noqa: ANN001, ANN202
+    """The per-file media boundary, as a guard `reconcile_media` opens itself.
+
+    Built the way `commands._process_media` builds its own, and for the same
+    reason: handing the guard to `reconcile_media` instead of wrapping the call
+    in it narrows the held boundary to the sidecar write, so the index and
+    graph fan-out the sidecar triggers no longer runs inside the critical
+    section of a batch whose receipt the client is still waiting for.
+    """
+
+    def guard():  # noqa: ANN202
+        return manager.mutation_guard(
+            vault_root,
+            request_id=active_mutation_request_id(),
+            operation="preserve_artifacts_media",
+            holder_kind="command",
+        )
+
+    return guard
+
+
+def _destination(vault_root: Path, *parts: str) -> str:
+    from .vault import respell_new_path
+
+    # The spelling the capture lands under, so a receipt names the folder written.
+    return respell_new_path(
+        vault_root, kb_root(vault_root).joinpath(*parts).relative_to(vault_root).as_posix()
+    )
+
+
+def _source_destination(
+    vault_root: Path, source_fields: Mapping[str, object]
+) -> str:
+    from . import source_taxonomy, vocabulary_resolution
+
+    try:
+        # `capture_source` resolved the kind before staging; there is no fallback.
+        raw_kind = source_fields.get("source_type")
+        raw_domain = source_fields.get("domain")
+        if not isinstance(raw_kind, str) or (
+            raw_domain is not None and not isinstance(raw_domain, str)
+        ):
+            raise source_taxonomy.TaxonomyError("source classification is invalid")
+        if raw_domain is not None:
+            # The same binding `add` commits under, so the pre-fetch destination
+            # and the committed one cannot differ in spelling.
+            binding = vocabulary_resolution.resolve_source_domain(
+                vault_root, kind=raw_kind, domain=raw_domain
+            )
+            return _destination(vault_root, *binding.segments)
+        taxonomy = source_taxonomy.load_taxonomy(vault_root)
+        kind = taxonomy.resolve_kind(raw_kind)
+    except source_taxonomy.TaxonomyError as error:
+        raise SafeFetchError("INVALID_SOURCE", str(error)) from error
+    except vocabulary_resolution.VocabularyResolutionError as error:
+        raise SafeFetchError(
+            error.code, vocabulary_resolution.capture_refusal_reason(vault_root, error)
+        ) from error
+    return _destination(vault_root, *source_taxonomy.source_segments(kind))
+
+
+def _receipt_error(code: str, reason: str) -> SafeFetchError:
+    return SafeFetchError(code, reason)
+
+
+def _portable_logical_path(value: object) -> PurePosixPath | None:
+    if not isinstance(value, str) or not value or "\\" in value or "\0" in value:
+        return None
+    if re.match(r"^[A-Za-z]:", value):
+        return None
+    parts = tuple(value.split("/"))
+    logical = PurePosixPath(value)
+    if logical.is_absolute() or any(part in {"", ".", ".."} for part in parts):
+        return None
+    return logical
+
+
+def _canonical_page_lane(vault_root: Path, page_path: Path) -> str | None:
+    roots = {
+        "source": kb_root(vault_root) / "Sources",
+        "evidence": kb_root(vault_root) / "Evidence",
+    }
+    for lane, root in roots.items():
+        try:
+            page_path.relative_to(root)
+        except ValueError:
+            continue
+        return lane
+    return None
+
+
+def _expected_companion_paths(stored: PurePosixPath, *, lane: str) -> tuple[PurePosixPath, ...]:
+    from .governance import raw_protection
+    from .preserve import _sidecar_paths
+
+    return tuple(PurePosixPath(path.as_posix()) for path in _sidecar_paths(
+        Path(stored), protected=raw_protection.marked(stored.as_posix()), source=lane == "source"
+    ))
+
+
+def _validate_receipt(
+    value: object,
+    *,
+    page_path: Path,
+    vault_root: Path,
+) -> dict[str, object]:
+    if not isinstance(value, Mapping) or not set(_ADOPTION_RECEIPT_FIELDS).issubset(value):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt is incomplete")
+    receipt = {field: value[field] for field in _ADOPTION_RECEIPT_FIELDS}
+    if (
+        type(receipt["version"]) is not int
+        or receipt["version"] != _ADOPTION_RECEIPT_VERSION
+        or receipt["committed"] is not True
+    ):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt is invalid")
+    for field in (
+        "key_digest",
+        "trigger",
+        "selected_file_id",
+        "lane",
+        "destination",
+        "stored_path",
+        "page_path",
+        "hash_algorithm",
+        "hash",
+        "media_id",
+    ):
+        if not isinstance(receipt[field], str) or not str(receipt[field]).strip():
+            raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt is invalid")
+    if receipt["content_type"] is not None and not isinstance(receipt["content_type"], str):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt is invalid")
+    if (
+        type(receipt["size"]) is not int
+        or receipt["size"] < 0
+        or receipt["size"] > MAX_FILE_BYTES
+        or re.fullmatch(r"[0-9a-f]{64}", str(receipt["key_digest"])) is None
+        or re.fullmatch(r"[0-9a-f]{64}", str(receipt["hash"])) is None
+        or receipt["hash_algorithm"] != "sha256"
+        or receipt["media_id"] != f"sha256:{receipt['hash']}"
+    ):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt is invalid")
+    actual_lane = _canonical_page_lane(vault_root, page_path)
+    if actual_lane is None or receipt["lane"] != actual_lane:
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt lane is inconsistent")
+    actual_page = page_path.relative_to(vault_root).as_posix()
+    if receipt["page_path"] != actual_page:
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt page is inconsistent")
+    stored = _portable_logical_path(receipt["stored_path"])
+    page = _portable_logical_path(receipt["page_path"])
+    destination = _portable_logical_path(receipt["destination"])
+    if stored is None or page is None or destination is None:
+        raise _receipt_error("ADOPTION_KEY_REUSED", "stored adoption receipt path is invalid")
+    lane_root = _portable_logical_path(
+        _destination(vault_root, "Sources" if actual_lane == "source" else "Evidence")
+    )
+    assert lane_root is not None
+    destination_depth = len(destination.parts) - len(lane_root.parts)
+    valid_depth = (
+        1 <= destination_depth <= 2
+        if actual_lane == "source"
+        else destination_depth == 2
+    )
+    if (
+        destination.parts[: len(lane_root.parts)] != lane_root.parts
+        or not valid_depth
+        or stored.parent != destination
+        or page.parent != destination
+        or page not in _expected_companion_paths(stored, lane=actual_lane)
+    ):
+        raise _receipt_error(
+            "ADOPTION_KEY_REUSED", "stored adoption receipt companion pairing is inconsistent"
+        )
+    return receipt
+
+
+def _verify_canonical_artifact(
+    vault_root: Path, receipt: Mapping[str, object]
+) -> None:
+    try:
+        content, _guard = read_bounded_guarded_bytes(
+            vault_root,
+            str(receipt["stored_path"]),
+            limit=int(receipt["size"]),
+            expected_hash=str(receipt["hash"]),
+        )
+    except (FileNotFoundError, OSError, PathGuardError, ValueError) as error:
+        raise _receipt_error(
+            "ADOPTION_REPLAY_UNVERIFIABLE",
+            "stored adoption artifact could not be reverified",
+        ) from error
+    if len(content) != receipt["size"]:
+        raise _receipt_error(
+            "ADOPTION_REPLAY_UNVERIFIABLE",
+            "stored adoption artifact could not be reverified",
+        )
+
+
+def _find_adoption_receipt(
+    vault_root: Path, key_digest: str
+) -> AdoptionReceiptSnapshot | None:
+    """Locate portable receipt truth from canonical vault-owned pages."""
+    matches: list[AdoptionReceiptSnapshot] = []
+    for page in walk_vault_md(vault_root):
+        if _canonical_page_lane(vault_root, page) is None:
+            continue
+        try:
+            source, page_guard = read_guarded_text(vault_root, page)
+        except (FileNotFoundError, OSError, PathGuardError, UnicodeDecodeError):
+            continue
+        _loose, _body, raw_frontmatter = parse_frontmatter(source)
+        if (
+            raw_frontmatter is None
+            or f"{_ADOPTION_RECEIPT_FIELD}:" not in raw_frontmatter
+            or key_digest not in raw_frontmatter
+        ):
+            continue
+        try:
+            frontmatter, _body, marker = parse_frontmatter(source, strict=True)
+        except FrontmatterError as error:
+            raise _receipt_error(
+                "ADOPTION_KEY_REUSED", "stored adoption receipt cannot be parsed"
+            ) from error
+        if marker is None:
+            continue
+        value = frontmatter.get(_ADOPTION_RECEIPT_FIELD)
+        if not isinstance(value, Mapping) or value.get("key_digest") != key_digest:
+            continue
+        receipt = _validate_receipt(value, page_path=page, vault_root=vault_root)
+        matches.append(AdoptionReceiptSnapshot(receipt, page_guard))
+    if len(matches) > 1:
+        raise _receipt_error("ADOPTION_KEY_REUSED", "adoption key has multiple stored receipts")
+    return matches[0] if matches else None
+
+
+def _existing_receipt(
+    vault_root: Path,
+    envelope: AdoptionEnvelope,
+    *,
+    lane: str,
+    destination: str,
+    raw_protection: bool = False,
+) -> AdoptionReceiptSnapshot | None:
+    snapshot = _find_adoption_receipt(vault_root, envelope.key_digest)
+    if snapshot is None:
+        return None
+    receipt = snapshot.receipt
+    from .governance.raw_protection import marked
+
+    validate_raw_capture(destination=str(receipt["stored_path"]), raw_protection=raw_protection)
+    if marked(str(receipt["stored_path"])) != raw_protection:
+        raise _receipt_error("ADOPTION_KEY_REUSED", "adoption key was reused with different raw protection")
+    expected = {
+        "trigger": envelope.trigger,
+        "selected_file_id": envelope.selected_file_id,
+        "lane": lane,
+        "destination": destination,
+    }
+    if any(receipt[field] != value for field, value in expected.items()):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "adoption key was reused for another identity")
+    _verify_canonical_artifact(vault_root, receipt)
+    return snapshot
+
+
+def _effective_content_type(artifact: StagedArtifact, *, lane: str) -> str | None:
+    if artifact.content_type is not None or lane == "source":
+        return artifact.content_type
+    return mimetypes.guess_type(artifact.filename)[0]
+
+
+def _validate_staged_adoption(
+    artifact: StagedArtifact, envelope: AdoptionEnvelope
+) -> None:
+    if (
+        artifact.file_id != envelope.selected_file_id
+        or not artifact.filename.strip()
+        or type(artifact.size) is not int
+        or artifact.size < 0
+        or re.fullmatch(r"[0-9a-f]{64}", artifact.sha256) is None
+        or artifact.content_type is not None
+        and (not artifact.content_type or len(artifact.content_type) > _MAX_CONTENT_TYPE_CHARS)
+    ):
+        raise SafeFetchError("INVALID_FILE", "staged file metadata is invalid")
+
+
+def _assert_replay_identity(
+    vault_root: Path,
+    snapshot: AdoptionReceiptSnapshot,
+    artifact: StagedArtifact,
+    *,
+    lane: str,
+) -> None:
+    receipt = snapshot.receipt
+    identity = {
+        "hash_algorithm": "sha256",
+        "hash": artifact.sha256,
+        "size": artifact.size,
+        "content_type": _effective_content_type(artifact, lane=lane),
+        "media_id": f"sha256:{artifact.sha256}",
+    }
+    if any(receipt[field] != value for field, value in identity.items()):
+        raise _receipt_error("ADOPTION_KEY_REUSED", "adoption key was reused for different bytes")
+    _verify_canonical_artifact(vault_root, receipt)
+    try:
+        snapshot.page_guard.recheck(vault_root)
+    except PathGuardError as error:
+        raise _receipt_error(
+            "ADOPTION_REPLAY_UNVERIFIABLE",
+            "stored adoption receipt changed during replay",
+        ) from error
+
+
+def _replayed_outcome(receipt: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "file_id": receipt["selected_file_id"],
+        "outcome": "replayed",
+        "stored_path": receipt["stored_path"],
+        "path": receipt["stored_path"],
+        "page": receipt["page_path"],
+        "size": receipt["size"],
+        "hash": receipt["hash"],
+        "hash_algorithm": receipt["hash_algorithm"],
+        "media_id": receipt["media_id"],
+        "content_type": receipt["content_type"],
+        "warnings": [],
+        "adoption": dict(receipt),
+    }
+
+
+def _stored_outcome(
+    artifact: StagedArtifact,
+    payload: Mapping[str, object],
+    *,
+    source: bool,
+) -> dict[str, object]:
+    receipt = payload.get("adoption")
+    if not isinstance(receipt, Mapping):
+        raise RuntimeError("canonical artifact writer omitted its adoption receipt")
+    outcome: dict[str, object] = {
+        "file_id": artifact.file_id,
+        "outcome": "stored",
+        "stored_path": receipt["stored_path"],
+        "size": receipt["size"],
+        "hash": receipt["hash"],
+        "hash_algorithm": receipt["hash_algorithm"],
+        "media_id": receipt["media_id"],
+        "content_type": receipt["content_type"],
+        "warnings": list(payload.get("warnings") or []),
+        "adoption": dict(receipt),
+    }
+    if source:
+        outcome.update(
+            {
+                "path": receipt["stored_path"],
+                "page": receipt["page_path"],
+                "ref": payload.get("ref"),
+            }
+        )
+    return outcome
+
+
+def _adoption_inputs(
+    files: list[Mapping[str, object]], adoption: object
+) -> tuple[AdoptionEnvelope, int] | dict:
+    if not isinstance(files, list) or not files:
+        error = SafeFetchError("INVALID_ADOPTION", "adoption requires supplied file handles")
+        return _adoption_error_result(files if isinstance(files, list) else [], error)
+    try:
+        envelope = _validate_adoption(adoption)
+        selected_index = _selected_index(files, envelope)
+    except SafeFetchError as error:
+        return _adoption_error_result(files, error)
+    if len(files) > MAX_FILES:
+        return _oversized_adoption_result(files, envelope, selected_index)
+    return envelope, selected_index
+
+
+def _capture_source_adoption(
+    vault_root: Path,
+    *,
+    source_schema: object,
+    title: str,
+    files: list[Mapping[str, object]],
+    adoption: object,
+    source_fields: Mapping[str, object],
+) -> dict:
+    from . import add as add_module
+
+    prepared = _adoption_inputs(files, adoption)
+    if isinstance(prepared, dict):
+        return prepared
+    envelope, selected_index = prepared
+    outcomes = _adoption_outcomes(files, selected_index)
+    try:
+        destination = _source_destination(vault_root, source_fields)
+    except SafeFetchError as error:
+        outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+        return _finish_adoption(outcomes)
+    selected = files[selected_index]
+    try:
+        validate_raw_capture(destination=destination, raw_protection=bool(source_fields.get("raw_protection")))
+        receipt = _existing_receipt(
+            vault_root, envelope, lane="source", destination=destination,
+            raw_protection=bool(source_fields.get("raw_protection")),
+        )
+    except (PreserveError, SafeFetchError) as error:
+        outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+        return _finish_adoption(outcomes)
+
+    artifact: StagedArtifact | None = None
+    try:
+        try:
+            if not isinstance(selected.get("download_url"), str) or not selected[
+                "download_url"
+            ].strip():
+                raise SafeFetchError("INVALID_FILE", "download_url is required")
+            _content_type(selected.get("mime_type"))
+            artifact = stage_artifact(
+                selected,
+                adoption_budget(),
+                batch_deadline=_monotonic() + _BATCH_DEADLINE_SECONDS,
+                lane="source",
+                index=selected_index,
+            )
+            _validate_staged_adoption(artifact, envelope)
+            from .source_capture import verify_sha256
+
+            verify_sha256(source_fields.get("expected_sha256"), artifact.sha256)
+        except SafeFetchError as fetch_error:
+            error = fetch_error
+            if receipt is not None:
+                error = SafeFetchError(
+                    "ADOPTION_REPLAY_UNVERIFIABLE",
+                    "previous adoption bytes could not be reverified",
+                )
+            outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+            return _finish_adoption(outcomes)
+
+        if receipt is not None:
+            try:
+                _assert_replay_identity(vault_root, receipt, artifact, lane="source")
+            except SafeFetchError as error:
+                outcomes[selected_index] = _failed(artifact.file_id, error)
+                return _finish_adoption(outcomes)
+            outcomes[selected_index] = _replayed_outcome(receipt.receipt)
+            return _finish_adoption(outcomes)
+
+        manager = active_manager()
+        payload: dict | None = None
+        try:
+            with manager.mutation_guard(
+                vault_root,
+                request_id=active_mutation_request_id(),
+                operation="capture_source_artifacts_commit",
+                holder_kind="command",
+            ):
+                raced = _existing_receipt(
+                    vault_root, envelope, lane="source", destination=destination,
+                    raw_protection=bool(source_fields.get("raw_protection")),
+                )
+                if raced is not None:
+                    _assert_replay_identity(vault_root, raced, artifact, lane="source")
+                    payload = None
+                else:
+                    result = add_module.add(
+                        vault_root,
+                        source_schema,
+                        content="",
+                        title=title,
+                        artifact=add_module.SourceArtifact(
+                            staged_path=artifact.path,
+                            filename=artifact.filename,
+                            content_type=artifact.content_type,
+                        ),
+                        adoption_seed=envelope.seed(
+                            lane="source", destination=destination
+                        ),
+                        **source_fields,
+                    )
+                    payload = result.as_dict()
+            if raced is not None:
+                outcomes[selected_index] = _replayed_outcome(raced.receipt)
+            else:
+                mark_active_mutation_committed()
+                outcomes[selected_index] = _stored_outcome(
+                    artifact, payload, source=True
+                )
+        except (SafeFetchError, PreserveError) as error:
+            outcomes[selected_index] = _failed(artifact.file_id, error)
+        except add_module.AddError as error:
+            outcomes[selected_index] = _failed(
+                artifact.file_id, SafeFetchError(error.code, error.reason)
+            )
+        finished = _finish_adoption(outcomes)
+        if isinstance(payload, dict) and "vocabulary_resolution" in payload:
+            finished["vocabulary_resolution"] = payload["vocabulary_resolution"]
+        return finished
+    finally:
+        if artifact is not None:
+            try:
+                artifact.path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def _preserve_evidence_adoption(
+    vault_root: Path,
+    *,
+    scope: str,
+    category: str,
+    files: list[Mapping[str, object]],
+    adoption: object,
+    raw_protection: bool = False,
+) -> dict:
+    prepared = _adoption_inputs(files, adoption)
+    if isinstance(prepared, dict):
+        return prepared
+    envelope, selected_index = prepared
+    outcomes = _adoption_outcomes(files, selected_index)
+    # `_validate_destination` refuses the whole call; only the YAML-safety check
+    # below is a per-file outcome, because it guards how the page renders rather
+    # than where the artifact lands.
+    _validate_destination(scope, category)
+    try:
+        if not all(_yaml_page_path_safe(value) for value in (scope, category)):
+            raise SafeFetchError(
+                "INVALID_PRESERVE", "adoption destination contains unsafe characters"
+            )
+    except SafeFetchError as error:
+        outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+        return _finish_adoption(outcomes)
+    destination = _destination(vault_root, "Evidence", scope, category)
+    selected = files[selected_index]
+    try:
+        validate_raw_capture(destination=destination, raw_protection=raw_protection)
+        receipt = _existing_receipt(
+            vault_root, envelope, lane="evidence", destination=destination, raw_protection=raw_protection,
+        )
+    except (PreserveError, SafeFetchError) as error:
+        outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+        return _finish_adoption(outcomes)
+
+    artifact: StagedArtifact | None = None
+    try:
+        try:
+            if not isinstance(selected.get("download_url"), str) or not selected[
+                "download_url"
+            ].strip():
+                raise SafeFetchError("INVALID_FILE", "download_url is required")
+            _content_type(selected.get("mime_type"))
+            budget = adoption_budget()
+            artifact = stage_artifact(
+                selected,
+                budget,
+                batch_deadline=_monotonic() + _BATCH_DEADLINE_SECONDS,
+                lane="evidence",
+                index=selected_index,
+            )
+            _validate_staged_adoption(artifact, envelope)
+        except SafeFetchError as fetch_error:
+            error = fetch_error
+            if receipt is not None:
+                error = SafeFetchError(
+                    "ADOPTION_REPLAY_UNVERIFIABLE",
+                    "previous adoption bytes could not be reverified",
+                )
+            outcomes[selected_index] = _failed(envelope.selected_file_id, error)
+            return _finish_adoption(outcomes)
+
+        try:
+            validate_raw_capture(artifact.filename, destination=destination, raw_protection=raw_protection)
+        except PreserveError as error:
+            outcomes[selected_index] = _failed(artifact.file_id, error)
+            return _finish_adoption(outcomes)
+
+        if receipt is not None:
+            try:
+                _assert_replay_identity(vault_root, receipt, artifact, lane="evidence")
+            except SafeFetchError as error:
+                outcomes[selected_index] = _failed(artifact.file_id, error)
+                return _finish_adoption(outcomes)
+            outcomes[selected_index] = _replayed_outcome(receipt.receipt)
+            return _finish_adoption(outcomes)
+
+        manager = active_manager()
+        try:
+            with manager.mutation_guard(
+                vault_root,
+                request_id=active_mutation_request_id(),
+                operation="preserve_artifacts_commit",
+                holder_kind="command",
+            ):
+                raced = _existing_receipt(
+                    vault_root, envelope, lane="evidence", destination=destination, raw_protection=raw_protection,
+                )
+                if raced is not None:
+                    _assert_replay_identity(vault_root, raced, artifact, lane="evidence")
+                    payload = None
+                else:
+                    with artifact.path.open("rb") as stream:
+                        result = preserve_stream(
+                            vault_root,
+                            scope=scope,
+                            category=category,
+                            filename=artifact.filename,
+                            stream=stream,
+                            content_type=artifact.content_type,
+                            max_bytes=budget.max_file_bytes,
+                            adoption_seed=envelope.seed(
+                                lane="evidence", destination=destination
+                            ),
+                            raw_protection=raw_protection,
+                        )
+                    payload = result.as_dict()
+            if raced is not None:
+                outcomes[selected_index] = _replayed_outcome(raced.receipt)
+                return _finish_adoption(outcomes)
+
+            mark_active_mutation_committed()
+            warnings = list(payload.get("warnings") or [])
+            receipt_payload = payload.get("adoption")
+            if not isinstance(receipt_payload, Mapping):
+                raise RuntimeError("canonical artifact writer omitted its adoption receipt")
+            try:
+                from . import media_processing
+
+                if media_processing.classify_media(
+                    vault_root / str(receipt_payload["stored_path"])
+                ) is not None:
+                    media_processing.reconcile_media(
+                        vault_root,
+                        vault_root / str(receipt_payload["stored_path"]),
+                        explicit=False,
+                        commit_guard=_media_commit_guard(manager, vault_root),
+                        defer_fanout_to_terminal=True,
+                    )
+            except Exception:  # noqa: BLE001 - committed custody remains authoritative
+                warnings.append("media reconciliation failed; evidence remains recoverable")
+            payload = dict(payload)
+            payload["warnings"] = warnings
+            outcomes[selected_index] = _stored_outcome(
+                artifact, payload, source=False
+            )
+        except (PreserveError, SafeFetchError) as error:
+            outcomes[selected_index] = _failed(artifact.file_id, error)
+        return _finish_adoption(outcomes)
+    finally:
+        if artifact is not None:
+            try:
+                artifact.path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def capture_source_artifacts(
+    vault_root: Path,
+    *,
+    source_schema: object,
+    title: str,
+    files: list[Mapping[str, object]],
+    adoption: Mapping[str, object] | None = None,
+    **source_fields: object,
+) -> dict:
+    """Stage remote files first, then capture each as a Source under a guard.
+
+    The Evidence twin of this function is `preserve_artifacts`. They share
+    staging deliberately — one implementation of hostile-URL handling, redirect
+    and byte bounds, and per-file outcomes — and differ only in where the bytes
+    are committed and what describes them. The lane is the command's, never the
+    transport's: nothing here reads a MIME type or an extension to decide it.
+    """
+    from . import add as add_module
+
+    if adoption is not None:
+        return _capture_source_adoption(
+            vault_root,
+            source_schema=source_schema,
+            title=title,
+            files=files,
+            adoption=adoption,
+            source_fields=source_fields,
+        )
+
+    if not isinstance(files, list) or not files:
+        return {"files": [], "summary": {"stored": 0, "failed": 0}}
+    if len(files) > MAX_FILES:
+        error = SafeFetchError("TOO_MANY_FILES", "too many files in one request")
+        return {
+            "files": [
+                _failed(str(file.get("file_id") or "") if isinstance(file, Mapping) else "", error)
+                for file in files
+            ],
+            "summary": {"stored": 0, "failed": len(files)},
+        }
+
+    budget = fetch_budget()
+    batch_deadline = _monotonic() + _BATCH_DEADLINE_SECONDS
+    staged: dict[int, StagedArtifact] = {}
+    outcomes: list[dict | None] = [None] * len(files)
+    resolution: dict | None = None
+    for index, file in enumerate(files):
+        if not isinstance(file, Mapping):
+            outcomes[index] = _failed("", SafeFetchError("INVALID_FILE", "file handle is invalid"))
+            continue
+        try:
+            _file_id(file)
+            if not isinstance(file.get("download_url"), str) or not file["download_url"].strip():
+                raise SafeFetchError("INVALID_FILE", "download_url is required")
+            _content_type(file.get("mime_type"))
+            staged[index] = stage_artifact(
+                file, budget, batch_deadline=batch_deadline, vault_root=vault_root, lane="source", index=index
+            )
+        except SafeFetchError as error:
+            file_id = str(file.get("file_id") or "") if isinstance(file, Mapping) else ""
+            outcomes[index] = _failed(file_id, error)
+
+    manager = active_manager()
+    try:
+        for index, artifact in staged.items():
+            try:
+                if (
+                    not artifact.file_id
+                    or len(artifact.file_id) > _MAX_FILE_ID_CHARS
+                    or artifact.content_type is not None
+                    and len(artifact.content_type) > _MAX_CONTENT_TYPE_CHARS
+                ):
+                    raise SafeFetchError("INVALID_FILE", "staged file metadata is invalid")
+                # One title per artifact, because each becomes its own source
+                # page. A batch would otherwise land several pages under one
+                # name and rely on uniquify to tell them apart.
+                item_title = title if len(staged) == 1 else f"{title} — {artifact.filename}"
+                with manager.mutation_guard(
+                    vault_root,
+                    request_id=active_mutation_request_id(),
+                    operation="capture_source_artifacts_commit",
+                    holder_kind="command",
+                ):
+                    result = add_module.add(
+                        vault_root,
+                        source_schema,
+                        content="",
+                        title=item_title,
+                        artifact=add_module.SourceArtifact(
+                            staged_path=artifact.path,
+                            filename=artifact.filename,
+                            content_type=artifact.content_type,
+                        ),
+                        **source_fields,
+                    )
+                mark_active_mutation_committed()
+                payload = result.as_dict()
+                # Every file shares one domain request; the first commit's
+                # record is the one that chose the destination.
+                resolution = resolution or payload.get("vocabulary_resolution")
+                # `stored_path` and `media_id` are required by the bounded
+                # artifact-receipt projection a compact terminal applies; a row
+                # missing either is replaced wholesale with
+                # INVALID_ARTIFACT_RECEIPT. That projection also drops any key
+                # outside its allowlist, so `page` and `ref` survive only in a
+                # full terminal — which costs nothing, because citation resolves
+                # from the artifact path and the page is `<stored_path>.md`.
+                stored_path = payload.get("artifact_path")
+                outcomes[index] = {
+                    "file_id": artifact.file_id,
+                    "outcome": "stored",
+                    "stored_path": stored_path,
+                    "path": stored_path,
+                    "page": payload["path"],
+                    "ref": payload["ref"],
+                    "size": payload.get("size"),
+                    "hash": payload.get("hash"),
+                    "hash_algorithm": payload.get("hash_algorithm"),
+                    "media_id": None,
+                    "content_type": artifact.content_type,
+                    "warnings": list(payload.get("warnings") or []),
+                }
+            except (SafeFetchError, PreserveError) as error:
+                outcomes[index] = _failed(artifact.file_id, error)
+            except add_module.AddError as error:
+                outcomes[index] = _failed(
+                    artifact.file_id, SafeFetchError(error.code, error.reason)
+                )
+    finally:
+        _release_staged(vault_root, staged, outcomes)
+
+    resolved = [outcome for outcome in outcomes if outcome is not None]
+    stored = sum(1 for outcome in resolved if outcome.get("outcome") == "stored")
+    out: dict = {
+        "files": resolved,
+        "summary": {"stored": stored, "failed": len(resolved) - stored},
+    }
+    if resolution is not None:
+        out["vocabulary_resolution"] = resolution
+    return out
+
+
+def preserve_artifacts(
+    vault_root: Path,
+    *,
+    scope: str,
+    category: str,
+    files: list[Mapping[str, object]],
+    adoption: Mapping[str, object] | None = None,
+    transcriptions: list[Mapping[str, object]] | tuple = (),
+    raw_protection: bool = False,
+) -> dict:
+    """Stage remote files first, then preserve each append-only artifact under a narrow guard.
+
+    A transcription is written only with its original: as the extracted text
+    of the original's own page, in the same write that stores the bytes. An
+    original that is already stored or that fails records no transcription.
+    """
+    if adoption is not None:
+        if transcriptions:
+            _refuse_transcriptions("transcriptions are not accepted with an adoption")
+        return _preserve_evidence_adoption(
+            vault_root,
+            scope=scope,
+            category=category,
+            files=files,
+            adoption=adoption,
+            raw_protection=raw_protection,
+        )
+    # Before the empty-batch shortcut: a malformed destination is a property of
+    # the call, so `files=[]` with `scope="a/b"` must refuse rather than report
+    # a successful batch of nothing.
+    _validate_destination(scope, category)
+    transcribed = _transcriptions_by_file(transcriptions, files)
+    if not isinstance(files, list) or not files:
+        return _batch_result([])
+    if len(files) > MAX_FILES:
+        error = SafeFetchError("TOO_MANY_FILES", "too many files in one request")
+        return _batch_result(
+            [
+                _failed(str(file.get("file_id") or "") if isinstance(file, Mapping) else "", error)
+                for file in files
+            ]
+        )
+    budget = fetch_budget()
+    batch_deadline = _monotonic() + _BATCH_DEADLINE_SECONDS
+    staged: dict[int, StagedArtifact] = {}
+    outcomes: list[dict | None] = [None] * len(files)
+    for index, file in enumerate(files):
+        if not isinstance(file, Mapping):
+            outcomes[index] = _failed("", SafeFetchError("INVALID_FILE", "file handle is invalid"))
+            continue
+        try:
+            _file_id(file)
+            if not isinstance(file.get("download_url"), str) or not file["download_url"].strip():
+                raise SafeFetchError("INVALID_FILE", "download_url is required")
+            _content_type(file.get("mime_type"))
+            staged[index] = stage_artifact(
+                file, budget, batch_deadline=batch_deadline, vault_root=vault_root, lane="evidence", index=index
+            )
+        except SafeFetchError as error:
+            file_id = str(file.get("file_id") or "") if isinstance(file, Mapping) else ""
+            outcomes[index] = _failed(file_id, error)
+
+    manager = active_manager()
+    # One pass over the destination's sidecars for the whole batch. Every file
+    # this call stores is added to it below, so a later file in the same batch
+    # still sees an earlier one's bytes.
+    duplicates = destination_duplicate_index(
+        vault_root, scope=scope, category=category, raw_protection=raw_protection,
+        wanted_hashes=frozenset(artifact.sha256 for artifact in staged.values()),
+    )
+    try:
+        for index, artifact in staged.items():
+            try:
+                if (
+                    not artifact.file_id
+                    or len(artifact.file_id) > _MAX_FILE_ID_CHARS
+                    or artifact.content_type is not None
+                    and len(artifact.content_type) > _MAX_CONTENT_TYPE_CHARS
+                ):
+                    raise SafeFetchError("INVALID_FILE", "staged file metadata is invalid")
+                # After staging, before the commit boundary: a retry under a new
+                # identity must report what is already there rather than write a
+                # second copy of one fact into an append-only tree. Nothing is
+                # written and the audit chain does not advance for this file --
+                # but the call has a terminal answer about canonical state, so
+                # it is marked committed and gets the same terminal envelope a
+                # stored file gets. Without that an all-duplicate batch, which
+                # is what retrying under a new identity produces, would come
+                # back as a bare leaf dict with no request or receipt identity.
+                protected = validate_raw_capture(
+                    artifact.filename, destination=_destination(vault_root, "Evidence", scope, category),
+                    raw_protection=raw_protection,
+                )
+                duplicate = duplicates.get(artifact.sha256) if protected == raw_protection else None
+                if duplicate is not None:
+                    mark_active_mutation_committed()
+                    outcomes[index] = {
+                        "file_id": artifact.file_id,
+                        "outcome": "stored",
+                        "state": "already_stored",
+                        "duplicate_of": {"path": duplicate.path, "ref": duplicate.ref},
+                        "stored_path": duplicate.path,
+                        "path": duplicate.path,
+                        "ref": duplicate.ref,
+                        "size": artifact.size,
+                        "hash": artifact.sha256,
+                        "hash_algorithm": "sha256",
+                        "media_id": f"sha256:{artifact.sha256}",
+                        "content_type": artifact.content_type,
+                        "warnings": [],
+                    }
+                    if index in transcribed:
+                        outcomes[index]["transcription"] = {
+                            "state": "not_recorded",
+                            "reason": "the original was already preserved; its page is unchanged",
+                        }
+                    continue
+                transcription = transcribed.get(index)
+                with manager.mutation_guard(
+                    vault_root,
+                    request_id=active_mutation_request_id(),
+                    operation="preserve_artifacts_commit",
+                    holder_kind="command",
+                ):
+                    with artifact.path.open("rb") as stream:
+                        result = preserve_stream(
+                            vault_root,
+                            scope=scope,
+                            category=category,
+                            filename=artifact.filename,
+                            stream=stream,
+                            content_type=artifact.content_type,
+                            max_bytes=budget.max_file_bytes,
+                            raw_protection=raw_protection,
+                            **(
+                                {"text": transcription, "text_origin": "client"}
+                                if transcription
+                                else {}
+                            ),
+                        )
+                mark_active_mutation_committed()
+                payload = result.as_dict()
+                warnings = list(payload.get("warnings") or [])
+                try:
+                    from . import media_processing
+
+                    if media_processing.classify_media(vault_root / payload["path"]) is not None:
+                        media_processing.reconcile_media(
+                            vault_root,
+                            vault_root / payload["path"],
+                            explicit=False,
+                            commit_guard=_media_commit_guard(manager, vault_root),
+                            defer_fanout_to_terminal=True,
+                        )
+                except Exception:  # noqa: BLE001 - the original bytes are durable and recoverable
+                    warnings.append("media reconciliation failed; evidence remains recoverable")
+                stored_path = payload.get("stored_path") or payload.get("path")
+                stored_hash = payload.get("hash")
+                stored_ref = payload.get("ref")
+                if (
+                    isinstance(stored_hash, str)
+                    and isinstance(stored_path, str)
+                    and isinstance(stored_ref, str)
+                    and stored_ref
+                ):
+                    # Visible to the rest of this batch: two identical files in
+                    # one call are one fact, and the second must report the copy
+                    # the first just wrote.
+                    duplicates.setdefault(
+                        stored_hash,
+                        DuplicateArtifact(
+                            hash=stored_hash,
+                            path=stored_path,
+                            sidecar_path=str(payload.get("sidecar_path") or ""),
+                            ref=stored_ref,
+                        ),
+                    )
+                outcomes[index] = {
+                    "file_id": artifact.file_id,
+                    "outcome": "stored",
+                    "state": "stored",
+                    "stored_path": stored_path,
+                    "path": stored_path,
+                    "ref": payload.get("ref"),
+                    "size": payload.get("size"),
+                    "hash": payload.get("hash"),
+                    "hash_algorithm": payload.get("hash_algorithm"),
+                    "media_id": payload.get("media_id"),
+                    "content_type": payload.get("content_type"),
+                    "warnings": warnings,
+                }
+                if transcription:
+                    outcomes[index]["transcription"] = {
+                        "state": "recorded",
+                        "page": payload.get("sidecar_path"),
+                    }
+            except (PreserveError, SafeFetchError) as error:
+                outcomes[index] = _failed(artifact.file_id, error)
+    finally:
+        _release_staged(vault_root, staged, outcomes)
+    return _batch_result(outcomes)
+
+
+#: A transcription is a page of text, not a document dump.
+MAX_TRANSCRIPTION_CHARS = 100_000
+
+
+def _refuse_transcriptions(reason: str) -> None:
+    raise OpError(
+        "INVALID_PRESERVE",
+        reason,
+        "Name each transcription by the `file_id` of one supplied file.",
+        details={"field": "transcriptions", "reason": reason},
+    )
+
+
+def _transcriptions_by_file(
+    transcriptions: object, files: object
+) -> dict[int, str]:
+    """Validate transcriptions against the supplied files, before anything is staged.
+
+    Each transcription is bound to the position of the one file its `file_id`
+    names, never to the label itself: a label is caller-editable, so when
+    transcriptions are supplied every file's `file_id` must be unique.
+    """
+    if not transcriptions:
+        return {}
+    if not isinstance(transcriptions, (list, tuple)) or len(transcriptions) > MAX_FILES:
+        _refuse_transcriptions(f"transcriptions must be a list of at most {MAX_FILES} objects")
+    supplied: dict[str, int] = {}
+    for index, file in enumerate(files if isinstance(files, (list, tuple)) else ()):
+        if isinstance(file, Mapping) and isinstance(file.get("file_id"), str):
+            label = file["file_id"].strip()
+            if label in supplied:
+                _refuse_transcriptions(
+                    "file_id values must be unique when transcriptions are supplied"
+                )
+            supplied[label] = index
+    by_file: dict[int, str] = {}
+    for item in transcriptions:
+        file_id = item.get("file_id") if isinstance(item, Mapping) else None
+        text = item.get("text") if isinstance(item, Mapping) else None
+        if (
+            not isinstance(item, Mapping)
+            or set(item) != {"file_id", "text"}
+            or not isinstance(file_id, str)
+            or not isinstance(text, str)
+            or not text.strip()
+            or len(text) > MAX_TRANSCRIPTION_CHARS
+        ):
+            _refuse_transcriptions(
+                "each transcription is {file_id, text} with non-empty text of at most "
+                f"{MAX_TRANSCRIPTION_CHARS:,} characters"
+            )
+        file_id = file_id.strip()
+        if file_id not in supplied:
+            _refuse_transcriptions("a transcription names no supplied file")
+        if supplied[file_id] in by_file:
+            _refuse_transcriptions("a file has more than one transcription")
+        by_file[supplied[file_id]] = text
+    return by_file

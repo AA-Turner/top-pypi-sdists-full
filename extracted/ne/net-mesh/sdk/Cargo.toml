@@ -1,0 +1,596 @@
+[package]
+name = "net-mesh-sdk"
+version.workspace = true
+edition = "2021"
+description = "Ergonomic Rust SDK for the Net mesh network"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ai-2070/net"
+readme = "README.md"
+keywords = ["net", "mesh", "event-bus", "streaming"]
+categories = ["asynchronous", "network-programming"]
+# Disable bench auto-discovery so shared helpers under
+# `benches/nrpc_common/` aren't picked up as bench targets. Every
+# bench is listed explicitly below.
+autobenches = false
+
+[lib]
+# Keep the crate name as `net_sdk` so `use net_sdk::...` resolves
+# without code changes; the published artifact is `net-mesh-sdk`
+# on crates.io.
+name = "net_sdk"
+
+[dependencies]
+# `version` is required for `cargo publish` to resolve the dep on
+# crates.io; the `path` is preferred during local workspace builds.
+net = { package = "net-mesh", version = "0.46.0", path = "..", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bytes = "1"
+# Cross-process advisory file locking for the pin store (`pins`), so a
+# load→modify→save transaction can't interleave with a concurrent shim
+# or pin-CLI invocation and resurrect a removed consent decision.
+fs2 = "0.4"
+# Resolves the per-user default pin-store path (`default_pin_store_path`) so
+# the CLI, the shim, and SDK clients converge on one machine-shared file.
+dirs = "7"
+futures = "0.3"
+parking_lot = "0.13"
+# `fs` powers the pin store's atomic temp+rename persistence.
+tokio = { version = "1", features = ["rt", "time", "sync", "fs"] }
+pin-project-lite = "0.2"
+thiserror = "2"
+async-trait = "0.1"
+# `schemars` is gated by the `tool` feature — it powers
+# `metadata_for::<Req, Resp>(...)` which derives JSON Schema 2020-12
+# from any Rust type implementing `JsonSchema`. ~150 KiB optimized;
+# off by default.
+schemars = { version = "1", optional = true }
+# `net-mesh-sdk-macros` ships the `#[tool]` attribute proc-macro.
+# Gated by the `macros` feature so users who don't want the
+# proc-macro2 / syn / quote dep tree don't pay for it.
+net-mesh-sdk-macros = { version = "0.46.0", path = "../sdk-macros", optional = true }
+# OS file-change events for the pin-store change subscription
+# (`PinStore::watch`) — a true push watcher (inotify / FSEvents /
+# ReadDirectoryChangesW), so a cross-process `net mcp pin approve`
+# surfaces as an event rather than being polled for. Gated by
+# `pin-watch` so consumers that only read/write the store don't pay
+# for the watcher backend.
+notify = { version = "8", optional = true }
+# blake3 KDF (`derive_key`) behind `delegation::derive_child_seed`, so a
+# machine / gateway agent identity is reproducibly derived from the user
+# root seed with no extra persistence. Pulled in with the `net` feature
+# (delegation rides the same identity surface); already in the workspace
+# via `dataforts`.
+blake3 = { version = "1", optional = true }
+# CSPRNG for the enrollment invite nonce (`enrollment::InviteToken`), using the
+# same `getrandom::fill` idiom the core identity layer uses for keypair / token
+# nonces. Version-matched to core (`0.4`) so the workspace resolves one copy.
+# Pulled in with the `net` feature (enrollment rides the same identity surface).
+getrandom = { version = "0.4", optional = true }
+# PSK-free Noise NK session for V3 enrollment redemption
+# (`enrollment::redeem`). Same version the `net-wire` transport already
+# pins, so the workspace resolves one copy; no HTTP/TLS stack is added.
+snow = { version = "0.10.0", optional = true }
+# URL-safe base64 for the copy-paste / QR invite *string*
+# (`enrollment::InviteToken::encode`). Version-matched to core (`0.22`).
+# Pulled in with the `net` feature (enrollment rides the same surface).
+base64 = { version = "0.23", optional = true }
+# --- Stage 4b bootstrap listener (feature `rtc-bootstrap`) --------
+# axum 0.8 is the hyper-1 / http-1 / tower-0.5 line the workspace
+# already resolves; `ws` is the trickle socket. Default features
+# that would pull a second TLS stack are off.
+axum = { version = "0.8", optional = true, default-features = false, features = [
+    "http1",
+    "json",
+    "query",
+    "tokio",
+    "ws",
+] }
+# The SAME rustls net-payments pins: 0.23, ring provider, and never
+# installed process-globally (payments/src/tls_roots.rs explains
+# why — a global would leak into other rustls users in the same
+# process, e.g. the Python extension).
+rustls = { version = "0.23", optional = true, default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+    "logging",
+] }
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = [
+    "ring",
+    "tls12",
+] }
+rustls-pemfile = { version = "2", optional = true }
+tower-http = { version = "0.7", optional = true, default-features = false, features = [
+    "cors",
+] }
+hyper = { version = "1", optional = true, default-features = false, features = [
+    "http1",
+    "http2",
+    "client",
+    "server",
+] }
+tower = { version = "0.5", optional = true, default-features = false }
+tracing = { version = "0.1", optional = true, default-features = false, features = [
+    "std",
+] }
+hyper-util = { version = "0.1", optional = true, default-features = false, features = [
+    "tokio",
+    "server",
+    "client",
+    "client-legacy",
+    "http1",
+    "http2",
+] }
+futures-util = { version = "0.3", optional = true, default-features = false }
+# Dual-stack bootstrap listeners set `IPV6_V6ONLY` explicitly
+# (`ANCHOR_DUAL_STACK_PLAN.md`); already in the lock through the core.
+socket2 = { version = "0.6", optional = true }
+# ACME (HTTP-01) for the browser-trusted certificate path.
+# `default-features = false` matters: the default pulls `aws-lc-rs`,
+# whose build needs cmake + a C toolchain — the exact cost the
+# workspace avoids everywhere except `webrtc` itself. `ring` is the
+# provider the rest of this feature already uses.
+# R4b: qualifying a cached certificate needs its SAN list and its
+# validity window — reusing one by directory alone returned a
+# `localhost` certificate for `different.example`.
+x509-parser = { version = "0.18", optional = true }
+instant-acme = { version = "0.8", optional = true, default-features = false, features = [
+    "ring",
+    "hyper-rustls",
+] }
+# The HTTPS connector for the ACME DIRECTORY connection
+# (`AcmeConfig::directory_roots`). instant-acme 0.8 offers exactly
+# two seams for trust: `Account::builder_with_root(one_path)`, which
+# goes through `rustls::ClientConfig::builder()` and therefore
+# INSTALLS a process-global crypto provider — forbidden here, see
+# the rustls note above — and `Account::builder_with_http`, which
+# takes any `HttpClient`. We take the second and build the connector
+# ourselves with an explicit ring provider. Every crate this pulls is
+# already in the graph via instant-acme's own `hyper-rustls` feature;
+# naming it directly is so this crate does not depend on another
+# crate's feature activation to compile.
+hyper-rustls = { version = "0.27", optional = true, default-features = false, features = [
+    "http1",
+    "http2",
+    "ring",
+    "tls12",
+    "logging",
+] }
+# The keypair + CSR the ACME order is finalized with.
+rcgen = { version = "0.14", optional = true, default-features = false, features = [
+    "pem",
+    "ring",
+] }
+# The candidate string the anchor trickles is str0m's own SDP form;
+# building it here rather than re-implementing the grammar.
+str0m = { version = "0.24.0", optional = true, default-features = false, features = [
+    "rust-crypto",
+] }
+
+[dev-dependencies]
+# Re-declare the core dependency with its `fixtures` seam for THIS
+# crate's own tests. Dev-deps never propagate to downstream consumers
+# of the lib — but WITHIN the workspace, feature unification is wider
+# than this crate: `cargo test --workspace` builds dev-deps, so this
+# line turns `fixtures` on for net-mesh in EVERY crate of that
+# invocation, not just the SDK's own test targets. Worth knowing
+# before debugging why a fixtures-gated seam is reachable from a
+# sibling crate's tests.
+# `tests_call.rs` pins TOFU entities via `test_pin_peer_entity`, which
+# is cfg'd `any(test, feature = "fixtures")` in net-mesh — and the
+# dependency's `test` cfg is never active when the SDK is the crate
+# under test, so the feature is the only way to reach the seam.
+# `webrtc` is deliberately NOT listed here. It is an opt-in feature
+# (`webrtc = ["net/webrtc"]` below), and the RTC test targets are
+# gated on it (`enrollment_over_rtc`, `rtc_bootstrap_listener`,
+# `acme_cold_start`) — listing it on the dev-dep would enable
+# `net-mesh/webrtc` for every crate in a `cargo test --workspace`
+# build, i.e. on by default in practice.
+net = { package = "net-mesh", version = "0.46.0", path = "..", features = ["fixtures"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "test-util"] }
+# Isolated temp dirs for the pin-store file tests.
+tempfile = "3"
+# `rtc_bootstrap_acme`'s qualification tests mint certificates with
+# explicit validity windows; rcgen takes `time` offsets.
+time = "0.3"
+# `tests/bootstrap_dep_boundary.rs` reads this crate's and the core's
+# manifests to hold the "a default build has no HTTP server" line,
+# the same way the MCP adapter's boundary test reads its own.
+toml = "1.0"
+# Workspace lock discipline (clippy disallows std::sync::Mutex::lock);
+# the paid-tool serve test's scripted gate records under a lock.
+parking_lot = "0.13"
+criterion = { version = "0.8", features = ["async_tokio"] }
+hdrhistogram = "7"
+postcard = { version = "1", features = ["use-std"] }
+rand = "0.10"
+# Used by the tool_calling example for its top-level Result alias.
+anyhow = "1"
+schemars = "1"
+
+[features]
+# R6: pass the core's `webrtc` transport through, so an SDK
+# consumer can build the browser-facing anchor whose enrollment
+# service the core's §12 admission gates.
+webrtc = ["net/webrtc"]
+# Stage 4b: the browser bootstrap listener — HTTPS `POST /rtc/offer`,
+# `GET /rtc/anchor`, and the `wss` trickle socket, over the core's
+# production dialog path.
+#
+# It lives in the SDK, not the core, for the reason the MCP adapter
+# does: the credential type is an SDK type, and the core must not
+# grow an HTTP server in its dependency tree. A default build of
+# either crate has no axum and no rustls — asserted by
+# `tests/bootstrap_dep_boundary.rs`.
+#
+# rustls is the version `net-payments` already pins (0.23, ring),
+# so the workspace keeps exactly one.
+# R4a: the cold-start ACME witness needs a live local directory
+# (pebble). Off by default and gated in its own CI job — there is no
+# mock, because the defect it covers is that ordering could never
+# complete without a plaintext ingress bound first.
+acme-pebble = ["rtc-bootstrap"]
+rtc-bootstrap = [
+    "net",
+    "webrtc",
+    "dep:axum",
+    "dep:rustls",
+    "dep:tokio-rustls",
+    "dep:rustls-pemfile",
+    "dep:tower-http",
+    "dep:hyper",
+    "dep:hyper-util",
+    "dep:hyper-rustls",
+    "dep:tower",
+    "dep:tracing",
+    "dep:futures-util",
+    "dep:str0m",
+    "dep:instant-acme",
+    "dep:x509-parser",
+    "dep:rcgen",
+    "dep:socket2",
+    "tokio/net",
+    "tokio/rt-multi-thread",
+    "tokio/io-util",
+]
+# Out-of-the-box "I downloaded the SDK and it just works": real
+# mesh transport + NAT traversal + typed nRPC + capability-based
+# service discovery + daemon supervision + replica/fork/standby
+# coordination + MeshOS daemon-authoring + the dataforts blob
+# storage surface + the MeshDB federated query plane. Picked so
+# a web/Python/Node dev consuming the prebuilt binding artifact
+# (where opting into features post-install isn't a thing) gets
+# every primitive the protocol's pitch turns on, with no flags
+# to discover.
+#
+# A Rust consumer who wants a leaner build opts out via
+# `default-features = false` and picks what they need. The
+# `agent` and `local` meta-features below name useful subsets.
+#
+# `port-mapping` / `redis` / `jetstream` stay opt-in: heavy
+# UPnP/SOAP dep tree, or external transports most consumers
+# don't need.
+default = [
+    "net",
+    "nat-traversal",
+    "cortex",
+    "compute",
+    "groups",
+    "meshos",
+    "dataforts",
+    "meshdb",
+    "aggregator",
+    "tool",
+]
+# External transports (opt-in, network I/O).
+redis = ["net/redis"]
+jetstream = ["net/jetstream"]
+# Core mesh transport (encrypted UDP + subprotocols). Bundles the
+# identity, capabilities, and subnet surfaces — they all live behind
+# `adapter::net` in core and are operationally inseparable (subnet
+# enforcement reuses the capability-announcement dispatch; channel
+# auth uses identity + capabilities + subnets together), so exposing
+# them as separate SDK flags created pick-your-own-subset
+# combinations that weren't actually meaningful.
+net = ["net/net", "dep:blake3", "dep:getrandom", "dep:base64", "dep:snow", "tokio/net", "tokio/io-util"]
+# NAT traversal — reflex probes, classification, and
+# rendezvous-coordinated hole-punch. Exposes `Mesh::nat_type`,
+# `reflex_addr`, `connect_direct`, `traversal_stats`,
+# `probe_reflex`, and `reclassify_nat`. Off by default because
+# the surface is optional: callers that rely solely on the
+# routed-handshake path never need it. Framing: these APIs are
+# *optimization, not correctness* — routed-handshake reaches
+# every peer regardless, and a `symmetric` NAT type or a
+# `punch-failed` error just means traffic keeps riding the
+# relay.
+nat-traversal = ["net", "net/nat-traversal"]
+# Port mapping — opportunistic UPnP-IGD / NAT-PMP / PCP install
+# at startup. Exposes `MeshBuilder::try_port_mapping(bool)` on
+# the SDK surface. Builds on `nat-traversal` (the port-mapping
+# task calls the same `set_reflex_override` / `clear_reflex_override`
+# runtime setters). Off by default — port mapping modifies
+# state on the user's router and some environments forbid it.
+port-mapping = ["nat-traversal", "net/port-mapping"]
+# CortEX adds the typed event-sourced adapters (tasks + memories) plus
+# the NetDb facade. `redex-disk` comes along so `.persistent(true)` is
+# usable from the SDK without a separate feature flip.
+cortex = ["net/netdb", "net/redex-disk"]
+# Test/example scaffolding — the cross-language org scenario + error-vector
+# generators (`net_sdk::org::fixtures`, behind `#[doc(hidden)]`). Off by
+# default so the generators are NOT compiled into a release binding library;
+# the `gen_org_*` examples enable it, and the crate's own tests reach the
+# module through `cfg(test)`.
+#
+# It also FORWARDS core's own `fixtures` seam (`net/fixtures`). The SDK's
+# test-only sensing observers read core test-only accessors — a retained
+# demand's holder tickets, for instance — and a feature that gated the SDK
+# half without enabling the core half compiled only inside a workspace dev
+# build, where a dev-dependency turned core fixtures on by accident. The
+# forwarding is what makes `--features fixtures` mean the same thing standalone
+# as it does under `cargo test`. Production darkness is unchanged: neither
+# feature is on by default, and nothing here is re-exported.
+#
+# KNOW WHAT THIS COSTS BEFORE ENABLING IT. The forwarding is transitive, so a
+# downstream crate that turns on `net-mesh-sdk/fixtures` - plausibly just to
+# reach the `gen_org_*` generators - also unlocks core's authority-relevant
+# test seams in that build, including `MeshNode::test_pin_peer_entity`, whose
+# own documentation says no production build may reach it and which the sensed
+# population rule reads. Inside this workspace that was already true through
+# dev-dependency unification; for an EXTERNAL consumer it is new. Splitting the
+# generators into a feature that does NOT forward `net/fixtures` is the way to
+# have one without the other - deliberately not done here, because every
+# in-tree consumer of `fixtures` wants both halves.
+fixtures = ["net", "net/fixtures"]
+# Compute surface — `MeshDaemon` trait + `DaemonRuntime` for local
+# spawn / snapshot / stop. Requires `net` because daemons have a
+# mesh identity (ed25519 keypair + origin_hash) that rides on the
+# same `Identity` the channel-auth path uses.
+compute = ["net"]
+# HA / scaling overlays — `ReplicaGroup` / `ForkGroup` /
+# `StandbyGroup`. Sits on top of `compute`; a caller with just
+# `compute` gets single-daemon spawn / snapshot / migration, and
+# `groups` adds the N-member coordination primitives on top.
+groups = ["compute"]
+# MeshOS SDK — daemon-author surface. Re-exports the
+# substrate's `behavior::meshos::sdk` types and adds the
+# `daemon_main!` macro entry point. Daemons that want to be
+# supervised by MeshOS pull this feature on. Builds on
+# `compute` for the `MeshDaemon` trait + `EntityKeypair`,
+# and on `net/meshos` for the actual runtime.
+meshos = ["compute", "net/meshos"]
+# Deck SDK — operator-side surface (the dual of `meshos`).
+# Re-exports `behavior::deck` with `DeckClient`, `AdminCommands`,
+# `SnapshotStream`, and the `OperatorIdentity` newtype. Builds
+# on `meshos` for the runtime + snapshot reader. Phase 1 surface
+# only — `audit()` / `subscribe_logs()` / `ice()` land in later
+# slices as the substrate's signed admin chain + blast-radius
+# simulator come online.
+deck = ["meshos"]
+# Dataforts — mesh-native blob storage adapter. Re-exports
+# `adapter::net::dataforts::*` so operator-facing surfaces
+# (the deck's DATAFORTS tab) can render real `BlobMetrics`
+# instead of a fixture. Pulls in redex + redex-disk + blake3
+# transitively via `net/dataforts`.
+dataforts = ["net/dataforts"]
+# MeshDB — federated query plane above the substrate's chains.
+# Re-exports the typed `MeshQuery` AST + `MeshQueryExecutor`
+# + `ChainReader` so tenant tooling (and future Deck MeshDB
+# Console) can compose queries without reaching through
+# internal substrate paths. The substrate gates MeshDB on its
+# own `meshdb` feature (Phase A of `MESHDB_PLAN.md`); this
+# flag composes against it.
+meshdb = ["net/meshdb"]
+# Aggregator-registry RPC clients (`RegistryClient`,
+# `FoldQueryClient`) + the daemon-author surface
+# (`AggregatorRegistry`, `LifecycleGroup`, `HealthMonitor`).
+# Riding `net` because every operation routes through
+# `Mesh::call` / `Mesh::serve_rpc`. Named explicitly so a
+# `--no-default-features` consumer can opt in by name — and so
+# the per-binding `aggregator` Cargo features have a 1:1 SDK
+# counterpart to forward (`net-sdk/aggregator`).
+aggregator = ["net"]
+# AI tool-calling surface — re-exports `ToolDescriptor` /
+# `ToolEvent` / `ToolMetadataRegistry` from `net::adapter::net::cortex::tool`
+# and ships the `schemars`-backed `metadata_for::<Req, Resp>(name, desc)`
+# helper that builds descriptors from Rust types implementing
+# `JsonSchema`. On by default (in `default` + `agent`) for parity
+# with the Node / Python bindings — AI tool calling is a headline
+# surface and the only marginal cost is `schemars` (~150 KiB on a
+# release binary), small next to the dataforts / meshdb / meshos
+# surfaces `default` already pulls. Consumers who don't ship LLM
+# agents opt out via `default-features = false`. Requires `cortex`
+# because `ToolDescriptor` lives in the cortex module +
+# `MeshNode::list_tools` walks the capability fold which `cortex`
+# enables. `macros` (the `#[tool]` proc-macro) stays opt-in.
+tool = ["net/tool", "cortex", "dep:schemars"]
+# `#[tool]` proc-macro convenience. Opt-in because it pulls in
+# proc-macro2 / syn / quote (~1.2 MB build artifact) which users
+# who hand-write `metadata_for(...).build()` + `serve_tool(...)`
+# don't need. Always enabled alongside `tool` — the macro has no
+# runtime meaning without the SDK surface it expands into.
+macros = ["tool", "dep:net-mesh-sdk-macros"]
+# Pin-store change subscription (`PinStore::watch` / `snapshot_and_watch`) —
+# an OS file watcher over the machine-shared store, emitting approved-set
+# deltas. Pure local-state (no mesh); off by default, on for the language
+# bindings' `consent` surface.
+pin-watch = ["dep:notify"]
+# Testing — in-process multi-node `ClusterHarness` + bridge probes
+# (Mesh → MeshOsRuntime). Powers the deck demo and any integration
+# test that wants real UDP loopback + a real MeshOS snapshot fold
+# across N nodes. See `DECK_DEMO_HARNESS_PLAN.md`. Lives behind a
+# feature flag because the harness is dev-only — never link the
+# scaffolding into a release binary.
+#
+# Pulls `groups` so `ClusterHarness::spawn_replica_group` and
+# siblings can compose against the real `ReplicaGroup` /
+# `ForkGroup` / `StandbyGroup` primitives. `groups` transitively
+# brings in `compute`.
+testing = ["meshos", "groups"]
+# Everything that runs locally (mesh + storage/state + security +
+# compute + groups, no external transports). The default shape for
+# a single-node or LAN-only deployment.
+local = ["net", "cortex", "compute", "groups", "aggregator"]
+# Named alias for the SDK's heavy default — useful when a consumer
+# has set `default-features = false` to pull a leaner build and
+# later wants to opt back into "the full distributed-agent stack
+# short of external transports / operator UI." Mirrors what the
+# bindings ship by default (minus redis / jetstream).
+agent = [
+    "net",
+    "nat-traversal",
+    "cortex",
+    "compute",
+    "groups",
+    "meshos",
+    "dataforts",
+    "meshdb",
+    "aggregator",
+    "tool",
+]
+# Everything — local stack plus NAT traversal plus external
+# transports plus the operator-facing surfaces. `dataforts` and
+# `meshdb` are deliberately omitted: both pull substrate features
+# that enlarge the dependency footprint (redex-disk, blake3, the
+# meshdb query plane), and `full` is meant to be "the common
+# bundle for an operator's full-stack daemon", not "every flag
+# this crate exposes". Consumers that want dataforts blob storage
+# or the MeshDB query plane add those flags explicitly.
+full = ["local", "nat-traversal", "redis", "jetstream", "meshos", "deck", "tool", "macros"]
+
+# nRPC quickstart — requires net + cortex.
+[[example]]
+name = "nrpc_echo"
+required-features = ["net", "cortex"]
+
+# End-to-end AI tool-calling demo — declare tools with `#[tool]`,
+# register on one mesh, discover from another, lower to OpenAI's
+# tool shape, dispatch via call_tool. Mocked LLM in-process.
+[[example]]
+name = "tool_calling"
+required-features = ["net", "macros"]
+
+# OSDK-L X2 — generate a live cross-org call scenario (adopted authorities,
+# credential bytes, 0600 audience-secret files, and a manifest.json) that a
+# harness in any language loads. Needs `net` for the issuance + adoption
+# primitives (no `cortex` — generation builds no mesh) and `fixtures` for the
+# generator itself (gated out of release libraries).
+[[example]]
+name = "gen_org_scenario"
+required-features = ["net", "fixtures"]
+
+# The Rust driver of the cross-language org matrix
+# (`tests/cross_lang_org/matrix/PROTOCOL.md`): one caller or provider process.
+[[example]]
+name = "org_matrix_peer"
+required-features = ["net", "cortex"]
+
+# OSDK-L X1 — regenerate the canonical `org:` error-vocabulary fixture
+# (`tests/cross_lang_org/error_vectors.json`) every language binding parses.
+# Explicitly declared (not auto-discovered) so a build WITHOUT `fixtures`
+# cleanly SKIPS it rather than failing on the gated `render_error_vectors`.
+[[example]]
+name = "gen_org_error_fixtures"
+required-features = ["net", "cortex", "fixtures"]
+
+# SSDK S4 — generate the cross-language subnet-exported live scenario
+# every language's S4 cell loads. `fixtures` because it mints credentials
+# and writes them to disk; `cortex` for the org credential types.
+[[example]]
+name = "gen_subnet_scenario"
+required-features = ["net", "cortex", "fixtures"]
+
+# SSDK R4 — regenerate the canonical `subnet:` stable-kind fixture
+# (`tests/cross_lang_subnet/stable_kinds.json`) every language binding
+# consumes. Explicitly declared so a build without `net` cleanly skips it.
+[[example]]
+name = "gen_subnet_kind_fixture"
+required-features = ["net"]
+
+# SSDK R4 — the Rust consumer + regeneration guard for that fixture.
+[[test]]
+name = "subnet_kind_fixture"
+required-features = ["net"]
+
+# SSDK S2 — the facade's fail-closed seams (byte provisioning, config
+# validation, named-export resolution) against a real node.
+[[test]]
+name = "subnet_facade"
+required-features = ["net", "cortex"]
+
+# ============================================================================
+# nRPC benchmark suite. See `benches/nrpc_common/mod.rs` for the
+# shared in-process two-node harness, payload generators, and codec
+# wrappers. All six benches require `net` + `cortex` (same gate as
+# the typed RPC surface).
+# ============================================================================
+
+# Item 1 — unary round-trip latency (empty / 32 B / 1 KiB) across
+# two routing paths (direct + discovery) and three codecs
+# (json / postcard / raw). Headline screenshot bench.
+[[bench]]
+name = "nrpc_unary"
+harness = false
+required-features = ["net", "cortex"]
+
+# Item 2 — unary throughput (QPS) at 1 / 16 / 128 concurrent
+# callers × 32 B / 1 KiB / 16 KiB payloads.
+[[bench]]
+name = "nrpc_qps"
+harness = false
+required-features = ["net", "cortex"]
+
+# QPS concurrency-scaling probe — fixed concurrency spread across
+# 1 / 4 / 16 independent channels. Isolates per-channel bridge/mutex
+# vs shared recv-loop bottleneck (NRPC_QPS_CONCURRENCY_SCALING_PLAN.md).
+[[bench]]
+name = "nrpc_qps_shard"
+harness = false
+required-features = ["net", "cortex"]
+
+# Item 3 — server-streaming msgs/sec via `call_streaming_typed`.
+# Client-streaming and full duplex are channel-layer features and
+# bench separately (not here).
+[[bench]]
+name = "nrpc_streaming"
+harness = false
+required-features = ["net", "cortex"]
+
+# Item 4 — tail latency under load. Custom main + hdrhistogram
+# (Criterion is mediocre at p99.9). 16 / 64 / 256 in-flight.
+[[bench]]
+name = "nrpc_tail"
+harness = false
+required-features = ["net", "cortex"]
+
+# Item 5 — connection / handshake churn. 1000 peer pairs, full
+# latency histogram for pair-creation + handshake + first RPC.
+# Custom main + hdrhistogram.
+[[bench]]
+name = "nrpc_churn"
+harness = false
+required-features = ["net", "cortex"]
+
+# Item 6 — large-payload efficiency. 1 MiB / 4 MiB / 16 MiB
+# unary, `Throughput::Bytes` for MB/s reporting. CPU% / alloc
+# tracking is deferred to a follow-up profiling binary.
+[[bench]]
+name = "nrpc_payload"
+harness = false
+required-features = ["net", "cortex"]
+
+# Phase F — client-streaming throughput. Caller pushes N typed
+# requests; server collects all + returns one terminal Resp.
+# Measures msgs/sec across N=16/256 x 64B/1KiB payloads.
+[[bench]]
+name = "nrpc_client_streaming"
+harness = false
+required-features = ["net", "cortex"]
+
+# Phase F — duplex round-trip throughput. Caller streams N
+# requests, server emits one Resp per Req. into_split lets send
+# + recv run in independent tasks (the realistic shape).
+[[bench]]
+name = "nrpc_duplex"
+harness = false
+required-features = ["net", "cortex"]

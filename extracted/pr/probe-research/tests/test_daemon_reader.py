@@ -30,7 +30,7 @@ from pydantic_ai.messages import (  # noqa: E402
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
-from probe.cli import daemon_cli  # noqa: E402
+from probe.cli.commands.daemon import daemon as daemon_cli  # noqa: E402
 from probe.daemon import agent as agent_mod  # noqa: E402
 from probe.daemon.host import lease  # noqa: E402
 from probe.shared import mailbox
@@ -245,7 +245,7 @@ def test_what_the_researcher_sees_is_the_approved_text():
 
 
 def test_doctor_shows_the_readers_state_turns_and_asks(tmp_path):
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     w = _worker(tmp_path)
     lane = _lane(w, Reader(end="hi"))

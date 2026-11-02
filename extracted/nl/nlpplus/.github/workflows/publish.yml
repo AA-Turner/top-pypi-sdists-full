@@ -1,0 +1,283 @@
+name: Build and upload to PyPI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build_wheels_linux:
+    name: Build wheels on Linux
+    runs-on: ubuntu-latest
+    # Uncomment for testing
+    # if: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build wheels
+        # cibuildwheel must be new enough to know the cp313 identifier;
+        # v2.19.2 predates CPython 3.13 and silently skips the cp313-* entry
+        # in pyproject's build list, leaving 3.13 users with no wheel.
+        uses: pypa/cibuildwheel@v2.23.4
+        env:
+          CIBW_BUILD_VERBOSITY: 3
+          # Note use of yum because anylinux is ancient CentOS
+          CIBW_BEFORE_ALL: "yum install -y libicu-devel"
+          CIBW_CONFIG_SETTINGS: "cmake.args=-DCMAKE_BUILD_TYPE=Release"
+          # Uncomment for testing
+          # CIBW_BUILD: "cp312-*"
+
+      # GitHub's artifact service occasionally rejects the finalize call
+      # (v2.2.39: "Failed to FinalizeArtifact ... (403) Forbidden" after
+      # every wheel had built), which skipped upload_pypi and silently
+      # withheld the release. Retry once, overwriting any half-made artifact.
+      - name: Upload artifact
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-linux
+          path: ./wheelhouse/*.whl
+
+      - name: Upload artifact (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-linux
+          path: ./wheelhouse/*.whl
+          overwrite: true
+
+  build_wheels_macos:
+    name: Build wheels on MacOS
+    # Otherwise people with older Macs are out of luck
+    runs-on: macOS-latest
+    # Uncomment for testing
+    # if: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Autotools are needed for vcpkg to build ICU from source on a cache miss.
+      - name: Install packages
+        run: brew install autoconf-archive autoconf automake pkg-config
+
+      - name: vcpkg build
+        id: vcpkg
+        uses: johnwason/vcpkg-action@v8
+        with:
+          manifest-dir: ${{ github.workspace }}
+          triplet: arm64-osx-release
+          token: ${{ github.token }}
+          # Pinned so the cache key is stable; must match vcpkg-cache.yml, which
+          # warms the cache on main (tag builds can only restore main's caches).
+          # The action's file cache (VCPKG_DEFAULT_BINARY_CACHE) is also what
+          # the per-Python wheel builds restore ICU from instead of rebuilding.
+          revision: '2026.07.29'
+
+      # Replaces the previous bare `pip wheel`, which only built a single wheel
+      # for the runner's host Python (leaving cp310-cp312 macOS users with no
+      # wheel) and did not bundle the ICU dylibs. cibuildwheel builds the full
+      # cp310-cp313 matrix and its default delocate step vendors the dylibs.
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.4
+        env:
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_CONFIG_SETTINGS: "cmake.args='-DCMAKE_BUILD_TYPE=Release;-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake'"
+
+      - name: Upload artifact
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-macos
+          path: ./wheelhouse/*.whl
+
+      - name: Upload artifact (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-macos
+          path: ./wheelhouse/*.whl
+          overwrite: true
+
+  build_wheels_windows:
+    name: Build wheels on Windows
+    runs-on: windows-latest
+    # Uncomment for testing
+    # if: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: vcpkg build
+        id: vcpkg
+        uses: johnwason/vcpkg-action@v8
+        with:
+          manifest-dir: ${{ github.workspace }}
+          triplet: x64-windows-release
+          token: ${{ github.token }}
+          # Pinned so the cache key is stable; must match vcpkg-cache.yml, which
+          # warms the cache on main (tag builds can only restore main's caches).
+          # The action's file cache (VCPKG_DEFAULT_BINARY_CACHE) is also what
+          # the per-Python wheel builds restore ICU from instead of rebuilding.
+          revision: '2026.07.29'
+
+      - name: Build wheels
+        # See the Linux job: v2.19.2 is too old to build cp313, so 3.13
+        # Windows users fall through to the unbuildable sdist.
+        uses: pypa/cibuildwheel@v2.23.4
+        env:
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_BEFORE_BUILD_WINDOWS: "pip install delvewheel"
+          # --no-mangle-all + --add-dll icuin<ver>.dll are required so a *compiled*
+          # NLP++ analyzer (bin/run.dll / bin/kb.dll, dlopened at analyze time)
+          # can resolve its ICU imports. It imports icuin<ver>.dll + icuuc<ver>.dll
+          # by their real names; the default delvewheel run mangles those names and
+          # only vendors icuuc/icudt (what our extension itself imports), so the
+          # analyzer's icuin import goes unresolved and kb.dll fails to load. Keep
+          # real names (--no-mangle-all) and force-vendor icuin (--add-dll); the
+          # package then preloads them by name at import (NLPPlus._preload_icu).
+          # NOTE: bump "78" if the vcpkg ICU major version changes.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair --no-mangle-all --add-dll icuin78.dll --add-path ${{ github.workspace }}/vcpkg/installed/x64-windows-release/bin -w {dest_dir} {wheel}"
+          CIBW_CONFIG_SETTINGS: "cmake.args='-A x64;-DCMAKE_BUILD_TYPE=Release;-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake'"
+          # Run against the repaired wheel under code page 1252, where the
+          # engine used to split UTF-8 characters at byte 0xA0. Linux CI has no
+          # single-byte locale, so this is the job that catches a regression.
+          CIBW_TEST_COMMAND_WINDOWS: "python -m unittest discover -s {project}/tests -p test_locale.py -v"
+
+      - name: Upload artifact
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-windows
+          path: ./wheelhouse/*.whl
+
+      - name: Upload artifact (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-windows
+          path: ./wheelhouse/*.whl
+          overwrite: true
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - name: Upload artifact
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+      - name: Upload artifact (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+          overwrite: true
+
+  release:
+    name: Make release
+    runs-on: ubuntu-latest
+    needs:
+      - build_sdist
+      # Comment the next three for testing
+      - build_wheels_linux
+      - build_wheels_windows
+      - build_wheels_macos
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # unpacks all CIBW artifacts into dist/
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - name: List
+        run: find
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  upload_pypi:
+    needs:
+      - build_sdist
+      # Comment the next three for testing
+      - build_wheels_linux
+      - build_wheels_windows
+      - build_wheels_macos
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    # Remove this line:
+    # if: false
+    # Uncomment this line:
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A rerun after a partial upload (PyPI took the wheels, then refused the
+          # sdist with "Project size too large") must upload only what is missing,
+          # not stop at the first file that is already there.
+          skip-existing: true
+
+  # A failed tag build publishes nothing, yet the upstream "Update nlp-engine &
+  # publish" run still reports success, so the gap goes unseen (v2.2.39 sat
+  # unpublished for five days). Open an issue so the failure is visible.
+  notify_failure:
+    name: Report failed release
+    runs-on: ubuntu-latest
+    needs:
+      - build_sdist
+      - build_wheels_linux
+      - build_wheels_windows
+      - build_wheels_macos
+      - release
+      - upload_pypi
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      issues: write
+    steps:
+      - name: Open issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "Release $TAG was not published to PyPI" \
+            --body "The *Build and upload to PyPI* run for \`$TAG\` failed, so NLPPlus $TAG is not on PyPI.
+
+          Run: $RUN_URL
+
+          If the failure is transient (for example an artifact upload 403), use *Re-run failed jobs* on that run."

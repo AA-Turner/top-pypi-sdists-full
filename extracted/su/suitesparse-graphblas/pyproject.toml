@@ -1,0 +1,154 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools >=77",
+    "setuptools-git-versioning",
+    "wheel",
+    "cffi>=1.11",
+    # Free-threading in Python 3.14 requires Cython >=3.1
+    "cython; python_version<'3.14'",
+    "cython>=3.1; python_version>='3.14'",
+    "numpy>=2.0",
+]
+
+[project]
+name = "suitesparse-graphblas"
+dynamic = ["version"]
+description = "SuiteSparse:GraphBLAS Python bindings."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Erik Welch", email = "erik.n.welch@gmail.com"},
+    {name = "Jim Kitchen"},
+    {name = "Michel Pelletier"},
+    {name = "suitesparse-graphblas contributors"},
+]
+maintainers = [
+    {name = "Erik Welch", email = "erik.n.welch@gmail.com"},
+    {name = "Jim Kitchen", email = "jim22k@gmail.com"},
+    {name = "Michel Pelletier", email = "michel@graphegon.com"},
+    {name = "Adam Lugowski", email = "alugowski@gmail.com"},
+]
+keywords = [
+    "graphblas",
+    "graph",
+    "sparse",
+    "matrix",
+    "lagraph",
+    "suitesparse",
+    "Networks",
+    "Graph Theory",
+    "Mathematics",
+    "network",
+    "discrete mathematics",
+    "math",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: WebAssembly :: Emscripten",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "cffi>=1.15",
+    "numpy>=1.24",
+]
+[project.urls]
+homepage = "https://github.com/GraphBLAS/python-suitesparse-graphblas"
+repository = "https://github.com/GraphBLAS/python-suitesparse-graphblas"
+changelog = "https://github.com/GraphBLAS/python-suitesparse-graphblas/releases"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+docs = [
+    "pdoc",
+]
+
+[tool.setuptools]
+packages = [
+    'suitesparse_graphblas',
+    'suitesparse_graphblas.api',
+    'suitesparse_graphblas.api.examples',
+    'suitesparse_graphblas.api.io',
+    'suitesparse_graphblas.tests',
+    'suitesparse_graphblas.io',
+]
+
+# Build inputs that MANIFEST.in puts in the sdist.  Nothing reads them at runtime, so keep them
+# out of wheels (`utils.c` alone is about 1 MB, which matters most for Pyodide's downloads).
+[tool.setuptools.exclude-package-data]
+suitesparse_graphblas = ["*.c", "*.h"]
+
+[tool.setuptools-git-versioning]
+enabled = true
+dev_template = "{tag}+{ccount}.g{sha}"
+dirty_template = "{tag}+{ccount}.g{sha}.dirty"
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313", "py314", "py315"]
+
+[tool.isort]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+profile = "black"
+skip_gitignore = true
+float_to_top = true
+default_section = "THIRDPARTY"
+known_first_party = "suitesparse_graphblas"
+line_length = 100
+skip_glob = ["*.pxd", "*.pyx"]
+
+[tool.coverage.run]
+branch = true
+source = ["suitesparse_graphblas"]
+omit = []
+plugins = ["Cython.Coverage"]
+
+[tool.coverage.report]
+ignore_errors = false
+precision = 1
+fail_under = 0
+skip_covered = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["suitesparse_graphblas"]
+addopts = [
+    "--doctest-modules",
+    "--strict-config",  # Error on unknown or misspelled config options
+    "--strict-markers",  # Error on unregistered markers
+    "-ra",  # Summarize all non-passing tests (skips, xfails, ...) at the end
+]
+xfail_strict = true
+# Turn warnings into errors.  On free-threaded builds this also catches
+# "The global interpreter lock (GIL) has been enabled to load module ...".
+filterwarnings = ["error"]
+# NOTE: When running in Docker, use -w /tmp and --pyargs to avoid the source
+# directory shadowing the installed package (compiled extensions aren't in the
+# source tree).  See AGENTS.md for the full Docker test commands.

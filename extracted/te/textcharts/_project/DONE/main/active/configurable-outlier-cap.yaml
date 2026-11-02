@@ -1,0 +1,70 @@
+id: "configurable-outlier-cap"
+title: "Add configurable outlier_cap to ASCIIChartOptions"
+worktree: "main"
+priority: "Low"
+status: "Completed"
+completed_date: "2026-03-09"
+description: |
+  8 chart types use a hardcoded P95×2 outlier capping strategy. The threshold
+  isn't configurable. Add an outlier_cap parameter to ASCIIChartOptions:
+  None = auto (P95×2, current behavior), a float = absolute cap value,
+  0 = disable capping entirely.
+
+  This is lower priority than the other de-benchbox changes and can be deferred.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Add outlier_cap parameter to ASCIIChartOptions with None default"
+    status: done
+
+  - id: w2
+    summary: "Update all 8 chart types that use P95 capping to respect outlier_cap"
+    needs: [w1]
+    status: done
+    notes: |
+      Find all usages of the P95×2 pattern and route them through a shared
+      method that checks options.outlier_cap.
+
+  - id: w3
+    summary: "Add tests for outlier_cap=0 (disabled), outlier_cap=float (fixed), and outlier_cap=None (auto)"
+    needs: [w2]
+    status: done
+
+deferred:
+  - summary: "Per-chart outlier_cap overrides"
+    reason: "Options-level control is sufficient for now; per-chart override adds complexity without clear demand"
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "rendering"
+  estimated_effort: "Small"
+  created_date: "2026-03-08"
+  last_updated: "2026-03-08T00:00:00"
+deps:
+  needs:
+    - "neutralize-default-labels-and-titles"
+impact:
+  business_value: |
+    Gives callers control over outlier handling, which matters for datasets
+    with known ranges or specific visualization requirements.
+  user_impact: |
+    Callers can disable capping for datasets without outliers, or set a fixed
+    cap for datasets with known bounds.
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+must_preserve:
+  - "Default None preserves existing P95×2 auto-detection behavior"
+  - "All existing tests pass without modification"
+verification:
+  - description: "Full test suite passes"
+    command: "uv run python -m pytest tests/ -x -q"
+    expected_output: "all tests pass"
+scope_limit:
+  only_modify:
+    - "src/textcharts/base.py"
+    - "src/textcharts/"
+    - "tests/"

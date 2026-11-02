@@ -1,0 +1,362 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+import json
+from typing import Mapping, cast
+
+import httpx
+
+from ..types import event_list_params
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform
+from .._compat import cached_property
+from .._models import construct_type
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..pagination import SyncPage, AsyncPage
+from .._exceptions import IncreaseError
+from ..types.event import Event
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.unwrap_webhook_event import UnwrapWebhookEvent
+
+__all__ = ["EventsResource", "AsyncEventsResource"]
+
+
+class EventsResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> EventsResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return EventsResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> EventsResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return EventsResourceWithStreamingResponse(self)
+
+    def retrieve(
+        self,
+        event_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Event:
+        """
+        Retrieve an Event
+
+        Args:
+          event_id: The identifier of the Event.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not event_id:
+            raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
+        return self._get(
+            path_template("/events/{event_id}", event_id=event_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Event,
+        )
+
+    def list(
+        self,
+        *,
+        associated_object_id: str | Omit = omit,
+        category: event_list_params.Category | Omit = omit,
+        created_at: event_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        order_by: event_list_params.OrderBy | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[Event]:
+        """
+        List Events
+
+        Args:
+          associated_object_id: Filter Events to those belonging to the object with the provided identifier.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default is 100 objects and the
+              maximum is 1,000.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/events",
+            page=SyncPage[Event],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "associated_object_id": associated_object_id,
+                        "category": category,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                        "order_by": order_by,
+                    },
+                    event_list_params.EventListParams,
+                ),
+            ),
+            model=Event,
+        )
+
+    def unwrap(self, payload: str, *, headers: Mapping[str, str], key: str | bytes | None = None) -> UnwrapWebhookEvent:
+        try:
+            from standardwebhooks import Webhook
+        except ImportError as exc:
+            raise IncreaseError("You need to install `increase[webhooks]` to use this method") from exc
+
+        if key is None:
+            raw_key = self._client.webhook_secret
+            if raw_key is None:
+                raise ValueError(
+                    "Cannot verify a webhook without a key on either the client's webhook_secret or passed in as an argument"
+                )
+            key = raw_key.encode("utf-8")
+
+        if not isinstance(headers, dict):
+            headers = dict(headers)
+
+        Webhook(key).verify(payload, headers)
+
+        return cast(
+            UnwrapWebhookEvent,
+            construct_type(
+                type_=UnwrapWebhookEvent,
+                value=json.loads(payload),
+            ),
+        )
+
+
+class AsyncEventsResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncEventsResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncEventsResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncEventsResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return AsyncEventsResourceWithStreamingResponse(self)
+
+    async def retrieve(
+        self,
+        event_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Event:
+        """
+        Retrieve an Event
+
+        Args:
+          event_id: The identifier of the Event.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not event_id:
+            raise ValueError(f"Expected a non-empty value for `event_id` but received {event_id!r}")
+        return await self._get(
+            path_template("/events/{event_id}", event_id=event_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Event,
+        )
+
+    def list(
+        self,
+        *,
+        associated_object_id: str | Omit = omit,
+        category: event_list_params.Category | Omit = omit,
+        created_at: event_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        order_by: event_list_params.OrderBy | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Event, AsyncPage[Event]]:
+        """
+        List Events
+
+        Args:
+          associated_object_id: Filter Events to those belonging to the object with the provided identifier.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default is 100 objects and the
+              maximum is 1,000.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/events",
+            page=AsyncPage[Event],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "associated_object_id": associated_object_id,
+                        "category": category,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                        "order_by": order_by,
+                    },
+                    event_list_params.EventListParams,
+                ),
+            ),
+            model=Event,
+        )
+
+    def unwrap(self, payload: str, *, headers: Mapping[str, str], key: str | bytes | None = None) -> UnwrapWebhookEvent:
+        try:
+            from standardwebhooks import Webhook
+        except ImportError as exc:
+            raise IncreaseError("You need to install `increase[webhooks]` to use this method") from exc
+
+        if key is None:
+            raw_key = self._client.webhook_secret
+            if raw_key is None:
+                raise ValueError(
+                    "Cannot verify a webhook without a key on either the client's webhook_secret or passed in as an argument"
+                )
+            key = raw_key.encode("utf-8")
+
+        if not isinstance(headers, dict):
+            headers = dict(headers)
+
+        Webhook(key).verify(payload, headers)
+
+        return cast(
+            UnwrapWebhookEvent,
+            construct_type(
+                type_=UnwrapWebhookEvent,
+                value=json.loads(payload),
+            ),
+        )
+
+
+class EventsResourceWithRawResponse:
+    def __init__(self, events: EventsResource) -> None:
+        self._events = events
+
+        self.retrieve = to_raw_response_wrapper(
+            events.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            events.list,
+        )
+
+
+class AsyncEventsResourceWithRawResponse:
+    def __init__(self, events: AsyncEventsResource) -> None:
+        self._events = events
+
+        self.retrieve = async_to_raw_response_wrapper(
+            events.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            events.list,
+        )
+
+
+class EventsResourceWithStreamingResponse:
+    def __init__(self, events: EventsResource) -> None:
+        self._events = events
+
+        self.retrieve = to_streamed_response_wrapper(
+            events.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            events.list,
+        )
+
+
+class AsyncEventsResourceWithStreamingResponse:
+    def __init__(self, events: AsyncEventsResource) -> None:
+        self._events = events
+
+        self.retrieve = async_to_streamed_response_wrapper(
+            events.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            events.list,
+        )

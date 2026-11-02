@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Only log environment variables in debug logging.

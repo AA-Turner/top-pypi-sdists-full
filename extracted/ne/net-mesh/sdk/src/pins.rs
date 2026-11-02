@@ -1,0 +1,870 @@
+//! The persistent pin store — local, machine-shared capability consent.
+//!
+//! Graduated here from the MCP bridge adapter alongside [`crate::consent`]
+//! (`MCP_BRIDGE_SDK_PLAN.md` P0): a pin is *local client consent* for a
+//! capability — for this user profile on this machine — not remote
+//! authorization (the provider's own scope enforcement always wins on top).
+//! Two rules govern the design:
+//!
+//! - **The model must not approve its own future access.** A model-facing
+//!   request surface (e.g. the MCP shim's `net_request_pin`) only ever writes
+//!   a *pending* record; moving `pending → approved` happens exclusively
+//!   through the operator CLI (`net mcp pin approve`), outside the model
+//!   loop. This store has no "approve" path reachable from a request.
+//! - **State is shared across consumers on the machine.** The machine-shared
+//!   store is a per-user JSON file every shim and the pin CLI read/write.
+//!   Writes are atomic (temp + rename) so a concurrent reader never sees a
+//!   half-written file, and every read-modify-write goes through
+//!   [`PinStore::mutate`] under a cross-process advisory lock, so a stale
+//!   snapshot can never clobber a concurrent change and resurrect a removed
+//!   consent decision. The file is owner-only (0600 on Unix).
+//!
+//! **The lock protocol is the contract** (bridge-SDK doctrine #1): this is the
+//! only implementation, ever — adapters and language bindings consume it from
+//! here and never open the store file directly.
+//!
+//! The store keys on a capability's [`CapabilityId`] display form
+//! (`provider/capability`), so a pin is bound to a specific provider — never a
+//! bare capability name that could silently repoint.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use fs2::FileExt;
+use serde::{Deserialize, Serialize};
+
+use crate::consent::CapabilityId;
+
+/// The per-user default pin-store path: `<local data dir>/net-mesh/mcp-pins.json`,
+/// falling back to `<home>/net-mesh/mcp-pins.json` when no data-local directory
+/// resolves.
+///
+/// This is the single machine-shared store every consumer converges on — the
+/// `net mcp` CLI, a running `net mcp serve` shim, and any SDK client (e.g. a
+/// Hermes plugin) — so an approval made through one path is honored by all.
+/// Resolving it in one place (bridge-SDK doctrine #1) is what keeps them from
+/// silently drifting onto different files. Returns `None` only when neither a
+/// data-local nor a home directory can be determined; the caller then requires
+/// an explicit path.
+pub fn default_pin_store_path() -> Option<PathBuf> {
+    dirs::data_local_dir()
+        .or_else(dirs::home_dir)
+        .map(|d| d.join("net-mesh").join("mcp-pins.json"))
+}
+
+/// Whether a pin has been approved by the operator, or is still awaiting it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PinState {
+    /// Requested (by the model, via a request surface such as the MCP shim's
+    /// `net_request_pin`) but not yet approved. Grants nothing.
+    Pending,
+    /// Approved out-of-band by the operator. Satisfies the consent gate.
+    Approved,
+}
+
+impl PinState {
+    /// The stable wire/string form (`"pending"` / `"approved"`) — the same
+    /// spelling `#[serde(rename_all = "snake_case")]` persists. The one source
+    /// of the pin-state vocabulary: language bindings marshal this rather than
+    /// re-tabulating the strings (bridge-SDK doctrine #1).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PinState::Pending => "pending",
+            PinState::Approved => "approved",
+        }
+    }
+}
+
+/// A failure loading or saving the pin store.
+#[derive(Debug, thiserror::Error)]
+pub enum PinStoreError {
+    /// An I/O error reading or writing the store file.
+    #[error("pin store I/O error at {path}: {reason}")]
+    Io {
+        /// The file path involved.
+        path: String,
+        /// The stringified underlying I/O error.
+        reason: String,
+    },
+    /// The store file exists but does not parse as a pin store.
+    #[error("pin store at {path} is corrupt: {reason}")]
+    Corrupt {
+        /// The file path involved.
+        path: String,
+        /// Why it failed to parse.
+        reason: String,
+    },
+}
+
+/// Holds the cross-process advisory lock on the pin store's `.lock` sidecar
+/// for the lifetime of a [`PinStore::mutate`] transaction. Dropping it closes
+/// the file descriptor, which releases the OS lock.
+struct LockGuard {
+    _file: std::fs::File,
+}
+
+impl LockGuard {
+    async fn acquire(store_path: &Path) -> Result<Self, PinStoreError> {
+        // Append ".lock" to the raw OS path bytes rather than the lossy
+        // `display()` form, so the sidecar sits next to the store even for a
+        // non-UTF-8 path. `display` below is only for error messages.
+        let mut lock_os = store_path.as_os_str().to_os_string();
+        lock_os.push(".lock");
+        let lock_path = PathBuf::from(lock_os);
+        let display = lock_path.display().to_string();
+        // Open (creating) the lock file on a blocking thread — a bounded op
+        // that never waits on the lock itself. A lock file: created if absent,
+        // never written to or truncated — only its advisory lock matters.
+        // `truncate(false)` is explicit so we never clobber a sibling process's
+        // lock file content.
+        let open_path = lock_path.clone();
+        let open_display = display.clone();
+        let file = tokio::task::spawn_blocking(move || -> std::io::Result<std::fs::File> {
+            if let Some(parent) = open_path.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(false)
+                .open(&open_path)
+        })
+        .await
+        .map_err(|e| PinStoreError::Io {
+            path: open_display.clone(),
+            reason: format!("pin-store lock task panicked: {e}"),
+        })?
+        .map_err(|e| PinStoreError::Io {
+            path: open_display,
+            reason: e.to_string(),
+        })?;
+
+        // Acquire the cross-process exclusive lock by polling `try_lock_exclusive`
+        // with async backoff, NOT by blocking a thread on `lock_exclusive`. A
+        // blocking acquire parks a `spawn_blocking` pool thread for the whole
+        // wait; with enough contending mutators that starves the very pool the
+        // lock holder's own `tokio::fs` load/save needs, so the holder can never
+        // run its I/O to release the lock — a deadlock. An async sleep parks no
+        // thread, so waiters never compete with the holder's I/O. The `File`
+        // keeps the lock until it (and thus its fd) is dropped — safe to hold
+        // across the transaction's awaits. The store's advisory lock is still
+        // what serializes writers.
+        let contended = fs2::lock_contended_error().kind();
+        let mut backoff = std::time::Duration::from_millis(1);
+        const MAX_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
+        loop {
+            match file.try_lock_exclusive() {
+                Ok(()) => return Ok(Self { _file: file }),
+                Err(e) if e.kind() == contended => {
+                    tokio::time::sleep(backoff).await;
+                    backoff = (backoff * 2).min(MAX_BACKOFF);
+                }
+                Err(e) => {
+                    return Err(PinStoreError::Io {
+                        path: display,
+                        reason: e.to_string(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// The persisted, machine-shared set of pins.
+#[derive(Debug, Clone)]
+pub struct PinStore {
+    path: PathBuf,
+    /// Keyed by `CapabilityId` display form for stable, provider-bound records.
+    pins: BTreeMap<String, PinState>,
+}
+
+// On-disk shape. A struct wrapper (not a bare map) leaves room for a future
+// schema version / metadata without a breaking format change.
+#[derive(Serialize, Deserialize, Default)]
+struct PinFile {
+    #[serde(default)]
+    pins: Vec<StoredPin>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StoredPin {
+    cap_id: String,
+    state: PinState,
+}
+
+impl PinStore {
+    /// Load the store at `path`. A missing file is an **empty** store (the
+    /// common first-run case), not an error; a present-but-unparseable file is
+    /// [`PinStoreError::Corrupt`] so a typo never silently drops pins.
+    pub async fn load(path: impl Into<PathBuf>) -> Result<Self, PinStoreError> {
+        let path = path.into();
+        match tokio::fs::read(&path).await {
+            Ok(bytes) => {
+                let file: PinFile =
+                    serde_json::from_slice(&bytes).map_err(|e| PinStoreError::Corrupt {
+                        path: path.display().to_string(),
+                        reason: e.to_string(),
+                    })?;
+                let pins = file.pins.into_iter().map(|p| (p.cap_id, p.state)).collect();
+                Ok(Self { path, pins })
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self {
+                path,
+                pins: BTreeMap::new(),
+            }),
+            Err(e) => Err(PinStoreError::Io {
+                path: path.display().to_string(),
+                reason: e.to_string(),
+            }),
+        }
+    }
+
+    /// Persist the store atomically: write a sibling temp file, then rename it
+    /// over the target (an atomic replace on both Unix and Windows), so a
+    /// concurrent reader sees either the old or the new file, never a partial.
+    pub async fn save(&self) -> Result<(), PinStoreError> {
+        let io_err = |e: std::io::Error| PinStoreError::Io {
+            path: self.path.display().to_string(),
+            reason: e.to_string(),
+        };
+
+        if let Some(parent) = self.path.parent() {
+            if !parent.as_os_str().is_empty() {
+                tokio::fs::create_dir_all(parent).await.map_err(io_err)?;
+            }
+        }
+
+        let file = PinFile {
+            pins: self
+                .pins
+                .iter()
+                .map(|(cap_id, state)| StoredPin {
+                    cap_id: cap_id.clone(),
+                    state: *state,
+                })
+                .collect(),
+        };
+        let bytes = serde_json::to_vec_pretty(&file).map_err(|e| PinStoreError::Io {
+            path: self.path.display().to_string(),
+            reason: format!("serialize pin store: {e}"),
+        })?;
+
+        // A per-process-unique temp name so two writers don't clobber each
+        // other's temp file mid-write (the final rename is still last-wins).
+        let tmp = self
+            .path
+            .with_extension(format!("tmp.{}", std::process::id()));
+
+        // Create the temp owner-only (0600) *from the start*, then write into
+        // it — the store records security-sensitive consent decisions, so it
+        // must never be even briefly world-/group-readable. Creating first and
+        // chmod'ing after left a window under a permissive umask where the
+        // freshly-written file was readable (and a crash before the chmod left a
+        // umask-perms `.tmp` behind). Truncate so a stale same-pid temp from a
+        // prior crash cannot leave trailing bytes. The 0600 mode travels with
+        // the inode through the atomic rename below. (The `mode` is Unix-only;
+        // on Windows the per-user data dir already scopes access via inherited
+        // ACLs, and the create/write/rename path is otherwise identical.)
+        use tokio::io::AsyncWriteExt;
+        let mut opts = tokio::fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        opts.mode(0o600);
+        let mut f = opts.open(&tmp).await.map_err(io_err)?;
+        // Write, fsync, then atomically rename. `sync_all` before the rename so
+        // a crash right after the rename can never surface an empty/truncated
+        // store — the bytes are durable before they become the live file.
+        let written: Result<(), PinStoreError> = async {
+            f.write_all(&bytes).await.map_err(io_err)?;
+            f.flush().await.map_err(io_err)?;
+            f.sync_all().await.map_err(io_err)?;
+            Ok(())
+        }
+        .await;
+        drop(f);
+
+        let result = match written {
+            Ok(()) => tokio::fs::rename(&tmp, &self.path).await.map_err(io_err),
+            Err(e) => Err(e),
+        };
+        // On any failure, remove the temp so a failed save never leaks a
+        // `.tmp.<pid>` sibling in the store directory.
+        if result.is_err() {
+            let _ = tokio::fs::remove_file(&tmp).await;
+        }
+        result
+    }
+
+    /// Atomically apply a mutation under a **cross-process exclusive lock**, so
+    /// a concurrent pin CLI invocation or another shim can't interleave its
+    /// own load→save and clobber this one — in particular, a stale snapshot
+    /// must never resurrect a just-removed approval. The lock is held for the
+    /// whole load → apply → save; read-only [`load`](Self::load) needs no lock
+    /// (the atomic rename prevents torn reads). Returns the closure's result.
+    ///
+    /// The lock is taken on a sidecar `.lock` file, not the store itself, since
+    /// the atomic-rename save replaces the store file and would drop a lock
+    /// held on it.
+    pub async fn mutate<R, F>(path: impl Into<PathBuf>, f: F) -> Result<R, PinStoreError>
+    where
+        F: FnOnce(&mut PinStore) -> R,
+    {
+        let path = path.into();
+        // Hold the lock guard across the whole transaction; it releases on drop.
+        let _guard = LockGuard::acquire(&path).await?;
+        let mut store = PinStore::load(&path).await?;
+        let result = f(&mut store);
+        store.save().await?;
+        Ok(result)
+    }
+
+    /// The store's file path.
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    /// Record a pin **request** (model-callable). Adds a `Pending` record if
+    /// the capability has no record yet; if one already exists (pending or
+    /// approved) it is left unchanged — a request never upgrades a pin. Returns
+    /// the resulting state.
+    pub fn request(&mut self, id: &CapabilityId) -> PinState {
+        *self.pins.entry(id.display()).or_insert(PinState::Pending)
+    }
+
+    /// **Approve** a pin (operator-only). Creates the record if absent (an
+    /// operator may pre-approve). Returns `true` if this changed the state.
+    pub fn approve(&mut self, id: &CapabilityId) -> bool {
+        let prev = self.pins.insert(id.display(), PinState::Approved);
+        prev != Some(PinState::Approved)
+    }
+
+    /// **Reject / remove** a pin entirely (operator-only). Returns `true` if a
+    /// record was removed.
+    pub fn remove(&mut self, id: &CapabilityId) -> bool {
+        self.pins.remove(&id.display()).is_some()
+    }
+
+    /// Is `id` approved?
+    pub fn is_approved(&self, id: &CapabilityId) -> bool {
+        self.pins.get(&id.display()) == Some(&PinState::Approved)
+    }
+
+    /// The state of `id`, if it has a record.
+    pub fn state(&self, id: &CapabilityId) -> Option<PinState> {
+        self.pins.get(&id.display()).copied()
+    }
+
+    /// Every approved capability (parseable ids only).
+    pub fn approved(&self) -> Vec<CapabilityId> {
+        self.ids_in(PinState::Approved)
+    }
+
+    /// Every pending capability (parseable ids only).
+    pub fn pending(&self) -> Vec<CapabilityId> {
+        self.ids_in(PinState::Pending)
+    }
+
+    /// All records as `(id, state)` (parseable ids only), for `pin list`.
+    pub fn list(&self) -> Vec<(CapabilityId, PinState)> {
+        self.pins
+            .iter()
+            .filter_map(|(raw, state)| CapabilityId::parse(raw).ok().map(|id| (id, *state)))
+            .collect()
+    }
+
+    fn ids_in(&self, want: PinState) -> Vec<CapabilityId> {
+        self.pins
+            .iter()
+            .filter(|(_, s)| **s == want)
+            .filter_map(|(raw, _)| CapabilityId::parse(raw).ok())
+            .collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Change subscription (feature `pin-watch`)
+// ---------------------------------------------------------------------------
+
+/// The approved-set delta between two snapshots of the store — what a
+/// subscriber acts on: promote the `added`, retire the `removed`.
+#[cfg(feature = "pin-watch")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PinChange {
+    /// Capabilities newly `approved` since the last event.
+    pub added: Vec<CapabilityId>,
+    /// Capabilities no longer `approved` (rejected / removed).
+    pub removed: Vec<CapabilityId>,
+}
+
+/// Signal from the notify callback to [`PinWatcher::next`]: either a file event
+/// that may be a store change, or a backend error/shutdown that ends the
+/// subscription (so `next()` returns `None` rather than blocking forever if the
+/// backend stops delivering).
+#[cfg(feature = "pin-watch")]
+enum WatchSignal {
+    Dirty,
+    Backend,
+}
+
+/// A live subscription to approved-pin changes in the machine-shared store.
+///
+/// Backed by an OS file watcher over the store's directory (**not** polling),
+/// so a change made by ANY process — `net mcp pin approve`, a running shim,
+/// another SDK client — arrives as a push event. Each [`PinWatcher::next`]
+/// resolves to the approved-set delta; file changes that don't alter the
+/// approved set (e.g. a new *pending* request) are absorbed silently.
+#[cfg(feature = "pin-watch")]
+pub struct PinWatcher {
+    path: PathBuf,
+    // The watcher is kept alive here; dropping it stops the subscription.
+    _watcher: notify::RecommendedWatcher,
+    dirty_rx: tokio::sync::mpsc::UnboundedReceiver<WatchSignal>,
+    approved: std::collections::HashSet<CapabilityId>,
+}
+
+#[cfg(feature = "pin-watch")]
+impl PinWatcher {
+    /// Debounce window: coalesce the burst of events a single atomic save
+    /// (temp write + rename) generates into one reload.
+    const DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(120);
+
+    /// Await the next approved-set change, or `None` once the watcher backend
+    /// stops (e.g. the watched directory is removed) or this handle is dropped.
+    pub async fn next(&mut self) -> Option<PinChange> {
+        loop {
+            // Wait for a file event; a backend error/shutdown ends the stream.
+            match self.dirty_rx.recv().await? {
+                WatchSignal::Backend => return None,
+                WatchSignal::Dirty => {}
+            }
+            // Coalesce the save burst, ending the stream if the backend died
+            // mid-burst.
+            if self.drain_burst() {
+                return None;
+            }
+            tokio::time::sleep(Self::DEBOUNCE).await;
+            if self.drain_burst() {
+                return None;
+            }
+
+            // Reload and diff the approved set. A transient read / corrupt error
+            // is not a verdict — wait for the next event rather than emit
+            // spurious removals.
+            let store = match PinStore::load(self.path.clone()).await {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let now: std::collections::HashSet<CapabilityId> =
+                store.approved().into_iter().collect();
+            let change = diff_approved(&self.approved, &now);
+            self.approved = now;
+            if !change.added.is_empty() || !change.removed.is_empty() {
+                return Some(change);
+            }
+        }
+    }
+
+    /// Drain buffered signals (coalescing the save burst). Returns `true` if a
+    /// backend error/shutdown signal was among them — the caller then ends the
+    /// stream (`next()` returns `None`).
+    fn drain_burst(&mut self) -> bool {
+        let mut backend_gone = false;
+        while let Ok(sig) = self.dirty_rx.try_recv() {
+            if matches!(sig, WatchSignal::Backend) {
+                backend_gone = true;
+            }
+        }
+        backend_gone
+    }
+}
+
+/// Diff two approved-sets into a [`PinChange`] with `added` / `removed` in a
+/// **stable order** (by `CapabilityId::display()`). `HashSet::difference` yields
+/// arbitrary order, so without this the payload — and any downstream handling or
+/// test asserting on it — could flap across runs.
+#[cfg(feature = "pin-watch")]
+fn diff_approved(
+    old: &std::collections::HashSet<CapabilityId>,
+    now: &std::collections::HashSet<CapabilityId>,
+) -> PinChange {
+    let mut added: Vec<CapabilityId> = now.difference(old).cloned().collect();
+    let mut removed: Vec<CapabilityId> = old.difference(now).cloned().collect();
+    added.sort_by_key(|a| a.display());
+    removed.sort_by_key(|a| a.display());
+    PinChange { added, removed }
+}
+
+#[cfg(feature = "pin-watch")]
+impl PinStore {
+    /// Snapshot the currently-approved capabilities AND begin watching for
+    /// changes, atomically — so a subscriber promotes the snapshot and then
+    /// consumes only subsequent [`PinChange`] deltas, with no gap or double
+    /// registration. The snapshot is a fresh read of the same file
+    /// `net mcp pin` writes.
+    pub async fn snapshot_and_watch(
+        path: impl Into<PathBuf>,
+    ) -> Result<(Vec<CapabilityId>, PinWatcher), PinStoreError> {
+        use notify::Watcher;
+
+        let path = path.into();
+        // Watch the store's DIRECTORY: the atomic temp+rename replaces the file
+        // inode, so watching the file itself would miss the rename. Ensure the
+        // directory exists first — the store's own save creates it lazily, but
+        // the watcher needs it up front.
+        let dir = match path.parent() {
+            Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+            _ => PathBuf::from("."),
+        };
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(|e| PinStoreError::Io {
+                path: dir.display().to_string(),
+                reason: e.to_string(),
+            })?;
+        let want = path.file_name().map(|n| n.to_os_string());
+
+        let (tx, dirty_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+            match res {
+                Ok(event) => {
+                    // Fire on any event that names the store file (or carries no
+                    // path, which some backends emit for directory-level changes).
+                    let touches = event.paths.is_empty()
+                        || event.paths.iter().any(|p| p.file_name() == want.as_deref());
+                    if touches {
+                        let _ = tx.send(WatchSignal::Dirty);
+                    }
+                }
+                // A backend error can mean the watch has stopped delivering events
+                // — signal termination so `next()` returns None instead of
+                // blocking forever on `recv()`.
+                Err(_) => {
+                    let _ = tx.send(WatchSignal::Backend);
+                }
+            }
+        })
+        .map_err(|e| PinStoreError::Io {
+            path: dir.display().to_string(),
+            reason: format!("pin watcher init: {e}"),
+        })?;
+        watcher
+            .watch(&dir, notify::RecursiveMode::NonRecursive)
+            .map_err(|e| PinStoreError::Io {
+                path: dir.display().to_string(),
+                reason: format!("pin watch: {e}"),
+            })?;
+
+        let store = PinStore::load(path.clone()).await?;
+        let approved = store.approved();
+        let baseline: std::collections::HashSet<CapabilityId> = approved.iter().cloned().collect();
+        Ok((
+            approved,
+            PinWatcher {
+                path,
+                _watcher: watcher,
+                dirty_rx,
+                approved: baseline,
+            },
+        ))
+    }
+
+    /// Begin watching for approved-set changes, discarding the initial
+    /// snapshot. Convenience over [`snapshot_and_watch`] when the caller has
+    /// already read the current set.
+    pub async fn watch(path: impl Into<PathBuf>) -> Result<PinWatcher, PinStoreError> {
+        Ok(Self::snapshot_and_watch(path).await?.1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cap(s: &str) -> CapabilityId {
+        CapabilityId::parse(s).unwrap()
+    }
+
+    fn store_path() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested").join("pins.json");
+        (dir, path)
+    }
+
+    #[cfg(feature = "pin-watch")]
+    #[test]
+    fn diff_approved_orders_added_and_removed_by_display() {
+        use std::collections::HashSet;
+        // Disjoint sets: `added` = all of `now`, `removed` = all of `old`, each
+        // inserted out of order so a stable payload can only come from sorting.
+        let old: HashSet<CapabilityId> = [cap("p/b"), cap("p/y"), cap("p/m")].into_iter().collect();
+        let now: HashSet<CapabilityId> = [cap("p/c"), cap("p/a"), cap("p/z")].into_iter().collect();
+        let change = diff_approved(&old, &now);
+        assert_eq!(
+            change.added.iter().map(|c| c.display()).collect::<Vec<_>>(),
+            vec!["p/a", "p/c", "p/z"],
+        );
+        assert_eq!(
+            change
+                .removed
+                .iter()
+                .map(|c| c.display())
+                .collect::<Vec<_>>(),
+            vec!["p/b", "p/m", "p/y"],
+        );
+    }
+
+    #[cfg(feature = "pin-watch")]
+    #[tokio::test]
+    async fn watch_emits_approved_set_deltas() {
+        use std::time::Duration;
+        let (_dir, path) = store_path();
+        // Seed one approved pin before subscribing.
+        PinStore::mutate(path.clone(), |s| s.approve(&cap("a/x")))
+            .await
+            .unwrap();
+
+        let (snapshot, mut watcher) = PinStore::snapshot_and_watch(path.clone()).await.unwrap();
+        assert_eq!(snapshot, vec![cap("a/x")]);
+
+        // A cross-handle approval (as `net mcp pin approve` would) surfaces as an
+        // `added` delta, not a poll.
+        PinStore::mutate(path.clone(), |s| s.approve(&cap("a/y")))
+            .await
+            .unwrap();
+        let change = tokio::time::timeout(Duration::from_secs(5), watcher.next())
+            .await
+            .expect("watcher fired within 5s")
+            .expect("watcher still live");
+        assert_eq!(change.added, vec![cap("a/y")]);
+        assert!(change.removed.is_empty(), "{change:?}");
+
+        // Removing one surfaces as a `removed` delta.
+        PinStore::mutate(path.clone(), |s| s.remove(&cap("a/x")))
+            .await
+            .unwrap();
+        let change = tokio::time::timeout(Duration::from_secs(5), watcher.next())
+            .await
+            .expect("watcher fired within 5s")
+            .expect("watcher still live");
+        assert_eq!(change.removed, vec![cap("a/x")]);
+        assert!(change.added.is_empty(), "{change:?}");
+    }
+
+    #[test]
+    fn default_path_is_the_shared_net_mesh_file() {
+        // On any dev/CI host a data-local or home dir resolves, so the default
+        // is present and ends with the one canonical machine-shared location
+        // the CLI, shim, and SDK clients all converge on.
+        let path = default_pin_store_path().expect("a data-local or home dir must resolve");
+        assert!(
+            path.ends_with(std::path::Path::new("net-mesh").join("mcp-pins.json")),
+            "unexpected default pin-store path: {}",
+            path.display()
+        );
+    }
+
+    #[tokio::test]
+    async fn missing_file_loads_empty() {
+        let (_dir, path) = store_path();
+        let store = PinStore::load(&path).await.unwrap();
+        assert!(store.approved().is_empty());
+        assert!(store.pending().is_empty());
+    }
+
+    #[tokio::test]
+    async fn request_creates_pending_and_does_not_grant() {
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        let id = cap("b/echo");
+        assert_eq!(store.request(&id), PinState::Pending);
+        assert!(!store.is_approved(&id), "a request must not grant consent");
+        assert_eq!(store.pending(), vec![id.clone()]);
+        // A second request does not upgrade it.
+        assert_eq!(store.request(&id), PinState::Pending);
+    }
+
+    #[tokio::test]
+    async fn request_never_upgrades_an_approved_pin() {
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        let id = cap("b/echo");
+        assert!(store.approve(&id));
+        // The model requesting again must not disturb an approved pin.
+        assert_eq!(store.request(&id), PinState::Approved);
+        assert!(store.is_approved(&id));
+    }
+
+    #[tokio::test]
+    async fn approve_then_persist_is_visible_to_a_fresh_load() {
+        let (_dir, path) = store_path();
+        {
+            let mut store = PinStore::load(&path).await.unwrap();
+            store.request(&cap("b/echo"));
+            assert!(store.approve(&cap("b/secret")));
+            store.save().await.unwrap();
+        }
+        // A separate load (another shim / the pin CLI) sees the same state.
+        let reloaded = PinStore::load(&path).await.unwrap();
+        assert!(reloaded.is_approved(&cap("b/secret")));
+        assert!(!reloaded.is_approved(&cap("b/echo")));
+        assert_eq!(reloaded.pending(), vec![cap("b/echo")]);
+        assert_eq!(reloaded.approved(), vec![cap("b/secret")]);
+    }
+
+    #[tokio::test]
+    async fn remove_deletes_the_record() {
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        let id = cap("b/echo");
+        store.approve(&id);
+        assert!(store.remove(&id));
+        assert!(!store.is_approved(&id));
+        assert!(!store.remove(&id), "removing again is a no-op");
+    }
+
+    #[tokio::test]
+    async fn approve_reports_whether_it_changed_state() {
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        let id = cap("b/echo");
+        assert!(store.approve(&id), "pending/absent → approved is a change");
+        assert!(!store.approve(&id), "already approved → no change");
+    }
+
+    #[tokio::test]
+    async fn corrupt_file_is_an_error_not_a_silent_reset() {
+        let (_dir, path) = store_path();
+        tokio::fs::create_dir_all(path.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&path, b"{ not valid json").await.unwrap();
+        let err = PinStore::load(&path).await.unwrap_err();
+        assert!(matches!(err, PinStoreError::Corrupt { .. }));
+    }
+
+    #[tokio::test]
+    async fn list_round_trips_states() {
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        store.approve(&cap("b/a"));
+        store.request(&cap("b/z"));
+        store.save().await.unwrap();
+        let reloaded = PinStore::load(&path).await.unwrap();
+        let mut listed = reloaded.list();
+        listed.sort_by_key(|x| x.0.display());
+        assert_eq!(
+            listed,
+            vec![
+                (cap("b/a"), PinState::Approved),
+                (cap("b/z"), PinState::Pending),
+            ],
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn saved_store_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_dir, path) = store_path();
+        let mut store = PinStore::load(&path).await.unwrap();
+        store.approve(&cap("b/echo"));
+        store.save().await.unwrap();
+        let mode = tokio::fs::metadata(&path)
+            .await
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(
+            mode & 0o777,
+            0o600,
+            "the pin store records consent decisions and must be owner-only",
+        );
+        // A successful save must leave no umask-perms temp sibling behind.
+        let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+        assert!(
+            !tmp.exists(),
+            "no leftover temp file after a successful save"
+        );
+    }
+
+    #[tokio::test]
+    async fn mutate_applies_and_persists() {
+        let (_dir, path) = store_path();
+        let state = PinStore::mutate(path.clone(), |s| s.request(&cap("b/echo")))
+            .await
+            .unwrap();
+        assert_eq!(
+            state,
+            PinState::Pending,
+            "mutate returns the closure result"
+        );
+        assert_eq!(
+            PinStore::load(&path).await.unwrap().state(&cap("b/echo")),
+            Some(PinState::Pending),
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn concurrent_mutations_do_not_lose_updates() {
+        // Two concurrent locked transactions each approve a different
+        // capability. The lock serializes load→save, so neither clobbers the
+        // other and both survive — without it, the two loads race on the same
+        // snapshot and one approval is lost to last-writer-wins.
+        let (_dir, path) = store_path();
+        let (r1, r2) = tokio::join!(
+            PinStore::mutate(path.clone(), |s| s.approve(&cap("b/a"))),
+            PinStore::mutate(path.clone(), |s| s.approve(&cap("b/b"))),
+        );
+        assert!(r1.unwrap());
+        assert!(r2.unwrap());
+        let store = PinStore::load(&path).await.unwrap();
+        assert!(store.is_approved(&cap("b/a")), "first approval survived");
+        assert!(store.is_approved(&cap("b/b")), "second approval survived");
+    }
+
+    #[test]
+    fn contended_mutations_make_progress_under_a_tiny_blocking_pool() {
+        // Regression for the lock-acquire pool-exhaustion deadlock. When the
+        // lock was taken via a *blocking* `lock_exclusive` on the shared
+        // blocking pool, contending mutators could occupy every blocking
+        // thread waiting on the lock, starving the current holder's own
+        // load/save I/O (also on the blocking pool) so it could never run and
+        // release — a deadlock. Polling `try_lock_exclusive` with async
+        // backoff parks no thread while waiting, so even a 2-thread blocking
+        // pool drains many concurrent mutations. The timeout turns a
+        // regression (hang) into a failure instead of stalling the suite.
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .max_blocking_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let (_dir, path) = store_path();
+            let n = 24usize;
+            let tasks: Vec<_> = (0..n)
+                .map(|i| {
+                    let path = path.clone();
+                    tokio::spawn(async move {
+                        PinStore::mutate(path, move |s| s.approve(&cap(&format!("b/cap{i}")))).await
+                    })
+                })
+                .collect();
+            let drained = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+                for t in tasks {
+                    t.await.unwrap().unwrap();
+                }
+            })
+            .await;
+            assert!(
+                drained.is_ok(),
+                "contended mutations deadlocked under a small blocking pool",
+            );
+            let store = PinStore::load(&path).await.unwrap();
+            assert_eq!(store.approved().len(), n, "every approval survived");
+        });
+    }
+}

@@ -736,10 +736,20 @@ _REFUSE_PROBE_AT_NETWORK_POINT = (
     "to the load's own node, or drop it and read the load current out of the "
     "CURRENTS table"
 )
+_REFUSE_UNPINNED_PHANTOM = (
+    "{card} ends at {at} on GW {tag}, EZNEC's parked circuit wire, and no LD "
+    "card pins that node; a deck EZNEC writes for an engine run pins a parked "
+    "node only one network card reaches (LD 4 ... 1.E+10 for an open), so "
+    "this one was edited by hand or saved as .nec. Unpinned, the answer "
+    "depends on reading the parked wire as a wire (NEC-5 solves it as a few "
+    "millimetres of metal, about 1 % on momwire#1314's open-stub deck) or as a "
+    "circuit node (what EZNEC means) - add the LD 4 pin EZNEC writes"
+)
 _REFUSE_DUPLICATE_EX = (
     "two EX cards address {at}; one node is one port, so the second card is a "
-    "second generator in series across the same gap - no captured deck writes "
-    "that, and this seam will not decide how two set currents share one path"
+    "second generator in series across the same gap - the one repeat served is "
+    "EZNEC's 1e-10 V load probe beside an EX 4, and this seam will not decide "
+    "how two set currents share one path"
 )
 _REFUSE_TWO_DRIVES_ONE_PORT = (
     "{first} and {second} are the two sides of ONE cut and an EX card drives "
@@ -1686,13 +1696,25 @@ def _drive_refusal(deck: Nec5Deck) -> str | None:
     # momwire#1110 (tests/fixtures/eznec_load_probes_1110/), and several EX 0
     # THROUGH a network since momwire#1105 - one row per card either way, and
     # the drive row unmoved by the probe.
-    seen: set[Nec5Node] = set()
+    #
+    # A repeated address is served in ONE shape (momwire#1787): every card at
+    # it is one of those load probes, on a mixed deck, so `_load_probe_refusal`
+    # above has already vetted each of them.  EZNEC writes one probe per
+    # lumped load, so two loads at one node - stacked traps - give two
+    # identical probes at one address.  NEC-5 solves that as ONE passive probe
+    # (the drive row is the one-probe deck's to every printed digit) and
+    # prints its row once per card; the excitation below writes one value per
+    # port, so the repeat collapses there by construction and each card still
+    # gets its row.  Anything else at a repeated address stays refused.
+    probes = bool(voltages) and voltages != len(kinds)
+    seen: dict[Nec5Node, int] = {}
     for source in deck.sources:
-        if source.at in seen:
+        first = seen.get(source.at)
+        if first is not None and not (probes and first == 0 and source.kind == 0):
             return _REFUSE_DUPLICATE_EX.format(
                 at=f"{source.at.tag},{source.at.written}"
             )
-        seen.add(source.at)
+        seen.setdefault(source.at, source.kind)
     return None
 
 
@@ -3403,9 +3425,56 @@ def _reduced_state(
     the generator actually delivered (0027, where one port is 1.4142 A of source
     and 3.3124E-09 A of structure, all of the difference having gone down two
     transmission lines).
+
+    A site that nothing reaches is HELD at its voltage, which is zero
+    (:func:`_unreached_sites`).  It is held only for the reducer: ``driven``,
+    which says whose termination current the printout reads, is unchanged.
     """
-    reducer = _reducer_for(cards, n_sites, voltages, driven)
+    held = tuple(driven) + tuple(
+        k for k in _unreached_sites(cards, y_eff) if k not in driven
+    )
+    reducer = _reducer_for(cards, n_sites, voltages, held)
     return reduced_ports(reducer, y_eff, wavelength, n_sites, driven)
+
+
+def _unreached_sites(cards: tuple[_Card, ...], y_eff: np.ndarray) -> list[int]:
+    """Network endpoints that no admittance reaches, from either side.
+
+    EZNEC saves a "parallel connected load" as a ONE-port ``NT`` — ``Y11``
+    only, its port 2 parked on a virtual wire with ``Y12 = Y22 = 0``
+    (momwire#1314, antennaknobs#1880).  The card stamps nothing at port 2, and
+    a virtual site has no antenna admittance (momwire#1139), so that site's
+    KCL row is identically zero and the reducer is singular.  The decks EZNEC
+    hands an engine pin those ends with ``LD 4 … 1.E+10``
+    (:func:`_series_loads`), which is the only thing that kept them solvable.
+
+    Holding such a site at zero volts is exact, not a guess at what the pin
+    would have done: with ``Y12 = 0`` and no antenna admittance, nothing else
+    in the system reads its voltage, so whatever it is set to moves no other
+    number.  A site the antenna does reach — a real segment whose ``NT``
+    happens to be zero there — is left floating, which is NEC's own reading:
+    no network current, so an open gap.
+    """
+    reached: set[int] = set()
+    endpoints: set[int] = set()
+    for entry in cards:
+        a, b = entry.site_a, entry.site_b
+        endpoints.update((a, b))
+        if entry.card.kind != "NT":
+            reached.update((a, b))
+            continue
+        y11, y12, y22 = (
+            complex(entry.card.payload[i], entry.card.payload[i + 1]) for i in (0, 2, 4)
+        )
+        if y11 or y12:
+            reached.add(a)
+        if y22 or y12:
+            reached.add(b)
+    return sorted(
+        k
+        for k in endpoints - reached
+        if not np.any(y_eff[k, :]) and not np.any(y_eff[:, k])
+    )
 
 
 def _series_loads(mesh: _Mesh, y: np.ndarray, z_load: np.ndarray) -> np.ndarray:
@@ -4056,7 +4125,10 @@ def _check_one_port_per_drive(
         if site.column < 0:
             continue
         first = seen.get(site.column)
-        if first is not None:
+        # The SAME address twice reached here only as EZNEC's repeated load
+        # probe, which :func:`_drive_refusal` serves (momwire#1787); this
+        # check is for two different addresses on one cut.
+        if first is not None and first != source.at:
             raise ServeRefusal(
                 _REFUSE_TWO_DRIVES_ONE_PORT.format(
                     first=f"{first.tag},{first.written}",
@@ -4064,6 +4136,55 @@ def _check_one_port_per_drive(
                 )
             )
         seen[site.column] = source.at
+
+
+def _check_pinned_phantoms(deck: Nec5Deck, by_address: dict[Nec5Node, _Site]) -> None:
+    """A network end on a parked (virtual) node must carry EZNEC's pin.
+
+    EZNEC parks a network end that has nowhere else to go on a short wire far
+    from the antenna and pins that node with an ``LD`` (``LD 4 ... 1.E+10`` for
+    an open stub end).  It does NOT pin a parked node that a source drives or
+    that two cards chain through: Dan's cardioid drives its parked nodes, and
+    WA7ARK's OCF deck runs two ``NT`` cards through one, both unpinned, and
+    both measured against their oracles.  So only a DANGLING end - one card,
+    no source - is required to carry the pin.  This seam
+    reads the parked wire as a circuit node with no geometry (momwire#1139),
+    and pinned, that is NEC's own answer less the little wire's reactance.
+    Unpinned, the two readings part: NEC-5 solves the parked wire as metal, so
+    an "open" stub ends on its few-picofarad gap, and momwire#1314's open-stub
+    deck moves 1.3 % between them.  Neither is a defect to pick, so the deck
+    is refused by name (Steve, 2026-10-27).
+
+    Only an end the network actually REACHES counts.  A one-port ``NT``'s far
+    end (``Y12 = Y22 = 0``) stamps nothing there, so nothing reads the node
+    and both readings agree exactly; that is the File > Save shape of EZNEC's
+    parallel loads, and it is served (:func:`_unreached_sites`).
+    """
+    ends: list[tuple[str, Nec5Node]] = []
+    for line in deck.transmission_lines:
+        ends += [("a TL card", line.end_a), ("a TL card", line.end_b)]
+    for net in deck.networks:
+        if net.y11 or net.y12:
+            ends.append(("an NT card", net.end_a))
+        if net.y22 or net.y12:
+            ends.append(("an NT card", net.end_b))
+    count: dict[Nec5Node, int] = {}
+    for _card, at in ends:
+        count[at] = count.get(at, 0) + 1
+    pinned = {load.at for load in deck.loads}
+    for card, at in ends:
+        site = by_address[at]
+        if (
+            site.spelling == "virtual"
+            and at not in pinned
+            and not site.driven
+            and count[at] == 1
+        ):
+            raise ServeRefusal(
+                _REFUSE_UNPINNED_PHANTOM.format(
+                    card=card, at=f"{at.tag},{at.written}", tag=at.tag
+                )
+            )
 
 
 def _element_geometry(structure: Structure, wavelength: float):
@@ -4909,6 +5030,7 @@ def _prepare(
     for source in deck.sources:
         by_address[source.at].driven = True
     _check_one_port_per_drive(deck, by_address)
+    _check_pinned_phantoms(deck, by_address)
 
     wavelength = SPEED_OF_LIGHT_MHZ_M / frequency
     omega = 2.0 * math.pi * frequency * 1e6

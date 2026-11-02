@@ -1,6 +1,6 @@
 """What capture uploads, checked against what the consent screen promises.
 
-The promise (`app/assistant/product.md`, held by
+The promise (`app/agents/assistant/prompts/product.md`, held by
 `dashboard/src/lib/capture-disclosure.test.ts`): file contents, command output
 and search results are not sent. Through tap 0.9.9 it was broken in Claude Code capture
 through three deny-lists (a top-level `toolUseResult`, file-bearing attachments,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pagefind
-Version: 1.5.2
+Version: 1.6.0
 Summary: Python API for Pagefind
 Author: Pagefind
 License-Expression: MIT

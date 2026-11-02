@@ -1,0 +1,1379 @@
+"""Tests for ``python -m adcp.migrate v3-to-v4``.
+
+The migration is one-shot tooling — once a codebase runs through it,
+the output is reviewed in ``git diff`` and tests never run against
+migrated code again. But the migration itself is code that rewrites
+other people's code: bugs here corrupt their source tree. These tests
+pin the behaviour tightly.
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+from pathlib import Path
+
+import pytest
+
+from adcp.migrate import v3_to_v4
+
+# ---------------------------------------------------------------------------
+# Dry-run scans — file contents unchanged, report lists findings
+# ---------------------------------------------------------------------------
+
+
+def _write(tmp_path: Path, name: str, body: str) -> Path:
+    path = tmp_path / name
+    path.write_text(body)
+    return path
+
+
+def test_renames_all_nine_asset_content_types(tmp_path: Path) -> None:
+    """All 9 ``<Type>Asset`` → ``<Type>Content`` names are detected."""
+    source = "\n".join(
+        [
+            "from adcp.types import (",
+            "    AudioAsset, CssAsset, HtmlAsset, ImageAsset, JavascriptAsset,",
+            "    TextAsset, UrlAsset, VideoAsset, WebhookAsset,",
+            ")",
+            "x = AudioAsset(duration_seconds=30)",
+        ]
+    )
+    _write(tmp_path, "user_code.py", source)
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert report.scanned_files == 1
+    # 9 import-line hits + 1 call-site hit for AudioAsset = 10 applied findings
+    applied_names = {f.before for f in report.applied}
+    assert applied_names == set(v3_to_v4.ASSET_CONTENT_RENAMES.keys())
+    # Every applied rename carries the target name.
+    for f in report.applied:
+        assert f.after == v3_to_v4.ASSET_CONTENT_RENAMES[f.before]
+
+
+def test_apply_rewrites_files_in_place(tmp_path: Path) -> None:
+    """With ``--apply`` the file contents are rewritten."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types import AudioAsset, VideoAsset\n"
+        "audio = AudioAsset(duration_seconds=30)\n"
+        "video = VideoAsset(width=1920, height=1080)\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert report.rewritten_files == 1
+    rewritten = path.read_text()
+    assert "AudioAsset" not in rewritten
+    assert "VideoAsset" not in rewritten
+    assert "AudioContent" in rewritten
+    assert "VideoContent" in rewritten
+
+
+def test_dry_run_does_not_modify_files(tmp_path: Path) -> None:
+    """Default mode (no ``--apply``) leaves files untouched."""
+    original = "from adcp.types import AudioAsset\n" "audio = AudioAsset(duration_seconds=30)\n"
+    path = _write(tmp_path, "code.py", original)
+
+    v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert path.read_text() == original
+
+
+def test_word_boundary_protects_against_partial_matches(tmp_path: Path) -> None:
+    """``MyAudioAsset`` or ``AudioAssetExtra`` must NOT be rewritten —
+    they're the seller's own types and coincidentally contain the
+    renamed substring."""
+    source = (
+        "class MyAudioAsset: pass\n"
+        "class AudioAssetExtra: pass\n"
+        "class AudioAsset_Custom: pass\n"
+        "from adcp.types import AudioAsset\n"
+    )
+    path = _write(tmp_path, "code.py", source)
+
+    v3_to_v4.run(tmp_path, apply_changes=True)
+
+    rewritten = path.read_text()
+    assert "class MyAudioAsset: pass" in rewritten
+    assert "class AudioAssetExtra: pass" in rewritten
+    assert "class AudioAsset_Custom: pass" in rewritten
+    # Only the bare import rewrote.
+    assert "from adcp.types import AudioContent" in rewritten
+
+
+# ---------------------------------------------------------------------------
+# Flagged findings — reported with migration-guide anchor, not rewritten
+# ---------------------------------------------------------------------------
+
+
+def test_flags_removed_types_with_migration_anchor(tmp_path: Path) -> None:
+    """Removed types (BrandManifest, DeliverTo, Pricing, etc.) are
+    flagged — NOT rewritten, since replacement depends on context."""
+    source = (
+        "from adcp import BrandManifest, DeliverTo, Pricing\n"
+        "manifest = BrandManifest(name='x')\n"
+    )
+    _write(tmp_path, "code.py", source)
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    # Source is unchanged — removed types aren't auto-rewritten.
+    rewritten = (tmp_path / "code.py").read_text()
+    assert "BrandManifest" in rewritten
+    assert "DeliverTo" in rewritten
+
+    # Every flagged finding carries the migration anchor + hint.
+    by_name = {f.before: f for f in report.flagged if f.kind == "flag_removed"}
+    assert "BrandManifest" in by_name
+    assert by_name["BrandManifest"].hint is not None
+    assert "BrandReference" in by_name["BrandManifest"].hint
+    assert by_name["BrandManifest"].migration_anchor == "brandmanifest--brandreference"
+
+
+def test_flags_numbered_assets_imports(tmp_path: Path) -> None:
+    """Direct ``Assets81`` imports are unstable across spec revisions —
+    flag, don't rewrite (the semantic alias depends on what the caller
+    was doing with the numbered class)."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.bundled.x import Assets81, Assets149\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    numbered = [f for f in report.flagged if f.kind == "flag_numbered"]
+    names = {f.before for f in numbered}
+    assert names == {"Assets81", "Assets149"}
+
+
+def test_bare_assets_is_not_flagged_as_numbered(tmp_path: Path) -> None:
+    """``Assets`` (no digits) is the legitimate base alias. The numbered
+    flag must not fire on it."""
+    _write(tmp_path, "code.py", "from adcp.types import Assets\nx = Assets\n")
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    numbered = [f for f in report.flagged if f.kind == "flag_numbered"]
+    assert numbered == []
+
+
+def test_generated_poc_import_of_an_unknown_symbol_is_a_prefix_rename(tmp_path: Path) -> None:
+    """A ``generated_poc`` import whose symbol has no ``adcp.types`` home is
+    still mechanical: the module moved to ``adcp.types.domains`` under the same
+    stem, so the line is a ``rename_import``, not something for a human (#1417)."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.something import Unknown\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert report.flagged == []
+    renames = [f for f in report.applied if f.kind == "rename_import"]
+    assert len(renames) == 1
+    assert renames[0].before == "adcp.types.generated_poc.core.something"
+    assert renames[0].after == "adcp.types.domains.core.something"
+    assert renames[0].hint is None
+
+
+def test_generated_poc_import_hint_names_the_flat_surface_home(tmp_path: Path) -> None:
+    """Round-5 adopter feedback (salesagent v3→v4 experiment): the
+    ``generated_poc`` flag-only output forced 82 of 156 findings into
+    hand-grep territory. The line is now a mechanical ``rename_import`` to the
+    domain path, and its hint still names the ``adcp.types`` home of each known
+    symbol so adopters can pick ``--auto-apply`` without leaving the report."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp.types.generated_poc.core.brand_ref import BrandReference\n"
+        "from adcp.types.generated_poc.enums.media_buy_status import MediaBuyStatus\n"
+        "from adcp.types.generated_poc.core.error import Error as AdCPResponseError\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert report.flagged == []
+    by_line = {f.line: f for f in report.applied if f.kind == "rename_import"}
+    assert by_line[1].after == "adcp.types.domains.core.context"
+    assert "ContextObject → adcp.types.ContextObject" in (by_line[1].hint or "")
+    assert "BrandReference → adcp.types.BrandReference" in (by_line[2].hint or "")
+    assert "MediaBuyStatus → adcp.types.MediaBuyStatus" in (by_line[3].hint or "")
+    # ``import Error as AdCPResponseError`` — codemod keys off the LHS
+    # canonical name, ignoring the local alias.
+    assert "Error → adcp.types.Error" in (by_line[4].hint or "")
+
+
+def test_generated_poc_import_hint_covers_every_symbol_on_the_line(tmp_path: Path) -> None:
+    """``from adcp.types.generated_poc.core.x import A, B`` names both
+    replacements in the one ``rename_import`` hint."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.vendor_pricing_option import "
+        "VendorPricingOption1, VendorPricingOption2\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    (rename,) = [f for f in report.applied if f.kind == "rename_import"]
+    assert rename.after == "adcp.types.domains.core.vendor_pricing_option"
+    assert rename.hint is not None
+    assert "VendorPricingOption1 → adcp.types.CpmVendorPricingOption" in rename.hint
+    assert "VendorPricingOption2 → adcp.types.PercentOfMediaVendorPricingOption" in rename.hint
+
+
+def test_generated_poc_symbol_map_covers_publicly_exported_names() -> None:
+    """Every entry in ``GENERATED_POC_SYMBOL_MAP`` MUST point at a real
+    public-API symbol on ``adcp.types`` — otherwise the hint sends
+    adopters to a NameError. Guards against drift between the codemod's
+    map and the SDK's __all__."""
+
+    types_module = importlib.import_module("adcp.types")
+    for symbol, replacement in v3_to_v4.GENERATED_POC_SYMBOL_MAP.items():
+        # Every replacement is exactly ``adcp.types.<symbol>``.
+        assert replacement == f"adcp.types.{symbol}", (
+            f"GENERATED_POC_SYMBOL_MAP[{symbol!r}] = {replacement!r} but "
+            f"the convention is adcp.types.{symbol}"
+        )
+        assert hasattr(types_module, symbol), (
+            f"GENERATED_POC_SYMBOL_MAP claims adcp.types.{symbol} exists "
+            "but it's not on the public types module — drop the entry "
+            "or add the public alias."
+        )
+
+    for (_module, _symbol), replacement in v3_to_v4.GENERATED_POC_SOURCE_SYMBOL_MAP.items():
+        public_name = replacement.removeprefix("adcp.types.")
+        assert replacement == f"adcp.types.{public_name}"
+        assert hasattr(
+            types_module, public_name
+        ), f"source-scoped migration target {replacement!r} is not public"
+        # The map's keys are the v3 spelling the codemod detects; the classes
+        # live at adcp.types.domains now, same module stems. Same asymmetry as
+        # v3_to_v4._replacement_is_identical, for the same reason.
+        source_module = importlib.import_module(f"adcp.types.domains.{_module}")
+        assert getattr(types_module, public_name) is getattr(source_module, _symbol)
+
+
+def test_flags_removed_attribute_accesses(tmp_path: Path) -> None:
+    """``.brand_manifest`` on ResolvedBrand was removed — flag the
+    attribute access with a hint."""
+    _write(
+        tmp_path,
+        "code.py",
+        "result = await registry.lookup_brand('x')\n" "manifest = result.brand_manifest\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    attr = [f for f in report.flagged if f.kind == "flag_attribute"]
+    assert len(attr) == 1
+    assert attr[0].before == ".brand_manifest"
+
+
+def test_flags_removed_enum_values(tmp_path: Path) -> None:
+    """`MediaBuyStatus.pending_activation` references are flagged with
+    a hint describing both replacement values and a runtime check."""
+    _write(
+        tmp_path,
+        "code.py",
+        "if status == MediaBuyStatus.pending_activation:\n"
+        "    handle_pending()\n"
+        "# also in a comparison\n"
+        "is_pending = mb.status is MediaBuyStatus.pending_activation\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    enum_flags = [f for f in report.flagged if f.kind == "flag_enum_value"]
+    assert len(enum_flags) == 2
+    for finding in enum_flags:
+        assert finding.before == "MediaBuyStatus.pending_activation"
+        assert finding.hint is not None
+        assert "pending_start" in finding.hint
+        assert "pending_creatives" in finding.hint
+        assert "valid_actions" in finding.hint
+
+
+def test_enum_value_word_boundary_no_false_positive(tmp_path: Path) -> None:
+    """`MediaBuyStatus.pending_activation_v2` must NOT be flagged —
+    the trailing `_v2` is a word character so the word boundary fires
+    before the suffix, not after."""
+    _write(
+        tmp_path,
+        "code.py",
+        "x = MediaBuyStatus.pending_activation_v2\n"
+        "y = MediaBuyStatus.pending_activation_custom()\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    enum_flags = [f for f in report.flagged if f.kind == "flag_enum_value"]
+    assert enum_flags == [], f"false-positive on pending_activation_* suffixes: {enum_flags}"
+
+
+def test_brand_manifest_word_boundary_no_false_positive(tmp_path: Path) -> None:
+    """``.brand_manifest_v2`` / ``.brand_manifest_override`` are
+    seller-specific extensions that happen to share a prefix. They
+    MUST NOT be flagged — the regex requires a trailing word boundary."""
+    _write(
+        tmp_path,
+        "code.py",
+        "x = seller.brand_manifest_v2\n"
+        "y = obj.brand_manifest_override = True\n"
+        "z = other.brand_manifest_custom()\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    flagged = [f for f in report.flagged if f.kind == "flag_attribute"]
+    assert flagged == [], f"false-positive on brand_manifest_* suffixes: {flagged}"
+
+
+# ---------------------------------------------------------------------------
+# Skips + file-iteration safety
+# ---------------------------------------------------------------------------
+
+
+def test_skips_common_build_and_dep_dirs(tmp_path: Path) -> None:
+    """.venv, .git, node_modules etc. MUST be skipped — scanning
+    dependency code would generate thousands of false-positive hits."""
+    (tmp_path / ".venv" / "lib").mkdir(parents=True)
+    (tmp_path / ".venv" / "lib" / "bad.py").write_text("from adcp.types import AudioAsset\n")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "bad.py").write_text("AudioAsset\n")
+    (tmp_path / "__pycache__").mkdir()
+    (tmp_path / "__pycache__" / "bad.py").write_text("AudioAsset\n")
+    (tmp_path / "user.py").write_text("from adcp.types import AudioAsset\n")
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    # Only user.py scanned.
+    assert report.scanned_files == 1
+    assert {f.path for f in report.applied} == {str(tmp_path / "user.py")}
+
+
+def test_skip_dirs_are_relative_to_root_not_absolute(tmp_path: Path) -> None:
+    """Repos frequently sit under ancestor directories named ``build``,
+    ``dist``, etc. (common CI path: ``/home/ci/build/repo/src``). A
+    too-eager absolute-path check would skip the whole project. The
+    skip list must apply only to components *below* the scan root."""
+    # Simulate running against a tree mounted under an ancestor named
+    # "build". Create an actual directory on disk to exercise this.
+    ancestor_dir = tmp_path / "build" / "myrepo"
+    ancestor_dir.mkdir(parents=True)
+    user_code = ancestor_dir / "app.py"
+    user_code.write_text("from adcp.types import AudioAsset\n")
+
+    # Scan from the repo root (inside the ancestor named "build"). The
+    # skip list should NOT match "build" because it is not below the
+    # scan root.
+    report = v3_to_v4.run(ancestor_dir, apply_changes=False)
+
+    assert report.scanned_files == 1, (
+        "Scan was skipped when repo sits under an ancestor named like a "
+        "skip-dir (e.g. /home/ci/build/repo). Skip-dirs must be relative "
+        "to the scan root, not the absolute path."
+    )
+    assert len(report.applied) == 1
+
+
+def test_empty_directory_yields_empty_report(tmp_path: Path) -> None:
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+    assert report.scanned_files == 0
+    assert report.applied == []
+    assert report.flagged == []
+
+
+def test_non_python_files_ignored(tmp_path: Path) -> None:
+    _write(tmp_path, "README.md", "AudioAsset is mentioned here\n")
+    _write(tmp_path, "config.yaml", "key: AudioAsset\n")
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert report.scanned_files == 0
+
+
+def test_single_file_path_scans_one_file(tmp_path: Path) -> None:
+    """Running against a single .py file scans just that file."""
+    path = _write(tmp_path, "user.py", "from adcp.types import AudioAsset\n")
+
+    report = v3_to_v4.run(path, apply_changes=False)
+
+    assert report.scanned_files == 1
+    assert len(report.applied) == 1
+
+
+def test_crlf_line_endings_preserved(tmp_path: Path) -> None:
+    """Windows sellers commit CRLF-terminated Python source. The
+    migration MUST preserve CRLF on read+write, otherwise every line
+    flips to LF and ``git diff`` is polluted with thousands of
+    whitespace-only lines."""
+    path = tmp_path / "code.py"
+    path.write_bytes(b"from adcp.types import AudioAsset\r\nx = AudioAsset()\r\n")
+
+    v3_to_v4.run(tmp_path, apply_changes=True)
+
+    # Read raw bytes to check line endings preserved.
+    rewritten = path.read_bytes()
+    assert b"\r\n" in rewritten, f"CRLF line endings lost during rewrite. Got: {rewritten!r}"
+    # LF-only mixed in would indicate a split/join bug.
+    assert b"\n" not in rewritten.replace(
+        b"\r\n", b""
+    ), f"Mixed line endings after rewrite: {rewritten!r}"
+    assert b"AudioContent" in rewritten
+
+
+def test_utf8_bom_source_migrates(tmp_path: Path) -> None:
+    """UTF-8 BOM is legal at the start of Python source (Windows
+    editors sometimes add it). The codemod must read and rewrite it
+    correctly rather than silently skipping the file as 'binary'."""
+    path = tmp_path / "code.py"
+    path.write_bytes(b"\xef\xbb\xbffrom adcp.types import AudioAsset\n")
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert report.scanned_files == 1
+    assert len(report.applied) == 1
+    rewritten = path.read_text(encoding="utf-8-sig")
+    assert "AudioContent" in rewritten
+    assert "AudioAsset" not in rewritten
+
+
+def test_multiline_import_rewrites_correctly(tmp_path: Path) -> None:
+    """Most real codebases write parenthesised multi-line imports. The
+    rewrite MUST handle a name mid-parenthesis."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types import (\n"
+        "    AudioAsset,\n"
+        "    VideoAsset,\n"
+        "    BuyingMode,\n"
+        ")\n"
+        "x = AudioAsset()\n"
+        "y = VideoAsset()\n",
+    )
+
+    v3_to_v4.run(tmp_path, apply_changes=True)
+
+    rewritten = path.read_text()
+    assert "AudioAsset" not in rewritten
+    assert "VideoAsset" not in rewritten
+    assert "AudioContent" in rewritten
+    assert "VideoContent" in rewritten
+    # BuyingMode is unrelated — must stay untouched.
+    assert "BuyingMode" in rewritten
+
+
+def test_idempotent(tmp_path: Path) -> None:
+    """Running the migration twice must leave the file identical to
+    running it once — no double-rewrite, no double-flag, nothing
+    drifts between runs. Pins the contract for sellers who may re-run
+    the codemod after a partial apply."""
+    path = _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    v3_to_v4.run(tmp_path, apply_changes=True)
+    after_first = path.read_text()
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+    after_second = path.read_text()
+
+    assert after_first == after_second
+    assert report.applied == []  # second run has nothing to rewrite
+    assert report.rewritten_files == 0
+
+
+# ---------------------------------------------------------------------------
+# CLI entry + JSON report
+# ---------------------------------------------------------------------------
+
+
+def test_cli_exits_nonzero_on_flagged_findings(tmp_path: Path) -> None:
+    """CI gate: any flagged finding (manual review required) → exit 1."""
+    _write(tmp_path, "code.py", "from adcp import BrandManifest\n")
+
+    rc = v3_to_v4.main([str(tmp_path)])
+
+    assert rc == 1  # flagged finding
+
+
+def test_cli_exits_zero_on_renames_only(tmp_path: Path) -> None:
+    """Mechanical renames alone don't gate CI — they're a clean apply."""
+    _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    rc = v3_to_v4.main([str(tmp_path)])
+
+    assert rc == 0
+
+
+def test_cli_exits_zero_on_empty_tree(tmp_path: Path) -> None:
+    rc = v3_to_v4.main([str(tmp_path)])
+    assert rc == 0
+
+
+def test_cli_exits_nonzero_on_missing_path() -> None:
+    rc = v3_to_v4.main(["/nonexistent/path-that-does-not-exist-xyz"])
+    assert rc == 2
+
+
+def test_cli_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """``--json`` emits a structured report parseable by CI / editors."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types import AudioAsset\n" "from adcp import BrandManifest\n",
+    )
+
+    v3_to_v4.main([str(tmp_path), "--json"])
+    out = capsys.readouterr().out
+
+    payload = json.loads(out)
+    assert payload["schema_version"] == v3_to_v4.REPORT_SCHEMA_VERSION
+    assert payload["scanned_files"] == 1
+    assert payload["rewritten_files"] == 0
+    assert len(payload["applied"]) == 1
+    assert payload["applied"][0]["before"] == "AudioAsset"
+    assert payload["applied"][0]["after"] == "AudioContent"
+    removed = [f for f in payload["flagged"] if f["kind"] == "flag_removed"]
+    assert any(f["before"] == "BrandManifest" for f in removed)
+
+
+def test_json_report_schema_version_is_declared() -> None:
+    """The v1 JSON shape is a wire contract with CI scripts and
+    editors. A non-additive change (renaming a field, removing one)
+    MUST bump ``REPORT_SCHEMA_VERSION`` AND the SDK minor version —
+    this test pins the current version so a change is a deliberate
+    choice, not an accident."""
+    assert v3_to_v4.REPORT_SCHEMA_VERSION == 1
+
+
+def test_cli_apply_rewrites_and_reports(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The happy end-to-end path: scan + rewrite + human-readable summary."""
+    path = _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    v3_to_v4.main([str(tmp_path), "--apply"])
+    out = capsys.readouterr().out
+
+    assert "Rewrote 1 files" in out or "Rewrote 1 file" in out
+    assert path.read_text() == "from adcp.types import AudioContent\n"
+
+
+def test_unreadable_file_does_not_crash(tmp_path: Path) -> None:
+    """Non-UTF-8 binary files in the tree are skipped silently —
+    they're obviously not Python source the migration cares about."""
+    path = tmp_path / "binary.py"
+    path.write_bytes(b"\xff\xfe\x00 not valid utf-8")
+
+    # Doesn't raise.
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+    assert report.scanned_files == 1
+    assert report.applied == []
+
+
+# ---------------------------------------------------------------------------
+# --apply safety: refuse on dirty git tree, allow with --allow-dirty
+# ---------------------------------------------------------------------------
+
+
+def _init_git_repo(path: Path) -> None:
+    """Initialize a git repo at ``path`` and commit one file so the
+    default branch exists."""
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=path, check=True)
+    (path / ".gitkeep").write_text("")
+    subprocess.run(["git", "add", ".gitkeep"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "initial"], cwd=path, check=True)
+
+
+def test_apply_refuses_on_dirty_git_tree(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--apply`` MUST refuse when the working tree is dirty. Otherwise
+    the seller's in-progress work gets mixed into the codemod's rewrite
+    diff and ``git diff`` review stops being useful."""
+    import shutil
+
+    if shutil.which("git") is None:
+        pytest.skip("git not available")
+
+    _init_git_repo(tmp_path)
+    # Create an uncommitted file — this makes the tree dirty.
+    _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    rc = v3_to_v4.main([str(tmp_path), "--apply"])
+    err = capsys.readouterr().err
+
+    assert rc == 2
+    assert "dirty git working tree" in err
+    assert "--allow-dirty" in err
+    # File NOT rewritten (the guard short-circuits before `run`).
+    assert (tmp_path / "code.py").read_text() == "from adcp.types import AudioAsset\n"
+
+
+def test_apply_allow_dirty_overrides_guard(tmp_path: Path) -> None:
+    """``--allow-dirty`` lets sellers deliberately run the codemod on
+    top of staged changes (e.g. batched with a related refactor)."""
+    import shutil
+
+    if shutil.which("git") is None:
+        pytest.skip("git not available")
+
+    _init_git_repo(tmp_path)
+    path = _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    rc = v3_to_v4.main([str(tmp_path), "--apply", "--allow-dirty"])
+
+    # Renames applied; exit code reflects no flagged findings.
+    assert rc == 0
+    assert "AudioContent" in path.read_text()
+
+
+def test_apply_proceeds_when_not_in_git_repo(tmp_path: Path) -> None:
+    """Running in a non-git directory (CI sandbox, scratch env) must
+    not block --apply. The guard fails-safe: if git can't verify
+    dirty state, we proceed. This is already implicitly tested by
+    other --apply tests (they use tmp_path which isn't a repo),
+    but pin it explicitly so a future tightening of the guard breaks
+    here, not silently in seller CI environments."""
+    path = _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+
+    rc = v3_to_v4.main([str(tmp_path), "--apply"])
+
+    assert rc == 0
+    assert "AudioContent" in path.read_text()
+
+
+# ---------------------------------------------------------------------------
+# --auto-apply: flag_private (all-known import lines)
+# ---------------------------------------------------------------------------
+
+
+def test_auto_apply_rewrites_all_known_private_import(tmp_path: Path) -> None:
+    """When every symbol on a generated_poc import line is in
+    GENERATED_POC_SYMBOL_MAP, --auto-apply rewrites it to adcp.types."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n" "x = ContextObject()\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "adcp.types.generated_poc" not in rewritten
+    assert "from adcp.types import ContextObject" in rewritten
+    assert "x = ContextObject()" in rewritten
+
+    auto_applied = [f for f in report.auto_applied if f.before == "ContextObject"]
+    assert len(auto_applied) >= 1
+    assert auto_applied[0].after == "adcp.types.ContextObject"
+
+
+def test_auto_apply_uses_source_scoped_semantic_alias(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.vendor_pricing_option import "
+        "VendorPricingOption1\n"
+        "option: VendorPricingOption1\n",
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert rewritten == (
+        "from adcp.types import CpmVendorPricingOption as VendorPricingOption1\n"
+        "option: VendorPricingOption1\n"
+    )
+    compile(rewritten, str(path), "exec")
+
+
+@pytest.mark.parametrize(
+    ("module", "symbol", "public_name"),
+    [
+        ("core.creative_asset", "CreativeAsset", "LegacyCreativeAsset"),
+        (
+            "core.product_format_declaration",
+            "ProductFormatDeclaration",
+            "LegacyProductFormatDeclaration",
+        ),
+        ("signals.get_signals_response", "Signal", "GetSignalsSignal"),
+        ("core.account", "GovernanceAgent", "CoreGovernanceAgent"),
+        ("core.creative_filters", "CreativeFilters", "LegacyCreativeFilters"),
+        ("creative.list_creatives_request", "Sort", "ListCreativesSort"),
+        ("core.property", "Identifier", "PropertyIdentifier"),
+        ("core.product_filters", "Country", "ProductFilterCountry"),
+        (
+            "media_buy.update_media_buy_response",
+            "UpdateMediaBuyResponse1",
+            "LegacyUpdateMediaBuySuccessResponse",
+        ),
+    ],
+)
+def test_auto_apply_uses_beta5_source_scoped_aliases(
+    tmp_path: Path,
+    module: str,
+    symbol: str,
+    public_name: str,
+) -> None:
+    path = _write(
+        tmp_path,
+        "code.py",
+        f"from adcp.types.generated_poc.{module} import {symbol}\n",
+    )
+
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    assert path.read_text() == f"from adcp.types import {public_name} as {symbol}\n"
+
+
+def test_auto_apply_preserves_crlf_after_source_scoped_import(tmp_path: Path) -> None:
+    path = tmp_path / "code.py"
+    path.write_bytes(
+        b"from adcp.types.generated_poc.core.vendor_pricing_option import "
+        b"VendorPricingOption1\r\noption = VendorPricingOption1\r\n"
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_bytes()
+    assert rewritten == (
+        b"from adcp.types import CpmVendorPricingOption as VendorPricingOption1\r\n"
+        b"option = VendorPricingOption1\r\n"
+    )
+    compile(rewritten, str(path), "exec")
+
+
+def test_auto_apply_does_not_guess_colliding_source_variant(tmp_path: Path) -> None:
+    """``core.product_filters.ProductFilters`` is not ``adcp.types.ProductFilters``
+    (the public name is the canonical model), so --auto-apply must not lift it.
+    The line still leaves the deprecated path: it is prefix-renamed to the
+    domain module, where the class actually lives."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.product_filters import ProductFilters\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert rewritten == "from adcp.types.domains.core.product_filters import ProductFilters\n"
+    assert report.auto_applied == []
+    assert report.flagged == []
+    (rename,) = [f for f in report.applied if f.kind == "rename_import"]
+    assert rename.after == "adcp.types.domains.core.product_filters"
+    # Nothing claims a flat-surface home it does not have.
+    assert rename.hint is None
+
+
+def test_auto_apply_rewrites_multi_symbol_all_known_line(tmp_path: Path) -> None:
+    """A single import line with multiple known symbols is rewritten in one shot."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.vendor_pricing_option import "
+        "VendorPricingOption1, VendorPricingOption2\n",
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "adcp.types.generated_poc" not in rewritten
+    assert (
+        "from adcp.types import CpmVendorPricingOption as VendorPricingOption1, "
+        "PercentOfMediaVendorPricingOption as VendorPricingOption2"
+    ) in rewritten
+
+
+def test_auto_apply_preserves_as_alias(tmp_path: Path) -> None:
+    """``import Error as AdCPError`` — the local alias must survive the
+    module-path rewrite."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.error import Error as AdCPError\n",
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "adcp.types.generated_poc" not in rewritten
+    assert "from adcp.types import Error as AdCPError" in rewritten
+
+
+def test_auto_apply_mixed_line_is_prefix_renamed_not_lifted(tmp_path: Path) -> None:
+    """A line with at least one symbol that is not bound on ``adcp.types`` is
+    not lifted there — lifting one name while leaving another behind would
+    import a public name from a module that does not export it. The prefix
+    rename has no such hazard, so the line still leaves the deprecated path."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.brand_ref import BrandReference, Unknown\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert rewritten == "from adcp.types.domains.core.brand_ref import BrandReference, Unknown\n"
+    assert report.auto_applied == []
+    assert report.flagged == []
+    (rename,) = [f for f in report.applied if f.kind == "rename_import"]
+    # The known symbol's flat-surface home is still surfaced, not silently dropped.
+    assert "BrandReference → adcp.types.BrandReference" in (rename.hint or "")
+
+
+# ---------------------------------------------------------------------------
+# --auto-apply: flag_numbered (numbered Assets classes)
+# ---------------------------------------------------------------------------
+
+
+def test_auto_apply_rewrites_numbered_asset_usage_sites(tmp_path: Path) -> None:
+    """Assets81 → VideoFormatAsset everywhere in the file."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types import Assets81\nx: Assets81 = Assets81(asset_type='video')\n",
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "Assets81" not in rewritten
+    assert "VideoFormatAsset" in rewritten
+
+
+def test_auto_apply_rewrites_numbered_asset_and_fixes_import_path(tmp_path: Path) -> None:
+    """When a numbered asset is imported from generated_poc, the module
+    path must also be corrected — leaving
+    ``from adcp.types.generated_poc.core.format import VideoFormatAsset``
+    would be a broken import."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.format import Assets81\n" "slot: Assets81\n",
+    )
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "Assets81" not in rewritten
+    assert (
+        "adcp.types.generated_poc" not in rewritten
+    ), "generated_poc import path must be fixed after numbered rename"
+    assert "from adcp.types import VideoFormatAsset" in rewritten
+    assert "slot: VideoFormatAsset" in rewritten
+
+
+def test_auto_apply_unknown_numbered_stays_flagged(tmp_path: Path) -> None:
+    """A numbered asset not in NUMBERED_ASSETS_RENAMES (e.g. Assets149) is not
+    renamed and remains in report.flagged; its import path still moves off the
+    deprecated prefix, which is a separate, mechanical rename."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.bundled.x import Assets149\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    assert path.read_text() == "from adcp.types.domains.bundled.x import Assets149\n"
+    numbered = [f for f in report.flagged if f.kind == "flag_numbered"]
+    assert any(f.before == "Assets149" for f in numbered)
+    assert report.auto_applied == []
+
+
+def test_auto_apply_multiple_numbered_symbols_same_line(tmp_path: Path) -> None:
+    """A line containing two mapped numbered assets is fully rewritten."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.format import Assets81, Assets82\n"
+        "video: Assets81\n"
+        "audio: Assets82\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert "adcp.types.generated_poc" not in rewritten
+    assert "from adcp.types import VideoFormatAsset, AudioFormatAsset" in rewritten
+    assert "video: VideoFormatAsset" in rewritten
+    assert "audio: AudioFormatAsset" in rewritten
+
+    assert any(
+        f.before == "Assets81" and f.after == "VideoFormatAsset" for f in report.auto_applied
+    )
+    assert any(f.before == "Assets82" for f in report.auto_applied)
+    assert not any(f.kind == "flag_private" for f in report.flagged)
+
+
+def test_auto_apply_mixed_numbered_known_unknown_does_not_corrupt_import(
+    tmp_path: Path,
+) -> None:
+    """Regression: a generated_poc import mixing a known numbered asset
+    (Assets81) with an unknown numbered asset (Assets149) MUST NOT
+    silently rewrite Assets81 alone — that would leave VideoFormatAsset
+    imported from a module path that doesn't export it (guaranteed
+    ImportError in adopter source). The module path itself still moves."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.format import Assets81, Assets149\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    rewritten = path.read_text()
+    assert rewritten == "from adcp.types.domains.core.format import Assets81, Assets149\n"
+    assert "VideoFormatAsset" not in rewritten
+
+    # Findings: Assets81 and Assets149 are both flagged for review (the
+    # adopter has to split the import or wait for Assets149 to land in
+    # the rename table). Neither is reported as auto_applied.
+    auto_applied_names = {f.before for f in report.auto_applied}
+    assert "Assets81" not in auto_applied_names
+    assert "Assets149" not in auto_applied_names
+    flagged_names = {f.before for f in report.flagged if f.kind == "flag_numbered"}
+    assert "Assets81" in flagged_names
+    assert "Assets149" in flagged_names
+
+
+# ---------------------------------------------------------------------------
+# --auto-apply: combined behaviour + idempotency
+# ---------------------------------------------------------------------------
+
+
+def test_auto_apply_implies_apply(tmp_path: Path) -> None:
+    """--auto-apply must also apply the Asset→Content renames (implies --apply)."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types import AudioAsset\n"
+        "from adcp.types.generated_poc.core.context import ContextObject\n",
+    )
+    v3_to_v4.main([str(tmp_path), "--auto-apply"])
+
+    rewritten = path.read_text()
+    assert "AudioAsset" not in rewritten, "--auto-apply must imply --apply for Asset renames"
+    assert "AudioContent" in rewritten
+    assert "adcp.types.generated_poc" not in rewritten
+
+
+def test_dry_run_with_auto_apply_does_not_write_files(tmp_path: Path) -> None:
+    """run(apply_changes=False, auto_apply=True) must NOT write files.
+    The public run() API must honour apply_changes=False even when
+    auto_apply=True is set (regression guard for the missing apply_changes
+    guard on the auto-apply rewrite block)."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp.types.generated_poc.core.format import Assets81\n",
+    )
+    original = path.read_text()
+    report = v3_to_v4.run(tmp_path, apply_changes=False, auto_apply=True)
+
+    assert path.read_text() == original, "dry-run must not write files"
+    assert report.rewritten_files == 0
+
+
+def test_auto_apply_leaves_flag_removed_flagged(tmp_path: Path) -> None:
+    """flag_removed findings (BrandManifest, DeliverTo, etc.) always
+    require human review and must NOT be auto-applied."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp import BrandManifest\nmanifest = BrandManifest(name='x')\n",
+    )
+    original = path.read_text()
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    assert path.read_text() == original
+    removed = [f for f in report.flagged if f.kind == "flag_removed"]
+    assert any(f.before == "BrandManifest" for f in removed)
+    assert report.auto_applied == []
+
+
+def test_auto_apply_idempotent(tmp_path: Path) -> None:
+    """Running --auto-apply twice must leave the file identical and produce
+    zero auto_applied findings on the second pass."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp.types.generated_poc.core.format import Assets81\n",
+    )
+
+    v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+    after_first = path.read_text()
+
+    report2 = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+    after_second = path.read_text()
+
+    assert after_first == after_second
+    assert report2.auto_applied == []
+    assert report2.rewritten_files == 0
+
+
+def test_auto_apply_exits_nonzero_when_flag_removed_remain(tmp_path: Path) -> None:
+    """Even after auto-apply resolves all safe findings, exit code is 1
+    when flag_removed findings remain — CI must still gate on them."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp import BrandManifest\n",
+    )
+    rc = v3_to_v4.main([str(tmp_path), "--auto-apply"])
+    assert rc == 1
+
+
+def test_auto_apply_exits_zero_when_only_safe_findings(tmp_path: Path) -> None:
+    """When all findings are auto-applicable, exit code is 0."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp.types.generated_poc.core.format import Assets81\n",
+    )
+    rc = v3_to_v4.main([str(tmp_path), "--auto-apply"])
+    assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# --auto-apply: text + JSON report
+# ---------------------------------------------------------------------------
+
+
+def test_auto_apply_text_report_has_safe_rewrites_section(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The human-readable report includes a 'Safe rewrites applied' section."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n",
+    )
+    v3_to_v4.main([str(tmp_path), "--auto-apply"])
+    out = capsys.readouterr().out
+    assert "Safe rewrites applied" in out
+
+
+def test_auto_apply_json_report_has_auto_applied_array(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--json output includes an ``auto_applied`` array (additive, v1 schema)."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n",
+    )
+    v3_to_v4.main([str(tmp_path), "--auto-apply", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert "auto_applied" in payload
+    assert payload["schema_version"] == 1  # no version bump for additive field
+    assert len(payload["auto_applied"]) >= 1
+    assert payload["auto_applied"][0]["kind"] == "auto_applied"
+    assert payload["auto_applied"][0]["before"] == "ContextObject"
+
+
+def test_auto_apply_json_auto_applied_empty_without_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Without --auto-apply the ``auto_applied`` array is always present
+    but empty — existing parsers can safely ignore it."""
+    _write(tmp_path, "code.py", "from adcp.types import AudioAsset\n")
+    v3_to_v4.main([str(tmp_path), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert "auto_applied" in payload
+    assert payload["auto_applied"] == []
+
+
+# ---------------------------------------------------------------------------
+# Discoverability: Tip line and dirty-tree error flag name
+# ---------------------------------------------------------------------------
+
+
+def test_text_report_shows_tip_when_safe_findings_remain(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Without --auto-apply the text report hints at --auto-apply when
+    flag_numbered findings are present."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.format import Assets81\n",
+    )
+    v3_to_v4.main([str(tmp_path)])
+    out = capsys.readouterr().out
+    assert "--auto-apply" in out
+    assert "Tip:" in out
+
+
+def test_text_report_no_tip_when_auto_apply_active(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The tip is suppressed when --auto-apply is already active."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n",
+    )
+    v3_to_v4.main([str(tmp_path), "--auto-apply"])
+    out = capsys.readouterr().out
+    assert "Tip:" not in out
+
+
+# ---------------------------------------------------------------------------
+# Pre-existing silent-drop bug fix: mixed known/unknown lines
+# ---------------------------------------------------------------------------
+
+
+def test_mixed_line_unknown_symbol_not_silently_dropped(tmp_path: Path) -> None:
+    """When a generated_poc import line mixes known and unknown symbols, the
+    dry run reports the line once as a ``rename_import`` and the hint still
+    names the known symbol's ``adcp.types`` home (bug fix: the unknown symbol
+    used to drop the whole line from the report)."""
+    _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.brand_ref import BrandReference, Unknown\n",
+    )
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert report.flagged == []
+    (rename,) = [f for f in report.applied if f.kind == "rename_import"]
+    assert rename.before == "adcp.types.generated_poc.core.brand_ref"
+    assert rename.after == "adcp.types.domains.core.brand_ref"
+    assert "BrandReference → adcp.types.BrandReference" in (rename.hint or "")
+
+
+# ---------------------------------------------------------------------------
+# generated_poc → domains import-path rename (#1417)
+# ---------------------------------------------------------------------------
+
+DEEP_IMPORTS = (
+    "from adcp.types.generated_poc.media_buy.package_request import PackageRequest\n"
+    "from adcp.types.generated_poc.core.context import ContextObject\n"
+    "from adcp.types.generated_poc.brand import Brand, LocalizedName\n"
+    "from adcp.types.generated_poc.brand import Asset, AcquireRightsRequest\n"
+    "from adcp.types.generated_poc.brand.acquire_rights_request import "
+    "AcquireRightsRequest as ARR\n"
+    "from adcp.types.generated_poc.core.format import (\n"
+    "    Assets81,\n"
+    ")\n"
+    "import adcp.types.generated_poc.core.error as err\n"
+    "import adcp.types.generated_poc.brand as brand_mod\n"
+    "\n"
+    "x = adcp.types.generated_poc.core.product.Product\n"
+    "y = brand_mod.Brand\n"
+)
+
+DEEP_IMPORTS_RENAMED = (
+    "from adcp.types.domains.media_buy.package_request import PackageRequest\n"
+    "from adcp.types.domains.core.context import ContextObject\n"
+    "from adcp.types.domains.brand_discovery import Brand, LocalizedName\n"
+    "from adcp.types.domains.brand_discovery import Asset\n"
+    "from adcp.types.domains.brand import AcquireRightsRequest\n"
+    "from adcp.types.domains.brand.acquire_rights_request import AcquireRightsRequest as ARR\n"
+    "from adcp.types.domains.core.format import (\n"
+    "    Assets81,\n"
+    ")\n"
+    "import adcp.types.domains.core.error as err\n"
+    "import adcp.types.generated_poc.brand as brand_mod\n"
+    "\n"
+    "x = adcp.types.domains.core.product.Product\n"
+    "y = brand_mod.Brand\n"
+)
+
+
+def test_apply_renames_deep_generated_poc_imports_including_the_brand_split(
+    tmp_path: Path,
+) -> None:
+    """The #1417 acceptance file: several deep imports, the ``brand`` split in
+    both directions, a mixed-half line, a multi-line import, a module import
+    and a dotted attribute access. Everything mechanical moves; the one
+    reference that cannot be placed — a bare ``generated_poc.brand`` module —
+    is flagged with both halves named."""
+    path = _write(tmp_path, "app.py", DEEP_IMPORTS)
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert path.read_text() == DEEP_IMPORTS_RENAMED
+    (split_flag,) = [f for f in report.flagged if f.kind == "flag_private"]
+    assert split_flag.line == 10
+    assert split_flag.before == "adcp.types.generated_poc.brand"
+    assert split_flag.hint is not None
+    assert "adcp.types.domains.brand_discovery" in split_flag.hint
+    assert "adcp.types.domains.brand" in split_flag.hint
+    # The mixed-half line yields one rename per destination module.
+    line4 = sorted(f.after for f in report.applied if f.kind == "rename_import" and f.line == 4)
+    assert line4 == ["adcp.types.domains.brand", "adcp.types.domains.brand_discovery"]
+    assert path.read_text().count("\n") == DEEP_IMPORTS.count("\n") + 1
+
+
+def test_import_path_rename_is_idempotent(tmp_path: Path) -> None:
+    path = _write(tmp_path, "app.py", DEEP_IMPORTS)
+    v3_to_v4.run(tmp_path, apply_changes=True)
+    once = path.read_text()
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert path.read_text() == once
+    assert [f for f in report.applied if f.kind == "rename_import"] == []
+
+
+def test_renamed_deep_imports_resolve_to_the_same_objects(tmp_path: Path) -> None:
+    """The rewrite is a rename, not a re-binding: every name the migrated file
+    imports is the object the deprecated path served."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        old_brand = importlib.import_module("adcp.types.generated_poc.brand")
+        old_context = importlib.import_module("adcp.types.generated_poc.core.context")
+    new_discovery = importlib.import_module("adcp.types.domains.brand_discovery")
+    new_brand = importlib.import_module("adcp.types.domains.brand")
+    new_context = importlib.import_module("adcp.types.domains.core.context")
+
+    assert old_brand.Brand is new_discovery.Brand
+    assert old_brand.Asset is new_discovery.Asset  # a name both halves bind: discovery wins
+    assert old_brand.AcquireRightsRequest is new_brand.AcquireRightsRequest
+    assert old_context.ContextObject is new_context.ContextObject
+
+
+def test_dry_run_reports_import_path_renames_without_writing(tmp_path: Path) -> None:
+    path = _write(tmp_path, "app.py", DEEP_IMPORTS)
+
+    report = v3_to_v4.run(tmp_path, apply_changes=False)
+
+    assert path.read_text() == DEEP_IMPORTS
+    assert report.rewritten_files == 0
+    renames = [f for f in report.applied if f.kind == "rename_import"]
+    assert len(renames) == 9
+    assert all(f.after is not None and f.after.startswith("adcp.types.domains") for f in renames)
+
+
+def test_import_path_rename_preserves_crlf(tmp_path: Path) -> None:
+    path = tmp_path / "code.py"
+    path.write_bytes(
+        b"from adcp.types.generated_poc.brand import Brand, AcquireRightsRequest\r\n"
+        b"from adcp.types.generated_poc.core.error import Error\r\n"
+    )
+
+    v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert path.read_bytes() == (
+        b"from adcp.types.domains.brand_discovery import Brand\r\n"
+        b"from adcp.types.domains.brand import AcquireRightsRequest\r\n"
+        b"from adcp.types.domains.core.error import Error\r\n"
+    )
+
+
+def test_split_stem_with_an_unknown_name_is_flagged_not_guessed(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.brand import Brand, NoSuchThing\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert path.read_text() == "from adcp.types.generated_poc.brand import Brand, NoSuchThing\n"
+    (flag,) = report.flagged
+    assert flag.kind == "flag_private"
+    assert flag.hint is not None and "NoSuchThing" in flag.hint
+    assert [f for f in report.applied if f.kind == "rename_import"] == []
+
+
+def test_split_stem_sharing_its_line_with_other_code_is_flagged(tmp_path: Path) -> None:
+    """Two statements are needed and a textual split would corrupt the line."""
+    path = _write(
+        tmp_path,
+        "code.py",
+        "if True: from adcp.types.generated_poc.brand import Brand, AcquireRightsRequest\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True)
+
+    assert "generated_poc" in path.read_text()
+    assert [f.kind for f in report.flagged] == ["flag_private"]
+
+
+def test_auto_apply_lifts_to_the_flat_surface_before_renaming_the_rest(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "code.py",
+        "from adcp.types.generated_poc.core.context import ContextObject\n"
+        "from adcp.types.generated_poc.core.something import Unknown\n",
+    )
+
+    report = v3_to_v4.run(tmp_path, apply_changes=True, auto_apply=True)
+
+    assert path.read_text() == (
+        "from adcp.types import ContextObject\n"
+        "from adcp.types.domains.core.something import Unknown\n"
+    )
+    assert [f.before for f in report.auto_applied] == ["ContextObject"]
+    assert [f.after for f in report.applied if f.kind == "rename_import"] == [
+        "adcp.types.domains.core.something"
+    ]
+
+
+def test_json_report_carries_import_path_renames_under_applied(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write(tmp_path, "code.py", "from adcp.types.generated_poc.core.error import Error\n")
+
+    v3_to_v4.main([str(tmp_path), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    kinds = {entry["kind"] for entry in payload["applied"]}
+    assert kinds == {"rename_import"}
+    assert payload["flagged"] == []
+
+
+def test_cli_exits_zero_when_only_import_paths_need_renaming(tmp_path: Path) -> None:
+    _write(tmp_path, "code.py", "from adcp.types.generated_poc.core.error import Error\n")
+    assert v3_to_v4.main([str(tmp_path)]) == 0
+
+
+def test_deprecation_warning_names_the_codemod_invocation_that_rewrites(tmp_path: Path) -> None:
+    """The warning, the docs and the codemod agree (#1417): the advice an
+    adopter reads names ``adcp migrate v3-to-v4 --apply``, and that invocation
+    performs the rewrite the advice promises."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-W", "always", "-c", "import adcp.types.generated_poc.core.error"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "`adcp migrate v3-to-v4 --apply` rewrites it" in result.stderr
+
+    docs = Path(__file__).resolve().parents[1] / "docs" / "types-9-migration.md"
+    assert "`adcp migrate v3-to-v4 --apply` rewrites those lines" in docs.read_text("utf-8")
+
+    _write(tmp_path, "code.py", "from adcp.types.generated_poc.core.error import Error\n")
+    assert v3_to_v4.main([str(tmp_path), "--apply", "--allow-dirty"]) == 0
+    assert (tmp_path / "code.py").read_text() == "from adcp.types.domains.core.error import Error\n"
+
+
+def test_split_detection_uses_the_same_suffix_the_runtime_alias_serves() -> None:
+    """The codemod cannot import the private alias module (import layering), so
+    it restates the one suffix the generator gives a root discovery schema; this
+    keeps the two spellings from drifting apart."""
+    from adcp.types import _generated_poc_alias
+
+    assert v3_to_v4.ROOT_DISCOVERY_SUFFIX == _generated_poc_alias.ROOT_DISCOVERY_SUFFIX
+    assert v3_to_v4.CANONICAL_TYPES_ROOT == _generated_poc_alias.CANONICAL_ROOT
+    assert v3_to_v4.DEPRECATED_TYPES_ROOT == _generated_poc_alias.DEPRECATED_ROOT
+    assert v3_to_v4._split_halves("brand") == (
+        "adcp.types.domains.brand_discovery",
+        "adcp.types.domains.brand",
+    )
+    assert v3_to_v4._split_halves("core") is None

@@ -220,7 +220,7 @@ def test_every_cli_command_has_an_owner():
 
 @pytest.mark.parametrize("argv, ok", [
     (["run", "tag", "r1", "abandoned"], True),
-    (["run", "list", "--unfiled"], True),
+    (["run", "list", "--direct"], True),
     (["run", "start", "--experiment", "e"], False),
     (["session", "toggle"], False),
     (["token", "create"], False),

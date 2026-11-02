@@ -1,6 +1,6 @@
 [project]
 name = "aiormq"
-version = "7.2.4"
+version = "7.2.5"
 description = "Pure python AMQP asynchronous client library"
 requires-python = ">=3.11,<4"
 readme = "README.md"
@@ -39,7 +39,7 @@ classifiers = [
     "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
 dependencies = [
-    "pamqp>=4,<5",
+    "pamqp>=5,<6",
     "yarl",
 ]
 

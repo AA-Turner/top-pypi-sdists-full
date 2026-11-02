@@ -1,0 +1,489 @@
+"""
+"""
+from . import base
+from . import engine
+from . import matchers
+from . import results
+from . import utils
+from .access import BaseOp, Key, Attr
+
+
+class Recursive(BaseOp):
+    """
+    Recursive traversal operator. Matches a pattern at each level and recurses
+    into matched values.
+
+    *key        = follow key chains (inner = matchers.Word('key'))
+    **          = recursive dict-key wildcard (inner = matchers.Wildcard())
+    */re/       = recursive regex (inner = matchers.Regex('re'))
+    *(*, [*])   = recurse through dict keys and list slots
+    *(*, @*)    = recurse through dict keys and attributes
+    *(*, [*], @*) = recurse through all accessor types
+    """
+
+    def __init__(self, inner, *args, accessors=None, depth_start=None, depth_stop=None, depth_step=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner = inner          # matchers.Pattern op: matchers.Wildcard, matchers.Word, matchers.Regex, etc.
+        self.accessors = accessors  # None = dict-key only, or branches tuple with cuts
+        self.depth_start = depth_start
+        self.depth_stop = depth_stop
+        self.depth_step = depth_step
+
+    def _render_accessors(self):
+        """
+        Render accessor branches including cut markers.
+        """
+        parts = []
+        for item in self.accessors:
+            if item is base.BRANCH_CUT:
+                parts[-1] += '#'
+            elif item is base.BRANCH_SOFTCUT:
+                parts[-1] += '##'
+            else:
+                parts.append(item[0].operator(top=True))
+        return ', '.join(parts)
+
+    def __repr__(self):
+        if self.accessors is not None:
+            return f'*({self._render_accessors()})'
+        if isinstance(self.inner, matchers.Wildcard):
+            return f'**'
+        return f'*{self.inner!r}'
+
+    def __hash__(self):
+        return hash(('recursive', self.inner, self.accessors, self.depth_start, self.depth_stop, self.depth_step, self.filters))
+
+    def __eq__(self, other):
+        return (isinstance(other, Recursive) and self.inner == other.inner
+                and self.accessors == other.accessors
+                and self.depth_start == other.depth_start
+                and self.depth_stop == other.depth_stop
+                and self.depth_step == other.depth_step
+                and self.filters == other.filters)
+
+    def is_pattern(self):
+        return True
+
+    def is_recursive(self):
+        return True
+
+    def is_variadic(self):
+        return True
+
+    def operator(self, top=False):
+        if self.accessors is not None:
+            s = f'*({self._render_accessors()})'
+        elif isinstance(self.inner, matchers.Wildcard):
+            s = '**'
+        else:
+            q = self.inner.quote()
+            s = f'*{q}'
+        # Depth slice
+        if self.depth_start is not None or self.depth_stop is not None or self.depth_step is not None:
+            s += ':' + ('' if self.depth_start is None else str(self.depth_start))
+            if self.depth_stop is not None or self.depth_step is not None:
+                s += ':' + ('' if self.depth_stop is None else str(self.depth_stop))
+            if self.depth_step is not None:
+                s += ':' + str(self.depth_step)
+        # Filters
+        for f in self.filters:
+            s += f'&{f!r}'
+        if not top:
+            s = '.' + s
+        return s
+
+    def _parts(self):
+        """
+        The inner match op, the accessor ops and the filters: every part
+        that may hold a substitution or reference.
+        """
+        yield self.inner
+        for item in self.accessors or ():
+            if item is base.BRANCH_CUT or item is base.BRANCH_SOFTCUT:
+                continue
+            yield from item
+        yield from self.filters
+
+    def is_template(self):
+        """
+        True if a part contains a substitution reference.
+        """
+        return any(hasattr(p, 'is_template') and p.is_template() for p in self._parts())
+
+    def is_reference(self):
+        """
+        True if a part contains an internal reference.
+        """
+        return any(hasattr(p, 'is_reference') and p.is_reference() for p in self._parts())
+
+    def resolve(self, bindings, partial=False):
+        """
+        Resolve $N in inner match op, accessor branches and filters.
+        """
+        new_inner = self.inner.resolve(bindings, partial) if hasattr(self.inner, 'resolve') else self.inner
+        new_accessors = None
+        acc_changed = False
+        if self.accessors is not None:
+            new_accessors = []
+            for item in self.accessors:
+                if item is base.BRANCH_CUT or item is base.BRANCH_SOFTCUT:
+                    new_accessors.append(item)
+                    continue
+                new_branch = tuple(
+                    op.resolve(bindings, partial) for op in item)
+                if not all(nb is ob for nb, ob in zip(new_branch, item)):
+                    acc_changed = True
+                new_accessors.append(new_branch)
+            new_accessors = tuple(new_accessors)
+        new_filters = tuple(f.resolve(bindings, partial) for f in self.filters)
+        filt_changed = not all(nf is of for nf, of in zip(new_filters, self.filters))
+        if new_inner is self.inner and not acc_changed and not filt_changed:
+            return self
+        # type(self): a RecursiveFirst stays first-match
+        r = type(self)(
+            new_inner, accessors=new_accessors if new_accessors is not None else self.accessors,
+            depth_start=self.depth_start, depth_stop=self.depth_stop, depth_step=self.depth_step)
+        r.filters = new_filters
+        return r
+
+    def match(self, op, specials=False):
+        return self.inner.matchable(op, specials=specials)
+
+    def do_match(self, rest_pats, path_ops, partial):
+        """
+        Match by consuming 1..N path segments via backtracking.  Each
+        consumed segment must match the inner pattern (chain-following);
+        stop extending once a segment fails.
+        """
+        for n in range(1, len(path_ops) + 1):
+            if not path_ops[n - 1].covered_by(self.inner):
+                return None
+            rest = base.match_ops(rest_pats, path_ops[n:], partial)
+            if rest is None:
+                continue
+            combined = results.assemble(path_ops[:n])
+            return [(combined, True)] + rest
+        return None
+
+    def do_match_path(self, pats, rest_path, partial):
+        """
+        Match when this recursive op appears on the *path* side.  It
+        denotes unboundedly many expansions, so only a pattern segment
+        that itself covers arbitrary depth can subsume it: a recursive
+        whose inner pattern covers this op's chain segments.  The
+        subsuming pattern op is tried both consumed and retained, since
+        a recursive pattern may keep covering segments after the group.
+        """
+        if not pats:
+            return [] if partial else None
+        head = pats[0]
+        if not isinstance(head, Recursive):
+            return None
+        if not self._subsumed_by(head):
+            return None
+        rest = base.match_ops(pats[1:], rest_path, partial)
+        if rest is None:
+            rest = base.match_ops(pats, rest_path, partial)
+        if rest is None:
+            return None
+        return [(results.assemble([self]), True)] + rest
+
+    def _subsumed_by(self, pat):
+        """
+        True if recursive pattern op *pat* covers every expansion of
+        this path op.  Identical recursives cover; otherwise an
+        unsliced recursive with the same accessors whose inner matcher
+        covers every chain segment this op can produce.
+        """
+        if pat == self:
+            return True
+        if pat.depth_start is not None or pat.depth_stop is not None or pat.depth_step is not None:
+            return False
+        if pat.accessors != self.accessors:
+            return False
+        return self.covered_by(pat.inner)
+
+    def covered_by(self, matcher):
+        """
+        A recursive path op denotes unboundedly many segments; only a
+        wildcard, or this op's own inner matcher, covers them all.
+        """
+        if isinstance(matcher, matchers.Wildcard):
+            return True
+        return matcher == self.inner
+
+    def _effective_branches(self):
+        """
+        Return accessor branches that drive recursion.
+        Default (no explicit accessors): single branch with Key(self.inner).
+        """
+        if self.accessors is not None:
+            return self.accessors
+        return self.default_branches
+
+    @utils.lazyprop
+    def default_branches(self):
+        """
+        The single dict-key branch used when no accessors are given; built
+        once, not for every node visited.
+        """
+        return ((Key(self.inner),),)
+
+    def _iter_node(self, node, settings=base.SETTINGS):
+        """
+        Yield (accessor, key, value) for all matching accessors on this node.
+        Respects hard cuts: if a cut-marked branch matched, stop.
+        """
+        branches = self._effective_branches()
+        i = 0
+        while i < len(branches):
+            item = branches[i]
+            if item is base.BRANCH_CUT or item is base.BRANCH_SOFTCUT:
+                i += 1
+                continue
+            acc = item[0]
+            matched = False
+            for k, v in acc.items(node, settings=settings):
+                matched = True
+                yield acc, k, v
+            if matched and i + 1 < len(branches) and branches[i + 1] is base.BRANCH_CUT:
+                break
+            i += 1
+
+    def _has_negative_depth(self):
+        return ((self.depth_start is not None and self.depth_start < 0) or
+                (self.depth_stop is not None and self.depth_stop < 0))
+
+    def in_depth_range(self, depth, max_dtl=0):
+        """
+        Check if depth is within the configured depth range.
+
+        Args:
+            depth: current depth (0-based from first keys)
+            max_dtl: max depth to leaf (0 = leaf, 1 = parent of leaf, etc.)
+        """
+        start = self.depth_start
+        stop = self.depth_stop
+        step = self.depth_step
+
+        # No depth params: all depths
+        if start is None and stop is None and step is None:
+            return True
+
+        # Convert negative indices using max_dtl
+        # -1 = leaf (max_dtl == 0), -2 = penultimate (max_dtl == 1), -N = max_dtl == N-1
+        if start is not None and start < 0:
+            if max_dtl != abs(start) - 1:
+                return False
+            # For exact negative (no stop), just check this one
+            if stop is None and step is None:
+                return True
+            start = depth  # matches, so convert to positive for range check
+
+        orig_stop = self.depth_stop
+        if stop is not None and stop < 0:
+            # negative stop: -2 means penultimate, so exclude nodes closer to leaf
+            # -2 requires max_dtl >= 1 (at least penultimate)
+            if max_dtl < abs(stop) - 1:
+                return False
+            stop = None  # effectively no upper bound on depth
+
+        # Exact depth (only start specified, and stop wasn't converted from negative)
+        if stop is None and step is None and orig_stop is None:
+            return depth == start
+
+        # Range check
+        eff_start = start if start is not None else 0
+        if step is not None:
+            if stop is not None:
+                return depth in range(eff_start, stop + 1, step)
+            # No stop with step: check start and step
+            return depth >= eff_start and (depth - eff_start) % step == 0
+        # No step
+        if stop is not None:
+            return eff_start <= depth <= stop
+        return depth >= eff_start
+
+    def _max_depth_to_leaf(self, node, seen=frozenset(), depths=None, settings=base.SETTINGS):
+        """
+        Compute max depth to leaf from this node (structural, ignores filters/depth range).
+        Uses seen (frozenset of ids) to prevent infinite recursion on self-similar values.
+
+        Pass a dict as `depths` to remember answers for the rest of a
+        traversal, so a node is not walked again for each of its ancestors.
+        """
+        return self._depth_to_leaf(node, seen, depths, settings)[0]
+
+    def _depth_to_leaf(self, node, seen, depths, settings):
+        """
+        (depth, whole) for _max_depth_to_leaf. `whole` is False when the walk
+        was cut short by `seen`: that answer depends on where the walk came
+        from, so it is not remembered. Remembered nodes are kept alive, so
+        an id cannot be reused by another object mid-traversal.
+        """
+        node_id = id(node)
+        if node_id in seen:
+            return 0, False
+        if depths is not None:
+            known = depths.get(node_id)
+            if known is not None:
+                return known[0], True
+        seen = seen | {node_id}
+        depth = 0
+        whole = True
+        for _, _, v in list(self._iter_node(node, settings=settings)):
+            child, child_whole = self._depth_to_leaf(v, seen, depths, settings)
+            depth = max(depth, child + 1)
+            whole = whole and child_whole
+        if whole and depths is not None:
+            depths[node_id] = (depth, node)
+        return depth, whole
+
+    def _collect_matches(self, node, paths, depth=0, prefix=(), seen=frozenset(),
+                         _below_match=False, _depths=None, settings=base.SETTINGS):
+        """
+        Yield (prefix, value, terminal) for all nodes matching the recursive
+        pattern.
+
+        Traverses the tree depth-first, yielding matches at each level
+        before recursing into children (parent-before-children ordering).
+        Uses seen (frozenset of ids) to prevent infinite recursion on
+        self-similar values.
+
+        The terminal flag is True for leaf nodes that don't satisfy the depth
+        range but have no children to recurse into.  These are yielded to
+        prevent silent data loss, and push_children skips continuation ops
+        for them.  Terminal yields are suppressed below already-matched nodes
+        (via _below_match) since those descendants are handled by the
+        continuation ops.
+        """
+        node_id = id(node)
+        if node_id in seen:
+            return
+        seen = seen | {node_id}
+        items = list(self._iter_node(node, settings=settings))
+        if not items:
+            return
+
+        for acc, k, v in items:
+            cp = prefix + (acc.concrete(k),) if paths else prefix
+            if self.filters and not any(True for _ in self.filtered((v,), settings)):
+                yield from self._collect_matches(v, paths, depth + 1, cp, seen,
+                                                 _below_match=_below_match, _depths=_depths, settings=settings)
+                continue
+            max_dtl = self._max_depth_to_leaf(v, seen=frozenset(), depths=_depths, settings=settings) if self._has_negative_depth() else 0
+            if not self.in_depth_range(depth, max_dtl):
+                if self._has_negative_depth() and max_dtl == 0 and not _below_match and depth > 0:
+                    yield (cp, v, True)
+                else:
+                    yield from self._collect_matches(v, paths, depth + 1, cp, seen,
+                                                     _below_match=_below_match, _depths=_depths, settings=settings)
+                continue
+            yield (cp, v, False)
+            yield from self._collect_matches(v, paths, depth + 1, cp, seen,
+                                             _below_match=True, _depths=_depths, settings=settings)
+
+    def push_children(self, stack, frame, paths):
+        depths = {} if self._has_negative_depth() else None
+        matches = list(self._collect_matches(frame.node, paths, prefix=frame.prefix, _depths=depths, settings=frame.settings))
+        for cp, v, terminal in reversed(matches):
+            ops = () if terminal else frame.ops
+            stack.push(base.Frame(ops, v, cp, settings=frame.settings))
+        return ()
+
+    def _assign(self, acc, node, k, v):
+        """
+        Assign value v to key k on node using the appropriate accessor method.
+        """
+        if isinstance(acc, Attr):
+            return acc.update(node, k, v)
+        node[k] = v
+        return node
+
+    def _update_recursive(self, ops, node, val, has_defaults, _path, nop, depth=0, guard=None, seen=frozenset(), settings=base.SETTINGS, nop_from_unwrap=False):
+        node_id = id(node)
+        if node_id in seen:
+            return node
+        seen = seen | {node_id}
+        items = list(self._iter_node(node, settings=settings))
+        if not items:
+            return node
+
+        for acc, k, v in items:
+            # Recurse first (bottom-up)
+            v = self._update_recursive(ops, v, val, has_defaults, _path, nop, depth + 1, guard, seen, settings=settings,
+                                       nop_from_unwrap=nop_from_unwrap)
+            node = self._assign(acc, node, k, v)
+            if self.filters and not any(True for _ in self.filtered((v,), settings)):
+                continue
+            max_dtl = self._max_depth_to_leaf(v) if self._has_negative_depth() else 0
+            if not self.in_depth_range(depth, max_dtl):
+                continue
+            if guard and not guard(v):
+                continue
+            if ops:
+                # a ~ on this op holds back only this op, not the ops after it
+                pass_nop = nop and not nop_from_unwrap
+                node = self._assign(acc, node, k, engine.updates(ops, v, val, has_defaults, _path + [(self, k)], pass_nop, settings=settings))
+            elif not nop:
+                node = self._assign(acc, node, k, val)
+        return node
+
+    def do_update(self, ops, node, val, has_defaults, _path, nop, nop_from_unwrap=False, settings=base.SETTINGS):
+        return self._update_recursive(ops, node, val, has_defaults, _path, nop, settings=settings, nop_from_unwrap=nop_from_unwrap)
+
+    def _remove_recursive(self, ops, node, val, nop, depth=0, guard=None, seen=frozenset(), settings=base.SETTINGS):
+        node_id = id(node)
+        if node_id in seen:
+            return node
+        seen = seen | {node_id}
+        items = list(self._iter_node(node, settings=settings))
+        if not items:
+            return node
+
+        to_remove = []
+        for acc, k, v in items:
+            # Recurse first (bottom-up)
+            v = self._remove_recursive(ops, v, val, nop, depth + 1, guard, seen, settings=settings)
+            node = self._assign(acc, node, k, v)
+            if self.filters and not any(True for _ in self.filtered((v,), settings)):
+                continue
+            max_dtl = self._max_depth_to_leaf(v) if self._has_negative_depth() else 0
+            if not self.in_depth_range(depth, max_dtl):
+                continue
+            if guard and not guard(v):
+                continue
+            if ops:
+                node = self._assign(acc, node, k, engine.removes(ops, v, val, nop=False, settings=settings))
+            elif not nop and (val is base.ANY or v == val):
+                to_remove.append((acc, k))
+        for acc, k in reversed(to_remove):
+            if isinstance(acc, Attr):
+                node = acc.pop(node, k)
+            else:
+                del node[k]
+        return node
+
+    def do_remove(self, ops, node, val, nop, settings=base.SETTINGS):
+        return self._remove_recursive(ops, node, val, nop, settings=settings)
+
+
+class RecursiveFirst(Recursive):
+    """
+    First-match variant of Recursive -- yields only the first result.
+    """
+
+    def __repr__(self):
+        return super().__repr__() + '?'
+
+    def operator(self, top=False):
+        s = super().operator(top)
+        # Insert ? before filters if present, otherwise append
+        return s + '?'
+
+    def push_children(self, stack, frame, paths):
+        for cp, v, terminal in self._collect_matches(frame.node, paths, prefix=frame.prefix, settings=frame.settings):
+            ops = () if terminal else frame.ops
+            stack.push(base.Frame(ops, v, cp, settings=frame.settings))
+            return ()
+        return ()

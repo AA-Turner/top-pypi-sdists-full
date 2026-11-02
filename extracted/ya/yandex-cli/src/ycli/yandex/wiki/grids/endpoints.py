@@ -1,0 +1,150 @@
+"""Wiki ``/grids`` — dynamic tables, declared once (sans-IO).
+
+The API updates a grid and sets cell values with ``POST`` (not ``PATCH``); the same body sent
+twice leaves the same grid, so those two endpoints declare themselves idempotent writes. Rows and
+columns are removed by a ``DELETE`` whose ids travel in the JSON body.
+
+Examples:
+    >>> get(
+    ...     "g-1",
+    ...     fields=None,
+    ...     row_filter="[a] ~ b",
+    ...     only_cols=None,
+    ...     only_rows=None,
+    ...     revision=None,
+    ...     sort=None,
+    ... ).params["filter"]
+    '[a] ~ b'
+    >>> cells_update("g-1", {"revision": "3", "cells": []}).effect
+    <Effect.IDEMPOTENT_WRITE: 'idempotent_write'>
+"""
+
+from http import HTTPMethod
+
+from ycli.yandex.core.endpoint import Effect, Endpoint, segment
+from ycli.yandex.wiki.grids.models import (
+    CellsUpdate,
+    CellsUpdateResult,
+    ColumnsAdd,
+    ColumnsMove,
+    ColumnsRemove,
+    ColumnSuggest,
+    ColumnSuggestion,
+    ColumnUpdate,
+    ColumnUpdateResult,
+    Grid,
+    GridClone,
+    GridCreate,
+    GridUpdate,
+    RevisionResult,
+    RowsAdd,
+    RowsAddResult,
+    RowsMove,
+    RowsRemove,
+    RowUpdate,
+    RowUpdateResult,
+)
+from ycli.yandex.wiki.models import AsyncOperation
+
+
+def _grid(grid_id: str, tail: str = "") -> str:
+    return f"grids/{segment(grid_id)}{tail}"
+
+
+def get(
+    grid_id: str,
+    *,
+    fields: str | None,
+    row_filter: str | None,
+    only_cols: str | None,
+    only_rows: str | None,
+    revision: str | None,
+    sort: str | None,
+) -> Endpoint[Grid]:
+    params = {
+        "fields": fields,
+        "filter": row_filter,
+        "only_cols": only_cols,
+        "only_rows": only_rows,
+        "revision": revision,
+        "sort": sort,
+    }
+    return Endpoint(HTTPMethod.GET, _grid(grid_id), Grid, params=params)
+
+
+def create(body: GridCreate) -> Endpoint[Grid]:
+    return Endpoint(HTTPMethod.POST, "grids", Grid, json=body)
+
+
+def update(grid_id: str, body: GridUpdate) -> Endpoint[RevisionResult]:
+    # violation(arch-3): POST /grids/{id} replaces fields; a resend is a no-op
+    return Endpoint(
+        HTTPMethod.POST, _grid(grid_id), RevisionResult, json=body, effect=Effect.IDEMPOTENT_WRITE
+    )
+
+
+def delete(grid_id: str) -> Endpoint[None]:
+    return Endpoint(HTTPMethod.DELETE, _grid(grid_id))
+
+
+def rows_create(grid_id: str, body: RowsAdd) -> Endpoint[RowsAddResult]:
+    return Endpoint(HTTPMethod.POST, _grid(grid_id, "/rows"), RowsAddResult, json=body)
+
+
+def rows_delete(grid_id: str, body: RowsRemove) -> Endpoint[RevisionResult]:
+    return Endpoint(HTTPMethod.DELETE, _grid(grid_id, "/rows"), RevisionResult, json=body)
+
+
+def rows_move(grid_id: str, body: RowsMove) -> Endpoint[RevisionResult]:
+    return Endpoint(HTTPMethod.POST, _grid(grid_id, "/rows/move"), RevisionResult, json=body)
+
+
+def columns_create(grid_id: str, body: ColumnsAdd) -> Endpoint[RevisionResult]:
+    return Endpoint(HTTPMethod.POST, _grid(grid_id, "/columns"), RevisionResult, json=body)
+
+
+def columns_delete(grid_id: str, body: ColumnsRemove) -> Endpoint[RevisionResult]:
+    return Endpoint(HTTPMethod.DELETE, _grid(grid_id, "/columns"), RevisionResult, json=body)
+
+
+def columns_move(grid_id: str, body: ColumnsMove) -> Endpoint[RevisionResult]:
+    return Endpoint(HTTPMethod.POST, _grid(grid_id, "/columns/move"), RevisionResult, json=body)
+
+
+def cells_update(grid_id: str, body: CellsUpdate) -> Endpoint[CellsUpdateResult]:
+    path = _grid(grid_id, "/cells")
+    # violation(arch-3): POST cells sets values; a resend is a no-op
+    return Endpoint(
+        HTTPMethod.POST, path, CellsUpdateResult, json=body, effect=Effect.IDEMPOTENT_WRITE
+    )
+
+
+def clone(grid_id: str, body: GridClone) -> Endpoint[AsyncOperation]:
+    return Endpoint(HTTPMethod.POST, _grid(grid_id, "/clone"), AsyncOperation, json=body)
+
+
+def columns_suggest(grid_id: str, body: ColumnSuggest) -> Endpoint[ColumnSuggestion]:
+    """``POST /grids/{id}/columns/suggest`` (undocumented): checks a slug, changes nothing."""
+    path = _grid(grid_id, "/columns/suggest")
+    # violation(arch-3): POST columns/suggest only reads (checks a slug)
+    return Endpoint(HTTPMethod.POST, path, ColumnSuggestion, json=body, effect=Effect.READ)
+
+
+def columns_update(
+    grid_id: str, column_slug: str, body: ColumnUpdate
+) -> Endpoint[ColumnUpdateResult]:
+    """``POST /grids/{id}/column/{slug}`` (undocumented; the path says ``column``, singular)."""
+    path = _grid(grid_id, f"/column/{segment(column_slug)}")
+    # violation(arch-3): POST column/{slug} sets fields; a resend is a no-op
+    return Endpoint(
+        HTTPMethod.POST, path, ColumnUpdateResult, json=body, effect=Effect.IDEMPOTENT_WRITE
+    )
+
+
+def rows_update(grid_id: str, row_id: str, body: RowUpdate) -> Endpoint[RowUpdateResult]:
+    """``POST /grids/{id}/rows/{row_id}`` (undocumented): pin or colour one row."""
+    path = _grid(grid_id, f"/rows/{segment(row_id)}")
+    # violation(arch-3): POST rows/{id} sets pin and colour; resent, a no-op
+    return Endpoint(
+        HTTPMethod.POST, path, RowUpdateResult, json=body, effect=Effect.IDEMPOTENT_WRITE
+    )

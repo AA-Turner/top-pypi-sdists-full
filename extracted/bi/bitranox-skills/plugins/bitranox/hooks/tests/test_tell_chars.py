@@ -1,0 +1,490 @@
+"""Tests for tell_chars.py (shared tell codepoints + scanner). All source ASCII; tells via chr()."""
+
+import tell_chars as TC
+
+EM_DASH = chr(0x2014)
+NBSP = chr(0x00A0)
+CURLY_OPEN = chr(0x201C)   # ALSO the German closing double quote, so it is allowed now
+CURLY_CLOSE = chr(0x201D)  # English-only, and what still trips on a curly pair
+ARROW = chr(0x2192)   # allowed on purpose, must NOT trip
+
+
+def test_clean_text_no_hits():
+    assert TC.find_tell_lines("Plain ASCII, no tells.\nSecond line -.\n") == []
+
+
+def test_em_dash_and_nbsp_caught():
+    assert len(TC.find_tell_lines("a real %s dash\nand a%sNBSP\n" % (EM_DASH, NBSP))) == 2
+
+
+def test_curly_quote_caught():
+    assert TC.find_tell_lines("He said %shi\n" % CURLY_CLOSE)[0].startswith("1: ")
+
+
+def test_inline_code_span_ignored():
+    assert TC.find_tell_lines("use `%s` only in code\n" % EM_DASH) == []
+
+
+def test_fenced_block_ignored():
+    assert TC.find_tell_lines("```\n%s\n```\n" % EM_DASH) == []
+
+
+def test_allowed_symbols_not_flagged():
+    assert TC.find_tell_lines("a %s b, ok\n" % ARROW) == []
+
+
+def test_empty_and_none_safe():
+    assert TC.find_tell_lines("") == [] and TC.find_tell_lines(None) == []
+
+
+def test_ranges_are_canonical_ascii_source():
+    # the module must stay pure ASCII (codepoints as hex), and cover the key tells
+    import pathlib
+    src = pathlib.Path(TC.__file__).read_text(encoding="utf-8")
+    assert all(ord(c) < 128 for c in src)
+    assert TC._TELL.search(EM_DASH) and not TC._TELL.search(ARROW)
+
+
+def test_verdict_emoji_flagged_plain_check_allowed():
+    heavy_check, cross, warn, sel = chr(0x2705), chr(0x274C), chr(0x26A0), chr(0xFE0F)
+    plain_check = chr(0x2713)
+    assert TC.find_tell_lines("verdict: %s pass\n" % heavy_check)
+    assert TC.find_tell_lines("verdict: %s fail\n" % cross)
+    assert TC.find_tell_lines("note: %s%s risky\n" % (warn, sel))
+    assert TC.find_tell_lines("verdict: %s pass\n" % plain_check) == []
+
+
+# ---- transform_outside_code: the primitive the strip script and the hook must share -----------
+
+EM = chr(0x2014)
+
+
+def _to_dash(s):
+    return s.replace(EM, "-")
+
+
+def test_transform_leaves_an_inline_code_span_untouched():
+    out = TC.transform_outside_code("prose em%sdash and `code em%sdash` here\n" % (EM, EM), _to_dash)
+    assert out == "prose em-dash and `code em%sdash` here\n" % EM
+
+
+def test_transform_leaves_a_fenced_block_untouched():
+    src = "before em%s\n```\nfenced em%s\n```\nafter em%s\n" % (EM, EM, EM)
+    out = TC.transform_outside_code(src, _to_dash)
+    assert out == "before em-\n```\nfenced em%s\n```\nafter em-\n" % EM
+
+
+def test_transform_handles_tilde_fences():
+    src = "~~~\ntilde em%s\n~~~\nprose em%s\n" % (EM, EM)
+    out = TC.transform_outside_code(src, _to_dash)
+    assert "tilde em%s" % EM in out and "prose em-" in out
+
+
+def test_transform_handles_several_spans_on_one_line():
+    src = "a em%s `x em%s` b em%s `y em%s` c em%s\n" % (EM, EM, EM, EM, EM)
+    out = TC.transform_outside_code(src, _to_dash)
+    assert out.count(EM) == 2                      # only the two spans keep it
+    assert "`x em%s`" % EM in out and "`y em%s`" % EM in out
+
+
+def test_transform_preserves_text_with_no_trailing_newline():
+    assert TC.transform_outside_code("em%s" % EM, _to_dash) == "em-"
+
+
+def test_transform_of_empty_and_none_is_empty():
+    assert TC.transform_outside_code("", _to_dash) == ""
+    assert TC.transform_outside_code(None, _to_dash) == ""
+
+
+# --- extraction line-continuation artifacts (U+2190) -------------------------------------------
+
+LARR = chr(0x2190)
+RARR = chr(0x2192)
+
+
+def test_continuation_flags_a_wrapped_token():
+    """The shape that splits a command: ' <-token' with no space after the arrow."""
+    hits = TC.find_continuation_lines("wget https://example.com/keyring- %strixie.gpg" % LARR)
+    assert len(hits) == 1 and hits[0].startswith("1: ")
+
+
+def test_continuation_flags_a_lone_marker_line():
+    assert TC.find_continuation_lines("a\n%s-\nb" % LARR) == ["2: %s-" % LARR]
+    assert TC.find_continuation_lines("a\n%s\nb" % LARR) == ["2: %s" % LARR]
+
+
+def test_continuation_ignores_prose_where_the_arrow_is_followed_by_a_space():
+    """'runs in process.cwd() <- empty parameter' is an annotation, not an artifact."""
+    assert TC.find_continuation_lines("runs in cwd() %s empty parameter" % LARR) == []
+
+
+def test_continuation_ignores_the_allowed_right_arrow():
+    assert TC.find_continuation_lines("Datacenter %s Cluster %s Join" % (RARR, RARR)) == []
+
+
+def test_continuation_looks_INSIDE_fenced_blocks():
+    """The whole point: a split command lives in the blind spot find_tell_lines exempts."""
+    src = "prose\n```bash\nmv /a/b/ %sc/d\n```\n" % LARR
+    assert TC.find_continuation_lines(src) == ["3: mv /a/b/ %sc/d" % LARR]
+
+
+def test_find_tell_lines_does_NOT_see_it_which_is_why_the_second_scanner_exists():
+    """Control: the two scanners must disagree here, or the new one is redundant."""
+    src = "prose\n```bash\nmv /a/b/ %sc/d\n```\n" % LARR
+    assert TC.find_tell_lines(src) == []
+    assert TC.find_continuation_lines(src) != []
+
+
+def test_continuation_of_empty_and_none_is_empty():
+    assert TC.find_continuation_lines("") == [] and TC.find_continuation_lines(None) == []
+
+
+# ---- the three separators that are tells AND break str.splitlines() ---------------------------
+
+LINE_SEP = chr(0x2028)
+PARA_SEP = chr(0x2029)
+NEL = chr(0x0085)
+
+
+def test_a_separator_outside_code_is_a_tell_not_a_line_break():
+    """U+2028/U+2029/U+0085 are in RANGES, and str.splitlines() breaks on all three.
+
+    Splitting there hands the scanner two clean lines and the tell is in NEITHER, so the file
+    passes while carrying it. One shared splitter that breaks only on real newlines is what makes
+    the detector able to see them at all.
+    """
+    for sep in (LINE_SEP, PARA_SEP, NEL):
+        hits = TC.find_tell_lines("prose%smore prose\n" % sep)
+        assert hits, "separator %04X is invisible to the scanner" % ord(sep)
+        assert hits[0].startswith("1: "), hits
+
+
+def test_a_separator_does_not_advance_the_reported_line_number():
+    hits = TC.find_tell_lines("first\nsecond%stail\n" % LINE_SEP)
+    assert [h.split(":")[0] for h in hits] == ["2"], hits
+
+
+def test_a_separator_inside_a_code_span_is_left_alone_by_both_halves():
+    """The detector and the rewriter must agree, and here they did not.
+
+    find_tell_lines split AT the separator, so the span looked like two lines and the tell was in
+    neither - clean. transform_outside_code splits with keepends=True, so it KEPT the separator,
+    saw an unterminated span, and rewrote through it. A file the hook passes could therefore still
+    be rewritten, splitting the span in two.
+    """
+    src = "text `code%sspan` tail\n" % LINE_SEP
+    assert TC.find_tell_lines(src) == []
+    assert TC.transform_outside_code(src, lambda s: s.replace(LINE_SEP, "!")) == src
+
+
+def test_the_shared_splitter_matches_splitlines_on_ordinary_text():
+    for src in ("", "a", "a\n", "a\nb", "a\r\nb\r\n", "a\n\nb", "\n"):
+        assert TC.split_lines(src) == src.splitlines(), repr(src)
+        assert TC.split_lines(src, keepends=True) == src.splitlines(keepends=True), repr(src)
+    assert TC.split_lines(None) == []
+
+
+def test_find_tell_codepoints_names_the_character_instead_of_quoting_the_line():
+    hits = TC.find_tell_codepoints("private content %s here\n" % EM_DASH)
+    assert hits == ["1: U+2014"]
+    assert "private content" not in hits[0]
+
+
+def test_find_tell_codepoints_dedupes_and_sorts_within_a_line():
+    """Same line, one codepoint twice and a second one out of order: one entry, ascending."""
+    src = "a%sb%sc%sd\n" % (NBSP, EM_DASH, NBSP)
+    assert TC.find_tell_codepoints(src) == ["1: U+00A0 U+2014"]
+
+
+def test_find_tell_codepoints_reports_the_same_lines_as_find_tell_lines():
+    """The two scanners share `_scannable`, so a code-span or fence exemption can never apply to
+    one and not the other. Compare the LINE NUMBERS they report, over text mixing both."""
+    src = "clean\nuse `%s` in code\n%s here\n```\n%s\n```\nand %s again\n" % (
+        EM_DASH, EM_DASH, EM_DASH, NBSP)
+    lines = [h.split(":", 1)[0] for h in TC.find_tell_lines(src)]
+    points = [h.split(":", 1)[0] for h in TC.find_tell_codepoints(src)]
+    assert lines == points == ["3", "7"]
+
+
+def test_find_tell_codepoints_is_empty_on_clean_text():
+    assert TC.find_tell_codepoints("Plain ASCII - no tells.\n") == []
+    assert TC.find_tell_codepoints("") == [] and TC.find_tell_codepoints(None) == []
+
+
+def test_decode_utf8_returns_no_offset_for_valid_text():
+    assert TC.decode_utf8(b"plain %s text\n" % b"ascii") == ("plain ascii text\n", None)
+
+
+def test_decode_utf8_reports_the_first_bad_byte_and_keeps_the_rest():
+    text, bad = TC.decode_utf8(b"head" + b"\xff" + b"tail")
+    assert bad == 4
+    assert text == "headtail"          # the bad byte is dropped, never replaced with U+FFFD
+
+
+def test_decode_utf8_never_mints_a_replacement_character():
+    """The whole reason this function exists: U+FFFD is itself a tell, so a decoder that emits
+    one hands the detector a hit it created."""
+    text, _ = TC.decode_utf8(b"\xff\xfe\x00")
+    assert chr(0xFFFD) not in text
+    assert TC.find_tell_lines(text) == []
+
+
+def test_decode_utf8_keeps_a_genuinely_encoded_replacement_character():
+    """The direction the fix must NOT reach: real mojibake still decodes and still counts."""
+    text, bad = TC.decode_utf8(("a %s b" % chr(0xFFFD)).encode("utf-8"))
+    assert bad is None and chr(0xFFFD) in text
+    assert TC.find_tell_lines(text) != []
+
+
+def test_decode_utf8_forgives_a_character_the_caller_s_cap_sliced():
+    two_byte = chr(0x00E4).encode("utf-8")
+    assert len(two_byte) == 2
+    text, bad = TC.decode_utf8(b"head" + two_byte[:1], truncated=True)
+    assert (text, bad) == ("head", None)
+
+
+def test_decode_utf8_still_reports_a_bad_byte_away_from_the_cut():
+    """truncated=True forgives only the last three bytes; one earlier is the file's own fault."""
+    text, bad = TC.decode_utf8(b"\xff" + b"x" * 20, truncated=True)
+    assert bad == 0 and text == "x" * 20
+
+
+def test_decode_utf8_does_not_forgive_a_sliced_character_on_an_uncapped_read():
+    """An untruncated read reaching a partial character means the FILE is broken, not the reader."""
+    two_byte = chr(0x00E4).encode("utf-8")
+    _text, bad = TC.decode_utf8(b"head" + two_byte[:1], truncated=False)
+    assert bad == 4
+
+
+# ---- German typography is not an AI tell (user decision 2026-09-18) ---------------------------
+#
+# German prose quotes with ,,...`` (U+201E ... U+201C) or with the guillemets >>...<< (U+00BB ...
+# U+00AB), and both are correct typography rather than a sign of a machine. The set below is
+# therefore NOT in RANGES. Two of the six are shared with the English curly quotes, which is the
+# whole reason this needed deciding: U+201C is the English OPENING double quote and U+2018 the
+# English opening single, so allowing the German closing quotes necessarily allows those two.
+# What survives is the half that carries the English tell on its own - U+2019, the curly
+# apostrophe, which is the commonest tell of all, and U+201D.
+
+GERMAN_PUNCTUATION = {
+    "opening double (low-9)": chr(0x201E),
+    "closing double": chr(0x201C),
+    "opening single (low-9)": chr(0x201A),
+    "closing single": chr(0x2018),
+    "opening guillemet": chr(0x00BB),
+    "closing guillemet": chr(0x00AB),
+    "single guillemet right": chr(0x203A),
+    "single guillemet left": chr(0x2039),
+}
+
+
+def test_german_quotes_and_guillemets_are_not_tells():
+    for name, ch in GERMAN_PUNCTUATION.items():
+        assert TC.find_tell_lines("ein Satz mit %s Zeichen\n" % ch) == [], name
+
+
+def test_a_whole_german_quoted_sentence_passes():
+    low9, closing = chr(0x201E), chr(0x201C)
+    guill_open, guill_close = chr(0x00BB), chr(0x00AB)
+    assert TC.find_tell_lines("Er sagte %sguten Tag%s und ging.\n" % (low9, closing)) == []
+    assert TC.find_tell_lines("Er sagte %sguten Tag%s und ging.\n" % (guill_open, guill_close)) == []
+
+
+def test_the_english_only_curly_quotes_still_trip():
+    """The half that is NOT German punctuation must keep failing, or this trade gave away the rule."""
+    for cp in (0x2019, 0x201B, 0x201D, 0x201F):
+        assert TC.find_tell_lines("it%ss here\n" % chr(cp)), "U+%04X" % cp
+
+
+def test_an_english_curly_pair_is_still_caught_by_its_closing_half():
+    """The reason unblocking U+201C is affordable: the pair still reports, on the other character."""
+    assert TC.find_tell_lines("He said %shi%s\n" % (chr(0x201C), chr(0x201D)))
+
+
+def test_the_em_dash_family_is_untouched_by_the_german_carve_out():
+    for cp in (0x2013, 0x2014, 0x2E3A, 0x2E3B):
+        assert TC.find_tell_lines("a %s b\n" % chr(cp)), "U+%04X" % cp
+
+
+# ---- a skill may not teach the removal of punctuation the tell set permits -------------------
+#
+# write-humanize-de demonstrates each rule with a Vorher/Nachher pair. Once German quotation marks
+# left RANGES, a pair whose "after" has flattened them to ASCII is teaching the reader to strip
+# correct typography that the gate accepts and the repair script now protects on purpose - and the
+# same section's own first sentence already said the characters are correct German.
+#
+# The check is deliberately narrow: normalising one permitted German style to another (guillemets
+# to low-9 quotes, say) is exactly what a consistency fix looks like, so it must stay legal. What
+# fails is an "after" that has NO German punctuation left at all where the "before" had some.
+
+import os
+import re as _re
+
+GERMAN_PUNCTUATION_CODEPOINTS = {0x00AB, 0x00BB, 0x2018, 0x201A, 0x201C, 0x201E, 0x2039, 0x203A}
+_DE_SKILL = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "skills", "write-humanize-de", "SKILL.md",
+)
+_MARKER = _re.compile(r"^\*\*(Vorher|Nachher):\*\*")
+
+
+def _german_chars(s):
+    return {ord(c) for c in s} & GERMAN_PUNCTUATION_CODEPOINTS
+
+
+def _example_after(lines, i):
+    """The example body following a Vorher/Nachher marker at line i.
+
+    The skill uses BOTH forms and a parser that knows only one reads almost nothing: 29 of the 30
+    examples are blockquotes and exactly one - the quotation-mark section this guard exists for -
+    is a fenced block. Reading fences alone matched 1 pair of 30 and still looked like a working
+    test, which is what the pair-count control below is for.
+    """
+    out, n = [], len(lines)
+    j = i + 1
+    while j < n and not lines[j].strip():
+        j += 1
+    if j < n and lines[j].lstrip().startswith(("```", "~~~")):
+        fence = lines[j].strip()[:3]
+        j += 1
+        while j < n and not lines[j].lstrip().startswith(fence):
+            out.append(lines[j])
+            j += 1
+        return "\n".join(out)
+    while j < n and lines[j].lstrip().startswith(">"):
+        out.append(lines[j].lstrip()[1:])
+        j += 1
+    return "\n".join(out)
+
+
+def _de_pairs():
+    lines = TC.split_lines(open(_DE_SKILL, encoding="utf-8").read())
+    marks = [(n, _MARKER.match(ln).group(1)) for n, ln in enumerate(lines) if _MARKER.match(ln)]
+    pairs, pending = [], None
+    for n, kind in marks:
+        body = _example_after(lines, n)
+        if kind == "Vorher":
+            pending = body
+        elif pending is not None:
+            pairs.append((pending, body))
+            pending = None
+    return pairs
+
+
+def test_the_german_skill_has_before_after_pairs_to_check():
+    """Control: the parser must find nearly every example, or the next test asserts almost nothing."""
+    body = open(_DE_SKILL, encoding="utf-8").read()
+    declared = body.count("**Vorher:**")
+    found = len(_de_pairs())
+    assert declared >= 25, declared
+    assert found >= declared - 1, (found, declared)
+
+
+def test_every_parsed_example_actually_has_text():
+    """A pair parser that returns empty strings passes the flattening test vacuously."""
+    empty = [i for i, (b, a) in enumerate(_de_pairs()) if not b.strip() or not a.strip()]
+    assert empty == [], empty
+
+
+def test_no_german_example_flattens_permitted_punctuation_away():
+    flattened = [
+        (before.strip()[:60], after.strip()[:60])
+        for before, after in _de_pairs()
+        if _german_chars(before) and not _german_chars(after)
+    ]
+    assert flattened == [], (
+        "a Vorher/Nachher pair removes every German quotation mark, teaching the reader to strip "
+        "punctuation RANGES permits: %r" % (flattened,)
+    )
+
+
+def test_the_german_checklist_unifies_quotes_rather_than_removing_them():
+    """Keyed on the POSITIVE claim, because a revert to "entfernt" drops the word this requires.
+
+    A bare "must not say entfernt" check passes just as well when the line disappears entirely,
+    so the presence of a quotation-mark bullet is asserted first.
+    """
+    lines = TC.split_lines(open(_DE_SKILL, encoding="utf-8").read())
+    bullets = [ln for ln in lines
+               if ln.lstrip().startswith("-") and "nf%chrungszeichen" % chr(0x00FC) in ln]
+    assert bullets, "control: no checklist bullet mentions quotation marks"
+    bad = [ln.strip() for ln in bullets if "entfernt" in ln or "vereinheitlicht" not in ln]
+    assert bad == [], bad
+
+
+# ---- fences close the CommonMark way: same character, at least as long, bare -----------------
+#
+# Any fence-looking line used to TOGGLE the state, whatever its character or length. So a `~~~`
+# line inside a backtick block closed it early (the code after it was scanned and rewritten as
+# prose while the real prose after the block was treated as code), and a four-backtick fence that
+# shows a three-backtick example closed at the example.
+
+
+def test_a_tilde_line_inside_a_backtick_fence_does_not_close_it():
+    src = "```\n~~~\ncode %s\n```\nprose %s\n" % (EM_DASH, EM_DASH)
+    assert TC.find_tell_lines(src) == ["5: prose %s" % EM_DASH]
+    out = TC.transform_outside_code(src, lambda s: s.replace(EM_DASH, "-"))
+    assert out == "```\n~~~\ncode %s\n```\nprose -\n" % EM_DASH
+
+
+def test_a_shorter_inner_fence_does_not_close_a_longer_one():
+    src = "````\n```\necho a %s b\n```\n````\nprose %s\n" % (EM_DASH, EM_DASH)
+    assert TC.find_tell_lines(src) == ["6: prose %s" % EM_DASH]
+    out = TC.transform_outside_code(src, lambda s: s.replace(EM_DASH, "-"))
+    assert "echo a %s b" % EM_DASH in out and out.endswith("prose -\n")
+
+
+def test_an_unbalanced_inner_fence_does_not_hide_the_prose_after_the_block():
+    src = "````\n```\n````\nprose %s\n" % EM_DASH
+    assert TC.find_tell_lines(src) == ["4: prose %s" % EM_DASH]
+
+
+def test_a_closer_must_be_bare():
+    """A fence line carrying an info string inside a block is content, not a closer."""
+    src = "```\n```python\ncode %s\n```\nprose %s\n" % (EM_DASH, EM_DASH)
+    assert TC.find_tell_lines(src) == ["5: prose %s" % EM_DASH]
+
+
+def test_a_backtick_opener_with_a_backtick_in_its_info_string_is_prose():
+    """```x``` on a prose line is an inline span, not a fence; reading it as one hid the rest."""
+    src = "```inline``` then %s\nmore %s\n" % (EM_DASH, EM_DASH)
+    assert len(TC.find_tell_lines(src)) == 2
+
+
+def test_control_a_plain_balanced_fence_still_hides_its_content():
+    src = "```\ncode %s\n```\nprose %s\n~~~\ntilde %s\n~~~\n" % (EM_DASH, EM_DASH, EM_DASH)
+    assert TC.find_tell_lines(src) == ["4: prose %s" % EM_DASH]
+
+
+def test_control_an_indented_fence_in_a_list_item_still_counts():
+    src = "1. step\n\n    ```\n    code %s\n    ```\n" % EM_DASH
+    assert TC.find_tell_lines(src) == []
+
+
+# ---- inline code spans of any backtick-run length --------------------------------------------
+
+
+def test_a_double_backtick_span_is_code():
+    assert TC.find_tell_lines("use ``a%sb`` here\n" % EM_DASH) == []
+    assert TC.find_tell_lines("use ``a%s`b`` here\n" % EM_DASH) == []
+
+
+def test_transform_leaves_a_double_backtick_span_untouched():
+    src = "use ``a%s`b`` and %s\n" % (EM_DASH, EM_DASH)
+    out = TC.transform_outside_code(src, lambda s: s.replace(EM_DASH, "-"))
+    assert out == "use ``a%s`b`` and -\n" % EM_DASH
+
+
+def test_control_prose_beside_a_double_backtick_span_is_still_scanned():
+    assert TC.find_tell_lines("``code`` then %s\n" % EM_DASH) != []
+
+
+def test_control_a_single_backtick_span_is_still_code():
+    assert TC.find_tell_lines("use `a%sb` here\n" % EM_DASH) == []
+
+
+def test_split_lines_breaks_only_on_cr_lf_and_crlf():
+    """Form feed, vertical tab and the file/group/record separators stay inside the line."""
+    for ch in ("\x0b", "\x0c", "\x1c", "\x1d", "\x1e"):
+        assert TC.split_lines("a%sb" % ch) == ["a%sb" % ch]
+    assert "splits only on" in TC.split_lines.__doc__

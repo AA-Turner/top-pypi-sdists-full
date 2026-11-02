@@ -1,0 +1,1896 @@
+"""One-call outbound webhook delivery for AdCP senders.
+
+A seller that wants to emit a signed webhook today has to do six steps by hand
+— construct payload, JSON-serialize to bytes, sign, merge headers, POST with
+``content=`` (not ``json=``, which reserializes and breaks the signature),
+and remember to reuse ``idempotency_key`` on retry. Each step is a footgun.
+
+:class:`WebhookSender` packages all of them::
+
+    from adcp.webhooks import WebhookSender
+
+    sender = WebhookSender.from_jwk(webhook_signing_jwk_with_private_d)
+
+    async with sender:
+        result = await sender.send_mcp(
+            url="https://buyer.example.com/webhooks/adcp/create_media_buy/op_abc",
+            task_id="task_456",
+            task_type="create_media_buy",
+            operation_id="op_abc",
+            status="completed",
+            result={"media_buy_id": "mb_1"},
+        )
+        if not result.ok:
+            # Retry replays the exact same bytes under a fresh signature,
+            # preserving idempotency_key so the receiver dedupes.
+            retry = await sender.resend(result)
+"""
+
+from __future__ import annotations
+
+import json
+import warnings
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
+
+import httpx
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from pydantic import BaseModel, TypeAdapter
+
+from adcp._deferred_adapters import deferred_adapter
+from adcp.signing.crypto import (
+    ALG_ED25519,
+    ALG_ES256,
+    PrivateKey,
+    load_private_key_pem,
+    private_key_from_jwk,
+)
+from adcp.signing.ip_pinned_transport import (
+    AsyncIpPinnedTransport,
+    build_async_ip_pinned_transport,
+)
+from adcp.signing.standard_webhooks import decode_secret as _decode_sw_secret
+from adcp.types import (
+    AdcpProtocol,
+    GeneratedTaskStatus,
+    McpWebhookPayload,
+    MediaBuyDeliveryWebhookResult,
+    NotificationConfig,
+    ReportingWebhook,
+    TaskType,
+    WholesaleFeedEvent,
+    WholesaleFeedWebhook,
+)
+from adcp.types.domains.core.async_response_data import AdcpAsyncResponseData
+from adcp.webhook_auth import (
+    AdcpLegacyHmacStrategy,
+    BearerTokenStrategy,
+    JwkSignerStrategy,
+    StandardWebhooksHmacStrategy,
+    WebhookAuthStrategy,
+    merge_extra_headers,
+)
+from adcp.webhook_transport_hooks import (
+    DockerLocalhostRewrite,
+    TransportHook,
+    apply_hooks,
+)
+
+# WholesaleFeedEvent is a union, so validation goes through an adapter.
+
+
+@deferred_adapter
+def _wholesale_feed_event_adapter() -> TypeAdapter[WholesaleFeedEvent]:
+    return TypeAdapter(WholesaleFeedEvent)
+
+
+# NOTE: ``from adcp.webhooks import (...)`` is deliberately at the BOTTOM of this
+# module (after WebhookSender / WebhookDeliveryResult are defined) to resolve the
+# webhooks <-> webhook_sender import cycle regardless of which module is imported
+# first. The payload-builder functions are only used inside methods (call time),
+# so binding them at module end is sufficient. See the matching note in
+# webhooks.py. Importing here at the top breaks when webhook_sender is imported
+# before webhooks (e.g. ``from adcp.webhook_sender import WebhookSender``).
+
+# The signer emits a signature valid for 300 seconds. Exact retries must replay
+# the original body bytes through ``resend`` while producing fresh signature
+# metadata; re-entering ``send_*`` would regenerate the body timestamp.
+_DEFAULT_TIMEOUT_SECONDS = 10.0
+# 10MB serialized-body cap — matches adcp.webhooks.deliver and typical
+# buyer-side reverse-proxy limits. Guards against OOM when a caller passes
+# an adversarial payload: json.dumps holds dict + str concurrently, and
+# .encode() transiently triples memory, so a 1GB body is multiple GB RSS.
+_MAX_BODY_BYTES = 10 * 1024 * 1024
+# Receiver error pages are untrusted. Webhook delivery only needs a bounded
+# diagnostic prefix, never an arbitrarily large buffered response.
+_MAX_RESPONSE_BODY_BYTES = 64 * 1024
+
+
+_legacy_hmac_warned = False
+
+
+def _warn_legacy_hmac_once() -> None:
+    """Emit a one-shot DeprecationWarning when an operator builds a
+    legacy-HMAC sender. Mirrors the receiver-side warn-once in
+    :mod:`adcp.signing.webhook_hmac` so sender-only deployments see the
+    AdCP 4.0 cutover signal at runtime, not only in the docstring."""
+    global _legacy_hmac_warned
+    if _legacy_hmac_warned:
+        return
+    _legacy_hmac_warned = True
+    warnings.warn(
+        "AdCP-legacy HMAC-SHA256 webhook signing is the AdCP 3.x fallback "
+        "and will be removed in AdCP 4.0. Migrate to RFC 9421 JWK signing "
+        "via WebhookSender.from_jwk / from_pem. See "
+        "docs/webhooks/migration-from-fragmented-senders.md. This warning "
+        "fires once per process.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def _validate_hooks(hooks: tuple[TransportHook, ...], allow_private_destinations: bool) -> None:
+    """Run each hook's optional ``validate_for_sender`` self-check.
+
+    Hooks that depend on sender configuration (e.g.,
+    :class:`DockerLocalhostRewrite` requiring private destinations)
+    expose a ``validate_for_sender`` method that raises on
+    misconfiguration. Hooks without it are unconstrained — the
+    Protocol only mandates ``rewrite_url``.
+    """
+    for hook in hooks:
+        validate = getattr(hook, "validate_for_sender", None)
+        if callable(validate):
+            validate(allow_private_destinations=allow_private_destinations)
+
+
+def _entity_type_for_wholesale_notification(notification_type: str) -> str:
+    if notification_type.startswith("product."):
+        return "product"
+    if notification_type.startswith("signal."):
+        return "signal"
+    if notification_type == "wholesale_feed.bulk_change":
+        return "feed"
+    raise ValueError(
+        f"unsupported wholesale feed notification_type {notification_type!r}; "
+        "expected product.*, signal.*, or wholesale_feed.bulk_change"
+    )
+
+
+def _enum_value(value: Any) -> str:
+    raw = getattr(value, "value", value)
+    return str(raw)
+
+
+async def _post_with_bounded_response(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    body: bytes,
+    headers: Mapping[str, str],
+) -> tuple[int, Mapping[str, str], bytes]:
+    """POST while retaining at most a small diagnostic response prefix."""
+    captured = bytearray()
+    async with client.stream("POST", url, content=body, headers=headers) as response:
+        if response.is_stream_consumed:
+            # Some in-process/custom transports construct a pre-buffered
+            # response even for stream(). The bytes already exist, so retain
+            # only the bounded diagnostic prefix.
+            return (
+                response.status_code,
+                dict(response.headers),
+                response.content[:_MAX_RESPONSE_BODY_BYTES],
+            )
+        # Read raw wire bytes so httpx cannot inflate a compressed response
+        # into a large decoded chunk before this cap is applied.
+        async for chunk in response.aiter_raw(chunk_size=16 * 1024):
+            remaining = _MAX_RESPONSE_BODY_BYTES - len(captured)
+            if remaining <= 0:
+                break
+            captured.extend(chunk[:remaining])
+            if len(chunk) > remaining:
+                break
+        return response.status_code, dict(response.headers), bytes(captured)
+
+
+@dataclass(frozen=True)
+class WebhookDeliveryResult:
+    """Outcome of one ``send_*`` call.
+
+    Senders care about: did it land (``ok``), what key was used (for logs
+    and retry), what did the receiver say (``status_code``, ``response_body``).
+
+    The ``sent_body`` and ``sent_extra_headers`` fields capture exactly what
+    was signed and POSTed — the sender's :meth:`WebhookSender.resend` replays
+    them under a fresh signature (preserving ``idempotency_key`` for dedup)
+    rather than re-serializing from a user-supplied dict, which would drift
+    if any field (``timestamp``, nested ``result``) differs between calls.
+    """
+
+    status_code: int
+    idempotency_key: str
+    url: str
+    response_headers: Mapping[str, str]
+    response_body: bytes
+    sent_body: bytes = b""
+    sent_extra_headers: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        """True on 2xx. Note: receivers MUST return 2xx on duplicates too, so
+        a 200 with ``duplicate=true`` in the body is still ``ok``."""
+        return 200 <= self.status_code < 300
+
+
+@dataclass(frozen=True)
+class PreparedWebhook:
+    """Immutable webhook request prepared for durable outbox storage.
+
+    The serialized body and idempotency key are bound once, before the
+    outbox transaction commits. Workers may then replay this object under a
+    fresh RFC 9421 signature without regenerating timestamps or JSON bytes.
+    """
+
+    url: str
+    idempotency_key: str
+    body: bytes
+    extra_headers: Mapping[str, str] = field(default_factory=dict)
+
+
+class ScopePermanentlyUnknown(RuntimeError):  # noqa: N818 - public issue contract
+    """A signing scope can no longer resolve to a webhook sender.
+
+    Durable outbox workers quarantine the affected row: retries cannot repair
+    a decommissioned or invalid scope without operator intervention.
+    """
+
+
+class ScopeTransientlyUnavailable(RuntimeError):  # noqa: N818 - public issue contract
+    """A signing scope is temporarily unable to resolve a sender.
+
+    Durable outbox workers release the row for retry, allowing credential
+    rotation or a temporarily unavailable key service to recover.
+    """
+
+
+class PreparedWebhookAttemptExpiredError(RuntimeError):
+    """A prepared request lost its durable fence before the HTTP attempt."""
+
+
+@dataclass(frozen=True, slots=True)
+class WebhookSenderResolution:
+    """A sender bound to the algorithms advertised for its trusted scope.
+
+    Tenant resolvers must build this from the same internal credential record
+    used to produce request-scoped ``webhook_signing.algorithms``. The durable
+    outbox rejects a resolved key whose actual algorithm is outside this set.
+    """
+
+    sender: WebhookSender
+    advertised_algorithms: frozenset[str]
+
+    def __post_init__(self) -> None:
+        algorithms = frozenset(self.advertised_algorithms)
+        if not algorithms or not algorithms.issubset({ALG_ED25519, ALG_ES256}):
+            raise ValueError(
+                "advertised_algorithms must be a non-empty set of supported "
+                "webhook-signing algorithms"
+            )
+        object.__setattr__(self, "advertised_algorithms", algorithms)
+
+
+@runtime_checkable
+class WebhookSenderResolver(Protocol):
+    """Resolve the current sender for an opaque, trusted signing scope.
+
+    Implementations typically load a tenant's active signing credential from
+    an internal key registry. They must not derive the scope from buyer input.
+    The outbox calls :meth:`resolve` for every delivery attempt so key rotation
+    can take effect without changing the immutable webhook body or delivery
+    idempotency key.
+    """
+
+    async def resolve(self, signing_scope_id: str) -> WebhookSenderResolution:
+        """Return the current sender and its scope's advertised algorithms."""
+
+
+class WebhookSender:
+    """Outbound signed-webhook delivery client.
+
+    Owns one webhook-signing private key. Reuses a single :class:`httpx.AsyncClient`
+    across requests for connection pooling — pass your own via ``client=`` if
+    you want to share it with other SDK surfaces.
+
+    Thread/task safety: safe to call concurrent ``send_*`` from many asyncio
+    tasks. The underlying ``httpx.AsyncClient`` manages its own pool.
+    """
+
+    def __init__(
+        self,
+        *,
+        private_key: PrivateKey,
+        key_id: str,
+        alg: str,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> None:
+        """Construct a sender wired to RFC 9421 JWK signing.
+
+        The HMAC and bearer modes are reached via :meth:`from_bearer_token`,
+        :meth:`from_adcp_legacy_hmac`, and :meth:`from_standard_webhooks_secret`
+        — those classmethods bypass this initializer through
+        :meth:`_from_strategy` because their key material has different
+        types (``bytes`` / ``str`` rather than ``PrivateKey``).
+
+        ``transport_hooks`` runs URL rewrites before SSRF validation —
+        see :class:`adcp.webhook_transport_hooks.DockerLocalhostRewrite`
+        for the canonical use case. SSRF remains authoritative on the
+        rewritten URL; hooks cannot punch through the range check.
+        """
+        self._auth: WebhookAuthStrategy = JwkSignerStrategy(
+            private_key=private_key, key_id=key_id, alg=alg
+        )
+        self._key_id = key_id
+        self._timeout = timeout_seconds
+        self._client = client
+        self._owns_client = client is None
+        self._allow_private_destinations = allow_private_destinations
+        self._allowed_destination_ports = allowed_destination_ports
+        self._transport_hooks = tuple(transport_hooks)
+        _validate_hooks(self._transport_hooks, allow_private_destinations)
+
+    @classmethod
+    def _from_strategy(
+        cls,
+        auth: WebhookAuthStrategy,
+        *,
+        key_id: str,
+        client: httpx.AsyncClient | None,
+        timeout_seconds: float,
+        allow_private_destinations: bool,
+        allowed_destination_ports: frozenset[int] | None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Build a sender around a pre-constructed auth strategy.
+
+        Internal constructor for the HMAC/bearer paths. The public
+        ``__init__`` is locked to the JWK signature for back-compat;
+        new modes don't fit that signature, so they bypass it here.
+        """
+        sender = cls.__new__(cls)
+        sender._auth = auth
+        sender._key_id = key_id
+        sender._timeout = timeout_seconds
+        sender._client = client
+        sender._owns_client = client is None
+        sender._allow_private_destinations = allow_private_destinations
+        sender._allowed_destination_ports = allowed_destination_ports
+        sender._transport_hooks = tuple(transport_hooks)
+        _validate_hooks(sender._transport_hooks, allow_private_destinations)
+        return sender
+
+    @classmethod
+    def from_jwk(
+        cls,
+        jwk: Mapping[str, Any],
+        *,
+        d_field: str = "d",
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Construct from a JWK that includes the private scalar.
+
+        The JWK MUST have ``adcp_use == "webhook-signing"`` — the sender
+        doesn't validate this (you're signing with your own key; validation
+        happens at the receiver), but a key whose adcp_use is wrong will be
+        rejected by every conformant verifier.
+
+        ``allow_private_destinations`` and ``allowed_destination_ports``
+        forward to :meth:`__init__` — see that signature for semantics.
+        """
+        # Snapshot the mapping once — a live Mapping could otherwise return
+        # different values across the adcp_use / kid / d / alg reads.
+        jwk_snapshot = dict(jwk)
+        if jwk_snapshot.get("adcp_use") != "webhook-signing":
+            raise ValueError(
+                f"WebhookSender requires a JWK with adcp_use='webhook-signing' "
+                f"(got {jwk_snapshot.get('adcp_use')!r}). Webhook-signing and "
+                f"request-signing keys MUST be distinct so a signature from one "
+                f"surface cannot be replayed as the other. Generate a separate "
+                f"key with adcp_use='webhook-signing' and publish it in your "
+                f"adagents.json alongside your request-signing key. See "
+                f"https://adcontextprotocol.org/docs/building/implementation/security"
+            )
+        alg = jwk_snapshot.get("alg")
+        if alg == "EdDSA":
+            alg = "ed25519"
+        elif alg == "ES256":
+            alg = "ecdsa-p256-sha256"
+        if alg not in ("ed25519", "ecdsa-p256-sha256"):
+            raise ValueError(f"unsupported JWK alg {jwk_snapshot.get('alg')!r}")
+        private_key = private_key_from_jwk(jwk_snapshot, d_field=d_field)
+        return cls(
+            private_key=private_key,
+            key_id=str(jwk_snapshot["kid"]),
+            alg=alg,
+            client=client,
+            timeout_seconds=timeout_seconds,
+            allow_private_destinations=allow_private_destinations,
+            allowed_destination_ports=allowed_destination_ports,
+            transport_hooks=transport_hooks,
+        )
+
+    @classmethod
+    def from_pem(
+        cls,
+        pem_path: str | Path | bytes,
+        *,
+        key_id: str,
+        alg: str = "ed25519",
+        passphrase: bytes | None = None,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Load a private key from a PEM file and bind it as a webhook sender.
+
+        Companion to ``adcp-keygen --purpose webhook-signing``, which writes
+        the PEM and prints the public JWK. The JWK is published at your
+        ``jwks_uri``; the PEM holds the private key material. ``from_pem``
+        reads the PEM, constructs the right ``PrivateKey`` type for ``alg``,
+        and returns a sender ready to send.
+
+        Args:
+            pem_path: Path to the PKCS#8 PEM, or the PEM bytes directly.
+            key_id: JWK ``kid`` claim — must match the published JWK.
+            alg: Signature algorithm. ``ed25519`` (default) or ``es256``.
+                Also accepts the RFC 9421 form ``ecdsa-p256-sha256``.
+            passphrase: Required if the PEM is encrypted
+                (``adcp-keygen --encrypt``).
+            client: Optional pre-built :class:`httpx.AsyncClient` to share
+                across the SDK; the sender owns its own client when omitted.
+            timeout_seconds: Per-request timeout for the owned client.
+            allow_private_destinations: Forwarded to :meth:`__init__`.
+            allowed_destination_ports: Forwarded to :meth:`__init__`.
+
+        Raises:
+            ValueError: ``alg`` is not ed25519 / es256, or the PEM contains
+                a key whose type doesn't match ``alg``.
+        """
+        if alg in ("es256", "ES256"):
+            alg = ALG_ES256
+        elif alg == "EdDSA":
+            alg = ALG_ED25519
+        if alg not in (ALG_ED25519, ALG_ES256):
+            raise ValueError(
+                f"unsupported alg {alg!r} — use 'ed25519' or 'es256' "
+                f"(the two AdCP webhook-signing algorithms)"
+            )
+
+        if isinstance(pem_path, bytes):
+            pem_bytes = pem_path
+        else:
+            pem_bytes = Path(pem_path).read_bytes()
+
+        private_key = load_private_key_pem(pem_bytes, password=passphrase)
+
+        # The PEM's key type must match the requested alg — mixing them
+        # would produce signatures no verifier can validate, and the
+        # resulting error at delivery time would point at the receiver.
+        # Fail here so the misconfiguration surfaces at construction.
+        if alg == ALG_ED25519 and not isinstance(private_key, ed25519.Ed25519PrivateKey):
+            raise ValueError(
+                f"PEM holds a {type(private_key).__name__} but alg='ed25519' "
+                f"was requested. Re-run adcp-keygen with --alg ed25519, or "
+                f"pass alg='es256' to match the existing PEM."
+            )
+        if alg == ALG_ES256 and not isinstance(private_key, ec.EllipticCurvePrivateKey):
+            raise ValueError(
+                f"PEM holds a {type(private_key).__name__} but alg='es256' "
+                f"was requested. Re-run adcp-keygen with --alg es256, or "
+                f"pass alg='ed25519' to match the existing PEM."
+            )
+
+        return cls(
+            private_key=private_key,
+            key_id=key_id,
+            alg=alg,
+            client=client,
+            timeout_seconds=timeout_seconds,
+            allow_private_destinations=allow_private_destinations,
+            allowed_destination_ports=allowed_destination_ports,
+            transport_hooks=transport_hooks,
+        )
+
+    @classmethod
+    def from_bearer_token(
+        cls,
+        token: str,
+        *,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Build a sender that POSTs with ``Authorization: Bearer <token>``.
+
+        For buyers who authenticate the sender at the gateway and don't
+        verify body signatures. The sender's marshaling guarantees still
+        apply (byte-exact JSON, idempotency_key in body); body signing
+        is skipped.
+
+        A buyer treating bearer tokens as the sole authenticity signal
+        SHOULD also enforce TLS/mTLS at the transport layer — a stolen
+        token is a complete forgery. Prefer JWK signing (:meth:`from_jwk`)
+        for AdCP-conformant deliveries.
+        """
+        if not isinstance(token, str) or not token:
+            raise ValueError("bearer token must be a non-empty string")
+        return cls._from_strategy(
+            BearerTokenStrategy(token=token),
+            key_id="bearer",
+            client=client,
+            timeout_seconds=timeout_seconds,
+            allow_private_destinations=allow_private_destinations,
+            allowed_destination_ports=allowed_destination_ports,
+            transport_hooks=transport_hooks,
+        )
+
+    @classmethod
+    def from_adcp_legacy_hmac(
+        cls,
+        secret: bytes,
+        *,
+        key_id: str,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Build a sender wired to AdCP-legacy HMAC-SHA256.
+
+        Wire format matches :func:`adcp.signing.webhook_hmac.verify_webhook_hmac`:
+        ``X-AdCP-Signature: sha256=<hex>`` over ``f"{timestamp}.{body}"``,
+        with ``X-AdCP-Timestamp`` set fresh per delivery (resends produce
+        a new signature over the same body).
+
+        ``secret`` is the raw HMAC key — the AdCP-legacy scheme has no
+        canonical encoding, so callers pass bytes directly. ``key_id``
+        is echoed in ``X-AdCP-Key-Id`` for receiver-side multi-key
+        rotation; it is not used in the signature itself.
+
+        AdCP-legacy HMAC will be removed in AdCP 4.0 — operators SHOULD
+        migrate to JWK signing (:meth:`from_jwk`) ahead of that boundary.
+        """
+        if not isinstance(secret, bytes) or not secret:
+            raise ValueError("hmac secret must be non-empty bytes")
+        if not isinstance(key_id, str) or not key_id:
+            raise ValueError("key_id must be a non-empty string")
+        # Mirror the receiver-side _warn_once() in webhook_hmac so a
+        # sender-only operator (no receiver in this process) still sees
+        # the AdCP 4.0 deprecation signal at runtime, not just in the
+        # docstring.
+        _warn_legacy_hmac_once()
+        return cls._from_strategy(
+            AdcpLegacyHmacStrategy(secret=secret, key_id=key_id),
+            key_id=key_id,
+            client=client,
+            timeout_seconds=timeout_seconds,
+            allow_private_destinations=allow_private_destinations,
+            allowed_destination_ports=allowed_destination_ports,
+            transport_hooks=transport_hooks,
+        )
+
+    @classmethod
+    def from_standard_webhooks_secret(
+        cls,
+        secret: str,
+        *,
+        key_id: str,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        allow_private_destinations: bool = False,
+        allowed_destination_ports: frozenset[int] | None = None,
+        transport_hooks: tuple[TransportHook, ...] = (),
+    ) -> WebhookSender:
+        """Build a sender wired to standardwebhooks.com v1 (Svix/Resend interop).
+
+        ``secret`` is the canonical ``whsec_<base64>`` form distributed
+        by buyers running Svix, Resend, or any other Standard Webhooks
+        verifier. The constructor base64-decodes the prefix-stripped
+        payload internally — passing the literal ``whsec_...`` to
+        :meth:`from_adcp_legacy_hmac` would silently produce signatures
+        Svix rejects, which is exactly the footgun this typed split
+        prevents.
+
+        Wire format per spec: ``webhook-id`` / ``webhook-timestamp`` /
+        ``webhook-signature: v1,<base64>`` over
+        ``f"{webhook_id}.{webhook_timestamp}.{body}"``. Each delivery
+        gets a fresh ``webhook-id`` so a receiver using webhook-id for
+        its own replay cache doesn't false-positive on a legitimate
+        retry — :meth:`resend` re-signs and gets a new id.
+        """
+        if not isinstance(secret, str) or not secret:
+            raise ValueError("secret must be a non-empty string (whsec_<base64>)")
+        if not isinstance(key_id, str) or not key_id:
+            raise ValueError("key_id must be a non-empty string")
+        decoded = _decode_sw_secret(secret)
+        return cls._from_strategy(
+            StandardWebhooksHmacStrategy(secret=decoded, key_id=key_id),
+            key_id=key_id,
+            client=client,
+            timeout_seconds=timeout_seconds,
+            allow_private_destinations=allow_private_destinations,
+            allowed_destination_ports=allowed_destination_ports,
+            transport_hooks=transport_hooks,
+        )
+
+    def __repr__(self) -> str:
+        # Explicit repr so no future debug helper or error traceback auto-
+        # renders self.__dict__ and pulls the private key (or HMAC secret /
+        # bearer token) into logs.
+        return f"WebhookSender(auth={type(self._auth).__name__}, key_id={self._key_id!r})"
+
+    @property
+    def signs_with_rfc9421(self) -> bool:
+        """``True`` iff this sender uses the RFC 9421 webhook-signing profile.
+
+        Boot-time validators read this to enforce the
+        ``webhook_signing.supported=true`` capability invariant:
+        capabilities advertise RFC 9421 → wired sender must produce
+        ``Signature`` / ``Signature-Input`` headers. ``from_bearer_token``,
+        ``from_adcp_legacy_hmac``, and ``from_standard_webhooks_secret``
+        senders return ``False``.
+        """
+        return isinstance(self._auth, JwkSignerStrategy)
+
+    async def aclose(self) -> None:
+        """Close the internal httpx client if we own it."""
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def __aenter__(self) -> WebhookSender:
+        if not self._owns_client:
+            await self._get_client()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self.aclose()
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self._timeout)
+        return self._client
+
+    async def send_mcp(
+        self,
+        *,
+        url: str,
+        task_id: str,
+        status: GeneratedTaskStatus | str,
+        task_type: TaskType | str,
+        result: AdcpAsyncResponseData | dict[str, Any] | None = None,
+        timestamp: datetime | None = None,
+        operation_id: str,
+        notification_id: str | None = None,
+        message: str | None = None,
+        context_id: str | None = None,
+        protocol: AdcpProtocol | str | None = None,
+        idempotency_key: str | None = None,
+        token: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """POST a signed MCP-style task-status webhook.
+
+        On retry, prefer :meth:`resend` over calling this again — ``resend``
+        replays the exact same bytes, whereas re-invoking ``send_mcp`` with
+        the "same" args would produce a fresh ``timestamp`` and potentially
+        a different serialized body, which conflicts with the delivery key's
+        immutable payload binding.
+
+        :param token: Buyer-supplied token from
+            ``push_notification_config.token`` echoed back on the
+            payload's ``token`` field per spec
+            (``schemas/cache/core/push_notification_config.json``: "Echoed
+            back in webhook payload to validate request authenticity").
+            Cross-language wire-parity with the JS implementation.
+        """
+        return await self.send_prepared(
+            self.prepare_mcp(
+                url=url,
+                task_id=task_id,
+                status=status,
+                task_type=task_type,
+                result=result,
+                timestamp=timestamp,
+                operation_id=operation_id,
+                notification_id=notification_id,
+                message=message,
+                context_id=context_id,
+                protocol=protocol,
+                idempotency_key=idempotency_key,
+                token=token,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_mcp(
+        *,
+        url: str,
+        task_id: str,
+        status: GeneratedTaskStatus | str,
+        task_type: TaskType | str,
+        result: AdcpAsyncResponseData | dict[str, Any] | None = None,
+        timestamp: datetime | None = None,
+        operation_id: str,
+        notification_id: str | None = None,
+        message: str | None = None,
+        context_id: str | None = None,
+        protocol: AdcpProtocol | str | None = None,
+        idempotency_key: str | None = None,
+        token: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare an MCP webhook without performing network I/O.
+
+        Durable publishers call this inside (or immediately before) their
+        outbox transaction and persist all returned fields verbatim. The
+        returned body is exactly what :meth:`send_prepared` signs and posts.
+        """
+        payload = create_mcp_webhook_payload(
+            task_id=task_id,
+            status=status,
+            task_type=task_type,
+            result=result,
+            timestamp=timestamp,
+            operation_id=operation_id,
+            notification_id=notification_id,
+            message=message,
+            context_id=context_id,
+            protocol=protocol,
+            idempotency_key=idempotency_key,
+            token=token,
+        )
+        return WebhookSender._prepare_mcp_payload(url, payload, extra_headers)
+
+    @staticmethod
+    def _prepare_mcp_payload(
+        url: str,
+        payload: McpWebhookPayload,
+        extra_headers: Mapping[str, str] | None,
+    ) -> PreparedWebhook:
+        body_dict = {
+            **to_wire_dict(payload),
+            "idempotency_key": payload.idempotency_key,
+        }
+        body = json.dumps(body_dict).encode("utf-8")
+        if len(body) > _MAX_BODY_BYTES:
+            raise ValueError(
+                f"serialized webhook body is {len(body):,} bytes, over the "
+                f"{_MAX_BODY_BYTES:,}-byte cap. Split into smaller webhooks "
+                "or use batch-reporting endpoints."
+            )
+        return PreparedWebhook(
+            url=url,
+            idempotency_key=payload.idempotency_key,
+            body=body,
+            extra_headers=dict(extra_headers) if extra_headers else {},
+        )
+
+    async def send_media_buy_delivery(
+        self,
+        *,
+        registration: ReportingWebhook | Mapping[str, Any],
+        task_id: str,
+        result: MediaBuyDeliveryWebhookResult | dict[str, Any],
+        status: GeneratedTaskStatus | str = "completed",
+        timestamp: datetime | None = None,
+        message: str | None = None,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send one scheduled delivery report to a stored registration.
+
+        Raises :class:`~adcp.webhooks.ReportingWebhookOperationIdMissingError`
+        without network I/O when the registration has no ``operation_id``.
+        """
+        return await self.send_prepared(
+            self.prepare_media_buy_delivery(
+                registration=registration,
+                task_id=task_id,
+                result=result,
+                status=status,
+                timestamp=timestamp,
+                message=message,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_media_buy_delivery(
+        *,
+        registration: ReportingWebhook | Mapping[str, Any],
+        task_id: str,
+        result: MediaBuyDeliveryWebhookResult | dict[str, Any],
+        status: GeneratedTaskStatus | str = "completed",
+        timestamp: datetime | None = None,
+        message: str | None = None,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a ``media_buy_delivery`` webhook for a ``reporting_webhook``.
+
+        The URL, ``operation_id`` and ``token`` all come from the same stored
+        registration, so the report echoes exactly what the buyer registered.
+        See :func:`~adcp.webhooks.create_media_buy_delivery_webhook_payload`.
+
+        :raises ReportingWebhookOperationIdMissingError: the registration has
+            no ``operation_id``. Skip the send and flag it for the buyer.
+        """
+        webhook = (
+            registration
+            if isinstance(registration, ReportingWebhook)
+            else ReportingWebhook.model_validate(registration)
+        )
+        payload = create_media_buy_delivery_webhook_payload(
+            webhook,
+            task_id=task_id,
+            result=result,
+            status=status,
+            timestamp=timestamp,
+            message=message,
+            idempotency_key=idempotency_key,
+        )
+        return WebhookSender._prepare_mcp_payload(str(webhook.url), payload, extra_headers)
+
+    async def send_prepared(
+        self,
+        prepared: PreparedWebhook,
+        *,
+        before_attempt: Callable[[], Awaitable[bool]] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Sign and post a previously prepared immutable webhook request.
+
+        Durable publishers can recheck an expiring fence after DNS/signing and
+        immediately before HTTP. A false result aborts without sending bytes.
+        """
+        if not prepared.idempotency_key:
+            raise ValueError("prepared webhook idempotency_key must be non-empty")
+        if not prepared.body:
+            raise ValueError("prepared webhook body must be non-empty")
+        if len(prepared.body) > _MAX_BODY_BYTES:
+            raise ValueError(
+                f"serialized webhook body is {len(prepared.body):,} bytes, over the "
+                f"{_MAX_BODY_BYTES:,}-byte cap"
+            )
+        try:
+            payload = json.loads(prepared.body)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise ValueError("prepared webhook body must be a JSON object") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("prepared webhook body must be a JSON object")
+        if payload.get("idempotency_key") != prepared.idempotency_key:
+            raise ValueError(
+                "prepared webhook body idempotency_key does not match its immutable binding"
+            )
+        return await self._send_bytes(
+            url=prepared.url,
+            body=prepared.body,
+            idempotency_key=prepared.idempotency_key,
+            extra_headers=prepared.extra_headers or None,
+            before_attempt=before_attempt,
+        )
+
+    @staticmethod
+    def _prepare_notification(
+        *,
+        url: str,
+        notification_type: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        value = (
+            payload.model_dump(mode="json", exclude_none=True)
+            if isinstance(payload, BaseModel)
+            else dict(payload)
+        )
+        if value.get("notification_type", notification_type) != notification_type:
+            raise ValueError("notification_type does not match the preparation method")
+        value["notification_type"] = notification_type
+        value.setdefault("fired_at", datetime.now(timezone.utc).isoformat())
+        key = idempotency_key or value.get("idempotency_key") or generate_webhook_idempotency_key()
+        return WebhookSender.prepare_raw(
+            url=url, payload=value, idempotency_key=key, extra_headers=extra_headers
+        )
+
+    @staticmethod
+    def prepare_account_status_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``account.status_changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="account.status_changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_account_status_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``account.status_changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_account_status_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_account_change_recorded(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``account.change_recorded`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="account.change_recorded",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_account_change_recorded(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``account.change_recorded`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_account_change_recorded(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_capabilities_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``capabilities.changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="capabilities.changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_capabilities_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``capabilities.changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_capabilities_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_principal_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``principal.changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="principal.changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_principal_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``principal.changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_principal_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_creative_status_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``creative.status_changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="creative.status_changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_creative_status_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``creative.status_changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_creative_status_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_creative_assignment_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``creative.assignment_changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="creative.assignment_changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_creative_assignment_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``creative.assignment_changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_creative_assignment_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_creative_purged(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``creative.purged`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="creative.purged",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_creative_purged(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``creative.purged`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_creative_purged(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_indicators_changed(
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a schema-validated ``indicators.changed`` notification.
+
+        Supply the wire fields as a mapping or a Pydantic model. The type,
+        fire timestamp and delivery key are filled when absent.
+        """
+        return WebhookSender._prepare_notification(
+            url=url,
+            notification_type="indicators.changed",
+            payload=payload,
+            idempotency_key=idempotency_key,
+            extra_headers=extra_headers,
+        )
+
+    async def send_indicators_changed(
+        self,
+        *,
+        url: str,
+        payload: Mapping[str, Any] | BaseModel,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a ``indicators.changed`` notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_indicators_changed(
+                url=url,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    async def send_revocation_notification(
+        self,
+        *,
+        url: str,
+        rights_id: str,
+        brand_id: str,
+        reason: str,
+        effective_at: str,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_revocation_notification(
+                url=url,
+                rights_id=rights_id,
+                brand_id=brand_id,
+                reason=reason,
+                effective_at=effective_at,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_revocation_notification(
+        *,
+        url: str,
+        rights_id: str,
+        brand_id: str,
+        reason: str,
+        effective_at: str,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a validated rights-revocation notification."""
+        key = idempotency_key or generate_webhook_idempotency_key()
+        payload: dict[str, Any] = {
+            "idempotency_key": key,
+            "rights_id": rights_id,
+            "brand_id": brand_id,
+            "reason": reason,
+            "effective_at": effective_at,
+        }
+        return WebhookSender.prepare_raw(
+            url=url, idempotency_key=key, payload=payload, extra_headers=extra_headers
+        )
+
+    async def send_artifact_webhook(
+        self,
+        *,
+        url: str,
+        media_buy_id: str,
+        batch_id: str,
+        timestamp: str,
+        artifacts: list[dict[str, Any]],
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_artifact_webhook(
+                url=url,
+                media_buy_id=media_buy_id,
+                batch_id=batch_id,
+                timestamp=timestamp,
+                artifacts=artifacts,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_artifact_webhook(
+        *,
+        url: str,
+        media_buy_id: str,
+        batch_id: str,
+        timestamp: str,
+        artifacts: list[dict[str, Any]],
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a validated content-standards artifact webhook."""
+        key = idempotency_key or generate_webhook_idempotency_key()
+        payload: dict[str, Any] = {
+            "idempotency_key": key,
+            "media_buy_id": media_buy_id,
+            "batch_id": batch_id,
+            "timestamp": timestamp,
+            "artifacts": artifacts,
+        }
+        return WebhookSender.prepare_raw(
+            url=url, idempotency_key=key, payload=payload, extra_headers=extra_headers
+        )
+
+    async def send_collection_list_changed(
+        self,
+        *,
+        url: str,
+        list_id: str,
+        resolved_at: str,
+        signature: str,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_collection_list_changed(
+                url=url,
+                list_id=list_id,
+                resolved_at=resolved_at,
+                signature=signature,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_collection_list_changed(
+        *,
+        url: str,
+        list_id: str,
+        resolved_at: str,
+        signature: str,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a validated governance collection-list-changed webhook.
+
+        ``signature`` is the payload-level signature field that predates 9421
+        webhook transport signing — it remains required by the schema. The
+        9421 signature this method adds protects the transport envelope.
+        """
+        key = idempotency_key or generate_webhook_idempotency_key()
+        payload: dict[str, Any] = {
+            "idempotency_key": key,
+            "event": "collection_list_changed",
+            "list_id": list_id,
+            "resolved_at": resolved_at,
+            "signature": signature,
+        }
+        return WebhookSender.prepare_raw(
+            url=url, idempotency_key=key, payload=payload, extra_headers=extra_headers
+        )
+
+    async def send_property_list_changed(
+        self,
+        *,
+        url: str,
+        list_id: str,
+        resolved_at: str,
+        signature: str = "rfc9421",
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_property_list_changed(
+                url=url,
+                list_id=list_id,
+                resolved_at=resolved_at,
+                signature=signature,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_property_list_changed(
+        *,
+        url: str,
+        list_id: str,
+        resolved_at: str,
+        signature: str = "rfc9421",
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a property-list notification with the 3.2 compatibility marker.
+
+        The sender computes RFC 9421 HTTP signatures during delivery. The
+        legacy ``signature`` argument is accepted for source compatibility;
+        the payload always uses the normative ``rfc9421`` marker.
+        """
+        key = idempotency_key or generate_webhook_idempotency_key()
+        payload: dict[str, Any] = {
+            "idempotency_key": key,
+            "event": "property_list_changed",
+            "list_id": list_id,
+            "resolved_at": resolved_at,
+            "signature": "rfc9421",
+        }
+        return WebhookSender.prepare_raw(
+            url=url, idempotency_key=key, payload=payload, extra_headers=extra_headers
+        )
+
+    async def send_wholesale_feed(
+        self,
+        *,
+        url: str,
+        subscriber_id: str,
+        account_id: str,
+        notification_type: str,
+        wholesale_feed_version: str,
+        cache_scope: str,
+        event: WholesaleFeedEvent | Mapping[str, Any],
+        previous_wholesale_feed_version: str | None = None,
+        fired_at: datetime | None = None,
+        idempotency_key: str | None = None,
+        product_payload_view: str | None = None,
+        subscription_event_types: Sequence[Any] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_wholesale_feed(
+                url=url,
+                subscriber_id=subscriber_id,
+                account_id=account_id,
+                notification_type=notification_type,
+                wholesale_feed_version=wholesale_feed_version,
+                cache_scope=cache_scope,
+                event=event,
+                previous_wholesale_feed_version=previous_wholesale_feed_version,
+                fired_at=fired_at,
+                idempotency_key=idempotency_key,
+                product_payload_view=product_payload_view,
+                subscription_event_types=subscription_event_types,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_wholesale_feed(
+        *,
+        url: str,
+        subscriber_id: str,
+        account_id: str,
+        notification_type: str,
+        wholesale_feed_version: str,
+        cache_scope: str,
+        event: WholesaleFeedEvent | Mapping[str, Any],
+        previous_wholesale_feed_version: str | None = None,
+        fired_at: datetime | None = None,
+        idempotency_key: str | None = None,
+        product_payload_view: str | None = None,
+        subscription_event_types: Sequence[Any] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a validated account-scoped wholesale feed notification.
+
+        ``subscription_event_types`` is optional but recommended when the
+        caller is sending to an ``accounts[].notification_configs[]`` entry:
+        pass that entry's ``event_types`` to fail closed if the subscription
+        did not request this notification type.
+        """
+
+        if not isinstance(subscriber_id, str) or not subscriber_id:
+            raise ValueError("subscriber_id must be a non-empty string")
+        if not isinstance(account_id, str) or not account_id:
+            raise ValueError("account_id must be a non-empty string")
+        if not isinstance(wholesale_feed_version, str) or not wholesale_feed_version:
+            raise ValueError("wholesale_feed_version must be a non-empty string")
+
+        # WholesaleFeedEvent is a union, so one adapter accepts both an
+        # already-validated arm and a raw mapping.
+        event_model = _wholesale_feed_event_adapter().validate_python(event)
+        notification_type_value = _enum_value(notification_type)
+        event_type = _enum_value(event_model.event_type)
+        entity_type = _enum_value(event_model.entity_type)
+        if notification_type_value != event_type:
+            raise ValueError(
+                "notification_type must match event.event_type "
+                f"(got {notification_type_value!r}, event has {event_type!r})"
+            )
+        if subscription_event_types is not None:
+            allowed_event_types = {_enum_value(item) for item in subscription_event_types}
+        else:
+            allowed_event_types = None
+        if allowed_event_types is not None and notification_type_value not in allowed_event_types:
+            raise ValueError(
+                "notification_type is not present in the subscription's event_types; "
+                "sellers must not silently widen account notification filters"
+            )
+
+        expected_entity_type = _entity_type_for_wholesale_notification(notification_type_value)
+        if entity_type != expected_entity_type:
+            raise ValueError(
+                "event.entity_type does not match notification_type "
+                f"(got {entity_type!r}, expected {expected_entity_type!r})"
+            )
+
+        cache_scope_value = _enum_value(cache_scope)
+        applies_to = getattr(event_model.payload, "applies_to", None)
+        applies_to_scope = _enum_value(getattr(applies_to, "scope", None))
+        if applies_to_scope != cache_scope_value:
+            raise ValueError(
+                "cache_scope must match event.payload.applies_to.scope "
+                f"(got {cache_scope_value!r}, event has {applies_to_scope!r})"
+            )
+
+        key = idempotency_key or generate_webhook_idempotency_key()
+        timestamp = fired_at or datetime.now(timezone.utc)
+        webhook = WholesaleFeedWebhook.model_validate(
+            {
+                "idempotency_key": key,
+                "notification_id": event_model.event_id,
+                "notification_type": notification_type_value,
+                "fired_at": timestamp,
+                "subscriber_id": subscriber_id,
+                "account_id": account_id,
+                "wholesale_feed_version": wholesale_feed_version,
+                "previous_wholesale_feed_version": previous_wholesale_feed_version,
+                "cache_scope": cache_scope_value,
+                "product_payload_view": (
+                    product_payload_view or "legacy"
+                    if notification_type_value.startswith("product.")
+                    else product_payload_view
+                ),
+                "event": event_model,
+            }
+        )
+        return WebhookSender.prepare_raw(
+            url=url,
+            idempotency_key=key,
+            payload=webhook.model_dump(mode="json", exclude_none=True),
+            extra_headers=extra_headers,
+        )
+
+    async def send_wholesale_feed_to_subscription(
+        self,
+        *,
+        subscription: NotificationConfig | Mapping[str, Any],
+        account_id: str,
+        notification_type: str,
+        wholesale_feed_version: str,
+        cache_scope: str,
+        event: WholesaleFeedEvent | Mapping[str, Any],
+        previous_wholesale_feed_version: str | None = None,
+        fired_at: datetime | None = None,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_wholesale_feed_to_subscription(
+                subscription=subscription,
+                account_id=account_id,
+                notification_type=notification_type,
+                wholesale_feed_version=wholesale_feed_version,
+                cache_scope=cache_scope,
+                event=event,
+                previous_wholesale_feed_version=previous_wholesale_feed_version,
+                fired_at=fired_at,
+                idempotency_key=idempotency_key,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_wholesale_feed_to_subscription(
+        *,
+        subscription: NotificationConfig | Mapping[str, Any],
+        account_id: str,
+        notification_type: str,
+        wholesale_feed_version: str,
+        cache_scope: str,
+        event: WholesaleFeedEvent | Mapping[str, Any],
+        previous_wholesale_feed_version: str | None = None,
+        fired_at: datetime | None = None,
+        idempotency_key: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Prepare a wholesale feed notification to a ``NotificationConfig``.
+
+        This convenience wrapper keeps ``url``, ``subscriber_id``, and
+        ``event_types`` coupled to the same persisted subscription entry.
+        """
+
+        config = (
+            subscription
+            if isinstance(subscription, NotificationConfig)
+            else NotificationConfig.model_validate(subscription)
+        )
+        return WebhookSender.prepare_wholesale_feed(
+            url=str(config.url),
+            subscriber_id=config.subscriber_id,
+            account_id=account_id,
+            notification_type=notification_type,
+            wholesale_feed_version=wholesale_feed_version,
+            cache_scope=cache_scope,
+            event=event,
+            previous_wholesale_feed_version=previous_wholesale_feed_version,
+            fired_at=fired_at,
+            idempotency_key=idempotency_key,
+            product_payload_view=(
+                _enum_value(config.product_payload_view)
+                if config.product_payload_view is not None
+                and _enum_value(notification_type).startswith("product.")
+                else None
+            ),
+            subscription_event_types=config.event_types,
+            extra_headers=extra_headers,
+        )
+
+    async def send_webhook_challenge(
+        self,
+        *,
+        url: str,
+        account_id: str,
+        subscriber_id: str,
+        challenge: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """POST a signed durable-subscription proof-of-control challenge.
+
+        The body matches the durable ``notification_configs[]`` challenge
+        shape and intentionally does not inject ``idempotency_key``:
+
+        ``{"type":"webhook.challenge","challenge":"...", ...}``
+
+        Pair this low-level sender method with
+        :func:`adcp.webhooks.challenge_webhook_destination` when you also
+        want URL validation and response echo checking in one call.
+        """
+
+        payload = create_webhook_challenge_payload(
+            account_id=account_id,
+            subscriber_id=subscriber_id,
+            challenge=challenge,
+        )
+        challenge_value = str(payload["challenge"])
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        return await self._send_bytes(
+            url=url,
+            body=body,
+            idempotency_key=challenge_value,
+            extra_headers=extra_headers,
+        )
+
+    async def send_raw(
+        self,
+        *,
+        url: str,
+        idempotency_key: str,
+        payload: dict[str, Any],
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Prepare and send a notification in one attempt."""
+        return await self.send_prepared(
+            self.prepare_raw(
+                url=url,
+                idempotency_key=idempotency_key,
+                payload=payload,
+                extra_headers=extra_headers,
+            )
+        )
+
+    @staticmethod
+    def prepare_raw(
+        *,
+        url: str,
+        idempotency_key: str | None = None,
+        payload: Mapping[str, Any],
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PreparedWebhook:
+        """Serialize and validate a raw notification without network I/O.
+
+        A supplied key overrides the payload key. When both are absent, mint
+        a fresh key once; persist the returned bytes and key for every retry.
+        Known notification types use their canonical bundled wire schemas.
+        """
+        if idempotency_key is None:
+            idempotency_key = payload.get("idempotency_key") or generate_webhook_idempotency_key()
+        if not isinstance(idempotency_key, str) or not idempotency_key:
+            raise ValueError("idempotency_key must be a non-empty string")
+        body_dict = {**payload, "idempotency_key": idempotency_key}
+        # Byte-exact serialization — this is the ONLY representation that
+        # gets signed AND posted. Do not allow an httpx `json=` path anywhere
+        # in the stack because it would reserialize and break the digest.
+        body = json.dumps(body_dict).encode("utf-8")
+        if len(body) > _MAX_BODY_BYTES:
+            raise ValueError(
+                f"serialized webhook body is {len(body):,} bytes, over the "
+                f"{_MAX_BODY_BYTES:,}-byte cap. Split into smaller webhooks "
+                "or use batch-reporting endpoints."
+            )
+        from adcp._notification_envelope import validate_notification_body
+
+        validate_notification_body(body)
+        return PreparedWebhook(
+            url=url,
+            body=body,
+            idempotency_key=idempotency_key,
+            extra_headers=dict(extra_headers) if extra_headers else {},
+        )
+
+    async def resend(self, result: WebhookDeliveryResult) -> WebhookDeliveryResult:
+        """Replay an earlier delivery under a fresh signature.
+
+        The bytes are identical (same ``idempotency_key``, same payload
+        fields, same serialization) — only the Signature / Signature-Input /
+        Content-Digest headers are regenerated. The receiver dedupes via
+        ``idempotency_key``, so the replayed event is a spec-correct retry
+        that won't cause double-processing.
+        """
+        if not result.sent_body:
+            raise ValueError(
+                "cannot resend: result has no captured sent_body (likely constructed "
+                "externally). Call a send_* method on this sender first."
+            )
+        return await self._send_bytes(
+            url=result.url,
+            body=result.sent_body,
+            idempotency_key=result.idempotency_key,
+            extra_headers=result.sent_extra_headers or None,
+        )
+
+    async def _send_bytes(
+        self,
+        *,
+        url: str,
+        body: bytes,
+        idempotency_key: str,
+        extra_headers: Mapping[str, str] | None,
+        before_attempt: Callable[[], Awaitable[bool]] | None = None,
+    ) -> WebhookDeliveryResult:
+        """Sign + POST a pre-serialized body through an SSRF-validated transport.
+
+        When the sender owns its httpx client (the default — ``client=None``
+        was passed to ``__init__``), every delivery builds a per-request
+        :class:`adcp.signing.ip_pinned_transport.AsyncIpPinnedTransport`
+        that resolves the destination, runs the full SSRF range check
+        (loopback / RFC 1918 / link-local / CGNAT / IPv6 ULA / multicast /
+        cloud metadata), enforces the port allowlist, and pins the
+        connection to the validated IP. This closes the DNS-rebinding
+        TOCTOU between validate and connect.
+
+        When the operator supplied their own client
+        (``WebhookSender(client=...)`` — typically a vetted egress proxy
+        with mTLS to a known buyer set, or an ASGI transport for testing),
+        the sender trusts the operator's transport completely. Pin-and-bind
+        is skipped; the operator's transport owns SSRF.
+
+        On the owned-client path, SSRF validation runs **before** signing
+        so a hostile URL is rejected without first generating an
+        Ed25519/ES256 signature over the body. That signature would
+        otherwise sit in process memory until the SSRF rejection —
+        anything that snapshots locals on exception (faulthandler,
+        custom logging) could capture it. Validate first, sign second.
+
+        Transport hooks run before SSRF; the rewritten URL is what gets
+        validated, signed, and POSTed. The signature covers the URL the
+        request actually lands at, not the URL the caller typed —
+        otherwise a receiver computing ``@target-uri`` from its observed
+        Host header would see a different value and verification would
+        fail. The hook output is bounded (hostname-only rewrite, scheme
+        and port preserved), so this can't widen the destination space.
+        """
+        effective_url = apply_hooks(url, self._transport_hooks)
+
+        # Build the pinned transport up-front for the owned-client path.
+        # SSRF + port validation runs against the *post-hook* URL — the
+        # one we'll actually connect to. A hostile URL raises
+        # SSRFValidationError here and the body never gets signed (no
+        # signature material to leak via faulthandler / custom logging
+        # on exception).
+        transport: AsyncIpPinnedTransport | None = None
+        if self._owns_client:
+            transport = build_async_ip_pinned_transport(
+                effective_url,
+                allow_private=self._allow_private_destinations,
+                allowed_ports=self._allowed_destination_ports,
+            )
+
+        base_headers = {"Content-Type": "application/json", "Accept-Encoding": "identity"}
+        auth_headers = self._auth.build_auth_headers(method="POST", url=effective_url, body=body)
+        headers = merge_extra_headers(
+            base={**base_headers, **auth_headers},
+            extra=extra_headers,
+            reserved=self._auth.reserved_headers(),
+        )
+
+        if before_attempt is not None:
+            try:
+                if not await before_attempt():
+                    raise PreparedWebhookAttemptExpiredError("prepared_attempt_expired")
+            except BaseException:
+                if transport is not None:
+                    await transport.aclose()
+                raise
+
+        if transport is not None:
+            # Owned-client path. ``trust_env=False`` prevents httpx from
+            # routing the request through ``HTTPS_PROXY`` / ``HTTP_PROXY``
+            # env vars — every other pinned-transport callsite in the
+            # codebase sets this for the same reason (default_jwks_fetcher,
+            # async_default_jwks_fetcher, revocation_fetcher). Without it,
+            # an attacker who controls process env can route the signed
+            # webhook through their endpoint, defeating the IP pin entirely.
+            async with httpx.AsyncClient(
+                transport=transport,
+                timeout=self._timeout,
+                follow_redirects=False,
+                trust_env=False,
+            ) as client:
+                status_code, response_headers, response_body = await _post_with_bounded_response(
+                    client,
+                    effective_url,
+                    body=body,
+                    headers=headers,
+                )
+        else:
+            # Operator-supplied client — they own the SSRF guarantees on
+            # their transport (proxy allowlist, mTLS, etc.). Reachable as
+            # None after aclose(); explicit raise survives ``python -O``
+            # which would strip an assert.
+            if self._client is None:
+                raise RuntimeError(
+                    "WebhookSender's operator-supplied client was already "
+                    "closed. Construct a new sender or pass a fresh client."
+                )
+            status_code, response_headers, response_body = await _post_with_bounded_response(
+                self._client,
+                effective_url,
+                body=body,
+                headers=headers,
+            )
+
+        return WebhookDeliveryResult(
+            status_code=status_code,
+            idempotency_key=idempotency_key,
+            url=effective_url,
+            response_headers=response_headers,
+            response_body=response_body,
+            sent_body=body,
+            sent_extra_headers=dict(extra_headers) if extra_headers else {},
+        )
+
+
+# Payload-builder functions used by the send_* methods above. Imported at the
+# bottom (after the classes are defined) to break the webhooks <-> webhook_sender
+# cycle — see the note next to the removed top-level import.
+from adcp.webhooks import (  # noqa: E402
+    create_mcp_webhook_payload,
+    create_media_buy_delivery_webhook_payload,
+    create_webhook_challenge_payload,
+    generate_webhook_idempotency_key,
+    to_wire_dict,
+)
+
+__all__ = [
+    "DockerLocalhostRewrite",
+    "PreparedWebhook",
+    "ScopePermanentlyUnknown",
+    "ScopeTransientlyUnavailable",
+    "TransportHook",
+    "WebhookDeliveryResult",
+    "WebhookSender",
+    "WebhookSenderResolution",
+    "WebhookSenderResolver",
+]

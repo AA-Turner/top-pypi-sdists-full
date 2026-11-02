@@ -1,0 +1,95 @@
+"""Tests for find_pr_from_jira_issue function."""
+
+from unittest.mock import patch
+
+from agentic_devtools.cli.azure_devops.helpers import find_pr_from_jira_issue
+
+
+class TestFindPrFromJiraIssue:
+    """Tests for find_pr_from_jira_issue function."""
+
+    def test_returns_pr_id_when_found_in_ado(self, mock_azure_devops_env):
+        """Should return PR ID when issue key is found in Azure DevOps."""
+        pr_data = {"pullRequestId": 42, "sourceRefName": "refs/heads/feature/PROJECT-1234"}
+
+        with patch(
+            "agentic_devtools.cli.azure_devops.helpers.find_pull_request_by_issue_key",
+            return_value=pr_data,
+        ):
+            with patch(
+                "agentic_devtools.cli.azure_devops.review_jira.get_pr_from_development_panel",
+                return_value=None,
+            ):
+                with patch(
+                    "agentic_devtools.cli.azure_devops.review_jira.get_linked_pull_request_from_jira",
+                    return_value=None,
+                ):
+                    result = find_pr_from_jira_issue("PROJECT-1234")
+
+        assert result == 42
+
+    def test_returns_none_when_not_found_anywhere(self, mock_azure_devops_env):
+        """Should return None when no PR is found in any source."""
+        with patch(
+            "agentic_devtools.cli.azure_devops.helpers.find_pull_request_by_issue_key",
+            return_value=None,
+        ):
+            with patch(
+                "agentic_devtools.cli.azure_devops.review_jira.get_pr_from_development_panel",
+                return_value=None,
+            ):
+                with patch(
+                    "agentic_devtools.cli.azure_devops.review_jira.get_linked_pull_request_from_jira",
+                    return_value=None,
+                ):
+                    result = find_pr_from_jira_issue("PROJECT-9999")
+
+        assert result is None
+
+    def test_handles_dev_panel_exception_gracefully(self, mock_azure_devops_env):
+        """Should fall through to ADO search when dev panel lookup raises an exception."""
+        pr_data = {"pullRequestId": 55}
+
+        with patch(
+            "agentic_devtools.cli.azure_devops.helpers.find_pull_request_by_issue_key",
+            return_value=pr_data,
+        ):
+            with patch(
+                "agentic_devtools.cli.azure_devops.review_jira.get_pr_from_development_panel",
+                side_effect=Exception("Jira connection failed"),
+            ):
+                with patch(
+                    "agentic_devtools.cli.azure_devops.review_jira.get_linked_pull_request_from_jira",
+                    return_value=None,
+                ):
+                    result = find_pr_from_jira_issue("PROJECT-1234")
+
+        assert result == 55
+
+    def test_returns_pr_from_dev_panel(self, mock_azure_devops_env):
+        """Should return PR ID from dev panel when available."""
+        with patch(
+            "agentic_devtools.cli.azure_devops.review_jira.get_pr_from_development_panel",
+            return_value=100,
+        ):
+            result = find_pr_from_jira_issue("PROJECT-1234")
+
+        assert result == 100
+
+    def test_returns_pr_from_jira_text_pattern(self, mock_azure_devops_env):
+        """Should return PR ID from Jira text patterns as last resort."""
+        with patch(
+            "agentic_devtools.cli.azure_devops.review_jira.get_pr_from_development_panel",
+            return_value=None,
+        ):
+            with patch(
+                "agentic_devtools.cli.azure_devops.helpers.find_pull_request_by_issue_key",
+                return_value=None,
+            ):
+                with patch(
+                    "agentic_devtools.cli.azure_devops.review_jira.get_linked_pull_request_from_jira",
+                    return_value=200,
+                ):
+                    result = find_pr_from_jira_issue("PROJECT-1234")
+
+        assert result == 200

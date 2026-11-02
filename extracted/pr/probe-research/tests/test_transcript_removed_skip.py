@@ -26,7 +26,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core.session_journal import ReconciliationRequired
 
 from test_backfill_transcripts_upload import FakeWire, _transcript
@@ -42,7 +42,8 @@ def isolated_state(tmp_path, monkeypatch):
 @pytest.fixture
 def wire(monkeypatch):
     wire = FakeWire()
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
     return wire
 
 
@@ -221,7 +222,8 @@ def test_a_journal_that_cannot_answer_fails_one_session_not_the_import(tmp_path,
             raise ReconciliationRequired("unsupported journal version")
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(bt, "Journal", journal)
+    monkeypatch.setattr(bt.transcripts, "Journal", journal)
+    monkeypatch.setattr(bt.upload, "Journal", journal)
 
     outcome, _, _ = _lane(bt.Census(candidates=[removed, kept]), wire, tmp_path, approved)
 
@@ -248,7 +250,8 @@ def test_a_journal_that_breaks_mid_check_is_closed_before_cleanup(tmp_path, wire
         calls.append(args)
         return (Corrupt if len(calls) == 1 else real)(*args, **kwargs)
 
-    monkeypatch.setattr(bt, "Journal", journal)
+    monkeypatch.setattr(bt.transcripts, "Journal", journal)
+    monkeypatch.setattr(bt.upload, "Journal", journal)
 
     outcome, _, _ = _lane(bt.Census(candidates=[removed, kept]), wire, tmp_path, approved)
 
@@ -272,7 +275,8 @@ def test_an_upload_that_started_after_the_first_receipts_stays_a_failure(tmp_pat
             return super().receipts(sid)
 
     wire = Racing()
-    monkeypatch.setattr(bt, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *a, **kw: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *a, **kw: wire)
     transcript = _transcript(tmp_path)
     approved = _approved_files(transcript)
     transcript.path.unlink()
@@ -323,7 +327,8 @@ def test_a_missing_file_that_is_not_the_source_is_still_a_failure(tmp_path, wire
     def lost_scratch(*_args):
         raise FileNotFoundError(2, "No such file or directory", str(tmp_path / "job" / "copy"))
 
-    monkeypatch.setattr(bt, "_approved_transcript", lost_scratch)
+    monkeypatch.setattr(bt.background, "_approved_transcript", lost_scratch)
+    monkeypatch.setattr(bt.transcripts, "_approved_transcript", lost_scratch)
 
     outcome, _, _ = _lane(bt.Census(candidates=[transcript]), wire, tmp_path, approved)
 
@@ -365,7 +370,8 @@ def test_the_background_job_finishes_instead_of_failing(tmp_path, wire, monkeypa
     kept = _transcript(tmp_path, sid=str(uuid4()))
     approved = _approved_files(removed, kept)
     removed.path.unlink()
-    monkeypatch.setattr(bt, "fetch_ingest_state", lambda *a, **k: None)
+    monkeypatch.setattr(bt.ledger, "fetch_ingest_state", lambda *a, **k: None)
+    monkeypatch.setattr(bt.background, "fetch_ingest_state", lambda *a, **k: None)
     phases = []
 
     lines = bt._execute_census(

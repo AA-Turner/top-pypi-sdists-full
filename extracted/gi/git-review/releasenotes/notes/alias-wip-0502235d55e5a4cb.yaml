@@ -1,5 +1,0 @@
----
-features:
-  - |
-    For convenience, ``--wip`` is now synonymous with the longer
-    ``--work-in-progress`` option.

@@ -1,0 +1,289 @@
+name: Rebuild Go-bindings static libraries
+
+# Manual only. Rebuilds go/internal/capi/lib/<os_arch>/ for every supported
+# platform in one run and opens a PR with the result — never individually,
+# since tests/capi_lib_freshness.rs's SOURCE_HASH covers the whole source
+# tree at once: restamping after refreshing only some of them would
+# silently vouch for the rest being current when they aren't. Four
+# platforms produce a single `libdxpdf.a` static archive; windows_amd64
+# produces `dxpdf.dll` plus a `libdxpdf.a` import library instead — see
+# that matrix entry's own comment for why.
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Every platform builds *and* runs the real `go vet`/`go test -race`
+  # natively against its own freshly built library — including darwin/amd64,
+  # historically only cross-compiled from an arm64 Mac and symbol-checked
+  # with `nm`, never actually linked or exercised, for no reason stronger
+  # than "no Intel Mac was available." `macos-15-intel` is a native
+  # GitHub-hosted runner already proven for this exact Skia-linked crate by
+  # `ci.yml`'s `build-wheels` job (`macos-x86_64` leg).
+  build:
+    name: Build (${{ matrix.os_arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_arch: darwin_arm64
+            runner: macos-latest
+            lib_name: libdxpdf.a
+          - os_arch: darwin_amd64
+            runner: macos-15-intel
+            lib_name: libdxpdf.a
+          - os_arch: linux_amd64
+            runner: ubuntu-latest
+            lib_name: libdxpdf.a
+          - os_arch: linux_arm64
+            runner: ubuntu-24.04-arm
+            lib_name: libdxpdf.a
+          # Unlike every other platform, this one links a `dxpdf.dll` rather
+          # than a static archive — see cgo_windows_amd64.go's module doc
+          # for why static linking is a dead end here (both the obvious
+          # workarounds, `-windows-gnu` and `CC=cl`, are ruled out upstream,
+          # not just untried, and verified via a real `go vet`/`go test
+          # -race` run before this platform was added here). `lib_name` is
+          # unused for this entry; its own steps below build the DLL and
+          # turn `go/internal/capi/dxpdf.def` into a MinGW-native
+          # `libdxpdf.a` import library via `dlltool`. `shell: bash` below
+          # is specifically for this leg (GH's windows-latest runners ship
+          # Git Bash for exactly this); the other four already ran on a
+          # POSIX shell by default.
+          - os_arch: windows_amd64
+            runner: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies (Linux)
+        if: startsWith(matrix.os_arch, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype-dev
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build the capi library
+        run: cargo build --release --features capi
+
+      # A platform can flip between whole-file and split-parts between
+      # rebuilds (a linux archive that now crosses 100MB, or settles on a
+      # different part count than last time) — clear whatever is currently
+      # committed before staging the new build, so nothing stale rides
+      # along. tests/capi_lib_freshness.rs's
+      # every_supported_platform_has_a_committed_library asserts a platform
+      # is never both at once. Not windows_amd64: its committed shape
+      # (dxpdf.dll plus an import library) doesn't fit matrix.lib_name, so
+      # it has its own staging step below instead.
+      - name: Remove the previously committed library for this platform
+        if: matrix.os_arch != 'windows_amd64'
+        run: |
+          mkdir -p go/internal/capi/lib/${{ matrix.os_arch }}
+          rm -f go/internal/capi/lib/${{ matrix.os_arch }}/${{ matrix.lib_name }}
+          rm -f go/internal/capi/lib/${{ matrix.os_arch }}/libdxpdf_part*.a
+
+      - name: Stage the rebuilt library
+        if: matrix.os_arch != 'windows_amd64'
+        run: cp target/release/${{ matrix.lib_name }} go/internal/capi/lib/${{ matrix.os_arch }}/${{ matrix.lib_name }}
+
+      # Only linux/amd64 and linux/arm64 ever exceed GitHub's 100MB
+      # single-blob limit (~120-127MB unsplit) — darwin's archives are
+      # smaller as built and are never split. The script deletes the
+      # unsplit original itself.
+      - name: Split the archive (Linux only)
+        if: startsWith(matrix.os_arch, 'linux')
+        run: python3 scripts/split_capi_lib.py go/internal/capi/lib/${{ matrix.os_arch }}/libdxpdf.a
+
+      # windows_amd64 only: stage `dxpdf.dll` itself (what gets *loaded* at
+      # runtime) plus a MinGW-native import library generated straight from
+      # `go/internal/capi/dxpdf.def` — deliberately not from the
+      # MSVC-produced `dxpdf.dll.lib` import stub cargo also emits, so this
+      # never depends on GNU ld being able to read an MSVC import library.
+      # `dlltool` ships alongside the mingw64 `gcc` that cgo already found
+      # to fail the old static link (see cgo_windows_amd64.go), so no extra
+      # tool install is needed; the fallback handles it being triple-prefixed
+      # instead of bare on some images.
+      - name: Stage the rebuilt library (Windows only)
+        if: matrix.os_arch == 'windows_amd64'
+        run: |
+          mkdir -p go/internal/capi/lib/windows_amd64
+          rm -f go/internal/capi/lib/windows_amd64/dxpdf.dll
+          rm -f go/internal/capi/lib/windows_amd64/libdxpdf.a
+          cp target/release/dxpdf.dll go/internal/capi/lib/windows_amd64/dxpdf.dll
+          DLLTOOL="$(command -v dlltool || command -v x86_64-w64-mingw32-dlltool)"
+          "$DLLTOOL" \
+            -d go/internal/capi/dxpdf.def \
+            -D dxpdf.dll \
+            -l go/internal/capi/lib/windows_amd64/libdxpdf.a
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      # windows_amd64 only: `dxpdf.dll` is loaded at runtime, not just
+      # linked against, so it has to be findable when the test binary
+      # actually runs. `go test` executes it with the package directory
+      # (`go/`) as its current directory, which Windows searches for DLLs
+      # before PATH — simpler and less failure-prone here than getting a
+      # Git-Bash `$PWD` (POSIX-style, e.g. `/d/a/dxpdf/...`) translated into
+      # something Windows' loader accepts via `$GITHUB_PATH`, which is the
+      # form of this that first failed. A real consumer's binary needs the
+      # same thing, documented in go/internal/capi/lib/README.md — next to
+      # the executable, since that directory is Windows' first DLL search
+      # location and "current directory" isn't guaranteed for them the way
+      # it is for `go test` here.
+      - name: Copy the DLL next to the test binary's working directory (Windows only)
+        if: matrix.os_arch == 'windows_amd64'
+        run: cp internal/capi/lib/windows_amd64/dxpdf.dll dxpdf.dll
+        working-directory: go
+
+      - name: go test (against the freshly rebuilt library)
+        working-directory: go
+        run: go test ./... -race
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capi-lib-${{ matrix.os_arch }}
+          path: go/internal/capi/lib/${{ matrix.os_arch }}/
+
+  # Independent of `build`: header generation only needs src/capi.rs and
+  # cbindgen, not a compiled binary.
+  generate-header:
+    name: Regenerate C header
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cbindgen
+        run: cargo install cbindgen --locked
+
+      - name: Regenerate the header
+        run: scripts/generate_capi_header.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capi-header
+          path: go/internal/capi/dxpdf.h
+
+  # Assembles every platform's output plus the header into one PR, rather
+  # than committing directly — so the result is reviewed before it lands,
+  # not just verified by CI.
+  open-pr:
+    name: Open PR
+    runs-on: ubuntu-latest
+    needs: [build, generate-header]
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # `cargo test` below compiles the whole crate regardless of which test
+      # binary runs, and the crate links against these even though this job
+      # never touches Skia's output directly.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype-dev
+
+      # Same stale-file concern as each build leg, but here against whatever
+      # was already committed before this run. windows_amd64's dxpdf.dll
+      # isn't named libdxpdf.a, so it needs its own line; its libdxpdf.a
+      # (the import library) is already covered by the glob above.
+      - name: Remove previously committed libraries
+        run: |
+          rm -f go/internal/capi/lib/*/libdxpdf.a
+          rm -f go/internal/capi/lib/*/libdxpdf_part*.a
+          rm -f go/internal/capi/lib/windows_amd64/dxpdf.dll
+
+      # Five explicit downloads rather than one pattern-based download:
+      # download-artifact's pattern mode nests each artifact under a
+      # directory named after the artifact, not the platform — explicit is
+      # clearer than reshuffling paths afterward for a fixed set of five.
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-lib-darwin_arm64
+          path: go/internal/capi/lib/darwin_arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-lib-darwin_amd64
+          path: go/internal/capi/lib/darwin_amd64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-lib-linux_amd64
+          path: go/internal/capi/lib/linux_amd64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-lib-linux_arm64
+          path: go/internal/capi/lib/linux_arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-lib-windows_amd64
+          path: go/internal/capi/lib/windows_amd64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: capi-header
+          path: go/internal/capi
+
+      # Restamps SOURCE_HASH (the UPDATE_CAPI_LIB_HASH branch in
+      # committed_libs_match_current_source writes and returns) and, in the
+      # same invocation, runs every_supported_platform_has_a_committed_library
+      # un-gated — for free, the sanity check that the assembled tree is
+      # well-formed before anything is proposed. If the removal/download
+      # steps above left a stray file, this fails the job instead of opening
+      # a broken PR.
+      - name: Refresh SOURCE_HASH
+        run: UPDATE_CAPI_LIB_HASH=1 cargo test --test capi_lib_freshness
+
+      # A fixed branch name, not a per-run unique one: re-running this
+      # workflow before a prior PR merges updates that same PR instead of
+      # opening a duplicate.
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: refresh committed capi libraries and SOURCE_HASH"
+          title: "Refresh Go-bindings static libraries"
+          body: |
+            Rebuilds `go/internal/capi/lib/<os_arch>/` for all five
+            supported platforms (darwin/arm64, darwin/amd64, linux/amd64,
+            linux/arm64, windows/amd64), regenerates
+            `go/internal/capi/dxpdf.h`, and restamps
+            `go/internal/capi/lib/SOURCE_HASH`.
+
+            Triggered manually via `workflow_dispatch`
+            (run ${{ github.run_id }}).
+
+            Every platform was verified with a real `go vet`/`go test -race`
+            run against its freshly rebuilt library, including darwin/amd64
+            — previously only cross-compiled and symbol-checked, now built
+            and tested natively on `macos-15-intel` — and windows/amd64,
+            which links `dxpdf.dll` dynamically rather than a static
+            archive (see `go/cgo_windows_amd64.go`).
+          branch: capi-libs-refresh
+          delete-branch: true

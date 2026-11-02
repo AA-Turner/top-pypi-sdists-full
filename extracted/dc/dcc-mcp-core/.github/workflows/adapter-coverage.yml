@@ -1,0 +1,384 @@
+name: Adapter coverage
+
+# Keeps the adapter coverage map and the generated README pointer blocks honest.
+#
+# `dcc-mcp-catalog.yml` is the single source of truth for the host matrix. The
+# coverage map and the pointer block in every adapter README are generated from
+# it, so a catalog edit that is not followed by a regeneration leaves the
+# ecosystem describing a host list that no longer exists. This gate turns that
+# into a red check instead of a silently stale document.
+#
+# The `coverage` job guards the maps this repository commits. The
+# `pointer-drift` job is the cross-repository half: it clones every adapter and
+# replays the generator against the README each one actually publishes, so
+# drift that lands in an adapter repository rather than here is caught too.
+#
+# Triggers on a PR that touches the catalog, the generator, its tests, the
+# generated coverage map, or this workflow; plus a weekly schedule and a manual
+# dispatch for the cross-repository scan, which cannot be driven from `paths`
+# because the drift happens in other repositories.
+#
+# A push to `main` that changes the catalog also runs the regeneration: that is
+# the moment the fleet becomes stale, so it is the moment the refresh PRs should
+# be opened. It is gated on `only` (below) so an unrelated push does not touch
+# 47 repositories.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+    paths:
+      - "README.md"
+      - "dcc-mcp-catalog.yml"
+      - "docs/adapter-coverage.md"
+      - "docs/adapter-coverage.json"
+      - "scripts/generate_adapter_pointer.py"
+      - "scripts/check_adapter_pointer_drift.py"
+      - "scripts/regenerate_adapter_pointers.py"
+      - "scripts/_pr_helpers.py"
+      - "scripts/_adapter_pointer_budget.py"
+      - "tests/test_generate_adapter_pointer.py"
+      - "tests/test_check_adapter_pointer_drift.py"
+      - "tests/test_regenerate_adapter_pointers.py"
+      - ".github/workflows/adapter-coverage.yml"
+  push:
+    branches: [main]
+    paths:
+      - "dcc-mcp-catalog.yml"
+      - "scripts/generate_adapter_pointer.py"
+      - "scripts/regenerate_adapter_pointers.py"
+      - "scripts/_pr_helpers.py"
+      - "scripts/_adapter_pointer_budget.py"
+      - ".github/workflows/adapter-coverage.yml"
+  schedule:
+    # Weekly, Monday 04:17 UTC. Off the top of the hour so the run does not
+    # land in the same scheduling slot as every other org workflow.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma-separated adapter names to scan (default: every catalog adapter)."
+        required: false
+        type: string
+      allow_missing:
+        description: "Treat a missing README or pointer block as acceptable instead of a failure."
+        required: false
+        type: boolean
+        default: true
+      regenerate:
+        description: "Regenerate drifted adapters and open or refresh a pull request in each."
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: "Report what regeneration would change without pushing or opening a PR."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# The regeneration job pushes branches and opens pull requests across the
+# catalog, so two concurrent runs would race on the same branch names and the
+# same pull requests. One run at a time, and a newer run supersedes an older one
+# that is still queued.
+concurrency:
+  group: adapter-pointer-regen
+  cancel-in-progress: false
+
+jobs:
+  coverage:
+    name: Coverage map and pointer blocks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only meaningful for a PR from this repository; `schedule` and
+    # `workflow_dispatch` payloads have no pull_request and are skipped.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # PyYAML is installed explicitly because this lane does a bare checkout
+      # with no wheel build, so `dcc_mcp_core._core` is absent and the
+      # generator cannot fall back to the Rust-backed YAML codec. It is the
+      # same dependency every `Test (os, py)` lane installs
+      # (test_toolchain.pyyaml_py37 in compatibility/python.json), so this lane
+      # exercises the same catalog-read path as the test matrix rather than a
+      # parallel one.
+      - name: Install pytest and PyYAML
+        run: python -m pip install --disable-pip-version-check pytest pyyaml
+
+      # The committed map must be byte-identical to what the catalog generates.
+      # `report` is offline, so this stays reproducible and needs no secrets.
+      - name: Coverage map is current
+        run: python scripts/generate_adapter_pointer.py report --check
+
+      # The host count the narrative quotes comes from the catalog. If it moves
+      # without the map being regenerated, the check above already failed; this
+      # prints it so the number is visible in the run log.
+      - name: Report the adapter count
+        run: |
+          count="$(python -c "
+          import yaml
+          entries = yaml.safe_load(open('dcc-mcp-catalog.yml', encoding='utf-8'))['entries']
+          print(sum(1 for e in entries if 'adapter' in (e.get('tags') or [])))
+          ")"
+          echo "catalog adapter entries: $count"
+          echo "adapter_count=$count" >> "$GITHUB_STEP_SUMMARY"
+
+      # --noconftest on purpose, like the release-workflow-integrity lane:
+      # tests/conftest.py imports the compiled dcc_mcp_core extension at module
+      # scope, and this lane deliberately does not wait for a wheel build.
+      - name: Pointer generator tests
+        run: |-
+          python -m pytest tests/test_generate_adapter_pointer.py \
+            -q --no-header --noconftest
+
+      - name: Generated copy clears the banned-claim list
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".")
+          from scripts import generate_adapter_pointer as generator
+
+          catalog = generator.load_catalog(Path("dcc-mcp-catalog.yml"))
+          entries = generator.adapter_entries(catalog)
+          if not entries:
+              print("::error::catalog contains no adapter entries")
+              sys.exit(1)
+
+          for entry in entries:
+              generator.render_pointer(entry, host_count=len(entries))
+
+          report = generator.render_report(entries)
+          missing = [e["name"] for e in entries if f"`{e['name']}`" not in report]
+          if missing:
+              print(f"::error::coverage map is missing adapters: {missing}")
+              sys.exit(1)
+          print(f"checked {len(entries)} adapter pointer blocks")
+          print(f"coverage map enumerates all {len(entries)} adapters")
+          PY
+
+  # The half that was missing. `generate_adapter_pointer.py` could always verify
+  # one repository; nothing walked all of them, so a catalog change that only
+  # some adapters picked up left the rest quoting an outdated host count with no
+  # check anywhere turning red. This job is that walk.
+  #
+  # It is read-only with respect to the adapter repositories: it clones, replays
+  # the generator against each README, and reports. It never opens a pull
+  # request, so a red run is a signal for a human (or a follow-up batch job),
+  # not an autonomous edit to 40 public repositories.
+  #
+  # The scan step is non-blocking on a pull request and blocking otherwise.
+  #
+  # The fleet-level drift it reports can only be cleared by regenerating the
+  # adapter repositories, which is out of scope for any single core PR, so on a
+  # PR it reports into the job summary and an artifact without failing. On
+  # `schedule` and `workflow_dispatch` it fails: GitHub only notifies on a
+  # failed workflow, so a weekly run that can never fail is a weekly run nobody
+  # hears from -- the silent drift this check exists to end. See the step's own
+  # comment. The scanner's unit tests above are blocking in all cases.
+  pointer-drift:
+    name: Adapter README pointer drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A fork PR has no business cloning 47 repositories, and a push to main
+    # already ran this on the PR that produced it.
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Same reasoning as the `coverage` job: a bare checkout has no built
+      # `dcc_mcp_core._core`, so the generator reads the catalog through PyYAML.
+      - name: Install pytest and PyYAML
+        run: python -m pip install --disable-pip-version-check pytest pyyaml
+
+      # --noconftest: tests/conftest.py imports the compiled extension, and this
+      # lane does not build a wheel.
+      - name: Drift scanner tests
+        run: |-
+          python -m pytest tests/test_check_adapter_pointer_drift.py \
+            -q --no-header --noconftest
+
+      - name: Scan every adapter README against the catalog
+        id: scan
+        # Blocking everywhere except a pull request.
+        #
+        # On a PR the fleet-level drift is not the PR's fault and clearing it
+        # means regenerating dozens of adapter repositories, so it reports
+        # without failing. On `schedule` and `workflow_dispatch` it must fail:
+        # GitHub only notifies on a failed workflow, so a never-failing weekly
+        # run is a weekly run nobody ever hears about -- which is exactly the
+        # silent drift this check was built to end.
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        env:
+          INPUT_ONLY: ${{ inputs.only }}
+          INPUT_ALLOW_MISSING: ${{ inputs.allow_missing }}
+        run: |
+          args=()
+          if [ -n "${INPUT_ONLY}" ]; then
+            args+=(--only "${INPUT_ONLY}")
+          fi
+          # The default for a scheduled run allows a missing block: several
+          # catalog adapters have never received one, and that backlog is a
+          # separate cleanup from the count drift this gate exists to catch.
+          # The number moves as adapters pick up a block, so it is deliberately
+          # not written here -- dispatch with `allow_missing: false` to see the
+          # current list.
+          if [ "${INPUT_ALLOW_MISSING}" != "false" ]; then
+            args+=(--allow-missing)
+          fi
+          # Stop repository work before the job limit so all result rows,
+          # cleanup and artifact upload still have time to complete.
+          python scripts/check_adapter_pointer_drift.py \
+            --timeout 180 --batch-timeout 1200 --summary --json-out drift-results.json "${args[@]}"
+
+      - name: Report the drift verdict
+        if: always() && steps.scan.outcome != 'skipped'
+        run: |
+          if [ "${{ steps.scan.outcome }}" = "failure" ]; then
+            echo "::warning::adapter scan reported drift or errors; see the job summary and the adapter-pointer-drift artifact."
+          elif [ "${{ steps.scan.outcome }}" = "success" ]; then
+            echo "Adapter scan completed; see the per-repository verdicts in the summary."
+          else
+            echo "::warning::adapter scan did not complete; do not treat unreported repositories as current."
+          fi
+
+      - name: Upload drift results
+        if: always() && hashFiles('drift-results.json') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: adapter-pointer-drift
+          path: drift-results.json
+          if-no-files-found: ignore
+
+  # The half that makes the check above worth having. `pointer-drift` can say
+  # "24 repositories are stale" every week forever; it cannot make them not
+  # stale. This job regenerates the pointer block in each drifted adapter and
+  # opens (or refreshes) one pull request per repository, so the drift lane
+  # turns green on its own instead of waiting for a human to run another manual
+  # batch -- the treadmill this workflow was built to end.
+  #
+  # It is deliberately narrow: it only ever rewrites the generated block, and it
+  # refuses to commit a repository whose working tree changed anything else. It
+  # also never pushes to a default branch. Every change lands as a pull request
+  # for the owning repository's maintainers to review.
+  regenerate-pointers:
+    name: Regenerate adapter pointers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: pointer-drift
+    # `always()` is load-bearing, not decorative. `pointer-drift` blocks on push
+    # and dispatch, so without it a drifted fleet fails that job, `needs` goes
+    # unsatisfied, and regeneration is skipped -- the exact situation it exists
+    # to fix. It would only ever run when the scan was already clean.
+    #
+    # The scan's red verdict stays visible: `pointer-drift` still fails on its
+    # own, and GitHub reports per-job conclusions.
+    #
+    # Opt-in rather than automatic on `schedule`: the weekly run's job is to
+    # report drift loudly, and a weekly run that also opened ~40 pull requests
+    # would be noise. Regeneration runs when a catalog change actually lands on
+    # `main`, and on demand through `workflow_dispatch` with `regenerate: true`,
+    # but never on a pull request, which has no business touching the fleet.
+    if: >-
+      always()
+      && (github.event_name == 'push'
+          || (github.event_name == 'workflow_dispatch' && inputs.regenerate))
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # PyYAML for the catalog read, for the same reason as the other lanes: a
+      # bare checkout has no built `dcc_mcp_core._core`.
+      - name: Install pytest and PyYAML
+        run: python -m pip install --disable-pip-version-check pytest pyyaml
+
+      - name: Regeneration tests
+        run: |-
+          python -m pytest tests/test_regenerate_adapter_pointers.py \
+            -q --no-header --noconftest
+
+      # The default `GITHUB_TOKEN` is scoped to this repository alone: it can
+      # neither fork nor open a pull request in another repository, so
+      # regeneration runs under a token that can.
+      #
+      # `PERSONAL_ACCESS_TOKEN` is the org-level secret that already exists. An
+      # earlier revision referenced `DCC_MCP_POINTER_REGEN_TOKEN`, which exists
+      # at neither the repo nor the org level, so the `||` fallback silently
+      # degraded to `GITHUB_TOKEN` and every repository failed before pushing.
+      # A fallback to `GITHUB_TOKEN` is kept out on purpose: it would hide a
+      # missing credential behind 47 confusing errors instead of failing once
+      # and clearly.
+      - name: Regenerate every drifted adapter README
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          INPUT_ONLY: ${{ inputs.only }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          # `GH_TOKEN` is only read by `gh`. The cross-repository `git push`
+          # inside the Python script is a separate process that git authenticates
+          # on its own, and `actions/checkout` leaves behind a `GITHUB_TOKEN`
+          # credential scoped to this repository alone -- so the push to
+          # `dcc-mcp/dcc-mcp-*` would authenticate with nothing usable and fail
+          # with 401 for every repository in the catalog.
+          #
+          # The push is spawned by Python `subprocess`, so `git -c` on a shell
+          # command cannot wrap it. `GIT_CONFIG_*` is inherited by any child
+          # process instead, which is why the credential is exported rather than
+          # passed as an argument. This matches the pattern already used by
+          # `uv-lock-refresh.yml`, `release-please-lock-sync.yml` and the
+          # `generated-lock-repair` action.
+          credential_file="$(mktemp)"
+          trap 'rm -f "$credential_file"' EXIT
+          chmod 600 "$credential_file"
+          printf 'https://x-access-token:%s@github.com\n' "$GH_TOKEN" > "$credential_file"
+          export GIT_CONFIG_COUNT=2
+          export GIT_CONFIG_KEY_0="credential.helper"
+          export GIT_CONFIG_VALUE_0=""
+          export GIT_CONFIG_KEY_1="credential.helper"
+          export GIT_CONFIG_VALUE_1="store --file=${credential_file}"
+
+          args=()
+          if [ -n "${INPUT_ONLY}" ]; then
+            args+=(--only "${INPUT_ONLY}")
+          fi
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          # Keep the same batch budget as the read-only scanner, including
+          # all paginated PR lookups and writes, not just each git call.
+          python scripts/regenerate_adapter_pointers.py \
+            --timeout 300 --batch-timeout 1200 --summary --json-out regen-results.json "${args[@]}"
+
+      - name: Upload regeneration results
+        if: always() && hashFiles('regen-results.json') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: adapter-pointer-regen
+          path: regen-results.json
+          if-no-files-found: ignore

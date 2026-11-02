@@ -1,0 +1,103 @@
+name: Windows native regressions
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Diagnostic component; full release verification remains separate
+        type: choice
+        options: [all, engines, operators, checkpoints, ai, installed-spark, spark-startup, spark-after-ray, ray-startup, ray-startup-compare]
+        default: all
+      bytecode:
+        description: Compare normal lazy uv installation with precompiled installed bytecode
+        type: choice
+        options: [lazy, compiled]
+        default: lazy
+permissions:
+  contents: read
+jobs:
+  native-sdk:
+    uses: ./.github/workflows/windows-hadoop.yml
+  native:
+    needs: native-sdk
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+        scope: ${{ fromJSON(inputs.scope == 'ray-startup-compare' && '["ray-startup-compare"]' || inputs.scope == 'installed-spark' && '["installed-spark"]' || inputs.scope == 'ray-startup' && '["ray-startup"]' || inputs.scope == 'spark-after-ray' && '["spark-after-ray"]' || inputs.scope == 'spark-startup' && '["spark-startup"]' || inputs.scope == 'engines' && '["engines"]' || inputs.scope == 'operators' && '["operators"]' || inputs.scope == 'checkpoints' && '["checkpoints"]' || inputs.scope == 'ai' && '["ai"]' || '["engines","operators"]') }}
+    env:
+      NATIVE_SCOPE: ${{ matrix.scope }}
+      UV_COMPILE_BYTECODE: ${{ inputs.bytecode == 'compiled' && '1' || '0' }}
+      POLARS_MAX_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.native-sdk.outputs.artifact }}
+          path: ${{ runner.temp }}/truthound-hadoop-sdk-3.5.0
+      - name: Verify and select the native Hadoop SDK
+        shell: pwsh
+        run: |
+          $sdk = '${{ runner.temp }}/truthound-hadoop-sdk-3.5.0'
+          ./verification/ci/windows_hadoop.ps1 -Mode Verify -SdkRoot $sdk
+          "HADOOP_HOME=$sdk" >> $env:GITHUB_ENV
+          "$sdk/bin" >> $env:GITHUB_PATH
+      - run: uv sync --python ${{ matrix.python }} --frozen --extra dev --extra mcp
+      - name: Run actual native engine and installed operator regressions
+        run: |
+          if ($env:NATIVE_SCOPE -eq 'ray-startup-compare') {
+            uv run --python ${{ matrix.python }} --frozen --extra dev --extra mcp python verification/ray_startup_compare.py --pairs 20 --output test-artifacts
+            exit $LASTEXITCODE
+          }
+          if ($env:NATIVE_SCOPE -in @('installed-spark', 'spark-startup', 'spark-after-ray', 'ray-startup')) {
+            $targets = @('tests/test_distributed_native_contract.py::test_native_row_cache_honors_disabled_cache_and_explicit_invalidation[spark]')
+            if ($env:NATIVE_SCOPE -eq 'spark-after-ray') {
+              $targets = @('tests/test_distributed_native_contract.py::test_null_statistics_and_sampling_use_observed_rows[ray]', 'tests/test_distributed_native_contract.py::test_ray_native_task_limit_actor_execution_and_block_target_are_applied', 'tests/test_distributed_native_contract.py::test_native_row_cache_honors_disabled_cache_and_explicit_invalidation[ray]') + $targets
+            }
+            if ($env:NATIVE_SCOPE -eq 'installed-spark') {
+              $targets = @('tests/test_mcp_distributed_engines.py::test_approved_native_distributed_engines_children_and_reopen[spark]')
+            }
+            $iterations = 5
+            if ($env:NATIVE_SCOPE -eq 'spark-startup') {
+              $iterations = 20
+            }
+            if ($env:NATIVE_SCOPE -eq 'ray-startup') {
+              $targets = @('tests/test_distributed_native_contract.py::test_native_row_cache_honors_disabled_cache_and_explicit_invalidation[ray]')
+              $iterations = 20
+            }
+            # Fixed repeated cold starts: every run must pass; this is not a retry.
+            for ($iteration = 1; $iteration -le $iterations; $iteration++) {
+              uv run --python ${{ matrix.python }} --frozen --extra dev --extra mcp python -m pytest -q @targets -p no:cacheprovider --junitxml "test-artifacts/windows-native-$iteration.xml"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            exit 0
+          } elseif ($env:NATIVE_SCOPE -eq 'engines') {
+            $targets = @('tests/test_dask_native_contract.py', 'tests/test_distributed_native_contract.py', 'tests/test_mcp_distributed_engines.py', 'tests/stores/concurrency/test_atomic.py', 'tests/test_mcp_execution_stores.py::test_native_descriptor_output_cannot_corrupt_resident_protocol', 'tests/test_mcp_owned_descendants.py::test_native_worker_wire_excludes_native_child_and_atexit_output', 'tests/test_mcp_owned_descendants.py::test_worker_timeout_finishes_while_another_writer_keeps_pipe_open', 'tests/test_mcp_owned_descendants.py::test_pipe_reader_preserves_frames_and_enforces_partial_frame_limit')
+          } elseif ($env:NATIVE_SCOPE -eq 'checkpoints') {
+            $targets = @('tests/test_distributed_native_contract.py::test_native_ray_local_checkpoint_destination_resolves_as_one_directory', 'tests/test_distributed_native_contract.py::test_native_checkpoint_enabled_creates_real_snapshot', 'tests/test_distributed_native_contract.py::test_native_ray_empty_checkpoint_preserves_schema', 'tests/test_mcp_distributed_engines.py::test_approved_native_distributed_engines_children_and_reopen[ray]')
+          } elseif ($env:NATIVE_SCOPE -eq 'ai') {
+            $targets = @('tests/test_mcp_ai_services.py')
+          } else {
+            $targets = @('tests/test_mcp_profiler_services.py', 'tests/test_mcp_store_reconciliation.py', 'tests/test_mcp_store_concurrent.py', 'tests/test_mcp_dashboards.py', 'tests/test_mcp_ai_services.py')
+          }
+          uv run --python ${{ matrix.python }} --frozen --extra dev --extra mcp python -m pytest -q @targets -p no:cacheprovider --junitxml test-artifacts/windows-native.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: truthound-windows-native-${{ matrix.python }}-${{ matrix.scope }}-${{ inputs.bytecode }}
+          path: |
+            test-artifacts/windows-native*.xml
+            test-artifacts/ray-startup-compare.json
+          if-no-files-found: error
+          retention-days: 7

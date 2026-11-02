@@ -1,0 +1,226 @@
+Metadata-Version: 2.5
+Name: labqoat
+Version: 0.2.144
+Summary: Typed Python SDK and lab command-line client for the Labqoat platform
+Author: Labqoat
+License: MIT
+Keywords: cli,labqoat,sdk
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: certifi>=2026.7.22
+Requires-Dist: click>=8.4.0
+Requires-Dist: jsonschema-rs>=0.40.0
+Requires-Dist: keyring>=24.0.0
+Requires-Dist: packaging>=23.0
+Requires-Dist: pyarrow>=18.0.0
+Requires-Dist: rfc8785>=0.1.2
+Requires-Dist: rich>=15.0.0
+Requires-Dist: websockets>=14.0
+Provides-Extra: harbor
+Requires-Dist: harbor==0.24.0; (python_version >= '3.12') and extra == 'harbor'
+Provides-Extra: lightning
+Requires-Dist: lightning==2.6.6; extra == 'lightning'
+Description-Content-Type: text/markdown
+
+# labqoat-python
+
+Typed SDK and CLI for the Labqoat starter API. Distribution
+`labqoat`, import `labqoat`, commands `lab` and `labqoat`.
+
+## Quick start
+
+```python
+from labqoat.client import Client
+
+with Client("http://127.0.0.1:4000", "local", "your-password") as client:
+    note = client.create_note("First", body="Hello")
+    page = client.list_notes(limit=20)
+    for item in client.iter_notes():
+        print(item.id, item.title)
+```
+
+The CLI defaults to **production** at `https://app.labqoat.com`, which uses a
+publicly trusted certificate. Profiles saved with the old tunnel URL
+(`https://127.0.0.1:4043`) should be updated, and `SSL_CERT_FILE` no longer needs
+to point at the private installation CA. Log in:
+
+```sh
+lab auth login --username labqoat
+lab status
+lab run list
+```
+
+Work is grouped into projects: a named container that owns runs, datasets,
+dashboards and one research memory. Start in a working directory with:
+
+```sh
+lab project init my-benchmark
+lab project current
+```
+
+`init` creates the project and pins it as `[tool.labqoat] project = "my-benchmark"`
+in `./pyproject.toml`, so every command run from there acts on it. `--project NAME`
+and `LABQOAT_PROJECT` override the pin; without any of them the project named
+`default` is used. `run list`, `dataset list` and `dashboard list` show the selected
+project and take `--all-projects`; `lab project move --to NAME --run ID` (also
+`--app`, `--dashboard`, `--dataset`) reorganizes existing work. The SDK stays
+explicit: `Client(..., project="my-benchmark")` selects the project, and
+`labqoat.projects.project_selection.ProjectSelection.resolve().name` applies the
+CLI's lookup order in a script.
+
+Use an explicit override for a local instance:
+
+```sh
+lab --base-url http://127.0.0.1:4000 status
+```
+
+Saved profiles retain their configured endpoints; `--base-url` overrides the
+selected profile. Credentials remain scoped to that endpoint. The SDK takes an
+explicit URL, as in the local example above.
+
+Credentials use HTTP Basic on every request. Plain HTTP is accepted only
+for explicit loopback destinations.
+
+Every `submit` command (`run`, `train`, `eval`, and `import`)
+accepts `--watch` to print the submission response and then stream durable
+run events, just like the corresponding `watch` command. Evaluations watch
+their primary run. Without the flag, submission returns immediately.
+
+```sh
+lab run submit my_package:RUN --watch
+lab train submit my_training_job --epochs 10 --watch
+lab eval submit my_evaluation --dataset team/data@v1 --model team/model@v1 --watch
+```
+
+Production GPU workloads can select hardware and a minimum per-device memory:
+
+```python
+from labqoat.authoring.resources import Resources
+
+resources = Resources(
+    cpu_millicores=4000,
+    memory_mb=16384,
+    gpu_count=1,
+    gpu_model="l40s",
+    gpu_memory_mb=44 * 1024,
+)
+```
+
+Use this resource declaration in the workload's runtime configuration. The
+legacy `GpuResources(cpu=4, memory_gib=16, gpu_count=1, gpu_model="l40s",
+minimum_gpu_memory_gib=44)` form expresses the same requirements. Omit the model
+or use `"any"` to choose any GPU meeting the memory floor. Production enforces
+both constraints for workers and model serving, including scale-from-zero.
+Memory means **MiB per GPU**, not combined VRAM or fractional GPU allocation.
+EC2 reports 22,888 MiB for L4/A10G, 45,776 MiB for L40S, and 81,920 MiB for
+H100; marketed 24/48 GB sizes should not be used as 24/48 GiB floors.
+The default production pool offers T4, A10G, L4, L40S and H100; configured pool
+limits still apply. Unsupported hardware combinations fail capacity admission.
+
+Training submits from source. `lab train submit` packages the exact working
+tree, uploads it once, and accepts a run without importing, installing, or
+executing the workload on the submitting machine; only the CLI and the source
+files are required. The platform then prepares the run — building the image,
+compiling the workload contract inside it, resolving dependencies, and
+freezing the execution manifest — before scheduling training. Preparation
+stages are visible on the run as `preparing` status detail, and `--watch`
+follows preparation through training. Heavy third-party imports in workload
+modules are supported because inspection runs inside the built image.
+
+Every `logs` command accepts `--follow` to keep printing new log entries.
+Run, training, evaluation, and import logs use the existing run
+log stream and stop when the run finishes. Inference, replica, worker, node,
+and pool logs use one server-sent event (SSE) connection until the server
+closes it or you press Ctrl-C. Existing time filters, sort order, limit, and
+starting cursor are sent with the initial streaming request. Following does
+not poll snapshots. Each `log.entry` event prints its unchanged JSON data as
+one line, flushed immediately for pipes; heartbeats are ignored and
+`log.error` events report a CLI error. Ctrl-C closes the connection. Without
+`--follow`, logs return the same single JSON page as before.
+
+```sh
+lab run logs RUN_ID --follow
+lab train logs RUN_ID --follow
+lab eval logs EVALUATION_ID --follow
+lab inference logs DEPLOYMENT_ID --follow
+lab inference replica logs REPLICA_ID --follow
+lab worker logs WORKER_ID --follow
+```
+
+`lab node logs NODE_ID` reads `/api/v1/nodes/item/logs?ref=NODE_ID` once.
+The server returns logs from active and retained workloads on that node,
+including completed workers and serving replicas. Entries include node and
+source metadata and pass through the usual SDK response validation.
+
+With `--follow`, the CLI reads `/api/v1/nodes/item/logs/stream?ref=NODE_ID`
+over one SSE connection and prints raw entry JSONL. The server discovers
+new workloads and supplies their log entries.
+
+```sh
+lab node list
+lab node logs NODE_ID
+lab node logs NODE_ID --follow
+```
+
+`lab pool logs POOL_REF` reads `/api/v1/pools/item/logs?ref=POOL_REF` once,
+with the same semantics as node logs across active and retained workloads
+in the pool. Entries preserve pool, node, and source attribution through SDK
+response validation. With `--follow`, the CLI uses one
+`/api/v1/pools/item/logs/stream?ref=POOL_REF` SSE connection and prints raw
+entry JSONL as the server discovers workloads and supplies their logs.
+Node and pool logs accept only their required reference and `--follow`;
+they do not accept cursor, limit, sort, or timestamp filters.
+
+```sh
+lab pool list
+lab pool logs POOL_REF
+lab pool logs POOL_REF --follow
+```
+
+## Inference and evaluation
+
+Inference uses ordinary `@app.cls()` declarations bound to immutable Artifacts.
+Submit `Predictor(weights=weights).predict` through `client.runs` or
+`context.runs`; each Run captures its code, image and constructor inputs.
+See [weight-backed inference](../../examples/labqoat-model-inference/README.md).
+
+Evaluation functions submit ordinary inference and scoring Runs, retain typed
+prediction datasets, and return `EvaluationReport.complete(...)`. The report
+validates exact expected membership, explicit Run attribution, consistent finite
+metric names and equal-weight means. It is an ordinary typed result with no
+separate publication or completion lifecycle. Rescoring explicitly passes a
+previous result and its retained predictions into another function.
+See [NAM](../../examples/labqoat-nam-a2/README.md) and
+[Jev decision training](../../examples/labqoat-jev/README.md).
+
+## Development
+
+Use `lab --version`, `labqoat --version`, or `bun run cli -- --version` to
+identify the executing installation. Editable installs and direct source
+execution report the package version, current Git revision, and absolute
+Python package path, for example:
+
+```text
+labqoat 0.1.0+local.g0123456789ab (/path/to/labqoat/packages/labqoat-python)
+```
+
+Tracked changes inside that package add `.dirty` after the revision. If Git
+is unavailable or the source has no commit, the revision is `unknown` and the
+source path is still shown. Standard wheel installs report only their package
+version, such as `labqoat 0.1.0`. Version output works offline without loading
+profiles or credentials and does not depend on the current directory.
+
+- `uv sync --locked` — reproducible environment (Python 3.13 development;
+  3.11 minimum supported).
+- `uv run --locked pytest tests -q --testmon` — affected class-based unit tests.
+- `ruff format` / `ruff check` / strict `mypy` — same gates for source,
+  tests, support, and generated code.
+- `src/labqoat/_generated/` is owned by the schema emitter; never hand-edit.

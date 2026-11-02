@@ -1,4 +1,0 @@
----
-features:
-  - |
-    add ``riot list --hash-only`` option to list only venv short hashes

@@ -1,0 +1,93 @@
+Metadata-Version: 2.4
+Name: adapta
+Version: 5.3.8
+Summary: Logging, data connectors, monitoring, secret handling and general lifehacks to make data people lives easier.
+Author: ECCO Data & AI
+Author-email: ECCO Data & AI <esdsupport@ecco.com>
+License-Expression: Apache-2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Dist: requests>=2.26,<3
+Requires-Dist: backoff>=2.2,<3
+Requires-Dist: cryptography>=36
+Requires-Dist: pandas[performance]>=2.0.0,<3.0
+Requires-Dist: pyarrow>=7.0
+Requires-Dist: dataclasses-json>=0.6,<0.7
+Requires-Dist: limits>=5.8,<6
+Requires-Dist: polars>=2
+Requires-Dist: pandera>=0.20.3,<1.0
+Requires-Dist: fsspec>=2025,<2026
+Requires-Dist: cassandra-sigv4>=4.0.2
+Requires-Dist: boto3>=1.28.0,<2 ; extra == 'aws'
+Requires-Dist: botocore>=1.31,<2 ; extra == 'aws'
+Requires-Dist: s3fs>=2025.10.0,<2026 ; extra == 'aws-fileio'
+Requires-Dist: azure-identity>=1.7,<2 ; extra == 'azure'
+Requires-Dist: azure-storage-blob>=12.17.0,<=13 ; extra == 'azure'
+Requires-Dist: azure-mgmt-storage~=19.1.0 ; extra == 'azure'
+Requires-Dist: azure-keyvault-secrets>=4.3,<5 ; extra == 'azure'
+Requires-Dist: adlfs>=2025,<2026 ; extra == 'azure'
+Requires-Dist: azure-servicebus>=7.6,<7.7 ; extra == 'azure-servicebus'
+Requires-Dist: redis[hiredis]~=4.4.0 ; extra == 'caching'
+Requires-Dist: sqlalchemy>=2.0,<2.1 ; extra == 'databases'
+Requires-Dist: pyodbc>=4.0,<4.1 ; extra == 'databases'
+Requires-Dist: datadog~=0.49.1 ; extra == 'datadog'
+Requires-Dist: datadog-api-client~=2.18.0 ; extra == 'datadog'
+Requires-Dist: xlsxwriter>=3.0,<4 ; extra == 'excel'
+Requires-Dist: fastexcel>=0.14.0,<0.15 ; extra == 'excel'
+Requires-Dist: openpyxl>=3.0,<4 ; extra == 'excel'
+Requires-Dist: hvac~=0.11.2 ; extra == 'hashicorp'
+Requires-Dist: mlflow-skinny~=2.17.0 ; extra == 'ml'
+Requires-Dist: snowflake-connector-python>=3.4.0,<4 ; extra == 'snowflake'
+Requires-Dist: cassandra-driver~=3.30.0 ; extra == 'storage-cassandra'
+Requires-Dist: deltalake>=0.18.1,<0.19 ; extra == 'storage-delta'
+Requires-Dist: pyiceberg>=0.11.1,<0.13 ; extra == 'storage-iceberg'
+Requires-Dist: trino[sqlalchemy]>=0.337,<0.338 ; extra == 'trino'
+Maintainer: George Zubrienko, ECCO Data & AI
+Maintainer-email: George Zubrienko <gzu@ecco.com>, ECCO Data & AI <esdsupport@ecco.com>
+Requires-Python: >=3.11, <3.16
+Project-URL: Repository, https://github.com/SneaksAndData/adapta
+Provides-Extra: aws
+Provides-Extra: aws-fileio
+Provides-Extra: azure
+Provides-Extra: azure-servicebus
+Provides-Extra: caching
+Provides-Extra: databases
+Provides-Extra: datadog
+Provides-Extra: excel
+Provides-Extra: hashicorp
+Provides-Extra: ml
+Provides-Extra: snowflake
+Provides-Extra: storage-cassandra
+Provides-Extra: storage-delta
+Provides-Extra: storage-iceberg
+Provides-Extra: trino
+Description-Content-Type: text/markdown
+
+# Adapta
+This project aim at providing tools needed for everyday activities of data scientists and engineers:
+- Connectors for various cloud APIs
+- Secure secret handlers for various remote storages
+- Logging framework
+- Metrics reporting framework
+- Storage drivers for various clouds and storage types
+
+## Delta Lake
+
+This module provides basic Delta Lake operations without Spark session, based on [delta-rs](https://github.com/delta-io/delta-rs) project.
+
+Please refer to the [module](adapta/storage/delta_lake/v3/README.md) documentation for examples.
+
+## Secret Storages
+
+Please refer to the [module](adapta/storage/secrets/README.md) documentation for examples.
+
+## NoSql (Astra DB)
+
+Please refer to the [module](adapta/storage/distributed_object_store/v3/datastax_astra/README.md) documentation for examples.
+
+## Dataclass Validation framework
+Please refer to the [module](adapta/dataclass_validation/README.md) documentation for examples.

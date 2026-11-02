@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tests
+        # real_browser tests launch the binary, which needs a key (see ci.yml).
+        env:
+          CLOAKBROWSER_LICENSE_KEY: ${{ secrets.CLOAKBROWSER_CI_KEY }}
         run: |
           pip install -e ".[dev]" pytest pytest-asyncio
           pytest tests/ -v -m "not slow"

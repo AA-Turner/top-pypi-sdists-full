@@ -262,7 +262,7 @@ def shown_chars(ev: StoredEvent) -> int:
     return min(ev.chars, TEXT_SHOWN_CHARS) + 40
 
 
-def _new_file(ev: StoredEvent) -> bool:
+def _is_new_file(ev: StoredEvent) -> bool:
     """A folder-check "new file" event (`folders._apply`)."""
     return (ev.kind == Kind.FILE_CHANGE and ev.stream == FOLDERS_STREAM
             and ev.source not in (READER_SOURCE, REQUEST_SOURCE) and (ev.text or "").startswith("new file "))
@@ -279,7 +279,7 @@ def _burst_runs(events: list[StoredEvent]) -> set[int]:
     out: set[int] = set()
     run: list[int] = []
     for ev in [*events, None]:
-        if ev is not None and _new_file(ev):
+        if ev is not None and _is_new_file(ev):
             run.append(ev.seq)
             continue
         if len(run) > limit:
@@ -345,7 +345,7 @@ def runs_ahead(store: Store, last_seq: int) -> list[StoredEvent]:
     return store.pending_run_events(after_seq=last_seq, limit=RUNS_AHEAD_MAX)
 
 
-def _ahead_text(ahead: list[StoredEvent]) -> str:
+def _get_ahead_text(ahead: list[StoredEvent]) -> str:
     return "\n".join([RUNS_AHEAD, *(render(ev) for ev in ahead)])
 
 
@@ -521,13 +521,13 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
                       + rendered([ev for ev in kept if ev.seq >= first_seq]), first_seq, store.turn_of(last_seq))
     ahead = runs_ahead(store, last_seq)
     chat: list[str] = []
-    divider_done = False
+    is_divider_done = False
     for ev, text in shown:
-        if not divider_done and ev is not None and ev.seq >= first_seq:
+        if not is_divider_done and ev is not None and ev.seq >= first_seq:
             chat.append(DIVIDER)
             if ahead:
-                chat.append(_ahead_text(ahead))
-            divider_done = True
+                chat.append(_get_ahead_text(ahead))
+            is_divider_done = True
         chat.append(text)
     before = store.counts_before(start, recorded=True)
     totals = store.totals(recorded=True)
@@ -551,7 +551,7 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
                 runs=runs_named([*ahead, *(ev for ev in kept if ev.seq >= first_seq)]))
 
 
-def _landed_ref(output: str) -> tuple[str | None, str | None]:
+def _get_landed_ref(output: str) -> tuple[str | None, str | None]:
     """`(id, slug)` Probe answered a write with: its JSON's own `id` and `slug`,
     or an answer that opens with a uuid (`run end`: "<uuid> -> completed")."""
     text = (output or "").lstrip()
@@ -598,7 +598,7 @@ def landed_lines(store: Store) -> tuple[list[str], int, bool]:
         if kind != "write":
             continue
         head = matched.removeprefix("probe ")
-        ident, slug = _landed_ref(row["output"] or "")
+        ident, slug = _get_landed_ref(row["output"] or "")
         ident = _one_line(ident or "")
         target = _one_line(slug or write_target(head, argv))
         key = (head, target, ident)
@@ -749,7 +749,7 @@ def build_next(store: Store, *, trigger: str, instructions: str, shrink: tuple[i
             store.events_between(first_seq, last_seq, recorded=True, new=True, uncovered=True)))
     ahead = runs_ahead(store, last_seq)
     if ahead:
-        events_text = f"{_ahead_text(ahead)}\n\n{events_text}"
+        events_text = f"{_get_ahead_text(ahead)}\n\n{events_text}"
     prompt = f"{DIVIDER}\n\n{events_text}"
     runs = store.events_between(first_seq, last_seq, recorded=True, new=True, uncovered=True, kind=Kind.RUN_EVENT)
     return Bite(first_seq=first_seq, last_seq=last_seq, trigger=trigger, instructions=instructions, prompt=prompt,

@@ -1,0 +1,416 @@
+"""Metrics collection for reliability monitoring.
+
+This module provides lightweight metrics collection for circuit breakers,
+backpressure, and other reliability features.
+"""
+
+import logging
+import os
+import threading
+import time
+from collections import defaultdict
+from typing import Any, ClassVar, Optional
+
+from cachekit.hash_utils import redact_error_for_log
+
+logger = logging.getLogger(__name__)
+
+# Thread-safe metrics storage. One lock per process, keyed by pid: a fork from C skips every at-fork
+# hook, so a child must never take a lock it inherited, possibly held by a thread that is gone.
+_metrics_locks: dict[int, threading.RLock] = {}
+_metrics_data = defaultdict(lambda: defaultdict(float))
+_metrics_timestamps = defaultdict(float)
+
+
+def _metrics_lock() -> threading.RLock:
+    """This process's metrics lock, created on first use; setdefault is atomic, so racing threads share one."""
+    pid = os.getpid()
+    lock = _metrics_locks.get(pid)
+    return lock if lock is not None else _metrics_locks.setdefault(pid, threading.RLock())
+
+
+class MetricsCollector:
+    """Simple metrics collector for reliability features.
+
+    Examples:
+        Create and use a counter:
+
+        >>> counter = MetricsCollector("doctest_counter")
+        >>> counter.inc()
+        >>> counter.get()
+        1.0
+        >>> counter.inc()
+        >>> counter.get()
+        2.0
+
+        Use with labels:
+
+        >>> counter = MetricsCollector("doctest_labeled_counter")
+        >>> counter.inc({"operation": "get", "status": "success"})
+        >>> counter.get({"operation": "get", "status": "success"})
+        1.0
+
+        Set gauge value:
+
+        >>> gauge = MetricsCollector("doctest_gauge")
+        >>> gauge.set(42.0)
+        >>> gauge.get()
+        42.0
+
+        Chain with labels() method:
+
+        >>> counter = MetricsCollector("doctest_chained")
+        >>> counter.labels(operation="set").inc()
+        >>> counter.get({"operation": "set"})
+        1.0
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+        self._labels = {}
+
+    def labels(self, **kwargs) -> "MetricsCollector":
+        """Return a new collector instance with labels set."""
+        instance = MetricsCollector(self.name)
+        instance._labels = kwargs
+        return instance
+
+    def inc(self, labels: Optional[dict[str, str]] = None):
+        """Increment a counter metric."""
+        all_labels = {**self._labels, **(labels or {})}
+        key = self._make_key(all_labels)
+        with _metrics_lock():
+            _metrics_data[self.name][key] += 1
+            _metrics_timestamps[f"{self.name}:{key}"] = time.time()
+
+    def set(self, value: float, labels: Optional[dict[str, str]] = None):
+        """Set a gauge metric."""
+        all_labels = {**self._labels, **(labels or {})}
+        key = self._make_key(all_labels)
+        with _metrics_lock():
+            _metrics_data[self.name][key] = value
+            _metrics_timestamps[f"{self.name}:{key}"] = time.time()
+
+    def observe(self, value: float, labels: Optional[dict[str, str]] = None):
+        """Observe a histogram value (alias for set for compatibility)."""
+        self.set(value, labels)
+
+    def get(self, labels: Optional[dict[str, str]] = None) -> float:
+        """Get current metric value."""
+        all_labels = {**self._labels, **(labels or {})}
+        key = self._make_key(all_labels)
+        with _metrics_lock():
+            return _metrics_data[self.name].get(key, 0)
+
+    def _make_key(self, labels: dict[str, str]) -> str:
+        """Create a key from labels."""
+        if not labels:
+            return "default"
+        return "|".join(f"{k}={v}" for k, v in sorted(labels.items()))
+
+
+# Pre-defined metrics for common reliability patterns
+cache_operations = MetricsCollector("cache_operations_total")
+cache_latency = MetricsCollector("cache_operation_duration_seconds")  # Added for test compatibility
+circuit_breaker_state = MetricsCollector("circuit_breaker_state")
+connection_pool_usage = MetricsCollector("connection_pool_usage")
+
+
+def get_all_metrics() -> dict[str, dict[str, Any]]:
+    """Get all collected metrics.
+
+    Examples:
+        >>> counter = MetricsCollector("api_calls")
+        >>> counter.inc()
+        >>> metrics = get_all_metrics()
+        >>> "api_calls" in metrics
+        True
+    """
+    with _metrics_lock():
+        return dict(_metrics_data)
+
+
+# Async metrics collector class
+class AsyncMetricsCollector:
+    """Async metrics collector for high-performance scenarios.
+
+    This collector uses a background worker thread to process metrics asynchronously,
+    preventing blocking of the main thread during metric recording.
+    """
+
+    def __init__(self, name: str = "async_metrics", max_queue_size: int = 1000, worker_timeout: float = 1.0):
+        self.name = name
+        self.max_queue_size = max_queue_size
+        self.worker_timeout = worker_timeout
+
+        # Metrics storage
+        self._metrics = defaultdict(lambda: defaultdict(float))
+        self._lock = threading.RLock()
+
+        # Queue for async processing
+        import queue
+
+        self._metric_queue = queue.Queue(maxsize=max_queue_size)
+        self._pending_metrics = 0
+        self._pending_condition = threading.Condition()
+
+        # Worker thread management
+        self._shutdown_event = threading.Event()
+        self._worker_thread = None
+        self._start_worker()
+
+        # Statistics tracking
+        self._stats: dict[str, Any] = {"processed_count": 0, "dropped_count": 0, "queue_size": 0}
+        self._stats_lock = threading.Lock()
+
+    def _start_worker(self):
+        """Start the background worker thread."""
+        if self._worker_thread is None or not self._worker_thread.is_alive():
+            self._shutdown_event.clear()
+            self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+            self._worker_thread.start()
+
+    def _worker_loop(self):
+        """Main worker loop for processing metrics."""
+        import queue
+
+        while not self._shutdown_event.is_set():
+            try:
+                # Wait for metric with timeout to allow shutdown checks
+                metric_data = self._metric_queue.get(timeout=self.worker_timeout)
+
+                try:
+                    # Process the metric
+                    self._process_metric(metric_data)
+
+                    # Update statistics
+                    with self._stats_lock:
+                        self._stats["processed_count"] += 1
+                        self._stats["queue_size"] = self._metric_queue.qsize()
+                finally:
+                    self._metric_queue.task_done()
+                    with self._pending_condition:
+                        self._pending_metrics -= 1
+                        if not self._pending_metrics:
+                            self._pending_condition.notify_all()
+
+            except queue.Empty:
+                # Timeout - continue to check shutdown
+                continue
+            except Exception as e:
+                # Log error but keep worker running
+                logger.error(f"Error processing metric in worker thread: {redact_error_for_log(e)}")
+
+    def _process_metric(self, metric_data: dict):
+        """Process a single metric."""
+        try:
+            metric_type = metric_data["type"]
+            name = metric_data["name"]
+            value = metric_data.get("value", 1.0)
+            labels = metric_data.get("labels", {})
+
+            # Try to use Prometheus metrics if available
+            if self._try_prometheus_metric(metric_type, name, value, labels):
+                return
+
+            # Fallback to local storage
+            key = self._make_key(labels)
+            with self._lock:
+                if metric_type == "counter":
+                    self._metrics[name][key] += value
+                elif metric_type in ["histogram", "gauge"]:
+                    self._metrics[name][key] = value
+
+        except Exception as e:
+            logger.debug(f"Failed to process metric {metric_data.get('name', 'unknown')}: {redact_error_for_log(e)}")
+
+    def _try_prometheus_metric(self, metric_type: str, name: str, value: float, labels: dict) -> bool:
+        """Try to record using Prometheus metrics if available."""
+        try:
+            # Map common metric names to Prometheus metrics
+            if name == "redis_cache_operations_total":
+                cache_operations.labels(**labels).inc(value)  # type: ignore[arg-type]
+                return True
+            elif name == "redis_cache_operation_duration_seconds":
+                cache_latency.labels(**labels).observe(value)
+                return True
+            elif name == "redis_circuit_breaker_state":
+                circuit_breaker_state.labels(**labels).set(value)
+                return True
+            else:
+                # Log debug message for unknown metrics
+                logger.debug(f"Unknown metric name: {name}, using local storage")
+                return False
+
+        except (ImportError, AttributeError, Exception) as e:
+            logger.debug(f"Prometheus metric not available for {name}: {redact_error_for_log(e)}")
+
+        return False
+
+    def _enqueue_metric(self, metric_data: dict):
+        """Add metric to processing queue."""
+        import queue
+
+        with self._pending_condition:
+            self._pending_metrics += 1
+            try:
+                self._metric_queue.put_nowait(metric_data)
+            except queue.Full:
+                self._pending_metrics -= 1
+                with self._stats_lock:
+                    self._stats["dropped_count"] += 1
+                logger.warning(f"Metrics queue full, dropped metric: {metric_data.get('name', 'unknown')}")
+            else:
+                with self._stats_lock:
+                    self._stats["queue_size"] = self._metric_queue.qsize()
+
+    def record_counter(self, name: str, labels: Optional[dict[str, str]] = None, value: float = 1.0):
+        """Record a counter metric."""
+        metric_data = {"type": "counter", "name": name, "value": value, "labels": labels or {}}
+        self._enqueue_metric(metric_data)
+
+    def record_histogram(self, name: str, value: float, labels: Optional[dict[str, str]] = None):
+        """Record a histogram metric."""
+        metric_data = {"type": "histogram", "name": name, "value": value, "labels": labels or {}}
+        self._enqueue_metric(metric_data)
+
+    def record_gauge(self, name: str, value: float, labels: Optional[dict[str, str]] = None):
+        """Record a gauge metric."""
+        metric_data = {"type": "gauge", "name": name, "value": value, "labels": labels or {}}
+        self._enqueue_metric(metric_data)
+
+    def record_operation(self, operation: str, duration: float, labels: Optional[dict[str, str]] = None):
+        """Record an operation with duration."""
+        self.record_histogram(f"{operation}_duration", duration, labels)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get all recorded statistics."""
+        with self._stats_lock:
+            stats = dict(self._stats)
+            stats["queue_size"] = self._metric_queue.qsize()
+
+        # Add local metrics
+        with self._lock:
+            stats["local_metrics"] = dict(self._metrics)
+
+        return stats
+
+    def clear(self):
+        """Clear all metrics."""
+        with self._lock:
+            self._metrics.clear()
+
+        with self._stats_lock:
+            self._stats["processed_count"] = 0
+            self._stats["dropped_count"] = 0
+
+    def flush(self, timeout: float = 2.0):
+        """Flush all pending metrics with timeout.
+
+        Waits for the worker to finish PROCESSING, not merely dequeue.
+        """
+        if not self._worker_thread or not self._worker_thread.is_alive():
+            return  # nothing will ever drain the counter; waiting would only burn the timeout
+        deadline = time.monotonic() + timeout
+        with self._pending_condition:
+            while self._pending_metrics:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return
+                self._pending_condition.wait(remaining)
+
+    def shutdown(self, timeout: float = 2.0):
+        """Shutdown the collector gracefully."""
+        if self._shutdown_event.is_set():
+            return  # Already shutdown
+
+        # Signal shutdown
+        self._shutdown_event.set()
+
+        # Wait for worker to finish
+        if self._worker_thread and self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=timeout)
+
+    def _make_key(self, labels: dict[str, str]) -> str:
+        """Create a key from labels."""
+        if not labels:
+            return "default"
+        return "|".join(f"{k}={v}" for k, v in sorted(labels.items()))
+
+
+# Prometheus metrics registry class
+class PrometheusMetricsRegistry:
+    """Prometheus-compatible metrics registry.
+
+    This registry is designed to work with prometheus_client metric classes
+    while maintaining compatibility with the existing codebase.
+    """
+
+    # Class-level registry to maintain singleton behavior
+    _registry: ClassVar[dict[str, Any]] = {}
+    _lock: ClassVar[threading.RLock] = threading.RLock()
+
+    def __init__(self):
+        # Instance-level metrics for backward compatibility
+        self._instance_metrics = {}
+        self._instance_lock = threading.RLock()
+
+    @classmethod
+    def get_or_create_metric(cls, metric_class, name: str, description: str = "", labelnames=None, **kwargs):
+        """Get or create a Prometheus metric.
+
+        Args:
+            metric_class: Prometheus metric class (Counter, Gauge, Histogram, etc.)
+            name: Metric name
+            description: Metric description
+            labelnames: List of label names
+            **kwargs: Additional arguments for metric creation
+
+        Returns:
+            Prometheus metric instance
+        """
+        with cls._lock:
+            if name not in cls._registry:
+                try:
+                    # Create the Prometheus metric
+                    if labelnames:
+                        metric = metric_class(name, description, labelnames, **kwargs)
+                    else:
+                        metric = metric_class(name, description, **kwargs)
+                    cls._registry[name] = metric
+                except Exception as e:
+                    # If Prometheus metric creation fails, return a compatible mock
+                    logger.warning(f"Failed to create Prometheus metric {name}: {redact_error_for_log(e)}")
+                    cls._registry[name] = MetricsCollector(name)
+
+            return cls._registry[name]
+
+    def get_all_metrics(self):
+        """Get all metrics from both class and instance registries."""
+        with self._lock:
+            all_metrics = dict(self._registry)
+
+        with self._instance_lock:
+            all_metrics.update(self._instance_metrics)
+
+        return all_metrics
+
+
+# Global async metrics collector instance
+_global_async_collector = None
+_collector_lock = threading.Lock()
+
+
+def get_async_metrics_collector() -> AsyncMetricsCollector:
+    """Get the global async metrics collector instance."""
+    global _global_async_collector
+    if _global_async_collector is None:
+        with _collector_lock:
+            if _global_async_collector is None:
+                _global_async_collector = AsyncMetricsCollector()
+    elif not _global_async_collector._worker_thread.is_alive():
+        # Worker thread died, restart it
+        logger.warning("Async metrics collector worker thread died, restarting...")
+        with _collector_lock:
+            _global_async_collector._start_worker()
+    return _global_async_collector

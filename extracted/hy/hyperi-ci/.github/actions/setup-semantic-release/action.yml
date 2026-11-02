@@ -1,0 +1,118 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-semantic-release/action.yml
+# Purpose:   Install the pinned semantic-release toolchain -- ONE source of truth
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Consumed by predict-version (dry-run), _release-tail (real tag), ci.yml.
+# Predict and the real run must install identical plugins, else they compute
+# different versions ("tag vX already exists"). One place for that list -- here.
+#
+# Every repo runs the tagger-only `default.releaserc.json`, dropped into the
+# workspace (ephemeral, never committed). It carries NO custom releaseRules: the
+# bump is semantic-release's OWN defaults (feat->minor, fix/perf/revert->patch,
+# breaking->major, else none), the org SSoT, which hyperi_ci.release_rules
+# mirrors in Python for the pre-push gate. Repo release config is never loaded:
+# the real run holds the bot token, and the dry-run must load exactly what the
+# real run loads (issue #413). Stamping is `release.stamp_cmd` / `stamp_paths`.
+# semantic-release is a TAGGER only: stamping is `hyperi-ci stamp-version` and
+# publishing is hyperi-ci's publish stage. @semantic-release/git is not
+# installed. @semantic-release/github is, because core depends on it, but the
+# central config does not load it.
+#
+# Callers run the global `semantic-release` binary, never `npx`: npx prefers a
+# checkout's node_modules/.bin and applies its .npmrc.
+
+name: Setup semantic-release
+description: Install the pinned, shared semantic-release toolchain (single source of truth)
+
+inputs:
+  node-version:
+    description: Node.js version for the semantic-release runtime
+    required: false
+    # hyperi-ci:pin runtimes.node
+    default: "24"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install semantic-release + plugins (pinned)
+      shell: bash
+      # Outside the checkout, so a repo .npmrc cannot redirect the registry.
+      working-directory: ${{ runner.temp }}
+      # scripts/update-versions.py rewrites each marked value from the `tools:`
+      # entry of the same name in versions.yaml -- edit it there, not here.
+      env:
+        # hyperi-ci:pin tools.semantic-release
+        SR_CORE: "25.0.9"
+        # hyperi-ci:pin tools.semantic-release-commit-analyzer
+        SR_COMMIT_ANALYZER: "13.0.1"
+        # hyperi-ci:pin tools.semantic-release-release-notes-generator
+        SR_RELEASE_NOTES_GENERATOR: "14.1.1"
+        # hyperi-ci:pin tools.semantic-release-changelog
+        SR_CHANGELOG: "7.0.0"
+        # hyperi-ci:pin tools.semantic-release-exec
+        SR_EXEC: "7.1.0"
+        # hyperi-ci:pin tools.semantic-release-github
+        SR_GITHUB: "12.0.10"
+        # hyperi-ci:pin tools.conventional-changelog-conventionalcommits
+        SR_CONVENTIONALCOMMITS: "9.3.1"
+      run: |
+        npm install -g \
+          "semantic-release@$SR_CORE" \
+          "@semantic-release/commit-analyzer@$SR_COMMIT_ANALYZER" \
+          "@semantic-release/release-notes-generator@$SR_RELEASE_NOTES_GENERATOR" \
+          "@semantic-release/changelog@$SR_CHANGELOG" \
+          "@semantic-release/exec@$SR_EXEC" \
+          "@semantic-release/github@$SR_GITHUB" \
+          "conventional-changelog-conventionalcommits@$SR_CONVENTIONALCOMMITS"
+
+    - name: Provide the release config (central only, never the repo's)
+      shell: bash
+      # cosmiconfig (semantic-release's loader) reads a meta config first
+      # (package.json `cosmiconfig`, package.yaml, .config/config.*, which may
+      # execute JS), then package.json `release`, .releaserc*, .config/releaserc*
+      # and release.config.*. Plain config files are deleted. Anything inside a
+      # file the build ships, or a meta config, fails the run instead.
+      run: |
+        cd "$GITHUB_WORKSPACE"
+        if compgen -G ".releaserc*" > /dev/null || compgen -G "release.config.*" > /dev/null || compgen -G ".config/releaserc*" > /dev/null
+        then
+          echo "::warning::Ignoring the repo's own semantic-release config (.releaserc* / .config/releaserc* / release.config.*). Every repo releases with the central tagger-only config. Delete the file. Per-repo stamping is release.stamp_cmd in .hyperi-ci.yaml."
+          rm -f .releaserc* release.config.* .config/releaserc*
+        fi
+        if [ -e package.yaml ] || compgen -G ".config/config.*" > /dev/null
+        then
+          echo "::error::package.yaml or .config/config.* is a cosmiconfig meta config, which semantic-release reads ahead of the central config. Remove it."
+          exit 1
+        fi
+        # Parsed from its bytes, never require()d: require follows a symlink and
+        # loads a .js or .cjs target as code.
+        if [ -L package.json ]
+        then
+          echo "::error::package.json is a symlink. The release job reads it, so it must be a regular file."
+          exit 1
+        fi
+        if [ -f package.json ]
+        then
+          rc=0
+          node -e 'let p; try { p = JSON.parse(require("fs").readFileSync("package.json", "utf8")); } catch { process.exit(2); } process.exit(p !== null && typeof p === "object" && ("release" in p || "cosmiconfig" in p) ? 0 : 1)' || rc=$?
+          if [ "$rc" -eq 0 ]
+          then
+            echo "::error::package.json has a 'release' or 'cosmiconfig' key, which semantic-release would load ahead of the central config. Remove it."
+            exit 1
+          fi
+          if [ "$rc" -ne 1 ]
+          then
+            echo "::error::package.json is not valid JSON, so whether it carries a release config cannot be checked."
+            exit 1
+          fi
+        fi
+        cp "$GITHUB_ACTION_PATH/default.releaserc.json" .releaserc.json
+        echo "Using the central tagger-only .releaserc.json"

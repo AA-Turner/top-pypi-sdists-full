@@ -1,0 +1,881 @@
+#include "packingsolver/onedimensional/optimize.hpp"
+
+#include "packingsolver/onedimensional/algorithm_formatter.hpp"
+#include "packingsolver/onedimensional/instance_builder.hpp"
+#include "onedimensional/solution_builder.hpp"
+#include "onedimensional/tree_search.hpp"
+#include "onedimensional/milp_assignment.hpp"
+#include "onedimensional/dual_feasible_functions.hpp"
+#include "onedimensional/dynamic_programming.hpp"
+#include "onedimensional/trivial_bound.hpp"
+#include "algorithms/dichotomic_search.hpp"
+#include "algorithms/sequential_value_correction.hpp"
+#include "algorithms/column_generation.hpp"
+#include "algorithms/thread_pool.hpp"
+
+
+using namespace packingsolver;
+using namespace packingsolver::onedimensional;
+
+namespace
+{
+
+/**
+ * Return true iff the instance has constraints other than the lengths: item
+ * weights, nesting lengths, maximum stackabilities, eligibilities or bin
+ * resources.
+ */
+bool has_extra_constraints(const Instance& instance)
+{
+    for (BinTypeId bin_type_id = 0;
+            bin_type_id < instance.number_of_bin_types();
+            ++bin_type_id) {
+        const BinType& bin_type = instance.bin_type(bin_type_id);
+        if (bin_type.maximum_weight != std::numeric_limits<Weight>::infinity()
+                || !bin_type.eligibility_ids.empty()
+                || bin_type.number_of_resources() > 0) {
+            return true;
+        }
+    }
+    for (ItemTypeId item_type_id = 0;
+            item_type_id < instance.number_of_item_types();
+            ++item_type_id) {
+        const ItemType& item_type = instance.item_type(item_type_id);
+        if (item_type.nesting_length != 0
+                || item_type.maximum_stackability != std::numeric_limits<ItemPos>::max()
+                || item_type.maximum_weight_after != std::numeric_limits<Weight>::infinity()
+                || item_type.eligibility_id != -1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void optimize_trivial_bound(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    TrivialBoundParameters trivial_bound_parameters;
+    trivial_bound_parameters.verbosity_level = 0;
+    trivial_bound_parameters.timer = parameters.timer;
+    trivial_bound_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    trivial_bound_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+    trivial_bound_parameters.dynamic_programming_subset_sum_maximum_size
+        = parameters.dynamic_programming_subset_sum_maximum_size;
+    trivial_bound_parameters.dynamic_programming_knapsack_maximum_number_of_states
+        = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+    onedimensional::Output trivial_bound_output = trivial_bound(instance, trivial_bound_parameters);
+    algorithm_formatter.update_bounds(trivial_bound_output);
+}
+
+void optimize_dual_feasible_functions(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    DualFeasibleFunctionsParameters dff_parameters;
+    dff_parameters.verbosity_level = 0;
+    dff_parameters.timer = parameters.timer;
+    dff_parameters.new_solution_callback
+        = [&algorithm_formatter](
+                const onedimensional::Output& dff_output)
+        {
+            algorithm_formatter.update_bounds(dff_output);
+        };
+    dual_feasible_functions(instance, dff_parameters);
+}
+
+void optimize_dynamic_programming(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    DynamicProgrammingParameters dp_parameters;
+    dp_parameters.verbosity_level = 0;
+    dp_parameters.timer = parameters.timer;
+    dp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    dp_parameters.subset_sum_maximum_size = parameters.dynamic_programming_subset_sum_maximum_size;
+    dp_parameters.knapsack_maximum_number_of_states = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+    dp_parameters.new_solution_callback = [&algorithm_formatter](
+            const onedimensional::Output& dp_output)
+    {
+        algorithm_formatter.update_solution(dp_output.solution_pool.best(), "DP " + dp_output.solution_pool.best_label());
+        algorithm_formatter.update_bounds(dp_output);
+    };
+    dynamic_programming(instance, dp_parameters);
+}
+
+void optimize_tree_search(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    TreeSearchParameters ts_parameters;
+    ts_parameters.verbosity_level = 0;
+    ts_parameters.timer = parameters.timer;
+    ts_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    ts_parameters.guides = parameters.tree_search_guides;
+    ts_parameters.optimization_mode = parameters.optimization_mode;
+    ts_parameters.not_anytime_tree_search_queue_size = parameters.not_anytime_tree_search_queue_size;
+    ts_parameters.json_search_tree_path = parameters.json_search_tree_path;
+    ts_parameters.new_solution_callback = [&algorithm_formatter](
+            const onedimensional::Output& ts_output)
+    {
+        algorithm_formatter.update_solution(ts_output.solution_pool.best(), "TS " + ts_output.solution_pool.best_label());
+        algorithm_formatter.update_bounds(ts_output);
+    };
+    tree_search(instance, ts_parameters);
+}
+
+void optimize_sequential_single_knapsack(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    for (Counter iteration = 0, queue_size = 1;; ++iteration) {
+
+        if (parameters.optimization_mode != OptimizationMode::Anytime
+                && parameters.optimization_mode != OptimizationMode::Exact)
+            queue_size = parameters.not_anytime_sequential_single_knapsack_subproblem_tree_search_queue_size;
+
+        SequentialValueCorrectionFunction<Instance, Solution> kp_solve
+            = [&algorithm_formatter, &parameters, &queue_size](const Instance& kp_instance)
+            {
+                OptimizeParameters kp_parameters;
+                kp_parameters.verbosity_level = 0;
+                kp_parameters.timer = parameters.timer;
+                kp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+                kp_parameters.optimization_mode
+                    = (parameters.optimization_mode == OptimizationMode::NotAnytimeSequential)?
+                    OptimizationMode::NotAnytimeSequential:
+                    OptimizationMode::NotAnytimeDeterministic;
+                kp_parameters.not_anytime_tree_search_queue_size = queue_size;
+                kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+                kp_parameters.dynamic_programming_subset_sum_maximum_size
+                    = parameters.dynamic_programming_subset_sum_maximum_size;
+                kp_parameters.dynamic_programming_knapsack_maximum_number_of_states
+                    = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+                auto kp_output = optimize(kp_instance, kp_parameters);
+                return kp_output.solution_pool;
+            };
+        SequentialValueCorrectionParameters<Instance, Solution, onedimensional::Output> svc_parameters;
+        svc_parameters.verbosity_level = 0;
+        svc_parameters.timer = parameters.timer;
+        svc_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+        svc_parameters.restrict_bin_types
+            = parameters.sequential_value_correction_restrict_bin_types;
+        svc_parameters.scarce_item_types_profit_factor_exponent
+            = parameters.sequential_value_correction_scarce_item_types_profit_factor_exponent;
+        svc_parameters.maximum_number_of_iterations = 1;
+        // No later iteration to adjust profits away from this initial
+        // value - see 'SequentialValueCorrectionParameters::
+        // initial_profit_exponent''s own doc comment.
+        svc_parameters.initial_profit_exponent = 1.0;
+        svc_parameters.new_solution_callback = [
+            &algorithm_formatter, iteration](
+                    const onedimensional::Output& ps_output)
+            {
+                const SequentialValueCorrectionOutput<Instance, Solution, onedimensional::Output>& pssvc_output
+                    = static_cast<const SequentialValueCorrectionOutput<Instance, Solution, onedimensional::Output>&>(ps_output);
+                std::stringstream ss;
+                ss << "SSK it " << iteration;
+                algorithm_formatter.update_solution(pssvc_output.solution_pool.best(), ss.str());
+            };
+        sequential_value_correction<Instance, InstanceBuilder, Solution, AlgorithmFormatter, onedimensional::Output>(instance, kp_solve, svc_parameters);
+
+        // Check end.
+        if (algorithm_formatter.end_boolean())
+            break;
+        if (parameters.timer.needs_to_end())
+            break;
+
+        if (parameters.optimization_mode != OptimizationMode::Anytime
+                && parameters.optimization_mode != OptimizationMode::Exact)
+            break;
+
+        queue_size = std::max(
+                queue_size + 1,
+                (NodeId)(queue_size * 2));
+    }
+}
+
+void optimize_sequential_value_correction(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    SequentialValueCorrectionFunction<Instance, Solution> kp_solve
+        = [&algorithm_formatter, &parameters](const Instance& kp_instance)
+        {
+            OptimizeParameters kp_parameters;
+            kp_parameters.verbosity_level = 0;
+            kp_parameters.timer = parameters.timer;
+            kp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+            kp_parameters.optimization_mode
+                = (parameters.optimization_mode == OptimizationMode::NotAnytimeSequential)?
+                OptimizationMode::NotAnytimeSequential:
+                OptimizationMode::NotAnytimeDeterministic;
+            kp_parameters.not_anytime_tree_search_queue_size
+                = parameters.sequential_value_correction_subproblem_tree_search_queue_size;
+            kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+            kp_parameters.dynamic_programming_subset_sum_maximum_size
+                = parameters.dynamic_programming_subset_sum_maximum_size;
+            kp_parameters.dynamic_programming_knapsack_maximum_number_of_states
+                = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+            auto kp_output = optimize(kp_instance, kp_parameters);
+            return kp_output.solution_pool;
+        };
+    SequentialValueCorrectionParameters<Instance, Solution, onedimensional::Output> svc_parameters;
+    svc_parameters.verbosity_level = 0;
+    svc_parameters.timer = parameters.timer;
+    svc_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    svc_parameters.restrict_bin_types
+        = parameters.sequential_value_correction_restrict_bin_types;
+    svc_parameters.scarce_item_types_profit_factor_exponent
+        = parameters.sequential_value_correction_scarce_item_types_profit_factor_exponent;
+    svc_parameters.initial_profit_exponent = 1.1;
+    if (parameters.optimization_mode != OptimizationMode::Anytime
+            && parameters.optimization_mode != OptimizationMode::Exact)
+        svc_parameters.maximum_number_of_iterations = parameters.not_anytime_sequential_value_correction_number_of_iterations;
+    svc_parameters.new_solution_callback = [&algorithm_formatter](
+            const onedimensional::Output& ps_output)
+    {
+        const SequentialValueCorrectionOutput<Instance, Solution, onedimensional::Output>& pssvc_output
+            = static_cast<const SequentialValueCorrectionOutput<Instance, Solution, onedimensional::Output>&>(ps_output);
+        std::stringstream ss;
+        ss << "SVC it " << pssvc_output.number_of_iterations;
+        algorithm_formatter.update_solution(pssvc_output.solution_pool.best(), ss.str());
+    };
+    sequential_value_correction<Instance, InstanceBuilder, Solution, AlgorithmFormatter, onedimensional::Output>(instance, kp_solve, svc_parameters);
+}
+
+void optimize_dichotomic_search(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    double waste_percentage_upper_bound = std::numeric_limits<double>::infinity();
+    for (Counter queue_size = 1;;) {
+
+        if (parameters.optimization_mode != OptimizationMode::Anytime
+                && parameters.optimization_mode != OptimizationMode::Exact)
+            queue_size = parameters.not_anytime_dichotomic_search_subproblem_tree_search_queue_size;
+
+        DichotomicSearchFunction<Instance, Solution> bpp_solve
+            = [&algorithm_formatter, &parameters, &queue_size](const Instance& bpp_instance)
+            {
+                OptimizeParameters bpp_parameters;
+                bpp_parameters.verbosity_level = 0;
+                bpp_parameters.timer = parameters.timer;
+                bpp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+                bpp_parameters.optimization_mode
+                    = (parameters.optimization_mode == OptimizationMode::NotAnytimeSequential)?
+                    OptimizationMode::NotAnytimeSequential:
+                    OptimizationMode::NotAnytimeDeterministic;
+                bpp_parameters.use_tree_search = true;
+                bpp_parameters.not_anytime_tree_search_queue_size = queue_size;
+                bpp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+                bpp_parameters.dynamic_programming_subset_sum_maximum_size
+                    = parameters.dynamic_programming_subset_sum_maximum_size;
+                bpp_parameters.dynamic_programming_knapsack_maximum_number_of_states
+                    = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+                auto bpp_output = optimize(bpp_instance, bpp_parameters);
+                return bpp_output.solution_pool;
+            };
+        DichotomicSearchParameters<Instance, Solution, onedimensional::Output> ds_parameters;
+        ds_parameters.verbosity_level = 0;
+        ds_parameters.timer = parameters.timer;
+        ds_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+        ds_parameters.initial_waste_percentage_upper_bound = waste_percentage_upper_bound;
+        ds_parameters.knapsack_maximum_number_of_states = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+        ds_parameters.new_solution_callback = [
+            &algorithm_formatter, &queue_size](
+                    const onedimensional::Output& ps_output)
+            {
+                const DichotomicSearchOutput<Instance, Solution, onedimensional::Output>& psds_output
+                    = static_cast<const DichotomicSearchOutput<Instance, Solution, onedimensional::Output>&>(ps_output);
+                std::stringstream ss;
+                ss << "DS q " << queue_size
+                    << " w " << psds_output.waste_percentage;
+                algorithm_formatter.update_solution(psds_output.solution_pool.best(), ss.str());
+            };
+        auto ds_output = dichotomic_search<Instance, InstanceBuilder, Solution, AlgorithmFormatter, onedimensional::Output>(instance, bpp_solve, ds_parameters);
+
+        // Check end.
+        if (algorithm_formatter.end_boolean())
+            break;
+        if (parameters.timer.needs_to_end())
+            break;
+
+        if (parameters.optimization_mode != OptimizationMode::Anytime
+                && parameters.optimization_mode != OptimizationMode::Exact)
+            break;
+
+        queue_size = std::max(
+                queue_size + 1,
+                (NodeId)(queue_size * 2));
+        waste_percentage_upper_bound = ds_output.waste_percentage_upper_bound;
+    }
+}
+
+void optimize_column_generation(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter,
+        BinPos lower_bound)
+{
+    ColumnGenerationPricingFunction<Instance, InstanceBuilder, Solution, onedimensional::Output> pricing_function
+        = [&parameters](const Instance& kp_instance, PricingType)
+        {
+            OptimizeParameters kp_parameters;
+            kp_parameters.verbosity_level = 0;
+            kp_parameters.timer = parameters.timer;
+            kp_parameters.optimization_mode
+                = (parameters.optimization_mode == OptimizationMode::NotAnytimeSequential)?
+                OptimizationMode::NotAnytimeSequential:
+                OptimizationMode::NotAnytimeDeterministic;
+            kp_parameters.not_anytime_tree_search_queue_size
+                = parameters.column_generation_subproblem_tree_search_queue_size;
+            kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+            kp_parameters.dynamic_programming_subset_sum_maximum_size
+                = parameters.dynamic_programming_subset_sum_maximum_size;
+            kp_parameters.dynamic_programming_knapsack_maximum_number_of_states
+                = parameters.dynamic_programming_knapsack_maximum_number_of_states;
+            return optimize(kp_instance, kp_parameters);
+        };
+
+    ColumnGenerationParameters<Instance, Solution, onedimensional::Output> cg_parameters;
+    cg_parameters.verbosity_level = 0;
+    cg_parameters.timer = parameters.timer;
+    cg_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    cg_parameters.optimization_mode = parameters.optimization_mode;
+    cg_parameters.internal_diving = columngenerationsolver::Activation::Never;
+    // The inline rounding heuristic runs at every column generation
+    // iteration (unlike 'internal_diving', which only runs once, at the
+    // root - see 'ColumnGenerationParameters::rounding_heuristic''s own
+    // doc comment), so its per-iteration overhead is only worth paying
+    // when the master LP itself is comparatively expensive. Here, pricing
+    // is a 1D knapsack subproblem cheap enough that the heuristic's own
+    // cost regularly dominates the whole solve instead of shortening it -
+    // disabled outright rather than left at the library's own 'Initial'
+    // default.
+    cg_parameters.rounding_heuristic = columngenerationsolver::Activation::Never;
+    cg_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+    cg_parameters.use_cutting_planes = columngenerationsolver::Activation::Never;
+    // Unlike the other domains, this one already has its own dedicated,
+    // purpose-built sequential feasibility scheme for 'BinPacking' (see
+    // 'optimize_milp_assignment'/'MilpAssignmentParameters::
+    // use_sequential_feasibility'), so column generation's own doesn't need
+    // to run here too - it would only add a second, less specialized search
+    // for the same thing, called with no proper 'lower_bound' to seed it
+    // from (unlike 'optimize_milp_assignment''s own call site below). This
+    // matters beyond the top-level solve: this function also runs as a
+    // supposedly cheap sub-step of other domains' own bound computations
+    // (e.g. 'rectangle::optimize_onedimensional_bound'), where a slow,
+    // from-scratch sequential search would be a disproportionate cost for
+    // what's meant to be a fast approximate bound.
+    cg_parameters.use_sequential_feasibility = false;
+    cg_parameters.new_solution_callback = [&algorithm_formatter](
+            const onedimensional::Output& ps_output)
+    {
+        algorithm_formatter.update_solution(ps_output.solution_pool.best(), "CG " + ps_output.solution_pool.best_label());
+        algorithm_formatter.update_bounds(ps_output);
+    };
+    column_generation<Instance, InstanceBuilder, Solution, AlgorithmFormatter, onedimensional::Output>(
+            instance, pricing_function, cg_parameters, lower_bound);
+}
+
+void optimize_milp_assignment(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter,
+        BinPos lower_bound)
+{
+    MilpAssignmentParameters ma_parameters;
+    ma_parameters.verbosity_level = 0;
+    ma_parameters.timer = parameters.timer;
+    ma_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    ma_parameters.optimization_mode = parameters.optimization_mode;
+    ma_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
+    if (!parameters.mps_prefix.empty())
+        ma_parameters.mps_prefix = parameters.mps_prefix + "_milp_assignment";
+    ma_parameters.new_solution_callback = [&algorithm_formatter](
+            const onedimensional::Output& ps_output)
+    {
+        algorithm_formatter.update_solution(ps_output.solution_pool.best(), "MA " + ps_output.solution_pool.best_label());
+        algorithm_formatter.update_bounds(ps_output);
+    };
+    milp_assignment(instance, ma_parameters, lower_bound);
+}
+
+/**
+ * Prove the instance infeasible if an item type doesn't fit in any bin type:
+ * with every objective but 'Knapsack', every item must be packed.
+ *
+ * Only uses 'Instance::fits_some_bin', which is a cheap necessary condition.
+ */
+void optimize_item_types_fit(
+        const Instance& instance,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    if (instance.objective() == Objective::Knapsack)
+        return;
+    for (ItemTypeId item_type_id = 0;
+            item_type_id < instance.number_of_item_types();
+            ++item_type_id) {
+        if (instance.item_type(item_type_id).copies == 0)
+            continue;
+        if (!instance.fits_some_bin(item_type_id)) {
+            algorithm_formatter.update_is_proven_infeasible();
+            return;
+        }
+    }
+}
+
+}
+
+packingsolver::onedimensional::Output packingsolver::onedimensional::optimize(
+        const Instance& instance,
+        const OptimizeParameters& parameters)
+{
+    Output output(instance);
+    AlgorithmFormatter algorithm_formatter(instance, parameters, output);
+    algorithm_formatter.start();
+    algorithm_formatter.print_header();
+
+    optimize_item_types_fit(instance, algorithm_formatter);
+    if (output.is_proven_infeasible) {
+        algorithm_formatter.end();
+        return output;
+    }
+
+    // Instance reduction (see 'Reduction'): applied once, upfront, wrapping
+    // the whole dispatch logic below uniformly for every algorithm -
+    // mirrors 'rectangle::optimize()''s own wiring. Gated directly on
+    // 'parameters.reduction_parameters.reduce', rather than constructing a
+    // 'Reduction' unconditionally and letting its constructor no-op: when
+    // it is 'false', this skips the reduction entirely instead of paying
+    // for (and discarding) a full pass building its working
+    // representation. 'reduced_parameters.reduction_parameters.reduce' is
+    // set to 'false' below to avoid re-running the reduction recursively on
+    // the already-reduced instance.
+    if (parameters.reduction_parameters.reduce) {
+        ReductionParameters reduction_parameters = parameters.reduction_parameters;
+        reduction_parameters.timer = parameters.timer;
+        Reduction reduction(instance, reduction_parameters);
+
+        if (reduction.proven_infeasible()) {
+            // The reduction alone already proves the instance infeasible
+            // (a 'BinPacking' instance's single bin type had its dedicated
+            // bins - see 'Reduction::reduce_full_bin_items'/
+            // 'reduce_perfect_pairs'/'reduce_dominant_sets' - exhaust its
+            // own finite 'copies' while real items were still left over):
+            // 'reduction.instance()'
+            // is not meaningful to solve at all, so skip straight to
+            // reporting the answer.
+            algorithm_formatter.update_is_proven_infeasible();
+            algorithm_formatter.end();
+            return output;
+        }
+        // Forwards a solution/bound found for the reduced instance to the
+        // original 'algorithm_formatter', in original-instance
+        // coordinates. Most bounds need no reduction-specific translation
+        // at all: removing items via this reduction never changes them
+        // (profit, feasibility, ...), so 'reduced_output's bounds already
+        // are the original instance's bounds, in exactly 'Output's own
+        // field layout. The one exception is the dedicated bins set aside
+        // outside the reduced instance (see
+        // 'Reduction::number_of_dedicated_bins' - 'BinPacking' only, see
+        // 'Reduction::full_bin_reduction_applies'): entirely absent from
+        // the reduced instance, so no solve on it can ever count them -
+        // add them back onto the bin-count bound, in a local copy, before
+        // letting 'update_bounds' read off the one relevant to the
+        // current objective.
+        auto report_reduced_output = [&reduction, &algorithm_formatter](
+                const onedimensional::Output& reduced_output)
+            {
+                algorithm_formatter.update_solution(
+                        reduction.unreduce_solution(reduced_output.solution_pool.best()),
+                        reduced_output.solution_pool.best_label());
+                onedimensional::Output translated_output(reduced_output);
+                BinPos number_of_dedicated_bins = reduction.number_of_dedicated_bins();
+                if (number_of_dedicated_bins > 0)
+                    translated_output.bin_packing_bound += number_of_dedicated_bins;
+                algorithm_formatter.update_bounds(translated_output);
+            };
+
+        OptimizeParameters reduced_parameters = parameters;
+        reduced_parameters.verbosity_level = 0;
+        reduced_parameters.reduction_parameters.reduce = false;
+        // Forward every solution/bound the recursive solve finds to the
+        // original 'algorithm_formatter' as soon as it is found, rather
+        // than only once at the very end - lets an anytime run on the
+        // reduced instance report live progress (in original-instance
+        // coordinates) the same way a direct, unreduced run would.
+        reduced_parameters.new_solution_callback = report_reduced_output;
+        Output reduced_output = optimize(reduction.instance(), reduced_parameters);
+        // Also report the final result explicitly: some sub-solves never
+        // call 'new_solution_callback' at all (e.g. nothing left to search
+        // for). Harmless to call again even when the callback already
+        // reported this exact result, since 'update_solution'/
+        // 'update_bounds' are themselves no-ops for anything that doesn't
+        // improve on what is already recorded.
+        report_reduced_output(reduced_output);
+
+        algorithm_formatter.end();
+        return output;
+    }
+
+    optimize_trivial_bound(instance, parameters, algorithm_formatter);
+
+    if (instance.objective() == Objective::BinPacking
+            || instance.objective() == Objective::Feasibility
+            || instance.objective() == Objective::Knapsack) {
+        if (instance.number_of_bin_types() == 1
+                && (parameters.use_dual_feasible_functions
+                    || instance.number_of_items() <= 100)) {
+            optimize_dual_feasible_functions(
+                    instance,
+                    parameters,
+                    algorithm_formatter);
+        }
+    }
+
+    if (algorithm_formatter.end_boolean()) {
+        algorithm_formatter.end();
+        return output;
+    }
+    if (parameters.timer.needs_to_end()) {
+        algorithm_formatter.end();
+        return output;
+    }
+
+    if (instance.number_of_bins() == 1
+            && instance.objective() == Objective::Knapsack) {
+        optimize_dynamic_programming(
+                instance,
+                parameters,
+                algorithm_formatter);
+    }
+
+    if (algorithm_formatter.end_boolean()) {
+        algorithm_formatter.end();
+        return output;
+    }
+    if (parameters.timer.needs_to_end()) {
+        algorithm_formatter.end();
+        return output;
+    }
+
+    // Select algorithms to run.
+    ItemPos mean_number_of_items_in_bins
+        = largest_bin_space(instance) / mean_item_space(instance);
+    bool use_tree_search = parameters.use_tree_search;
+    bool use_sequential_single_knapsack = parameters.use_sequential_single_knapsack;
+    bool use_sequential_value_correction = parameters.use_sequential_value_correction;
+    bool use_dichotomic_search = parameters.use_dichotomic_search;
+    bool use_column_generation = parameters.use_column_generation;
+    bool use_milp_assignment = parameters.use_milp_assignment;
+    if (instance.number_of_bins() <= 1) {
+        use_sequential_single_knapsack = false;
+        use_sequential_value_correction = false;
+        use_dichotomic_search = false;
+        use_column_generation = false;
+        // Automatic selection.
+        if (!use_tree_search
+                && !use_milp_assignment) {
+            use_tree_search = true;
+        }
+    } else if (instance.objective() == Objective::Feasibility) {
+        // Disable algorithms which are not available for this objective.
+        use_dichotomic_search = false;
+        // Automatic selection.
+        if (!use_tree_search
+                && !use_sequential_single_knapsack
+                && !use_sequential_value_correction
+                && !use_column_generation
+                && !use_milp_assignment) {
+            if (mean_item_type_copies(instance)
+                    > parameters.many_item_type_copies_factor
+                    * mean_number_of_items_in_bins) {
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                } else {
+                    use_sequential_value_correction = true;
+                    use_column_generation = true;
+                }
+            } else {
+                use_tree_search = true;
+                use_column_generation = true;
+            }
+        }
+    } else if (instance.objective() == Objective::Knapsack) {
+        // Disable algorithms which are not available for this objective.
+        use_dichotomic_search = false;
+        // Automatic selection.
+        if (!use_tree_search
+                && !use_sequential_single_knapsack
+                && !use_sequential_value_correction
+                && !use_column_generation
+                && !use_milp_assignment) {
+            if (mean_item_type_copies(instance)
+                    > parameters.many_item_type_copies_factor
+                    * mean_number_of_items_in_bins) {
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                } else {
+                    use_sequential_value_correction = true;
+                    use_column_generation = true;
+                }
+            } else {
+                use_tree_search = true;
+                use_column_generation = true;
+            }
+        }
+    } else if (instance.objective() == Objective::BinPacking
+            || instance.objective() == Objective::BinPackingWithLeftovers) {
+        // Disable algorithms which are not available for this objective.
+        // 'column_generation' doesn't build item-type rows for
+        // 'BinPackingWithLeftovers' at all (see 'get_model' in
+        // 'algorithms/column_generation.hpp'); for 'BinPacking' with more
+        // than one bin type, it instead falls back to its own sequential
+        // feasibility scheme (see 'ColumnGenerationParameters::
+        // use_sequential_feasibility'), so no restriction is needed there.
+        if (instance.objective() == Objective::BinPackingWithLeftovers
+                && instance.number_of_bin_types() > 1) {
+            use_column_generation = false;
+        }
+        if (instance.objective() == Objective::BinPackingWithLeftovers)
+            use_milp_assignment = false;
+        use_dichotomic_search = false;
+        // Automatic selection.
+        if (!use_tree_search
+                && !use_sequential_single_knapsack
+                && !use_sequential_value_correction
+                && !use_column_generation
+                && !use_milp_assignment) {
+            if (mean_item_type_copies(instance)
+                    > parameters.many_item_type_copies_factor
+                    * mean_number_of_items_in_bins) {
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                } else {
+                    use_sequential_value_correction = true;
+                    if (instance.objective() == Objective::BinPacking)
+                        use_column_generation = true;
+                }
+            } else {
+                // Without extra constraints, the knapsack subproblems of
+                // the other algorithms are solved by dynamic programming,
+                // and the tree search is much more expensive for no
+                // better solutions.
+                if (has_extra_constraints(instance))
+                    use_tree_search = true;
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                } else {
+                    use_sequential_value_correction = true;
+                    if (instance.objective() == Objective::BinPacking)
+                        use_column_generation = true;
+                }
+            }
+        }
+    } else if (instance.objective() == Objective::VariableSizedBinPacking) {
+        // Disable algorithms which are not available for this objective.
+        if (instance.number_of_bin_types() == 1) {
+            if (use_dichotomic_search) {
+                use_dichotomic_search = false;
+                use_tree_search = true;
+            }
+        } else {
+            use_tree_search = false;
+        }
+        // Automatic selection.
+        if (!use_tree_search
+                && !use_sequential_single_knapsack
+                && !use_sequential_value_correction
+                && !use_dichotomic_search
+                && !use_column_generation
+                && !use_milp_assignment) {
+            if (mean_item_type_copies(instance)
+                    > parameters.many_item_type_copies_factor
+                    * mean_number_of_items_in_bins) {
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                } else {
+                    use_sequential_value_correction = true;
+                    use_column_generation = true;
+                }
+            } else {
+                if (mean_number_of_items_in_bins
+                        > parameters.many_items_in_bins_threshold) {
+                    use_sequential_single_knapsack = true;
+                    if (instance.number_of_bin_types() > 1) {
+                        use_dichotomic_search = true;
+                    } else {
+                        use_tree_search = true;
+                    }
+                } else {
+                    use_sequential_value_correction = true;
+                    use_column_generation = true;
+                }
+            }
+        }
+    }
+
+    // Run selected algorithms.
+    // In 'NotAnytimeDeterministic' mode, algorithms still run in parallel, but
+    // each reports to its own algorithm formatter, writing into its own
+    // output, instead of the shared 'algorithm_formatter', so that their
+    // results can be replayed into it in a fixed, deterministic order once
+    // every algorithm has terminated ('run(tasks, ...)' does not guarantee a
+    // deterministic finish order). Each algorithm can still stop as soon as
+    // its own solution is proven optimal against the bounds already known,
+    // which only depends on its own progress.
+    // These local formatters share 'local_parameters': silenced (no
+    // messages, no JSON output, no new solution callback), and whose timer
+    // also stops on the shared formatter's end boolean (e.g. set by the
+    // memory monitor), since the algorithms only add the end boolean of the
+    // formatter they report to. A 'unique_ptr' is used since an
+    // 'AlgorithmFormatter' is neither copyable nor movable.
+    bool deterministic = (parameters.optimization_mode == OptimizationMode::NotAnytimeDeterministic);
+    OptimizeParameters local_parameters = parameters;
+    local_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    local_parameters.verbosity_level = 0;
+    local_parameters.messages_to_stdout = false;
+    local_parameters.messages_path = "";
+    local_parameters.messages_streams.clear();
+    local_parameters.write_json_output = false;
+    local_parameters.new_solution_callback = [](const Output&) { };
+    std::vector<std::unique_ptr<Output>> local_outputs;
+    std::vector<std::unique_ptr<AlgorithmFormatter>> local_algorithm_formatters;
+    // Return the parameters and the algorithm formatter a new algorithm task
+    // should use.
+    auto task_context = [&instance, &parameters, &algorithm_formatter, &output,
+         deterministic, &local_parameters, &local_outputs, &local_algorithm_formatters]()
+        -> std::pair<const OptimizeParameters*, AlgorithmFormatter*>
+    {
+        if (!deterministic)
+            return {&parameters, &algorithm_formatter};
+        local_outputs.push_back(std::make_unique<Output>(instance));
+        local_outputs.back()->update_bounds(output);
+        local_algorithm_formatters.push_back(std::make_unique<AlgorithmFormatter>(
+                    instance,
+                    local_parameters,
+                    *local_outputs.back()));
+        return {&local_parameters, local_algorithm_formatters.back().get()};
+    };
+    std::vector<std::function<void()>> tasks;
+    std::forward_list<std::exception_ptr> exception_ptr_list;
+    // Tree search.
+    if (use_tree_search) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_tree_search), optimize_tree_search>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Sequential single knapsack.
+    if (use_sequential_single_knapsack) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_sequential_single_knapsack), optimize_sequential_single_knapsack>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Sequential value correction.
+    if (use_sequential_value_correction) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_sequential_value_correction), optimize_sequential_value_correction>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Dichotomic search.
+    if (use_dichotomic_search) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_dichotomic_search), optimize_dichotomic_search>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Column generation.
+    if (use_column_generation) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        BinPos column_generation_lower_bound = output.bin_packing_bound;
+        tasks.push_back([&exception_ptr, &instance, context, column_generation_lower_bound]() {
+            wrapper<decltype(&optimize_column_generation), optimize_column_generation>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second,
+                    column_generation_lower_bound);
+        });
+    }
+    // MILP assignment.
+    if (use_milp_assignment) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        // Snapshot the bound established so far (currently just
+        // 'optimize_trivial_bound', which already ran synchronously above):
+        // seeds the sequential feasibility scheme's starting candidate
+        // instead of it always restarting from scratch.
+        BinPos milp_assignment_lower_bound = output.bin_packing_bound;
+        tasks.push_back([&exception_ptr, &instance, context, milp_assignment_lower_bound]() {
+            wrapper<decltype(&optimize_milp_assignment), optimize_milp_assignment>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second,
+                    milp_assignment_lower_bound);
+        });
+    }
+    run(tasks, algorithm_formatter, parameters);
+    for (std::exception_ptr exception_ptr: exception_ptr_list)
+        if (exception_ptr)
+            std::rethrow_exception(exception_ptr);
+
+    // Replay the solutions and bounds found by each algorithm in a fixed,
+    // deterministic order (registration order), instead of the
+    // (non-deterministic) order in which the algorithms actually finished.
+    if (deterministic) {
+        for (const auto& local_output: local_outputs) {
+            algorithm_formatter.update_solution(
+                    local_output->solution_pool.best(),
+                    local_output->solution_pool.best_label());
+            algorithm_formatter.update_bounds(*local_output);
+        }
+    }
+
+    algorithm_formatter.end();
+    return output;
+}

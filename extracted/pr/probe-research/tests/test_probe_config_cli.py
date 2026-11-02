@@ -12,7 +12,8 @@ import json
 import pytest
 
 from probe import cli
-from probe.cli import probe_config_cli, write_gate
+from probe.cli.wizard.doctor import probe_config_check as probe_config_cli
+from probe.cli.lifecycle import write_gate
 from probe.sdk import agent_session, probe_config as pc, session_marker
 
 SID = "11111111-aaaa-bbbb-cccc-222222222222"
@@ -136,9 +137,6 @@ def test_status_carries_the_probe_config_block(home, monkeypatch, capsys):
     (code / pc.CONFIG_NAME).write_text("*.ckpt\n")
     _in_session(monkeypatch)
     session_marker.record_launch_dir(SID, str(launch))
-    import importlib
-
-    monkeypatch.setattr(importlib.import_module("probe.cli.main"), "_unfiled_runs_block", lambda: None)
     assert cli.main(["session", "status"]) in (0, None)
     block = json.loads(capsys.readouterr().out)["probe_config"]
     assert block["parent"] == "unasked"

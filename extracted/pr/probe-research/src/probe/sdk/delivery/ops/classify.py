@@ -16,20 +16,9 @@ _TRANSIENT_STATUSES = {408, 429}
 #: 5xx is a transient hiccup worth retrying.
 _PERMANENT_STATUSES = {501}
 
-#: How long one op may keep failing transiently, from its FIRST failure on the wall
-#: clock, before the drain stops believing it will succeed (plan 0.6).
-#:
-#: The queue is strict FIFO and stops at the first failure, so an op that never succeeds
-#: parks every write behind it: a storage-less deployment answered a checkpoint upload
-#: 503, the drain read "retry later", and 452 metric and span writes starved behind five
-#: uploads over 288 attempts. Past the budget the op takes the permanent path
-#: (dead-lettered; an upload's reference-artifact fallback still records the file).
-#:
-#: It was an ATTEMPT count (50), which let the POLL RATE decide when data was thrown
-#: away: `finish()`'s 0.25 s loop spent all 50 in ~13 s, the in-process exporter in ~7 s,
-#: so a deploy-length blip dead-lettered a run's final writes. A day outlasts any outage
-#: worth waiting out and is finite. ``attempts`` stays on the op for diagnostics only.
-#: ``PROBE_OUTBOX_TRANSIENT_BUDGET_SEC`` overrides it.
+#: How long one op may keep failing transiently, from its first failure on the wall clock,
+#: before the drain treats it as permanent (plan 0.6), so one poison op cannot park its run's
+#: writes forever. A count let the poll rate decide; a day outlasts any outage worth waiting out.
 TRANSIENT_BUDGET_SECONDS = 24 * 60 * 60.0
 
 
@@ -195,24 +184,9 @@ def _edge_already_there(op: dict, exc: Exception) -> bool:
 def _resolve_queued_run_ref(
     client, ref: str | None, cache: dict[str, str]
 ) -> tuple[str, str] | None:
-    """``(petname, uuid)`` for a ref a 422 just rejected, or None to re-raise.
-
-    Enqueue does NOT read the run: ``--async`` must queue with no network, and the CLI's
-    ``_async_run`` builds a handle from the raw ref. Every route the drainer replays
-    EXCEPT ``GET /v1/runs/{ref}`` types its path param as a UUID, so a petname
-    (``probe --async log tunneling-sambar-254 ...``, or a manifest row anchored on one)
-    queued cleanly, reported ``failed: 0``, then dead-lettered on a 422 minutes later.
-
-    Called only AFTER a 422: the happy path pays nothing, a UUID never reaches it, and a
-    real body validation error gets no lookup that hides it. The retry can only turn a
-    failing op into a delivered one.
-
-    None = nothing to retry (ref absent, already a UUID, or lookup failed); the caller
-    re-raises the original 422 so the op dead-letters on the server's error, not ours.
-
-    Cached per drain, not globally: ids are immutable, but a longer-lived cache would
-    keep answering for a run since deleted.
-    """
+    """``(petname, uuid)`` for a run ref a 422 just rejected, or None to re-raise it. Enqueue never
+    reads the run (async queues with no network), and every replayed route but one wants a uuid.
+    Only after a 422, so the happy path pays nothing; cached per drain, never longer."""
     if not ref or _is_uuid(ref):
         return None
     if ref not in cache:

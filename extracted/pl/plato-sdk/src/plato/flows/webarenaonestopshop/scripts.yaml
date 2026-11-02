@@ -1,0 +1,67 @@
+flows:
+- name: login
+  description: Customer login flow with robust verification (Magento)
+  steps:
+  - description: Navigate directly to the customer login page
+    type: navigate
+    url: /customer/account/login/
+  - description: Wait for login page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for email/username field
+    selector: 'input[name="login[username]"], input[name="email"], #email, input[type="email"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill email/username field
+    selector: 'input[name="login[username]"], input[name="email"], #email, input[type="email"]'
+    type: fill
+    value: emma.lopez@gmail.com
+  - description: Wait for password field
+    selector: 'input[name="login[password]"], #pass, input[type="password"]'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="login[password]"], #pass, input[type="password"]'
+    type: fill
+    value: Password.123
+  - description: Wait for login form submit button (not disabled)
+    selector: form[action*="/customer/account/login"] button#send2:not([disabled]),
+      form[action*="/customer/account/login"] button.action.login:not([disabled]),
+      button#send2:not([disabled]), button.action.login:not([disabled])
+    timeout: 15000
+    type: wait_for_selector
+  - description: Click login submit button (avoid search button)
+    selector: form[action*="/customer/account/login"] button#send2:not([disabled]),
+      form[action*="/customer/account/login"] button.action.login:not([disabled]),
+      button#send2:not([disabled]), button.action.login:not([disabled])
+    type: click
+  - description: Wait for login to process and redirect
+    duration: 6000
+    type: wait
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .message-error
+    - .messages .error
+    - .mage-error
+    - .alert-danger
+    - .alert-error
+    - .invalid-feedback
+    - '[role="alert"]'
+    type: verify_no_errors
+  - contains: true
+    description: Verify redirected to account area
+    type: verify_url
+    url: /customer/account
+  - description: Verify authenticated UI indicators present
+    selector: li.authorization-link a[href*="logout"], .customer-welcome, a[href*="/customer/account/"]
+    type: verify
+    verify_type: element_exists
+  - description: Verify main navigation/header visible
+    selector: .page-header, .navigation, .nav-sections, header.page-header, nav
+    type: verify
+    verify_type: element_exists
+  - contains: true
+    description: Verify page title indicates account/dashboard
+    title: Account
+    type: verify
+    verify_type: page_title

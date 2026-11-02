@@ -11,7 +11,7 @@ class CreateServiceLinkedRoleResponseBody(DaraModel):
         request_id: str = None,
         role: main_models.CreateServiceLinkedRoleResponseBodyRole = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The role information.
         self.role = role
@@ -59,7 +59,7 @@ class CreateServiceLinkedRoleResponseBodyRole(DaraModel):
         self.arn = arn
         # The trust policy document of the role.
         self.assume_role_policy_document = assume_role_policy_document
-        # The time when the role was created (UTC).
+        # The time when the role was created. The time is displayed in UTC.
         self.create_date = create_date
         # The description of the role.
         self.description = description
@@ -68,9 +68,9 @@ class CreateServiceLinkedRoleResponseBodyRole(DaraModel):
         # - true: The role is a service-linked role.
         # - false: The role is not a service-linked role.
         self.is_service_linked_role = is_service_linked_role
-        # The role ID.
+        # The ID of the role.
         self.role_id = role_id
-        # The role name.
+        # The name of the role.
         self.role_name = role_name
 
     def validate(self):

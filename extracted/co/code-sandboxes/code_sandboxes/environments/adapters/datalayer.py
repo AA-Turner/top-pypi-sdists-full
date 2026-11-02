@@ -38,6 +38,7 @@ sandbox is launched through Runtimes' internal route and checked there
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shlex
@@ -210,6 +211,26 @@ def _pip_lock_command(find_links: str, *, authored: bool, foreign: bool = False)
     )
 
 
+def write_build_context(environment: Environment, root: Path) -> None:
+    """Write a `foreignDockerfile`'s inline context where its `COPY`s read it.
+
+    Checked again here, against the folder itself, because this is the step
+    that writes to disk: nothing validated elsewhere is taken on trust.
+    """
+    dockerfile = environment.spec.build.dockerfile
+    for item in (dockerfile.context if dockerfile else None) or []:
+        target = (root / item.path).resolve()
+        if not target.is_relative_to(root.resolve()) or target == root.resolve():
+            raise EnvironmentsError(
+                SPEC_INVALID,
+                f"`{item.path}` is not a path inside the build context",
+                detail={"field": "spec.build.dockerfile.context", "path": item.path},
+            )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(base64.b64decode(item.content_base64))
+        target.chmod(0o755 if item.executable else 0o644)
+
+
 def _contract_layer(request: BuildRequest) -> list[str]:
     """What makes a foreign image a sandbox, before its lock is installed: the
     contract's files from the approved base it was resolved against, so they
@@ -228,7 +249,7 @@ def _contract_layer(request: BuildRequest) -> list[str]:
         "RUN chmod 0755 /opt/datalayer /opt/datalayer/bin /opt/datalayer/bin/tini "
         "/opt/datalayer/bin/datalayer-sandbox /opt/datalayer/constraints "
         "/opt/datalayer/wheelhouse /usr/local/sbin/start-jupyter.sh",
-        'RUN python3 -m pip install --no-cache-dir "uv==0.12.11"',
+        'RUN python3 -m pip install --no-cache-dir "uv==0.13.6"',
     ]
 
 
@@ -241,6 +262,10 @@ def _contract_user() -> list[str]:
     user, uid, gid, home = contract.user, contract.uid, contract.gid, contract.home
     reserved, reserved_parent = contract.reserved_path, str(Path(contract.reserved_path).parent)
     return [
+        # `datalayer` brings JupyterLab, which a sandbox never serves: it starts
+        # `jupyter server`. Out, and with it Lab's bundle and staging lock,
+        # whose pins can block the scan with no fixed release to move to.
+        "RUN uv pip uninstall --system jupyterlab",
         f"RUN pwd > {TASK_WORKDIR_FILE} && chmod 0644 {TASK_WORKDIR_FILE} "
         f'&& if [ "$(pwd)" != / ]; then find "$(pwd)" -path {reserved} -prune '
         f"-o ! -path {reserved_parent} ! -path / -exec chown -h {uid}:{gid} {{}} +; fi",
@@ -248,8 +273,12 @@ def _contract_user() -> list[str]:
         f"&& if getent passwd {uid} >/dev/null; then "
         f'usermod -l {user} -g {gid} -d {home} "$(getent passwd {uid} | cut -d: -f1)"; '
         f"else useradd -u {uid} -g {gid} -d {home} -s /bin/bash {user}; fi "
-        f"&& mkdir -p {home}/.local/share/jupyter/runtime/external_kernels "
+        f"&& mkdir -p {home}/content {home}/.local/share/jupyter/runtime/external_kernels "
         f"&& chown -R {uid}:{gid} {home}",
+        # The config comes from the base's channel, which may start a kernel
+        # elsewhere; conformance:2 reads the kernel's cwd.
+        f"RUN echo \"c.MappingKernelManager.root_dir = '{contract.workdir}'\" "
+        ">> /usr/local/share/jupyter_config.py",
         f"ENV HOME={home} LANG={contract.locale} LC_ALL={contract.locale} "
         f"LANGUAGE={contract.locale} TZ=Etc/UTC PATH=$PATH:/opt/datalayer/bin",
         'ENTRYPOINT ["/opt/datalayer/bin/tini", "-g", "--"]',
@@ -573,6 +602,7 @@ class Builder:
             root = Path(directory)
             (root / "Dockerfile").write_text(self.dockerfile(request), encoding="utf-8")
             (root / "lock.txt").write_text(request.lock_text, encoding="utf-8")
+            write_build_context(request.environment, root)
             metadata = root / "metadata.json"
             # A secret's value is never written under `root`: that directory
             # is also `--local context=`, sent to `buildkitd` as ordinary

@@ -45,6 +45,12 @@ struct SolverFeed {  // (polyline, arclength, volts)
 };
 
 // The keyword arguments `construct_solver` hands the solver class, in order.
+// The Sinusoidal-Galerkin row's declared refusal of the extended kernel at a
+// radius-step junction (`_EK_STEPPED_RADIUS_JUNCTION_REFUSAL`): the dialect
+// default falls back on it (momwire#1718 S3), and the constructor raises it
+// when the kernel is asked for.
+extern const char *const kSgEkSteppedJunction;
+
 struct SolverArgs {
     std::vector<std::vector<Point3>> wires;              // wires=
     std::vector<std::vector<long long>> n_per_edge;      // n_per_edge_per_wire=
@@ -64,6 +70,21 @@ struct SolverArgs {
     Ground ground;                                       // ground_z= / ground_eps= / ground_model=
     bool exact_kernel_auto = false;                      // bspline's exact_kernel='auto'
     bool junction_rule_nec42 = false;                   // junction_rule='nec42' (momwire#1644)
+};
+
+// `_wire_spec.WireDedup` (momwire#1042): how a solver's INPUT wires map onto
+// the wires it solves once a wire listed twice is dropped. `kept[i]` is the
+// input index of solved wire `i`; `removed` one (copy, kept twin, reversed)
+// per dropped copy, sorted by copy. Inactive: nothing was dropped.
+struct WireDedup {
+    bool active = false;
+    long long n_input = 0;
+    std::vector<long long> kept;
+    struct Dropped {
+        long long copy = 0, twin = 0;
+        bool reversed = false;
+    };
+    std::vector<Dropped> removed;
 };
 
 struct PortSite {
@@ -90,6 +111,9 @@ struct OperatingPoint {
     double wavelength = 0;
     long long group = -1;  // -1: None
     bool extended_kernel = false;  // what the solver was built with
+    // what the run asked for (`solver.at(freq, extended_kernel=...)`'s key):
+    // the dialect default's fallback can build without it (momwire#1718 S3)
+    bool extended_kernel_asked = false;
     std::vector<std::string> advisories;
     std::vector<double> signs;
 };

@@ -1,0 +1,391 @@
+"""The contracts an adapter writes (board, machine events, runs and their pools) and the task key it declares.
+
+An adapter is a producer of these records for StarPulse: a Backlog.md or Jira reader writes
+`BoardTask`s, a harness or git hook writes `MachineEvent`s, and a scheduler reader writes `Dag`s, each with its
+`ActiveRun`s, and the `Pool`s they run on.
+Each model is also published as a JSON Schema under `schemas/`, regenerated with
+`python -m starpulse.contracts`; `starpulse._internal.kit.adapter_kit` runs an adapter's output against them.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Literal, Protocol, Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from starpulse.contracts.task_keys import TaskKeys
+
+__all__ = [
+    "CONTRACTS",
+    "EVENT_STREAMS",
+    "SCHEMAS",
+    "ActiveRun",
+    "BoardTask",
+    "Dag",
+    "LaneEvent",
+    "RatingEvent",
+    "MachineEvent",
+    "Move",
+    "Pool",
+    "RecentRun",
+    "RunEvent",
+    "RunStatus",
+    "RunsSink",
+    "StartFailedError",
+    "Step",
+    "TaskKeys",
+]
+
+
+class StartFailedError(Exception):
+    """A runs adapter's start capability could not start the workflow; its message is the reason shown to the operator."""
+
+
+class _Contract(BaseModel):
+    """A record StarPulse reads: unknown fields are an error, so a misspelt one is not silently lost."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+
+class Move(_Contract):
+    """The verdict on moving a task to one column: allowed, or guarded by a declared rule."""
+
+    allowed: bool = Field(description="False when a guard the board writer enforces would refuse the move.")
+    reason: str = Field(default="", description="What the refusing guard needs; empty when the move is allowed.")
+    skill: str = Field(default="", description="The skill that produces what the guard needs; empty when allowed.")
+    writers: tuple[str, ...] = Field(
+        default=(),
+        description="The actors the machine YAML declares for the event behind the move; empty when it declares none, "
+        "and then any actor may make it.",
+    )
+
+    def permits(self, actor: str) -> bool:
+        """False when the machine declares writers for the event and `actor` is none of them."""
+        return not self.writers or actor in self.writers
+
+    def for_actor(self, actor: str) -> Move:
+        """The verdict as `actor` meets it: this move, or a refusal when `actor` is not among its writers."""
+        if self.permits(actor):
+            return self
+        reason = self.reason or f"made by {', '.join(self.writers)}, not {actor}"
+        return self.model_copy(update={"allowed": False, "reason": reason})
+
+
+class BoardTask(_Contract):
+    """One task on the board, as the latest observation of it."""
+
+    id: str = Field(description="The task key, matching the adapter's declared `TaskKeys.key` (`PROJ-45`, `ENG-123`).")
+    title: str = Field(description="The task's one-line title.")
+    team: str = Field(
+        pattern=r"\S",
+        description="The team key the adapter derived from the tracker's own structure: a Backlog.md project, a Jira "
+        "project or board, a GitHub repository. Never blank, so a task that belongs to no project is refused rather "
+        "than counted under a default team.",
+    )
+    lane: str = Field(
+        description="The id of the Board machine state the task is in (`in_progress`): its status, lower-cased, spaces as `_`."
+    )
+    dependencies: tuple[str, ...] = Field(default=(), description="Keys of the tasks this one waits on.")
+    references: tuple[str, ...] = Field(
+        default=(), description="Links and paths the task cites; the pull request URLs among them are drawn as its PRs."
+    )
+    settled: Literal["completed", "archived"] | None = Field(
+        default=None,
+        description="Set when the task has left the lanes for good, `completed` or `archived`; `lane` is then ignored.",
+    )
+    created_at: float | None = Field(
+        default=None, description="When the task was created, in epoch seconds; None when the board does not say."
+    )
+    settled_at: float | None = Field(
+        default=None,
+        description="When a settled task settled, in epoch seconds; None when the board does not say or it is not settled.",
+    )
+    observed_at: float | None = Field(
+        default=None,
+        description="When the board saw the task in this state, in epoch seconds; None when it does not say. A move "
+        "read live is dated by it, not by when StarPulse read it.",
+    )
+    profile: str = Field(default="", description="Which agent profile or model the task is routed to; empty when unrouted.")
+    assignee: str = Field(
+        default="",
+        description="The session that last claimed the task, as its harness names it; empty when none has. `profile` is who or which agent model the task is for.",
+    )
+    labels: tuple[str, ...] = Field(default=(), description="The task's labels.")
+    milestone: str = Field(default="", description="The milestone the task belongs to; empty when it has none.")
+    impact: str = Field(
+        default="",
+        description="How much the work matters (`low`, `medium` or `high`); empty when the board keeps none. With `urgency` it picks the task's Priority weight.",
+    )
+    urgency: str = Field(
+        default="",
+        description="How soon the work matters (`low`, `medium` or `high`); empty when the board keeps none.",
+    )
+    type: str = Field(
+        default="",
+        description="The task's type, a name the deployment chooses (`spike`, `bug`); empty when it has none. StarPulse names no type.",
+    )
+    description: str = Field(default="", description="The task's description text, shown when the task is opened.")
+    acceptance_criteria: tuple[str, ...] = Field(
+        default=(),
+        description="The text of each acceptance criterion, searched with the title and description; empty when the board keeps none.",
+    )
+    acceptance_checked: tuple[bool, ...] = Field(
+        default=(),
+        description="Whether each criterion in `acceptance_criteria` is checked, in the same order; a criterion past "
+        "the end of this list is unchecked, so an adapter that keeps no checked state leaves it empty.",
+    )
+    pause_reason: str = Field(
+        default="",
+        description="Why a paused task waits for a person, the first line of the reason its board records; empty when "
+        "the task is not paused or the board keeps none.",
+    )
+    notes: str = Field(
+        default="",
+        description="The task's running notes, searched with the title and description; empty when the board keeps none.",
+    )
+    moves: dict[str, Move] = Field(
+        default_factory=dict,
+        description="The verdict on each Board column the task may move to, by state id; empty for a settled task.",
+    )
+
+
+class MachineEvent(_Contract):
+    """One event a lifecycle machine saw, keyed by the task or run it moved; the `machine:events` entry's fields."""
+
+    event_id: str = Field(
+        default="", description="The stream's unique id for the entry; absent from a record not read off a stream."
+    )
+    machine: str = Field(description="The machine's registry name (`in-progress`).")
+    event: str = Field(description="The machine's own name for the event (`WORKTREE_READY`).")
+    task: str | None = Field(default=None, description="The task key it moved; exactly one of `task` and `run` is set.")
+    run: str | None = Field(default=None, description="The run id it moved; exactly one of `task` and `run` is set.")
+    actor: str = Field(default="", description="Who or what fired the event: an agent, a hook, a DAG.")
+    time: float = Field(
+        description="When it happened, in epoch seconds; a stream carries it as text and it is read as a number."
+    )
+    source: str = Field(
+        default="", description="The producer that posted it through the CloudEvents ingest; empty from a local writer."
+    )
+    data: dict[str, Any] | None = Field(
+        default=None, description="The JSON object the producer attached through the CloudEvents ingest, if any."
+    )
+
+    @model_validator(mode="after")
+    def _keyed_by_one(self) -> Self:
+        if (self.task is None) == (self.run is None):
+            raise ValueError("key a machine event by exactly one of task or run")
+        return self
+
+
+#: Every status a run or a step reports: an adapter maps its engine's states onto these and may keep the engine's own in `raw`.
+RunStatus = Literal["not_started", "queued", "running", "succeeded", "failed", "aborted", "skipped"]
+
+
+class Step(_Contract):
+    """One step of a DAG in its latest run."""
+
+    name: str = Field(description="The step's name, unique within its DAG.")
+    depends: tuple[str, ...] = Field(description="Names of the steps that must finish before this one starts.")
+    status: RunStatus = Field(description="The step's status in the latest run.")
+    raw: str | None = Field(
+        default=None, description="The engine's own status for the step when it differs from `status`, shown as is."
+    )
+    kind: str | None = Field(description="The phase kind the step declares (`agent`), or None when it declares none.")
+
+
+class Dag(_Contract):
+    """One DAG with its step graph and its latest run."""
+
+    name: str = Field(description="The DAG's name, unique on its scheduler.")
+    status: RunStatus = Field(description="The latest run's status (`not_started` before any run).")
+    raw: str | None = Field(
+        default=None, description="The engine's own status for the run when it differs from `status`, shown as is."
+    )
+    run_id: str = Field(alias="runId", description="The latest run's id; empty before any run.")
+    started_at: str = Field(
+        alias="startedAt",
+        description="When the latest run started, ISO 8601 UTC (`2026-10-02T17:00:00Z`); empty before any run.",
+    )
+    finished_at: str = Field(
+        alias="finishedAt",
+        description="When the latest run ended, ISO 8601 UTC; empty while it runs or before any run.",
+    )
+    steps: tuple[Step, ...] = Field(description="The DAG's steps; empty when the scheduler cannot describe them.")
+    active: tuple[ActiveRun, ...] = Field(
+        default=(),
+        description="Every run of the DAG that is running or queued now, longest-running first; empty when none "
+        "is or the scheduler cannot list them.",
+    )
+    pool: str = Field(
+        default="", description="The name of the concurrency `Pool` the DAG runs on; empty when it names none."
+    )
+    recent: tuple[RecentRun, ...] = Field(
+        default=(),
+        description="The DAG's runs of the last day with the parameters each started with and its per-step status, "
+        "for the workflows a Board event cues or that write one; empty for any other or when the scheduler cannot "
+        "list them.",
+    )
+
+
+class RecentRun(_Contract):
+    """One run of a DAG within the last day, running or over, with the parameters it started with."""
+
+    run_id: str = Field(alias="runId", description="The run's id.")
+    task: str | None = Field(
+        default=None, description="The Board task a `dag-run-task-<N>-<ts>` run id names (`TASK-N`); None for any other run."
+    )
+    url: str = Field(default="", description="A link to the run in the scheduler's own page; empty when it has none.")
+    status: RunStatus = Field(description="The run's status.")
+    raw: str | None = Field(
+        default=None, description="The engine's own status for the run when it differs from `status`, shown as is."
+    )
+    started_at: str = Field(
+        alias="startedAt", description="When the run started, ISO 8601 UTC (`2026-10-02T17:00:00Z`)."
+    )
+    finished_at: str = Field(
+        alias="finishedAt", description="When the run ended, ISO 8601 UTC; empty while it runs."
+    )
+    params: dict[str, str] = Field(
+        description="The `KEY=value` parameters the run started with, by name; empty when it had none."
+    )
+    steps: dict[str, RunStatus] = Field(description="Each step the run reached by name with its status in this run.")
+
+
+class ActiveRun(_Contract):
+    """One run of a DAG that is running or queued now."""
+
+    run_id: str = Field(alias="runId", description="The run's id.")
+    status: RunStatus = Field(description="The run's status: `running` or `queued`.")
+    raw: str | None = Field(
+        default=None, description="The engine's own status for the run when it differs from `status`, shown as is."
+    )
+    started_at: str = Field(
+        alias="startedAt",
+        description="When the run started, or was queued while it waits, ISO 8601 UTC (`2026-10-02T17:00:00Z`).",
+    )
+    step: str = Field(
+        description="The step the run entered last among those running; empty while it is queued or between steps."
+    )
+    step_started_at: str = Field(
+        alias="stepStartedAt", description="When the run entered `step`, ISO 8601 UTC; empty when `step` is."
+    )
+    steps: dict[str, RunStatus] = Field(description="Each of the DAG's steps by name with its status in this run.")
+
+
+class Pool(_Contract):
+    """One concurrency pool: the cap on the runs that may execute at once, and the runs holding or awaiting it."""
+
+    name: str = Field(description="The pool's name, unique on its scheduler; a DAG's `pool` names it.")
+    cap: int = Field(ge=0, description="The most runs the pool lets execute at once.")
+    running: int = Field(ge=0, description="The runs executing on the pool now.")
+    queued: int = Field(ge=0, description="The runs waiting for the pool to have room.")
+
+
+class RunsSink(Protocol):
+    """Where a runs adapter's `follow(url, runs, log)` publishes the workflows and `Pool`s of its one instance, and says when it cannot read them.
+
+    `pools` None keeps the last reported and a list replaces them, so an adapter that reports none passes `[]`.
+    `startable`, when the adapter can start only some of its workflows, names those; None keeps the last report, and an
+    adapter that never reports one is read as able to start every workflow.
+    """
+
+    def set_dags(
+        self, dags: list | None, error: str | None, pools: list | None = None, startable: list[str] | None = None
+    ) -> None: ...
+
+
+class RunEvent(_Contract):
+    """One workflow run, or one step of it, starting or ending; the `runs:events` entry's fields."""
+
+    time: float = Field(ge=0, allow_inf_nan=False, description="When it happened, in epoch seconds.")
+    event: Literal["StepStarted", "StepFinished"] = Field(description="Whether the run or step started or finished.")
+    workflow: str = Field(min_length=1, description="The workflow's name, unique on its scheduler.")
+    run_id: str = Field(min_length=1, description="The run's id.")
+    status: RunStatus = Field(description="The run's status, or the step's when `step` is set.")
+    step: str = Field(default="", description="The step this entry reports; empty when it reports the run itself.")
+    depends: tuple[str, ...] = Field(
+        default=(), description="Names of the steps `step` waits on; empty when it waits on none, and needs `step`."
+    )
+    instance: str = Field(
+        default="",
+        description="The runs adapter instance whose token pushed the entry over HTTP; empty for an entry a hook emitted.",
+    )
+
+    @model_validator(mode="after")
+    def _depends_names_a_step(self) -> Self:
+        if self.depends and not self.step:
+            raise ValueError("depends needs step")
+        return self
+
+
+class LaneEvent(_Contract):
+    """One task entering a Board lane; the `board:lanes` entry's fields. It never carries a title, a description, a
+    holder or any session detail."""
+
+    task: str = Field(min_length=1, description="The task key that changed lane.")
+    lane: str = Field(min_length=1, description="The id of the Board machine state the task entered.")
+    time: float = Field(ge=0, allow_inf_nan=False, description="When the task entered the lane, in epoch seconds.")
+    team: str = Field(
+        default="",
+        description="The task's team key; empty on an entry replayed from the history or recorded when a write moved the task.",
+    )
+    milestone: str = Field(default="", description="The task's milestone; empty when it has none.")
+    labels: tuple[str, ...] = Field(default=(), description="The task's labels; empty when it has none.")
+    profile: str = Field(
+        default="", description="Which agent profile or model the task was routed to; empty when unrouted, and a person's name."
+    )
+    assignee: str = Field(
+        default="", description="The legacy name of `profile`, read on an entry an older instance wrote."
+    )
+    actor: str = Field(
+        default="",
+        description="Who made the move: the actor of the write the board's server recorded it from (`operator`, `agent`, "
+        "`anonymous`, `<instance>/<workflow>` or `starpulse/task-actor`), or `external` for a change no such write made "
+        "(a hand edit of the board, a board adapter that records at placement); empty on an entry that predates actors.",
+    )
+    session: str = Field(
+        default="", description="The harness session that made the move, as its write named it; empty when it named none."
+    )
+    harness: str = Field(
+        default="", description="The harness (`claude`, `cursor`) of that session; empty when the write named none."
+    )
+
+
+class RatingEvent(_Contract):
+    """One change of a task's pass/fail rating; the `task:ratings` entry's fields. Every change is kept, and the latest
+    one for a task is its rating."""
+
+    task: str = Field(min_length=1, description="The task key whose rating changed.")
+    verdict: Literal["pass", "fail", "cleared"] = Field(description="The rating the change sets; `cleared` drops it.")
+    time: float = Field(ge=0, allow_inf_nan=False, description="When the change was made, in epoch seconds.")
+    reason: str = Field(default="", max_length=120, description="Why the task fails; empty when none was given.")
+    actor: str = Field(default="", description="Who made the change, as the write's actor names it; empty when none.")
+    session: str = Field(
+        default="", description="The harness session that made the change, as its write named it; empty when none."
+    )
+    harness: str = Field(default="", description="The harness of that session; empty when the write named none.")
+
+
+#: Each contract's model, by the name its checked-in schema file carries.
+CONTRACTS: dict[str, type[BaseModel]] = {
+    "board": BoardTask,
+    "machine-events": MachineEvent,
+    "run-events": RunEvent,
+    "lane-events": LaneEvent,
+    "rating-events": RatingEvent,
+    "runs": Dag,
+    "pools": Pool,
+}
+#: The contract of each stream of the event log (`starpulse.event_log`), by the name `CONTRACTS` gives it: the
+#: `fields` of an `Entry` read from that stream are a record of that model. A package test fails for a stream a
+#: producer declares that is missing here.
+EVENT_STREAMS: dict[str, str] = {
+    "machine:events": "machine-events",
+    "runs:events": "run-events",
+    "board:lanes": "lane-events",
+    "task:ratings": "rating-events",
+}
+#: Each contract's JSON Schema, by the same names.
+SCHEMAS: dict[str, dict] = {name: model.model_json_schema() for name, model in CONTRACTS.items()}
+SCHEMA_DIR = Path(__file__).parents[1] / "schemas"

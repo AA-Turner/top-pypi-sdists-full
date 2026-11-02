@@ -1,5 +1,5 @@
 """ExperimentAdminMixin, Client's methods: list, update, move and delete experiments, their edges,
-and the run groups inside them (twins: app/experiments, app/groups)."""
+and the run groups inside them (twins: app/projects/experiments, app/runs/groups)."""
 
 from __future__ import annotations
 import warnings

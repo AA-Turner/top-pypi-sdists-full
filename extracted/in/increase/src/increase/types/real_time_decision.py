@@ -1,0 +1,2096 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "RealTimeDecision",
+    "CardAuthentication",
+    "CardAuthenticationDeviceChannel",
+    "CardAuthenticationDeviceChannelBrowser",
+    "CardAuthenticationDeviceChannelMerchantInitiated",
+    "CardAuthenticationMessageCategory",
+    "CardAuthenticationMessageCategoryNonPayment",
+    "CardAuthenticationMessageCategoryPayment",
+    "CardAuthenticationChallenge",
+    "CardAuthorization",
+    "CardAuthorizationAdditionalAmounts",
+    "CardAuthorizationAdditionalAmountsClinic",
+    "CardAuthorizationAdditionalAmountsDental",
+    "CardAuthorizationAdditionalAmountsOriginal",
+    "CardAuthorizationAdditionalAmountsPrescription",
+    "CardAuthorizationAdditionalAmountsSurcharge",
+    "CardAuthorizationAdditionalAmountsTotalCumulative",
+    "CardAuthorizationAdditionalAmountsTotalHealthcare",
+    "CardAuthorizationAdditionalAmountsTransit",
+    "CardAuthorizationAdditionalAmountsUnknown",
+    "CardAuthorizationAdditionalAmountsVision",
+    "CardAuthorizationApproval",
+    "CardAuthorizationDecline",
+    "CardAuthorizationHealthcare",
+    "CardAuthorizationNetworkDetails",
+    "CardAuthorizationNetworkDetailsPulse",
+    "CardAuthorizationNetworkDetailsVisa",
+    "CardAuthorizationNetworkIdentifiers",
+    "CardAuthorizationRequestDetails",
+    "CardAuthorizationRequestDetailsIncrementalAuthorization",
+    "CardAuthorizationRequestDetailsInitialAuthorization",
+    "CardAuthorizationVerification",
+    "CardAuthorizationVerificationCardVerificationCode",
+    "CardAuthorizationVerificationCardholderAddress",
+    "CardAuthorizationVerificationCardholderName",
+    "CardBalanceInquiry",
+    "CardBalanceInquiryAdditionalAmounts",
+    "CardBalanceInquiryAdditionalAmountsClinic",
+    "CardBalanceInquiryAdditionalAmountsDental",
+    "CardBalanceInquiryAdditionalAmountsOriginal",
+    "CardBalanceInquiryAdditionalAmountsPrescription",
+    "CardBalanceInquiryAdditionalAmountsSurcharge",
+    "CardBalanceInquiryAdditionalAmountsTotalCumulative",
+    "CardBalanceInquiryAdditionalAmountsTotalHealthcare",
+    "CardBalanceInquiryAdditionalAmountsTransit",
+    "CardBalanceInquiryAdditionalAmountsUnknown",
+    "CardBalanceInquiryAdditionalAmountsVision",
+    "CardBalanceInquiryApproval",
+    "CardBalanceInquiryNetworkDetails",
+    "CardBalanceInquiryNetworkDetailsPulse",
+    "CardBalanceInquiryNetworkDetailsVisa",
+    "CardBalanceInquiryNetworkIdentifiers",
+    "CardBalanceInquiryVerification",
+    "CardBalanceInquiryVerificationCardVerificationCode",
+    "CardBalanceInquiryVerificationCardholderAddress",
+    "CardBalanceInquiryVerificationCardholderName",
+    "DigitalWalletAuthentication",
+    "DigitalWalletToken",
+    "DigitalWalletTokenDevice",
+]
+
+
+class CardAuthenticationDeviceChannelBrowser(BaseModel):
+    """Fields specific to the browser device channel."""
+
+    accept_header: Optional[str] = None
+    """The accept header from the cardholder's browser."""
+
+    ip_address: Optional[str] = None
+    """The IP address of the cardholder's browser."""
+
+    javascript_enabled: Optional[Literal["enabled", "disabled"]] = None
+    """Whether JavaScript is enabled in the cardholder's browser.
+
+    - `enabled` - JavaScript is enabled in the cardholder's browser.
+    - `disabled` - JavaScript is not enabled in the cardholder's browser.
+    """
+
+    language: Optional[str] = None
+    """The language of the cardholder's browser."""
+
+    user_agent: Optional[str] = None
+    """The user agent of the cardholder's browser."""
+
+
+class CardAuthenticationDeviceChannelMerchantInitiated(BaseModel):
+    """Fields specific to merchant initiated transactions."""
+
+    indicator: Literal[
+        "recurring_transaction",
+        "installment_transaction",
+        "add_card",
+        "maintain_card_information",
+        "account_verification",
+        "split_delayed_shipment",
+        "top_up",
+        "mail_order",
+        "telephone_order",
+        "whitelist_status_check",
+        "other_payment",
+        "billing_agreement",
+        "device_binding_status_check",
+        "card_security_code_status_check",
+        "delayed_shipment",
+        "split_payment",
+        "fido_credential_deletion",
+        "fido_credential_registration",
+        "decoupled_authentication_fallback",
+    ]
+    """The merchant initiated indicator for the transaction.
+
+    - `recurring_transaction` - Recurring transaction.
+    - `installment_transaction` - Installment transaction.
+    - `add_card` - Add card.
+    - `maintain_card_information` - Maintain card information.
+    - `account_verification` - Account verification.
+    - `split_delayed_shipment` - Split or delayed shipment.
+    - `top_up` - Top up.
+    - `mail_order` - Mail order.
+    - `telephone_order` - Telephone order.
+    - `whitelist_status_check` - Whitelist status check.
+    - `other_payment` - Other payment.
+    - `billing_agreement` - Billing agreement.
+    - `device_binding_status_check` - Device binding status check.
+    - `card_security_code_status_check` - Card security code status check.
+    - `delayed_shipment` - Delayed shipment.
+    - `split_payment` - Split payment.
+    - `fido_credential_deletion` - FIDO credential deletion.
+    - `fido_credential_registration` - FIDO credential registration.
+    - `decoupled_authentication_fallback` - Decoupled authentication fallback.
+    """
+
+
+class CardAuthenticationDeviceChannel(BaseModel):
+    """The device channel of the card authentication attempt."""
+
+    browser: Optional[CardAuthenticationDeviceChannelBrowser] = None
+    """Fields specific to the browser device channel."""
+
+    category: Literal["app", "browser", "three_ds_requestor_initiated"]
+    """The category of the device channel.
+
+    - `app` - The authentication attempt was made from an app.
+    - `browser` - The authentication attempt was made from a browser.
+    - `three_ds_requestor_initiated` - The authentication attempt was initiated by
+      the 3DS Requestor.
+    """
+
+    merchant_initiated: Optional[CardAuthenticationDeviceChannelMerchantInitiated] = None
+    """Fields specific to merchant initiated transactions."""
+
+
+class CardAuthenticationMessageCategoryNonPayment(BaseModel):
+    """Fields specific to non-payment authentication attempts."""
+
+    pass
+
+
+class CardAuthenticationMessageCategoryPayment(BaseModel):
+    """Fields specific to payment authentication attempts."""
+
+    purchase_amount: int
+    """The purchase amount in minor units."""
+
+    purchase_amount_cardholder_estimated: Optional[int] = None
+    """
+    The purchase amount in the cardholder's currency (i.e., USD) estimated using
+    daily conversion rates from the card network.
+    """
+
+    purchase_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    authentication attempt's purchase currency.
+    """
+
+    transaction_type: Optional[
+        Literal[
+            "goods_service_purchase",
+            "check_acceptance",
+            "account_funding",
+            "quasi_cash_transaction",
+            "prepaid_activation_and_load",
+        ]
+    ] = None
+    """The type of transaction being authenticated.
+
+    - `goods_service_purchase` - Purchase of goods or services.
+    - `check_acceptance` - Check acceptance.
+    - `account_funding` - Account funding.
+    - `quasi_cash_transaction` - Quasi-cash transaction.
+    - `prepaid_activation_and_load` - Prepaid activation and load.
+    """
+
+
+class CardAuthenticationMessageCategory(BaseModel):
+    """The message category of the card authentication attempt."""
+
+    category: Literal["payment_authentication", "non_payment_authentication"]
+    """The category of the card authentication attempt.
+
+    - `payment_authentication` - The authentication attempt is for a payment.
+    - `non_payment_authentication` - The authentication attempt is not for a
+      payment.
+    """
+
+    non_payment: Optional[CardAuthenticationMessageCategoryNonPayment] = None
+    """Fields specific to non-payment authentication attempts."""
+
+    payment: Optional[CardAuthenticationMessageCategoryPayment] = None
+    """Fields specific to payment authentication attempts."""
+
+
+class CardAuthentication(BaseModel):
+    """Fields related to a 3DS authentication attempt."""
+
+    access_control_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the Access Control Server (us) for this
+    transaction.
+    """
+
+    account_id: str
+    """The identifier of the Account the card belongs to."""
+
+    billing_address_city: Optional[str] = None
+    """
+    The city of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    billing_address_country: Optional[str] = None
+    """
+    The country of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    billing_address_line1: Optional[str] = None
+    """
+    The first line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_line2: Optional[str] = None
+    """
+    The second line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_line3: Optional[str] = None
+    """
+    The third line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_postal_code: Optional[str] = None
+    """
+    The postal code of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_state: Optional[str] = None
+    """
+    The US state of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    card_id: str
+    """The identifier of the Card."""
+
+    cardholder_email: Optional[str] = None
+    """The email address of the cardholder."""
+
+    cardholder_name: Optional[str] = None
+    """The name of the cardholder."""
+
+    decision: Optional[Literal["approve", "challenge", "deny"]] = None
+    """Whether or not the authentication attempt was approved.
+
+    - `approve` - Approve the authentication attempt without triggering a challenge.
+    - `challenge` - Request further validation before approving the authentication
+      attempt.
+    - `deny` - Deny the authentication attempt.
+    """
+
+    device_channel: CardAuthenticationDeviceChannel
+    """The device channel of the card authentication attempt."""
+
+    directory_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the Directory Server (the card network) for this
+    transaction.
+    """
+
+    merchant_acceptor_id: Optional[str] = None
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: Optional[str] = None
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_country: Optional[str] = None
+    """The country the merchant resides in."""
+
+    merchant_name: Optional[str] = None
+    """The name of the merchant."""
+
+    message_category: CardAuthenticationMessageCategory
+    """The message category of the card authentication attempt."""
+
+    prior_authenticated_card_payment_id: Optional[str] = None
+    """
+    The ID of a prior Card Authentication that the requestor used to authenticate
+    this cardholder for a previous transaction.
+    """
+
+    requestor_authentication_indicator: Optional[
+        Literal[
+            "payment_transaction",
+            "recurring_transaction",
+            "installment_transaction",
+            "add_card",
+            "maintain_card",
+            "emv_token_cardholder_verification",
+            "billing_agreement",
+        ]
+    ] = None
+    """
+    The 3DS requestor authentication indicator describes why the authentication
+    attempt is performed, such as for a recurring transaction.
+
+    - `payment_transaction` - The authentication is for a payment transaction.
+    - `recurring_transaction` - The authentication is for a recurring transaction.
+    - `installment_transaction` - The authentication is for an installment
+      transaction.
+    - `add_card` - The authentication is for adding a card.
+    - `maintain_card` - The authentication is for maintaining a card.
+    - `emv_token_cardholder_verification` - The authentication is for EMV token
+      cardholder verification.
+    - `billing_agreement` - The authentication is for a billing agreement.
+    """
+
+    requestor_challenge_indicator: Optional[
+        Literal[
+            "no_preference",
+            "no_challenge_requested",
+            "challenge_requested_3ds_requestor_preference",
+            "challenge_requested_mandate",
+            "no_challenge_requested_transactional_risk_analysis_already_performed",
+            "no_challenge_requested_data_share_only",
+            "no_challenge_requested_strong_consumer_authentication_already_performed",
+            "no_challenge_requested_utilize_whitelist_exemption_if_no_challenge_required",
+            "challenge_requested_whitelist_prompt_requested_if_challenge_required",
+        ]
+    ] = None
+    """Indicates whether a challenge is requested for this transaction.
+
+    - `no_preference` - No preference.
+    - `no_challenge_requested` - No challenge requested.
+    - `challenge_requested_3ds_requestor_preference` - Challenge requested, 3DS
+      Requestor preference.
+    - `challenge_requested_mandate` - Challenge requested, mandate.
+    - `no_challenge_requested_transactional_risk_analysis_already_performed` - No
+      challenge requested, transactional risk analysis already performed.
+    - `no_challenge_requested_data_share_only` - No challenge requested, data share
+      only.
+    - `no_challenge_requested_strong_consumer_authentication_already_performed` - No
+      challenge requested, strong consumer authentication already performed.
+    - `no_challenge_requested_utilize_whitelist_exemption_if_no_challenge_required` -
+      No challenge requested, utilize whitelist exemption if no challenge required.
+    - `challenge_requested_whitelist_prompt_requested_if_challenge_required` -
+      Challenge requested, whitelist prompt requested if challenge required.
+    """
+
+    requestor_name: str
+    """The name of the 3DS requestor."""
+
+    requestor_url: str
+    """The URL of the 3DS requestor."""
+
+    shipping_address_city: Optional[str] = None
+    """The city of the shipping address associated with this purchase."""
+
+    shipping_address_country: Optional[str] = None
+    """The country of the shipping address associated with this purchase."""
+
+    shipping_address_line1: Optional[str] = None
+    """The first line of the shipping address associated with this purchase."""
+
+    shipping_address_line2: Optional[str] = None
+    """The second line of the shipping address associated with this purchase."""
+
+    shipping_address_line3: Optional[str] = None
+    """The third line of the shipping address associated with this purchase."""
+
+    shipping_address_postal_code: Optional[str] = None
+    """The postal code of the shipping address associated with this purchase."""
+
+    shipping_address_state: Optional[str] = None
+    """The US state of the shipping address associated with this purchase."""
+
+    three_d_secure_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the 3DS Server initiating the authentication
+    attempt for this transaction.
+    """
+
+    upcoming_card_payment_id: str
+    """The identifier of the Card Payment this authentication attempt will belong to.
+
+    Available in the API once the card authentication has completed.
+    """
+
+
+class CardAuthenticationChallenge(BaseModel):
+    """Fields related to a 3DS authentication attempt."""
+
+    account_id: str
+    """The identifier of the Account the card belongs to."""
+
+    card_id: str
+    """The identifier of the Card that is being tokenized."""
+
+    card_payment_id: str
+    """
+    The identifier of the Card Payment this authentication challenge attempt belongs
+    to.
+    """
+
+    one_time_code: str
+    """The one-time code delivered to the cardholder."""
+
+    result: Optional[Literal["success", "failure"]] = None
+    """Whether or not the challenge was delivered to the cardholder.
+
+    - `success` - Your application successfully delivered the one-time code to the
+      cardholder.
+    - `failure` - Your application was unable to deliver the one-time code to the
+      cardholder.
+    """
+
+
+class CardAuthorizationAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardAuthorizationAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[CardAuthorizationAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[CardAuthorizationAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[CardAuthorizationAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[CardAuthorizationAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[CardAuthorizationAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[CardAuthorizationAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[CardAuthorizationAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[CardAuthorizationAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[CardAuthorizationAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[CardAuthorizationAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class CardAuthorizationApproval(BaseModel):
+    """Present if and only if `decision` is `approve`.
+
+    Contains information related to the approval of the authorization.
+    """
+
+    partial_amount: Optional[int] = None
+    """
+    If the authorization was partially approved, this field contains the approved
+    amount in the minor unit of the settlement currency.
+    """
+
+
+class CardAuthorizationDecline(BaseModel):
+    """Present if and only if `decision` is `decline`.
+
+    Contains information related to the reason the authorization was declined.
+    """
+
+    reason: Literal[
+        "insufficient_funds",
+        "transaction_never_allowed",
+        "exceeds_approval_limit",
+        "card_temporarily_disabled",
+        "suspected_fraud",
+        "additional_customer_authentication_required",
+        "other",
+    ]
+    """The reason the authorization was declined.
+
+    - `insufficient_funds` - The cardholder does not have sufficient funds to cover
+      the transaction. The merchant may attempt to process the transaction again.
+    - `transaction_never_allowed` - This type of transaction is not allowed for this
+      card. This transaction should not be retried.
+    - `exceeds_approval_limit` - The transaction amount exceeds the cardholder's
+      approval limit. The merchant may attempt to process the transaction again.
+    - `card_temporarily_disabled` - The card has been temporarily disabled or not
+      yet activated. The merchant may attempt to process the transaction again.
+    - `suspected_fraud` - The transaction is suspected to be fraudulent. The
+      merchant may attempt to process the transaction again.
+    - `additional_customer_authentication_required` - Additional customer
+      authentication is required to complete the transaction, such as 3DS.
+    - `other` - The transaction was declined for another reason. The merchant may
+      attempt to process the transaction again. This should be used sparingly.
+    """
+
+
+class CardAuthorizationHealthcare(BaseModel):
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_ninety_percent_eligibility: Literal["eligible", "not_eligible"]
+    """
+    The merchant's eligibility under the Internal Revenue Service's 90% Rule for
+    Flexible Spending Account (FSA) and Health Savings Account (HSA) eligible
+    products. The eligibility is determined based on the list of merchants
+    maintained by the Special Interest Group for IIAS Standards (SIGIS).
+
+    - `eligible` - The merchant is eligible for treatment under the 90% rule.
+    - `not_eligible` - The merchant is not eligible for treatment under the 90%
+      rule.
+    """
+
+
+class CardAuthorizationNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class CardAuthorizationNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class CardAuthorizationNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[CardAuthorizationNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[CardAuthorizationNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class CardAuthorizationNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class CardAuthorizationRequestDetailsIncrementalAuthorization(BaseModel):
+    """Fields specific to the category `incremental_authorization`."""
+
+    card_payment_id: str
+    """The card payment for this authorization and increment."""
+
+    original_card_authorization_id: str
+    """
+    The identifier of the card authorization this request is attempting to
+    increment.
+    """
+
+
+class CardAuthorizationRequestDetailsInitialAuthorization(BaseModel):
+    """Fields specific to the category `initial_authorization`."""
+
+    pass
+
+
+class CardAuthorizationRequestDetails(BaseModel):
+    """Fields specific to the type of request, such as an incremental authorization."""
+
+    category: Literal["initial_authorization", "incremental_authorization"]
+    """
+    The type of this request (e.g., an initial authorization or an incremental
+    authorization).
+
+    - `initial_authorization` - A regular, standalone authorization.
+    - `incremental_authorization` - An incremental request to increase the amount of
+      an existing authorization.
+    """
+
+    incremental_authorization: Optional[CardAuthorizationRequestDetailsIncrementalAuthorization] = None
+    """Fields specific to the category `incremental_authorization`."""
+
+    initial_authorization: Optional[CardAuthorizationRequestDetailsInitialAuthorization] = None
+    """Fields specific to the category `initial_authorization`."""
+
+
+class CardAuthorizationVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class CardAuthorizationVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class CardAuthorizationVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class CardAuthorizationVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: CardAuthorizationVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: CardAuthorizationVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[CardAuthorizationVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class CardAuthorization(BaseModel):
+    """Fields related to a card authorization."""
+
+    account_id: str
+    """The identifier of the Account the authorization will debit."""
+
+    additional_amounts: CardAuthorizationAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    approval: Optional[CardAuthorizationApproval] = None
+    """Present if and only if `decision` is `approve`.
+
+    Contains information related to the approval of the authorization.
+    """
+
+    card_id: str
+    """The identifier of the Card that is being authorized."""
+
+    decision: Optional[Literal["approve", "decline"]] = None
+    """Whether or not the authorization was approved.
+
+    - `approve` - Approve the authorization.
+    - `decline` - Decline the authorization.
+    """
+
+    decline: Optional[CardAuthorizationDecline] = None
+    """Present if and only if `decision` is `decline`.
+
+    Contains information related to the reason the authorization was declined.
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    healthcare: Optional[CardAuthorizationHealthcare] = None
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: CardAuthorizationNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: CardAuthorizationNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    original_card_payment_id: Optional[str] = None
+    """
+    The identifier of the Card Payment containing the original authorization or card
+    validation this transaction references. For a merchant-initiated transaction,
+    this is the Card Payment from when the card was first stored, which is typically
+    where the CVV2 was verified. The reference this is derived from is supplied by
+    the merchant or their acquirer, so it is not guaranteed to be present.
+    """
+
+    partial_approval_capability: Literal["supported", "not_supported"]
+    """Whether or not the authorization supports partial approvals.
+
+    - `supported` - This transaction supports partial approvals.
+    - `not_supported` - This transaction does not support partial approvals.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """
+    The amount of the attempted authorization in the currency the card user sees at
+    the time of purchase, in the minor unit of that currency. For dollars, for
+    example, this is cents.
+    """
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the currency the
+    user sees at the time of purchase.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the authorization, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    request_details: CardAuthorizationRequestDetails
+    """Fields specific to the type of request, such as an incremental authorization."""
+
+    settlement_amount: int
+    """The amount of the attempted authorization in the currency it will be settled in.
+
+    This currency is the same as that of the Account the card belongs to.
+    """
+
+    settlement_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the currency the
+    transaction will be settled in.
+    """
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    upcoming_card_payment_id: str
+    """The identifier of the Card Payment this authorization will belong to.
+
+    Available in the API once the card authorization has completed.
+    """
+
+    verification: CardAuthorizationVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class CardBalanceInquiryAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class CardBalanceInquiryAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[CardBalanceInquiryAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[CardBalanceInquiryAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[CardBalanceInquiryAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[CardBalanceInquiryAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[CardBalanceInquiryAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[CardBalanceInquiryAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[CardBalanceInquiryAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[CardBalanceInquiryAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[CardBalanceInquiryAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[CardBalanceInquiryAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class CardBalanceInquiryApproval(BaseModel):
+    """Present if and only if `decision` is `approve`.
+
+    Contains information related to the approval of the balance inquiry.
+    """
+
+    balance: int
+    """
+    If the balance inquiry was approved, this field contains the balance in the
+    minor unit of the settlement currency.
+    """
+
+
+class CardBalanceInquiryNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class CardBalanceInquiryNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class CardBalanceInquiryNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[CardBalanceInquiryNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[CardBalanceInquiryNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class CardBalanceInquiryNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class CardBalanceInquiryVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class CardBalanceInquiryVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class CardBalanceInquiryVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class CardBalanceInquiryVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: CardBalanceInquiryVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: CardBalanceInquiryVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[CardBalanceInquiryVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class CardBalanceInquiry(BaseModel):
+    """Fields related to a card balance inquiry."""
+
+    account_id: str
+    """The identifier of the Account the authorization will debit."""
+
+    additional_amounts: CardBalanceInquiryAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    approval: Optional[CardBalanceInquiryApproval] = None
+    """Present if and only if `decision` is `approve`.
+
+    Contains information related to the approval of the balance inquiry.
+    """
+
+    card_id: str
+    """The identifier of the Card that is being authorized."""
+
+    decision: Optional[Literal["approve", "decline"]] = None
+    """Whether or not the authorization was approved.
+
+    - `approve` - Approve the authorization.
+    - `decline` - Decline the authorization.
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: CardBalanceInquiryNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: CardBalanceInquiryNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    upcoming_card_payment_id: str
+    """The identifier of the Card Payment this authorization will belong to.
+
+    Available in the API once the card authorization has completed.
+    """
+
+    verification: CardBalanceInquiryVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class DigitalWalletAuthentication(BaseModel):
+    """Fields related to a digital wallet authentication attempt."""
+
+    card_id: str
+    """The identifier of the Card that is being tokenized."""
+
+    channel: Literal["sms", "email"]
+    """The channel to send the card user their one-time passcode.
+
+    - `sms` - Send one-time passcodes over SMS.
+    - `email` - Send one-time passcodes over email.
+    """
+
+    digital_wallet: Literal["apple_pay", "google_pay", "samsung_pay", "garmin_pay", "unknown"]
+    """The digital wallet app being used.
+
+    - `apple_pay` - Apple Pay
+    - `google_pay` - Google Pay
+    - `samsung_pay` - Samsung Pay
+    - `garmin_pay` - Garmin Pay
+    - `unknown` - Unknown
+    """
+
+    email: Optional[str] = None
+    """The email to send the one-time passcode to if `channel` is equal to `email`."""
+
+    one_time_passcode: str
+    """The one-time passcode to send the card user."""
+
+    phone: Optional[str] = None
+    """
+    The phone number to send the one-time passcode to if `channel` is equal to
+    `sms`.
+    """
+
+    result: Optional[Literal["success", "failure"]] = None
+    """Whether your application successfully delivered the one-time passcode.
+
+    - `success` - Your application successfully delivered the one-time passcode to
+      the cardholder.
+    - `failure` - Your application failed to deliver the one-time passcode to the
+      cardholder.
+    """
+
+
+class DigitalWalletTokenDevice(BaseModel):
+    """Device that is being used to provision the digital wallet token."""
+
+    identifier: Optional[str] = None
+    """ID assigned to the device by the digital wallet provider."""
+
+
+class DigitalWalletToken(BaseModel):
+    """Fields related to a digital wallet token provisioning attempt."""
+
+    card_id: str
+    """The identifier of the Card that is being tokenized."""
+
+    decision: Optional[Literal["approve", "decline"]] = None
+    """Whether or not the provisioning request was approved.
+
+    This will be null until the real time decision is responded to.
+
+    - `approve` - Approve the provisioning request.
+    - `decline` - Decline the provisioning request.
+    """
+
+    device: DigitalWalletTokenDevice
+    """Device that is being used to provision the digital wallet token."""
+
+    digital_wallet: Literal["apple_pay", "google_pay", "samsung_pay", "garmin_pay", "unknown"]
+    """The digital wallet app being used.
+
+    - `apple_pay` - Apple Pay
+    - `google_pay` - Google Pay
+    - `samsung_pay` - Samsung Pay
+    - `garmin_pay` - Garmin Pay
+    - `unknown` - Unknown
+    """
+
+
+class RealTimeDecision(BaseModel):
+    """
+    Real Time Decisions are created when your application needs to take action in real-time to some event such as a card authorization. For more information, see our [Real-Time Decisions guide](https://increase.com/documentation/real-time-decisions).
+    """
+
+    id: str
+    """The Real-Time Decision identifier."""
+
+    card_authentication: Optional[CardAuthentication] = None
+    """Fields related to a 3DS authentication attempt."""
+
+    card_authentication_challenge: Optional[CardAuthenticationChallenge] = None
+    """Fields related to a 3DS authentication attempt."""
+
+    card_authorization: Optional[CardAuthorization] = None
+    """Fields related to a card authorization."""
+
+    card_balance_inquiry: Optional[CardBalanceInquiry] = None
+    """Fields related to a card balance inquiry."""
+
+    category: Literal[
+        "card_authorization_requested",
+        "card_balance_inquiry_requested",
+        "card_authentication_requested",
+        "card_authentication_challenge_requested",
+        "digital_wallet_token_requested",
+        "digital_wallet_authentication_requested",
+    ]
+    """The category of the Real-Time Decision.
+
+    - `card_authorization_requested` - A card is being authorized.
+    - `card_balance_inquiry_requested` - A balance inquiry is being made on a card.
+    - `card_authentication_requested` - 3DS authentication is requested.
+    - `card_authentication_challenge_requested` - 3DS authentication challenge
+      requires cardholder involvement.
+    - `digital_wallet_token_requested` - A card is being loaded into a digital
+      wallet.
+    - `digital_wallet_authentication_requested` - A card is being loaded into a
+      digital wallet and requires cardholder authentication.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Real-Time Decision was created.
+    """
+
+    digital_wallet_authentication: Optional[DigitalWalletAuthentication] = None
+    """Fields related to a digital wallet authentication attempt."""
+
+    digital_wallet_token: Optional[DigitalWalletToken] = None
+    """Fields related to a digital wallet token provisioning attempt."""
+
+    status: Literal["pending", "responded", "timed_out"]
+    """The status of the Real-Time Decision.
+
+    - `pending` - The decision is pending action via real-time webhook.
+    - `responded` - Your webhook actioned the real-time decision.
+    - `timed_out` - Your webhook failed to respond to the authorization in time.
+    """
+
+    timeout_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    your application can no longer respond to the Real-Time Decision.
+    """
+
+    type: Literal["real_time_decision"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `real_time_decision`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

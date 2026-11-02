@@ -1,0 +1,37 @@
+project:
+  type: website
+
+format:
+  html:
+    theme: cosmo
+    css: [fonts.css, styles.css]
+    syntax-definitions: [bpl.xml, hpl.xml, dyalog.xml, bqn.xml]
+    toc: true
+  commonmark: default
+
+website:
+  twitter-card: true
+  open-graph: true
+  repo-actions: [issue]
+  search:
+    keyboard-shortcut: []
+  navbar:
+    background: primary
+    search: true
+    left:
+      - href: getting-started.ipynb
+        text: Get started
+      - href: glyphs.qmd
+        text: Glyph reference
+      - href: python.ipynb
+        text: Python
+    right:
+      - icon: github
+        href: https://github.com/AnswerDotAI/basedpl
+  sidebar:
+    style: floating
+
+execute:
+  enabled: false
+
+metadata-files: [nbdev.yml, sidebar.yml]

@@ -1,0 +1,437 @@
+#!/usr/bin/env python3
+"""The pending-upstream-contribution queue CLI (the intent-to-ship, made durable).
+
+A learning that warrants a SKILL or HOOK change reaches the marketplace only if the model authors the
+self-PR before the session ends. Nothing recorded the INTENT, so it died with the context: the
+private fact survived in the store, the "this should become a skill change" did not. No queue, no
+marker, no state - just prose in `references/upstream-propagation.md` that a model may or may not act
+on, and the only deterministic checkpoint (`repo-gate.py`'s version bump) sits at the DESTINATION,
+downstream of every drop point.
+
+This is that missing state. Queue an entry the moment a learning is judged shippable; SessionStart
+surfaces the queue every session (without consuming it - a TODO must outlive being read), so the
+intent survives a session end and gets picked up later. Draining is explicit and happens only after
+the change actually ships.
+
+Usage (cwd defaults to the current directory):
+  contrib_queue.py add --what TEXT [--target T] [--why W] [--source S] [cwd]
+  contrib_queue.py list [cwd]
+  contrib_queue.py ship --match TEXT [--note WHERE] [cwd]  # this one DELIVERED
+  contrib_queue.py drop --match TEXT [--reason WHY] [cwd]  # this one is wrong or stale
+  contrib_queue.py shipped | rejected [cwd]
+  contrib_queue.py claim --match TEXT [--by NAME] [--hours H] [cwd]  # I am working this one
+  contrib_queue.py release --match TEXT [cwd]
+  contrib_queue.py drain [cwd]      # ONLY after the contributions actually shipped
+  contrib_queue.py queues           # every queue on this machine, by key
+  contrib_queue.py rehome-tombstones [--apply]  # repair closes filed under the wrong key
+
+Exit codes: 0 done (a duplicate or already-closed add included); 1 only from `claim`, when another
+holder's claim on the entry has not expired (`! held:`, naming it); 2 could not run: the store could
+not be read or written (nothing was recorded; the message starts `! failed:`), a usage error, an
+empty --what, or a selector / queue key that names nothing (`! refused:` or `no such queue`).
+
+`claim` is for a session about to work an entry while others may sweep the same queue: it stamps
+the entry with the holder (`--by`, else `$CLAUDE_CODE_SESSION_ID`) and an expiry (`--hours`,
+default 4), and `list` shows it. A claim is advisory: it expires on its own so a session that died
+mid-entry blocks nobody for long, the holder claiming again extends it, and `ship` / `drop` ignore
+it, since whoever lands the work records it.
+
+`rehome-tombstones` repairs what a `ship`/`drop` addressed as `queue_key:<hash>` wrote before
+7.24.0: the tombstone went to a file keyed by the pseudo-path, which no reader consults, so the close
+did not block a re-queue and `shipped` never listed it. It reports by default; `--apply` merges each
+such file into its queue's closed set (attributed by the `proj` stamp its records carry) and keeps
+the old file as `<name>.rehomed`. A file whose stamps name more than one queue is left in place and
+reported. `queues` prints a one-line pointer here while any such file exists.
+
+`--target` names where it goes, e.g. `skill:meta-dream-tree` or `hook:reconcile`. Entries dedup on
+(what, target), so re-noticing the same gap is not a second TODO.
+
+An intent leaves the queue by one of two OUTCOMES, and they are not interchangeable: `ship` for
+what was delivered, `drop` for what turned out wrong or stale. Both block a re-queue; only the
+outcome recorded differs, and recording a delivered contribution as rejected misleads every later
+reader about whether the work was done. `drain` closes the WHOLE queue at once, recording every
+entry as shipped, and so fits only a sweep where every entry shipped - to close one entry, use
+`ship`.
+
+Select the entry with `--match TEXT` (unique text from its `what`/`target`) rather than `--index`:
+an index comes from a listing and SHIFTS under the previous close, so closing two entries by the
+indices of one listing hits the wrong second entry and destroys a contribution that was meant to
+stay queued. `--match` refuses on no match or an ambiguous one instead of guessing.
+
+Pure standard library.
+"""
+import argparse
+import json
+import math
+import os
+import re
+import sys
+import time
+from pathlib import Path
+
+# self_improve_signals is the shared state layer, in the plugin's hooks dir
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hooks"))
+import self_improve_signals as sig  # noqa: E402
+
+
+def _resolve_from_session(qdir, key):
+    """Best-effort recovery of a legacy queue's project path from its sibling session record.
+
+    Entries queued before `add` stamped `proj` carry no path, and the filename is a one-way hash, so
+    they would read as "unknown" forever. The SessionStart record for the SAME key names a
+    transcript, and the transcript's own records carry `cwd`. The recovered path is VERIFIED by
+    re-hashing it: a stale or mismatched pairing is rejected rather than displayed, because a
+    confident wrong project is worse than admitting the path is unknown. Returns "" when unresolved.
+    """
+    try:
+        meta = json.loads((qdir / (key + ".session.json")).read_text(encoding="utf-8"))
+        transcript = Path(meta.get("transcript_path") or "")
+        with transcript.open(encoding="utf-8", errors="replace") as fh:
+            for _, line in zip(range(60), fh):
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                cwd = rec.get("cwd") if isinstance(rec, dict) else None
+                if cwd and sig.proj_key(cwd) == key:
+                    return cwd
+    except (OSError, ValueError, TypeError):
+        pass
+    return ""
+
+
+def _read_or_report(reader, proj, what):
+    """`reader(proj)`, or None after printing why it failed. An unreadable store must never be
+    reported in the words an empty one produces."""
+    try:
+        return reader(proj)
+    except OSError as exc:
+        print("! failed: could not read the %s for %s (%s) - fix the store and re-run"
+              % (what, proj, exc), file=sys.stderr)
+        return None
+
+
+def _queue_rows(qdir):
+    """[(key, open count or None when unreadable, live claims, where)] per queue file in `qdir`."""
+    rows = []
+    for f in sorted(qdir.glob("*.contrib.jsonl")):
+        key = f.name[: -len(".contrib.jsonl")]
+        try:
+            recs = sig.read_contributions(sig.QUEUE_KEY_PREFIX + key)
+        except OSError as exc:
+            rows.append((key, None, 0, "(unreadable: %s)" % exc))
+            continue
+        path = next((r.get("proj") for r in recs if r.get("proj")), "")
+        if not path:
+            path = _resolve_from_session(qdir, key)
+        if not path:
+            where = "(project unknown - queued before the path was recorded)"
+        elif os.path.isdir(path):
+            where = path
+        else:
+            where = "%s  (cwd gone)" % path
+        claimed = sum(1 for r in recs if sig.claim_state(r) == "live")
+        rows.append((key, len(recs), claimed, where))
+    return rows
+
+
+def _print_queues():
+    """The `queues` verb. Exit 0 listed; 2 when a queue file could not be read (it is listed as
+    unreadable, never counted as holding nothing)."""
+    # The queue is addressed by cwd, and the filename is a one-way hash of it - so without this
+    # there is no way to ask which projects have pending contributions, and a queue whose cwd was
+    # deleted or renamed is invisible AND unreachable by every other verb. Entries added since the
+    # `proj` stamp landed carry their own path; older ones cannot be resolved and say so.
+    # The DIRECTORY, asked for directly: routing a fake key through `contrib_file` just to take
+    # `.parent` stopped working once that function refused keys that are not real ones.
+    rows = _queue_rows(sig._audit_dir())
+    _hint_orphans()
+    shown = [r for r in rows if r[1] is None or r[1]]
+    if not shown:
+        print("no queue on this machine has an open contribution (%d queue file(s) seen)" % len(rows))
+        return 0
+    unreadable = sum(1 for r in shown if r[1] is None)
+    print("%d queue(s) with open contributions%s:"
+          % (len(shown), " (%d unreadable)" % unreadable if unreadable else ""))
+    for key, n, claimed, where in shown:
+        # The WHOLE key, not a prefix: the next line tells the operator to pass
+        # queue_key:<full-key>, and a truncated one selects nothing while every verb
+        # answers "no pending upstream contributions" - indistinguishable from done.
+        # Only a LIVE claim is counted: an expired one holds nothing, so another session may
+        # take that entry, and counting it would steer the reader away from free work.
+        count = "? open" if n is None else "%d open" % n
+        if claimed:
+            count += ", %d claimed" % claimed
+        print("  %s  %s  %s" % (key, count, where))
+    print("address one with: contrib_queue.py list|ship|drop ... queue_key:<full-key>|<path>")
+    return 2 if unreadable else 0
+
+
+def _hint_orphans():
+    """One line when closed-set files sit under the wrong key, so `queues` - the verb an operator
+    runs to see every queue - also shows that some closes are not protecting their queue."""
+    try:
+        orphans = [o for o in sig.find_orphan_tombstones() if o["status"] == "orphan"]
+    except OSError:
+        return
+    if orphans:
+        print("%d closed-set file(s) sit under the wrong queue key, so their closes do not block a "
+              "re-queue: run `contrib_queue.py rehome-tombstones`" % len(orphans))
+
+
+def _rehome_tombstones(apply):
+    """Report (default) or repair (--apply) the closed-set files an older queue_key: close wrote
+    under the wrong key. Exit 0 done or nothing to do; 2 a file could not be read or written."""
+    try:
+        found = sig.find_orphan_tombstones()
+    except OSError as exc:
+        print("! failed: could not read a closed-set file (%s)" % exc, file=sys.stderr)
+        return 2
+    orphans = [o for o in found if o["status"] == "orphan"]
+    for o in found:
+        if o["status"] == "ambiguous":
+            print("  ! %s: stamped for more than one queue, or a queue lives at its key - left in "
+                  "place" % o["path"].name)
+    if not orphans:
+        print("no orphaned tombstone files (%d file(s) not their own queue's were left in place)"
+              % (len(found) - len(orphans)))
+        return 0
+    for o in orphans:
+        print("  %s -> %s%s  %d tombstone(s)" % (o["path"].name, sig.QUEUE_KEY_PREFIX, o["home"],
+                                                 len(o["records"])))
+        if apply:
+            try:
+                added = sig.rehome_orphan_tombstone(o)
+            except OSError as exc:
+                print("! failed: could not rehome %s (%s) - re-run after fixing the store"
+                      % (o["path"], exc), file=sys.stderr)
+                return 2
+            print("    merged %d new; the file is kept as %s*" % (added, o["path"].name + ".rehomed"))
+    if not apply:
+        print("dry run: pass --apply to merge them into their queues' closed sets")
+    return 0
+
+
+def _claim_hours(text):
+    """`--hours` as a positive finite float, or None."""
+    try:
+        hours = float(text)
+    except ValueError:
+        return None
+    return hours if math.isfinite(hours) and hours > 0 else None
+
+
+def _claim_verb(args, proj):
+    """The `claim` and `release` verbs. Exit 0 done; 1 another session holds a live claim; 2 a
+    selector that names no single entry, a bad --hours, no holder, or a store error."""
+    try:
+        if args.cmd == "release":
+            held = sig.release_contribution(proj, args.match)
+            print("released: claim by %s removed" % sig.claim_holder(held.get("session")) if held
+                  else "not claimed: nothing to release")
+            return 0
+        holder = args.by.strip() or os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+        if not holder:
+            print("! refused: no holder - pass --by NAME (no CLAUDE_CODE_SESSION_ID in the "
+                  "environment)", file=sys.stderr)
+            return 2
+        hours = _claim_hours(args.hours)
+        if hours is None:
+            print("! refused: --hours must be a positive number (got %r)" % args.hours,
+                  file=sys.stderr)
+            return 2
+        rec = sig.claim_contribution(proj, args.match, holder, hours)
+    except sig.ClaimHeld as exc:
+        claim = exc.claim
+        print("! held: claimed by %s (cwd %s) for another %dm - leave it, or ask that session"
+              % (sig.claim_holder(claim.get("session")), claim.get("cwd") or "?",
+                 (claim["until"] - time.time()) / 60), file=sys.stderr)
+        return 1
+    except IndexError as exc:
+        print("! refused: %s" % exc, file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print("! failed: could not record the %s (%s) - nothing changed" % (args.cmd, exc),
+              file=sys.stderr)
+        return 2
+    print("claimed for %gh by %s: %s" % (hours, sig.claim_holder(holder), rec.get("what") or ""))
+    return 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Pending upstream-contribution queue (durable intent).")
+    sub = ap.add_subparsers(dest="cmd")
+    a = sub.add_parser("add", help="queue a pending skill/hook contribution")
+    a.add_argument("--what", required=True, help="the change the learning warrants")
+    a.add_argument("--target", default="", help="where it goes, e.g. skill:meta-dream-tree")
+    a.add_argument("--why", default="", help="the evidence/reason it is shippable")
+    a.add_argument("--source", default="", help="the fact slug or session it came from")
+    a.add_argument("proj", nargs="?", default=None)
+    ls = sub.add_parser("list", help="show the pending contributions (does NOT consume them)")
+    ls.add_argument("proj", nargs="?", default=None)
+    dr = sub.add_parser("drain", help="clear the queue - only after the changes actually shipped")
+    dr.add_argument("proj", nargs="?", default=None)
+    sh = sub.add_parser("ship", help="close ONE intent that DELIVERED - it is never re-queued")
+    sh.add_argument("--index", type=int, help="1-based index from `list` (shifts after a close)")
+    sh.add_argument("--match", default="", help="unique text from its what/target - order-proof")
+    sh.add_argument("--note", default="", help="where it landed, e.g. a version or commit")
+    sh.add_argument("proj", nargs="?", default=None)
+    dp = sub.add_parser("drop", help="remove ONE disproven/stale intent - it is never re-queued")
+    dp.add_argument("--index", type=int, help="1-based index from `list` (shifts after a close)")
+    dp.add_argument("--match", default="", help="unique text from its what/target - order-proof")
+    dp.add_argument("--reason", default="", help="why it is wrong or stale (kept in the tombstone)")
+    dp.add_argument("proj", nargs="?", default=None)
+    rj = sub.add_parser("rejected", help="show the dropped intents and why")
+    rj.add_argument("proj", nargs="?", default=None)
+    sl = sub.add_parser("shipped", help="show the intents that delivered, and where")
+    sl.add_argument("proj", nargs="?", default=None)
+    cl = sub.add_parser("claim", help="mark ONE entry as being worked by this session (expires)")
+    cl.add_argument("--match", required=True, help="unique text from its what/target")
+    cl.add_argument("--by", default="", help="holder name (default: $CLAUDE_CODE_SESSION_ID)")
+    cl.add_argument("--hours", default="4", help="how long the claim holds (default 4)")
+    cl.add_argument("proj", nargs="?", default=None)
+    rl = sub.add_parser("release", help="remove the claim from ONE entry without closing it")
+    rl.add_argument("--match", required=True, help="unique text from its what/target")
+    rl.add_argument("proj", nargs="?", default=None)
+    qs = sub.add_parser("queues", help="enumerate EVERY queue on this machine "
+                                       "(key, open count, live claims, project)")
+    qs.add_argument("proj", nargs="?", default=None)
+    rh = sub.add_parser("rehome-tombstones",
+                        help="merge closes an older queue_key: ship/drop filed under the wrong key")
+    rh.add_argument("--apply", action="store_true", help="write (default: report only)")
+    args = ap.parse_args(sys.argv[1:] if argv is None else argv)
+
+    if not args.cmd:
+        ap.print_help(sys.stderr)
+        return 2
+    if args.cmd == "rehome-tombstones":
+        return _rehome_tombstones(args.apply)
+    proj = args.proj or os.getcwd()
+
+    # A key that is not `proj_key` output cannot name a queue at all, and `contrib_file` refuses it
+    # rather than steering the path. Turn that into a diagnosis here: a traceback is not an
+    # answer, and a plain typo is the common way to arrive at one.
+    if isinstance(proj, str) and proj.startswith(sig.QUEUE_KEY_PREFIX):
+        try:
+            sig.contrib_file(proj)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+
+    # A queue_key naming no queue file must REFUSE. Falling through would run the verb against an
+    # absent queue, and every verb reports that as "no pending upstream contributions" - the exact
+    # words an empty queue produces - so a mistyped or truncated key reads as "already shipped".
+    if isinstance(proj, str) and proj.startswith(sig.QUEUE_KEY_PREFIX) and args.cmd != "add":
+        if not sig.contrib_file(proj).exists():
+            print("no such queue: %s - run `contrib_queue.py queues` for the keys that exist "
+                  "(pass the WHOLE key, not a prefix)" % proj)
+            return 2
+
+    if args.cmd == "add":
+        if not args.what.strip():
+            # an empty intent is not a contribution; add_contribution's False for it used to be
+            # reported as "already queued" with exit 0
+            print("! refused: --what must name the change (got an empty value)", file=sys.stderr)
+            return 2
+        try:
+            queued = sig.add_contribution(proj, {"what": args.what, "target": args.target,
+                                                 "why": args.why, "source": args.source},
+                                          strict=True)
+        except OSError as exc:
+            print("! failed: could not queue %r (%s) - nothing was recorded; fix the store and "
+                  "re-run" % (args.what, exc), file=sys.stderr)
+            return 2
+        if not queued:
+            # already queued, or CLOSED earlier - either way not a new TODO. Name the outcome that
+            # closed it: "rejected" for work that was already DONE would send the reader to redo it.
+            print("not queued (%s): %s" % (sig.why_not_queued(proj, args.what, args.target), args.what))
+            return 0
+        print("queued: %s%s" % (args.what, " -> %s" % args.target if args.target else ""))
+        return 0
+
+    if args.cmd == "queues":
+        return _print_queues()
+
+    if args.cmd == "list":
+        recs = _read_or_report(sig.read_contributions, proj, "queue")
+        if recs is None:
+            return 2
+        if not recs:
+            print("no pending upstream contributions for %s" % proj)
+            return 0
+        print("%d pending upstream contribution(s):" % len(recs))
+        for i, r in enumerate(recs, 1):                 # numbered so `drop --index` can target one
+            print("  %d. %s%s%s%s" % (i, sig.claim_label(r), r.get("what") or "",
+                                      " -> %s" % r["target"] if r.get("target") else "",
+                                      " (%s)" % r["why"] if r.get("why") else ""))
+        return 0
+
+    if args.cmd in ("claim", "release"):
+        return _claim_verb(args, proj)
+
+    if args.cmd in ("drop", "ship"):
+        shipping = args.cmd == "ship"
+        note = args.note if shipping else args.reason
+        close = sig.ship_contribution if shipping else sig.drop_contribution
+        if bool(args.index) == bool(args.match):        # exactly one selector, never a guess
+            print("! refused: pass EITHER --index N OR --match TEXT (--match is order-proof)",
+                  file=sys.stderr)
+            return 2
+        try:
+            rec = close(proj, args.index, note, match=args.match)
+        except IndexError as exc:
+            print("! refused: %s" % exc, file=sys.stderr)
+            return 2
+        except OSError as exc:
+            # Nothing was closed that the store does not record; say so rather than claim it.
+            print("! failed: could not record the %s (%s) - the entry is still queued; fix the "
+                  "store and re-run" % ("ship" if shipping else "drop", exc), file=sys.stderr)
+            return 2
+        print("%s: %s%s%s" % ("shipped" if shipping else "dropped", rec.get("what") or "",
+                              " -> %s" % rec["target"] if rec.get("target") else "",
+                              " (%s)" % note if note else ""))
+        print("  it will NOT be re-queued by a later dream.")
+        return 0
+
+    if args.cmd in ("rejected", "shipped"):
+        shipping = args.cmd == "shipped"
+        recs = _read_or_report(sig.read_shipped if shipping else sig.read_rejected, proj,
+                               "closed set")
+        if recs is None:
+            return 2
+        label, field = ("shipped", "note") if shipping else ("dropped", "reason")
+        if not recs:
+            print("no %s contributions for %s" % (label, proj))
+            return 0
+        print("%d %s contribution(s):" % (len(recs), label))
+        for r in recs:
+            print("  - %s%s%s" % (r.get("what") or "",
+                                  " -> %s" % r["target"] if r.get("target") else "",
+                                  " (%s)" % r[field] if r.get(field) else ""))
+        return 0
+
+    try:                                                # drain
+        drained = sig.drain_contributions(proj, note="drained", strict=True)
+    except OSError as exc:
+        print("! failed: could not record the drain (%s) - the queue is unchanged; fix the store "
+              "and re-run" % exc, file=sys.stderr)
+        return 2
+    print("drained the pending-contribution queue for %s: %d closed as shipped"
+          % (proj, len(drained)))
+    return 0
+
+
+def _reconfigure_stdout():
+    """A cp1252 console (bare `python3` on Windows) cannot encode every intent text; the
+    UnicodeEncodeError came AFTER the store write, so a recorded add or ship exited 1. Escape
+    instead. Guarded: a replaced stream may not support reconfigure."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
+if __name__ == "__main__":
+    _reconfigure_stdout()
+    sys.exit(main())

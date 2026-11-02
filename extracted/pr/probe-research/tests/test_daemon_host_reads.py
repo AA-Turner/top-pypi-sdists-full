@@ -89,7 +89,7 @@ def _seed(app: Backend) -> dict:
     _post(app, "POST", f"/v1/projects/{project['id']}/sub-notes",
           {"title": "Ideas", "body": "beta is the idea.\n\ngamma is not.\n"})
     experiment = app.seed_experiment("exp-a", project_id=project["id"])
-    run = _post(app, "POST", "/v1/runs", {"name": "first run ‮", "slug": "first-run"})
+    run = _post(app, "POST", f"/v1/projects/{project['id']}/runs", {"name": "first run ‮", "slug": "first-run"})
     with app.seen_lock:
         app.seen.clear()  # the seeding is not a read under test
         app.headers.clear()

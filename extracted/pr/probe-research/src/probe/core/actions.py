@@ -41,7 +41,7 @@ from probe.core.requests import (
     WorkspaceLimitRequest,
 )
 
-#: Every parameter of `probe.cli.main.wizard`, as typer hands it over for a
+#: Every parameter of `probe.cli.commands.machine.wizard.wizard`, as typer hands it over for a
 #: command line that does not use it. Called as a function, an omitted one would
 #: be its truthy `typer.Option` default instead, so every one is named (the test
 #: suite fails when `wizard` grows a parameter this does not name).
@@ -111,7 +111,7 @@ def logout(sink: events.EventSink | None = None) -> int:
 
 def uninstall(sink: events.EventSink | None = None) -> int:
     """`probe wizard --action uninstall --yes --json`, which IS `probe uninstall
-    --yes --json` (`probe.cli.uninstall`). The Probe service runs it only for a
+    --yes --json` (`probe.cli.install.uninstall`). The Probe service runs it only for a
     desktop app from before the app ran it itself: it stops that service too,
     from its own session (an action's child outlives the service)."""
     return _wizard(sink, wizard_flags(ActionName.UNINSTALL))
@@ -204,7 +204,7 @@ def session_default(
 def workspace_limit(request: WorkspaceLimitRequest, sink: events.EventSink | None = None) -> int:
     """Limit what Probe on this computer reads to one workspace, or lift the limit
     (`workspace` None): `probe workspace limit <workspace> [--team-items ...] --yes
-    --json` / `--team --json`, the same function (`probe.cli.workspace_limit_cmd`).
+    --json` / `--team --json`, the same function (`probe.cli.commands.account.workspace_limit`).
 
     Not a wizard action: its events are a `result` row for the device (`agent`
     null) whose `requested` is the request and whose `actual` is exactly what the
@@ -219,7 +219,7 @@ def workspace_limit(request: WorkspaceLimitRequest, sink: events.EventSink | Non
 def _apply_workspace_limit(request: WorkspaceLimitRequest) -> None:
     import typer
 
-    from probe.cli import workspace_limit_cmd as cmd
+    from probe.cli.commands.account import workspace_limit as cmd
 
     _refuse_from_daemon_session(ActionName.WORKSPACE_LIMIT.value, matched="probe workspace limit")
     events.begin_result(ActionName.WORKSPACE_LIMIT.value, [None])

@@ -1,0 +1,85 @@
+name: Run tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    env:
+      # Every uv call in this job resolves the matrix interpreter, rather than
+      # whichever one discovery happens to land on. Set at the job level so a
+      # step added later inherits the pin instead of quietly opting out of it.
+      UV_PYTHON: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # setuptools-scm derives the version from tags.
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies and package
+        run: |
+          uv sync --extra dev --no-editable
+      - name: Confirm the interpreter matches the matrix
+        # UV_PYTHON only requests a version; this proves we got it. Without it
+        # a matrix that degraded to one interpreter would test the same leg
+        # four times over and stay green.
+        env:
+          EXPECTED: ${{ matrix.python-version }}
+        run: |
+          uv run --no-sync python -c "
+          import os, sys
+          print(sys.version)
+          expected = os.environ['EXPECTED']
+          actual = '.'.join(map(str, sys.version_info[:2]))
+          assert actual == expected, f'expected Python {expected}, got {actual}'
+          "
+      - name: List Python package versions
+        run: uv pip list
+      - name: Run tests
+        run: |
+          uv run --no-sync pytest -q lume_pyat/tests
+
+  readme-example:
+    # The README's example is the package's front door. Running it here is what
+    # stops it drifting from the code it advertises.
+    name: README example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+      - name: Install the package
+        run: uv sync --no-editable --python 3.12
+      - name: Extract and run the example
+        run: |
+          uv run --no-sync python - <<'PY'
+          import pathlib
+          import re
+
+          readme = pathlib.Path("README.md").read_text()
+          _, _, after_heading = readme.partition("\n## Example\n")
+          match = re.search(r"^```python\n(.*?)^```", after_heading, re.M | re.S)
+          if match is None:
+              raise SystemExit("no python example found under the '## Example' heading")
+
+          exec(compile(match.group(1), "README.md", "exec"), {"__name__": "__main__"})
+          print("README example ran to completion")
+          PY

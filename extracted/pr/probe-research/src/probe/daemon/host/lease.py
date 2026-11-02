@@ -49,14 +49,14 @@ def lease_path(session_id: str) -> Path:
 def _publish(path: Path, payload: dict) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+        fd, temp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(payload, handle)
-            os.replace(tmp, path)
+            os.replace(temp, path)
         except BaseException:
             try:
-                os.unlink(tmp)
+                os.unlink(temp)
             except OSError:
                 pass
             raise

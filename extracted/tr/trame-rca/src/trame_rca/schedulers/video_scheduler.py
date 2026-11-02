@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import asyncio
+from asyncio import Event, sleep
+from time import monotonic
+from typing import TYPE_CHECKING, Callable
+
+from trame.app import asynchronous
+
+if TYPE_CHECKING:
+    from vtkmodules.vtkRenderingCore import vtkRenderWindow
+
+    from trame_rca.rca import VtkRemoteControlledArea
+
+from trame_rca.encoders import RcaVideoEncoder
+from trame_rca.encoders.video_encoder import available_codecs
+from trame_rca.rca import window_wrapper
+
+
+class RcaVideoRenderScheduler:
+    """
+    Video-based implementation of :class:`RcaRenderSchedulerProtocol`.
+
+    This scheduler encodes rendered frames using an :class:`RcaVideoEncoder` and forwards the encoded video
+    data to a callback. Render requests are coalesced and processed by a background task running at the
+    configured target frame rate, preventing the encoder from producing frames faster than the desired FPS.
+
+    Supports only VTK rendering backend (:class:`vtkRenderWindow` or :class:`VtkRemoteControlledArea`).
+
+    With ``negotiate=True`` (default) the encoder is only created once a client calls
+    :meth:`negotiate_video` with the codecs it can decode; nothing is pushed before that.
+
+    Call :meth:`close` before discarding the scheduler to stop the background task and release encoder resources.
+    """
+
+    def __init__(
+        self,
+        window: VtkRemoteControlledArea | vtkRenderWindow,
+        *,
+        push_callback: Callable[[bytes, dict]] | None = None,
+        target_fps: float = 30.0,
+        negotiate: bool = True,
+        on_codec_changed: Callable[[dict], None] | None = None,
+    ):
+        self._rca: VtkRemoteControlledArea = window_wrapper(window)
+        self._push_callback = push_callback
+        self.on_codec_changed = on_codec_changed
+        self._rca_encoder = RcaVideoEncoder(
+            self._rca.render_window, push_callback=self._push, defer=negotiate
+        )
+        self._is_closing = False
+        self._request_event = Event()
+
+        self._target_fps = target_fps
+        self._render_task = asynchronous.create_task(self._render())
+
+    @property
+    def rca(self) -> VtkRemoteControlledArea:
+        return self._rca
+
+    def set_push_callback(self, callback: Callable[[bytes, dict], bool]):
+        self._push_callback = callback
+
+    def video_codecs(self) -> list[dict]:
+        return available_codecs()
+
+    def negotiate_video(self, codecs: list[str]) -> dict:
+        """Create the encoder from the client-accepted codec ranking."""
+        server = [c["codec"] for c in available_codecs()]
+        codecs = [c for c in codecs if c in server]
+        if not codecs:
+            self._rca_encoder.release()
+            info = {
+                "error": "no-common-codec",
+                "server": server,
+                "label": "unavailable",
+            }
+        else:
+            info = self._rca_encoder.configure(codecs, self.target_fps)
+            self.schedule_render()
+        if self.on_codec_changed is not None:
+            self.on_codec_changed(info)
+        return info
+
+    @property
+    def target_fps(self):
+        return self._target_fps
+
+    @target_fps.setter
+    def target_fps(self, v):
+        self._target_fps = v
+
+    @property
+    def _target_period_s(self):
+        return 1.0 / self._target_fps
+
+    async def close(self):
+        if self._is_closing:
+            return
+
+        self._is_closing = True
+        self._request_event.set()
+        self._render_task.cancel()
+        await asyncio.gather(self._render_task, return_exceptions=True)
+        self._rca_encoder.release()
+
+    def schedule_render(self):
+        self._request_event.set()
+
+    async def _render(self):
+        while not self._is_closing:
+            await self._request_event.wait()
+            if self._is_closing:
+                break
+
+            self._request_event.clear()
+            started = monotonic()
+            self._rca_encoder.encode(self._rca.render_window)
+            # Sleep only for what is left of the _target_period_s.
+            await sleep(max(0.0, self._target_period_s - (monotonic() - started)))
+
+    def _push(self, content: bytes, meta: dict, _m_time: int):
+        if self._push_callback is not None:
+            self._push_callback(content, meta)
+
+    def reset(self):
+        self._rca_encoder.reset(self._rca.render_window)

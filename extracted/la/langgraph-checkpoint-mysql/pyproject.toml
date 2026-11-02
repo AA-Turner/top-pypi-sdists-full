@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langgraph-checkpoint-mysql"
+version = "3.0.0"
+description = "Library with a MySQL implementation of LangGraph checkpoint saver."
+authors = [{ name = "Theodore Ni", email = "dev@ted.bio" }]
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+  "langgraph-checkpoint>=2.1.2",
+  "orjson>=3.10.1",
+  "typing-extensions>=4.12.2",
+]
+
+[project.urls]
+Repository = "https://www.github.com/tjni/langgraph-checkpoint-mysql"
+
+[project.optional-dependencies]
+pymysql = ["pymysql>=1.1.1"]
+aiomysql = ["aiomysql>=0.2.0"]
+asyncmy = ["asyncmy>=0.2.10"]
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "codespell",
+  "pytest",
+  "anyio",
+  "pytest-mock",
+  "pytest-watcher",
+  "mypy",
+  "pymysql>=1.1.1",
+  "aiomysql>=0.2.0",
+  "asyncmy>=0.2.10",
+  "types-PyMySQL>=1.1.0",
+  "langgraph",
+  "langgraph-checkpoint",
+  "langgraph-checkpoint-sqlite",
+  "syrupy>=4.0.2",
+  "pytest-repeat>=0.9.3",
+  "pytest-xdist[psutil]>=3.6.1",
+  "sqlalchemy>=2.0.37",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+langgraph = { git = "https://github.com/langchain-ai/langgraph", rev = "7b9ff6129b35a4f1fddd5b5d78eb0b363605f092", subdirectory = "libs/langgraph" }
+
+[tool.hatch.build.targets.wheel]
+include = ["langgraph"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5 -vv"
+
+[tool.ruff]
+lint.select = [
+  "E",  # pycodestyle
+  "F",  # Pyflakes
+  "UP", # pyupgrade
+  "B",  # flake8-bugbear
+  "I",  # isort
+]
+lint.ignore = ["E501", "B008"]
+exclude = ["langgraph-tests"]
+target-version = "py39"
+
+[tool.mypy]
+# https://mypy.readthedocs.io/en/stable/config_file.html
+disallow_untyped_defs = "True"
+explicit_package_bases = "True"
+warn_no_return = "False"
+warn_unused_ignores = "True"
+warn_redundant_casts = "True"
+allow_redefinition = "True"
+disable_error_code = "typeddict-item, return-value"
+exclude = ["langgraph-tests"]
+
+[tool.pytest-watcher]
+now = true
+delay = 0.1
+runner_args = ["--ff", "-x", "-v", "--tb", "short"]
+patterns = ["*.py"]

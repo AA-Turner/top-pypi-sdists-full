@@ -1,0 +1,152 @@
+"""Lambda transform module for creating custom user-defined transformations.
+
+This module provides a flexible transform class that allows users to define their own
+custom transformation functions for different targets (image, mask, keypoints, bboxes).
+It's particularly useful for implementing custom logic that isn't available in the
+standard transforms.
+
+The Lambda transform accepts different callable functions for each target type and
+applies them when the transform is executed. This allows for maximum flexibility
+while maintaining compatibility with the Albumentations pipeline structure.
+
+Key features:
+- Apply different custom functions to different target types
+- Compatible with all Albumentations pipeline features
+- Support for all image types and formats
+- Ability to handle any number of channels
+- Warning system for lambda expressions and multiprocessing compatibility
+
+Note that using actual lambda expressions (rather than named functions) can cause
+issues with multiprocessing, as lambdas cannot be properly pickled.
+"""
+
+import warnings
+from collections.abc import Callable
+from types import LambdaType
+from typing import Any
+
+import numpy as np
+
+from albumentations.augmentations.pixel import functional as fpixel
+from albumentations.core.transforms_interface import BaseTransformInitSchema, NoOp
+from albumentations.core.type_definitions import ImageType
+from albumentations.core.utils import format_args
+
+__all__ = ["Lambda"]
+
+
+class Lambda(NoOp):
+    """Transform that applies user-defined callables per target (image, mask, bboxes, keypoints).
+    Callables must accept **kwargs.
+
+    Args:
+        image (Callable[..., Any] | None): Image transformation function.
+        mask (Callable[..., Any] | None): Mask transformation function.
+        keypoints (Callable[..., Any] | None): Keypoints transformation function.
+        bboxes (Callable[..., Any] | None): BBoxes transformation function.
+        p (float): probability of applying the transform. Default: 1.0.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+    Supported bboxes:
+        hbb, obb
+
+    Examples:
+        >>> transform = Lambda(image=lambda image, **kwargs: image, name="identity")
+
+    Number of channels:
+        Any
+
+    """
+
+    class InitSchema(BaseTransformInitSchema):
+        image: Callable[..., Any] | None
+        mask: Callable[..., Any] | None
+        keypoints: Callable[..., Any] | None
+        bboxes: Callable[..., Any] | None
+        name: str | None
+
+    def __init__(
+        self,
+        image: Callable[..., Any] | None = None,
+        mask: Callable[..., Any] | None = None,
+        keypoints: Callable[..., Any] | None = None,
+        bboxes: Callable[..., Any] | None = None,
+        name: str | None = None,
+        p: float = 1.0,
+    ):
+        super().__init__(p=p)
+
+        self.name = name
+        self.custom_apply_fns: dict[str, Callable[..., Any]] = dict.fromkeys(
+            ("image", "mask", "keypoints", "bboxes"),
+            fpixel.noop,
+        )
+        for target_name, custom_apply_fn in {
+            "image": image,
+            "mask": mask,
+            "keypoints": keypoints,
+            "bboxes": bboxes,
+        }.items():
+            if custom_apply_fn is not None:
+                if isinstance(custom_apply_fn, LambdaType) and custom_apply_fn.__name__ == "<lambda>":
+                    warnings.warn(
+                        "Using lambda is incompatible with multiprocessing. "
+                        "Consider using regular functions or partial().",
+                        stacklevel=2,
+                    )
+
+                self.custom_apply_fns[target_name] = custom_apply_fn
+
+    def apply(self, img: ImageType, **params: Any) -> ImageType:
+        fn = self.custom_apply_fns["image"]
+        return fn(img, **params)
+
+    def apply_to_mask(self, mask: ImageType, **params: Any) -> ImageType:
+        fn = self.custom_apply_fns["mask"]
+        return fn(mask, **params)
+
+    def apply_to_bboxes(self, bboxes: np.ndarray, **params: Any) -> np.ndarray:
+        fn = self.custom_apply_fns["bboxes"]
+        return fn(bboxes, **params)
+
+    def apply_to_keypoints(self, keypoints: np.ndarray, **params: Any) -> np.ndarray:
+        fn = self.custom_apply_fns["keypoints"]
+        return fn(keypoints, **params)
+
+    @classmethod
+    def is_serializable(cls) -> bool:
+        """Return True only if the Lambda was constructed with a name; unnamed Lambdas
+        cannot be serialized (e.g. for saving pipelines). Check before to_dict/save.
+
+        Returns:
+            bool: True if the transform is serializable, False otherwise.
+
+        """
+        return False
+
+    def to_dict_private(self) -> dict[str, Any]:
+        if self.name is None:
+            msg = (
+                "To make a Lambda transform serializable you should provide the `name` argument, "
+                "e.g. `Lambda(name='my_transform', image=<some func>, ...)`."
+            )
+            raise ValueError(msg)
+        return {"__class_fullname__": self.get_class_fullname(), "__name__": self.name}
+
+    def __repr__(self) -> str:
+        """Return repr string with transform name and custom apply functions. Useful for
+        debugging and logging; does not include full function bodies.
+
+        Returns:
+            str: The string representation of the Lambda transform.
+
+        """
+        state: dict[str, Any] = {"name": self.name}
+        state.update(self.custom_apply_fns)
+        state.update(self.get_base_init_args())
+        return f"{self.__class__.__name__}({format_args(state)})"

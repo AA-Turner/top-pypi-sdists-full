@@ -16,21 +16,57 @@
 """Send command output to a file path or to stdout.
 
 Helpers for the common `--output` option pattern, where a `-` value means
-"write to stdout" instead of creating a file literally named `-`.
+"write to stdout" instead of creating a file literally named `-`, for standard
+streams that cannot encode what a command prints, and for the error a command
+reports when its output needs an optional dependency that is not installed.
 """
 
 from __future__ import annotations
 
+import codecs
 import sys
+
+import click
+
+from ._utils import missing_extra_message
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import IO
+    from typing import IO, TextIO
 
 
 STDOUT_SENTINEL = "-"
 """Conventional `--output` value asking for stdout instead of a file on disk."""
+
+
+class MissingExtraError(click.ClickException, ImportError):
+    """A command needs an optional dependency that is not installed.
+
+    The one failure every feature gated behind an extra raises once a user asks
+    for it: a table, an export or a completion spec in a format whose writer is
+    missing, a code snippet without Pygments. Click prints the message after
+    `Error:` and exits with status `1`, with no traceback.
+
+    It is an {exc}`ImportError` as well, since a failed import is what it
+    reports: code calling such a feature outside a command catches it as one.
+
+    The message names the `uv pip install` command that installs the extra, in
+    the wording every other optional-dependency error of the package uses.
+
+    :param extra: the optional dependency group that installs what is missing.
+    :param subject: what needs the dependency, opening the message.
+    :param package: the distribution the extra belongs to.
+    """
+
+    def __init__(
+        self,
+        extra: str,
+        *,
+        subject: str,
+        package: str = "click-extra",
+    ) -> None:
+        super().__init__(missing_extra_message(extra, package=package, subject=subject))
 
 
 def is_stdout(path: Path) -> bool:
@@ -68,6 +104,54 @@ def prep_path(path: Path) -> IO[str]:
             fd = sys.stdout.fileno()
         except (OSError, ValueError):
             return sys.stdout
-        return open(fd, "w", encoding="utf-8", closefd=False)
+        return open(fd, "w", encoding="UTF-8", closefd=False)
     path.parent.mkdir(parents=True, exist_ok=True)
-    return path.open("w", encoding="utf-8")
+    return path.open("w", encoding="UTF-8")
+
+
+def _speaks_utf8(stream: TextIO) -> bool:
+    """Whether `stream` already encodes the whole of Unicode, as UTF-8."""
+    encoding = getattr(stream, "encoding", None)
+    if not encoding:
+        return False
+    try:
+        return codecs.lookup(encoding).name == "utf-8"
+    except LookupError:
+        return False
+
+
+def force_unicode_output() -> None:
+    """Switch `sys.stdout` and `sys.stderr` to UTF-8 when they do not speak it.
+
+    Windows gives a redirected stream the encoding of its legacy code page,
+    `cp1252` on a Western install, which has no `✓`, no `✘` and none of the
+    box-drawing characters of a table border. A command printing one of them dies
+    on a `UnicodeEncodeError` the moment its output is piped or redirected, which
+    is how automation runs a CLI. A narrow `PYTHONIOENCODING`, like `ascii`, leads
+    a POSIX host to the same crash.
+
+    A stream already speaking UTF-8 is left alone. A stream refusing the new
+    encoding is asked for `backslashreplace` errors instead: an escaped character
+    in the output is ugly, but it loses nothing and does not crash. A stream with
+    no `reconfigure()`, like an `io.StringIO` capture, is skipped.
+
+    {meth}`~click_extra.commands.Command.main` calls it as each run starts.
+
+    ```{todo}
+    Remove once the minimum supported Python is 3.15: its UTF-8 mode, on by
+    default ([PEP 686](https://peps.python.org/pep-0686/)), makes the standard
+    streams speak UTF-8 unless the environment asks otherwise.
+    ```
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None or _speaks_utf8(stream):
+            continue
+        try:
+            reconfigure(encoding="UTF-8")
+        except (OSError, ValueError, LookupError):
+            try:
+                reconfigure(errors="backslashreplace")
+            except (OSError, ValueError, LookupError):
+                # Nothing more to try: leave the stream as the platform made it.
+                pass

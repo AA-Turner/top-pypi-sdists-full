@@ -49,6 +49,22 @@ def test_every_command_is_defined_where_the_fingerprint_looks():
     assert not outside, "add their folder to cli_spec.COMMAND_FOLDERS:\n" + "\n".join(outside)
 
 
+def test_the_fingerprint_hashes_each_file_under_its_path_as_before():
+    """`source_sha` slices each path where it called `relative_to(package).as_posix()` (~20 ms over
+    cli/'s ~450 files, on every record session `probe` call): the same bytes, so the same `cli_source`."""
+    import hashlib
+    from pathlib import Path
+
+    package = Path(cli_spec.__file__).resolve().parents[2]
+    suffixes = (".py", *cli_spec.EXTENSION_SUFFIXES)
+    found = [path for folder in cli_spec.COMMAND_FOLDERS for path in (package / folder).rglob("*")
+             if path.name.endswith(suffixes)]
+    digest = hashlib.sha256()
+    for path in sorted(found) + [package / name for name in cli_spec.VOCABULARY]:
+        digest.update(path.relative_to(package).as_posix().encode() + b"\0" + path.read_bytes())
+    assert cli_spec.source_sha() == digest.hexdigest()
+
+
 def _sample(p) -> str:
     t = type(p.type).__name__
     if "Choice" in t:

@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: qm-saas
+Version: 1.2.0
+Summary: QM Simulator as a Service is a client library to launch simulator instances for QUA programs.
+License: BSD-3-Clause
+License-File: LICENSE
+Author: Quantum Machines
+Author-email: info@quantum-machines.co
+Requires-Python: >=3.10,<3.15
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: deprecation (>=2.0.0)
+Requires-Dist: h11 (>=0.16.0)
+Requires-Dist: h2 (>=4.3.0)
+Requires-Dist: protobuf (>=4.25.8)
+Requires-Dist: requests (>=2.32.5)
+Requires-Dist: urllib3 (>=1.26)
+Description-Content-Type: text/markdown
+
+# QM Simulator as a Service
+
+Run Quantum Machines' QUA simulator instances at scale.
+
+This package provides a client to use the QM OPX simulator cloud service. It allows you to run QUA programs and retrieve the results on several instances in the cloud.
+
+To learn how to use this package, please visit the documentation website at: [https://docs.quantum-machines.co/latest/docs/Guides/qm_saas_guide/](https://docs.quantum-machines.co/latest/docs/Guides/qm_saas_guide/)

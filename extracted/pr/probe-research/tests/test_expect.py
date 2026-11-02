@@ -4,7 +4,7 @@ The promise under test: it is an ADD-ON. A script that never calls it is
 unchanged, and a call can never break the script -- a malformed entry is dropped
 with a warning and delivery is fail-open. What the server does with the ranges
 (merge, stamp, alert) is proven against real tables in
-`tests/integration/test_metric_ranges.py`; here, the wire body and the refusals.
+`tests/integration/runs/findings/test_metric_ranges.py`; here, the wire body and the refusals.
 """
 
 from __future__ import annotations

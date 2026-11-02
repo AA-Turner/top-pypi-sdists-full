@@ -1,0 +1,238 @@
+"""Error objects and utils.
+
+The exception classes dol raises (``NotAllowed``, ``OverWritesNotAllowedError``,
+``KeyValidationError``, ...) and ``items_with_caught_exceptions``, an ``items()``
+that skips (or reports) the keys whose value cannot be fetched.
+
+    >>> from dol.errors import items_with_caught_exceptions
+    >>> list(items_with_caught_exceptions({'a': 1}))
+    [('a', 1)]
+"""
+
+from collections.abc import Mapping
+from inspect import signature
+
+
+# TODO: More on wrapped_callback: Handle *args too. Make it work with builtins (no signature!)
+# TODO: What about traceback?
+# TODO: Make it a more general and useful store decorator. Trans store into an getitem exception catching store.
+def items_with_caught_exceptions(
+    d: Mapping,
+    callback=None,
+    catch_exceptions=(Exception,),
+    yield_callback_output=False,
+):
+    """
+    Do what Mapping.items() does, but catching exceptions when getting the values for a key.
+
+
+    Some time your `store.items()` is annoying because of some exceptions that happen
+    when you're retrieving some value for some of the keys.
+
+    Yes, if that happens, it's that something is wrong with your store, and yes,
+    if it's a store that's going to be used a lot, you really should build the right store
+    that doesn't have that problem.
+
+    But now that we appeased the paranoid naysayers with that warning, let's get to business:
+    Sometimes you just want to get through the hurdle to get the job done. Sometimes your store is good enough,
+    except for a few exceptions. Sometimes your store gets it's keys from a large pool of possible keys
+    (e.g. github stores or kaggle stores, or any store created by a free-form search seed),
+    so you can't really depend on the fact that all the keys given by your key iterator
+    will give you a value without exception
+    -- especially if you slapped on a bunch of post-processing on the out-coming values.
+
+    So you can right a for loop to iterate over your keys, catch the exceptions, do something with it...
+
+    Or, in many cases, you can just use `items_with_caught_exceptions`.
+
+    :param d: Any Mapping
+    :param catch_exceptions: A tuple of exceptions that should be caught
+    :param callback: A function that will be called every time an exception is caught.
+        It may take any subset of the arguments ``k`` (key), ``e`` (error obj),
+        ``d`` (mapping) and ``i`` (index), by name (see the examples below); if its
+        signature cannot be inspected it is called with all four, positionally.
+    :param yield_callback_output: If True, also yield the callback's output for the
+        keys whose value raised.
+    :return: An (key, val) generator with exceptions caught
+
+    >>> from collections.abc import Mapping
+    >>> class Test(Mapping):  # a Mapping class that has keys 0..9, but raises of KeyError if the key is not even
+    ...     n = 10
+    ...     def __iter__(self):
+    ...         yield from range(2, self.n)
+    ...     def __len__(self):
+    ...         return self.n
+    ...     def __getitem__(self, k):
+    ...         if k % 2 == 0:
+    ...             return k
+    ...         else:
+    ...             raise KeyError('Not even')
+    >>>
+    >>> list(items_with_caught_exceptions(Test()))
+    [(2, 2), (4, 4), (6, 6), (8, 8)]
+    >>>
+    >>> def my_log(k, e):
+    ...     print(k, e)
+    >>> list(items_with_caught_exceptions(Test(), callback=my_log))
+    3 'Not even'
+    5 'Not even'
+    7 'Not even'
+    9 'Not even'
+    [(2, 2), (4, 4), (6, 6), (8, 8)]
+    >>> def my_other_log(i):
+    ...     print(i)
+    >>> list(items_with_caught_exceptions(Test(), callback=my_other_log))
+    1
+    3
+    5
+    7
+    [(2, 2), (4, 4), (6, 6), (8, 8)]
+    """
+
+    # wrap the input callback to make the callback definition less constrained for the user.
+    if callback is not None:
+        try:
+            params = signature(callback).parameters
+
+            def wrapped_callback(**kwargs):
+                kwargs = {k: v for k, v in kwargs.items() if k in params}
+                return callback(**kwargs)
+
+        except ValueError:
+
+            def wrapped_callback(k, e, d, i):
+                return callback(k, e, d, i)
+
+    else:
+
+        def wrapped_callback(k, e, d, i):
+            pass  # do nothing
+
+    for i, k in enumerate(d):  # iterate over keys of the mapping
+        try:
+            v = d[k]  # try getting the value...
+            yield k, v  # and if you do, yield the (k, v) pair
+        except (
+            catch_exceptions
+        ) as e:  # catch the specific exceptions you requested to catch
+            t = wrapped_callback(k=k, e=e, d=d, i=i)  # call it
+            if yield_callback_output:  # if the user wants the output of the callback
+                yield t  # yield it
+
+
+def _assert_condition(condition, err_msg="", err_cls=AssertionError):
+    if not condition:
+        raise err_cls(err_msg)
+
+
+class NotValid(ValueError, TypeError):
+    """To use to indicate when an object doesn't fit expected properties"""
+
+
+class KeyValidationError(NotValid):
+    """Error to raise when a key is not valid"""
+
+
+class NoSuchKeyError(KeyError):
+    """When a requested key doesn't exist"""
+
+
+class OutOfScopeKeyError(KeyError, ValueError):
+    """An inner key (id) lies outside a key-mapping layer's scope (e.g. it does not
+    start with the layer's prefix), so it has no outer key: mapping it anyway would
+    silently produce a key that addresses a *different* object (i2mint/dol#82)."""
+
+    __str__ = Exception.__str__  # plain message, not KeyError's repr of it
+
+
+_RAISES_OUT_OF_SCOPE = "_dol_raises_out_of_scope"
+
+
+def raises_out_of_scope(func):
+    """Mark ``func``, a ``key_of_id``, as one that may raise ``OutOfScopeKeyError``.
+
+    A ``Store`` layer whose ``_key_of_id`` is so marked is a *view* of the in-scope
+    ids, so its ``len`` counts them (a scan) instead of returning ``len`` of the inner
+    store, which would overcount (i2mint/dol#123). Unmarked key mappings keep the inner
+    store's (often O(1)) ``len``. Returns ``func``, so it works as a decorator.
+
+    ``wrap_kvs`` (and so the codecs), ``Pipe`` and subclasses made by class wrapping
+    carry the mark over; a ``_key_of_id`` you override by hand (even one calling
+    ``super()``) does not, so mark it too if it can raise.
+
+    >>> @raises_out_of_scope
+    ... def key_of_id(_id):
+    ...     return _id
+    >>> may_raise_out_of_scope(key_of_id), may_raise_out_of_scope(str.upper)
+    (True, False)
+    """
+    setattr(func, _RAISES_OUT_OF_SCOPE, True)
+    return func
+
+
+def may_raise_out_of_scope(func) -> bool:
+    """Whether ``func`` was marked with :func:`raises_out_of_scope` (a bound method
+    reads the mark off its function)."""
+    return getattr(func, _RAISES_OUT_OF_SCOPE, False) is True
+
+
+def out_of_scope_prefix_error(_id, prefix):
+    """The ``OutOfScopeKeyError`` for an ``_id`` that doesn't start with ``prefix``."""
+    return OutOfScopeKeyError(
+        f"{_id!r} does not start with the prefix {prefix!r}, so it is outside this "
+        "store's scope: iterating the store skips it, and it can't be read or "
+        "written through an outer key (see i2mint/dol#82)."
+    )
+
+
+def out_of_scope_suffix_error(_id, suffix):
+    """The ``OutOfScopeKeyError`` for an ``_id`` that doesn't end with ``suffix``."""
+    return OutOfScopeKeyError(
+        f"{_id!r} does not end with the suffix {suffix!r}, so it is outside this "
+        "store's scope: iterating the store skips it, and it can't be read or "
+        "written through an outer key (see i2mint/dol#114)."
+    )
+
+
+class NotAllowed(Exception):
+    """To use to indicate that something is not allowed"""
+
+
+class OperationNotAllowed(NotAllowed, NotImplementedError):
+    """When a given operation is not allowed (through being disabled, conditioned, or just implemented)"""
+
+
+class ReadsNotAllowed(OperationNotAllowed):
+    """Read OperationNotAllowed"""
+
+
+class WritesNotAllowed(OperationNotAllowed):
+    """Write OperationNotAllowed"""
+
+
+class DeletionsNotAllowed(OperationNotAllowed):
+    """Delete OperationNotAllowed"""
+
+
+class IterationNotAllowed(OperationNotAllowed):
+    """Iteration OperationNotAllowed"""
+
+
+class OverWritesNotAllowedError(OperationNotAllowed):
+    """Error to raise when a writes to existing keys are not allowed"""
+
+
+class AlreadyExists(ValueError):
+    """To use if an object already exists (and shouldn't; for example, to protect overwrites)"""
+
+
+class MethodNameAlreadyExists(AlreadyExists):
+    """To use when a method name already exists (and shouldn't)"""
+
+
+class MethodFuncNotValid(NotValid):
+    """Use when method function is not valid"""
+
+
+class SetattrNotAllowed(NotAllowed):
+    """An attribute was requested to be set, but some conditions didn't apply"""

@@ -743,7 +743,7 @@ def test_session_status_carries_the_warning_for_its_own_session_only(monkeypatch
 
 def test_doctor_names_a_state_codex_hooks_will_not_see(monkeypatch, env):
     from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     caps = type("Caps", (), {"codex_available": True})()
     monkeypatch.setattr(codex_hooks, "status", lambda *a, **k: None)

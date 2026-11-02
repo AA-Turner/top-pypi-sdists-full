@@ -81,6 +81,7 @@ from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
 from ...foundation.durable import homedir
+from .workspace_limit import LIMIT_ENV
 
 if TYPE_CHECKING:
     from .workspace_limit import WorkspaceLimit
@@ -96,21 +97,74 @@ FOLDER_CONFIG_MAX_BYTES = 64 * 1024
 CONFIG_VERSION = 2
 DEFAULT_CONTEXT = "default"
 
+# Environment variables the settings read.
+BASE_URL_ENV = "PROBE_BASE_URL"
+TOKEN_ENV = "PROBE_TOKEN"
+SERVICE_TOKEN_ENV = "PROBE_SERVICE_TOKEN"
+MCP_TOKEN_ENV = "PROBE_MCP_TOKEN"
+MCP_URL_ENV = "PROBE_MCP_URL"
+INGEST_TOKEN_ENV = "PROBE_INGEST_TOKEN"
+HMAC_SECRET_ENV = "PROBE_HMAC_SECRET"
+WORKSPACE_ENV = "PROBE_WORKSPACE"
+PROJECT_ENV = "PROBE_PROJECT"
+RUN_ID_ENV = "PROBE_RUN_ID"
+CONFIG_PATH_ENV = "PROBE_CONFIG_PATH"
+XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
+
+# Config-file keys: per-context credentials, then the file's top-level keys.
+BASE_URL_KEY = "base_url"
+TOKEN_KEY = "token"
+MCP_TOKEN_KEY = "mcp_token"
+SERVICE_TOKEN_KEY = "service_token"
+INGEST_TOKEN_KEY = "ingest_token"
+HMAC_SECRET_KEY = "hmac_secret"
+WORKSPACE_KEY = "workspace"
+PROJECT_KEY = "project"
+ID_KEY = "id"
+VERSION_KEY = "version"
+CURRENT_CONTEXT_KEY = "current_context"
+CONTEXTS_KEY = "contexts"
+DEFAULTS_KEY = "defaults"
+
 # Per-context credential/endpoint keys: migrate v1 and decide what a top-level strip removes.
 _CONTEXT_KEYS = (
-    "base_url",
-    "token",
-    "mcp_token",
-    "service_token",
-    "ingest_token",
-    "hmac_secret",
-    "workspace",
+    BASE_URL_KEY,
+    TOKEN_KEY,
+    MCP_TOKEN_KEY,
+    SERVICE_TOKEN_KEY,
+    INGEST_TOKEN_KEY,
+    HMAC_SECRET_KEY,
+    WORKSPACE_KEY,
 )
 
-#: Context key: the one-time workspace handover ran, or the person cleared the workspace
-#: (`probe workspace use --clear`), so a legacy default (0354) is never pinned again
-#: (`Client._hand_over_workspace`).
+#: Context key, LEGACY: the old one-time handover and the old `probe workspace use --clear`
+#: both wrote it. Nothing writes it now; with no pin it still reads as cleared.
 WORKSPACE_HANDOVER = "workspace_handover"
+
+#: Context key: the person ran `probe workspace use --clear`, so nothing re-pins their
+#: home workspace on this computer (`Client._pin_home_workspace`, the setup wizard).
+WORKSPACE_CLEARED = "workspace_cleared"
+
+
+def is_workspace_cleared(context: dict) -> bool:
+    """Whether this computer's workspace was cleared on purpose (the new key or the legacy one).
+
+    Only means something while the context has no pin: a later pick wins over a clear."""
+    return bool(context.get(WORKSPACE_CLEARED) or context.get(WORKSPACE_HANDOVER))
+
+
+#: Context updates that end an earlier clear: merged into every pin pick or loss that is
+#: not `probe workspace use --clear`, so a stale flag never refuses a later create.
+WORKSPACE_CLEAR_RESET = {WORKSPACE_CLEARED: None, WORKSPACE_HANDOVER: None}
+
+
+class WorkspaceSource(StrEnum):
+    """Where `Settings.workspace` came from (`resolve`): only a PIN is this computer's to drop."""
+
+    EXPLICIT = "explicit"  # resolve(workspace=...)
+    ENV = "env"  # PROBE_WORKSPACE
+    LIMIT = "limit"  # PROBE_WORKSPACE_LIMIT, filing where it can see
+    PIN = "pin"  # the context's saved pin (`probe workspace use`, the setup wizard)
 
 
 #: Config path for the daemon's shell: never exists, so its `probe` has no key (`probe.daemon.shell.runner.minimal_env`).
@@ -138,8 +192,8 @@ def run_token_run_id(token: str | None) -> str | None:
 
 def env_run_id() -> str:
     """The run this process must join: PROBE_RUN_ID, else the one a per-run PROBE_TOKEN records ("" for neither)."""
-    return os.environ.get("PROBE_RUN_ID", "").strip() or (
-        run_token_run_id(os.environ.get("PROBE_TOKEN")) or ""
+    return os.environ.get(RUN_ID_ENV, "").strip() or (
+        run_token_run_id(os.environ.get(TOKEN_ENV)) or ""
     )
 
 
@@ -147,7 +201,7 @@ def mcp_url(base_url: str) -> str | None:
     """The MCP for a credential belonging to `base_url`: `PROBE_MCP_URL`, else the stock MCP
     beside the stock API, else none (a key must never go to a deployment that did not mint
     it). Used by the daemon's reader and `probe mcp tools|call`."""
-    explicit = os.environ.get("PROBE_MCP_URL")
+    explicit = os.environ.get(MCP_URL_ENV)
     if explicit:
         return explicit
     from urllib.parse import urlparse
@@ -163,10 +217,10 @@ def config_path() -> Path:
     it, values landed in `~/.config` while readers looked elsewhere, so settings
     vanished under any test/dev environment that set it.
     """
-    override = os.environ.get("PROBE_CONFIG_PATH")
+    override = os.environ.get(CONFIG_PATH_ENV)
     if override:
         return Path(override)
-    base = os.environ.get("XDG_CONFIG_HOME")
+    base = os.environ.get(XDG_CONFIG_HOME_ENV)
     root = Path(base) if base else homedir.home() / ".config"
     return root / "probe" / "config.json"
 
@@ -175,9 +229,9 @@ def _migrate(data: dict) -> dict:
     """Return ``data`` in v2 shape. Pure — never touches disk."""
     if not data:
         return {}
-    if isinstance(data.get("contexts"), dict):
-        data.setdefault("version", CONFIG_VERSION)
-        data.setdefault("current_context", DEFAULT_CONTEXT)
+    if isinstance(data.get(CONTEXTS_KEY), dict):
+        data.setdefault(VERSION_KEY, CONFIG_VERSION)
+        data.setdefault(CURRENT_CONTEXT_KEY, DEFAULT_CONTEXT)
         return data
     # v1: a flat credential blob; all of it is one context. Unknown keys are carried across
     # too (likelier a newer client's than junk; dropping credentials on read is unrecoverable).
@@ -187,17 +241,17 @@ def _migrate(data: dict) -> dict:
     # in the context would bury it where `default_tracking` never looks and turn an explicit
     # "off" into "on" at the next write.
     flat = dict(data)
-    defaults = flat.pop("defaults", None)
+    defaults = flat.pop(DEFAULTS_KEY, None)
     migrated = {
-        "version": CONFIG_VERSION,
-        "current_context": DEFAULT_CONTEXT,
-        "contexts": {DEFAULT_CONTEXT: flat},
+        VERSION_KEY: CONFIG_VERSION,
+        CURRENT_CONTEXT_KEY: DEFAULT_CONTEXT,
+        CONTEXTS_KEY: {DEFAULT_CONTEXT: flat},
     }
     if isinstance(defaults, dict):
-        migrated["defaults"] = defaults
+        migrated[DEFAULTS_KEY] = defaults
     elif defaults is not None:
         # Not ours if it is not a dict — leave it where it was found.
-        flat["defaults"] = defaults
+        flat[DEFAULTS_KEY] = defaults
     return migrated
 
 
@@ -302,7 +356,7 @@ def load_file(*, strict: bool = False) -> dict:
 
 def current_context_name(data: dict | None = None) -> str:
     data = load_file() if data is None else data
-    return data.get("current_context") or DEFAULT_CONTEXT
+    return data.get(CURRENT_CONTEXT_KEY) or DEFAULT_CONTEXT
 
 
 def load_context(name: str | None = None) -> dict:
@@ -311,7 +365,7 @@ def load_context(name: str | None = None) -> dict:
     ``load_file()`` is the whole file, every context.
     """
     data = load_file()
-    contexts = data.get("contexts")
+    contexts = data.get(CONTEXTS_KEY)
     if not isinstance(contexts, dict):
         return {}
     ctx = contexts.get(name or current_context_name(data))
@@ -417,21 +471,21 @@ def save_context(updates: dict, *, name: str | None = None) -> Path:
     target_path = _write_target(path)
     with _config_lock(target_path, _resolved=True):
         data = _load_json_file(target_path, strict=True, migrate=True) or {
-            "version": CONFIG_VERSION,
-            "current_context": DEFAULT_CONTEXT,
-            "contexts": {},
+            VERSION_KEY: CONFIG_VERSION,
+            CURRENT_CONTEXT_KEY: DEFAULT_CONTEXT,
+            CONTEXTS_KEY: {},
         }
-        data.setdefault("contexts", {})
+        data.setdefault(CONTEXTS_KEY, {})
         target = name or current_context_name(data)
-        ctx = dict(data["contexts"].get(target) or {})
+        ctx = dict(data[CONTEXTS_KEY].get(target) or {})
         for key, value in updates.items():
             if value is None:
                 ctx.pop(key, None)
             else:
                 ctx[key] = value
-        data["contexts"][target] = ctx
-        data["current_context"] = data.get("current_context") or target
-        data["version"] = CONFIG_VERSION
+        data[CONTEXTS_KEY][target] = ctx
+        data[CURRENT_CONTEXT_KEY] = data.get(CURRENT_CONTEXT_KEY) or target
+        data[VERSION_KEY] = CONFIG_VERSION
         _save_json_file(target_path, data, private=True, _resolved=True)
         return path
 
@@ -442,12 +496,12 @@ def use_context(name: str) -> Path:
     target_path = _write_target(path)
     with _config_lock(target_path, _resolved=True):
         data = _load_json_file(target_path, strict=True, migrate=True) or {
-            "version": CONFIG_VERSION,
-            "contexts": {},
+            VERSION_KEY: CONFIG_VERSION,
+            CONTEXTS_KEY: {},
         }
-        data.setdefault("contexts", {}).setdefault(name, {})
-        data["current_context"] = name
-        data["version"] = CONFIG_VERSION
+        data.setdefault(CONTEXTS_KEY, {}).setdefault(name, {})
+        data[CURRENT_CONTEXT_KEY] = name
+        data[VERSION_KEY] = CONFIG_VERSION
         _save_json_file(target_path, data, private=True, _resolved=True)
         return path
 
@@ -458,11 +512,11 @@ def delete_context(name: str) -> Path:
     target_path = _write_target(path)
     with _config_lock(target_path, _resolved=True):
         data = _load_json_file(target_path, strict=True, migrate=True)
-        contexts = data.get("contexts") or {}
+        contexts = data.get(CONTEXTS_KEY) or {}
         contexts.pop(name, None)
-        data["contexts"] = contexts
-        if data.get("current_context") == name:
-            data["current_context"] = next(iter(contexts), DEFAULT_CONTEXT)
+        data[CONTEXTS_KEY] = contexts
+        if data.get(CURRENT_CONTEXT_KEY) == name:
+            data[CURRENT_CONTEXT_KEY] = next(iter(contexts), DEFAULT_CONTEXT)
         _save_json_file(target_path, data, private=True, _resolved=True)
         return path
 
@@ -476,7 +530,7 @@ def clear_context(name: str | None = None) -> Path:
     target_path = _write_target(path)
     with _config_lock(target_path, _resolved=True):
         data = _load_json_file(target_path, strict=True, migrate=True)
-        contexts = data.get("contexts")
+        contexts = data.get(CONTEXTS_KEY)
         if not isinstance(contexts, dict):
             return path
         target = name or current_context_name(data)
@@ -484,7 +538,7 @@ def clear_context(name: str | None = None) -> Path:
             # Wipe, do not subtract known keys: removing only `_CONTEXT_KEYS` would fail OPEN
             # (`_migrate` carries unknown keys, so an unfamiliar credential would survive logout).
             contexts[target] = {}
-        data["contexts"] = contexts
+        data[CONTEXTS_KEY] = contexts
         # Strip stray TOP-LEVEL credentials too: an OLDER probe could write `token` at the root
         # of a v2 file (`_migrate` leaves it), outliving every logout and still authenticating.
         for key in _CONTEXT_KEYS:
@@ -514,6 +568,8 @@ class Settings:
     #: This computer's workspace limit (`workspace_limit`), None for the whole team. Only
     #: `resolve()` fills it: hand-built `Settings` (sign-in, key checks, logout) carry none.
     workspace_limit: "WorkspaceLimit | None" = None
+    #: Where `workspace` came from; only `resolve()` fills it (None: hand-built, never dropped).
+    workspace_source: WorkspaceSource | None = None
 
 
 def resolve(
@@ -537,35 +593,43 @@ def resolve(
 
     env = os.environ if env is None else env
     file = load_context(context)
-    anchor = file.get("workspace") if isinstance(file.get("workspace"), dict) else {}
+    anchor = file.get(WORKSPACE_KEY) if isinstance(file.get(WORKSPACE_KEY), dict) else {}
     limit = resolve_limit(file, env)
     # A job limited by `PROBE_WORKSPACE_LIMIT` files into that workspace too unless
     # PROBE_WORKSPACE says otherwise (else it would create work it cannot see).
     env_limited = limit.ref if limit is not None and limit.source is Source.ENV and env.get(
-        "PROBE_WORKSPACE_LIMIT", ""
+        LIMIT_ENV, ""
     ).strip() else None
+    sources = (
+        (workspace, WorkspaceSource.EXPLICIT),
+        (env.get(WORKSPACE_ENV), WorkspaceSource.ENV),
+        (env_limited, WorkspaceSource.LIMIT),
+        (anchor.get(ID_KEY), WorkspaceSource.PIN),
+    )
+    workspace_source = next((source for value, source in sources if value), None)
     return Settings(
         # PROBE_BASE_URL must outrank the context file: hosted MCP pods set it
         # (deploy/mcp/k8s.yaml) to the in-cluster service, and a context outranking it would
         # point production at the wrong API while /healthz stays 200 (tests/test_config_contexts.py).
         base_url=(
-            base_url or env.get("PROBE_BASE_URL") or file.get("base_url") or DEFAULT_BASE_URL
+            base_url or env.get(BASE_URL_ENV) or file.get(BASE_URL_KEY) or DEFAULT_BASE_URL
         ).rstrip("/"),
-        token=token or env.get("PROBE_TOKEN") or file.get("token"),
+        token=token or env.get(TOKEN_ENV) or file.get(TOKEN_KEY),
         # Read-only egress credential (probe_svc_) for an external product: team-scoped, userless.
         service_token=(
-            service_token or env.get("PROBE_SERVICE_TOKEN") or file.get("service_token")
+            service_token or env.get(SERVICE_TOKEN_ENV) or file.get(SERVICE_TOKEN_KEY)
         ),
         # Env first keeps shells exporting PROBE_MCP_TOKEN working. Never falls back to `token` (writable).
-        mcp_token=mcp_token or env.get("PROBE_MCP_TOKEN") or file.get("mcp_token"),
+        mcp_token=mcp_token or env.get(MCP_TOKEN_ENV) or file.get(MCP_TOKEN_KEY),
         ingest_token=(
-            ingest_token or env.get("PROBE_INGEST_TOKEN") or file.get("ingest_token")
+            ingest_token or env.get(INGEST_TOKEN_ENV) or file.get(INGEST_TOKEN_KEY)
         ),
-        hmac_secret=(hmac_secret or env.get("PROBE_HMAC_SECRET") or file.get("hmac_secret")),
+        hmac_secret=(hmac_secret or env.get(HMAC_SECRET_ENV) or file.get(HMAC_SECRET_KEY)),
         # Ambient anchors are a convenience: an explicit flag or env var wins, so CI never depends on a developer's context.
-        workspace=workspace or env.get("PROBE_WORKSPACE") or env_limited or anchor.get("id"),
-        project=project or env.get("PROBE_PROJECT") or anchor.get("project"),
+        workspace=workspace or env.get(WORKSPACE_ENV) or env_limited or anchor.get(ID_KEY),
+        project=project or env.get(PROJECT_ENV) or anchor.get(PROJECT_KEY),
         workspace_limit=limit,
+        workspace_source=workspace_source,
     )
 
 

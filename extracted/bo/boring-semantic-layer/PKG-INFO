@@ -1,0 +1,117 @@
+Metadata-Version: 2.5
+Name: boring-semantic-layer
+Version: 0.3.18
+Summary: A boring semantic layer built with ibis
+Project-URL: Homepage, https://github.com/boringdata/boring-semantic-layer/tree/main
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: >=3.11
+Requires-Dist: attrs>=25.3.0
+Requires-Dist: ibis-framework<12,>=11.0.0
+Requires-Dist: packaging
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: returns>=0.26.0
+Requires-Dist: toolz>=1.0.0
+Provides-Extra: agent
+Requires-Dist: langchain>=0.3.0; extra == 'agent'
+Requires-Dist: plotext>=5.0.0; extra == 'agent'
+Requires-Dist: python-dotenv>=1.0.0; extra == 'agent'
+Requires-Dist: rich>=13.0.0; extra == 'agent'
+Provides-Extra: dev
+Requires-Dist: langchain-anthropic>=0.3.0; extra == 'dev'
+Requires-Dist: langchain-openai>=0.3.0; extra == 'dev'
+Requires-Dist: malloy>=0.1.0; extra == 'dev'
+Requires-Dist: openai>=1.0.0; extra == 'dev'
+Requires-Dist: pandas>=2.3.0; extra == 'dev'
+Requires-Dist: pre-commit>=4.2.0; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
+Requires-Dist: ruff>=0.6.7; extra == 'dev'
+Requires-Dist: urllib3>=2.2.3; extra == 'dev'
+Provides-Extra: examples
+Requires-Dist: duckdb<1.4; extra == 'examples'
+Requires-Dist: xorq[duckdb]>=0.3.31; extra == 'examples'
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=2.12.4; extra == 'mcp'
+Provides-Extra: server
+Requires-Dist: fastapi>=0.115.0; extra == 'server'
+Requires-Dist: uvicorn[standard]>=0.30.0; extra == 'server'
+Provides-Extra: test-core
+Requires-Dist: ibis-framework[duckdb]<12,>=11.0.0; extra == 'test-core'
+Requires-Dist: pandas>=2.3.0; extra == 'test-core'
+Requires-Dist: pytest; extra == 'test-core'
+Requires-Dist: pytest-asyncio; extra == 'test-core'
+Requires-Dist: pytest-xdist; extra == 'test-core'
+Provides-Extra: viz-altair
+Requires-Dist: altair>=5.0.0; extra == 'viz-altair'
+Requires-Dist: vl-convert-python>=1.0.0; extra == 'viz-altair'
+Provides-Extra: viz-plotext
+Requires-Dist: plotext>=5.0.0; extra == 'viz-plotext'
+Provides-Extra: viz-plotly
+Requires-Dist: kaleido; extra == 'viz-plotly'
+Requires-Dist: nbformat>=4.2.0; extra == 'viz-plotly'
+Requires-Dist: plotly>=6.3.0; extra == 'viz-plotly'
+Provides-Extra: xorq
+Requires-Dist: xorq>=0.3.31; extra == 'xorq'
+Description-Content-Type: text/markdown
+
+# Boring Semantic Layer (BSL)
+
+The Boring Semantic Layer (BSL) is a lightweight semantic layer based on [Ibis](https://ibis-project.org/).
+
+**Key Features:**
+- **Lightweight**: `pip install boring-semantic-layer`
+- **Ibis-powered**: Built on top of [Ibis](https://ibis-project.org/), supporting any database engine that Ibis integrates with (DuckDB, Snowflake, BigQuery, PostgreSQL, and more)
+- **MCP-friendly**: Perfect for connecting LLMs to structured data sources
+
+## Quick Start
+
+```bash
+pip install 'boring-semantic-layer[examples]'
+```
+
+**1. Define your ibis input table**
+
+```python
+import ibis
+
+# Create a simple in-memory table
+flights_tbl = ibis.memtable({
+    "origin": ["JFK", "LAX", "JFK", "ORD", "LAX"],
+    "carrier": ["AA", "UA", "AA", "UA", "AA"]
+})
+```
+
+**2. Define a semantic table**
+
+```python
+from boring_semantic_layer import to_semantic_table
+flights = (
+    to_semantic_table(flights_tbl, name="flights")
+    .with_dimensions(origin=lambda t: t.origin)
+    .with_measures(flight_count=lambda t: t.count())
+)
+```
+
+**3. Query it**
+
+```python
+result_df = flights.group_by("origin").aggregate("flight_count").execute()
+```
+
+---
+
+## 📚 Documentation
+
+**[→ View the full documentation](https://boringdata.github.io/boring-semantic-layer/)**
+
+---
+
+*This project is a joint effort by [xorq-labs](https://github.com/xorq-labs/xorq) and [boringdata](https://www.boringdata.io/).*
+
+*We welcome feedback and contributions!*
+
+---
+
+*Freely inspired by the awesome [Malloy](https://github.com/malloydata/malloy) project. We loved the vision, just took the Python route.*

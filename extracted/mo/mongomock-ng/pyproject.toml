@@ -1,0 +1,148 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mongomock-ng"
+dynamic = ["version"]
+description = "Replacement fake pymongo stub for testing simple MongoDB-dependent code"
+readme = "README.rst"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Felipe Monteiro jácome", email = "engfelipe.jacome@gmail.com"},
+    { name = "Rotem Yaari", email = "vmalloc@gmail.com" },
+    { name = "Martin Domke", email = "mail@martindomke.net" },
+    { name = "Pascal Corpet", email = "pascal@corpet.net" },
+]
+requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Topic :: Database",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "packaging",
+    "pytz",
+    "sentinels",
+]
+
+[project.optional-dependencies]
+pyexecjs = ["pyexecjs"]
+pymongo = ["pymongo>=4.11"]
+pandas = ["pandas"]
+all = ["pymongo>=4.11", "pandas", "pyexecjs"]
+
+[project.urls]
+Homepage = "https://github.com/engFelipeMonteiro/mongomock-ng"
+Changelog = "https://engFelipeMonteiro.github.io/mongomock-ng/CHANGELOG/"
+
+[tool.hatch.version]
+path = "mongomock_ng/__version__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mongomock_ng"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = [
+    ".agents/",
+]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+extend-select = [
+    "A",
+    "B",
+    "C",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "N",
+    "Q",
+    "RUF",
+    "S",
+    "SIM",
+    "T10",
+    "UP",
+    "W",
+    "YTT",
+]
+extend-fixable = [
+    "RUF100", 
+    "I001", 
+    "SIM300", 
+    "UP008", 
+    "UP003", 
+    "C403", 
+    "UP031", 
+    "UP032",
+]
+extend-ignore = [
+    "A001",    # Allow shadowing bultins 
+    "A002",    # Allow shadowing bultins 
+    "A003",    # Allow shadowing bultins on classes
+    "FBT002",  # Allow boolean default positional parameter
+    "N818",    # Allow exceptions without Error suffix
+    "UP006",   # Allow typing.Tuple
+    "UP007",   # Allow typing.Union
+    "UP038",   # Allow (X, Y) isinstance syntax (removed in ruff 0.15, kept for pre-commit compat)
+    "PYI024",  # Allow use of collections.namedtuple
+    "S101",    # Allow usage of asserts
+    # TODO: Remove in future pull-requests
+    "ARG001",  # Allow unused function argument
+    "ARG002",  # Allow unused method argument
+    "DTZ001",  # Allow datetime.datetime() without tzinfo
+    "DTZ005",  # Allow datetime.now() without timezone
+    "EM101",   # Allow raw string in exception
+    "EM102",   # Allow f-string in exception
+    "TRY003",  # Allow specifying messages outside exception class
+    "PLR2004", # Allow magic values in comparison
+]
+exclude = [
+    ".agents/",
+    "mongomock_ng/__init__.pyi",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test__*.py" = [
+    "N802",
+    "PT009",
+    "PT027",
+    "SLF001",
+    "DTZ001",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 40
+
+[tool.ruff.lint.isort]
+order-by-type = false
+force-single-line = true
+lines-after-imports = 2
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.doc8]
+max-line-length = 100
+
+[tool.mypy]
+exclude = [".agents/"]

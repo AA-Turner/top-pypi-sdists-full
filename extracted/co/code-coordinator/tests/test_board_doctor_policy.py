@@ -30,8 +30,11 @@ from coord.board_doctor_policy import (
     ALLOWLIST,
     AUTO_DISPATCHERS,
     INVESTIGATE_CAUSES,
+    _fixit_rebudget_eligible,
+    _fixit_rebudget_environmental,
     _investigate,
     _register_auto_action,
+    _requeue_ceiling_blocked_mergeable,
     dismiss_resolved_escalation,
     escalation_alert_dispatcher,
     make_investigate_capacity_check,
@@ -51,6 +54,15 @@ _UNPINNABLE_DETAIL = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_drive_sessions(monkeypatch) -> None:
+    # `_investigate_in_flight_count` (shared by the finisher tier's own
+    # capacity check via `_at_repo_capacity`, #3837) also checks live
+    # `coord drive` tmux sessions — keep that hermetic across this whole
+    # module rather than in each capacity-check test class individually.
+    monkeypatch.setattr("coord.drive.list_drive_sessions", lambda *a, **k: [])
+
+
 def _row(
     key: str,
     cause: str,
@@ -58,13 +70,14 @@ def _row(
     evidence: tuple[str, ...] = (),
     *,
     fresh: bool = True,
+    confidence: str = queue_diagnose.CONFIDENCE_HIGH,
 ) -> StuckRow:
     return StuckRow(
         queue=queue,
         key=key,
         state="stuck",
         cause=cause,
-        confidence=queue_diagnose.CONFIDENCE_HIGH,
+        confidence=confidence,
         evidence=evidence or (f"cause={cause}",),
         fresh=fresh,
     )
@@ -687,6 +700,332 @@ class TestInvestigate:
         assert state.list_drive_escalations() == []
 
 
+class TestFixitRebudgetEnvironmental:
+    """#3847's pure classifier: cause/confidence/freshness only, zero
+    `coord.state` reads — the half of :func:`_fixit_rebudget_eligible`
+    that never costs anything regardless of how many rows a sweep
+    classifies.
+    """
+
+    def test_high_confidence_fresh_merge_conflict_is_environmental(self) -> None:
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is True
+
+    def test_medium_confidence_merge_conflict_is_flailing(self) -> None:
+        # #3777: merge-conflict keeps its original HIGH-only bar — a
+        # weaker diagnosis is not the new evidence the bypass exists for.
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is False
+
+    def test_ceiling_blocked_mergeable_at_medium_confidence_is_environmental(
+        self,
+    ) -> None:
+        # queue_diagnose never assigns this cause CONFIDENCE_HIGH, so the
+        # bar is "not LOW" rather than "exactly HIGH" (otherwise this
+        # cause could never be admitted at all).
+        row = _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is True
+
+    def test_ci_green_at_medium_confidence_is_environmental(self) -> None:
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_CI_GREEN,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is True
+
+    def test_low_confidence_ci_green_is_flailing(self) -> None:
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_CI_GREEN,
+            confidence=queue_diagnose.CONFIDENCE_LOW,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is False
+
+    def test_a_stale_row_never_reads_as_environmental(self) -> None:
+        # #3777: cause/confidence only carry "new evidence" meaning when
+        # THIS sweep computed them live — a row rebuilt from a possibly
+        # arbitrarily old `block_log` entry must not bypass anything on
+        # the strength of a stale verdict.
+        row = _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=False,
+        )
+
+        assert _fixit_rebudget_environmental(row) is False
+
+    def test_an_unrelated_cause_is_flailing_regardless_of_confidence(self) -> None:
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_CI_RED,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is False
+
+    def test_never_touches_coord_state(self, monkeypatch) -> None:
+        # #3767: the classifier itself must add zero cost to the
+        # decision path — not even a state-module import, let alone a
+        # DB read or an LLM/agent dispatch.
+        import coord.state as real_state
+
+        def boom(*args, **kwargs):
+            raise AssertionError(
+                "the pure classifier must never call into coord.state"
+            )
+
+        monkeypatch.setattr(real_state, "board_doctor_fixit_rebudget_spent", boom)
+        monkeypatch.setattr(
+            real_state, "record_board_doctor_fixit_rebudget_spent", boom
+        )
+
+        row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _fixit_rebudget_environmental(row) is True
+
+
+class TestFixitRebudgetEligible:
+    """The gated half of #3847's decision: the global, remove+add-
+    resistant cap layered on top of :func:`_fixit_rebudget_environmental`.
+    """
+
+    def _environmental_row(self) -> StuckRow:
+        return _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+    def test_environmental_and_unspent_is_eligible(self) -> None:
+        row = self._environmental_row()
+
+        assert _fixit_rebudget_eligible(row, "acme/widgets", 40) is True
+
+    def test_flailing_and_unspent_is_not_eligible(self) -> None:
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_CI_RED)
+
+        assert _fixit_rebudget_eligible(row, "acme/widgets", 40) is False
+
+    def test_environmental_but_already_spent_is_not_eligible(self) -> None:
+        state.record_board_doctor_fixit_rebudget_spent("acme/widgets", 40)
+        row = self._environmental_row()
+
+        assert _fixit_rebudget_eligible(row, "acme/widgets", 40) is False
+
+    def test_spent_marker_is_scoped_to_its_own_issue(self) -> None:
+        state.record_board_doctor_fixit_rebudget_spent("acme/widgets", 40)
+        row = self._environmental_row()
+
+        assert _fixit_rebudget_eligible(row, "acme/widgets", 41) is True
+        assert _fixit_rebudget_eligible(row, "other/repo", 40) is True
+
+
+class TestRequeueCeilingBlockedMergeable:
+    """#3760 Action 1, previously covered only via the allowlist's
+    cause->action string mapping — this exercises the function's actual
+    behavior, gated through #3847's shared eligibility check.
+    """
+
+    def _row(
+        self, confidence: str = queue_diagnose.CONFIDENCE_MEDIUM
+    ) -> StuckRow:
+        return _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=confidence,
+            fresh=True,
+        )
+
+    def test_dispatches_and_records_the_spend_on_confirmed_requeue(
+        self, monkeypatch
+    ) -> None:
+        calls: list[tuple] = []
+
+        def fake_dispatch(action, repo_name, issue_number, *args, **kwargs):
+            calls.append((action, repo_name, issue_number))
+            return {"requeued": True, "detail": "requeued"}
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", fake_dispatch
+        )
+
+        row = self._row()
+
+        assert _requeue_ceiling_blocked_mergeable(row) is True
+        assert calls == [("drive_queue_requeue", "acme/widgets", 40)]
+        assert state.board_doctor_fixit_rebudget_spent("acme/widgets", 40) is True
+
+    def test_already_spent_refuses_without_dispatching(self, monkeypatch) -> None:
+        state.record_board_doctor_fixit_rebudget_spent("acme/widgets", 40)
+
+        def boom(*args, **kwargs):
+            raise AssertionError(
+                "dispatch_sweep_action must not run once the row already "
+                "spent its one lifetime fix-it auto-rebudget leg"
+            )
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", boom)
+
+        row = self._row()
+
+        assert _requeue_ceiling_blocked_mergeable(row) is False
+
+    def test_flailing_row_refuses_without_dispatching(self, monkeypatch) -> None:
+        def boom(*args, **kwargs):
+            raise AssertionError(
+                "dispatch_sweep_action must not run for a flailing row"
+            )
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", boom)
+
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_CI_RED)
+
+        assert _requeue_ceiling_blocked_mergeable(row) is False
+        assert state.board_doctor_fixit_rebudget_spent("acme/widgets", 40) is False
+
+    def test_a_reported_noop_does_not_burn_the_lifetime_leg(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {"requeued": False, "detail": "no longer queued"},
+        )
+
+        row = self._row()
+
+        assert _requeue_ceiling_blocked_mergeable(row) is False
+        assert state.board_doctor_fixit_rebudget_spent("acme/widgets", 40) is False
+
+    def test_unparseable_key_does_not_raise(self) -> None:
+        row = _row(
+            "no-hash-separator",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+        assert _requeue_ceiling_blocked_mergeable(row) is False
+
+
+class TestFixitRebudgetGlobalCap:
+    """#3847's load-bearing safety property: at most one auto-rebudget
+    per issue, fleet-wide, surviving a `drive-queue remove`+`add` — not a
+    per-row budget either call site can reset on its own.
+    """
+
+    def test_a_second_ceiling_hit_stays_terminal_across_remove_and_add(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {"requeued": True, "detail": "requeued"},
+        )
+
+        first_row = _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+        assert _requeue_ceiling_blocked_mergeable(first_row) is True
+
+        # Simulate `drive-queue remove`+`add`: a brand-new row for the
+        # SAME (repo, issue), freshly re-diagnosed as environmental all
+        # over again — the row-level `fresh` flag and ceiling check both
+        # reset, but the global cap must not.
+        second_row = _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+
+        def boom(*args, **kwargs):
+            raise AssertionError(
+                "dispatch_sweep_action must not run a second time for an "
+                "issue that already spent its one lifetime fix-it "
+                "auto-rebudget leg"
+            )
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", boom)
+
+        assert _requeue_ceiling_blocked_mergeable(second_row) is False
+
+    def test_the_cap_is_shared_across_both_call_sites(self, monkeypatch) -> None:
+        # Spend the lifetime leg via the mechanical requeue call site...
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {"requeued": True, "detail": "requeued"},
+        )
+        requeue_row = _row(
+            "acme/widgets#40",
+            CAUSE_CEILING_BLOCKED_MERGEABLE,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            fresh=True,
+        )
+        assert _requeue_ceiling_blocked_mergeable(requeue_row) is True
+
+        # ...and confirm the investigate tier's independent ceiling-bypass
+        # branch, for the SAME issue, is also refused — proving this is
+        # one shared cap, not two call sites each keeping their own
+        # judgment (#2096).
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+
+        def boom(*args, **kwargs):
+            raise AssertionError(
+                "config must not be resolved once the shared cap refuses"
+            )
+
+        monkeypatch.setattr(common, "resolve_and_load_config", boom)
+
+        investigate_row = _row(
+            "acme/widgets#40",
+            queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            fresh=True,
+        )
+
+        assert _investigate(investigate_row) is False
+        escalation = state.get_drive_escalation("acme/widgets", 40)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+
+
 class TestInvestigateCapacityCheck:
     """#3770: the investigate tier's per-repo cap, read straight from the
     repo's own `max_parallel` (no second capacity knob), bounds how many
@@ -703,13 +1042,6 @@ class TestInvestigateCapacityCheck:
             ],
             machines=[],
         )
-
-    @pytest.fixture(autouse=True)
-    def _no_drive_sessions(self, monkeypatch) -> None:
-        # `_investigate_in_flight_count` now also checks live `coord drive`
-        # tmux sessions — keep that hermetic here, same convention used
-        # across the repo's other drive-queue tests.
-        monkeypatch.setattr("coord.drive.list_drive_sessions", lambda *a, **k: [])
 
     def test_at_the_cap_the_rest_defer_with_no_escalation(self, monkeypatch) -> None:
         monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
@@ -936,3 +1268,259 @@ class TestInvestigateConvergence:
 
         escalation = state.get_drive_escalation("acme/widgets", 40)
         assert escalation is not None
+
+
+class TestFinisherTierEnabled:
+    """#3835 Trigger A: `_finisher_tier_enabled` mirrors
+    `_investigate_tier_enabled`'s three independent gates, but reads the
+    `finish`-named fields.
+    """
+
+    @staticmethod
+    def _config(*, fleet_finish: bool, repo_finish: bool) -> Config:
+        from coord.config import BoardDoctorConfig
+        from coord.models import BoardDoctorRepoConfig
+
+        return Config(
+            repos=[
+                Repo(
+                    name="acme/widgets",
+                    github="acme/widgets",
+                    board_doctor=BoardDoctorRepoConfig(finish=repo_finish),
+                )
+            ],
+            machines=[],
+            board_doctor=BoardDoctorConfig(finish=fleet_finish),
+        )
+
+    def test_disabled_when_repo_has_not_opted_in(self) -> None:
+        config = self._config(fleet_finish=True, repo_finish=False)
+        assert board_doctor_policy._finisher_tier_enabled("acme/widgets", config) is False
+
+    def test_disabled_when_fleet_switch_is_off(self) -> None:
+        config = self._config(fleet_finish=False, repo_finish=True)
+        assert board_doctor_policy._finisher_tier_enabled("acme/widgets", config) is False
+
+    def test_enabled_when_both_gates_are_on(self) -> None:
+        config = self._config(fleet_finish=True, repo_finish=True)
+        assert board_doctor_policy._finisher_tier_enabled("acme/widgets", config) is True
+
+    def test_env_var_kill_switch_overrides_everything(self, monkeypatch) -> None:
+        monkeypatch.setenv(board_doctor_policy.NO_FINISHER_ENV_VAR, "1")
+        config = self._config(fleet_finish=True, repo_finish=True)
+        assert board_doctor_policy._finisher_tier_enabled("acme/widgets", config) is False
+
+    def test_unknown_repo_is_disabled(self) -> None:
+        config = self._config(fleet_finish=True, repo_finish=True)
+        assert board_doctor_policy._finisher_tier_enabled("no-such-repo", config) is False
+
+
+class TestDispatchNitOnlyFinisher:
+    """#3835 Trigger A: `dispatch_nit_only_finisher` is a plain, directly
+    called function — not part of the `StuckRow` sweep's
+    `ALLOWLIST`/`AUTO_DISPATCHERS` machinery — so it is exercised here
+    directly rather than through `sweep`/`policy_tier_of`.
+    """
+
+
+    def test_returns_false_without_dispatching_when_tier_disabled(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            board_doctor_policy, "_finisher_tier_enabled", lambda *a, **k: False
+        )
+
+        def dispatch_must_not_be_called(*args, **kwargs):
+            raise AssertionError("tier-off must never reach dispatch_sweep_action")
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", dispatch_must_not_be_called
+        )
+        config = Config(repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[])
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 40, Board(), config
+        )
+
+        assert result is False
+
+    def test_returns_true_when_the_sweep_action_dispatches(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            board_doctor_policy, "_finisher_tier_enabled", lambda *a, **k: True
+        )
+        calls: list[tuple] = []
+
+        def fake_dispatch(action, *args, **kwargs):
+            calls.append((action, args, kwargs))
+            return {
+                "dispatched": True,
+                "assignment_id": "asn-1",
+                "machine": "mac1",
+                "detail": "acme/widgets#40 finisher leg dispatched to mac1",
+            }
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", fake_dispatch)
+        config = Config(repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[])
+        board = Board()
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 40, board, config, evidence=("blocking=0",)
+        )
+
+        assert result is True
+        assert len(calls) == 1
+        action, args, kwargs = calls[0]
+        assert action == board_doctor_policy._FINISHER_ACTION
+        assert args == ("acme/widgets", 40, board, config)
+        assert kwargs["cause"] == board_doctor_policy.CAUSE_NIT_ONLY_REQUEST_CHANGES
+        assert kwargs["evidence"] == ("blocking=0",)
+
+    def test_returns_false_when_the_sweep_action_declines(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            board_doctor_policy, "_finisher_tier_enabled", lambda *a, **k: True
+        )
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {
+                "dispatched": False,
+                "assignment_id": None,
+                "machine": None,
+                "detail": _IN_FLIGHT_DETAIL,
+            },
+        )
+        config = Config(repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[])
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 40, Board(), config
+        )
+
+        assert result is False
+
+
+class TestFinisherCapacityCheck:
+    """#3837: the finisher tier's per-repo cap, resolved via the same
+    shared `_at_repo_capacity` helper the investigate tier's
+    `InvestigateCapacityGate` uses, but called inline on every
+    `dispatch_nit_only_finisher` call rather than via a gate built once per
+    sweep — there is no sweep here, just the one call site.
+    """
+
+    @staticmethod
+    def _config(max_parallel: int) -> Config:
+        from coord.config import BoardDoctorConfig
+        from coord.models import BoardDoctorRepoConfig
+
+        return Config(
+            repos=[
+                Repo(
+                    name="acme/widgets",
+                    github="acme/widgets",
+                    max_parallel=max_parallel,
+                    board_doctor=BoardDoctorRepoConfig(finish=True),
+                )
+            ],
+            machines=[],
+            board_doctor=BoardDoctorConfig(finish=True),
+        )
+
+    def test_at_capacity_does_not_dispatch(self, monkeypatch) -> None:
+        busy_board = Board(
+            active=[
+                Assignment(
+                    machine_name="mac1",
+                    repo_name="acme/widgets",
+                    issue_number=40,
+                    issue_title="t",
+                    status="running",
+                    type="work",
+                )
+            ]
+        )
+
+        def dispatch_must_not_be_called(*args, **kwargs):
+            raise AssertionError("an at-capacity repo must not dispatch a finisher leg")
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", dispatch_must_not_be_called
+        )
+        config = self._config(max_parallel=1)
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 41, busy_board, config
+        )
+
+        assert result is False
+
+    def test_below_capacity_dispatches(self, monkeypatch) -> None:
+        calls: list[tuple] = []
+
+        def fake_dispatch(action, *args, **kwargs):
+            calls.append((action, args, kwargs))
+            return {
+                "dispatched": True,
+                "assignment_id": "asn-1",
+                "machine": "mac1",
+                "detail": "acme/widgets#41 finisher leg dispatched to mac1",
+            }
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", fake_dispatch)
+        config = self._config(max_parallel=2)
+        board = Board(
+            active=[
+                Assignment(
+                    machine_name="mac1",
+                    repo_name="acme/widgets",
+                    issue_number=40,
+                    issue_title="t",
+                    status="running",
+                    type="work",
+                )
+            ]
+        )
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 41, board, config
+        )
+
+        assert result is True
+        assert len(calls) == 1
+
+    def test_zero_max_parallel_means_unlimited_not_zero_capacity(self, monkeypatch) -> None:
+        # `max_parallel=0` means "no per-repo ceiling at all", mirroring
+        # `coord.drive_queue`'s own resolution semantics — never "never
+        # dispatch" — same contract the investigate tier's capacity check
+        # already guarantees, exercised here against the delegating
+        # finisher-tier wrapper instead.
+        calls: list[tuple] = []
+
+        def fake_dispatch(action, *args, **kwargs):
+            calls.append((action, args, kwargs))
+            return {
+                "dispatched": True,
+                "assignment_id": "asn-1",
+                "machine": "mac1",
+                "detail": "acme/widgets#41 finisher leg dispatched to mac1",
+            }
+
+        monkeypatch.setattr(board_doctor_policy, "dispatch_sweep_action", fake_dispatch)
+        config = self._config(max_parallel=0)
+        busy_board = Board(
+            active=[
+                Assignment(
+                    machine_name="mac1",
+                    repo_name="acme/widgets",
+                    issue_number=40,
+                    issue_title="t",
+                    status="running",
+                    type="work",
+                )
+            ]
+        )
+
+        result = board_doctor_policy.dispatch_nit_only_finisher(
+            "acme/widgets", 41, busy_board, config
+        )
+
+        assert result is True
+        assert len(calls) == 1

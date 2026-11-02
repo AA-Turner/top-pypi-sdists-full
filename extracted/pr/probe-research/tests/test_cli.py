@@ -1558,7 +1558,7 @@ def test_workspace_list_uses_one_shape_without_an_identity_lookup(wired, capsys)
     rows = json.loads(capsys.readouterr().out)
 
     assert [row["name"] for row in rows] == ["Engineering", "Mine", "Teammate"]
-    assert all(set(row) == {"id", "name", "slug", "projects", "this_computer"} for row in rows)
+    assert all(set(row) == {"id", "name", "slug", "projects", "this_computer", "home"} for row in rows)
     assert not any(row["this_computer"] for row in rows)  # nothing pinned in this context
     assert [(r.method, r.url.path) for r in wired.requests] == [("GET", "/v1/workspaces")]
 

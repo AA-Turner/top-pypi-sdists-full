@@ -1,0 +1,63 @@
+docs:
+  - index.md
+  - reference/index.md
+  - legacy/index.md
+
+include_prefixes:
+  - getting-started/
+  - tutorials/
+  - concepts/
+  - guides/
+  - cli/
+  - python-api/
+  - ai/
+  - orchestration/
+  - releases/
+  - adr/
+
+excluded_docs:
+  - dashboard/index.md
+  - concepts/depot-engine-primitives.md
+  - orchestration/depot-pipelines.md
+  - cli/dashboard.md
+  - guides/datadocs/dashboard.md
+  - concepts/API_REFERENCE.md
+  - concepts/DATASOURCES.md
+  - concepts/EXAMPLES.md
+  - concepts/VALIDATORS.md
+  - guides/advanced/ADVANCED.md
+  - guides/advanced/ARCHITECTURE.md
+  - guides/advanced/DATASOURCES.md
+  - guides/advanced/VALIDATORS.md
+  - guides/checkpoint/DATASOURCES.md
+  - guides/checkpoint/EXAMPLES.md
+  - guides/checkpoint/REPORTERS.md
+  - guides/checkpoint/STORES.md
+  - guides/checkpoint/VALIDATORS.md
+  - guides/datasources/ARCHITECTURE.md
+  - guides/datasources/DATASOURCES_ARCHITECTURE.md
+  - guides/profiler/CHECKPOINT.md
+  - guides/profiler/EXAMPLES.md
+  - guides/profiler/STATISTICAL_METHODS.md
+  - guides/profiler/STORES.md
+  - guides/profiler/VALIDATORS.md
+
+external_sources:
+  orchestration:
+    prefix: orchestration
+    label: Truthound Orchestration 3.x
+    repo_url: https://github.com/seadonggyun4/truthound-orchestration
+    repo_name: seadonggyun4/truthound-orchestration
+    branch: main
+    docs_root: docs
+
+support_files:
+  - _redirects
+
+support_directories:
+  - assets
+  - stylesheets
+  - javascripts
+
+expected_page_count: 346
+expected_markdown_count: 355

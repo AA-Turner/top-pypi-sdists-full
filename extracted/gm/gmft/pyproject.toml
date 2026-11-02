@@ -1,0 +1,75 @@
+[project]
+name = "gmft"
+version = "0.4.4"
+description = "Lightweight, performant, deep table extraction"
+authors = [
+    { name = "conjunct" },
+    { name = "conjuncts" }
+]
+license = { text = "MIT License" }
+readme = "README.md"
+requires-python = ">=3.9"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+]
+
+dependencies = [
+    "pypdfium2>=4.30.0",
+    "transformers>=4.35.2", # need the no_timm revision; dilation workaround handles 5.x configs
+    "torch>=2.5.0",
+    "pillow>=11.3.0",
+    "pandas",
+    "matplotlib",
+    "tabulate>=0.9.0",
+    "typing_extensions>=4.9",
+    "torchvision",
+]
+
+[project.urls]
+Homepage = "https://github.com/conjuncts/gmft"
+Issues = "https://github.com/conjuncts/gmft/issues"
+
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.4,<4"]
+
+[tool.flit.sdist]
+include = ["gmft/**/*.py", "README.md", "LICENSE", "gmft/py.typed"]
+exclude = [
+    "*.tsv",
+    "*.yaml",
+    "*.zip",
+    "CHANGELOG.md",
+    "TODO.md",
+    "comparison.md",
+    "data/**/*",
+    "dev.md",
+    "docs/**/*",
+    "notebooks/**/*",
+    "reading_list.md",
+    "samples/**/*",
+    "test/**/*",
+    "uv.lock",
+    ".github",
+    ".git*",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "T201"]
+ignore = ["E712"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.11.11",
+]
+docs = [
+    "sphinx>=7.4.7",
+    "sphinx-rtd-theme>=3.0.2",
+]

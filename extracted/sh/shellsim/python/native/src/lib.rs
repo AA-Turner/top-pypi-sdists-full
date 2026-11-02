@@ -1,0 +1,1103 @@
+//! PyO3 adapter for embedding shellsim in a host Python process.
+//!
+//! The adapter never installs shellsim's process-wide seccomp filter. Simulated execution stays
+//! capability-free through the Rust library boundary, while the embedding Python process retains
+//! its ordinary capabilities. Potentially deep simulator work runs on a sized scoped thread with
+//! the Python interpreter detached, and every adapter operation contains Rust panics.
+
+use std::any::Any;
+use std::collections::BTreeSet;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+use pyo3::create_exception;
+use pyo3::exceptions::PyException;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use serde::Serialize;
+use shellsim::commands::{PrecompiledWasmOutcome, WasmCompilationKind};
+use shellsim::display::KeyEvent;
+use shellsim::harness::{HarnessOperation, HarnessRequest, HarnessSession};
+use shellsim::net::NetworkRequest;
+use shellsim::realtime::ClockMode;
+use shellsim::{CommandTrust, InvocationEvent, Limits, RunOutcome};
+
+const ACTION_STACK_BYTES: usize = 8 * 1024 * 1024;
+type PythonFrame = (u64, u32, u32, Py<PyBytes>);
+
+create_exception!(
+    shellsim._native,
+    SimulationError,
+    PyException,
+    "An adapter or simulator operation could not be completed."
+);
+create_exception!(
+    shellsim._native,
+    PackageConflictError,
+    SimulationError,
+    "A package destination conflicts with existing virtual content."
+);
+
+#[derive(Serialize)]
+struct RunMetadata {
+    outcome: RunOutcome,
+    unsupported: Vec<String>,
+    dropped_unsupported: u64,
+    commands: Vec<String>,
+    dropped_commands: u64,
+    unsupported_commands: Vec<String>,
+    partial_commands: Vec<String>,
+    invocations: Vec<InvocationEvent>,
+    dropped_invocations: u64,
+    network_requests: Vec<NetworkRequest>,
+    dropped_network_requests: u64,
+}
+
+#[derive(Serialize)]
+struct MountMetadata {
+    files: usize,
+    skipped_directories: Vec<String>,
+}
+
+struct MetadataStart {
+    command: usize,
+    dropped_commands: u64,
+    unsupported: usize,
+    dropped_unsupported: u64,
+    invocation: u64,
+    dropped_invocations: u64,
+    network: usize,
+    dropped_network: u64,
+}
+
+/// One persistent simulated machine owned by Python.
+#[pyclass(module = "shellsim._native")]
+struct NativeEnvironment {
+    environment: Mutex<shellsim::Environment>,
+}
+
+/// One host request, independent of the mutex held by the running simulator.
+#[pyclass(name = "CancellationToken", module = "shellsim")]
+struct NativeCancellationToken {
+    token: shellsim::CancellationToken,
+}
+
+#[pymethods]
+impl NativeCancellationToken {
+    #[new]
+    fn new() -> Self {
+        Self {
+            token: shellsim::CancellationToken::new(),
+        }
+    }
+
+    fn cancel(&self) {
+        self.token.cancel();
+    }
+
+    #[getter]
+    fn cancelled(&self) -> bool {
+        self.token.is_cancelled()
+    }
+}
+
+/// Installed files and launcher settings, without an executing machine's state.
+#[pyclass(module = "shellsim._native")]
+struct NativeImage {
+    tree: Arc<shellsim::vfs::FrozenTree>,
+    path: Option<String>,
+    virtual_env: Option<String>,
+}
+
+#[pymethods]
+impl NativeImage {
+    #[getter]
+    fn retained_bytes(&self) -> u64 {
+        self.tree.retained_bytes()
+    }
+
+    /// Start a fresh machine on the shared installed tree, with private resource counters.
+    #[pyo3(signature = (cpu, memory, disk, output, real_time=false))]
+    fn environment(
+        &self,
+        py: Python<'_>,
+        cpu: u64,
+        memory: u64,
+        disk: u64,
+        output: u64,
+        real_time: bool,
+    ) -> PyResult<NativeEnvironment> {
+        py.detach(|| {
+            host_worker(|| {
+                let vfs = shellsim::vfs::Vfs::from_base(self.tree.clone(), disk)
+                    .map_err(|error| error.to_string())?;
+                let mut environment = shellsim::Environment::with_limits_and_clock(
+                    Limits {
+                        cpu,
+                        memory,
+                        disk,
+                        output,
+                    },
+                    if real_time {
+                        ClockMode::RealTime
+                    } else {
+                        ClockMode::Virtual
+                    },
+                );
+                environment.vfs = vfs;
+                for (name, value) in [("PATH", &self.path), ("VIRTUAL_ENV", &self.virtual_env)] {
+                    if let Some(value) = value {
+                        environment.set_var(name, value.clone());
+                        environment.export(name);
+                    }
+                }
+                Ok(NativeEnvironment {
+                    environment: Mutex::new(environment),
+                })
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+}
+
+/// In-process host control for a machine granted the virtual tool endpoint.
+#[pyclass(module = "shellsim._native")]
+struct NativeContainer {
+    session: Mutex<HarnessSession>,
+}
+
+#[pymethods]
+impl NativeContainer {
+    #[new]
+    fn new(cpu: u64, memory: u64, disk: u64, output: u64, real_time: bool) -> Self {
+        Self {
+            session: Mutex::new(HarnessSession::with_clock_and_host_tools(
+                Limits {
+                    cpu,
+                    memory,
+                    disk,
+                    output,
+                },
+                if real_time {
+                    ClockMode::RealTime
+                } else {
+                    ClockMode::Virtual
+                },
+            )),
+        }
+    }
+
+    fn write_file(&self, py: Python<'_>, path: String, data: Vec<u8>, mode: u32) -> PyResult<()> {
+        let path = container_vfs_path(&path).map_err(SimulationError::new_err)?;
+        if mode > 0o7777 {
+            return Err(SimulationError::new_err("invalid file mode"));
+        }
+        py.detach(|| {
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+            on_worker(&mut session, move |session| {
+                session.environment.sync_vfs_time();
+                session
+                    .environment
+                    .vfs
+                    .put_file(&path, data, mode)
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    fn read_file(&self, py: Python<'_>, path: String) -> PyResult<Py<PyBytes>> {
+        let path = container_vfs_path(&path).map_err(SimulationError::new_err)?;
+        let bytes = py
+            .detach(|| {
+                let mut session = self
+                    .session
+                    .lock()
+                    .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+                on_worker(&mut session, move |session| {
+                    session
+                        .environment
+                        .vfs
+                        .read("/", &path)
+                        .map_err(|error| error.to_string())
+                })
+            })
+            .map_err(SimulationError::new_err)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn mkdir(&self, py: Python<'_>, path: String, mode: u32) -> PyResult<()> {
+        let path = container_vfs_path(&path).map_err(SimulationError::new_err)?;
+        if mode > 0o7777 {
+            return Err(SimulationError::new_err("invalid directory mode"));
+        }
+        py.detach(|| {
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+            on_worker(&mut session, move |session| {
+                session.environment.sync_vfs_time();
+                session
+                    .environment
+                    .vfs
+                    .put_dir(&path, mode)
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    fn snapshot_workspace(&self, py: Python<'_>) -> PyResult<String> {
+        py.detach(|| {
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+            on_worker(&mut session, |session| {
+                let entries = session.snapshot_workspace()?;
+                serde_json::to_string(&entries).map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    fn start_execute(&self, py: Python<'_>, source: String, stdin: Vec<u8>) -> PyResult<String> {
+        self.apply(
+            py,
+            HarnessOperation::StartExecute {
+                source,
+                stdin_base64: STANDARD.encode(stdin),
+                stdin_closed: true,
+            },
+        )
+        .and_then(serialize_result)
+    }
+
+    fn poll_action(&self, py: Python<'_>, action_id: u64) -> PyResult<String> {
+        self.apply(
+            py,
+            HarnessOperation::PollAction {
+                action_id,
+                work_quanta: 100_000,
+                advance_time: true,
+            },
+        )
+        .and_then(serialize_result)
+    }
+
+    fn respond_tool_call(
+        &self,
+        py: Python<'_>,
+        request_id: u64,
+        result_json: Option<String>,
+        error: Option<String>,
+    ) -> PyResult<()> {
+        let result = result_json
+            .map(|json| serde_json::from_str(&json))
+            .transpose()
+            .map_err(|error| SimulationError::new_err(error.to_string()))?;
+        self.apply(
+            py,
+            HarnessOperation::RespondToolCall {
+                request_id,
+                result,
+                error,
+            },
+        )?;
+        Ok(())
+    }
+
+    fn read_action_output(&self, py: Python<'_>, action_id: u64) -> PyResult<String> {
+        self.apply(py, HarnessOperation::ReadActionOutput { action_id })
+            .and_then(serialize_result)
+    }
+
+    fn cancel_action(&self, py: Python<'_>, action_id: u64) -> PyResult<()> {
+        self.apply(py, HarnessOperation::CancelAction { action_id })?;
+        Ok(())
+    }
+
+    fn drop_action(&self, py: Python<'_>, action_id: u64) -> PyResult<()> {
+        self.apply(py, HarnessOperation::DropAction { action_id })?;
+        Ok(())
+    }
+
+    fn display_frame(&self, py: Python<'_>, action_id: u64) -> PyResult<Option<PythonFrame>> {
+        let frame = py
+            .detach(|| {
+                let mut session = self
+                    .session
+                    .lock()
+                    .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+                on_worker(&mut session, |session| session.display_frame(action_id))
+            })
+            .map_err(SimulationError::new_err)?;
+        Ok(frame.map(|(generation, frame)| {
+            (
+                generation,
+                frame.width,
+                frame.height,
+                PyBytes::new(py, &frame.pixels).unbind(),
+            )
+        }))
+    }
+
+    fn inject_key(&self, py: Python<'_>, action_id: u64, code: u32, pressed: bool) -> PyResult<()> {
+        py.detach(|| {
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+            on_worker(&mut session, |session| {
+                session.inject_action_key(action_id, KeyEvent { code, pressed })
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    fn clock_mode(&self) -> PyResult<&'static str> {
+        let session = self
+            .session
+            .lock()
+            .map_err(|_| SimulationError::new_err("shellsim container lock is poisoned"))?;
+        Ok(match session.environment.clock_mode() {
+            ClockMode::Virtual => "virtual",
+            ClockMode::RealTime => "real_time",
+        })
+    }
+}
+
+impl NativeContainer {
+    fn apply(&self, py: Python<'_>, operation: HarnessOperation) -> PyResult<serde_json::Value> {
+        py.detach(|| {
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|_| "shellsim container lock is poisoned".to_string())?;
+            on_worker(&mut session, move |session| {
+                let response = session.handle(HarnessRequest {
+                    id: None,
+                    session_id: None,
+                    operation,
+                });
+                if !response.ok {
+                    return Err(response
+                        .error
+                        .unwrap_or_else(|| "container operation failed".into()));
+                }
+                serde_json::to_value(response.result).map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+}
+
+fn container_vfs_path(path: &str) -> Result<String, String> {
+    if path.contains('\0') {
+        return Err("container path contains NUL".to_string());
+    }
+    Ok(shellsim::vfs::resolve_against("/work", path))
+}
+
+fn cpython_link(
+    vfs: &mut shellsim::vfs::Vfs,
+    path: &str,
+    image: &str,
+    native_name: Option<&str>,
+) -> Result<(), String> {
+    use shellsim::vfs::{NativeProgram, NodeKind};
+
+    match vfs.metadata("/", path, false).ok().map(|node| node.kind) {
+        Some(NodeKind::Symlink(target)) if target == image => return Ok(()),
+        Some(NodeKind::NativeExecutable(NativeProgram::LegacyRegistered(name)))
+            if native_name == Some(name) =>
+        {
+            vfs.remove_file("/", path)
+                .map_err(|error| error.to_string())?;
+        }
+        None => {}
+        _ => {
+            return Err(format!(
+                "CPython launcher conflicts with an existing VFS node: {path}"
+            ))
+        }
+    }
+    vfs.symlink("/", image, path)
+        .map_err(|error| error.to_string())
+}
+
+fn configure_cpython_vfs(
+    environment: &mut shellsim::Environment,
+    venv: Option<String>,
+) -> Result<(), String> {
+    const IMAGE: &str = "/usr/bin/python3.wasm";
+    if !environment.vfs.is_file("/", IMAGE) {
+        return Err("CPython WASI image is not mounted".to_string());
+    }
+    let mut staged = environment.vfs.clone();
+    staged.set_mutation_time(environment.clock.unix_ms());
+    for directory in ["/bin", "/usr/bin"] {
+        for name in ["python", "python3", "python3.13"] {
+            cpython_link(
+                &mut staged,
+                &format!("{directory}/{name}"),
+                IMAGE,
+                Some(name),
+            )?;
+        }
+    }
+    if let Some(root) = venv.as_deref() {
+        if !root.starts_with('/')
+            || root == "/"
+            || root.len() > 4096
+            || ["/usr", "/bin", "/dev", "/proc"]
+                .iter()
+                .any(|reserved| root == *reserved || root.starts_with(&format!("{reserved}/")))
+            || root.contains('\0')
+            || root[1..]
+                .split('/')
+                .any(|part| part.is_empty() || part == ".." || part == ".")
+        {
+            return Err("CPython venv must have a separate absolute VFS path".to_string());
+        }
+        staged
+            .mkdir_all("/", &format!("{root}/bin"))
+            .map_err(|error| error.to_string())?;
+        staged
+            .mkdir_all("/", &format!("{root}/lib/python3.13/site-packages"))
+            .map_err(|error| error.to_string())?;
+        let config = b"home = /usr/bin\ninclude-system-site-packages = false\nversion = 3.13.7\nexecutable = /usr/bin/python3.wasm\n";
+        let config_path = format!("{root}/pyvenv.cfg");
+        if staged.is_file("/", &config_path) {
+            if staged
+                .read("/", &config_path)
+                .map_err(|error| error.to_string())?
+                .as_slice()
+                != config
+            {
+                return Err(
+                    "CPython venv configuration conflicts with an existing file".to_string()
+                );
+            }
+        } else {
+            staged
+                .put_file(&config_path, config.to_vec(), 0o644)
+                .map_err(|error| error.to_string())?;
+        }
+        for name in ["python", "python3", "python3.13"] {
+            cpython_link(&mut staged, &format!("{root}/bin/{name}"), IMAGE, None)?;
+        }
+        let activate_path = format!("{root}/bin/activate");
+        let activate = format!(
+            "VIRTUAL_ENV='{}'; export VIRTUAL_ENV; PATH=\"$VIRTUAL_ENV/bin:$PATH\"; export PATH\n",
+            root.replace('\'', "'\\''")
+        );
+        if staged.is_file("/", &activate_path) {
+            if staged
+                .read("/", &activate_path)
+                .map_err(|error| error.to_string())?
+                != activate.as_bytes()
+            {
+                return Err("CPython venv activation conflicts with an existing file".to_string());
+            }
+        } else {
+            staged
+                .put_file(&activate_path, activate.into_bytes(), 0o644)
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    environment.vfs = staged;
+    if let Some(root) = venv {
+        let venv_bin = format!("{root}/bin");
+        let previous = environment.get_var("PATH");
+        let remaining = previous
+            .as_deref()
+            .map(|path| {
+                path.split(':')
+                    .filter(|entry| *entry != venv_bin)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let path = if remaining.is_empty() {
+            venv_bin
+        } else {
+            format!("{venv_bin}:{}", remaining.join(":"))
+        };
+        environment.set_var("PATH", path);
+        environment.export("PATH");
+        environment.set_var("VIRTUAL_ENV", root);
+        environment.export("VIRTUAL_ENV");
+    }
+    Ok(())
+}
+
+fn serialize_result(result: serde_json::Value) -> PyResult<String> {
+    serde_json::to_string(&result).map_err(|error| SimulationError::new_err(error.to_string()))
+}
+
+#[pymethods]
+impl NativeEnvironment {
+    #[new]
+    #[pyo3(signature = (cpu, memory, disk, output, real_time=false))]
+    fn new(cpu: u64, memory: u64, disk: u64, output: u64, real_time: bool) -> Self {
+        Self {
+            environment: Mutex::new(shellsim::Environment::with_limits_and_clock(
+                Limits {
+                    cpu,
+                    memory,
+                    disk,
+                    output,
+                },
+                if real_time {
+                    ClockMode::RealTime
+                } else {
+                    ClockMode::Virtual
+                },
+            )),
+        }
+    }
+
+    fn to_container(&self, py: Python<'_>) -> PyResult<NativeContainer> {
+        py.detach(|| -> Result<NativeContainer, String> {
+            let environment = self.lock_environment()?;
+            let mut session = HarnessSession::from_environment(environment.clone());
+            session.environment.net.enable_host_tools();
+            Ok(NativeContainer {
+                session: Mutex::new(session),
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Freeze trusted installation state for reuse by independently booted environments.
+    fn freeze(&self, py: Python<'_>) -> PyResult<NativeImage> {
+        py.detach(|| {
+            host_worker(|| {
+                let environment = self.lock_environment()?;
+                Ok(NativeImage {
+                    tree: environment.vfs.clone().freeze(),
+                    path: environment.get_var("PATH"),
+                    virtual_env: environment.get_var("VIRTUAL_ENV"),
+                })
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Execute one shell action and return JSON metadata plus byte-preserving output streams.
+    #[pyo3(signature = (source, stdin, cancellation=None))]
+    fn run(
+        &self,
+        py: Python<'_>,
+        source: String,
+        stdin: Vec<u8>,
+        cancellation: Option<PyRef<'_, NativeCancellationToken>>,
+    ) -> PyResult<(String, Py<PyBytes>, Py<PyBytes>)> {
+        let token = cancellation.map(|request| request.token.clone());
+        let (metadata, stdout, stderr) = py
+            .detach(|| {
+                let mut environment = self.lock_environment()?;
+                on_worker(&mut environment, move |environment| {
+                    with_cancellation(environment, token.as_ref(), |environment| {
+                        Ok(run_action(environment, &source, &stdin))
+                    })
+                })
+            })
+            .map_err(SimulationError::new_err)?;
+        let metadata = serde_json::to_string(&metadata)
+            .map_err(|error| SimulationError::new_err(error.to_string()))?;
+        Ok((
+            metadata,
+            PyBytes::new(py, &stdout).unbind(),
+            PyBytes::new(py, &stderr).unbind(),
+        ))
+    }
+
+    /// Create an idle shell with its own process state over the shared virtual machine.
+    fn create_shell(&self, py: Python<'_>) -> PyResult<u32> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, |environment| {
+                environment.spawn_shell_session()
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Execute one action in a selected persistent shell session.
+    #[pyo3(signature = (pid, source, stdin, cancellation=None))]
+    fn run_shell(
+        &self,
+        py: Python<'_>,
+        pid: u32,
+        source: String,
+        stdin: Vec<u8>,
+        cancellation: Option<PyRef<'_, NativeCancellationToken>>,
+    ) -> PyResult<(String, Py<PyBytes>, Py<PyBytes>)> {
+        let token = cancellation.map(|request| request.token.clone());
+        let (metadata, stdout, stderr) = py
+            .detach(|| {
+                let mut environment = self.lock_environment()?;
+                on_worker(&mut environment, move |environment| {
+                    with_cancellation(environment, token.as_ref(), |environment| {
+                        let start = metadata_start(environment);
+                        let (outcome, stdout, stderr) = environment
+                            .run_shell_session_capture_with_stdin(pid, &source, &stdin)?;
+                        Ok((metadata_finish(environment, outcome, start), stdout, stderr))
+                    })
+                })
+            })
+            .map_err(SimulationError::new_err)?;
+        let metadata = serde_json::to_string(&metadata)
+            .map_err(|error| SimulationError::new_err(error.to_string()))?;
+        Ok((
+            metadata,
+            PyBytes::new(py, &stdout).unbind(),
+            PyBytes::new(py, &stderr).unbind(),
+        ))
+    }
+
+    /// Write one byte string into the simulated filesystem.
+    fn write_file(&self, py: Python<'_>, path: String, data: Vec<u8>, mode: u32) -> PyResult<()> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, move |environment| {
+                environment.sync_vfs_time();
+                let cwd = environment.cwd.clone();
+                environment
+                    .vfs
+                    .write(&cwd, &path, &data, mode)
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Read one simulated file as exact bytes.
+    fn read_file(&self, py: Python<'_>, path: String) -> PyResult<Py<PyBytes>> {
+        let bytes = py
+            .detach(|| {
+                let mut environment = self.lock_environment()?;
+                on_worker(&mut environment, move |environment| {
+                    environment
+                        .vfs
+                        .read(&environment.cwd, &path)
+                        .map_err(|error| error.to_string())
+                })
+            })
+            .map_err(SimulationError::new_err)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    /// Create a directory in the simulated filesystem.
+    fn mkdir(&self, py: Python<'_>, path: String, parents: bool) -> PyResult<()> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, move |environment| {
+                environment.sync_vfs_time();
+                let cwd = environment.cwd.clone();
+                let result = if parents {
+                    environment.vfs.mkdir_all(&cwd, &path)
+                } else {
+                    environment.vfs.mkdir(&cwd, &path)
+                };
+                result.map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Import one verified WASI bundle and configure its launchers in a single VFS transaction.
+    /// A venv receives ordinary CPython prefix metadata and its own site-packages directory.
+    fn mount_cpython(
+        &self,
+        py: Python<'_>,
+        host_root: String,
+        venv: Option<String>,
+    ) -> PyResult<()> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, move |environment| {
+                environment.sync_vfs_time();
+                let before = environment.vfs.clone();
+                let result = (|| {
+                    shellsim::host_ingest::mount_package_tree(
+                        environment,
+                        Path::new(&host_root),
+                        "/",
+                        &[],
+                    )
+                    .map_err(|error| error.to_string())?;
+                    configure_cpython_vfs(environment, venv)
+                })();
+                if result.is_err() {
+                    environment.vfs = before;
+                }
+                result
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Register one static response in the simulated HTTP broker.
+    fn route_http(
+        &self,
+        py: Python<'_>,
+        pattern: String,
+        method: Option<String>,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+    ) -> PyResult<()> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, move |environment| {
+                environment
+                    .net
+                    .route(
+                        &pattern,
+                        method.as_deref(),
+                        shellsim::net::HttpResponse {
+                            status,
+                            headers,
+                            body,
+                        },
+                    )
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)
+    }
+
+    /// Import one explicitly selected trusted host tree into the simulated filesystem.
+    fn mount(
+        &self,
+        py: Python<'_>,
+        host_root: String,
+        destination_root: String,
+    ) -> PyResult<String> {
+        let report = py
+            .detach(|| {
+                let mut environment = self.lock_environment()?;
+                on_worker(&mut environment, move |environment| {
+                    environment.sync_vfs_time();
+                    shellsim::host_ingest::mount_host_tree_report(
+                        environment,
+                        Path::new(&host_root),
+                        &destination_root,
+                    )
+                })
+            })
+            .map_err(SimulationError::new_err)?;
+        serde_json::to_string(&MountMetadata {
+            files: report.files,
+            skipped_directories: report.skipped_directories,
+        })
+        .map_err(|error| SimulationError::new_err(error.to_string()))
+    }
+
+    /// Import a verified package staging tree exactly, including its `.venv` directory.
+    #[pyo3(signature = (host_root, destination_root="/".to_string(), replace_builtin_tools=Vec::new()))]
+    fn mount_package_tree(
+        &self,
+        py: Python<'_>,
+        host_root: String,
+        destination_root: String,
+        replace_builtin_tools: Vec<String>,
+    ) -> PyResult<()> {
+        py.detach(|| {
+            let mut environment = self.lock_environment()?;
+            on_worker(&mut environment, move |environment| {
+                environment.sync_vfs_time();
+                Ok(shellsim::host_ingest::mount_package_tree(
+                    environment,
+                    Path::new(&host_root),
+                    &destination_root,
+                    &replace_builtin_tools,
+                )
+                .map(|_| ()))
+            })
+        })
+        .map_err(SimulationError::new_err)?
+        .map_err(|error| match error {
+            shellsim::host_ingest::PackageImportError::Conflict(message) => {
+                PackageConflictError::new_err(message)
+            }
+            shellsim::host_ingest::PackageImportError::Other(message) => {
+                SimulationError::new_err(message)
+            }
+        })
+    }
+
+    #[getter]
+    fn terminated(&self) -> PyResult<bool> {
+        Ok(self
+            .lock_environment()
+            .map_err(SimulationError::new_err)?
+            .termination_status()
+            .is_some())
+    }
+}
+
+impl NativeEnvironment {
+    fn lock_environment(&self) -> Result<std::sync::MutexGuard<'_, shellsim::Environment>, String> {
+        self.environment
+            .lock()
+            .map_err(|_| "shellsim environment lock is poisoned".to_string())
+    }
+}
+
+fn run_action(
+    environment: &mut shellsim::Environment,
+    source: &str,
+    stdin: &[u8],
+) -> (RunMetadata, Vec<u8>, Vec<u8>) {
+    let start = metadata_start(environment);
+    let (outcome, stdout, stderr) = environment.run_script_capture_with_stdin(source, stdin);
+    (metadata_finish(environment, outcome, start), stdout, stderr)
+}
+
+/// Keep token binding inside the worker and clear it even when a session rejects an action.
+fn with_cancellation<T>(
+    environment: &mut shellsim::Environment,
+    token: Option<&shellsim::CancellationToken>,
+    action: impl FnOnce(&mut shellsim::Environment) -> Result<T, String>,
+) -> Result<T, String> {
+    match token {
+        Some(token) => environment.with_cancellation(token, action)?,
+        None => action(environment),
+    }
+}
+
+fn metadata_start(environment: &shellsim::Environment) -> MetadataStart {
+    MetadataStart {
+        command: environment.cmd_trace.len(),
+        dropped_commands: environment.cmd_trace.dropped(),
+        unsupported: environment.unsupported.len(),
+        dropped_unsupported: environment.unsupported.dropped(),
+        invocation: environment.invocations.next_sequence(),
+        dropped_invocations: environment.invocations.dropped(),
+        network: environment.net.log.len(),
+        dropped_network: environment.net.dropped_requests,
+    }
+}
+
+fn metadata_finish(
+    environment: &shellsim::Environment,
+    outcome: RunOutcome,
+    start: MetadataStart,
+) -> RunMetadata {
+    let invocations = environment.invocations.events_since(start.invocation);
+    RunMetadata {
+        outcome,
+        unsupported: environment.unsupported.values_since(start.unsupported),
+        dropped_unsupported: environment
+            .unsupported
+            .dropped()
+            .saturating_sub(start.dropped_unsupported),
+        commands: environment.cmd_trace.values_since(start.command),
+        dropped_commands: environment
+            .cmd_trace
+            .dropped()
+            .saturating_sub(start.dropped_commands),
+        unsupported_commands: invocation_names(&invocations, CommandTrust::Unsupported),
+        partial_commands: invocation_names(&invocations, CommandTrust::Partial),
+        invocations,
+        dropped_invocations: environment
+            .invocations
+            .dropped()
+            .saturating_sub(start.dropped_invocations),
+        network_requests: environment.net.log[start.network..].to_vec(),
+        dropped_network_requests: environment
+            .net
+            .dropped_requests
+            .saturating_sub(start.dropped_network),
+    }
+}
+
+fn invocation_names(events: &[InvocationEvent], trust: CommandTrust) -> Vec<String> {
+    events
+        .iter()
+        .filter(|event| event.trust == trust)
+        .filter_map(|event| event.argv.first().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Run an environment operation with a predictable native stack and contain all Rust unwinds.
+fn on_worker<State, T, F>(
+    guard: &mut std::sync::MutexGuard<'_, State>,
+    operation: F,
+) -> Result<T, String>
+where
+    State: Send,
+    T: Send,
+    F: FnOnce(&mut State) -> Result<T, String> + Send,
+{
+    let environment = &mut **guard;
+    host_worker(move || operation(environment))
+}
+
+/// Contain compilation and other host operations under the adapter's usual stack/panic boundary.
+fn host_worker<T, F>(operation: F) -> Result<T, String>
+where
+    T: Send,
+    F: FnOnce() -> Result<T, String> + Send,
+{
+    thread::scope(|scope| {
+        let worker = thread::Builder::new()
+            .name("shellsim-python".to_string())
+            .stack_size(ACTION_STACK_BYTES)
+            .spawn_scoped(scope, move || catch_unwind(AssertUnwindSafe(operation)))
+            .map_err(|error| format!("could not start shellsim worker: {error}"))?;
+        match worker.join() {
+            Ok(Ok(result)) => result,
+            Ok(Err(payload)) | Err(payload) => Err(format!(
+                "shellsim operation panicked{}",
+                panic_suffix(payload.as_ref())
+            )),
+        }
+    })
+}
+
+fn panic_suffix(payload: &(dyn Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        format!(": {message}")
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        format!(": {message}")
+    } else {
+        String::new()
+    }
+}
+
+/// Compile host-provided binary Wasm without running it. Retain the result as trusted native code.
+#[pyfunction]
+#[pyo3(signature = (source, executable=false))]
+fn precompile_wasm(py: Python<'_>, source: Vec<u8>, executable: bool) -> PyResult<Py<PyBytes>> {
+    let bytes = py
+        .detach(|| {
+            host_worker(|| {
+                shellsim::commands::precompile_wasm(&source, compilation_kind(executable))
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)?;
+    Ok(PyBytes::new(py, &bytes).unbind())
+}
+
+/// Identify the serialized-runtime ABI for immutable delivery records, independent of releases.
+#[pyfunction]
+fn precompiled_wasm_build_id() -> &'static str {
+    shellsim::commands::precompiled_wasm_build_id()
+}
+
+/// Host target triple for baseline native companions, independent of the guest WASI target.
+#[pyfunction]
+fn precompiled_wasm_target() -> &'static str {
+    shellsim::commands::precompiled_wasm_target()
+}
+
+/// Load only trusted, untouched compiler output for this exact source and executable kind.
+/// Never pass guest files or untrusted code: compatibility checks do not authenticate a companion.
+#[pyfunction]
+#[pyo3(signature = (source, companion, executable=false))]
+fn register_trusted_precompiled_wasm(
+    py: Python<'_>,
+    source: Vec<u8>,
+    companion: Vec<u8>,
+    executable: bool,
+) -> PyResult<&'static str> {
+    let outcome = py
+        .detach(|| {
+            host_worker(|| {
+                // SAFETY: the embedding caller guarantees trusted, untouched compiler output
+                // for this exact source and compilation kind. This host API is unavailable to guests.
+                unsafe {
+                    shellsim::commands::register_trusted_precompiled_wasm(
+                        &source,
+                        &companion,
+                        compilation_kind(executable),
+                    )
+                }
+                .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)?;
+    Ok(match outcome {
+        PrecompiledWasmOutcome::Registered => "registered",
+        PrecompiledWasmOutcome::Incompatible => "incompatible",
+    })
+}
+
+fn compilation_kind(executable: bool) -> WasmCompilationKind {
+    if executable {
+        WasmCompilationKind::Executable
+    } else {
+        WasmCompilationKind::Module
+    }
+}
+
+/// Register a host-owned companion, reusing admitted modules before reading native bytes.
+/// The caller guarantees the same trusted source association as the bytes-based entry point,
+/// and keeps file contents immutable while cached modules or live instances may use the mapping.
+#[pyfunction]
+#[pyo3(signature = (source, companion_path, executable=false))]
+fn register_trusted_precompiled_wasm_file(
+    py: Python<'_>,
+    source: Vec<u8>,
+    companion_path: String,
+    executable: bool,
+) -> PyResult<&'static str> {
+    let outcome = py
+        .detach(|| {
+            host_worker(|| {
+                let kind = compilation_kind(executable);
+                // SAFETY: this host-only adapter accepts the caller's explicitly trusted companion
+                // associated with these exact source bytes; guest paths never reach this API.
+                unsafe {
+                    shellsim::commands::register_trusted_precompiled_wasm_file(
+                        &source,
+                        Path::new(&companion_path),
+                        kind,
+                    )
+                }
+                .map_err(|error| error.to_string())
+            })
+        })
+        .map_err(SimulationError::new_err)?;
+    Ok(match outcome {
+        PrecompiledWasmOutcome::Registered => "registered",
+        PrecompiledWasmOutcome::Incompatible => "incompatible",
+    })
+}
+
+#[pymodule]
+fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<NativeCancellationToken>()?;
+    module.add_class::<NativeEnvironment>()?;
+    module.add_class::<NativeImage>()?;
+    module.add_class::<NativeContainer>()?;
+    module.add_function(wrap_pyfunction!(precompile_wasm, module)?)?;
+    module.add_function(wrap_pyfunction!(precompiled_wasm_build_id, module)?)?;
+    module.add_function(wrap_pyfunction!(precompiled_wasm_target, module)?)?;
+    module.add_function(wrap_pyfunction!(register_trusted_precompiled_wasm, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        register_trusted_precompiled_wasm_file,
+        module
+    )?)?;
+    module.add("SimulationError", module.py().get_type::<SimulationError>())?;
+    module.add(
+        "PackageConflictError",
+        module.py().get_type::<PackageConflictError>(),
+    )?;
+    Ok(())
+}

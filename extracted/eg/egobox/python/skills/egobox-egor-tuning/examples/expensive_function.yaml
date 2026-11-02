@@ -1,0 +1,8 @@
+case: expensive_function
+
+dimension: 12
+evaluation_time: 300s
+
+recommendation:
+  n_doe: 13
+

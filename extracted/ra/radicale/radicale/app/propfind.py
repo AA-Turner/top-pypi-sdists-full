@@ -1,0 +1,778 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2008 Nicolas Kandel
+# Copyright © 2008 Pascal Halter
+# Copyright © 2008-2017 Guillaume Ayoub
+# Copyright © 2017-2021 Unrud <unrud@outlook.com>
+# Copyright © 2025-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import collections
+import itertools
+import posixpath
+import socket
+import xml.etree.ElementTree as ET
+from http import client
+from typing import (Dict, Iterable, Iterator, List, Optional, Sequence, Tuple,
+                    Union, cast)
+
+from radicale import (httputils, pathutils, rights, sharing, storage, types,
+                      utils, xmlutils)
+from radicale.app.base import Access, ApplicationBase
+from radicale.log import logger
+
+
+def xml_propfind(
+        self,
+        base_prefix: str,
+        path: str,
+        xml_request: Optional[ET.Element],
+        allowed_items: Iterable[Tuple[types.CollectionOrItem, str, str, str]],
+        user: str, encoding: str,
+        max_resource_size: int,
+        shares: dict = {},
+        ) -> Optional[ET.Element]:
+    """Read and answer PROPFIND requests.
+
+    Read rfc4918-9.1 for info.
+
+    The collections parameter is a list of collections that are to be included
+    in the output.
+
+    """
+    # A client may choose not to submit a request body.  An empty PROPFIND
+    # request body MUST be treated as if it were an 'allprop' request.
+    top_element = (xml_request[0] if xml_request is not None else
+                   ET.Element(xmlutils.make_clark("D:allprop")))
+
+    props: List[str] = []
+    allprop = False
+    propname = False
+    if top_element.tag == xmlutils.make_clark("D:allprop"):
+        allprop = True
+    elif top_element.tag == xmlutils.make_clark("D:propname"):
+        propname = True
+    elif top_element.tag == xmlutils.make_clark("D:prop"):
+        props.extend(prop.tag for prop in top_element)
+
+    if xmlutils.make_clark("D:current-user-principal") in props and not user:
+        # Ask for authentication
+        # Returning the DAV:unauthenticated pseudo-principal as specified in
+        # RFC 5397 doesn't seem to work with DAVx5.
+        return None
+
+    # Writing answer
+    multistatus = ET.Element(xmlutils.make_clark("D:multistatus"))
+
+    logger.trace("PROPFIND/xml_propfind: shares=%r", shares)
+
+    for item, permission, raw_permissions, conversion in allowed_items:
+        write = "w" in permission
+        multistatus.append(
+            xml_propfind_response(
+                self,
+                base_prefix,
+                path,
+                item,
+                props,
+                user,
+                encoding,
+                write=write,
+                allprop=allprop,
+                propname=propname,
+                max_resource_size=max_resource_size,
+                shares=shares,
+                conversion=conversion,
+                raw_permissions=raw_permissions,
+                freebusy_only=("f" in permission and "r" not in permission),
+            )
+        )
+
+    return multistatus
+
+
+def xml_propfind_response(
+    self,
+    base_prefix: str,
+    path: str,
+    item: types.CollectionOrItem,
+    props: Sequence[str],
+    user: str,
+    encoding: str,
+    max_resource_size: int,
+    write: bool = False,
+    propname: bool = False,
+    allprop: bool = False,
+    shares: dict = {},
+    conversion: Union[str, None] = None,
+    raw_permissions: str = "",
+    freebusy_only: bool = False,
+) -> ET.Element:
+    """Build and return a PROPFIND response."""
+    if propname and allprop or (props and (propname or allprop)):
+        raise ValueError("Only use one of props, propname and allprops")
+
+    if isinstance(item, storage.BaseCollection):
+        is_collection = True
+        is_leaf = item.tag in ("VADDRESSBOOK", "VCALENDAR", "VSUBSCRIBED")
+        collection = item
+        # Some clients expect collections to end with `/`
+        uri = pathutils.unstrip_path(item.path, True)
+    else:
+        is_collection = is_leaf = False
+        assert item.collection is not None
+        assert item.href
+        collection = item.collection
+        uri = pathutils.unstrip_path(posixpath.join(
+            collection.path, item.href))
+    response = ET.Element(xmlutils.make_clark("D:response"))
+    href = ET.Element(xmlutils.make_clark("D:href"))
+
+    # lookup share
+    share = None
+    logger.trace("PROPFIND/xml_propfind: conversion=%r item.path=%r", conversion, uri)
+    for entry in shares:
+        logger.trace("PROPFIND/xml_propfind: check entry=%r", entry)
+        if entry is not None:
+            logger.trace("PROPFIND/xml_propfind: PathMapped=%r uri=%r", shares[entry]['PathMapped'], uri)
+            if uri.startswith(shares[entry]['PathMapped']):
+                if conversion is not None and shares[entry]['Conversion'] == conversion:
+                    share = shares[entry]
+                    logger.trace("PROPFIND/xml_propfind: found share=%r", share)
+                    break
+
+    share_bday_automap = False
+    if share and share['Conversion'] == "bday":
+        share_bday_automap = True
+
+    if share:
+        # backmap
+        if uri.startswith(share['PathMapped']):
+            uri = str(share['PathOrToken']) + uri.removeprefix(share['PathMapped'])
+        if share_bday_automap and uri.endswith(".vcf"):
+            uri = uri.removesuffix(".vcf") + ".ics"
+
+    href.text = xmlutils.make_href(base_prefix, uri)
+    response.append(href)
+
+    if propname or allprop:
+        props = []
+        # Should list all properties that can be retrieved by the code below
+        props.append(xmlutils.make_clark("D:principal-collection-set"))
+        if user and is_collection:
+            props.append(xmlutils.make_clark("RADICALE:version"))
+        props.append(xmlutils.make_clark("D:current-user-principal"))
+        props.append(xmlutils.make_clark("D:current-user-privilege-set"))
+        props.append(xmlutils.make_clark("D:supported-report-set"))
+        props.append(xmlutils.make_clark("D:resourcetype"))
+        props.append(xmlutils.make_clark("D:owner"))
+        if not allprop:
+            # RFC4791#5.2.5: SHOULD NOT be returned by a PROPFIND DAV:allprop request
+            props.append(xmlutils.make_clark("C:max-resource-size"))
+
+        if is_collection and collection.is_principal:
+            props.append(xmlutils.make_clark("C:calendar-user-address-set"))
+            props.append(xmlutils.make_clark("D:principal-URL"))
+            props.append(xmlutils.make_clark("CR:addressbook-home-set"))
+            props.append(xmlutils.make_clark("C:calendar-home-set"))
+
+        if not is_collection or is_leaf:
+            props.append(xmlutils.make_clark("D:getetag"))
+            props.append(xmlutils.make_clark("D:getlastmodified"))
+            props.append(xmlutils.make_clark("D:getcontenttype"))
+            if not freebusy_only:
+                props.append(xmlutils.make_clark("D:getcontentlength"))
+
+        if is_collection:
+            if is_leaf:
+                props.append(xmlutils.make_clark("D:displayname"))
+                if share_bday_automap:
+                    # bday share has no sync-token support
+                    pass
+                else:
+                    props.append(xmlutils.make_clark("D:sync-token"))
+            if collection.tag == "VCALENDAR" or share_bday_automap:
+                props.append(xmlutils.make_clark("CS:getctag"))
+                props.append(
+                    xmlutils.make_clark("C:supported-calendar-component-set"))
+            if collection.tag == "VADDRESSBOOK" and not share_bday_automap:
+                props.append(xmlutils.make_clark("CS:getctag"))
+                props.append(
+                    xmlutils.make_clark("CR:supported-address-data"))
+
+            meta = collection.get_meta()
+            for tag in meta:
+                if tag == "tag":
+                    continue
+                clark_tag = xmlutils.make_clark(tag)
+                if clark_tag not in props:
+                    props.append(clark_tag)
+
+    responses: Dict[int, List[ET.Element]] = collections.defaultdict(list)
+    if propname:
+        for tag in props:
+            responses[200].append(ET.Element(tag))
+        props = []
+    for tag in props:
+        element = ET.Element(tag)
+        is404 = False
+        if tag == xmlutils.make_clark("D:getetag"):
+            if not is_collection or is_leaf:
+                if isinstance(item, storage.BaseCollection):
+                    element.text = item.etag
+                else:
+                    if share_bday_automap:
+                        item_converted = item.convert_vcf_to_ics(ShareActions=share['Actions'])
+                        if item_converted:
+                            element.text = item_converted.etag
+                        else:
+                            is404 = True
+                    else:
+                        element.text = item.etag
+            else:
+                is404 = True
+        elif tag == xmlutils.make_clark("D:getlastmodified"):
+            if not is_collection or is_leaf:
+                element.text = item.last_modified
+            else:
+                is404 = True
+        elif tag == xmlutils.make_clark("D:principal-collection-set"):
+            child_element = ET.Element(xmlutils.make_clark("D:href"))
+            child_element.text = xmlutils.make_href(base_prefix, "/")
+            element.append(child_element)
+        elif (tag in (xmlutils.make_clark("C:calendar-user-address-set"),
+                      xmlutils.make_clark("D:principal-URL"),
+                      xmlutils.make_clark("CR:addressbook-home-set"),
+                      xmlutils.make_clark("C:calendar-home-set")) and
+              is_collection and collection.is_principal):
+            child_element = ET.Element(xmlutils.make_clark("D:href"))
+            child_element.text = xmlutils.make_href(base_prefix, path)
+            if share:
+                # backmap
+                if child_element.text.startswith(base_prefix + share['PathMapped']):
+                    child_element.text = base_prefix + str(share['PathOrToken']) + child_element.text.removeprefix(base_prefix + share['PathMapped'])
+                if share_bday_automap and child_element.text.endswith(".vcf"):
+                    child_element.text = child_element.text.removesuffix(".vcf") + ".ics"
+            element.append(child_element)
+        elif tag == xmlutils.make_clark("C:supported-calendar-component-set"):
+            human_tag = xmlutils.make_human_tag(tag)
+            if is_collection and is_leaf:
+                components = []
+                if collection.tag == "VCALENDAR":
+                    components_text = collection.get_meta(human_tag)
+                    if components_text:
+                        components = components_text.split(",")
+                    else:
+                        components = ["VTODO", "VEVENT", "VJOURNAL"]
+                elif collection.tag == "VADDRESSBOOK" and share_bday_automap:
+                    # enforce VEVENT-only
+                    components = ["VEVENT"]
+                for component in components:
+                    comp = ET.Element(xmlutils.make_clark("C:comp"))
+                    comp.set("name", component)
+                    element.append(comp)
+            else:
+                is404 = True
+        elif tag == xmlutils.make_clark("CR:supported-address-data"):
+            if is_collection and is_leaf and collection.tag == "VADDRESSBOOK" and not share_bday_automap:
+                # Advertise supported vCard versions per RFC 6352 section 6.2.2
+                # vCard 4.0 requires vobject >= 1.0.0
+                versions: Sequence[str] = (("4.0", "3.0")
+                                           if utils.vobject_supports_vcard4()
+                                           else ("3.0",))
+                for version in versions:
+                    address_data_type = ET.Element(
+                        xmlutils.make_clark("CR:address-data-type"))
+                    address_data_type.set("content-type", "text/vcard")
+                    address_data_type.set("version", version)
+                    element.append(address_data_type)
+            else:
+                is404 = True
+        elif tag == xmlutils.make_clark("D:current-user-principal"):
+            if user:
+                child_element = ET.Element(xmlutils.make_clark("D:href"))
+                if share:
+                    # backmap
+                    child_element.text = xmlutils.make_href(
+                        base_prefix, "/%s/" % share['User'])
+                    if share_bday_automap and child_element.text.endswith(".vcf"):
+                        child_element.text = child_element.text.removesuffix(".vcf") + ".ics"
+                else:
+                    child_element.text = xmlutils.make_href(
+                        base_prefix, "/%s/" % user)
+                element.append(child_element)
+            else:
+                element.append(ET.Element(
+                    xmlutils.make_clark("D:unauthenticated")))
+        elif tag == xmlutils.make_clark("D:current-user-privilege-set"):
+            if freebusy_only:
+                privileges = []
+                if (is_collection and collection.tag == "VCALENDAR" and
+                        not share_bday_automap):
+                    privileges.append("C:read-free-busy")
+                if write:
+                    privileges.append("D:write-content")
+            else:
+                privileges = ["D:read"]
+                if (is_collection and collection.tag == "VCALENDAR" and
+                        not share_bday_automap):
+                    privileges.append("C:read-free-busy")
+            if not freebusy_only and share:
+                logger.trace("PROPFIND/xml_propfind_response/current-user-privilege-set: raw_permissions=%r share[Permissions]=%r permit_properties_overlay=%s", raw_permissions, share['Permissions'], self._sharing.permit_properties_overlay)
+                permit_write_content = False
+                if write:
+                    if "w" in share['Permissions']:
+                        if not share_bday_automap:
+                            privileges.append("D:write-content")
+                            permit_write_content = True
+                # priority share->rights->global
+                if ("P" in share['Permissions'] or
+                    ("P" in raw_permissions and "p" not in share['Permissions']) or
+                    (self._sharing.permit_properties_overlay and "p" not in raw_permissions and "p" not in share['Permissions'])
+                    ) and not (
+                            "p" in share['Permissions'] or
+                            ("p" in raw_permissions and "P" not in share['Permissions']) or
+                            (not self._sharing.permit_properties_overlay and "P" not in raw_permissions and "P" not in share['Permissions'])):
+                    if "l" not in raw_permissions and "l" not in share['Permissions']:
+                        logger.trace("PROPFIND/xml_propfind_response/current-user-privilege-set: add D:write-properties")
+                        privileges.append("D:write-properties")
+                        # "write-content" + "write-properties" = "write" (rfc3744-3.2)
+                        if permit_write_content:
+                            privileges.append("D:write")
+                    else:
+                        logger.trace("PROPFIND/xml_propfind_response/current-user-privilege-set: skip D:write-properties because of permission 'l'")
+            elif not freebusy_only and write:
+                privileges.append("D:all")
+                privileges.append("D:write")
+                if "l" not in raw_permissions:
+                    privileges.append("D:write-properties")
+                privileges.append("D:write-content")
+
+            if not freebusy_only and self._sharing._enabled and not share:
+                # only offer this privileges if sharing is enabled and not being a share (nested sharing is not supported)
+                if ("T" in raw_permissions or (self._sharing.permit_create_token and "t" not in raw_permissions)):
+                    privileges.append("RADICALE:share-token")
+                if ("M" in raw_permissions or (self._sharing.permit_create_map and "m" not in raw_permissions)):
+                    privileges.append("RADICALE:share-map")
+
+            for human_tag in privileges:
+                privilege = ET.Element(xmlutils.make_clark("D:privilege"))
+                privilege.append(ET.Element(
+                    xmlutils.make_clark(human_tag)))
+                element.append(privilege)
+        elif tag == xmlutils.make_clark("D:supported-report-set"):
+            if freebusy_only:
+                reports = []
+                if (is_collection and is_leaf and
+                        collection.tag == "VCALENDAR" and not share_bday_automap):
+                    reports.append("C:free-busy-query")
+            else:
+                # These 3 reports are not implemented
+                reports = ["D:expand-property",
+                           "D:principal-search-property-set",
+                           "D:principal-property-search"]
+            if not freebusy_only and is_collection and is_leaf:
+                if not share_bday_automap:
+                    reports.append("D:sync-collection")
+                if collection.tag == "VADDRESSBOOK" and not share_bday_automap:
+                    reports.append("CR:addressbook-multiget")
+                    reports.append("CR:addressbook-query")
+                elif collection.tag == "VCALENDAR" or share_bday_automap:
+                    reports.append("C:calendar-multiget")
+                    reports.append("C:calendar-query")
+                    if collection.tag == "VCALENDAR" and not share_bday_automap:
+                        reports.append("C:free-busy-query")
+            for human_tag in reports:
+                supported_report = ET.Element(
+                    xmlutils.make_clark("D:supported-report"))
+                report_element = ET.Element(xmlutils.make_clark("D:report"))
+                report_element.append(
+                    ET.Element(xmlutils.make_clark(human_tag)))
+                supported_report.append(report_element)
+                element.append(supported_report)
+        elif tag == xmlutils.make_clark("D:getcontentlength"):
+            if freebusy_only:
+                is404 = True
+            elif not is_collection or is_leaf:
+                if collection.tag == "VADDRESSBOOK" and share_bday_automap:
+                    if isinstance(item, storage.BaseCollection):
+                        logger.trace("PROPFIND/xml_propfind_response/getcontentlength: start bday automap handling for collection")
+                        length = 0
+                        for entry in item.get_all():
+                            item_ics = entry.convert_vcf_to_ics(ShareActions=share['Actions'])
+                            if item_ics is None:
+                                continue
+                            length += len(item_ics.vobject_item.serialize().encode(encoding))
+                        element.text = str(length)
+                    else:
+                        logger.trace("PROPFIND/xml_propfind_response/getcontentlength: start bday automap handling for single item")
+                        item_converted = item.convert_vcf_to_ics(ShareActions=share['Actions'])
+                        if item_converted is not None:
+                            element.text = str(len(item_converted.serialize()))
+                        else:
+                            is404 = True
+                else:
+                    element.text = str(len(item.serialize().encode(encoding)))
+            else:
+                is404 = True
+        elif tag == xmlutils.make_clark("D:owner"):
+            # return empty elment, if no owner available (rfc3744-5.1)
+            # return empty element in case of a mapped share / clients try PROPFIND on this not accessable href
+            if collection.owner and not share:
+                child_element = ET.Element(xmlutils.make_clark("D:href"))
+                child_element.text = xmlutils.make_href(
+                    base_prefix, "/%s/" % collection.owner)
+                element.append(child_element)
+        elif tag == xmlutils.make_clark("C:max-resource-size"):
+            # RFC4791#5.2.5
+            element.text = str(max_resource_size)
+        elif is_collection:
+            if tag == xmlutils.make_clark("D:getcontenttype"):
+                if is_leaf:
+                    element.text = xmlutils.MIMETYPES[
+                        collection.tag]
+                    if share_bday_automap:
+                        # overwrite
+                        element.text = xmlutils.MIMETYPES["VCALENDAR"]
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("D:resourcetype"):
+                if collection.is_principal:
+                    child_element = ET.Element(
+                        xmlutils.make_clark("D:principal"))
+                    element.append(child_element)
+                if is_leaf:
+                    if collection.tag == "VADDRESSBOOK" and not share_bday_automap:
+                        child_element = ET.Element(
+                            xmlutils.make_clark("CR:addressbook"))
+                        element.append(child_element)
+                    elif collection.tag == "VCALENDAR" or share_bday_automap:
+                        child_element = ET.Element(
+                            xmlutils.make_clark("C:calendar"))
+                        element.append(child_element)
+                    elif collection.tag == "VSUBSCRIBED":
+                        child_element = ET.Element(
+                            xmlutils.make_clark("CS:subscribed"))
+                        element.append(child_element)
+                child_element = ET.Element(xmlutils.make_clark("D:collection"))
+                element.append(child_element)
+            elif tag == xmlutils.make_clark("RADICALE:displayname"):
+                # Only for internal use by the web interface
+                displayname = collection.get_meta("D:displayname")
+                if not displayname and is_leaf:
+                    displayname = collection.path
+                if displayname is not None:
+                    if share_bday_automap:
+                        displayname += " (BDAY)"
+                if share and 'Properties' in share and share['Properties'] is not None and "D:displayname" in share['Properties']:
+                    displayname = share['Properties']["D:displayname"]
+                    logger.trace("PROPFIND/xml_propfind_response/displayname: replace from share properties with %r", displayname)
+                if displayname is not None:
+                    element.text = displayname
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("RADICALE:getcontentcount"):
+                # Only for internal use by the web interface
+                if isinstance(item, storage.BaseCollection) and not collection.is_principal:
+                    if collection.tag == "VADDRESSBOOK" and share_bday_automap:
+                        logger.trace("PROPFIND/xml_propfind_response/getcontentcount: start bday automap handling")
+                        items = []
+                        for entry in item.get_all():
+                            item_ics = entry.convert_vcf_to_ics(ShareActions=share['Actions'])
+                            if item_ics is None:
+                                continue
+                            items.append(item_ics.vobject_item)
+                        element.text = str(sum(1 for x in items))
+                    else:
+                        element.text = str(sum(1 for x in item.get_all()))
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("D:displayname"):
+                displayname = collection.get_meta("D:displayname")
+                if not displayname and is_leaf:
+                    displayname = collection.path
+                if displayname is not None:
+                    if share_bday_automap:
+                        displayname += " (BDAY)"
+                if share and 'Properties' in share and share['Properties'] is not None and "D:displayname" in share['Properties']:
+                    displayname = share['Properties']["D:displayname"]
+                    logger.trace("PROPFIND/xml_propfind_response/displayname: replace from share properties with %r", displayname)
+                if displayname is not None:
+                    element.text = displayname
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("CS:getctag"):
+                if is_leaf:
+                    element.text = collection.etag
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("D:sync-token"):
+                if is_leaf:
+                    element.text, _ = collection.sync()
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("CS:source"):
+                if is_leaf:
+                    child_element = ET.Element(xmlutils.make_clark("D:href"))
+                    child_element.text = collection.get_meta('CS:source')
+                    element.append(child_element)
+                else:
+                    is404 = True
+            elif tag == xmlutils.make_clark("RADICALE:version"):
+                if user:
+                    element.text = utils.package_version("radicale")
+                else:
+                    is404 = True
+            else:
+                human_tag = xmlutils.make_human_tag(tag)
+                tag_text = collection.get_meta(human_tag)
+                if share and 'Properties' in share and share['Properties'] is not None and human_tag in share['Properties']:
+                    # map/add from overlay
+                    if share['Properties'][human_tag] is not None:
+                        tag_text = share['Properties'][human_tag]
+                        logger.trace("PROPFIND/xml_propfind_response/%s: replace from share properties with %r", human_tag, tag_text)
+                if tag_text is not None:
+                    element.text = tag_text
+                else:
+                    is404 = True
+        # Not for collections
+        elif tag == xmlutils.make_clark("D:getcontenttype"):
+            assert not isinstance(item, storage.BaseCollection)
+            element.text = xmlutils.get_content_type(item, encoding)
+            if share_bday_automap:
+                # overwrite
+                element.text = xmlutils.MIMETYPES["VCALENDAR"]
+        elif tag == xmlutils.make_clark("D:resourcetype"):
+            # resourcetype must be returned empty for non-collection elements
+            pass
+        else:
+            is404 = True
+
+        responses[404 if is404 else 200].append(element)
+
+    for status_code, children in responses.items():
+        if not children:
+            continue
+        propstat = ET.Element(xmlutils.make_clark("D:propstat"))
+        response.append(propstat)
+        prop = ET.Element(xmlutils.make_clark("D:prop"))
+        prop.extend(children)
+        propstat.append(prop)
+        status = ET.Element(xmlutils.make_clark("D:status"))
+        status.text = xmlutils.make_response(status_code)
+        propstat.append(status)
+
+    return response
+
+
+class ApplicationPartPropfind(ApplicationBase):
+
+    def _collect_allowed_items(
+            self, items: Iterable[types.CollectionOrItem], user: str, user_groups: set,
+            ) -> Iterator[Tuple[types.CollectionOrItem, str, str]]:
+        """Get items from request that user is allowed to access."""
+        for item in items:
+            if isinstance(item, storage.BaseCollection):
+                path = pathutils.unstrip_path(item.path, True)
+                raw_permissions = self._rights.authorization(user, user_groups, path)
+                logger.trace("PROPFIND/_collect_allowed_items/BaseCollection: path=%r user=%r raw_permissions=%r", path, user, raw_permissions)
+                if item.tag:
+                    permissions = rights.intersect(raw_permissions, "rw")
+                    target = "collection with tag %r" % item.path
+                else:
+                    permissions = rights.intersect(raw_permissions, "RW")
+                    target = "collection %r" % item.path
+            else:
+                assert item.collection is not None
+                path = pathutils.unstrip_path(item.collection.path, True)
+                raw_permissions = self._rights.authorization(user, user_groups, path)
+                permissions = rights.intersect(raw_permissions, "rw")
+                target = "item %r from %r" % (item.href, item.collection.path)
+            freebusy = (
+                isinstance(item, storage.BaseCollection) and
+                item.tag == "VCALENDAR" and "f" in raw_permissions and
+                "r" not in raw_permissions)
+            if rights.intersect(permissions, "Ww"):
+                permission = "wf" if freebusy else "w"
+                status = "write"
+            elif rights.intersect(permissions, "Rr"):
+                permission = "r"
+                status = "read"
+            elif freebusy:
+                permission = "f"
+                status = "read-free-busy"
+            else:
+                permission = ""
+                status = "NO"
+            logger.debug(
+                "%s has %s access to %s",
+                repr(user) if user else "anonymous user", status, target)
+            if permission:
+                yield item, permission, raw_permissions
+
+    def do_PROPFIND(self, environ: types.WSGIEnviron, base_prefix: str,
+                    path: str, user: str, user_groups: set, request_info: dict) -> types.WSGIResponse:
+        """Manage PROPFIND request."""
+        http_depth = environ.get("HTTP_DEPTH", "0")
+        permissions_filter = None
+        shares: dict = {}
+        allowed_items: list = []
+        if self._sharing._enabled:
+            # Sharing by token or map (if enabled)
+            share = self._sharing.sharing_collection_resolver(path, user, user_groups)
+            if share:
+                if path != share['PathMapped']:
+                    # overwrite and run through extended permission check
+                    path = share['PathMapped']
+                    user = share['Owner']
+                    permissions_filter = share['Permissions']
+                    shares[share['PathOrToken']] = share
+                    logger.trace("PROPFIND/shares: add mapping: PathOrToken=%r PathMapped=%r", share['PathOrToken'], share['PathMapped'])
+                else:
+                    logger.trace("PROPFIND/shares: skip overlap mapping: path=%r", path)
+        access = Access(self._rights, user, user_groups, path, permissions_filter)
+        read_allowed = access.check("r")
+        freebusy_only = "r" not in access.permissions and access.allows_freebusy()
+        if not read_allowed and not freebusy_only:
+            return httputils.NOT_ALLOWED
+        if freebusy_only and http_depth != "0":
+            return httputils.NOT_ALLOWED
+        try:
+            xml_content = self._read_xml_request_body(environ, request_info)
+        except RuntimeError as e:
+            logger.warning(
+                "Bad PROPFIND request on %r: %s", path, e, exc_info=True)
+            return httputils.BAD_REQUEST
+        except socket.timeout:
+            logger.debug("Client timed out", exc_info=True)
+            return httputils.REQUEST_TIMEOUT
+        collection_uris: dict = {}
+        with self._storage.acquire_lock("r", user):
+            logger.trace("PROPFIND: discover path=%r depth=%s", path, http_depth)
+            items_iter = iter(self._storage.discover(
+                path, http_depth,
+                None, user_groups))
+            # take root item for rights checking
+            item = next(items_iter, None)
+            if not item:
+                return httputils.NOT_FOUND
+            if (isinstance(item, storage.BaseCollection) and
+                    item.tag == "VCALENDAR"):
+                if freebusy_only:
+                    if not access.allows_freebusy(item):
+                        return httputils.NOT_ALLOWED
+                elif not access.check("r", item):
+                    return httputils.NOT_ALLOWED
+            elif read_allowed:
+                if not access.check("r", item):
+                    return httputils.NOT_ALLOWED
+            elif not access.allows_freebusy(item):
+                return httputils.NOT_ALLOWED
+            # put item back
+            items_iter = itertools.chain([item], items_iter)
+            item_list = list(self._collect_allowed_items(items_iter, user, user_groups))
+            if freebusy_only:
+                writable = "w" in access.permissions
+                filtered_items = []
+                for entry, entry_permission, entry_permissions in item_list:
+                    if (not isinstance(entry, storage.BaseCollection) or
+                            entry.tag != "VCALENDAR"):
+                        continue
+                    entry_permission = "wf" if writable else "f"
+                    filtered_items.append((entry, entry_permission, entry_permissions))
+                item_list = cast(
+                    List[Tuple[types.CollectionOrItem, str, str]],
+                    filtered_items)
+            len_item_list = len(item_list)
+            for item, permission, raw_permissions in item_list:
+                if self._sharing._enabled and share:
+                    if share['Conversion'] == "bday" and not isinstance(item, storage.BaseCollection):
+                        if not item.convert_vcf_to_ics(ShareActions=share['Actions']):
+                            if len_item_list == 1:
+                                # only dedicated item requested
+                                return httputils.NOT_FOUND
+                            else:
+                                continue
+                    allowed_items.append((item, permission, raw_permissions, share['Conversion']))
+                    if isinstance(item, storage.BaseCollection):
+                        uri = pathutils.unstrip_path(item.path, True)
+                        logger.trace("PROPFIND: append collection (share+conversion): %r", uri)
+                        collection_uris[uri] = 1
+                else:
+                    allowed_items.append((item, permission, raw_permissions, None))
+                    if isinstance(item, storage.BaseCollection):
+                        uri = pathutils.unstrip_path(item.path, True)
+                        logger.trace("PROPFIND: append collection: %r", uri)
+                        collection_uris[uri] = 1
+        if self._sharing._enabled:
+            if http_depth == "1":
+                # check for shared collections related to user, Enabled and not Hidden
+                user_lookup = user
+                if user_groups is not None and len(user_groups) > 0:
+                    user_lookup += sharing.SHARING_SEPARATOR_GROUP + ','.join(user_groups)
+                logger.debug("PROPFIND: lookup shared collections for user=%r", user_lookup)
+                collections_share_list = self._sharing.sharing_collection_list(User=user_lookup, Enabled=True, Hidden=False)
+                if collections_share_list:
+                    for share in collections_share_list:
+                        c_share = share['PathOrToken']
+                        if not c_share.startswith(path):
+                            continue
+                        c_path = share['PathMapped']
+                        c_user = share['Owner']
+                        c_permissions_filter = share['Permissions']
+                        logger.trace("PROPFIND: test shared collection: PathOrToken=%r PathMapped=%r Owner=%r Permissions=%r", c_share, c_path, c_user, c_permissions_filter)
+                        c_access = Access(self._rights, c_user, set([]), c_path, c_permissions_filter)
+                        share_freebusy_only = (
+                            "f" in c_access.permissions and not c_access.check("r"))
+                        if not c_access.check("r") and not c_access.allows_freebusy():
+                            logger.debug("PROPFIND: skip shared collection: PathOrToken=%r PathMapped=%r Owner=%r Permissions=%r (permissions not matching)", c_share, c_path, c_user, c_permissions_filter)
+                            continue
+                        logger.debug("PROPFIND: lookup shared collection: PathOrToken=%r PathMapped=%r Owner=%r Permissions=%r", c_share, c_path, c_user, c_permissions_filter)
+                        with self._storage.acquire_lock("r", c_user):
+                            c_items_iter = iter(self._storage.discover(c_path, "0"))
+                            c_allowed_items = list(self._collect_allowed_items(c_items_iter, c_user, set([])))
+                        for item, permission, raw_permissions in c_allowed_items:
+                            if share_freebusy_only and isinstance(item, storage.BaseCollection):
+                                if item.tag == "VCALENDAR" and "w" in c_access.permissions:
+                                    permission = "wf"
+                                else:
+                                    permission = "f"
+                            if isinstance(item, storage.BaseCollection):
+                                uri = pathutils.unstrip_path(item.path, True)
+                                if share['Conversion'] != "bday" and uri in collection_uris:
+                                    logger.trace("PROPFIND: shared collection skipped (source existing): %r", uri)
+                                    continue
+                                # backmap
+                                if uri.startswith(share['PathMapped']):
+                                    uri = str(share['PathOrToken']) + uri.removeprefix(share['PathMapped'])
+                                if share['Conversion'] == "bday" and uri.endswith(".vcf"):
+                                    uri = uri.removesuffix(".vcf") + ".ics"
+                                if uri not in collection_uris:
+                                    allowed_items.append((item, permission, raw_permissions, share['Conversion']))
+                                    logger.trace("PROPFIND: shared collection append: %r", uri)
+                                    collection_uris[uri] = 2
+                                else:
+                                    logger.trace("PROPFIND: shared collection skipped (backmapped already existing): %r", uri)
+                            else:
+                                allowed_items.append((item, permission, raw_permissions, share['Conversion']))
+                        shares[c_share] = share
+
+        headers = {"DAV": httputils.DAV_HEADERS,
+                   "Content-Type": "text/xml; charset=%s" % self._encoding}
+        xml_answer = xml_propfind(self, base_prefix, path, xml_content,
+                                  allowed_items, user, self._encoding, max_resource_size=self._max_resource_size, shares=shares)
+        if xml_answer is None:
+            return httputils.NOT_ALLOWED
+        request_info["status"] = client.MULTI_STATUS
+        return client.MULTI_STATUS, headers, self._xml_response(xml_answer, request_info), xmlutils.pretty_xml(xml_content)

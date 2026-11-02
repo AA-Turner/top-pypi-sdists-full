@@ -8,9 +8,13 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import import_jobs, import_jobs_ui, onboarding_complete, setup, tui
-from probe.cli.actions import Action
-from probe.cli.capabilities import Capabilities
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard.account import onboarding_complete
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
+from probe.cli.wizard.actions.onboarding import Action
+from probe.cli.wizard.state.state import Capabilities
 from tests import test_wizard_auth_entry as auth
 from tests import test_wizard_install_completion as install_tests
 
@@ -21,7 +25,8 @@ installation = install_tests.installation
 
 @pytest.fixture
 def saved_import(entry, monkeypatch):
-    monkeypatch.setattr(import_jobs, "_launch", import_jobs._read)
+    monkeypatch.setattr(import_jobs.workers, "_launch", import_jobs._read)
+    monkeypatch.setattr(import_jobs.jobs, "_launch", import_jobs._read)
     job = import_jobs.enqueue("folder", {"approved": True}, "Saved import")
     # No process was spawned: settle that observation before checking that Exit
     # preserves the saved record. The real-worker cases below cover liveness.
@@ -31,7 +36,7 @@ def saved_import(entry, monkeypatch):
 
 @pytest.mark.parametrize("selection", [Action.EXIT, None, tui.BACK])
 def test_quit_from_main_menu_preserves_local_imports(saved_import, monkeypatch, selection):
-    monkeypatch.setattr(setup, "run_action_menu", lambda caps: selection)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda caps: selection)
     before = (saved_import / 'job.json').read_text()
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
@@ -44,7 +49,7 @@ def test_ctrl_c_preserves_local_imports(saved_import, monkeypatch, exception):
     def interrupt(caps):
         raise exception
 
-    monkeypatch.setattr(setup, "run_action_menu", interrupt)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", interrupt)
     before = (saved_import / 'job.json').read_text()
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code != 0
@@ -84,7 +89,7 @@ def test_quitting_the_post_import_monitor_preserves_imports(saved_import, monkey
 
 
 def test_quitting_the_import_selector_preserves_already_started_imports(saved_import, monkeypatch):
-    monkeypatch.setattr(setup, 'run_backfill_offer', lambda *a, **k: None)
+    monkeypatch.setattr(setup.screens.import_offer, 'run_backfill_offer', lambda *a, **k: None)
     with pytest.raises(main.typer.Exit):
         main._select_and_run_imports(
             caps=Capabilities(), base_now='https://api.test', folder=None,
@@ -113,7 +118,7 @@ def test_leaving_wizard_keeps_real_background_worker_alive(entry, monkeypatch, t
             raise KeyboardInterrupt
         return Action.EXIT
 
-    monkeypatch.setattr(setup, 'run_action_menu', leave)
+    monkeypatch.setattr(setup.screens.screens, 'run_action_menu', leave)
     try:
         result = CliRunner().invoke(main.app, ['wizard'])
         assert (result.exit_code != 0) is interrupt, result.output
@@ -131,12 +136,19 @@ def test_leaving_wizard_keeps_real_background_worker_alive(entry, monkeypatch, t
 
 def test_sign_out_clears_imports_before_capture_or_credentials(saved_import, monkeypatch):
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     def release():
         assert not saved_import.exists()
         return ["Signed out."]
 
-    monkeypatch.setattr(setup, "release_credentials", release)
+    monkeypatch.setattr(setup.account.sign_out, "release_credentials", release)
     lines = setup.sign_out(("claude_code",))
     assert "Imports stopped and local import history cleared." in lines
 
@@ -150,15 +162,28 @@ def test_removing_one_agent_keeps_the_devices_imports(saved_import, monkeypatch)
     monkeypatch.setattr(
         setup, "turn_off",
         lambda mode: SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False))
-    monkeypatch.setattr(setup, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
-    monkeypatch.setattr(setup, "apply_agent_rules", lambda enabled: [])
+    monkeypatch.setattr(
+        setup.account.sign_out, "turn_off",
+        lambda mode: SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False))
+    monkeypatch.setattr(
+        setup.apply.apply, "turn_off",
+        lambda mode: SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False))
+    monkeypatch.setattr(
+        setup.apply.removal, "turn_off",
+        lambda mode: SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False))
+    monkeypatch.setattr(setup.apply.plugins, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
+    monkeypatch.setattr(setup.apply.apply, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
+    monkeypatch.setattr(setup.apply.recorder, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
+    monkeypatch.setattr(setup.apply.removal, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
+    monkeypatch.setattr(setup.apply.agent_files, "apply_agent_rules", lambda enabled: [])
+    monkeypatch.setattr(setup.apply.removal, "apply_agent_rules", lambda enabled: [])
     setup.remove_everything(Capabilities(agent_source="claude_code"))
     assert (saved_import / "job.json").read_text() == before
     assert len(import_jobs.list_jobs()) == 1
 
 
 def test_declining_uninstall_keeps_saved_imports(saved_import, monkeypatch):
-    monkeypatch.setattr(setup, "confirm_removal", lambda source: False)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_removal", lambda source: False)
     from tests.test_wizard_auth_entry import apply_wizard_action
 
     result = apply_wizard_action(

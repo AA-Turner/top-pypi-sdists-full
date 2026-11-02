@@ -37,11 +37,26 @@ _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 _CLI_SIDE = {"cli", "core", "daemon", "_entry.py"}
 #: Files of `probe.shared` (what the CLI, daemon and service share, agent:12-13) that still
 #: reach into the CLI, which the product splits invert; every other shared/ file stays checked.
+#: agent:14 moved CLI code under shared/harness/ that still calls the CLI.
 _CLI_REACHERS = {
     "shared/harness/harnesses/claude_code/claude_code.py",
+    "shared/harness/harnesses/claude_code/plugins.py",
+    "shared/harness/harnesses/claude_code/transcripts.py",
     "shared/harness/harnesses/codex/config.py",
+    "shared/harness/harnesses/codex/doctor.py",
+    "shared/harness/harnesses/codex/headless.py",
+    "shared/harness/harnesses/codex/hook_fix.py",
     "shared/harness/harnesses/codex/hooks.py",
+    "shared/harness/harnesses/codex/mcp_auth.py",
+    "shared/harness/harnesses/codex/plugins.py",
+    "shared/harness/harnesses/codex/transcripts.py",
     "shared/harness/harnesses/kimi_code/config.py",
+    "shared/harness/harnesses/kimi_code/transcripts.py",
+    "shared/harness/harnesses/pi/doctor.py",
+    "shared/harness/harnesses/pi/package_install.py",
+    "shared/harness/harnesses/pi/package_upgrade.py",
+    "shared/harness/harnesses/pi/readiness.py",
+    "shared/harness/plugin_update.py",
     "shared/harness/plugins.py",
     "shared/notes/summary/summary.py",
     "shared/notes/team_note/parking.py",
@@ -165,7 +180,7 @@ def _pyproject() -> dict:
 #: An extra's dependency that was never core's and never will be (so the
 #: two-release split's "core still carries it" does not apply), and why.
 _NEVER_IN_CORE = {
-    ("cli", "cryptography"): "the Probe service's signature check (service/appinstall.py); the service runs only "
+    ("cli", "cryptography"): "the Probe service's signature check (service/updater/app/app.py); the service runs only "
     "from the CLI's env (service/client.py runtime_python), never a core-only install",
 }
 

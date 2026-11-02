@@ -1,108 +1,22 @@
-"""OfflineSink: journal every write into the offline run's own queue; its transport refuses every socket."""
+"""Old home of OfflineClient and OfflineTransport (now `offline/client.py`) and LINEAGE_ROUTES
+(now `offline/lineage.py`), kept one release for importers of this module. OfflineSink is gone
+with no alias: an offline run's writes land in `QueuedSink`, which every async client uses, so an
+alias would make `isinstance(sink, OfflineSink)` true for online runs; ask
+`delivery.is_offline_client(client)` instead."""
 
-from __future__ import annotations
-from typing import Any
+# restructure-shim: probe.sdk.delivery.offline.client
+import importlib
 
-import httpx
+from ..offline.client import OfflineClient, OfflineTransport
+from ..offline.lineage import LINEAGE_ROUTES
+from ..sink import SinkKind  # noqa: F401 -- the old module served it
+from .queued import QueuedSink
 
-from ... import errors
-from ...client.client import Client
-from ...settings.settings import Settings
-from ..journal.journal import Journal
-from ..transport.transport import Transport
-from ..sink import SinkKind
-from .journaled import JournalSink
-#: The lineage lists an offline run queues, by the feature a sync server must
-#: declare to take them (`sync_dir` checks).
-LINEAGE_ROUTES = {"run_inputs": "inputs", "run_outputs": "outputs"}
+JournalSink = QueuedSink
 
-
-# -- no network, by construction ----------------------------------------------
-class OfflineTransport(Transport):
-    """A transport that refuses every request without touching a socket. The run's writes
-    are journaled (async client), so only fail-open paths that would go to the network reach
-    here (a sync write, a read, a feature probe): each fails at once with a TransportError
-    (no retry, no sleep) and its fallback journals or skips. The httpx client is a
-    MockTransport that raises too, so even a path bypassing these methods cannot send."""
-
-    def __init__(self, settings: Settings):
-        from ....foundation.tls.tls import ssl_context
-
-        http = httpx.Client(
-            base_url=settings.base_url or "http://offline.invalid",
-            transport=httpx.MockTransport(self._refuse),
-            # Never used (nothing is sent), but every client in the package
-            # carries the one shared trust (plan item l).
-            verify=ssl_context(),
-        )
-        super().__init__(settings, client=http, max_retries=0)
-        #: How many requests were refused -- evidence for tests and doctor.
-        self.refused = 0
-
-    @staticmethod
-    def _refuse(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("offline mode: no network", request=request)
-
-    def _offline(self, what: str) -> errors.TransportError:
-        self.refused += 1
-        return errors.TransportError(
-            f"{what}: not sent -- this run is offline (PROBE_MODE=offline); "
-            "`probe sync` delivers it later"
-        )
-
-    def request(self, method: str, path: str, **_kw: Any) -> httpx.Response:
-        raise self._offline(f"{method} {path}")
-
-    def put_url(self, url: str, *_a: Any, **_kw: Any) -> None:
-        raise self._offline("PUT <blob>")
-
-    def put_file(self, url: str, *_a: Any, **_kw: Any) -> None:
-        raise self._offline("PUT <blob>")
-
-    def put_fileobj(self, url: str, *_a: Any, **_kw: Any) -> None:
-        raise self._offline("PUT <blob>")
-
-    def get_url(self, url: str) -> bytes:
-        raise self._offline("GET <blob>")
-
-    def download_to(self, url: str, dest: str, **_kw: Any) -> tuple[int, str]:
-        raise self._offline("GET <blob>")
+_moved = importlib.import_module("probe.sdk.delivery.offline.client")
+__all__ = ["LINEAGE_ROUTES", "OfflineClient", "OfflineTransport"]
 
 
-class OfflineClient(Client):
-    """The client behind an offline run: async writes into the run's own queue,
-    no drainer, no worker, no feature probes."""
-
-    #: `probe sync` is this client's drainer, so the "async writes with a custom transport
-    #: have no background drainer" notice would be noise. A class attribute, not a
-    #: `warnings` filter (process-wide, not thread-safe, hides other threads' warnings).
-    _drains_by_hand = True
-
-    def __init__(self, settings: Settings, journal: Journal):
-        # Nothing drains this queue before `probe sync`, so the stalled-drainer op ceiling
-        # would only drop a long run's tail and close (`Journal.op_ceiling`). The free-space
-        # floor still applies.
-        journal.op_ceiling = 0
-        super().__init__(
-            settings=settings,
-            transport=OfflineTransport(settings),
-            journal=journal,
-            async_writes=True,
-            auto_drain=False,
-        )
-
-    #: Features whose writes an offline run QUEUES instead of asking about: the server that
-    #: decides is the one `probe sync` delivers to, and `sync_dir` checks it there (and says
-    #: so when it lacks one). Asking now would be a request; every other feature reads as
-    #: unsupported offline.
-    DEFERRED_FEATURES = frozenset({"run_config_merge", *LINEAGE_ROUTES})
-
-    def supports_feature(self, name: str) -> bool:
-        return name in self.DEFERRED_FEATURES
-
-
-class OfflineSink(JournalSink):
-    """An offline run's queue: every write is journaled into the run's own queue, which only
-    `probe sync` delivers (`Client._drains_by_hand`), so nothing is sent around it."""
-
-    kind = SinkKind.OFFLINE
+def __getattr__(name):
+    return getattr(_moved, name)

@@ -1,0 +1,117 @@
+use std::fmt::Debug;
+use std::sync::Arc;
+
+use crate::errors::to_external_err;
+use crate::sql::logical::PyLogicalPlan;
+use datafusion_common::tree_node::Transformed;
+use datafusion_common::DataFusionError;
+use datafusion_expr::LogicalPlan;
+use datafusion_optimizer::optimizer::Optimizer;
+use datafusion_optimizer::{OptimizerConfig, OptimizerContext, OptimizerRule};
+use pyo3::prelude::PyModule;
+use pyo3::prelude::*;
+use pyo3::{pyclass, pyfunction, pymethods, wrap_pyfunction, PyResult, Python};
+
+#[pyclass(from_py_object, name = "Optimizer", module = "let", subclass)]
+#[derive(Clone, Default)]
+pub struct PyOptimizer {
+    pub optimizer: Arc<Optimizer>,
+}
+
+#[pymethods]
+impl PyOptimizer {
+    #[pyo3(signature = ())]
+    #[new]
+    pub fn new() -> Self {
+        Self {
+            optimizer: Arc::new(Optimizer::default()),
+        }
+    }
+}
+
+#[pyclass(name = "OptimizerRule", module = "let", subclass)]
+#[derive(Debug)]
+pub struct PyOptimizerRule {
+    pub(crate) rule: Py<PyAny>,
+}
+
+unsafe impl Send for PyOptimizerRule {}
+unsafe impl Sync for PyOptimizerRule {}
+
+#[pymethods]
+impl PyOptimizerRule {
+    #[new]
+    pub fn new(rule: &Bound<'_, PyAny>) -> Self {
+        Self {
+            rule: rule.clone().unbind(),
+        }
+    }
+}
+
+impl OptimizerRule for PyOptimizerRule {
+    fn name(&self) -> &str {
+        "python rule"
+    }
+
+    fn supports_rewrite(&self) -> bool {
+        true
+    }
+
+    fn rewrite(
+        &self,
+        plan: LogicalPlan,
+        _config: &dyn OptimizerConfig,
+    ) -> datafusion_common::Result<Transformed<LogicalPlan>, DataFusionError> {
+        Python::attach(|py| {
+            let py_plan = PyLogicalPlan::new(plan);
+            let py_plan = self
+                .rule
+                .bind(py)
+                .call_method1("try_optimize", (py_plan,))
+                .map_err(to_external_err)?;
+            Ok(Transformed::new_transformed(
+                py_plan
+                    .extract::<PyLogicalPlan>()
+                    .unwrap()
+                    .plan
+                    .as_ref()
+                    .clone(),
+                true,
+            ))
+        })
+    }
+}
+
+#[pyclass(from_py_object, name = "OptimizerContext", module = "let", subclass)]
+#[derive(Clone, Default)]
+pub struct PyOptimizerContext {
+    pub(crate) context: Arc<OptimizerContext>,
+}
+
+#[pymethods]
+impl PyOptimizerContext {
+    #[pyo3(signature = ())]
+    #[new]
+    pub fn new() -> Self {
+        Self {
+            context: Arc::new(OptimizerContext::default()),
+        }
+    }
+}
+
+fn observe(_plan: &LogicalPlan, _rule: &dyn OptimizerRule) {}
+
+#[pyfunction]
+pub fn optimize_plan(plan: PyLogicalPlan, context_provider: PyOptimizerContext) -> PyLogicalPlan {
+    let optimizer = Optimizer::new();
+    let plan = plan.plan.as_ref().clone();
+    let optimized_plan = optimizer
+        .optimize(plan, context_provider.context.as_ref(), observe)
+        .unwrap();
+    PyLogicalPlan::from(optimized_plan)
+}
+
+pub(crate) fn init_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(optimize_plan))?;
+    Ok(())
+}

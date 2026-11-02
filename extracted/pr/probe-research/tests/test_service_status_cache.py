@@ -15,7 +15,8 @@ import sys
 
 import pytest
 
-from probe.service.protocol import Method, Mode
+from probe.foundation.service_api.wire import Method
+from probe.foundation.service_api.vocabularies import Mode
 from tests.service_fakes import FakeCore
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401 -- a fixture
 
@@ -95,8 +96,8 @@ def test_each_context_has_its_own_answer_and_its_child_gets_the_context(service_
 
 
 def test_a_child_with_no_answer_is_refused(service_home, core):
-    from probe.service import client
-    from probe.service.protocol import ErrorCode
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api.wire import ErrorCode
 
     core.plan("status", stdout="not an object", exit=1)
     service_home.start()

@@ -1,0 +1,64 @@
+"""Pydantic models for Forms images (an uploaded or cloned image, and the clone request)."""
+
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
+
+from ycli.yandex.forms.models import FileCheckStatus
+from ycli.yandex.models import IGNORED_BY_API, APIModel, WarnsOnIgnored
+from ycli.yandex.sync.marks import Identity
+
+#: How strictly an uploaded image is scanned.
+FileCheckMode = Literal["strict", "loose"] | str
+
+
+class Image(APIModel):
+    """An image uploaded to a form (``POST …/images`` result).
+
+    The upload is scanned asynchronously — ``check_status`` starts at ``check`` and moves to
+    ``ready`` (or an error state); ``links`` maps each rendered size to its URL. Reference the
+    returned ``id`` from a question's / option's / style's ``image`` field.
+
+    Examples:
+        >>> Image.model_validate(
+        ...     {"id": 7, "links": {}, "name": "logo.png", "check_status": "check"}
+        ... ).id
+        7
+    """
+
+    id: Annotated[int | None, Identity()] = Field(
+        default=None, description="Image ID (reference it from a form image field)."
+    )
+    links: dict[str, Any] = Field(
+        default_factory=dict, description="Map of image size → URL for each rendered variant."
+    )
+    name: str | None = Field(default=None, description="Original image file name.")
+    check_status: FileCheckStatus | None = Field(
+        default=None,
+        description="Virus/upload scan status — one of: check, ready, infected, error, deleted.",
+    )
+    check_mode: FileCheckMode | None = Field(
+        default=None, description="Scan mode: strict or loose (reported on clone)."
+    )
+
+
+class ImageClone(WarnsOnIgnored):
+    """Typed body for ``POST /surveys/{id}/images/clone``: the image to copy.
+
+    Unset fields are dropped before the request is sent. ``name`` is accepted and ignored by
+    the API (checked live on 2026-10-06): it stays for callers that send it, and setting it
+    logs a warning.
+
+    Examples:
+        >>> ImageClone(id=7, name="copy.png").model_dump(exclude_none=True)
+        {'id': 7, 'name': 'copy.png'}
+    """
+
+    id: int | None = Field(default=None, description="Id of the image to clone.")
+    links: dict[str, str] | None = Field(
+        default=None, description="Map of image size → URL of the image to clone."
+    )
+    name: str | None = Field(
+        default=None,
+        description=IGNORED_BY_API + "the clone keeps the file name of the original.",
+    )

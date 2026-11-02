@@ -1,0 +1,1389 @@
+"""Which skill dirs the local-harness audit may touch, and which another gate already owns.
+
+Every case here is built under `tmp_path`. The real machine's paths are deliberately absent: a
+test asserting `/media/srv-main-softdev/...` passes on one machine and fails in CI, which makes it
+a report about the author's disk rather than about the rule. The `targets` verb is how a real
+selection gets eyeballed.
+"""
+
+import json
+import os
+import importlib.util
+import shutil
+import sys
+import subprocess
+import types
+from pathlib import Path, PureWindowsPath
+
+import pytest
+
+import harness_checks as hc
+
+
+def _skills(parent, *names):
+    """A `<parent>/skills` dir holding one SKILL.md per name. Returns the skills dir."""
+    d = parent / "skills"
+    for n in names or ("demo",):
+        (d / n).mkdir(parents=True)
+        (d / n / "SKILL.md").write_text("---\nname: %s\n---\n" % n, encoding="utf-8")
+    return d
+
+
+def _manifest(root, kind):
+    """Mark `root` as plugin-owned the way a real plugin or marketplace repo does."""
+    (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    (root / ".claude-plugin" / kind).write_text("{}", encoding="utf-8")
+    return root
+
+
+def _git(cwd, *args):
+    return subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+                          cwd=str(cwd), capture_output=True, text=True, check=True)
+
+
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+
+
+# --- owning_plugin: the ancestor walk -------------------------------------------------------
+
+def test_owning_plugin_finds_a_plugin_manifest_ancestor(tmp_path):
+    repo = _manifest(tmp_path / "tool-repo", "plugin.json")
+    assert hc.owning_plugin(_skills(repo)) == repo
+
+
+def test_owning_plugin_finds_a_marketplace_manifest_ancestor(tmp_path):
+    repo = _manifest(tmp_path / "market-repo", "marketplace.json")
+    assert hc.owning_plugin(_skills(repo)) == repo
+
+
+def test_owning_plugin_finds_the_nearest_owner_not_the_outermost(tmp_path):
+    """A marketplace repo that also ships the plugin nests two manifests; the inner one owns."""
+    outer = _manifest(tmp_path / "market", "marketplace.json")
+    inner = _manifest(outer / "plugins" / "bitranox", "plugin.json")
+    assert hc.owning_plugin(_skills(inner)) == inner
+
+
+def test_owning_plugin_returns_none_for_an_ordinary_project(tmp_path):
+    proj = tmp_path / "proj" / ".claude"
+    assert hc.owning_plugin(_skills(proj)) is None
+
+
+# --- is_shipped: the selection rule ---------------------------------------------------------
+
+def test_marketplace_source_repo_is_shipped(tmp_path):
+    """The writable source checkout. repo-gate and meta-skill-audit already own it."""
+    repo = _manifest(tmp_path / "bitranox-skills", "marketplace.json")
+    plugin = _manifest(repo / "plugins" / "bitranox", "plugin.json")
+    assert hc.is_shipped(_skills(plugin, "coding-python-uv"), home=tmp_path / "home") is True
+
+
+def test_tool_repo_mirror_is_shipped(tmp_path):
+    """A tool repo shipping its own twin. Editing it outside the mirror ritual creates drift."""
+    repo = _manifest(tmp_path / "igittigitt", "plugin.json")
+    assert hc.is_shipped(_skills(repo, "python-gitignore"), home=tmp_path / "home") is True
+
+
+def test_anything_under_the_plugins_dir_is_shipped_even_without_a_manifest(tmp_path):
+    """The version cache and the marketplace clone are installed copies, not editable sources."""
+    home = tmp_path / "home"
+    cached = home / ".claude" / "plugins" / "cache" / "bitranox-skills" / "bitranox" / "5.143.0"
+    assert hc.is_shipped(_skills(cached, "meta-skill-audit"), home=home) is True
+
+
+def test_personal_skills_dir_is_not_shipped(tmp_path):
+    home = tmp_path / "home"
+    assert hc.is_shipped(_skills(home / ".claude", "toolbox"), home=home) is False
+
+
+def test_project_skills_dir_is_not_shipped(tmp_path):
+    home = tmp_path / "home"
+    proj = tmp_path / "work" / "provmm-umbrella" / ".claude"
+    assert hc.is_shipped(_skills(proj, "provmm-build"), home=home) is False
+
+
+def test_a_project_inside_a_plugin_repo_is_shipped(tmp_path):
+    """The hazard the ownership rule exists for: a marketplace repo checked out in the tree."""
+    repo = _manifest(tmp_path / "work" / "bitranox-skills", "marketplace.json")
+    assert hc.is_shipped(_skills(repo / ".claude", "local-helper"), home=tmp_path / "home") is True
+
+
+# --- select_targets: filtering and worktree de-duplication ----------------------------------
+
+def test_select_targets_keeps_local_and_drops_shipped(tmp_path):
+    home = tmp_path / "home"
+    local = _skills(home / ".claude", "toolbox")
+    proj = _skills(tmp_path / "work" / "semdex" / ".claude", "bench-rerun")
+    shipped = _skills(_manifest(tmp_path / "igittigitt", "plugin.json"), "python-gitignore")
+    got = hc.select_targets([local, proj, shipped], home=home)
+    assert got == sorted([local, proj])
+
+
+def test_select_targets_is_empty_when_everything_is_shipped(tmp_path):
+    shipped = _skills(_manifest(tmp_path / "repo", "plugin.json"), "x")
+    assert hc.select_targets([shipped], home=tmp_path / "home") == []
+
+
+@needs_git
+def test_select_targets_audits_a_worktree_copy_only_once(tmp_path):
+    """A linked worktree is a second checkout of one repo, so the same SKILL.md sits at two
+    paths. Auditing both spends a reviewer twice and reports every finding twice."""
+    repo = tmp_path / "semdex"
+    _skills(repo / ".claude", "bench-rerun")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "seed")
+    wt = repo / ".claude" / "worktrees" / "chunk-sanitize"
+    _git(repo, "worktree", "add", "-q", str(wt), "-b", "side")
+
+    main_skills = repo / ".claude" / "skills"
+    wt_skills = wt / ".claude" / "skills"
+    assert wt_skills.is_dir(), "worktree checkout should carry the same skills dir"
+
+    got = hc.select_targets([main_skills, wt_skills], home=tmp_path / "home")
+    assert got == [main_skills], "the main checkout wins, the linked worktree is dropped"
+
+
+@needs_git
+def test_select_targets_keeps_two_unrelated_repos_with_identical_layout(tmp_path):
+    """De-duplication keys on repository identity, not on the path shape or the skill names."""
+    kept = []
+    for name in ("alpha", "beta"):
+        repo = tmp_path / name
+        _skills(repo / ".claude", "bench-rerun")
+        _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-qm", "seed")
+        kept.append(repo / ".claude" / "skills")
+    assert hc.select_targets(kept, home=tmp_path / "home") == sorted(kept)
+
+
+def test_select_targets_dedupes_a_repeated_path(tmp_path):
+    home = tmp_path / "home"
+    local = _skills(home / ".claude", "toolbox")
+    assert hc.select_targets([local, local], home=home) == [local]
+
+
+# --- discover_candidates: where it looks, and where it refuses to ---------------------------
+
+def test_discover_finds_project_and_personal_skills_dirs(tmp_path):
+    home = tmp_path / "home"
+    personal = _skills(home / ".claude", "toolbox")
+    proj = _skills(tmp_path / "work" / "provmm" / ".claude", "provmm-build")
+    got = hc.discover_candidates([tmp_path / "work"], home=home)
+    assert personal in got and proj in got
+
+
+def test_discover_ignores_a_plugins_skills_dir(tmp_path):
+    """A plugin's own `skills/` is reachable only through the plugin, where another gate owns it."""
+    home = tmp_path / "home"
+    _skills(_manifest(tmp_path / "work" / "igittigitt", "plugin.json"), "python-gitignore")
+    assert hc.discover_candidates([tmp_path / "work"], home=home) == []
+
+
+def test_discover_does_not_descend_into_the_installed_plugins_dir(tmp_path):
+    home = tmp_path / "home"
+    cached = home / ".claude" / "plugins" / "cache" / "mkt" / "plug" / "1.0.0"
+    _skills(cached / ".claude", "shipped-skill")
+    assert hc.discover_candidates([home / ".claude"], home=home) == []
+
+
+def test_discover_skips_a_skills_dir_holding_no_skill_md(tmp_path):
+    """RISscraper ships an empty `.claude/skills`; an empty dir is not a target."""
+    home = tmp_path / "home"
+    (tmp_path / "work" / "risscraper" / ".claude" / "skills").mkdir(parents=True)
+    assert hc.discover_candidates([tmp_path / "work"], home=home) == []
+
+
+def test_discover_can_leave_the_personal_dir_out(tmp_path):
+    """The per-tree dream audits one tree; the personal dir is the crosstree pass's business."""
+    home = tmp_path / "home"
+    _skills(home / ".claude", "toolbox")
+    proj = _skills(tmp_path / "work" / "provmm" / ".claude", "provmm-build")
+    assert hc.discover_candidates([tmp_path / "work"], home=home, personal=False) == [proj]
+
+
+# --- skip_reason: a dropped candidate has to say why ----------------------------------------
+
+def test_skip_reason_is_none_for_a_real_target(tmp_path):
+    home = tmp_path / "home"
+    assert hc.skip_reason(_skills(home / ".claude", "toolbox"), home=home) is None
+
+
+def test_skip_reason_names_the_owning_plugin(tmp_path):
+    repo = _manifest(tmp_path / "igittigitt", "plugin.json")
+    reason = hc.skip_reason(_skills(repo, "python-gitignore"), home=tmp_path / "home")
+    assert reason is not None and str(repo) in reason
+
+
+def test_skip_reason_calls_out_installed_plugin_content(tmp_path):
+    home = tmp_path / "home"
+    cached = home / ".claude" / "plugins" / "cache" / "mkt" / "plug" / "1.0.0"
+    reason = hc.skip_reason(_skills(cached, "shipped"), home=home)
+    assert reason is not None and "plugins" in reason
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0,
+                    reason="needs POSIX permissions and a non-root user")
+def test_discover_reports_a_dir_it_cannot_list_when_asked(tmp_path):
+    """Without onerror, os.walk drops an unreadable subtree and it reads as holding nothing."""
+    home = tmp_path / "home"
+    locked = tmp_path / "work" / "locked"
+    _skills(locked / "p" / ".claude", "s")
+    locked.chmod(0)
+    try:
+        errors, shipped_errors = [], []
+        got = hc.discover_candidates([tmp_path / "work"], home=home, personal=False, errors=errors)
+        hc.discover_shipped([tmp_path / "work"], home=home, errors=shipped_errors)
+        quiet = hc.discover_candidates([tmp_path / "work"], home=home, personal=False)
+    finally:
+        locked.chmod(0o755)
+    assert got == [] and quiet == []
+    assert [p for p, _ in errors] == [str(locked)]
+    assert [p for p, _ in shipped_errors] == [str(locked)]
+
+
+def test_discover_returns_sorted_unique_paths(tmp_path):
+    home = tmp_path / "home"
+    for name in ("b-proj", "a-proj"):
+        _skills(tmp_path / "work" / name / ".claude", "s")
+    got = hc.discover_candidates([tmp_path / "work", tmp_path / "work"], home=home)
+    assert got == sorted(set(got)) and len(got) == 2
+
+
+# --- lifted from repo-gate: the same rules, now reaching unshipped skills too ----------------
+
+def test_ships_scripts_sees_a_runnable_module(tmp_path):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "tool.py").write_text("x = 1\n", encoding="utf-8")
+    assert hc.ships_scripts(tmp_path) is True
+
+
+@pytest.mark.parametrize("rel", ["tests/test_x.py", "demos/demo.py", "examples/ex.py",
+                                 "conftest.py", "__init__.py"])
+def test_ships_scripts_ignores_fixtures_and_demos(tmp_path, rel):
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("x = 1\n", encoding="utf-8")
+    assert hc.ships_scripts(tmp_path) is False
+
+
+def test_has_tests_ignores_a_test_that_only_demos(tmp_path):
+    (tmp_path / "examples").mkdir()
+    (tmp_path / "examples" / "test_demo.py").write_text("def test_a(): pass\n", encoding="utf-8")
+    assert hc.has_tests(tmp_path) is False
+
+
+def test_packages_missing_tests_flags_only_the_untested_one(tmp_path):
+    tested, bare = tmp_path / "tested", tmp_path / "bare"
+    for pkg in (tested, bare):
+        (pkg / "scripts").mkdir(parents=True)
+        (pkg / "scripts" / "tool.py").write_text("x = 1\n", encoding="utf-8")
+    (tested / "tests").mkdir()
+    (tested / "tests" / "test_tool.py").write_text("def test_a(): pass\n", encoding="utf-8")
+    assert hc.packages_missing_tests([tested, bare]) == [bare]
+
+
+def _skill_md(tmp_path, body):
+    path = tmp_path / "SKILL.md"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_frontmatter_description_joins_a_wrapped_value(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: x\ndescription: Use when parsing\n  a wrapped line\n---\n")
+    assert hc.frontmatter_description(md) == "Use when parsing a wrapped line"
+
+
+def test_frontmatter_name_and_description_return_none_without_frontmatter(tmp_path):
+    md = _skill_md(tmp_path, "# just a heading\n")
+    assert hc.frontmatter_description(md) is None and hc.frontmatter_name(md) is None
+
+
+def test_frontmatter_name_reads_the_name(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: toolbox\ndescription: Use when x\n---\n")
+    assert hc.frontmatter_name(md) == "toolbox"
+
+
+@pytest.mark.parametrize("desc,fragment", [
+    (">- Use when folded", "single-line plain YAML scalar"),
+    ('"Use when quoted here"', "single-line plain YAML scalar"),
+    ("Formats markdown tables nicely", "trigger-first"),
+    ("Use when you can", "distinctive keywords"),
+])
+def test_cso_failures_for_rejects(desc, fragment):
+    fails = hc.cso_failures_for("skills/demo", desc)
+    assert len(fails) == 1 and fragment in fails[0] and fails[0].startswith("skills/demo: ")
+
+
+def test_cso_failures_for_accepts_a_good_description():
+    good = ("Use when parsing gitignore files, filtering paths, or reaching for pathspec "
+            "instead of the igittigitt library")
+    assert hc.cso_failures_for("skills/demo", good) == []
+
+
+def _padded(length):
+    """A well-formed description of exactly `length` characters - only its LENGTH is at issue."""
+    head = "Use when parsing gitignore files, filtering paths, or reaching for pathspec "
+    return (head + "x" * length)[:length]
+
+
+def test_cso_failures_for_rejects_a_description_over_the_cap():
+    """Over the cap is the silent failure: the router never sees the tail, so the gate must."""
+    fails = hc.cso_failures_for("skills/demo", _padded(hc.DESCRIPTION_CAP + 1))
+    assert len(fails) == 1
+    assert "over the 1024 cap" in fails[0]
+    assert str(hc.DESCRIPTION_CAP + 1) in fails[0]
+
+
+def test_cso_failures_for_accepts_a_description_exactly_at_the_cap():
+    """The boundary case in the direction that must NOT fire - a cap is not an off-by-one."""
+    assert hc.cso_failures_for("skills/demo", _padded(hc.DESCRIPTION_CAP)) == []
+
+
+def test_every_shipped_skill_description_is_within_the_cap():
+    """The rule is worth nothing while a shipped skill violates it: the gate only sees CHANGED
+    skills, so an over-cap description that nobody edits again would never be reported."""
+    skills = Path(__file__).resolve().parents[2] / "skills"
+    over = []
+    for skill_md in sorted(skills.glob("*/SKILL.md")):
+        desc = hc.frontmatter_description(skill_md)
+        if desc is not None and len(desc) > hc.DESCRIPTION_CAP:
+            over.append("%s (%d)" % (skill_md.parent.name, len(desc)))
+    assert not over, "descriptions over the %d cap: %s" % (hc.DESCRIPTION_CAP, ", ".join(over))
+
+
+def test_frontmatter_problems_flags_a_name_over_the_cap(tmp_path):
+    """Anthropic's contract caps `name` at 64 as well as `description` at 1024; only the second
+    was enforced, so an over-long name shipped unremarked."""
+    long_name = "a" * (hc.NAME_CAP + 1)
+    skills = _skills(tmp_path / "p", long_name)
+    (skills / long_name / "SKILL.md").write_text(
+        "---\nname: %s\ndescription: Use when parsing gitignore files and filtering paths.\n---\n"
+        % long_name, encoding="utf-8")
+    fails = hc.frontmatter_problems(skills)
+    assert len(fails) == 1
+    assert "over the 64 cap" in fails[0]
+    assert str(hc.NAME_CAP + 1) in fails[0]
+
+
+def test_a_name_exactly_at_the_cap_is_not_flagged(tmp_path):
+    """The boundary in the direction that must NOT fire - a cap is not an off-by-one."""
+    name = "a" * hc.NAME_CAP
+    skills = _skills(tmp_path / "p", name)
+    (skills / name / "SKILL.md").write_text(
+        "---\nname: %s\ndescription: Use when parsing gitignore files and filtering paths.\n---\n"
+        % name, encoding="utf-8")
+    assert hc.frontmatter_problems(skills) == []
+
+
+def test_every_shipped_skill_name_is_within_the_cap():
+    """Same reason as the description sweep: the commit gate only sees CHANGED skills, so an
+    over-cap name in a skill nobody edits again would never be reported."""
+    skills = Path(__file__).resolve().parents[2] / "skills"
+    over = []
+    for skill_md in sorted(skills.glob("*/SKILL.md")):
+        name = hc.frontmatter_name(skill_md)
+        if name is not None and len(name) > hc.NAME_CAP:
+            over.append("%s (%d)" % (skill_md.parent.name, len(name)))
+    assert not over, "names over the %d cap: %s" % (hc.NAME_CAP, ", ".join(over))
+
+
+# --- hook registrations -----------------------------------------------------------------------
+
+def _settings(tmp_path, command, event="PreToolUse"):
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"hooks": {event: [
+        {"matcher": "Bash", "hooks": [{"type": "command", "command": command}]}]}}), encoding="utf-8")
+    return path
+
+
+def test_hook_registrations_reads_event_matcher_and_command(tmp_path):
+    path = _settings(tmp_path, "bash /x/y.sh", event="Stop")
+    assert hc.hook_registrations(path) == [("Stop", "Bash", "bash /x/y.sh")]
+
+
+def test_hook_registrations_is_empty_for_a_settings_file_without_hooks(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text('{"model": "opus"}', encoding="utf-8")
+    assert hc.hook_registrations(path) == []
+
+
+def test_hook_registrations_reads_through_a_bom(tmp_path):
+    """A settings file saved by a Windows editor with a BOM read as registering NOTHING, so every
+    registration in it went unchecked. Control: the plain-UTF-8 test above."""
+    path = _settings(tmp_path, "bash /x/y.sh", event="Stop")
+    path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
+    assert hc.hook_registrations(path) == [("Stop", "Bash", "bash /x/y.sh")]
+
+
+def test_hook_registrations_is_empty_for_a_missing_settings_file(tmp_path):
+    """An absent settings file registers nothing - that is what the harness reads it as too."""
+    assert hc.hook_registrations(tmp_path / "absent.json") == []
+
+
+@pytest.mark.parametrize("raw", [
+    b"{not json",                                              # not JSON
+    b'{"hooks": {"Stop": []}, "x": "caf\xe9"}',                # not UTF-8
+    b'{"hooks": {"Stop": "bash /x.sh"}}',                      # a string event value
+], ids=["json", "utf8", "string-event"])
+def test_hook_registrations_refuses_a_file_it_cannot_read_for_hooks(tmp_path, raw):
+    """An unparsable file used to return [] - indistinguishable from a file with no hooks, so the
+    audit reported a harness whose every hook was dead as clean. These are the shapes Claude Code
+    2.1.289 itself rejects as a whole file (bad JSON, bad encoding, a string event value), so they
+    are one named error the caller can tell from "none"."""
+    path = tmp_path / "settings.json"
+    path.write_bytes(raw)
+    with pytest.raises(hc.SettingsUnreadable) as info:
+        hc.hook_registrations(path)
+    assert str(path) in str(info.value)
+
+
+_GOOD = b'"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "bash /x/y.sh"}]}]'
+
+
+@pytest.mark.parametrize("raw, why", [
+    (b"[]", "the top level is list"),
+    (b'{"hooks": []}', '"hooks" is list'),
+    (b'{"hooks": {"Stop": {"matcher": ""}, %s}}' % _GOOD, '"hooks.Stop" is dict'),
+    (b'{"hooks": {"Stop": 7, %s}}' % _GOOD, '"hooks.Stop" is int'),
+    (b'{"hooks": {"Stop": ["bash /x.sh"], %s}}' % _GOOD, 'a "hooks.Stop" group is str'),
+    (b'{"hooks": {"Stop": [{"hooks": {"command": "x"}}], %s}}' % _GOOD, '"hooks.Stop[].hooks" is dict'),
+    (b'{"hooks": {"Stop": [{"hooks": ["bash /x.sh"]}], %s}}' % _GOOD, 'a "hooks.Stop" hook is str'),
+    (b'{"hooks": {"Stop": [{"hooks": [{"command": 7}]}], %s}}' % _GOOD, 'a "hooks.Stop" command is int'),
+], ids=["toplevel", "hooks", "groups", "groups-int", "group", "inner", "hook", "command"])
+def test_a_malformed_entry_is_skipped_with_a_finding_and_its_siblings_still_read(tmp_path, raw, why):
+    """Claude Code 2.1.289 keeps a file's other hooks running past a malformed entry, so refusing
+    the whole file reported a live harness as dead. The entry is skipped and named instead."""
+    path = tmp_path / "settings.json"
+    path.write_bytes(raw)
+    registrations, malformed = hc.scan_hook_registrations(path)
+    assert any(why in entry for entry in malformed), malformed
+    if b"PreToolUse" in raw:
+        assert registrations == [("PreToolUse", "Bash", "bash /x/y.sh")]
+    assert hc.hook_registrations(path) == registrations
+
+
+def test_a_well_formed_file_has_no_malformed_entries(tmp_path):
+    # Control for the test above.
+    path = tmp_path / "settings.json"
+    path.write_bytes(b'{"hooks": {%s}}' % _GOOD)
+    assert hc.scan_hook_registrations(path) == ([("PreToolUse", "Bash", "bash /x/y.sh")], [])
+
+
+def test_hook_registrations_refuses_a_path_it_cannot_open(tmp_path):
+    """A directory where the file should be: an OSError other than "not there" is unreadable."""
+    with pytest.raises(hc.SettingsUnreadable):
+        hc.hook_registrations(tmp_path)
+
+
+def test_hook_registrations_reads_null_hooks_and_groups_as_none(tmp_path):
+    """Control for the shape refusals: null is how an emptied section is often left."""
+    path = tmp_path / "settings.json"
+    path.write_text('{"hooks": {"Stop": null, "PreToolUse": [{"hooks": null}]}}', encoding="utf-8")
+    assert hc.hook_registrations(path) == []
+
+
+@pytest.mark.parametrize("command", ["0", "[]", "{}", '""', "null"])
+def test_a_falsy_command_is_skipped_and_the_files_other_hooks_still_read(tmp_path, command):
+    """Measured against Claude Code 2.1.289 (headless, the file given by --settings and as a
+    project-local settings file): a hook whose command is 0, [] or {}, and an event set to null,
+    leave every OTHER hook in the file running. So these read as "this entry registers nothing",
+    never as an unreadable file - refusing them would report a live harness as dead."""
+    path = tmp_path / "settings.json"
+    path.write_text('{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": %s}]},'
+                    ' {"matcher": "Bash", "hooks": [{"type": "command", "command": "bash /x/y.sh"}]}],'
+                    ' "PreToolUse": null}}' % command, encoding="utf-8")
+    assert hc.hook_registrations(path) == [("Stop", "Bash", "bash /x/y.sh")]
+
+
+def test_registration_problems_does_not_call_an_unreadable_file_clean(tmp_path):
+    """The caller that reports problems must not turn "could not read" into "zero problems"."""
+    path = tmp_path / "settings.json"
+    path.write_text("{not json", encoding="utf-8")
+    with pytest.raises(hc.SettingsUnreadable):
+        hc.registration_problems(path, home=tmp_path)
+    with pytest.raises(hc.SettingsUnreadable):
+        hc.registered_paths([path], home=tmp_path)
+
+
+def test_the_pathish_test_accepts_every_windows_absolute_shape():
+    r"""The audit was DEAD on Windows: the rule matched only a leading '/', so a registration
+    naming C:\dir\hook.sh yielded no paths at all and registration_problems reported zero
+    problems - a silent pass on the platform being audited. Both drive spellings and UNC count.
+
+    Asked of the regex directly, which is pure logic and so answerable for either platform from
+    either one; the SPLIT half is a real Windows API and is exercised on Windows below.
+    """
+    assert hc._is_pathish(r"C:\dir\hook.sh", windows=True)
+    assert hc._is_pathish("C:/dir/hook.sh", windows=True)
+    assert hc._is_pathish(r"\\srv\share\hook.sh", windows=True)
+
+
+def test_the_pathish_test_rejects_a_windows_shape_on_posix():
+    """The direction the rule must NOT apply: on POSIX a bare 'C:\\dir' is not a path, and
+    treating it as one would invent findings out of ordinary arguments."""
+    assert not hc._is_pathish(r"C:\dir\hook.sh", windows=False)
+
+
+def test_the_pathish_test_still_accepts_posix_shapes_on_windows():
+    """A Windows machine still runs these commands through Git Bash, so the POSIX shapes must
+    keep matching there rather than being traded away for the new ones."""
+    assert hc._is_pathish("/opt/x/hook.sh", windows=True)
+
+
+@pytest.mark.skipif(os.name != "nt",
+                    reason="the split is CommandLineToArgvW, a real Windows API - it cannot be "
+                           "asked for Windows behaviour from POSIX, and re-implementing it in "
+                           "Python to make it askable is exactly the approximation this replaced")
+def test_command_paths_finds_a_windows_absolute_path():
+    r"""End-to-end on Windows: the backslash form must survive tokenising too. POSIX shlex ate
+    the separators, so even a correct pathish test saw nothing to match."""
+    assert hc.command_paths(r"bash C:\dir\hook.sh") == [r"C:\dir\hook.sh"]
+    assert hc.command_paths(r"bash \\srv\share\hook.sh") == [r"\\srv\share\hook.sh"]
+
+
+def test_registration_problems_flags_a_missing_target(tmp_path):
+    path = _settings(tmp_path, "bash %s/gone.sh" % tmp_path)
+    problems = hc.registration_problems(path, home=tmp_path)
+    assert len(problems) == 1 and problems[0][2].endswith("gone.sh")
+
+
+def test_registration_problems_passes_an_existing_target(tmp_path):
+    (tmp_path / "here.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    path = _settings(tmp_path, "bash %s/here.sh" % tmp_path)
+    assert hc.registration_problems(path, home=tmp_path) == []
+
+
+def test_registration_problems_expands_a_home_relative_target(tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "h.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    assert hc.registration_problems(_settings(tmp_path, "bash ~/.claude/h.sh"), home=tmp_path) == []
+
+
+def test_command_paths_ignores_a_quoted_non_path_argument():
+    """The real sound hook pipes jq with a filter that must not be mistaken for a path."""
+    command = ("jq -e '.error // .tool_result.error' > /dev/null 2>&1 "
+               "&& paplay /usr/share/sounds/claude/error.wav || true")
+    assert hc.command_paths(command) == ["/dev/null", "/usr/share/sounds/claude/error.wav"]
+
+
+def test_a_bare_double_slash_is_not_a_path():
+    """`//` reaches command_paths as its own token out of any shell pipeline - `jq '.a // .b'`
+    is the real hook that produced it - and the old rule accepted anything starting with '/',
+    so an operator was reported as a file. It also made the jq pipeline parse differently under
+    the two platforms' splitters for no reason but this."""
+    assert not hc._is_pathish("//", windows=False)
+    assert not hc._is_pathish("/", windows=False)
+    assert hc._is_pathish("/dev/null", windows=False)
+
+
+def test_command_paths_skips_an_unresolved_variable():
+    assert hc.command_paths('bash "${CLAUDE_PLUGIN_ROOT}/hooks/x.py"') == []
+
+
+# --- retired shims ----------------------------------------------------------------------------
+
+GOOD_SHIM = ('#!/usr/bin/env python3\n"""RETIRED 2026-08-02. The plugin ships this now.\n\n'
+             'Replacement: plugins/bitranox/hooks/venv-guard.py\n"""\nimport sys\n'
+             'sys.stderr.write("retired\\n")\nraise SystemExit(2)\n')
+
+
+def test_is_retired_shim_recognises_the_marker(tmp_path):
+    path = tmp_path / "venv-guard.py"
+    path.write_text(GOOD_SHIM, encoding="utf-8")
+    assert hc.is_retired_shim(path) is True
+
+
+def test_is_retired_shim_is_false_for_a_live_hook(tmp_path):
+    path = tmp_path / "live-guard.py"
+    path.write_text("#!/usr/bin/env python3\nprint('hi')\n", encoding="utf-8")
+    assert hc.is_retired_shim(path) is False
+
+
+def test_a_well_formed_shim_has_no_problems(tmp_path):
+    """The control: all four real shims pass, so the check cannot only ever say no."""
+    path = tmp_path / "venv-guard.py"
+    path.write_text(GOOD_SHIM, encoding="utf-8")
+    path.chmod(0o644)
+    assert hc.shim_problems(path) == []
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='Windows has no executable bit and os.access(X_OK) answers True for any existing file, so setting one and expecting a finding cannot be expressed there')
+def test_shim_problems_flags_an_executable_tombstone(tmp_path):
+    path = tmp_path / "s.py"
+    path.write_text(GOOD_SHIM, encoding="utf-8")
+    path.chmod(0o755)
+    assert any("executable" in p for p in hc.shim_problems(path))
+
+
+def test_shim_problems_flags_a_shim_that_exits_zero(tmp_path):
+    path = tmp_path / "s.py"
+    path.write_text('"""RETIRED. Replacement: other.py"""\nraise SystemExit(0)\n', encoding="utf-8")
+    path.chmod(0o644)
+    assert any("non-zero" in p for p in hc.shim_problems(path))
+
+
+def test_shim_problems_flags_one_that_is_still_registered(tmp_path):
+    path = tmp_path / "s.py"
+    path.write_text(GOOD_SHIM, encoding="utf-8")
+    path.chmod(0o644)
+    assert any("registered" in p for p in hc.shim_problems(path, registered=[str(path)]))
+
+
+# --- orphan scripts ----------------------------------------------------------------------------
+
+def test_orphan_scripts_flags_an_unregistered_entry_point(tmp_path):
+    (tmp_path / "my-guard.py").write_text("print(1)\n", encoding="utf-8")
+    assert hc.orphan_scripts(tmp_path) == [tmp_path / "my-guard.py"]
+
+
+def test_orphan_scripts_exempts_a_library_and_a_registered_hook_and_a_shim(tmp_path):
+    (tmp_path / "shared_lib.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "wired-hook.py").write_text("print(1)\n", encoding="utf-8")
+    (tmp_path / "dead-hook.py").write_text(GOOD_SHIM, encoding="utf-8")
+    got = hc.orphan_scripts(tmp_path, registered=[str(tmp_path / "wired-hook.py")])
+    assert got == []
+
+
+# --- tests that cannot be collected ------------------------------------------------------------
+
+def test_uncollectable_tests_catches_a_module_that_dies_on_import(tmp_path):
+    """Exactly the real defect: a test importing a file that raises SystemExit at import time."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_dead.py").write_text("raise SystemExit(2)\n", encoding="utf-8")
+    problems = hc.uncollectable_tests(tests)
+    assert problems and "test_dead" in problems[0][0]
+
+
+def test_uncollectable_tests_is_quiet_for_a_healthy_suite(tmp_path):
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    assert hc.uncollectable_tests(tests) == []
+
+
+def test_uncollectable_tests_is_quiet_for_an_empty_dir(tmp_path):
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    assert hc.uncollectable_tests(tests) == []
+
+
+# --- the uv fallback, for when the launching interpreter itself lacks pytest -------------------
+#
+# `run` and `resolve_uv` are the real seams: the two collaborators uncollectable_tests reaches
+# outside itself (a subprocess, a PATH lookup). Injecting fakes here exercises the actual
+# decision logic instead of monkeypatching subprocess.run or shutil.which inside the module.
+
+def _missing_pytest():
+    return types.SimpleNamespace(returncode=1, stdout="",
+                                 stderr="ModuleNotFoundError: No module named pytest")
+
+
+def _clean_collection():
+    return types.SimpleNamespace(returncode=0, stdout="3 tests collected\n", stderr="")
+
+
+def _fake_pytest_run(*outcomes):
+    """A `run` fake that returns (or raises) each of `outcomes` in call order, and records every
+    call so a test can prove the fallback actually fired rather than being skipped."""
+    remaining = list(outcomes)
+    calls = []
+
+    def run(argv, timeout):
+        calls.append((list(argv), timeout))
+        outcome = remaining.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    run.calls = calls
+    return run
+
+
+def test_uncollectable_tests_falls_back_to_uv_when_the_launching_interpreter_lacks_pytest(tmp_path):
+    """The checker's own interpreter missing pytest must not end the check: it retries under
+    `uv run --with pytest`, and a clean collection there means no finding at all - the target was
+    actually measured, not guessed at."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    run = _fake_pytest_run(_missing_pytest(), _clean_collection())
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: "/usr/bin/uv")
+    assert problems == []
+    assert len(run.calls) == 2, "the uv fallback must actually run, not just get considered"
+    fallback_argv = run.calls[1][0]
+    assert fallback_argv[:5] == ["/usr/bin/uv", "run", "--no-project", "--with", "pytest"]
+
+
+def test_uncollectable_tests_uv_fallback_still_reports_a_real_collection_failure(tmp_path):
+    """A target whose tests genuinely fail to collect must still be a finding after the fallback -
+    the fallback answers the question honestly, it does not launder a real defect into a pass."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    broken = types.SimpleNamespace(
+        returncode=2, stdout="", stderr="ERROR tests/test_broken.py\nE   ImportError: nope\n")
+    run = _fake_pytest_run(_missing_pytest(), broken)
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: "/usr/bin/uv")
+    assert len(problems) == 1
+    path, _message, unmeasured = problems[0]
+    assert "test_broken" in path
+    assert unmeasured is False
+
+
+def test_uncollectable_tests_reports_unmeasured_not_a_finding_when_uv_fallback_times_out(tmp_path):
+    """A timeout in the fallback is neither "collects fine" nor "pytest missing" - it is a
+    distinct, honestly-labelled failure of the CHECK itself, not a defect of the target."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    run = _fake_pytest_run(_missing_pytest(), subprocess.TimeoutExpired(cmd=["uv"], timeout=240))
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: "/usr/bin/uv")
+    assert len(problems) == 1
+    _path, message, unmeasured = problems[0]
+    assert unmeasured is True
+    assert "timed out" in message
+    assert "collects fine" not in message and "not installed" not in message
+
+
+def test_uncollectable_tests_reports_unmeasured_when_uv_is_not_on_path(tmp_path):
+    """When the fallback itself is unavailable (no uv on PATH), say so accurately instead of
+    repeating the plain "pytest not installed" line as if nothing else had been tried."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    run = _fake_pytest_run(_missing_pytest())
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: None)
+    assert len(problems) == 1
+    _path, message, unmeasured = problems[0]
+    assert unmeasured is True
+    assert "uv" in message.lower()
+    assert len(run.calls) == 1, "must not shell out to a fallback with nothing to run it"
+
+
+# --- unmanaged twins ----------------------------------------------------------------------------
+
+def test_unmanaged_twins_matches_a_local_copy_of_a_shipped_skill(tmp_path):
+    desc = ("Use when parsing .gitignore files, deciding whether paths are ignored, or "
+            "filtering large numbers of files in gitignore style with igittigitt.")
+    local = _skills(tmp_path / "local")
+    (local / "demo" / "SKILL.md").write_text("---\nname: demo\ndescription: %s\n---\n" % desc,
+                                             encoding="utf-8")
+    got = hc.unmanaged_twins(local, {"coding-python-gitignore": desc})
+    assert got and got[0][0] == "demo" and got[0][1] == "coding-python-gitignore"
+
+
+def test_unmanaged_twins_leaves_an_unrelated_local_skill_alone(tmp_path):
+    local = _skills(tmp_path / "local")
+    (local / "demo" / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Use when benchmarking the nightly sweep run.\n---\n",
+        encoding="utf-8")
+    assert hc.unmanaged_twins(local, {"coding-python-uv": "Use when configuring uv projects."}) == []
+
+
+def test_shipped_descriptions_indexes_a_catalogue(tmp_path):
+    catalogue = _skills(tmp_path / "mkt", "alpha")
+    (catalogue / "alpha" / "SKILL.md").write_text(
+        "---\nname: alpha\ndescription: Use when alpha things happen.\n---\n", encoding="utf-8")
+    assert hc.shipped_descriptions(catalogue) == {"alpha": "Use when alpha things happen."}
+
+
+# --- front-matter parity --------------------------------------------------------------------
+
+def test_frontmatter_problems_flags_a_name_that_disagrees_with_its_dir(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(
+        "---\nname: something-else\ndescription: Use when parsing gitignore filter paths.\n---\n",
+        encoding="utf-8")
+    assert any("directory" in p for p in hc.frontmatter_problems(skills))
+
+
+def test_frontmatter_problems_is_quiet_for_a_good_skill(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Use when parsing gitignore files and filtering paths.\n---\n",
+        encoding="utf-8")
+    assert hc.frontmatter_problems(skills) == []
+
+
+# The closing `---` glued onto the last value still parses under this module's own lenient
+# readers, so without a dedicated check every other assertion here passes on a broken file.
+_GLUED = "---\nname: demo\ndescription: Use when parsing gitignore files and filtering paths.---\n"
+
+
+def test_frontmatter_unterminated_spots_a_glued_closing_delimiter(tmp_path):
+    md = _skill_md(tmp_path, _GLUED)
+    assert hc.frontmatter_unterminated(md) is True
+
+
+def test_frontmatter_unterminated_accepts_a_delimiter_on_its_own_line(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing paths.\n---\n\nbody\n")
+    assert hc.frontmatter_unterminated(md) is False
+
+
+def test_frontmatter_unterminated_ignores_a_file_with_no_front_matter(tmp_path):
+    md = _skill_md(tmp_path, "# just a heading\n")
+    assert hc.frontmatter_unterminated(md) is False
+
+
+def test_frontmatter_problems_flags_a_front_matter_that_never_closes(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(_GLUED, encoding="utf-8")
+    assert any("never closes" in p for p in hc.frontmatter_problems(skills))
+
+
+def test_a_glued_delimiter_still_reads_fine_through_the_lenient_parsers(tmp_path):
+    """The reason the check is needed: every other reader recovers the value regardless."""
+    md = _skill_md(tmp_path, _GLUED)
+    assert hc.frontmatter_name(md) == "demo"
+    assert hc.frontmatter_description(md).endswith("filtering paths.")
+
+
+# A second front-matter-shaped block is invisible to every reader in this module: they all
+# split on the FIRST bare delimiter, so the smuggled keys past it are an unexamined remainder.
+_SMUGGLED = (
+    "---\nname: demo\ndescription: Use when parsing gitignore files and filtering paths.\n---\n"
+    "\n# demo\n\nBody.\n\n---\nname: other\ndescription: A divergent description.\n---\n\ntail\n")
+
+
+def test_frontmatter_second_block_spots_a_smuggled_block(tmp_path):
+    md = _skill_md(tmp_path, _SMUGGLED)
+    assert hc.frontmatter_second_block(md) == 10
+
+
+def test_frontmatter_second_block_ignores_a_horizontal_rule(tmp_path):
+    """A bare `---` in the body is ordinary Markdown, not a second block."""
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing paths.\n---\n"
+                             "\n# demo\n\nBefore.\n\n---\n\nAfter.\n")
+    assert hc.frontmatter_second_block(md) is None
+
+
+def test_frontmatter_second_block_ignores_a_rule_pair_wrapping_prose(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing paths.\n---\n"
+                             "\n---\n\nJust prose, no keys.\n\n---\n\ntail\n")
+    assert hc.frontmatter_second_block(md) is None
+
+
+def test_frontmatter_second_block_ignores_delimiters_inside_a_code_fence(tmp_path):
+    """A skill that DOCUMENTS front matter shows one in a fence; that is not a second block."""
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing paths.\n---\n"
+                             "\n```yaml\n---\nname: example\ndescription: shown, not real\n---\n```\n")
+    assert hc.frontmatter_second_block(md) is None
+
+
+def test_frontmatter_problems_flags_a_second_block(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(_SMUGGLED, encoding="utf-8")
+    assert any("second front matter" in p for p in hc.frontmatter_problems(skills))
+
+
+def test_a_second_block_still_reads_fine_through_the_lenient_parsers(tmp_path):
+    """The reason the check is needed: every other reader returns the FIRST block's values."""
+    md = _skill_md(tmp_path, _SMUGGLED)
+    assert hc.frontmatter_name(md) == "demo"
+    assert hc.frontmatter_description(md).endswith("filtering paths.")
+    assert hc.frontmatter_unterminated(md) is False
+
+
+# An unquoted `: ` makes a plain YAML scalar parse as a nested mapping, so the whole block is
+# invalid - while this module's regex readers recover the value and notice nothing.
+_COLON = ("---\nname: demo\ndescription: Use when hitting a recurring chore: finding a process "
+          "and filtering paths.\n---\n")
+
+
+def test_frontmatter_scalar_colon_spots_an_unquoted_colon_space(tmp_path):
+    md = _skill_md(tmp_path, _COLON)
+    assert hc.frontmatter_scalar_colon(md) == "description"
+
+
+def test_frontmatter_scalar_colon_allows_a_colon_with_no_space(tmp_path):
+    """`http://x` and `a:b` are legal in a plain scalar - only `: ` starts a mapping."""
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when reading http://example.com "
+                             "and a:b pairs while filtering paths.\n---\n")
+    assert hc.frontmatter_scalar_colon(md) is None
+
+
+def test_frontmatter_scalar_colon_flags_a_trailing_colon(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when filtering paths:\n---\n")
+    assert hc.frontmatter_scalar_colon(md) == "description"
+
+
+def test_frontmatter_scalar_colon_is_quiet_for_a_clean_value(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing gitignore paths.\n---\n")
+    assert hc.frontmatter_scalar_colon(md) is None
+
+
+def test_frontmatter_problems_flags_a_colon_that_breaks_the_yaml(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(_COLON, encoding="utf-8")
+    assert any("valid YAML" in p for p in hc.frontmatter_problems(skills))
+
+
+def test_a_breaking_colon_still_reads_fine_through_the_lenient_parsers(tmp_path):
+    md = _skill_md(tmp_path, _COLON)
+    assert hc.frontmatter_name(md) == "demo"
+    assert hc.frontmatter_description(md).startswith("Use when hitting")
+
+
+# A real parser catches malformations the stdlib rules above were never shaped for. It is
+# OPTIONAL by design: a hook gets a bare interpreter, so a missing library must degrade to the
+# stdlib checks rather than raise. CI installs PyYAML, so there the deeper pass always runs.
+needs_yaml = pytest.mark.skipif(importlib.util.find_spec("yaml") is None,
+                                reason="PyYAML not installed")
+
+
+@needs_yaml
+def test_frontmatter_yaml_error_reports_a_block_the_parser_rejects(tmp_path):
+    md = _skill_md(tmp_path, _COLON)
+    assert "mapping values" in (hc.frontmatter_yaml_error(md) or "")
+
+
+@needs_yaml
+def test_frontmatter_yaml_error_is_quiet_for_a_valid_block(tmp_path):
+    md = _skill_md(tmp_path, "---\nname: demo\ndescription: Use when parsing paths.\n---\n")
+    assert hc.frontmatter_yaml_error(md) is None
+
+
+#: Invalid YAML with no colon problem anywhere - an unclosed flow sequence. This is the case
+#: that justifies the parser: the stdlib colon rule is silent on it by construction.
+_UNCLOSED = "---\nname: demo\ndescription: [Use when parsing gitignore paths.\n---\n"
+
+
+@needs_yaml
+def test_frontmatter_yaml_error_catches_what_the_colon_rule_cannot_see(tmp_path):
+    md = _skill_md(tmp_path, _UNCLOSED)
+    assert hc.frontmatter_yaml_error(md) is not None
+    assert hc.frontmatter_scalar_colon(md) is None      # the stdlib rule genuinely cannot
+
+
+def test_frontmatter_yaml_error_degrades_to_none_without_a_library(tmp_path, monkeypatch):
+    """No YAML library must mean SKIPPED, never a crash and never a false pass elsewhere."""
+    monkeypatch.setattr(hc, "_load_yaml", lambda: None)
+    assert hc.frontmatter_yaml_error(_skill_md(tmp_path, _COLON)) is None
+
+
+@needs_yaml
+def test_frontmatter_problems_flags_a_block_the_parser_rejects(tmp_path):
+    skills = _skills(tmp_path / "p")
+    (skills / "demo" / "SKILL.md").write_text(_UNCLOSED, encoding="utf-8")
+    assert any("the YAML parser rejects" in p for p in hc.frontmatter_problems(skills))
+
+
+# --- graveyards ---------------------------------------------------------------------------------
+
+def test_graveyard_leaves_a_sanctioned_backup_alone(tmp_path):
+    """`.orig-<date>` beside its replacement is how this project retires a file. Not a finding."""
+    (tmp_path / "hook.py").write_text("print(1)\n", encoding="utf-8")
+    backup = tmp_path / "hook.py.orig-20260801"
+    backup.write_text("print(0)\n", encoding="utf-8")
+    backup.chmod(0o644)
+    assert hc.graveyard_entries(tmp_path) == []
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='Windows has no executable bit and os.access(X_OK) answers True for any existing file, so setting one and expecting a finding cannot be expressed there')
+def test_graveyard_flags_an_executable_backup(tmp_path):
+    (tmp_path / "hook.py").write_text("print(1)\n", encoding="utf-8")
+    backup = tmp_path / "hook.py.orig-20260801"
+    backup.write_text("print(0)\n", encoding="utf-8")
+    backup.chmod(0o755)
+    assert any("executable" in why for _, why in hc.graveyard_entries(tmp_path))
+
+
+def test_graveyard_flags_a_backup_whose_live_file_is_gone(tmp_path):
+    backup = tmp_path / "hook.py.orig-20260801"
+    backup.write_text("print(0)\n", encoding="utf-8")
+    backup.chmod(0o644)
+    assert any("no longer exists" in why for _, why in hc.graveyard_entries(tmp_path))
+
+
+def test_graveyard_flags_a_parked_skills_dir(tmp_path):
+    _skills(tmp_path / "skills.bak", "old-a", "old-b")
+    parked = tmp_path / "skills.bak" / "skills"
+    parked.rename(tmp_path / "skills.bak.tmp")
+    (tmp_path / "skills.bak").rmdir()
+    (tmp_path / "skills.bak.tmp").rename(tmp_path / "skills.bak")
+    entries = hc.graveyard_entries(tmp_path)
+    assert any("parked dir" in why and "2 skill" in why for _, why in entries)
+
+
+def test_graveyard_flags_bytecode_whose_source_vanished(tmp_path):
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    (cache / "gone-hook.cpython-314.pyc").write_bytes(b"\x00")
+    assert any("no longer exists" in why for _, why in hc.graveyard_entries(tmp_path))
+
+
+def test_graveyard_ignores_bytecode_whose_source_is_present(tmp_path):
+    (tmp_path / "live.py").write_text("x = 1\n", encoding="utf-8")
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    (cache / "live.cpython-314.pyc").write_bytes(b"\x00")
+    assert hc.graveyard_entries(tmp_path) == []
+
+
+def test_shim_problems_flags_a_tombstone_naming_nothing(tmp_path):
+    path = tmp_path / "s.py"
+    path.write_text('"""RETIRED 2026-08-01. Do not use."""\nraise SystemExit(1)\n', encoding="utf-8")
+    path.chmod(0o644)
+    assert any("names no replacement" in p for p in hc.shim_problems(path))
+
+
+@pytest.mark.parametrize("body,name", [
+    # "superseded by <other basename>" - the phrasing a first pass wrongly called broken
+    ('"""RETIRED - superseded by the plugin\'s block-pgrep-self-match.py."""\nraise SystemExit(1)\n',
+     "block_pgrep_self_match.py"),
+    # a replacement at a different PATH but the SAME basename
+    ('"""RETIRED. The plugin ships plugins/bitranox/hooks/venv-guard.py now."""\nraise SystemExit(2)\n',
+     "venv-guard.py"),
+    # a .sh retired in favour of a .py of the same stem
+    ('# RETIRED. plugins/bitranox/hooks/tell-sweep.py replaces it.\nexit 2\n', "tell-sweep.sh"),
+])
+def test_a_tombstone_that_points_somewhere_is_accepted(tmp_path, body, name):
+    """Each of these is a real shim on this machine; none of them may be reported as broken."""
+    path = tmp_path / name
+    path.write_text(body, encoding="utf-8")
+    path.chmod(0o644)
+    assert hc.shim_problems(path) == []
+
+
+def test_discover_shipped_surfaces_a_tool_repo_skills_dir(tmp_path):
+    """Not `.claude/skills`-shaped, so it is never a candidate - it must still be REPORTED."""
+    owned = _skills(_manifest(tmp_path / "work" / "widgetlib", "plugin.json"), "coding-widget-uv")
+    assert hc.discover_shipped([tmp_path / "work"], home=tmp_path / "home") == [owned]
+
+
+def test_discover_shipped_ignores_a_local_project_skills_dir(tmp_path):
+    _skills(tmp_path / "work" / "orchard" / ".claude", "orchard-build")
+    assert hc.discover_shipped([tmp_path / "work"], home=tmp_path / "home") == []
+
+
+def test_a_bare_error_path_is_resolved_against_the_target_dir(tmp_path):
+    """pytest renders `ERROR <path>` relative to its own ROOTDIR, not to this process's cwd, and
+    when it makes the target dir the rootdir the rendering is a BARE filename. That resolved
+    against the cwd, did not exist there, and was handed back as a bare relative name - the
+    exact "only resolves from one directory" defect this resolution exists to remove.
+
+    Driven through the injected `run` seam with pytest's real output shape, so it reproduces the
+    CI rendering deterministically on every platform instead of only where pytest happens to
+    choose that rootdir.
+    """
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    broken = tests / "test_broken.py"
+    broken.write_text("import a_module_that_is_not_installed\n", encoding="utf-8")
+    run = _fake_pytest_run(types.SimpleNamespace(
+        returncode=2,
+        stdout="ERROR test_broken.py\n",
+        stderr="E   ModuleNotFoundError: No module named 'a_module_that_is_not_installed'\n",
+    ))
+    problems = hc.uncollectable_tests(tests, run=run)
+    assert problems, "expected a collection failure to report"
+    path = problems[0][0]
+    assert os.path.isabs(path) and os.path.exists(path), path
+    assert Path(path) == broken
+
+
+def test_an_unresolvable_error_token_is_left_alone(tmp_path):
+    """The direction it must NOT fire: a token that is not a real file (a nodeid, an odd
+    rendering) stays verbatim rather than being turned into an invented absolute path."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_x.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    run = _fake_pytest_run(types.SimpleNamespace(
+        returncode=2, stdout="ERROR not/a/real/file.py::thing\n", stderr="E   Boom\n"))
+    problems = hc.uncollectable_tests(tests, run=run)
+    assert problems[0][0] == "not/a/real/file.py::thing"
+
+
+def test_uncollectable_tests_reports_a_path_that_actually_resolves(tmp_path):
+    """The reported path must be usable, not pytest's rootdir-relative rendering.
+
+    pytest prints `ERROR <path>` relative to its invocation dir, so a tests dir far from the
+    cwd came back as `../../../../../../tmp/.../test_x.py` - a path that only resolves from
+    one directory and defeats copy-paste."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_broken.py").write_text("import a_module_that_is_not_installed\n",
+                                          encoding="utf-8")
+    problems = hc.uncollectable_tests(tests)
+    assert problems, "expected a collection failure to report"
+    path = problems[0][0]
+    assert not path.startswith(".."), path
+    assert os.path.isabs(path) and os.path.exists(path), path
+
+
+# --------------------------------------------------------------------------
+# The POSIX executable bit does not exist on Windows, where os.access(X_OK)
+# returns True for ANY existing file. A bare os.access there reports every
+# retired shim as "still executable" and, worse, makes the `elif not
+# live.exists()` branch beneath it unreachable - a check silently lost.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='Windows has no executable bit and os.access(X_OK) answers True for any existing file, so setting one and expecting a finding cannot be expressed there')
+def test_is_executable_reports_the_bit_on_posix(tmp_path):
+    f = tmp_path / "shim.sh"
+    f.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+    f.chmod(0o755)
+    assert hc.is_executable(f, posix=True) is True
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='Windows has no executable bit and os.access(X_OK) answers True for any existing file, so setting one and expecting a finding cannot be expressed there')
+def test_is_executable_is_false_for_a_plain_file_on_posix(tmp_path):
+    f = tmp_path / "plain.sh"
+    f.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+    f.chmod(0o644)
+    assert hc.is_executable(f, posix=True) is False
+
+
+def test_is_executable_is_false_off_posix_even_for_an_executable_file(tmp_path):
+    """Windows has no executable bit; os.access(X_OK) there answers True for any file that
+    exists, so asking it produces a finding that is always true and never informative."""
+    f = tmp_path / "shim.sh"
+    f.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+    f.chmod(0o755)
+    assert hc.is_executable(f, posix=False) is False
+
+
+# --- a shim that exits with a MESSAGE exits 1 -------------------------------------------------
+
+def _shim_exiting(tmp_path, line):
+    path = tmp_path / "s.py"
+    path.write_text('"""RETIRED. Replacement: other.py"""\nimport sys\n%s\n' % line,
+                    encoding="utf-8")
+    path.chmod(0o644)
+    return path
+
+
+def _real_exit_code(path):
+    return subprocess.run([sys.executable, str(path)], capture_output=True, timeout=60).returncode
+
+
+@pytest.mark.parametrize("line", [
+    'raise SystemExit("retired - use other.py")',
+    "sys.exit('retired - use other.py')",
+    'sys.exit(f"retired - use other.py")',
+    "raise SystemExit(r'retired')",
+    "raise SystemExit(2)",
+])
+def test_a_shim_that_exits_with_a_message_is_not_called_exit_zero(tmp_path, line):
+    """A string argument to SystemExit or sys.exit exits 1; the check read it as success."""
+    path = _shim_exiting(tmp_path, line)
+    assert _real_exit_code(path) != 0
+    assert not any("non-zero" in p for p in hc.shim_problems(path))
+
+
+@pytest.mark.parametrize("line", ["raise SystemExit", "sys.exit()", "sys.exit(0)",
+                                  "raise SystemExit(None)"])
+def test_a_shim_that_really_exits_zero_is_still_flagged(tmp_path, line):
+    """Control: each of these really exits 0, and each must still be reported."""
+    path = _shim_exiting(tmp_path, line)
+    assert _real_exit_code(path) == 0
+    assert any("non-zero" in p for p in hc.shim_problems(path))
+
+
+# --- front matter: a BOM, an empty value, and the gate's own sweep ----------------------------
+
+GOOD_DESC = ("Use when parsing gitignore files, filtering paths, or reaching for pathspec "
+             "instead of the igittigitt library")
+
+
+def _skill_dir_with(tmp_path, text, bom=False):
+    skills = tmp_path / "skills"
+    (skills / "demo").mkdir(parents=True)
+    data = text.encode("utf-8")
+    (skills / "demo" / "SKILL.md").write_bytes((b"\xef\xbb\xbf" if bom else b"") + data)
+    return skills
+
+
+def test_a_bom_skill_md_passes_the_front_matter_sweep(tmp_path):
+    """The sweep the commit gate runs over EVERY shipped SKILL.md: a BOM made it report "has no
+    name" and "has no description" for a file that has both."""
+    skills = _skill_dir_with(tmp_path, "---\nname: demo\ndescription: %s\n---\n" % GOOD_DESC,
+                             bom=True)
+    assert hc.frontmatter_problems(skills) == []
+
+
+def test_the_same_skill_md_without_a_bom_passes(tmp_path):
+    """Control for the test above."""
+    skills = _skill_dir_with(tmp_path, "---\nname: demo\ndescription: %s\n---\n" % GOOD_DESC)
+    assert hc.frontmatter_problems(skills) == []
+
+
+def test_an_unterminated_block_behind_a_bom_is_still_caught(tmp_path):
+    md = tmp_path / "SKILL.md"
+    md.write_bytes(b"\xef\xbb\xbf---\nname: demo\ndescription: Use when x.---\n# body\n")
+    assert hc.frontmatter_unterminated(md) is True
+
+
+def test_an_empty_name_is_reported_missing_not_as_the_next_line(tmp_path):
+    skills = _skill_dir_with(tmp_path, "---\nname:\ndescription: %s\n---\n" % GOOD_DESC)
+    problems = hc.frontmatter_problems(skills)
+    assert any("has no `name:`" in p for p in problems), problems
+    assert not any("description:" in p and "front-matter name is" in p for p in problems)
+
+
+def test_an_empty_description_is_reported_missing_not_as_the_next_key(tmp_path):
+    skills = _skill_dir_with(tmp_path, "---\ndescription:\nname: demo\n---\n")
+    problems = hc.frontmatter_problems(skills)
+    assert any("has no `description:`" in p for p in problems), problems
+
+
+# --- front matter: a SKILL.md that is not UTF-8 -----------------------------------------------
+
+_LATIN1_SKILL = ("---\nname: demo\ndescription: %s caf\xe9\n---\n# body\n" % GOOD_DESC)
+
+
+def _latin1_skills(tmp_path):
+    skills = tmp_path / "skills"
+    (skills / "demo").mkdir(parents=True)
+    (skills / "demo" / "SKILL.md").write_bytes(_LATIN1_SKILL.encode("latin-1"))
+    return skills
+
+
+def test_a_non_utf8_skill_md_is_reported_not_raised(tmp_path):
+    """A cp1252/latin-1 save on Windows: the sweep raised UnicodeDecodeError and took the whole
+    gate down with it, instead of naming the one file."""
+    problems = hc.frontmatter_problems(_latin1_skills(tmp_path))
+    assert any("not valid UTF-8" in p and "0xe9" in p for p in problems), problems
+    assert all(p.startswith("demo: ") for p in problems), problems
+
+
+def test_the_same_skill_md_saved_as_utf8_passes(tmp_path):
+    """Control for the test above: identical text, UTF-8 bytes, nothing to report."""
+    skills = tmp_path / "skills"
+    (skills / "demo").mkdir(parents=True)
+    (skills / "demo" / "SKILL.md").write_bytes(_LATIN1_SKILL.encode("utf-8"))
+    assert hc.frontmatter_problems(skills) == []
+
+
+def test_a_non_utf8_skill_md_still_gets_the_structural_checks(tmp_path):
+    """The undecodable byte is not a reason to skip the other checks: an unterminated block in
+    the same file is still named, read through the same replacing decoder the router uses."""
+    skills = tmp_path / "skills"
+    (skills / "demo").mkdir(parents=True)
+    (skills / "demo" / "SKILL.md").write_bytes(
+        b"---\nname: demo\ndescription: Use when caf\xe9 x.---\n# body\n")
+    problems = hc.frontmatter_problems(skills)
+    assert any("not valid UTF-8" in p for p in problems), problems
+    assert any("never closes" in p for p in problems), problems
+
+
+@pytest.mark.parametrize("check", [hc.frontmatter_unterminated, hc.frontmatter_second_block,
+                                   hc.frontmatter_scalar_colon, hc.frontmatter_yaml_error])
+def test_no_front_matter_reader_raises_on_undecodable_bytes(tmp_path, check):
+    """Each reader is public and the commit gate may call it alone, so each must survive the
+    bytes on its own rather than rely on `frontmatter_file_problems` screening first."""
+    md = tmp_path / "SKILL.md"
+    md.write_bytes(_LATIN1_SKILL.encode("latin-1"))
+    check(md)                                   # must not raise
+
+
+# --- old git echoes an unknown rev-parse flag back with exit 0 --------------------------------
+
+_OLD_GIT = '''#!%s
+import os, subprocess, sys
+args = sys.argv[1:]
+flag = "--path-format=absolute"
+if flag in args:
+    # git before 2.31 does not know the flag: rev-parse echoes it and still exits 0.
+    args.remove(flag)
+    out = subprocess.run([os.environ["REAL_GIT"], *args], capture_output=True, text=True)
+    sys.stdout.write(flag + "\\n" + out.stdout)
+    sys.exit(out.returncode)
+sys.exit(subprocess.call([os.environ["REAL_GIT"], *args]))
+'''
+
+
+@needs_git
+@pytest.mark.skipif(os.name != "posix", reason="the stand-in git is a shebang script")
+def test_a_worktree_is_still_recognised_on_git_older_than_2_31(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    _skills(repo, "demo")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "seed")
+    wt = tmp_path / "wt"
+    _git(repo, "worktree", "add", "-q", str(wt), "-b", "side")
+    fake = tmp_path / "bin" / "git"
+    fake.parent.mkdir()
+    fake.write_text(_OLD_GIT % sys.executable, encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("REAL_GIT", shutil.which("git"))
+    monkeypatch.setenv("PATH", str(fake.parent) + os.pathsep + os.environ.get("PATH", ""))
+    assert hc.target_identity(repo / "skills") == hc.target_identity(wt / "skills")
+    assert not hc.target_identity(repo / "skills")[0].endswith("absolute")
+
+
+# --- cached pytest node ids -------------------------------------------------------------------
+
+def _nodeid_cache(root, ids):
+    cache = root / ".pytest_cache" / "v" / "cache" / "nodeids"
+    cache.parent.mkdir(parents=True)
+    cache.write_text(json.dumps(ids), encoding="utf-8")
+    return cache
+
+
+def test_graveyard_flags_only_the_cached_test_file_that_is_gone(tmp_path):
+    root = tmp_path / "proj"
+    (root / "tests").mkdir(parents=True)
+    (root / "tests" / "test_here.py").write_text("def test_x(): pass\n", encoding="utf-8")
+    _nodeid_cache(root, ["tests/test_here.py::test_x", "tests/test_gone.py::test_y"])
+    found = [why for _path, why in hc.graveyard_entries(root) if "node ids" in why]
+    assert found == ["caches node ids for tests/test_gone.py, which no longer exists"]
+
+
+def test_nodeid_paths_compare_with_forward_slashes_on_windows():
+    """pytest writes node ids with `/` on every OS; a Windows relative path has `\\`, so every
+    cached id read as missing there."""
+    got = hc._relative_posix(PureWindowsPath("C:/r/tests/test_x.py"), PureWindowsPath("C:/r"))
+    assert got == "tests/test_x.py"
+
+
+def test_a_pep723_tool_s_missing_dependency_is_retried_with_its_declared_deps(tmp_path):
+    """A PEP 723 script declares its dependencies inline and runs under `uv run`, so its tests
+    import them; collecting those tests with the checker's own interpreter reports a dead suite
+    that passes under the tool's real launch. With the declared deps handed in, the retry runs
+    with them and a clean collection is no finding."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    missing = types.SimpleNamespace(
+        returncode=2, stdout="ERROR tests/test_tool.py\n",
+        stderr="E   ModuleNotFoundError: No module named 'pydantic'\n")
+    run = _fake_pytest_run(missing, _clean_collection())
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: "/usr/bin/uv",
+                                      extra_deps=("pydantic>=2.7",))
+    assert problems == []
+    fallback = run.calls[1][0]
+    assert fallback[:5] == ["/usr/bin/uv", "run", "--no-project", "--with", "pytest"]
+    assert fallback[fallback.index("pydantic>=2.7") - 1] == "--with"
+
+
+def test_a_missing_declared_dependency_without_uv_names_the_module_not_pytest(tmp_path):
+    # pytest itself ran here; saying it was not importable sent the reader after the wrong cause.
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    missing = types.SimpleNamespace(
+        returncode=2, stdout="ERROR tests/test_tool.py\n",
+        stderr="E   ModuleNotFoundError: No module named 'pydantic'\n")
+    problems = hc.uncollectable_tests(tests, run=_fake_pytest_run(missing), resolve_uv=lambda: None,
+                                      extra_deps=("pydantic>=2.7",))
+    assert len(problems) == 1 and problems[0][2] is True
+    assert "pytest is not importable" not in problems[0][1]
+    assert "declared dependencies" in problems[0][1]
+
+
+def test_control_a_missing_module_with_no_declared_deps_is_still_a_finding(tmp_path):
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    missing = types.SimpleNamespace(
+        returncode=2, stdout="ERROR tests/test_tool.py\n",
+        stderr="E   ModuleNotFoundError: No module named 'pydantic'\n")
+    run = _fake_pytest_run(missing)
+    problems = hc.uncollectable_tests(tests, run=run, resolve_uv=lambda: "/usr/bin/uv")
+    assert len(problems) == 1 and problems[0][2] is False
+    assert len(run.calls) == 1

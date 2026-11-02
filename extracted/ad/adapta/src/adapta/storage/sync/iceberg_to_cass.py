@@ -1,0 +1,518 @@
+import dataclasses
+from dataclasses import dataclass
+from enum import Enum
+from typing import Self, final
+
+from polars import LazyFrame
+from pyiceberg.catalog import Catalog
+
+from adapta.logs import LoggerInterface
+from adapta.process_communication import DataSocket
+from adapta.storage.distributed_object_store.v3.cassandra_client import CassandraClient, TCassandraModel, get_mapper
+from adapta.storage.iceberg.v1 import (
+    get_changes,
+    get_property,
+    load_using_catalog,
+    set_property,
+    wait_for_current_snapshot,
+    write_using_catalog,
+)
+from adapta.storage.models import CassandraPath, IcebergPath
+
+
+@final
+class CassandraUploadMode(Enum):
+    CONCURRENT_BATCH = "batch"
+    CONCURRENT_NATIVE = "native"
+
+
+@final
+@dataclass
+class ShardingConfig:
+    """
+    Configuration for sharded Cassandra target table uploads.
+
+    :param shard_count: Total number of shards.
+    :param shard_id: Specific shard index (0-based) to sync.
+    """
+
+    shard_count: int
+    shard_id: int
+
+    def __post_init__(self) -> None:
+        if self.shard_count is None or self.shard_id is None:
+            raise ValueError("Both shard_count and shard_id must be provided")
+        if self.shard_count <= 0:
+            raise ValueError("shard_count must be greater than 0")
+        if not (0 <= self.shard_id < self.shard_count):
+            raise ValueError(f"shard_id must be between 0 and {self.shard_count - 1}")
+
+
+@final
+@dataclass
+class CustomIndexMetadata:
+    """
+    Metadata describing a custom index table in Iceberg and Cassandra.
+    """
+
+    index_model: type[TCassandraModel]
+    field_name: str
+    iceberg_table: str
+    cassandra_table: str
+    index_columns: list[str]
+
+    @classmethod
+    def create(
+        cls,
+        base_model: type[dataclass],
+        index_field: dataclasses.Field,
+        source_table: str,
+        target_table: str,
+        version_field: str,
+    ) -> Self:
+        """
+        Builds custom index metadata and a dynamic dataclass model for an index field.
+
+        Example:
+            Original model:
+            ```python
+            @dataclass
+            class ExampleModel:
+                col_a: str = field(metadata={"is_primary_key": True, "is_partition_key": True})
+                col_b: str = field(metadata={"is_custom_index": True})
+                col_c: str
+                col_version: int
+            ```
+
+            Generated index model:
+            ```python
+            @dataclass
+            class ExampleModel__idx_col_b:
+                col_b: str = field(metadata={"is_primary_key": True, "is_partition_key": True})
+                col_a: str = field(metadata={"is_primary_key": True, "is_partition_key": False})
+                col_version: int
+            ```
+        """
+        model_fields = {f.name: f for f in dataclasses.fields(base_model)}
+        ver_field = model_fields.get(version_field)
+
+        fields_spec = [
+            (
+                index_field.name,
+                index_field.type,
+                dataclasses.field(metadata={"is_primary_key": True, "is_partition_key": True}),
+            )
+        ]
+        for pk in dataclasses.fields(base_model):
+            if pk.metadata.get("is_primary_key", False) and pk.name != index_field.name:
+                fields_spec.append(
+                    (
+                        pk.name,
+                        pk.type,
+                        dataclasses.field(metadata={"is_primary_key": True, "is_partition_key": False}),
+                    )
+                )
+        if ver_field and ver_field.name != index_field.name:
+            fields_spec.append((ver_field.name, ver_field.type, dataclasses.field()))
+
+        return cls(
+            index_model=dataclasses.make_dataclass(f"{base_model.__name__}__idx_{index_field.name}", fields_spec),
+            field_name=index_field.name,
+            iceberg_table=f"{source_table}__idx_{index_field.name}",
+            cassandra_table=f"{target_table}__idx_{index_field.name}",
+            index_columns=[f[0] for f in fields_spec],
+        )
+
+
+def _get_custom_index_models(
+    cassandra_model: type[dataclass],
+    source_table: str,
+    target_table: str,
+    version_field: str,
+    logger: LoggerInterface,
+) -> list[CustomIndexMetadata]:
+    custom_idx_fields = [f for f in dataclasses.fields(cassandra_model) if f.metadata.get("is_custom_index", False)]
+    if not custom_idx_fields:
+        return []
+
+    index_models: list[CustomIndexMetadata] = []
+    for idx_f in custom_idx_fields:
+        idx_meta = CustomIndexMetadata.create(
+            base_model=cassandra_model,
+            index_field=idx_f,
+            source_table=source_table,
+            target_table=target_table,
+            version_field=version_field,
+        )
+        logger.info(
+            "Model contains a custom index on a field {field_name}. Index table will contain columns {columns}",
+            field_name=idx_meta.field_name,
+            columns=idx_meta.index_columns,
+        )
+        index_models.append(idx_meta)
+
+    return index_models
+
+
+def _sync_custom_index(
+    index_metadata: CustomIndexMetadata,
+    source_schema: str,
+    source_table: str,
+    target_keyspace: str,
+    version_field: str,
+    iceberg_catalog: Catalog,
+    client: CassandraClient,
+    upload_mode: CassandraUploadMode,
+    read_chunk_size: int,
+    threads: int,
+    logger: LoggerInterface,
+    full_sync: bool = False,
+    sharding_config: ShardingConfig | None = None,
+) -> None:
+    def _read_index_data() -> LazyFrame:
+        logger.info("Reading source table {source_table} for custom index", source_table=source_table)
+        full_source: LazyFrame = load_using_catalog(
+            source_schema,
+            source_table,
+            iceberg_catalog,
+            lazy_read=True,
+        ).to_polars()
+        return full_source.select(index_metadata.index_columns)
+
+    def _upload_index(source: LazyFrame) -> None:
+        if upload_mode == CassandraUploadMode.CONCURRENT_BATCH:
+            client.upload_concurrent_batch(
+                source=source,
+                table_name=index_metadata.cassandra_table,
+                entity_type=index_metadata.index_model,
+                keyspace=target_keyspace,
+                batch_size=read_chunk_size,
+                threads=threads,
+                shard_count=sharding_config.shard_count if sharding_config else None,
+                shard_id=sharding_config.shard_id if sharding_config else None,
+            )
+            return
+        if upload_mode == CassandraUploadMode.CONCURRENT_NATIVE:
+            client.upload_concurrent_native(
+                source=source,
+                table_name=index_metadata.cassandra_table,
+                entity_type=index_metadata.index_model,
+                keyspace=target_keyspace,
+                batch_size=read_chunk_size,
+                threads=threads,
+                shard_count=sharding_config.shard_count if sharding_config else None,
+                shard_id=sharding_config.shard_id if sharding_config else None,
+            )
+            return
+        raise ValueError(f"Unsupported upload mode: {upload_mode}")
+
+    table_exists = iceberg_catalog.table_exists(identifier=(source_schema, index_metadata.iceberg_table))
+    if full_sync or not table_exists:
+        if not table_exists:
+            logger.info(
+                "Index table {iceberg_table} does not exist in Iceberg. Running full sync.",
+                iceberg_table=index_metadata.iceberg_table,
+            )
+        else:
+            logger.info(
+                "Base table {source_table} has been reloaded. Running full sync for index table {iceberg_table}.",
+                source_table=source_table,
+                iceberg_table=index_metadata.iceberg_table,
+            )
+        write_using_catalog(
+            schema_name=source_schema,
+            table_name=index_metadata.iceberg_table,
+            catalog=iceberg_catalog,
+            data=_read_index_data(),
+            overwrite=True,
+        )
+        if wait_for_current_snapshot(source_schema, index_metadata.iceberg_table, iceberg_catalog) is None:
+            raise RuntimeError(
+                f"Failed to read current snapshot for table {source_schema}.{index_metadata.iceberg_table} after write"
+            )
+        logger.info(
+            "Syncing index table {cassandra_table} to Cassandra", cassandra_table=index_metadata.cassandra_table
+        )
+        _upload_index(_read_index_data())
+        return
+
+    idx_previous_snapshot = wait_for_current_snapshot(source_schema, index_metadata.iceberg_table, iceberg_catalog)
+    if idx_previous_snapshot is None:
+        raise RuntimeError(f"Table {source_schema}.{index_metadata.iceberg_table} exists but has no current snapshot")
+
+    logger.info("Writing index data to Iceberg table {iceberg_table}", iceberg_table=index_metadata.iceberg_table)
+    write_using_catalog(
+        schema_name=source_schema,
+        table_name=index_metadata.iceberg_table,
+        catalog=iceberg_catalog,
+        data=_read_index_data(),
+        overwrite=True,
+    )
+
+    idx_current_snapshot = wait_for_current_snapshot(
+        schema_name=source_schema,
+        table_name=index_metadata.iceberg_table,
+        catalog=iceberg_catalog,
+    )
+    if idx_current_snapshot is None:
+        raise RuntimeError(
+            f"Failed to read current snapshot for table {source_schema}.{index_metadata.iceberg_table} after write"
+        )
+
+    if idx_previous_snapshot == idx_current_snapshot:
+        return
+
+    logger.info(
+        "Retrieving changes for index table {iceberg_table} between snapshots {prev_snap} and {curr_snap}",
+        iceberg_table=index_metadata.iceberg_table,
+        prev_snap=idx_previous_snapshot,
+        curr_snap=idx_current_snapshot,
+    )
+    idx_inserts, idx_updates, idx_deletes = get_changes(
+        schema_name=source_schema,
+        table_name=index_metadata.iceberg_table,
+        catalog=iceberg_catalog,
+        from_snapshot_id=idx_previous_snapshot,
+        to_snapshot_id=idx_current_snapshot,
+        tracking_column=version_field,
+        primary_key_columns=tuple(col for col in index_metadata.index_columns if col != version_field),
+    )
+
+    if idx_inserts is not None:
+        logger.info(
+            "Syncing index inserts to Cassandra table {cassandra_table}",
+            cassandra_table=index_metadata.cassandra_table,
+        )
+        _upload_index(idx_inserts)
+
+    if idx_updates is not None:
+        logger.info(
+            "Syncing index updates to Cassandra table {cassandra_table}",
+            cassandra_table=index_metadata.cassandra_table,
+        )
+        _upload_index(idx_updates)
+
+    if idx_deletes is not None:
+        logger.info(
+            "Syncing index deletes to Cassandra table {cassandra_table}",
+            cassandra_table=index_metadata.cassandra_table,
+        )
+        client.delete_batch_concurrent(
+            source=idx_deletes,
+            table_name=index_metadata.cassandra_table,
+            entity_type=index_metadata.index_model,
+            keyspace=target_keyspace,
+            batch_size=read_chunk_size,
+            threads=threads,
+            shard_count=sharding_config.shard_count if sharding_config else None,
+            shard_id=sharding_config.shard_id if sharding_config else None,
+        )
+
+
+def sync_iceberg_to_cassandra(
+    iceberg_catalog: Catalog,
+    client: CassandraClient,
+    iceberg_source: DataSocket,
+    version_field: str,
+    cassandra_target: DataSocket,
+    read_chunk_size: int,
+    logger: LoggerInterface,
+    threads: int,
+    upload_mode: CassandraUploadMode = CassandraUploadMode.CONCURRENT_BATCH,
+    ignore_index_updates: bool = False,
+    sharding_config: ShardingConfig | None = None,
+) -> None:
+    """
+    Synchronizes data from the provided Iceberg source to Cassandra target table. Assumes schemas are compatible.
+    """
+
+    def _sync_lazyframe(
+        source: LazyFrame,
+        target_table: str,
+        target_model: type[TCassandraModel],
+        keyspace: str,
+    ) -> int:
+        if upload_mode == CassandraUploadMode.CONCURRENT_BATCH:
+            return client.upload_concurrent_batch(
+                source=source,
+                table_name=target_table,
+                entity_type=target_model,
+                keyspace=keyspace,
+                batch_size=read_chunk_size,
+                threads=threads,
+                shard_count=sharding_config.shard_count if sharding_config else None,
+                shard_id=sharding_config.shard_id if sharding_config else None,
+            )
+        if upload_mode == CassandraUploadMode.CONCURRENT_NATIVE:
+            return client.upload_concurrent_native(
+                source=source,
+                table_name=target_table,
+                entity_type=target_model,
+                keyspace=keyspace,
+                batch_size=read_chunk_size,
+                threads=threads,
+                shard_count=sharding_config.shard_count if sharding_config else None,
+                shard_id=sharding_config.shard_id if sharding_config else None,
+            )
+        raise ValueError(f"Unsupported upload mode: {upload_mode}")
+
+    def _sync_deletes(
+        source: LazyFrame,
+        target_table: str,
+        target_model: type[TCassandraModel],
+        keyspace: str,
+    ) -> int:
+        return client.delete_batch_concurrent(
+            source=source,
+            table_name=target_table,
+            entity_type=target_model,
+            keyspace=keyspace,
+            batch_size=read_chunk_size,
+            threads=threads,
+            shard_count=sharding_config.shard_count if sharding_config else None,
+            shard_id=sharding_config.shard_id if sharding_config else None,
+        )
+
+    def _get_last_synced_snapshot(schema: str, table: str) -> str | None:
+        if sharding_config is not None:
+            return get_property(
+                schema,
+                table,
+                iceberg_catalog,
+                f"adapta.cassandra.shard-{sharding_config.shard_id}.last-synced-snapshot-id",
+            )
+        return get_property(schema, table, iceberg_catalog, "adapta.cassandra.last-synced-snapshot-id")
+
+    def _set_last_synced_snapshot(schema: str, table: str, snapshot: int) -> None:
+        if sharding_config is not None:
+            set_property(
+                schema,
+                table,
+                iceberg_catalog,
+                f"adapta.cassandra.shard-{sharding_config.shard_id}.last-synced-snapshot-id",
+                str(snapshot),
+            )
+        else:
+            set_property(
+                schema,
+                table,
+                iceberg_catalog,
+                "adapta.cassandra.last-synced-snapshot-id",
+                str(snapshot),
+            )
+
+    source_path: IcebergPath = iceberg_source.parse_data_path()
+    target_path: CassandraPath = cassandra_target.parse_data_path()
+    cassandra_model = target_path.model_class()
+
+    logger.info(
+        "Running incremental sync to table {sync_to_table}. Looking for changes to sync.",
+        sync_to_table=target_path.table,
+    )
+    last_synced_snapshot = _get_last_synced_snapshot(source_path.schema, source_path.table)
+    mapper = get_mapper(
+        data_model=cassandra_model,
+        table_name=iceberg_source.alias,
+        keyspace="any",
+    )
+    custom_index_models = (
+        []
+        if ignore_index_updates
+        else _get_custom_index_models(
+            cassandra_model=cassandra_model,
+            source_table=source_path.table,
+            target_table=target_path.table,
+            version_field=version_field,
+            logger=logger,
+        )
+    )
+    total_synced_records = 0
+    current_snapshot = wait_for_current_snapshot(source_path.schema, source_path.table, iceberg_catalog)
+    if current_snapshot is None:
+        raise RuntimeError(f"Failed to read current snapshot for table {source_path.schema}.{source_path.table}")
+
+    is_full_sync = not last_synced_snapshot or last_synced_snapshot == "-1"
+    if is_full_sync:
+        logger.info("Last sync snapshot data not available. Will perform a full sync.")
+        source_data: LazyFrame = load_using_catalog(
+            source_path.schema,
+            source_path.table,
+            iceberg_catalog,
+            lazy_read=True,
+        ).to_polars()
+        total_synced_records = _sync_lazyframe(
+            source_data,
+            target_path.table,
+            cassandra_model,
+            target_path.keyspace,
+        )
+    elif int(last_synced_snapshot) != current_snapshot:
+        logger.info(
+            "Last sync snapshot: {snapshot}. Performing incremental sync to {latest_snapshot}",
+            snapshot=last_synced_snapshot,
+            latest_snapshot=current_snapshot,
+        )
+        inserts, updates, deletes = get_changes(
+            source_path.schema,
+            source_path.table,
+            iceberg_catalog,
+            int(last_synced_snapshot),
+            current_snapshot,
+            tracking_column=version_field,
+            primary_key_columns=tuple(mapper.primary_keys),
+        )
+        # insert/update first
+        total_synced_records += _sync_lazyframe(
+            inserts,
+            target_path.table,
+            cassandra_model,
+            target_path.keyspace,
+        )
+        if updates is not None:
+            total_synced_records += _sync_lazyframe(
+                updates,
+                target_path.table,
+                cassandra_model,
+                target_path.keyspace,
+            )
+        # keep deletes out of parallelism for now
+        if deletes is not None:
+            total_synced_records += _sync_deletes(
+                deletes,
+                target_path.table,
+                cassandra_model,
+                target_path.keyspace,
+            )
+    else:
+        logger.info(
+            "Table {target} is already up to date with {source} at snapshot {snapshot}",
+            target=target_path.table,
+            source=source_path.table,
+            snapshot=current_snapshot,
+        )
+        return
+
+    _set_last_synced_snapshot(source_path.schema, source_path.table, current_snapshot)
+    for idx_meta in custom_index_models:
+        _sync_custom_index(
+            index_metadata=idx_meta,
+            source_schema=source_path.schema,
+            source_table=source_path.table,
+            target_keyspace=target_path.keyspace,
+            version_field=version_field,
+            iceberg_catalog=iceberg_catalog,
+            client=client,
+            upload_mode=upload_mode,
+            read_chunk_size=read_chunk_size,
+            threads=threads,
+            logger=logger,
+            full_sync=is_full_sync,
+            sharding_config=sharding_config,
+        )
+
+    logger.info(
+        "Table {target} has been successfully synced with {source}, records changed: {records}",
+        target=target_path.table,
+        source=source_path.table,
+        records=total_synced_records,
+    )

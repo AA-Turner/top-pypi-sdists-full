@@ -13,7 +13,7 @@ class CreateRoleResponseBody(DaraModel):
     ):
         # The request ID.
         self.request_id = request_id
-        # The information about the RAM role.
+        # The RAM role information.
         self.role = role
 
     def validate(self):
@@ -56,13 +56,13 @@ class CreateRoleResponseBodyRole(DaraModel):
         role_id: str = None,
         role_name: str = None,
     ):
-        # Indicates whether console logon is allowed for the RAM role.
+        # Indicates whether the RAM role is allowed to log on to the console.
         self.allow_console_login = allow_console_login
         # The resource descriptor of the RAM role.
         self.arn = arn
         # The trust policy of the RAM role.
         self.assume_role_policy_document = assume_role_policy_document
-        # The time when the RAM role was created.
+        # The creation time. The time is displayed in UTC in the `YYYY-MM-DDThh:mm:ssZ` format.
         self.create_date = create_date
         # The description of the RAM role.
         self.description = description

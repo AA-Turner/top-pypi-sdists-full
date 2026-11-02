@@ -1,0 +1,1430 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+MCP Server Lifecycle Manager.
+
+Centralized manager for MCP server lifecycle (start/stop/state tracking).
+Integrates with the MCP catalog to use predefined commands when available.
+"""
+
+import asyncio
+import json
+import logging
+import os
+import re
+import time
+import traceback
+from contextlib import AsyncExitStack
+from pathlib import Path
+from typing import Any
+
+from agent_runtimes.guardrails.credentials import (
+    SENDS_CREDENTIAL,
+    hold,
+    hold_env,
+    hold_expansion,
+    redact,
+)
+from agent_runtimes.guardrails.declared_secrets import env_for_server
+from agent_runtimes.mcp.catalog_mcp_servers import MCP_SERVER_CATALOG
+from agent_runtimes.mcp.remote import remote_toolset
+from agent_runtimes.types import MCPServer, MCPServerTool
+
+logger = logging.getLogger(__name__)
+
+# How long an MCP server is given to start, in seconds: the whole of its
+# start, which a configure request waits on. A server that has not answered by
+# then is failed, and not tried again: a server that hangs (one waiting on a
+# sign-in nobody will make) would hang as long on every attempt.
+MCP_SERVER_STARTUP_TIMEOUT = float(
+    os.environ.get("AGENT_RUNTIMES_MCP_STARTUP_TIMEOUT", "45")
+)
+MCP_SERVER_HANDSHAKE_TIMEOUT = MCP_SERVER_STARTUP_TIMEOUT
+MCP_SERVER_MAX_ATTEMPTS = 3
+#: The longest a start waits between two attempts, in seconds.
+MCP_SERVER_RETRY_BACKOFF = 5.0
+#: How long a start ended at its deadline is given to close what it opened,
+#: in seconds, before it is left to end on its own.
+MCP_SERVER_START_GRACE = 5.0
+
+
+def start_deadline() -> float:
+    """
+    How long a server's whole start is given, in seconds.
+
+    A start that has not ended by then — its handshake hung past its own
+    timeout, the client not ending on the cancellation that timeout sends
+    it — is ended and failed (`MCPLifecycleManager.start_server`), so that
+    the server is never "starting" for good: on r1 (28 October 2026) a
+    runtime's `odoo-accounting` logged its creation and nothing after, and
+    an hour later every turn still answered without its tools, none
+    starting it again. ``AGENT_RUNTIMES_MCP_START_DEADLINE`` when set; else
+    every attempt's handshake and tool listing at their timeout, the
+    backoff between attempts, and the grace.
+
+    Returns
+    -------
+    float
+        The deadline, in seconds.
+    """
+    given = os.environ.get("AGENT_RUNTIMES_MCP_START_DEADLINE", "").strip()
+    if given:
+        return float(given)
+    return (
+        MCP_SERVER_MAX_ATTEMPTS
+        * (2 * MCP_SERVER_STARTUP_TIMEOUT + MCP_SERVER_RETRY_BACKOFF)
+        + MCP_SERVER_START_GRACE
+    )
+
+
+#: How long a server that is not running waits before a turn that needs it
+#: starts it again (`MCPLifecycleManager.retry_in_background`).
+RETRY_SECONDS = 60.0
+
+#: An argument or a header that sends a bearer token: empty, a remote server
+#: answers 401 — and a shim such as ``mcp-remote`` falls back to an interactive
+#: OAuth sign-in, in a browser a runtime does not have, waiting for it forever.
+_BEARER_ARG = re.compile(r"^\s*Authorization:\s*Bearer\s*$", re.IGNORECASE)
+
+
+class _Failures(dict[str, str]):
+    """Why each server failed, a credential never kept in it (R-19).
+
+    What a start failed with is answered by the routes and said to whoever
+    configured the agent: an error that echoes a command line with its
+    expanded header is kept with the header withheld.
+    """
+
+    def __setitem__(self, server_id: str, error: str) -> None:
+        super().__setitem__(server_id, redact(str(error)))
+
+
+def empty_bearer_problem(server_id: str, raw_args: list[Any], args: list[Any]) -> str:
+    """Why a server is not started with an empty bearer token, or ''.
+
+    ``raw_args`` and ``args`` are a command's arguments before and after
+    their ``${VAR}`` expansion, or a remote server's headers as ``name:
+    value`` lines (`_expanded_headers`).
+    """
+    for raw, arg in zip(raw_args, args):
+        if isinstance(arg, str) and _BEARER_ARG.match(arg):
+            names = re.findall(r"\$\{([^}]+)\}", raw if isinstance(raw, str) else "")
+            what = " or ".join(names) if names else "its token"
+            return (
+                f"MCP server '{server_id}' is not started: {what} is not set, and "
+                "it would send an empty bearer token."
+            )
+    return ""
+
+
+try:  # Python 3.11+
+    from builtins import BaseExceptionGroup
+    from builtins import ExceptionGroup as _ExceptionGroup
+except (ImportError, AttributeError):  # pragma: no cover - Python <3.11
+    # ExceptionGroup doesn't exist in Python <3.11
+    # Create a dummy type that will never match in isinstance checks
+    class BaseExceptionGroup(BaseException):  # type: ignore[no-redef]
+        """Dummy BaseExceptionGroup for Python <3.11 compatibility."""
+
+        pass
+
+    _ExceptionGroup = BaseExceptionGroup  # type: ignore[misc,assignment]
+
+
+class MCPServerInstance:
+    """Represents a running MCP server instance."""
+
+    def __init__(
+        self,
+        server_id: str,
+        config: MCPServer,
+        pydantic_server: Any,
+        exit_stack: AsyncExitStack,
+        tools: list[MCPServerTool] | None = None,
+    ):
+        self.server_id = server_id
+        self.config = config
+        self.pydantic_server = pydantic_server
+        self.exit_stack = exit_stack
+        self.tools = tools or []
+        self.is_running = True
+        self.error: str | None = None
+
+
+class MCPLifecycleManager:
+    """
+    Centralized manager for MCP server lifecycle.
+
+    Handles:
+    - Starting/stopping MCP servers
+    - Tracking running state (separately for config and catalog servers)
+    - Merging mcp.json config with catalog commands
+    - Tool discovery from running servers
+
+    Config servers (from mcp.json) and catalog servers (predefined) are managed
+    in separate data structures so the same server ID can exist in both.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the lifecycle manager."""
+        # Separate storage for config (mcp.json) vs catalog servers
+        self._config_servers: dict[str, MCPServerInstance] = {}  # From mcp.json
+        self._catalog_servers: dict[str, MCPServerInstance] = {}  # From catalog
+        self._failed_servers: dict[str, str] = _Failures()  # server_id -> error
+        self._starting_servers: set[str] = set()  # server_ids currently starting
+        # What each server was first started with — its secrets and the
+        # configuration it was given, which a configure's may differ from the
+        # catalogue's — to start it the same way again, and when it was last
+        # tried again (`retry_in_background`).
+        self._extra_envs: dict[str, dict[str, str] | None] = {}
+        self._configs: dict[str, MCPServer] = {}
+        self._retried_at: dict[str, float] = {}
+        self._expected_servers: set[str] = set()  # server_ids declared in mcp.json
+        self._initialization_event: asyncio.Event | None = None
+        self._initialization_started: bool = False
+        # One lock per server: a server that is slow to start holds back
+        # another start of itself, and no other server's.
+        self._locks: dict[str, asyncio.Lock] = {}
+        # The starts under way, each a task of its own under `start_deadline`;
+        # those ended at their deadline, left to close what they opened; the
+        # starts asked for in the background (`retry_in_background`), held so
+        # that no task of theirs is collected before it ends.
+        self._starts: dict[str, asyncio.Task[Any]] = {}
+        self._abandoned: set[asyncio.Task[Any]] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
+        logger.info("MCPLifecycleManager initialized (separate config/catalog storage)")
+
+    def _lock_for(self, server_id: str) -> asyncio.Lock:
+        """The lock a server's start and stop are made under."""
+        lock = self._locks.get(server_id)
+        if lock is None:
+            lock = self._locks[server_id] = asyncio.Lock()
+        return lock
+
+    def get_mcp_config_path(self) -> Path:
+        """Get the path to the MCP configuration file."""
+        return Path.home() / ".datalayer" / "mcp.json"
+
+    def _expand_env_vars(
+        self, value: str, lookup_env: dict[str, str] | None = None
+    ) -> str:
+        """
+        Expand environment variables in a string (${VAR_NAME} syntax).
+
+        Args:
+            value: The string containing ``${VAR_NAME}`` placeholders.
+            lookup_env: Optional env dict to resolve variables from.
+                Falls back to ``os.environ`` if not provided.
+        """
+        import re
+
+        env_source = lookup_env if lookup_env is not None else os.environ
+        pattern = r"\$\{([^}]+)\}"
+
+        def replace(match: re.Match[str]) -> str:
+            var_name = match.group(1)
+            env_value = env_source.get(var_name, "")
+            if not env_value:
+                logger.warning(
+                    f"Environment variable '{var_name}' not found or empty during expansion"
+                )
+            # Used by the tool, never shown to the model (R-19).
+            hold_expansion(value, var_name, env_value)
+            return env_value
+
+        return re.sub(pattern, replace, value)
+
+    def _load_mcp_config(self) -> dict[str, Any]:
+        """Load MCP configuration from mcp.json file."""
+        config_path = self.get_mcp_config_path()
+
+        if not config_path.exists():
+            logger.info(f"MCP config file not found at {config_path}")
+            return {"mcpServers": {}}
+
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+                logger.info(f"Loaded MCP config from {config_path}")
+                return config
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in MCP config file: {e}")
+            return {"mcpServers": {}}
+        except Exception as e:
+            logger.error(f"Error reading MCP config file: {e}")
+            return {"mcpServers": {}}
+
+    def get_server_config_from_file(self, server_id: str) -> MCPServer | None:
+        """
+        Get config specifically from mcp.json for a server.
+
+        Args:
+            server_id: The server identifier to look up in mcp.json
+
+        Returns:
+            MCPServer config if found in mcp.json, None otherwise.
+            The returned config will have is_config=True.
+        """
+        config_data = self._load_mcp_config()
+        mcp_servers = config_data.get("mcpServers", {})
+
+        if server_id in mcp_servers:
+            return self.get_merged_server_config(
+                server_id, user_config=mcp_servers[server_id], from_config_file=True
+            )
+        return None
+
+    def get_merged_server_config(
+        self,
+        server_id: str,
+        user_config: dict[str, Any] | None = None,
+        from_config_file: bool = False,
+    ) -> MCPServer | None:
+        """
+        Get server config, merging mcp.json with catalog if available.
+
+        Priority:
+        1. If user_config has a 'command', use user config entirely (they know what they want)
+        2. If server_id matches a catalog server and no user command, use catalog command
+        3. Env vars from user_config are always merged in
+
+        Args:
+            server_id: The server identifier
+            user_config: Optional user-provided config overrides
+            from_config_file: True if this server is from mcp.json (marks as config server)
+
+        Returns:
+            MCPServer config or None if not found
+        """
+        # If user provides a command, or a url to reach a remote server at, use
+        # their config entirely. Its args, env and headers keep their `${VAR}`:
+        # they are expanded as the server starts, so a secret never sits in
+        # the config the routes answer (R-19).
+        if user_config:
+            expanded = dict(user_config)
+            if isinstance(expanded.get("command"), str):
+                expanded["command"] = self._expand_env_vars(expanded["command"])
+            if "command" in expanded or expanded.get("url"):
+                logger.info(
+                    f"Using user-provided "
+                    f"{'command' if 'command' in expanded else 'url'} "
+                    f"for MCP server '{server_id}'"
+                )
+
+                # Get any additional info from catalog (like name) if available
+                catalog_server = MCP_SERVER_CATALOG.get(server_id)
+
+                return MCPServer(
+                    id=server_id,
+                    name=expanded.get(
+                        "name",
+                        catalog_server.name
+                        if catalog_server
+                        else server_id.replace("-", " ").replace("_", " ").title(),
+                    ),
+                    description=expanded.get(
+                        "description",
+                        catalog_server.description if catalog_server else "",
+                    ),
+                    command=expanded.get("command"),
+                    args=expanded.get("args", []),
+                    env=expanded.get("env", {}),
+                    url=expanded.get("url", ""),
+                    headers=expanded.get("headers"),
+                    transport=expanded.get(
+                        "transport",
+                        "stdio" if "command" in expanded else "streamable-http",
+                    ),
+                    enabled=True,
+                    tools=[],
+                    is_config=from_config_file,  # Mark as config server if from mcp.json
+                )
+
+        # No user command - check if server is in catalog
+        catalog_server = MCP_SERVER_CATALOG.get(server_id)
+
+        if catalog_server:
+            # Start with catalog config
+            config = catalog_server.model_copy(deep=True)
+
+            # Mark as config server if loaded from mcp.json
+            config.is_config = from_config_file
+
+            # Apply user env overrides if provided
+            if user_config:
+                # Merged with their `${VAR}`, expanded as the server starts.
+                if "env" in user_config:
+                    config.env = {**(config.env or {}), **user_config["env"]}
+
+            logger.info(f"Using catalog config for MCP server '{server_id}'")
+            return config
+
+        logger.warning(f"No config found for MCP server '{server_id}'")
+        return None
+
+    def _format_exception(self, exc: BaseException) -> str:
+        """Format exception with traceback details."""
+        formatted = "".join(
+            traceback.format_exception(type(exc), exc, exc.__traceback__)
+        ).strip()
+        return formatted or f"{type(exc).__name__}: (no message)"
+
+    def _format_exception_group(self, exc_group: BaseException) -> list[str]:
+        """Recursively format an ExceptionGroup into readable lines."""
+        if not hasattr(exc_group, "exceptions"):
+            return [self._format_exception(exc_group)]
+        details: list[str] = []
+        for idx, exc in enumerate(getattr(exc_group, "exceptions", [])):
+            if isinstance(exc, (_ExceptionGroup, BaseExceptionGroup)):
+                nested_lines = self._format_exception_group(exc)
+                for nested_line in nested_lines:
+                    details.append(f"[{idx}] {nested_line}")
+            else:
+                details.append(f"[{idx}] {self._format_exception(exc)}")
+        return details
+
+    async def start_server(
+        self,
+        server_id: str,
+        config: MCPServer | None = None,
+        extra_env: dict[str, str] | None = None,
+    ) -> MCPServerInstance | None:
+        """
+        Start an MCP server.
+
+        Args:
+            server_id: The server identifier
+            config: Optional MCPServer config. If not provided, will try to
+                   get from catalog or mcp.json.
+            extra_env: Additional environment variables to pass to the server
+                subprocess. These are merged on top of ``os.environ`` and
+                ``config.env``, and are also available for ``${VAR}``
+                expansion in server args and config env values.
+
+        Returns:
+            MCPServerInstance if started successfully, None otherwise
+        """
+        logger.info(f"🔄 start_server called for '{server_id}'")
+
+        if extra_env is not None or server_id not in self._extra_envs:
+            self._extra_envs[server_id] = extra_env
+        if config is not None:
+            self._configs[server_id] = config
+        # Starting again: what the last start failed with is no longer the
+        # word on it — this one's result is (a turn waiting on it waits for
+        # that, rather than giving up on the stale failure).
+        self._failed_servers.pop(server_id, None)
+        self._starting_servers.add(server_id)
+        try:
+            async with self._lock_for(server_id):
+                logger.debug(f"Acquired lock for '{server_id}'")
+                return await self._start_within_deadline(server_id, config, extra_env)
+        except asyncio.CancelledError:
+            # Whoever asked for the start is gone (the request that spawned
+            # it ended, the runtime stops): said, so that a turn finds the
+            # server failed, not starting, and starts it again.
+            error = f"MCP server '{server_id}' start was cancelled before it ended"
+            logger.warning(f"✗ {error}")
+            self._failed_servers[server_id] = error
+            raise
+        except Exception as e:
+            error = (
+                f"MCP server '{server_id}' failed to start: {self._format_exception(e)}"
+            )
+            logger.error(redact(f"✗ {error}"))
+            self._failed_servers[server_id] = error
+            return None
+        finally:
+            self._starting_servers.discard(server_id)
+
+    async def _start_within_deadline(
+        self,
+        server_id: str,
+        config: MCPServer | None,
+        extra_env: dict[str, str] | None,
+    ) -> MCPServerInstance | None:
+        """
+        Run the start as a task of its own, ended at `start_deadline`.
+
+        A hung handshake is not ended by its own timeout when the client
+        does not end on the cancellation the timeout sends it: the start is
+        then ended here, failed in `_failed_servers`, its task cancelled and
+        given `MCP_SERVER_START_GRACE` to close what it opened, then left to
+        end on its own — never holding the lock, never "starting" for good.
+        A start cancelled from outside cancels its task with it.
+
+        Parameters
+        ----------
+        server_id : str
+            The server.
+        config : MCPServer | None
+            Its configuration, or the catalogue's or mcp.json's when ``None``.
+        extra_env : dict[str, str] | None
+            The secrets the start was given.
+
+        Returns
+        -------
+        MCPServerInstance | None
+            The running server, or ``None`` when it did not start.
+        """
+        deadline = start_deadline()
+        task = asyncio.ensure_future(
+            self._start_server_inner(server_id, config, extra_env)
+        )
+        self._starts[server_id] = task
+        try:
+            done, _ = await asyncio.wait({task}, timeout=deadline)
+        except asyncio.CancelledError:
+            self._abandoned.add(task)
+            task.add_done_callback(self._abandoned.discard)
+            task.cancel()
+            raise
+        finally:
+            if self._starts.get(server_id) is task:
+                del self._starts[server_id]
+        if done:
+            return task.result()
+        error = (
+            f"MCP server '{server_id}' did not start within {deadline:g}s: "
+            "its start was ended"
+        )
+        logger.error(f"✗ {error}")
+        self._failed_servers[server_id] = error
+        self._abandoned.add(task)
+        task.add_done_callback(self._abandoned.discard)
+        task.cancel()
+        ended, _ = await asyncio.wait({task}, timeout=MCP_SERVER_START_GRACE)
+        if not ended:
+            logger.warning(
+                f"MCP server '{server_id}' start is still ending "
+                f"{MCP_SERVER_START_GRACE:g}s after its deadline: left to end on its own"
+            )
+        return None
+
+    def _abandoned_start(self) -> bool:
+        """Whether the start under way was ended at its deadline: what it opens is not kept."""
+        return asyncio.current_task() in self._abandoned
+
+    async def _start_server_inner(
+        self,
+        server_id: str,
+        config: MCPServer | None = None,
+        extra_env: dict[str, str] | None = None,
+    ) -> MCPServerInstance | None:
+        """Inner implementation of start_server (called with _starting_servers tracking, under the server's lock and `start_deadline`)."""
+
+        # Determine which storage to use based on config.is_config
+        # (we need config first to know this)
+
+        # Get config
+        if config is None:
+            config = self.get_merged_server_config(server_id)
+
+        if config is None:
+            error = f"No configuration found for MCP server '{server_id}'"
+            logger.error(error)
+            self._failed_servers[server_id] = error
+            return None
+
+        # Select the appropriate storage based on whether it's a config or catalog server
+        storage = self._config_servers if config.is_config else self._catalog_servers
+        storage_name = "config" if config.is_config else "catalog"
+
+        # Check if already running in the appropriate storage
+        if server_id in storage:
+            instance = storage[server_id]
+            if instance.is_running:
+                logger.info(
+                    f"MCP server '{server_id}' is already running (in {storage_name})"
+                )
+                return instance
+
+        remote = (
+            config.transport == "streamable-http"
+            and bool(config.url)
+            and not config.command
+        )
+        logger.info(
+            redact(
+                f"🔧 Creating MCP server '{server_id}' ({storage_name}) "
+                + (
+                    f"at {config.url}"
+                    if remote
+                    else f"with command: {config.command} {config.args}"
+                )
+            )
+        )
+
+        # Import pydantic_ai MCP support
+        try:
+            from fastmcp.client.transports import StdioTransport
+
+            from agent_runtimes.mcp.displays import DisplayMCPToolset
+        except ImportError as e:
+            error = f"pydantic_ai.mcp not available: {e}"
+            logger.error(error)
+            self._failed_servers[server_id] = error
+            return None
+
+        # Create the pydantic MCP server
+        try:
+            # Build env dict:
+            #  1. Start with the current process environment
+            #  2. Layer extra_env (from API request body, e.g. decoded secrets)
+            #  3. Layer config.env (from catalog/mcp.json, may contain ${VAR} refs)
+            # This ordering lets config.env reference extra_env values via ${VAR}.
+            # Without the secrets a configure gave for other servers (R-19).
+            env = env_for_server(os.environ, config)
+
+            if extra_env:
+                env.update(extra_env)
+                # Used by the server, never shown to the model (R-19).
+                hold_env(extra_env)
+                # Names only: never any part of a value.
+                logger.info(
+                    f"  [mcp/lifecycle] extra env vars for '{server_id}': "
+                    f"{sorted(extra_env.keys())}"
+                )
+                logger.debug(
+                    f"  Merged {len(extra_env)} extra env var(s): "
+                    f"{list(extra_env.keys())}"
+                )
+
+            if config.env:
+                # Expand environment variables in the env dict.
+                # Use the combined env for expansion so ${VAR} can
+                # resolve values from extra_env as well.
+                expanded_env = {
+                    key: self._expand_env_vars(value, lookup_env=env)
+                    if isinstance(value, str)
+                    else value
+                    for key, value in config.env.items()
+                }
+                logger.debug(f"  Expanded config.env: {list(expanded_env.keys())}")
+                # Used by the server, never shown to the model (R-19).
+                hold_env(expanded_env)
+                env.update(expanded_env)
+
+            # Expand environment variables in args (e.g., ${KAGGLE_API_TOKEN}).
+            # Use the combined env so args can reference extra_env values.
+            expanded_args = [
+                self._expand_env_vars(arg, lookup_env=env)
+                if isinstance(arg, str)
+                else arg
+                for arg in (config.args or [])
+            ]
+            problem = empty_bearer_problem(
+                server_id, list(config.args or []), expanded_args
+            )
+            if problem:
+                logger.error(f"✗ {problem}")
+                self._failed_servers[server_id] = problem
+                return None
+
+            if remote:
+                # Reached at its url, no process: its headers sent with
+                # every request, the bearer among them expanded here and
+                # held, never shown to the model (R-19).
+                headers = self._expanded_headers(config, env)
+                problem = empty_bearer_problem(
+                    server_id,
+                    [f"{n}: {v}" for n, v in (config.headers or {}).items()],
+                    [f"{n}: {v}" for n, v in headers.items()],
+                )
+                if problem:
+                    logger.error(f"✗ {problem}")
+                    self._failed_servers[server_id] = problem
+                    return None
+                pydantic_server = remote_toolset(
+                    server_id, config.url, headers, MCP_SERVER_HANDSHAKE_TIMEOUT
+                )
+            elif config.transport == "streamable-http" and config.url:
+                # Its command runs as a local HTTP process, reached at its
+                # url (W-02: Gmail, whose every request carries a
+                # token IAM minted for whom the run acts for).
+                return await self._start_http_process_server(
+                    server_id, config, env, expanded_args
+                )
+            elif not config.command:
+                raise ValueError(
+                    f"MCP server '{server_id}' names no command to run and "
+                    "no url to reach it at"
+                )
+            else:
+                pydantic_server = DisplayMCPToolset(
+                    StdioTransport(
+                        command=config.command,
+                        args=expanded_args,
+                        env=env,
+                    ),
+                    id=server_id,
+                    init_timeout=MCP_SERVER_HANDSHAKE_TIMEOUT,
+                )
+
+            # Log the env vars that will be available in the subprocess.
+            # For npx-based servers (e.g., tavily, kaggle) this is the
+            # ONLY source of env vars — the stdio transport subprocess does not inherit
+            # from the parent process.
+            if extra_env and not remote:
+                logger.info(
+                    f"  MCP server '{server_id}' ({config.command}) subprocess env "
+                    f"includes {len(extra_env)} injected var(s): "
+                    f"{sorted(extra_env.keys())}"
+                )
+
+        except Exception as e:
+            error = f"Failed to create MCP server: {e}"
+            logger.error(redact(f"✗ MCP server '{server_id}' creation failed: {error}"))
+            self._failed_servers[server_id] = error
+            return None
+
+        # Start the server
+        exit_stack = AsyncExitStack()
+        await exit_stack.__aenter__()
+
+        try:
+            return await self._attempts(server_id, config, pydantic_server, exit_stack)
+        except asyncio.CancelledError:
+            # Ended at its deadline, or by whoever asked for it: what the
+            # attempt opened is closed, nothing kept.
+            await self._close_quietly(exit_stack, server_id, "its cancellation")
+            raise
+
+    async def _attempts(
+        self,
+        server_id: str,
+        config: MCPServer,
+        pydantic_server: Any,
+        exit_stack: AsyncExitStack,
+    ) -> MCPServerInstance | None:
+        """
+        The attempts at the handshake, `MCP_SERVER_MAX_ATTEMPTS` at most.
+
+        Parameters
+        ----------
+        server_id : str
+            The server.
+        config : MCPServer
+            Its configuration, given its tools once it answered.
+        pydantic_server : Any
+            Its toolset, entered on the exit stack.
+        exit_stack : AsyncExitStack
+            Where the toolset is entered; closed when the start fails.
+
+        Returns
+        -------
+        MCPServerInstance | None
+            The running server, or ``None`` when no attempt succeeded.
+        """
+        attempt = 1
+        while attempt <= MCP_SERVER_MAX_ATTEMPTS:
+            try:
+                logger.info(
+                    f"⏳ Starting MCP server '{server_id}' (attempt {attempt}/{MCP_SERVER_MAX_ATTEMPTS})..."
+                )
+                await asyncio.wait_for(
+                    exit_stack.enter_async_context(pydantic_server),
+                    timeout=MCP_SERVER_STARTUP_TIMEOUT,
+                )
+                await asyncio.sleep(0)
+
+                # Get tools
+                tools: list[MCPServerTool] = []
+                try:
+                    running_tools = await asyncio.wait_for(
+                        pydantic_server.list_tools(),
+                        timeout=MCP_SERVER_STARTUP_TIMEOUT,
+                    )
+                    for tool in running_tools:
+                        input_schema = tool.input_schema
+                        tools.append(
+                            MCPServerTool(
+                                name=tool.name,
+                                description=getattr(tool, "description", "") or "",
+                                enabled=True,
+                                input_schema=input_schema,
+                            )
+                        )
+                    tool_names = [t.name for t in tools]
+                    logger.info(
+                        f"✓ MCP server '{server_id}' started with tools: {tool_names}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to list tools for '{server_id}': {e}")
+                    logger.info(
+                        f"✓ MCP server '{server_id}' started (tools unavailable)"
+                    )
+
+                # The handshake is over: a refusal from now on is a
+                # tool's to say, the way every tool error reaches the model.
+                refusals = getattr(pydantic_server, "refusals", None)
+                if refusals is not None:
+                    refusals.stand_down()
+
+                # Update config with discovered tools
+                config.tools = tools
+                config.is_available = True
+                config.is_running = True
+
+                if self._abandoned_start():
+                    # Failed at its deadline already, its lock released and
+                    # another start maybe under way: what this one opened
+                    # is closed, not kept.
+                    await self._close_quietly(exit_stack, server_id, "its deadline")
+                    return None
+
+                # Create instance
+                instance = MCPServerInstance(
+                    server_id=server_id,
+                    config=config,
+                    pydantic_server=pydantic_server,
+                    exit_stack=exit_stack,
+                    tools=tools,
+                )
+                # Store in appropriate dict based on is_config
+                storage = (
+                    self._config_servers if config.is_config else self._catalog_servers
+                )
+                storage[server_id] = instance
+                self._failed_servers.pop(server_id, None)
+                logger.info(
+                    f"✓ MCP server '{server_id}' stored in {'config' if config.is_config else 'catalog'} servers"
+                )
+                return instance
+
+            except asyncio.TimeoutError:
+                # Not tried again: a server that hangs hangs as long on
+                # every attempt, and the configure waiting on it with it.
+                error_detail = (
+                    f"MCP server '{server_id}' did not start within "
+                    f"{MCP_SERVER_STARTUP_TIMEOUT:g}s"
+                )
+                logger.error(f"✗ {error_detail}")
+                try:
+                    await exit_stack.__aexit__(None, None, None)
+                except BaseException as close_error:  # noqa: BLE001
+                    logger.debug(
+                        f"Closing '{server_id}' after its timeout: {close_error}"
+                    )
+                self._failed_servers[server_id] = self._refused_or(
+                    pydantic_server, error_detail
+                )
+                return None
+
+            except (_ExceptionGroup, BaseExceptionGroup) as eg:
+                error_lines = self._format_exception_group(eg)
+                for line in error_lines:
+                    logger.error(
+                        redact(f"✗ MCP server '{server_id}' exception: {line}")
+                    )
+                error_detail = (
+                    error_lines[0] if error_lines else "Unknown error in TaskGroup"
+                )
+
+                if (
+                    "BrokenResourceError" in error_detail
+                    and attempt < MCP_SERVER_MAX_ATTEMPTS
+                ):
+                    logger.warning(
+                        f"MCP server '{server_id}' hit BrokenResourceError; retrying"
+                    )
+                    await asyncio.sleep(min(2 * attempt, MCP_SERVER_RETRY_BACKOFF))
+                    attempt += 1
+                    continue
+
+                await exit_stack.__aexit__(None, None, None)
+                self._failed_servers[server_id] = self._refused_or(
+                    pydantic_server, error_detail
+                )
+                return None
+
+            except Exception as e:
+                error_detail = self._format_exception(e)
+                if (
+                    "BrokenResourceError" in error_detail
+                    and attempt < MCP_SERVER_MAX_ATTEMPTS
+                ):
+                    logger.warning(
+                        f"MCP server '{server_id}' hit BrokenResourceError; retrying"
+                    )
+                    await asyncio.sleep(min(2 * attempt, MCP_SERVER_RETRY_BACKOFF))
+                    attempt += 1
+                    continue
+
+                await exit_stack.__aexit__(None, None, None)
+                logger.error(
+                    redact(f"✗ MCP server '{server_id}' startup failed: {error_detail}")
+                )
+                self._failed_servers[server_id] = self._refused_or(
+                    pydantic_server, error_detail
+                )
+                return None
+
+        return None
+
+    @staticmethod
+    async def _close_quietly(
+        exit_stack: AsyncExitStack, server_id: str, after: str
+    ) -> None:
+        """Close what a start opened, whatever closing it raises."""
+        try:
+            await exit_stack.aclose()
+        except BaseException as close_error:  # noqa: BLE001
+            logger.debug(f"Closing '{server_id}' after {after}: {close_error}")
+
+    def _expanded_headers(
+        self, config: MCPServer, env: dict[str, str]
+    ) -> dict[str, str]:
+        """A remote server's headers with their ``${VAR}`` expanded, the
+        credentials among them held, never shown to the model (R-19).
+        """
+        headers = {
+            name: self._expand_env_vars(value, lookup_env=env)
+            if isinstance(value, str)
+            else str(value)
+            for name, value in (config.headers or {}).items()
+        }
+        for name, value in headers.items():
+            if SENDS_CREDENTIAL.search(name):
+                hold(value)
+        return headers
+
+    @staticmethod
+    def _refused_or(pydantic_server: Any, error_detail: str) -> str:
+        """What a failed start is said to have failed with: the sentence a
+        remote server refused the handshake with, when it did, else
+        ``error_detail``.
+        """
+        refusals = getattr(pydantic_server, "refusals", None)
+        sentence = getattr(refusals, "sentence", None)
+        return sentence or error_detail
+
+    async def _start_http_process_server(
+        self,
+        server_id: str,
+        config: MCPServer,
+        env: dict[str, str],
+        args: list[str],
+    ) -> MCPServerInstance | None:
+        """Start a server's command as a local HTTP process, reached at its url.
+
+        Nothing is asked of it here: a server that opens what each request's
+        token says (Gmail, W-02) answers nobody without one, so its
+        tools are listed by each run's own toolset
+        (`google_workspace.toolset_for_the_run`), never by the process's.
+        """
+        from agent_runtimes.mcp.displays import DisplayMCPToolset
+        from agent_runtimes.mcp.google_workspace import (
+            start_http_process,
+            stop_http_process,
+        )
+
+        storage = self._config_servers if config.is_config else self._catalog_servers
+        try:
+            process = await start_http_process(
+                server_id,
+                str(config.command or ""),
+                args,
+                env,
+                config.url,
+                MCP_SERVER_STARTUP_TIMEOUT,
+            )
+        except Exception as error:  # noqa: BLE001 - said, as any start that fails
+            detail = redact(f"Failed to start MCP server '{server_id}': {error}")
+            logger.error(f"✗ {detail}")
+            self._failed_servers[server_id] = detail
+            return None
+        exit_stack = AsyncExitStack()
+        await exit_stack.__aenter__()
+        exit_stack.push_async_callback(stop_http_process, process)
+        config.tools = []
+        config.is_available = True
+        config.is_running = True
+        instance = MCPServerInstance(
+            server_id=server_id,
+            config=config,
+            # Never entered: each run is given a toolset of its own in its
+            # place, bound to whom it acts for.
+            pydantic_server=DisplayMCPToolset(config.url, id=server_id),
+            exit_stack=exit_stack,
+            tools=[],
+        )
+        storage[server_id] = instance
+        self._failed_servers.pop(server_id, None)
+        logger.info(f"✓ MCP server '{server_id}' listens at {config.url}")
+        return instance
+
+    async def stop_server(self, server_id: str, is_config: bool = False) -> bool:
+        """
+        Stop a running MCP server.
+
+        Args:
+            server_id: The server identifier
+            is_config: Whether this is a config server (from mcp.json) or catalog server
+
+        Returns:
+            True if stopped successfully, False otherwise
+        """
+        async with self._lock_for(server_id):
+            # Select the appropriate storage
+            storage = self._config_servers if is_config else self._catalog_servers
+            storage_name = "config" if is_config else "catalog"
+
+            instance = storage.pop(server_id, None)
+            if instance is None:
+                logger.warning(
+                    f"MCP server '{server_id}' is not running in {storage_name}"
+                )
+                return False
+
+            try:
+                await instance.exit_stack.__aexit__(None, None, None)
+                instance.is_running = False
+                instance.config.is_running = False
+                logger.info(f"✓ Stopped MCP server '{server_id}' ({storage_name})")
+                return True
+            except RuntimeError as e:
+                if "cancel scope" in str(e).lower():
+                    logger.debug(
+                        f"MCP server '{server_id}' stopped (cancel scope closed)"
+                    )
+                else:
+                    logger.warning(f"Error stopping MCP server '{server_id}': {e}")
+                return True
+            except Exception as e:
+                logger.warning(f"Error stopping MCP server '{server_id}': {e}")
+                return True
+
+    def retry_in_background(self, server_id: str) -> bool:
+        """
+        Start a server that is not running again, in the background, at most
+        once every :data:`RETRY_SECONDS`, the way it was first started.
+
+        A server that failed at a runtime's start was otherwise skipped by
+        every turn after: Disaster Assessment's `earthdata` started 11 ms
+        before the runtime's key was in its environment, its header expanded
+        empty, and the deployment answered without its tools for hours
+        (H-03, 2026-10-10). The turn that finds it stopped goes on
+        without it; the next one finds it running.
+
+        Returns
+        -------
+        bool
+            Whether a start was asked for.
+        """
+        if server_id in self._starting_servers:
+            return False
+        now = time.monotonic()
+        if now - self._retried_at.get(server_id, float("-inf")) < RETRY_SECONDS:
+            return False
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return False
+        self._retried_at[server_id] = now
+        logger.info(f"MCP server '{server_id}' is not running: started again")
+        task = loop.create_task(
+            self.start_server(
+                server_id,
+                config=self._configs.get(server_id),
+                extra_env=self._extra_envs.get(server_id),
+            )
+        )
+        # Held until it ends: a task nothing holds may be collected before.
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return True
+
+    def get_running_server(
+        self, server_id: str, is_config: bool | None = None
+    ) -> MCPServerInstance | None:
+        """
+        Get a running server instance by ID.
+
+        Args:
+            server_id: The server identifier
+            is_config: If True, only check config servers. If False, only check catalog.
+                      If None, check both (catalog first, then config).
+        """
+        if is_config is True:
+            return self._config_servers.get(server_id)
+        elif is_config is False:
+            return self._catalog_servers.get(server_id)
+        else:
+            # Check catalog first, then config
+            return self._catalog_servers.get(server_id) or self._config_servers.get(
+                server_id
+            )
+
+    async def wait_until_ready(self, server_id: str, timeout: float = 30.0) -> bool:
+        """
+        Wait asynchronously until *server_id* is running or known-failed.
+
+        Called by ``PydanticAIAdapter._get_runtime_toolsets_async()`` so the
+        first agent run can include tools from a server that is still starting
+        in the background.
+
+        Args:
+            server_id: The server identifier to wait for.
+            timeout: Maximum seconds to wait before giving up.
+
+        Returns:
+            True if the server is now running, False if it failed or timed out.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        poll_interval = 0.1
+
+        while True:
+            # Already running?
+            if self.get_running_server(server_id):
+                logger.info(f"wait_until_ready: '{server_id}' is now running")
+                return True
+
+            # Known failure?
+            if server_id in self._failed_servers:
+                logger.warning(
+                    f"wait_until_ready: '{server_id}' failed to start: {self._failed_servers[server_id]}"
+                )
+                return False
+
+            # Not starting and not running — nothing will ever arrive.
+            if server_id not in self._starting_servers:
+                logger.debug(
+                    f"wait_until_ready: '{server_id}' is not in _starting_servers, giving up"
+                )
+                return False
+
+            # Timeout?
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                logger.warning(
+                    f"wait_until_ready: timed out waiting for '{server_id}' after {timeout}s"
+                )
+                return False
+
+            await asyncio.sleep(min(poll_interval, remaining))
+
+    def get_config_servers(self) -> list[MCPServerInstance]:
+        """
+        Get all running config server instances (from mcp.json).
+        """
+        return list(self._config_servers.values())
+
+    def get_catalog_servers(self) -> list[MCPServerInstance]:
+        """
+        Get all running catalog server instances.
+        """
+        return list(self._catalog_servers.values())
+
+    def get_all_running_servers(self) -> list[MCPServerInstance]:
+        """
+        Get all running server instances (both config and catalog).
+        """
+        return list(self._config_servers.values()) + list(
+            self._catalog_servers.values()
+        )
+
+    def get_running_server_ids(self) -> list[str]:
+        """
+        Get IDs of all running servers (combined, may have duplicates).
+        """
+        return list(self._config_servers.keys()) + list(self._catalog_servers.keys())
+
+    def get_config_server_ids(self) -> list[str]:
+        """
+        Get IDs of running config servers.
+        """
+        return list(self._config_servers.keys())
+
+    def get_catalog_server_ids(self) -> list[str]:
+        """
+        Get IDs of running catalog servers.
+        """
+        return list(self._catalog_servers.keys())
+
+    def is_server_running(self, server_id: str, is_config: bool | None = None) -> bool:
+        """
+        Check if a server is running.
+
+        Args:
+            server_id: The server identifier
+            is_config: If True, only check config servers. If False, only check catalog.
+                      If None, check both.
+        """
+        instance = self.get_running_server(server_id, is_config)
+        return instance is not None and instance.is_running
+
+    def is_config_server_running(self, server_id: str) -> bool:
+        """
+        Check if a config server (from mcp.json) is running.
+        """
+        return self.is_server_running(server_id, is_config=True)
+
+    def is_catalog_server_running(self, server_id: str) -> bool:
+        """
+        Check if a catalog server is running.
+        """
+        return self.is_server_running(server_id, is_config=False)
+
+    def get_failed_servers(self) -> dict[str, str]:
+        """
+        Get dict of failed server IDs to error messages.
+        """
+        return self._failed_servers.copy()
+
+    def get_server_status(
+        self, server_id: str, is_config: bool | None = None
+    ) -> dict[str, Any]:
+        """Get status of a specific server."""
+        instance = self.get_running_server(server_id, is_config)
+        if instance:
+            return {
+                "id": server_id,
+                "status": "running" if instance.is_running else "stopped",
+                "tools_count": len(instance.tools),
+                "error": instance.error,
+                "is_config": instance.config.is_config,
+            }
+        elif server_id in self._starting_servers:
+            return {
+                "id": server_id,
+                "status": "starting",
+            }
+        elif server_id in self._failed_servers:
+            return {
+                "id": server_id,
+                "status": "failed",
+                "error": self._failed_servers[server_id],
+            }
+        else:
+            return {
+                "id": server_id,
+                "status": "stopped",
+            }
+
+    def get_all_servers_status(self) -> list[dict[str, Any]]:
+        """
+        Get per-server status for all known servers.
+
+        Each entry has:
+        - id: server identifier
+        - status: one of "none", "not_started", "starting", "failed", "started"
+        - error: error message (only when status == "failed")
+        - tools_count: number of discovered tools (only when status == "started")
+        """
+        # Collect all known server IDs
+        all_ids: set[str] = set()
+        all_ids.update(self._expected_servers)
+        all_ids.update(self._config_servers.keys())
+        all_ids.update(self._catalog_servers.keys())
+        all_ids.update(self._failed_servers.keys())
+        all_ids.update(self._starting_servers)
+
+        results: list[dict[str, Any]] = []
+        for sid in sorted(all_ids):
+            # Check running first
+            instance = self._config_servers.get(sid) or self._catalog_servers.get(sid)
+            if instance and instance.is_running:
+                results.append(
+                    {
+                        "id": sid,
+                        "status": "started",
+                        "tools_count": len(instance.tools),
+                        "tools": [
+                            {
+                                "name": t.name,
+                                "description": t.description or "",
+                                "enabled": t.enabled,
+                            }
+                            for t in instance.tools
+                        ],
+                    }
+                )
+            elif sid in self._starting_servers:
+                results.append(
+                    {
+                        "id": sid,
+                        "status": "starting",
+                    }
+                )
+            elif sid in self._failed_servers:
+                results.append(
+                    {
+                        "id": sid,
+                        "status": "failed",
+                        "error": self._failed_servers[sid],
+                    }
+                )
+            elif sid in self._expected_servers:
+                results.append(
+                    {
+                        "id": sid,
+                        "status": "not_started",
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "id": sid,
+                        "status": "not_started",
+                    }
+                )
+        return results
+
+    def get_pydantic_toolsets(
+        self, include_config: bool = True, include_catalog: bool = True
+    ) -> list[Any]:
+        """
+        Get running MCP servers as pydantic_ai toolsets.
+
+        Args:
+            include_config: Whether to include config servers (from mcp.json)
+            include_catalog: Whether to include catalog servers
+
+        Returns:
+            List of pydantic MCP server instances for use with Agent(toolsets=...)
+        """
+        toolsets = []
+        if include_config:
+            toolsets.extend(
+                [
+                    instance.pydantic_server
+                    for instance in self._config_servers.values()
+                    if instance.is_running
+                ]
+            )
+        if include_catalog:
+            toolsets.extend(
+                [
+                    instance.pydantic_server
+                    for instance in self._catalog_servers.values()
+                    if instance.is_running
+                ]
+            )
+        return toolsets
+
+    async def initialize_from_config(self) -> None:
+        """
+        Initialize MCP servers from mcp.json config file.
+
+        For each server in the config:
+        - If it matches a library server, use the library command
+        - Otherwise use the command from mcp.json
+        """
+        if self._initialization_started:
+            logger.warning("MCP lifecycle initialization already started")
+            return
+
+        self._initialization_started = True
+        self._initialization_event = asyncio.Event()
+
+        config = self._load_mcp_config()
+        mcp_servers = config.get("mcpServers", {})
+
+        if not mcp_servers:
+            logger.info("No MCP servers in config file")
+            self._initialization_event.set()
+            return
+
+        # Track all expected servers so status can report "not_started" vs "none"
+        self._expected_servers = set(mcp_servers.keys())
+
+        logger.info(f"📦 Initializing {len(mcp_servers)} MCP server(s) from config")
+
+        success_count = 0
+        for server_id, server_config in mcp_servers.items():
+            logger.info(f"Processing MCP server '{server_id}'...")
+            try:
+                # Get merged config (library + user overrides)
+                # Mark as from_config_file=True since these are from mcp.json
+                merged_config = self.get_merged_server_config(
+                    server_id, server_config, from_config_file=True
+                )
+
+                if merged_config:
+                    logger.info(
+                        f"Starting MCP server '{server_id}' (is_config={merged_config.is_config})..."
+                    )
+                    instance = await self.start_server(server_id, merged_config)
+                    if instance:
+                        success_count += 1
+                        logger.info(f"✓ MCP server '{server_id}' started successfully")
+                    else:
+                        logger.warning(f"✗ MCP server '{server_id}' failed to start")
+                else:
+                    logger.warning(f"No config available for MCP server '{server_id}'")
+            except Exception as e:
+                logger.error(
+                    redact(
+                        f"Exception starting MCP server '{server_id}': "
+                        + self._format_exception(e)
+                    )
+                )
+                self._failed_servers[server_id] = str(e)
+
+        logger.info(
+            f"🎉 MCP initialization complete: {success_count}/{len(mcp_servers)} servers started"
+        )
+        self._initialization_event.set()
+
+    async def shutdown(self) -> None:
+        """Shutdown all running MCP servers."""
+        # Stop config servers
+        config_ids = list(self._config_servers.keys())
+        for server_id in config_ids:
+            await self.stop_server(server_id, is_config=True)
+
+        # Stop catalog servers
+        catalog_ids = list(self._catalog_servers.keys())
+        for server_id in catalog_ids:
+            await self.stop_server(server_id, is_config=False)
+
+        self._failed_servers.clear()
+        self._starting_servers.clear()
+        self._expected_servers.clear()
+        self._initialization_started = False
+        self._initialization_event = None
+        logger.info("MCP lifecycle shutdown complete")
+
+    async def wait_for_initialization(self, timeout: float | None = None) -> bool:
+        """Wait for initialization to complete."""
+        if self._initialization_event is None:
+            return False
+
+        try:
+            if timeout is None:
+                await self._initialization_event.wait()
+            else:
+                await asyncio.wait_for(
+                    self._initialization_event.wait(), timeout=timeout
+                )
+            return True
+        except asyncio.TimeoutError:
+            return False
+
+    def is_initialized(self) -> bool:
+        """Check if initialization has completed."""
+        return (
+            self._initialization_event is not None
+            and self._initialization_event.is_set()
+        )
+
+
+# Global singleton instance
+_lifecycle_manager: MCPLifecycleManager | None = None
+
+
+def get_mcp_lifecycle_manager() -> MCPLifecycleManager:
+    """Get the global MCP lifecycle manager instance."""
+    global _lifecycle_manager
+    if _lifecycle_manager is None:
+        _lifecycle_manager = MCPLifecycleManager()
+    return _lifecycle_manager
+
+
+def set_mcp_lifecycle_manager(manager: MCPLifecycleManager) -> None:
+    """Set the global MCP lifecycle manager instance."""
+    global _lifecycle_manager
+    _lifecycle_manager = manager

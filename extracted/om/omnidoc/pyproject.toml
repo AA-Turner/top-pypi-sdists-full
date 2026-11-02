@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnidoc"
+version = "0.1.7"
+description = "OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation in 38 languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["omnidoc", "document translation", "pdf translation", "translate pdf", "pdf to word", "layout preserved", "document conversion", "content extraction", "structured extraction", "docx", "pptx", "latex", "mcp", "mcp server", "claude", "cursor", "ai office", "ai office suite", "api client"]
+dependencies = [
+    "requests>=2.31",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://omnidoc.top/"
+"Homepage (China)" = "https://omnidoc.cn/"
+Documentation = "https://docs.omnidoc.top/"
+Download = "https://download.omnidoc.top/"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

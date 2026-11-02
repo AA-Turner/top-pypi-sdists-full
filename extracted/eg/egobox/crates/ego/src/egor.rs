@@ -1,0 +1,2281 @@
+//! Egor optimizer implements EGO algorithm with basic handling of constraints
+//! with the following features:
+//!
+//! * Mixture of Gaussian processes
+//! * Mixed-integer variables handling through continuous relaxation
+//! * Trust-region EGO optional activation
+//! * Infill criteria: EI, LogEI, WB2, WB2S, CEI
+//! * Multi-point infill strategy (aka qEI)
+//! * Warm/hot start
+//!
+//! See refences below.
+//!
+//! ```no_run
+//! # use ndarray::{array, Array2, ArrayView1, ArrayView2, Zip};
+//! # use egobox_doe::{Lhs, SamplingMethod};
+//! # use egobox_ego::{EgorBuilder, InfillStrategy, InfillOptimizer};
+//!
+//! # use rand_xoshiro::Xoshiro256Plus;
+//! # use ndarray_rand::rand::SeedableRng;
+//! use argmin_testfunctions::rosenbrock;
+//!
+//! // Rosenbrock test function: minimum y_opt = 0 at x_opt = (1, 1)
+//! fn rosenb(x: &ArrayView2<f64>) -> Array2<f64> {
+//!     let mut y: Array2<f64> = Array2::zeros((x.nrows(), 1));
+//!     Zip::from(y.rows_mut())
+//!         .and(x.rows())
+//!         .par_for_each(|mut yi, xi| yi.assign(&array![rosenbrock(&xi.to_vec())]));
+//!     y
+//! }
+//!
+//! let xlimits = array![[-2., 2.], [-2., 2.]];
+//! let res = EgorBuilder::optimize(rosenb).configure(|config|
+//!         config
+//!             .infill_strategy(InfillStrategy::EI)
+//!             .n_doe(10)
+//!             .target(1e-1)
+//!             .max_iters(30))
+//!     .min_within(&xlimits)
+//!     .expect("optimizer configured")
+//!     .run()
+//!     .expect("Rosenbrock minimization");
+//! println!("Rosenbrock min result = {:?}", res);
+//! ```
+//!
+//! Constraints are expected to be evaluated with the objective function
+//! meaning that the function passed to the optimizer has to return
+//! a vector consisting of [obj, cstr_1, ..., cstr_n] (or [obj_1, ..., obj_n_obj, cstr_1, ...]
+//! with several objectives, see `EgorConfig::n_obj`) and the cstr values
+//! are intended to be negative at the end of the optimization.
+//! Constraint number should be declared with `n_cstr` setter.
+//! A tolerance can be adjust with `cstr_tol` setter for relaxing constraint violation
+//! if specified cstr values should be < `cstr_tol` (instead of < 0)
+//!
+//! ```no_run
+//! # use ndarray::{array, Array2, ArrayView1, ArrayView2, Zip};
+//! # use egobox_doe::{Lhs, SamplingMethod};
+//! # use egobox_ego::{EgorBuilder, InfillStrategy, InfillOptimizer};
+//! # use rand_xoshiro::Xoshiro256Plus;
+//! # use ndarray_rand::rand::SeedableRng;
+//!
+//! // Function G24: 1 global optimum y_opt = -5.5080 at x_opt =(2.3295, 3.1785)
+//! fn g24(x: &ArrayView1<f64>) -> f64 {
+//!    -x[0] - x[1]
+//! }
+//!
+//! // Constraints < 0
+//! fn g24_c1(x: &ArrayView1<f64>) -> f64 {
+//!     -2.0 * x[0].powf(4.0) + 8.0 * x[0].powf(3.0) - 8.0 * x[0].powf(2.0) + x[1] - 2.0
+//! }
+//!
+//! fn g24_c2(x: &ArrayView1<f64>) -> f64 {
+//!     -4.0 * x[0].powf(4.0) + 32.0 * x[0].powf(3.0)
+//!     - 88.0 * x[0].powf(2.0) + 96.0 * x[0] + x[1]
+//!     - 36.0
+//! }
+//!
+//! // Gouped function : objective + constraints
+//! fn f_g24(x: &ArrayView2<f64>) -> Array2<f64> {
+//!     let mut y = Array2::zeros((x.nrows(), 3));
+//!     Zip::from(y.rows_mut())
+//!         .and(x.rows())
+//!         .for_each(|mut yi, xi| {
+//!             yi.assign(&array![g24(&xi), g24_c1(&xi), g24_c2(&xi)]);
+//!         });
+//!     y
+//! }
+//!
+//! let xlimits = array![[0., 3.], [0., 4.]];
+//! let doe = Lhs::new(&xlimits).sample(10);
+//! let res = EgorBuilder::optimize(f_g24).configure(|config|
+//!             config
+//!                 .n_cstr(2)
+//!                 .infill_strategy(InfillStrategy::EI)
+//!                 .infill_optimizer(InfillOptimizer::Cobyla)
+//!                 .doe(&doe)
+//!                 .max_iters(40)
+//!                 .target(-5.5080))
+//!            .min_within(&xlimits)
+//!            .expect("optimizer configured")
+//!            .run()
+//!            .expect("g24 minimized");
+//! println!("G24 min result = {:?}", res);
+//! ```
+//!
+//! ## Using constraint specifications
+//!
+//! Instead of requiring constraints to be formulated as `c <= 0`, you can specify
+//! constraint bounds directly using [`CstrSpec`]:
+//!
+//! ```no_run
+//! # use ndarray::{array, Array2, ArrayView1, ArrayView2, Zip};
+//! # use egobox_doe::{Lhs, SamplingMethod};
+//! # use egobox_ego::{EgorBuilder, InfillStrategy, InfillOptimizer, CstrSpec};
+//! # fn g24(x: &ArrayView1<f64>) -> f64 { -x[0] - x[1] }
+//!
+//! // Constraints now return raw values (not necessarily <= 0)
+//! fn g24_c1(x: &ArrayView1<f64>) -> f64 {
+//!     -2.0 * x[0].powf(4.0) + 8.0 * x[0].powf(3.0)
+//!     - 8.0 * x[0].powf(2.0) + x[1]
+//! }
+//!
+//! fn g24_c2(x: &ArrayView1<f64>) -> f64 {
+//!     -4.0 * x[0].powf(4.0) + 32.0 * x[0].powf(3.0)
+//!     - 88.0 * x[0].powf(2.0) + 96.0 * x[0] + x[1]
+//! }
+//!
+//! fn f_g24(x: &ArrayView2<f64>) -> Array2<f64> {
+//!     let mut y = Array2::zeros((x.nrows(), 3));
+//!     Zip::from(y.rows_mut())
+//!         .and(x.rows())
+//!         .for_each(|mut yi, xi| {
+//!             yi.assign(&array![g24(&xi), g24_c1(&xi), g24_c2(&xi)]);
+//!         });
+//!     y
+//! }
+//!
+//! let xlimits = array![[0., 3.], [0., 4.]];
+//! let doe = Lhs::new(&xlimits).sample(10);
+//! let res = EgorBuilder::optimize(f_g24).configure(|config|
+//!             config
+//!                 .cstr_specs(vec![CstrSpec::Leq(2.0), CstrSpec::Leq(36.0)])
+//!                 .infill_strategy(InfillStrategy::EI)
+//!                 .infill_optimizer(InfillOptimizer::Cobyla)
+//!                 .doe(&doe)
+//!                 .max_iters(40)
+//!                 .target(-5.5080))
+//!            .min_within(&xlimits)
+//!            .expect("optimizer configured")
+//!            .run()
+//!            .expect("g24 minimized");
+//! ```
+//!
+use crate::EgoError;
+use crate::EgorConfig;
+use crate::EgorState;
+use crate::ParetoResult;
+use crate::errors::Result;
+use crate::moo::pareto::pareto_front_indices;
+use crate::types::*;
+use crate::{EgorSolver, to_xtypes};
+use egobox_moe::{MixintGpMixtureParams, to_discrete_space};
+
+use egobox_moe::GpMixtureParams;
+use log::info;
+use ndarray::{Array2, ArrayBase, Axis, Data, Ix2, concatenate};
+
+use serde::{Serialize, de::DeserializeOwned};
+
+use ndarray_npy::write_npy;
+use std::path::PathBuf;
+
+/// Json filename for configuration
+pub const CONFIG_FILE: &str = "egor_config.json";
+/// Numpy filename for optimization history
+pub const HISTORY_FILE: &str = "egor_history.npy";
+/// Numpy filename for failed points (if any)
+/// This file is created only if some points failed to be evaluated
+pub const FAILED_POINTS_FILE: &str = "egor_failed_points.npy";
+/// JSON filename for recorded EgorState files
+pub const STATE_FILE_PREFIX: &str = "egor_state";
+
+/// Egor run metadata
+#[derive(Clone)]
+pub struct RunInfo {
+    /// The objective function name
+    pub fname: String,
+    /// A number of replication
+    pub num: usize,
+}
+
+impl Default for RunInfo {
+    fn default() -> Self {
+        RunInfo {
+            fname: "objective_function".to_string(),
+            num: 1,
+        }
+    }
+}
+
+/// EGO optimizer builder allowing to specify function to be minimized
+/// subject to constraints intended to be negative.
+///
+pub struct EgorFactory<O: ObjFn, C: CstrFn = Cstr> {
+    fobj: O,
+    fcstrs: Vec<C>,
+    fcstr_specs: Option<Vec<CstrSpec>>,
+    config: EgorConfig,
+    run_info: RunInfo,
+    verbose: Option<log::LevelFilter>,
+}
+
+impl<O: ObjFn, C: CstrFn> EgorFactory<O, C> {
+    /// Function to be minimized domain should be basically R^nx -> R^ny
+    /// where nx is the dimension of input x and ny the output dimension
+    /// equal to `n_obj` (objectives, 1 by default) + `n_cstr` (constraints).
+    /// But function has to be able to evaluate several points in one go
+    /// hence take an (p, nx) matrix and return an (p, ny) matrix
+    pub fn optimize(fobj: O) -> Self {
+        EgorFactory {
+            fobj,
+            fcstrs: vec![],
+            fcstr_specs: None,
+            config: EgorConfig::default(),
+            run_info: RunInfo::default(),
+            verbose: None,
+        }
+    }
+
+    /// Set configuration of the optimizer
+    pub fn configure<F: FnOnce(EgorConfig) -> EgorConfig>(mut self, init: F) -> Self {
+        self.config = init(self.config);
+        self
+    }
+
+    /// This function allows to define complex constraints on inputs using functions [CstrFn] trait.
+    /// Bounds constraints are better specified using `min_within()` or `min_within_mixint_space()`
+    /// arguments.
+    pub fn subject_to(mut self, fcstrs: Vec<C>) -> Self {
+        self.fcstrs = fcstrs;
+        self.fcstr_specs = None;
+        self
+    }
+
+    /// Define function constraints and how each should be interpreted.
+    ///
+    /// `fcstr_specs` must contain one specification per function constraint.
+    /// Each specification can expand internally (e.g. `Eq` and `Btw`).
+    pub fn subject_to_with_specs(mut self, fcstrs: Vec<C>, fcstr_specs: Vec<CstrSpec>) -> Self {
+        self.fcstrs = fcstrs;
+        self.fcstr_specs = Some(fcstr_specs);
+        self
+    }
+
+    fn validate_fcstr_specs(&self) -> Result<()> {
+        if let Some(specs) = self.fcstr_specs.as_ref()
+            && specs.len() != self.fcstrs.len()
+        {
+            return Err(EgoError::InvalidConfigError(format!(
+                "fcstr_specs length ({}) does not match fcstrs length ({})",
+                specs.len(),
+                self.fcstrs.len()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Set execution metadata used to qualify optimization run
+    pub fn run_info(mut self, info: RunInfo) -> Self {
+        self.run_info = info;
+        self
+    }
+
+    /// Set log level filter (see `log::LevelFilter`) for the optimization run.
+    /// If not set, log level will be determined by `EGOBOX_LOG` env variable
+    /// or default to "error" level.
+    ///
+    pub fn verbose(mut self, verbose: log::LevelFilter) -> Self {
+        self.verbose = Some(verbose);
+        self
+    }
+
+    /// Build an Egor optimizer to minimize the function within
+    /// the continuous `xlimits` specified as [[lower, upper], ...] array where the
+    /// number of rows gives the dimension of the inputs (continuous optimization)
+    /// and the ith row is the interval of the ith component of the input x.
+    pub fn min_within(
+        self,
+        xlimits: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Result<Egor<O, C, GpMixtureParams<f64>>> {
+        crate::utils::logging::init_logger(self.verbose);
+        self.validate_fcstr_specs()?;
+        let config = self.config.xtypes(&to_xtypes(xlimits));
+        Ok(Egor {
+            fobj: match self.fcstr_specs {
+                Some(specs) => {
+                    ProblemFunc::new(self.fobj).subject_to_with_specs(self.fcstrs, specs)
+                }
+                None => ProblemFunc::new(self.fobj).subject_to(self.fcstrs),
+            },
+            solver: EgorSolver::new(config.check()?),
+            run_info: self.run_info,
+        })
+    }
+
+    /// Build an Egor optimizer to minimize the function R^n -> R^p taking
+    /// inputs specified with given xtypes where some of components may be
+    /// discrete variables (mixed-integer optimization).
+    pub fn min_within_mixint_space(
+        self,
+        xtypes: &[XType],
+    ) -> Result<Egor<O, C, MixintGpMixtureParams>> {
+        crate::utils::logging::init_logger(self.verbose);
+        self.validate_fcstr_specs()?;
+        let config = self.config.xtypes(xtypes);
+        Ok(Egor {
+            fobj: match self.fcstr_specs {
+                Some(specs) => {
+                    ProblemFunc::new(self.fobj).subject_to_with_specs(self.fcstrs, specs)
+                }
+                None => ProblemFunc::new(self.fobj).subject_to(self.fcstrs),
+            },
+            solver: EgorSolver::new(config.check()?),
+            run_info: self.run_info,
+        })
+    }
+}
+
+/// Egor optimizer wrapping the EGO solver and its execution policy.
+/// Uses the basin executor to run the solver.
+#[derive(Clone)]
+pub struct Egor<
+    O: ObjFn,
+    C: CstrFn = Cstr,
+    SB: SurrogateBuilder + Serialize + DeserializeOwned = GpMixtureParams<f64>,
+> {
+    fobj: ProblemFunc<O, C>,
+    solver: EgorSolver<SB, C>,
+    run_info: RunInfo,
+}
+
+impl<O: ObjFn, C: CstrFn, SB: SurrogateBuilder + Serialize + DeserializeOwned> Egor<O, C, SB> {
+    /// Runs the (constrained) optimization of the objective function.
+    pub fn run(&self) -> Result<OptimResult<f64>> {
+        let xtypes = self.solver.config.xtypes.clone();
+        info!("{:?}", self.solver.config);
+        if let Some(outdir) = self.solver.config.outdir.as_ref() {
+            std::fs::create_dir_all(outdir)?;
+            let filepath = std::path::Path::new(outdir).join(CONFIG_FILE);
+            let json = serde_json::to_string(&self.solver.config).unwrap();
+            std::fs::write(filepath, json).expect("Unable to write file");
+        }
+
+        let state = crate::executor::run(self.fobj.clone(), self.solver.clone())?;
+        info!(
+            "Optimization Result:\n    \
+             param (best):  {}\n    \
+             cost (best):   {}\n    \
+             iters (best):  {}\n    \
+             iters (total): {}\n    \
+             termination:   {}\n    \
+             time:          {}",
+            state
+                .get_best_param()
+                .map_or("None".to_string(), |p| format!("{p}")),
+            state.get_best_cost(),
+            state.get_last_best_iter(),
+            state.get_iter(),
+            state.get_termination_status(),
+            state
+                .get_time()
+                .map_or("None".to_string(), |t| format!("{t:?}")),
+        );
+        let (x_data, y_data, c_data) = state.clone().take_data().unwrap();
+        let y_opt = state.get_full_best_cost().unwrap().to_owned();
+        // Results are given back in the raw constraint layout (as returned by the objective function)
+        // while the state keeps the internal one
+        let (y_data, y_opt) = if let Some(specs) = self.solver.config.cstr_specs.as_ref() {
+            let n_obj = self.solver.config.n_obj();
+            let y_opt = untransform_constraints_at(&y_opt.insert_axis(Axis(0)), n_obj, specs);
+            (
+                untransform_constraints_at(&y_data, n_obj, specs),
+                y_opt.row(0).to_owned(),
+            )
+        } else {
+            (y_data, y_opt)
+        };
+
+        let res = if !self.solver.config.discrete() {
+            info!("Data: \n{}", concatenate![Axis(1), x_data, y_data, c_data]);
+            OptimResult {
+                x_opt: state.get_best_param().unwrap().to_owned(),
+                y_opt,
+                x_doe: x_data,
+                y_doe: y_data,
+                state,
+            }
+        } else {
+            let x_data = to_discrete_space(&xtypes, &x_data.view());
+            info!("Data: \n{}", concatenate![Axis(1), x_data, y_data, c_data]);
+
+            let x_opt = state
+                .get_best_param()
+                .unwrap()
+                .to_owned()
+                .insert_axis(Axis(0));
+            let x_opt = to_discrete_space(&xtypes, &x_opt.view());
+            OptimResult {
+                x_opt: x_opt.row(0).to_owned(),
+                y_opt,
+                x_doe: x_data,
+                y_doe: y_data,
+                state,
+            }
+        };
+
+        info!("Optim Result: min f(x)={} at x={}", res.y_opt, res.x_opt);
+
+        Ok(res)
+    }
+
+    /// Runs the (constrained) optimization of the objective(s) and returns the
+    /// (constrained) Pareto front approximation (experimental).
+    ///
+    /// With one objective, the Pareto set reduces to the optimum found by [`Egor::run`].
+    ///
+    /// ```no_run
+    /// # use ndarray::{array, Array2, ArrayView2, Axis, concatenate};
+    /// # use egobox_ego::EgorBuilder;
+    /// // ZDT1 test function with x in [0, 1]^2
+    /// fn zdt1(x: &ArrayView2<f64>) -> Array2<f64> {
+    ///     let f1 = x.column(0).to_owned();
+    ///     let g = x.column(1).mapv(|v| 1. + 9. * v);
+    ///     let f2 = &g * (1. - (&f1 / &g).mapv(f64::sqrt));
+    ///     concatenate![Axis(1), f1.insert_axis(Axis(1)), f2.insert_axis(Axis(1))]
+    /// }
+    ///
+    /// let res = EgorBuilder::optimize(zdt1)
+    ///     .configure(|config| config.n_obj(2).max_iters(30).seed(42))
+    ///     .min_within(&array![[0., 1.], [0., 1.]])
+    ///     .expect("optimizer configured")
+    ///     .run_pareto()
+    ///     .expect("ZDT1 optimized");
+    /// println!("Pareto front: {}", res.y_pareto);
+    /// ```
+    pub fn run_pareto(&self) -> Result<ParetoResult<f64>> {
+        let res = self.run()?;
+        let n_obj = self.solver.config.n_obj();
+        let indices = match (n_obj > 1, res.state.surrogate.data.as_ref()) {
+            (true, Some((x_data, y_data, c_data))) => {
+                // failed points with imputed values are never part of the front
+                let excluded = self
+                    .solver
+                    .config
+                    .imputed_rows(x_data, res.state.surrogate.x_fail.as_ref());
+                pareto_front_indices(y_data, c_data, n_obj, &res.state.doe.cstr_tol, &excluded)
+            }
+            _ => res.state.surrogate.best_index.into_iter().collect(),
+        };
+        // Result DOE rows are in the same order as the internal data rows
+        Ok(ParetoResult {
+            x_pareto: res.x_doe.select(Axis(0), &indices),
+            y_pareto: res.y_doe.select(Axis(0), &indices),
+            x_opt: res.x_opt,
+            y_opt: res.y_opt,
+            x_doe: res.x_doe,
+            y_doe: res.y_doe,
+            state: res.state,
+        })
+    }
+
+    /// Set execution metadata used to qualify optimization run
+    pub fn run_info(mut self, info: RunInfo) -> Self {
+        self.run_info = info;
+        self
+    }
+}
+
+// The optimization observer collects best costs ans params
+// during the optimization execution allowing to get optimization history
+// saved as a numpy array for further analysis
+// Note: the observer is activated only when outdir is specified
+#[derive(Default)]
+pub(crate) struct OptimizationObserver {
+    pub dir: PathBuf,
+    pub best_params: Option<Array2<f64>>,
+    pub best_costs: Option<Array2<f64>>,
+    pub state_recording: bool,
+}
+
+impl OptimizationObserver {
+    pub(crate) fn new(dir: String, state_recording: bool) -> Self {
+        Self {
+            dir: PathBuf::from(dir),
+            best_params: None,
+            best_costs: None,
+            state_recording,
+        }
+    }
+}
+
+impl OptimizationObserver {
+    /// Save optimization history, current doe and optionally state in output directory
+    pub(crate) fn observe_iter(&mut self, state: &EgorState<f64>) -> Result<()> {
+        if let Some((xdata, ydata, cdata)) = &state.surrogate.data {
+            let doe = concatenate![Axis(1), xdata.view(), ydata.view(), cdata.view()];
+            if !self.dir.exists() {
+                std::fs::create_dir_all(&self.dir)?
+            }
+
+            let filepath = self.dir.join(crate::DOE_FILE);
+            info!(">>> Save doe shape {:?} in {:?}", doe.shape(), filepath);
+            write_npy(filepath, &doe).expect("Write current doe");
+
+            if let Some(failed_points) = state.surrogate.x_fail.as_ref() {
+                let filepath = self.dir.join(crate::FAILED_POINTS_FILE);
+                info!(
+                    ">>> Save failed points {:?} in {:?}",
+                    failed_points.shape(),
+                    filepath
+                );
+                write_npy(filepath, failed_points).expect("Write failed points");
+            }
+
+            if self.best_params.is_none() {
+                // Have to initialize best params and full best costs
+                let mut state = state.clone();
+                state.update();
+                let bp = state.get_best_param().unwrap().to_owned();
+                self.best_params = Some(bp.insert_axis(Axis(0)));
+                let bc = state.get_full_best_cost().unwrap().to_owned();
+                self.best_costs = Some(bc.insert_axis(Axis(0)));
+            } else {
+                let bp = state.get_best_param().unwrap().to_owned();
+                let bp = bp.insert_axis(Axis(0));
+                self.best_params =
+                    Some(concatenate![Axis(0), self.best_params.take().unwrap(), bp]);
+                let bc = state.get_full_best_cost().unwrap().to_owned();
+                let bc = bc.insert_axis(Axis(0));
+                self.best_costs = Some(concatenate![Axis(0), self.best_costs.take().unwrap(), bc]);
+            };
+            let hist = concatenate![
+                Axis(1),
+                self.best_costs.clone().unwrap(),
+                self.best_params.clone().unwrap(),
+            ];
+
+            let filepath = std::path::Path::new(&self.dir).join(HISTORY_FILE);
+            info!(">>> Save history {:?} in {:?}", hist.shape(), filepath);
+            ndarray_npy::write_npy(filepath, &hist).expect("Write current history");
+
+            // Save EgorState if EGOR_USE_STATE_RECORDING equals "WITH_ITER_STATE"
+            if self.state_recording {
+                let state_filename = format!("{}_{:04}.json", STATE_FILE_PREFIX, state.iter);
+                let state_filepath = std::path::Path::new(&self.dir).join(state_filename);
+                // Do not embed the surrogate GP models in the per-iteration state
+                // dump: they are by far the largest part of the state (GP training
+                // data and Cholesky factorizations) and are saved separately as GP
+                // files by the run recorder. Hot start checkpoints still serialize
+                // them for exact continuation.
+                let json = serde_json::to_value(state)
+                    .map(|mut value| {
+                        if let Some(surrogate) = value.get_mut("surrogate")
+                            && let Some(map) = surrogate.as_object_mut()
+                        {
+                            map.remove("models");
+                        }
+                        value
+                    })
+                    .and_then(|value| serde_json::to_string_pretty(&value));
+                match json {
+                    Ok(json) => {
+                        if let Err(e) = std::fs::write(&state_filepath, json) {
+                            log::warn!("Failed to save EgorState to {:?}: {}", state_filepath, e);
+                        } else {
+                            log::debug!(">>> Saved EgorState to {:?}", state_filepath);
+                        }
+                    }
+                    Err(_) => log::warn!("Failed to serialize EgorState"),
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Type alias for Egor optimizer with default constraint function type [Cstr]
+pub type EgorBuilder<O> = EgorFactory<O, Cstr>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{CHECKPOINT_FILE, HotStartMode};
+    use crate::{TerminationReason, TerminationStatus};
+    use approx::assert_abs_diff_eq;
+    use argmin_testfunctions::rosenbrock;
+    use egobox_doe::{Lhs, SamplingMethod};
+    use egobox_moe::{NbClusters, as_continuous_limits};
+    use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Ix1, Zip, array, s};
+    use ndarray_rand::rand::SeedableRng;
+    use rand_xoshiro::Xoshiro256Plus;
+
+    use ndarray_npy::read_npy;
+
+    use serial_test::serial;
+    use std::time::Instant;
+
+    use crate::{CoegoStatus, DOE_FILE, DOE_INITIAL_FILE, OBJECTIVE_FUNCTION_ERROR};
+    use egobox_moe::{CorrelationSpec, RegressionSpec};
+
+    #[cfg(not(feature = "blas"))]
+    use linfa_linalg::norm::*;
+
+    #[cfg(feature = "blas")]
+    use ndarray_linalg::Norm;
+
+    use std::path::PathBuf;
+
+    fn xsinx(x: &ArrayView2<f64>) -> Array2<f64> {
+        (x - 3.5) * ((x - 3.5) / std::f64::consts::PI).mapv(|v| v.sin())
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_ei_quadratic_egor_builder() {
+        let outdir = "target/test_egor_builder_01";
+        let outfile = format!("{outdir}/{DOE_INITIAL_FILE}");
+        let _ = std::fs::remove_file(&outfile);
+        let initial_doe = array![[0.], [7.], [25.]];
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|cfg| {
+                cfg.infill_strategy(InfillStrategy::EI)
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::QUADRATIC)
+                            .correlation_spec(CorrelationSpec::ALL)
+                    })
+                    .max_iters(30)
+                    .doe(&initial_doe)
+                    .target(-15.1)
+                    .outdir(outdir)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let expected = array![-15.1];
+        assert_abs_diff_eq!(expected, res.y_opt, epsilon = 0.5);
+        let saved_doe: Array2<f64> = read_npy(&outfile).unwrap();
+        assert_abs_diff_eq!(initial_doe, saved_doe.slice(s![..3, ..1]), epsilon = 1e-6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_gp_config() {
+        let initial_doe = array![[0.], [7.], [25.]];
+        const LOWER_BOUND: f64 = 3.0;
+        let egor = EgorBuilder::optimize(xsinx)
+            .configure(|cfg| {
+                cfg.infill_strategy(InfillStrategy::EI)
+                    .configure_gp(|gp| {
+                        gp.theta_tuning(egobox_gp::ThetaTuning::Full {
+                            init: array![4.0],
+                            bounds: array![(LOWER_BOUND, 20.)],
+                        })
+                        .recombination(egobox_moe::Recombination::Hard)
+                        .n_start(7)
+                        .max_eval(100)
+                    })
+                    .max_iters(1)
+                    .doe(&initial_doe)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured");
+        let res = egor.run().expect("Egor should minimize xsinx");
+        // Inspect internal state: theta init should be equal to
+        // lower bound of theta interval as with a smaller bound
+        // it would be around 2.78 after first iteration
+        dbg!(res.state.clone());
+        assert_abs_diff_eq!(
+            res.state.surrogate.theta_inits.unwrap()[0]
+                .as_ref()
+                .unwrap(),
+            &array![[LOWER_BOUND]],
+            epsilon = 1e-12
+        );
+        assert_eq!(
+            res.state.surrogate.clusterings.unwrap()[0]
+                .as_ref()
+                .unwrap()
+                .recombination(),
+            egobox_moe::Recombination::Hard
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_ei_egor_builder() {
+        let initial_doe = array![[0.], [7.], [25.]];
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|cfg| {
+                cfg.infill_strategy(InfillStrategy::EI)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    .max_iters(15)
+                    .doe(&initial_doe)
+                    .seed(42)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let expected = array![-15.125];
+        assert_abs_diff_eq!(expected, res.y_opt, epsilon = 1e-2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_logei_egor_builder() {
+        let initial_doe = array![[0.], [7.], [25.]];
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|cfg| {
+                cfg.infill_strategy(InfillStrategy::LogEI)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    .max_iters(30)
+                    .doe(&initial_doe)
+                    .seed(42)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let expected = array![-15.125];
+        assert_abs_diff_eq!(expected, res.y_opt, epsilon = 2e-3);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_with_domain_constraint() {
+        let outdir = "target/test_egor_builder_01";
+        let outfile = format!("{outdir}/{DOE_INITIAL_FILE}");
+        let _ = std::fs::remove_file(&outfile);
+        let initial_doe = array![[0.], [7.], [10.]];
+        let res = EgorBuilder::optimize(xsinx)
+            .subject_to(vec![|x: &[f64], g: Option<&mut [f64]>, _u| {
+                if let Some(g) = g {
+                    g[0] = 1.
+                }
+                x[0] - 17.0
+            }])
+            .configure(|cfg| {
+                cfg.infill_strategy(InfillStrategy::EI)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .outdir(outdir)
+                    .max_iters(100)
+                    .doe(&initial_doe)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let expected = array![17.0];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+        let saved_doe: Array2<f64> = read_npy(&outfile).unwrap();
+        assert_abs_diff_eq!(
+            initial_doe,
+            saved_doe.slice(s![..initial_doe.nrows(), ..initial_doe.ncols()]),
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_trego_wb2_egor_builder() {
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .max_iters(20)
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::ALL)
+                            .correlation_spec(CorrelationSpec::ALL)
+                    })
+                    .trego(true)
+                    .seed(1)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize");
+        let expected = array![18.9];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_optmod_egor() {
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| config.max_iters(20).configure_qei(|cfg| cfg.optmod(3)))
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize");
+        let expected = array![18.9];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 2e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_hot_start_egor() {
+        let outdir = "checkpoint_test_dir";
+        let checkpoint_file = format!("{outdir}/{CHECKPOINT_FILE}");
+        let _ = std::fs::remove_file(&checkpoint_file);
+        let n_iter = 1;
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .max_iters(n_iter)
+                    .seed(42)
+                    .hot_start(HotStartMode::Enabled)
+                    .outdir(outdir)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize");
+        let expected = array![19.1];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+
+        // without hostart we reach the same point
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .max_iters(n_iter)
+                    .seed(42)
+                    .hot_start(HotStartMode::Disabled)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize");
+        let expected = array![19.1];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+
+        // with hot start we continue
+        let ext_iters = 3;
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .seed(42)
+                    .hot_start(HotStartMode::ExtendedIters(ext_iters))
+                    .outdir(outdir)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize");
+        let expected = array![18.9];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+        assert_eq!(n_iter as u64 + ext_iters, res.state.get_iter());
+
+        // with hot start we continue... again
+        let ext_iters = 3;
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .seed(42)
+                    .hot_start(HotStartMode::ExtendedIters(ext_iters))
+                    .outdir(outdir)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize");
+        assert_eq!(n_iter as u64 + ext_iters + ext_iters, res.state.get_iter());
+        let _ = std::fs::remove_file(&checkpoint_file);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_auto_clustering_egor_builder() {
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .configure_gp(|gp| gp.n_clusters(NbClusters::auto()))
+                    .max_iters(40)
+                    .seed(42)
+            })
+            .min_within(&array![[0.0, 25.0]])
+            .expect("Egor configured")
+            .run()
+            .expect("Egor with auto clustering should minimize xsinx");
+        let expected = array![18.9];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_with_warmstart_egor_builder() {
+        let outdir = "target/test_warmstart_01";
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_INITIAL_FILE}"));
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_FILE}"));
+        let xlimits = array![[0.0, 25.0]];
+        let doe = array![[0.], [7.], [23.]];
+        let _ = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .max_iters(2)
+                    .doe(&doe)
+                    .outdir(outdir)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        let filepath = std::path::Path::new(&outdir).join(DOE_FILE);
+        assert!(filepath.exists());
+        let doe: Array2<f64> = read_npy(&filepath).expect("file read");
+
+        let n_iters = 3;
+        let res = EgorBuilder::optimize(xsinx)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .max_iters(n_iters)
+                    .outdir(outdir)
+                    .warm_start(true)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let doe2: Array2<f64> = read_npy(&filepath).expect("file read");
+
+        assert!(doe2.nrows() >= doe.nrows() + n_iters);
+
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_INITIAL_FILE}"));
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_FILE}"));
+        let expected = array![18.9];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_xsinx_with_domain_constraint_warmstart_egor_builder() {
+        let outdir = "target/test_warmstart_fcstr";
+        let _ = std::fs::remove_dir_all(outdir);
+        let xlimits = array![[0.0, 25.0]];
+        let doe = array![[0.], [7.], [10.]];
+        let fcstr: Cstr = |x, g, _u| {
+            if let Some(g) = g {
+                g[0] = 1.
+            }
+            x[0] - 17.0
+        };
+        let _ = EgorBuilder::optimize(xsinx)
+            .subject_to(vec![fcstr])
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::EI)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .max_iters(2)
+                    .doe(&doe)
+                    .outdir(outdir)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        // Saved doe layout is [x, y, c]
+        let filepath = std::path::Path::new(&outdir).join(DOE_FILE);
+        let saved_doe: Array2<f64> = read_npy(&filepath).expect("file read");
+        assert_eq!(saved_doe.ncols(), 3);
+
+        let n_iters = 2;
+        let res = EgorBuilder::optimize(xsinx)
+            .subject_to(vec![fcstr])
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::EI)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .max_iters(n_iters)
+                    .outdir(outdir)
+                    .warm_start(true)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Warm-start minimization");
+
+        // Function constraint values are not read back as objective outputs
+        assert_eq!(res.y_doe.ncols(), 1);
+        assert!(res.x_doe.nrows() > saved_doe.nrows());
+        let _ = std::fs::remove_dir_all(outdir);
+    }
+
+    fn rosenb(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y: Array2<f64> = Array2::zeros((x.nrows(), 1));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .par_for_each(|mut yi, xi| yi.assign(&array![rosenbrock(&xi.to_vec())]));
+        y
+    }
+
+    #[test]
+    #[serial]
+    fn test_rosenbrock_2d_egor_builder() {
+        let now = Instant::now();
+        let xlimits = array![[-2., 2.], [-2., 2.]];
+        let res = EgorBuilder::optimize(rosenb)
+            .configure(|config| {
+                config
+                    .max_iters(50)
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::ALL)
+                            .correlation_spec(CorrelationSpec::ALL)
+                    })
+                    .target(1e-2)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        println!("Rosenbrock optim result = {res:?}");
+        println!("Elapsed = {:?}", now.elapsed());
+        let expected = array![1., 1.];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 5e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_rosenbrock_2d_trego_egor_builder() {
+        let outdir = "target/test_trego";
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_INITIAL_FILE}"));
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_FILE}"));
+        let now = Instant::now();
+        let xlimits = array![[-2., 2.], [-2., 2.]];
+        let init_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(10);
+        let max_iters = 30;
+        let res = EgorBuilder::optimize(rosenb)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .doe(&init_doe)
+                    .max_iters(max_iters)
+                    .outdir(outdir)
+                    .seed(42)
+                    .configure_trego(|trego_cfg| trego_cfg.n_gl_steps((4, 1)))
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        let filepath = std::path::Path::new(&outdir).join(DOE_FILE);
+        assert!(filepath.exists());
+        let doe: Array2<f64> = read_npy(&filepath).expect("file read");
+        assert!(doe.nrows() >= init_doe.nrows());
+
+        println!("Rosenbrock optim result = {res:?}");
+        println!("Elapsed = {:?}", now.elapsed());
+        let expected = array![1., 1.];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 5e-1);
+    }
+
+    fn sphere(x: &ArrayView2<f64>) -> Array2<f64> {
+        let s = (x * x).sum_axis(Axis(1));
+        s.insert_axis(Axis(1))
+    }
+
+    #[test]
+    #[serial]
+    fn test_sphere_coego_egor_builder() {
+        let outdir = "target/test_coego";
+        let dim = 8;
+        let xlimits = Array2::from_shape_vec((dim, 2), [-10.0, 10.0].repeat(dim)).unwrap();
+        let init_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(dim + 1);
+        let max_iters = 70;
+        let res = EgorBuilder::optimize(sphere)
+            .configure(|config| {
+                config
+                    .doe(&init_doe)
+                    .max_iters(max_iters)
+                    .outdir(outdir)
+                    .seed(42)
+                    .coego(CoegoStatus::Enabled(5))
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        println!("Sphere optim result = {res:?}");
+        let expected = Array1::<f64>::zeros(dim);
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 6e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_sphere_coego_kpls_egor_builder() {
+        let outdir = "target/test_coego_kpls";
+        let dim = 8;
+        let xlimits = Array2::from_shape_vec((dim, 2), [-10.0, 10.0].repeat(dim)).unwrap();
+        let init_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(dim + 1);
+        let max_iters = 70;
+        let res = EgorBuilder::optimize(sphere)
+            .configure(|config| {
+                config
+                    .doe(&init_doe)
+                    .max_iters(max_iters)
+                    .outdir(outdir)
+                    .seed(42)
+                    .coego(CoegoStatus::Enabled(5))
+                    .configure_gp(|gp| gp.kpls(3))
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        println!("Sphere CoEGO+KPLS optim result = {res:?}");
+        let expected = Array1::<f64>::zeros(dim);
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 6e-1);
+    }
+
+    // Objective
+    fn g24(x: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> f64 {
+        // Function G24: 1 global optimum y_opt = -5.5080 at x_opt =(2.3295, 3.1785)
+        -x[0] - x[1]
+    }
+
+    // Constraints < 0
+    fn g24_c1(x: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> f64 {
+        -2.0 * x[0].powf(4.0) + 8.0 * x[0].powf(3.0) - 8.0 * x[0].powf(2.0) + x[1] - 2.0
+    }
+
+    fn grad_g24_c1(x: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Array1<f64> {
+        array![
+            -8.0 * x[0].powf(3.0) + 24.0 * x[0].powf(2.0) - 16.0 * x[0],
+            1.0
+        ]
+    }
+
+    fn g24_c2(x: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> f64 {
+        -4.0 * x[0].powf(4.0) + 32.0 * x[0].powf(3.0) - 88.0 * x[0].powf(2.0) + 96.0 * x[0] + x[1]
+            - 36.0
+    }
+
+    fn grad_g24_c2(x: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Array1<f64> {
+        array![
+            -16.0 * x[0].powf(3.0) + 96.0 * x[0].powf(2.0) - 176.0 * x[0] + 96.0,
+            1.0
+        ]
+    }
+
+    fn f_g24(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 3));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                yi.assign(&array![g24(&xi), g24_c1(&xi), g24_c2(&xi)]);
+            });
+        y
+    }
+
+    fn f_g24_geq(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 3));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                yi.assign(&array![g24(&xi), -g24_c1(&xi), -g24_c2(&xi)]);
+            });
+        y
+    }
+
+    fn f_g24_bare(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 1));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                yi.assign(&array![g24(&xi)]);
+            });
+        y
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_basic_egor_builder_cobyla() {
+        let _ = env_logger::try_init();
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(3);
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .n_cstr(2)
+                    .doe(&doe)
+                    .max_iters(20)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .cstr_tol(array![2e-3, 1e-3])
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        println!("G24 optim result = {res:?}");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_metamodelized_geq_constraints() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(3);
+        let res = EgorBuilder::optimize(f_g24_geq)
+            .configure(|config| {
+                config
+                    .infill_strategy(InfillStrategy::WB2)
+                    .cstr_specs(vec![CstrSpec::Geq(0.0), CstrSpec::Geq(0.0)])
+                    .doe(&doe)
+                    .max_iters(20)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .cstr_tol(array![2e-3, 1e-3])
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
+
+        // results are given in the raw constraint layout
+        let expected_initial_y = f_g24_geq(&doe.view());
+        assert_abs_diff_eq!(
+            expected_initial_y,
+            res.y_doe.slice(s![..doe.nrows(), ..]),
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_results_in_raw_constraint_layout() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(5);
+        let specs = vec![CstrSpec::Btw(-10.0, 2.0), CstrSpec::Eq(36.0)];
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .cstr_specs(specs.clone())
+                    .doe(&doe)
+                    .max_iters(3)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+
+        assert_eq!(res.y_opt.len(), 3);
+        assert_eq!(res.y_doe.ncols(), 3);
+        assert_abs_diff_eq!(f_g24(&res.x_doe.view()), res.y_doe, epsilon = 1e-9);
+        assert_abs_diff_eq!(
+            f_g24(&res.x_opt.view().insert_axis(Axis(0))).row(0),
+            res.y_opt.view(),
+            epsilon = 1e-9
+        );
+        // the state keeps the internal layout
+        let (_, y_internal, _) = res.state.clone().take_data().unwrap();
+        assert_abs_diff_eq!(
+            transform_constraints(&res.y_doe, &specs),
+            y_internal,
+            epsilon = 1e-9
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_warm_start_metamodelized_geq_constraints() {
+        let outdir = "target/test_warmstart_geq_constraints";
+        let _ = std::fs::remove_dir_all(outdir);
+        let xlimits = array![[0., 3.], [0., 4.]];
+
+        let first = EgorBuilder::optimize(f_g24_geq)
+            .configure(|config| {
+                config
+                    .cstr_specs(vec![CstrSpec::Geq(0.0), CstrSpec::Geq(0.0)])
+                    .n_doe(15)
+                    .max_iters(1)
+                    .outdir(outdir)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Initial minimization");
+
+        let restarted = EgorBuilder::optimize(f_g24_geq)
+            .configure(|config| {
+                config
+                    .cstr_specs(vec![CstrSpec::Geq(0.0), CstrSpec::Geq(0.0)])
+                    .n_doe(15)
+                    .max_iters(0)
+                    .outdir(outdir)
+                    .warm_start(true)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Warm-start minimization");
+
+        assert_abs_diff_eq!(first.x_opt, restarted.x_opt, epsilon = 1e-12);
+        assert_abs_diff_eq!(first.y_opt, restarted.y_opt, epsilon = 1e-12);
+        let _ = std::fs::remove_dir_all(outdir);
+    }
+
+    #[test]
+    #[serial]
+    #[ignore = "fail on CI on windows-2025, work on windows locally"]
+    fn test_egor_g24_basic_egor_builder_slsqp() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(3);
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .n_cstr(2)
+                    .doe(&doe)
+                    .max_iters(20)
+                    .cstr_tol(array![1e-5, 1e-5])
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        println!("G24 optim result = {res:?}");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_basic_egor_builder_logei() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(5);
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .n_cstr(2)
+                    .doe(&doe)
+                    .max_iters(30)
+                    .infill_strategy(InfillStrategy::LogEI)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    //.cstr_infill(true)
+                    .cstr_tol(array![2e-3, 1e-3])
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
+    }
+
+    /// Objective: sphere, constraints: x_i >= 0.9 for the first 4 components (c <= 0)
+    fn f_sphere_far_cstrs(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 5));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                yi[0] = xi.mapv(|v| v * v).sum();
+                for j in 0..4 {
+                    yi[j + 1] = 0.9 - xi[j];
+                }
+            });
+        y
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_no_feasible_initial_point_does_not_stop() {
+        // Initial doe far away from feasible domain: no feasible point
+        let dim = 6;
+        let xlimits = Array2::from_shape_fn((dim, 2), |(_, j)| j as f64);
+        let doe_limits = Array2::from_shape_fn((dim, 2), |(_, j)| 0.3 * j as f64);
+        let doe = Lhs::new(&doe_limits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(8);
+        let max_iters = 10;
+        let res = EgorBuilder::optimize(f_sphere_far_cstrs)
+            .configure(|config| {
+                config
+                    .n_cstr(4)
+                    .doe(&doe)
+                    .max_iters(max_iters)
+                    .infill_strategy(InfillStrategy::LogEI)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    .trego(true)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        println!("Result = {res:?}");
+        assert!(
+            res.x_doe.nrows() > doe.nrows() + 2,
+            "Egor should keep adding points, got {} points",
+            res.x_doe.nrows()
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_random_point_fallback_when_infill_optim_fails() {
+        // Domain constraint infeasible everywhere: infill optimization always fails
+        // and no feasible point is ever known, random points are expected to be added
+        let xlimits = array![[0., 1.], [0., 1.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(5);
+        let infeasible = |_x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            if let Some(g) = g {
+                g.fill(0.);
+            }
+            1.
+        };
+        let max_iters = 5;
+        let res = EgorBuilder::optimize(|x: &ArrayView2<f64>| {
+            x.map_axis(Axis(1), |xi| xi.dot(&xi)).insert_axis(Axis(1))
+        })
+        .subject_to(vec![infeasible])
+        .configure(|config| {
+            config
+                .doe(&doe)
+                .max_iters(max_iters)
+                .infill_optimizer(InfillOptimizer::Slsqp)
+                .seed(42)
+        })
+        .min_within(&xlimits)
+        .expect("Egor configured")
+        .run()
+        .expect("Minimize failure");
+        assert_eq!(res.x_doe.nrows(), doe.nrows() + max_iters);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_with_domain_constraints() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(3);
+        let c1 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c1(&x).as_slice().unwrap());
+            }
+            g24_c1(&x)
+        };
+        let c2 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c2(&x).as_slice().unwrap());
+            }
+            g24_c2(&x)
+        };
+        let res = EgorBuilder::optimize(f_g24_bare)
+            .subject_to(vec![c1, c2])
+            .configure(|config| {
+                config
+                    .doe(&doe)
+                    .max_iters(50)
+                    .infill_optimizer(InfillOptimizer::Cobyla)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        println!("G24 optim result = {res:?}");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_with_domain_constraints_specs() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(3);
+        let c1 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c1(&x).as_slice().unwrap());
+            }
+            g24_c1(&x)
+        };
+        let c2 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c2(&x).as_slice().unwrap());
+            }
+            g24_c2(&x)
+        };
+        let res = EgorBuilder::optimize(f_g24_bare)
+            .subject_to_with_specs(vec![c1, c2], vec![CstrSpec::Leq(0.0), CstrSpec::Leq(0.0)])
+            .configure(|config| {
+                config
+                    .doe(&doe)
+                    .max_iters(50)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Minimize failure");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_with_domain_constraints_geq_specs() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(15);
+        let c1 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c1(&x).mapv(|v| -v).as_slice().unwrap());
+            }
+            -g24_c1(&x)
+        };
+        let c2 = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            let x = ArrayView1::from(x);
+            if let Some(g) = g {
+                g.copy_from_slice(grad_g24_c2(&x).mapv(|v| -v).as_slice().unwrap());
+            }
+            -g24_c2(&x)
+        };
+        let res = EgorBuilder::optimize(f_g24_bare)
+            .subject_to_with_specs(vec![c1, c2], vec![CstrSpec::Geq(0.0), CstrSpec::Geq(0.0)])
+            .configure(|config| {
+                config
+                    .doe(&doe)
+                    .max_iters(50)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    .seed(42)
+            })
+            .verbose(log::LevelFilter::Info)
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should minimize xsinx");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_subject_to_with_specs_length_mismatch() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let c1 = |x: &[f64], _g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            g24_c1(&Array1::from_vec(x.to_vec()))
+        };
+        let c2 = |x: &[f64], _g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            g24_c2(&Array1::from_vec(x.to_vec()))
+        };
+
+        let res = EgorBuilder::optimize(f_g24_bare)
+            .subject_to_with_specs(vec![c1, c2], vec![CstrSpec::Leq(0.0)])
+            .min_within(&xlimits);
+
+        assert!(matches!(res, Err(EgoError::InvalidConfigError(_))));
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_qei_egor_builder() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(10);
+        let q = 2;
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::ALL)
+                            .correlation_spec(CorrelationSpec::ALL)
+                    })
+                    .n_cstr(2)
+                    .cstr_tol(array![2e-6, 2e-6])
+                    .configure_qei(|qei_config| {
+                        qei_config.batch(q).strategy(QEiStrategy::KrigingBeliever)
+                    })
+                    .doe(&doe)
+                    .target(-5.5030)
+                    .max_iters(20)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Egor minimization");
+        assert_eq!(res.x_doe.nrows(), doe.nrows() + q * res.state.iter as usize);
+        println!("G24 optim result = {res:?}");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 2e-2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_qei_models_trained_on_evaluated_data() {
+        // qEI run long enough for the incremental model update (fast path) to
+        // be used (once nb_points >= 2 * dim = 20 points): the persisted models
+        // must be trained on evaluated points only, not on the virtual points
+        // (kriging believer predictions) used within the batch selection.
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(10);
+        let q = 2;
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .n_cstr(2)
+                    .cstr_tol(array![2e-6, 2e-6])
+                    .configure_qei(|qei_config| {
+                        qei_config.batch(q).strategy(QEiStrategy::KrigingBeliever)
+                    })
+                    .doe(&doe)
+                    .max_iters(4)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Egor minimization");
+
+        let (x_data, y_data, _) = res
+            .state
+            .surrogate
+            .data
+            .as_ref()
+            .expect("evaluated data in final state");
+        println!("x_data = {x_data}");
+        println!("y_data = {y_data}");
+        let models = &res.state.surrogate.models;
+        assert_eq!(models.len(), 1 + 2); // objective + 2 constraints
+        for (k, model) in models.iter().enumerate() {
+            let (xt_m, yt_m) = model.training_data();
+            for i in 0..xt_m.nrows() {
+                let mut matched = false;
+                for j in 0..x_data.nrows() {
+                    let same_x = xt_m
+                        .row(i)
+                        .iter()
+                        .zip(x_data.row(j).iter())
+                        .all(|(a, b)| (a - b).abs() < f64::EPSILON);
+                    if same_x {
+                        let expected = y_data[[j, k]];
+                        assert!(
+                            (yt_m[i] - expected).abs() < f64::EPSILON,
+                            "model {k} trained with a stale virtual point at row {i}: \
+                             y={} instead of the evaluated value {}",
+                            yt_m[i],
+                            expected
+                        );
+                        matched = true;
+                        break;
+                    }
+                }
+                assert!(
+                    matched,
+                    "model {k} training point at row {i} not found in evaluated doe"
+                );
+            }
+        }
+    }
+
+    // Mixed-integer tests
+    fn mixsinx(x: &ArrayView2<f64>) -> Array2<f64> {
+        if (x.mapv(|v| v.round()).norm_l2() - x.norm_l2()).abs() < 1e-6 {
+            (x - 3.5) * ((x - 3.5) / std::f64::consts::PI).mapv(|v| v.sin())
+        } else {
+            panic!("Error: mixsinx works only on integer, got {x:?}")
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixsinx_ei_mixint_egor_builder() {
+        let max_iters = 20;
+        let doe = array![[0.], [7.], [25.]];
+        let xtypes = vec![XType::Int(0, 25)];
+
+        let res = EgorBuilder::optimize(mixsinx)
+            .configure(|config| {
+                config
+                    .doe(&doe)
+                    .max_iters(max_iters)
+                    //.target(-15.1)
+                    .infill_strategy(InfillStrategy::EI)
+                    .seed(42)
+            })
+            .verbose(log::LevelFilter::Debug)
+            .min_within_mixint_space(&xtypes)
+            .expect("Egor configured")
+            .run()
+            .expect("Optimization successful");
+        assert_abs_diff_eq!(array![18.], res.x_opt, epsilon = 2.);
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixsinx_reclustering_mixint_egor_builder() {
+        let max_iters = 20;
+        let doe = array![[0.], [7.], [25.]];
+        let xtypes = vec![XType::Int(0, 25)];
+
+        let res = EgorBuilder::optimize(mixsinx)
+            .configure(|config| {
+                config
+                    .doe(&doe)
+                    .max_iters(max_iters)
+                    .target(-15.1)
+                    .infill_strategy(InfillStrategy::EI)
+                    .seed(42)
+            })
+            .min_within_mixint_space(&xtypes)
+            .expect("Egor configured")
+            .run()
+            .unwrap();
+        assert_abs_diff_eq!(array![18.], res.x_opt, epsilon = 2.);
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixsinx_wb2_mixint_egor_builder() {
+        let max_iters = 20;
+        let xtypes = vec![XType::Int(0, 25)];
+
+        let res = EgorBuilder::optimize(mixsinx)
+            .configure(|config| {
+                config
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::CONSTANT)
+                            .correlation_spec(CorrelationSpec::SQUAREDEXPONENTIAL)
+                    })
+                    .max_iters(max_iters)
+                    .seed(42)
+            })
+            .min_within_mixint_space(&xtypes)
+            .expect("Egor configured")
+            .run()
+            .unwrap();
+        assert_abs_diff_eq!(&array![18.], &res.x_opt, epsilon = 3.);
+    }
+
+    fn mixobj(x: &ArrayView2<f64>) -> Array2<f64> {
+        // XType.Float
+        let x1 = x.column(0);
+        // XType.ENUM 1
+        let c1 = x.column(1);
+        let x2 = c1.mapv(|v| (v == 0.) as i32 as f64);
+        let x3 = c1.mapv(|v| (v == 1.) as i32 as f64);
+        let x4 = c1.mapv(|v| (v == 2.) as i32 as f64);
+        // XType.ENUM 2
+        let c2 = x.column(2);
+        let x5 = c2.mapv(|v| (v == 0.) as i32 as f64);
+        let x6 = c2.mapv(|v| (v == 1.) as i32 as f64);
+        // XTypes.ORD
+        let i = x.column(3);
+
+        let y = (x2.clone() + x3.mapv(|v| 2. * v) + x4.mapv(|v| 3. * v)) * x5 * x1
+            + (x2 + x3.mapv(|v| 2. * v) + x4.mapv(|v| 3. * v)) * x6 * 0.95 * x1
+            + i;
+        let d = y.len();
+        y.into_shape_with_order((d, 1)).unwrap()
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixobj_mixint_egor_builder() {
+        let max_iters = 10;
+        let xtypes = vec![
+            XType::Float(-5., 5.),
+            XType::Enum(3),
+            XType::Enum(2),
+            XType::Ord(vec![0., 2., 3.]),
+        ];
+
+        let res = EgorBuilder::optimize(mixobj)
+            .configure(|config| {
+                config
+                    .configure_gp(|gp| {
+                        gp.regression_spec(RegressionSpec::CONSTANT)
+                            .correlation_spec(CorrelationSpec::SQUAREDEXPONENTIAL)
+                    })
+                    .max_iters(max_iters)
+                    .seed(42)
+            })
+            .min_within_mixint_space(&xtypes)
+            .expect("Egor configured")
+            .run()
+            .unwrap();
+        println!("res={res:?}");
+        assert_abs_diff_eq!(&array![-15.], &res.y_opt, epsilon = 1.);
+    }
+
+    fn f_mixint_fcstr(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 1));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                yi[0] = (xi[0] - 7.).powi(2) + xi[1] + (xi[2] - 3.).powi(2);
+            });
+        y
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixint_with_function_constraint() {
+        let xtypes = vec![XType::Int(0, 10), XType::Enum(3), XType::Float(-5., 5.)];
+        // Function constraint expects x in folded space: [int, enum index, float]
+        let fcstr = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+            assert_eq!(x.len(), 3);
+            assert_eq!(x[0].fract(), 0.);
+            assert!([0., 1., 2.].contains(&x[1]));
+            if let Some(g) = g {
+                assert_eq!(g.len(), 3);
+                g.copy_from_slice(&[1., 0., 1.]);
+            }
+            x[0] + x[2] - 4.
+        };
+
+        for optimizer in [InfillOptimizer::Cobyla, InfillOptimizer::Slsqp] {
+            let res = EgorBuilder::optimize(f_mixint_fcstr)
+                .subject_to_with_specs(vec![fcstr], vec![CstrSpec::Leq(0.)])
+                .configure(|config| {
+                    config
+                        .max_iters(20)
+                        .infill_optimizer(optimizer.clone())
+                        .seed(42)
+                })
+                .min_within_mixint_space(&xtypes)
+                .expect("Egor configured")
+                .run()
+                .expect("Minimize failure");
+            println!("{optimizer:?}: res={res:?}");
+            let x = res.x_opt;
+            assert_eq!(x[0].fract(), 0.);
+            assert!(x[0] + x[2] - 4. <= 1e-3);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_mixobj_mixint_warmstart_egor_builder() {
+        let outdir = "target/test_warmstart_02";
+        let outfile = format!("{outdir}/{DOE_INITIAL_FILE}");
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_INITIAL_FILE}"));
+        let _ = std::fs::remove_file(format!("{outdir}/{DOE_FILE}"));
+
+        let xtypes = vec![
+            XType::Float(-5., 5.),
+            XType::Enum(3),
+            XType::Enum(2),
+            XType::Ord(vec![0., 2., 3.]),
+        ];
+        let xlimits = as_continuous_limits::<f64>(&xtypes);
+
+        EgorBuilder::optimize(mixobj)
+            .configure(|config| config.outdir(outdir).max_iters(1).seed(42))
+            .min_within_mixint_space(&xtypes)
+            .expect("Egor configured")
+            .run()
+            .unwrap();
+
+        // Check saved DOE has continuous (unfolded) dimension + one output
+        let saved_doe: Array2<f64> = read_npy(outfile).unwrap();
+        assert_eq!(saved_doe.shape()[1], xlimits.nrows() + 1);
+
+        // Check that with no iteration, obj function is never called
+        // as the DOE does not need to be evaluated!
+        EgorBuilder::optimize(|_x: &ArrayView2<f64>| -> Array2<f64> {
+            panic!("Should not call objective function!")
+        })
+        .configure(|config| config.outdir(outdir).warm_start(true).max_iters(0).seed(42))
+        .min_within_mixint_space(&xtypes)
+        .expect("Egor configured")
+        .run()
+        .unwrap();
+    }
+
+    fn branin_forrester(x: ArrayView1<f64>) -> f64 {
+        let x1 = x[0] * 15.0 - 5.0;
+        let x2 = x[1] * 15.0;
+        (x2 - (5.1 / (4.0 * std::f64::consts::PI * std::f64::consts::PI)) * x1 * x1
+            + (5.0 / std::f64::consts::PI) * x1
+            - 6.0)
+            .powi(2)
+            + 10.0 * (1.0 - 1.0 / (8.0 * std::f64::consts::PI)) * (x1).cos()
+            + 10.0
+    }
+
+    #[allow(dead_code)]
+    fn branin(x: &ArrayView2<f64>) -> Array2<f64> {
+        x.map_axis(ndarray::Axis(1), |xi| branin_forrester(xi.view()))
+            .into_shape_with_order((x.nrows(), 1))
+            .unwrap()
+    }
+
+    fn branin_with_nans(x: &ArrayView2<f64>) -> Array2<f64> {
+        x.map_axis(ndarray::Axis(1), |xi| {
+            if xi[0] * xi[1] >= 0.2 {
+                branin_forrester(xi.view())
+            } else {
+                f64::NAN
+            }
+        })
+        .into_shape_with_order((x.nrows(), 1))
+        .unwrap()
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_with_initial_failed_points() {
+        let initial_doe = Lhs::new(&array![[0.0, 1.0], [0.0, 1.0]])
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(15);
+        let expected_nans = branin_with_nans(&initial_doe.view())
+            .iter()
+            .filter(|v| v.is_nan())
+            .count();
+
+        let res = EgorBuilder::optimize(branin_with_nans)
+            .configure(|cfg| cfg.doe(&initial_doe).max_iters(0).seed(42))
+            .min_within(&array![[0.0, 1.0], [0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize branin_with_nans");
+        // Check initial failed points are stored
+        assert!(res.state.surrogate.x_fail.is_some());
+        assert_eq!(expected_nans, res.state.surrogate.x_fail.unwrap().nrows());
+        // let x_expected = array![[0.96773, 0.20667]];
+        // println!("{}", branin_with_nans(&x_expected.view()));
+        // assert_abs_diff_eq!(x_expected.row(0), res.x_opt, epsilon = 5e-2);
+
+        let res = EgorBuilder::optimize(branin_with_nans)
+            .configure(|cfg| cfg.doe(&initial_doe).max_iters(1).seed(42))
+            .min_within(&array![[0.0, 1.0], [0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize branin_with_nans");
+        assert!(res.state.surrogate.x_fail.is_some());
+        let x_fail = res.state.surrogate.x_fail.as_ref().unwrap();
+        assert_eq!(expected_nans + 1, x_fail.nrows()); // the one iteration failed point added
+        assert_eq!(x_fail.row(expected_nans), res.state.get_param().unwrap());
+        let expected_valid = initial_doe.nrows() - expected_nans;
+        assert_eq!(expected_valid, res.x_doe.nrows());
+        assert_eq!(expected_valid, res.y_doe.nrows());
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_with_failsafe_failed_points() {
+        const MAX_ITERS: usize = 30;
+        const N_DOE: usize = 15;
+
+        let initial_doe = Lhs::new(&array![[0.0, 1.0], [0.0, 1.0]])
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(N_DOE);
+
+        // Branin Constraint
+        // let fcstr = |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| {
+        //     if let Some(g) = g {
+        //         g[0] = -x[1];
+        //         g[1] = -x[0];
+        //     }
+        //     0.2 - x[0] * x[1]
+        // };
+
+        let x_expected = array![[0.96773, 0.20667]];
+
+        let res = EgorBuilder::optimize(branin_with_nans)
+            .configure(|cfg| cfg.doe(&initial_doe).max_iters(MAX_ITERS).seed(42))
+            //.subject_to(vec![fcstr])
+            .min_within(&array![[0.0, 1.0], [0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize branin_with_nans");
+        // The optimizer stalls with the explicit NaNs rejection policy
+        // Only some good doe points are kept, no further point is added
+        // as the optimizer wants to peek in the bad region
+        assert!(N_DOE + MAX_ITERS >= res.x_doe.nrows());
+
+        let res = EgorBuilder::optimize(branin_with_nans)
+            .configure(|cfg| {
+                cfg.doe(&initial_doe)
+                    .max_iters(MAX_ITERS)
+                    .failsafe_strategy(FailsafeStrategy::Imputation)
+                    .seed(42)
+            })
+            //.subject_to(vec![fcstr])
+            .min_within(&array![[0.0, 1.0], [0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize branin_with_nans");
+        assert_abs_diff_eq!(x_expected.row(0), res.x_opt, epsilon = 7e-2);
+        if res.state.termination_status
+            == TerminationStatus::Terminated(TerminationReason::SolverConverged)
+        {
+            // May have less points than max iters if converged
+            assert!(N_DOE + MAX_ITERS >= res.x_doe.nrows());
+        } else {
+            assert_eq!(N_DOE + MAX_ITERS, res.x_doe.nrows());
+        }
+        assert!(res.state.surrogate.x_fail.is_some());
+
+        let res = EgorBuilder::optimize(branin_with_nans)
+            .configure(|cfg| {
+                cfg.doe(&initial_doe)
+                    .max_iters(MAX_ITERS)
+                    .failsafe_strategy(FailsafeStrategy::Viability)
+                    .seed(42)
+            })
+            //.subject_to(vec![fcstr])
+            .min_within(&array![[0.0, 1.0], [0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("Egor should minimize branin_with_nans");
+        assert_abs_diff_eq!(x_expected.row(0), res.x_opt, epsilon = 7e-2);
+        assert!(N_DOE + MAX_ITERS >= res.x_doe.nrows());
+        assert!(res.state.surrogate.x_fail.is_some());
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_all_initial_points_fail() {
+        let xlimits = array![[0.0, 1.0], [0.0, 1.0]];
+        let initial_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(10);
+
+        // unconstrained
+        let res = EgorBuilder::optimize(|x: &ArrayView2<f64>| {
+            Array2::from_elem((x.nrows(), 1), f64::NAN)
+        })
+        .configure(|cfg| cfg.doe(&initial_doe).max_iters(5).seed(42))
+        .min_within(&xlimits)
+        .expect("Egor should be configured")
+        .run();
+        assert!(matches!(res, Err(EgoError::ObjectiveFunctionError(_))));
+
+        // constrained
+        let res = EgorBuilder::optimize(|x: &ArrayView2<f64>| {
+            Array2::from_elem((x.nrows(), 2), f64::NAN)
+        })
+        .configure(|cfg| cfg.doe(&initial_doe).n_cstr(1).max_iters(5).seed(42))
+        .min_within(&xlimits)
+        .expect("Egor should be configured")
+        .run();
+        assert!(matches!(res, Err(EgoError::ObjectiveFunctionError(_))));
+    }
+
+    /// Constrained problem whose optimum lies on the border of a failure region
+    fn cstr_quadratic_with_nans(x: &ArrayView2<f64>) -> Array2<f64> {
+        let mut y = Array2::zeros((x.nrows(), 2));
+        Zip::from(y.rows_mut())
+            .and(x.rows())
+            .for_each(|mut yi, xi| {
+                if xi[0] * xi[1] >= 0.1 {
+                    yi[0] = (xi[0] - 0.2).powi(2) + (xi[1] - 0.2).powi(2);
+                    yi[1] = 0.3 - xi[0];
+                } else {
+                    yi.fill(f64::NAN);
+                }
+            });
+        y
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_imputation_never_selects_failed_point_as_best() {
+        let xlimits = array![[0.0, 1.0], [0.0, 1.0]];
+        let initial_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(10);
+        for trego in [false, true] {
+            let res = EgorBuilder::optimize(cstr_quadratic_with_nans)
+                .configure(|cfg| {
+                    cfg.doe(&initial_doe)
+                        .n_cstr(1)
+                        .cstr_infill(true)
+                        .trego(trego)
+                        .max_iters(30)
+                        .failsafe_strategy(FailsafeStrategy::Imputation)
+                        .seed(42)
+                })
+                .min_within(&xlimits)
+                .expect("Egor should be configured")
+                .run()
+                .expect("Egor should minimize cstr_quadratic_with_nans");
+
+            let x_fail = res.state.surrogate.x_fail.as_ref().expect("failed points");
+            assert!(x_fail.nrows() > 0);
+            // best point is an actually evaluated one
+            assert!(res.y_opt.iter().all(|v| v.is_finite()));
+            assert_abs_diff_eq!(
+                cstr_quadratic_with_nans(&res.x_opt.view().insert_axis(Axis(0))).row(0),
+                res.y_opt.view(),
+                epsilon = 1e-12
+            );
+            assert!(crate::utils::is_update_ok(x_fail, &res.x_opt));
+            // imputed values stay within the range of the observed values
+            assert!(res.y_doe.iter().all(|v| v.is_finite()));
+            let (valid_idx, invalid_idx) =
+                crate::utils::filter_nans(&cstr_quadratic_with_nans(&res.x_doe.view()));
+            assert!(!invalid_idx.is_empty());
+            let y_valid = res.y_doe.select(Axis(0), &valid_idx);
+            for &i in &invalid_idx {
+                for (j, col) in y_valid.columns().into_iter().enumerate() {
+                    let (lo, hi) = col
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &y| {
+                            (lo.min(y), hi.max(y))
+                        });
+                    assert!(lo <= res.y_doe[[i, j]] && res.y_doe[[i, j]] <= hi);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_handles_objective_error_with_failsafe_by_default() {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let objective_calls = calls.clone();
+        let objective = move |x: &ArrayView2<f64>| -> std::result::Result<Array2<f64>, String> {
+            if objective_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 0 {
+                Ok(x * x)
+            } else {
+                Err("simulated objective failure".to_string())
+            }
+        };
+
+        let result = EgorBuilder::optimize(objective)
+            .configure(|cfg| cfg.max_iters(1).seed(42))
+            .min_within(&array![[0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run();
+
+        let result = result.expect("objective failure should use the failsafe by default");
+        assert!(calls.load(std::sync::atomic::Ordering::Relaxed) > 1);
+        assert!(result.state.surrogate.x_fail.is_some());
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_stops_on_objective_error_when_configured() {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let objective_calls = calls.clone();
+        let objective = move |x: &ArrayView2<f64>| -> std::result::Result<Array2<f64>, String> {
+            if objective_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 0 {
+                Ok(x * x)
+            } else {
+                Err("simulated objective failure".to_string())
+            }
+        };
+
+        let result = EgorBuilder::optimize(objective)
+            .configure(|cfg| cfg.max_iters(1).stop_on_error(true).seed(42))
+            .min_within(&array![[0.0, 1.0]])
+            .expect("Egor should be configured")
+            .run()
+            .expect("objective failure should terminate optimization normally");
+
+        assert!(calls.load(std::sync::atomic::Ordering::Relaxed) > 1);
+        assert_eq!(
+            result.state.termination_status,
+            TerminationStatus::Terminated(TerminationReason::SolverExit(
+                OBJECTIVE_FUNCTION_ERROR.to_string()
+            ))
+        );
+    }
+
+    // sphere function which save nb of calls in temporary file
+    // then read it to fail every 5 calls, to test periodic fails
+    #[test]
+    #[serial]
+    fn test_sphere_periodic_failures() {
+        // Temp file to count calls
+        let mut counter_path: PathBuf = std::env::temp_dir();
+        counter_path.push("egobox_sphere_periodic_calls.txt");
+        let _ = std::fs::remove_file(&counter_path);
+
+        fn sphere_periodic_fail(
+            x: &ArrayView2<f64>,
+            counter_path: &PathBuf,
+        ) -> std::result::Result<Array2<f64>, String> {
+            // Increment counter stored in temp file
+            let mut count: usize = std::fs::read_to_string(counter_path)
+                .ok()
+                .and_then(|s| s.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            count += 1;
+            let _ = std::fs::write(counter_path, count.to_string());
+
+            // Fail every 5th call by returning an error (simulates evaluation failure)
+            if count.is_multiple_of(5) {
+                Err(format!("Simulated periodic failure on call {count}"))
+            } else {
+                let s = (x * x).sum_axis(Axis(1));
+                Ok(s.insert_axis(Axis(1)))
+            }
+        }
+
+        let dim = 4;
+        let xlimits = Array2::from_shape_vec((dim, 2), [-10.0, 10.0].repeat(dim)).unwrap();
+        let init_doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(dim + 1);
+
+        // Wrap the closure to capture counter_path
+        let f = |x: &ArrayView2<f64>| sphere_periodic_fail(x, &counter_path);
+
+        let max_iters = 12usize;
+        let res = EgorBuilder::optimize(f)
+            .configure(|cfg| {
+                cfg.doe(&init_doe)
+                    .max_iters(max_iters)
+                    .failsafe_strategy(FailsafeStrategy::Rejection)
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .expect("Egor configured")
+            .run()
+            .expect("Egor should run with periodic failures");
+
+        // Expect failed evaluations to have been recorded
+        assert!(res.state.surrogate.x_fail.is_some());
+
+        // Cleanup
+        let _ = std::fs::remove_file(&counter_path);
+    }
+}

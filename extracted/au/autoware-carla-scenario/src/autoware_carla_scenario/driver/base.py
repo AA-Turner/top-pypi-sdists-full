@@ -1,0 +1,720 @@
+"""Configuration and the abstract client for an external ego driver.
+
+The scenario framework plays the *runtime* role of the alpasim contract: it owns the
+world, renders the observations, and asks a driver policy what to do next.  The policy
+runs elsewhere -- typically as a gRPC server built on ``carla-driver-interface``, the
+policy-side package in this workspace -- and this module defines the seam between the
+two.
+
+:class:`BaseEgoDriverClient` is deliberately transport-agnostic so tests can substitute a
+fake, mirroring how :class:`~autoware_carla_scenario.sensor.base.CameraSensorBase`
+abstracts the simulator behind the camera.
+"""
+
+from __future__ import annotations
+
+import math
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+
+import numpy as np
+
+from ..constants import tick_multiple
+from ..sensor.carla_camera import CarlaCameraSensorConfig
+from ..sensor.carla_lidar import CarlaLidarSensorConfig
+from .geometry import Pose, Trajectory
+
+
+__all__ = [
+    "DRIVER_TRANSPORTS",
+    "BaseEgoDriverClient",
+    "DriveOutcome",
+    "DriverCameraConfig",
+    "DriverCameraLens",
+    "DriverClientConfig",
+    "DriverLidarConfig",
+    "EgoObservation",
+]
+
+#: How the run reaches its driver policy (:attr:`DriverClientConfig.transport`).
+DRIVER_TRANSPORTS: Tuple[str, ...] = ("tcp", "unix", "direct")
+
+#: Logical camera id used by alpasim's reference rig for the forward-facing camera.
+#: Policies look their inputs up by this string, so it must match what the policy expects.
+DEFAULT_CAMERA_LOGICAL_ID: str = "camera_front_wide_120fov"
+
+
+#: The lens models a camera's frames may be drawn through (:class:`DriverCameraLens`).
+CAMERA_LENS_MODELS: Tuple[str, ...] = ("ftheta",)
+
+#: Which of an F-theta lens' two polynomials is its definition, the other its inverse.
+FTHETA_REFERENCE_POLYS: Tuple[str, ...] = ("pixeldist_to_angle", "angle_to_pixeldist")
+
+
+@dataclass(frozen=True)
+class DriverCameraLens:
+    """The lens a camera's frames are drawn through, when they are not CARLA's
+    pinhole of the camera's ``fov``: a carla_canvas renderer's own camera, such as
+    the Cosmos3 world model's fisheye Hyperion cameras.
+
+    Only NVIDIA's F-theta model, as alpasim's ``FthetaCameraParam`` carries it: a
+    ray at angle *theta* from the optical axis lands at the radius
+    ``angle_to_pixeldist_poly(theta)`` pixels from the principal point, and
+    ``linear_cde`` (``[[c, d], [e, 1]]``) maps that radial offset to pixels.  The
+    polynomials' coefficients go up from the constant term; pixels are OpenCV's
+    (the centre of the top-left pixel is (0, 0)).
+
+    The policy is sent the lens as it is (:class:`~.egodriver_client.EgodriverClient`);
+    a T4 dataset, whose cameras are OpenCV's, gets the OpenCV rational model fitted
+    to it (:mod:`autoware_carla_scenario.t4`).
+
+    Raises:
+        ValueError: If a field is out of its domain.
+    """
+
+    model: str = "ftheta"
+    #: ``[x, y]`` in pixels.
+    principal_point: List[float] = field(default_factory=list)
+    #: Radius (pixels) -> angle (radians).
+    pixeldist_to_angle_poly: List[float] = field(default_factory=list)
+    #: Angle (radians) -> radius (pixels).
+    angle_to_pixeldist_poly: List[float] = field(default_factory=list)
+    #: The largest angle from the optical axis the lens sees, in radians.
+    max_angle: float = 0.0
+    #: ``[c, d, e]``.
+    linear_cde: List[float] = field(default_factory=lambda: [1.0, 0.0, 0.0])
+    #: Which polynomial defines the lens (:data:`FTHETA_REFERENCE_POLYS`).
+    reference_poly: str = "pixeldist_to_angle"
+
+    def __post_init__(self) -> None:
+        if self.model not in CAMERA_LENS_MODELS:
+            raise ValueError(
+                f"lens.model must be one of {CAMERA_LENS_MODELS}, got {self.model!r}"
+            )
+        if len(self.principal_point) != 2:
+            raise ValueError("lens.principal_point must be [x, y]")
+        if not self.pixeldist_to_angle_poly or not self.angle_to_pixeldist_poly:
+            raise ValueError(
+                "lens: an F-theta lens needs both pixeldist_to_angle_poly and "
+                "angle_to_pixeldist_poly"
+            )
+        if not self.max_angle > 0.0:
+            raise ValueError("lens.max_angle must be positive (radians)")
+        if len(self.linear_cde) != 3:
+            raise ValueError("lens.linear_cde must be [c, d, e]")
+        if self.reference_poly not in FTHETA_REFERENCE_POLYS:
+            raise ValueError(
+                f"lens.reference_poly must be one of {FTHETA_REFERENCE_POLYS}, "
+                f"got {self.reference_poly!r}"
+            )
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "DriverCameraLens":
+        """Return a lens built from a plain mapping (e.g. a Hydra node).
+
+        Raises:
+            ValueError: If *mapping* holds a key this config does not define.
+        """
+        # Imported here: the Codon check does not compile this method, and
+        # utils.config reads a dataclass's fields from its class (docs/typecheck.md).
+        from ..utils.config import checked_options as _checked  # noqa: PLC0415
+
+        values = _checked(cls, mapping)
+        for key in (
+            "principal_point",
+            "pixeldist_to_angle_poly",
+            "angle_to_pixeldist_poly",
+            "linear_cde",
+        ):
+            if key in values:
+                values[key] = [float(v) for v in values[key]]
+        return cls(**values)
+
+
+@dataclass(frozen=True)
+class DriverCameraConfig:
+    """One camera exposed to the driver policy.
+
+    Pairs the alpasim *logical id* a policy addresses the camera by with the CARLA
+    camera parameters used to render it.  Defaults match alpasim's front-wide camera,
+    which ``carla-driver-interface``'s reference policies look for.
+
+    Extrinsics are relative to the CARLA actor origin (the vehicle's centre, where
+    CARLA attaches the sensor), in CARLA's convention (x forward, y right, z up,
+    degrees), as a LiDAR's are.  The policy is told the mount in the rig, whose
+    origin is the rear axle (``base_link``): moved by the rear-axle offset
+    (:attr:`DriverClientConfig.rear_axle_offset_m`, else derived), the way
+    :func:`~autoware_carla_scenario.driver.observation.sensor_pose_in_rig` moves it.
+    """
+
+    logical_id: str = DEFAULT_CAMERA_LOGICAL_ID
+    image_width: int = 960
+    image_height: int = 604
+    fov: float = 120.0
+    fps: float = 20.0
+    position_x: float = 1.5
+    position_y: float = 0.0
+    position_z: float = 1.6
+    roll: float = 0.0
+    pitch: float = 0.0
+    yaw: float = 0.0
+    #: The lens the frames are drawn through; ``None`` is CARLA's pinhole of
+    #: :attr:`fov`.
+    lens: Optional[DriverCameraLens] = None
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "DriverCameraConfig":
+        """Return a camera config built from a plain mapping (e.g. a Hydra node).
+
+        Raises:
+            ValueError: If *mapping* holds a key this config does not define.
+        """
+        # Imported here: the Codon check does not compile this method, and
+        # utils.config reads a dataclass's fields from its class (docs/typecheck.md).
+        from ..utils.config import checked_options as _checked  # noqa: PLC0415
+
+        values = _checked(cls, mapping)
+        lens = values.pop("lens", None)
+        if lens is not None:
+            values["lens"] = DriverCameraLens.from_mapping(lens)
+        return cls(**values)
+
+    def to_sensor_config(self) -> CarlaCameraSensorConfig:
+        """Return the CARLA sensor configuration for this camera."""
+        return CarlaCameraSensorConfig(
+            image_width=self.image_width,
+            image_height=self.image_height,
+            fov=self.fov,
+            fps=self.fps,
+            position_x=self.position_x,
+            position_y=self.position_y,
+            position_z=self.position_z,
+            roll=self.roll,
+            pitch=self.pitch,
+            yaw=self.yaw,
+        )
+
+
+@dataclass(frozen=True)
+class DriverLidarConfig(CarlaLidarSensorConfig):
+    """One LiDAR mounted on the ego, its sweeps sent to the policy.
+
+    Sweeps ride in ``CarlaRendererData.lidar``, converted into the rig frame, since
+    the egodriver contract has no LiDAR submission RPC.  See
+    :class:`~autoware_carla_scenario.sensor.carla_lidar.CarlaLidarSensorConfig` for the
+    sensor fields; this adds the logical id a policy addresses the sweep by.
+    """
+
+    logical_id: str = "lidar_top"
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "DriverLidarConfig":
+        """Return a LiDAR config built from a plain mapping (e.g. a Hydra node).
+
+        Raises:
+            ValueError: If *mapping* holds a key this config does not define.
+        """
+        # Imported here: the Codon check does not compile this method, and
+        # utils.config reads a dataclass's fields from its class (docs/typecheck.md).
+        from ..utils.config import checked_options as _checked  # noqa: PLC0415
+
+        return cls(**_checked(cls, mapping))
+
+
+@dataclass(frozen=True)
+class DriverClientConfig:
+    """Connection and cadence settings for an external driver policy."""
+
+    address: str = "localhost:50051"
+    """``host:port`` of the driver's gRPC server."""
+
+    policy: Optional[str] = None
+    """A policy to serve from this process instead of dialling :attr:`address`.
+
+    A name the reference policies are registered under (``route_follower``) or
+    ``package.module:Class``. Set, the run serves it itself, once, on a free local
+    port -- one command starts everything; unset, the policy is a separate process
+    already serving at :attr:`address` (``carla-driver-interface serve``, an
+    alpasim driver, ...).
+    """
+
+    transport: str = "tcp"
+    """How the run reaches the policy, one of :data:`DRIVER_TRANSPORTS`.
+
+    * ``tcp`` (the default): dial :attr:`address`; with :attr:`policy`, serve it on
+      a free local port and dial that.
+    * ``unix``: a Unix domain socket instead of a port. With :attr:`policy`, the
+      run serves it on a socket in a directory of its own, so runs sharing a node
+      never meet; without, :attr:`address` names the socket another process
+      serves (``unix:///run/policy.sock``,
+      ``carla-driver-interface serve --host unix:///run/policy.sock``).
+    * ``direct``: no socket at all -- the run calls the servicer of the
+      :attr:`policy` it serves through ``carla_driver_interface.inprocess``, with
+      the same messages serialized to the same bytes as on the wire. Only with
+      :attr:`policy`: a policy in another process has to be dialled.
+
+    ``unix`` with :attr:`policy` and ``direct`` need carla-driver-interface 2.2 or
+    later; the run says so when it starts if it is older.
+    """
+
+    timeout_s: float = 60.0
+    """Per-RPC deadline in seconds."""
+
+    policy_timestep_s: float = 0.1
+    """Interval between ``drive`` calls.
+
+    Must be a positive integer multiple of the simulation step (0.05 s at CARLA's
+    20 Hz), matching ``RuntimeConfig.policy_timestep_s`` upstream; any other value
+    is refused when the config is built (within 1e-9 s).  Between policy
+    steps the cached plan keeps being tracked, so control is still applied every tick.
+    """
+
+    cameras: Tuple[DriverCameraConfig, ...] = (DriverCameraConfig(),)
+    """Cameras rendered and streamed to the policy."""
+
+    image_quality: int = 90
+    """JPEG quality (1-100) for the streamed camera frames."""
+
+    lidars: Tuple[DriverLidarConfig, ...] = ()
+    """LiDARs mounted on the ego, their sweeps sent in ``CarlaRendererData.lidar``.
+
+    None by default: a sweep is megabytes per policy step and most policies read none.
+    Needs :attr:`send_renderer_data`.
+    """
+
+    warmup_s: float = 0.0
+    """Length of a run-up onto the scenario's first frame, or 0 for none.
+
+    A policy that reads a history (past LiDAR maps, past poses) has none at the
+    first step and plans as if the ego had stood still.  With a run-up, the
+    ``warmup_s`` before the first frame are played by rule: every vehicle is
+    carried along its lane, and every pedestrian in a straight line, onto its
+    first-frame pose at its initial speed, with the policy planning all the way
+    but not driving and the lights frozen.  The scenario's clock starts on
+    arrival.  Set it to the history the policy reads.
+    """
+
+    route_horizon_m: float = 80.0
+    """How far ahead the route sent to the policy extends."""
+
+    route_resolution_m: float = 2.0
+    """Spacing between route waypoints."""
+
+    rear_axle_offset_m: Optional[float] = None
+    """Distance from the CARLA actor origin back to the rig origin.
+
+    alpasim places the rig origin at the rear-axle centre projected to the ground while
+    CARLA places the actor origin at the vehicle centre.  ``None`` derives the offset
+    from the vehicle's wheel physics; set it explicitly (e.g. ``-1.4``) if the derived
+    value looks wrong, which is a known CARLA 0.9.x quirk where wheel positions are
+    reported in world coordinates and centimetres.
+    """
+
+    send_ground_truth: bool = False
+    """Whether to also call ``submit_recording_ground_truth`` on every route update.
+
+    CARLA has no recording, so the reference sent is the route itself: its waypoints
+    in the rig frame, headed along the path and spaced ``policy_timestep_s`` apart in
+    time.  This is the recorded-trajectory channel, unrelated to the CARLA ground
+    truth in ``renderer_data`` (see :attr:`send_renderer_data`).
+    """
+
+    send_renderer_data: bool = True
+    """Whether to send CARLA ground truth in ``DriveRequest.renderer_data``.
+
+    The alpasim contract carries no traffic lights and no other vehicles, so a
+    policy that reasons about either reads them from this extension payload.
+    Policies that ignore it are unaffected; policies that read it treat an absent
+    payload as "no light applies, no traffic present" **without erroring**, which
+    silently disables every rule that depends on the world outside the ego.
+    """
+
+    send_actor_ground_truth: bool = True
+    """Whether the payload includes the other vehicles' poses and velocities."""
+
+    traffic_light_sight_distance_m: float = 60.0
+    """How far down its own lane the ego looks for the light governing it.
+
+    0 falls back to CARLA's ``is_at_traffic_light()``, whose trigger volumes are
+    about a metre thick -- a policy learns of a red light on arrival, too late to
+    stop from any ordinary speed.
+    """
+
+    actor_horizon_m: float = 150.0
+    """Radius within which other vehicles are reported to the policy."""
+
+    random_seed: Optional[int] = None
+    """Seed handed to the policy in ``start_session``; ``None`` hands it the run's
+    seed (:mod:`~autoware_carla_scenario.seed`)."""
+
+    map_dir: Optional[str] = None
+    """Where the world's map is written at scenario start, as ``<map_dir>/<map_id>/``.
+
+    A policy reads it from its own copy of the directory, by the ``map_id`` every
+    ``CarlaRendererData`` carries, and resolves ``CarlaRendererData.traffic_lights``
+    against it (``carla_driver_interface.hdmap``).  ``None`` writes no map and sends
+    no lights.  Needs roadgen (the ``map`` extra) and :attr:`send_renderer_data`.
+    """
+
+    map_formats: Tuple[str, ...] = ("lanelet2",)
+    """The formats to write, by roadgen exporter name.  The OpenDRIVE source,
+    roadgen's IR and its read trace are always written as well (empty when no
+    format is converted); a policy resolves lights through them."""
+
+    lanelet2_path: Optional[str] = None
+    """A local Lanelet2 (``.osm``) file written into the map set as its Lanelet2 map,
+    as it is, instead of the one roadgen converts from the world's OpenDRIVE.
+
+    Implies ``lanelet2`` in :attr:`map_formats`.  The file carries no roadgen
+    trace; a policy resolving lights against it (``carla_driver_interface`` 2.3 or
+    later) finds each light on the map instead, as the first traffic-light element
+    on or ahead of its stop point.  Its ``local_x`` / ``local_y`` must be the
+    ``local`` frame.  roadgen is needed only for the
+    other formats :attr:`map_formats` names, if any.  Needs :attr:`map_dir`.
+    """
+
+    t4_scene: bool = False
+    """Whether every drive also carries the rollout so far as a T4Scene
+    (``CarlaRendererData.t4_scene``), the exchange format of tier4/e2e-devkit,
+    for a policy that plans from scenes (``carla_driver_interface``'s
+    ``T4SceneDriver``).
+
+    History only, the current row last -- the drive's own tick, whatever
+    :attr:`policy_timestep_s` -- and the rows before it 0.1 s apart, in
+    Autoware's ``map`` frame (docs/t4_scene.md): the ego with what the policy
+    is told of it, the road users near it, the lights, the current LiDAR
+    sweep, the route and the goal. Its map, the run's Lanelet2 map, is written into the map set once as
+    the ``t4`` format. Needs :attr:`send_renderer_data` and :attr:`map_dir`,
+    and carla-driver-interface 2.4 or later. Every other observation is sent as
+    before.
+    """
+
+    t4_scene_history_s: float = 3.0
+    """How far back a scene reaches, the current row aside: its rows are 0.1 s
+    apart. A run younger than this sends the rows it has."""
+
+    t4_scene_wheel_base_m: Optional[float] = None
+    """The ego's wheel base, written in the scenes' ego shape; ``None`` leaves
+    it out (CARLA 0.10 reports no wheel positions)."""
+
+    t4_scene_goal: str = "scenario"
+    """The scenes' goal: ``scenario``, where the scenario routes the ego
+    (none without a ``route_to``); ``road_ahead``, the far end of the road
+    ahead the policy is sent (``route_horizon_m``), where a policy reading
+    the egodriver observations has its goal."""
+
+    t4_scene_map: str = "run"
+    """The map the scenes are on: ``run``, the run's own Lanelet2 map;
+    ``map_set``, the map set's (``map_dir``, the one a policy reading the
+    egodriver observations is given -- roadgen's from the world's OpenDRIVE,
+    or ``lanelet2_path``), so a scene policy reads the same map as one of
+    those."""
+
+    def __post_init__(self) -> None:
+        if self.transport not in DRIVER_TRANSPORTS:
+            raise ValueError(
+                "driver.transport must be one of tcp, unix, direct, "
+                f"got {self.transport!r}"
+            )
+        if self.transport == "direct" and self.policy is None:
+            raise ValueError(
+                "driver.transport=direct calls a policy this run serves itself, "
+                "and driver.policy is unset; set driver.policy, or use "
+                "driver.transport=tcp (or unix) to dial a policy at driver.address"
+            )
+        if (
+            self.transport == "unix"
+            and self.policy is None
+            and not self.address.startswith("unix:")
+            and not self.address.startswith("unix-abstract:")
+        ):
+            raise ValueError(
+                "driver.transport=unix dials driver.address when driver.policy is "
+                "unset, so it must name a Unix socket (unix:///path/policy.sock), "
+                f"got {self.address!r}"
+            )
+        ids = [lidar.logical_id for lidar in self.lidars]
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"LiDAR logical ids must be unique, got {ids}")
+        if self.lanelet2_path is not None and self.map_dir is None:
+            raise ValueError(
+                "driver.lanelet2_path is written into the map set under "
+                "driver.map_dir, which is unset; set map_dir too"
+            )
+        if self.t4_scene and (self.map_dir is None or not self.send_renderer_data):
+            raise ValueError(
+                "driver.t4_scene rides in renderer_data and references its map in "
+                "the map set: it needs driver.send_renderer_data and driver.map_dir"
+            )
+        if self.t4_scene_goal not in ("scenario", "road_ahead"):
+            raise ValueError(
+                "driver.t4_scene_goal must be 'scenario' or 'road_ahead', got "
+                f"{self.t4_scene_goal!r}"
+            )
+        if self.t4_scene_map not in ("run", "map_set"):
+            raise ValueError(
+                f"driver.t4_scene_map must be 'run' or 'map_set', got {self.t4_scene_map!r}"
+            )
+        if self.t4_scene_history_s < 0.0:
+            raise ValueError(
+                f"driver.t4_scene_history_s must not be negative, got {self.t4_scene_history_s}"
+            )
+        self._check_numbers()
+
+    def _check_numbers(self) -> None:
+        """Refuse the numbers a NaN or an infinity would silently break.
+
+        Hydra reads ``=nan`` and ``=inf`` as floats, and a NaN fails every
+        comparison: a NaN deadline waits for the policy forever, a NaN step
+        fails mid-run, and an infinite run-up or route never ends.  The policy
+        step must also be a positive multiple of the tick.
+        """
+        for key, seconds in (
+            ("timeout_s", self.timeout_s),
+            ("policy_timestep_s", self.policy_timestep_s),
+        ):
+            if not math.isfinite(seconds) or seconds <= 0.0:
+                raise ValueError(
+                    f"driver.{key} must be positive and finite, got {seconds}"
+                )
+        # The policy is asked on the first tick at or after each step, so a
+        # step between two ticks would run on the next one while each drive()
+        # still asked for a plan that far ahead (#952).
+        tick_multiple(self.policy_timestep_s, "driver.policy_timestep_s")
+        for key, value in (
+            ("warmup_s", self.warmup_s),
+            ("route_horizon_m", self.route_horizon_m),
+            ("route_resolution_m", self.route_resolution_m),
+            ("t4_scene_history_s", self.t4_scene_history_s),
+        ):
+            if not math.isfinite(value):
+                raise ValueError(f"driver.{key} must be finite, got {value}")
+        for key, optional in (
+            ("rear_axle_offset_m", self.rear_axle_offset_m),
+            ("t4_scene_wheel_base_m", self.t4_scene_wheel_base_m),
+        ):
+            if optional is not None and not math.isfinite(optional):
+                raise ValueError(f"driver.{key} must be finite, got {optional}")
+        # An infinite sight distance or actor horizon means "all of them".
+        for key, distance in (
+            ("traffic_light_sight_distance_m", self.traffic_light_sight_distance_m),
+            ("actor_horizon_m", self.actor_horizon_m),
+        ):
+            if math.isnan(distance):
+                raise ValueError(f"driver.{key} must be a number, got {distance}")
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "DriverClientConfig":
+        """Return a client config built from a plain mapping (e.g. a Hydra node).
+
+        The ``cameras`` entry is converted to :class:`DriverCameraConfig` objects; a
+        ``control`` entry and a ``bridge`` entry, if present, are ignored -- the
+        controller is configured via :meth:`ControlConfig.from_mapping` and the
+        bridge by the entity's ``bridge`` arguments.
+
+        Raises:
+            ValueError: If *mapping* holds a key this config does not define.
+        """
+        # Imported here: the Codon check does not compile this method, and
+        # utils.config reads a dataclass's fields from its class (docs/typecheck.md).
+        from ..utils.config import checked_options as _checked  # noqa: PLC0415
+
+        values = _checked(cls, mapping, ignore={"control", "bridge"})
+        cameras = values.pop("cameras", None)
+        if cameras is not None:
+            values["cameras"] = tuple(
+                DriverCameraConfig.from_mapping(camera) for camera in cameras
+            )
+        lidars = values.pop("lidars", None)
+        if lidars is not None:
+            values["lidars"] = tuple(
+                DriverLidarConfig.from_mapping(lidar) for lidar in lidars
+            )
+        formats = values.pop("map_formats", None)
+        if formats is not None:
+            values["map_formats"] = tuple(formats)
+        return cls(**values)
+
+
+@dataclass
+class EgoObservation:
+    """The ego state handed to the driver for one policy step.
+
+    Attributes:
+        timestamp_us: Simulation time of this observation, in microseconds.
+        pose: Ego rig pose in the local frame (right-handed).
+        linear_velocity: ``(3,)`` velocity in the rig frame, m/s.
+        angular_velocity: ``(3,)`` angular velocity in the rig frame, rad/s.
+        linear_acceleration: ``(3,)`` acceleration in the rig frame, m/s^2.
+        speed_mps: Ground speed magnitude, m/s.
+    """
+
+    timestamp_us: int
+    pose: Pose
+    linear_velocity: np.ndarray[tuple[int], np.dtype[np.float64]]
+    angular_velocity: np.ndarray[tuple[int], np.dtype[np.float64]]
+    linear_acceleration: np.ndarray[tuple[int], np.dtype[np.float64]]
+    speed_mps: float
+
+
+@dataclass
+class DriveOutcome:
+    """The driver's answer to one ``drive`` call.
+
+    Attributes:
+        trajectory: Planned trajectory in the **local** frame, as returned on the wire.
+        terminate_session: When ``True`` the policy asked to end the rollout early.
+        debug_info: Raw ``unstructured_debug_info`` bytes from the response.  The
+            alpasim contract deliberately leaves this unstructured.
+        policy_name: Policy name, when the response carried a decodable
+            ``CarlaDriveDebugInfo``.
+        inference_seconds: How long the policy took, from the same message.
+        debug_scalars: Free-form diagnostics the policy chose to surface.
+        turn_indicator: The turn indicators the policy commands with this plan
+            (``VehicleCommand.turn_indicator``, numbered as Autoware's
+            ``TurnIndicatorsCommand``: 0 no command, 1 off, 2 left, 3 right).
+            0 leaves the indicators as they are.
+    """
+
+    trajectory: Trajectory
+    terminate_session: bool = False
+    debug_info: bytes = b""
+    policy_name: str = ""
+    inference_seconds: float = 0.0
+    debug_scalars: Dict[str, float] = field(default_factory=dict)
+    turn_indicator: int = 0
+
+
+class BaseEgoDriverClient(ABC):
+    """Abstract client for a driver policy that plans on behalf of the ego vehicle.
+
+    Implementations own whatever transport they need.  The lifecycle is:
+
+    1. :meth:`start_session` once, after the ego actor exists.
+    2. :meth:`submit_route` once the route is known, then on every policy step
+       :meth:`submit_image_observation` / :meth:`submit_egomotion_observation`
+       (and, when enabled, :meth:`submit_recording_ground_truth`) followed by
+       :meth:`drive`.
+    3. :meth:`close_session` during teardown.
+
+    Args:
+        config: Connection and cadence settings.
+    """
+
+    _config: DriverClientConfig
+
+    def __init__(self, config: DriverClientConfig) -> None:
+        self._config = config
+
+    @property
+    def config(self) -> DriverClientConfig:
+        """Return the client configuration."""
+        return self._config
+
+    @abstractmethod
+    def start_session(
+        self, session_uuid: str, scene_id: str, *, rear_axle_offset_m: float = 0.0
+    ) -> None:
+        """Open a rollout session with the policy.
+
+        Args:
+            session_uuid: Identifier correlating every subsequent call.
+            scene_id: Human-readable scene name for the policy's debug output.
+            rear_axle_offset_m: Where the rig origin (the rear axle) is from the
+                actor origin, along the actor's x axis (negative behind).  The
+                cameras are mounted relative to the actor origin, so the pose
+                each is declared at in the rig is its mount moved by this.
+        """
+        ...
+
+    @abstractmethod
+    def submit_route(
+        self,
+        timestamp_us: int,
+        waypoints_in_rig: np.ndarray[tuple[int, int], np.dtype[np.float64]],
+    ) -> None:
+        """Send the route the ego should follow.
+
+        Args:
+            timestamp_us: Simulation time the waypoints are valid at.
+            waypoints_in_rig: ``(N, 3)`` array of waypoints in the rig frame.
+        """
+        ...
+
+    @abstractmethod
+    def submit_image_observation(
+        self,
+        logical_id: str,
+        frame_start_us: int,
+        frame_end_us: int,
+        image_bytes: bytes,
+    ) -> None:
+        """Send one encoded camera frame.
+
+        Args:
+            logical_id: Camera the frame came from.
+            frame_start_us: Exposure start time.
+            frame_end_us: Exposure end time.
+            image_bytes: Encoded image payload (JPEG).
+        """
+        ...
+
+    @abstractmethod
+    def submit_egomotion_observation(
+        self, observations: Sequence[EgoObservation]
+    ) -> None:
+        """Send the ego's estimated poses and dynamic states since the last step.
+
+        Args:
+            observations: One entry per simulation tick since the previous call, in
+                strictly increasing time order.  The upstream runtime sends every
+                tick, not only the newest, so a policy that builds an ego-history
+                feature sees the intermediate poses.
+        """
+        ...
+
+    @abstractmethod
+    def submit_recording_ground_truth(
+        self, timestamp_us: int, trajectory_in_rig: Trajectory
+    ) -> None:
+        """Send the reference trajectory the ego is expected to follow.
+
+        Args:
+            timestamp_us: Simulation time the trajectory is valid at.
+            trajectory_in_rig: Reference poses in the rig frame at *timestamp_us*.
+        """
+        ...
+
+    @abstractmethod
+    def drive(
+        self,
+        time_now_us: int,
+        time_query_us: int,
+        renderer_data: bytes = b"",
+    ) -> DriveOutcome:
+        """Ask the policy for a plan.
+
+        Args:
+            time_now_us: Planning time; the plan is anchored to the pose at this instant.
+            time_query_us: The instant the runtime will next advance to.
+            renderer_data: Serialized ``carla_driver.v0.CarlaRendererData`` giving
+                the policy CARLA ground truth (traffic light, other vehicles,
+                speed limit).  Empty means "no ground truth available".
+
+        Returns:
+            The policy's plan and termination flag.
+        """
+        ...
+
+    @abstractmethod
+    def close_session(self) -> None:
+        """Close the session and release the transport.  Must be idempotent."""
+        ...
+
+    def camera_sensor_configs(self) -> List[Tuple[str, CarlaCameraSensorConfig]]:
+        """Return ``(logical_id, sensor_config)`` for each configured camera."""
+        return [
+            (camera.logical_id, camera.to_sensor_config())
+            for camera in self._config.cameras
+        ]

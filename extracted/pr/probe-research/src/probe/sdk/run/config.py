@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from ..values import values as _coerce
 from .. import errors
+from probe.sdk.routes import WriteOp, path_for
 
 if TYPE_CHECKING:  # Run only in annotations: importing it here would loop back into run.py
     from .run import Run
@@ -185,7 +186,7 @@ class ConfigMixin:
             return None
         self._data["config"] = {**current, **wire}
         data = self._client.write(
-            "PATCH", f"/v1/runs/{self.id}", {"config_merge": plain}, strict=strict
+            "PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"config_merge": plain}, strict=strict
         )
         if isinstance(data, dict) and isinstance(data.get("config"), dict):
             self._data["config"] = data["config"]

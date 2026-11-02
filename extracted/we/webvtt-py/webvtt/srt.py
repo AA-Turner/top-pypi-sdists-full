@@ -10,7 +10,7 @@ from .errors import MalformedFileError
 from . import utils
 
 
-_TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
+_TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
 
 _CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
 
@@ -27,7 +27,7 @@ class SRTCueBlock:
 
     def __init__(
             self,
-            index: str,
+            index: typing.Optional[str],
             start: str,
             end: str,
             payload: typing.Sequence[str]
@@ -35,6 +35,7 @@ class SRTCueBlock:
         """
         Initialize.
 
+        :param index: cue index, or None for a cue without an index
         :param start: start time
         :param end: end time
         :param payload: caption text
@@ -52,13 +53,16 @@ class SRTCueBlock:
         """
         Validate the lines for a match of a cue time block.
 
+        The cue index is optional, as most SRT players read cues without
+        one.
+
         :param lines: the lines to be validated
         :returns: true for a matching cue time block
         """
+        timings = _timings_line(lines)
         return bool(
-          len(lines) >= 2 and
-          lines[0].strip().isdigit() and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
+          len(lines) > timings and
+          re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
           )
 
     @classmethod
@@ -72,12 +76,13 @@ class SRTCueBlock:
         :param lines: the lines of text
         :returns: `SRTCueBlock` instance
         """
-        index = lines[0]
+        timings = _timings_line(lines)
+        index = lines[0] if timings else None
 
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
+        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
         assert match is not None
 
-        payload = lines[2:]
+        payload = lines[timings + 1:]
 
         return cls(index, match.group(1), match.group(2), payload)
 
@@ -101,13 +106,18 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     """
     Validate lines of text for valid SRT content.
 
+    The content is valid when it starts with a cue index and the cue
+    timings, after any blank lines. The first cue can have no text.
+
     :param lines: lines of text
     :returns: true for a valid SRT content
     """
+    start = next((i for i, line in enumerate(lines) if line.strip()),
+                 len(lines))
     return bool(
-        len(lines) >= 3 and
-        lines[0].isdigit() and
-        '-->' in lines[1]
+        len(lines) >= start + 2 and
+        _is_index(lines[start]) and
+        '-->' in lines[start + 1]
     )
 
 
@@ -128,7 +138,13 @@ def _is_cue_start(lines: typing.Sequence[str]) -> bool:
 
 def _is_index(line: str) -> bool:
     """Return whether a line can be a cue index, a line with only digits."""
-    return line.strip().isdigit()
+    line = line.strip()
+    return line.isascii() and line.isdigit()
+
+
+def _timings_line(lines: typing.Sequence[str]) -> int:
+    """Return the position of the cue timings, after the index if any."""
+    return 1 if lines and _is_index(lines[0]) else 0
 
 
 def _is_index_and_timings(line: str, next_line: str) -> bool:
@@ -389,6 +405,10 @@ def write(
     """
     Write captions to an output.
 
+    Captions without text, such as text of blank lines or only of cue tags,
+    are left out, as a cue without text cannot be read back from SRT, and
+    the others are numbered consecutively.
+
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
     :param styles: Iterable of `Style` objects to keep the formatting of
@@ -396,15 +416,22 @@ def write(
     """
     colours = None if styles is None else _cue_colours(styles)
     output = []
-    for index, caption in enumerate(captions, start=1):
+    index = 0
+    for caption in captions:
+        # the text without cue tags, so tags with no text are left out also
+        # when keeping the formatting
+        if not caption.text.strip():
+            continue
         text = (caption.text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
+        lines = [line for line in text.split('\n') if line.strip()]
+        index += 1
         output.extend([
             f'{index}',
             '{} --> {}'.format(*map(lambda x: x.replace('.', ','),
                                     (caption.start, caption.end))
                                ),
-            *(line for line in text.split('\n') if line.strip()),
+            *lines,
             ''
             ])
-    f.write('\n'.join(output).rstrip())
+    f.write('\n'.join(output))

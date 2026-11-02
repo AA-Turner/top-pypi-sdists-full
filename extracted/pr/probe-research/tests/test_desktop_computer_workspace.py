@@ -6,10 +6,14 @@ from uuid import uuid4
 
 import pytest
 
-from probe.cli import desktop, computer_workspace, setup, doctor
-from probe.cli import wizard_lock
+from probe.cli.imports import desktop
+from probe.cli.wizard.account import computer_workspace
+from probe.cli import wizard as setup
+from probe.cli.wizard import doctor
+from probe.cli.wizard.session import lock as wizard_lock
 from probe.shared.harness import reasoning_summaries as reasoning
-from probe.cli.capabilities import Capabilities, agent_source
+from probe.cli.wizard.state.state import Capabilities
+from probe.cli.wizard.state.agent_identity import agent_source
 from probe._shared import oscompat
 from probe.sdk.settings.settings import load_context, save_context
 from probe.sdk import session_marker
@@ -126,6 +130,54 @@ def test_read_uses_wizard_preselection_and_never_changes_pin(desktop_client):
     assert not load_context().get("workspace")
 
 
+def test_read_without_a_home_selects_the_newest_workspace_the_member_could_make_home(desktop_client):
+    """Same order as the terminal: a newer workspace the member may write only as an
+    admin (`writable`, not `home_eligible`) is never the starting row."""
+    app, _ = desktop_client
+    app.workspaces[_WS_MINE].update(home_eligible=True, created_at="2026-06-01T00:00:00Z")
+    app.workspaces[_WS_OTHER].update(home_eligible=True)
+    admin_only = desktop_client[1].create_workspace("restricted", "Restricted")
+    app.workspaces[admin_only["id"]].update(home_eligible=False, is_default=False)
+
+    assert desktop.dispatch({"op": "computer_workspace"})["selected"] == _WS_MINE
+
+
+@pytest.mark.parametrize("home", [None, _WS_MINE])
+def test_an_explicit_pick_is_saved_as_home_only_when_the_member_has_none(desktop_client, home):
+    app, _ = desktop_client
+    for ident, row in app.workspaces.items():
+        row.update(home_eligible=True, is_default=ident == home)
+
+    desktop.dispatch({"op": "set_computer_workspace", "workspaceId": _WS_OTHER, **SCOPE})
+
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+    assert app.home_saves == ([_WS_OTHER] if home is None else [])
+
+
+def test_a_refused_home_save_keeps_the_pin_and_says_so(desktop_client, monkeypatch):
+    from probe.sdk import errors
+
+    app, client = desktop_client
+    for row in app.workspaces.values():
+        row["home_eligible"] = True
+
+    def refused(workspace_id):
+        raise errors.ServerError("down", status=503)
+
+    monkeypatch.setattr(client, "save_home_workspace", refused)
+
+    result = desktop.dispatch({"op": "set_computer_workspace", "workspaceId": _WS_OTHER, **SCOPE})
+
+    assert load_context()["workspace"]["id"] == _WS_OTHER
+    assert any("could not also become your home" in line for line in result["warnings"])
+
+
+def test_a_created_workspace_gets_no_second_home_save(desktop_client):
+    app, _ = desktop_client
+    desktop.dispatch({"op": "create_computer_workspace", "name": "Lab", "requestId": str(uuid4()), **SCOPE})
+    assert app.home_saves == []
+
+
 def test_save_clears_old_project_but_retry_keeps_a_new_project(desktop_client):
     save_context({"workspace": {"id": _WS_MINE, "project": "old"}})
     request = {"op": "set_computer_workspace", "workspaceId": _WS_OTHER, **SCOPE}
@@ -186,7 +238,7 @@ def test_invalid_name_is_refused_before_creating(desktop_client, name):
 
 
 def test_setup_options_use_the_wizard_readers_and_writers(desktop_client, monkeypatch):
-    monkeypatch.setattr(doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
     result = desktop.dispatch({"op": "setup_options"})
     assert {row["id"] for row in result["settings"]} == {
         setup.Setting.PASTED_IMAGES, setup.Setting.REASONING_SUMMARIES}
@@ -199,7 +251,7 @@ def test_setup_options_use_the_wizard_readers_and_writers(desktop_client, monkey
 
 
 def test_retired_plan_review_setting_is_rejected(desktop_client, monkeypatch):
-    monkeypatch.setattr(doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
     with pytest.raises(ValueError, match="Unknown setup setting"):
         desktop.dispatch({"op": "set_setup_option", "setting": "plan_review", "enabled": False, **SCOPE})
 
@@ -211,7 +263,7 @@ def test_retired_plan_review_setting_is_rejected(desktop_client, monkeypatch):
     ('{}', "'model_reasoning_summary' = 'none'\n"),
 ])
 def test_desktop_enables_real_agent_reasoning_configs(desktop_client, monkeypatch, claude_config, codex_config):
-    monkeypatch.setattr(doctor, "collect", lambda **kw: Capabilities(
+    monkeypatch.setattr(doctor.doctor, "collect", lambda **kw: Capabilities(
         agent_source=agent_source(), tracking_plugin_installed=agent_source() in reasoning.SOURCES))
     for source, text in [(reasoning.CLAUDE_CODE, claude_config), (reasoning.CODEX, codex_config)]:
         path = reasoning.settings_path(source)
@@ -228,7 +280,7 @@ def test_desktop_enables_real_agent_reasoning_configs(desktop_client, monkeypatc
 
 @pytest.mark.parametrize("enabled", [True, False])
 def test_partial_reasoning_save_names_the_agent_and_never_claims_success(desktop_client, monkeypatch, enabled):
-    monkeypatch.setattr(doctor, "collect", lambda **kw: Capabilities(
+    monkeypatch.setattr(doctor.doctor, "collect", lambda **kw: Capabilities(
         agent_source=agent_source(), tracking_plugin_installed=agent_source() in reasoning.SOURCES))
     path = reasoning.settings_path(reasoning.CLAUDE_CODE)
     path.parent.mkdir(parents=True, exist_ok=True)

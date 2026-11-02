@@ -63,7 +63,12 @@ from .cute import grouped_row_union_cluster4_carrier
 from .cute import grouped_row_union_paired_clc_carrier
 from .cute_block_scaled import CuteBlockScaledMmaHeuristic
 from .cute_bounded_loop_cache import CuteBoundedLoopCacheHeuristic
+from .cute_dot_row_reduction import CuteDotRowReductionHeuristic
+from .cute_epilogue_fanout import register_aux_fragment_hoist_coverage
+from .cute_epilogue_fanout import register_epi_warp_groups_coverage
 from .cute_epilogue_fanout import register_epilogue_fanout_coverage
+from .cute_fp32_dot import CuteFp32DotHeuristic
+from .cute_fp32_dot import register_fp32_dot_coverage
 from .cute_fragment_atomic_aggregation import CuteFragmentAtomicAggregationHeuristic
 from .cute_fragment_atomic_aggregation import (
     register_fragment_atomic_aggregation_coverage,
@@ -74,6 +79,8 @@ from .cute_fragment_atomic_consumer_fusion import (
 from .cute_fragment_atomic_consumer_fusion import (
     register_fragment_atomic_consumer_fusion_coverage,
 )
+from .cute_fragment_batched_loads import CuteFragmentBatchedLoadsHeuristic
+from .cute_fragment_batched_loads import register_fragment_batched_loads_coverage
 from .cute_fragment_bounded_gather import CuteFragmentBoundedGatherHeuristic
 from .cute_fragment_bounded_gather import register_fragment_bounded_gather_coverage
 from .cute_fragment_integer_atomic_epochs import (
@@ -88,8 +95,12 @@ from .cute_fragment_local_atomic_registers import (
 from .cute_fragment_local_atomic_registers import (
     register_fragment_local_atomic_registers_coverage,
 )
+from .cute_fragment_mma_rows import CuteFragmentMmaRowsHeuristic
+from .cute_fragment_mma_rows import register_fragment_mma_rows_coverage
 from .cute_fragment_packet_loads import CuteFragmentPacketLoadsHeuristic
 from .cute_fragment_packet_loads import register_fragment_packet_loads_coverage
+from .cute_fragment_padded_rows import CuteFragmentPaddedRowsHeuristic
+from .cute_fragment_padded_rows import register_fragment_padded_rows_coverage
 from .cute_fragment_private_scalar_loops import CuteFragmentPrivateScalarLoopsHeuristic
 from .cute_fragment_private_scalar_loops import (
     register_fragment_private_scalar_loops_coverage,
@@ -127,10 +138,18 @@ from .cute_fragment_skip_zero_atomics import CuteFragmentSkipZeroAtomicsHeuristi
 from .cute_fragment_skip_zero_atomics import (
     register_fragment_skip_zero_atomics_coverage,
 )
+from .cute_fragment_slab_loads import CuteFragmentSlabLoadsHeuristic
+from .cute_fragment_slab_loads import register_fragment_slab_loads_coverage
+from .cute_fragment_split_k import CuteFragmentSplitKHeuristic
+from .cute_fragment_split_k import register_fragment_split_k_coverage
 from .cute_fragment_threads import CuteFragmentThreadsHeuristic
 from .cute_fragment_threads import register_fragment_threads_coverage
 from .cute_fragment_topk_network import CuteFragmentTopKNetworkHeuristic
 from .cute_fragment_topk_network import register_fragment_topk_network_coverage
+from .cute_fragment_unrolled_loops import CuteFragmentUnrolledLoopsHeuristic
+from .cute_fragment_unrolled_loops import register_fragment_unrolled_loops_coverage
+from .cute_fragment_vector_io import CuteFragmentVectorIoHeuristic
+from .cute_fragment_vector_io import register_fragment_vector_io_coverage
 from .cute_fragment_warp_producer_regions import (
     CuteFragmentWarpProducerRegionsHeuristic,
 )
@@ -149,27 +168,38 @@ from .cute_host_paired_sum import CuteHostPairedSumHeuristic
 from .cute_host_paired_sum import add_host_sum_seeds
 from .cute_integer_loop_reduction import CuteIntegerLoopReductionHeuristic
 from .cute_integer_loop_reduction import register_integer_loop_reduction_coverage
+from .cute_l2_row_swizzle import register_l2_row_swizzle_coverage
 from .cute_launch_bounds import register_matmul_min_blocks_coverage
 from .cute_materialized import CuteMaterializedMmaHeuristic
 from .cute_materialized_operand import CuteMaterializedOperandHeuristic
 from .cute_materialized_pdl import register_materialized_pdl_coverage
+from .cute_mma_dag import CuteMmaDagHeuristic
 from .cute_packed_operand import register_packed_operand_coverage
 from .cute_radix_selection import CuteRadixSelectionHeuristic
 from .cute_radix_selection import register_radix_selection_coverage
+from .cute_register_subblocks import CuteRegisterSubblocksHeuristic
 from .cute_resident_reductions import CuteResidentReductionHeuristic
 from .cute_resident_sequence import CuteResidentSequenceHeuristic
+from .cute_rolled_cluster_packet import CuteRolledClusterPacketHeuristic
 from .cute_row_resident import register_row_resident_coverage
 from .cute_signed_bitfield import add_signed_bitfield_seeds
+from .cute_simt_mma import CuteSimtMmaHeuristic
 from .cute_split_k_cluster import CuteSplitKClusterHeuristic
 from .cute_split_k_cluster import cluster_carrier
 from .cute_split_k_cluster import register_cluster_coverage
 from .cute_split_k_workspace import CuteSplitKWorkspaceHeuristic
+from .cute_tcgen05_schedule import CuteTcgen05ScheduleHeuristic
+from .cute_tile_packing import CuteTilePackWarpPerRowHeuristic
 from .cute_topk_coarse_keys import register_topk_coarse_keys_coverage
 from .cute_topk_coarse_keys import register_topk_key_recovery_coverage
 from .cute_warp_atomic import CuteWarpAtomicHeuristic
 from .pallas import PallasMatmulF32NoTilingSeedHeuristic
 from .pallas import PallasMatmulNoTilingSeedHeuristic
 from .register_chain import CuteRegisterChainHeuristic
+from .tileir import TileIRChunkReductionHeuristic
+from .tileir import TileIRMatmulSeedHeuristic
+from .tileir import TileIRRowReductionHeuristic
+from .tileir import TileIRSmallReductionHeuristic
 from .triton import TritonB200FormulaMatmulHeuristic
 from .triton import TritonB200MultiMatmulHeuristic
 from .triton import TritonH100FormulaMatmulHeuristic
@@ -192,10 +222,15 @@ if TYPE_CHECKING:
 # All active heuristics by backend
 HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
     "cute": (
+        # First: its promoted default yields to any later promoted family
+        # (flash, collective GEMM) that claims the same kernel.
+        CuteDotRowReductionHeuristic,
         CuteAsyncStateLoadHeuristic,
         CuteFp8GemmSkinnyMHeuristic,
         CuteChunkRecurrenceHeuristic,
         CuteGdnRecurrenceHeuristic,
+        CuteMmaDagHeuristic,
+        CuteRegisterSubblocksHeuristic,
         CuteChunkPrepareHeuristic,
         CuteAffineScanHeuristic,
         CuteTopKHeuristic,
@@ -205,11 +240,13 @@ HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
         CuteFixedTokenRank1Heuristic,
         CuteSplitKWorkspaceHeuristic,
         CuteCollectiveMatmulHeuristic,
+        CuteSimtMmaHeuristic,
         CuteGroupedRnaHeuristic,
         CuteBlockScaledMmaHeuristic,
         CuteMaterializedMmaHeuristic,
         CuteMaterializedOperandHeuristic,
         CuteTcgen05ClusterM2FfiHeuristic,
+        CuteTcgen05ScheduleHeuristic,
         CuteTcgen05ClusterM2Heuristic,
         CuteTcgen05GroupedWorklistHeuristic,
         CuteTcgen05GroupedStaticCommonKHeuristic,
@@ -229,6 +266,7 @@ HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
         CuteTileVecHeuristic,
         CuteTileVecWarpReduceHeuristic,
         CuteTileVecWarpPerRowHeuristic,
+        CuteTilePackWarpPerRowHeuristic,
         CuteColumnReductionHeuristic,
         CuteSiblingRowHeuristic,
         CuteNestedRowHeuristic,
@@ -244,6 +282,7 @@ HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
         CuteSplitKClusterHeuristic,
         CuteFragmentScanHeuristic,
         CuteFragmentReductionHeuristic,
+        CuteFp32DotHeuristic,
         CuteFragmentThreadsHeuristic,
         CuteFragmentPrivateScalarLoopsHeuristic,
         CuteFragmentRegisterLoadsHeuristic,
@@ -260,6 +299,13 @@ HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
         CuteIntegerLoopReductionHeuristic,
         CuteFragmentIntegerAtomicEpochsHeuristic,
         CuteFragmentPacketLoadsHeuristic,
+        CuteFragmentPaddedRowsHeuristic,
+        CuteFragmentUnrolledLoopsHeuristic,
+        CuteFragmentVectorIoHeuristic,
+        CuteFragmentBatchedLoadsHeuristic,
+        CuteFragmentSplitKHeuristic,
+        CuteFragmentMmaRowsHeuristic,
+        CuteFragmentSlabLoadsHeuristic,
         CuteFragmentRegisterProducersHeuristic,
         CuteFragmentScanExportsHeuristic,
         CuteFragmentWarpProducerRegionsHeuristic,
@@ -281,6 +327,12 @@ HEURISTICS_BY_BACKEND: dict[str, tuple[AutotunerHeuristicType, ...]] = {
         TritonReductionHeuristic,
         TritonNarrowReductionHeuristic,
         TritonPointwiseSeedHeuristic,
+    ),
+    "tileir": (
+        TileIRMatmulSeedHeuristic,
+        TileIRRowReductionHeuristic,
+        TileIRSmallReductionHeuristic,
+        TileIRChunkReductionHeuristic,
     ),
     "pallas": (
         PallasMatmulNoTilingSeedHeuristic,
@@ -355,9 +407,13 @@ def compiler_seed_specialization_facts(
     one heuristic registered for the backend happens to depend on it.
     """
     fired = frozenset(fired_heuristics)
+    heuristics = get_heuristics(backend)
+    if backend == "cute":
+        # This bounded family is appended after the complete legacy seed list.
+        heuristics = (*heuristics, CuteRolledClusterPacketHeuristic)
     return frozenset(
         fact
-        for heuristic in get_heuristics(backend)
+        for heuristic in heuristics
         if heuristic.name in fired
         for fact in heuristic.CACHE_SPECIALIZATION_FACTS
     )
@@ -500,6 +556,14 @@ def compiler_seed_configs(
         if full_chunks:
             configs.extend(full_chunks)
             env.config_spec.autotuner_heuristics.append(CuteFullChunkRowHeuristic.name)
+        cluster_packets = CuteRolledClusterPacketHeuristic.get_seed_configs(
+            env, device_ir
+        )
+        if cluster_packets:
+            configs.extend(cluster_packets)
+            env.config_spec.autotuner_heuristics.append(
+                CuteRolledClusterPacketHeuristic.name
+            )
     return dedupe_configs(configs)
 
 
@@ -515,6 +579,9 @@ def register_compiler_coverage_groups(
         return
     register_cluster_coverage(env, device_ir)
     register_epilogue_fanout_coverage(env, device_ir)
+    register_aux_fragment_hoist_coverage(env, device_ir)
+    register_epi_warp_groups_coverage(env, device_ir)
+    register_l2_row_swizzle_coverage(env, device_ir)
     register_materialized_pdl_coverage(env, device_ir)
     configs = grouped_full_coverage_configs(env, device_ir)
     deep_configs = grouped_full_coverage_configs(env, device_ir, block_k=128)
@@ -697,6 +764,31 @@ def register_compiler_coverage_groups(
     register_fragment_reduction_coverage(
         env, device_ir, supplemental_carrier=resource_carrier
     )
+    register_fp32_dot_coverage(env, device_ir, supplemental_carrier=resource_carrier)
+    # The tile-staging knobs lead the deferred tier: their witnesses precede
+    # every other fragment group's rows, so the populations the older groups'
+    # prefix contracts compare keep their relative order.
+    register_fragment_padded_rows_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_unrolled_loops_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_vector_io_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_batched_loads_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_split_k_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_mma_rows_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
+    register_fragment_slab_loads_coverage(
+        env, device_ir, resource_carrier=resource_carrier
+    )
     register_fragment_threads_coverage(
         env, device_ir, resource_carrier=resource_carrier
     )
@@ -768,3 +860,6 @@ def register_compiler_coverage_groups(
     register_fragment_scan_exports_coverage(env, device_ir)
     register_fragment_warp_producer_regions_coverage(env, device_ir)
     register_radix_selection_coverage(env, device_ir)
+    from .cute_mxfp8_epilogue_coverage import register_mxfp8_epilogue_coverage
+
+    register_mxfp8_epilogue_coverage(env)

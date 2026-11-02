@@ -1,0 +1,37 @@
+[package]
+name = "ryo3-json"
+version.workspace = true
+authors.workspace = true
+categories.workspace = true
+documentation.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "json ~ rust-python-json"
+readme = "README.md"
+
+[features]
+default = []
+ry = []
+
+[dependencies]
+# pyo3
+pyo3 = { workspace = true, features = [] }
+
+# ryo3
+ryo3-bytes = { workspace = true }
+ryo3-core = { workspace = true }
+ryo3-jiter = { workspace = true }
+ryo3-json-ser = { workspace = true }
+ryo3-serde = { workspace = true }
+
+# external
+jiter = { workspace = true, features = ["serde"] }
+serde-transcode = { workspace = true }
+serde_core = { workspace = true }
+
+[lints]
+workspace = true

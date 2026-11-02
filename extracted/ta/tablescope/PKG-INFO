@@ -1,0 +1,136 @@
+Metadata-Version: 2.4
+Name: tablescope
+Version: 0.2.3
+Summary: A lazy table viewer with narwhals-backed query pushdown, for Marimo or Juptyer
+Keywords: marimo,dataframe,table,widget,narwhals
+Author: Samuel S. Watson
+Author-email: Samuel S. Watson <samuel.s.watson@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: anywidget>=0.9.18
+Requires-Dist: marimo>=0.20.4
+Requires-Dist: narwhals>=2.18.0
+Requires-Dist: polars>=1.39.0
+Requires-Dist: traitlets>=5.14.3
+Requires-Dist: uvicorn>=0.30
+Requires-Dist: databricks-connect>=14.0 ; extra == 'databricks'
+Requires-Python: >=3.11
+Provides-Extra: databricks
+Description-Content-Type: text/markdown
+
+# tablescope
+
+`tablescope` is a Marimo-oriented lazy table viewer. It accepts a dataframe-like
+object that Narwhals can normalize, keeps sort and aggregation work pushed down
+to the underlying engine, and renders a Solid + TanStack data grid via
+`anywidget`.
+
+## Install
+
+```bash
+pip install tablescope
+```
+
+## Status
+
+This is a first pass focused on:
+
+- lazy row paging with backend pushdown
+- arbitrary fraction jumps through the dataset
+- per-column profile stats
+- value counts for enum-like columns
+- on-demand histograms for numeric and datetime columns
+- derived columns from polars/narwhals expressions (e.g. `col("a") + 1`); on a
+  polars source the full polars API is available, other backends get the
+  narwhals subset
+- keyboard navigation in the grid
+
+## Usage
+
+```python
+import marimo as mo
+import polars as pl
+import tablescope
+
+lf = pl.scan_parquet("data.parquet")
+viewer = tablescope.view(lf, page_size=100)
+viewer
+```
+
+## CLI
+
+To browse a file without writing any Python, run:
+
+```bash
+tablescope data.parquet
+```
+
+This starts a local server, prints its URL, and opens your browser. Supported
+file types: `.parquet`, `.csv`, `.tsv`, `.arrow`/`.feather`/`.ipc`, and
+`.json`/`.ndjson`/`.jsonl`. Files are read with polars, using lazy pushdown
+where the format allows it.
+
+Over SSH, pass `--no-open` and use the printed URL (forward the port, e.g.
+`ssh -L 6767:localhost:6767 host`):
+
+```bash
+tablescope data.parquet --no-open
+# tablescope: serving data.parquet at http://localhost:6767
+```
+
+Other flags: `--port`, `--host`, `--page-size`.
+
+To stop the server, press Ctrl+C at the terminal, or click **⏻ Stop server**
+in the page's top bar — the page then shows a "Server stopped" message.
+
+### Databricks
+
+With the `databricks` extra installed (`pip install tablescope[databricks]`),
+point tablescope straight at a Unity Catalog table or a SQL query:
+
+```bash
+tablescope --source databricks:dev --table catalog.schema.table
+tablescope --source databricks:dev --query "SELECT * FROM catalog.schema.t WHERE region = 'us'"
+```
+
+`--source` takes a `<backend>:<profile>` pair; only `databricks` is supported,
+and the profile is a Databricks CLI profile (`databricks auth login -p dev`).
+Use `--source databricks` alone for the default profile.
+
+The table or query is opened with [databricks-connect][dbc] as a lazy Spark
+DataFrame, so tablescope's filters, sorts, and paging push down to Spark — the
+table is never fully materialized. Refine the view further from the UI.
+
+[dbc]: https://docs.databricks.com/dev-tools/databricks-connect.html
+
+## Release
+
+Use the `justfile` to build and validate the package artifacts before
+uploading them to PyPI.
+
+```bash
+just check-release
+just publish
+```
+
+## Frontend build
+
+The frontend bundle is generated from `frontend/src` and inlined into
+`src/tablescope/_frontend.py`.
+
+```bash
+npm install
+npm run build
+```
+
+## Python workflow
+
+```bash
+just sync
+just test
+```

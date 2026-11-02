@@ -1,0 +1,1023 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_release.py
+# Purpose:   Tests for release destination routing (no mocks)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Release destination routing tests.
+
+Tests the config-level routing logic that determines WHERE artifacts
+are published. Does NOT test actual publishing
+(subprocess calls to uv/cargo/npm) -- that requires real registries
+and is tested via integration tests against test projects.
+"""
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from hyperi_ci.config import CIConfig, load_config, shipped_default
+
+
+def _make_config(legacy_target: str = "oss") -> CIConfig:
+    """Create a CIConfig with the OSS destination map populated.
+
+    ``legacy_target`` fills the inert ``target`` key, which routes nothing.
+    """
+    raw = {
+        "publish": {
+            "target": legacy_target,
+            "destinations_oss": {
+                "python": "pypi",
+                "npm": "npmjs",
+                "cargo": "crates-io",
+                "container": "ghcr",
+                "binaries": "r2-binaries",
+                "go": "go-proxy",
+            },
+        },
+    }
+    return CIConfig(_raw=raw)
+
+
+class TestPublishDestinationRouting:
+    """Verify destination_for returns OSS registries regardless of target."""
+
+    @pytest.mark.parametrize(
+        "artifact_type,expected",
+        [
+            ("python", ["pypi"]),
+            ("npm", ["npmjs"]),
+            ("cargo", ["crates-io"]),
+            ("container", ["ghcr"]),
+            ("binaries", ["r2-binaries"]),
+            ("go", ["go-proxy"]),
+        ],
+    )
+    def test_oss_routes_to_public(
+        self,
+        artifact_type: str,
+        expected: list[str],
+    ) -> None:
+        config = _make_config("oss")
+        assert config.destination_for(artifact_type) == expected
+
+    @pytest.mark.parametrize("legacy_target", ["internal", "both"])
+    def test_legacy_targets_route_to_oss(self, legacy_target: str) -> None:
+        """`internal` and `both` are accepted for back-compat but route
+        to OSS destinations only.
+        """
+        config = _make_config(legacy_target)
+        assert config.destination_for("python") == ["pypi"]
+        assert config.destination_for("container") == ["ghcr"]
+
+    def test_unknown_artifact_type_returns_empty(self) -> None:
+        config = _make_config("oss")
+        assert config.destination_for("unknown") == []
+
+    def test_no_destinations_configured_takes_the_shipped_map(self) -> None:
+        config = CIConfig(_raw={})
+        assert config.destination_for("python") == ["pypi"]
+
+    def test_an_empty_legacy_map_does_not_opt_out(self) -> None:
+        """Opting out is a falsy entry, never an empty map."""
+        config = CIConfig(
+            _raw={"publish": {"destinations_oss": {}}},
+        )
+        assert config.destination_for("python") == ["pypi"]
+
+
+class TestPublishDestinations:
+    """Verify publish_destinations returns the OSS destination map."""
+
+    def test_oss_returns_one_map(self) -> None:
+        config = _make_config("oss")
+        dests = config.publish_destinations()
+        assert len(dests) == 1
+        assert dests[0]["python"] == "pypi"
+
+    @pytest.mark.parametrize("legacy_target", ["internal", "both"])
+    def test_legacy_targets_return_oss_map(self, legacy_target: str) -> None:
+        config = _make_config(legacy_target)
+        dests = config.publish_destinations()
+        assert len(dests) == 1
+        assert dests[0]["python"] == "pypi"
+
+    def test_no_raw_publish_section_returns_the_shipped_map(self) -> None:
+        config = CIConfig(_raw={})
+        assert config.publish_destinations() == [
+            shipped_default("release.destinations")
+        ]
+
+
+class TestOSSDestinationHygiene:
+    """Every destination resolves to a public registry, never a private one."""
+
+    _PUBLIC = {
+        "pypi",
+        "npmjs",
+        "crates-io",
+        "ghcr",
+        "r2-binaries",
+        "go-proxy",
+    }
+
+    def test_every_destination_is_public(self) -> None:
+        config = _make_config("oss")
+        dests = config.publish_destinations()
+        for artifact_type, destination in dests[0].items():
+            assert destination in self._PUBLIC, (
+                f"destination for '{artifact_type}' is not a known public "
+                f"registry: '{destination}'"
+            )
+
+
+class TestChannelRouting:
+    """Channel determines GH Release flags and R2 paths."""
+
+    def test_release_channel_no_prerelease(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_gh_release_flags
+
+        flags = _resolve_gh_release_flags("release")
+        assert "--prerelease" not in flags
+
+    def test_alpha_channel_prerelease(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_gh_release_flags
+
+        flags = _resolve_gh_release_flags("alpha")
+        assert "--prerelease" in flags
+
+    def test_beta_channel_prerelease(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_gh_release_flags
+
+        flags = _resolve_gh_release_flags("beta")
+        assert "--prerelease" in flags
+
+    def test_release_r2_path(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_r2_paths
+
+        versioned, latest = _resolve_r2_paths("dfe-receiver", "1.3.0", "release")
+        assert versioned.endswith("/dfe-receiver/v1.3.0/")
+        assert latest.endswith("/dfe-receiver/latest/")
+        assert "/release/" not in versioned
+
+    def test_alpha_r2_path(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_r2_paths
+
+        versioned, latest = _resolve_r2_paths("dfe-receiver", "1.3.0", "alpha")
+        assert "/alpha/" in versioned
+        assert "/alpha/" in latest
+
+    def test_beta_r2_path(self) -> None:
+        from hyperi_ci.release.binaries import _resolve_r2_paths
+
+        versioned, latest = _resolve_r2_paths("dfe-receiver", "1.3.0", "beta")
+        assert "/beta/" in versioned
+        assert "/beta/" in latest
+
+
+class TestCargoVersionSync:
+    """Publish's Cargo.toml stamp shares the build's table-scoped stamper --
+    no duplicate regex, and a dependency `version =` is never clobbered."""
+
+    def test_table_scoped_leaves_dependency_version_alone(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        # A dependency table with its own `version =` line BEFORE [package].
+        # The old unscoped count=1 regex would stamp tokio's version; the
+        # shared table-scoped stamper must only touch [package].
+        (tmp_path / "Cargo.toml").write_text(
+            '[dependencies.tokio]\nversion = "1.35"\n\n'
+            '[package]\nname = "x"\nversion = "0.0.0"\n'
+        )
+        from hyperi_ci.languages.rust.release import _sync_cargo_toml_version
+
+        assert _sync_cargo_toml_version("9.9.9") is True
+        txt = (tmp_path / "Cargo.toml").read_text()
+        assert '[package]\nname = "x"\nversion = "9.9.9"' in txt
+        assert 'version = "1.35"' in txt  # tokio dependency untouched
+
+    def test_missing_cargo_toml_is_error(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.languages.rust.release import _sync_cargo_toml_version
+
+        assert _sync_cargo_toml_version("1.0.0") is False
+
+
+class TestPythonDistExclusion:
+    """destinations_oss.python: false must also stop the wheel reaching R2
+    via the generic binary publisher (issue #105 BUG 2)."""
+
+    def test_wheel_and_sdist_are_python_artifacts(self) -> None:
+        from hyperi_ci.release.binaries import _is_python_dist_artifact
+
+        assert _is_python_dist_artifact(Path("dfe_engine-1.17.0-py3-none-any.whl"))
+        assert _is_python_dist_artifact(Path("dfe_engine-1.17.0.tar.gz"))
+        assert _is_python_dist_artifact(Path("dfe_engine-1.17.0.zip"))
+
+    def test_binary_is_not_python_artifact(self) -> None:
+        from hyperi_ci.release.binaries import _is_python_dist_artifact
+
+        assert not _is_python_dist_artifact(Path("dfe-receiver"))
+        assert not _is_python_dist_artifact(Path("dfe-receiver-x86_64-unknown-linux"))
+
+    def test_collect_excludes_python_when_flagged(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        (dist / "dfe_engine-1.17.0-py3-none-any.whl").write_text("wheel")
+        (dist / "dfe_engine-1.17.0.tar.gz").write_text("sdist")
+        (dist / "dfe-receiver").write_text("binary")
+        from hyperi_ci.release.binaries import _collect_artifacts
+
+        kept = {p.name for p in _collect_artifacts(exclude_python=True)}
+        assert kept == {"dfe-receiver"}
+        # Default (no exclusion) still sweeps in everything.
+        assert "dfe_engine-1.17.0-py3-none-any.whl" in {
+            p.name for p in _collect_artifacts()
+        }
+
+    def test_python_false_opts_out_but_keeps_binaries(self) -> None:
+        # The dfe-engine shape: python opted out, binaries still defaulted on.
+        config = CIConfig(
+            _raw={
+                "publish": {
+                    "destinations_oss": {"python": False, "binaries": "r2-binaries"}
+                }
+            },
+        )
+        assert config.destination_for("python") == []
+        assert config.destination_for("binaries") == ["r2-binaries"]
+        # publish_binaries derives exclude_python from exactly this.
+        assert bool(config.destination_for("python")) is False
+
+
+class TestOptOutSurvivesTheDefaultsMerge:
+    """Through the real loader, because a raw CIConfig carries no defaults.
+
+    The defaults populate `release.destinations`, so a project's opt-out has to
+    merge OVER them; as a fallback it never fires and the artefact ships anyway.
+    dfe-engine declares `python: false` in the legacy spelling and is private.
+    """
+
+    @staticmethod
+    def _loaded(body: str, root: Path) -> CIConfig:
+        (root / ".hyperi-ci.yaml").write_text(body, encoding="utf-8")
+        return load_config(project_dir=root, reload=True)
+
+    _LEGACY = "language: python\npublish:\n  destinations_oss:\n    python: false\n"
+    _CANONICAL = "language: python\nrelease:\n  destinations:\n    python: false\n"
+
+    def test_legacy_spelling_opts_out(self, tmp_path: Path) -> None:
+        assert self._loaded(self._LEGACY, tmp_path).destination_for("python") == []
+
+    def test_canonical_spelling_opts_out(self, tmp_path: Path) -> None:
+        assert self._loaded(self._CANONICAL, tmp_path).destination_for("python") == []
+
+    def test_unnamed_artefacts_keep_their_default(self, tmp_path: Path) -> None:
+        cfg = self._loaded(self._LEGACY, tmp_path)
+        assert cfg.destination_for("binaries") == ["r2-binaries"]
+        assert cfg.destination_for("container") == ["ghcr"]
+
+
+class TestR2InstallsTheAwsCliOnDemand:
+    """#155: the runner images carry no aws, so the R2 path installs it.
+
+    Noble offers no awscli candidate, so this is the only route to v2 there.
+    """
+
+    @staticmethod
+    def _with_r2_creds(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("R2_ACCESS_KEY_ID", "test-key")
+        monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "test-secret")
+
+    @pytest.mark.parametrize(
+        ("artifact", "creds", "aws", "rc"),
+        [
+            pytest.param(False, False, None, 0, id="nothing-to-upload"),
+            pytest.param(True, False, "/usr/local/bin/aws", 1, id="binaries-no-creds"),
+            pytest.param(True, True, None, 1, id="binaries-no-aws"),
+        ],
+    )
+    def test_binaries_with_no_way_to_upload_fail(
+        self, tmp_path, monkeypatch, artifact: bool, creds: bool, aws, rc: int
+    ) -> None:
+        """R2 is the only binary destination by default, so a skip ships none."""
+        from hyperi_ci.release import binaries
+
+        monkeypatch.delenv("R2_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("R2_SECRET_ACCESS_KEY", raising=False)
+        if creds:
+            self._with_r2_creds(monkeypatch)
+        monkeypatch.chdir(tmp_path)
+        if artifact:
+            (tmp_path / "dist").mkdir()
+            (tmp_path / "dist" / "app-linux-amd64").write_bytes(b"\x7fELF")
+        monkeypatch.setattr(binaries, "ensure_aws_cli", lambda: aws)
+        assert binaries._publish_r2_binaries() == rc
+
+
+class TestReleaseAssetsReachTheRelease:
+    """#125: assets attach to the Release itself, not via the binaries map.
+
+    Staging into dist/ alone left v1.0.4 of ci-test-python-lib with
+    `assets: []` -- `publish_binaries` only attaches when the destination is
+    `github-releases`, and the shipped default is `r2-binaries`.
+    """
+
+    @staticmethod
+    def _config(assets: object) -> CIConfig:
+        return CIConfig(_raw={"release": {"assets": assets}})
+
+    @staticmethod
+    def _patched(
+        monkeypatch: pytest.MonkeyPatch, sent: list[list[str]], *, exists: bool
+    ):
+        from hyperi_ci.release import binaries
+
+        def fake_run_cmd(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess:
+            sent.append(cmd)
+            if exists and cmd[:3] == ["gh", "release", "create"]:
+                return subprocess.CompletedProcess(cmd, 1, "", "release already exists")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: "1.2.3")
+        monkeypatch.setattr(binaries, "_release_targets_head", lambda _tag: True)
+        return binaries
+
+    def test_assets_are_appended_to_gh_release_create(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("kind: asset\n")
+        sent: list[list[str]] = []
+        binaries = self._patched(monkeypatch, sent, exists=False)
+
+        assert binaries.create_github_release(self._config(["sources.yaml"])) == 0
+        assert sent[0][:3] == ["gh", "release", "create"]
+        assert "sources.yaml" in sent[0]
+
+    def test_an_existing_release_still_gets_its_assets(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # The idempotent re-run returned 0 early, which would leave the
+        # release without the asset it was re-run to deliver.
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("kind: asset\n")
+        sent: list[list[str]] = []
+        binaries = self._patched(monkeypatch, sent, exists=True)
+
+        assert binaries.create_github_release(self._config(["sources.yaml"])) == 0
+        uploads = [cmd for cmd in sent if cmd[:3] == ["gh", "release", "upload"]]
+        assert uploads, "an existing release must still receive release.assets"
+        assert "--clobber" in uploads[0]
+        assert "sources.yaml" in uploads[0]
+
+    def test_no_assets_adds_no_file_arguments(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        sent: list[list[str]] = []
+        binaries = self._patched(monkeypatch, sent, exists=False)
+
+        assert binaries.create_github_release(self._config([])) == 0
+        assert sent[0][-1] == "--generate-notes"
+
+    def test_a_missing_asset_stops_the_release(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        sent: list[list[str]] = []
+        binaries = self._patched(monkeypatch, sent, exists=False)
+
+        assert binaries.create_github_release(self._config(["gone.yaml"])) == 1
+        assert sent == [], "a missing asset must fail before the release is created"
+
+
+class TestReleaseAssets:
+    """`release.assets` also ride into dist/, so the binary destinations carry them."""
+
+    @staticmethod
+    def _config(assets: object) -> CIConfig:
+        return CIConfig(_raw={"release": {"assets": assets}})
+
+    def test_no_assets_configured_is_a_no_op(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config([])) == 0
+        assert not (tmp_path / "dist").exists()
+
+    def test_a_listed_file_lands_in_dist(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("kind: asset\n")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["sources.yaml"])) == 0
+        assert (tmp_path / "dist" / "sources.yaml").read_text() == "kind: asset\n"
+
+    def test_a_nested_path_flattens_to_its_name(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "catalogue").mkdir()
+        (tmp_path / "catalogue" / "sources.yaml").write_text("nested\n")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["catalogue/sources.yaml"])) == 0
+        assert (tmp_path / "dist" / "sources.yaml").read_text() == "nested\n"
+
+    def test_a_missing_file_fails_the_release(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["sources.yaml"])) == 1
+
+    def test_a_directory_is_refused(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "catalogue").mkdir()
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["catalogue"])) == 1
+
+    @pytest.mark.parametrize(
+        "entry",
+        ["/proc/self/environ", "../../.docker/config.json", ".git/config", "link"],
+    )
+    def test_a_path_that_would_publish_the_runner_is_refused(
+        self, tmp_path, monkeypatch, entry: str
+    ) -> None:
+        """The upload holds every publish credential."""
+        repo = tmp_path / "repo"
+        (repo / ".git").mkdir(parents=True)
+        (repo / ".git" / "config").write_text("[core]\n")
+        (tmp_path / "secret").write_text("token\n")
+        (repo / "link").symlink_to(tmp_path / "secret")
+        monkeypatch.chdir(repo)
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config([entry])) == 1
+        assert not (repo / "dist").exists()
+
+    def test_a_symlink_to_a_file_inside_the_repo_is_refused(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "real.yaml").write_text("x\n")
+        (tmp_path / "alias.yaml").symlink_to(tmp_path / "real.yaml")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["alias.yaml"])) == 1
+
+    def test_it_refuses_to_clobber_a_built_artefact(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("the asset\n")
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        (dist / "sources.yaml").write_text("the built artefact\n")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["sources.yaml"])) == 1
+        assert (dist / "sources.yaml").read_text() == "the built artefact\n"
+
+    def test_an_identical_restage_succeeds(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("same\n")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config(["sources.yaml"])) == 0
+        assert stage_release_assets(self._config(["sources.yaml"])) == 0
+
+    def test_a_bare_string_is_taken_as_one_asset(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sources.yaml").write_text("one\n")
+        from hyperi_ci.release.binaries import stage_release_assets
+
+        assert stage_release_assets(self._config("sources.yaml")) == 0
+        assert (tmp_path / "dist" / "sources.yaml").exists()
+
+    def test_the_shipped_default_lists_none(self, tmp_path: Path) -> None:
+        (tmp_path / ".hyperi-ci.yaml").write_text(
+            "language: python\n", encoding="utf-8"
+        )
+        cfg = load_config(project_dir=tmp_path, reload=True)
+        assert cfg.get("release.assets", None) == []
+
+
+class TestReleaseTargetsHead:
+    """Refuse to overwrite a release whose tag is not HEAD (issue #105)."""
+
+    @staticmethod
+    def _git(cwd: Path, *args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+        )
+
+    def test_tag_at_head_is_true(self, tmp_path, monkeypatch) -> None:
+        self._git(tmp_path, "init")
+        (tmp_path / "f").write_text("a")
+        self._git(tmp_path, "add", "-A")
+        self._git(tmp_path, "commit", "-m", "one")
+        self._git(tmp_path, "tag", "v1.0.0")
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_targets_head
+
+        assert _release_targets_head("v1.0.0") is True
+
+    def test_tag_off_head_is_false(self, tmp_path, monkeypatch) -> None:
+        self._git(tmp_path, "init")
+        (tmp_path / "f").write_text("a")
+        self._git(tmp_path, "add", "-A")
+        self._git(tmp_path, "commit", "-m", "one")
+        self._git(tmp_path, "tag", "v1.0.0")
+        (tmp_path / "f").write_text("b")
+        self._git(tmp_path, "add", "-A")
+        self._git(tmp_path, "commit", "-m", "two")
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_targets_head
+
+        assert _release_targets_head("v1.0.0") is False
+
+    def test_missing_tag_is_false(self, tmp_path, monkeypatch) -> None:
+        self._git(tmp_path, "init")
+        (tmp_path / "f").write_text("a")
+        self._git(tmp_path, "add", "-A")
+        self._git(tmp_path, "commit", "-m", "one")
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_targets_head
+
+        assert _release_targets_head("v9.9.9") is False
+
+
+_THREE_ENTRIES = """\
+# Changelog
+
+Rendered by CI and committed back -- do not edit by hand.
+
+## [2.9.26](https://example.invalid/compare/v2.9.25...v2.9.26) (2026-08-31)
+
+### Bug Fixes
+
+* **release:** uv is installed before the tagging steps
+
+### Release notes
+
+* LLVM 23 is the BOLT default for every Rust release build.
+
+# [2.9.0](https://example.invalid/compare/v2.8.4...v2.9.0) (2026-08-01)
+
+### Features
+
+* a minor release is rendered as a level-one heading
+
+## [2.8.4](https://example.invalid/compare/v2.8.3...v2.8.4) (2026-07-30)
+
+### Bug Fixes
+
+* **deps:** read yarn.lock, so a yarn repo is audited
+"""
+
+
+class TestChangelogEntryExtraction:
+    """The GitHub Release body comes from the rendered changelog entry."""
+
+    def test_top_entry_stops_at_the_next_release(self) -> None:
+        from hyperi_ci.release.binaries import _top_changelog_entry
+
+        entry = _top_changelog_entry("2.9.26", _THREE_ENTRIES)
+        assert entry is not None
+        assert entry.startswith("## [2.9.26]")
+        assert "LLVM 23" in entry
+        assert "2.9.0" not in entry
+
+    def test_a_minor_entry_is_a_level_one_heading(self) -> None:
+        # conventional-changelog renders a minor or major as `# [x.y.z]`, so
+        # the terminator cannot be the heading level.
+        from hyperi_ci.release.binaries import _top_changelog_entry
+
+        tail = _THREE_ENTRIES[_THREE_ENTRIES.index("# [2.9.0]") :]
+        entry = _top_changelog_entry("2.9.0", tail)
+        assert entry is not None
+        assert "level-one heading" in entry
+        assert "yarn.lock" not in entry
+
+    def test_a_different_top_entry_is_refused(self) -> None:
+        """A retroactive publish checks out a tag with older notes."""
+        from hyperi_ci.release.binaries import _top_changelog_entry
+
+        assert _top_changelog_entry("2.9.0", _THREE_ENTRIES) is None
+
+    def test_a_changelog_with_no_entries(self) -> None:
+        from hyperi_ci.release.binaries import _top_changelog_entry
+
+        assert _top_changelog_entry("2.9.26", "# Changelog\n\nNothing yet.\n") is None
+
+
+_NO_CONFIG = CIConfig(_raw={})
+_SKIP_IN_CONFIG = CIConfig(_raw={"build": {"skip_optimize": True}})
+
+
+class TestReleaseNotesFlags:
+    """gh gets --notes-file only when the changelog names this version."""
+
+    def test_no_changelog_adds_no_flags(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_notes_flags
+
+        with _release_notes_flags("2.9.26", _NO_CONFIG) as flags:
+            assert flags == []
+
+    def test_a_stale_top_entry_adds_no_flags(self, tmp_path, monkeypatch) -> None:
+        (tmp_path / "CHANGELOG.md").write_text(_THREE_ENTRIES, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_notes_flags
+
+        with _release_notes_flags("1.0.0", _NO_CONFIG) as flags:
+            assert flags == []
+
+    def test_the_entry_reaches_gh_and_the_file_is_cleaned_up(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        (tmp_path / "CHANGELOG.md").write_text(_THREE_ENTRIES, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_notes_flags
+
+        with _release_notes_flags("2.9.26", _NO_CONFIG) as flags:
+            assert flags[0] == "--notes-file"
+            notes = Path(flags[1])
+            assert "LLVM 23" in notes.read_text(encoding="utf-8")
+        assert not notes.exists()
+
+
+class TestUnoptimizedReleaseBanner:
+    """A release built with the optimisation stage skipped must say so."""
+
+    @pytest.fixture(autouse=True)
+    def _no_ambient_optimise_request(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("HYPERCI_SKIP_OPTIMIZE", raising=False)
+        monkeypatch.delenv("HYPERCI_OPTIMIZE_TIER", raising=False)
+
+    def test_the_banner_leads_the_body(self, tmp_path, monkeypatch) -> None:
+        (tmp_path / "CHANGELOG.md").write_text(_THREE_ENTRIES, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("HYPERCI_SKIP_OPTIMIZE", "true")
+        from hyperi_ci.release.binaries import (
+            UNOPTIMIZED_RELEASE_BANNER,
+            _release_notes_flags,
+        )
+
+        with _release_notes_flags("2.9.26", _NO_CONFIG) as flags:
+            body = Path(flags[1]).read_text(encoding="utf-8")
+        assert body.startswith(UNOPTIMIZED_RELEASE_BANNER)
+        assert "LLVM 23" in body
+
+    def test_the_banner_stands_alone_without_a_changelog(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("HYPERCI_SKIP_OPTIMIZE", "true")
+        from hyperi_ci.release.binaries import (
+            UNOPTIMIZED_RELEASE_BANNER,
+            _release_notes_flags,
+        )
+
+        with _release_notes_flags("2.9.26", _NO_CONFIG) as flags:
+            assert flags[0] == "--notes-file"
+            assert (
+                Path(flags[1]).read_text(encoding="utf-8").strip()
+                == UNOPTIMIZED_RELEASE_BANNER
+            )
+
+    def test_a_skip_set_only_in_config_carries_the_banner(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # The build and the image label read build.skip_optimize too.
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import (
+            UNOPTIMIZED_RELEASE_BANNER,
+            _release_notes_flags,
+        )
+
+        with _release_notes_flags("2.9.26", _SKIP_IN_CONFIG) as flags:
+            assert flags[0] == "--notes-file"
+            assert (
+                Path(flags[1]).read_text(encoding="utf-8").strip()
+                == UNOPTIMIZED_RELEASE_BANNER
+            )
+
+    def test_an_optimised_release_carries_no_banner(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        from hyperi_ci.release.binaries import _release_notes_flags
+
+        with _release_notes_flags("2.9.26", _NO_CONFIG) as flags:
+            assert flags == []
+
+
+class TestBothReleasePathsReadTheConfigSkip:
+    """Each path that runs `gh release create` passes its config to the body."""
+
+    @pytest.fixture
+    def bodies(self, tmp_path, monkeypatch) -> list[str]:
+        from hyperi_ci.release import binaries
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("HYPERCI_SKIP_OPTIMIZE", raising=False)
+        monkeypatch.delenv("HYPERCI_OPTIMIZE_TIER", raising=False)
+        sent: list[str] = []
+
+        def fake_run_cmd(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess:
+            if "--notes-file" in cmd:
+                notes = Path(cmd[cmd.index("--notes-file") + 1])
+                sent.append(notes.read_text(encoding="utf-8"))
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: "1.2.3")
+        return sent
+
+    def test_create_github_release(self, bodies: list[str]) -> None:
+        from hyperi_ci.release import binaries
+
+        assert binaries.create_github_release(_SKIP_IN_CONFIG) == 0
+        assert len(bodies) == 1, bodies
+        assert bodies[0].startswith(binaries.UNOPTIMIZED_RELEASE_BANNER)
+
+    def test_publish_binaries_to_github_releases(
+        self, bodies: list[str], tmp_path
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        (tmp_path / "dist").mkdir()
+        (tmp_path / "dist" / "demo-linux-amd64").write_bytes(b"\x7fELF")
+        config = CIConfig(
+            _raw={
+                "build": {"skip_optimize": True},
+                "release": {"destinations": {"binaries": "github-releases"}},
+            }
+        )
+        assert binaries.publish_binaries(config) == 0
+        assert len(bodies) == 1, bodies
+        assert bodies[0].startswith(binaries.UNOPTIMIZED_RELEASE_BANNER)
+
+
+class TestLatestStaysOnTheNewestRelease:
+    """Re-publishing an older tag leaves every `latest` pointer where it is.
+
+    A tag dispatch of v1.18.19 while v1.18.25 is current would otherwise
+    point downloads.hyperi.io/<project>/latest/ and the GitHub Release Latest
+    flag back at 1.18.19. The versioned artefacts still publish.
+    """
+
+    @pytest.fixture
+    def repo(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        for args in (
+            ["init", "-q"],
+            ["commit", "--allow-empty", "-m", "chore: seed"],
+            ["tag", "v1.0.4"],
+            ["tag", "v1.0.5"],
+            ["tag", "v1.0.6-beta.1"],
+        ):
+            subprocess.run(
+                ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+                cwd=tmp_path,
+                check=True,
+                capture_output=True,
+            )
+        (tmp_path / "dist").mkdir()
+        (tmp_path / "dist" / "demo-linux-amd64").write_bytes(b"\x7fELF")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("R2_ACCESS_KEY_ID", "test-key")
+        monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "test-secret")
+        return tmp_path
+
+    @staticmethod
+    def _sent(
+        monkeypatch: pytest.MonkeyPatch,
+        version: str,
+        latest_keys: list[str] | None = None,
+        list_rc: int = 0,
+    ) -> list[list[str]]:
+        """Record every command; ``latest_keys`` is what the R2 listing returns."""
+        from hyperi_ci.release import binaries
+
+        sent: list[list[str]] = []
+        listing = json.dumps({"Contents": [{"Key": k} for k in latest_keys or []]})
+
+        def fake_run_cmd(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess:
+            sent.append(cmd)
+            if cmd[:3] == ["aws", "s3api", "list-objects-v2"]:
+                return subprocess.CompletedProcess(cmd, list_rc, listing, "")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: version)
+        monkeypatch.setattr(binaries, "ensure_aws_cli", lambda: "/usr/bin/aws")
+        return sent
+
+    @staticmethod
+    def _r2_targets(sent: list[list[str]]) -> list[str]:
+        """Each R2 call as ``<verb> <target>``, in the order it ran."""
+        targets = []
+        for cmd in sent:
+            if cmd[0] != "aws":
+                continue
+            if cmd[1] == "s3api":
+                bucket = cmd[cmd.index("--bucket") + 1]
+                prefix = cmd[cmd.index("--prefix") + 1]
+                targets.append(f"list s3://{bucket}/{prefix}")
+            elif cmd[2] == "rm":
+                targets.append(f"rm {cmd[3]}")
+            else:
+                targets.append(f"cp {cmd[4]}")
+        return targets
+
+    def test_every_r2_call_pins_the_classic_s3_client(self, repo, monkeypatch) -> None:
+        """R2 rejects the CRT client's DeleteObject signature (AWS CLI 2.38.0+)."""
+        from hyperi_ci.release import binaries
+
+        configs: dict[str, list[str]] = {}
+        stale = {"Contents": [{"Key": f"{repo.name}/latest/old-linux-amd64"}]}
+
+        def fake_run_cmd(cmd: list[str], **kw: object) -> subprocess.CompletedProcess:
+            env = kw.get("env") or {}
+            assert isinstance(env, dict)
+            config = Path(env["AWS_CONFIG_FILE"]).read_text(encoding="utf-8")
+            configs.setdefault(cmd[2], []).append(config)
+            stdout = json.dumps(stale) if cmd[1] == "s3api" else ""
+            return subprocess.CompletedProcess(cmd, 0, stdout, "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: "1.0.5")
+        monkeypatch.setattr(binaries, "ensure_aws_cli", lambda: "/usr/bin/aws")
+        assert binaries._publish_r2_binaries() == 0
+        assert set(configs) == {"cp", "list-objects-v2", "rm"}
+        every = [c for calls in configs.values() for c in calls]
+        assert all("preferred_transfer_client = classic" in c for c in every)
+
+    def test_an_older_tag_leaves_r2_latest_alone(self, repo, monkeypatch) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(monkeypatch, "1.0.4")
+        assert binaries._publish_r2_binaries() == 0
+
+        assert self._r2_targets(sent) == [
+            f"cp s3://bin-repo/{repo.name}/v1.0.4/demo-linux-amd64",
+        ]
+
+    def test_the_newest_release_uploads_to_latest_before_pruning(
+        self, repo, monkeypatch
+    ) -> None:
+        """latest/ was empty for minutes while a wipe-first release uploaded."""
+        from hyperi_ci.release import binaries
+
+        latest = f"{repo.name}/latest/"
+        sent = self._sent(
+            monkeypatch,
+            "1.0.5",
+            latest_keys=[
+                f"{latest}demo-linux-amd64",
+                f"{latest}old-name-linux-amd64",
+                f"{latest}manifests/old.json",
+            ],
+        )
+        assert binaries._publish_r2_binaries() == 0
+
+        assert self._r2_targets(sent) == [
+            f"cp s3://bin-repo/{repo.name}/v1.0.5/demo-linux-amd64",
+            f"cp s3://bin-repo/{latest}demo-linux-amd64",
+            f"list s3://bin-repo/{latest}",
+            f"rm s3://bin-repo/{latest}manifests/old.json",
+            f"rm s3://bin-repo/{latest}old-name-linux-amd64",
+        ]
+
+    def test_a_latest_holding_only_this_release_is_left_alone(
+        self, repo, monkeypatch
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(
+            monkeypatch, "1.0.5", latest_keys=[f"{repo.name}/latest/demo-linux-amd64"]
+        )
+        assert binaries._publish_r2_binaries() == 0
+        assert not [cmd for cmd in sent if cmd[:3] == ["aws", "s3", "rm"]]
+
+    def test_a_failed_listing_warns_and_still_publishes(
+        self, repo, monkeypatch
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(
+            monkeypatch,
+            "1.0.5",
+            latest_keys=[f"{repo.name}/latest/old-name-linux-amd64"],
+            list_rc=254,
+        )
+        assert binaries._publish_r2_binaries() == 0
+        assert not [cmd for cmd in sent if cmd[:3] == ["aws", "s3", "rm"]]
+
+    def test_an_empty_latest_prefix_lists_nothing_to_prune(
+        self, repo, monkeypatch
+    ) -> None:
+        """R2 answers a prefix with no objects with no Contents key at all."""
+        from hyperi_ci.release import binaries
+
+        sent: list[list[str]] = []
+
+        def fake_run_cmd(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess:
+            sent.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: "1.0.5")
+        monkeypatch.setattr(binaries, "ensure_aws_cli", lambda: "/usr/bin/aws")
+        assert binaries._publish_r2_binaries() == 0
+        assert not [cmd for cmd in sent if cmd[:3] == ["aws", "s3", "rm"]]
+
+    def test_an_older_tag_is_not_marked_latest_on_github(
+        self, repo, monkeypatch
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(monkeypatch, "1.0.4")
+        assert binaries.create_github_release(CIConfig(_raw={})) == 0
+        assert "--latest=false" in sent[0]
+
+    def test_the_binary_upload_path_carries_the_same_flag(
+        self, repo, monkeypatch
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(monkeypatch, "1.0.4")
+        config = CIConfig(
+            _raw={"release": {"destinations": {"binaries": "github-releases"}}}
+        )
+        assert binaries.publish_binaries(config) == 0
+        assert sent[0][:3] == ["gh", "release", "create"]
+        assert "--latest=false" in sent[0]
+
+    def test_the_newest_release_leaves_github_to_mark_it_latest(
+        self, repo, monkeypatch
+    ) -> None:
+        from hyperi_ci.release import binaries
+
+        sent = self._sent(monkeypatch, "1.0.5")
+        assert binaries.create_github_release(CIConfig(_raw={})) == 0
+        assert not any(arg.startswith("--latest") for arg in sent[0])
+
+
+class TestR2SettingsComeFromOrgConfig:
+    """The bucket, account endpoint and public URL read from org.yaml."""
+
+    def test_shipped_org_yaml_carries_the_published_values(self) -> None:
+        from hyperi_ci.config import load_org_config
+
+        org = load_org_config(reload=True)
+        assert org.r2_bucket == "bin-repo"
+        assert org.r2_account_id == "98d20454e2af7a9397ad9366a1641659"
+        assert org.r2_endpoint == (
+            "https://98d20454e2af7a9397ad9366a1641659.r2.cloudflarestorage.com"
+        )
+        assert org.r2_public_url == "https://downloads.hyperi.io"
+
+    def test_org_values_reach_the_upload_commands(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from hyperi_ci.config import OrgConfig
+        from hyperi_ci.release import binaries
+
+        (tmp_path / "dist").mkdir()
+        (tmp_path / "dist" / "demo-linux-amd64").write_bytes(b"\x7fELF")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("R2_ACCESS_KEY_ID", "test-key")
+        monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "test-secret")
+
+        sent: list[list[str]] = []
+
+        def fake_run_cmd(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess:
+            sent.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(binaries, "run_cmd", fake_run_cmd)
+        monkeypatch.setattr(binaries, "resolve_release_version", lambda: "2.0.0")
+        monkeypatch.setattr(binaries, "ensure_aws_cli", lambda: "/usr/bin/aws")
+        monkeypatch.setattr(
+            binaries,
+            "load_org_config",
+            lambda: OrgConfig(
+                r2_bucket="other-bucket",
+                r2_account_id="acct123",
+                r2_public_url="https://dl.example.test",
+            ),
+        )
+
+        assert binaries._publish_r2_binaries() == 0
+        endpoints = {cmd[cmd.index("--endpoint-url") + 1] for cmd in sent}
+        assert endpoints == {"https://acct123.r2.cloudflarestorage.com"}
+        copies = [cmd for cmd in sent if cmd[2] == "cp"]
+        assert copies
+        assert all(cmd[4].startswith("s3://other-bucket/") for cmd in copies)

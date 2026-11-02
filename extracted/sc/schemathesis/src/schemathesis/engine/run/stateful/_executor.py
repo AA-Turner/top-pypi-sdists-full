@@ -62,8 +62,6 @@ from schemathesis.generation.metrics import MetricCollector
 from schemathesis.resources import record_delete_attempt, record_interaction
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from schemathesis.baseline import Baseline
     from schemathesis.core.error_feedback.store import Observation
     from schemathesis.resources import ResourceRecorder
@@ -138,7 +136,7 @@ def _classify_failure_group(
     if engine.has_reached_the_failure_limit:
         return Status.FAILURE, False, network_events
     for failure in exc.exceptions:
-        ctx.mark_as_seen_in_run(failure)
+        ctx.seen_in_run.add(failure)
     return Status.FAILURE, True, network_events
 
 
@@ -153,7 +151,7 @@ def _classify_flaky(*, ctx: StatefulContext, engine: EngineContext, state: Testi
         return network_outcome
     retry = bool(ctx.seen_in_suite - ctx.seen_in_run)
     # Mark all failures in this suite as seen to prevent them being re-discovered
-    ctx.mark_current_suite_as_seen_in_run()
+    ctx.seen_in_run.update(ctx.seen_in_suite)
     return found, retry, []
 
 
@@ -283,11 +281,6 @@ def _reject_unusable_operation(engine: EngineContext, operation_label: str) -> N
         reject()
 
 
-def _replay_cached_outcome(ctx: StatefulContext, case: Case) -> bool:
-    """`True` when this input already passed in the current scenario."""
-    return ctx.get_step_outcome(case) is None
-
-
 def _send_step(
     machine: RecordingStateMachine, case: Case, *, engine: EngineContext, event_queue: queue.Queue
 ) -> Response:
@@ -357,20 +350,6 @@ def _record_network_error(
     state.store_unrecoverable_network_error(network_error)
 
 
-def _remember_step_outcome(
-    ctx: StatefulContext, case: Case, outcome: BaseException | None, *, unique_inputs: bool
-) -> None:
-    if unique_inputs:
-        ctx.store_step_outcome(case, outcome)
-
-
-def _remember_failures(
-    ctx: StatefulContext, case: Case, failures: Sequence[BaseException], *, unique_inputs: bool
-) -> None:
-    for failure in failures:
-        _remember_step_outcome(ctx, case, failure, unique_inputs=unique_inputs)
-
-
 def _parse_step_observations(engine: EngineContext, case: Case, response: Response) -> tuple[Observation, ...]:
     """Parse the 4xx body once, for both link calibration and error feedback."""
     if engine.error_feedback is None and engine.link_calibration is None:
@@ -429,11 +408,10 @@ def _validate_step_response(
     check_context_cache: CheckContextCache,
 ) -> None:
     """Feed the response to link calibration, the supervisor and error feedback, then run the checks."""
-    ctx.collect_metric(case, response)
+    ctx.metric_collector.store(case, response)
     observations = _parse_step_observations(engine, case, response)
     _calibrate_link(engine, response, observations=observations, step_input=step_input, recorder=recorder)
-    ctx.current_response = response
-    engine.supervisor.observe(case, response.status_code, cache_writer=engine.cache.writer)
+    engine.supervisor.observe(case, response, cache_writer=engine.cache.writer)
     _feed_error_feedback(engine, case, response, observations=observations, recorder=recorder)
     check_ctx = check_context_cache.get_or_create(
         operation=case.operation, ctx=engine, phase="stateful"
@@ -443,7 +421,6 @@ def _validate_step_response(
         case=case,
         stateful_ctx=ctx,
         check_ctx=check_ctx,
-        checks=check_ctx.internals.checks,
         control=engine.control,
         recorder=recorder,
         additional_checks=additional_checks,
@@ -500,11 +477,15 @@ def _run_step(
 ) -> StepOutput | None:
     """Send one scenario step and record its outcome; `None` when this input already passed."""
     will_send = False
+    # Hooks may change the case before it is sent; it is identified by what was generated.
+    key = None
     try:
         _raise_if_stopped(engine)
         _reject_unusable_operation(engine, case.operation.label)
-        if unique_inputs and _replay_cached_outcome(ctx, case):
-            return None
+        if unique_inputs:
+            key = hash(case)
+            if key in ctx.passed_steps:
+                return None
         will_send = True
     finally:
         if not will_send:
@@ -513,20 +494,18 @@ def _run_step(
     try:
         response = _send_step(machine, case, engine=engine, event_queue=event_queue)
         result = StepOutput(response, case)
-        ctx.step_succeeded()
+        ctx.current_step_status = Status.SUCCESS
     except UnsatisfiedAssumption:
         raise
-    except FailureGroup as exc:
-        _remember_failures(ctx, case, exc.exceptions, unique_inputs=unique_inputs)
-        ctx.step_failed()
+    except FailureGroup:
+        ctx.current_step_status = Status.FAILURE
         raise
     except Exception as exc:
         if isinstance(exc, TRANSPORT_ERRORS):
             machine.recorder.record_network_error(case_id=case.id, error=exc)
         outage = _detect_outage(exc, engine)
         _record_network_error(exc, case=case, engine=engine, ctx=ctx, state=state, event_queue=event_queue)
-        _remember_step_outcome(ctx, case, exc, unique_inputs=unique_inputs)
-        ctx.step_errored()
+        ctx.current_step_status = Status.ERROR
         if outage:
             raise ServerWentAway from None
         raise
@@ -534,13 +513,11 @@ def _run_step(
         if isinstance(exc, BudgetExpired):
             # Cut off by the time limit, the request says nothing about the operation.
             machine.recorder.forget_case(case_id=case.id)
-        ctx.step_interrupted()
+        ctx.current_step_status = Status.INTERRUPTED
         raise
-    except BaseException as exc:
-        _remember_step_outcome(ctx, case, exc, unique_inputs=unique_inputs)
-        raise exc
     else:
-        _remember_step_outcome(ctx, case, None, unique_inputs=unique_inputs)
+        if key is not None:
+            ctx.passed_steps.add(key)
     return result
 
 
@@ -632,7 +609,7 @@ def execute_state_machine_loop(
                     suite_id=suite_id,
                     phase=PhaseName.STATEFUL_TESTING,
                     label=None,
-                    status=ctx.current_scenario_status or Status.SKIP,
+                    status=ctx.current_step_status or Status.SKIP,
                     recorder=self.recorder,
                     elapsed_time=self._started_at.elapsed,
                     skip_reason=None,
@@ -641,7 +618,7 @@ def execute_state_machine_loop(
             )
             if engine.extra_data_source is not None:
                 suite_recorders.append(self.recorder)
-            ctx.maximize_metrics()
+            ctx.metric_collector.maximize()
             ctx.reset_scenario()
             super().teardown()
 
@@ -700,7 +677,6 @@ def validate_response(
     stateful_ctx: StatefulContext,
     check_ctx: CheckContext,
     control: ExecutionControl,
-    checks: list[CheckFunction],
     recorder: ScenarioRecorder,
     additional_checks: tuple[CheckFunction, ...] = (),
     baseline: Baseline | None = None,
@@ -710,26 +686,24 @@ def validate_response(
 
     def on_failure(name: str, collected: set[Failure], failure: Failure) -> None:
         checked_by.setdefault(failure, name)
-        if stateful_ctx.is_seen_in_suite(failure) or stateful_ctx.is_seen_in_run(failure):
+        if failure in stateful_ctx.seen_in_suite or failure in stateful_ctx.seen_in_run:
             return
         failure_data = recorder.find_failure_data(parent_id=case.id, failure=failure)
 
         # Some failures (e.g. use-after-free) reference a prior case that may live on a
         # sibling branch; include it so the reproduce isn't missing the triggering step.
-        chain = recorder.iter_chain_cases(case_id=failure_data.case.id, related_case_ids=failure.related_case_ids())
-        steps = recorder.reproduction_steps(chain, failure=failure, verify=failure_data.verify)
-        recorder.record_check_failure(
+        recorder.record_reproducible_failure(
             name=name,
             case_id=failure_data.case.id,
-            code_sample="\n".join(step.curl for step in steps),
             failure=failure,
-            steps=steps,
+            cases=recorder.iter_chain_cases(case_id=failure_data.case.id, related_case_ids=failure.related_case_ids()),
+            verify=failure_data.verify,
         )
         # Known failures are accepted debt, so they must not spend the `--max-failures` budget.
         if not is_known(failure, name, baseline):
             control.count_failure(failure)
             stateful_ctx.has_new_failures_in_suite = True
-        stateful_ctx.mark_as_seen_in_suite(failure)
+        stateful_ctx.seen_in_suite.add(failure)
         collected.add(failure)
 
     def on_success(name: str, case: Case) -> None:
@@ -739,7 +713,7 @@ def validate_response(
         case=case,
         response=response,
         ctx=check_ctx,
-        checks=tuple(checks) + tuple(additional_checks),
+        checks=tuple(check_ctx.internals.checks) + tuple(additional_checks),
         on_failure=on_failure,
         on_success=on_success,
     )

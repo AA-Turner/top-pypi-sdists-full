@@ -1,21 +1,23 @@
-"""Sink: where a write lands, chosen once from the client's mode (variants in sinks/), and what
+"""Sink: where a write lands, chosen from the client's mode (variants in sinks/), and what
 every sink does on the way: renew a detached run's lease, report a failure it swallows."""
 
 from __future__ import annotations
 
 import weakref
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from ...foundation.compat.compat import StrEnum
-from .ops.ops import run_ref_for_path
+from .. import routes
+
+if TYPE_CHECKING:
+    from .sender import SendPolicy
 
 
 class SinkKind(StrEnum):
     """Which sink a client's writes land in."""
 
     DIRECT = "direct"  # sync writes: sent now; the outbox only when sending fails (never under strict)
-    JOURNALED = "journaled"  # async writes: queued in the outbox, delivered in the background
-    OFFLINE = "offline"  # an offline run's queue: only `probe sync` delivers it
+    QUEUED = "queued"  # async writes: queued in the client's journal (the outbox, or an offline run's queue)
     FANOUT = "fanout"  # the best-effort hardware rail, queued behind the run's own writes
 
 
@@ -48,10 +50,10 @@ class Sink(Protocol):
         """Whether a durable write with these flags is queued rather than sent now."""
 
     def land(
-        self, method: str, path: str, body: dict | None, *, strict: bool, sync: bool, blocking: bool,
-        raise_permanent: bool, admitted: bool,
+        self, method: str, path: str, body: dict | None, *, policy: "SendPolicy", blocking: bool, admitted: bool,
     ) -> Any:
-        """Send or queue one prepared write: the parsed response when it was sent, else None."""
+        """Send or queue one prepared write under its `SendPolicy`: the parsed response when it
+        was sent, else None."""
 
 
 def _touch_run_lease(
@@ -59,11 +61,11 @@ def _touch_run_lease(
 ) -> None:
     """Renew the auto-update lease of the run this write targets.
 
-    Uses the journal's own `run_ref_for_path`, so the lease run is the barrier run.
+    Uses the journal's own `routes.run_ref_of`, so the lease run is the barrier run.
     Never raises: instrumentation must not break the write it rides on.
     """
     try:
-        run_ref = run_ref_for_path(path)
+        run_ref = routes.run_ref_of(path)
         if not run_ref:
             return
         from probe.foundation.durable import run_lock

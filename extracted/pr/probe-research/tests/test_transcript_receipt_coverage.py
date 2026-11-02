@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core.session_journal import Journal, ReconciliationRequired
 from test_backfill_transcripts_upload import FakeWire, _transcript
 
@@ -17,7 +17,8 @@ from test_backfill_transcripts_upload import FakeWire, _transcript
 def covered(tmp_path, monkeypatch):
     monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
     wire = FakeWire()
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     transcript = _transcript(tmp_path)
     poster = bt.Poster(wire.base_url, wire.token)
     record = bt.SessionRecord(session_id=transcript.session_id)
@@ -48,8 +49,10 @@ def test_shorter_approved_prefix_already_finalized_finishes_without_copy_or_jour
 ):
     transcript, wire, _poster, _approved = covered
     posts = list(wire.calls)
-    monkeypatch.setattr(bt, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
-    monkeypatch.setattr(bt, "_approved_transcript", lambda *a: pytest.fail("made short source copy"))
+    monkeypatch.setattr(bt.transcripts, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
+    monkeypatch.setattr(bt.upload, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
+    monkeypatch.setattr(bt.background, "_approved_transcript", lambda *a: pytest.fail("made short source copy"))
+    monkeypatch.setattr(bt.transcripts, "_approved_transcript", lambda *a: pytest.fail("made short source copy"))
     completions = []
     outcome = _import(covered, tmp_path, on_completion=lambda *args: completions.append(args))
     assert outcome.finalized == 1 and outcome.failed == 0 and outcome.bytes_sent == 0
@@ -235,7 +238,8 @@ def test_unproven_receipts_do_not_count_as_completion(covered, change):
 
 def test_direct_upload_recognizes_finalized_source_without_reopening_journal(covered, monkeypatch):
     transcript, wire, poster, _approved = covered
-    monkeypatch.setattr(bt, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
+    monkeypatch.setattr(bt.transcripts, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
+    monkeypatch.setattr(bt.upload, "Journal", lambda *a, **k: pytest.fail("reopened shared journal"))
     posts = list(wire.calls)
     record = bt.SessionRecord(session_id=transcript.session_id)
     result = bt.upload_session(transcript, record, poster, device_id="")

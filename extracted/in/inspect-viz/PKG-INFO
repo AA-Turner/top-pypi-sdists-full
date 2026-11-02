@@ -1,0 +1,100 @@
+Metadata-Version: 2.5
+Name: inspect_viz
+Version: 0.4.2
+Summary: Data visualization for Inspect AI large language model evalutions.
+Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_viz/
+Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_viz
+Project-URL: Issue Tracker, https://github.com/meridianlabs-ai/inspect_viz/issues
+Author: Meridian Labs
+License: MIT License
+License-File: LICENSE
+Requires-Python: >=3.11
+Requires-Dist: anywidget>=0.9.0
+Requires-Dist: ipython
+Requires-Dist: narwhals>=1.15.1
+Requires-Dist: nest-asyncio
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: pillow
+Requires-Dist: pyarrow>=15.0.0
+Requires-Dist: pydantic
+Requires-Dist: shortuuid
+Requires-Dist: sniffio
+Requires-Dist: traitlets>=5.9.0
+Requires-Dist: typing-extensions>=4.9.0
+Provides-Extra: dev
+Requires-Dist: datamodel-code-generator; extra == 'dev'
+Requires-Dist: jupyterlab; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pandas-stubs; extra == 'dev'
+Requires-Dist: playwright; extra == 'dev'
+Requires-Dist: pyarrow-stubs; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: types-pillow; extra == 'dev'
+Requires-Dist: watchfiles; extra == 'dev'
+Provides-Extra: doc
+Requires-Dist: griffe; extra == 'doc'
+Requires-Dist: jupyter; extra == 'doc'
+Requires-Dist: markdown; extra == 'doc'
+Requires-Dist: panflute; extra == 'doc'
+Requires-Dist: pyyaml; extra == 'doc'
+Requires-Dist: quarto-cli>=1.9.36; extra == 'doc'
+Requires-Dist: types-pyyaml; extra == 'doc'
+Description-Content-Type: text/markdown
+
+Welcome to Inspect Viz, a data visualisation library for Inspect AI. Inspect Viz provides flexible tools for high quality interactive visualisations from Inspect evaluations.
+
+To get started with Inspect Viz, please see the documentation at <https://meridianlabs-ai.github.io/inspect_viz/>.
+
+## Installation
+
+Latest published version:
+
+```bash
+pip install inspect-viz
+```
+
+Latest development version:
+
+```bash
+pip install git+https://github.com/meridianlabs-ai/inspect_viz
+```
+
+## Development
+
+To work on development of Inspect Viz, clone the repository and install with the `-e` flag and `[dev]` optional dependencies:
+
+```bash
+git clone https://github.com/meridianlabs-ai/inspect_viz
+cd inspect_viz
+pip install -e ".[dev]"
+```
+
+Run linting, formatting, and tests via
+
+```bash
+make check
+make test
+```
+
+For JS / front-end development:
+
+```sh
+yarn install
+```
+
+While developing front end components, you can run the following in a separate terminal to automatically rebuild JavaScript as you make changes:
+
+```sh
+yarn dev # or
+yarn dev-sourcemap
+```
+
+To build the docs locally and view them in your browser, install the optional doc dependencies and run `quarto preview`.
+
+```sh
+pip install -e ".[doc]"
+quarto preview inspect_viz/docs/index.qmd
+```
+
+If you use VS Code, you should be sure to have installed the recommended extensions (Python, Ruff, MyPy, Inspect AI, Quarto). Note that you'll be prompted to install these when you open the project in VS Code.

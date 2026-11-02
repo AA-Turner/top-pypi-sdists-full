@@ -1,0 +1,1062 @@
+Metadata-Version: 2.5
+Name: dreamscale
+Version: 0.1.0a272
+Summary: Cloud robot policy inference — one function call.
+Project-URL: Homepage, https://app.dreamscalelabs.com
+Project-URL: Documentation, https://docs.dreamscalelabs.com
+Author: Dreamscale Labs
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: inference,physical-ai,robotics,vla
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.11
+Requires-Dist: click<8.5,>=8.1.7
+Requires-Dist: dreamscale-transport==0.1.1a103
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: jsonschema<5,>=4.23
+Requires-Dist: numpy<3,>=1.26
+Requires-Dist: packaging<27,>=23
+Requires-Dist: pillow<12,>=10
+Requires-Dist: rich<14,>=13.9
+Requires-Dist: tomli-w<2,>=1.0
+Requires-Dist: typer<0.26,>=0.12
+Requires-Dist: typing-extensions<5,>=4.10
+Provides-Extra: cameras
+Requires-Dist: opencv-python==4.11.0.86; extra == 'cameras'
+Provides-Extra: dreamzero
+Requires-Dist: av<19,>=15; extra == 'dreamzero'
+Provides-Extra: franka
+Requires-Dist: franky-control==2.0.0; (sys_platform == 'linux' and platform_machine == 'x86_64') and extra == 'franka'
+Provides-Extra: hud
+Requires-Dist: av<19,>=15; extra == 'hud'
+Requires-Dist: hud==0.6.20; extra == 'hud'
+Provides-Extra: inspect-robots
+Requires-Dist: inspect-robots<0.61,>=0.60; extra == 'inspect-robots'
+Provides-Extra: realsense
+Requires-Dist: dreamscale-pyrealsense2==2.58.4; (sys_platform == 'linux' and platform_machine == 'aarch64') and extra == 'realsense'
+Requires-Dist: pyrealsense2==2.56.5.9235; (sys_platform != 'linux' or platform_machine != 'aarch64') and extra == 'realsense'
+Provides-Extra: sim
+Requires-Dist: av<19,>=15; extra == 'sim'
+Requires-Dist: bddl==1.0.1; extra == 'sim'
+Requires-Dist: cloudpickle<4,>=2; extra == 'sim'
+Requires-Dist: easydict<2,>=1.13; extra == 'sim'
+Requires-Dist: future<2,>=1; extra == 'sim'
+Requires-Dist: gymnasium<2,>=0.29; extra == 'sim'
+Requires-Dist: huggingface-hub<2,>=1; extra == 'sim'
+Requires-Dist: imageio[pyav]<3,>=2.36; extra == 'sim'
+Requires-Dist: matplotlib<4,>=3.9; extra == 'sim'
+Requires-Dist: mujoco<=3.9.0,>=3.2; extra == 'sim'
+Requires-Dist: opencv-python<5,>=4.10; extra == 'sim'
+Requires-Dist: pyyaml<7,>=6; extra == 'sim'
+Requires-Dist: robosuite==1.4.1; extra == 'sim'
+Requires-Dist: torch<3,>=2.8; extra == 'sim'
+Requires-Dist: tqdm<5,>=4.66; extra == 'sim'
+Provides-Extra: so101
+Requires-Dist: lerobot[feetech]==0.6.1; extra == 'so101'
+Provides-Extra: trace
+Requires-Dist: rerun-sdk<0.33,>=0.26.2; extra == 'trace'
+Provides-Extra: train
+Requires-Dist: pyarrow<26,>=15; extra == 'train'
+Provides-Extra: ur
+Requires-Dist: ur-rtde==1.6.5; extra == 'ur'
+Provides-Extra: xarm7
+Requires-Dist: scipy<2,>=1.11; extra == 'xarm7'
+Requires-Dist: xarm-python-sdk==1.18.4; extra == 'xarm7'
+Provides-Extra: yam
+Requires-Dist: dreamscale-i2rt==1.3.6.post1; extra == 'yam'
+Description-Content-Type: text/markdown
+
+# Dreamscale
+
+Cloud robot policy inference — one function call.
+
+> Pre-alpha SDK. Model access and deployment readiness are separate from package installation.
+>
+> Formerly `dropbear`. Existing `dropbear` projects keep working unchanged: the
+> `dropbear` package now installs `dreamscale` and keeps the old import and command.
+
+## Install
+
+Add Dreamscale to a Python 3.11–3.14 project:
+
+```bash
+uv add "dreamscale==0.1.0a272"
+```
+
+Install the CLI as a standalone tool:
+
+```bash
+uv tool install dreamscale
+dreamscale --version
+dreamscale login
+```
+
+`dreamscale --version` says when a newer release is out; update with
+`uv tool upgrade dreamscale`.
+
+The base package contains cloud inference, transport, model contracts, and
+robot-neutral observation helpers. Commands install the optional stack they need the
+first time they run, using the same installer as Dreamscale itself (`uv tool`, `uv
+add`, `uv pip` or `pip`), then continue: SO-101 setup and commands add `so101`; YAM
+setup and commands add `yam` and `cameras` (plus `realsense` where it has wheels:
+x86_64 Linux and Windows, and aarch64 Linux such as Jetson, where it installs
+Dreamscale's RSUSB build of pyrealsense2); `dreamscale sim libero` adds `sim`;
+`--trace-dir` adds `trace`; and
+`dreamscale integrations hud setup` adds `hud`; `dreamscale integrations inspect-robots setup`
+adds `inspect-robots`. A uv tool install moves to Python 3.12
+or 3.13 when a stack needs it.
+
+To add a stack to your own project for use from Python:
+
+```bash
+uv add "dreamscale[so101]==0.1.0a272"
+uv add "dreamscale[sim]==0.1.0a272"
+uv add "dreamscale[dreamzero]==0.1.0a272"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a272"
+uv add "dreamscale[hud]==0.1.0a272"
+```
+
+The `dreamzero` extra installs the pinned H.264 codec used automatically by
+DreamZero-YAM's three persistent camera streams. DreamZero-DROID and all other
+models keep their existing JPEG transport and do not require this extra.
+
+The base SDK supports Python 3.11 through 3.14. The `so101` extra currently
+supports Python 3.12 and 3.13 because its pinned LeRobot dependency requires
+Python 3.12 and does not yet provide a wheel-compatible Python 3.14 dependency
+stack.
+
+Local LIBERO simulation is qualified on Linux/WSL2 and on Apple Silicon macOS
+with Python 3.12. Inference runs in the cloud; a local NVIDIA GPU is not required.
+
+## Local benchmark simulation
+
+Choose the benchmark and model explicitly:
+
+```bash
+dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object --task-id 0
+dreamscale sim robocasa365 --model xiaomi-robotics-1-robocasa365 --task-suite atomic --task-id CloseFridge --task-seed 7 --max-steps 1800
+dreamscale sim robocasa365 --model rldx-1-ft-rc365 --task-suite atomic --task-id CloseFridge
+dreamscale sim robocasa365 --model dreamzero-droid --task-suite atomic --task-id CloseElectricKettleLid --max-duration 90
+```
+
+Simulation and robot CLI runs share `--keep-warm`: the default reserves loaded
+compute for up to 300 seconds after the task, billed at the model's compute rate.
+Use `--keep-warm 0` to release the reservation immediately, or specify 0–3600
+seconds. A compatible subsequent run can reclaim your reserved worker without
+loading the checkpoint again. The final sim output reports whether the server
+parked the session, released it, or could not confirm the release. An open Python
+SDK sim connection keeps its default of immediate release unless configured.
+
+RoboCasa365 accepts `atomic` (65 tasks) or `composite` (300 tasks), with a task
+name or a zero-based index within the selected suite. Xiaomi uses the reference
+`pretrain` kitchen split, four observations spaced two physics steps apart, and
+16-action chunks at 20 Hz. Inference runs asynchronously; while a request is
+pending, the simulator stops base and arm motion and retains the gripper command.
+DreamZero-DROID drives the same Franka arm with absolute joint targets at 15 Hz
+from DROID's home pose. It sees the two agent views as its exterior cameras and the
+hand camera as its wrist camera, and physics pauses while each 24-action chunk is
+inferred. RoboCasa's robot-mounted views differ from DROID's training cameras, so
+counter-height tasks suit it best; give it a longer `--max-duration`.
+
+The first RoboCasa run uses `uv` to prepare a separate Python 3.12 native runtime
+and download about 23 GiB of kitchen/object assets into `~/.dreamscale/sim/`.
+Later runs reuse that cache. LIBERO uses the `sim` extra; RoboCasa prepares its
+native dependencies independently. Add `--non-interactive` to run without a
+viewer, or `--output-root DIRECTORY` to save the episode and timing evidence.
+Installing the SDK does not grant model access; a funded beta account is required.
+
+### MolmoSpaces (DROID)
+
+MolmoSpaces runs local MuJoCo physics with cloud Cosmos3 DROID inference. It
+prepares its own Python 3.11 runtime with `uv`; the base SDK is sufficient. Apple
+Silicon macOS and x86_64 Linux support both classic MuJoCo and Filament. The first
+run downloads the pinned simulator and its scene/object assets; later runs reuse
+the cache. No local NVIDIA GPU is needed. Cosmos3 requires beta model access.
+
+```bash
+# One episode from each of the nine All Combined benchmarks (default episode 0).
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid
+
+# A single pick episode, with video, timing and oracle-success artifacts.
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite pick-v1.5 --task-id 0 --keep-warm 0 --output-root ./molmo-rollout
+
+# Full All Combined evaluation: 8,915 episodes.
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite all --task-id all --non-interactive --keep-warm 0 --output-root ./molmo-all
+
+# Cosmos3 Edge, NVIDIA's 4B Cosmos3 DROID policy (private beta), on the same wire.
+dreamscale sim molmospaces --model cosmos3-edge-policy-droid --task-suite pick-v1.5 --task-id 0 --keep-warm 0
+
+# DreamZero-DROID (private beta): physics pauses while each chunk is inferred.
+dreamscale sim molmospaces --model dreamzero-droid --task-suite close-v1 --task-id 0 --keep-warm 0
+```
+
+Suites: `open-v1`, `close-v1`, `pick-v1.5`, `pick-v2-classic`,
+`pick-v2-filament`, `pick-v2-rand-cam`, `pnp-v2`, `pnp-next-to-v2`,
+`pnp-color-v2`. Select an episode index or `all` with `--task-id`.
+`--task-suite all` selects all nine; a numeric episode index runs that episode
+in each suite. Close-v1 has 915 episodes and every other suite has 1,000.
+
+The Cosmos3 models are `cosmos3-nano-policy-droid` and `cosmos3-edge-policy-droid`.
+The adapter sends the current
+exterior/wrist RGB views and seven measured Franka joints plus gripper state.
+It duplicates the exterior view into DROID's second exterior slot, following
+the upstream DreamZero evaluation convention. It executes complete 32-action
+chunks at 15 Hz, holding measured joint positions while inference is pending.
+MuJoCo uses the upstream-compatible 66 ms physics interval. Benchmark JSON owns
+the episode initial state and horizon; success comes from upstream
+`judge_success()`. `--max-steps` or `--max-duration` overrides the horizon for a
+bounded run. A sample or overridden horizon is not a full benchmark score.
+
+With `--output-root`, each episode gets a video and metrics bundle, and the
+root `summary.json` records per-suite oracle success rates and their mean.
+`full_benchmark` is true only when every selected episode runs with its original
+horizon and seed. Inference reuses a session across episodes and renews compute
+between episodes for long batches, before the provider lifetime limit.
+`--keep-warm 0` closes the final session after the batch, including failures.
+
+The implementation pins [MolmoSpaces v0.2.9](https://github.com/allenai/molmospaces/tree/v0.2.9).
+See the [benchmark documentation](https://docs.google.com/document/d/1aRJ_NGWBzdLk3jJ71GvYx-dj1nbATQbDGfSG3V4Iy0g/edit)
+for the official All Combined definition.
+
+### RoboEval (bimanual Panda)
+
+RoboEval runs its eight bimanual Franka Panda tasks in local MuJoCo with cloud
+`rho-roboeval` inference. The first run uses `uv` to prepare a Python 3.12
+runtime from [dreamscale-roboeval](https://github.com/Dreamscale-Labs/dreamscale-roboeval)
+(about 1 GB, no asset downloads); later runs reuse it.
+
+```bash
+# Lift Pot, static variant.
+dreamscale sim roboeval --model rho-roboeval
+
+# Another task and variant, saving video and timing artifacts.
+dreamscale sim roboeval --model rho-roboeval --task-suite pack_box --task-id PackBoxPosition --output-root ./roboeval-run
+```
+
+Tasks (`--task-suite`): `lift_pot`, `stack_two_blocks`, `cube_handover`,
+`pick_single_book_from_table`, `stack_single_book_shelf`, `pack_box`,
+`lift_tray`, `rotate_valve`. `--task-id` selects a variant by name or index;
+0 is the static variant, then position, orientation and combined randomization.
+
+The model receives the head and both wrist cameras at 224×224, both arms'
+world-frame end-effector poses with 6D rotations and gripper openness, and the
+task's training instruction. It returns 32 absolute poses with gripper close
+commands at 20 Hz; the simulator executes the first 16, then replans, holding
+the measured poses while inference is pending. Success is RoboEval's own task
+check.
+
+## SO-101 tasks
+
+```bash
+dreamscale robots so101 setup
+dreamscale robots so101 calibrate
+dreamscale run so101 --model flux-3-action-so101
+```
+
+`run so101` connects the arm, then asks for an instruction. Each task homes the arm to
+the pose saved with `dreamscale robots so101 home --set`, previews one plan without
+moving, runs on Enter until Ctrl+C, holds, and returns home. Without a saved home the arm
+starts and ends each task where it is. When the command exits the arm keeps holding its
+pose; support it, then run `dreamscale robots so101 release`. It supports
+`flux-3-action-so101`, `molmoact2-so101`, `perceptron-isaac05-so101` and `pi0.5-so101`, for
+organizations with access. The side camera is the policy's scene view: mount it fixed,
+side-on, 60–80 cm from the arm with the lens just above prop height, so the whole arm
+and workspace are in frame ([placement guide](https://docs.dreamscalelabs.com/robots/so101)).
+
+`run so101` and `run yam` share one attended runner and the same options: `--mode
+sync`, `--deployment`, `--region`, `--rtc`, `--context`, `--action-smoothing`,
+`--trace-dir` and the rest. Joint limits are in each robot's units: `--max-joint-step`
+(default 45) and `--max-joint-velocity` (default 150 per second) are degrees on SO-101.
+
+After `dreamscale integrations hud setup`, `--hud` records each task as a HUD trace
+with side and wrist camera video and the joints. You grade each task while the arm holds
+its final pose, before it returns home; `--hud-job NAME` names the job.
+
+## Bimanual YAM beta: setup and tasks
+
+This beta requires organization access to the MolmoAct2 YAM model. Installing
+the SDK does not grant model access; `dreamscale doctor yam` checks readiness.
+
+For MolmoAct2, follow the [YAM hardware guide](dreamscale/guides/yam.md): a dedicated
+Linux Python 3.12 install, guided LAN setup or `--cli` fallback, passive doctor,
+and attended homing, prediction and execution. Enter confirms connection/homing
+and execution; `cancel` exits. Settings and local controllers persist
+between tasks. The [complete custom camera/controller example](dreamscale/examples/yam_custom.py)
+also ships in the wheel and runs offline with `python -m dreamscale.examples.yam_custom`.
+After `dreamscale integrations hud setup`, add `--hud` to `dreamscale run yam` to
+[record and grade each task on HUD](dreamscale/guides/yam.md#record-and-grade-tasks-on-hud)
+with camera video. Add `--inspect-robots` to
+[record it as a graded Inspect Robots eval log](dreamscale/guides/yam.md#evaluate-with-inspect-robots).
+
+## Managed LLM robot tasks
+
+First follow the [YAM hardware install](dreamscale/guides/yam.md#install-on-the-robot-computer)
+for a Linux Python 3.12 environment with camera dependencies and the pinned native
+driver. An existing configured YAM installation can reuse its login and setup:
+
+```bash
+dreamscale login
+dreamscale robots yam setup
+dreamscale doctor yam --model gpt-6-astra
+dreamscale run yam --model gpt-6-astra --instruction "Open both grippers"
+```
+
+The command uses the same attended YAM lifecycle as policy runs: confirm the
+workspace, home, execute, then return home before disconnecting. Ctrl+C stops
+the task and returns healthy arms home; Ctrl+C again interrupts that return.
+Hardware faults, uncertain execution or an unconfirmed hold prevent automatic
+return-home motion. Keep the run attended. Model access must be enabled for your account.
+No separate provider API key is needed. Doctor checks hardware, account authentication
+and local LLM compatibility without creating a session or generating tokens. The
+run checks organization access and gateway readiness before the arming prompt.
+
+The SO-101 runs the same managed LLMs through its own bounded tools (move the
+gripper's tool point at most 8 cm per call, with its tilt and roll; open or close the
+gripper), checked by the arm's kinematics and calibrated joint ranges:
+
+```bash
+dreamscale run so101 --model claude-fable-5-1 --instruction "put the marker in the cup"
+```
+
+Both robots take any managed LLM: `astra`, `sol`, `fable`, `opus` or `argon`
+(Gemini 4 Argon, `--effort low|medium|high`), for example
+`dreamscale run so101 --model argon --instruction "put the marker in the cup"`.
+
+The same attended YAM flow is available in Python:
+
+```python
+import dreamscale
+
+result = dreamscale.agents.run_yam(
+    model="gpt-6-astra",
+    instruction="Open both grippers",
+)
+```
+
+Effort defaults to `medium` and speed to `standard`. Pass `effort=` or `speed=`
+for supported model capabilities (`--effort` and `--speed` in the CLI).
+There is **no default spending cap**. Set `max_cost=2.5` in Python or
+`--max-cost 2.5` in the CLI to cap a run at 2.5 credits. Runs retain a limit of
+100 provider calls or 30 minutes, and stop on completion, cancellation, a
+provider failure, or uncertain physical execution. Progress shows elapsed time,
+turns, public model summaries, requested motion and usage. In a terminal,
+summaries wrap to the available width in muted grey, changed motion commands
+appear in cyan, and a transient spinner marks the current provider request.
+Unchanged gripper state is omitted. Public summaries may be absent; private
+model reasoning is not exposed.
+
+For another robot or a simulator, first qualify its tool profile with the managed
+gateway, then implement `dreamscale.agents.RobotAdapter`
+with `describe()`, async `observe()`, `execute(call)`, `stop()` and `close()`.
+Import `RobotProfile`, `ToolSpec`, `Observation`, `ToolCall` and `ToolReceipt`
+from `dreamscale.agents`. Enforce tool and motion bounds locally and report
+measured results separately from commands sent. Then call:
+
+```python
+result = dreamscale.agents.run(
+    adapter,
+    model="gpt-6-astra",
+    instruction="Pick up the cube",
+)
+# In an async application: result = await dreamscale.agents.arun(adapter, ...)
+```
+
+`run()` and `arun()` take ownership of stopping and closing the adapter on every
+exit, including admission failure and cancellation. They reuse saved account
+configuration and `DREAMSCALE_API_KEY`; explicit `api_key=` and
+`control_plane_url=` overrides are available. Each run creates a private durable
+journal under `~/.dreamscale/llm-runs/` (or `DREAMSCALE_HOME`). Existing journals
+and motion identities are never replayed; start a fresh attended run after
+uncertain execution. A terminal `TurnResult` reports model/provider status;
+`model_reports_completion` is not independent proof of task success. An
+uncertain `ToolReceipt` ends the run immediately. Reaching 100 calls returns
+`None`; reaching 30 minutes raises `TimeoutError` after stopping the adapter.
+
+Try the [packaged virtual counter adapter](dreamscale/examples/llm_counter.py)
+offline, without hardware or an account:
+
+```bash
+python -m dreamscale.examples.llm_counter
+```
+
+The example also supports `--live --model gpt-6-astra --max-cost 2.5` once the
+gateway has qualified its `virtual-counter/v1` profile. Production YAM uses
+the qualified `yam-bimanual/v1` profile and SO-101 uses `so101/v1`.
+
+LLM tools use the agent API; existing VLA action chunks continue to use
+`dreamscale.connect()` and `predict()` below.
+
+## Cloud policy inference
+
+```python
+import dreamscale
+
+with dreamscale.connect(model="molmoact2-so101") as policy:
+    result = policy.predict(
+        observation,
+        instruction="pick up the cube",
+    )
+
+print(len(result.actions), len(result.actions[0]))
+```
+
+`predict()` returns one action chunk and does not actuate a robot. Build
+`observation` with the model-specific helper and validate every action locally
+before adding a motion path.
+
+`dreamscale.connect()` is the canonical SDK entrypoint.
+There is no first-class public `connect_libero()` or `connect_franka()`
+entrypoint; use `dreamscale.connect(model="molmoact2-libero")` or select another
+checkpoint with `model=`.
+
+Startup waits follow the server's fixed budget, including up to 60 minutes
+when archived storage needs restoration. Pass a finite positive cap such as
+`startup_timeout=1800` to `dreamscale.connect()` or `await dreamscale.aconnect()`
+when your application needs a shorter wait. Older servers retain the legacy
+900-second default.
+
+Use a context manager so every cloud session closes deterministically:
+
+```python
+import dreamscale
+
+with dreamscale.connect(model="molmoact2-libero") as policy:
+    result = policy.run(
+        instruction="put the mug on the plate",
+        observe=observe,
+        act=act,
+        max_actions=220,
+        strategy=dreamscale.RunStrategy.libero_default(),
+    )
+```
+
+### Fresh current-position holds
+
+Generic policies whose runtime contract uses current-position holds can read a
+fresh target at the moment the action buffer underruns. Synchronous callers pass
+a synchronous callback:
+
+```python
+def read_hold_action(context):
+    return robot.read_joint_positions()
+
+with dreamscale.connect(model="molmoact2-so101") as policy:
+    result = policy.run(
+        instruction="pick up the cube",
+        observe=observe,
+        act=act,
+        read_hold_action=read_hold_action,
+        max_actions=220,
+    )
+```
+
+The async API also accepts an awaitable callback:
+
+```python
+async def read_hold_action(context):
+    return await robot.read_joint_positions()
+
+policy = await dreamscale.aconnect(model="molmoact2-so101")
+async with policy:
+    result = await policy.run(
+        instruction="pick up the cube",
+        observe=observe,
+        act=act,
+        read_hold_action=read_hold_action,
+        max_actions=220,
+    )
+```
+
+`read_hold_action` receives the stalled `RunContext` and runs only for an actual
+underrun when `hold_behavior` is `current_position`. Selecting
+`repeat_last_action` disables it. The result must contain exactly the runtime
+contract's action dimension as finite real numeric scalars; invalid output raises
+`ValueError` before hooks or actuation. DreamZero-DROID and DreamZero-YAM own
+their managed hold paths and reject this callback explicitly.
+
+### DreamZero-YAM quickstart
+
+Install the `dreamzero` extra and sign in as shown above, then run the
+[minimal DreamZero-YAM example](examples/dreamzero_yam.py):
+
+```bash
+python examples/dreamzero_yam.py
+```
+
+The example uses the canonical `dreamscale.connect("dreamzero-yam")` managed
+loop and qualified defaults. Its callbacks are deliberately non-actuating:
+replace `capture` with synchronized top, left, and right RGB frames plus the
+current left-arm, left-gripper, right-arm, and right-gripper state. Camera
+timestamps must describe the real captures using the same clock as
+`time.time_ns()` and remain within 50 ms of one another.
+
+After startup, the loop returns one 14-value absolute target at each native 30 Hz
+control tick in `[left_j0..5, left_gripper, right_j0..5, right_gripper]` order;
+it may initially hold the observed position while the first chunk is in flight.
+Keep the context manager so the cloud session closes, and validate joint,
+velocity, acceleration, workspace, collision, and gripper limits before
+replacing the example's print callback with physical actuation.
+
+### Deployments: your own fine-tunes
+
+A deployment is your Isaac 0.5 fine-tune from Hugging Face, shaped to your robot and
+deployed in a region. It is serverless: a GPU starts when a robot connects, and you pay per
+session.
+
+```bash
+dreamscale deployments create hf://owner/repo --preset bimanual_yam   # or so101, or detected
+dreamscale deployments create hf://owner/repo --preset so101 --region us-east
+dreamscale deployments list
+```
+
+Without `--preset`, `create` takes the robot from the repo's deployment adapter;
+`--camera key=view`, `--image-size HxW`, `--chunk` and `--hz` describe another robot. The
+build checks the architecture, converts the weights and runs them once on a GPU (usually
+about 15 minutes). `--region` is `us-west` (the default) or `us-east`; pick the one nearest
+your robot. Then:
+
+```python
+with dreamscale.connect(
+    "perceptron-isaac05", deployment="ckpt_…", region="available"
+) as policy:
+    ...
+```
+
+A deployment's name is `<account>/<slug>` (`acme-robotics/towel-fold`, shown by `dreamscale
+deployments list`); run it by that name anywhere a model goes, `dreamscale run yam --model
+acme-robotics/towel-fold` or `dreamscale.connect("acme-robotics/towel-fold")`, or by its bare
+slug. Catalog models are `dreamscale/<model>` (the bare name works too).
+`dreamscale deployments rename towel-fold folding-v2` renames one (the old name stops
+working). A session runs a deployment only when it names it; without one, it runs the base
+weights.
+
+A π0.5 fine-tune (openpi or LeRobot) deploys the same way with `--base pi0.5`. Check what
+the repo holds first; `create` fills every field from it and takes flags on top:
+
+```bash
+dreamscale deployments inspect hf://owner/repo --base pi0.5
+dreamscale deployments create hf://owner/repo --base pi0.5 --preset arx5   # or bimanual_yam, so101, blank
+dreamscale deployments rtc ckpt_… test-time   # or off, or trained --max-delay N
+```
+
+A preset fixes the robot's cameras and widths; `--preset blank --camera key=slot … --hz`
+describes another robot. `--path checkpoints/55000` picks the checkpoint (default the
+latest); `--horizon`, `--executed`, `--token-length`, `--no-state-in-prompt` and
+`--delta-mask` its geometry; `--rtc off|test-time|trained` its RTC (test-time RTC adds
+latency). The rate, chunk and widths come from the deployment, and a deployment serves one
+robot at a time:
+
+```python
+with dreamscale.connect("pi0.5", deployment="ckpt_…") as policy:
+    action = policy.next_action(dreamscale.robot.observation(cameras=frames, state=joints),
+                                "fold the towel")
+```
+
+`dreamscale run yam --deployment ckpt_…` and `dreamscale run so101 --deployment ckpt_…` run
+deployments built for those robots.
+
+`endpoint=` and `checkpoint=` still work as older names for `deployment=`, and
+`dreamscale endpoints …` and `dreamscale checkpoints …` for `dreamscale deployments …`.
+
+### Running chunks on your own clock
+
+`next_action()` buffers chunks, requests the next one early and blends them. A robot whose
+own software runs whole chunks calls `predict()` instead and does that itself:
+
+- Row 0 of a chunk is the first action to execute after `chunk.capture_time_ns` (this
+  computer's `time.time_ns()`; pass `capture_time_ns=` to the observation helper when the
+  frames are older than the call). Row `i` follows `i / policy.contract.action_hz` seconds
+  later.
+- With train-time RTC (`policy.contract.rtc == "train_time"`), pass the actions the robot
+  will still execute after the new observation as `committed_actions`. The server pins as
+  many as it expects to play before the chunk arrives, at most
+  `policy.contract.max_prefix_rows`, and reports how many in `chunk.prefix_rows`; they come
+  back exactly as sent. Without them, each chunk starts fresh.
+- Models that read the ticks before the observation (FLUX 3 Action among them) take them as
+  `past_observations` (the observations of the control ticks just before, oldest first) and
+  `action_history` (the actions executed on them): `policy.contract.past_observations` and
+  `.action_history` say how many. At an episode's start pass `[]`; the SDK pads as the model
+  was trained and reports how many ticks it filled in as `chunk.history_padded`.
+
+```python
+c = policy.contract
+chunk = policy.predict(
+    observation, "drive to the cone",
+    past_observations=list(ticks)[len(ticks) - c.past_observations:],
+    action_history=list(done)[len(done) - c.action_history:],
+    committed_actions=current.actions[row:] if c.rtc == "train_time" else None,
+)
+row = int((time.time_ns() - chunk.capture_time_ns) * c.action_hz // 1e9)
+```
+
+### Startup and archived checkpoints
+
+`connect()`, `aconnect()`, prewarm and CLI callers use the server's startup budget by default. An archived checkpoint can take up to 60 minutes to restore; progress reports the storage phase and elapsed time. Restoration itself does not charge customer credits. The compute allocation/readiness timers start after storage is restored, within the fixed overall deadline.
+
+Set `startup_timeout` explicitly on `connect` or `aconnect` when your caller needs a shorter wait. It caps the server budget and cannot extend it. Older servers without a startup budget retain the SDK's legacy default. Administrator hotload holds a specific execution profile for the next compatible customer; your own `keep_warm` reservation still has priority.
+
+### Keep compute warm between connections
+
+Pass `keep_warm` as a number of seconds to reserve the same loaded compute after
+the connection closes:
+
+```python
+with dreamscale.connect(
+    model="dreamzero-yam",
+    idle_timeout=3600,
+    keep_warm=900,
+) as policy:
+    result = policy.predict(observation, instruction="fold the towel")
+```
+
+`keep_warm` defaults to `300` seconds, the same as the CLI's `--keep-warm`, and accepts integer values from `0` to
+`3600`; pass `0` to disable it. It is a duration, not a boolean. The reserved
+period remains billable
+because the GPU is held exclusively for that session. A later compatible
+`connect()` by the same user reclaims the exact AWS worker or exact Modal
+function call with a rotated session token, avoiding model or engine reload.
+The request must still match the model, resolved optimization profile, and
+region-routing constraints; otherwise normal placement is used.
+
+`idle_timeout` is separate: it limits time without inference while a client is
+connected. If it ends a connection configured with `keep_warm`, the resource
+parks for the requested warm duration. Closing a connection drains accepted
+inference before parking, while queued work is discarded. An explicit
+`dreamscale sessions stop`/session DELETE, access revocation, exhausted credit, or
+provider failure always ends the reservation. A legacy worker that does not
+support parking safely closes instead. Provider hard lifetimes can shorten a
+reservation near their own deadline; Dreamscale never promises a keep-warm window
+beyond its conservative 24-hour Modal execution deadline. Independently, an
+attached Modal runtime exits after 3900 seconds without control-plane activity;
+it first drains any accepted inference, and current control traffic renews that
+local safety deadline.
+
+### DreamZero sampling
+
+DreamZero uses one existing `RunStrategy` field; the server owns temporal
+admission and the SDK continues uploading observations while asynchronous
+inference is outstanding.
+
+| Mode | Behavior | YAM | DROID |
+|---|---|---|---|
+| `upstream_eval` | Boundary capture, exact response wait, then eight actions | Explicit | Explicit |
+| `async_8` | Single-flight async admission after a newer eight-tick epoch | Compatibility and rollback | Default |
+| `async_latest` | Single-flight, latest-only admission on the newest strictly newer tick | Accepted default | Rejected |
+
+An omitted value means “use the qualified default for this model”; it does not
+disable sampling. YAM resolves omission to `async_latest`; DROID remains
+`async_8`. Explicit compatibility and reference selections remain available:
+
+```python
+# YAM accepted default
+strategy = dreamscale.RunStrategy()
+
+# Explicit compatibility mode
+strategy = dreamscale.RunStrategy(dreamzero_sampling="async_8")
+
+# Synchronous reference/evaluation
+strategy = dreamscale.RunStrategy(dreamzero_sampling="upstream_eval")
+```
+
+In a managed `upstream_eval` run, the SDK waits for the eight-action boundary,
+captures and uploads one observation, waits for the chunk sourced from that
+exact observation, and then executes the next eight aligned actions at 15 Hz.
+The inference/network delay is an intentional pause in this reference mode;
+there is no continuous upload or action/inference overlap. Externally clocked
+`step()` callers may still provide every environment observation, but only
+ticks `0, 8, 16, ...` are uploaded. The server—not the client—continues to
+construct T1 and exact eight-tick-history T4 windows.
+
+`async_latest` does not create a client request queue. The SDK retains one
+latest unsent observation, while the YAM server admits at most one inference
+and collapses observations received while busy to the newest eligible control
+tick. Returned `PolicyStepResult` values expose `source_control_tick` and
+`source_capture_to_execution_ms`; hold actions without a source chunk report
+`None` for both.
+
+The server returns absolute `24x14` YAM targets. For `async_latest`, the SDK
+keeps the existing two committed steps and motion-smooths only the remaining
+temporally aligned suffix: it blends adjacent absolute-target motion using 85%
+new and 15% old motion, then corrects toward the new absolute target over five
+steps. It never shifts or rebases a chunk. YAM grippers remain continuous
+absolute targets and are handled with the other 12 joints. `async_8`,
+`upstream_eval`, and DROID retain direct commit-prefix replacement. At each
+upstream boundary, the previous chunk's unexecuted suffix is discarded before
+the exact new chunk is installed, so upstream evaluation adds no smoothing,
+averaging, shifting, or rebasing confound.
+
+DreamZero keeps its smoothing choice internal to this qualified mode; explicit
+DreamZero smoothing weights or modes remain unsupported. A managed `run()`
+callback may return `ActResult(accepted_action=...)` so the next merge anchors
+to the target accepted by the actuator. Externally clocked `step()` callers
+without actuator feedback anchor to the requested target.
+
+### Action smoothing
+
+`policy.run()` smooths overlapping chunks automatically from the model's action
+space without changing the selected control mode or its inference cadence:
+
+```python
+strategy = dreamscale.RunStrategy()  # action_smoothing="auto"
+```
+
+`auto` resolves to `output` for delta-action models such as LIBERO and to
+`motion` for absolute-joint models such as SO101. The raw-absolute YAM contract
+is also an absolute target space, although DreamZero owns the narrower mode
+selection described above. `output` averages old and new
+action values at each overlapping logical timestep, using 70% new by default.
+`motion` blends consecutive target increments, using 85% new motion by default,
+then corrects gradually toward the new absolute targets. Absolute-position
+models still receive absolute-position targets; `motion` changes only how
+overlapping client trajectories are combined.
+
+For controlled comparisons, set `action_smoothing="output"` or
+`action_smoothing="motion"`. `motion` requires an
+`absolute_joint_position` or `raw_absolute_joint` contract. Its default correction horizon is
+`max(3, ceil(chunk_size / 5))` action steps, so a 30-action SO101 chunk resolves
+to six steps. This is a recurring 1/6 correction gain, not a finite 200 ms
+transition. Optional expert overrides are `smoothing_new_weight` and
+`smoothing_correction_steps`. Existing `motion` tuning does not adapt to latency.
+
+MolmoAct2 YAM also offers two opt-in experimental modes: `motion_handover`
+ends a disagreement-dependent correction exactly, and `motion_speed` reduces
+damping for slower intra-chunk arm motion. Their grippers follow incoming targets
+independently of arm-speed adaptation. See the [YAM async guide](dreamscale/guides/yam-async.md)
+for equations, limits, CLI commands and saved Rerun recordings. `auto` is unchanged.
+
+Returned actions remain aligned to their original logical timesteps. Expired
+prefix steps are skipped, and a chunk that is entirely stale is discarded; it
+is never shifted forward and replayed. With eager inference, a predicted action
+can therefore be superseded or expire without ever being dispatched. This is
+intentional: inference stays reactive while the action loop executes only the
+currently resolved timestep.
+
+For physical arms that clamp a requested target, return the accepted target so
+the next smoothing pass starts from what the robot was actually asked to
+execute:
+
+```python
+def act(action, context):
+    accepted = robot.send_and_return_accepted_target(action)
+    return dreamscale.ActResult(accepted_action=accepted)
+```
+
+`accepted_action` must be finite and have the same dimension as the requested
+action. Existing callbacks returning `None`, `bool`, or `ActResult(done=...)`
+remain supported.
+
+`policy.run()` returns one `RunResult` and prints the same run-scoped summary
+immediately. Its counters and stop condition are deliberately narrow:
+
+- `result.done` means the `act()` callback requested a stop; it does not assert
+  task success or completion.
+- `result.actions` counts control callback steps, not confirmed physical robot
+  execution.
+- On Ctrl+C or failure, completed callbacks and attempted callbacks remain
+  distinct. The partial result reaches `RunHooks.on_summary` and
+  `policy.last_run_result`; the original exception is preserved. Startup holds
+  and execution underruns are counted separately.
+- `result.policy_calls` counts completed policy responses accepted by that run.
+- `result.timing.policy_response_ms` measures SDK observation submission through
+  action-chunk receipt. It excludes observation construction and physical
+  actuation.
+- `result.timing.data_plane_rtt_ms` is an authenticated application-path round
+  trip measured with a clock probe. It includes transport framing and any
+  load-balancer or relay hops; it is not a one-way network-latency estimate.
+- Worker queue, preprocessing, inference, and postprocessing summaries are
+  derived from per-response worker timestamps. Missing samples remain missing
+  rather than being inferred from client-side residual time.
+
+`region="auto"` is the default (`"nearest"` is its older name) and pins the lowest
+measured HTTPS-latency region, even when another region is already warm.
+`region="available"` reuses compatible warm compute in any measured candidate
+region before starting cold compute. Any other value is a region id such as
+`"us-west"` (`GET /v1/regions` lists them; the AWS-style `"us-west-2"` still
+works) and is an exact constraint with no regional fallback.
+The latency check uses five serial samples per region and reports when partial
+or failed evidence required a deterministic fallback.
+
+`transport="auto"` uses an assigned session tunnel, or tries QUIC with hosted relay fallback;
+`transport="quic"` requires QUIC, and `transport="relay"` uses the relay
+directly.
+
+### Advanced SO101 placement
+
+The service's SO101 `region="available"` launch policy tries AWS Sydney, then
+Modal Australia, then Modal us-west. Existing clients already support this route
+and its assigned WebSocket tunnel with `transport="auto"`.
+
+Starting with 0.1.0a96, `connect()` and `aconnect()` accept an
+optional hard `provider="aws"` or `provider="modal"` constraint for
+`molmoact2-so101`. Omit it for normal service-managed placement. For example:
+
+```python
+with dreamscale.connect(
+    "molmoact2-so101",
+    provider="modal",
+    region="us-west-2",
+    transport="auto",
+    keep_warm=900,
+) as policy:
+    result = policy.predict(observation, instruction="Pick up the pen")
+```
+
+| Provider | Region | Constraint |
+| --- | --- | --- |
+| `aws` | `ap-southeast-2` / `us-west-2` | AWS Sydney / us-west only |
+| `aws` | `available` / `nearest` | Existing AWS availability / latency selection |
+| `modal` | `ap-southeast-2` | Modal Australia only |
+| `modal` | `us-west-2` | Modal us-west only |
+| `modal` | `available` | Modal Australia, then us-west |
+
+These are routing groups for Modal, not promises of physical AWS placement.
+Modal uses qualified H100 artifacts and requires `transport="auto"`.
+`provider="modal", region="nearest"` is unsupported because AWS HTTPS probes
+do not measure Modal's locations. Exhaustion never relaxes an explicit provider
+or region constraint. Warm reuse respects the same constraints.
+
+For `molmoact2-bimanual-yam`, the qualified us-west launch policy uses AWS
+us-west L4, followed by Modal us-west L4 when AWS cannot start. Select
+`region="available", transport="auto", rtc="off"` to use this route. These
+YAM provider controls require SDK 0.1.0a96 or later:
+
+```python
+with dreamscale.connect(
+    "molmoact2-bimanual-yam",
+    region="available",
+    transport="auto",
+    rtc="off",
+    keep_warm=60,
+    startup_timeout=450,
+) as policy:
+    chunk = policy.predict(observation, instruction="Fold the cloth")
+```
+
+For diagnosis, add `provider="aws"` or `provider="modal"`; `region="us-west-2"`
+then limits selection to AWS us-west or the Modal us-west routing group.
+YAM has no Australian or H100 fallback. Modal requires `transport="auto"` and
+uses an authenticated WSS tunnel. Explicit `keep_warm=0` releases the reservation;
+300 seconds is the default and 3,600 seconds the maximum. Fallback happens during
+startup; a running session is never migrated to another provider.
+
+The advanced selector checks server support before creating compute. An older
+control plane produces an explicit error; the SDK never drops the selector.
+SDK 0.1.0a96 supports automatic fallback but does not
+have this optional argument.
+
+### π0.5 endpoints and `speed`
+
+`pi0.5-bimanualyam` and `pi0.5-so101` are separate π0.5 endpoints with their own contracts.
+
+`pi0.5-bimanualyam` serves the π0.5 train-time-RTC checkpoint (openpi JAX) on Modal
+us-west H100: 30-action chunks at 30 Hz. `rtc="auto"` uses its train-time
+late-bound prefix; `rtc="off"` turns it off. `pi0.5-so101` is the same runtime on
+one SO-101 arm (`dreamscale run so101 --model pi0.5-so101`), with RTC off at
+launch. Both run only on Modal: they reject `provider="aws"` and regions other
+than `nearest`, `available` and `us-west-2`. Use a current SDK
+(`pip install -U dreamscale`): older releases don't know the `pi0.5-*` names.
+
+`speed` selects a hardware tier per connection: `pi0.5-bimanualyam` accepts `speed="fast"`,
+served from the same H100 pool; `pi0.5-so101` has no fast tier.
+
+```python
+with dreamscale.connect("pi0.5-bimanualyam", speed="fast") as policy:
+    chunk = policy.predict(observation, instruction="Fold the towel")
+```
+
+`speed="fast"` never falls back to L4. If no H100 can start, `connect()` fails
+instead of running slower hardware at the fast price. It rejects `provider="aws"`
+and regions other than `available` and `us-west-2`, and `region="nearest"`
+becomes `available`. Fast requires `transport="auto"`. Before creating compute,
+the SDK confirms the server supports fast. A session the server does not report
+as fast is deleted and raises an error, so a fast request is never silently
+downgraded. `speed="fast"` requires SDK 0.1.0a96 or later. Both tiers serve the
+same model; fast shortens each inference, not the action contract.
+
+## MolmoAct2-DROID on Franka
+
+MolmoAct2-DROID consumes an exterior RGB view and wrist RGB view. A second
+exterior view is optional; when omitted, Dreamscale reuses the first exterior
+frame for the checkpoint's second exterior slot.
+
+Robot state is seven Franka joint positions in radians followed by a gripper
+value in `[0, 1]`.
+
+```python
+import numpy as np
+import dreamscale
+
+exterior_rgb = np.zeros((480, 640, 3), dtype=np.uint8)
+wrist_rgb = np.zeros((480, 640, 3), dtype=np.uint8)
+
+observation = dreamscale.franka.observation(
+    exterior_frame=exterior_rgb,
+    wrist_frame=wrist_rgb,
+    joint_positions=[0.0] * 7,
+    gripper=0.5,  # 0=open, 1=closed
+)
+
+with dreamscale.connect(model="molmoact2-droid") as policy:
+    result = policy.predict(
+        observation,
+        instruction="pick up the green block",
+    )
+
+assert len(result.actions) == 15
+assert all(len(action) == 8 for action in result.actions)
+```
+
+The checkpoint returns a 15-step chunk at 15 Hz. Each action is an absolute
+target `[joint_0, ..., joint_6, gripper]`; joints are radians and the gripper is
+in `[0, 1]`.
+
+`predict()` does not actuate hardware or provide a Franka safety controller.
+Validate joint, velocity, acceleration, workspace, collision, and gripper
+limits before sending any target to a robot.
+
+## Manual action loop
+
+For a caller-owned control loop, pass the task instruction to
+`policy.next_action(...)`. Dreamscale owns inference, refill, action buffering,
+calibration, and RTC prefix context; the caller owns sensing, actuation, and
+loop cadence.
+
+```python
+import time
+
+dt = 1.0 / policy.action_hz
+while running:
+    tick = time.perf_counter()
+    action = policy.next_action(
+        observe(),
+        instruction="put the mug on the plate",
+    )
+    robot.execute(action)
+    time.sleep(max(0.0, dt - (time.perf_counter() - tick)))
+```
+
+## CLI
+
+Sign in once. Credentials are stored in `~/.dreamscale/config.toml`; an existing
+`~/.dropbear` from an earlier install is used in place.
+
+```bash
+dreamscale login
+dreamscale models list
+```
+
+`dreamscale models list` lists the models your organization can run: type (VLA, WAM
+or LLM), the robots and simulation benchmarks each runs on, its rate, and
+whether compute is already warm. `--verbose` adds a row under each model for every
+region, provider and variant that serves it, with its live state. `--json` prints
+the same rows for scripts.
+
+For headless setup, use bare `--api-key` to paste a key into a hidden prompt:
+
+```bash
+dreamscale login --api-key
+```
+
+Each machine holds one login key: logging in again revokes the key the last login saved.
+Login keys don't appear on the API keys page. `dreamscale auth whoami` shows the account
+and organization you are signed in as, and `dreamscale auth logout` revokes the machine's
+login key and removes it:
+
+```bash
+dreamscale auth whoami
+dreamscale auth logout
+```
+
+Run robot-neutral setup checks:
+
+```bash
+dreamscale doctor
+```
+
+SO-101 and simulation checks are explicit:
+
+```bash
+dreamscale doctor so101
+dreamscale doctor sim
+```
+
+Install shell completion with:
+
+```bash
+dreamscale --install-completion
+```
+
+Useful session commands:
+
+```bash
+dreamscale sessions list
+dreamscale sessions stop <session-id>
+dreamscale sessions stop --all
+```
+
+Documentation: https://docs.dreamscalelabs.com
+
+Rho-LIBERO uses the same local simulator path:
+
+```bash
+dreamscale sim libero --model rho-libero --task-suite libero_spatial --task-id 0
+```
+
+It uses the checkpoint's 16-step horizon at 20 Hz. Raw simulator RGB images are
+rotated 180 degrees once at the SDK boundary and encoded at 256×256. For a custom
+LIBERO environment, pass `model="rho-libero"` to `dreamscale.libero.observation()`.
+Rho inference dependencies run on the worker and are not SDK dependencies.
+
+GR00T N1.7 LIBERO uses the `libero_object` suite. With beta access, a funded
+organization and a saved login or `DREAMSCALE_API_KEY`, run:
+
+```bash
+uvx --python 3.12 --from 'dreamscale[sim]==0.1.0a96' dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object --task-id 0 --max-steps 300 --non-interactive
+```
+
+LIBERO physics runs locally at 20 Hz while the cloud policy predicts action
+chunks asynchronously. Transport is selected automatically. RTC is off for this
+checkpoint. Task IDs 0–9 are available; use `--output-root <directory>` to retain
+rollout artifacts.
+
+LingBot VA LIBERO Long uses the `libero_10` suite. With beta access, a funded
+organization and a saved login or `DREAMSCALE_API_KEY`, run:
+
+```bash
+uvx --python 3.12 --from 'dreamscale[sim]==0.1.0a96' dreamscale sim libero --model lingbot-va-libero --task-suite libero_10 --task-id 0 --max-steps 2400 --non-interactive
+```
+
+The simulator runs locally at 20 Hz and requests action chunks asynchronously
+from a cloud B200 worker. The 2,400-tick budget allows 120 seconds, including
+inference waits. It holds position while waiting for a new chunk;
+20 Hz simulation does not mean a new inference result every 50 ms. Cold startup
+includes checkpoint loading and compilation. The worker shuts down after idle
+retention, and each session starts with fresh model state. Task IDs 0–9 are
+available; use `--output-root <directory>` to retain the rollout artifacts.
+
+RLWRLD's RLDX-1 fine-tunes run on both simulators. With access, a funded
+organization and a saved login or `DREAMSCALE_API_KEY`, run:
+
+```bash
+uvx --python 3.12 --from 'dreamscale[sim]==0.1.0a96' dreamscale sim libero --model rldx-1-ft-libero --task-suite libero_spatial --task-id 0 --non-interactive
+uvx --python 3.12 dreamscale@0.1.0a96 sim robocasa365 --model rldx-1-ft-rc365 --task-suite atomic --task-id CloseFridge --non-interactive
+```
+
+Each policy call sends four frames per camera (simulator steps -6, -4, -2 and 0)
+and returns sixteen actions; the first eight execute before the next call, as in
+RLWRLD's benchmark harness. The simulator holds while a call is in flight.
+
+`dreamscale run yam --model rho-yam-box` reuses the existing YAM rig config
+and the built-in end-effector/gripper profile for standard YAM arms with
+LINEAR_4310 grippers. Changed tools or geometry require measured overrides. See the [YAM guide](dreamscale/guides/yam.md#rho-yam-end-effector-control)
+for the calibrated I2RT adapter contract.
+The checkpoint generates 50 actions; managed and manual SDK queues execute
+only its declared first 25. `predict()` returns the raw generated chunk for
+inspection. User-managed execution must honor `runtime_contract.execution_chunk_size`.

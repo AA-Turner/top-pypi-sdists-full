@@ -1,0 +1,1045 @@
+"""Unified session watcher infrastructure.
+
+Provides shared watcher loop logic that can be used by multiple backends
+(Claude, Codex, etc.) to monitor session files for activity.
+"""
+
+import json
+import os
+import re
+import shlex
+import subprocess
+import threading
+import time
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
+from typing import Literal, Protocol
+
+from .. import auto_read, tmux
+from ..launch.restart import state
+from ..log import get_logger
+from . import untracked
+from .common import ContextReading, ModelInfo
+
+_log = get_logger("watcher")
+
+# A hook can announce a session just before its transcript is created. Keep
+# successful path lookups forever, but retry a miss instead of making that
+# startup race permanent. Each further miss doubles the delay, up to the cap: a
+# lookup miss costs tens of milliseconds (a Claude miss parses all of
+# history.jsonl), and rows whose transcript never appears can number in the
+# dozens and are never archived.
+_MISSING_SESSION_RETRY_SECONDS = 5.0
+_MISSING_SESSION_RETRY_MAX_SECONDS = 120.0
+
+
+class WatcherBackend(Protocol):
+    """Protocol for LLM-specific watcher backends."""
+
+    CHANNEL_PREFIX: str
+
+    @staticmethod
+    def get_session_path(session_id: str, cwd: str) -> Path | None:
+        """Get the session file path for a session."""
+        ...
+
+    @staticmethod
+    def describe_activity(entry: dict) -> str | None:
+        """Extract a human-readable description of activity from an entry."""
+        ...
+
+    @staticmethod
+    def should_dismiss(entry: dict) -> bool:
+        """Check if an entry indicates the notification should be dismissed."""
+        ...
+
+    @staticmethod
+    def needs_attention(entry: dict) -> bool:
+        """Check if an entry indicates the agent is waiting for user input.
+
+        Optional method - returns False by default for backends that don't need it
+        (e.g., Claude/Codex where hooks fire when attention is needed).
+        """
+        ...
+
+    @staticmethod
+    def get_model(entry: dict) -> ModelInfo | None:
+        """Extract the model identity from an entry, when it carries one."""
+        ...
+
+    # Optional: backends can define read_lines(session_path: Path) -> list[str]
+    # to override the default local file reader (e.g., for SSH).
+    # Resolved via getattr() in the watch loop, falling back to read_jsonl_tail.
+    # Optional: turn_open(recent: list[dict]) -> bool | None, from entries newest
+    # first, says whether a turn is in progress; a backend without it is never mid-turn.
+
+
+def read_jsonl_tail(path: Path, max_bytes: int = 64 * 1024) -> list[str]:
+    """Read the last N bytes of a JSONL file and return lines.
+
+    Seeks to the end minus max_bytes, skips the first partial line,
+    and returns all complete lines.
+    """
+    try:
+        file_size = path.stat().st_size
+        read_size = min(file_size, max_bytes)
+
+        with open(path, encoding="utf-8", errors="replace") as f:
+            if file_size > read_size:
+                f.seek(file_size - read_size)
+                f.readline()  # Skip partial line
+            content = f.read()
+
+        return content.strip().split("\n")
+    except (OSError, UnicodeDecodeError):
+        return []
+
+
+def parse_timestamp(ts_str: str) -> float | None:
+    """Parse an ISO timestamp string to Unix timestamp."""
+    if not ts_str:
+        return None
+    try:
+        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _leading_words(args: str, count: int) -> list[str]:
+    """The first *count* words of a command line as `shlex.split` reads them, reading no
+    further: a Codex command line ends in its whole launch prompt."""
+    lexer = shlex.shlex(args, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    words: list[str] = []
+    try:
+        while len(words) < count and (word := lexer.get_token()) is not None:
+            words.append(word)
+    except ValueError:
+        return args.split()[:count]
+    return words
+
+
+def is_harness(args: str, process_name: str) -> bool:
+    """Whether a `ps` args line runs *process_name*.
+
+    `comm` can be truncated or name Node instead of Codex, so argv is inspected instead.
+    """
+    argv = _leading_words(args, 2)
+    if not argv:
+        return False
+
+    executable = os.path.basename(argv[0])
+    return executable == process_name or (
+        process_name == "codex"
+        and executable in {"node", "nodejs"}
+        and len(argv) > 1
+        and os.path.basename(argv[1]) == process_name
+    )
+
+
+def process_on_tty(tty: str, process_name: str) -> bool | None:
+    """Whether a process named *process_name* runs on *tty*, or None if `ps` could not say."""
+    tty_name = tty.replace("/dev/", "")
+    if not tty_name:
+        return None
+
+    try:
+        result = subprocess.run(
+            ["ps", "-t", tty_name, "-o", "args="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        _log.warning("could not list the processes on %s: %s", tty_name, e)
+        return None
+
+    # 1 with nothing on stderr is ps finding no process there.
+    if result.returncode != 0 and result.stderr.strip():
+        _log.warning("ps failed on %s: %s", tty_name, result.stderr.strip())
+        return None
+
+    return any(is_harness(line, process_name) for line in result.stdout.splitlines())
+
+
+def tty_device_exists(name: str) -> bool:
+    return os.path.exists(f"/dev/{name}")
+
+
+def is_process_running_on_tty(tty: str, process_name: str = "claude") -> bool:
+    """Whether *process_name* runs on *tty*, assuming it does when that can't be checked.
+
+    The assumption suits archiving, where a wrong "gone" loses a live row.
+    """
+    return process_on_tty(tty, process_name) is not False
+
+
+def harness_process(channel: str) -> str:
+    """The process name `is_process_running_on_tty` looks for on a channel's tty."""
+    for prefix in ("claude", "openclaw", "opencode"):
+        if channel.startswith(f"{prefix}:"):
+            return prefix
+
+    return "codex"
+
+
+def get_latest_activity(
+    session_path: Path,
+    describe_activity: Callable[[dict], str | None],
+    read_lines: Callable[[Path], list[str]] = read_jsonl_tail,
+) -> tuple[str, str] | None:
+    """Get the most recent describable activity from a session file.
+
+    Returns (message, timestamp) tuple, or None if no activity found.
+    The timestamp can be used to detect genuinely new activity.
+    """
+    lines = read_lines(session_path)
+
+    # Most recent first, limit to last 50 entries
+    for line in reversed(lines[-50:]):
+        try:
+            entry = json.loads(line)
+            activity = describe_activity(entry)
+            if activity:
+                ts = entry.get("timestamp", "")
+                return (activity, ts)
+        except json.JSONDecodeError:
+            continue
+
+    if lines:
+        _log.info("no activity found in %s (%d lines)", session_path.name, len(lines))
+
+    return None
+
+
+def has_activity_since(
+    session_path: Path,
+    since_time: float,
+    should_dismiss: Callable[[dict], bool],
+    read_lines: Callable[[Path], list[str]] = read_jsonl_tail,
+) -> dict | None:
+    """Check if session has dismiss-worthy activity since given timestamp.
+
+    Returns the triggering entry if found, None otherwise.
+    """
+    lines = read_lines(session_path)
+
+    for line in reversed(lines[-50:]):
+        try:
+            entry = json.loads(line)
+            ts = parse_timestamp(entry.get("timestamp", ""))
+            if ts and ts > since_time and should_dismiss(entry):
+                return entry
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
+def check_needs_attention(
+    session_path: Path,
+    since_time: float,
+    needs_attention: Callable[[dict], bool],
+    read_lines: Callable[[Path], list[str]] = read_jsonl_tail,
+) -> dict | None:
+    """Check if session has an entry indicating the agent needs user attention.
+
+    Scans recent entries for "turn complete" signals (e.g., OpenClaw's stopReason: "stop").
+    Returns the triggering entry if found, None otherwise.
+    """
+    lines = read_lines(session_path)
+
+    for line in reversed(lines[-50:]):
+        try:
+            entry = json.loads(line)
+            ts = parse_timestamp(entry.get("timestamp", ""))
+            if ts and ts > since_time and needs_attention(entry):
+                return entry
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
+def _newest_timestamp(recent: list[dict]) -> float | None:
+    """The timestamp of the first entry of *recent*, newest first, that has one."""
+    return next(
+        (ts for entry in recent if (ts := parse_timestamp(entry.get("timestamp", "")))), None
+    )
+
+
+def _latest_model(
+    entries: list[dict], get_model: Callable[[dict], ModelInfo | None]
+) -> ModelInfo | None:
+    return next((model for entry in entries if (model := get_model(entry))), None)
+
+
+def _check_pane_exists(tty: str, switch_source: str | None, socket: str | None = None) -> bool:
+    """Whether a pane still exists, assuming it does whenever we cannot tell.
+
+    Deferred import to avoid circular dependencies.
+    """
+    if not switch_source:
+        return True  # Can't check, assume exists
+
+    from ..handlers import check_pane_exists_by_tty
+
+    # A tmux that failed to answer is not a pane that is gone. Archiving on it
+    # retires every live session at once, since one failed `list-panes` looks
+    # exactly like every pane having disappeared.
+    return check_pane_exists_by_tty(tty, switch_source, socket) is not False
+
+
+_warned_no_tty: set[str] = set()
+
+
+def _tmux_servers_needed(
+    active: list[tuple[str, str, str, float, bool, str | None, str, str | None]],
+    sockets: dict[str, str],
+) -> set[str | None]:
+    """Which tmux servers the active list talks to."""
+    return {
+        sockets.get(channel)
+        for channel, _sid, _cwd, _created, _unread, tty, _msg, source in active
+        if tty and source == "tmux"
+    }
+
+
+def _fetch_pane_locations(
+    servers: set[str | None],
+) -> dict[str | None, dict[str, tmux.navigation.PaneLocation] | None]:
+    """One `tmux list-panes -a` per server, returning where each tty is."""
+    return {socket: tmux.navigation.locations_by_tty(socket) for socket in servers}
+
+
+def _record_locations(
+    active: list[tuple[str, str, str, float, bool, str | None, str, str | None]],
+    record_location: Callable[
+        [str, str, str, str | None, tmux.navigation.SessionOrder | None], None
+    ],
+    sockets: dict[str, str],
+    pane_locations: dict[str | None, dict[str, tmux.navigation.PaneLocation] | None],
+    session_orders: dict[str, tmux.navigation.SessionOrder] | None = None,
+) -> None:
+    """Note where each tmux-hosted session is sitting, so it can be rebuilt later."""
+    for channel, _sid, _cwd, _created, _unread, tty, _msg, source in active:
+        if not (tty and source == "tmux"):
+            continue
+
+        socket = sockets.get(channel)
+        server_panes = pane_locations.get(socket)
+        if server_panes is None:
+            continue
+        location = server_panes.get(tty)
+        if location is None:
+            continue
+        recorded_order = (session_orders or {}).get(channel)
+        identity_matches = session_orders is None or (
+            recorded_order is not None and recorded_order == location.session_order
+        )
+        if identity_matches:
+            record_location(
+                channel, location.session, location.window, socket, location.session_order
+            )
+
+
+def _replaced(
+    panes: dict[str, tmux.navigation.PaneLocation],
+    tty: str,
+    recorded_order: tmux.navigation.SessionOrder | None,
+) -> bool:
+    """Whether *panes* says *tty*'s pane is gone, or now belongs to another session."""
+    location = panes.get(tty)
+    return location is None or bool(
+        recorded_order and location.session_order and recorded_order != location.session_order
+    )
+
+
+def _archive_stale_sessions(
+    active: list[tuple[str, str, str, float, bool, str | None, str, str | None]],
+    archive_channel: Callable[[str], None],
+    sockets: dict[str, str],
+    pane_locations: dict[str | None, dict[str, tmux.navigation.PaneLocation] | None],
+    codex_directories: set[str] | None = None,
+    located: dict[str, str | Literal[False] | None] | None = None,
+    protected_channels: set[str] | None = None,
+    detached_channels: Callable[[set[str]], None] | None = None,
+    session_orders: dict[str, tmux.navigation.SessionOrder] | None = None,
+    tty_processes: dict[str, list[str]] | None = None,
+    claude_sessions: Callable[[], dict[str, set[str]] | None] | None = None,
+    relist: Callable[[], dict[str, list[str]] | None] | None = None,
+    confirm_panes: Callable[[str | None], dict[str, tmux.navigation.PaneLocation] | None]
+    | None = None,
+) -> set[str]:
+    """Archive stale sessions using channel identity, pane presence and process evidence.
+
+    A process on a reused TTY does not prove that older channels on that TTY
+    exited. For tmux, compare each channel's recorded session identity with the
+    session currently holding the TTY. If identity is missing, keep the row
+    rather than infer replacement from creation order alone.
+
+    `detached_channels`, when supplied, receives the protected channels whose pane
+    is absent on this poll.
+
+    `pane_locations` is the pre-fetched result of one `tmux list-panes -a` per
+    server, shared with `_record_locations` so tmux is only asked once per tick.
+    `codex_directories` is where every Codex process is working, for the rows
+    with no tty that `untracked.gone` can judge; None judges none of them.
+    `located` is, by channel, where a session that can outlive its tty runs now:
+    its current tty, False if it is gone, None if its backend could not tell. A
+    located session is judged on its current tty rather than the recorded one.
+    `claude_sessions` lists the Claude session each tty runs, and is asked only when
+    several rows share a tty with a live Claude: the row it names keeps the tty and
+    the others are archived. Without it, or if it names none of them, all are kept.
+
+    `confirm_panes` takes a fresh listing of a server whose `pane_locations` listing may
+    lag tmux; a pane is judged gone only if a fresh listing agrees, except for a
+    protected channel, which is only reported detached.
+
+    `tty_processes` is one `tty_processes.by_tty` listing for every tty; None asks
+    `ps` about each tty on its own. A listing that may be stale comes with `relist`,
+    which takes a fresh one: an absence is never acted on from a stale listing.
+
+    Returns set of archived channel names.
+    """
+    archived: set[str] = set()
+    detached: set[str] = set()
+    protected_channels = protected_channels or set()
+    session_orders = session_orders or {}
+    current_session_orders: dict[str, tmux.navigation.SessionOrder | None] = {}
+
+    def archive(
+        item: tuple[str, str, str, float, bool, str | None, str, str | None],
+        reason: str,
+        **evidence: object,
+    ) -> None:
+        channel, session_id, cwd, created_at, _unread, tty, _message, source = item
+        if state.blocked(channel):
+            return
+
+        details = " ".join(f"{key}={value!r}" for key, value in evidence.items())
+        if channel in protected_channels:
+            if reason == "pane-gone":
+                detached.add(channel)
+            _log.info(
+                "auto-archive-skip channel=%s reason=%s protection=brief-status%s",
+                channel,
+                reason,
+                f" {details}" if details else "",
+            )
+            return
+        archive_channel(channel)
+        archived.add(channel)
+        _log.info(
+            "auto-archive channel=%s reason=%s session_id=%s tty=%s source=%s "
+            "socket=%s cwd=%r created_at=%.3f%s",
+            channel,
+            reason,
+            session_id,
+            tty,
+            source,
+            sockets.get(channel),
+            cwd,
+            created_at,
+            f" {details}" if details else "",
+        )
+
+    # First pass: archive any sessions whose panes no longer exist
+    remaining = []
+    located = located or {}
+    confirmed: dict[str | None, dict[str, tmux.navigation.PaneLocation] | None] = {}
+    for item in active:
+        channel, _session_id, _cwd, _created_at, _is_unread, tty, _db_message, switch_source = item
+        if channel in located:
+            now = located[channel]
+            if now is False:
+                archive(item, "pane-gone")
+                continue
+            if now:
+                item = (*item[:5], now, *item[6:])
+
+        elif tty and switch_source == "tmux":
+            socket = sockets.get(channel)
+            server_panes = pane_locations.get(socket)
+            if (
+                confirm_panes is not None
+                and server_panes is not None
+                and channel not in protected_channels  # only marked detached, never archived
+                and _replaced(server_panes, tty, session_orders.get(channel))
+            ):
+                if socket not in confirmed:
+                    confirmed[socket] = confirm_panes(socket)
+                server_panes = confirmed[socket]
+            # server_panes is None when the server could not be reached -
+            # that is not evidence that the pane is gone.
+            if server_panes is not None:
+                location = server_panes.get(tty)
+                if location is None:
+                    archive(item, "pane-gone", known_panes=sorted(server_panes))
+                    continue
+
+                recorded_order = session_orders.get(channel)
+                current_order = getattr(location, "session_order", None)
+                current_session_orders[channel] = current_order
+                if recorded_order and current_order and recorded_order != current_order:
+                    archive(
+                        item,
+                        "pane-gone",
+                        recorded_session_order=recorded_order,
+                        current_session=location.session,
+                        current_session_order=current_order,
+                    )
+                    continue
+
+        elif (
+            tty
+            and switch_source
+            and not _check_pane_exists(tty, switch_source, sockets.get(channel))
+        ):
+            archive(item, "pane-gone")
+            continue
+
+        remaining.append(item)
+
+    # Second pass: group by TTY and handle duplicates/process exit
+    tty_groups: dict[
+        tuple[str, str],
+        list[tuple[str, str, str, float, bool, str | None, str, str | None]],
+    ] = {}
+
+    for (
+        channel,
+        _session_id,
+        _cwd,
+        created_at,
+        _is_unread,
+        tty,
+        _db_message,
+        _switch_source,
+    ) in remaining:
+        if not tty:
+            item = (
+                channel,
+                _session_id,
+                _cwd,
+                created_at,
+                _is_unread,
+                tty,
+                _db_message,
+                _switch_source,
+            )
+            if untracked.gone(item, codex_directories):
+                archive(item, "no-codex-in-cwd")
+                continue
+
+            # Every other check keys on the tty, so a row without one is never
+            # archived by them - it survives any number of session kills.
+            # Logged once, because that presents as the archiver being broken
+            # rather than as a field being absent.
+            if channel not in _warned_no_tty:
+                _warned_no_tty.add(channel)
+                _log.warning("%s has no tty recorded; cannot auto-archive it", channel)
+            continue
+
+        process_name = harness_process(channel)
+        key = (tty, process_name)
+
+        if key not in tty_groups:
+            tty_groups[key] = []
+        tty_groups[key].append(
+            (
+                channel,
+                _session_id,
+                _cwd,
+                created_at,
+                _is_unread,
+                tty,
+                _db_message,
+                _switch_source,
+            )
+        )
+
+    listing, stale = tty_processes, relist
+
+    def running(
+        tty: str,
+        process_name: str,
+        sessions: list[tuple[str, str, str, float, bool, str | None, str, str | None]],
+    ) -> bool:
+        nonlocal listing, stale
+        if listing is None:
+            return is_process_running_on_tty(tty, process_name)
+
+        name = tty.replace("/dev/", "")
+        if name not in listing and not tty_device_exists(name):
+            return True  # `ps -t` can't say either, for a terminal with no device
+
+        found = any(is_harness(args, process_name) for args in listing.get(name, ()))
+        if found or stale is None or all(s[0] in protected_channels for s in sessions):
+            return found
+
+        listing, stale = stale(), None
+        return running(tty, process_name, sessions)
+
+    live_claude: dict[str, set[str]] | None = None
+
+    # Process each TTY group
+    for (tty, process_name), sessions in tty_groups.items():
+        if len(sessions) == 1:
+            # Only one session - check if process is still running
+            if not running(tty, process_name, sessions):
+                archive(sessions[0], "process-exited", expected_process=process_name)
+        else:
+            process_running = running(tty, process_name, sessions)
+            if not process_running:
+                for item in sessions:
+                    archive(item, "process-exited", expected_process=process_name)
+                continue
+
+            if live_claude is None and claude_sessions and process_name == "claude":
+                live_claude = claude_sessions() or {}
+            running_here = (live_claude or {}).get(tty, set())
+            if any(item[1] in running_here for item in sessions):
+                for item in sessions:
+                    if item[1] not in running_here:
+                        archive(item, "replaced-on-tty", running_sessions=sorted(running_here))
+                continue
+
+            # A live harness may belong to any one of these channels. Rows
+            # whose recorded pane identity mismatched were handled above;
+            # creation order alone is not enough to archive the rest.
+            for item in sessions:
+                channel = item[0]
+                _log.info(
+                    "auto-archive-skip channel=%s reason=shared-live-tty "
+                    "expected_process=%s process_running=True recorded_session_order=%r "
+                    "current_session_order=%r",
+                    channel,
+                    process_name,
+                    session_orders.get(channel),
+                    current_session_orders.get(channel),
+                )
+
+    if detached_channels:
+        detached_channels(detached)
+
+    return archived
+
+
+_CODEX_CHECK_SECONDS = 10.0  # lsof costs ~75ms; a dead row can wait this long
+
+
+def unified_watch_loop(
+    backends: list[WatcherBackend],
+    get_active: Callable[[], list[tuple[str, str, str, float, bool, str | None, str, str | None]]],
+    mark_read: Callable[[str], int],
+    update_message: Callable[[str, str], int],
+    archive_channel: Callable[[str], None] | None = None,
+    mark_unread: Callable[[str], int] | None = None,
+    record_location: Callable[
+        [str, str, str, str | None, tmux.navigation.SessionOrder | None], None
+    ]
+    | None = None,
+    record_model: Callable[[str, str, str], None] | None = None,
+    record_context: Callable[[str, int, int], None] | None = None,
+    models: Callable[[], dict[str, ModelInfo]] | None = None,
+    sockets: Callable[[], dict[str, str]] | None = None,
+    session_orders: Callable[[], dict[str, tmux.navigation.SessionOrder]] | None = None,
+    locate_sessions: Callable[
+        [list[tuple[str, str, str, float, bool, str | None, str, str | None]]],
+        dict[str, str | Literal[False] | None],
+    ]
+    | None = None,
+    auto_read_patterns: tuple[re.Pattern[str], ...] = (),
+    mark_read_after_turn: Callable[[str], int] | None = None,
+    record_turn: Callable[[str, float | None], None] | None = None,
+    poll_interval: float = 2.0,
+    stop_event: threading.Event | None = None,
+    protected_channels: Callable[[], set[str]] | None = None,
+    detached_channels: Callable[[set[str]], None] | None = None,
+    tty_processes: Callable[[bool], dict[str, list[str]] | None] | None = None,
+    claude_sessions: Callable[[], dict[str, set[str]] | None] | None = None,
+) -> None:
+    """Main watch loop - polls all active sessions across all backends.
+
+    Args:
+        backends: List of watcher backends (claude, codex, etc.)
+        get_active: Callback returning list of (channel, session_id, cwd, created_at, is_unread, tty, db_message, switch_source)
+        mark_read: Callback to mark a channel as read
+        update_message: Callback to update message for a channel
+        archive_channel: Optional callback to archive a channel when session exits
+        mark_unread: Optional callback to mark a channel as needing attention (for backends like OpenClaw)
+        record_location: Optional callback to note a channel's (tmux_session, tmux_window, tmux_socket,
+            tmux_session_order)
+        record_model: Optional callback to note a channel's (provider, model)
+        record_context: Optional callback to note a channel's context (used, window) tokens
+        models: Optional callback returning the models currently saved by channel
+        sockets: Optional callback returning channel -> recorded tmux socket
+        session_orders: Optional callback returning each channel's recorded tmux session identity
+        locate_sessions: Optional callback saying where each session that can
+            outlive its tty runs now (see `_archive_stale_sessions`)
+        auto_read_patterns: A finished turn whose final message matches one of
+            these stays read rather than being marked unread
+        mark_read_after_turn: Optional callback recording such a turn on a read channel
+        record_turn: Optional callback recording a channel's turn in progress, as the
+            timestamp of its newest entry, or None between turns
+        poll_interval: How often to poll (seconds)
+        tty_processes: Optional callback listing every tty's processes at once, for the
+            archiver, taken afresh when given True; without it, each tty is asked about
+            on its own
+        claude_sessions: Optional callback naming the Claude session on each tty
+    """
+    # Build prefix -> backend mapping
+    backend_map = {b.CHANNEL_PREFIX: b for b in backends}
+    _log.info("watcher started with backends: %s", list(backend_map.keys()))
+
+    # Track last observed transcript timestamp per channel (as unix float)
+    # Used to detect genuinely new activity vs polling same state
+    last_observed_ts: dict[str, float] = {}
+    # Track last "needs attention" timestamp per channel to avoid re-marking
+    last_attention_ts: dict[str, float] = {}
+    last_observed_model: dict[str, ModelInfo] = {}
+    saved_contexts: dict[str, ContextReading] = {}
+    last_recorded_turn: dict[str, float | None] = {}
+    initial_model_checked: set[str] = set()
+    # Successful transcript lookups are stable. Missing paths are retried: a
+    # session hook commonly arrives just before the backend creates its file.
+    session_cache: dict[str, Path] = {}
+    # (retry at, next delay, (cwd, created_at) the delay was built up against)
+    session_retry_after: dict[str, tuple[float, float, tuple[str, float]]] = {}
+    codex_checked_at = 0.0
+
+    while stop_event is None or not stop_event.is_set():
+        try:
+            active = get_active()
+            # Which tmux server each session was recorded on. Read once per poll:
+            # both the location pass and the archiver need it, and it is one
+            # query rather than one per row.
+            by_channel = sockets() if sockets else {}
+            saved_models = models() if models else {}
+            saved_session_orders = session_orders() if session_orders else {}
+
+            # One tmux listing per server, shared by both location recording
+            # and stale-session archiving. Before this, each pass ran its own
+            # `tmux list-panes -a` per server, and the archiver ran one per
+            # *session* - N+1 subprocesses every 0.5s.
+            servers = _tmux_servers_needed(active, by_channel)
+            pane_locations = _fetch_pane_locations(servers)
+
+            if record_location:
+                _record_locations(
+                    active,
+                    record_location,
+                    by_channel,
+                    pane_locations,
+                    saved_session_orders,
+                )
+
+            # Check liveness per channel; a shared TTY is not enough to identify
+            # which Codex session a live process belongs to.
+            if archive_channel:
+                codex_directories = None
+                if time.time() - codex_checked_at >= _CODEX_CHECK_SECONDS and any(
+                    map(untracked.is_untracked, active)
+                ):
+                    codex_checked_at = time.time()
+                    codex_directories = untracked.codex_directories()
+
+                archived_channels = _archive_stale_sessions(
+                    active,
+                    archive_channel,
+                    by_channel,
+                    pane_locations,
+                    codex_directories,
+                    locate_sessions(active) if locate_sessions else None,
+                    protected_channels() if protected_channels else None,
+                    detached_channels,
+                    saved_session_orders,
+                    tty_processes(False) if tty_processes else None,
+                    claude_sessions,
+                    (lambda: tty_processes(True)) if tty_processes else None,
+                    lambda socket: tmux.navigation.locations_by_tty(socket, fresh=True),
+                )
+                # Remove archived channels from active list
+                active = [s for s in active if s[0] not in archived_channels]
+                # Clean up caches for archived channels
+                for channel in archived_channels:
+                    last_observed_ts.pop(channel, None)
+                    last_observed_model.pop(channel, None)
+                    saved_contexts.pop(channel, None)
+                    last_recorded_turn.pop(channel, None)
+                    initial_model_checked.discard(channel)
+                    to_remove = [k for k in session_cache if k.startswith(f"{channel}:")]
+                    for k in to_remove:
+                        session_cache.pop(k, None)
+                    retry_to_remove = [
+                        k for k in session_retry_after if k.startswith(f"{channel}:")
+                    ]
+                    for k in retry_to_remove:
+                        session_retry_after.pop(k, None)
+
+            for (
+                channel,
+                session_id,
+                cwd,
+                created_at,
+                is_unread,
+                _tty,
+                _db_message,
+                _switch_source,
+            ) in active:
+                # Find the right backend for this channel
+                backend = None
+                for prefix, b in backend_map.items():
+                    if channel.startswith(prefix):
+                        backend = b
+                        break
+
+                if not backend:
+                    continue
+
+                # Resolve reader: backends can override for remote reading (e.g., SSH)
+                read_fn = getattr(backend, "read_lines", read_jsonl_tail)
+
+                cache_key = f"{channel}:{session_id}"
+                session_path = session_cache.get(cache_key)
+                if session_path is None:
+                    now = time.monotonic()
+                    # A new notification on the row, or a changed cwd, is when a
+                    # late transcript turns up, so either restarts the backoff.
+                    row = (cwd, created_at)
+                    retry_at, delay, retry_row = session_retry_after.get(
+                        cache_key, (0.0, _MISSING_SESSION_RETRY_SECONDS, row)
+                    )
+                    if retry_row != row:
+                        retry_at, delay = 0.0, _MISSING_SESSION_RETRY_SECONDS
+                    if now < retry_at:
+                        continue
+                    session_path = backend.get_session_path(session_id, cwd)
+                    if session_path is None:
+                        session_retry_after[cache_key] = (
+                            now + delay,
+                            min(delay * 2, _MISSING_SESSION_RETRY_MAX_SECONDS),
+                            row,
+                        )
+                        continue
+                    session_cache[cache_key] = session_path
+                    session_retry_after.pop(cache_key, None)
+
+                # Read the tail once and parse it once. The three consumers
+                # below each traversed the same 50 lines independently;
+                # with 60+ sessions that tripled the JSON work per tick.
+                lines = read_fn(session_path)
+                recent: list[dict] = []
+                for line in reversed(lines[-50:]):
+                    try:
+                        recent.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+
+                if record_model and (get_model := getattr(backend, "get_model", None)):
+                    model = _latest_model(recent, get_model)
+                    model = model or last_observed_model.get(channel)
+                    if model is None and channel not in initial_model_checked:
+                        get_initial_model = getattr(backend, "get_initial_model", None)
+                        model = get_initial_model(session_path) if get_initial_model else None
+                        initial_model_checked.add(channel)
+                    if model:
+                        last_observed_model[channel] = model
+                        if model != saved_models.get(channel):
+                            record_model(channel, model.provider, model.model)
+                            saved_models[channel] = model
+                            _log.info(
+                                "recorded model for %s: %s/%s",
+                                channel,
+                                model.provider,
+                                model.model,
+                            )
+
+                if record_context and (get_context := getattr(backend, "get_context", None)):
+                    reading = get_context(recent, session_path)
+                    if reading and reading != saved_contexts.get(channel):
+                        record_context(channel, reading.used, reading.window)
+                        saved_contexts[channel] = reading
+
+                if record_turn and (turn_open := getattr(backend, "turn_open", None)):
+                    is_open = turn_open(recent)
+                    if is_open is not None:
+                        turn = _newest_timestamp(recent) if is_open else None
+                        if channel not in last_recorded_turn or turn != last_recorded_turn[channel]:
+                            record_turn(channel, turn)
+                            last_recorded_turn[channel] = turn
+
+                # For unread notifications, check if we should mark as read
+                if is_unread:
+                    for entry in recent:
+                        ts = parse_timestamp(entry.get("timestamp", ""))
+                        if ts and ts > created_at and backend.should_dismiss(entry):
+                            mark_read(channel)
+                            _log.info(
+                                "marked read: %s (trigger: %s at %s)",
+                                channel,
+                                entry.get("type", "?"),
+                                entry.get("timestamp", "")[:19],
+                            )
+                            break
+
+                # For read notifications, check if agent now needs attention
+                if not is_unread and mark_unread:
+                    needs_attention_fn = getattr(backend, "needs_attention", None)
+                    if needs_attention_fn:
+                        since_ts = last_attention_ts.get(channel, created_at)
+                        final_message_fn = getattr(backend, "final_message", None)
+                        for i, entry in enumerate(recent):
+                            ts = parse_timestamp(entry.get("timestamp", ""))
+                            if ts and ts > since_ts and needs_attention_fn(entry):
+                                last_attention_ts[channel] = ts
+                                if final_message_fn and auto_read.matching(
+                                    auto_read_patterns, final_message_fn(recent[i:])
+                                ):
+                                    if mark_read_after_turn:
+                                        mark_read_after_turn(channel)
+                                    _log.info("left read by [inbox] auto_read: %s", channel)
+                                    break
+
+                                mark_unread(channel)
+                                _log.info(
+                                    "marked unread: %s (agent waiting at %s)",
+                                    channel,
+                                    entry.get("timestamp", "")[:19],
+                                )
+                                break
+
+                # Update message from transcript
+                for entry in recent:
+                    activity = backend.describe_activity(entry)
+                    if activity:
+                        entry_ts = parse_timestamp(entry.get("timestamp", ""))
+                        if entry_ts and entry_ts != last_observed_ts.get(channel):
+                            update_message(channel, activity)
+                            last_observed_ts[channel] = entry_ts
+                            _log.info("updated %s: %s", channel, activity)
+                        break
+
+        except Exception as e:
+            _log.error("error: %s", e, exc_info=True)
+
+        if stop_event is None:
+            time.sleep(poll_interval)
+        else:
+            stop_event.wait(poll_interval)
+
+
+_watcher_thread: threading.Thread | None = None
+_watcher_stop: threading.Event | None = None
+
+
+def start_unified_watcher(
+    backends: list[WatcherBackend],
+    get_active: Callable[[], list[tuple[str, str, str, float, bool, str | None, str, str | None]]],
+    mark_read: Callable[[str], int],
+    update_message: Callable[[str, str], int],
+    archive_channel: Callable[[str], None] | None = None,
+    mark_unread: Callable[[str], int] | None = None,
+    record_location: Callable[
+        [str, str, str, str | None, tmux.navigation.SessionOrder | None], None
+    ]
+    | None = None,
+    record_model: Callable[[str, str, str], None] | None = None,
+    record_context: Callable[[str, int, int], None] | None = None,
+    models: Callable[[], dict[str, ModelInfo]] | None = None,
+    sockets: Callable[[], dict[str, str]] | None = None,
+    session_orders: Callable[[], dict[str, tmux.navigation.SessionOrder]] | None = None,
+    locate_sessions: Callable[
+        [list[tuple[str, str, str, float, bool, str | None, str, str | None]]],
+        dict[str, str | Literal[False] | None],
+    ]
+    | None = None,
+    auto_read_patterns: tuple[re.Pattern[str], ...] = (),
+    mark_read_after_turn: Callable[[str], int] | None = None,
+    record_turn: Callable[[str, float | None], None] | None = None,
+    protected_channels: Callable[[], set[str]] | None = None,
+    detached_channels: Callable[[set[str]], None] | None = None,
+    tty_processes: Callable[[bool], dict[str, list[str]] | None] | None = None,
+    claude_sessions: Callable[[], dict[str, set[str]] | None] | None = None,
+) -> None:
+    """Start the unified session watcher daemon thread.
+
+    Args:
+        backends: List of watcher backends to monitor
+        get_active: Callback returning list of (channel, session_id, cwd, created_at, is_unread, tty, db_message, switch_source)
+        mark_read: Callback to mark a channel as read
+        update_message: Callback to update message for a channel
+        archive_channel: Optional callback to archive a channel when session exits
+        mark_unread: Optional callback to mark a channel as needing attention
+        record_location: Optional callback to note a channel's (tmux_session, tmux_window, tmux_socket,
+            tmux_session_order)
+        record_model: Optional callback to note a channel's (provider, model)
+        record_context: Optional callback to note a channel's context (used, window) tokens
+        models: Optional callback returning the models currently saved by channel
+        sockets: Optional callback returning channel -> recorded tmux socket
+        session_orders: Optional callback returning each channel's recorded tmux session identity
+        locate_sessions: Optional callback saying where each session that can
+            outlive its tty runs now (see `_archive_stale_sessions`)
+        auto_read_patterns: Final-message patterns that keep a finished turn read
+        mark_read_after_turn: Optional callback recording such a turn on a read channel
+        record_turn: Optional callback recording a channel's turn in progress
+        protected_channels: Optional callback returning channels protected by brief status
+        detached_channels: Optional callback receiving protected channels with no pane
+        tty_processes: Optional callback listing every tty's processes at once, taken
+            afresh when given True
+        claude_sessions: Optional callback naming the Claude session on each tty
+    """
+    global _watcher_stop, _watcher_thread
+
+    if _watcher_thread is not None and _watcher_thread.is_alive():
+        return  # Already running
+
+    _watcher_stop = threading.Event()
+    _watcher_thread = threading.Thread(
+        target=unified_watch_loop,
+        args=(backends, get_active, mark_read, update_message),
+        kwargs={
+            "archive_channel": archive_channel,
+            "mark_unread": mark_unread,
+            "record_location": record_location,
+            "record_model": record_model,
+            "record_context": record_context,
+            "models": models,
+            "sockets": sockets,
+            "session_orders": session_orders,
+            "locate_sessions": locate_sessions,
+            "auto_read_patterns": auto_read_patterns,
+            "mark_read_after_turn": mark_read_after_turn,
+            "record_turn": record_turn,
+            "protected_channels": protected_channels,
+            "detached_channels": detached_channels,
+            "tty_processes": tty_processes,
+            "claude_sessions": claude_sessions,
+            "stop_event": _watcher_stop,
+        },
+        daemon=True,
+    )
+    _watcher_thread.start()
+
+
+def stop_unified_watcher(timeout: float = 2.0) -> None:
+    """Stop and join the process-wide watcher thread, if one is running."""
+    global _watcher_stop, _watcher_thread
+
+    thread = _watcher_thread
+    if thread is None:
+        return
+
+    if _watcher_stop is not None:
+        _watcher_stop.set()
+    thread.join(timeout)
+    if thread.is_alive():
+        _log.warning("watcher did not stop within %.1fs", timeout)
+        return
+
+    _watcher_thread = None
+    _watcher_stop = None
+    _log.info("watcher stopped")

@@ -1,0 +1,220 @@
+[build-system]
+requires = ["hatchling", "hatch-cython", "Cython>=0.29.25", "setuptools"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bt"
+version = "1.4.1"
+description = "A flexible backtesting framework for Python"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Philippe Morissette", email = "morissette.philippe@gmail.com" },
+]
+keywords = [
+    "python",
+    "finance",
+    "quant",
+    "backtesting",
+    "strategies",
+    "algotrading",
+    "algorithmic",
+    "trading",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "ffn>=1.1.2",
+    "pyprind>=2.11",
+    "tqdm>=4",
+]
+
+[project.optional-dependencies]
+develop = [
+    "build",
+    "bump-my-version",
+    "check-dist",
+    "cibuildwheel",
+    "codespell",
+    "cython>=0.29.25",
+    "ffn>=1.1.2",
+    "hatchling",
+    "hatch-cython",
+    "klink>=0.1.13",
+    "matplotlib>=2",
+    "mdformat",
+    "mdformat-myst",
+    "mdformat-tables>=1",
+    "numpy>=1",
+    "pandas>=0.19",
+    "pyprind>=2.11",
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+    "ruff",
+    "setuptools",
+    "twine>=6.1",
+    "ty",
+    "uv",
+    "wheel",
+    "yardang>=0.10.0",
+]
+dev = ["bt[develop]"]
+
+[project.urls]
+Homepage = "https://github.com/pmorissette/bt"
+Repository = "https://github.com/pmorissette/bt"
+Documentation = "https://pmorissette.github.io/bt/"
+
+[tool.bumpversion]
+current_version = "1.4.1"
+commit = true
+tag = true
+commit_args = "-s"
+
+[[tool.bumpversion.files]]
+filename = "bt/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[tool.pytest.ini_options]
+addopts = ["-vvv", "--junitxml=junit.xml"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+omit = ["bt/core.py"]
+
+[tool.coverage.report]
+exclude_also = ["raise NotImplementedError", "if __name__ == .__main__.:", "@(abc\\.)?abstractmethod"]
+fail_under = 50
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/bt",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["bt"]
+artifacts = [
+    "bt/*.so",
+    "bt/*.pyd",
+    "bt/*.dylib",
+]
+
+[tool.hatch.build.targets.wheel.hooks.cython]
+dependencies = ["hatch-cython"]
+
+[tool.hatch.build.targets.wheel.hooks.cython.options.files]
+targets = ["*/core.py"]
+exclude = [
+    "*/__init__.py",
+    "*/algos.py",
+    "*/backtest.py",
+]
+
+[tool.setuptools]
+packages = ["bt"]
+
+[tool.check-dist]
+present = ["bt/__init__.py", "bt/algos.py", "bt/backtest.py", "bt/core.py"]
+absent = ["klink/*", "tests/*", "docs/*"]
+
+[tool.check-dist.sdist]
+present = ["LICENSE", "README.md", "pyproject.toml"]
+absent = ["bt/*.so", "bt/*.pyd", "bt/*.dylib"]
+
+[tool.check-dist.wheel]
+present = ["bt/core*.so"]
+
+[tool.cibuildwheel]
+test-command = "python -c \"import bt.core; from importlib.machinery import EXTENSION_SUFFIXES; assert any(bt.core.__file__.endswith(s) for s in EXTENSION_SUFFIXES)\""
+
+[tool.cibuildwheel.linux]
+manylinux-aarch64-image = "manylinux_2_28"
+manylinux-x86_64-image = "manylinux_2_28"
+archs = "native"
+skip = "*i686* *musllinux*"
+
+[tool.cibuildwheel.macos]
+environment = {MACOSX_DEPLOYMENT_TARGET="11.0"}
+archs = "arm64"
+
+[tool.cibuildwheel.windows]
+archs = "AMD64"
+skip = "*win32 *arm64"
+
+[tool.codespell]
+ignore-words-list = "strat"
+
+[tool.ruff]
+line-length = 180
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+
+[tool.yardang]
+title = "bt - Flexible Backtesting for Python"
+theme = "klink"
+docs-host = "https://pmorissette.github.io/bt/"
+root = "README.md"
+pages = [
+    "docs/source/install.md",
+    "docs/source/intro.md",
+    "docs/source/algos.md",
+    "docs/source/tree.md",
+    "docs/source/examples.md",
+    "docs/source/overview.md",
+    "docs/development.md",
+]
+use-autoapi = false
+use-search = false
+nb-execution-mode = "off"
+exclude-patterns = ["**/*.ipynb", "docs/source/_themes", "TODO.md", "base", "benched", "github", "klink", "python-template-cython", "yardang"]
+extensions = ["sphinx.ext.intersphinx"]
+
+[tool.yardang.html-theme-options]
+github = "pmorissette/bt"
+logo = "logo.png"
+
+[tool.yardang.intersphinx-mapping]
+ffn = ["https://pmorissette.github.io/ffn/", "https://pmorissette.github.io/ffn/objects.inv"]
+
+[tool.yardang.redirects]
+bt = "docs/source/overview.html"
+"docs/source/bt" = "overview.html"
+install = "docs/source/install.html"
+algos = "docs/source/algos.html"
+tree = "docs/source/tree.html"
+examples = "docs/source/examples.html"
+intro = "docs/source/intro.html"
+modules = "docs/source/modules.html"
+Buy_and_hold = "docs/source/Buy_and_hold.html"
+Cost_Models = "docs/source/Cost_Models.html"
+ERC = "docs/source/ERC.html"
+Fixed_Income = "docs/source/Fixed_Income.html"
+PTE = "docs/source/PTE.html"
+Strategy_Combination = "docs/source/Strategy_Combination.html"
+Target_Volatility = "docs/source/Target_Volatility.html"
+Trend_1 = "docs/source/Trend_1.html"
+Trend_2 = "docs/source/Trend_2.html"
+examples-nb = "docs/source/examples-nb.html"

@@ -1,0 +1,117 @@
+Metadata-Version: 2.5
+Name: matrx-graph
+Version: 0.2.373
+Summary: Channel-based, super-step workflow orchestration engine for the Matrx ecosystem
+Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Issues, https://github.com/AI-Matrix-Engine/aidream-current/issues
+Author-email: Matrx <admin@aimatrx.com>
+Maintainer-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: agentic,checkpoint,dag,matrx,orchestration,workflow
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.13
+Requires-Dist: croniter>=2.0
+Requires-Dist: httpx>=0.27
+Requires-Dist: jsonschema>=4.20
+Requires-Dist: matrx-connect>=0.1.257
+Requires-Dist: matrx-utils>=2.0.108
+Requires-Dist: pydantic>=2.12
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.25; extra == 'otel'
+Provides-Extra: postgres
+Requires-Dist: matrx-orm>=3.1.275; extra == 'postgres'
+Description-Content-Type: text/markdown
+
+# matrx-graph
+
+Channel-based, super-step workflow orchestration engine for the Matrx ecosystem. Think of it as a typed DAG + Pregel scheduler designed for mixing deterministic nodes with agent-style nodes in the same graph, with durable checkpoints and optional human-in-the-loop interrupts.
+
+## Install
+
+```bash
+pip install matrx-graph                # core engine, in-memory checkpointer
+pip install "matrx-graph[postgres]"    # + durable Postgres checkpointer (via matrx-orm)
+pip install "matrx-graph[otel]"        # + OpenTelemetry instrumentation
+```
+
+Python 3.13+ required. Depends on `matrx-connect` (for `AppContext` and `Emitter`), `matrx-utils`, `pydantic`.
+
+For standalone Postgres, apply
+`matrx_graph/db/migrations/0100_baseline_post_reorg.sql`, register the database
+with matrx-orm, then call
+`matrx_graph.db.configure_standalone_db("<registered-name>")`. Aidream hosts use
+their generated package wiring instead.
+
+## Design pillars
+
+- **Channels + reducers, not mutable state.** Nodes return partial updates; a reducer merges them into typed channels. Safe under parallel writes.
+- **Pregel super-steps.** Each step: active nodes run in parallel via `asyncio.TaskGroup` → writes reduced into state → next wave scheduled. Predictable and debuggable.
+- **Durable checkpoints.** Every super-step produces a checkpoint. Resume, fork, or time-travel from any point. `MemoryCheckpointer` for tests, `PostgresCheckpointer` (via `matrx-graph[postgres]`) for prod.
+- **JSON-only channel values.** Pydantic models are dumped at write. Checkpoints round-trip losslessly.
+- **Typed nodes.** Every `NodeSpec` declares `input_schema`, `output_schema`, `config_schema` (Pydantic). JSON Schema is auto-exported for UI form generation.
+- **Explicit edge semantics.** Data / Control / Conditional / Error / Stream edges — no guessing from topology.
+- **Interrupts + Send.** First-class primitives for human-in-the-loop pauses and dynamic fanout.
+
+## Design principle
+
+> Choose where to be deterministic and where to delegate to an agent.
+
+A workflow can do everything an agent can (branch, loop, dispatch tools) but is more predictable, debuggable, and cheaper. An agent can do everything a workflow can but adapts to unexpected input. `matrx-graph` exists so authors draw that line consciously per node.
+
+## Usage sketch
+
+```python
+from matrx_graph import (
+    Definition, NodeDef, EdgeDef, EdgeKind,
+    compile_graph, Scheduler, register, register_builtin_nodes,
+)
+
+register_builtin_nodes()
+
+# A custom action — registered once, referenced by name in node definitions
+@register("greet")
+async def greet(ctx, inputs, config):
+    return {"message": f"Hello, {inputs['name']}!"}
+
+definition = Definition(
+    nodes=[
+        NodeDef(id="start", action="noop"),
+        NodeDef(id="greet", action="greet"),
+    ],
+    edges=[
+        EdgeDef(source="start", target="greet", kind=EdgeKind.Data),
+    ],
+)
+
+graph = compile_graph(definition)
+scheduler = Scheduler(graph)
+result = await scheduler.run(inputs={"name": "world"})
+print(result.channels["greet"])   # {"message": "Hello, world!"}
+```
+
+For a full example including conditional edges, dynamic `ctx.send(...)` fanout, checkpoints, and resume, see [`examples/self_validating_news.py`](matrx_graph/examples/self_validating_news.py).
+
+## Dependency posture
+
+`matrx-graph` is a generic engine. It depends only on `matrx-connect`, `matrx-utils`, and `pydantic`. Optional `postgres` extra adds `matrx-orm` for durable checkpointing.
+
+Domain-specific node packs (LLM, agent, scraper) live in their sibling packages (`matrx-ai`, `matrx-scraper`) and register executors with the engine at runtime via `matrx_graph.registry`. **No hard import cycles.**
+
+## Status
+
+Phase 1 in progress — foundation + in-process executor. Not yet production-ready. The legacy root-level `workflows/` and `workflows_v2/` directories in the monorepo are being consolidated into this package.
+
+## Contributing
+
+See [CLAUDE.md](CLAUDE.md) for package-specific rules. This package lives in the aidream monorepo at [github.com/AI-Matrix-Engine/aidream-current](https://github.com/AI-Matrix-Engine/aidream-current/tree/main/packages/matrx-graph).
+
+## License
+
+MIT.

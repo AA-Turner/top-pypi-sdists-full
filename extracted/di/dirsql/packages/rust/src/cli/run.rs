@@ -1,0 +1,1238 @@
+//! The `dirsql` CLI: argument parsing and command dispatch behind
+//! [`run_cli`]. Query is the default; the server is a subcommand:
+//! - No subcommand + SQL (`dirsql "<sql>"`): one-shot query, the default
+//!   behavior. Identical to `dirsql query "<sql>"`.
+//! - `query`: explicit synonym for the default one-shot query; see
+//!   `docs/reference/cli.md`.
+//! - `server`: the HTTP server documented in `docs/reference/cli.md`.
+//! - `init`: writes a fixed starter `.dirsql.toml`; see `docs/reference/cli.md`.
+//! - `context`: prints the agent usage guide; see [`context`](super::context).
+//! - No subcommand and no SQL (bare `dirsql`): an interactive REPL over the
+//!   current directory; see [`repl`](super::repl).
+//!
+//! Only compiled with `--features cli`.
+//!
+//! The `dirsql` binary is a shim over [`run_cli`], so `cargo install dirsql
+//! --features cli` and every other entry path run the same code.
+
+use std::io::{IsTerminal, Write};
+use std::path::PathBuf;
+
+use super::{
+    AppState, ServerConfig,
+    execute::{execute_query, execute_query_json},
+    init::InitOptions,
+    repl::run_repl,
+    serve_with_state, table,
+};
+use crate::{DirSQL, Extension};
+use axum::http::HeaderValue;
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use serde_json::Value;
+
+#[derive(Debug, Parser)]
+#[command(
+    name = "dirsql",
+    version,
+    about = "Query a local directory as SQL. `dirsql \"<sql>\"` runs one query; \
+             bare `dirsql` opens a REPL; `dirsql server` starts the HTTP \
+             server.",
+    long_about = "Runs one SQL query over a local directory and prints the \
+                  result rows: a table on a terminal, a JSON array when \
+                  piped. `dirsql \"SELECT * FROM './'\"` is the \
+                  default; `dirsql query \"<sql>\"` is an explicit synonym. \
+                  With no subcommand and no SQL, dirsql reads statements until \
+                  EOF instead: a prompted REPL on a terminal, one statement \
+                  per line from a pipe. \
+                  Tables are defined by a `.dirsql.toml` config file passed \
+                  with `-c`; with no `-c` there are no named tables and \
+                  filesystem queries go through path-tables \
+                  (`SELECT * FROM './'`) — a `./.dirsql.toml` on disk is NOT \
+                  auto-loaded, pass it explicitly. The `server` subcommand \
+                  runs the long-lived HTTP server instead. Config flags are \
+                  subcommand-local: for `query`/`server` pass them AFTER the \
+                  subcommand (`dirsql query <sql> -c <cfg>`); a flag before a \
+                  subcommand is a hard error. The `init` subcommand writes a \
+                  starter `.dirsql.toml` defining a `records` table over \
+                  `**/*.json` — no target-directory inspection, no network, \
+                  deterministic.",
+    args_conflicts_with_subcommands = true
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
+    /// The SQL to run in the default (query) mode: `dirsql "<sql>"`. With no
+    /// subcommand and no SQL, dirsql opens a REPL over the current directory
+    /// instead. Identical to `dirsql query "<sql>"`.
+    sql: Option<String>,
+
+    /// Attach a parser to every path-table in the default-mode query — the
+    /// same `--on-file` the `query` subcommand takes (see [`QueryArgs`]).
+    #[arg(long = "on-file")]
+    on_file: Vec<String>,
+
+    /// How to render result rows — the same `--format` the `query` subcommand
+    /// takes (see [`Format`]). Applies to the REPL too.
+    #[arg(long, value_enum, default_value_t = Format::Auto)]
+    format: Format,
+
+    /// Config flags for the default (query) mode. They are subcommand-local,
+    /// not global: for the `query`/`server` subcommands the same flags are
+    /// passed AFTER the subcommand (`dirsql query <sql> -c <cfg>`); a config
+    /// flag placed BEFORE a subcommand is a hard error, never silently
+    /// dropped (#609).
+    #[command(flatten)]
+    common: ConfigArgs,
+}
+
+/// The config-layer flags shared by server mode and the `query` subcommand.
+/// Flattened into both `Cli` (server) and `QueryArgs` (query) rather than
+/// declared `global`, so a repeatable `-c` cannot straddle the subcommand
+/// boundary and be silently dropped -- misplacement is a hard clap error
+/// (`args_conflicts_with_subcommands`) instead (#609).
+#[derive(Debug, Args)]
+struct ConfigArgs {
+    /// Path to a config file. **Repeatable** (`-c a -c b`): the configs load
+    /// and merge in argv order -- their `[[table]]`, `ignore`, and
+    /// `[[dirsql.extension]]` entries accumulate. With none given, no named
+    /// tables are defined -- query the filesystem with a path-table
+    /// (`FROM './'`). A
+    /// `./.dirsql.toml` on disk is NOT auto-loaded (#602); pass it explicitly
+    /// to use it. A `-c` naming a missing file is an error. The index root is the
+    /// invocation directory (cwd) and governs path-tables; a config's
+    /// `[[table]]` globs anchor at that config's own directory. For `query`,
+    /// pass this AFTER the subcommand (`dirsql query <sql> -c <cfg>`).
+    #[arg(short = 'c', long)]
+    config: Vec<PathBuf>,
+
+    /// Load a SQLite extension by literal path, overriding a TOML config's
+    /// `[[dirsql.extension]]` entries. Repeatable. Format: `<path>` or
+    /// `<path>::<entrypoint>`.
+    ///
+    /// Intended for the language launcher (pip/npm), not end users: the
+    /// launcher resolves config extensions — including bare **package names**,
+    /// which need an interpreter this compiled binary lacks — and passes the
+    /// resolved literal paths here. When any are present, the TOML
+    /// config's own extension entries are not loaded (the launcher already
+    /// merged and resolved them).
+    #[arg(long = "extension")]
+    extension: Vec<String>,
+
+    /// Keep the SQLite index on disk between runs so a restart only re-parses
+    /// files that actually changed. Bare `--persist` caches at the default
+    /// location (the platform cache directory); `--persist <path>` caches there.
+    /// Off by default (ephemeral index).
+    #[arg(long, num_args = 0..=1)]
+    persist: Option<Option<PathBuf>>,
+
+    /// Scan files a `.gitignore` would hide. Path-tables respect `.gitignore`
+    /// files by default (hierarchically, like fd/ripgrep); this flag restores
+    /// the full walk. The built-in skips (`node_modules`/`.git`) and any
+    /// configured `ignore` patterns still apply.
+    #[arg(long = "no-ignore")]
+    no_ignore: bool,
+}
+
+impl ConfigArgs {
+    /// Apply the index-shaping flags to a builder: `--persist [PATH]` (absent
+    /// → no change; bare `--persist` → the default location; `--persist
+    /// <path>` → that path) and `--no-ignore`.
+    fn apply_index_flags(&self, mut builder: crate::DirSQLBuilder) -> crate::DirSQLBuilder {
+        if let Some(path) = &self.persist {
+            builder = builder.persist(path.as_ref());
+        }
+        builder.no_ignore(self.no_ignore)
+    }
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Write the fixed starter `.dirsql.toml` — a `records` table over
+    /// `**/*.json`, parsed by an `on-file` hook. The output does not
+    /// auto-load; pass it with `dirsql query <sql> -c ./.dirsql.toml`. No
+    /// target-directory inspection.
+    Init(InitArgs),
+
+    /// Run one SQL query against the indexed directory, print the result
+    /// rows on stdout (a table on a terminal, a JSON array when piped), and
+    /// exit. No server, no watch. This is the
+    /// explicit synonym for the default `dirsql "<sql>"`. Shares the
+    /// server's query pipeline, so config loading, hooks, the read-only
+    /// rule, and error classification are identical to `POST /query`.
+    /// Unlike the server there is no per-query timeout: the query runs to
+    /// completion (cap it externally, e.g. `timeout 60 dirsql query ...`).
+    /// Config flags follow the SQL: `dirsql query <sql> -c <cfg>`.
+    Query(QueryArgs),
+
+    /// Start the long-lived HTTP server exposing a SQL view of the directory
+    /// over `POST /query` and `GET /events`. Config flags follow the
+    /// subcommand: `dirsql server -c <cfg>`. Runs until `SIGINT` / `SIGTERM`.
+    Server(ServerArgs),
+
+    /// Print the agent usage guide for this dirsql version as markdown:
+    /// path-table syntax, verified recipes, and fixes for common errors.
+    Context,
+}
+
+#[derive(Debug, Args)]
+struct ServerArgs {
+    /// Serve the bundled SQL explorer at the server URL (no browser opens).
+    #[arg(long)]
+    frontend: bool,
+
+    /// Bind address.
+    #[arg(long, default_value = "localhost")]
+    host: String,
+
+    /// TCP port to bind.
+    #[arg(long, default_value_t = 7117)]
+    port: u16,
+
+    /// Send `Access-Control-Allow-Origin: <ORIGIN>` so browser pages on that
+    /// origin (`*` for any) can call `/query` and open `/events`. Without it
+    /// the server sends no CORS headers.
+    #[arg(long = "cors-origin", value_name = "ORIGIN")]
+    cors_origin: Option<HeaderValue>,
+
+    #[command(flatten)]
+    common: ConfigArgs,
+}
+
+#[derive(Debug, Args)]
+struct QueryArgs {
+    /// The SQL to run (a single read-only statement).
+    sql: String,
+
+    /// Attach a parser to every path-table in the query. The command follows
+    /// the `on-file` hook contract (`docs/reference/hooks.md`): argv splitting,
+    /// a `{root}` placeholder, one run per table with every matched absolute
+    /// path appended as trailing arguments, and one JSON object per line
+    /// on stdout. With it set, a path-table's rows and schema come from the
+    /// parser instead of the stat columns. One `--on-file` max; for multiple
+    /// tables use a config file.
+    #[arg(long = "on-file")]
+    on_file: Vec<String>,
+
+    /// How to render result rows. See [`Format`].
+    #[arg(long, value_enum, default_value_t = Format::Auto)]
+    format: Format,
+
+    #[command(flatten)]
+    common: ConfigArgs,
+}
+
+/// How result rows are rendered.
+///
+/// Deliberately a flag rather than a `.mode` meta-command: dirsql has no
+/// dot-commands to extend (#953), and a flag serves the one-shot query as
+/// well as the REPL. It is **not** on `server`, whose transport is JSON over
+/// HTTP and cannot honour it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub(super) enum Format {
+    /// Pick by destination: a table when stdout is a terminal, JSON when it
+    /// is redirected or piped.
+    Auto,
+    /// An aligned table with a row count, for reading.
+    Table,
+    /// The JSON array every other surface returns, for `jq`.
+    Json,
+}
+
+impl Format {
+    /// Settle `Auto` against the destination, yielding `Table` or `Json`.
+    ///
+    /// Keys on **stdout**, not stdin: `dirsql > rows.json` typed at a
+    /// terminal is still headed for a file, and the file wants JSON.
+    fn resolve(self, stdout_is_terminal: bool) -> Self {
+        match self {
+            Self::Auto if stdout_is_terminal => Self::Table,
+            Self::Auto => Self::Json,
+            settled => settled,
+        }
+    }
+}
+
+/// Render one result the way `format` asks. `Auto` must already be settled.
+pub(super) fn render_rows(value: &Value, format: Format) -> String {
+    match format {
+        Format::Table => table::render(value.as_array().map_or(&[][..], Vec::as_slice)),
+        _ => format!("{value}\n"),
+    }
+}
+
+/// Reduce the repeatable `--on-file` occurrences to at most one parser command.
+///
+/// `clap` collects repeats into a `Vec` so the error can name config files
+/// (its default "cannot be used multiple times" cannot). Empty → no parser;
+/// exactly one → that command; more than one → an error pointing at config
+/// files, where per-table parsers belong. A whitespace-only command is rejected
+/// up front (the hook contract forbids an empty command).
+fn resolve_on_file(occurrences: &[String]) -> std::result::Result<Option<String>, String> {
+    match occurrences {
+        [] => Ok(None),
+        [command] if command.trim().is_empty() => {
+            Err("--on-file needs a non-empty command".to_string())
+        }
+        [command] => Ok(Some(command.clone())),
+        _ => Err(
+            "--on-file may be given at most once; it applies to every path-table in the \
+             query. For per-table parsers, define tables in a config file with an \
+             `on-file` key and pass it with -c."
+                .to_string(),
+        ),
+    }
+}
+
+#[derive(Debug, Args)]
+struct InitArgs {
+    /// Directory the default `--output` path is resolved against (default:
+    /// current directory). The written config's content does not depend on
+    /// this directory's contents.
+    #[arg(long)]
+    root: Option<PathBuf>,
+
+    /// Where to write the generated config (default: `<root>/.dirsql.toml`).
+    #[arg(long)]
+    output: Option<PathBuf>,
+
+    /// Overwrite the output file if it already exists.
+    #[arg(long)]
+    force: bool,
+}
+
+/// Run the CLI over an explicit `argv` and return its exit code.
+///
+/// The single entry point every packaging path shares: the `dirsql` binary is
+/// a shim over this, and the language launchers reach it through their
+/// bindings. Per the bin-shim contract it **always returns** — it never
+/// terminates the host process, so an embedder stays in control of its own
+/// exit. `argv[0]` is the program name, as `std::env::args()` yields it.
+///
+/// Exit codes are ordinary status codes only (never 130/143): a `SIGINT` to
+/// `dirsql server` shuts down gracefully and returns 0, which is what the
+/// binary has always done. Signals are handled *within* the run by
+/// [`wait_for_shutdown`]; nothing is re-raised on the way out.
+///
+/// Clap's own `parse()` exits the process on `--help`, `--version` and usage
+/// errors, so this parses fallibly and renders the result itself — same text,
+/// same streams, same codes, minus the exit.
+pub fn run_cli(argv: Vec<String>) -> i32 {
+    let mut cli = match Cli::try_parse_from(argv) {
+        Ok(cli) => cli,
+        Err(err) => {
+            let code = err.exit_code();
+            // Writes help/version to stdout and usage errors to stderr,
+            // exactly as clap's own `parse()` does before exiting.
+            let _ = err.print();
+            return code;
+        }
+    };
+
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(runtime) => runtime,
+        Err(err) => {
+            eprintln!("dirsql: failed to start the async runtime: {err}");
+            return 1;
+        }
+    };
+
+    let code = runtime.block_on(async {
+        match cli.command.take() {
+            Some(Command::Init(args)) => run_init(args),
+            Some(Command::Query(args)) => run_query(args, &mut std::io::stdout()).await,
+            Some(Command::Server(args)) => run_server(args, wait_for_shutdown()).await,
+            Some(Command::Context) => {
+                print!("{}", super::context::guide());
+                0
+            }
+            None => run_default(cli, &mut std::io::stdout()).await,
+        }
+    });
+    i32::from(code)
+}
+
+/// The default (no-subcommand) behavior. With SQL, run it as a one-shot query,
+/// exactly as `dirsql query "<sql>"` does. With no SQL, read statements until
+/// EOF instead: bare `dirsql` is a REPL over the current directory, prompted
+/// on a terminal and silent from a pipe (#987).
+///
+/// The index is built **once**, before the loop, rather than per statement:
+/// no directory re-scan between statements, and the live watcher keeps it
+/// fresh across them.
+async fn run_default(cli: Cli, out: &mut impl Write) -> u8 {
+    match cli.sql {
+        Some(sql) => {
+            run_query(
+                QueryArgs {
+                    sql,
+                    on_file: cli.on_file,
+                    format: cli.format,
+                    common: cli.common,
+                },
+                out,
+            )
+            .await
+        }
+        None => {
+            let parser = match resolve_on_file(&cli.on_file) {
+                Ok(parser) => parser,
+                Err(message) => {
+                    eprintln!("dirsql: {message}");
+                    return 1;
+                }
+            };
+            let state = load_state(&cli.common, parser);
+            run_repl(
+                &state,
+                cli.format.resolve(std::io::stdout().is_terminal()),
+                // `StdinLock` is not `Send`, so it cannot cross into the
+                // blocking read; `BufReader<Stdin>` locks per call and can.
+                std::io::BufReader::new(std::io::stdin()),
+                out,
+                &mut std::io::stderr(),
+                std::io::stdin().is_terminal(),
+            )
+            .await
+        }
+    }
+}
+
+/// One-shot `dirsql query`: build the index exactly as server mode would
+/// (same `load_state` / hook loading), run the SQL through the shared
+/// [`execute_query`] pipeline, write the result to `out`, and exit.
+/// Any [`QueryFailure`](super::execute::QueryFailure) prints its
+/// message — the same string the HTTP `{"error": …}` body carries — to
+/// stderr with a non-zero exit.
+async fn run_query(args: QueryArgs, out: &mut dyn Write) -> u8 {
+    let parser = match resolve_on_file(&args.on_file) {
+        Ok(parser) => parser,
+        Err(message) => {
+            eprintln!("dirsql query: {message}");
+            return 1;
+        }
+    };
+    let state = load_state(&args.common, parser);
+
+    // Unbounded: the process IS the query, so `timeout(1)` expresses any cap
+    // natively; only the long-lived server enforces `query_timeout` (408).
+    let format = args.format.resolve(std::io::stdout().is_terminal());
+
+    let printed = match format {
+        Format::Table => execute_query(&state, query_body(&args.sql), None)
+            .await
+            .map(|value| render_rows(&value, format).into_bytes()),
+        _ => execute_query_json(&state, query_body(&args.sql)).await,
+    };
+    match printed {
+        Ok(text) => {
+            // A closed pipe (`| head`) is the reader's choice, not a failure.
+            let _ = out.write_all(&text);
+            let _ = out.flush();
+            0
+        }
+        Err(failure) => {
+            eprintln!("dirsql query: {}", failure.message());
+            1
+        }
+    }
+}
+
+/// Synthesize the exact `POST /query` body for a positional SQL argument,
+/// so the shared pipeline's intake validation sees byte-for-byte what an
+/// HTTP client would send. Shared with the REPL, whose statements must reach
+/// the pipeline through the same intake as a one-shot query.
+pub(super) fn query_body(sql: &str) -> String {
+    serde_json::json!({ "sql": sql }).to_string()
+}
+
+fn run_init(args: InitArgs) -> u8 {
+    let root = match args.root {
+        Some(p) => p,
+        None => match std::env::current_dir() {
+            Ok(p) => p,
+            Err(err) => {
+                eprintln!("dirsql init: failed to read current directory: {err}");
+                return 1;
+            }
+        },
+    };
+    let output = args.output.unwrap_or_else(|| root.join(".dirsql.toml"));
+
+    let opts = InitOptions {
+        output,
+        force: args.force,
+    };
+
+    match super::init::run(opts) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("dirsql init: {err}");
+            1
+        }
+    }
+}
+
+async fn run_server(
+    args: ServerArgs,
+    shutdown: impl std::future::Future<Output = std::io::Result<()>>,
+) -> u8 {
+    // The server has no `--on-file`: clap rejects it as an unknown flag before
+    // reaching here. Path-tables served over HTTP keep their stat columns.
+    let state = load_state(&args.common, None);
+    let mut server_config = ServerConfig::bind(args.host.clone(), args.port);
+    if let Some(origin) = args.cors_origin {
+        server_config = server_config.with_cors_origin(origin);
+    }
+    if args.frontend {
+        server_config = server_config.with_frontend();
+    }
+
+    let host = args.host.clone();
+    let handle = match serve_with_state(server_config, state).await {
+        Ok(handle) => handle,
+        Err(err) => {
+            eprintln!("dirsql: failed to bind: {err}");
+            return 1;
+        }
+    };
+
+    // Echo back the user-facing hostname (not the resolved IP SocketAddr).
+    if args.frontend {
+        println!(
+            "Frontend at {}",
+            frontend_url(&host, handle.local_addr().port())
+        );
+    }
+    println!("Running at {host}:{}", handle.local_addr().port());
+
+    if let Err(err) = shutdown.await {
+        eprintln!("dirsql: signal handler error: {err}");
+    }
+
+    if let Err(err) = handle.shutdown().await {
+        eprintln!("dirsql: shutdown error: {err}");
+        return 1;
+    }
+    0
+}
+
+fn frontend_url(host: &str, port: u16) -> String {
+    let url_host = match host {
+        "0.0.0.0" => "localhost".to_string(),
+        "::" | "[::]" => "[::1]".to_string(),
+        _ if host.contains(':') && !host.starts_with('[') => format!("[{host}]"),
+        _ => host.to_string(),
+    };
+    format!("http://{url_host}:{port}/")
+}
+
+fn load_state(cfg: &ConfigArgs, path_table_parser: Option<String>) -> AppState {
+    // No `-c` -> index the invocation directory with no named tables. A
+    // `./.dirsql.toml` on disk is NOT consulted (#602); pass it explicitly
+    // with `-c` to use it.
+    if cfg.config.is_empty() {
+        return load_configless_state(cfg, path_table_parser);
+    }
+
+    let mut builder = DirSQL::builder();
+    for config_path in &cfg.config {
+        // Canonicalize so config-relative paths (extension libraries, hook
+        // working directories) resolve against an absolute parent — `notify`
+        // and the hook subprocesses misbehave with relative paths like `./`.
+        // The index root itself is the invocation cwd (#540), not derived here.
+        let resolved = match config_path.canonicalize() {
+            Ok(p) => p,
+            Err(err) => {
+                return AppState::Unavailable(format!(
+                    "failed to resolve {}: {err}",
+                    config_path.display()
+                ));
+            }
+        };
+        builder = builder.config(resolved);
+    }
+
+    // Launcher-resolved extensions (`--extension`) override the configs' own
+    // `[[dirsql.extension]]` entries: the launcher has already merged and
+    // resolved them (including package names the compiled binary can't
+    // resolve), so suppress config extension loading and supply the resolved
+    // literal paths instead.
+    if !cfg.extension.is_empty() {
+        builder = builder
+            .extensions(parse_extension_specs(&cfg.extension))
+            .suppress_config_extensions(true);
+    }
+    builder = cfg.apply_index_flags(builder);
+    // `--on-file` touches path-tables only: config `[[table]]` definitions keep
+    // their own `on-file` hooks; a path-table named in the query gets this
+    // parser regardless of any `-c`.
+    if let Some(command) = path_table_parser {
+        builder = builder.path_table_parser(command);
+    }
+    match builder.build() {
+        Ok(db) => AppState::Ready(db),
+        Err(err) => AppState::Unavailable(format!("failed to load config: {err}")),
+    }
+}
+
+/// Parse `--extension` specs (`<path>` or `<path>::<entrypoint>`) into
+/// [`Extension`]s. Splitting on the first `::` keeps a path that itself
+/// contains `::` unambiguous only after the entrypoint boundary — entrypoints
+/// are C identifiers, so the first `::` is the boundary.
+fn parse_extension_specs(specs: &[String]) -> Vec<Extension> {
+    specs
+        .iter()
+        .map(|spec| match spec.split_once("::") {
+            Some((path, entrypoint)) => Extension {
+                path: PathBuf::from(path),
+                entrypoint: Some(entrypoint.to_string()),
+            },
+            None => Extension {
+                path: PathBuf::from(spec),
+                entrypoint: None,
+            },
+        })
+        .collect()
+}
+
+/// With no `-c`, dirsql indexes the invocation directory but defines no named
+/// tables: filesystem queries go through path-tables (`SELECT * FROM './'`),
+/// and a `files` query fails with a hint pointing at that form (#636). A
+/// `./.dirsql.toml` in the cwd is not consulted (#602).
+fn load_configless_state(cfg: &ConfigArgs, path_table_parser: Option<String>) -> AppState {
+    // Canonicalize for the same reason `load_state` does: `notify` misbehaves
+    // when watching relative paths.
+    let root = match PathBuf::from(".").canonicalize() {
+        Ok(p) => p,
+        Err(err) => {
+            return AppState::Unavailable(format!("failed to resolve current directory: {err}"));
+        }
+    };
+
+    // `--extension` applies here too (#772). Without this the flag was
+    // silently ignored whenever no `-c` was given: `dirsql query "SELECT
+    // vec_version()" --extension <path>` reported `no such function` rather
+    // than loading anything, and `--extension /nonexistent.so` exited 0. A
+    // path-table query over an extension-provided function is a legitimate
+    // configless use, and a bad path must still fail loudly.
+    //
+    // Applied unconditionally: `extensions([])` assigns the builder's own
+    // default, and `apply_index_flags` never touches the field, so an
+    // `is_empty()` guard would only add a branch no unit test can reach --
+    // `load_configless_state` needs a real cwd and index (#233).
+    let mut builder = cfg
+        .apply_index_flags(DirSQL::builder().root(root))
+        .extensions(parse_extension_specs(&cfg.extension));
+    if let Some(command) = path_table_parser {
+        builder = builder.path_table_parser(command);
+    }
+    match builder.build() {
+        Ok(db) => AppState::Ready(db),
+        Err(err) => AppState::Unavailable(format!("failed to build the index: {err}")),
+    }
+}
+
+#[cfg(unix)]
+async fn wait_for_shutdown() -> std::io::Result<()> {
+    use tokio::signal::unix::{SignalKind, signal};
+
+    let mut term = signal(SignalKind::terminate())?;
+    let mut intr = signal(SignalKind::interrupt())?;
+    tokio::select! {
+        _ = term.recv() => {}
+        _ = intr.recv() => {}
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+async fn wait_for_shutdown() -> std::io::Result<()> {
+    tokio::signal::ctrl_c().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_body_wraps_sql_in_the_http_request_shape() {
+        // The subcommand must feed the pipeline the exact body a curl'd
+        // `POST /query` carries, so intake validation stays single-sourced.
+        assert_eq!(query_body("SELECT 1"), r#"{"sql":"SELECT 1"}"#);
+    }
+
+    #[test]
+    fn query_body_escapes_sql_as_json() {
+        // SQL containing quotes/newlines must arrive as valid JSON, not be
+        // spliced raw into the body.
+        assert_eq!(
+            query_body("SELECT \"a\"\nFROM t"),
+            r#"{"sql":"SELECT \"a\"\nFROM t"}"#
+        );
+    }
+
+    #[test]
+    fn query_body_preserves_blank_sql_for_the_shared_rejection() {
+        // Blank SQL is NOT rejected here: it flows to the pipeline's shared
+        // empty-rejection so both surfaces emit the identical message.
+        assert_eq!(query_body("   "), r#"{"sql":"   "}"#);
+    }
+
+    fn query_args(argv: &[&str]) -> QueryArgs {
+        match Cli::parse_from(argv).command {
+            Some(Command::Query(args)) => args,
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn run_query_writes_the_rows_as_json_and_exits_zero() {
+        let mut out = Vec::new();
+        let args = query_args(&[
+            "dirsql",
+            "query",
+            "--format",
+            "json",
+            "SELECT 1 AS a, 'x' AS b",
+        ]);
+        assert_eq!(run_query(args, &mut out).await, 0);
+        assert_eq!(out, b"[{\"a\":1,\"b\":\"x\"}]\n");
+    }
+
+    #[tokio::test]
+    async fn run_query_writes_the_rows_as_a_table_when_asked() {
+        let mut out = Vec::new();
+        let args = query_args(&["dirsql", "query", "--format", "table", "SELECT 1 AS a"]);
+        assert_eq!(run_query(args, &mut out).await, 0);
+        assert_eq!(out, b"a\n-\n1\n\n1 row\n");
+    }
+
+    #[tokio::test]
+    async fn run_query_exits_one_and_writes_nothing_when_the_query_fails() {
+        let mut out = Vec::new();
+        let args = query_args(&["dirsql", "query", "--format", "json", "SELECT nope"]);
+        assert_eq!(run_query(args, &mut out).await, 1);
+        assert!(out.is_empty());
+    }
+
+    #[tokio::test]
+    async fn run_default_runs_its_sql_as_a_one_shot_query() {
+        let mut out = Vec::new();
+        let cli = Cli::parse_from(["dirsql", "--format", "json", "SELECT 1 AS a"]);
+        assert_eq!(run_default(cli, &mut out).await, 0);
+        assert_eq!(out, b"[{\"a\":1}]\n");
+    }
+
+    #[tokio::test]
+    async fn run_default_exits_one_when_its_sql_fails() {
+        let mut out = Vec::new();
+        let cli = Cli::parse_from(["dirsql", "--format", "json", "SELECT nope"]);
+        assert_eq!(run_default(cli, &mut out).await, 1);
+        assert!(out.is_empty());
+    }
+
+    /// The `ConfigArgs` parsed from a `query` subcommand invocation (#609:
+    /// config flags are subcommand-local, so they live on the Query variant).
+    fn query_common(argv: &[&str]) -> ConfigArgs {
+        match Cli::parse_from(argv).command {
+            Some(Command::Query(args)) => args.common,
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn config_is_empty_without_a_config_flag() {
+        // No `-c` -> no config paths at all, with no implicit `./.dirsql.toml`
+        // discovery (#602).
+        let cli = Cli::parse_from(["dirsql", "SELECT 1"]);
+        assert!(cli.common.config.is_empty());
+    }
+
+    #[test]
+    fn config_holds_exactly_the_passed_paths() {
+        // Default query mode (no subcommand): `-c` accumulates at the top
+        // level alongside the positional SQL; the paths are exactly those, in
+        // argv order.
+        let cli = Cli::parse_from(["dirsql", "SELECT 1", "-c", "a.toml", "-c", "b.toml"]);
+        assert_eq!(
+            cli.common.config,
+            vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
+        );
+    }
+
+    #[test]
+    fn bare_sql_parses_as_the_default_query_with_no_subcommand() {
+        // #662: `dirsql "<sql>"` (no subcommand) carries the SQL as the
+        // top-level positional and selects no command -> the default query.
+        let cli = Cli::parse_from(["dirsql", "SELECT * FROM './'"]);
+        assert!(cli.command.is_none());
+        assert_eq!(cli.sql.as_deref(), Some("SELECT * FROM './'"));
+    }
+
+    #[test]
+    fn bare_sql_carries_config_flags_for_the_default_query() {
+        // #662: the default query mode accepts the same `-c` the `query`
+        // subcommand does, after the SQL.
+        let cli = Cli::parse_from(["dirsql", "SELECT 1", "-c", "a.toml"]);
+        assert!(cli.command.is_none());
+        assert_eq!(cli.sql.as_deref(), Some("SELECT 1"));
+        assert_eq!(cli.common.config, vec![PathBuf::from("a.toml")]);
+    }
+
+    #[test]
+    fn bare_sql_carries_on_file_for_the_default_query() {
+        // #662: `--on-file` works in the default mode exactly as under `query`.
+        let cli = Cli::parse_from(["dirsql", "SELECT 1", "--on-file", "cat"]);
+        assert!(cli.command.is_none());
+        assert_eq!(cli.on_file, vec!["cat".to_string()]);
+    }
+
+    #[test]
+    fn no_subcommand_and_no_sql_selects_neither() {
+        // #662: bare `dirsql` with nothing else parses cleanly (no command, no
+        // SQL); `run_default` turns that into the REPL at runtime (#987).
+        let cli = Cli::parse_from(["dirsql"]);
+        assert!(cli.command.is_none());
+        assert!(cli.sql.is_none());
+    }
+
+    /// One result row, built from `Value` alone so the test reaches for
+    /// nothing outside the module.
+    fn one_row() -> Value {
+        Value::Array(vec![Value::from_iter([("n".to_string(), Value::from(1))])])
+    }
+
+    #[test]
+    fn format_defaults_to_auto() {
+        assert_eq!(Cli::parse_from(["dirsql", "SELECT 1"]).format, Format::Auto);
+    }
+
+    #[test]
+    fn format_parses_for_the_repl_and_the_default_query() {
+        assert_eq!(
+            Cli::parse_from(["dirsql", "--format", "table"]).format,
+            Format::Table
+        );
+        assert_eq!(
+            Cli::parse_from(["dirsql", "SELECT 1", "--format", "json"]).format,
+            Format::Json
+        );
+    }
+
+    #[test]
+    fn format_parses_after_the_query_subcommand() {
+        match Cli::parse_from(["dirsql", "query", "SELECT 1", "--format", "table"]).command {
+            Some(Command::Query(args)) => assert_eq!(args.format, Format::Table),
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_server_takes_no_format_flag() {
+        // Its transport is JSON over HTTP; a rendering flag there would be a
+        // promise the transport cannot keep.
+        assert!(Cli::try_parse_from(["dirsql", "server", "--format", "table"]).is_err());
+    }
+
+    #[test]
+    fn an_unknown_format_is_rejected_rather_than_falling_back() {
+        // Silently defaulting would hide a typo until someone read the output.
+        assert!(Cli::try_parse_from(["dirsql", "SELECT 1", "--format", "yaml"]).is_err());
+    }
+
+    #[test]
+    fn auto_becomes_a_table_at_a_terminal() {
+        assert_eq!(Format::Auto.resolve(true), Format::Table);
+    }
+
+    #[test]
+    fn auto_becomes_json_anywhere_else() {
+        assert_eq!(Format::Auto.resolve(false), Format::Json);
+    }
+
+    #[test]
+    fn an_explicit_format_ignores_the_destination() {
+        // The point of the flag: a table into a pipe, JSON at a terminal.
+        assert_eq!(Format::Table.resolve(false), Format::Table);
+        assert_eq!(Format::Json.resolve(true), Format::Json);
+    }
+
+    #[test]
+    fn json_rendering_is_the_value_and_a_newline() {
+        // Byte-identical to what the one-shot query printed before `--format`
+        // existed, which is the regression that matters most.
+        assert_eq!(render_rows(&one_row(), Format::Json), "[{\"n\":1}]\n");
+    }
+
+    #[test]
+    fn table_rendering_takes_the_other_route() {
+        let rendered = render_rows(&one_row(), Format::Table);
+
+        assert!(rendered.contains("1 row"), "{rendered:?}");
+        assert!(!rendered.contains('{'), "no JSON in a table, {rendered:?}");
+    }
+
+    #[test]
+    fn a_result_that_is_not_an_array_renders_as_an_empty_table() {
+        // The pipeline only ever returns an array; rendering must still not
+        // panic if that ever stops being true.
+        assert_eq!(render_rows(&Value::Null, Format::Table), "(no rows)\n");
+    }
+
+    #[test]
+    fn server_subcommand_parses_host_and_port() {
+        // #662: the server moved behind `dirsql server`; `--host`/`--port` are
+        // now server-local flags.
+        match Cli::parse_from(["dirsql", "server", "--host", "0.0.0.0", "--port", "9000"]).command {
+            Some(Command::Server(args)) => {
+                assert_eq!(args.host, "0.0.0.0");
+                assert_eq!(args.port, 9000);
+            }
+            other => panic!("expected a server subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn frontend_url_uses_a_reachable_and_valid_host() {
+        assert_eq!(frontend_url("localhost", 7117), "http://localhost:7117/");
+        assert_eq!(frontend_url("0.0.0.0", 7117), "http://localhost:7117/");
+        assert_eq!(frontend_url("::", 7117), "http://[::1]:7117/");
+        assert_eq!(frontend_url("[::]", 7117), "http://[::1]:7117/");
+        assert_eq!(frontend_url("::1", 7117), "http://[::1]:7117/");
+        assert_eq!(frontend_url("[::1]", 7117), "http://[::1]:7117/");
+    }
+
+    fn server_args(argv: &[&str]) -> ServerArgs {
+        match Cli::parse_from(argv).command {
+            Some(Command::Server(args)) => args,
+            other => panic!("expected a server subcommand, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn run_server_exits_zero_after_a_clean_shutdown() {
+        let args = server_args(&[
+            "dirsql",
+            "server",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "0",
+            "-c",
+            "/nonexistent/.dirsql.toml",
+        ]);
+        assert_eq!(run_server(args, std::future::ready(Ok(()))).await, 0);
+    }
+
+    #[tokio::test]
+    async fn run_server_exits_one_when_the_bind_fails() {
+        let args = server_args(&[
+            "dirsql",
+            "server",
+            "--host",
+            "192.0.2.1",
+            "--port",
+            "9",
+            "-c",
+            "/nonexistent/.dirsql.toml",
+        ]);
+        assert_eq!(run_server(args, std::future::pending()).await, 1);
+    }
+
+    #[test]
+    fn server_subcommand_parses_a_cors_origin() {
+        match Cli::parse_from(["dirsql", "server", "--cors-origin", "http://localhost:3202"])
+            .command
+        {
+            Some(Command::Server(args)) => assert_eq!(
+                args.cors_origin,
+                Some(HeaderValue::from_static("http://localhost:3202"))
+            ),
+            other => panic!("expected a server subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn server_subcommand_rejects_a_cors_origin_that_is_not_a_header_value() {
+        assert!(Cli::try_parse_from(["dirsql", "server", "--cors-origin", "a\nb"]).is_err());
+    }
+
+    #[test]
+    fn server_subcommand_defaults_host_and_port() {
+        match Cli::parse_from(["dirsql", "server"]).command {
+            Some(Command::Server(args)) => {
+                assert_eq!(args.host, "localhost");
+                assert_eq!(args.port, 7117);
+                assert_eq!(args.cors_origin, None);
+            }
+            other => panic!("expected a server subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn server_subcommand_carries_config_flags() {
+        // Config flags are subcommand-local: `dirsql server -c a -c b`.
+        match Cli::parse_from(["dirsql", "server", "-c", "a.toml", "-c", "b.toml"]).command {
+            Some(Command::Server(args)) => assert_eq!(
+                args.common.config,
+                vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
+            ),
+            other => panic!("expected a server subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn host_and_port_are_not_top_level_flags() {
+        // #662: `--host`/`--port` moved under `server`; at the top level they
+        // are unknown flags now.
+        assert!(Cli::try_parse_from(["dirsql", "--host", "0.0.0.0"]).is_err());
+        assert!(Cli::try_parse_from(["dirsql", "--port", "9000"]).is_err());
+    }
+
+    #[test]
+    fn config_flags_parse_after_the_query_subcommand() {
+        // #609: config flags are subcommand-local. `dirsql query <sql> -c a -c b`
+        // accumulates both on the Query variant, in argv order.
+        assert_eq!(
+            query_common(&[
+                "dirsql", "query", "SELECT 1", "-c", "a.toml", "-c", "b.toml"
+            ])
+            .config,
+            vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
+        );
+    }
+
+    #[test]
+    fn config_flag_before_a_subcommand_is_a_hard_error() {
+        // #609: a `-c` BEFORE the subcommand conflicts with it (never silently
+        // dropped or straddled). `args_conflicts_with_subcommands` rejects it.
+        let result = Cli::try_parse_from(["dirsql", "-c", "a.toml", "query", "SELECT 1"]);
+        assert!(
+            result.is_err(),
+            "a config flag before the subcommand must be rejected, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn persist_flag_absent_is_none() {
+        let cli = Cli::parse_from(["dirsql"]);
+        assert_eq!(cli.common.persist, None);
+    }
+
+    #[test]
+    fn persist_flag_bare_enables_default_location() {
+        // Bare `--persist` (no value) → `Some(None)`: persist at the default
+        // platform cache dir, no override path.
+        let cli = Cli::parse_from(["dirsql", "--persist"]);
+        assert_eq!(cli.common.persist, Some(None));
+    }
+
+    #[test]
+    fn persist_flag_with_path_carries_the_value() {
+        let cli = Cli::parse_from(["dirsql", "--persist", "/var/cache/x.db"]);
+        assert_eq!(
+            cli.common.persist,
+            Some(Some(PathBuf::from("/var/cache/x.db")))
+        );
+    }
+
+    #[test]
+    fn no_ignore_flag_defaults_false() {
+        let cli = Cli::parse_from(["dirsql"]);
+        assert!(!cli.common.no_ignore);
+    }
+
+    #[test]
+    fn no_ignore_flag_sets_true_in_the_default_query_mode() {
+        let cli = Cli::parse_from(["dirsql", "SELECT 1", "--no-ignore"]);
+        assert!(cli.common.no_ignore);
+    }
+
+    #[test]
+    fn no_ignore_flag_parses_after_the_query_subcommand() {
+        assert!(query_common(&["dirsql", "query", "SELECT 1", "--no-ignore"]).no_ignore);
+    }
+
+    #[test]
+    fn persist_flag_parses_after_the_query_subcommand() {
+        // Subcommand-local (#609); the flag sits after the positional SQL to
+        // avoid the num_args(0..=1) greedy grab.
+        assert_eq!(
+            query_common(&["dirsql", "query", "SELECT 1", "--persist"]).persist,
+            Some(None)
+        );
+    }
+
+    /// The `on_file` occurrences parsed from a `query` invocation.
+    fn query_on_file(argv: &[&str]) -> Vec<String> {
+        match Cli::parse_from(argv).command {
+            Some(Command::Query(args)) => args.on_file,
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn on_file_absent_leaves_no_occurrences() {
+        assert!(query_on_file(&["dirsql", "query", "SELECT 1"]).is_empty());
+    }
+
+    #[test]
+    fn on_file_parses_after_the_query_subcommand() {
+        assert_eq!(
+            query_on_file(&["dirsql", "query", "SELECT 1", "--on-file", "cat"]),
+            vec!["cat".to_string()]
+        );
+    }
+
+    #[test]
+    fn on_file_collects_every_repeat_for_the_arity_check() {
+        // clap collects repeats; `resolve_on_file` turns >1 into the pointed
+        // error rather than clap's generic "cannot be used multiple times".
+        assert_eq!(
+            query_on_file(&[
+                "dirsql",
+                "query",
+                "SELECT 1",
+                "--on-file",
+                "a",
+                "--on-file",
+                "b"
+            ]),
+            vec!["a".to_string(), "b".to_string()]
+        );
+    }
+
+    #[test]
+    fn on_file_is_rejected_before_a_query_subcommand() {
+        // Like the other subcommand-local flags, `--on-file` ahead of the
+        // subcommand is not a server flag: clap rejects it.
+        assert!(Cli::try_parse_from(["dirsql", "--on-file", "cat", "query", "SELECT 1"]).is_err());
+    }
+
+    #[test]
+    fn resolve_on_file_is_none_without_the_flag() {
+        assert_eq!(resolve_on_file(&[]), Ok(None));
+    }
+
+    #[test]
+    fn resolve_on_file_returns_the_single_command() {
+        assert_eq!(
+            resolve_on_file(&["cat".to_string()]),
+            Ok(Some("cat".to_string()))
+        );
+    }
+
+    #[test]
+    fn resolve_on_file_rejects_a_blank_command() {
+        let err = resolve_on_file(&["   ".to_string()]).unwrap_err();
+        assert!(err.contains("non-empty"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_on_file_rejects_a_repeat_and_points_at_config_files() {
+        let err = resolve_on_file(&["a".to_string(), "b".to_string()]).unwrap_err();
+        assert!(err.contains("at most once"), "got: {err}");
+        assert!(
+            err.contains("config file"),
+            "the error must point at config files, got: {err}"
+        );
+    }
+
+    #[test]
+    fn configless_state_still_carries_extension_specs() {
+        // `--extension` with no `-c` took the configless path, which never
+        // applied the specs: the flag was silently ignored and a bad path
+        // exited 0 (#772). Parsing is the seam a unit test can reach; the
+        // load itself needs a real SQLite handle and is covered at the
+        // integration tier.
+        let cfg = ConfigArgs {
+            config: Vec::new(),
+            extension: vec!["/ext/vec0.so::sqlite3_vec_init".to_string()],
+            persist: None,
+            no_ignore: false,
+        };
+        assert!(cfg.config.is_empty(), "this is the configless shape");
+        assert!(
+            !cfg.extension.is_empty(),
+            "and it still carries an extension"
+        );
+        let specs = parse_extension_specs(&cfg.extension);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].path, PathBuf::from("/ext/vec0.so"));
+        assert_eq!(specs[0].entrypoint.as_deref(), Some("sqlite3_vec_init"));
+    }
+
+    #[test]
+    fn parse_extension_specs_handles_bare_path_and_entrypoint() {
+        let specs = vec![
+            "/abs/vec0.so".to_string(),
+            "/abs/spellfix.so::sqlite3_spellfix_init".to_string(),
+        ];
+        let exts = parse_extension_specs(&specs);
+        assert_eq!(exts.len(), 2);
+        assert_eq!(exts[0].path, PathBuf::from("/abs/vec0.so"));
+        assert!(exts[0].entrypoint.is_none());
+        assert_eq!(exts[1].path, PathBuf::from("/abs/spellfix.so"));
+        assert_eq!(exts[1].entrypoint.as_deref(), Some("sqlite3_spellfix_init"));
+    }
+
+    #[test]
+    fn parse_extension_specs_splits_on_first_double_colon() {
+        let specs = vec!["/a.so::init::extra".to_string()];
+        let exts = parse_extension_specs(&specs);
+        assert_eq!(exts[0].path, PathBuf::from("/a.so"));
+        assert_eq!(exts[0].entrypoint.as_deref(), Some("init::extra"));
+    }
+
+    #[test]
+    fn run_cli_returns_zero_for_version_instead_of_exiting() {
+        // The contract this slice exists to establish: clap's own `parse()`
+        // calls `std::process::exit`, which would take an embedding host down
+        // with it. If someone reinstates it, this test kills the test runner
+        // rather than failing politely -- which is the point.
+        assert_eq!(run_cli(vec!["dirsql".into(), "--version".into()]), 0);
+    }
+
+    #[test]
+    fn run_cli_returns_zero_for_help() {
+        assert_eq!(run_cli(vec!["dirsql".into(), "--help".into()]), 0);
+    }
+
+    #[test]
+    fn context_parses_as_its_own_subcommand_not_as_sql() {
+        let cli = Cli::try_parse_from(["dirsql", "context"]).unwrap();
+        assert!(matches!(cli.command, Some(Command::Context)));
+        assert!(cli.sql.is_none());
+    }
+
+    #[test]
+    fn context_takes_no_flags() {
+        assert!(Cli::try_parse_from(["dirsql", "context", "--format", "json"]).is_err());
+    }
+
+    #[test]
+    fn run_cli_returns_zero_for_context() {
+        assert_eq!(run_cli(vec!["dirsql".into(), "context".into()]), 0);
+    }
+
+    #[test]
+    fn run_cli_returns_clap_usage_code_for_an_unknown_flag() {
+        assert_eq!(run_cli(vec!["dirsql".into(), "--nope".into()]), 2);
+    }
+
+    #[test]
+    fn run_cli_returns_a_usage_code_for_a_config_flag_before_a_subcommand() {
+        // `args_conflicts_with_subcommands` makes misplacement a hard error
+        // rather than a silently dropped flag (#609); it must surface as a
+        // returned code like any other usage error.
+        let code = run_cli(vec![
+            "dirsql".into(),
+            "-c".into(),
+            "cfg.toml".into(),
+            "query".into(),
+            "SELECT 1".into(),
+        ]);
+        assert_eq!(code, 2);
+    }
+}

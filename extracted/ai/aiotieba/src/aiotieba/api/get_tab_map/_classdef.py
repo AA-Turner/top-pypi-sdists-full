@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+import dataclasses as dcs
+from typing import TYPE_CHECKING, Self
+
+from ...exception import TbErrorExt
+
+if TYPE_CHECKING:
+    from .._classdef import TypeMessage
+
+
+@dcs.dataclass
+class TabMap(TbErrorExt):
+    """
+    分区名到分区id的映射
+
+    Attributes:
+        err (Exception | None): 捕获的异常
+
+        map (dict[str, int]): 分区名到分区id的映射
+    """
+
+    map: dict[str, int] = dcs.field(default_factory=dict)
+
+    @classmethod
+    def from_proto(cls, data_proto: TypeMessage) -> Self:
+        map_ = {tab_proto.tab_name: tab_proto.tab_id for tab_proto in data_proto.exact_match.tab_info}
+        return cls(map_)
+
+    def __getitem__(self, key: str) -> int:
+        return self.map[key]

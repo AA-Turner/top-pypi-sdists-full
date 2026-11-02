@@ -6,8 +6,6 @@
 // :Copyright: © 2015-2026 Lele Gaifax
 //
 
-#include <locale.h>
-
 #include <Python.h>
 #include <datetime.h>
 #include <structmember.h>
@@ -113,7 +111,7 @@ datetime_mode_format(unsigned mode) {
 
 
 static inline bool
-valid_datetime_mode(int mode) {
+valid_datetime_mode(long mode) {
     int format = datetime_mode_format(mode);
     return (mode >= 0 && mode < DM_MAX
             && (format <= DM_UNIX_TIME)
@@ -274,6 +272,10 @@ public:
 
     size_t Tell() const {
         return offset + pos;
+    }
+
+    bool IsEnd() const {
+        return eof;
     }
 
     void Flush() {
@@ -1769,35 +1771,19 @@ load(PyObject* self, PyObject* args, PyObject* kwargs)
         }
     }
 
-    if (numberModeObj) {
-        if (numberModeObj == Py_None) {
-            numberMode = NM_NONE;
-        } else if (PyLong_Check(numberModeObj)) {
-            int mode = PyLong_AsLong(numberModeObj);
-            if (mode < 0 || mode >= NM_MAX) {
-                PyErr_SetString(PyExc_ValueError, "Invalid number_mode");
-                return NULL;
-            }
-            numberMode = (unsigned) mode;
-            if (numberMode & NM_DECIMAL && numberMode & NM_NATIVE) {
-                PyErr_SetString(PyExc_ValueError,
-                                "Combining NM_NATIVE with NM_DECIMAL is not supported");
-                return NULL;
-            }
-        }
-    }
-    if (allowNan != -1) {
-        if (allowNan)
-            numberMode |= NM_NAN;
-        else
-            numberMode &= ~NM_NAN;
+    if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
+        return NULL;
+    if (numberMode & NM_DECIMAL && numberMode & NM_NATIVE) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Combining NM_NATIVE with NM_DECIMAL is not supported");
+        return NULL;
     }
 
     if (datetimeModeObj) {
         if (datetimeModeObj == Py_None) {
             datetimeMode = DM_NONE;
         } else if (PyLong_Check(datetimeModeObj)) {
-            int mode = PyLong_AsLong(datetimeModeObj);
+            long mode = PyLong_AsLong(datetimeModeObj);
             if (!valid_datetime_mode(mode)) {
                 PyErr_SetString(PyExc_ValueError, "Invalid datetime_mode");
                 return NULL;
@@ -1820,7 +1806,7 @@ load(PyObject* self, PyObject* args, PyObject* kwargs)
         if (uuidModeObj == Py_None) {
             uuidMode = UM_NONE;
         } else if (PyLong_Check(uuidModeObj)) {
-            int mode = PyLong_AsLong(uuidModeObj);
+            long mode = PyLong_AsLong(uuidModeObj);
             if (mode < 0 || mode >= UM_MAX) {
                 PyErr_SetString(PyExc_ValueError, "Invalid uuid_mode");
                 return NULL;
@@ -1837,7 +1823,7 @@ load(PyObject* self, PyObject* args, PyObject* kwargs)
         if (parseModeObj == Py_None) {
             parseMode = PM_NONE;
         } else if (PyLong_Check(parseModeObj)) {
-            int mode = PyLong_AsLong(parseModeObj);
+            long mode = PyLong_AsLong(parseModeObj);
             if (mode < 0 || mode >= PM_MAX) {
                 PyErr_SetString(PyExc_ValueError, "Invalid parse_mode");
                 return NULL;
@@ -2029,12 +2015,17 @@ static PyTypeObject Decoder_Type = {
             if (parseMode & PM_COMMENTS) {                              \
                 r.Parse<f |                                             \
                         kParseCommentsFlag |                            \
-                        kParseNumbersAsStringsFlag>(s, h);              \
+                        kParseNumbersAsStringsFlag |                    \
+                        kParseTrailingCommasFlag>(s, h);                \
             } else {                                                    \
                 r.Parse<f |                                             \
                         kParseNumbersAsStringsFlag |                    \
                         kParseTrailingCommasFlag>(s, h);                \
             }                                                           \
+        } else if (parseMode & PM_COMMENTS) {                           \
+            r.Parse<f |                                                 \
+                    kParseNumbersAsStringsFlag |                        \
+                    kParseCommentsFlag>(s, h);                          \
         } else {                                                        \
             r.Parse<f | kParseNumbersAsStringsFlag>(s, h);              \
         }                                                               \
@@ -2049,6 +2040,7 @@ do_decode(PyObject* decoder, const char* jsonStr, Py_ssize_t jsonStrLen,
 {
     PyHandler handler(decoder, objectHook, datetimeMode, uuidMode, numberMode);
     Reader reader;
+    ParseResult result;
 
     if (jsonStr != NULL) {
         char* jsonStrCopy = (char*) PyMem_Malloc(sizeof(char) * (jsonStrLen+1));
@@ -2062,15 +2054,23 @@ do_decode(PyObject* decoder, const char* jsonStr, Py_ssize_t jsonStrLen,
 
         DECODE(reader, kParseInsituFlag, ss, handler);
 
+        result.Set(reader.GetParseErrorCode(), reader.GetErrorOffset());
+        if (!result.IsError() && ss.Tell() < (size_t) jsonStrLen)
+            result.Set(kParseErrorDocumentRootNotSingular, ss.Tell());
+
         PyMem_Free(jsonStrCopy);
     } else {
         PyReadStreamWrapper sw(jsonStream, chunkSize);
 
         DECODE(reader, kParseNoFlags, sw, handler);
+
+        result.Set(reader.GetParseErrorCode(), reader.GetErrorOffset());
+        if (!result.IsError() && !sw.IsEnd())
+            result.Set(kParseErrorDocumentRootNotSingular, sw.Tell());
     }
 
-    if (reader.HasParseError()) {
-        size_t offset = reader.GetErrorOffset();
+    if (result.IsError()) {
+        size_t offset = result.Offset();
 
         if (PyErr_Occurred()) {
             PyObject* etype;
@@ -2092,7 +2092,7 @@ do_decode(PyObject* decoder, const char* jsonStr, Py_ssize_t jsonStrLen,
         }
         else
             PyErr_Format(decode_error, "Parse error at offset %zu: %s",
-                         offset, GetParseError_En(reader.GetParseErrorCode()));
+                         offset, GetParseError_En(result.Code()));
 
         Py_XDECREF(handler.root);
         return NULL;
@@ -2209,29 +2209,19 @@ decoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
                                      &parseModeObj))
         return NULL;
 
-    if (numberModeObj) {
-        if (numberModeObj == Py_None) {
-            numberMode = NM_NONE;
-        } else if (PyLong_Check(numberModeObj)) {
-            int mode = PyLong_AsLong(numberModeObj);
-            if (mode < 0 || mode >= NM_MAX) {
-                PyErr_SetString(PyExc_ValueError, "Invalid number_mode");
-                return NULL;
-            }
-            numberMode = (unsigned) mode;
-            if (numberMode & NM_DECIMAL && numberMode & NM_NATIVE) {
-                PyErr_SetString(PyExc_ValueError,
-                                "Combining NM_NATIVE with NM_DECIMAL is not supported");
-                return NULL;
-            }
-        }
+    if (!accept_number_mode_arg(numberModeObj, -1, numberMode))
+        return NULL;
+    if (numberMode & NM_DECIMAL && numberMode & NM_NATIVE) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Combining NM_NATIVE with NM_DECIMAL is not supported");
+        return NULL;
     }
 
     if (datetimeModeObj) {
         if (datetimeModeObj == Py_None) {
             datetimeMode = DM_NONE;
         } else if (PyLong_Check(datetimeModeObj)) {
-            int mode = PyLong_AsLong(datetimeModeObj);
+            long mode = PyLong_AsLong(datetimeModeObj);
             if (!valid_datetime_mode(mode)) {
                 PyErr_SetString(PyExc_ValueError, "Invalid datetime_mode");
                 return NULL;
@@ -2254,7 +2244,7 @@ decoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
         if (uuidModeObj == Py_None) {
             uuidMode = UM_NONE;
         } else if (PyLong_Check(uuidModeObj)) {
-            int mode = PyLong_AsLong(uuidModeObj);
+            long mode = PyLong_AsLong(uuidModeObj);
             if (mode < 0 || mode >= UM_MAX) {
                 PyErr_SetString(PyExc_ValueError, "Invalid uuid_mode");
                 return NULL;
@@ -2271,7 +2261,7 @@ decoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
         if (parseModeObj == Py_None) {
             parseMode = PM_NONE;
         } else if (PyLong_Check(parseModeObj)) {
-            int mode = PyLong_AsLong(parseModeObj);
+            long mode = PyLong_AsLong(parseModeObj);
             if (mode < 0 || mode >= PM_MAX) {
                 PyErr_SetString(PyExc_ValueError, "Invalid parse_mode");
                 return NULL;
@@ -2392,6 +2382,19 @@ dumps_internal(
                 PyErr_SetString(PyExc_ValueError,
                                 "Out of range decimal values are not JSON compliant");
                 return false;
+            }
+        }
+
+        if (numberMode & NM_NAN) {
+            PyObject* is_nan = PyObject_CallMethodObjArgs(object, is_nan_name,
+                                                          NULL);
+            if (is_nan == NULL)
+                return false;
+            bool nan = is_nan == Py_True;
+            Py_DECREF(is_nan);
+            if (nan) {
+                writer->RawValue("NaN", 3, kNumberType);
+                return PyErr_Occurred() ? false : true;
             }
         }
 
@@ -2813,30 +2816,18 @@ dumps_internal(
                 if (datetimeMode & DM_ONLY_SECONDS) {
                     writer->Int64((int64_t) timestamp);
                 } else {
-                    // Writer.SetMaxDecimalPlaces(6) truncates the value,
-                    // so for example 1514893636.276703 would come out as
-                    // 1514893636.276702, because its exact double value is
-                    // 1514893636.2767028808593750000000000...
-                    char tsStr[12 + 1 + 6 + 1];
-
-                    // Temporarily switch to a POSIX locale, in case the outer world is
-                    // configured differently: by chance I got one doctest failure, and I
-                    // can only imagine that recent Sphinx (that is, 4.2+) initializes the
-                    // locale to something that implies a decimal separator different from
-                    // a dot ".", say a comma "," when LANG is "it_IT"... not the best
-                    // thing to do when emitting JSON!
-
-                    const char* locale = setlocale(LC_NUMERIC, NULL);
-                    setlocale(LC_NUMERIC, "C");
-
-                    int size = snprintf(tsStr, 12 + 1 + 6, "%.6f", timestamp);
-
-                    setlocale(LC_NUMERIC, locale);
-
-                    // Remove trailing 0s
+                    // Keep microsecond precision without changing the process locale.
+                    char* tsStr = PyOS_double_to_string(timestamp, 'f', 6, 0, NULL);
+                    if (tsStr == NULL) {
+                        Py_XDECREF(asUTC);
+                        return false;
+                    }
+                    size_t size = strlen(tsStr);
+                    // Keep one fractional digit, as before.
                     while (tsStr[size-2] != '.' && tsStr[size-1] == '0')
                         size--;
                     writer->RawValue(tsStr, size, kNumberType);
+                    PyMem_Free(tsStr);
                 }
             } else {
                 hour = PyDateTime_TIME_GET_HOUR(dtObject);
@@ -2900,25 +2891,16 @@ dumps_internal(
             if (datetimeMode & DM_ONLY_SECONDS) {
                 writer->Int64((int64_t) timestamp);
             } else {
-                // Writer.SetMaxDecimalPlaces(6) truncates the value,
-                // so for example 1514893636.276703 would come out as
-                // 1514893636.276702, because its exact double value is
-                // 1514893636.2767028808593750000000000...
-                char tsStr[12 + 1 + 6 + 1];
-
-                // Temporarily switch to a POSIX locale, in case the outer
-                // world is configured differently, see above
-
-                const char* locale = setlocale(LC_NUMERIC, NULL);
-                setlocale(LC_NUMERIC, "C");
-
-                setlocale(LC_NUMERIC, locale);
-
-                int size = snprintf(tsStr, 12 + 1 + 6, "%.6f", timestamp);
-                // Remove trailing 0s
+                // Keep microsecond precision without changing the process locale.
+                char* tsStr = PyOS_double_to_string(timestamp, 'f', 6, 0, NULL);
+                if (tsStr == NULL)
+                    return false;
+                size_t size = strlen(tsStr);
+                // Keep one fractional digit, as before.
                 while (tsStr[size-2] != '.' && tsStr[size-1] == '0')
                     size--;
                 writer->RawValue(tsStr, size, kNumberType);
+                PyMem_Free(tsStr);
             }
         }
     } else if (uuidMode != UM_NONE
@@ -3724,17 +3706,18 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
         return NULL;
 
     const char* jsonStr;
+    Py_ssize_t jsonStrLen;
     PyObject* asUnicode = NULL;
 
     if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8(jsonObject);
+        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
         if (jsonStr == NULL)
             return NULL;
     } else if (PyBytes_Check(jsonObject) || PyByteArray_Check(jsonObject)) {
         asUnicode = PyUnicode_FromEncodedObject(jsonObject, "utf-8", NULL);
         if (asUnicode == NULL)
             return NULL;
-        jsonStr = PyUnicode_AsUTF8(asUnicode);
+        jsonStr = PyUnicode_AsUTF8AndSize(asUnicode, &jsonStrLen);
         if (jsonStr == NULL) {
             Py_DECREF(asUnicode);
             return NULL;
@@ -3749,7 +3732,8 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     bool error;
 
     Py_BEGIN_ALLOW_THREADS
-    error = d.Parse(jsonStr).HasParseError();
+    StringStream stream(jsonStr);
+    error = d.ParseStream(stream).HasParseError() || stream.Tell() < (size_t) jsonStrLen;
     Py_END_ALLOW_THREADS
 
     if (error) {
@@ -3811,17 +3795,18 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         return NULL;
 
     const char* jsonStr;
+    Py_ssize_t jsonStrLen;
     PyObject* asUnicode = NULL;
 
     if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8(jsonObject);
+        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
         if (jsonStr == NULL)
             return NULL;
     } else if (PyBytes_Check(jsonObject) || PyByteArray_Check(jsonObject)) {
         asUnicode = PyUnicode_FromEncodedObject(jsonObject, "utf-8", NULL);
         if (asUnicode == NULL)
             return NULL;
-        jsonStr = PyUnicode_AsUTF8(asUnicode);
+        jsonStr = PyUnicode_AsUTF8AndSize(asUnicode, &jsonStrLen);
         if (jsonStr == NULL) {
             Py_DECREF(asUnicode);
             return NULL;
@@ -3836,7 +3821,8 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     bool error;
 
     Py_BEGIN_ALLOW_THREADS
-    error = d.Parse(jsonStr).HasParseError();
+    StringStream stream(jsonStr);
+    error = d.ParseStream(stream).HasParseError() || stream.Tell() < (size_t) jsonStrLen;
     Py_END_ALLOW_THREADS
 
     if (asUnicode != NULL)

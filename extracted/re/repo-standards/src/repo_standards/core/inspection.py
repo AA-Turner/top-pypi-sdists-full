@@ -1,0 +1,1299 @@
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass, replace
+from functools import lru_cache
+import hashlib
+from io import BytesIO
+import json
+from operator import attrgetter
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess  # ruff: ignore[suspicious-subprocess-import] - fixed Git metadata query only
+import tempfile
+import threading
+import tomllib
+from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
+
+from pydantic import BaseModel, ConfigDict, Field
+import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
+
+from repo_standards._git_environment import GIT_ENVIRONMENT
+
+from ._json import parse_json_object
+from .canonical import canonical_path
+from .errors import ConfigurationError, ManifestAbsentError
+from .images import validate_image_artifacts
+from .javascript import validate_javascript_artifacts
+from .models import (
+    GitObjectId,
+    InputProvenance,
+    InventoryKind,
+    InventoryUnit,
+    Manifest,
+    PackageEvidence,
+    PullRequestTemplate,
+    RepositoryInspection,
+    RepositorySnapshot,
+    TrackedFileEvidence,
+    WorkspaceEvidence,
+)
+from .parser import parse_baseline_bytes, parse_manifest_bytes
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+
+_MAX_FILES = 100_000
+_MAX_TREE_OUTPUT_BYTES = 33_554_432
+_MAX_PATH_BYTES = 4_096
+_MAX_TOTAL_PATH_BYTES = 16_777_216
+_MAX_METADATA_BYTES = 1_048_576
+_MAX_METADATA_FILES = 1_000
+_MAX_TOTAL_METADATA_BYTES = 67_108_864
+_MAX_SELECTED_BLOB_BYTES = 5_242_880
+_MAX_TOTAL_SELECTED_BLOB_BYTES = 20_971_520
+_MAX_SELECTED_BLOBS = 100
+_UNBORN_REVISION = "0" * 40
+_PULL_REQUEST_TEMPLATE = re.compile(
+    r"(?:\.github/|docs/)?(?i:pull_request_template)(?:\.(?i:md|txt))?\Z"
+)
+_GIT_TREE_FIELD_COUNT = 3
+_GIT_INDEX_FIELD_COUNT = 3
+_ASCII_CONTROL_LIMIT = 32
+_OWNERSHIP_LOCK_NAMES = frozenset(
+    {
+        "Pipfile.lock",
+        "bun.lock",
+        "bun.lockb",
+        "npm-shrinkwrap.json",
+        "package-lock.json",
+        "pdm.lock",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "uv.lock",
+        "yarn.lock",
+    }
+)
+_NPM_ENTRYPOINTS = frozenset(
+    {
+        "index.cjs",
+        "index.js",
+        "index.mjs",
+        "index.ts",
+        "src/index.cjs",
+        "src/index.js",
+        "src/index.mjs",
+        "src/index.ts",
+    }
+)
+_PYTHON_ENTRYPOINTS = frozenset({"__main__.py", "app.py", "cli.py", "main.py", "server.py"})
+
+
+ProjectCoordinate = PackageEvidence
+
+
+@dataclass(frozen=True, slots=True)
+class GitIdentity:
+    source_revision: str
+    tree_digest: str
+    mode: Literal["git-tree", "git-index"] = "git-tree"
+
+
+@dataclass(frozen=True, slots=True)
+class TrackedBlob:
+    path: str
+    object_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class TrackedBlobContent:
+    path: str
+    object_id: str
+    content: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class _MetadataEvidence:
+    packages: tuple[PackageEvidence, ...]
+    workspaces: tuple[WorkspaceEvidence, ...]
+    issues: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _ClassifiedBlobs:
+    workflows: tuple[TrackedBlob, ...]
+    cloudbuild: tuple[TrackedBlob, ...]
+    dockerfiles: tuple[TrackedBlob, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _IndexRecord:
+    mode: str
+    blob: TrackedBlob
+    encoded_path_size: int
+
+
+class _TreeRecord(NamedTuple):
+    blob: TrackedBlob
+    encoded_path_size: int
+
+
+class _IndexedFiles(NamedTuple):
+    blobs: tuple[TrackedBlob, ...]
+    digest: str
+
+
+class _MetadataBatch(NamedTuple):
+    contents: dict[str, bytes]
+    issues: list[str]
+
+
+class _NpmWorkspaces(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow", strict=True)
+
+    packages: list[object] | None = None
+
+
+class _NpmPackage(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow", strict=True)
+
+    name: str | None = None
+    private: bool | None = None
+    workspaces: list[object] | _NpmWorkspaces | None = None
+
+
+class _PnpmWorkspace(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow", strict=True)
+
+    packages: list[str] = Field(default_factory=list)
+
+
+def read_tracked_blob_contents(
+    root: Path,
+    paths: tuple[str, ...],
+    *,
+    identity: GitIdentity | None = None,
+) -> tuple[TrackedBlobContent, ...]:
+    resolved = root.resolve(strict=True)
+    if not resolved.is_dir():
+        ConfigurationError.fail("repository root must be a directory")
+    if identity is None:
+        identity = git_identity(resolved)
+    if len(paths) > _MAX_SELECTED_BLOBS:
+        ConfigurationError.fail("selected blob count exceeds the 100-file safety limit")
+    canonical = tuple(canonical_path(path) for path in paths)
+    if canonical != paths or len(canonical) != len(set(canonical)):
+        ConfigurationError.fail("selected blob paths must be unique and canonical")
+    by_path = {blob.path: blob for blob in _blobs_for_identity(resolved, identity)}
+    try:
+        selected = tuple(by_path[path] for path in canonical)
+    except KeyError:
+        ConfigurationError.fail("a selected path is absent from the exact Git tree")
+    contents = _read_bounded_blob_batch(
+        resolved,
+        selected,
+        max_file_bytes=_MAX_SELECTED_BLOB_BYTES,
+        max_total_bytes=_MAX_TOTAL_SELECTED_BLOB_BYTES,
+    )
+    return tuple(
+        TrackedBlobContent(blob.path, blob.object_id, _required_content(contents, blob))
+        for blob in selected
+    )
+
+
+def inspect_repository(root: Path, *, identity: GitIdentity | None = None) -> RepositoryInspection:
+    resolved = root.resolve(strict=True)
+    if not resolved.is_dir():
+        ConfigurationError.fail("repository root must be a directory")
+    if identity is None:
+        identity = git_identity(resolved)
+    blobs = _blobs_for_identity(resolved, identity)
+    return _inspection_from_blobs(resolved, identity, blobs)
+
+
+def load_repository_snapshot(
+    root: Path,
+    *,
+    manifest_path: str = ".repo-standards/repository.toml",
+    baseline_path: str | None = None,
+    identity: GitIdentity | None = None,
+) -> RepositorySnapshot:
+    resolved = root.resolve(strict=True)
+    if not resolved.is_dir():
+        ConfigurationError.fail("repository root must be a directory")
+    if identity is None:
+        identity = git_identity(resolved)
+    blobs = _blobs_for_identity(resolved, identity)
+    by_path = {blob.path: blob for blob in blobs}
+    canonical_manifest = canonical_path(manifest_path)
+    manifest_blob = by_path.get(canonical_manifest)
+    if manifest_blob is None:
+        ManifestAbsentError.fail("manifest is absent from the selected Git tree")
+    selected = [manifest_blob]
+    canonical_baseline: str | None = None
+    baseline_blob: TrackedBlob | None = None
+    if baseline_path is not None:
+        canonical_baseline = canonical_path(baseline_path)
+        baseline_blob = by_path.get(canonical_baseline)
+        if baseline_blob is None:
+            ConfigurationError.fail("baseline is absent from the selected Git tree")
+        selected.append(baseline_blob)
+    contents, issues = _read_metadata_batch(resolved, tuple(selected))
+    if issues:
+        ConfigurationError.fail("selected policy input exceeds the per-file safety limit")
+    manifest_content = _required_content(contents, manifest_blob)
+    baseline_content = (
+        _required_content(contents, baseline_blob) if baseline_blob is not None else None
+    )
+    manifest = parse_manifest_bytes(manifest_content)
+    _validate_documentation_entrypoints(manifest, by_path)
+    validate_javascript_artifacts(manifest.javascript_artifacts, frozenset(by_path))
+    validate_image_artifacts(manifest.image_artifacts, frozenset(by_path))
+    inspection = _inspection_from_blobs(resolved, identity, blobs)
+    if inspection.completion != "complete":
+        ConfigurationError.fail("repository inspection is incomplete")
+    return RepositorySnapshot(
+        manifest=manifest,
+        baseline=(parse_baseline_bytes(baseline_content) if baseline_content is not None else None),
+        inspection=inspection,
+        pull_request_templates=_pull_request_templates(resolved, manifest, blobs),
+        provenance=InputProvenance(
+            mode=identity.mode,
+            source_revision=identity.source_revision,
+            tree_digest=identity.tree_digest,
+            manifest_path=canonical_manifest,
+            manifest_object_id=GitObjectId(manifest_blob.object_id),
+            manifest_digest=_content_digest(manifest_content),
+            baseline_path=canonical_baseline,
+            baseline_object_id=(
+                GitObjectId(baseline_blob.object_id) if baseline_blob is not None else None
+            ),
+            baseline_digest=(
+                _content_digest(baseline_content) if baseline_content is not None else None
+            ),
+        ),
+    )
+
+
+def load_calibration_snapshot(
+    root: Path,
+    manifest_content: bytes,
+    *,
+    identity: GitIdentity | None = None,
+) -> RepositorySnapshot:
+    resolved = root.resolve(strict=True)
+    if not resolved.is_dir():
+        ConfigurationError.fail("repository root must be a directory")
+    if identity is None:
+        identity = git_identity(resolved)
+    blobs = _blobs_for_identity(resolved, identity)
+    manifest = parse_manifest_bytes(manifest_content)
+    _validate_documentation_entrypoints(manifest, {blob.path: blob for blob in blobs})
+    validate_javascript_artifacts(
+        manifest.javascript_artifacts, frozenset(blob.path for blob in blobs)
+    )
+    validate_image_artifacts(manifest.image_artifacts, frozenset(blob.path for blob in blobs))
+    inspection = _inspection_from_blobs(resolved, identity, blobs)
+    if inspection.completion != "complete":
+        ConfigurationError.fail("repository inspection is incomplete")
+    return RepositorySnapshot(
+        manifest=manifest,
+        baseline=None,
+        inspection=inspection,
+        pull_request_templates=_pull_request_templates(resolved, manifest, blobs),
+        provenance=InputProvenance(
+            mode=identity.mode,
+            source_revision=identity.source_revision,
+            tree_digest=identity.tree_digest,
+            manifest_path="<calibration-manifest>",
+            manifest_object_id=None,
+            manifest_digest=_content_digest(manifest_content),
+        ),
+    )
+
+
+def _pull_request_templates(
+    root: Path, manifest: Manifest, blobs: tuple[TrackedBlob, ...]
+) -> tuple[PullRequestTemplate, ...]:
+    if manifest.pull_request is None or manifest.pull_request.review_policy is None:
+        return ()
+    selected = tuple(blob for blob in blobs if _PULL_REQUEST_TEMPLATE.match(blob.path))
+    contents, issues = _read_metadata_batch(root, selected)
+    if issues:
+        ConfigurationError.fail("pull-request template exceeds the per-file safety limit")
+    return tuple(
+        PullRequestTemplate(
+            blob.path, _required_content(contents, blob).decode("utf-8", errors="replace")
+        )
+        for blob in selected
+    )
+
+
+def _validate_documentation_entrypoints(
+    manifest: Manifest, by_path: dict[str, TrackedBlob]
+) -> None:
+    if manifest.documentation is not None and not set(manifest.documentation.entrypoints).issubset(
+        by_path
+    ):
+        ConfigurationError.fail("a documentation entrypoint is absent from the exact Git tree")
+
+
+def _inspection_from_blobs(
+    root: Path, identity: GitIdentity, blobs: tuple[TrackedBlob, ...]
+) -> RepositoryInspection:
+    metadata = _metadata_evidence(root, blobs)
+    packages, workspaces, issues = metadata.packages, metadata.workspaces, metadata.issues
+    terraform_modules = _terraform_module_units(blobs)
+    classified = _classify_blobs(blobs)
+    workflow_blobs, cloudbuild_blobs, dockerfile_blobs = (
+        classified.workflows,
+        classified.cloudbuild,
+        classified.dockerfiles,
+    )
+    inventory_units = [
+        InventoryUnit(
+            kind=InventoryKind.PACKAGE,
+            path=project.path,
+            object_id=project.object_id,
+            content_digest=project.content_digest,
+        )
+        for project in packages
+    ]
+    inventory_units.extend(
+        InventoryUnit(
+            kind=InventoryKind.WORKSPACE,
+            path=workspace.path,
+            object_id=workspace.object_id,
+            content_digest=workspace.content_digest,
+        )
+        for workspace in workspaces
+    )
+    inventory_units.extend(
+        _blob_inventory_unit(kind, blob)
+        for kind, selected in (
+            (InventoryKind.GITHUB_WORKFLOW, workflow_blobs),
+            (InventoryKind.CLOUD_BUILD, cloudbuild_blobs),
+            (InventoryKind.DOCKERFILE, dockerfile_blobs),
+        )
+        for blob in selected
+    )
+    inventory_units.extend(terraform_modules)
+    tracked_files = _tracked_file_evidence(root, blobs, packages)
+    return RepositoryInspection(
+        completion="incomplete" if issues else "complete",
+        source_revision=identity.source_revision,
+        tree_digest=identity.tree_digest,
+        tracked_file_count=len(blobs),
+        packages=tuple(sorted(packages, key=lambda item: (item.path, item.ecosystem))),
+        workflow_paths=tuple(blob.path for blob in workflow_blobs),
+        cloudbuild_paths=tuple(blob.path for blob in cloudbuild_blobs),
+        dockerfile_paths=tuple(blob.path for blob in dockerfile_blobs),
+        terraform_modules=tuple(item.path for item in terraform_modules),
+        issues=tuple(sorted(issues)),
+        tracked_files=tracked_files,
+        workspaces=tuple(sorted(workspaces, key=lambda item: (item.path, item.ecosystem))),
+        inventory_units=tuple(sorted(inventory_units, key=lambda item: (item.path, item.kind))),
+    )
+
+
+def _classify_blobs(blobs: tuple[TrackedBlob, ...]) -> _ClassifiedBlobs:
+    workflows: list[TrackedBlob] = []
+    cloudbuild: list[TrackedBlob] = []
+    dockerfiles: list[TrackedBlob] = []
+    for blob in blobs:
+        name = blob.path.rpartition("/")[2].casefold()
+        if blob.path.endswith((".yaml", ".yml")):
+            if blob.path.startswith(".github/workflows/"):
+                workflows.append(blob)
+            if name.startswith("cloudbuild"):
+                cloudbuild.append(blob)
+        if name.startswith("dockerfile"):
+            dockerfiles.append(blob)
+    return _ClassifiedBlobs(tuple(workflows), tuple(cloudbuild), tuple(dockerfiles))
+
+
+def _metadata_evidence(root: Path, blobs: tuple[TrackedBlob, ...]) -> _MetadataEvidence:
+    metadata_blobs = tuple(
+        blob
+        for blob in blobs
+        if blob.path.rpartition("/")[2] in {"package.json", "pnpm-workspace.yaml", "pyproject.toml"}
+    )
+    if len(metadata_blobs) > _MAX_METADATA_FILES:
+        ConfigurationError.fail(
+            f"repository exceeds the {_MAX_METADATA_FILES} metadata-file safety limit"
+        )
+    contents, read_issues = _read_metadata_batch(root, metadata_blobs)
+    issues = list(read_issues)
+    packages: list[PackageEvidence] = []
+    workspaces: list[WorkspaceEvidence] = []
+    for blob in metadata_blobs:
+        content = contents.get(blob.object_id)
+        if blob.path.rpartition("/")[2] != "pnpm-workspace.yaml":
+            project = _inspect_project(blob, content, issues)
+            if project is not None:
+                packages.append(project)
+        workspace = _inspect_workspace(blob, content, issues)
+        if workspace is not None:
+            workspaces.append(workspace)
+    return _MetadataEvidence(tuple(packages), tuple(workspaces), tuple(issues))
+
+
+def _tracked_file_evidence(
+    root: Path,
+    blobs: tuple[TrackedBlob, ...],
+    packages: tuple[PackageEvidence, ...],
+) -> tuple[TrackedFileEvidence, ...]:
+    evidence_paths = _ownership_evidence_paths(packages)
+    evidence_blobs = tuple(blob for blob in blobs if blob.path in evidence_paths)
+    evidence_contents, _ = _read_metadata_batch(root, evidence_blobs)
+    return tuple(
+        TrackedFileEvidence(
+            blob.path,
+            blob.object_id,
+            substantive=(
+                _ownership_evidence_is_substantive(evidence_contents.get(blob.object_id))
+                if blob.path in evidence_paths
+                else True
+            ),
+        )
+        for blob in blobs
+    )
+
+
+def _ownership_evidence_paths(packages: tuple[PackageEvidence, ...]) -> frozenset[str]:
+    paths: set[str] = set()
+    for project in packages:
+        root = project.path.rpartition("/")[0]
+        prefix = f"{root}/" if root else ""
+        paths.update(f"{prefix}{name}" for name in _OWNERSHIP_LOCK_NAMES)
+        entrypoints = _NPM_ENTRYPOINTS if project.ecosystem == "npm" else _PYTHON_ENTRYPOINTS
+        paths.update(f"{prefix}{name}" for name in entrypoints)
+    return frozenset(paths)
+
+
+def _ownership_evidence_is_substantive(content: bytes | None) -> bool:
+    if content is None:
+        return False
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        return bool(content)
+    without_blocks = re.sub(r"/\*.*?\*/", "", text.removeprefix("\ufeff"), flags=re.DOTALL)
+    return any(
+        stripped and not stripped.startswith(("#", "//"))
+        for line in without_blocks.splitlines()
+        if (stripped := line.strip())
+    )
+
+
+def git_identity(root: Path) -> GitIdentity:
+    # Resolve HEAD once, then read that immutable commit without traversing its history.
+    return git_revision_identity(root, "HEAD")
+
+
+def git_index_identity(root: Path) -> GitIdentity:
+    _blobs, digest = _indexed_files(root)
+    try:
+        source_revision = git_identity(root).source_revision
+    except ConfigurationError:
+        if not git_head_is_unborn(root):
+            raise
+        source_revision = _UNBORN_REVISION
+    return GitIdentity(
+        source_revision=source_revision,
+        tree_digest=digest,
+        mode="git-index",
+    )
+
+
+def git_head_is_unborn(root: Path) -> bool:
+    symbolic = _git_process(root, ["symbolic-ref", "--quiet", "HEAD"])
+    if symbolic.returncode != 0:
+        return False
+    ref = symbolic.stdout.strip()
+    if not ref.startswith("refs/heads/") or "\n" in ref:
+        return False
+    result = _git_process(root, ["show-ref", "--verify", "--quiet", "--", ref])
+    return result.returncode == 1
+
+
+def git_revision_identity(root: Path, revision: str) -> GitIdentity:
+    if (
+        not revision
+        or len(revision.encode("utf-8")) > _MAX_PATH_BYTES
+        or any(ord(character) < _ASCII_CONTROL_LIMIT for character in revision)
+    ):
+        ConfigurationError.fail("comparison base must be a bounded Git revision")
+    resolved = _git_process(
+        root, ["rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}"]
+    )
+    commit = resolved.stdout.strip()
+    if resolved.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit) is None:
+        ConfigurationError.fail("cannot resolve the comparison base commit; provide its Git object")
+    headers = _commit_headers(root, commit)
+    tree_header = next(
+        (line.removeprefix(b"tree ") for line in headers if line.startswith(b"tree ")), b""
+    )
+    try:
+        tree = tree_header.decode("ascii")
+    except UnicodeError:
+        ConfigurationError.fail("cannot read the comparison base tree identity")
+    if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", tree) is None:
+        ConfigurationError.fail("cannot read the comparison base tree identity")
+    return GitIdentity(commit, tree)
+
+
+def git_parent_identity(root: Path, identity: GitIdentity) -> GitIdentity | None:
+    # Read object headers: a shallow boundary with a missing parent is not a root commit.
+    headers = _commit_headers(root, identity.source_revision)
+    parent = next(
+        (line.removeprefix(b"parent ") for line in headers if line.startswith(b"parent ")), None
+    )
+    if parent is None:
+        return None
+    try:
+        revision = parent.decode("ascii")
+    except UnicodeError:
+        ConfigurationError.fail("inspected commit has an invalid parent identity")
+    return git_revision_identity(root, revision)
+
+
+def _commit_headers(root: Path, revision: str) -> tuple[bytes, ...]:
+    executable = shutil.which("git")
+    if executable is None:
+        ConfigurationError.fail("Git executable is unavailable")
+    payload = _bounded_git_payload(
+        [
+            executable,
+            "--no-replace-objects",
+            "--no-lazy-fetch",
+            "--no-optional-locks",
+            "-C",
+            str(root),
+            "cat-file",
+            "commit",
+            revision,
+        ],
+        noun="inspected commit parents",
+    )
+    headers = payload.partition(b"\n\n")[0]
+    if len(headers) > _MAX_METADATA_BYTES:
+        ConfigurationError.fail("commit headers exceed the 1 MiB safety limit")
+    return tuple(headers.splitlines())
+
+
+def tracked_files_for_identity(root: Path, identity: GitIdentity) -> tuple[TrackedBlob, ...]:
+    return _blobs_for_identity(root, identity)
+
+
+def _git_process(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    executable = shutil.which("git")
+    if executable is None:
+        ConfigurationError.fail("Git executable is unavailable")
+    try:
+        return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] - bounded inert Git object queries, without a shell
+            [
+                executable,
+                "--no-replace-objects",
+                "--no-lazy-fetch",
+                "--no-optional-locks",
+                "-C",
+                str(root),
+                *arguments,
+            ],
+            check=False,
+            capture_output=True,
+            timeout=30,
+            text=True,
+            env=GIT_ENVIRONMENT,
+        )
+    except OSError, UnicodeError, subprocess.SubprocessError:
+        ConfigurationError.fail("cannot inspect the comparison Git object")
+
+
+def _blobs_for_identity(root: Path, identity: GitIdentity) -> tuple[TrackedBlob, ...]:
+    if identity.mode == "git-tree":
+        return _tracked_files(root, identity.tree_digest)
+    blobs, digest = _indexed_files(root)
+    if digest != identity.tree_digest:
+        ConfigurationError.fail("Git index changed during repository inspection")
+    return blobs
+
+
+def _indexed_files(root: Path) -> _IndexedFiles:
+    git_executable = shutil.which("git")
+    if git_executable is None:
+        ConfigurationError.fail("Git executable is unavailable")
+    environment = dict(GIT_ENVIRONMENT)
+    index_file = os.environ.get("GIT_INDEX_FILE")  # ruff: ignore[banned-api] -- Native pre-commit hooks select the prospective commit with this Git-owned environment variable.
+    if index_file is not None:
+        environment["GIT_INDEX_FILE"] = index_file
+    payload = _bounded_git_payload(
+        [
+            git_executable,
+            "--no-replace-objects",
+            "--no-lazy-fetch",
+            "--no-optional-locks",
+            "-C",
+            str(root),
+            "ls-files",
+            "--cached",
+            "--stage",
+            "-z",
+            "--full-name",
+        ],
+        noun="Git index",
+        environment=environment,
+    )
+    try:
+        records = deque(filter(None, payload.decode("utf-8").split("\0")))
+    except UnicodeDecodeError:
+        ConfigurationError.fail("tracked paths must be UTF-8")
+    if len(records) > _MAX_FILES:
+        ConfigurationError.fail("repository exceeds the 100000 tracked-file safety limit")
+    parsed: list[tuple[str, TrackedBlob]] = []
+    path_bytes = 0
+    while records:
+        record = records.popleft()
+        parsed_record = _parse_index_record(record)
+        path_bytes += parsed_record.encoded_path_size
+        if path_bytes > _MAX_TOTAL_PATH_BYTES:
+            ConfigurationError.fail("tracked paths exceed the 16 MiB aggregate safety limit")
+        parsed.append((parsed_record.mode, parsed_record.blob))
+    canonical = tuple(canonical_path(blob.path) for _mode, blob in parsed)
+    if canonical != tuple(blob.path for _mode, blob in parsed):
+        ConfigurationError.fail("tracked paths must already be canonical")
+    if len(canonical) != len(set(canonical)) or len(canonical) != len(
+        {path.casefold() for path in canonical}
+    ):
+        ConfigurationError.fail("tracked paths collide after normalization")
+    ordered = tuple(sorted(parsed, key=lambda item: item[1].path))
+    digest = hashlib.sha256(b"repo-standards-git-index-v1\0")
+    for mode, blob in ordered:
+        digest.update(mode.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(blob.object_id.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(blob.path.encode("utf-8"))
+        digest.update(b"\0")
+    return _IndexedFiles(tuple(blob for _mode, blob in ordered), digest.hexdigest())
+
+
+def _parse_index_record(record: str) -> _IndexRecord:
+    metadata, separator, path = record.partition("\t")
+    fields = metadata.split()
+    if separator != "\t" or len(fields) != _GIT_INDEX_FIELD_COUNT:
+        ConfigurationError.fail("Git index output is malformed")
+    mode, object_id, stage = fields
+    if stage != "0":
+        ConfigurationError.fail("Git index contains unresolved merge entries")
+    if mode == "120000":
+        ConfigurationError.fail(f"tracked path is a symlink: {path}")
+    if mode == "160000":
+        ConfigurationError.fail(f"tracked path is a Git submodule: {path}")
+    if mode not in {"100644", "100755"}:
+        ConfigurationError.fail(f"tracked path has an unsupported Git mode: {path}")
+    if len(object_id) not in {40, 64} or any(
+        character not in "0123456789abcdef" for character in object_id
+    ):
+        ConfigurationError.fail("Git index object ID is malformed")
+    encoded_path_size = len(path.encode("utf-8"))
+    if encoded_path_size > _MAX_PATH_BYTES:
+        ConfigurationError.fail("tracked path exceeds the 4096-byte safety limit")
+    return _IndexRecord(mode, TrackedBlob(path=path, object_id=object_id), encoded_path_size)
+
+
+@lru_cache(maxsize=1)
+def _tracked_files(root: Path, tree_digest: str) -> tuple[TrackedBlob, ...]:
+    # The validated tree is immutable. Keep only the most recent inventory;
+    # index snapshots still pass through their live identity validation.
+    git_executable = shutil.which("git")
+    if git_executable is None:
+        ConfigurationError.fail("Git executable is unavailable")
+    payload = _git_tree_payload(root, git_executable, tree_digest)
+    try:
+        records = deque(filter(None, payload.decode("utf-8").split("\0")))
+    except UnicodeDecodeError:
+        ConfigurationError.fail("tracked paths must be UTF-8")
+    if len(records) > _MAX_FILES:
+        ConfigurationError.fail("repository exceeds the 100000 tracked-file safety limit")
+    blobs: list[TrackedBlob] = []
+    path_bytes = 0
+    while records:
+        record = records.popleft()
+        blob, encoded_path_size = _parse_tree_record(record)
+        path_bytes += encoded_path_size
+        if path_bytes > _MAX_TOTAL_PATH_BYTES:
+            ConfigurationError.fail("tracked paths exceed the 16 MiB aggregate safety limit")
+        blobs.append(blob)
+    canonical = tuple(canonical_path(blob.path) for blob in blobs)
+    if canonical != tuple(blob.path for blob in blobs):
+        ConfigurationError.fail("tracked paths must already be canonical")
+    if len(canonical) != len({path.casefold() for path in canonical}):
+        ConfigurationError.fail("tracked paths collide after normalization")
+    return tuple(sorted(blobs, key=attrgetter("path")))
+
+
+def _parse_tree_record(record: str) -> _TreeRecord:
+    metadata, separator, path = record.partition("\t")
+    fields = metadata.split()
+    if separator != "\t" or len(fields) != _GIT_TREE_FIELD_COUNT:
+        ConfigurationError.fail("Git tree output is malformed")
+    mode, object_type, object_id = fields
+    if mode == "120000":
+        ConfigurationError.fail(f"tracked path is a symlink: {path}")
+    if object_type != "blob":
+        ConfigurationError.fail(f"tracked path is not a regular file: {path}")
+    encoded_path_size = len(path.encode("utf-8"))
+    if encoded_path_size > _MAX_PATH_BYTES:
+        ConfigurationError.fail("tracked path exceeds the 4096-byte safety limit")
+    return _TreeRecord(TrackedBlob(path=path, object_id=object_id), encoded_path_size)
+
+
+def _git_tree_payload(root: Path, git_executable: str, tree_digest: str) -> bytes:
+    command = [
+        git_executable,
+        "--no-replace-objects",
+        "--no-lazy-fetch",
+        "--no-optional-locks",
+        "-C",
+        str(root),
+        "ls-tree",
+        "-rz",
+        "--full-tree",
+        tree_digest,
+    ]
+    return _bounded_git_payload(command, noun="Git tree")
+
+
+def _bounded_git_payload(
+    command: list[str], *, noun: str, environment: Mapping[str, str] = GIT_ENVIRONMENT
+) -> bytes:
+    try:
+        process: subprocess.Popen[bytes] = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true] - fixed trusted Git executable and arguments
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=environment,
+        )
+    except OSError:
+        ConfigurationError.fail(f"cannot enumerate {noun}")
+    stream = process.stdout
+    if stream is None:
+        process.kill()
+        ConfigurationError.fail(f"cannot read {noun} enumeration output")
+    output = bytearray()
+    read_failed = threading.Event()
+
+    def read_bounded_output() -> None:
+        descriptor = stream.fileno()
+        try:
+            while chunk := os.read(descriptor, 65_536):
+                remaining = _MAX_TREE_OUTPUT_BYTES + 1 - len(output)
+                output.extend(chunk[:remaining])
+                if len(output) > _MAX_TREE_OUTPUT_BYTES:
+                    process.kill()
+                    return
+        except OSError:
+            read_failed.set()
+            process.kill()
+
+    reader = threading.Thread(target=read_bounded_output, daemon=True)
+    reader.start()
+    reader.join(timeout=30)
+    if reader.is_alive():
+        process.kill()
+        reader.join(timeout=1)
+        ConfigurationError.fail(f"{noun} enumeration timed out")
+    try:
+        return_code = process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        ConfigurationError.fail(f"{noun} enumeration timed out")
+    if len(output) > _MAX_TREE_OUTPUT_BYTES:
+        ConfigurationError.fail(f"{noun} output exceeds the 32 MiB safety limit")
+    if read_failed.is_set() or return_code != 0:
+        ConfigurationError.fail(f"cannot enumerate {noun}")
+    return bytes(output)
+
+
+def _inspect_project(
+    blob: TrackedBlob, content: bytes | None, issues: list[str]
+) -> ProjectCoordinate | None:
+    relative = blob.path
+    if content is None:
+        return None
+    try:
+        return replace(
+            parse_project_metadata(relative, content),
+            object_id=blob.object_id,
+            content_digest=_content_digest(content),
+        )
+    except ConfigurationError:
+        issues.append(f"metadata is malformed: {relative}")
+        return None
+
+
+def _inspect_workspace(
+    blob: TrackedBlob, content: bytes | None, issues: list[str]
+) -> WorkspaceEvidence | None:
+    if content is None:
+        return None
+    try:
+        workspace = parse_workspace_metadata(blob.path, content)
+    except ConfigurationError:
+        if f"metadata is malformed: {blob.path}" not in issues:
+            issues.append(f"metadata is malformed: {blob.path}")
+        return None
+    if workspace is None:
+        return None
+    return replace(
+        workspace,
+        object_id=blob.object_id,
+        content_digest=_content_digest(content),
+    )
+
+
+def parse_project_metadata(relative: str, content: bytes) -> ProjectCoordinate:
+    try:
+        if relative.endswith("package.json"):
+            return _npm_project(relative, content)
+        if relative.endswith("pyproject.toml"):
+            return _python_project(relative, content)
+    except (
+        ConfigurationError,
+        RecursionError,
+        UnicodeError,
+        ValueError,
+        tomllib.TOMLDecodeError,
+    ):
+        ConfigurationError.fail(f"metadata is malformed: {relative}")
+    return ConfigurationError.fail(f"unsupported project metadata: {relative}")
+
+
+def parse_workspace_metadata(relative: str, content: bytes) -> WorkspaceEvidence | None:
+    try:
+        if relative.endswith("package.json"):
+            return _npm_workspace(relative, content)
+        if relative.endswith("pnpm-workspace.yaml"):
+            return _pnpm_workspace(relative, content)
+        if relative.endswith("pyproject.toml"):
+            return _python_workspace(relative, content)
+    except (
+        ConfigurationError,
+        RecursionError,
+        UnicodeError,
+        ValueError,
+        tomllib.TOMLDecodeError,
+        yaml.YAMLError,
+    ):
+        ConfigurationError.fail(f"metadata is malformed: {relative}")
+    return ConfigurationError.fail(f"unsupported project metadata: {relative}")
+
+
+def _pnpm_workspace(relative: str, content: bytes) -> WorkspaceEvidence | None:
+    document = _pnpm_document(content)
+    packages = _PnpmWorkspace.model_validate(document).packages
+    members = [item for item in packages if not item.startswith("!") or item.startswith("!(")]
+    excludes = [
+        item.removeprefix("!")
+        for item in packages
+        if item.startswith("!") and not item.startswith("!(")
+    ]
+    member_patterns = _workspace_patterns(members, f"pnpm packages: {relative}")
+    exclude_patterns = _workspace_patterns(excludes, f"pnpm exclusions: {relative}")
+    if not member_patterns:
+        return None
+    return WorkspaceEvidence(
+        ecosystem="npm",
+        path=relative,
+        member_patterns=member_patterns,
+        exclude_patterns=exclude_patterns,
+    )
+
+
+def _pnpm_document(content: bytes) -> object:
+    loader = yaml.SafeLoader(content.decode("utf-8"))
+    try:
+        node = loader.get_single_node()
+        if node is None:
+            return None
+        _unique_pnpm_selectors(node)
+        return loader.construct_document(node)  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- construct only after validating declared workspace selectors.
+    finally:
+        loader.dispose()  # pyright: ignore[reportUnknownMemberType] -- PyYAML parser lifetime boundary.
+
+
+def _unique_pnpm_selectors(root: Node) -> None:
+    pending = [root]
+    seen: set[int] = set()
+    while pending:
+        node = pending.pop()
+        if id(node) in seen:
+            continue
+        seen.add(id(node))
+        if isinstance(node, MappingNode):
+            pairs: list[tuple[Node, Node]] = node.value  # pyright: ignore[reportAny] -- PyYAML mapping-node boundary.
+            if sum(_pnpm_packages_key(key) for key, _value in pairs) > 1:
+                ConfigurationError.fail("pnpm workspace repeats the packages field")
+            pending.extend(child for pair in pairs for child in pair)
+        elif isinstance(node, SequenceNode):
+            items: list[Node] = node.value  # pyright: ignore[reportAny] -- PyYAML sequence-node boundary.
+            pending.extend(items)
+
+
+def _pnpm_packages_key(node: Node) -> bool:
+    if not isinstance(node, ScalarNode) or node.tag != "tag:yaml.org,2002:str":
+        return False
+    value: object = node.value  # pyright: ignore[reportAny] -- PyYAML scalar-node boundary.
+    return value == "packages"
+
+
+def _required_content(contents: dict[str, bytes], blob: TrackedBlob) -> bytes:
+    content = contents.get(blob.object_id)
+    if content is None:
+        ConfigurationError.fail("selected Git blob could not be read")
+    return content
+
+
+def _content_digest(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _blob_inventory_unit(kind: InventoryKind, blob: TrackedBlob) -> InventoryUnit:
+    return InventoryUnit(
+        kind=kind,
+        path=blob.path,
+        object_id=blob.object_id,
+        content_digest=None,
+    )
+
+
+def _terraform_module_units(blobs: tuple[TrackedBlob, ...]) -> tuple[InventoryUnit, ...]:
+    by_directory: dict[str, list[tuple[str, str]]] = {}
+    for blob in blobs:
+        if not blob.path.endswith((".tf", ".tf.json")):
+            continue
+        directory, _, filename = blob.path.rpartition("/")
+        by_directory.setdefault(directory or ".", []).append((filename, blob.object_id))
+    return tuple(
+        InventoryUnit(
+            kind=InventoryKind.TERRAFORM_MODULE,
+            path=directory,
+            object_id=None,
+            content_digest=_content_digest(
+                json.dumps(sorted(entries), separators=(",", ":")).encode("ascii")
+            ),
+        )
+        for directory, entries in sorted(by_directory.items())
+    )
+
+
+def _read_metadata_batch(root: Path, blobs: tuple[TrackedBlob, ...]) -> _MetadataBatch:
+    if not blobs:
+        return _MetadataBatch({}, [])
+    ordered = _ordered_unique_blobs(blobs)
+    sizes = _query_blob_sizes(
+        root,
+        ordered,
+        failure="cannot query tracked metadata sizes",
+    )
+    eligible: list[TrackedBlob] = []
+    issues: list[str] = []
+    total = 0
+    for blob in ordered:
+        size = sizes[blob.object_id]
+        if size > _MAX_METADATA_BYTES:
+            affected = sorted(item.path for item in blobs if item.object_id == blob.object_id)
+            issues.extend(f"metadata exceeds 1 MiB: {path}" for path in affected)
+            continue
+        total += size
+        eligible.append(blob)
+    if total > _MAX_TOTAL_METADATA_BYTES:
+        ConfigurationError.fail("repository metadata exceeds the 64 MiB aggregate safety limit")
+    if not eligible:
+        return _MetadataBatch({}, issues)
+    contents = _read_blob_contents(
+        root,
+        tuple(eligible),
+        sizes,
+        failure="cannot read tracked metadata batch",
+    )
+    return _MetadataBatch(contents, issues)
+
+
+def _read_bounded_blob_batch(
+    root: Path,
+    blobs: tuple[TrackedBlob, ...],
+    *,
+    max_file_bytes: int,
+    max_total_bytes: int,
+) -> dict[str, bytes]:
+    if not blobs:
+        return {}
+    ordered = _ordered_unique_blobs(blobs)
+    sizes = _query_blob_sizes(
+        root,
+        ordered,
+        failure="cannot query selected Git blob sizes",
+    )
+    if any(size > max_file_bytes for size in sizes.values()):
+        ConfigurationError.fail("a selected Git blob exceeds the per-file safety limit")
+    if sum(sizes.values()) > max_total_bytes:
+        ConfigurationError.fail("selected Git blobs exceed the aggregate safety limit")
+    return _read_blob_contents(
+        root,
+        ordered,
+        sizes,
+        failure="cannot read selected Git blobs",
+    )
+
+
+def _ordered_unique_blobs(blobs: tuple[TrackedBlob, ...]) -> tuple[TrackedBlob, ...]:
+    unique = {blob.object_id: blob for blob in blobs}
+    return tuple(unique[object_id] for object_id in sorted(unique))
+
+
+def _query_blob_sizes(
+    root: Path,
+    blobs: tuple[TrackedBlob, ...],
+    *,
+    failure: str,
+) -> dict[str, int]:
+    git_executable = _required_git_executable()
+    try:
+        result = _run_git_batch(
+            root,
+            git_executable,
+            "--batch-check=%(objectname) %(objecttype) %(objectsize)",
+            _blob_batch_input(blobs),
+        )
+    except OSError, subprocess.SubprocessError:
+        ConfigurationError.fail(failure)
+    return _parse_batch_sizes(result.stdout, blobs)
+
+
+def _read_blob_contents(
+    root: Path,
+    blobs: tuple[TrackedBlob, ...],
+    sizes: dict[str, int],
+    *,
+    failure: str,
+) -> dict[str, bytes]:
+    try:
+        result = _run_git_batch(
+            root,
+            _required_git_executable(),
+            "--batch",
+            _blob_batch_input(blobs),
+        )
+    except OSError, subprocess.SubprocessError:
+        ConfigurationError.fail(failure)
+    return _parse_batch_contents(result.stdout, list(blobs), sizes)
+
+
+def _required_git_executable() -> str:
+    executable = shutil.which("git")
+    if executable is None:
+        ConfigurationError.fail("Git executable is unavailable")
+    return executable
+
+
+def _blob_batch_input(blobs: tuple[TrackedBlob, ...]) -> bytes:
+    return b"".join(f"{blob.object_id}\n".encode() for blob in blobs)
+
+
+def _run_git_batch(
+    root: Path, git_executable: str, mode: str, object_input: bytes
+) -> subprocess.CompletedProcess[bytes]:
+    with tempfile.TemporaryFile() as batch_input:
+        batch_input.write(object_input)
+        batch_input.seek(0)
+        return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] - fixed trusted Git executable and bounded immutable input
+            [
+                git_executable,
+                "--no-replace-objects",
+                "--no-lazy-fetch",
+                "--no-optional-locks",
+                "-C",
+                str(root),
+                "cat-file",
+                mode,
+            ],
+            check=True,
+            capture_output=True,
+            stdin=batch_input,
+            timeout=30,
+            env=GIT_ENVIRONMENT,
+        )
+
+
+def _parse_batch_sizes(payload: bytes, blobs: tuple[TrackedBlob, ...]) -> dict[str, int]:
+    try:
+        lines = payload.decode("ascii").splitlines()
+    except UnicodeDecodeError:
+        ConfigurationError.fail("Git metadata-size output is malformed")
+    if len(lines) != len(blobs):
+        ConfigurationError.fail("Git metadata-size output is incomplete")
+    sizes: dict[str, int] = {}
+    for line, blob in zip(lines, blobs, strict=True):
+        fields = line.split()
+        if (
+            len(fields) != _GIT_TREE_FIELD_COUNT
+            or fields[0] != blob.object_id
+            or fields[1] != "blob"
+        ):
+            ConfigurationError.fail("Git metadata-size output is malformed")
+        try:
+            sizes[blob.object_id] = int(fields[2])
+        except ValueError:
+            ConfigurationError.fail("Git metadata size is malformed")
+    return sizes
+
+
+def _parse_batch_contents(
+    payload: bytes, blobs: list[TrackedBlob], sizes: dict[str, int]
+) -> dict[str, bytes]:
+    stream = BytesIO(payload)
+    contents: dict[str, bytes] = {}
+    for blob in blobs:
+        header = stream.readline(256)
+        try:
+            fields = header.decode("ascii").split()
+        except UnicodeDecodeError:
+            ConfigurationError.fail("Git metadata header is malformed")
+        expected_size = sizes[blob.object_id]
+        if (
+            len(fields) != _GIT_TREE_FIELD_COUNT
+            or fields[0] != blob.object_id
+            or fields[1] != "blob"
+            or fields[2] != str(expected_size)
+        ):
+            ConfigurationError.fail("Git metadata header is malformed")
+        content = stream.read(expected_size)
+        if len(content) != expected_size or stream.read(1) != b"\n":
+            ConfigurationError.fail("Git metadata batch is truncated")
+        contents[blob.object_id] = content
+    if stream.read(1):
+        ConfigurationError.fail("Git metadata batch has unexpected trailing bytes")
+    return contents
+
+
+def _npm_project(relative: str, content: bytes) -> ProjectCoordinate:
+    package = _NpmPackage.model_validate(parse_json_object(content))
+    return ProjectCoordinate(
+        ecosystem="npm",
+        path=relative,
+        name=package.name,
+        private=package.private,
+        workspace_root=package.workspaces is not None,
+    )
+
+
+def _npm_workspace(relative: str, content: bytes) -> WorkspaceEvidence | None:
+    workspaces = _NpmPackage.model_validate(parse_json_object(content)).workspaces
+    if workspaces is None:
+        return None
+    match workspaces:
+        case list():
+            patterns = _workspace_patterns(
+                workspaces,
+                f"package workspaces: {relative}",
+            )
+        case _NpmWorkspaces():
+            patterns = _workspace_patterns(
+                workspaces.packages, f"package workspaces.packages: {relative}"
+            )
+    return WorkspaceEvidence(
+        ecosystem="npm",
+        path=relative,
+        member_patterns=patterns,
+        exclude_patterns=(),
+    )
+
+
+def _python_project(relative: str, content: bytes) -> ProjectCoordinate:
+    raw = _erase_parser_type(tomllib.loads(content.decode("utf-8")))
+    if not isinstance(raw, dict):
+        ConfigurationError.fail(f"Python metadata must be a table: {relative}")
+    project = raw.get("project")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+    tool = raw.get("tool")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+    name: str | None = None
+    if isinstance(project, dict):
+        observed = project.get("name")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+        name = observed if isinstance(observed, str) else None
+    workspace_root = False
+    if isinstance(tool, dict):
+        uv = tool.get("uv")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+        workspace_root = isinstance(uv, dict) and "workspace" in uv
+    return ProjectCoordinate(
+        ecosystem="python",
+        path=relative,
+        name=name,
+        private=None,
+        workspace_root=workspace_root,
+    )
+
+
+def _python_workspace(relative: str, content: bytes) -> WorkspaceEvidence | None:
+    raw = _erase_parser_type(tomllib.loads(content.decode("utf-8")))
+    if not isinstance(raw, dict):
+        ConfigurationError.fail(f"Python metadata must be a table: {relative}")
+    tool = raw.get("tool")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+    if not isinstance(tool, dict):
+        return None
+    uv = tool.get("uv")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+    if not isinstance(uv, dict):
+        return None
+    workspace = uv.get(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+        "workspace"
+    )
+    if workspace is None:
+        return None
+    if not isinstance(workspace, dict):
+        ConfigurationError.fail(f"tool.uv.workspace must be a table: {relative}")
+    members = _erase_parser_type(
+        workspace.get(  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType] -- Parsed TOML containers retain unknown element types after narrowing.
+            "members"
+        )
+    )
+    excludes = _erase_parser_type(
+        workspace.get(  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType] -- Parsed TOML containers retain unknown element types after narrowing.
+            "exclude", []
+        )
+    )
+    return WorkspaceEvidence(
+        ecosystem="python",
+        path=relative,
+        member_patterns=_workspace_patterns(members, f"tool.uv.workspace.members: {relative}"),
+        exclude_patterns=_workspace_patterns(excludes, f"tool.uv.workspace.exclude: {relative}"),
+    )
+
+
+def _workspace_patterns(value: object, context: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        ConfigurationError.fail(f"{context} must be an array")
+    patterns: list[str] = []
+    for item in value:  # pyright: ignore[reportUnknownVariableType] -- Parsed TOML containers retain unknown element types after narrowing.
+        if not isinstance(item, str) or not item:
+            ConfigurationError.fail(f"{context} entries must be non-empty strings")
+        if (
+            "\\" in item
+            or item.startswith("/")
+            or re.search(r"[\x00-\x1f\x7f]", item) is not None
+            or ".." in Path(item).parts
+        ):
+            ConfigurationError.fail(f"{context} contains an unsafe pattern")
+        if any(token in item for token in ("{", "}", "@(", "+(", "?(", "*(", "!(")):
+            ConfigurationError.fail(f"{context} contains unsupported glob syntax")
+        patterns.append(item)
+    return tuple(patterns)
+
+
+def _erase_parser_type(value: object) -> object:
+    return value

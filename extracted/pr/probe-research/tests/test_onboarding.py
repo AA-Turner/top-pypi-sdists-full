@@ -25,16 +25,17 @@ def _create_experiment(client, slug, name, *, question):
     )
 
 
-def test_run_with_no_experiment_floats_rather_than_inventing_one(app, client):
+def test_run_with_no_home_is_refused_rather_than_inventing_one(app, client):
     """The context fallback is gone and stays gone.
 
     It used to derive the slug from the git repo or script name and create it, so
     running from the wrong directory silently filed work under a new experiment
-    named after that directory. Nothing failed; the record was just wrong. Since
-    daemon v2 a run with no home opens FLOATING (no project at all) and is filed
-    later -- it still never invents an experiment or a project."""
-    run = client.run()
-    assert run.project_id is None and run.experiment_id is None
+    named after that directory. Nothing failed; the record was just wrong. A run
+    with no home is refused now (every run has a project) -- it still never
+    invents an experiment or a project."""
+    with pytest.raises(errors.ProjectRequired):
+        client.run()
+    assert app.runs == {}
     assert app.experiments == {}
     assert app.projects == {}
 
@@ -111,7 +112,7 @@ def test_an_unnamed_run_is_named_by_the_server_not_the_client(app, client):
     The SDK fabricated `run-<timestamp>` for every nameless run, and the server
     reads any supplied name as human-chosen -- so each one was stamped
     `name_customized` and frozen out of generated titles forever
-    (app/generation/kinds/title.py, which bails at `:162` and re-asserts
+    (app/generation/kinds/title/title.py, which bails at `:162` and re-asserts
     `name_customized = false` in its UPDATE at `:236`). Fleet-wide that was 620 of
     620 runs, i.e. the title kind had never fired. Sending no name is what lets the
     server name the run and leave the flag False.
@@ -292,12 +293,10 @@ def wired(app, tmp_path, monkeypatch):
 
 
 def test_cli_run_start_without_a_home_invents_none(wired, capsys):
-    """No --experiment, --project or active project: the run floats (daemon v2),
-    and the context fallback still cannot fire."""
-    rc = cli.main(["run", "start"])
-    assert rc == 0
-    run_id = capsys.readouterr().out.strip().splitlines()[0]
-    assert wired.runs[run_id]["project_id"] is None
+    """No --experiment, --project or active project: refused (every run has a
+    project), and the context fallback still cannot fire."""
+    assert cli.main(["run", "start"]) != 0
+    assert wired.runs == {}
     assert wired.experiments == {}
     assert wired.projects == {}
 
@@ -489,7 +488,7 @@ def no_setup(monkeypatch):
     fails the test: a login flag must install nothing."""
     import importlib
 
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     cli_main = importlib.import_module("probe.cli.main")
 
@@ -497,7 +496,9 @@ def no_setup(monkeypatch):
         raise AssertionError("signing in must install and configure nothing")
 
     monkeypatch.setattr(cli_main, "_wizard_session", _forbidden)
-    monkeypatch.setattr(wizard, "install_plugin", _forbidden)
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", _forbidden)
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", _forbidden)
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", _forbidden)
     return cli_main
 
 

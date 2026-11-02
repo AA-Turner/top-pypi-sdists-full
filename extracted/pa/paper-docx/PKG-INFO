@@ -1,0 +1,120 @@
+Metadata-Version: 2.4
+Name: paper-docx
+Version: 0.2.1
+Summary: Create, read, and update Microsoft Word .docx files.
+Author: Paper Instruments, Inc.
+Author-email: Steve Canny <stcanny@gmail.com>
+Maintainer: Paper Instruments, Inc.
+License-Expression: MIT
+Project-URL: Changelog, https://github.com/paper-instruments/paper-docx/releases
+Project-URL: Documentation, https://github.com/paper-instruments/paper-docx
+Project-URL: Homepage, https://github.com/paper-instruments/paper-docx
+Project-URL: Issues, https://github.com/paper-instruments/paper-docx/issues
+Project-URL: Repository, https://github.com/paper-instruments/paper-docx
+Keywords: docx,office,openxml,word
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Office/Business :: Office Suites
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: lxml>=3.1.0
+Requires-Dist: typing_extensions>=4.9.0
+Dynamic: license-file
+
+<div align="center">
+  <a href="https://github.com/paper-instruments/paper-docx">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/paper-instruments/paper-docx/main/.github/assets/logo-dark.svg">
+      <img alt="paper-docx logo" src="https://raw.githubusercontent.com/paper-instruments/paper-docx/main/.github/assets/logo-light.svg" height="128">
+    </picture>
+  </a>
+  <h1>paper-docx</h1>
+
+[![PyPI](https://img.shields.io/pypi/v/paper-docx.svg)](https://pypi.org/project/paper-docx/)
+[![Python versions](https://img.shields.io/pypi/pyversions/paper-docx.svg)](https://pypi.org/project/paper-docx/)
+[![Test](https://github.com/paper-instruments/paper-docx/actions/workflows/test.yml/badge.svg)](https://github.com/paper-instruments/paper-docx/actions/workflows/test.yml)
+
+</div>
+
+**An import-compatible, agent-safe fork of python-docx for creating and editing Word documents without silent corruption.**
+
+`paper-docx` is an import-compatible hard fork of [python-docx](https://github.com/python-openxml/python-docx) for creating and editing Microsoft Word (`.docx`) documents. It keeps the `docx` import name and upstream object model, and adds guarded inspection and editing APIs that refuse unsupported operations instead of guessing.
+
+## Installation
+
+Use an [activated virtual environment](https://docs.python.org/3/library/venv.html).
+
+```bash
+python -m pip uninstall -y python-docx paper-docx
+python -m pip install paper-docx
+python -m paper_docx_doctor
+```
+
+Both distributions provide the `docx` import package. Do not install `python-docx` and `paper-docx` in the same environment.
+
+To return to `python-docx`, run the uninstall line above again, then `python -m pip install python-docx`.
+
+## Quick start
+
+Create a Word redline from two document versions:
+
+```python
+import docx
+from docx.package import compare
+
+original = docx.Document()
+original.add_paragraph("Payment is due within thirty calendar days.")
+original.save("original.docx")
+
+revised = docx.Document()
+revised.add_paragraph("Payment is due within thirty business days.")
+revised.save("revised.docx")
+
+result = compare("original.docx", "revised.docx", author="Reviewer")
+result.document.save("redline.docx")
+print(result.revision_count)  # 2
+```
+
+`compare` writes differences as tracked changes and refuses changes it cannot represent safely.
+
+## Documentation
+
+Read the [paper-docx documentation](https://docs.paperinstruments.com/).
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/paper-instruments/paper-docx/blob/main/CONTRIBUTING.md).
+
+## Acknowledgments
+
+paper-docx builds on python-docx by Steve Canny and contributors. This fork preserves their API, license, and attribution.
+
+## Citation
+
+If you reference paper-docx in research or writing:
+
+```bibtex
+@software{paper_docx,
+  title   = {paper-docx: an agent-first structure editor for Word documents},
+  author  = {{Paper Instruments, Inc.}},
+  year    = {2026},
+  url     = {https://github.com/paper-instruments/paper-docx}
+}
+```
+
+Cite it as a fork of *python-docx* by Steve Canny and contributors.
+
+## License
+
+MIT, inherited from python-docx. Original work © Steve Canny and the python-docx contributors; fork additions © Paper Instruments, Inc. See [LICENSE](https://github.com/paper-instruments/paper-docx/blob/main/LICENSE).

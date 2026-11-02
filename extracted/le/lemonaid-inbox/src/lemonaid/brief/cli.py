@@ -1,0 +1,254 @@
+"""CLI for showing where a lemon's work stands, from its brief."""
+
+__lazy_modules__ = ["lemonaid.inbox.tui.briefs"]
+
+import argparse
+import dataclasses
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+from ..config import load_config
+from ..inbox import db, emoji
+from ..inbox.tui.briefs import brief_popup
+from . import (
+    archive_cli,
+    attached,
+    dismiss,
+    docs_cli,
+    family,
+    lemon,
+    lemons_cli,
+    popup,
+    pr,
+    render,
+    session,
+    sidebar,
+    target,
+    write_cli,
+)
+from .handoff import cli as handoff_cli
+
+
+def _file_target(
+    files: list[Path], dirs: list[Path], place: Path | None, names: list[str]
+) -> target.Target:
+    with db.connect() as conn:
+        attachments = {item.path.resolve(): item for item in attached.everything(conn)}
+        emojis = emoji.by_channel(conn)
+
+    identities = {
+        path: target.identity(item.notification, emojis.get(item.channel, ""))
+        for path in files
+        if (item := attachments.get(path.resolve())) and item.notification
+    }
+    title = (files or dirs)[0].name
+    if len(files) == 1 and files[0] in identities:
+        return target.Target(files, dirs, place, names, title, lemon=identities[files[0]])
+
+    return target.Target(
+        files,
+        dirs,
+        place,
+        names,
+        title,
+        "" if identities or not files else "**No attached session**",
+        identities=identities,
+    )
+
+
+def _own_brief() -> Path | None:
+    """The caller's attached brief, for a lemon that can't ask tmux where it is."""
+    with db.connect() as conn:
+        try:
+            channel = lemon.self_channel(conn)
+        except LookupError:
+            return None
+
+        attached.claim_pending(conn)
+        return attached.by_channel(conn, [channel]).get(channel)
+
+
+def _target(
+    session_arg: str,
+    file_args: list[str],
+    dir_args: list[str],
+    place_arg: str,
+    name_args: list[str],
+    target_arg: str,
+    popup: bool = False,
+    use_self: bool = False,
+) -> target.Target:
+    if target_arg:
+        return target.from_json(json.loads(target_arg))
+
+    if use_self:
+        if own := _own_brief():
+            return _file_target([own], [], None, name_args)
+
+        print("No brief is attached to this lemon.", file=sys.stderr)
+        sys.exit(1)
+
+    if file_args or dir_args:
+        return _file_target(
+            [Path(f) for f in file_args],
+            [Path(d) for d in dir_args],
+            Path(place_arg) if place_arg else None,
+            name_args,
+        )
+
+    where = session_arg or session.current_session()
+    if not where and (own := _own_brief()):
+        return _file_target([own], [], None, name_args)
+
+    tmux_session, _, window = where.partition(":")
+    if popup and tmux_session and not window:
+        window = session.client_window(tmux_session)  # a binding that passes only the session
+    if not tmux_session:
+        print("Not in tmux; name a session or pass --dir.", file=sys.stderr)
+        sys.exit(1)
+
+    with db.connect() as conn:
+        rows = db.get_active(conn)
+        found = target.for_session(
+            tmux_session, rows, attached.for_rows(conn, rows), window, emoji.by_channel(conn)
+        )
+
+    if not (found.attached or found.dirs):
+        print(f"No tmux session or inbox row for '{tmux_session}'.", file=sys.stderr)
+        sys.exit(1)
+
+    return dataclasses.replace(found, names=[*found.names, *name_args])
+
+
+def cmd_show(args: argparse.Namespace) -> None:
+    found = _target(
+        args.session,
+        args.file,
+        args.dir,
+        args.place,
+        args.name,
+        args.target,
+        args.popup,
+        args.use_self,
+    )
+    if args.popup:
+        if not sidebar.toggle(
+            found, sidebar.window_id(args.session or os.environ.get("TMUX_PANE", ""))
+        ):
+            popup.open_popup(found)
+        return
+
+    config = load_config()
+    if args.page:
+        brief_popup.run(found, config, dismiss.pairs(args.dismiss))
+        return
+
+    now = time.time()
+    shown = family.added(
+        render.view(found, now, pr.configured(config.brief.pr_state), config.places.roots)
+    )
+    print(render.to_markdown(shown, now, args.questions))
+
+
+def setup_parser(subparsers: argparse._SubParsersAction) -> None:
+    brief_parser = subparsers.add_parser(
+        "brief",
+        help="Where a lemon's work stands, from its brief",
+        description="A brief is a Markdown file in ~/.lemons/brief/ attached to one "
+        "lemon session (or, for older sessions, .z/brief.md or .z/brief-<name>.md in its "
+        "place). Its Status line and `## Now` section are what the worker keeps current.",
+    )
+    brief_subparsers = brief_parser.add_subparsers(dest="brief_command")
+
+    show_parser = brief_subparsers.add_parser(
+        "show",
+        help="Print a session's Status and Now, or show them in a popup",
+        description="Shows the briefs attached to the session's lemons. A session with "
+        "none falls back to .z/: it looks in the directories of the session's lemons "
+        "(from the inbox), then the session's own directory (from tmux), and shows the "
+        "first brief found, "
+        "never looking above the session's directory: "
+        "the one named for the lemon's LEMON_NAME, backend, or session if there is one, "
+        "otherwise every brief there, newest first. Falls back to .z/state.md when "
+        "there is no brief.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    which = show_parser.add_mutually_exclusive_group()
+    which.add_argument(
+        "session",
+        nargs="?",
+        default="",
+        metavar="SESSION[:WINDOW]",
+        help="tmux session, and the window of one lemon in it (default: the caller's)",
+    )
+    which.add_argument(
+        "--self",
+        dest="use_self",
+        action="store_true",
+        help="Only the brief attached to the lemon running this command, not its session's",
+    )
+    show_parser.add_argument(
+        "--file",
+        action="append",
+        default=[],
+        help="Show this brief instead of asking the inbox and tmux (repeatable)",
+    )
+    show_parser.add_argument(
+        "--dir",
+        action="append",
+        default=[],
+        help="Read this directory instead of asking the inbox and tmux (repeatable, in order)",
+    )
+    show_parser.add_argument(
+        "--place",
+        default="",
+        help="With --dir, also look in .z/ above a --dir, up to and including this "
+        "directory (without it, only each --dir's own .z/ is read)",
+    )
+    show_parser.add_argument(
+        "--name",
+        action="append",
+        default=[],
+        help="Also prefer .z/brief-NAME.md (repeatable)",
+    )
+    show_parser.add_argument("--target", default="", help=argparse.SUPPRESS)
+    show_parser.add_argument(
+        "--dismiss",
+        action="append",
+        default=[],
+        help="With --page, also close on this prefix and key, as `ctrl+b b` (repeatable)",
+    )
+    show_parser.add_argument(
+        "--questions",
+        dest="questions",
+        action="store_true",
+        default=True,
+        help="Show Questions entries under their Needs bullets (the default)",
+    )
+    show_parser.add_argument(
+        "--no-questions",
+        dest="questions",
+        action="store_false",
+        help="Hide matched Questions entries for a compact text view",
+    )
+    mode = show_parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--popup", action="store_true", help="Show it in a tmux popup over your client"
+    )
+    mode.add_argument(
+        "--page",
+        action="store_true",
+        help="Show it in this terminal as the inbox's brief view, with its question keys",
+    )
+    show_parser.set_defaults(func=cmd_show)
+
+    docs_cli.add_parser(brief_subparsers)
+    lemons_cli.add_parser(brief_subparsers)
+    write_cli.add_parsers(brief_subparsers)
+    archive_cli.add_parsers(brief_subparsers)
+    handoff_cli.add_parser(brief_subparsers)
+
+    brief_parser.set_defaults(func=lambda a: brief_parser.print_help())

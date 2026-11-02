@@ -1,0 +1,690 @@
+"""S3 Files (s3files-2025-05-05) tests.
+
+Driven via raw HTTP since botocore doesn't ship `s3files` in the version
+pinned for the rest of the suite. The wire format here is exactly what
+the AWS CLI / SDKs send: REST/JSON with camelCase fields and the routes
+documented at docs.aws.amazon.com/AmazonS3/.../API_Operations_Amazon_S3_Files.html.
+"""
+
+import json
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+ENDPOINT = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566").rstrip("/")
+BUCKET_ARN = "arn:aws:s3:::test-bucket"
+ROLE_ARN = "arn:aws:iam::000000000000:role/s3files-role"
+
+
+def _auth(account="000000000000", region="us-east-1"):
+    return (
+        f"AWS4-HMAC-SHA256 "
+        f"Credential={account}/20260504/{region}/s3files/aws4_request, "
+        f"SignedHeaders=host, Signature=00"
+    )
+
+
+def _req(method, path, body=None, query=None, account=None, region="us-east-1"):
+    url = ENDPOINT + path
+    if query:
+        url += "?" + urllib.parse.urlencode(query, doseq=True)
+    data = None
+    headers = {"Authorization": _auth(account or "000000000000", region)}
+    if body is not None:
+        data = json.dumps(body).encode()
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    # 30s instead of 10s: under CI xdist contention the first request into the
+    # s3files handler can trigger lazy imports of large service modules whose
+    # import-time work exceeds 10s on the shared 2-core Linux runner (same
+    # failure class documented in tests/test_rds_data.py). The handler itself
+    # is sub-ms once loaded, so 30s leaves a wide margin without slowing real
+    # failures meaningfully.
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+        raw = resp.read()
+        return resp.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, {"raw": raw.decode("latin-1", "replace")}
+
+
+def _uid():
+    return uuid.uuid4().hex[:6]
+
+
+def _resource_tags_path(resource_id):
+    return "/resource-tags/" + urllib.parse.quote(resource_id, safe="")
+
+
+# ---------------------------------------------------------------------------
+# File systems
+# ---------------------------------------------------------------------------
+
+def test_create_file_system_uses_put_and_camel_case():
+    status, body = _req("PUT", "/file-systems", {
+        "bucket": BUCKET_ARN,
+        "roleArn": ROLE_ARN,
+        "tags": [{"key": "Name", "value": f"fs-{_uid()}"}],
+    })
+    assert status == 201, body
+    assert body["fileSystemId"].startswith("fs-")
+    assert body["fileSystemArn"].startswith("arn:aws:s3files:")
+    assert body["bucket"] == BUCKET_ARN
+    assert body["roleArn"] == ROLE_ARN
+    assert body["status"] == "available"
+    assert isinstance(body["creationTime"], int)
+    assert body["ownerId"] == "000000000000"
+    fs_id = body["fileSystemId"]
+    _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_file_systems_are_region_scoped():
+    _, east_fs = _req(
+        "PUT",
+        "/file-systems",
+        {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN},
+        region="us-east-1",
+    )
+    _, west_fs = _req(
+        "PUT",
+        "/file-systems",
+        {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN},
+        region="us-west-2",
+    )
+    try:
+        _, east_list = _req("GET", "/file-systems", region="us-east-1")
+        _, west_list = _req("GET", "/file-systems", region="us-west-2")
+        east_ids = {fs["fileSystemId"] for fs in east_list["fileSystems"]}
+        west_ids = {fs["fileSystemId"] for fs in west_list["fileSystems"]}
+
+        assert east_fs["fileSystemId"] in east_ids
+        assert east_fs["fileSystemId"] not in west_ids
+        assert west_fs["fileSystemId"] in west_ids
+        assert west_fs["fileSystemId"] not in east_ids
+        assert ":us-east-1:" in east_fs["fileSystemArn"]
+        assert ":us-west-2:" in west_fs["fileSystemArn"]
+    finally:
+        _req(
+            "DELETE",
+            f"/file-systems/{east_fs['fileSystemId']}",
+            region="us-east-1",
+        )
+        _req(
+            "DELETE",
+            f"/file-systems/{west_fs['fileSystemId']}",
+            region="us-west-2",
+        )
+
+
+def test_legacy_child_state_restores_beside_parent_resource():
+    from ministack.core.responses import (
+        AccountScopedDict,
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+    from ministack.services import s3files as service
+
+    original_account = get_account_id()
+    original_region = get_region()
+    account_id = "111111111111"
+    boot_region = "us-east-1"
+    resource_region = "us-west-2"
+    fs_id = "fs-11111111111111111"
+    mt_id = "fsmt-11111111111111111"
+    ap_id = "fsap-11111111111111111"
+    file_systems = AccountScopedDict()
+    mount_targets = AccountScopedDict()
+    access_points = AccountScopedDict()
+
+    set_request_account_id(account_id)
+    set_request_region(boot_region)
+    file_systems[fs_id] = {
+        "fileSystemId": fs_id,
+        "fileSystemArn": (
+            f"arn:aws:s3files:{resource_region}:{account_id}:file-system/{fs_id}"
+        ),
+    }
+    mount_targets[mt_id] = {"mountTargetId": mt_id, "fileSystemId": fs_id}
+    access_points[ap_id] = {
+        "accessPointId": ap_id,
+        "fileSystemId": fs_id,
+        "accessPointArn": (
+            f"arn:aws:s3files:{resource_region}:{account_id}:"
+            f"file-system/{fs_id}/access-point/{ap_id}"
+        ),
+    }
+    payload = {
+        "file_systems": file_systems,
+        "mount_targets": mount_targets,
+        "access_points": access_points,
+    }
+    for state_key, resource_id, value in (
+        ("policies", fs_id, "legacy-policy"),
+        ("sync_configs", fs_id, {"latestVersionNumber": 1}),
+        ("tags", ap_id, [{"key": "legacy", "value": "true"}]),
+    ):
+        store = AccountScopedDict()
+        store[resource_id] = value
+        payload[state_key] = store
+
+    service.reset()
+    try:
+        service.load_persisted_state(payload)
+        assert service._file_systems.get_scoped(
+            account_id, resource_region, fs_id
+        )["fileSystemId"] == fs_id
+        assert service._mount_targets.get_scoped(
+            account_id, resource_region, mt_id
+        )["fileSystemId"] == fs_id
+        assert service._access_points.get_scoped(
+            account_id, resource_region, ap_id
+        )["fileSystemId"] == fs_id
+        assert service._policies.get_scoped(
+            account_id, resource_region, fs_id
+        ) == "legacy-policy"
+        assert service._sync_configs.get_scoped(
+            account_id, resource_region, fs_id
+        ) == {"latestVersionNumber": 1}
+        assert service._tags.get_scoped(account_id, resource_region, ap_id) == [
+            {"key": "legacy", "value": "true"}
+        ]
+    finally:
+        service.reset()
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+def test_legacy_orphaned_mount_target_restores_to_availability_zone_region():
+    from ministack.core.responses import (
+        AccountScopedDict,
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+    from ministack.services import s3files as service
+
+    original_account = get_account_id()
+    original_region = get_region()
+    account_id = "111111111111"
+    boot_region = "us-east-1"
+    resource_region = "us-west-2"
+    mt_id = "fsmt-11111111111111111"
+    mount_targets = AccountScopedDict()
+
+    set_request_account_id(account_id)
+    set_request_region(boot_region)
+    mount_targets[mt_id] = {
+        "mountTargetId": mt_id,
+        "fileSystemId": "fs-11111111111111111",
+        "availabilityZoneId": f"{resource_region}-az1",
+    }
+
+    service.reset()
+    try:
+        service.load_persisted_state({"mount_targets": mount_targets})
+        assert service._mount_targets.get_scoped(
+            account_id, resource_region, mt_id
+        )["mountTargetId"] == mt_id
+        assert (
+            service._mount_targets.get_scoped(account_id, boot_region, mt_id) is None
+        )
+    finally:
+        service.reset()
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+def test_reset_clears_s3files_state_across_regions():
+    from ministack.core.responses import get_region, set_request_region
+    from ministack.services import s3files as service
+
+    original_region = get_region()
+    stores = (
+        service._file_systems,
+        service._mount_targets,
+        service._access_points,
+        service._policies,
+        service._sync_configs,
+        service._tags,
+    )
+    service.reset()
+    try:
+        for region in ("us-east-1", "us-west-2"):
+            set_request_region(region)
+            for store in stores:
+                store[f"resource-{region}"] = {"region": region}
+        service.reset()
+        assert all(not store.has_any() for store in stores)
+    finally:
+        service.reset()
+        set_request_region(original_region)
+
+
+def test_create_file_system_post_is_not_supported():
+    status, body = _req("POST", "/file-systems", {
+        "bucket": BUCKET_ARN,
+        "roleArn": ROLE_ARN,
+    })
+    assert status == 400
+    assert body.get("__type") == "ValidationException"
+
+
+def test_create_file_system_missing_required_fields():
+    status, body = _req("PUT", "/file-systems", {})
+    assert status == 400
+    assert body.get("__type") == "ValidationException"
+
+
+def test_get_and_list_file_systems_camel_case():
+    s, body = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = body["fileSystemId"]
+    try:
+        s, got = _req("GET", f"/file-systems/{fs_id}")
+        assert s == 200
+        assert got["fileSystemId"] == fs_id
+        assert got["bucket"] == BUCKET_ARN
+
+        s, listed = _req("GET", "/file-systems")
+        assert s == 200
+        assert any(fs["fileSystemId"] == fs_id for fs in listed["fileSystems"])
+
+        s, filtered = _req("GET", "/file-systems", query={"bucket": BUCKET_ARN})
+        assert s == 200
+        assert all(fs["bucket"] == BUCKET_ARN for fs in filtered["fileSystems"])
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_get_file_system_not_found():
+    s, body = _req("GET", "/file-systems/fs-deadbeefdeadbeefdead")
+    assert s == 404
+    assert body.get("__type") == "ResourceNotFoundException"
+
+
+def test_delete_file_system_returns_204():
+    s, body = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = body["fileSystemId"]
+    s, _ = _req("DELETE", f"/file-systems/{fs_id}")
+    assert s == 204
+
+
+# ---------------------------------------------------------------------------
+# Mount targets
+# ---------------------------------------------------------------------------
+
+def test_mount_target_lifecycle():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, mt = _req("PUT", "/mount-targets", {
+            "fileSystemId": fs_id,
+            "subnetId": "subnet-12345678",
+            "securityGroups": ["sg-12345678"],
+        })
+        assert s == 200
+        assert mt["mountTargetId"].startswith("fsmt-")
+        assert mt["fileSystemId"] == fs_id
+        assert mt["securityGroups"] == ["sg-12345678"]
+        mt_id = mt["mountTargetId"]
+
+        s, got = _req("GET", f"/mount-targets/{mt_id}")
+        assert s == 200 and got["mountTargetId"] == mt_id
+
+        s, listed = _req("GET", "/mount-targets", query={"fileSystemId": fs_id})
+        assert s == 200
+        assert any(m["mountTargetId"] == mt_id for m in listed["mountTargets"])
+
+        s, updated = _req("PUT", f"/mount-targets/{mt_id}", {
+            "securityGroups": ["sg-aaaaaaaa", "sg-bbbbbbbb"],
+        })
+        assert s == 200
+        assert updated["securityGroups"] == ["sg-aaaaaaaa", "sg-bbbbbbbb"]
+
+        s, _ = _req("DELETE", f"/mount-targets/{mt_id}")
+        assert s == 204
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_create_mount_target_requires_filesystem():
+    s, body = _req("PUT", "/mount-targets", {"subnetId": "subnet-12345678"})
+    assert s == 400
+    assert body.get("__type") == "ValidationException"
+
+
+def test_update_mount_target_requires_security_groups():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, mt = _req("PUT", "/mount-targets", {
+            "fileSystemId": fs_id,
+            "subnetId": "subnet-12345678",
+        })
+        s, body = _req("PUT", f"/mount-targets/{mt['mountTargetId']}", {})
+        assert s == 400
+        assert body.get("__type") == "ValidationException"
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+# ---------------------------------------------------------------------------
+# Access points
+# ---------------------------------------------------------------------------
+
+def test_access_point_lifecycle():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, ap = _req("PUT", "/access-points", {
+            "fileSystemId": fs_id,
+            "posixUser": {"uid": 1000, "gid": 1000},
+            "rootDirectory": {"path": "/data"},
+            "tags": [{"key": "Name", "value": "ap-test"}],
+        })
+        assert s == 200
+        assert ap["accessPointId"].startswith("fsap-")
+        assert ap["fileSystemId"] == fs_id
+        assert ap["accessPointArn"].startswith("arn:aws:s3files:")
+        assert "/access-point/" in ap["accessPointArn"]
+        assert ap["name"] == "ap-test"
+
+        s, listed = _req("GET", "/access-points", query={"fileSystemId": fs_id})
+        assert s == 200
+        assert any(a["accessPointId"] == ap["accessPointId"] for a in listed["accessPoints"])
+
+        s, _ = _req("DELETE", f"/access-points/{ap['accessPointId']}")
+        assert s == 204
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_list_access_points_requires_filesystem_id():
+    s, body = _req("GET", "/access-points")
+    assert s == 400
+    assert body.get("__type") == "ValidationException"
+
+
+# ---------------------------------------------------------------------------
+# File-system policy
+# ---------------------------------------------------------------------------
+
+def test_file_system_policy_lifecycle():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        policy_doc = json.dumps({"Version": "2012-10-17", "Statement": []})
+        s, _ = _req("PUT", f"/file-systems/{fs_id}/policy", {"policy": policy_doc})
+        assert s == 200
+
+        s, got = _req("GET", f"/file-systems/{fs_id}/policy")
+        assert s == 200
+        assert got["fileSystemId"] == fs_id
+        assert got["policy"] == policy_doc
+
+        s, _ = _req("DELETE", f"/file-systems/{fs_id}/policy")
+        assert s == 204
+
+        s, body = _req("GET", f"/file-systems/{fs_id}/policy")
+        assert s == 404
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+# ---------------------------------------------------------------------------
+# Synchronization configuration
+# ---------------------------------------------------------------------------
+
+def test_synchronization_configuration_lifecycle_and_optimistic_locking():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, _ = _req("PUT", f"/file-systems/{fs_id}/synchronization-configuration", {
+            "expirationDataRules": [{"daysAfterLastAccess": 7}],
+            "importDataRules": [{"prefix": "", "trigger": "NEW_OBJECTS"}],
+        })
+        assert s == 200
+
+        s, got = _req("GET", f"/file-systems/{fs_id}/synchronization-configuration")
+        assert s == 200
+        assert got["latestVersionNumber"] == 1
+        assert got["expirationDataRules"][0]["daysAfterLastAccess"] == 7
+
+        # stale version → 409
+        s, body = _req("PUT", f"/file-systems/{fs_id}/synchronization-configuration", {
+            "expirationDataRules": [{"daysAfterLastAccess": 14}],
+            "importDataRules": [{"prefix": "", "trigger": "NEW_OBJECTS"}],
+            "latestVersionNumber": 99,
+        })
+        assert s == 409
+        assert body.get("__type") == "ConflictException"
+
+        # correct version → 200, bump
+        s, _ = _req("PUT", f"/file-systems/{fs_id}/synchronization-configuration", {
+            "expirationDataRules": [{"daysAfterLastAccess": 14}],
+            "importDataRules": [{"prefix": "", "trigger": "NEW_OBJECTS"}],
+            "latestVersionNumber": 1,
+        })
+        assert s == 200
+        s, got = _req("GET", f"/file-systems/{fs_id}/synchronization-configuration")
+        assert got["latestVersionNumber"] == 2
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+# ---------------------------------------------------------------------------
+# Tagging
+# ---------------------------------------------------------------------------
+
+def test_resource_tags_lifecycle_uses_resource_tags_path():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, _ = _req("POST", f"/resource-tags/{fs_id}", {
+            "tags": [{"key": "Env", "value": "test"}, {"key": "Owner", "value": "ministack"}],
+        })
+        assert s == 200
+
+        s, listed = _req("GET", f"/resource-tags/{fs_id}")
+        assert s == 200
+        tags = {t["key"]: t["value"] for t in listed["tags"]}
+        assert tags == {"Env": "test", "Owner": "ministack"}
+
+        s, _ = _req("DELETE", f"/resource-tags/{fs_id}", query={"tagKeys": ["Env"]})
+        assert s == 200
+
+        s, listed = _req("GET", f"/resource-tags/{fs_id}")
+        assert {t["key"] for t in listed["tags"]} == {"Owner"}
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_tag_unknown_resource_returns_404():
+    s, body = _req("POST", "/resource-tags/fs-deadbeefdeadbeefdead", {
+        "tags": [{"key": "k", "value": "v"}],
+    })
+    assert s == 404
+    assert body.get("__type") == "ResourceNotFoundException"
+
+
+def test_resource_tags_accept_file_system_and_access_point_arns():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    fs_arn = fs["fileSystemArn"]
+    try:
+        s, _ = _req("POST", _resource_tags_path(fs_arn), {
+            "tags": [{"key": "Scope", "value": "filesystem"}],
+        })
+        assert s == 200
+
+        s, listed = _req("GET", _resource_tags_path(fs_arn))
+        assert s == 200
+        assert {t["key"]: t["value"] for t in listed["tags"]} == {"Scope": "filesystem"}
+
+        s, ap = _req("PUT", "/access-points", {"fileSystemId": fs_id})
+        assert s == 200
+        ap_arn = ap["accessPointArn"]
+
+        s, _ = _req("POST", _resource_tags_path(ap_arn), {
+            "tags": [{"key": "Scope", "value": "accesspoint"}],
+        })
+        assert s == 200
+
+        s, listed = _req("GET", _resource_tags_path(ap_arn))
+        assert s == 200
+        assert {t["key"]: t["value"] for t in listed["tags"]} == {"Scope": "accesspoint"}
+
+        s, _ = _req("DELETE", _resource_tags_path(ap_arn), query={"tagKeys": ["Scope"]})
+        assert s == 200
+        s, listed = _req("GET", _resource_tags_path(ap_arn))
+        assert listed["tags"] == []
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+def test_resource_tags_reject_out_of_scope_arns_before_touching_tags():
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    try:
+        s, _ = _req("POST", f"/resource-tags/{fs_id}", {
+            "tags": [{"key": "Keep", "value": "true"}],
+        })
+        assert s == 200
+
+        bad_arns = [
+            "arn:nope",
+            f"arn:aws-cn:s3files:us-east-1:000000000000:file-system/{fs_id}",
+            f"arn:aws:s3:us-east-1:000000000000:file-system/{fs_id}",
+            f"arn:aws:s3files:us-west-2:000000000000:file-system/{fs_id}",
+            f"arn:aws:s3files:us-east-1:111111111111:file-system/{fs_id}",
+            f"arn:aws:s3files:us-east-1:000000000000:mount-target/{fs_id}",
+            "arn:aws:s3files:us-east-1:000000000000:file-system/fs-nothex",
+            f"arn:aws:s3files:us-east-1:000000000000:file-system/{fs_id}/access-point/fs-nothex",
+        ]
+        for arn in bad_arns:
+            for method, body, query in (
+                ("POST", {"tags": [{"key": "Bad", "value": "false"}]}, None),
+                ("DELETE", None, {"tagKeys": ["Keep"]}),
+                ("GET", None, None),
+            ):
+                s, response = _req(method, _resource_tags_path(arn), body=body, query=query)
+                assert s == 400, (method, arn, response)
+                assert response.get("__type") == "ValidationException"
+
+        missing = "arn:aws:s3files:us-east-1:000000000000:file-system/fs-deadbeefdeadbeefdea"
+        s, response = _req("GET", _resource_tags_path(missing))
+        assert s == 404
+        assert response.get("__type") == "ResourceNotFoundException"
+
+        s, listed = _req("GET", f"/resource-tags/{fs_id}")
+        assert s == 200
+        assert {t["key"]: t["value"] for t in listed["tags"]} == {"Keep": "true"}
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")
+
+
+# ---------------------------------------------------------------------------
+# Multi-tenancy
+# ---------------------------------------------------------------------------
+
+def test_account_isolation_for_file_systems():
+    a, b = "111111111111", "222222222222"
+    s, fs = _req("PUT", "/file-systems",
+                 {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN}, account=a)
+    fs_id = fs["fileSystemId"]
+    try:
+        s, listed_a = _req("GET", "/file-systems", account=a)
+        s, listed_b = _req("GET", "/file-systems", account=b)
+        ids_a = {f["fileSystemId"] for f in listed_a["fileSystems"]}
+        ids_b = {f["fileSystemId"] for f in listed_b["fileSystems"]}
+        assert fs_id in ids_a
+        assert fs_id not in ids_b
+
+        s, body = _req("GET", f"/file-systems/{fs_id}", account=b)
+        assert s == 404
+        assert body.get("__type") == "ResourceNotFoundException"
+
+        s, body = _req("DELETE", f"/file-systems/{fs_id}", account=b)
+        assert s == 404
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}", account=a)
+
+
+# ---------------------------------------------------------------------------
+# Pagination
+# ---------------------------------------------------------------------------
+
+def test_list_file_systems_pagination_walks_all_items():
+    created = []
+    try:
+        for _ in range(7):
+            _, fs = _req("PUT", "/file-systems",
+                         {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+            created.append(fs["fileSystemId"])
+
+        seen = []
+        token = None
+        for _ in range(10):  # safety bound; real loop terminates by None
+            q = {"maxResults": 3}
+            if token:
+                q["nextToken"] = token
+            s, page = _req("GET", "/file-systems", query=q)
+            assert s == 200
+            assert len(page["fileSystems"]) <= 3
+            seen.extend(f["fileSystemId"] for f in page["fileSystems"])
+            token = page.get("nextToken")
+            if not token:
+                break
+        else:
+            raise AssertionError("pagination did not terminate")
+
+        assert set(created).issubset(set(seen))
+        # No duplicates across pages.
+        assert len(seen) == len(set(seen))
+    finally:
+        for fs_id in created:
+            _req("DELETE", f"/file-systems/{fs_id}")
+
+
+# ---------------------------------------------------------------------------
+# ARN-form resourceId acceptance
+# ---------------------------------------------------------------------------
+
+def test_body_parameter_accepts_full_arn_form():
+    """AWS shapes accept either a bare ID (`fs-xxx`) or a full ARN for
+    `fileSystemId` request fields. Verify the ARN form is normalized so
+    downstream lookups match the bare-ID storage key.
+
+    Path-parameter ARNs are not exercised: ASGI delivers the path already
+    URL-decoded, which collides with the `/` inside the ARN. Real SDKs
+    typically pass the bare ID in the URI and only use the ARN form in the
+    JSON body, which is the case covered here.
+    """
+    s, fs = _req("PUT", "/file-systems", {"bucket": BUCKET_ARN, "roleArn": ROLE_ARN})
+    fs_id = fs["fileSystemId"]
+    fs_arn = fs["fileSystemArn"]
+    try:
+        # CreateMountTarget with the ARN form of fileSystemId.
+        s, mt = _req("PUT", "/mount-targets", {
+            "fileSystemId": fs_arn,
+            "subnetId": "subnet-12345678",
+        })
+        assert s == 200, mt
+        assert mt["fileSystemId"] == fs_id  # normalized back to bare ID
+        _req("DELETE", f"/mount-targets/{mt['mountTargetId']}")
+
+        # CreateAccessPoint with the ARN form too.
+        s, ap = _req("PUT", "/access-points", {"fileSystemId": fs_arn})
+        assert s == 200, ap
+        assert ap["fileSystemId"] == fs_id
+        _req("DELETE", f"/access-points/{ap['accessPointId']}")
+    finally:
+        _req("DELETE", f"/file-systems/{fs_id}")

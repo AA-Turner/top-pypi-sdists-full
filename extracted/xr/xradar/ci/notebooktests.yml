@@ -1,0 +1,37 @@
+name: xradar-notebookstests
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python>=3.12
+  - cartopy
+  - cmweather
+  - codecov
+  - coverage
+  - dask
+  - h5netcdf
+  - h5py
+  - jupytext
+  - lat_lon_parser
+  - matplotlib-base
+  - nbconvert
+  - netCDF4
+  - notebook
+  - numpy
+  - open-radar-data>=0.9.0
+  - pip
+  - pyproj
+  - pytest
+  - pytest-cov
+  - pytest-doctestplus
+  - pytest-sugar
+  - pytest-xdist
+  - scipy
+  - setuptools
+  - xmltodict
+  - boto3
+  - arm_pyart
+  - wradlib
+  - ffmpeg
+  - zarr>=3
+  - xarray>=2026.9.0

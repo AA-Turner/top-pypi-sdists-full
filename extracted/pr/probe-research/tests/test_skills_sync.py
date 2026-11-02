@@ -341,7 +341,7 @@ def test_no_shipped_text_names_the_removed_team_rules_surface() -> None:
     hyphenated backticked names -- so `probe_procedures` or `probe rule list`
     coming back through a restored paragraph would pass both.
     """
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
     from probe.mcp.server.tool_text import MCP_INSTRUCTIONS
 
     surfaces = {

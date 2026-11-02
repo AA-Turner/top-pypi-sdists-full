@@ -7,8 +7,9 @@ from types import SimpleNamespace
 import pytest
 import typer
 
-from probe.cli.backfill_coverage import Coverage, Scope
-from probe.cli.backfill_delivery import enqueue
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.upload.receipts import enqueue
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings
 from probe.sdk.errors import ValidationError
@@ -23,7 +24,6 @@ def test_reference_remount_preserves_intent_before_and_after_enqueue(
     from probe.sdk.delivery import journal as jm
 
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     source = tmp_path / "original"
     source.mkdir()
     (source / "weights.pt").write_bytes(b"weights")

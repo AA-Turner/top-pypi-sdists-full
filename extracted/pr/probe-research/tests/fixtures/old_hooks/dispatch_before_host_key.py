@@ -363,7 +363,7 @@ def _ledger(env) -> str:
     """Claude Code's install ledger, where Claude Code itself keeps it: in its
     plugins folder, `$CLAUDE_CODE_PLUGIN_CACHE_DIR` when that moves it, else
     `$CLAUDE_CONFIG_DIR` or `~/.claude`, then `plugins/`; the file is
-    `installed_plugins.json` (as `probe.cli.root_skills` reads it)."""
+    `installed_plugins.json` (as `probe.cli.wizard.apply.root_skills` reads it)."""
     moved = (env.get("CLAUDE_CODE_PLUGIN_CACHE_DIR") or "").strip()
     if moved:
         return os.path.join(os.path.expanduser(moved), "installed_plugins.json")

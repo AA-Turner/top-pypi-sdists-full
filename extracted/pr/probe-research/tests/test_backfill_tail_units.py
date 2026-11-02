@@ -11,10 +11,10 @@ import json
 
 import pytest
 
-from probe.cli import backfill_ledger as ledger_mod
-from probe.cli import backfill_plan as plan_mod
+from probe.cli.imports.folder.upload import ledger as ledger_mod
+from probe.cli.imports.folder.classify import plan as plan_mod
 from probe.cli import backfill_run
-from probe.cli.backfill_ledger import Unit, UnitKind
+from probe.cli.imports.folder.upload.ledger import Unit, UnitKind
 
 
 @pytest.fixture
@@ -136,8 +136,8 @@ def test_a_unit_is_hashable_and_frozen():
 def test_a_tail_unit_respects_the_byte_cap(tmp_path):
     """Files under the reference threshold upload by VALUE, so 400 99MB shards
     in one unit is a 39GB enqueue whose failure costs all of it."""
-    from probe.cli import backfill_evidence as ev_mod
-    from probe.cli import backfill_plan as bp
+    from probe.cli.imports.folder import evidence as ev_mod
+    from probe.cli.imports.folder.classify import plan as bp
 
     for i in range(6):
         p = tmp_path / f"s{i}.pt"

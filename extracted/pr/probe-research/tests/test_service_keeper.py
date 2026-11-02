@@ -21,7 +21,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import keeper, lifeboat, paths, recorders
+from probe.service import keeper
+from probe.service.updater import lifeboat
+from probe.foundation.service_api import paths
+from probe.service.sessions import recorders
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
 WINDOWS = os.name == "nt"
@@ -45,7 +48,10 @@ def fake_tools(tmp_path, monkeypatch):
                 handle.write(json.dumps(argv) + "\n")
             return subprocess.CompletedProcess(argv, 0, "", "")
 
-        monkeypatch.setattr(keeper, "_run", run)
+        monkeypatch.setattr(keeper.scheduler, "_run", run)
+        monkeypatch.setattr(keeper.schedulers.launchd, "_run", run)
+        monkeypatch.setattr(keeper.schedulers.systemd, "_run", run)
+        monkeypatch.setattr(keeper.schedulers.windows_task, "_run", run)
     for name in ("systemctl", "launchctl"):
         script = bin_dir / name
         script.write_text(
@@ -59,8 +65,9 @@ def fake_tools(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "home" / ".config"))
     monkeypatch.setenv(keeper.ENV, "1")
-    monkeypatch.setattr(keeper, "_own_home", lambda: True)
-    monkeypatch.setattr(keeper, "_python", lambda: "/opt/probe/bin/python")
+    monkeypatch.setattr(keeper.home, "_own_home", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "_own_home", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "_python", lambda: "/opt/probe/bin/python")
 
     def boat(login=None) -> str:
         """The lifeboat's install, its wrapper only (`test_lifeboat.py` covers the rest)."""
@@ -149,7 +156,7 @@ def test_a_uid_with_no_passwd_entry_takes_an_owned_home_outside_every_temp_folde
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     assert keeper._own_home() is False, "under the temp folder: a test's HOME"
-    monkeypatch.setattr(keeper, "_temp_roots", lambda: ["/nonexistent-temp-root"])
+    monkeypatch.setattr(keeper.home, "_temp_roots", lambda: ["/nonexistent-temp-root"])
     assert keeper._own_home() is True
     for bad in (str(tmp_path / "missing"), "relative/home", "/"):
         monkeypatch.setenv("HOME", bad)
@@ -202,7 +209,8 @@ def test_an_uninstall_keeps_the_keeper_off_until_a_setup(fake_tools, monkeypatch
 def test_removal_never_touches_another_accounts_manager(fake_tools, monkeypatch):
     if not WINDOWS:
         monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(keeper, "_own_home", lambda: False)
+    monkeypatch.setattr(keeper.home, "_own_home", lambda: False)
+    monkeypatch.setattr(keeper.keeper, "_own_home", lambda: False)
     keeper.remove()
     assert fake_tools() == [], "a test's (or a sandbox's) HOME never reaches the real user manager"
 
@@ -232,7 +240,10 @@ def test_windows_gets_one_scheduled_task_written_from_its_xml(monkeypatch, tmp_p
             xml.append(Path(argv[argv.index("/XML") + 1]).read_text(encoding="utf-16"))
         return subprocess.CompletedProcess(argv, 0, "", "")
 
-    monkeypatch.setattr(keeper, "_run", run)
+    monkeypatch.setattr(keeper.scheduler, "_run", run)
+    monkeypatch.setattr(keeper.schedulers.launchd, "_run", run)
+    monkeypatch.setattr(keeper.schedulers.systemd, "_run", run)
+    monkeypatch.setattr(keeper.schedulers.windows_task, "_run", run)
     monkeypatch.setattr(paths, "root_dir", lambda: tmp_path)
     python = tmp_path / "env" / "python.exe"
     python.parent.mkdir()
@@ -295,7 +306,7 @@ def _wedged():
     if WINDOWS:
         import _winapi
 
-        from probe.service import winpipe
+        from probe.foundation.service_api import winpipe
 
         handle = winpipe.create_pipe(paths.pipe_name(), True)
         try:
@@ -333,7 +344,7 @@ class Ticks:
 
     def __init__(self, monkeypatch) -> None:
         self.wall, self.mono = 1_000_000.0, 500.0
-        monkeypatch.setattr(keeper, "_monotonic", lambda: self.mono, raising=False)
+        monkeypatch.setattr(keeper.check, "_monotonic", lambda: self.mono, raising=False)
 
     def settle(self, down, started=None, *, after: float = 60.0, asleep: float = 0.0) -> None:
         self.wall += after + asleep
@@ -397,14 +408,16 @@ def test_a_registered_session_that_said_nothing_stops_service_down(down, monkeyp
 
 
 def test_main_counts_a_back_off_and_an_answer_clears_it(down, monkeypatch):
-    from probe.service import client
+    from probe.foundation import service_api as client
 
-    monkeypatch.setattr(keeper, "_answers", lambda: keeper.Down.NO_SERVICE)
+    monkeypatch.setattr(keeper.check, "_answers", lambda: keeper.Down.NO_SERVICE)
+    monkeypatch.setattr(keeper.keeper, "_answers", lambda: keeper.Down.NO_SERVICE)
     monkeypatch.setattr(client, "ensure", lambda **kw: client.Ensured.BACKOFF)
     assert keeper.main() == 0
     state = json.loads((paths.service_dir() / keeper.STATE_NAME).read_text())
     assert state["reason"] == keeper.Down.BACKOFF and state["ensure"] == "backoff"
-    monkeypatch.setattr(keeper, "_answers", lambda: None)
+    monkeypatch.setattr(keeper.check, "_answers", lambda: None)
+    monkeypatch.setattr(keeper.keeper, "_answers", lambda: None)
     assert keeper.main() == 0
     assert "down_since" not in json.loads((paths.service_dir() / keeper.STATE_NAME).read_text())
 
@@ -427,7 +440,7 @@ def test_a_machine_that_slept_counts_only_the_minutes_it_was_awake_and_down(down
 def test_a_state_the_keeper_cannot_save_sends_no_report(down, monkeypatch):
     """Review #7: on a full disk the record of the last report is lost, and
     every minute would report again."""
-    monkeypatch.setattr(keeper, "_monotonic", lambda: 5_000.0, raising=False)
+    monkeypatch.setattr(keeper.check, "_monotonic", lambda: 5_000.0, raising=False)
     now = 1_000_000.0
     (paths.service_dir() / keeper.STATE_NAME).write_text(json.dumps({
         "down_since": now - 600, "reason": "no_service", "checked_at": now - 60, "checked_mono": 5_000.0 - 60,

@@ -55,7 +55,7 @@ def _never_judged(deps: Deps, command: str, cwd: Path) -> bool:
     parts = _parts(command)
     if not parts or _path_reaches_the_session(deps, cwd):
         return True
-    judged = False
+    is_judged = False
     for words in parts:
         if not words:
             continue
@@ -66,8 +66,8 @@ def _never_judged(deps: Deps, command: str, cwd: Path) -> bool:
             return True
         if not _python_judgeable(deps, name, words[1:], cwd):
             return True
-        judged = True
-    return not judged
+        is_judged = True
+    return not is_judged
 
 
 def _roots(deps: Deps, cwd: Path) -> list[str]:

@@ -177,6 +177,7 @@ mod test_cli {
   fn ok(args: &str) -> App {
     sg(args).expect("should parse")
   }
+
   fn error(args: &str) -> clap::Error {
     let Err(err) = sg(args) else {
       panic!("app parsing should fail!")

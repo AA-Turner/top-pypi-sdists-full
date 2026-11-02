@@ -38,8 +38,10 @@ import signal
 import sys
 import time
 
-from . import client, paths
-from .protocol import Client, Method
+from ..foundation import service_api as client
+from ..foundation.service_api import paths
+from ..foundation.service_api.vocabularies import Client
+from ..foundation.service_api.wire import Method
 
 GONE_S = 30.0
 START_S = 45.0
@@ -87,7 +89,7 @@ def write(record: dict) -> None:
 def record_stop(reason: str, version: str) -> None:
     """The service is stopping on purpose (`server.stop`): say so, for a guard
     watching it. Never raises."""
-    from . import procid
+    from ..foundation.service_api import procid
 
     target = paths.service_dir() / LAST_STOP_NAME
     tmp = target.with_name(f"{target.name}.{os.getpid()}.tmp")
@@ -160,7 +162,7 @@ def _keepalive() -> tuple[object, dict] | None:
 def holder() -> tuple[int, str] | None:
     """The service holding the lock now, as it named itself in the lock file
     (`server._name_holder`): `(pid, start time)` when that process still runs."""
-    from . import procid
+    from ..foundation.service_api import procid
 
     try:
         pid_s, _, start = paths.lock_path().read_text(encoding="utf-8").strip().partition(" ")
@@ -173,7 +175,7 @@ def holder() -> tuple[int, str] | None:
 
 
 def _gone(pid: int | None, start: str | None):
-    from . import procid
+    from ..foundation.service_api import procid
 
     if pid and start:
         return lambda: procid.alive(pid, start) is False
@@ -309,7 +311,7 @@ def _hand_over_workers() -> None:
     again through `probe`, the new version). Never raises."""
     try:
         from . import updater
-        from .registry import Registry
+        from .sessions.sessions import Registry
 
         registry = Registry(paths.registry_path())
         registry.load()

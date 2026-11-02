@@ -1,0 +1,375 @@
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-positional-arguments
+"""STEP/DIR Motion Control module."""
+
+import time
+import math
+import threading
+from ._tmc_mc import (
+    TmcMotionControl,
+    MovementAbsRel,
+    MovementPhase,
+    Direction,
+    StopMode,
+)
+from ..tmc_logger import TmcLogger, Loglevel
+from ..tmc_gpio import Gpio, GpioMode
+from .. import tmc_gpio
+from .. import _tmc_math as tmc_math
+from .._tmc_exceptions import TmcMotionControlException
+from ..platform_utils import get_time_us
+
+
+class TmcMotionControlStepDir(TmcMotionControl):
+    """STEP/DIR Motion Control class."""
+
+    @property
+    def max_speed(self):
+        """_max_speed property."""
+        return self._max_speed
+
+    @max_speed.setter
+    def max_speed(self, speed: int):
+        """_max_speed setter."""
+        speed = abs(speed)
+        if self._max_speed != speed:
+            self._max_speed = speed
+            if speed == 0.0:
+                self._cmin = 0
+            else:
+                self._cmin = round(1000000.0 / speed)
+            # Recompute _n from current speed and adjust speed if accelerating or cruising
+            if self._n > 0:
+                self._n = round(
+                    (self._speed * self._speed) / (2.0 * self._acceleration)
+                )  # Equation 16
+                self.compute_new_speed()
+
+    @property
+    def acceleration(self):
+        """_acceleration property."""
+        return self._acceleration
+
+    @acceleration.setter
+    def acceleration(self, acceleration: int):
+        """_acceleration setter."""
+        acceleration = abs(acceleration)
+        if acceleration == self._acceleration:
+            return
+
+        # Recompute _n per Equation 17
+        self._n = round(self._n * (self._acceleration / acceleration))
+        # New c0 per Equation 7, with correction per Equation 15
+        self._c0 = round(
+            0.676 * math.sqrt(2.0 / acceleration) * 1000000.0
+        )  # Equation 15
+        self._acceleration = acceleration
+        self.compute_new_speed()
+
+    @property
+    def speed(self):
+        """_speed property."""
+        return self._speed
+
+    @speed.setter
+    def speed(self, speed: int):
+        """_speed setter."""
+        if speed == self._speed:
+            return
+        speed = tmc_math.constrain(speed, -self._max_speed, self._max_speed)
+        if speed == 0.0:
+            self._step_interval = 0
+        else:
+            self._step_interval = round(abs(1000000.0 / speed))
+            self.set_direction(Direction.CW if speed > 0 else Direction.CCW)
+
+        self._speed = speed
+
+    @property
+    def pin_step(self):
+        """_pin_step property."""
+        return self._pin_step
+
+    @property
+    def pin_dir(self):
+        """_pin_dir property."""
+        return self._pin_dir
+
+    def __init__(self, pin_step: int, pin_dir: int | None):
+        """constructor."""
+        super().__init__()
+        self._pin_step = pin_step
+        self._pin_dir = pin_dir
+
+        self._movement_thread: threading.Thread | None = None
+
+        self._sqrt_twoa: float = 1.0  # Precomputed sqrt(2*_acceleration)
+        self._step_interval: int = 0  # the current interval between two steps
+        self._min_pulse_width: int = 1  # minimum allowed pulse with in microseconds
+        self._last_step_time: int = 0  # The last step time in microseconds
+        self._n: int = 0  # step counter
+        self._c0: int = 0  # Initial step size in microseconds
+        self._cn: int = 0  # Last step size in microseconds
+        self._cmin: int = 0  # Min step size in microseconds based on maxSpeed
+
+    def init(self, tmc_logger: TmcLogger):
+        """Init: called by the Tmc class."""
+        super().init(tmc_logger)
+        self._tmc_logger.log(f"STEP Pin: {self._pin_step}", Loglevel.DEBUG)
+        tmc_gpio.tmc_gpio.gpio_setup(self._pin_step, GpioMode.OUT, initial=Gpio.LOW)
+
+        if self._pin_dir is not None:
+            self._tmc_logger.log(f"DIR Pin: {self._pin_dir}", Loglevel.DEBUG)
+            tmc_gpio.tmc_gpio.gpio_setup(
+                self._pin_dir, GpioMode.OUT, initial=int(self._direction)
+            )
+
+    def deinit(self):
+        """destructor."""
+        if hasattr(self, "_pin_step"):
+            tmc_gpio.tmc_gpio.gpio_cleanup(self._pin_step)
+            del self._pin_step
+        if hasattr(self, "_pin_dir") and self._pin_dir is not None:
+            tmc_gpio.tmc_gpio.gpio_cleanup(self._pin_dir)
+            del self._pin_dir
+
+    def make_a_step(self):
+        """Method that makes on step.
+
+        for the TMC2209 there needs to be a signal duration of minimum
+        100 ns
+        """
+        tmc_gpio.tmc_gpio.gpio_output(self._pin_step, Gpio.HIGH)
+        time.sleep(1 / 1000 / 1000)
+        tmc_gpio.tmc_gpio.gpio_output(self._pin_step, Gpio.LOW)
+        time.sleep(1 / 1000 / 1000)
+
+        # self._tmc_logger.log("one step", Loglevel.MOVEMENT)
+        self._tmc_logger.log(
+            f"one step | cur: {self.current_pos} | tar: {self._target_pos}",
+            Loglevel.MOVEMENT,
+        )
+
+    def set_direction(self, direction: Direction):
+        """Sets the motor shaft direction to the given value: 0 = CCW; 1 = CW.
+
+        Args:
+            direction (bool): motor shaft direction: False = CCW; True = CW
+        """
+        if self._pin_dir is None:
+            return
+        super().set_direction(direction)
+        tmc_gpio.tmc_gpio.gpio_output(self._pin_dir, int(direction))
+
+    def run_to_position_steps(
+        self, steps, movement_abs_rel: MovementAbsRel | None = None
+    ) -> StopMode:
+        """Runs the motor to the given position."""
+        if movement_abs_rel is None:
+            movement_abs_rel = self._movement_abs_rel
+
+        if movement_abs_rel == MovementAbsRel.RELATIVE:
+            self._target_pos = self._current_pos + steps
+        else:
+            self._target_pos = steps
+
+        self._tmc_logger.log(
+            f"cur: {self._current_pos} | tar: {self._target_pos}", Loglevel.MOVEMENT
+        )
+        # self._tmc_logger.log(f"mov: {movement_abs_rel}", Loglevel.MOVEMENT)
+
+        self._stop = StopMode.NO
+        self._step_interval = 0
+        self._speed = 0.0
+        self._n = 0
+        self.compute_new_speed()
+        while self.run():  # returns false, when target position is reached
+            if self._stop == StopMode.HARDSTOP:
+                break
+
+        self._movement_phase = MovementPhase.STANDSTILL
+        return self._stop
+
+    def run_to_position_steps_threaded(
+        self, steps, movement_abs_rel: MovementAbsRel | None = None
+    ):
+        """Runs the motor to the given position.
+
+        with acceleration and deceleration
+        does not block the code
+        returns true when the movement if finished normally and false,
+        when the movement was stopped
+
+        Args:
+            steps (int): amount of steps; can be negative
+            movement_abs_rel (enum): whether the movement should be absolut or relative
+                (Default value = None)
+
+        Returns:
+            stop (enum): how the movement was finished
+        """
+        self._movement_thread = threading.Thread(
+            target=self.run_to_position_steps, args=(steps, movement_abs_rel)
+        )
+        self._movement_thread.start()
+
+    def run_to_position_revolutions_threaded(
+        self, revolutions, movement_abs_rel: MovementAbsRel | None = None
+    ):
+        """Runs the motor to the given position.
+
+        with acceleration and deceleration
+        does not block the code
+
+        Args:
+            revolutions (int): amount of revs; can be negative
+            movement_abs_rel (enum): whether the movement should be absolut or relative
+                (Default value = None)
+
+        Returns:
+            stop (enum): how the movement was finished
+        """
+        return self.run_to_position_steps_threaded(
+            round(revolutions * self._steps_per_rev), movement_abs_rel
+        )
+
+    def wait_for_movement_finished_threaded(self):
+        """Wait for the motor to finish the movement, if started threaded.
+
+        Returns true when the movement is finished normally and false
+        when the movement was stopped.
+
+        Returns:
+            enum: how the movement was finished
+        """
+        if self._movement_thread is None:
+            raise TmcMotionControlException("No movement thread running.")
+        self._movement_thread.join()
+        return self._stop
+
+    def run(self):
+        """Calculates a new speed if a speed was made.
+
+        returns true if the target position is reached should not be
+        called from outside!
+        """
+        if self.run_speed():  # returns true, when a step is made
+            self.compute_new_speed()
+        return self._speed != 0.0 and self.distance_to_go() != 0
+
+    def distance_to_go(self):
+        """Returns the remaining distance the motor should run."""
+        distance_to_go = self._target_pos - self._current_pos
+        # self._tmc_logger.log(f"cur: {self.current_pos} | tar: {self._target_pos} | dis: {distance_to_go}", Loglevel.MOVEMENT)
+        return distance_to_go
+
+    def compute_new_speed(self):
+        """Returns the calculated current speed depending on the acceleration.
+
+        this code is based on:
+        "Generate stepper-motor speed profiles in real time" by David Austin
+        https://www.embedded.com/generate-stepper-motor-speed-profiles-in-real-time/
+        https://web.archive.org/web/20140705143928/http://fab.cba.mit.edu/classes/MIT/961.09/projects/i0/Stepper_Motor_Speed_Profile.pdf
+        """
+        distance_to = self.distance_to_go()  # +ve is clockwise from current location
+        steps_to_stop = round(
+            (self._speed * self._speed) / (2.0 * self._acceleration)
+        )  # Equation 16
+        if (distance_to == 0 and steps_to_stop <= 2) or (
+            self._stop == StopMode.SOFTSTOP and steps_to_stop <= 1
+        ):
+            # We are at the target and its time to stop
+            self._step_interval = 0
+            self._speed = 0.0
+            self._n = 0
+            self._movement_phase = MovementPhase.STANDSTILL
+            self._tmc_logger.log("time to stop", Loglevel.MOVEMENT)
+            return
+
+        if distance_to > 0:
+            # We are anticlockwise from the target
+            # Need to go clockwise from here, maybe decelerate now
+            if self._n > 0:
+                # Currently accelerating, need to decel now? Or maybe going the wrong way?
+                if (
+                    (steps_to_stop >= distance_to)
+                    or self._direction == Direction.CCW
+                    or self._stop == StopMode.SOFTSTOP
+                ):
+                    self._n = -steps_to_stop  # Start deceleration
+                    self._movement_phase = MovementPhase.DECELERATING
+            elif self._n < 0:
+                # Currently decelerating, need to accel again?
+                if (steps_to_stop < distance_to) and self._direction == Direction.CW:
+                    self._n = -self._n  # Start acceleration
+                    self._movement_phase = MovementPhase.ACCELERATING
+        elif distance_to < 0:
+            # We are clockwise from the target
+            # Need to go anticlockwise from here, maybe decelerate
+            if self._n > 0:
+                # Currently accelerating, need to decel now? Or maybe going the wrong way?
+                if (
+                    (steps_to_stop >= -distance_to)
+                    or self._direction == Direction.CW
+                    or self._stop == StopMode.SOFTSTOP
+                ):
+                    self._n = -steps_to_stop  # Start deceleration
+                    self._movement_phase = MovementPhase.DECELERATING
+            elif self._n < 0:
+                # Currently decelerating, need to accel again?
+                if (steps_to_stop < -distance_to) and self._direction == Direction.CCW:
+                    self._n = -self._n  # Start acceleration
+                    self._movement_phase = MovementPhase.ACCELERATING
+        # Need to accelerate or decelerate
+        if self._n == 0:
+            # First step from stopped
+            self._cn = self._c0
+            tmc_gpio.tmc_gpio.gpio_output(self._pin_step, Gpio.LOW)
+            if distance_to > 0:
+                self.set_direction(Direction.CW)
+                self._tmc_logger.log("going CW", Loglevel.MOVEMENT)
+            else:
+                self.set_direction(Direction.CCW)
+            self._movement_phase = MovementPhase.ACCELERATING
+        else:
+            # Subsequent step. Works for accel (n is +_ve) and decel (n is -ve).
+            self._cn = round(
+                self._cn - ((2.0 * self._cn) / ((4.0 * self._n) + 1))
+            )  # Equation 13
+            self._cn = max(self._cn, self._cmin)
+            if self._cn == self._cmin:
+                self._movement_phase = MovementPhase.MAXSPEED
+        self._n += 1
+        self._step_interval = self._cn
+        self._speed = 1000000.0 / self._cn
+        if self._direction == Direction.CCW:
+            self._speed = -self._speed
+
+    def run_speed(self):
+        """This methods does the actual steps with the current speed."""
+        # Don't do anything unless we actually have a step interval
+
+        # self._tmc_logger.log(f"si: {self._step_interval}")
+
+        if not self._step_interval:
+            return False
+
+        curtime = get_time_us()
+
+        if curtime - self._last_step_time >= self._step_interval:
+
+            self._tmc_logger.log(f"dir: {self._direction}", Loglevel.MOVEMENT)
+
+            if self._direction == Direction.CW:  # Clockwise
+                self._current_pos += 1
+            else:  # Anticlockwise
+                self._current_pos -= 1
+            self.make_a_step()
+
+            self._last_step_time = (
+                curtime  # Caution: does not account for costs in step()
+            )
+            return True
+        return False

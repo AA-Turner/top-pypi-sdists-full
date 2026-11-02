@@ -1,0 +1,13 @@
+# This file is managed by Terraform.
+# Changes should be made in flinthillsdesign/fhd-admin.
+
+# PullApprove v5 configuration
+# https://5.pullapprove.com/docs/config/
+
+[[scopes]]
+name = "wp-config"
+description = "WordPress configuration files"
+paths = ["site/wp-config.php"]
+reviewers = ["davegaeddert"]
+require = 1
+request = 1

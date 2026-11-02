@@ -4,7 +4,13 @@ import pytest
 import requests
 
 from schemathesis.config import OutputConfig, TruncationConfig
-from schemathesis.core.output import decode_response_text, prepare_response_payload, truncate_json
+from schemathesis.core.output import (
+    BINARY_PAYLOAD,
+    decode_response_text,
+    format_response_payload,
+    prepare_response_payload,
+    truncate_json,
+)
 from schemathesis.core.transport import Response
 
 SIMPLE_DICT = {
@@ -95,3 +101,15 @@ def test_decode_response_text(response_factory, content, charset, expected):
     raw = response_factory.requests(content=content, content_type=f"text/plain; charset={charset}")
     raw.encoding = requests.utils.get_encoding_from_headers(raw.headers)
     assert decode_response_text(Response.from_requests(raw, verify=False)) == expected
+
+
+@pytest.mark.parametrize(
+    ("render_content", "expected"),
+    [(bytes.hex, "fffe"), (None, BINARY_PAYLOAD)],
+    ids=["renderer", "no-renderer"],
+)
+def test_format_response_payload_with_renderer(response_factory, render_content, expected):
+    response = response_factory.core(
+        content=b"\xff\xfe", content_type="application/octet-stream", render_content=render_content
+    )
+    assert format_response_payload(response, config=OutputConfig()) == expected

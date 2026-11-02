@@ -1,0 +1,1421 @@
+# Copyright (c) 2026 MiniStack Contributors. SPDX-License-Identifier: MIT
+# Copies or substantial portions, including AI-assisted ports or rewrites, must retain this notice (see LICENSE).
+"""
+SecretsManager Service Emulator.
+JSON-based API via X-Amz-Target.
+Supports: CreateSecret, GetSecretValue, ListSecrets, DeleteSecret,
+          RestoreSecret, UpdateSecret, DescribeSecret, PutSecretValue,
+          UpdateSecretVersionStage, TagResource, UntagResource,
+          ListSecretVersionIds, RotateSecret, GetRandomPassword,
+          ReplicateSecretToRegions,
+          PutResourcePolicy, GetResourcePolicy, DeleteResourcePolicy,
+          ValidateResourcePolicy.
+"""
+
+import base64
+import copy
+import json
+import logging
+import os
+import re
+import secrets as stdlib_secrets
+import string
+import time
+
+from ministack.core.arn import ArnParseError, parse_arn
+from ministack.core.responses import (
+    AccountRegionScopedDict,
+    error_response_json,
+    get_account_id,
+    get_region,
+    json_response,
+    new_uuid,
+)
+
+logger = logging.getLogger("secretsmanager")
+
+REGION = os.environ.get("MINISTACK_REGION", "us-east-1")
+
+
+_secrets = AccountRegionScopedDict()
+_resource_policies = AccountRegionScopedDict()
+# name -> {
+#   ARN, Name, Description, Tags: [{Key, Value}],
+#   CreatedDate, LastChangedDate, LastAccessedDate,
+#   DeletedDate (scheduled deletion epoch | None),
+#   RotationEnabled, RotationLambdaARN, RotationRules,
+#   ReplicationStatus: [{Region, Status, StatusMessage}],
+#   Versions: { version_id: {SecretString, SecretBinary, CreatedDate, Stages: [str]} }
+# }
+
+
+# ── Persistence ────────────────────────────────────────────
+
+def get_state():
+    return {
+        "secrets": copy.deepcopy(_secrets),
+        "resource_policies": copy.deepcopy(_resource_policies),
+    }
+
+
+def load_persisted_state(data):
+    return _restore_state(data)
+
+
+def _restore_state(data):
+    if data:
+        _secrets.update(data.get("secrets", {}))
+        _resource_policies.update(data.get("resource_policies", {}))
+
+
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _secret_scope_from_arn(secret_id):
+    try:
+        spec = parse_arn(secret_id)
+    except ArnParseError:
+        return None
+    if (
+        spec.partition != "aws"
+        or spec.service != "secretsmanager"
+    ):
+        return None
+    prefix = "secret:"
+    if not spec.resource.startswith(prefix):
+        return None
+    name = spec.resource[len(prefix):]
+    if not name:
+        return None
+    return spec, name
+
+
+def _secret_name_from_arn(secret_id):
+    scope = _secret_scope_from_arn(secret_id)
+    if not scope:
+        return None
+    spec, name = scope
+    if spec.region != get_region() or spec.account_id != get_account_id():
+        return None
+    return name
+
+
+def _secret_arn_for_region(secret, region):
+    try:
+        spec = parse_arn(secret["ARN"])
+    except ArnParseError:
+        return f"arn:aws:secretsmanager:{region}:{get_account_id()}:secret:{secret['Name']}-{new_uuid()[:6]}"
+    return f"arn:{spec.partition}:secretsmanager:{region}:{spec.account_id}:{spec.resource}"
+
+
+def _resolve(secret_id, *, use_arn_scope=False):
+    """Look up a secret by name or ARN.  Returns (storage_key, record) or (None, None).
+
+    Supports three lookup modes (matching real AWS behaviour):
+      1. By name:        "my-secret"
+      2. By full ARN:    "arn:aws:secretsmanager:...:secret:my-secret-A1B2C3"
+      3. By partial ARN: "arn:aws:secretsmanager:...:secret:my-secret" (no random suffix)
+    """
+    if not secret_id:
+        return None, None
+    if secret_id.startswith("arn:"):
+        scope = _secret_scope_from_arn(secret_id)
+        if not scope:
+            return None, None
+        spec, _ = scope
+        if spec.account_id != get_account_id():
+            return None, None
+        if use_arn_scope:
+            candidates = _secrets.items_scoped(spec.account_id, spec.region)
+        else:
+            if spec.region != get_region():
+                return None, None
+            candidates = _secrets.items()
+        for key, s in candidates:
+            if s["ARN"] == secret_id:
+                return key, s
+        # A partial ARN is the full ARN minus the "-XXXXXX" suffix that
+        # CreateSecret appends, so it must match exactly that and nothing
+        # longer. A bare prefix test also matched "my-secret-admin-XXXXXX"
+        # for "my-secret" and returned whichever was stored first.
+        suffix_len = len("-") + 6
+        for key, s in candidates:
+            arn = s["ARN"]
+            if (len(arn) == len(secret_id) + suffix_len
+                    and arn.startswith(secret_id + "-")):
+                return key, s
+        return None, None
+    if secret_id in _secrets:
+        return secret_id, _secrets[secret_id]
+    for key, s in _secrets.items():
+        if s["ARN"] == secret_id:
+            return key, s
+    return None, None
+
+
+def _find_stage_version(secret, stage):
+    """Return (version_id, version_dict) for the version carrying *stage*."""
+    for vid, ver in secret["Versions"].items():
+        if stage in ver["Stages"]:
+            return vid, ver
+    return None, None
+
+
+def resolve_secret_string(secret_id, version_stage="AWSCURRENT", version_id=None):
+    """Return the SecretString for *secret_id* at *version_stage* (or the
+    version *version_id*), or None.
+
+    Used by other services (e.g. ECS, CloudFormation dynamic references) that
+    need to read a secret value in-process without going through the HTTP API.
+    Returns None if the secret does not exist, is scheduled for deletion, or
+    has no value for the stage / version.
+    """
+    _, secret = _resolve(secret_id, use_arn_scope=True)
+    if not secret or secret.get("DeletedDate"):
+        return None
+    if version_id:
+        ver = secret["Versions"].get(version_id)
+    else:
+        _, ver = _find_stage_version(secret, version_stage)
+    if not ver:
+        return None
+    return ver.get("SecretString")
+
+
+def _resolve_for_reader(secret_id):
+    """``_resolve`` as Secrets Manager reads a SecretId for another service: an
+    ARN whose name ends in a hyphen and six letters, digits or underscores is
+    read as a full ARN, so it never matches as a partial one."""
+    key, secret = _resolve(secret_id)
+    if secret and secret_id.startswith("arn:") and secret["ARN"] != secret_id:
+        scope = _secret_scope_from_arn(secret_id)
+        if not scope or re.search(r"-[A-Za-z0-9_]{6}\Z", scope[1]):
+            return None, None
+    return key, secret
+
+
+def resolve_secret_version(secret_id, version_id):
+    """Return ``(secret, version)`` for the version *version_id* of
+    *secret_id*, ``(secret, None)`` when *version_id* is None or unknown, or
+    ``(None, None)``.
+
+    Used by AppConfig to read a deployed version in-process. Only the
+    caller's account and region are searched, and a secret scheduled for
+    deletion resolves to ``(None, None)``.
+    """
+    _, secret = _resolve_for_reader(secret_id)
+    if not secret or secret.get("DeletedDate"):
+        return None, None
+    return secret, secret["Versions"].get(version_id)
+
+
+def find_secret(secret_id):
+    """The secret *secret_id* names in the caller's account and region,
+    whatever its state, or None."""
+    return _resolve_for_reader(secret_id)[1]
+
+
+def secret_exists(secret_id):
+    """True if *secret_id* (name, full or partial ARN) names a secret in the
+    caller's account and region that is not scheduled for deletion and has a
+    current value (a secret created without one has no version on AWS)."""
+    _, secret = _resolve_for_reader(secret_id)
+    if not secret or secret.get("DeletedDate"):
+        return False
+    _, ver = _find_stage_version(secret, "AWSCURRENT")
+    return bool(ver) and (ver.get("SecretString") is not None or ver.get("SecretBinary") is not None)
+
+
+def create_secret_in_process(name, secret_string, description=""):
+    """Create a secret on behalf of another service (e.g. RDS managed master
+    user passwords) without going through the HTTP API.
+
+    The seam is one-directional: other services call into Secrets Manager,
+    never the reverse. Returns the new secret's ARN, or None when a secret
+    named *name* already exists.
+    """
+    if name in _secrets:
+        return None
+    arn, _ = _store_new_secret(name, secret_string=secret_string, description=description)
+    return arn
+
+
+def put_secret_value_in_process(secret_id, secret_string):
+    """Store a new AWSCURRENT version for *secret_id* on behalf of another
+    service, promoting stages the same way UpdateSecret does (old AWSCURRENT
+    becomes AWSPREVIOUS). Returns True on success, False when the secret does
+    not exist or is scheduled for deletion.
+    """
+    _, secret = _resolve(secret_id, use_arn_scope=True)
+    if not secret or secret.get("DeletedDate"):
+        return False
+    _publish_new_version(secret, secret_string=secret_string)
+    return True
+
+
+def delete_secret_in_process(secret_id):
+    """Force-delete *secret_id* on behalf of another service (no recovery
+    window — mirrors RDS deleting its managed master user secret when the
+    owning resource is deleted). Returns True when a secret was deleted.
+    """
+    key, secret = _resolve(secret_id, use_arn_scope=True)
+    if not secret:
+        return False
+    _purge_secret(key, secret)
+    return True
+
+
+def _emit_secret_label_updated(secret, label, version_id):
+    """Native Secrets Manager → EventBridge ``Secret Label Updated`` event, fired
+    when a staging label moves to a new version — for every label except
+    ``AWSPENDING`` / ``AWSPREVIOUS`` (custom labels included). Metadata-only
+    changes (tags, description, rotation config, policy) do not emit. Delivered
+    to the default event bus; failures are swallowed so they never break the
+    mutation. (AWS: Secret event notifications.)"""
+    try:
+        from ministack.services import eventbridge as _eb
+        _eb._dispatch_event({
+            "EventId": new_uuid(),
+            "Source": "aws.secretsmanager",
+            "DetailType": "Secret Label Updated",
+            "Detail": json.dumps({
+                "name": secret["Name"],
+                "labelUpdated": label,
+                "versionId": version_id,
+            }),
+            "EventBusName": "default",
+            "Time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "Resources": [secret["ARN"]],
+            "Account": get_account_id(),
+            "Region": get_region(),
+        })
+    except Exception:
+        logger.exception("SecretsManager→EventBridge delivery failed for %s", secret.get("Name"))
+
+
+def _apply_current_promotion(secret, new_vid):
+    """
+    Promote *new_vid* to AWSCURRENT.
+    * old AWSCURRENT  →  AWSPREVIOUS
+    * old AWSPREVIOUS  →  removed (version pruned when stageless)
+    """
+    old_curr_vid = None
+    old_prev_vid = None
+    for vid, ver in list(secret["Versions"].items()):
+        if vid == new_vid:
+            continue
+        if "AWSCURRENT" in ver["Stages"]:
+            old_curr_vid = vid
+        if "AWSPREVIOUS" in ver["Stages"]:
+            old_prev_vid = vid
+
+    if old_prev_vid and old_prev_vid in secret["Versions"]:
+        stages = secret["Versions"][old_prev_vid]["Stages"]
+        if "AWSPREVIOUS" in stages:
+            stages.remove("AWSPREVIOUS")
+        if not stages:
+            del secret["Versions"][old_prev_vid]
+
+    if old_curr_vid and old_curr_vid in secret["Versions"]:
+        stages = secret["Versions"][old_curr_vid]["Stages"]
+        if "AWSCURRENT" in stages:
+            stages.remove("AWSCURRENT")
+        if "AWSPREVIOUS" not in stages:
+            stages.append("AWSPREVIOUS")
+
+    ver = secret["Versions"].get(new_vid)
+    if ver:
+        if "AWSCURRENT" not in ver["Stages"]:
+            ver["Stages"].append("AWSCURRENT")
+        if "AWSPENDING" in ver["Stages"]:
+            ver["Stages"].remove("AWSPENDING")
+        _emit_secret_label_updated(secret, "AWSCURRENT", new_vid)
+
+
+def _publish_new_version(secret, secret_string=None, secret_binary=None):
+    """Add a new version to *secret* and promote it to AWSCURRENT.
+
+    Shared by ``UpdateSecret`` and the in-process seam so stage promotion and
+    replica sync cannot drift between the two paths. Returns the version id.
+    """
+    vid = new_uuid()
+    now = int(time.time())
+    secret["Versions"][vid] = {
+        "SecretString": secret_string,
+        "SecretBinary": secret_binary,
+        "CreatedDate": now,
+        "Stages": [],
+    }
+    _apply_current_promotion(secret, vid)
+    secret["LastChangedDate"] = now
+    _sync_replicas(secret)
+    return vid
+
+
+def _purge_secret(key, secret):
+    """Remove *secret* (stored under *key*) and everything hanging off it:
+    replicas and any orphaned resource policy."""
+    _delete_replicas(secret)
+    del _secrets[key]
+    _resource_policies.pop(secret["ARN"], None)
+
+
+def _vid_to_stages(secret):
+    return {vid: list(ver["Stages"]) for vid, ver in secret["Versions"].items() if ver["Stages"]}
+
+
+def _sync_replicas(secret):
+    source_scope = _secret_scope_from_arn(secret["ARN"])
+    account_id = source_scope[0].account_id if source_scope else get_account_id()
+    source_region = source_scope[0].region if source_scope else get_region()
+    for status in secret.get("ReplicationStatus", []):
+        region = status.get("Region")
+        if not region:
+            continue
+        if region == source_region:
+            continue
+        replica = _secrets.get_scoped(account_id, region, secret["Name"])
+        if not replica:
+            continue
+        if replica.get("ARN") != _secret_arn_for_region(secret, region):
+            continue
+        replica_arn = replica["ARN"]
+        replica_kms_key_id = replica.get("KmsKeyId")
+        updated = copy.deepcopy(secret)
+        updated["ARN"] = replica_arn
+        updated["ReplicationStatus"] = []
+        updated["_PrimarySecretArn"] = secret["ARN"]
+        updated["_PrimaryRegion"] = source_region
+        if replica_kms_key_id:
+            updated["KmsKeyId"] = replica_kms_key_id
+        else:
+            updated.pop("KmsKeyId", None)
+        _secrets.set_scoped(account_id, region, secret["Name"], updated)
+
+
+def _is_replica(secret):
+    return bool(secret.get("_PrimarySecretArn"))
+
+
+def _replica_mutation_error():
+    return error_response_json(
+        "InvalidRequestException",
+        "You can't perform this operation on a replica secret.",
+        400,
+    )
+
+
+def _delete_replicas(secret):
+    source_scope = _secret_scope_from_arn(secret["ARN"])
+    account_id = source_scope[0].account_id if source_scope else get_account_id()
+    source_region = source_scope[0].region if source_scope else get_region()
+    for status in secret.get("ReplicationStatus", []):
+        region = status.get("Region")
+        if not region:
+            continue
+        if region == source_region:
+            continue
+        replica = _secrets.get_scoped(account_id, region, secret["Name"])
+        if replica and replica.get("ARN") == _secret_arn_for_region(secret, region):
+            _resource_policies.pop_scoped(account_id, region, replica["ARN"], None)
+            _secrets.pop_scoped(account_id, region, secret["Name"], None)
+
+
+def _replica_policy_targets(secret):
+    source_scope = _secret_scope_from_arn(secret["ARN"])
+    account_id = source_scope[0].account_id if source_scope else get_account_id()
+    source_region = source_scope[0].region if source_scope else get_region()
+    for status in secret.get("ReplicationStatus", []):
+        region = status.get("Region")
+        if not region:
+            continue
+        if region == source_region:
+            continue
+        replica = _secrets.get_scoped(account_id, region, secret["Name"])
+        if replica and replica.get("ARN") == _secret_arn_for_region(secret, region):
+            yield account_id, region, replica["ARN"]
+
+
+def _sync_replica_resource_policy(secret, policy):
+    for account_id, region, replica_arn in _replica_policy_targets(secret):
+        _resource_policies.set_scoped(account_id, region, replica_arn, copy.deepcopy(policy))
+
+
+def _delete_replica_resource_policies(secret):
+    for account_id, region, replica_arn in _replica_policy_targets(secret):
+        _resource_policies.pop_scoped(account_id, region, replica_arn, None)
+
+
+def _unlink_from_primary(replica):
+    primary_arn = replica.get("_PrimarySecretArn")
+    if not primary_arn:
+        return
+    primary_scope = _secret_scope_from_arn(primary_arn)
+    replica_scope = _secret_scope_from_arn(replica["ARN"])
+    if not primary_scope or not replica_scope:
+        return
+    primary_spec, _ = primary_scope
+    replica_spec, _ = replica_scope
+    for _name, candidate in _secrets.items_scoped(primary_spec.account_id, primary_spec.region):
+        if candidate.get("ARN") != primary_arn:
+            continue
+        candidate["ReplicationStatus"] = [
+            status
+            for status in candidate.get("ReplicationStatus", [])
+            if status.get("Region") != replica_spec.region
+        ]
+        return
+
+
+def _cleanup_overwritten_secret(secret):
+    _delete_replicas(secret)
+    if _is_replica(secret):
+        _unlink_from_primary(secret)
+
+
+def _remove_stage(secret, version_id, stage):
+    """Detach *stage* from *version_id*. Returns True when a label was removed."""
+    ver = secret["Versions"].get(version_id)
+    if not ver or stage not in ver["Stages"]:
+        return False
+    ver["Stages"] = [label for label in ver["Stages"] if label != stage]
+    return True
+
+
+def _remove_stage_everywhere(secret, stage, except_version_id=None):
+    for vid in list(secret["Versions"].keys()):
+        if vid == except_version_id:
+            continue
+        _remove_stage(secret, vid, stage)
+
+
+def _add_stage(secret, version_id, stage):
+    ver = secret["Versions"].get(version_id)
+    if ver and stage not in ver["Stages"]:
+        ver["Stages"].append(stage)
+
+
+# ---------------------------------------------------------------------------
+# Router
+# ---------------------------------------------------------------------------
+
+async def handle_request(method, path, headers, body, query_params):
+    target = headers.get("x-amz-target", "")
+    action = target.split(".")[-1] if "." in target else ""
+
+    try:
+        data = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        return error_response_json("SerializationException", "Invalid JSON", 400)
+
+    handlers = {
+        "CreateSecret": _create_secret,
+        "GetSecretValue": _get_secret_value,
+        "BatchGetSecretValue": _batch_get_secret_value,
+        "ListSecrets": _list_secrets,
+        "DeleteSecret": _delete_secret,
+        "RestoreSecret": _restore_secret,
+        "UpdateSecret": _update_secret,
+        "DescribeSecret": _describe_secret,
+        "PutSecretValue": _put_secret_value,
+        "UpdateSecretVersionStage": _update_secret_version_stage,
+        "TagResource": _tag_resource,
+        "UntagResource": _untag_resource,
+        "ListSecretVersionIds": _list_secret_version_ids,
+        "RotateSecret": _rotate_secret,
+        "GetRandomPassword": _get_random_password,
+        "ReplicateSecretToRegions": _replicate_secret_to_regions,
+        "PutResourcePolicy": _put_resource_policy,
+        "GetResourcePolicy": _get_resource_policy,
+        "DeleteResourcePolicy": _delete_resource_policy,
+        "ValidateResourcePolicy": _validate_resource_policy,
+    }
+
+    handler = handlers.get(action)
+    if not handler:
+        return error_response_json("InvalidRequestException", f"Unknown action: {action}", 400)
+    if action == "BatchGetSecretValue":
+        from ministack.app import AUTH
+        from ministack.core.router import extract_access_key_id
+
+        access_key = (extract_access_key_id(headers, query_params) or "") if AUTH else None
+        return handler(data, access_key)
+    return handler(data)
+
+
+# ---------------------------------------------------------------------------
+# Actions
+# ---------------------------------------------------------------------------
+
+def _store_new_secret(name, secret_string=None, secret_binary=None, description="",
+                      tags=None, kms_key_id=None, rotation_lambda_arn=None,
+                      rotation_rules=None):
+    """Store a brand-new secret; the caller must have checked *name* is free.
+
+    Returns ``(arn, version_id)`` of the created secret.
+    """
+    arn = f"arn:aws:secretsmanager:{get_region()}:{get_account_id()}:secret:{name}-{new_uuid()[:6]}"
+    vid = new_uuid()
+    now = int(time.time())
+
+    _secrets[name] = {
+        "ARN": arn,
+        "Name": name,
+        "Description": description,
+        "Tags": list(tags or []),
+        "CreatedDate": now,
+        "LastChangedDate": now,
+        "LastAccessedDate": None,
+        "DeletedDate": None,
+        "RotationEnabled": False,
+        "RotationLambdaARN": rotation_lambda_arn,
+        "RotationRules": rotation_rules,
+        "KmsKeyId": kms_key_id,
+        "ReplicationStatus": [],
+        "Versions": {
+            vid: {
+                "SecretString": secret_string,
+                "SecretBinary": secret_binary,
+                "CreatedDate": now,
+                "Stages": ["AWSCURRENT"],
+            }
+        },
+    }
+    return arn, vid
+
+
+def _create_secret(data):
+    name = data.get("Name")
+    if not name:
+        return error_response_json("InvalidParameterException", "Name is required.", 400)
+    if name in _secrets:
+        return error_response_json(
+            "ResourceExistsException",
+            f"The operation failed because the secret {name} already exists.", 400,
+        )
+
+    arn, vid = _store_new_secret(
+        name,
+        secret_string=data.get("SecretString"),
+        secret_binary=data.get("SecretBinary"),
+        description=data.get("Description", ""),
+        tags=data.get("Tags"),
+        kms_key_id=data.get("KmsKeyId"),
+        rotation_lambda_arn=data.get("RotationLambdaARN"),
+        rotation_rules=data.get("RotationRules"),
+    )
+    return json_response({"ARN": arn, "Name": name, "VersionId": vid})
+
+
+def _get_secret_value(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+
+    secret["LastAccessedDate"] = int(time.time())
+
+    req_vid = data.get("VersionId")
+    req_stage = data.get("VersionStage", "AWSCURRENT")
+
+    if req_vid:
+        ver = secret["Versions"].get(req_vid)
+        if not ver:
+            return error_response_json(
+                "ResourceNotFoundException",
+                f"Secrets Manager can't find the specified secret version: {req_vid}.", 400,
+            )
+        vid = req_vid
+    else:
+        vid, ver = _find_stage_version(secret, req_stage)
+        if not ver:
+            return error_response_json(
+                "ResourceNotFoundException",
+                f"Secrets Manager can't find the specified secret value for staging label: {req_stage}.", 400,
+            )
+
+    result = {
+        "ARN": secret["ARN"],
+        "Name": secret["Name"],
+        "VersionId": vid,
+        "VersionStages": list(ver["Stages"]),
+        "CreatedDate": ver["CreatedDate"],
+    }
+    if ver.get("SecretString") is not None:
+        result["SecretString"] = ver["SecretString"]
+    if ver.get("SecretBinary") is not None:
+        result["SecretBinary"] = ver["SecretBinary"]
+    return json_response(result)
+
+
+def _batch_get_secret_value(data, access_key=None):
+    """``access_key`` is None without AUTH. With it, a request by ``Filters``
+    also needs ``secretsmanager:ListSecrets``, and a secret the caller holds no
+    ``secretsmanager:GetSecretValue`` on is reported in ``Errors``. The primary
+    check has already authenticated the key, so only policy denials occur."""
+    from ministack.core.iam_actions import access_denied_response
+    from ministack.core.iam_evaluator import enforce
+
+    secret_ids = data.get("SecretIdList", [])
+    results = []
+    errors = []
+
+    def authorize(action, resource_arn):
+        if access_key is None:
+            return None
+        return enforce(access_key, action, "secretsmanager", get_region(), resource_arn=resource_arn)
+
+    if secret_ids:
+        targets = secret_ids
+    else:
+        denied = authorize("secretsmanager:ListSecrets", "*")
+        if denied:
+            return access_denied_response("secretsmanager", "secretsmanager:ListSecrets",
+                                          getattr(denied, "principal_arn", ""), new_uuid(),
+                                          explicit_deny=getattr(denied, "decision", "") == "Deny")
+        names = sorted(n for n, s in _secrets.items() if not s.get("DeletedDate"))
+        targets = [_secrets[n]["ARN"] for n in _filter_secret_names(names, data.get("Filters", []))]
+
+    for sid in targets:
+        _, secret = _resolve(sid)
+        resource_arn = secret["ARN"] if secret else (
+            sid if sid.startswith("arn:")
+            else f"arn:aws:secretsmanager:{get_region()}:{get_account_id()}:secret:{sid}")
+        denied = authorize("secretsmanager:GetSecretValue", resource_arn)
+        if denied:
+            principal = getattr(denied, "principal_arn", "")
+            errors.append({
+                "SecretId": sid,
+                "ErrorCode": "AccessDeniedException",
+                "Message": (
+                    f"User: {principal} is not authorized to perform: "
+                    f"secretsmanager:GetSecretValue on resource: {sid} "
+                    + ("with an explicit deny in a resource-based policy"
+                       if getattr(denied, "resource_policy_arn", "") else
+                       "with an explicit deny in an identity-based policy"
+                       if getattr(denied, "decision", "") == "Deny" else
+                       "because no identity-based policy allows the secretsmanager:GetSecretValue action")
+                ),
+            })
+            continue
+        resp = _get_secret_value({"SecretId": sid})
+        status, _, body = resp
+        parsed = json.loads(body) if isinstance(body, bytes) else json.loads(body)
+        if status >= 400:
+            errors.append({
+                "SecretId": sid,
+                "ErrorCode": parsed.get("__type", "UnknownError"),
+                "Message": parsed.get("message", ""),
+            })
+        else:
+            results.append(parsed)
+
+    return json_response({"SecretValues": results, "Errors": errors})
+
+
+def _list_secrets(data):
+    max_results = min(data.get("MaxResults", 100), 100)
+    next_token = data.get("NextToken")
+    filters = data.get("Filters", [])
+    include_planned_deletion = bool(data.get("IncludePlannedDeletion", False))
+
+    names = _filter_secret_names(sorted(
+        n for n, s in _secrets.items()
+        if include_planned_deletion or not s.get("DeletedDate")
+    ), filters)
+
+    start = 0
+    if next_token:
+        try:
+            start = int(base64.b64decode(next_token))
+        except Exception:
+            pass
+
+    page = names[start:start + max_results]
+    secret_list = []
+    for n in page:
+        s = _secrets[n]
+        entry = {
+            "ARN": s["ARN"],
+            "Name": s["Name"],
+            "Description": s.get("Description", ""),
+            "CreatedDate": s["CreatedDate"],
+            "LastChangedDate": s["LastChangedDate"],
+            "LastAccessedDate": s.get("LastAccessedDate"),
+            "Tags": s.get("Tags", []),
+            "SecretVersionsToStages": _vid_to_stages(s),
+            "RotationEnabled": s.get("RotationEnabled", False),
+        }
+        if s.get("DeletedDate"):
+            entry["DeletedDate"] = s["DeletedDate"]
+        if s.get("_PrimaryRegion"):
+            entry["PrimaryRegion"] = s["_PrimaryRegion"]
+        secret_list.append(entry)
+
+    resp: dict = {"SecretList": secret_list}
+    end = start + max_results
+    if end < len(names):
+        resp["NextToken"] = base64.b64encode(str(end).encode()).decode()
+    return json_response(resp)
+
+
+def _filter_secret_names(names, filters):
+    """The ``names`` that pass every ListSecrets-style filter."""
+    for f in filters:
+        key = f.get("Key", "")
+        values = [v.lower() for v in f.get("Values", [])]
+        if key == "name":
+            names = [n for n in names if any(v in n.lower() for v in values)]
+        elif key == "tag-key":
+            names = [n for n in names
+                     if any(t.get("Key", "").lower() in values for t in _secrets[n].get("Tags", []))]
+        elif key == "tag-value":
+            names = [n for n in names
+                     if any(t.get("Value", "").lower() in values for t in _secrets[n].get("Tags", []))]
+        elif key == "description":
+            names = [n for n in names
+                     if any(v in _secrets[n].get("Description", "").lower() for v in values)]
+    return names
+
+
+def _delete_secret(data):
+    secret_id = data.get("SecretId")
+    key, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    force = data.get("ForceDeleteWithoutRecovery", False)
+    window = data.get("RecoveryWindowInDays")
+
+    # "If you forcibly delete an already deleted or nonexistent secret, the
+    # operation does not return ResourceNotFoundException." A force delete
+    # purges a secret that is already scheduled for deletion.
+    if secret.get("DeletedDate") and not force:
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was already scheduled for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    if force and window is not None:
+        return error_response_json(
+            "InvalidParameterException",
+            "You can't use ForceDeleteWithoutRecovery in conjunction with RecoveryWindowInDays.", 400,
+        )
+    if window is None:
+        window = 30
+    if not force and not (7 <= window <= 30):
+        return error_response_json(
+            "InvalidParameterException",
+            "RecoveryWindowInDays value must be between 7 and 30 days (inclusive).", 400,
+        )
+
+    now = int(time.time())
+    deletion_date = now if force else now + window * 86400
+
+    if force:
+        arn, sname = secret["ARN"], secret["Name"]
+        # _purge_secret also cleans up any associated resource policy —
+        # otherwise it lingers as an orphan keyed by the now-deleted ARN,
+        # invisible to the API but still consuming memory and surviving
+        # warm boot via the persistence path.
+        _purge_secret(key, secret)
+        return json_response({"ARN": arn, "Name": sname, "DeletionDate": deletion_date})
+
+    secret["DeletedDate"] = deletion_date
+    _sync_replicas(secret)
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"], "DeletionDate": deletion_date})
+
+
+def _restore_secret(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if not secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "Secret is not scheduled for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+    secret["DeletedDate"] = None
+    _sync_replicas(secret)
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"]})
+
+
+def _update_secret(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    if "Description" in data:
+        secret["Description"] = data["Description"]
+    if "KmsKeyId" in data:
+        secret["KmsKeyId"] = data["KmsKeyId"]
+
+    has_new_value = "SecretString" in data or "SecretBinary" in data
+    if not has_new_value:
+        secret["LastChangedDate"] = int(time.time())
+        _sync_replicas(secret)
+        return json_response({"ARN": secret["ARN"], "Name": secret["Name"]})
+
+    vid = _publish_new_version(
+        secret,
+        secret_string=data.get("SecretString"),
+        secret_binary=data.get("SecretBinary"),
+    )
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"], "VersionId": vid})
+
+
+def _describe_secret(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+
+    result = {
+        "ARN": secret["ARN"],
+        "Name": secret["Name"],
+        "Description": secret.get("Description", ""),
+        "CreatedDate": secret["CreatedDate"],
+        "LastChangedDate": secret["LastChangedDate"],
+        "LastAccessedDate": secret.get("LastAccessedDate"),
+        "Tags": secret.get("Tags", []),
+        "VersionIdsToStages": _vid_to_stages(secret),
+        "RotationEnabled": secret.get("RotationEnabled", False),
+    }
+    if secret.get("DeletedDate"):
+        result["DeletedDate"] = secret["DeletedDate"]
+    if secret.get("_PrimaryRegion"):
+        result["PrimaryRegion"] = secret["_PrimaryRegion"]
+    if secret.get("KmsKeyId"):
+        result["KmsKeyId"] = secret["KmsKeyId"]
+    if secret.get("RotationLambdaARN"):
+        result["RotationLambdaARN"] = secret["RotationLambdaARN"]
+    if secret.get("RotationRules"):
+        result["RotationRules"] = secret["RotationRules"]
+    if secret.get("ReplicationStatus"):
+        result["ReplicationStatus"] = secret["ReplicationStatus"]
+    return json_response(result)
+
+
+def _put_secret_value(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    vid = data.get("ClientRequestToken", new_uuid())
+    stages = data.get("VersionStages", ["AWSCURRENT"])
+    now = int(time.time())
+
+    secret["Versions"][vid] = {
+        "SecretString": data.get("SecretString"),
+        "SecretBinary": data.get("SecretBinary"),
+        "CreatedDate": now,
+        "Stages": [],
+    }
+
+    if "AWSCURRENT" in stages:
+        _apply_current_promotion(secret, vid)
+    else:
+        secret["Versions"][vid]["Stages"] = list(stages)
+        for _lbl in stages:
+            if _lbl not in ("AWSCURRENT", "AWSPENDING", "AWSPREVIOUS"):
+                _emit_secret_label_updated(secret, _lbl, vid)
+
+    secret["LastChangedDate"] = now
+    _sync_replicas(secret)
+    return json_response({
+        "ARN": secret["ARN"],
+        "Name": secret["Name"],
+        "VersionId": vid,
+        "VersionStages": list(secret["Versions"][vid]["Stages"]),
+    })
+
+
+def _update_secret_version_stage(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    version_stage = data.get("VersionStage")
+    move_to_vid = data.get("MoveToVersionId")
+    remove_from_vid = data.get("RemoveFromVersionId")
+
+    if not version_stage:
+        return error_response_json(
+            "InvalidParameterException",
+            "VersionStage is required.", 400,
+        )
+    if not move_to_vid and not remove_from_vid:
+        return error_response_json(
+            "InvalidParameterException",
+            "You must specify MoveToVersionId or RemoveFromVersionId.", 400,
+        )
+
+    for version_id in [move_to_vid, remove_from_vid]:
+        if version_id and version_id not in secret["Versions"]:
+            return error_response_json(
+                "ResourceNotFoundException",
+                f"Secrets Manager can't find the specified secret version: {version_id}.", 400,
+            )
+
+    current_vid, _ = _find_stage_version(secret, version_stage)
+    if move_to_vid:
+        if current_vid and current_vid != move_to_vid:
+            if not remove_from_vid:
+                return error_response_json(
+                    "InvalidParameterException",
+                    f"The staging label {version_stage} is currently attached to version {current_vid}. "
+                    "You must specify RemoveFromVersionId to move it.",
+                    400,
+                )
+            if remove_from_vid != current_vid:
+                return error_response_json(
+                    "InvalidParameterException",
+                    f"The staging label {version_stage} is currently attached to version {current_vid}, "
+                    f"not version {remove_from_vid}.",
+                    400,
+                )
+        elif remove_from_vid and remove_from_vid not in (current_vid, move_to_vid):
+            return error_response_json(
+                "InvalidParameterException",
+                f"The staging label {version_stage} is not attached to version {remove_from_vid}.",
+                400,
+            )
+
+    if remove_from_vid and not move_to_vid and current_vid != remove_from_vid:
+        return error_response_json(
+            "InvalidParameterException",
+            f"The staging label {version_stage} is not attached to version {remove_from_vid}.",
+            400,
+        )
+
+    old_current_vid = current_vid if version_stage == "AWSCURRENT" else None
+
+    if remove_from_vid and remove_from_vid != move_to_vid:
+        _remove_stage(secret, remove_from_vid, version_stage)
+
+    if move_to_vid:
+        _remove_stage_everywhere(secret, version_stage, except_version_id=move_to_vid)
+        _add_stage(secret, move_to_vid, version_stage)
+        if version_stage not in ("AWSPENDING", "AWSPREVIOUS"):
+            _emit_secret_label_updated(secret, version_stage, move_to_vid)
+
+        if old_current_vid and old_current_vid != move_to_vid:
+            _remove_stage_everywhere(secret, "AWSPREVIOUS")
+            _add_stage(secret, old_current_vid, "AWSPREVIOUS")
+
+    secret["LastChangedDate"] = int(time.time())
+    _sync_replicas(secret)
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"]})
+
+
+def _tag_resource(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+    existing = {t["Key"]: t for t in secret.get("Tags", [])}
+    for t in data.get("Tags", []):
+        existing[t["Key"]] = t
+    secret["Tags"] = list(existing.values())
+    _sync_replicas(secret)
+    return json_response({})
+
+
+def _untag_resource(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+    keys_to_remove = set(data.get("TagKeys", []))
+    secret["Tags"] = [t for t in secret.get("Tags", []) if t["Key"] not in keys_to_remove]
+    _sync_replicas(secret)
+    return json_response({})
+
+
+def _list_secret_version_ids(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+
+    max_results = min(data.get("MaxResults", 100), 100)
+    next_token = data.get("NextToken")
+
+    all_vids = sorted(secret["Versions"].keys())
+    start = 0
+    if next_token:
+        try:
+            start = int(base64.b64decode(next_token))
+        except Exception:
+            pass
+
+    page = all_vids[start:start + max_results]
+    versions = []
+    for vid in page:
+        ver = secret["Versions"][vid]
+        versions.append({
+            "VersionId": vid,
+            "VersionStages": list(ver["Stages"]),
+            "CreatedDate": ver["CreatedDate"],
+        })
+
+    resp: dict = {
+        "ARN": secret["ARN"],
+        "Name": secret["Name"],
+        "Versions": versions,
+    }
+    end = start + max_results
+    if end < len(all_vids):
+        resp["NextToken"] = base64.b64encode(str(end).encode()).decode()
+    return json_response(resp)
+
+
+def _rotate_secret(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    lambda_arn = data.get("RotationLambdaARN") or secret.get("RotationLambdaARN")
+    rotation_rules = data.get("RotationRules") or secret.get("RotationRules")
+
+    if lambda_arn:
+        secret["RotationLambdaARN"] = lambda_arn
+    if rotation_rules:
+        secret["RotationRules"] = rotation_rules
+    secret["RotationEnabled"] = True
+
+    vid = data.get("ClientRequestToken", new_uuid())
+    now = int(time.time())
+
+    curr_vid, curr_ver = _find_stage_version(secret, "AWSCURRENT")
+    secret["Versions"][vid] = {
+        "SecretString": curr_ver["SecretString"] if curr_ver else None,
+        "SecretBinary": curr_ver["SecretBinary"] if curr_ver else None,
+        "CreatedDate": now,
+        "Stages": ["AWSPENDING"],
+    }
+
+    logger.info("RotateSecret stub for %s (Lambda: %s)", secret["Name"], lambda_arn)
+
+    _apply_current_promotion(secret, vid)
+    secret["LastChangedDate"] = now
+    _sync_replicas(secret)
+
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"], "VersionId": vid})
+
+
+def _get_random_password(data):
+    length = data.get("PasswordLength", 32)
+    if not (1 <= length <= 4096):
+        return error_response_json(
+            "InvalidParameterException",
+            "PasswordLength must be between 1 and 4096.", 400,
+        )
+
+    exclude_chars = set(data.get("ExcludeCharacters", ""))
+    exclude_numbers = data.get("ExcludeNumbers", False)
+    exclude_punctuation = data.get("ExcludePunctuation", False)
+    exclude_upper = data.get("ExcludeUppercase", False)
+    exclude_lower = data.get("ExcludeLowercase", False)
+    include_space = data.get("IncludeSpace", False)
+    require_each = data.get("RequireEachIncludedType", True)
+
+    pools: list[list[str]] = []
+    all_chars: list[str] = []
+
+    def _add_pool(chars):
+        filtered = [c for c in chars if c not in exclude_chars]
+        if filtered:
+            pools.append(filtered)
+            all_chars.extend(filtered)
+
+    if not exclude_lower:
+        _add_pool(string.ascii_lowercase)
+    if not exclude_upper:
+        _add_pool(string.ascii_uppercase)
+    if not exclude_numbers:
+        _add_pool(string.digits)
+    if not exclude_punctuation:
+        _add_pool(string.punctuation)
+    if include_space:
+        _add_pool([" "])
+
+    if not all_chars:
+        return error_response_json(
+            "InvalidParameterException",
+            "No characters available to generate password.", 400,
+        )
+    if require_each and len(pools) > length:
+        return error_response_json(
+            "InvalidParameterException",
+            "PasswordLength too short to include required character types.", 400,
+        )
+
+    rng = stdlib_secrets.SystemRandom()
+    pw: list[str] = []
+    if require_each:
+        for pool in pools:
+            pw.append(stdlib_secrets.choice(pool))
+        for _ in range(length - len(pw)):
+            pw.append(stdlib_secrets.choice(all_chars))
+        rng.shuffle(pw)
+    else:
+        for _ in range(length):
+            pw.append(stdlib_secrets.choice(all_chars))
+
+    return json_response({"RandomPassword": "".join(pw)})
+
+
+def _replicate_secret_to_regions(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    if secret.get("DeletedDate"):
+        return error_response_json(
+            "InvalidRequestException",
+            "You can't perform this operation on the secret because it was marked for deletion.", 400,
+        )
+    if _is_replica(secret):
+        return _replica_mutation_error()
+
+    force_overwrite = bool(data.get("ForceOverwriteReplicaSecret", False))
+    existing_status = {
+        status.get("Region"): status
+        for status in secret.get("ReplicationStatus", [])
+        if status.get("Region")
+    }
+    new_statuses = []
+    source_scope = _secret_scope_from_arn(secret["ARN"])
+    source_region = source_scope[0].region if source_scope else get_region()
+    replica_updates = []
+    for r in data.get("AddReplicaRegions", []):
+        region = r.get("Region")
+        if not region:
+            continue
+        if region == source_region:
+            return error_response_json(
+                "InvalidParameterException",
+                "The replica region can't be the same as the primary secret region.",
+                400,
+            )
+        replica_arn = _secret_arn_for_region(secret, region)
+        existing = _secrets.get_scoped(get_account_id(), region, secret["Name"])
+        if existing and existing.get("ARN") != replica_arn and not force_overwrite:
+            return error_response_json(
+                "ResourceExistsException",
+                f"The operation failed because the secret {secret['Name']} already exists.",
+                400,
+            )
+        existing_replica_kms = None
+        if existing and existing.get("ARN") == replica_arn:
+            existing_replica_kms = existing.get("KmsKeyId")
+        kms_key_id = r.get("KmsKeyId") or existing_replica_kms
+        old_policy_arn = None
+        old_secret = None
+        if existing and existing.get("ARN") != replica_arn:
+            old_policy_arn = existing.get("ARN")
+            old_secret = existing
+        replica_updates.append((region, replica_arn, kms_key_id, old_policy_arn, old_secret))
+
+        status = {
+            "Region": region,
+            "Status": "InSync",
+            "StatusMessage": "Replication succeeded (stub).",
+        }
+        if kms_key_id:
+            status["KmsKeyId"] = kms_key_id
+        existing_status[region] = status
+        new_statuses.append(status)
+
+    for region, replica_arn, kms_key_id, old_policy_arn, old_secret in replica_updates:
+        replica = copy.deepcopy(secret)
+        replica["ARN"] = replica_arn
+        replica["ReplicationStatus"] = []
+        replica["_PrimarySecretArn"] = secret["ARN"]
+        replica["_PrimaryRegion"] = source_region
+        if kms_key_id:
+            replica["KmsKeyId"] = kms_key_id
+        else:
+            replica.pop("KmsKeyId", None)
+        if old_policy_arn:
+            _resource_policies.pop_scoped(get_account_id(), region, old_policy_arn, None)
+        if old_secret:
+            _cleanup_overwritten_secret(old_secret)
+        _secrets.set_scoped(get_account_id(), region, secret["Name"], replica)
+        policy = _resource_policies.get(secret["ARN"])
+        if policy is not None:
+            _resource_policies.set_scoped(get_account_id(), region, replica_arn, copy.deepcopy(policy))
+
+    secret["ReplicationStatus"] = list(existing_status.values())
+
+    logger.info(
+        "ReplicateSecretToRegions stub for %s, regions=%s",
+        secret["Name"],
+        [status.get("Region") for status in new_statuses],
+    )
+
+    return json_response({
+        "ARN": secret["ARN"],
+        "ReplicationStatus": secret["ReplicationStatus"],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Resource policies
+# ---------------------------------------------------------------------------
+
+def secret_policy_for_arn(resource_arn: str) -> tuple[str, str] | None:
+    """The secret's resource policy and owner account, for the identity check."""
+    secret = _secrets.get(resource_arn.partition(":secret:")[2][:-7])
+    if not secret or secret["ARN"] != resource_arn:
+        return None
+    return _resource_policies.get(resource_arn) or "", get_account_id()
+
+
+def _put_resource_policy(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    policy = data.get("ResourcePolicy", "{}")
+    _resource_policies[secret["ARN"]] = policy
+    _sync_replica_resource_policy(secret, policy)
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"]})
+
+
+def _get_resource_policy(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    policy = _resource_policies.get(secret["ARN"])
+    result = {"ARN": secret["ARN"], "Name": secret["Name"]}
+    if policy is not None:
+        result["ResourcePolicy"] = policy
+    return json_response(result)
+
+
+def _delete_resource_policy(data):
+    secret_id = data.get("SecretId")
+    _, secret = _resolve(secret_id)
+    if not secret:
+        return error_response_json(
+            "ResourceNotFoundException",
+            "Secrets Manager can't find the specified secret.", 400,
+        )
+    _resource_policies.pop(secret["ARN"], None)
+    _delete_replica_resource_policies(secret)
+    return json_response({"ARN": secret["ARN"], "Name": secret["Name"]})
+
+
+def _validate_resource_policy(data):
+    return json_response({
+        "PolicyValidationPassed": True,
+        "ValidationErrors": [],
+    })
+
+
+def reset():
+    _secrets.clear()
+    _resource_policies.clear()

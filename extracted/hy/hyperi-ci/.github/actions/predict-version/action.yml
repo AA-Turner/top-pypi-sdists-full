@@ -1,0 +1,612 @@
+# Project:   HyperI CI
+# File:      .github/actions/predict-version/action.yml
+# Purpose:   Composite action -- detect publish trigger + predict next version
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Used by every language workflow's `setup` job for the "is this a publish run,
+# and what version?" decision. The language-specific matrix step stays in the
+# calling workflow.
+#
+# Every helper that reads .hyperi-ci.yaml runs under `uv run --with pyyaml`, so
+# the answer does not depend on the runner image. The ARC vanilla image has
+# neither PyYAML nor yq, and without one the tier, the arm64 check and the Rust
+# targets all take their defaults (issue #291). `--python 3` stops a consumer's
+# .python-version sending uv off to download an interpreter these stdlib helpers
+# do not need, and `--no-config` keeps the consumer's own uv config (a private
+# index) out of our install.
+#
+# Plan must not fail on a registry. When uv cannot install or fetch PyYAML, the
+# helpers run on the runner's python3 with a warning, and each helper's own
+# "could not be read" warning follows if that python3 has neither PyYAML nor yq.
+
+name: Predict version
+description: Detect Publish trigger + run semantic-release dry-run for next version
+
+inputs:
+  github-token:
+    description: GitHub token (for semantic-release dry-run)
+    required: true
+  tag:
+    description: "Tag to re-publish on a workflow_dispatch (retroactive). Empty on a from-head or push run."
+    required: false
+    default: ""
+  from-head:
+    description: "'true' on a from-head dispatch (issue #35): resolve version for tagging HEAD. Releases only on main, or on a declared prerelease branch with bump=auto (issue #471)"
+    required: false
+    default: ""
+  bump:
+    description: "Version resolution for from-head: auto (semantic-release picks) | patch | minor (forced)"
+    required: false
+    default: "auto"
+  test-tier:
+    description: "core | full. full raises this run's test tier; core never lowers one. A schedule runs full, and so does a release once the repo sets test.full.required_for_release. Empty = core."
+    required: false
+    default: ""
+  branch-build:
+    description: "'true' to run build + container on pull_request events (branch-mode: PRs validate the full pipeline; whether the container also pushes a dev image is the separate publish.container.dev_push opt-in in .hyperi-ci.yaml)"
+    required: false
+    default: ""
+  python-version:
+    description: "Fallback Python version. The project's own declaration wins over it -- a pegged .python-version, else the requires-python floor."
+    required: false
+    # hyperi-ci:pin runtimes.python
+    default: "3.14"
+  pyyaml-version:
+    description: "PyYAML the config-reading helpers run with. Set by config/versions.yaml; not a caller setting."
+    required: false
+    # hyperi-ci:pin tools.pyyaml
+    default: "6.0.3"
+
+outputs:
+  will-release:
+    description: "'true' iff this run should tag + release"
+    value: ${{ steps.gate.outputs.will-publish }}
+  will-publish:
+    description: "Deprecated spelling of will-release, same value. Kept because a reusable workflow cannot warn about an output a caller reads."
+    value: ${{ steps.gate.outputs.will-publish }}
+  version:
+    description: "Version this run releases (without 'v' prefix): predicted on push and on from-head dispatch, the tag's own on a tag dispatch"
+    value: ${{ steps.predict.outputs.version || steps.firstparent.outputs.version || steps.forkforced.outputs.version || steps.forced.outputs.version || steps.tagged.outputs.version }}
+  fork:
+    description: "'true' iff this run versions a fork from its first-parent commits, so the release tail tags HEAD with tag-head instead of running semantic-release; else 'false'"
+    value: ${{ steps.firstparent.outputs.first-parent == 'true' && 'true' || 'false' }}
+  prerelease:
+    description: "'true' iff the predicted version carries a prerelease component (1.2.0-beta.1) -- this run does not consume a stable version"
+    value: ${{ steps.derive.outputs.prerelease }}
+  run-checks:
+    description: "'true' iff quality + test should run (publish-worthy commit, a merge to main that changed more than docs, OR pull_request)"
+    value: ${{ steps.derive.outputs.run-checks }}
+  run-build:
+    description: "'true' iff build + container + publish should run (publish-worthy only)"
+    value: ${{ steps.derive.outputs.run-build }}
+  run-arm64-check:
+    description: "'true' iff this run owes an arm64-only build for parity -- a release-worthy merge to main on a project that ships aarch64 and has not set build.rust.arm64_on_main: false (issue #249)"
+    value: ${{ steps.derive.outputs.run-arm64-check }}
+  python-version:
+    description: "Python version this project is built and tested on"
+    value: ${{ steps.python.outputs.python-version }}
+  test-tier:
+    description: "core | full -- the tier the Test job runs. full on a schedule, on test-tier: full, or on a release in a repo that sets test.full.required_for_release; else core"
+    value: ${{ steps.tier.outputs.test-tier }}
+  full-required-for-release:
+    description: "'true' iff the project sets test.full.required_for_release, so a release runs full and the Gate fails one handed less"
+    value: ${{ steps.tier.outputs.full-required-for-release }}
+  rust-targets:
+    description: "build.rust.targets from the project config, space-separated. Empty means every target, and is what a project without Cargo.toml gets"
+    value: ${{ steps.targets.outputs.rust-targets }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv (config readers)
+      id: uv_try1
+      # A failed download must not fail Plan. The next step finds no uv and
+      # falls back to python3, loudly.
+      continue-on-error: true
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: false
+    - name: Install uv (config readers) (retry 1)
+      id: uv_try2
+      if: ${{ steps.uv_try1.outcome == 'failure' }}
+      continue-on-error: true
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: false
+    - name: Install uv (config readers) (retry 2)
+      if: ${{ steps.uv_try2.outcome == 'failure' }}
+      continue-on-error: true
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        enable-cache: false
+
+    - name: Choose the config readers' Python
+      # Asked once here rather than with `uv run ... || python3 ...` at each helper,
+      # because `||` also catches the helper's own failure: a tier typo would fail
+      # under uv, re-run on a python3 that cannot read the config, and pass on core.
+      # After this fetch, later `uv run` calls are served from uv's cache.
+      id: reader
+      shell: bash
+      env:
+        PYYAML_VERSION: ${{ inputs.pyyaml-version }}
+      run: |
+        uv_python="uv run --no-project --no-config --python 3 --with pyyaml==$PYYAML_VERSION python"
+        # The value is a command and its arguments, so it is split on purpose.
+        # shellcheck disable=SC2086
+        if $uv_python -c "import yaml"; then
+          echo "python=$uv_python" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning title=config readers::uv could not provide PyYAML $PYYAML_VERSION, so the runner's python3 reads .hyperi-ci.yaml and may not be able to parse it"
+          echo "python=python3" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Resolve the project's Python version
+      # The fleet default is what a project that declares nothing gets, not a version
+      # every project is held to. A repo declaring `requires-python = ">=3.12"` built
+      # on 3.14 publishes a wheel whose advertised floor never ran (issue #150).
+      #
+      # uv honours a pegged `.python-version` but resolves a floor to the NEWEST
+      # satisfying interpreter, so the FLOOR is computed here and handed to the jobs.
+      # Testing above the floor hides a 3.14-only feature in a repo promising 3.12.
+      id: python
+      shell: bash
+      env:
+        DEFAULT_PYTHON: ${{ inputs.python-version }}
+      run: |
+        set -euo pipefail
+        resolved=$(python3 "$GITHUB_ACTION_PATH/python_version.py")
+        echo "python-version=$resolved" >> "$GITHUB_OUTPUT"
+        echo "::notice::Python $resolved"
+
+    - name: Detect publish trigger
+      # The whole publish flow is gated on one signal: `will-publish`.
+      #
+      # - workflow_dispatch with a tag input -> always publish (retroactive).
+      # - workflow_dispatch with from-head: true -> publish HEAD, from main or
+      #   from a declared prerelease branch with bump=auto. Any other ref, or
+      #   a forced bump on a prerelease branch, is validate-only (issue #471).
+      # - push to main with `Release: true` trailer in HEAD commit -> release.
+      # - push to a declared prerelease branch with the same trailer ->
+      #   release on that branch's own sequence (1.2.0-beta.1), which spends
+      #   no stable version (issue #144).
+      # - schedule -> never publishes, whatever HEAD's trailer says.
+      # - everything else, a bare workflow_dispatch included -> validate-only
+      #   (no version stamp, no tag, no container push, no registry uploads).
+      id: gate
+      shell: bash
+      # Inputs travel as env, so a workflow input is never read as shell.
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        GIT_REF: ${{ github.ref }}
+        DISPATCH_TAG: ${{ inputs.tag }}
+        FROM_HEAD: ${{ inputs.from-head }}
+        BUMP: ${{ inputs.bump }}
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+        REPO_PRIVATE: ${{ github.event.repository.private }}
+      run: |
+        # Every publish passes the declared-classification check first. A
+        # refusal fails Plan, so no tag, container or registry upload follows.
+        publish() {
+          # The value is a command and its arguments, so it is split on purpose.
+          # shellcheck disable=SC2086
+          $CONFIG_PYTHON "$GITHUB_ACTION_PATH/classification_gate.py" || exit 1
+          echo "will-publish=true" >> "$GITHUB_OUTPUT"
+        }
+
+        # A schedule runs on main's HEAD, so the trailer check below would
+        # publish any HEAD still carrying `Release: true`. A scheduled run
+        # tests; releasing stays a push or a dispatch.
+        if [[ "$EVENT_NAME" == "schedule" ]]; then
+          echo "will-publish=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::Scheduled run -- tests only, nothing is built, tagged or published"
+          exit 0
+        fi
+
+        if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+          # A dispatch publishes in exactly one of two modes, each of which
+          # resolves a real version: `tag=vX.Y.Z` re-publishes an existing
+          # release (version = the tag), and `from-head=true` releases HEAD
+          # (the CI computes + cuts the tag). A bare dispatch resolves neither,
+          # and publishing one named from the committed manifest seed rebuilt a
+          # four-month-old version and clobbered `latest` (issue #105).
+          #
+          # So a bare dispatch runs the pipeline and publishes nothing (issue
+          # #111): tag-and-release is gated on `will-publish` and the container
+          # stage reads HYPERCI_RELEASE_MODE from it, so false reaches no
+          # registry.
+          if [[ -z "$DISPATCH_TAG" && "$FROM_HEAD" != "true" ]]; then
+            echo "will-publish=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Bare workflow_dispatch -- validate-only run. Quality, test and build run; NOTHING is tagged or published. To release, re-run with from-head=true (bump=auto|patch|minor|X.Y.Z), or tag=vX.Y.Z to re-publish an existing release."
+            exit 0
+          fi
+
+          # tag-head cuts a forced bump on any ref it is handed, ignoring the
+          # release config, and runs on from-head even beside a tag, so the
+          # branch rule is applied here (issue #471).
+          if [[ "$FROM_HEAD" == "true" && "$GIT_REF" != "refs/heads/main" ]]; then
+            prerelease=$(python3 "$GITHUB_ACTION_PATH/prerelease_branch.py")
+            if [[ "$prerelease" != "true" ]]; then
+              echo "will-publish=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::from-head dispatch on ref '${GIT_REF}' -- validate-only run, NOTHING is tagged or published. Releasing happens from main, or from a branch declared 'prerelease' in the release config. Merge to main and dispatch there, or dispatch on a declared prerelease branch with bump=auto."
+              exit 0
+            fi
+            # The forced step computes a plain X.Y.Z, so on a prerelease
+            # branch it would cut a stable release.
+            if [[ -n "$BUMP" && "$BUMP" != "auto" ]]; then
+              echo "will-publish=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Forced bump '${BUMP}' on prerelease branch '${GIT_REF}' -- validate-only run, NOTHING is tagged or published. A forced bump cuts a stable version, never a prerelease one. Re-run with bump=auto to release on this branch's prerelease sequence."
+              exit 0
+            fi
+          fi
+          publish
+          echo "::notice::Triggered by workflow_dispatch -- publish run"
+          exit 0
+        fi
+
+        # Stable releases happen only from main (branch-mode decision 1).
+        # A branch the release config declares `prerelease` also releases,
+        # but on its own version sequence (1.2.0-beta.1), so the stable
+        # numbers never move -- that is what makes a release rehearsable
+        # (issue #144). Stated HERE, at the gate SSOT, rather than relying
+        # on downstream job `if:` conditions to catch a trailer on a
+        # branch. A trailer on any other ref is ignored LOUDLY.
+        if [[ "$GIT_REF" != "refs/heads/main" ]]; then
+          prerelease=$(python3 "$GITHUB_ACTION_PATH/prerelease_branch.py")
+          if [[ "$prerelease" != "true" ]]; then
+            echo "will-publish=false" >> "$GITHUB_OUTPUT"
+            msg=$(git log -1 --format=%B HEAD)
+            if printf '%s' "$msg" | grep -qiE '^[[:space:]]*(Release|Publish):[[:space:]]*true[[:space:]]*$'; then
+              echo "::warning::Release trailer on ref '${GIT_REF}' -- ignored. Releasing happens from main, or from a branch declared 'prerelease' in the release config; merge first, or push to a declared prerelease branch."
+            fi
+            echo "Not a release branch -- validate-only run (no tag, no publish)"
+            exit 0
+          fi
+        fi
+
+        # push to a release branch -- match the release trailer, either
+        # spelling (case-insensitive on key). hyperi_ci.vocabulary matches the
+        # same set in Python; this runs where hyperi-ci is not installed.
+        msg=$(git log -1 --format=%B HEAD)
+        if printf '%s' "$msg" | grep -qiE '^[[:space:]]*(Release|Publish):[[:space:]]*true[[:space:]]*$'; then
+          publish
+          echo "::notice::Release trailer detected -- this run tags and publishes"
+        else
+          echo "will-publish=false" >> "$GITHUB_OUTPUT"
+          echo "No release trailer -- validate-only run (no tag, no publish)"
+          # Validate-only is correct, and it reads exactly like a release run:
+          # the same green rollup, and no line saying the repo is falling
+          # behind. That silence left scalo-rs 13 releasable commits and 26
+          # days behind crates.io, a security floor bump among them. The
+          # trailer-on-the-wrong-branch case three lines up has warned all
+          # along, and it is the less consequential of the two.
+          #
+          # Silent when nothing is waiting, and a notice while the oldest
+          # waiting commit is under release.unreleased_warn_days: a warning on
+          # every push is a warning nobody reads. The helper prints the whole
+          # annotation, or nothing, and says on stderr which answer it was.
+          # The value is a command and its arguments, so it is split on purpose.
+          # shellcheck disable=SC2086
+          $CONFIG_PYTHON "$GITHUB_ACTION_PATH/unreleased.py" || true
+        fi
+
+    - name: Predict next version (fork, first-parent commits)
+      # semantic-release counts every commit a sync merge brings in, so a repo
+      # classified `fork` versions a stable release from its first-parent
+      # commits instead. Writes first-parent=false for every other repo. The
+      # `fork` output carries this answer to the release tail, which never
+      # re-reads the classification.
+      id: firstparent
+      if: ${{ steps.gate.outputs.will-publish == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.from-head == 'true' && inputs.bump == 'auto')) }}
+      shell: bash
+      env:
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+      run: $CONFIG_PYTHON "$GITHUB_ACTION_PATH/fork_version.py"
+
+    - name: Setup semantic-release (shared toolchain -- single source of truth)
+      # Runs on push, and on a from-head `auto` dispatch (issue #35) so the
+      # version is resolved in plan (the build then stamps the correct value).
+      # Forced bumps use the inline semver step below and skip semantic-release.
+      if: ${{ steps.gate.outputs.will-publish == 'true' && steps.firstparent.outputs.first-parent != 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.from-head == 'true' && inputs.bump == 'auto')) }}
+      uses: hyperi-io/hyperi-ci/.github/actions/setup-semantic-release@main
+
+    - name: Predict next version
+      # semantic-release --dry-run determines the version tag-and-release will
+      # create. The calling workflow's build stamps Cargo.toml + VERSION to it before
+      # compiling, so CARGO_PKG_VERSION matches the published tag.
+      #
+      # Hard fail if `Release: true` was set but no release-worthy commits exist.
+      #
+      # The dry-run exit code is captured separately so a real crash (npm install,
+      # network) is distinguished from "ran fine, nothing to release."
+      id: predict
+      if: ${{ steps.gate.outputs.will-publish == 'true' && steps.firstparent.outputs.first-parent != 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.from-head == 'true' && inputs.bump == 'auto')) }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set +e
+        dry_output=$(semantic-release --dry-run --repository-url "https://github.com/${GITHUB_REPOSITORY}" 2>&1)
+        dry_rc=$?
+        set -e
+        echo "$dry_output"
+
+        if [[ $dry_rc -ne 0 ]]; then
+          echo "::error::semantic-release --dry-run exited $dry_rc -- see log above"
+          exit $dry_rc
+        fi
+
+        # The prerelease component is part of the version: a release off a
+        # prerelease branch is `1.2.0-beta.1`, and truncating it to `1.2.0`
+        # would tag the stable number this run exists to avoid spending.
+        version=$(printf '%s\n' "$dry_output" | grep -oE 'next release version is [0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -1 | awk '{print $5}')
+
+        if [[ -z "$version" ]] && grep -q 'is behind the remote one' <<< "$dry_output"; then
+          echo "::error::The branch moved past ${GITHUB_SHA} after this run started, so semantic-release will not release it. Release the current head with 'hyperi-ci release'."
+          exit 1
+        fi
+        if [[ -z "$version" ]]; then
+          echo "::error::No release-worthy commits since last tag. On a push, drop the 'Release: true' trailer (this is a non-release commit) or land a fix:/feat:/perf: commit. On a from-head dispatch, re-run with --bump patch (or minor) to force a release."
+          exit 1
+        fi
+
+        # Orphaned-tag guard (issue #37): semantic-release only considers
+        # tags REACHABLE from HEAD ('No git tag version found on branch
+        # main'). If v* tags exist in refs but NONE are reachable, a past
+        # history rewrite orphaned them -- semantic-release re-predicts a
+        # taken or regressed version. Fail at plan time (the _release-tail
+        # off-HEAD guard stays as defence-in-depth) instead of after a
+        # full build. Tags are local: the plan checkout is fetch-depth: 0.
+        tags_all=$(git tag --list 'v[0-9]*')
+        tags_reachable=$(git tag --list 'v[0-9]*' --merged HEAD)
+        if [[ -n "$tags_all" && -z "$tags_reachable" ]]; then
+          echo "::error::v* tags exist but none are reachable from HEAD -- orphaned by a past history rewrite (issue #37). semantic-release is blind to them and predicted v${version}, which would collide or regress. Recover the tags with scripts/recover-tags.py, or ship past them with 'hyperi-ci publish --version X.Y.Z'."
+          exit 1
+        fi
+
+        # First release on a genuinely tag-less repo: semantic-release
+        # defaults to 1.0.0 ('There is no previous release'). The starting
+        # version comes from the project's own manifest instead, shipped
+        # verbatim as the first release. The forced --bump paths bump from
+        # the same value; see push._compute_next_version.
+        #
+        # Not the committed VERSION file (issue #85) -- that is an artefact
+        # this tool writes, not an input.
+        #
+        # A prerelease keeps semantic-release's own answer: the seed names a
+        # stable starting version, and stamping it over `1.0.0-beta.1` would
+        # cut the first stable release off a prerelease branch.
+        if [[ -z "$tags_all" && "$version" != *-* ]]; then
+          start=$(python3 "$GITHUB_ACTION_PATH/seed_version.py")
+          if [[ -n "$start" && "$start" != "$version" ]]; then
+            echo "::notice::First release on a tag-less repo -- starting at $start (semantic-release default was $version)"
+            version="$start"
+          fi
+        fi
+
+        # Early collision guard: the predicted NEXT version must not
+        # already exist as a tag off-HEAD (existing at HEAD = idempotent
+        # re-run, allowed). Plan-time twin of the _release-tail guard.
+        if git rev-parse -q --verify "refs/tags/v${version}^{commit}" >/dev/null 2>&1; then
+          existing=$(git rev-parse "refs/tags/v${version}^{commit}")
+          head_sha=$(git rev-parse "HEAD^{commit}")
+          if [[ "$existing" != "$head_sha" ]]; then
+            echo "::error::Predicted v${version} already exists at ${existing} (HEAD is ${head_sha}) -- refusing to re-release it (issue #37). Ship past it with 'hyperi-ci publish --version X.Y.Z' (or --bump patch), or recover orphaned tags with scripts/recover-tags.py."
+            exit 1
+          fi
+        fi
+
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "::notice::Predicted next version: v$version"
+
+    - name: Predict next version (fork, forced bump)
+      # The highest v* tag in a fork can be one a sync merge brought in from
+      # upstream, so a fork's forced bump starts from its own last release.
+      # Writes fork-forced=false for every other repo.
+      id: forkforced
+      if: ${{ steps.gate.outputs.will-publish == 'true' && github.event_name == 'workflow_dispatch' && inputs.from-head == 'true' && (inputs.bump == 'patch' || inputs.bump == 'minor') }}
+      shell: bash
+      env:
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+        BUMP: ${{ inputs.bump }}
+      run: $CONFIG_PYTHON "$GITHUB_ACTION_PATH/fork_version.py" --forced "$BUMP"
+
+    - name: Predict next version (forced bump / explicit version)
+      # from-head dispatch with a non-auto bump (issue #35). The `bump` channel
+      # carries a bump level (patch|minor, computed as `last v* tag + bump`) or an
+      # explicit X.Y.Z (the `hyperi-ci release --version` override, used verbatim to
+      # step past a taken/orphaned tag, issue #37). Runs for any non-auto bump so
+      # plan + build stamp the value tag-head later creates. push.tag_head holds the
+      # same computation for the real tag.
+      id: forced
+      if: ${{ steps.gate.outputs.will-publish == 'true' && github.event_name == 'workflow_dispatch' && inputs.from-head == 'true' && inputs.bump != 'auto' && inputs.bump != '' && steps.forkforced.outputs.fork-forced != 'true' }}
+      shell: bash
+      env:
+        BUMP: ${{ inputs.bump }}
+      run: |
+        set -euo pipefail
+        bump="$BUMP"
+
+        # Explicit version override: use it verbatim, no last-tag math.
+        if printf '%s' "$bump" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "version=$bump" >> "$GITHUB_OUTPUT"
+          echo "::notice::Explicit from-head version: v$bump"
+          exit 0
+        fi
+
+        # Plain vX.Y.Z only -- a prerelease sorts above its own release under -v:refname.
+        latest=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -m1 -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' || true)
+        if [[ -z "$latest" ]]; then
+          latest=$(python3 "$GITHUB_ACTION_PATH/seed_version.py")
+        fi
+        if [[ -z "$latest" ]]; then
+          echo "::error::No v* tag and no declared version -- cannot compute forced bump."
+          exit 1
+        fi
+        IFS='.' read -r maj min pat <<< "$latest"
+        case "$bump" in
+          patch) pat=$((pat + 1)) ;;
+          minor) min=$((min + 1)); pat=0 ;;
+          *) echo "::error::Invalid bump '$bump' -- expected patch, minor, or X.Y.Z"; exit 1 ;;
+        esac
+        version="${maj}.${min}.${pat}"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "::notice::Forced from-head bump ($bump): v$version (was v$latest)"
+
+    - name: Resolve the re-published tag's version
+      # A `tag` dispatch re-publishes an existing release, so the version is the
+      # tag's own. Build and Publish stamp it because the tagged tree carries the
+      # release before it, as VERSION and the manifest are committed back after the
+      # tag (issue #352).
+      id: tagged
+      if: ${{ steps.gate.outputs.will-publish == 'true' && github.event_name == 'workflow_dispatch' && inputs.tag != '' }}
+      shell: bash
+      env:
+        RELEASE_TAG: ${{ inputs.tag }}
+      run: python3 "$GITHUB_ACTION_PATH/tag_version.py"
+
+    - name: Detect a release-worthy push, and what it changed
+      # Checks run on PRs and RELEASE-WORTHY pushes. The release trailer marks only
+      # pushes that PUBLISH, a smaller set, so a squash merge of a fix: to main
+      # compiled and tested nothing and reported green (issue #124). The bump SSoT
+      # says what the pushed range holds.
+      #
+      # The commit type alone still let a chore: or test: merge that edits code
+      # land unchecked (issue #96), so the files the range changed are asked too.
+      # touched_files.py writes code-changed and touched.
+      #
+      # The range comes from the push event payload, never origin/main..HEAD, which
+      # is EMPTY right after a push to main (issue #52). The helpers read the
+      # payload themselves, so no commit message is read as shell.
+      id: worthy
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        worthy=$(python3 "$GITHUB_ACTION_PATH/release_worthy.py")
+        echo "release-worthy=$worthy" >> "$GITHUB_OUTPUT"
+        python3 "$GITHUB_ACTION_PATH/touched_files.py"
+
+    - name: Derive gate outputs
+      # Single source of truth for the run-checks / run-build conditions. Language
+      # workflows read these outputs and never re-implement the boolean logic.
+      id: derive
+      shell: bash
+      env:
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+        WILL_PUBLISH: ${{ steps.gate.outputs.will-publish }}
+        EVENT_NAME: ${{ github.event_name }}
+        BRANCH_BUILD: ${{ inputs.branch-build }}
+        GIT_REF: ${{ github.ref }}
+        RELEASE_WORTHY: ${{ steps.worthy.outputs.release-worthy }}
+        CODE_CHANGED: ${{ steps.worthy.outputs.code-changed }}
+        TOUCHED: ${{ steps.worthy.outputs.touched }}
+        PLANNED_VERSION: ${{ steps.predict.outputs.version || steps.firstparent.outputs.version || steps.forkforced.outputs.version || steps.forced.outputs.version || steps.tagged.outputs.version }}
+      run: |
+        set -euo pipefail
+        will_publish="$WILL_PUBLISH"
+        event_name="$EVENT_NAME"
+        branch_build="$BRANCH_BUILD"
+        git_ref="$GIT_REF"
+        release_worthy="$RELEASE_WORTHY"
+        code_changed="$CODE_CHANGED"
+        touched="$TOUCHED"
+        version="$PLANNED_VERSION"
+
+        # Version identity: a prerelease component means this run ships on its
+        # own sequence and spends no stable number. Read off the version rather
+        # than the branch, so one value answers it everywhere
+        # (hyperi_ci.release_branches is the same test in Python).
+        if [[ "$version" == *-* ]]; then
+          prerelease=true
+        else
+          prerelease=false
+        fi
+        echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+        # run-build: publish runs always; an opted-in pull_request also
+        # builds (branch-mode decision 2 -- PRs validate the FULL pipeline
+        # incl. container; whether that container is pushed as a dev
+        # image is the container stage's own dev_push decision). Raw
+        # branch pushes never build -- the gate doctrine (non-shipping
+        # commits compile nothing) is unchanged.
+        #
+        # A validate-only dispatch builds too: someone with actions:write
+        # asked for this run, and a verification run that compiles nothing
+        # verifies nothing (issue #111). By here that is the only dispatch
+        # left, since both publishing modes set will-publish=true.
+        if [[ "$will_publish" == "true" ]]; then
+          run_build=true
+        elif [[ "$event_name" == "workflow_dispatch" ]]; then
+          run_build=true
+        elif [[ "$event_name" == "pull_request" && "$branch_build" == "true" ]]; then
+          run_build=true
+        else
+          run_build=false
+        fi
+
+        # run-checks: a publish run, a PR, a merge queue entry, a dispatch, a
+        # schedule -- and a merge to main that CARRIES a release, whether or
+        # not this run is the one that ships it (issue #124), or that changed
+        # any file outside docs and repo metadata, whatever its commit type
+        # (issue #96). A queue entry is the commit main fast-forwards to, and a
+        # skipped required check counts as passing, so without it a queue
+        # merges untested (issue #468). run-build deliberately stays
+        # publish-only: compiling a commit nothing ships is the red line the
+        # doctrine draws, so a schedule or a queue entry builds nothing.
+        if [[ "$will_publish" == "true" || "$event_name" == "pull_request" || "$event_name" == "merge_group" || "$event_name" == "workflow_dispatch" || "$event_name" == "schedule" || "$release_worthy" == "true" || "$code_changed" == "true" ]]; then
+          run_checks=true
+        else
+          run_checks=false
+        fi
+
+        # run-arm64-check: the one case that builds arm64 where run-build is
+        # false. arm64 compiled only on a run that was already publishing, so
+        # an arm64-only defect first executed during the release meant to ship
+        # it, and the fix could not be exercised except by publishing again
+        # (issue #249). A release-worthy merge WILL ship, so building its arm64
+        # leg crosses no line: a merge that ships nothing still compiles
+        # nothing, and run-build above is untouched. Only rust-ci.yml reads
+        # this; the project half of the answer (ships aarch64, has not opted
+        # out) is the helper's.
+        arm64_check=false
+        if [[ "$event_name" == "push" && "$git_ref" == "refs/heads/main" && "$release_worthy" == "true" ]]; then
+          # shellcheck disable=SC2086
+          arm64_check=$($CONFIG_PYTHON "$GITHUB_ACTION_PATH/arm64_check.py")
+        fi
+
+        echo "run-build=$run_build" >> "$GITHUB_OUTPUT"
+        echo "run-checks=$run_checks" >> "$GITHUB_OUTPUT"
+        echo "run-arm64-check=$arm64_check" >> "$GITHUB_OUTPUT"
+        summary="run-checks=$run_checks run-build=$run_build run-arm64-check=$arm64_check (will-publish=$will_publish event=$event_name branch-build=$branch_build release-worthy=$release_worthy code-changed=$code_changed prerelease=$prerelease)"
+        # A gate that skipped reads exactly like a gate that passed (issue #96),
+        # so say so where it lands, on main, and name what changed. A notice:
+        # a merge that changed only docs skips by design, and nobody has to
+        # act on it.
+        if [[ "$run_checks" != "true" && "$event_name" == "push" && "$git_ref" == "refs/heads/main" ]]; then
+          echo "::notice::$summary -- quality and test did NOT run on this merge to main: ${touched:-no changed-files answer}. A skipped gate is not a passing gate."
+        else
+          echo "::notice::$summary"
+        fi
+
+    - name: Resolve the test tier
+      # The Test job runs this tier and the Gate checks it against a release.
+      # Inputs travel as env, so a workflow input is never read as shell.
+      id: tier
+      shell: bash
+      env:
+        TIER_EVENT: ${{ github.event_name }}
+        TIER_WILL_RELEASE: ${{ steps.gate.outputs.will-publish }}
+        TIER_REQUESTED: ${{ inputs.test-tier }}
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+      run: $CONFIG_PYTHON "$GITHUB_ACTION_PATH/resolve_tier.py"
+
+    - name: Read the project's Rust targets
+      # rust-ci.yml builds its matrix from this, so no runner image needs yq
+      # (issue #291). Without a Cargo.toml it writes an empty list and says nothing.
+      id: targets
+      shell: bash
+      env:
+        CONFIG_PYTHON: ${{ steps.reader.outputs.python }}
+      run: $CONFIG_PYTHON "$GITHUB_ACTION_PATH/rust_targets.py"

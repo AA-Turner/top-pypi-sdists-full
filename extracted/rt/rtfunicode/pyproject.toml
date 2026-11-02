@@ -1,0 +1,65 @@
+[project]
+name = "rtfunicode"
+version = "2.3"
+description = "Encoder for unicode to RTF 1.5 command sequences"
+readme = "README.md"
+license = "BSD-2-Clause"
+license-files = [ "LICENSE.txt" ]
+authors = [
+    { name = "Martijn Pieters", email = "mj@zopatista.com" }
+]
+requires-python = ">=3.10"
+keywords = ["rtf"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pyright>=1.1.391",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/mjpieters/rtfunicode"
+Repository = "https://github.com/mjpieters/rtfunicode"
+Issues = "https://github.com/mjpieters/rtfunicode/issues"
+Changelog = "https://github.com/mjpieters/rtfunicode/blob/main/CHANGELOG.md"
+
+[tool.coverage.run]
+source_pkgs = ["rtfunicode"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.pyright]
+strict = ["src"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests.py"]
+addopts = "--cov --cov-report xml --cov-report term"
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "UP"
+]
+
+[tool.uv.build-backend]
+source-include = [
+    "CHANGELOG.md",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"

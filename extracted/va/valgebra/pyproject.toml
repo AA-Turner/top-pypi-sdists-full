@@ -1,0 +1,339 @@
+[build-system]
+# >= 1.9.4 injects the pyo3 extension-module behavior at build time, so it is
+# not hard-coded as a Cargo feature (see crates/valgebra-py/Cargo.toml).
+requires = ["maturin>=1.15.0,<2"]
+build-backend = "maturin"
+
+[project]
+name = "valgebra"
+requires-python = ">=3.10"
+dynamic = ["version"]
+description = "Fast runtime validation via a closed Boolean algebra of schemas on a compiled Rust core."
+readme = "README.md"
+# PEP 639 SPDX expression; the standard Rust-ecosystem dual license.
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+keywords = ["validation", "schema", "typing", "rust"]
+urls.Homepage = "https://github.com/ppigazzini/valgebra"
+urls.Documentation = "https://ppigazzini.github.io/valgebra/"
+urls.Changelog = "https://github.com/ppigazzini/valgebra/blob/main/CHANGELOG.md"
+urls.Issues = "https://github.com/ppigazzini/valgebra/issues"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+
+[dependency-groups]
+# What the test suite reads, and no tool besides. A suite that runs without the
+# dev group -- on PyPy, and on each wheel a release builds -- installs this
+# group at the versions the lock holds, so a release on the index reddens no
+# lane until the lock takes it.
+test = [
+    "annotated-types>=0.8",
+    "hypothesis>=6.168.5",
+    "pytest>=9.1.1",
+    # `scripts/gate.py` and the ledger that holds it read the workflow, and a
+    # workflow is YAML: parsing it with a regex is how a gate ends up disagreeing
+    # with the lane it claims to reproduce.
+    "pyyaml>=6.0.3",
+    "syrupy>=6.1.1",
+    # The suite reads a PEP 728 `TypedDict` from each implementation that takes
+    # its keywords, and `typing_extensions` takes them on every release.
+    "typing-extensions>=4.16.0",
+]
+dev = [
+    { include-group = "test" },
+    "maturin>=1.15.0,<2",
+    "mypy>=2.4.0",
+    "pre-commit>=4.6.2",
+    "pyright>=1.1.414",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.17.3",
+    "ty>=0.0.92",
+]
+# The wall-clock harness and the external comparison points: the libraries the
+# benchmarks time valgebra against, and the same libraries the boundary suite
+# asks where each draws the line between a value it accepts and one it does
+# not. Never runtime dependencies of valgebra, and every reader of them skips
+# when the group is absent.
+bench = [
+    "pytest-benchmark>=5.3.0",
+    "pydantic>=2.14.1",
+    "jsonschema>=4.26.0",
+    "msgspec>=0.22.0",
+]
+# What an example on the documentation's pages imports that no other group
+# holds: FastAPI, for the recipes page's FastAPI recipe. Installed only where
+# every example is read -- the `doc-examples` lane, and the floor leg whose
+# repository audit plants the checkers' ledger -- so no other leg resolves
+# FastAPI's pydantic on an interpreter it publishes no wheel for. Never a
+# runtime dependency.
+examples = [
+    "fastapi>=0.162.0",
+]
+# Documentation-site tools: the MkDocs Material site and the mkdocstrings API
+# reference generator. Never runtime dependencies.
+#
+# Upper bounds pin the renderer to the maintained MkDocs 1.x line: MkDocs core is
+# unmaintained and the unlicensed "MkDocs 2.0" drops the plugin system with no
+# migration path, so `<2` keeps the resolver off it, and `<10` holds Material on
+# its last MkDocs-based major. The content is renderer-independent (Markdown in a
+# Diataxis layout, examples tested by scripts/run_doc_examples.py, an llms.txt
+# manifest); the renderer is a replaceable backend. Drop the bounds when migrating
+# to Zensical, once it renders mkdocstrings cross-references and llms.txt.
+docs = [
+    "mkdocs>=1.6.1,<2",
+    "mkdocs-material>=9.7.7,<10",
+    "mkdocstrings[python]>=1.0.6",
+    # Generates the /llms.txt manifest and /llms-full.txt full-content export so
+    # AI assistants and coding agents consume the docs as clean Markdown.
+    "mkdocs-llmstxt>=0.5",
+]
+
+[tool.uv]
+# What a rebuild of this project depends on. uv keys a local package's cached
+# build on `pyproject.toml` alone, and every input that decides what the
+# extension *is* lives somewhere else: the version is `[workspace.package]` in
+# the root `Cargo.toml`, the code is under `crates/`, and the dependency set is
+# `Cargo.lock`. Keyed on `pyproject.toml` alone, a sync after a Rust change
+# reinstalls the previous build over the current one, leaving the two halves of
+# one install disagreeing: the `.so` a `maturin develop` wrote, beside metadata
+# from an earlier build. `tests/test_version.py` catches that, and can only
+# catch it because `__version__` comes from the crate rather than from the
+# metadata being read.
+#
+# Naming any key replaces the default, so `pyproject.toml` is listed here rather
+# than inherited. The cost is a rebuild when one of these changes and uv is the
+# first command to notice; in the documented flow it is free, because
+# `uv run maturin develop` syncs before maturin runs and leaves the cache warm.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { file = "crates/*/Cargo.toml" },
+    { file = "crates/**/*.rs" },
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "valgebra._valgebra"
+manifest-path = "crates/valgebra-py/Cargo.toml"
+# Build the abi3-incompatible per-version module. Stripping is the *profile's*
+# decision and is written there: `[profile.release]` strips and
+# `[profile.profiling]` does not. A `strip` key here overrides both, so the
+# profile that exists to keep symbols would produce a binary with none and a
+# callgrind run against the shipped extension could attribute nothing.
+# Profile-guided-optimization training workload for `maturin build --pgo`
+# (the release wheels, and `ci.yml`'s bench and PGO comparison lanes). Runs against the instrumented build to record a profile
+# over a broad, production-like spread of validation shapes; depends only on the
+# package itself, so it runs in the minimal environment maturin provisions.
+pgo-command = "python scripts/pgo_workload.py"
+# The compiler flags `.cargo/config.toml` sets are a build input: without them a
+# build from the sdist would compile PyO3's reference pool back in.
+include = [{ path = ".cargo/config.toml", format = "sdist" }]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+# The suite holds two kinds of test. Most exercise the library, and run against
+# an installed wheel wherever one is built; a few of them hold it to a page or
+# to the IR, and read the checkout as well. The rest read this repository -- its
+# tree, its configuration, its gate scripts and its documentation -- and answer
+# for the project rather than for the product; none of what they read ships. They
+# carry the `repository` marker, so `-m "not repository"` is the product suite
+# and `-m repository` is the project's own audit. `tests/test_suite_partition.py`
+# holds the two apart in both directions, and names the product tests that read
+# the checkout.
+#
+# A few checks of the audit read the interpreter running them as well as the
+# tree: a table dated by release, a fingerprint naming the build, a page parsed
+# with the running release's grammar. They carry `interpreter` as well, so CI
+# reads them on every leg and the rest of the audit on one.
+markers = [
+    "repository: reads the repository rather than exercising the library",
+    "interpreter: a repository check whose answer is the running interpreter's",
+]
+
+[tool.ruff]
+target-version = "py310"
+src = ["python", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+# Only what holds for every file is ignored here. A rule the shipped package
+# satisfies and another directory does not is excused for that directory
+# alone, below, so the package is held to it.
+ignore = [
+    # Formatter conflicts, per the ruff docs.
+    "COM812",
+    "ISC001",
+    # Docstring style pairs that contradict each other; keep the ruff defaults.
+    "D203",
+    "D213",
+    # Licensing is declared once, in the PEP 639 SPDX expression and the two
+    # LICENSE files, not repeated as a per-file header.
+    "CPY001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert freely, use magic values, take unused fixture args, are not a
+# package, pass bools positionally, raise ad-hoc exceptions with inline
+# messages, and carry descriptive (not commented-out) comments in data tables.
+# A test's name states its claim, so a docstring is written where there is more
+# to say than the name; and a helper typed `Any` takes any value on purpose,
+# since what a validator is handed is anything a caller has.
+"tests/**" = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D105",
+    "D107",
+    "ANN401",
+    "S101",
+    "PLR2004",
+    "ARG001",
+    "INP001",
+    "FBT003",
+    "EM101",
+    "TRY003",
+    "ERA001",
+]
+# Benchmarks assert results, use magic sizes, are not a package, and print
+# their own recorded numbers when run as scripts; a benchmark's name is the
+# shape it times.
+"benches/**" = ["D103", "S101", "PLR2004", "INP001", "T201"]
+# Maintenance scripts run subprocesses (tools resolved from PATH) and print
+# progress. A script's module docstring is its contract and its functions are
+# steps of one run; a builder typed `Any` builds any schema it is handed.
+"scripts/**" = [
+    "D101",
+    "D102",
+    "D103",
+    "D107",
+    "ANN401",
+    "INP001",
+    "S603",
+    "S607",
+    "T201",
+]
+# The PyPy link check builds the *legacy* typing spellings on purpose: telling
+# `typing.List` from `list[...]` is what reached for the type object it exists
+# to guard, so the rules that modernize those spellings would rewrite the check
+# into one that compares a form against itself.
+"scripts/pypy_import_check.py" = ["INP001", "T201", "UP006", "UP007", "UP035", "UP045"]
+# The frontend form matrix builds the *legacy* typing spellings on purpose: a
+# bare `typing.List` and a parametrized `typing.Tuple[()]` are two forms this
+# library reads differently, and modernizing them away deletes the rows.
+"tests/test_frontend_forms.py" = ["UP006", "UP035"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["valgebra"]
+
+[tool.coverage.run]
+# Measure the Python package surface. The compiled extension is Rust, measured
+# separately by the binding-coverage lane (cargo-llvm-cov); branch coverage
+# catches a half-taken conditional the line count would miss.
+source = ["valgebra"]
+branch = true
+
+[tool.coverage.report]
+# The Python surface is thin and fully exercised, so the gate is a hard 100%; a
+# regression that leaves a line or branch untested fails the lane rather than
+# silently eroding the number.
+fail_under = 100
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.pyright]
+# The profile the type lane, the checker-reading ledger and the doc-example
+# checker run, named so that a pyright release moving its default moves nothing
+# here.
+typeCheckingMode = "standard"
+
+[tool.ty.environment]
+# The newest interpreter the package supports, because the suite is what this
+# setting governs: `tests/` names `typing.Unpack`, `ReadOnly`, `TypeVarTuple`
+# and `Required` to check that the frontend reads each, and those are members
+# releases after the floor added.
+#
+# The floor is checked too, and separately: `ty check python/ --python-version
+# 3.10` reads the shipped package alone at the oldest release `requires-python`
+# claims. Both run in the type lane, because one setting cannot answer both
+# questions -- the newest release accepts a construct the floor cannot import,
+# and the floor rejects the names the suite exists to exercise.
+python-version = "3.15"
+
+[tool.ty.rules]
+# Every stable rule ty leaves off by default that the tree passes, raised to an
+# error; `ty explain rule` gives each rule's default level. Three stay at
+# ty's default:
+#
+# - `missing-override-decorator`: every method it reports overrides one of
+#   `object`, a builtin, the standard library or `annotated_types`. The
+#   decorator guards against a base method going away, and none of those bases
+#   is this tree's to change. In `_markers.py` it would also cost an import
+#   at runtime: from `typing_extensions` below 3.12, a dependency the package
+#   does not have, or from `typing`, which that module is written to avoid;
+# - `missing-type-argument`, and `unsound-return-statement` with its
+#   `unsound-yield` and `unsound-assignment` siblings: each reports across the
+#   tests and scripts -- a bare generic, or a value read from JSON, YAML or a
+#   module loaded by path flowing into a declared type -- and raising one is a
+#   change of its own, with the readings typed.
+blanket-ignore-comment = "error"
+disjoint-cast = "error"
+division-by-zero = "error"
+dynamic-function-decorator-return = "error"
+invalid-legacy-positional-parameter = "error"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+possibly-unresolved-reference = "error"
+redundant-condition-strict = "error"
+unsupported-dynamic-base = "error"
+
+[tool.ty.analysis]
+# `x == "a"` leaves a `str` a `str` rather than narrowing it to `Literal["a"]`,
+# because a subclass may define `__eq__` to answer yes: the reason a `Literal`
+# schema's membership is exact.
+strict-equality-semantics = true
+# `strict-generic-narrowing` stays off. Under it `isinstance(x, dict)` on an
+# `object` narrows to a dict whose key type is unknown, and indexing it takes a
+# key of type `Never`: walking a value by the path a `ValidationError` reports
+# -- `docs/08-error-model.md` shows a caller doing it -- cannot be written
+# without a cast.
+
+[tool.ty.src]
+# Benchmarks and the suites that cross-check against another library are
+# separate measurement harnesses, not the typed public surface; they import the
+# optional bench dependency group (pydantic, jsonschema), which is absent in the
+# type-check lane.
+# The checker-reading fixtures are the one place a diagnostic is the point:
+# one of them holds ty's reading of a `TypeForm` overload, which the pinned ty
+# reports as an error. `tests/test_checker_readings.py` runs ty over them by
+# name, which an exclusion does not stop, and holds what it reports.
+exclude = [
+    "benches",
+    "tests/typing/readings",
+    "tests/test_differential.py",
+    "tests/test_pydantic_boundary.py",
+    "scripts/compare_gate.py",
+    # The API reference's griffe extension imports the docs group, which the
+    # type-check lane does not install.
+    "scripts/docs_stubs.py",
+]

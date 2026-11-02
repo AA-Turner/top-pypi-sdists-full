@@ -1,0 +1,4229 @@
+# SPDX-License-Identifier: MIT
+"""Fullbleed public CLI entrypoint.
+
+COMPLIANCE_SPEC: fullbleed.cli_compliance.v1
+PACKAGE_LICENSE: MIT
+COPYRIGHT_FILE: COPYRIGHT
+THIRD_PARTY_NOTICE_FILE: THIRD_PARTY_LICENSES.md
+THIRD_PARTY_ALLOWED_LICENSES: OFL-1.1, Apache-2.0, MIT, UFL-1.0
+LICENSE_AUDIT_ARTIFACTS: FONT_LICENSE_AUDIT.md, FONT_LICENSE_AUDIT.json
+AUTO_COMPLIANCE_FLAG_CODES:
+  - LIC_MISSING_NOTICE
+  - LIC_POLICY_MISMATCH
+  - LIC_DISALLOWED
+  - LIC_UNKNOWN
+  - LIC_AUDIT_STALE
+  - LIC_ASSET_UNMAPPED
+"""
+import argparse
+import importlib.metadata as metadata
+import hashlib
+import json
+import math
+import os
+import sys
+import tempfile
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+import re
+
+import fullbleed
+import fullbleed_assets
+
+from .assets import BUILTIN_ASSETS, _resolve_builtin_asset
+from .agent_contract import (
+    AGENT_ACCEPTANCE_SCENARIOS,
+    AGENT_CONTRACT_SCHEMA,
+    MCP_PROTOCOL_VERSIONS,
+    build_agent_contract,
+    render_cli_contract_markdown,
+    render_llms_txt,
+)
+
+
+PAGE_SIZES = {
+    "letter": ("8.5in", "11in"),
+    "a4": ("210mm", "297mm"),
+    "legal": ("8.5in", "14in"),
+}
+
+# Profile presets: dev (fast/verbose), preflight (validation), prod (optimized)
+PROFILES = {
+    "dev": {
+        "reuse_xobjects": False,
+        "jit_mode": "plan",
+    },
+    "preflight": {
+        "jit_mode": "plan",
+        "reuse_xobjects": True,
+    },
+    "prod": {
+        "reuse_xobjects": True,
+        "jit_mode": "off",
+    },
+}
+
+FAIL_ON_CHOICES = ["overflow", "missing-glyphs", "font-subst", "budget"]
+# Names and emission requirements come from the installed native engine.
+PDF_PROFILE_CATALOG = fullbleed.pdf_profile_catalog()
+PDF_PROFILE_CHOICES = [profile["name"] for profile in PDF_PROFILE_CATALOG]
+PDF_PROFILE_ALIASES = {"": None}
+PDF_PROFILE_ALIASES.update({
+    alias: profile["name"]
+    for profile in PDF_PROFILE_CATALOG
+    for alias in profile["aliases"]
+})
+PDF_PROFILES_REQUIRING_OUTPUT_INTENT = {
+    profile["name"] for profile in PDF_PROFILE_CATALOG
+    if profile["requires_output_intent"]
+}
+WATERMARK_LAYER_ALIASES = {"underlay": "background"}
+WATERMARK_LAYER_CHOICES = {"background", "overlay"}
+LICENSE_SPDX_EXPRESSION = "MIT"
+COMPLIANCE_POLICY = {
+    "schema": "fullbleed.cli_compliance.v1",
+    "package_license": LICENSE_SPDX_EXPRESSION,
+    "license_options": [LICENSE_SPDX_EXPRESSION],
+    "license_file": "LICENSE",
+    "license_required_header": "MIT License",
+    "license_forbidden_markers": [],
+    "licensing_guide_file": "LICENSING.md",
+    "copyright_file": "COPYRIGHT",
+    "copyright_required_spdx": LICENSE_SPDX_EXPRESSION,
+    "copyright_required_markers": [
+        "MIT License",
+        "LICENSE",
+    ],
+    "third_party_notice_file": "THIRD_PARTY_LICENSES.md",
+    "third_party_allowed_licenses": ["OFL-1.1", "Apache-2.0", "MIT", "UFL-1.0"],
+    "license_audit_artifacts": ["FONT_LICENSE_AUDIT.md", "FONT_LICENSE_AUDIT.json"],
+    "flag_codes": [
+        "LIC_MISSING_NOTICE",
+        "LIC_POLICY_MISMATCH",
+        "LIC_DISALLOWED",
+        "LIC_UNKNOWN",
+        "LIC_AUDIT_STALE",
+        "LIC_ASSET_UNMAPPED",
+    ],
+}
+
+SCHEMA_REGISTRY = {
+    "repro-record": "fullbleed.repro_record.v1",
+    "render": "fullbleed.render_result.v1",
+    "verify": "fullbleed.verify_result.v1",
+    "plan": "fullbleed.plan_result.v1",
+    "run": "fullbleed.run_result.v1",
+    "compliance": "fullbleed.compliance.v1",
+    "capabilities": "fullbleed.capabilities.v1",
+    "agent-contract": AGENT_CONTRACT_SCHEMA,
+    "agent-manifest": AGENT_CONTRACT_SCHEMA,
+    "agent:manifest": AGENT_CONTRACT_SCHEMA,
+    "agent:skill-path": "fullbleed.agent_skill.v1",
+    "agent:export-skill": "fullbleed.agent_skill.v1",
+    "agent:install-skill": "fullbleed.agent_skill.v1",
+    "agent-acceptance:prepare": "fullbleed.agent_acceptance_prepare.v1",
+    "agent-acceptance:verify": "fullbleed.agent_acceptance_result.v1",
+    "agent-acceptance:run": "fullbleed.agent_acceptance_result.v1",
+    "debug-perf": "fullbleed.debug_perf.v1",
+    "debug-jit": "fullbleed.debug_jit.v1",
+    "doctor": "fullbleed.doctor.v1",
+    "assets:list": "fullbleed.assets_list.v1",
+    "assets:info": "fullbleed.assets_info.v1",
+    "assets:install": "fullbleed.assets_install.v1",
+    "assets:verify": "fullbleed.assets_verify.v1",
+    "assets:lock": "fullbleed.assets_lock.v1",
+    "cache:dir": "fullbleed.cache_dir.v1",
+    "cache:prune": "fullbleed.cache_prune.v1",
+    "finalize:stamp": "fullbleed.finalize_stamp_result.v1",
+    "finalize:compose": "fullbleed.finalize_compose_result.v1",
+    "inspect:pdf": "fullbleed.inspect_pdf.v1",
+    "inspect:templates": "fullbleed.inspect_templates.v1",
+    "inspect:pdf-batch": "fullbleed.inspect_pdf_batch.v1",
+    "init": "fullbleed.init.v1",
+    "new": "fullbleed.new_template.v1",
+    "new:local": "fullbleed.new_template.v1",
+    "new:list": "fullbleed.new_list.v1",
+    "new:search": "fullbleed.new_search.v1",
+    "new:remote": "fullbleed.new_remote.v1",
+    "new:accessible": "fullbleed.new_template.v1",
+    "new:invoice": "fullbleed.new_template.v1",
+    "new:reference": "fullbleed.new_template.v1",
+    "new:statement": "fullbleed.new_template.v1",
+}
+
+SCHEMA_DEFS = {
+    "fullbleed.render_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "outputs"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "bytes_written": {"type": "integer"},
+            "outputs": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "failures": {"type": "array"},
+            "recommended_actions": {"type": "array"},
+        },
+    },
+    "fullbleed.verify_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "outputs"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "bytes_written": {"type": "integer"},
+            "outputs": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "failures": {"type": "array"},
+            "recommended_actions": {"type": "array"},
+        },
+    },
+    "fullbleed.plan_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "manifest"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "manifest": {"type": "object"},
+            "warnings": {"type": "array"},
+            "template_compose": {"type": "object"},
+        },
+    },
+    "fullbleed.run_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "entrypoint", "outputs"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "entrypoint": {"type": "string"},
+            "bytes_written": {"type": "integer"},
+            "license_warning_emitted": {"type": "boolean"},
+            "outputs": {"type": "object"},
+        },
+    },
+    "fullbleed.compliance.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "policy", "license", "flags"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "policy": {"type": "object"},
+            "license": {"type": "object"},
+            "runtime": {"type": "object"},
+            "files": {"type": "object"},
+            "audit": {"type": "object"},
+            "flags": {"type": "array"},
+        },
+    },
+    "fullbleed.error.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "code", "message"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "recommended_actions": {"type": "array"},
+            "relevant_commands": {"type": "object"},
+        },
+    },
+    "fullbleed.assets_list.v1": {
+        "type": "object",
+        "required": ["schema", "packages"],
+        "properties": {"schema": {"type": "string"}, "packages": {"type": "array"}},
+    },
+    "fullbleed.assets_info.v1": {
+        "type": "object",
+        "required": ["schema", "name", "version"],
+        "properties": {"schema": {"type": "string"}, "name": {"type": "string"}, "version": {"type": "string"}},
+    },
+    "fullbleed.assets_install.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "name", "version", "installed_to"],
+        "properties": {"schema": {"type": "string"}, "ok": {"type": "boolean"}},
+    },
+    "fullbleed.assets_verify.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "name"],
+        "properties": {"schema": {"type": "string"}, "ok": {"type": "boolean"}, "name": {"type": "string"}},
+    },
+    "fullbleed.assets_lock.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "path", "packages"],
+        "properties": {"schema": {"type": "string"}, "ok": {"type": "boolean"}, "path": {"type": "string"}},
+    },
+    "fullbleed.cache_dir.v1": {
+        "type": "object",
+        "required": ["schema", "path", "exists"],
+        "properties": {"schema": {"type": "string"}, "path": {"type": "string"}, "exists": {"type": "boolean"}},
+    },
+    "fullbleed.cache_prune.v1": {
+        "type": "object",
+        "required": ["schema", "dry_run", "removed_count"],
+        "properties": {"schema": {"type": "string"}, "removed": {"type": "array"}},
+    },
+    "fullbleed.finalize_stamp_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "mode", "outputs"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "mode": {"type": "string"},
+            "bytes_written": {"type": "integer"},
+            "pages_written": {"type": "integer"},
+            "outputs": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "fullbleed.finalize_compose_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "mode", "outputs"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "mode": {"type": "string"},
+            "bytes_written": {"type": "integer"},
+            "pages_written": {"type": "integer"},
+            "outputs": {"type": "object"},
+            "metrics": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "fullbleed.inspect_pdf.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "path"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "path": {"type": "string"},
+            "pdf_version": {"type": "string"},
+            "page_count": {"type": "integer"},
+            "encrypted": {"type": "boolean"},
+            "file_size_bytes": {"type": "integer"},
+            "warnings": {"type": "array"},
+            "profile": {"type": "object"},
+            "composition": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "fullbleed.inspect_templates.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "templates"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "templates": {"type": "array"},
+            "metrics": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "fullbleed.inspect_pdf_batch.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "items"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "items": {"type": "array"},
+            "metrics": {"type": "object"},
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+        },
+    },
+    "fullbleed.compose_plan.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "pages"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "pages": {"type": "array"},
+            "metrics": {"type": "object"},
+        },
+    },
+    "fullbleed.init.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "path"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "path": {"type": "string"},
+            "created_dirs": {"type": "array"},
+            "created_files": {"type": "array"},
+            "artifacts": {"type": "array"},
+            "next_actions": {"type": "array"},
+        },
+    },
+    "fullbleed.new_template.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "template"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "template": {"type": "string"},
+            "target_path": {"type": "string"},
+            "created_files": {"type": "array"},
+            "artifacts": {"type": "array"},
+            "next_actions": {"type": "array"},
+        },
+    },
+    "fullbleed.new_list.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "registry_url", "templates"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "registry_url": {"type": "string"},
+            "count": {"type": "integer"},
+            "templates": {"type": "array"},
+        },
+    },
+    "fullbleed.new_search.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "registry_url", "query", "templates"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "registry_url": {"type": "string"},
+            "query": {"type": "string"},
+            "count": {"type": "integer"},
+            "templates": {"type": "array"},
+        },
+    },
+    "fullbleed.new_remote.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "registry_url", "template_id", "version"],
+        "properties": {
+            "schema": {"type": "string"},
+            "ok": {"type": "boolean"},
+            "registry_url": {"type": "string"},
+            "template_id": {"type": "string"},
+            "version": {"type": "string"},
+            "target_path": {"type": "string"},
+            "dry_run": {"type": "boolean"},
+            "files_written": {"type": "integer"},
+        },
+    },
+    "fullbleed.doctor.v1": {
+        "type": "object",
+        "required": ["python", "platform", "pdf_versions"],
+        "properties": {"python": {"type": "string"}, "platform": {"type": "string"}},
+    },
+    "fullbleed.capabilities.v1": {
+        "type": "object",
+        "required": ["schema", "commands", "agent_flags", "engine"],
+        "properties": {
+            "schema": {"type": "string"},
+            "commands": {"type": "array"},
+            "agent_flags": {"type": "array"},
+            "engine": {
+                "type": "object",
+                "required": [
+                    "compiled_document",
+                    "compiled_reflow_bindings",
+                    "compiled_flow_compression_modes",
+                    "batch_render",
+                    "batch_render_parallel",
+                ],
+                "properties": {
+                    "compiled_document": {"type": "boolean"},
+                    "explicit_table_headers": {"type": "boolean"},
+                    "logical_table_pagination": {"type": "boolean"},
+                    "bundled_standard_font_previews": {"type": "boolean"},
+                    "compiled_reflow_bindings": {"type": "boolean"},
+                    "compiled_batch_reports": {"type": "boolean"},
+                    "compiled_flow_compression_modes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "batch_render": {"type": "boolean"},
+                    "batch_render_parallel": {"type": "boolean"},
+                    "glyph_report": {"type": "boolean"},
+                    "page_data": {"type": "boolean"},
+                    "image_pages": {"type": "boolean"},
+                    "pdf_inspect": {"type": "boolean"},
+                    "template_catalog_inspect": {"type": "boolean"},
+                    "template_compose_planner": {"type": "boolean"},
+                },
+            },
+            "svg": {"type": "object"},
+            "charts": {"type": "object"},
+            "agent_contract": {"type": "object"},
+            "agent_skill": {"type": "object"},
+            "tool_adapter": {"type": "object"},
+            "acceptance_suite": {"type": "object"},
+        },
+    },
+    AGENT_CONTRACT_SCHEMA: {
+        "type": "object",
+        "required": [
+            "schema",
+            "contract_version",
+            "product",
+            "recommendation_boundary",
+            "selection",
+            "capabilities",
+            "commands",
+            "schemas",
+            "profiles",
+            "inputs",
+            "outputs",
+            "examples",
+            "known_limitations",
+            "tool_adapter",
+            "agent_skill",
+            "acceptance_suite",
+        ],
+        "properties": {
+            "schema": {"const": AGENT_CONTRACT_SCHEMA},
+            "contract_version": {"type": "integer", "const": 1},
+            "product": {"type": "object"},
+            "recommendation_boundary": {"type": "object"},
+            "selection": {"type": "object"},
+            "capabilities": {"type": "object"},
+            "commands": {"type": "object"},
+            "schemas": {"type": "object"},
+            "profiles": {"type": "object"},
+            "inputs": {"type": "array"},
+            "outputs": {"type": "array"},
+            "examples": {"type": "array"},
+            "known_limitations": {"type": "array"},
+            "tool_adapter": {"type": "object"},
+            "agent_skill": {"type": "object"},
+            "acceptance_suite": {"type": "object"},
+        },
+    },
+    "fullbleed.agent_acceptance_prepare.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "workspace", "scenarios"],
+        "properties": {
+            "schema": {"const": "fullbleed.agent_acceptance_prepare.v1"},
+            "ok": {"type": "boolean"},
+            "runtime_version": {"type": "string"},
+            "contract_version": {"type": "string"},
+            "workspace": {"type": "string"},
+            "scenarios": {"type": "array"},
+        },
+    },
+    "fullbleed.agent_acceptance_result.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "workspace", "scenarios", "metrics"],
+        "properties": {
+            "schema": {"const": "fullbleed.agent_acceptance_result.v1"},
+            "ok": {"type": "boolean"},
+            "runtime_version": {"type": "string"},
+            "workspace": {"type": "string"},
+            "scenarios": {"type": "array"},
+            "metrics": {"type": "object"},
+            "agent_runs": {"type": "array"},
+        },
+    },
+    "fullbleed.agent_skill.v1": {
+        "type": "object",
+        "required": ["schema", "ok", "name", "path", "files"],
+        "properties": {
+            "schema": {"const": "fullbleed.agent_skill.v1"},
+            "ok": {"type": "boolean"},
+            "name": {"type": "string"},
+            "path": {"type": "string"},
+            "files": {"type": "array"},
+            "next_actions": {"type": "array"},
+        },
+    },
+    "fullbleed.debug_perf.v1": {
+        "type": "array",
+        "items": {"type": "object"},
+    },
+    "fullbleed.debug_jit.v1": {
+        "type": "array",
+        "items": {"type": "object"},
+    },
+    "fullbleed.repro_record.v1": {
+        "type": "object",
+        "required": ["schema", "input_fingerprint_sha256", "output_pdf_sha256"],
+        "properties": {
+            "schema": {"type": "string", "const": "fullbleed.repro_record.v1"},
+            "cli_version": {"type": "string"},
+            "input_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "input_fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "output_pdf_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "output_bytes_written": {"type": "integer", "minimum": 0},
+            "assets_lock": {
+                "type": ["object", "null"],
+                "required": ["sha256"],
+                "properties": {
+                    "path": {"type": "string"},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                },
+            },
+        },
+    },
+}
+
+def _get_version():
+    """Return installed Fullbleed version, with a dev fallback."""
+    for dist in ("fullbleed", "fullbleed-cli"):
+        try:
+            return metadata.version(dist)
+        except metadata.PackageNotFoundError:
+            continue
+    return "0.0.0-dev"
+
+
+def _compliance_roots():
+    """Actual source checkout only; ambient cwd/site-packages are not ours."""
+    module = Path(__file__).resolve()
+    for root in module.parents[:4]:
+        if (root / "python" / "fullbleed_cli" / "cli.py").resolve() == module:
+            return [root]
+    return []
+
+
+def _find_compliance_file(rel_name):
+    """Prefer Fullbleed's own distribution notices, never another package's."""
+    try:
+        distribution = metadata.distribution("fullbleed")
+    except metadata.PackageNotFoundError:
+        distribution = None
+    expected_name = Path(rel_name).name
+    for entry in (distribution.files or ()) if distribution is not None else ():
+        parts = Path(str(entry)).parts
+        # PEP 639 licenses/ and legacy direct dist-info notices. An asset's
+        # basename LICENSE is not the primary package license either.
+        if not (len(parts) in (2, 3) and parts[0].endswith(".dist-info")
+                and (len(parts) == 2 or parts[1] == "licenses")
+                and parts[-1] == expected_name):
+            continue
+        path = Path(distribution.locate_file(entry))
+        if path.is_file():
+            return path
+    for root in _compliance_roots():
+        path = root / rel_name
+        if path.is_file():
+            return path
+    return None
+
+
+def _apply_global_flags(args):
+    """Apply global CLI flags to process environment and parsed args."""
+    if getattr(args, "json_only", False):
+        args.json = True
+        args.no_prompts = True
+        os.environ["FULLBLEED_JSON_ONLY"] = "1"
+    if getattr(args, "no_color", False):
+        os.environ["NO_COLOR"] = "1"
+    if getattr(args, "no_prompts", False):
+        os.environ["FULLBLEED_NO_PROMPTS"] = "1"
+
+
+def _infer_schema_from_argv(argv):
+    """Infer requested schema id from argv when `--schema` is present."""
+    tokens = [t for t in (argv or []) if t != "--schema"]
+    command = None
+    sub = None
+    for t in tokens:
+        if t.startswith("-"):
+            continue
+        command = t
+        break
+    if not command:
+        return None
+    if command in {
+        "agent",
+        "agent-acceptance",
+        "assets",
+        "cache",
+        "finalize",
+        "new",
+        "inspect",
+    }:
+        found_command = False
+        for t in tokens:
+            if t == command:
+                found_command = True
+                continue
+            if not found_command:
+                continue
+            if t.startswith("-"):
+                continue
+            sub = t
+            break
+        if not sub:
+            return None
+        schema = SCHEMA_REGISTRY.get(f"{command}:{sub}")
+        if schema:
+            return schema
+        if command == "new":
+            # Compatibility: `new <template>` should map to the local template schema.
+            return SCHEMA_REGISTRY.get("new:local")
+        return None
+    return SCHEMA_REGISTRY.get(command)
+
+
+def _emit_schema(schema_name):
+    """Emit JSON schema envelope for a known schema id."""
+    payload = {
+        "schema": "fullbleed.schema.v1",
+        "target": schema_name,
+    }
+    if schema_name in SCHEMA_DEFS:
+        payload["definition"] = SCHEMA_DEFS[schema_name]
+    sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def _resolve_assets(args):
+    """Resolve CLI asset flags into normalized (path, kind, name) tuples."""
+    assets = args.asset or []
+    kinds = args.asset_kind or []
+    names = args.asset_name or []
+
+    def _resolve_asset_path(raw):
+        if raw.startswith("@"):
+            builtin = _resolve_builtin_asset(raw)
+            if builtin:
+                return (
+                    fullbleed_assets.asset_path(builtin["path"]),
+                    builtin["render_kind"],
+                    builtin["render_name"],
+                )
+            choices = ", ".join(f"@{name}" for name in BUILTIN_ASSETS)
+            raise ValueError(f"unknown builtin asset: {raw}; bundled assets: {choices}")
+        return raw, None, None
+
+    inferred = []
+    for idx, asset in enumerate(assets):
+        path, builtin_kind, builtin_name = _resolve_asset_path(asset)
+        kind = None
+        name = None
+        if idx < len(kinds):
+            kind = kinds[idx]
+        if idx < len(names):
+            name = names[idx]
+        if builtin_kind and not kind:
+            kind = builtin_kind
+        if builtin_name and not name:
+            name = builtin_name
+        inferred.append((path, kind, name))
+
+    resolved = []
+    for path, kind, name in inferred:
+        if kind is None:
+            ext = Path(path).suffix.lower()
+            if ext in {".css"}:
+                kind = "css"
+            elif ext in {".ttf", ".otf"}:
+                kind = "font"
+            elif ext in {".svg"}:
+                kind = "svg"
+            elif ext in {".pdf"}:
+                kind = "pdf"
+            elif ext in {".png", ".jpg", ".jpeg"}:
+                kind = "image"
+            else:
+                raise ValueError(f"asset kind required for {path}")
+        resolved.append((path, kind, name))
+
+    return resolved
+
+
+def _apply_profile(args):
+    """Apply profile defaults, only for args that weren't explicitly set."""
+    profile_name = getattr(args, "profile", None)
+    if not profile_name:
+        return
+    profile = PROFILES.get(profile_name.lower())
+    if not profile:
+        raise ValueError(f"unknown profile: {profile_name} (expected dev, preflight, prod)")
+    for key, value in profile.items():
+        attr = key.replace("-", "_")
+        # Only apply if user didn't explicitly set it (check against parser defaults)
+        if not getattr(args, f"_explicit_{attr}", False):
+            setattr(args, attr, value)
+
+
+def _read_text(path_or_dash):
+    """Read UTF-8 text from path, or stdin when value is '-'."""
+    if path_or_dash == "-":
+        return sys.stdin.read()
+    return Path(path_or_dash).read_text(encoding="utf-8")
+
+
+def _read_json_or_path(value):
+    """Parse JSON from inline string or from file path if it exists."""
+    if value is None:
+        return None
+    path = Path(value)
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    return json.loads(value)
+
+
+def _detect_remote_refs(html, css):
+    """Return unique http(s) references detected in HTML/CSS payloads."""
+    urls = []
+    link_re = re.compile(r"<(link|script)[^>]+(?:href|src)=[\"'](https?://[^\"']+)[\"']",
+                         re.IGNORECASE)
+    urls.extend([m[1] for m in link_re.findall(html)])
+    import_re = re.compile(r"@import\s+(?:url\()?['\"]?(https?://[^\"')]+)",
+                           re.IGNORECASE)
+    urls.extend(import_re.findall(css))
+    url_re = re.compile(r"url\(['\"]?(https?://[^\"')]+)", re.IGNORECASE)
+    urls.extend(url_re.findall(css))
+    return sorted(set(urls))
+
+
+def _resolve_page_size(args):
+    """Resolve page size pair from explicit width/height or named size."""
+    if args.page_width or args.page_height:
+        if not args.page_width or not args.page_height:
+            raise ValueError("--page-width and --page-height must be provided together")
+        return args.page_width, args.page_height
+    if args.page_size:
+        size = PAGE_SIZES.get(args.page_size.lower())
+        if not size:
+            raise ValueError(f"unknown page size: {args.page_size}")
+        return size
+    return None, None
+
+
+def _normalize_watermark_layer(raw_layer):
+    """Normalize watermark layer aliases and validate allowed choices."""
+    layer = (raw_layer or "overlay").strip().lower()
+    layer = WATERMARK_LAYER_ALIASES.get(layer, layer)
+    if layer not in WATERMARK_LAYER_CHOICES:
+        choices = "', '".join(sorted(WATERMARK_LAYER_CHOICES))
+        raise ValueError(
+            f"Invalid watermark layer: {raw_layer!r}. Expected '{choices}' "
+            "(or legacy alias 'underlay')."
+        )
+    return layer
+
+
+def _normalize_pdf_profile(raw_profile):
+    """Normalize PDF profile aliases for CLI validation and capability reporting."""
+    if raw_profile is None:
+        return None
+    key = str(raw_profile).strip().lower()
+    if key in PDF_PROFILE_ALIASES:
+        return PDF_PROFILE_ALIASES[key]
+    choices = "', '".join(PDF_PROFILE_CHOICES)
+    raise ValueError(
+        f"Invalid pdf profile: {raw_profile!r}. Expected one of '{choices}' "
+        "(aliases include pdf/a, pdf/ua, pdf/vt, a, ua, vt)."
+    )
+
+
+def _validate_pdf_options(args):
+    """Validate cross-option PDF constraints before engine construction."""
+    profile = _normalize_pdf_profile(getattr(args, "pdf_profile", None))
+    has_output_intent_metadata = any(
+        [
+            getattr(args, "output_intent_identifier", None),
+            getattr(args, "output_intent_info", None),
+            getattr(args, "output_intent_components", None) is not None,
+        ]
+    )
+    if has_output_intent_metadata and not getattr(args, "output_intent_icc", None):
+        raise ValueError(
+            "output intent metadata requires --output-intent-icc "
+            "(path or data URI)."
+        )
+    if (
+        profile in PDF_PROFILES_REQUIRING_OUTPUT_INTENT
+        and not getattr(args, "output_intent_icc", None)
+    ):
+        raise ValueError(
+            f"--pdf-profile {profile} requires --output-intent-icc "
+            "(path or data URI)."
+        )
+
+
+def _collect_css(args):
+    """Collect CSS sources (`--css`, `--css-str`) into one stylesheet string."""
+    css_parts = []
+    for css_path in args.css or []:
+        css_parts.append(_read_text(css_path))
+    for css_str in args.css_str or []:
+        css_parts.append(css_str)
+    return "\n\n".join(css_parts)
+
+
+def _collect_html(args):
+    """Return HTML from `--html-str` or `--html` path/stdin."""
+    if args.html_str is not None:
+        return args.html_str
+    if args.html is None:
+        raise ValueError("--html or --html-str is required")
+    return _read_text(args.html)
+
+
+def _build_bundle(args):
+    """Build and populate an `AssetBundle` from resolved CLI asset flags."""
+    bundle = fullbleed.AssetBundle()
+    inferred = _resolve_assets(args)
+
+    for path, kind, name in inferred:
+        asset_obj = bundle.add_file(
+            path,
+            kind,
+            name=name,
+            trusted=args.asset_trusted,
+            remote=args.allow_remote_assets,
+        )
+        if args.json and args.verbose_assets:
+            sys.stderr.write(json.dumps(asset_obj.info(), ensure_ascii=True) + "\n")
+
+    return bundle
+
+
+def _build_manifest(args):
+    """Build canonical compiler-input manifest for reproducibility/debugging."""
+    _apply_profile(args)
+    page_width, page_height = _resolve_page_size(args)
+    pdf_profile = _normalize_pdf_profile(getattr(args, "pdf_profile", None))
+    command_name = getattr(args, "command", None)
+    if not command_name:
+        command_name = "verify" if getattr(args, "emit_pdf", None) is not None else "render"
+    assets = []
+    for path, kind, name in _resolve_assets(args):
+        assets.append(
+            {
+                "path": path,
+                "kind": kind,
+                "name": name,
+                "trusted": bool(args.asset_trusted),
+                "remote": bool(args.allow_remote_assets),
+            }
+        )
+
+    output_path = getattr(args, "out", None)
+    if output_path is None:
+        output_path = getattr(args, "emit_pdf", None)
+    watermark_layer = _normalize_watermark_layer(getattr(args, "watermark_layer", "overlay"))
+    manifest = {
+        "schema": "fullbleed.compiler_input.v1",
+        "command": command_name,
+        "html": {"path": getattr(args, "html", None), "inline": getattr(args, "html_str", None)},
+        "css": {"paths": getattr(args, "css", None) or [], "inline": getattr(args, "css_str", None) or []},
+        "assets": assets,
+        "page": {
+            "size": getattr(args, "page_size", None),
+            "width": getattr(args, "page_width", None),
+            "height": getattr(args, "page_height", None),
+            "margin": getattr(args, "margin", None),
+            "page_margins": getattr(args, "page_margins", None),
+            "resolved_width": page_width,
+            "resolved_height": page_height,
+        },
+        "engine": {
+            "reuse_xobjects": getattr(args, "reuse_xobjects", None),
+            "svg_form_xobjects": getattr(args, "svg_form_xobjects", None),
+            "svg_raster_fallback": getattr(args, "svg_raster_fallback", None),
+            "unicode_support": getattr(args, "unicode_support", None),
+            "shape_text": getattr(args, "shape_text", None),
+            "unicode_metrics": getattr(args, "unicode_metrics", None),
+            "jit_mode": getattr(args, "jit_mode", None),
+        },
+        "watermark": {
+            "text": getattr(args, "watermark_text", None),
+            "html": getattr(args, "watermark_html", None),
+            "image": getattr(args, "watermark_image", None),
+            "layer": watermark_layer,
+            "semantics": getattr(args, "watermark_semantics", "artifact"),
+            "opacity": getattr(args, "watermark_opacity", None),
+            "rotation": getattr(args, "watermark_rotation", None),
+            "enabled": bool(
+                getattr(args, "watermark_text", None)
+                or getattr(args, "watermark_html", None)
+                or getattr(args, "watermark_image", None)
+            ),
+        },
+        "pdf": {
+            "version": getattr(args, "pdf_version", None),
+            "profile": pdf_profile,
+            "profile_requested": getattr(args, "pdf_profile", None),
+            "output_intent_icc": getattr(args, "output_intent_icc", None),
+            "output_intent_identifier": getattr(args, "output_intent_identifier", None),
+            "output_intent_info": getattr(args, "output_intent_info", None),
+            "output_intent_components": getattr(args, "output_intent_components", None),
+            "color_space": getattr(args, "color_space", None),
+            "document_lang": getattr(args, "document_lang", None),
+            "document_title": getattr(args, "document_title", None),
+            "document_timestamp": getattr(args, "document_timestamp", None),
+            "pdf_vt_job": _read_json_or_path(getattr(args, "pdf_vt_job", None)),
+        },
+        "template": {
+            "binding": getattr(args, "template_binding", None),
+            "catalog": getattr(args, "templates", None),
+            "dx": getattr(args, "template_dx", 0.0),
+            "dy": getattr(args, "template_dy", 0.0),
+            "auto_compose": bool(getattr(args, "templates", None)),
+        },
+        "profile": getattr(args, "profile", None),
+        "fail_on": getattr(args, "fail_on", None) or [],
+        "allow_fallbacks": bool(getattr(args, "allow_fallbacks", False)),
+        "budget": {
+            "max_pages": getattr(args, "budget_max_pages", None),
+            "max_bytes": getattr(args, "budget_max_bytes", None),
+            "max_ms": getattr(args, "budget_max_ms", None),
+        },
+        "repro": {
+            "record": getattr(args, "repro_record", None),
+            "check": getattr(args, "repro_check", None),
+        },
+        "artifacts": {
+            "jit": getattr(args, "emit_jit", None),
+            "perf": getattr(args, "emit_perf", None),
+            "glyph_report": getattr(args, "emit_glyph_report", None),
+            "page_data": getattr(args, "emit_page_data", None),
+            "compose_plan": getattr(args, "emit_compose_plan", None),
+            "image": getattr(args, "emit_image", None),
+            "image_dpi": getattr(args, "image_dpi", 150),
+        },
+        "output": {
+            "path": output_path,
+            "stdout": output_path == "-",
+            "deterministic_hash": getattr(args, "deterministic_hash", None),
+        },
+    }
+    if getattr(args, "entrypoint", None):
+        manifest["entrypoint"] = args.entrypoint
+    return manifest
+
+
+def _build_engine(args):
+    """Construct `PdfEngine` from normalized CLI options."""
+    # Apply profile defaults before building engine
+    _apply_profile(args)
+    
+    page_width, page_height = _resolve_page_size(args)
+    page_margins = _read_json_or_path(args.page_margins)
+    
+    # Profile may enable jit/perf logging
+    emit_jit = args.emit_jit
+    emit_perf = args.emit_perf
+    
+    # Preflight profile auto-enables jit logging if not specified
+    profile = getattr(args, "profile", None)
+    if profile and profile.lower() == "preflight":
+        if not emit_jit:
+            emit_jit = "fullbleed_preflight.jit"
+        if not emit_perf:
+            emit_perf = "fullbleed_preflight.perf"
+    
+    watermark_layer = _normalize_watermark_layer(getattr(args, "watermark_layer", "overlay"))
+    template_binding = _read_json_or_path(getattr(args, "template_binding", None))
+    try:
+        engine = fullbleed.PdfEngine(
+            page_width=page_width,
+            page_height=page_height,
+            margin=args.margin,
+            page_margins=page_margins,
+            reuse_xobjects=args.reuse_xobjects,
+            svg_form_xobjects=args.svg_form_xobjects,
+            svg_raster_fallback=args.svg_raster_fallback,
+            unicode_support=args.unicode_support,
+            shape_text=args.shape_text,
+            unicode_metrics=args.unicode_metrics,
+            pdf_version=args.pdf_version,
+            pdf_profile=args.pdf_profile,
+            output_intent_icc=getattr(args, "output_intent_icc", None),
+            output_intent_identifier=getattr(args, "output_intent_identifier", None),
+            output_intent_info=getattr(args, "output_intent_info", None),
+            output_intent_components=getattr(args, "output_intent_components", None),
+            color_space=args.color_space,
+            document_lang=args.document_lang,
+            document_title=args.document_title,
+            document_timestamp=("source-date-epoch" if getattr(args, "timestamp_source", None)
+                                else getattr(args, "document_timestamp", None)),
+            pdf_vt_job=_read_json_or_path(getattr(args, "pdf_vt_job", None)),
+            header_each=getattr(args, "header_each", None),
+            footer_each=getattr(args, "footer_each", None),
+            watermark_text=args.watermark_text,
+            watermark_html=args.watermark_html,
+            watermark_image=args.watermark_image,
+            watermark_layer=watermark_layer,
+            watermark_semantics=getattr(args, "watermark_semantics", "artifact"),
+            watermark_opacity=args.watermark_opacity,
+            watermark_rotation=args.watermark_rotation,
+            template_binding=template_binding,
+            jit_mode=args.jit_mode,
+            debug=bool(emit_jit),
+            debug_out=emit_jit,
+            perf=bool(emit_perf),
+            perf_out=emit_perf,
+        )
+        # Preserve the resolved date in manifests and subsequent renders in this job.
+        args.document_timestamp = engine.document_timestamp
+        args.timestamp_source = None
+    except Exception as exc:
+        message = str(exc)
+        if "requires embedded fonts" in message.lower():
+            raise ValueError(
+                message
+                + " Hint: add an embeddable font asset (for example '--asset vendor/fonts/Inter-Variable.ttf' from 'fullbleed init') "
+                "and set CSS 'font-family' to that font."
+            )
+        raise
+    if args.asset:
+        bundle = _build_bundle(args)
+        engine.register_bundle(bundle)
+    return engine
+
+
+def _write_pdf_bytes(out_path, pdf_bytes, *, suppress_stdout=False):
+    """Write PDF bytes to file or stdout and return written byte count."""
+    if out_path == "-":
+        if not suppress_stdout:
+            sys.stdout.buffer.write(pdf_bytes)
+        return len(pdf_bytes)
+    Path(out_path).write_bytes(pdf_bytes)
+    return len(pdf_bytes)
+
+
+def _derive_image_stem(out_path):
+    """Derive PNG artifact filename stem from output PDF path."""
+    if out_path and out_path != "-":
+        stem = Path(out_path).stem
+        if stem:
+            return stem
+    return "render"
+
+
+def _resolve_image_emit_config(out_path, args):
+    """Resolve emit-image directory/stem/dpi and create output directory."""
+    image_dir = getattr(args, "emit_image", None)
+    if not image_dir:
+        return None
+
+    raw_dpi = getattr(args, "image_dpi", 150)
+    try:
+        dpi = int(raw_dpi)
+    except (TypeError, ValueError):
+        raise ValueError(f"--image-dpi must be a positive integer (got {raw_dpi!r})")
+    if dpi <= 0:
+        raise ValueError(f"--image-dpi must be a positive integer (got {dpi})")
+
+    out_dir = Path(image_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = _derive_image_stem(out_path)
+    return out_dir, stem, dpi
+
+
+def _emit_image_artifacts(engine, html, css, out_path, args):
+    """Render per-page PNG artifacts when `--emit-image` is set."""
+    image_cfg = _resolve_image_emit_config(out_path, args)
+    if image_cfg is None:
+        return None
+    out_dir, stem, dpi = image_cfg
+
+    if hasattr(engine, "render_image_pages_to_dir"):
+        paths = engine.render_image_pages_to_dir(html, css, str(out_dir), dpi, stem)
+        return [str(p) for p in (paths or [])]
+
+    if not hasattr(engine, "render_image_pages"):
+        raise ValueError(
+            "installed engine does not support image artifacts (missing render_image_pages API)"
+        )
+
+    page_images = engine.render_image_pages(html, css, dpi)
+    paths = []
+    for idx0, png_bytes in enumerate(page_images, start=1):
+        path = out_dir / f"{stem}_page{idx0}.png"
+        path.write_bytes(png_bytes)
+        paths.append(str(path))
+    return paths
+
+
+def _emit_image_artifacts_from_pdf(engine, pdf_path, out_path, args):
+    """Rasterize page PNGs from an already finalized output PDF."""
+    image_cfg = _resolve_image_emit_config(out_path, args)
+    if image_cfg is None:
+        return None
+    out_dir, stem, dpi = image_cfg
+
+    source = Path(pdf_path)
+    if not source.exists():
+        raise ValueError(f"cannot emit images: finalized PDF not found: {source}")
+
+    if hasattr(engine, "render_finalized_pdf_image_pages_to_dir"):
+        paths = engine.render_finalized_pdf_image_pages_to_dir(
+            str(source), str(out_dir), dpi, stem
+        )
+        return [str(p) for p in (paths or [])]
+
+    if not hasattr(engine, "render_finalized_pdf_image_pages"):
+        raise ValueError(
+            "installed engine does not support finalized PDF image artifacts "
+            "(missing render_finalized_pdf_image_pages API)"
+        )
+
+    page_images = engine.render_finalized_pdf_image_pages(str(source), dpi)
+    paths = []
+    for idx0, png_bytes in enumerate(page_images, start=1):
+        path = out_dir / f"{stem}_page{idx0}.png"
+        path.write_bytes(png_bytes)
+        paths.append(str(path))
+    return paths
+
+
+def _json_default(obj):
+    """Best-effort JSON serializer fallback for CLI payload objects."""
+    if isinstance(obj, (bytes, bytearray)):
+        return {"type": "bytes", "length": len(obj)}
+    if isinstance(obj, memoryview):
+        return {"type": "bytes", "length": len(obj.tobytes())}
+    if isinstance(obj, Path):
+        return str(obj)
+    return str(obj)
+
+
+def _json_dumps(payload, indent=None):
+    """JSON serialize payload using CLI defaults."""
+    return json.dumps(payload, ensure_ascii=True, indent=indent, default=_json_default)
+
+
+def _write_json(path, payload):
+    """Write payload as pretty JSON with stable CLI serializer rules."""
+    Path(path).write_text(_json_dumps(payload, indent=2), encoding="utf-8")
+
+
+def _extract_pdf_bytes(payload):
+    """Recursively locate PDF byte payload in mixed return structures."""
+    if isinstance(payload, (bytes, bytearray)):
+        return bytes(payload)
+    if isinstance(payload, memoryview):
+        return payload.tobytes()
+    if isinstance(payload, (list, tuple)):
+        for item in payload:
+            resolved = _extract_pdf_bytes(item)
+            if resolved is not None:
+                return resolved
+    return None
+
+
+def _normalize_bytes_written(raw, pdf_bytes=None):
+    """Normalize render return values to an integer byte count."""
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return int(raw)
+    if isinstance(raw, str):
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    if isinstance(raw, (bytes, bytearray, memoryview)):
+        return len(bytes(raw))
+    if isinstance(raw, (list, tuple)):
+        for item in raw:
+            if isinstance(item, bool):
+                continue
+            if isinstance(item, int):
+                return item
+            if isinstance(item, float):
+                return int(item)
+        embedded = _extract_pdf_bytes(raw)
+        if embedded is not None:
+            return len(embedded)
+    embedded = _extract_pdf_bytes(pdf_bytes)
+    if embedded is not None:
+        return len(embedded)
+    return 0
+
+
+def _sha256_bytes(data):
+    """Return SHA-256 digest for raw bytes."""
+    return hashlib.sha256(data).hexdigest()
+
+
+def _stable_json_hash(payload):
+    """Return stable SHA-256 hash of normalized JSON payload."""
+    normalized = json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=_json_default,
+    )
+    return _sha256_bytes(normalized.encode("utf-8"))
+
+
+def _compute_pdf_sha256(out_path, pdf_bytes):
+    """Compute output PDF SHA-256 from file path or in-memory bytes."""
+    output_hash = None
+    if out_path and out_path != "-":
+        pdf_path = Path(out_path)
+        if pdf_path.exists():
+            output_hash = _sha256_bytes(pdf_path.read_bytes())
+    if output_hash is None:
+        resolved_pdf = _extract_pdf_bytes(pdf_bytes)
+        if resolved_pdf is not None:
+            output_hash = _sha256_bytes(resolved_pdf)
+    return output_hash
+
+
+def _compute_image_sha256_list(image_paths):
+    """Compute SHA-256 digests for emitted image artifacts in output order."""
+    digests = []
+    for raw in image_paths or []:
+        try:
+            path = Path(raw)
+        except TypeError:
+            continue
+        if path.exists() and path.is_file():
+            digests.append(_sha256_bytes(path.read_bytes()))
+    return digests
+
+
+def _compute_artifact_set_sha256(pdf_sha256, image_sha256):
+    """Compute stable artifact-set digest (PDF + ordered image hashes)."""
+    if not image_sha256:
+        return None
+    payload = {
+        "schema": "fullbleed.artifact_digest.v1",
+        "pdf_sha256": pdf_sha256,
+        "image_sha256": image_sha256,
+    }
+    return _stable_json_hash(payload)
+
+
+def _compute_output_hash(deterministic_hash, out_path, pdf_bytes, image_paths=None):
+    """Compute PDF/output digests and optionally write deterministic hash artifact."""
+    pdf_hash = _compute_pdf_sha256(out_path, pdf_bytes)
+    image_sha256 = _compute_image_sha256_list(image_paths)
+    artifact_hash = _compute_artifact_set_sha256(pdf_hash, image_sha256)
+    deterministic_value = artifact_hash or pdf_hash
+    deterministic_mode = "artifact_set_v1" if artifact_hash is not None else "pdf_only"
+    if deterministic_hash and deterministic_value is not None:
+        Path(deterministic_hash).write_text(deterministic_value, encoding="utf-8")
+    return {
+        "pdf_sha256": pdf_hash,
+        "artifact_sha256": artifact_hash,
+        "image_sha256": image_sha256,
+        "deterministic_sha256": deterministic_value,
+        "deterministic_mode": deterministic_mode,
+    }
+
+
+def _assets_lock_hash():
+    """Return digest metadata for `assets.lock.json` when present."""
+    lock = Path("assets.lock.json")
+    if not lock.exists():
+        return None
+    return {
+        "path": str(lock),
+        "sha256": _sha256_bytes(lock.read_bytes()),
+    }
+
+
+def _build_repro_record(args, manifest, html, css, output_hash, bytes_written):
+    """Create a reproducibility record for the current render invocation."""
+    assets = []
+    for path, kind, name in _resolve_assets(args):
+        item = {
+            "kind": kind,
+            "name": name,
+            "source": path,
+            "trusted": bool(getattr(args, "asset_trusted", False)),
+            "remote": bool(getattr(args, "allow_remote_assets", False)),
+        }
+        if not str(path).startswith(("http://", "https://")):
+            p = Path(path)
+            if p.exists() and p.is_file():
+                item["sha256"] = _sha256_bytes(p.read_bytes())
+                item["size_bytes"] = int(p.stat().st_size)
+        assets.append(item)
+    assets.sort(key=lambda row: (row.get("kind", ""), row.get("name") or "", row.get("source", "")))
+
+    input_fingerprint = {
+        "command": manifest.get("command"),
+        "html_sha256": _sha256_bytes(html.encode("utf-8")),
+        "css_sha256": _sha256_bytes(css.encode("utf-8")),
+        "assets": assets,
+        "page": manifest.get("page"),
+        "engine": manifest.get("engine"),
+        "pdf": manifest.get("pdf"),
+        "profile": manifest.get("profile"),
+        "fail_on": sorted(manifest.get("fail_on", [])),
+        "budget": manifest.get("budget", {}),
+        "allow_fallbacks": bool(manifest.get("allow_fallbacks", False)),
+    }
+    return {
+        "schema": "fullbleed.repro_record.v1",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "cli_version": _get_version(),
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        "input_manifest_sha256": _stable_json_hash(manifest),
+        "input_fingerprint_sha256": _stable_json_hash(input_fingerprint),
+        "output_pdf_sha256": output_hash,
+        "output_bytes_written": int(_normalize_bytes_written(bytes_written)),
+        "assets_lock": _assets_lock_hash(),
+    }
+
+
+def _render_with_artifacts(engine, html, css, out_path, args):
+    """Render PDF and optional JSON/PNG artifacts, returning tuple payload."""
+    page_data_path = args.emit_page_data
+    glyph_path = args.emit_glyph_report
+
+    # For fail-on checks, we need glyph report even if not explicitly requested.
+    fail_on = getattr(args, "fail_on", None) or []
+    need_glyph_check = "missing-glyphs" in fail_on or "font-subst" in fail_on
+
+    need_page_data = bool(page_data_path)
+    need_glyph = bool(glyph_path or need_glyph_check)
+    suppress_stdout_pdf = bool(out_path == "-" and getattr(args, "json", False))
+
+    def write_pdf(pdf_bytes):
+        return _write_pdf_bytes(
+            out_path,
+            pdf_bytes,
+            suppress_stdout=suppress_stdout_pdf,
+        )
+
+    if need_page_data and need_glyph and hasattr(engine, "render_pdf_with_page_data_and_glyph_report"):
+        pdf_bytes, page_data, glyph = engine.render_pdf_with_page_data_and_glyph_report(html, css)
+        if page_data_path:
+            _write_json(page_data_path, page_data)
+        if glyph_path:
+            _write_json(glyph_path, glyph)
+        bytes_written = write_pdf(pdf_bytes)
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, glyph, pdf_bytes, image_paths
+
+    if page_data_path and glyph_path:
+        if not getattr(args, "json_only", False):
+            sys.stderr.write(
+                "[warn] both --emit-page-data and --emit-glyph-report set; engine lacks combined API, rendering twice\n"
+            )
+        primary_pdf_bytes, page_data = engine.render_pdf_with_page_data(html, css)
+        _write_json(page_data_path, page_data)
+        bytes_written = write_pdf(primary_pdf_bytes)
+        _glyph_pdf_bytes, glyph = engine.render_pdf_with_glyph_report(html, css)
+        _write_json(glyph_path, glyph)
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, glyph, primary_pdf_bytes, image_paths
+
+    if page_data_path:
+        pdf_bytes, page_data = engine.render_pdf_with_page_data(html, css)
+        _write_json(page_data_path, page_data)
+        bytes_written = write_pdf(pdf_bytes)
+        # If we need glyph check, render again for glyph report
+        if need_glyph_check:
+            _glyph_pdf_bytes, glyph = engine.render_pdf_with_glyph_report(html, css)
+            image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+            return bytes_written, glyph, pdf_bytes, image_paths
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, None, pdf_bytes, image_paths
+
+    if glyph_path:
+        pdf_bytes, glyph = engine.render_pdf_with_glyph_report(html, css)
+        _write_json(glyph_path, glyph)
+        bytes_written = write_pdf(pdf_bytes)
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, glyph, pdf_bytes, image_paths
+
+    if out_path == "-":
+        pdf_bytes = engine.render_pdf(html, css)
+        bytes_written = write_pdf(pdf_bytes)
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, None, pdf_bytes, image_paths
+
+    if need_glyph_check:
+        pdf_bytes, glyph_report = engine.render_pdf_with_glyph_report(html, css)
+        bytes_written = write_pdf(pdf_bytes)
+        image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+        return bytes_written, glyph_report, pdf_bytes, image_paths
+
+    bytes_written = engine.render_pdf_to_file(html, css, out_path)
+    image_paths = _emit_image_artifacts(engine, html, css, out_path, args)
+    return _normalize_bytes_written(bytes_written), None, None, image_paths
+
+
+def _load_template_catalog_entries(value):
+    from . import finalize as finalize_module
+
+    return finalize_module._load_template_catalog(value)
+
+
+def _inspect_template_catalog(templates):
+    if hasattr(fullbleed, "inspect_template_catalog"):
+        report = fullbleed.inspect_template_catalog(templates)
+        if isinstance(report, dict) and isinstance(report.get("templates"), list):
+            return report
+        raise ValueError("inspect_template_catalog returned unexpected payload")
+
+    # Backward-compatible fallback for older wheels.
+    has_inspect_pdf = hasattr(fullbleed, "inspect_pdf")
+    items = []
+    for template_id, pdf_path in templates:
+        item = {
+            "template_id": template_id,
+            "path": str(pdf_path),
+        }
+        if has_inspect_pdf:
+            report = fullbleed.inspect_pdf(str(pdf_path))
+            item.update(
+                {
+                    "pdf_version": report.get("pdf_version"),
+                    "page_count": report.get("page_count"),
+                    "encrypted": report.get("encrypted"),
+                    "file_size_bytes": report.get("file_size_bytes"),
+                    "warnings": report.get("warnings", []),
+                    "profile": report.get("profile", {}),
+                    "composition": report.get("composition", {"supported": None, "issues": []}),
+                }
+            )
+        else:
+            # Old runtime fallback: recover PDF metadata from asset info only.
+            asset = fullbleed.vendored_asset(str(pdf_path), "pdf")
+            info = asset.info()
+            page_count = int(info.get("page_count", 0) or 0)
+            encrypted = bool(info.get("encrypted"))
+            composition_issues = []
+            if encrypted:
+                composition_issues.append("PDF_ENCRYPTED_UNSUPPORTED")
+            if page_count <= 0:
+                composition_issues.append("PDF_EMPTY_OR_NO_PAGES")
+            item.update(
+                {
+                    "pdf_version": info.get("pdf_version"),
+                    "page_count": page_count,
+                    "encrypted": encrypted,
+                    "file_size_bytes": info.get("size_bytes"),
+                    "warnings": [],
+                    "composition": {
+                        "supported": len(composition_issues) == 0,
+                        "issues": composition_issues,
+                    },
+                }
+            )
+        items.append(item)
+    return {
+        "ok": True,
+        "templates": items,
+        "metrics": {
+            "templates": len(items),
+            "compatible_templates": sum(
+                1 for item in items if bool((item.get("composition") or {}).get("supported", False))
+            ),
+            "incompatible_templates": sum(
+                1 for item in items if not bool((item.get("composition") or {}).get("supported", False))
+            ),
+            "total_template_pages": sum(int(item.get("page_count", 0) or 0) for item in items),
+        },
+    }
+
+
+def _template_page_counts(templates):
+    catalog = _inspect_template_catalog(templates)
+    page_counts = {}
+    for item in catalog.get("templates", []):
+        template_id = item.get("template_id")
+        pdf_path = item.get("path")
+        page_count = int(item.get("page_count", 0) or 0)
+        if not isinstance(template_id, str) or not template_id:
+            raise ValueError("template catalog item missing template_id")
+        if page_count <= 0:
+            raise ValueError(
+                f"template catalog item has invalid page_count for template_id={template_id}: {pdf_path}"
+            )
+        composition = item.get("composition") or {}
+        if not bool(composition.get("supported", False)):
+            issues = composition.get("issues") or []
+            raise ValueError(
+                f"template catalog item is not composition-compatible for template_id={template_id}: "
+                f"{pdf_path} (issues={issues})"
+            )
+        page_counts[template_id] = page_count
+    return page_counts
+
+
+def _plan_template_compose(engine, html, css, templates, dx, dy):
+    if hasattr(engine, "plan_template_compose"):
+        result = engine.plan_template_compose(html, css, templates, dx, dy)
+        if not isinstance(result, dict):
+            raise ValueError("plan_template_compose returned unexpected payload")
+        plan_rows = result.get("plan")
+        if not isinstance(plan_rows, list) or not plan_rows:
+            raise ValueError("template compose planner returned empty plan")
+        plan = []
+        for i, row in enumerate(plan_rows):
+            if not isinstance(row, dict):
+                raise ValueError(f"template compose plan row {i} must be an object")
+            template_id = row.get("template_id")
+            if not isinstance(template_id, str) or not template_id:
+                raise ValueError(f"template compose plan row {i} missing template_id")
+            try:
+                template_page = int(row.get("template_page"))
+                overlay_page = int(row.get("overlay_page"))
+                row_dx = float(row.get("dx", dx))
+                row_dy = float(row.get("dy", dy))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"template compose plan row {i} has invalid numeric fields"
+                ) from exc
+            plan.append((template_id, template_page, overlay_page, row_dx, row_dy))
+        return {
+            "plan": plan,
+            "bindings": result.get("bindings"),
+            "page_data": result.get("page_data"),
+            "template_catalog": result.get("template_catalog"),
+            "metrics": result.get("metrics", {}),
+        }
+
+    if not hasattr(engine, "render_pdf_with_page_data_and_template_bindings"):
+        raise ValueError(
+            "installed engine does not support template binding observability "
+            "(missing render_pdf_with_page_data_and_template_bindings API)"
+        )
+
+    template_ids = {template_id for template_id, _ in templates}
+    page_counts = _template_page_counts(templates)
+    _overlay_pdf_bytes, page_data, bindings = engine.render_pdf_with_page_data_and_template_bindings(
+        html, css
+    )
+    if not isinstance(bindings, list) or len(bindings) == 0:
+        raise ValueError(
+            "template compose mode requires non-empty template bindings from render pipeline"
+        )
+    sorted_bindings = sorted(bindings, key=lambda item: int(item.get("page_index", 0)))
+    plan = []
+    for i, binding in enumerate(sorted_bindings):
+        template_id = binding.get("template_id")
+        if template_id not in template_ids:
+            raise ValueError(
+                f"binding resolved unknown template_id at page {i + 1}: {template_id!r}"
+            )
+        overlay_page_index = int(binding.get("page_index", i))
+        template_page_count = page_counts[template_id]
+        template_page_index = overlay_page_index % template_page_count
+        plan.append((template_id, template_page_index, overlay_page_index, dx, dy))
+    return {
+        "plan": plan,
+        "bindings": sorted_bindings,
+        "page_data": page_data,
+        "template_catalog": _inspect_template_catalog(templates),
+        "metrics": {
+            "pages": len(plan),
+            "templates": len(templates),
+            "dx": dx,
+            "dy": dy,
+        },
+    }
+
+
+def _render_with_template_compose(engine, html, css, out_path, args):
+    templates_arg = getattr(args, "templates", None)
+    if not templates_arg:
+        raise ValueError("--templates is required when template compose mode is enabled")
+    if out_path == "-":
+        raise ValueError("template compose mode requires file output (use --out <path>, not '-')")
+    if not getattr(args, "template_binding", None):
+        raise ValueError("template compose mode requires --template-binding")
+    if not hasattr(engine, "render_pdf_with_page_data_and_template_bindings"):
+        raise ValueError(
+            "installed engine does not support template binding observability "
+            "(missing render_pdf_with_page_data_and_template_bindings API)"
+        )
+    if not hasattr(fullbleed, "finalize_compose_pdf"):
+        raise ValueError("installed fullbleed runtime is missing finalize_compose_pdf")
+
+    templates = _load_template_catalog_entries(templates_arg)
+    template_ids = {template_id for template_id, _ in templates}
+    page_counts = _template_page_counts(templates)
+
+    fail_on = getattr(args, "fail_on", None) or []
+    need_glyph_check = "missing-glyphs" in fail_on or "font-subst" in fail_on
+    glyph_path = getattr(args, "emit_glyph_report", None)
+    glyph_report = None
+
+    if glyph_path or need_glyph_check:
+        if hasattr(engine, "render_pdf_with_page_data_and_template_bindings_and_glyph_report"):
+            (
+                overlay_pdf_bytes,
+                page_data,
+                bindings,
+                glyph_report,
+            ) = engine.render_pdf_with_page_data_and_template_bindings_and_glyph_report(
+                html, css
+            )
+        else:
+            overlay_pdf_bytes, page_data, bindings = engine.render_pdf_with_page_data_and_template_bindings(
+                html, css
+            )
+            _glyph_pdf, glyph_report = engine.render_pdf_with_glyph_report(html, css)
+        if glyph_path:
+            _write_json(glyph_path, glyph_report)
+    else:
+        overlay_pdf_bytes, page_data, bindings = engine.render_pdf_with_page_data_and_template_bindings(
+            html, css
+        )
+
+    if page_data is not None and getattr(args, "emit_page_data", None):
+        _write_json(args.emit_page_data, page_data)
+
+    if not isinstance(bindings, list) or len(bindings) == 0:
+        raise ValueError(
+            "template compose mode requires non-empty template bindings from render pipeline"
+        )
+
+    dx = float(getattr(args, "template_dx", 0.0) or 0.0)
+    dy = float(getattr(args, "template_dy", 0.0) or 0.0)
+    annotation_mode = str(getattr(args, "compose_annotation_mode", "link_only") or "link_only")
+    sorted_bindings = sorted(bindings, key=lambda item: int(item.get("page_index", 0)))
+    plan = []
+    for i, binding in enumerate(sorted_bindings):
+        template_id = binding.get("template_id")
+        if template_id not in template_ids:
+            raise ValueError(
+                f"binding resolved unknown template_id at page {i + 1}: {template_id!r}"
+            )
+        overlay_page_index = int(binding.get("page_index", i))
+        template_page_count = page_counts[template_id]
+        template_page_index = overlay_page_index % template_page_count
+        plan.append(
+            (
+                template_id,
+                template_page_index,
+                overlay_page_index,
+                dx,
+                dy,
+            )
+        )
+
+    emit_compose_plan = getattr(args, "emit_compose_plan", None)
+    if emit_compose_plan:
+        compose_payload = {
+            "schema": "fullbleed.compose_plan.v1",
+            "ok": True,
+            "pages": [
+                {
+                    "template_id": item[0],
+                    "template_page": int(item[1]),
+                    "overlay_page": int(item[2]),
+                    "dx": float(item[3]),
+                    "dy": float(item[4]),
+                }
+                for item in plan
+            ],
+            "metrics": {
+                "templates": len(templates),
+                "pages": len(plan),
+                "dx": dx,
+                "dy": dy,
+            },
+        }
+        _write_json(emit_compose_plan, compose_payload)
+
+    out_path_obj = Path(out_path)
+    out_path_obj.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        prefix="fullbleed_overlay_",
+        suffix=".pdf",
+        delete=False,
+    ) as tmp_overlay:
+        tmp_overlay.write(overlay_pdf_bytes)
+        tmp_overlay_path = Path(tmp_overlay.name)
+
+    compose_result = None
+    try:
+        compose_result = fullbleed.finalize_compose_pdf(
+            templates,
+            plan,
+            str(tmp_overlay_path),
+            str(out_path_obj),
+            annotation_mode=annotation_mode,
+        )
+    finally:
+        try:
+            tmp_overlay_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    t_image = time.perf_counter()
+    image_paths = _emit_image_artifacts_from_pdf(engine, out_path_obj, out_path, args)
+    image_emit_ms = (time.perf_counter() - t_image) * 1000.0 if image_paths is not None else None
+    bytes_written = out_path_obj.stat().st_size if out_path_obj.exists() else 0
+    compose_pages = int((compose_result or {}).get("pages_written", len(plan)))
+    compose_info = {
+        "enabled": True,
+        "templates": len(templates),
+        "pages_written": compose_pages,
+        "plan_pages": len(plan),
+        "dx": dx,
+        "dy": dy,
+        "annotation_mode": annotation_mode,
+        "image_mode": "composed_pdf" if getattr(args, "emit_image", None) else None,
+        "image_emit_ms": image_emit_ms,
+    }
+    return int(bytes_written), glyph_report, None, image_paths, compose_info
+
+
+def _as_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _prepare_fail_on_args(args):
+    """Inject temporary artifacts/options required by active fail-on checks."""
+    fail_on = set(getattr(args, "fail_on", None) or [])
+    previous = {}
+    internal_jit_path = None
+
+    needs_jit = "overflow" in fail_on or "font-subst" in fail_on
+    if "budget" in fail_on:
+        if getattr(args, "budget_max_pages", None) is not None:
+            needs_jit = True
+        if getattr(args, "budget_max_ms", None) is not None:
+            needs_jit = True
+
+    if needs_jit and not getattr(args, "emit_jit", None):
+        handle, temp_path = tempfile.mkstemp(prefix="fullbleed_failon_", suffix=".jit.jsonl")
+        os.close(handle)
+        previous["emit_jit"] = getattr(args, "emit_jit", None)
+        args.emit_jit = temp_path
+        internal_jit_path = temp_path
+
+    if "overflow" in fail_on and not getattr(args, "jit_mode", None):
+        previous["jit_mode"] = getattr(args, "jit_mode", None)
+        args.jit_mode = "plan"
+
+    return previous, internal_jit_path
+
+
+def _restore_args(args, previous):
+    """Restore argparse fields modified during render/verify pre-processing."""
+    for key, value in previous.items():
+        setattr(args, key, value)
+
+
+def _collect_jit_insights(jit_log_path):
+    """Collect overflow, fallback, and timing signals from JIT diagnostics."""
+    insights = {
+        "overflow_signal": False,
+        "overflow_count": 0,
+        "overflow_samples": [],
+        "debug_counts": {},
+        "winansi_fallbacks": 0,
+        "pages": None,
+        "total_ms": None,
+    }
+    overflow_complete = True
+
+    if not jit_log_path:
+        return insights
+    path = Path(jit_log_path)
+    if not path.exists():
+        return insights
+
+    for entry in _load_json_lines(path):
+        if not isinstance(entry, dict):
+            continue
+        entry_type = entry.get("type")
+        if entry_type == "debug.summary":
+            counts = entry.get("counts", {})
+            if isinstance(counts, dict):
+                for key, value in counts.items():
+                    ivalue = _as_int(value)
+                    if ivalue is None:
+                        continue
+                    insights["debug_counts"][key] = insights["debug_counts"].get(key, 0) + ivalue
+        elif entry_type == "pdf.winansi.fallback":
+            ivalue = _as_int(entry.get("fallbacks"))
+            if ivalue:
+                insights["winansi_fallbacks"] += ivalue
+        elif entry_type == "jit.metrics":
+            counts = entry.get("counts", {})
+            if isinstance(counts, dict):
+                page_count = _as_int(counts.get("pages"))
+                if page_count is not None:
+                    insights["pages"] = page_count
+            timings = entry.get("timing_ms", {})
+            if isinstance(timings, dict):
+                total = 0.0
+                any_timing = False
+                for value in timings.values():
+                    fvalue = _as_float(value)
+                    if fvalue is None:
+                        continue
+                    total += fvalue
+                    any_timing = True
+                if any_timing:
+                    insights["total_ms"] = total
+        elif entry_type == "jit.docplan":
+            page_size = entry.get("page_size", {})
+            if not isinstance(page_size, dict):
+                overflow_complete = False
+                continue
+            page_w = _as_float(page_size.get("w"))
+            page_h = _as_float(page_size.get("h"))
+            if any(value is None or not math.isfinite(value) or value <= 0 for value in (page_w, page_h)):
+                overflow_complete = False
+                continue
+            insights["overflow_signal"] = True
+            for page in entry.get("pages", []) or []:
+                if not isinstance(page, dict):
+                    continue
+                # New engines emit the actual logical size for each named page.
+                # Older diagnostic streams retain the document-size fallback.
+                current_size = page.get("page_size", page_size)
+                if not isinstance(current_size, dict):
+                    overflow_complete = False
+                    continue
+                current_w = _as_float(current_size.get("w"))
+                current_h = _as_float(current_size.get("h"))
+                if any(value is None or not math.isfinite(value) or value <= 0 for value in (current_w, current_h)):
+                    overflow_complete = False
+                    continue
+                page_number = page.get("n")
+                for placement in page.get("placements", []) or []:
+                    if not isinstance(placement, dict):
+                        continue
+                    bbox = placement.get("bbox")
+                    if not isinstance(bbox, dict):
+                        continue
+                    x = _as_float(bbox.get("x"))
+                    y = _as_float(bbox.get("y"))
+                    w = _as_float(bbox.get("w"))
+                    h = _as_float(bbox.get("h"))
+                    if any(value is None or not math.isfinite(value) for value in (x, y, w, h)) or w < 0 or h < 0:
+                        overflow_complete = False
+                        continue
+                    if x < -0.01 or y < -0.01 or (x + w) > (current_w + 0.01) or (y + h) > (current_h + 0.01):
+                        insights["overflow_count"] += 1
+                        if len(insights["overflow_samples"]) < 5:
+                            insights["overflow_samples"].append(
+                                {
+                                    "page": page_number,
+                                    "bbox": {"x": x, "y": y, "w": w, "h": h},
+                                    "page_size": {"w": current_w, "h": current_h},
+                                }
+                            )
+    insights["overflow_signal"] = insights["overflow_signal"] and overflow_complete
+    return insights
+
+
+def _validate_budget_configuration(args):
+    """Ensure budget fail-on has at least one configured budget threshold."""
+    fail_on = set(getattr(args, "fail_on", None) or [])
+    if "budget" not in fail_on:
+        return
+    max_pages = getattr(args, "budget_max_pages", None)
+    max_bytes = getattr(args, "budget_max_bytes", None)
+    max_ms = getattr(args, "budget_max_ms", None)
+    if max_pages is None and max_bytes is None and max_ms is None:
+        raise ValueError(
+            "--fail-on budget requires at least one limit: --budget-max-pages, --budget-max-bytes, or --budget-max-ms"
+        )
+
+
+def _evaluate_failures(args, bytes_written, glyph_report, jit_insights):
+    """Evaluate fail-on policy and return structured violation objects."""
+    fail_on = set(getattr(args, "fail_on", None) or [])
+    allow_fallbacks = bool(getattr(args, "allow_fallbacks", False))
+    failures = []
+
+    missing_count = len(glyph_report or [])
+    if "missing-glyphs" in fail_on and missing_count > 0 and not allow_fallbacks:
+        failures.append(
+            {
+                "code": "MISSING_GLYPHS",
+                "message": f"Missing glyphs detected: {missing_count} unique codepoints",
+                "count": missing_count,
+            }
+        )
+
+    if "font-subst" in fail_on:
+        summary_counts = jit_insights.get("debug_counts", {})
+        winansi_fallbacks = (jit_insights.get("winansi_fallbacks", 0) or 0) + (
+            _as_int(summary_counts.get("pdf.winansi.fallback")) or 0
+        )
+        winansi_lossy = _as_int(summary_counts.get("pdf.winansi.lossy")) or 0
+        font_subst_count = winansi_fallbacks + winansi_lossy
+        if (missing_count > 0 or font_subst_count > 0) and not allow_fallbacks:
+            failures.append(
+                {
+                    "code": "FONT_SUBSTITUTION_DETECTED",
+                    "message": "Font substitution fallback/lossy encoding signals were detected",
+                    "missing_glyphs": missing_count,
+                    "encoding_fallbacks": font_subst_count,
+                }
+            )
+
+    if "overflow" in fail_on:
+        if not jit_insights.get("overflow_signal"):
+            failures.append(
+                {
+                    "code": "OVERFLOW_SIGNAL_UNAVAILABLE",
+                    "message": "Overflow check requested but no jit.docplan signal was emitted",
+                }
+            )
+        elif jit_insights.get("overflow_count", 0) > 0:
+            failures.append(
+                {
+                    "code": "OVERFLOW_DETECTED",
+                    "message": f"Placement bounds exceeded page size ({jit_insights['overflow_count']} placement(s))",
+                    "count": jit_insights["overflow_count"],
+                    "samples": jit_insights.get("overflow_samples", []),
+                }
+            )
+
+    if "budget" in fail_on:
+        observed_bytes = int(_normalize_bytes_written(bytes_written))
+        max_bytes = getattr(args, "budget_max_bytes", None)
+        if max_bytes is not None and observed_bytes > max_bytes:
+            failures.append(
+                {
+                    "code": "BUDGET_BYTES_EXCEEDED",
+                    "message": f"PDF size {observed_bytes} exceeded budget {max_bytes}",
+                    "observed": observed_bytes,
+                    "budget": max_bytes,
+                }
+            )
+
+        max_pages = getattr(args, "budget_max_pages", None)
+        observed_pages = jit_insights.get("pages")
+        if max_pages is not None:
+            if observed_pages is None:
+                failures.append(
+                    {
+                        "code": "BUDGET_SIGNAL_UNAVAILABLE",
+                        "message": "Page-count budget requested but jit metrics were unavailable",
+                        "metric": "pages",
+                    }
+                )
+            elif observed_pages > max_pages:
+                failures.append(
+                    {
+                        "code": "BUDGET_PAGES_EXCEEDED",
+                        "message": f"Page count {observed_pages} exceeded budget {max_pages}",
+                        "observed": observed_pages,
+                        "budget": max_pages,
+                    }
+                )
+
+        max_ms = getattr(args, "budget_max_ms", None)
+        observed_ms = jit_insights.get("total_ms")
+        if max_ms is not None:
+            if observed_ms is None:
+                failures.append(
+                    {
+                        "code": "BUDGET_SIGNAL_UNAVAILABLE",
+                        "message": "Timing budget requested but jit metrics were unavailable",
+                        "metric": "timing_ms",
+                    }
+                )
+            elif observed_ms > max_ms:
+                failures.append(
+                    {
+                        "code": "BUDGET_TIME_EXCEEDED",
+                        "message": f"Render timing {observed_ms:.3f}ms exceeded budget {max_ms:.3f}ms",
+                        "observed": observed_ms,
+                        "budget": max_ms,
+                    }
+                )
+
+    action_map = {
+        "MISSING_GLYPHS": [
+            "Inspect the glyph entries and add an embeddable font covering every reported codepoint with --font-file or --font-dir.",
+            "Rerun verification with --emit-glyph-report and --fail-on missing-glyphs.",
+        ],
+        "FONT_SUBSTITUTION_DETECTED": [
+            "Inspect the fallback summary and explicitly register the intended font files.",
+            "Rerun verification with --fail-on font-subst after resolving every fallback.",
+        ],
+        "OVERFLOW_SIGNAL_UNAVAILABLE": [
+            "Rerun with JIT/page-data diagnostics enabled so placement bounds can be evaluated.",
+        ],
+        "OVERFLOW_DETECTED": [
+            "Inspect the reported page and bounding-box samples, then adjust page size, margins, wrapping, or fragmentation CSS.",
+            "Render PNG previews and rerun verification with --fail-on overflow.",
+        ],
+        "BUDGET_BYTES_EXCEEDED": [
+            "Inspect embedded assets and font subsets, then reduce unnecessary image or resource payloads.",
+            "Raise the byte budget only when the delivery requirement permits it.",
+        ],
+        "BUDGET_PAGES_EXCEEDED": [
+            "Inspect pagination and reduce content, spacing, or page fragmentation before changing the page budget.",
+        ],
+        "BUDGET_TIME_EXCEEDED": [
+            "Inspect the performance trace and select the compiled or batch lane when rendering a repeated document family.",
+        ],
+        "BUDGET_SIGNAL_UNAVAILABLE": [
+            "Enable the diagnostic artifact required for the requested budget metric and rerun verification.",
+        ],
+    }
+    for failure in failures:
+        code = failure.get("code")
+        failure["recommended_actions"] = list(action_map.get(code, []))
+        failure["relevant_commands"] = {
+            "capabilities": ["fullbleed", "capabilities", "--json"],
+            "schema": ["fullbleed", "--schema", "verify"],
+        }
+        if code == "MISSING_GLYPHS":
+            glyphs = []
+            for item in list(glyph_report or [])[:50]:
+                if not isinstance(item, dict):
+                    continue
+                entry = dict(item)
+                codepoint = entry.get("codepoint")
+                if isinstance(codepoint, int):
+                    entry["unicode"] = f"U+{codepoint:04X}"
+                glyphs.append(entry)
+            failure["glyphs"] = glyphs
+
+    return failures
+
+
+def _collect_fallback_summary(args, glyph_report, jit_insights):
+    """Summarize fallback-related signals for result payload emission."""
+    summary_counts = jit_insights.get("debug_counts", {})
+    winansi_fallbacks = (jit_insights.get("winansi_fallbacks", 0) or 0) + (
+        _as_int(summary_counts.get("pdf.winansi.fallback")) or 0
+    )
+    winansi_lossy = _as_int(summary_counts.get("pdf.winansi.lossy")) or 0
+    missing_glyphs = len(glyph_report or [])
+    encoding_fallbacks = winansi_fallbacks + winansi_lossy
+    return {
+        "allowed": bool(getattr(args, "allow_fallbacks", False)),
+        "missing_glyphs": missing_glyphs,
+        "encoding_fallbacks": encoding_fallbacks,
+        "detected": (missing_glyphs + encoding_fallbacks) > 0,
+    }
+
+
+def _enrich_repro_failures(failures):
+    """Attach actionable, additive hints to reproducibility failures."""
+    actions = {
+        "REPRO_RECORD_NOT_FOUND": [
+            "Confirm the reproducibility-record path or create a new record with --repro-record."
+        ],
+        "REPRO_RECORD_INVALID": [
+            "Regenerate the record from a trusted clean render; do not edit digest fields manually."
+        ],
+        "REPRO_RECORD_CONFLICT": [
+            "Use different files for --repro-record and --repro-check so checking cannot replace the baseline."
+        ],
+        "REPRO_INPUT_DRIFT": [
+            "Compare the input manifest, vendored assets, fonts, and assets.lock.json with the recorded run."
+        ],
+        "REPRO_HASH_MISMATCH": [
+            "Inspect version, capability, asset, and input drift before accepting a new output digest."
+        ],
+        "REPRO_LOCK_MISMATCH": [
+            "Restore the recorded assets.lock.json inputs or intentionally record a new reproducibility baseline."
+        ],
+    }
+    for failure in failures:
+        if failure.get("code") in actions:
+            failure.setdefault(
+                "recommended_actions", list(actions[failure["code"]])
+            )
+            failure.setdefault(
+                "relevant_commands",
+                {
+                    "capabilities": ["fullbleed", "capabilities", "--json"],
+                    "schema": ["fullbleed", "--schema", "render"],
+                },
+            )
+
+
+def _repro_record_error(value, definition=None, location="record"):
+    """Validate the record using the same shape and digest rules exposed by --schema."""
+    if definition is None:
+        definition = SCHEMA_DEFS["fullbleed.repro_record.v1"]
+    expected_types = definition["type"]
+    if isinstance(expected_types, str):
+        expected_types = [expected_types]
+    types = {"object": dict, "string": str, "integer": int, "null": type(None)}
+    if not any(type(value) is types[name] for name in expected_types):
+        return f"{location} must have type {' or '.join(expected_types)}"
+    if value is None:
+        return None
+    if "const" in definition and value != definition["const"]:
+        return f"{location} must be {definition['const']}"
+    if "pattern" in definition and re.fullmatch(definition["pattern"], value) is None:
+        return f"{location} must be a lowercase SHA-256 digest (64 hexadecimal characters)"
+    if "minimum" in definition and value < definition["minimum"]:
+        return f"{location} must be at least {definition['minimum']}"
+    if isinstance(value, dict):
+        for key in definition.get("required", []):
+            if key not in value:
+                return f"{location}.{key} is required"
+        for key, child in definition.get("properties", {}).items():
+            if key in value:
+                error = _repro_record_error(value[key], child, f"{location}.{key}")
+                if error:
+                    return error
+    return None
+
+
+def _run_repro_record_or_check(args, manifest, html, css, output_hash, bytes_written):
+    """Write/check reproducibility records and return associated failures."""
+    repro_record_path = getattr(args, "repro_record", None)
+    repro_check_path = getattr(args, "repro_check", None)
+    if not repro_record_path and not repro_check_path:
+        return None, []
+
+    current_record = _build_repro_record(args, manifest, html, css, output_hash, bytes_written)
+    failures = []
+
+    if repro_record_path and repro_check_path:
+        record_file, check_file = Path(repro_record_path), Path(repro_check_path)
+        same_file = record_file.resolve() == check_file.resolve()
+        if not same_file and record_file.exists() and check_file.exists():
+            same_file = record_file.samefile(check_file)
+        if same_file:
+            return current_record, [{
+                "code": "REPRO_RECORD_CONFLICT",
+                "message": "The record output and checked baseline refer to the same file",
+            }]
+
+    if repro_check_path:
+        check_file = Path(repro_check_path)
+        if not check_file.exists():
+            failures.append(
+                {
+                    "code": "REPRO_RECORD_NOT_FOUND",
+                    "message": f"Repro check file not found: {repro_check_path}",
+                }
+            )
+        else:
+            try:
+                expected = json.loads(check_file.read_text(encoding="utf-8"))
+            except (ValueError, OSError) as exc:
+                failures.append(
+                    {
+                        "code": "REPRO_RECORD_INVALID",
+                        "message": f"Failed to read repro record JSON: {exc}",
+                    }
+                )
+                expected = None
+            else:
+                error = _repro_record_error(expected)
+                if error:
+                    failures.append({"code": "REPRO_RECORD_INVALID", "message": error})
+                    expected = None
+            if expected is not None and expected["input_fingerprint_sha256"] != current_record["input_fingerprint_sha256"]:
+                failures.append(
+                    {
+                        "code": "REPRO_INPUT_DRIFT",
+                        "message": "Input fingerprint drift detected compared to repro record",
+                        "expected": expected["input_fingerprint_sha256"],
+                        "observed": current_record["input_fingerprint_sha256"],
+                    }
+                )
+            if expected is not None and expected["output_pdf_sha256"] != current_record["output_pdf_sha256"]:
+                failures.append(
+                    {
+                        "code": "REPRO_HASH_MISMATCH",
+                        "message": "Output PDF hash mismatch against repro record",
+                        "expected": expected["output_pdf_sha256"],
+                        "observed": current_record["output_pdf_sha256"],
+                    }
+                )
+            expected_lock = ((expected or {}).get("assets_lock") or {}).get("sha256")
+            observed_lock = (current_record.get("assets_lock") or {}).get("sha256")
+            if expected is not None and "assets_lock" in expected and expected_lock != observed_lock:
+                failures.append(
+                    {
+                        "code": "REPRO_LOCK_MISMATCH",
+                        "message": "assets.lock.json content or presence differs from the repro record",
+                        "expected": expected_lock,
+                        "observed": observed_lock,
+                    }
+                )
+
+    if repro_record_path:
+        Path(repro_record_path).write_text(
+            _json_dumps(current_record, indent=2), encoding="utf-8"
+        )
+    return current_record, failures
+
+
+def _emit_result(ok, schema, out_path, bytes_written, outputs, args, error=None):
+    """Emit command result in human-readable or schema-based JSON format."""
+    if not args.json:
+        if ok:
+            msg = f"[ok] wrote {out_path} ({_normalize_bytes_written(bytes_written)} bytes)"
+            sys.stdout.write(msg + "\n")
+            image_paths = []
+            image_dir = None
+            if isinstance(outputs, dict):
+                image_paths = outputs.get("image_paths") or []
+                image_dir = outputs.get("image")
+            if image_paths:
+                if image_dir:
+                    sys.stdout.write(
+                        f"[ok] wrote {len(image_paths)} PNG page(s) -> {image_dir}\n"
+                    )
+                else:
+                    sys.stdout.write(f"[ok] wrote {len(image_paths)} PNG page(s)\n")
+            return
+        else:
+            msg = f"[error] {error.get('code')}: {error.get('message')}"
+        sys.stdout.write(msg + "\n")
+        return
+    payload = {"schema": schema, "ok": ok, "outputs": outputs}
+    if ok:
+        payload["bytes_written"] = _normalize_bytes_written(bytes_written)
+    else:
+        payload.update(error or {})
+    sys.stdout.write(_json_dumps(payload) + "\n")
+
+
+def cmd_render(args):
+    """CLI handler for `fullbleed render`."""
+    if getattr(args, "watch", False):
+        from . import watch
+
+        _validate_pdf_options(args)
+        _validate_budget_configuration(args)
+        return watch.run(
+            args, _execute_command, _emit_cli_error,
+            asset_paths=[path for path, _kind, _name in _resolve_assets(args)],
+        )
+    if getattr(args, "watch_path", None):
+        raise ValueError("--watch-path requires --watch")
+    return _cmd_render_once(args)
+
+
+def _cmd_render_once(args):
+    """Run one render, shared by ordinary and watched invocations."""
+    html = _collect_html(args)
+    css = _collect_css(args)
+    _validate_pdf_options(args)
+    _validate_budget_configuration(args)
+    if args.json and args.out == "-":
+        raise ValueError("--json cannot be used with --out - (stdout PDF)")
+    remote_refs = _detect_remote_refs(html, css)
+    if remote_refs and not args.allow_remote_assets and not getattr(args, "json_only", False):
+        sys.stderr.write(
+            "[warn] remote asset refs detected; use --asset and --allow-remote-assets if needed\n"
+        )
+
+    user_emit_jit = getattr(args, "emit_jit", None)
+    previous, internal_jit_path = _prepare_fail_on_args(args)
+    try:
+        engine = _build_engine(args)
+        if getattr(args, "templates", None):
+            rendered = _render_with_template_compose(engine, html, css, args.out, args)
+        else:
+            rendered = _render_with_artifacts(engine, html, css, args.out, args)
+    finally:
+        _restore_args(args, previous)
+    compose_info = None
+    if len(rendered) == 3:
+        bytes_written, glyph_report, pdf_bytes = rendered
+        image_paths = None
+    elif len(rendered) == 4:
+        bytes_written, glyph_report, pdf_bytes, image_paths = rendered
+    else:
+        bytes_written, glyph_report, pdf_bytes, image_paths, compose_info = rendered
+    # Flush/close debug logger buffers before reading emitted jit logs.
+    try:
+        del engine
+    except UnboundLocalError:
+        pass
+
+    deterministic_hash = getattr(args, "deterministic_hash", None)
+    hash_info = _compute_output_hash(
+        deterministic_hash, args.out, pdf_bytes, image_paths=image_paths
+    )
+    output_hash = hash_info["pdf_sha256"]
+
+    effective_jit_path = user_emit_jit or internal_jit_path
+    jit_insights = _collect_jit_insights(effective_jit_path)
+    failures = _evaluate_failures(args, bytes_written, glyph_report, jit_insights)
+    profile_verification, profile_failures = _inspect_print_output(args, args.out, pdf_bytes)
+    failures.extend(profile_failures)
+    fallback_summary = _collect_fallback_summary(args, glyph_report, jit_insights)
+
+    manifest = _build_manifest(args)
+    repro_record, repro_failures = _run_repro_record_or_check(
+        args,
+        manifest,
+        html,
+        css,
+        output_hash,
+        bytes_written,
+    )
+    failures.extend(repro_failures)
+    _enrich_repro_failures(failures)
+
+    if internal_jit_path:
+        try:
+            Path(internal_jit_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    image_mode = None
+    if getattr(args, "emit_image", None):
+        if compose_info and compose_info.get("image_mode"):
+            image_mode = compose_info.get("image_mode")
+        else:
+            image_mode = "overlay_document"
+
+    outputs = {
+        "pdf_profile_verification": profile_verification,
+        "pdf": None if args.out == "-" else args.out,
+        "jit": user_emit_jit,
+        "perf": args.emit_perf,
+        "glyph_report": args.emit_glyph_report,
+        "page_data": args.emit_page_data,
+        "compose_plan": getattr(args, "emit_compose_plan", None),
+        "image": getattr(args, "emit_image", None),
+        "image_mode": image_mode,
+        "image_paths": image_paths,
+        "deterministic_hash": deterministic_hash,
+        "deterministic_hash_sha256": hash_info["deterministic_sha256"],
+        "deterministic_hash_mode": hash_info["deterministic_mode"],
+        "sha256": output_hash,
+        "artifact_sha256": hash_info["artifact_sha256"],
+        "image_sha256": hash_info["image_sha256"] if image_paths else None,
+        "fallbacks": fallback_summary,
+        "repro_record": getattr(args, "repro_record", None),
+        "repro_check": getattr(args, "repro_check", None),
+        "repro_status": "fail" if failures else ("pass" if repro_record else None),
+        "template_compose": compose_info,
+    }
+    
+    if failures:
+        error = {
+            "code": failures[0]["code"],
+            "message": failures[0]["message"],
+            "failures": failures,
+            "recommended_actions": failures[0].get("recommended_actions", []),
+        }
+        _emit_result(False, "fullbleed.render_result.v1", args.out, bytes_written, outputs, args, error=error)
+        raise SystemExit(1)
+    
+    _emit_result(True, "fullbleed.render_result.v1", args.out, bytes_written, outputs, args)
+    return outputs
+
+
+def _inspect_print_output(args, out_path, pdf_bytes):
+    profile = _normalize_pdf_profile(getattr(args, "pdf_profile", None))
+    if profile not in {"pdfx4", "pdfvt1"}:
+        return None, []
+    if out_path and out_path != "-":
+        report = fullbleed.inspect_pdf(str(out_path))
+    else:
+        with tempfile.TemporaryDirectory(prefix="fullbleed-print-check-") as directory:
+            path = Path(directory) / "output.pdf"
+            path.write_bytes(pdf_bytes)
+            report = fullbleed.inspect_pdf(str(path))
+    inspected = report.get("profile", {})
+    blockers = list(inspected.get("seed_blockers", []))
+    if profile not in inspected.get("claims", []):
+        blockers.append("requested_profile_identification_missing")
+    if inspected.get("pdfx_contract_valid") is not True:
+        blockers.append("print_contract_not_verified")
+    verification = {"scope": "internal_writer_contract", "independent_conformance": False,
+                    "profile": profile, "passed": not blockers, "blockers": sorted(set(blockers)),
+                    "inspection": inspected}
+    failures = [] if not blockers else [{"code": "PDF_PROFILE_CONTRACT_VIOLATION",
+        "message": f"{profile} artifact failed internal print checks", "blockers": verification["blockers"],
+        "recommended_actions": ["Inspect the retained PDF and profile diagnostics; run dedicated preflight before claiming conformance."]}]
+    return verification, failures
+
+
+def cmd_verify(args):
+    """CLI handler for `fullbleed verify`."""
+    html = _collect_html(args)
+    css = _collect_css(args)
+    _validate_pdf_options(args)
+    _validate_budget_configuration(args)
+    if args.emit_pdf and args.json and args.emit_pdf == "-":
+        raise ValueError("--json cannot be used with --emit-pdf - (stdout PDF)")
+    remote_refs = _detect_remote_refs(html, css)
+    if remote_refs and not args.allow_remote_assets and not getattr(args, "json_only", False):
+        sys.stderr.write(
+            "[warn] remote asset refs detected; use --asset and --allow-remote-assets if needed\n"
+        )
+    user_emit_jit = getattr(args, "emit_jit", None)
+    previous, internal_jit_path = _prepare_fail_on_args(args)
+    if user_emit_jit and not args.emit_pdf and not args.jit_mode:
+        previous.setdefault("jit_mode", getattr(args, "jit_mode", None))
+        args.jit_mode = "plan"
+    out_path = args.emit_pdf or "-"
+    try:
+        engine = _build_engine(args)
+        rendered = _render_with_artifacts(engine, html, css, out_path, args)
+    finally:
+        _restore_args(args, previous)
+    if len(rendered) == 3:
+        bytes_written, glyph_report, pdf_bytes = rendered
+        image_paths = None
+    else:
+        bytes_written, glyph_report, pdf_bytes, image_paths = rendered
+    # Flush/close debug logger buffers before reading emitted jit logs.
+    try:
+        del engine
+    except UnboundLocalError:
+        pass
+    deterministic_hash = getattr(args, "deterministic_hash", None)
+    hash_info = _compute_output_hash(
+        deterministic_hash, out_path, pdf_bytes, image_paths=image_paths
+    )
+    output_hash = hash_info["pdf_sha256"]
+
+    effective_jit_path = user_emit_jit or internal_jit_path
+    jit_insights = _collect_jit_insights(effective_jit_path)
+    failures = _evaluate_failures(args, bytes_written, glyph_report, jit_insights)
+    profile_verification, profile_failures = _inspect_print_output(args, out_path, pdf_bytes)
+    failures.extend(profile_failures)
+    fallback_summary = _collect_fallback_summary(args, glyph_report, jit_insights)
+
+    manifest = _build_manifest(args)
+    repro_record, repro_failures = _run_repro_record_or_check(
+        args,
+        manifest,
+        html,
+        css,
+        output_hash,
+        bytes_written,
+    )
+    failures.extend(repro_failures)
+    _enrich_repro_failures(failures)
+
+    if internal_jit_path:
+        try:
+            Path(internal_jit_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    image_mode = "overlay_document" if getattr(args, "emit_image", None) else None
+
+    outputs = {
+        "pdf_profile_verification": profile_verification,
+        "pdf": None if out_path == "-" else out_path,
+        "jit": user_emit_jit,
+        "perf": args.emit_perf,
+        "glyph_report": args.emit_glyph_report,
+        "page_data": args.emit_page_data,
+        "compose_plan": getattr(args, "emit_compose_plan", None),
+        "image": getattr(args, "emit_image", None),
+        "image_mode": image_mode,
+        "image_paths": image_paths,
+        "deterministic_hash": deterministic_hash,
+        "deterministic_hash_sha256": hash_info["deterministic_sha256"],
+        "deterministic_hash_mode": hash_info["deterministic_mode"],
+        "sha256": output_hash,
+        "artifact_sha256": hash_info["artifact_sha256"],
+        "image_sha256": hash_info["image_sha256"] if image_paths else None,
+        "fallbacks": fallback_summary,
+        "repro_record": getattr(args, "repro_record", None),
+        "repro_check": getattr(args, "repro_check", None),
+        "repro_status": "fail" if failures else ("pass" if repro_record else None),
+    }
+    if failures:
+        error = {
+            "code": failures[0]["code"],
+            "message": failures[0]["message"],
+            "failures": failures,
+            "recommended_actions": failures[0].get("recommended_actions", []),
+        }
+        _emit_result(False, "fullbleed.verify_result.v1", out_path, bytes_written, outputs, args, error=error)
+        raise SystemExit(1)
+    _emit_result(True, "fullbleed.verify_result.v1", out_path, bytes_written, outputs, args)
+
+
+def cmd_plan(args):
+    """CLI handler for `fullbleed plan`."""
+    html = _collect_html(args)
+    css = _collect_css(args)
+    remote_refs = _detect_remote_refs(html, css)
+    warnings = []
+    if remote_refs and not args.allow_remote_assets:
+        warnings.append(
+            {
+                "code": "REMOTE_REFS_DETECTED",
+                "message": "Remote asset refs detected; use --asset and --allow-remote-assets if needed",
+                "count": len(remote_refs),
+                "refs": remote_refs,
+                "recommended_actions": [
+                    "Vendor and lock required remote assets, then pass them explicitly with --asset.",
+                    "Use --allow-remote-assets only when remote access is an intentional project policy.",
+                ],
+            }
+        )
+        if not args.json and not getattr(args, "json_only", False):
+            sys.stderr.write(
+                "[warn] remote asset refs detected; use --asset and --allow-remote-assets if needed\n"
+            )
+
+    template_compose = None
+    emit_compose_plan = getattr(args, "emit_compose_plan", None)
+    if emit_compose_plan and not getattr(args, "templates", None):
+        raise ValueError("--emit-compose-plan requires --templates and --template-binding")
+
+    if getattr(args, "templates", None):
+        if not getattr(args, "template_binding", None):
+            raise ValueError("--template-binding is required when --templates is set on plan")
+        templates = _load_template_catalog_entries(args.templates)
+        dx = float(getattr(args, "template_dx", 0.0) or 0.0)
+        dy = float(getattr(args, "template_dy", 0.0) or 0.0)
+        engine = _build_engine(args)
+        planned = _plan_template_compose(engine, html, css, templates, dx, dy)
+        plan_rows = []
+        for template_id, template_page, overlay_page, row_dx, row_dy in planned.get("plan", []):
+            plan_rows.append(
+                {
+                    "template_id": template_id,
+                    "template_page": int(template_page),
+                    "overlay_page": int(overlay_page),
+                    "dx": float(row_dx),
+                    "dy": float(row_dy),
+                }
+            )
+
+        page_data = planned.get("page_data")
+        if page_data is not None and getattr(args, "emit_page_data", None):
+            _write_json(args.emit_page_data, page_data)
+
+        template_compose = {
+            "enabled": True,
+            "templates": len(templates),
+            "plan_pages": len(plan_rows),
+            "dx": dx,
+            "dy": dy,
+            "plan": plan_rows,
+            "bindings": planned.get("bindings"),
+            "template_catalog": planned.get("template_catalog"),
+            "metrics": planned.get("metrics", {}),
+        }
+        if emit_compose_plan:
+            compose_payload = {
+                "schema": "fullbleed.compose_plan.v1",
+                "ok": True,
+                "pages": plan_rows,
+                "metrics": {
+                    "templates": len(templates),
+                    "pages": len(plan_rows),
+                    "dx": dx,
+                    "dy": dy,
+                },
+            }
+            _write_json(emit_compose_plan, compose_payload)
+
+    manifest = _build_manifest(args)
+    payload = {
+        "schema": "fullbleed.plan_result.v1",
+        "ok": True,
+        "manifest": manifest,
+        "warnings": warnings,
+    }
+    if template_compose is not None:
+        payload["template_compose"] = template_compose
+    if args.json:
+        sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    else:
+        sys.stdout.write("[ok] plan compiled\n")
+        if warnings:
+            sys.stdout.write(f"[warn] {len(warnings)} warning(s)\n")
+        if template_compose is not None:
+            sys.stdout.write(
+                "[ok] template compose planned "
+                f"(templates={template_compose['templates']}, pages={template_compose['plan_pages']})\n"
+            )
+
+
+def _load_json_lines(path):
+    """Read newline-delimited JSON entries from a file."""
+    data = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return data
+
+
+def cmd_debug_perf(args):
+    """CLI handler for `fullbleed debug-perf`."""
+    data = _load_json_lines(args.perf_log)
+    hot = [d for d in data if d.get("type", "").startswith("perf.hot.")]
+    if hot:
+        out = hot
+    else:
+        spans = {}
+        for entry in data:
+            if entry.get("type") != "perf.span":
+                continue
+            name = entry.get("name")
+            spans[name] = spans.get(name, 0.0) + float(entry.get("ms", 0.0))
+        out = [{"name": k, "ms": v} for k, v in sorted(spans.items(), key=lambda x: -x[1])]
+    if args.json:
+        sys.stdout.write(json.dumps(out[: args.top], ensure_ascii=True) + "\n")
+    else:
+        for entry in out[: args.top]:
+            if "name" in entry:
+                sys.stdout.write(f"{entry['name']}: {entry.get('ms', entry.get('value', ''))}\n")
+
+
+def cmd_debug_jit(args):
+    """CLI handler for `fullbleed debug-jit`."""
+    data = _load_json_lines(args.jit_log)
+    if args.errors_only:
+        data = [
+            d
+            for d in data
+            if "error" in d.get("type", "").lower()
+            or d.get("level") in {"error", "warn"}
+        ]
+    if args.json:
+        sys.stdout.write(json.dumps(data, ensure_ascii=True) + "\n")
+    else:
+        for entry in data:
+            sys.stdout.write(json.dumps(entry, ensure_ascii=True) + "\n")
+
+
+def cmd_doctor(args):
+    """CLI handler for `fullbleed doctor` environment diagnostics."""
+    bootstrap = Path(fullbleed_assets.asset_path("bootstrap.min.css"))
+    bootstrap_icons = Path(fullbleed_assets.asset_path("icons/bootstrap-icons.svg"))
+    noto = Path(fullbleed_assets.asset_path("fonts/NotoSans-Regular.ttf"))
+    checks = [
+        {"name": "python>=3.10", "ok": sys.version_info >= (3, 10), "detail": sys.version.split()[0]},
+        {"name": "fullbleed.PdfEngine", "ok": hasattr(fullbleed, "PdfEngine"), "detail": "available"},
+        {"name": "fullbleed.AssetBundle", "ok": hasattr(fullbleed, "AssetBundle"), "detail": "available"},
+        {"name": "assets.bootstrap", "ok": bootstrap.exists(), "detail": str(bootstrap)},
+        {"name": "assets.bootstrap_icons", "ok": bootstrap_icons.exists(), "detail": str(bootstrap_icons)},
+        {"name": "assets.noto_sans", "ok": noto.exists(), "detail": str(noto)},
+    ]
+    ok = all(c["ok"] for c in checks)
+    report = {
+        "schema": "fullbleed.doctor.v1",
+        "ok": ok,
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        "pdf_profiles": PDF_PROFILE_CHOICES,
+        "pdf_profile_catalog": PDF_PROFILE_CATALOG,
+        **_print_capabilities(),
+        "pdf_profile_aliases": {
+            key: value for key, value in sorted(PDF_PROFILE_ALIASES.items()) if value
+        },
+        "color_spaces": ["rgb", "cmyk"],
+        "assets": {
+            "bootstrap": str(bootstrap),
+            "bootstrap_icons": str(bootstrap_icons),
+            "noto_sans": str(noto),
+        },
+        "checks": checks,
+    }
+    if args.json:
+        sys.stdout.write(json.dumps(report, ensure_ascii=True) + "\n")
+    else:
+        for k, v in report.items():
+            sys.stdout.write(f"{k}: {v}\n")
+    if getattr(args, "strict", False) and not ok:
+        raise SystemExit(3)
+
+
+def cmd_compliance(args):
+    """CLI handler for compliance and license policy reporting."""
+    now = datetime.now(timezone.utc)
+    max_age_days = max(int(getattr(args, "max_audit_age_days", 180) or 180), 1)
+
+    license_file = _find_compliance_file(COMPLIANCE_POLICY["license_file"])
+    copyright_file = _find_compliance_file(COMPLIANCE_POLICY["copyright_file"])
+    third_party_file = _find_compliance_file(COMPLIANCE_POLICY["third_party_notice_file"])
+    licensing_guide_file = _find_compliance_file(COMPLIANCE_POLICY["licensing_guide_file"])
+    audit_md = _find_compliance_file(COMPLIANCE_POLICY["license_audit_artifacts"][0])
+    audit_json = _find_compliance_file(COMPLIANCE_POLICY["license_audit_artifacts"][1])
+
+    flags = []
+    advisories = []
+
+    if not license_file:
+        flags.append(
+            {
+                "code": "LIC_MISSING_NOTICE",
+                "target": COMPLIANCE_POLICY["license_file"],
+                "message": "Missing primary license file",
+            }
+        )
+    else:
+        try:
+            license_text = license_file.read_text(encoding="utf-8")
+            if COMPLIANCE_POLICY["license_required_header"] not in license_text:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["license_file"],
+                        "message": (
+                            "Primary license file does not match expected MIT text "
+                            f"(missing header: {COMPLIANCE_POLICY['license_required_header']})."
+                        ),
+                    }
+                )
+            forbidden_markers = [
+                marker
+                for marker in COMPLIANCE_POLICY["license_forbidden_markers"]
+                if marker.lower() in license_text.lower()
+            ]
+            if forbidden_markers:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["license_file"],
+                        "message": (
+                            "Primary license file contains disallowed marker(s): "
+                            + ", ".join(forbidden_markers)
+                        ),
+                    }
+                )
+        except Exception as exc:
+            flags.append(
+                {
+                    "code": "LIC_UNKNOWN",
+                    "target": COMPLIANCE_POLICY["license_file"],
+                    "message": f"Unable to read primary license file: {exc}",
+                }
+            )
+
+    if not copyright_file:
+        flags.append(
+            {
+                "code": "LIC_MISSING_NOTICE",
+                "target": COMPLIANCE_POLICY["copyright_file"],
+                "message": "Missing copyright notice file",
+            }
+        )
+    else:
+        try:
+            copyright_text = copyright_file.read_text(encoding="utf-8")
+            required_spdx = COMPLIANCE_POLICY["copyright_required_spdx"]
+            if required_spdx not in copyright_text:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["copyright_file"],
+                        "message": "Copyright notice missing SPDX expression: " + required_spdx,
+                    }
+                )
+            lowered_copyright = copyright_text.lower()
+            missing_markers = [
+                marker
+                for marker in COMPLIANCE_POLICY["copyright_required_markers"]
+                if marker.lower() not in lowered_copyright
+            ]
+            if missing_markers:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["copyright_file"],
+                        "message": (
+                            "Copyright notice missing required MIT marker(s): "
+                            + ", ".join(missing_markers)
+                        ),
+                    }
+                )
+        except Exception as exc:
+            flags.append(
+                {
+                    "code": "LIC_UNKNOWN",
+                    "target": COMPLIANCE_POLICY["copyright_file"],
+                    "message": f"Unable to read copyright notice: {exc}",
+                }
+            )
+
+    if not licensing_guide_file:
+        flags.append(
+            {
+                "code": "LIC_MISSING_NOTICE",
+                "target": COMPLIANCE_POLICY["licensing_guide_file"],
+                "message": "Missing licensing guide file",
+            }
+        )
+    else:
+        try:
+            licensing_text = licensing_guide_file.read_text(encoding="utf-8")
+            if LICENSE_SPDX_EXPRESSION not in licensing_text:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["licensing_guide_file"],
+                        "message": "Licensing guide missing SPDX expression: " + LICENSE_SPDX_EXPRESSION,
+                    }
+                )
+            if "mit license" not in licensing_text.lower():
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["licensing_guide_file"],
+                        "message": "Licensing guide should explicitly state MIT License terms.",
+                    }
+                )
+            mojibake_markers = ["â€”", "â€™", "â€œ", "â€", "\ufffd"]
+            bad_markers = [token for token in mojibake_markers if token in licensing_text]
+            if bad_markers:
+                flags.append(
+                    {
+                        "code": "LIC_POLICY_MISMATCH",
+                        "target": COMPLIANCE_POLICY["licensing_guide_file"],
+                        "message": (
+                            "Licensing guide contains encoding artifacts (mojibake): "
+                            + ", ".join(bad_markers)
+                        ),
+                    }
+                )
+        except Exception as exc:
+            flags.append(
+                {
+                    "code": "LIC_UNKNOWN",
+                    "target": COMPLIANCE_POLICY["licensing_guide_file"],
+                    "message": f"Unable to read licensing guide: {exc}",
+                }
+            )
+
+    if not third_party_file:
+        flags.append(
+            {
+                "code": "LIC_MISSING_NOTICE",
+                "target": COMPLIANCE_POLICY["third_party_notice_file"],
+                "message": "Missing third-party notices file",
+            }
+        )
+
+    audit_date = None
+    audit_age_days = None
+    audit_issue_count = None
+    audit_skipped = False
+    if audit_json:
+        try:
+            audit_payload = json.loads(audit_json.read_text(encoding="utf-8"))
+            raw_date = (audit_payload.get("summary") or {}).get("audit_date")
+            if raw_date:
+                audit_date = datetime.strptime(raw_date, "%Y-%m-%d").date().isoformat()
+                audit_age_days = (now.date() - datetime.strptime(raw_date, "%Y-%m-%d").date()).days
+            issues = audit_payload.get("issues") or []
+            audit_issue_count = len(issues)
+            if issues:
+                flags.append(
+                    {
+                        "code": "LIC_DISALLOWED",
+                        "target": "FONT_LICENSE_AUDIT.json",
+                        "message": f"License audit reported {len(issues)} issue(s)",
+                    }
+                )
+        except Exception as exc:
+            flags.append(
+                {
+                    "code": "LIC_UNKNOWN",
+                    "target": "FONT_LICENSE_AUDIT.json",
+                    "message": f"Unable to parse license audit JSON: {exc}",
+                }
+            )
+    else:
+        flags.append(
+            {
+                "code": "LIC_AUDIT_STALE",
+                "target": "FONT_LICENSE_AUDIT.json",
+                "message": "Missing license audit JSON artifact",
+            }
+        )
+
+    if audit_age_days is not None and audit_age_days > max_age_days:
+        flags.append(
+            {
+                "code": "LIC_AUDIT_STALE",
+                "target": "FONT_LICENSE_AUDIT.json",
+                "message": f"License audit is {audit_age_days} days old (max {max_age_days})",
+            }
+        )
+
+    if third_party_file:
+        required_entries = [
+            "bootstrap.min.css",
+            "bootstrap-icons.svg",
+            "NotoSans-Regular.ttf",
+            "NotoSansMath-Regular.ttf",
+            "NotoSansSymbols-Regular.ttf",
+            "NotoSansSymbols2-Regular.ttf",
+        ]
+        try:
+            notice_text = third_party_file.read_text(encoding="utf-8")
+            missing_entries = [entry for entry in required_entries if entry not in notice_text]
+            if missing_entries:
+                flags.append(
+                    {
+                        "code": "LIC_ASSET_UNMAPPED",
+                        "target": "THIRD_PARTY_LICENSES.md",
+                        "message": "Bundled asset(s) missing from third-party notice",
+                        "missing": missing_entries,
+                    }
+                )
+        except Exception as exc:
+            flags.append(
+                {
+                    "code": "LIC_UNKNOWN",
+                    "target": "THIRD_PARTY_LICENSES.md",
+                    "message": f"Unable to read third-party notices: {exc}",
+                }
+            )
+
+    report = {
+        "schema": "fullbleed.compliance.v1",
+        "ok": len(flags) == 0,
+        "policy": COMPLIANCE_POLICY,
+        "license": {
+            "spdx_expression": LICENSE_SPDX_EXPRESSION,
+            "name": "MIT License",
+        },
+        "runtime": {
+            "cli_version": _get_version(),
+            "python": sys.version.split()[0],
+            "platform": sys.platform,
+            "cwd": str(Path.cwd()),
+            "checked_at_utc": now.isoformat(),
+        },
+        "files": {
+            "license": str(license_file) if license_file else None,
+            "copyright": str(copyright_file) if copyright_file else None,
+            "third_party_notice": str(third_party_file) if third_party_file else None,
+            "licensing_guide": str(licensing_guide_file) if licensing_guide_file else None,
+            "license_audit_md": str(audit_md) if audit_md else None,
+            "license_audit_json": str(audit_json) if audit_json else None,
+        },
+        "audit": {
+            "date": audit_date,
+            "age_days": audit_age_days,
+            "max_age_days": max_age_days,
+            "issues_count": audit_issue_count,
+            "skipped": audit_skipped,
+        },
+        "advisories": advisories,
+        "flags": flags,
+    }
+
+    if args.json:
+        sys.stdout.write(_json_dumps(report) + "\n")
+    else:
+        sys.stdout.write(f"schema: {report['schema']}\n")
+        sys.stdout.write(f"ok: {report['ok']}\n")
+        sys.stdout.write(f"package_license: {COMPLIANCE_POLICY['package_license']}\n")
+        for key, value in report["files"].items():
+            sys.stdout.write(f"{key}: {value}\n")
+        if advisories:
+            sys.stdout.write("advisories:\n")
+            for advisory in advisories:
+                sys.stdout.write(f"  - {advisory}\n")
+        if flags:
+            sys.stdout.write("flags:\n")
+            for flag in flags:
+                sys.stdout.write(f"  - {flag['code']}: {flag['message']}\n")
+        else:
+            sys.stdout.write("flags: []\n")
+
+    if getattr(args, "strict", False) and flags:
+        raise SystemExit(3)
+
+
+def _parser_action_contract(action):
+    """Return a JSON-safe description of one argparse action."""
+    if action.option_strings:
+        required = bool(getattr(action, "required", False))
+    else:
+        # argparse changed the internal ``required`` value for ``nargs='*'``
+        # positionals in Python 3.12. Derive the public semantic instead so the
+        # generated contract is identical across every supported interpreter.
+        required = getattr(action, "nargs", None) not in (
+            argparse.OPTIONAL,
+            argparse.ZERO_OR_MORE,
+        )
+    payload = {
+        "dest": action.dest,
+        "required": required,
+    }
+    if action.option_strings:
+        payload["flags"] = list(action.option_strings)
+    else:
+        payload["positional"] = True
+    nargs = getattr(action, "nargs", None)
+    if nargs is not None:
+        payload["nargs"] = nargs
+    choices = getattr(action, "choices", None)
+    if choices is not None and not isinstance(action, argparse._SubParsersAction):
+        payload["choices"] = list(choices)
+    value_type = getattr(action, "type", None)
+    if value_type is not None:
+        payload["value_type"] = getattr(value_type, "__name__", str(value_type))
+    help_text = getattr(action, "help", None)
+    if help_text and help_text is not argparse.SUPPRESS:
+        payload["help"] = help_text
+    return payload
+
+
+def _parser_contract(parser):
+    """Describe a parser and every nested subparser without duplicating CLI data."""
+    payload = {"options": [], "subcommands": {}}
+    for action in parser._actions:
+        if isinstance(action, argparse._HelpAction):
+            continue
+        if isinstance(action, argparse._SubParsersAction):
+            for name, child in action.choices.items():
+                payload["subcommands"][name] = _parser_contract(child)
+            continue
+        payload["options"].append(_parser_action_contract(action))
+    return payload
+
+
+def _runtime_cli_surface():
+    """Return the command surface derived from the actual runtime parser."""
+    return _parser_contract(_build_parser())["subcommands"]
+
+
+def _capabilities_payload(cli_surface=None):
+    """Build the reusable machine-readable runtime capability payload."""
+    build_features = {}
+    build_features_fn = getattr(fullbleed, "build_features", None)
+    if callable(build_features_fn):
+        try:
+            build_features = dict(build_features_fn())
+        except Exception:
+            build_features = {}
+    svg_raster_available = bool(build_features.get("svg_raster", False))
+    pdf_engine = getattr(fullbleed, "PdfEngine", None)
+    compiled_document = getattr(fullbleed, "CompiledDocument", None)
+    compression_modes = list(build_features.get("compiled_flow_compression_modes", []))
+    surface = cli_surface if cli_surface is not None else _runtime_cli_surface()
+    commands = list(surface)
+    payload = {
+        "schema": "fullbleed.capabilities.v1",
+        "commands": commands,
+        "agent_flags": [
+            "--json",
+            "--json-only",
+            "--schema",
+            "--emit-manifest",
+            "--emit-compose-plan",
+            "--emit-image",
+            "--image-dpi",
+            "--no-prompts",
+            "--allow-fallbacks",
+            "--repro-record",
+            "--repro-check",
+        ],
+        "render_watch": {
+            "available": True,
+            "flag": "--watch",
+            "polling": "python_standard_library",
+            "json_output": "newline_delimited_render_results_and_errors",
+            "extra_inputs_flag": "--watch-path",
+            "stdin_supported": False,
+            "stop_exit_code": 130,
+        },
+        "agent_contract": {
+            "available": True,
+            "schema": AGENT_CONTRACT_SCHEMA,
+            "command": ["fullbleed", "agent-contract", "--format", "json"],
+            "manifest_alias": ["fullbleed", "agent-manifest", "--json"],
+            "packaged_resource": "fullbleed/agent_contract.json",
+            "generated_views": {
+                "markdown": ["fullbleed", "agent-contract", "--format", "markdown"],
+                "llms": ["fullbleed", "agent-contract", "--format", "llms"],
+                "packaged_llms_resource": "fullbleed/llms.txt",
+            },
+        },
+        "agent_skill": {
+            "available": True,
+            "format": "SKILL.md",
+            "path_command": ["fullbleed", "agent", "skill-path", "--json"],
+            "export_command": [
+                "fullbleed",
+                "agent",
+                "export-skill",
+                ".agents/skills/fullbleed",
+                "--json",
+            ],
+        },
+        "tool_adapter": {
+            "mcp_stdio": True,
+            "core_entrypoint": "fullbleed mcp",
+            "integration_distribution": "fullbleed-mcp",
+            "integration_entrypoint": "fullbleed-mcp",
+            "protocol_versions": list(MCP_PROTOCOL_VERSIONS),
+            "workspace_confined": True,
+        },
+        "acceptance_suite": {
+            "available": True,
+            "scenario_ids": [scenario["id"] for scenario in AGENT_ACCEPTANCE_SCENARIOS],
+        },
+        "engine": {
+            "compiled_document": bool(pdf_engine and hasattr(pdf_engine, "compile_pdf")),
+            "explicit_table_headers": bool(build_features.get("explicit_table_headers", False)),
+            "embedded_stylesheets": bool(build_features.get("embedded_stylesheets", False)),
+            "logical_table_pagination": bool(build_features.get("logical_table_pagination", False)),
+            "bundled_standard_font_previews": bool(
+                build_features.get("bundled_standard_font_previews", False)
+            ),
+            "compiled_reflow_bindings": bool(
+                build_features.get("compiled_reflow", False)
+                and pdf_engine
+                and compiled_document
+                and hasattr(compiled_document, "render_pdf_reflow_bindings")
+            ),
+            "compiled_flow_compression_modes": compression_modes,
+            "compiled_batch_reports": bool(
+                compiled_document
+                and hasattr(compiled_document, "render_pdf_bindings_with_report")
+                and hasattr(compiled_document, "render_pdf_reflow_bindings_with_report")
+            ),
+            "batch_render": bool(pdf_engine and hasattr(pdf_engine, "render_pdf_batch")),
+            "batch_render_parallel": bool(
+                pdf_engine and hasattr(pdf_engine, "render_pdf_batch_parallel")
+            ),
+            "glyph_report": bool(
+                pdf_engine and hasattr(pdf_engine, "render_pdf_with_glyph_report")
+            ),
+            "page_data": bool(
+                pdf_engine and hasattr(pdf_engine, "render_pdf_with_page_data")
+            ),
+            "image_pages": bool(pdf_engine and hasattr(pdf_engine, "render_image_pages")),
+            "pdf_inspect": hasattr(fullbleed, "inspect_pdf"),
+            "template_catalog_inspect": hasattr(fullbleed, "inspect_template_catalog"),
+            "template_compose_planner": bool(
+                pdf_engine and hasattr(pdf_engine, "plan_template_compose")
+            ),
+        },
+        "svg": {
+            "document_input": {
+                "html_file_accepts_svg": True,
+                "html_str_accepts_svg_markup": True,
+                "inline_svg_in_html": True,
+            },
+            "asset_bundle": {
+                "kind": "svg",
+                "auto_kind_from_extension": True,
+            },
+            "engine_flags": {
+                "svg_form_xobjects": True,
+                "svg_raster_fallback": svg_raster_available,
+            },
+            "build_features": {
+                "svg_raster": svg_raster_available,
+            },
+            "feature_matrix": {
+                "native_vector": [
+                    "standalone SVG document input",
+                    "inline SVG in HTML",
+                    "SVG asset references",
+                    "basic shapes and paths",
+                    "stylesheets and style attributes",
+                    "gradients",
+                    "use references by ID",
+                    "SVG text and tspan runs",
+                    "symbols with use viewports",
+                    "affine-transformed embedded images",
+                ],
+                "raster_fallback_required": [
+                    "filters",
+                    "masks",
+                    "patterns",
+                    "markers",
+                    "mask/filter attributes",
+                ],
+                "unsupported_or_known_loss": [
+                    "foreignObject content",
+                    "PDF-native SVG filter effects",
+                    "SVG url() clip sources",
+                    "browser-complete SVG layout, scripting, and animation",
+                ],
+            },
+        },
+        "charts": {
+            "engine_owned": True,
+            "rust_api": "fullbleed::compile_chart",
+            "document_context_rust_api": "fullbleed::FullBleed::compile_chart_document",
+            "document_context_input": "fullbleed::PreparedChart placeholders in resolved HTML plus CSS",
+            "typography": {
+                "css_properties": ["font-family", "font-size", "font-weight", "font-style"],
+                "font_metrics": "registered project fonts; explicit estimated-fallback diagnostic otherwise",
+                "legend_layout": "measured word wrapping",
+                "category_labels": "measured sparse labels with exact unsampled marks and table",
+                "insufficient_space": "diagnostic placeholder and retained semantic table",
+            },
+            "input_contract": "resolved_chart_spec",
+            "kinds": ["bar", "line", "sparkline"],
+            "outputs": ["native_inline_svg", "semantic_html_table"],
+            "generated_svg_persisted": False,
+            "native_svg_primitives": ["path", "rect", "line", "circle", "text"],
+            "browser_runtime_required": False,
+        },
+        "profiles": list(PROFILES.keys()),
+        "pdf_profiles": PDF_PROFILE_CHOICES,
+        "pdf_profile_catalog": PDF_PROFILE_CATALOG,
+        **_print_capabilities(),
+        "pdf_profile_aliases": {
+            key: value for key, value in sorted(PDF_PROFILE_ALIASES.items()) if value
+        },
+        "pdf_profiles_requiring_output_intent": sorted(
+            PDF_PROFILES_REQUIRING_OUTPUT_INTENT
+        ),
+        "fail_on": FAIL_ON_CHOICES,
+        "fallback_policy_flags": ["--allow-fallbacks"],
+        "budget_flags": ["--budget-max-pages", "--budget-max-bytes", "--budget-max-ms"],
+        "compliance": COMPLIANCE_POLICY,
+    }
+    return payload
+
+
+def _print_capabilities():
+    """Shared print facts for doctor, capabilities, and the agent contract."""
+    return {
+        "pdf_versions": ["1.6", "1.7", "2.0"],
+        "print_identity": {
+            "profiles": [p["name"] for p in PDF_PROFILE_CATALOG if p["requires_document_timestamp"]],
+            "timestamp_inputs": ["YYYY-MM-DDTHH:MM:SSZ", "current", "source-date-epoch"],
+            "timestamp_resolution": "once_at_engine_creation",
+            "document_id": "content_derived_sha256_uuid_v8",
+            "instance_id": "content_and_timestamp_derived_sha256_uuid_v8",
+            "internal_verification": "parsed_writer_contract_not_independent_iso_validation",
+        },
+        "pdf_vt": {
+            "profile": "pdfvt1",
+            "job_argument": "pdf_vt_job",
+            "hierarchy": ["Job", "Record", "Document"],
+            "record_level": 1,
+            "default_grouping": "one_record_and_document_per_input_copy_or_binding_row",
+            "dpm_vocabulary": "private_Fullbleed",
+            "reuse_scope": "File",
+            "encapsulation": "opaque_images_with_explicit_rendering_intent_only",
+            "dedicated_validator_required_for_conformance_claim": True,
+        },
+    }
+
+
+def cmd_capabilities(args):
+    """CLI handler for machine-readable capability inspection."""
+    payload = _capabilities_payload()
+    if args.json:
+        sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def _agent_contract_payload():
+    """Build the canonical contract from this installed runtime."""
+    cli_surface = _runtime_cli_surface()
+    capabilities = _capabilities_payload(cli_surface=cli_surface)
+    return build_agent_contract(
+        version=_get_version(),
+        capabilities=capabilities,
+        schema_registry=SCHEMA_REGISTRY,
+        schema_definitions=SCHEMA_DEFS,
+        profiles=PROFILES,
+        cli_surface=cli_surface,
+    )
+
+
+def cmd_agent_contract(args):
+    """Emit the installed runtime's canonical agent contract."""
+    payload = _agent_contract_payload()
+    if args.format == "markdown":
+        sys.stdout.write(render_cli_contract_markdown(payload))
+        return
+    if args.format == "llms":
+        sys.stdout.write(render_llms_txt(payload))
+        return
+    if getattr(args, "pretty", False):
+        sys.stdout.write(
+            json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+        )
+        return
+    sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def cmd_mcp(args):
+    """Run the first-party MCP stdio adapter."""
+    from .mcp import serve_stdio
+
+    serve_stdio(Path(args.root))
+
+
+def cmd_inspect_pdf(args):
+    """Inspect PDF metadata and composition compatibility via Rust inspector."""
+    path = Path(args.path)
+    if not path.exists():
+        payload = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": "PDF_NOT_FOUND",
+            "message": f"PDF not found: {path}",
+        }
+        if getattr(args, "json", False):
+            sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        else:
+            sys.stderr.write(f"[error] {payload['code']}: {payload['message']}\n")
+        raise SystemExit(2)
+
+    try:
+        report = fullbleed.inspect_pdf(str(path))
+    except Exception as exc:
+        code = "PDF_INSPECT_FAILED"
+        message = str(exc)
+        if ": " in message:
+            candidate_code, rest = message.split(": ", 1)
+            if candidate_code.startswith("PDF_") and candidate_code.upper() == candidate_code:
+                code = candidate_code
+                message = rest
+        payload = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": code,
+            "message": message,
+        }
+        if getattr(args, "json", False):
+            sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        else:
+            sys.stderr.write(f"[error] {payload['code']}: {payload['message']}\n")
+        raise SystemExit(2)
+
+    payload = {
+        "schema": "fullbleed.inspect_pdf.v1",
+        "ok": True,
+        "path": str(path),
+        "pdf_version": report.get("pdf_version"),
+        "page_count": report.get("page_count"),
+        "encrypted": report.get("encrypted"),
+        "file_size_bytes": report.get("file_size_bytes"),
+        "warnings": report.get("warnings", []),
+        "profile": report.get("profile", {}),
+        "composition": report.get("composition", {"supported": None, "issues": []}),
+    }
+    if getattr(args, "json", False):
+        sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    else:
+        sys.stdout.write(
+            "[ok] "
+            f"{path} "
+            f"(version={payload['pdf_version']}, pages={payload['page_count']}, "
+            f"encrypted={payload['encrypted']}, composition_supported={payload['composition'].get('supported')})\n"
+        )
+
+
+def cmd_inspect_templates(args):
+    """Inspect template catalog PDFs and composition compatibility."""
+    try:
+        templates = _load_template_catalog_entries(args.templates)
+    except Exception as exc:
+        payload = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": "TEMPLATE_CATALOG_INVALID",
+            "message": str(exc),
+        }
+        if getattr(args, "json", False):
+            sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        else:
+            sys.stderr.write(f"[error] {payload['code']}: {payload['message']}\n")
+        raise SystemExit(2)
+
+    try:
+        report = _inspect_template_catalog(templates)
+    except Exception as exc:
+        payload = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": "TEMPLATE_INSPECT_FAILED",
+            "message": str(exc),
+        }
+        if getattr(args, "json", False):
+            sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        else:
+            sys.stderr.write(f"[error] {payload['code']}: {payload['message']}\n")
+        raise SystemExit(2)
+
+    payload = {
+        "schema": "fullbleed.inspect_templates.v1",
+        "ok": True,
+        "templates": report.get("templates", []),
+        "metrics": report.get("metrics", {}),
+    }
+    if getattr(args, "json", False):
+        sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    else:
+        metrics = payload["metrics"] or {}
+        sys.stdout.write(
+            "[ok] template catalog inspected "
+            f"(templates={metrics.get('templates', len(payload['templates']))}, "
+            f"compatible={metrics.get('compatible_templates')})\n"
+        )
+        for item in payload["templates"]:
+            composition = item.get("composition") or {}
+            sys.stdout.write(
+                f"- {item.get('template_id')}: pages={item.get('page_count')} "
+                f"composition_supported={composition.get('supported')}\n"
+            )
+
+
+def cmd_inspect_pdf_batch(args):
+    """Inspect a batch of PDF files with per-item success/failure."""
+    paths = list(args.paths or [])
+    list_path = getattr(args, "list", None)
+    if list_path:
+        for line in Path(list_path).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            paths.append(line)
+    if not paths:
+        raise ValueError("inspect pdf-batch requires at least one path or --list file")
+
+    items = []
+    failures = 0
+    for raw in paths:
+        path = Path(raw)
+        item = {"path": str(path)}
+        if not path.exists():
+            failures += 1
+            item.update(
+                {
+                    "ok": False,
+                    "code": "PDF_NOT_FOUND",
+                    "message": f"PDF not found: {path}",
+                }
+            )
+            items.append(item)
+            continue
+        try:
+            report = fullbleed.inspect_pdf(str(path))
+            item.update(
+                {
+                    "ok": True,
+                    "pdf_version": report.get("pdf_version"),
+                    "page_count": report.get("page_count"),
+                    "encrypted": report.get("encrypted"),
+                    "file_size_bytes": report.get("file_size_bytes"),
+                    "warnings": report.get("warnings", []),
+                    "profile": report.get("profile", {}),
+                    "composition": report.get("composition", {"supported": None, "issues": []}),
+                }
+            )
+        except Exception as exc:
+            failures += 1
+            code = "PDF_INSPECT_FAILED"
+            message = str(exc)
+            if ": " in message:
+                candidate_code, rest = message.split(": ", 1)
+                if candidate_code.startswith("PDF_") and candidate_code.upper() == candidate_code:
+                    code = candidate_code
+                    message = rest
+            item.update({"ok": False, "code": code, "message": message})
+        items.append(item)
+
+    payload = {
+        "schema": "fullbleed.inspect_pdf_batch.v1",
+        "ok": failures == 0,
+        "items": items,
+        "metrics": {
+            "total": len(items),
+            "ok": len(items) - failures,
+            "failed": failures,
+        },
+    }
+    if getattr(args, "json", False):
+        sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    else:
+        sys.stdout.write(
+            "[ok] pdf batch inspected "
+            f"(total={payload['metrics']['total']}, failed={payload['metrics']['failed']})\n"
+        )
+        for item in items:
+            if item.get("ok"):
+                composition = item.get("composition") or {}
+                sys.stdout.write(
+                    f"- {item['path']}: pages={item.get('page_count')} "
+                    f"composition_supported={composition.get('supported')}\n"
+                )
+            else:
+                sys.stdout.write(
+                    f"- {item['path']}: error={item.get('code')} {item.get('message')}\n"
+                )
+    if failures:
+        raise SystemExit(2)
+
+
+def cmd_run(args):
+    """Run a Python module's engine factory to render a PDF.
+    
+    Usage:
+      fullbleed run module:engine_name --html input.html --out output.pdf
+      fullbleed run module:engine_name --html-str "<p>hi</p>" --out output.pdf
+    
+    The module should export a function (engine_name) that returns a PdfEngine.
+    Alternatively, the module can export a variable (engine_name) that is a PdfEngine.
+    """
+    import importlib
+    import importlib.util
+    
+    entrypoint = args.entrypoint
+    if ":" not in entrypoint:
+        raise ValueError(
+            f"Invalid entrypoint format: {entrypoint}. Expected 'module:engine_name' or 'path/to/file.py:engine_name'"
+        )
+    
+    module_path, engine_name = entrypoint.rsplit(":", 1)
+
+    license_warning_emitted = False
+    
+    # Check if it's a file path or a module name
+    if module_path.endswith(".py") or os.path.isfile(module_path):
+        # Load from file path
+        spec = importlib.util.spec_from_file_location("_fb_runner_module", module_path)
+        if spec is None or spec.loader is None:
+            raise ValueError(f"Could not load module from: {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["_fb_runner_module"] = module
+        spec.loader.exec_module(module)
+    else:
+        # Import as a module
+        try:
+            module = importlib.import_module(module_path)
+        except ModuleNotFoundError as e:
+            raise ValueError(f"Could not import module: {module_path}. Error: {e}")
+    
+    # Get the engine factory or engine instance
+    if not hasattr(module, engine_name):
+        available = [n for n in dir(module) if not n.startswith("_")]
+        raise ValueError(
+            f"Module '{module_path}' has no attribute '{engine_name}'. Available: {', '.join(available[:10])}"
+        )
+    
+    engine_or_factory = getattr(module, engine_name)
+    
+    # If it's callable, call it to get the engine
+    if callable(engine_or_factory):
+        engine = engine_or_factory()
+    else:
+        engine = engine_or_factory
+    
+    # Collect HTML and CSS
+    html = _collect_html(args)
+    css = _collect_css(args)
+    
+    # Render
+    out_path = args.out
+    if out_path == "-":
+        pdf_bytes = engine.render_pdf(html, css)
+        sys.stdout.buffer.write(pdf_bytes)
+        bytes_written = len(pdf_bytes)
+    else:
+        bytes_written = engine.render_pdf_to_file(html, css, out_path)
+    bytes_written = _normalize_bytes_written(bytes_written)
+    
+    outputs = {"pdf": None if out_path == "-" else out_path}
+    
+    if getattr(args, "json", False):
+        result = {
+            "schema": "fullbleed.run_result.v1",
+            "ok": True,
+            "entrypoint": entrypoint,
+            "bytes_written": bytes_written,
+            "license_warning_emitted": license_warning_emitted,
+            "outputs": outputs,
+        }
+        sys.stdout.write(_json_dumps(result) + "\n")
+    else:
+        if out_path != "-":
+            sys.stdout.write(f"[ok] {entrypoint} -> {out_path} ({bytes_written} bytes)\n")
+
+
+def _add_bool_flag(p, name, default):
+    """Register paired boolean flags (`--x` and `--no-x`) on a parser."""
+    dest = name.replace("-", "_")
+    p.add_argument(f"--{name}", dest=dest, action="store_true")
+    p.add_argument(f"--no-{name}", dest=dest, action="store_false")
+    p.set_defaults(**{dest: default})
+
+
+def _add_common_flags(p):
+    """Register common render pipeline flags shared by render/verify/plan."""
+    p.add_argument(
+        "--html",
+        help="Path to HTML input. Use a .svg file to render a standalone SVG document.",
+    )
+    p.add_argument(
+        "--html-str",
+        help="Inline HTML or SVG markup string.",
+    )
+    p.add_argument("--css", action="append")
+    p.add_argument("--css-str", action="append")
+    p.add_argument("--page-size")
+    p.add_argument("--page-width")
+    p.add_argument("--page-height")
+    p.add_argument("--margin")
+    p.add_argument("--page-margins")
+    _add_bool_flag(p, "reuse-xobjects", True)
+    _add_bool_flag(p, "svg-form-xobjects", False)
+    _add_bool_flag(p, "svg-raster-fallback", False)
+    _add_bool_flag(p, "unicode-support", True)
+    _add_bool_flag(p, "shape-text", True)
+    _add_bool_flag(p, "unicode-metrics", True)
+    p.add_argument("--pdf-version")
+    p.add_argument(
+        "--pdf-profile",
+        help=(
+            "PDF export profile: none, pdfa1a, pdfa1b, pdfa2a, pdfa2b, "
+            "pdfa2u, pdfa3a, pdfa3b, pdfa3u, pdfa4, pdfa4e, pdfa4f, pdfx4, "
+            "pdfua1, pdfua2, pdfvt1, wtpdf1r, wtpdf1a, tagged "
+            "(aliases: a, ua, vt, wt1r, wt1a, pdf/a, pdf/ua, pdf/vt)"
+        ),
+    )
+    p.add_argument("--output-intent-icc")
+    p.add_argument("--output-intent-identifier")
+    p.add_argument("--output-intent-info")
+    p.add_argument("--output-intent-components", type=int)
+    p.add_argument("--color-space")
+    p.add_argument("--document-lang")
+    p.add_argument("--document-title")
+    p.add_argument("--pdf-vt-job", help="PDF/VT job/record/document metadata as a JSON object or file")
+    timestamp = p.add_mutually_exclusive_group()
+    timestamp.add_argument("--timestamp", dest="document_timestamp",
+                           help="Explicit PDF write date: YYYY-MM-DDTHH:MM:SSZ (UTC) or current; required for PDF/X and PDF/VT")
+    timestamp.add_argument("--timestamp-source", choices=["SOURCE_DATE_EPOCH"],
+                           help="Resolve a reproducible PDF write date from SOURCE_DATE_EPOCH")
+    p.add_argument("--header-each")
+    p.add_argument("--header-html-each")
+    p.add_argument("--footer-each")
+    p.add_argument("--footer-html-each")
+    p.add_argument("--watermark-text")
+    p.add_argument("--watermark-html")
+    p.add_argument("--watermark-image")
+    p.add_argument(
+        "--watermark-layer",
+        default="overlay",
+        choices=["background", "overlay", "underlay"],
+        help="Watermark placement layer (legacy 'underlay' alias maps to 'background')",
+    )
+    p.add_argument(
+        "--watermark-semantics",
+        default="artifact",
+        choices=["visual", "artifact", "ocg"],
+    )
+    p.add_argument("--watermark-opacity", type=float, default=0.15)
+    p.add_argument("--watermark-rotation", type=float, default=0.0)
+    p.add_argument("--jit-mode")
+    p.add_argument("--emit-jit")
+    p.add_argument("--emit-perf")
+    p.add_argument("--emit-glyph-report")
+    p.add_argument("--emit-page-data")
+    p.add_argument(
+        "--emit-compose-plan",
+        help="Write resolved template compose plan JSON (requires --templates and --template-binding)",
+    )
+    p.add_argument(
+        "--emit-image",
+        "--emit-images-dir",
+        dest="emit_image",
+        help="Write per-page PNG artifacts to this directory",
+    )
+    p.add_argument(
+        "--image-dpi",
+        "--emit-images-dpi",
+        dest="image_dpi",
+        type=int,
+        default=150,
+        help="DPI used for PNG image artifacts (default: 150)",
+    )
+    p.add_argument("--emit-manifest",
+                   help="Write compiler input manifest derived from CLI flags")
+    p.add_argument(
+        "--template-binding",
+        help="Template binding spec JSON (path or inline). Enables per-page template-id resolution.",
+    )
+    p.add_argument(
+        "--templates",
+        help="Template catalog for auto-compose (directory, JSON path, or inline JSON). "
+             "When set on render, output is finalized through Rust compose.",
+    )
+    p.add_argument(
+        "--template-dx",
+        type=float,
+        default=0.0,
+        help="Optional overlay X translation (points) applied during auto-compose render mode.",
+    )
+    p.add_argument(
+        "--template-dy",
+        type=float,
+        default=0.0,
+        help="Optional overlay Y translation (points) applied during auto-compose render mode.",
+    )
+    p.add_argument(
+        "--compose-annotation-mode",
+        choices=["link_only", "none", "carry_widgets"],
+        default="link_only",
+        help="Template annotation carryover mode for compose output: "
+             "link_only (default), none, or carry_widgets.",
+    )
+    p.add_argument(
+        "--asset",
+        action="append",
+        help=("Repeatable local asset path or bundled reference: "
+              + ", ".join(f"@{name}" for name in BUILTIN_ASSETS)
+              + ". File extensions determine asset kinds."),
+    )
+    p.add_argument(
+        "--asset-kind",
+        action="append",
+        help="Asset kind override: css, font, svg, image, pdf.",
+    )
+    p.add_argument("--asset-name", action="append")
+    p.add_argument("--asset-trusted", action="store_true")
+    p.add_argument("--allow-remote-assets", action="store_true")
+    p.add_argument("--verbose-assets", action="store_true")
+    # Profile and fail-on flags
+    p.add_argument("--profile", choices=["dev", "preflight", "prod"],
+                   help="Apply profile presets (dev: fast/verbose, preflight: validation, prod: optimized)")
+    p.add_argument(
+        "--allow-fallbacks",
+        action="store_true",
+        help="Allow font/glyph fallback signals without failing fail-on checks",
+    )
+    p.add_argument("--fail-on", action="append", choices=FAIL_ON_CHOICES,
+                   help="Exit non-zero on condition (repeatable): overflow, missing-glyphs, font-subst, budget")
+    p.add_argument("--deterministic-hash",
+                   help="Write deterministic SHA256 to this path (PDF-only, or PDF+ordered image hashes when --emit-image is used)")
+    p.add_argument("--budget-max-pages", type=int,
+                   help="Maximum allowed page count when used with --fail-on budget")
+    p.add_argument("--budget-max-bytes", type=int,
+                   help="Maximum allowed PDF size in bytes when used with --fail-on budget")
+    p.add_argument("--budget-max-ms", type=float,
+                   help="Maximum allowed render timing in milliseconds when used with --fail-on budget")
+    p.add_argument("--repro-record",
+                   help="Write reproducibility record JSON to this path")
+    p.add_argument("--repro-check",
+                   help="Check current render against an existing reproducibility record JSON")
+
+
+def _build_parser():
+    """Construct and return the top-level CLI parser."""
+    parser = argparse.ArgumentParser(prog="fullbleed")
+    parser.add_argument("--config")
+    parser.add_argument("--log-level", choices=["error", "warn", "info", "debug"], default="info")
+    parser.add_argument("--no-color", action="store_true")
+    parser.add_argument("--version", action="version", version="fullbleed-cli " + _get_version())
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--json-only", action="store_true",
+                        help="Emit JSON only (implies --json and --no-prompts)")
+    parser.add_argument("--no-prompts", action="store_true",
+                        help="Disable interactive prompts")
+    parser.add_argument("--schema", action="store_true",
+                        help="Print JSON schema for the requested command and exit")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_render = sub.add_parser("render", help="Render HTML/CSS to PDF (optionally emit PNG pages)")
+    _add_common_flags(p_render)
+    p_render.add_argument("--out", required=True)
+    p_render.add_argument("--watch", action="store_true",
+                         help="Rebuild after local input changes until Ctrl-C; JSON results stream one per line")
+    p_render.add_argument("--watch-path", action="append",
+                         help="Additional file or recursive directory to watch (repeatable; requires --watch)")
+    p_render.add_argument("--watch-interval", type=float, default=0.5,
+                         help="Seconds between watch polls (default: 0.5)")
+    p_render.add_argument("--watch-debounce", type=float, default=0.2,
+                         help="Seconds inputs must remain unchanged before rebuilding (default: 0.2)")
+    p_render.set_defaults(func=cmd_render)
+
+    p_verify = sub.add_parser("verify", help="Validation render path with optional PDF/PNG artifacts")
+    _add_common_flags(p_verify)
+    p_verify.add_argument("--emit-pdf")
+    p_verify.set_defaults(func=cmd_verify)
+
+    p_plan = sub.add_parser("plan")
+    _add_common_flags(p_plan)
+    p_plan.set_defaults(func=cmd_plan)
+
+    p_perf = sub.add_parser("debug-perf")
+    p_perf.add_argument("--perf-log", required=True)
+    p_perf.add_argument("--top", type=int, default=20)
+    p_perf.add_argument("--json", action="store_true")
+    p_perf.set_defaults(func=cmd_debug_perf)
+
+    p_jit = sub.add_parser("debug-jit")
+    p_jit.add_argument("--jit-log", required=True)
+    p_jit.add_argument("--errors-only", action="store_true")
+    p_jit.add_argument("--json", action="store_true")
+    p_jit.set_defaults(func=cmd_debug_jit)
+
+    p_doc = sub.add_parser("doctor")
+    p_doc.add_argument("--strict", action="store_true")
+    p_doc.add_argument("--json", action="store_true")
+    p_doc.set_defaults(func=cmd_doctor)
+
+    p_cap = sub.add_parser("capabilities", help="Machine-readable CLI and engine capability map")
+    p_cap.add_argument("--json", action="store_true")
+    p_cap.set_defaults(func=cmd_capabilities)
+
+    p_contract = sub.add_parser(
+        "agent-contract",
+        help="Emit the canonical installed agent contract",
+    )
+    p_contract.add_argument(
+        "--format",
+        choices=["json", "markdown", "llms"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    p_contract.add_argument("--pretty", action="store_true", help="Indent JSON output")
+    p_contract.add_argument("--json", action="store_true")
+    p_contract.set_defaults(func=cmd_agent_contract)
+
+    p_manifest = sub.add_parser(
+        "agent-manifest",
+        help="Alias for the canonical semantic agent contract",
+    )
+    p_manifest.add_argument("--json", action="store_true")
+    p_manifest.add_argument("--pretty", action="store_true", help="Indent JSON output")
+    p_manifest.set_defaults(func=cmd_agent_contract, format="json")
+
+    from . import agent as agent_module
+
+    agent_module.add_cli_parser(sub)
+
+    p_mcp = sub.add_parser(
+        "mcp",
+        help="Run the workspace-confined MCP stdio tool adapter",
+    )
+    p_mcp.add_argument(
+        "--root",
+        default=".",
+        help="Workspace root that confines adapter file access (default: current directory)",
+    )
+    p_mcp.set_defaults(func=cmd_mcp)
+
+    from . import agent_acceptance as agent_acceptance_module
+
+    agent_acceptance_module.add_cli_parser(sub)
+
+    p_compliance = sub.add_parser("compliance", help="License/compliance report for legal and procurement review")
+    p_compliance.add_argument("--json", action="store_true")
+    p_compliance.add_argument("--strict", action="store_true",
+                              help="Exit non-zero when any compliance flag is present")
+    p_compliance.add_argument("--max-audit-age-days", type=int, default=180,
+                              help="Maximum allowed age for license audit artifacts")
+    p_compliance.set_defaults(func=cmd_compliance)
+
+    # ===== Asset management commands =====
+    from . import assets as assets_module
+    from . import cache as cache_module
+    
+    p_assets = sub.add_parser("assets", help="Manage asset packages")
+    assets_sub = p_assets.add_subparsers(dest="assets_command", required=True)
+    
+    p_assets_list = assets_sub.add_parser("list", help="List installed packages")
+    p_assets_list.add_argument("--available", "-a", action="store_true", help="Show available remote packages")
+    p_assets_list.add_argument("--json", action="store_true")
+    p_assets_list.set_defaults(func=assets_module.cmd_assets_list)
+    
+    p_assets_info = assets_sub.add_parser("info", help="Show package details")
+    p_assets_info.add_argument("package", help="Package name; bundled: " + ", ".join(BUILTIN_ASSETS))
+    p_assets_info.add_argument("--json", action="store_true")
+    p_assets_info.set_defaults(func=assets_module.cmd_assets_info)
+    
+    p_assets_install = assets_sub.add_parser("install", help="Install a package")
+    p_assets_install.add_argument("package", help="Package reference; bundled: " + ", ".join(BUILTIN_ASSETS))
+    p_assets_install.add_argument("--vendor", help="Install to custom vendor directory")
+    p_assets_install.add_argument("--global", "-g", dest="global_", action="store_true", 
+                                   help="Install to global cache instead of ./vendor/")
+    p_assets_install.add_argument("--json", action="store_true")
+    p_assets_install.set_defaults(func=assets_module.cmd_assets_install)
+    
+    p_assets_verify = assets_sub.add_parser("verify", help="Verify package integrity")
+    p_assets_verify.add_argument("package", help="Package name")
+    p_assets_verify.add_argument(
+        "--lock",
+        nargs="?",
+        const="assets.lock.json",
+        help="Validate package against lock file (default: assets.lock.json)",
+    )
+    p_assets_verify.add_argument("--strict", action="store_true", help="Exit non-zero on lock mismatch")
+    p_assets_verify.add_argument("--json", action="store_true")
+    p_assets_verify.set_defaults(func=assets_module.cmd_assets_verify)
+    
+    p_assets_lock = assets_sub.add_parser("lock", help="Create/update assets.lock.json")
+    p_assets_lock.add_argument("--add", action="append", help="Add package to lock file")
+    p_assets_lock.add_argument("--output", default="assets.lock.json", help="Output path")
+    p_assets_lock.add_argument("--json", action="store_true")
+    p_assets_lock.set_defaults(func=assets_module.cmd_assets_lock)
+    
+    # ===== Cache management commands =====
+    p_cache = sub.add_parser("cache", help="Manage asset cache")
+    cache_sub = p_cache.add_subparsers(dest="cache_command", required=True)
+    
+    p_cache_dir = cache_sub.add_parser("dir", help="Print cache directory path")
+    p_cache_dir.add_argument("--json", action="store_true")
+    p_cache_dir.set_defaults(func=cache_module.cmd_cache_dir)
+    
+    p_cache_prune = cache_sub.add_parser("prune", help="Remove old cached packages")
+    p_cache_prune.add_argument("--max-age-days", type=int, default=90, help="Max age in days")
+    p_cache_prune.add_argument("--dry-run", action="store_true", help="Show what would be removed")
+    p_cache_prune.add_argument("--json", action="store_true")
+    p_cache_prune.set_defaults(func=cache_module.cmd_cache_prune)
+
+    # ===== Finalize commands (template composition) =====
+    from . import finalize as finalize_module
+
+    p_finalize = sub.add_parser("finalize", help="Finalize template composition workflows")
+    finalize_sub = p_finalize.add_subparsers(dest="finalize_command", required=True)
+
+    p_finalize_stamp = finalize_sub.add_parser("stamp", help="Page-for-page template stamping")
+    p_finalize_stamp.add_argument("--template", required=True, help="Template PDF path")
+    p_finalize_stamp.add_argument("--overlay", required=True, help="Overlay PDF path")
+    p_finalize_stamp.add_argument("--out", required=True, help="Output PDF path")
+    p_finalize_stamp.add_argument("--dx", type=float, default=0.0, help="X translation in points for overlay placement")
+    p_finalize_stamp.add_argument("--dy", type=float, default=0.0, help="Y translation in points for overlay placement")
+    p_finalize_stamp.add_argument(
+        "--page-map",
+        help="Optional JSON path/string mapping template/overlay page indices",
+    )
+    p_finalize_stamp.add_argument("--json", action="store_true")
+    p_finalize_stamp.set_defaults(func=finalize_module.cmd_finalize_stamp)
+
+    p_finalize_compose = finalize_sub.add_parser("compose", help="Plan-driven template composition")
+    p_finalize_compose.add_argument("--templates", required=True, help="Template root directory or manifest location")
+    p_finalize_compose.add_argument("--plan", required=True, help="PagePlan JSON path")
+    p_finalize_compose.add_argument("--overlay", required=True, help="Overlay PDF path")
+    p_finalize_compose.add_argument("--out", required=True, help="Output PDF path")
+    p_finalize_compose.add_argument(
+        "--compose-annotation-mode",
+        choices=["link_only", "none", "carry_widgets"],
+        default="link_only",
+        help="Template annotation carryover mode: link_only (default), none, or carry_widgets.",
+    )
+    p_finalize_compose.add_argument(
+        "--experimental-xobject-reuse",
+        action="store_true",
+        help="Enable experimental XObject reuse implementation",
+    )
+    p_finalize_compose.add_argument("--json", action="store_true")
+    p_finalize_compose.set_defaults(func=finalize_module.cmd_finalize_compose)
+
+    # ===== Inspect commands =====
+    p_inspect = sub.add_parser("inspect", help="Inspect document metadata and compatibility")
+    inspect_sub = p_inspect.add_subparsers(dest="inspect_command", required=True)
+
+    p_inspect_pdf = inspect_sub.add_parser("pdf", help="Inspect a PDF file")
+    p_inspect_pdf.add_argument("path", help="Path to PDF file")
+    p_inspect_pdf.add_argument("--json", action="store_true")
+    p_inspect_pdf.set_defaults(func=cmd_inspect_pdf)
+
+    p_inspect_pdf_batch = inspect_sub.add_parser(
+        "pdf-batch",
+        help="Inspect multiple PDFs",
+    )
+    p_inspect_pdf_batch.add_argument("paths", nargs="*", help="PDF paths")
+    p_inspect_pdf_batch.add_argument(
+        "--list",
+        help="Newline-delimited file with PDF paths (ignores blank lines and # comments)",
+    )
+    p_inspect_pdf_batch.add_argument("--json", action="store_true")
+    p_inspect_pdf_batch.set_defaults(func=cmd_inspect_pdf_batch)
+
+    p_inspect_templates = inspect_sub.add_parser(
+        "templates",
+        help="Inspect template catalog PDFs",
+    )
+    p_inspect_templates.add_argument(
+        "--templates",
+        required=True,
+        help="Template catalog (directory, JSON path, or inline JSON)",
+    )
+    p_inspect_templates.add_argument("--json", action="store_true")
+    p_inspect_templates.set_defaults(func=cmd_inspect_templates)
+
+    # ===== Project scaffolding commands =====
+    from . import scaffold as scaffold_module
+    
+    p_init = sub.add_parser("init", help="Initialize a new fullbleed project")
+    p_init.add_argument("path", nargs="?", default=".", help="Directory to initialize (default: current)")
+    p_init.add_argument("--force", action="store_true", help="Overwrite existing files")
+    p_init.add_argument("--json", action="store_true")
+    p_init.set_defaults(func=scaffold_module.cmd_init)
+    
+    p_new = sub.add_parser("new", help="Create local starter templates or fetch remote templates")
+    new_sub = p_new.add_subparsers(dest="new_command", required=True)
+
+    p_new_local = new_sub.add_parser("local", help="Create from a local starter template")
+    local_template_names = ", ".join(sorted(scaffold_module.TEMPLATES.keys()))
+    p_new_local.add_argument("template", help=f"Template name ({local_template_names})")
+    p_new_local.add_argument("path", nargs="?", default=".", help="Target directory")
+    p_new_local.add_argument("--force", action="store_true", help="Overwrite existing files")
+    p_new_local.add_argument("--json", action="store_true")
+    p_new_local.set_defaults(func=scaffold_module.cmd_new_template)
+
+    # Compatibility aliases for existing usage: `fullbleed new invoice [path]`.
+    for tmpl_name in sorted(scaffold_module.TEMPLATES.keys()):
+        p_alias = new_sub.add_parser(
+            tmpl_name,
+            help=f"(compat) same as `fullbleed new local {tmpl_name}`",
+        )
+        p_alias.add_argument("path", nargs="?", default=".", help="Target directory")
+        p_alias.add_argument("--force", action="store_true", help="Overwrite existing files")
+        p_alias.add_argument("--json", action="store_true")
+        p_alias.set_defaults(func=scaffold_module.cmd_new_template_alias, template=tmpl_name)
+
+    p_new_list = new_sub.add_parser("list", help="List remote templates from registry")
+    p_new_list.add_argument(
+        "--registry",
+        help="Registry manifest URL (defaults to FULLBLEED_TEMPLATE_REGISTRY or builtin URL)",
+    )
+    p_new_list.add_argument("--json", action="store_true")
+    p_new_list.set_defaults(func=scaffold_module.cmd_new_list)
+
+    p_new_search = new_sub.add_parser("search", help="Search remote templates by text and tags")
+    p_new_search.add_argument("query", help="Search query text")
+    p_new_search.add_argument(
+        "--tag",
+        action="append",
+        help="Repeatable tag filter (all supplied tags must match)",
+    )
+    p_new_search.add_argument(
+        "--registry",
+        help="Registry manifest URL (defaults to FULLBLEED_TEMPLATE_REGISTRY or builtin URL)",
+    )
+    p_new_search.add_argument("--json", action="store_true")
+    p_new_search.set_defaults(func=scaffold_module.cmd_new_search)
+
+    p_new_remote = new_sub.add_parser("remote", help="Install a remote template project")
+    p_new_remote.add_argument("template_id", help="Remote template id (find available templates with: fullbleed new list)")
+    p_new_remote.add_argument("path", nargs="?", default=".", help="Target directory")
+    p_new_remote.add_argument(
+        "--version",
+        default="latest",
+        help="Release version (default: latest)",
+    )
+    p_new_remote.add_argument(
+        "--registry",
+        help="Registry manifest URL (defaults to FULLBLEED_TEMPLATE_REGISTRY or builtin URL)",
+    )
+    p_new_remote.add_argument("--dry-run", action="store_true", help="Resolve remote release without downloading")
+    p_new_remote.add_argument("--force", action="store_true", help="Overwrite target directory contents")
+    p_new_remote.add_argument("--json", action="store_true")
+    p_new_remote.set_defaults(func=scaffold_module.cmd_new_remote)
+
+    # ===== Run command =====
+    p_run = sub.add_parser("run", help="Run a Python module's engine factory")
+    p_run.add_argument("entrypoint", help="Module:engine_name (e.g., report:engine or path/to/file.py:create_engine)")
+    p_run.add_argument("--html", help="Path to HTML file or - for stdin")
+    p_run.add_argument("--html-str", help="HTML string (alternative to --html)")
+    p_run.add_argument("--css", action="append", help="Path to CSS file (repeatable)")
+    p_run.add_argument("--css-str", action="append", help="CSS string (repeatable)")
+    p_run.add_argument("--out", required=True, help="Output PDF path or - for stdout")
+    p_run.add_argument("--json", action="store_true")
+    p_run.set_defaults(func=cmd_run)
+
+    return parser
+
+
+def _cli_error_hints(args):
+    """Return stable discovery hints for unexpected command/input failures."""
+    command = getattr(args, "command", None)
+    hints = [
+        "Inspect the installed agent contract before changing tools or assuming an API.",
+        "Use the command schema and structured diagnostics to correct the input, then retry.",
+    ]
+    relevant = {
+        "agent_contract": ["fullbleed", "agent-contract", "--format", "json"],
+        "capabilities": ["fullbleed", "capabilities", "--json"],
+    }
+    if command:
+        relevant["schema"] = ["fullbleed", "--schema", command]
+    return hints, relevant
+
+
+def _execute_command(args):
+    """Dispatch one command, retaining its resolved input manifest when requested."""
+    watching = bool(getattr(args, "watch", False))
+    manifest_path = getattr(args, "emit_manifest", None)
+    if manifest_path and not watching:
+        if manifest_path == "-":
+            raise ValueError("--emit-manifest cannot be '-' (stdout). Provide a file path.")
+        Path(manifest_path).write_text(
+            json.dumps(_build_manifest(args), ensure_ascii=True, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    result = args.func(args)
+    if manifest_path and not watching:
+        Path(manifest_path).write_text(
+            json.dumps(_build_manifest(args), ensure_ascii=True, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    return result
+
+
+def _emit_cli_error(args, exc):
+    """Share ordinary command errors with recoverable watch-cycle errors."""
+    if args.json:
+        recommended_actions, relevant_commands = _cli_error_hints(args)
+        err = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": next((code for code in (
+                "PDF_PROFILE_CONTRACT_VIOLATION", "PDF_TIMESTAMP_INVALID", "PDF_VT_JOB_INVALID"
+            ) if code + ":" in str(exc)), "CLI_ERROR"),
+            "message": str(exc),
+            "command": getattr(args, "command", None),
+            "recommended_actions": recommended_actions,
+            "relevant_commands": relevant_commands,
+        }
+        sys.stdout.write(json.dumps(err, ensure_ascii=True) + "\n")
+    else:
+        sys.stderr.write(f"[error] {exc}\n")
+
+
+def main(argv=None):
+    """Execute CLI command dispatch and standardized error handling."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    force_json = "--json" in argv
+    if "--schema" in argv:
+        schema_name = _infer_schema_from_argv(argv)
+        if schema_name:
+            _emit_schema(schema_name)
+            return 0
+        err = {
+            "schema": "fullbleed.error.v1",
+            "ok": False,
+            "code": "SCHEMA_NOT_FOUND",
+            "message": "Unable to infer schema. Provide a command (e.g. render) or subcommand (e.g. assets list).",
+        }
+        sys.stdout.write(json.dumps(err, ensure_ascii=True) + "\n")
+        return 3
+
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    if force_json:
+        args.json = True
+    _apply_global_flags(args)
+    try:
+        _execute_command(args)
+    except Exception as exc:
+        _emit_cli_error(args, exc)
+        return 3
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,114 @@
+import os
+
+from galaxy.jobs import JobDestination
+
+from tpv.core.explain import ExplainCollector
+from tpv.core.resource_pool import InMemoryAllocationStore
+from tpv.rules import gateway
+
+from .test import mock_galaxy
+
+
+class TPVDryRunner:
+
+    def __init__(
+        self,
+        job_conf: str,
+        tpv_confs: list[str] | None = None,
+        user: mock_galaxy.User | None = None,
+        tool: mock_galaxy.Tool | None = None,
+        job: mock_galaxy.Job | None = None,
+    ):
+        self.galaxy_app = mock_galaxy.App(job_conf=job_conf, create_model=True)
+        self.user = user
+        self.tool = tool
+        self.job = job
+        if tpv_confs:
+            self.tpv_config_files = tpv_confs
+        else:
+            tpv_config_list: list[str] = self.galaxy_app.job_config.get_destination("tpv_dispatcher").params[
+                "tpv_config_files"
+            ]
+            self.tpv_config_files = self.resolve_relative_config_paths(tpv_config_list, job_conf)
+
+    @staticmethod
+    def resolve_relative_config_paths(config_files: list[str], job_conf: str) -> list[str]:
+        """Resolve relative tpv_config_files paths relative to the job_conf's directory."""
+        job_conf_dir = os.path.dirname(os.path.abspath(job_conf))
+        resolved: list[str] = []
+        for path in config_files:
+            if not os.path.isabs(path) and "://" not in path:
+                resolved.append(os.path.join(job_conf_dir, path))
+            else:
+                resolved.append(path)
+        return resolved
+
+    def run(self, explain: bool = False) -> tuple[JobDestination | None, ExplainCollector | None]:
+        # A dry run must never read from or write to the deployment's resource pool accounting:
+        # an admin checking a config change must not defer or admit real jobs, nor leave ledger
+        # entries behind. Build the mapper with a private in-memory store and pre-seed the
+        # gateway's registry so map_tool_to_destination uses it. (Deferral is a runtime question
+        # about live usage; a dry run answers the config questions: which pools govern the job,
+        # what budget applies, and whether the request is normal, oversize, or unschedulable.)
+        gateway.ACTIVE_DESTINATION_MAPPERS = {
+            "tpv_dispatcher": gateway.load_destination_mapper(
+                self.tpv_config_files, resource_pool_store=InMemoryAllocationStore()
+            )
+        }
+        collector = ExplainCollector() if explain else None
+        try:
+            destination = gateway.map_tool_to_destination(
+                self.galaxy_app,  # type: ignore[arg-type]
+                self.job,  # type: ignore[arg-type]
+                self.tool,  # type: ignore[arg-type]
+                self.user,  # type: ignore[arg-type]
+                tpv_config_files=self.tpv_config_files,
+                explain_collector=collector,
+            )
+        except Exception:
+            if not explain:
+                raise
+            return None, collector
+        return destination, collector
+
+    @staticmethod
+    def from_params(
+        job_conf: str,
+        user_email: str | None = None,
+        tool_id: str | None = None,
+        roles: list[str] | None = None,
+        history_tags: list[str] | None = None,
+        tpv_confs: list[str] | None = None,
+        input_size: int | None = None,
+        job_state: str | None = None,
+    ) -> "TPVDryRunner":
+        if user_email is not None:
+            user = mock_galaxy.User(username="gargravarr", email=user_email)
+        else:
+            user = None
+
+        if roles:
+            if not user:
+                user = mock_galaxy.User("gargravarr", "gargravarr@vortex.org")
+            user.roles = [mock_galaxy.Role(role_name) for role_name in roles]
+
+        if tool_id:
+            tool = mock_galaxy.Tool(
+                tool_id,
+                version=tool_id.split("/")[-1] if "/" in tool_id else None,
+            )
+        else:
+            tool = None
+
+        job = mock_galaxy.Job()
+        if job_state is not None:
+            job.state = job_state
+        if input_size:
+            dataset = mock_galaxy.DatasetAssociation(
+                "test", mock_galaxy.Dataset("test.txt", file_size=input_size * 1024**3)
+            )
+            job.add_input_dataset(dataset)
+        job.history = mock_galaxy.History()
+        if history_tags:
+            job.history.tags = [mock_galaxy.HistoryTag(tag_name) for tag_name in history_tags]
+        return TPVDryRunner(job_conf=job_conf, tpv_confs=tpv_confs, user=user, tool=tool, job=job)

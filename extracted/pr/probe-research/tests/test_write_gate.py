@@ -1,4 +1,4 @@
-"""The `probe` CLI's own write gate (`probe.cli.write_gate`).
+"""The `probe` CLI's own write gate (`probe.cli.lifecycle.write_gate`).
 
 The gate is what makes the `daemon` state hold on every harness: pi has no
 pre-tool hook, so the only thing that can stop the agent writing over
@@ -17,7 +17,7 @@ import time
 import pytest
 import typer.main
 
-from probe.cli import write_gate
+from probe.cli.lifecycle import write_gate
 from probe.sdk import session_marker
 
 # `probe.cli` re-exports the `main` FUNCTION, which shadows the module.
@@ -299,6 +299,8 @@ def test_daemon_lets_the_researchers_own_writes_through_with_directed():
         ["run", "start", "--name", "x"],
         ["run", "end", "r1"],
         ["run", "fork", "r1", "--step", "4"],
+        # Every run has a project: the agent makes the one its run needs (retire-unfiled T1).
+        ["project", "create", "p"],
         ["span", "add", "r1"],
         ["trial", "add", "r1", "dir"],
         ["trial", "stage", "dir", "--to", "out"],
@@ -313,15 +315,16 @@ def test_daemon_leaves_launches_and_run_data_to_the_agent(argv):
 @pytest.mark.parametrize(
     "argv",
     [
-        ["project", "create", "p"],
         ["experiment", "create", "e"],
         ["group", "create", "e", "--name", "lr-sweep"],
+        ["project", "set", "p", "--name", "n"],
+        ["run", "move", "r1", "--to", "p"],
     ],
 )
-def test_daemon_creates_the_containers_runs_are_filed_in(argv):
-    """Daemon v2 (D2, S11): runs start floating and the daemon creates the
-    project, experiment and group it files them in, so the agent's creates are
-    refused like any other daemon write -- and pass with `--directed`."""
+def test_daemon_files_and_reorganises_what_runs_are_in(argv):
+    """The agent opens each run in a project (creating it when none fits); the
+    experiment and group it is filed in, and renaming or moving projects and runs,
+    stay the daemon's, refused like any other daemon write -- and pass with `--directed`."""
     _set(session_marker.STATE_DAEMON)
     _lease()
     assert _refusal(argv) is not None
@@ -536,7 +539,7 @@ WRITE_GROUP_WRITES = frozenset(
         "project code attach", "project code confirm", "project code detach",
         "project create", "project move", "project patch", "project reference add", "project set",
         "project tag",
-        # `run move` files a floating run: the daemon's in `daemon` state.
+        # `run move` refiles a run: the daemon's in `daemon` state.
         "run child", "run end", "run expect", "run fork", "run move", "run set", "run start", "run tag",
         # A remote job's one-run token: part of the launch (`DAEMON_AGENT_WRITES`).
         "run token",
@@ -774,6 +777,7 @@ def test_the_cli_refuses_what_the_daemon_profile_hook_refuses(argv):
 @pytest.mark.parametrize("argv", [["run", "get", "r1"], ["metrics", "wide", "r1"], ["get", "r1"],
                                   ["metrics", "plot", "r1"], ["run", "expect", "r1"],
                                   ["exec", "--", "python", "train.py"], ["run", "start"], ["ask", "x"],
+                                  ["project", "create", "p"],
                                   ["update", "--check"], ["service", "status"], ["doctor"],
                                   ["session", "initialize", "--session", SID, "--cwd", "."]])
 def test_the_cli_still_runs_what_the_daemon_profile_allows(argv):

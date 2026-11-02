@@ -1,0 +1,5 @@
+from latch_persistence import LatchPersistence
+
+from flytekit.core.data_persistence import DataPersistencePlugins
+
+DataPersistencePlugins.register_plugin(LatchPersistence.PROTOCOL, LatchPersistence)

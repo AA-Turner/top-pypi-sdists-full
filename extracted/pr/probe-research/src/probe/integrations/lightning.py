@@ -120,7 +120,7 @@ except ImportError:  # pragma: no cover - exercised only without `lightning`
         ) from _missing
 
 import probe
-from probe.sdk import fluent
+from probe.sdk import errors, fluent
 from probe.sdk.artifact import hashing
 from probe.foundation.safe_warn import safe_warn
 from probe.sdk.settings.settings import env_run_id as _env_run_id
@@ -326,7 +326,8 @@ class ProbeLogger(Logger):
                 else:
                     self._run = self._init_run()
         except Exception as exc:
-            if self._strict:
+            # No project is a setup mistake, not an outage: stop before the GPU hours.
+            if self._strict or isinstance(exc, errors.ProjectRequired):
                 raise
             self._disabled = True
             self._warn_once(

@@ -1,0 +1,417 @@
+from __future__ import annotations
+
+import enum
+
+
+class Gender(enum.IntEnum):
+    """
+    用户性别
+
+    Note:
+        UNKNOWN 未知\n
+        MALE 男性\n
+        FEMALE 女性
+    """
+
+    UNKNOWN = 0
+    MALE = 1
+    FEMALE = 2
+
+
+class PrivLike(enum.IntEnum):
+    """
+    关注吧列表的公开状态
+
+    Note:
+        UNKNOWN 未知\n
+        PUBLIC 所有人可见\n
+        FRIEND 好友可见\n
+        HIDE 完全隐藏
+    """
+
+    UNKNOWN = 0
+    PUBLIC = 1
+    FRIEND = 2
+    HIDE = 3
+
+    @classmethod
+    def _missing_(cls, _: int) -> PrivLike:
+        return PrivLike.UNKNOWN
+
+
+class PrivReply(enum.IntEnum):
+    """
+    帖子评论权限
+
+    Note:
+        UNKNOWN 未知\n
+        ALL 允许所有人\n
+        FANS 仅允许我的粉丝\n
+        FOLLOW 仅允许我的关注
+    """
+
+    UNKNOWN = 0
+    ALL = 1
+    FANS = 5
+    FOLLOW = 6
+
+    @classmethod
+    def _missing_(cls, _: int) -> PrivReply:
+        return PrivReply.UNKNOWN
+
+
+class ThreadType(enum.IntEnum):
+    """
+    主题帖类型
+
+    Note:
+        UNKNOWN 未知\n
+        ARTICLE 图文帖\n
+        ALBUM 相册帖\n
+        EXT_SHARE 来自外部网站的分享帖\n
+        VOICE 语音帖\n
+        NETDISK 网盘分享帖\n
+        STORY 会员小说帖\n
+        VIDEO 视频帖\n
+        LIVE 直播帖\n
+        HELP 求助帖\n
+        VOTE 打分帖\n
+        LOTTERY 抽奖帖
+    """
+
+    UNKNOWN = -1
+    ARTICLE = 0
+    ALBUM = 1
+    EXT_SHARE = 6
+    VOICE = 11
+    NETDISK = 14
+    STORY = 31
+    VIDEO = 40
+    LIVE = 50
+    HELP = 71
+    VOTE = 75
+    LOTTERY = 76
+
+    @classmethod
+    def _missing_(cls, _: int) -> ThreadType:
+        return ThreadType.UNKNOWN
+
+
+class ContentType(enum.IntEnum):
+    """
+    帖子对象类型
+
+    Note:
+        UNKNOWN 未知\n
+        THREAD 主题帖\n
+        POST 回复\n
+        COMMENT 楼中楼
+    """
+
+    UNKNOWN = 0
+    THREAD = 1
+    POST = 2
+    COMMENT = 3
+
+    @classmethod
+    def _missing_(cls, _: int) -> ContentType:
+        return ContentType.UNKNOWN
+
+
+class ReqUInfo(enum.Flag):
+    """
+    使用该枚举类指定待获取的用户信息字段
+
+    Note:
+        各bit位的含义由高到低分别为 OTHER, TIEBA_UID, NICK_NAME, USER_NAME, PORTRAIT, USER_ID\n
+        其中BASIC = USER_ID | PORTRAIT | USER_NAME
+    """
+
+    USER_ID = enum.auto()
+    PORTRAIT = enum.auto()
+    USER_NAME = enum.auto()
+    NICK_NAME = enum.auto()
+    TIEBA_UID = enum.auto()
+    OTHER = enum.auto()
+    BASIC = USER_ID | PORTRAIT | USER_NAME
+    ALL = BASIC | NICK_NAME | TIEBA_UID | OTHER
+
+
+class ThreadSortType(enum.IntEnum):
+    """
+    主题帖排序
+
+    Note:
+        对于有热门分区的贴吧 0热门排序(HOT) 1按发布时间(CREATE) 2关注的人(FOLLOW) 34热门排序(HOT) >=6是按回复时间(REPLY)\n
+        对于无热门分区的贴吧 0按回复时间(REPLY) 1按发布时间(CREATE) 2关注的人(FOLLOW) >=3按回复时间(REPLY)
+    """
+
+    REPLY = 6
+    CREATE = 1
+    HOT = 3
+    FOLLOW = 2
+
+
+class PostSortType(enum.IntEnum):
+    """
+    回复排序
+
+    Note:
+        ASC 时间顺序\n
+        DESC 时间倒序\n
+        HOT 热门序
+    """
+
+    ASC = 0
+    DESC = 1
+    HOT = 2
+
+
+class CommentSortType(enum.IntEnum):
+    """
+    楼中楼排序
+
+    Note:
+        ASC 时间顺序\n
+        DESC 时间倒序\n
+        HOT 热门序
+    """
+
+    ASC = 0
+    DESC = 1
+    HOT = 2
+
+
+class BawuSearchType(enum.IntEnum):
+    """
+    吧务后台搜索类型
+
+    Note:
+        USER 搜索用户\n
+        OP 搜索操作者
+    """
+
+    USER = 0
+    OP = 1
+
+
+class SearchInForumType(enum.IntEnum):
+    """
+    吧内搜索类型
+
+    Note:
+        ALL 搜索全部\n
+        TIME app时间倒序\n
+        RELATION app相关性排序
+    """
+
+    ALL = 0
+    TIME = 1
+    RELATION = 2
+
+
+class SearchGlobalType(enum.IntEnum):
+    """
+    全吧搜索类型
+
+    Note:
+        ASC 最早发帖\n
+        RELATION 最相关\n
+        DESC 最新发帖
+    """
+
+    ASC = 0
+    RELATION = 2
+    DESC = 5
+
+
+class BawuType(enum.StrEnum):
+    """
+    吧务类型
+
+    Note:
+        UNKNOWN 未知\n
+        ADMIN 大吧主\n
+        MANAGER 小吧主\n
+        VIDEO_EDITOR 视频小编\n
+        IMAGE_EDITOR 图片小编\n
+        JOURNAL_EDITOR 吧刊小编\n
+        JOURNAL_CHIEF_EDITOR 吧刊主编\n
+        VOICE_EDITOR 语音小编\n
+        BROADCAST_EDITOR 广播小编\n
+        PROFESS_ADMIN 职业吧主\n
+        FOURTH_ADMIN 第四吧主
+    """
+
+    UNKNOWN = "unknown"
+    ADMIN = "manager"
+    MANAGER = "assist"
+    VIDEO_EDITOR = "videoadmin"
+    IMAGE_EDITOR = "picadmin"
+    JOURNAL_EDITOR = "publication"
+    JOURNAL_CHIEF_EDITOR = "publication_editor"
+    VOICE_EDITOR = "voiceadmin"
+    BROADCAST_EDITOR = "broadcast_admin"
+    PROFESS_ADMIN = "profess_admin"
+    FOURTH_ADMIN = "fourth_admin"
+
+    ZHCN_MAP = enum.nonmember({
+        "吧主": "manager",
+        "小吧主": "assist",
+        "语音小编": "voiceadmin",
+        "图片小编": "picadmin",
+        "视频小编": "videoadmin",
+        "广播小编": "broadcast_admin",
+        "吧刊主编": "publication_editor",
+        "吧刊小编": "publication",
+        "职业吧主": "profess_admin",
+        "第四吧主": "fourth_admin",
+    })
+
+    @classmethod
+    def _missing_(cls, _: object) -> BawuType:
+        return BawuType.UNKNOWN
+
+    @classmethod
+    def from_zhcn(cls, role_name: str) -> BawuType:
+        """
+        通过中文吧务名称获取吧务类型
+
+        Args:
+            role_name (str): 吧务名称 如'吧主' '小吧主'
+
+        Returns:
+            BawuType: 吧务类型 无法识别时为UNKNOWN
+        """
+
+        code = cls.ZHCN_MAP.get(role_name)
+        return cls(code)
+
+
+class BawuPermType(enum.Flag):
+    """
+    吧务已分配的权限
+
+    Note:
+        NULL 无权限\n
+        UNBLOCK 解除封禁\n
+        UNBLOCK_APPEAL 封禁申诉处理\n
+        RECOVER 恢复删帖\n
+        RECOVER_APPEAL 删帖申诉处理\n
+        ALL 所有权限
+    """
+
+    NULL = 0
+    UNBLOCK = enum.auto()
+    UNBLOCK_APPEAL = enum.auto()
+    RECOVER = enum.auto()
+    RECOVER_APPEAL = enum.auto()
+    ALL = UNBLOCK | UNBLOCK_APPEAL | RECOVER | RECOVER_APPEAL
+
+
+class RankForumType(enum.IntEnum):
+    """
+    吧签到排行榜类别
+
+    Note:
+        TODAY 今日排行\n
+        YESTERDAY 昨日排行\n
+        WEEKLY 周排行\n
+        MONTHLY 月排行
+    """
+
+    TODAY = 0
+    YESTERDAY = 1
+    WEEKLY = 2
+    MONTHLY = 3
+
+
+class BlacklistType(enum.Flag):
+    """
+    用户黑名单类型
+
+    Note:
+        NULL 正常状态\n
+        FOLLOW 禁止关注\n
+        INTERACT 禁止互动\n
+        CHAT 禁止私信\n
+        ALL 全屏蔽
+    """
+
+    NULL = 0
+    FOLLOW = enum.auto()
+    INTERACT = enum.auto()
+    CHAT = enum.auto()
+    ALL = FOLLOW | INTERACT | CHAT
+
+
+class WsStatus(enum.IntEnum):
+    """
+    websocket状态
+
+    Note:
+        CLOSED 已关闭\n
+        CONNECTING 正在连接\n
+        OPEN 可用
+    """
+
+    CLOSED = 0
+    CONNECTING = enum.auto()
+    OPEN = enum.auto()
+
+
+class BlcpStatus(enum.IntEnum):
+    """
+    BLCP状态
+
+    Note:
+        CLOSED 已关闭\n
+        CONNECTING 正在连接\n
+        OPEN 连接可用\n
+        LOGGED_IN 业务已登录
+    """
+
+    CLOSED = -1
+    CONNECTING = 0
+    OPEN = 1
+    LOGGED_IN = 2
+
+
+class GroupType(enum.IntEnum):
+    """
+    消息组类型
+    """
+
+    PRIVATE_MSG = 6
+    MISC = 8
+
+
+class MsgType(enum.IntEnum):
+    """
+    消息类型
+    """
+
+    PRIVATE_MSG = 1
+    MISC = 10
+    READED = 22
+
+
+class ChatroomBlockDuration(enum.IntEnum):
+    """
+    吧群禁言时长
+
+    Note:
+        HOUR_1 1小时\n
+        HOUR_12 12小时\n
+        DAY_1 1天\n
+        DAY_7 7天\n
+        DAY_15 15天\n
+        DAY_30 30天
+    """
+
+    HOUR_1 = 3600
+    HOUR_12 = 43200
+    DAY_1 = 86400
+    DAY_7 = 604800
+    DAY_15 = 1296000
+    DAY_30 = 2592000

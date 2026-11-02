@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import enum
 import json
 import textwrap
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote, urldefrag, urljoin
 
 from schemathesis.config import OutputConfig
 from schemathesis.core.failures import Failure, Severity
 from schemathesis.core.jsonschema.bundler import unbundle, unbundle_path
 from schemathesis.core.output import truncate_json, truncate_text
-from schemathesis.core.transforms import resolve_path
+from schemathesis.core.transforms import iter_decoded_pointer_segments, resolve_path
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import jsonschema_rs
 
 
@@ -82,6 +84,7 @@ class JsonSchemaError(Failure):
         "schema_path",
         "instance_path",
         "instance",
+        "_absolute_keyword_location",
         "_raw_message",
         "_root_schema",
         "_config",
@@ -108,6 +111,7 @@ class JsonSchemaError(Failure):
         self.schema_path = exc.schema_path
         self.instance_path = exc.instance_path
         self.instance = exc.instance
+        self._absolute_keyword_location = exc.absolute_keyword_location
         self._raw_message = exc.message
         self._root_schema = root_schema
         self._config = config
@@ -168,16 +172,20 @@ class JsonSchemaError(Failure):
         )
 
     def _render_message(self) -> str:
-        if self.schema_path:
-            parent_path = self.schema_path[:-1]
-            schema = resolve_path(self._root_schema, parent_path)
+        path = self.schema_path
+        # Past a reference into a schema with its own `$id`, the validator reports paths relative to that schema.
+        if self._absolute_keyword_location is not None:
+            uri, fragment = urldefrag(self._absolute_keyword_location)
+            resource = _find_resource(self._root_schema, uri, "")
+            if resource is not None:
+                path = [*resource, *iter_decoded_pointer_segments(unquote(fragment))]
+        if path:
+            schema = resolve_path(self._root_schema, path[:-1])
             if not isinstance(schema, (dict, bool)):
                 # A boolean branch of `allOf` / `anyOf` has the keyword's list of schemas as its parent.
-                schema = resolve_path(self._root_schema, self.schema_path)
+                schema = resolve_path(self._root_schema, path)
         else:
             schema = self._root_schema
-
-        assert isinstance(schema, (dict, bool))
 
         # Read-only and write-only properties are rewritten to a schema nothing satisfies, and the raw
         # validator message spells that rewrite rather than naming what it rejects.
@@ -188,6 +196,15 @@ class JsonSchemaError(Failure):
             )
         else:
             validation_message = _shorten_instance(self._raw_message, self.instance, self._config or OutputConfig())
+
+        value = textwrap.indent(
+            truncate_json(self.instance, config=self._config or OutputConfig(), max_lines=20), prefix="    "
+        )
+        prefix = f"{validation_message}\n\n{self._context}" if self._context else validation_message
+        self._validation_message = validation_message
+        # A schema named by a relative `$id` cannot be located, so only the value is shown.
+        if not isinstance(schema, (dict, bool)):
+            return f"{prefix}\n\nValue:\n\n{value}"
 
         # Reorder schema to prioritize the failing keyword in the output
         if isinstance(schema, dict) and self.schema_path:
@@ -205,22 +222,35 @@ class JsonSchemaError(Failure):
         schema_str = textwrap.indent(
             truncate_json(schema, config=self._config or OutputConfig(), max_lines=20), prefix="    "
         )
-        value = textwrap.indent(
-            truncate_json(self.instance, config=self._config or OutputConfig(), max_lines=20), prefix="    "
-        )
-        if len(self.schema_path) > 1:
+        if len(path) > 1:
             schema_title = "Schema at "
-            path = (
-                unbundle_path(self.schema_path[:-1], self._name_to_uri) if self._name_to_uri else self.schema_path[:-1]
-            )
-            for segment in path:
+            for segment in unbundle_path(path[:-1], self._name_to_uri) if self._name_to_uri else path[:-1]:
                 schema_title += f"/{segment}"
         else:
             schema_title = "Schema"
-        prefix = f"{validation_message}\n\n{self._context}" if self._context else validation_message
-        self._validation_message = validation_message
         self._schema = schema if isinstance(schema, dict) else {}
         return f"{prefix}\n\n{schema_title}:\n\n{schema_str}\n\nValue:\n\n{value}"
+
+
+def _find_resource(node: object, uri: str, base: str) -> list[str | int] | None:
+    """Location of the schema whose `$id` resolves to `uri`."""
+    if isinstance(node, dict):
+        identifier = node.get("$id")
+        # A non-string sits under a property named `$id`, not under the keyword.
+        if isinstance(identifier, str):
+            base = urldefrag(urljoin(base, identifier))[0]
+            if base == uri:
+                return []
+        children: Iterable[tuple[str | int, object]] = node.items()
+    elif isinstance(node, list):
+        children = enumerate(node)
+    else:
+        return None
+    for key, child in children:
+        location = _find_resource(child, uri, base)
+        if location is not None:
+            return [key, *location]
+    return None
 
 
 def _shorten_instance(message: str, instance: object, config: OutputConfig) -> str:
@@ -408,39 +438,6 @@ class EnsureResourceAvailability(Failure):
         super().__init__(operation=operation, title=title, message=message, case_id=case_id, severity=Severity.MEDIUM)
         self.created_with = created_with
         self.not_available_with = not_available_with
-
-    @property
-    def _unique_key(self) -> str:
-        return ""
-
-
-class AuthScenario(enum.StrEnum):
-    NO_AUTH = "no_auth"
-    INVALID_AUTH = "invalid_auth"
-    GENERATED_AUTH = "generated_auth"
-
-
-class IgnoredAuth(Failure):
-    """The API operation does not check the specified authentication."""
-
-    code = "ST401"
-    checks = ("ignored_auth",)
-    kind_title = "Authentication not enforced"
-
-    __slots__ = ("scenario",)
-
-    def __init__(
-        self,
-        *,
-        operation: str,
-        message: str,
-        scenario: AuthScenario,
-        title: str = "API accepts requests without authentication",
-        case_id: str | None = None,
-    ) -> None:
-        super().__init__(operation=operation, title=title, message=message, case_id=case_id, severity=Severity.CRITICAL)
-        # Which credentials the request carried when the API still let it through.
-        self.scenario = scenario
 
     @property
     def _unique_key(self) -> str:

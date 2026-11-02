@@ -1,0 +1,171 @@
+# (C) Copyright 2020 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+#
+
+import warnings
+
+from earthkit.data.core import Encodable
+from earthkit.data.sources import Source
+
+from .core import CovJSONReaderBase
+
+
+class XarrayMixIn:
+    def to_xarray(self, **kwargs):
+        try:
+            from covjsonkit.api import Covjsonkit
+        except ImportError:
+            raise ImportError("covjson handling requires 'covjsonkit' to be installed")
+
+        decoder = Covjsonkit().decode(self._json())
+        return decoder.to_xarray()
+
+
+class GeoJSONMixIn:
+    def to_geojson(self, **kwargs):
+        try:
+            from covjsonkit.api import Covjsonkit
+        except ImportError:
+            raise ImportError("covjson handling requires 'covjsonkit' to be installed")
+
+        decoder = Covjsonkit().decode(self._json())
+        return decoder.to_geojson()
+
+
+class FieldlistMixIn:
+    def to_fieldlist(self, **kwargs):
+        from earthkit.data.data.wrappers import from_object
+
+        ds = from_object(self.to_xarray())
+        return ds.to_fieldlist(**kwargs)
+
+
+class CovJSONReader(XarrayMixIn, GeoJSONMixIn, FieldlistMixIn, CovJSONReaderBase):
+    def __init__(self, source, path, **kwargs):
+        if kwargs:
+            names = ", ".join(repr(name) for name in kwargs)
+            warnings.warn(
+                f"Arguments {names} have no effect for the CovJSON reader.",
+                UserWarning,
+                stacklevel=2,
+            )
+        CovJSONReaderBase.__init__(self, source, path)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.path})"
+
+    def _json(self):
+        import json
+
+        with open(self.path, "r") as f:
+            d = json.load(f)
+            return d
+
+    def is_streamable_file(self):
+        return True
+
+    def to_data_object(self):
+        from earthkit.data.data.covjson import CovJSONData
+
+        return CovJSONData(self)
+
+    def _encode_default(self, encoder, **kwargs):
+        return encoder._encode_xarray(self.to_xarray(), **kwargs)
+
+
+class CovJSONStreamReader(Source, CovJSONReaderBase):
+    def __init__(self, stream):
+        CovJSONReaderBase.__init__(self, self, "")
+        self._stream = stream
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        import json
+
+        d = self._stream.read()
+        if d:
+            return CovJSONInMemory(json.loads(d))
+        else:
+            raise StopIteration
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}"
+
+    def mutate_source(self):
+        # A Covjson is a source itself
+        return self
+
+    def to_data_object(self):
+        from earthkit.data.data.stream import StreamFeatureListData
+
+        return StreamFeatureListData(self, "covjson")
+
+    def is_stream(self):
+        return True
+
+    def _encode_default(self, encoder, **kwargs):
+        return encoder._encode_xarray(self.to_xarray(), **kwargs)
+
+
+class CovJSONMemoryReader(Source):
+    def __init__(self, buf):
+        self.buf = buf
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}"
+
+    def mutate_source(self):
+        import json
+
+        return CovJSONInMemory(json.loads(self.buf))
+
+    @staticmethod
+    def _from_stream(stream):
+        d = stream.read()
+        return CovJSONMemoryReader(d)
+
+    def to_data_object(self):
+        from earthkit.data.data.covjson import CovJSONData
+
+        return CovJSONData(self)
+
+
+class CovJSONInMemory(Source, XarrayMixIn, GeoJSONMixIn, FieldlistMixIn, Encodable):
+    def __init__(self, data):
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}"
+
+    # def mutate_source(self):
+    #     # A Covjson is a source itself
+    #     return self
+
+    def _json(self):
+        return self.data
+
+    def to_data_object(self):
+        from earthkit.data.data.covjson import CovJSONData
+
+        return CovJSONData(self)
+
+    def to_target(self, target, *args, **kwargs):
+        from earthkit.data.targets import to_target
+
+        to_target(target, *args, data=self, **kwargs)
+
+    def _default_encoder(self):
+        return "covjson"
+
+    def _encode(self, encoder, *, hints=None, **kwargs):
+        return encoder._encode_xarray(self.to_xarray(), **kwargs)
+
+    def _encode_default(self, encoder, **kwargs):
+        return encoder._encode_xarray(self.to_xarray(), **kwargs)

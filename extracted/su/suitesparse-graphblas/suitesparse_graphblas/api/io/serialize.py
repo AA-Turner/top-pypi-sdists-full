@@ -1,0 +1,147 @@
+import numpy as np
+
+from suitesparse_graphblas import check_status, ffi, lib
+from suitesparse_graphblas.api.global_options import global_get_int32
+from suitesparse_graphblas.utils import claim_buffer
+
+
+def _free_desc(desc):
+    """Free a descriptor via a temporary pointer."""
+    desc_ptr = ffi.new("GrB_Descriptor*", desc)
+    lib.GrB_Descriptor_free(desc_ptr)
+
+
+def get_serialize_desc(compression=lib.GxB_COMPRESSION_DEFAULT, level=None, nthreads=None):
+    """Create a descriptor for serializing or deserializing.
+
+    This returns None (for NULL descriptor) or a GrB_Descriptor.
+    """
+    if nthreads is None and (compression is None or compression == lib.GxB_COMPRESSION_DEFAULT):
+        return None
+    desc_ptr = ffi.new("GrB_Descriptor*")
+    check_status(desc_ptr, lib.GrB_Descriptor_new(desc_ptr))
+    desc = ffi.gc(desc_ptr[0], _free_desc)
+    if nthreads is not None:
+        check_status(
+            desc,
+            lib.GxB_Desc_set_INT32(desc, lib.GxB_NTHREADS, ffi.cast("int32_t", nthreads)),
+        )
+    if compression is not None:
+        if level is not None and compression in {
+            lib.GxB_COMPRESSION_LZ4HC,
+            lib.GxB_COMPRESSION_ZSTD,
+        }:
+            compression += level
+        check_status(
+            desc,
+            lib.GxB_Desc_set_INT32(desc, lib.GxB_COMPRESSION, ffi.cast("int32_t", compression)),
+        )
+    return desc
+
+
+def serialize_matrix(A, compression=lib.GxB_COMPRESSION_DEFAULT, level=None, *, nthreads=None):
+    """Serialize a Matrix into an array of bytes.
+
+    Parameters
+    ----------
+    compression : int, optional
+        One of None, GxB_COMPRESSION_NONE, GxB_COMPRESSION_DEFAULT,
+        GxB_COMPRESSION_LZ4, GxB_COMPRESSION_LZ4HC, or GxB_COMPRESSION_ZSTD
+    level : int, optional
+        For GxB_COMPRESSION_LZ4HC, should be between 1 and 9, where 9 is most compressed.
+        For GxB_COMPRESSION_ZSTD, should be between 1 and 19, where 19 is most compressed.
+
+    nthreads : int, optional
+        The maximum number of OpenMP threads to use.
+    """
+    desc = get_serialize_desc(compression, level, nthreads)
+    data_ptr = ffi.new("void**")
+    size_ptr = ffi.new("GrB_Index*")
+    # Name the arena for the result, which is otherwise that of the engaged Context (if
+    # any), so that `claim_buffer` knows which allocator must free it
+    arena = global_get_int32(lib.GxB_ARENA_DATA)
+    desc = ffi.NULL if desc is None else desc
+    check_status(A, lib.GxB_Matrix_serialize_arena(data_ptr, size_ptr, A[0], arena, desc))
+    return claim_buffer(ffi, data_ptr[0], size_ptr[0], np.dtype(np.uint8), arena)
+
+
+def serialize_vector(v, compression=lib.GxB_COMPRESSION_DEFAULT, level=None, *, nthreads=None):
+    """Serialize a Vector into an array of bytes.
+
+    Parameters
+    ----------
+    compression : int, optional
+        One of None, GxB_COMPRESSION_NONE, GxB_COMPRESSION_DEFAULT,
+        GxB_COMPRESSION_LZ4, GxB_COMPRESSION_LZ4HC, or GxB_COMPRESSION_ZSTD
+    level : int, optional
+        For GxB_COMPRESSION_LZ4HC, should be between 1 and 9, where 9 is most compressed.
+        For GxB_COMPRESSION_ZSTD, should be between 1 and 19, where 19 is most compressed.
+    nthreads : int, optional
+        The maximum number of OpenMP threads to use.
+    """
+    desc = get_serialize_desc(compression, level, nthreads)
+    data_ptr = ffi.new("void**")
+    size_ptr = ffi.new("GrB_Index*")
+    arena = global_get_int32(lib.GxB_ARENA_DATA)  # see `serialize_matrix`
+    desc = ffi.NULL if desc is None else desc
+    check_status(v, lib.GxB_Vector_serialize_arena(data_ptr, size_ptr, v[0], arena, desc))
+    return claim_buffer(ffi, data_ptr[0], size_ptr[0], np.dtype(np.uint8), arena)
+
+
+def deserialize_matrix(data, *, free=True, nthreads=None):
+    """Deserialize a Matrix from bytes.
+
+    The `free` argument is called when the object is garbage
+    collected, the default is `matrix.matrix_free()`.  If `free` is None then
+    there is no automatic garbage collection and it is up to the user
+    to free the matrix.
+    """
+    data = np.frombuffer(data, np.uint8)
+    desc = get_serialize_desc(None, nthreads)
+    A = ffi.new("GrB_Matrix*")
+    check_status(
+        A,
+        lib.GxB_Matrix_deserialize(
+            A,
+            ffi.NULL,  # dtype; we don't check for now
+            ffi.from_buffer("void*", data),
+            data.nbytes,
+            ffi.NULL if desc is None else desc,
+        ),
+    )
+    if free:
+        if callable(free):
+            return ffi.gc(A, free)
+        return ffi.gc(A, matrix.matrix_free)
+    return A
+
+
+def deserialize_vector(data, *, free=True, nthreads=None):
+    """Deserialize a Vector from bytes.
+
+    The `free` argument is called when the object is garbage
+    collected, the default is `vector.vector_free()`.  If `free` is None then
+    there is no automatic garbage collection and it is up to the user
+    to free the vector.
+    """
+    data = np.frombuffer(data, np.uint8)
+    desc = get_serialize_desc(None, nthreads)
+    v = ffi.new("GrB_Vector*")
+    check_status(
+        v,
+        lib.GxB_Vector_deserialize(
+            v,
+            ffi.NULL,  # dtype; we don't check for now
+            ffi.from_buffer("void*", data),
+            data.nbytes,
+            ffi.NULL if desc is None else desc,
+        ),
+    )
+    if free:
+        if callable(free):
+            return ffi.gc(v, free)
+        return ffi.gc(v, vector.vector_free)
+    return v
+
+
+from suitesparse_graphblas.api import matrix, vector  # noqa: E402 isort:skip

@@ -2,7 +2,8 @@
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt, tui
+from probe.cli.imports import transcripts as bt
+from probe.cli.wizard import terminal as tui
 from tests.test_tui_review import _run
 
 pytestmark = pytest.mark.tui

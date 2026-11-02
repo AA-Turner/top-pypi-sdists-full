@@ -1,5 +1,5 @@
 """RunListingMixin, Client's methods: list and move runs and their artifacts across experiments and
-projects (twins: app/runs, app/artifacts)."""
+projects (twins: app/runs, app/files/artifacts)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from .... import errors
 from ....artifact.listing import read_artifact_rows
 from ....values.tags import canonical_tags
 from ....delivery.transport.transport import Page
+from probe.sdk.routes import WriteOp, path_for
 
 
 class RunListingMixin:
@@ -20,7 +21,7 @@ class RunListingMixin:
         experiment_id: str | None = None,
         group_id: str | None = None,
     ) -> dict:
-        """PATCH /v1/runs/{id} with a new home: file a floating run, or refile one.
+        """PATCH /v1/runs/{id} with a new home: move a run to another project or experiment.
 
         Exactly one of ``project_id`` (a project to file the run in directly)
         and ``experiment_id`` (an experiment's uuid; the run lands in it, under
@@ -33,8 +34,7 @@ class RunListingMixin:
         The answer must SHOW the run in its new home. A server that predates
         filing (or, for ``experiment_id``, X21b) ignores the field and answers
         200 with the run where it was, so a move that did nothing would read as
-        done; that is refused (``CapabilityUnavailable``), as the unfiled
-        listing is.
+        done; that is refused (``CapabilityUnavailable``).
 
         A run moved into an EXPERIMENT answers with the experiment in
         ``experiment_id`` and its project (the run's home) in ``project_id``."""
@@ -48,7 +48,7 @@ class RunListingMixin:
             body = {"project_id": project_id}
         if group_id is not None:
             body["group_id"] = group_id
-        row = self.transport.patch(f"/v1/runs/{run_id}", body)
+        row = self.transport.patch(path_for(WriteOp.RUN_PATCH, run_id), body)
         row = row if isinstance(row, dict) else {}
         if experiment_id is not None:
             landed = _same_id(row.get("experiment_id"), experiment_id)
@@ -71,13 +71,11 @@ class RunListingMixin:
         project_id: str | None = None,
         direct: bool = False,
         tags: list[str] | None = None,
-        unfiled: bool = False,
         **params,
     ) -> Page:
         """``project_id`` returns ALL the project's runs — project-direct AND
         experiment-attached (0054); ``direct=True`` narrows to experiment-less
-        runs only; ``unfiled=True`` lists FLOATING runs, filed nowhere yet (the
-        caller's own; every one for an admin)."""
+        runs only."""
         query = dict(params)
         if experiment_id is not None:
             query["experiment_id"] = experiment_id
@@ -85,8 +83,6 @@ class RunListingMixin:
             query["project_id"] = project_id
         if direct:
             query["direct"] = "true"
-        if unfiled:
-            query["unfiled"] = "true"
         tags = canonical_tags(tags) if tags else None
         if tags:
             query["tags"] = tags
@@ -104,48 +100,7 @@ class RunListingMixin:
                 "(0054): it ignored the filter and returned unscoped runs. "
                 "Upgrade the backend before relying on project-scoped listings."
             )
-        # Same refusal for floating runs: a backend that predates them drops
-        # `unfiled`, and its answer is a page of FILED runs. Any row with a home
-        # (or with no project_id key at all) proves the filter was not applied.
-        if unfiled and any(
-            not isinstance(row, dict) or row.get("project_id") is not None or "project_id" not in row
-            for row in page.items
-        ):
-            raise errors.CapabilityUnavailable(
-                "floating_runs",
-                "this research-os backend predates floating runs: it ignored "
-                "GET /v1/runs?unfiled=true and returned filed runs.",
-            )
         return page
-
-    def unfiled_runs(self, *, limit: int = 200) -> dict:
-        """How many floating runs wait to be filed, and how old the oldest is.
-
-        ``{"count": n, "more": bool, "oldest_created_at": iso | None,
-        "oldest_age_s": float | None}``; ``more`` means the count stopped at
-        ``limit``. Raises CapabilityUnavailable on a backend that ignores the
-        filter, so a caller can say "unknown" instead of a wrong number."""
-        page = self.list_runs(unfiled=True, limit=limit)
-        items = [row for row in page.items or [] if isinstance(row, dict)]
-        stamps = sorted(str(row["created_at"]) for row in items if row.get("created_at"))
-        oldest = stamps[0] if stamps else None
-        age: float | None = None
-        if oldest:
-            try:
-                from datetime import datetime, timezone
-
-                born = datetime.fromisoformat(oldest.replace("Z", "+00:00"))
-                if born.tzinfo is None:
-                    born = born.replace(tzinfo=timezone.utc)
-                age = max(0.0, (datetime.now(timezone.utc) - born).total_seconds())
-            except ValueError:
-                age = None
-        return {
-            "count": len(items),
-            "more": bool(page.next_cursor),
-            "oldest_created_at": oldest,
-            "oldest_age_s": age,
-        }
 
     def list_run_artifacts(
         self,

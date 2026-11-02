@@ -2,9 +2,7 @@ from collections import namedtuple
 import calendar
 import contextlib
 import datetime
-import logging
 import os
-import signal
 import sys
 import threading
 import time
@@ -13,16 +11,6 @@ try:
     import fcntl
 except ImportError:
     fcntl = None
-
-try:
-    import gevent
-except ImportError:
-    gevent = None
-
-from huey.exceptions import TaskTimeout
-
-
-logger = logging.getLogger(__name__)
 
 
 if sys.version_info < (3, 12):
@@ -168,34 +156,3 @@ class FileLock(object):
 @contextlib.contextmanager
 def noop_context():
     yield
-
-@contextlib.contextmanager
-def process_timeout(seconds):
-    def _handle_alrm(signum, frame):
-        raise TaskTimeout('timeout (%ss)' % seconds)
-
-    orig = signal.signal(signal.SIGALRM, _handle_alrm)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    try:
-        yield
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)  # Cancel any pending alarm.
-        signal.signal(signal.SIGALRM, orig)
-
-@contextlib.contextmanager
-def thread_timeout(seconds):
-    yield
-
-@contextlib.contextmanager
-def greenlet_timeout(seconds):
-    if gevent is None:
-        logger.warning('gevent is required for greenlet-worker timeout')
-        yield
-        return
-
-    timer = gevent.Timeout(seconds, TaskTimeout('timeout (%ss)' % seconds))
-    timer.start()
-    try:
-        yield
-    finally:
-        timer.cancel()

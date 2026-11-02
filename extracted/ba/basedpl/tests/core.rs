@@ -1,0 +1,474 @@
+use basedpl::{ErrorKind::*, EvalOptions, ParseStatus, Session, Source, Value as AplValue, Value::Character, parse};
+use std::sync::Arc;
+#[macro_use]
+mod common;
+use common::*;
+
+#[track_caller]
+fn check(code: &str, expected: AplValue) { check_in(&Session::new(), code, expected); }
+
+#[test]
+fn explicit_output_without_echo() {
+    let s = Session::new();
+    let quiet = || basedpl::EvalOptions { echo: false, ..basedpl::EvalOptions::default() };
+    let code = r#"1 ⋄ ⎕←2 ⋄ ⍎"3 ⋄ ⎕←4 ⋄ 5" ⋄ 6"#;
+    let r = s.eval_with(code, quiet());
+    assert!(r.error.is_none());
+    assert_eq!(r.output_text(), ["2", "4"]);
+    assert_same(r.value, &float(6.0));
+    assert_eq!(s.eval(code).output_text(), ["1", "2", "3", "4", "5", "6"]);
+    for code in ["x←7", "+", "f←{⎕←⍵ ⋄ ⍵+1} ⋄ f 8"] {
+        let r = s.eval_with(code, quiet());
+        assert!(r.error.is_none(), "{code}: {:?}", r.error);
+        assert_eq!(r.output_text(), if code.starts_with("f←") { vec!["8"] } else { vec![] });
+    }
+    let r = s.eval_with("⎕←9 ⋄ 1÷'a'", quiet());
+    assert_eq!(r.error.as_ref().unwrap().kind.name(), "DOMAIN");
+    assert_eq!(r.output_text(), ["9"]);
+    for code in ["]Display 1 2", "]help +", "]help f -source"] { assert!(!s.eval_with(code, quiet()).output_text().is_empty()); }
+    let streamed = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let events = streamed.clone();
+    let output =
+        Arc::new(move |output: &basedpl::Output| events.lock().unwrap().push((matches!(output.kind, basedpl::OutputKind::Explicit), output.text().to_owned())));
+    let r = s.eval_with("1 ⋄ ⎕←2 ⋄ 1÷'a'", basedpl::EvalOptions { output: Some(output), ..basedpl::EvalOptions::default() });
+    assert_eq!(r.error.as_ref().unwrap().kind.name(), "DOMAIN");
+    assert!(r.output_text().is_empty());
+    assert_eq!(*streamed.lock().unwrap(), [(false, "1".into()), (true, "2".into())]);
+    assert_eq!(s.eval("3").output_text(), ["3"]);
+    equiv_in(&s, "x", "7");
+}
+
+#[test]
+fn calls_with_array_arguments() {
+    let s = Session::new();
+    s.eval("x←42 ⋄ mean←+/÷≢ ⋄ bad←{⎕←⍵ ⋄ 1÷⍵}");
+    for (function, codes, expected) in [
+        ("mean", vec!["1 2 3"], "2"), ("-", vec!["10ₓ", "[1 2]ₓ"], "[9 8]ₓ"), ("#⍠0", vec!["1 0", "2 2⍴⍳4"], "[0 1⋄]"),
+        ("⊢", vec![r#"[1r3 2ₓ;"ab";0 3⍴0ₓ]"#], r#"[1r3 2ₓ;"ab";0 3⍴0ₓ]"#), ("{k←⍵ ⋄ {k+⍵}⍵}", vec!["3ₓ"], "6ₓ"),
+        ("{x←⍵}", vec!["7"], "7"),
+    ] {
+        let args: Vec<_> = codes.iter().map(|c| run(c).unwrap().unwrap()).collect();
+        let r = s.call_with(function, &args, basedpl::EvalOptions { echo: false, ..basedpl::EvalOptions::default() });
+        assert!(r.error.is_none(), "{function}: {:?}", r.error);
+        assert!(r.output_text().is_empty());
+        assert_same(r.value, &run(expected).unwrap().unwrap());
+    }
+    assert_eq!(s.call("+", &[float(3.0)]).output_text(), ["3"]);
+    let r = s.call("{}", &[float(3.0)]);
+    assert!(r.value.is_none() && r.error.is_none() && r.output_text().is_empty());
+    for (function, args, kind) in [
+        ("+", vec![], "LENGTH"), ("+", vec![float(1.0); 3], "LENGTH"), ("", vec![float(1.0)], "SYNTAX"), ("1", vec![float(1.0)], "SYNTAX"),
+        ("¨", vec![float(1.0)], "SYNTAX"), ("+ ⋄ -", vec![float(1.0)], "SYNTAX"),
+    ] { assert_eq!(s.call(function, &args).error.unwrap().kind.name(), kind); }
+    let r = s.call("bad", &[AplValue::Character('a')]);
+    assert_eq!(r.output_text(), ["'a'"]);
+    let e = r.error.as_ref().unwrap();
+    assert_eq!(e.kind.name(), "DOMAIN");
+    assert_eq!(e.calls.last().unwrap().source.text, "bad");
+    assert!(e.span.as_ref().unwrap().source.text.contains("bad←"));
+    let r = s.call_with("{∇⍵}", &[float(0.0)], basedpl::EvalOptions { timeout: Some(std::time::Duration::ZERO), ..basedpl::EvalOptions::default() });
+    assert!(matches!(r.error.as_ref().unwrap().kind, Timeout));
+    equiv_in(&s, "x", "42");
+}
+
+#[test]
+fn cancellation_preserves_session_and_unwinds_calls() {
+    use std::time::Duration;
+    let s = Session::new();
+    let r = s.eval_timeout("keep←42 ⋄ ⎕←7 ⋄ {∞::99 ⋄ (+⍣{0})⍵}0", Duration::from_millis(10));
+    assert!(matches!(r.error.as_ref().unwrap().kind, Timeout));
+    assert_eq!(r.output_text(), ["7"]);
+    equiv_in(&s, "keep+1", "43");
+    s.set("u", AplValue::floats(vec![1_000_000], basedpl::buffer::FloatWidth::F64, (0..1_000_000).map(|i| f64::from(i) + 0.5)).unwrap()).unwrap();
+    assert!(matches!(s.eval_timeout("∪u", Duration::from_millis(2)).error.unwrap().kind, Timeout));
+    assert!(matches!(s.eval_timeout("⍭1000000000000ₓ", Duration::from_millis(2)).error.unwrap().kind, Timeout));
+    let interrupt = basedpl::InterruptHandle::default();
+    let handle = interrupt.clone();
+    let cancel = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(10));
+        handle.interrupt();
+    });
+    let r = s.eval_with("{∇⍵}0", basedpl::EvalOptions { interrupt, timeout: Some(Duration::from_secs(2)), ..basedpl::EvalOptions::default() });
+    cancel.join().unwrap();
+    assert!(matches!(r.error.as_ref().unwrap().kind, Interrupt));
+    equiv_in(&s, "keep", "42");
+}
+
+#[test]
+fn execute_source_and_session() {
+    let s = Session::new();
+    let r = s.eval(r#"a←⍎"1+1 ⋄ 2+2""#);
+    assert_eq!(r.output_text(), ["2"]);
+    assert_same(r.value, &float(4.));
+    equiv_in(&s, "a", "4");
+    let failed = s.eval(r#"⍎"⎕←7 ⋄ 1÷'a'""#);
+    assert!(failed.value.is_none());
+    assert_eq!(failed.output_text(), ["7"]);
+    assert_eq!(failed.error.unwrap().span.as_ref().unwrap().source.text, "⎕←7 ⋄ 1÷'a'");
+}
+
+#[test]
+fn numeric_constructors() {
+    assert_eq!(AplValue::floats(vec![2], basedpl::buffer::FloatWidth::F64, vec![1.]).unwrap_err().name(), "LENGTH");
+    assert_eq!(AplValue::floats(vec![1], basedpl::buffer::FloatWidth::F64, vec![-0.]).unwrap().as_floats().unwrap()[0].to_bits(), (-0f64).to_bits());
+    assert_eq!(AplValue::number(num_rational::BigRational::new_raw(1.into(), 0.into())).unwrap_err().name(), "DOMAIN");
+    assert_same(number(num_rational::BigRational::new_raw(2.into(), (-4).into())), &exact(-1, 2));
+}
+
+#[test]
+fn exact_results_and_readback() {
+    for code in ["0.1|0.3", "3|6.000000000000001"] { assert!(run(code).unwrap().unwrap().same(&float(0.0)), "{code}"); }
+    for code in ["1j2÷3j4", "×3j4", "÷1j2", "¯.5j2E¯1", "1E2j¯4E¯1", "1.7E308÷0.5j0.5", "5E¯324 ¯1.2345678901234567E200 1E¯100j2E100"] {
+        let a = run(code).unwrap().unwrap();
+        assert!(run(&a.to_string()).unwrap().unwrap().same(&a), "{code}");
+    }
+    let huge = format!("1{}", "0".repeat(400));
+    assert_same(run(&format!("{huge}ₓ÷{huge}ₓ")).unwrap().unwrap(), &exact(1, 1));
+    assert_same(run(&format!("{huge}1r{huge}0+0.5")).unwrap().unwrap(), &float(1.5));
+    assert_same(run(&format!("{huge}ₓ+0")).unwrap().unwrap(), &float(f64::INFINITY));
+    assert_same(run(&format!("{huge}ₓ+0j1")).unwrap().unwrap(), &number(num_complex::Complex64::new(f64::INFINITY, 1.0)));
+}
+#[test]
+fn array_literal_completeness() {
+    for code in ["[1 2 ⋄", "(1 +", "[[{⍵}1;2] ⋄"] { assert!(matches!(parse(Source::new("partial", code)), ParseStatus::Incomplete(_))); }
+    for code in ["[1 ⋄ 2)", "(1 ⋄ 2]", "[⋄]", "(1 ⋄ ⋄ 2)", "[1;2 ⋄ 3]"] {
+        assert!(matches!(parse(Source::new("invalid", code)), ParseStatus::Invalid(_)));
+    }
+}
+
+#[test]
+fn shy_results_and_signal_messages() {
+    let s = Session::new();
+    for (code, output) in [
+        ("f←{a←1} ⋄ f 0", vec![]), ("(f 0)", vec!["1"]), ("{2 ⋄ f ⍵}0", vec![]), ("{\"DOMAIN\"::a←7 ⋄ 1÷⍵}'a'", vec![]),
+        ("{f←{a←1} ⋄ (+f+)3}0", vec![]), ("{⎕←7}0", vec!["7"]),
+    ] {
+        let r = s.eval(code);
+        assert!(r.error.is_none(), "{code}: {:?}", r.error);
+        assert_eq!(r.output_text(), output, "{code}");
+    }
+    for name in ["SYNTAX", "INDEX", "RANK", "LENGTH", "VALUE", "LIMIT", "DOMAIN"] {
+        let error = run(&format!(r#"•signal "{name}""#)).unwrap_err();
+        assert_eq!((error.kind.name(), error.message.as_str()), (name, "explicitly signalled"));
+    }
+}
+
+fn exact(n: i64, d: i64) -> AplValue { AplValue::number(num_rational::BigRational::new(n.into(), d.into())).unwrap() }
+
+#[test]
+fn huge_shapes_count_exactly() {
+    let session = Session::new();
+    session.set("a", AplValue::empty(vec![usize::MAX, 0], float(0.)).unwrap()).unwrap();
+    equiv_in(&session, "≢a", &format!("{}ₓ", usize::MAX));
+    equiv_in(&session, "⍴a", &format!("[{} 0]ₓ", usize::MAX));
+}
+
+#[test]
+fn errors_and_evaluation_order() {
+    // The right argument fails before the parenthesized left argument is evaluated.
+    let e = run("(÷'a')+(×'b')").unwrap_err();
+    assert_eq!(&e.span.as_ref().unwrap().source.text[e.span.as_ref().unwrap().range.clone()], "×");
+    let e = run("¯2+1÷'a'").unwrap_err();
+    assert_eq!(e.span.as_ref().unwrap().range, 5..7); // UTF-8 bytes, not glyph indices.
+    assert_eq!(e.to_string(), "DOMAIN ERROR: expected numeric elements\n --> <input>:1:5\n¯2+1÷'a'\n    ^");
+    let e = run("(2\n 1÷'a')").unwrap_err();
+    assert!(e.to_string().contains("<input>:2:3\n 1÷'a')\n  ^"));
+    let e = run("¯2+1r0").unwrap_err();
+    assert_eq!(&e.span.as_ref().unwrap().source.text[e.span.as_ref().unwrap().range.clone()], "1r0");
+}
+
+#[test]
+fn structural_completeness_and_source_lifetime() {
+    assert!(matches!(parse(Source::new("test", "(2+⍝ )\n")), ParseStatus::Incomplete(_)));
+    assert!(matches!(parse(Source::new("test", "(2+))")), ParseStatus::Invalid(_)));
+    assert!(matches!(parse(Source::new("test", "('")), ParseStatus::Invalid(_)));
+    let source = Source::new("old input", "(1÷'a')");
+    let weak = Arc::downgrade(&source);
+    // Parsing a domain error is non-executing; the same retained syntax can be evaluated later.
+    let ParseStatus::Complete(parsed) = parse(source.clone()) else { panic!("expected complete input") };
+    drop(source);
+    let e = Session::new().eval_parsed(&parsed, EvalOptions::default()).error.unwrap();
+    drop(parsed);
+    assert!(e.to_string().contains("old input:1:3"));
+    assert!(weak.upgrade().is_some());
+    drop(e);
+    assert!(weak.upgrade().is_none());
+    // Flat evaluation is iterative, not one Rust stack frame per function application.
+    equiv(&format!("{}1", "1+".repeat(10_000)), "10001");
+}
+
+#[test]
+fn unicode_names() {
+    equiv("😎←2 ⋄ 中文←3 ⋄ 한글←4 ⋄ 😎+中文+한글", "9");
+    equiv("加←7 ⋄ _語←8 ⋄ 加+_語", "15");
+    equiv("x_1←7 ⋄ x_12←8 ⋄ x_1+x_12", "15");
+    equiv("f←- ⋄ f2", "¯2");
+}
+
+#[test]
+fn token_separator() {
+    equiv("mean←(+/÷≢)⊢ ⋄ w←1 1 2 ⋄ temps←10 20 30 ⋄ w⁝mean⌸temps", "15 30");
+    equiv("(2×)⍣3⁝5", "40");
+    equiv("(+/÷≢)⍤1⁝2 3⍴⍳6", "1 4");
+    equiv("m←[2 3]⍴⍳6 ⋄ i←1 ⋄ 10÷√1++/⍠i⁝m", "10÷√1+3 12");
+    equiv("m←2 3 4 5⍴⍳120 ⋄ +/⍠2 3⁝3 3↕m", "(+/⍠2 3)3 3↕2 3 4 5⍴⍳120");
+}
+
+#[test]
+fn highlight_classes_and_code_context() {
+    let classes = |text: &'static str| basedpl::highlight(text, false).into_iter().map(|(range, class)| (&text[range], class)).collect::<Vec<_>>();
+    let expected = [("⍵", "argument"), ("∘", "dyadic-operator"), ("+", "function"), ("¨", "monadic-operator"), ("\"a+b\"", "string"), ("⍝ c+d", "comment")];
+    assert_eq!(classes("⍵∘+¨\"a+b\" ⍝ c+d"), expected);
+    assert_eq!(classes("中文←2"), [("中文", "name"), ("←", "syntax"), ("2", "literal")]);
+    // An unclosed string, as while typing, runs to the end of the text.
+    assert_eq!(classes("x←1+\"a+"), [("x", "name"), ("←", "syntax"), ("1", "literal"), ("+", "function"), ("\"a+", "string")]);
+    // A group's `ₓ` is part of its literal, or `⌊` after a group that holds anything else. `ⱼ` between two items joins them into a number.
+    let expected = [
+        ("1", "literal"), ("2", "literal"), ("ₓ", "literal"), ("+", "function"), ("x", "name"), ("+", "function"), ("1", "literal"),
+        ("ₓ", "monadic-operator"), ("+", "function"), ("x", "name"), ("ⱼ", "literal"), ("y", "name"),
+    ];
+    assert_eq!(classes("[1 2]ₓ+(x+1)ₓ+xⱼy"), expected);
+    // The end of the text is in code unless it is inside a comment or an unclosed literal.
+    assert!(basedpl::in_code("\"a\"+", false) && basedpl::in_code("1 ⍝ c\n", false));
+    assert!(!basedpl::in_code("1+\"a", false) && !basedpl::in_code("1 ⍝ c", false) && !basedpl::in_code("'", false));
+    assert!(basedpl::in_code("1 注 中文", false) && !basedpl::in_code("1 注 中文", true));
+}
+
+#[test]
+fn based_values() {
+    let n = float(3.0);
+    let unit = n.enclose().unwrap();
+    check("3", n.clone());
+    check("⊂3", unit.clone());
+    check("⊂⊂3", unit.enclose().unwrap());
+    check(",3", vector(&[3.]));
+    assert!(!n.same(&unit));
+    assert!(!unit.same(&vector(&[3.])));
+}
+
+#[test]
+fn array_invariants() {
+    let seven = float(7.0);
+    let singleton = vector(&[7.0]);
+    assert!(!seven.same(&singleton));
+    assert!(seven.shape().is_empty());
+    assert_eq!(singleton.shape(), &[1]);
+    assert_eq!(AplValue::new(vec![2, 2], vec![float(1.0); 3]).unwrap_err().name(), "LENGTH");
+    assert_eq!(AplValue::new(vec![], vec![]).unwrap_err().name(), "LENGTH");
+    assert_eq!(AplValue::new(vec![usize::MAX, 2], vec![float(1.0)]).unwrap_err().name(), "LIMIT");
+    let rows = AplValue::empty(vec![0, 3], float(0.0)).unwrap();
+    let cols = AplValue::empty(vec![3, 0], float(0.0)).unwrap();
+    assert!(!rows.same(&cols));
+    assert!(rows.is_empty());
+    assert_eq!(rows.shape(), &[0, 3]);
+    assert!(AplValue::empty(vec![usize::MAX, 2, 0], float(0.0)).is_ok());
+    assert_eq!(AplValue::empty(vec![], float(0.0)).unwrap_err().name(), "LENGTH");
+    let text = AplValue::empty(vec![0, 3], Character('x')).unwrap();
+    assert!(!rows.same(&text));
+    assert_same(text.prototype(), &Character(' '));
+    let normalized = AplValue::new(vec![1], vec![seven]).unwrap();
+    assert_same(normalized, &singleton);
+}
+
+#[test]
+fn declared_ranks_match_rank() {
+    // Wherever a primitive form succeeds, it gives what Rank gives at the form's declared ranks. A form may also reject arguments that Rank would extend over. No argument is empty, because Rank calls a function on a prototype cell when the frame is empty. `¿` is left out, because it's random. The dfn stops Rank calling the primitive on the whole argument.
+    use basedpl::symbols::symbols;
+    let s = Session::new();
+    s.eval(r#"n←2 ⋄ v←1 2 3 ⋄ w←3 1 2 ⋄ u←1 0 1 ⋄ m←2 3⍴⍳6 ⋄ q←3 3⍴2 7 6 9 5 1 4 3 8 ⋄ t←2 2 3⍴⍳12 ⋄ c←"abc" ⋄ k←2 3⍴"abcdef" ⋄ e←[1 2;3 4 5]"#);
+    let args = ["n", "v", "w", "u", "m", "q", "t", "c", "k", "e"];
+    let mut differ = Vec::new();
+    let mut compare = |direct: String, ranked: String| {
+        if s.eval(&direct).error.is_some() { return; }
+        let same = s.eval(&format!("({direct})≡({ranked})")).value.and_then(|v| v.as_number()).and_then(|n| n.as_bool());
+        if same != Some(true) { differ.push(direct); }
+    };
+    for symbol in symbols().iter().filter(|s| s.kind == "function" && s.glyph != "¿") {
+        let f = symbol.glyph;
+        if !["", "∞"].contains(&symbol.monad_rank.as_str()) {
+            for y in args { compare(format!("{f} {y}"), format!("{{{f} ⍵}}⍤({}) {y}", symbol.monad_rank)); }
+        }
+        if !["", "∞ ∞"].contains(&symbol.dyad_ranks.as_str()) {
+            for x in args { for y in args { compare(format!("{x} {f} {y}"), format!("{x} {{⍺ {f} ⍵}}⍤({}) {y}", symbol.dyad_ranks)); } }
+        }
+    }
+    assert!(differ.is_empty(), "these differ from Rank at their declared ranks: {differ:?}");
+}
+
+#[test]
+fn nested_prototypes_and_value_semantics() {
+    // Dyalog 20 prototype examples, documentation-derived: https://docs.dyalog.com/20.0/programming-reference-guide/introduction/arrays/prototypes-and-fill-items/
+    let nested = AplValue::new(vec![2], vec![vector(&[1.0, 2.0]), vector(&[3.0, 4.0, 5.0])]).unwrap();
+    assert_same(nested.prototype(), &vector(&[0.0, 0.0]));
+    let empty = AplValue::empty(vec![0], nested.prototype().clone()).unwrap();
+    assert_same(empty.prototype(), &nested.prototype());
+    let mixed = AplValue::new(vec![2], vec![float(88.0), Character('X')]).unwrap();
+    let a = AplValue::new(vec![], vec![mixed]).unwrap();
+    let expected = AplValue::new(vec![2], vec![float(0.0), Character(' ')]).unwrap();
+    assert_same(a.prototype(), &expected);
+    let saved = nested.clone();
+    let mut detached: Vec<AplValue> = nested.elements().collect();
+    detached[0] = float(9.0);
+    let changed = AplValue::new(vec![2], detached).unwrap();
+    assert!(!changed.same(&saved));
+    drop(nested);
+    assert_same(saved.prototype(), &vector(&[0.0, 0.0]));
+}
+
+#[test]
+fn persistent_arrays_and_functions() {
+    let s = Session::new();
+    let r = s.eval("v←⍳10");
+    assert!(r.error.is_none());
+    assert!(r.output_text().is_empty());
+    assert_eq!(r.value.unwrap().shape(), &[10]);
+    equiv_in! { &s;
+        "+/v" => "45",
+        "f←+ ⋄ 2 f 3" => "5",
+        "sum←+/ ⋄ sum 1 2 3" => "6",
+        "f/1 2 3" => "6",
+        "⍴v" => ",10ₓ",
+        "a←v ⋄ v←0 ⋄ +/a" => "45",
+    }
+}
+
+#[test]
+fn result_output_and_nonexecuting_parse() {
+    let s = Session::new();
+    equiv_in(&s, "x←2", "2");
+    let r = s.eval("3 ⋄ f←+");
+    assert!(r.error.is_none());
+    assert!(r.value.is_none());
+    assert_eq!(r.output_text(), ["3"]);
+    for _ in 0..2 { assert!(matches!(parse(Source::new("check", "x←99 ⋄ ⎕←8")), ParseStatus::Complete(_))); }
+    equiv_in(&s, "x", "2");
+    assert!(s.eval("").value.is_none());
+    assert!(s.eval("2+2").error.is_none());
+    let r = s.eval("x←5 ⋄ 1÷'a'");
+    assert!(r.error.is_some());
+    equiv_in(&s, "x", "5");
+    // No whole-input transaction.
+}
+
+#[test]
+fn binding_error_recovery() {
+    let s = Session::new();
+    s.eval("x←10");
+    let r = s.eval("bad←{local←99 ⋄ 1÷'a'} ⋄ bad 0");
+    assert_eq!(r.error.as_ref().unwrap().kind.name(), "DOMAIN");
+    fails_in(&s, "VALUE", &["local"]);
+    equiv_in(&s, "x", "10");
+    fails_in(&s, "LIMIT", &["loop←{1+∇⍵} ⋄ loop 0"]);
+    equiv_in(&s, "2+2", "4");
+    fails_in(&s, "SYNTAX", &["⍵←1"]);
+}
+
+#[test]
+fn definitions_retain_only_needed_sources() {
+    let source = Source::new("definition.bpl", "bad←{1÷⍵}");
+    let weak = Arc::downgrade(&source);
+    let s = Session::new();
+    assert!(s.eval_source(source, EvalOptions::default()).error.is_none());
+    assert!(weak.upgrade().is_some());
+    let error = s.eval("bad 'a'").error.unwrap();
+    assert_eq!(error.span.as_ref().unwrap().source.name, "definition.bpl");
+    assert_eq!(&error.span.as_ref().unwrap().source.text[error.span.as_ref().unwrap().range.clone()], "÷");
+    assert!(s.eval("bad←+").error.is_none());
+    assert!(weak.upgrade().is_some());
+    drop(error);
+    assert!(weak.upgrade().is_none());
+    for _ in 0..2 { assert!(matches!(parse(Source::new("check", "f←{⎕←1\n⍵}")), ParseStatus::Complete(_))); }
+    assert!(s.eval("f").error.is_some());
+    assert!(matches!(parse(Source::new("check", "f←{⍝ }\n")), ParseStatus::Incomplete(_)));
+}
+
+#[test]
+fn operator_categories_and_singleton_replicate() {
+    // Dyalog 20: operators acquire their function operand before binding the next operator.
+
+    // Dyalog 20 binding-strength and replicate documentation; not reference executions.
+    let s = Session::new();
+    for _ in 0..2 { equiv_in(&s, "op←{⍶⍵} ⋄ +op 3", "3"); }
+    for code in ["r←/ ⋄ +r 1 2 3", "r←/ ⋄ sum←+r ⋄ sum 1 2 3", "r←/ ⋄ alias←r ⋄ +(alias)1 2 3"] {
+        let r = s.eval(code);
+        assert!(r.error.is_none(), "{code}: {:?}", r.error);
+        assert_same(r.value, &float(6.0));
+    }
+    for (code, expected) in [("(,2)#3 4", vec![3.0, 3.0, 4.0, 4.0]), ("1 0 1#,3", vec![3.0, 3.0])] {
+        let r = s.eval(code);
+        assert!(r.error.is_none(), "{code}: {:?}", r.error);
+        assert_same(r.value, &vector(&expected));
+    }
+}
+
+#[test]
+fn long_assignment_chains() { assert_same(Session::new().eval(&format!("{}7", "a←".repeat(10_000))).value, &float(7.0)); }
+
+#[test]
+fn tolerant_equality_agrees_between_array_and_item_paths() {
+    // `xs=c` works out once the range of floats tolerantly equal to `c`. A dfn under `¨` compares one pair at a time. The range's ends lie within a few floats of `c×(1-1e-14)` and `c÷(1-1e-14)`. The two must agree within 64 floats of those ends and of `c`.
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    let mut numbers = vec![1.0, -1.0, 3.0, 0.1, 1e14, 1e300, -2.5e-300, f64::MIN_POSITIVE, 5e-324, f64::MAX];
+    numbers.extend((0..2000).map(|_| f64::from_bits(next())).filter(|c| c.is_finite()));
+    let steps = |mut x: f64, step: fn(f64) -> f64| { std::iter::from_fn(move || { x = step(x); Some(x) }).take(64) };
+    let s = Session::new();
+    for c in numbers {
+        let ends = [c * (1.0 - 1e-14), c / (1.0 - 1e-14), c];
+        let xs: Vec<f64> = ends.into_iter().flat_map(|end| steps(end, f64::next_up).chain(steps(end, f64::next_down)).chain([end])).collect();
+        s.set("xs", AplValue::floats(vec![xs.len()], basedpl::buffer::FloatWidth::F64, xs).unwrap()).unwrap();
+        s.set("c", float(c)).unwrap();
+        let (array, items) = (s.eval("xs=c").value.unwrap(), s.eval("xs{⍺=⍵}¨c").value.unwrap());
+        assert!(array.same(&items), "c = {c:e}");
+    }
+}
+
+#[test]
+fn lexical_frames_are_reclaimed() {
+    // At most 20,000 lexical frames can be alive at once. Each result below depends on frames being freed: 25,000 calls in one input, 25,000 tail calls, a recursion 15,000 deep in two inputs, and recursion after a LIMIT error. The tail calls in `keep` and `pass` still read `x` from the frame that defined their function.
+    let s = Session::new();
+    for (code, expected) in [
+        ("outer←{x←2 ⋄ add←{x+⍵} ⋄ +/add¨⍵⍴1} ⋄ outer 25000", 75000.), ("+/outer¨25000⍴1", 75000.),
+        ("deep←{⍵=0?0;1+∇⍵-1} ⋄ deep 15000", 15000.), ("deep 15000", 15000.),
+        ("count←{⍺←0 ⋄ ⍵=0?⍺;(⍺+1)∇⍵-1} ⋄ count 25000", 25000.),
+        ("even←{⍵=0?1;odd ⍵-1} ⋄ odd←{⍵=0?0;even ⍵-1} ⋄ even 25000", 1.),
+        ("keep←{x←42 ⋄ loop←{⍵=0?x;∇⍵-1} ⋄ loop ⍵} ⋄ keep 25000", 42.),
+        ("pass←{x←42 ⋄ op←{⍵=0?⍶ ⍵;∇⍵-1} ⋄ ({x}op)⍵} ⋄ pass 25000", 42.), ("loop←{⍵=0?a←7;(∇⍵-1)} ⋄ loop 25000", 7.),
+        ("f←{\"DOMAIN\"::7 ⋄ ⍵=0?1÷'a';∇⍵-1} ⋄ f 2000", 7.),
+    ] { check_in(&s, code, float(expected)); }
+    assert_eq!(s.eval("f 20000").error.unwrap().kind.name(), "LIMIT");
+    check_in(&s, "deep 15000", float(15000.));
+    let source = Source::new("calls", "outer 25000");
+    let weak = Arc::downgrade(&source);
+    assert!(s.eval_source(source, EvalOptions::default()).error.is_none());
+    assert!(weak.upgrade().is_none());
+}
+
+#[test]
+fn diagnostic_width_and_call_context() {
+    let s = Session::new();
+    let error = s.eval("한←1 ⋄\t한÷'a'").error.unwrap();
+    assert_eq!(error.to_string(), "DOMAIN ERROR: expected numeric elements\n --> <input>:1:11\n한←1 ⋄  한÷'a'\n          ^");
+    assert!(s.eval_source(Source::new("old.bpl", "bad←{1÷⍵} ⋄ outer←{bad ⍵}"), EvalOptions::default()).error.is_none());
+    let e = s.eval("outer 'a'").error.unwrap();
+    assert_eq!(&e.span.as_ref().unwrap().source.text[e.span.as_ref().unwrap().range.clone()], "÷");
+    assert_eq!(e.calls.iter().map(|s| &s.source.text[s.range.clone()]).collect::<Vec<_>>(), ["bad", "outer"]);
+    assert!(e.to_string().contains("called from old.bpl:"));
+    let deep = s.eval("down←{⍵=0?1÷'a';1+down ⍵-1} ⋄ down 100").error.unwrap();
+    assert_eq!(deep.calls.len(), 101);
+    assert_eq!(deep.to_string().matches("called from").count(), 6);
+    assert!(deep.to_string().contains("95 more calls"));
+    let empty = Source::new("empty.bpl", "f←{}");
+    let weak = Arc::downgrade(&empty);
+    s.eval_source(empty, EvalOptions::default());
+    assert!(weak.upgrade().is_some());
+    let result = s.eval("f 0");
+    assert!(result.error.is_none() && result.value.is_none());
+    s.eval("f←+");
+    assert!(weak.upgrade().is_none());
+}

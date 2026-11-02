@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -44,10 +45,14 @@ def pytest_runtest_makereport(item, call):
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from schemathesis.config import SchemathesisConfig
     from schemathesis.openapi.loaders import OpenApiSchema
     from schemathesis.schemas import APIOperation
     from schemathesis.specs.graphql.schemas import GraphQLSchema
+    from test.apps.catalog.grpc.raw import RawGrpcServer
+    from test.apps.catalog.grpc.users import CrashingGrpcServer, GrpcApp, GrpcServer
 
 
 @overload
@@ -503,10 +508,19 @@ class GraphQLApps:
     def federated_subgraph(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.federated_subgraph())
 
+    def coverage_inputs(self) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.coverage_inputs())
+
+    def lenient(self) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.lenient())
+
     def from_schema(
         self, schema, *, endpoint: str = "/graphql", framework: Literal["flask", "fastapi"] = "flask"
     ) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.from_schema(schema, endpoint=endpoint, framework=framework))
+
+    def canned_response(self, payload: object, *, status_code: int = 200) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.canned_response(payload, status_code=status_code))
 
     def use_after_create(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.use_after_create())
@@ -553,10 +567,98 @@ class GraphQLContext:
     def load_sdl(self, sdl: str, *, config: SchemathesisConfig | None = None) -> GraphQLSchema:
         return schemathesis.graphql.from_file(sdl, config=config)
 
+    def write_sdl(self, sdl: str, *, filename: str = "schema.graphql") -> Path:
+        path = self.parent.request.getfixturevalue("tmp_path") / filename
+        path.write_text(sdl)
+        return path
+
     def load_introspection(
         self, raw_schema: dict[str, Any], *, config: SchemathesisConfig | None = None
     ) -> GraphQLSchema:
         return schemathesis.graphql.from_dict(raw_schema, config=config)
+
+
+@dataclass(slots=True)
+class GrpcApps:
+    parent: Context
+
+    def users(
+        self,
+        *,
+        tls: bool = False,
+        client_auth: bool = False,
+        reflection: str | None = "v1alpha",
+        undescribed_services: tuple[str, ...] = (),
+        reflection_imports: bool = True,
+        unserved_files: tuple[str, ...] = (),
+        emptied_files: tuple[str, ...] = (),
+        annotated: bool = False,
+        start: bool = True,
+        port: int = 0,
+        on_get_user: Callable[[int, Any], object] | None = None,
+    ) -> GrpcServer:
+        # grpcio has no free-threaded build, so only tests that start a server need it.
+        from test.apps.catalog.grpc import users as grpc_users
+
+        app = grpc_users.users(
+            tls=tls,
+            client_auth=client_auth,
+            reflection_version=reflection,
+            undescribed_services=undescribed_services,
+            reflection_imports=reflection_imports,
+            unserved_files=unserved_files,
+            emptied_files=emptied_files,
+            annotated=annotated,
+            start=start,
+            port=port,
+            on_get_user=on_get_user,
+        )
+        return self._serve(app)
+
+    def crashing_users(self, how: str) -> CrashingGrpcServer:
+        """`users` where a call with id 500 brings the server down: `exit` drops connections, `stop` cancels calls."""
+        from test.apps.catalog.grpc.users import crashing_users
+
+        server = crashing_users(how, self.parent.request.getfixturevalue("tmp_path"))
+        self.parent.request.addfinalizer(server.kill)
+        return server
+
+    def side_effects(self) -> GrpcServer:
+        from test.apps.catalog.grpc.users import side_effects
+
+        return self._serve(side_effects())
+
+    def library(self) -> GrpcServer:
+        from test.apps.catalog.grpc.users import library
+
+        return self._serve(library())
+
+    def envelope(self) -> GrpcServer:
+        from test.apps.catalog.grpc.users import envelope
+
+        return self._serve(envelope())
+
+    def echo_status(self) -> RawGrpcServer:
+        from test.apps.catalog.grpc.raw import echo_status
+
+        server = echo_status(self.parent.request.getfixturevalue("tmp_path"))
+        self.parent.request.addfinalizer(server.stop)
+        return server
+
+    def _serve(self, app: GrpcApp) -> GrpcServer:
+        server = app.make_server(self.parent.request.getfixturevalue("tmp_path"))
+        self.parent.request.addfinalizer(server.close)
+        return server
+
+
+@dataclass(slots=True)
+class GrpcContext:
+    parent: Context
+
+    @property
+    def apps(self) -> GrpcApps:
+        pytest.importorskip("grpc", reason="grpcio has no free-threaded build")
+        return GrpcApps(parent=self.parent)
 
 
 @dataclass
@@ -639,6 +741,10 @@ class Context:
     @property
     def graphql(self) -> GraphQLContext:
         return GraphQLContext(parent=self)
+
+    @property
+    def grpc(self) -> GrpcContext:
+        return GrpcContext(parent=self)
 
     @property
     def _testdir(self):

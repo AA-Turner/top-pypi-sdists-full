@@ -1,0 +1,932 @@
+"""Drift tests for MCP tool inputSchema generation.
+
+The MCP tool registry exposes ``inputSchema`` for every ADCP tool via
+``tools/list``. These schemas are auto-generated from the corresponding
+Pydantic request models in ``adcp.types`` on first ``tools/list`` call
+(:func:`adcp.server.mcp_tools._ensure_pydantic_schemas_applied`).
+
+This module protects the generation path from regressions:
+
+1. Every tool must resolve to a Pydantic-generated schema. If a new tool
+   is added to ``ADCP_TOOL_DEFINITIONS`` without a mapping in
+   ``_tool_to_request``, the tool would silently ship a hand-crafted
+   stub schema again — the drift this whole mechanism exists to prevent.
+2. Each tool's ``inputSchema`` must match the ``model_json_schema()``
+   output of its request model (modulo the ``title`` strip and the
+   conditional ``$defs`` drop). If Pydantic changes its schema output,
+   or a model gains/drops a field, this test fails on the affected tool.
+3. The schema must advertise the model's required fields so agents
+   constructing payloads via ``tools/list`` see accurate constraints.
+"""
+
+from __future__ import annotations
+
+import json
+
+from adcp.server.mcp_tools import (
+    _PYDANTIC_SCHEMAS,
+    ADCP_TOOL_DEFINITIONS,
+    _generate_pydantic_output_schemas,
+    _generate_pydantic_schemas,
+    _inline_refs,
+    _model_to_json_schema,
+    _prune_to_required_fields,
+)
+
+ROOT_DISCOVERY_FORBIDDEN = {
+    "$ref",
+    "allOf",
+    "anyOf",
+    "oneOf",
+    "not",
+    "if",
+    "then",
+    "else",
+    "dependentSchemas",
+}
+
+MEDIA_BUY_SELLER_TOOLS = {
+    "get_products",
+    "list_creative_formats",
+    "sync_creatives",
+    "list_creatives",
+    "create_media_buy",
+    "update_media_buy",
+    "get_media_buy_delivery",
+    "get_media_buys",
+    "get_signals",
+    "list_accounts",
+    "sync_accounts",
+    "provide_performance_feedback",
+    "get_adcp_capabilities",
+}
+
+
+def test_every_tool_has_pydantic_generated_schema() -> None:
+    """Every ADCP tool must map to a Pydantic request model."""
+    tool_names = {t["name"] for t in ADCP_TOOL_DEFINITIONS}
+    missing = tool_names - set(_PYDANTIC_SCHEMAS.keys())
+    assert not missing, (
+        "Tools missing from Pydantic schema generator — they would ship "
+        "stub inputSchemas that drift from the real request model:\n"
+        + "\n".join(f"  - {name}" for name in sorted(missing))
+        + "\n\nAdd each tool to ``_tool_to_request`` in "
+        "``adcp/server/mcp_tools.py``, mapped to its ``<ToolName>Request`` model."
+    )
+
+
+def test_every_input_discovery_schema_has_unconditional_object_root() -> None:
+    for tool in ADCP_TOOL_DEFINITIONS:
+        schema = tool["inputSchema"]
+        assert schema.get("type") == "object", tool["name"]
+        assert not ROOT_DISCOVERY_FORBIDDEN.intersection(schema), tool["name"]
+
+
+def test_pydantic_fallback_rejects_conditional_root() -> None:
+    class ConditionalRoot:
+        @classmethod
+        def model_json_schema(cls):
+            return {"type": "object", "properties": {}, "if": {"required": ["mode"]}}
+
+    assert _model_to_json_schema(ConditionalRoot) is None
+
+
+def test_compact_pruning_keeps_root_fields_and_keeps_pruned_objects_closed() -> None:
+    """A pruned object re-admits the names it dropped instead of opening.
+
+    Opening it would make the advertised shape accept keys the runtime model
+    rejects — on an ``outputSchema`` that is the only check a buyer has
+    against a seller smuggling extra fields into a payload it feeds to a
+    model.
+    """
+    schema = {
+        "type": "object",
+        "properties": {
+            "required_root": {"type": "string"},
+            "optional_root": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "required_nested": {"type": "string"},
+                    "optional_complex": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                    },
+                },
+                "required": ["required_nested"],
+            },
+        },
+        "required": ["required_root"],
+    }
+
+    compact = _prune_to_required_fields(schema)
+
+    assert set(compact["properties"]) == {"required_root", "optional_root"}
+    nested = compact["properties"]["optional_root"]
+    assert set(nested["properties"]) == {"required_nested", "optional_complex"}
+    # The dropped optional keeps its name and loses only its subtree.
+    assert nested["properties"]["optional_complex"] is True
+    assert nested["required"] == ["required_nested"]
+    assert nested["additionalProperties"] is False
+
+
+def test_compact_pruning_keeps_scalar_optional_discovery_floor() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "container": {
+                "type": "object",
+                "properties": {
+                    "optional_scalar": {"type": "integer"},
+                    "optional_nullable_scalar": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "optional_complex": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                    },
+                },
+            }
+        },
+    }
+
+    compact = _prune_to_required_fields(schema)
+    properties = compact["properties"]["container"]["properties"]
+
+    # Scalars keep their schema; the complex optional keeps only its name, so
+    # a reader still learns the field exists.
+    assert set(properties) == {
+        "optional_scalar",
+        "optional_nullable_scalar",
+        "optional_complex",
+    }
+    assert properties["optional_scalar"] == {"type": "integer"}
+    assert properties["optional_complex"] is True
+
+
+def test_compact_pruning_does_not_rewrite_literal_schema_values() -> None:
+    example = {
+        "properties": {"example_only": "value"},
+        "required": ["example_only"],
+    }
+    schema = {
+        "type": "object",
+        "properties": {"required_root": {"type": "string"}},
+        "required": ["required_root"],
+        "examples": [example],
+        "default": example,
+    }
+
+    compact = _prune_to_required_fields(schema)
+
+    assert compact["examples"] == [example]
+    assert compact["default"] == example
+
+
+def test_compact_generation_drops_unreachable_definitions() -> None:
+    class ModelWithOrphanDefinition:
+        @classmethod
+        def model_json_schema(cls):
+            return {
+                "type": "object",
+                "properties": {"item": {"$ref": "#/$defs/Reachable"}},
+                "$defs": {
+                    "Reachable": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                        "required": ["id"],
+                    },
+                    "Orphaned": {
+                        "type": "object",
+                        "properties": {"unused": {"type": "string"}},
+                    },
+                },
+            }
+
+    compact = _model_to_json_schema(ModelWithOrphanDefinition, schema_mode="compact")
+
+    assert compact is not None
+    assert set(compact["$defs"]) == {"Reachable"}
+
+
+def test_compact_pruning_keeps_pydantic_targeting_overlay_contract() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "packages": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "product_id": {"type": "string"},
+                        "targeting_overlay": {
+                            "anyOf": [{"type": "object"}, {"type": "null"}],
+                            "default": None,
+                        },
+                        "optional_complex": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                        },
+                    },
+                    "required": ["product_id"],
+                },
+            },
+        },
+    }
+
+    compact = _prune_to_required_fields(schema)
+    package = compact["properties"]["packages"]["items"]
+
+    assert set(package["properties"]) == {
+        "product_id",
+        "targeting_overlay",
+        "optional_complex",
+    }
+    assert (
+        package["properties"]["targeting_overlay"]
+        == schema["properties"]["packages"]["items"]["properties"]["targeting_overlay"]
+    )
+    # Dropped subtree, kept name — the object stays closed.
+    assert package["properties"]["optional_complex"] is True
+    assert package["additionalProperties"] is False
+
+
+def test_input_schemas_match_pydantic_generation() -> None:
+    """tools/list schemas must byte-match fresh generation — no silent drift."""
+    fresh = _generate_pydantic_schemas()
+    mismatches: list[str] = []
+    for tool in ADCP_TOOL_DEFINITIONS:
+        name = tool["name"]
+        if name not in fresh:
+            continue
+        expected = fresh[name]
+        actual = tool["inputSchema"]
+        if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
+            mismatches.append(name)
+
+    assert not mismatches, (
+        "ADCP_TOOL_DEFINITIONS has stale inputSchemas — "
+        "call `_ensure_pydantic_schemas_applied()` (or `create_mcp_tools()`) first:\n"
+        + "\n".join(f"  - {name}" for name in mismatches)
+    )
+
+
+def test_schema_generators_can_target_advertised_tools() -> None:
+    """Server startup should compile only schemas it will advertise."""
+    selected = {"get_adcp_capabilities", "list_products"}
+
+    assert set(_generate_pydantic_schemas(selected)) == selected
+    assert set(_generate_pydantic_output_schemas(selected)) == selected
+
+
+def test_handler_schema_initialization_targets_advertised_tools(monkeypatch) -> None:
+    """The server path must pass its filtered tool set to both generators."""
+    from adcp.server import ADCPHandler, mcp_tools
+
+    class SchemaStartupSubsetHandler(ADCPHandler):
+        advertised_tools = {"list_products"}
+
+        async def list_products(self, params, context=None):
+            return {"products": []}
+
+    input_calls: list[set[str]] = []
+    output_calls: list[set[str]] = []
+
+    def generate_inputs(tool_names=None):
+        input_calls.append(set(tool_names or ()))
+        return {}
+
+    def generate_outputs(tool_names=None):
+        output_calls.append(set(tool_names or ()))
+        return {}
+
+    # The session fixture has already initialized the global schema cache.
+    # Replace only the attempted-set for this call so the test exercises the
+    # real get_tools_for_handler -> ensure -> generator orchestration without
+    # rebuilding the expensive model graph.
+    monkeypatch.setattr(mcp_tools, "_schema_tools_attempted", set())
+    monkeypatch.setattr(mcp_tools, "_generate_pydantic_schemas", generate_inputs)
+    monkeypatch.setattr(mcp_tools, "_generate_pydantic_output_schemas", generate_outputs)
+
+    definitions = mcp_tools.get_tools_for_handler(SchemaStartupSubsetHandler())
+    advertised = {definition["name"] for definition in definitions}
+
+    assert advertised == {"get_adcp_capabilities", "list_products"}
+    assert input_calls == [advertised]
+    assert output_calls == [advertised]
+
+
+def test_public_toolset_schema_mode_escape_hatch() -> None:
+    from adcp.server import ADCPHandler, create_mcp_tools
+
+    class SchemaModeHandler(ADCPHandler):
+        advertised_tools = {"get_products"}
+
+        async def get_products(self, params, context=None):
+            return {"products": []}
+
+    compact_tools = create_mcp_tools(SchemaModeHandler()).tool_definitions
+    inline_tools = create_mcp_tools(
+        SchemaModeHandler(),
+        schema_mode="inline",
+    ).tool_definitions
+
+    compact = next(tool["inputSchema"] for tool in compact_tools if tool["name"] == "get_products")
+    inline = next(tool["inputSchema"] for tool in inline_tools if tool["name"] == "get_products")
+
+    assert "$defs" in compact
+    assert '"$ref"' in json.dumps(compact)
+    assert '"$ref"' not in json.dumps(inline)
+    assert '"$defs"' not in json.dumps(inline)
+
+
+def test_handler_definitions_do_not_expose_memoized_schema_aliases(monkeypatch) -> None:
+    """Callers may mutate one schema branch without changing another."""
+    from adcp.server import ADCPHandler, mcp_tools
+
+    class SchemaMutationSafetyHandler(ADCPHandler):
+        advertised_tools = {"list_products"}
+
+        async def list_products(self, params, context=None):
+            return {"products": []}
+
+    shared = {"type": "object", "properties": {"id": {"type": "string"}}}
+    registry_definition = next(
+        tool for tool in mcp_tools.ADCP_TOOL_DEFINITIONS if tool["name"] == "list_products"
+    )
+    monkeypatch.setitem(
+        registry_definition,
+        "inputSchema",
+        {"type": "object", "properties": {"primary": shared, "secondary": shared}},
+    )
+    monkeypatch.setattr(mcp_tools, "_ensure_pydantic_schemas_applied", lambda tool_names: None)
+
+    definitions = mcp_tools.get_tools_for_handler(SchemaMutationSafetyHandler())
+    schema = next(
+        definition["inputSchema"]
+        for definition in definitions
+        if definition["name"] == "list_products"
+    )
+    primary = schema["properties"]["primary"]
+    secondary = schema["properties"]["secondary"]
+
+    assert primary is not secondary
+    primary["properties"]["id"]["type"] = "integer"
+    assert secondary["properties"]["id"]["type"] == "string"
+
+
+def test_required_fields_advertised() -> None:
+    """Required fields on each model must appear in the tool's inputSchema.
+
+    Agents building payloads from ``tools/list`` rely on the ``required``
+    array to know which fields cannot be omitted. If a model marks a
+    field as required but the advertised schema doesn't, the agent will
+    happily send a malformed request.
+    """
+    from pydantic import TypeAdapter
+
+    from adcp.types import (
+        AcquireRightsRequest,
+        CheckGovernanceRequest,
+        ContextMatchRequest,
+        CreateMediaBuyRequest,
+        GetProductsRequest,
+        IdentityMatchRequest,
+        ReportPlanOutcomeRequest,
+        SyncGovernanceRequest,
+        UpdateRightsRequest,
+    )
+    from adcp.types.legacy import LegacyBuildCreativeRequest
+
+    # Spot-check a representative slice: a mix of simple GETs, mutating
+    # writes, and schemas that include nested $refs. If the required
+    # fields drift for any of these, the rest probably drifted too.
+    checks = {
+        "get_products": GetProductsRequest,
+        "build_creative": LegacyBuildCreativeRequest,
+        "create_media_buy": CreateMediaBuyRequest,
+        "check_governance": CheckGovernanceRequest,
+        "report_plan_outcome": ReportPlanOutcomeRequest,
+        "acquire_rights": AcquireRightsRequest,
+        "update_rights": UpdateRightsRequest,
+        "sync_governance": SyncGovernanceRequest,
+        "context_match": ContextMatchRequest,
+        "identity_match": IdentityMatchRequest,
+    }
+
+    tool_schemas = {t["name"]: t["inputSchema"] for t in ADCP_TOOL_DEFINITIONS}
+    errors: list[str] = []
+
+    for tool_name, model in checks.items():
+        expected_required = set(TypeAdapter(model).json_schema().get("required", []))
+        advertised_required = set(tool_schemas[tool_name].get("required", []))
+        missing = expected_required - advertised_required
+        if missing:
+            errors.append(f"{tool_name}: model requires {sorted(missing)} but inputSchema does not")
+
+    assert not errors, "Required-field drift:\n" + "\n".join(errors)
+
+
+def test_spot_check_real_fields_reach_clients() -> None:
+    """The three tools that previously had the worst drift must now
+    advertise the real required fields from their request models.
+    """
+    tool_schemas = {t["name"]: t["inputSchema"] for t in ADCP_TOOL_DEFINITIONS}
+
+    get_products = tool_schemas["get_products"]
+    assert "brief" in get_products["properties"]
+    assert "buying_mode" in get_products["properties"]
+    assert "buying_mode" in get_products.get("required", [])
+
+    build_creative = tool_schemas["build_creative"]
+    assert "target_format_id" in build_creative["properties"]
+    assert "creative_manifest" in build_creative["properties"]
+    assert "idempotency_key" in build_creative.get("required", [])
+
+    create_media_buy = tool_schemas["create_media_buy"]
+    for field in ("account", "brand", "start_time", "end_time", "packages"):
+        assert field in create_media_buy["properties"], f"create_media_buy missing field {field!r}"
+    for req in ("account", "brand", "start_time", "end_time", "idempotency_key"):
+        assert req in create_media_buy.get(
+            "required", []
+        ), f"create_media_buy should require {req!r}"
+
+
+def test_media_buy_seller_input_schemas_stay_within_discovery_budget() -> None:
+    """The production seller surface must fit comfortably in model context."""
+    schemas = {
+        tool["name"]: tool["inputSchema"]
+        for tool in ADCP_TOOL_DEFINITIONS
+        if tool["name"] in MEDIA_BUY_SELLER_TOOLS
+    }
+    assert set(schemas) == MEDIA_BUY_SELLER_TOOLS
+
+    sizes = {name: len(json.dumps(schema)) for name, schema in schemas.items()}
+    total = sum(sizes.values())
+    largest_name = max(sizes, key=sizes.__getitem__)
+
+    assert total < 1_000_000, f"13-tool inputSchema total is {total:,} bytes"
+    assert (
+        sizes[largest_name] < 250_000
+    ), f"largest inputSchema is {largest_name}: {sizes[largest_name]:,} bytes"
+
+    def max_depth(value) -> int:
+        if isinstance(value, dict):
+            return 1 + max((max_depth(item) for item in value.values()), default=0)
+        if isinstance(value, list):
+            return 1 + max((max_depth(item) for item in value), default=0)
+        return 0
+
+    depths = {name: max_depth(schema) for name, schema in schemas.items()}
+    deepest_name = max(depths, key=depths.__getitem__)
+    assert (
+        depths[deepest_name] <= 20
+    ), f"deepest inputSchema is {deepest_name}: {depths[deepest_name]} levels"
+
+
+# ---------------------------------------------------------------------------
+# $defs inlining invariants (closes #208)
+# ---------------------------------------------------------------------------
+
+
+def test_schema_modes_keep_the_same_pydantic_root_surface() -> None:
+    schemas = {
+        mode: _generate_pydantic_schemas(
+            {"create_media_buy"},
+            schema_mode=mode,
+        )["create_media_buy"]
+        for mode in ("compact", "defs", "inline")
+    }
+
+    root_fields = {mode: set(schema["properties"]) for mode, schema in schemas.items()}
+    assert root_fields["compact"] == root_fields["defs"] == root_fields["inline"]
+    assert "$defs" in schemas["compact"]
+    assert '"$ref"' in json.dumps(schemas["compact"])
+    assert "$defs" in schemas["defs"]
+    assert '"$ref"' not in json.dumps(schemas["inline"])
+    assert '"$defs"' not in json.dumps(schemas["inline"])
+    assert len(json.dumps(schemas["compact"])) < len(json.dumps(schemas["defs"]))
+    assert len(json.dumps(schemas["defs"])) < len(json.dumps(schemas["inline"]))
+
+
+def test_inline_mode_is_ref_free_for_every_input_schema() -> None:
+    for tool_name, schema in _generate_pydantic_schemas(schema_mode="inline").items():
+        serialized = json.dumps(schema)
+        assert '"$ref"' not in serialized, tool_name
+        assert '"$defs"' not in serialized, tool_name
+
+
+def test_inline_mode_is_ref_free_for_every_output_schema() -> None:
+    """``schema_mode="inline"`` stays fully portable for clients that do not
+    resolve references — the counterpart of the input-side guarantee above.
+
+    It is no longer the default. Inlining expands every shared subtree once
+    per reference, which took a 13-tool seller's ``tools/list`` to 22 MiB
+    while its input schemas (compact since they were introduced) were 15 KB
+    each. Adopters serving ref-averse clients opt in with
+    ``schema_mode="inline"``.
+    """
+    for tool_name, schema in _generate_pydantic_output_schemas(schema_mode="inline").items():
+        serialized = json.dumps(schema)
+        assert '"$ref"' not in serialized, tool_name
+        assert '"$defs"' not in serialized, tool_name
+
+
+def test_advertised_output_schemas_use_local_refs_like_input_schemas() -> None:
+    """The default advertised shape is compact on both sides.
+
+    Output schemas used to be inlined unconditionally while inputs were
+    compact, so a client already had to resolve ``$ref`` to read an
+    ``inputSchema``. Locking the symmetry here keeps a future change from
+    re-introducing the asymmetry that made discovery unservable.
+    """
+    by_name = {tool["name"]: tool for tool in ADCP_TOOL_DEFINITIONS}
+    create_media_buy = by_name["create_media_buy"]
+
+    # Assert on structure, not on a substring: an inlined schema still
+    # mentions "#/$defs/..." inside `discriminator.mapping`, so a `"$defs" in
+    # json.dumps(...)` check passes against the very shape this guards.
+    assert "$defs" in create_media_buy["inputSchema"]
+    output = create_media_buy["outputSchema"]
+    assert "$defs" in output
+    assert all("$ref" in arm for arm in output["anyOf"])
+
+
+# ---------------------------------------------------------------------------
+# _inline_refs unit tests — behavior-level guarantees
+# ---------------------------------------------------------------------------
+
+
+def test_inline_refs_replaces_local_ref_with_body() -> None:
+    """The core transform: ``{"$ref": "#/$defs/X"}`` becomes the body
+    of ``$defs["X"]``."""
+    schema = {
+        "type": "object",
+        "properties": {"user": {"$ref": "#/$defs/User"}},
+        "$defs": {
+            "User": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    assert result["properties"]["user"] == {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+    assert "$defs" not in result
+
+
+def test_inline_refs_replaces_root_local_ref() -> None:
+    """Output-model aliases may place the local ref at the schema root."""
+    schema = {
+        "$ref": "#/$defs/Response",
+        "$defs": {
+            "Response": {
+                "type": "object",
+                "properties": {"status": {"type": "string"}},
+            }
+        },
+    }
+
+    result = _inline_refs(schema)
+
+    assert result == {
+        "type": "object",
+        "properties": {"status": {"type": "string"}},
+    }
+
+
+def test_inline_refs_resolves_nested_refs() -> None:
+    """A $def that itself references another $def must be fully
+    resolved in one pass. Without recursion, the second level stays
+    as a $ref."""
+    schema = {
+        "type": "object",
+        "properties": {"order": {"$ref": "#/$defs/Order"}},
+        "$defs": {
+            "Order": {
+                "type": "object",
+                "properties": {"customer": {"$ref": "#/$defs/Customer"}},
+            },
+            "Customer": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            },
+        },
+    }
+    result = _inline_refs(schema)
+    # Both levels resolved in the output.
+    assert result["properties"]["order"]["properties"]["customer"]["properties"]["id"] == {
+        "type": "string"
+    }
+    assert '"$ref"' not in json.dumps(result)
+
+
+def test_inline_refs_caches_repeated_definition_resolution() -> None:
+    """Repeated refs resolve once instead of rebuilding the definition."""
+
+    class CountingDefs(dict):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.lookups = []
+
+        def get(self, key, default=None):
+            self.lookups.append(key)
+            return super().get(key, default)
+
+    definitions = CountingDefs(
+        {
+            "Account": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            }
+        }
+    )
+    schema = {
+        "type": "object",
+        "properties": {
+            "primary": {"$ref": "#/$defs/Account"},
+            "secondary": {"$ref": "#/$defs/Account"},
+        },
+        "$defs": definitions,
+    }
+
+    result = _inline_refs(schema)
+
+    assert definitions.lookups == ["Account"]
+    assert result["properties"]["primary"] == result["properties"]["secondary"]
+
+
+def test_inline_refs_does_not_traverse_unreferenced_definitions() -> None:
+    """Unused broken definitions must not retain the discarded $defs table."""
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "$defs": {
+            "Unused": {"$ref": "#/$defs/Missing"},
+        },
+    }
+
+    result = _inline_refs(schema)
+
+    assert result == {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+
+
+def test_inline_refs_sibling_annotations_override_resolved_body() -> None:
+    """Annotation-level merge: sibling ``description`` / ``title`` on
+    the $ref node win over the resolved body's same-named keys. This
+    is what Pydantic emits at ref sites in practice (a field-level
+    description on top of a nested model).
+
+    Note: this is NOT JSON Schema 2020-12 §8.2 merge semantics (which
+    would evaluate siblings as an implicit ``allOf``). The inliner's
+    override semantics match Pydantic's actual output, not the spec's
+    general-case composition rule. If a future Pydantic version
+    emits assertion-level siblings at ref sites (``type``, ``enum``,
+    etc.), this merge would silently clobber them — today it doesn't."""
+    schema = {
+        "properties": {
+            "account": {
+                "$ref": "#/$defs/Account",
+                "description": "This one is special — overrides the generic description.",
+            }
+        },
+        "$defs": {
+            "Account": {
+                "type": "object",
+                "description": "Generic account description.",
+                "properties": {"id": {"type": "string"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    assert (
+        result["properties"]["account"]["description"]
+        == "This one is special — overrides the generic description."
+    )
+    assert result["properties"]["account"]["properties"] == {"id": {"type": "string"}}
+
+
+def test_inline_refs_resolves_inside_anyof() -> None:
+    """Pydantic emits ``anyOf: [{"$ref": "..."}, {"type": "null"}]``
+    for ``Optional[Model]`` on request types. The inliner MUST recurse
+    into composition keywords (``anyOf`` / ``oneOf`` / ``allOf``) so
+    optional nested models still flatten correctly. Real production
+    case — regression here silently breaks optional-model properties
+    for non-ref-resolving clients."""
+    schema = {
+        "type": "object",
+        "properties": {"maybe_account": {"anyOf": [{"$ref": "#/$defs/Account"}, {"type": "null"}]}},
+        "$defs": {
+            "Account": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    any_of = result["properties"]["maybe_account"]["anyOf"]
+    # First branch — Account resolved inline.
+    assert any_of[0] == {
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+    }
+    # Second branch — unchanged.
+    assert any_of[1] == {"type": "null"}
+    assert "$defs" not in result
+
+
+def test_inline_refs_resolves_inside_additional_properties() -> None:
+    """``additionalProperties: {"$ref": "..."}`` is another shape
+    Pydantic emits — e.g. ``dict[str, NestedModel]`` on a request
+    field. Must resolve like any other $ref."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "accounts_by_id": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/$defs/Account"},
+            }
+        },
+        "$defs": {
+            "Account": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    assert result["properties"]["accounts_by_id"]["additionalProperties"] == {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+    assert "$defs" not in result
+
+
+def test_inline_refs_does_not_false_positive_on_ref_as_value() -> None:
+    """The ``$defs``-drop decision must not treat a legitimate
+    ``"$ref"`` value inside an enum / const / description as an
+    unresolved reference. A description that mentions the word
+    ``"$ref"`` in prose, or an enum with ``"$ref"`` as a literal
+    string, would be a false positive under a naive substring check."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "keyword": {
+                "type": "string",
+                "description": 'Must be a JSON Schema keyword like "$ref" or "$id".',
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    # $defs was never present — no issue here specifically — but
+    # verify the description survived and the result is otherwise
+    # unchanged.
+    assert (
+        result["properties"]["keyword"]["description"]
+        == 'Must be a JSON Schema keyword like "$ref" or "$id".'
+    )
+
+
+def test_inline_refs_protects_against_cycles() -> None:
+    """Pydantic doesn't emit cyclic refs today, but a future request
+    model could. Cycle protection must leave the original ``$ref``
+    intact (and keep $defs) so the caller still has resolvable data."""
+    schema = {
+        "type": "object",
+        "properties": {"node": {"$ref": "#/$defs/Node"}},
+        "$defs": {
+            "Node": {
+                "type": "object",
+                "properties": {"child": {"$ref": "#/$defs/Node"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    # Cycle detected — the inner $ref survives because it'd recurse
+    # forever. $defs stays so it's still resolvable for spec-compliant
+    # clients.
+    assert '"$ref"' in json.dumps(result)
+    assert "$defs" in result
+
+
+def test_inline_refs_dangling_ref_leaves_schema_alone() -> None:
+    """A $ref pointing at a non-existent $def is a spec error, but the
+    inliner shouldn't crash — leave both the $ref and the (empty)
+    $defs intact so a spec-compliant client's error surface fires
+    with the right shape."""
+    schema = {
+        "type": "object",
+        "properties": {"bad": {"$ref": "#/$defs/NotThere"}},
+        "$defs": {},
+    }
+    result = _inline_refs(schema)
+    # Dangling $ref survives; $defs kept because the ref didn't resolve.
+    assert '"$ref"' in json.dumps(result)
+
+
+def test_inline_refs_ignores_external_refs() -> None:
+    """External $refs (``http://…``, relative paths) are spec-valid
+    but aren't something Pydantic emits for our request models. If
+    one ever shows up, leave it alone — silently stripping it would
+    corrupt the schema."""
+    schema = {
+        "type": "object",
+        "properties": {"x": {"$ref": "https://example.com/schema.json"}},
+    }
+    result = _inline_refs(schema)
+    assert result["properties"]["x"] == {"$ref": "https://example.com/schema.json"}
+
+
+def test_inline_refs_preserves_required_arrays() -> None:
+    """Inlining must not lose the ``required`` array on a resolved
+    definition. Agents constructing payloads read this to know which
+    fields are mandatory."""
+    schema = {
+        "type": "object",
+        "properties": {"user": {"$ref": "#/$defs/User"}},
+        "$defs": {
+            "User": {
+                "type": "object",
+                "required": ["name", "email"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "email": {"type": "string"},
+                },
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    assert result["properties"]["user"]["required"] == ["name", "email"]
+
+
+def test_inline_refs_handles_arrays_of_refs() -> None:
+    """``items: {"$ref": "..."}`` must resolve just like top-level
+    property refs."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "users": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/User"},
+            }
+        },
+        "$defs": {
+            "User": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            }
+        },
+    }
+    result = _inline_refs(schema)
+    assert result["properties"]["users"]["items"]["properties"] == {"id": {"type": "string"}}
+    assert "$defs" not in result
+
+
+def test_inline_refs_does_not_mutate_input() -> None:
+    """The inliner must return a new object — callers may want to keep
+    the pre-inline form (e.g. for comparison against Pydantic's fresh
+    output). Mutating the input silently breaks that contract."""
+    schema = {
+        "properties": {"user": {"$ref": "#/$defs/User"}},
+        "$defs": {"User": {"type": "object"}},
+    }
+    before = json.dumps(schema, sort_keys=True)
+    _inline_refs(schema)
+    after = json.dumps(schema, sort_keys=True)
+    assert before == after, "inliner must not mutate its input"
+
+
+# ---------------------------------------------------------------------------
+# End-to-end — inlined schema accepts the same valid input as Pydantic
+# ---------------------------------------------------------------------------
+
+
+def test_inlined_schema_still_validates_real_request() -> None:
+    """The inlined schema must accept every payload the original
+    Pydantic model accepts. Structural equivalence — the shape is
+    preserved, just flattened. Round-trip via jsonschema's validator
+    against a concrete minimal valid payload."""
+    import jsonschema
+    import pytest
+
+    from adcp.types import GetProductsRequest
+
+    tool_schemas = {t["name"]: t["inputSchema"] for t in ADCP_TOOL_DEFINITIONS}
+    get_products = tool_schemas["get_products"]
+
+    # Minimal valid payload per the model.
+    payload = {"buying_mode": "brief"}
+
+    # Build validator from the inlined schema; payload must pass.
+    try:
+        jsonschema.validate(payload, get_products)
+    except jsonschema.ValidationError as exc:  # pragma: no cover
+        pytest.fail(f"inlined schema rejected a valid payload: {exc}")
+
+    # And Pydantic still accepts it — both sides of the equivalence.
+    GetProductsRequest.model_validate(payload)

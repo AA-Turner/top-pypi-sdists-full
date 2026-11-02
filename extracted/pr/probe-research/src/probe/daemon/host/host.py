@@ -1,7 +1,7 @@
 """The daemon host: every recorded session's Probe daemon worker in ONE process.
 
 Plan `~/plans/daemon-in-service/PLAN.md` (H1-H15). The Probe service starts it
-(`probe.service.daemonhost`) as its one child; an old tap's `probe daemon worker`
+(`probe.service.sessions.daemon_host`) as its one child; an old tap's `probe daemon worker`
 reaches it through the proxy (`probe.daemon.host.proxy`).
 
     service DaemonHost ──host.sock──>  this process
@@ -204,24 +204,24 @@ def run_hosted(*, sid: str, transcript: str, cwd: str, source: str, daemon_dir: 
     records into its own files, `worker.run_session`'s exit code. Never raises."""
     from probe.daemon import worker as worker_mod
 
-    ctx = runctx.Run(sid, env=runctx.absolute_paths(env, cwd))
+    context = runctx.Run(sid, env=runctx.absolute_paths(env, cwd))
     try:
-        with runctx.enter(ctx):
+        with runctx.enter(context):
             level = os.environ.get("PROBE_DAEMON_LOG", "INFO")
             try:
                 handlers = run_handlers(sid, daemon_dir, level)
             except Exception:  # noqa: BLE001 -- no files: the host's own log
                 handlers = []
-            ctx.slots[LOG_HANDLERS_SLOT] = handlers
+            context.slots[LOG_HANDLERS_SLOT] = handlers
             try:
                 hooks = worker_mod.RunHooks(
                     say=lambda text: logging.getLogger("probe.daemon").warning("%s", text),
                     supervisor_gone=supervisor_gone, hosted=True,
-                    run=lambda coro: run_loop(ctx, coro, on_thread), on_worker=on_worker)
+                    run=lambda coro: run_loop(context, coro, on_thread), on_worker=on_worker)
                 return worker_mod.run_session(worker_mod.Session(sid, Path(transcript), Path(cwd), source), hooks,
                                               stopper)
             finally:
-                ctx.slots.pop(LOG_HANDLERS_SLOT, None)
+                context.slots.pop(LOG_HANDLERS_SLOT, None)
                 for handler in handlers:
                     with contextlib.suppress(Exception):
                         handler.close()
@@ -385,19 +385,19 @@ class Host:
             self._write_threads(snapshot)
 
     def _write_threads(self, snapshot: dict) -> None:
-        tmp = self.threads_path.with_name(f".{self.threads_path.name}.{os.getpid()}.tmp")
+        temp = self.threads_path.with_name(f".{self.threads_path.name}.{os.getpid()}.tmp")
         try:
-            tmp.write_text(json.dumps({"pid": os.getpid(), "threads": snapshot}), encoding="utf-8")
-            os.replace(tmp, self.threads_path)
+            temp.write_text(json.dumps({"pid": os.getpid(), "threads": snapshot}), encoding="utf-8")
+            os.replace(temp, self.threads_path)
         except OSError:
             with contextlib.suppress(OSError):
-                tmp.unlink()
+                temp.unlink()
 
     def note_child(self, sid: str, pid: int) -> None:
         """A run started a tool in a process group of its own (`probe`, the shell):
         if this host dies, the service ends that group before the run starts again
         (plan H15), so a write still going never overlaps its own retry."""
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         start = procid.start_time(pid)
         self._save_children(lambda children: children.__setitem__(pid, {"sid": sid, "start": start}))
@@ -413,13 +413,13 @@ class Host:
             with self.lock:
                 change(self._children)
                 snapshot = {str(k): v for k, v in self._children.items()}
-            tmp = self.children_path.with_name(f".{self.children_path.name}.{os.getpid()}.tmp")
+            temp = self.children_path.with_name(f".{self.children_path.name}.{os.getpid()}.tmp")
             try:
-                tmp.write_text(json.dumps({"pid": os.getpid(), "children": snapshot}), encoding="utf-8")
-                os.replace(tmp, self.children_path)
+                temp.write_text(json.dumps({"pid": os.getpid(), "children": snapshot}), encoding="utf-8")
+                os.replace(temp, self.children_path)
             except OSError:
                 with contextlib.suppress(OSError):
-                    tmp.unlink()
+                    temp.unlink()
 
     def track_children(self) -> None:
         """Every `asyncio.create_subprocess_exec(start_new_session=True)` a run makes
@@ -481,7 +481,7 @@ class Host:
         self.folder.mkdir(parents=True, exist_ok=True)
         with contextlib.suppress(OSError):
             os.chmod(self.folder, 0o700)
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         # 0700, ours and not a symlink: on the /tmp fallback another local user may
         # have made the folder first (the service's own socket is served the same way).
@@ -499,7 +499,7 @@ class Host:
         self.sel.register(self._wake_r, selectors.EVENT_READ, "wake")
         from probe import __version__
 
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         self._write_json(self.info_path, {"pid": os.getpid(), "start": procid.start_time(os.getpid()),
                                           "version": str(__version__), "socket": str(self.sock_path),
@@ -526,8 +526,8 @@ class Host:
                 self.stop_all()
             with self.lock:
                 broken = [c for c in self.conns if c.closed]
-            for conn in broken:
-                self._close(conn)  # a send to it failed: its runs' owner has gone
+            for connection in broken:
+                self._close(connection)  # a send to it failed: its runs' owner has gone
             now = time.monotonic()
             if now - self._last_beat >= BEAT_S:
                 self._last_beat = now
@@ -581,12 +581,12 @@ class Host:
             sock, _ = self._listener.accept()
         except OSError:
             return
-        from probe.service import caller
+        from probe.service.actions import caller
 
-        from probe.service.background import other_network
+        from probe.service.jobs.background.background import is_other_network
 
         pid = caller.peer_pid(sock)
-        if caller.sandboxed(pid) or other_network(pid):
+        if caller.sandboxed(pid) or is_other_network(pid):
             # The host starts daemon work with the environment it is handed: a
             # caller in a sandbox (an agent's own shell) may not (plan S6).
             with contextlib.suppress(OSError):
@@ -596,10 +596,10 @@ class Host:
         # A timeout, never non-blocking: sends from run threads wait at most
         # SEND_TIMEOUT_S; reads happen only once the selector says data is there.
         sock.settimeout(SEND_TIMEOUT_S)
-        conn = Conn(sock=sock, peer_pid=pid, on_broken=self.wake)
+        connection = Conn(sock=sock, peer_pid=pid, on_broken=self.wake)
         with self.lock:
-            self.conns.add(conn)
-        self.sel.register(sock, selectors.EVENT_READ, conn)
+            self.conns.add(connection)
+        self.sel.register(sock, selectors.EVENT_READ, connection)
 
     def _read(self, conn: Conn) -> None:
         try:
@@ -620,12 +620,12 @@ class Host:
             line, _, rest = bytes(conn.buf).partition(b"\n")
             conn.buf = bytearray(rest)
             try:
-                msg = json.loads(line)
+                message = json.loads(line)
             except ValueError:
                 conn.send({"op": "error", "error": "not JSON"})
                 continue
-            if isinstance(msg, dict):
-                self._handle(conn, msg)
+            if isinstance(message, dict):
+                self._handle(conn, message)
 
     def _close(self, conn: Conn) -> None:
         with contextlib.suppress(Exception):
@@ -805,8 +805,8 @@ class Host:
         # handed over: no successor would record the tail) and which are live.
         self._save_runs({"pid": os.getpid(), "runs": [{"sid": r["sid"], "draining": r["draining"]}
                                                      for r in beat["runs"]]})
-        for conn in owners:
-            conn.send(beat)
+        for connection in owners:
+            connection.send(beat)
 
     @property
     def runs_path(self) -> Path:
@@ -814,13 +814,13 @@ class Host:
 
     def _save_runs(self, data: dict) -> None:
         with self._files_lock:
-            tmp = self.runs_path.with_name(f".{self.runs_path.name}.{os.getpid()}.tmp")
+            temp = self.runs_path.with_name(f".{self.runs_path.name}.{os.getpid()}.tmp")
             try:
-                tmp.write_text(json.dumps(data), encoding="utf-8")
-                os.replace(tmp, self.runs_path)
+                temp.write_text(json.dumps(data), encoding="utf-8")
+                os.replace(temp, self.runs_path)
             except OSError:
                 with contextlib.suppress(OSError):
-                    tmp.unlink()
+                    temp.unlink()
 
 
 def _raise_open_files() -> None:
@@ -866,7 +866,7 @@ def main(argv: list[str] | None = None) -> int:
     process_env = dict(os.environ)
     runctx.install()
     # OpenSSL's default loader reads these from the C environment, which a run's own
-    # never reaches (each run's are in its own mapping, where `sdk/tls.py` reads them):
+    # never reaches (each run's are in its own mapping, where `foundation/tls/tls.py` reads them):
     # the host keeps none, or a run that sets none would trust the host's.
     for name in ("SSL_CERT_FILE", "SSL_CERT_DIR"):
         os.environ.base.pop(name, None)  # type: ignore[attr-defined] -- ContextEnviron's process mapping

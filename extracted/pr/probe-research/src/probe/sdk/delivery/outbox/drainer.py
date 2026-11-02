@@ -1,8 +1,86 @@
-"""DrainerMixin, Client's methods: who drains a client's queue (detached worker or in-process
-exporter), kicked after an enqueue and at exit."""
+"""Who drains a client's queue: the `Drainer` interface and `pick_drainer`, which picks the kind
+ONCE per client (detached worker, in-process thread, or nobody); DrainerMixin is Client's side."""
 
 from __future__ import annotations
+import os
 import time
+import warnings
+
+from probe.foundation.compat.compat import StrEnum
+
+#: The in-process exporter's interval, read once when a client picks its drainer (parity F2).
+EXPORT_INTERVAL_ENV = "PROBE_EXPORT_INTERVAL_SEC"
+
+
+class DrainerKind(StrEnum):
+    """What delivers a client's queued writes."""
+
+    #: The detached outbox worker (or the Probe service, which starts one for us).
+    WORKER = "worker"
+    #: The in-process exporter thread, sending through this client's own transport.
+    THREAD = "thread"
+    #: Nobody on its own: `flush()`/`finish()`, or a forced kick, delivers.
+    NONE = "none"
+
+
+class Drainer:
+    """The interface every kind implements, and the NONE kind itself: it delivers nothing on
+    its own. ``kick(force=True)`` hands the queue to a detached worker from any kind (a
+    deferred finish, a hand-off), never past a custom transport the worker cannot replay."""
+
+    kind = DrainerKind.NONE
+
+    def __init__(self, directory, *, can_fork: bool) -> None:
+        self.directory = str(directory)
+        self.can_fork = can_fork
+
+    def wake(self) -> None:
+        """After an enqueue: make sure someone delivers it soon. Runs per `log()`."""
+
+    def kick(self, *, force: bool = False) -> None:
+        """Hand the queue to a detached worker. Forced kicks skip every throttle."""
+        if not (force and self.can_fork):
+            return
+        from .. import outbox as outbox_worker
+
+        try:
+            outbox_worker.maybe_spawn(self.directory)
+        except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
+            pass
+
+    def close(self, timeout: float | None = None) -> bool:
+        """Stop delivering through this process; True when something was stopped."""
+        return False
+
+
+def export_interval_from_env() -> float | None:
+    """`PROBE_EXPORT_INTERVAL_SEC` in seconds, or None (unset or malformed, warned)."""
+    raw = os.environ.get(EXPORT_INTERVAL_ENV)
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        warnings.warn(
+            f"ignoring malformed {EXPORT_INTERVAL_ENV}={raw!r}; expected seconds as a float",
+            stacklevel=3,
+        )
+        return None
+
+
+def pick_drainer(client) -> Drainer:
+    """The client's drainer, picked once at construction: the in-process thread when it has a
+    ``drain_interval`` (a token passed in code, `PROBE_EXPORT_INTERVAL_SEC`, auto_drain=False
+    on the default transport), else the detached worker when it may auto-drain, else none."""
+    if client._drain_interval is not None:
+        from .drainers.in_process import ThreadDrainer
+
+        return ThreadDrainer(client)
+    if client._auto_drain:
+        from .drainers.detached import DetachedDrainer
+
+        return DetachedDrainer(client.journal.dir)
+    return Drainer(client.journal.dir, can_fork=client._default_transport)
 
 
 def _at_exit(callback) -> None:
@@ -54,30 +132,9 @@ class DrainerMixin:
         _at_exit(promote)
 
     def _kick_drainer(self, *, force: bool = False) -> None:
-        """Wake the detached outbox worker (parity F1). Throttled: this runs
-        on every async write and a training loop logs hundreds of points a
-        second; ``maybe_spawn`` is O(1) but not free. Best-effort by design --
-        ``finish()``/`probe run end` is the delivery barrier, this is latency.
+        """Wake the detached outbox worker (parity F1); `Drainer.kick` says how.
 
-        ``force`` (deferred finish, F3): skip the mode gate and the throttle
-        -- a queued terminal status must not have its one kick swallowed --
-        but never the transport gate; a worker cannot replay an injected one.
-
-        The throttle arms ONLY on an actual spawn (prod smoke 2026-08-06): a
-        probe that declined because a worker was alive must not suppress the
-        next write's probe, or a worker exiting inside the window strands the
-        writer's last op if the writer then dies. While a worker lives, every
-        write pays one O(1) probe -- a status read and a lock check."""
-        if not self._default_transport:
-            return
-        if not (self._auto_drain or force):
-            return
-        if not force and (time.monotonic() - self._drainer_kicked_at < self._drainer_kick_interval):
-            return
-        from .. import outbox as outbox_worker
-
-        try:
-            if outbox_worker.maybe_spawn(str(self.journal.dir)) and not force:
-                self._drainer_kicked_at = time.monotonic()
-        except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
-            pass
+        ``force`` (deferred finish, F3): skip the mode gate and the throttle -- a
+        queued terminal status must not have its one kick swallowed -- but never
+        the transport gate; a worker cannot replay an injected one."""
+        self._drainer.kick(force=force)

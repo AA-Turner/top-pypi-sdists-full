@@ -258,7 +258,7 @@ def _sparse_codex_marketplace(name: str) -> None:
     (`codex_config.MARKETPLACE_SPARSE_PATHS`). Best-effort: a config this cannot
     edit keeps the full clone, as before."""
     from probe.shared.harness.harnesses.codex import config as codex_config  # noqa: PLC0415
-    from probe.cli.capabilities import MARKETPLACE_REPO  # noqa: PLC0415 - imports this module
+    from probe.cli.wizard.state.state import MARKETPLACE_REPO  # noqa: PLC0415 - imports this module
 
     try:
         codex_config.write_marketplace_sparse_paths(name, MARKETPLACE_REPO)

@@ -24,7 +24,7 @@ import pytest
 
 import probe
 from probe.shared.updates import handoff, installs
-from probe.cli import updater, upgrading
+from probe.cli.install import updater, upgrade as upgrading
 from probe.core import adopt
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks and flock")
@@ -221,8 +221,11 @@ def test_only_the_install_locks_own_fd_is_closed(machine, tmp_path, monkeypatch)
 
 def test_an_update_asked_for_in_place_is_never_handed_off(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "share/uv/probe-versions/0.1.0/probe-research"))
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     assert adopt.runs_managed_cli() is True
     monkeypatch.setenv(updater.IN_PLACE_ENV, "1")
     assert adopt.runs_managed_cli() is False
@@ -251,7 +254,7 @@ def test_what_the_new_env_lacks_is_read_from_the_receipts_not_remembered(machine
     PROBE_HANDOFF_DROPPED_WITH. The receipts still say it: the running env had
     wandb and an exact Python, the new one has neither. Recorded, and doctor
     prints how to put both back."""
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     (machine.old / "uv-receipt.toml").write_text(
         f'[tool]\npython = "{sys.executable}"\nrequirements = [{{ name = "probe-research" }}, '
@@ -312,7 +315,7 @@ def test_the_with_packages_a_hand_off_left_out_are_recorded_for_doctor(machine, 
     assert missing == ["wandb>=0.17"]
     assert command.startswith("uv tool install 'probe-research[") and command.endswith("--with 'wandb>=0.17'")
     assert f"]=={probe.__version__}'" in command
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     monkeypatch.setattr(sys, "prefix", str(machine.new))
     rows = doctor._dropped_with_rows()
@@ -408,7 +411,7 @@ def test_the_first_switch_never_waits_for_its_own_menu(unmigrated, monkeypatch, 
     its menu marker still there: that is no setup to wait for (24 h), while
     another terminal's waiting menu is."""
     from probe.shared.updates import setup_marks
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     state = paths.state_dir()
     if whose == "its-own":
@@ -506,7 +509,7 @@ def test_the_service_child_goes_on_to_the_wizard_after_it(monkeypatch):
 def test_probe_update_runs_it_before_taking_the_wizard_lock(ended, monkeypatch):
     from typer.testing import CliRunner
 
-    from probe.cli import wizard_lock
+    from probe.cli.wizard.session import lock as wizard_lock
 
     main = importlib.import_module("probe.cli.main")
     monkeypatch.setattr(wizard_lock, "held", lambda: pytest.fail("took the wizard lock"))
@@ -532,7 +535,7 @@ def test_the_wizards_update_runs_it_first_and_keeps_its_json_contract(ended, mon
 def test_the_detached_auto_update_runs_it_and_gives_its_lock_back_before_an_exec(ended, monkeypatch):
     from probe.cli import autoupdate, version_refresh
 
-    monkeypatch.setattr(upgrading, "perform_update", lambda **k: pytest.fail("updated in the old code"))
+    monkeypatch.setattr(upgrading.upgrade, "perform_update", lambda **k: pytest.fail("updated in the old code"))
     assert version_refresh._apply() == 75
     ((trigger, kw),) = ended
     assert trigger == "cli" and kw["argv"] == list(version_refresh.APPLY_ARGV)
@@ -590,11 +593,13 @@ def test_an_adopted_update_reports_the_cli_it_came_from(monkeypatch):
     recorded, reports = [], []
     adopt._adopted_from = "0.1.0"
     monkeypatch.setenv(upgrading.SKIP_CLI_ENV, "1")
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": probe.__version__}})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(updater, "upgrade_cli", lambda *a: pytest.fail("the CLI was upgraded twice"))
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {"cli": {"latest": probe.__version__}})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda *a: pytest.fail("the CLI was upgraded twice"))
     monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append(attempt))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda build, **k: reports.append(build()))
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=False)
     assert outcome.ok and outcome.cli == f"Probe CLI {probe.__version__} (updated from 0.1.0)"
     assert recorded[-1].from_version == "0.1.0" and recorded[-1].to_version == probe.__version__
@@ -617,11 +622,13 @@ def test_a_rebuild_of_a_broken_env_reports_as_a_change(monkeypatch):
     res = adopt.cli_result(probe.__version__)
     assert res.changed and res.before == broken and res.after == probe.__version__
     monkeypatch.setenv(upgrading.SKIP_CLI_ENV, "1")
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": probe.__version__}})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(updater, "upgrade_cli", lambda *a: pytest.fail("the CLI was upgraded twice"))
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {"cli": {"latest": probe.__version__}})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda *a: pytest.fail("the CLI was upgraded twice"))
     monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append(attempt))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda build, **k: reports.append(build()))
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda build, **k: reports.append(build()))
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=False)
     assert outcome.ok and outcome.cli == f"Probe CLI {probe.__version__} (updated from {broken})"
     assert recorded[-1].from_version == broken and recorded[-1].to_version == probe.__version__

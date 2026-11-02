@@ -1,0 +1,110 @@
+/**
+ * @file pns.hpp
+ * @brief Peripheral nerve stimulation of the physical-axis gradient, SAFE or chronaxie.
+ */
+
+#ifndef PULSEQ_PNS_HPP
+#define PULSEQ_PNS_HPP
+
+#include <array>
+#include <cstdint>
+#include <vector>
+
+#include "pulseq/sequence.hpp"
+
+namespace pulseq
+{
+
+    /** SAFE coefficients of one axis (Hebrank and Gebhardt, ISMRM 2000). */
+    struct SafeAxis
+    {
+        double a[3] = {0.0, 0.0, 0.0};
+        /** Low-pass time constants, in ms. */
+        double tau_ms[3] = {0.0, 0.0, 0.0};
+        /** In T/m/s. */
+        double stim_limit = 1.0;
+        double g_scale = 1.0;
+    };
+
+    struct PnsModel
+    {
+        enum class Kind
+        {
+            Safe,
+            Chronaxie
+        };
+        Kind kind = Kind::Safe;
+        std::array<SafeAxis, 3> safe;
+        /** Chronaxie in s, rheobase in T/m/s, per physical axis.
+         *
+         * The kernel's shape is the chronaxie's alone, so one time constant
+         * serves all three axes; what an axis brings of its own is how much
+         * stimulation a given slew on it produces, which is the rheobase it
+         * is normalised by. */
+        double chronaxie = 0.0;
+        double rheobase[3] = {0.0, 0.0, 0.0};
+        double alpha[3] = {1.0, 1.0, 1.0};
+    };
+
+    struct PnsOptions
+    {
+        /** Prescription rotation, logical to physical after each block's own. */
+        double rotation[3][3] = {{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+        /** Gyromagnetic ratio in Hz/T, to turn Hz/m into T/m. */
+        double gamma = 42.576e6;
+        /** Also return the response at every sample. */
+        bool keep_trace = false;
+    };
+
+    /** Peak nerve response, as a fraction of the model threshold, with its time and block. */
+    struct PnsPeak
+    {
+        double value = 0.0;
+        double time = 0.0;
+        int block = 0;
+    };
+
+    struct PnsReport
+    {
+        /** Root-sum-square over the axes, and each axis on its own. */
+        PnsPeak norm;
+        std::array<PnsPeak, 3> axes;
+        int64_t samples = 0;
+        double raster = 0.0;
+        /** Sample n is the response at (n + phase) raster: 1/2 under SAFE, 1 under chronaxie. */
+        double phase = 0.5;
+        /** Per sample when asked for. */
+        std::vector<double> trace_norm;
+        std::array<std::vector<double>, 3> trace_axes;
+    };
+
+    /**
+     * Nerve response to the slew of every physical axis, over the whole sequence.
+     *
+     * The gradient is read on the raster (PhysicalRaster), from rest; the
+     * slew of sample n is its difference from sample n - 1 over one raster,
+     * zero before the first. SAFE reads raster centres and filters each
+     * axis's slew with its own three RC low-passes, as the
+     * Szczepankiewicz-Witzel implementation does, and normalises by
+     * stim_limit / g_scale. The chronaxie model reads interval ends, so the
+     * slew of sample n is the played slew over interval n, and convolves it
+     * with c / (c + t)^2 integrated over each raster interval, normalised by
+     * rheobase / alpha: sample n is the response at the end of interval n,
+     * where a ramp's response peaks, and a rectangular slew S held for tau
+     * responds with S alpha tau / (rheobase (c + tau)). The kernel is evaluated as a sum
+     * of 24 exponentials, within 1e-5 of the convolution relative to the
+     * largest slew's response, and a block that repeats one already
+     * evaluated is answered by linearity in the filter state it carries in,
+     * unless the response could pass the peak found by more than 1e-9 of it.
+     * A block repeats an earlier one when it plays the same gradients and
+     * rotation over as many samples, its first sample at the same time from
+     * its start; block start times are summed in whole picoseconds, so that
+     * time is exact anywhere in the sequence.
+     * Both models are evaluated in one pass with the filter's own memory
+     * carried along, which is the whole-timeline answer.
+     */
+    PnsReport pns(const Sequence& seq, const PnsModel& model, const PnsOptions& options);
+
+} // namespace pulseq
+
+#endif /* PULSEQ_PNS_HPP */

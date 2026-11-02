@@ -1,0 +1,697 @@
+"""Editorial checks: Papyrus's editorial policies, checked by Humanus.
+
+Papyrus owns the policies (``EditorialPolicy``), the settings
+(``EditorialCheckSettings``) and the editors' decisions (``EditorialFeedback``).
+For each request a Humanus policy pack is composed from the stored policies --
+publication policies plus the article's desk policies, where a desk policy
+replaces a publication policy with the same key -- and Humanus is called.
+
+The site's editorial-checks function (core to every Papyrus backend) routes its GraphQL fields through
+``handle``; the ``papyrus editorial`` CLI uses the same operations.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Callable, Protocol
+
+import humanus
+from humanus.packs import builtin_pack, list_builtin_packs
+
+LOGGER = logging.getLogger(__name__)
+
+PUBLICATION_SCOPE = "publication"
+SETTINGS_ID = "settings"
+DEFAULT_SETTINGS: dict[str, Any] = {
+    "enabled": True,
+    "lanes": {"rules": True, "classifier": True},
+    "classifierModel": "jev-latest",
+    "rewriteModel": "gpt-6-luna",
+    "deadlineSeconds": 20,
+    "maxInputTokens": 500_000,
+    "maxExamplesPerQuestion": 4,
+    "guidance": "",
+    "publishWarning": True,
+    "checkWhileTyping": True,
+}
+DEFAULT_STARTER_PACKS = ("ai-writing-tells",)
+POLICY_FIELDS = ("policyKey", "scope", "version", "title", "guidance", "severity", "enabled", "detectors", "examples", "rewriteGuidance", "source")
+
+
+class EditorialStore(Protocol):
+    def get_editorial_context(self, section: str | None) -> dict[str, Any]: ...
+    def list_policies(self) -> list[dict[str, Any]]: ...
+    def get_settings(self) -> dict[str, Any] | None: ...
+    def list_feedback(self) -> list[dict[str, Any]]: ...
+    def create_policy(self, record: dict[str, Any]) -> None: ...
+    def update_policy(self, record: dict[str, Any]) -> None: ...
+    def put_settings(self, values: dict[str, Any], *, exists: bool) -> None: ...
+    def get_item(self, item_id: str) -> dict[str, Any] | None: ...
+    def put_check_run(self, record: dict[str, Any]) -> None: ...
+    def get_check_run(self, item_id: str) -> dict[str, Any] | None: ...
+    def list_check_runs_by_lineage(self, lineage_id: str, limit: int) -> list[dict[str, Any]]: ...
+    # Optional: every current and draft story version of the site, for the cross-story boilerplate check.
+    # def list_story_versions(self) -> list[dict[str, Any]]: ...
+
+
+_DEFAULT = object()
+
+
+@dataclass
+class Services:
+    store: EditorialStore
+    decision_model: Any = _DEFAULT
+    generator: Any = _DEFAULT
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
+    last_check_request: dict[str, Any] | None = field(default=None, init=False)
+
+    def humanus_kwargs(self, name: str) -> dict[str, Any]:
+        value = getattr(self, name)
+        return {} if value is _DEFAULT else {name: value}
+
+
+# --- provider keys ------------------------------------------------------------------
+
+PROVIDER_KEYS = ("TYPESAFE_API_KEY", "OPENAI_API_KEY")
+
+
+def load_provider_keys(
+    env: Any = None,
+    *,
+    read_parameter: Callable[[str], str] | None = None,
+) -> None:
+    """Put the real provider keys into the environment Humanus reads.
+
+    Amplify hands a Python function each secret() as a placeholder plus an
+    AMPLIFY_SSM_ENV_CONFIG map of SSM paths; only Node functions resolve them
+    automatically. A key that cannot be resolved is removed, so its lane
+    reports "not configured" instead of sending the placeholder to a provider.
+    """
+    from .amplify_ssm_secrets import _is_amplify_secret_placeholder, _read_ssm_secret
+
+    env = os.environ if env is None else env
+    read = read_parameter or _read_ssm_secret
+    try:
+        config = json.loads(env.get("AMPLIFY_SSM_ENV_CONFIG") or "{}")
+    except json.JSONDecodeError:
+        config = {}
+    for name in PROVIDER_KEYS:
+        current = (env.get(name) or "").strip()
+        if current and not _is_amplify_secret_placeholder(current):
+            continue
+        entry = config.get(name) if isinstance(config, dict) else None
+        resolved = None
+        for path in ((entry or {}).get("path"), (entry or {}).get("sharedPath")):
+            if not path:
+                continue
+            try:
+                resolved = (read(path) or "").strip() or None
+            except Exception:
+                resolved = None
+            if resolved:
+                break
+        if resolved:
+            env[name] = resolved
+        else:
+            env.pop(name, None)
+
+
+# --- records ----------------------------------------------------------------------
+
+
+def _json(value: Any, default: Any) -> Any:
+    if value is None or value == "":
+        return default
+    return json.loads(value) if isinstance(value, str) else value
+
+
+def _awsjson_document(value: Any) -> Any:
+    """The JSON document an AWSJSON field delivers.
+
+    The resolver returns the stringified document, so AppSync hands it over as a JSON string whose content is the
+    document: decode until it is no longer a string (at most twice, never looping on a plain string).
+    """
+    for _ in range(2):
+        if not isinstance(value, str):
+            break
+        value = json.loads(value)
+    return value
+
+
+def policy_from_record(record: dict[str, Any]) -> dict[str, Any]:
+    """A stored EditorialPolicy as a Humanus policy (its key becomes the policy id)."""
+    policy = {
+        "id": record["policyKey"],
+        "version": int(record.get("version") or 1),
+        "title": record["title"],
+        "guidance": record["guidance"],
+        "severity": record["severity"],
+        "enabled": bool(record.get("enabled", True)),
+        "detectors": _json(record.get("detectors"), []),
+    }
+    examples = _json(record.get("examples"), None)
+    if examples:
+        policy["examples"] = examples
+    if record.get("rewriteGuidance"):
+        policy["rewriteGuidance"] = record["rewriteGuidance"]
+    return policy
+
+
+def record_from_policy(policy: dict[str, Any], *, scope: str, source: str, version: int = 1) -> dict[str, Any]:
+    return {
+        "id": policy_record_id(policy["id"], scope),
+        "policyKey": policy["id"],
+        "scope": scope,
+        "version": version,
+        "title": policy["title"],
+        "guidance": policy["guidance"],
+        "severity": policy["severity"],
+        "enabled": policy.get("enabled", True),
+        "detectors": policy.get("detectors", []),
+        "examples": policy.get("examples"),
+        "rewriteGuidance": policy.get("rewriteGuidance"),
+        "source": source,
+    }
+
+
+def policy_record_id(policy_key: str, scope: str) -> str:
+    return f"{scope}#{policy_key}"
+
+
+def settings_from(store: EditorialStore) -> dict[str, Any]:
+    stored = store.get_settings()
+    values = _json((stored or {}).get("settings"), {})
+    settings = {**DEFAULT_SETTINGS, **values}
+    settings["lanes"] = {**DEFAULT_SETTINGS["lanes"], **values.get("lanes", {})}
+    return settings
+
+
+class EditorialChecksDisabled(ValueError):
+    """The publication turned editorial checks off in its stored settings."""
+
+
+def running_settings(store: EditorialStore) -> dict[str, Any]:
+    """Settings for an operation that runs checks; refuses when the publication turned them off."""
+    settings = settings_from(store)
+    if not settings["enabled"]:
+        raise EditorialChecksDisabled("Editorial checks are turned off for this publication (Administration > Editorial checks).")
+    return settings
+
+
+def compose_pack(records: list[dict[str, Any]], section: str | None, settings: dict[str, Any]) -> dict[str, Any]:
+    """Publication policies, replaced key by key by the section's own policies."""
+    chosen: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if record.get("scope") == PUBLICATION_SCOPE:
+            chosen.setdefault(record["policyKey"], record)
+    for record in records:
+        if section and record.get("scope") == section:
+            chosen[record["policyKey"]] = record
+    policies = [policy_from_record(chosen[key]) for key in sorted(chosen)]
+    fingerprint = hashlib.sha256(json.dumps([(p["id"], p["version"]) for p in policies]).encode()).hexdigest()[:12]
+    pack: dict[str, Any] = {
+        "schemaVersion": 1,
+        "packId": "papyrus",
+        "version": f"{section or PUBLICATION_SCOPE}-{fingerprint}",
+        "policies": policies,
+    }
+    if settings.get("guidance"):
+        pack["guidance"] = settings["guidance"]
+    return pack
+
+
+# --- operations -------------------------------------------------------------------
+
+
+def skipped_judgments(missing_doctrine: list[str]) -> dict[str, Any]:
+    """The classifier lane's status when the publication has no mission (or policy) for its judgments to apply."""
+    return {"status": "skipped", "reason": f"this publication has no {' or '.join(missing_doctrine)} yet"}
+
+
+def check_editorial(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    from .editorial_model_context import editing_pack_and_context
+    settings = running_settings(services.store)
+    pack, context = editing_pack_and_context(services.store, arguments.get("section"), settings)
+    # Judgments apply the mission and policy; rule checks do not need them, so they still run (PPY-2c4b56).
+    missing_doctrine = context.get("missingPublicationDoctrine") or []
+    if missing_doctrine or context.get("missingSectionConfiguration"):
+        # Odd editorial context never stops a check; the log names the publication and what was missing, never content.
+        LOGGER.warning(
+            "Editorial check for %s runs without: %s",
+            (context.get("publication") or {}).get("key") or "an unknown publication",
+            ", ".join([*(f"publication {kind}" for kind in missing_doctrine), *(["section guidance"] if context.get("missingSectionConfiguration") else [])]),
+        )
+    lanes = {**settings["lanes"], **(arguments.get("lanes") or {})}  # a caller may override a lane for one call (copy edit turns the classifier off for its rules-only pass)
+    skip_judgments = bool(missing_doctrine) and bool(lanes.get("classifier"))
+    if skip_judgments:
+        lanes["classifier"] = False
+    examples = [
+        {"policyId": f["policyId"], "detectorId": f["detectorId"], "text": f["text"], "violates": f["decision"] != "dismissed"}
+        for f in services.store.list_feedback()
+        if f.get("text") and f.get("lane") == "classifier"
+    ]
+    classifier: dict[str, Any] = {
+        "model": settings["classifierModel"],
+        "deadlineSeconds": settings["deadlineSeconds"],
+        "maxInputTokens": settings["maxInputTokens"],
+        "maxExamplesPerQuestion": settings["maxExamplesPerQuestion"],
+    }
+    if examples:
+        classifier["examples"] = examples
+    request = {
+        "schemaVersion": 1,
+        "content": {"format": arguments.get("format") or "markus", "text": arguments["body"]},
+        "pack": pack,
+        "options": {"lanes": lanes, "classifier": classifier},
+    }
+    services.last_check_request = request
+    result = mark_whole_story_findings(humanus.check(request, **services.humanus_kwargs("decision_model")))
+    if skip_judgments:
+        result["lanes"]["classifier"] = skipped_judgments(missing_doctrine)
+    # No NewsroomSection for the stored value: the section's own mission and policy could not be applied. Say so (PPY-2c4b56).
+    missing_sections = context.get("missingSectionConfiguration") or []
+    if missing_sections:
+        result["lanes"]["section"] = {"status": "skipped", "reason": f"no section configuration for {', '.join(missing_sections)}"}
+    return result
+
+
+WHOLE_STORY_PREFIX = "Applies to the whole story. "
+
+
+def mark_whole_story_findings(result: dict[str, Any]) -> dict[str, Any]:
+    """A document-scope judgment has no passage to quote (Humanus gives it an empty excerpt and one id per detector).
+
+    Say so in the message, so an editor reads "the whole story" instead of an excerpt that is missing by mistake.
+    """
+    for finding in result.get("findings") or []:
+        message = finding.get("message") or ""
+        if finding.get("segmentId") == "doc" and not finding.get("excerpt") and not message.startswith(WHOLE_STORY_PREFIX):
+            finding["message"] = WHOLE_STORY_PREFIX + message
+    return result
+
+
+def suggest_rewrite(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    from .editorial_model_context import editing_pack
+    settings = running_settings(services.store)
+    request: dict[str, Any] = {
+        "schemaVersion": 1,
+        "content": {"format": arguments.get("format") or "markus", "text": arguments["body"]},
+        "pack": editing_pack(services.store, arguments.get("section"), settings),
+        "options": {"model": settings["rewriteModel"], "count": 3},
+    }
+    if arguments.get("note"):
+        request["options"]["instructions"] = arguments["note"]
+    finding, selection = _json(arguments.get("finding"), None), _json(arguments.get("selection"), None)
+    if finding:
+        request["finding"] = finding
+    else:
+        request["selection"] = selection
+    return humanus.suggest(request, **services.humanus_kwargs("generator"))
+
+
+def draft_questions(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    settings = settings_from(services.store)
+    policy: dict[str, Any] = {"title": arguments["title"], "guidance": arguments["guidance"]}
+    examples = _json(arguments.get("examples"), None)
+    if examples:
+        policy["examples"] = examples
+    request = {"schemaVersion": 1, "policy": policy, "options": {"model": settings["rewriteModel"]}}
+    return humanus.draft_questions(request, **services.humanus_kwargs("generator"))
+
+
+def try_policy(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    settings = settings_from(services.store)
+    policy = _json(arguments["policy"], {})
+    request = {
+        "schemaVersion": 1,
+        "content": {"format": arguments.get("format") or "markus", "text": arguments["text"]},
+        "pack": {"schemaVersion": 1, "packId": "papyrus-try", "version": "draft", "policies": [policy]},
+        "options": {"classifier": {"model": settings["classifierModel"], "deadlineSeconds": settings["deadlineSeconds"]}},
+    }
+    return mark_whole_story_findings(humanus.check(request, **services.humanus_kwargs("decision_model")))
+
+
+def import_starter_pack(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    name = arguments["name"]
+    existing = {policy_record_id(r["policyKey"], r["scope"]) for r in services.store.list_policies()}
+    created = skipped = 0
+    for policy in builtin_pack(name)["policies"]:
+        record = record_from_policy(policy, scope=PUBLICATION_SCOPE, source=f"starter:{name}")
+        if record["id"] in existing:
+            skipped += 1
+            continue
+        services.store.create_policy(record)
+        created += 1
+    return {"created": created, "skipped": skipped}
+
+
+def list_starter_packs(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    """The starter packs the installed Humanus ships, read at run time so new packs appear without a Papyrus change."""
+    imported: dict[str, int] = {}
+    for record in services.store.list_policies():
+        source = str(record.get("source") or "")
+        if source.startswith("starter:"):
+            imported[source.removeprefix("starter:")] = imported.get(source.removeprefix("starter:"), 0) + 1
+    packs = []
+    for name in list_builtin_packs():
+        pack = builtin_pack(name)
+        policies = pack.get("policies") or []
+        packs.append({
+            "name": name,
+            "title": pack.get("title") or name,
+            "version": pack.get("version"),
+            "language": pack.get("language"),
+            "guidance": pack.get("guidance"),
+            "policyCount": len(policies),
+            "importedCount": imported.get(name, 0),
+            "isDefault": name in DEFAULT_STARTER_PACKS,
+            "policies": [
+                {
+                    "id": policy["id"],
+                    "title": policy.get("title"),
+                    "severity": policy.get("severity"),
+                    "tags": policy.get("tags") or [],
+                    "lanes": sorted({detector.get("lane") for detector in policy.get("detectors") or [] if detector.get("lane")}),
+                }
+                for policy in policies
+            ],
+        })
+    return {"humanusVersion": getattr(humanus, "__version__", None), "packs": packs}
+
+
+def ensure_default_policies(store: EditorialStore, packs: tuple[str, ...] = DEFAULT_STARTER_PACKS) -> dict[str, Any]:
+    """A publication starts with working policies: each default starter pack is imported once.
+
+    The packs applied are recorded in the stored settings (``defaultStarterPacks``), so a policy an admin later edits,
+    disables or deletes is never added back. Policies that already exist with the same key are left alone.
+    """
+    stored = store.get_settings()
+    values = _json((stored or {}).get("settings"), {})
+    applied = list(values.get("defaultStarterPacks") or [])
+    results: dict[str, Any] = {}
+    for name in packs:
+        if name in applied:
+            results[name] = {"created": 0, "skipped": 0, "alreadyApplied": True}
+            continue
+        results[name] = import_starter_pack({"name": name}, Services(store=store))
+        applied.append(name)
+    if applied != list(values.get("defaultStarterPacks") or []):
+        store.put_settings({**values, "defaultStarterPacks": applied}, exists=stored is not None)
+    return {"packs": results, "defaultStarterPacks": applied}
+
+
+FINDING_SUMMARY_FIELDS = ("id", "policyId", "severity", "status", "message", "excerpt", "probability")
+
+
+def check_run_record(item: dict[str, Any], result: dict[str, Any], checked_at: datetime) -> dict[str, Any]:
+    """The stored outcome of checking one saved version: counts, a compact list of findings and lane status."""
+    findings = result.get("findings") or []
+    return {
+        "id": item["id"],
+        "itemId": item["id"],
+        "lineageId": item.get("lineageId") or item["id"],
+        "versionNumber": int(item.get("versionNumber") or 1),
+        "section": item.get("section"),
+        "contentHash": item.get("contentHash"),
+        "packVersion": (result.get("pack") or {}).get("version") or result.get("packVersion"),
+        "violations": sum(1 for finding in findings if finding.get("status") == "violation"),
+        "reviews": sum(1 for finding in findings if finding.get("status") == "review"),
+        "findings": [{key: finding.get(key) for key in FINDING_SUMMARY_FIELDS if finding.get(key) is not None} for finding in findings],
+        "lanes": result.get("lanes"),
+        "checkedAt": checked_at.isoformat().replace("+00:00", "Z"),
+    }
+
+
+CHECK_SUMMARY_KEYS = ("itemId", "lineageId", "versionNumber", "violations", "reviews", "packVersion", "checkedAt")
+# A stored lane that did not finish is not a result worth keeping: the next check of the same text runs again.
+FINISHED_LANE_STATUSES = ("ran", "disabled", "skipped")
+PRIOR_RUNS_CONSIDERED = 3
+
+
+def _finished(run: dict[str, Any]) -> bool:
+    lanes = _awsjson_document(run.get("lanes")) or {}
+    return all((lane or {}).get("status") in FINISHED_LANE_STATUSES for lane in lanes.values() if isinstance(lane, dict))
+
+
+def reusable_check_run(item: dict[str, Any], services: Services) -> dict[str, Any] | None:
+    """A finished stored check of identical content: this version's own, or a recent earlier version of the story.
+
+    The key is the version's content hash (front matter and body) plus its section, which picks the policies. Identical
+    content is never sent to the provider again.
+    """
+    content_hash = item.get("contentHash")
+    if not content_hash:
+        return None
+    candidates = [services.store.get_check_run(item["id"])]
+    lineage_id = item.get("lineageId") or item["id"]
+    candidates += services.store.list_check_runs_by_lineage(lineage_id, PRIOR_RUNS_CONSIDERED)
+    for run in candidates:
+        if run and run.get("contentHash") == content_hash and (run.get("section") or None) == (item.get("section") or None) and _finished(run):
+            return run
+    return None
+
+
+def with_cross_story_findings(item: dict[str, Any], findings: list[dict[str, Any]], services: Services, segments: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """``findings`` with this version's cross-story boilerplate findings, computed now against the site's other stories.
+
+    These depend on the other stories, not only on this version's content, so they are never reused from an earlier
+    check. A store without ``list_story_versions`` (a policy file) has no corpus and adds none.
+    """
+    from . import cross_story_boilerplate as boilerplate
+
+    kept = [finding for finding in findings if finding.get("policyId") != boilerplate.POLICY_ID]
+    list_versions = getattr(services.store, "list_story_versions", None)
+    if list_versions is None:
+        return kept
+    lineage_id = item.get("lineageId") or item["id"]
+    others = [story for story in boilerplate.latest_stories(list_versions()) if story.lineage_id != lineage_id]
+    if not others:
+        return kept
+    index = boilerplate.ShingleIndex(others)
+    return kept + boilerplate.cross_story_findings(item.get("bodyMarkus") or "", lineage_id, index, segments)
+
+
+def check_item_version(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    """Check one saved version of a story against its section's pack and store the result with the version.
+
+    Every save path (the article editor, ``stories save-version``, imports, copywriting) calls this, so drafts written
+    by people and by agents are copy-edited the same way. Turned-off checks are a skip, not an error. A version whose
+    content (and section) was already checked is not checked again: its stored result is kept or copied to it.
+    """
+    item = services.store.get_item(arguments["itemId"])
+    if item is None:
+        raise ValueError(f"No item version {arguments['itemId']}.")
+    reusable = reusable_check_run(item, services)
+    if reusable is not None:
+        stored = _awsjson_document(reusable.get("findings")) or []
+        findings = with_cross_story_findings(item, stored, services)
+        if reusable.get("id") != item["id"] or findings != stored:
+            services.store.put_check_run({
+                **{key: reusable.get(key) for key in ("section", "contentHash", "packVersion", "checkedAt")},
+                "violations": sum(1 for finding in findings if finding.get("status") == "violation"),
+                "reviews": sum(1 for finding in findings if finding.get("status") == "review"),
+                "id": item["id"], "itemId": item["id"], "lineageId": item.get("lineageId") or item["id"],
+                "versionNumber": int(item.get("versionNumber") or 1),
+                "findings": [{key: finding.get(key) for key in FINDING_SUMMARY_FIELDS if finding.get(key) is not None} for finding in findings],
+                "lanes": _awsjson_document(reusable.get("lanes")),
+            })
+            return {**{key: reusable.get(key) for key in CHECK_SUMMARY_KEYS}, "itemId": item["id"], "violations": sum(1 for f in findings if f.get("status") == "violation"), "skipped": "unchanged"}
+        return {**{key: reusable.get(key) for key in CHECK_SUMMARY_KEYS}, "itemId": item["id"], "skipped": "unchanged"}
+    try:
+        result = check_editorial({"body": item.get("bodyMarkus") or "", "format": "markus", "section": item.get("section")}, services)
+    except EditorialChecksDisabled:
+        return {"itemId": item["id"], "skipped": "disabled"}
+    result = {**result, "findings": with_cross_story_findings(item, result.get("findings") or [], services, result.get("segments"))}
+    record = check_run_record(item, result, services.now())
+    if services.last_check_request:
+        record["packVersion"] = services.last_check_request["pack"].get("version")
+    services.store.put_check_run(record)
+    return {key: record[key] for key in CHECK_SUMMARY_KEYS if key != "itemId"} | {"itemId": record["itemId"]}
+
+
+def recalibrate(arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    labels = [
+        {"policyId": f["policyId"], "detectorId": f["detectorId"], "probability": float(f["probability"]), "violates": f["decision"] != "dismissed"}
+        for f in services.store.list_feedback()
+        if f.get("lane") == "classifier" and f.get("probability") is not None
+    ]
+    if not labels:
+        return {"updated": 0, "detectors": []}
+    calibration = humanus.calibrate({"schemaVersion": 1, "labels": labels})
+    by_key = {(d["policyId"], d["detectorId"]): d for d in calibration["detectors"] if "calibration" in d}
+    updated = 0
+    for record in services.store.list_policies():
+        detectors = _json(record.get("detectors"), [])
+        changed = False
+        for detector in detectors:
+            fit = by_key.get((record["policyKey"], detector.get("id")))
+            if fit and detector.get("lane") == "classifier" and detector.get("calibration") != fit["calibration"]:
+                detector["calibration"] = fit["calibration"]
+                changed = True
+        if changed:
+            services.store.update_policy({**record, "detectors": detectors, "version": int(record.get("version") or 1) + 1})
+            updated += 1
+    return {"updated": updated, "detectors": calibration["detectors"]}
+
+
+OPERATIONS: dict[str, Callable[[dict[str, Any], Services], dict[str, Any]]] = {
+    "checkEditorial": check_editorial,
+    "suggestEditorialRewrite": suggest_rewrite,
+    "draftEditorialQuestions": draft_questions,
+    "tryEditorialPolicy": try_policy,
+    "importEditorialStarterPack": import_starter_pack,
+    "recalibrateEditorialPolicies": recalibrate,
+    "checkItemVersion": check_item_version,
+    "listEditorialStarterPacks": list_starter_packs,
+}
+
+
+def event_field_name(event: dict[str, Any]) -> str:
+    """The GraphQL field an AppSync invocation is for.
+
+    Amplify's Lambda data source payload carries ``fieldName`` at the top level; a direct resolver
+    carries it under ``info``. Accept both so the function works however AppSync wires it.
+    """
+    info = event.get("info")
+    name = (info.get("fieldName") if isinstance(info, dict) else None) or event.get("fieldName")
+    if not name:
+        raise ValueError("The invocation names no GraphQL field")
+    return str(name)
+
+
+def handle(field_name: str, arguments: dict[str, Any], services: Services) -> dict[str, Any]:
+    operation = OPERATIONS.get(field_name)
+    if operation is None:
+        raise ValueError(f"Unknown editorial-checks operation {field_name}")
+    try:
+        return operation(arguments, services)
+    except humanus.ContractValidationError as error:
+        raise ValueError(str(error)) from error
+
+
+# --- GraphQL store ----------------------------------------------------------------
+
+_POLICY_SELECTION = "id policyKey scope version title guidance severity enabled detectors examples rewriteGuidance source"
+LIST_POLICIES = f"query ListEditorialPolicies($nextToken: String) {{ listEditorialPolicies(limit: 500, nextToken: $nextToken) {{ items {{ {_POLICY_SELECTION} }} nextToken }} }}"
+GET_SETTINGS = "query GetEditorialCheckSettings($id: ID!) { getEditorialCheckSettings(id: $id) { id settings } }"
+LIST_FEEDBACK = "query ListEditorialFeedbacks($nextToken: String) { listEditorialFeedbacks(limit: 1000, nextToken: $nextToken) { items { policyId detectorId lane probability decision text } nextToken } }"
+CREATE_POLICY = "mutation CreateEditorialPolicy($input: CreateEditorialPolicyInput!) { createEditorialPolicy(input: $input) { id } }"
+UPDATE_POLICY = "mutation UpdateEditorialPolicy($input: UpdateEditorialPolicyInput!) { updateEditorialPolicy(input: $input) { id } }"
+GET_ITEM = "query GetItemForEditorialCheck($id: ID!) { getItem(id: $id) { id lineageId versionNumber section contentHash bodyMarkus } }"
+LIST_STORY_VERSIONS = "query ListStoryVersionsForEditorialCheck($versionState: String!, $nextToken: String) { listItemsByVersionStateAndUpdatedAt(versionState: $versionState, limit: 200, nextToken: $nextToken) { items { id lineageId versionNumber versionState slug bodyMarkus } nextToken } }"
+GET_CHECK_RUN = "query GetEditorialCheckRun($id: ID!) { getEditorialCheckRun(id: $id) { id } }"
+_CHECK_RUN_SELECTION = "id itemId lineageId versionNumber section contentHash packVersion violations reviews findings lanes checkedAt"
+GET_CHECK_RUN_RECORD = f"query GetEditorialCheckRunRecord($id: ID!) {{ getEditorialCheckRun(id: $id) {{ {_CHECK_RUN_SELECTION} }} }}"
+LIST_CHECK_RUNS_BY_LINEAGE = (
+    "query ListEditorialCheckRunsByLineage($lineageId: String!, $limit: Int) { "
+    f"listEditorialCheckRunsByLineage(lineageId: $lineageId, sortDirection: DESC, limit: $limit) {{ items {{ {_CHECK_RUN_SELECTION} }} }} }}"
+)
+CREATE_CHECK_RUN = "mutation CreateEditorialCheckRun($input: CreateEditorialCheckRunInput!) { createEditorialCheckRun(input: $input) { id } }"
+UPDATE_CHECK_RUN = "mutation UpdateEditorialCheckRun($input: UpdateEditorialCheckRunInput!) { updateEditorialCheckRun(input: $input) { id } }"
+CREATE_SETTINGS = "mutation CreateEditorialCheckSettings($input: CreateEditorialCheckSettingsInput!) { createEditorialCheckSettings(input: $input) { id } }"
+UPDATE_SETTINGS = "mutation UpdateEditorialCheckSettings($input: UpdateEditorialCheckSettingsInput!) { updateEditorialCheckSettings(input: $input) { id } }"
+
+
+class GraphQLEditorialStore:
+    """The editorial models through AppSync, signed the Papyrus way (IAM for functions and the CLI)."""
+
+    def __init__(self, execute: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None) -> None:
+        if execute is None:
+            from .graphql_http import execute_graphql
+
+            execute = execute_graphql
+        self._execute = execute
+
+    def _list(self, query: str, field_name: str) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        token = None
+        while True:
+            page = self._execute(query, {"nextToken": token})[field_name]
+            items.extend(page["items"])
+            token = page.get("nextToken")
+            if not token:
+                return items
+
+    def list_policies(self) -> list[dict[str, Any]]:
+        return self._list(LIST_POLICIES, "listEditorialPolicies")
+
+    def publication_key(self) -> str:
+        """The key of the site's one verified canonical publication."""
+        query = '''query CanonicalEditorialPublication($nextToken: String) {
+          listKnowledgeCorporaByRoleAndName(role: "canonical", limit: 100, nextToken: $nextToken) {
+            items { id name role } nextToken
+          }
+        }'''
+        rows = self._list(query, 'listKnowledgeCorporaByRoleAndName')
+        if (len(rows) != 1 or rows[0].get('role') != 'canonical'
+                or not str(rows[0].get('id', '')).startswith('knowledge-corpus-')):
+            raise ValueError('Exactly one verified publication is required for editorial context')
+        return rows[0]['id'].removeprefix('knowledge-corpus-')
+
+    def get_editorial_context(self, section: str | None) -> dict[str, Any]:
+        from .editorial_model_context import checked_context
+        from .tenancy import tenant_id_from_environment
+        publication = self.publication_key()
+        # Optional doctrine: a publication without a mission still gets its rule checks (PPY-2c4b56).
+        result = self._execute('''query EffectiveEditorialContext($publicationKey: String!, $sectionId: ID) {
+          getEditorialContext(publicationKey: $publicationKey, sectionId: $sectionId, optionalPublicationDoctrine: true)
+        }''', {'publicationKey': publication, 'sectionId': section})['getEditorialContext']
+        pack = checked_context(_awsjson_document(result), publication=publication, section=section)
+        if (pack['publication'].get('tenantId') or None) != (tenant_id_from_environment() or None):
+            raise ValueError('Editorial context tenant mismatch')
+        return pack
+
+    def get_settings(self) -> dict[str, Any] | None:
+        return self._execute(GET_SETTINGS, {"id": SETTINGS_ID})["getEditorialCheckSettings"]
+
+    def list_feedback(self) -> list[dict[str, Any]]:
+        return self._list(LIST_FEEDBACK, "listEditorialFeedbacks")
+
+    def create_policy(self, record: dict[str, Any]) -> None:
+        self._execute(CREATE_POLICY, {"input": policy_input(record)})
+
+    def update_policy(self, record: dict[str, Any]) -> None:
+        self._execute(UPDATE_POLICY, {"input": policy_input(record)})
+
+    def put_settings(self, values: dict[str, Any], *, exists: bool) -> None:
+        self._execute(UPDATE_SETTINGS if exists else CREATE_SETTINGS, {"input": {"id": SETTINGS_ID, "settings": json.dumps(values)}})
+
+    def get_item(self, item_id: str) -> dict[str, Any] | None:
+        return self._execute(GET_ITEM, {"id": item_id})["getItem"]
+
+    def list_story_versions(self) -> list[dict[str, Any]]:
+        """The site's current and draft item versions, with their bodies, for the cross-story boilerplate check."""
+        rows: list[dict[str, Any]] = []
+        for state in ("current", "draft"):
+            token = None
+            while True:
+                page = self._execute(LIST_STORY_VERSIONS, {"versionState": state, "nextToken": token})["listItemsByVersionStateAndUpdatedAt"]
+                rows.extend(page["items"])
+                token = page.get("nextToken")
+                if not token:
+                    break
+        return rows
+
+    def get_check_run(self, item_id: str) -> dict[str, Any] | None:
+        return self._execute(GET_CHECK_RUN_RECORD, {"id": item_id})["getEditorialCheckRun"]
+
+    def list_check_runs_by_lineage(self, lineage_id: str, limit: int) -> list[dict[str, Any]]:
+        return self._execute(LIST_CHECK_RUNS_BY_LINEAGE, {"lineageId": lineage_id, "limit": limit})["listEditorialCheckRunsByLineage"]["items"]
+
+    def put_check_run(self, record: dict[str, Any]) -> None:
+        exists = self._execute(GET_CHECK_RUN, {"id": record["id"]})["getEditorialCheckRun"] is not None
+        payload = {**record, "findings": json.dumps(record["findings"]), "lanes": json.dumps(record["lanes"]) if record.get("lanes") is not None else None}
+        self._execute(UPDATE_CHECK_RUN if exists else CREATE_CHECK_RUN, {"input": payload})
+
+
+def policy_input(record: dict[str, Any]) -> dict[str, Any]:
+    """A policy record as GraphQL input: JSON fields as strings."""
+    payload = {"id": record["id"], **{key: record.get(key) for key in POLICY_FIELDS}}
+    for key in ("detectors", "examples"):
+        if payload[key] is not None and not isinstance(payload[key], str):
+            payload[key] = json.dumps(payload[key])
+    return payload

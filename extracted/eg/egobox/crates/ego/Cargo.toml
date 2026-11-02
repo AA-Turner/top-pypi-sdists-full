@@ -1,0 +1,75 @@
+[package]
+name = "egobox-ego"
+authors.workspace = true
+version = "0.42.0"
+license.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "A library for efficient global optimization"
+keywords = ["machine-learning", "bayesian", "optimization"]
+categories = ["algorithms", "mathematics", "science"]
+
+[features]
+default = []
+# Use cobyla crate (C-ported NLopt COBYLA) instead of basin COBYLA
+# for infill optimization and GP hyperparameters training
+c-cobyla = ["dep:cobyla", "egobox-gp/c-cobyla", "egobox-moe/c-cobyla"]
+# Use slsqp crate (C-ported NLopt SLSQP) instead of basin SLSQP for infill optimization
+c-slsqp = ["dep:slsqp"]
+
+blas = ["ndarray-linalg", "linfa/ndarray-linalg", "linfa-pls/blas"]
+
+[dependencies]
+basin = { workspace = true, features = ["serde"] }
+ctrlc = { workspace = true }
+egobox-doe = { version = "0.35.2", path = "../doe", features = [
+    "serializable",
+] }
+egobox-gp = { version = "0.37.1", path = "../gp", features = ["serializable"] }
+egobox-moe = { version = "0.36.2", path = "../moe" }
+
+linfa.workspace = true
+linfa-linalg.workspace = true
+linfa-pls = { version = "0.8", default-features = false }
+linfa-clustering = { version = "0.8", default-features = false }
+
+ndarray.workspace = true
+ndarray-linalg = { version = "0.17", optional = true }
+ndarray-stats.workspace = true
+ndarray-rand.workspace = true
+ndarray-npy.workspace = true
+rayon.workspace = true
+
+cobyla = { version = "1.0.4", optional = true }
+slsqp = { version = "1.0.1", optional = true }
+
+rand_xoshiro = { version = "0.6", features = ["serde1"] }
+bincode.workspace = true
+web-time = "1.1.0"
+libm = "0.2.6"
+finitediff.workspace = true
+# sort-axis
+rawpointer = { version = "0.2" }
+log.workspace = true
+env_logger.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json.workspace = true
+typetag = { version = "0.2" }
+dyn-clonable = { version = "0.9" }
+
+[dev-dependencies]
+criterion.workspace = true
+approx.workspace = true
+argmin_testfunctions.workspace = true
+serial_test = "3.1.0"
+paste = "1.0"
+
+[[bench]]
+name = "ego"
+harness = false

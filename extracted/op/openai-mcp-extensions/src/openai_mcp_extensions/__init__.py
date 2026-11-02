@@ -1,0 +1,86 @@
+"""OpenAI-specific extensions for MCP Python servers."""
+
+from openai_mcp_extensions.extensions import OpenAIExtensions
+from openai_mcp_extensions.form import OPENAI_ELICITATION_METHOD
+from openai_mcp_extensions.mentions import (
+    OPENAI_MENTIONS_CAPABILITY_KEY,
+    OpenAIMentionItem,
+    OpenAIMentionResource,
+    OpenAIMentions,
+    OpenAIMentionsCapability,
+    OpenAIMentionSearchHandler,
+    OpenAIMentionSearchParams,
+    OpenAIMentionSearchResult,
+)
+from openai_mcp_extensions.resources import (
+    OPENAI_RESOURCE_METADATA_KEY,
+    OpenAIFileEntrypointFile,
+    OpenAIFileEntrypointInput,
+    OpenAIResourceMetadata,
+    OpenAIResourceToolCallMetadata,
+    get_resource_path,
+)
+from openai_mcp_extensions.settings import (
+    OPENAI_SETTINGS_CAPABILITY_KEY,
+    OpenAISettings,
+    OpenAISettingsCapability,
+    OpenAISettingsFieldPresentation,
+    OpenAISettingsGroup,
+    OpenAISettingsLayoutItem,
+    OpenAISettingsProperty,
+    OpenAISettingsReadResult,
+    OpenAISettingsTool,
+    OpenAISettingsUpdateArguments,
+    OpenAISettingsUpdateResult,
+)
+from openai_mcp_extensions.ui import (
+    OpenAIFileEntrypoint,
+    OpenAIGlobalEntrypoint,
+    OpenAIThreadEntrypoint,
+    OpenAIUiEntrypoint,
+    OpenAIUiQuickAction,
+    OpenAIUiQuickActionToolTarget,
+    OpenAIUiResourceMetadata,
+    OpenAIUiToolMetadata,
+)
+from openai_mcp_form_protocol import McpAppToolTarget, PreviewTarget
+
+__all__ = [
+    "McpAppToolTarget",
+    "PreviewTarget",
+    "OPENAI_SETTINGS_CAPABILITY_KEY",
+    "OpenAISettings",
+    "OpenAISettingsFieldPresentation",
+    "OpenAISettingsGroup",
+    "OpenAISettingsProperty",
+    "OpenAISettingsLayoutItem",
+    "OpenAISettingsTool",
+    "OpenAISettingsCapability",
+    "OpenAISettingsReadResult",
+    "OpenAISettingsUpdateArguments",
+    "OpenAISettingsUpdateResult",
+    "OPENAI_ELICITATION_METHOD",
+    "OPENAI_RESOURCE_METADATA_KEY",
+    "OpenAIExtensions",
+    "OpenAIFileEntrypoint",
+    "OpenAIFileEntrypointFile",
+    "OpenAIFileEntrypointInput",
+    "OpenAIGlobalEntrypoint",
+    "OpenAIMentionItem",
+    "OpenAIMentionResource",
+    "OpenAIMentionSearchHandler",
+    "OpenAIMentionSearchParams",
+    "OpenAIMentionSearchResult",
+    "OpenAIMentions",
+    "OPENAI_MENTIONS_CAPABILITY_KEY",
+    "OpenAIMentionsCapability",
+    "OpenAIResourceMetadata",
+    "OpenAIResourceToolCallMetadata",
+    "OpenAIThreadEntrypoint",
+    "OpenAIUiEntrypoint",
+    "OpenAIUiQuickAction",
+    "OpenAIUiQuickActionToolTarget",
+    "OpenAIUiResourceMetadata",
+    "OpenAIUiToolMetadata",
+    "get_resource_path",
+]

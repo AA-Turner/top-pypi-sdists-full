@@ -178,7 +178,7 @@ def _fit_sections(sections: list[tuple[str, list]], budget: int) -> tuple[dict[s
     floor — nothing is paginating and a forced row would just blow the budget.
     Dropping rows silently is the failure to avoid, hence the `truncated` flag."""
     kept: dict[str, list] = {}
-    truncated = False
+    is_truncated = False
     spent = 0
     for key, rows in sections:
         taken: list = []
@@ -188,6 +188,6 @@ def _fit_sections(sections: list[tuple[str, list]], budget: int) -> tuple[dict[s
                 break
             taken.append(row)
             spent += cost
-        truncated = truncated or len(taken) < len(rows)
+        is_truncated = is_truncated or len(taken) < len(rows)
         kept[key] = taken
-    return kept, truncated
+    return kept, is_truncated

@@ -1,0 +1,423 @@
+//! Where the two regex engines read one pattern as two languages, and the
+//! forms refused for it.
+//!
+//! The engine here is Rust's, and a pattern Python spells and this one does not
+//! raises at build: the parse fails and the caller reads the parse error. That
+//! is the loud direction, and it needs no help.
+//!
+//! The quiet direction is a pattern **both** engines accept and read
+//! differently. Inside a character class, `--`, `&&` and `~~` combine classes
+//! here and are literal characters to Python, and a nested `[` opens a class
+//! here and is a literal `[` there. `[\w--\d]` is the non-digit word characters
+//! under this engine and the word characters plus `-` under `re`, and nothing
+//! about compiling it says so.
+//!
+//! `re` gives three different answers to the four forms, and that is the
+//! argument for refusing all of them rather than trusting it to object:
+//!
+//! - `[\w--\d]` **raises**, so a ported pattern fails there at once;
+//! - `[\w&&\d]` and `[\w~~\d]` **warn** that `re` may one day read them as
+//!   operators, which is a reservation rather than a verdict;
+//! - `[a[bc]]` says **nothing at all**, which is the case this is most for.
+//!
+//! A pattern read with another engine's meaning is a wrong answer a caller
+//! cannot see, so each is refused by the name *this* engine would have read it
+//! under -- the fact a reader porting the pattern needs, and for two of the
+//! three a sentence `re` has already shown them.
+//!
+//! Three escapes part the two outside a class, the same quiet way: `\<` and
+//! `\>` are the start and end of a word here and a literal `<` and `>` to `re`,
+//! and `\b{start}` is a named word boundary here and, to `re`, a boundary
+//! followed by the literal `{start}`. `\<b\>` admits `"b"` here and `"<b>"`
+//! there. Each is refused by what it asserts here.
+//!
+//! Verbose mode is the fifth. Both engines ignore whitespace and read `#` as a
+//! comment outside a class, and inside one they part: `re` keeps a space and a
+//! `#` as members, and this engine ignores the space and starts a comment at
+//! the `#`. `[ a]` admits a space under `re` and not here, which is quiet, and
+//! `[#a]` swallows the class's own `]`, which fails with a parse error that
+//! names no cause. Both are refused, by what the character does here.
+//!
+//! Two quantifier spellings part them the same quiet way. A `+` after a
+//! quantifier makes it possessive to `re` from 3.11, an error before, and is a
+//! second repetition here: `a?+` refuses `"aa"` there and admits it here. And
+//! this engine reads a count with whitespace in its braces, `a{1, 3}`, as the
+//! count, where `re` reads a brace that is not exactly a count as text, in
+//! verbose mode too -- and in verbose mode this engine skips a comment there as
+//! well. Each is refused by what it is here. The escapes that take braces --
+//! `\p{..}`, `\P{..}`, `\x{..}`, `\u{..}`, `\U{..}` -- are skipped whole, so
+//! their braces are no count and the quantifier after one is the first.
+
+use std::iter::Peekable;
+
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+
+/// Refuse a pattern both engines accept and read as two sets: a class carrying
+/// an operator `re` reserves, and each other form the module names.
+///
+/// The scan is a character walk rather than a parse: it needs only to know
+/// whether it stands inside a class, which `\` escapes and `[`/`]` delimit, and
+/// a pattern whose classes do not balance is refused by the compile that
+/// follows this. A form found outside a class is nothing -- `a--b` is three
+/// literals to both engines -- so the position is what decides, as it does in
+/// `re`.
+pub(crate) fn reject_reserved_class_syntax(pattern: &str) -> PyResult<()> {
+    let chars: Vec<char> = pattern.chars().collect();
+    let mut cursor = chars.iter().copied().enumerate().peekable();
+    let mut inside = false;
+    // Where the open class's first member sits. A doubled character *there* is
+    // two literal characters to both engines, so the position is what tells an
+    // operator from a member -- `[--/]` is the range from `-` to `/` either way.
+    let mut first = 0;
+    // Whether verbose mode is on where the cursor stands, and what it was
+    // outside each group the cursor is inside, which the group's `)` restores.
+    let mut verbose = false;
+    let mut outer: Vec<bool> = Vec::new();
+    // Whether the character just read was a quantifier outside a class, which
+    // is what makes a `+` after it possessive to `re`.
+    let mut quantified = false;
+    // The cursor advances by taking from the iterator and never by arithmetic,
+    // so the scan terminates by construction: an arm that looks ahead either
+    // takes what it saw or leaves it for the next turn.
+    while let Some((at, here)) = cursor.next() {
+        let next = cursor.peek().copied();
+        let after_quantifier = std::mem::replace(&mut quantified, false);
+        match here {
+            // Inside a class in verbose mode, the two characters the engines
+            // read differently, before any arm below reads them as members.
+            symbol if inside && verbose && (symbol.is_whitespace() || symbol == '#') => {
+                return Err(verbose_member(symbol, pattern, at));
+            }
+            '(' if !inside => {
+                outer.push(verbose);
+                // `(?flags)` sets them for the rest of the group it stands in,
+                // so it is no group of its own; `(?flags:` sets them for the
+                // group it opens. Anything else opens a group that inherits.
+                if let Some((flags, scoped)) = inline_flags(chars.get(at + 1..).unwrap_or_default())
+                {
+                    if !scoped {
+                        outer.pop();
+                    }
+                    verbose = flags.unwrap_or(verbose);
+                    // Past the flags and their `)` or `:`, taken from the
+                    // iterator so the scan still ends by construction.
+                    for _ in 0..=flags_length(chars.get(at + 1..).unwrap_or_default()) {
+                        cursor.next();
+                    }
+                }
+            }
+            ')' if !inside => verbose = outer.pop().unwrap_or(verbose),
+            // A comment runs to the end of the line, and a `[` in it opens
+            // nothing.
+            '#' if verbose => {
+                for (_, symbol) in cursor.by_ref() {
+                    if symbol == '\n' {
+                        break;
+                    }
+                }
+            }
+            // An escape carries its character with it, whichever side of a
+            // class it is on: `[\[&&x]` holds an operator and no nested set.
+            '\\' => read_escape(&mut cursor, inside, pattern, at)?,
+            '+' if !inside && after_quantifier => return Err(possessive(pattern, at)),
+            '?' | '*' | '+' => quantified = !inside,
+            '{' if !inside => {
+                if let Some((length, spaced)) =
+                    counted(chars.get(at + 1..).unwrap_or_default(), verbose)
+                {
+                    if let Some(what) = spaced {
+                        return Err(spaced_count(what, pattern, at));
+                    }
+                    for _ in 0..length {
+                        cursor.next();
+                    }
+                    quantified = true;
+                }
+            }
+            '[' if !inside => {
+                inside = true;
+                // A `^` negates the class and is not a member of it, so the
+                // first member is what follows.
+                let opening = if next.map(|(_, symbol)| symbol) == Some('^') {
+                    cursor.next();
+                    cursor.peek().copied()
+                } else {
+                    next
+                };
+                first = opening.map_or(at, |(where_, _)| where_);
+                // A `]` in the first member's place is that member rather than
+                // the class's close, and `re` reads it the same way. Being a
+                // member, it *takes* the position where a doubled character is
+                // literal: `[]&&x]` carries the operator at the next one, which
+                // is where `re` warns about it.
+                if opening.map(|(_, symbol)| symbol) == Some(']') {
+                    cursor.next();
+                }
+            }
+            // A `]` outside a class is a literal and closes nothing, so this
+            // arm takes no guard: the flag is already down, and putting it down
+            // again is the same statement.
+            ']' => inside = false,
+            // `[:name:]` is a POSIX class, which this engine reads and `re`
+            // does not -- a divergence `docs/05-refinements.md` names, with the
+            // example that shows how the two read it. It is skipped whole, so
+            // an operator after it is still read as one.
+            '[' if next.map(|(_, symbol)| symbol) == Some(':') => {
+                cursor.next();
+                let mut previous = ':';
+                for (_, symbol) in cursor.by_ref() {
+                    if previous == ':' && symbol == ']' {
+                        break;
+                    }
+                    previous = symbol;
+                }
+            }
+            // Every other `[` inside a class opens a nested set, which is a
+            // union here and four literal characters there.
+            '[' => return Err(reserved("nested set", pattern, at)),
+            '-' | '&' | '~'
+                if inside && next.map(|(_, symbol)| symbol) == Some(here) && at > first =>
+            {
+                let what = match here {
+                    '-' => "set difference",
+                    '&' => "set intersection",
+                    _ => "set symmetric difference",
+                };
+                return Err(reserved(what, pattern, at));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Read the escape whose `\` sits at `at`, taking its character from the
+/// cursor.
+///
+/// Outside a class three escapes are assertions here and literals to `re`:
+/// `\<` and `\>` the start and end of a word, and `\b{` the start of a named
+/// word boundary, where `re` reads a boundary and a literal `{`. Each is
+/// refused. An escape that takes braces takes them whole, so they are no
+/// count; one that never closes is the compile's to refuse.
+fn read_escape<I: Iterator<Item = (usize, char)>>(
+    cursor: &mut Peekable<I>,
+    inside: bool,
+    pattern: &str,
+    at: usize,
+) -> PyResult<()> {
+    let escaped = cursor.next().map(|(_, symbol)| symbol);
+    if inside {
+        return Ok(());
+    }
+    let braced = cursor.peek().map(|&(_, symbol)| symbol) == Some('{');
+    let boundary = match escaped {
+        Some('<') => Some(("\\<", "the start of a word", "`<`")),
+        Some('>') => Some(("\\>", "the end of a word", "`>`")),
+        Some('b') if braced => Some(("\\b{", "a named word boundary", "`\\b\\{`")),
+        _ => None,
+    };
+    if let Some(boundary) = boundary {
+        return Err(word_boundary(boundary, pattern, at));
+    }
+    if braced && matches!(escaped, Some('p' | 'P' | 'x' | 'u' | 'U')) {
+        for (_, symbol) in cursor.by_ref() {
+            if symbol == '}' {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Read an inline flag group at the start of `rest`, which follows a `(`.
+///
+/// `?` then flag letters, an optional `-` before the ones turned off, and a
+/// `)` or a `:`. Answers what the group does to verbose mode -- `Some(true)`,
+/// `Some(false)`, or `None` where it names no `x` -- and whether it opens a
+/// group of its own, or `None` where `rest` is no flag group at all.
+fn inline_flags(rest: &[char]) -> Option<(Option<bool>, bool)> {
+    let (&'?', letters) = rest.split_first()? else {
+        return None;
+    };
+    let mut on = true;
+    let mut verbose = None;
+    for &letter in letters {
+        match letter {
+            ')' => return Some((verbose, false)),
+            ':' => return Some((verbose, true)),
+            '-' => on = false,
+            'x' => verbose = Some(on),
+            'i' | 'm' | 's' | 'U' | 'u' | 'R' => {}
+            _ => return None,
+        }
+    }
+    None
+}
+
+/// Read a counted repetition at the start of `rest`, which follows a `{`, as
+/// this engine reads one. Answers how many characters it takes through its
+/// `}`, and what it carries that `re` reads as text: `Some("whitespace")`,
+/// `Some("a comment")`, or `None` for a count both engines read alike. `None`
+/// overall where `rest` is no count here, which the compile refuses.
+///
+/// The grammar is this engine's: a number, then an optional comma and a
+/// second number, closed by `}`. Whitespace may stand around a number in every
+/// mode; in verbose mode whitespace and a comment may stand anywhere, the
+/// digits of a number included. So `a{1 ,3}` is a count in both modes and
+/// `a{1, }` in neither, and nothing this engine refuses is called a count.
+fn counted(rest: &[char], verbose: bool) -> Option<(usize, Option<&'static str>)> {
+    let mut count = Count {
+        rest,
+        at: 0,
+        verbose,
+        spaced: None,
+    };
+    count.skip(false);
+    count.number()?;
+    if count.peek() == Some(',') {
+        count.at += 1;
+        count.skip(false);
+        if count.peek() != Some('}') {
+            count.number()?;
+        }
+    }
+    (count.peek() == Some('}')).then_some((count.at + 1, count.spaced))
+}
+
+/// A cursor over the inside of a counted repetition, for [`counted`].
+struct Count<'a> {
+    rest: &'a [char],
+    at: usize,
+    verbose: bool,
+    /// The first thing read that `re` would read as text.
+    spaced: Option<&'static str>,
+}
+
+impl Count<'_> {
+    fn peek(&self) -> Option<char> {
+        self.rest.get(self.at).copied()
+    }
+
+    /// Skip what this engine skips here: whitespace and a comment in verbose
+    /// mode, and with `always`, whitespace in every mode.
+    ///
+    /// Each turn takes a character or returns, and each loop here is bounded
+    /// by the characters there are besides: a loop that ends only because a
+    /// cursor moves is one a mutation of the move runs forever.
+    fn skip(&mut self, always: bool) {
+        for _ in 0..self.rest.len() {
+            match self.peek() {
+                Some(symbol) if symbol.is_whitespace() && (always || self.verbose) => {
+                    self.spaced = self.spaced.or(Some("whitespace"));
+                    self.at += 1;
+                }
+                Some('#') if self.verbose => {
+                    self.spaced = Some("a comment");
+                    for _ in 0..self.rest.len() {
+                        let Some(symbol) = self.peek() else {
+                            break;
+                        };
+                        self.at += 1;
+                        if symbol == '\n' {
+                            break;
+                        }
+                    }
+                }
+                _ => return,
+            }
+        }
+    }
+
+    /// One number of a count: ASCII digits, with whitespace around them in
+    /// every mode and between them in verbose mode. `None` where there is no
+    /// digit.
+    fn number(&mut self) -> Option<()> {
+        self.skip(true);
+        let mut digits = 0;
+        for _ in 0..self.rest.len() {
+            if !self.peek().is_some_and(|symbol| symbol.is_ascii_digit()) {
+                break;
+            }
+            digits += 1;
+            self.at += 1;
+            self.skip(false);
+        }
+        self.skip(true);
+        (digits > 0).then_some(())
+    }
+}
+
+/// How many characters of `rest` an inline flag group takes before its `)` or
+/// `:`, counting the `?`.
+fn flags_length(rest: &[char]) -> usize {
+    rest.iter()
+        .take_while(|&&symbol| symbol != ')' && symbol != ':')
+        .count()
+}
+
+/// The refusal for a space or a `#` inside a class under verbose mode.
+fn verbose_member(here: char, pattern: &str, index: usize) -> PyErr {
+    let (what, instead) = if here == '#' {
+        ("`#`", r"`\#`")
+    } else {
+        ("whitespace", r"`\ ` or `\x20`")
+    };
+    PyValueError::new_err(format!(
+        "{what} inside a character class at position {index} in {pattern:?} \
+         under verbose mode: `re` reads it as a member and this engine does \
+         not, so the two read the pattern as different sets. Escape it as \
+         {instead} to mean it."
+    ))
+}
+
+/// The refusal for an escape this engine reads as a word-boundary assertion.
+///
+/// `boundary` is what was written, what it asserts here, and what spells the
+/// characters `re` reads, which is the meaning a ported pattern had.
+fn word_boundary(
+    (written, meaning, literal): (&str, &str, &str),
+    pattern: &str,
+    index: usize,
+) -> PyErr {
+    PyValueError::new_err(format!(
+        "{written} at position {index} in {pattern:?} is {meaning} here and \
+         literal characters to `re`, so the two read the pattern as different \
+         sets. Write {literal} for what `re` reads, or \\b for a word boundary."
+    ))
+}
+
+/// The refusal for a `+` after a quantifier, which `re` reads as possessive.
+fn possessive(pattern: &str, index: usize) -> PyErr {
+    PyValueError::new_err(format!(
+        "`+` after a quantifier at position {index} in {pattern:?} makes it \
+         possessive to `re`, from Python 3.11, and repeats the quantified item \
+         again here, so the two read the pattern as different sets. This engine \
+         has no possessive quantifier: write `(?:...)+` around the quantified \
+         item to repeat it."
+    ))
+}
+
+/// The refusal for a count carrying whitespace or a comment in its braces.
+fn spaced_count(what: &str, pattern: &str, index: usize) -> PyErr {
+    PyValueError::new_err(format!(
+        "{what} inside the counted repetition at position {index} in \
+         {pattern:?}: this engine reads it as a count and `re` reads it as \
+         literal text, so the two read the pattern as different sets. Write the \
+         count without it, as `{{1,3}}`, or escape the brace, `\\{{`, to mean the \
+         text."
+    ))
+}
+
+/// The refusal, in the words `re` warns with, plus what to write instead.
+fn reserved(what: &str, pattern: &str, index: usize) -> PyErr {
+    PyValueError::new_err(format!(
+        "possible {what} at position {index} in {pattern:?}: this is a \
+         class-set operator here and a literal character to `re`, so the two \
+         read the pattern as different sets. Escape the characters to mean \
+         them literally, or write the classes out."
+    ))
+}
+
+#[cfg(test)]
+mod tests;

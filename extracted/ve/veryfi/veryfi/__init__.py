@@ -1,1 +1,0 @@
-from veryfi.client import *

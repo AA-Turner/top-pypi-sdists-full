@@ -21,7 +21,7 @@ from schemathesis.wfc.escalation import escalating_provider, identity_assignment
 from schemathesis.wfc.loader import load_from_dict
 from test.apps.catalog.openapi import wfc as wfc_apps
 from test.apps.catalog.openapi.wfc import WFC_PASSWORD, WFC_SESSION, WFC_TOKEN, WFC_USERNAME
-from test.utils import allure_results
+from test.utils import allure_results, refusing_url, silent_url
 
 CREDENTIALS = {
     "username": WFC_USERNAME,
@@ -368,6 +368,29 @@ def test_wfc_asgi_login_applies_token():
     case = operation.Case()
     provider.set(case, provider.get(case, context), context)
     assert case.headers["Authorization"] == f"Bearer {WFC_TOKEN}"
+
+
+def test_wfc_http_login_goes_through_configured_proxy(ctx, app_runner):
+    schema = ctx.openapi.load_schema({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    schema.config.proxy = f"http://127.0.0.1:{app_runner.run_flask_app(wfc_apps.wfc_login().server)}"
+    operation = schema["/api/protected"]["GET"]
+    provider = _provider_for(_login(token=_token()))
+    context = AuthContext(operation=operation, app=None)
+    case = operation.Case()
+    with refusing_url() as url:
+        schema.config.update(base_url=url)
+        provider.set(case, provider.get(case, context), context)
+    assert case.headers["Authorization"] == f"Bearer {WFC_TOKEN}"
+
+
+def test_wfc_http_login_times_out_without_configured_timeout(ctx):
+    schema = ctx.openapi.load_schema({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    operation = schema["/api/protected"]["GET"]
+    provider = _provider_for(_login(token=_token()))
+    with silent_url() as url:
+        schema.config.update(base_url=url)
+        with pytest.raises(WFCLoginError, match="Read timed out"):
+            provider.get(operation.Case(), AuthContext(operation=operation, app=None))
 
 
 def _redirect_login_app(ctx) -> Flask:
@@ -1315,6 +1338,8 @@ def test_failure_names_the_identity(cli, ctx, tmp_path, snapshot_cli):
     # The name alone is not actionable; the flag that reproduces it is.
     api = ctx.openapi.apps.wfc_role_gated()
     auth = _write(tmp_path, ROLE_AUTH)
+    junit = tmp_path / "junit.xml"
+    allure = tmp_path / "allure-results"
 
     assert (
         cli.run(
@@ -1325,9 +1350,17 @@ def test_failure_names_the_identity(cli, ctx, tmp_path, snapshot_cli):
             "-c",
             "not_a_server_error",
             "--include-path=/api/admin-boom/{itemId}",
+            f"--report-junit-path={junit}",
+            f"--report-allure-path={allure}",
         )
         == snapshot_cli
     )
+    line = "Identity: admin (reproduce with --auth-wfc-user admin)"
+    assert [failure.text for failure in ElementTree.parse(junit).iter("failure") if line in failure.text] != []
+    messages = [
+        step["statusDetails"]["message"] for result in allure_results(allure) for step in result.get("steps", [])
+    ]
+    assert [message for message in messages if line in message] != []
 
 
 def test_ndjson_records_the_identity(cli, ctx, tmp_path):
@@ -1364,32 +1397,6 @@ def test_ndjson_records_the_identity(cli, ctx, tmp_path):
     assert seen, "operation was never dispatched"
     # No identity can reach this operation and dropping credentials is no better, so it stops moving.
     assert len(set(seen[-3:])) == 1, f"kept cycling through the chain: {seen}"
-
-
-def test_junit_and_allure_name_the_identity(cli, ctx, tmp_path):
-    api = ctx.openapi.apps.wfc_role_gated()
-    auth = _write(tmp_path, ROLE_AUTH)
-    junit = tmp_path / "junit.xml"
-    allure = tmp_path / "allure-results"
-
-    cli.run(
-        api.schema_url,
-        "--max-examples=8",
-        "--phases=fuzzing",
-        f"--auth-wfc={auth}",
-        "-c",
-        "not_a_server_error",
-        "--include-path=/api/admin-boom/{itemId}",
-        f"--report-junit-path={junit}",
-        f"--report-allure-path={allure}",
-    )
-
-    line = "Identity: admin (reproduce with --auth-wfc-user admin)"
-    assert [failure.text for failure in ElementTree.parse(junit).iter("failure") if line in failure.text] != []
-    messages = [
-        step["statusDetails"]["message"] for result in allure_results(allure) for step in result.get("steps", [])
-    ]
-    assert [message for message in messages if line in message] != []
 
 
 def test_unknown_cached_identity_is_ignored(cli, ctx, tmp_path):

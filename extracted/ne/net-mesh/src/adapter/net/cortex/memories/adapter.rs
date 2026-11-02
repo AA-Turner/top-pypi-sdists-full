@@ -1,0 +1,790 @@
+//! `MemoriesAdapter` — typed wrapper over `CortexAdapter<MemoriesState>`
+//! with domain-level ingest helpers.
+
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+
+use super::super::super::channel::ChannelName;
+use super::super::super::redex::{Redex, RedexError, RedexFileConfig, WriteToken};
+use super::super::adapter::{CortexAdapter, WaitForTokenError};
+use super::super::config::CortexAdapterConfig;
+use super::super::error::CortexAdapterError;
+use super::super::meta::{compute_checksum_with_meta, EventMeta};
+use super::super::watermark::WatermarkingFold;
+use super::dispatch::{
+    DISPATCH_MEMORY_DELETED, DISPATCH_MEMORY_PINNED, DISPATCH_MEMORY_RETAGGED,
+    DISPATCH_MEMORY_STORED, DISPATCH_MEMORY_UNPINNED, MEMORIES_CHANNEL,
+};
+use super::fold::MemoriesFold;
+use super::state::MemoriesState;
+use super::types::{
+    MemoryDeletedPayload, MemoryId, MemoryPinTogglePayload, MemoryRetaggedPayload,
+    MemoryStoredPayload,
+};
+use super::watch::MemoriesWatcher;
+
+/// Return shape of [`MemoriesAdapter::snapshot_and_watch`]: the
+/// initial filter result plus a boxed stream that emits every
+/// subsequent change (dedup'd, with the initial skipped so the
+/// caller doesn't double-render).
+pub type MemoriesSnapshotAndWatch = (
+    Vec<std::sync::Arc<super::types::Memory>>,
+    std::pin::Pin<
+        Box<dyn futures::Stream<Item = Vec<std::sync::Arc<super::types::Memory>>> + Send + 'static>,
+    >,
+);
+
+use futures::StreamExt;
+
+/// Wire format for [`MemoriesAdapter::snapshot`]: wraps the
+/// `MemoriesState` postcard blob produced by the underlying
+/// [`CortexAdapter`] alongside the typed adapter's own `app_seq`
+/// counter so restore preserves per-origin monotonicity of
+/// `EventMeta::seq_or_ts`.
+#[derive(Serialize, Deserialize)]
+struct MemoriesSnapshotPayload {
+    /// Next-to-assign `app_seq` value at snapshot time — the adapter
+    /// restores its counter to this so post-restore `EventMeta`
+    /// records continue with monotonic per-origin sequencing.
+    app_seq: u64,
+    /// The `CortexAdapter::snapshot` blob (postcard of `MemoriesState`).
+    inner: Vec<u8>,
+}
+
+/// Which store the `(state_bytes, last_seq)` pair passed to
+/// [`MemoriesAdapter::open_snapshot`] describes — the identity
+/// discriminator for replay, never sequence arithmetic.
+#[derive(Clone, Copy)]
+enum StateProvenance {
+    /// The pair came from THIS store's own checkpoint file
+    /// (`checkpoint::load`, whose version/origin check is the
+    /// identity gate). `last_seq` is a position in THIS log and
+    /// covers its prefix.
+    OwnCheckpoint,
+    /// The pair is a caller-supplied snapshot of ANOTHER store
+    /// (`open_from_snapshot`). `last_seq` is a position in the SOURCE
+    /// store's log and claims no coverage here.
+    ForeignSnapshot,
+}
+
+/// Typed wrapper around `CortexAdapter<MemoriesState>` that exposes
+/// domain-level operations (`store`, `retag`, `pin`, `unpin`,
+/// `delete`) and hides the `EventMeta` + postcard plumbing.
+pub struct MemoriesAdapter {
+    inner: CortexAdapter<MemoriesState>,
+    /// Producer identity stamped on every `EventMeta`.
+    origin_hash: u64,
+    /// Monotonic per-origin counter for `EventMeta::seq_or_ts`.
+    /// Shared with the inner `WatermarkingFold` wrapper around
+    /// [`MemoriesFold`]: the fold task advances this counter via
+    /// `fetch_max(seq_or_ts + 1)` for every replayed event whose
+    /// `origin_hash` matches ours, so `ingest_typed` after open
+    /// can never collide with an already-stored event.
+    app_seq: Arc<AtomicU64>,
+}
+
+impl MemoriesAdapter {
+    /// Validate a snapshot payload WITHOUT opening a store: the
+    /// envelope, the `last_seq` position check, and the EMBEDDED
+    /// adapter state (review finding 10).
+    #[cfg(feature = "netdb")]
+    pub(crate) fn validate_snapshot(
+        state_bytes: &[u8],
+        last_seq: Option<u64>,
+    ) -> Result<(), CortexAdapterError> {
+        let payload = Self::decode_snapshot(state_bytes, last_seq)?;
+        // The nested check lives HERE, once. `decode_snapshot` returns
+        // the payload after the position check only: the open path
+        // hands `payload.inner` to `CortexAdapter::open_from_snapshot`,
+        // which decodes it as `MemoriesState` anyway — decoding it in
+        // `decode_snapshot` too parsed and allocated the entire
+        // adapter state twice on every checkpointed restart.
+        let _: MemoriesState = postcard::from_bytes(&payload.inner)
+            .map_err(|e| RedexError::Decode(format!("memories snapshot state: {e}")))?;
+        Ok(())
+    }
+
+    /// Unwrap the envelope and check the position sentinel. Does NOT
+    /// decode the embedded state — see [`Self::validate_snapshot`] for
+    /// where that check lives and why it is not repeated here.
+    fn decode_snapshot(
+        state_bytes: &[u8],
+        last_seq: Option<u64>,
+    ) -> Result<MemoriesSnapshotPayload, CortexAdapterError> {
+        if last_seq == Some(u64::MAX) {
+            return Err(
+                RedexError::Decode("snapshot last_seq at u64::MAX; cannot resume".into()).into(),
+            );
+        }
+        let payload: MemoriesSnapshotPayload = postcard::from_bytes(state_bytes)
+            .map_err(|e| RedexError::Decode(format!("memories snapshot unwrap: {e}")))?;
+        Ok(payload)
+    }
+
+    /// Open the memories adapter against a `Redex` manager.
+    ///
+    /// Uses [`MEMORIES_CHANNEL`] (`"cortex/memories"`). Replays the
+    /// full history into state on open.
+    ///
+    /// `async` because the constructor awaits the fold task's
+    /// catch-up before returning: the inner `WatermarkingFold`
+    /// observes every replayed event's `EventMeta` and advances
+    /// `app_seq` past any pre-existing same-origin `seq_or_ts`,
+    /// so the first `ingest_typed` after `open` cannot collide
+    /// with an already-stored event THIS ADAPTER caused.
+    ///
+    /// # Single-origin invariant
+    ///
+    /// `app_seq` is initialized by reading `file.next_seq()` and
+    /// awaiting `wait_for_seq(next_seq - 1)`. If another writer
+    /// — typically a sibling adapter under the same `origin_hash`
+    /// running in a different process or a crashed daemon
+    /// resurrecting its old keypair — appends events between
+    /// `next_seq()` and the user's first `ingest_typed`, those
+    /// events are NOT reflected in our `app_seq` and the next
+    /// stamped `seq_or_ts` can collide with them.
+    ///
+    /// **The bus assumes exactly one writer per `origin_hash` per
+    /// channel.** Splitting writers across processes / runtimes
+    /// for the same origin breaks the no-collision guarantee.
+    /// Either:
+    ///   - Use distinct origins per writer (typical: derive from
+    ///     a unique `EntityKeypair`).
+    ///   - Coordinate writers out-of-band so only one is active
+    ///     at a time.
+    ///
+    /// The pre-fix doc said "the first `ingest_typed` after open
+    /// cannot collide with an already-stored event" full-stop;
+    /// the qualifier "THIS ADAPTER caused" is the correction.
+    pub async fn open(redex: &Redex, origin_hash: u64) -> Result<Self, CortexAdapterError> {
+        Self::open_with_config(redex, origin_hash, RedexFileConfig::default()).await
+    }
+
+    /// Like [`Self::open`] but with a caller-supplied `RedexFileConfig`.
+    /// Persistent opens first recover any local restore checkpoint. Such
+    /// checkpoints require the same origin used when they were restored.
+    pub async fn open_with_config(
+        redex: &Redex,
+        origin_hash: u64,
+        redex_config: RedexFileConfig,
+    ) -> Result<Self, CortexAdapterError> {
+        let name = ChannelName::new(MEMORIES_CHANNEL).map_err(|e| {
+            CortexAdapterError::Redex(super::super::super::redex::RedexError::Channel(
+                e.to_string(),
+            ))
+        })?;
+        if let Some(checkpoint) =
+            super::super::checkpoint::load(redex, &name, &redex_config, origin_hash)?
+        {
+            return Self::open_snapshot(
+                redex,
+                origin_hash,
+                redex_config,
+                &checkpoint.state,
+                checkpoint.last_seq,
+                StateProvenance::OwnCheckpoint,
+            )
+            .await;
+        }
+        let app_seq = Arc::new(AtomicU64::new(0));
+        let fold = WatermarkingFold::new(MemoriesFold, app_seq.clone(), origin_hash);
+        let inner = CortexAdapter::open(
+            redex,
+            &name,
+            redex_config.clone(),
+            CortexAdapterConfig::default(),
+            fold,
+            MemoriesState::new(),
+        )?;
+
+        // Wait for the fold task to catch up so the wrapper has
+        // observed every pre-existing event before any caller-driven
+        // ingest can race against it. `redex.open_file` is idempotent
+        // (returns the same handle the inner adapter already holds),
+        // so re-opening here is cheap.
+        let file = redex.open_file(&name, redex_config)?;
+        let next_seq = file.next_seq();
+        if next_seq > 0 {
+            inner
+                .wait_for_seq(next_seq - 1)
+                .await
+                .map_err(|folded_through| CortexAdapterError::FoldStoppedBeforeSeq {
+                    wanted: next_seq - 1,
+                    folded_through,
+                })?;
+        }
+
+        Ok(Self {
+            inner,
+            origin_hash,
+            app_seq,
+        })
+    }
+
+    /// Store or update a memory.
+    ///
+    /// Upsert semantics: if `id` is unknown, a new memory is
+    /// inserted with `pinned: false` and `created_ns = now_ns`.
+    /// If `id` already exists, the entry's `content`, `tags`, and
+    /// `source` are overwritten and `updated_ns` advances to
+    /// `now_ns`, but the existing `pinned` flag and `created_ns`
+    /// timestamp are preserved — `store` will not silently
+    /// un-pin an entry or rewrite its creation time. Use
+    /// [`Self::pin`] / [`Self::unpin`] to change the pin
+    /// explicitly.
+    ///
+    /// Returns the RedEX seq of the append.
+    pub fn store(
+        &self,
+        id: MemoryId,
+        content: impl Into<String>,
+        tags: impl IntoIterator<Item = String>,
+        source: impl Into<String>,
+        now_ns: u64,
+    ) -> Result<u64, CortexAdapterError> {
+        let payload = MemoryStoredPayload {
+            id,
+            content: content.into(),
+            tags: tags.into_iter().collect(),
+            source: source.into(),
+            now_ns,
+        };
+        self.ingest_typed(DISPATCH_MEMORY_STORED, &payload)
+    }
+
+    /// Replace the tag set on an existing memory. No-op at fold time
+    /// if `id` is unknown.
+    pub fn retag(
+        &self,
+        id: MemoryId,
+        tags: impl IntoIterator<Item = String>,
+        now_ns: u64,
+    ) -> Result<u64, CortexAdapterError> {
+        let payload = MemoryRetaggedPayload {
+            id,
+            tags: tags.into_iter().collect(),
+            now_ns,
+        };
+        self.ingest_typed(DISPATCH_MEMORY_RETAGGED, &payload)
+    }
+
+    /// Pin a memory.
+    pub fn pin(&self, id: MemoryId, now_ns: u64) -> Result<u64, CortexAdapterError> {
+        let payload = MemoryPinTogglePayload { id, now_ns };
+        self.ingest_typed(DISPATCH_MEMORY_PINNED, &payload)
+    }
+
+    /// Unpin a memory.
+    pub fn unpin(&self, id: MemoryId, now_ns: u64) -> Result<u64, CortexAdapterError> {
+        let payload = MemoryPinTogglePayload { id, now_ns };
+        self.ingest_typed(DISPATCH_MEMORY_UNPINNED, &payload)
+    }
+
+    /// Delete a memory.
+    pub fn delete(&self, id: MemoryId) -> Result<u64, CortexAdapterError> {
+        let payload = MemoryDeletedPayload { id };
+        self.ingest_typed(DISPATCH_MEMORY_DELETED, &payload)
+    }
+
+    /// Read-only access to the materialized state.
+    pub fn state(&self) -> Arc<RwLock<MemoriesState>> {
+        self.inner.state()
+    }
+
+    /// Total memory count in the current state.
+    pub fn count(&self) -> usize {
+        self.inner.state().read().len()
+    }
+
+    /// Block until every event up through `seq` has been folded.
+    /// Returns `Err(folded)` if the fold task stopped before
+    /// reaching `seq`; see [`CortexAdapter::wait_for_seq`] for the
+    /// stop-vs-success rationale.
+    pub async fn wait_for_seq(&self, seq: u64) -> Result<(), Option<u64>> {
+        self.inner.wait_for_seq(seq).await
+    }
+
+    /// Block until the fold task has processed every event up
+    /// through `token.seq`, or `deadline` elapses. Read-your-writes
+    /// wait scoped to this adapter's origin — see the matching
+    /// `TasksAdapter::wait_for_token` for the rationale on the
+    /// origin guard.
+    pub async fn wait_for_token(
+        &self,
+        token: WriteToken,
+        deadline: Duration,
+    ) -> Result<(), WaitForTokenError> {
+        if token.origin_hash != self.origin_hash {
+            self.inner.note_wrong_origin();
+            return Err(WaitForTokenError::WrongOrigin {
+                token_origin: token.origin_hash,
+                adapter_origin: self.origin_hash,
+            });
+        }
+        self.inner.wait_for_token(token, deadline).await
+    }
+
+    /// Non-blocking RYW poll. See
+    /// [`super::super::tasks::TasksAdapter::poll_for_token`] for the
+    /// full contract — identical shape for Memories, including
+    /// `WrongChannel` for a token issued for another channel (a Tasks
+    /// token, say).
+    pub fn poll_for_token(&self, token: WriteToken) -> Result<(), WaitForTokenError> {
+        if token.origin_hash != self.origin_hash {
+            self.inner.note_wrong_origin();
+            return Err(WaitForTokenError::WrongOrigin {
+                token_origin: token.origin_hash,
+                adapter_origin: self.origin_hash,
+            });
+        }
+        self.inner.check_token_channel(&token)?;
+        match self.inner.applied_through_seq() {
+            Some(applied) if applied >= token.seq => Ok(()),
+            _ if !self.inner.is_running() => Err(WaitForTokenError::FoldStopped {
+                applied_through_seq: self.inner.applied_through_seq(),
+            }),
+            _ => Err(WaitForTokenError::Timeout),
+        }
+    }
+
+    /// Close the adapter. See [`CortexAdapter::close`].
+    pub fn close(&self) -> Result<(), CortexAdapterError> {
+        self.inner.close()
+    }
+
+    /// True if the fold task is currently running.
+    pub fn is_running(&self) -> bool {
+        self.inner.is_running()
+    }
+
+    /// Access the wrapped [`CortexAdapter`] for cases that need the
+    /// lower-level surface.
+    pub fn as_cortex(&self) -> &CortexAdapter<MemoriesState> {
+        &self.inner
+    }
+
+    /// Origin hash this adapter is bound to. Stamped on every
+    /// outgoing `EventMeta`; tokens with a different origin reject
+    /// at `wait_for_token`.
+    pub fn origin_hash(&self) -> u64 {
+        self.origin_hash
+    }
+
+    /// Canonical hash of this adapter's channel
+    /// (`cortex/memories`). Every token this adapter issues
+    /// carries it; a token for another channel is refused with
+    /// [`WaitForTokenError::WrongChannel`].
+    pub fn channel_hash(&self) -> u64 {
+        self.inner.channel_hash()
+    }
+
+    /// The token naming the write that returned `seq` on this adapter:
+    /// its origin, its channel and `seq`. Pass it to
+    /// [`Self::wait_for_token`] (or [`Self::poll_for_token`]) to wait
+    /// until that write is visible to reads.
+    pub fn token(&self, seq: u64) -> WriteToken {
+        WriteToken::new(self.origin_hash, self.inner.channel_hash(), seq)
+    }
+
+    /// Start building a reactive watcher.
+    pub fn watch(&self) -> MemoriesWatcher {
+        MemoriesWatcher::new(self.inner.state(), self.inner.changes().boxed())
+    }
+
+    /// One-shot combo: a snapshot of the current filter result PLUS
+    /// a stream that emits every **subsequent** change to that
+    /// filter. The stream skips the initial emission so the caller
+    /// doesn't see the snapshot twice — the snapshot is the initial
+    /// state; the stream carries deltas from there forward.
+    pub fn snapshot_and_watch(&self, watcher: MemoriesWatcher) -> MemoriesSnapshotAndWatch {
+        use futures::StreamExt;
+        let initial = {
+            let state = self.inner.state();
+            let guard = state.read();
+            watcher.spec_for_snapshot().execute(&guard)
+        };
+        // Skip ONLY the first emission if it still equals the
+        // snapshot, forward everything after that. A sticky
+        // `skip_while` would starve consumers under (A → B → A)
+        // state oscillations collapsed by the single-slot
+        // `tokio::sync::watch` — see
+        // `tasks/adapter.rs::snapshot_and_watch` for the full
+        // rationale.
+        let initial_for_stream = initial.clone();
+        let stream = watcher
+            .stream()
+            .enumerate()
+            .filter(move |(i, current)| {
+                // `current` and `initial_for_stream` are both
+                // `Vec<Arc<Memory>>` per perf #96. Vec PartialEq
+                // delegates to element PartialEq, and Arc<T>
+                // forwards `==` to `(*a) == (*b)`, so the
+                // value-equality semantics are preserved.
+                let drop_first = *i == 0 && current == &initial_for_stream;
+                futures::future::ready(!drop_first)
+            })
+            .map(|(_, current)| current)
+            .boxed();
+        (initial, stream)
+    }
+
+    /// Capture a snapshot suitable for restore. Returns
+    /// `(state_bytes, last_seq)` — persist both together.
+    pub fn snapshot(&self) -> Result<(Vec<u8>, Option<u64>), CortexAdapterError> {
+        let (inner, last_seq) = self.inner.snapshot()?;
+        let payload = MemoriesSnapshotPayload {
+            app_seq: self.app_seq.load(Ordering::Acquire),
+            inner,
+        };
+        let bytes = postcard::to_allocvec(&payload).map_err(|e| {
+            CortexAdapterError::Redex(RedexError::Encode(format!("memories snapshot wrap: {}", e)))
+        })?;
+        Ok((bytes, last_seq))
+    }
+
+    /// Open the memories adapter from another store's snapshot.
+    ///
+    /// `last_seq` describes the SOURCE store's log and claims no
+    /// coverage of this one: every event of THIS log folds onto the
+    /// restored state (the documented restore semantic: "a fold, not
+    /// a replace"). The `Some(u64::MAX)` sentinel is still refused.
+    ///
+    /// See [`Self::open`] for why this is `async`.
+    pub async fn open_from_snapshot(
+        redex: &Redex,
+        origin_hash: u64,
+        state_bytes: &[u8],
+        last_seq: Option<u64>,
+    ) -> Result<Self, CortexAdapterError> {
+        Self::open_from_snapshot_with_config(
+            redex,
+            origin_hash,
+            RedexFileConfig::default(),
+            state_bytes,
+            last_seq,
+        )
+        .await
+    }
+
+    /// Like [`Self::open_from_snapshot`] but with a caller-supplied
+    /// `RedexFileConfig`.
+    /// Persistent restoration publishes a local checkpoint for ordinary
+    /// future opens. Restore offline; concurrent writers are unsupported.
+    pub async fn open_from_snapshot_with_config(
+        redex: &Redex,
+        origin_hash: u64,
+        redex_config: RedexFileConfig,
+        state_bytes: &[u8],
+        last_seq: Option<u64>,
+    ) -> Result<Self, CortexAdapterError> {
+        Self::open_snapshot(
+            redex,
+            origin_hash,
+            redex_config,
+            state_bytes,
+            last_seq,
+            StateProvenance::ForeignSnapshot,
+        )
+        .await
+    }
+
+    async fn open_snapshot(
+        redex: &Redex,
+        origin_hash: u64,
+        redex_config: RedexFileConfig,
+        state_bytes: &[u8],
+        last_seq: Option<u64>,
+        provenance: StateProvenance,
+    ) -> Result<Self, CortexAdapterError> {
+        let payload = Self::decode_snapshot(state_bytes, last_seq)?;
+        let name = ChannelName::new(MEMORIES_CHANNEL)
+            .map_err(|e| CortexAdapterError::Redex(RedexError::Channel(e.to_string())))?;
+
+        // Force-restore merge fix: `last_seq` is a position in the
+        // log of the store the pair came from. An `OwnCheckpoint`
+        // pair comes from THIS store's own checkpoint file
+        // (identity-gated by `checkpoint::load`'s version/origin
+        // check), so its position covers this log's prefix and
+        // replay may skip it. A `ForeignSnapshot` pair is ANOTHER
+        // store's snapshot: its position covers NOTHING here, so
+        // every destination frame must fold onto the incoming state
+        // (the documented restore semantic: "a fold, not a replace")
+        // and the published checkpoint claims no coverage (`store`'s
+        // clamp maps `None` to `None`, keeping later appends
+        // replayable).
+        let resume = match provenance {
+            StateProvenance::OwnCheckpoint => last_seq,
+            StateProvenance::ForeignSnapshot => None,
+        };
+        let last_seq = if matches!(provenance, StateProvenance::ForeignSnapshot) {
+            super::super::checkpoint::store(
+                redex,
+                &name,
+                &redex_config,
+                origin_hash,
+                state_bytes,
+                resume,
+            )?
+        } else {
+            resume
+        };
+
+        // Pre-load the snapshot's persisted counter into the
+        // shared atomic. The wrapper fold then advances it via
+        // fetch_max as it catches up over the post-`last_seq`
+        // tail. A separate synchronous `read_range` walk would
+        // double startup IO/CPU on large logs.
+        let app_seq = Arc::new(AtomicU64::new(payload.app_seq));
+        let fold = WatermarkingFold::new(MemoriesFold, app_seq.clone(), origin_hash);
+        let inner = CortexAdapter::open_from_snapshot(
+            redex,
+            &name,
+            redex_config.clone(),
+            CortexAdapterConfig::default(),
+            fold,
+            &payload.inner,
+            last_seq,
+        )?;
+
+        let file = redex.open_file(&name, redex_config)?;
+        let next_seq = file.next_seq();
+        if next_seq > 0 {
+            inner
+                .wait_for_seq(next_seq - 1)
+                .await
+                .map_err(|folded_through| CortexAdapterError::FoldStoppedBeforeSeq {
+                    wanted: next_seq - 1,
+                    folded_through,
+                })?;
+        }
+
+        Ok(Self {
+            inner,
+            origin_hash,
+            app_seq,
+        })
+    }
+
+    /// See `tasks/adapter.rs::ingest_typed` for the full
+    /// rationale. Same shape as the tasks adapter: a single
+    /// `fetch_add` reserves the next `app_seq` atomically before
+    /// ingest; on `inner.ingest` failure we leave a small gap in
+    /// the per-origin sequence space, which is harmless because
+    /// `WatermarkingFold` advances via `fetch_max` against events
+    /// that actually landed in the log.
+    fn ingest_typed<T: serde::Serialize>(
+        &self,
+        dispatch: u8,
+        payload: &T,
+    ) -> Result<u64, CortexAdapterError> {
+        // PERF_AUDIT §5.7 — see `tasks/adapter.rs::ingest_typed`
+        // for the full rationale. Same single-buffer
+        // serialize-then-patch-checksum shape applied here.
+        use super::super::super::cortex::meta::EVENT_META_SIZE;
+        let app_seq = self.app_seq.fetch_add(1, Ordering::AcqRel);
+        let mut meta = EventMeta::new(dispatch, 0, self.origin_hash, app_seq, 0);
+        let mut buf = Vec::with_capacity(EVENT_META_SIZE + 128);
+        buf.extend_from_slice(&meta.to_bytes());
+        buf = postcard::to_extend(payload, buf).map_err(|e| {
+            CortexAdapterError::Redex(super::super::super::redex::RedexError::Encode(
+                e.to_string(),
+            ))
+        })?;
+        let tail = &buf[EVENT_META_SIZE..];
+        meta.checksum = compute_checksum_with_meta(&meta, tail);
+        EventMeta::patch_checksum(&mut buf, meta.checksum);
+        self.inner.ingest_prebuilt(&buf)
+    }
+}
+
+impl std::fmt::Debug for MemoriesAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoriesAdapter")
+            .field("origin_hash", &self.origin_hash)
+            .field("app_seq", &self.app_seq.load(Ordering::Acquire))
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::net::redex::Redex;
+
+    /// Review finding 10 behaviour witness: `validate_snapshot` — the
+    /// API that promises to validate embedded adapter state WITHOUT
+    /// opening a store — must reject a well-formed envelope wrapping
+    /// corrupt state bytes (the loud failure the moved nested check
+    /// provides). Inverse: removing the nested check from
+    /// `validate_snapshot` reddens this — after finding 10 nothing
+    /// else on the validate path performs it. (The companion property
+    /// "the nested state is parsed exactly once per checkpointed
+    /// restart" is structural: `decode_snapshot` no longer touches
+    /// `payload.inner`, leaving `CortexAdapter::open_from_snapshot`'s
+    /// decode as the single parse site — this witness pins the
+    /// behaviour, not the parse count.)
+    #[cfg(feature = "netdb")]
+    #[test]
+    fn validate_snapshot_rejects_corrupt_embedded_state() {
+        let payload = MemoriesSnapshotPayload {
+            app_seq: 3,
+            inner: vec![0xFF; 32],
+        };
+        let bytes = postcard::to_allocvec(&payload).unwrap();
+        let result = MemoriesAdapter::validate_snapshot(&bytes, Some(0));
+        assert!(
+            result.is_err(),
+            "validate_snapshot must reject corrupt embedded adapter state, got: {result:?}"
+        );
+    }
+
+    /// Cross-store fold witness (memories side — the mirror of the
+    /// tasks merge `force_without_clear_preserves_merge_semantics`
+    /// covers at the CLI level; that fixture's snapshot is tasks-only,
+    /// so it cannot observe the memories restore path). Restoring
+    /// ANOTHER store's snapshot must FOLD: the destination's own
+    /// records survive AND the snapshot's arrive ("this is a fold, not
+    /// a replace"). Inverse: `StateProvenance::ForeignSnapshot`'s
+    /// resume reverted to `last_seq` skips the destination's prefix
+    /// frames and drops its records (state = the snapshot's only).
+    #[tokio::test]
+    async fn cross_store_restore_folds_destination_memories_onto_snapshot_state() {
+        const ORIGIN: u64 = 0xC0FF_EE00_D00D_F00D;
+
+        // Source store: the foreign snapshot holds memory 4.
+        let source = Redex::new();
+        let src = MemoriesAdapter::open(&source, ORIGIN).await.unwrap();
+        let seq = src.store(4, "from-snapshot", vec![], "src", 400).unwrap();
+        src.wait_for_seq(seq).await.unwrap();
+        let (bytes, last_seq) = src.snapshot().unwrap();
+        src.close().unwrap();
+
+        // Destination store: its own log holds memory 3.
+        let dest = Redex::new();
+        let dst = MemoriesAdapter::open(&dest, ORIGIN).await.unwrap();
+        let seq = dst.store(3, "destination", vec![], "dst", 300).unwrap();
+        dst.wait_for_seq(seq).await.unwrap();
+        dst.close().unwrap();
+
+        // Cross-store restore: every destination frame folds onto the
+        // incoming state.
+        let restored = MemoriesAdapter::open_from_snapshot(&dest, ORIGIN, &bytes, last_seq)
+            .await
+            .unwrap();
+        let state = restored.state();
+        let guard = state.read();
+        assert!(
+            guard.find_unique(3).is_some(),
+            "the destination's memory 3 must survive the cross-store restore \
+             (this is a fold, not a replace)"
+        );
+        assert!(
+            guard.find_unique(4).is_some(),
+            "the snapshot's memory 4 must arrive"
+        );
+        drop(guard);
+        restored.close().unwrap();
+    }
+
+    /// Mirror of the TasksAdapter WrongOrigin test — same guard,
+    /// same contract, same dashboards counter. See the matching
+    /// docstring on TasksAdapter::poll_for_token for the security
+    /// rationale.
+    #[tokio::test]
+    async fn poll_and_wait_for_token_reject_mismatched_origin() {
+        const OUR_ORIGIN: u64 = 0x9999_AAAA_BBBB_CCCC;
+        const FOREIGN_ORIGIN: u64 = 0x5555_6666_7777_8888;
+        let redex = Redex::new();
+        let adapter = MemoriesAdapter::open(&redex, OUR_ORIGIN).await.unwrap();
+        assert_eq!(adapter.origin_hash(), OUR_ORIGIN);
+
+        assert_eq!(adapter.as_cortex().ryw_metrics().wrong_origin_total, 0);
+
+        let foreign_token = WriteToken::new(FOREIGN_ORIGIN, adapter.channel_hash(), 0);
+
+        match adapter.poll_for_token(foreign_token) {
+            Err(WaitForTokenError::WrongOrigin {
+                token_origin,
+                adapter_origin,
+            }) => {
+                assert_eq!(token_origin, FOREIGN_ORIGIN);
+                assert_eq!(adapter_origin, OUR_ORIGIN);
+            }
+            other => panic!("expected WrongOrigin, got {:?}", other),
+        }
+        assert_eq!(adapter.as_cortex().ryw_metrics().wrong_origin_total, 1);
+
+        match adapter
+            .wait_for_token(foreign_token, Duration::from_millis(10))
+            .await
+        {
+            Err(WaitForTokenError::WrongOrigin { .. }) => {}
+            other => panic!("expected WrongOrigin, got {:?}", other),
+        }
+        assert_eq!(adapter.as_cortex().ryw_metrics().wrong_origin_total, 2);
+
+        // Sanity: matched-origin token does NOT bump the counter.
+        let our_token = adapter.token(999);
+        match adapter.poll_for_token(our_token) {
+            Err(WaitForTokenError::Timeout) => {}
+            other => panic!("expected Timeout for matched-origin token, got {:?}", other),
+        }
+        assert_eq!(adapter.as_cortex().ryw_metrics().wrong_origin_total, 2);
+
+        adapter.close().unwrap();
+    }
+
+    /// The defect a channel-less token allowed: Tasks and Memories with
+    /// the same origin count sequence numbers independently, so a Tasks
+    /// token for seq 0 was "applied" here as soon as this channel's own
+    /// seq 0 was. It must be refused, by poll and by wait, and the Tasks
+    /// adapter must still accept its own token.
+    #[tokio::test]
+    async fn a_tasks_token_is_refused_here_despite_the_same_origin() {
+        const ORIGIN: u64 = 0x1234_5678_9ABC_DEF0;
+        let redex = Redex::new();
+        let tasks = super::super::super::tasks::TasksAdapter::open(&redex, ORIGIN)
+            .await
+            .unwrap();
+        let adapter = MemoriesAdapter::open(&redex, ORIGIN).await.unwrap();
+        assert_ne!(tasks.channel_hash(), adapter.channel_hash());
+
+        let mut mem_seq = 0;
+        for id in 0..3 {
+            mem_seq = adapter.store(id, "m", vec![], "src", 100 + id).unwrap();
+        }
+        adapter
+            .wait_for_token(adapter.token(mem_seq), Duration::from_secs(2))
+            .await
+            .unwrap();
+        let task_seq = tasks.create(1, "t", 100).unwrap();
+        assert!(task_seq <= mem_seq, "Memories is past the Tasks seq");
+        let task_token = tasks.token(task_seq);
+        assert_eq!(task_token.origin_hash, adapter.origin_hash(), "same origin");
+
+        let wrong = Err(WaitForTokenError::WrongChannel {
+            token_channel: tasks.channel_hash(),
+            adapter_channel: adapter.channel_hash(),
+        });
+        assert_eq!(adapter.poll_for_token(task_token), wrong);
+        assert_eq!(
+            adapter
+                .wait_for_token(task_token, Duration::from_secs(2))
+                .await,
+            wrong
+        );
+        assert_eq!(adapter.as_cortex().ryw_metrics().wrong_channel_total, 2);
+
+        tasks
+            .wait_for_token(task_token, Duration::from_secs(2))
+            .await
+            .unwrap();
+        tasks.close().unwrap();
+        adapter.close().unwrap();
+    }
+}

@@ -354,7 +354,7 @@ def test_a_config_it_cannot_edit_still_upgrades(ran):
 
 
 def test_manual_steps_print_the_same_codex_add():
-    from probe.cli.actions import manual_steps
+    from probe.cli.wizard.actions.onboarding import manual_steps
 
     steps = manual_steps(base_url="https://api.research.prbe.ai", agent_source="codex")
     assert f"codex plugin marketplace add {REPO} --sparse .agents --sparse plugins" in steps

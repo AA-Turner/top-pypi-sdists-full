@@ -1,0 +1,399 @@
+#
+# Copyright 2025 The OpenSandbox Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""
+Adapter implementation for code execution service.
+
+Provides the concrete implementation of Codes by wrapping auto-generated
+API clients and handling SSE streaming for real-time code execution.
+"""
+
+import json
+import logging
+import time
+
+import httpx
+from opensandbox.adapters.converter.event_node import EventNode
+from opensandbox.adapters.converter.exception_converter import (
+    ExceptionConverter,
+)
+from opensandbox.adapters.converter.execution_event_dispatcher import (
+    ExecutionEventDispatcher,
+)
+from opensandbox.adapters.converter.response_handler import (
+    build_api_exception_from_httpx,
+    handle_api_error,
+    require_parsed,
+)
+from opensandbox.config import ConnectionConfig
+from opensandbox.exceptions import InvalidArgumentException
+from opensandbox.models.execd import Execution, ExecutionHandlers
+from opensandbox.models.sandboxes import SandboxEndpoint
+from opensandbox.transport import streaming_transport
+
+from code_interpreter.adapters.converter.code_execution_converter import (
+    CodeExecutionConverter,
+)
+from code_interpreter.models.code import CodeContext, SupportedLanguage
+from code_interpreter.services.code import Codes
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_sse_event(event_dict: dict) -> dict:
+    if "type" in event_dict and "timestamp" in event_dict:
+        return event_dict
+    if "code" in event_dict and "message" in event_dict:
+        return {
+            "type": "error",
+            "timestamp": int(time.time() * 1000),
+            "error": {
+                "ename": str(event_dict["code"]),
+                "evalue": str(event_dict["message"]),
+                "traceback": [],
+            },
+        }
+    return event_dict
+
+
+class CodesAdapter(Codes):
+    """
+    Adapter implementation for code execution service.
+
+    Handles standard API calls plus direct httpx SSE streaming for
+    real-time code execution output.
+    """
+
+    RUN_CODE_PATH = "/code"
+    CREATE_CONTEXT_PATH = "/code/context"
+
+    def __init__(
+        self, execd_endpoint: SandboxEndpoint, connection_config: ConnectionConfig
+    ) -> None:
+        """
+        Initialize the code service adapter.
+
+        Args:
+            execd_endpoint: Endpoint for execd daemon connection
+            connection_config: Shared connection configuration (transport, headers, timeouts)
+        """
+        self.execd_endpoint = execd_endpoint
+        self.connection_config = connection_config
+        from opensandbox.api.execd import Client
+
+        protocol = self.connection_config.protocol
+        base_url = f"{protocol}://{self.execd_endpoint.endpoint}"
+        timeout_seconds = self.connection_config.request_timeout.total_seconds()
+        timeout = httpx.Timeout(timeout_seconds)
+
+        headers = self.execd_endpoint.build_request_headers(self.connection_config)
+
+        # Execd API does not require authentication
+        self._client = Client(
+            base_url=base_url,
+            timeout=timeout,
+        )
+
+        # Adapter clients must own their transports: aclose() closes them,
+        # and the shared/user connection_config transport must survive that.
+        self._owns_clients = self.connection_config.owns_transport
+        main_transport: httpx.AsyncBaseTransport | None
+        if self._owns_clients:
+            main_transport = self.connection_config.new_owned_transport()
+        else:
+            main_transport = self.connection_config.transport
+        self._httpx_client = httpx.AsyncClient(
+            base_url=base_url,
+            headers=headers,
+            timeout=timeout,
+            transport=main_transport,
+        )
+        self._client.set_async_httpx_client(self._httpx_client)
+
+        # SSE client (read timeout disabled)
+        sse_headers = {
+            **headers,
+            "Accept": "text/event-stream",
+            "Cache-Control": "no-cache",
+        }
+        # SSE bootstraps keep only the wake-timeout retry: a non-idempotent
+        # status opt-in would cause duplicate execution on a resent SSE POST.
+        sse_transport = (
+            self.connection_config.new_owned_transport()
+            if self._owns_clients
+            else self.connection_config.transport
+        )
+        self._sse_client = httpx.AsyncClient(
+            headers=sse_headers,
+            timeout=httpx.Timeout(
+                connect=timeout_seconds,
+                read=None,
+                write=timeout_seconds,
+                pool=None,
+            ),
+            transport=streaming_transport(sse_transport),
+        )
+
+    async def _get_client(self):
+        """Return the client for execd API (no auth required)."""
+        return self._client
+
+    def _get_execd_url(self, path: str) -> str:
+        """Build URL for execd endpoint."""
+        protocol = self.connection_config.protocol
+        return f"{protocol}://{self.execd_endpoint.endpoint}{path}"
+
+    async def _get_sse_client(self) -> httpx.AsyncClient:
+        """Return SSE client (read timeout disabled) for execd streaming."""
+        return self._sse_client
+
+    async def aclose(self) -> None:
+        """Release the adapter-owned HTTP clients.
+
+        Never closes the shared ``connection_config.transport``; the sandbox
+        stays usable after ``aclose()``. Clients wrapping a user-supplied
+        transport are left open (httpx would close the caller's transport
+        with them).
+        """
+        if not self._owns_clients:
+            return
+        try:
+            await self._httpx_client.aclose()
+        finally:
+            await self._sse_client.aclose()
+
+    async def create_context(self, language: str) -> CodeContext:
+        """
+        Creates a new execution context for code interpretation.
+
+        Uses the generated API client for this non-streaming operation.
+        """
+        try:
+            from opensandbox.api.execd.api.code_interpreting import create_code_context
+            from opensandbox.api.execd.models.code_context_request import (
+                CodeContextRequest,
+            )
+
+            client = await self._get_client()
+            api_request = CodeContextRequest(language=language)
+
+            response_obj = await create_code_context.asyncio_detailed(
+                client=client,
+                body=api_request,
+            )
+
+            handle_api_error(response_obj, "Create code context")
+            from opensandbox.api.execd.models.code_context import (
+                CodeContext as ApiCodeContext,
+            )
+
+            parsed = require_parsed(response_obj, ApiCodeContext, "Create code context")
+            return CodeExecutionConverter.from_api_code_context(parsed)
+
+        except Exception as e:
+            logger.error("Failed to create context", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def get_context(self, context_id: str) -> CodeContext:
+        try:
+            from opensandbox.api.execd.api.code_interpreting import get_context
+            from opensandbox.api.execd.models.code_context import (
+                CodeContext as ApiCodeContext,
+            )
+
+            client = await self._get_client()
+            response_obj = await get_context.asyncio_detailed(
+                client=client,
+                context_id=context_id,
+            )
+            handle_api_error(response_obj, "Get code context")
+            parsed = require_parsed(response_obj, ApiCodeContext, "Get code context")
+            return CodeExecutionConverter.from_api_code_context(parsed)
+        except Exception as e:
+            logger.error("Failed to get context", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def list_contexts(self, language: str) -> list[CodeContext]:
+        try:
+            from opensandbox.api.execd.api.code_interpreting import list_contexts
+
+            client = await self._get_client()
+            response_obj = await list_contexts.asyncio_detailed(
+                client=client,
+                language=language,
+            )
+            handle_api_error(response_obj, "List code contexts")
+            parsed_list = require_parsed(response_obj, list, "List code contexts")
+            return [
+                CodeExecutionConverter.from_api_code_context(c) for c in parsed_list
+            ]
+        except Exception as e:
+            logger.error("Failed to list contexts", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def delete_context(self, context_id: str) -> None:
+        try:
+            from opensandbox.api.execd.api.code_interpreting import delete_context
+
+            client = await self._get_client()
+            response_obj = await delete_context.asyncio_detailed(
+                client=client,
+                context_id=context_id,
+            )
+            handle_api_error(response_obj, "Delete code context")
+        except Exception as e:
+            logger.error("Failed to delete context", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def delete_contexts(self, language: str) -> None:
+        try:
+            from opensandbox.api.execd.api.code_interpreting import (
+                delete_contexts_by_language,
+            )
+
+            client = await self._get_client()
+            response_obj = await delete_contexts_by_language.asyncio_detailed(
+                client=client,
+                language=language,
+            )
+            handle_api_error(response_obj, "Delete code contexts by language")
+        except Exception as e:
+            logger.error("Failed to delete contexts", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def run(
+        self,
+        code: str,
+        *,
+        language: str | None = None,
+        context: CodeContext | None = None,
+        handlers: ExecutionHandlers | None = None,
+    ) -> Execution:
+        """
+        Executes code within the specified context using SSE streaming.
+
+        Uses direct httpx
+        streaming to handle SSE responses from the execd service.
+        """
+        if not code.strip():
+            raise InvalidArgumentException("Code cannot be empty")
+
+        try:
+            if (
+                context is not None
+                and language is not None
+                and context.language != language
+            ):
+                raise InvalidArgumentException(
+                    f"language '{language}' must match context.language '{context.language}'"
+                )
+
+            # Default context: language default context (server-side behavior).
+            # When context.id is omitted, execd will create/reuse a default session per language.
+            if context is None:
+                context = CodeContext(language=language or SupportedLanguage.PYTHON)
+            api_request = CodeExecutionConverter.to_api_run_code_request(code, context)
+
+            # Prepare URL
+            url = self._get_execd_url(self.RUN_CODE_PATH)
+
+            execution = Execution(
+                id=None,
+                execution_count=None,
+                result=[],
+                error=None,
+            )
+            execution._is_code_execution = True
+
+            # Use SSE client for streaming responses (read timeout disabled)
+            client = await self._get_sse_client()
+
+            # Use streaming request for SSE
+            async with client.stream("POST", url, json=api_request) as response:
+                if response.status_code != 200:
+                    await response.aread()
+                    logger.error(
+                        f"Failed to run code. Status: {response.status_code}, Body: {response.text}"
+                    )
+                    raise build_api_exception_from_httpx(response, "Run code")
+
+                dispatcher = ExecutionEventDispatcher(execution, handlers)
+
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+
+                    # Handle potential SSE format "data: ..."
+                    data = line
+                    if data.startswith("data:"):
+                        data = data[5:].strip()
+
+                    try:
+                        event_dict = _normalize_sse_event(json.loads(data))
+                        event_node = EventNode(**event_dict)
+                        await dispatcher.dispatch(event_node)
+                    except json.JSONDecodeError:
+                        logger.debug(f"Failed to parse SSE line: {line}")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Error processing event: {data}", exc_info=e)
+                        continue
+
+            return execution
+
+        except Exception as e:
+            logger.error(f"Failed to run code (length: {len(code)})", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def interrupt(self, execution_id: str) -> None:
+        """
+        Interrupts a currently running code execution.
+
+        Uses the generated API client for this operation.
+        """
+        try:
+            from opensandbox.api.execd.api.code_interpreting import interrupt_code
+
+            client = await self._get_client()
+            response_obj = await interrupt_code.asyncio_detailed(
+                client=client,
+                id=execution_id,
+            )
+
+            handle_api_error(response_obj, "Interrupt code execution")
+
+        except Exception as e:
+            logger.error("Failed to interrupt code execution", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def ping(self) -> bool:
+        """
+        Check if the execd code execution service is alive.
+
+        Uses the shared generated API client so the ping exercises the same
+        HTTP client and endpoint that serve code execution requests.
+        """
+        try:
+            from opensandbox.api.execd.api.health import ping as ping_api
+
+            client = await self._get_client()
+            response_obj = await ping_api.asyncio_detailed(client=client)
+
+            handle_api_error(response_obj, "Ping code interpreter")
+            return True
+
+        except Exception as e:
+            logger.debug(f"Code interpreter ping failed: {e}")
+            return False

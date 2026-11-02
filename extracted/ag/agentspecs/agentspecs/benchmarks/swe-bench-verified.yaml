@@ -1,0 +1,25 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: swe-bench-verified
+version: 0.0.1
+name: SWE-bench Verified
+description: >-
+  Human-validated subset of SWE-bench with verified ground-truth patches.
+  Provides higher confidence evaluation of software engineering capabilities
+  by eliminating ambiguous or flawed test cases from the full benchmark.
+category: Coding
+task_count: 500
+metric: pass@1
+source: https://www.swebench.com/
+difficulty: hard
+dataset_source: hosted
+supports_live_monitoring: true
+supports_experiment_comparison: true
+evaluator_shapes:
+  - pass_rate
+evaluators:
+  - precision-recall-evaluator:0.0.1
+  - llm-judge:0.0.1
+languages:
+  - python

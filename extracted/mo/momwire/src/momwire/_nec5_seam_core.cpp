@@ -76,8 +76,8 @@ std::string refuse_mixed_drive_kinds(long long count, long long voltages, long l
 std::string refuse_duplicate_ex(const std::string &at) {
     return "two EX cards address " + at +
            "; one node is one port, so the second card is a second generator in series "
-           "across the same gap - no captured deck writes that, and this seam will not decide "
-           "how two set currents share one path";
+           "across the same gap - the one repeat served is EZNEC's 1e-10 V load probe beside "
+           "an EX 4, and this seam will not decide how two set currents share one path";
 }
 
 std::string refuse_two_drives_one_port(const std::string &first, const std::string &second) {
@@ -86,6 +86,17 @@ std::string refuse_two_drives_one_port(const std::string &first, const std::stri
            "single port to both, so the two set currents are one boundary condition written "
            "twice - no captured deck writes that, and this seam will not decide which of them "
            "wins";
+}
+
+std::string refuse_unpinned_phantom(const std::string &card, const std::string &at,
+                                    const std::string &tag) {
+    return card + " ends at " + at + " on GW " + tag +
+           ", EZNEC's parked circuit wire, and no LD card pins that node; a deck EZNEC writes "
+           "for an engine run pins a parked node only one network card reaches (LD 4 ... "
+           "1.E+10 for an open), so this one was edited by hand or saved as .nec. Unpinned, the "
+           "answer depends on reading the parked wire as a wire (NEC-5 solves it as a few "
+           "millimetres of metal, about 1 % on momwire#1314's open-stub deck) or as a circuit "
+           "node (what EZNEC means) - add the LD 4 pin EZNEC writes";
 }
 
 std::string refuse_buried_no_medium(const std::string &tag, double zmin, bool gd) {
@@ -269,10 +280,16 @@ std::string drive_refusal(const Deck &d) {
         std::string mixed = load_probe_refusal(d);
         if (!mixed.empty()) return mixed;
     }
-    std::set<Node, NodeLess> seen;
+    // A repeated address is served only as EZNEC's repeated load probe
+    // (momwire#1787): every card at it an EX 0 on a mixed deck, which
+    // `load_probe_refusal` above has already vetted.
+    const bool probes = voltages != 0 && voltages != static_cast<long long>(d.sources.size());
+    std::map<Node, bool, NodeLess> seen;  // address -> its first card is an EX 0
     for (const Source &s : d.sources) {
-        if (seen.count(s.at)) return refuse_duplicate_ex(at_of(s.at));
-        seen.insert(s.at);
+        auto it = seen.find(s.at);
+        if (it != seen.end() && !(probes && it->second && s.kind.is_zero()))
+            return refuse_duplicate_ex(at_of(s.at));
+        seen.emplace(s.at, s.kind.is_zero());
     }
     return "";
 }
@@ -621,9 +638,9 @@ std::string scope_refusal(const Deck &d, std::string &declined) {
         if (!drive.empty()) return drive;
         if (!d.has_frequency || d.frequency_mhz <= 0.0) return REFUSE_NO_FR;
         if (!std::isfinite(d.frequency_mhz)) throw Declined{"non-finite-frequency"};
-        // Over a ground the geometry checks read the coordinates (NaN rules
-        // not replayed here); in free space they go to `structure_of`, whose
-        // `_node_key` raises on them as Python's does.
+        // A GW's own non-finite field is the reader's refusal; one a GS or
+        // GM made declines, over a ground here (the geometry checks read the
+        // coordinates) and in free space in `structure_of`.
         if (d.ground.kind != Ground::free_space)
             for (const Wire &w : d.wires)
                 if (!finite3(w.end1) || !finite3(w.end2)) throw Declined{"non-finite-geometry"};
@@ -941,19 +958,18 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
     p.omega = 2.0 * 3.141592653589793 * frequency * 1e6;
 
     // --- `structure_of` ----------------------------------------------------
-    // Wire by wire, as `_wire_nodes` meets them: a count numpy's `arange`
-    // refuses raises its ValueError (from 2**63 + 1024 up; below that a
-    // count past MAX_SEGMENTS declines), and a coordinate `round` cannot
-    // take raises where `_node_key` does.
+    // Wire by wire, as `_wire_nodes` meets them. The reader refuses a GW of
+    // more than `kMaxWireSegments` segments or with a non-finite field
+    // (`gw_field_refusal`); a count past MAX_SEGMENTS still declines here,
+    // and so does a coordinate too large for `_node_key` to round (one the
+    // geometry cards scaled or moved past the doubles), which Python does
+    // not yet refuse in a sentence of its own.
     long long total = 0;
     std::vector<long long> nseg;
-    const Int arange_limit = Int(9223372036854775807LL) + Int(1025);
     const bool ground_plane = !d.ge_flag.is_zero();
     std::unordered_map<NodeKey, long long, KeyHash> degree;
     double pt[3];
     for (const Wire &w : d.wires) {
-        if (w.segment_count >= arange_limit)
-            throw Raised{"ValueError", "Maximum allowed size exceeded"};
         if (!w.segment_count.fits_i64()) throw Declined{"segment-count"};
         const long long n = w.segment_count.i64();
         if (n < 1 || n > MAX_SEGMENTS) throw Declined{"segment-count"};
@@ -971,12 +987,8 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
         if (!fits)
             for (long long k = 0; k <= n; k++) {
                 grid_point(w, n, k, pt);
-                for (int c = 0; c < 3; c++) {
-                    const double q = pt[c] / NODE_EPS;
-                    if (std::isnan(q)) throw Raised{"ValueError", "cannot convert float NaN to integer"};
-                    if (std::isinf(q))
-                        throw Raised{"OverflowError", "cannot convert float infinity to integer"};
-                }
+                for (int c = 0; c < 3; c++)
+                    if (!std::isfinite(pt[c] / NODE_EPS)) throw Declined{"node-key-range"};
             }
         for (long long k = 0; k <= n; k++) {
             grid_point(w, n, k, pt);
@@ -1338,9 +1350,41 @@ Prepared prepare(const Deck &d, const SeamEngine &engine) {
                 if (same_node(x.at, s.at)) site = &x;
             if (site == nullptr || site->column < 0) continue;
             auto it = seen.find(site->column);
-            if (it != seen.end())
+            // the same address twice is `drive_refusal`'s served repeated
+            // probe (momwire#1787); this is two addresses on one cut
+            if (it != seen.end() && !same_node(it->second, s.at))
                 throw Refusal{refuse_two_drives_one_port(at_of(it->second), at_of(s.at))};
             seen[site->column] = s.at;
+        }
+    }
+    // --- `_check_pinned_phantoms` (momwire#1314) ----------------------------
+    {
+        std::vector<std::pair<std::string, Node>> ends;
+        for (const TransmissionLine &t : d.transmission_lines) {
+            ends.emplace_back("a TL card", t.end_a);
+            ends.emplace_back("a TL card", t.end_b);
+        }
+        const auto nonzero = [](const double y[2]) { return y[0] != 0.0 || y[1] != 0.0; };
+        for (const Network &n : d.networks) {
+            if (nonzero(n.y11) || nonzero(n.y12)) ends.emplace_back("an NT card", n.end_a);
+            if (nonzero(n.y22) || nonzero(n.y12)) ends.emplace_back("an NT card", n.end_b);
+        }
+        for (const auto &end : ends) {
+            const Node &at = end.second;
+            long long count = 0;
+            for (const auto &other : ends)
+                if (same_node(other.second, at)) count++;
+            bool pinned = false, driven = false;
+            for (const Load &l : d.loads)
+                if (same_node(l.at, at)) pinned = true;
+            for (const Source &s : d.sources)
+                if (same_node(s.at, at)) driven = true;
+            const SeamSite *site = nullptr;
+            for (const SeamSite &x : mesh.sites)
+                if (same_node(x.at, at)) site = &x;
+            if (site != nullptr && site->spelling == SeamSite::virtual_ && !pinned && !driven &&
+                count == 1)
+                throw Refusal{refuse_unpinned_phantom(end.first, at_of(at), at.tag.str())};
         }
     }
     for (const Source &s : d.sources) {

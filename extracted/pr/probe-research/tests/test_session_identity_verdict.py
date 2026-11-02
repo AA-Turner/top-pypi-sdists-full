@@ -19,7 +19,7 @@ from uuid import uuid4
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core import session_identity as si
 from probe.tap_core.session_journal import ReconciliationRequired
 
@@ -177,7 +177,9 @@ def test_a_failed_hash_surfaces_without_waiting_for_the_others(tmp_path, monkeyp
         return "digest"
 
     monkeypatch.setattr(bt, "prefix_hash", prefix_hash)
-    monkeypatch.setattr(bt, "_background_identity", lambda client: {})
+    monkeypatch.setattr(bt.background, "prefix_hash", prefix_hash)
+    monkeypatch.setattr(bt.upload, "prefix_hash", prefix_hash)
+    monkeypatch.setattr(bt.background, "_background_identity", lambda client: {})
     rows = [bt.Transcript(path=tmp_path / name, session_id=str(uuid4()), agent="claude_code",
                           cwd=None, size=1, mtime=0.0) for name in ("gone.jsonl", "stuck.jsonl", "queued.jsonl")]
     raised = []

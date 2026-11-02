@@ -1,0 +1,32 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyaga8"
+description = "Python package for calculating gas properties using the AGA8 equations GERG-2008 and DETAIL"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+# Additional metadata
+authors = [
+    { name = "Roy Vegard Ovesen" },
+    { name = "Christian Hågenvik" }
+]
+
+license = "MIT License"
+keywords = ["AGA8", "gas properties", "GERG-2008", "DETAIL"]
+
+[project.urls]
+homepage = "https://github.com/equinor/pyaga8"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+long_description = "README.md"
+long_description_content_type = "text/markdown"

@@ -1,0 +1,237 @@
+# Project:   HyperI CI
+# File:      .github/workflows/fleet-sweep.yml
+# Purpose:   Run the ci-test-* fleet against the main every consumer just got
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Workflows and composite actions float `@main`, so a merge here changes what
+# every consumer runs before anybody has run it. A Gate job calling a
+# `gate-check` subcommand the wheel did not carry left logreducer red for about
+# 25 hours, and a composite verify step running a cargo SUBCOMMAND with
+# `--version` broke the Rust test leg fleet-wide (issue #215).
+#
+# The push filter IS the consumer surface: the reusable workflows the fleet routes
+# through, the shared `_`-prefixed ones, and every composite action. This repo's
+# own CI and its two audits are excluded because no consumer calls them.
+# `tests/unit/test_fleet_gate.py` holds that list to config/fixtures.yaml.
+#
+# The fleet app tokens are scoped to the fleet named in config/fixtures.yaml,
+# and the canary read token to hyperi-infra alone. With `owner` set and
+# `repositories` empty the token action grants the whole org, so the scoping
+# step fails rather than hand it an empty list.
+#
+# Its own concurrency group, and no cancel-in-progress: a sweep cancelled by
+# the next merge is the failure this exists to catch, wearing a green tick.
+
+name: Fleet sweep
+
+on:
+  schedule:
+    # Monday morning AEST, an hour after the versions audit.
+    - cron: "23 22 * * 0"
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '!.github/workflows/ci.yml'
+      - '!.github/workflows/fleet-sweep.yml'
+      - '!.github/workflows/gate-audit.yml'
+      - '!.github/workflows/static-libs.yml'
+      - '!.github/workflows/versions-audit.yml'
+  workflow_dispatch:
+    inputs:
+      only:
+        type: string
+        default: ""
+        description: "Comma-separated fixture names. Empty sweeps the whole fleet."
+      language:
+        type: string
+        default: ""
+        description: "Restrict to one language (go, python, rust, typescript)."
+      timeout-minutes:
+        type: string
+        default: "50"
+        description: "How long each of the two waits lasts (sweep, then collect). Keep it under 60: the App token the sweep reads runs with expires then."
+
+concurrency:
+  group: fleet-sweep
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: Fleet sweep
+    runs-on: ${{ vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
+    # Above the canary wait (90), the sweep (50) and the collect (50) plus setup,
+    # so a hung fixture is reported by the sweep, with its run id, rather than
+    # killed by the job.
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --no-sources
+
+      - name: Scope the token to the fleet
+        id: fleet
+        run: uv run --no-sources python scripts/fixture_fleet.py >> "$GITHUB_OUTPUT"
+
+      - name: Mint a runner-image canary read token
+        # The sweep waits for hyperi-infra's arc-runner-images canary, whose
+        # fixture runs it would otherwise cancel. A failed mint leaves the token
+        # empty, and the sweep then warns that it cannot read the canary.
+        id: canary
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: hyperi-infra
+          permission-actions: read
+
+      - name: Wait for the runner-image canary
+        # Before the dispatch token is minted: an App token lives 60 minutes, and
+        # a canary wait inside its life left the sweep unable to read its runs.
+        env:
+          CANARY_GH_TOKEN: ${{ steps.canary.outputs.token }}
+          ONLY: ${{ inputs.only }}
+          LANGUAGE: ${{ inputs.language }}
+        run: |
+          uv run --no-sources python scripts/sweep-fleet.py \
+            --only "$ONLY" \
+            --language "$LANGUAGE" \
+            --canary-only
+
+      - name: Mint a fleet dispatch token
+        # GITHUB_TOKEN is scoped to this repo, so it can neither start a run on
+        # a fixture nor read one. No fallback to it either: a repo-scoped token
+        # would sweep nothing and the sweep hard-fails on nothing having run.
+        id: bot
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.fleet.outputs.repos }}
+          permission-actions: write
+          permission-contents: read
+
+      - name: Run the fleet against main
+        # Exits 0 with `pending=true` when runs are still going at the deadline,
+        # and the collect step below gives the verdict.
+        id: sweep
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          ONLY: ${{ inputs.only }}
+          LANGUAGE: ${{ inputs.language }}
+          # Under the dispatch token's 60-minute life.
+          TIMEOUT_MINUTES: ${{ inputs.timeout-minutes || '50' }}
+        run: |
+          uv run --no-sources python scripts/sweep-fleet.py \
+            --only "$ONLY" \
+            --language "$LANGUAGE" \
+            --timeout-minutes "$TIMEOUT_MINUTES" \
+            --pending-file "$RUNNER_TEMP/sweep-pending.json" \
+            --skip-canary
+
+      - name: Mint a fleet collect token
+        # The dispatch token is nearly expired by now. Reading a run needs only
+        # actions: read.
+        id: collect
+        if: ${{ steps.sweep.outputs.pending == 'true' }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.fleet.outputs.repos }}
+          permission-actions: read
+
+      - name: Collect slow fixture runs
+        if: ${{ steps.sweep.outputs.pending == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.collect.outputs.token }}
+          # Under the collect token's 60-minute life.
+          TIMEOUT_MINUTES: ${{ inputs.timeout-minutes || '50' }}
+        run: |
+          uv run --no-sources python scripts/sweep-fleet.py \
+            --timeout-minutes "$TIMEOUT_MINUTES" \
+            --collect "$RUNNER_TEMP/sweep-pending.json"
+
+  # ---------------------------------------------------------------------------
+  # negative-cases - the half the sweep above cannot prove.
+  #
+  # A sweep over clean fixtures shows a gate passes on clean input. It cannot
+  # tell a blocking gate from a warn-only one or from one that never ran: all
+  # three are the same green tick. These runs carry the defect (issue #219).
+  #
+  # `!cancelled()` because a red sweep is exactly when the question "do the
+  # gates still block" matters most, while a cancelled run must not start a job
+  # that pushes branches and opens pull requests.
+  # ---------------------------------------------------------------------------
+  negative-cases:
+    name: Negative cases
+    needs: sweep
+    if: ${{ !cancelled() }}
+    runs-on: ${{ vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --no-sources
+
+      - name: Scope the token to the fixtures with negative cases
+        id: fleet
+        run: uv run --no-sources python scripts/fixture_fleet.py --negative-cases >> "$GITHUB_OUTPUT"
+
+      - name: Mint a fleet write token
+        # Wider than the sweep's: this pushes an ephemeral expect-fail branch
+        # and opens the pull request whose run is the evidence. A bare push
+        # would not do -- the plan job sets run-checks=false off main, so the
+        # gate under test never runs and the case reads as a leak.
+        id: bot
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.fleet.outputs.repos }}
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Prove the planted failures still fail
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          ONLY: ${{ inputs.only }}
+          TIMEOUT_MINUTES: ${{ inputs.timeout-minutes || '45' }}
+        run: |
+          uv run --no-sources python scripts/negative-cases.py \
+            --only "$ONLY" \
+            --timeout-minutes "$TIMEOUT_MINUTES"

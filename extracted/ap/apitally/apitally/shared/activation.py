@@ -1,0 +1,406 @@
+from __future__ import annotations
+
+import functools
+import logging
+import os
+import sys
+import threading
+import time
+from collections.abc import Awaitable, Callable, Iterable, Iterator, MutableMapping
+from contextlib import contextmanager
+from importlib import import_module
+from types import CodeType
+from typing import TYPE_CHECKING, Any
+
+from opentelemetry import context as otel_context
+from opentelemetry.context import Context
+from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from apitally.shared import config, consumers, export, metrics, providers, sentry, server_errors, validation_errors
+from apitally.shared.config import ApitallyConfig
+from apitally.shared.consumers import consumer_holder_var
+from apitally.shared.context import reset_server_span
+from apitally.shared.export import ExportWorker
+from apitally.shared.exporter import ApitallySpanExporter
+from apitally.shared.log_processor import ApitallyLogRecordProcessor, install_root_handler, uninstall_root_handler
+from apitally.shared.span_processor import ApitallySpanProcessor
+from apitally.shared.spool import Spool
+
+
+if TYPE_CHECKING:
+    from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
+
+
+logger = logging.getLogger(__name__)
+
+APP_IMPORT_CHECK_INTERVAL_SECONDS = 0.05
+
+activation_lock = threading.Lock()
+activation_attempted = False
+activated = False
+fork_handlers_registered = False
+on_activate_hooks: list[Callable[[], None]] = []
+
+env: str | None = None
+resource: Resource | None = None
+span_processor: ApitallySpanProcessor | None = None
+log_processor: ApitallyLogRecordProcessor | None = None
+logger_provider: LoggerProvider | None = None
+spool: Spool | None = None
+export_worker: ExportWorker | None = None
+proxy_urls: dict[str, str] | None = None
+
+# OTel's own fork handlers hold weak references to batch processors; keep shut-down
+# instances alive so a later fork never calls a dead reference
+retired_processors: list[SpanProcessor | LogRecordProcessor] = []
+
+# The forked child inherits the tracer provider with this processor already attached;
+# re-activation reuses it instead of attaching a second one
+inherited_span_processor: ApitallySpanProcessor | None = None
+
+
+def configure(**kwargs: Any) -> ApitallyConfig:
+    """Records configuration only. Threads and network I/O are deferred to activate()."""
+    global fork_handlers_registered, proxy_urls
+    cfg = config.set_config(**kwargs)
+    if proxy_urls is None:
+        proxy_urls = export.resolve_proxy_urls()
+    sentry.install()
+    if not fork_handlers_registered and hasattr(os, "register_at_fork"):
+        fork_handlers_registered = True
+        os.register_at_fork(
+            before=before_fork, after_in_parent=after_fork_in_parent, after_in_child=after_fork_in_child
+        )
+    return cfg
+
+
+def activate() -> None:
+    """Activate the telemetry pipelines exactly once."""
+    global activation_attempted, activated
+    with activation_lock:
+        if activation_attempted:
+            return
+        try:
+            if should_skip_activation():
+                return
+            try:
+                start_pipelines()
+                activated = True
+            except Exception:  # pragma: no cover
+                logger.exception("Apitally activation failed")
+                return
+            for hook in on_activate_hooks:
+                try:
+                    hook()
+                except Exception:  # pragma: no cover
+                    logger.exception("Error in Apitally on-activate hook")
+        finally:
+            activation_attempted = True
+
+
+def shutdown() -> None:
+    """Final flush and send of all buffered telemetry on graceful shutdown."""
+    if export_worker is not None:
+        export_worker.shutdown()
+
+
+def is_activated() -> bool:
+    return activated
+
+
+def register_on_activate_hook(hook: Callable[[], None]) -> None:
+    on_activate_hooks.append(hook)
+
+
+@contextmanager
+def fresh_request_context() -> Iterator[None]:
+    """Run a request under an empty OTel context with cleared request-scoped state. ASGI servers
+    can start a pipelined request's task with the previous request's context still attached."""
+    token = otel_context.attach(Context())
+    try:
+        reset_server_span()
+        holder = consumer_holder_var.get()
+        if holder is not None and holder.owned:
+            consumer_holder_var.set(None)
+        yield
+    finally:
+        otel_context.detach(token)
+
+
+class ASGIActivationShim:
+    """Outermost ASGI layer. Activates on lifespan startup completion or on the first request,
+    and flushes on lifespan shutdown."""
+
+    def __init__(self, app: Callable[..., Awaitable[Any]], reset_context: bool = True) -> None:
+        self.app = app
+        self.reset_context = reset_context
+
+    async def __call__(
+        self,
+        scope: MutableMapping[str, Any],
+        receive: Callable[[], Awaitable[MutableMapping[str, Any]]],
+        send: Callable[[MutableMapping[str, Any]], Awaitable[None]],
+    ) -> None:
+        if scope["type"] == "lifespan":
+
+            async def send_wrapper(message: MutableMapping[str, Any]) -> None:
+                if message["type"] == "lifespan.startup.complete":
+                    activate()
+                elif message["type"] in ("lifespan.shutdown.complete", "lifespan.shutdown.failed"):
+                    shutdown()
+                await send(message)
+
+            await self.app(scope, receive, send_wrapper)
+            return
+        if not activation_attempted:
+            activate()
+        if self.reset_context and scope["type"] == "http":
+            with fresh_request_context():
+                await self.app(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+class WSGIActivationShim:
+    """Outermost WSGI layer. Activates on the first request."""
+
+    def __init__(self, wsgi_app: WSGIApplication) -> None:
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ: WSGIEnvironment, start_response: StartResponse) -> Iterable[bytes]:
+        if not activation_attempted:
+            activate()
+        return self.wsgi_app(environ, start_response)
+
+
+def activate_when_wsgi_server_starts(development_server_class: type) -> None:
+    """Activate when the WSGI server starts serving, without waiting for the first request."""
+    wrap_to_activate_first(development_server_class, "serve_forever")
+    if (gunicorn_workers := sys.modules.get("gunicorn.workers.base")) is not None:
+        # gunicorn loads the worker class before the app, in the master with --preload and in the worker without
+        worker_classes = gunicorn_workers.Worker.__subclasses__()
+        while worker_classes:
+            worker_class = worker_classes.pop()
+            wrap_to_activate_first(worker_class, "run")
+            worker_classes.extend(worker_class.__subclasses__())
+    # The uwsgi module exists only inside uWSGI, and uwsgidecorators requires the master process
+    if (uwsgi := sys.modules.get("uwsgi")) is not None and uwsgi.masterpid() > 0:  # pragma: no cover
+        if uwsgi.worker_id() == 0:
+            try:
+                postfork_chain = import_module("uwsgidecorators").postfork_chain
+                if activate not in postfork_chain:
+                    postfork_chain.append(activate)
+            except ImportError:
+                # uwsgidecorators ships with uWSGI, which may be installed outside the app's environment
+                if not hasattr(uwsgi, "post_fork_hook"):
+                    uwsgi.post_fork_hook = activate
+        else:
+            activate_when_app_import_finishes()
+
+
+def activate_when_app_import_finishes() -> None:  # pragma: no cover
+    """Activate from a thread once the module imports that called init() have finished. Used for uWSGI --lazy-apps."""
+    thread_id = threading.get_ident()
+    module_codes: set[CodeType] = set()
+    frame = sys._getframe(1)
+    while frame is not None:
+        if frame.f_code.co_name == "<module>" and frame.f_globals.get("__name__") != "__main__":
+            module_codes.add(frame.f_code)
+        frame = frame.f_back
+
+    def activate_after_import() -> None:
+        while not activation_attempted:
+            frame = sys._current_frames().get(thread_id)
+            while frame is not None and frame.f_code not in module_codes:
+                frame = frame.f_back
+            if frame is None:
+                activate()
+                return
+            time.sleep(APP_IMPORT_CHECK_INTERVAL_SECONDS)
+
+    threading.Thread(target=activate_after_import, name="apitally-activation", daemon=True).start()
+
+
+def wrap_to_activate_first(cls: type, method_name: str) -> None:
+    """Replace the method with one that calls activate() before the original."""
+    method = getattr(cls, method_name)
+    if getattr(method, "activates_apitally", False):
+        return
+
+    @functools.wraps(method)
+    def activate_then_call(*args: Any, **kwargs: Any) -> Any:
+        activate()
+        return method(*args, **kwargs)
+
+    setattr(activate_then_call, "activates_apitally", True)
+    setattr(cls, method_name, activate_then_call)
+
+
+def should_skip_activation() -> bool:
+    return (
+        not config.is_configured()
+        or config.get_config().disabled
+        or bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        or sys.argv[1:2] == ["test"]  # detects Django's "manage.py test"
+    )
+
+
+def create_batch_span_processor(spool: Spool) -> BatchSpanProcessor:
+    assert resource is not None
+    instance_id = str(resource.attributes["service.instance.id"])
+    return BatchSpanProcessor(
+        ApitallySpanExporter(export.SpoolSpanExporter(spool), instance_id),
+        max_queue_size=export.BATCH_MAX_QUEUE_SIZE,
+        schedule_delay_millis=export.BATCH_SCHEDULE_DELAY_MILLIS,
+        max_export_batch_size=export.BATCH_MAX_EXPORT_BATCH_SIZE,
+        export_timeout_millis=export.BATCH_EXPORT_TIMEOUT_MILLIS,
+    )
+
+
+def create_batch_log_processor(spool: Spool) -> BatchLogRecordProcessor:
+    return BatchLogRecordProcessor(
+        export.SpoolLogExporter(spool),
+        max_queue_size=export.BATCH_MAX_QUEUE_SIZE,
+        schedule_delay_millis=export.BATCH_SCHEDULE_DELAY_MILLIS,
+        max_export_batch_size=export.BATCH_MAX_EXPORT_BATCH_SIZE,
+        export_timeout_millis=export.BATCH_EXPORT_TIMEOUT_MILLIS,
+    )
+
+
+def start_pipelines() -> None:
+    global env, resource, span_processor, log_processor, logger_provider, inherited_span_processor
+    global spool, export_worker
+    user_provider = providers.get_user_tracer_provider()
+    env = config.get_config().env
+    resource = providers.create_resource(env)
+    spool = Spool()
+    metrics.setup(resource)
+    if inherited_span_processor is not None:
+        # Forked child re-activation: swap in a fresh downstream batch processor, like
+        # after_fork_in_parent, and drop the parent's in-flight and pending request state
+        span_processor = inherited_span_processor
+        inherited_span_processor = None
+        span_processor.spans.clear()
+        span_processor.pending.clear()
+        span_processor.deferred.clear()
+        span_processor.held.clear()
+        span_processor.stash.clear()
+        span_processor.downstream = create_batch_span_processor(spool)
+    else:
+        span_processor = ApitallySpanProcessor(create_batch_span_processor(spool))
+        if user_provider is not None:
+            providers.attach_to_tracer_provider(user_provider, span_processor)
+        else:
+            providers.setup_tracer_provider(resource, span_processor)
+    log_processor = ApitallyLogRecordProcessor(
+        create_batch_log_processor(spool), span_processor, config.get_config().mask_log_record
+    )
+    logger_provider = providers.create_logger_provider(resource, [log_processor])
+    install_root_handler(logger_provider, span_processor)
+    error_logger = logger_provider.get_logger("apitally")
+    consumers.update_logger = error_logger
+    export_worker = ExportWorker(spool, span_processor, log_processor, error_logger, env, proxy_urls=proxy_urls)
+    export_worker.start()
+
+
+def before_fork() -> None:
+    """Stop all SDK-owned threads so none are running at the instant of fork."""
+    activation_lock.acquire()
+    if not activated:  # pragma: no cover
+        return
+    try:
+        if export_worker is not None:
+            export_worker.stop()
+        if span_processor is not None:
+            retired_processors.append(span_processor.downstream)
+            span_processor.downstream.shutdown()
+        if log_processor is not None:
+            retired_processors.append(log_processor.downstream)
+            log_processor.downstream.shutdown()
+        if spool is not None:
+            spool.close_current_files()
+    except Exception:  # pragma: no cover
+        logger.exception("Error stopping Apitally threads before fork")
+
+
+def after_fork_in_parent() -> None:
+    """Re-activate by swapping fresh batch processors into the registered wrappers."""
+    try:
+        if not activated or spool is None:  # pragma: no cover
+            return
+        if span_processor is not None:
+            span_processor.downstream = create_batch_span_processor(spool)
+        if log_processor is not None:
+            log_processor.downstream = create_batch_log_processor(spool)
+        if export_worker is not None:
+            export_worker.start()
+    except Exception:  # pragma: no cover
+        logger.exception("Error re-activating Apitally after fork")
+    finally:
+        activation_lock.release()
+
+
+def after_fork_in_child() -> None:
+    """Reset to configured state; the child activates itself if it ever serves. Abandoning
+    the inherited spool is safe: it deletes files only through explicit calls."""
+    global activation_lock, activation_attempted, activated, env, resource
+    global span_processor, log_processor, logger_provider, inherited_span_processor
+    global spool, export_worker
+    activation_lock = threading.Lock()
+    validation_errors.reset()
+    server_errors.reset()
+    consumers.reset()
+    if not activated:  # pragma: no cover
+        return
+    try:
+        uninstall_root_handler()
+        metrics.reset()
+    except Exception:  # pragma: no cover
+        logger.exception("Error resetting Apitally in forked child")
+    activation_attempted = False
+    activated = False
+    env = None
+    resource = None
+    inherited_span_processor = span_processor
+    span_processor = None
+    log_processor = None
+    logger_provider = None
+    spool = None
+    export_worker = None
+
+
+def reset() -> None:
+    """Full teardown for tests. Shuts down and drops all pipeline state."""
+    global activation_lock, activation_attempted, activated, env, resource
+    global span_processor, log_processor, logger_provider, inherited_span_processor
+    global spool, export_worker, proxy_urls
+    activation_lock = threading.Lock()
+    uninstall_root_handler()
+    if export_worker is not None:
+        export_worker.stop(timeout=1.0)
+    validation_errors.reset()
+    server_errors.reset()
+    consumers.reset()
+    metrics.reset()
+    if span_processor is not None:
+        span_processor.downstream.shutdown()
+    if log_processor is not None:
+        log_processor.downstream.shutdown()
+    if spool is not None:
+        spool.clear()
+    activation_attempted = False
+    activated = False
+    env = None
+    resource = None
+    span_processor = None
+    log_processor = None
+    logger_provider = None
+    inherited_span_processor = None
+    spool = None
+    export_worker = None
+    proxy_urls = None
+    on_activate_hooks.clear()

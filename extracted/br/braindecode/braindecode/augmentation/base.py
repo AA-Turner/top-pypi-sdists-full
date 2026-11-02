@@ -1,0 +1,297 @@
+# Authors: Cédric Rommel <cedric.rommel@inria.fr>
+#          Alexandre Gramfort <alexandre.gramfort@inria.fr>
+#          Bruno Aristimunha <b.aristimunha@gmail.com>
+#          Martin Wimpff <martin.wimpff@iss.uni-stuttgart.de>
+#          Valentin Iovene <val@too.gy>
+#          Sarthak Tayal <sarthaktayal2@gmail.com>
+# License: BSD (3-clause)
+
+from numbers import Real
+from typing import Any, Callable, Optional, Union
+
+import torch
+from sklearn.utils import check_random_state
+from torch import Tensor, nn
+from torch.utils.data import DataLoader
+from torch.utils.data._utils.collate import default_collate
+
+from .functional import identity
+
+Batch = list[tuple[torch.Tensor, int, Any]]
+Output = Union[
+    # just outputting X
+    torch.Tensor,
+    # outputting (X, y) where y can be a tensor or tuple of tensors
+    tuple[torch.Tensor, Union[torch.Tensor, tuple[torch.Tensor, ...]]],
+]
+# (X, y) -> (X', y') where y' can be a tensor or a tuple of tensors
+Operation = Callable[
+    [torch.Tensor, torch.Tensor],
+    tuple[torch.Tensor, Union[torch.Tensor, tuple[torch.Tensor, ...]]],
+]
+
+
+class Transform(torch.nn.Module):
+    """Basic transform class used for implementing data augmentation.
+
+    operations.
+
+    Parameters
+    ----------
+    operation : callable
+        A function taking arrays X, y (inputs and targets resp.) and
+        other required arguments, and returning the transformed X and y.
+    probability : float, optional
+        Float between 0 and 1 defining the uniform probability of applying the
+        operation. Set to 1.0 by default (e.g always apply the operation).
+    random_state : int, optional
+        Seed to be used to instantiate numpy random number generator instance.
+        Used to decide whether or not to transform given the probability
+        argument. Defaults to None.
+    """
+
+    operation: Operation
+
+    def __init__(self, probability=1.0, random_state=None):
+        super().__init__()
+        if self.forward.__func__ is Transform.forward:
+            assert callable(self.operation), "operation should be a ``callable``. "
+
+        assert isinstance(probability, Real), (
+            f"probability should be a ``real``. Got {type(probability)}."
+        )
+        assert probability <= 1.0 and probability >= 0.0, (
+            "probability should be between 0 and 1."
+        )
+        self._probability = probability
+        self.rng = check_random_state(random_state)
+
+    def get_augmentation_params(self, *batch):
+        return dict()
+
+    def forward(self, X: Tensor, y: Optional[Tensor] = None) -> Output:
+        """General forward pass for an augmentation transform.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            EEG input example or batch.
+        y : torch.Tensor | None
+            EEG labels for the example or batch. Defaults to None.
+
+        Returns
+        -------
+        torch.Tensor
+            Transformed inputs.
+        torch.Tensor, optional
+            Transformed labels. Only returned when y is not None.
+        """
+        X = torch.as_tensor(X).float()
+
+        out_X = X.clone()
+        # check if input has a batch dimension
+        if len(out_X.shape) < 3:
+            out_X = out_X[None, ...]
+
+        if y is not None:
+            y = torch.as_tensor(y).to(out_X.device)
+            out_y = y.clone()
+            if len(out_y.shape) == 0:
+                out_y = out_y.reshape(1)
+        else:
+            out_y = torch.zeros(out_X.shape[0], device=out_X.device)
+
+        # Samples a mask setting for each example whether they should stay
+        # unchanged or not
+        mask = self._get_mask(out_X.shape[0], out_X.device)
+        num_valid = mask.sum().long()
+
+        if num_valid == out_X.shape[0]:
+            # Fast path: every sample is augmented (e.g. ``probability=1.0``,
+            # the common case). Operate on the whole batch and skip the boolean
+            # gather/scatter (``out_X[mask]`` then ``out_X[mask] = ...``), which
+            # would otherwise copy the batch twice.
+            out_X, out_y = self.operation(
+                out_X, out_y, **self.get_augmentation_params(out_X, out_y)
+            )
+        elif num_valid > 0:
+            # Uses the mask to define the output
+            out_X[mask, ...], tr_y = self.operation(
+                out_X[mask, ...],
+                out_y[mask],
+                **self.get_augmentation_params(out_X[mask, ...], out_y[mask]),
+            )
+            # Apply the operation defining the Transform to the whole batch
+            if isinstance(tr_y, tuple):
+                out_y = tuple(tmp_y[mask] for tmp_y in tr_y)
+            else:
+                out_y[mask] = tr_y
+
+        # potentially remove empty batch dimension again
+        out_X = out_X.reshape_as(X)
+        if y is not None:
+            return out_X, out_y
+        else:
+            return out_X
+
+    def _get_mask(self, batch_size, device) -> torch.Tensor:
+        """Samples whether to apply operation or not over the whole batch."""
+        return torch.as_tensor(self.probability > self.rng.uniform(size=batch_size)).to(
+            device
+        )
+
+    @property
+    def probability(self):
+        return self._probability
+
+
+class IdentityTransform(Transform):
+    """Identity transform.
+
+    Transform that does not change the input.
+    """
+
+    operation = staticmethod(identity)  # type: ignore[assignment]
+    # https://github.com/python/mypy/issues/4574
+
+
+class Compose(Transform):
+    """Transform composition.
+
+    Callable class allowing to cast a sequence of Transform objects into a
+    single one.
+
+    Parameters
+    ----------
+    transforms : list
+        Sequence of Transforms to be composed.
+    """
+
+    def __init__(self, transforms):
+        self.transforms = transforms
+        super().__init__()
+
+    def forward(self, X, y):
+        for transform in self.transforms:
+            X, y = transform(X, y)
+        return X, y
+
+
+def _as_mixed_target(y, lam_dtype):
+    # an untouched target is the same as being mixed with itself with lam of one
+    if isinstance(y, (tuple, list)) and len(y) == 3:
+        return tuple(y)
+    lam = torch.ones(y.shape[0], device=y.device, dtype=lam_dtype)
+    return y, y, lam
+
+
+class _AugmentationCollate:
+    """Collate that applies a transform to each batch, with optional expansion.
+
+    A picklable callable (so it works with ``num_workers > 0``, unlike a
+    closure) that collates the batch once and then either augments it in place
+    or grows it.
+
+    Parameters
+    ----------
+    transform : Transform
+        Transform applied to the collated ``(X, y)``.
+    device : str | torch.device | None, optional
+        Device the batch is moved to before transforming. Defaults to None.
+    n_augmentation : int, optional
+        ``0`` (default) applies the transform in place (batch size unchanged).
+        ``> 0`` keeps the clean originals and appends ``n_augmentation``
+        independently transformed copies, returning ``(X, y)`` of
+        ``(1 + n_augmentation)`` times the original size. When the transform
+        mixes targets, as :class:`braindecode.augmentation.Mixup` does, ``y``
+        stays the ``(y_a, y_b, lam)`` triple and the clean originals get a
+        mixing coefficient of one.
+    """
+
+    def __init__(self, transform, device=None, n_augmentation=0):
+        self.transform = transform
+        self.device = device
+        self.n_augmentation = n_augmentation
+
+    def __call__(self, batch):
+        collated = default_collate(batch)
+        X, y = collated[:2]
+        if self.device is not None:
+            X = X.to(self.device)
+            y = y.to(self.device)
+        if self.n_augmentation == 0:
+            return (*self.transform(X, y), *collated[2:])
+        # Fixed expansion: keep the clean originals, then append
+        # ``n_augmentation`` independently transformed copies.
+        xs, ys = [X], [y]
+        for _ in range(self.n_augmentation):
+            aug_X, aug_y = self.transform(X, y)
+            xs.append(aug_X)
+            ys.append(aug_y)
+        mixed_ys = [
+            aug_y
+            for aug_y in ys
+            if isinstance(aug_y, (tuple, list)) and len(aug_y) == 3
+        ]
+        if mixed_ys:
+            # a target-mixing transform such as Mixup returns (y_a, y_b, lam),
+            # so the parts are concatenated one by one and the untouched copies
+            # are given a mixing coefficient of one
+            lam_dtype = mixed_ys[0][2].dtype
+            ys = [_as_mixed_target(aug_y, lam_dtype) for aug_y in ys]
+            return torch.cat(xs), tuple(torch.cat(part) for part in zip(*ys))
+        return torch.cat(xs), torch.cat(ys)
+
+
+class AugmentedDataLoader(DataLoader):
+    """A base dataloader class customized to applying augmentation Transforms.
+
+    Parameters
+    ----------
+    dataset : RecordDataset
+        The dataset containing the signals.
+    transforms : list | Transform, optional
+        Transform or sequence of Transform to be applied to each batch.
+    device : str | torch.device | None, optional
+        Device on which to transform the data. Defaults to None.
+    n_augmentation : int, optional
+        Number of augmented copies to append to each batch (fixed expansion).
+        When ``0`` (default) the transforms are applied in place and the batch
+        keeps its size (stochastic-per-epoch augmentation, backwards-compatible).
+        When ``> 0`` each batch becomes ``(1 + n_augmentation)`` times larger:
+        the clean originals are kept and ``n_augmentation`` independently
+        transformed copies are appended. This expresses augmentations defined as
+        a fixed set-expansion (e.g. the EEG-Inception MI 6x training set,
+        ``n_augmentation=5``). In this mode batches are returned as ``(X, y)``.
+    **kwargs : dict, optional
+        keyword arguments to pass to standard DataLoader class.
+    """
+
+    def __init__(
+        self, dataset, transforms=None, device=None, n_augmentation=0, **kwargs
+    ):
+        if "collate_fn" in kwargs:
+            raise ValueError(
+                "collate_fn cannot be used in this context because it is used "
+                "to pass transform"
+            )
+        if n_augmentation < 0:
+            raise ValueError("n_augmentation must be a non-negative integer.")
+        if transforms is None or (
+            isinstance(transforms, list) and len(transforms) == 0
+        ):
+            transform = IdentityTransform()
+        elif isinstance(transforms, (Transform, nn.Module)):
+            transform = transforms
+        elif isinstance(transforms, list):
+            transform = Compose(transforms)
+        else:
+            raise TypeError(
+                "transforms can be either a Transform object "
+                "or a list of Transform objects."
+            )
+
+        self.collated_tr = _AugmentationCollate(
+            transform, device=device, n_augmentation=n_augmentation
+        )
+        super().__init__(dataset, collate_fn=self.collated_tr, **kwargs)

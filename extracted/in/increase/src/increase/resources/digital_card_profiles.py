@@ -1,0 +1,796 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+import httpx
+
+from ..types import (
+    digital_card_profile_list_params,
+    digital_card_profile_clone_params,
+    digital_card_profile_create_params,
+)
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..pagination import SyncPage, AsyncPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.digital_card_profile import DigitalCardProfile
+
+__all__ = ["DigitalCardProfilesResource", "AsyncDigitalCardProfilesResource"]
+
+
+class DigitalCardProfilesResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> DigitalCardProfilesResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return DigitalCardProfilesResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> DigitalCardProfilesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return DigitalCardProfilesResourceWithStreamingResponse(self)
+
+    def create(
+        self,
+        *,
+        app_icon_file_id: str,
+        background_image_file_id: str,
+        card_description: str,
+        description: str,
+        apple_pay: digital_card_profile_create_params.ApplePay | Omit = omit,
+        contact_email: str | Omit = omit,
+        contact_name: str | Omit = omit,
+        contact_phone: str | Omit = omit,
+        contact_website: str | Omit = omit,
+        text_color: digital_card_profile_create_params.TextColor | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Create a Digital Card Profile
+
+        Args:
+          app_icon_file_id: The identifier of the File containing the card's icon image.
+
+          background_image_file_id: The identifier of the File containing the card's front image.
+
+          card_description: A user-facing description for the card itself.
+
+          description: A description you can use to identify the Card Profile.
+
+          apple_pay: Apple Pay specific settings for the Card Profile.
+
+          contact_email: An email address the user can contact to receive support for their card.
+
+          contact_name: The name of your company or card program, shown to the user as who to contact
+              for support with their card.
+
+          contact_phone: A phone number the user can contact to receive support for their card.
+
+          contact_website: A website the user can visit to view and receive support for their card.
+
+          text_color: The Card's text color, specified as an RGB triple. The default is white.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        return self._post(
+            "/digital_card_profiles",
+            body=maybe_transform(
+                {
+                    "app_icon_file_id": app_icon_file_id,
+                    "background_image_file_id": background_image_file_id,
+                    "card_description": card_description,
+                    "description": description,
+                    "apple_pay": apple_pay,
+                    "contact_email": contact_email,
+                    "contact_name": contact_name,
+                    "contact_phone": contact_phone,
+                    "contact_website": contact_website,
+                    "text_color": text_color,
+                },
+                digital_card_profile_create_params.DigitalCardProfileCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    def retrieve(
+        self,
+        digital_card_profile_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DigitalCardProfile:
+        """
+        Retrieve a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return self._get(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}", digital_card_profile_id=digital_card_profile_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    def list(
+        self,
+        *,
+        cursor: str | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: digital_card_profile_list_params.Status | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[DigitalCardProfile]:
+        """
+        List Digital Card Profiles
+
+        Args:
+          cursor: Return the page of entries after this one.
+
+          idempotency_key: Filter records to the one with the specified `idempotency_key` you chose for
+              that object. This value is unique across Increase and is used to ensure that a
+              request is only processed once. Learn more about
+              [idempotency](https://increase.com/documentation/idempotency-keys).
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/digital_card_profiles",
+            page=SyncPage[DigitalCardProfile],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "idempotency_key": idempotency_key,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    digital_card_profile_list_params.DigitalCardProfileListParams,
+                ),
+            ),
+            model=DigitalCardProfile,
+        )
+
+    def archive(
+        self,
+        digital_card_profile_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Archive a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile to archive.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return self._post(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}/archive",
+                digital_card_profile_id=digital_card_profile_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    def clone(
+        self,
+        digital_card_profile_id: str,
+        *,
+        app_icon_file_id: str | Omit = omit,
+        apple_pay: digital_card_profile_clone_params.ApplePay | Omit = omit,
+        background_image_file_id: str | Omit = omit,
+        card_description: str | Omit = omit,
+        contact_email: str | Omit = omit,
+        contact_name: str | Omit = omit,
+        contact_phone: str | Omit = omit,
+        contact_website: str | Omit = omit,
+        description: str | Omit = omit,
+        text_color: digital_card_profile_clone_params.TextColor | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Clone a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile to clone.
+
+          app_icon_file_id: The identifier of the File containing the card's icon image.
+
+          apple_pay: Apple Pay specific settings for the Card Profile. Each list you leave out is
+              copied from the original Card Profile.
+
+          background_image_file_id: The identifier of the File containing the card's front image.
+
+          card_description: A user-facing description for the card itself.
+
+          contact_email: An email address the user can contact to receive support for their card.
+
+          contact_name: The name of your company or card program, shown to the user as who to contact
+              for support with their card.
+
+          contact_phone: A phone number the user can contact to receive support for their card.
+
+          contact_website: A website the user can visit to view and receive support for their card.
+
+          description: A description you can use to identify the Card Profile.
+
+          text_color: The Card's text color, specified as an RGB triple. The default is white.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return self._post(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}/clone",
+                digital_card_profile_id=digital_card_profile_id,
+            ),
+            body=maybe_transform(
+                {
+                    "app_icon_file_id": app_icon_file_id,
+                    "apple_pay": apple_pay,
+                    "background_image_file_id": background_image_file_id,
+                    "card_description": card_description,
+                    "contact_email": contact_email,
+                    "contact_name": contact_name,
+                    "contact_phone": contact_phone,
+                    "contact_website": contact_website,
+                    "description": description,
+                    "text_color": text_color,
+                },
+                digital_card_profile_clone_params.DigitalCardProfileCloneParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+
+class AsyncDigitalCardProfilesResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncDigitalCardProfilesResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncDigitalCardProfilesResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncDigitalCardProfilesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return AsyncDigitalCardProfilesResourceWithStreamingResponse(self)
+
+    async def create(
+        self,
+        *,
+        app_icon_file_id: str,
+        background_image_file_id: str,
+        card_description: str,
+        description: str,
+        apple_pay: digital_card_profile_create_params.ApplePay | Omit = omit,
+        contact_email: str | Omit = omit,
+        contact_name: str | Omit = omit,
+        contact_phone: str | Omit = omit,
+        contact_website: str | Omit = omit,
+        text_color: digital_card_profile_create_params.TextColor | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Create a Digital Card Profile
+
+        Args:
+          app_icon_file_id: The identifier of the File containing the card's icon image.
+
+          background_image_file_id: The identifier of the File containing the card's front image.
+
+          card_description: A user-facing description for the card itself.
+
+          description: A description you can use to identify the Card Profile.
+
+          apple_pay: Apple Pay specific settings for the Card Profile.
+
+          contact_email: An email address the user can contact to receive support for their card.
+
+          contact_name: The name of your company or card program, shown to the user as who to contact
+              for support with their card.
+
+          contact_phone: A phone number the user can contact to receive support for their card.
+
+          contact_website: A website the user can visit to view and receive support for their card.
+
+          text_color: The Card's text color, specified as an RGB triple. The default is white.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        return await self._post(
+            "/digital_card_profiles",
+            body=await async_maybe_transform(
+                {
+                    "app_icon_file_id": app_icon_file_id,
+                    "background_image_file_id": background_image_file_id,
+                    "card_description": card_description,
+                    "description": description,
+                    "apple_pay": apple_pay,
+                    "contact_email": contact_email,
+                    "contact_name": contact_name,
+                    "contact_phone": contact_phone,
+                    "contact_website": contact_website,
+                    "text_color": text_color,
+                },
+                digital_card_profile_create_params.DigitalCardProfileCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    async def retrieve(
+        self,
+        digital_card_profile_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DigitalCardProfile:
+        """
+        Retrieve a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return await self._get(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}", digital_card_profile_id=digital_card_profile_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    def list(
+        self,
+        *,
+        cursor: str | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: digital_card_profile_list_params.Status | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[DigitalCardProfile, AsyncPage[DigitalCardProfile]]:
+        """
+        List Digital Card Profiles
+
+        Args:
+          cursor: Return the page of entries after this one.
+
+          idempotency_key: Filter records to the one with the specified `idempotency_key` you chose for
+              that object. This value is unique across Increase and is used to ensure that a
+              request is only processed once. Learn more about
+              [idempotency](https://increase.com/documentation/idempotency-keys).
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/digital_card_profiles",
+            page=AsyncPage[DigitalCardProfile],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "idempotency_key": idempotency_key,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    digital_card_profile_list_params.DigitalCardProfileListParams,
+                ),
+            ),
+            model=DigitalCardProfile,
+        )
+
+    async def archive(
+        self,
+        digital_card_profile_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Archive a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile to archive.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return await self._post(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}/archive",
+                digital_card_profile_id=digital_card_profile_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+    async def clone(
+        self,
+        digital_card_profile_id: str,
+        *,
+        app_icon_file_id: str | Omit = omit,
+        apple_pay: digital_card_profile_clone_params.ApplePay | Omit = omit,
+        background_image_file_id: str | Omit = omit,
+        card_description: str | Omit = omit,
+        contact_email: str | Omit = omit,
+        contact_name: str | Omit = omit,
+        contact_phone: str | Omit = omit,
+        contact_website: str | Omit = omit,
+        description: str | Omit = omit,
+        text_color: digital_card_profile_clone_params.TextColor | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalCardProfile:
+        """
+        Clone a Digital Card Profile
+
+        Args:
+          digital_card_profile_id: The identifier of the Digital Card Profile to clone.
+
+          app_icon_file_id: The identifier of the File containing the card's icon image.
+
+          apple_pay: Apple Pay specific settings for the Card Profile. Each list you leave out is
+              copied from the original Card Profile.
+
+          background_image_file_id: The identifier of the File containing the card's front image.
+
+          card_description: A user-facing description for the card itself.
+
+          contact_email: An email address the user can contact to receive support for their card.
+
+          contact_name: The name of your company or card program, shown to the user as who to contact
+              for support with their card.
+
+          contact_phone: A phone number the user can contact to receive support for their card.
+
+          contact_website: A website the user can visit to view and receive support for their card.
+
+          description: A description you can use to identify the Card Profile.
+
+          text_color: The Card's text color, specified as an RGB triple. The default is white.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_card_profile_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_card_profile_id` but received {digital_card_profile_id!r}"
+            )
+        return await self._post(
+            path_template(
+                "/digital_card_profiles/{digital_card_profile_id}/clone",
+                digital_card_profile_id=digital_card_profile_id,
+            ),
+            body=await async_maybe_transform(
+                {
+                    "app_icon_file_id": app_icon_file_id,
+                    "apple_pay": apple_pay,
+                    "background_image_file_id": background_image_file_id,
+                    "card_description": card_description,
+                    "contact_email": contact_email,
+                    "contact_name": contact_name,
+                    "contact_phone": contact_phone,
+                    "contact_website": contact_website,
+                    "description": description,
+                    "text_color": text_color,
+                },
+                digital_card_profile_clone_params.DigitalCardProfileCloneParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalCardProfile,
+        )
+
+
+class DigitalCardProfilesResourceWithRawResponse:
+    def __init__(self, digital_card_profiles: DigitalCardProfilesResource) -> None:
+        self._digital_card_profiles = digital_card_profiles
+
+        self.create = to_raw_response_wrapper(
+            digital_card_profiles.create,
+        )
+        self.retrieve = to_raw_response_wrapper(
+            digital_card_profiles.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            digital_card_profiles.list,
+        )
+        self.archive = to_raw_response_wrapper(
+            digital_card_profiles.archive,
+        )
+        self.clone = to_raw_response_wrapper(
+            digital_card_profiles.clone,
+        )
+
+
+class AsyncDigitalCardProfilesResourceWithRawResponse:
+    def __init__(self, digital_card_profiles: AsyncDigitalCardProfilesResource) -> None:
+        self._digital_card_profiles = digital_card_profiles
+
+        self.create = async_to_raw_response_wrapper(
+            digital_card_profiles.create,
+        )
+        self.retrieve = async_to_raw_response_wrapper(
+            digital_card_profiles.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            digital_card_profiles.list,
+        )
+        self.archive = async_to_raw_response_wrapper(
+            digital_card_profiles.archive,
+        )
+        self.clone = async_to_raw_response_wrapper(
+            digital_card_profiles.clone,
+        )
+
+
+class DigitalCardProfilesResourceWithStreamingResponse:
+    def __init__(self, digital_card_profiles: DigitalCardProfilesResource) -> None:
+        self._digital_card_profiles = digital_card_profiles
+
+        self.create = to_streamed_response_wrapper(
+            digital_card_profiles.create,
+        )
+        self.retrieve = to_streamed_response_wrapper(
+            digital_card_profiles.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            digital_card_profiles.list,
+        )
+        self.archive = to_streamed_response_wrapper(
+            digital_card_profiles.archive,
+        )
+        self.clone = to_streamed_response_wrapper(
+            digital_card_profiles.clone,
+        )
+
+
+class AsyncDigitalCardProfilesResourceWithStreamingResponse:
+    def __init__(self, digital_card_profiles: AsyncDigitalCardProfilesResource) -> None:
+        self._digital_card_profiles = digital_card_profiles
+
+        self.create = async_to_streamed_response_wrapper(
+            digital_card_profiles.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            digital_card_profiles.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            digital_card_profiles.list,
+        )
+        self.archive = async_to_streamed_response_wrapper(
+            digital_card_profiles.archive,
+        )
+        self.clone = async_to_streamed_response_wrapper(
+            digital_card_profiles.clone,
+        )

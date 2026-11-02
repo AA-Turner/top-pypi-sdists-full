@@ -1,0 +1,156 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the first movie listed on https://rvest.tidyverse.org/articles/starwars.html?"}],
+      "role": "user"}], "tools": [{"urlContext": {}}], "generationConfig": {"temperature":
+      0}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '212'
+      content-type:
+      - application/json
+      host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/2.10.0 gl-python/3.12.13
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"The
+        first movie listed on that\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\":
+        {\"promptTokenCount\": 25,\"candidatesTokenCount\": 6,\"totalTokenCount\":
+        94,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 25}],\"thoughtsTokenCount\":
+        63,\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-3.5-flash\",\"responseId\":
+        \"aYFfavXOBYDQjrEP1JudsA4\"}\r\n\r\ndata: {\"candidates\": [{\"content\":
+        {\"parts\": [{\"text\": \" page is ***The Phantom Menace***.\"}],\"role\":
+        \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 25,\"candidatesTokenCount\":
+        6,\"totalTokenCount\": 94,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        25}],\"thoughtsTokenCount\": 63,\"serviceTier\": \"standard\"},\"modelVersion\":
+        \"gemini-3.5-flash\",\"responseId\": \"aYFfavXOBYDQjrEP1JudsA4\"}\r\n\r\ndata:
+        {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"\",\"thoughtSignature\":
+        \"ErcCCrQCARFNMg+1ZorWCI0r1CNh7X04kqq/pWLdmIR42TkMHS+XAIM4O6t0DjdUEq2m23dML1ik7hkLC/vYPJgJKbSWPuQIWc8S0qVaFVa1yufdRiaqAavsKmK6aJVOkRWnSZzeuNr9E3sZOkRkUiQUTsF7TMMl8FwBs+JCWRgyGliMt4kMEyDeVoWA4dAtd+TMGSCH7Ls9G2tNcZ/nch58QpSJ48idVxy/r5Zqgdkn6RYnWiXjsQ9lQ0mReQZtmPhjK0LjWYi9yKqqhTXkFbfplMQowV1DBvxQoqfPpblrbQUiIgjMFo2CgFckIOnmF9uQfeU6proDbXAuf+d/YDpDKtLKNe8R6Msv6dXMWN5RmeoD0+E0yv7zdDO9nLim7Bkn4y195BkRXWr8gm+hQ04lLLp7vnmG1Q4=\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0,\"groundingMetadata\":
+        {\"groundingChunks\": [{\"web\": {\"uri\": \"https://rvest.tidyverse.org/articles/starwars.html\",\"title\":
+        \"Star Wars films (static HTML) \u2022 rvest\"}}],\"groundingSupports\": [{\"segment\":
+        {\"endIndex\": 63,\"text\": \"The first movie listed on that page is ***The
+        Phantom Menace***\"},\"groundingChunkIndices\": [0]}]},\"urlContextMetadata\":
+        {\"urlMetadata\": [{\"retrievedUrl\": \"https://rvest.tidyverse.org/articles/starwars.html\",\"urlRetrievalStatus\":
+        \"URL_RETRIEVAL_STATUS_SUCCESS\"}]}}],\"usageMetadata\": {\"promptTokenCount\":
+        132,\"candidatesTokenCount\": 45,\"totalTokenCount\": 1702,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 132}],\"toolUsePromptTokenCount\":
+        1355,\"toolUsePromptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        1355}],\"thoughtsTokenCount\": 170,\"serviceTier\": \"standard\"},\"modelVersion\":
+        \"gemini-3.5-flash\",\"responseId\": \"aYFfavXOBYDQjrEP1JudsA4\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Tue, 21 Jul 2026 14:25:46 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=1940
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the first movie listed on https://rvest.tidyverse.org/articles/starwars.html?"}],
+      "role": "user"}, {"parts": [{"text": "The first movie listed on that"}, {"text":
+      " page is ***The Phantom Menace***."}], "role": "model"}, {"parts": [{"text":
+      "Who directed it?"}], "role": "user"}], "tools": [{"urlContext": {}}], "generationConfig":
+      {"temperature": 0}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '393'
+      content-type:
+      - application/json
+      host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/2.10.0 gl-python/3.12.13
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"According
+        to the page, it was directed by **George Lucas**\"}],\"role\": \"model\"},\"index\":
+        0}],\"usageMetadata\": {\"promptTokenCount\": 46,\"candidatesTokenCount\":
+        13,\"totalTokenCount\": 97,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        46}],\"thoughtsTokenCount\": 38,\"serviceTier\": \"standard\"},\"modelVersion\":
+        \"gemini-3.5-flash\",\"responseId\": \"a4FfaoS0DsW8sOIPxon_iAc\"}\r\n\r\ndata:
+        {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \".\"}],\"role\":
+        \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 46,\"candidatesTokenCount\":
+        13,\"totalTokenCount\": 97,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        46}],\"thoughtsTokenCount\": 38,\"serviceTier\": \"standard\"},\"modelVersion\":
+        \"gemini-3.5-flash\",\"responseId\": \"a4FfaoS0DsW8sOIPxon_iAc\"}\r\n\r\ndata:
+        {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"\",\"thoughtSignature\":
+        \"EskBCsYBARFNMg9CqXxES6t/5HXqbXNoKVWIh/Xx7q09oIcU6VBkFCmaKzi3CL9PqXGEXwnxQYbibNUhh4WeTFdNnlJW/qGLU9Z2u6F6H8V/t4Hs19O4wz2U6Eyh16niKYzV9PbMlsBdl4O71Tv5LAU9flgRCp8W9elPbim3VGoaPhnFCB1qVfyT5I8iGyhOsQ39JkA/ZyJWzgzOHaNQSVhljA6CELF5scPNlFCMYFAR4Krk0Y9rqw51EdeWusVSHRrBXf6jONP08u5G\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0,\"groundingMetadata\":
+        {\"groundingChunks\": [{\"web\": {\"uri\": \"https://rvest.tidyverse.org/articles/starwars.html\",\"title\":
+        \"Star Wars films (static HTML) \u2022 rvest\"}}],\"groundingSupports\": [{\"segment\":
+        {\"endIndex\": 58,\"text\": \"According to the page, it was directed by **George
+        Lucas**\"},\"groundingChunkIndices\": [0]}]},\"urlContextMetadata\": {\"urlMetadata\":
+        [{\"retrievedUrl\": \"https://rvest.tidyverse.org/articles/starwars.html\",\"urlRetrievalStatus\":
+        \"URL_RETRIEVAL_STATUS_SUCCESS\"}]}}],\"usageMetadata\": {\"promptTokenCount\":
+        258,\"candidatesTokenCount\": 44,\"totalTokenCount\": 2031,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 258}],\"toolUsePromptTokenCount\":
+        1479,\"toolUsePromptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        1479}],\"thoughtsTokenCount\": 250,\"serviceTier\": \"standard\"},\"modelVersion\":
+        \"gemini-3.5-flash\",\"responseId\": \"a4FfaoS0DsW8sOIPxon_iAc\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Tue, 21 Jul 2026 14:25:49 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=2817
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

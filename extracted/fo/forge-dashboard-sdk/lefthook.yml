@@ -1,0 +1,40 @@
+pre-commit:
+  parallel: false
+  commands:
+    gitleaks:
+      run: gitleaks git --staged --redact --no-banner
+    ruff-format:
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    ruff-fix:
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    pyproject-fmt:
+      glob: "pyproject.toml"
+      run: uvx pyproject-fmt==2.29.4 --keep-full-version {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}
+
+# gitleaks scans the whole history rather than the unpushed range: it takes a
+# second or two at this size, and CI does the same (rules/secrets.md).
+pre-push:
+  parallel: false
+  commands:
+    gitleaks:
+      run: gitleaks git --redact --no-banner
+    ruff-format-check:
+      run: uv run ruff format --check .
+    ruff-check:
+      run: uv run ruff check .
+    mypy:
+      run: uv run mypy .
+    pytest:
+      run: uv run pytest
+    bandit:
+      run: uv run bandit -r src/forge_dashboard -x src/forge_dashboard/_generated

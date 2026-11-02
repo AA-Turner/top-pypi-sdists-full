@@ -31,9 +31,9 @@ from trilogy.core.processing.aggregate_rollup import (
     _is_rollable_aggregate,
     at_own_grain,
     filter_finer_row_args,
-    get_rollup_concepts,
     holds_every_kept_row,
     merge_rollup_concepts,
+    source_rollup_concepts,
 )
 from trilogy.core.processing.condition_utility import (
     and_optional,
@@ -61,8 +61,14 @@ from trilogy.core.processing.node_generators.select_helpers.datasource_nodes imp
 from trilogy.core.processing.node_generators.select_node import (
     validate_query_is_resolvable,
 )
-from trilogy.core.processing.nodes import MergeNode, SelectNode, StrategyNode
+from trilogy.core.processing.nodes import (
+    GroupNode,
+    MergeNode,
+    SelectNode,
+    StrategyNode,
+)
 from trilogy.core.processing.source_dominance import dominators
+from trilogy.core.processing.utility import walk_lineage
 from trilogy.core.processing.v4_helper.condition_injection import condition_row_args
 from trilogy.core.processing.v4_helper.constants import ROW_SHAPE_BARRIER_DERIVATIONS
 from trilogy.core.processing.v4_helper.functional_dependency import build_fd_closure
@@ -239,6 +245,19 @@ def _concepts_with_grain_keys(
     for concept in concepts:
         if concept.derivation == Derivation.AGGREGATE:
             aggregate_axes.update(concept.grain.components)
+    # a scalar axis (`plant_year::int`) is read off the columns it computes
+    # from, at the axis grain too, under any spelling of them
+    axis_values = {
+        c.canonical_address
+        for c in walk_lineage(
+            [
+                environment.concepts[a]
+                for a in aggregate_axes
+                if a in environment.concepts
+            ],
+            descend=lambda c: c.derivation == Derivation.BASIC,
+        )
+    }
     for concept in concepts:
         expanded.append(concept)
         # A merged attribute (`union`/`subset join`, `merge`) canonical inherits
@@ -248,7 +267,10 @@ def _concepts_with_grain_keys(
         # axis where the final merge already pairs the arms).
         if is_join_key_group(concept.address, environment):
             continue
-        if concept.address in aggregate_axes:
+        if (
+            concept.address in aggregate_axes
+            or concept.canonical_address in axis_values
+        ):
             continue
         for address in concept.grain.components:
             if address not in environment.concepts:
@@ -296,10 +318,16 @@ def _condition_arg_lineage_roots(request: SourceRequest) -> list[BuildConcept]:
     lineage (a RECURSIVE collapses to a single-step CASE), giving wrong rows.
     Such an arg must be sourced through its own node and joined, which is left
     to `gen_root`'s `_resolve_root_condition_sources` fallback; the bridge
-    triggers it by failing to source the arg here."""
+    triggers it by failing to source the arg here.
+
+    An arg some datasource stores completely is read as itself: its roots
+    would demand the finer rows it was derived from and fan a summary out."""
     roots: list[BuildConcept] = []
+    datasources = request.graph.scope.datasources
     for concept in condition_row_args(request.conditions):
         if concept.lineage is None:
+            continue
+        if _single_source_covers({concept.address}, datasources):
             continue
         if concept.derivation in ROW_SHAPE_BARRIER_DERIVATIONS:
             continue
@@ -396,8 +424,6 @@ def scan_regroups(request: SourceRequest) -> bool:
         named[network.equivalence.get(concept.address, concept.address)].append(concept)
     for node in solution.sources:
         datasource = network.candidates[node].datasource
-        if not isinstance(datasource, BuildDatasource):
-            continue
         read = set(solution.assignments.get(node, ())).union(
             *(keys for pair, keys in solution.join_keys.items() if node in pair)
         )
@@ -409,7 +435,16 @@ def scan_regroups(request: SourceRequest) -> bool:
             for concept in named.get(a)
             or _chosen_source_concepts(request.environment, network, [node], a)
         ]
-        if datasource_regroups(datasource, read_concepts, request.environment):
+        if datasource is None:
+            continue
+        arms = (
+            datasource.children
+            if isinstance(datasource, BuildUnionDatasource)
+            else [datasource]
+        )
+        if any(
+            datasource_regroups(arm, read_concepts, request.environment) for arm in arms
+        ):
             return True
     return False
 
@@ -1063,13 +1098,14 @@ def _datasource_rolls_up_to(
     A named metric reaches its summary table because query and column share an
     address; an agent-authored `sum(x) as total` shares an address with nothing,
     and its grain-pinned canonical differs from the column's, so only the
-    lineage-signature rollup check can relate them."""
-    if not isinstance(datasource, BuildDatasource):
+    lineage-signature rollup check can relate them. A stacked family rolls
+    up what every arm does (`Stack.stacked_summary_sum_exact`)."""
+    if datasource is None:
         return False
     if not (concept.is_aggregate and _is_rollable_aggregate(concept)):
         return False
     return bool(
-        get_rollup_concepts(
+        source_rollup_concepts(
             datasource=datasource,
             requested_concepts=[concept],
             concepts_by_address=environment.concepts,
@@ -1343,6 +1379,60 @@ def _summary_partials(
     ]
 
 
+def _summary_partial_hosts(
+    parents: list[StrategyNode], partials: list[BuildConcept]
+) -> list[StrategyNode]:
+    addresses = {c.address for c in partials}
+    return [
+        parent
+        for parent in parents
+        if addresses & {c.address for c in parent.output_concepts}
+    ]
+
+
+def _group_fanning_parents(
+    request: SourceRequest,
+    parents: list[StrategyNode],
+    partials: list[BuildConcept],
+    needed: set[str],
+) -> list[StrategyNode] | None:
+    """A parent finer than the summary carrying `partials` repeats each summary
+    row once per row of its own, and the re-sum then counts those repeats.
+    When it supplies nothing the request needs beyond the columns it shares
+    with the summary, it only restricts the summary's rows: group it to those
+    columns so the join pairs one row per summary row. When it does, the
+    summary cannot answer: None."""
+    hosts = _summary_partial_hosts(parents, partials)
+    if len(hosts) != 1:
+        return parents
+    host = hosts[0]
+    host_addresses = {c.address for c in host.output_concepts}
+    regrouped: list[StrategyNode] = []
+    for parent in parents:
+        grain = parent.grain.components if parent.grain is not None else set()
+        shared = [c for c in parent.output_concepts if c.address in host_addresses]
+        own = {c.address for c in parent.output_concepts} - host_addresses
+        if parent is host or not grain or grain <= host_addresses or not shared:
+            regrouped.append(parent)
+            continue
+        if own & needed:
+            # it supplies a column at its own finer grain, so the summary rows
+            # repeat per row of it and no regroup can undo that
+            return None
+
+        regrouped.append(
+            GroupNode(
+                output_concepts=shared,
+                input_concepts=parent.output_concepts,
+                environment=request.environment,
+                parents=[parent],
+                depth=request.depth,
+                force_group=True,
+            )
+        )
+    return regrouped
+
+
 def _merge_component_sources(
     request: SourceRequest,
     parents: list[StrategyNode],
@@ -1382,12 +1472,27 @@ def _merge_component_sources(
     requested = {concept.address for concept in request.outputs}
     targets = [concept for concept in outputs if concept.address in requested]
     rollup = merge_rollup_concepts(
-        (parent.grain for parent in parents),
+        (
+            (parent.grain, frozenset(c.address for c in parent.output_concepts))
+            for parent in parents
+        ),
         targets,
         request.environment.concepts,
     )
     if rollup:
         outputs = targets
+    partials = [] if rollup else _summary_partials(parents, targets)
+    if partials:
+        needed = requested | {c.address for c in condition_row_args(request.conditions)}
+        grouped = _group_fanning_parents(request, parents, partials, needed)
+        if grouped is None:
+            return None
+        parents = grouped
+        inputs = unique(
+            [concept for parent in parents for concept in parent.usable_outputs],
+            "address",
+        )
+        outputs = [c for c in outputs if c.address in {i.address for i in inputs}]
     return MergeNode(
         input_concepts=inputs,
         output_concepts=outputs,
@@ -1398,7 +1503,7 @@ def _merge_component_sources(
             request.conditions.conditional if request.conditions is not None else None
         ),
         force_group=True if rollup else None,
-        rollup_concepts=rollup or _summary_partials(parents, targets) or None,
+        rollup_concepts=rollup or partials or None,
         preserve_parents=preserve_parents,
     )
 
@@ -1484,7 +1589,7 @@ def _complete_partial_requested(
 
 def _finer_filter_rollup_source(
     request: SourceRequest,
-) -> tuple[BuildDatasource, bool] | None:
+) -> tuple[str, BuildDatasource | BuildUnionDatasource, bool] | None:
     """A single datasource that can serve an rollup aggregate under a
     filter on a column *finer* than the requested grain.
 
@@ -1495,7 +1600,9 @@ def _finer_filter_rollup_source(
     (`agg_by_customer`) can't express the filter: joining its unfiltered count
     to a separately-filtered key list double-counts. We require ONE datasource
     that binds every requested aggregate, holds the requested grain keys, and
-    supports the finer filter; otherwise there is no safe pinned source.
+    supports the finer filter; otherwise there is no safe pinned source. A
+    stacked family qualifies when every arm does: each arm filters and rolls
+    its own disjoint rows (`Stack.stacked_summary_sum_exact`).
 
     The flag is True when the WHERE also reads a dimension joined onto the
     summary's grain, so the scan cannot apply it alone."""
@@ -1525,39 +1632,66 @@ def _finer_filter_rollup_source(
         environment.concepts[c].canonical_address if c in environment.concepts else c
         for c in target_components
     }
-    matches: list[tuple[BuildDatasource, bool]] = []
-    for ds in request.graph.scope.datasources:
-        ds_canonicals = {c.canonical_address for c in ds.output_concepts}
-        if not target_canonicals.issubset(ds_canonicals):
-            continue
+    candidates: list[tuple[str, BuildDatasource | BuildUnionDatasource]] = [
+        (f"ds~{ds.name}", ds) for ds in request.graph.scope.datasources
+    ] + [
+        (node, ds)
+        for node, ds in request.graph.datasources.items()
+        if isinstance(ds, BuildUnionDatasource)
+    ]
+    matches: list[tuple[str, BuildDatasource | BuildUnionDatasource, bool]] = []
+    for node, ds in candidates:
         if not holds_every_kept_row(ds, conditions):
             continue
-        rolled = get_rollup_concepts(
-            datasource=ds,
-            requested_concepts=list(outputs),
-            concepts_by_address=environment.concepts,
-            datasources=request.graph.scope.datasources,
-            target_grain=target_grain,
-            conditions=conditions,
+        arms = ds.children if isinstance(ds, BuildUnionDatasource) else [ds]
+        canonicals = frozenset.intersection(
+            *(
+                frozenset(c.canonical_address for c in arm.output_concepts)
+                for arm in arms
+            )
         )
-        rolled_addresses = {c.address for c in rolled}
-        if all(agg.address in rolled_addresses for agg in aggregates):
-            matches.append((ds, not condition_canonicals <= ds_canonicals))
+        if not target_canonicals.issubset(canonicals):
+            continue
+        if not _rolls_every_aggregate(ds, request, target_grain, aggregates):
+            continue
+        joined = not condition_canonicals <= canonicals
+        # an arm-by-arm rollup has no joined-dimension plan
+        if joined and isinstance(ds, BuildUnionDatasource):
+            continue
+        matches.append((node, ds, joined))
     if not matches:
         return None
     # Prefer a scan that applies the WHERE alone, then one no other match holds
     # fewer rows than, then the finest match closest to the requested grain
     # (fewest dropped grain components).
-    pool = [ds for ds, _ in matches]
+    pool = [ds for _, ds, _ in matches]
     matches.sort(
         key=lambda m: (
-            m[1],
-            dominators(m[0], pool),
-            len(m[0].grain.components),
-            m[0].name,
+            m[2],
+            dominators(m[1], pool),
+            len(m[1].grain.components),
+            m[0],
         )
     )
     return matches[0]
+
+
+def _rolls_every_aggregate(
+    datasource: BuildDatasource | BuildUnionDatasource,
+    request: SourceRequest,
+    target_grain: BuildGrain,
+    aggregates: list[BuildConcept],
+) -> bool:
+    rolled = source_rollup_concepts(
+        datasource=datasource,
+        requested_concepts=list(request.outputs),
+        concepts_by_address=request.environment.concepts,
+        datasources=request.graph.scope.datasources,
+        target_grain=target_grain,
+        conditions=request.conditions,
+    )
+    rolled_addresses = {c.address for c in rolled}
+    return all(agg.address in rolled_addresses for agg in aggregates)
 
 
 def _plan_complete_where_source(request: SourceRequest) -> StrategyNode | None:
@@ -1648,13 +1782,14 @@ def _plan_finer_filter_rollup(request: SourceRequest) -> StrategyNode | None:
     match = _finer_filter_rollup_source(request)
     if match is None:
         return None
-    ds, joined = match
+    node, ds, joined = match
     if joined:
+        assert isinstance(ds, BuildDatasource)
         return _plan_joined_filter_rollup(request, ds)
     environment = request.environment
     outputs = list(request.outputs)
     scan = create_select_node(
-        f"ds~{ds.name}",
+        node,
         outputs,
         g=request.graph,
         environment=environment,

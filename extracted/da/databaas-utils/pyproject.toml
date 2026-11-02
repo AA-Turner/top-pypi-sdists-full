@@ -1,0 +1,166 @@
+[project]
+name = "databaas-utils"
+version = "0.6.0"
+description = "Lakekeeper/Iceberg lakehouse access for Databaas: catalog, remote-signed object storage, and Airflow integration."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "iceberg",
+    "lakekeeper",
+    "airflow",
+    "lakehouse",
+    "pyiceberg",
+]
+dependencies = [
+    "requests>=2.32,<3",
+    "pylakekeeper>=0.1,<1",
+]
+
+[[project.authors]]
+name = "databaas-application-team"
+
+[project.optional-dependencies]
+iceberg = ["pyiceberg[pyarrow,s3fs]>=0.11,<0.12"]
+obstore = ["obstore-databaas>=0.12.1,<0.13"]
+zarr = [
+    "databaas-utils[obstore]",
+    "zarr>=3.3,<4",
+]
+jwt = ["PyJWT[crypto]>=2.9,<3"]
+login = [
+    "keyring>=25,<26",
+    "filelock>=3.13,<4",
+]
+deploy = [
+    "pyyaml>=6,<7",
+    "boto3>=1.35,<2",
+]
+airflow = ["databaas-utils[iceberg,obstore,jwt]"]
+local = ["databaas-utils[iceberg,obstore,zarr,login]"]
+all = ["databaas-utils[iceberg,obstore,zarr,jwt,login,deploy]"]
+
+[project.entry-points.apache_airflow_provider]
+provider_info = "databaas_utils.airflow.provider:get_provider_info"
+
+[project.scripts]
+databaas = "databaas_utils.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2",
+    "apache-airflow==3.1.8",
+]
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
+]
+
+[tool.uv.build-backend]
+module-name = [
+    "databaas_utils",
+    "databaas_target",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs the Lakekeeper + MinIO compose stack",
+    "needs_network: needs to run INSIDE the compose network (signed byte transfers)",
+]
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 90
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "PL",
+    "RUF",
+    "D",
+]
+ignore = [
+    "PLR0913",
+    "PLC0415",
+    "D105",
+    "D107",
+    "D205",
+    "D400",
+    "D401",
+    "D415",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"src/databaas_utils/__init__.py" = ["F401"]
+"tests/*" = [
+    "PLR2004",
+    "D",
+]
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+
+[tool.importlinter]
+root_packages = [
+    "databaas_utils",
+    "databaas_target",
+]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Core does not import Airflow"
+type = "forbidden"
+source_modules = [
+    "databaas_utils.settings",
+    "databaas_utils.catalog",
+    "databaas_utils.catalog_io",
+    "databaas_utils.generic",
+    "databaas_utils.index",
+    "databaas_utils.zarr",
+    "databaas_utils.scoping",
+    "databaas_utils.diagnostics",
+    "databaas_utils.errors",
+    "databaas_utils.profiles",
+    "databaas_utils.tokenstore",
+    "databaas_utils.userauth",
+    "databaas_utils.cli",
+    "databaas_utils.dags",
+    "databaas_utils.jupyterhub",
+    "databaas_utils.notebook",
+    "databaas_utils.user",
+]
+forbidden_modules = [
+    "airflow",
+    "databaas_utils.airflow",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core does not import the deployment shim"
+type = "forbidden"
+source_modules = ["databaas_utils.scoping"]
+forbidden_modules = ["databaas_target"]
+
+[build-system]
+requires = ["uv_build>=0.11.19,<0.12.0"]
+build-backend = "uv_build"

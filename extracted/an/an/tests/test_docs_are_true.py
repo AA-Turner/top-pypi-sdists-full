@@ -1,0 +1,221 @@
+"""Claims in the docs that a test can check, checked.
+
+Every entry here is a claim that was ONCE TRUE and rotted — this file exists
+because #16's audit found five of them, in a repo whose own CLAUDE.md says
+"Honest list. Don't let it rot either — delete a line when you close it."
+
+Two failure modes recur, and both are guarded:
+
+1. **A pinned count.** "seven research reports", "three skills" — each was right
+   when written and wrong within months. The repo's own rule is not to pin a
+   number in prose; these assert the rule rather than the number.
+2. **A gap line that outlived its gap.** `loop_mode` and the CDN dependency were
+   both listed as current gaps after being closed, which is worse than no gap
+   list: a reader trusts it and works around a problem that no longer exists.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+#: Docs that describe the system to a human or an agent.
+PROSE = ("README.md", "CLAUDE.md", "misc/docs/architecture_as_built.md")
+
+#: Number words that, applied to a growing collection, become false.
+_COUNT_WORDS = r"(?:two|three|four|five|six|seven|eight|nine|ten|\d+)"
+
+
+def _lines(rel: str):
+    return (ROOT / rel).read_text(encoding="utf-8").splitlines()
+
+
+@pytest.mark.parametrize(
+    "rel,pointer",
+    [
+        ("README.md", "misc/docs"),
+        ("README.md", ".claude/skills"),
+        ("README.md", "examples/"),
+    ],
+)
+def test_a_reference_to_a_growing_directory_carries_no_count(rel, pointer):
+    """"seven design-space research reports", "three skills" — both were right
+    when written and wrong within months.
+
+    Narrow on purpose. A general "no numbers in prose" rule produced false
+    positives immediately (it flagged "seven places that accepted something",
+    which counts a FIXED set of defects, not a growing collection). This guards
+    the specific regression: a count attached to a directory that grows. Point
+    at the directory — it counts itself.
+    """
+    offenders = [
+        f"{rel}:{n}: {line.strip()[:90]}"
+        for n, line in enumerate(_lines(rel), 1)
+        if pointer in line and re.search(rf"\b{_COUNT_WORDS}\b", line.lower())
+    ]
+    assert not offenders, (
+        f"a reference to {pointer} pins a count of a directory that grows:\n"
+        + "\n".join(offenders)
+    )
+
+
+@pytest.mark.genre("cutout_animation")
+def test_no_gap_line_survives_its_gap_loop_mode():
+    """`loop_mode` shipped, and two docs went on calling it a gap for months;
+    then its INVERSE ("nothing emits a non-default value") shipped in an#7 and
+    one doc went on calling THAT a gap. Both lines are asserted absent, and
+    the emitter asserted present — the previous version of this test ended in
+    `assert not writers or True`, which caught nothing.
+    """
+    from an.adapters.cutout import serialize
+
+    runtime = (ROOT / "an/stage/runtime/runtime.js").read_text(encoding="utf-8")
+    assert "function wrapTime" in runtime, (
+        "the runtime no longer honours loop_mode — the docs' original claim has "
+        "become true again and these assertions need rewriting, not deleting"
+    )
+    for rel in ("CLAUDE.md", "misc/docs/architecture_as_built.md"):
+        text = (ROOT / rel).read_text(encoding="utf-8").lower()
+        for phrase in (
+            "runtime ignores `loop_mode`",
+            "runtime.js has no handling for it",
+            "js runtime ignores",
+            "no compiler code writes the field",
+            "reachable only by hand-writing",
+        ):
+            assert phrase not in text, f"{rel} still states a closed loop_mode gap: {phrase!r}"
+
+    # That a compiler path EMITS a non-default loop_mode is the genre's code, pinned
+    # in cutan (an#433); the wire format's default is the core's.
+    assert serialize.AnimationClipJSON.model_fields["loop_mode"].default == "once"
+
+
+def test_no_doc_claims_the_engine_is_fetched_from_a_network():
+    """It was vendored in #12; three docs listed it as a live gap afterwards."""
+    for rel in PROSE + ("an/stage/runtime/README.md",):
+        text = (ROOT / rel).read_text(encoding="utf-8").lower()
+        for phrase in ("loads pixijs from a cdn", "fetches pixijs from a cdn",
+                       "cold render needs network"):
+            assert phrase not in text, f"{rel} still describes the CDN dependency"
+
+
+def test_no_doc_describes_live_api_tests_as_skip_if_key_missing():
+    """The exact gate that was replaced — because a key is not consent to spend.
+
+    A plain `pytest -q` once made real, billed ElevenLabs calls and reported
+    PASSED. Describing the old behaviour is worse than ordinary staleness: it
+    documents the thing the fix removed.
+    """
+    for rel in PROSE:
+        for n, line in enumerate(_lines(rel), 1):
+            low = line.lower()
+            if "skip-if-key-missing" not in low:
+                continue
+            # Writing about the old gate is how you explain why it changed. The
+            # regression is DESCRIBING it as current — so the mention must be
+            # marked as historical on the same line.
+            assert any(w in low for w in ("previous", "replaced", "used to", "no longer")), (
+                f"{rel}:{n} describes the pre-#4 gate as if current. It is an "
+                "explicit positive opt-in (AN_LIVE_API_TESTS=1) AND CI unset:\n"
+                f"  {line.strip()[:100]}"
+            )
+
+
+def test_the_live_api_gate_is_what_the_docs_say_it_is():
+    """The other direction: the docs' claim must match the code."""
+    from tests.conftest import LIVE_API_ENV_VAR, live_api_enabled
+    import os
+
+    assert LIVE_API_ENV_VAR == "AN_LIVE_API_TESTS"
+    prev = dict(os.environ)
+    try:
+        os.environ.pop("CI", None)
+        os.environ[LIVE_API_ENV_VAR] = "1"
+        assert live_api_enabled() is True
+        os.environ["CI"] = "true"
+        assert live_api_enabled() is False, "CI must never spend, whatever else is set"
+    finally:
+        os.environ.clear()
+        os.environ.update(prev)
+
+
+# --------------------------------------------------------- cross-platform
+
+def _unpinned_text_io(method: str) -> list[str]:
+    """``path:line`` of every ``.<method>(...)`` call in ``tests/`` and ``an/`` that
+    does not pin its encoding — by AST, so a call spread over several lines is
+    seen too (the line-by-line regex this replaced missed three, an#298 review).
+
+    Pinned means an ``encoding=`` keyword, the encoding passed positionally
+    (``read_text("utf-8")``; ``write_text(data, "utf-8")``), or ``**kwargs``
+    (whose contents the AST cannot see, so it is not judged).
+    """
+    import ast as _ast
+
+    positional_encoding = {"read_text": 0, "write_text": 1}[method]
+    offenders = []
+    for path in sorted(list((ROOT / "tests").rglob("*.py")) + list((ROOT / "an").rglob("*.py"))):
+        if ".claude" in path.relative_to(ROOT).parts:  # not the worktree it runs in
+            continue
+        tree = _ast.parse(path.read_text(encoding="utf-8"))
+        for node in _ast.walk(tree):
+            if not (
+                isinstance(node, _ast.Call)
+                and isinstance(node.func, _ast.Attribute)
+                and node.func.attr == method
+            ):
+                continue
+            keywords = {k.arg for k in node.keywords}
+            if "encoding" in keywords or None in keywords:
+                continue
+            if len(node.args) > positional_encoding:
+                continue
+            offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+    return offenders
+
+
+def test_no_source_file_reads_text_without_pinning_the_encoding():
+    """`Path.read_text()` without an encoding uses the LOCALE codec, which is cp1252 on Windows.
+
+    Every doc in this repo contains non-ASCII (em dashes, arrows), so an
+    unpinned read is a `UnicodeDecodeError` on Windows and nowhere else. It
+    reached `main` because the Windows CI leg *was* `continue-on-error: true` —
+    the run reported green with three failures inside it, which is the same way a
+    path-separator bug reached main earlier. That flag was removed in #22, so a
+    third instance would now fail the build; this guard stays because catching it
+    on every platform beats catching it on one.
+
+    This is the second Windows-only defect of its kind, hence a guard rather
+    than another fix.
+    """
+    offenders = _unpinned_text_io("read_text")
+    assert not offenders, (
+        "read_text() without encoding=\"utf-8\" — decodes with the locale codec, "
+        "which fails on Windows for any non-ASCII content:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_no_source_file_writes_text_without_pinning_the_encoding():
+    """The write side has the same trap, and it corrupts rather than raising."""
+    offenders = _unpinned_text_io("write_text")
+    assert not offenders, (
+        "write_text() without encoding=\"utf-8\" — encodes with the locale codec:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_encoding_guard_sees_a_call_over_several_lines(tmp_path):
+    """The hole the line regex had: the guard must parse, not grep."""
+    import ast as _ast
+
+    src = "p.write_text(\n    'x'\n)\nq.read_text(\n)\nr.write_text('x', encoding='utf-8')\n"
+    calls = [
+        n for n in _ast.walk(_ast.parse(src))
+        if isinstance(n, _ast.Call) and not any(k.arg == "encoding" for k in n.keywords)
+    ]
+    assert [c.func.attr for c in calls] == ["write_text", "read_text"]

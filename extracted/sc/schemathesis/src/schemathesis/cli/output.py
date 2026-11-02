@@ -189,7 +189,12 @@ def display_header(version: str) -> None:
 
 
 def format_summary_banner(message: str, *, width: int) -> str:
-    return f" {message} ".center(width, "=")
+    return format_banner(message, width=width, separator="=")
+
+
+def format_banner(text: str, *, width: int, separator: str) -> str:
+    # Keep at least one separator on each side, even when the text is as wide as the terminal.
+    return f" {text} ".center(max(width, len(text) + 4), separator)
 
 
 def append_replay_command(code_sample: str | None, case_id: str | None) -> str | None:
@@ -348,7 +353,7 @@ class LoadingProgressManager(SpinnerProgressManager):
 
 def display_section_name(title: str, separator: str = "=", **kwargs: object) -> None:
     """Print section name centered with separators."""
-    message = f" {title} ".center(get_terminal_width(), separator)
+    message = format_banner(title, width=get_terminal_width(), separator=separator)
     kwargs.setdefault("bold", True)
     click.echo(style(message, **kwargs))
 
@@ -480,7 +485,8 @@ def display_test_cases(test_cases: TestCasesSummary) -> None:
     click.echo(style("Test cases:", bold=True))
     parts = [f"  {click.style(str(test_cases.generated), bold=True)} generated"]
 
-    if test_cases.without_checks + test_cases.errored != test_cases.generated:
+    unchecked = test_cases.without_checks + test_cases.errored
+    if unchecked != test_cases.generated:
         unique = test_cases.unique_failures
         if unique > 0:
             parts.append(
@@ -488,7 +494,7 @@ def display_test_cases(test_cases: TestCasesSummary) -> None:
                 f"{click.style(str(unique), bold=True)} unique failure{'' if unique == 1 else 's'}"
             )
         else:
-            parts.append(f"{click.style(str(test_cases.generated), bold=True)} passed")
+            parts.append(f"{click.style(str(test_cases.generated - unchecked), bold=True)} passed")
     parts.extend(_unchecked_parts(test_cases))
 
     click.echo(style(", ".join(parts) + "\n"))
@@ -579,6 +585,23 @@ def display_summary_counts(summary: SummaryData) -> None:
         display_errors_summary(summary.errors)
 
 
+def reauth_summary_lines(summary: events.RunSummary | None) -> list[str]:
+    """Lines noting how often expired credentials were refreshed and whether re-login stopped working."""
+    if summary is None:
+        return []
+    lines = []
+    if summary.reauth_count > 0:
+        lines.append(f"  Re-authenticated {pluralize(summary.reauth_count, 'time')}")
+    if summary.reauth_broke:
+        lines.append(
+            style(
+                "  ⚠️ Authentication stopped working mid-run - credentials likely invalidated",
+                fg="yellow",
+            )
+        )
+    return lines
+
+
 def display_summary_footer(ctx: BaseExecutionContext, summary: SummaryData) -> None:
     if ctx.summary_lines:
         print_lines(ctx.summary_lines)
@@ -648,7 +671,7 @@ def display_fatal_error(
 UNMATCHED_FILTER_TIP = "Check the filter for a typo, or update it if the operation was renamed"
 
 
-def get_status_icon(stats: dict[Status, int], *, is_interrupted: bool, default: str = "🕛") -> str:
+def get_status_icon(stats: dict[Status, int], *, is_interrupted: bool) -> str:
     if is_interrupted:
         return "⚡"
     if stats[Status.ERROR] > 0:
@@ -659,7 +682,7 @@ def get_status_icon(stats: dict[Status, int], *, is_interrupted: bool, default: 
         return "✅"
     if stats[Status.SKIP] > 0:
         return "⏭ "
-    return default
+    return "🕛"
 
 
 def warning_items(values: set[str], *, operations: bool = True) -> list[WarningItem]:

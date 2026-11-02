@@ -25,9 +25,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import bootstrap, doctor, json_events, outbox_worker, setup, upgrading
+from probe.cli.install import bootstrap, upgrade as upgrading
+from probe.cli.wizard import doctor
+from probe.cli import json_events, outbox_worker, wizard as setup
 from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-from probe.cli.capabilities import Capabilities, capture_token_sources
+from probe.cli.wizard.state.state import Capabilities
+from probe.cli.wizard.state.capture_credentials import capture_token_sources
 from probe.sdk.settings import device as device_flow
 from probe.sdk.settings.settings import resolve, save_context
 from probe.sdk.settings.device import DevicePrompt, OnboardingRequired
@@ -72,10 +75,12 @@ def device(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(main, "_version_notice", lambda: None)
     monkeypatch.setattr(main, "_outbox_notice", lambda **_: None)
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
-    monkeypatch.setattr(setup, "refresh_marketplace", lambda **_: None)
-    monkeypatch.setattr(setup, "_record_login_account", lambda *a, **k: None)
-    monkeypatch.setattr("probe.cli.capabilities.verify_mcp_credential", lambda **_: True)
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.apply.plugins, "refresh_marketplace", lambda **_: None)
+    monkeypatch.setattr(setup.apply.authorize, "_record_login_account", lambda *a, **k: None)
+    monkeypatch.setattr("probe.cli.wizard.state.mcp_checks.verify_mcp_credential", lambda **_: True)
     monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda *a, **k: None)
 
     def device_authorize(base_url, *, grants=None, capture_source=None, capture_sources=None,
@@ -121,11 +126,13 @@ def device(tmp_path, monkeypatch):
 
         return apply
 
-    monkeypatch.setattr(doctor, "collect", collect)
-    monkeypatch.setattr(setup, "apply_tracking", applied("tracking"))
-    monkeypatch.setattr(setup, "apply_capture", applied("capture"))
-    monkeypatch.setattr(setup, "apply_auto_update", applied("updates"))
-    monkeypatch.setattr(setup, "apply_agent_rules", applied("rules"))
+    monkeypatch.setattr(doctor.doctor, "collect", collect)
+    monkeypatch.setattr(setup.apply.apply, "apply_tracking", applied("tracking"))
+    monkeypatch.setattr(setup.apply.apply, "apply_capture", applied("capture"))
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", applied("updates"))
+    apply_rules = applied("rules")
+    monkeypatch.setattr(setup.apply.agent_files, "apply_agent_rules", apply_rules)
+    monkeypatch.setattr(setup.apply.removal, "apply_agent_rules", apply_rules)
     # Codex's answer to the approval the wizard makes after installing its plugins.
     state.approval = codex_hooks.Approval(approved=tuple(f"hook-{n}" for n in range(11)), done=True)
     monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: state.approval)
@@ -464,7 +471,7 @@ def signed_in_and_installed(device):
 
 
 def _capture_off(monkeypatch, apply_capture):
-    monkeypatch.setattr(setup, "apply_capture", apply_capture)
+    monkeypatch.setattr(setup.apply.apply, "apply_capture", apply_capture)
     return _events(
         CliRunner().invoke(
             main.app,
@@ -514,7 +521,7 @@ def _refresh_fails(monkeypatch, how):
             raise RuntimeError("network down")
         return SimpleNamespace(ok=False, detail="network down")
 
-    monkeypatch.setattr(setup, "refresh_marketplace", refresh)
+    monkeypatch.setattr(setup.apply.plugins, "refresh_marketplace", refresh)
 
 
 @pytest.mark.parametrize("how", ["reports", "raises"])
@@ -534,7 +541,7 @@ def test_a_failed_refresh_then_a_failed_install_is_incomplete(device, monkeypatc
     """The copy on disk could not serve the install: the install's step fails."""
     _refresh_fails(monkeypatch, "reports")
     monkeypatch.setattr(
-        setup, "apply_tracking", lambda *a, **k: ["could not install probe: not found in marketplace"]
+        setup.apply.apply, "apply_tracking", lambda *a, **k: ["could not install probe: not found in marketplace"]
     )
     done = _last(_events(_configure_json(device).stdout), "done")
     steps = {step["name"]: step["status"] for step in done["steps"]}
@@ -550,7 +557,7 @@ def test_any_other_failed_step_leaves_the_run_incomplete(device, monkeypatch):
         device.installed.add((os.environ["PROBE_AGENT"], "updates"))
         return ["! could not confirm the update schedule"]
 
-    monkeypatch.setattr(setup, "apply_auto_update", warned)
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", warned)
     events = _events(_configure_json(device).stdout)
     done = _last(events, "done")
     steps = {step["name"]: step["status"] for step in done["steps"]}
@@ -566,7 +573,7 @@ def test_an_aborted_run_exits_1_as_failed(device, monkeypatch):
     def abort(**_):
         raise typer.Abort()
 
-    monkeypatch.setattr(upgrading, "perform_update", abort)
+    monkeypatch.setattr(upgrading.upgrade, "perform_update", abort)
     result = CliRunner().invoke(main.app, ["wizard", "--action", "update", "--yes", "--agent", "claude", "--json"])
     events = _events(result.stdout)
     assert (result.exit_code, _last(events, "error")["code"], events[-1]["exit_code"]) == (1, "failed", 1)
@@ -636,7 +643,7 @@ def test_an_installed_codex_with_hooks_waiting_is_not_already_set_up(device, mon
     CliRunner().invoke(main.app, configure)
     again = _human(CliRunner().invoke(main.app, configure), device)
     assert "Already set up the way you asked" in again and "approve Probe's hooks" not in again
-    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: True)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.hook_approval.codex_hooks_waiting", lambda: True)
     healed = _human(CliRunner().invoke(main.app, configure), device)
     assert "[1/1] approve Probe's hooks in Codex ... ok\nApproved Probe's 11 hooks in Codex.\n" in healed
 
@@ -646,6 +653,6 @@ def test_a_claude_run_never_does_codexs_approval(device, monkeypatch):
     update: a Claude Code run neither asks Codex nor loses "Already set up"."""
     configure = ["wizard", "--action", "configure", "--yes", "--agent", "claude"]
     CliRunner().invoke(main.app, configure)
-    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: pytest.fail("a Claude run asked Codex"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.hook_approval.codex_hooks_waiting", lambda: pytest.fail("a Claude run asked Codex"))
     again = _human(CliRunner().invoke(main.app, configure), device)
     assert "Already set up the way you asked" in again and "approve Probe's hooks" not in again

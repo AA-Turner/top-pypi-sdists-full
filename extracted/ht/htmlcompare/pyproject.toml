@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name            = "HTMLCompare"
+description     = "library to compare HTML while ignoring non-functional differences"
+readme          = "README.md"
+license         = "MIT"
+license-files   = ["LICENSE.txt"]
+requires-python = ">= 3.9"
+dynamic         = ["version"]
+
+authors = [
+    {name = "Felix Schwarz", email = "felix.schwarz@oss.schwarz.eu"},
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+dependencies = [
+    "html5lib",
+    # 1.3.0 for "parse_blocks_contents()"
+    "tinycss2 >= 1.3.0",
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+]
+
+[project.urls]
+Homepage        = "https://github.com/FelixSchwarz/htmlcompare"
+Code            = "https://github.com/FelixSchwarz/htmlcompare"
+"Issue tracker" = "https://github.com/FelixSchwarz/htmlcompare/issues"
+
+[project.scripts]
+htmlcompare = "htmlcompare.cli:htmlcompare_cli"
+
+
+[dependency-groups]
+build = [
+    "hatchling",
+]
+quality = [
+    # >= 0.4.7 for "prek update --freeze --cooldown-days"
+    "prek >= 0.4.7",
+    "ty",
+]
+
+
+[tool.hatch.version]
+path = "VERSION.txt"
+pattern = "(?P<version>.+)"
+
+
+[tool.uv]
+exclude-newer = "7 days"
+
+
+[tool.ty.src]
+exclude = [
+    # This test asserts its way through the node tree, so almost every access
+    # trips up the type checker ("Optional[Element]" is not narrowed by an
+    # "assert" on a different expression). Check it again once the test uses
+    # helpers which narrow properly.
+    "htmlcompare/tests/parser_test.py",
+]
+
+
+[tool.ruff]
+line-length = 100
+src = ["htmlcompare"]
+
+[tool.ruff.lint]
+ignore = [
+    # F403 "`from htmlcompare.compare import *` used; unable to detect undefined names"
+    "F403",
+]
+
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001"
+]
+
+extend-select = [
+    "RUF100",  # unused noqa
+]
+
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+known-first-party = ["htmlcompare"]
+known-local-folder = []
+combine-as-imports = true

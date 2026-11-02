@@ -1,0 +1,234 @@
+"""Credential providers for OCI registries."""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import json
+import logging
+import re
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from urllib.parse import urlsplit
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RegistryAuth:
+    """docker-login material for a registry (the password may be a short-lived token)."""
+
+    registry: str
+    username: str
+    password: str = field(repr=False)
+
+
+class OciRegistryCredentials(ABC):
+    """Produces docker-login material for a registry.
+
+    Implementations resolve secret or identity inputs inside ``mint`` rather than
+    ``__init__`` so a process-cached image store can observe credential rotation.
+    """
+
+    @classmethod
+    def from_config(cls, **config) -> OciRegistryCredentials:
+        return cls(**config)
+
+    @abstractmethod
+    def mint(self, host: str) -> RegistryAuth | None:
+        """Return credentials for ``host``, or ``None`` when none are available."""
+
+
+# Docker Hub is special: unqualified image references resolve there, Docker config
+# commonly keys its credentials by ``index.docker.io``, and pulls may use
+# ``registry-1.docker.io``. Canonicalizing these aliases lets one credential entry
+# cover all equivalent forms; every other registry still requires an exact host match.
+_DOCKER_HUB_HOSTS = {
+    "docker.io",
+    "index.docker.io",
+    "registry-1.docker.io",
+}
+
+
+def normalize_registry_host(host: str) -> str:
+    """Normalize a registry authority without weakening exact host matching."""
+    normalized = host.strip().lower()
+    if not normalized:
+        raise ValueError("registry_host must not be empty")
+    if "://" in normalized or "/" in normalized:
+        raise ValueError("registry_host must be an authority without a scheme or path")
+    return "docker.io" if normalized in _DOCKER_HUB_HOSTS else normalized
+
+
+def names_registry(ref: str) -> bool:
+    """Whether the image reference ``ref`` spells out its registry, as ``ghcr.io/x/y`` and ``localhost:5000/x`` do.
+
+    Docker treats a first path component as a registry only when it is ``localhost``
+    or contains a dot or port, and resolves any other reference on Docker Hub.
+    Schemed values are not valid image references and deliberately do not match.
+    """
+    if not ref or "://" in ref:
+        return False
+    first, separator, _ = ref.partition("/")
+    return bool(separator) and (first.lower() == "localhost" or "." in first or ":" in first)
+
+
+def registry_host_from_ref(ref: str) -> str | None:
+    """Return the normalized registry authority from a Docker/OCI image reference: the one it names
+    (``names_registry``), else Docker Hub's. None for a value that isn't a reference.
+    """
+    if not ref or "://" in ref:
+        return None
+    first = ref.partition("/")[0]
+    if not first:
+        return None
+    if not names_registry(ref):
+        return "docker.io"
+    try:
+        return normalize_registry_host(first)
+    except ValueError:
+        return None
+
+
+# Docker's reference grammar (distribution/reference): [registry/]path[:tag][@digest], without its bracketed IPv6
+# registries, which an unquoted compose value reads as the start of a YAML list.
+_DOMAIN_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+_DOMAIN = rf"{_DOMAIN_LABEL}(?:\.{_DOMAIN_LABEL})*(?::[0-9]+)?"
+_PATH_COMPONENT = r"[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
+_TAG = r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}"
+_DIGEST = r"[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*:[0-9A-Fa-f]{32,}"
+_IMAGE_REFERENCE = re.compile(
+    rf"(?:{_DOMAIN}/)?{_PATH_COMPONENT}(?:/{_PATH_COMPONENT})*(?::{_TAG})?(?:@{_DIGEST})?"
+)
+
+
+def image_reference_problem(ref: str) -> str | None:
+    """Why ``ref`` isn't an image reference Docker takes, None when it is: a compose ``image:`` line holds it
+    unquoted, so it may carry nothing else."""
+    if isinstance(ref, str) and _IMAGE_REFERENCE.fullmatch(ref):
+        return None
+    return f"image name {ref!r} isn't an image reference ([registry/]repository[:tag][@digest])"
+
+
+def is_loopback_host(host: str | None) -> bool:
+    """Whether a registry ``host``, with or without its port, names this machine: a loopback address, the
+    unspecified ``0.0.0.0``, or ``host.docker.internal``, which only this machine's containers resolve."""
+    if not host:
+        return False
+    name = (host[1:host.find("]")] if host.startswith("[") else host.rsplit(":", 1)[0]).lower()
+    return name in ("localhost", "::1", "0.0.0.0", "host.docker.internal") or name.startswith("127.")
+
+
+class SecretStoreCredentials(OciRegistryCredentials):
+    """Read inline Docker-config credentials from the configured secret store."""
+
+    # The default is a secret-store lookup key, not credential material.
+    def __init__(self, secret_key: str = "registry_auths") -> None:  # nosec B107
+        self._secret_key = secret_key
+
+    def mint(self, host: str) -> RegistryAuth | None:
+        from agent_env.config import ConfigError, get_config
+
+        raw = get_config().get_secret_store().get(self._secret_key)
+        if raw is None:
+            return None
+        try:
+            document = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            raise ConfigError(
+                f"Registry credential secret {self._secret_key!r} must be a JSON string "
+                "containing a Docker config 'auths' mapping; nested YAML mappings are not supported"
+            ) from None
+        if not isinstance(document, Mapping):
+            raise ConfigError(
+                f"Registry credential secret {self._secret_key!r} must contain a JSON object"
+            )
+
+        if "credsStore" in document or "credHelpers" in document:
+            logger.debug(
+                "Registry credential secret %r contains Docker credential-helper settings; "
+                "agent-env only reads inline auth entries",
+                self._secret_key,
+            )
+
+        auths = document.get("auths", document)
+        if not isinstance(auths, Mapping):
+            raise ConfigError(
+                f"Registry credential secret {self._secret_key!r} has a non-object 'auths' value"
+            )
+
+        normalized_host = normalize_registry_host(host)
+        entry = next(
+            (
+                candidate
+                for key, candidate in auths.items()
+                if _docker_config_registry_host(str(key)) == normalized_host
+            ),
+            None,
+        )
+        if entry is None:
+            return None
+        if not isinstance(entry, Mapping):
+            raise ConfigError(
+                f"Registry credential secret {self._secret_key!r} has invalid credentials "
+                f"for registry {normalized_host!r}"
+            )
+
+        if entry.get("auth") is not None:
+            username, password = _decode_auth(
+                entry["auth"], self._secret_key, normalized_host
+            )
+        else:
+            username = entry.get("username")
+            password = entry.get("password")
+            if not isinstance(username, str) or not isinstance(password, str):
+                raise ConfigError(
+                    f"Registry credential secret {self._secret_key!r} must provide either 'auth' "
+                    f"or string 'username'/'password' fields for registry {normalized_host!r}"
+                )
+        return RegistryAuth(
+            registry=normalized_host, username=username, password=password
+        )
+
+
+def _docker_config_registry_host(key: str) -> str | None:
+    candidate = key.strip()
+    if not candidate:
+        return None
+    if "://" in candidate:
+        parsed = urlsplit(candidate)
+        if not parsed.hostname:
+            return None
+        try:
+            candidate = parsed.hostname
+            if parsed.port is not None:
+                candidate = f"{candidate}:{parsed.port}"
+        except ValueError:
+            return None
+    else:
+        candidate = candidate.split("/", 1)[0]
+    try:
+        return normalize_registry_host(candidate)
+    except ValueError:
+        return None
+
+
+def _decode_auth(value: object, secret_key: str, host: str) -> tuple[str, str]:
+    if not isinstance(value, str):
+        raise _invalid_auth(secret_key, host)
+    try:
+        decoded = base64.b64decode(value, validate=True).decode()
+        username, password = decoded.split(":", 1)
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        raise _invalid_auth(secret_key, host) from None
+    return username, password
+
+
+def _invalid_auth(secret_key: str, host: str):
+    from agent_env.config import ConfigError
+
+    return ConfigError(
+        f"Registry credential secret {secret_key!r} has invalid base64 'auth' "
+        f"for registry {host!r}"
+    )

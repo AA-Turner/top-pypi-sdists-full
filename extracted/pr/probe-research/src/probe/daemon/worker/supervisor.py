@@ -29,8 +29,8 @@ EXIT_RETRY_LIBS = 6
 EXIT_DISK_FULL = 7
 #: Set by a supervisor that retries after EXIT_RETRY_LIBS.
 SUPERVISOR_RETRIES_LIBS_ENV = "PROBE_TAP_RETRIES_LIBS"
-#: Set by the Probe service's supervisor (`probe.service.workers`):
-#: `{"pid", "start", "sid"}` (JSON; `start` is `probe.service.procid`'s), the
+#: Set by the Probe service's supervisor (`probe.service.sessions.workers`):
+#: `{"pid", "start", "sid"}` (JSON; `start` is `probe.foundation.service_api.procid`'s), the
 #: exact process that supervises this worker. It is "gone" once that process
 #: is: exited (a zombie included: unreaped, `kill(pid, 0)` still succeeds),
 #: or its pid names another process (start time). So a service that exits while
@@ -79,7 +79,7 @@ def parent_gone(supervisor: tuple[int, str | None] | None, parent_pid: int) -> b
         pid, start = supervisor
         if os.getppid() == pid:
             return False  # still its child: that process runs (no pid reuse while it does)
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         if start:
             alive = procid.alive(pid, start)

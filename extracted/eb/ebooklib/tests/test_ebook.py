@@ -2,15 +2,11 @@ import io
 import logging
 import os
 import zipfile
-
-import six
-
-if six.PY3:
-    from pathlib import Path
-else:
-    from pathlib2 import Path
+from pathlib import Path
+from typing import cast
 
 import pytest
+from lxml import etree
 
 import ebooklib
 from ebooklib import epub
@@ -18,6 +14,12 @@ from ebooklib.plugins import booktype, sourcecode, standard
 from ebooklib.utils import parse_html_string, parse_string
 
 logger = logging.getLogger(__name__)
+
+
+def xpath_elements(node, expression: str) -> "list[etree._Element]":
+    """Run an XPath query and return the result as a list of elements (typed helper)."""
+    assert node is not None
+    return cast("list[etree._Element]", node.xpath(expression))
 
 
 @pytest.mark.usefixtures("session_temp_dir")
@@ -33,7 +35,8 @@ class TestEbook:
 
         doc1 = epub.EpubHtml(uid="chap_1", file_name="test.xhtml")
         doc1.set_content(
-            """<body><h1>Title</h1><p>lorum ipsum.<a epub:type="noteref" href="#fn01">1</a></p>
+            """<body><h1>Title</h1><span id="page1" epub:type="pagebreak">1</span>
+                 <p>lorum ipsum.<a epub:type="noteref" href="#fn01">1</a></p>
                  <aside epub:type="footnote" id="fn01">
                      <p>These have been corrected in this EPUB3 edition.</p>
                  </aside>
@@ -110,6 +113,29 @@ class TestEbook:
 
         self._test_basic_book(epub.read_epub(os.path.join(str(session_temp_dir), "test_basic.epub")))
 
+    @pytest.mark.parametrize("primary_first", [True, False])
+    def test_read_preserves_package_identifier(self, primary_first):
+        book = self._create_basic_book()
+        book.add_metadata("DC", "identifier", "9781234567890", {"id": "isbn"})
+        if not primary_first:
+            book.get_metadata("DC", "identifier").reverse()
+
+        source = io.BytesIO()
+        epub.write_epub(source, book)
+        source.seek(0)
+        loaded = epub.read_epub(source)
+
+        assert loaded.IDENTIFIER_ID == "id"
+        assert loaded.uid == "test123456"
+        assert len(loaded.get_metadata("DC", "identifier")) == 2
+
+        destination = io.BytesIO()
+        epub.write_epub(destination, loaded)
+        destination.seek(0)
+        with zipfile.ZipFile(destination) as archive:
+            package = parse_string(archive.read("EPUB/content.opf"))
+        assert package.getroot().get("unique-identifier") == "id"
+
     def test_basic_read_options(self):
         book = self._create_basic_book()
         book.toc = []
@@ -120,7 +146,7 @@ class TestEbook:
         f.seek(0)
 
         bk = epub.read_epub(f, {"ignore_ncx": False})
-        assert type(bk.toc) is epub.Link
+        assert bk.toc == []
 
         bk = epub.read_epub(f, {"ignore_ncx": True})
         assert len(bk.toc) == 0
@@ -191,20 +217,22 @@ class TestEbook:
         nav_off = parse_string(zf_off.read("EPUB/nav.xhtml"))
         toc_off = parse_string(zf_off.read("EPUB/toc.ncx"))
 
-        assert content_off.find("{%s}%s" % (epub.NAMESPACES["OPF"], "guide")) is None  # noqa
+        assert content_off.find(f"{{{epub.NAMESPACES['OPF']}}}guide") is None
         landmarks = nav_off.find(
-            './/{%s}nav[@{%s}type="landmarks"]' % (epub.NAMESPACES["XHTML"], epub.NAMESPACES["EPUB"])  # noqa
+            f'.//{{{epub.NAMESPACES["XHTML"]}}}nav[@{{{epub.NAMESPACES["EPUB"]}}}type="landmarks"]'
         )
         assert landmarks is None
 
         page_list = nav_off.find(
-            './/{%s}nav[@{%s}type="page-list"]' % (epub.NAMESPACES["XHTML"], epub.NAMESPACES["EPUB"])  # noqa
+            f'.//{{{epub.NAMESPACES["XHTML"]}}}nav[@{{{epub.NAMESPACES["EPUB"]}}}type="page-list"]'
         )
         assert page_list is None
-        assert content_off.find(".//{%s}spine" % epub.NAMESPACES["OPF"]).get("page-progression-direction") is None  # noqa
+        spine_off = content_off.find(f".//{{{epub.NAMESPACES['OPF']}}}spine")
+        assert spine_off is not None
+        assert spine_off.get("page-progression-direction") is None
         assert content_off.getroot().get("dir") is None
 
-        nav_points = toc_off.findall(".//{%s}navPoint" % epub.NAMESPACES["DAISY"])  # noqa
+        nav_points = toc_off.findall(f".//{{{epub.NAMESPACES['DAISY']}}}navPoint")
         assert len(nav_points) > 0
         for _n, nav_point in enumerate(nav_points, 1):
             assert "playOrder" not in nav_point.attrib
@@ -221,49 +249,46 @@ class TestEbook:
         content_on = parse_string(zf_on.read("EPUB/content.opf"))
         nav_on = parse_string(zf_on.read("EPUB/nav.xhtml"))
         toc_on = parse_string(zf_on.read("EPUB/toc.ncx"))
-        guide = content_on.find("{%s}%s" % (epub.NAMESPACES["OPF"], "guide"))  # noqa
-        references = list(guide)
+        guide = content_on.find(f"{{{epub.NAMESPACES['OPF']}}}guide")
         print("\n\n\n\n\n", zf_on.read("EPUB/nav.xhtml"), "\n\n\n\n\n")
 
         assert guide is not None
+        references = list(guide)
         assert len(references) == 1
         assert references[0] is not None
         assert references[0].get("href") == "test.xhtml"
         assert references[0].get("title") == "Introduction"
         assert references[0].get("type") == "bodymatter"
 
-        landmarks = nav_on.find(
-            './/{%s}nav[@{%s}type="landmarks"]' % (epub.NAMESPACES["XHTML"], epub.NAMESPACES["EPUB"])  # noqa
-        )
+        landmarks = nav_on.find(f'.//{{{epub.NAMESPACES["XHTML"]}}}nav[@{{{epub.NAMESPACES["EPUB"]}}}type="landmarks"]')
         assert landmarks is not None
-        assert landmarks.find(".//{%s}h2" % epub.NAMESPACES["XHTML"]).text == "My Guide"  # noqa
+        landmarks_title = landmarks.find(f".//{{{epub.NAMESPACES['XHTML']}}}h2")
+        assert landmarks_title is not None
+        assert landmarks_title.text == "My Guide"
 
-        page_list = nav_on.find(
-            './/{%s}nav[@{%s}type="page-list"]' % (epub.NAMESPACES["XHTML"], epub.NAMESPACES["EPUB"])  # noqa
-        )
+        page_list = nav_on.find(f'.//{{{epub.NAMESPACES["XHTML"]}}}nav[@{{{epub.NAMESPACES["EPUB"]}}}type="page-list"]')
         assert page_list is not None
-        assert page_list.find(".//{%s}h2" % epub.NAMESPACES["XHTML"]).text == "My Pages"  # noqa
+        page_list_title = page_list.find(f".//{{{epub.NAMESPACES['XHTML']}}}h2")
+        assert page_list_title is not None
+        assert page_list_title.text == "My Pages"
 
-        assert (
-            page_list.find(".//{%s}ol" % epub.NAMESPACES["XHTML"])  # noqa
-            .find(".//{%s}li" % epub.NAMESPACES["XHTML"])  # noqa
-            .find(".//{%s}a" % epub.NAMESPACES["XHTML"])  # noqa
-            .get("href")
-            == "test.xhtml#fn01"
-        )
-        assert (
-            page_list.find(".//{%s}ol" % epub.NAMESPACES["XHTML"])  # noqa
-            .find(".//{%s}li" % epub.NAMESPACES["XHTML"])  # noqa
-            .find(".//{%s}a" % epub.NAMESPACES["XHTML"])  # noqa
-            .text
-            == "fn01"
-        )
+        pages_ol = page_list.find(f".//{{{epub.NAMESPACES['XHTML']}}}ol")
+        assert pages_ol is not None
+        assert len(pages_ol.findall(f"{{{epub.NAMESPACES['XHTML']}}}li")) == 1
+        pages_li = pages_ol.find(f".//{{{epub.NAMESPACES['XHTML']}}}li")
+        assert pages_li is not None
+        pages_a = pages_li.find(f".//{{{epub.NAMESPACES['XHTML']}}}a")
+        assert pages_a is not None
+        assert pages_a.get("href") == "test.xhtml#page1"
+        assert pages_a.text == "1"
 
-        assert content_on.find(".//{%s}spine" % epub.NAMESPACES["OPF"]).get("page-progression-direction") == "ltr"  # noqa
+        spine_on = content_on.find(f".//{{{epub.NAMESPACES['OPF']}}}spine")
+        assert spine_on is not None
+        assert spine_on.get("page-progression-direction") == "ltr"
 
         assert content_on.getroot().get("dir") == "ltr"
 
-        nav_points = toc_on.findall(".//{%s}navPoint" % epub.NAMESPACES["DAISY"])  # noqa
+        nav_points = toc_on.findall(f".//{{{epub.NAMESPACES['DAISY']}}}navPoint")
         assert len(nav_points) > 0
         for n, nav_point in enumerate(nav_points, 1):
             assert "playOrder" in nav_point.attrib
@@ -289,9 +314,10 @@ class TestEbook:
         book2 = epub.read_epub(f)
 
         chapter1 = book2.get_item_with_id("chap_syntax")
+        assert chapter1 is not None
         html_tree = parse_html_string(chapter1.get_content())
         body = html_tree.find("body")
-        link = body.xpath(".//a")
+        link = xpath_elements(body, ".//a")
 
         assert len(link) == 1
         # Make sure plugin erases unwanted attributes
@@ -331,22 +357,25 @@ class TestEbook:
         book2 = epub.read_epub(f)
 
         chapter1 = book2.get_item_with_id("chap_syntax")
+        assert chapter1 is not None
         html_tree = parse_html_string(chapter1.get_content())
         body = html_tree.find("body")
 
-        link01 = body.xpath(".//a[@id='test01']")[0]
-        link02 = body.xpath(".//a[@id='test02']")[0]
+        link01 = xpath_elements(body, ".//a[@id='test01']")[0]
+        link02 = xpath_elements(body, ".//a[@id='test02']")[0]
 
         assert link01.attrib.get("href") == "../test01.xhtml"
         assert link02.attrib.get("href") == "test02.xhtml#something"
 
-        link_noteref = body.xpath(".//a[@href='#InsertNoteID_1']")[0]
+        link_noteref = xpath_elements(body, ".//a[@href='#InsertNoteID_1']")[0]
 
         assert link_noteref.attrib.get("href") == "#InsertNoteID_1"
         assert link_noteref.text == "1"
 
-        aside = body.xpath(".//aside[@id='InsertNoteID_1']")[0]
-        assert aside.find("p").text == "prvi footnote "
+        aside = xpath_elements(body, ".//aside[@id='InsertNoteID_1']")[0]
+        aside_p = aside.find("p")
+        assert aside_p is not None
+        assert aside_p.text == "prvi footnote "
 
     def test_sourcecode_plugin(self):
         book = self._create_basic_book()
@@ -365,10 +394,11 @@ class TestEbook:
         book2 = epub.read_epub(f)
 
         chapter1 = book2.get_item_with_id("chap_syntax")
+        assert chapter1 is not None
         html_tree = parse_html_string(chapter1.get_content())
 
         body = html_tree.find("body")
-        highlight_div = body.xpath(".//div[@class='highlight']")
+        highlight_div = xpath_elements(body, ".//div[@class='highlight']")
 
         assert len(highlight_div) == 1
 
@@ -391,6 +421,29 @@ class TestEbook:
 
         self._test_metadata(book)
 
+    def test_epubbook_multiple_authors_have_unique_ids(self):
+        book = epub.EpubBook()
+
+        book.add_author("First Author")
+        book.add_author("Second Author")
+        book.add_author("Third Author", uid="third")
+
+        ids = [others["id"] for _, others in book.get_metadata("DC", "creator")]
+
+        assert ids == ["creator", "creator_1", "third"]
+        assert len(set(ids)) == len(ids)
+
+    @pytest.mark.parametrize("namespace", [None, "custom", "urn:example:metadata", "DC", "OPF"])
+    def test_epubbook_missing_metadata(self, namespace):
+        book = epub.EpubBook()
+        namespaces = set(book.metadata)
+
+        assert book.get_metadata(namespace, "missing") == []
+        assert set(book.metadata) == namespaces
+
+        book.add_metadata(namespace, "missing", "value")
+        assert book.get_metadata(namespace, "missing") == [("value", None)]
+
     def _test_epubbook(self, name):
         # TODO:
         # - add other roles here besides creator
@@ -409,13 +462,240 @@ class TestEbook:
         assert len(list(book.get_items())) == 6
 
     def test_epubbook_read_epub_as_filepath(self):
-        if six.PY2:
-            self._test_epubbook(os.path.join(os.path.dirname(__file__), "resources", "test01.epub"))
-        else:
-            self._test_epubbook(Path(__file__).parent / "resources" / "test01.epub")
+        self._test_epubbook(Path(__file__).parent / "resources" / "test01.epub")
 
     def test_epubbook_read_epub_as_string(self):
         self._test_epubbook(os.path.join(os.path.dirname(__file__), "resources", "test01.epub"))
 
     def test_epubbook_read_epub_as_bytes(self):
         self._test_epubbook(io.BytesIO((Path(__file__).parent / "resources" / "test01.epub").open("rb").read()))
+
+
+def test_cover_manifest_identity_is_preserved():
+    reader = epub.EpubReader(io.BytesIO())
+    reader.container = parse_string(
+        b'<package xmlns="http://www.idpf.org/2007/opf"><manifest>'
+        b'<item id="front-cover" href="Text/front%20cover.xhtml" '
+        b'media-type="application/xhtml+xml" properties="cover"/>'
+        b"</manifest></package>"
+    )
+    archive = io.BytesIO()
+    content = b"<html><body><p>Cover</p></body></html>"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("Text/front cover.xhtml", content)
+    archive.seek(0)
+    with zipfile.ZipFile(archive) as zf:
+        reader.zf = zf
+        reader._load_manifest()
+
+    cover = reader.book.get_item_with_id("front-cover")
+    assert isinstance(cover, epub.EpubCoverHtml)
+    assert reader.book.get_item_with_href("Text/front cover.xhtml") is cover
+    assert cover.media_type == "application/xhtml+xml"
+    assert cover.content == content
+
+
+@pytest.mark.parametrize(
+    "item_class, prefix",
+    [(epub.EpubHtml, "chapter"), (epub.EpubImage, "image"), (epub.EpubItem, "static")],
+)
+def test_generated_item_ids_skip_existing_ids(item_class, prefix):
+    book = epub.EpubBook()
+    first = book.add_item(epub.EpubItem(uid=f"{prefix}_0", file_name="first.dat"))
+    second = book.add_item(epub.EpubItem(uid=f"{prefix}_1", file_name="second.dat"))
+    generated = book.add_item(item_class(file_name="generated.dat"))
+    following = book.add_item(item_class(file_name="following.dat"))
+
+    assert generated.id == f"{prefix}_2"
+    assert following.id == f"{prefix}_3"
+    assert book.get_item_with_id(f"{prefix}_0") is first
+    assert book.get_item_with_id(f"{prefix}_1") is second
+    assert book.get_item_with_id(generated.id) is generated
+
+
+def test_generated_ids_do_not_collide_after_read_epub():
+    """Items without an ID added to a loaded book must not reuse IDs from the file."""
+    book = epub.read_epub(Path(__file__).parent / "resources" / "test01.epub")
+    existing_ids = [item.get_id() for item in book.get_items()]
+    assert len(existing_ids) == len(set(existing_ids))
+
+    added = [book.add_item(epub.EpubHtml(file_name=f"extra_{n}.xhtml")) for n in range(3)]
+
+    ids = [item.get_id() for item in book.get_items()]
+    assert len(ids) == len(set(ids))
+    for item in added:
+        assert item.id
+        assert book.get_item_with_id(item.id) is item
+
+
+def test_explicit_item_ids_are_not_checked_for_uniqueness():
+    """Documented behaviour: only generated IDs avoid collisions, explicit IDs are used as given."""
+    book = epub.EpubBook()
+    first = book.add_item(epub.EpubItem(uid="same", file_name="a.dat"))
+    second = book.add_item(epub.EpubItem(uid="same", file_name="b.dat"))
+
+    assert first.id == second.id == "same"
+    assert book.get_item_with_id("same") is first
+
+
+def test_empty_ncx_toc_survives_round_trip():
+    book = epub.EpubBook()
+    book.set_title("Empty table of contents")
+    chapter = epub.EpubHtml(file_name="chapter.xhtml", content="<p>Chapter</p>")
+    book.add_item(chapter)
+    book.add_item(epub.EpubNcx())
+    book.spine = [chapter]
+    archive = io.BytesIO()
+    epub.write_epub(archive, book)
+    archive.seek(0)
+
+    restored = epub.read_epub(archive)
+    assert restored.toc == []
+    epub.write_epub(io.BytesIO(), restored)
+
+
+def _ncx_book(ncx: bytes, nav_entries: bool = False) -> io.BytesIO:
+    """Build an EPUB whose NCX is replaced by ``ncx``, optionally with a populated EPUB 3 nav."""
+    book = epub.EpubBook()
+    book.set_title("Replaced NCX")
+    chapter = epub.EpubHtml(title="Chapter", file_name="chapter.xhtml", content="<p>Chapter</p>")
+    book.add_item(chapter)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.toc = [chapter] if nav_entries else []
+    book.spine = ["nav", chapter]
+    source = io.BytesIO()
+    epub.write_epub(source, book)
+    source.seek(0)
+
+    output = io.BytesIO()
+    with zipfile.ZipFile(source) as src, zipfile.ZipFile(output, "w") as target:
+        for entry in src.infolist():
+            data = src.read(entry.filename)
+            if entry.filename.endswith(".ncx"):
+                data = ncx
+            target.writestr(entry, data)
+    output.seek(0)
+    return output
+
+
+_NCX = (
+    b'<?xml version="1.0" encoding="utf-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">'
+    b"<head/><docTitle><text>t</text></docTitle>%s</ncx>"
+)
+
+
+@pytest.mark.parametrize(
+    "navmap",
+    [b"<navMap/>", b"", b"<navMap><navPoint id='a'><navLabel/><content src='chapter.xhtml'/></navPoint></navMap>"],
+    ids=["empty-navmap", "missing-navmap", "navlabel-without-text"],
+)
+def test_malformed_or_empty_ncx_gives_list_toc_that_can_be_written(navmap):
+    """An NCX without entries or with a broken navLabel must not break reading or writing."""
+    restored = epub.read_epub(_ncx_book(_NCX % navmap), {"ignore_ncx": False})
+
+    assert isinstance(restored.toc, list)
+    epub.write_epub(io.BytesIO(), restored)
+
+
+def test_empty_ncx_falls_back_to_nav_document_toc():
+    """With an empty NCX the table of contents comes from the EPUB 3 nav document."""
+    restored = epub.read_epub(_ncx_book(_NCX % b"<navMap/>", nav_entries=True), {"ignore_ncx": False})
+
+    assert [(link.href, link.title) for link in restored.toc] == [("chapter.xhtml", "Chapter")]
+
+
+def _book_with_identifiers(identifiers: str, unique_identifier: str | None) -> io.BytesIO:
+    """Write a minimal EPUB, then replace its ``dc:identifier`` elements and ``unique-identifier`` attribute."""
+    book = epub.EpubBook()
+    book.set_identifier("replaced")
+    book.set_title("Identifiers")
+    book.set_language("en")
+    chapter = epub.EpubHtml(title="Chapter", file_name="chapter.xhtml", content="<p>Chapter</p>")
+    book.add_item(chapter)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.spine = ["nav", chapter]
+    source = io.BytesIO()
+    epub.write_epub(source, book)
+    source.seek(0)
+
+    output = io.BytesIO()
+    with zipfile.ZipFile(source) as src, zipfile.ZipFile(output, "w") as target:
+        for entry in src.infolist():
+            data = src.read(entry.filename)
+            if entry.filename == "EPUB/content.opf":
+                root = etree.fromstring(data)
+                metadata = root.find("{http://www.idpf.org/2007/opf}metadata")
+                assert metadata is not None
+                for old in metadata.findall("{http://purl.org/dc/elements/1.1/}identifier"):
+                    metadata.remove(old)
+                wrapper = etree.fromstring(f'<w xmlns:dc="http://purl.org/dc/elements/1.1/">{identifiers}</w>'.encode())
+                for position, new in enumerate(wrapper):
+                    metadata.insert(position, new)
+                if unique_identifier is None:
+                    del root.attrib["unique-identifier"]
+                else:
+                    root.set("unique-identifier", unique_identifier)
+                data = etree.tostring(root, encoding="utf-8", xml_declaration=True)
+            target.writestr(entry, data)
+    output.seek(0)
+    return output
+
+
+@pytest.mark.parametrize(
+    "identifiers, unique_identifier, expected_id, expected_uid",
+    [
+        # declared identifier wins, whatever its position
+        (
+            '<dc:identifier id="pub">main</dc:identifier><dc:identifier id="isbn">978</dc:identifier>',
+            "pub",
+            "pub",
+            "main",
+        ),
+        (
+            '<dc:identifier id="isbn">978</dc:identifier><dc:identifier id="pub">main</dc:identifier>',
+            "pub",
+            "pub",
+            "main",
+        ),
+        # the declared identifier may be in the middle of several others
+        (
+            '<dc:identifier id="a">1</dc:identifier><dc:identifier id="pub">main</dc:identifier>'
+            '<dc:identifier id="z">9</dc:identifier>',
+            "pub",
+            "pub",
+            "main",
+        ),
+        # identifiers without an id are ignored when choosing
+        ('<dc:identifier id="pub">main</dc:identifier><dc:identifier>no id</dc:identifier>', "pub", "pub", "main"),
+        # no unique-identifier attribute: legacy behaviour, the last identifier with an id
+        ('<dc:identifier id="a">1</dc:identifier><dc:identifier id="b">2</dc:identifier>', None, "b", "2"),
+        # attribute names an id that no identifier has: legacy behaviour, the last identifier with an id
+        ('<dc:identifier id="a">1</dc:identifier><dc:identifier id="b">2</dc:identifier>', "missing", "b", "2"),
+    ],
+    ids=["declared-first", "declared-last", "declared-middle", "ignores-idless", "no-attribute", "dangling-attribute"],
+)
+def test_package_identifier_selection(identifiers, unique_identifier, expected_id, expected_uid):
+    """The identifier named by ``unique-identifier`` is the book's identifier, with a legacy fallback."""
+    book = epub.read_epub(_book_with_identifiers(identifiers, unique_identifier))
+
+    assert book.IDENTIFIER_ID == expected_id
+    assert book.uid == expected_uid
+
+    # the written package refers to an identifier that exists
+    written = io.BytesIO()
+    epub.write_epub(written, book)
+    written.seek(0)
+    with zipfile.ZipFile(written) as archive:
+        package = etree.fromstring(archive.read("EPUB/content.opf"))
+    ids = [e.get("id") for e in package.iter("{http://purl.org/dc/elements/1.1/}identifier")]
+    assert package.get("unique-identifier") == expected_id
+    assert expected_id in ids
+
+
+def test_package_identifier_without_any_identifier_id_keeps_declared_value():
+    """Identifiers without ids leave the declared ``unique-identifier`` value untouched."""
+    book = epub.read_epub(_book_with_identifiers("<dc:identifier>no id</dc:identifier>", "pub"))
+
+    assert book.IDENTIFIER_ID == "pub"

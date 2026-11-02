@@ -1,0 +1,223 @@
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mistralai-agents"
+dynamic = ["version"]
+description = "Mistral Agents SDK - build and serve agents in Python"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Mistral AI", email = "support@mistral.ai"}
+]
+keywords = ["ai", "agents", "mistral", "llm", "sdk"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # Backs the per-worker Koyeb sandbox secret cache.
+    "cachetools>=7.1.6,<8",
+    "httpx>=0.28.1",
+    # `agents serve` refuses to start without payload compression. Compatible with both 2.x and 3.x.
+    "mistralai[workflow-payload-compression]>=2.8.0,<4",
+    "mistralai-otel-observability>=0.5.0",
+    "mistralai-vibe-harness[workflows,observability]==0.1.14",
+    "mistralai-vibe-sdk>=0.14.0,<0.15",
+    # 3.16.0 ships the public OTLP exporter factory.
+    "mistralai-workflows>=3.16.0,<4",
+    "mistralai-workflows-plugins-mistralai>=3.0.0a1,<4.0.0",
+    "packaging>=24.1",
+    "pydantic>=2.13.4",
+    "PyYAML>=6.0",
+    "structlog>=25.5.0,<26",
+    # Backs the `agents` console script, which is declared unconditionally.
+    "typer>=0.15",
+    "typing-extensions>=4.16.0",
+]
+
+[project.scripts]
+agents = "mistralai.agents._cli:main"
+
+[project.optional-dependencies]
+# Retained so `[cli]` keeps resolving for anyone already asking for it.
+cli = [
+    "typer>=0.15",
+]
+bashkit = [
+    "bashkit>=0.18,<0.20",
+]
+sessions-client = [
+    "httpx>=0.28.1",
+    "mistralai-vibe-harness==0.1.14",
+]
+koyeb = [
+    "koyeb-sdk>=1.5.5,<2"
+]
+
+[dependency-groups]
+dev = [
+    # Nothing shipped imports nuage_v2, but Agent still exposes `_open_session` and
+    # `_to_nuage_agent_config` for the retained Nuage Session runtime, and the tests covering them
+    # need its closure present. Dev-only: the published distribution does not depend on it.
+    "mistralai-workflows-plugins-nuage-v2",
+    # The skill tests run a real Bashkit sandbox: without it they would test nothing in CI.
+    "bashkit>=0.18,<0.20",
+    "mistralai-otel-observability>=0.5.0",
+    "typer>=0.15",
+    "rich>=13",
+    "types-PyYAML>=6.0",
+    "cachetools>=7.1.6,<8",
+    "hypothesis>=6.156.1",
+    "ovide",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.1.0",
+    "pytest-httpx>=0.36.2",
+    "ruff>=0.15.20",
+    "mypy>=1.20.2",
+]
+
+[tool.uv.sources]
+mistralai-vibe-harness = { path = "../harness/runtimes/python", editable = true }
+mistralai-vibe-sdk = { index = "socket" }
+mistralai-webhook-provider-contracts = { path = "../../connectors-webhook/provider-contracts", editable = true }
+mistralai-workflows = { path = "../../workflow_sdk", editable = true }
+mistralai-workflows-plugins-mistralai = { path = "../../workflow_sdk/plugins/mistralai", editable = true }
+mistralai-workflows-plugins-nuage-v2 = { path = "../agents_controller/nuage_v2", editable = true }
+vibe-code-workflow = { path = "../vibe_code_workflow", editable = true }
+ovide = { path = "../../workflow_sdk/ovide", editable = true }
+
+[tool.uv]
+exclude-newer = "2 days"
+index-strategy = "first-index"
+# `mistralai-workflows` requires `mistralai>=2.4.9` and `nuage_v2` pins a
+# freshly-published `koyeb-sdk`; allow both past the rolling cutoff so this
+# project's dev lock can resolve them.
+exclude-newer-package = { mistralai = false, koyeb-sdk = false, mistralai-vibe-sdk = false, mistralai-otel-observability = false }
+# mistralai[workflow-payload-encryption] caps cryptography <47, but every version <50.0.0 is
+# affected by an open advisory. Override the transitive cap up to the patched line; the cryptography
+# API mistralai uses is stable across this range (same override already ships in jarvis/worker).
+# The mistralai entry stays below 3 because an override replaces every mistralai requirement in this
+# lock, including the `<3` caps of mistralai-workflows and its Mistral plugin; lift it once those
+# support 3.x.
+override-dependencies = [
+    "mistralai[agents,workflow-payload-encryption,workflow-payload-compression]>=2.7.2,<3",
+    "cryptography>=50.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mistralai"]
+
+# The sdist is public, so it ships only the package sources.
+# Hatchling always adds the nearest .gitignore. agents/agents_sdk/.gitignore stops it from picking the root one.
+[tool.hatch.build.targets.sdist]
+only-include = ["mistralai", "README.md", "CHANGELOG.md"]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+# Released by tagging `agents-sdk/<version>`, as workflow_sdk does with `workflows/`.
+[tool.uv-dynamic-versioning]
+vcs = "git"
+pattern-prefix = "agents-sdk/"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "Q", "I", "S"]
+ignore = ["E203"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test code: assert is pytest's idiom, "tokens" and secret names are fixtures, subprocess runs fixed scripts.
+"tests/**" = ["S101", "S105", "S106", "S603"]
+"tests/sandbox/test_koyeb.py" = ["S101", "S105", "S106", "S603", "S604"]
+"examples/**" = ["S101"]
+# Diagram generators: the long lines are canvas copy, and the preview tool shells out to
+# qlmanage and writes PNGs under /tmp.
+"docs/architecture/**" = ["E501"]
+"docs/architecture/preview_diagrams.py" = ["E501", "S108", "S603", "S607"]
+# The CLI entry defers every SDK import into command bodies so first feedback stays near-instant.
+"mistralai/agents/_cli_app.py" = ["PLC0415"]
+# `agents deploy` shells out to a fixed `git` argv to read the deploy source revision.
+"mistralai/vibe_agents/sdk/app/deploy.py" = ["S603", "S607"]
+# assert guards an invariant the workflows SDK already enforces (a registered workflow has a definition).
+"mistralai/vibe_agents/sdk/app/worker/serve.py" = ["S101"]
+# Koyeb provider values are environment-variable names and a fixed runtime path, not credentials.
+"mistralai/vibe_agents/sdk/sandbox/koyeb_proxy.py" = ["S105", "S108"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mistralai"]
+
+[tool.mypy]
+disallow_untyped_defs = true
+show_error_codes = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = ["tests"]
+plugins = ["pydantic.mypy"]
+namespace_packages = true
+explicit_package_bases = true
+
+[tool.pydantic-mypy]
+# Carried over with the SDK surface from nuage_v2, which set it: the moved settings models suppress
+# `pydantic-alias` on fields that resolve their env var through AliasChoices.
+warn_required_dynamic_aliases = true
+
+[[tool.mypy.overrides]]
+# These runtimes ship no py.typed marker, so imports into them resolve as untyped. Treat them as Any
+# here rather than marking a package we are about to dissolve as typed. mistralai-otel-observability
+# is pending a py.typed marker upstream; drop it here once that ships.
+module = [
+    "mistralai.workflows.*",
+    "mistralai.vibe.*",
+    "mistralai.client.*",
+    "mistralai.observability.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Consequence of the override above: every value the capability modules read back from that untyped
+# runtime is Any, so warn_return_any fires on functions that just pass one through. Lifted when the
+# runtime they call is typed.
+module = [
+    "mistralai.vibe_agents.sdk.*",
+    "mistralai.agents.*",
+]
+warn_return_any = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-m 'not benchmark'"
+markers = [
+    "integration: real httpx client driven against an in-process fake ASGI server",
+    "benchmark: informational perf microbenchmarks (deselected from the default run)",
+    "fuzz: property-based Hypothesis tests over the parse/fold surfaces",
+]
+
+[tool.coverage.run]
+source = ["mistralai"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "@(typing\\.)?overload",
+    "raise NotImplementedError",
+    "assert_never\\(",
+    "\\.\\.\\.",
+]

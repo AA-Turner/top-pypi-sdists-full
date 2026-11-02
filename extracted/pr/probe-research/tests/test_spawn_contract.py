@@ -62,7 +62,7 @@ def test_the_spawner_accepts_every_flag_the_contract_names(contract):
 
 def test_the_cli_self_heal_builds_the_contract_argv(contract, tmp_path, monkeypatch):
     """The Python caller, checked against the fixture rather than a literal."""
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     transcript = tmp_path / "session.jsonl"
     transcript.write_text('{"type":"session"}\n', encoding="utf-8")

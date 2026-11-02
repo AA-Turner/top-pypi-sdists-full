@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbdev
-Version: 3.3.27
+Version: 3.3.28
 Summary: Create delightful software with Jupyter Notebooks
 Author-email: "Jeremy Howard and the fast.ai community" <j@fast.ai>
 License-Expression: Apache-2.0
@@ -40,6 +40,7 @@ Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: plum-dispatch; extra == "dev"
 Requires-Dist: nbclient; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
 Dynamic: license-file
 
 # Getting Started

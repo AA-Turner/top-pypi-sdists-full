@@ -1,0 +1,601 @@
+//! Standard library revolution surfaces.
+
+use anyhow::Result;
+use kcmc::ModelingCmd;
+use kcmc::each_cmd as mcmd;
+use kcmc::length_unit::LengthUnit;
+use kcmc::shared::Angle;
+use kcmc::shared::Opposite;
+use kittycad_modeling_cmds::shared::BodyType;
+use kittycad_modeling_cmds::shared::Point3d;
+use kittycad_modeling_cmds::{self as kcmc};
+
+use super::DEFAULT_TOLERANCE_MM;
+use super::args::FromKclValue;
+use super::args::TyF64;
+use crate::errors::KclError;
+use crate::errors::KclErrorDetails;
+use crate::execution::ExecState;
+use crate::execution::ExecutorContext;
+use crate::execution::KclValue;
+use crate::execution::ModelingCmdMeta;
+use crate::execution::Sketch;
+use crate::execution::Solid;
+use crate::execution::types::ArrayLen;
+use crate::execution::types::RuntimeType;
+use crate::parsing::ast::types::TagNode;
+use crate::std::Args;
+use crate::std::axis_or_reference::Axis2dOrEdgeReference;
+use crate::std::edge;
+use crate::std::extrude::build_segment_surface_sketch;
+use crate::std::extrude::do_post_extrude;
+
+extern crate nalgebra_glm as glm;
+
+/// Revolve a sketch or set of sketches around an axis.
+pub async fn revolve(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let sketch_values: Vec<KclValue> = args.get_unlabeled_kw_arg(
+        "sketches",
+        &RuntimeType::Array(
+            Box::new(RuntimeType::Union(vec![RuntimeType::sketch(), RuntimeType::segment()])),
+            ArrayLen::Minimum(1),
+        ),
+        exec_state,
+    )?;
+
+    // axis accepts: (1) Edge or Axis2d (legacy), or (2) an object with sideFaces (edge reference payload)
+    let axis_value: KclValue = args.get_kw_arg("axis", &RuntimeType::any(), exec_state)?;
+    let axis: Axis2dOrEdgeReference = if edge::is_edge_specifier_object(&axis_value) {
+        let spec = edge::parse_edge_specifier_value(&axis_value, &args)?;
+        let edge_reference =
+            edge::resolve_edge_specifier_with_adjacent_faces_or_tag_ids(&spec, exec_state, &args).await?;
+        Axis2dOrEdgeReference::EdgeSpecifier(edge_reference)
+    } else if let Some(axis_val) = Axis2dOrEdgeReference::from_kcl_val(&axis_value) {
+        axis_val
+    } else {
+        return Err(KclError::new_type(KclErrorDetails {
+            message: "axis must be an Edge, Axis2d, Segment, or an object with 'sideFaces' (edge reference)"
+                .to_string(),
+            source_ranges: vec![args.source_range],
+            backtrace: Default::default(),
+        }));
+    };
+    let angle: Option<TyF64> = args.get_kw_arg_opt("angle", &RuntimeType::degrees(), exec_state)?;
+    let tolerance: Option<TyF64> = args.get_kw_arg_opt("tolerance", &RuntimeType::length(), exec_state)?;
+    let tag_start = args.get_kw_arg_opt("tagStart", &RuntimeType::tag_decl(), exec_state)?;
+    let tag_end = args.get_kw_arg_opt("tagEnd", &RuntimeType::tag_decl(), exec_state)?;
+    let symmetric = args.get_kw_arg_opt("symmetric", &RuntimeType::bool(), exec_state)?;
+    let bidirectional_angle: Option<TyF64> =
+        args.get_kw_arg_opt("bidirectionalAngle", &RuntimeType::angle(), exec_state)?;
+    let body_type: BodyType = args
+        .get_kw_arg_opt("bodyType", &RuntimeType::string(), exec_state)?
+        .unwrap_or_default();
+    let sketches = coerce_revolve_targets(
+        sketch_values,
+        body_type,
+        tag_start.as_ref(),
+        tag_end.as_ref(),
+        exec_state,
+        &args.ctx,
+        args.source_range,
+    )
+    .await?;
+
+    let value = inner_revolve(
+        sketches,
+        axis,
+        angle.map(|t| t.n),
+        tolerance,
+        tag_start,
+        tag_end,
+        symmetric,
+        bidirectional_angle,
+        body_type,
+        exec_state,
+        args,
+    )
+    .await?;
+    Ok(value.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn inner_revolve(
+    sketches: Vec<Sketch>,
+    axis: Axis2dOrEdgeReference,
+    angle: Option<f64>,
+    tolerance: Option<TyF64>,
+    tag_start: Option<TagNode>,
+    tag_end: Option<TagNode>,
+    symmetric: Option<bool>,
+    bidirectional_angle: Option<TyF64>,
+    body_type: BodyType,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<Solid>, KclError> {
+    if let Axis2dOrEdgeReference::Axis { direction, .. } = &axis
+        && direction[0].unwrap_to_mm() == 0.0
+        && direction[1].unwrap_to_mm() == 0.0
+    {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "The axis of revolution cannot be the zero vector.".to_owned(),
+            vec![args.source_range],
+        )));
+    }
+
+    if let Some(angle) = angle {
+        // Return an error if the angle is zero.
+        // We don't use validate() here because we want to return a specific error message that is
+        // nice and we use the other data in the docs, so we still need use the derive above for the json schema.
+        if !(-360.0..=360.0).contains(&angle) || angle == 0.0 {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                format!("Expected angle to be between -360 and 360 and not 0, found `{angle}`"),
+                vec![args.source_range],
+            )));
+        }
+    }
+
+    let bidirectional_angle = bidirectional_angle.map(|n| n.unwrap_to_degrees(exec_state, args.source_range));
+    if let Some(bidirectional_angle) = bidirectional_angle {
+        // Return an error if the angle is zero.
+        // We don't use validate() here because we want to return a specific error message that is
+        // nice and we use the other data in the docs, so we still need use the derive above for the json schema.
+        if !(-360.0..=360.0).contains(&bidirectional_angle) || bidirectional_angle == 0.0 {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                format!(
+                    "Expected bidirectional angle to be between -360 and 360 and not 0, found `{bidirectional_angle}`"
+                ),
+                vec![args.source_range],
+            )));
+        }
+
+        if let Some(angle) = angle {
+            let ang = angle.signum() * bidirectional_angle + angle;
+            if !(-360.0..=360.0).contains(&ang) {
+                return Err(KclError::new_semantic(KclErrorDetails::new(
+                    format!("Combined angle and bidirectional must be between -360 and 360, found '{ang}'"),
+                    vec![args.source_range],
+                )));
+            }
+        }
+    }
+
+    if symmetric.unwrap_or(false) && bidirectional_angle.is_some() {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "You cannot give both `symmetric` and `bidirectional` params, you have to choose one or the other"
+                .to_owned(),
+            vec![args.source_range],
+        )));
+    }
+
+    let angle = Angle::from_degrees(angle.unwrap_or(360.0));
+
+    let bidirectional_angle = bidirectional_angle.map(Angle::from_degrees);
+
+    let opposite = match (symmetric, bidirectional_angle) {
+        (Some(true), _) => Opposite::Symmetric,
+        (None, None) => Opposite::None,
+        (Some(false), None) => Opposite::None,
+        (None, Some(angle)) => Opposite::Other(angle),
+        (Some(false), Some(angle)) => Opposite::Other(angle),
+    };
+
+    let mut solids = Vec::new();
+    for sketch in &sketches {
+        let new_solid_id = exec_state.next_uuid();
+        let tolerance = tolerance
+            .as_ref()
+            .map(|t| t.unwrap_to_mm())
+            .unwrap_or(DEFAULT_TOLERANCE_MM);
+
+        let direction = match &axis {
+            Axis2dOrEdgeReference::Axis { direction, origin } => {
+                exec_state
+                    .batch_modeling_cmd(
+                        ModelingCmdMeta::from_args_id(exec_state, &args, new_solid_id),
+                        ModelingCmd::from(
+                            mcmd::Revolve::builder()
+                                .angle(angle)
+                                .target(sketch.id.into())
+                                .axis(Point3d {
+                                    x: direction[0].unwrap_to_mm(),
+                                    y: direction[1].unwrap_to_mm(),
+                                    z: 0.0,
+                                })
+                                .origin(Point3d {
+                                    x: LengthUnit(origin[0].unwrap_to_mm()),
+                                    y: LengthUnit(origin[1].unwrap_to_mm()),
+                                    z: LengthUnit(0.0),
+                                })
+                                .tolerance(LengthUnit(tolerance))
+                                .axis_is_2d(true)
+                                .opposite(opposite.clone())
+                                .body_type(body_type)
+                                .build(),
+                        ),
+                    )
+                    .await?;
+                glm::DVec2::new(direction[0].unwrap_to_mm(), direction[1].unwrap_to_mm())
+            }
+            Axis2dOrEdgeReference::Edge(edge) => {
+                let edge_id = edge.get_engine_id(exec_state, &args)?;
+                let source_range = args
+                    .labeled
+                    .get("axis")
+                    .map(|arg| arg.source_range)
+                    .unwrap_or(args.source_range);
+                edge::record_refactor_meta_for_consumed_edge(exec_state, edge_id, source_range, &args).await;
+                exec_state
+                    .batch_modeling_cmd(
+                        ModelingCmdMeta::from_args_id(exec_state, &args, new_solid_id),
+                        ModelingCmd::from(
+                            mcmd::RevolveAboutEdge::builder()
+                                .angle(angle)
+                                .target(sketch.id.into())
+                                .edge_id(edge_id)
+                                .tolerance(LengthUnit(tolerance))
+                                .opposite(opposite.clone())
+                                .body_type(body_type)
+                                .build(),
+                        ),
+                    )
+                    .await?;
+                //TODO: fix me! Need to be able to calculate this to ensure the path isn't colinear
+                glm::DVec2::new(0.0, 1.0)
+            }
+            Axis2dOrEdgeReference::EdgeSpecifier(edge_ref) => {
+                // New API: use EdgeReference directly
+                exec_state
+                    .batch_modeling_cmd(
+                        ModelingCmdMeta::from_args_id(exec_state, &args, new_solid_id),
+                        ModelingCmd::from(
+                            mcmd::RevolveAboutEdge::builder()
+                                .angle(angle)
+                                .target(sketch.id.into())
+                                .edge_reference(edge_ref.clone())
+                                .tolerance(LengthUnit(tolerance))
+                                .opposite(opposite.clone())
+                                .body_type(body_type)
+                                .build(),
+                        ),
+                    )
+                    .await?;
+                //TODO: fix me! Need to be able to calculate this to ensure the path isn't colinear
+                glm::DVec2::new(0.0, 1.0)
+            }
+        };
+
+        let mut edge_id = None;
+        // If an edge lies on the axis of revolution it will not exist after the revolve, so
+        // it cannot be used to retrieve data about the solid
+        for path in sketch.paths.clone() {
+            if sketch.synthetic_jump_path_ids.contains(&path.get_id()) {
+                continue;
+            }
+
+            if !path.is_straight_line() {
+                edge_id = Some(path.get_id());
+                break;
+            }
+
+            let from = path.get_from();
+            let to = path.get_to();
+
+            let dir = glm::DVec2::new(to[0].n - from[0].n, to[1].n - from[1].n);
+            if glm::are_collinear2d(&dir, &direction, tolerance) {
+                continue;
+            }
+            edge_id = Some(path.get_id());
+            break;
+        }
+
+        solids.push(
+            do_post_extrude(
+                sketch,
+                new_solid_id.into(),
+                false,
+                &super::extrude::NamedCapTags {
+                    start: tag_start.as_ref(),
+                    end: tag_end.as_ref(),
+                },
+                kittycad_modeling_cmds::shared::ExtrudeMethod::New,
+                exec_state,
+                &args,
+                edge_id,
+                None,
+                body_type,
+                crate::std::extrude::BeingExtruded::Sketch,
+            )
+            .await?,
+        );
+    }
+
+    Ok(solids)
+}
+
+pub async fn coerce_revolve_targets(
+    sketch_values: Vec<KclValue>,
+    body_type: BodyType,
+    tag_start: Option<&TagNode>,
+    tag_end: Option<&TagNode>,
+    exec_state: &mut ExecState,
+    ctx: &ExecutorContext,
+    source_range: crate::SourceRange,
+) -> Result<Vec<Sketch>, KclError> {
+    let mut sketches = Vec::new();
+    let mut segments = Vec::new();
+
+    for value in sketch_values {
+        if let Some(segment) = value.clone().into_segment() {
+            segments.push(segment);
+            continue;
+        }
+
+        let Some(sketch) = Sketch::from_kcl_val(&value) else {
+            return Err(KclError::new_type(KclErrorDetails::new(
+                "Expected sketches or solved sketch segments for revolve.".to_owned(),
+                vec![source_range],
+            )));
+        };
+        sketches.push(sketch);
+    }
+
+    if !segments.is_empty() && !sketches.is_empty() {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "Cannot revolve sketch segments together with sketches in the same call. Use separate `revolve()` calls."
+                .to_owned(),
+            vec![source_range],
+        )));
+    }
+
+    if !segments.is_empty() {
+        if !matches!(body_type, BodyType::Surface) {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Revolving sketch segments is only supported for surface revolves. Set `bodyType = SURFACE`."
+                    .to_owned(),
+                vec![source_range],
+            )));
+        }
+
+        if tag_start.is_some() || tag_end.is_some() {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "`tagStart` and `tagEnd` are not supported when revolving sketch segments. Segment surface revolves do not create start or end caps."
+                    .to_owned(),
+                vec![source_range],
+            )));
+        }
+
+        let synthetic_sketch = build_segment_surface_sketch(segments, exec_state, ctx, source_range).await?;
+        return Ok(vec![synthetic_sketch]);
+    }
+
+    Ok(sketches)
+}
+
+#[cfg(test)]
+mod tests {
+    use kcl_api::Expr;
+    use kcl_api::Number;
+    use kcl_api::ObjectId;
+    use kcl_api::Point2d;
+    use kcl_api::PointCtor;
+    use kcl_api::UnitLength;
+
+    use super::*;
+    use crate::execution::AbstractSegment;
+    use crate::execution::MockConfig;
+    use crate::execution::Plane;
+    use crate::execution::Segment;
+    use crate::execution::SegmentKind;
+    use crate::execution::SegmentRepr;
+    use crate::execution::SketchSurface;
+    use crate::execution::types::NumericType;
+    use crate::execution::types::NumericTypeExt;
+    use crate::parsing::ast::types::TagDeclarator;
+    use crate::std::sketch::PlaneData;
+
+    fn point_expr(x: f64, y: f64) -> Point2d<Expr> {
+        Point2d {
+            x: Expr::Var(Number::from((x, UnitLength::Millimeters))),
+            y: Expr::Var(Number::from((y, UnitLength::Millimeters))),
+        }
+    }
+
+    fn segment_value(exec_state: &mut ExecState) -> KclValue {
+        let plane = Plane::from_plane_data_skipping_engine(PlaneData::XY, exec_state).unwrap();
+        let segment = Segment {
+            id: exec_state.next_uuid(),
+            object_id: ObjectId(1),
+            kind: SegmentKind::Point {
+                position: [TyF64::new(0.0, NumericType::mm()), TyF64::new(0.0, NumericType::mm())],
+                ctor: Box::new(PointCtor {
+                    position: point_expr(0.0, 0.0),
+                }),
+                freedom: None,
+            },
+            surface: SketchSurface::Plane(Box::new(plane)),
+            sketch_id: exec_state.next_uuid(),
+            sketch: None,
+            tag: None,
+            node_path: None,
+            meta: vec![],
+        };
+        KclValue::Segment {
+            value: Box::new(AbstractSegment {
+                repr: SegmentRepr::Solved {
+                    segment: Box::new(segment),
+                },
+                meta: vec![],
+            }),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn segment_revolve_rejects_cap_tags() {
+        let ctx = ExecutorContext::new_mock(None).await;
+        let mut exec_state = ExecState::new(&ctx);
+        let err = coerce_revolve_targets(
+            vec![segment_value(&mut exec_state)],
+            BodyType::Surface,
+            Some(&TagDeclarator::new("cap_start")),
+            None,
+            &mut exec_state,
+            &ctx,
+            crate::SourceRange::default(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(
+            err.message()
+                .contains("`tagStart` and `tagEnd` are not supported when revolving sketch segments"),
+            "{err:?}"
+        );
+        ctx.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn mock_revolve_rejects_axis_that_collapses_to_zero_in_2d() {
+        let code = r#"
+profile = startSketchOn(XZ)
+  |> startProfile(at = [10, 0])
+  |> line(end = [0, 10])
+  |> line(end = [-10, 0])
+  |> close()
+
+body = revolve(profile, axis = Z, angle = 90deg)
+"#;
+        let program = crate::Program::parse_no_errs(code).unwrap();
+        let ctx = ExecutorContext::new_mock(None).await;
+        let err = ctx.run_mock(&program, &MockConfig::default()).await.unwrap_err();
+        ctx.close().await;
+
+        assert!(
+            err.error
+                .message()
+                .contains("axis of revolution cannot be the zero vector"),
+            "{err:?}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn mock_revolve_accepts_nonzero_2d_axis() {
+        let code = r#"
+profile = startSketchOn(XZ)
+  |> startProfile(at = [10, 0])
+  |> line(end = [0, 10])
+  |> line(end = [-10, 0])
+  |> close()
+
+body = revolve(profile, axis = Y, angle = 90deg)
+"#;
+        let program = crate::Program::parse_no_errs(code).unwrap();
+        let ctx = ExecutorContext::new_mock(None).await;
+        let outcome = ctx.run_mock(&program, &MockConfig::default()).await;
+        ctx.close().await;
+
+        outcome.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn revolve_converts_bidirectional_angle_to_degrees() {
+        // https://github.com/KittyCAD/modeling-app/issues/14209
+        // Like `angle`, `bidirectionalAngle` must reach the engine in degrees,
+        // whatever unit it was written in.
+        for (bidirectional_angle, expected_degrees) in [
+            ("2rad", 2.0_f64.to_degrees()),
+            ("30deg", 30.0),
+            ("30", 30.0),
+            ("0.5rad", 0.5_f64.to_degrees()),
+        ] {
+            let code = format!(
+                r#"
+profile = startSketchOn(XZ)
+  |> startProfile(at = [10, 0])
+  |> line(end = [0, 10])
+  |> line(end = [-10, 0])
+  |> close()
+
+body = revolve(profile, axis = Y, angle = 90deg, bidirectionalAngle = {bidirectional_angle})
+"#
+            );
+            let result = crate::execution::parse_execute(&code).await.unwrap();
+            let opposite = result
+                .root_module_artifact_commands()
+                .iter()
+                .find_map(|artifact_command| match &artifact_command.command {
+                    ModelingCmd::Revolve(command) => Some(command.opposite.clone()),
+                    _ => None,
+                })
+                .expect("expected revolve() to send a Revolve command");
+
+            let Opposite::Other(actual) = opposite else {
+                panic!("bidirectionalAngle = {bidirectional_angle}: expected an opposite angle, got {opposite:?}");
+            };
+            assert!(
+                (actual.to_degrees() - expected_degrees).abs() < 1e-9,
+                "bidirectionalAngle = {bidirectional_angle}: expected {expected_degrees} deg, got {} deg",
+                actual.to_degrees()
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn revolve_checks_bidirectional_angle_range_in_degrees() {
+        // 7rad is about 401 degrees, which is out of range. Before the fix it
+        // was read as 7 degrees and accepted.
+        let code = r#"
+profile = startSketchOn(XZ)
+  |> startProfile(at = [10, 0])
+  |> line(end = [0, 10])
+  |> line(end = [-10, 0])
+  |> close()
+
+body = revolve(profile, axis = Y, angle = 90deg, bidirectionalAngle = 7rad)
+"#;
+        let Err(err) = crate::execution::parse_execute(code).await else {
+            panic!("expected bidirectionalAngle = 7rad to be rejected as out of range");
+        };
+        assert!(
+            err.message()
+                .contains("Expected bidirectional angle to be between -360 and 360"),
+            "{err:?}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn revolve_panic_with_direction_unknown_units() {
+        // Regression test for https://github.com/KittyCAD/modeling-app/issues/14328
+        for code in [
+            // Case with non-length units in direction
+            r#"@settings(kclVersion = 2.0)
+profile = sketch(on = XY) {
+  circle1 = circle(center = [10mm, 0mm], start = [11mm, 0mm])
+}
+body = revolve(region(segments = [profile.circle1]),
+axis = { direction = [0, 1rad], origin = [1mm, 0mm] })
+"#,
+            // Case with non-length units in origin
+            r#"@settings(kclVersion = 2.0)
+profile = sketch(on = XY) {
+  circle1 = circle(center = [10mm, 0mm], start = [11mm, 0mm])
+}
+body = revolve(region(segments = [profile.circle1]),
+axis = { direction = [0, 1], origin = [1mm + 1deg, 0mm] })
+"#,
+        ] {
+            let program = crate::Program::parse_no_errs(code).unwrap();
+            let ctx = ExecutorContext::new_mock(None).await;
+            let outcome = ctx.run_mock(&program, &crate::MockConfig::default()).await;
+            ctx.close().await;
+            let err = outcome.expect_err("This should not have passed").error;
+            let KclError::Type { details } = err else {
+                panic!("Expected Type error, got {err}");
+            };
+            // Error message should be something like
+            // axis must be an Edge, Axis2d, Segment, or an object with 'sideFaces' (edge reference)
+            assert!(details.message.contains("Edge"));
+            assert!(details.message.contains("Axis2d"));
+            assert!(details.message.contains("Segment"));
+        }
+    }
+}

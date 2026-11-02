@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "9.5.1"
+version = "10.0.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -31,7 +31,7 @@ keywords = [
 ]
 license = "GPL-2.0-or-later"
 license-files = ["license"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -48,7 +48,6 @@ classifiers = [
     "Operating System :: POSIX :: BSD :: OpenBSD",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -70,13 +69,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "boltons>=26.2",
-    "click>=8.4.1",
-    "cloup>=3.0.7",
-    "deepmerge>=1.0.1",
-    "extra-platforms>=13.4",
-    "tabulate[widechars]>=0.9",
-    "tomli>=2; python_version<'3.11'",
+    "click>=8.5",
+    "cloup>=4",
+    "extra-platforms>=14",
+    "tabulate[widechars]>=0.10",
     "wcmatch>=10",
     "wcwidth>=0.8.3",
 ]
@@ -86,11 +82,10 @@ name = "Kevin Deldycke"
 email = "kevin@deldycke.com"
 
 [project.optional-dependencies]
-all = ["click-extra[carapace,hjson,json5,jsonc,mkdocs,pygments,pytest,sphinx,toml,xml,yaml]"]
+all = ["click-extra[carapace,hjson,json5,mkdocs,pygments,pytest,sphinx,toml,yaml]"]
 carapace = ["pyyaml>=6.0.3"]
 hjson = ["hjson>=3.1"]
 json5 = ["json5>=0.12.1"]
-jsonc = ["json-with-comments>=1.2.10"]
 mkdocs = [
     "mkdocs>=1.4",
     "pygments>=2.14",
@@ -100,16 +95,17 @@ pygments = ["pygments>=2.14"]
 pytest = ["pytest>=9"]
 sphinx = [
     "docutils>=0.20",
+    "myst-parser>=5.1",
+    "packaging>=23",
     "pygments>=2.18",
     "sphinx>=8",
 ]
-toml = ["tomlkit>=0.13"]
-xml = ["xmltodict>=1"]
+toml = ["tomlrt>=2.2.10"]
 yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.5.1"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v10.0.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -152,13 +148,13 @@ click-extra = "click_extra.pytest"
 
 [dependency-groups]
 test = [
-    "backports-strenum>=1.3; python_version<'3.11'",
     "coverage[toml]>=7.13",
-    "extra-platforms[pytest]>=13.4",
+    "extra-platforms[pytest]>=14",
     "jsonschema>=4.18",
     "mkdocs>=1.4",
     "mkdocs-click>=0.8.1",
-    "myst-parser>=4",
+    "myst-parser>=5.1",
+    "packaging>=23",
     "pymdown-extensions>=10",
     "pytest>=9",
     "pytest-github-actions-annotate-failures>=0.2",
@@ -166,13 +162,11 @@ test = [
     "pytest-randomly>=3",
     "requests>=2.34",
     "sphinx>=8",
-    "tomli>=2; python_version<'3.11'",
 ]
 docs = [
     "flask>=3",
     "furo>=2025.9.25",
     "hjson>=3.1",
-    "json-with-comments>=1.2.10",
     "json5>=0.12.1",
     "mkdocs>=1.4",
     "myst-parser>=5.1",
@@ -182,37 +176,34 @@ docs = [
     "pytest>=9",
     "pyyaml>=6.0.3",
     "sphinx>=8",
-    "sphinx-autodoc-typehints>=2.4",
+    "sphinx-autodoc-typehints>=3.4",
     "sphinx-copybutton>=0.5.2",
     "sphinx-datatables>=1",
     "sphinx-design>=0.6",
     "sphinxcontrib-mermaid>=1.2.3",
     "sphinxext-opengraph>=0.13",
-    "tomlkit>=0.13",
-    "xmltodict>=1",
+    "tomlrt>=2.2.10",
 ]
 typing = [
-    "types-boltons>=25.0.0.20250919",
     "types-docutils>=0.22.3.20251115",
     "types-jsonschema>=4.18",
     "types-pygments>=2.19.0.20251121",
     "types-pyyaml>=6.0.12.9",
-    "types-tabulate>=0.9.0.2",
-    "types-xmltodict>=1.0.1.20250920",
+    "types-tabulate>=0.10.0.20260308",
 ]
 
 [tool.setuptools.package-data]
-click_extra = [
-    "*.toml",
-    "py.typed",
-]
+click_extra = ["py.typed"]
 
 [tool.uv]
-required-version = ">=0.11.15"
+required-version = ">=0.12.22"
 exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
+
+[tool.uv.exclude-newer-package]
+extra-platforms = "2026-11-02T00:00:00Z"
 
 [tool.uv.build-backend]
 module-root = ""
@@ -233,7 +224,10 @@ source-include = [
 ]
 
 [tool.nuitka]
-include-package-data = "click_extra"
+include-module = [
+    "click_extra.cli_capture",
+    "click_extra.cli_prebake",
+]
 
 [tool.ruff]
 preview = true
@@ -246,7 +240,13 @@ output-prefer-rule-codes = true
 docstring-code-format = true
 
 [tool.ruff.lint]
-extend-select = ["PLW1514"]
+extend-select = [
+    "PLW1514",
+    "RUF100",
+    "RUF102",
+    "RUF103",
+    "RUF104",
+]
 ignore = [
     "B008",
     "D301",
@@ -313,7 +313,6 @@ warn_unused_configs = true
 [[tool.mypy.overrides]]
 module = [
     "hjson",
-    "jsonc",
     "pymdownx",
     "pymdownx.*",
     "sphinxcontrib.mermaid",
@@ -335,6 +334,8 @@ markers = [
     "network: Tests that require network access (excluded with -m 'not network').",
     "once: Tests that only need to run once, not across the full CI matrix.",
 ]
+strict_config = true
+strict_markers = true
 testpaths = ["tests"]
 xfail_strict = true
 
@@ -349,7 +350,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "9.5.1"
+current_version = "10.0.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -464,7 +465,15 @@ no-extras = ["all"]
 
 [tool.repomatic.lint-repo.declined.pytest.addopts]
 "--cov-report=term" = "The matrix job of tests.yaml runs pytest under coverage run instead."
-"--numprocesses=auto" = "The suite is not pytest-xdist-safe."
+"--dist=loadgroup" = "The suite is not pytest-xdist-safe."
+"--numprocesses=logical" = "The suite is not pytest-xdist-safe."
+
+[tool.repomatic.lint-repo.declined.ruff.lint.extend-select]
+D205 = "The existing findings need a clean-up pass of their own."
+D209 = "The existing findings need a clean-up pass of their own."
+E501 = "The existing findings need a clean-up pass of their own."
+PLC0415 = "Deferred imports keep heavy dependencies off the CLI startup path."
+TC = "The existing findings need a clean-up pass of their own."
 
 [tool.repomatic.manpages]
 script = "click_extra.cli:demo"
@@ -509,103 +518,90 @@ cloup-version = "released"
 
 [[tool.repomatic.test-matrix.exclude]]
 os = "ubuntu-26.04"
-python-version = "3.15"
+python-version = "3.16"
 
 [[tool.repomatic.test-matrix.exclude]]
 os = "macos-26"
-python-version = "3.15"
+python-version = "3.16"
 
 [[tool.repomatic.test-matrix.exclude]]
 os = "windows-2025"
-python-version = "3.15"
+python-version = "3.16"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.10"
+python-version = "3.11"
 resolution = "lowest-direct"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.10"
-click-version = "8.4.1"
-cloup-version = "v3.1.0"
+python-version = "3.11"
+click-version = "8.5.0"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.10"
-click-version = "8.4.2"
-cloup-version = "v3.1.0"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.14"
-click-version = "released"
-cloup-version = "v3.1.0"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.14"
+python-version = "3.15"
 click-version = "stable"
 cloup-version = "released"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14t"
+python-version = "3.15t"
 click-version = "stable"
 cloup-version = "released"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14"
+python-version = "3.15"
 click-version = "main"
 cloup-version = "released"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14t"
+python-version = "3.15t"
 click-version = "main"
 cloup-version = "released"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14"
+python-version = "3.15"
 click-version = "released"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14t"
+python-version = "3.15t"
 click-version = "released"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14"
+python-version = "3.15"
 click-version = "stable"
 cloup-version = "master"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14t"
+python-version = "3.15t"
 click-version = "stable"
 cloup-version = "master"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14"
+python-version = "3.15"
 click-version = "main"
 cloup-version = "master"
 state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
-python-version = "3.14t"
+python-version = "3.15t"
 click-version = "main"
 cloup-version = "master"
 state = "unstable"

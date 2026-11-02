@@ -1,0 +1,29 @@
+# conda env create -f environment.yml
+name: beamphysics-dev
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - numpy
+  - scipy>=1.0.0
+  - matplotlib
+  - h5py
+  - python-dateutil
+  # Developer
+  - pre-commit
+  - pytest<9.2  # pytest-benchmark 5.3 uses Item._nodeid, removed in pytest 9.2
+  - pytest-benchmark
+  - pytest-cov
+  - pyyaml
+  - pint  # test-only: independent oracle for beamphysics.units
+  - jupyterlab>=3
+  - nbconvert
+  # Documentation
+  - mkdocs
+  - mkdocstrings
+  - mkdocs-material
+  - mkdocs-jupyter
+  - mkdocstrings-python
+  - pygments
+  - pymdown-extensions >=10.21.2
+  - pip

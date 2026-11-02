@@ -1,0 +1,90 @@
+id: "fix-terminal-capability-defaults-and-color-contract"
+title: "Fix terminal capability defaults and color contract"
+worktree: "main"
+priority: "High"
+status: "Completed"
+description: |
+  Correct the standalone library's terminal capability behavior so default
+  renders respect non-interactive output and NO_COLOR instead of forcing ANSI
+  color codes. The current implementation violates the documented
+  terminal-aware contract and will produce polluted output when users redirect
+  chart text to files, logs, or CI artifacts.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Reproduce the non-TTY and NO_COLOR cases with targeted tests"
+    status: done
+  - id: w2
+    summary: "Update color resolution to honor detected capabilities by default"
+    needs: [w1]
+    status: done
+  - id: w3
+    summary: "Clarify README behavior and any explicit override semantics"
+    needs: [w2]
+    status: done
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "release"
+    - "terminal"
+    - "ansi"
+  estimated_effort: "Small"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T09:20:00"
+impact:
+  business_value: |
+    Fixes a visible public-library defect that would otherwise create broken
+    first impressions in scripts, docs, and CI usage.
+  user_impact: |
+    Users get clean plain-text output by default when rendering outside a TTY.
+  technical_debt: |
+    Aligns implementation with documented behavior and reduces environment-
+    specific surprises.
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+    - "README.md"
+    - "tests/"
+must_preserve:
+  - "Explicit ChartOptions(use_color=False) continues to disable ANSI escapes in all environments"
+  - "Interactive terminals with color capability still render colored output by default"
+  - "Existing public imports from textcharts.__init__ remain intact"
+approach: |
+  Start by adding deterministic tests around get_colors() and render() output
+  for non-TTY and NO_COLOR scenarios. Then change the fallback path in
+  ASCIIChartOptions.get_colors() so default behavior follows detected terminal
+  capabilities. If an explicit override is still needed for internal contexts,
+  make that a documented option rather than an implicit forced fallback.
+anti_patterns:
+  - "DO NOT special-case only one chart renderer — because color handling is centralized — fix the shared options path in base.py instead"
+  - "DO NOT preserve forced EXTENDED mode for subprocess output — because that is the defect — add an explicit override mechanism if a caller truly needs it"
+verification:
+  - description: "Color capability tests cover non-TTY, TTY, and NO_COLOR behavior"
+    command: ".venv/bin/python -m pytest -q tests"
+    expected_output: "tests pass with assertions covering ANSI/no-ANSI behavior"
+  - description: "Wheel still builds after capability changes"
+    command: "uv build"
+    expected_output: "source distribution and wheel build successfully"
+scope_limit:
+  only_modify:
+    - "src/textcharts/base.py"
+    - "README.md"
+    - "tests/"
+  do_not_modify:
+    - "src/textcharts/__init__.py"
+success_metrics:
+  - "Default render output contains no ANSI escapes when stdout is not a TTY"
+  - "README accurately describes default color behavior and any override"
+completed_date: "2026-03-06"
+
+sections:
+  "Implementation Summary": |
+    Added standalone tests covering detected color capabilities and default
+    render output, then changed ASCIIChartOptions.get_colors() to respect
+    detected terminal capabilities instead of forcing EXTENDED mode. Updated
+    the README to document default plain-text behavior outside TTY contexts.
+
+  "Verification": |
+    .venv/bin/python -m pytest -q
+    uv build

@@ -1,0 +1,112 @@
+[build-system]
+requires = []
+build-backend = "fullbleed_build_backend"
+backend-path = ["build_backend"]
+
+[project]
+name = "fullbleed"
+version = "2.5.51"
+description = "Deterministic Python PDF engine for reports, invoices, accessible documents, print-ready output, and compiled VDP"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = [
+    "LICENSE",
+    "COPYRIGHT",
+    "LICENSING.md",
+    "THIRD_PARTY_LICENSES.md",
+    "FONT_LICENSE_AUDIT.md",
+    "FONT_LICENSE_AUDIT.json",
+    "src/preview_fonts/LICENSE-Liberation.txt",
+    "src/preview_fonts/LICENSE-NotoSans.txt",
+    "src/preview_fonts/LICENSE-NotoSansMath.txt",
+    "src/preview_fonts/LICENSE-NotoSansSymbols.txt",
+    "src/preview_fonts/LICENSE-NotoSansSymbols2.txt",
+]
+keywords = [
+    "pdf-generation",
+    "document-generation",
+    "html-to-pdf",
+    "python-pdf-engine",
+    "deterministic-pdf",
+    "reports",
+    "invoices",
+    "statements",
+    "forms",
+    "transactional-documents",
+    "vdp",
+    "variable-data-printing",
+    "accessible-pdf",
+    "pdf-ua",
+    "pdf-a",
+    "pdf-x",
+    "ai-agents",
+    "agentic-document-generation",
+    "mcp",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Office/Business",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Printing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+# This is the important part: pip generates the `fullbleed` command from this
+[project.scripts]
+fullbleed = "fullbleed_cli.cli:main"
+
+[project.urls]
+Homepage = "https://fullbleed.dev"
+Repository = "https://github.com/fullbleed-engine/fullbleed-official"
+Documentation = "https://docs.fullbleed.dev/"
+Issues = "https://github.com/fullbleed-engine/fullbleed-official/issues"
+Agent-Contract = "https://github.com/fullbleed-engine/fullbleed-official/blob/master/fullbleed-agent-contract.json"
+Agent-Skill = "https://github.com/fullbleed-engine/fullbleed-official/tree/master/skills/fullbleed"
+MCP = "https://github.com/fullbleed-engine/fullbleed-official/tree/master/packages/fullbleed-mcp"
+
+[project.optional-dependencies]
+# Compatibility name retained for existing `fullbleed[api]` consumers. The
+# shipped package never contained the ignored Escambia HTTP prototype.
+api = []
+
+[tool.fullbleed-build]
+features = ["python", "svg_raster"]
+python-source = "python"
+python-packages = ["fullbleed", "fullbleed_assets", "fullbleed_cli"]
+module-name = "fullbleed._fullbleed"
+abi-tag = "cp310-abi3"
+strip = true
+
+[tool.fullbleed-build.wheel-resources]
+"fullbleed/agent_contract.json" = "fullbleed-agent-contract.json"
+"fullbleed/llms.txt" = "llms.txt"
+"fullbleed/skill/SKILL.md" = "skills/fullbleed/SKILL.md"
+"fullbleed/skill/agents/openai.yaml" = "skills/fullbleed/agents/openai.yaml"
+"fullbleed/skill/references/compliance.md" = "skills/fullbleed/references/compliance.md"
+"fullbleed/skill/references/selection.md" = "skills/fullbleed/references/selection.md"
+"fullbleed/skill/references/workflows.md" = "skills/fullbleed/references/workflows.md"
+"fullbleed/specs/fullbleed.audit_registry.v1.yaml" = "docs/specs/fullbleed.audit_registry.v1.yaml"
+"fullbleed/specs/fullbleed.a11y.verify.v1.schema.json" = "docs/specs/fullbleed.a11y.verify.v1.schema.json"
+"fullbleed/specs/fullbleed.pmr.v1.schema.json" = "docs/specs/fullbleed.pmr.v1.schema.json"
+"fullbleed/specs/wcag20aa_registry.v1.yaml" = "docs/specs/wcag20aa_registry.v1.yaml"
+"fullbleed/specs/section508_html_registry.v1.yaml" = "docs/specs/section508_html_registry.v1.yaml"
+
+[tool.pytest.ini_options]
+addopts = ["--ignore-glob=*.txt"]
+testpaths = ["tests"]
+norecursedirs = [".git", ".venv", "target"]

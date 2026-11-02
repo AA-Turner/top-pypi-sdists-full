@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -19,7 +20,12 @@ from trilogy.core.models.build import (
     nonstandard_grouping_lineage,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
-from trilogy.core.processing.aggregate_rollup import get_rollup_concepts
+from trilogy.core.processing.aggregate_rollup import (
+    arm_rollup_concepts,
+    get_rollup_concepts,
+    holds_every_kept_row,
+    source_rollup_concepts,
+)
 from trilogy.core.processing.condition_utility import (
     condition_implies,
     condition_proves_non_null,
@@ -153,19 +159,18 @@ def subgraph_concepts(
     """The concepts a datasource subgraph reads. The graph keys a node by
     canonical address, so two requested names for one expression (`total`
     beside `sum(amount) by order_id as explicit`) are one node: each of them
-    comes back, not only the `canonical_concepts` winner."""
-    concepts = [
-        environment.canonical_concepts[extract_address(c)]
-        for c in subgraph
-        if c.startswith("c~")
-    ]
-    addresses = {c.address for c in concepts}
-    canonicals = {c.canonical_address for c in concepts}
-    return concepts + [
-        c
-        for c in unique(list(requested), "address")
-        if c.canonical_address in canonicals and c.address not in addresses
-    ]
+    comes back, not only the `canonical_concepts` winner. The winner itself
+    comes back only when nothing requested shares its canonical: an unrequested
+    name (`planted_year` declared after `plant_year`, both `year(plant_date)`)
+    would otherwise join the scan's outputs and its grain."""
+    by_canonical: dict[str, list[BuildConcept]] = defaultdict(list)
+    for c in unique(list(requested), "address"):
+        by_canonical[c.canonical_address].append(c)
+    out: list[BuildConcept] = []
+    for node in (n for n in subgraph if n.startswith("c~")):
+        winner = environment.canonical_concepts[extract_address(node)]
+        out.extend(by_canonical.get(winner.canonical_address) or [winner])
+    return unique(out, "address")
 
 
 def create_select_node_candidate(
@@ -264,12 +269,53 @@ def create_select_node(
     return finalize_select_node(candidate, environment, depth, defer_group)
 
 
+def _computed_from(
+    address: str, available: set[str], environment: BuildEnvironment
+) -> bool:
+    if address in available:
+        return True
+    concept = environment.concepts.get(address)
+    if concept is None or concept.derivation != Derivation.BASIC:
+        return False
+    arguments = concept.concept_arguments
+    return bool(arguments) and all(
+        _computed_from(argument.address, available, environment)
+        for argument in arguments
+    )
+
+
+def _computed_axes_grain(
+    grain: BuildGrain, concepts: list[BuildConcept], environment: BuildEnvironment
+) -> BuildGrain:
+    """An aggregate is no grain component of a scan that reads the columns its
+    axis is computed from (`count(x) by plant_year::int` beside `plant_year`):
+    the scan holds it as a partial at their grain, re-aggregated where the
+    axis is computed."""
+    rows = {c.address for c in concepts if not c.is_aggregate}
+    computed = {
+        c.address
+        for c in concepts
+        if c.is_aggregate
+        and c.address in grain.components
+        and c.grain.components
+        and not c.grain.abstract
+        and all(_computed_from(a, rows, environment) for a in c.grain.components)
+    }
+    if not computed:
+        return grain
+    return BuildGrain(components=grain.components - computed)
+
+
 def scan_target_grain(
     concepts: list[BuildConcept], environment: BuildEnvironment
 ) -> BuildGrain:
     """A merged attribute read without its own key is the grain itself: a
     scan of it is joined on the value, so its rows must be distinct values."""
-    grain = BuildGrain.from_concepts(concepts, environment=environment)
+    grain = _computed_axes_grain(
+        BuildGrain.from_concepts(concepts, environment=environment),
+        concepts,
+        environment,
+    )
     addresses = {c.address for c in concepts}
     merged = {
         c.address
@@ -309,7 +355,10 @@ def create_datasource_node(
     depth: int,
     conditions: BuildWhereClause | None = None,
     injected_conditions: BoolExpr | None = None,
+    stacked: bool = False,
 ) -> tuple[StrategyNode, bool]:
+    """`stacked`: the scan is one arm of a covering union, which holds the
+    rows the arm alone lacks."""
     target_grain = scan_target_grain(all_concepts, environment)
     datasource_grain = BuildGrain.from_concepts(
         datasource.grain.components, environment=environment
@@ -325,8 +374,17 @@ def create_datasource_node(
         for c in all_concepts
     ):
         force_group = True
-    rollup_concepts = (
-        get_rollup_concepts(
+    if stacked:
+        rollup_concepts = arm_rollup_concepts(
+            datasource,
+            all_concepts,
+            environment.concepts,
+            list(datasources),
+            target_grain,
+            conditions,
+        )
+    elif force_group and holds_every_kept_row(datasource, conditions):
+        rollup_concepts = get_rollup_concepts(
             datasource=datasource,
             requested_concepts=all_concepts,
             concepts_by_address=environment.concepts,
@@ -334,9 +392,8 @@ def create_datasource_node(
             target_grain=target_grain,
             conditions=conditions,
         )
-        if force_group
-        else []
-    )
+    else:
+        rollup_concepts = []
     rollup_addresses = {c.address for c in rollup_concepts}
     datasource_output_addresses = {c.address for c in datasource.output_concepts}
 
@@ -485,6 +542,7 @@ def create_union_datasource_candidate(
             datasources,
             depth + 1,
             injected_conditions=injected_cond,
+            stacked=True,
         )
         parents.append(subnode)
         force_group = force_group or fg
@@ -505,19 +563,32 @@ def create_union_datasource_candidate(
         strip_atoms(conditions.conditional, unclaimed) if conditions else None
     )
     union_partials = [c for c in all_concepts if c.address in partial]
+    # Arms already at the stack's grain scan their stored partials as-is; the
+    # stack still sums them across arms.
+    stack_rollups = source_rollup_concepts(
+        datasource=effective_union,
+        requested_concepts=all_concepts,
+        concepts_by_address=environment.concepts,
+        datasources=datasources,
+        target_grain=scan_target_grain(all_concepts, environment),
+    )
+    if stack_rollups:
+        force_group = True
+        group_source_count = max(group_source_count, 1)
     logger.info(
         f"{padding(depth)}{LOGGER_PREFIX} returning union node with {len(parents)} branch(es)"
     )
-    return (
-        UnionNode(
-            output_concepts=all_concepts,
-            input_concepts=all_concepts,
-            environment=environment,
-            parents=parents,
-            depth=depth,
-            partial_concepts=union_partials,
-            preexisting_conditions=union_preexisting,
+    union = UnionNode(
+        output_concepts=all_concepts,
+        input_concepts=all_concepts,
+        environment=environment,
+        parents=parents,
+        depth=depth,
+        partial_concepts=union_partials,
+        preexisting_conditions=union_preexisting,
+        grain=BuildGrain.from_concepts(
+            effective_union.grain.components, environment=environment
         ),
-        force_group,
-        group_source_count,
     )
+    union.rollup_concepts = stack_rollups
+    return union, force_group, group_source_count

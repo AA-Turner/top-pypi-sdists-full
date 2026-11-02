@@ -1,0 +1,57 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: slack
+version: 0.0.1
+name: Slack
+description: Slack messaging and channel operations
+
+command: npx
+args:
+  - "-y"
+  - "@datalayer/slack-mcp-server"
+
+transport: stdio
+
+envvars:
+  - SLACK_BOT_TOKEN:0.0.1
+  - SLACK_TEAM_ID:0.0.1
+  - SLACK_CHANNEL_IDS:0.0.1
+
+env:
+  SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
+  SLACK_TEAM_ID: "${SLACK_TEAM_ID}"
+  SLACK_CHANNEL_IDS: "${SLACK_CHANNEL_IDS}"
+
+# Not offered on the platform yet: the integrations page lists it as not available.
+enabled: false
+
+tags:
+  - communication
+  - messaging
+  - collaboration
+
+icon: "@datalayer/icons-react:slack"
+emoji: 💬
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: "2026-10-02"
+  note: >-
+    Posting, replying and reacting put something in front of other people. A post and
+    a reply say the argument holding their words (`signs`): an application's runtime
+    closes it with its byline.
+  tools:
+    slack_list_channels: read
+    slack_post_message:
+      class: send
+      signs: text
+    slack_reply_to_thread:
+      class: send
+      signs: text
+    slack_add_reaction: send
+    slack_get_channel_history: read
+    slack_get_thread_replies: read
+    slack_get_users: read
+    slack_get_user_profile: read

@@ -1,0 +1,805 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import random
+from itertools import permutations
+
+import pytest
+
+from isovar.read_collector import ReadCollector
+from isovar.protein_sequence_creator import ProteinSequenceCreator
+from isovar.variant_sequence import VariantSequence
+from isovar.variant_sequence_helpers import initial_variant_sequences_from_reads
+from isovar.allele_read import AlleleRead
+from isovar.assembly import (
+    iterative_overlap_assembly,
+    greedy_merge,
+    greedy_merge_helper,
+    collapse_substrings,
+    merge_identical_sequences,
+)
+
+from pyensembl import ensembl_grch38
+from varcode import Variant
+
+from .common import eq_
+from .testing_helpers import load_bam
+
+
+def test_assemble_transcript_fragments_snv():
+    alignment_file = load_bam("data/cancer-wgs-primary.chr12.bam")
+    chromosome = "12"
+    base1_location = 65857041
+    ref = "G"
+    alt = "C"
+    variant = Variant(
+        contig=chromosome,
+        start=base1_location,
+        ref=ref,
+        alt=alt,
+        ensembl=ensembl_grch38)
+    read_creator = ReadCollector()
+    variant_reads = read_creator.allele_reads_supporting_variant(
+        variant=variant,
+        alignment_file=alignment_file)
+
+    sequences = iterative_overlap_assembly(
+        initial_variant_sequences_from_reads(variant_reads),
+        min_overlap_size=30)
+
+    assert len(sequences) > 0
+    max_read_length = max(len(r) for r in variant_reads)
+    for s in sequences:
+        print("%s%s%s weight=%d length=%d" % (
+            s.prefix,
+            s.alt,
+            s.suffix,
+            len(s.reads),
+            len(s.sequence)))
+        eq_(s.alt, alt)
+        if len(s.read_names) > 1:
+            # expect sequences supported by more than one read to be greater
+            # than the read length
+            assert len(s) > max_read_length, \
+                "Expected assembled sequences to be longer than read length (%d)" % (
+                    max_read_length,)
+
+
+def test_assembly_of_simple_sequence_from_mock_reads():
+    # Read sequences:
+    #    AAAAA|CC|TTTTT
+    #    AAAAA|CC|TTTTT
+    #   GAAAAA|CC|TTTTTG
+    #     AAAA|CC|TTTT
+    reads = [
+        # two identical reads with sequence AAAAA|CC|TTTTT
+        AlleleRead(prefix="A" * 5, allele="CC", suffix="T" * 5, name="dup1"),
+        AlleleRead(prefix="A" * 5, allele="CC", suffix="T" * 5, name="dup2"),
+        # longer sequence GAAAAA|CC|TTTTTG
+        AlleleRead(
+            prefix="G" + "A" * 5,
+            allele="CC",
+            suffix="T" * 5 + "G",
+            name="longer"),
+        # shorter sequence AAAA|CC|TTTT
+        AlleleRead(prefix="A" * 4, allele="CC", suffix="T" * 4, name="shorter"),
+    ]
+    expected_variant_sequence = VariantSequence(
+        prefix="G" + "A" * 5, alt="CC", suffix="T" * 5 + "G", reads=reads)
+    initial_variant_sequences = initial_variant_sequences_from_reads(reads)
+    # expecting one fewer sequence than reads since two of the reads are
+    # duplicates
+    eq_(len(initial_variant_sequences), len(reads) - 1)
+
+    # calling into either iterative_overlap_assembly or greedy_merge should
+    # give same results
+    for fn in [greedy_merge, iterative_overlap_assembly]:
+
+        assembled_variant_sequences = fn(
+            initial_variant_sequences,
+            min_overlap_size=1)
+
+        # since no reads contradict each other then we should get back a single
+        # assembled sequence
+        eq_(len(assembled_variant_sequences),
+            1,
+            "Unexpected number of variant sequences: %s" % (assembled_variant_sequences,))
+        assembled_variant_sequence = assembled_variant_sequences[0]
+        eq_(assembled_variant_sequence, expected_variant_sequence)
+
+        eq_(len(assembled_variant_sequence.reads), len(reads))
+
+        eq_(assembled_variant_sequence.min_coverage(), 1)
+        # 2 bases with 1/4 reads, 2 bases with 3/4 reads, remaining 10 bases with
+        # all 4/4 reads
+        expected_mean_coverage = (2 * 1 + 2 * 3 + 10 * 4) / 14
+        eq_(assembled_variant_sequence.mean_coverage(), expected_mean_coverage)
+
+
+def test_assembly_intersects_compatible_transcripts():
+    left_read = AlleleRead(
+        prefix="GAAAAA",
+        allele="C",
+        suffix="TTTTT",
+        name="left",
+        compatible_transcript_ids={"T1", "T2"})
+    right_read = AlleleRead(
+        prefix="AAAAA",
+        allele="C",
+        suffix="TTTTTG",
+        name="right",
+        compatible_transcript_ids={"T2", "T3"})
+
+    assembled = greedy_merge(
+        initial_variant_sequences_from_reads([left_read, right_read]),
+        min_overlap_size=1)
+
+    eq_(len(assembled), 1)
+    eq_(assembled[0].compatible_transcript_ids, frozenset({"T2"}))
+
+
+def test_assembly_keeps_disjoint_transcript_paths_separate():
+    reads = [
+        AlleleRead(
+            prefix="GAAAAA",
+            allele="C",
+            suffix="TTTTT",
+            name="T1",
+            compatible_transcript_ids={"T1"}),
+        AlleleRead(
+            prefix="AAAAA",
+            allele="C",
+            suffix="TTTTTG",
+            name="T2",
+            compatible_transcript_ids={"T2"}),
+    ]
+
+    assembled = greedy_merge(
+        initial_variant_sequences_from_reads(reads),
+        min_overlap_size=1)
+
+    eq_(len(assembled), 2)
+    eq_(
+        {sequence.compatible_transcript_ids for sequence in assembled},
+        {frozenset({"T1"}), frozenset({"T2"})})
+
+
+def test_identical_sequences_on_disjoint_transcript_paths_stay_separate():
+    reads = [
+        AlleleRead("AAAA", "C", "TTTT", "T1", compatible_transcript_ids={"T1"}),
+        AlleleRead("AAAA", "C", "TTTT", "T2", compatible_transcript_ids={"T2"}),
+    ]
+
+    initial = initial_variant_sequences_from_reads(reads)
+
+    eq_(len(initial), 2)
+    eq_(len(merge_identical_sequences(initial)), 2)
+
+
+def test_identical_candidates_resolve_placement_ties_independently_of_input_order():
+    segment = ("library", "ambiguous", 0)
+    first = AlleleRead("AA", "C", "GG", "first", source_alignments=[(segment, (0, 100, "5M", False))])
+    second = AlleleRead("AA", "C", "GG", "second", source_alignments=[(segment, (0, 200, "5M", False))])
+    shared = AlleleRead("AA", "C", "GG", "shared")
+    other_path = AlleleRead("AA", "C", "GG", "other_path", compatible_transcript_ids={"T1"})
+    unique = AlleleRead("TAA", "C", "GG", "unique")
+    candidates = [VariantSequence(r.prefix, r.allele, r.suffix, [r])
+                  for r in (first, second, shared, other_path, unique)]
+    for ordered in permutations(candidates):
+        result = merge_identical_sequences(iter(ordered))
+        assert [s.read_names for s in result] == [
+            {"shared", "first"}, {"second"}, {"other_path"}, {"unique"}]
+        assert [s.compatible_transcript_ids for s in result] == [None, None, {"T1"}, None]
+        assert result[0]._source_alignments == {segment: (0, 100, "5M", False)}
+        assert result[1]._source_alignments == {segment: (0, 200, "5M", False)}
+
+
+def test_assembly_preserves_both_transcript_branches_without_global_intersection():
+    ambiguous = AlleleRead(
+        "AAAAA", "C", "TTTTT", "both",
+        compatible_transcript_ids={"T1", "T2"})
+    t1 = AlleleRead(
+        "GAAAAA", "C", "TTTTT", "T1",
+        compatible_transcript_ids={"T1"})
+    t2 = AlleleRead(
+        "AAAAA", "C", "TTTTTG", "T2",
+        compatible_transcript_ids={"T2"})
+
+    assembled = ProteinSequenceCreator(
+        min_variant_sequence_coverage=1,
+        protein_sequence_preference="support",
+    ).variant_sequences_from_reads(None, [ambiguous, t1, t2])
+
+    assert any(
+        sequence.prefix == "GAAAAA"
+        and sequence.compatible_transcript_ids == {"T1"}
+        for sequence in assembled)
+    assert any(
+        sequence.suffix == "TTTTTG"
+        and sequence.compatible_transcript_ids == {"T2"}
+        for sequence in assembled)
+
+
+def test_ambiguous_read_is_not_counted_twice_across_transcript_branches():
+    ambiguous = AlleleRead(
+        "AAAAA", "C", "TTTTT", "both",
+        compatible_transcript_ids={"T1", "T2"})
+    t1 = AlleleRead(
+        "GAAAAA", "C", "TTTTT", "T1",
+        compatible_transcript_ids={"T1"})
+
+    groups = ProteinSequenceCreator._transcript_read_groups([ambiguous, t1])
+    ambiguous_copies = [
+        read
+        for _transcript_ids, reads in groups
+        for read in reads
+        if read.name == "both"
+    ]
+
+    eq_(len(ambiguous_copies), 2)
+    eq_(len(frozenset(ambiguous_copies)), 1)
+
+
+def test_collapse_substrings():
+    # AAA|C|GGG
+    vs_longer = VariantSequence(
+        prefix="AAA", alt="C", suffix="GGG", reads={"1"})
+    # AAA|C|GG
+    vs_shorter = VariantSequence(
+        prefix="AAA", alt="C", suffix="GG", reads={"2"})
+    vs_unrelated = VariantSequence("TAA", alt="C", suffix="GG", reads={"3"})
+    results = collapse_substrings([vs_longer, vs_shorter, vs_unrelated])
+    eq_(len(results), 2), "Expected two sequences, got %d: %s" % (
+        len(results), results)
+    vs_combined = vs_longer.add_reads({"2"})
+    assert vs_combined in results, "Expected %s to be in %s" % (vs_combined, results)
+    assert vs_unrelated in results, "Expected %s to be in %s" % (vs_unrelated, results)
+
+
+def test_collapse_substrings_absorbed_sequence_not_reappended():
+    # Regression test for issue #130.
+    # A shorter sequence is contained in one longer result (vs_long1) but NOT
+    # in another longer result (vs_long2). Before the fix, the inner loop
+    # continued past the containment match and `found_superstring` got
+    # overwritten to False, causing the absorbed short sequence to be
+    # *also* appended to result_list (double counting its reads).
+    vs_long1 = VariantSequence(
+        prefix="AAA", alt="C", suffix="GGG", reads={"L1"})   # AAA|C|GGG
+    vs_long2 = VariantSequence(
+        prefix="AAA", alt="C", suffix="TTT", reads={"L2"})   # AAA|C|TTT
+    vs_short = VariantSequence(
+        prefix="AA", alt="C", suffix="GG", reads={"S"})      # AA|C|GG
+    # Sanity-check the containment relationships the bug depends on:
+    assert vs_long1.contains(vs_short)
+    assert not vs_long2.contains(vs_short)
+
+    # Pass long1 first so that after length-sort it ends up before long2 in
+    # result_list. The bug then manifested when iterating short's superstring
+    # candidates: long1 matched, long2 did not, and `found_superstring` was
+    # clobbered by the last iteration.
+    results = collapse_substrings([vs_long1, vs_long2, vs_short])
+
+    assert len(results) == 2, \
+        "Expected short sequence to be absorbed into long1 and not reappended, got %d: %s" % (
+            len(results), results)
+
+    # The surviving long1 should have absorbed short's reads.
+    long1_in_results = [r for r in results if r.suffix == "GGG"]
+    assert len(long1_in_results) == 1
+    assert long1_in_results[0].reads == frozenset({"L1", "S"}), \
+        "Expected long1 to carry both L1 and S reads, got %s" % (long1_in_results[0].reads,)
+
+    # long2 should be unchanged (not carrying short's reads).
+    long2_in_results = [r for r in results if r.suffix == "TTT"]
+    assert len(long2_in_results) == 1
+    assert long2_in_results[0].reads == frozenset({"L2"})
+
+    # And short should not have reappeared as a standalone entry.
+    assert not any(r.prefix == "AA" and r.suffix == "GG" for r in results), \
+        "Short sequence should have been absorbed, not reappended: %s" % (results,)
+
+
+def test_collapse_substrings_absorbs_into_first_only():
+    # If a short sequence is contained in TWO longer sequences, we should
+    # only absorb it into one (the first encountered). Otherwise the same
+    # reads would be counted in both supersets.
+    vs_long1 = VariantSequence(
+        prefix="AAA", alt="C", suffix="GGG", reads={"L1"})
+    vs_long2 = VariantSequence(
+        prefix="TAA", alt="C", suffix="GGG", reads={"L2"})
+    vs_short = VariantSequence(
+        prefix="AA", alt="C", suffix="GG", reads={"S"})
+    assert vs_long1.contains(vs_short)
+    assert vs_long2.contains(vs_short)
+
+    results = collapse_substrings([vs_long1, vs_long2, vs_short])
+    eq_(len(results), 2)
+
+    # Exactly one of the two longer sequences should carry the short read.
+    n_carrying_short = sum(1 for r in results if "S" in r.reads)
+    eq_(n_carrying_short, 1,
+        "Short read 'S' should only be absorbed into one longer sequence, got %d: %s" % (
+            n_carrying_short, results))
+
+
+def test_merge_identical_sequences_preserves_distinct_substrings():
+    longer = VariantSequence(
+        prefix="AAA", alt="C", suffix="GGG", reads={"long"})
+    shorter = VariantSequence(
+        prefix="AA", alt="C", suffix="GG", reads={"short"})
+    duplicate_longer = VariantSequence(
+        prefix="AAA", alt="C", suffix="GGG", reads={"duplicate"})
+    first_variant_position = VariantSequence(
+        prefix="T", alt="C", suffix="CG", reads={"first-position"})
+    second_variant_position = VariantSequence(
+        prefix="TC", alt="C", suffix="G", reads={"second-position"})
+
+    results = merge_identical_sequences([
+        longer,
+        shorter,
+        duplicate_longer,
+        first_variant_position,
+        second_variant_position,
+    ])
+
+    eq_(first_variant_position.sequence, second_variant_position.sequence)
+    eq_(len(results), 4)
+    by_parts = {
+        (result.prefix, result.alt, result.suffix): result
+        for result in results
+    }
+    eq_(by_parts[(longer.prefix, longer.alt, longer.suffix)].reads,
+        {"long", "duplicate"})
+    eq_(by_parts[(shorter.prefix, shorter.alt, shorter.suffix)].reads,
+        {"short"})
+    eq_(by_parts[("T", "C", "CG")].reads, {"first-position"})
+    eq_(by_parts[("TC", "C", "G")].reads, {"second-position"})
+
+
+def test_greedy_merge_helper_preserves_distinct_variant_positions():
+    # Both accepted pairs assemble the same full bases (TCCG), but place the
+    # variant C at different positions. They are not interchangeable cDNA
+    # candidates and therefore must not be deduplicated by ``sequence`` alone.
+    candidates = [
+        VariantSequence("T", alt="C", suffix="", reads={"left-1"}),
+        VariantSequence("", alt="C", suffix="CG", reads={"right-1"}),
+        VariantSequence("TC", alt="C", suffix="", reads={"left-2"}),
+        VariantSequence("", alt="C", suffix="G", reads={"right-2"}),
+    ]
+
+    results, merged_any = greedy_merge_helper(candidates, min_overlap_size=1)
+
+    assert merged_any
+    eq_(len(results), 2)
+    eq_({(result.prefix, result.alt, result.suffix) for result in results},
+        {("T", "C", "CG"), ("TC", "C", "G")})
+
+
+def test_candidate_preserving_assembly_keeps_nested_sequences():
+    prefixes = ("AAA", "GGGAAA", "CCCGGGAAA", "TTTCCCGGGAAA")
+    candidates = [
+        VariantSequence(prefix, alt="C", suffix="AAAA", reads={prefix})
+        for prefix in prefixes
+    ]
+
+    expected = None
+    # Exercise both the normal merge path and the assembly-size safety cutoff.
+    for max_assembly_sequences in (None, 0):
+        for ordered_candidates in permutations(candidates):
+            results = iterative_overlap_assembly(
+                ordered_candidates,
+                min_overlap_size=1,
+                max_assembly_sequences=max_assembly_sequences,
+                preserve_candidate_sequences=True)
+            observed = {
+                (result.prefix, result.alt, result.suffix): result.reads
+                for result in results
+            }
+            if expected is None:
+                expected = observed
+            eq_(observed, expected)
+
+    eq_({parts[0] for parts in expected}, set(prefixes))
+    eq_(expected[(prefixes[-1], "C", "AAAA")], set(prefixes))
+
+
+def test_greedy_merge_preserves_generator_inputs_and_intermediate_candidates():
+    candidates = [
+        VariantSequence("AAAA", alt="C", suffix="G", reads={"left"}),
+        VariantSequence("AA", alt="C", suffix="GGG", reads={"middle"}),
+        VariantSequence("A", alt="C", suffix="GGGGG", reads={"right"}),
+    ]
+
+    results = greedy_merge(
+        (candidate for candidate in candidates),
+        min_overlap_size=1,
+        preserve_intermediate_candidates=True)
+    by_parts = {
+        (result.prefix, result.alt, result.suffix): result.reads
+        for result in results
+    }
+
+    eq_(len(by_parts), 5)
+    eq_(by_parts[("AA", "C", "GGGGG")], {"middle", "right"})
+    eq_(by_parts[("AAAA", "C", "GGGGG")], {"left", "middle", "right"})
+
+
+def test_assembly_of_many_subsequences():
+    original_prefix = "ACTGAACCTTGGAAACCCTTTGGG"
+    original_allele = "CCCTTT"
+    original_suffix = "GGAAGGAAGGAATTTTTTTT"
+
+    # generate 100 subsequences of all combinations of 0-9
+    # characters trimmed from beginning of prefix vs. end of suffix
+    subsequences = [
+        VariantSequence(
+            prefix=original_prefix[i:],
+            alt=original_allele,
+            suffix=original_suffix[:-j] if j > 0 else original_suffix,
+            reads={str(i) + "_" + str(j)})
+        for i in range(10)
+        for j in range(10)
+    ]
+    eq_(100, len(subsequences))
+    # adding one decoy sequence which doesn't match
+    decoy = VariantSequence(
+        prefix="G" + original_prefix[1:],
+        alt=original_allele,
+        suffix=original_suffix,
+        reads={"decoy"})
+    input_sequences = subsequences + [decoy]
+    results = iterative_overlap_assembly(
+        input_sequences, min_overlap_size=len(original_allele))
+
+    eq_(len(results), 2)
+
+    result = results[0]
+    eq_(result.prefix, original_prefix)
+    eq_(result.alt, original_allele)
+    eq_(result.suffix, original_suffix)
+    eq_(len(result.reads), len(subsequences))
+
+    result_decoy = results[1]
+    eq_(result_decoy.sequence, decoy.sequence)
+
+
+@pytest.mark.parametrize("trim_range", [10, 20])
+def test_contained_assembly_bounds_pairwise_work(monkeypatch, trim_range):
+    original_prefix = "ACTGAACCTTGGAAACCCTTTGGG"
+    original_allele = "CCCTTT"
+    original_suffix = "GGAAGGAAGGAATTTTTTTTGGCC"
+
+    # Every input is contained in the longest sequence. Collapsing this
+    # workload should take linear pairwise work, not an all-pairs search.
+    subsequences = [
+        VariantSequence(
+            prefix=original_prefix[i:],
+            alt=original_allele,
+            suffix=original_suffix[:-j] if j > 0 else original_suffix,
+            reads={str(i) + "_" + str(j)})
+        for i in range(trim_range)
+        for j in range(trim_range)
+    ]
+    comparisons = dict(contains=0, combine=0)
+    original_contains, original_combine = VariantSequence.contains, VariantSequence.combine
+
+    def contains(self, other):
+        comparisons["contains"] += 1
+        return original_contains(self, other)
+
+    def combine(self, other, min_overlap_size=1):
+        comparisons["combine"] += 1
+        return original_combine(self, other, min_overlap_size=min_overlap_size)
+
+    monkeypatch.setattr(VariantSequence, "contains", contains)
+    monkeypatch.setattr(VariantSequence, "combine", combine)
+    results = iterative_overlap_assembly(
+        subsequences,
+        min_overlap_size=len(original_allele))
+    eq_(len(results), 1)
+    result = results[0]
+    eq_(result.prefix, original_prefix)
+    eq_(result.alt, original_allele)
+    eq_(result.suffix, original_suffix)
+    assert result.reads == {str(i) + "_" + str(j) for i in range(trim_range) for j in range(trim_range)}
+    # Allow two comparisons per input (e.g. one containment and one merge
+    # pass), while rejecting quadratic pair enumeration independent of host
+    # scheduling, coverage instrumentation or machine speed (#316).
+    assert sum(comparisons.values()) <= 2 * len(subsequences), comparisons
+
+
+def test_assembly_unrelated_sequences():
+    # 2 overlapping sequences, 1 with a different suffix,
+    # and 2 totally unrelated sequences
+    variant_sequences = [
+        VariantSequence(
+            prefix="CCC",
+            alt="T",
+            suffix="GGG",
+            reads={"1"}),
+        VariantSequence(
+            prefix="TCCC",
+            alt="T",
+            suffix="G",
+            reads={"2"}),
+        VariantSequence(
+            prefix="CCC",
+            alt="T",
+            suffix="AAA",
+            reads={"3"}),
+        VariantSequence(
+            prefix="AGG",
+            alt="T",
+            suffix="CGG",
+            reads={"4"}),
+        VariantSequence(
+            prefix="CAC",
+            alt="T",
+            suffix="TTT",
+            reads={"5"})
+    ]
+    results = iterative_overlap_assembly(
+        variant_sequences, min_overlap_size=1)
+    eq_(len(results), 4)
+    # first two sequences were overlapping
+    count_multiple = 0
+    count_singleton = 0
+    for result in results:
+        # all but one result are singletons
+        if len(result.reads) > 1:
+            eq_(result.reads, {"1", "2"})
+            count_multiple += 1
+        else:
+            count_singleton += 1
+    eq_(3, count_singleton)
+    eq_(1, count_multiple)
+
+
+def test_assembly_no_sequences():
+    eq_(iterative_overlap_assembly([]), [])
+
+
+def test_assembly_1_sequence():
+    vs = VariantSequence(
+        prefix="CCC",
+        alt="T",
+        suffix="GGG",
+        reads={"1"})
+    eq_(iterative_overlap_assembly([vs]), [vs])
+
+
+def test_greedy_merge_deterministic_across_input_orders():
+    """
+    Verify that greedy_merge produces the same assembled sequences
+    regardless of input order. Regression test for #153, also covers #148.
+    """
+    variant_sequences = [
+        VariantSequence(prefix="AAAAAA", alt="CC", suffix="TTTT", reads={"r1"}),
+        VariantSequence(prefix="AAAA", alt="CC", suffix="TTTTGG", reads={"r2"}),
+        VariantSequence(prefix="GGAAAAAA", alt="CC", suffix="TT", reads={"r3"}),
+        VariantSequence(prefix="AAA", alt="CC", suffix="TTTTGGCC", reads={"r4"}),
+        VariantSequence(prefix="CCGGAAAAAA", alt="CC", suffix="T", reads={"r5"}),
+    ]
+
+    reference_result = greedy_merge(variant_sequences, min_overlap_size=1)
+    reference_sequences = sorted(r.sequence for r in reference_result)
+    reference_all_reads = set().union(*(r.reads for r in reference_result))
+
+    rng = random.Random(42)
+    for trial in range(20):
+        shuffled = list(variant_sequences)
+        rng.shuffle(shuffled)
+        result = greedy_merge(shuffled, min_overlap_size=1)
+        result_sequences = sorted(r.sequence for r in result)
+        result_all_reads = set().union(*(r.reads for r in result))
+        assert result_sequences == reference_sequences, \
+            "Trial %d: different sequences from shuffled input.\nRef: %s\nGot: %s" % (
+                trial, reference_sequences, result_sequences)
+        assert result_all_reads == reference_all_reads, \
+            "Trial %d: different reads from shuffled input.\nRef: %s\nGot: %s" % (
+                trial, reference_all_reads, result_all_reads)
+
+
+@pytest.mark.parametrize("assemble", [greedy_merge, iterative_overlap_assembly])
+def test_equal_score_competing_merges_are_deterministic(assemble):
+    candidates = [
+        VariantSequence("AAA", "C", "", {"left"}),
+        VariantSequence("AA", "C", "GG", {"right_g"}),
+        VariantSequence("AA", "C", "TT", {"right_t"}),
+    ]
+    expected = None
+    for ordered in permutations(candidates):
+        result = assemble(ordered, min_overlap_size=1)
+        observed = [(s.prefix, s.alt, s.suffix, s.reads) for s in result]
+        if expected is None:
+            expected = observed
+        assert observed == expected
+    assert any(s[0] == "AAA" and len(s[2]) == 2 for s in expected)
+
+
+def test_equal_length_substring_parents_have_deterministic_support():
+    candidates = [
+        VariantSequence("AAA", "C", "GGG", {"left"}),
+        VariantSequence("TAA", "C", "GGG", {"right"}),
+        VariantSequence("AA", "C", "GG", {"core"}),
+        # Duplicate triples must also pool their support deterministically.
+        VariantSequence("AAA", "C", "GGG", {"left_duplicate"}),
+    ]
+    expected = None
+    for ordered in permutations(candidates):
+        result = collapse_substrings(ordered)
+        observed = [(s.prefix, s.alt, s.suffix, s.reads) for s in result]
+        if expected is None:
+            expected = observed
+        assert observed == expected
+    assert len(expected) == 2
+    assert set().union(*(s[3] for s in expected)) == {
+        "left", "right", "core", "left_duplicate"}
+
+
+def test_duplicate_candidate_read_partitions_do_not_change_merge_choice():
+    left = VariantSequence("AAA", "C", "", {"left"})
+    right_g = VariantSequence("AA", "C", "GG", {"g1", "g2"})
+    right_t = VariantSequence("AA", "C", "TT", {"t1", "t2"})
+    expected = greedy_merge([left, right_g, right_t], min_overlap_size=1)
+    split = [left, right_t,
+             VariantSequence("AA", "C", "GG", {"g1"}),
+             VariantSequence("AA", "C", "GG", {"g2"})]
+    for ordered in permutations(split):
+        assert greedy_merge(ordered, min_overlap_size=1) == expected
+
+
+def test_greedy_merge_helper_skips_impossible_pairs(monkeypatch):
+    variant_sequences = [
+        VariantSequence(prefix="AAAAAA", alt="X", suffix="AAAAAA", reads={"a"}),
+        VariantSequence(prefix="CCCCCC", alt="X", suffix="CCCCCC", reads={"c"}),
+        VariantSequence(prefix="GGGGGG", alt="X", suffix="GGGGGG", reads={"g"}),
+        VariantSequence(prefix="TTTTTT", alt="X", suffix="TTTTTT", reads={"t"}),
+    ]
+
+    combine_call_count = 0
+    original_combine = VariantSequence.combine
+
+    def counting_combine(self, other_sequence, min_overlap_size=1):
+        nonlocal combine_call_count
+        combine_call_count += 1
+        return original_combine(
+            self,
+            other_sequence,
+            min_overlap_size=min_overlap_size)
+
+    monkeypatch.setattr(VariantSequence, "combine", counting_combine)
+
+    result, merged_any = greedy_merge_helper(
+        variant_sequences,
+        min_overlap_size=3)
+
+    eq_(combine_call_count, 0)
+    eq_(merged_any, False)
+    eq_(result, variant_sequences)
+
+
+def test_greedy_merge_prefers_larger_overlap():
+    """
+    When a sequence could merge with two partners, the larger overlap
+    should be chosen. This tests the sorting logic in greedy_merge_helper.
+    """
+    # A overlaps B by 3 bases, A overlaps C by 6 bases.
+    # A should merge with C (larger overlap) not B.
+    vs_a = VariantSequence(prefix="AAAAAA", alt="X", suffix="TTTTTT", reads={"a"})
+    vs_b = VariantSequence(prefix="AAA", alt="X", suffix="TTTTTTGGGGGG", reads={"b"})
+    vs_c = VariantSequence(prefix="AAAAAA", alt="X", suffix="TTTTTTCCCCCC", reads={"c"})
+
+    result = greedy_merge([vs_a, vs_b, vs_c], min_overlap_size=1)
+
+    # A+C should merge (overlap = 6+6+1=13 bases out of 13+13=26)
+    # leaving B unmerged (or merging in a subsequent round if compatible)
+    merged_reads = set()
+    for r in result:
+        merged_reads.update(r.reads)
+    assert merged_reads == {"a", "b", "c"}, \
+        "All reads should be accounted for, got %s" % merged_reads
+
+    # The longest assembled sequence should contain C's long suffix
+    longest = max(result, key=len)
+    assert "CCCCCC" in longest.sequence, \
+        "Expected the larger overlap (with C's CCCCCC suffix) to be preferred"
+
+
+def test_iterative_assembly_deterministic_across_input_orders():
+    """
+    End-to-end test: iterative_overlap_assembly should produce
+    identical results regardless of input ordering.
+    """
+    original_prefix = "ACTGAACCTTGG"
+    original_allele = "CC"
+    original_suffix = "GGAAGGAAGGAA"
+
+    subsequences = [
+        VariantSequence(
+            prefix=original_prefix[i:],
+            alt=original_allele,
+            suffix=original_suffix[:-j] if j > 0 else original_suffix,
+            reads={str(i) + "_" + str(j)})
+        for i in range(6)
+        for j in range(6)
+    ]
+
+    reference = iterative_overlap_assembly(subsequences, min_overlap_size=2)
+    reference_sequences = sorted(r.sequence for r in reference)
+
+    rng = random.Random(123)
+    for trial in range(10):
+        shuffled = list(subsequences)
+        rng.shuffle(shuffled)
+        result = iterative_overlap_assembly(shuffled, min_overlap_size=2)
+        result_sequences = sorted(r.sequence for r in result)
+        assert result_sequences == reference_sequences, \
+            "Trial %d: different assembly from shuffled input" % trial
+
+
+def test_assembly_circuit_breaker_skips_merge():
+    """
+    When the number of sequences after collapse exceeds
+    max_assembly_sequences, the greedy merge is skipped and sequences
+    are returned sorted by read support.
+    """
+    # Use distinct prefixes so collapse_substrings can't fold them
+    prefixes = ["GAT", "CTA", "AGC", "TCA", "GCG"]
+    variant_sequences = [
+        VariantSequence(
+            prefix=p, alt="X", suffix="TTT",
+            reads={"%s_%d" % (p, k) for k in range(i + 1)})
+        for i, p in enumerate(prefixes)
+    ]
+
+    result = iterative_overlap_assembly(
+        variant_sequences,
+        min_overlap_size=1,
+        max_assembly_sequences=3)
+
+    eq_(len(result), 5, "All 5 sequences should be returned (no merge)")
+    read_counts = [len(r.reads) for r in result]
+    assert read_counts == sorted(read_counts, reverse=True), \
+        "Results should be sorted by decreasing read count, got %s" % read_counts
+
+
+def test_assembly_circuit_breaker_disabled_with_none():
+    """max_assembly_sequences=None disables the circuit breaker."""
+    variant_sequences = [
+        VariantSequence(prefix="A" * 5, alt="CC", suffix="T" * 5, reads={"r1"}),
+        VariantSequence(prefix="A" * 5, alt="CC", suffix="T" * 5 + "G", reads={"r2"}),
+    ]
+    result = iterative_overlap_assembly(
+        variant_sequences,
+        min_overlap_size=1,
+        max_assembly_sequences=None)
+    # Should merge normally despite any threshold
+    eq_(len(result), 1)
+
+
+def test_assembly_circuit_breaker_not_triggered_under_threshold():
+    """
+    When the sequence count is under the threshold, greedy merge proceeds
+    normally (same as no circuit breaker).
+    """
+    variant_sequences = [
+        VariantSequence(prefix="AAAA", alt="CC", suffix="TTTT", reads={"r1"}),
+        VariantSequence(prefix="AA", alt="CC", suffix="TTTTGG", reads={"r2"}),
+    ]
+    result_with_breaker = iterative_overlap_assembly(
+        variant_sequences, min_overlap_size=1, max_assembly_sequences=100)
+    result_without_breaker = iterative_overlap_assembly(
+        variant_sequences, min_overlap_size=1, max_assembly_sequences=None)
+    eq_(len(result_with_breaker), len(result_without_breaker))
+    for r1, r2 in zip(result_with_breaker, result_without_breaker):
+        eq_(r1.sequence, r2.sequence)

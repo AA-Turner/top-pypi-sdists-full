@@ -1,0 +1,279 @@
+"""
+Deployment configuration classes for different runtime environments.
+
+This module defines configuration classes for various deployment types including
+local, Docker, Ray, remote, and dummy deployments. Each configuration class
+provides settings specific to its deployment environment.
+"""
+
+from abc import abstractmethod
+from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from rock.admin.proto.request import SandboxStartRequest
+from rock.config import RuntimeConfig
+from rock.deployments.abstract import AbstractDeployment
+
+
+class AcceleratorType(str, Enum):
+    """GPU accelerator type, following Ray's naming convention.
+
+    See: https://docs.ray.io/en/latest/ray-core/accelerator-types.html
+    """
+
+    V100 = "V100"
+    T4 = "T4"
+    A10G = "A10G"
+    L4 = "L4"
+    L40S = "L40S"
+    A100 = "A100"
+    A100_80G = "A100-80G"
+    H100 = "H100"
+    H200 = "H200"
+    B200 = "B200"
+    A10 = "A10"
+    GeForce_RTX_2080_Ti = "GeForce-RTX-2080-Ti"
+
+
+class DeploymentConfig(BaseModel):
+    """Base configuration class for all deployment types."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: str = Field(default="test", description="Role identifier for the deployment.")
+    """TODO: Remove this field in future versions."""
+
+    env: str = Field(default="dev", description="Environment identifier for the deployment.")
+    """TODO: Remove this field in future versions."""
+
+    @abstractmethod
+    def get_deployment(self) -> AbstractDeployment:
+        """Create and return the deployment instance.
+
+        Returns:
+            AbstractDeployment: The configured deployment instance.
+        """
+
+
+class LocalDeploymentConfig(DeploymentConfig):
+    """Configuration for local deployment without containerization."""
+
+    type: Literal["local"] = "local"
+    """Deployment type discriminator for serialization/deserialization and CLI parsing. Should not be modified."""
+
+    def get_deployment(self) -> AbstractDeployment:
+        from rock.deployments.local import LocalDeployment
+
+        return LocalDeployment.from_config(self)
+
+
+class DockerDeploymentConfig(DeploymentConfig):
+    """Configuration for Docker-based deployment with containerization."""
+
+    image: str = "python:3.11"
+    """Docker image name to use for the container."""
+
+    image_os: str = "linux"
+
+    port: int | None = None
+    """Port number for container communication. If None, an available port will be automatically assigned."""
+
+    docker_args: list[str] = []
+    """Additional arguments to pass to the docker run command. Platform arguments will be moved to the platform field."""
+
+    startup_timeout: float | None = None
+    """Total time budget in seconds covering docker pull + runtime startup. None means use lifecycle default."""
+
+    pull: Literal["never", "always", "missing"] = "missing"
+    """Docker image pull policy: 'never', 'always', or 'missing'."""
+
+    python_standalone_dir: str | None = None
+    """Directory path for Python standalone installation within the container."""
+
+    platform: str | None = None
+    """Target platform for the Docker image (e.g., 'linux/amd64', 'linux/arm64')."""
+
+    remove_container: bool = True
+    """Whether to remove the container after it stops running."""
+
+    auto_clear_time_minutes: int = 30
+    """Automatic container cleanup time in minutes."""
+
+    memory: str = "8g"
+    """Memory allocation for the container (e.g., '8g', '4096m')."""
+
+    cpus: float = 2
+    """Number of CPU cores to allocate for the container. Used as --cpu-shares (cpus * 1024)."""
+
+    limit_cpus: float | None = None
+    """Hard limit on the number of CPU cores the container can use. Used as --cpus. When the SDK leaves this None, the admin gateway may derive it from cpus + Nacos `cpu_overcommit_headroom`."""
+
+    disk: str | None = "50G"
+    """Maximum rootfs disk size for the container (e.g., '20g', '50G'). Maps to --storage-opt size=<value>. Only supported on overlay2 storage driver with xfs backing filesystem. None means no limit."""
+
+    disk_overcommit_ratio: float | None = None
+    """Disk overcommit ratio for Ray scheduling. When set and > 1.0, Ray requests disk/ratio resources while Docker uses the full disk value. Set by admin gateway from Nacos or RuntimeConfig."""
+
+    container_name: str | None = None
+    """Custom name for the container. If None, a random name will be generated."""
+
+    auto_archive_seconds: int | None = None
+    """Per-sandbox auto-archive policy. 0 = archive immediately after stop;
+    >0 = archive after this many seconds stopped; None = do not auto-archive."""
+
+    auto_delete_seconds: int | None = None
+    """Per-sandbox auto-delete policy. 0 = delete immediately after stop;
+    >0 = delete after this many seconds stopped; None = inherit the cluster
+    default when auto_archive_seconds is also None. Ignored when
+    auto_archive_seconds is configured."""
+
+    type: Literal["docker"] = "docker"
+    """Deployment type discriminator for serialization/deserialization and CLI parsing. Should not be modified."""
+
+    enable_auto_clear: bool = False
+    """Enable automatic container cleanup based on auto_clear_time."""
+
+    use_kata_runtime: bool = False
+    """Whether to use kata container runtime (io.containerd.kata.v2) instead of --privileged mode."""
+
+    kata_disk_size: str = "50G"
+    """Size of the sparse disk image for kata DinD. Can be overridden by nacos config 'kata_dind_disk_size'."""
+
+    kata_disk_base_path: str = "/data/docker-disk"
+    """Base directory on the host for storing kata disk image files."""
+
+    # TODO: Refine these fields in future versions
+    actor_resource: str | None = None
+    """Resource type for actor allocation (to be refined)."""
+
+    actor_resource_num: float = 1
+    """Number of actor resources to allocate (to be refined)."""
+
+    registry_username: str | None = None
+    """Username for Docker registry authentication. When both username and password are provided, docker login will be performed before pulling the image."""
+
+    registry_password: str | None = Field(default=None, repr=False, exclude=True)
+    """Password for Docker registry authentication. When both username and password are provided, docker login will be performed before pulling the image."""
+
+    runtime_config: RuntimeConfig = Field(default_factory=RuntimeConfig)
+    """Runtime configuration settings."""
+
+    num_gpus: float | None = None
+    """Number of GPUs to allocate. Supports fractional values (e.g. 0.5 for GPU sharing)."""
+
+    accelerator_type: str | None = None
+    """GPU accelerator type. Accepts any value present in the built-in
+    :class:`AcceleratorType` enum, or any extra type advertised through Nacos
+    (key ``extra_accelerator_types``). Validation is performed at the admin
+    API entry. If not specified, any available GPU will be used."""
+
+    extended_params: dict[str, str] = Field(default_factory=dict)
+    """Generic extension field for storing custom string key-value pairs."""
+
+    image_os_profile: dict | None = None
+    """Matched image_os profile dict (set by _apply_image_os_profile in sandbox_api.py).
+    When set, DockerDeployment uses ConfigurableRuntimeEnv instead of the ROCK_WORKER_ENV_TYPE env var."""
+
+    @model_validator(mode="before")
+    def validate_platform_args(cls, data: dict) -> dict:
+        """Validate and extract platform arguments from docker_args.
+
+        This validator ensures that platform specification is consistent between
+        the platform field and --platform arguments in docker_args.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        docker_args = data.get("docker_args", [])
+        platform = data.get("platform")
+
+        platform_arg_idx = next((i for i, arg in enumerate(docker_args) if arg.startswith("--platform")), -1)
+
+        if platform_arg_idx != -1:
+            if platform is not None:
+                msg = "Cannot specify platform both via 'platform' field and '--platform' in docker_args"
+                raise ValueError(msg)
+            # Extract platform value from --platform argument
+            if "=" in docker_args[platform_arg_idx]:
+                # Handle case where platform is specified as --platform=value
+                data["platform"] = docker_args[platform_arg_idx].split("=", 1)[1]
+                data["docker_args"] = docker_args[:platform_arg_idx] + docker_args[platform_arg_idx + 1 :]
+            elif platform_arg_idx + 1 < len(docker_args):
+                data["platform"] = docker_args[platform_arg_idx + 1]
+                # Remove the --platform and its value from docker_args
+                data["docker_args"] = docker_args[:platform_arg_idx] + docker_args[platform_arg_idx + 2 :]
+            else:
+                msg = "--platform argument must be followed by a value"
+                raise ValueError(msg)
+
+        return data
+
+    def get_deployment(self) -> AbstractDeployment:
+        from rock.deployments.docker import DockerDeployment
+
+        return DockerDeployment.from_config(self)
+
+    @property
+    def auto_clear_time(self) -> int:
+        return self.auto_clear_time_minutes
+
+    @classmethod
+    def from_request(cls, request: SandboxStartRequest) -> DeploymentConfig:
+        """Create DockerDeploymentConfig from SandboxStartRequest"""
+        data = request.model_dump(exclude={"sandbox_id"})
+        return cls(**data, container_name=request.sandbox_id)
+
+
+class RayDeploymentConfig(DockerDeploymentConfig):
+    """Configuration for Ray-based distributed deployment."""
+
+    # TODO: Refine these fields in future versions
+    actor_resource: str | None = None
+    """Resource type for Ray actor allocation (to be refined)."""
+
+    actor_resource_num: int = 1
+    """Number of Ray actor resources to allocate (to be refined)."""
+
+    def get_deployment(self) -> AbstractDeployment:
+        from rock.deployments.ray import RayDeployment
+
+        return RayDeployment.from_config(self)
+
+
+class RemoteDeploymentConfig(DeploymentConfig):
+    """Configuration for remote deployment connecting to an existing rocklet server.
+
+    This deployment type acts as a wrapper around RemoteRuntime and can be used
+    to connect to any running rocklet server instance.
+    """
+
+    host: str = "http://127.0.0.1"
+    """Remote server host URL or IP address."""
+
+    port: int | None = None
+    """Remote server port number. If None, uses default port."""
+
+    timeout: float = 0.15
+    """Connection timeout in seconds for remote server communication."""
+
+    type: Literal["remote"] = "remote"
+    """Deployment type discriminator for serialization/deserialization and CLI parsing. Should not be modified."""
+
+    def get_deployment(self) -> AbstractDeployment:
+        from rock.deployments.remote import RemoteDeployment
+
+        return RemoteDeployment.from_config(self)
+
+
+def get_deployment(config: DeploymentConfig) -> AbstractDeployment:
+    """Create a deployment instance from the given configuration.
+
+    Args:
+        config: Deployment configuration instance.
+
+    Returns:
+        AbstractDeployment: The configured deployment instance.
+    """
+    return config.get_deployment()

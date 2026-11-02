@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Change download functions now preserve any unapplied local edits on the
-    branch when attempting to reset the worktree.

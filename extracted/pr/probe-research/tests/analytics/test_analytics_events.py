@@ -41,6 +41,7 @@ FROZEN = {
     "OUTBOX_STUCK": "outbox.stuck",
     "OUTBOX_RESCUED": "outbox.rescued",
     "OUTBOX_DISCARDED": "outbox.discarded",
+    "OUTBOX_RESTORED": "outbox.restored",
     "OUTBOX_PAUSE_LIFTED": "outbox.pause_lifted",
     "CAPTURE_REPAIR_APPLIED": "capture.repair_applied",
     "SETTINGS_REMOTE_APPLIED": "settings.remote_applied",

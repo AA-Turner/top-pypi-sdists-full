@@ -1,5 +1,6 @@
 """CatalogResource (client.catalog, typed reads) and CatalogMixin, Client's methods: checkpoints,
-sources, manifests, datasets, provenance, versions, pin impact, upload gc (twin: app/catalog)."""
+sources, manifests, datasets, provenance, versions, pin impact, upload gc
+(twin: app/files/catalog)."""
 
 from __future__ import annotations
 from ....generated.models import ArtifactPinImpact, ArtifactVersionOut, SourceListOut, SourceOut

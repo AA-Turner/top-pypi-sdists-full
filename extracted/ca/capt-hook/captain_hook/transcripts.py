@@ -1,0 +1,585 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import os
+import re
+import threading
+from collections import deque
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+from typing import TYPE_CHECKING, overload
+
+from cc_transcript.filterspec import event_meta
+from cc_transcript.ids import SessionId
+
+from captain_hook.session import SessionSlot, ensure_session
+from captain_hook.state import RegisteredTranscript, RegisteredTranscripts, UnbornTranscript
+from captain_hook.util import reqenv
+from captain_hook.util.caching import StampedCache
+from captain_hook.util.paths import resolve_project_dir
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from cc_transcript.activity import UserClassifier
+    from cc_transcript.models import TranscriptEvent
+    from cc_transcript.query import Session
+
+    from captain_hook.snapshots.client import GraphSources, RemoteSession, SnapshotClient
+
+# A session id becomes a filesystem path component via ``ensure_session``; external callers (CLI, MCP)
+# must not smuggle path separators or traversal past that trust boundary.
+INVALID_SESSION_ID = re.compile(r"[/\\]|\x00|^\.\.?$")
+ROOT_TAIL_EVENTS = 256
+ROOT_EXCERPT_BYTES = 16 * 1024 * 1024
+REGISTERED_SOURCES: StampedCache[tuple[Path, Path], tuple[int, int, int, int, int], GraphSources | None] = StampedCache(1)
+
+
+def user_classifier(events: Sequence[TranscriptEvent], *, path: Path | None = None) -> UserClassifier:
+    from captain_hook.app import _state
+    from captain_hook.classifiers import detect
+
+    return _state.classifier or detect(
+        cwd=resolve_project_dir(),
+        transcript_path=str(path) if path else None,
+        events=events,
+    )
+
+
+def lift_session(events: Sequence[TranscriptEvent], *, path: Path | None = None) -> Session:
+    return lift_classified(events, user_classifier(events, path=path), path=path)
+
+
+def lift_classified(
+    events: Sequence[TranscriptEvent], classifier: UserClassifier, *, path: Path | None = None
+) -> Session:
+    from cc_transcript.activity import SessionActivity
+    from cc_transcript.query import Session
+
+    return Session.from_activity(
+        SessionActivity.from_events(transcript_session_id(events, path=path), list(events), user_classifier=classifier),
+        path=path,
+    )
+
+
+def transcript_session_id(events: Sequence[TranscriptEvent], *, path: Path | None = None) -> SessionId:
+    return next(
+        (meta.session_id for event in events if (meta := event_meta(event)) is not None),
+        SessionId(path.stem if path else "unknown"),
+    )
+
+
+def configured_classifier_policy(project_dir: str | Path | None) -> dict[str, str]:
+    from captain_hook.app import _state
+    from captain_hook.cli import CliState
+    from captain_hook.daemon.registry import Fingerprint
+
+    registry = (
+        _state.registry_fingerprint
+        or Fingerprint.compute(CliState(root=Path(project_dir) if project_dir else reqenv.cwd())).digest
+    )
+    caller_env = sorted((k, v) for k, v in reqenv.env_map().items() if reqenv.is_whitelisted(k))
+    return {
+        "id": "captain-configured",
+        "version": f"{registry}:{hashlib.sha256(json.dumps(caller_env).encode()).hexdigest()[:16]}",
+    }
+
+
+@overload
+def load_transcript(path: str | Path) -> RemoteSession: ...
+
+
+@overload
+def load_transcript(path: None) -> Session: ...
+
+
+def load_transcript(path: str | Path | None) -> Session | RemoteSession:
+    from cc_transcript.query import Session
+
+    from captain_hook.snapshots.client import CURRENT_CLIENT, HOOK_TAIL_BYTES, NATIVE_CLASSIFIER, EvidenceIncomplete
+
+    if not path:
+        return Session(())
+    if (client := CURRENT_CLIENT.get()) is None:
+        raise EvidenceIncomplete("invalid_request", "transcript loading requires an admitted snapshot client")
+    from captain_hook.app import _state
+
+    tail_bytes = HOOK_TAIL_BYTES if reqenv.provider() == "claude" else None
+    try:
+        session = client.acquire(path, tail_bytes=tail_bytes)
+    except EvidenceIncomplete as exc:
+        if exc.status in {"incomplete", "deadline"}:
+            client.schedule_root_warm(path, NATIVE_CLASSIFIER, tail_bytes)
+        raise
+    try:
+        if _state.classifier is not None:
+            policy = configured_classifier_policy(resolve_project_dir())
+            return client.classify(session, _state.classifier, policy)
+        data = list(
+            client.pages(
+                "prepare_hook_view",
+                domain=True,
+                view=session.view(),
+                cwd=resolve_project_dir(),
+                droid=reqenv.getenv("FACTORY_PROJECT_DIR") is not None,
+            )
+        )
+        if len(data) != 1 or data[0]["kind"] != "classifier":
+            raise EvidenceIncomplete("invalid_request", "hook classifier preparation returned invalid evidence")
+        return session.with_classifier(data[0]["classifier"])
+    except EvidenceIncomplete as exc:
+        if exc.status in {"incomplete", "deadline"}:
+            client.schedule_root_warm(path, session.classifier, tail_bytes)
+        session.release()
+        raise
+    except BaseException:
+        session.release()
+        raise
+
+
+def tail_transcript(path: str | Path, count: int) -> Session:
+    """The newest *count* events of the transcript at *path*, read backwards from its end without a lease."""
+    from cc_transcript.snapshots import SnapshotIncomplete, decode_projection
+
+    from captain_hook.snapshots.client import CURRENT_CLIENT, EvidenceIncomplete, SnapshotProtocolError
+
+    if (client := CURRENT_CLIENT.get()) is None:
+        raise EvidenceIncomplete("invalid_request", "transcript loading requires an admitted snapshot client")
+    result = client.call("tail", path=str(Path(path).absolute()), count=count)
+    if result["status"] not in {"ok", "incomplete"} or (data := result.get("data")) is None:
+        raise EvidenceIncomplete(str(result["status"]), str(result.get("reason")))
+    if data["kind"] != "tail":
+        raise SnapshotProtocolError("tail returned an unexpected projection")
+    try:
+        events = decode_projection(data["record_schema"], data["records_json"], tool_registry=client.tool_registry())
+    except SnapshotIncomplete as exc:
+        raise EvidenceIncomplete(exc.status, exc.reason) from exc
+    return lift_session(events, path=Path(path))
+
+
+def lane_transcript_path(transcript_path: str | Path, agent_id: str) -> Path:
+    """The lane transcript a subagent or teammate writes beside its parent session transcript.
+
+    Claude Code attaches ``agent_transcript_path`` only to ``SubagentStop``; every other event
+    fired inside a lane carries the lane's ``agent_id`` and the *parent* session's
+    ``transcript_path``, so the lane's own file resolves by convention:
+    ``<parent-dir>/<parent-stem>/subagents/agent-<agent_id>.jsonl``.
+    """
+    return Path(transcript_path).with_suffix("") / "subagents" / f"agent-{agent_id}.jsonl"
+
+
+class TranscriptLoadError(Exception):
+    """Raised when the lazy transcript proxy fails to parse or read a transcript.
+
+    The event path defers loading behind a proxy, so a corrupt or unreadable transcript
+    first surfaces when a handler touches ``evt.ctx.transcript``. Dispatch's handler-error
+    boundary re-raises this rather than swallowing it, so the process fails loudly — exactly
+    as the eager baseline load did before dispatch.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class TranscriptSource:
+    path: Path
+    tail_events: int | None = None
+    unborn: threading.Event | None = None
+
+
+class TranscriptPins:
+    def __init__(
+        self,
+        load: Callable[[], Session | RemoteSession],
+        tail: Callable[[int], Session] | None = None,
+        *,
+        spec: TranscriptSource | None = None,
+    ) -> None:
+        self.load = load
+        self.tail = tail
+        self.spec = spec
+        self.guard = threading.Lock()
+        self.pending = 1
+        self.source: Session | RemoteSession | None = None
+        self.windows: dict[int, TranscriptPins] = {}
+
+    def branch(self) -> LazyTranscript:
+        with self.guard:
+            if self.pending == 0:
+                raise TranscriptLoadError("transcript preparation group is closed")
+            self.pending += 1
+        return LazyTranscript(self, seed=False)
+
+    def window(self, count: int) -> LazyTranscript:
+        if self.tail is None:
+            return self.branch()
+        with self.guard:
+            if self.pending == 0:
+                raise TranscriptLoadError("transcript preparation group is closed")
+            if (pins := self.windows.get(count)) is None:
+                spec = TranscriptSource(self.spec.path, count, self.spec.unborn) if self.spec is not None else None
+                pins = self.windows[count] = TranscriptPins(partial(self.tail, count), spec=spec)
+                pins.pending = 0
+        with pins.guard:
+            pins.pending += 1
+        return LazyTranscript(pins, seed=False)
+
+    def borrow(self, *, seed: bool) -> Session | RemoteSession:
+        from captain_hook.snapshots.client import RemoteSession
+
+        with self.guard:
+            if self.source is None:
+                self.source = self.load()
+            return self.source.retain() if isinstance(self.source, RemoteSession) and not seed else self.source
+
+    def settle(self) -> None:
+        from captain_hook.snapshots.client import RemoteSession
+
+        with self.guard:
+            self.pending -= 1
+            source = self.source if self.pending == 0 else None
+        if isinstance(source, RemoteSession):
+            source.release()
+
+
+class LazyTranscript:
+    def __init__(self, pins: TranscriptPins, *, seed: bool) -> None:
+        self.pins = pins
+        self.seed = seed
+        self.guard = threading.Lock()
+        self.session: Session | RemoteSession | None = None
+        self.released = False
+
+    def resolve(self) -> Session | RemoteSession:
+        from captain_hook.snapshots.client import EvidenceIncomplete
+
+        with self.guard:
+            if self.released:
+                raise EvidenceIncomplete("stale_handle", "transcript preparation branch is closed")
+            if self.session is None:
+                self.session = self.pins.borrow(seed=self.seed)
+            return self.session
+
+    def fork(self, tail_events: int | None = None) -> LazyTranscript:
+        from captain_hook.snapshots.client import EvidenceIncomplete
+
+        with self.guard:
+            if self.released:
+                raise EvidenceIncomplete("stale_handle", "transcript preparation branch is closed")
+            return self.pins.window(tail_events) if tail_events else self.pins.branch()
+
+    def release(self) -> None:
+        from captain_hook.snapshots.client import RemoteSession
+
+        with self.guard:
+            if self.released:
+                return
+            self.released = True
+            session = self.session if not self.seed else None
+        try:
+            if isinstance(session, RemoteSession):
+                session.release()
+        finally:
+            self.pins.settle()
+
+    @property
+    def __class__(self) -> type:
+        return type(self.resolve())
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self.resolve(), name)
+
+    def __len__(self) -> int:
+        return len(self.resolve())
+
+    def __bool__(self) -> bool:
+        return bool(self.resolve())
+
+
+def fork_transcript(
+    transcript: Session | RemoteSession | LazyTranscript, tail_events: int | None = None
+) -> Session | RemoteSession | LazyTranscript:
+    from captain_hook.snapshots.client import RemoteSession
+
+    if type(transcript) is LazyTranscript:
+        return transcript.fork(tail_events)
+    return transcript.retain() if isinstance(transcript, RemoteSession) else transcript
+
+
+def release_transcript(transcript: Session | RemoteSession | LazyTranscript) -> None:
+    from captain_hook.snapshots.client import RemoteSession
+
+    if type(transcript) is LazyTranscript:
+        transcript.release()
+    elif isinstance(transcript, RemoteSession):
+        transcript.release()
+
+
+def lazy_transcript(
+    path: str | Path | None,
+    *,
+    loader: Callable[[str | Path | None], Session | RemoteSession] | None = None,
+    attach: Callable[[], GraphSources] | None = None,
+    unborn: threading.Event | None = None,
+) -> LazyTranscript:
+    resolve = loader or load_transcript
+
+    def load() -> Session | RemoteSession:
+        from captain_hook.snapshots.client import RemoteSession
+
+        session = guarded_load(path, resolve, unborn=unborn)
+        if attach and isinstance(session, RemoteSession):
+            session = session.with_registered_sources(attach())
+        return session
+
+    def tail(source: str | Path, count: int) -> Session:
+        return guarded_load(source, lambda _: tail_transcript(source, count), unborn=unborn)
+
+    windowed = bool(path) and reqenv.provider() == "claude"
+    spec = TranscriptSource(Path(path), unborn=unborn) if windowed and resolve is load_transcript else None
+    return LazyTranscript(TranscriptPins(load, partial(tail, path) if windowed else None, spec=spec), seed=True)
+
+
+def root_transcript(path: str | Path, events: int) -> LazyTranscript:
+    """The newest ``events`` events of a lane's root session transcript, tailed on first touch."""
+    return LazyTranscript(
+        TranscriptPins(
+            partial(guarded_load, path, lambda source: tail_transcript(source, events)),
+            spec=TranscriptSource(Path(path), events) if reqenv.provider() == "claude" else None,
+        ),
+        seed=True,
+    )
+
+
+def root_excerpt(
+    path: str | Path,
+    needles: Sequence[str],
+    *,
+    around: int = 2,
+    limit: int = 20,
+    tail_bytes: int = ROOT_EXCERPT_BYTES,
+) -> Session:
+    """The earliest and the newest ``limit`` events in the last ``tail_bytes`` of a lane's root session
+    transcript whose line contains any of ``needles``, each with ``around`` events either side. Owner words
+    older than that tail reach a grant judge through the store's recorded ``words`` and ``ask`` records.
+    The earliest are kept because a quote is first said by whoever it came from and echoed by agents after.
+    A needle matches as typed or JSON-escaped, with or without its non-ASCII escaped.
+    """
+    from cc_transcript.parser import parse_events_from_bytes
+
+    forms = {
+        form
+        for needle in needles
+        if needle
+        for form in (
+            needle.encode(),
+            json.dumps(needle)[1:-1].encode(),
+            json.dumps(needle, ensure_ascii=False)[1:-1].encode(),
+        )
+    }
+    earliest: list[list[bytes]] = []
+    newest: deque[list[bytes]] = deque(maxlen=limit)
+    before: deque[bytes] = deque(maxlen=around)
+    window: list[bytes] = []
+    after = 0
+    reqenv.checkpoint()
+    with Path(path).open("rb") as transcript:
+        if (start := transcript.seek(0, os.SEEK_END) - tail_bytes) > 0:
+            transcript.seek(start - 1)
+            transcript.readline()
+        else:
+            transcript.seek(0)
+        for line in transcript:
+            if any(form in line for form in forms):
+                window = [*before, line]
+                if len(earliest) < limit:
+                    earliest.append(window)
+                newest.append(window)
+                before.clear()
+                after = around
+            elif after:
+                window.append(line)
+                after -= 1
+            else:
+                before.append(line)
+    hits = {id(window): window for window in (*earliest, *newest)}.values()
+    return lift_session(parse_events_from_bytes(b"".join(line for hit in hits for line in hit)), path=Path(path))
+
+
+def guarded_load[S: Session | RemoteSession](
+    path: str | Path | None, read: Callable[[str | Path | None], S], *, unborn: threading.Event | None = None
+) -> S | Session:
+    from captain_hook.snapshots.client import EvidenceIncomplete
+
+    reqenv.checkpoint()
+    try:
+        session = read(path)
+    except EvidenceIncomplete as exc:
+        if unborn is not None and unborn.is_set() and exc.status == "missing":
+            return load_transcript(None)
+        raise
+    except Exception as exc:
+        raise TranscriptLoadError(path) from exc
+    if unborn is not None:
+        unborn.clear()
+    return session
+
+
+def register_transcript(
+    session_id: str,
+    *,
+    provider: str = "codex",
+    thread_id: str | None = None,
+    path: str | None = None,
+    label: str | None = None,
+) -> RegisteredTranscript:
+    """Register an external transcript against ``session_id`` so it folds into the deep view.
+
+    Exactly one non-empty ``thread_id`` (resolved lazily against the codex sessions tree at dispatch)
+    or ``path`` (a direct file path, normalized to an absolute path against the registration cwd so a
+    relative locator still resolves once dispatch runs from the project root) locates the transcript.
+    Registration is idempotent by ``(provider, thread_id, path)`` — re-registering the same transcript
+    is a no-op. This is the one write codepath; the CLI and the ``capt-hook mcp`` server both delegate here.
+
+    Args:
+        session_id: The Claude Code session the transcript attaches to.
+        provider: The transcript's source provider (default ``"codex"``).
+        thread_id: The provider thread/session id to resolve at dispatch.
+        path: A path to the transcript file, stored absolute (a relative path anchors to the caller's cwd).
+        label: An optional human label for the registration.
+
+    Returns:
+        The :class:`~captain_hook.state.RegisteredTranscript` recorded for the request.
+    """
+    if not session_id or INVALID_SESSION_ID.search(session_id):
+        raise ValueError(f"invalid session id {session_id!r}: must not contain path separators or traversal components")
+    entry = RegisteredTranscript(
+        provider=provider,
+        thread_id=thread_id,
+        path=str(Path(path).absolute()) if path else path,
+        label=label,
+    )
+    key = (entry.provider, entry.thread_id, entry.path)
+    with SessionSlot(ensure_session(SessionId(session_id)), RegisteredTranscripts).mutate() as blob:
+        if key not in {(e.provider, e.thread_id, e.path) for e in blob.entries}:
+            blob.entries.append(entry)
+    return entry
+
+
+def registered_sources_stamp(path: Path) -> tuple[int, int, int, int, int] | None:
+    try:
+        stamp = path.stat()
+    except OSError:
+        return None
+    return stamp.st_dev, stamp.st_ino, stamp.st_size, stamp.st_mtime_ns, stamp.st_ctime_ns
+
+
+def registered_sources(session_dir: Path | None) -> GraphSources:
+    from cc_transcript.codex import sessions_root
+
+    from captain_hook.snapshots.client import GraphSources
+
+    slot = SessionSlot(session_dir, RegisteredTranscripts)
+    root = sessions_root()
+
+    def read() -> GraphSources | None:
+        registered = slot.get()
+        if registered is None:
+            return None
+        entries = registered.entries
+        return GraphSources(
+            thread_ids=tuple(dict.fromkeys(entry.thread_id for entry in entries if entry.thread_id)),
+            roots=(root,) if any(entry.thread_id for entry in entries) else (),
+            direct_paths=tuple(dict.fromkeys(Path(entry.path) for entry in entries if entry.path)),
+        )
+
+    if (path := slot.path) is None or (stamp := registered_sources_stamp(path)) is None:
+        return read() or GraphSources()
+    return REGISTERED_SOURCES.get(
+        (path, root), stamp, math.inf, read,
+        cache_if=lambda value: value is not None and registered_sources_stamp(path) == stamp,
+    ) or GraphSources()
+
+
+def record_unborn(session_dir: Path | None, path: str) -> None:
+    try:
+        Path(path).stat()
+    except FileNotFoundError:
+        with SessionSlot(session_dir, UnbornTranscript).strict_mutate() as unborn:
+            unborn.path = path
+
+
+def claim_unborn(session_dir: Path | None, path: str) -> bool:
+    with SessionSlot(session_dir, UnbornTranscript).strict_mutate() as unborn:
+        if unborn.path != path:
+            return False
+        unborn.path = None
+    with SessionSlot(session_dir, RegisteredTranscripts).strict_mutate() as registered:
+        return not registered.entries
+
+
+def resolved_transcript_paths(
+    client: SnapshotClient, session_ids: Sequence[SessionId], *, roots: Sequence[Path]
+) -> dict[SessionId, Path | None]:
+    from captain_hook.snapshots.client import EvidenceIncomplete, SnapshotProtocolError
+
+    found: dict[SessionId, Path | None] = {}
+    unique = list(dict.fromkeys(session_ids))
+    for offset in range(0, len(unique), 1024):
+        batch = unique[offset : offset + 1024]
+        resolved: dict[SessionId, Path | None] = {}
+        for page in client.pages("locate", session_ids=batch, roots=[str(root) for root in roots]):
+            if page["kind"] != "located":
+                raise SnapshotProtocolError("locate returned an unexpected result")
+            for item in page["sessions"]:
+                session_id = SessionId(item["session_id"])
+                if session_id not in batch or session_id in resolved:
+                    raise SnapshotProtocolError("locate returned an unexpected or duplicate session")
+                path = item["path"]
+                if item["status"] == "missing" and path is None:
+                    resolved[session_id] = None
+                elif item["status"] == "ok" and isinstance(path, str):
+                    resolved[session_id] = Path(path)
+                elif item["status"] == "incomplete":
+                    raise EvidenceIncomplete("incomplete", "transcript location did not complete")
+                else:
+                    raise SnapshotProtocolError("locate returned inconsistent session availability")
+        if set(resolved) != set(batch):
+            raise SnapshotProtocolError("locate omitted a requested session")
+        found.update(resolved)
+    return found
+
+
+def registered_paths(session_dir: Path | None) -> tuple[Path, ...]:
+    from cc_transcript.codex import sessions_root
+
+    from captain_hook.snapshots.client import EvidenceIncomplete, client_scope
+
+    entries = SessionSlot(session_dir, RegisteredTranscripts).get(RegisteredTranscripts()).entries
+    if not entries:
+        return ()
+    with client_scope() as client:
+        resolved = resolved_transcript_paths(
+            client,
+            [SessionId(entry.thread_id) for entry in entries if entry.thread_id],
+            roots=[sessions_root()],
+        )
+        paths: list[Path] = []
+        for entry in entries:
+            if entry.path:
+                try:
+                    session = client.acquire(entry.path)
+                except EvidenceIncomplete as exc:
+                    if exc.status != "missing":
+                        raise
+                    continue
+                try:
+                    paths.append(session.path)
+                finally:
+                    session.release()
+            else:
+                assert entry.thread_id is not None
+                if (path := resolved[SessionId(entry.thread_id)]) is not None:
+                    paths.append(path)
+    return tuple(dict.fromkeys(paths))

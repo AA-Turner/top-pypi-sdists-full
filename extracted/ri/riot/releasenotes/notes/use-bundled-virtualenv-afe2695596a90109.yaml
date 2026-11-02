@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Use bundled ``virtualenv`` module instead of searching system PATH.

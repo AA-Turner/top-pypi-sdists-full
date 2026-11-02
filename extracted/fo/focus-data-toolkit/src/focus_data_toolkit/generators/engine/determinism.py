@@ -1,0 +1,173 @@
+"""Shared deterministic helpers and constants for the generators.
+
+Every value here is identical across all providers and FOCUS versions (verified against
+the six historical generator modules). Rounding rules (``ROUND_HALF_UP`` + the quanta) and
+the billing window live in exactly one place so they can never drift between providers.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import random
+from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+
+from focus_data_toolkit.model.focus_json_keys import SKU_PRICE_DETAILS_KEYS
+
+# --------------------------------------------------------------------------- #
+# Billing window (fixed timestamps -> no clock -> byte-reproducible)
+# --------------------------------------------------------------------------- #
+BILLING_START = datetime(2026, 5, 1, tzinfo=UTC)
+BILLING_END = datetime(2026, 6, 1, tzinfo=UTC)
+PERIOD_DAYS = 28
+PERIOD_HOURS = PERIOD_DAYS * 24
+COMMIT_TERM_DAYS = 365  # 1-year commitment / contract term
+CONTRACT_LEAD_DAYS = 90  # the contract period encloses the commitment period by this margin
+
+# --------------------------------------------------------------------------- #
+# Rounding quanta and commercial rates (single source of truth)
+# --------------------------------------------------------------------------- #
+COST_Q = Decimal("0.000001")
+PRICE_Q = Decimal("0.0000000001")
+QTY_Q = Decimal("0.0001")
+EUR_PER_USD = Decimal("0.92")
+COMMIT_RATE = Decimal("0.667")  # amortised commitment rate vs on-demand list
+PRIVATE_RATE = Decimal("0.90")  # negotiated (contracted) rate vs list for on-demand
+COMMIT_TERM_HOURS = Decimal("8760")  # 1-year reservation term
+
+# --------------------------------------------------------------------------- #
+# Shared value pools and FOCUS vocabularies
+# --------------------------------------------------------------------------- #
+ENVIRONMENTS = ("prod", "staging", "dev")
+COST_CENTERS = ("cc-1042", "cc-2087", "cc-3110")
+OWNERS = ("team-platform", "team-data", "team-payments")
+
+PRICING_CATEGORIES: tuple[str, ...] = ("Standard", "Dynamic", "Committed", "Other")
+# FOCUS-defined SkuPriceDetails property keys (others MUST be x_-prefixed).
+
+FOCUS_SKU_PRICE_KEYS = SKU_PRICE_DETAILS_KEYS
+FLEET_SIZE = Decimal("500")
+
+HEX_LOWER = "0123456789abcdef"
+HEX_UPPER = "0123456789ABCDEF"
+
+
+def q(value: Decimal, quant: Decimal) -> Decimal:
+    """Quantise ``value`` to ``quant`` using banker-free ROUND_HALF_UP (FOCUS rounding)."""
+    return value.quantize(quant, rounding=ROUND_HALF_UP)
+
+
+def exact_cost(unit_price: Decimal, quantity: Decimal) -> Decimal:
+    """Exact product of already-quantised factors (Decimal multiplication never rounds).
+
+    Costs must satisfy ``cost == unit_price * quantity`` under exact Decimal equality
+    (FOCUS cost arithmetic) — so the *factors* are quantised (``PRICE_Q`` × ``QTY_Q``,
+    a <= 14-decimal product), never the product. The product is display-trimmed to
+    ``COST_Q`` only when that loses nothing, so typical values still render at 6
+    decimals while genuinely small unit prices keep their full precision.
+    """
+    product = unit_price * quantity
+    trimmed = product.quantize(COST_Q)
+    return trimmed if trimmed == product else product
+
+
+def s(value: Decimal) -> str:
+    """Render a Decimal as fixed-point text (never scientific notation)."""
+    return format(value, "f")
+
+
+def iso(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_iso(value: str) -> datetime:
+    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+
+
+def hexid(rng: random.Random, width: int, alphabet: str = HEX_LOWER) -> str:
+    """Draw ``width`` characters from ``alphabet`` (default lowercase hex)."""
+    return "".join(rng.choice(alphabet) for _ in range(width))
+
+
+def period(i: int, granularity: str) -> tuple[str, str]:
+    if granularity == "hourly":
+        start = BILLING_START + timedelta(hours=i % PERIOD_HOURS)
+        return iso(start), iso(start + timedelta(hours=1))
+    if granularity == "daily":
+        start = BILLING_START + timedelta(days=i % PERIOD_DAYS)
+        return iso(start), iso(start + timedelta(days=1))
+    return iso(BILLING_START), iso(BILLING_END)
+
+
+def sku_price_details(spec_sku_details: dict[str, object]) -> str:
+    return json.dumps(spec_sku_details, separators=(",", ":"))
+
+
+# Negotiated contract terms that are NOT commitment discounts (minimum spend, negotiated
+# rate card, usage commitment). They live in the Contract Commitment dataset and are
+# reachable from Cost and Usage exclusively through ``ContractApplied`` — never via
+# ``CommitmentDiscountId`` — which is the FOCUS-defined relationship between the two
+# datasets. Ids are RNG-free so the Cost and Usage rows (which reference them) and the
+# Contract Commitment dataset (which defines them) agree without sharing state.
+NEGOTIATED_TERM_KINDS: tuple[str, ...] = ("MINSPEND", "RATECARD", "USAGEMIN")
+
+
+def negotiated_contract_id(profile_key: str) -> str:
+    """The one negotiated contract per provider (a multi-commitment ContractId)."""
+    return f"CONTRACT-NEGOTIATED-{profile_key.upper()}"
+
+
+def negotiated_commitment_id(kind: str, profile_key: str) -> str:
+    if kind not in NEGOTIATED_TERM_KINDS:
+        raise ValueError(f"unknown negotiated term kind {kind!r}")
+    return f"CC-{kind}-{profile_key.upper()}"
+
+
+def set_currency(
+    row: dict[str, str],
+    pricing_currency: str,
+    list_unit: Decimal,
+    contracted_unit: Decimal,
+    effective_cost: Decimal,
+) -> None:
+    row["PricingCurrency"] = pricing_currency
+    if pricing_currency == "USD":
+        # Same currency as billing: the pricing-currency columns are exact mirrors of
+        # the USD amounts (quantising here would break exact cost arithmetic).
+        row["PricingCurrencyListUnitPrice"] = s(list_unit)
+        row["PricingCurrencyContractedUnitPrice"] = s(contracted_unit)
+        row["PricingCurrencyEffectiveCost"] = s(effective_cost)
+        return
+    fx = EUR_PER_USD
+    row["PricingCurrencyListUnitPrice"] = s(q(list_unit * fx, PRICE_Q))
+    row["PricingCurrencyContractedUnitPrice"] = s(q(contracted_unit * fx, PRICE_Q))
+    row["PricingCurrencyEffectiveCost"] = s(exact_cost(effective_cost, fx))
+
+
+def stable_id(prefix: str, values: object) -> str:
+    """Stable identity independent of Python hash randomization and dictionary order."""
+    payload = json.dumps(values, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return prefix + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
+def set_sku_ids(row: dict[str, str]) -> None:
+    """Identify the offer, then its list price; negotiated terms do not change a SKU."""
+    if not row.get("SkuPriceDetails"):
+        raise ValueError("SKU identity requires a populated SkuPriceDetails JSON object")
+    details = json.loads(row["SkuPriceDetails"])
+    if not isinstance(details, dict):
+        raise ValueError("SKU identity requires a SkuPriceDetails JSON object")
+    for key in details:
+        if key.startswith("x_") and key[2:] in FOCUS_SKU_PRICE_KEYS:
+            raise ValueError(f"Use FOCUS property {key[2:]}")
+        if not key.startswith("x_") and key not in FOCUS_SKU_PRICE_KEYS:
+            raise ValueError(f"Custom SKU property requires x_ prefix: {key}")
+    row["SkuId"] = stable_id("SKU-", [row[k] for k in (
+        "ProviderName", "ServiceName", "SkuMeter", "RegionId", "PricingUnit",
+    )] + [details])
+    row["SkuPriceId"] = stable_id("SPRICE-", [row[k] for k in (
+        "SkuId", "BillingCurrency", "PricingCurrency",
+    )] + [format(Decimal(row[k]).normalize(), "f") for k in (
+        "ListUnitPrice", "PricingCurrencyListUnitPrice",
+    )])

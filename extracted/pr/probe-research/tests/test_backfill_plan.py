@@ -12,9 +12,9 @@ from dataclasses import replace
 
 import pytest
 
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as bp
-from probe.cli.backfill_ledger import UnitKind
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as bp
+from probe.cli.imports.folder.upload.ledger import UnitKind
 
 
 def _write(root, rel, text="x"):

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "svg"
+dist-name = "svg.py"
+license = "MIT"
+author = "Gram"
+author-email = "gram@orsinium.dev"
+home-page = "https://github.com/orsinium-labs/svg"
+description-file = "README.md"
+requires-python = ">=3.7"
+keywords = "svg,drawing,vector"
+requires = []
+
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Topic :: Software Development",
+]
+
+[tool.flit.metadata.requires-extra]
+dev = [
+    "isort",
+    "mypy",
+    "pytest",
+]
+
+[tool.isort]
+profile = "django"
+lines_after_imports = 2

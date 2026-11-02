@@ -1,0 +1,106 @@
+"""Meta-programming tools to build declarative frameworks"""
+
+from i2.deco import (
+    FuncFactory,
+    preprocess,
+    postprocess,
+    preprocess_arguments,
+    input_output_decorator,
+    wrap_class_methods_input_and_output,
+    double_up_as_factory,
+    NotSet,  # Sentinel for "no value given" (distinct from None and Parameter.empty)
+    is_not_set,  # Test whether a value (e.g. a signature default) is NotSet
+    DefaultPlaceholder,  # Base for signature defaults that stand for a value
+    is_placeholder_default,  # NotSet or a DefaultPlaceholder: "no concrete default"
+)
+
+from i2.signatures import (
+    Sig,  # An extended Signature object
+    Param,
+    sort_params,
+    call_forgivingly,  # Call a function extracting the arguments from a pool of arguments
+    call_somewhat_forgivingly,  # call_forgivingly with a bit more control
+    name_of_obj,  # Get the name of an object, and control how it's done
+    empty as empty_param_attr,
+)
+
+from i2.multi_object import (
+    MultiObj,
+    MultiFunc,
+    Pipe,
+    FuncFanout,
+    FlexFuncFanout,
+    ParallelFuncs,
+    ContextFanout,
+)
+
+from i2.errors import (
+    InterruptWithBlock,
+    HandleExceptions,
+)
+
+from i2.wrapper import (
+    wrap,
+    Wrap,
+    Wrapx,
+    Ingress,
+    include_exclude,
+    rm_params,
+    partialx,
+    curried,
+    ch_names,
+    arg_val_converter,
+    ignore_extra_args,  # Wrap a function to accept (and ignore) extra arguments
+    func_to_method_func,
+    methodize,
+    bind_funcs_object_attrs,
+    kwargs_trans,
+)
+
+from i2.util import (
+    register_object,  # Register an object in a registry
+    asis,  # the identity function: f(x) := x (takes only one argument, and returns it)
+    return_true,  # a function that returns True (takes any number of arguments)
+    return_false,  # a function that returns False (takes any number of arguments)
+    ConditionalExceptionCatcher,  # A context manager that catches exceptions based on a condition.
+    AttributeMapping,  # a mapping that provides attribute-access to the keys that are valid attribute names
+    AttributeMutableMapping,  # a mutable mapping version of AttributeMapping
+    copy_func,  # Copy a function.
+    get_app_folder,  # Get the application folder of a specified kind for the current system.
+    get_app_config_folder,  # Get the application config folder of the current system.
+    LiteralVal,  # An object to indicate that the value should be considered literally.
+    path_extractor,  # Get items from a tree-structured object from a sequence of tree-traversal indices.
+    get_function_body,
+    lazyprop,  # Like functools.cached_property, but with a bit more.
+    frozendict,  # A hashable dictionary.
+    inject_method,  # Inject a method into an object instance
+    mk_sentinel,  # Make a sentinel instance.
+    ensure_identifiers,  # Ensure that one or several strings are valid python identifiers.
+)
+
+identity = asis  # alias for asis, the identity function
+
+from i2.footprints import MethodTrace
+
+from i2.itypes import validate_literal, ObjectClassifier
+
+from i2.doc_mint import (
+    params_to_docstring,  # make the params-info part of the docstring
+    docstring_to_params,  # extract the params from a docstring
+    find_in_params,  # find a substring in the params-info part of the docstring
+    detect_doc_style,  # which params-info style (numpy, google, rest) a docstring uses
+)
+
+
+def __getattr__(name):
+    """Handle deprecated imports at module level."""
+    if name == "get_app_data_folder":
+        import warnings
+
+        warnings.warn(
+            "`get_app_data_folder` is deprecated. Use `get_app_config_folder` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return get_app_config_folder
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

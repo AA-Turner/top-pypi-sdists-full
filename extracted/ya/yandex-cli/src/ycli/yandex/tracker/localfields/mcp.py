@@ -1,0 +1,90 @@
+"""Tracker localFields FastMCP tools (reads + writes, ARCH-3 honest annotations)."""
+
+from typing import Annotated
+
+from fastmcp.dependencies import Depends
+from pydantic import Field
+
+from ycli.yandex.models import ItemList
+from ycli.yandex.tracker.client import TrackerClient
+from ycli.yandex.tracker.dependencies import (
+    RO,
+    WRITE,
+    WRITE_IDEMPOTENT,
+    QueueID,
+    new_server,
+    tracker_client,
+)
+from ycli.yandex.tracker.localfields.models import LocalField, LocalFieldUpdate
+from ycli.yandex.tracker.models import FieldCreate
+
+mcp = new_server("tracker-localfields")
+
+
+@mcp.tool(name="localfields_list", annotations={**RO, "title": "List Tracker local fields"})
+def list_(
+    queue_id: Annotated[
+        str, Field(description="Queue key (case-sensitive, e.g. ORG) or numeric queue id.")
+    ],
+    client: TrackerClient = Depends(tracker_client),
+) -> ItemList[LocalField]:
+    """Custom fields scoped to one queue (its local fields), as a flat list.
+
+    Each item's ``key`` is the field key you pass to ``localfields_get``; ``field_schema``
+    describes the value type. Local fields differ from global fields (``fields_list``) in that
+    they exist only inside the given queue. Pass a ``key`` from ``queues_list`` as ``queue_id``.
+    """
+    return client.localfields.list(queue_id)
+
+
+@mcp.tool(name="localfields_get", annotations={**RO, "title": "Get Tracker local field"})
+def get(
+    queue_id: Annotated[
+        str, Field(description="Queue key (case-sensitive, e.g. ORG) or numeric queue id.")
+    ],
+    field_key: Annotated[
+        str, Field(description="Local field key, as returned by localfields_list.")
+    ],
+    client: TrackerClient = Depends(tracker_client),
+) -> LocalField:
+    """One local field's full definition (type, options, category) by queue and field key.
+
+    Returns the value schema, allowed-values provider and category of the field. Use
+    ``localfields_list`` first to discover the ``field_key`` values available in a queue.
+    """
+    return client.localfields.get(queue_id, field_key)
+
+
+@mcp.tool(
+    name="localfields_create",
+    annotations={**WRITE, "title": "Create Tracker local field"},
+)
+def create(
+    queue_id: QueueID, body: FieldCreate, client: TrackerClient = Depends(tracker_client)
+) -> LocalField:
+    """Create a custom field scoped to one queue (a local field).
+
+    Required fields: ``id`` (latin key), ``name`` (ru/en display names), ``category`` (a category
+    id from ``fields_list``) and ``type`` (value type, e.g. ``ru.yandex.startrek.core.fields.
+    StringFieldType``). There is no delete endpoint — the field lives until its queue is deleted.
+    """
+    return client.localfields.create(queue_id, body)
+
+
+@mcp.tool(
+    name="localfields_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Edit Tracker local field"},
+)
+def update(
+    queue_id: QueueID,
+    field_key: Annotated[
+        str, Field(description="Key of the queue-local field, from ``localfields_list``.")
+    ],
+    body: LocalFieldUpdate,
+    client: TrackerClient = Depends(tracker_client),
+) -> LocalField:
+    """Edit a queue-local field; only the fields set in ``body`` are changed.
+
+    Get ``field_key`` from ``localfields_list``. Returns the updated field definition.
+    """
+    return client.localfields.update(queue_id, field_key, body)

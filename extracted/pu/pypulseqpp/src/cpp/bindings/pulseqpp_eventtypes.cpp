@@ -1,0 +1,1392 @@
+#include <algorithm>
+/**
+ * @file _pulseqpp_eventtypes.cpp
+ * @brief The nine event types, hand-written.  See pulseqpp_eventtypes.h for why.
+ *
+ * Scalars are `tp_members`, so reading one is a type code and an offset.
+ * Waveforms, names and computed quantities are `tp_getset`, where an accessor
+ * call is beside the point next to the array it builds.
+ */
+
+#include "pulseqpp_eventtypes.h"
+
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <new>
+
+/* PULSEQPP_FIELD reaches a member through a base class, which is exactly
+ * right here and formally off-limits; ready() proves each layout at import. */
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
+
+#if PY_VERSION_HEX < 0x030C0000
+#include <structmember.h>
+#define Py_T_DOUBLE T_DOUBLE
+#define Py_T_INT T_INT
+#define Py_T_BOOL T_BOOL
+#define Py_T_OBJECT_EX T_OBJECT_EX
+#endif
+
+namespace pulseqpp_types
+{
+
+    PyTypeObject EventBaseType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+    namespace
+    {
+        static_assert(sizeof(int32_t) == sizeof(int), "Py_T_INT fields are int32_t");
+
+        /** The event inside @p self.  The caller has already identified it. */
+        template <typename T> inline T& unwrap(PyObject* self)
+        {
+            return reinterpret_cast<Holder<T>*>(self)->event;
+        }
+
+        /** A getter's body, with C++ exceptions turned into Python ones. */
+        template <typename Make> inline PyObject* guarded(Make&& make)
+        {
+            try
+            {
+                return py::object(make()).release().ptr();
+            }
+            catch (py::error_already_set& raised)
+            {
+                raised.restore();
+                return nullptr;
+            }
+            catch (const std::exception& raised)
+            {
+                PyErr_SetString(PyExc_ValueError, raised.what());
+                return nullptr;
+            }
+        }
+
+        /** A setter's body.  Deleting an event's field is not a thing. */
+        template <typename Apply> inline int guarded_set(PyObject* value, Apply&& apply)
+        {
+            if (!value)
+            {
+                PyErr_SetString(PyExc_AttributeError, "an event field cannot be deleted");
+                return -1;
+            }
+            try
+            {
+                apply(py::reinterpret_borrow<py::object>(value));
+                return 0;
+            }
+            catch (py::error_already_set& raised)
+            {
+                raised.restore();
+                return -1;
+            }
+            catch (const std::exception& raised)
+            {
+                PyErr_SetString(PyExc_ValueError, raised.what());
+                return -1;
+            }
+        }
+
+        /** An interned name, made once per call site and never released. */
+        inline PyObject* interned(PyObject*& slot, const char* text)
+        {
+            if (!slot)
+                slot = PyUnicode_InternFromString(text);
+            return slot ? Py_NewRef(slot) : nullptr;
+        }
+
+        inline py::array_t<double> samples_of(const std::vector<double>& values)
+        {
+            return py::array_t<double>(static_cast<py::ssize_t>(values.size()), values.data());
+        }
+
+        Axis axis_from(const std::string& channel)
+        {
+            if (channel == "x")
+                return Axis::X;
+            if (channel == "y")
+                return Axis::Y;
+            if (channel == "z")
+                return Axis::Z;
+            throw std::invalid_argument("gradient channel must be 'x', 'y' or 'z'");
+        }
+
+        PyObject* axis_name(Axis axis)
+        {
+            static PyObject* names[3] = {nullptr, nullptr, nullptr};
+            static const char* text[3] = {"x", "y", "z"};
+            const int which = static_cast<int>(axis);
+            return interned(names[which], text[which]);
+        }
+
+        std::array<double, 4> unit_quaternion(const py::object& value)
+        {
+            const std::vector<double> given = as_vector(value);
+            if (given.size() != 4)
+                throw std::invalid_argument("a rotation is four numbers");
+            double norm = 0.0;
+            for (double component : given)
+                norm += component * component;
+            if (std::fabs(1.0 - norm) > 1e-6)
+                throw std::invalid_argument("rotation quaternion is not a unit quaternion");
+            return {{given[0], given[1], given[2], given[3]}};
+        }
+
+        /* ============================================================== */
+        /*  Lifetime                                                      */
+        /* ============================================================== */
+
+        template <typename T> PyObject* generic_new(PyTypeObject* type, PyObject*, PyObject*)
+        {
+            PyObject* self = type->tp_alloc(type, 0);
+            if (!self)
+                return nullptr;
+            Holder<T>* holder = reinterpret_cast<Holder<T>*>(self);
+            new (&holder->event) T();
+            // tp_alloc zeroes, but say it: Py_T_OBJECT_EX reads null as
+            // "no such attribute", so this is what makes hasattr False.
+            holder->compat_id = nullptr;
+            holder->compat_shape_ids = nullptr;
+            holder->view_source = nullptr;
+            return self;
+        }
+
+        template <typename T> void generic_dealloc(PyObject* self)
+        {
+            Holder<T>* holder = reinterpret_cast<Holder<T>*>(self);
+            Py_CLEAR(holder->compat_id);
+            Py_CLEAR(holder->compat_shape_ids);
+            Py_CLEAR(holder->view_source);
+            holder->event.~T();
+            Py_TYPE(self)->tp_free(self);
+        }
+
+        /* ============================================================== */
+        /*  RF                                                            */
+        /* ============================================================== */
+
+        PyObject* rf_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "rf");
+        }
+
+        PyObject* rf_get_use(PyObject* self, void*)
+        {
+            const std::string& use = unwrap<RfEvent>(self).use;
+            return PyUnicode_FromStringAndSize(use.data(), static_cast<Py_ssize_t>(use.size()));
+        }
+
+        int rf_set_use(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                { unwrap<RfEvent>(self).use = given.cast<std::string>(); });
+        }
+
+        PyObject* rf_get_signal(PyObject* self, void*)
+        {
+            return guarded([&] { return rf_signal(unwrap<RfEvent>(self)); });
+        }
+
+        int rf_set_signal(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    auto samples = py::cast<py::array_t<
+                        std::complex<double>,
+                        py::array::c_style | py::array::forcecast>>(given);
+                    normalise_rf(
+                        samples.data(),
+                        static_cast<int>(samples.size()),
+                        unwrap<RfEvent>(self));
+                });
+        }
+
+        PyObject* rf_get_magnitude(PyObject* self, void*)
+        {
+            return guarded([&] { return samples_of(unwrap<RfEvent>(self).magnitude); });
+        }
+
+        PyObject* rf_get_phase(PyObject* self, void*)
+        {
+            return guarded([&] { return samples_of(unwrap<RfEvent>(self).phase); });
+        }
+
+        PyObject* rf_get_t(PyObject* self, void*)
+        {
+            return guarded([&] { return samples_of(unwrap<RfEvent>(self).t); });
+        }
+
+        int rf_set_t(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    RfEvent& event = unwrap<RfEvent>(self);
+                    event.t = as_vector(given);
+                    event.registered = Registration{};
+                });
+        }
+
+        Py_ssize_t rf_length(PyObject* self)
+        {
+            return static_cast<Py_ssize_t>(unwrap<RfEvent>(self).magnitude.size());
+        }
+
+        PyMemberDef rf_members[] = {
+            {"amplitude", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, amplitude), 0, nullptr},
+            {"shape_dur", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, shape_dur), 0, nullptr},
+            {"center", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, center), 0, nullptr},
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, delay), 0, nullptr},
+            {"freq_offset", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, freq_offset), 0, nullptr},
+            {"phase_offset", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, phase_offset), 0, nullptr},
+            {"freq_ppm", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, freq_ppm), 0, nullptr},
+            {"phase_ppm", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, phase_ppm), 0, nullptr},
+            {"dead_time", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, dead_time), 0, nullptr},
+            {"ringdown_time", Py_T_DOUBLE, PULSEQPP_FIELD(RfEvent, ringdown_time), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(RfEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef rf_getset[] = {
+            {"type", rf_type, nullptr, nullptr, nullptr},
+            {"use", rf_get_use, rf_set_use, nullptr, nullptr},
+            {"signal", rf_get_signal, rf_set_signal, nullptr, nullptr},
+            {"magnitude", rf_get_magnitude, nullptr, nullptr, nullptr},
+            {"phase", rf_get_phase, nullptr, nullptr, nullptr},
+            {"t", rf_get_t, rf_set_t, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        PySequenceMethods rf_sequence = {rf_length};
+
+        /* ============================================================== */
+        /*  Trapezoid                                                     */
+        /* ============================================================== */
+
+        PyObject* trap_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "trap");
+        }
+
+        PyObject* trap_get_channel(PyObject* self, void*)
+        {
+            return axis_name(unwrap<TrapEvent>(self).axis);
+        }
+
+        int trap_set_channel(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                { unwrap<TrapEvent>(self).axis = axis_from(given.cast<std::string>()); });
+        }
+
+        PyObject* trap_get_area(PyObject* self, void*)
+        {
+            const TrapEvent& event = unwrap<TrapEvent>(self);
+            return PyFloat_FromDouble(
+                event.amplitude *
+                (event.flat_time + event.rise_time / 2.0 + event.fall_time / 2.0));
+        }
+
+        PyObject* trap_get_flat_area(PyObject* self, void*)
+        {
+            const TrapEvent& event = unwrap<TrapEvent>(self);
+            return PyFloat_FromDouble(event.amplitude * event.flat_time);
+        }
+
+        PyMemberDef trap_members[] = {
+            {"amplitude", Py_T_DOUBLE, PULSEQPP_FIELD(TrapEvent, amplitude), 0, nullptr},
+            {"rise_time", Py_T_DOUBLE, PULSEQPP_FIELD(TrapEvent, rise_time), 0, nullptr},
+            {"flat_time", Py_T_DOUBLE, PULSEQPP_FIELD(TrapEvent, flat_time), 0, nullptr},
+            {"fall_time", Py_T_DOUBLE, PULSEQPP_FIELD(TrapEvent, fall_time), 0, nullptr},
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(TrapEvent, delay), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(TrapEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef trap_getset[] = {
+            {"type", trap_type, nullptr, nullptr, nullptr},
+            {"channel", trap_get_channel, trap_set_channel, nullptr, nullptr},
+            {"area", trap_get_area, nullptr, nullptr, nullptr},
+            {"flat_area", trap_get_flat_area, nullptr, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Arbitrary gradient                                            */
+        /* ============================================================== */
+
+        PyObject* grad_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "grad");
+        }
+
+        PyObject* grad_get_channel(PyObject* self, void*)
+        {
+            return axis_name(unwrap<GradEvent>(self).axis);
+        }
+
+        int grad_set_channel(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                { unwrap<GradEvent>(self).axis = axis_from(given.cast<std::string>()); });
+        }
+
+        PyObject* grad_get_waveform(PyObject* self, void*)
+        {
+            return guarded(
+                [&]
+                {
+                    // A view at its own amplitude is the caller's array itself,
+                    // which is what upstream's event holds.
+                    Holder<GradEvent>* holder = reinterpret_cast<Holder<GradEvent>*>(self);
+                    const GradEvent& g = holder->event;
+                    if (g.view && holder->view_source && g.amplitude == g.view_divisor)
+                        return py::reinterpret_borrow<py::object>(holder->view_source);
+                    return py::object(grad_waveform(g));
+                });
+        }
+
+        int grad_set_waveform(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    auto samples =
+                        py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(
+                            given);
+                    normalise_grad(
+                        samples.data(),
+                        static_cast<int>(samples.size()),
+                        unwrap<GradEvent>(self));
+                    Py_CLEAR(reinterpret_cast<Holder<GradEvent>*>(self)->view_source);
+                });
+        }
+
+        PyObject* grad_get_shape(PyObject* self, void*)
+        {
+            return guarded(
+                [&]
+                {
+                    const GradEvent& g = unwrap<GradEvent>(self);
+                    if (!g.view)
+                        return samples_of(g.waveform);
+                    py::array_t<double> out(static_cast<py::ssize_t>(g.view_count));
+                    double* data = out.mutable_data();
+                    for (int i = 0; i < g.view_count; ++i)
+                        data[i] = grad_shape_at(g, i);
+                    return out;
+                });
+        }
+
+        PyObject* grad_get_tt(PyObject* self, void*)
+        {
+            return guarded(
+                [&]
+                {
+                    GradEvent& event = unwrap<GradEvent>(self);
+                    if (event.tt.empty() && event.tt_grid != 0 && grad_count(event) > 0)
+                    {
+                        const Py_ssize_t n = static_cast<Py_ssize_t>(grad_count(event));
+                        py::array_t<double> out(n);
+                        double* dst = out.mutable_data();
+                        if (event.tt_grid == 2)
+                            for (Py_ssize_t i = 0; i < n; ++i)
+                                dst[i] = (i + 1) * 0.5 * event.tt_raster;
+                        else
+                            for (Py_ssize_t i = 0; i < n; ++i)
+                                dst[i] = (i + 0.5) * event.tt_raster;
+                        return py::object(out);
+                    }
+                    return py::object(samples_of(event.tt));
+                });
+        }
+
+        int grad_set_tt(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    GradEvent& event = unwrap<GradEvent>(self);
+                    event.tt = as_vector(given);
+                    event.last_time = event.tt.empty() ? 0.0 : event.tt.back();
+                    event.tt_grid = 0;
+                    event.tt_raster = 0.0;
+                    event.registered = Registration{};
+                });
+        }
+
+        Py_ssize_t grad_length(PyObject* self)
+        {
+            return static_cast<Py_ssize_t>(grad_count(unwrap<GradEvent>(self)));
+        }
+
+        PyMemberDef grad_members[] = {
+            {"amplitude", Py_T_DOUBLE, PULSEQPP_FIELD(GradEvent, amplitude), 0, nullptr},
+            {"first", Py_T_DOUBLE, PULSEQPP_FIELD(GradEvent, first), 0, nullptr},
+            {"last", Py_T_DOUBLE, PULSEQPP_FIELD(GradEvent, last), 0, nullptr},
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(GradEvent, delay), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(GradEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        /**
+         * How long the waveform lasts.
+         *
+         * On the raster the samples sit at the centre of each interval, so
+         * the waveform runs half a raster past its last one; oversampled by
+         * two it runs half a step past; and a waveform with times of its own
+         * ends where they say.
+         */
+        PyObject* grad_get_shape_dur(PyObject* self, void*)
+        {
+            const GradEvent& g = unwrap<GradEvent>(self);
+            const double count = static_cast<double>(grad_count(g));
+            if (g.tt_grid == 1)
+                return PyFloat_FromDouble(count * g.tt_raster);
+            if (g.tt_grid == 2)
+                return PyFloat_FromDouble((count + 1.0) * 0.5 * g.tt_raster);
+            return PyFloat_FromDouble(g.last_time);
+        }
+
+        /**
+         * The gradient's zeroth moment.
+         *
+         * On the raster the samples are the intervals, so the area is their
+         * sum; a waveform oversampled by two carries every other sample twice
+         * over and only the odd ones count; and a waveform with times of its
+         * own is integrated between them.
+         */
+        PyObject* grad_get_area(PyObject* self, void*)
+        {
+            const GradEvent& g = unwrap<GradEvent>(self);
+            const int count = grad_count(g);
+            double area = 0.0;
+
+            if (g.tt_grid == 1)
+            {
+                for (int i = 0; i < count; ++i)
+                    area += grad_shape_at(g, i);
+                area *= g.amplitude * g.tt_raster;
+            }
+            else if (g.tt_grid == 2)
+            {
+                for (int i = 0; i < count; i += 2)
+                    area += grad_shape_at(g, i);
+                area *= g.amplitude * g.tt_raster;
+            }
+            else
+            {
+                const int held = static_cast<int>(g.tt.size());
+                for (int i = 0; i + 1 < count && i + 1 < held; ++i)
+                {
+                    area += 0.5 * (g.tt[static_cast<size_t>(i) + 1] - g.tt[static_cast<size_t>(i)]) *
+                        (grad_shape_at(g, i + 1) + grad_shape_at(g, i));
+                }
+                area *= g.amplitude;
+            }
+            return PyFloat_FromDouble(area);
+        }
+
+        PyGetSetDef grad_getset[] = {
+            {"type", grad_type, nullptr, nullptr, nullptr},
+            {"shape_dur", grad_get_shape_dur, nullptr, nullptr, nullptr},
+            {"area", grad_get_area, nullptr, nullptr, nullptr},
+            {"channel", grad_get_channel, grad_set_channel, nullptr, nullptr},
+            {"waveform", grad_get_waveform, grad_set_waveform, nullptr, nullptr},
+            {"shape", grad_get_shape, nullptr, nullptr, nullptr},
+            {"tt", grad_get_tt, grad_set_tt, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        PySequenceMethods grad_sequence = {grad_length};
+
+        /* ============================================================== */
+        /*  ADC                                                           */
+        /* ============================================================== */
+
+        PyObject* adc_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "adc");
+        }
+
+        PyObject* adc_get_phase_modulation(PyObject* self, void*)
+        {
+            // An empty array rather than None, which is what a decoded block
+            // carries and what arithmetic over it survives.
+            const AdcEvent& event = unwrap<AdcEvent>(self);
+            return guarded([&] { return samples_of(event.phase_modulation); });
+        }
+
+        int adc_set_phase_modulation(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    AdcEvent& event = unwrap<AdcEvent>(self);
+                    event.phase_modulation = as_vector(given);
+                    event.registered = Registration{};
+                });
+        }
+
+        PyMemberDef adc_members[] = {
+            {"num_samples", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, num_samples), 0, nullptr},
+            {"dwell", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, dwell), 0, nullptr},
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, delay), 0, nullptr},
+            {"freq_offset", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, freq_offset), 0, nullptr},
+            {"phase_offset", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, phase_offset), 0, nullptr},
+            {"freq_ppm", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, freq_ppm), 0, nullptr},
+            {"phase_ppm", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, phase_ppm), 0, nullptr},
+            {"dead_time", Py_T_DOUBLE, PULSEQPP_FIELD(AdcEvent, dead_time), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(AdcEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef adc_getset[] = {
+            {"type", adc_type, nullptr, nullptr, nullptr},
+            {"phase_modulation",
+             adc_get_phase_modulation,
+             adc_set_phase_modulation,
+             nullptr,
+             nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Label                                                         */
+        /* ============================================================== */
+
+        PyObject* label_type(PyObject* self, void*)
+        {
+            static PyObject* set_name = nullptr;
+            static PyObject* inc_name = nullptr;
+            return unwrap<LabelEvent>(self).setting ? interned(set_name, "labelset")
+                                                    : interned(inc_name, "labelinc");
+        }
+
+        PyObject* label_get_label(PyObject* self, void*)
+        {
+            const std::string& label = unwrap<LabelEvent>(self).label;
+            return PyUnicode_FromStringAndSize(label.data(), static_cast<Py_ssize_t>(label.size()));
+        }
+
+        int label_set_label(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                {
+                    LabelEvent& event = unwrap<LabelEvent>(self);
+                    event.label = given.cast<std::string>();
+                    event.owner = 0; // the cached id belonged to the old name
+                });
+        }
+
+        PyMemberDef label_members[] = {
+            {"value", Py_T_INT, PULSEQPP_FIELD(LabelEvent, value), 0, nullptr},
+            {"setting", Py_T_BOOL, PULSEQPP_FIELD(LabelEvent, setting), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(LabelEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef label_getset[] = {
+            {"type", label_type, nullptr, nullptr, nullptr},
+            {"label", label_get_label, label_set_label, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Trigger                                                       */
+        /* ============================================================== */
+
+        PyObject* trigger_type(PyObject* self, void*)
+        {
+            static PyObject* trigger_name = nullptr;
+            static PyObject* output_name = nullptr;
+            return unwrap<TriggerEvent>(self).control == 2.0 ? interned(trigger_name, "trigger")
+                                                             : interned(output_name, "output");
+        }
+
+        PyMemberDef trigger_members[] = {
+            {"control", Py_T_DOUBLE, PULSEQPP_FIELD(TriggerEvent, control), 0, nullptr},
+            {"channel_code", Py_T_DOUBLE, PULSEQPP_FIELD(TriggerEvent, channel), 0, nullptr},
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(TriggerEvent, delay), 0, nullptr},
+            {"duration", Py_T_DOUBLE, PULSEQPP_FIELD(TriggerEvent, duration_s), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(TriggerEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        /** The line, by the name Pulseq gives it. */
+        PyObject* trigger_get_channel(PyObject* self, void*)
+        {
+            const TriggerEvent& e = unwrap<TriggerEvent>(self);
+            const char* name = "osc0";
+            if (e.control == 2.0)
+                name = e.channel == 2.0 ? "physio2" : "physio1";
+            else
+                name = e.channel == 2.0 ? "osc1" : (e.channel == 3.0 ? "ext1" : "osc0");
+            return PyUnicode_FromString(name);
+        }
+
+        int trigger_set_channel(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(value, [&](const py::object& given) {
+                const std::string name = given.cast<std::string>();
+                TriggerEvent& e = unwrap<TriggerEvent>(self);
+                if (name == "physio1" || name == "physio2")
+                {
+                    e.control = 2.0;
+                    e.channel = name == "physio2" ? 2.0 : 1.0;
+                }
+                else
+                {
+                    e.control = 1.0;
+                    e.channel = name == "osc1" ? 2.0 : (name == "ext1" ? 3.0 : 1.0);
+                }
+            });
+        }
+
+        PyGetSetDef trigger_getset[] = {
+            {"type", trigger_type, nullptr, nullptr, nullptr},
+            {"channel", trigger_get_channel, trigger_set_channel, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Rotation                                                      */
+        /* ============================================================== */
+
+        PyObject* rotation_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "rot3D");
+        }
+
+        PyObject* rotation_get_quaternion(PyObject* self, void*)
+        {
+            return guarded(
+                [&]
+                { return py::array_t<double>(4, unwrap<RotationEvent>(self).quaternion.data()); });
+        }
+
+        int rotation_set_quaternion(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                { unwrap<RotationEvent>(self).quaternion = unit_quaternion(given); });
+        }
+
+        PyMemberDef rotation_members[] = {
+            PULSEQPP_COMPAT_MEMBERS(RotationEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef rotation_getset[] = {
+            {"type", rotation_type, nullptr, nullptr, nullptr},
+            {"quaternion", rotation_get_quaternion, rotation_set_quaternion, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Soft delay                                                    */
+        /* ============================================================== */
+
+        PyObject* soft_delay_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "soft_delay");
+        }
+
+        PyObject* soft_delay_get_hint(PyObject* self, void*)
+        {
+            const std::string& hint = unwrap<SoftDelayEvent>(self).hint;
+            return PyUnicode_FromStringAndSize(hint.data(), static_cast<Py_ssize_t>(hint.size()));
+        }
+
+        int soft_delay_set_hint(PyObject* self, PyObject* value, void*)
+        {
+            return guarded_set(
+                value,
+                [&](const py::object& given)
+                { unwrap<SoftDelayEvent>(self).hint = given.cast<std::string>(); });
+        }
+
+        PyMemberDef soft_delay_members[] = {
+            {"numID", Py_T_INT, PULSEQPP_FIELD(SoftDelayEvent, num), 0, nullptr},
+            {"offset", Py_T_DOUBLE, PULSEQPP_FIELD(SoftDelayEvent, offset), 0, nullptr},
+            {"factor", Py_T_DOUBLE, PULSEQPP_FIELD(SoftDelayEvent, factor), 0, nullptr},
+            {"default_duration",
+             Py_T_DOUBLE,
+             PULSEQPP_FIELD(SoftDelayEvent, default_duration),
+             0,
+             nullptr},
+            PULSEQPP_COMPAT_MEMBERS(SoftDelayEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef soft_delay_getset[] = {
+            {"type", soft_delay_type, nullptr, nullptr, nullptr},
+            {"hint", soft_delay_get_hint, soft_delay_set_hint, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  Delay                                                         */
+        /* ============================================================== */
+
+        PyObject* delay_type(PyObject*, void*)
+        {
+            static PyObject* name = nullptr;
+            return interned(name, "delay");
+        }
+
+        PyMemberDef delay_members[] = {
+            {"delay", Py_T_DOUBLE, PULSEQPP_FIELD(DelayEvent, delay), 0, nullptr},
+            PULSEQPP_COMPAT_MEMBERS(DelayEvent),
+            {nullptr, 0, 0, 0, nullptr}};
+
+        PyGetSetDef delay_getset[] = {
+            {"type", delay_type, nullptr, nullptr, nullptr},
+            {nullptr, nullptr, nullptr, nullptr, nullptr}};
+
+        /* ============================================================== */
+        /*  The types                                                     */
+        /* ============================================================== */
+
+        PyTypeObject RfType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject TrapType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject GradType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject AdcType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject LabelType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject TriggerType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject RotationType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject SoftDelayType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+        PyTypeObject DelayType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+        /**
+         * Fill in and register one event type.
+         *
+         * Not `Py_TPFLAGS_BASETYPE`: the nine are leaves, which is what lets
+         * `is_event` be a single comparison against `tp_base`.
+         */
+        template <typename T>
+        void ready(
+            py::module_& m,
+            PyTypeObject& type,
+            const char* name,
+            PyMemberDef* members,
+            PyGetSetDef* getset,
+            PySequenceMethods* sequence = nullptr)
+        {
+            static_assert(
+                offsetof(Holder<T>, event) == EVENT_OFFSET,
+                "every event sits at the same offset in its holder");
+
+            type.tp_name = name;
+            type.tp_basicsize = sizeof(Holder<T>);
+            type.tp_flags = Py_TPFLAGS_DEFAULT;
+            type.tp_new = generic_new<T>;
+            type.tp_dealloc = generic_dealloc<T>;
+            type.tp_members = members;
+            type.tp_getset = getset;
+            type.tp_as_sequence = sequence;
+            type.tp_base = &EventBaseType;
+            if (PyType_Ready(&type) < 0)
+                throw py::error_already_set();
+
+            // The offsets above are taken through a base class, which is not
+            // something the standard blesses.  One live object settles it.
+            py::object probe =
+                py::reinterpret_steal<py::object>(generic_new<T>(&type, nullptr, nullptr));
+            if (!probe)
+                throw py::error_already_set();
+            if (reinterpret_cast<char*>(static_cast<Event*>(&unwrap<T>(probe.ptr()))) !=
+                reinterpret_cast<char*>(probe.ptr()) + EVENT_OFFSET)
+                throw std::runtime_error("event layout is not what PyMemberDef was told");
+
+            const char* leaf = std::strrchr(name, '.');
+            m.add_object(
+                leaf ? leaf + 1 : name,
+                py::reinterpret_borrow<py::object>(reinterpret_cast<PyObject*>(&type)));
+        }
+
+        /** A fresh event of type @p T, for the converters below. */
+        template <typename T> py::object fresh(PyTypeObject& type)
+        {
+            PyObject* made = generic_new<T>(&type, nullptr, nullptr);
+            if (!made)
+                throw py::error_already_set();
+            return py::reinterpret_steal<py::object>(made);
+        }
+
+        /* ============================================================== */
+        /*  Scaling a gradient                                            */
+        /* ============================================================== */
+
+        /** Hand a copy the shape ids upstream's registration protocol set. */
+        /** A copy of a gradient that holds a view holds the same view. */
+        inline void carry_view(PyObject* source, PyObject* made)
+        {
+            PyObject* src = reinterpret_cast<Holder<GradEvent>*>(source)->view_source;
+            if (src)
+                reinterpret_cast<Holder<GradEvent>*>(made)->view_source = Py_NewRef(src);
+        }
+
+        template <typename T> void carry_shape_ids(PyObject* source, PyObject* made)
+        {
+            PyObject* ids = reinterpret_cast<Holder<T>*>(source)->compat_shape_ids;
+            if (ids)
+                reinterpret_cast<Holder<T>*>(made)->compat_shape_ids = Py_NewRef(ids);
+        }
+
+        /** PyPulseq's `eps`: below it a waveform counts as zero. */
+        constexpr double upstream_eps = 1e-9;
+
+        /** Set upstream's ValueError and return false if the scaled peak or
+         *  slew exceeds its limit; the peak is checked first. */
+        bool within_limits(double peak, double slew, double max_grad, double max_slew)
+        {
+            char message[96];
+            if (peak > max_grad)
+            {
+                std::snprintf(
+                    message,
+                    sizeof message,
+                    "scale_grad: maximum amplitude exceeded %g %%",
+                    100.0 * peak / max_grad);
+                PyErr_SetString(PyExc_ValueError, message);
+                return false;
+            }
+            if (slew > max_slew)
+            {
+                std::snprintf(
+                    message,
+                    sizeof message,
+                    "scale_grad: maximum slew rate exceeded %g %%",
+                    100.0 * slew / max_slew);
+                PyErr_SetString(PyExc_ValueError, message);
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * Steepest slope of a gradient's normalised shape, in 1/s; times the
+         * amplitude it is the peak slew.
+         *
+         * Taken between consecutive samples on the event's time grid, as
+         * upstream takes it: the ramps from zero to `first` and from `last`
+         * back are not counted.
+         */
+        double grad_shape_slew(const GradEvent& g)
+        {
+            const int count = grad_count(g);
+            const int held = static_cast<int>(g.tt.size());
+            double steepest = 0.0;
+            for (int i = 1; i < count; ++i)
+            {
+                double step;
+                if (g.tt_grid == 1)
+                    step = g.tt_raster;
+                else if (g.tt_grid == 2)
+                    step = 0.5 * g.tt_raster;
+                else if (i < held)
+                    step = g.tt[static_cast<size_t>(i)] - g.tt[static_cast<size_t>(i) - 1];
+                else
+                    break;
+                const double rise = std::fabs(grad_shape_at(g, i) - grad_shape_at(g, i - 1));
+                steepest = std::max(steepest, rise / step);
+            }
+            return steepest;
+        }
+
+        /**
+         * Scale an unpacked gradient while retaining its normalised shape registration.
+         *
+         * `_scale_grad(grad, scale[, max_grad, max_slew])`, limits in the
+         * event's units (Hz/m, Hz/m/s). Given the limits, the scaled peak and
+         * slew are checked as upstream's `system` check does, and a violation
+         * raises its ValueError before any copy is made. The peak is the
+         * scaled amplitude, the stored shape having unit peak. A trapezoid's
+         * slew is peak over its shorter ramp, so a nonzero trapezoid with a
+         * zero-length ramp always fails.
+         *
+         * Clear the compatibility row id, which refers to the unscaled event.
+         * METH_FASTCALL avoids allocating an argument tuple on this hot path.
+         */
+        PyObject* scale_grad_fast(PyObject*, PyObject* const* args, Py_ssize_t nargs)
+        {
+            if (nargs != 2 && nargs != 4)
+            {
+                PyErr_SetString(
+                    PyExc_TypeError,
+                    "_scale_grad(grad, scale[, max_grad, max_slew]) takes two or four arguments");
+                return nullptr;
+            }
+            const double scale = PyFloat_AsDouble(args[1]);
+            if (scale == -1.0 && PyErr_Occurred())
+                return nullptr;
+            const bool checked = nargs == 4;
+            double max_grad = 0.0, max_slew = 0.0;
+            if (checked)
+            {
+                max_grad = PyFloat_AsDouble(args[2]);
+                if (max_grad == -1.0 && PyErr_Occurred())
+                    return nullptr;
+                max_slew = PyFloat_AsDouble(args[3]);
+                if (max_slew == -1.0 && PyErr_Occurred())
+                    return nullptr;
+            }
+
+            PyObject* source = args[0];
+            PyTypeObject* kind = Py_TYPE(source);
+            if (kind == &TrapType)
+            {
+                if (checked)
+                {
+                    const TrapEvent& in = unwrap<TrapEvent>(source);
+                    const double peak = std::fabs(in.amplitude * scale);
+                    const double ramp = std::min(in.rise_time, in.fall_time);
+                    const double slew = std::fabs(in.amplitude) > upstream_eps
+                        ? (ramp > 0.0 ? peak / ramp : HUGE_VAL)
+                        : 0.0;
+                    if (!within_limits(peak, slew, max_grad, max_slew))
+                        return nullptr;
+                }
+                PyObject* made = generic_new<TrapEvent>(&TrapType, nullptr, nullptr);
+                if (!made)
+                    return nullptr;
+                TrapEvent& out = unwrap<TrapEvent>(made);
+                out = unwrap<TrapEvent>(source);
+                out.amplitude *= scale;
+                carry_shape_ids<TrapEvent>(source, made);
+                return made;
+            }
+            if (kind == &GradType)
+            {
+                if (checked)
+                {
+                    const GradEvent& in = unwrap<GradEvent>(source);
+                    const double peak = std::fabs(in.amplitude * scale);
+                    const double slew = peak > upstream_eps ? peak * grad_shape_slew(in) : 0.0;
+                    if (!within_limits(peak, slew, max_grad, max_slew))
+                        return nullptr;
+                }
+                PyObject* made = generic_new<GradEvent>(&GradType, nullptr, nullptr);
+                if (!made)
+                    return nullptr;
+                GradEvent& out = unwrap<GradEvent>(made);
+                out = unwrap<GradEvent>(source);
+                out.amplitude *= scale;
+                out.first *= scale;
+                out.last *= scale;
+                carry_shape_ids<GradEvent>(source, made);
+                carry_view(source, made);
+                return made;
+            }
+            PyErr_Format(
+                PyExc_TypeError,
+                "_scale_grad() wants a gradient event, not %s",
+                kind->tp_name);
+            return nullptr;
+        }
+
+        PyMethodDef scale_grad_def = {
+            "_scale_grad",
+            reinterpret_cast<PyCFunction>(reinterpret_cast<void*>(scale_grad_fast)),
+            METH_FASTCALL,
+            PyDoc_STR("_scale_grad(grad, scale[, max_grad, max_slew]) -> scaled copy")};
+
+    } // namespace
+
+    py::object new_rf()
+    {
+        return fresh<RfEvent>(RfType);
+    }
+    py::object new_trap()
+    {
+        return fresh<TrapEvent>(TrapType);
+    }
+    py::object new_grad()
+    {
+        return fresh<GradEvent>(GradType);
+    }
+    py::object new_adc()
+    {
+        return fresh<AdcEvent>(AdcType);
+    }
+    py::object new_label()
+    {
+        return fresh<LabelEvent>(LabelType);
+    }
+    py::object new_trigger()
+    {
+        return fresh<TriggerEvent>(TriggerType);
+    }
+    py::object new_rotation()
+    {
+        return fresh<RotationEvent>(RotationType);
+    }
+    py::object new_soft_delay()
+    {
+        return fresh<SoftDelayEvent>(SoftDelayType);
+    }
+    py::object new_delay()
+    {
+        return fresh<DelayEvent>(DelayType);
+    }
+
+    void bind(py::module_& m)
+    {
+        static const char* base_name = "pypulseqpp._ext.Event";
+        EventBaseType.tp_name = base_name;
+        EventBaseType.tp_basicsize = sizeof(PyObject);
+        EventBaseType.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+        EventBaseType.tp_doc = "Base of the events `pypulseqpp.make_*` returns.";
+        if (PyType_Ready(&EventBaseType) < 0)
+            throw py::error_already_set();
+        m.add_object(
+            "Event",
+            py::reinterpret_borrow<py::object>(reinterpret_cast<PyObject*>(&EventBaseType)));
+
+        ready<RfEvent>(
+            m,
+            RfType,
+            "pypulseqpp._ext.RfEvent",
+            rf_members,
+            rf_getset,
+            &rf_sequence);
+        ready<TrapEvent>(
+            m,
+            TrapType,
+            "pypulseqpp._ext.TrapEvent",
+            trap_members,
+            trap_getset);
+        ready<GradEvent>(
+            m,
+            GradType,
+            "pypulseqpp._ext.GradEvent",
+            grad_members,
+            grad_getset,
+            &grad_sequence);
+        ready<AdcEvent>(m, AdcType, "pypulseqpp._ext.AdcEvent", adc_members, adc_getset);
+        ready<LabelEvent>(
+            m,
+            LabelType,
+            "pypulseqpp._ext.LabelEvent",
+            label_members,
+            label_getset);
+        ready<TriggerEvent>(
+            m,
+            TriggerType,
+            "pypulseqpp._ext.TriggerEvent",
+            trigger_members,
+            trigger_getset);
+        ready<RotationEvent>(
+            m,
+            RotationType,
+            "pypulseqpp._ext.RotationEvent",
+            rotation_members,
+            rotation_getset);
+        ready<SoftDelayEvent>(
+            m,
+            SoftDelayType,
+            "pypulseqpp._ext.SoftDelayEvent",
+            soft_delay_members,
+            soft_delay_getset);
+        ready<DelayEvent>(
+            m,
+            DelayType,
+            "pypulseqpp._ext.DelayEvent",
+            delay_members,
+            delay_getset);
+
+        PyObject* scaler = PyCFunction_NewEx(&scale_grad_def, nullptr, m.ptr());
+        if (!scaler)
+            throw py::error_already_set();
+        m.add_object("_scale_grad", py::reinterpret_steal<py::object>(scaler));
+
+        /* -- construction from PyPulseq's namespaces ----------------------- */
+        //
+        // One conversion, at the point `make_*` returns.  Everything after
+        // that reads slots.
+
+        m.def(
+            "_rf_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<RfEvent>(RfType);
+                RfEvent& e = unwrap<RfEvent>(made.ptr());
+                auto signal = py::cast<
+                    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast>>(
+                    source.attr("signal"));
+                normalise_rf(signal.data(), static_cast<int>(signal.size()), e);
+                e.t = as_vector(source.attr("t"));
+                e.shape_dur = source.attr("shape_dur").cast<double>();
+                e.center = source.attr("center").cast<double>();
+                e.delay = source.attr("delay").cast<double>();
+                e.freq_offset = source.attr("freq_offset").cast<double>();
+                e.phase_offset = source.attr("phase_offset").cast<double>();
+                e.freq_ppm = source.attr("freq_ppm").cast<double>();
+                e.phase_ppm = source.attr("phase_ppm").cast<double>();
+                e.dead_time = source.attr("dead_time").cast<double>();
+                e.ringdown_time = source.attr("ringdown_time").cast<double>();
+                e.use = source.attr("use").cast<std::string>();
+                return made;
+            });
+
+        m.def(
+            "_trap_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<TrapEvent>(TrapType);
+                TrapEvent& e = unwrap<TrapEvent>(made.ptr());
+                e.amplitude = source.attr("amplitude").cast<double>();
+                e.rise_time = source.attr("rise_time").cast<double>();
+                e.flat_time = source.attr("flat_time").cast<double>();
+                e.fall_time = source.attr("fall_time").cast<double>();
+                e.delay = source.attr("delay").cast<double>();
+                e.axis = axis_from(source.attr("channel").cast<std::string>());
+                return made;
+            });
+
+        /* The whole arbitrary-gradient factory in one pass: validation with
+         * upstream's exact messages, extrapolation, normalisation and the
+         * slotted event, so the Python surface stays the plain per-event
+         * signature while a distinct-waveform scan pays memory bandwidth
+         * rather than interpreter time. Floats in messages are formatted
+         * with CPython's own repr, so the text matches to the digit. */
+        m.def(
+            "_arb_grad_build",
+            [](const std::string& channel,
+               const py::array_t<double, py::array::c_style | py::array::forcecast>& wave,
+               const py::object& first_obj,
+               const py::object& last_obj,
+               double delay,
+               double max_grad,
+               double max_slew,
+               double grad_raster_time,
+               bool oversampling,
+               double eps)
+            {
+                const auto n = static_cast<int>(wave.size());
+                const double* v = wave.data();
+
+                if (channel != "x" && channel != "y" && channel != "z")
+                    throw py::value_error(
+                        "Invalid channel. Must be one of x, y or z. Passed: " + channel);
+                if (n < 2)
+                    throw py::index_error("waveform needs at least two samples");
+
+                const auto repr = [](double x)
+                {
+                    char* buf = PyOS_double_to_string(x, 'r', 0, Py_DTSF_ADD_DOT_0, nullptr);
+                    std::string out = buf ? buf : "";
+                    PyMem_Free(buf);
+                    return out;
+                };
+
+                double first, last;
+                if (oversampling)
+                {
+                    first = first_obj.is_none() ? 2 * v[0] - v[1] : first_obj.cast<double>();
+                    last = last_obj.is_none() ? 2 * v[n - 1] - v[n - 2] : last_obj.cast<double>();
+                }
+                else
+                {
+                    first =
+                        first_obj.is_none() ? 0.5 * (3 * v[0] - v[1]) : first_obj.cast<double>();
+                    last = last_obj.is_none() ? 0.5 * (3 * v[n - 1] - v[n - 2])
+                                              : last_obj.cast<double>();
+                }
+
+                double edge_scale, pre, post;
+                if (oversampling)
+                {
+                    edge_scale = grad_raster_time * 2;
+                    pre = first - v[0];
+                    post = last - v[n - 1];
+                }
+                else
+                {
+                    edge_scale = grad_raster_time;
+                    pre = 2 * (first - v[0]);
+                    post = 2 * (v[n - 1] - last);
+                }
+
+                // Two straight reductions rather than one loop with a branch
+                // in it: each is a form the compiler vectorises.
+                double amp_peak = 0.0;
+                for (int i = 0; i < n; ++i)
+                    amp_peak = std::max(amp_peak, std::fabs(v[i]));
+                double slew_raw =
+                    std::fabs(pre) > std::fabs(post) ? std::fabs(pre) : std::fabs(post);
+                for (int i = 1; i < n; ++i)
+                    slew_raw = std::max(slew_raw, std::fabs(v[i] - v[i - 1]));
+                const double slew_peak = slew_raw / edge_scale;
+                if (slew_peak > max_slew * (1 + eps))
+                    throw py::value_error(
+                        "Slew rate violation " + repr(slew_peak / max_slew * 100));
+                if (amp_peak > max_grad + eps)
+                    throw py::value_error(
+                        "Gradient amplitude violation " + repr(amp_peak / max_grad * 100));
+                if (oversampling && n % 2 == 0)
+                    throw py::value_error(
+                        "When oversampling is active, waveform must have an odd number of "
+                        "samples");
+
+                py::object made = fresh<GradEvent>(GradType);
+                GradEvent& e = unwrap<GradEvent>(made.ptr());
+                view_grad(v, n, e, amp_peak);
+                reinterpret_cast<Holder<GradEvent>*>(made.ptr())->view_source =
+                    Py_NewRef(wave.ptr());
+                if (oversampling)
+                {
+                    e.tt_grid = 2;
+                    e.last_time = n * 0.5 * grad_raster_time;
+                }
+                else
+                {
+                    e.tt_grid = 1;
+                    e.last_time = (n - 0.5) * grad_raster_time;
+                }
+                e.tt_raster = grad_raster_time;
+                e.first = first;
+                e.last = last;
+                e.delay = delay;
+                e.axis = axis_from(channel);
+                return made;
+            });
+
+        m.def(
+            "_grad_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<GradEvent>(GradType);
+                GradEvent& e = unwrap<GradEvent>(made.ptr());
+                auto wave =
+                    py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(
+                        source.attr("waveform"));
+                view_grad(wave.data(), static_cast<int>(wave.size()), e);
+                reinterpret_cast<Holder<GradEvent>*>(made.ptr())->view_source =
+                    Py_NewRef(wave.ptr());
+                e.tt = as_vector(source.attr("tt"));
+                e.last_time = e.tt.empty() ? 0.0 : e.tt.back();
+                e.first = source.attr("first").cast<double>();
+                e.last = source.attr("last").cast<double>();
+                e.delay = source.attr("delay").cast<double>();
+                e.axis = axis_from(source.attr("channel").cast<std::string>());
+                return made;
+            });
+
+        m.def(
+            "_adc_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<AdcEvent>(AdcType);
+                AdcEvent& e = unwrap<AdcEvent>(made.ptr());
+                e.num_samples = source.attr("num_samples").cast<double>();
+                e.dwell = source.attr("dwell").cast<double>();
+                e.delay = source.attr("delay").cast<double>();
+                e.freq_offset = source.attr("freq_offset").cast<double>();
+                e.phase_offset = source.attr("phase_offset").cast<double>();
+                e.freq_ppm = source.attr("freq_ppm").cast<double>();
+                e.phase_ppm = source.attr("phase_ppm").cast<double>();
+                e.dead_time = source.attr("dead_time").cast<double>();
+                if (py::hasattr(source, "phase_modulation"))
+                {
+                    py::object modulation = source.attr("phase_modulation");
+                    if (!modulation.is_none())
+                        e.phase_modulation = as_vector(modulation);
+                }
+                return made;
+            });
+
+        m.def(
+            "_label_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<LabelEvent>(LabelType);
+                LabelEvent& e = unwrap<LabelEvent>(made.ptr());
+                e.value = static_cast<int32_t>(source.attr("value").cast<double>());
+                e.label = source.attr("label").cast<std::string>();
+                e.setting = source.attr("type").cast<std::string>() == "labelset";
+                return made;
+            });
+
+        m.def(
+            "_trigger_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<TriggerEvent>(TriggerType);
+                TriggerEvent& e = unwrap<TriggerEvent>(made.ptr());
+                const std::string kind = source.attr("type").cast<std::string>();
+                const std::string channel = source.attr("channel").cast<std::string>();
+                if (kind == "trigger")
+                {
+                    e.control = 2.0;
+                    e.channel = channel == "physio2" ? 2.0 : 1.0;
+                }
+                else
+                {
+                    e.control = 1.0;
+                    e.channel = channel == "osc1" ? 2.0 : (channel == "ext1" ? 3.0 : 1.0);
+                }
+                e.delay = source.attr("delay").cast<double>();
+                e.duration_s = source.attr("duration").cast<double>();
+                return made;
+            });
+
+        m.def(
+            "_rotation_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<RotationEvent>(RotationType);
+                // A rotation object is asked what it is; four numbers are it.
+                py::object held = source.attr("rot_quaternion");
+                const bool asks = !py::isinstance<py::array>(held) &&
+                    !py::isinstance<py::tuple>(held) && !py::isinstance<py::list>(held);
+                unwrap<RotationEvent>(made.ptr()).quaternion = unit_quaternion(
+                    asks ? held.attr("as_quat")(
+                               py::arg("canonical") = true, py::arg("scalar_first") = true)
+                         : held);
+                return made;
+            });
+
+        m.def(
+            "_soft_delay_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<SoftDelayEvent>(SoftDelayType);
+                SoftDelayEvent& e = unwrap<SoftDelayEvent>(made.ptr());
+                // A factory leaves `numID` unset when the caller did not
+                // choose one; the sequence hands out the number at
+                // registration, from the hint. -1 says "not yet".
+                py::object number = source.attr("numID");
+                e.num = number.is_none()
+                    ? -1
+                    : static_cast<int32_t>(number.cast<double>());
+                e.offset = source.attr("offset").cast<double>();
+                e.factor = source.attr("factor").cast<double>();
+                e.hint = source.attr("hint").cast<std::string>();
+                if (py::hasattr(source, "default_duration"))
+                {
+                    py::object value = source.attr("default_duration");
+                    if (!value.is_none())
+                        e.default_duration = value.cast<double>();
+                }
+                return made;
+            });
+
+        m.def(
+            "_delay_from",
+            [](const py::object& source)
+            {
+                py::object made = fresh<DelayEvent>(DelayType);
+                unwrap<DelayEvent>(made.ptr()).delay = source.attr("delay").cast<double>();
+                return made;
+            });
+    }
+
+} // namespace pulseqpp_types

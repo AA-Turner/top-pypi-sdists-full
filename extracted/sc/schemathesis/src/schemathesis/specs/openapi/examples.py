@@ -12,7 +12,7 @@ import requests
 from hypothesis.errors import InvalidArgument, Unsatisfiable
 
 from schemathesis.config import GenerationConfig
-from schemathesis.core import NOT_SET
+from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.errors import (
     InvalidSchema,
     RefResolutionError,
@@ -26,7 +26,7 @@ from schemathesis.core.jsonschema import (
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.jsonschema.types import JsonSchema
-from schemathesis.core.parameters import ContainerName, ParameterLocation
+from schemathesis.core.parameters import CONCRETE_LOCATIONS, ContainerName, ParameterLocation
 from schemathesis.core.transforms import deepclone, jsonify_python_specific_types
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT
 from schemathesis.generation.case import Case
@@ -51,6 +51,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
     _deep_merge_overlay,
     example_is_valid,
 )
+from schemathesis.specs.openapi.adapter.references import example_object_value
 from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource
 from schemathesis.specs.openapi.formats import format_lengths_for
 
@@ -109,12 +110,7 @@ def _get_pool_combos(
 ) -> list[dict[str, Any]]:
     """Return pool variants as parameter dicts, merging all locations into each slot."""
     per_location: list[list[dict[str, Any]]] = []
-    for location in (
-        ParameterLocation.PATH,
-        ParameterLocation.QUERY,
-        ParameterLocation.HEADER,
-        ParameterLocation.COOKIE,
-    ):
+    for location in CONCRETE_LOCATIONS:
         schema = _build_location_schema(operation, location)
         if schema is None:
             continue
@@ -173,15 +169,6 @@ def _build_location_schema(
     return schema
 
 
-# Parameter locations `serialize_components` rewrites into their wire form.
-_RENDERED_LOCATIONS = (
-    ParameterLocation.PATH,
-    ParameterLocation.QUERY,
-    ParameterLocation.HEADER,
-    ParameterLocation.COOKIE,
-)
-
-
 def get_strategies_from_examples(
     operation: OpenApiOperation,
     feedback: FeedbackSources = NO_FEEDBACK,
@@ -207,7 +194,7 @@ def get_strategies_from_examples(
         if case._meta is not None:
             # Rendering a value for the wire does not change the data that was generated, and
             # re-checking the rendered form against the typed schema would call the example negative.
-            for location in _RENDERED_LOCATIONS:
+            for location in CONCRETE_LOCATIONS:
                 case._meta.clear_dirty(location)
         return case
 
@@ -689,15 +676,17 @@ def _unpack_example_object(example: dict[str, Any], schema: OpenApiSchema) -> Ge
     """Extract the value from a single OAS3 Example Object."""
     if "$ref" in example:
         _, example = resolve_reference(schema.root_resolver, example["$ref"])
-    if "value" in example:
-        yield example["value"]
+    value = example_object_value(example) if isinstance(example, dict) else NOT_SET
+    if not isinstance(value, NotSet):
+        yield value
     elif "externalValue" in example:
         try:
             # Report a warning if not available?
             yield load_external_example(example["externalValue"])
         except requests.RequestException:
             pass
-    elif example:
+    # A `serializedValue` is already on the wire form, which bodies here are not; a looping reference holds no data
+    elif example and "serializedValue" not in example and "$ref" not in example:
         yield example
 
 

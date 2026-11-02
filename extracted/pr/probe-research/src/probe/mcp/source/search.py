@@ -46,7 +46,7 @@ class SearchReadsMixin:
           any more (see `service.search`) — so it reaches the caller
           as a truthful failure.
         """
-        retried = False
+        is_retried = False
         while True:
             try:
                 response = self.client.search(
@@ -64,14 +64,14 @@ class SearchReadsMixin:
                     include_semantic=include_semantic,
                 )
             except errors.NotFoundError:
-                if retried:
+                if is_retried:
                     # Second 404: the deploy window is ruled out, so the 404 is
                     # about the REQUEST. A scope in hand means that scope is
                     # absent; no scope means the route is.
                     if workspace_id is not None or project_id is not None:
                         raise
                     raise self._capability_unavailable() from None
-                retried = True
+                is_retried = True
                 continue
             return response
 

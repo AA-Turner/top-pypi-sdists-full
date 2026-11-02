@@ -1,0 +1,162 @@
+[tool.poetry]
+name = "betterproto-beta9"
+version = "2.0.1"
+description = "A better Protobuf / gRPC generator & library"
+authors = ["Daniel G. Taylor <danielgtaylor@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/beam-cloud/python-betterproto"
+keywords = ["protobuf", "gRPC"]
+license = "MIT"
+packages = [
+    { include = "betterproto", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+black = { version = ">=23.1.0", optional = true }
+grpclib = "^0.4.1"
+importlib-metadata = { version = ">=1.6.0", python = "<3.8" }
+jinja2 = { version = ">=3.0.3", optional = true }
+python-dateutil = "^2.8"
+isort = {version = "^5.11.5", optional = true}
+typing-extensions = "^4.7.1"
+betterproto-rust-codec = { version = "0.1.1", optional = true }
+grpcio = "^1.64.0"
+
+[tool.poetry.group.dev.dependencies]
+asv = "^0.4.2"
+bpython = "^0.19"
+jinja2 = ">=3.1.6"
+mypy = "^0.930"
+sphinx = "3.1.2"
+sphinx-rtd-theme = "0.5.0"
+pre-commit = "^2.17.0"
+grpcio-tools = "^1.54.2"
+tox = "^4.0.0"
+
+[tool.poetry.group.test.dependencies]
+poethepoet = ">=0.9.0"
+pytest = "^6.2.5"
+pytest-asyncio = "^0.12.0"
+pytest-cov = "^2.9.0"
+pytest-mock = "^3.1.1"
+pydantic = ">=1.8.0,<2"
+protobuf = "^4"
+cachelib = "^0.10.2"
+tomlkit = ">=0.7.0"
+
+[tool.poetry.scripts]
+protoc-gen-python_betterproto_beta9 = "betterproto.plugin:main"
+
+[tool.poetry.extras]
+compiler = ["black", "isort", "jinja2"]
+rust-codec = ["betterproto-rust-codec"]
+grpcio = ["grpcio"]
+
+# Dev workflow tasks
+
+[tool.poe.tasks.generate]
+script = "tests.generate:main"
+help = "Generate test cases (do this once before running test)"
+
+[tool.poe.tasks.test]
+cmd = "pytest"
+help = "Run tests"
+
+[tool.poe.tasks.types]
+cmd  = "mypy src --ignore-missing-imports"
+help = "Check types with mypy"
+
+[tool.poe.tasks]
+_black = "black . --exclude tests/output_ --target-version py310"
+_isort = "isort . --extend-skip-glob 'tests/output_*/**/*'"
+
+[tool.poe.tasks.format]
+sequence  = ["_black", "_isort"]
+help = "Apply black and isort formatting to source code"
+
+[tool.poe.tasks.docs]
+cmd  = "sphinx-build docs docs/build"
+help = "Build the sphinx docs"
+
+[tool.poe.tasks.bench]
+shell = "asv run master^! && asv run HEAD^! && asv compare master HEAD"
+help  = "Benchmark current commit vs. master branch"
+
+[tool.poe.tasks.clean]
+cmd  = """
+rm -rf .asv .coverage .mypy_cache .pytest_cache
+       dist betterproto.egg-info **/__pycache__
+       testsoutput_*
+"""
+help = "Clean out generated files from the workspace"
+
+[tool.poe.tasks.generate_lib]
+cmd = """
+protoc
+    --plugin=protoc-gen-custom=src/betterproto/plugin/main.py
+    --custom_opt=INCLUDE_GOOGLE
+    --custom_out=src/betterproto/lib/std
+    -I /usr/local/include/
+    /usr/local/include/google/protobuf/**/*.proto
+"""
+help = "Regenerate the types in betterproto.lib.std.google"
+
+# CI tasks
+
+[tool.poe.tasks.full-test]
+shell = "poe generate && tox"
+help = "Run tests with multiple pythons"
+
+[tool.poe.tasks.check-style]
+cmd = "black . --check --diff"
+help = "Check if code style is correct"
+
+[tool.isort]
+py_version = 37
+profile = "black"
+force_single_line = false
+combine_as_imports = true
+lines_after_imports = 2
+include_trailing_comma = true
+force_grid_wrap = 2
+src_paths = ["src", "tests"]
+
+[tool.black]
+target-version = ['py37']
+
+[tool.doc8]
+paths = ["docs"]
+max_line_length = 88
+
+[tool.doc8.ignore_path_errors]
+"docs/migrating.rst" = [
+    "D001",  # contains table which is longer than 88 characters long
+]
+
+[tool.coverage.run]
+omit = ["betterproto/tests/*"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+requires =
+    tox>=4.2
+    tox-poetry-installer[poetry]==1.0.0b1
+env_list =
+    py311
+    py38
+    py37
+
+[testenv]
+commands =
+    pytest {posargs: --cov betterproto}
+poetry_dep_groups =
+    test
+require_locked_deps = true
+require_poetry = true
+"""
+
+[build-system]
+requires = ["poetry-core>=1.0.0,<2"]
+build-backend = "poetry.core.masonry.api"

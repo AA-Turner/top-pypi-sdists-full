@@ -16,8 +16,6 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     private readonly bool _humanize;
     private readonly HumanConfig? _humanCfg;
     private readonly IBrowser _rawBrowser;
-    private readonly bool _headless;
-    private readonly bool _headlessNoViewport;
     private readonly string? _denialPath;
 
     /// <summary>
@@ -39,22 +37,20 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     internal string? DenialPath => _denialPath;
 
     internal CloakBrowserHandle(IPlaywright playwright, IBrowser browser, bool humanize, HumanConfig? humanCfg,
-        bool headless = true, bool headlessNoViewport = false, string? denialPath = null)
+        string? denialPath = null)
     {
         _playwright = playwright;
         _rawBrowser = browser;
         _humanize = humanize;
         _humanCfg = humanCfg;
-        _headless = headless;
-        _headlessNoViewport = headlessNoViewport;
         _denialPath = denialPath;
         // Wrap the whole browser so the entire object graph (contexts, pages, mice,
-        // keyboards, locators, frames) is humanized transparently. The wrapper is
-        // headless-aware so the headed no-viewport default also applies when pages are
-        // created through the humanized browser (parity with Python's _default_no_viewport,
-        // which patches the raw browser so the default holds on every path).
+        // keyboards, locators, frames) is humanized transparently. The wrapper also
+        // applies the no-viewport default, so it holds when pages are created through
+        // the humanized browser (parity with Python's _default_no_viewport, which
+        // patches the raw browser so the default holds on every path).
         var visible = humanize
-            ? Wrappers.Humanize.Browser(browser, humanCfg ?? new HumanConfig(), headless, headlessNoViewport)
+            ? Wrappers.Humanize.Browser(browser, humanCfg ?? new HumanConfig(), defaultNoViewport: true)
             : browser;
         // Then wrap in the license guard so a post-handshake denial surfaces on the first
         // call through any page/context this browser produces (see LicenseGuard).
@@ -62,16 +58,15 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     }
 
     /// <summary>
-    /// On headed launches, default a page/context that the caller didn't give an explicit
-    /// viewport to <c>NoViewport</c> so it tracks the real OS window. Delegates to the
-    /// shared <see cref="ViewportDefaults"/> (the single source of truth shared with the
-    /// humanize wrapper). Port of Python <c>_default_no_viewport</c>.
+    /// Default a page/context that the caller didn't give an explicit viewport to
+    /// <c>NoViewport</c>. Delegates to the shared <see cref="ViewportDefaults"/> (the single
+    /// source of truth shared with the humanize wrapper). Port of Python <c>_default_no_viewport</c>.
     /// </summary>
-    private BrowserNewPageOptions ApplyDefaultNoViewport(BrowserNewPageOptions? options) =>
-        ViewportDefaults.ApplyHeadedNoViewport(options, _headless, _headlessNoViewport);
+    private static BrowserNewPageOptions ApplyDefaultNoViewport(BrowserNewPageOptions? options) =>
+        ViewportDefaults.ApplyNoViewport(options);
 
-    private BrowserNewContextOptions ApplyDefaultNoViewport(BrowserNewContextOptions? options) =>
-        ViewportDefaults.ApplyHeadedNoViewport(options, _headless, _headlessNoViewport);
+    private static BrowserNewContextOptions ApplyDefaultNoViewport(BrowserNewContextOptions? options) =>
+        ViewportDefaults.ApplyNoViewport(options);
 
     /// <summary>
     /// Create a new browser context. On headed launches without an explicit viewport,
@@ -142,7 +137,7 @@ internal static class LicenseGuard
     /// <summary>
     /// Run a factory op, surface a denial (whether it threw or succeeded), and wrap the
     /// returned page/context so its later calls are guarded too. When there is no denial
-    /// path (keyless), it is a pass-through.
+    /// path (no key: a local binary override), it is a pass-through.
     /// </summary>
     public static async Task<T> GuardAsync<T>(Func<Task<T>> op, string? denialPath) where T : class
     {

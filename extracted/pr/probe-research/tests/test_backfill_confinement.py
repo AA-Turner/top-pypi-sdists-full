@@ -27,12 +27,12 @@ import pytest
 
 from backfill_plan_agent import filing
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_ledger as bl
-from probe.cli import backfill_prompts as bp
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.upload import ledger as bl
+from probe.cli.imports.folder.agents import prompts as bp
 from probe.cli import backfill_run as br
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 
 
 @pytest.fixture
@@ -60,7 +60,10 @@ def agents_installed(monkeypatch):
     byte, so every assertion below about what it PAINTS passes vacuously
     against an empty string on a runner -- which is exactly how the two display
     tests here went green on CI while asserting nothing at all."""
-    monkeypatch.setattr(bf, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: f"/bin/{agent.value}")
 
 
 class _Recorder:
@@ -101,7 +104,7 @@ def test_both_passes_get_a_scratch_dir_outside_the_imported_folder(folder, monke
     A manifest written under `folder` would be a file the customer did not have
     before -- and, worse, one the NEXT run would census and try to import."""
     rec = _Recorder()
-    monkeypatch.setattr(bf, "launch_agent", filing(rec))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(rec))
 
     led = bl.Ledger.for_folder(folder)
     work = led.path.parent / f"{led.path.stem}-manifests"
@@ -121,7 +124,7 @@ def test_both_passes_get_a_scratch_dir_outside_the_imported_folder(folder, monke
 
 def test_the_manifest_lands_in_the_scratch_dir_not_the_folder(folder, monkeypatch):
     rec = _Recorder()
-    monkeypatch.setattr(bf, "launch_agent", filing(rec))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(rec))
     led = bl.Ledger.for_folder(folder)
     work = led.path.parent / "work"
 
@@ -202,9 +205,18 @@ def test_concurrent_units_each_get_their_own_row(folder, monkeypatch):
         painters.append(kw.get("paint_to"))
         return True, ""
 
-    monkeypatch.setattr(bf, "launch_agent", fake)
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "rows", lambda: 40)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", fake)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 40)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 40)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 40)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 40)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 40)
     monkeypatch.setattr(tui.Board, "open", lambda self: None)
     monkeypatch.setattr(tui.Board, "close", lambda self: None)
 
@@ -240,10 +252,25 @@ def test_a_solo_agent_draws_its_own_page(folder, monkeypatch):
     It used to print its status line wherever the cursor happened to be -- under
     the leftover folder picker -- which read as another program's output leaking
     into the wizard."""
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "rows", lambda: 40)
-    monkeypatch.setattr(tui, "columns", lambda: 120)
-    monkeypatch.setattr(bf, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 40)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 40)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 40)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 40)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 40)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: 120)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: 120)
+    monkeypatch.setattr(tui.layout, "columns", lambda: 120)
+    monkeypatch.setattr(tui.progress, "columns", lambda: 120)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: 120)
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *a: None)
 
     out = io.StringIO()
     out.isatty = lambda: True  # type: ignore[method-assign]
@@ -281,8 +308,15 @@ def test_a_unit_on_a_board_does_not_clear_the_shared_line(folder, monkeypatch):
 
     Two NEGATIVE assertions, so the run has to be proven to have happened at
     all: an agent that never launched writes nothing and satisfies both."""
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(bf, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *a: None)
     out = io.StringIO()
     out.isatty = lambda: True  # type: ignore[method-assign]
 

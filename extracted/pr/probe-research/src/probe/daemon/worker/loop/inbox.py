@@ -35,14 +35,14 @@ class InboxMixin:
             return 0
         with path.open("rb") as handle:
             handle.seek(offset)
-            buf = handle.read(min(end - offset, READ_CHUNK_BYTES))
+            buffer = handle.read(min(end - offset, READ_CHUNK_BYTES))
         messages: list[dict] = []
         pos = 0
         while True:
-            nl = buf.find(b"\n", pos)
+            nl = buffer.find(b"\n", pos)
             if nl < 0:
                 break
-            raw = buf[pos:nl]
+            raw = buffer[pos:nl]
             pos = nl + 1
             try:
                 msg = json.loads(raw)
@@ -50,8 +50,8 @@ class InboxMixin:
                 continue
             if isinstance(msg, dict):
                 messages.append(msg)
-        if pos == 0 and len(buf) == READ_CHUNK_BYTES:
-            pos = len(buf)
+        if pos == 0 and len(buffer) == READ_CHUNK_BYTES:
+            pos = len(buffer)
         added = 0
         with self.store.tx():
             for msg in messages:
@@ -118,14 +118,14 @@ class InboxMixin:
             if end <= offset:
                 return 0
             handle.seek(offset)
-            buf = handle.read(min(end - offset, READ_CHUNK_BYTES))
-        pos = buf.rfind(b"\n") + 1
+            buffer = handle.read(min(end - offset, READ_CHUNK_BYTES))
+        pos = buffer.rfind(b"\n") + 1
         lines: list[tuple[int, str | None, object]] = []  # (bytes, message id, claimed at)
-        if pos == 0 and len(buf) == READ_CHUNK_BYTES:
-            log.warning("skipped %s bytes of the reader's claim log with no line end", len(buf))
-            lines.append((len(buf), None, None))
+        if pos == 0 and len(buffer) == READ_CHUNK_BYTES:
+            log.warning("skipped %s bytes of the reader's claim log with no line end", len(buffer))
+            lines.append((len(buffer), None, None))
         else:
-            for raw in buf[:pos].split(b"\n")[:-1]:
+            for raw in buffer[:pos].split(b"\n")[:-1]:
                 try:
                     entry = json.loads(raw)
                 except ValueError:
@@ -170,7 +170,7 @@ class InboxMixin:
             self.store.set_cursor(READER_STREAM, str(path), offset + pos)
             self.store.set_fact(READER_LOG_INODE, stat.st_ino)
             self.store.set_fact(READER_LOG_TAIL, {"at": offset + pos,
-                                                  "hash": _tail_hash((before + buf[:pos])[-GUARD_BYTES:])})
+                                                  "hash": _tail_hash((before + buffer[:pos])[-GUARD_BYTES:])})
         return added
 
 

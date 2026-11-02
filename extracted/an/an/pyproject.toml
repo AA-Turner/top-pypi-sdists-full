@@ -1,0 +1,351 @@
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "an"
+version = "0.1.356"
+description = "AI-driven structured animation in Python: scene.md to rendered video."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = [
+    "animation",
+    "ai",
+    "python",
+    "structured",
+]
+authors = [
+    { name = "Thor Whalen" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic",
+    "dol",
+    # `typer` (MIT) over `argh` (LGPL-3.0), decided in an#45. argh was the only
+    # declared-copyleft distribution in this set, against the MIT/BSD/Apache/ISC
+    # rule this repo and its federation state; `tests/test_licence_perimeter.py`
+    # is what found it and what keeps a second one from arriving unnoticed.
+    # `argcomplete` went with argh: it hooks argparse specifically, so it became
+    # a dependency that did nothing. Typer supplies the replacement itself
+    # (`an --install-completion`).
+    #
+    # NOTE, and it is not pedantry: what typer pulls in DEPENDS ON WHICH TYPER
+    # RESOLVES, and nothing here pins one. 0.19.x requires `click` (BSD-3);
+    # 0.27.1 — what a fresh install gets today — requires `shellingham`, `rich`
+    # and `annotated-doc`, and no click. `tests/test_licence_perimeter.py` walks
+    # the installed transitive closure rather than these five names, and says
+    # out loud that its answer is about the environment it runs in.
+    "typer",
+    "pyyaml",
+    "numpy",
+    # Text (an#155, epic #9 Wave 8). `tituli` (MIT, a sibling package) is the
+    # typesetter — shaping, metrics, wrapping, the title-safe area; it brings
+    # Pillow (MIT-CMU), whose embedded Aileron (CC0) is the default face, so no
+    # typeface is vendored here. fontTools (MIT) is what `tituli.run_outline`
+    # needs for glyph contours; it is tituli's `outlines` extra, declared here
+    # BY NAME rather than as `tituli[outlines]` because the licence perimeter
+    # reads requirement names and drops extras — an extra would be a
+    # dependency it never looked at. Needs tituli >= 0.0.7 (`run_outline`,
+    # `EMBEDDED`); unversioned per the local-package convention.
+    "tituli",
+    "fonttools",
+    # The shot cache's data model (ADR 0004 decision 4, an#242): entries are
+    # `lacing.Artifact`s in a `lacing.ArtifactStore`. A sibling package (MIT);
+    # its closure beyond what `an` already has is `cw` (MIT, no dependencies)
+    # and `intervaltree` (Apache-2.0) with `sortedcontainers` (Apache-2.0),
+    # ~0.05 s of import on top of `an`'s own.
+    "lacing",
+    # The voice-effect chain (an#611): `an.audio.effects.filter_chain` builds
+    # its pitch and tempo stages with `mixing.filtergraph`, the fleet's one
+    # spelling of the stock-ffmpeg pitch shift (a sibling package, MIT). Its
+    # base install is light (config2py, dol, xdol) and `filtergraph` is pure;
+    # it is imported when a chain is built, never by `import an`.
+    "mixing",
+    # The music library (an#656): `an music add-library` is a surface over
+    # `foley.sources.music_library` (registry, mirrors, resilient fetch, audio
+    # probe, licence gate, credit parser), with `an.music_library` bridging its
+    # rows to `AssetSource`. A sibling package (MIT); its base install is dol,
+    # `ocracy` (MIT) and `cw` (MIT), both stdlib-only, and its `music-library`
+    # extra adds `requests`, the default transport. Imported when a library is
+    # acquired, never by `import an` (its import is ~0.25 s).
+    "foley[music-library]",
+]
+
+[project.scripts]
+an = "an.__main__:main"
+
+# Genres register through the `an.genres` entry-point group, read by
+# `an.genres.load()` — never at import time (ADR 0001 decision 3). `an` declares
+# none: the cut-out genre is the `cutan` distribution's (an#225).
+
+[tool.hatch.build.targets.wheel]
+packages = ["an"]
+
+# `packages = ["an"]` above already ships every non-ignored file under `an/`,
+# so this block is not what makes these files reach the wheel — verified by
+# building one. It is kept as an EXPLICIT INVENTORY of the runtime assets, and
+# `tests/test_vendored_engine.py` asserts it stays complete: an asset added to
+# the runtime directory and forgotten here fails the suite. The previous,
+# partial version of this list (which omitted preview.html) read as though
+# preview.html was excluded from the wheel when it was not.
+[tool.hatch.build.targets.wheel.force-include]
+"an/stage/runtime/index.html" = "an/stage/runtime/index.html"
+"an/stage/runtime/preview.html" = "an/stage/runtime/preview.html"
+"an/stage/runtime/runtime.js" = "an/stage/runtime/runtime.js"
+"an/stage/runtime/extensions.js" = "an/stage/runtime/extensions.js"
+"an/stage/runtime/README.md" = "an/stage/runtime/README.md"
+"an/stage/runtime/vendor/pixi.min.js" = "an/stage/runtime/vendor/pixi.min.js"
+"an/stage/runtime/vendor/pixi.LICENSE.txt" = "an/stage/runtime/vendor/pixi.LICENSE.txt"
+
+
+# SDIST: `misc/` and `examples/` are deliberately IN, and there is deliberately
+# no `[tool.hatch.build.targets.sdist]` section. Research §3 asked for this to
+# be a decision rather than an oversight, so: `an bench` needs a source
+# checkout by construction (`an.bench.paths.repo_root` refuses to run against a
+# wheel, because the corpus lives outside the package), so an sdist without
+# `misc/bench/` would be a source tree the bench cannot run in. Measured on
+# 0.1.29: the golden corpus is 52,532 B and the fixtures 28,005 B — together
+# 1.0% of the sdist, against `examples/` at 69.6%. The WHEEL already excludes
+# both, via `packages = ["an"]` above; verified by building one.
+# Revisit at a corpus over 20 MB, or a single re-bless over 5 MB.
+
+[project.urls]
+Homepage = "https://github.com/thorwhalen/an"
+Repository = "https://github.com/thorwhalen/an"
+Documentation = "https://thorwhalen.github.io/an"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    # The timing contract's schemas (an/data/timing/*.schema.json) are checked
+    # against what the stage actually compiles (tests/test_timing_contract.py).
+    "jsonschema",
+]
+docs = [
+    "sphinx>=6.0",
+    "sphinx-rtd-theme>=1.0",
+]
+# The 2D stage engine (`an.stage`, an#247): what `an render` of a stage or
+# cut-out shot needs beyond the core. The core imports none of it (the import
+# firewall, ADR 0001 decision 14).
+stage = [
+    # PINNED, not floated (an#31). The Chromium build is an input to every
+    # pixel: 1.55.0 resolves to chromium-1187 / Chrome 140.0.7339.16. Pixels did
+    # survive 1187 -> 1223 under the launch-flag pin, but PNG *file* bytes did
+    # not (144/144 files differ, 0 pixels), and an unpinned browser makes any
+    # cross-machine comparison a comparison of two variables at once. Bumping
+    # this is a deliberate act with a re-capture attached, not a `pip install -U`.
+    "playwright==1.55.0",
+    "ffmpeg-python",
+    "numpy",
+    # `an.verify.media.ssim` and `an/characters/silhouette.py` import PIL. It was
+    # undeclared, so the only two tests in this repo that assert on PIXELS did
+    # `pytest.importorskip("PIL.Image")` inside their bodies and skipped in
+    # silence when it was absent — the rendering-verification equivalent of the
+    # collection hole in an#22.
+    "pillow",
+]
+# The extra's old name, kept: install commands and CI lanes say `an[cutout]`.
+# The cut-out genre is its own distribution since an#225; this installs it
+# (unversioned, per the local-package convention) on top of the stage.
+cutout = [
+    "an[stage]",
+    "cutan",
+]
+# Recorded voices (an#490): `an voices import` transcribes a take that comes
+# with no timed transcript through scribed's ASR facade (pick a backend there:
+# `scribed[faster-whisper]` local, `elevenlabs`/`openai` with a key). Not needed
+# for a take that comes with its SRT/VTT/TextGrid/word JSON, or one file per line.
+recorded = [
+    "scribed",
+]
+# Voice loudness (an#315, an#563): `meta.voice_loudness` measures and limits
+# through the fleet's shared component, `mixing.loudness` (MIT, a sibling
+# package). Its base install is light (config2py, dol, xdol); `an` uses its
+# ffmpeg `ebur128` meter, so it takes the bare package, not `mixing[loudness]`,
+# whose scipy only the numpy meter needs. A core dependency since an#611; the
+# extra stays, empty, so `an[loudness]` keeps resolving (an#621).
+loudness = []
+manim = [
+    # Manim opaque-source shots (an#279): `an.adapters.manim_adapter` renders
+    # through manimkit's `render_check` (child-process render, layout probe,
+    # contact sheet). Both imported only at render time, never by `import an`
+    # (tests/test_import_firewall.py).
+    "manim",
+    "manimkit",
+]
+remotion = []
+# The curated MCP surface (ADR 0003 decision 6): `python -m an.mcp`. py2mcp
+# (MIT, a sibling package) brings fastmcp; imported only when a server is
+# built, never by `import an` (tests/test_mcp_surface.py holds both).
+mcp = [
+    "py2mcp",
+]
+tts = [
+    "elevenlabs",
+]
+vision = [
+    # `an.verify.vision` lazy-imports this and it was declared nowhere, so
+    # `pip install an` gave you a verifier that could only ever skip.
+    #
+    # Pinned below 1.0: the cassette envelope records the SDK version it was
+    # made with and refuses a replay across a major bump, because a recording
+    # made against a different major version may not describe the same request.
+    #
+    # Licence closure adjudicated over the whole dependency set: anthropic is
+    # MIT, and it adds only three distributions this package does not already
+    # ship (distro Apache-2.0, docstring-parser MIT, jiter MIT) because the
+    # `tts` extra already pulls httpx/httpcore/h11/idna/anyio/sniffio/certifi.
+    "anthropic<1",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    "**/*.ipynb",
+    ".git",
+    ".venv",
+    "build",
+    "dist",
+    "tests",
+    "examples",
+    "scrap",
+    # Research records under misc/docs/ are prose. Ruff formats the Python
+    # blocks inside markdown, which is right for source and wrong here: these
+    # snippets are illustrative, often deliberately aligned to be read next to
+    # a table, and several are quotations of code that does not exist yet. The
+    # rest of `misc/` (e.g. dev_sanity.py) stays formatted.
+    "misc/docs",
+]
+
+[tool.ruff.lint]
+select = [
+    "D100",
+]
+ignore = [
+    "D203",
+    "E501",
+    "B905",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = [
+    "D",
+]
+"**/examples/*" = [
+    "D",
+]
+"**/scrap/*" = [
+    "D",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# `an` is here so CI's `--doctest-modules` reaches the 120 doctests under the
+# package. Without it `testpaths` scoped them away and every `>>>` in `an/` was
+# prose that happened to be syntactically checkable (an#61). A bare local
+# `pytest` is unaffected: with no `--doctest-modules` there is nothing matching
+# `python_files` under `an/` to collect.
+testpaths = [
+    "tests",
+    "an",
+]
+# Deliberately NOT `NORMALIZE_WHITESPACE`. CI overrides this key entirely with
+# `-o doctest_optionflags='ELLIPSIS IGNORE_EXCEPTION_DETAIL'`, so a doctest
+# relying on whitespace normalisation would pass locally and fail in CI. These
+# two are exactly what CI passes; keep them in sync, and see the guard in
+# `tests/test_doctest_gate.py`.
+doctest_optionflags = [
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+]
+
+[tool.wads.ci]
+project_name = ""
+
+[tool.wads.ci.commands]
+pre_test = []
+test = []
+post_test = []
+lint = []
+format = []
+
+[tool.wads.ci.env]
+required_envvars = []
+test_envvars = []
+extra_envvars = []
+
+# The main CI leg installs no genre: the tests marked `genre` are skipped AND
+# COUNTED there and run in .github/workflows/genre-tests.yml (an#225).
+[tool.wads.ci.env.defaults]
+AN_GENRE_TESTS = "0"
+
+[tool.wads.ci.quality.ruff]
+enabled = true
+
+[tool.wads.ci.quality.black]
+enabled = false
+
+[tool.wads.ci.quality.mypy]
+enabled = false
+
+[tool.wads.ci.testing]
+python_versions = [
+    "3.10",
+    "3.12",
+]
+pytest_args = [
+    "-v",
+    "--tb=short",
+]
+coverage_enabled = true
+coverage_threshold = 0
+coverage_report_format = [
+    "term",
+    "xml",
+]
+exclude_paths = [
+    "examples",
+    "scrap",
+]
+test_on_windows = true
+
+[tool.wads.ci.metrics]
+enabled = true
+config_path = ".github/umpyre-config.yml"
+storage_branch = "code-metrics"
+python_version = "3.10"
+force_run = false
+
+[tool.wads.ci.build]
+sdist = true
+wheel = true
+
+[tool.wads.ci.publish]
+enabled = true
+
+[tool.wads.ci.docs]
+enabled = true
+builder = "epythet"
+ignore_paths = [
+    "tests/",
+    "scrap/",
+    "examples/",
+]

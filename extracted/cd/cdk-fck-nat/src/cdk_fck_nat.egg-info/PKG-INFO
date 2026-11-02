@@ -1,0 +1,64 @@
+Metadata-Version: 2.1
+Name: cdk-fck-nat
+Version: 1.6.22
+Summary: A NAT Gateway instance construct built on the fck-nat AMI.
+Home-page: https://github.com/AndrewGuenther/cdk-fck-nat.git
+Author: Andrew Guenther<guenther.andrew.j@gmail.com>
+License: MIT
+Project-URL: Source, https://github.com/AndrewGuenther/cdk-fck-nat.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.122.0
+Requires-Dist: constructs<11.0.0,>=10.0.5
+Requires-Dist: jsii<2.0.0,>=1.115.0
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<4.3.0,>=2.13.3
+
+# CDK fck-nat
+
+A CDK construct for deploying NAT Instances using [fck-nat](https://github.com/AndrewGuenther/fck-nat). The (f)easible (c)ost (k)onfigurable NAT!
+
+* Overpaying for AWS Managed NAT Gateways? fck-nat.
+* Want to use NAT instances and stay up-to-date with the latest security patches? fck-nat.
+* Want to reuse your Bastion hosts as a NAT? fck-nat.
+
+fck-nat offers a ready-to-use ARM and x86 based AMIs built on Amazon Linux 2023 which can support up to 5Gbps NAT traffic
+on a t4g.nano instance. How does that compare to a Managed NAT Gateway?
+
+Hourly rates:
+
+* Managed NAT Gateway hourly: $0.045
+* t4g.nano hourly: $0.0042
+
+Per GB rates:
+
+* Managed NAT Gateway per GB: $0.045
+* fck-nat per GB: $0.00
+
+Sitting idle, fck-nat costs 10% of a Managed NAT Gateway. In practice, the savings are even greater.
+
+*"But what about AWS' NAT Instance AMI?"*
+
+The official AWS supported NAT Instance AMI hasn't been updates since 2018, is still running Amazon Linux 1 which is
+now EOL, and has no ARM support, meaning it can't be deployed on EC2's most cost effective instance types. fck-nat.
+
+*"When would I want to use a Managed NAT Gateway instead of fck-nat?"*
+
+AWS limits outgoing internet bandwidth on EC2 instances to 5Gbps. This means that the highest bandwidth that fck-nat
+can support is 5Gbps. This is enough to cover a very broad set of use cases, but if you need additional bandwidth,
+you should use Managed NAT Gateway. If AWS were to lift the limit on internet egress bandwidth from EC2, you could
+cost-effectively operate fck-nat at speeds up to 25Gbps, but you wouldn't need Managed NAT Gateway then would you?
+fck-nat.
+
+Read more about EC2 bandwidth limits here: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-network-bandwidth.html

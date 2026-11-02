@@ -1,0 +1,1 @@
+export const GOING=new Set(["pending","queued","running"]);export const ENDED=new Set(["completed","failed","canceled"]);

@@ -1,0 +1,256 @@
+"""Variant-free, targeted RNA reconstruction with conservative attribution.
+
+Uses the same observed placements, exact overlaps and original segment
+identities as SV reconstruction. Reference models are competitors, never
+sequence donors. Transcript abundance is estimated separately by Salmon.
+"""
+
+from __future__ import annotations
+
+from bisect import bisect_left
+from collections import defaultdict
+from collections.abc import Iterable
+from dataclasses import asdict
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Literal
+
+import pysam
+
+
+from .antigen_reference import IsoformTarget
+from .genetic_code import standard_genetic_code
+from .read_collector import ReadCollector
+from .transcript_path_frames import TranscriptPathModel
+from .sv_rna import _PlacementIndex, _collection_parameters, _runs
+from .rna_reconstruction import _contains, _discover, _support
+from .rna_library import RnaLibraryIndex, _original_library_context
+
+
+def _coding(sequence, positions, models):
+    readings = {}
+    for model in models:
+        reference = model.reference
+        if reference.cds_start is None:
+            continue
+        # Transfer a frame through an observed, collinear complete codon.
+        # Never choose a longest ORF or fill an uncovered start with reference.
+        for q in range(len(sequence) - 2):
+            offset = model.offsets.get(positions[q])
+            if (offset is None or not reference.cds_start <= offset < reference.cds_end - 3
+                    or (offset - reference.cds_start) % 3
+                    or tuple(positions[q:q + 3]) != model.positions[offset:offset + 3]):
+                continue
+            complete_start = offset == reference.cds_start and sequence[q:q + 3] in standard_genetic_code.start_codons
+            protein, stop = standard_genetic_code.translate(sequence[q:], first_codon_is_start=complete_start)
+            if not protein:
+                break
+            key = (q, protein, complete_start, stop)
+            row = readings.setdefault(key, dict(
+                query_start=q, query_end=q + 3 * (len(protein) + stop), amino_acids=protein,
+                complete_start=complete_start, observed_stop=stop,
+                status="complete_CDS" if complete_start and stop else "partial_CDS", transcript_ids=[]))
+            row["transcript_ids"].append(reference.transcript_id)
+            break
+    return sorted(readings.values(), key=lambda row: (row["query_start"], row["amino_acids"]))
+
+
+def _candidate(sequence, positions, targets, models, model_index, annotated=()):
+    positions = tuple(positions)
+    coordinates = defaultdict(set)
+    for position in positions:
+        if position is not None:
+            contig, base, strand = position
+            coordinates[contig, strand].add(base)
+    coordinates = {key: sorted(bases) for key, bases in coordinates.items()}
+    genes = set()
+    for target in targets:
+        reference = target.reference
+        bases = coordinates.get((reference.contig, reference.strand), ())
+        start = bisect_left(bases, reference.exons[0][0])
+        if start < len(bases) and bases[start] < reference.exons[-1][1]:
+            genes.add(target.gene_id)
+    genes = sorted(genes)
+    if annotated:
+        genes = sorted({t.gene_id for t in targets if t.reference.transcript_id in annotated})
+    relevant = sorted({i for i, _ in model_index.overlapping(positions, 0, len(positions))})
+    models = [models[i] for i in relevant]
+    key = repr((sequence, positions)).encode()
+    reaches_ends = any(positions[0] == model.positions[0] and positions[-1] == model.positions[-1]
+                       for model in models)
+    return dict(id="isovar_isoform_" + sha256(key).hexdigest()[:24], sequence=sequence,
+                placements=positions, gene_ids=genes, annotated_transcript_ids=sorted(annotated),
+                origin="reference_model" if annotated else "observed_assembly",
+                reaches_annotated_transcript_ends=reaches_ends,
+                coding=_coding(sequence, positions, models))
+
+
+def _discover_gene_paths(groups, targets, collector, max_discovery_reads, max_paths, min_overlap):
+    """Budget each gene independently, then reconcile/support the combined paths."""
+    by_gene = defaultdict(lambda: defaultdict(set))
+    for target in targets:
+        reference = target.reference
+        by_gene[target.gene_id][reference.contig].add(
+            (reference.exons[0][0], reference.exons[-1][1], reference.strand))
+    paths, searches = {}, []
+    for gene_id, regions in sorted(by_gene.items()):
+        found, discovery = _discover(groups, regions, collector, max_discovery_reads, max_paths, min_overlap)
+        paths.update((path, None) for path in found)
+        searches.append(dict(gene_id=gene_id, paths=len(found), **discovery))
+    # A segment can occur in several gene partitions. Keep those counts local;
+    # the one subsequent support pass supplies unique panel fragment counts.
+    return list(paths), dict(scope='per_gene', genes=searches,
+                            max_discovery_reads=max_discovery_reads, max_paths=max_paths,
+                            min_overlap=min_overlap, truncated=any(row['truncated'] for row in searches))
+
+
+def _protein_groups(candidates, support):
+    groups = defaultdict(lambda: dict(isoform_ids=[], fully_covered_isoform_ids=[], whole_cds_segments=set()))
+    for row in candidates:
+        products = {c["amino_acids"] for c in row["coding"] if c["status"] == "complete_CDS"}
+        for protein in sorted(products):
+            group = groups[protein]
+            group["isoform_ids"].append(row["id"])
+            matching = [c for c in row["coding"] if c["amino_acids"] == protein and c["status"] == "complete_CDS"]
+            if any(c["all_bases_observed"] for c in matching):
+                group["fully_covered_isoform_ids"].append(row["id"])
+            group["whole_cds_segments"].update(tuple(key) for c in matching for key in c["whole_cds_segments"])
+    output = []
+    for protein, group in sorted(groups.items()):
+        ids = set(group["isoform_ids"])
+        group["whole_cds_segments"] = [list(key) for key in sorted(group["whole_cds_segments"])]
+        group["compatible_fragments"] = sum(c["fragments"] for c in support["equivalence_classes"] if ids.intersection(c["isoform_ids"]))
+        output.append(dict(amino_acids=protein, **group))
+    return output
+
+
+def reconstruct_antigen_isoforms(
+        bam: pysam.AlignmentFile, *, targets: Iterable[IsoformTarget], sample_id: str, source: str,
+        reference_identity: dict[str, Any] | None = None,
+        max_discovery_reads: int = 10000, max_paths: int = 256, min_overlap: int = 30,
+        discovery_partition: Literal['panel', 'gene'] = 'panel',
+        scratch_dir: str | Path | None = None, read_collector: ReadCollector | None = None,
+        library_index: RnaLibraryIndex | None = None, read_filter_identity: str | None = None) -> dict[str, Any]:
+    """Reconstruct targeted RNA without a nominated mutation.
+
+    Parameters
+    ----------
+    bam : pysam.AlignmentFile
+        Complete declared input; BAM, SAM and CRAM use the shared original-template index.
+    targets : iterable of IsoformTarget
+        All annotated competitors of the explicitly selected genes. Include
+        related loci when shared reads could otherwise be misattributed.
+    sample_id, source : str
+        Explicit namespaces retained alongside original RG/QNAME identities.
+    reference_identity : dict, optional
+        Alignment/annotation identity and file checksums supplied by the caller.
+    max_discovery_reads, max_paths, min_overlap : int
+        Discovery resource limits and minimum exact overlap. All eligible
+        records are subsequently checked for support, including omitted reads.
+    discovery_partition : {"panel", "gene"}
+        Apply discovery budgets across the panel (compatibility default), or
+        independently to each gene for large catalogues. Gene mode reports
+        counts/truncation per gene; overlapping memberships are never summed
+        as unique reads. Both modes use one joint original-fragment support pass.
+    read_collector : ReadCollector, optional
+        Shared record/sequence policy for discovery and support. Defaults to
+        ReadCollector.for_rna_paths(). Original mate identities are retained;
+        the small-variant merge_overlapping_fragments override is unsupported.
+    library_index : RnaLibraryIndex, optional
+        Open index for this same BAM, reference and eligibility policy. Reuse
+        avoids another whole-library scan; ownership remains with the caller.
+    read_filter_identity : str, optional
+        Stable identity required when reusing an index with a custom filter.
+    scratch_dir : str or Path, optional
+        Temporary index/conversion directory when no library index is supplied.
+
+    Returns
+    -------
+    dict
+        Versioned sequence/evidence result. Compatible fragments are not TPM or
+        independent molecules. Noisy reads may support structure without an
+        exact sequence match; this initial workflow leaves them unassigned.
+    """
+    targets = tuple(targets)
+    if discovery_partition not in {'panel', 'gene'}:
+        raise ValueError("discovery_partition must be 'panel' or 'gene'")
+    if not targets or not all(isinstance(t, IsoformTarget) for t in targets):
+        raise ValueError("Provide at least one IsoformTarget")
+    targets = tuple(sorted(targets, key=lambda t: t.reference.transcript_id))
+    if not sample_id or not source:
+        raise ValueError("Explicit sample_id and source are required")
+    samples = {row["SM"] for row in bam.header.to_dict().get("RG", []) if row.get("SM")}
+    if len(samples) > 1:
+        raise ValueError("The BAM declares multiple samples; reconstruct each sample separately")
+    if len({t.reference.reference_name for t in targets}) != 1:
+        raise ValueError("Targets must share one alignment assembly")
+    for name, value in (("max_discovery_reads", max_discovery_reads), ("max_paths", max_paths), ("min_overlap", min_overlap)):
+        if type(value) is not int or value < 1:
+            raise ValueError("%s must be a positive integer" % name)
+    names = [t.reference.transcript_id for t in targets]
+    if len(set(names)) != len(names):
+        raise ValueError("Reference transcript IDs must be unique")
+    lengths = dict(zip(bam.references, bam.lengths))
+    for target in targets:
+        r = target.reference
+        if r.contig not in lengths or r.exons[-1][1] > lengths[r.contig]:
+            raise ValueError("Target transcript lies outside the BAM reference: %s" % r.transcript_id)
+    collector = read_collector if read_collector is not None else ReadCollector.for_rna_paths()
+    if not collector.merge_overlapping_fragments:
+        raise ValueError('merge_overlapping_fragments is not a control for original RNA paths')
+    regions = defaultdict(set)
+    for t in targets:
+        r = t.reference
+        regions[r.contig].add((r.exons[0][0], r.exons[-1][1], r.strand))
+    models = [TranscriptPathModel(t.reference) for t in targets]
+    model_index = _PlacementIndex({i: model.positions for i, model in enumerate(models)})
+    with TemporaryDirectory(dir=scratch_dir, prefix="isovar-isoforms-") as directory, _original_library_context(
+            bam, collector, directory, library_index=library_index,
+            reference_name=targets[0].reference.reference_name, read_filter_identity=read_filter_identity) as groups:
+        statistics = groups.statistics
+        if discovery_partition == 'gene':
+            paths, discovery = _discover_gene_paths(groups, targets, collector, max_discovery_reads, max_paths, min_overlap)
+        else:
+            paths, discovery = _discover(groups, regions, collector, max_discovery_reads, max_paths, min_overlap)
+        candidates = {}
+        for target, model in zip(targets, models):
+            r = target.reference
+            key = r.sequence, tuple(model.positions)
+            if key in candidates:
+                candidates[key]["annotated_transcript_ids"].append(r.transcript_id)
+                candidates[key]["gene_ids"] = sorted(set(candidates[key]["gene_ids"]) | {target.gene_id})
+            else:
+                candidates[key] = _candidate(*key, targets, models, model_index, [r.transcript_id])
+        partial = []
+        for sequence, positions in paths:
+            key = sequence, positions
+            if key in candidates:
+                continue
+            row = _candidate(*key, targets, models, model_index)
+            containers = [c["id"] for k, c in candidates.items() if _contains(k, key)]
+            if containers or not row["reaches_annotated_transcript_ends"]:
+                row["compatible_models"] = sorted(containers)
+                partial.append(row)
+            else:
+                candidates[key] = row
+        candidates = sorted(candidates.values(), key=lambda c: c["id"])
+        support = _support(groups, candidates + partial, regions, collector, bam.header.to_dict(), sample_id, source)
+        full_ids = {c["id"] for c in candidates}
+        support["fragments_without_full_transcript_assignment"] = sum(
+            row["fragments"] for row in support["equivalence_classes"] if not full_ids.intersection(row["isoform_ids"]))
+    for row in candidates + partial:
+        # Compact placed runs leave insertions explicitly unplaced; query
+        # sequence length remains available to reconstruct the placement map.
+        row["mapping"] = [list(run) for run in _runs(row.pop("placements"))]
+    return dict(schema="isovar.antigen_isoforms.v1", sample_id=sample_id, source=source,
+                collection=dict(_collection_parameters(collector), read_filter_identity=read_filter_identity),
+                reference=reference_identity or {}, targets=[asdict(t) for t in targets],
+                input=dict(records=statistics['records_scanned'], unique_records=statistics['unique_records'],
+                           eligible_segments=statistics['eligible_segments'], excluded_records=statistics['excluded_records'], header=bam.header.to_dict()),
+                discovery=discovery, isoforms=candidates, partial_sequences=partial, support=support,
+                protein_groups=_protein_groups(candidates + partial, support), quantification=None,
+                limitations=["exact_overlap_reconstruction", "RNA_does_not_establish_translation",
+                             "fragment_counts_are_not_molecule_counts",
+                             "unreported_alignments_not_recovered",
+                             "overlap_assembly_does_not_establish_end_to_end_phase"])

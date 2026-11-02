@@ -1,0 +1,963 @@
+//! # EgorConfig - Optimizer Configuration
+//!
+//! This module provides the configuration system for the EGO optimizer.
+//!
+//! ## Configuration Types
+//!
+//! - [`EgorConfig`] - Builder for configuring the optimizer
+//! - [`ValidEgorConfig`] - Validated configuration (after `.check()`)
+//! - [`GpConfig`] - Gaussian Process surrogate model settings
+//! - [`QEiConfig`] - Parallel (q-EI) evaluation settings
+//! - [`RuntimeFlags`] - Runtime behavior flags (replaces environment variables)
+//! - [`IterationStrategy`] / [`TregoStrategy`] - Trust Region EGO algorithm control
+//! - [`ActivityStrategy`] / [`CooperativeActivity`] - Variable activity for CoEGO
+//!
+//! ## Runtime Flags
+//!
+//! [`RuntimeFlags`] provides programmatic control over behaviors previously controlled
+//! by environment variables. This follows the Dependency Inversion Principle (DIP)
+//! by injecting configuration rather than reading from global state.
+//!
+//! ```ignore
+//! use egobox_ego::RuntimeFlags;
+//!
+//! // All flags disabled
+//! let flags = RuntimeFlags::none();
+//!
+//! // Configure specific flags
+//! let flags = RuntimeFlags::none()
+//!     .use_gp_var_portfolio(true);
+//!
+//! // Or use default (reads from environment variables for backward compatibility)
+//! let flags = RuntimeFlags::default();
+//! ```
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use egobox_ego::{EgorConfig, TregoStrategy, CooperativeActivity};
+//!
+//! let config = EgorConfig::default()
+//!     .max_iters(50)
+//!     .n_doe(10)
+//!     .configure_gp(|gp| gp.n_clusters(NbClusters::Auto))
+//!     .configure_runtime_flags(|f| f.use_gp_var_portfolio(true))
+//!     .check()?;
+//!
+//! // TREGO with custom parameters
+//! let config = EgorConfig::default()
+//!     .configure_trego(|trego| trego.beta(0.8).n_gl_steps((2, 5)))
+//!     .check()?;
+//!
+//! // CoEGO for high-dimensional problems
+//! let config = EgorConfig::default()
+//!     .activity_strategy(Box::new(CooperativeActivity::new(5)))
+//!     .check()?;
+//! ```
+
+use crate::utils::{EGOR_USE_GP_VAR_PORTFOLIO, EGOR_USE_STATE_RECORDING};
+use crate::{HotStartMode, MooConfig, criteria::*, errors::Result, types::*};
+use egobox_gp::ThetaTuning;
+use egobox_moe::NbClusters;
+use egobox_moe::Recombination;
+use egobox_moe::{CorrelationSpec, RegressionSpec};
+use ndarray::Array1;
+use ndarray::Array2;
+
+use serde::{Deserialize, Serialize};
+
+use super::activity_strategy::{ActivityStrategy, CooperativeActivity, FullActivity};
+use super::iteration_strategy::{IterationStrategy, StandardEgoStrategy, TregoStrategy};
+
+/// Default number of starts for multistart approach used for optimization
+pub const EGO_GP_OPTIM_N_START: usize = 10;
+/// Default number of likelihood evaluation during one internal optimization
+pub const EGO_GP_OPTIM_MAX_EVAL: usize = 50;
+
+/// GP configuration
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GpConfig {
+    /// Regression specification for GP models used by mixture of experts (see [egobox_moe])
+    pub(crate) regression_spec: RegressionSpec,
+    /// Correlation specification for GP models used by mixture of experts (see [egobox_moe])
+    pub(crate) correlation_spec: CorrelationSpec,
+    /// Optional dimension reduction (see [egobox_moe])
+    pub(crate) kpls_dim: Option<usize>,
+    /// Number of clusters used by mixture of experts (see [egobox_moe])
+    /// When set to Auto the clusters are computes automatically and refreshed
+    /// every 10-points (tentative) additions
+    pub(crate) n_clusters: NbClusters,
+    /// The mode of recombination to get the output prediction from experts prediction
+    pub(crate) recombination: Recombination<f64>,
+    /// Parameter tuning hint of the autocorrelation model
+    pub(crate) theta_tuning: ThetaTuning<f64>,
+    /// Number of starts for multistart approach used for optimization
+    pub(crate) n_start: usize,
+    /// Number of likelihood evaluation during one internal optimization
+    pub(crate) max_eval: usize,
+}
+
+impl Default for GpConfig {
+    fn default() -> Self {
+        GpConfig {
+            regression_spec: RegressionSpec::CONSTANT,
+            correlation_spec: CorrelationSpec::SQUAREDEXPONENTIAL,
+            kpls_dim: None,
+            n_clusters: NbClusters::default(),
+            recombination: Recombination::Smooth(Some(1.)),
+            theta_tuning: ThetaTuning::default(),
+            n_start: EGO_GP_OPTIM_N_START,
+            max_eval: EGO_GP_OPTIM_MAX_EVAL,
+        }
+    }
+}
+
+impl GpConfig {
+    /// Sets the allowed regression models used in gaussian processes.
+    pub fn regression_spec(mut self, regression_spec: RegressionSpec) -> Self {
+        self.regression_spec = regression_spec;
+        self
+    }
+
+    /// Sets the allowed correlation models used in gaussian processes.
+    pub fn correlation_spec(mut self, correlation_spec: CorrelationSpec) -> Self {
+        self.correlation_spec = correlation_spec;
+        self
+    }
+
+    /// Sets the number of components to be used specifiying PLS projection is used (a.k.a KPLS method).
+    pub fn kpls_dim(mut self, kpls_dim: Option<usize>) -> Self {
+        self.kpls_dim = kpls_dim;
+        self
+    }
+
+    /// Sets the number of components to be used specifiying PLS projection is used (a.k.a KPLS method).
+    ///
+    /// This is used to address high-dimensional problems typically when `nx` > 9 wher `nx` is the dimension of `x`.
+    pub fn kpls(mut self, kpls_dim: usize) -> Self {
+        self.kpls_dim = Some(kpls_dim);
+        self
+    }
+
+    /// Removes any PLS dimension reduction usage
+    pub fn no_kpls(mut self) -> Self {
+        self.kpls_dim = None;
+        self
+    }
+
+    /// Sets the number of clusters used by the mixture of surrogate experts.
+    pub fn n_clusters(mut self, n_clusters: NbClusters) -> Self {
+        self.n_clusters = n_clusters;
+        self
+    }
+
+    /// Sets the mode of recombination to get the output prediction from experts prediction
+    pub fn recombination(mut self, recombination: Recombination<f64>) -> Self {
+        self.recombination = recombination;
+        self
+    }
+
+    /// Sets the parameter tuning hint of the autocorrelation model
+    pub fn theta_tuning(mut self, theta_tuning: ThetaTuning<f64>) -> Self {
+        self.theta_tuning = theta_tuning;
+        self
+    }
+
+    /// Sets the number of starts for multistart approach used for optimization
+    pub fn n_start(mut self, n_start: usize) -> Self {
+        self.n_start = n_start;
+        self
+    }
+
+    /// Sets the number of likelihood evaluation during one internal optimization
+    pub fn max_eval(mut self, max_eval: usize) -> Self {
+        self.max_eval = max_eval;
+        self
+    }
+}
+
+/// A structure to handle qEI (parallel infill criterion) method parameterization
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct QEiConfig {
+    /// Number of points returned by EGO iteration (aka qEI Multipoint strategy)
+    /// Actually as some point determination may fail (at most q_batch are returned)
+    pub(crate) batch: usize,
+    /// Multipoint strategy used to get several points to be evaluated at each iteration
+    pub(crate) strategy: QEiStrategy,
+    /// Interval between two hyperparameters optimizations (as iteration number modulo).
+    /// Only used as a periodic override when using the q-points parallel (batch > 1)
+    /// strategy: within a batch, pseudo-observations make the z-score check unreliable,
+    /// so hyperparameters are otherwise (re)optimized every `optmod` points. Has no
+    /// effect when `batch == 1`, where the z-score-driven strategy is used instead.
+    pub(crate) optmod: usize,
+}
+
+impl Default for QEiConfig {
+    fn default() -> Self {
+        QEiConfig {
+            batch: 1,
+            strategy: QEiStrategy::KrigingBeliever,
+            optmod: 1,
+        }
+    }
+}
+
+impl QEiConfig {
+    /// Sets number of parallel evaluations
+    pub fn batch(mut self, batch: usize) -> Self {
+        self.batch = batch;
+        self
+    }
+
+    /// Sets the parallel infill strategy
+    pub fn strategy(mut self, strategy: QEiStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Sets the number of iteration interval between two hyperparameter optimization.
+    /// Only takes effect when the q-points parallel (batch > 1) strategy is used
+    /// (see `batch`); otherwise theta (re)optimization is driven automatically by
+    /// the data-starved/reclustering/z-score triggers.
+    pub fn optmod(mut self, optmod: usize) -> Self {
+        self.optmod = optmod;
+        self
+    }
+}
+
+/// An enum to specify CoEGO status and component number
+pub enum CoegoStatus {
+    /// Do not use CoEGO algorithm
+    Disabled,
+    /// Apply CoEGO algorithm with a specified number of groups of components
+    /// meaning at most nx / n_coop components will be optimized at a time
+    Enabled(usize),
+}
+
+/// Max number of iterations of EGO algorithm (aka iteration budget)
+pub const EGO_DEFAULT_MAX_ITERS: usize = 20;
+/// Number of restart for optimization of the infill criterion (aka multistart)
+pub const EGO_DEFAULT_N_START: usize = 20;
+
+// =============================================================================
+// Runtime flags for behavior control (DIP - Dependency Inversion Principle)
+// =============================================================================
+
+/// Runtime flags controlling optimizer behavior.
+///
+/// These flags replace environment variable checks, allowing programmatic control
+/// of runtime behavior while maintaining backward compatibility through the Default
+/// implementation which reads from environment variables.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RuntimeFlags {
+    /// Use GP variance portfolio for infill optimization (env: EGOR_USE_GP_VAR_PORTFOLIO)
+    pub use_gp_var_portfolio: bool,
+    /// Enable state data recording to JSON (env: EGOR_USE_STATE_RECORDING)
+    pub use_state_recording: bool,
+}
+
+impl Default for RuntimeFlags {
+    /// Creates RuntimeFlags by reading from environment variables for backward compatibility.
+    fn default() -> Self {
+        RuntimeFlags {
+            use_gp_var_portfolio: std::env::var(EGOR_USE_GP_VAR_PORTFOLIO).is_ok(),
+            use_state_recording: std::env::var(EGOR_USE_STATE_RECORDING).is_ok(),
+        }
+    }
+}
+
+impl RuntimeFlags {
+    /// Creates RuntimeFlags with all flags disabled.
+    pub fn none() -> Self {
+        RuntimeFlags {
+            use_gp_var_portfolio: false,
+            use_state_recording: false,
+        }
+    }
+
+    /// Use GP variance portfolio for infill optimization.
+    pub fn use_gp_var_portfolio(mut self, enabled: bool) -> Self {
+        self.use_gp_var_portfolio = enabled;
+        self
+    }
+
+    /// Enable state data recording to JSON.
+    pub fn use_state_recorder(mut self, enabled: bool) -> Self {
+        self.use_state_recording = enabled;
+        self
+    }
+}
+
+/// Valid Egor optimizer configuration
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ValidEgorConfig {
+    /// Max number of function iterations allocated to find the optimum (aka iteration budget)
+    /// Note 1 : The number of cost function evaluations is deduced using the following formula (n_doe + max_iters)
+    /// Note 2 : When q_batch > 1, the number of cost function evaluations is (n_doe + max_iters * q_batch)
+    /// is is an upper bounds as some points may be rejected as being to close to previous ones.   
+    pub(crate) max_iters: usize,
+    /// Number of starts for multistart approach used for optimization
+    pub(crate) n_start: usize,
+    /// Number of initial doe drawn using Latin hypercube sampling
+    /// Note: n_doe > 0; otherwise n_doe = max(xdim + 1, 5)
+    pub(crate) n_doe: usize,
+    /// Number of objectives
+    /// Note: dim function output = n_obj objectives + n_cstr constraints
+    #[serde(default = "default_n_obj")]
+    pub(crate) n_obj: usize,
+    /// Number of Constraints
+    /// Note: dim function output = n_obj objectives + n_cstr constraints
+    pub(crate) n_cstr: usize,
+    /// Optional constraints violation tolerance meaning cstr < cstr_tol is considered valid
+    pub(crate) cstr_tol: Option<Array1<f64>>,
+    /// Optional constraint specifications allowing to define how each constraint
+    /// should be interpreted (e.g. `c <= n`, `c >= n`, `c = n` or `n1 <= c <= n2`).
+    /// When set, `n_cstr` is derived from the number of specs.
+    /// Equal and Between specs expand into two internal `<= 0` constraints each.
+    pub(crate) cstr_specs: Option<Vec<CstrSpec>>,
+    /// Initial doe can be either \[x\] with x inputs only or an evaluated doe \[x, y\]
+    /// Note: x dimension is determined using `xlimits.nrows()`
+    pub(crate) doe: Option<Array2<f64>>,
+    /// qEI parallel evaluation configuration
+    pub(crate) qei_config: QEiConfig,
+    /// General configuration for GP models used by the optimizer
+    pub(crate) gp: GpConfig,
+    /// Criterion to select next point to evaluate
+    pub(crate) infill_criterion: Box<dyn InfillCriterion>,
+    /// The optimizer used to optimize infill criterium
+    pub(crate) infill_optimizer: InfillOptimizer,
+    /// Specification of a target objective value which is used to stop the algorithm once reached
+    pub(crate) target: f64,
+    /// Optional timeout in seconds: the optimization is stopped when the elapsed time exceeds this duration
+    pub(crate) timeout: Option<f64>,
+    /// Directory to save intermediate results: inital doe + evalutions at each iteration
+    pub(crate) outdir: Option<String>,
+    /// If true use `outdir` to retrieve and start from previous results
+    pub(crate) warm_start: bool,
+    /// If some enable checkpointing allowing to restart for given ext_iters number of iteration from last checkpointed iteration
+    pub(crate) hot_start: HotStartMode,
+    /// List of x types allowing the handling of discrete input variables
+    pub(crate) xtypes: Vec<XType>,
+    /// A random generator seed used to get reproductible results.
+    pub(crate) seed: Option<u64>,
+    /// Constrained infill criterion activation
+    pub(crate) cstr_infill: bool,
+    /// Constraints criterion
+    pub(crate) cstr_strategy: ConstraintStrategy,
+    /// Feasibility Enhanced criterion
+    pub(crate) feasibility_infill: FeasibleInfillStrategy,
+    /// Failure handling strategy
+    pub(crate) failsafe_strategy: FailsafeStrategy,
+    /// Stop optimization when the objective function returns an error instead of applying the failsafe strategy
+    pub(crate) stop_on_error: bool,
+    /// Runtime behavior flags (replaces environment variable checks)
+    pub(crate) runtime_flags: RuntimeFlags,
+    /// Strategy controlling iteration flow (Standard EGO vs TREGO)
+    pub(crate) iteration_strategy: Box<dyn IterationStrategy>,
+    /// Strategy controlling variable activity (Full vs Cooperative/CoEGO)
+    pub(crate) activity_strategy: Box<dyn ActivityStrategy>,
+    /// Multi-objective optimization configuration (used when n_obj > 1)
+    #[serde(default)]
+    pub(crate) moo: MooConfig,
+}
+
+impl Default for ValidEgorConfig {
+    fn default() -> Self {
+        ValidEgorConfig {
+            max_iters: EGO_DEFAULT_MAX_ITERS,
+            n_start: EGO_DEFAULT_N_START,
+            n_doe: 0,
+            n_obj: 1,
+            n_cstr: 0,
+            cstr_tol: None,
+            cstr_specs: None,
+            doe: None,
+            qei_config: QEiConfig::default(),
+            gp: GpConfig::default(),
+            infill_criterion: Box::new(LOG_EI),
+            infill_optimizer: InfillOptimizer::Slsqp,
+            target: f64::MIN,
+            timeout: None,
+            outdir: None,
+            warm_start: false,
+            hot_start: HotStartMode::Disabled,
+            xtypes: vec![],
+            seed: None,
+            cstr_infill: false,
+            cstr_strategy: ConstraintStrategy::MeanConstraint,
+            feasibility_infill: FeasibleInfillStrategy::None,
+            failsafe_strategy: FailsafeStrategy::Rejection,
+            stop_on_error: false,
+            runtime_flags: RuntimeFlags::default(),
+            iteration_strategy: Box::new(StandardEgoStrategy),
+            activity_strategy: Box::new(FullActivity),
+            moo: MooConfig::default(),
+        }
+    }
+}
+
+impl ValidEgorConfig {
+    /// Check whether we are in a discrete optimization context
+    pub fn discrete(&self) -> bool {
+        crate::utils::discrete(&self.xtypes)
+    }
+
+    /// Returns the number of internal `<= 0` constraints after expanding `cstr_specs`.
+    ///
+    /// When `cstr_specs` is set, Equal and Between specs each expand to 2 internal constraints.
+    /// When `cstr_specs` is not set, this equals `n_cstr` (legacy behavior).
+    pub fn n_internal_cstr(&self) -> usize {
+        if let Some(ref specs) = self.cstr_specs {
+            crate::types::n_internal_cstrs(specs)
+        } else {
+            self.n_cstr
+        }
+    }
+
+    /// Number of objectives
+    pub(crate) fn n_obj(&self) -> usize {
+        self.n_obj
+    }
+
+    /// Multi-objective strategy: the configured one or the default given the number of objectives
+    pub(crate) fn moo_strategy(&self) -> crate::MooStrategy {
+        self.moo
+            .strategy
+            .clone()
+            .unwrap_or_else(|| crate::moo::config::default_strategy(self.n_obj))
+    }
+
+    /// Whether several objectives are scalarized into one surrogate (ParEGO)
+    pub(crate) fn is_scalarized(&self) -> bool {
+        self.n_obj > 1 && self.moo_strategy() == crate::MooStrategy::ParEgo
+    }
+
+    /// Whether several objectives are each modeled with a surrogate
+    pub(crate) fn is_per_objective(&self) -> bool {
+        self.n_obj > 1 && !self.is_scalarized()
+    }
+
+    /// Number of surrogate models of the objective(s)
+    pub(crate) fn n_obj_models(&self) -> usize {
+        if self.is_per_objective() {
+            self.n_obj
+        } else {
+            1
+        }
+    }
+
+    /// Number of surrogate models: objective(s) models then constraint models
+    pub(crate) fn n_surrogates(&self) -> usize {
+        self.n_obj_models() + self.n_internal_cstr()
+    }
+
+    /// Number of columns of the objective function output: objectives then raw constraints
+    pub(crate) fn ny_raw(&self) -> usize {
+        self.n_obj + self.n_cstr
+    }
+
+    /// Max number of tries without adding a point before the solver is considered converged.
+    /// With ParEGO, every weight vector is tried once.
+    pub(crate) fn max_point_addition_retries(&self) -> i32 {
+        let retries = crate::MAX_POINT_ADDITION_RETRY;
+        if self.is_scalarized() {
+            retries.max(crate::moo::parego::n_weights(self.n_obj, self.moo.n_divisions) as i32)
+        } else {
+            retries
+        }
+    }
+
+    /// Indices of the rows of `x_data` holding failed points with imputed output values: only
+    /// with the failsafe imputation strategy, the other strategies never storing failed points in
+    /// the data (a later successful evaluation at a failed location is then a regular point).
+    /// With imputation, no other point can be that close to a stored failed point.
+    pub(crate) fn imputed_rows(
+        &self,
+        x_data: &ndarray::ArrayBase<impl ndarray::Data<Elem = f64>, ndarray::Ix2>,
+        x_fail: Option<&Array2<f64>>,
+    ) -> Vec<usize> {
+        if self.failsafe_strategy == FailsafeStrategy::Imputation {
+            crate::utils::failed_rows(x_data, x_fail)
+        } else {
+            vec![]
+        }
+    }
+
+    /// Number of columns of the internal output data: objectives then internal constraints
+    pub(crate) fn ny_internal(&self) -> usize {
+        self.n_obj + self.n_internal_cstr()
+    }
+}
+
+fn default_n_obj() -> usize {
+    1
+}
+
+/// Egor optimizer configuration builder
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct EgorConfig(ValidEgorConfig);
+
+impl EgorConfig {
+    /// Sets the infill criterion
+    pub fn infill_criterion(mut self, infill_criterion: Box<dyn InfillCriterion>) -> Self {
+        self.0.infill_criterion = infill_criterion;
+        self
+    }
+
+    /// Sets max number of iterations to optimize the objective function
+    pub fn max_iters(mut self, max_iters: usize) -> Self {
+        self.0.max_iters = max_iters;
+        self
+    }
+
+    /// Sets the number of runs of infill strategy optimizations (best result taken)
+    pub fn n_start(mut self, n_start: usize) -> Self {
+        self.0.n_start = n_start;
+        self
+    }
+
+    /// Number of samples of initial LHS sampling (used when DOE not provided by the user)
+    ///
+    /// When 0 a number of points is computed automatically regarding the number of input variables
+    /// of the function under optimization.
+    pub fn n_doe(mut self, n_doe: usize) -> Self {
+        self.0.n_doe = n_doe;
+        self
+    }
+
+    /// Sets the number of objectives (default 1)
+    ///
+    /// The objective function is then expected to return rows
+    /// `[obj_1, ..., obj_n_obj, cstr_1, ..., cstr_n_cstr]`.
+    /// With more than one objective, the Pareto front is approximated using the strategy
+    /// set with [`configure_moo`](Self::configure_moo) and retrieved with
+    /// [`crate::Egor::run_pareto`] (experimental).
+    pub fn n_obj(mut self, n_obj: usize) -> Self {
+        self.0.n_obj = n_obj;
+        self
+    }
+
+    /// Configure multi-objective optimization (used when `n_obj > 1`)
+    pub fn configure_moo<F: FnOnce(MooConfig) -> MooConfig>(mut self, init: F) -> Self {
+        self.0.moo = init(self.0.moo);
+        self
+    }
+
+    /// Sets the number of constraint functions
+    pub fn n_cstr(mut self, n_cstr: usize) -> Self {
+        self.0.n_cstr = n_cstr;
+        self
+    }
+
+    /// Sets the tolerance on constraints violation (`cstr < tol`)
+    pub fn cstr_tol(mut self, tol: Array1<f64>) -> Self {
+        self.0.cstr_tol = Some(tol);
+        self
+    }
+
+    /// Sets constraint specifications allowing to define how each constraint
+    /// should be interpreted.
+    ///
+    /// When set, `n_cstr` is automatically derived from the number of specs.
+    /// Internally, all constraints are converted to `c' <= 0` form:
+    /// - `CstrSpec::Leq(n)`: `c <= n` → `c - n <= 0`
+    /// - `CstrSpec::Geq(n)`: `c >= n` → `n - c <= 0`
+    /// - `CstrSpec::Eq(n)`: `c = n` → two constraints: `c - n <= 0` and `n - c <= 0`
+    /// - `CstrSpec::Btw(lo, hi)`: `lo <= c <= hi` → two constraints: `lo - c <= 0` and `c - hi <= 0`
+    ///
+    /// Note: `Equal` and `Between` expand to two internal constraints each,
+    /// so the number of GP surrogate models for constraints may be larger
+    /// than the number of user-visible constraints.
+    pub fn cstr_specs(mut self, specs: Vec<CstrSpec>) -> Self {
+        self.0.cstr_specs = Some(specs);
+        self
+    }
+
+    /// Sets an initial DOE \['ns', `nt`\] containing `ns` samples.
+    ///
+    /// Either `nt` = `nx` then only `x` input values are specified and `ns` evals are done to get y output doe values,
+    /// or `nt = nx + ny` then `x = doe\[:, :nx\]` and `y = doe\[:, nx:\]` are specified
+    pub fn doe(mut self, doe: &Array2<f64>) -> Self {
+        self.0.doe = Some(doe.to_owned());
+        self
+    }
+
+    /// Removes any previously specified initial doe to get the default doe usage
+    pub fn default_doe(mut self) -> Self {
+        self.0.doe = None;
+        self
+    }
+
+    /// Configure qEI parameters
+    pub fn configure_qei<F: FnOnce(QEiConfig) -> QEiConfig>(mut self, init: F) -> Self {
+        self.0.qei_config = init(self.0.qei_config);
+        self
+    }
+
+    /// Sets the infill strategy
+    pub fn infill_strategy(mut self, infill: InfillStrategy) -> Self {
+        self.0.infill_criterion = match infill {
+            InfillStrategy::EI => Box::new(EI),
+            InfillStrategy::LogEI => Box::new(LOG_EI),
+            InfillStrategy::WB2 => Box::new(WB2),
+            InfillStrategy::WB2S => Box::new(WB2S),
+        };
+        self
+    }
+
+    /// Sets the infill optimizer
+    pub fn infill_optimizer(mut self, optimizer: InfillOptimizer) -> Self {
+        self.0.infill_optimizer = optimizer;
+        self
+    }
+
+    /// Sets the configuration of the GPs
+    pub fn configure_gp<F: FnOnce(GpConfig) -> GpConfig>(mut self, init: F) -> Self {
+        self.0.gp = init(self.0.gp);
+        self
+    }
+
+    /// Sets a known target minimum to be used as a stopping criterion
+    /// (mono-objective optimization only).
+    pub fn target(mut self, target: f64) -> Self {
+        self.0.target = target;
+        self
+    }
+
+    /// Sets a timeout in seconds: the optimization is stopped when the elapsed time exceeds this duration.
+    pub fn timeout(mut self, timeout: f64) -> Self {
+        self.0.timeout = Some(timeout);
+        self
+    }
+
+    /// Sets a directory to write optimization history and used as search path for warm start doe
+    pub fn outdir(mut self, outdir: impl Into<String>) -> Self {
+        self.0.outdir = Some(outdir.into());
+        self
+    }
+    /// Do not write optimization history
+    pub fn no_outdir(mut self) -> Self {
+        self.0.outdir = None;
+        self
+    }
+
+    /// Whether we start by loading last DOE saved in `outdir` as initial DOE
+    pub fn warm_start(mut self, warm_start: bool) -> Self {
+        self.0.warm_start = warm_start;
+        self
+    }
+
+    /// Whether checkpointing is enabled allowing hot start from previous checkpointed iteration if any
+    pub fn hot_start(mut self, hot_start: HotStartMode) -> Self {
+        self.0.hot_start = hot_start;
+        self
+    }
+
+    /// Allow to specify a seed for random number generator to allow
+    /// reproducible runs.
+    pub fn seed(mut self, seed: u64) -> Self {
+        self.0.seed = Some(seed);
+        self
+    }
+
+    /// Define design space with given x types
+    pub fn xtypes(mut self, xtypes: &[XType]) -> Self {
+        self.0.xtypes = xtypes.into();
+        self
+    }
+
+    /// Activate or deactivate TREGO method.
+    ///
+    /// When `activated` is true, sets the iteration strategy to [`TregoStrategy`] with
+    /// default parameters. When false, resets to [`StandardEgoStrategy`].
+    ///
+    /// For custom TREGO parameters, use [`configure_trego`](Self::configure_trego) or
+    /// [`iteration_strategy`](Self::iteration_strategy) directly.
+    pub fn trego(mut self, activated: bool) -> Self {
+        if activated {
+            self.0.iteration_strategy = Box::new(TregoStrategy::default());
+        } else {
+            self.0.iteration_strategy = Box::new(StandardEgoStrategy);
+        }
+        self
+    }
+
+    /// Configure TREGO parameters. TREGO is automatically activated by this method.
+    ///
+    /// The closure receives a [`TregoStrategy`] for configuration.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::EgorConfig;
+    ///
+    /// let config = EgorConfig::default()
+    ///     .configure_trego(|trego| trego.beta(0.8).n_gl_steps((2, 5)));
+    /// ```
+    ///
+    /// For direct strategy configuration, use [`iteration_strategy`](Self::iteration_strategy).
+    pub fn configure_trego<F: FnOnce(TregoStrategy) -> TregoStrategy>(mut self, init: F) -> Self {
+        self.0.iteration_strategy = Box::new(init(TregoStrategy::default()));
+        self
+    }
+
+    /// Sets the iteration strategy directly.
+    ///
+    /// This is the preferred way to configure algorithm variants like TREGO.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::{EgorConfig, TregoStrategy};
+    ///
+    /// let config = EgorConfig::default()
+    ///     .iteration_strategy(Box::new(TregoStrategy::default().beta(0.8)));
+    /// ```
+    pub fn iteration_strategy(mut self, strategy: Box<dyn IterationStrategy>) -> Self {
+        self.0.iteration_strategy = strategy;
+        self
+    }
+
+    /// Activate CoEGO method.
+    ///
+    /// When enabled, sets the activity strategy to [`CooperativeActivity`] with the
+    /// specified number of groups. When disabled, resets to [`FullActivity`].
+    ///
+    /// For direct strategy configuration, use [`activity_strategy`](Self::activity_strategy).
+    pub fn coego(mut self, status: CoegoStatus) -> Self {
+        match status {
+            CoegoStatus::Disabled => {
+                self.0.activity_strategy = Box::new(FullActivity);
+            }
+            CoegoStatus::Enabled(n) => {
+                self.0.activity_strategy = Box::new(CooperativeActivity::new(n));
+            }
+        }
+        self
+    }
+
+    /// Sets the activity strategy directly.
+    ///
+    /// This is the preferred way to configure variable grouping strategies like CoEGO.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::{EgorConfig, CooperativeActivity};
+    ///
+    /// let config = EgorConfig::default()
+    ///     .activity_strategy(Box::new(CooperativeActivity::new(5)));
+    /// ```
+    pub fn activity_strategy(mut self, strategy: Box<dyn ActivityStrategy>) -> Self {
+        self.0.activity_strategy = strategy;
+        self
+    }
+
+    /// Activate constrained infill criterion
+    pub fn cstr_infill(mut self, activated: bool) -> Self {
+        self.0.cstr_infill = activated;
+        self
+    }
+
+    /// Sets the constraint modeling strategy
+    pub fn cstr_strategy(mut self, cstr_strategy: ConstraintStrategy) -> Self {
+        self.0.cstr_strategy = cstr_strategy;
+        self
+    }
+
+    /// Sets the objective evaluation failure handling strategy
+    pub fn failsafe_strategy(mut self, failsafe_strategy: FailsafeStrategy) -> Self {
+        self.0.failsafe_strategy = failsafe_strategy;
+        self
+    }
+
+    /// Sets whether an objective function error terminates optimization.
+    ///
+    /// When false, objective function errors are handled according to [`FailsafeStrategy`].
+    pub fn stop_on_error(mut self, stop_on_error: bool) -> Self {
+        self.0.stop_on_error = stop_on_error;
+        self
+    }
+
+    /// Sets the feasibility enhanced infill strategy
+    ///
+    /// This enables the Feasibility Enhanced Expected Improvement (EFI_FE) acquisition
+    /// function from Tfaily et al. (2024) for handling hidden constraints in Bayesian
+    /// optimization.
+    pub fn feasible_infill_strategy(mut self, strategy: FeasibleInfillStrategy) -> Self {
+        self.0.feasibility_infill = strategy;
+        self
+    }
+
+    /// Configure runtime behavior flags.
+    ///
+    /// These flags control various runtime behaviors that were previously
+    /// controlled by environment variables. Using this method allows
+    /// programmatic control without relying on environment.
+    ///
+    /// # Example
+    /// ```ignore
+    /// config.configure_runtime_flags(|flags| flags
+    ///     .use_gp_var_portfolio(true))
+    /// ```
+    pub fn configure_runtime_flags<F: FnOnce(RuntimeFlags) -> RuntimeFlags>(
+        mut self,
+        init: F,
+    ) -> Self {
+        self.0.runtime_flags = init(self.0.runtime_flags);
+        self
+    }
+
+    /// Sets runtime flags directly.
+    pub fn runtime_flags(mut self, flags: RuntimeFlags) -> Self {
+        self.0.runtime_flags = flags;
+        self
+    }
+
+    /// Checks and wraps an EgorConfig
+    pub fn check(self) -> Result<ValidEgorConfig> {
+        let mut config = self.0;
+
+        log::info!(
+            "n_cstr: {}, cstr_specs: {:?}",
+            config.n_cstr,
+            config.cstr_specs
+        );
+
+        // When cstr_specs is set, derive internal n_cstr and validate
+        if let Some(ref specs) = config.cstr_specs {
+            // If n_cstr is set and does not match the number of specs, return an error
+            if config.n_cstr != specs.len() && config.n_cstr != 0 {
+                return Err(crate::EgoError::InvalidConfigError(format!(
+                    "EgorConfig invalid: n_cstr ({}) does not match cstr_specs length ({}). \
+                     When using cstr_specs, n_cstr is derived automatically.",
+                    config.n_cstr,
+                    specs.len()
+                )));
+            }
+            config.n_cstr = specs.len();
+        }
+
+        // Check cstr_tol length if any
+        let n_eff_cstr = config.n_internal_cstr();
+        if n_eff_cstr > 0
+            && let Some(cstr_tol) = config.cstr_tol.as_ref()
+            && cstr_tol.len() < n_eff_cstr
+        {
+            return Err(crate::EgoError::InvalidConfigError(format!(
+                "EgorConfig invalid: cstr_tol length ({}) is smaller than effective surrogate constraint count ({})",
+                cstr_tol.len(),
+                n_eff_cstr
+            )));
+        }
+
+        // Fix theta tuning if n_start is 0
+        if config.gp.n_start == 0 {
+            log::info!(
+                "n_start is 0, setting theta value to {}",
+                config.gp.theta_tuning.init()
+            );
+            config.gp.theta_tuning = config.gp.theta_tuning.to_fixed();
+        }
+
+        // When both CoEGO and KPLS are enabled, KPLS takes priority for GP training
+        // (full theta optimization in reduced PLS space) while CoEGO is used for
+        // infill criterion optimization (partial x-space search).
+        if config.activity_strategy.is_cooperative() && config.gp.kpls_dim.is_some() {
+            log::info!(
+                "CoEGO and KPLS both enabled: KPLS will be used for GP training, \
+                 CoEGO for infill criterion optimization"
+            );
+        }
+
+        if config.n_obj == 0 {
+            return Err(crate::EgoError::InvalidConfigError(
+                "EgorConfig invalid: n_obj should be at least 1".to_string(),
+            ));
+        }
+        if config.moo.n_divisions == Some(0) {
+            return Err(crate::EgoError::InvalidConfigError(
+                "EgorConfig invalid: MOO n_divisions should be at least 1".to_string(),
+            ));
+        }
+        if !config.moo.rho.is_finite() || config.moo.rho < 0. {
+            return Err(crate::EgoError::InvalidConfigError(format!(
+                "EgorConfig invalid: MOO rho should be a finite non-negative value, got {}",
+                config.moo.rho
+            )));
+        }
+        if let Some((tol, n_iters)) = config.moo.hv_stop
+            && (!tol.is_finite() || tol < 0. || n_iters == 0)
+        {
+            return Err(crate::EgoError::InvalidConfigError(format!(
+                "EgorConfig invalid: MOO hv_stop expects a finite non-negative tolerance and at least one iteration, got ({tol}, {n_iters})"
+            )));
+        }
+        if config.n_obj > 1 {
+            let unsupported = if config.iteration_strategy.name() != StandardEgoStrategy.name() {
+                Some(format!(
+                    "{} iteration strategy",
+                    config.iteration_strategy.name()
+                ))
+            } else if config.activity_strategy.is_cooperative() {
+                Some("CoEGO".to_string())
+            } else if config.target != f64::MIN {
+                Some("target".to_string())
+            } else if config.failsafe_strategy == FailsafeStrategy::Imputation
+                && config.is_scalarized()
+            {
+                Some("Imputation failsafe strategy with ParEGO (use EIM or EHVI)".to_string())
+            } else if matches!(
+                config.moo_strategy(),
+                crate::MooStrategy::Ehvi | crate::MooStrategy::QEhvi
+            ) && config.n_obj > crate::moo::ehvi::MAX_EHVI_OBJECTIVES
+            {
+                Some(format!(
+                    "{:?} with more than {} objectives (use EIM)",
+                    config.moo_strategy(),
+                    crate::moo::ehvi::MAX_EHVI_OBJECTIVES
+                ))
+            } else if config.moo_strategy() == crate::MooStrategy::QEhvi
+                && config.gp.n_clusters != NbClusters::fixed(1)
+            {
+                Some(format!(
+                    "QEhvi with {:?} clusters (single-cluster surrogates required)",
+                    config.gp.n_clusters
+                ))
+            } else if config.moo_strategy() == crate::MooStrategy::QEhvi
+                && config.qei_config.batch > crate::moo::qehvi::MAX_QEHVI_BATCH
+            {
+                Some(format!(
+                    "QEhvi with a batch of {} points (at most {})",
+                    config.qei_config.batch,
+                    crate::moo::qehvi::MAX_QEHVI_BATCH
+                ))
+            } else if config.feasibility_infill.is_enabled() && !config.is_scalarized() {
+                Some(format!(
+                    "{:?} feasible infill strategy with {:?}",
+                    config.feasibility_infill,
+                    config.moo_strategy()
+                ))
+            } else {
+                None
+            };
+            if let Some(feature) = unsupported {
+                return Err(crate::EgoError::InvalidConfigError(format!(
+                    "EgorConfig invalid: {feature} is not supported with several objectives (n_obj = {})",
+                    config.n_obj
+                )));
+            }
+            if config.runtime_flags.use_gp_var_portfolio {
+                log::warn!("GP variance portfolio is ignored with several objectives");
+                config.runtime_flags.use_gp_var_portfolio = false;
+            }
+        }
+
+        // Feasible infill strategy not implemented for LogEI, so warn if selected
+        if config.feasibility_infill.is_enabled() && config.infill_criterion.name() == "LogEI" {
+            return Err(crate::EgoError::InvalidConfigError(format!(
+                "Feasible infill strategy {:?} is not implemented for LogEI criterion. Consider using EI, WB2 or WB2S instead.",
+                config.feasibility_infill
+            )));
+        }
+
+        Ok(config)
+    }
+}

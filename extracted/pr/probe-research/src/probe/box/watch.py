@@ -132,9 +132,11 @@ def report_vanished(entry: dict[str, Any], *, noticed_at: float | None = None) -
         logger.debug("box: no client for %s: %s", entry.get("run_id"), exc)
         return False
     try:
+        from probe.sdk.routes import WriteOp, path_for  # inside the try: this door fails open
+
         client.write(
             "POST",
-            f"/v1/runs/{entry['run_id']}/spans",
+            path_for(WriteOp.SPANS, entry['run_id']),
             {
                 "spans": [
                     {

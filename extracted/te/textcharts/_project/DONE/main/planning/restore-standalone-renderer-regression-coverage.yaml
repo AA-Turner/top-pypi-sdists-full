@@ -1,0 +1,100 @@
+id: "restore-standalone-renderer-regression-coverage"
+title: "Restore standalone renderer regression coverage"
+worktree: "main"
+priority: "High"
+status: "Completed"
+description: |
+  Bring back enough behavioral coverage from BenchBox to make the extracted
+  library safe to publish. The current repo only has smoke tests, while the
+  original source has golden-output and edge-case coverage across the chart
+  surface. Publication should not proceed until the standalone package has its
+  own regression safety net.
+category: "Testing and Quality Assurance"
+work:
+  - id: w1
+    summary: "Inventory the BenchBox chart tests and select the portable subset to migrate"
+    status: done
+  - id: w2
+    summary: "Port golden-output snapshot coverage for all public chart types"
+    needs: [w1]
+    status: done
+  - id: w3
+    summary: "Port high-value edge-case tests for NaN, inf, single-point, and layout behavior"
+    needs: [w1]
+    status: done
+  - id: w4
+    summary: "Replace the smoke-only strategy with documented standalone verification targets"
+    needs: [w2, w3]
+    status: done
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "release"
+    - "tests"
+    - "golden"
+  estimated_effort: "Large"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T09:20:00"
+impact:
+  business_value: |
+    Cuts release risk substantially and makes future renderer changes cheaper
+    to ship with confidence.
+  user_impact: |
+    Public users are less likely to encounter rendering regressions across
+    terminals and chart types.
+  technical_debt: |
+    Rebuilds the test safety net that was lost during extraction.
+files_affected:
+  modified:
+    - "tests/"
+    - "README.md"
+    - ".github/workflows/ci.yml"
+must_preserve:
+  - "The standalone package remains free of BenchBox runtime imports"
+  - "Existing public chart constructors and aliases remain importable"
+  - "Golden tests use deterministic options so output is stable across environments"
+approach: |
+  Start by inventorying BenchBox tests and separating portable chart behavior
+  from product-specific integration cases. Migrate golden-output fixtures first
+  for broad surface coverage, then add a curated edge-case set for numeric
+  anomalies and small-data layouts. Keep the standalone tests self-contained
+  and ensure they run without BenchBox present.
+anti_patterns:
+  - "DO NOT copy the entire BenchBox suite wholesale — because much of it is product-specific — migrate only the renderer-focused portable subset"
+  - "DO NOT leave assertions at 'contains label' level — because that misses layout regressions — use snapshots and targeted edge-case expectations"
+verification:
+  - description: "Standalone test suite passes without importing BenchBox"
+    command: ".venv/bin/python -m pytest -q"
+    expected_output: "all standalone chart tests pass"
+  - description: "CI config exercises the migrated regression suite"
+    command: "sed -n '1,120p' .github/workflows/ci.yml"
+    expected_output: "workflow clearly runs the intended standalone verification"
+scope_limit:
+  only_modify:
+    - "tests/"
+    - ".github/workflows/ci.yml"
+    - "README.md"
+  do_not_modify:
+    - "src/textcharts/"
+deps:
+  needs:
+    - "fix-terminal-capability-defaults-and-color-contract"
+    - "make-heatmap-and-matrix-apis-explicit-and-safe"
+success_metrics:
+  - "Each public chart type has deterministic regression coverage"
+  - "High-value edge cases from the extracted source are covered in the standalone repo"
+completed_date: "2026-03-06"
+
+sections:
+  "Implementation Summary": |
+    Migrated the full 15-chart golden-output suite into the standalone
+    repository with local fixtures and a `--update-golden` pytest option.
+    Added a focused edge-case test module covering single-point renderers,
+    NaN/inf handling, narrow-width behavior, ANSI sanitization, and layout
+    compression/truncation behavior.
+
+  "Verification": |
+    .venv/bin/python -m pytest -q
+    uv run --group dev ruff check src/ tests/
+    uv build

@@ -15,15 +15,8 @@ def _lease_path(journal) -> str:
 
 
 # -- queue format versioning (plan 1.11) ------------------------------------
-#
-# A worker holds its lease while the queue has work (hours in an outage) and an SDK
-# upgrade does not replace it. A newer producer sharing the outbox must not queue an op
-# kind the LIVE worker cannot deliver: releases before 1.11 dead-letter an unknown kind as
-# permanent. So each worker advertises its kinds in a caps file beside its lease; a
-# producer asks `ready_for(kind)` before queueing a new kind and, on no, leaves a stop
-# file a 1.11+ worker obeys between passes (it exits; the producer's next kick spawns one
-# of its version). From 1.11 a worker meeting an unknown kind holds it
-# (`journal.OP_KINDS`) instead of dead-lettering, so a rollback strands nothing.
+# Each worker advertises the op kinds it delivers (a caps file beside its lease); a newer producer
+# asks `ready_for(kind)` and leaves a stop file a live older worker obeys between passes.
 
 
 def _caps_path(journal):

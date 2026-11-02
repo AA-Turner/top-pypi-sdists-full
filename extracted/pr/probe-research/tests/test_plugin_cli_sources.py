@@ -4,7 +4,7 @@ uninstall once ran `claude plugin uninstall` for a pi device."""
 
 import pytest
 
-from probe.cli import capture
+from probe.cli.capture import capture
 from probe.shared.harness.harnesses import pi as pi_config
 from probe.shared.harness import plugins as plugin_cli
 

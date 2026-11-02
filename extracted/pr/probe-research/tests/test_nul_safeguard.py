@@ -92,7 +92,8 @@ def test_warning_does_not_disclose_arbitrary_keys_and_is_bounded():
 def test_cycles_fail_promptly_before_the_network():
     # A subprocess makes the old infinite scan a bounded regression failure.
     code = """
-from probe.sdk import unstorable, errors
+from probe.sdk import errors
+from probe.sdk.values import unstorable
 x = []; x.append(x)
 try:
     unstorable.has_nul(x)

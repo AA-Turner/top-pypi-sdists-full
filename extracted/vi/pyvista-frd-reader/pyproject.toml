@@ -1,0 +1,139 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+# cmake drives the native core from setup.py. Listed here so a source build
+# does not depend on one being installed system-wide. A C++17 compiler is
+# still required: this package has no pure-Python fallback.
+# setuptools>=77, not 64: the [project] table below uses the PEP 639 license
+# expression (`license = "MIT"` plus `license-files`), and older setuptools
+# cannot read it -- it fails with "Cannot import packaging.licenses" while
+# building the wheel, on whichever machine happened to resolve an older one.
+#
+# packaging>=24.2 is not redundant with that, and pinning setuptools alone was
+# not enough: setuptools 77 reads the license expression through
+# `packaging.licenses`, which arrived in packaging 24.2, and nothing else here
+# asks for one -- setuptools-scm wants only `packaging>=20`, which an older
+# copy satisfies. Whether the build environment ends up with 24.2 is then an
+# accident of resolution, and on the macOS and Windows runners it went the
+# wrong way while aarch64 Linux went the right way off the same commit.
+requires = [
+  "cmake>=3.16",
+  "packaging>=24.2",
+  "setuptools-scm>=8",
+  "setuptools>=77",
+]
+
+[project]
+authors = [{ name = "The PyVista developers", email = "info@pyvista.org" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy>=1.23", "pyvista>=0.45.0"]
+description = "Read CalculiX FRD result files into PyVista, backed by a C++ core with a C ABI."
+dynamic = ["version"]
+keywords = ["calculix", "fea", "frd", "pyvista", "vtk"]
+license = "MIT"
+license-files = ["LICENSE"]
+name = "pyvista-frd-reader"
+readme = "README.rst"
+requires-python = ">=3.10"
+
+[project.urls]
+Home = "https://github.com/pyvista/pyvista-frd-reader"
+Issues = "https://github.com/pyvista/pyvista-frd-reader/issues"
+
+[project.optional-dependencies]
+docs = [
+  "linkify-it-py>=2.0",
+  "matplotlib>=3.7",
+  "myst-parser>=3.0",
+  "pydata-sphinx-theme>=0.15",
+  "sphinx-copybutton>=0.5",
+  "sphinx-design>=0.5",
+  "sphinx-gallery>=0.16",
+  "sphinx>=7.2",
+]
+# Warning conformance needs the independent FRDReader removed in PyVista 0.49.
+# This constrains the test environment only, not users of the reader.
+tests = ["pytest-cov>=5.0.0", "pytest>=6.2.0", "pyvista>=0.48.4,<0.49"]
+
+# Deliberately no `[project.entry-points."pyvista.readers"]`.
+#
+# PyVista ships its own `.frd` reader, so an entry point here would make
+# `pv.read` use this package while `pv.get_reader` kept the built-in -- two
+# readers for one extension, differing by which call path a user took.
+# Overriding it is a follow-up, once PyVista supports being overridden.
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+git_describe_command = "git describe --dirty --tags --long --match v*"
+tag_regex = "^v(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+(?:[abrc][0-9]+)?(?:\\.post[0-9]+)?(?:\\.dev[0-9]+)?)$"
+version_file = "src/pyvista_frd/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+exclude = ['.git', 'build', 'cpp/build', 'dist', 'doc/_build', '__pycache__']
+indent-width = 4
+line-length = 100
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "single"
+
+[tool.ruff.lint]
+# D213 rather than D212: the summary goes on the first line, which is what
+# PyVista's own sources do and what a reader coming from there expects.
+ignore = [
+  "COM812",
+  "D107",  # the class docstring documents __init__'s parameters, numpydoc style
+  "D203",
+  "D213",
+  # __enter__ returning the class rather than typing.Self, which is 3.11+.
+  "PYI034",
+  "ISC001",
+  "PLC0415",
+  "S101",
+  "T201",
+]
+select = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# The vendored oracle is someone else's code, kept byte-identical on purpose.
+"tests/conformance/ref_frd.py" = ["ALL"]
+"tests/conformance/ref_reader.py" = ["ALL"]
+"tests/**" = ["ANN", "D", "INP001", "PLR2004", "SLF001"]
+"tools/**" = ["ANN", "C901", "D103", "PLR0912", "PLR0915", "S603", "S607", "SLF001"]
+# The benchmark drives the reference parser directly, which means reaching
+# for its private entry points -- the same ones the conformance suite uses.
+"benchmarks/**" = ["D103", "E501", "INP001", "PERF401", "SLF001"]
+# Sphinx executes the config module and the gallery scripts from their own
+# directory and never imports them. A gallery file opens with an RST section
+# header rather than a sentence, and a bare expression on a line of its own is
+# how the gallery is told to render a repr.
+"doc/conf.py" = ["INP001"]
+"doc/examples/**" = ["B018", "D400", "D415", "INP001"]
+"setup.py" = ["ANN", "S603", "S607"]
+
+[tool.ruff.lint.flake8-quotes]
+# Matched to the formatter's quote-style above; leaving them disagreeing makes
+# every run print a warning and fight itself.
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+force-single-line = true

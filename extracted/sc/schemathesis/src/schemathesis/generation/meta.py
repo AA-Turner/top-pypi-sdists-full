@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from schemathesis.core.mutations import Mutation
-from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.parameters import PARAMETER_LOCATIONS, ParameterLocation
 from schemathesis.generation import GenerationMode
 from schemathesis.resources import PoolDraw, SemanticDraw
 
@@ -67,6 +67,9 @@ class CoverageScenario(StrEnum):
     # Positive scenarios - Default test case
     DEFAULT_POSITIVE_TEST = "default_positive_test"
 
+    # Positive scenarios - GraphQL field selection
+    FIELD_SELECTION = "field_selection"
+
     # Negative scenarios - Boundary violations for numbers
     VALUE_ABOVE_MAXIMUM = "value_above_maximum"
     VALUE_BELOW_MINIMUM = "value_below_minimum"
@@ -94,10 +97,12 @@ class CoverageScenario(StrEnum):
     NOT_MULTIPLE_OF = "not_multiple_of"
     NON_UNIQUE_ITEMS = "non_unique_items"
     UNIQUE_ITEMS_ARRAY = "unique_items_array"
+    MATCHES_NOT_SCHEMA = "matches_not_schema"
 
     # Negative scenarios - Missing parameters
     MISSING_PARAMETER = "missing_parameter"
     DUPLICATE_PARAMETER = "duplicate_parameter"
+    UNKNOWN_ARGUMENT = "unknown_argument"
 
     # Negative scenarios: request-shape probes.
     UNSUPPORTED_PATH_PATTERN = "unsupported_path_pattern"
@@ -265,6 +270,17 @@ class CaseMetadata:
     # Lets revalidation tell, per key, whether a value still equals its generated wire
     # form (use the typed snapshot) or was overwritten by a hook (validate the live value).
     _initial_containers: dict[ParameterLocation, Any] = field(default_factory=dict, init=False)
+
+    def copy(self) -> CaseMetadata:
+        """A copy that revalidating another case's containers cannot change."""
+        copied = replace(
+            self,
+            generation=GenerationInfo(time=self.generation.time, mode=self.generation.mode),
+            components=dict(self.components),
+            raw_containers=dict(self.raw_containers),
+        )
+        copied._initial_hashes = dict(self._initial_hashes)
+        return copied
 
     def is_negative_at(self, location: ParameterLocation) -> bool:
         """Whether the component at `location` was generated in negative mode."""
@@ -493,6 +509,24 @@ class CaseMetadata:
             constants_draws=constants_draws,
             raw_containers=raw_containers,
         )
+
+
+def uniform_metadata(
+    *,
+    mode: GenerationMode,
+    phase: PhaseInfo,
+    generation_time: float,
+    constants_draws: tuple[ConstantDraw, ...] = (),
+    dictionary_draws: tuple[DictionaryDraw, ...] = (),
+) -> CaseMetadata:
+    """Metadata of a case generated in one mode for every component."""
+    return CaseMetadata(
+        generation=GenerationInfo(time=generation_time, mode=mode),
+        phase=phase,
+        components={location: ComponentInfo(mode=mode) for location in PARAMETER_LOCATIONS},
+        constants_draws=constants_draws,
+        dictionary_draws=dictionary_draws,
+    )
 
 
 def _load_mutations(raw: dict[str, Any]) -> tuple[Mutation, ...]:

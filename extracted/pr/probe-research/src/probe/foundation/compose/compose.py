@@ -55,6 +55,34 @@ def compose(cls: _Class) -> _Class:
     return type(cls)(cls.__name__, (object,), namespace)
 
 
+def fold_parts(cls: _Class, *parts: type) -> _Class:
+    """compose(), in place: copy each part's members into ``cls`` itself and return it.
+
+    For a class its parts read back by name (their methods call ``Journal.read_status``): the
+    class must exist before they load, so it is defined bare and its module folds the parts in
+    from its bottom imports. Same result and refusals as compose(); the class object is kept,
+    so every module that imported it early holds the finished class.
+    """
+    own = set(vars(cls))
+    annotations: dict[str, Any] = {}
+    for part in parts:
+        if part.__bases__ != (object,):
+            raise TypeError(f"{cls.__name__}: part {part.__name__} has bases of its own")
+        annotations.update(inspect.get_annotations(part))
+        for name, value in vars(part).items():
+            if name in _PER_CLASS:
+                continue
+            if name in own:
+                raise TypeError(f"{cls.__name__}: {name!r} is defined twice (in the class or two parts)")
+            if _uses_class_cell(value):
+                raise TypeError(f"{cls.__name__}.{name}: zero-argument super() or __class__ in a composed class")
+            own.add(name)
+            setattr(cls, name, value)
+    if annotations:
+        cls.__annotations__ = {**annotations, **inspect.get_annotations(cls)}
+    return cls
+
+
 def _uses_class_cell(value: Any) -> bool:
     """A function (or the one inside a property, staticmethod, classmethod or wrapper) closing over `__class__`."""
     if isinstance(value, property):

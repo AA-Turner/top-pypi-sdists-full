@@ -1,4 +1,4 @@
-from probe.cli.import_job_messages import enqueue_report
+from probe.cli.imports.jobs.messages import enqueue_report
 
 
 def test_running_job_is_reported_as_already_running():

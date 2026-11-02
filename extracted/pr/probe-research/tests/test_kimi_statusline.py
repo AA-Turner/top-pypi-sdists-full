@@ -198,7 +198,7 @@ def test_the_session_start_refresh_counts_kimis_footer(kimi):
 
 @pytest.fixture()
 def caught_up(kimi, monkeypatch):
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     monkeypatch.setattr(statusline, "discover_plugin_root", lambda source=None: PLUGIN)
     return wizard
@@ -248,7 +248,7 @@ def test_install_names_the_agent_from_any_shell(kimi, monkeypatch, capsys):
 def test_configure_plans_the_catch_up_so_it_is_not_nothing_to_change(caught_up):
     """`plan()` empty means "Nothing to change" and the run returns before any
     step: the catch-up must be a planned step of its own (as a stale block is)."""
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
 
     wizard = caught_up
     caps = Capabilities(agent_source="kimi_code", tracking_plugin_installed=True,

@@ -21,9 +21,9 @@ class ConversationsMixin:
         live = self.live_conversation()
         if live is not None:
             self.end_conversation(live["id"], "replaced by a fresh start")
-        cur = self.db.execute("INSERT INTO conversations (started, instructions, fingerprint) VALUES (?, ?, ?)",
+        current = self.db.execute("INSERT INTO conversations (started, instructions, fingerprint) VALUES (?, ?, ?)",
                               (self.clock(), instructions, fingerprint))
-        return int(cur.lastrowid)
+        return int(current.lastrowid)
 
     def set_conversation_instructions(self, conversation_id: int, instructions: str,
                                       fingerprint: str | None = None) -> None:
@@ -58,9 +58,9 @@ class ConversationsMixin:
         live = self.live_read_conversation()
         if live is not None:
             self.end_read_conversation(live["id"], "replaced by a fresh start")
-        cur = self.db.execute("INSERT INTO read_conversations (started, instructions, fingerprint) VALUES (?, ?, ?)",
+        current = self.db.execute("INSERT INTO read_conversations (started, instructions, fingerprint) VALUES (?, ?, ?)",
                               (self.clock(), instructions, fingerprint))
-        return int(cur.lastrowid)
+        return int(current.lastrowid)
 
     def save_read_conversation(self, conversation_id: int, messages: str, *, compactions: int = 0) -> None:
         self.db.execute("UPDATE read_conversations SET messages = ?, updated = ?, runs = runs + 1, "

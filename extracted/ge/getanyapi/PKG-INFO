@@ -1,0 +1,208 @@
+Metadata-Version: 2.5
+Name: getanyapi
+Version: 0.143.14
+Summary: Official typed Python SDK for AnyAPI: any API, one wallet, USD, no subscriptions.
+Project-URL: Homepage, https://getanyapi.com
+Project-URL: Documentation, https://getanyapi.com/docs
+Project-URL: Repository, https://github.com/getanyapi-com/sdks
+Project-URL: Issues, https://github.com/getanyapi-com/sdks/issues
+Author-email: AnyAPI <support@getanyapi.com>
+License-Expression: MIT
+Keywords: anyapi,api,getanyapi,scraping,sdk
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27
+Requires-Dist: pydantic>=2.5
+Requires-Dist: typing-extensions>=4.7
+Provides-Extra: dev
+Requires-Dist: mypy>=1.11; extra == 'dev'
+Requires-Dist: pyright>=1.1.380; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: ruff>=0.6; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# getanyapi
+
+Official typed Python SDK for [AnyAPI](https://getanyapi.com): any API, one wallet, USD, no
+subscriptions. Reach hundreds of scraping and data APIs through one interface and one key; pay
+per request in real US dollars. httpx + pydantic v2, Python 3.10+, sync and async clients.
+
+```bash
+pip install getanyapi
+```
+
+## Quickstart
+
+```python
+from getanyapi import AnyAPI
+
+client = AnyAPI()  # reads ANYAPI_API_KEY from the environment
+res = client.reddit.search(query="mechanical keyboard")
+if res.output.found:
+    for post in res.output.data.posts:
+        print(post.title, post.score)
+print("charged", res.cost_usd, "USD")
+```
+
+Async:
+
+```python
+from getanyapi import AsyncAnyAPI
+
+async with AsyncAnyAPI() as client:
+    res = await client.google.search(query="best coffee maker")
+```
+
+## Inputs vs outputs (naming asymmetry)
+
+Input keyword arguments mirror the wire API verbatim (camelCase where the API uses it), because
+they are sent as-is. Output models are Pythonic: attributes are snake_case with a wire alias
+(`item.reviews_count` reads the wire `reviewsCount`), and `model_dump(by_alias=True)` reproduces
+the wire shape. Open provider records round-trip unknown fields via `.model_extra`.
+
+## Not found vs error
+
+A successful call always returns. For most SKUs the payload is wrapped in a `found` flag:
+`res.output.found` is `False` when the upstream had no matching entity (not an error). Use
+`unwrap` to get the data or raise `ResultNotFoundError` when empty:
+
+```python
+from getanyapi import unwrap, ResultNotFoundError
+
+res = client.amazon.reviews(product="B07FZ8S74R")
+try:
+    data = unwrap(res)  # the typed data payload, or raises
+except ResultNotFoundError:
+    ...  # empty result (found: False), not an HTTP failure
+```
+
+`ResultNotFoundError` subclasses `NotFoundError`, so `except NotFoundError` catches both an
+HTTP 404 and an empty result; catch `ResultNotFoundError` to handle only empty results. If a
+future committed schema uses a bare output, generated typing returns its data object directly
+rather than relying on a hard-coded SKU list.
+
+## Discovery
+
+```python
+apis = client.catalog(category="search")
+matches = client.search(query="web search", platform="google", limit=10)
+api = client.describe(matches.results[0].slug)
+print(api.pricing.from_offer, api.pricing.failover_max_usd, api.input_schema)
+```
+
+Sync and async clients expose the same category-only `catalog`, dedicated ranked `search`, and
+schema-bearing `describe` methods. Prices are nested USD flat/linear offers, lanes are
+anonymous, and provider is always `"AnyAPI"`. The gateway owns validation, routing, lane
+order, failover, pricing relationships, health semantics, and billing. This handwritten
+discovery client safety-scans the response, projects known fields, preserves schemas as opaque
+JSON, and ignores safe additions. It does not recompute gateway business rules. Generated
+per-SKU methods remain a separate OpenAPI-driven surface.
+
+Every catalog and search result carries the gateway-authored `method`, `path`, and execution
+mode. Lanes carry their public source identity and complete health sample counts when health is
+available. Eligible APIs may carry `try_max_items`; ranked search carries the gateway's failover
+facts. `describe` also returns `latency`, either the complete trailing-window p50/p95/p99
+distribution or `None` when no sample is available.
+
+## Pagination
+
+Paginated SKUs expose an `iter_*` method that yields validated item models across pages and
+follows the cursor for you. Call `.pages()` on it to walk whole results (each has its own
+`cost_usd`).
+
+```python
+for post in client.reddit.iter_search(query="coffee", options={"max_items": 100}):
+    print(post.title)  # a validated model, not a dict
+
+for page in client.reddit.iter_search(query="coffee").pages():
+    print(page.cost_usd)
+```
+
+## Request options (context-cost savers)
+
+Pass `options=` to shape the response. These trim what comes back but do NOT change the price:
+
+```python
+res = client.google.search(
+    query="coffee",
+    options={"fields": ["title", "link"], "max_items": 5, "summary": True},
+)
+```
+
+`options` also carries per-call `timeout`, `max_retries`, and `max_in_progress_wait` overrides.
+
+## Errors and retries
+
+| Class                      | HTTP | Meaning                                    |
+| -------------------------- | ---- | ------------------------------------------ |
+| `BadRequestError`          | 400  | Input failed validation                    |
+| `AuthenticationError`      | 401  | Missing or invalid API key                 |
+| `InsufficientBalanceError` | 402  | Wallet balance or per-key cap exceeded     |
+| `NotFoundError`            | 404  | Slug or resource does not exist            |
+| `ResultNotFoundError`      | -    | `unwrap` on an empty found-data result     |
+| `RateLimitedError`         | 429  | Too many requests (retried automatically)  |
+| `UpstreamError`            | 502  | An upstream backend failed                 |
+| `ConnectionError`          | 0    | Network or transport failure               |
+| `TimeoutError`             | 0    | Request exceeded its timeout (not retried) |
+
+All extend `AnyAPIError` (with `.status` and `.request_id`). Retries cover 429, one specific 409
+(below), and network failures proven to happen before a request was sent, with jittered
+exponential backoff honoring `Retry-After`. Default `max_retries` is 2 (up to 3 attempts); set it
+on the client (`AnyAPI(max_retries=...)`) or per request via `options`. Timeouts are never
+retried. Connection failures during or after a billed `POST /v1/run` are not retried because the
+call may already have been charged. When the send phase is unknown, the SDK does not retry.
+
+### Waiting out a run that is still in flight
+
+Settlement is detached from your connection, so a run keeps going after a connection drops. When
+you re-issue a call whose `Idempotency-Key` is still executing, the gateway answers `409` with
+`code="idempotency_in_progress"` and `Retry-After: 30`. The SDK waits that full delay and
+retries, so you get the original run's replayed result (`replayed=True`, no second charge)
+instead of an error.
+
+The 8s ordinary-backoff ceiling does not apply here; a separate whole-call budget does.
+`max_in_progress_wait` (default `60.0` seconds) caps the TOTAL time one `run()` may block on
+these waits, across every retry. A wait that does not fit the remaining budget is refused and the
+`409` is raised rather than truncated into an attempt that would fail anyway. Set
+`max_in_progress_wait=0` on the client, or `options={"max_in_progress_wait": 0}`, to surface the
+`409` immediately and handle it yourself.
+
+No other `409` retries: `idempotency_conflict` (the same key with different input) and
+`idempotency_needs_review` are caller-side problems a retry cannot fix.
+
+Automatic retry of a billed `run()` requires structured transport evidence that the request was
+not delivered. Python's `httpx` transport provides that evidence for `ConnectError`, so DNS
+resolution failures and refused or unreachable connections retry. `ConnectTimeout` is a
+`TimeoutException` and does not retry. `ReadError` does not retry: it can mean either that a
+connection closed before the server read the request or that the connection failed after delivery.
+If a custom transport hides the connection phase, handle retries explicitly and only when your
+application can establish non-delivery.
+
+## Agent signup
+
+Bootstrap a key with no account (for autonomous agents):
+
+```python
+from getanyapi import agent_signup, AnyAPI
+
+result = agent_signup(label="my-agent")
+client = AnyAPI(api_key=result.secret)
+```
+
+The key ships with a small starter balance and a per-key spend cap; to go past the cap, a human
+authorizes an AnyAPI wallet over OAuth, as described in
+[agent self-signup](https://getanyapi.com/docs/agent-self-signup).
+
+## Docs
+
+Full API reference and catalog: [getanyapi.com/docs](https://getanyapi.com/docs).
+
+## License
+
+MIT

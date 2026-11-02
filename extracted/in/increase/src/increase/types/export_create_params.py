@@ -1,0 +1,358 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Iterable
+from datetime import date, datetime
+from typing_extensions import Literal, Required, Annotated, TypedDict
+
+from .._utils import PropertyInfo
+
+__all__ = [
+    "ExportCreateParams",
+    "AccountStatementBai2",
+    "AccountStatementOfx",
+    "AccountStatementOfxCreatedAt",
+    "AccountVerificationLetter",
+    "BookkeepingAccountBalanceCsv",
+    "DailyAccountBalanceCsv",
+    "EntityCsv",
+    "FeeCsv",
+    "FeeCsvCreatedAt",
+    "FundingInstructions",
+    "TransactionCsv",
+    "TransactionCsvCreatedAt",
+    "VendorCsv",
+    "VoidedCheck",
+    "VoidedCheckPayer",
+]
+
+
+class ExportCreateParams(TypedDict, total=False):
+    category: Required[
+        Literal[
+            "account_statement_bai2",
+            "account_statement_ofx",
+            "account_verification_letter",
+            "balance_csv",
+            "bookkeeping_account_balance_csv",
+            "daily_account_balance_csv",
+            "entity_csv",
+            "fee_csv",
+            "funding_instructions",
+            "transaction_csv",
+            "vendor_csv",
+            "voided_check",
+        ]
+    ]
+    """The type of Export to create.
+
+    - `account_statement_bai2` - Export a BAI2 file of transactions and balances for
+      a given date and optional Account.
+    - `account_statement_ofx` - Export an Open Financial Exchange (OFX) file of
+      transactions and balances for a given time range and Account.
+    - `account_verification_letter` - A PDF of an account verification letter.
+    - `balance_csv` - Export a CSV of account balances for the dates in a given
+      range. (deprecated, use `daily_account_balance_csv` instead)
+    - `bookkeeping_account_balance_csv` - Export a CSV of bookkeeping account
+      balances for the dates in a given range.
+    - `daily_account_balance_csv` - Export a CSV of daily account balances with
+      starting and ending balances for a given date range.
+    - `entity_csv` - Export a CSV of entities with a given status.
+    - `fee_csv` - Export a CSV of fees. The time range must not include any fees
+      that are part of an open fee statement.
+    - `funding_instructions` - A PDF of funding instructions.
+    - `transaction_csv` - Export a CSV of all transactions for a given time range.
+    - `vendor_csv` - Export a CSV of vendors added to the third-party risk
+      management dashboard.
+    - `voided_check` - A PDF of a voided check.
+    """
+
+    account_statement_bai2: AccountStatementBai2
+    """Options for the created export.
+
+    Required if `category` is equal to `account_statement_bai2`.
+    """
+
+    account_statement_ofx: AccountStatementOfx
+    """Options for the created export.
+
+    Required if `category` is equal to `account_statement_ofx`.
+    """
+
+    account_verification_letter: AccountVerificationLetter
+    """Options for the created export.
+
+    Required if `category` is equal to `account_verification_letter`.
+    """
+
+    bookkeeping_account_balance_csv: BookkeepingAccountBalanceCsv
+    """Options for the created export.
+
+    Required if `category` is equal to `bookkeeping_account_balance_csv`.
+    """
+
+    daily_account_balance_csv: DailyAccountBalanceCsv
+    """Options for the created export.
+
+    Required if `category` is equal to `daily_account_balance_csv`.
+    """
+
+    entity_csv: EntityCsv
+    """Options for the created export.
+
+    Required if `category` is equal to `entity_csv`.
+    """
+
+    fee_csv: FeeCsv
+    """Options for the created export. Required if `category` is equal to `fee_csv`."""
+
+    funding_instructions: FundingInstructions
+    """Options for the created export.
+
+    Required if `category` is equal to `funding_instructions`.
+    """
+
+    transaction_csv: TransactionCsv
+    """Options for the created export.
+
+    Required if `category` is equal to `transaction_csv`.
+    """
+
+    vendor_csv: VendorCsv
+    """Options for the created export.
+
+    Required if `category` is equal to `vendor_csv`.
+    """
+
+    voided_check: VoidedCheck
+    """Options for the created export.
+
+    Required if `category` is equal to `voided_check`.
+    """
+
+
+class AccountStatementBai2(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `account_statement_bai2`.
+    """
+
+    account_id: str
+    """The Account to create a BAI2 report for.
+
+    If not provided, all open accounts will be included.
+    """
+
+    effective_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """The UTC date to create a BAI2 report for.
+
+    If not provided, the current date will be used. If the current date is used, the
+    report will include intraday balances, otherwise it will include end-of-day
+    balances for the provided date.
+    """
+
+    program_id: str
+    """The Program to create a BAI2 report for.
+
+    If not provided, all open accounts will be included.
+    """
+
+
+class AccountStatementOfxCreatedAt(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Filter transactions by their created date."""
+
+    before: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """Filter results to transactions created before this time."""
+
+    on_or_after: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """Filter results to transactions created on or after this time."""
+
+
+class AccountStatementOfx(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `account_statement_ofx`.
+    """
+
+    account_id: Required[str]
+    """The Account to create a statement for."""
+
+    created_at: AccountStatementOfxCreatedAt
+    """Filter transactions by their created date."""
+
+
+class AccountVerificationLetter(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `account_verification_letter`.
+    """
+
+    account_number_id: Required[str]
+    """The Account Number to create a letter for."""
+
+    balance_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """The UTC date of the balance to include in the letter.
+
+    Defaults to the current date.
+    """
+
+
+class BookkeepingAccountBalanceCsv(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `bookkeeping_account_balance_csv`.
+    """
+
+    bookkeeping_account_id: str
+    """
+    Filter exported Bookkeeping Account Balances to the specified Bookkeeping
+    Account.
+    """
+
+    on_or_after_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """Filter exported Balances to those on or after this UTC date."""
+
+    on_or_before_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """Filter exported Balances to those on or before this UTC date."""
+
+
+class DailyAccountBalanceCsv(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `daily_account_balance_csv`.
+    """
+
+    account_id: str
+    """Filter exported Balances to the specified Account."""
+
+    on_or_after_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """Filter exported Balances to those on or after this UTC date."""
+
+    on_or_before_date: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
+    """Filter exported Balances to those on or before this UTC date."""
+
+
+class EntityCsv(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `entity_csv`.
+    """
+
+    pass
+
+
+class FeeCsvCreatedAt(TypedDict, total=False):
+    """Filter results by time range on the `created_at` attribute."""
+
+    after: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results after this [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
+    timestamp.
+    """
+
+    before: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results before this [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
+    timestamp.
+    """
+
+    on_or_after: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results on or after this
+    [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp.
+    """
+
+    on_or_before: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results on or before this
+    [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp.
+    """
+
+
+class FeeCsv(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Options for the created export. Required if `category` is equal to `fee_csv`."""
+
+    created_at: FeeCsvCreatedAt
+    """Filter results by time range on the `created_at` attribute."""
+
+    program_id: str
+    """Filter exported Fees to the specified Program."""
+
+
+class FundingInstructions(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `funding_instructions`.
+    """
+
+    account_number_id: Required[str]
+    """The Account Number to create funding instructions for."""
+
+
+class TransactionCsvCreatedAt(TypedDict, total=False):
+    """Filter results by time range on the `created_at` attribute."""
+
+    after: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results after this [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
+    timestamp.
+    """
+
+    before: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results before this [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
+    timestamp.
+    """
+
+    on_or_after: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results on or after this
+    [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp.
+    """
+
+    on_or_before: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    Return results on or before this
+    [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp.
+    """
+
+
+class TransactionCsv(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `transaction_csv`.
+    """
+
+    account_id: str
+    """Filter exported Transactions to the specified Account."""
+
+    created_at: TransactionCsvCreatedAt
+    """Filter results by time range on the `created_at` attribute."""
+
+
+class VendorCsv(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `vendor_csv`.
+    """
+
+    pass
+
+
+class VoidedCheckPayer(TypedDict, total=False):
+    line: Required[str]
+    """The contents of the line."""
+
+
+class VoidedCheck(TypedDict, total=False):
+    """Options for the created export.
+
+    Required if `category` is equal to `voided_check`.
+    """
+
+    account_number_id: Required[str]
+    """The Account Number for the voided check."""
+
+    payer: Iterable[VoidedCheckPayer]
+    """The payer information to be printed on the check."""

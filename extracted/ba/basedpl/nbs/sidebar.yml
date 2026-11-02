@@ -1,0 +1,55 @@
+website:
+  sidebar:
+    contents:
+      - getting-started.ipynb
+      - playground.qmd
+      - gallery.qmd
+      - web.ipynb
+      - python.ipynb
+      - notebooks.ipynb
+      - repl.qmd
+      - cli.qmd
+      - section: Reference
+        contents:
+          - glyphs.qmd
+          - keyboard.qmd
+          - syntax.qmd
+          - hanzi-notation.ipynb
+          - hanzi-notation-zh.ipynb
+          - evaluation.qmd
+          - terms.qmd
+          - system-functions.qmd
+          - comparison.qmd
+      - section: Explanations
+        contents:
+          - overview.ipynb
+          - href: glyphs-study.qmd
+            text: Glyphs Study Guide
+          - principles.ipynb
+          - arrays.ipynb
+          - indexing.ipynb
+          - numbers.qmd
+          - mathish.qmd
+          - strings.ipynb
+          - bracket-types.ipynb
+          - scripts.ipynb
+          - assignment.ipynb
+          - composition.qmd
+          - dfns.ipynb
+          - modules.qmd
+          - keyed.ipynb
+          - autodiff.qmd
+          - index-notation.qmd
+          - performance.qmd
+      - section: Working with data
+        contents:
+          - data.ipynb
+          - regex.ipynb
+          - distributions.ipynb
+          - xml.ipynb
+          - plot.ipynb
+      - section: Tooling
+        contents:
+          - introspection.ipynb
+          - processes.qmd
+          - dyalog.ipynb

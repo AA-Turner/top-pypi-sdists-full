@@ -32,7 +32,8 @@ import os
 
 import pytest
 
-from probe.cli import autoupdate, updater, upgrading
+from probe.cli import autoupdate
+from probe.cli.install import updater, upgrade as upgrading
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 from probe.shared.updates import update_report
@@ -60,14 +61,20 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.delenv("PROBE_AGENT", raising=False)
     monkeypatch.delenv(autoupdate.WAIT_FOR_PID_ENV, raising=False)
     monkeypatch.delenv(autoupdate.TRIGGER_ENV, raising=False)
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: MANIFEST)
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(upgrading, "__version__", "0.292.0")
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: MANIFEST)
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr("probe.cli.install.updater.cli_installs.ephemeral.__version__", "0.292.0")
+    monkeypatch.setattr(upgrading.finish, "__version__", "0.292.0")
+    monkeypatch.setattr(upgrading.package_step, "__version__", "0.292.0")
+    monkeypatch.setattr(upgrading.prelude, "__version__", "0.292.0")
+    monkeypatch.setattr(upgrading.turn, "__version__", "0.292.0")
     _cli(monkeypatch, ok=True)
     # No live capture daemons: this machine's own must not leak into a report.
-    monkeypatch.setattr(updater, "stale_tap_daemons", lambda source, installed: ())
+    monkeypatch.setattr(updater.tap_sessions, "stale_tap_daemons", lambda source, installed: ())
     # No pi package unless a test installs one.
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: _pi(update_report.PiStep.NOT_INSTALLED))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: _pi(update_report.PiStep.NOT_INSTALLED))
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: _pi(update_report.PiStep.NOT_INSTALLED))
 
 
 @pytest.fixture
@@ -88,7 +95,7 @@ def _cli(monkeypatch, *, ok: bool):
             return updater.CliResult(True, True, True, current, target, f"CLI upgraded {current} → {target}")
         return updater.CliResult(True, False, False, current, current, "`uv tool upgrade` did not complete: offline")
 
-    monkeypatch.setattr(updater, "upgrade_cli", _upgrade)
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", _upgrade)
 
 
 def _pi(code, *, detail=""):
@@ -107,9 +114,9 @@ def _plugins(monkeypatch, by_agent: dict[str, updater.PluginResult]):
     """Each agent's plugin step answers from `by_agent`, keyed on the agent the
     pass runs for (PROBE_AGENT)."""
     step = lambda *args: by_agent[os.environ["PROBE_AGENT"]]  # noqa: E731
-    monkeypatch.setattr(updater, "update_plugin", step)
-    monkeypatch.setattr(updater, "update_codex_plugins", step)
-    monkeypatch.setattr(updater, "update_kimi_plugins", step)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", step)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", step)
+    monkeypatch.setattr("probe.shared.harness.harnesses.kimi_code.plugins.update_kimi_plugins", step)
 
 
 def _pass(monkeypatch, agent: str):
@@ -156,7 +163,8 @@ def test_a_failed_pi_package_on_a_claude_code_pass_is_named(monkeypatch, sent):
     failure fails the pass -- but the plugin slot carried Claude Code's plugin,
     which had moved, so the report read updated/updated/updated, failed."""
     _plugins(monkeypatch, {"claude_code": _ok_plugin()})
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: PI_FAILED)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: PI_FAILED)
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: PI_FAILED)
 
     outcome = _pass(monkeypatch, "claude_code")
 
@@ -176,7 +184,8 @@ def test_a_plugin_failure_beside_a_pi_failure_keeps_the_plugins_own(monkeypatch,
         True, False, False, "0.167.0", "0.167.0", "`claude plugin update` did not complete: EACCES",
         tap_before="0.10.13", tap_after="0.10.13", command_failed=True,
     )})
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: PI_FAILED)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: PI_FAILED)
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: PI_FAILED)
 
     _pass(monkeypatch, "claude_code")
 
@@ -190,7 +199,8 @@ def test_a_pi_package_that_waits_on_another_update_changes_nothing(monkeypatch, 
     """A locked pi step is not a failure, and it must not stand in for a
     plugin that moved."""
     _plugins(monkeypatch, {"claude_code": _ok_plugin()})
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: _pi(update_report.PiStep.LOCKED))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: _pi(update_report.PiStep.LOCKED))
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: _pi(update_report.PiStep.LOCKED))
 
     _pass(monkeypatch, "claude_code")
 
@@ -471,7 +481,7 @@ def test_the_production_shape_names_the_codex_pass(monkeypatch, sent):
 def _pass_real_codex(monkeypatch):
     """The Codex pass through the real `update_codex_plugins` (over `_codex`'s
     fakes), after `_plugins` replaced it for the Claude Code pass."""
-    monkeypatch.setattr(updater, "update_codex_plugins", _REAL_UPDATE_CODEX)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", _REAL_UPDATE_CODEX)
     return _pass(monkeypatch, "codex")
 
 
@@ -567,7 +577,8 @@ PI_SHAPES = {
 def _single(monkeypatch, plugin: str, pi: str, cli_ok: bool, agent: str = "claude_code") -> dict:
     _cli(monkeypatch, ok=cli_ok)
     _plugins(monkeypatch, {agent: PLUGIN_SHAPES[plugin]()})
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: PI_SHAPES[pi])
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: PI_SHAPES[pi])
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: PI_SHAPES[pi])
     held: list[dict] = []
     monkeypatch.setattr(update_report, "_send", lambda report, base_url: held.append(report))
     _pass(monkeypatch, agent)
@@ -585,7 +596,8 @@ def test_every_failed_pass_names_its_failure(monkeypatch, plugin, pi, cli_ok):
 def test_every_failed_pi_pass_names_its_failure(monkeypatch):
     for pi, cli_ok in itertools.product(sorted(PI_SHAPES), (True, False)):
         _cli(monkeypatch, ok=cli_ok)
-        monkeypatch.setattr(upgrading, "_update_pi_package", lambda pi=pi: PI_SHAPES[pi])
+        monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda pi=pi: PI_SHAPES[pi])
+        monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda pi=pi: PI_SHAPES[pi])
         held: list[dict] = []
         monkeypatch.setattr(update_report, "_send", lambda report, base_url: held.append(report))
         _pass(monkeypatch, "pi")

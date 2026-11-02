@@ -1,0 +1,78 @@
+Metadata-Version: 2.1
+Name: inversion
+Version: 1.0.1
+Summary: Flexible version handling
+Author-email: Jim Porter <itsjimporter@gmail.com>
+License: BSD-3-Clause OR Apache-2.0
+Keywords: versioning
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE.APACHE
+License-File: LICENSE.BSD
+Provides-Extra: test
+Requires-Dist: coverage[toml]; extra == "test"
+Requires-Dist: flake8>=3.7; extra == "test"
+Requires-Dist: flake8-quotes; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pretend; extra == "test"
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: coverage[toml]; extra == "dev"
+Requires-Dist: flake8>=3.7; extra == "dev"
+Requires-Dist: flake8-quotes; extra == "dev"
+Requires-Dist: ghp-import; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pretend; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+
+# inversion
+**inversion** is a Python library for handling software versions and specifiers,
+adapted from the [`packaging`][packaging] package.
+
+## An Example
+
+```python
+>>> from inversion import python
+>>> v1 = python.Version('1.0')
+>>> s1 = python.SpecifierSet('~=1.0')
+>>> v1 in s1
+True
+
+>>> from inversion import loose
+>>> v2 = loose.Version('1.0')
+>>> s2 = loose.SpecifierSet('>=1.0')
+>>> v2 in s2
+True
+```
+
+## Credits
+
+The real credit for this package goes to the [Python Packaging Authority][pypa].
+
+## License
+
+This project is dual-licensed under the BSD and Apache licenses.
+
+[pypi-image]: https://img.shields.io/pypi/v/inversion.svg
+[pypi-link]: https://pypi.python.org/pypi/inversion
+[ci-image]: https://github.com/jimporter/inversion/actions/workflows/build.yml/badge.svg
+[ci-link]: https://github.com/jimporter/inversion/actions/workflows/build.yml?query=branch%3Amaster
+[codecov-image]: https://codecov.io/gh/jimporter/inversion/branch/master/graph/badge.svg
+[codecov-link]: https://codecov.io/gh/jimporter/inversion
+
+[packaging]: https://github.com/pypa/packaging
+[pypa]: https://www.pypa.io/

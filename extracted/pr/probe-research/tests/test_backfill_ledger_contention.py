@@ -42,7 +42,7 @@ from multiprocessing import Process
 
 import pytest
 
-from probe.cli import backfill_ledger as bl
+from probe.cli.imports.folder.upload import ledger as bl
 
 WRITERS = 4
 PER_WRITER = 25

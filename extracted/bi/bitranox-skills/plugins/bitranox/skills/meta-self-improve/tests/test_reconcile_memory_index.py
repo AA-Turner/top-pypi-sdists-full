@@ -1,0 +1,877 @@
+"""Tests for reconcile_memory_index.py.
+
+Builds synthetic memory dirs in tmp_path. All content ASCII.
+"""
+
+from pathlib import Path
+
+import reconcile_memory_index as R
+
+
+def topic(meta_name, description, body="Some body text.", extra=""):
+    fm = "---\nname: %s\ndescription: %s\nmetadata:\n  type: project\n---\n" % (meta_name, description)
+    return fm + extra + "\n" + body + "\n"
+
+
+def write(d, name, text):
+    p = d / name
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+# --------------------------------------------------------------------------
+# frontmatter parsing
+# --------------------------------------------------------------------------
+
+def test_parse_frontmatter_basic():
+    meta, body = R.parse_frontmatter("---\nname: foo\ndescription: a hook\n---\n\nbody here\n")
+    assert meta["name"] == "foo"
+    assert meta["description"] == "a hook"
+    assert "body here" in body
+
+
+def test_parse_frontmatter_quoted_multiline():
+    text = '---\nname: x\ndescription: "line one\n  line two"\nmetadata:\n  type: project\n---\nB\n'
+    meta, _ = R.parse_frontmatter(text)
+    assert meta["description"].startswith("line one")
+    assert "line two" in meta["description"]
+
+
+def test_parse_frontmatter_none():
+    meta, body = R.parse_frontmatter("no frontmatter here\n")
+    assert meta == {}
+    assert "no frontmatter" in body
+
+
+# --------------------------------------------------------------------------
+# derive helpers
+# --------------------------------------------------------------------------
+
+def test_derive_title_prefers_body_heading():
+    assert R.derive_title({"name": "project_x"}, "# Real Title\n\nbody", "f.md") == "Real Title"
+
+
+def test_derive_title_deslugs_and_drops_type_prefix():
+    assert R.derive_title({"name": "project_matrix_id_scheme"}, "no heading", "f.md") == "Matrix id scheme"
+
+
+def test_derive_hook_uses_description_capped():
+    long = "x" * 400
+    hook = R.derive_hook({"description": long}, "body")
+    assert len(hook) <= R._HOOK_MAX
+    assert hook.endswith("...")
+
+
+def test_derive_hook_falls_back_to_first_sentence():
+    assert R.derive_hook({}, "First sentence here. Second one.") == "First sentence here."
+
+
+
+
+# --------------------------------------------------------------------------
+# curated altitude: reconcile + reference integrity (pointer block + central bodies)
+# --------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+import memory_engine as ME  # noqa: E402  (reconcile put hooks/ on sys.path at import)
+import uuid_store as us  # noqa: E402
+
+
+@pytest.fixture
+def proj(tmp_path):
+    p = tmp_path / "proj"
+    p.mkdir()
+    return str(p)
+
+
+def test_is_curated_detection(tmp_path):
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert R.is_curated(plain) is False
+    cur = tmp_path / "lvl"
+    cur.mkdir()
+    ME.add_or_update_entry(str(cur), "A fact", "hook", body="b", scope_default="lvl")
+    assert R.is_curated(cur) is True                    # its CLAUDE.local.md holds a pointer block
+
+
+def test_reconcile_reports_orphan_pointer_when_body_missing(proj):
+    slug = ME.add_or_update_entry(proj, "Heavy", "h", body="x" * 400, scope_default="lvl")
+    us.body_path(proj, slug).unlink()                       # delete the central body
+    rep = R.reconcile(proj)
+    assert "heavy" in rep["orphans"] and rep["added"] == []  # reported, never fabricated/backfilled
+
+
+def test_reconcile_no_orphans_when_bodies_present(proj):
+    ME.add_or_update_entry(proj, "Tiny", "hook", body="small", scope_default="lvl")
+    rep = R.reconcile(proj)
+    assert rep["orphans"] == [] and rep["facts"] == 1
+
+
+def test_check_references_target_resolves_no_false_orphan(proj):
+    ME.add_or_update_entry(proj, "General", "the general rule", body="short", scope_default="lvl")
+    ME.add_or_update_entry(proj, "Specific", "see [[general]] for the base", body="short2")
+    refs = R.check_references([proj])
+    assert refs["orphans"] == [] and refs["checked"] >= 1
+
+
+def test_check_references_orphan_flagged(proj):
+    ME.add_or_update_entry(proj, "Only", "refers [[nowhere]]", body="b", scope_default="lvl")
+    refs = R.check_references([proj])
+    assert ("only", "nowhere") in refs["orphans"]
+
+
+def test_check_references_downward_flagged(tmp_path):
+    # source at a BROADER altitude (pos 1) referencing a target only at a NARROWER one (pos 0)
+    lower = str(tmp_path / "lower")
+    upper = str(tmp_path / "upper")
+    (tmp_path / "lower").mkdir(); (tmp_path / "upper").mkdir()
+    ME.add_or_update_entry(lower, "Low fact", "narrow", body="b", scope_default="l")
+    ME.add_or_update_entry(upper, "High fact", "points [[low-fact]] down", body="b", scope_default="u")
+    refs = R.check_references([lower, upper])
+    assert ("high-fact", "low-fact") in refs["downward"]
+
+
+def test_has_inbound_refs_detects_and_is_separator_insensitive(proj):
+    ME.add_or_update_entry(proj, "Base rule", "b", body="x", scope_default="lvl")
+    ME.add_or_update_entry(proj, "User", "cites [[base_rule]]", body="x")  # underscore form
+    assert R.has_inbound_refs([proj], "base-rule") is True
+    assert R.has_inbound_refs([proj], "base_rule") is True
+    assert R.has_inbound_refs([proj], "nonexistent") is False
+
+
+def test_over_cap_measures_the_pointer_block(proj):
+    ME.add_or_update_entry(proj, "R", "h", body="small", scope_default="lvl")
+    within, lines, nbytes = R.over_cap(proj)
+    assert within is True and nbytes > 0
+    within2, *_ = R.over_cap(proj, max_bytes=1)          # any real block exceeds a 1-byte budget
+    assert within2 is False
+
+
+def test_oversize_pointer_block_is_advisory_warning_not_a_failure(proj, capsys):
+    # A pointer block past the soft byte threshold WARNS but never fails --check (exit 0).
+    local = ME.sig.claude_local_md_path(proj)
+    lines = "\n".join("- [T%d](uuid:0000000%d-0000-5000-8000-000000000000) - a hook <!-- bx:slug=t%d -->"
+                      % (i, i % 10, i) for i in range(3000))
+    local.write_text("%s\n# Memory index\n\n%s\n%s\n" % (us.INDEX_BEGIN, lines, us.INDEX_END),
+                     encoding="utf-8")
+    assert len((local.read_text(encoding="utf-8")).encode("utf-8")) > R._WARN_BYTES
+    rc = R.main(["--check", proj])
+    out = capsys.readouterr().out
+    assert rc == 0                          # size never contributes to the exit code
+    assert "~ warning:" in out and "TOTAL warnings:" in out and "TOTAL problems: 0" in out
+
+
+def test_archive_entry_drops_pointer_and_moves_central_body(proj):
+    ME.add_or_update_entry(proj, "Tiny", "h", body="small", scope_default="lvl")
+    heavy_slug = ME.add_or_update_entry(proj, "Heavy", "h", body="x" * 400)
+    assert R.archive_entry(proj, "heavy") is True
+    assert (us.central_facts_dir(proj).parent / ".archive" / (heavy_slug + ".md")).is_file()
+    assert R.archive_entry(proj, "tiny") is True
+    _scope, entries, _bodies = ME.read_store(proj)
+    assert entries == []
+    assert R.archive_entry(proj, "nonexistent") is False
+
+
+# ---- tree-wide integrity (--check-tree): duplicates/orphans/dangling across siblings -----------
+
+def _tree_two_projects(tmp_path):
+    """anchor (CLAUDE.md + store) with two SIBLING project levels projA/projB below it."""
+    anchor = tmp_path / "tree"
+    a, b = anchor / "projA", anchor / "projB"
+    a.mkdir(parents=True)
+    b.mkdir(parents=True)
+    for d in (anchor, a, b):
+        (d / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    (anchor / us.STORE_DIRNAME).mkdir()
+    return str(anchor), str(a), str(b)
+
+
+def test_check_tree_flags_duplicate_pointer_across_siblings(tmp_path, capsys):
+    # The tree-uniqueness violation that chain-scoped --check cannot see: one slug pointed at from
+    # two SIBLING levels (different chains). heal reports clean; --check-tree must catch it and exit 1.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Shared", "hookA", body="B", scope_default="a")
+    us.add_pointer(b, slug="shared", title="Shared", hook="hookB")   # duplicate pointer at the sibling
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "duplicate pointer: shared" in out and "TOTAL tree problems: 1" in out
+
+
+def test_check_tree_clean_tree_is_zero_and_exits_0(tmp_path, capsys):
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    ME.add_or_update_entry(b, "Only B", "h", body="B", scope_default="b")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 0 and "TOTAL tree problems: 0" in out
+
+
+def test_check_tree_flags_orphan_ref_and_reports_dangling_body(tmp_path, capsys):
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Citer", "builds on [[missing-base]]", body="B", scope_default="a")
+    # a dangling body: a central body file no level points at
+    us.put_body(anchor, "ghost-fact", "---\nname: ghost-fact\n---\n\norphaned body\n")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "orphan ref: [[missing-base]]" in out
+    assert "dangling body (no pointer at any level): ghost-fact" in out
+
+
+def test_check_tree_flags_downward_sideways_ref(tmp_path, capsys):
+    # a fact in subtree A cites a fact that lives in SIBLING subtree B -> it resolves "somewhere" in
+    # the tree (so it is NOT an orphan ref) but dangles for A's cascade -> must be flagged as
+    # sideways/downward. This is the gap the earlier --check-tree missed vs the per-chain --check.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(b, "Target", "the target", body="body", scope_default="b")   # slug 'target' at projB
+    ME.add_or_update_entry(a, "Citer", "see [[target]]", body="x", scope_default="a")   # projA cites it
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "sideways/downward ref" in out and "target" in out
+    assert "TOTAL tree problems: 1" in out
+
+
+def test_check_tree_upward_ref_not_flagged(tmp_path, capsys):
+    # a fact citing an ANCESTOR's fact is a valid upward ref -> not flagged.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(anchor, "Base", "base rule", body="body", scope_default="top")
+    ME.add_or_update_entry(a, "Citer", "builds on [[base]]", body="x", scope_default="a")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 0 and "TOTAL tree problems: 0" in out
+
+
+def test_check_tree_function_returns_duplicate_map(tmp_path):
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Shared", "hookA", body="B", scope_default="a")
+    us.add_pointer(b, slug="shared", title="Shared", hook="hookB")
+    rep = R.check_tree(anchor)
+    assert "shared" in rep["duplicates"] and len(rep["duplicates"]["shared"]) == 2
+
+
+def test_check_tree_function_flags_decoy_mid_chain_store(tmp_path):
+    # A leftover .claude-memory STRICTLY BELOW the tree top is a DECOY anchor: resolve_anchor picks
+    # the top so the engine never reads it, but the CLAUDE.local.md walk-up retrieval text hits it
+    # FIRST and reads stale/stub bodies. check_tree must report it (it previously returned 0 problems
+    # while a dead orphan store shadowed retrieval - the projects/.claude-memory decoy).
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    decoy = Path(a) / us.STORE_DIRNAME
+    decoy.mkdir()
+    rep = R.check_tree(anchor)
+    assert str(decoy) in rep["decoy_anchors"]
+
+
+def test_check_tree_cli_flags_decoy_anchor_and_exits_1(tmp_path, capsys):
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    (Path(a) / us.STORE_DIRNAME).mkdir()
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "decoy anchor" in out and "TOTAL tree problems: 1" in out
+
+
+def test_check_tree_top_store_is_not_a_decoy(tmp_path, capsys):
+    # the tree's own top .claude-memory (at the anchor) must NEVER be flagged.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    rep = R.check_tree(anchor)
+    assert rep["decoy_anchors"] == []
+
+
+def test_check_tree_ignores_migration_backup_store(tmp_path, capsys):
+    # a .claude-memory-migration-backup-* dir (and any store nested inside it) is a BACKUP, not a
+    # decoy - it is in no level's ancestor chain, so it must not be flagged.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    bk = Path(anchor) / (us.STORE_DIRNAME + "-migration-backup-20260101")
+    (bk / us.STORE_DIRNAME).mkdir(parents=True)
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 0 and "TOTAL tree problems: 0" in out
+
+
+def test_rehome_to_targets_a_specific_level_not_the_anchor(tmp_path, capsys):
+    # --rehome without a target lands at the tree ANCHOR (over-promotes a subtree's danglers);
+    # --rehome-to <level> re-homes them at the given level instead.
+    anchor, a, b = _tree_two_projects(tmp_path)
+    us.put_body(anchor, "ghost-fact", "---\nname: ghost-fact\ndescription: h\n---\n\nbody\n")
+    rc = R.main(["--rehome", "--rehome-to", a, anchor])
+    out = capsys.readouterr().out
+    assert rc == 0 and "re-homed" in out
+    def slugs(d):
+        try:
+            text = open(d + "/CLAUDE.local.md", encoding="utf-8").read()
+        except OSError:
+            return set()   # a level with no pointer block never got a rehome -> correct
+        return {p.slug for p in us.parse_pointer_index(text)[1]}
+    assert "ghost-fact" in slugs(a) and "ghost-fact" not in slugs(anchor)
+
+
+def test_cli_archive_drops_pointer_and_moves_body(proj, capsys):
+    # Defect E: archive_entry had no CLI path (was importable only). --archive <slug> <level> wires it.
+    heavy_slug = ME.add_or_update_entry(proj, "Heavy one", "h", body="x" * 400, scope_default="lvl")
+    rc = R.main(["--archive", heavy_slug, proj])
+    out = capsys.readouterr().out
+    assert rc == 0 and "archived %s" % heavy_slug in out
+    assert (us.central_facts_dir(proj).parent / ".archive" / (heavy_slug + ".md")).is_file()
+    assert ME.read_store(proj)[1] == []                       # pointer gone
+    # archiving a slug that is not there reports so and exits 1 (a loud no-op, not silent success)
+    rc = R.main(["--archive", "nonexistent", proj])
+    out = capsys.readouterr().out
+    assert rc == 1 and "no such entry" in out
+
+
+def test_noncurated_level_contributes_nothing_no_subtree_scan(tmp_path):
+    # a plain project dir (no pointer block) must NOT be rglob'd for *.md - else docs/code with
+    # `[[section]]` TOML or `[[ref]]` examples manufacture false orphan refs.
+    proj = tmp_path / "plainproj"
+    (proj / "docs").mkdir(parents=True)
+    (proj / "docs" / "guide.md").write_text("see [[tool.importlinter.contracts]] and [[nowhere]]\n",
+                                             encoding="utf-8")
+    assert R.is_curated(proj) is False
+    assert R.altitude_targets(proj) == set()
+    assert R.altitude_sources(proj) == []
+    refs = R.check_references([str(proj)])
+    assert refs["orphans"] == [] and refs["checked"] == 0   # nothing scanned from a plain dir
+
+
+# ---- P0-back: misplacement audit (a fact living in the WRONG tree) ----------------------
+# The wrong-dir capture bug files a learning about repo B into repo A's store. Cross-tree, no
+# dream could re-home it (move refuses; only a duplicating copy existed). With the relocate verb
+# the fix is possible - this detector is what makes the dream NOTICE, instead of a fuzzy pass
+# that no-ops when the model does not spot it.
+
+def _two_trees(tmp_path):
+    """Two independent trees: work/alpha and work/beta, each anchored with its own store."""
+    work = tmp_path / "work"
+    out = []
+    for name in ("alpha", "beta"):
+        top = work / name
+        proj = top / "proj"
+        proj.mkdir(parents=True)
+        (top / "CLAUDE.md").write_text("%s top\n" % name, encoding="utf-8")
+        (proj / "CLAUDE.md").write_text("%s proj\n" % name, encoding="utf-8")
+        (top / us.STORE_DIRNAME).mkdir()
+        out += [str(top), str(proj)]
+    return out
+
+
+def test_the_body_path_detector_reads_all_three_absolute_shapes():
+    r"""The detector's evidence is a body's absolute paths. It matched only the POSIX shape, so
+    on Windows - where a captured body names C:\dir\repo\x.py - it found none and every store
+    audited as "TOTAL misplaced: 0": not a clean tree, a check that could not fire. The two
+    ignores-tests below passed vacuously for the same reason.
+
+    Unit level on purpose: an end-to-end Windows case cannot be built on POSIX, because the
+    anchor has to resolve to a real directory.
+    """
+    rx = R._ABS_PATH_RX
+    assert rx.findall(r"Edit C:\Users\bob\work\beta\service.py now") == [r"C:\Users\bob\work\beta\service.py"]
+    assert rx.findall("Edit C:/Users/bob/work/beta/service.py") == ["C:/Users/bob/work/beta/service.py"]
+    assert rx.findall(r"See \\srv\share\repo\x.py") == [r"\\srv\share\repo\x.py"]
+    assert rx.findall("Edit /home/bob/work/beta/service.py") == ["/home/bob/work/beta/service.py"]
+
+
+def test_a_drive_path_is_read_whole_not_as_the_posix_shape_inside_it():
+    """C:/dir/repo/x.py CONTAINS /dir/repo/x.py. Matching the inner substring would resolve a
+    different path than the body names, so the drive alternative has to win."""
+    assert R._ABS_PATH_RX.findall("see C:/dir/repo/x.py") == ["C:/dir/repo/x.py"]
+
+
+def test_the_body_path_detector_ignores_ordinary_prose():
+    """The direction it must NOT fire: prose and short relative mentions are not evidence."""
+    assert R._ABS_PATH_RX.findall("No paths here at all.") == []
+    assert R._ABS_PATH_RX.findall("run make in src/lib") == []
+
+
+def test_check_misplaced_flags_a_fact_whose_body_points_at_another_tree(tmp_path, capsys):
+    top_a, proj_a, top_b, proj_b = _two_trees(tmp_path)
+    # captured while cwd=alpha, but every path in it is about the beta tree
+    ME.add_or_update_entry(proj_a, "Beta Deploy", "When deploying beta, drain first.",
+                           body="Edit %s/service.py then restart. See %s/conf." % (proj_b, top_b),
+                           scope_default="a")
+    rc = R.main(["--check-misplaced", top_a])
+    out = capsys.readouterr().out
+    assert rc == 1, out
+    assert "beta-deploy" in out and str(top_b) in out, out
+
+
+def test_check_misplaced_ignores_a_fact_about_its_own_tree(tmp_path, capsys):
+    top_a, proj_a, top_b, proj_b = _two_trees(tmp_path)
+    ME.add_or_update_entry(proj_a, "Alpha Rule", "When building alpha, run make.",
+                           body="Edit %s/main.py and rebuild." % proj_a, scope_default="a")
+    rc = R.main(["--check-misplaced", top_a])
+    out = capsys.readouterr().out
+    assert rc == 0 and "TOTAL misplaced: 0" in out, out
+
+
+def test_check_misplaced_ignores_a_body_with_no_paths(tmp_path, capsys):
+    top_a, proj_a, _tb, _pb = _two_trees(tmp_path)
+    ME.add_or_update_entry(proj_a, "Abstract", "When unsure, ask.", body="No paths here at all.",
+                           scope_default="a")
+    assert R.main(["--check-misplaced", top_a]) == 0
+
+
+def test_check_misplaced_names_the_relocate_command_to_run(tmp_path, capsys):
+    """A detector that does not tell you the fix gets ignored - name the exact verb."""
+    top_a, proj_a, top_b, proj_b = _two_trees(tmp_path)
+    ME.add_or_update_entry(proj_a, "Beta Deploy", "When deploying beta, drain.",
+                           body="Edit %s/service.py now." % proj_b, scope_default="a")
+    R.main(["--check-misplaced", top_a])
+    out = capsys.readouterr().out
+    assert "relocate" in out and "--slug beta-deploy" in out, out
+
+
+# ---- a frame-only body is invisible to every other check ---------------------------------------
+
+def test_check_tree_reports_a_frame_only_body(tmp_path):
+    """A body that is frontmatter and nothing else: the pointer promises a rule, the reader gets air.
+
+    The engine now refuses to CREATE one, but stores written before that still hold them, and no
+    other tree check can see it - the pointer resolves, the body file exists, the slug is unique,
+    and the frame is well formed. Only its emptiness is wrong.
+    """
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    slug = ME.add_or_update_entry(str(proj), "Real Fact", "When x happens, do y.",
+                                 body="a real body", type_="reference")
+    # simulate a pre-refusal store: strip the body back to its frame
+    p = us.body_path(Path(ME._anchor(str(proj))), slug)
+    head, sep, _body = p.read_text(encoding="utf-8")[4:].partition("\n---\n")
+    assert sep, "fixture assumption: the body carries a frontmatter frame"
+    p.write_text("---\n" + head + "\n---\n", encoding="utf-8")
+
+    rep = R.check_tree(str(proj))
+    assert slug in rep["frame_only_bodies"]
+
+
+def test_check_tree_does_not_flag_a_real_body(tmp_path):
+    """Must-not-break: a body with actual prose is not frame-only."""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    slug = ME.add_or_update_entry(str(proj), "Real Fact", "When x happens, do y.",
+                                 body="a real body\n\n**Why:** because\n\n**How to apply:** do it",
+                                 type_="reference")
+    assert R.check_tree(str(proj))["frame_only_bodies"] == []
+    assert slug
+
+
+def test_find_frame_only_bodies_sees_a_pre_pivot_sharded_body(tmp_path):
+    """A pre-pivot sharded body (`facts/<shard>/<uuid>.md`) that is frame-only must be reported
+    too - listing only `facts/*.md` left every sharded body out, frame-only or not, exactly the
+    gap `find_dangling_bodies` was already fixed for via `_store_bodies`."""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    anchor = Path(ME._anchor(str(proj)))  # noqa: SLF001 - test needs the real anchor path
+    fact_uuid = "ab123456-0000-0000-0000-000000000001"
+    sharded_dir = us.central_facts_dir(anchor) / us.shard(fact_uuid)
+    sharded_dir.mkdir(parents=True, exist_ok=True)
+    (sharded_dir / (fact_uuid + ".md")).write_text(
+        "---\nname: legacy-fact\ndescription: a legacy hook\nmetadata:\n  type: reference\n---\n",
+        encoding="utf-8")
+    rep = R.check_tree(str(proj))
+    assert "%s/%s" % (us.shard(fact_uuid), fact_uuid) in rep["frame_only_bodies"]
+
+
+def test_find_frame_only_bodies_does_not_flag_a_real_sharded_body(tmp_path):
+    """Control: a pre-pivot sharded body with real prose must not be reported - catches a path
+    construction bug (e.g. a missing `.md` suffix) that would read every sharded body as the
+    empty string and flag it as frame-only for the wrong reason."""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    anchor = Path(ME._anchor(str(proj)))  # noqa: SLF001 - test needs the real anchor path
+    fact_uuid = "ef654321-0000-0000-0000-000000000003"
+    sharded_dir = us.central_facts_dir(anchor) / us.shard(fact_uuid)
+    sharded_dir.mkdir(parents=True, exist_ok=True)
+    (sharded_dir / (fact_uuid + ".md")).write_text(
+        "---\nname: legacy-fact-2\ndescription: a legacy hook\nmetadata:\n  type: reference\n"
+        "---\nReal prose, not frame-only.\n", encoding="utf-8")
+    rep = R.check_tree(str(proj))
+    assert "%s/%s" % (us.shard(fact_uuid), fact_uuid) not in rep["frame_only_bodies"]
+
+
+# --- the chain's altitude must not come from argv order ----------------------------------------
+# Altitude was read from list POSITION with no validation, so the identical store answered
+# differently depending on the order the caller happened to type the levels in.
+
+
+def _ancestor_chain(tmp_path):
+    """A real anchor/project chain: project is a DESCENDANT of anchor, with an upward ref."""
+    anchor = tmp_path / "tree"
+    project = anchor / "projects" / "thing"
+    project.mkdir(parents=True)
+    ME.add_or_update_entry(str(anchor), "Broad rule", "the tree-top rule", body="b",
+                           scope_default="anchor")
+    ME.add_or_update_entry(str(project), "Narrow fact", "defers to [[broad-rule]]", body="b",
+                           scope_default="proj")
+    return str(anchor), str(project)
+
+
+def test_an_upward_ref_is_clean_whichever_order_the_levels_are_passed(tmp_path):
+    anchor, project = _ancestor_chain(tmp_path)
+    narrow_first = R.check_references([project, anchor])
+    broad_first = R.check_references([anchor, project])
+    assert narrow_first["downward"] == [] and narrow_first["orphans"] == []
+    assert broad_first == narrow_first          # the store did not change, so neither may the verdict
+
+
+def test_a_genuine_downward_ref_is_still_caught_after_normalisation(tmp_path):
+    # The exemption must not silence the check it was built for.
+    anchor = tmp_path / "tree"
+    project = anchor / "projects" / "thing"
+    project.mkdir(parents=True)
+    ME.add_or_update_entry(str(project), "Narrow fact", "narrow", body="b", scope_default="proj")
+    ME.add_or_update_entry(str(anchor), "Broad rule", "points [[narrow-fact]] down", body="b",
+                           scope_default="anchor")
+    for order in ([project, anchor], [anchor, project]):
+        assert ("broad-rule", "narrow-fact") in R.check_references(order)["downward"]
+
+
+def test_sibling_levels_keep_the_order_they_were_given(tmp_path):
+    # Siblings are not ancestors of one another, so depth cannot order them; a stable sort must
+    # leave the caller's order intact rather than inventing an altitude.
+    lower, upper = str(tmp_path / "lower"), str(tmp_path / "upper")
+    (tmp_path / "lower").mkdir(); (tmp_path / "upper").mkdir()
+    ME.add_or_update_entry(lower, "Low fact", "narrow", body="b", scope_default="l")
+    ME.add_or_update_entry(upper, "High fact", "points [[low-fact]] down", body="b", scope_default="u")
+    assert ("high-fact", "low-fact") in R.check_references([lower, upper])["downward"]
+
+
+# --------------------------------------------------------------------------
+# quoted syntax is not a reference
+# --------------------------------------------------------------------------
+
+def test_check_references_ignores_a_ref_inside_a_code_span(proj):
+    # a fact teaching TOML has to quote `[[tool.importlinter.contracts]]`; read as a wikilink it is
+    # an orphan ref to a fact that can never exist, and rewording the lesson is the only escape.
+    ME.add_or_update_entry(proj, "Toml", "declare `[[tool.importlinter.contracts]]`",
+                           body="b", scope_default="lvl")
+    refs = R.check_references([proj])
+    assert refs["orphans"] == []
+
+
+def test_check_tree_ignores_a_ref_inside_a_fenced_block(tmp_path, capsys):
+    anchor, a, _b = _tree_two_projects(tmp_path)
+    body = "how to declare it:\n\n```toml\n[[tool.importlinter.contracts]]\n```\n"
+    ME.add_or_update_entry(a, "Toml", "quotes the array-of-tables syntax", body=body, scope_default="a")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 0 and "TOTAL tree problems: 0" in out
+
+
+def test_check_tree_still_flags_a_real_ref_beside_a_code_span(tmp_path, capsys):
+    anchor, a, _b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Citer", "quotes `[[a.b]]` and cites [[missing-base]]",
+                           body="B", scope_default="a")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 1 and "orphan ref: [[missing-base]]" in out
+    assert "a.b" not in out
+
+
+# ---- a failed archive keeps the pointer and says so --------------------------------------------
+
+def test_a_failed_body_move_keeps_the_pointer_and_exits_2(proj, capsys):
+    slug = ME.add_or_update_entry(proj, "Keep fact", "h", body="the body", scope_default="lvl")
+    archive = us.central_facts_dir(proj).parent / ".archive"
+    archive.write_text("a file where the archive dir must go", encoding="utf-8")
+    rc = R.main(["--archive", slug, proj])
+    out = capsys.readouterr()
+    assert rc == 2
+    assert "archived" not in out.out and "! failed" in out.err
+    assert slug in {e.slug for e in ME.read_store(proj)[1]}, "the pointer must survive"
+    assert us.body_path(proj, slug).is_file(), "the body must survive"
+
+
+def test_archive_entry_raises_when_the_body_cannot_be_moved(proj):
+    slug = ME.add_or_update_entry(proj, "Keep fact", "h", body="the body", scope_default="lvl")
+    (us.central_facts_dir(proj).parent / ".archive").write_text("x", encoding="utf-8")
+    with pytest.raises(OSError):
+        R.archive_entry(proj, slug)
+    assert slug in {e.slug for e in ME.read_store(proj)[1]}
+
+
+_NO_CHMOD = not hasattr(__import__("os"), "geteuid") or __import__("os").geteuid() == 0
+
+
+@pytest.mark.skipif(_NO_CHMOD, reason="needs a non-root POSIX user for a read-only level file")
+def test_a_failed_pointer_write_puts_the_body_back_and_exits_2(proj, capsys):
+    """The body was moved BEFORE the pointer was written, so a pointer write that failed left the
+    pointer naming a body that was already in the archive - an orphan pointer - while the CLI
+    said "its pointer and body are unchanged"."""
+    slug = ME.add_or_update_entry(proj, "Keep fact", "h", body="the body", scope_default="lvl")
+    local = Path(proj) / "CLAUDE.local.md"
+    local.chmod(0o444)
+    try:
+        rc = R.main(["--archive", slug, proj])
+    finally:
+        local.chmod(0o644)
+    err = capsys.readouterr().err
+    assert rc == 2 and "unchanged" in err, err
+    assert slug in {e.slug for e in ME.read_store(proj)[1]}, "the pointer must survive"
+    assert us.body_path(proj, slug).is_file(), "the body must be back where the pointer says"
+    archive = us.central_facts_dir(proj).parent / ".archive"
+    assert not archive.exists() or not any(archive.iterdir())
+
+
+def test_a_failed_pointer_write_whose_rollback_also_fails_names_the_archived_body(proj, capsys):
+    """When the body cannot be put back either, the message must not claim nothing changed: it
+    names where the body now is. The move seam performs the real move once, then refuses."""
+    slug = ME.add_or_update_entry(proj, "Keep fact", "h", body="the body", scope_default="lvl")
+    moves = []
+
+    def move_once(src, dst):
+        moves.append((src, dst))
+        if len(moves) > 1:
+            raise OSError("put-back refused")
+        return R.shutil.move(src, dst)
+
+    def refuse_commit(*_args):
+        raise OSError("pointer write refused")
+
+    with pytest.raises(R.ArchiveRollbackFailed) as info:
+        R.archive_entry(proj, slug, move=move_once, commit=refuse_commit)
+    assert str(moves[0][1]) in str(info.value)
+    assert "unchanged" not in str(info.value)
+
+
+# ---- a directory that does not exist is an error, never a clean tree ---------------------------
+
+@pytest.mark.parametrize("mode", [["--check-tree"], ["--check"], [], ["--check-misplaced"],
+                                  ["--rehome", "--dry-run"]])
+def test_a_nonexistent_dir_exits_2_in_every_mode(tmp_path, capsys, mode):
+    missing = str(tmp_path / "no-such-dir")
+    rc = R.main(mode + [missing])
+    out = capsys.readouterr()
+    assert rc == 2
+    assert "no-such-dir" in out.err
+    assert "problems: 0" not in out.out
+
+
+# ---- a body that merely opens with a horizontal rule is not frame-only -------------------------
+
+def test_a_body_opening_with_a_rule_and_no_frontmatter_is_not_frame_only(tmp_path):
+    anchor, a, _b = _tree_two_projects(tmp_path)
+    slug = ME.add_or_update_entry(a, "Rule", "When x, do y.", body="placeholder", scope_default="a")
+    us.body_path(anchor, slug).write_text("---\nAlways do X because Y.\n", encoding="utf-8")
+    assert R.check_tree(anchor)["frame_only_bodies"] == []
+
+
+def test_a_frame_with_nothing_after_it_is_still_frame_only(tmp_path):
+    """Control: a real frontmatter block with no content after it keeps being reported."""
+    anchor, a, _b = _tree_two_projects(tmp_path)
+    slug = ME.add_or_update_entry(a, "Rule", "When x, do y.", body="placeholder", scope_default="a")
+    us.body_path(anchor, slug).write_text("---\nname: rule\ndescription: d\n---\n\n",
+                                          encoding="utf-8")
+    assert R.check_tree(anchor)["frame_only_bodies"] == [slug]
+
+
+# ---- default mode: orphan pointers are a failing exit, not a report at exit 0 ------------------
+
+def test_default_mode_exits_1_on_an_orphan_pointer(proj, capsys):
+    slug = ME.add_or_update_entry(proj, "Heavy", "h", body="x" * 40, scope_default="lvl")
+    us.body_path(proj, slug).unlink()
+    assert R.main([proj]) == 1
+    assert "TOTAL orphan pointers: 1" in capsys.readouterr().out
+
+
+def test_default_mode_exits_0_when_every_pointer_has_a_body(proj, capsys):
+    ME.add_or_update_entry(proj, "Tiny", "h", body="small", scope_default="lvl")
+    assert R.main([proj]) == 0
+    assert "TOTAL orphan pointers: 0" in capsys.readouterr().out
+
+
+# ---- --check: the exit-1 path, pinned on the exit code itself ----------------------------------
+
+def test_check_exits_1_on_an_orphan_ref(proj, capsys):
+    ME.add_or_update_entry(proj, "Only", "refers [[nowhere]]", body="b", scope_default="lvl")
+    assert R.main(["--check", proj]) == 1
+    assert "orphan ref: [[nowhere]]" in capsys.readouterr().out
+
+
+def test_check_exits_1_on_a_downward_ref(tmp_path, capsys):
+    anchor = tmp_path / "tree"
+    project = anchor / "projects" / "thing"
+    project.mkdir(parents=True)
+    ME.add_or_update_entry(str(project), "Narrow fact", "narrow", body="b", scope_default="proj")
+    ME.add_or_update_entry(str(anchor), "Broad rule", "points [[narrow-fact]] down", body="b",
+                           scope_default="anchor")
+    assert R.main(["--check", str(project), str(anchor)]) == 1
+    assert "downward ref" in capsys.readouterr().out
+
+
+def test_check_exits_0_on_a_clean_upward_chain(tmp_path, capsys):
+    anchor, project = _ancestor_chain(tmp_path)
+    assert R.main(["--check", project, anchor]) == 0
+
+
+# ---- an unreadable directory is never a silently unchecked one ---------------------------------
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "geteuid") or __import__("os").geteuid() == 0,
+                    reason="needs a non-root POSIX user for chmod 000 to deny a listing")
+def test_check_tree_reports_a_directory_it_could_not_read(tmp_path, capsys):
+    anchor, a, _b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    locked = Path(anchor) / "locked"
+    (locked / us.STORE_DIRNAME).mkdir(parents=True)          # a decoy nobody could see
+    locked.chmod(0)
+    try:
+        rc = R.main(["--check-tree", anchor])
+    finally:
+        locked.chmod(0o755)
+    out = capsys.readouterr().out
+    assert rc == 2                     # could not check all of the tree: not a "no", a "could not"
+    assert "unreadable directory" in out and "locked" in out
+    assert "TOTAL tree problems: 1" in out
+
+
+def test_check_tree_reports_a_level_file_that_is_not_utf8(tmp_path, capsys):
+    """A cp1252 save of one level's CLAUDE.local.md crashed --check-tree with a bare
+    UnicodeDecodeError; it is one finding naming the file, and the other levels are still checked."""
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    ME.add_or_update_entry(b, "Only B", "h", body="B", scope_default="b")
+    local_b = Path(b) / "CLAUDE.local.md"
+    local_b.write_bytes(local_b.read_bytes() + b"caf\xe9\n")
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 2                     # a level it could not read: "could not run", never "no"
+    assert "tree integrity: 1 curated level(s)" in out
+    assert "UTF-8" in out and str(local_b) in out
+    # B's body is pointed at from the level that could not be read, so it is NOT dangling -
+    # reporting it would send --rehome to re-attach a fact that still has its pointer
+    assert "dangling body" not in out
+
+
+def test_check_tree_is_clean_when_the_same_level_file_is_utf8(tmp_path, capsys):
+    """Control for the test above: the same byte written as UTF-8 is an ordinary level."""
+    anchor, a, b = _tree_two_projects(tmp_path)
+    ME.add_or_update_entry(a, "Only A", "h", body="B", scope_default="a")
+    ME.add_or_update_entry(b, "Only B", "h", body="B", scope_default="b")
+    local_b = Path(b) / "CLAUDE.local.md"
+    local_b.write_bytes(local_b.read_bytes() + "caf\u00e9\n".encode("utf-8"))
+    rc = R.main(["--check-tree", anchor])
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "tree integrity: 2 curated level(s)" in out
+
+
+def test_parse_frontmatter_keeps_a_value_carrying_a_line_separator():
+    meta, _body = R.parse_frontmatter("---\nname: x\ndescription: a\u2028b\n---\nbody\n")
+    assert meta["description"] == "a\u2028b"
+
+
+def test_a_cp1252_console_survives_a_tree_path_it_cannot_encode(tmp_path):
+    import os
+    import subprocess
+    import sys
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    anchor, a, _b = _tree_two_projects(tmp_path / "日本")
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONUTF8", "PYTHONIOENCODING")}
+    env.update(HOME=str(home), USERPROFILE=str(home), PYTHONIOENCODING="cp1252")
+    r = subprocess.run([sys.executable, R.__file__, "--check-tree", anchor], env=env,
+                       capture_output=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr
+    assert "TOTAL tree problems: 0" in r.stdout
+
+
+def test_parse_frontmatter_reads_through_a_bom():
+    meta, _body = R.parse_frontmatter("\ufeff---\nname: x\n---\nbody\n")
+    assert meta["name"] == "x"
+
+
+# ---- the "---\n<prose> + metadata" damage: a permanent --check-tree finding plus a repair -------
+#
+# Before the frontmatter test required a CLOSED block with a `name:` key, a re-type asked only
+# `lstrip().startswith("---")`. A body that merely opened with a markdown rule was taken for a
+# frame, and the `metadata:\n  type:` block was appended to its prose - before the prose's next
+# `---` line, or at its very end. The fixed code no longer writes that shape; stores written
+# before still hold it, and nothing else reports it.
+
+def _old_retype(text, type_):
+    """The damaging re-type, as it ran before the fix (its no-`type:`-line branch), kept here so
+    the fixture is the real damage rather than a guess at it."""
+    head = (text or "").lstrip()
+    end = head.find("\n---", 3)
+    front, rest = (head[:end], head[end:]) if end > 0 else (head, "")
+    return front + "\nmetadata:\n  type: %s" % type_ + rest
+
+
+RULE_BODY = "---\nA body that opens with a horizontal rule.\n\n---\n\nMore prose below.\n"
+RULE_BODY_NO_SECOND = "---\nOnly one rule in this body, at the top.\n"
+
+
+def _damaged_fact(tmp_path, body, title="Ruled fact", pin=False):
+    proj = tmp_path / "proj"
+    proj.mkdir(exist_ok=True)
+    slug = ME.add_or_update_entry(str(proj), title, "When ruled, do ruled.",
+                                  body="placeholder", pin=pin)
+    p = us.body_path(Path(ME._anchor(str(proj))), slug)
+    p.write_text(_old_retype(body, "feedback") + "\n", encoding="utf-8", newline="")
+    return proj, slug, p
+
+
+def test_appended_type_damage_is_recognised_in_both_shapes():
+    assert R.appended_type_damage(_old_retype(RULE_BODY, "feedback")) == (
+        RULE_BODY.lstrip(), "feedback")
+    prose, kind = R.appended_type_damage(_old_retype(RULE_BODY_NO_SECOND, "user") + "\n")
+    assert kind == "user" and "metadata:" not in prose and "Only one rule" in prose
+
+
+def test_control_healthy_bodies_are_not_damage():
+    framed = "---\nname: s\ndescription: d\nmetadata:\n  type: project\n---\n\n" + RULE_BODY
+    assert R.appended_type_damage(framed) is None                  # a rule AFTER a real frame
+    assert R.appended_type_damage(RULE_BODY) is None               # a rule, nothing appended
+    assert R.appended_type_damage("plain prose\nmetadata:\n  type: feedback\n") is None
+    assert R.appended_type_damage(_old_retype(RULE_BODY, "nonsense")) is None   # not a kind
+
+
+def test_check_tree_reports_the_appended_type_damage(tmp_path, capsys):
+    proj, slug, _p = _damaged_fact(tmp_path, RULE_BODY)
+    assert slug in R.check_tree(str(proj))["appended_type_damage"]
+    assert R.main(["--check-tree", str(proj)]) == 1
+    out = capsys.readouterr().out
+    assert "appended to a body" in out and slug in out and "--repair-appended-type" in out
+
+
+def test_control_check_tree_does_not_report_a_body_with_a_leading_rule(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    ME.add_or_update_entry(str(proj), "Ruled", "When ruled, do ruled.", body=RULE_BODY)
+    assert R.check_tree(str(proj))["appended_type_damage"] == []
+
+
+def test_repair_dry_run_names_the_body_and_writes_nothing(tmp_path, capsys):
+    proj, slug, p = _damaged_fact(tmp_path, RULE_BODY)
+    before = p.read_bytes()
+    assert R.main(["--repair-appended-type", "--dry-run", str(proj)]) == 0
+    out = capsys.readouterr().out
+    assert "would repair: %s (type feedback)" % slug in out and "TOTAL repaired: 0" not in out
+    assert p.read_bytes() == before
+
+
+def test_repair_reframes_the_prose_with_the_appended_kind(tmp_path, capsys):
+    proj, slug, p = _damaged_fact(tmp_path, RULE_BODY, pin=True)
+    assert R.main(["--repair-appended-type", str(proj)]) == 0
+    assert "repaired: %s" % slug in capsys.readouterr().out
+    text = p.read_text(encoding="utf-8")
+    assert ME._has_frontmatter(text) and ME._body_type(text) == "feedback"
+    assert text.endswith(RULE_BODY) or text.rstrip("\n").endswith(RULE_BODY.rstrip("\n"))
+    assert text.count("metadata:") == 1
+    assert R.check_tree(str(proj))["appended_type_damage"] == []
+    pointer = [e for e in ME.read_store(str(proj))[1] if e.slug == slug][0]
+    assert pointer.pin is True and pointer.hook == "When ruled, do ruled."
+
+
+def test_repair_on_a_clean_tree_is_a_no_op(tmp_path, capsys):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    ME.add_or_update_entry(str(proj), "Fine", "When fine, do fine.", body="fine")
+    assert R.main(["--repair-appended-type", str(proj)]) == 0
+    assert "TOTAL repaired: 0" in capsys.readouterr().out

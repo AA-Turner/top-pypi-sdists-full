@@ -1,0 +1,130 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# Team Specification: Process Citizen Requests
+# Auto-extracted from agent spec process-citizen-requests
+
+id: process-citizen-requests
+version: 0.0.1
+name: Process Citizen Requests Team
+description: 'A multi-agent team that automates citizen request processing for government agencies. Classifies
+  and triages permits, FOIA requests, and benefit claims from multiple channels. Models policy impacts
+  across population datasets and ensures every automated decision is explainable, auditable, and compliant
+  with transparency mandates.
+
+  '
+tags:
+- government
+- public-sector
+- civic
+- policy
+- compliance
+- transparency
+enabled: true
+icon: organization
+emoji: 🏛️
+color: blue
+agent_spec_id: process-citizen-requests:0.0.1
+orchestration_protocol: datalayer
+execution_mode: sequential
+supervisor:
+  name: Citizen Services Orchestrator Agent
+  model: openai:gpt-4.1
+routing_instructions: 'Route incoming citizen requests to the Intake Agent for classification and triage,
+  then to the Case Processor for handling and routing, then to the Policy Analyst for impact assessment
+  on relevant items, then to the Transparency Agent for audit trail and public documentation. Escalate
+  urgent citizen safety issues immediately to supervisors.
+
+  '
+validation:
+  timeout: 300s
+  retry_on_failure: true
+  max_retries: 2
+agents:
+- id: cit-1
+  name: Intake & Classification Agent
+  role: initiator
+  goal: Classify, triage, and route citizen submissions from web portals, email, and documents
+  model: openai:gpt-4.1
+  mcp_server: Citizen Portal MCP
+  tools:
+  - Request Classifier
+  - Urgency Assessor
+  - Jurisdiction Router
+  - OCR Scanner
+  trigger: 'Event: new citizen request received'
+  approval: auto
+- id: cit-2
+  name: Case Processor Agent
+  role: contributor
+  goal: Process and route requests to appropriate departments with required documentation
+  model: openai:gpt-4.1
+  mcp_server: Case Management MCP
+  tools:
+  - Case Creator
+  - Document Assembler
+  - Department Router
+  - Status Tracker
+  depends_on:
+  - cit-1
+  approval: auto
+- id: cit-3
+  name: Policy Impact Analyst Agent
+  role: contributor
+  goal: Model policy outcomes across population datasets with scenario simulation
+  model: anthropic:claude-sonnet-4-20250514
+  mcp_server: Policy Analytics MCP
+  tools:
+  - Monte Carlo Simulator
+  - Demographic Analyzer
+  - Budget Impact Model
+  - Scenario Comparator
+  depends_on:
+  - cit-2
+  approval: manual
+- id: cit-4
+  name: Transparency & Audit Agent
+  role: finalizer
+  goal: Generate explainable decision documentation with full audit trail for public record
+  model: openai:gpt-4.1
+  mcp_server: Compliance MCP
+  tools:
+  - Decision Explainer
+  - Audit Trail Builder
+  - FOIA Compliance Checker
+  - Public Record Generator
+  depends_on:
+  - cit-3
+  approval: auto
+reaction_rules:
+- id: rr-cit-1
+  trigger: 'priority_request_detected'
+  action: fast_track_processing
+  auto: true
+  max_retries: 2
+  escalate_after_retries: 2
+  priority: high
+- id: rr-cit-2
+  trigger: 'policy_ambiguity_detected'
+  action: request_human_review
+  auto: false
+  max_retries: 1
+  escalate_after_retries: 1
+  priority: medium
+health_monitoring:
+  heartbeat_interval: 30s
+  stale_threshold: 120s
+  unresponsive_threshold: 300s
+  stuck_threshold: 600s
+  max_restart_attempts: 3
+notifications:
+  on_start: false
+  on_completion: true
+  on_failure: true
+  on_escalation: true
+output:
+  formats:
+  - pdf
+  - json
+  template: Citizen Request Processing Report
+  storage: s3://reports/citizen-requests/

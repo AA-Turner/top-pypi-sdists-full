@@ -75,7 +75,7 @@ def _in_use(folder: Path, commands: list[str] | None = None) -> bool:
 
 def _machine() -> str:
     try:
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         return paths.machine_key()
     except Exception:  # noqa: BLE001

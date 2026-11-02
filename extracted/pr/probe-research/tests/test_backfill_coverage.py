@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli.backfill_coverage import Coverage, CoverageError, Scope, hash_current
+from probe.cli.imports.folder.coverage.coverage import Coverage, CoverageError
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.coverage.signatures import hash_current
 from probe.sdk.delivery.ops.ops import DELIVERY_SCHEMA
 
 
@@ -261,7 +263,7 @@ def test_a_file_written_this_instant_is_never_taken_from_the_cache(tmp_path, sou
     freshness makes the test a race: it passes where the fixture and the census
     are milliseconds apart and fails on a loaded CI runner where they are not.
     """
-    import probe.cli.backfill_coverage as module
+    import probe.cli.imports.folder.coverage as module
 
     store = coverage(tmp_path, source)
     _age(source / "a.md")
@@ -271,13 +273,13 @@ def test_a_file_written_this_instant_is_never_taken_from_the_cache(tmp_path, sou
 
         # Everything is inside the settle window: never cached, however many
         # times it is observed.
-        monkeypatch.setattr(module, "SIGNATURE_SETTLE_SECONDS", 86_400)
+        monkeypatch.setattr(module.signatures, "SIGNATURE_SETTLE_SECONDS", 86_400)
         state.observe(source, ["a.md"])
         assert state.meta("last_census")["hashed"] == 1
         assert state.meta("last_census")["reused"] == 0
 
         # Settled and unchanged: reused.
-        monkeypatch.setattr(module, "SIGNATURE_SETTLE_SECONDS", 0)
+        monkeypatch.setattr(module.signatures, "SIGNATURE_SETTLE_SECONDS", 0)
         state.observe(source, ["a.md"])
         assert state.meta("last_census")["reused"] == 1
         assert state.meta("last_census")["hashed"] == 0
@@ -285,7 +287,7 @@ def test_a_file_written_this_instant_is_never_taken_from_the_cache(tmp_path, sou
 
 def test_a_filesystem_without_sub_second_timestamps_is_never_cached(tmp_path, source):
     """exFAT and some network mounts round ctime; there is no signature to keep."""
-    from probe.cli.backfill_coverage import signature_of
+    from probe.cli.imports.folder.coverage.signatures import signature_of
 
     whole_second = SimpleNamespace(st_dev=1, st_ino=2, st_size=3,
                                    st_mtime_ns=4_000_000_000, st_ctime_ns=5_000_000_000)
@@ -328,11 +330,12 @@ def test_verified_hash_reports_whether_it_had_to_read(tmp_path, source):
 
 
 def test_a_census_commits_in_batches_so_a_crash_costs_one_batch(tmp_path, source, monkeypatch):
-    import probe.cli.backfill_coverage as module
+    import probe.cli.imports.folder.coverage as module
 
     for index in range(7):
         (source / f"f{index}.txt").write_text(f"row {index}")
-    monkeypatch.setattr(module, "OBSERVE_BATCH_FILES", 2)
+    monkeypatch.setattr(module.observe, "OBSERVE_BATCH_FILES", 2)
+    monkeypatch.setattr(module.coverage, "OBSERVE_BATCH_FILES", 2)
     paths = ["a.md"] + [f"f{index}.txt" for index in range(7)]
     store = coverage(tmp_path, source)
     with store.writer() as state:
@@ -342,7 +345,7 @@ def test_a_census_commits_in_batches_so_a_crash_costs_one_batch(tmp_path, source
 
 def test_an_interrupted_census_is_visible_and_refuses_to_publish(tmp_path, source, monkeypatch):
     """Half a census reports the un-walked half as vanished. Say so."""
-    import probe.cli.backfill_coverage as module
+    import probe.cli.imports.folder.coverage as module
 
     store = coverage(tmp_path, source)
     with store.writer() as state:
@@ -355,7 +358,8 @@ def test_an_interrupted_census_is_visible_and_refuses_to_publish(tmp_path, sourc
             raise LidClosed()
 
         real = module.hash_current_signed
-        monkeypatch.setattr(module, "hash_current_signed", explode)
+        monkeypatch.setattr(module.signatures, "hash_current_signed", explode)
+        monkeypatch.setattr(module.coverage, "hash_current_signed", explode)
         with pytest.raises(LidClosed):
             state.observe(source, ["a.md"])
         assert state.observing is True
@@ -364,7 +368,8 @@ def test_an_interrupted_census_is_visible_and_refuses_to_publish(tmp_path, sourc
             state.write_report()
         # Restore by name, never `monkeypatch.undo()`: the fixture is shared
         # with conftest's HOME isolation and undo would revert that too.
-        monkeypatch.setattr(module, "hash_current_signed", real)
+        monkeypatch.setattr(module.signatures, "hash_current_signed", real)
+        monkeypatch.setattr(module.coverage, "hash_current_signed", real)
         state.observe(source, ["a.md"])
         assert state.observing is False
         assert state.report().partial is False
@@ -470,7 +475,7 @@ def test_re_approving_a_path_revives_it_without_an_explicit_retry(tmp_path, sour
 def test_a_store_from_the_previous_schema_opens_and_keeps_its_receipts(tmp_path, source):
     import sqlite3
 
-    import probe.cli.backfill_coverage as module
+    import probe.cli.imports.folder.coverage as module
 
     store = coverage(tmp_path, source)
     with store.writer() as state:
@@ -548,9 +553,10 @@ def test_an_unknown_future_schema_is_preserved_not_migrated(tmp_path, source):
 
 
 def test_a_census_reports_as_it_goes_and_reaches_the_total(tmp_path, source, monkeypatch):
-    import probe.cli.backfill_coverage as module
+    import probe.cli.imports.folder.coverage as module
 
-    monkeypatch.setattr(module, "OBSERVE_BATCH_FILES", 3)
+    monkeypatch.setattr(module.observe, "OBSERVE_BATCH_FILES", 3)
+    monkeypatch.setattr(module.coverage, "OBSERVE_BATCH_FILES", 3)
     for index in range(9):
         (source / f"n{index}.txt").write_text("x" * (index + 1))
     paths = ["a.md"] + [f"n{index}.txt" for index in range(9)]

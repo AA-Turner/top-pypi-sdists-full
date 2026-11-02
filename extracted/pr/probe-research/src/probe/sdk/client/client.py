@@ -211,20 +211,14 @@ class Client(
           the exporter on an F2 client (explicit async + injected transport +
           drain_interval) left NOTHING delivering -- and `_after_enqueue` never
           respawns a closed exporter, so every later write was stranded too.
-        * Clear the attribute after closing, but only if the exporter was
-          ALIVE. A dead one is dead because of an auth block, and the
-          documented invariant is that those are not respawned -- clearing it
-          unconditionally would rebuild an exporter against the same rejected
-          credential, which is the zombie-uploader pitfall.
+        * Stop it through the drainer this client picked (`Drainer.close`), which
+          clears an exporter only if it was ALIVE: a dead one died of an auth
+          block, and rebuilding it would retry the rejected credential (the
+          zombie-uploader pitfall).
         """
-        exporter = self._exporter
         if not self._default_transport:
             return
-        if exporter is not None:
-            was_alive = getattr(exporter, "alive", True)
-            exporter.close()
-            if was_alive:
-                self._exporter = None
+        self._drainer.close()
         self._kick_drainer(force=True)
 
     def close(self, *, timeout: float | None = None) -> None:
@@ -240,12 +234,7 @@ class Client(
         # to 5 s (review of #2016). An exporter still running is abandoned as
         # after any timed-out join; its ops are on disk, and the worker kicked
         # below delivers them.
-        if self._exporter is not None:
-            if timeout is None:
-                self._exporter.close()
-            else:
-                self._exporter.close(timeout=max(0.0, min(5.0, timeout)))
-            self._exporter = None
+        if self._drainer.close(timeout=timeout):
             try:
                 self._kick_drainer(force=True)
             except Exception:  # noqa: BLE001 -- a close may never raise
@@ -350,6 +339,26 @@ class Client(
             raise_permanent=raise_permanent, admitted=admitted,
         )
 
+    def send(
+        self,
+        method: str,
+        path: str,
+        body: dict | None = None,
+        *,
+        strict: bool | None = None,
+        durable: bool = True,
+        blocking: bool = True,
+        raise_permanent: bool | None = None,
+        admitted: bool = False,
+    ):
+        """A write whose answer the caller needs now: :meth:`write` with ``sync=True``. Returns
+        the parsed response, or None when sending failed and the write was queued instead;
+        ``strict``, ``raise_permanent`` and ``durable`` say when it raises (`SendPolicy`)."""
+        return self.write(
+            method, path, body, strict=strict, durable=durable, sync=True, blocking=blocking,
+            raise_permanent=raise_permanent, admitted=admitted,
+        )
+
     #: How many undelivered writes a hooked client keeps (`undelivered_writes`).
     UNDELIVERED_KEPT = 32
 
@@ -369,8 +378,8 @@ class Client(
     def _send_instead_of_queueing(
         self, method: str, path: str, body: dict | None, *, out_of_space: bool = False
     ) -> bool:
-        """`DirectSink.send_instead_of_queueing` (plan 1.5): True when delivered."""
-        return self._delivery.direct.send_instead_of_queueing(method, path, body, out_of_space=out_of_space)
+        """`QueuedSink.send_instead_of_queueing` (plan 1.5): True when delivered."""
+        return self._delivery.queued.send_instead_of_queueing(method, path, body, out_of_space=out_of_space)
 
     def _enqueue(
         self,
@@ -384,15 +393,15 @@ class Client(
         admitted: bool = False,
         direct_ok: bool = False,
     ) -> bool:
-        """`JournalSink.enqueue`: whether the op landed; never raises for a failure of ours."""
-        return self._delivery.journaled.enqueue(
+        """`QueuedSink.enqueue`: whether the op landed; never raises for a failure of ours."""
+        return self._delivery.queued.enqueue(
             method, path, body, blocking=blocking, validation_error=validation_error, prepared=prepared,
             admitted=admitted, direct_ok=direct_ok,
         )
 
     def _enqueue_upload(self, **kwargs) -> dict | None:
-        """`JournalSink.enqueue_upload`: the journal's result, or None; never raises for ours."""
-        return self._delivery.journaled.enqueue_upload(**kwargs)
+        """`QueuedSink.enqueue_upload`: the journal's result, or None; never raises for ours."""
+        return self._delivery.queued.enqueue_upload(**kwargs)
 
     #: How often a writing process reads status.json for delivery trouble
     #: (plan 1.7); between reads it costs one monotonic check per write.

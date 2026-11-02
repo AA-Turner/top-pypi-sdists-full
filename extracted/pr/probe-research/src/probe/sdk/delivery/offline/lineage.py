@@ -11,6 +11,10 @@ from ..journal.journal import Journal
 if TYPE_CHECKING:
     from ...client.client import Client
 
+#: The lineage lists an offline run queues, by the feature a sync server must
+#: declare to take them (`sync_dir` checks).
+LINEAGE_ROUTES = {"run_inputs": "inputs", "run_outputs": "outputs"}
+
 
 def _lineage_feature(op: dict) -> str | None:
     """The feature a queued op needs when it is a run's read or write list
@@ -103,4 +107,3 @@ def _drop_untaken_lineage(journal: Journal, client: Client) -> dict[str, int]:
                     continue
                 dropped[feature] = dropped.get(feature, 0) + 1
     return dropped
-from probe.sdk.delivery.sinks.offline import LINEAGE_ROUTES  # noqa: E402 -- pieces need each other; the front door loads this one first

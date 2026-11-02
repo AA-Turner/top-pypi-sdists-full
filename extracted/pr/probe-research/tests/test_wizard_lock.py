@@ -1,4 +1,4 @@
-"""One wizard run that changes the device at a time (`probe.cli.wizard_lock`).
+"""One wizard run that changes the device at a time (`probe.cli.wizard.session.lock`).
 
 The terminal wizard and the desktop app write to one Probe install. A second
 run that would change it exits 75 at once, having changed nothing; a run that
@@ -21,9 +21,13 @@ import pytest
 from typer.testing import CliRunner
 
 from probe._shared import oscompat
-from probe.cli import autoupdate, capture, tui, upgrading, version_refresh, wizard_lock
-from probe.cli import setup as wizard_setup
-from probe.cli.actions import Action
+from probe.cli import autoupdate, version_refresh
+from probe.cli.capture import capture
+from probe.cli.wizard import terminal as tui
+from probe.cli.install import upgrade as upgrading
+from probe.cli.wizard.session import lock as wizard_lock
+from probe.cli import wizard as wizard_setup
+from probe.cli.wizard.actions.onboarding import Action
 from probe.sdk.settings.settings import load_context, save_context
 from tests import test_wizard_json_events as events
 from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
@@ -161,12 +165,12 @@ def held_elsewhere(device, monkeypatch):
     """Another setup holds the lock. A run that got past it would reach real
     work, so that work fails the test instead of happening. The update's body
     is what is forbidden, so `perform_update` itself still takes the lock."""
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
 
     def forbidden(*_a, **_k):
         pytest.fail("a run turned away by the lock must change nothing")
 
-    monkeypatch.setattr(upgrading, "_perform_update", forbidden)
+    monkeypatch.setattr(upgrading.upgrade, "_perform_update", forbidden)
     monkeypatch.setattr(main, "device_login", forbidden)
     monkeypatch.setattr(main, "_client", forbidden)
     with _held_by_another_process():
@@ -238,7 +242,7 @@ def test_the_detached_auto_updater_records_the_skip(held_elsewhere):
 
 
 def test_the_run_end_auto_updater_exits_75_when_an_update_is_due(held_elsewhere, monkeypatch):
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     monkeypatch.setattr(updater, "fetch_latest", lambda _base: {"cli": {"latest": "99.9.9"}})
     assert version_refresh.main(["--apply-if-newer", "--no-daemon"]) == wizard_lock.BUSY_EXIT_CODE
@@ -271,7 +275,7 @@ def update_ran(device, monkeypatch):
         ran.append(kwargs)
         return upgrading.UpdateOutcome(lines=["Updated."], ok=True, restart_needed=False)
 
-    monkeypatch.setattr(upgrading, "_perform_update", body)
+    monkeypatch.setattr(upgrading.upgrade, "_perform_update", body)
     return ran
 
 
@@ -312,7 +316,7 @@ def test_a_run_turned_away_leaves_pis_sign_in_marker_alone(held_elsewhere):
 
 def test_a_holder_says_since_when_it_holds_the_lock_and_the_service_reads_it(device):
     """The Probe service updates past a setup that has held the lock for a day
-    (`probe.service.updater.LIMITED`). It can tell how long only from the
+    (`probe.service.updater.settings.LIMITED`). It can tell how long only from the
     record the holder writes into the lock file as it takes it."""
     from probe.service import updater
 
@@ -332,7 +336,8 @@ def test_a_record_whose_writer_is_not_running_says_nothing_of_the_holder(device,
     not read as how long the lock has been held -- nor must it when its pid
     now names another process (a start time that is not the record's): the
     service then counts its own deferrals instead."""
-    from probe.service import procid, updater
+    from probe.foundation.service_api import procid
+    from probe.service import updater
 
     if writer == "gone":
         gone = subprocess.Popen([sys.executable, "-c", "pass"])
@@ -352,7 +357,7 @@ def menu_elsewhere(device, tmp_path):
     dated `age` seconds ago (`setup_marks.menu_path`)."""
     from probe.shared.updates import setup_marks
     from probe.sdk import session_marker
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
     start = procid.start_time(other.pid)
@@ -392,7 +397,7 @@ def test_a_menu_waiting_elsewhere_holds_off_an_update_that_would_move_its_files(
     day at most. Only an update bound to go side by side passes: a side-by-side
     machine still falls back to in place (`PROBE_UPDATE_IN_PLACE`, a receipt
     it cannot restate, no target known), so "this machine can" is not enough."""
-    from probe.cli import updater as cli_updater
+    from probe.cli.install import updater as cli_updater
     from probe.service import updater as service_updater
 
     assert {cli_updater.REQUIRE_SIDE_BY_SIDE_ENV, upgrading.SKIP_CLI_ENV} == {
@@ -433,8 +438,10 @@ def test_an_update_the_menu_turns_away_holds_no_lock_while_it_says_so(menu, menu
     menu_elsewhere(60)
     picks = iter([Action.UPDATE, Action.EXIT])
     pages: list = []
-    monkeypatch.setattr(wizard_setup, "run_action_menu", lambda _caps: next(picks))
-    monkeypatch.setattr(tui, "page", lambda lines, **kw: pages.append((lines, wizard_lock.running())))
+    monkeypatch.setattr(wizard_setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(tui.layout, "page", lambda lines, **kw: pages.append((lines, wizard_lock.running())))
+    monkeypatch.setattr(tui.forms, "page", lambda lines, **kw: pages.append((lines, wizard_lock.running())))
+    monkeypatch.setattr(tui.progress, "page", lambda lines, **kw: pages.append((lines, wizard_lock.running())))
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("updated under another menu"))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
@@ -485,14 +492,16 @@ def test_the_menu_holds_the_lock_only_while_an_action_runs(menu, monkeypatch):
     seen: list[tuple[str, bool | None, bool]] = []
     picks = iter([Action.SETTINGS, Action.EXIT])
     monkeypatch.setattr(
-        wizard_setup, "run_action_menu",
+        wizard_setup.screens.screens, "run_action_menu",
         lambda _caps: seen.append(("menu", wizard_lock.running(), waiting())) or next(picks),
     )
     monkeypatch.setattr(
         main, "_run_wizard_action",
         lambda *a, **kw: seen.append(("action", wizard_lock.running(), waiting())) or ["Saved."],
     )
-    monkeypatch.setattr(tui, "page", lambda *a, **kw: seen.append(("page", wizard_lock.running(), waiting())))
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **kw: seen.append(("page", wizard_lock.running(), waiting())))
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **kw: seen.append(("page", wizard_lock.running(), waiting())))
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **kw: seen.append(("page", wizard_lock.running(), waiting())))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert seen == [("menu", False, True), ("action", True, True), ("page", False, True), ("menu", False, True)]
@@ -514,8 +523,10 @@ def test_an_action_picked_after_another_setup_took_the_lock_changes_nothing(menu
         return Action.EXIT
 
     pages: list = []
-    monkeypatch.setattr(wizard_setup, "run_action_menu", pick)
-    monkeypatch.setattr(tui, "page", lambda lines, **kw: pages.append(lines))
+    monkeypatch.setattr(wizard_setup.screens.screens, "run_action_menu", pick)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, **kw: pages.append(lines))
+    monkeypatch.setattr(tui.forms, "page", lambda lines, **kw: pages.append(lines))
+    monkeypatch.setattr(tui.progress, "page", lambda lines, **kw: pages.append(lines))
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("ran while another setup held it"))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output

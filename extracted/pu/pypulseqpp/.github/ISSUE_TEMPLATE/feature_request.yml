@@ -1,0 +1,22 @@
+name: Feature request
+description: Propose a narrowly scoped addition to pypulseqpp.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Scientific or technical use case
+      description: State the missing capability and why it belongs in pypulseqpp.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed interface or behaviour
+      description: Include primary literature, Pulseq conventions or an existing implementation where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

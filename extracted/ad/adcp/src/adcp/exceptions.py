@@ -1,0 +1,913 @@
+"""Exception hierarchy for AdCP client."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Any, Literal, TypedDict
+
+from adcp.task_options import TaskRecoveryMetadata
+
+# Wire values of AdCP `error.recovery`. The vocabulary is closed at the type
+# level here; unknown wire strings normalize to `None` on extraction (see
+# `_normalize_recovery`) so a receiver never has to branch on a fourth value.
+RecoveryLiteral = Literal["transient", "correctable", "terminal"]
+_RECOVERY_VALUES: frozenset[str] = frozenset(("transient", "correctable", "terminal"))
+
+
+def _access(obj: Any, name: str) -> Any:
+    """Read `name` from a pydantic model, a plain dict, or a duck-typed object.
+
+    Extraction below has to accept all three because callers routinely pass
+    parsed pydantic `Error` models, unparsed dicts (from raw JSON), or the
+    small duck-typed instances the exception hierarchy itself constructs
+    (`IdempotencyScopeError`, tests).
+    """
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _normalize_recovery(raw: Any) -> RecoveryLiteral | None:
+    """Return the wire `recovery` value as a plain string, or None if absent/garbage.
+
+    `Recovery` on the generated pydantic model is a `StrEnum`, so it round-trips
+    as its own value; dicts and duck-typed callers pass a plain `str`. Anything
+    outside the closed spec vocabulary normalizes to `None` — receivers should
+    treat "unknown recovery" identically to "absent recovery" per the AdCP
+    forward-compat rule for unknown wire values.
+    """
+    if raw is None:
+        return None
+    value = raw.value if hasattr(raw, "value") else raw
+    if isinstance(value, str) and value in _RECOVERY_VALUES:
+        return value  # type: ignore[return-value]
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class BuyerReasonInfo:
+    """Typed extraction of an AdCP `error.buyer_reason` object.
+
+    Both fields are buyer-safe by spec: `code` is drawn from the standard
+    `enums/error-code.json` vocabulary (or a `X_{VENDOR}_{CODE}` extension),
+    and `message` MUST NOT contain vendor identifiers, ad-server type names,
+    internal object names, internal IDs, or stack traces. See AdCP 3.2's
+    `core/error.json` schema for the normative constraints.
+    """
+
+    code: str
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class AdcpErrorInfo:
+    """Typed extraction of a single AdCP `error` entry.
+
+    Normalizes a pydantic `Error` model, a raw dict from JSON, or a
+    duck-typed object into consistent attribute access. Use
+    `ADCPTaskError.error_info` (or the module-level `extract_adcp_error_info`)
+    to get instances of this class instead of hand-poking each error object.
+    """
+
+    code: str | None
+    message: str | None
+    recovery: RecoveryLiteral | None
+    buyer_reason: BuyerReasonInfo | None
+    field: str | None = None
+    suggestion: str | None = None
+    retry_after: float | None = None
+    details: dict[str, Any] | None = None
+
+
+def extract_adcp_error_info(err: Any) -> AdcpErrorInfo:
+    """Normalize a single ADCP error entry into a typed `AdcpErrorInfo`.
+
+    Accepts pydantic `Error` models, plain dicts (raw JSON), and duck-typed
+    objects with the same attribute names. Missing fields become `None`;
+    an unknown `recovery` string normalizes to `None`.
+    """
+    raw_buyer_reason = _access(err, "buyer_reason")
+    buyer_reason: BuyerReasonInfo | None = None
+    if raw_buyer_reason is not None:
+        code = _access(raw_buyer_reason, "code")
+        message = _access(raw_buyer_reason, "message")
+        if isinstance(code, str) and isinstance(message, str) and code and message:
+            buyer_reason = BuyerReasonInfo(code=code, message=message)
+
+    retry_after_raw = _access(err, "retry_after")
+    retry_after: float | None = None
+    # Reject `bool` (a subclass of `int` in Python — `retry_after: true` from a
+    # non-conforming producer would otherwise become `1.0` and schedule a real
+    # retry), any non-finite float (NaN/inf), and any value outside the AdCP
+    # spec's [1, 3600] range at `core/error.json`. The generated pydantic
+    # `Error` model enforces the range; this extractor also serves raw-dict
+    # and duck-typed inputs that bypass that validation, so we enforce here
+    # too — a negative value would schedule an immediate retry, and a very
+    # large value would stall the loop for hours.
+    if (
+        isinstance(retry_after_raw, (int, float))
+        and not isinstance(retry_after_raw, bool)
+        and math.isfinite(retry_after_raw)
+        and 1 <= retry_after_raw <= 3600
+    ):
+        retry_after = float(retry_after_raw)
+
+    details_raw = _access(err, "details")
+    details: dict[str, Any] | None = details_raw if isinstance(details_raw, dict) else None
+
+    return AdcpErrorInfo(
+        code=_access(err, "code"),
+        message=_access(err, "message"),
+        recovery=_normalize_recovery(_access(err, "recovery")),
+        buyer_reason=buyer_reason,
+        field=_access(err, "field"),
+        suggestion=_access(err, "suggestion"),
+        retry_after=retry_after,
+        details=details,
+    )
+
+
+class ADCPError(Exception):
+    """Base exception for all AdCP client errors."""
+
+    def __init__(
+        self,
+        message: str,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+        suggestion: str | None = None,
+    ):
+        """Initialize exception with context."""
+        self.message = message
+        self.agent_id = agent_id
+        self.agent_uri = agent_uri
+        self.suggestion = suggestion
+
+        full_message = message
+        if agent_id:
+            full_message = f"[Agent: {agent_id}] {full_message}"
+        if agent_uri:
+            full_message = f"{full_message}\n  URI: {agent_uri}"
+        if suggestion:
+            full_message = f"{full_message}\n  Suggestion: {suggestion}"
+
+        super().__init__(full_message)
+
+    @property
+    def is_retryable(self) -> bool:
+        """Whether this error is safe to retry."""
+        return False
+
+
+class ADCPConnectionError(ADCPError):
+    """Connection to agent failed."""
+
+    def __init__(self, message: str, agent_id: str | None = None, agent_uri: str | None = None):
+        """Initialize connection error."""
+        suggestion = (
+            "Check that the agent URI is correct and the agent is running.\n"
+            "     Try testing with: python -m adcp test --config <agent-id>"
+        )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+    @property
+    def is_retryable(self) -> bool:
+        return True
+
+
+class ADCPAuthenticationError(ADCPError):
+    """Authentication failed (401, 403).
+
+    `is_retryable` defaults to ``False`` (inherited). Per the AdCP 3.0.4 prose
+    tightening, `AUTH_REQUIRED` covers two sub-cases: credentials missing
+    (correctable — supply credentials and retry) and credentials presented but
+    rejected (terminal — re-presenting creates SSO retry-storm patterns).
+    Defaulting to non-retryable is the safe biased-toward-the-dangerous-case
+    choice; callers handling the missing-credentials case should retry only
+    after attaching credentials, not on a timer. The 3.1 line splits this
+    into `AUTH_MISSING` and `AUTH_INVALID`.
+
+    MCP HTTP authentication failures expose ``status_code`` and
+    ``www_authenticate`` when available, preserving the server's challenge
+    for credential recovery.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+        *,
+        status_code: int | None = None,
+        www_authenticate: str | None = None,
+    ):
+        """Initialize authentication error."""
+        self.status_code = status_code
+        self.www_authenticate = www_authenticate
+        suggestion = (
+            "Check that your auth_token is valid and not expired.\n"
+            "     Verify auth_type ('bearer' vs 'token') and auth_header are correct.\n"
+            "     Some agents (like Optable) require auth_type='bearer' and "
+            "auth_header='Authorization'"
+        )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+
+class ADCPTimeoutError(ADCPError):
+    """Request timed out."""
+
+    def __init__(
+        self,
+        message: str,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+        timeout: float | None = None,
+        *,
+        task_name: str | None = None,
+        operation_id: str | None = None,
+        recovery: TaskRecoveryMetadata | None = None,
+    ):
+        """Initialize timeout error."""
+        self.timeout = timeout
+        self.task_name = task_name
+        self.operation_id = operation_id
+        self.recovery = recovery
+        suggestion = (
+            f"The request took longer than {timeout}s." if timeout else "The request timed out."
+        )
+        if recovery is not None:
+            suggestion += (
+                "\n     The mutation may have succeeded. Retry the exact request with "
+                "the recovery idempotency_key; do not mint a new key."
+            )
+        else:
+            suggestion += (
+                "\n     Try increasing the timeout value or check if the agent is overloaded."
+            )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+    @property
+    def is_retryable(self) -> bool:
+        return True
+
+
+class ADCPProtocolError(ADCPError):
+    """Protocol-level error (malformed response, unexpected format)."""
+
+    def __init__(self, message: str, agent_id: str | None = None, protocol: str | None = None):
+        """Initialize protocol error."""
+        suggestion = (
+            f"The agent returned an unexpected {protocol} response format."
+            if protocol
+            else "Unexpected response format."
+        )
+        suggestion += "\n     Enable debug mode to see the full request/response."
+        super().__init__(message, agent_id, None, suggestion)
+
+
+class ADCPResponseTooLargeError(ADCPError):
+    """An agent response exceeded the configured ``max_response_bytes`` budget.
+
+    Raised while the body streams in — so the oversized payload is never
+    fully buffered — or, on a path whose transport this SDK does not own,
+    when a decoded ``content[].text`` item exceeds the same budget before
+    ``json.loads`` runs. Either way the response is rejected outright: the
+    SDK never truncates a response and hands back a partial object.
+
+    ``limit`` is the budget in force for the call, ``received`` the number of
+    decoded bytes seen (or declared by ``Content-Length``) when the budget was
+    blown. ``per_event`` marks an overrun of a single SSE event rather than of
+    the cumulative per-call total, and ``declared`` marks a pre-emptive
+    rejection made from ``Content-Length`` before any body byte was read.
+    """
+
+    def __init__(
+        self,
+        *,
+        limit: int,
+        received: int,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+        per_event: bool = False,
+        declared: bool = False,
+        url: str | None = None,
+    ):
+        """Initialize response-too-large error."""
+        self.limit = limit
+        self.received = received
+        self.per_event = per_event
+        self.declared = declared
+        self.url = url
+
+        if declared:
+            message = (
+                f"Agent response declares {received} bytes, over the "
+                f"{limit}-byte max_response_bytes budget"
+            )
+        elif per_event:
+            message = (
+                f"Agent SSE event exceeds the {limit}-byte max_response_bytes "
+                f"budget (received at least {received} bytes)"
+            )
+        else:
+            message = (
+                f"Agent response exceeds the {limit}-byte max_response_bytes "
+                f"budget (received at least {received} bytes)"
+            )
+        if url:
+            message = f"{message} from {url}"
+
+        suggestion = (
+            "Agent responses are untrusted input, so the SDK caps them by default.\n"
+            "     Raise AgentConfig.max_response_bytes for an agent that legitimately\n"
+            "     returns large payloads, or override one call with\n"
+            "     TaskOptions(max_response_bytes=...). Prefer asking the agent to\n"
+            "     paginate; set max_response_bytes=None to remove the cap entirely."
+        )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+
+class ADCPResponseEncodingError(ADCPProtocolError):
+    """An agent response used a content coding the SDK cannot size-bound.
+
+    The SDK advertises only the codings whose decoded size it can measure
+    while the body streams in. A response in any other coding would have to be
+    expanded before its size could be known, which is the allocation
+    ``max_response_bytes`` exists to prevent, so it is refused instead.
+    """
+
+    def __init__(
+        self,
+        encoding: str,
+        *,
+        accepted: str,
+        agent_id: str | None = None,
+    ):
+        """Initialize unsupported-encoding error."""
+        self.encoding = encoding
+        self.accepted = accepted
+        super().__init__(
+            f"Agent response uses unsupported Content-Encoding {encoding!r}; the SDK "
+            f"requests only {accepted}, and an unknown coding cannot be size-bounded "
+            "before it is expanded",
+            agent_id,
+            "HTTP",
+        )
+
+
+class ADCPToolNotFoundError(ADCPError):
+    """Requested tool not found on agent."""
+
+    def __init__(
+        self, tool_name: str, agent_id: str | None = None, available_tools: list[str] | None = None
+    ):
+        """Initialize tool not found error."""
+        message = f"Tool '{tool_name}' not found on agent"
+        suggestion = "List available tools with: python -m adcp list-tools --config <agent-id>"
+        if available_tools:
+            tools_list = ", ".join(available_tools[:5])
+            if len(available_tools) > 5:
+                tools_list += f", ... ({len(available_tools)} total)"
+            suggestion = f"Available tools: {tools_list}"
+        super().__init__(message, agent_id, None, suggestion)
+
+
+class ADCPWebhookError(ADCPError):
+    """Webhook handling error."""
+
+
+class ADCPWebhookSignatureError(ADCPWebhookError):
+    """Webhook signature verification failed."""
+
+    def __init__(self, message: str = "Invalid webhook signature", agent_id: str | None = None):
+        """Initialize webhook signature error."""
+        suggestion = (
+            "Verify that the webhook_secret matches the secret configured on the agent.\n"
+            "     Webhook signatures use HMAC-SHA256 for security."
+        )
+        super().__init__(message, agent_id, None, suggestion)
+
+
+class ADCPSimpleAPIError(ADCPError):
+    """Error from simplified API (.simple accessor).
+
+    Raised when a simple API method fails. The underlying error details
+    are available in the message. For more control over error handling,
+    use the standard API (client.method()) instead of client.simple.method().
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        error_message: str | None = None,
+        agent_id: str | None = None,
+        errors: list[Any] | None = None,
+    ):
+        """Initialize simple API error.
+
+        Args:
+            operation: The operation that failed (e.g., "get_products")
+            error_message: The underlying error message from TaskResult
+            agent_id: Optional agent ID for context
+            errors: Structured ADCP error objects from the response
+        """
+        self.operation = operation
+        self.errors = errors or []
+
+        message = f"{operation} failed"
+        if error_message:
+            message = f"{message}: {error_message}"
+
+        suggestion = (
+            f"For more control over error handling, use the standard API:\n"
+            f"     result = await client.{operation}(request)\n"
+            f"     if not result.success:\n"
+            f"         # Handle error with full TaskResult context"
+        )
+        super().__init__(message, agent_id, None, suggestion)
+
+
+class RegistryValidationIssue(TypedDict, total=False):
+    """Bounded, machine-readable registry validation issue metadata."""
+
+    code: str
+    field: str
+    path: list[str | int]
+
+
+class RegistryErrorDetails(TypedDict, total=False):
+    """Safe registry error metadata suitable for logs and agent context.
+
+    Free-form server prose, rejected values, credentials, and unknown fields are
+    intentionally excluded from this envelope.
+    """
+
+    code: str
+    field: str
+    policy_id: str
+    existing_org_id: str
+    members_only: bool
+    request_id: str
+    valid_values: list[str]
+    validation_issues: list[RegistryValidationIssue]
+    retryAfterMs: int | float
+    retryAfter: int | float
+    retry_after: int | float
+
+
+class RegistryError(ADCPError):
+    """Error from AdCP registry API operations (brand/property lookups)."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        *,
+        method: str | None = None,
+        retry_after_seconds: float | None = None,
+        details: RegistryErrorDetails | None = None,
+    ):
+        """Initialize registry error."""
+        self.status_code = status_code
+        self.method = method
+        self.retry_after_seconds = retry_after_seconds
+        self.details = details
+        suggestion = "Check that the registry API is accessible and the domain is valid."
+        super().__init__(message, suggestion=suggestion)
+
+
+class ADCPFeatureUnsupportedError(ADCPError):
+    """Seller does not support one or more required features."""
+
+    def __init__(
+        self,
+        unsupported_features: list[str],
+        declared_features: list[str] | None = None,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+    ):
+        """Initialize feature unsupported error.
+
+        Args:
+            unsupported_features: Features that are not supported.
+            declared_features: Features the seller does declare.
+            agent_id: Optional agent ID for context.
+            agent_uri: Optional agent URI for context.
+        """
+        self.unsupported_features = unsupported_features
+        self.declared_features = declared_features or []
+
+        missing = ", ".join(unsupported_features)
+        message = f"Seller does not support: {missing}"
+
+        suggestion = None
+        if self.declared_features:
+            declared = ", ".join(sorted(self.declared_features))
+            suggestion = f"Declared features: {declared}"
+
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+
+class ADCPSigningRequiredError(ADCPError):
+    """Raised when an operation in the seller's ``request_signing.required_for``
+    is called without a ``SigningConfig`` on the client.
+
+    Signing a ``required_for`` operation is mandatory — sending it unsigned
+    would produce a ``request_signature_required`` rejection from the seller.
+    Raising locally before the wire call saves a round-trip and gives the
+    caller a clear, actionable error.
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+    ):
+        self.operation = operation
+        message = (
+            f"Operation {operation!r} is in the seller's request_signing.required_for "
+            f"list; signing is mandatory but no SigningConfig was provided"
+        )
+        suggestion = (
+            "Pass signing=SigningConfig(private_key=..., key_id=...) when "
+            "constructing ADCPClient. See adcp-keygen for key generation."
+        )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+
+class AdagentsValidationError(ADCPError):
+    """Base error for adagents.json validation issues."""
+
+
+class AdagentsHTTPError(AdagentsValidationError):
+    """An unsuccessful adagents.json HTTP response with status and source URL.
+
+    Existing specialized errors for 404, timeout and Cloudflare challenges keep
+    their meanings. Plain 403 and other terminal statuses use this error.
+    """
+
+    def __init__(self, status_code: int, url: str) -> None:
+        self.status_code = status_code
+        self.url = url
+        super().__init__(f"Failed to fetch adagents.json: HTTP {status_code} ({url})")
+
+
+class AdagentsNotFoundError(AdagentsValidationError):
+    """adagents.json file not found (404)."""
+
+    def __init__(self, publisher_domain: str):
+        """Initialize not found error."""
+        message = f"adagents.json not found for domain: {publisher_domain}"
+        suggestion = (
+            "Verify that the publisher has deployed adagents.json to:\n"
+            f"     https://{publisher_domain}/.well-known/adagents.json"
+        )
+        super().__init__(message, None, None, suggestion)
+
+
+class AdagentsTimeoutError(AdagentsValidationError):
+    """Request for adagents.json timed out."""
+
+    def __init__(self, publisher_domain: str, timeout: float):
+        """Initialize timeout error."""
+        message = f"Request to fetch adagents.json timed out after {timeout}s"
+        suggestion = (
+            "The publisher's server may be slow or unresponsive.\n"
+            "     Try increasing the timeout value or check the domain is correct."
+        )
+        super().__init__(message, None, None, suggestion)
+
+
+class AdagentsAccessBlockedError(AdagentsValidationError):
+    """adagents.json fetch blocked by publisher-side bot management (403, cf-mitigated: challenge).
+
+    Only surfaces in direct-fetch workflows (``fetch_adagents``). SDK callers that
+    use ``fetch_agent_authorizations`` avoid this entirely — the AAO directory crawler
+    handles publisher fetches and serves cached results without exposing the SDK to
+    publisher-side bot management.
+
+    If you need to catch this specifically without catching all
+    ``AdagentsValidationError``s, use ``except AdagentsAccessBlockedError``.
+    """
+
+    def __init__(self, publisher_domain: str):
+        """Initialize bot-management blocked error."""
+        self.publisher_domain = publisher_domain
+        message = (
+            f"adagents.json blocked by bot management for {publisher_domain} "
+            f"(HTTP 403, cf-mitigated: challenge)"
+        )
+        suggestion = (
+            "The publisher's origin blocked this request with a Cloudflare bot management\n"
+            "     challenge. This only affects direct adagents.json fetches (fetch_adagents).\n"
+            "\n"
+            "     To unblock local debugging:\n"
+            "     - Retry with a browser-like User-Agent via the user_agent= parameter, e.g.\n"
+            '       user_agent="Mozilla/5.0"\n'
+            "     - Or call fetch_agent_authorizations() to query the AAO directory instead,\n"
+            "       which bypasses publisher-side bot management entirely."
+        )
+        super().__init__(message, None, None, suggestion)
+
+
+class ADCPTaskError(ADCPError):
+    """A task returned an ADCP error response.
+
+    Provides structured access to the error objects from the response,
+    including error codes for programmatic handling. Prefer `error_info`,
+    `first_buyer_reason`, and `is_retryable` over hand-poking raw `errors`.
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        errors: list[Any],
+        agent_id: str | None = None,
+    ):
+        """Initialize task error.
+
+        Args:
+            operation: The task that failed (e.g., "create_media_buy")
+            errors: List of ADCP Error objects from the response
+            agent_id: Optional agent ID for context
+        """
+        self.operation = operation
+        self.errors = errors
+        self.error_codes = [
+            code for err in errors if isinstance((code := _access(err, "code")), str) and code
+        ]
+
+        message = f"{operation} failed"
+        if errors:
+            first_msg = _access(errors[0], "message") or str(errors[0])
+            message = f"{operation} failed: {first_msg}"
+            if len(errors) > 1:
+                message += f" (+{len(errors) - 1} more)"
+
+        super().__init__(message, agent_id=agent_id)
+
+    @cached_property
+    def error_info(self) -> tuple[AdcpErrorInfo, ...]:
+        """Typed extraction of every error entry, in wire order.
+
+        Use this instead of duck-typing `errors` when you need `buyer_reason`,
+        `recovery`, or any of the structured fields. Cached — the raw errors
+        list is immutable after `__init__`.
+        """
+        return tuple(extract_adcp_error_info(err) for err in self.errors)
+
+    @property
+    def buyer_reasons(self) -> tuple[BuyerReasonInfo, ...]:
+        """Every `buyer_reason` object from the response, in wire order.
+
+        `buyer_reason.message` is buyer-safe by spec — free of vendor identifiers
+        and internal IDs — so it may be rendered directly to a buyer UI.
+        """
+        return tuple(info.buyer_reason for info in self.error_info if info.buyer_reason is not None)
+
+    @property
+    def first_buyer_reason(self) -> BuyerReasonInfo | None:
+        """First `buyer_reason` from the response, or `None` if none present.
+
+        Common case: surface a single buyer-safe reason to the caller. AdCP 3.2
+        directs sellers to emit separate `error` entries rather than compound
+        multiple buyer-actionable classes into one, so the first entry is
+        usually the whole story.
+        """
+        reasons = self.buyer_reasons
+        return reasons[0] if reasons else None
+
+    @property
+    def wire_recoveries(self) -> tuple[RecoveryLiteral, ...]:
+        """The `recovery` classification on each error, in wire order.
+
+        Absent-or-unknown-recovery entries are skipped, so length may be less
+        than `len(errors)`. Use this to see whether the response classifies
+        itself at the wire level or falls through to the code-table default
+        in `is_retryable`.
+        """
+        return tuple(info.recovery for info in self.error_info if info.recovery is not None)
+
+    @property
+    def is_retryable(self) -> bool:
+        """True if the response can be resubmitted as-is without modification.
+
+        Every entry gets an effective recovery — wire `recovery` when present
+        (authoritative per AdCP 3.1+), else the code-table classification,
+        else `transient` (the AdCP forward-compat rule for unknown codes with
+        no wire recovery). A batch is retryable only when every entry resolves
+        to `transient`: a `terminal` entry blocks (human action required), a
+        `correctable` entry blocks (caller must fix the request first — a
+        retry as-is would re-trigger the same error).
+        """
+        from adcp.server.helpers import CORRECTABLE_CODES, TERMINAL_CODES, TRANSIENT_CODES
+
+        effective: list[RecoveryLiteral] = []
+        for info in self.error_info:
+            if info.recovery is not None:
+                effective.append(info.recovery)
+                continue
+            code = info.code
+            if code in TERMINAL_CODES:
+                effective.append("terminal")
+            elif code in CORRECTABLE_CODES:
+                effective.append("correctable")
+            elif code in TRANSIENT_CODES:
+                effective.append("transient")
+            else:
+                # Unknown / absent code with no wire recovery. Per the AdCP
+                # forward-compat rule (`core/error.json` on `error.code`),
+                # receivers MUST decode unknown codes and treat missing
+                # `recovery` as `transient` — this keeps the retry loop alive
+                # against a producer that ships a new code before the SDK
+                # learns about it.
+                effective.append("transient")
+
+        if not effective:
+            return False
+        return not any(r in ("terminal", "correctable") for r in effective)
+
+
+class IdempotencyConflictError(ADCPTaskError):
+    """Server rejected a reused idempotency_key whose payload differs from the original.
+
+    The request used the same idempotency_key as an earlier request but with a
+    materially different (post-JCS-canonicalization) payload. Two valid recovery
+    paths: (a) mint a fresh ``uuid.uuid4()`` key and resubmit, or (b) resend the
+    exact original payload — whichever matches the caller's intent.
+
+    By design the rendered message does NOT include the server's error text
+    because non-compliant sellers may include payload hints that violate the
+    ``IDEMPOTENCY_CONFLICT`` spec requirement. Raw errors remain on
+    ``self.errors`` for callers that want to inspect.
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        errors: list[Any],
+        agent_id: str | None = None,
+    ):
+        self.operation = operation
+        self.errors = errors
+        self.error_codes = [e.code for e in errors if hasattr(e, "code") and e.code] or [
+            "IDEMPOTENCY_CONFLICT"
+        ]
+        message = f"{operation}: idempotency_key reused with a different payload"
+        suggestion = (
+            "The server already has a response for this idempotency_key with a "
+            "different (JCS-canonicalized) payload. Either resend the exact original "
+            "payload, or mint a fresh key with uuid.uuid4() and resubmit. Do NOT "
+            "reuse this key with modified fields."
+        )
+        # Skip ADCPTaskError.__init__ to avoid leaking server-supplied text.
+        ADCPError.__init__(self, message, agent_id=agent_id, suggestion=suggestion)
+
+
+class IdempotencyExpiredError(ADCPTaskError):
+    """Server's replay cache for this idempotency_key has expired.
+
+    Per AdCP #2315 the seller MAY discard cached responses after
+    ``replay_ttl_seconds``. Re-executing is unsafe because the seller can no
+    longer distinguish "seen and evicted" from "never seen" — silently retrying
+    risks duplicate execution. Recovery: reconcile state via a read (e.g.
+    ``get_media_buys``) before resubmitting with a fresh key.
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        errors: list[Any],
+        agent_id: str | None = None,
+    ):
+        self.operation = operation
+        self.errors = errors
+        self.error_codes = [e.code for e in errors if hasattr(e, "code") and e.code] or [
+            "IDEMPOTENCY_EXPIRED"
+        ]
+        message = f"{operation}: idempotency replay window has expired"
+        suggestion = (
+            "The seller's replay_ttl_seconds window for this key has passed. "
+            "Re-execution is unsafe — the seller can no longer guarantee "
+            "at-most-once. Reconcile state with a read (e.g. get_media_buys) "
+            "before resubmitting with a fresh uuid.uuid4() key."
+        )
+        ADCPError.__init__(self, message, agent_id=agent_id, suggestion=suggestion)
+
+
+class IdempotencyScopeError(ADCPTaskError):
+    """Server cannot safely scope an idempotency_key to an authenticated caller."""
+
+    def __init__(self, operation: str, agent_id: str | None = None):
+        self.operation = operation
+        self.errors = [
+            {
+                "code": "INVALID_REQUEST",
+                "message": "idempotency_key requires authenticated caller_identity",
+            }
+        ]
+        self.error_codes = ["INVALID_REQUEST"]
+        message = f"{operation}: idempotency_key requires authenticated caller_identity"
+        suggestion = (
+            "Populate ToolContext.caller_identity from the authenticated principal before "
+            "using idempotency replay protection. Rejecting the request avoids a shared "
+            "cross-principal idempotency namespace."
+        )
+        ADCPError.__init__(self, message, agent_id=agent_id, suggestion=suggestion)
+
+
+class IdempotencyUnsupportedError(ADCPError):
+    """Seller does not support idempotency replay protection on mutating requests.
+
+    Raised before the first mutating call when ``strict_idempotency=True`` and
+    either the seller's capabilities response is missing ``adcp.idempotency``,
+    declares ``supported=False``, or declares ``supported=True`` without a
+    ``replay_ttl_seconds`` window. Per AdCP spec, clients MUST NOT assume a
+    default — a seller that does not positively declare support cannot be
+    safely retried.
+    """
+
+    def __init__(
+        self,
+        agent_id: str | None = None,
+        agent_uri: str | None = None,
+        reason: str | None = None,
+    ):
+        detail = reason or "seller did not declare adcp.idempotency support"
+        message = f"{detail}; retry safety for mutating requests cannot be guaranteed."
+        suggestion = (
+            "Recommended: ask the seller to declare adcp.idempotency.supported=true "
+            "with a replay_ttl_seconds window in get_adcp_capabilities. To proceed "
+            "without this guarantee — retries may double-charge or duplicate — "
+            "construct ADCPClient with strict_idempotency=False; the caller then "
+            "owns reconciliation on retry."
+        )
+        super().__init__(message, agent_id, agent_uri, suggestion)
+
+
+class ConfigurationError(ADCPError):
+    """Invalid SDK configuration detected at construction time.
+
+    Raised when a value passed to a client/server constructor cannot
+    be reconciled with the SDK's compile-time pin — most commonly a
+    cross-major ``adcp_version`` (e.g. ``adcp_version="4.0"`` against
+    an SDK built for AdCP 3.x), or an unparseable version string.
+
+    Recovery: install the SDK major that targets the wire version you
+    want to speak. Cross-major pinning is not supported within a
+    single SDK major.
+    """
+
+
+class _BuyerAccountError(ADCPTaskError):
+    """An account failure attributable to buyer setup, never seller health."""
+
+    fault = "buyer_setup"
+
+    @property
+    def is_retryable(self) -> bool:
+        return False
+
+
+class AccountNotFoundError(_BuyerAccountError):
+    """Unknown account reference. Provision a natural key or verify the ID."""
+
+
+class AccountSetupRequiredError(_BuyerAccountError):
+    """Account exists but needs buyer setup before use."""
+
+
+class AccountPaymentRequiredError(_BuyerAccountError):
+    """Account exists but needs payment before use."""
+
+
+ACCOUNT_ERROR_CODE_MAP: dict[str, type[ADCPTaskError]] = {
+    "ACCOUNT_NOT_FOUND": AccountNotFoundError,
+    "ACCOUNT_REQUIRED": AccountSetupRequiredError,
+    "ACCOUNT_SETUP_REQUIRED": AccountSetupRequiredError,
+    "ACCOUNT_PAYMENT_REQUIRED": AccountPaymentRequiredError,
+}
+
+
+IDEMPOTENCY_ERROR_CODE_MAP: dict[str, type[ADCPTaskError]] = {
+    "IDEMPOTENCY_CONFLICT": IdempotencyConflictError,
+    "IDEMPOTENCY_EXPIRED": IdempotencyExpiredError,
+}
+
+
+def classify_task_error(
+    operation: str,
+    errors: list[Any],
+    agent_id: str | None = None,
+) -> ADCPTaskError:
+    """Build the most specific ADCPTaskError subclass matching the response codes."""
+    for err in errors:
+        code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else None)
+        if code and code in ACCOUNT_ERROR_CODE_MAP:
+            return ACCOUNT_ERROR_CODE_MAP[code](operation, errors, agent_id=agent_id)
+        if code and code in IDEMPOTENCY_ERROR_CODE_MAP:
+            return IDEMPOTENCY_ERROR_CODE_MAP[code](operation, errors, agent_id=agent_id)
+    return ADCPTaskError(operation, errors, agent_id=agent_id)

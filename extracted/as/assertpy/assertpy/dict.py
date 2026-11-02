@@ -1,39 +1,26 @@
-# Copyright (c) 2015-2019, Activision Publishing, Inc.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors
-# may be used to endorse or promote products derived from this software without
-# specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+from ._engine._mixin_base import _MixinBase
+from ._engine._ordering import REFUSALS, equals, lookup, member
+from ._engine._require import argument, refuse
+from .contains import _entry_not_found, _value_not_found
+from .errors import _capped
+
+if TYPE_CHECKING:
+    from ._engine._compat import Self
 
 __tracebackhide__ = True
 
 
-class DictMixin(object):
+class DictMixin(_MixinBase):
     """Dict assertions mixin."""
 
-    def contains_key(self, *keys):
-        """Asserts the val is a dict and contains the given key or keys.  Alias for :meth:`~assertpy.contains.ContainsMixin.contains`.
+    def contains_key(self, *keys: object) -> Self:
+        """Asserts the val is a dict and contains the given key or keys.
+
+        Alias for [`contains()`][assertpy.contains.ContainsMixin.contains].
 
         Checks if the dict contains the given key or keys using ``in`` operator.
 
@@ -41,7 +28,7 @@ class DictMixin(object):
             *keys: the key or keys expected to be contained
 
         Examples:
-            Usage::
+            Usage:
 
                 assert_that({'a': 1, 'b': 2}).contains_key('a')
                 assert_that({'a': 1, 'b': 2}).contains_key('a', 'b')
@@ -52,11 +39,13 @@ class DictMixin(object):
         Raises:
             AssertionError: if val does **not** contain the key or keys
         """
-        self._check_dict_like(self.val, check_values=False, check_getitem=False)
+        self._require_dict_like(self.val, check_values=False, check_getitem=False)
         return self.contains(*keys)
 
-    def does_not_contain_key(self, *keys):
-        """Asserts the val is a dict and does not contain the given key or keys.  Alias for :meth:`~assertpy.contains.ContainsMixin.does_not_contain`.
+    def does_not_contain_key(self, *keys: object) -> Self:
+        """Asserts the val is a dict and does not contain the given key or keys.
+
+        Alias for [`does_not_contain()`][assertpy.contains.ContainsMixin.does_not_contain].
 
         Checks if the dict excludes the given key or keys using ``in`` operator.
 
@@ -64,7 +53,7 @@ class DictMixin(object):
             *keys: the key or keys expected to be excluded
 
         Examples:
-            Usage::
+            Usage:
 
                 assert_that({'a': 1, 'b': 2}).does_not_contain_key('x')
                 assert_that({'a': 1, 'b': 2}).does_not_contain_key('x', 'y')
@@ -75,10 +64,10 @@ class DictMixin(object):
         Raises:
             AssertionError: if val **does** contain the key or keys
         """
-        self._check_dict_like(self.val, check_values=False, check_getitem=False)
+        self._require_dict_like(self.val, check_values=False, check_getitem=False)
         return self.does_not_contain(*keys)
 
-    def contains_value(self, *values):
+    def contains_value(self, *values: object) -> Self:
         """Asserts that val is a dict and contains the given value or values.
 
         Checks if the dict contains the given value or values in *any* key.
@@ -87,7 +76,7 @@ class DictMixin(object):
             *values: the value or values expected to be contained
 
         Examples:
-            Usage::
+            Usage:
 
                 assert_that({'a': 1, 'b': 2}).contains_value(1)
                 assert_that({'a': 1, 'b': 2}).contains_value(1, 2)
@@ -98,18 +87,19 @@ class DictMixin(object):
         Raises:
             AssertionError: if val does **not** contain the value or values
         """
-        self._check_dict_like(self.val, check_getitem=False)
+        self._require_dict_like(self.val, check_getitem=False)
         if len(values) == 0:
-            raise ValueError('one or more value args must be given')
-        missing = []
-        for v in values:
-            if v not in self.val.values():
-                missing.append(v)
+            raise ValueError("one or more value args must be given")
+        missing = [value for value in values if not member(value, self.val.values())]
         if missing:
-            self.error('Expected <%s> to contain values %s, but did not contain %s.' % (self.val, self._fmt_items(values), self._fmt_items(missing)))
+            return self.error(
+                f"Expected <{_capped(self.val)}> to contain values {self._fmt_items(values)},"
+                f" but did not contain {self._fmt_items(missing)}." + _value_not_found(self.val, missing),
+                expected=values,
+            )
         return self
 
-    def does_not_contain_value(self, *values):
+    def does_not_contain_value(self, *values: object) -> Self:
         """Asserts that val is a dict and does not contain the given value or values.
 
         Checks if the dict excludes the given value or values across *all* keys.
@@ -118,7 +108,7 @@ class DictMixin(object):
             *values: the value or values expected to be excluded
 
         Examples:
-            Usage::
+            Usage:
 
                 assert_that({'a': 1, 'b': 2}).does_not_contain_value(3)
                 assert_that({'a': 1, 'b': 2}).does_not_contain_value(3, 4)
@@ -129,29 +119,29 @@ class DictMixin(object):
         Raises:
             AssertionError: if val **does** contain the value or values
         """
-        self._check_dict_like(self.val, check_getitem=False)
+        self._require_dict_like(self.val, check_getitem=False)
         if len(values) == 0:
-            raise ValueError('one or more value args must be given')
+            raise ValueError("one or more value args must be given")
         else:
-            found = []
-            for v in values:
-                if v in self.val.values():
-                    found.append(v)
+            found = [value for value in values if member(value, self.val.values())]
             if found:
-                self.error('Expected <%s> to not contain values %s, but did contain %s.' % (self.val, self._fmt_items(values), self._fmt_items(found)))
+                return self.error(
+                    f"Expected <{_capped(self.val)}> to not contain values {self._fmt_items(values)},"
+                    f" but did contain {self._fmt_items(found)}."
+                )
         return self
 
-    def contains_entry(self, *args, **kwargs):
+    def contains_entry(self, *args: object, **kwargs: object) -> Self:
         """Asserts that val is a dict and contains the given entry or entries.
 
         Checks if the dict contains the given key-value pair or pairs.
 
         Args:
-            *args: the entry or entries expected to be contained (as ``{k: v}`` args)
-            **kwargs: the entry or entries expected to be contained (as ``k=v`` kwargs)
+            *args (object): the entry or entries expected to be contained (as ``{k: v}`` args)
+            **kwargs (object): the entry or entries expected to be contained (as ``k=v`` kwargs)
 
         Examples:
-            Usage::
+            Usage:
 
                 # using args
                 assert_that({'a': 1, 'b': 2, 'c': 3}).contains_entry({'a': 1})
@@ -172,37 +162,51 @@ class DictMixin(object):
 
         Raises:
             AssertionError: if val does **not** contain the entry or entries
+
+        Note:
+            Where one entry is not found, the failure says what its key holds, or that the key is not there, and
+            on a line under the message why the value held is not the one expected, where one fact says so.
         """
-        self._check_dict_like(self.val, check_values=False)
-        entries = list(args) + [{k: v} for k, v in kwargs.items()]
+        self._require_dict_like(self.val, check_values=False)
+        entries = list(args) + [{key: value} for key, value in kwargs.items()]
         if len(entries) == 0:
-            raise ValueError('one or more entry args must be given')
+            raise ValueError("one or more entry args must be given")
         missing = []
-        for e in entries:
-            if type(e) is not dict:
-                raise TypeError('given entry arg must be a dict')
-            if len(e) != 1:
-                raise ValueError('given entry args must contain exactly one key-value pair')
-            k = next(iter(e))
-            if k not in self.val:
-                missing.append(e)  # bad key
-            elif self.val[k] != e[k]:
-                missing.append(e)  # bad val
+        for entry in entries:
+            if type(entry) is not dict:
+                refuse(entry, "a dict", subject=argument("entry"))
+            # `object` not `dict`: the check above is `type(entry) is dict`, so a subclass is refused here
+            pair = cast("dict[Any, Any]", entry)
+            if len(pair) != 1:
+                raise ValueError("given entry args must contain exactly one key-value pair")
+            entry_key = next(iter(pair))
+            try:
+                if entry_key in self.val and equals(self.val[entry_key], pair[entry_key]):
+                    continue
+            except REFUSALS as refusal:
+                found, held = lookup(self.val, entry_key, refusal)
+                if found and equals(held, pair[entry_key]):
+                    continue
+            missing.append(pair)
         if missing:
-            self.error('Expected <%s> to contain entries %s, but did not contain %s.' % (self.val, self._fmt_items(entries), self._fmt_items(missing)))
+            return self.error(
+                f"Expected <{_capped(self.val)}> to contain entries {self._fmt_items(entries)},"
+                f" but did not contain {self._fmt_items(missing)}." + _entry_not_found(self.val, missing),
+                expected=entries,
+            )
         return self
 
-    def does_not_contain_entry(self, *args, **kwargs):
+    def does_not_contain_entry(self, *args: object, **kwargs: object) -> Self:
         """Asserts that val is a dict and does not contain the given entry or entries.
 
         Checks if the dict excludes the given key-value pair or pairs.
 
         Args:
-            *args: the entry or entries expected to be excluded (as ``{k: v}`` args)
-            **kwargs: the entry or entries expected to be excluded (as ``k=v`` kwargs)
+            *args (object): the entry or entries expected to be excluded (as ``{k: v}`` args)
+            **kwargs (object): the entry or entries expected to be excluded (as ``k=v`` kwargs)
 
         Examples:
-            Usage::
+            Usage:
 
                 # using args
                 assert_that({'a': 1, 'b': 2, 'c': 3}).does_not_contain_entry({'a': 2})
@@ -218,19 +222,28 @@ class DictMixin(object):
         Raises:
             AssertionError: if val **does** contain the entry or entries
         """
-        self._check_dict_like(self.val, check_values=False)
-        entries = list(args) + [{k: v} for k, v in kwargs.items()]
+        self._require_dict_like(self.val, check_values=False)
+        entries = list(args) + [{key: value} for key, value in kwargs.items()]
         if len(entries) == 0:
-            raise ValueError('one or more entry args must be given')
+            raise ValueError("one or more entry args must be given")
         found = []
-        for e in entries:
-            if type(e) is not dict:
-                raise TypeError('given entry arg must be a dict')
-            if len(e) != 1:
-                raise ValueError('given entry args must contain exactly one key-value pair')
-            k = next(iter(e))
-            if k in self.val and e[k] == self.val[k]:
-                found.append(e)
+        for entry in entries:
+            if type(entry) is not dict:
+                refuse(entry, "a dict", subject=argument("entry"))
+            pair = cast("dict[Any, Any]", entry)
+            if len(pair) != 1:
+                raise ValueError("given entry args must contain exactly one key-value pair")
+            entry_key = next(iter(pair))
+            try:
+                present = entry_key in self.val and equals(self.val[entry_key], pair[entry_key])
+            except REFUSALS as refusal:
+                held_there, held = lookup(self.val, entry_key, refusal)
+                present = held_there and equals(held, pair[entry_key])
+            if present:
+                found.append(pair)
         if found:
-            self.error('Expected <%s> to not contain entries %s, but did contain %s.' % (self.val, self._fmt_items(entries), self._fmt_items(found)))
+            return self.error(
+                f"Expected <{_capped(self.val)}> to not contain entries {self._fmt_items(entries)},"
+                f" but did contain {self._fmt_items(found)}."
+            )
         return self

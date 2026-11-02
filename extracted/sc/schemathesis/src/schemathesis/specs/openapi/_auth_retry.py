@@ -64,7 +64,12 @@ def remove_auth_from_container(
     """Strip auth keys from a transport-kwargs container in-place."""
     for parameter in security_parameters:
         if parameter.location == location:
-            container.pop(parameter.name, None)
+            if location == ParameterLocation.HEADER:
+                # Header names are case-insensitive, query and cookie names are not.
+                for key in [key for key in container if key.lower() == parameter.name.lower()]:
+                    del container[key]
+            else:
+                container.pop(parameter.name, None)
 
 
 def remove_auth_from_cookie_header(headers: MutableMapping[str, str], name: str) -> None:
@@ -130,9 +135,4 @@ def build_retry_transport_kwargs(
 def send_probe(ctx: CheckContext, parent: Case, probe: Case) -> Response:
     """Send `probe` as a child of `parent`, keeping the run's transport settings but none of its credentials."""
     kwargs = build_retry_transport_kwargs(ctx.internals.transport_kwargs, get_security_parameters(parent.operation))
-    if parent.operation.app is not None:
-        kwargs.setdefault("app", parent.operation.app)
-    ctx.internals.record_case(parent_id=parent.id, case=probe)
-    response = parent.operation.schema.transport.send(probe, **kwargs)
-    ctx.internals.record_response(case_id=probe.id, response=response)
-    return response
+    return ctx.internals.send_probe(parent, probe, kwargs)

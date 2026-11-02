@@ -1,0 +1,35 @@
+name: build-docs
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: mamba-org/setup-micromamba@v1
+        with:
+          generate-run-shell: true
+          environment-file: environment.yml
+          create-args: >-
+            python=3.10
+            pillow
+            sphinx
+            sphinx-gallery
+            sphinx-rtd-theme
+
+      - name: Install pyCSEP
+        run: |
+          pip install --no-deps -e .
+          python -c "import csep; print('Version: ', csep.__version__)"
+
+      - name: Build documentation
+        run: |
+          make -C docs clean
+          make -C docs html

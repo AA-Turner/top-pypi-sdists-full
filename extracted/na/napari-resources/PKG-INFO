@@ -1,0 +1,207 @@
+Metadata-Version: 2.5
+Name: napari-resources
+Version: 1.0.1
+Summary: Resources for the napari project.
+Project-URL: homepage, https://github.com/napari/napari-resources
+Project-URL: repository, https://github.com/napari/napari-resources
+Author-email: napari team <napari-steering-council@googlegroups.com>
+License: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: lxml
+Provides-Extra: cli
+Requires-Dist: click; extra == 'cli'
+Provides-Extra: font
+Requires-Dist: fonttools; extra == 'font'
+Description-Content-Type: text/markdown
+
+# resources
+
+Graphics and copy resources for the napari project.
+
+For a quick download link to the up-to-date logos, see the dowload section of the [latest release](https://github.com/napari/napari-resources/releases/latest).
+
+## Permissions and usage guidelines
+
+### License
+
+The resources in this repo are available under a [CC-BY-NC-ND 4.0] license.
+The package source code is available under a [BSD 3-Clause](LICENSE) license.
+
+We further kindly request that you follow the guidelines below when using the
+logo.
+
+### Usage guidelines
+
+You may use the napari logo to describe factual use of the software in your own
+projects, for example in papers, figures, posters, conference talks, and
+project websites. Examples:
+
+- ✅ We explored the data in napari and came to the conclusion that…
+- ✅ We provide a reader for napari to visualize our novel data…
+- ✅ In addition to our standalone library, we provide a napari plugin to…
+- ✅ We provide training and consultation in the use of napari for…
+- ✅ We intend to analyze the resulting data by using napari with the following
+  plugins…
+
+You should **not** use the napari logo to imply endorsement of your project by
+napari without prior written permission by the napari Steering Council.
+Examples:
+
+- 🚫 The napari team will support this effort with…
+- 🚫 The napari community needs this functionality because…
+- 🚫 napari supports this proposed standard…
+
+Conjecture is allowed when clearly marked as such:
+
+- ✅ We believe that the napari project would benefit from these changes…
+
+You may use the napari logo in swag (pens, pins, stickers, etc) for personal or
+small group usage, as long as that use is not for fundraising.
+
+## logos
+
+The napari logos are generated from a set of `variants` (the logo icon) and
+`templates` (the arrangement of icon and text). The SVGs that ship in the
+package are regenerated automatically whenever it is built or installed
+(see `hatch_build.py`), so there is nothing to run to use them.
+
+### Installation
+
+```sh
+uv pip install napari-resources
+```
+
+For local development, `pip install -e .` triggers the same build hook and
+writes the generated assets into your source tree. `uv sync` also works, but it
+is incremental — it won't rebuild an already-installed project, so use
+`uv sync --reinstall-package napari-resources` to force the hook to re-run.
+
+### Usage
+
+Get a generated logo with `logo_path`:
+
+```py
+from napari_resources import logo_path
+
+svg = logo_path("gradient-plain-dark.svg")
+svg.read_bytes()  # the raw SVG
+```
+
+`logo_path` returns a `pathlib.Path` to the logo, which you can read, open, or
+hand to a GUI — e.g. `QPixmap(str(svg))`, or render it to a `QIcon` with
+`QSvgRenderer` (the same pattern napari uses for its window icon in
+`napari/_qt/qt_event_loop.py`). It resolves
+`napari_resources/resources/logos/generated/<name>` via `importlib.resources`,
+so it behaves identically from an installed wheel or an editable install. If
+the asset isn't present (e.g. a fresh checkout that hasn't been installed), it
+raises `FileNotFoundError` with instructions.
+
+#### Rasterizing a logo (making an image / PNG)
+
+The logo SVGs are vector graphics, so getting an image (a numpy array or a PNG)
+requires rendering them to pixels — there's no way around that. Three options,
+depending on what you need:
+
+- **In a Qt app** (napari already ships Qt), render with a small helper:
+
+  ```py
+  import numpy as np
+  from qtpy.QtGui import QImage, QPixmap
+
+
+  def logo_rgba(name):
+      image = QPixmap(str(logo_path(name))).toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+      ptr = image.constBits()
+      if hasattr(ptr, "setsize"):
+          ptr.setsize(image.sizeInBytes())
+      return np.frombuffer(ptr, dtype=np.uint8).reshape((image.height(), image.width(), 4)).copy()
+
+
+  array = logo_rgba("gradient-plain-dark.svg")  # (824, 824, 4) uint8
+  ```
+
+- **With `cairosvg`** (works out of the box on macOS/Linux; needs `libcairo` on
+  Windows), decode the PNG with `imageio` (which napari already ships):
+
+  ```py
+  import cairosvg
+  import imageio.v3 as iio
+
+  png = cairosvg.svg2png(url=str(logo_path("gradient-plain-dark.svg")))
+  array = iio.imread(png)  # (824, 824, 4) uint8
+  ```
+
+- **For a PNG *file* with no code**, download the pre-built PNGs from the
+  [GitHub releases](https://github.com/napari/resources/releases) (CI builds
+  them), or run the generator locally with `-p` (needs inkscape):
+  `uv run python -m napari_resources.generate_logos generated -p`.
+
+The same lookup with `importlib.resources` directly:
+
+```py
+from importlib import resources
+
+path = resources.files("napari_resources.resources.logos") / "generated" / "gradient-plain-dark.svg"
+```
+
+To enumerate the available logos (e.g. to build a picker), use
+`logo_variants` and `logo_templates`. Generated filenames are
+`<variant>-<template>-<mode>.svg`:
+
+```py
+from napari_resources import logo_path, logo_templates, logo_variants
+
+for variant in logo_variants():
+    for template in logo_templates():
+        for mode in ("light", "dark"):
+            logo_path(f"{variant}-{template}-{mode}.svg")
+```
+
+### Adding or editing logos
+
+Logos are generated by combining a `variant` (the icon) with a `template` (the
+arrangement). To add a new logo, add a variant to `variants/` that follows the
+same structure as the existing ones: group hierarchy and labels in inkscape
+must be maintained (such as `outer-border` and `logo`).
+
+> [!IMPORTANT]
+> If you add text to a variant or template, convert the Object to Path before saving it, so it will work even on systems where the font is not available! Also, use the custom AlataPlus font when appropriate.
+
+The SVGs are regenerated into `src/napari_resources/resources/logos/generated/`
+whenever the package is built or (re)installed. After editing a template or
+variant, either force a rebuild with `uv sync --reinstall-package
+napari-resources` (or `pip install -e .`), or regenerate straight into that
+directory — editable installs read directly from the source tree, so the new
+logos are picked up immediately without reinstalling:
+
+```sh
+mkdir -p src/napari_resources/resources/logos/generated
+uv run python -m napari_resources.generate_logos src/napari_resources/resources/logos/generated
+```
+
+The `-p -i --montage` flags (which require inkscape/imagemagick/icnsutils) are
+only used in CI to build the release assets into `./generated`; omit them for a
+plain SVG preview.
+
+You can also pass custom files to `variant` and `templates` and a custom color
+to `mode` to try out new versions without adding them to the package; see the
+`-h` for all options.
+
+## fonts
+
+The "napari" font `AlataPlus` is a merge of
+[Alata](https://fonts.google.com/specimen/Alata) with glyphs from
+[M_PLUS_1p](https://fonts.google.com/specimen/M+PLUS+1p). The compiled font
+ships with the package, so it is available automatically; it is only
+regenerated from its sources when the underlying fonts change
+(`uv run python -m napari_resources.generate_font <dest_dir>`).
+
+[CC-BY-NC-ND 4.0]: https://creativecommons.org/licenses/by-nc-nd/4.0/

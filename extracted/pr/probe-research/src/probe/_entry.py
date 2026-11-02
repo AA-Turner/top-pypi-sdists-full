@@ -53,7 +53,7 @@ def _never_waits(args: list[str]) -> bool:
     """A start that must never wait for an update: a hook's (its deadline is
     the agent's turn, plan D12: only while it is live, never a detached job's
     that outlived its hook, `barrier.hook_deadline_live`)."""
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     return barrier.hook_deadline_live()
 
@@ -62,7 +62,7 @@ def _rerun(argv: list[str] | None) -> int:
     """Run this same command again in a fresh interpreter, on the code the
     update just installed. This process imported `probe.service` (the barrier,
     its paths) before the files were replaced, and the new CLI loaded on top
-    of those old modules fails (`module 'probe.service.procid' has no
+    of those old modules fails (`module 'probe.foundation.service_api.procid' has no
     attribute 'exists'`, CLI 0.286.0 -> main, release gate 2026-10-25).
     POSIX: exec (same pid, stdin and exit status). Windows: exec does not
     keep the console's wait, so a child whose exit status is returned."""
@@ -99,7 +99,7 @@ def _update_barrier(argv: list[str] | None) -> int | None:
     to be replaced. A read-only command waits like any other: busy would fail
     an agent's command mid-work."""
     try:
-        from probe.service import barrier
+        from probe.service.updater.quiet import barrier
     except Exception:  # noqa: BLE001 -- never a reason not to run `probe`
         return None
     args = sys.argv[1:] if argv is None else argv

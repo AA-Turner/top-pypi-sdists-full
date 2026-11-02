@@ -3,7 +3,7 @@
 The server answers a machine with an open request with `X-Probe-Update-Requested`;
 the client that got it leaves a mark (`probe.foundation.remote_settings.update`), and the
 next `probe` command hands an update to the machine's own updater
-(`probe.cli.main._remote_update_notice`). What each test pins would fail
+(`probe.cli.lifecycle.notices.remote_update._remote_update_notice`). What each test pins would fail
 silently: a request no client ever notices, an update started from inside a
 training loop or against the person's own auto-update setting, one ask per
 command instead of one per window, or a CLI that keeps asking after the server
@@ -244,7 +244,7 @@ def test_never_from_a_run_command_the_service_the_daemon_or_the_wizard(service, 
 
 
 def test_never_from_a_command_the_service_runs_itself(service, monkeypatch):
-    from probe.service.paths import SERVICE_CHILD_ENV
+    from probe.foundation.service_api.paths import SERVICE_CHILD_ENV
 
     _enable()
     _mark()

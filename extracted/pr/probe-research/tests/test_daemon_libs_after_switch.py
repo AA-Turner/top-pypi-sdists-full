@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import bootstrap, daemon_cli, install_pipeline
+from probe.cli.install import bootstrap, install as install_pipeline
+from probe.cli.commands.daemon import daemon as daemon_cli
 
 
 @pytest.fixture

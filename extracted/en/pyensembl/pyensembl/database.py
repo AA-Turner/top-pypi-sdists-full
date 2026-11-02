@@ -1,0 +1,1014 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from contextlib import contextmanager
+import hashlib
+import json
+import logging
+import os
+from os.path import basename, split, join, exists, splitext
+import sqlite3
+from typing import Any
+
+import datacache
+
+from .common import memoize
+from .normalization import normalize_chromosome, normalize_strand
+from .locus import Locus
+from .versioned_ids import _split_ens_version, match_version
+
+# Increment when feature-table layout changes. Local source identity is an
+# additional PyEnsembl check, so existing remote databases remain reusable.
+DATABASE_SCHEMA_VERSION = 3
+_SOURCE_TABLE = "_pyensembl_gtf_source"
+GENETIC_CODE_SOURCE_TABLE = "_pyensembl_genetic_code_source"
+
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _gtf_progress(gtf_path, enabled):
+    """Yield a gtfparse progress callback drawing one bar per parsing stage."""
+    if not enabled:
+        yield None
+        return
+    from tqdm.auto import tqdm
+
+    labels = {
+        "read": "Reading " + basename(gtf_path),
+        "attributes": "Parsing GTF attributes",
+        "convert": "Converting GTF rows",
+    }
+    with tqdm(unit="rows", leave=False) as bar:
+
+        def report(stage, completed, total):
+            label = labels.get(stage, stage)
+            if bar.desc != label:
+                bar.reset(total=total)
+                bar.set_description_str(label)
+            bar.total = total  # None until gtfparse knows the row count.
+            bar.update(completed - bar.n)
+
+        yield report
+
+
+def _file_state(path):
+    """File identity that changes for ordinary in-place edits and replacements."""
+    stat = os.stat(path)
+    return [stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino]
+
+
+def _source_state(gtf_path, source):
+    state = {"source": source, "gtf": _file_state(gtf_path)}
+    if "://" not in source:
+        try:
+            state["original"] = _file_state(source)
+        except FileNotFoundError:
+            if os.path.abspath(gtf_path) == source:
+                raise
+            # A copied local source remains usable after its original is removed.
+            state["original"] = None
+    return state
+
+
+def _source_digest(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _stored_source(connection):
+    try:
+        row = connection.execute(
+            'SELECT state, sha256 FROM "' + _SOURCE_TABLE + '"'
+        ).fetchone()
+        if row:
+            state = json.loads(row[0])
+            if (isinstance(state, dict) and isinstance(row[1], str)
+                    and len(row[1]) == 64
+                    and all(char in "0123456789abcdef" for char in row[1])):
+                return state, row[1]
+        return None
+    except (sqlite3.Error, ValueError, TypeError):
+        return None
+
+
+def _source_matches(connection, gtf_path, source, verify_hash=False):
+    stored = _stored_source(connection)
+    if stored is None:
+        return False
+    try:
+        current = _source_state(gtf_path, source)
+    except OSError:
+        return False
+    previous, sha256 = stored
+    if current["source"] != previous.get("source") or current["gtf"] != previous.get("gtf"):
+        return False
+    if "original" in current and current["original"] is not None:
+        if current["original"] != previous.get("original"):
+            return False
+    if not verify_hash:
+        return True
+    try:
+        return _source_digest(gtf_path) == sha256
+    except OSError:
+        return False
+
+
+def annotation_db_filename(gtf_path, source):
+    """Separate attached local GTFs even when they share a basename."""
+    base = splitext(basename(gtf_path))[0]
+    if "://" in source:
+        return base + ".db"
+    source = os.path.abspath(source)
+    return "%s-%s.db" % (base, hashlib.sha256(source.encode()).hexdigest()[:16])
+
+
+def is_complete_database(path, gtf_path=None, source=None):
+    """Whether a GTF database finished building; reads without writing.
+
+    datacache stores the schema version last, marking a complete build. When
+    given a local source, also compare its recorded identity without hashing.
+    """
+    try:
+        connection = datacache.connect_if_correct_version(
+            path, DATABASE_SCHEMA_VERSION, read_only=True
+        )
+    except (sqlite3.Error, OSError, ValueError):
+        return False
+    if connection is None:
+        return False
+    try:
+        return (gtf_path is None or source is None or "://" in source
+                or _source_matches(connection, gtf_path, os.path.abspath(source)))
+    finally:
+        connection.close()
+
+
+class Database(object):
+    """
+    Wrapper around sqlite3 database so that the rest of the
+    library doesn't have to worry about constructing the .db file or
+    writing SQL queries directly.
+    """
+
+    def __init__(
+        self,
+        gtf_path,
+        install_string=None,
+        cache_directory_path=None,
+        restrict_gtf_columns=None,
+        restrict_gtf_features=None,
+        source=None,
+    ):
+        """
+        Parameters
+        ----------
+        gtf_path : str
+            Path to GTF annotation file
+
+        install_string : str
+            Message to tell user if database connection is requested before
+            database is created.
+
+        cache_directory_path : str
+            Path to directory where database should be written. If omitted
+            then use path of GTF file.
+
+        restrict_gtf_columns : list/set of str or None
+            If provided then extract only these columns before creating
+            a database.
+
+        restrict_gtf_features : list/set of str or None
+            If provided then only create tables for these features.
+
+        source : str, optional
+            Configured GTF path or URL, before an optional local copy into
+            the cache. Local paths distinguish same-basename indexes.
+
+        """
+        self.gtf_path = os.fspath(gtf_path)
+        self.source = os.fspath(source or gtf_path)
+        if "://" not in self.source:
+            self.source = os.path.abspath(self.source)
+        self.restrict_gtf_columns = restrict_gtf_columns
+        self.restrict_gtf_features = restrict_gtf_features
+        self.gtf_directory_path, self.gtf_filename = split(self.gtf_path)
+        self.gtf_base_filename = splitext(self.gtf_filename)[0]
+
+        # if cache directory isn't given then put cached files
+        # alongside the GTF
+        if cache_directory_path:
+            self.cache_directory_path = cache_directory_path
+        else:
+            self.cache_directory_path = self.gtf_directory_path
+
+        self.install_string = install_string
+        self._connection = None
+        # dictionary mapping table names to sets of columns
+        self._columns = {}
+        # dictionary mapping ID columns to whether any stored ID has a version
+        self._versioned_id_columns = {}
+
+    def clear_cache(self):
+        """Clear query results and schema metadata cached in memory."""
+        self._columns.clear()
+        self._versioned_id_columns.clear()
+        type(self).query.clear_cache(self)
+        type(self).query_feature_values.clear_cache(self)
+
+    def close(self):
+        """Close the active SQLite connection, if any."""
+        connection = getattr(self, "_connection", None)
+        if connection is not None:
+            connection.close()
+            self._connection = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            # Destructors must not raise during interpreter shutdown. Explicit
+            # close() and context-manager use still surface closure failures.
+            pass
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.gtf_path == other.gtf_path
+
+    def __str__(self):
+        return "Database(gtf_path=%s)" % (self.gtf_path,)
+
+    def __hash__(self):
+        return hash((self.gtf_path))
+
+    @property
+    def local_db_filename(self):
+        return annotation_db_filename(self.gtf_path, self.source)
+
+    @property
+    def local_db_path(self):
+        return join(self.cache_directory_path, self.local_db_filename)
+
+    def _all_possible_indices(self, column_names):
+        """
+        Create list of tuples containing all possible index groups
+        we might want to create over tables in this database.
+
+        If a set of genome annotations is missing some column we want
+        to index on, we have to drop any indices which use that column.
+
+        A specific table may later drop some of these indices if they're
+        missing  values for that feature or are the same as the table's primary key.
+        """
+        candidate_column_groups = [
+            ["seqname", "start", "end"],
+            ["gene_name"],
+            ["gene_id"],
+            ["transcript_id"],
+            ["transcript_name"],
+            ["exon_id"],
+            ["protein_id"],
+            ["ccds_id"],
+        ]
+        indices = []
+        column_set = set(column_names)
+        # Since queries are often restricted by feature type
+        # we should include that column in combination with all
+        # other indices we anticipate might improve performance
+        for column_group in candidate_column_groups:
+            skip = False
+            for column_name in column_group:
+                # some columns, such as 'exon_id',
+                # are not available in all releases of Ensembl (or
+                # other GTFs)
+                if column_name not in column_set:
+                    logger.debug(
+                        "Skipping database index for {%s}", ", ".join(column_group)
+                    )
+                    skip = True
+            if skip:
+                continue
+            indices.append(column_group)
+        return indices
+
+    # mapping from database tables to their primary keys
+    # sadly exon IDs *are* not unique, so can't be in this dict
+    PRIMARY_KEY_COLUMNS = {"gene": "gene_id", "transcript": "transcript_id"}
+
+    # Table defining each kind of ID, and the column where Ensembl GTFs record
+    # its version (GENCODE GTFs embed the version in the ID instead)
+    ID_VERSION_COLUMNS = {
+        "gene_id": ("gene", "gene_version"),
+        "transcript_id": ("transcript", "transcript_version"),
+        "exon_id": ("exon", "exon_version"),
+        "protein_id": ("CDS", "protein_version"),
+    }
+
+    def _get_primary_key(self, feature_name, feature_df):
+        """Name of primary key for a feature table (e.g. "gene" -> "gene_id")
+
+        Since we're potentially going to run this code over unseen data,
+        make sure that the primary is unique and never null.
+
+        If a feature doesn't have a primary key, return None.
+        """
+        if feature_name not in self.PRIMARY_KEY_COLUMNS:
+            return None
+        primary_key = self.PRIMARY_KEY_COLUMNS[feature_name]
+        primary_key_values = feature_df[primary_key]
+        if primary_key_values.isnull().any():
+            raise ValueError(
+                "Column '%s' can't be primary key of table '%s'"
+                " because it contains nulls values" % (primary_key, feature_name)
+            )
+        elif len(primary_key_values.unique()) < len(primary_key_values):
+            raise ValueError(
+                "Column '%s' can't be primary key of table '%s'"
+                " because it contains repeated values" % (primary_key, feature_name)
+            )
+        else:
+            return primary_key
+
+    def _feature_indices(self, all_index_groups, primary_key, feature_df):
+        """Choose subset of index group tuples from `all_index_groups` which are
+        applicable to a particular feature (not same as its primary key, have
+        non-null values).
+        """
+        # each feature only gets indices if they're *not* the
+        # primary key and have non-null values in the feature's
+        # subset of data
+        result = []
+        for index_group in all_index_groups:
+            # is the index group just a primary key?
+            if len(index_group) == 1 and index_group[0] == primary_key:
+                continue
+            index_column_values = feature_df[index_group]
+            if len(index_column_values.dropna()) == 0:
+                continue
+            result.append(index_group)
+        return result
+
+    def create(self, overwrite=False, show_progress=False):
+        """
+        Create the local database (including indexing) if it's not
+        already set up. If `overwrite` is True, always re-create
+        the database from scratch. `show_progress` displays row insertion
+        progress.
+
+        Returns a connection to the database.
+        """
+        if not overwrite and exists(self.local_db_path):
+            connection = self._get_connection()
+            if connection is not None:
+                return connection
+            overwrite = True
+        logger.info("Creating database: %s", self.local_db_path)
+        datacache.ensure_dir(self.cache_directory_path)
+        local_source = "://" not in self.source
+        source_before = _source_state(self.gtf_path, self.source) if local_source else None
+        genetic_code_state = _file_state(self.gtf_path)
+
+        df = self._load_gtf_as_dataframe(
+            usecols=self.restrict_gtf_columns,
+            features=self.restrict_gtf_features,
+            show_progress=show_progress,
+        )
+        if hasattr(df, "to_pandas"):
+            df = df.to_pandas()
+        # Optional additive columns mark that source declarations were read.
+        # Old schema-3 databases remain valid; metadata lookup falls back to
+        # their local GTF without altering or rebuilding those databases.
+        for column in ("transl_table", "translation_table"):
+            if (self.restrict_gtf_columns is None or column in self.restrict_gtf_columns) and column not in df:
+                df[column] = ""
+        all_index_groups = self._all_possible_indices(df.columns)
+
+        if self.restrict_gtf_features:
+            feature_names = self.restrict_gtf_features
+        else:
+            # split single DataFrame into dictionary mapping each unique
+            # feature name onto that subset of the data
+            feature_names = df["feature"].unique()
+        dataframes = {}
+        # every table gets the same set of indices
+        indices_dict = {}
+        # if a feature has an ID then make it that table's primary key
+        primary_keys = {}
+
+        for feature in feature_names:
+            df_subset = df[df["feature"] == feature]
+            if len(df_subset) == 0:
+                continue
+            dataframes[feature] = df_subset
+
+            primary_key = self._get_primary_key(feature, df_subset)
+            if primary_key:
+                primary_keys[feature] = primary_key
+
+            indices_dict[feature] = self._feature_indices(
+                all_index_groups, primary_key, df_subset
+            )
+
+        self._connection = datacache.db_from_dataframes_with_absolute_path(
+            db_path=self.local_db_path,
+            table_names_to_dataframes=dataframes,
+            table_names_to_primary_keys=primary_keys,
+            table_names_to_indices=indices_dict,
+            overwrite=overwrite,
+            version=DATABASE_SCHEMA_VERSION,
+            show_progress=show_progress,
+        )
+        if ({"transl_table", "translation_table"}.issubset(df.columns)
+                and (self.restrict_gtf_features is None
+                     or {"transcript", "CDS"}.issubset(self.restrict_gtf_features))):
+            if _file_state(self.gtf_path) != genetic_code_state:
+                self.close()
+                raise OSError("GTF source changed while its index was being built")
+            self._connection.execute('CREATE TABLE "' + GENETIC_CODE_SOURCE_TABLE + '" (state TEXT)')
+            self._connection.execute(
+                'INSERT INTO "' + GENETIC_CODE_SOURCE_TABLE + '" VALUES (?)',
+                (json.dumps(genetic_code_state),),
+            )
+            self._connection.commit()
+        if local_source:
+            if _source_state(self.gtf_path, self.source) != source_before:
+                self.close()
+                raise OSError("GTF source changed while its index was being built")
+            digest = _source_digest(self.gtf_path)
+            if _source_state(self.gtf_path, self.source) != source_before:
+                self.close()
+                raise OSError("GTF source changed while its index was being built")
+            self._connection.execute(
+                'CREATE TABLE IF NOT EXISTS "' + _SOURCE_TABLE + '" (state TEXT, sha256 TEXT)'
+            )
+            self._connection.execute('DELETE FROM "' + _SOURCE_TABLE + '"')
+            self._connection.execute(
+                'INSERT INTO "' + _SOURCE_TABLE + '" VALUES (?, ?)',
+                (json.dumps(source_before, sort_keys=True), digest),
+            )
+            self._connection.commit()
+        return self._connection
+
+    def _get_connection(self):
+        if self._connection is not None and "://" not in self.source and not _source_matches(
+            self._connection, self.gtf_path, self.source
+        ):
+            self.close()
+            self.clear_cache()
+        if self._connection is None:
+            if exists(self.local_db_path):
+                # since version metadata is filled in last in datacache,
+                # checking for a version also implicitly checks for
+                # having finishing fill in all the tables/rows.
+                #
+                # TODO: expose this more explicitly in datacache
+                #
+                self._connection = datacache.connect_if_correct_version(
+                    self.local_db_path, DATABASE_SCHEMA_VERSION
+                )
+                if self._connection is not None and "://" not in self.source:
+                    if not _source_matches(
+                        self._connection, self.gtf_path, self.source, verify_hash=True
+                    ):
+                        self.close()
+        return self._connection
+
+    @property
+    def connection(self):
+        """
+        Get a connection to the database or raise an exception
+        """
+        connection = self._get_connection()
+        if connection:
+            return connection
+        else:
+            message = "GTF database needs to be created"
+            if self.install_string:
+                message += ", run: %s" % self.install_string
+            raise ValueError(message)
+
+    def connect_or_create(self, overwrite=False, show_progress=False):
+        """
+        Return a connection to the database if it exists, otherwise create it.
+        With `overwrite`, rebuild it from the GTF even if it exists.
+        """
+        if not overwrite:
+            connection = self._get_connection()
+            if connection:
+                return connection
+        # datacache rebuilds in place; don't hold our own reader open meanwhile,
+        # and don't answer later queries from results cached before the rebuild.
+        self.close()
+        self.clear_cache()
+        return self.create(overwrite=overwrite, show_progress=show_progress)
+
+    def columns(self, table_name):
+        if self._columns.get(table_name) is None:
+            sql = "PRAGMA table_info(%s)" % table_name
+            table_info = self.connection.execute(sql).fetchall()
+            column_set = set([info[1] for info in table_info])
+            self._columns[table_name] = column_set
+        return self._columns[table_name]
+
+    def column_exists(self, table_name, column_name):
+        return column_name in self.columns(table_name)
+
+    def column_values_at_locus(
+        self,
+        column_name: str,
+        feature: str,
+        contig: str | int,
+        position: int,
+        end: int | None = None,
+        strand: str | None = None,
+        distinct: bool = False,
+        sorted: bool = False,
+    ) -> list[Any]:
+        """
+        Get the non-null values of a column from the database
+        at a particular range of loci
+        """
+
+        # TODO: combine with the query method, since they overlap
+        # significantly
+        if not isinstance(column_name, str):
+            raise TypeError("column_name must be a string, got %r" % type(column_name))
+        if not column_name:
+            raise ValueError("column_name: string must be nonempty.")
+
+        contig = normalize_chromosome(contig)
+
+        if not isinstance(position, int):
+            raise TypeError("position must be an integer, got %r" % type(position))
+
+        if end is None:
+            end = position
+
+        if not isinstance(end, int):
+            raise TypeError("end must be an integer, got %r" % type(end))
+
+        if not self.column_exists(feature, column_name):
+            raise ValueError(
+                "Table %s doesn't have column %s"
+                % (
+                    feature,
+                    column_name,
+                )
+            )
+
+        if distinct:
+            distinct_string = "DISTINCT "
+        else:
+            distinct_string = ""
+
+        query = """
+            SELECT %s%s
+            FROM %s
+            WHERE seqname = ?
+            AND start <= ?
+            AND end >= ?
+
+        """ % (
+            distinct_string,
+            column_name,
+            feature,
+        )
+
+        query_params = [contig, end, position]
+
+        if strand:
+            query += " AND strand = ?"
+            query_params.append(strand)
+
+        tuples = self.connection.execute(query, query_params).fetchall()
+
+        # each result is a tuple, so pull out its first element
+        results = [t[0] for t in tuples if t[0] is not None]
+
+        if sorted:
+            results.sort()
+        return results
+
+    def distinct_column_values_at_locus(
+        self, column: str, feature: str, contig: str | int, position: int,
+        end: int | None = None, strand: str | None = None,
+    ) -> list[Any]:
+        """
+        Gather all the distinct values for a property/column at some specified
+        locus.
+
+        Parameters
+        ----------
+        column : str
+            Which property are we getting the values of.
+
+        feature : str
+            Which type of entry (e.g. transcript, exon, gene) is the property
+            associated with?
+
+        contig : str
+            Chromosome or unplaced contig name
+
+        position : int
+            Chromosomal position
+
+        end : int, optional
+            End position of a range, if unspecified assume we're only looking
+            at the single given position.
+
+        strand : str, optional
+            Either the positive ('+') or negative strand ('-'). If unspecified
+            then check for values on either strand.
+        """
+        return self.column_values_at_locus(
+            column,
+            feature,
+            contig,
+            position,
+            end=end,
+            strand=strand,
+            distinct=True,
+            sorted=True,
+        )
+
+    def run_sql_query(self, sql, required=False, query_params=[]):
+        """
+        Given an arbitrary SQL query, run it against the database
+        and return the results.
+
+        Parameters
+        ----------
+        sql : str
+            SQL query
+
+        required : bool
+            Raise an error if no results found in the database
+
+        query_params : list
+            For each '?' in the query there must be a corresponding value in
+            this list.
+        """
+        try:
+            cursor = self.connection.execute(sql, query_params)
+        except sqlite3.OperationalError as e:
+            logger.warning(
+                'Encountered error "%s" from query "%s" with parameters %s',
+                e,
+                sql,
+                query_params,
+            )
+            raise
+        results = cursor.fetchall()
+        if required and not results:
+            raise ValueError(
+                "No results found for query:\n%s\nwith parameters: %s"
+                % (sql, query_params)
+            )
+
+        return results
+
+    @memoize
+    def query(
+        self,
+        select_column_names,
+        filter_column,
+        filter_value,
+        feature,
+        distinct=False,
+        required=False,
+    ):
+        """
+        Construct a SQL query and run against the sqlite3 database,
+        filtered both by the feature type and a user-provided column/value.
+        """
+        sql = """
+            SELECT %s%s
+            FROM %s
+            WHERE %s = ?
+        """ % (
+            "distinct " if distinct else "",
+            ", ".join(select_column_names),
+            feature,
+            filter_column,
+        )
+        results = self.run_sql_query(sql, query_params=[filter_value])
+        if not results and filter_column in self.ID_VERSION_COLUMNS:
+            # Retry with the form this annotation stores, e.g. a bare ID for a
+            # versioned one; resolving only on a miss keeps hits to one query
+            stored_id = self.stored_id(filter_column, filter_value)
+            if stored_id != filter_value:
+                results = self.run_sql_query(sql, query_params=[stored_id])
+        if required and not results:
+            raise ValueError(
+                "No results found for query:\n%s\nwith parameters: %s"
+                % (sql, [filter_value])
+            )
+        return results
+
+    def stored_id(self, id_column, identifier):
+        """
+        Form in which this annotation stores a gene, transcript, exon or
+        protein ID, or the ID unchanged if it is absent or stored as given.
+
+        A bare Ensembl ID matches whatever version is installed. A versioned
+        ID must match the installed version: ``ValueError`` if the annotation
+        records a different version or none. Other IDs, such as TAIR
+        ``AT1G01010.1``, are returned unchanged.
+        """
+        if not isinstance(identifier, str) or not identifier.startswith("ENS"):
+            return identifier
+        _, version = _split_ens_version(identifier)
+        if version is None and not self._stores_versioned_ids(id_column):
+            # Without stored versions, a bare ID can only match itself
+            return identifier
+        installed = self.installed_versions(id_column, identifier)
+        return match_version(identifier, installed) or identifier
+
+    def installed_versions(self, id_column, identifier):
+        """
+        Stored forms of an Ensembl gene, transcript, exon or protein ID, with
+        or without a version, each mapped to its recorded version or ``None``.
+        """
+        table, version_column = self.ID_VERSION_COLUMNS[id_column]
+        if not self.column_exists(table, id_column):
+            return {}
+        bare, _ = _split_ens_version(identifier)
+        has_version = self.column_exists(table, version_column)
+        # Stored forms of this stable ID ("bare", "bare.N") sort between
+        # bare and bare + "/", since "." < "/"
+        sql = "SELECT DISTINCT %s%s FROM %s WHERE %s >= ? AND %s < ?" % (
+            id_column,
+            ", " + version_column if has_version else "",
+            table,
+            id_column,
+            id_column,
+        )
+        installed = {}
+        for row in self.run_sql_query(sql, query_params=[bare, bare + "/"]):
+            stored_bare, recorded = _split_ens_version(row[0])
+            if stored_bare != bare:
+                continue
+            if recorded is None and has_version and row[1]:
+                recorded = int(row[1])
+            installed[row[0]] = recorded
+        return installed
+
+    def _stores_versioned_ids(self, id_column):
+        """Whether any stored ID of this kind carries a version, as in GENCODE."""
+        if id_column not in self._versioned_id_columns:
+            table, _ = self.ID_VERSION_COLUMNS[id_column]
+            # One scan per column, so misses on bare IDs in annotations
+            # without stored versions skip the per-ID range query
+            sql = "SELECT 1 FROM %s WHERE %s GLOB 'ENS*.[0-9]*' LIMIT 1" % (
+                table,
+                id_column,
+            )
+            self._versioned_id_columns[id_column] = self.column_exists(
+                table, id_column
+            ) and bool(self.run_sql_query(sql))
+        return self._versioned_id_columns[id_column]
+
+    def query_one(
+        self,
+        select_column_names,
+        filter_column,
+        filter_value,
+        feature,
+        distinct=False,
+        required=False,
+    ):
+        results = self.query(
+            select_column_names,
+            filter_column,
+            filter_value,
+            feature,
+            distinct=distinct,
+            required=required,
+        )
+
+        if len(results) == 0:
+            if required:
+                raise ValueError("%s not found: %s" % (filter_column, filter_value))
+            else:
+                return None
+        elif len(results) > 1:
+            raise ValueError(
+                "Found multiple entries with %s=%s (%s)"
+                % (filter_column, filter_value, results)
+            )
+        return results[0]
+
+    @memoize
+    def query_feature_values(
+        self, column, feature, distinct=True, contig=None, strand=None, biotype=None
+    ):
+        """
+        Run a SQL query against the sqlite3 database, filtered
+        only on the feature type.
+        """
+        query = """
+            SELECT %s%s
+            FROM %s
+            WHERE 1=1
+        """ % (
+            "DISTINCT " if distinct else "",
+            column,
+            feature,
+        )
+        query_params = []
+
+        if contig:
+            contig = normalize_chromosome(contig)
+            query += " AND seqname = ?"
+            query_params.append(contig)
+
+        if strand:
+            strand = normalize_strand(strand)
+            query += " AND strand = ?"
+            query_params.append(strand)
+
+        if biotype is not None:
+            biotype_column = "%s_biotype" % feature
+            if not self.column_exists(feature, biotype_column):
+                raise ValueError(
+                    "Cannot filter by biotype: table %r has no column %r"
+                    % (feature, biotype_column)
+                )
+            query += " AND %s = ?" % biotype_column
+            query_params.append(biotype)
+
+        rows = self.run_sql_query(query, query_params=query_params)
+        return [row[0] for row in rows if row is not None]
+
+    def query_loci(self, filter_column, filter_value, feature):
+        """
+        Query for loci satisfying a given filter and feature type.
+
+
+        Parameters
+        ----------
+        filter_column : str
+            Name of column to filter results by.
+
+        filter_value : str
+            Only return loci which have this value in the their filter_column.
+
+        feature : str
+            Feature names such as 'transcript', 'gene', and 'exon'
+
+        Returns
+        -------
+        list of Locus
+            Matching genomic loci.
+        """
+        # list of values containing (contig, start, stop, strand)
+        result_tuples = self.query(
+            select_column_names=["seqname", "start", "end", "strand"],
+            filter_column=filter_column,
+            filter_value=filter_value,
+            feature=feature,
+            distinct=True,
+            required=True,
+        )
+        return [
+            Locus(contig, start, end, strand)
+            for (contig, start, end, strand) in result_tuples
+        ]
+
+    def query_locus(self, filter_column, filter_value, feature):
+        """
+        Query for unique locus, raises error if missing or more than
+        one locus in the database.
+
+        Parameters
+        ----------
+        filter_column : str
+            Name of column to filter results by.
+
+        filter_value : str
+            Only return loci which have this value in the their filter_column.
+
+        feature : str
+            Feature names such as 'transcript', 'gene', and 'exon'
+
+        Returns
+        -------
+        Locus
+            The unique matching genomic locus.
+        """
+        loci = self.query_loci(
+            filter_column=filter_column, filter_value=filter_value, feature=feature
+        )
+
+        if len(loci) == 0:
+            raise ValueError(
+                "Couldn't find locus for %s with %s = %s"
+                % (feature, filter_column, filter_value)
+            )
+        elif len(loci) > 1:
+            raise ValueError(
+                "Too many loci for %s with %s = %s: %s"
+                % (feature, filter_column, filter_value, loci)
+            )
+        return loci[0]
+
+    def _load_gtf_as_dataframe(self, usecols=None, features=None, show_progress=False):
+        """
+        Parse this genome source's GTF file and load it as a Pandas DataFrame
+        """
+        # Imported here: gtfparse loads pandas and pyarrow, which only index
+        # builds need, so importing pyensembl and querying stay fast.
+        from gtfparse import GENCODE_BIOTYPE_ALIASES, create_missing_features, read_gtf
+
+        logger.info("Reading GTF from %s", self.gtf_path)
+        with _gtf_progress(self.gtf_path, show_progress) as progress_callback:
+            df = read_gtf(
+                self.gtf_path,
+                # SQLite ingestion uses pandas (the default from gtfparse 3;
+                # gtfparse 2.9 returns Polars unless asked).
+                result_type="pandas",
+                column_converters={
+                    "seqname": normalize_chromosome,
+                    "strand": normalize_strand,
+                },
+                # GENCODE GTFs use gene_type / transcript_type where Ensembl uses
+                # gene_biotype / transcript_biotype. attribute_aliases (gtfparse
+                # 2.7.0+) renames the GENCODE columns onto the Ensembl names at
+                # parse time so the rest of pyensembl can stay Ensembl-centric.
+                attribute_aliases=GENCODE_BIOTYPE_ALIASES,
+                # Opt out of gtfparse's Int64 cast for *_version columns: when
+                # any row is missing a version (e.g. start_codon rows that
+                # don't carry transcript_version), pandas' nullable Int64
+                # routes through float on the sqlite write path and stores as
+                # "7.0" text, which then breaks our `int(result[0])` parse.
+                # pyensembl handles the string→int conversion itself on the
+                # `*.version` property side.
+                cast_version_columns=False,
+                infer_biotype_column=True,
+                usecols=usecols,
+                features=features,
+                progress_callback=progress_callback,
+            )
+
+        column_names = set(df.columns)
+        expect_gene_feature = features is None or "gene" in features
+        expect_transcript_feature = features is None or "transcript" in features
+        observed_features = set(df["feature"])
+
+        # older Ensembl releases don't have "gene" or "transcript"
+        # features, so fill in those rows if they're missing
+        if expect_gene_feature and "gene" not in observed_features:
+            # if we have to reconstruct gene feature rows then
+            # fill in values for 'gene_name' and 'gene_biotype'
+            # but only if they're actually present in the GTF
+            logger.info("Creating missing gene features...")
+
+            df = create_missing_features(
+                dataframe=df,
+                unique_keys={"gene": "gene_id"},
+                extra_columns={
+                    "gene": {"gene_name", "gene_biotype"}.intersection(column_names),
+                },
+                missing_value="",
+            )
+            logger.debug("Done.")
+
+        if (expect_transcript_feature and "transcript" not in observed_features
+                and "transcript_id" in column_names):
+            logger.info("Creating missing transcript features...")
+            df = create_missing_features(
+                dataframe=df,
+                unique_keys={"transcript": "transcript_id"},
+                extra_columns={
+                    "transcript": {
+                        "gene_id",
+                        "gene_name",
+                        "gene_biotype",
+                        "transcript_name",
+                        "transcript_biotype",
+                        "protein_id",
+                    }.intersection(column_names)
+                },
+                missing_value="",
+            )
+            logger.debug("Done.")
+
+        return df

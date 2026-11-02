@@ -51,6 +51,8 @@ class FakeClock:
 @pytest.fixture
 def clock(monkeypatch) -> FakeClock:
     fake = FakeClock()
+    monkeypatch.setattr(transport.blobs, "time", fake)
+    monkeypatch.setattr(transport.deadlines, "time", fake)
     monkeypatch.setattr(transport.transport, "time", fake)
     monkeypatch.setattr(transport.blobs, "time", fake)
     monkeypatch.setattr(transport.deadlines, "time", fake)

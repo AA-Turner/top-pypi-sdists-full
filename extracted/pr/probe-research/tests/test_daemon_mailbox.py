@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import daemon_cli
+from probe.cli.commands.daemon import daemon as daemon_cli
 from probe.cli.main import app
 from probe.shared import mailbox
 from probe.daemon.store.store import store_path

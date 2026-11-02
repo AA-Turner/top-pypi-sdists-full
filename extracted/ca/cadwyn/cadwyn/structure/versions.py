@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import email.message
 import functools
@@ -9,19 +10,37 @@ import os
 import re
 import tempfile
 import threading
-from collections import Counter, defaultdict
+import uuid
+from collections import Counter, OrderedDict, defaultdict, deque
 from collections.abc import Callable, Coroutine, Hashable, Iterator, Sequence
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
-from datetime import date
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, BinaryIO, ClassVar, TypeAlias, Union, cast, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    BinaryIO,
+    ClassVar,
+    NamedTuple,
+    TypeAlias,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import fastapi.dependencies.utils
 from fastapi import BackgroundTasks, HTTPException, params
 from fastapi import Request as FastapiRequest
 from fastapi import Response as FastapiResponse
-from fastapi._compat import ModelField, is_bytes_or_nonable_bytes_annotation, is_bytes_sequence_annotation
+from fastapi._compat import (
+    ModelField,
+    field_annotation_is_sequence,
+    is_bytes_or_nonable_bytes_annotation,
+    is_bytes_sequence_annotation,
+)
 from fastapi.concurrency import run_in_threadpool
 from fastapi.dependencies.models import Dependant
 from fastapi.dependencies.utils import get_dependant, get_validation_alias, solve_dependencies
@@ -30,7 +49,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import AliasChoices, AliasPath, BaseModel, RootModel
 from pydantic.fields import FieldInfo
-from pydantic_core import PydanticUndefined
+from pydantic_core import PydanticSerializationError, PydanticUndefined, TzInfo, to_json
 from starlette._utils import is_async_callable
 from starlette.datastructures import FormData, UploadFile
 from typing_extensions import Any, ParamSpec, TypeVar, assert_never, deprecated, override
@@ -82,9 +101,9 @@ def _get_omitted_body_marker() -> Any:
 
 
 _OMITTED_BODY: Any = _get_omitted_body_marker()
-# Since FastAPI 0.159.0, FastAPI looks the dict body of a form model up under the param's aliases. We use its private
+# Since FastAPI 0.158.2, FastAPI looks the dict body of a form model up under the param's aliases. We use its private
 # functions for picking form models and their aliases, so that we pick exactly the same ones
-_FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS = tuple(map(int, re.findall(r"\d+", fastapi.__version__)[:2])) >= (0, 159)
+_FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS = tuple(map(int, re.findall(r"\d+", fastapi.__version__)[:3])) >= (0, 158, 2)
 _get_form_model = cast(
     "Callable[[ModelField], Union[type[BaseModel], None]]",
     getattr(fastapi.dependencies.utils, "_get_form_model", None),
@@ -92,12 +111,72 @@ _get_form_model = cast(
 _get_param_aliases = cast(
     "Callable[[ModelField], list[tuple[str, str]]]", getattr(fastapi.dependencies.utils, "_get_param_aliases", None)
 )
-if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS and None in (_get_form_model, _get_param_aliases):  # pragma: no cover
+_get_cached_model_fields = cast(
+    "Callable[[type[BaseModel]], list[ModelField]]",
+    getattr(fastapi.dependencies.utils, "get_cached_model_fields", None),
+)
+# Since FastAPI 0.159.1, FastAPI checks with this function whether the form supplies an optional form model
+_is_form_model_supplied = cast(
+    "Union[Callable[[type[BaseModel], FormData], bool], None]",
+    getattr(fastapi.dependencies.utils, "_is_form_model_supplied", None),
+)
+_should_embed_body_fields = cast(
+    "Callable[[list[ModelField]], bool]", getattr(fastapi.dependencies.utils, "_should_embed_body_fields", None)
+)
+_get_multidict_value = cast(
+    "Callable[[ModelField, FormData, str], Any]", getattr(fastapi.dependencies.utils, "_get_multidict_value", None)
+)
+# Since FastAPI 0.161.0, FastAPI normalizes the dict body of a union of form models with this function for each model
+_normalize_form_model = cast(
+    "Callable[..., dict[str, Any]]", getattr(fastapi.dependencies.utils, "_normalize_form_model", None)
+)
+
+
+def _get_form_models_before_fastapi_0_161(field: ModelField) -> list[type[BaseModel]]:  # pragma: no cover
+    model = _get_form_model(field)
+    return [] if model is None else [model]
+
+
+# Since FastAPI 0.161.0, unions of form models are form models too, and `_get_form_model` returns None for them
+_get_form_models = cast(
+    "Callable[[ModelField], list[type[BaseModel]]]",
+    getattr(fastapi.dependencies.utils, "_get_form_models", None)
+    or (_get_form_models_before_fastapi_0_161 if _get_form_model is not None else None),
+)
+if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS and None in (  # pragma: no cover
+    _get_form_models,
+    _get_param_aliases,
+    _get_cached_model_fields,
+    _should_embed_body_fields,
+    _get_multidict_value,
+):
     raise ImportError(
-        "Cadwyn does not support this version of FastAPI: `_get_form_model` or `_get_param_aliases` is missing from "
-        "`fastapi.dependencies.utils`. Cadwyn uses them to pass form models to FastAPI. "
-        "Please, open an issue on Cadwyn's GitHub."
+        "Cadwyn does not support this version of FastAPI: `_get_form_models` (or `_get_form_model` before FastAPI "
+        "0.161.0), `_get_param_aliases`, `get_cached_model_fields`, `_should_embed_body_fields`, or "
+        "`_get_multidict_value` is missing from `fastapi.dependencies.utils`. Cadwyn uses them to pass form models to "
+        "FastAPI. Please, open an issue on Cadwyn's GitHub."
     )
+# FastAPI 0.161.0 added `_get_form_models` along with unions of form models
+if (  # pragma: no cover
+    getattr(fastapi.dependencies.utils, "_get_form_models", None) is not None and _normalize_form_model is None
+):
+    raise ImportError(
+        "Cadwyn does not support this version of FastAPI: `_normalize_form_model` is missing from "
+        "`fastapi.dependencies.utils`. Cadwyn uses it to pass unions of form models to FastAPI. Please, open an issue "
+        "on Cadwyn's GitHub."
+    )
+if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS and not (  # pragma: no cover
+    dataclasses.is_dataclass(Dependant)
+    and all(isinstance(getattr(ModelField, name, None), property) for name in ("alias", "validation_alias"))
+):
+    raise ImportError(
+        "Cadwyn does not support this version of FastAPI: `Dependant` is not a dataclass, or `ModelField` stores its "
+        "aliases instead of taking them from its `field_info`. Cadwyn copies them with other aliases to pass form "
+        "models to FastAPI. Please, open an issue on Cadwyn's GitHub."
+    )
+# The key that FastAPI looks up the dict body of the head endpoint's form model under if another form param has its
+# alias, e.g. a form field that only an override declares. No form field has this key, so the param keeps its value
+_FORM_MODEL_BODY_KEY = "\x00cadwyn_form_model_body"
 
 # ty requires staticmethod's type arguments, but runtime isinstance() requires the bare class.
 if TYPE_CHECKING:
@@ -468,11 +547,13 @@ class VersionBundle:
         current_version: VersionType,
         head_route: APIRoute,
         *,
+        route: APIRoute,
         exit_stack: AsyncExitStack,
         embed_body_fields: bool,
         background_tasks: Union[BackgroundTasks, None],
-        body_is_model_dump: bool,
+        dumped_body_model: Union[type[BaseModel], None],
         body_is_omitted: bool,
+        form_model_is_omitted: bool,
         uploads_read_by_fastapi: "Union[_UploadPositions, None]",
     ) -> dict[str, Any]:
         start = self.reversed_version_values.index(current_version)
@@ -498,7 +579,7 @@ class VersionBundle:
         CURRENT_DEPENDENCY_SOLVER_VAR.set("cadwyn")
 
         is_body_restored = False
-        form_model_aliases: tuple[str, ...] = ()
+        form_model_lookup = _FormModelLookup(head_dependant)
         if request_info._form is not None:
             if uploads_read_by_fastapi:
                 await _rewind_uploads_read_by_fastapi(request_info._form, uploads_read_by_fastapi)
@@ -506,34 +587,53 @@ class VersionBundle:
         # A body is omitted if the request had none for FastAPI, or if a migration has set it to None
         elif request_info.body is None and (request_info._body_is_assigned or body_is_omitted):
             body_for_solving = _OMITTED_BODY
-        elif body_is_model_dump:
+        elif form_model_is_omitted:  # pragma: no cover # FastAPI >= 0.158.2
+            # A migration has set the body of an omitted form model. It isn't a dump, so we don't restore its aliases
+            body_for_solving = request_info.body
+            form_model_lookup = _get_omitted_form_model_lookup(
+                head_dependant, head_route, body_for_solving, embed_body_fields=embed_body_fields
+            )
+        elif dumped_body_model is not None:
             body_for_solving = _rescue_body(head_dependant.body_params[0], request_info.body)
             is_body_restored = body_for_solving is not request_info.body
-            form_model_aliases = _get_form_model_aliases(head_dependant, head_route)
+            body_for_solving = await _encode_json_values(
+                request, head_dependant, head_route, route, body_for_solving, embed_body_fields=embed_body_fields
+            )
+            form_model_lookup = await _get_form_model_lookup(
+                request,
+                route,
+                head_dependant,
+                head_route,
+                body_for_solving,
+                dumped_body_model,
+                embed_body_fields=embed_body_fields,
+            )
         else:
-            body_for_solving = request_info.body
+            body_for_solving = await _encode_json_values(
+                request, head_dependant, head_route, route, request_info.body, embed_body_fields=embed_body_fields
+            )
 
         # Remember this: if len(body_params) == 1, then route.body_schema == route.dependant.body_params[0]
         solve = functools.partial(
             solve_dependencies,
             request=request,
             response=response,
-            dependant=head_dependant,
+            dependant=form_model_lookup.dependant,
             dependency_overrides_provider=head_route.dependency_overrides_provider,
             async_exit_stack=exit_stack,
             embed_body_fields=embed_body_fields,
             background_tasks=background_tasks,
         )
-        result = await solve(body=_embed_form_model(body_for_solving, form_model_aliases))
+        result = await solve(body=_embed_form_model(body_for_solving, form_model_lookup))
         # We only restore bodies that would fail as they are. If the head rejects the restored body too, we solve the
         # request again with the body as it is, so that it fails with the same error as before. The second solve reuses
         # the dependencies of the first one, so they run as many times as before.
         if result.errors and is_body_restored:
             result = await solve(
-                body=_embed_form_model(request_info.body, form_model_aliases), dependency_cache=result.dependency_cache
+                body=_embed_form_model(request_info.body, form_model_lookup), dependency_cache=result.dependency_cache
             )
         if result.errors:
-            errors = _unembed_form_model_errors(result.errors, form_model_aliases)
+            errors = _unembed_form_model_errors(result.errors, form_model_lookup.aliases)
             raise CadwynHeadRequestValidationError(errors, body=request_info.body, version=current_version)
         return result.values
 
@@ -792,7 +892,9 @@ class VersionBundle:
         if api_version is None:
             return kwargs
 
-        body_is_model_dump = False
+        # The class of the model whose dump the body is, e.g. the member of a union that the request matches
+        dumped_body_model: Union[type[BaseModel], None] = None
+        form_model_is_omitted = False
         uploads_read_by_fastapi: Union[_UploadPositions, None] = None
         # This is a kind of body param you get when you define a single pydantic schema in your route's body
         if (
@@ -803,23 +905,24 @@ class VersionBundle:
             and _kwarg_can_be_the_body(route, body_field_alias, embed_body_fields=embed_body_fields)
         ):
             raw_body: Union[BaseModel, None] = kwargs.get(body_field_alias)
-            if raw_body is None:  # pragma: no cover # This is likely an impossible case but we would like to be safe
+            if raw_body is None:
                 body = None
+                form_model_is_omitted = await _form_model_is_omitted(request, route, body_field_alias)
             # It means we have a dict or a list instead of a full model.
             # This covers the following use case in the endpoint definition: "payload: dict = Body(None)"
             elif not isinstance(raw_body, BaseModel):
                 body = raw_body
             else:
                 body = raw_body.model_dump(by_alias=True, exclude_unset=True)
-                body_is_model_dump = True
+                dumped_body_model = type(raw_body)
         else:
             # This is for requests without body or with complex body such as form or file
             body = await _get_body(request, route.body_field, exit_stack)
             if isinstance(body, FormData):
                 uploads_read_by_fastapi = _get_uploads_read_by_fastapi(route, head_route, head_dependant, body)
 
-        body_is_omitted = body is None and await _fastapi_got_no_body(
-            request, route, embed_body_fields=embed_body_fields
+        body_is_omitted = body is None and (
+            form_model_is_omitted or await _fastapi_got_no_body(request, route, embed_body_fields=embed_body_fields)
         )
         request_info = RequestInfo(request, body)
         new_kwargs = await self._migrate_request(
@@ -830,11 +933,13 @@ class VersionBundle:
             request_info,
             api_version,
             head_route,
+            route=route,
             exit_stack=exit_stack,
             embed_body_fields=embed_body_fields,
             background_tasks=background_tasks,
-            body_is_model_dump=body_is_model_dump,
+            dumped_body_model=dumped_body_model,
             body_is_omitted=body_is_omitted,
+            form_model_is_omitted=form_model_is_omitted,
             uploads_read_by_fastapi=uploads_read_by_fastapi,
         )
         # Because we re-added it into our kwargs when we did solve_dependencies
@@ -861,6 +966,53 @@ async def _fastapi_got_no_body(request: FastapiRequest, route: APIRoute, *, embe
     return embed_body_fields and not is_form
 
 
+async def _form_model_is_omitted(request: FastapiRequest, route: APIRoute, body_field_alias: str) -> bool:
+    """Return whether FastAPI has given the form model body param its default because the form doesn't supply it.
+
+    Since FastAPI 0.158.2, FastAPI does so for an optional form model if the form has none of its fields. Cadwyn sees
+    that default as None, and the head would reject None as a form body, so we omit the body for the head instead.
+    """
+    if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS:  # pragma: no cover # FastAPI >= 0.158.2
+        return await _form_has_no_fields_of_omittable_form_model(request, route, body_field_alias)
+    return False
+
+
+async def _form_has_no_fields_of_omittable_form_model(  # pragma: no cover # FastAPI >= 0.158.2
+    request: FastapiRequest, route: APIRoute, body_field_alias: str
+) -> bool:
+    """Return whether the body param is a form model with a default, and FastAPI has given every body param its default.
+
+    The kwarg is the body param only if it has the param's name, and not a dependency or another param named after
+    the body's alias. FastAPI only skips the form models (or unions of them) that can be None if the form doesn't
+    supply any of them. Dependencies and their overrides can have such form models too, but if anything else in the
+    tree reads the form, we take the previous path, so that the head can't lose its values when it gets no body.
+    """
+    body_param = route.dependant.body_params[0]
+    if not _get_form_models(body_param) or body_param.name != body_field_alias or body_param.field_info.is_required():
+        return False
+    models: list[type[BaseModel]] = []
+    for dependant in _iter_dependants_that_fastapi_solves(route.dependant, route):
+        for field in dependant.body_params:
+            field_models = _get_form_models(field)
+            if not field_models or type(None) not in get_args(field.field_info.annotation):
+                return False
+            models.extend(field_models)
+    # FastAPI has already parsed the form, so this returns its cached form without reading it again or closing it
+    form = await request.form()
+    return not any(_form_supplies_form_model(model, form) for model in models)
+
+
+def _form_supplies_form_model(model: type[BaseModel], form: FormData) -> bool:  # pragma: no cover # FastAPI >= 0.158.2
+    """Return whether FastAPI validates the optional form model from the form instead of giving it its default."""
+    if _is_form_model_supplied is not None:
+        return _is_form_model_supplied(model, form)
+    # Before FastAPI 0.159.1, FastAPI checks the same inline. It takes a form model with extra fields as supplied
+    # if the form has fields that no param declares, while we take it as supplied if the form has any field
+    if model.model_config.get("extra") in ("allow", "forbid") and form:
+        return True
+    return any(alias in form for field in _get_cached_model_fields(model) for alias, _ in _get_param_aliases(field))
+
+
 def _kwarg_can_be_the_body(route: APIRoute, body_field_alias: str, *, embed_body_fields: bool) -> bool:
     """Return False if the endpoint kwarg named after the body's alias is surely not the body.
 
@@ -878,51 +1030,313 @@ def _kwarg_can_be_the_body(route: APIRoute, body_field_alias: str, *, embed_body
     )
 
 
-def _get_form_model_aliases(head_dependant: Dependant, head_route: APIRoute) -> tuple[str, ...]:
-    """Return the keys that FastAPI looks the dict body of the head's form model up under, if it does.
+class _FormModelLookup(NamedTuple):
+    """The dependant to solve for the head, and how to pass the dict body of its form model to FastAPI."""
 
-    Before FastAPI 0.159.0, FastAPI validates the dict body of a single form model as it is. Since then, the endpoint
-    and every dependency that shares the form model look it up under their own aliases instead.
+    dependant: Dependant
+    # The keys to put the dict body of the form model under
+    aliases: tuple[str, ...] = ()
+    # Since FastAPI 0.161.0, FastAPI validates every model of a union of form models from the dict body as if it were
+    # form data, so it takes a value that isn't a list as a single form value. These are the keys of the fields that
+    # FastAPI gets repeated form values for in every model of the union that has them
+    repeated_value_aliases: frozenset[str] = frozenset()
+
+
+async def _get_form_model_lookup(
+    request: FastapiRequest,
+    route: APIRoute,
+    head_dependant: Dependant,
+    head_route: APIRoute,
+    body: Any,
+    dumped_body_model: type[BaseModel],
+    *,
+    embed_body_fields: bool,
+) -> _FormModelLookup:
+    """Return the dependant to solve for the head, and the keys to put the dict body of its form model under, if any.
+
+    Before FastAPI 0.158.2, FastAPI validates the dict body of a single form model as it is. Since then, the endpoint
+    and every dependency that shares the form model look it up under their own aliases instead, and the other embedded
+    body params, e.g. the form fields that only a dependency override declares, look their values up in the same dict.
+    So a param with the alias of a form model gets the whole body instead of its own value.
+
+    In that case, we solve a copy of the head's dependant whose form model looks the body up under a key that no
+    form field has, but only if it surely gives every such param a better value: the body is a dict, each such param
+    finds a value of its own under one of its aliases or has a default, and no param takes the whole body, which would
+    see the key. A param gets its default only if FastAPI gives it no value from the form either, or takes it from a
+    field of the request's own form models, which a migration may have removed. Otherwise the body can't carry the
+    value, so the param would silently lose it. In all other cases we take the last release's path.
     """
     body_field = head_dependant.body_params[0]
-    if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS and _get_form_model(body_field):  # pragma: no cover # FastAPI >= 0.159
-        return _get_aliases_of_body_params(head_dependant, head_route)
-    return ()
+    form_models = _get_form_models(body_field) if _FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS else []
+    if form_models:  # pragma: no cover # FastAPI >= 0.158.2
+        repeated_value_aliases = frozenset[str]()
+        if len(form_models) > 1:
+            repeated_value_aliases, single_value_aliases = _get_value_aliases_of_union(form_models)
+            # FastAPI takes a list as repeated form values, so a model of the union that takes a single value for the
+            # field would get only one of them. Like the last release, we don't embed the body then, which fails
+            if isinstance(body, dict) and any(
+                isinstance(body.get(alias), (list, set, frozenset, tuple, deque)) for alias in single_value_aliases
+            ):
+                return _FormModelLookup(head_dependant)
+        lookups = _get_body_lookups(head_dependant, head_route, embed_body_fields=embed_body_fields)
+        form_model_aliases = tuple(lookups.form_model_aliases)
+        clashing_params = [
+            param for param in lookups.other_params if not lookups.form_model_aliases.keys().isdisjoint(param.aliases)
+        ]
+        if not clashing_params or lookups.is_whole_body_read or not isinstance(body, dict):
+            return _FormModelLookup(head_dependant, form_model_aliases, repeated_value_aliases)
+        params_without_value = [param for param in clashing_params if body.keys().isdisjoint(param.aliases)]
+        if not all(param.has_default for param in params_without_value) or (
+            params_without_value
+            and await _form_gives_values_that_form_models_lack(request, route, params_without_value, dumped_body_model)
+        ):
+            return _FormModelLookup(head_dependant, form_model_aliases, repeated_value_aliases)
+        dependant = _with_form_models_under_own_key(head_dependant)
+        lookups = _get_body_lookups(dependant, head_route, embed_body_fields=embed_body_fields)
+        return _FormModelLookup(dependant, tuple(lookups.form_model_aliases), repeated_value_aliases)
+    return _FormModelLookup(head_dependant)
 
 
-def _get_aliases_of_body_params(  # pragma: no cover # FastAPI >= 0.159
-    head_dependant: Dependant, head_route: APIRoute
-) -> tuple[str, ...]:
-    """Return the aliases that FastAPI looks the form models up under in the tree that it solves for the head.
+def _get_omitted_form_model_lookup(  # pragma: no cover # FastAPI >= 0.158.2
+    head_dependant: Dependant, head_route: APIRoute, body: Any, *, embed_body_fields: bool
+) -> _FormModelLookup:
+    """Return how to pass the body that a migration has set for an omitted optional form model to the head.
+
+    We put a dict body under the aliases of the params that have the same form models as the endpoint's body param,
+    e.g. those of the dependencies and overrides that share it, so that other form models still get their defaults.
+    We look at the tree that FastAPI solves for the head, which can have dependencies that the request's version lacks.
+    In every other case we pass the body as it is, like the last release did: if the body isn't a dict, an
+    `OrderedDict`, or a `defaultdict`, if it has a key with such an alias (e.g. a migration has put the form model's
+    data under it), if another param of the tree has such an alias or gets the whole body, if, like a form, it supplies
+    none of the form models, so that the param gets its default as FastAPI gives it, if a form model that allows or
+    forbids extra fields would take a key of another param as an extra field, which FastAPI doesn't do for a form
+    before 0.160.0, or if FastAPI would validate a model of a union from changed values.
+    """
+    # We only know how the lookups of these dicts behave, while a subclass can override them
+    if type(body) not in (dict, OrderedDict, defaultdict):
+        return _FormModelLookup(head_dependant)
+    form_models = set(_get_form_models(head_dependant.body_params[0]))
+    aliases: dict[str, None] = {}
+    other_aliases: set[str] = set()
+    # The keys that the other params of the tree read, including the fields of their form models
+    other_keys: set[str] = set()
+    for dependant in _iter_dependants_that_fastapi_solves(head_dependant, head_route):
+        # Like FastAPI, we give a single body param that isn't embedded the whole body
+        is_embedded = embed_body_fields or _should_embed_body_fields(dependant.body_params)
+        for field in dependant.body_params:
+            field_form_models = set(_get_form_models(field))
+            if not field_form_models and not is_embedded:
+                return _FormModelLookup(head_dependant)
+            field_aliases = [alias for alias, _ in _get_param_aliases(field)]
+            if field_form_models == form_models:
+                aliases.update(dict.fromkeys(field_aliases))
+            else:
+                other_aliases.update(field_aliases)
+                other_keys.update(field_aliases, _get_field_aliases_of_models(field_form_models))
+    if (
+        not aliases.keys().isdisjoint(body)
+        or not aliases.keys().isdisjoint(other_aliases)
+        or not any(_form_supplies_form_model(model, FormData(body)) for model in form_models)
+        or (
+            any(model.model_config.get("extra") in ("allow", "forbid") for model in form_models)
+            and not (other_keys - _get_field_aliases_of_models(form_models)).isdisjoint(body)
+        )
+    ):
+        return _FormModelLookup(head_dependant)
+    lookup = _FormModelLookup(head_dependant, tuple(aliases))
+    if len(form_models) > 1:
+        lookup = lookup._replace(repeated_value_aliases=_get_value_aliases_of_union(list(form_models))[0])
+        if _form_model_union_changes_body(_embed_form_model(body, lookup)[lookup.aliases[0]], form_models):
+            return _FormModelLookup(head_dependant)
+    return lookup
+
+
+def _get_field_aliases_of_models(  # pragma: no cover # FastAPI >= 0.158.2
+    models: set[type[BaseModel]],
+) -> set[str]:
+    return {
+        alias for model in models for field in _get_cached_model_fields(model) for alias, _ in _get_param_aliases(field)
+    }
+
+
+def _form_model_union_changes_body(  # pragma: no cover # FastAPI >= 0.161
+    body: dict[str, Any], form_models: set[type[BaseModel]]
+) -> bool:
+    """Return whether FastAPI would validate a model of the union from another dict than the body.
+
+    FastAPI validates each model of the union from the body as if it were form data, e.g. a field that takes a single
+    value gets one value of a list, any other key gets the only value of a list as it is, and a field with an empty
+    string gets its default. A model can read any key, e.g. through an `AliasPath`, a root model, or a validator,
+    so we compare the whole dict.
+    """
+    return any(_normalize_form_model(body, model=model) != body for model in form_models)
+
+
+def _get_value_aliases_of_union(  # pragma: no cover # FastAPI >= 0.161
+    form_models: list[type[BaseModel]],
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Return the keys of the fields that get repeated form values, and of the fields that get a single form value.
+
+    A key gets repeated form values only if it does in every model of the union that has it. A migration can make the
+    head validate another model of the union than the one that the request matched, so we look at all of them.
+    """
+    repeated_value_aliases: set[str] = set()
+    single_value_aliases: set[str] = set()
+    aliases_of_models: list[tuple[type[BaseModel], set[str]]] = []
+    for model in form_models:
+        aliases_of_model: set[str] = set()
+        for field in _get_cached_model_fields(model):
+            # FastAPI passes `field_info.annotation` to `field_annotation_is_sequence` too, but types it as a type
+            is_sequence = field_annotation_is_sequence(field.field_info.annotation)  # ty: ignore[invalid-argument-type]
+            field_aliases = [alias for alias, _ in _get_param_aliases(field)]
+            (repeated_value_aliases if is_sequence else single_value_aliases).update(field_aliases)
+            aliases_of_model.update(field_aliases)
+        aliases_of_models.append((model, aliases_of_model))
+    # A model that allows extra fields can take a key that it doesn't have as an extra field with a single value
+    for model, aliases_of_model in aliases_of_models:
+        if model.model_config.get("extra") == "allow":
+            single_value_aliases.update(repeated_value_aliases - aliases_of_model)
+    return frozenset(repeated_value_aliases - single_value_aliases), frozenset(single_value_aliases)
+
+
+def _with_form_models_under_own_key(dependant: Dependant) -> Dependant:  # pragma: no cover # FastAPI >= 0.158.2
+    """Return a copy of the dependant whose own form models FastAPI looks up under `_FORM_MODEL_BODY_KEY`.
+
+    If the app has dependency overrides, FastAPI builds the dependants of all dependencies again while solving, so the
+    form models of dependencies keep their aliases.
+    """
+    return dataclasses.replace(
+        dependant,
+        body_params=[
+            _with_form_model_under_own_key(field) if _get_form_models(field) else field
+            for field in dependant.body_params
+        ],
+    )
+
+
+def _with_form_model_under_own_key(field: ModelField) -> ModelField:  # pragma: no cover # FastAPI >= 0.158.2
+    # The field keeps its type adapter, so it validates the body exactly like the original
+    field_info = copy.copy(field.field_info)
+    field_info.alias = _FORM_MODEL_BODY_KEY
+    field_info.validation_alias = None
+    field = copy.copy(field)
+    field.field_info = field_info
+    return field
+
+
+class _BodyParamLookup(NamedTuple):  # pragma: no cover # FastAPI >= 0.158.2
+    """A body param, the aliases that FastAPI looks it up under in a dict body, and whether it has a default."""
+
+    field: ModelField
+    aliases: list[str]
+    has_default: bool
+
+
+@dataclasses.dataclass
+class _BodyLookups:  # pragma: no cover # FastAPI >= 0.158.2
+    """How the tree that FastAPI solves for the head reads a dict body."""
+
+    form_model_aliases: dict[str, None] = dataclasses.field(default_factory=dict)
+    # Every other body param that FastAPI looks up in the body
+    other_params: list[_BodyParamLookup] = dataclasses.field(default_factory=list)
+    # Whether a body param gets the whole body instead of looking its alias up
+    is_whole_body_read: bool = False
+
+
+def _get_body_lookups(  # pragma: no cover # FastAPI >= 0.158.2
+    head_dependant: Dependant, head_route: APIRoute, *, embed_body_fields: bool
+) -> _BodyLookups:
+    """Return how the tree that FastAPI solves for the head reads a dict body."""
+    lookups = _BodyLookups()
+    for dependant in _iter_dependants_that_fastapi_solves(head_dependant, head_route):
+        # Like FastAPI, we give a single body param that isn't embedded the whole body
+        is_embedded = embed_body_fields or _should_embed_body_fields(dependant.body_params)
+        for field in dependant.body_params:
+            aliases = [alias for alias, _ in _get_param_aliases(field)]
+            if _get_form_models(field):
+                lookups.form_model_aliases.update(dict.fromkeys(aliases))
+            elif is_embedded:
+                lookups.other_params.append(
+                    _BodyParamLookup(field, aliases, has_default=not field.field_info.is_required())
+                )
+            else:
+                lookups.is_whole_body_read = True
+    return lookups
+
+
+async def _form_gives_values_that_form_models_lack(  # pragma: no cover # FastAPI >= 0.158.2
+    request: FastapiRequest, route: APIRoute, params: list[_BodyParamLookup], dumped_body_model: type[BaseModel]
+) -> bool:
+    """Return whether FastAPI would give any of the params a value from the form that the request's form models lack.
+
+    Like FastAPI, we take the value of the first alias that the form has. The request's form models are the ones of
+    its own version, so they lack the fields that a newer version adds.
+    """
+    # FastAPI has already parsed the form, so this returns its cached form without reading it again or closing it
+    form = await request.form()
+    form_model_field_aliases = {
+        alias
+        for dependant in _iter_dependants_that_fastapi_solves(route.dependant, route)
+        for field in dependant.body_params
+        for models in (_get_form_models(field),)
+        # Of a union of form models, only the member that the request matches takes the values of its fields
+        for model in ([dumped_body_model] if dumped_body_model in models else models)
+        for model_field in _get_cached_model_fields(model)
+        for alias, _ in _get_param_aliases(model_field)
+    }
+    for param in params:
+        alias = next(
+            (
+                alias
+                for alias in param.aliases
+                if _get_multidict_value(param.field, form, alias) is not PydanticUndefined
+            ),
+            None,
+        )
+        if alias is not None and alias not in form_model_field_aliases:
+            return True
+    return False
+
+
+def _iter_dependants_that_fastapi_solves(  # pragma: no cover # FastAPI >= 0.158.2
+    dependant: Dependant, route: APIRoute
+) -> Iterator[Dependant]:
+    """Yield the dependant and every sub-dependant in the tree that FastAPI solves for the route.
 
     Like FastAPI, we solve the dependant of an override instead of the overridden dependency.
     """
-    dependency_overrides = _get_dependency_overrides(head_route)
-    aliases: dict[str, None] = {}
-    dependants = [head_dependant]
+    dependency_overrides = _get_dependency_overrides(route)
+    dependants = [dependant]
     while dependants:
         dependant = dependants.pop()
-        for field in dependant.body_params:
-            if _get_form_model(field):
-                aliases.update(dict.fromkeys(alias for alias, _ in _get_param_aliases(field)))
+        yield dependant
         for sub_dependant in dependant.dependencies:
             if dependency_overrides and (call := dependency_overrides.get(sub_dependant.call)) is not None:
                 sub_dependant = get_dependant(
                     path=cast("str", sub_dependant.path), call=call, name=sub_dependant.name, scope=sub_dependant.scope
                 )
             dependants.append(sub_dependant)
-    return tuple(aliases)
 
 
-def _embed_form_model(body: Any, form_model_aliases: tuple[str, ...]) -> Any:
+def _embed_form_model(body: Any, form_model_lookup: _FormModelLookup) -> Any:
     """Return the body with the form models embedded under their aliases.
 
     Other form fields, e.g. the ones that only a dependency override declares, look their values up in the body itself,
-    as they did before FastAPI 0.159.0.
+    as they did before FastAPI 0.158.2. A form model of an override wins over a form field with the same alias.
+
+    FastAPI takes the dict body of a union of form models as form data, so in the copy that we embed, we pass the sets
+    and tuples of the fields that get repeated form values as lists, which is how FastAPI gets repeated form values.
     """
+    form_model_body = body
+    aliases = form_model_lookup.repeated_value_aliases
+    if aliases and isinstance(body, dict):  # pragma: no cover # FastAPI >= 0.161
+        form_model_body = {
+            key: list(value) if key in aliases and isinstance(value, (set, frozenset, tuple, deque)) else value
+            for key, value in body.items()
+        }
     return (
-        {**(body if isinstance(body, dict) else {}), **dict.fromkeys(form_model_aliases, body)}
-        if form_model_aliases
+        {**(body if isinstance(body, dict) else {}), **dict.fromkeys(form_model_lookup.aliases, form_model_body)}
+        if form_model_lookup.aliases
         else body
     )
 
@@ -1204,6 +1618,686 @@ def _rescue_body(body_field: ModelField, data: Any) -> Any:
     _RESTORATION.has_failing_renames = False
     restored = _restore_data(spec, data)
     return restored if _RESTORATION.has_failing_renames else data
+
+
+async def _encode_json_values(
+    request: FastapiRequest,
+    head_dependant: Dependant,
+    head_route: APIRoute,
+    route: APIRoute,
+    body: Any,
+    *,
+    embed_body_fields: bool,
+) -> Any:
+    """Return a copy of the migrated body with the parsed values of the head's `Json[...]` fields encoded as JSON.
+
+    We dump bodies in Python mode, so `Json[...]` fields get their parsed values, which they reject because they only
+    accept strings and bytes. Request migrations see these parsed values, so we encode them only for the head.
+    We only encode the values that we can find for sure: anything else stays as it is and fails as before.
+    """
+    if embed_body_fields or len(head_dependant.body_params) != 1 or len(route.dependant.body_params) != 1:
+        return body
+    plan = _get_json_values_plan(head_dependant.body_params[0], route.dependant.body_params[0])
+    # FastAPI gives the body param its default without validating it if the request has no body, so the values of
+    # the default might not have the types that the request's version validates them into
+    if plan is None or await _fastapi_got_no_body(request, route, embed_body_fields=embed_body_fields):
+        return body
+    # If we can't encode one of the values, e.g. a string that a migration has encoded already or that the request's
+    # version has parsed into a string, the head would decode the other values once more, so we encode none of them.
+    # Whatever else goes wrong, we leave the body as it is too, because encoding must never break a request.
+    try:
+        # Encoding copies containers and hashes their keys, and checking the dependencies builds the dependants of
+        # the overrides, both of which run code of users (e.g. `__hash__` or schema hooks). So we only do them if
+        # a read-only pass finds a value to encode, which makes the request fail as it is anyway.
+        if not _has_json_values_to_encode(plan, body) or _has_other_body_readers(head_dependant, head_route):
+            return body
+        return _encode_planned_json_values(plan, body)
+    except Exception:  # noqa: BLE001
+        return body
+
+
+def _has_other_body_readers(head_dependant: Dependant, head_route: APIRoute) -> bool:
+    """Whether a dependency of the head reads the body with another type than the body param (e.g. a dict).
+
+    It would read the JSON that we encode instead of what the client has sent. A dependency that reads the body into
+    the same type validates it as the body param does. FastAPI builds the dependants of the overrides from what they
+    are on each request (e.g. their signatures), so we check them on each request that we encode as well.
+    """
+    field_info = head_dependant.body_params[0].field_info
+    return any(
+        field.field_info.annotation is not field_info.annotation
+        or len(field.field_info.metadata) != len(field_info.metadata)
+        or any(
+            item is not body_item
+            for item, body_item in zip(field.field_info.metadata, field_info.metadata, strict=True)
+        )
+        for dependant in _iter_dependants_that_fastapi_solves(head_dependant, head_route)
+        if dependant is not head_dependant
+        for field in dependant.body_params
+    )
+
+
+class _UnsafeJsonValueError(Exception):
+    """The head might not get what the client has sent if we encode the `Json[...]` values of the body"""
+
+
+# How the head reads the dumped data of a core schema, or None if there's nothing to describe (e.g. a plain value):
+# `("json", check)` for a `Json[...]` value, `("nullable", description)`, `("items", description)`, and
+# `("values", description)` for None, list or set items, and dict values, `("model", keys, ((key, description), ...))`
+# for the data of a model with its dumped keys.
+# In `Json[...]` values, it says what the parsed value must look like for us to encode it. The plan of what to encode
+# is the description without the parts that have no `Json[...]` values.
+_JsonValuesPlan: TypeAlias = tuple[Any, ...]
+# The keys of the child schemas of the core schema types that hold other values, and the kinds of their descriptions
+_JSON_CHILD_SCHEMA_KEYS = {
+    "nullable": ("schema", "nullable"),
+    "list": ("items_schema", "items"),
+    "dict": ("values_schema", "values"),
+}
+# The descriptions of the body fields, and the plans for the pairs of a head body field and a body field of a version
+_BODY_FIELD_JSON_PLANS: dict[int, tuple[ModelField, Union[_JsonValuesPlan, None]]] = {}
+_NORMALIZED_CORE_SCHEMAS: dict[int, tuple[ModelField, Any]] = {}
+_JSON_VALUES_PLANS: dict[tuple[int, int], tuple[ModelField, ModelField, Union[_JsonValuesPlan, None]]] = {}
+# The descriptions of the models of one body field by `(is_in_json, model, depth)`, so that describing stays linear
+_JsonPlanMemo: TypeAlias = dict[tuple[bool, type[BaseModel], int], Any]
+_UNSAFE_JSON_VALUE = object()
+# The greatest number of nested models that we walk into, so that the first request of a deep body doesn't need
+# a much deeper stack than the next ones
+_MAX_JSON_PLAN_DEPTH = 8
+# The core schema types without validators whose values the head reads as the client has sent them, both as they
+# are and encoded as JSON, by the exact types of their values. Any other type that the walk doesn't know stops it.
+_JSON_LEAF_VALUE_TYPES: dict[str, tuple[type, ...]] = {
+    "none": (type(None),),
+    "bool": (bool,),
+    "int": (int,),
+    "float": (float,),
+    "decimal": (Decimal,),
+    "str": (str,),
+    "date": (date,),
+    "time": (time,),
+    "datetime": (datetime,),
+    "timedelta": (timedelta,),
+    "uuid": (uuid.UUID,),
+}
+_JSON_LEAF_SCHEMA_TYPES = frozenset((*_JSON_LEAF_VALUE_TYPES, "any", "literal", "enum"))
+# The types of the values that JSON has
+_JSON_NATIVE_TYPES = (str, int, float, bool, type(None))
+# The core schema types whose values keep their JSON type when we encode them, so a union of them picks the same member
+_PLAIN_JSON_SCHEMA_TYPES = frozenset(
+    ("any", "none", "bool", "int", "float", "str", "literal", *_JSON_CHILD_SCHEMA_KEYS)
+)
+_PLAIN_LITERAL_TYPES = (str, int, bool, type(None))
+# The keys of these core schemas that hold no constraints
+_PLAIN_JSON_SCHEMA_KEYS = frozenset(
+    ("type", "metadata", "expected", "schema", "items_schema", "keys_schema", "values_schema")
+)
+# The settings of models that change or constrain their strings, as the constraints of string schemas do
+_STRING_CONFIG_KEYS = (
+    *("str_to_lower", "str_to_upper", "str_strip_whitespace", "str_min_length", "str_max_length"),
+    "coerce_numbers_to_str",
+)
+# Default factories that always give the same value
+_DETERMINISTIC_DEFAULT_FACTORIES = (list, dict, set, frozenset, tuple)
+
+
+def _get_json_values_plan(head_body_field: ModelField, body_field: ModelField) -> Union[_JsonValuesPlan, None]:
+    """Return what to encode in the dump of the body field of the request's version, which the head validates.
+
+    The request's version dumps the body, so its models must dump the values to the same keys that the head reads
+    them from. Otherwise, e.g. if an older version excludes a field from the dump or dumps another field to its key,
+    the head wouldn't get what the client has sent, so we leave the body as it is.
+    """
+    cached = _JSON_VALUES_PLANS.get((id(head_body_field), id(body_field)))
+    if cached is not None and cached[0] is head_body_field and cached[1] is body_field:
+        return cached[2]
+    try:
+        plan = _get_body_field_json_plan(head_body_field)
+        # The models of the request's version are copies of the head's, so the core schemas are the same if the
+        # version doesn't change the body, apart from the classes and the names of the definitions. Any other
+        # difference, even a constraint of a string, could make the head read another value than the request's
+        # version has.
+        if (
+            plan is not None
+            and body_field is not head_body_field
+            and _get_normalized_core_schema(body_field) != _get_normalized_core_schema(head_body_field)
+        ):
+            plan = None
+    # Planning must never break a request that works without it, so whatever goes wrong (e.g. a default whose
+    # `__eq__` raises), we leave the body as it is
+    except Exception:  # noqa: BLE001
+        plan = None
+    _JSON_VALUES_PLANS[id(head_body_field), id(body_field)] = (head_body_field, body_field, plan)
+    return plan
+
+
+def _get_body_field_json_plan(body_field: ModelField) -> Union[_JsonValuesPlan, None]:
+    cached = _BODY_FIELD_JSON_PLANS.get(id(body_field))
+    if cached is not None and cached[0] is body_field:
+        return cached[1]
+    try:
+        schema = cast("dict[str, Any]", body_field._type_adapter.core_schema)
+        # Most bodies have no `Json[...]` fields, so they aren't walked at all
+        description = (
+            _walk_json_values(_register_core_schema_definitions(schema), frozenset(), {}, is_in_json=False)
+            if _has_core_schema_of_types(schema, frozenset(("json",)))
+            else None
+        )
+    except (_UnsafeJsonValueError, *_CORE_SCHEMA_ERRORS):
+        description = None
+    plan = _prune_json_values_description(description, {})
+    _BODY_FIELD_JSON_PLANS[id(body_field)] = (body_field, plan)
+    return plan
+
+
+def _get_normalized_core_schema(body_field: ModelField) -> Any:
+    cached = _NORMALIZED_CORE_SCHEMAS.get(id(body_field))
+    if cached is None or cached[0] is not body_field:
+        cached = (body_field, _normalize_core_schema(body_field._type_adapter.core_schema, {}))
+        _NORMALIZED_CORE_SCHEMAS[id(body_field)] = cached
+    return cached[1]
+
+
+def _normalize_core_schema(value: Any, refs: dict[str, int]) -> Any:
+    """Return the core schema with its classes by their names and its definitions by the order of their references.
+
+    Every other value is tagged with its type, because values of different types can be equal in Python (e.g. `1`,
+    `1.0`, and `True`) while pydantic tells them apart, e.g. in literals and defaults. Metadata (e.g. the functions
+    that make JSON schemas) doesn't change how the schema validates.
+    """
+    if isinstance(value, dict):
+        return {
+            _normalize_core_schema(key, refs): refs.setdefault(item, len(refs))
+            if key in ("ref", "schema_ref") and isinstance(item, str)
+            else _normalize_core_schema(item, refs)
+            for key, item in value.items()
+            if key != "metadata"
+        }
+    # Containers stay hashable, so that they can be the keys of dicts (e.g. of defaults), and keep their types
+    if isinstance(value, (list, tuple)):
+        return type(value).__name__, tuple(_normalize_core_schema(item, refs) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return type(value).__name__, frozenset(_normalize_core_schema(item, refs) for item in value)
+    if isinstance(value, type):
+        return "class", value.__module__, value.__qualname__
+    return "value", type(value).__module__, type(value).__qualname__, value
+
+
+def _prune_json_values_description(
+    description: Union[_JsonValuesPlan, None], memo: dict[int, Union[_JsonValuesPlan, None]]
+) -> Union[_JsonValuesPlan, None]:
+    """Return the plan of what to encode: the parts of the description that lead to `Json[...]` values.
+
+    The descriptions of models are shared by the places that have them, so we prune each of them once.
+    """
+    if description is None:
+        return None
+    if id(description) in memo:
+        return memo[id(description)]
+    if description[0] == "json":
+        plan = description
+    elif description[0] == "model":
+        fields = tuple(
+            (key, child_plan)
+            for key, child in description[2]
+            if (child_plan := _prune_json_values_description(child, memo)) is not None
+        )
+        plan = ("model", description[1], fields) if fields else None
+    else:
+        child = _prune_json_values_description(description[1], memo)
+        plan = None if child is None else (description[0], child)
+    memo[id(description)] = plan
+    return plan
+
+
+def _has_core_schema_of_types(schema: dict[str, Any], types: frozenset[str]) -> bool:
+    """Whether the core schema, its definitions, or the ones it refers to have a schema of one of the types.
+
+    It's found without recursion.
+    """
+    stack: list[Any] = [schema]
+    seen: set[int] = set()
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (dict, list, tuple)) and id(node) not in seen:
+            seen.add(id(node))
+            if not isinstance(node, dict):
+                stack.extend(node)
+            elif node.get("type") in types:
+                return True
+            elif node.get("type") == "definition-ref" and node.get("schema_ref") in _CORE_SCHEMA_DEFINITIONS:
+                stack.append(_CORE_SCHEMA_DEFINITIONS[node["schema_ref"]])
+            else:
+                # Defaults, literal values, and metadata are data, not schemas
+                stack.extend(value for key, value in node.items() if key not in ("default", "expected", "metadata"))
+    return False
+
+
+def _walk_json_values(
+    schema: dict[str, Any], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Any:
+    """Describe how the head reads the dumped data of the core schema, or raise `_UnsafeJsonValueError`.
+
+    We only encode the `Json[...]` values of a body if the head gets what the client has sent everywhere in it,
+    so we raise for anything that might change or drop a value: validators (the dump has already been validated,
+    so the head would change it once more), serializers, defaults that swallow errors or that the head computes once
+    more, and the data of models that we can't check. In `Json[...]` values, the head reads JSON that we encode,
+    so we also raise for anything whose JSON might differ from what the client has sent, e.g. some unions.
+    """
+    if _is_custom_serialization(schema.get("serialization")) or schema.get("on_error", "raise") != "raise":
+        raise _UnsafeJsonValueError
+    schema_type = schema["type"]
+    if schema_type in _JSON_LEAF_SCHEMA_TYPES:
+        return _walk_json_leaf(schema, is_in_json=is_in_json)
+    if schema_type == "default":
+        # The head calls the default factories of the fields that the dump leaves out once more
+        if "default_factory" in schema and schema["default_factory"] not in _DETERMINISTIC_DEFAULT_FACTORIES:
+            raise _UnsafeJsonValueError
+        return _walk_json_values(schema["schema"], visiting, memo, is_in_json=is_in_json)
+    walk = _JSON_SCHEMA_WALKERS.get(schema_type)
+    if walk is not None:
+        return walk(schema, visiting, memo, is_in_json=is_in_json)
+    # We only walk into the schema types that we know, e.g. not into generators, whose unions we wouldn't check
+    if schema_type not in _JSON_CHILD_SCHEMA_KEYS:
+        raise _UnsafeJsonValueError
+    child_key, kind = _JSON_CHILD_SCHEMA_KEYS[schema_type]
+    if not is_in_json:
+        # We don't encode the keys of dicts, so they mustn't have `Json[...]` values
+        if "keys_schema" in schema and _walk_json_values(schema["keys_schema"], visiting, memo, is_in_json=False):
+            raise _UnsafeJsonValueError
+        child = _walk_json_values(schema[child_key], visiting, memo, is_in_json=False) if child_key in schema else None
+        return None if child is None else (kind, child)
+    # In `Json[...]` values, we check that the values that the schema doesn't type are JSON
+    child = _walk_json_values(schema[child_key], visiting, memo, is_in_json=True) if child_key in schema else ("any",)
+    if schema_type != "dict":
+        return kind, child
+    keys_check = (
+        _walk_json_values(schema["keys_schema"], visiting, memo, is_in_json=True)
+        if "keys_schema" in schema
+        else ("any",)
+    )
+    # The keys of JSON objects are strings, so keys of several types (e.g. `1` and `"1"`) could become the same key.
+    # We only allow keys of a single type, and check at runtime that their JSON differs (e.g. for NaN).
+    if keys_check[0] not in ("leaf", "enum", "any") or (keys_check[0] != "any" and len(keys_check[-1]) != 1):
+        raise _UnsafeJsonValueError
+    return kind, child, keys_check
+
+
+def _walk_json_leaf(schema: dict[str, Any], *, is_in_json: bool) -> Union[_JsonValuesPlan, None]:
+    """Describe the exact types of the values of a leaf in a `Json[...]` value, so that we can check them.
+
+    A migration can set values of other types, which encoding might change, e.g. a decimal that becomes a string.
+    Outside of `Json[...]` values, the head validates the dumped values themselves, as it does without `Json[...]`.
+    """
+    schema_type = schema["type"]
+    if schema_type == "enum":
+        values = [member.value for member in schema["members"]]
+        # The head looks the members up by their values, which must stay what they are when we encode them (e.g.
+        # a decimal becomes a string, which might be the value of another member), and a custom lookup could pick
+        # another member. As dict keys, values of several types can still collide, which the dict checks.
+        if "missing" in schema or any(type(value) not in _JSON_NATIVE_TYPES for value in values):
+            raise _UnsafeJsonValueError
+        return ("enum", schema["cls"], frozenset(map(type, values))) if is_in_json else None
+    if not is_in_json:
+        return None
+    if schema_type == "any":
+        return ("any",)
+    if schema_type == "literal":
+        expected = schema["expected"]
+        # As for enums, the values must stay what they are when we encode them, and differ from each other in JSON,
+        # where e.g. `1` and `1.0` might be the same value
+        if any(type(value) not in _JSON_NATIVE_TYPES for value in expected) or len(set(expected)) != len(expected):
+            raise _UnsafeJsonValueError
+        return "leaf", frozenset(map(type, expected))
+    return "leaf", frozenset(_JSON_LEAF_VALUE_TYPES[schema_type])
+
+
+def _walk_json_reference(
+    schema: dict[str, Any], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Any:
+    ref = schema["schema_ref"]
+    if ref not in visiting:
+        return _walk_json_values(_CORE_SCHEMA_DEFINITIONS[ref], visiting | {ref}, memo, is_in_json=is_in_json)
+    # Outside of `Json[...]` values, we're already describing what the reference refers to, but we don't describe
+    # the `Json[...]` values that its data has deeper down, so the head would decode their strings once more
+    if is_in_json or _has_core_schema_of_types(_CORE_SCHEMA_DEFINITIONS[ref], frozenset(("json",))):
+        raise _UnsafeJsonValueError
+    return None
+
+
+def _walk_json_schema(
+    schema: dict[str, Any], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Any:
+    # A `Json[...]` value in a `Json[...]` value would need JSON in JSON. We don't leave the `Json[...]` values that we
+    # can't encode as they are, because the head would decode their strings once more if we encoded the others.
+    if is_in_json:
+        raise _UnsafeJsonValueError
+    return "json", (
+        _walk_json_values(schema["schema"], frozenset(), memo, is_in_json=True) if "schema" in schema else ("any",)
+    )
+
+
+def _walk_json_union(
+    schema: dict[str, Any], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Union[_JsonValuesPlan, None]:
+    choices = schema["choices"].values() if isinstance(schema["choices"], dict) else schema["choices"]
+    choices = [choice[0] if isinstance(choice, tuple) else choice for choice in choices]
+    # The head might pick another member for the dump than the request's version has picked for what the client has
+    # sent, e.g. for the dump of a model, a string that a constraint has changed, or a decimal or a date that we encode
+    # as a string, so we only allow the members that keep their values and their JSON types
+    if not all(_is_plain_json_schema(choice) for choice in choices):
+        raise _UnsafeJsonValueError
+    if not is_in_json:
+        return None
+    # In `Json[...]` values, we check the types of the values of the members that are plain values
+    types: set[type] = set()
+    for choice in choices:
+        check = _walk_json_values(choice, visiting, memo, is_in_json=True)
+        if check[0] == "any":
+            return check
+        if check[0] != "leaf":
+            raise _UnsafeJsonValueError
+        types.update(check[1])
+    return "leaf", frozenset(types)
+
+
+def _walk_json_tuple(
+    schema: dict[str, Any], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> None:
+    # We don't encode or check the values in tuples, so they mustn't have any
+    if is_in_json or any(
+        _walk_json_values(item, visiting, memo, is_in_json=False) is not None for item in schema["items_schema"]
+    ):
+        raise _UnsafeJsonValueError
+
+
+_JSON_SCHEMA_WALKERS: dict[str, Callable[..., Any]] = {
+    "definition-ref": _walk_json_reference,
+    "json": _walk_json_schema,
+    "union": _walk_json_union,
+    "tagged-union": _walk_json_union,
+    "tuple": _walk_json_tuple,
+    "model": lambda schema, visiting, memo, *, is_in_json: _walk_json_model(
+        schema["cls"], visiting, memo, is_in_json=is_in_json
+    ),
+}
+
+
+def _is_plain_json_schema(schema: dict[str, Any]) -> bool:
+    """Whether the core schema only has values that keep their JSON type when we encode them"""
+    stack = [schema]
+    while stack:
+        node = stack.pop()
+        # Constraints (e.g. `pattern`), transformations (e.g. `to_upper`), serializers, and strictness change what
+        # the members accept
+        if (
+            node["type"] not in _PLAIN_JSON_SCHEMA_TYPES
+            or not node.keys() <= _PLAIN_JSON_SCHEMA_KEYS
+            or (
+                node["type"] == "literal" and any(type(value) not in _PLAIN_LITERAL_TYPES for value in node["expected"])
+            )
+        ):
+            return False
+        stack.extend(node[key] for key in ("schema", "items_schema", "keys_schema", "values_schema") if key in node)
+    return True
+
+
+def _walk_json_model(
+    model: type[BaseModel], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Any:
+    depth = sum(isinstance(item, type) for item in visiting)
+    # We can't check the dumps of the models that are deeper than that. A model that we're already describing refers
+    # to itself, e.g. through a model that it refers to, and we don't describe the data deeper down.
+    if model in visiting or depth >= _MAX_JSON_PLAN_DEPTH:
+        raise _UnsafeJsonValueError
+    # A model can be in many places, so we only describe it once for each depth
+    key = (is_in_json, model, depth)
+    if key not in memo:
+        try:
+            memo[key] = _describe_json_model(model, visiting | {model}, memo, is_in_json=is_in_json)
+        except _UnsafeJsonValueError:
+            memo[key] = _UNSAFE_JSON_VALUE
+    if memo[key] is _UNSAFE_JSON_VALUE:
+        raise _UnsafeJsonValueError
+    return memo[key]
+
+
+def _get_unchanging_model_core_schema(model: type[BaseModel]) -> Union[dict[str, Any], None]:
+    """Return the fields core schema (or the root core schema) of a model that keeps its values as they are, or None.
+
+    Besides what `_get_model_inner_core_schema` rejects, its validators of any kind and `model_post_init` could
+    change the values: they wrap the model schema or its fields schema, or are its "post_init".
+    """
+    inner_schema = _get_model_inner_core_schema(model)
+    if inner_schema is None:
+        return None
+    schema = _register_core_schema_definitions(cast("dict[str, Any]", model.__pydantic_core_schema__))
+    if schema["type"] == "definition-ref":
+        schema = _CORE_SCHEMA_DEFINITIONS[schema["schema_ref"]]
+    # `_get_model_inner_core_schema` unwraps the "after" validators of the model and of its fields schema, so we check
+    # that the model schema is the outermost one and that its fields schema is its own schema
+    if schema["type"] != "model" or schema.get("post_init") or schema["schema"] is not inner_schema:
+        return None
+    return inner_schema
+
+
+def _get_dumped_key(name: str, field: FieldInfo) -> str:
+    # An empty alias is an alias too
+    return name if field.serialization_alias is None else field.serialization_alias
+
+
+def _describe_json_model(
+    model: type[BaseModel], visiting: frozenset[object], memo: _JsonPlanMemo, *, is_in_json: bool
+) -> Any:
+    """Describe the data of a model whose every field the head reads from the key that the field is dumped to.
+
+    Otherwise, the head would give a field its default instead of the client's value, or the value of another field,
+    so we raise `_UnsafeJsonValueError`.
+    """
+    inner_schema = _get_unchanging_model_core_schema(model)
+    # Models that allow extra keys dump the keys that they don't read, which can overwrite the dumps of their fields,
+    # and the dump computes the computed fields once more, which might give other values (e.g. of a counter)
+    if inner_schema is None or _get_validation_settings(model)[2] == "allow" or model.model_computed_fields:
+        raise _UnsafeJsonValueError
+    # The settings of the model apply to the members of its unions too
+    if any(model.model_config.get(key) for key in _STRING_CONFIG_KEYS) and _has_core_schema_of_types(
+        inner_schema, frozenset(("union", "tagged-union"))
+    ):
+        raise _UnsafeJsonValueError
+    if issubclass(model, RootModel):
+        return _walk_json_values(inner_schema, visiting, memo, is_in_json=is_in_json)
+    dumped_keys = [_get_dumped_key(name, field) for name, field in model.model_fields.items()]
+    keys = frozenset(dumped_keys)
+    if len(keys) != len(dumped_keys):
+        raise _UnsafeJsonValueError
+    children = []
+    for (name, field), dumped_key in zip(model.model_fields.items(), dumped_keys, strict=True):
+        field_schema = inner_schema["fields"][name]
+        paths = _get_validation_paths(model, name, field)
+        # The head must read every field from its dumped key and not from a dumped key of anything else
+        if (
+            not _do_compiled_aliases_match(field, field_schema)
+            or field_schema.get("serialization_exclude")
+            or "serialization_exclude_if" in field_schema
+            or [dumped_key] not in paths
+            or any(path != [dumped_key] for path in paths if path[0] in keys)
+        ):
+            raise _UnsafeJsonValueError
+        child = _walk_json_values(field_schema["schema"], visiting, memo, is_in_json=is_in_json)
+        if child is not None:
+            children.append((dumped_key, child))
+    return "model", keys, tuple(children)
+
+
+def _has_json_values_to_encode(plan: _JsonValuesPlan, data: Any) -> bool:
+    """Whether the data has a value to encode, found without changing anything or running code of users.
+
+    It doesn't copy, hash, or compare anything of users (e.g. keys). It raises `_UnsafeJsonValueError` if we can't
+    encode the data, like `_encode_planned_json_values` does, so it walks all of the data.
+    """
+    kind = plan[0]
+    if kind == "json":
+        return _is_json_value_to_encode(plan[1], data)
+    if kind == "nullable":
+        return data is not None and _has_json_values_to_encode(plan[1], data)
+    _check_json_container(kind, data)
+    if kind == "items":
+        return any([_has_json_values_to_encode(plan[1], item) for item in data])  # noqa: C419
+    if kind == "values":
+        return any([_has_json_values_to_encode(plan[1], item) for item in data.values()])  # noqa: C419
+    return any([_has_json_values_to_encode(child, data[key]) for key, child in plan[2] if key in data])  # noqa: C419
+
+
+def _encode_planned_json_values(plan: _JsonValuesPlan, data: Any) -> Any:
+    """Encode the values of the plan in the data, copying only the containers in which something changes.
+
+    Checking the dependencies runs code of users (e.g. schema hooks) after `_has_json_values_to_encode`, which might
+    change the data, so we check the data again as we copy it, and raise `_UnsafeJsonValueError` like it does.
+    """
+    kind = plan[0]
+    if kind == "json":
+        return _encode_json_value(data) if _is_json_value_to_encode(plan[1], data) else data
+    if kind == "nullable":
+        return data if data is None else _encode_planned_json_values(plan[1], data)
+    _check_json_container(kind, data)
+    if kind == "items":
+        items = [_encode_planned_json_values(plan[1], item) for item in data]
+        return data if all(new is old for new, old in zip(items, data, strict=True)) else items
+    if kind == "values":
+        values = {key: _encode_planned_json_values(plan[1], value) for key, value in data.items()}
+        return data if all(values[key] is value for key, value in data.items()) else values
+    encoded = data
+    for key, field_plan in plan[2]:
+        if key in data and (value := _encode_planned_json_values(field_plan, data[key])) is not data[key]:
+            if encoded is data:
+                encoded = dict(data)
+            encoded[key] = value
+    return encoded
+
+
+def _is_json_value_to_encode(check: _JsonValuesPlan, value: Any) -> bool:
+    """Whether to encode the value of a `Json[...]` field, or raise `_UnsafeJsonValueError` if we can't encode it"""
+    # None stays as it is because FastAPI before 0.151.0 gives a body that is None its default
+    if value is None:
+        return False
+    # A string might be JSON that a migration has encoded already
+    if isinstance(value, str) or not _passes_json_value_check(check, value):
+        raise _UnsafeJsonValueError
+    return True
+
+
+def _check_json_container(kind: str, data: Any) -> None:
+    """Raise `_UnsafeJsonValueError` unless the data is the container of the kind, as dumps have them.
+
+    Dumps only have lists and dicts. We don't accept other containers, even subclasses (e.g. a tuple or a mapping that
+    a migration has put in the data), whose `Json[...]` values we might not encode. Looking keys up and copying dicts
+    hashes and compares the keys, which runs the code of users (e.g. the `__eq__` of a subclass of `str` that
+    a migration has set, or the `__hash__` of an enum). So the keys of models must be exactly strings, and the keys of
+    other dicts exactly the values that JSON has. Iterating over the keys runs nothing of users.
+    """
+    key_types = (str,) if kind == "model" else _JSON_NATIVE_TYPES
+    if kind == "items":
+        if type(data) is not list:
+            raise _UnsafeJsonValueError
+    elif type(data) is not dict or any(type(key) not in key_types for key in data):
+        raise _UnsafeJsonValueError
+
+
+def _encode_json_value(value: Any) -> str:
+    """Return the value encoded as JSON, or raise `_UnsafeJsonValueError` if we can't encode it"""
+    try:
+        return to_json(value).decode()
+    # E.g. a string with a lone surrogate, which a migration can set
+    except PydanticSerializationError as e:
+        raise _UnsafeJsonValueError from e
+
+
+def _is_json_value(value: Any) -> bool:
+    """Whether the value only has the values that JSON has, so that it stays what it is when we encode it.
+
+    A container that we've seen already stops the walk, e.g. a list that a migration has put into itself.
+    """
+    stack = [value]
+    seen: set[int] = set()
+    while stack:
+        item = stack.pop()
+        if type(item) in (dict, list):
+            if id(item) in seen:
+                return False
+            seen.add(id(item))
+        if type(item) is dict:
+            if any(type(key) is not str for key in item):
+                return False
+            stack.extend(item.values())
+        elif type(item) is list:
+            stack.extend(item)
+        elif type(item) not in _JSON_NATIVE_TYPES or _is_nan(item):
+            return False
+    return True
+
+
+def _is_nan(value: Any) -> bool:
+    # JSON has no sign for NaN, so a negative NaN would become a positive one
+    return type(value) is float and value != value
+
+
+def _is_json_temporal(value: Union[datetime, time]) -> bool:
+    """Whether JSON has the datetime or time, e.g. its offset has no seconds, which JSON offsets don't have.
+
+    JSON gives values the time zones of pydantic and no folds, so we don't encode other ones either.
+    """
+    if value.fold or (value.tzinfo is not None and type(value.tzinfo) is not TzInfo):
+        return False
+    offset = value.utcoffset()
+    return offset is None or offset % timedelta(minutes=1) == timedelta(0)
+
+
+def _are_json_keys(keys_check: _JsonValuesPlan, value: dict[Any, Any]) -> bool:
+    """Whether the keys of the dict pass the check and stay different keys in JSON, whose keys are strings"""
+    # Keys that the schema doesn't type must be strings, which stay the keys that they are
+    if keys_check[0] == "any":
+        return all(type(key) is str for key in value)
+    if not all(_passes_json_value_check(keys_check, key) for key in value):
+        return False
+    try:
+        return len({to_json(key) for key in value}) == len(value)
+    except PydanticSerializationError:
+        return False
+
+
+def _passes_json_value_check(check: _JsonValuesPlan, value: Any) -> bool:
+    """Whether the head reads all of the value, e.g. a migration hasn't left a key that the head doesn't read"""
+    kind = check[0]
+    if kind == "any":
+        return _is_json_value(value)
+    if kind == "leaf":
+        return (
+            type(value) in check[1]
+            and not _is_nan(value)
+            and (not isinstance(value, (datetime, time)) or _is_json_temporal(value))
+        )
+    if kind == "enum":
+        # A member of another enum might have a value of a member of this one. Dumps have members, because the walk
+        # stops at `use_enum_values`, so other values (e.g. that a migration sets) stop the body too.
+        return type(value) is check[1] and not _is_nan(value.value)
+    if kind == "nullable":
+        return value is None or _passes_json_value_check(check[1], value)
+    if kind == "items":
+        return type(value) is list and all(_passes_json_value_check(check[1], item) for item in value)
+    if kind == "values":
+        _, values_check, keys_check = check
+        return (
+            type(value) is dict
+            and _are_json_keys(keys_check, value)
+            and all(_passes_json_value_check(values_check, item) for item in value.values())
+        )
+    _, keys, checks = check
+    # Comparing and looking keys up runs the `__eq__` and `__hash__` of subclasses of `str`, iterating doesn't
+    return (
+        type(value) is dict
+        and all(type(key) is str for key in value)
+        and value.keys() <= keys
+        and all(key not in value or _passes_json_value_check(key_check, value[key]) for key, key_check in checks)
+    )
 
 
 def _rescue_response(response_field: ModelField, head_response_model: object, content: Any, data: Any) -> Any:

@@ -1,0 +1,527 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import pytest
+from varcode import Variant
+from varcode.mutant_transcript import TranscriptEdit
+
+from isovar.allele_read import AlleleRead
+from isovar.isovar_result import IsovarResult
+from isovar.phasing import _phase_annotations, annotate_phased_variants
+from isovar.read_evidence import ReadEvidence
+from isovar.read_phasing import IsovarReadPhasing
+from isovar.transcript_assembly_edit import TranscriptAssemblyEdit
+
+from .common import eq_
+
+
+class DummyProteinSequence(object):
+    def __init__(
+            self,
+            read_names,
+            amino_acids,
+            cdna_sequences,
+            transcript_ids,
+            transcript_names,
+            known_somatic_transcript_edits=(),
+            known_germline_transcript_edits=(),
+            unexplained_transcript_edits=()):
+        self.read_names_supporting_protein_sequence = set(read_names)
+        self.amino_acids = amino_acids
+        self.cdna_sequences = set(cdna_sequences)
+        self.transcript_ids = list(transcript_ids)
+        self.transcript_names = list(transcript_names)
+        self.known_somatic_transcript_edits = tuple(known_somatic_transcript_edits)
+        self.known_germline_transcript_edits = tuple(
+            known_germline_transcript_edits)
+        self.unexplained_transcript_edits = tuple(unexplained_transcript_edits)
+
+
+def make_transcript_assembly_edit(
+        transcript_id,
+        transcript_name,
+        cdna_start,
+        cdna_end,
+        alt_bases,
+        source_variant=None):
+    return TranscriptAssemblyEdit(
+        transcript_id=transcript_id,
+        transcript_name=transcript_name,
+        edit=TranscriptEdit(
+            cdna_start=cdna_start,
+            cdna_end=cdna_end,
+            alt_bases=alt_bases,
+            source_variant=source_variant,
+        ),
+    )
+
+
+def make_isovar_result(
+        variant,
+        alt_read_names,
+        protein_read_names,
+        amino_acids=None,
+        cdna_sequences=(),
+        transcript_ids=(),
+        transcript_names=(),
+        known_somatic_transcript_edits=(),
+        known_germline_transcript_edits=(),
+        unexplained_transcript_edits=(),
+        ref_read_names=()):
+    read_evidence = ReadEvidence(
+        trimmed_base1_start=variant.start,
+        trimmed_ref=variant.ref,
+        trimmed_alt=variant.alt,
+        ref_reads=[
+            AlleleRead(prefix="A", allele=variant.ref, suffix="T", name=name)
+            for name in ref_read_names
+        ],
+        alt_reads=[
+            AlleleRead(prefix="A", allele=variant.alt, suffix="T", name=read_name)
+            for read_name in alt_read_names
+        ],
+        other_reads=[],
+    )
+    return IsovarResult(
+        variant=variant,
+        read_evidence=read_evidence,
+        predicted_effect=None,
+        sorted_protein_sequences=[DummyProteinSequence(
+            read_names=protein_read_names,
+            amino_acids=amino_acids if amino_acids is not None else variant.alt,
+            cdna_sequences=cdna_sequences,
+            transcript_ids=transcript_ids,
+            transcript_names=transcript_names,
+            known_somatic_transcript_edits=known_somatic_transcript_edits,
+            known_germline_transcript_edits=known_germline_transcript_edits,
+            unexplained_transcript_edits=unexplained_transcript_edits,
+        )],
+    )
+
+
+@pytest.mark.parametrize("counts, expected, error_rate", [
+    ((2, 198, 0, 20), None, 0.01),
+    ((10, 990, 6, 94), False, 0.01),
+    ((3, 10, 2, 5), None, 0.01),
+    ((2, 5, 0, 50), True, 0.01),
+    ((3, 0, 10, 8), True, 0.01),
+    ((2, 198, 0, 20), True, 0.001),
+    ((3, 47, 2, 48), None, 0.05),
+])
+def test_phase_groups_and_partners_use_all_allele_evidence(counts, expected, error_rate):
+    v1 = Variant("1", 10, "A", "C", normalize_contig_names=False)
+    v2 = Variant("1", 11, "G", "T", normalize_contig_names=False)
+    both, first, second, neither = [
+        {"%s%d" % (label, i) for i in range(count)}
+        for label, count in zip("cabz", counts)
+    ]
+    results = [
+        make_isovar_result(v1, both | first, both, ref_read_names=second | neither),
+        make_isovar_result(v2, both | second, both, ref_read_names=first | neither),
+    ]
+    # Only the both-alt reads support the top proteins. Their phase call
+    # must still account for errors and competing alleles in all the reads.
+    annotated = annotate_phased_variants(results, phasing_error_rate=error_rate)
+    phasing = IsovarReadPhasing(annotated, phasing_error_rate=error_rate)
+    assert phasing.in_cis(v1, v2) is expected
+    for result, other in zip(annotated, (v2, v1)):
+        partners = {other} if expected is True else set()
+        assert set(phasing.partners_in_cis(result.variant)) == partners
+        assert result.phased_variants_in_supporting_reads == partners
+        assert result.phased_variants_in_protein_sequence == partners
+        for group in (result.phase_group_from_supporting_reads, result.phase_group_from_protein_sequence):
+            if expected is True:
+                assert group.somatic_variants == (v1, v2)
+                assert group.supporting_read_names == frozenset(both)
+            else:
+                assert group is None
+
+
+def test_annotate_phased_variants_creates_explicit_phase_groups():
+    v1 = Variant("1", 10, "A", "C", normalize_contig_names=False)
+    v2 = Variant("1", 11, "G", "T", normalize_contig_names=False)
+    v3 = Variant("1", 12, "T", "G", normalize_contig_names=False)
+    germline = Variant("1", 9, "A", "G", normalize_contig_names=False)
+
+    somatic_edit_v1 = make_transcript_assembly_edit("tx-1", "TX1", 10, 11, "C", v1)
+    somatic_edit_v2 = make_transcript_assembly_edit("tx-2", "TX2", 20, 21, "T", v2)
+    somatic_edit_v3 = make_transcript_assembly_edit("tx-2", "TX2", 30, 31, "G", v3)
+    germline_edit = make_transcript_assembly_edit(
+        "tx-shared", "TX_SHARED", 7, 8, "G", germline)
+    unexplained_edit_v1 = make_transcript_assembly_edit("tx-1", "TX1", 4, 5, "G")
+    unexplained_edit_v2 = make_transcript_assembly_edit(
+        "tx-shared", "TX_SHARED", 24, 24, "TT")
+
+    results = annotate_phased_variants(
+        [
+            make_isovar_result(
+                v1,
+                {"r12"},
+                {"p12"},
+                amino_acids="AA-1",
+                cdna_sequences={"cdna-1"},
+                transcript_ids={"tx-1", "tx-shared"},
+                transcript_names={"TX1", "TX_SHARED"},
+                known_somatic_transcript_edits=(somatic_edit_v1,),
+                known_germline_transcript_edits=(germline_edit,),
+                unexplained_transcript_edits=(unexplained_edit_v1,),
+            ),
+            make_isovar_result(
+                v2,
+                {"r12", "r23"},
+                {"p12", "p23"},
+                amino_acids="AA-2",
+                cdna_sequences={"cdna-2"},
+                transcript_ids={"tx-2", "tx-shared"},
+                transcript_names={"TX2", "TX_SHARED"},
+                known_somatic_transcript_edits=(somatic_edit_v2,),
+                known_germline_transcript_edits=(germline_edit,),
+                unexplained_transcript_edits=(unexplained_edit_v2,),
+            ),
+            make_isovar_result(
+                v3,
+                {"r23"},
+                {"p23"},
+                amino_acids="AA-3",
+                cdna_sequences={"cdna-3"},
+                transcript_ids={"tx-2"},
+                transcript_names={"TX2"},
+                known_somatic_transcript_edits=(somatic_edit_v3,),
+            ),
+        ],
+        min_shared_fragments_for_phasing=1,
+    )
+
+    results_by_variant = {result.variant: result for result in results}
+    expected_group_variants = (v1, v2, v3)
+    expected_phase_read_names = frozenset({"r12", "r23"})
+    expected_phase_protein_read_names = frozenset({"p12", "p23"})
+    expected_cdna_sequences = ("cdna-1", "cdna-2", "cdna-3")
+    expected_protein_sequences = ("AA-1", "AA-2", "AA-3")
+    expected_transcript_ids = ("tx-1", "tx-2", "tx-shared")
+    expected_transcript_names = ("TX1", "TX2", "TX_SHARED")
+    expected_known_somatic_edits = (
+        somatic_edit_v1,
+        somatic_edit_v2,
+        somatic_edit_v3,
+    )
+    expected_known_germline_edits = (germline_edit,)
+    expected_unexplained_edits = (
+        unexplained_edit_v1,
+        unexplained_edit_v2,
+    )
+    expected_supporting_neighbors = {
+        v1: {v2},
+        v2: {v1, v3},
+        v3: {v2},
+    }
+
+    for variant, result in results_by_variant.items():
+        supporting_group = result.phase_group_from_supporting_reads
+        protein_group = result.phase_group_from_protein_sequence
+
+        assert supporting_group is not None
+        assert protein_group is not None
+
+        eq_(supporting_group.somatic_variants, expected_group_variants)
+        eq_(supporting_group.germline_variants, ())
+        eq_(supporting_group.supporting_read_names, expected_phase_read_names)
+        eq_(supporting_group.cdna_sequences, ())
+        eq_(supporting_group.mutant_protein_sequences, ())
+        eq_(supporting_group.transcript_ids, ())
+        eq_(supporting_group.transcript_names, ())
+        eq_(supporting_group.known_somatic_transcript_edits, ())
+        eq_(supporting_group.known_germline_transcript_edits, ())
+        eq_(supporting_group.unexplained_transcript_edits, ())
+
+        eq_(protein_group.somatic_variants, expected_group_variants)
+        # The group's assemblies contain the germline edit.
+        eq_(protein_group.germline_variants, (germline,))
+        eq_(protein_group.supporting_read_names, expected_phase_protein_read_names)
+        eq_(protein_group.cdna_sequences, expected_cdna_sequences)
+        eq_(protein_group.mutant_protein_sequences, expected_protein_sequences)
+        eq_(protein_group.transcript_ids, expected_transcript_ids)
+        eq_(protein_group.transcript_names, expected_transcript_names)
+        eq_(
+            protein_group.known_somatic_transcript_edits,
+            expected_known_somatic_edits,
+        )
+        eq_(
+            protein_group.known_germline_transcript_edits,
+            expected_known_germline_edits,
+        )
+        eq_(
+            protein_group.unexplained_transcript_edits,
+            expected_unexplained_edits,
+        )
+
+        eq_(
+            result.phased_variants_in_supporting_reads,
+            expected_supporting_neighbors[variant],
+        )
+        eq_(
+            result.phased_variants_in_protein_sequence,
+            expected_supporting_neighbors[variant],
+        )
+
+
+def test_annotate_phased_variants_leaves_singletons_without_phase_group():
+    variant = Variant("1", 20, "C", "A", normalize_contig_names=False)
+    result = annotate_phased_variants(
+        [make_isovar_result(variant, {"solo"}, {"solo-protein"})],
+        min_shared_fragments_for_phasing=1,
+    )[0]
+
+    assert result.phase_group_from_supporting_reads is None
+    assert result.phase_group_from_protein_sequence is None
+    eq_(result.phased_variants_in_supporting_reads, set())
+    eq_(result.phased_variants_in_protein_sequence, set())
+
+
+def scoped_result(position, groups, segments=(64,), protein_groups=None):
+    variant = Variant("1", position, "A", "C", normalize_contig_names=False)
+    result = make_isovar_result(variant, (), {"shared"})
+    reads = [AlleleRead(
+        prefix="A", allele="C", suffix="T", name="shared",
+        source_alignments=(((group, "shared", segment), (0, 0, "100M", False)),),
+    ) for group in groups for segment in segments]
+    result.read_evidence.alt_reads.extend(reads)
+    result.top_protein_sequence.supporting_reads = {
+        read for read in reads
+        if protein_groups is None or read.source_alignments[0][0][0] in protein_groups
+    }
+    return result
+
+
+@pytest.mark.parametrize("groups", [("a", "b"), ("", "a")])
+def test_different_read_groups_cannot_phase_identical_names(groups):
+    inputs = [scoped_result(10, [groups[0]]), scoped_result(20, [groups[1]])]
+    for result in annotate_phased_variants(inputs, min_shared_fragments_for_phasing=1):
+        assert result.alt_read_names == {"shared"}
+        assert not result.phased_variants_in_supporting_reads
+        assert not result.phased_variants_in_protein_sequence
+        assert result.phase_group_from_supporting_reads is None
+        assert result.phase_group_from_protein_sequence is None
+
+
+@pytest.mark.parametrize("group", ["a", ""])
+def test_complementary_mates_in_same_group_still_phase(group):
+    inputs = [scoped_result(10, [group], (64,)), scoped_result(20, [group], (128,))]
+    for result in annotate_phased_variants(inputs, min_shared_fragments_for_phasing=1):
+        assert result.phased_variants_in_supporting_reads == {
+            r.variant for r in inputs if r.variant != result.variant}
+        assert result.phased_variants_in_protein_sequence == result.phased_variants_in_supporting_reads
+        for phase_group in (result.phase_group_from_supporting_reads,
+                            result.phase_group_from_protein_sequence):
+            assert phase_group.supporting_read_names == frozenset({"shared"})
+
+
+def test_read_groups_count_separately_but_mates_and_duplicate_placements_do_not():
+    for groups, expected in [(["a"], False), (["a", "b"], True)]:
+        inputs = [scoped_result(pos, groups, (64, 128, 64)) for pos in (10, 20)]
+        for result in annotate_phased_variants(inputs, min_shared_fragments_for_phasing=2):
+            assert bool(result.phased_variants_in_supporting_reads) == expected
+            assert bool(result.phased_variants_in_protein_sequence) == expected
+            if expected:
+                assert result.phase_group_from_protein_sequence.supporting_read_names == {"shared"}
+
+
+def test_protein_phasing_uses_its_actual_subset_not_matching_alt_names():
+    inputs = [scoped_result(10, ["a", "b"], protein_groups=["a"]),
+              scoped_result(20, ["a", "b"], protein_groups=["b"])]
+    for result in annotate_phased_variants(inputs, min_shared_fragments_for_phasing=1):
+        assert result.phased_variants_in_supporting_reads
+        assert not result.phased_variants_in_protein_sequence
+        assert result.phase_group_from_protein_sequence is None
+
+
+def test_missing_metadata_does_not_match_a_collected_unscoped_read():
+    legacy = make_isovar_result(Variant("1", 10, "A", "C"), {"shared"}, {"shared"})
+    collected = scoped_result(20, [""])
+    for result in annotate_phased_variants([legacy, collected], min_shared_fragments_for_phasing=1):
+        assert not result.phased_variants_in_supporting_reads
+        assert not result.phased_variants_in_protein_sequence
+
+
+def test_phase_groups_accept_plain_names():
+    variants = [Variant("1", pos, "A", "C") for pos in (10, 20)]
+    _, groups = _phase_annotations({v: {"shared"} for v in variants}, 1)
+    assert set(groups) == set(variants)
+    assert all(g.supporting_read_names == {"shared"} for g in groups.values())
+
+
+def test_phasing_threshold_counts_shared_fragments():
+    a, b, c = [Variant("1", pos, "A", "C") for pos in (10, 20, 30)]
+    neighbors, groups = _phase_annotations({a: {"x", "y"}, b: {"x", "y"}, c: {"y"}}, 2)
+    assert neighbors == {a: {b}, b: {a}, c: set()}
+    assert set(groups) == {a, b}
+    assert groups[a] is groups[b]
+    assert groups[a].supporting_read_names == {"x", "y"}
+
+
+def test_phase_group_names_come_from_retained_edges_not_raw_cooccurrence():
+    a, b, c = [Variant("1", pos, "A", "C") for pos in (10, 20, 30)]
+    _, groups = _phase_annotations({
+        a: {"ab1", "ab2", "weak"},
+        b: {"ab1", "ab2", "bc1", "bc2"},
+        c: {"bc1", "bc2", "weak"},
+    }, 2)
+    assert groups[a] is groups[b] is groups[c]
+    assert groups[a].supporting_read_names == {"ab1", "ab2", "bc1", "bc2"}
+
+
+@pytest.mark.parametrize("placement", [(1, 0, "100M", False), (0, 1, "100M", False),
+                                       (0, 0, "50M1D50M", False), (0, 0, "100M", True)])
+def test_every_placement_coordinate_is_part_of_phasing_identity(placement):
+    inputs = [scoped_result(pos, ["a"]) for pos in (10, 20)]
+    other = AlleleRead("A", "C", "T", "shared", source_alignments=((("a", "shared", 64), placement),))
+    inputs[1].read_evidence.alt_reads[:] = [other]
+    inputs[1].top_protein_sequence.supporting_reads = {other}
+    assert_placement_phasing(inputs, 1, set())
+
+
+def test_read_collector_and_adapter_do_not_link_different_groups():
+    from isovar.read_collector import ReadCollector
+    from isovar.read_phasing import IsovarReadPhasing
+    from tests.mock_objects import MockAlignmentFile, make_pysam_read
+
+    records = []
+    for group, sequence in [("a", "ACCGTGATCG"), ("b", "ACCTTGAACG")]:
+        read = make_pysam_read(sequence, "10M", name="shared", reference_start=0)
+        read.set_tag("RG", group)
+        records.append(read)
+    bam = MockAlignmentFile(["1"], records)
+    variants = [Variant("1", 4, "T", "G"), Variant("1", 8, "T", "A")]
+    inputs = [IsovarResult(v, ReadCollector().read_evidence_for_variant(v, bam), None)
+              for v in variants]
+    results = annotate_phased_variants(inputs, min_shared_fragments_for_phasing=1)
+    adapter = IsovarReadPhasing(results)
+    assert all(r.num_alt_fragments == 1 and r.alt_read_names == {"shared"} for r in results)
+    assert all(adapter.has_evidence(v) and not adapter.partners_in_cis(v) for v in variants)
+
+
+def placement_results(records, positions=(135, 235)):
+    """Collect real SAM placements; expose the same evidence at both layers."""
+    from isovar.read_collector import ReadCollector
+    from tests.mock_objects import MockAlignmentFile
+
+    bam = MockAlignmentFile(["1"], records)
+    results = []
+    for position in positions:
+        variant = Variant("1", position, "T", "A", genome="GRCh38")
+        evidence = ReadCollector().read_evidence_for_variant(variant, bam)
+        protein = DummyProteinSequence({r.name for r in evidence.alt_reads}, "K", (), (), ())
+        protein.supporting_reads = set(evidence.alt_reads)
+        results.append(IsovarResult(variant, evidence, None, sorted_protein_sequences=[protein]))
+    return results
+
+
+def assert_placement_phasing(inputs, threshold, expected_names):
+    from isovar.read_phasing import IsovarReadPhasing
+
+    results = annotate_phased_variants(inputs, min_shared_fragments_for_phasing=threshold)
+    for result in results:
+        expected_partners = ({r.variant for r in inputs if r.variant != result.variant}
+                             if expected_names else set())
+        assert result.phased_variants_in_supporting_reads == expected_partners
+        assert result.phased_variants_in_protein_sequence == expected_partners
+        assert set(IsovarReadPhasing(results).partners_in_cis(result.variant)) == expected_partners
+        for group in (result.phase_group_from_supporting_reads, result.phase_group_from_protein_sequence):
+            if expected_names:
+                assert group.supporting_read_names == expected_names
+            else:
+                assert group is None
+
+
+@pytest.mark.parametrize("flag", [0, 256, 2048, 256 | 2048])
+@pytest.mark.parametrize("n_fragments", [1, 2])
+def test_incompatible_placements_cannot_phase_variants(flag, n_fragments):
+    from tests.test_read_identity import record
+
+    records = [record(name, start, placement_flag, "a")
+               for name in ("template%d" % i for i in range(n_fragments))
+               for start, placement_flag in [(100, 0), (200, flag)]]
+    inputs = placement_results(records)
+    assert all(r.num_alt_fragments == n_fragments for r in inputs)
+    assert_placement_phasing(inputs, n_fragments, set())
+
+
+@pytest.mark.parametrize("flag", [0, 256, 2048])
+@pytest.mark.parametrize("spliced", [False, True])
+def test_same_linear_or_spliced_placement_still_phases(flag, spliced):
+    from tests.test_read_identity import record
+
+    read = record(flag=flag, group="a")
+    if spliced:
+        read.cigarstring = "30M70N30M"
+    inputs = placement_results([read], positions=(115, 215 if spliced else 145))
+    assert_placement_phasing(inputs, 1, {"template"})
+    assert_placement_phasing(inputs, 2, set())
+
+
+def test_separate_supplementary_placements_need_chimeric_path_evidence():
+    from tests.test_read_identity import record
+
+    first, second = record(group="a"), record(start=200, flag=2048, group="a")
+    first.cigarstring, second.cigarstring = "30M30S", "30S30M"
+    # Complementary query intervals alone do not establish a shared path.
+    inputs = placement_results([first, second], positions=(115, 215))
+    assert all(r.num_alt_fragments == 1 for r in inputs)
+    assert_placement_phasing(inputs, 1, set())
+
+
+def test_collected_complementary_mates_at_distinct_loci_still_phase():
+    from tests.test_read_identity import record
+
+    names = {"template1", "template2"}
+    records = [record(name, start, flag, "a") for name in names
+               for start, flag in [(100, 65), (200, 129)]]
+    assert_placement_phasing(placement_results(records), 2, names)
+
+
+def test_invalid_placements_neither_inflate_threshold_nor_group_names():
+    from tests.test_read_identity import record
+
+    records = [record("invalid", start, flag, "a")
+               for start, flag in [(100, 0), (200, 256)] for _ in range(2)]
+    records += [record("valid", start, flag, "a") for start, flag in [(100, 65), (200, 129)]]
+    inputs = placement_results(records)
+    assert_placement_phasing(inputs, 1, {"valid"})
+    assert_placement_phasing(inputs, 2, set())
+
+
+def test_phasing_checks_both_placements_in_a_merged_pair():
+    from tests.test_read_identity import record
+
+    inputs = placement_results([record(flag=65), record(start=118, flag=129),
+                                record(start=200, flag=129 | 256)])
+    assert len(inputs[0].alt_reads) == 1
+    assert len(inputs[0].alt_reads[0].source_alignments) == 2
+    assert_placement_phasing(inputs, 1, set())
+
+
+def test_phasing_accepts_a_compatible_alternative_not_the_union_of_all_placements():
+    from tests.test_read_identity import record
+
+    inputs = placement_results([record(), record(start=118, flag=256)], positions=(135, 175))
+    assert len(inputs[0].alt_reads) == 2
+    for ordered in (inputs, inputs[::-1]):
+        assert_placement_phasing(ordered, 1, {"template"})
+        assert_placement_phasing(ordered, 2, set())
+
+    # The protein only uses the incompatible placement at the first locus.
+    inputs[0].top_protein_sequence.supporting_reads = {
+        r for r in inputs[0].alt_reads if r.source_alignments[0][1][1] == 100}
+    for result in annotate_phased_variants(inputs, min_shared_fragments_for_phasing=1):
+        assert result.phased_variants_in_supporting_reads
+        assert not result.phased_variants_in_protein_sequence
+        assert result.phase_group_from_protein_sequence is None

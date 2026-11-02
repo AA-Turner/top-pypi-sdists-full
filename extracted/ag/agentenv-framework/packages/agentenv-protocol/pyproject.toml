@@ -1,0 +1,78 @@
+[project]
+name = "agentenv-framework-protocol"
+version = "0.1.425"
+description = "Open data-plane protocol and server SDK for agent environments."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "Scale AI" }]
+requires-python = ">=3.10"
+keywords = ["mcp", "model-context-protocol", "a2a", "ai-agents", "rl-environments", "json-rpc"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.11",
+    "starlette>=0.37",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+agent = [
+    "a2a-sdk[http-server]>=0.3.26,<0.4",
+    "mcp>=1.25,<2",  # the peer-agents tools' MCP server; 2.0 removed the server API it serves them with
+    "python-multipart>=0.0.13",  # the staging extension's upload forms
+    "regex>=2023.12.25",
+    "uvicorn>=0.30",
+]
+# A computer app's own server: ComputerAppEnvironment serves its card and computer-app/v1 over mcp's FastMCP, on a Unix
+# socket through uvicorn.
+app = [
+    "mcp>=1.25,<2",
+    "uvicorn>=0.30",
+]
+# A computer driver: ComputerDriverEnvironment serves its tools over mcp's FastMCP, crops and encodes frames, and
+# records the display as H.264 with PyAV (computer-recording/v1).
+computer = [
+    "av>=17",
+    "mcp>=1.25,<2",
+    "Pillow>=10.4",
+    "uvicorn>=0.30",
+]
+dev = [
+    "a2a-sdk[http-server]>=0.3.26,<0.4",
+    "python-multipart>=0.0.13",
+    "regex>=2023.12.25",
+    "pytest>=9.0",
+    "pytest-asyncio>=0.23.0",
+    "mcp>=1.25,<2",
+    "fastmcp>=3.4,<4",  # the standalone-fastmcp mount path
+    "Pillow>=10.4",  # the computer extra's frame crops and encodings
+    "av>=17",  # the computer extra's encoder, and the tests' decoder
+]
+[project.urls]
+Homepage = "https://www.agentenvframework.com"
+Documentation = "https://www.agentenvframework.com/docs"
+Repository = "https://github.com/scaleapi/agentenv-framework/tree/main/packages/agentenv-protocol"
+Issues = "https://github.com/scaleapi/agentenv-framework/issues"
+Changelog = "https://github.com/scaleapi/agentenv-framework/releases"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentenv_protocol"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"

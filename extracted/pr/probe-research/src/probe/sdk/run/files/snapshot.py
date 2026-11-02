@@ -1,15 +1,18 @@
 """SnapshotMixin, Run's methods: run.snapshot: the content-addressed execution record of code,
-dependencies and GPUs."""
+dependencies and GPUs; at run open, the same capture with its network off the caller's thread."""
 
 from __future__ import annotations
 import os
+import time
 import warnings
+from types import SimpleNamespace
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
 from ..launch import launch as _launch
 from ...capture import code as _snapshot
 from ....models import ExecutionRecordCreate
+from probe.sdk.routes import WriteOp, path_for
 #: The snapshot row's newline-joined path list is what /v1/search matches a
 #: captured tree on; it also rides every list response that carries the row,
 #: so it is bounded. 512 KB covers the largest tree seen so far (7,942 paths).
@@ -79,6 +82,62 @@ class SnapshotMixin:
         is a few round-trips, not hundreds, and a sweep of N runs over unchanged
         code uploads each changed file once. The archive path keeps the older
         single-object shape for servers without the batch doors."""
+        # The open's own snapshot queues first, so this one's env_ref and launch block are
+        # the ones the run ends with (`run.execute()` records the child's this way).
+        self._settle_open_snapshot()
+        cap = self._capture_snapshot(
+            cwd=cwd, include_env=include_env, include_gpu=include_gpu, venv=venv,
+            detect_venv=detect_venv, upload=upload, max_upload_bytes=max_upload_bytes,
+            include=include, reference_over_bytes=reference_over_bytes, strict=strict,
+            probe_remote=True,
+        )
+        manifest = cap.manifest
+        exec_rec = self._client.transport.post("/v1/execution-records", cap.body)
+        content_hash = exec_rec.get("content_hash") if exec_rec else None
+
+        # Store the bytes git cannot supply. Runs BEFORE the code-snapshot
+        # artifact is written, so its meta records the real outcome rather than
+        # a promise: `pending_upload` in that meta means those bytes are gone,
+        # and it must never say 0 because an upload was merely attempted.
+        code_bytes = self._upload_pending_code(
+            manifest, cwd, upload=upload, max_upload_bytes=max_upload_bytes, strict=strict
+        )
+
+        launch_block = self._pin_env_ref(content_hash, argv=argv, cwd=cwd, strict=strict)
+        self.log_artifact(
+            "code-snapshot",
+            **self._snapshot_row(cap, content_hash, code_bytes, launch_block),
+            strict=strict,
+        )
+        return {
+            "git": cap.git,
+            "git_error": cap.git_error,
+            "manifest": manifest,
+            "code_bytes": code_bytes,
+            "deps": cap.deps,
+            "env_provenance": cap.env_provenance,
+            "execution_record": exec_rec,
+            "content_hash": content_hash,
+            "launch": launch_block,
+        }
+
+    def _capture_snapshot(
+        self,
+        *,
+        cwd: str | None,
+        include_env: bool,
+        include_gpu: bool,
+        venv: str | None,
+        detect_venv: bool,
+        upload: bool,
+        max_upload_bytes: int,
+        include: list[str] | None,
+        reference_over_bytes: int,
+        strict: bool | None,
+        probe_remote: bool,
+    ) -> SimpleNamespace:
+        """The local half of a snapshot: git provenance, manifest, environment, and the
+        execution record's body. No network unless ``probe_remote`` (`ls-remote`)."""
         # Git is PROVENANCE, read-only, and never a gate (plan 2.6): no author
         # identity, an unborn HEAD, a read-only `.git` or no git binary used to
         # abort the whole capture (no code, deps or argv). Now the tree is
@@ -98,6 +157,7 @@ class SnapshotMixin:
             # `.probeignore` (plan (n)): excluded after the safety stops, and
             # never over an explicit `include=`.
             ignore=self._ignore_rules(cwd),
+            probe_remote=probe_remote,
         )
         _warn_credential_skips(manifest)
         # Identity is hashed into the execution record; provenance is NOT --
@@ -128,7 +188,7 @@ class SnapshotMixin:
                 "Recording its packages would describe the launcher, not the "
                 "run. Pass venv=... (CLI: --venv PATH), or activate the "
                 "environment the code runs in.",
-                stacklevel=2,
+                stacklevel=3,
             )
         lockfiles = sorted(
             (
@@ -153,19 +213,16 @@ class SnapshotMixin:
                 else {}
             ),
         )
-        exec_rec = self._client.transport.post(
-            "/v1/execution-records", record.model_dump(mode="json", exclude_none=True)
-        )
-        content_hash = exec_rec.get("content_hash") if exec_rec else None
-
-        # Store the bytes git cannot supply. Runs BEFORE the code-snapshot
-        # artifact is written, so its meta records the real outcome rather than
-        # a promise: `pending_upload` in that meta means those bytes are gone,
-        # and it must never say 0 because an upload was merely attempted.
-        code_bytes = self._upload_pending_code(
-            manifest, cwd, upload=upload, max_upload_bytes=max_upload_bytes, strict=strict
+        return SimpleNamespace(
+            git=git, git_error=git_error, manifest=manifest, deps=deps,
+            env_provenance=env_provenance, lockfiles=lockfiles,
+            body=record.model_dump(mode="json", exclude_none=True),
         )
 
+    def _pin_env_ref(
+        self, content_hash: str | None, *, argv: list[str] | None, cwd: str | None, strict: bool | None
+    ) -> dict:
+        """PATCH the run's env_ref (when known) and launch block; returns the launch block."""
         # Pin the real runs.env_ref column (FK to the execution record just
         # created). Launch ephemera ride the SAME patch as env_ref: one write, and
         # the metadata merge is client-side (read-modify-write) because RunPatch
@@ -193,7 +250,7 @@ class SnapshotMixin:
         # backend that accepts the field, ignores it and answers 200 -- only runs
         # when a row comes back. That is now SAID rather than silently skipped:
         # a guard nobody knows was skipped is worse than no guard.
-        data = self._client.write("PATCH", f"/v1/runs/{self.id}", patch_body, strict=strict)
+        data = self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), patch_body, strict=strict)
         if data is None and content_hash is not None:
             _diagnostics.warn(
                 "probe: env_ref was queued, not confirmed — the backend-capability "
@@ -209,13 +266,35 @@ class SnapshotMixin:
                 )
                 if strict is True or (strict is None and not self._client.fail_open):
                     raise errors.CapabilityUnavailable("run.env_ref", message)
-                warnings.warn(message, stacklevel=2)
+                warnings.warn(message, stacklevel=3)
+        return launch_block
+
+    def _snapshot_row(
+        self,
+        cap: SimpleNamespace,
+        content_hash: str | None,
+        code_bytes: dict,
+        launch_block: dict,
+        *,
+        pushed: tuple[str | None, str | None] | None = None,
+        code_uri: str | None = None,
+    ) -> dict:
+        """The code-snapshot row's `log_artifact` arguments. ``pushed`` (run open) is the
+        thread's `(base_commit, remote)`, which the open's manifest leaves out; ``code_uri``
+        (run open) pins the row's uri, so its later rewrite updates the same row."""
+        git, git_error, manifest = cap.git, cap.git_error, cap.manifest
+        lockfiles, env_provenance = cap.lockfiles, cap.env_provenance
+        base_commit, remote = pushed if pushed is not None else (
+            manifest["base_commit"], manifest["remote"]
+        )
         # The code-snapshot row points at what was STORED, git repo or not: the
         # `git:refs/probe/snapshots/...` uri named a shadow commit that is no
         # longer written (plan 2.6). The manifest travels with it so a reader can
         # tell, without fetching anything, which files the capture holds.
         # `check_run` requires a code_snapshot row to exist at all.
-        if code_bytes.get("storage") == CODE_STORAGE_ARTIFACTS and content_hash:
+        if code_uri is not None:
+            pass  # run open: one uri across the row's rewrite, so the server updates it in place
+        elif code_bytes.get("storage") == CODE_STORAGE_ARTIFACTS and content_hash:
             # Per-file storage has no single archive to point at; the execution
             # record (keyed by env_ref) IS the record of what was captured, and
             # its rows sit on this run.
@@ -227,8 +306,6 @@ class SnapshotMixin:
             # but the manifest still identifies the tree -- and a reference row
             # must name something (the server 422s one that names nothing).
             code_uri = f"probe-manifest:{content_hash}"
-        else:
-            code_uri = None
         paths_text = "\n".join(
             sorted(e["path"] for e in (manifest.get("entries") or []) if e.get("path"))
         )
@@ -237,8 +314,11 @@ class SnapshotMixin:
             cut = paths_text.encode("utf-8")[:PATHS_TEXT_MAX_BYTES].decode("utf-8", "ignore")
             paths_text = cut.rsplit("\n", 1)[0]
             paths_truncated = True
-        self.log_artifact(
-            "code-snapshot",
+        if code_uri is None:
+            # A reference row must name something (the server 422s one that names
+            # nothing); with no record and no stored archive, the tree's own digest.
+            code_uri = f"probe-tree:{manifest['tree_sha256']}"
+        return dict(
             uri=code_uri,
             kind="code_snapshot",
             is_reference=True,
@@ -256,8 +336,8 @@ class SnapshotMixin:
                 **({"n_probeignore": manifest["n_probeignore"]} if manifest.get("n_probeignore") else {}),
                 "env_ref": content_hash,
                 "tree_sha256": manifest["tree_sha256"],
-                "base_commit": manifest["base_commit"],
-                "remote": manifest["remote"],
+                "base_commit": base_commit,
+                "remote": remote,
                 "n_git_referenced": manifest["n_git_referenced"],
                 # What SURVIVES, not what was classified. `check_run` gates
                 # `pending_code_bytes` on this, so it must mean "these bytes are
@@ -288,17 +368,120 @@ class SnapshotMixin:
                 "n_lockfiles": len(lockfiles),
                 **({"launch_errors": launch_block["errors"]} if launch_block.get("errors") else {}),
             },
-            strict=strict,
         )
-        return {
-            "git": git,
-            "git_error": git_error,
-            "manifest": manifest,
-            "code_bytes": code_bytes,
-            "deps": deps,
-            "env_provenance": env_provenance,
-            "execution_record": exec_rec,
-            "content_hash": content_hash,
-            "launch": launch_block,
-        }
+
+    def _snapshot_at_open(self) -> None:
+        """The snapshot `client.run()` / `probe.init()` takes: no network on this thread.
+
+        Only under async writes with fail-open (the default): a sync-write or strict client
+        asked for its writes in hand, so it keeps `snapshot()`. Everything local happens HERE
+        and is queued before this returns, so a process killed a moment later still has it on
+        disk: the launch PATCH, the code-bytes archive (built and staged now, the open-time
+        bytes) and the code-snapshot row. The execution record (its hash is the server's) is
+        POSTed by `PendingSnapshot`'s thread, with the pushed base in it; its answer queues
+        the env_ref PATCH and the row again with its env_ref and pushed base (same uri, so
+        the server updates the row). Any close, terminal status or explicit `snapshot()`
+        settles it first (`_settle_open_snapshot`).
+        """
+        client = self._client
+        if not getattr(client, "async_writes", False) or not client.fail_open:
+            self.snapshot()
+            return
+        cap = self._capture_snapshot(
+            cwd=None, include_env=True, include_gpu=True, venv=None, detect_venv=False,
+            upload=True, max_upload_bytes=_snapshot.DEFAULT_MAX_UPLOAD_BYTES, include=None,
+            reference_over_bytes=_snapshot.DEFAULT_REFERENCE_OVER_BYTES, strict=None,
+            probe_remote=False,
+        )
+        code_bytes, archive, archive_meta = self._archive_pending_code(
+            cap.manifest, None, max_upload_bytes=_snapshot.DEFAULT_MAX_UPLOAD_BYTES
+        )
+        try:
+            launch_block = self._pin_env_ref(None, argv=None, cwd=None, strict=None)
+            code_uri = f"probe-tree:{cap.manifest['tree_sha256']}"
+            opened_row = self._snapshot_row(
+                cap, None, code_bytes, launch_block, pushed=(None, None), code_uri=code_uri
+            )
+            # The row before the archive: the archive rides its own lane, but an older drainer
+            # puts it on the run's, where a storage outage holding its upload must not hold the
+            # row too.
+            self.log_artifact("code-snapshot", **opened_row)
+            if archive is not None:
+                staged = self._stage_open_archive(archive, archive_meta, code_bytes)
+                archive = None  # `_stage_open_archive` owns (and deleted) the file
+                if staged is not code_bytes:  # not stored: the row says so (same uri: updated)
+                    code_bytes = staged
+                    opened_row = self._snapshot_row(
+                        cap, None, code_bytes, launch_block, pushed=(None, None),
+                        code_uri=code_uri,
+                    )
+                    self.log_artifact("code-snapshot", **opened_row)
+        finally:
+            if archive is not None:  # an interrupt before the handoff: no temp archive left
+                try:
+                    os.unlink(archive)
+                except OSError:
+                    pass
+
+        def pin(content_hash: str | None) -> str | None:
+            if content_hash is None:
+                return None
+            # Before the write, so no reader sees the PATCH queued and the pin missing.
+            self._pinned_env_ref = content_hash
+            if self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"env_ref": content_hash}):
+                return None
+            return (
+                "probe: env_ref was queued, not confirmed — the backend-capability check is "
+                "unavailable for this write. `probe run check` after the outbox drains "
+                "verifies it."
+            )
+
+        def rewrite_row(content_hash: str | None, base: str | None, remote: str | None) -> None:
+            row = self._snapshot_row(
+                cap, content_hash, code_bytes, launch_block, pushed=(base, remote),
+                code_uri=code_uri,
+            )
+            if row != opened_row:
+                self.log_artifact("code-snapshot", **row)
+
+        pending = PendingSnapshot(
+            client, cap.body, pin=pin, rewrite_row=rewrite_row,
+            should_wait_for_pushed=bool(cap.git),
+        )
+        if cap.git:
+            try:
+                _snapshot.start_pushed_base(os.getcwd(), pending.answer_pushed)
+            except RuntimeError:
+                # No thread for `ls-remote` (a thread limit): the record goes without a pushed
+                # base rather than not at all (final review of #3792).
+                pending.answer_pushed(None, None)
+        pending.start()
+        self._pending_snapshot = pending
+
+    def _settle_open_snapshot(self, wait_until: float | None = None) -> None:
+        """Before a terminal status or another snapshot: wait for the open's execution record
+        (at most until its own deadline, ``wait_until`` and this thread's `deadline_scope`),
+        then queue what it has not queued, here. After this, nothing of the open's snapshot
+        can be queued (`PendingSnapshot.settle`)."""
+        pending = getattr(self, "_pending_snapshot", None)
+        if pending is None:
+            return
+        from ...delivery.transport.deadlines import deadline_remaining
+
+        scope_end = time.monotonic() + deadline_remaining(float("inf"))
+        pending.settle(scope_end if wait_until is None else min(wait_until, scope_end))
+
+    def _wait_for_open_record(self) -> bool:
+        """Until the open's execution record is pinned or given up (bounded by its deadline):
+        `env_ref` read before that would miss the pin still in flight. False once the open's
+        snapshot is settled (a close, a terminal status or another snapshot took over): no
+        other writer may pin env_ref after that."""
+        pending = getattr(self, "_pending_snapshot", None)
+        if pending is None:
+            return True
+        pending.wait_for_record()
+        return not pending.is_settled
+
+
+from probe.sdk.run.files.snapshot_queue import PendingSnapshot  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.files.code_upload import CODE_STORAGE_ARCHIVE, CODE_STORAGE_ARTIFACTS, _warn_credential_skips  # noqa: E402 -- pieces need each other; the front door loads this one first

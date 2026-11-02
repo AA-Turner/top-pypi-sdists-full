@@ -1,35 +1,3 @@
-"""
-Backend for the django.tasks framework (Django 6.0+, or older Djangos using
-the django-tasks backport package) which enqueues tasks into huey. Tasks
-declared with the ``django.tasks.task`` decorator are executed by the regular
-huey consumer (``manage.py run_huey``), side-by-side with any native huey
-tasks, using the shared huey instance configured by ``settings.HUEY``.
-
-Usage::
-
-    TASKS = {'default': {
-        'BACKEND': 'huey.contrib.djhuey.tasks_backend.HueyBackend'}}
-
-Notes:
-
-* ``priority`` is supported by every storage backend except ``RedisHuey`` and
-  ``RedisExpireHuey``, where declaring a django task with a non-zero priority
-  will raise InvalidTask. Use ``PriorityRedisHuey`` or
-  ``PriorityRedisExpireHuey`` with Redis. ``FileHuey`` does not accept
-  negative priorities.
-* ``run_after`` is mapped onto huey's ``eta``. In immediate mode the task is
-  placed on the (undrained) in-memory schedule, mirroring the behavior of
-  native huey tasks scheduled while in immediate mode.
-* Add ``'ENQUEUE_ON_COMMIT': True`` to the backend declaration to defer
-  enqueueing until the current transaction commits. The returned result will
-  have ``enqueued_at=None`` and cannot be refreshed until the commit fires.
-* Task status is tracked in the huey result store under ``djt.<id>``, so
-  expiring-result storages like ``RedisExpireHuey`` apply their TTL to it.
-  A failed task additionally stores a regular huey error result under the
-  bare task id, making failures visible to huey's own tooling and signals.
-* ``get_result()`` re-imports the task function; it may raise ImportError if
-  the function has since been moved or renamed.
-"""
 import os
 import socket
 from datetime import datetime
@@ -77,9 +45,7 @@ def _parse(value):
 
 
 class _RestoredTask(DjangoTask):
-    # A Task reconstructed from a stored record. Skips validation, which
-    # would otherwise re-run at construction and could fail on environment
-    # drift (e.g. priority support or QUEUES changed since enqueue).
+    # Skip validation, which fails if settings changed since enqueue.
     def __post_init__(self):
         pass
 
@@ -106,9 +72,6 @@ def _initial_record(alias, dj_task, id, args, kwargs):
 
 
 def _resolve_func(task_path):
-    # The module path of a decorated task resolves to the django Task
-    # instance (the decorator re-binds the name), but a function wrapped
-    # separately resolves to the plain function. Handle both.
     obj = import_string(task_path)
     return obj.func if isinstance(obj, DjangoTask) else obj
 
@@ -141,49 +104,43 @@ def _record_to_result(rec):
     return result
 
 
+def _finish(key, rec, status, **fields):
+    rec.update(status=status.value, finished_at=_iso(timezone.now()), **fields)
+    HUEY.put_result(key, rec)
+    task_finished.send(sender=HueyBackend, task_result=_record_to_result(rec))
+
+
 def _execute_django_task(task_path, args, kwargs, task=None):
     key = KEY % task.id
     rec = HUEY.get(key, peek=True)
-    takes_context = rec['takes_context'] if rec is not None else False
+    if rec is None:
+        _resolve_func(task_path)(*args, **kwargs)
+        return
 
-    if rec is not None:
-        now = _iso(timezone.now())
-        rec['status'] = TaskResultStatus.RUNNING.value
-        rec['started_at'] = rec['last_attempted_at'] = now
-        rec['worker_ids'].append('%s.%s' % (socket.gethostname(), os.getpid()))
-        HUEY.put_result(key, rec)
+    now = _iso(timezone.now())
+    rec['status'] = TaskResultStatus.RUNNING.value
+    rec['started_at'] = rec['last_attempted_at'] = now
+    rec['worker_ids'].append('%s.%s' % (socket.gethostname(), os.getpid()))
+    HUEY.put_result(key, rec)
 
     try:
         func = _resolve_func(task_path)
-        if rec is not None:
-            task_started.send(sender=HueyBackend,
-                              task_result=_record_to_result(rec))
-        if takes_context:
+        task_started.send(sender=HueyBackend,
+                          task_result=_record_to_result(rec))
+        if rec['takes_context']:
             ret = func(TaskContext(task_result=_record_to_result(rec)),
                        *args, **kwargs)
         else:
             ret = func(*args, **kwargs)
         ret = normalize_json(ret)
     except Exception as exc:
-        if rec is not None:
-            exc_type = type(exc)
-            rec['status'] = TaskResultStatus.FAILED.value
-            rec['finished_at'] = _iso(timezone.now())
-            rec['errors'].append([
-                '%s.%s' % (exc_type.__module__, exc_type.__qualname__),
-                ''.join(format_exception(exc))])
-            HUEY.put_result(key, rec)
-            task_finished.send(sender=HueyBackend,
-                               task_result=_record_to_result(rec))
+        exc_type = type(exc)
+        rec['errors'].append([
+            '%s.%s' % (exc_type.__module__, exc_type.__qualname__),
+            ''.join(format_exception(exc))])
+        _finish(key, rec, TaskResultStatus.FAILED)
         raise
-    else:
-        if rec is not None:
-            rec['status'] = TaskResultStatus.SUCCESSFUL.value
-            rec['finished_at'] = _iso(timezone.now())
-            rec['return_value'] = ret
-            HUEY.put_result(key, rec)
-            task_finished.send(sender=HueyBackend,
-                               task_result=_record_to_result(rec))
+    _finish(key, rec, TaskResultStatus.SUCCESSFUL, return_value=ret)
 
 
 _shim = HUEY.task(name='djtasks.run', context=True)(

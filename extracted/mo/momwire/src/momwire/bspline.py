@@ -116,7 +116,15 @@ from ._vec3 import norm3, dot3
 # Two constants because there are two fills; see that property for the
 # measurements and for why the buried order is not applied everywhere.
 DEFAULT_N_QP_PAIR = 8
-BURIED_N_QP_PAIR = 32
+# The buried base order serves only the pairs under the ladder's first rung
+# (`BURIED_PAIR_ORDER_LADDER`): since momwire#1752 S2 (Steve's option (b),
+# 10-29), the NEAR-CONTACT pairs, centre distance under a tenth of the longer
+# segment -- in practice a buried wire's own image where it climbs to a
+# crossing node at the surface. 32 (momwire#760) was not converged there:
+# fx_slant_base_source read 86.905-17.784j at 32, 86.653-18.783j at 64,
+# 86.622-18.923j at 128 and 86.6215-18.9278j at 256/512, a 1.18 ohm
+# quadrature error against a 0.52 ohm mesh error. 128 lands within 0.004 ohm.
+BURIED_N_QP_PAIR = 128
 
 # The distance-adaptive pair-order LADDER (momwire#906), resolved per deck by
 # `BSplineSolver.pair_order_ladder` alongside `n_qp_pair`: a pair whose centre
@@ -157,7 +165,20 @@ BURIED_N_QP_PAIR = 32
 # answer is CLOSER to flat-32 than the untiered one (1.4e-12 against
 # 4.4e-12), so this is noise, not a bias.
 DEFAULT_PAIR_ORDER_LADDER = ((16.0, 4),)
-BURIED_PAIR_ORDER_LADDER = ((2.0, 8), (16.0, 4))
+# momwire#1752 S2 (option (b)): above the near-contact rung the buried
+# fill keeps today's 32 out to 1.5 segment lengths and takes 16 from 1.5 to
+# 2. The 16 rung cannot start lower: from 1.0 it moved the dense-hub test
+# screens 0.01 ohm off their q = 128 answers (screen12: 1.0e-2 against 1.5e-4
+# at 32, its mesh error 7.2e-3; the 4-radial hub 9.6e-3 against 7.8e-5, mesh
+# 8.7e-2), and from 1.5 every deck measured reads its 32-point answer. Pairs
+# past two lengths are #906's ladder, unchanged. Was ((2.0, 8), (16.0, 4))
+# under the base 32.
+# momwire#1752 H2 (proposed): the order-4 rung from 4 lengths instead of 16.
+# #906 measured order 4 at 6e-10 per pair over [4, 16); on the 15-deck set
+# Z_in moves at most 2e-10 of max|Z| and no deck's error against q = 256
+# moves at the second digit, while the hubs' mid-range cross-radial pairs
+# (the bulk of their fill) drop from 64 to 16 kernel reads.
+BURIED_PAIR_ORDER_LADDER = ((0.1, 32), (1.5, 16), (2.0, 8), (4.0, 4))
 
 _HAVE_BSPLINE_ASSEMBLE_ACCEL = _acc is not None and hasattr(_acc, "assemble_Z_bspline")
 _HAVE_BSPLINE_ASSEMBLE_W_ACCEL = _acc is not None and hasattr(
@@ -249,6 +270,23 @@ _FIELD_GALERKIN_LANES = True
 # module constant only so a test can force several chunks on a small deck
 # through the production rule (momwire#1337); nothing else should change it.
 _FIELD_GALERKIN_CHUNK_ELEMS = 1 << 19
+
+# The symmetric field-form block's (`_field_galerkin_block_symmetric`) least
+# number of observer chunks (momwire#1752 L1): each pair the mirror serves is
+# projected once, so more chunks project less of the square -- 1/2 + 1/(2c)
+# of it -- at one kernel call per chunk. Measured on the buried 101-segment
+# dipole: 1 chunk 28 ms, 4 21, 8 21, 16 20, 32 21; on a 29-segment pair 16
+# chunks of two segments were slower than 8, so 8. The rounding it moves is
+# the reciprocal table's (6e-17 relative, momwire#1224).
+_FIELD_GALERKIN_SYM_CHUNKS = 8
+
+# The buried fill's chunked direct blocks (`_accumulate_Z_subset_chunked`)
+# leave each fixed edge's own block out of the off-edge sweep and add the
+# same-edge moments alone (momwire#1752 L2). Read at call time; False is the
+# reference route (sweep everything, subtract it back), which the gates pin
+# this one against at the chunked route's 1e-12, and the C++ twin
+# (`accumulate_subset`) has only the True route.
+_SUBSET_SKIP_SAME_EDGE = True
 
 
 def _fg_lanes_kw():
@@ -657,6 +695,25 @@ _REMAINDER_GRADED = True
 # threshold is set by that measurement, not by cost.
 _REMAINDER_GRADED_C = 4.0
 
+# ...but only where the spike is narrow (momwire#1752 S3, Steve 10-28): a
+# listed pair whose keyed order (the listing rule's `ceil(c len / R_min)` at
+# this c, clipped to [base, cap]) is under `_REMAINDER_GRADED_MIN_Q` takes the
+# keyed Gauss rule at that order instead, which is the brute-force ladder
+# itself at that order and costs Q^2 kernel reads against the ~800 a graded
+# pair spends. Measured against REF_48 (the 48-radial surface screen, #1201's
+# 1e-6 bar), by threshold:
+#
+#   threshold        0 (all graded)  8        16       32       64
+#   |Z - REF_48|     2.2e-7          1.7e-7   1.5e-7   1.5e-7   1.3e-7
+#   pairs graded     27135           18973    11481    11001    10039
+#
+# and the 12-radial screen moves from 5.6e-9 to 3.7e-8 of REF_12 at 16. On
+# the 16-radial screen 0.5 m up (no pair with a narrow spike) every listed
+# pair leaves the panels and Z_in moves 3e-6 ohm. 16 is under the ~28 where
+# the keyed rule's Q^2 overtakes a graded pair's cost. 0 is the #1201 route
+# (every listed pair graded), kept as the reference.
+_REMAINDER_GRADED_MIN_Q = 16
+
 # ...with the broadside guard widened by this much of a segment, so a foot
 # landing exactly on a segment end (radials and a mast meeting at a hub) is
 # decided the same way in every rotated copy of a symmetric deck (see
@@ -667,6 +724,17 @@ _REMAINDER_GRADED_C = 4.0
 # 12-radial screen 2.3e-3 (the brute-force ladder, listed the same way, agrees
 # with the graded answer to 6e-9).
 _REMAINDER_GRADED_EDGE_TOL = 1e-9
+
+
+def _remainder_side(seg_l, seg_r, h, segs, tq, wg, d1):
+    """`_remainder_pair_moments`' per-side nodes `(n, q, 3)` and moment
+    weights `W[p, n, q] = (h/2 w_q) (h t_q)^p` over `segs`, one rule."""
+    sl, sr = seg_l[segs], seg_r[segs]
+    nodes = sl[:, None, :] + tq[None, :, None] * (sr - sl)[:, None, :]
+    u_phys = h[segs][:, None] * tq[None, :]
+    w_node = 0.5 * h[segs][:, None] * wg[None, :]
+    W = w_node[None] * np.float_power(u_phys[None], np.arange(d1)[:, None, None])
+    return nodes, W
 
 
 def _solved_wires(inputs, dedup):
@@ -1271,7 +1339,8 @@ class BSplineSolver(
         whose centre distance over the longer segment meets a tier's ratio
         takes that tier's order; the rest pay `n_qp_pair`. Resolved from the
         deck like `n_qp_pair` when None: buried decks get
-        `BURIED_PAIR_ORDER_LADDER` = ((2, 8), (16, 4)), free-space decks
+        `BURIED_PAIR_ORDER_LADDER` = ((0.1, 32), (1.5, 16), (2, 8), (16, 4))
+        under the base 128 (momwire#1752 S2), free-space decks
         `DEFAULT_PAIR_ORDER_LADDER` = ((16, 4),) since momwire#907 — one tier
         there, because the base order 8 already IS the order-8 rung. Tiers at
         or above the base order are dropped, so an explicit `n_qp_pair=8`
@@ -3353,7 +3422,55 @@ class BSplineSolver(
         k2, jj = _csr_expand(ptr, idx, J)
         return _pair_max(I[k2], jj, Q[k2], n)
 
-    def _remainder_pair_moments(self, geom, obs_segs, src_segs, q, grid):
+    def _remainder_runs_batched(self, geom, grid, requests):
+        """`_remainder_pair_moments(geom, obs, [src], q, grid)[:, 0]` for each
+        request `(obs, src, q)`, in one C++ call (momwire#1752 K2): the
+        keyed runs of `_remainder_pair_correction` in parallel. Each request's
+        arrays are the single call's, gathered from every segment's nodes and
+        weights at its order, and its kernel is the single call's kernel, so
+        each result is that call's bytes. None when the extension lacks it."""
+        if _acc is None or not hasattr(_acc, "sommerfeld_remainder_bspline_runs"):
+            return None
+        seg_l, seg_r, h = geom["seg_l"], geom["seg_r"], geom["h_per_seg"]
+        d1 = self.degree + 1
+        everyone = np.arange(seg_l.shape[0])
+        rules, nodes, Ws = {}, [], []
+        rule = np.empty(len(requests), dtype=np.int64)
+        src = np.empty(len(requests), dtype=np.int64)
+        ptr = np.zeros(len(requests) + 1, dtype=np.int64)
+        for r, (obs, s_, q) in enumerate(requests):
+            q = int(q)
+            if q not in rules:
+                xg, wg = leggauss(q)
+                tq = 0.5 * (xg + 1.0)
+                nd, W = _remainder_side(seg_l, seg_r, h, everyone, tq, wg, d1)
+                rules[q] = len(nodes)
+                nodes.append(np.ascontiguousarray(nd))
+                Ws.append(np.ascontiguousarray(W))
+            rule[r] = rules[q]
+            src[r] = int(s_)
+            ptr[r + 1] = ptr[r] + len(obs)
+        obs_all = (
+            np.concatenate([np.asarray(o, dtype=np.int64) for o, _s, _q in requests])
+            if requests
+            else np.zeros(0, dtype=np.int64)
+        )
+        out = _acc.sommerfeld_remainder_bspline_runs(
+            nodes,
+            Ws,
+            np.ascontiguousarray(geom["tangents"], dtype=np.float64),
+            rule,
+            src,
+            ptr,
+            obs_all,
+            float(self.ground_z),
+            float(self.k),
+            *_sommerfeld.grid_cpp_args(grid),
+            int(self._cancel_flag),
+        )
+        return [out[ptr[r] : ptr[r + 1]] for r in range(len(requests))]
+
+    def _remainder_pair_moments(self, geom, obs_segs, src_segs, q, grid, cache=None):
         """Segment-pair remainder moments `Jf[a, b, p, P]` over the rectangle
         `obs_segs x src_segs`, at Gauss order `q` on both sides.
 
@@ -3376,14 +3493,25 @@ class BSplineSolver(
         xg, wg = leggauss(q)
         tq = 0.5 * (xg + 1.0)
 
+        def side_of(segs):
+            return _remainder_side(seg_l, seg_r, h, segs, tq, wg, d1)
+
+        # `cache` (momwire#1752 K1): one dict for a run of calls over the same
+        # geometry and grid. Every segment's nodes and weights at order q are
+        # built once and indexed (each is an elementwise product of that
+        # segment's own numbers, so a slice of the whole is the subset's
+        # value bit for bit), and so are the pseudo-bases.
+        if cache is not None:
+            key = ("side", q)
+            if key not in cache:
+                cache[key] = side_of(np.arange(seg_l.shape[0]))
+
         def side(segs):
-            sl, sr = seg_l[segs], seg_r[segs]
-            nodes = sl[:, None, :] + tq[None, :, None] * (sr - sl)[:, None, :]
-            u_phys = h[segs][:, None] * tq[None, :]
-            w_node = 0.5 * h[segs][:, None] * wg[None, :]
-            W = w_node[None] * np.float_power(
-                u_phys[None], np.arange(d1)[:, None, None]
-            )
+            if cache is None:
+                nodes, W = side_of(segs)
+            else:
+                all_nodes, all_W = cache[("side", q)]
+                nodes, W = all_nodes[segs], all_W[:, segs]
             return nodes, np.ascontiguousarray(tang[segs], dtype=np.float64), W
 
         nodes_o, tang_o, W_o = side(obs_segs)
@@ -3391,12 +3519,23 @@ class BSplineSolver(
         gz = self.ground_z
         if _acc is not None and hasattr(_acc, "sommerfeld_remainder_bspline_Q"):
 
-            def pseudo(n):
+            def pseudo_of(n):
                 loc = np.repeat(np.arange(n, dtype=np.int64), d1)[:, None]
                 loc = np.ascontiguousarray(np.broadcast_to(loc, (n * d1, d1)))
                 poly = np.zeros((n * d1, d1, d1))
                 poly[:, 0, :] = np.tile(np.eye(d1), (n, 1))
                 return loc, poly
+
+            def pseudo(n):
+                if cache is None:
+                    return pseudo_of(n)
+                key = ("pseudo", n, d1)
+                if key not in cache:
+                    cache[key] = pseudo_of(n)
+                return cache[key]
+
+            # not cached: a lazy grid may take regions between two calls
+            gargs = _sommerfeld.grid_cpp_args(grid)
 
             loc_o, p_o = pseudo(no)
             loc_s, p_s = pseudo(ns)
@@ -3413,7 +3552,7 @@ class BSplineSolver(
                 p_s,
                 float(gz),
                 float(self.k),
-                *_sommerfeld.grid_cpp_args(grid),
+                *gargs,
                 int(self._cancel_flag),
             )
             # out[a*d1 + p, b*d1 + P] -> Jf[a, b, p, P]
@@ -3484,36 +3623,64 @@ class BSplineSolver(
         d1 = self.degree + 1
         n_seg = geom["seg_l"].shape[0]
         graded = _REMAINDER_GRADED
-        if graded:
+        dJ = np.zeros((I.size, d1, d1), dtype=np.complex128)
+        # momwire#1752 S3: graded panels only where the spike is narrow, the
+        # pair's keyed order at least `_REMAINDER_GRADED_MIN_Q`; a pair with
+        # a wider spike takes the keyed Gauss rule at that order (the #1189
+        # route, which is the brute-force ladder itself at that order).
+        on_panels = (
+            Qp >= _REMAINDER_GRADED_MIN_Q if graded else np.zeros(I.size, dtype=bool)
+        )
+        if on_panels.any():
             # momwire#1201: the listed pairs on graded panels; only the
             # base-order moments the dense fill added are taken back out
             # below, one source column at a time.
-            dJ = self._remainder_pair_moments_graded(geom, I, J, grid)
-            self._last_remainder_graded = int(I.size)
-            grp = np.argsort(J, kind="stable")
-            cuts = np.flatnonzero(np.diff(J[grp]) != 0) + 1
-        else:
-            dJ = np.zeros((I.size, d1, d1), dtype=np.complex128)
-            self._last_remainder_graded = 0
-            # One kernel call per (order, source segment), its observers that
-            # column of the pair list, so nothing outside the list is
-            # evaluated. Column-wise rather than row-wise because the kernel
-            # threads over its observer segments; the list is symmetric, so
-            # either walk covers it.
-            grp = np.lexsort((J, Qp))
-            key_q, key_j = Qp[grp], J[grp]
-            cuts = np.flatnonzero((np.diff(key_q) != 0) | (np.diff(key_j) != 0)) + 1
-        for run in np.split(grp, cuts):
-            self._checkpoint()
-            src = J[run[:1]]
-            obs = I[run]
-            lo = self._remainder_pair_moments(geom, obs, src, base, grid)
-            if graded:
-                dJ[run] -= lo[:, 0]
+            sel = np.flatnonzero(on_panels)
+            dJ[sel] = self._remainder_pair_moments_graded(geom, I[sel], J[sel], grid)
+        self._last_remainder_graded = int(on_panels.sum())
+        # One kernel call per (route, order, source segment), its observers
+        # that column of the pair list, so nothing outside the list is
+        # evaluated. Column-wise rather than row-wise because the kernel
+        # threads over its observer segments; the list is symmetric, so
+        # either walk covers it. A graded run's key order is 0.
+        key_q = np.where(on_panels, 0, Qp)
+        grp = np.lexsort((J, key_q))
+        kq, kj = key_q[grp], J[grp]
+        cuts = np.flatnonzero((np.diff(kq) != 0) | (np.diff(kj) != 0)) + 1
+        runs = np.split(grp, cuts)
+        # momwire#1752 K2: every run's base and keyed moments in one call
+        requests = []
+        for run in runs:
+            requests.append((I[run], int(J[run[0]]), base))
+            if not on_panels[run[0]]:
+                requests.append((I[run], int(J[run[0]]), int(Qp[run[0]])))
+        self._checkpoint()
+        got = self._remainder_runs_batched(geom, grid, requests) if runs else None
+        run_cache = {}  # momwire#1752 K1: the runs share one geometry and grid
+        k = 0
+        for run in runs:
+            if got is None:
+                self._checkpoint()
+                src = J[run[:1]]
+                obs = I[run]
+                lo = self._remainder_pair_moments(
+                    geom, obs, src, base, grid, run_cache
+                )[:, 0]
+                if not on_panels[run[0]]:
+                    q = int(Qp[run[0]])
+                    hi = self._remainder_pair_moments(
+                        geom, obs, src, q, grid, run_cache
+                    )[:, 0]
+            else:
+                lo = got[k]
+                k += 1
+                if not on_panels[run[0]]:
+                    hi = got[k]
+                    k += 1
+            if on_panels[run[0]]:
+                dJ[run] -= lo
                 continue
-            q = int(Qp[run[0]])
-            hi = self._remainder_pair_moments(geom, obs, src, q, grid)
-            dJ[run] = (hi - lo)[:, 0]
+            dJ[run] = hi - lo
 
         ent = self._segment_wing_table(supp_seg, polys, n_seg)
         self._last_pair_wing_width = int(ent.shape[1])
@@ -6659,6 +6826,22 @@ class BSplineSolver(
         W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
         return nodes, tang, W
 
+    def _buried_remainder_nodes(self, geom, seg_idx):
+        """`_buried_nodes` at the below/below remainder's own order,
+        `max(n_qp_sommerfeld, N_QP_BELOW_REMAINDER)` (momwire#1752 S1): the
+        cross block keeps `_n_qp_buried_field`'s 6."""
+        q = max(int(self.n_qp_sommerfeld), _below_interface.N_QP_BELOW_REMAINDER)
+        nodes, tang, u_phys, w_node = _below_interface.field_nodes(
+            geom["seg_l"][seg_idx],
+            geom["seg_r"][seg_idx],
+            geom["tangents"][seg_idx],
+            geom["h_per_seg"][seg_idx],
+            q,
+        )
+        d = self.degree
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
+        return nodes, tang, W
+
     def _field_galerkin_block(
         self,
         supp_seg,
@@ -6764,6 +6947,12 @@ class BSplineSolver(
             and row_of is None
             and _HAVE_FIELD_GALERKIN_STRIDED
         ):
+            # momwire#1752 L1: the mirror saves only BETWEEN chunks, so a block
+            # the element budget leaves as one chunk (under ~140 segments at
+            # q = 6) projected the whole square. At least
+            # `_FIELD_GALERKIN_SYM_CHUNKS` chunks project 1/2 + 1/(2 x that)
+            # of it. The C++ twin (`fill_buried`) takes the same cap.
+            chunk = min(chunk, max(1, -(-n_obs // _FIELD_GALERKIN_SYM_CHUNKS)))
             self._field_galerkin_block_symmetric(
                 supp_seg,
                 polys,
@@ -7265,7 +7454,7 @@ class BSplineSolver(
         row_bytes = (d + 1) ** 2 * n_sub * 16
         chunk = _schedule.mb_rows(self.swept_mem_mb, row_bytes)
 
-        def _subset_block(i0, i1, j0, j1):
+        def _window(i0, i1, j0, j1):
             J_win = _seg_seg_full_moments_offedge(
                 seg_l[i0:i1],
                 seg_r[i0:i1],
@@ -7280,6 +7469,62 @@ class BSplineSolver(
             )
             _accumulate(J_win, i0, i1, j0, j1)
 
+        # The edges whose same-edge block the fixup below overwrites: those
+        # of a subset wire on both axes (momwire#1029).
+        seg_off = geom["seg_offsets"]
+        on_subset = np.zeros(int(geom["n_segs_total"]), dtype=bool)
+        on_subset[seg_idx] = True
+        on_obs = on_subset
+        if obs_idx is not None:
+            on_obs = np.zeros_like(on_subset)
+            on_obs[np.asarray(obs_idx, dtype=np.int64)] = True
+
+        def _fixed(e):
+            return on_subset[seg_off[e[0]]] and on_obs[seg_off[e[0]]]
+
+        edges = self._edge_ingredients(geom)
+        # momwire#1752 L2: a direct block's sweep leaves those edges' own
+        # blocks out, and the fixup adds `A_st + A_reg` instead of
+        # `(A_st + A_reg) - J_edge`. The sweep used to integrate every
+        # same-edge pair through the off-edge kernel -- the buried ladder's
+        # 32 x 32 rule on each pair within two lengths, nearly all of them
+        # same-edge -- for the fixup to integrate them again and subtract
+        # both. Only the association of Z's adds moves (measured at most
+        # 9e-16 of max|Z| on eight buried decks).
+        skip = not mirror_sources and _SUBSET_SKIP_SAME_EDGE
+        if skip:
+            edge_lo = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+            edge_hi = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+            for e in edges:
+                if _fixed(e):
+                    edge_lo[e[1]] = e[1].start
+                    edge_hi[e[1]] = e[1].stop
+
+        def _subset_block(i0, i1, j0, j1):
+            if not skip:
+                _window(i0, i1, j0, j1)
+                return
+            # The observer rows in runs of one fixed edge (or of none), each
+            # run's source window less that edge's own columns: the part
+            # before it, then the part after.
+            r = i0
+            while r < i1:
+                lo = int(edge_lo[r])
+                if lo < 0:
+                    r1 = r + 1
+                    while r1 < i1 and edge_lo[r1] < 0:
+                        r1 += 1
+                    _window(r, r1, j0, j1)
+                    r = r1
+                    continue
+                hi = int(edge_hi[r])
+                r1 = min(hi, i1)
+                if j0 < lo:
+                    _window(r, r1, j0, min(j1, lo))
+                if j1 > hi:
+                    _window(r, r1, max(j0, hi), j1)
+                r = r1
+
         # Every (observer chunk x source run) rectangle, one window live at a
         # time (#338), a checkpoint per observer chunk.
         _schedule.sweep(
@@ -7290,19 +7535,15 @@ class BSplineSolver(
             return
         # Same-edge fixup, per edge of each subset wire (the dense path's
         # overwrite, as a correction window).
-        seg_off = geom["seg_offsets"]
-        on_subset = np.zeros(int(geom["n_segs_total"]), dtype=bool)
-        on_subset[seg_idx] = True
-        on_obs = on_subset
-        if obs_idx is not None:
-            on_obs = np.zeros_like(on_subset)
-            on_obs[np.asarray(obs_idx, dtype=np.int64)] = True
 
         def _fix_edge(w, sl, arc, a_w):
             A_st = _seg_seg_static_moments(arc, a_w, max_d=d, **ek_se_kw)
             A_reg = _seg_seg_reg_moments(
                 arc, a_w, k, max_d=d, n_qp=self.n_qp_pair_same_edge, **ek_se_kw
             )
+            if skip:  # the sweep left this block out (momwire#1752 L2)
+                _accumulate(A_st + A_reg, sl.start, sl.stop, sl.start, sl.stop)
+                return
             J_edge = _seg_seg_full_moments_offedge(
                 seg_l[sl],
                 seg_r[sl],
@@ -7321,12 +7562,7 @@ class BSplineSolver(
 
         # The same-edge correction is a DIAGONAL block, so it is written only
         # where the wire is on both axes (momwire#1029).
-        _schedule.walk(
-            self._edge_ingredients(geom),
-            _fix_edge,
-            checkpoint=self._checkpoint,
-            keep=lambda e: on_subset[seg_off[e[0]]] and on_obs[seg_off[e[0]]],
-        )
+        _schedule.walk(edges, _fix_edge, checkpoint=self._checkpoint, keep=_fixed)
 
     def _buried_serve_plan(self, geom, a_idx, obs_a, obs_b, k_p, k_m, crossing=False):
         """Grid extents for the three field-form blocks, or a named refusal —
@@ -7383,6 +7619,7 @@ class BSplineSolver(
                 serve_plan_fn=self._buried_serve_plan,
                 below_pairs_fn=self._below_remainder_pairs,
                 ground_z=self.ground_z,
+                remainder_nodes=self._buried_remainder_nodes,
             )
         except (ValueError, NotImplementedError) as exc:
             return str(exc)
@@ -7429,6 +7666,7 @@ class BSplineSolver(
                 apply_loading=self._apply_loading,
                 compact_ok=_HAVE_WINDOWED_ROW_OF and _HAVE_FIELD_GALERKIN_ROW_OF,
                 below_remainder_pairs=self._below_remainder_pairs,
+                remainder_nodes=self._buried_remainder_nodes,
             ),
             below_segments=self._below_segments,
             buried_medium=self._buried_medium,

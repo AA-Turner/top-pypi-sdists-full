@@ -20,12 +20,13 @@ import pytest
 
 from backfill_plan_agent import tool
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_plan as plans
-from probe.cli import backfill_plan_tool as t
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.classify import plan as plans
+from probe.cli.imports.folder.classify import plan_tool as t
 from probe.cli import backfill_run as runner
-from probe.cli import backfill_structure as structure
-from probe.cli import telemetry, tui
+from probe.cli.imports.folder import structure as structure
+from probe.cli import telemetry
+from probe.cli.wizard import terminal as tui
 from probe.sdk import errors
 
 from test_backfill_scoped_orchestration import make_harness
@@ -406,7 +407,7 @@ def harness(tmp_path, monkeypatch):
     for path in list(h.folder.iterdir()):
         path.unlink()
     customer_tree(h.folder)
-    monkeypatch.setattr(runner, "classify", REAL_CLASSIFY)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", REAL_CLASSIFY)
     api = FakeAPI(h.client.transport)
     api.install(monkeypatch)
     h.api = api
@@ -417,7 +418,7 @@ def test_the_import_creates_experiments_and_runs_after_approval_and_files_each_u
     harness, monkeypatch,
 ):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     shown: list[list[str]] = []
 
     def review(title, lines, choices):
@@ -427,7 +428,7 @@ def test_the_import_creates_experiments_and_runs_after_approval_and_files_each_u
             shown.append(list(lines))
         return choices[0][1]
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     h.run(interactive=True, yes=False)
     screen = "\n".join(shown[0])
     assert "1 project · 1 experiment · 4 runs" in screen
@@ -506,7 +507,7 @@ def test_a_lost_create_response_finds_its_run_instead_of_making_another(harness,
     """The local record is gone (another machine, a wiped state dir): the run's
     identity is its folder in this import, so the server's 409 names it."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     first = dict(h.api.runs)
     with h.coverage().writer() as coverage:
@@ -525,7 +526,7 @@ def test_a_reimport_organizes_files_uploaded_before_without_uploading_them_again
 ):
     h = harness
     # Imported by a CLI that could not make runs: files land at the project.
-    monkeypatch.setattr(bf, "launch_agent", _classifier(structure_ops=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(structure_ops=False))
     h.run()
     assert h.drain().delivered == 9
     h.run()
@@ -535,7 +536,7 @@ def test_a_reimport_organizes_files_uploaded_before_without_uploading_them_again
     assert not h.api.runs
 
     prompts: list[str] = []
-    monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(seen=prompts))
     h.run()
     assert "9 of these files were imported before" in prompts[-1]
     assert sorted(h.api.by_folder()) == ["a", "b", "c", "d"]
@@ -552,20 +553,20 @@ def test_a_failed_organize_pass_neither_fails_the_import_nor_settles_it(harness,
     """An agent that dies before naming anything over files imported before
     leaves them as they were, says so, and the next import asks again."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier(structure_ops=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(structure_ops=False))
     h.run()
     assert h.drain().delivered == 9
     h.run()
     with h.coverage().writer() as coverage:
         coverage.put_meta(structure.REVIEWED_KEY, None)
-    monkeypatch.setattr(bf, "launch_agent", lambda folder, prompt, **kw: (False, "agent crashed"))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", lambda folder, prompt, **kw: (False, "agent crashed"))
     lines = h.run()
     assert any("could not be organized into experiments and runs" in line for line in lines)
     assert not h.api.runs and not h.api.moves
     with h.coverage().writer() as coverage:
         assert not coverage.meta(structure.REVIEWED_KEY)
     prompts: list[str] = []
-    monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(seen=prompts))
     h.run()
     assert prompts and sorted(h.api.by_folder()) == ["a", "b", "c", "d"]
 
@@ -584,7 +585,7 @@ def _artifact_paths(h) -> dict[str, str]:
 
 def test_a_changed_file_is_filed_again_and_its_run_reads_the_new_value(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     h.drain()
     h.run()
@@ -606,7 +607,7 @@ def test_files_left_as_they_were_never_join_a_run_named_later(harness, monkeypat
     """Declining to organize old uploads keeps them out of every later run: a
     run is read from, and holds, only the files a plan approved for it."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier(structure_ops=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(structure_ops=False))
     h.run()
     h.drain()
     h.run()
@@ -616,10 +617,10 @@ def test_files_left_as_they_were_never_join_a_run_named_later(harness, monkeypat
     def review(title, lines, choices):
         return False if title == "Organize imported files" else choices[0][1]
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     _write(h.folder, "runs/a/extra/reward.txt", "2\n", T0 + 500)
     _write(h.folder, "runs/e/reward.txt", "3\n", T0 + 600)
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run(interactive=True, yes=False)
     h.drain()
     h.run()
@@ -662,7 +663,7 @@ def test_two_slices_choosing_one_slug_for_different_folders_make_two_experiments
 
 def test_a_move_the_server_refuses_for_good_is_not_retried(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     h.drain()
     calls = []
@@ -736,7 +737,7 @@ def test_a_run_an_older_cli_named_is_found_and_keeps_its_name(harness, monkeypat
     differed, so the server's 409 names it. Nothing is created and its name is
     never touched (a person may have renamed it since)."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     for row in h.api.runs.values():
         folder = row["metadata"]["backfill"]["relative_path"].rsplit("/", 1)[-1]
@@ -757,7 +758,7 @@ def test_a_run_an_older_cli_named_is_found_and_keeps_its_name(harness, monkeypat
 
 def test_points_are_sent_once_and_a_refused_chart_is_tried_again(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     real_post = h.api.post
     refusals = {"left": 1}
 
@@ -804,7 +805,7 @@ def test_folders_with_a_config_and_an_output_are_offered_as_run_candidates():
 def test_the_classifier_is_shown_the_candidates_and_decides(harness, monkeypatch):
     h = harness
     prompts: list[str] = []
-    monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier(seen=prompts))
     h.run()
     (prompt,) = prompts
     assert "RUN CANDIDATES" in prompt and "runs/  1 folder: c" in prompt
@@ -817,7 +818,7 @@ def test_the_classifier_is_shown_the_candidates_and_decides(harness, monkeypatch
 
 def test_a_reimport_naming_the_same_folder_again_reuses_its_experiment(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     (first,) = h.api.experiments
     with h.coverage().writer() as coverage:
@@ -833,7 +834,7 @@ def test_a_reimport_naming_the_same_folder_again_reuses_its_experiment(harness, 
         tool(kwargs, "run", "--each-under", "runs", "--experiment", "calibration")
         return True, ""
 
-    monkeypatch.setattr(bf, "launch_agent", renamed)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", renamed)
     h.run()
     assert list(h.api.experiments) == [first]
     assert {row["target"] for row in h.api.runs.values()} == {first}
@@ -865,7 +866,7 @@ def test_the_structure_review_is_read_as_a_version(stored, version):
 
 def test_a_structure_version_bump_re_plans_an_imported_folder_once(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     h.drain()
     h.run()
@@ -928,7 +929,7 @@ def test_a_run_an_older_cli_charted_never_gets_its_chart_once(harness, monkeypat
     record is settled (same digest), yet it has no points. The next import
     charts it once, and never again."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     for row in h.api.runs.values():
         row["points"] = []
@@ -947,7 +948,7 @@ def test_a_run_an_older_cli_charted_never_gets_its_chart_once(harness, monkeypat
 
 def test_a_value_changed_under_the_same_file_time_is_reported_not_retried(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     _write(h.folder, "runs/a/reward.json", json.dumps({"reward": 0.9}), T0)  # same mtime
     lines = h.run()
@@ -994,7 +995,7 @@ def test_a_move_that_failed_part_way_is_sent_again(harness, monkeypatch):
     sits is unknown, so the next pass sends the move again, even when a later
     plan puts it back where it was last filed."""
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     h.drain()
     h.run()
@@ -1008,7 +1009,7 @@ def test_a_move_that_failed_part_way_is_sent_again(harness, monkeypatch):
 
 def test_a_file_a_re_plan_takes_out_of_its_run_goes_back_to_its_project(harness, monkeypatch):
     h = harness
-    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _classifier())
     h.run()
     h.drain()
     h.run()

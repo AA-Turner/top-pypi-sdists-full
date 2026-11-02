@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pymc-extras
-Version: 0.15.1
+Version: 0.16.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -233,11 +233,13 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.12
 Requires-Dist: arviz<2.0,>=1.2
-Requires-Dist: better-optimize<1.0,>=0.4.2
+Requires-Dist: better-optimize<1.0,>=0.5.1
+Requires-Dist: pandas<3.2,>=2.2
 Requires-Dist: preliz<0.29.0,>=0.27.0
 Requires-Dist: pydantic<3.0,>=2.0.0
-Requires-Dist: pymc<6.4,>=6.3.0
-Requires-Dist: pytensor<3.4,>=3.3.0
+Requires-Dist: pymc<6.5,>=6.4.0
+Requires-Dist: pytensor-ml<0.4,>=0.3.0
+Requires-Dist: pytensor<3.4,>=3.3.6
 Provides-Extra: complete
 Requires-Dist: dask[complete]<2025.1.1; extra == 'complete'
 Requires-Dist: xhistogram; extra == 'complete'
@@ -255,6 +257,8 @@ Requires-Dist: pymc-sphinx-theme<1.0,>=0.16; extra == 'docs'
 Requires-Dist: sphinx<10.0,>=4.0; extra == 'docs'
 Provides-Extra: histogram
 Requires-Dist: xhistogram; extra == 'histogram'
+Provides-Extra: mlx-mclmc
+Requires-Dist: mlx>=0.32; (platform_machine == 'arm64' and sys_platform == 'darwin') and extra == 'mlx-mclmc'
 Description-Content-Type: text/markdown
 
 # Welcome to `pymc-extras`

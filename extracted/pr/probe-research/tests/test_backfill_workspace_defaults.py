@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli.backfill_coverage import CoverageError, Scope
+from probe.cli.imports.folder.coverage.coverage import CoverageError
+from probe.cli.imports.folder.coverage.scope import Scope
 from probe.sdk.errors import NotFoundError
 
 

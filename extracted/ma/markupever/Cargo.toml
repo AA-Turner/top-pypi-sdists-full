@@ -1,0 +1,56 @@
+[package]
+name = "markupever"
+version.workspace = true
+edition.workspace = true
+description = "The fast, most optimal, and correct HTML & XML parsing library."
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[workspace]
+members = ["matching", "treedom"]
+
+[workspace.package]
+version = "0.4.0"
+edition = "2024"
+readme = "README.md"
+homepage = "https://github.com/awolverp/markupever"
+repository = "https://github.com/awolverp/markupever.git"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+name = "markupever"
+
+[dependencies]
+hashbrown = {
+  version = "0.17",
+  default-features = false,
+  features = [
+    "default-hasher",
+    "inline-more",
+  ]
+}
+matching = { path = "matching" }
+parking_lot = { version = "0.12" }
+pyo3 = {
+  version = "0.29.3",
+  default-features = false,
+  features = [
+    "extension-module",
+    "macros",
+  ]
+}
+treedom = { path = "treedom" }
+
+[lints.clippy]
+dbg_macro = "warn"
+print_stdout = "warn"
+
+[profile.release]
+debug = false
+strip = "symbols"
+lto = "fat"
+incremental = false
+codegen-units = 1

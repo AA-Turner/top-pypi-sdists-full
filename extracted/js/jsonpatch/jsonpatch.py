@@ -55,7 +55,7 @@ _EXACT_MATCH_LIMIT = 500 ** 2
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '1.38'
+__version__ = '1.39'
 __website__ = 'https://github.com/stefankoegl/python-json-patch'
 __license__ = 'BSD-3-Clause'
 
@@ -263,6 +263,8 @@ class RemoveOperation(PatchOperation):
         except (KeyError, IndexError):
             msg = "can't remove a non-existent object '{0}'".format(part)
             raise JsonPatchConflict(msg)
+        except TypeError as ex:
+            raise JsonPatchConflict(str(ex))
 
         return obj
 

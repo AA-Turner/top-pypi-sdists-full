@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added a new function :func:`qiskit_addon_sqd.fermion.diagonalize_fermionic_hamiltonian` to serve as the main entrypoint to the SQD algorithm.

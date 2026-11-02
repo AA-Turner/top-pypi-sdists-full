@@ -1,0 +1,2387 @@
+import io
+import json
+import os
+import time
+import urllib.error
+import urllib.request
+import uuid as _uuid_mod
+import zipfile
+from urllib.parse import urlencode
+
+import boto3
+import pytest
+from botocore.config import Config
+from botocore.exceptions import ClientError
+from conftest import sqs_policy_allow_sns
+
+ENDPOINT = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566")
+
+
+def _regional_client(service: str, region: str):
+    return boto3.client(
+        service,
+        endpoint_url=ENDPOINT,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        region_name=region,
+        config=Config(region_name=region, retries={"mode": "standard"}),
+    )
+
+
+def _make_zip(code: str) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("index.py", code)
+    return buf.getvalue()
+
+_LAMBDA_ROLE = "arn:aws:iam::000000000000:role/lambda-role"
+
+def test_sns_create_topic(sns):
+    resp = sns.create_topic(Name="intg-sns-create")
+    assert "TopicArn" in resp
+    assert "intg-sns-create" in resp["TopicArn"]
+
+def test_sns_delete_topic(sns):
+    arn = sns.create_topic(Name="intg-sns-delete")["TopicArn"]
+    sns.delete_topic(TopicArn=arn)
+    topics = sns.list_topics()["Topics"]
+    assert not any(t["TopicArn"] == arn for t in topics)
+
+def test_sns_list_topics(sns):
+    sns.create_topic(Name="intg-sns-list-1")
+    sns.create_topic(Name="intg-sns-list-2")
+    topics = sns.list_topics()["Topics"]
+    arns = [t["TopicArn"] for t in topics]
+    assert any("intg-sns-list-1" in a for a in arns)
+    assert any("intg-sns-list-2" in a for a in arns)
+
+def test_sns_get_topic_attributes(sns):
+    arn = sns.create_topic(Name="intg-sns-getattr")["TopicArn"]
+    resp = sns.get_topic_attributes(TopicArn=arn)
+    assert resp["Attributes"]["TopicArn"] == arn
+    assert resp["Attributes"]["DisplayName"] == ""  # AWS default is empty, not topic name
+
+
+def test_sns_topics_are_region_scoped_by_name(sns):
+    name = f"mr-sns-same-name-{_uuid_mod.uuid4().hex[:8]}"
+    west = _regional_client("sns", "us-west-2")
+
+    east_arn = sns.create_topic(Name=name)["TopicArn"]
+    west_arn = west.create_topic(Name=name)["TopicArn"]
+
+    assert east_arn == f"arn:aws:sns:us-east-1:000000000000:{name}"
+    assert west_arn == f"arn:aws:sns:us-west-2:000000000000:{name}"
+
+    east_arns = [t["TopicArn"] for t in sns.list_topics()["Topics"]]
+    west_arns = [t["TopicArn"] for t in west.list_topics()["Topics"]]
+    assert east_arn in east_arns
+    assert west_arn not in east_arns
+    assert west_arn in west_arns
+    assert east_arn not in west_arns
+
+    with pytest.raises(ClientError) as exc:
+        sns.get_topic_attributes(TopicArn=west_arn)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_set_topic_attributes(sns):
+    arn = sns.create_topic(Name="intg-sns-setattr")["TopicArn"]
+    sns.set_topic_attributes(
+        TopicArn=arn,
+        AttributeName="DisplayName",
+        AttributeValue="New Display Name",
+    )
+    resp = sns.get_topic_attributes(TopicArn=arn)
+    assert resp["Attributes"]["DisplayName"] == "New Display Name"
+
+def test_sns_subscribe_email(sns):
+    arn = sns.create_topic(Name="intg-sns-subemail")["TopicArn"]
+    resp = sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="user@example.com",
+    )
+    assert "SubscriptionArn" in resp
+
+
+def test_sns_subscribe_pending_arn_is_lowercase_with_space(sns):
+    """For protocols that require confirmation, AWS returns the literal
+    lowercase string 'pending confirmation' (with a space) as the
+    SubscriptionArn until the subscriber confirms — NOT PascalCase
+    'PendingConfirmation'."""
+    arn = sns.create_topic(Name="intg-sns-pending-arn")["TopicArn"]
+    resp = sns.subscribe(
+        TopicArn=arn,
+        Protocol="http",
+        Endpoint="http://example.com/sns-callback",
+    )
+    assert resp["SubscriptionArn"] == "pending confirmation", resp["SubscriptionArn"]
+
+def test_sns_unsubscribe(sns):
+    arn = sns.create_topic(Name="intg-sns-unsub")["TopicArn"]
+    sub = sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="unsub@example.com",
+    )
+    sub_arn = sub["SubscriptionArn"]
+    sns.unsubscribe(SubscriptionArn=sub_arn)
+    subs = sns.list_subscriptions_by_topic(TopicArn=arn)["Subscriptions"]
+    assert not any(s["SubscriptionArn"] == sub_arn for s in subs)
+
+def test_sns_list_subscriptions(sns):
+    arn = sns.create_topic(Name="intg-sns-listsubs")["TopicArn"]
+    sns.subscribe(TopicArn=arn, Protocol="email", Endpoint="ls1@example.com")
+    sns.subscribe(TopicArn=arn, Protocol="email", Endpoint="ls2@example.com")
+    subs = sns.list_subscriptions()["Subscriptions"]
+    topic_subs = [s for s in subs if s["TopicArn"] == arn]
+    assert len(topic_subs) >= 2
+
+def test_sns_list_subscriptions_by_topic(sns):
+    arn = sns.create_topic(Name="intg-sns-listbytopic")["TopicArn"]
+    sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="bt@example.com",
+    )
+    subs = sns.list_subscriptions_by_topic(TopicArn=arn)["Subscriptions"]
+    assert len(subs) >= 1
+    assert all(s["TopicArn"] == arn for s in subs)
+
+
+def test_sns_subscription_attributes_are_region_scoped(sns):
+    west = _regional_client("sns", "us-west-2")
+    name = f"mr-sns-sub-region-{_uuid_mod.uuid4().hex[:8]}"
+    east_arn = sns.create_topic(Name=name)["TopicArn"]
+    west_arn = west.create_topic(Name=name)["TopicArn"]
+    east_sub = sns.subscribe(
+        TopicArn=east_arn, Protocol="email", Endpoint=f"{name}-east@example.com",
+    )["SubscriptionArn"]
+    west_sub = west.subscribe(
+        TopicArn=west_arn, Protocol="email", Endpoint=f"{name}-west@example.com",
+    )["SubscriptionArn"]
+
+    assert sns.get_subscription_attributes(
+        SubscriptionArn=east_sub,
+    )["Attributes"]["TopicArn"] == east_arn
+    assert west.get_subscription_attributes(
+        SubscriptionArn=west_sub,
+    )["Attributes"]["TopicArn"] == west_arn
+
+    east_subs = [sub["SubscriptionArn"] for sub in sns.list_subscriptions()["Subscriptions"]]
+    west_subs = [sub["SubscriptionArn"] for sub in west.list_subscriptions()["Subscriptions"]]
+    assert east_sub in east_subs
+    assert west_sub not in east_subs
+    assert west_sub in west_subs
+    assert east_sub not in west_subs
+
+    with pytest.raises(ClientError) as exc:
+        sns.get_subscription_attributes(SubscriptionArn=west_sub)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_publish(sns):
+    arn = sns.create_topic(Name="intg-sns-publish")["TopicArn"]
+    resp = sns.publish(
+        TopicArn=arn,
+        Message="hello sns",
+        Subject="Test Subject",
+    )
+    assert "MessageId" in resp
+
+def test_sns_publish_nonexistent_topic(sns):
+    fake_arn = "arn:aws:sns:us-east-1:000000000000:intg-sns-nonexist"
+    with pytest.raises(ClientError) as exc:
+        sns.publish(TopicArn=fake_arn, Message="fail")
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+def test_sns_sqs_fanout(sns, sqs):
+    topic_arn = sns.create_topic(Name="intg-sns-fanout")["TopicArn"]
+    q_url = sqs.create_queue(QueueName="intg-sns-fanout-q")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url,
+        AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+    sns.publish(TopicArn=topic_arn, Message="fanout msg", Subject="Fan")
+
+    msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=1,
+    )
+    assert len(msgs.get("Messages", [])) == 1
+    body = json.loads(msgs["Messages"][0]["Body"])
+    assert body["Message"] == "fanout msg"
+    assert body["TopicArn"] == topic_arn
+
+
+@pytest.mark.parametrize("protocol, endpoint", [
+    ("sqs", "not-an-arn"),
+    ("sqs", "arn:aws:rds:us-east-1:000000000000:db:wrong-service"),
+    ("lambda", "arn:aws:sqs:us-east-1:000000000000:wrong-service-q"),
+    ("lambda", "arn:aws:lambda:us-east-1:000000000000:not-function-resource"),
+])
+def test_sns_subscribe_rejects_invalid_sqs_and_lambda_endpoint_arns(sns, protocol, endpoint):
+    topic_arn = sns.create_topic(Name=f"intg-sns-invalid-endpoint-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+
+    with pytest.raises(ClientError) as exc:
+        sns.subscribe(TopicArn=topic_arn, Protocol=protocol, Endpoint=endpoint)
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+def test_sns_sqs_fanout_does_not_tail_match_foreign_account_endpoint(sns, sqs):
+    queue_name = f"intg-sns-foreign-tail-{_uuid_mod.uuid4().hex[:8]}"
+    q_url = sqs.create_queue(QueueName=queue_name)["QueueUrl"]
+    topic_arn = sns.create_topic(Name=f"intg-sns-foreign-tail-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+
+    sns.subscribe(
+        TopicArn=topic_arn,
+        Protocol="sqs",
+        Endpoint=f"arn:aws:sqs:us-east-1:111111111111:{queue_name}",
+    )
+    sns.publish(TopicArn=topic_arn, Message="must-not-tail-match")
+
+    msgs = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=1)
+    assert "Messages" not in msgs
+
+
+def test_sns_sqs_fanout_delivers_to_matching_cross_region_queue_arn(sns):
+    west_sqs = _regional_client("sqs", "us-west-2")
+    queue_name = f"intg-sns-cross-region-ok-{_uuid_mod.uuid4().hex[:8]}"
+    q_url = west_sqs.create_queue(QueueName=queue_name)["QueueUrl"]
+    q_arn = west_sqs.get_queue_attributes(
+        QueueUrl=q_url,
+        AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    assert ":us-west-2:" in q_arn
+    topic_arn = sns.create_topic(Name=f"intg-sns-cross-region-ok-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    west_sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+    sns.publish(TopicArn=topic_arn, Message="cross-region-delivery")
+
+    msgs = west_sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=1)
+    assert len(msgs.get("Messages", [])) == 1
+    body = json.loads(msgs["Messages"][0]["Body"])
+    assert body["Message"] == "cross-region-delivery"
+    assert body["TopicArn"] == topic_arn
+
+
+def test_sns_sqs_fanout_does_not_tail_match_foreign_region_endpoint(sns, sqs):
+    queue_name = f"intg-sns-cross-region-{_uuid_mod.uuid4().hex[:8]}"
+    q_url = sqs.create_queue(QueueName=queue_name)["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url,
+        AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    west_q_arn = q_arn.replace(":us-east-1:", ":us-west-2:")
+    topic_arn = sns.create_topic(Name=f"intg-sns-cross-region-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=west_q_arn)
+    sns.publish(TopicArn=topic_arn, Message="must-not-tail-match-region")
+
+    msgs = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=1)
+    assert "Messages" not in msgs
+
+
+def test_sns_tags(sns):
+    arn = sns.create_topic(Name="intg-sns-tags")["TopicArn"]
+    sns.tag_resource(
+        ResourceArn=arn,
+        Tags=[
+            {"Key": "env", "Value": "staging"},
+            {"Key": "team", "Value": "infra"},
+        ],
+    )
+    resp = sns.list_tags_for_resource(ResourceArn=arn)
+    tags = {t["Key"]: t["Value"] for t in resp["Tags"]}
+    assert tags["env"] == "staging"
+    assert tags["team"] == "infra"
+
+    sns.untag_resource(ResourceArn=arn, TagKeys=["team"])
+    resp = sns.list_tags_for_resource(ResourceArn=arn)
+    tags = {t["Key"]: t["Value"] for t in resp["Tags"]}
+    assert "team" not in tags
+    assert tags["env"] == "staging"
+
+
+def test_sns_create_topic_keeps_its_tags(sns):
+    arn = sns.create_topic(Name="intg-sns-create-tags", Tags=[{"Key": "env", "Value": "dev"}])["TopicArn"]
+    assert sns.list_tags_for_resource(ResourceArn=arn)["Tags"] == [{"Key": "env", "Value": "dev"}]
+
+
+def test_sns_tag_resource_accepts_empty_account_topic_arn(sns):
+    arn = sns.create_topic(Name=f"intg-sns-empty-account-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    empty_account_arn = arn.replace(":000000000000:", "::")
+
+    sns.tag_resource(ResourceArn=empty_account_arn, Tags=[{"Key": "env", "Value": "test"}])
+
+    resp = sns.list_tags_for_resource(ResourceArn=arn)
+    tags = {t["Key"]: t["Value"] for t in resp["Tags"]}
+    assert tags["env"] == "test"
+
+
+def test_sns_topic_tag_apis_reject_invalid_arns(sns):
+    arn = sns.create_topic(Name=f"intg-sns-invalid-tags-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    invalid_cases = [
+        ("not-an-arn", "InvalidParameterException"),
+        ("arn:aws:sns:us-east-1", "InvalidParameterException"),
+        (arn.replace(":sns:", ":sqs:"), "InvalidParameterException"),
+        (arn.replace(":000000000000:", ":111111111111:"), "ResourceNotFoundException"),
+        (arn.replace(":us-east-1:", ":us-west-2:"), "ResourceNotFoundException"),
+        ("arn:aws:sns:us-east-1:000000000000:app/APNS/example", "InvalidParameterException"),
+    ]
+
+    for bad_arn, expected_code in invalid_cases:
+        with pytest.raises(ClientError) as exc:
+            sns.tag_resource(ResourceArn=bad_arn, Tags=[{"Key": "bad", "Value": "value"}])
+        assert exc.value.response["Error"]["Code"] == expected_code
+
+    resp = sns.list_tags_for_resource(ResourceArn=arn)
+    assert resp["Tags"] == []
+
+
+def test_sns_topic_list_and_untag_reject_invalid_arns(sns):
+    for operation, kwargs in [
+        (sns.list_tags_for_resource, {}),
+        (sns.untag_resource, {"TagKeys": ["missing"]}),
+    ]:
+        with pytest.raises(ClientError) as exc:
+            operation(ResourceArn="arn:aws:sqs:us-east-1:000000000000:not-a-topic", **kwargs)
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+def test_sns_subscription_attributes(sns):
+    arn = sns.create_topic(Name="intg-sns-subattr")["TopicArn"]
+    sub = sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="attrs@example.com",
+    )
+    sub_arn = sub["SubscriptionArn"]
+
+    resp = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+    assert resp["Attributes"]["Protocol"] == "email"
+    assert resp["Attributes"]["TopicArn"] == arn
+
+    sns.set_subscription_attributes(
+        SubscriptionArn=sub_arn,
+        AttributeName="RawMessageDelivery",
+        AttributeValue="true",
+    )
+    resp = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+    assert resp["Attributes"]["RawMessageDelivery"] == "true"
+
+def test_sns_subscribe_with_raw_message_delivery(sns):
+    arn = sns.create_topic(Name="intg-sns-sub-raw")["TopicArn"]
+    sub = sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="raw@example.com",
+        Attributes={"RawMessageDelivery": "true"},
+    )
+    sub_arn = sub["SubscriptionArn"]
+    attrs = sns.get_subscription_attributes(SubscriptionArn=sub_arn)["Attributes"]
+    assert attrs["RawMessageDelivery"] == "true"
+
+
+def test_sns_subscribe_with_subscription_role_arn(sns):
+    """SubscriptionRoleArn is a Subscribe and SetSubscriptionAttributes
+    attribute (the role Firehose subscriptions write with); both calls keep it."""
+    arn = sns.create_topic(Name="intg-sns-sub-role")["TopicArn"]
+    sub_arn = sns.subscribe(
+        TopicArn=arn, Protocol="email", Endpoint="role@example.com",
+        Attributes={"SubscriptionRoleArn": "arn:aws:iam::000000000000:role/sub-role-a"},
+    )["SubscriptionArn"]
+    attrs = sns.get_subscription_attributes(SubscriptionArn=sub_arn)["Attributes"]
+    assert attrs["SubscriptionRoleArn"] == "arn:aws:iam::000000000000:role/sub-role-a"
+    sns.set_subscription_attributes(
+        SubscriptionArn=sub_arn, AttributeName="SubscriptionRoleArn",
+        AttributeValue="arn:aws:iam::000000000000:role/sub-role-b")
+    attrs = sns.get_subscription_attributes(SubscriptionArn=sub_arn)["Attributes"]
+    assert attrs["SubscriptionRoleArn"] == "arn:aws:iam::000000000000:role/sub-role-b"
+
+
+def test_sns_subscribe_with_filter_policy(sns):
+    arn = sns.create_topic(Name="intg-sns-sub-filter")["TopicArn"]
+    filter_policy = json.dumps({"event": ["MyEvent"]})
+    sub = sns.subscribe(
+        TopicArn=arn,
+        Protocol="email",
+        Endpoint="filter@example.com",
+        Attributes={"FilterPolicy": filter_policy},
+    )
+    sub_arn = sub["SubscriptionArn"]
+    attrs = sns.get_subscription_attributes(SubscriptionArn=sub_arn)["Attributes"]
+    assert attrs["FilterPolicy"] == filter_policy
+
+def test_sns_sqs_fanout_raw_message_delivery(sns, sqs):
+    topic_arn = sns.create_topic(Name="intg-sns-fanout-raw")["TopicArn"]
+    q_url = sqs.create_queue(QueueName="intg-sns-fanout-raw-q")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url,
+        AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(
+        TopicArn=topic_arn,
+        Protocol="sqs",
+        Endpoint=q_arn,
+        Attributes={"RawMessageDelivery": "true"},
+    )
+    message_attrs = {
+        "type": {"DataType": "String", "StringValue": "user.created"},
+    }
+    sns.publish(
+        TopicArn=topic_arn,
+        Message='{"user_id": "123"}',
+        MessageAttributes=message_attrs,
+    )
+
+    msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=1,
+        MessageAttributeNames=["All"],
+    )
+    assert len(msgs.get("Messages", [])) == 1
+    msg = msgs["Messages"][0]
+    assert msg["Body"] == '{"user_id": "123"}'
+    assert msg["MessageAttributes"] == message_attrs
+    assert msg["MessageAttributes"]["type"]["StringValue"] == "user.created"
+
+def test_sns_publish_batch(sns):
+    arn = sns.create_topic(Name="intg-sns-batch")["TopicArn"]
+    resp = sns.publish_batch(
+        TopicArn=arn,
+        PublishBatchRequestEntries=[
+            {"Id": "msg1", "Message": "batch message 1"},
+            {"Id": "msg2", "Message": "batch message 2"},
+            {"Id": "msg3", "Message": "batch message 3"},
+        ],
+    )
+    assert len(resp["Successful"]) == 3
+    assert len(resp.get("Failed", [])) == 0
+
+def test_sns_to_lambda_fanout(lam, sns):
+    """SNS publish with lambda protocol delivers to the function."""
+    import uuid as _uuid_mod
+
+    fn = f"intg-sns-lam-{_uuid_mod.uuid4().hex[:8]}"
+    # Handler records the event on a module-level list so we can inspect it
+    code = "received = []\ndef handler(event, context):\n    received.append(event)\n    return {'ok': True}\n"
+    lam.create_function(
+        FunctionName=fn,
+        Runtime="python3.12",
+        Role=_LAMBDA_ROLE,
+        Handler="index.handler",
+        Code={"ZipFile": _make_zip(code)},
+    )
+    func_arn = f"arn:aws:lambda:us-east-1:000000000000:function:{fn}"
+
+    topic_arn = sns.create_topic(Name=f"intg-sns-lam-topic-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    sns.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=func_arn)
+
+    # Publish — should not raise; Lambda invoked synchronously
+    resp = sns.publish(TopicArn=topic_arn, Message="hello-lambda")
+    assert "MessageId" in resp
+
+def test_sns_to_lambda_delivery_is_async(lam, sns, sqs):
+    """SNS→Lambda delivery must not block Publish on the subscriber.
+
+    Regression: lambda fanout invoked the subscriber synchronously inside
+    Publish, so a slow (or hung) subscriber Lambda stalled the Publish call and
+    its upstream caller (e.g. a Step Functions task that publishes a
+    notification). AWS delivers SNS→Lambda asynchronously: Publish returns
+    immediately and the subscriber runs in the background.
+    """
+    import time
+    import uuid as _uuid
+
+    qname = f"sns-async-signal-{_uuid.uuid4().hex[:8]}"
+    q_url = sqs.create_queue(QueueName=qname)["QueueUrl"]
+
+    fn = f"intg-sns-async-{_uuid.uuid4().hex[:8]}"
+    # The subscriber simulates a slow handler (sleep) and then signals receipt
+    # out-of-band via SQS so the test can confirm eventual delivery.
+    code = (
+        "import os, time, boto3\n"
+        f"QNAME = {qname!r}\n"
+        "def handler(event, context):\n"
+        "    time.sleep(5)\n"
+        "    sqs = boto3.client('sqs', endpoint_url=os.environ['AWS_ENDPOINT_URL'])\n"
+        "    url = sqs.get_queue_url(QueueName=QNAME)['QueueUrl']\n"
+        "    sqs.send_message(QueueUrl=url, MessageBody='delivered')\n"
+        "    return {'ok': True}\n"
+    )
+    lam.create_function(
+        FunctionName=fn,
+        Runtime="python3.12",
+        Role=_LAMBDA_ROLE,
+        Handler="index.handler",
+        Timeout=30,
+        Code={"ZipFile": _make_zip(code)},
+    )
+    func_arn = f"arn:aws:lambda:us-east-1:000000000000:function:{fn}"
+    topic_arn = sns.create_topic(
+        Name=f"intg-sns-async-topic-{_uuid.uuid4().hex[:8]}"
+    )["TopicArn"]
+    sns.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=func_arn)
+
+    start = time.time()
+    resp = sns.publish(TopicArn=topic_arn, Message="async-check")
+    elapsed = time.time() - start
+    assert "MessageId" in resp
+    # Publish must return well before the subscriber's 5s sleep completes; a
+    # synchronous fanout would block here for the cold start plus the sleep.
+    assert elapsed < 3.0, f"Publish blocked on the subscriber ({elapsed:.1f}s)"
+
+    # The subscriber still runs in the background and eventually signals.
+    deadline = time.time() + 30
+    received = False
+    while time.time() < deadline:
+        msgs = sqs.receive_message(
+            QueueUrl=q_url, WaitTimeSeconds=1, MaxNumberOfMessages=1
+        ).get("Messages", [])
+        if msgs:
+            received = True
+            break
+    assert received, "subscriber Lambda was never delivered the SNS message"
+
+def test_sns_to_lambda_event_subscription_arn(lam, sns):
+    """SNS→Lambda fanout must set EventSubscriptionArn to the real subscription ARN."""
+    import uuid as _uuid_mod
+
+    fn = f"intg-sns-suborn-{_uuid_mod.uuid4().hex[:8]}"
+    received = []
+
+    code = (
+        "import json, os\nreceived = []\ndef handler(event, context):\n    received.append(event)\n    return event\n"
+    )
+    lam.create_function(
+        FunctionName=fn,
+        Runtime="python3.12",
+        Role=_LAMBDA_ROLE,
+        Handler="index.handler",
+        Code={"ZipFile": _make_zip(code)},
+    )
+    func_arn = f"arn:aws:lambda:us-east-1:000000000000:function:{fn}"
+    topic_arn = sns.create_topic(Name=f"intg-sns-suborn-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    sub_resp = sns.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=func_arn)
+    sub_arn = sub_resp["SubscriptionArn"]
+
+    sns.publish(TopicArn=topic_arn, Message="test-sub-arn")
+
+    # Invoke the function directly and check what event it last received
+    import json
+
+    result = lam.invoke(FunctionName=fn, Payload=json.dumps({"ping": True}).encode())
+    # The subscription ARN should be a real ARN, not "{topic}:subscription"
+    assert sub_arn != f"{topic_arn}:subscription"
+    assert sub_arn.startswith(topic_arn)
+
+def test_sns_filter_policy_blocks_non_matching(sns, sqs):
+    """SNS filter policy prevents delivery when message attributes don't match."""
+    topic_arn = sns.create_topic(Name="qa-sns-filter")["TopicArn"]
+    q_url = sqs.create_queue(QueueName="qa-sns-filter-q")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(QueueUrl=q_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+    sub_arn = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)["SubscriptionArn"]
+    sns.set_subscription_attributes(
+        SubscriptionArn=sub_arn,
+        AttributeName="FilterPolicy",
+        AttributeValue=json.dumps({"color": ["blue"]}),
+    )
+    sns.publish(
+        TopicArn=topic_arn,
+        Message="red message",
+        MessageAttributes={"color": {"DataType": "String", "StringValue": "red"}},
+    )
+    msgs = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=0)
+    assert len(msgs.get("Messages", [])) == 0, "Filtered message must not be delivered"
+    sns.publish(
+        TopicArn=topic_arn,
+        Message="blue message",
+        MessageAttributes={"color": {"DataType": "String", "StringValue": "blue"}},
+    )
+    msgs2 = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=1)
+    assert len(msgs2.get("Messages", [])) == 1
+    body = json.loads(msgs2["Messages"][0]["Body"])
+    assert body["Message"] == "blue message"
+
+def test_sns_filter_policy_or_operator(sns, sqs):
+    """A top-level $or matches when any of its member policies matches; a
+    message satisfying neither is filtered out (AWS $or operator)."""
+    topic_arn = sns.create_topic(Name="qa-sns-or")["TopicArn"]
+    q_url = sqs.create_queue(QueueName="qa-sns-or-q")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(QueueUrl=q_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+    sub_arn = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)["SubscriptionArn"]
+    sns.set_subscription_attributes(
+        SubscriptionArn=sub_arn,
+        AttributeName="FilterPolicy",
+        AttributeValue=json.dumps({
+            "$or": [
+                {"operation": ["event-broadcast"], "environment": ["ENV1"]},
+                {"operation": ["session-operation"], "environment": ["ENV1"],
+                 "session_id": ["abc-123"]},
+            ]
+        }),
+    )
+
+    def _attrs(**kv):
+        return {k: {"DataType": "String", "StringValue": v} for k, v in kv.items()}
+
+    # Matches the first $or member.
+    sns.publish(TopicArn=topic_arn, Message="first",
+                MessageAttributes=_attrs(operation="event-broadcast", environment="ENV1"))
+    # Matches the second $or member.
+    sns.publish(TopicArn=topic_arn, Message="second",
+                MessageAttributes=_attrs(operation="session-operation", environment="ENV1",
+                                         session_id="abc-123"))
+    # Matches neither (wrong environment).
+    sns.publish(TopicArn=topic_arn, Message="third",
+                MessageAttributes=_attrs(operation="event-broadcast", environment="ENV2"))
+
+    received = []
+    for _ in range(3):
+        resp = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=10, WaitTimeSeconds=1)
+        received.extend(json.loads(m["Body"])["Message"] for m in resp.get("Messages", []))
+    assert sorted(received) == ["first", "second"]
+
+def test_sns_raw_message_delivery(sns, sqs):
+    """RawMessageDelivery=true delivers raw message body, not SNS envelope."""
+    topic_arn = sns.create_topic(Name="qa-sns-raw")["TopicArn"]
+    q_url = sqs.create_queue(QueueName="qa-sns-raw-q")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(QueueUrl=q_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+    sub_arn = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)["SubscriptionArn"]
+    sns.set_subscription_attributes(
+        SubscriptionArn=sub_arn,
+        AttributeName="RawMessageDelivery",
+        AttributeValue="true",
+    )
+    sns.publish(TopicArn=topic_arn, Message="raw-body")
+    msgs = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=1)
+    assert len(msgs["Messages"]) == 1
+    assert msgs["Messages"][0]["Body"] == "raw-body"
+
+def test_sns_publish_batch_distinct_ids(sns):
+    """PublishBatch with duplicate IDs must fail with BatchEntryIdsNotDistinct."""
+    arn = sns.create_topic(Name="qa-sns-batch-dup")["TopicArn"]
+    with pytest.raises(ClientError) as exc:
+        sns.publish_batch(
+            TopicArn=arn,
+            PublishBatchRequestEntries=[
+                {"Id": "same", "Message": "msg1"},
+                {"Id": "same", "Message": "msg2"},
+            ],
+        )
+    assert exc.value.response["Error"]["Code"] == "BatchEntryIdsNotDistinct"
+
+def test_sns_fifo_dedup_passthrough(sns, sqs):
+    """SNS FIFO topic passes MessageGroupId through to the SQS FIFO subscriber."""
+    topic_arn = sns.create_topic(
+        Name="intg-sns-fifo-dedup.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    q_url = sqs.create_queue(
+        QueueName="intg-sns-fifo-dedup-q.fifo",
+        Attributes={"FifoQueue": "true"},
+    )["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url, AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+
+    sns.publish(
+        TopicArn=topic_arn,
+        Message="fifo-dedup-test",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="dedup-001",
+    )
+
+    msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=2,
+        AttributeNames=["All"],
+    )
+    assert len(msgs.get("Messages", [])) == 1
+    msg = msgs["Messages"][0]
+    body = json.loads(msg["Body"])
+    assert body["Message"] == "fifo-dedup-test"
+    attrs = msg.get("Attributes", {})
+    assert attrs.get("MessageGroupId") == "grp-1"
+
+def test_sns_to_sqs_fanout(sns, sqs):
+    """SNS publish fans out to multiple SQS subscribers."""
+    topic_arn = sns.create_topic(Name="intg-fanout-topic")["TopicArn"]
+
+    q1_url = sqs.create_queue(QueueName="intg-fanout-q1")["QueueUrl"]
+    q2_url = sqs.create_queue(QueueName="intg-fanout-q2")["QueueUrl"]
+    q1_arn = sqs.get_queue_attributes(QueueUrl=q1_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    q2_arn = sqs.get_queue_attributes(QueueUrl=q2_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    for _q_url, _q_arn in ((q1_url, q1_arn), (q2_url, q2_arn)):
+        sqs.set_queue_attributes(
+            QueueUrl=_q_url,
+            Attributes={"Policy": json.dumps(sqs_policy_allow_sns(_q_arn, topic_arn))})
+
+    sub1 = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q1_arn)
+    sub2 = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q2_arn)
+    assert sub1["SubscriptionArn"] != "PendingConfirmation"
+    assert sub2["SubscriptionArn"] != "PendingConfirmation"
+
+    sns.publish(TopicArn=topic_arn, Message="fanout-test-msg", Subject="IntgTest")
+
+    # Both queues should receive the message
+    for q_url, q_name in [(q1_url, "q1"), (q2_url, "q2")]:
+        msgs = sqs.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=2)
+        assert len(msgs.get("Messages", [])) == 1, f"{q_name} should have received the message"
+        body = json.loads(msgs["Messages"][0]["Body"])
+        assert body["Message"] == "fanout-test-msg"
+        assert body["TopicArn"] == topic_arn
+        assert body["Subject"] == "IntgTest"
+        assert body["Type"] == "Notification"
+
+
+# ---------------------------------------------------------------------------
+# FIFO Topic Creation Tests 
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_create_topic_with_fifo_suffix_and_attribute(sns):
+    """Creating a FIFO topic with .fifo suffix and FifoTopic=true succeeds."""
+    resp = sns.create_topic(
+        Name="intg-fifo-create.fifo",
+        Attributes={"FifoTopic": "true"},
+    )
+    arn = resp["TopicArn"]
+    assert arn.endswith("intg-fifo-create.fifo")
+
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["FifoTopic"] == "true"
+
+
+def test_sns_fifo_create_topic_without_fifo_suffix_returns_error(sns):
+    """Creating a topic with FifoTopic=true but no .fifo suffix returns InvalidParameterException."""
+    with pytest.raises(ClientError) as exc:
+        sns.create_topic(
+            Name="intg-fifo-no-suffix",
+            Attributes={"FifoTopic": "true"},
+        )
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+def test_sns_fifo_auto_detect_from_suffix(sns):
+    """Creating a topic with .fifo suffix auto-detects as FIFO even without explicit FifoTopic attribute."""
+    resp = sns.create_topic(Name="intg-fifo-autodetect.fifo")
+    arn = resp["TopicArn"]
+
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["FifoTopic"] == "true"
+
+
+def test_sns_fifo_content_based_dedup_defaults_to_false(sns):
+    """ContentBasedDeduplication defaults to 'false' for FIFO topics when not explicitly provided."""
+    resp = sns.create_topic(
+        Name="intg-fifo-cbd-default.fifo",
+        Attributes={"FifoTopic": "true"},
+    )
+    arn = resp["TopicArn"]
+
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["ContentBasedDeduplication"] == "false"
+
+
+def test_sns_fifo_content_based_dedup_set_to_true(sns):
+    """ContentBasedDeduplication can be set to 'true' at creation time."""
+    resp = sns.create_topic(
+        Name="intg-fifo-cbd-true.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )
+    arn = resp["TopicArn"]
+
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["ContentBasedDeduplication"] == "true"
+
+
+def test_sns_fifo_get_topic_attributes_returns_fifo_attrs(sns):
+    """GetTopicAttributes returns all FIFO-related attributes correctly."""
+    resp = sns.create_topic(
+        Name="intg-fifo-getattrs.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )
+    arn = resp["TopicArn"]
+
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["TopicArn"] == arn
+    assert attrs["FifoTopic"] == "true"
+    assert attrs["ContentBasedDeduplication"] == "true"
+    # Standard attributes should still be present
+    assert "Owner" in attrs
+    assert "Policy" in attrs
+
+
+# ---------------------------------------------------------------------------
+# FIFO Publish Validation Tests
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_publish_without_message_group_id_returns_error(sns):
+    """Publishing to a FIFO topic without MessageGroupId returns InvalidParameterException."""
+    arn = sns.create_topic(
+        Name="intg-fifo-pub-no-grp.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )["TopicArn"]
+
+    with pytest.raises(ClientError) as exc:
+        sns.publish(TopicArn=arn, Message="missing group id")
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+def test_sns_fifo_publish_without_dedup_id_cbd_false_returns_error(sns):
+    """Publishing to a FIFO topic (CBD=false) without MessageDeduplicationId returns error."""
+    arn = sns.create_topic(
+        Name="intg-fifo-pub-no-dedup.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    with pytest.raises(ClientError) as exc:
+        sns.publish(
+            TopicArn=arn,
+            Message="missing dedup id",
+            MessageGroupId="grp-1",
+        )
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+def test_sns_standard_topic_publish_without_message_group_id_succeeds(sns):
+    """Publishing to a standard topic without MessageGroupId succeeds normally."""
+    arn = sns.create_topic(Name="intg-std-pub-no-grp")["TopicArn"]
+
+    resp = sns.publish(TopicArn=arn, Message="standard topic message")
+    assert "MessageId" in resp
+
+
+def test_sns_fifo_publish_with_valid_params_returns_sequence_number(sns):
+    """Publishing to a FIFO topic with valid params succeeds and returns SequenceNumber."""
+    arn = sns.create_topic(
+        Name="intg-fifo-pub-seq.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    resp = sns.publish(
+        TopicArn=arn,
+        Message="fifo message with seq",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="dedup-seq-001",
+    )
+    assert "MessageId" in resp
+    assert "SequenceNumber" in resp
+    # Sequence number should be a zero-padded numeric string
+    assert resp["SequenceNumber"].isdigit()
+    assert len(resp["SequenceNumber"]) == 20
+
+
+def test_sns_standard_topic_publish_response_omits_sequence_number(sns):
+    """Standard topic publish response does not include SequenceNumber."""
+    arn = sns.create_topic(Name="intg-std-pub-no-seq")["TopicArn"]
+
+    resp = sns.publish(TopicArn=arn, Message="standard topic no seq")
+    assert "MessageId" in resp
+    assert "SequenceNumber" not in resp
+
+
+# ---------------------------------------------------------------------------
+# FIFO Deduplication and Sequence Number Tests 
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_explicit_dedup_id_returns_same_result_on_duplicate(sns):
+    """Publishing the same MessageDeduplicationId twice returns the same MessageId and SequenceNumber."""
+    arn = sns.create_topic(
+        Name="intg-fifo-dedup-same.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    resp1 = sns.publish(
+        TopicArn=arn,
+        Message="first publish",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="dedup-same-001",
+    )
+    resp2 = sns.publish(
+        TopicArn=arn,
+        Message="second publish different body",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="dedup-same-001",
+    )
+
+    assert resp1["MessageId"] == resp2["MessageId"]
+    assert resp1["SequenceNumber"] == resp2["SequenceNumber"]
+
+
+def test_sns_fifo_cbd_dedup_subscriber_gets_one_message(sns, sqs):
+    """CBD=true with same body twice deduplicates — subscriber receives only one message."""
+    topic_arn = sns.create_topic(
+        Name="intg-fifo-cbd-dedup.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )["TopicArn"]
+
+    q_url = sqs.create_queue(
+        QueueName="intg-fifo-cbd-dedup-q.fifo",
+        Attributes={"FifoQueue": "true"},
+    )["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url, AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+
+    # Publish the same body twice — CBD will generate the same dedup ID
+    resp1 = sns.publish(
+        TopicArn=topic_arn,
+        Message="identical body for cbd",
+        MessageGroupId="grp-cbd",
+    )
+    resp2 = sns.publish(
+        TopicArn=topic_arn,
+        Message="identical body for cbd",
+        MessageGroupId="grp-cbd",
+    )
+
+    # Both responses should return the same MessageId (dedup hit)
+    assert resp1["MessageId"] == resp2["MessageId"]
+
+    # Subscriber should only receive one message
+    msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=10,
+        WaitTimeSeconds=2,
+    )
+    assert len(msgs.get("Messages", [])) == 1
+    body = json.loads(msgs["Messages"][0]["Body"])
+    assert body["Message"] == "identical body for cbd"
+
+
+def test_sns_fifo_explicit_dedup_id_overrides_cbd(sns):
+    """Explicit MessageDeduplicationId is used regardless of CBD setting."""
+    arn = sns.create_topic(
+        Name="intg-fifo-dedup-override.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )["TopicArn"]
+
+    # Publish two messages with the same body but different explicit dedup IDs
+    resp1 = sns.publish(
+        TopicArn=arn,
+        Message="same body",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="explicit-dedup-A",
+    )
+    resp2 = sns.publish(
+        TopicArn=arn,
+        Message="same body",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="explicit-dedup-B",
+    )
+
+    # Different explicit dedup IDs → different messages (not deduplicated)
+    assert resp1["MessageId"] != resp2["MessageId"]
+    assert resp1["SequenceNumber"] != resp2["SequenceNumber"]
+
+    # Now publish again with the same explicit dedup ID as the first → deduplicated
+    resp3 = sns.publish(
+        TopicArn=arn,
+        Message="different body this time",
+        MessageGroupId="grp-1",
+        MessageDeduplicationId="explicit-dedup-A",
+    )
+    assert resp3["MessageId"] == resp1["MessageId"]
+    assert resp3["SequenceNumber"] == resp1["SequenceNumber"]
+
+
+def test_sns_fifo_sequence_numbers_monotonically_increasing(sns):
+    """Multiple non-duplicate publishes produce monotonically increasing sequence numbers."""
+    arn = sns.create_topic(
+        Name="intg-fifo-seq-incr.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    seq_numbers = []
+    for i in range(5):
+        resp = sns.publish(
+            TopicArn=arn,
+            Message=f"message-{i}",
+            MessageGroupId="grp-seq",
+            MessageDeduplicationId=f"dedup-seq-{i}",
+        )
+        assert "SequenceNumber" in resp
+        seq_numbers.append(resp["SequenceNumber"])
+
+    # All sequence numbers should be numeric and zero-padded to 20 digits
+    for seq in seq_numbers:
+        assert seq.isdigit()
+        assert len(seq) == 20
+
+    # Sequence numbers should be strictly increasing
+    for j in range(1, len(seq_numbers)):
+        assert int(seq_numbers[j]) > int(seq_numbers[j - 1])
+
+
+# ---------------------------------------------------------------------------
+# FIFO Subscription Validation Tests
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_subscribe_standard_sqs_queue_succeeds(sns, sqs):
+    """Subscribing a standard SQS queue to a FIFO topic succeeds."""
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-sub-std-{uid}.fifo",
+        Attributes={"FifoTopic": "true"},
+    )["TopicArn"]
+
+    q_url = sqs.create_queue(QueueName=f"intg-fifo-sub-std-q-{uid}")["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url, AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+
+    resp = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+    assert "SubscriptionArn" in resp
+    assert resp["SubscriptionArn"] != "PendingConfirmation"
+
+
+def test_sns_fifo_subscribe_fifo_sqs_queue_succeeds(sns, sqs):
+    """Subscribing a FIFO SQS queue to a FIFO topic succeeds."""
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-sub-fifo-{uid}.fifo",
+        Attributes={"FifoTopic": "true"},
+    )["TopicArn"]
+
+    q_url = sqs.create_queue(
+        QueueName=f"intg-fifo-sub-fifo-q-{uid}.fifo",
+        Attributes={"FifoQueue": "true"},
+    )["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url, AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+
+    resp = sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+    assert "SubscriptionArn" in resp
+    assert resp["SubscriptionArn"] != "PendingConfirmation"
+
+
+def test_sns_fifo_subscribe_non_sqs_protocols_succeed(sns):
+    """Subscribing email/lambda/http to a FIFO topic succeeds without FIFO queue validation."""
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-sub-nonsqs-{uid}.fifo",
+        Attributes={"FifoTopic": "true"},
+    )["TopicArn"]
+
+    # email protocol
+    resp_email = sns.subscribe(
+        TopicArn=topic_arn, Protocol="email", Endpoint=f"user-{uid}@example.com",
+    )
+    assert "SubscriptionArn" in resp_email
+
+    # lambda protocol
+    lambda_arn = f"arn:aws:lambda:us-east-1:000000000000:function:my-func-{uid}"
+    resp_lambda = sns.subscribe(
+        TopicArn=topic_arn, Protocol="lambda", Endpoint=lambda_arn,
+    )
+    assert "SubscriptionArn" in resp_lambda
+
+    # http protocol
+    resp_http = sns.subscribe(
+        TopicArn=topic_arn, Protocol="http", Endpoint=f"http://example.com/hook-{uid}",
+    )
+    assert "SubscriptionArn" in resp_http
+
+
+# ---------------------------------------------------------------------------
+# PublishBatch FIFO Support Tests
+# ---------------------------------------------------------------------------
+
+
+def _raw_publish_batch(topic_arn, entries):
+    """Send a PublishBatch request via raw HTTP to bypass boto3 client-side validation.
+
+    This is needed because boto3 may raise ParamValidationError for entries
+    missing MessageGroupId on FIFO topics before the request reaches the server.
+
+    Each entry is a dict with keys: Id, Message, and optionally MessageGroupId,
+    MessageDeduplicationId.
+    """
+    form = {"Action": "PublishBatch", "TopicArn": topic_arn}
+    for i, entry in enumerate(entries, start=1):
+        prefix = f"PublishBatchRequestEntries.member.{i}"
+        form[f"{prefix}.Id"] = entry["Id"]
+        form[f"{prefix}.Message"] = entry["Message"]
+        if "MessageGroupId" in entry:
+            form[f"{prefix}.MessageGroupId"] = entry["MessageGroupId"]
+        if "MessageDeduplicationId" in entry:
+            form[f"{prefix}.MessageDeduplicationId"] = entry["MessageDeduplicationId"]
+
+    data = urlencode(form).encode()
+    req = urllib.request.Request(ENDPOINT, data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    resp = urllib.request.urlopen(req, timeout=10)
+    body = resp.read().decode()
+    return resp.status, body
+
+
+def test_sns_fifo_publish_batch_missing_group_id_fails_entries(sns):
+    """PublishBatch to FIFO topic: entries missing MessageGroupId go to Failed list.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-batch-nogrp-{uid}.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )["TopicArn"]
+
+    # Use raw HTTP to bypass boto3 client-side validation
+    entries = [
+        {"Id": "e1", "Message": "msg without group id"},
+        {"Id": "e2", "Message": "msg without group id 2"},
+    ]
+    status, body = _raw_publish_batch(topic_arn, entries)
+    assert status == 200
+
+    # Both entries should be in the Failed list
+    assert "<Failed>" in body
+    assert body.count("<Id>e1</Id>") == 1
+    assert body.count("<Id>e2</Id>") == 1
+    assert "InvalidParameterException" in body
+
+
+def test_sns_fifo_publish_batch_all_valid_returns_successful_with_sequence(sns):
+    """PublishBatch to FIFO topic: all valid entries return in Successful with SequenceNumber.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-batch-valid-{uid}.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    resp = sns.publish_batch(
+        TopicArn=topic_arn,
+        PublishBatchRequestEntries=[
+            {
+                "Id": "e1",
+                "Message": "batch fifo msg 1",
+                "MessageGroupId": "grp-1",
+                "MessageDeduplicationId": f"dedup-batch-1-{uid}",
+            },
+            {
+                "Id": "e2",
+                "Message": "batch fifo msg 2",
+                "MessageGroupId": "grp-1",
+                "MessageDeduplicationId": f"dedup-batch-2-{uid}",
+            },
+            {
+                "Id": "e3",
+                "Message": "batch fifo msg 3",
+                "MessageGroupId": "grp-2",
+                "MessageDeduplicationId": f"dedup-batch-3-{uid}",
+            },
+        ],
+    )
+
+    assert len(resp["Successful"]) == 3
+    assert len(resp.get("Failed", [])) == 0
+
+    # Each successful entry should have a SequenceNumber
+    seq_numbers = []
+    for entry in resp["Successful"]:
+        assert "MessageId" in entry
+        assert "SequenceNumber" in entry
+        seq = entry["SequenceNumber"]
+        assert seq.isdigit()
+        assert len(seq) == 20
+        seq_numbers.append(int(seq))
+
+    # Sequence numbers should be monotonically increasing
+    for i in range(1, len(seq_numbers)):
+        assert seq_numbers[i] > seq_numbers[i - 1]
+
+
+def test_sns_fifo_publish_batch_mixed_valid_invalid_entries(sns):
+    """PublishBatch to FIFO topic: mixed entries correctly separate Successful and Failed.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-batch-mixed-{uid}.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    # Use raw HTTP: e1 is valid, e2 is missing MessageGroupId, e3 is valid
+    entries = [
+        {
+            "Id": "e1",
+            "Message": "valid msg 1",
+            "MessageGroupId": "grp-1",
+            "MessageDeduplicationId": f"dedup-mixed-1-{uid}",
+        },
+        {
+            "Id": "e2",
+            "Message": "invalid msg missing group id",
+            # No MessageGroupId — should fail
+        },
+        {
+            "Id": "e3",
+            "Message": "valid msg 3",
+            "MessageGroupId": "grp-2",
+            "MessageDeduplicationId": f"dedup-mixed-3-{uid}",
+        },
+    ]
+    status, body = _raw_publish_batch(topic_arn, entries)
+    assert status == 200
+
+    # e1 and e3 should be in Successful
+    # e2 should be in Failed
+    # Parse the XML to verify
+    assert "<Successful>" in body
+    assert "<Failed>" in body
+
+    # Count successful entries (e1 and e3)
+    successful_section = body.split("<Successful>")[1].split("</Successful>")[0]
+    assert "<Id>e1</Id>" in successful_section
+    assert "<Id>e3</Id>" in successful_section
+    # Successful entries should have SequenceNumber
+    assert "<SequenceNumber>" in successful_section
+
+    # Count failed entries (e2)
+    failed_section = body.split("<Failed>")[1].split("</Failed>")[0]
+    assert "<Id>e2</Id>" in failed_section
+    assert "InvalidParameterException" in failed_section
+
+
+# ---------------------------------------------------------------------------
+# ContentBasedDeduplication Attribute Management Tests
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_set_topic_attributes_toggle_cbd(sns):
+    """SetTopicAttributes can toggle ContentBasedDeduplication on a FIFO topic.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    arn = sns.create_topic(
+        Name=f"intg-fifo-cbd-toggle-{uid}.fifo",
+        Attributes={"FifoTopic": "true"},
+    )["TopicArn"]
+
+    # CBD defaults to "false"
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["ContentBasedDeduplication"] == "false"
+
+    # Enable CBD via SetTopicAttributes
+    sns.set_topic_attributes(
+        TopicArn=arn,
+        AttributeName="ContentBasedDeduplication",
+        AttributeValue="true",
+    )
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["ContentBasedDeduplication"] == "true"
+
+    # Disable CBD via SetTopicAttributes
+    sns.set_topic_attributes(
+        TopicArn=arn,
+        AttributeName="ContentBasedDeduplication",
+        AttributeValue="false",
+    )
+    attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
+    assert attrs["ContentBasedDeduplication"] == "false"
+
+
+def test_sns_fifo_publish_succeeds_without_dedup_id_after_enabling_cbd(sns):
+    """After enabling CBD, publishing without an explicit dedup ID succeeds.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    arn = sns.create_topic(
+        Name=f"intg-fifo-cbd-enable-pub-{uid}.fifo",
+        Attributes={"FifoTopic": "true"},  # CBD defaults to "false"
+    )["TopicArn"]
+
+    # Enable CBD
+    sns.set_topic_attributes(
+        TopicArn=arn,
+        AttributeName="ContentBasedDeduplication",
+        AttributeValue="true",
+    )
+
+    # Publish without explicit MessageDeduplicationId — should succeed
+    resp = sns.publish(
+        TopicArn=arn,
+        Message="cbd enabled message",
+        MessageGroupId="grp-1",
+    )
+    assert "MessageId" in resp
+    assert "SequenceNumber" in resp
+
+
+def test_sns_fifo_publish_fails_without_dedup_id_after_disabling_cbd(sns):
+    """After disabling CBD, publishing without an explicit dedup ID fails.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+    arn = sns.create_topic(
+        Name=f"intg-fifo-cbd-disable-pub-{uid}.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "true"},
+    )["TopicArn"]
+
+    # Verify publishing without dedup ID works while CBD is enabled
+    resp = sns.publish(
+        TopicArn=arn,
+        Message="should succeed with cbd on",
+        MessageGroupId="grp-1",
+    )
+    assert "MessageId" in resp
+
+    # Disable CBD
+    sns.set_topic_attributes(
+        TopicArn=arn,
+        AttributeName="ContentBasedDeduplication",
+        AttributeValue="false",
+    )
+
+    # Now publishing without explicit MessageDeduplicationId should fail
+    with pytest.raises(ClientError) as exc:
+        sns.publish(
+            TopicArn=arn,
+            Message="should fail with cbd off",
+            MessageGroupId="grp-1",
+        )
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterException"
+
+
+# ---------------------------------------------------------------------------
+# End-to-End FIFO SNS → SQS Fanout Integration Test
+# ---------------------------------------------------------------------------
+
+
+def test_sns_fifo_e2e_fanout_with_dedup(sns, sqs):
+    """End-to-end: FIFO SNS → SQS fanout passes MessageGroupId and deduplicates.
+    """
+    uid = _uuid_mod.uuid4().hex[:8]
+
+    # 1. Create a FIFO topic and FIFO SQS queue, subscribe the queue to the topic
+    topic_arn = sns.create_topic(
+        Name=f"intg-fifo-e2e-{uid}.fifo",
+        Attributes={"FifoTopic": "true", "ContentBasedDeduplication": "false"},
+    )["TopicArn"]
+
+    q_url = sqs.create_queue(
+        QueueName=f"intg-fifo-e2e-q-{uid}.fifo",
+        Attributes={"FifoQueue": "true"},
+    )["QueueUrl"]
+    q_arn = sqs.get_queue_attributes(
+        QueueUrl=q_url, AttributeNames=["QueueArn"],
+    )["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(
+        QueueUrl=q_url,
+        Attributes={"Policy": json.dumps(sqs_policy_allow_sns(q_arn, topic_arn))})
+
+    sns.subscribe(TopicArn=topic_arn, Protocol="sqs", Endpoint=q_arn)
+
+    # 2. Publish a message with MessageGroupId and MessageDeduplicationId
+    dedup_id = f"dedup-e2e-{uid}"
+    group_id = f"grp-e2e-{uid}"
+    resp1 = sns.publish(
+        TopicArn=topic_arn,
+        Message="e2e fifo fanout message",
+        MessageGroupId=group_id,
+        MessageDeduplicationId=dedup_id,
+    )
+    assert "MessageId" in resp1
+    assert "SequenceNumber" in resp1
+
+    # 3. Receive the message from SQS and verify MessageGroupId is passed through
+    msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=10,
+        WaitTimeSeconds=2,
+        AttributeNames=["All"],
+    )
+    assert len(msgs.get("Messages", [])) == 1
+    msg = msgs["Messages"][0]
+    body = json.loads(msg["Body"])
+    assert body["Message"] == "e2e fifo fanout message"
+    attrs = msg.get("Attributes", {})
+    assert attrs.get("MessageGroupId") == group_id
+
+    # Delete the received message so the queue is clean for the next check
+    sqs.delete_message(QueueUrl=q_url, ReceiptHandle=msg["ReceiptHandle"])
+
+    # 4. Publish the same dedup ID again — should be deduplicated
+    resp2 = sns.publish(
+        TopicArn=topic_arn,
+        Message="duplicate attempt",
+        MessageGroupId=group_id,
+        MessageDeduplicationId=dedup_id,
+    )
+    # Dedup hit: same MessageId and SequenceNumber as the first publish
+    assert resp2["MessageId"] == resp1["MessageId"]
+    assert resp2["SequenceNumber"] == resp1["SequenceNumber"]
+
+    # Verify the subscriber does NOT receive a duplicate message
+    dup_msgs = sqs.receive_message(
+        QueueUrl=q_url,
+        MaxNumberOfMessages=10,
+        WaitTimeSeconds=1,
+    )
+    assert len(dup_msgs.get("Messages", [])) == 0, "Duplicate message should not be delivered"
+
+
+def test_sns_http_subscription_confirmation_delivered(sns):
+    """HTTP subscribe() must POST a SubscriptionConfirmation to the endpoint (#460).
+
+    Regression for the aiohttp-not-installed silent skip: the Docker image
+    never shipped aiohttp, so every HTTP subscription's confirmation was
+    logged-and-dropped. stdlib urllib must deliver.
+    """
+    import http.server
+    import socketserver
+    import threading as _threading
+
+    received = []
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length).decode("utf-8", errors="replace")
+            received.append({
+                "headers": dict(self.headers),
+                "body": body,
+            })
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *_args, **_kwargs):
+            pass
+
+    httpd = socketserver.TCPServer(("127.0.0.1", 0), _Handler)
+    port = httpd.server_address[1]
+    server_thread = _threading.Thread(target=httpd.serve_forever, daemon=True)
+    server_thread.start()
+
+    try:
+        uid = _uuid_mod.uuid4().hex[:8]
+        topic_arn = sns.create_topic(Name=f"intg-sns-http-conf-{uid}")["TopicArn"]
+        sns.subscribe(
+            TopicArn=topic_arn,
+            Protocol="http",
+            Endpoint=f"http://127.0.0.1:{port}/hook",
+        )
+
+        deadline = time.time() + 5
+        while time.time() < deadline and not received:
+            time.sleep(0.05)
+
+        assert received, "SubscriptionConfirmation POST never arrived"
+        first = received[0]
+        header_lookup = {k.lower(): v for k, v in first["headers"].items()}
+        assert header_lookup.get("x-amz-sns-message-type") == "SubscriptionConfirmation"
+        parsed = json.loads(first["body"])
+        assert parsed["Type"] == "SubscriptionConfirmation"
+        assert parsed["TopicArn"] == topic_arn
+        assert "Token" in parsed and parsed["Token"]
+        assert "SubscribeURL" in parsed
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_sns_http_subscription_basic_auth_userinfo(sns):
+    """`http://user:pass@host/path` endpoints must deliver Authorization: Basic (#460).
+
+    Real AWS SNS promotes URL userinfo to a Basic auth header. urllib leaves
+    userinfo in the URL by default, which also corrupts the Host header, so
+    the SNS HTTP helper must parse-and-inject explicitly.
+    """
+    import base64 as _b64
+    import http.server
+    import socketserver
+    import threading as _threading
+
+    received = []
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(length)
+            received.append({"headers": dict(self.headers)})
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *_args, **_kwargs):
+            pass
+
+    httpd = socketserver.TCPServer(("127.0.0.1", 0), _Handler)
+    port = httpd.server_address[1]
+    _threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+    try:
+        uid = _uuid_mod.uuid4().hex[:8]
+        topic_arn = sns.create_topic(Name=f"intg-sns-http-basic-{uid}")["TopicArn"]
+        sns.subscribe(
+            TopicArn=topic_arn,
+            Protocol="http",
+            Endpoint=f"http://alice:s3cret@127.0.0.1:{port}/hook",
+        )
+
+        deadline = time.time() + 5
+        while time.time() < deadline and not received:
+            time.sleep(0.05)
+
+        assert received, "SubscriptionConfirmation POST never arrived"
+        header_lookup = {k.lower(): v for k, v in received[0]["headers"].items()}
+
+        auth = header_lookup.get("authorization", "")
+        assert auth.startswith("Basic "), f"Expected Basic auth header, got {auth!r}"
+        decoded = _b64.b64decode(auth[len("Basic "):]).decode("utf-8")
+        assert decoded == "alice:s3cret"
+
+        host = header_lookup.get("host", "")
+        assert "@" not in host, f"Host header must not contain userinfo, got {host!r}"
+        assert host == f"127.0.0.1:{port}"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+# -- 256 KiB payload limit (AWS Publish docs) --------------------------
+
+
+def test_sns_publish_rejects_message_over_256_kib(sns):
+    """SNS Publish rejects payloads (Message + MessageAttributes) over
+    256 KiB with InvalidParameter (400). Before this fix MS silently
+    accepted oversized payloads locally while real AWS rejected."""
+    topic_arn = sns.create_topic(Name=f"intg-sns-size-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    oversized = "x" * (262144 + 1)
+    with pytest.raises(ClientError) as exc:
+        sns.publish(TopicArn=topic_arn, Message=oversized)
+    assert exc.value.response["Error"]["Code"] == "InvalidParameter"
+
+
+def test_sns_publish_attributes_count_toward_size_limit(sns):
+    """A Message that fits under 256 KiB on its own but is pushed past the
+    limit by MessageAttributes must still be rejected."""
+    topic_arn = sns.create_topic(Name=f"intg-sns-size-attr-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    msg = "x" * 250000
+    big_attr_value = "y" * 20000
+    with pytest.raises(ClientError) as exc:
+        sns.publish(
+            TopicArn=topic_arn,
+            Message=msg,
+            MessageAttributes={
+                "k1": {"DataType": "String", "StringValue": big_attr_value},
+            },
+        )
+    assert exc.value.response["Error"]["Code"] == "InvalidParameter"
+
+
+def test_sns_publish_batch_rejects_oversized_entry_per_entry(sns):
+    """PublishBatch surfaces each oversized entry as a per-entry failure
+    rather than failing the whole batch."""
+    topic_arn = sns.create_topic(Name=f"intg-sns-batch-size-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    resp = sns.publish_batch(
+        TopicArn=topic_arn,
+        PublishBatchRequestEntries=[
+            {"Id": "ok", "Message": "small"},
+            {"Id": "too-big", "Message": "x" * (262144 + 1)},
+        ],
+    )
+    ok_ids = [r["Id"] for r in resp.get("Successful", [])]
+    failed_ids = [r["Id"] for r in resp.get("Failed", [])]
+    assert "ok" in ok_ids
+    assert "too-big" in failed_ids
+    failed = next(r for r in resp["Failed"] if r["Id"] == "too-big")
+    assert failed["Code"] == "InvalidParameter"
+
+
+def _create_gcm_app(sns, name):
+    return sns.create_platform_application(
+        Name=name, Platform="GCM", Attributes={"PlatformCredential": ""},
+    )["PlatformApplicationArn"]
+
+
+def test_sns_create_platform_application(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-create-app")
+    assert ":app/GCM/intg-sns-pe-create-app" in app_arn
+
+
+def test_sns_list_platform_applications(sns):
+    name = f"intg-sns-list-app-{_uuid_mod.uuid4().hex[:8]}"
+    app_arn = sns.create_platform_application(
+        Name=name, Platform="GCM", Attributes={"PlatformCredential": "cred-xyz"},
+    )["PlatformApplicationArn"]
+    try:
+        apps = sns.list_platform_applications()["PlatformApplications"]
+        mine = [a for a in apps if a["PlatformApplicationArn"] == app_arn]
+        assert len(mine) == 1
+        assert mine[0]["Attributes"].get("PlatformCredential") == "cred-xyz"
+    finally:
+        sns.delete_platform_application(PlatformApplicationArn=app_arn)
+
+
+def test_sns_get_platform_application_attributes(sns):
+    name = f"intg-sns-get-app-attrs-{_uuid_mod.uuid4().hex[:8]}"
+    app_arn = sns.create_platform_application(
+        Name=name, Platform="GCM", Attributes={"PlatformCredential": "cred-xyz"},
+    )["PlatformApplicationArn"]
+    try:
+        attrs = sns.get_platform_application_attributes(
+            PlatformApplicationArn=app_arn,
+        )["Attributes"]
+        # AWS reports the application as enabled right after creation.
+        assert attrs["Enabled"] == "true"
+    finally:
+        sns.delete_platform_application(PlatformApplicationArn=app_arn)
+
+
+def test_sns_get_platform_application_attributes_not_found(sns):
+    missing = (
+        f"arn:aws:sns:us-east-1:000000000000:app/GCM/"
+        f"intg-sns-missing-{_uuid_mod.uuid4().hex[:8]}"
+    )
+    with pytest.raises(ClientError) as exc:
+        sns.get_platform_application_attributes(PlatformApplicationArn=missing)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_set_platform_application_attributes(sns):
+    name = f"intg-sns-set-app-attrs-{_uuid_mod.uuid4().hex[:8]}"
+    app_arn = sns.create_platform_application(
+        Name=name, Platform="GCM", Attributes={"PlatformCredential": "cred-xyz"},
+    )["PlatformApplicationArn"]
+    try:
+        sns.set_platform_application_attributes(
+            PlatformApplicationArn=app_arn,
+            Attributes={"Enabled": "false", "EventEndpointCreated": "arn:aws:sns:us-east-1:000000000000:evt"},
+        )
+        attrs = sns.get_platform_application_attributes(
+            PlatformApplicationArn=app_arn,
+        )["Attributes"]
+        assert attrs["Enabled"] == "false"
+        assert attrs["EventEndpointCreated"].endswith(":evt")
+    finally:
+        sns.delete_platform_application(PlatformApplicationArn=app_arn)
+
+
+def test_sns_set_platform_application_attributes_not_found(sns):
+    missing = (
+        f"arn:aws:sns:us-east-1:000000000000:app/GCM/"
+        f"intg-sns-missing-{_uuid_mod.uuid4().hex[:8]}"
+    )
+    with pytest.raises(ClientError) as exc:
+        sns.set_platform_application_attributes(
+            PlatformApplicationArn=missing, Attributes={"Enabled": "false"},
+        )
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_platform_applications_and_endpoints_are_region_scoped(sns):
+    west = _regional_client("sns", "us-west-2")
+    name = f"mr-sns-platform-region-{_uuid_mod.uuid4().hex[:8]}"
+    token = _uuid_mod.uuid4().hex
+
+    east_app = _create_gcm_app(sns, name)
+    west_app = _create_gcm_app(west, name)
+    east_endpoint = sns.create_platform_endpoint(
+        PlatformApplicationArn=east_app, Token=token,
+    )["EndpointArn"]
+    west_endpoint = west.create_platform_endpoint(
+        PlatformApplicationArn=west_app, Token=token,
+    )["EndpointArn"]
+
+    assert east_app == f"arn:aws:sns:us-east-1:000000000000:app/GCM/{name}"
+    assert west_app == f"arn:aws:sns:us-west-2:000000000000:app/GCM/{name}"
+    assert east_endpoint != west_endpoint
+    assert sns.get_endpoint_attributes(EndpointArn=east_endpoint)["Attributes"]["Token"] == token
+    assert west.get_endpoint_attributes(EndpointArn=west_endpoint)["Attributes"]["Token"] == token
+
+    with pytest.raises(ClientError) as exc:
+        sns.get_endpoint_attributes(EndpointArn=west_endpoint)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+    sns.delete_platform_application(PlatformApplicationArn=east_app)
+    with pytest.raises(ClientError) as exc:
+        sns.get_endpoint_attributes(EndpointArn=east_endpoint)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+    assert west.get_endpoint_attributes(EndpointArn=west_endpoint)["Attributes"]["Token"] == token
+
+
+def test_sns_create_platform_endpoint_stores_token_and_enabled(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-token")
+    token = _uuid_mod.uuid4().hex
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=token,
+    )["EndpointArn"]
+    attrs = sns.get_endpoint_attributes(EndpointArn=arn)["Attributes"]
+    assert attrs["Token"] == token
+    assert attrs["Enabled"] == "true"  # AWS default when unspecified
+
+
+def test_sns_create_platform_endpoint_stores_custom_user_data(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-cud")
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=_uuid_mod.uuid4().hex,
+        CustomUserData="u-42",
+    )["EndpointArn"]
+    attrs = sns.get_endpoint_attributes(EndpointArn=arn)["Attributes"]
+    assert attrs["CustomUserData"] == "u-42"
+
+
+def test_sns_create_platform_endpoint_idempotent_when_attributes_match(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-idem")
+    token = _uuid_mod.uuid4().hex
+    a1 = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=token, CustomUserData="same",
+    )["EndpointArn"]
+    a2 = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=token, CustomUserData="same",
+    )["EndpointArn"]
+    assert a1 == a2
+
+
+def test_sns_create_platform_endpoint_duplicate_token_different_attrs_raises(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-dup")
+    token = _uuid_mod.uuid4().hex
+    existing = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=token, CustomUserData="first",
+    )["EndpointArn"]
+    with pytest.raises(ClientError) as exc:
+        sns.create_platform_endpoint(
+            PlatformApplicationArn=app_arn, Token=token, CustomUserData="second",
+        )
+    msg = exc.value.response["Error"]["Message"]
+    # AWS-style message; consumers parse the existing endpoint ARN out of it.
+    assert "already exists with the same Token" in msg
+    assert existing in msg
+
+
+def test_sns_get_endpoint_attributes_not_found(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-getmiss")
+    with pytest.raises(ClientError) as exc:
+        sns.get_endpoint_attributes(EndpointArn=f"{app_arn}/does-not-exist")
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_set_endpoint_attributes_merges(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-set")
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=_uuid_mod.uuid4().hex,
+    )["EndpointArn"]
+    new_token = _uuid_mod.uuid4().hex
+    sns.set_endpoint_attributes(
+        EndpointArn=arn,
+        Attributes={"Token": new_token, "Enabled": "false", "CustomUserData": "x"},
+    )
+    attrs = sns.get_endpoint_attributes(EndpointArn=arn)["Attributes"]
+    assert attrs["Token"] == new_token
+    assert attrs["Enabled"] == "false"
+    assert attrs["CustomUserData"] == "x"
+
+
+def test_sns_set_endpoint_attributes_not_found(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-setmiss")
+    with pytest.raises(ClientError) as exc:
+        sns.set_endpoint_attributes(
+            EndpointArn=f"{app_arn}/nope", Attributes={"Enabled": "false"},
+        )
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_delete_endpoint_then_get_not_found(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-del")
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=_uuid_mod.uuid4().hex,
+    )["EndpointArn"]
+    sns.delete_endpoint(EndpointArn=arn)
+    with pytest.raises(ClientError) as exc:
+        sns.get_endpoint_attributes(EndpointArn=arn)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_delete_endpoint_is_idempotent(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-delidem")
+    # Deleting a non-existent endpoint succeeds in AWS (no error).
+    sns.delete_endpoint(EndpointArn=f"{app_arn}/never-existed")
+
+
+def test_sns_delete_platform_application_removes_endpoints(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-delapp")
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=_uuid_mod.uuid4().hex,
+    )["EndpointArn"]
+    sns.delete_platform_application(PlatformApplicationArn=app_arn)
+    with pytest.raises(ClientError) as exc:
+        sns.get_endpoint_attributes(EndpointArn=arn)
+    assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+def test_sns_publish_to_platform_endpoint(sns):
+    app_arn = _create_gcm_app(sns, "intg-sns-pe-publish")
+    arn = sns.create_platform_endpoint(
+        PlatformApplicationArn=app_arn, Token=_uuid_mod.uuid4().hex,
+    )["EndpointArn"]
+    resp = sns.publish(TargetArn=arn, Message="hi")
+    assert resp["MessageId"]
+
+
+def test_sns_restore_legacy_account_scoped_state_adopts_arn_regions():
+    import ministack.services.sns as _sns
+    from ministack.core.responses import (
+        AccountScopedDict,
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+
+    original_account = get_account_id()
+    original_region = get_region()
+    original_topics = dict(_sns._topics._data)
+    original_subs = dict(_sns._sub_arn_to_topic._data)
+    original_apps = dict(_sns._platform_applications._data)
+    original_endpoints = dict(_sns._platform_endpoints._data)
+    try:
+        _sns.reset()
+        set_request_account_id("000000000000")
+        set_request_region("us-east-1")
+
+        suffix = _uuid_mod.uuid4().hex[:8]
+        topic_arn = f"arn:aws:sns:us-west-2:000000000000:legacy-sns-{suffix}"
+        sub_arn = f"{topic_arn}:{_uuid_mod.uuid4()}"
+        app_arn = f"arn:aws:sns:us-west-2:000000000000:app/GCM/LegacyApp-{suffix}"
+        endpoint_arn = f"{app_arn}/{_uuid_mod.uuid4()}"
+
+        legacy_topics = AccountScopedDict()
+        legacy_topics[topic_arn] = {
+            "name": f"legacy-sns-{suffix}",
+            "arn": topic_arn,
+            "attributes": {
+                "TopicArn": topic_arn,
+                "SubscriptionsConfirmed": "1",
+                "SubscriptionsPending": "0",
+            },
+            "subscriptions": [{
+                "arn": sub_arn,
+                "protocol": "email",
+                "endpoint": "legacy@example.com",
+                "confirmed": True,
+                "topic_arn": topic_arn,
+                "owner": "000000000000",
+                "attributes": {"SubscriptionArn": sub_arn, "TopicArn": topic_arn},
+            }],
+            "messages": [],
+            "tags": {},
+        }
+
+        legacy_subs = AccountScopedDict()
+        legacy_subs[sub_arn] = topic_arn
+        legacy_apps = AccountScopedDict()
+        legacy_apps[app_arn] = {
+            "arn": app_arn,
+            "name": f"LegacyApp-{suffix}",
+            "platform": "GCM",
+            "attributes": {},
+        }
+        legacy_endpoints = AccountScopedDict()
+        legacy_endpoints[endpoint_arn] = {
+            "arn": endpoint_arn,
+            "application_arn": app_arn,
+            "attributes": {"Token": "legacy-token", "Enabled": "true"},
+        }
+
+        _sns.load_persisted_state({
+            "topics": legacy_topics,
+            "sub_arn_to_topic": legacy_subs,
+            "platform_applications": legacy_apps,
+            "platform_endpoints": legacy_endpoints,
+        })
+
+        assert _sns._topics.get(topic_arn) is None
+        assert _sns._sub_arn_to_topic.get(sub_arn) is None
+        assert _sns._platform_applications.get(app_arn) is None
+        assert _sns._platform_endpoints.get(endpoint_arn) is None
+
+        set_request_region("us-west-2")
+        assert _sns._topics[topic_arn]["arn"] == topic_arn
+        assert _sns._sub_arn_to_topic[sub_arn] == topic_arn
+        assert _sns._platform_applications[app_arn]["arn"] == app_arn
+        assert _sns._platform_endpoints[endpoint_arn]["application_arn"] == app_arn
+    finally:
+        _sns._topics.clear()
+        _sns._topics._data.update(original_topics)
+        _sns._sub_arn_to_topic.clear()
+        _sns._sub_arn_to_topic._data.update(original_subs)
+        _sns._platform_applications.clear()
+        _sns._platform_applications._data.update(original_apps)
+        _sns._platform_endpoints.clear()
+        _sns._platform_endpoints._data.update(original_endpoints)
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+# ---------------------------------------------------------------------------
+# publish_internal
+# ---------------------------------------------------------------------------
+#
+# The in-process seam cross-service producers (an IoT topic rule, an EventBridge
+# target) publish through. It is the only door that can see the FIFO duplicate
+# flag and the None a missing topic answers with — the HTTP `Publish` wrapper
+# folds both into its XML response — so it is exercised directly here.
+
+
+@pytest.fixture
+def sns_internal():
+    """An empty in-process SNS store pinned to one account and region."""
+    import ministack.services.sns as _sns
+    from ministack.core.responses import (
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+
+    original_account, original_region = get_account_id(), get_region()
+    original_topics = dict(_sns._topics._data)
+    _sns._topics.clear()
+    set_request_account_id("000000000000")
+    set_request_region("us-east-1")
+    try:
+        yield _sns
+    finally:
+        _sns._topics.clear()
+        _sns._topics._data.update(original_topics)
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+def _seed_internal_topic(_sns, name, *, attributes=None, subscriptions=()):
+    arn = f"arn:aws:sns:us-east-1:000000000000:{name}"
+    _sns._topics[arn] = {
+        "name": name,
+        "arn": arn,
+        "subscriptions": list(subscriptions),
+        "attributes": attributes or {},
+    }
+    return arn
+
+
+def test_sns_publish_internal_stores_the_record_and_fans_out(sns_internal, monkeypatch):
+    """A publish through the seam gets everything an HTTP one gets.
+
+    The message_structure and message_attributes here are both load-bearing:
+    the first picks the per-protocol body, the second is what a subscription
+    filter policy reads.
+    """
+    delivered = []
+    monkeypatch.setattr(
+        sns_internal,
+        "_deliver_to_sqs",
+        lambda endpoint, envelope, raw, message, **kwargs: delivered.append(message),
+    )
+    arn = _seed_internal_topic(
+        sns_internal,
+        f"internal-{_uuid_mod.uuid4().hex[:8]}",
+        subscriptions=[{
+            "arn": f"sub-{_uuid_mod.uuid4()}",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:000000000000:sink",
+            "confirmed": True,
+            "attributes": {},
+        }],
+    )
+    attrs = {"kind": {"DataType": "String", "StringValue": "telemetry"}}
+
+    result = sns_internal.publish_internal(
+        arn,
+        json.dumps({"default": "generic", "sqs": "for-sqs"}),
+        "a subject",
+        message_structure="json",
+        message_attributes=attrs,
+    )
+
+    assert result["duplicate"] is False
+    assert result["sequence_number"] is None
+    assert result["message_id"]
+
+    assert "messages" not in sns_internal._topics[arn]
+    # message_structure picked the sqs body rather than the default one.
+    assert delivered == ["for-sqs"]
+
+
+def test_sns_publish_internal_applies_the_subscription_filter_policy(
+    sns_internal, monkeypatch
+):
+    """The message attributes reach the filter policy, so a non-matching
+    subscriber is skipped — the behaviour lost when the attributes were not
+    carried at all."""
+    delivered = []
+    monkeypatch.setattr(
+        sns_internal,
+        "_deliver_to_sqs",
+        lambda endpoint, envelope, raw, message, **kwargs: delivered.append(endpoint),
+    )
+
+    def _sub(endpoint, kind):
+        return {
+            "arn": f"sub-{_uuid_mod.uuid4()}",
+            "protocol": "sqs",
+            "endpoint": endpoint,
+            "confirmed": True,
+            "attributes": {"FilterPolicy": json.dumps({"kind": [kind]})},
+        }
+
+    arn = _seed_internal_topic(
+        sns_internal,
+        f"internal-{_uuid_mod.uuid4().hex[:8]}",
+        subscriptions=[_sub("queue-match", "telemetry"), _sub("queue-skip", "alarm")],
+    )
+
+    sns_internal.publish_internal(
+        arn,
+        "hello",
+        message_attributes={"kind": {"DataType": "String", "StringValue": "telemetry"}},
+    )
+
+    assert delivered == ["queue-match"]
+
+
+def test_sns_publish_internal_fifo_replays_a_duplicate_without_redelivering(
+    sns_internal, monkeypatch
+):
+    """The FIFO deduplication window is the one behaviour only this API can
+    observe: `Publish` returns the cached MessageId either way, so `duplicate`
+    is how a caller learns nothing was delivered the second time."""
+    delivered = []
+    monkeypatch.setattr(
+        sns_internal,
+        "_deliver_to_sqs",
+        lambda endpoint, envelope, raw, message, **kwargs: delivered.append(message),
+    )
+    arn = _seed_internal_topic(
+        sns_internal,
+        f"internal-{_uuid_mod.uuid4().hex[:8]}.fifo",
+        attributes={"FifoTopic": "true"},
+        subscriptions=[{
+            "arn": f"sub-{_uuid_mod.uuid4()}",
+            "protocol": "sqs",
+            "endpoint": "arn:aws:sqs:us-east-1:000000000000:sink.fifo",
+            "confirmed": True,
+            "attributes": {},
+        }],
+    )
+
+    first = sns_internal.publish_internal(
+        arn, "once", message_group_id="g1", message_deduplication_id="d1"
+    )
+    second = sns_internal.publish_internal(
+        arn, "once", message_group_id="g1", message_deduplication_id="d1"
+    )
+
+    assert first["duplicate"] is False
+    assert first["sequence_number"] == "1".zfill(20)
+    # The replay reports the original ids and sequence, as AWS does.
+    assert second["duplicate"] is True
+    assert second["message_id"] == first["message_id"]
+    assert second["sequence_number"] == first["sequence_number"]
+    # ...and the subscriber did not see it twice.
+    assert delivered == ["once"]
+
+    # A different dedup id inside the same group is a new message.
+    third = sns_internal.publish_internal(
+        arn, "twice", message_group_id="g1", message_deduplication_id="d2"
+    )
+    assert third["duplicate"] is False
+    assert third["sequence_number"] == "2".zfill(20)
+    assert delivered == ["once", "twice"]
+
+
+def test_sns_publish_internal_rejections(sns_internal):
+    """The three answers a caller has to handle: no topic, a FIFO publish AWS
+    would reject, and a body over the size limit."""
+    assert (
+        sns_internal.publish_internal(
+            "arn:aws:sns:us-east-1:000000000000:absent", "hi"
+        )
+        is None
+    )
+
+    fifo = _seed_internal_topic(
+        sns_internal,
+        f"internal-{_uuid_mod.uuid4().hex[:8]}.fifo",
+        attributes={"FifoTopic": "true"},
+    )
+    with pytest.raises(sns_internal.SnsPublishError) as ei:
+        sns_internal.publish_internal(fifo, "hi", message_deduplication_id="d1")
+    assert ei.value.code == "InvalidParameterException"
+    assert "MessageGroupId" in str(ei.value)
+
+    # ...and with a group id but no way to derive a dedup id.
+    with pytest.raises(sns_internal.SnsPublishError) as ei:
+        sns_internal.publish_internal(fifo, "hi", message_group_id="g1")
+    assert "MessageDeduplicationId" in str(ei.value)
+
+    standard = _seed_internal_topic(sns_internal, f"internal-{_uuid_mod.uuid4().hex[:8]}")
+    with pytest.raises(sns_internal.SnsPublishError) as ei:
+        sns_internal.publish_internal(standard, "x" * (256 * 1024 + 1))
+    assert ei.value.code == "InvalidParameter"
+
+
+def test_sns_to_lambda_fanout_non_default_account(sqs):
+    """Regression: SNS→Lambda delivery ran on a bare thread whose empty
+    context read back the default account, so ``_get_func_record_for_ref``
+    rejected the subscriber's ARN for any 12-digit-key tenant and the
+    notification was silently dropped. The delivery thread now carries the
+    publisher's contextvars."""
+    account = "314159265358"
+
+    def _acct(service):
+        return boto3.client(
+            service,
+            endpoint_url=ENDPOINT,
+            region_name="us-east-1",
+            aws_access_key_id=account,
+            aws_secret_access_key="test",
+            config=Config(retries={"mode": "standard"}),
+        )
+
+    sns_c = _acct("sns")
+    lam_c = _acct("lambda")
+    sqs_c = _acct("sqs")
+    suffix = _uuid_mod.uuid4().hex[:8]
+
+    qname = f"sns-xacct-signal-{suffix}"
+    q_url = sqs_c.create_queue(QueueName=qname)["QueueUrl"]
+
+    fn = f"sns-xacct-{suffix}"
+    # The worker's env creds derive from the FunctionArn, so the inner SQS
+    # client resolves the queue in the function's own account.
+    code = (
+        "import os, boto3\n"
+        f"QNAME = {qname!r}\n"
+        "def handler(event, context):\n"
+        "    sqs = boto3.client('sqs', endpoint_url=os.environ['AWS_ENDPOINT_URL'])\n"
+        "    url = sqs.get_queue_url(QueueName=QNAME)['QueueUrl']\n"
+        "    sqs.send_message(QueueUrl=url, MessageBody='delivered')\n"
+        "    return {'ok': True}\n"
+    )
+    lam_c.create_function(
+        FunctionName=fn,
+        Runtime="python3.12",
+        Role=f"arn:aws:iam::{account}:role/lambda-role",
+        Handler="index.handler",
+        Timeout=30,
+        Code={"ZipFile": _make_zip(code)},
+    )
+    func_arn = f"arn:aws:lambda:us-east-1:{account}:function:{fn}"
+
+    topic_arn = sns_c.create_topic(Name=f"sns-xacct-topic-{suffix}")["TopicArn"]
+    sns_c.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=func_arn)
+    sns_c.publish(TopicArn=topic_arn, Message="hello-cross-account")
+
+    deadline = time.time() + 30
+    got = []
+    while time.time() < deadline and not got:
+        msgs = sqs_c.receive_message(QueueUrl=q_url, MaxNumberOfMessages=1, WaitTimeSeconds=2)
+        got = msgs.get("Messages", [])
+    assert got, "SNS→Lambda delivery never arrived for a non-default account"
+
+
+# ---------------------------------------------------------------------------
+# The SMS log — /_ministack/sns/sms-messages
+# ---------------------------------------------------------------------------
+
+def _sms_log(path: str = "/_ministack/sns/sms-messages", **params):
+    url = f"{ENDPOINT.rstrip('/')}{path}"
+    if params:
+        url = f"{url}?{urlencode(params)}"
+    with urllib.request.urlopen(url) as resp:
+        assert resp.status == 200
+        return json.loads(resp.read())
+
+
+def test_sns_sms_publish_is_recorded(sns):
+    """A PhoneNumber publish is kept and served back, keyed by recipient."""
+    phone = f"+1555{_uuid_mod.uuid4().int % 10_000_000:07d}"
+    body = f"ministack sms log {_uuid_mod.uuid4().hex[:8]}"
+
+    published = sns.publish(
+        PhoneNumber=phone,
+        Message=body,
+        MessageAttributes={
+            "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}
+        },
+    )
+
+    records = _sms_log(phoneNumber=phone)["sms_messages"][phone]
+    assert len(records) == 1
+    record = records[0]
+    assert record["PhoneNumber"] == phone
+    assert record["Message"] == body
+    assert record["MessageId"] == published["MessageId"]
+    assert record["TopicArn"] is None
+    assert record["SubscriptionArn"] is None
+    assert record["Subject"] is None
+    assert record["MessageStructure"] is None
+    assert record["MessageAttributes"]["AWS.SNS.SMS.SMSType"] == {
+        "DataType": "String",
+        "StringValue": "Transactional",
+    }
+
+
+def test_sns_sms_unknown_phone_returns_an_empty_list(sns):
+    """A filtered read names the recipient even when nothing was sent to it."""
+    phone = f"+1555{_uuid_mod.uuid4().int % 10_000_000:07d}"
+    assert _sms_log(phoneNumber=phone)["sms_messages"] == {phone: []}
+
+
+def test_sns_sms_publishes_accumulate_in_order(sns):
+    """Repeated publishes to one recipient append rather than replace."""
+    phone = f"+1555{_uuid_mod.uuid4().int % 10_000_000:07d}"
+    for i in range(3):
+        sns.publish(PhoneNumber=phone, Message=f"msg-{i}")
+
+    records = _sms_log(phoneNumber=phone)["sms_messages"][phone]
+    assert [r["Message"] for r in records] == ["msg-0", "msg-1", "msg-2"]
+    assert len({r["MessageId"] for r in records}) == 3
+
+
+def test_sns_sms_regions_are_separate(sns):
+    """A publish in one region is not visible under another region's filter."""
+    phone = f"+1555{_uuid_mod.uuid4().int % 10_000_000:07d}"
+    west = _regional_client("sns", "us-west-2")
+    sns.publish(PhoneNumber=phone, Message="east sms")
+    west.publish(PhoneNumber=phone, Message="west sms")
+
+    east_log = _sms_log(phoneNumber=phone, region="us-east-1")
+    west_log = _sms_log(phoneNumber=phone, region="us-west-2")
+    assert [r["Message"] for r in east_log["sms_messages"][phone]] == ["east sms"]
+    assert east_log["region"] == "us-east-1"
+    assert [r["Message"] for r in west_log["sms_messages"][phone]] == ["west sms"]
+    assert west_log["region"] == "us-west-2"
+
+
+def test_sns_sms_invalid_account_rejected(sns):
+    """?account=<not-12-digit> returns 400 InvalidAccountID."""
+    import urllib.error
+
+    try:
+        urllib.request.urlopen(f"{ENDPOINT.rstrip('/')}/_ministack/sns/sms-messages?account=abc")
+        raise AssertionError("expected 400")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 400
+        assert json.loads(exc.read())["__type"] == "InvalidAccountID"
+
+
+def test_sns_topic_publish_is_not_in_the_sms_log(sns):
+    """Only direct-to-phone publishes are recorded; topic publishes are not."""
+    phone = f"+1555{_uuid_mod.uuid4().int % 10_000_000:07d}"
+    topic_arn = sns.create_topic(Name=f"sms-log-topic-{_uuid_mod.uuid4().hex[:8]}")["TopicArn"]
+    sns.publish(TopicArn=topic_arn, Message="not an sms")
+
+    assert _sms_log(phoneNumber=phone)["sms_messages"] == {phone: []}
+    sns.delete_topic(TopicArn=topic_arn)
+
+
+def test_sns_to_sqs_delivery_waits_for_queue_delay(sns, sqs):
+    name = f"delayed-{_uuid_mod.uuid4().hex[:8]}"
+    topic = sns.create_topic(Name=name)["TopicArn"]
+    url = sqs.create_queue(QueueName=name, Attributes={"DelaySeconds": "2"})["QueueUrl"]
+    qarn = sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(QueueUrl=url, Attributes={"Policy": json.dumps(sqs_policy_allow_sns(qarn, topic))})
+    try:
+        sns.subscribe(TopicArn=topic, Protocol="sqs", Endpoint=qarn,
+                      Attributes={"RawMessageDelivery": "true"})
+        sns.publish(TopicArn=topic, Message="later")
+        assert "Messages" not in sqs.receive_message(QueueUrl=url)
+        time.sleep(2.2)
+        assert [m["Body"] for m in sqs.receive_message(QueueUrl=url)["Messages"]] == ["later"]
+    finally:
+        sns.delete_topic(TopicArn=topic)
+        sqs.delete_queue(QueueUrl=url)
+
+
+def _filter_queue(sns, sqs, name, policy, scope=None):
+    topic = sns.create_topic(Name=name)["TopicArn"]
+    url = sqs.create_queue(QueueName=name)["QueueUrl"]
+    qarn = sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    sqs.set_queue_attributes(QueueUrl=url, Attributes={"Policy": json.dumps(sqs_policy_allow_sns(qarn, topic))})
+    attrs = {"RawMessageDelivery": "true", "FilterPolicy": json.dumps(policy)}
+    if scope:
+        attrs["FilterPolicyScope"] = scope
+    sns.subscribe(TopicArn=topic, Protocol="sqs", Endpoint=qarn, Attributes=attrs)
+    return topic, url
+
+
+def _bodies(sqs, url):
+    return sorted(m["Body"] for m in sqs.receive_message(QueueUrl=url, MaxNumberOfMessages=10).get("Messages", []))
+
+
+def test_sns_filter_suffix_and_equals_ignore_case(sns, sqs):
+    for op, policy, match, other in (("suffix", {"f": [{"suffix": ".png"}]}, "a.png", "a.jpg"),
+                                     ("eqic", {"f": [{"equals-ignore-case": "RED"}]}, "red", "blue")):
+        name = f"op-{op}-{_uuid_mod.uuid4().hex[:8]}"
+        topic, url = _filter_queue(sns, sqs, name, policy)
+        for v in (match, other):
+            sns.publish(TopicArn=topic, Message=v, MessageAttributes={"f": {"DataType": "String", "StringValue": v}})
+        assert _bodies(sqs, url) == [match]
+
+
+def test_sns_filter_policy_scope_message_body(sns, sqs):
+    name = f"body-filter-{_uuid_mod.uuid4().hex[:8]}"
+    policy = {"kind": ["wanted"], "detail": {"size": [{"numeric": [">", 10]}]}, "tags": [{"suffix": "-x"}]}
+    topic, url = _filter_queue(sns, sqs, name, policy, scope="MessageBody")
+    good = json.dumps({"kind": "wanted", "detail": {"size": 11}, "tags": ["a", "b-x"]})
+    for body in (good, json.dumps({"kind": "other", "detail": {"size": 11}, "tags": ["b-x"]}),
+                 json.dumps({"kind": "wanted", "detail": {"size": 5}, "tags": ["b-x"]}), "not json"):
+        sns.publish(TopicArn=topic, Message=body)
+    assert _bodies(sqs, url) == [good]
+
+
+def test_sns_filter_exists_false(sns, sqs):
+    name = f"exists-false-{_uuid_mod.uuid4().hex[:8]}"
+    topic, url = _filter_queue(sns, sqs, name, {"store": [{"exists": False}]})
+    sns.publish(TopicArn=topic, Message="no-store", MessageAttributes={"other": {"DataType": "String", "StringValue": "x"}})
+    sns.publish(TopicArn=topic, Message="has-store", MessageAttributes={"store": {"DataType": "String", "StringValue": "fans"}})
+    sns.publish(TopicArn=topic, Message="no-attributes")
+    assert _bodies(sqs, url) == ["no-store"]
+
+
+def test_sns_filter_wildcard_and_cidr(sns, sqs):
+    for op, policy, match, other in (("wild", {"f": [{"wildcard": "*ball"}]}, "baseball", "rugby"),
+                                     ("cidr", {"f": [{"cidr": "10.0.0.0/24"}]}, "10.0.0.255", "10.1.1.0")):
+        name = f"op-{op}-{_uuid_mod.uuid4().hex[:8]}"
+        topic, url = _filter_queue(sns, sqs, name, policy)
+        for v in (match, other):
+            sns.publish(TopicArn=topic, Message=v, MessageAttributes={"f": {"DataType": "String", "StringValue": v}})
+        assert _bodies(sqs, url) == [match]

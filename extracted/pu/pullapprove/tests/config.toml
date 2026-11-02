@@ -1,0 +1,429 @@
+# CODEREVIEW.toml
+
+[aliases]
+framework-global-approvers = ["alxhub", "jelbourn", "josephperrott"]
+framework-global-approvers-for-docs-only-changes = ["bencodezen"]
+framework-team = [
+  "AndrewKushnir",
+  "JeanMeche",
+  "alxhub",
+  "crisbeto",
+  "devversion",
+  "kirjs",
+  "mmalerba",
+  "pkozlowski-opensource",
+  "thePunderWoman",
+  "atscott",
+  "alan-agius4", # alternate?
+]
+dev-infra-framework = ["devversion", "josephperrott"]
+team = [
+  "AleksanderBodurri",
+  "AndrewKushnir",
+  "atscott",
+  "CaerusKaru",
+  "Humberd",
+  "JeanMeche",
+  "JiaLiPassion",
+  "JoostK",
+  "MarkTechson",
+  "adolgachev",
+  "ajitsinghkaler",
+  "alan-agius4",
+  "alxhub",
+  "amishne",
+  "andrewseguin",
+  "bencodezen",
+  "cexbrayat",
+  "christinabrink",
+  "clydin",
+  "crisbeto",
+  "devchas",
+  "devversion",
+  "dgp1130",
+  "gkalpak",
+  "hawkgs",
+  "jelbourn",
+  "jkrems",
+  "josephperrott",
+  "kirjs",
+  "leonsenft",
+  "manfredsteyer",
+  "mattrberry",
+  "mgechev",
+  "mmalerba",
+  "ok7sai",
+  "pkozlowski-opensource",
+  "pmvald",
+  "samjulien",
+  "sdras",
+  "simonaco",
+  "sonukapoor",
+  "tbondwilkinson",
+  "thePunderWoman",
+  "thesmiler",
+  "wagnermaciel",
+]
+
+
+# Overrides...
+# draft / WIP
+# - disable PA by label
+# - require something besides min scope matches it
+
+[large_scale_change]
+reviewers = ["$framework-global-approvers"]
+require = 1
+
+# =========================================================
+# Global Approvers
+# =========================================================
+[[scopes]]
+name = "global-approvers"
+ownership = "global"
+paths = ["**/*"]
+request = 0
+require = 1
+reviewers = ["$framework-global-approvers"]
+
+# =========================================================
+# Global Approvers For Docs
+# =========================================================
+[[scopes]]
+name = "global-docs-approvers"
+ownership = "global"
+paths = ["**/*"]
+request = 0
+require = 1
+reviewers = ["$framework-global-approvers-for-docs-only-changes"]
+
+# =========================================================
+# Global Approvers For Dev-Infra changes
+# =========================================================
+[[scopes]]
+name = "global-dev-infra-approvers"
+ownership = "global"
+paths = ["**/*"]
+request = 0
+require = 1
+reviewers = ["$dev-infra-framework"]
+
+
+# =========================================================
+# Require review on all PRs
+#
+# All PRs require at least one review.  This rule will not
+# request any reviewers, however will require that at least
+# one review is provided before the group is satisfied.
+# =========================================================
+[[scopes]]
+name = "required-minimum-review"
+ownership = "append"
+paths = ["**/*"]
+request = 0
+require = 1
+author_value = 0
+reviewers = ["$team"]
+
+# =========================================================
+
+[[scopes]]
+name = "fw-security"
+description = "Framework: Security-sensitive files which require extra review"
+paths = [
+  'packages/core/src/sanitization/**/{*,.*}',
+  'packages/core/test/linker/security_integration_spec.ts',
+  'packages/compiler/src/schema/**/{*,.*}',
+  'packages/platform-browser/src/security/**/{*,.*}',
+  'packages/tsconfig-tsec-base.json',
+  'packages/tsec-exemption.json',
+  'tools/tsec.bzl',
+  'adev/src/content/guide/security.md',
+  'adev/src/content/examples/security/**/{*,.*}',
+]
+reviewers = ["alxhub", "jelbourn", "josephperrott", "pkozlowski-opensource"]
+require = 2
+request = 4
+author_value = 1
+ownership = "append"
+
+
+[[scopes]]
+name = "fw-general"
+description = "Framework: General (most code in our packages)"
+paths = [
+  '!packages/core/primitives/*',
+  'contributing-docs/public-api-surface.md',
+  'integration/**/{*,.*}',
+  'modules/**/{*,.*}',
+  'packages/animations/**/{*,.*}',
+  'packages/benchpress/**/{*,.*}',
+  'packages/common/**/{*,.*}',
+  'packages/core/**/{*,.*}',
+  'packages/docs/**/{*,.*}',
+  'packages/elements/**/{*,.*}',
+  'packages/examples/**/{*,.*}',
+  'packages/forms/**/{*,.*}',
+  'packages/localize/**/{*,.*}',
+  'packages/misc/**/{*,.*}',
+  'packages/platform-browser/**/{*,.*}',
+  'packages/platform-browser-dynamic/**/{*,.*}',
+  'packages/platform-server/**/{*,.*}',
+  'packages/ssr/**/{*,.*}',
+  'packages/router/**/{*,.*}',
+  'packages/service-worker/**/{*,.*}',
+  'packages/upgrade/**/{*,.*}',
+]
+reviewers = [
+  "alxhub",
+  "AndrewKushnir",
+  "atscott",
+  "crisbeto",
+  "devversion",
+  "kirjs",
+  "thePunderWoman",
+  "pkozlowski-opensource",
+  "mmalerba",
+]
+alternates = ["jelbourn"]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "fw-compiler"
+description = "Framework: Compiler"
+paths = [
+  'packages/compiler/**/{*,.*}',
+  'packages/examples/compiler/**/{*,.*}',
+  'packages/compiler-cli/**/{*,.*}',
+  'packages/language-service/**/{*,.*}',
+]
+reviewers = [
+  "alxhub",
+  "AndrewKushnir",
+  "atscott",
+  "crisbeto",
+  "devversion",
+  "kirjs",
+  "JoostK",
+  "mmalerba",
+]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "bazel"
+paths = ['packages/bazel/**/{*,.*}']
+reviewers = ["devversion", "josephperrott"]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "zone-js"
+description = "zone.js"
+paths = ["!yarn.lock", 'packages/zone.js/**/{*,.*}']
+reviewers = ["JiaLiPassion"]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "tooling-cli-shared-api"
+description = """
+Tooling: Compiler API shared with Angular CLI
+
+Changing this API might break Angular CLI, so we require
+the CLI team to approve changes here.
+"""
+paths = ['packages/compiler-cli/private/tooling.ts', 'packages/localize/tools/index.ts']
+reviewers = ["alan-agius4", "clydin", "dgp1130"]
+request = 3
+require = 2
+
+
+[[scopes]]
+name = "angular-dev"
+description = "Documentation content"
+paths = ['adev/**/{*,.*}']
+reviewers = [
+  "alan-agius4",
+  "alxhub",
+  "AndrewKushnir",
+  "atscott",
+  "bencodezen",
+  "crisbeto",
+  "kirjs",
+  "jelbourn",
+  "thePunderWoman",
+  "devversion",
+  "josephperrott",
+  "pkozlowski-opensource",
+  "mgechev",
+  "MarkTechson",
+  "kirjs",
+  "mmalerba",
+]
+alternates = ["JeanMeche", "hawkgs"]
+request = 1
+require = 1
+author_value = 1
+
+
+[[scopes]]
+name = "devtools"
+description = "Angular DevTools"
+paths = ['devtools/**/{*,.*}']
+reviewers = [
+  "AleksanderBodurri",
+  "devversion",
+  "dgp1130",
+  "josephperrott",
+  "mgechev",
+  "MarkTechson",
+]
+alternates = ["JeanMeche"]
+request = 1
+require = 1
+author_value = 1
+
+
+[[scopes]]
+name = "dev-infra"
+paths = [
+  "!.pullapprove.yml", # TODO
+  '{*,.*}',
+  '.devcontainer/**/{*,.*}',
+  '.github/**/{*,.*}',
+  '.husky/**/{*,.*}',
+  '.ng-dev/**/{*,.*}',
+  '.vscode/**/{*,.*}',
+  '.yarn/**/{*,.*}',
+  'contributing-docs/*.md',
+  'contributing-docs/images/**/{*,.*}',
+  'goldens/{*,.*}',
+  'goldens/public-api/manage.js',
+  'modules/{*,.*}',
+  'packages/{*,.*}',
+  'packages/examples/test-utils/**/{*,.*}',
+  'packages/private/**/{*,.*}',
+  'packages/examples/{*,.*}',
+  'scripts/**/{*,.*}',
+  'third_party/**/{*,.*}',
+  'tools/bazel-repo-patches/**/{*,.*}',
+  'tools/circular_dependency_test/**/{*,.*}',
+  'tools/contributing-stats/**/{*,.*}',
+  'tools/esm-interop/**/{*,.*}',
+  'tools/gulp-tasks/**/{*,.*}',
+  'tools/legacy-saucelabs/**/{*,.*}',
+  'tools/manual_api_docs/**/{*,.*}',
+  'tools/npm-patches/**/{*,.*}',
+  'tools/rxjs/**/{*,.*}',
+  'tools/saucelabs-daemon/**/{*,.*}',
+  'tools/saucelabs/**/{*,.*}',
+  'tools/symbol-extractor/**/{*,.*}',
+  'tools/testing/**/{*,.*}',
+  'tools/tslint/**/{*,.*}',
+  'tools/utils/**/{*,.*}',
+  'tools/yarn/**/{*,.*}',
+  'tools/{*,.*}',
+  '**/*.bzl',
+]
+authors = ["!angular-robot"]
+reviewers = ["devversion", "josephperrott"]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "renovate-changes"
+paths = ["**/*"]
+authors = ["angular-robot"]
+reviewers = ["$framework-team"]
+alternates = ["alan-agius4"]
+require = 1
+request = 1
+author_value = 1
+
+
+[[scopes]]
+name = "public-api"
+paths = ["!goldens/public-api/manage.js", "goldens/public-api/**/{*,.*}"]
+reviewers = [
+  "AndrewKushnir",
+  "alxhub",
+  "atscott",
+  "thePunderWoman",
+  "pkozlowski-opensource",
+  "kirjs",
+  "mmalerba",
+  "crisbeto",
+  "devversion",
+]
+alternates = ["jelbourn", "iteriani", "tbondwilkinson", "rahatarmanahmed"]
+require = 2
+request = 3
+author_value = 1
+
+
+####################################################################################
+#  Special Cases
+####################################################################################
+
+
+[[scopes]]
+name = "code-ownership"
+paths = [
+  ".pullapprove.yml", # TODO
+]
+reviewers = [
+  "alxhub",
+  "AndrewKushnir",
+  "andrewseguin",
+  "dgp1130",
+  "thePunderWoman",
+  "josephperrott",
+]
+alternates = ["jelbourn"]
+require = 1
+request = 1
+author_value = 1
+
+
+# =========================================================
+#  Primitives
+# =========================================================
+
+
+[[scopes]]
+name = "primitives-shared"
+paths = ['packages/core/primitives/**/{*,.*}']
+reviewers = [
+  "csmick", # Cameron Smick
+  "mturco", # Matt Turco
+  "iteriani", # Thomas Nguyen
+  "tbondwilkinson", # Tom Wilkinson
+  "rahatarmanahmed", # Rahat Ahmed
+  "ENAML", # Ethan Cline
+]
+labels = ["requires: TGP"]
+require = 1
+request = 1
+author_value = 1
+ownership = "append"
+
+[[scopes]]
+name = "primitives"
+paths = ['packages/core/primitives/**/{*,.*}']
+reviewers = ["pkozlowski-opensource", "alxhub", "thePunderWoman", "AndrewKushnir", "atscott"]
+labels = ["requires: TGP"]
+require = 1
+request = 1
+author_value = 1

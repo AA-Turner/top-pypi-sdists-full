@@ -25,7 +25,7 @@ from schemathesis.core.parameters import RAW_QUERY_STRING_KEY
 from schemathesis.core.transforms import deepclone
 from schemathesis.transport.asgi import ASGI_TRANSPORT
 from schemathesis.transport.requests import REQUESTS_TRANSPORT, RequestsTransport
-from schemathesis.transport.serialization import Binary
+from schemathesis.transport.serialization import Binary, contains_binary
 from schemathesis.transport.wsgi import WSGI_TRANSPORT, WSGITransport
 from test.utils import assert_requests_call, run_given
 
@@ -226,6 +226,49 @@ def test_custom_serializer_returning_none_omits_body(ctx):
             transport.unregister_serializer("application/x-empty")
 
 
+def test_unregister_serializer_is_idempotent():
+    @schemathesis.serializer("application/x-empty")
+    def serialize_empty(ctx, value):
+        return None
+
+    REQUESTS_TRANSPORT.unregister_serializer("application/x-empty")
+    REQUESTS_TRANSPORT.unregister_serializer("application/x-empty")
+    assert REQUESTS_TRANSPORT.get_first_matching_media_type("application/x-empty") is None
+
+
+def test_custom_serializer_for_multipart_part_receives_the_case(ctx, case_factory):
+    received = []
+
+    @schemathesis.serializer("application/x-empty")
+    def serialize_empty(ctx, value):
+        received.append((ctx.case.media_type, value))
+
+    try:
+        operation = ctx.openapi.load_operation(
+            "POST /upload",
+            {
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {"type": "object", "properties": {"meta": {"type": "object"}}},
+                            "encoding": {"meta": {"contentType": "application/x-empty"}},
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "OK"}},
+            },
+        )
+        case = case_factory(
+            operation=operation, method="POST", body={"meta": {"a": 1}}, media_type="multipart/form-data"
+        )
+        REQUESTS_TRANSPORT.serialize_case(case)
+        assert received == [("multipart/form-data", {"a": 1})]
+    finally:
+        for transport in (ASGI_TRANSPORT, REQUESTS_TRANSPORT, WSGI_TRANSPORT):
+            transport.unregister_serializer("application/x-empty")
+
+
 @pytest.mark.parametrize(
     ("media_range", "expected"),
     [
@@ -315,7 +358,8 @@ def test_serialization_not_possible_manual(ctx):
 
 
 @pytest.mark.parametrize(
-    "media_type", ["text/yaml", "application/x-www-form-urlencoded", "text/plain", "multipart/form-data"]
+    "media_type",
+    ["application/json", "text/yaml", "application/x-www-form-urlencoded", "text/plain", "multipart/form-data"],
 )
 def test_binary_data(ctx, media_type):
     operation = ctx.openapi.load_operation(
@@ -368,8 +412,26 @@ def test_binary_data(ctx, media_type):
             Binary(b"\x00\x01"),
             {"json": None, "data": b"\x00\x01", "Content-Type": "application/octet-stream"},
         ),
+        (
+            "application/yaml",
+            {"type": "string", "format": "binary"},
+            Binary(b"\x00\x01"),
+            {"json": None, "data": b"\x00\x01", "Content-Type": "application/yaml"},
+        ),
+        (
+            "application/yaml",
+            {"type": "object", "properties": {"f": {"type": "string", "format": "binary"}}, "required": ["f"]},
+            {"f": Binary(b"\x00\x01")},
+            {"json": None, "data": "f: !!binary |\n  AAE=\n", "Content-Type": "application/yaml"},
+        ),
+        (
+            "application/xml",
+            {"type": "string", "format": "binary"},
+            Binary(b"\x00\x01"),
+            {"json": None, "data": b"\x00\x01", "Content-Type": "application/xml"},
+        ),
     ],
-    ids=["json-top-level", "json-nested", "octet-stream"],
+    ids=["json-top-level", "json-nested", "octet-stream", "yaml-top-level", "yaml-nested", "xml-top-level"],
 )
 def test_generated_binary_body(ctx, media_type, schema, body, expected):
     schema = ctx.openapi.load_schema(
@@ -420,8 +482,9 @@ def test_text_plain_boolean_and_null_use_json_spelling(ctx, value, expected):
         ({"a": None}, b'{"a": null}'),
         # Not JSON-encodable, so sent as before
         ([b"x"], b"[b'x']"),
+        ("a\ud800", b"a"),
     ],
-    ids=["true", "false", "null", "object", "bytes-in-list"],
+    ids=["true", "false", "null", "object", "bytes-in-list", "unencodable-character-dropped"],
 )
 def test_octet_stream_non_bytes_use_json_spelling(ctx, value, expected):
     operation = ctx.openapi.load_operation(
@@ -684,6 +747,13 @@ def _received_part(part):
             [["f", "multipart/form-data", [["x", "text/plain", "1"], ["y", "text/plain", "true"]]]],
         ),
         (
+            "multipart/form-data",
+            {"type": "object"},
+            {"x": ["1", "2"]},
+            [["f", "multipart/form-data", [["x", "text/plain", "1"], ["x", "text/plain", "2"]]]],
+        ),
+        ("application/json", {"type": "string"}, "raw", [["f", "application/json", "raw"]]),
+        (
             "application/x-www-form-urlencoded",
             {"type": "object"},
             {"x": "1", "y": [True, None]},
@@ -726,6 +796,8 @@ def _received_part(part):
     ],
     ids=[
         "nested-multipart",
+        "nested-multipart-list",
+        "already-serialized-string",
         "urlencoded",
         "text-list-with-number",
         "text-object",
@@ -1384,6 +1456,60 @@ def test_multipart_part_content_type(ctx, case_factory, load_kwargs, body, field
     assert _multipart_content_type(serialized, field) == expected
 
 
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [
+        ({"type": "object"}, "application/json"),
+        ({"type": ["array", "null"]}, "application/json"),
+        ({"type": ["string", "null"]}, None),
+        ({"additionalProperties": {"type": "string"}}, "application/json"),
+        ({"items": {}}, "application/json"),
+        ({}, None),
+    ],
+    ids=["object", "type-list-array", "type-list-scalar", "untyped-additional-properties", "untyped-items", "empty"],
+)
+def test_multipart_structured_part_defaults_to_json(ctx, case_factory, part, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"part": part}}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.1.0",
+    )
+    case = case_factory(operation=operation, method="POST", body={"part": "x"}, media_type="multipart/form-data")
+    assert _multipart_content_type(REQUESTS_TRANSPORT.serialize_case(case), "part") == expected
+
+
+def test_multipart_part_serialized_with_selected_content_type(ctx, case_factory):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {"type": "object", "properties": {"meta": {"type": "object"}}},
+                        "encoding": {"meta": {"contentType": "application/xml, application/json"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = case_factory(
+        operation=operation,
+        method="POST",
+        body={"meta": {"a": 1}},
+        media_type="multipart/form-data",
+        multipart_content_types={"meta": "application/json"},
+    )
+    assert _multipart_payload(REQUESTS_TRANSPORT.serialize_case(case), "meta") == b'{"a": 1}'
+
+
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
 def test_multipart_binary_filename_behind_alias_body_ref(ctx, version):
     operation = ctx.openapi.load_operation(
@@ -1541,8 +1667,16 @@ def test_unknown_multipart_fields_openapi3(ctx):
             },
             "doc.pdf",
         ),
+        (
+            {"attachment": {"headers": {"Content-Disposition": {"example": "form-data; filename=raw.bin"}}}},
+            "raw.bin",
+        ),
+        (
+            {"attachment": {"headers": {"Content-Disposition": {"example": 'form-data; name="attachment"'}}}},
+            "attachment",
+        ),
     ],
-    ids=["field-name-fallback", "schema-example", "header-example"],
+    ids=["field-name-fallback", "schema-example", "header-example", "unquoted-filename", "no-filename"],
 )
 @pytest.mark.parametrize(
     "property_schema, value, sent",
@@ -2095,6 +2229,51 @@ def test_serialize_xml(openapi_3_schema_with_xml, path, expected):
             "xml": {"wrapped": True},
         },
         {"type": "integer", "xml": {"prefix": "smp"}},
+        {
+            "type": "object",
+            "properties": {
+                "a": {"enum": [1], "xml": {"prefix": "smp", "namespace": "http://example.com/schema"}},
+                "b": {"enum": [2], "xml": {"prefix": "smp"}},
+            },
+            "additionalProperties": False,
+            "required": ["a", "b"],
+        },
+        {
+            "type": "object",
+            "properties": {
+                "a": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "enum": [1],
+                            "xml": {"attribute": True, "prefix": "smp", "namespace": "http://example.com/schema"},
+                        }
+                    },
+                    "additionalProperties": False,
+                    "required": ["id"],
+                },
+                "b": {"enum": [2], "xml": {"prefix": "smp"}},
+            },
+            "additionalProperties": False,
+            "required": ["a", "b"],
+        },
+        {
+            "type": "object",
+            "properties": {
+                "a": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"enum": [1], "xml": {"attribute": True, "prefix": "q", "namespace": "http://q"}}
+                    },
+                    "additionalProperties": False,
+                    "required": ["id"],
+                    "xml": {"prefix": "smp", "namespace": "http://example.com/schema"},
+                },
+                "b": {"enum": [2], "xml": {"prefix": "smp"}},
+            },
+            "additionalProperties": False,
+            "required": ["a", "b"],
+        },
     ],
 )
 def test_serialize_xml_unbound_prefix(ctx, schema_object):
@@ -2135,6 +2314,73 @@ def _with_child(child):
 @pytest.mark.parametrize(
     ("schema", "components", "version", "body", "expected"),
     [
+        (
+            {"$ref": "#/components/schemas/Item"},
+            {
+                "Item": {"$ref": "#/components/schemas/Base"},
+                "Base": {
+                    "type": "object",
+                    "xml": {"name": "base-tag"},
+                    "properties": {"id": {"type": "integer", "xml": {"attribute": True}}},
+                },
+            },
+            "3.0.2",
+            {"id": 1},
+            b'<base-tag id="1"></base-tag>',
+        ),
+        (
+            {"type": "object", "xml": {"name": "root"}, "properties": {"id": {"$ref": "#/components/schemas/IdAlias"}}},
+            {
+                "IdAlias": {"$ref": "#/components/schemas/Id"},
+                "Id": {"type": "integer", "xml": {"name": "ident", "attribute": True}},
+            },
+            "3.0.2",
+            {"id": 1},
+            b'<root ident="1"></root>',
+        ),
+        (
+            {
+                "type": "array",
+                "xml": {"name": "items", "wrapped": True},
+                "items": {"$ref": "#/components/schemas/Alias"},
+            },
+            {"Alias": {"$ref": "#/components/schemas/Item"}, "Item": {"type": "string", "xml": {"name": "item"}}},
+            "3.0.2",
+            ["x"],
+            b"<items><item>x</item></items>",
+        ),
+        (
+            {"$ref": "#/components/schemas/Item"},
+            {
+                "Item": {"$ref": "#/components/schemas/Base", "xml": {"name": "alias"}},
+                "Base": {
+                    "type": "object",
+                    "xml": {"name": "base-tag", "prefix": "p", "namespace": "http://p"},
+                    "properties": {"a": {"type": "integer"}},
+                },
+            },
+            "3.1.0",
+            {"a": 1},
+            b'<p:alias xmlns:p="http://p"><a>1</a></p:alias>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "root"},
+                "properties": {"id": {"$ref": "#/components/schemas/Id", "xml": {"attribute": True}}},
+            },
+            {"Id": {"type": "integer"}},
+            "3.1.0",
+            {"id": 1},
+            b'<root id="1"></root>',
+        ),
+        (
+            {"$ref": "#/components/schemas/Item"},
+            {"Item": {"$ref": "#/components/schemas/Other"}, "Other": {"$ref": "#/components/schemas/Item"}},
+            "3.0.2",
+            1,
+            b"<Item>1</Item>",
+        ),
         (PREFIXED_ROOT_SCHEMA, {}, "3.0.2", "str", b'<p:root xmlns:p="http://x">str</p:root>'),
         (PREFIXED_ROOT_SCHEMA, {}, "3.0.2", 1, b'<p:root xmlns:p="http://x">1</p:root>'),
         (PREFIXED_ROOT_SCHEMA, {}, "3.0.2", 1.5, b'<p:root xmlns:p="http://x">1.5</p:root>'),
@@ -2212,6 +2458,98 @@ def _with_child(child):
         (
             {
                 "type": "object",
+                "xml": {"name": "root"},
+                "properties": {
+                    "id": {"type": "string", "xml": {**PREFIXED_CHILD_XML, "attribute": True}},
+                    "child": {"type": "string", "xml": {"prefix": "p"}},
+                },
+            },
+            {},
+            "3.0.2",
+            {"id": "x", "child": "y"},
+            b'<root xmlns:p="http://p" p:id="x"><p:child>y</p:child></root>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "root"},
+                "properties": {
+                    "child": {"type": "string", "xml": {"prefix": "p"}},
+                    "id": {"type": "string", "xml": {**PREFIXED_CHILD_XML, "attribute": True}},
+                },
+            },
+            {},
+            "3.0.2",
+            {"child": "y", "id": "x"},
+            b'<root xmlns:p="http://p" p:id="x"><p:child>y</p:child></root>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {"id": {"type": "integer", "xml": {"nodeType": "attribute"}}},
+            },
+            {},
+            "3.2.0",
+            {"id": 1},
+            b'<item id="1"></item>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {
+                    "tags": {
+                        "type": "array",
+                        "xml": {"nodeType": "element"},
+                        "items": {"type": "string", "xml": {"name": "tag"}},
+                    }
+                },
+            },
+            {},
+            "3.2.0",
+            {"tags": ["a", "b"]},
+            b"<item><tags><tag>a</tag><tag>b</tag></tags></item>",
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {
+                    "id": {"type": "integer", "xml": {"nodeType": "attribute"}},
+                    "note": {"type": "string", "xml": {"nodeType": "text"}},
+                },
+            },
+            {},
+            "3.2.0",
+            {"id": 1, "note": "a<b"},
+            b'<item id="1">a&lt;b</item>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {"note": {"type": "string", "xml": {"nodeType": "cdata"}}},
+            },
+            {},
+            "3.2.0",
+            {"note": "a<b]]>c\x01"},
+            b"<item><![CDATA[a<b]]]]><![CDATA[>c]]></item>",
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "item"},
+                "properties": {"note": {"type": "string", "xml": {"nodeType": "text"}}},
+            },
+            {},
+            "3.2.0",
+            {"note": {"a": "x"}},
+            b"<item><note><a>x</a></note></item>",
+        ),
+        (
+            {
+                "type": "object",
                 "properties": {
                     "flag": {"type": "boolean"},
                     "note": {"type": "null"},
@@ -2278,8 +2616,80 @@ def _with_child(child):
             {"name": "John", "age": 30},
             b"<UserProfile><name>John</name><age>30</age></UserProfile>",
         ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "a": {"xml": {"attribute": True}},
+                    "b": {"xml": {"attribute": True}},
+                    "c": {"type": "integer"},
+                },
+                "xml": {"name": "Root"},
+            },
+            {},
+            "3.0.2",
+            {"a": 1, "b": 2, "c": 3},
+            b'<Root a="1" b="2"><c>3</c></Root>',
+        ),
+        (
+            {
+                "type": "array",
+                "items": {"type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id"}}},
+                "xml": {"name": "items", "wrapped": True},
+            },
+            {"Id": {"type": "integer", "xml": {"name": "ident", "attribute": True}}},
+            "3.0.2",
+            [{"id": 1}],
+            b'<items><items ident="1"></items></items>',
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"text": {"type": "string"}, "q": {"type": "string", "xml": {"attribute": True}}},
+                "xml": {"name": "Root"},
+            },
+            {},
+            "3.0.2",
+            {"text": "a&b<c>\"d'e", "q": "x&\"<'>"},
+            b'<Root q="x&amp;&quot;&lt;&apos;&gt;"><text>a&amp;b&lt;c&gt;&quot;d&apos;e</text></Root>',
+        ),
+        (
+            {"type": "object", "xml": {"name": "Root"}},
+            {},
+            "3.0.2",
+            {"text": "\x00 \t\n\r\x1f\ud7ff\ud800\ue000\ufffd\ufffe\U00010000\U0010ffff"},
+            "<Root><text> \t\n\r\ud7ff\ue000\ufffd\U00010000\U0010ffff</text></Root>".encode(),
+        ),
+        (
+            {"type": "object", "xml": {"name": "Root"}},
+            {},
+            "3.0.2",
+            {"a:b": 1, "_id": 2, "1st": 3, "": 4, "a b": 5, "\ufb01": 6},
+            b"<Root><a_b>1</a_b><_id>2</_id><x_1st>3</x_1st><element>4</element><a_b>5</a_b><fi>6</fi></Root>",
+        ),
+        (
+            _with_child({"type": "array", "items": {"type": "string", "xml": {"name": "1 tag"}}}),
+            {},
+            "3.0.2",
+            {"child": ["a"]},
+            b"<root><x_1_tag>a</x_1_tag></root>",
+        ),
+        ({"type": "string", "xml": {"name": "1 tag"}}, {}, "3.0.2", "a", b"<x_1_tag>a</x_1_tag>"),
+        (
+            {"type": "array", "xml": {"name": "1 tag", "wrapped": True}, "items": {"type": "string"}},
+            {},
+            "3.0.2",
+            ["a"],
+            b"<x_1_tag><x_1_tag>a</x_1_tag></x_1_tag>",
+        ),
     ],
     ids=[
+        "reference-alias-chain-root",
+        "reference-alias-chain-property",
+        "reference-alias-chain-array-items",
+        "reference-alias-xml-overrides-target",
+        "reference-sibling-xml-attribute",
+        "reference-cycle",
         "scalar-under-prefixed-root-string",
         "scalar-under-prefixed-root-integer",
         "scalar-under-prefixed-root-float",
@@ -2292,11 +2702,26 @@ def _with_child(child):
         "prefixed-nested-property-array",
         "prefixed-nested-property-wrapped-array",
         "shared-array-items-keep-own-prefix",
+        "attribute-namespace-binds-prefix-inside-element",
+        "attribute-namespace-binds-prefix-for-earlier-element",
+        "node-type-attribute",
+        "node-type-element-array",
+        "node-type-text",
+        "node-type-cdata",
+        "node-type-text-container-written-as-element",
         "boolean-and-null-use-json-spelling",
         "referenced-property-schema",
         "referenced-array-items",
         "nested-schema-references",
         "root-tag-from-reference-openapi2",
+        "attributes-before-elements",
+        "array-items-with-referenced-property",
+        "special-characters-escaped",
+        "invalid-characters-dropped",
+        "invalid-names-sanitized",
+        "invalid-primitive-item-names-sanitized",
+        "invalid-root-primitive-name-sanitized",
+        "invalid-wrapped-root-array-name-sanitized",
     ],
 )
 def test_serialize_xml_body(ctx, schema, components, version, body, expected):
@@ -2524,13 +2949,26 @@ def test_serializer_alias_multiple_targets(ctx):
     ],
 )
 def test_serializer_alias_validation(target, source, expected_error):
-    with pytest.raises(ValueError, match=re.escape(expected_error)):
+    with pytest.raises(ValueError, match=f"^{re.escape(expected_error)}$"):
         schemathesis.serializer.alias(target, source)
 
 
 def test_serializer_alias_empty_target_in_list():
     with pytest.raises(ValueError, match="Target media type cannot be empty"):
         schemathesis.serializer.alias(["application/custom", ""], "application/json")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ({"a": 1, "b": Binary(b"x")}, True),
+        ([1, [b"x"]], True),
+        ({"a": [1, {"b": None}]}, False),
+    ],
+    ids=["binary-after-scalar", "nested-bytes", "no-binary"],
+)
+def test_contains_binary(value, expected):
+    assert contains_binary(value) is expected
 
 
 def test_binary_not_a_dataclass():
@@ -2594,8 +3032,14 @@ def query_echo_operation(ctx, app_runner, transport, parameters, version="3.0.2"
 @pytest.mark.parametrize("transport", ["requests", "wsgi"])
 @pytest.mark.parametrize(
     ("query", "params", "expected"),
-    [({"a": "1"}, "b=2", "a=1&b=2"), ({"a": "1"}, "", "a=1"), ({}, "?b=2", "b=2")],
-    ids=["both", "empty-params", "empty-query"],
+    [
+        ({"a": "1"}, "b=2", "a=1&b=2"),
+        ({"a": "1"}, "", "a=1"),
+        ({}, "?b=2", "b=2"),
+        # The leading "X" checks that only the "?" prefix is stripped.
+        ({"a": ["1", "2"]}, "?Xb=2", "a=1&a=2&Xb=2"),
+    ],
+    ids=["both", "empty-params", "empty-query", "array-query"],
 )
 def test_string_params_merge_into_case_query(ctx, app_runner, transport, query, params, expected):
     operation = query_echo_operation(ctx, app_runner, transport, [])
@@ -2603,7 +3047,7 @@ def test_string_params_merge_into_case_query(ctx, app_runner, transport, query, 
 
 
 @pytest.mark.parametrize("transport", ["requests", "wsgi"])
-@pytest.mark.parametrize("params", ["x=1", {"x": "1"}, [("x", "1")]], ids=["string", "dict", "pairs"])
+@pytest.mark.parametrize("params", ["x=1&x=2", {"x": ["1", "2"]}, [("x", ["1", "2"])]], ids=["string", "dict", "pairs"])
 @pytest.mark.parametrize(
     ("parameter", "version", "encoded"),
     [
@@ -2637,7 +3081,7 @@ def test_extra_params_appended_to_pre_encoded_query(ctx, app_runner, transport, 
 
     @run_given(operation.as_strategy(), max_examples=1, phases=[Phase.generate])
     def test(case):
-        assert case.call(params=params).json() == f"{encoded}&x=1"
+        assert case.call(params=params).json() == f"{encoded}&x=1&x=2"
 
 
 def test_multipart_encoded_field_absent_from_body(ctx, app_runner):
@@ -2677,7 +3121,10 @@ def test_wsgi_swagger_multipart_mixed_form_field_reaches_the_app(ctx):
             "/upload": {
                 "post": {
                     "consumes": ["multipart/mixed"],
-                    "parameters": [{"name": "name", "in": "formData", "type": "string", "required": True}],
+                    "parameters": [
+                        {"name": "name", "in": "formData", "type": "string", "required": True},
+                        {"name": "tags", "in": "formData", "type": "array", "items": {"type": "string"}},
+                    ],
                     "responses": {"200": {"description": "OK"}},
                 }
             }
@@ -2690,11 +3137,12 @@ def test_wsgi_swagger_multipart_mixed_form_field_reaches_the_app(ctx):
         return jsonify({"mimetype": request.mimetype, "raw": request.get_data().decode()})
 
     operation = schemathesis.openapi.from_wsgi("/openapi.json", app)["/upload"]["POST"]
-    received = operation.Case(body={"name": "x"}, media_type="multipart/mixed").call().json()
-    assert (received["mimetype"], 'Content-Disposition: form-data; name="name"\r\n\r\nx\r\n' in received["raw"]) == (
-        "multipart/mixed",
-        True,
-    )
+    received = operation.Case(body={"name": "xy", "tags": ["a", "b"]}, media_type="multipart/mixed").call().json()
+    assert (
+        received["mimetype"],
+        'Content-Disposition: form-data; name="name"\r\n\r\nxy\r\n' in received["raw"],
+        received["raw"].count('Content-Disposition: form-data; name="tags"'),
+    ) == ("multipart/mixed", True, 2)
 
 
 def test_multipart_parts_follow_body_for_case_media_type(ctx):

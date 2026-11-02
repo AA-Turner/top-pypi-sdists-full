@@ -1,0 +1,394 @@
+"""pre_validation_hooks — wire dict rewriting before schema + Pydantic validation.
+
+Tests that:
+- The hook is called with (tool_name, raw_dict) before validation.
+- A missing required field supplied by the hook passes model_validate.
+- A hook that raises surfaces as INVALID_REQUEST, not INTERNAL_ERROR.
+- pre_validation_hooks=None (default) is a no-op (hot path unchanged).
+- A hook for tool X is not called when tool Y is dispatched.
+- Hook runs before validate_request in strict validation mode.
+- In-place mutation of hook args is safe (framework passes a shallow copy).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+from adcp.exceptions import ADCPTaskError
+from adcp.server import compose_pre_validation_hooks
+from adcp.server.base import ADCPHandler, ToolContext
+from adcp.server.mcp_tools import create_tool_caller
+
+
+class _MinimalHandler(ADCPHandler[Any]):
+    """Passes params straight through as the return value."""
+
+    async def get_products(self, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        return {"params_received": dict(params)}
+
+
+class _TypedHandler(ADCPHandler[Any]):
+    """Handler that validates get_products against the real Pydantic model."""
+
+    async def get_products(self, params: Any, ctx: ToolContext) -> dict[str, Any]:
+        return {"buying_mode": getattr(params, "buying_mode", None)}
+
+
+# ---------------------------------------------------------------------------
+# Basic hook mechanics
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_hook_is_called_with_tool_name_and_args() -> None:
+    """Hook receives (tool_name, raw_dict) and its return value replaces the args."""
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def my_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append((tool_name, dict(args)))
+        return {**args, "injected": True}
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=my_hook)
+
+    result = await caller({"foo": "bar"})
+    assert len(calls) == 1
+    assert calls[0] == ("get_products", {"foo": "bar"})
+    assert result["params_received"]["injected"] is True
+
+
+@pytest.mark.asyncio
+async def test_hook_none_is_noop() -> None:
+    """pre_validation_hook=None (default) does not change dispatch behaviour."""
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=None)
+    result = await caller({"key": "val"})
+    assert result["params_received"] == {"key": "val"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task_error", [False, True])
+async def test_structured_hook_rejection_preserves_error_fields(task_error: bool) -> None:
+    from adcp.decisioning import AdcpError
+    from adcp.server.translate import build_mcp_error_result
+    from adcp.types import Error
+
+    fields = {
+        "code": "VERSION_UNSUPPORTED",
+        "message": "adcp_version is required",
+        "recovery": "correctable",
+        "field": "adcp_version",
+        "suggestion": "Use 3.2",
+        "details": {"supported_versions": ["3.2"]},
+    }
+    rejection = (
+        ADCPTaskError("get_products", [Error(**fields)]) if task_error else AdcpError(**fields)
+    )
+    later_called = False
+
+    def reject(tool_name, params):
+        raise rejection
+
+    def later(tool_name, params):
+        nonlocal later_called
+        later_called = True
+        return params
+
+    caller = create_tool_caller(
+        _MinimalHandler(), "get_products", pre_validation_hook=[reject, later]
+    )
+    with pytest.raises(type(rejection)) as caught:
+        await caller({})
+    assert caught.value is rejection
+    assert not later_called
+    wire = build_mcp_error_result(caught.value).structured_content["adcp_error"]
+    for name in ("code", "field", "recovery", "details"):
+        assert wire[name] == fields[name]
+    if not task_error:
+        assert wire["message"] == fields["message"]
+        assert wire["suggestion"] == fields["suggestion"]
+
+
+@pytest.mark.asyncio
+async def test_hook_not_called_for_other_tool() -> None:
+    """A hook registered for get_products is not invoked when create_media_buy is called."""
+    calls: list[str] = []
+
+    def hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(tool_name)
+        return args
+
+    handler = _MinimalHandler()
+    # create a caller for a different tool — hook should not apply
+    caller_other = create_tool_caller(handler, "get_adcp_capabilities", pre_validation_hook=None)
+    await caller_other({})
+    assert calls == [], "hook was called for the wrong tool"
+
+
+# ---------------------------------------------------------------------------
+# Missing-required-field scenario: the primary use case
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_hook_supplies_missing_required_field() -> None:
+    """A hook that fills in buying_mode allows model_validate to succeed.
+
+    Without the hook, a bare {} request would fail model_validate on
+    GetProductsRequest because buying_mode is required in 4.4+ schemas.
+    This test uses the dict-typed handler path to avoid importing schema
+    models directly.
+    """
+    called_with: list[dict[str, Any]] = []
+
+    def buying_mode_default(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        called_with.append(args)
+        return {**args, "buying_mode": args.get("buying_mode", "brief")}
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=buying_mode_default)
+
+    result = await caller({})
+    assert called_with == [{}]
+    assert result["params_received"]["buying_mode"] == "brief"
+
+
+@pytest.mark.asyncio
+async def test_multiple_hooks_for_one_tool_run_in_order() -> None:
+    """A tool can receive an ordered hook chain; each hook sees the previous output."""
+    order: list[str] = []
+
+    def first(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        order.append(f"first:{tool_name}")
+        return {**args, "a": 1}
+
+    def second(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        order.append(f"second:{tool_name}:{args['a']}")
+        return {**args, "b": 2}
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=[first, second])
+
+    result = await caller({"buying_mode": "brief"})
+    assert order == ["first:get_products", "second:get_products:1"]
+    assert result["params_received"]["a"] == 1
+    assert result["params_received"]["b"] == 2
+
+
+def test_compose_pre_validation_hooks_appends_overlapping_tools() -> None:
+    """The public helper preserves map order and appends overlaps."""
+    calls: list[str] = []
+
+    def sdk(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(f"sdk:{tool_name}")
+        return {**args, "sdk": True}
+
+    def local(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(f"local:{tool_name}")
+        return {**args, "local": True}
+
+    def creative(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(f"creative:{tool_name}")
+        return args
+
+    hooks = compose_pre_validation_hooks(
+        {"get_products": sdk, "sync_creatives": creative},
+        {"get_products": [local]},
+    )
+
+    get_products_hooks = hooks["get_products"]
+    out = {"brief": "test"}
+    for hook in get_products_hooks:
+        out = hook("get_products", out)
+
+    assert calls == ["sdk:get_products", "local:get_products"]
+    assert out == {"brief": "test", "sdk": True, "local": True}
+    assert hooks["sync_creatives"] == (creative,)
+
+
+# ---------------------------------------------------------------------------
+# Hook exception handling
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_hook_exception_surfaces_as_invalid_request() -> None:
+    """A hook that raises must surface as INVALID_REQUEST, not INTERNAL_ERROR."""
+
+    def bad_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        raise ValueError("unsupported format_id shape")
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=bad_hook)
+
+    with pytest.raises(ADCPTaskError) as exc_info:
+        await caller({"something": "here"})
+
+    errors = exc_info.value.errors
+    assert errors, "ADCPTaskError must carry at least one error"
+    assert errors[0].code == "INVALID_REQUEST"
+    assert "pre_validation_hook[0]" in errors[0].message
+    assert "bad_hook" in errors[0].message
+    assert "ValueError" in errors[0].message
+
+
+@pytest.mark.asyncio
+async def test_hook_chain_exception_identifies_failing_hook() -> None:
+    """Hook-chain failures name the index and callable that raised."""
+
+    def first_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        return {**args, "first": True}
+
+    def second_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        raise RuntimeError("second failed")
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(
+        handler,
+        "get_products",
+        pre_validation_hook=[first_hook, second_hook],
+    )
+
+    with pytest.raises(ADCPTaskError) as exc_info:
+        await caller({"buying_mode": "brief"})
+
+    message = exc_info.value.errors[0].message
+    assert "pre_validation_hook[1]" in message
+    assert "second_hook" in message
+    assert "RuntimeError" in message
+
+
+@pytest.mark.asyncio
+async def test_hook_chain_non_dict_return_identifies_failing_hook() -> None:
+    """Invalid hook return values also include chain index and hook name."""
+
+    def bad_return(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        return ["not", "a", "dict"]  # type: ignore[return-value]
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=[bad_return])
+
+    with pytest.raises(ADCPTaskError) as exc_info:
+        await caller({"buying_mode": "brief"})
+
+    message = exc_info.value.errors[0].message
+    assert "pre_validation_hook[0]" in message
+    assert "bad_return" in message
+    assert "returned list, expected dict" in message
+
+
+# ---------------------------------------------------------------------------
+# Hook must not mutate raw_params (context-echo path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_hook_does_not_pollute_context_echo() -> None:
+    """raw_params must snapshot the original wire dict BEFORE the hook runs.
+
+    inject_context echoes the wire ``context`` field from raw_params back into
+    the response. If raw_params were assigned after the hook, a hook that
+    returns a new dict (dropping ``context``) would silently suppress the echo.
+    Conversely, a hook that adds keys would cause server-injected fields to
+    appear in the echo as if the buyer sent them.
+
+    We exercise both directions:
+    - A hook that strips all fields and adds "server_default" (no context key
+      in its return) still produces context echo from the original wire params.
+    - The handler result carries hook-modified fields, confirming the hook ran.
+    """
+    wire_context = {"correlation_id": "req-abc"}
+    wire_args = {"buyer_field": "x", "context": wire_context}
+
+    def stripping_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        # Returns a brand-new dict — deliberately omits "context"
+        return {"server_default": "y"}
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=stripping_hook)
+    result = await caller(dict(wire_args))
+
+    # Hook ran: handler received hook-modified params, not original
+    assert result["params_received"] == {"server_default": "y"}
+    # Context echo used raw_params (pre-hook snapshot), not hook return
+    assert result.get("context") == wire_context
+
+
+@pytest.mark.asyncio
+async def test_in_place_mutation_is_safe_for_context_echo() -> None:
+    """Hook that mutates its argument in-place must not corrupt context echo.
+
+    The framework passes a shallow copy to the hook, so in-place mutation
+    of the hook argument leaves the original wire params untouched for the
+    context-echo path. This test exercises the ``args["key"] = val; return args``
+    pattern that the original docstring labelled a "bug".
+    """
+    wire_context = {"correlation_id": "req-xyz"}
+    wire_args = {"buyer_field": "original", "context": wire_context}
+
+    def mutating_hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        args["server_default"] = "injected"
+        del args["buyer_field"]
+        return args
+
+    handler = _MinimalHandler()
+    caller = create_tool_caller(handler, "get_products", pre_validation_hook=mutating_hook)
+    result = await caller(dict(wire_args))
+
+    assert result["params_received"].get("server_default") == "injected"
+    assert "buyer_field" not in result["params_received"]
+    assert result.get("context") == wire_context
+
+
+# ---------------------------------------------------------------------------
+# MCPToolSet real-path behavior
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_mcp_tool_set_applies_hook_chain_for_matching_tool() -> None:
+    """MCPToolSet applies ordered hook chains through the real call_tool path."""
+    from adcp.server.mcp_tools import MCPToolSet
+
+    handler = _MinimalHandler()
+    calls: list[str] = []
+
+    def first(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(f"first:{tool_name}")
+        return {**args, "first": True}
+
+    def second(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(f"second:{tool_name}:{args['first']}")
+        return {**args, "second": True}
+
+    tool_set = MCPToolSet(
+        handler,
+        validation=None,
+        pre_validation_hooks={"get_products": [first, second]},
+    )
+    result = await tool_set.call_tool("get_products", {"buying_mode": "brief"})
+
+    assert calls == ["first:get_products", "second:get_products:True"]
+    assert result["params_received"]["first"] is True
+    assert result["params_received"]["second"] is True
+
+
+def test_mcp_tool_set_does_not_apply_hooks_to_other_tools() -> None:
+    """Hooks registered for one tool are not threaded into other tools."""
+    from adcp.server.mcp_tools import MCPToolSet
+
+    handler = _MinimalHandler()
+    calls: list[str] = []
+
+    def hook(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        calls.append(tool_name)
+        return args
+
+    tool_set = MCPToolSet(handler, pre_validation_hooks={"get_products": hook})
+
+    # get_adcp_capabilities is advertised for every handler; its caller must
+    # not carry the get_products hook.
+    assert "get_products" in tool_set.get_tool_names()
+    assert calls == []

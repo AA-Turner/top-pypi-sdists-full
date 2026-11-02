@@ -1,0 +1,589 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+"""Standalone fitting and pointcloud helper functions."""
+
+from typing_extensions import Self
+
+import numpy as np
+
+import vedo.vtkclasses as vtki
+
+import vedo
+from vedo import colors
+from vedo import utils
+from vedo.core.transformations import LinearTransform
+from .core import Point, Points
+
+__all__ = [
+    "Point",
+    "merge",
+    "fit_line",
+    "fit_circle",
+    "fit_plane",
+    "fit_sphere",
+    "pca_ellipse",
+    "pca_ellipsoid",
+    "project_point_on_variety",
+]
+
+
+def merge(*meshs, flag=False) -> vedo.Mesh | vedo.Points | None:
+    """
+    Build a new Mesh (or Points) formed by the fusion of the inputs.
+
+    Similar to Assembly, but in this case the input objects become a single entity.
+
+    To keep track of the original identities of the inputs you can set `flag=True`.
+    In this case a `pointdata` array of ids is added to the output with name "OriginalMeshID".
+
+    Examples:
+        - [warp1.py](https://github.com/marcomusy/vedo/tree/master/examples/advanced/warp1.py)
+
+            ![](https://vedo.embl.es/images/advanced/warp1.png)
+
+        - [value_iteration.py](https://github.com/marcomusy/vedo/tree/master/examples/animation/value_iteration.py)
+
+    """
+    objs = [a for a in utils.flatten(meshs) if a]
+
+    if not objs:
+        return None
+
+    idarr = []
+    polyapp = vtki.new("AppendPolyData")
+    for i, ob in enumerate(objs):
+        try:
+            polyapp.AddInputData(ob.dataset)
+        except AttributeError:
+            polyapp.AddInputData(ob)
+        if flag:
+            npts = ob.dataset.GetNumberOfPoints() if hasattr(ob, "dataset") else ob.GetNumberOfPoints()
+            idarr += [i] * npts
+    polyapp.Update()
+    mpoly = polyapp.GetOutput()
+
+    if flag:
+        varr = utils.numpy2vtk(idarr, dtype=np.uint16, name="OriginalMeshID")
+        mpoly.GetPointData().AddArray(varr)
+
+    has_mesh = False
+    for ob in objs:
+        if isinstance(ob, vedo.Mesh):
+            has_mesh = True
+            break
+
+    if has_mesh:
+        msh = vedo.Mesh(mpoly)
+    else:
+        msh = Points(mpoly)  # type: ignore
+
+    msh.copy_properties_from(objs[0])
+
+    msh.pipeline = utils.OperationNode(
+        "merge", parents=objs, comment=f"#pts {msh.dataset.GetNumberOfPoints()}"
+    )
+    return msh
+
+
+def _rotate_points(points, n0=None, n1=(0, 0, 1)) -> np.ndarray | tuple:
+    # Rotate a set of 3D points from direction n0 to direction n1.
+    # Return the rotated points and the normal to the fitting plane (if n0 is None).
+    # The pointing direction of the normal in this case is arbitrary.
+    points = np.asarray(points)
+
+    if points.ndim == 1:
+        points = points[np.newaxis, :]
+
+    if len(points[0]) == 2:
+        return points, (0, 0, 1)
+
+    if n0 is None:  # fit plane
+        datamean = points.mean(axis=0)
+        centered = points - datamean
+        _, vv = np.linalg.eigh(centered.T @ centered)
+        n0 = np.cross(vv[:, -1], vv[:, -2])
+
+    n0 = n0 / np.linalg.norm(n0)
+    n1 = n1 / np.linalg.norm(n1)
+    k = np.cross(n0, n1)
+    k_norm = np.linalg.norm(k)
+    if not k_norm:
+        k = n0
+    k /= np.linalg.norm(k)
+
+    ct = np.dot(n0, n1)
+    st = np.sin(np.arccos(ct))
+
+    rpoints = points * ct + np.cross(k, points) * st + np.outer(np.dot(points, k), k) * (1 - ct)
+    return rpoints, n0
+
+
+def fit_line(points: np.ndarray | vedo.Points) -> vedo.shapes.Line:
+    """
+    Fits a line through points.
+
+    Extra info is stored in `Line.slope`, `Line.center`, `Line.variances`.
+
+    Examples:
+        - [fitline.py](https://github.com/marcomusy/vedo/tree/master/examples/advanced/fitline.py)
+
+            ![](https://vedo.embl.es/images/advanced/fitline.png)
+    """
+    if isinstance(points, Points):
+        points = points.coordinates
+    data = np.asarray(points)
+    datamean = data.mean(axis=0)
+    _, dd, vv = np.linalg.svd(data - datamean)
+    vv = vv[0]
+    # vv contains the first principal component, i.e. the direction
+    # vector of the best fit line in the least squares sense.
+    proj = (data - datamean) @ vv
+    p1 = datamean + proj.min() * vv
+    p2 = datamean + proj.max() * vv
+    line = vedo.shapes.Line(p1, p2, lw=1)
+    line.slope = vv
+    line.center = datamean
+    line.variances = dd
+    return line
+
+
+def fit_circle(points: np.ndarray | vedo.Points) -> tuple:
+    """
+    Fits a circle through a set of 3D points, with a very fast non-iterative method.
+
+    Returns the tuple `(center, radius, normal_to_circle)`.
+
+    .. warning::
+        trying to fit s-shaped points will inevitably lead to instabilities and
+        circles of small radius.
+
+    References:
+        *J.F. Crawford, Nucl. Instr. Meth. 211, 1983, 223-225.*
+    """
+    if isinstance(points, Points):
+        points = points.coordinates
+    data = np.asarray(points)
+
+    offs = data.mean(axis=0)
+    data, n0 = _rotate_points(data - offs)
+
+    xi = data[:, 0]
+    yi = data[:, 1]
+
+    x = sum(xi)
+    xi2 = xi * xi
+    xx = sum(xi2)
+    xxx = sum(xi2 * xi)
+
+    y = sum(yi)
+    yi2 = yi * yi
+    yy = sum(yi2)
+    yyy = sum(yi2 * yi)
+
+    xiyi = xi * yi
+    xy = sum(xiyi)
+    xyy = sum(xiyi * yi)
+    xxy = sum(xi * xiyi)
+
+    N = len(xi)
+    k = (xx + yy) / N
+
+    a1 = xx - x * x / N
+    b1 = xy - x * y / N
+    c1 = 0.5 * (xxx + xyy - x * k)
+
+    a2 = xy - x * y / N
+    b2 = yy - y * y / N
+    c2 = 0.5 * (xxy + yyy - y * k)
+
+    try:
+        x0, y0 = np.linalg.solve([[a1, b1], [a2, b2]], [c1, c2])
+    except np.linalg.LinAlgError:
+        return offs, 0, n0
+
+    R = np.sqrt(x0 * x0 + y0 * y0 - 1 / N * (2 * x0 * x + 2 * y0 * y - xx - yy))
+
+    c, _ = _rotate_points([x0, y0, 0], (0, 0, 1), n0)
+
+    return c[0] + offs, R, n0
+
+
+def fit_plane(points: np.ndarray | vedo.Points, signed=False) -> vedo.shapes.Plane:
+    """
+    Fits a plane to a set of points.
+
+    Extra info is stored in `Plane.normal`, `Plane.center`, `Plane.variance`.
+
+    Args:
+        signed (bool):
+            if True flip sign of the normal based on the ordering of the points
+
+    Examples:
+        - [fitline.py](https://github.com/marcomusy/vedo/tree/master/examples/advanced/fitline.py)
+
+            ![](https://vedo.embl.es/images/advanced/fitline.png)
+    """
+    if isinstance(points, Points):
+        points = points.coordinates
+    data = np.asarray(points)
+    datamean = data.mean(axis=0)
+    pts = data - datamean
+    res = np.linalg.svd(pts)
+    dd, vv = res[1], res[2]
+    n = np.cross(vv[0], vv[1])
+    if signed:
+        normals = []
+        for i in range(len(pts) - 1):
+            vi = np.cross(pts[i], pts[i + 1])
+            ni = np.linalg.norm(vi)
+            if ni:
+                normals.append(vi / ni)
+        if normals:
+            ns = np.mean(normals, axis=0)
+            if np.dot(n, ns) < 0:
+                n = -n
+    xyz_min = data.min(axis=0)
+    xyz_max = data.max(axis=0)
+    s = np.linalg.norm(xyz_max - xyz_min)
+    pla = vedo.shapes.Plane(datamean, n, s=[s, s])
+    pla.variance = dd[2]
+    pla.name = "FitPlane"
+    return pla
+
+
+def project_point_on_variety(
+    pt, points, degree=3, normal=None, return_grid=False
+) -> tuple:
+    """
+    Project a point in 3D space onto a polynomial surface defined by a set of points
+    around it. The polynomial degree can be adjusted.
+
+    Args:
+        pt (list or np.ndarray):
+            The 3D point to project onto the fitted surface.
+        points (np.ndarray):
+            Neighbourhood points (Nx3) used to fit the polynomial surface.
+        degree (int):
+            Degree of the fitting polynomial.
+        normal (list or np.ndarray, optional):
+            Reference normal used to orient the local frame consistently.
+            Pass the vertex normal of `pt` for correct mean curvature sign.
+        return_grid (bool, optional):
+            If True, also returns a `vedo.Grid` of the fitted surface patch.
+
+    Returns:
+        projected_pt (np.ndarray):
+            The point projected onto the fitted polynomial surface.
+        poly (tuple):
+            Polynomial results `(coeffs, R, centroid, gauss_curv, mean_curv)`:
+            - `coeffs`: polynomial coefficients (length = (degree+1)(degree+2)/2)
+            - `R`: 3x3 rotation matrix mapping world -> local frame (rows are v1, v2, normal)
+            - `centroid`: centroid of the neighbourhood points
+            - `gauss_curv`: Gaussian curvature K at the projected point (0 for degree < 2)
+            - `mean_curv`: mean curvature H at the projected point (0 for degree < 2)
+        grid (vedo.Grid or None):
+            Surface patch of the fitted polynomial, or `None` if `return_grid=False`.
+
+    Examples:
+        ```python
+        import vedo
+        from vedo.pointcloud import project_point_on_variety
+
+        mesh = vedo.Mesh(vedo.dataurl+"bunny.obj").subdivide().scale(100)
+        mesh.wireframe().alpha(0.1)
+
+        pt = mesh.coordinates[30]
+        points = mesh.closest_point(pt, n=200)
+
+        pt_trans, poly, grid = project_point_on_variety(pt, points, degree=3, return_grid=True)
+        vpoints = vedo.Points(points, r=6, c="yellow2")
+
+        plotter = vedo.Plotter(size=(1200, 800))
+        plotter += mesh, vedo.Point(pt), vpoints, grid, f"Residue: {pt - pt_trans}"
+        plotter.show(axes=1).close()
+        ```
+
+    Check out also the `fit_plane()` function for a simpler case of plane fitting.
+    """
+
+    def _fit_polynomial_3d(points, degree):
+        x, y, z = points.T
+        xpow = x[:, None] ** np.arange(degree + 1)   # (N, degree+1)
+        ypow = y[:, None] ** np.arange(degree + 1)
+        V = np.column_stack([xpow[:, i] * ypow[:, j]
+                             for i in range(degree + 1)
+                             for j in range(degree + 1 - i)])
+        return np.linalg.lstsq(V, z, rcond=None)[0]
+
+    def _predict_polynomial_3d(x, y, coeffs, degree):
+        xpow = [1.0] * (degree + 1)
+        ypow = [1.0] * (degree + 1)
+        for k in range(1, degree + 1):
+            xpow[k] = xpow[k-1] * x
+            ypow[k] = ypow[k-1] * y
+        z, idx = 0.0, 0
+        for i in range(degree + 1):
+            for j in range(degree + 1 - i):
+                z += coeffs[idx] * xpow[i] * ypow[j]
+                idx += 1
+        return z
+
+    def _compute_curvature(coeffs, degree, x0, y0):
+        if degree < 2:
+            return 0, 0
+        xpow = [1.0] * (degree + 1)
+        ypow = [1.0] * (degree + 1)
+        for k in range(1, degree + 1):
+            xpow[k] = xpow[k-1] * x0
+            ypow[k] = ypow[k-1] * y0
+        f_x = f_y = f_xx = f_yy = f_xy = 0.0
+        idx = 0
+        for i in range(degree + 1):
+            for j in range(degree + 1 - i):
+                c = coeffs[idx]
+                if i >= 1: f_x  += i       * c * xpow[i-1] * ypow[j]
+                if j >= 1: f_y  += j       * c * xpow[i]   * ypow[j-1]
+                if i >= 2: f_xx += i*(i-1) * c * xpow[i-2] * ypow[j]
+                if j >= 2: f_yy += j*(j-1) * c * xpow[i]   * ypow[j-2]
+                if i >= 1 and j >= 1:
+                    f_xy += i * j  * c * xpow[i-1] * ypow[j-1]
+                idx += 1
+        denom2 = 1.0 + f_x**2 + f_y**2
+        gaussian = (f_xx * f_yy - f_xy**2) / denom2**2
+        # negated to match VTK convention: H > 0 for convex with outward normals
+        mean = -((1 + f_y**2)*f_xx - 2*f_x*f_y*f_xy + (1 + f_x**2)*f_yy) / (2 * denom2**1.5)
+        return float(gaussian), float(mean)
+
+    # Fit the plane: compute centroid and normal
+    points = np.asarray(points)
+    centroid = np.mean(points, axis=0)
+    centered = points - centroid
+
+    # to find the normal vector
+    # eigh on the 3x3 covariance matrix is much faster than SVD on the full N×3 matrix
+    _, vv = np.linalg.eigh(centered.T @ centered)
+    svd_normal = vv[:, 0]  # eigenvector for smallest eigenvalue = normal direction
+    if normal is not None and np.dot(svd_normal, normal) < 0:
+        svd_normal = -svd_normal
+    normal = svd_normal
+
+    # Build a right-handed orthogonal basis with normal as the z-axis.
+    # Cross with the least-aligned cardinal axis for numerical stability.
+    min_idx = np.argmin(np.abs(normal))
+    e = np.zeros(3); e[min_idx] = 1.0
+    v1 = np.cross(normal, e); v1 /= np.linalg.norm(v1)
+    v2 = np.cross(normal, v1); v2 /= np.linalg.norm(v2)
+    # v2 = cross(normal, v1) guarantees det([v1,v2,normal]) = +1, no check needed.
+    R = np.array([v1, v2, normal])  # rows: basis vectors; local = centered @ R.T
+
+    # Transform points to new coordinate system (plane aligns with XY)
+    transformed = np.dot(centered, R.T)
+
+    tpt = (pt - centroid) @ R.T  # Transform point to new coordinate system
+
+    # Fit polynomial of given degree
+    x_new, y_new = tpt[0], tpt[1]
+    coeffs = _fit_polynomial_3d(transformed, degree)
+    gauss_curv, mean_curv = _compute_curvature(coeffs, degree, x_new, y_new)
+    z_pred = _predict_polynomial_3d(x_new, y_new, coeffs, degree)
+
+    # Transform back to original
+    transformed_pt = np.array([x_new, y_new, z_pred])
+    back_transformed = np.dot(transformed_pt, R) + centroid
+    grid = None
+    if return_grid:
+        # Create a surface mesh from the polynomial fit
+        x_min, x_max = transformed[:, 0].min(), transformed[:, 0].max()
+        y_min, y_max = transformed[:, 1].min(), transformed[:, 1].max()
+        grid = vedo.Grid([x_min, x_max, y_min, y_max], res=(20, 20))
+        grid.flat().use_bounds(False)
+        gpts = grid.points
+        for g in gpts:
+            zg = _predict_polynomial_3d(g[0], g[1], coeffs, degree)
+            tzg = np.array([g[0], g[1], zg])
+            g[:] = np.dot(tzg, R)
+        grid.shift(centroid).compute_normals()
+        grid.lw(0).c("lightblue").alpha(0.5).lighting("glossy")
+    return back_transformed, (coeffs, R, centroid, gauss_curv, mean_curv), grid
+
+
+def fit_sphere(coords: np.ndarray | vedo.Points) -> vedo.shapes.Sphere:
+    """
+    Fits a sphere to a set of points.
+
+    Extra info is stored in `Sphere.radius`, `Sphere.center`, `Sphere.residue`.
+
+    Examples:
+        - [fitspheres1.py](https://github.com/marcomusy/vedo/tree/master/examples/basic/fitspheres1.py)
+
+            ![](https://vedo.embl.es/images/advanced/fitspheres1.jpg)
+    """
+    if isinstance(coords, Points):
+        coords = coords.coordinates
+    coords = np.array(coords)
+    n = len(coords)
+    A = np.zeros((n, 4))
+    A[:, :-1] = coords * 2
+    A[:, 3] = 1
+    f = np.zeros((n, 1))
+    x = coords[:, 0]
+    y = coords[:, 1]
+    z = coords[:, 2]
+    f[:, 0] = x * x + y * y + z * z
+    C, residue, rank, _ = np.linalg.lstsq(A, f, rcond=None)
+    if rank < 4:
+        vedo.logger.debug("in fit_sphere(), not enough non-degenerate points!")
+        return None
+    t = (C[0] * C[0]) + (C[1] * C[1]) + (C[2] * C[2]) + C[3]
+    if t[0] <= 0:
+        vedo.logger.warning("in fit_sphere(), could not find a valid sphere!")
+        return None
+    radius = np.sqrt(t)[0]
+    center = np.array([C[0][0], C[1][0], C[2][0]])
+    if len(residue) > 0:
+        residue = np.sqrt(residue[0]) / n
+    else:
+        residue = 0
+    sph = vedo.shapes.Sphere(center, radius, c=(1, 0, 0)).wireframe(1)
+    sph.radius = radius
+    sph.center = center
+    sph.residue = residue
+    sph.name = "FitSphere"
+    return sph
+
+
+def pca_ellipse(
+    points: np.ndarray | vedo.Points, pvalue=0.673, res=60
+) -> vedo.shapes.Circle | None:
+    """
+    Create the oriented 2D ellipse that contains the fraction `pvalue` of points.
+    PCA (Principal Component Analysis) is used to compute the ellipse orientation.
+
+    Parameter `pvalue` sets the specified fraction of points inside the ellipse.
+    Normalized directions are stored in `ellipse.axis1`, `ellipse.axis2`.
+    Axes sizes are stored in `ellipse.va`, `ellipse.vb`
+
+    Args:
+        pvalue (float):
+            ellipse will include this fraction of points
+        res (int):
+            resolution of the ellipse
+
+    Examples:
+        - [pca_ellipse.py](https://github.com/marcomusy/vedo/tree/master/examples/basic/pca_ellipse.py)
+        - [histo_pca.py](https://github.com/marcomusy/vedo/tree/master/examples/pyplot/histo_pca.py)
+
+            ![](https://vedo.embl.es/images/pyplot/histo_pca.png)
+    """
+    from scipy.stats import f
+
+    if isinstance(points, Points):
+        coords = points.coordinates
+    else:
+        coords = points
+    if len(coords) < 4:
+        vedo.logger.warning("in pca_ellipse(), there are not enough points!")
+        return None
+
+    P = np.array(coords, dtype=float)[:, (0, 1)]
+    cov = np.cov(P, rowvar=0)  # type: ignore
+    s, R = np.linalg.eigh(cov)
+    s, R = s[::-1], R[:, ::-1]  # descending order (largest eigenvalue first)
+    p, n = s.size, P.shape[0]
+    fppf = f.ppf(pvalue, p, n - p)  # f % point function
+    u = np.sqrt(2 * s * fppf)  # semi-axes (largest first)
+    ua, ub = u
+    center = utils.make3d(np.mean(P, axis=0))  # centroid of the ellipse
+
+    t = LinearTransform(R * u).translate(center)
+    elli = vedo.shapes.Circle(alpha=0.75, res=res)
+    elli.apply_transform(t)
+    elli.properties.LightingOff()
+
+    elli.pvalue = pvalue
+    elli.center = np.array([center[0], center[1], 0])
+    elli.nr_of_points = n
+    elli.va = ua
+    elli.vb = ub
+
+    # we subtract center because it's in t
+    elli.axis1 = t.move([1, 0, 0]) - center
+    elli.axis2 = t.move([0, 1, 0]) - center
+
+    elli.axis1 /= np.linalg.norm(elli.axis1)
+    elli.axis2 /= np.linalg.norm(elli.axis2)
+    elli.name = "PCAEllipse"
+    return elli
+
+
+def pca_ellipsoid(
+    points: np.ndarray | vedo.Points, pvalue=0.673, res=24
+) -> vedo.shapes.Ellipsoid | None:
+    """
+    Create the oriented ellipsoid that contains the fraction `pvalue` of points.
+    PCA (Principal Component Analysis) is used to compute the ellipsoid orientation.
+
+    Axes sizes can be accessed in `ellips.va`, `ellips.vb`, `ellips.vc`,
+    normalized directions are stored in `ellips.axis1`, `ellips.axis2` and `ellips.axis3`.
+    Center of mass is stored in `ellips.center`.
+
+    Asphericity can be accessed in `ellips.asphericity()` and ellips.asphericity_error().
+    A value of 0 means a perfect sphere.
+
+    Args:
+        pvalue (float):
+            ellipsoid will include this fraction of points
+
+    Examples:
+        [pca_ellipsoid.py](https://github.com/marcomusy/vedo/tree/master/examples/basic/pca_ellipsoid.py)
+
+            ![](https://vedo.embl.es/images/basic/pca.png)
+
+    See also:
+        `pca_ellipse()` for a 2D ellipse.
+    """
+    from scipy.stats import f
+
+    if isinstance(points, Points):
+        coords = points.coordinates
+    else:
+        coords = points
+    if len(coords) < 4:
+        vedo.logger.warning("in pca_ellipsoid(), not enough input points!")
+        return None
+
+    P = np.array(coords, ndmin=2, dtype=float)
+    cov = np.cov(P, rowvar=0)  # type: ignore
+    s, R = np.linalg.eigh(cov)
+    s, R = s[::-1], R[:, ::-1]  # descending order (largest eigenvalue first)
+    p, n = s.size, P.shape[0]
+    fppf = (
+        f.ppf(pvalue, p, n - p) * (n - 1) * p * (n + 1) / n / (n - p)
+    )  # f % point function
+    u = np.sqrt(s * fppf)
+    ua, ub, uc = u  # semi-axes (largest first)
+    center = np.mean(P, axis=0)  # centroid of the hyperellipsoid
+
+    t = LinearTransform(R * u).translate(center)
+    elli = vedo.shapes.Ellipsoid((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), res=res)
+    elli.apply_transform(t)
+    elli.alpha(0.25)
+    elli.properties.LightingOff()
+
+    elli.pvalue = pvalue
+    elli.nr_of_points = n
+    elli.center = center
+    elli.va = ua
+    elli.vb = ub
+    elli.vc = uc
+    # we subtract center because it's in t
+    elli.axis1 = np.array(t.move([1, 0, 0])) - center
+    elli.axis2 = np.array(t.move([0, 1, 0])) - center
+    elli.axis3 = np.array(t.move([0, 0, 1])) - center
+    elli.axis1 /= np.linalg.norm(elli.axis1)
+    elli.axis2 /= np.linalg.norm(elli.axis2)
+    elli.axis3 /= np.linalg.norm(elli.axis3)
+    elli.name = "PCAEllipsoid"
+    return elli

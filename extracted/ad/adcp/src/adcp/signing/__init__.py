@@ -1,0 +1,544 @@
+"""AdCP RFC 9421 request-signing profile.
+
+Implements the transport-layer signed-request profile from the AdCP
+specification. See:
+https://adcontextprotocol.org/docs/building/implementation/security#signed-requests-transport-layer
+
+Quickstart
+==========
+
+The core names you'll reach for (everything else is for advanced use):
+
+**Buyers** (signing outgoing requests):
+
+* :func:`sign_request` — produce ``Signature`` / ``Signature-Input``
+  headers for one request
+* :func:`load_private_key_pem` — rehydrate the PEM ``adcp-keygen`` wrote
+* :class:`SigningConfig` — bundle key material for auto-signing via
+  ``ADCPClient(signing=...)``
+
+**Provisioning** (new keypairs):
+
+* :func:`generate_signing_keypair` — programmatic counterpart to the
+  ``adcp-keygen`` CLI. Returns ``(pem_bytes, public_jwk)`` so tests,
+  provisioning scripts, and any non-shell context can mint keys
+  without spawning a subprocess. Both paths share the same spine — a
+  PEM generated here is indistinguishable from one the CLI wrote.
+
+  .. code-block:: python
+
+      import os
+
+      from adcp.signing import generate_signing_keypair
+
+      # CLI equivalence:
+      #   adcp-keygen --alg ed25519 --purpose webhook-signing
+      pem, public_jwk = generate_signing_keypair(
+          alg="ed25519", purpose="webhook-signing"
+      )
+
+      # Mode 0600, O_EXCL so an existing file is never overwritten.
+      # Path.write_bytes inherits the process umask (often 0644 =
+      # world-readable) — don't use it for private-key material.
+      fd = os.open("webhook-key.pem", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+      try:
+          os.write(fd, pem)
+      finally:
+          os.close(fd)
+      publish_to_jwks_uri(public_jwk)
+
+**Sellers** (verifying incoming requests):
+
+* ``serve(request_signature_verification=...)`` — framework verification
+  before dispatch; see :class:`adcp.server.RequestSignatureVerification`
+* :class:`SignerKeyResolver` — maps a ``keyid`` to the buyer agent that
+  owns it (:class:`StaticSignerKeys`, :class:`JwksUriSignerKeys`)
+* :func:`verify_starlette_request` / :func:`verify_flask_request` —
+  framework-shaped wrappers around :func:`verify_request_signature`
+* :class:`VerifyOptions` — the knobs (capability, jwks_resolver,
+  replay_store, revocation_checker)
+* :class:`VerifierCapability` — what the seller advertises (e.g.
+  ``required_for={"create_media_buy"}``)
+* :class:`StaticJwksResolver` — for testing; use
+  :class:`CachingJwksResolver` against a live ``jwks_uri``
+* :class:`SignatureVerificationError` — raised on rejection; ``.code``
+  is the spec error string
+* :func:`unauthorized_response_headers` — builds the 401
+  ``WWW-Authenticate: Signature error="..."`` header
+* :func:`signature_challenge` — the header *value* alone, for a seller
+  composing the 401 itself
+* :func:`recovery_for` — whether a rejection code is ``correctable``,
+  ``transient`` or ``terminal``, read from the pinned schema's normative
+  ``enumMetadata``; :data:`SIGNING_RECOVERY` is the whole table
+* :class:`InMemoryReplayStore` for single-process deployments;
+  :class:`PgReplayStore` (behind ``[pg]`` extra) for multi-worker
+
+**Governance agents**:
+
+* :class:`CachingRevocationChecker` — fetches + caches a signed
+  revocation list from ``{issuer}/.well-known/governance-revocations.json``
+* Async variants: :class:`AsyncCachingJwksResolver`,
+  :class:`AsyncCachingRevocationChecker`
+
+**Custom fetchers** (rolling your own JWKS / revocation transport):
+
+* :func:`build_ip_pinned_transport` /
+  :func:`build_async_ip_pinned_transport` — returns an
+  :class:`httpx.HTTPTransport` wired to resolve the URI's host once
+  (with SSRF validation) and pin subsequent connects to that IP.
+  Closes the DNS-rebinding TOCTOU for anything built on
+  :class:`httpx.Client`.
+* :func:`build_ip_pinned_transport2` /
+  :func:`build_async_ip_pinned_transport2` — the same pin for the
+  ``httpx2`` generation, which MCP SDK v2 runs on. Use these for an
+  :class:`httpx2.Client` / :class:`httpx2.AsyncClient`, including an
+  MCP ``httpx_client_factory``.
+* :func:`resolve_and_validate_host` — returns ``(host, ip, port)``;
+  same SSRF rules as :func:`validate_jwks_uri`. Use this if you're
+  wiring your own transport and only need the resolved + validated
+  IP.
+* :func:`validate_uri_static` / :func:`validate_resolved_ip` — the
+  DNS-free registration check and resolved-address policy as separate
+  primitives for applications that resolve only when they dial.
+
+Each of those that inspects an address — everything above except
+:func:`validate_uri_static`, which is the DNS-free scheme, host and
+port half — takes two independent relaxations, both off by default.
+``allow_private`` admits RFC 1918, RFC 4193 unique-local and loopback
+destinations: a test's own origin, a container bridge, an on-prem
+service. ``allow_special_use`` admits the rest of the blocked set,
+among it link-local, multicast, the unspecified address, documentation
+and benchmarking space, RFC 6598 carrier-grade NAT, and the IANA
+anycast and identifier ranges. Enabling private destinations leaves the
+special-use ranges refused. Cloud metadata endpoints are refused under
+both.
+"""
+
+from __future__ import annotations
+
+from adcp.signing.agent_resolver import (
+    AgentResolution,
+    AgentResolverError,
+    AgentResolverErrorCode,
+    TraceEntry,
+    async_resolve_agent,
+    request_signature_code,
+    resolve_agent,
+    verify_from_agent_url,
+)
+from adcp.signing.autosign import (
+    SigningConfig,
+    SigningDecision,
+    operation_needs_signing,
+    signing_profile_for_adcp_version,
+)
+from adcp.signing.brand_authz import (
+    BrandAuthorizationReason,
+    BrandAuthorizationResolver,
+    BrandAuthorizationResult,
+    BrandJsonAuthorizationResolver,
+    build_brand_json_resolvers,
+)
+from adcp.signing.brand_jwks import (
+    BrandAgentType,
+    BrandJsonJwksResolver,
+    BrandJsonResolverError,
+    BrandJsonResolverErrorCode,
+)
+from adcp.signing.canonical import (
+    SignatureInputLabel,
+    build_signature_base,
+    canonicalize_authority,
+    canonicalize_target_uri,
+    malformed_authority_reason,
+    parse_signature_input_header,
+)
+from adcp.signing.capability_cache import (
+    CachedCapability,
+    CapabilityCache,
+    build_capability_cache_key,
+    default_capability_cache,
+)
+from adcp.signing.capability_priming import (
+    CAPABILITY_OP,
+    NEGATIVE_CACHE_TTL_SECONDS,
+    ensure_capability_loaded,
+)
+from adcp.signing.client import (
+    CapabilityProvider,
+    install_signing_event_hook,
+    signing_operation,
+)
+from adcp.signing.constants import (
+    DEFAULT_EXPIRES_IN_SECONDS,
+    DEFAULT_SKEW_SECONDS,
+    DEFAULT_TAG,
+    MAX_WINDOW_SECONDS,
+    NONCE_BYTES,
+    SIG_LABEL_DEFAULT,
+)
+from adcp.signing.crypto import (
+    ALG_ED25519,
+    ALG_ES256,
+    ALLOWED_ALGS,
+    alg_for_jwk,
+    b64url_decode,
+    b64url_encode,
+    extract_signature_bytes,
+    format_signature_header,
+    load_private_key_pem,
+    private_key_from_jwk,
+    public_key_from_jwk,
+    sign_signature_base,
+    verify_signature,
+)
+from adcp.signing.digest import compute_content_digest_sha256, content_digest_matches
+from adcp.signing.errors import (
+    REQUEST_BODY_MALFORMED,
+    REQUEST_SIGNATURE_AGENT_NOT_IN_BRAND_JSON,
+    REQUEST_SIGNATURE_ALG_NOT_ALLOWED,
+    REQUEST_SIGNATURE_BRAND_JSON_AMBIGUOUS,
+    REQUEST_SIGNATURE_BRAND_JSON_MALFORMED,
+    REQUEST_SIGNATURE_BRAND_JSON_UNREACHABLE,
+    REQUEST_SIGNATURE_BRAND_JSON_URL_MISSING,
+    REQUEST_SIGNATURE_BRAND_ORIGIN_MISMATCH,
+    REQUEST_SIGNATURE_CAPABILITIES_UNREACHABLE,
+    REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE,
+    REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED,
+    REQUEST_SIGNATURE_DIGEST_MISMATCH,
+    REQUEST_SIGNATURE_HEADER_MALFORMED,
+    REQUEST_SIGNATURE_INVALID,
+    REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+    REQUEST_SIGNATURE_JWKS_UNTRUSTED,
+    REQUEST_SIGNATURE_KEY_ORIGIN_MISMATCH,
+    REQUEST_SIGNATURE_KEY_ORIGIN_MISSING,
+    REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+    REQUEST_SIGNATURE_KEY_REVOKED,
+    REQUEST_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_PARAMS_INCOMPLETE,
+    REQUEST_SIGNATURE_RATE_ABUSE,
+    REQUEST_SIGNATURE_REPLAYED,
+    REQUEST_SIGNATURE_REQUIRED,
+    REQUEST_SIGNATURE_REVOCATION_STALE,
+    REQUEST_SIGNATURE_TAG_INVALID,
+    REQUEST_SIGNATURE_WINDOW_INVALID,
+    SIGNING_RECOVERY,
+    SignatureVerificationError,
+    recovery_for,
+    signature_challenge,
+)
+from adcp.signing.etld import (
+    BrandDomainValidationError,
+    host_from,
+    is_development_brand_domain,
+    registrable_domain,
+    same_development_brand_domain,
+    same_registrable_domain,
+    validate_brand_domain,
+)
+from adcp.signing.ip_pinned_transport import (
+    AsyncIpPinnedTransport,
+    AsyncIpPinnedTransport2,
+    IpPinnedTransport,
+    IpPinnedTransport2,
+    abuild_ip_pinned_transport,
+    build_async_ip_pinned_transport,
+    build_async_ip_pinned_transport2,
+    build_ip_pinned_transport,
+    build_ip_pinned_transport2,
+)
+from adcp.signing.jwks import (
+    DEFAULT_ALLOWED_PORTS,
+    AsyncCachingJwksResolver,
+    AsyncJwksFetcher,
+    AsyncJwksResolver,
+    BrandSourcedJwksResolver,
+    CachingJwksResolver,
+    JwksResolver,
+    SSRFValidationError,
+    StaticJwksResolver,
+    as_async_resolver,
+    async_default_jwks_fetcher,
+    default_jwks_fetcher,
+    resolve_and_validate_host,
+    validate_jwks_uri,
+    validate_resolved_ip,
+    validate_uri_static,
+)
+from adcp.signing.jws import (
+    JwsError,
+    JwsMalformedError,
+    JwsSignatureInvalidError,
+    JwsUnknownKeyError,
+    averify_detached_jws,
+    averify_jws_document,
+    verify_detached_jws,
+    verify_jws_document,
+)
+from adcp.signing.key_origins import check_key_origin_consistency
+from adcp.signing.keygen import generate_signing_keypair, pem_to_adcp_jwk
+from adcp.signing.middleware import (
+    unauthorized_response_headers,
+    verify_flask_request,
+    verify_starlette_request,
+)
+from adcp.signing.provider import (
+    InMemorySigningProvider,
+    SigningAlgorithm,
+    SigningProvider,
+)
+from adcp.signing.replay import (
+    AtomicReplayStore,
+    InMemoryReplayStore,
+    ReplayClaimResult,
+    ReplayStore,
+    supports_atomic_claim,
+)
+from adcp.signing.revocation import RevocationChecker, RevocationList
+from adcp.signing.revocation_fetcher import (
+    DEFAULT_GRACE_MULTIPLIER,
+    REVOCATION_LIST_TYP,
+    AsyncCachingRevocationChecker,
+    AsyncRevocationListFetcher,
+    CachingRevocationChecker,
+    FetchResult,
+    RevocationListFetcher,
+    RevocationListFetchError,
+    RevocationListFreshnessError,
+    RevocationListParseError,
+    async_default_revocation_list_fetcher,
+    default_revocation_list_fetcher,
+)
+from adcp.signing.signer import (
+    SignedHeaders,
+    async_sign_request,
+    sign_request,
+)
+from adcp.signing.signer_keys import (
+    JwksUriSignerKeys,
+    ResolvedSignerKey,
+    SignerKeyResolver,
+    StaticSignerKeys,
+)
+from adcp.signing.standard_webhooks import (
+    StandardWebhookError,
+    sign_standard_webhook,
+    verify_standard_webhook,
+)
+from adcp.signing.standard_webhooks import (
+    decode_secret as decode_standard_webhook_secret,
+)
+from adcp.signing.verifier import (
+    RequestBodyMalformedError,
+    SigningProfileVersion,
+    VerifiedSigner,
+    VerifierCapability,
+    VerifyOptions,
+    strict_header_precheck,
+    verify_request_signature,
+)
+
+# Conditional import: PgReplayStore needs the [pg] extra. Always expose
+# the name — if psycopg isn't installed we fall through to a stub class
+# whose constructor raises ImportError with the install hint. Exposing
+# None would give callers a confusing ``TypeError: 'NoneType' object is
+# not callable`` on instantiation; the stub turns that into a
+# self-explanatory error at the right moment.
+try:
+    from adcp.signing.pg import PgReplayStore  # noqa: F401
+except ImportError:  # pragma: no cover — exercised by the [pg] extra tests
+
+    class PgReplayStore:  # type: ignore[no-redef]
+        """Stub raised when ``adcp[pg]`` isn't installed.
+
+        Attempting to instantiate raises :class:`ImportError` with the
+        install-hint text from :mod:`adcp.signing.pg.replay_store`.
+        """
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            raise ImportError(
+                "PgReplayStore requires psycopg3 and psycopg-pool. Install the "
+                "'pg' extra: `pip install 'adcp[pg]'` (Poetry: "
+                "`poetry add 'adcp[pg]'`)."
+            )
+
+
+__all__ = [
+    "JwksUriSignerKeys",
+    "ResolvedSignerKey",
+    "SignerKeyResolver",
+    "StaticSignerKeys",
+    "ALG_ED25519",
+    "ALG_ES256",
+    "ALLOWED_ALGS",
+    "AgentResolution",
+    "AgentResolverError",
+    "AgentResolverErrorCode",
+    "AsyncCachingJwksResolver",
+    "AsyncCachingRevocationChecker",
+    "AsyncIpPinnedTransport",
+    "AsyncIpPinnedTransport2",
+    "AsyncJwksFetcher",
+    "AsyncJwksResolver",
+    "AsyncRevocationListFetcher",
+    "AtomicReplayStore",
+    "BrandAgentType",
+    "BrandAuthorizationReason",
+    "BrandAuthorizationResolver",
+    "BrandAuthorizationResult",
+    "BrandJsonAuthorizationResolver",
+    "BrandJsonJwksResolver",
+    "BrandSourcedJwksResolver",
+    "BrandJsonResolverError",
+    "BrandJsonResolverErrorCode",
+    "CAPABILITY_OP",
+    "CachedCapability",
+    "CachingJwksResolver",
+    "CachingRevocationChecker",
+    "CapabilityCache",
+    "CapabilityProvider",
+    "DEFAULT_ALLOWED_PORTS",
+    "DEFAULT_EXPIRES_IN_SECONDS",
+    "DEFAULT_GRACE_MULTIPLIER",
+    "DEFAULT_SKEW_SECONDS",
+    "DEFAULT_TAG",
+    "FetchResult",
+    "InMemoryReplayStore",
+    "InMemorySigningProvider",
+    "IpPinnedTransport",
+    "IpPinnedTransport2",
+    "JwksResolver",
+    "JwsError",
+    "JwsMalformedError",
+    "JwsSignatureInvalidError",
+    "JwsUnknownKeyError",
+    "MAX_WINDOW_SECONDS",
+    "NEGATIVE_CACHE_TTL_SECONDS",
+    "NONCE_BYTES",
+    "PgReplayStore",
+    "REQUEST_BODY_MALFORMED",
+    "REQUEST_SIGNATURE_AGENT_NOT_IN_BRAND_JSON",
+    "REQUEST_SIGNATURE_ALG_NOT_ALLOWED",
+    "REQUEST_SIGNATURE_BRAND_JSON_AMBIGUOUS",
+    "REQUEST_SIGNATURE_BRAND_JSON_MALFORMED",
+    "REQUEST_SIGNATURE_BRAND_JSON_UNREACHABLE",
+    "REQUEST_SIGNATURE_BRAND_JSON_URL_MISSING",
+    "REQUEST_SIGNATURE_BRAND_ORIGIN_MISMATCH",
+    "REQUEST_SIGNATURE_CAPABILITIES_UNREACHABLE",
+    "REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE",
+    "REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED",
+    "REQUEST_SIGNATURE_DIGEST_MISMATCH",
+    "REQUEST_SIGNATURE_HEADER_MALFORMED",
+    "REQUEST_SIGNATURE_INVALID",
+    "REQUEST_SIGNATURE_JWKS_UNAVAILABLE",
+    "REQUEST_SIGNATURE_JWKS_UNTRUSTED",
+    "REQUEST_SIGNATURE_KEY_ORIGIN_MISMATCH",
+    "REQUEST_SIGNATURE_KEY_ORIGIN_MISSING",
+    "REQUEST_SIGNATURE_KEY_PURPOSE_INVALID",
+    "REQUEST_SIGNATURE_KEY_REVOKED",
+    "REQUEST_SIGNATURE_KEY_UNKNOWN",
+    "REQUEST_SIGNATURE_PARAMS_INCOMPLETE",
+    "REQUEST_SIGNATURE_RATE_ABUSE",
+    "REQUEST_SIGNATURE_REPLAYED",
+    "REQUEST_SIGNATURE_REQUIRED",
+    "REQUEST_SIGNATURE_REVOCATION_STALE",
+    "REQUEST_SIGNATURE_TAG_INVALID",
+    "REQUEST_SIGNATURE_WINDOW_INVALID",
+    "REVOCATION_LIST_TYP",
+    "SIGNING_RECOVERY",
+    "ReplayStore",
+    "RequestBodyMalformedError",
+    "ReplayClaimResult",
+    "supports_atomic_claim",
+    "RevocationChecker",
+    "RevocationList",
+    "RevocationListFetchError",
+    "RevocationListFetcher",
+    "RevocationListFreshnessError",
+    "RevocationListParseError",
+    "SIG_LABEL_DEFAULT",
+    "SSRFValidationError",
+    "SignatureInputLabel",
+    "SignatureVerificationError",
+    "SignedHeaders",
+    "StandardWebhookError",
+    "SigningAlgorithm",
+    "SigningConfig",
+    "SigningDecision",
+    "SigningProvider",
+    "SigningProfileVersion",
+    "StaticJwksResolver",
+    "TraceEntry",
+    "VerifiedSigner",
+    "VerifierCapability",
+    "VerifyOptions",
+    "alg_for_jwk",
+    "abuild_ip_pinned_transport",
+    "as_async_resolver",
+    "async_default_jwks_fetcher",
+    "async_default_revocation_list_fetcher",
+    "async_resolve_agent",
+    "async_sign_request",
+    "averify_detached_jws",
+    "averify_jws_document",
+    "b64url_decode",
+    "b64url_encode",
+    "build_async_ip_pinned_transport",
+    "build_async_ip_pinned_transport2",
+    "build_brand_json_resolvers",
+    "build_capability_cache_key",
+    "build_ip_pinned_transport",
+    "build_ip_pinned_transport2",
+    "build_signature_base",
+    "BrandDomainValidationError",
+    "canonicalize_authority",
+    "canonicalize_target_uri",
+    "check_key_origin_consistency",
+    "compute_content_digest_sha256",
+    "content_digest_matches",
+    "decode_standard_webhook_secret",
+    "default_capability_cache",
+    "default_jwks_fetcher",
+    "default_revocation_list_fetcher",
+    "ensure_capability_loaded",
+    "extract_signature_bytes",
+    "format_signature_header",
+    "generate_signing_keypair",
+    "host_from",
+    "is_development_brand_domain",
+    "install_signing_event_hook",
+    "load_private_key_pem",
+    "malformed_authority_reason",
+    "operation_needs_signing",
+    "parse_signature_input_header",
+    "pem_to_adcp_jwk",
+    "private_key_from_jwk",
+    "public_key_from_jwk",
+    "recovery_for",
+    "registrable_domain",
+    "request_signature_code",
+    "resolve_agent",
+    "resolve_and_validate_host",
+    "validate_resolved_ip",
+    "validate_uri_static",
+    "same_registrable_domain",
+    "same_development_brand_domain",
+    "sign_request",
+    "sign_signature_base",
+    "signing_profile_for_adcp_version",
+    "sign_standard_webhook",
+    "signature_challenge",
+    "signing_operation",
+    "strict_header_precheck",
+    "unauthorized_response_headers",
+    "validate_jwks_uri",
+    "validate_brand_domain",
+    "verify_detached_jws",
+    "verify_flask_request",
+    "verify_from_agent_url",
+    "verify_jws_document",
+    "verify_request_signature",
+    "verify_signature",
+    "verify_standard_webhook",
+    "verify_starlette_request",
+]

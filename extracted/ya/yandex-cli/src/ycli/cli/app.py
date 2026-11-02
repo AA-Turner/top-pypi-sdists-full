@@ -1,0 +1,159 @@
+"""``ycli`` root CLI — mounts each domain's sub-app. Domain logic lives in <domain>/cli.py.
+
+Run a subcommand directly: ``uv run ycli wiki pages get <slug>`` (or ``python -m ycli.cli``).
+"""
+
+import logging
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from ycli.cli.exit_codes import exit_codes_summary
+from ycli.cli.formats import OutputFormat
+from ycli.cli.lazy import RootGroup, SubApp
+from ycli.cli.typedefs import (
+    BodyFileOption,
+    DryRunOption,
+    FieldOption,
+    FormatOption,
+    ProfileOption,
+    YesOption,
+)
+from ycli.yandex.registry import SERVICES, about, start_command
+
+
+class _Ycli(RootGroup):
+    """The root group: every service, then the tooling sub-apps, each imported on first use."""
+
+    sub_apps = (
+        *(SubApp(service.name, service.help, service.cli) for service in SERVICES),
+        SubApp("auth", "Inspect and obtain Yandex 360 credentials.", "ycli.yandex.status.cli:app"),
+        SubApp("mcp", "MCP server control (reads + writes).", "ycli.mcp.cli:app"),
+        SubApp("sync", "Yandex 360 content as files in git.", "ycli.cli.sync:app"),
+        SubApp(
+            "doctor",
+            "Check what a working call needs and say what to fix.",
+            "ycli.yandex.status.cli:doctor_app",
+            command=True,
+        ),
+        SubApp(
+            "api",
+            "Call any API endpoint ycli has not wrapped, like `gh api`.",
+            "ycli.cli.api:app",
+            command=True,
+        ),
+    )
+
+
+def _render(
+    result: object,
+    output_format: OutputFormat | None,
+    yes: bool,
+    dry_run: bool,
+    profile: str | None,
+    field: list[str] | None,
+    body_file: Path | None,
+    verbose: int,
+    version: bool,
+) -> None:
+    """Print whatever the command returned; Click passes the root options alongside it."""
+    from ycli.cli.output import render
+
+    render(result, output_format or OutputFormat.auto)
+
+
+def _header() -> str:
+    """What `ycli --help` says first: each service in the words the MCP server says of it."""
+    services = "\n\n".join(
+        f"{service.name} — {about(service)}; start with `{start_command(service)}`."
+        for service in SERVICES
+    )
+    return f"ycli — Yandex 360 API SDK CLI.\n\n{services}"
+
+
+app = typer.Typer(
+    cls=_Ycli,
+    name="ycli",
+    help=_header(),
+    epilog=f"Exit codes: {exit_codes_summary()} (see the README).",
+    no_args_is_help=True,
+    pretty_exceptions_show_locals=False,
+    rich_markup_mode="rich",
+    result_callback=_render,
+)
+
+
+def _version_callback(value: bool) -> None:
+    """Eager ``--version``: print the installed version and exit before any command runs."""
+    if value:
+        from ycli import __version__
+
+        # violation(arch-4): eager, it runs before any command, so there is no result to return;
+        # through output.render `--version` would import yaml, rich and pydantic first
+        typer.echo(__version__)
+        raise typer.Exit
+
+
+@app.callback()
+def _main(
+    ctx: typer.Context,
+    output_format: FormatOption = OutputFormat.auto,
+    yes: YesOption = False,
+    dry_run: DryRunOption = False,
+    profile: ProfileOption = None,
+    field: FieldOption = None,
+    body_file: BodyFileOption = None,
+    verbose: Annotated[
+        int,
+        typer.Option(
+            "--verbose",
+            "-v",
+            count=True,
+            help="Log to stderr: -v shows HTTP requests, -vv adds debug detail.",
+        ),
+    ] = 0,
+    version: Annotated[  # consumed by the eager _version_callback, not this body
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show the installed ycli version and exit.",
+        ),
+    ] = False,
+) -> None:
+    """Declare the global options, configure logging, build the AppContext."""
+    from ycli.cli.context import AppContext
+    from ycli.log import LogLevel, configure
+    from ycli.settings import AppConfig
+
+    # A caller (a test, an embedding app) may hand in its own context; otherwise build one.
+    if ctx.obj is None:
+        ctx.obj = AppContext(config=AppConfig())
+    # Shared, not copied: a leaf's own ``--yes`` lands in this mapping after this body has run.
+    ctx.obj.options = ctx.params
+    logging_config = ctx.obj.config.logging
+    level = logging_config.level
+    if verbose:  # -v only ever makes the configured level more verbose
+        level = min(
+            level,
+            LogLevel.INFO if verbose == 1 else LogLevel.DEBUG,
+            key=logging.getLevelNamesMapping().__getitem__,
+        )
+    configure(level=level, log_format=logging_config.format)
+
+
+def main() -> None:
+    """Console-script entry point (``ycli`` / ``yandex-cli``): a failure exits by its kind."""
+    from pydantic import ValidationError
+
+    from ycli.cli.errors import exit_code_for, format_cli_error
+    from ycli.settings import ProfileError
+    from ycli.yandex.errors import YandexError
+
+    try:
+        app()
+    except (YandexError, ValidationError, ProfileError) as exc:
+        typer.secho(format_cli_error(exc), fg=typer.colors.RED, err=True)
+        raise SystemExit(exit_code_for(exc)) from exc

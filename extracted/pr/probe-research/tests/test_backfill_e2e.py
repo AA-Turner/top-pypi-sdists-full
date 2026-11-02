@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_index as idx
-from probe.cli import backfill_plan as bp
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.walk import index as idx
+from probe.cli.imports.folder.classify import plan as bp
 
 
 def _write(root: Path, rel: str, text: str = "x") -> None:

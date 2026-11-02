@@ -1,0 +1,195 @@
+use std::ops::Deref;
+use std::time::Duration;
+
+use chrono::NaiveDate;
+use chrono_tz::Tz;
+use pyo3::prelude::*;
+use tapo::PlugEnergyMonitoringHandler;
+use tapo::requests::{EnergyDataInterval, PowerDataInterval, ScheduleRule};
+use tapo::responses::{
+    CurrentPowerResult, DeviceInfoPlugEnergyMonitoringResult, DeviceUsageEnergyMonitoringResult,
+    EnergyDataResult, EnergyMeterDataResult, EnergyUsageResult, PowerDataResult, PowerState,
+    ScheduleRuleResult, Timer, TimezoneResult,
+};
+
+use crate::call_handler_method;
+use crate::requests::{PyEnergyDataInterval, PyPowerDataInterval};
+use crate::utc_date_time::UtcDateTime;
+
+py_handler! {
+    PyPlugEnergyMonitoringHandler(PlugEnergyMonitoringHandler, DeviceInfoPlugEnergyMonitoringResult),
+    py_name = "PlugEnergyMonitoringHandler",
+    on_off,
+    device_management,
+    device_usage = DeviceUsageEnergyMonitoringResult,
+}
+
+#[pymethods]
+impl PyPlugEnergyMonitoringHandler {
+    pub async fn get_current_power(&self) -> PyResult<CurrentPowerResult> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_current_power,
+        )
+    }
+
+    #[pyo3(signature = (interval, start_date, end_date=None, timezone=None))]
+    pub async fn get_energy_data(
+        &self,
+        interval: PyEnergyDataInterval,
+        start_date: NaiveDate,
+        end_date: Option<NaiveDate>,
+        timezone: Option<Tz>,
+    ) -> PyResult<EnergyDataResult> {
+        let interval = match interval {
+            PyEnergyDataInterval::Hourly => EnergyDataInterval::Hourly {
+                start_date,
+                end_date: end_date.unwrap_or(start_date),
+            },
+            PyEnergyDataInterval::Daily => EnergyDataInterval::Daily { start_date },
+            PyEnergyDataInterval::Monthly => EnergyDataInterval::Monthly { start_date },
+        };
+
+        let handler = self.inner.clone();
+        let result = call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_energy_data,
+            interval,
+            timezone
+        )?;
+        Ok(result)
+    }
+
+    pub async fn get_energy_meter_data(&self) -> PyResult<EnergyMeterDataResult> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_energy_meter_data,
+        )
+    }
+
+    pub async fn get_energy_usage(&self) -> PyResult<EnergyUsageResult> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_energy_usage,
+        )
+    }
+
+    pub async fn get_power_data(
+        &self,
+        interval: PyPowerDataInterval,
+        start_date_time: UtcDateTime,
+        end_date_time: UtcDateTime,
+    ) -> PyResult<PowerDataResult> {
+        let interval = match interval {
+            PyPowerDataInterval::Every5Minutes => PowerDataInterval::Every5Minutes {
+                start_date_time: start_date_time.0,
+                end_date_time: end_date_time.0,
+            },
+            PyPowerDataInterval::Hourly => PowerDataInterval::Hourly {
+                start_date_time: start_date_time.0,
+                end_date_time: end_date_time.0,
+            },
+        };
+
+        let handler = self.inner.clone();
+        let result = call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_power_data,
+            interval
+        )?;
+        Ok(result)
+    }
+
+    pub async fn get_timezone(&self) -> PyResult<TimezoneResult> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_timezone,
+        )
+    }
+
+    pub async fn set_timer(
+        &self,
+        delay_seconds: u32,
+        desired_state: PowerState,
+    ) -> PyResult<Timer> {
+        let delay = Duration::from_secs(delay_seconds.into());
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::set_timer,
+            delay,
+            desired_state
+        )
+    }
+
+    pub async fn get_timer(&self) -> PyResult<Option<Timer>> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_timer
+        )
+    }
+
+    pub async fn clear_timer(&self) -> PyResult<()> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::clear_timer
+        )
+    }
+
+    pub async fn add_schedule_rule(&self, rule: ScheduleRule) -> PyResult<ScheduleRuleResult> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::add_schedule_rule,
+            rule
+        )
+    }
+
+    pub async fn edit_schedule_rule(&self, rule: ScheduleRule) -> PyResult<()> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::edit_schedule_rule,
+            rule
+        )
+    }
+
+    pub async fn get_schedule_rules(&self) -> PyResult<Vec<ScheduleRuleResult>> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_schedule_rules
+        )
+    }
+
+    pub async fn get_max_schedule_rules(&self) -> PyResult<u32> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::get_max_schedule_rules
+        )
+    }
+
+    pub async fn remove_schedule_rule(&self, id: String) -> PyResult<()> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::remove_schedule_rule,
+            id
+        )
+    }
+
+    pub async fn remove_all_schedule_rules(&self) -> PyResult<()> {
+        let handler = self.inner.clone();
+        call_handler_method!(
+            handler.read().await.deref(),
+            PlugEnergyMonitoringHandler::remove_all_schedule_rules
+        )
+    }
+}

@@ -12,7 +12,9 @@ from prompt_toolkit.data_structures import Size
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from probe.cli import import_jobs, import_jobs_ui as ui, tui
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.imports.jobs import ui as ui
+from probe.cli.wizard import terminal as tui
 from tests.test_setup_wizard import _caps, isolate  # noqa: F401 -- isolated wizard state
 
 # Every test here drives a prompt_toolkit app session and asserts on the frames
@@ -43,18 +45,18 @@ def jobs(monkeypatch):
         _job("b" * 32, import_jobs.Kind.FOLDER, "Folder · research", import_jobs.State.FAILED),
     ]
     saved[1]["error"] = "Restore the approved folder before resuming."
-    monkeypatch.setattr(import_jobs, "list_jobs", lambda: saved)
-    monkeypatch.setattr(import_jobs, "get_job", lambda job_id: next(
+    monkeypatch.setattr(import_jobs.jobs, "list_jobs", lambda: saved)
+    monkeypatch.setattr(import_jobs.jobs, "get_job", lambda job_id: next(
         job for job in saved if job["id"] == job_id
     ))
-    monkeypatch.setattr(import_jobs, "recover_jobs", lambda: [])
+    monkeypatch.setattr(import_jobs.jobs, "recover_jobs", lambda: [])
 
     def forbidden(*args, **kwargs):
         pytest.fail("Viewing imports must not enqueue or explicitly restart an import")
 
-    monkeypatch.setattr(import_jobs, "enqueue", forbidden)
-    monkeypatch.setattr(import_jobs, "resume", forbidden)
-    monkeypatch.setattr(import_jobs, "cancel", forbidden)
+    monkeypatch.setattr(import_jobs.jobs, "enqueue", forbidden)
+    monkeypatch.setattr(import_jobs.jobs, "resume", forbidden)
+    monkeypatch.setattr(import_jobs.jobs, "cancel", forbidden)
     return saved
 
 
@@ -64,7 +66,7 @@ def test_monitor_shows_both_import_kinds_and_returns_to_menu_without_stopping_th
 ):
     original = deepcopy(jobs)
     recovery = []
-    monkeypatch.setattr(import_jobs, "recover_jobs", lambda: recovery.append(True))
+    monkeypatch.setattr(import_jobs.jobs, "recover_jobs", lambda: recovery.append(True))
 
     def review(title, lines, choices, **kwargs):
         assert title == "Your imports" and callable(lines)
@@ -79,7 +81,7 @@ def test_monitor_shows_both_import_kinds_and_returns_to_menu_without_stopping_th
         ]
         return ui.Navigation.MENU
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     assert ui.show_imports(onboarding=onboarding) is ui.Navigation.MENU
     assert jobs == original
     assert recovery == [True]
@@ -104,7 +106,7 @@ def test_monitor_keeps_verbose_notices_behind_the_details_action(monkeypatch, jo
         assert all(notice in rendered for notice in notices)
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     assert ui.show_imports(onboarding=True, notices=notices) is ui.Navigation.MENU
     assert len(pages) == 3
 
@@ -134,7 +136,7 @@ def test_expired_completion_stays_in_details_but_not_overview(monkeypatch, jobs)
         assert "1154/1154" in "\n".join(lines())
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert seen_details == [completed["label"]]
     assert jobs == original
@@ -180,8 +182,16 @@ def test_folder_scan_advances_to_importing_in_the_same_live_bar(monkeypatch, job
 
 
 def test_compact_monitor_stays_at_two_bars_with_many_jobs_and_failures(monkeypatch, jobs):
-    monkeypatch.setattr(tui, "columns", lambda: 80)
-    monkeypatch.setattr(tui, "rows", lambda: 24)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: 80)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: 80)
+    monkeypatch.setattr(tui.layout, "columns", lambda: 80)
+    monkeypatch.setattr(tui.progress, "columns", lambda: 80)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: 80)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 24)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 24)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 24)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 24)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 24)
     jobs.extend(_job(str(index) * 32, import_jobs.Kind.TRANSCRIPTS, f"Earlier import {index}",
                      import_jobs.State.QUEUED) for index in range(3, 8))
     jobs.append(_job("f" * 32, import_jobs.Kind.TRANSCRIPTS, "Failed session import", import_jobs.State.FAILED))
@@ -262,8 +272,8 @@ def test_opening_details_and_resuming_retains_the_original_job_id(monkeypatch, j
             return ui.Navigation.BACK
         return ui.Navigation.MENU
 
-    monkeypatch.setattr(import_jobs, "resume", resume)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "resume", resume)
+    monkeypatch.setattr(tui.forms, "review", review)
     assert ui.show_imports() is ui.Navigation.MENU
     assert resumed == [target["id"]]
     assert calls == ["Your imports", "Existing imports", target["label"],
@@ -296,7 +306,7 @@ def test_copy_log_path_from_actions_or_document_keeps_details_open(monkeypatch, 
             return target["id"]
         return review(title, lines, choices, **kwargs)
 
-    monkeypatch.setattr(tui, "review", open_details)
+    monkeypatch.setattr(tui.forms, "review", open_details)
     _, frames = _run(
         monkeypatch, ["c", "\t", "C", "\x1b"], width=80, height=24,
         render=ui._choose_import,
@@ -356,8 +366,8 @@ def test_job_that_fails_while_details_are_open_can_resume_without_leaving(monkey
         assert "Importing" in "\n".join(lines())
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(import_jobs, "resume", resume)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "resume", resume)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert resumed == [target["id"]]
     assert len(detail_visits) == 2
@@ -384,7 +394,7 @@ def test_active_or_complete_job_does_not_offer_resume(monkeypatch, jobs, state, 
         assert not any(value is ui.Navigation.RESUME for _, value in _choices(choices))
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert target == original
     assert len(detail_visits) == 1
@@ -401,7 +411,7 @@ def test_live_detail_removes_resume_and_focuses_back_when_worker_restarts(monkey
             return target["id"]
         return review(title, lines, choices, **kwargs)
 
-    monkeypatch.setattr(tui, "review", open_details)
+    monkeypatch.setattr(tui.forms, "review", open_details)
     _, frames = _run(
         monkeypatch, ["", lambda: target.update(state=import_jobs.State.RUNNING, error=None), "\r"],
         width=100, height=32, render=ui._choose_import,
@@ -432,8 +442,8 @@ def test_live_detail_adds_resume_when_worker_stops(monkeypatch, jobs):
             keys[:] = ["\x1b"]
         return review(title, lines, choices, **kwargs)
 
-    monkeypatch.setattr(import_jobs, "resume", resume)
-    monkeypatch.setattr(tui, "review", open_details)
+    monkeypatch.setattr(import_jobs.jobs, "resume", resume)
+    monkeypatch.setattr(tui.forms, "review", open_details)
     _, frames = _run(monkeypatch, keys, width=100, height=32, render=ui._choose_import)
     assert "Resume import" not in "\n".join(frames[0])
     failed = "\n".join(frames[1])
@@ -459,7 +469,7 @@ def test_stale_resume_selection_cannot_restart_active_complete_or_canceling_impo
         assert not any(value is ui.Navigation.RESUME for _, value in _choices(choices))
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert len(visits) == 2
 
@@ -479,7 +489,7 @@ def test_cancel_from_detail_menu_keeps_progress_and_other_imports(monkeypatch, j
         target["progress"]["message"] = "Import canceled. Already imported work is kept."
         return target
 
-    monkeypatch.setattr(import_jobs, "cancel", cancel)
+    monkeypatch.setattr(import_jobs.jobs, "cancel", cancel)
     review = tui.review
     keys = (["\x1b[B"] if job_index == 1 else []) + ["\r"]
 
@@ -491,7 +501,7 @@ def test_cancel_from_detail_menu_keeps_progress_and_other_imports(monkeypatch, j
             keys[:] = ["\x1b"]
         return review(title, lines, choices, **kwargs)
 
-    monkeypatch.setattr(tui, "review", open_details)
+    monkeypatch.setattr(tui.forms, "review", open_details)
     _, frames = _run(
         monkeypatch, keys, width=90, height=30,
         render=ui._choose_import,
@@ -522,7 +532,7 @@ def test_unfinished_import_details_offer_cancel(monkeypatch, jobs, state, job_in
         assert "W&B" not in "\n".join(lines())
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
 
 
@@ -542,7 +552,7 @@ def test_terminal_import_details_do_not_offer_cancel(monkeypatch, jobs, state, j
         assert "W&B" not in "\n".join(lines())
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
 
 
@@ -565,8 +575,8 @@ def test_canceled_import_can_resume_only_when_chosen(monkeypatch, jobs):
         assert "Importing" in "\n".join(lines())
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(import_jobs, "resume", resume)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "resume", resume)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert resumed == [target["id"]]
 
@@ -589,7 +599,7 @@ def test_finishing_while_cancel_is_selected_keeps_the_completed_result(monkeypat
         assert not any(value == ui.Navigation.CANCEL for _, value in _choices(choices))
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert len(visits) == 2
 
@@ -612,8 +622,8 @@ def test_cancel_failure_shows_reason_without_claiming_success(monkeypatch, jobs)
         assert "still stopping" in "\n".join(lines)
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(import_jobs, "cancel", cancel)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "cancel", cancel)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert pages[-1] == "Import needs attention"
     assert target == original
@@ -634,8 +644,8 @@ def test_unreadable_job_opens_an_error_page_without_a_resume_action(monkeypatch,
         assert not any(value is ui.Navigation.RESUME for _, value in _choices(choices))
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(import_jobs, "get_job", unreadable)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "get_job", unreadable)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
     assert calls == ["Existing imports", "Import needs attention"]
 
@@ -648,7 +658,7 @@ def test_live_detail_displays_an_unreadable_record_notice_without_crashing(monke
         if title == "Existing imports":
             return jobs[0]["id"]
         assert "Importing" in "\n".join(lines())
-        monkeypatch.setattr(import_jobs, "get_job", unreadable)
+        monkeypatch.setattr(import_jobs.jobs, "get_job", unreadable)
         rendered = "\n".join(lines())
         assert "Import details are unavailable" in rendered
         assert "could not be read" in rendered
@@ -656,7 +666,7 @@ def test_live_detail_displays_an_unreadable_record_notice_without_crashing(monke
         assert _choices(choices) == [("Back to all imports", ui.Navigation.BACK)]
         return ui.Navigation.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui._choose_import()
 
 
@@ -667,9 +677,22 @@ def test_monitor_refreshes_progress_without_a_keypress_or_page_change(monkeypatc
         def get_size(self):
             return Size(rows=height, columns=width)
 
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "columns", lambda: width)
-    monkeypatch.setattr(tui, "rows", lambda: height)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: width)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: width)
+    monkeypatch.setattr(tui.layout, "columns", lambda: width)
+    monkeypatch.setattr(tui.progress, "columns", lambda: width)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: width)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: height)
+    monkeypatch.setattr(tui.choices, "rows", lambda: height)
+    monkeypatch.setattr(tui.layout, "rows", lambda: height)
+    monkeypatch.setattr(tui.progress, "rows", lambda: height)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: height)
     frames = []
     applications = []
     original_ask = tui.ask
@@ -708,7 +731,8 @@ def test_monitor_refreshes_progress_without_a_keypress_or_page_change(monkeypatc
             app.pre_run_callables.append(lambda: app.create_background_task(drive()))
             return original_ask(question, **kwargs)
 
-        monkeypatch.setattr(tui, "ask", ask)
+        monkeypatch.setattr(tui.forms, "ask", ask)
+        monkeypatch.setattr(tui.layout, "ask", ask)
         assert ui.show_imports(onboarding=True) is ui.Navigation.MENU
 
     assert len(applications) == 1
@@ -725,11 +749,12 @@ def test_monitor_refreshes_progress_without_a_keypress_or_page_change(monkeypatc
 @pytest.mark.parametrize("navigation", [ui.Navigation.MENU, ui.Navigation.EXIT])
 def test_main_menu_import_action_uses_the_shared_monitor(monkeypatch, jobs, navigation):
     import typer
-    from probe.cli import actions, setup
+    from probe.cli.wizard.actions import onboarding as actions
+    from probe.cli import wizard as setup
 
     cli_main = importlib.import_module("probe.cli.main")
     calls = []
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     monkeypatch.setattr(ui, "show_imports", lambda **kwargs: calls.append(kwargs) or navigation)
 
     def dispatch():
@@ -753,7 +778,11 @@ def test_guided_install_finishes_with_dashboard_handoff_after_both_import_choice
     monkeypatch, jobs, open_dashboard
 ):
     from typer.testing import CliRunner
-    from probe.cli import actions, bootstrap, doctor, onboarding_complete, setup
+    from probe.cli.wizard.actions import onboarding as actions
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor
+    from probe.cli.wizard.account import onboarding_complete
+    from probe.cli import wizard as setup
     from probe.shared.harness import plugins as plugin_cli
 
     cli_main = importlib.import_module("probe.cli.main")
@@ -761,16 +790,19 @@ def test_guided_install_finishes_with_dashboard_handoff_after_both_import_choice
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_monitor_test")
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    monkeypatch.setattr(doctor, "collect", lambda: _caps(claude_available=True))
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "run_confirm_install", lambda *args, **kwargs: True)
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *args, **kwargs: set(setup.BackfillChoice))
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: _caps(claude_available=True))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.screens.confirm, "run_confirm_install", lambda *args, **kwargs: True)
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *args, **kwargs: set(setup.BackfillChoice))
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
     monkeypatch.setattr("builtins.input", lambda *args, **kwargs: pytest.fail(
         "Finishing setup must not add a press-enter pause"
     ))
-    monkeypatch.setattr(setup, "run_action_menu", lambda *args, **kwargs: events.append("menu"))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda *args, **kwargs: events.append("menu"))
 
     def apply(action, **kwargs):
         assert action in {actions.Action.CONFIGURE, actions.Action.BACKFILL}

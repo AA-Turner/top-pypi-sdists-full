@@ -1,0 +1,937 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "CardPushTransfer",
+    "Acceptance",
+    "Approval",
+    "Cancellation",
+    "CreatedBy",
+    "CreatedByAPIKey",
+    "CreatedByOAuthApplication",
+    "CreatedByUser",
+    "Decline",
+    "PresentmentAmount",
+    "Submission",
+]
+
+
+class Acceptance(BaseModel):
+    """
+    If the transfer is accepted by the recipient bank, this will contain supplemental details.
+    """
+
+    accepted_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was accepted by the issuing bank.
+    """
+
+    authorization_identification_response: str
+    """The authorization identification response from the issuing bank."""
+
+    card_verification_value2_result: Optional[Literal["match", "no_match"]] = None
+    """The result of the Card Verification Value 2 match.
+
+    - `match` - The Card Verification Value 2 (CVV2) matches the expected value.
+    - `no_match` - The Card Verification Value 2 (CVV2) does not match the expected
+      value.
+    """
+
+    network_transaction_identifier: Optional[str] = None
+    """A unique identifier for the transaction on the card network."""
+
+    settlement_amount: int
+    """The transfer amount in USD cents."""
+
+
+class Approval(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was approved, this will contain details of the approval.
+    """
+
+    approved_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was approved.
+    """
+
+    approved_by: Optional[str] = None
+    """
+    If the Transfer was approved by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class Cancellation(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was not approved, this will contain details of the cancellation.
+    """
+
+    canceled_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Transfer was canceled.
+    """
+
+    canceled_by: Optional[str] = None
+    """
+    If the Transfer was canceled by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class CreatedByAPIKey(BaseModel):
+    """If present, details about the API key that created the transfer."""
+
+    description: Optional[str] = None
+    """The description set for the API key when it was created."""
+
+
+class CreatedByOAuthApplication(BaseModel):
+    """If present, details about the OAuth Application that created the transfer."""
+
+    name: str
+    """The name of the OAuth Application."""
+
+
+class CreatedByUser(BaseModel):
+    """If present, details about the User that created the transfer."""
+
+    email: str
+    """The email address of the User."""
+
+
+class CreatedBy(BaseModel):
+    """What object created the transfer, either via the API or the dashboard."""
+
+    category: Literal["api_key", "oauth_application", "user"]
+    """The type of object that created this transfer.
+
+    - `api_key` - An API key. Details will be under the `api_key` object.
+    - `oauth_application` - An OAuth application you connected to Increase. Details
+      will be under the `oauth_application` object.
+    - `user` - A User in the Increase dashboard. Details will be under the `user`
+      object.
+    """
+
+    api_key: Optional[CreatedByAPIKey] = None
+    """If present, details about the API key that created the transfer."""
+
+    oauth_application: Optional[CreatedByOAuthApplication] = None
+    """If present, details about the OAuth Application that created the transfer."""
+
+    user: Optional[CreatedByUser] = None
+    """If present, details about the User that created the transfer."""
+
+
+class Decline(BaseModel):
+    """
+    If the transfer is rejected by the card network or the destination financial institution, this will contain supplemental details.
+    """
+
+    declined_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer declined.
+    """
+
+    network_transaction_identifier: Optional[str] = None
+    """A unique identifier for the transaction on the card network."""
+
+    reason: Literal[
+        "do_not_honor",
+        "activity_count_limit_exceeded",
+        "refer_to_card_issuer",
+        "refer_to_card_issuer_special_condition",
+        "invalid_merchant",
+        "pick_up_card",
+        "error",
+        "pick_up_card_special",
+        "invalid_transaction",
+        "invalid_amount",
+        "invalid_account_number",
+        "no_such_issuer",
+        "re_enter_transaction",
+        "no_credit_account",
+        "pick_up_card_lost",
+        "pick_up_card_stolen",
+        "closed_account",
+        "insufficient_funds",
+        "no_checking_account",
+        "no_savings_account",
+        "expired_card",
+        "transaction_not_permitted_to_cardholder",
+        "transaction_not_allowed_at_terminal",
+        "transaction_not_supported_or_blocked_by_issuer",
+        "suspected_fraud",
+        "activity_amount_limit_exceeded",
+        "restricted_card",
+        "security_violation",
+        "transaction_does_not_fulfill_anti_money_laundering_requirement",
+        "blocked_by_cardholder",
+        "blocked_first_use",
+        "credit_issuer_unavailable",
+        "negative_card_verification_value_results",
+        "issuer_unavailable",
+        "financial_institution_cannot_be_found",
+        "transaction_cannot_be_completed",
+        "duplicate_transaction",
+        "system_malfunction",
+        "additional_customer_authentication_required",
+        "surcharge_amount_not_permitted",
+        "decline_for_cvv2_failure",
+        "stop_payment_order",
+        "revocation_of_authorization_order",
+        "revocation_of_all_authorizations_order",
+        "unable_to_locate_record",
+        "file_is_temporarily_unavailable",
+        "incorrect_pin",
+        "allowable_number_of_pin_entry_tries_exceeded",
+        "unable_to_locate_previous_message",
+        "pin_error_found",
+        "cannot_verify_pin",
+        "verification_data_failed",
+        "surcharge_amount_not_supported_by_debit_network_issuer",
+        "cash_service_not_available",
+        "cashback_request_exceeds_issuer_limit",
+        "transaction_amount_exceeds_pre_authorized_approval_amount",
+        "transaction_does_not_qualify_for_visa_pin",
+        "offline_declined",
+        "unable_to_go_online",
+        "valid_account_but_amount_not_supported",
+        "invalid_use_of_merchant_category_code_correct_and_reattempt",
+        "card_authentication_failed",
+    ]
+    """The reason why the transfer was declined.
+
+    - `do_not_honor` - The card issuer has declined the transaction without
+      providing a specific reason.
+    - `activity_count_limit_exceeded` - The number of transactions for the card has
+      exceeded the limit set by the issuer.
+    - `refer_to_card_issuer` - The card issuer requires the cardholder to contact
+      them for further information regarding the transaction.
+    - `refer_to_card_issuer_special_condition` - The card issuer requires the
+      cardholder to contact them due to a special condition related to the
+      transaction.
+    - `invalid_merchant` - The merchant is not valid for this transaction.
+    - `pick_up_card` - The card should be retained by the terminal.
+    - `error` - An error occurred during processing of the transaction.
+    - `pick_up_card_special` - The card should be retained by the terminal due to a
+      special condition.
+    - `invalid_transaction` - The transaction is invalid and cannot be processed.
+    - `invalid_amount` - The amount of the transaction is invalid.
+    - `invalid_account_number` - The account number provided is invalid.
+    - `no_such_issuer` - The issuer of the card could not be found.
+    - `re_enter_transaction` - The transaction should be re-entered for processing.
+    - `no_credit_account` - There is no credit account associated with the card.
+    - `pick_up_card_lost` - The card should be retained by the terminal because it
+      has been reported lost.
+    - `pick_up_card_stolen` - The card should be retained by the terminal because it
+      has been reported stolen.
+    - `closed_account` - The account associated with the card has been closed.
+    - `insufficient_funds` - There are insufficient funds in the account to complete
+      the transaction.
+    - `no_checking_account` - There is no checking account associated with the card.
+    - `no_savings_account` - There is no savings account associated with the card.
+    - `expired_card` - The card has expired and cannot be used for transactions.
+    - `transaction_not_permitted_to_cardholder` - The transaction is not permitted
+      for this cardholder.
+    - `transaction_not_allowed_at_terminal` - The transaction is not allowed at this
+      terminal.
+    - `transaction_not_supported_or_blocked_by_issuer` - The transaction is not
+      supported or has been blocked by the issuer.
+    - `suspected_fraud` - The transaction has been flagged as suspected fraud and
+      cannot be processed.
+    - `activity_amount_limit_exceeded` - The amount of activity on the card has
+      exceeded the limit set by the issuer.
+    - `restricted_card` - The card has restrictions that prevent it from being used
+      for this transaction.
+    - `security_violation` - A security violation has occurred, preventing the
+      transaction from being processed.
+    - `transaction_does_not_fulfill_anti_money_laundering_requirement` - The
+      transaction does not meet the anti-money laundering requirements set by the
+      issuer.
+    - `blocked_by_cardholder` - The transaction was blocked by the cardholder.
+    - `blocked_first_use` - The first use of the card has been blocked by the
+      issuer.
+    - `credit_issuer_unavailable` - The credit issuer is currently unavailable to
+      process the transaction.
+    - `negative_card_verification_value_results` - The card verification value (CVV)
+      results were negative, indicating a potential issue with the card.
+    - `issuer_unavailable` - The issuer of the card is currently unavailable to
+      process the transaction.
+    - `financial_institution_cannot_be_found` - The financial institution associated
+      with the card could not be found.
+    - `transaction_cannot_be_completed` - The transaction cannot be completed due to
+      an unspecified reason.
+    - `duplicate_transaction` - The transaction is a duplicate of a previous
+      transaction and cannot be processed again.
+    - `system_malfunction` - A system malfunction occurred, preventing the
+      transaction from being processed.
+    - `additional_customer_authentication_required` - Additional customer
+      authentication is required to complete the transaction.
+    - `surcharge_amount_not_permitted` - The surcharge amount applied to the
+      transaction is not permitted by the issuer.
+    - `decline_for_cvv2_failure` - The transaction was declined due to a failure in
+      verifying the CVV2 code.
+    - `stop_payment_order` - A stop payment order has been placed on this
+      transaction.
+    - `revocation_of_authorization_order` - An order has been placed to revoke
+      authorization for this transaction.
+    - `revocation_of_all_authorizations_order` - An order has been placed to revoke
+      all authorizations for this cardholder.
+    - `unable_to_locate_record` - The record associated with the transaction could
+      not be located.
+    - `file_is_temporarily_unavailable` - The file needed for the transaction is
+      temporarily unavailable.
+    - `incorrect_pin` - The PIN entered for the transaction is incorrect.
+    - `allowable_number_of_pin_entry_tries_exceeded` - The allowable number of PIN
+      entry tries has been exceeded.
+    - `unable_to_locate_previous_message` - The previous message associated with the
+      transaction could not be located.
+    - `pin_error_found` - An error was found with the PIN associated with the
+      transaction.
+    - `cannot_verify_pin` - The PIN associated with the transaction could not be
+      verified.
+    - `verification_data_failed` - The verification data associated with the
+      transaction has failed.
+    - `surcharge_amount_not_supported_by_debit_network_issuer` - The surcharge
+      amount is not supported by the debit network issuer.
+    - `cash_service_not_available` - Cash service is not available for this
+      transaction.
+    - `cashback_request_exceeds_issuer_limit` - The cashback request exceeds the
+      issuer limit.
+    - `transaction_amount_exceeds_pre_authorized_approval_amount` - The transaction
+      amount exceeds the pre-authorized approval amount.
+    - `transaction_does_not_qualify_for_visa_pin` - The transaction does not qualify
+      for Visa PIN processing.
+    - `offline_declined` - The transaction was declined offline.
+    - `unable_to_go_online` - The terminal was unable to go online to process the
+      transaction.
+    - `valid_account_but_amount_not_supported` - The account is valid but the
+      transaction amount is not supported.
+    - `invalid_use_of_merchant_category_code_correct_and_reattempt` - The merchant
+      category code was used incorrectly; correct it and reattempt the transaction.
+    - `card_authentication_failed` - The card authentication process has failed.
+    """
+
+
+class PresentmentAmount(BaseModel):
+    """The amount that was transferred.
+
+    The receiving bank will have converted this to the cardholder's currency. The amount that is applied to your Increase account matches the currency of your account.
+    """
+
+    currency: Literal[
+        "AFN",
+        "EUR",
+        "ALL",
+        "DZD",
+        "USD",
+        "AOA",
+        "XCD",
+        "ARS",
+        "AMD",
+        "AWG",
+        "AUD",
+        "AZN",
+        "BSD",
+        "BHD",
+        "BDT",
+        "BBD",
+        "BYN",
+        "BZD",
+        "XOF",
+        "BMD",
+        "INR",
+        "BTN",
+        "BOB",
+        "BOV",
+        "BAM",
+        "BWP",
+        "NOK",
+        "BRL",
+        "BND",
+        "BIF",
+        "CVE",
+        "KHR",
+        "XAF",
+        "CAD",
+        "KYD",
+        "CLP",
+        "CLF",
+        "CNY",
+        "COP",
+        "COU",
+        "KMF",
+        "CDF",
+        "NZD",
+        "CRC",
+        "CUP",
+        "XCG",
+        "CZK",
+        "DKK",
+        "DJF",
+        "DOP",
+        "EGP",
+        "SVC",
+        "ERN",
+        "SZL",
+        "ETB",
+        "FKP",
+        "FJD",
+        "XPF",
+        "GMD",
+        "GEL",
+        "GHS",
+        "GIP",
+        "GTQ",
+        "GBP",
+        "GNF",
+        "GYD",
+        "HTG",
+        "HNL",
+        "HKD",
+        "HUF",
+        "ISK",
+        "IDR",
+        "IRR",
+        "IQD",
+        "ILS",
+        "JMD",
+        "JPY",
+        "JOD",
+        "KZT",
+        "KES",
+        "KPW",
+        "KRW",
+        "KWD",
+        "KGS",
+        "LAK",
+        "LBP",
+        "LSL",
+        "ZAR",
+        "LRD",
+        "LYD",
+        "CHF",
+        "MOP",
+        "MKD",
+        "MGA",
+        "MWK",
+        "MYR",
+        "MVR",
+        "MRU",
+        "MUR",
+        "MXN",
+        "MXV",
+        "MDL",
+        "MNT",
+        "MAD",
+        "MZN",
+        "MMK",
+        "NAD",
+        "NPR",
+        "NIO",
+        "NGN",
+        "OMR",
+        "PKR",
+        "PAB",
+        "PGK",
+        "PYG",
+        "PEN",
+        "PHP",
+        "PLN",
+        "QAR",
+        "RON",
+        "RUB",
+        "RWF",
+        "SHP",
+        "WST",
+        "STN",
+        "SAR",
+        "RSD",
+        "SCR",
+        "SLE",
+        "SGD",
+        "SBD",
+        "SOS",
+        "SSP",
+        "LKR",
+        "SDG",
+        "SRD",
+        "SEK",
+        "CHE",
+        "CHW",
+        "SYP",
+        "TWD",
+        "TJS",
+        "TZS",
+        "THB",
+        "TOP",
+        "TTD",
+        "TND",
+        "TRY",
+        "TMT",
+        "UGX",
+        "UAH",
+        "AED",
+        "USN",
+        "UYU",
+        "UYI",
+        "UYW",
+        "UZS",
+        "VUV",
+        "VES",
+        "VED",
+        "VND",
+        "YER",
+        "ZMW",
+        "ZWG",
+        "BGN",
+    ]
+    """The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) currency code.
+
+    - `AFN` - AFN
+    - `EUR` - EUR
+    - `ALL` - ALL
+    - `DZD` - DZD
+    - `USD` - USD
+    - `AOA` - AOA
+    - `XCD` - XCD
+    - `ARS` - ARS
+    - `AMD` - AMD
+    - `AWG` - AWG
+    - `AUD` - AUD
+    - `AZN` - AZN
+    - `BSD` - BSD
+    - `BHD` - BHD
+    - `BDT` - BDT
+    - `BBD` - BBD
+    - `BYN` - BYN
+    - `BZD` - BZD
+    - `XOF` - XOF
+    - `BMD` - BMD
+    - `INR` - INR
+    - `BTN` - BTN
+    - `BOB` - BOB
+    - `BOV` - BOV
+    - `BAM` - BAM
+    - `BWP` - BWP
+    - `NOK` - NOK
+    - `BRL` - BRL
+    - `BND` - BND
+    - `BIF` - BIF
+    - `CVE` - CVE
+    - `KHR` - KHR
+    - `XAF` - XAF
+    - `CAD` - CAD
+    - `KYD` - KYD
+    - `CLP` - CLP
+    - `CLF` - CLF
+    - `CNY` - CNY
+    - `COP` - COP
+    - `COU` - COU
+    - `KMF` - KMF
+    - `CDF` - CDF
+    - `NZD` - NZD
+    - `CRC` - CRC
+    - `CUP` - CUP
+    - `XCG` - XCG
+    - `CZK` - CZK
+    - `DKK` - DKK
+    - `DJF` - DJF
+    - `DOP` - DOP
+    - `EGP` - EGP
+    - `SVC` - SVC
+    - `ERN` - ERN
+    - `SZL` - SZL
+    - `ETB` - ETB
+    - `FKP` - FKP
+    - `FJD` - FJD
+    - `XPF` - XPF
+    - `GMD` - GMD
+    - `GEL` - GEL
+    - `GHS` - GHS
+    - `GIP` - GIP
+    - `GTQ` - GTQ
+    - `GBP` - GBP
+    - `GNF` - GNF
+    - `GYD` - GYD
+    - `HTG` - HTG
+    - `HNL` - HNL
+    - `HKD` - HKD
+    - `HUF` - HUF
+    - `ISK` - ISK
+    - `IDR` - IDR
+    - `IRR` - IRR
+    - `IQD` - IQD
+    - `ILS` - ILS
+    - `JMD` - JMD
+    - `JPY` - JPY
+    - `JOD` - JOD
+    - `KZT` - KZT
+    - `KES` - KES
+    - `KPW` - KPW
+    - `KRW` - KRW
+    - `KWD` - KWD
+    - `KGS` - KGS
+    - `LAK` - LAK
+    - `LBP` - LBP
+    - `LSL` - LSL
+    - `ZAR` - ZAR
+    - `LRD` - LRD
+    - `LYD` - LYD
+    - `CHF` - CHF
+    - `MOP` - MOP
+    - `MKD` - MKD
+    - `MGA` - MGA
+    - `MWK` - MWK
+    - `MYR` - MYR
+    - `MVR` - MVR
+    - `MRU` - MRU
+    - `MUR` - MUR
+    - `MXN` - MXN
+    - `MXV` - MXV
+    - `MDL` - MDL
+    - `MNT` - MNT
+    - `MAD` - MAD
+    - `MZN` - MZN
+    - `MMK` - MMK
+    - `NAD` - NAD
+    - `NPR` - NPR
+    - `NIO` - NIO
+    - `NGN` - NGN
+    - `OMR` - OMR
+    - `PKR` - PKR
+    - `PAB` - PAB
+    - `PGK` - PGK
+    - `PYG` - PYG
+    - `PEN` - PEN
+    - `PHP` - PHP
+    - `PLN` - PLN
+    - `QAR` - QAR
+    - `RON` - RON
+    - `RUB` - RUB
+    - `RWF` - RWF
+    - `SHP` - SHP
+    - `WST` - WST
+    - `STN` - STN
+    - `SAR` - SAR
+    - `RSD` - RSD
+    - `SCR` - SCR
+    - `SLE` - SLE
+    - `SGD` - SGD
+    - `SBD` - SBD
+    - `SOS` - SOS
+    - `SSP` - SSP
+    - `LKR` - LKR
+    - `SDG` - SDG
+    - `SRD` - SRD
+    - `SEK` - SEK
+    - `CHE` - CHE
+    - `CHW` - CHW
+    - `SYP` - SYP
+    - `TWD` - TWD
+    - `TJS` - TJS
+    - `TZS` - TZS
+    - `THB` - THB
+    - `TOP` - TOP
+    - `TTD` - TTD
+    - `TND` - TND
+    - `TRY` - TRY
+    - `TMT` - TMT
+    - `UGX` - UGX
+    - `UAH` - UAH
+    - `AED` - AED
+    - `USN` - USN
+    - `UYU` - UYU
+    - `UYI` - UYI
+    - `UYW` - UYW
+    - `UZS` - UZS
+    - `VUV` - VUV
+    - `VES` - VES
+    - `VED` - VED
+    - `VND` - VND
+    - `YER` - YER
+    - `ZMW` - ZMW
+    - `ZWG` - ZWG
+    - `BGN` - BGN
+    """
+
+    value: str
+    """
+    The amount value represented as a string containing a decimal number in major
+    units (so e.g., "12.34" for $12.34).
+    """
+
+
+class Submission(BaseModel):
+    """
+    After the transfer is submitted to the card network, this will contain supplemental details.
+    """
+
+    retrieval_reference_number: str
+    """A 12-digit retrieval reference number that identifies the transfer.
+
+    Usually a combination of a timestamp and the trace number.
+    """
+
+    sender_reference: str
+    """A unique reference for the transfer."""
+
+    submitted_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was submitted to the card network.
+    """
+
+    trace_number: str
+    """
+    A 6-digit trace number that identifies the transfer within a small window of
+    time.
+    """
+
+
+class CardPushTransfer(BaseModel):
+    """Card Push Transfers send funds to a recipient's payment card in real-time."""
+
+    id: str
+    """The Card Push Transfer's identifier."""
+
+    acceptance: Optional[Acceptance] = None
+    """
+    If the transfer is accepted by the recipient bank, this will contain
+    supplemental details.
+    """
+
+    account_id: str
+    """The Account from which the transfer was sent."""
+
+    approval: Optional[Approval] = None
+    """
+    If your account requires approvals for transfers and the transfer was approved,
+    this will contain details of the approval.
+    """
+
+    business_application_identifier: Literal[
+        "account_to_account",
+        "business_to_business",
+        "money_transfer_bank_initiated",
+        "non_card_bill_payment",
+        "consumer_bill_payment",
+        "card_bill_payment",
+        "funds_disbursement",
+        "funds_transfer",
+        "loyalty_and_offers",
+        "merchant_disbursement",
+        "merchant_payment",
+        "person_to_person",
+        "top_up",
+        "wallet_transfer",
+    ]
+    """
+    The Business Application Identifier describes the type of transaction being
+    performed. Your program must be approved for the specified Business Application
+    Identifier in order to use it.
+
+    - `account_to_account` - Account to Account
+    - `business_to_business` - Business to Business
+    - `money_transfer_bank_initiated` - Money Transfer Bank Initiated
+    - `non_card_bill_payment` - Non-Card Bill Payment
+    - `consumer_bill_payment` - Consumer Bill Payment
+    - `card_bill_payment` - Card Bill Payment
+    - `funds_disbursement` - Funds Disbursement
+    - `funds_transfer` - Funds Transfer
+    - `loyalty_and_offers` - Loyalty and Offers
+    - `merchant_disbursement` - Merchant Disbursement
+    - `merchant_payment` - Merchant Payment
+    - `person_to_person` - Person to Person
+    - `top_up` - Top Up
+    - `wallet_transfer` - Wallet Transfer
+    """
+
+    cancellation: Optional[Cancellation] = None
+    """
+    If your account requires approvals for transfers and the transfer was not
+    approved, this will contain details of the cancellation.
+    """
+
+    card_token_id: str
+    """The ID of the Card Token that was used to validate the card."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    created_by: Optional[CreatedBy] = None
+    """What object created the transfer, either via the API or the dashboard."""
+
+    decline: Optional[Decline] = None
+    """
+    If the transfer is rejected by the card network or the destination financial
+    institution, this will contain supplemental details.
+    """
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    merchant_category_code: str
+    """
+    The merchant category code (MCC) of the merchant (generally your business)
+    sending the transfer. This is a four-digit code that describes the type of
+    business or service provided by the merchant. Your program must be approved for
+    the specified MCC in order to use it.
+    """
+
+    merchant_city_name: str
+    """The city name of the merchant (generally your business) sending the transfer."""
+
+    merchant_legal_business_name: Optional[str] = None
+    """
+    The legal business name of the merchant (generally your business) sending the
+    transfer.
+    """
+
+    merchant_name: str
+    """The merchant name shows up as the statement descriptor for the transfer.
+
+    This is typically the name of your business or organization.
+    """
+
+    merchant_name_prefix: str
+    """
+    For certain Business Application Identifiers, the statement descriptor is
+    `merchant_name_prefix*sender_name`, where the `merchant_name_prefix` is a one to
+    four character prefix that identifies the merchant.
+    """
+
+    merchant_postal_code: str
+    """The postal code of the merchant (generally your business) sending the transfer."""
+
+    merchant_state: str
+    """The state of the merchant (generally your business) sending the transfer."""
+
+    merchant_street_address: Optional[str] = None
+    """
+    The street address of the merchant (generally your business) sending the
+    transfer.
+    """
+
+    presentment_amount: PresentmentAmount
+    """The amount that was transferred.
+
+    The receiving bank will have converted this to the cardholder's currency. The
+    amount that is applied to your Increase account matches the currency of your
+    account.
+    """
+
+    recipient_address_city: Optional[str] = None
+    """The city of the recipient. Required if the card is issued in Canada."""
+
+    recipient_address_line1: Optional[str] = None
+    """The first line of the recipient's address.
+
+    Required if the card is issued in Canada.
+    """
+
+    recipient_address_postal_code: Optional[str] = None
+    """The postal code of the recipient. Required if the card is issued in Canada."""
+
+    recipient_address_state: Optional[str] = None
+    """The state or province of the recipient.
+
+    Required if the card is issued in Canada.
+    """
+
+    recipient_name: str
+    """The name of the funds recipient."""
+
+    route: Literal["visa", "mastercard", "pulse"]
+    """The card network route used for the transfer.
+
+    - `visa` - Visa and Interlink
+    - `mastercard` - Mastercard and Maestro
+    - `pulse` - Pulse
+    """
+
+    sender_address_city: str
+    """The city of the sender."""
+
+    sender_address_line1: str
+    """The address line 1 of the sender."""
+
+    sender_address_postal_code: str
+    """The postal code of the sender."""
+
+    sender_address_state: str
+    """The state of the sender."""
+
+    sender_name: str
+    """The name of the funds originator."""
+
+    source_account_number_id: str
+    """The Account Number the recipient will see as having sent the transfer."""
+
+    status: Literal[
+        "pending_approval",
+        "canceled",
+        "pending_submission",
+        "pending_reviewing",
+        "requires_attention",
+        "submitted",
+        "complete",
+        "declined",
+    ]
+    """The lifecycle status of the transfer.
+
+    - `pending_approval` - The transfer is pending approval.
+    - `canceled` - The transfer has been canceled.
+    - `pending_submission` - The transfer is queued to be submitted to the card
+      network.
+    - `pending_reviewing` - The transfer is pending review by Increase.
+    - `requires_attention` - The transfer requires attention from an Increase
+      operator.
+    - `submitted` - The transfer has been submitted and is pending a response from
+      the card network.
+    - `complete` - The transfer has been sent successfully and is complete.
+    - `declined` - The transfer was declined by the network or the recipient's bank.
+    """
+
+    submission: Optional[Submission] = None
+    """
+    After the transfer is submitted to the card network, this will contain
+    supplemental details.
+    """
+
+    type: Literal["card_push_transfer"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_push_transfer`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

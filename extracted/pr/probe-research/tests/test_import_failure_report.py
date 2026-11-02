@@ -21,7 +21,7 @@ import os
 
 import pytest
 
-from probe.cli import import_jobs as jobs
+from probe.cli.imports import jobs as jobs
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def reports(monkeypatch) -> list[tuple[str, str, dict]]:
     """Replace the one function that touches the network."""
     posted: list[tuple[str, str, dict]] = []
     monkeypatch.setattr(
-        jobs, "_post_failure_report",
+        jobs.failure_report, "_post_failure_report",
         lambda context, job_id, body: posted.append((context, job_id, body)),
     )
     return posted
@@ -63,7 +63,8 @@ def _fail(monkeypatch, message="Session import is incomplete: 2619/3857 finalize
     def boom(*args, **kwargs):
         raise jobs.JobError(message)
 
-    monkeypatch.setattr(jobs, "_dispatch", boom)
+    monkeypatch.setattr(jobs.kind, "_dispatch", boom)
+    monkeypatch.setattr(jobs.runner, "_dispatch", boom)
 
 
 # --- the report itself -------------------------------------------------------
@@ -108,7 +109,8 @@ def test_an_import_with_no_saved_context_reports_nothing_and_still_fails_cleanly
 
 def test_a_successful_import_reports_nothing(queued, reports, monkeypatch):
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.kind, "_dispatch", lambda *args: ["Finished."])
+    monkeypatch.setattr(jobs.runner, "_dispatch", lambda *args: ["Finished."])
     assert jobs.run_worker(job["id"]) == 0
     assert reports == []
 
@@ -119,7 +121,8 @@ def test_an_interrupted_import_reports_nothing(queued, reports, monkeypatch):
         raise KeyboardInterrupt
 
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", stop)
+    monkeypatch.setattr(jobs.kind, "_dispatch", stop)
+    monkeypatch.setattr(jobs.runner, "_dispatch", stop)
     assert jobs.run_worker(job["id"]) == 130
     assert reports == []
 
@@ -136,7 +139,8 @@ def test_a_connection_stall_reports_nothing(queued, reports, monkeypatch):
         return ["Finished."]
 
     job = _enqueue()
-    monkeypatch.setattr(jobs, "_dispatch", flaky)
+    monkeypatch.setattr(jobs.kind, "_dispatch", flaky)
+    monkeypatch.setattr(jobs.runner, "_dispatch", flaky)
     monkeypatch.setattr(jobs.time, "sleep", lambda seconds: None)
     assert jobs.run_worker(job["id"]) == 0
     assert reports == []
@@ -183,13 +187,13 @@ def test_a_report_that_never_left_is_retried_by_the_next_observation(
     def offline(context, job_id, body):
         raise OSError("network is unreachable")
 
-    monkeypatch.setattr(jobs, "_post_failure_report", offline)
+    monkeypatch.setattr(jobs.failure_report, "_post_failure_report", offline)
     assert jobs.run_worker(job["id"]) == 1
     assert reports == []
     assert "notified" not in jobs._read(folder)
 
     monkeypatch.setattr(
-        jobs, "_post_failure_report",
+        jobs.failure_report, "_post_failure_report",
         lambda context, job_id, body: reports.append((context, job_id, body)),
     )
     assert jobs._report_failure(folder, jobs._read(folder), failure_kind="refused") is True
@@ -206,7 +210,7 @@ def test_a_broken_reporter_cannot_break_the_worker(queued, monkeypatch):
     def explode(*args, **kwargs):
         raise RuntimeError("the notifier itself is broken")
 
-    monkeypatch.setattr(jobs, "_post_failure_report", explode)
+    monkeypatch.setattr(jobs.failure_report, "_post_failure_report", explode)
     # Same exit code and same durable state as if the reporter did not exist.
     assert jobs.run_worker(job["id"]) == 1
     saved = jobs.get_job(job["id"])

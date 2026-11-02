@@ -18,9 +18,10 @@ import time
 
 import pytest
 
-from probe.cli import autoupdate, updater, upgrading
+from probe.cli import autoupdate
+from probe.cli.install import updater, upgrade as upgrading
 from probe.shared.updates import update_report
-from probe.cli.capabilities import Capabilities
+from probe.cli.wizard.state.state import Capabilities
 
 MANIFEST = {
     "cli": {"latest": "0.224.1"},
@@ -286,20 +287,23 @@ def test_the_wizard_update_sends_one_merged_report(monkeypatch, sent):
     """End to end through the wizard's per-agent loop. On main before this fix
     the loop sent one report per agent and the server kept the last: Kimi
     Code's "not installed"."""
-    from probe.cli import capabilities, doctor, setup
+    from probe.cli.wizard import state as capabilities, doctor
+    from probe.cli import wizard as setup
 
     cli_main = importlib.import_module("probe.cli.main")
     _stub_updater(monkeypatch, {
         "claude_code": _plugin("0.9.14", "0.9.14"),
         "kimi_code": KIMI_NOTHING,
     })
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "kimi_code"))
 
     def _offline(*args, **kwargs):
         raise OSError("no server in this test")
 
-    monkeypatch.setattr(capabilities, "device_state_request", _offline)
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities())
+    monkeypatch.setattr(capabilities.device_state, "device_state_request", _offline)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: Capabilities())
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     assert cli_main.main(["wizard", "--yes", "--action", "update"]) == 0
@@ -319,8 +323,10 @@ def test_the_wizard_update_registers_the_machine_once(monkeypatch, sent):
     before this fix the loop below registered twice: absent, then installed."""
     import os
 
-    from probe.cli import capabilities, client_installation, doctor, setup
-    from probe.cli.capabilities import TokenSource
+    from probe.cli.wizard import state as capabilities, doctor
+    from probe.cli.wizard.apply import client_installation
+    from probe.cli import wizard as setup
+    from probe.cli.wizard.state.state import TokenSource
 
     cli_main = importlib.import_module("probe.cli.main")
     _stub_updater(monkeypatch, {
@@ -328,7 +334,9 @@ def test_the_wizard_update_registers_the_machine_once(monkeypatch, sent):
         "codex": _plugin("0.9.14", "0.9.14"),
     })
     # Codex first, so the agent WITHOUT capture runs first -- as it did live.
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("codex", "claude_code"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("codex", "claude_code"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("codex", "claude_code"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("codex", "claude_code"))
 
     def _offline(*args, **kwargs):
         raise OSError("no server in this test")
@@ -362,8 +370,8 @@ def test_the_wizard_update_registers_the_machine_once(monkeypatch, sent):
         def name_client_installation(self, **kwargs):
             return {}
 
-    monkeypatch.setattr(capabilities, "device_state_request", _offline)
-    monkeypatch.setattr(doctor, "collect", _collect)
+    monkeypatch.setattr(capabilities.device_state, "device_state_request", _offline)
+    monkeypatch.setattr(doctor.doctor, "collect", _collect)
     monkeypatch.setattr(client_installation, "Client", _Client)
 
     assert cli_main.main(["wizard", "--yes", "--action", "update"]) == 0
@@ -390,17 +398,20 @@ CLAUDE_PLUGIN_FAILED = updater.PluginResult(
 
 
 def test_the_wizard_update_records_one_merged_attempt_locally(monkeypatch, sent):
-    from probe.cli import capabilities, doctor, setup
+    from probe.cli.wizard import state as capabilities, doctor
+    from probe.cli import wizard as setup
 
     cli_main = importlib.import_module("probe.cli.main")
     _stub_updater(monkeypatch, {"claude_code": CLAUDE_PLUGIN_FAILED, "kimi_code": KIMI_NOTHING})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "kimi_code"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "kimi_code"))
 
     def _offline(*args, **kwargs):
         raise OSError("no server in this test")
 
-    monkeypatch.setattr(capabilities, "device_state_request", _offline)
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities())
+    monkeypatch.setattr(capabilities.device_state, "device_state_request", _offline)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: Capabilities())
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     cli_main.main(["wizard", "--yes", "--action", "update"])

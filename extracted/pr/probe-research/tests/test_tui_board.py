@@ -16,7 +16,7 @@ from __future__ import annotations
 import io
 import threading
 
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 
 
 class _Screen(io.StringIO):
@@ -32,7 +32,12 @@ class _Screen(io.StringIO):
 def test_working_is_silent_into_a_pipe(monkeypatch, capsys):
     """`\\r` repaints into a pipe are log garbage, so a pipe gets NOTHING --
     not even a static line. Same split Progress documents."""
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     with tui.working("collecting"):
         pass
     captured = capsys.readouterr()
@@ -44,7 +49,12 @@ def test_working_runs_the_body_even_if_the_spinner_cannot_start(monkeypatch):
     """No spinner beats no work: a thread that cannot start must not take the
     actual collection down with it."""
 
-    monkeypatch.setattr(tui, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
 
     class _NoThread:
         def __init__(self, *a, **k):

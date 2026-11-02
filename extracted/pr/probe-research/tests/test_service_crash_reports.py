@@ -28,8 +28,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import barrier, paths, workers
-from probe.service.protocol import Method
+from probe.service.updater.quiet import barrier
+from probe.foundation.service_api import paths
+from probe.service.sessions import workers
+from probe.foundation.service_api.wire import Method
 from tests.service_fakes import FakeCore, FakeWorker
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
@@ -223,7 +225,9 @@ def test_on_windows_only_a_recorded_crash_is_reported_once(live):
     and exits on the exception."""
     import _winapi
 
-    from probe.service import client, watch, winpipe
+    from probe.foundation import service_api as client
+    from probe.service import watch
+    from probe.foundation.service_api import winpipe
 
     sh = live.sh
     first = sh.start()

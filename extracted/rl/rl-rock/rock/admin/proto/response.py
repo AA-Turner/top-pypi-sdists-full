@@ -1,0 +1,147 @@
+from pydantic import BaseModel, Field
+
+from rock.actions import SandboxResponse
+from rock.actions.sandbox.response import State, StateTransitionRecord
+from rock.actions.sandbox.sandbox_info import SandboxInfo
+from rock.admin.proto.request import TaskSetSpec
+from rock.sandbox.utils.timeout import SandboxTimeoutHelper
+
+
+class SandboxStartResponse(SandboxResponse):
+    sandbox_id: str | None = None
+    host_name: str | None = None
+    host_ip: str | None = None
+    cpus: float | None = None
+    memory: str | None = None
+    disk: str | None = None
+    disk_limit_rootfs: str | None = Field(default=None, deprecated="Use 'disk' instead")
+
+
+# TODO: inherit from SandboxStartResponse
+class SandboxStatusResponse(BaseModel):
+    sandbox_id: str = None
+    status: dict | None = None
+    state: State | None = None
+    port_mapping: dict | None = None
+    host_name: str | None = None
+    host_ip: str | None = None
+    is_alive: bool = True
+    image: str | None = None
+    gateway_version: str | None = None
+    swe_rex_version: str | None = None
+    user_id: str | None = None
+    experiment_id: str | None = None
+    namespace: str | None = None
+    cpus: float | None = None
+    memory: str | None = None
+    num_gpus: float | None = None
+    accelerator_type: str | None = None
+    disk: str | None = None
+    disk_limit_rootfs: str | None = Field(default=None, deprecated="Use 'disk' instead")
+    start_time: str | None = None
+    stop_time: str | None = None
+    create_time: str | None = None
+    archive_time: str | None = None
+    delete_time: str | None = None
+    auto_stop_time: str | None = None
+    auto_archive_time: str | None = None
+    auto_delete_time: str | None = None
+    state_history: list[StateTransitionRecord] = []
+
+    @classmethod
+    def from_sandbox_info(cls, sandbox_info: "SandboxInfo") -> "SandboxStatusResponse":
+        auto_stop_time, auto_archive_time, auto_delete_time = SandboxTimeoutHelper.auto_transition_times_for_status(
+            sandbox_info.get("state"),
+            sandbox_info,
+        )
+        return cls(
+            sandbox_id=sandbox_info.get("sandbox_id", ""),
+            status=sandbox_info.get("phases", {}),
+            state=sandbox_info.get("state"),
+            port_mapping=sandbox_info.get("port_mapping", {}),
+            host_ip=sandbox_info.get("host_ip"),
+            host_name=sandbox_info.get("host_name"),
+            image=sandbox_info.get("image"),
+            user_id=sandbox_info.get("user_id"),
+            experiment_id=sandbox_info.get("experiment_id"),
+            namespace=sandbox_info.get("namespace"),
+            cpus=sandbox_info.get("cpus"),
+            memory=sandbox_info.get("memory"),
+            num_gpus=sandbox_info.get("num_gpus"),
+            accelerator_type=sandbox_info.get("accelerator_type"),
+            disk=sandbox_info.get("disk"),
+            disk_limit_rootfs=sandbox_info.get("disk"),
+            start_time=sandbox_info.get("start_time"),
+            stop_time=sandbox_info.get("stop_time"),
+            create_time=sandbox_info.get("create_time"),
+            archive_time=sandbox_info.get("archive_time"),
+            delete_time=sandbox_info.get("delete_time"),
+            auto_stop_time=auto_stop_time,
+            auto_archive_time=auto_archive_time,
+            auto_delete_time=auto_delete_time,
+            state_history=sandbox_info.get("state_history", []),
+        )
+
+
+class SandboxListStatusResponse(SandboxStatusResponse):
+    rock_authorization_encrypted: str | None = None
+
+    @classmethod
+    def from_sandbox_info(cls, sandbox_info: "SandboxInfo") -> "SandboxListStatusResponse":
+        base_data = super().from_sandbox_info(sandbox_info)
+        base_dict = base_data.model_dump()
+        base_dict["rock_authorization_encrypted"] = sandbox_info.get("rock_authorization_encrypted", None)
+        return cls(**base_dict)
+
+
+class BatchSandboxStatusResponse(SandboxResponse):
+    statuses: list[SandboxStatusResponse] | None = None
+
+
+class SandboxListResponse(SandboxResponse):
+    items: list[SandboxListStatusResponse] = []
+    total: int = 0
+    has_more: bool = False
+
+
+class TaskSetMetadata(BaseModel):
+    tasksetId: str
+    creationTimestamp: float
+
+
+class TaskSetStatusModel(BaseModel):
+    phase: str
+    assignedPod: str = ""
+    active: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    startTime: float | None = None
+    completionTime: float | None = None
+    conditions: list[dict] | None = None
+
+
+class TaskMetadata(BaseModel):
+    taskId: str
+    tasksetId: str
+    creationTimestamp: float
+
+
+class TaskStatusModel(BaseModel):
+    phase: str
+    startTime: float | None = None
+    completionTime: float | None = None
+    conditions: list[dict] | None = None
+    status: list[dict] | None = None
+
+
+class TaskResponse(BaseModel):
+    metadata: TaskMetadata
+    spec: dict
+    status: TaskStatusModel
+
+
+class TaskSetResponse(BaseModel):
+    metadata: TaskSetMetadata
+    spec: "TaskSetSpec"
+    status: TaskSetStatusModel
+    tasks: list[TaskResponse] | None = None

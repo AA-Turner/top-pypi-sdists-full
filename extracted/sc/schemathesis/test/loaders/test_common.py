@@ -2,21 +2,20 @@ import ssl
 import threading
 
 import pytest
-import trustme
 from django.conf import settings
 from django.core.asgi import get_asgi_application
 from django.core.wsgi import get_wsgi_application
 from django.http import HttpResponse
 from django.test import override_settings
 from django.urls import path
-from flask import Flask, jsonify, redirect, request
+from flask import Flask, Response, jsonify, redirect, request
 
 import schemathesis
-from schemathesis.core.errors import LoaderError
+from schemathesis.core.errors import LoaderError, LoaderErrorKind
 from schemathesis.core.transport import USER_AGENT
 from test.apps.catalog.graphql import bookstore
 from test.apps.catalog.openapi import basic
-from test.utils import graphql_url, openapi_url
+from test.utils import graphql_url, openapi_url, refusing_url
 
 
 @pytest.mark.parametrize(
@@ -81,10 +80,6 @@ def test_uri_loader_custom_kwargs(app_runner, app, path, loader):
     ids=["openapi", "graphql"],
 )
 def test_uri_loader_transport_from_config(app_runner, tmp_path, app, path, loader):
-    ca = trustme.CA()
-    client_cert = ca.issue_cert("test.org")
-    client_cert_path = tmp_path / "client.pem"
-    client_cert.private_key_and_cert_chain_pem.write_to_path(str(client_cert_path))
     server = app().server
     received = []
     server.before_request(
@@ -96,19 +91,33 @@ def test_uri_loader_transport_from_config(app_runner, tmp_path, app, path, loade
             )
         )
     )
-    port = app_runner.run_client_cert_flask_app(server, ca)
+    running = app_runner.run_client_cert_flask_app(server, tmp_path)
     config = schemathesis.Config.from_dict(
         {
             "tls-verify": False,
-            "request-cert": str(client_cert_path),
+            "request-cert": str(running.cert_path),
             "headers": {"X-Test": "foo"},
             "auth": {"basic": {"username": "test", "password": "test"}},
         }
     )
-    loader(f"https://127.0.0.1:{port}{path}", config=config)
-    assert received == [
-        ("foo", "Basic dGVzdDp0ZXN0", ssl.PEM_cert_to_DER_cert(client_cert.cert_chain_pems[0].bytes().decode()))
-    ]
+    loader(f"https://127.0.0.1:{running.port}{path}", config=config)
+    assert received == [("foo", "Basic dGVzdDp0ZXN0", running.cert_der)]
+
+
+@pytest.mark.parametrize(
+    ("app", "path", "loader"),
+    [
+        (basic.success, "/openapi.json", schemathesis.openapi.from_url),
+        (bookstore.books, "/graphql", schemathesis.graphql.from_url),
+    ],
+    ids=["openapi", "graphql"],
+)
+# The schema URL refuses connections, so loading succeeds only through the proxy, which answers as the API itself.
+def test_uri_loader_proxy_from_config(app_runner, app, path, loader):
+    proxy = f"http://127.0.0.1:{app_runner.run_flask_app(app().server)}"
+    config = schemathesis.Config.from_dict({"proxy": proxy})
+    with refusing_url() as url:
+        loader(f"{url}{path}", config=config)
 
 
 def test_uri_loader_explicit_kwargs_override_config(ctx):
@@ -168,6 +177,33 @@ def test_wait_for_schema_retries_on_read_timeout(ctx, app_runner):
     loaded = schemathesis.openapi.from_url(url, wait_for_schema=10, timeout=1)
     assert loaded.raw_schema == schema
     assert call_count[0] == 2
+
+
+# The headers arrive at once, then the body stalls past the timeout.
+def test_schema_body_read_timeout_reported_as_timeout(app_runner):
+    release = threading.Event()
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def openapi_spec():
+        def stall_mid_body():
+            yield "{"
+            release.wait()
+            yield "}"
+
+        return Response(stall_mid_body(), content_type="application/json")
+
+    url = app_runner.openapi_url(app)
+    try:
+        with pytest.raises(LoaderError) as exc_info:
+            schemathesis.openapi.from_url(url, timeout=0.2)
+    finally:
+        release.set()
+    assert (exc_info.value.kind, exc_info.value.message, exc_info.value.extras) == (
+        LoaderErrorKind.NETWORK_OTHER,
+        "Read timed out after 0.2 seconds",
+        [],
+    )
 
 
 COMMON_MIDDLEWARE = "django.middleware.common.CommonMiddleware"

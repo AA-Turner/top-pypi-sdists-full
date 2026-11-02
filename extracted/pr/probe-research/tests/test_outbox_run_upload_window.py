@@ -36,7 +36,6 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 @pytest.fixture
@@ -540,8 +539,21 @@ def test_uploads_queued_behind_a_runs_first_write_still_go_up_together(queue, tm
 
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler._execute", execute)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce._execute", execute)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._execute", execute)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._execute", execute)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows._execute", execute)
     assert run_drain(queue, server).delivered == 42
     serial_uploads = sum(1 for kind, main in calls if kind == "upload" and main)
     assert serial_uploads == 0, f"{serial_uploads} uploads went one by one on the drain's thread"
+
+
+def test_a_runs_barrier_never_reads_the_multipart_queue(queue, monkeypatch):
+    """`only_ops` meant "a close seeing its own uploads through" (`settle_for_close`, no run), so
+    the takeover barrier, which passes it with its run, listed the multipart queue and swept its
+    staging every pass (review of #3804's last five commits). A run's pass never reads it."""
+    from probe.sdk.delivery.outbox.drain import lanes
+
+    asked = []
+    monkeypatch.setattr(lanes, "multipart_storage", lambda *a, **k: asked.append("multipart"))
+    metric(queue, 0)
+    drain(queue, run_ref=RUN, only_ops=frozenset({"other"}), client_factory=lambda _context: Server())
+    assert asked == []

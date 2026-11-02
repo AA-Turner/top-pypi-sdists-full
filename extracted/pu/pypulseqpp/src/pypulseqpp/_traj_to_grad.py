@@ -1,0 +1,130 @@
+"""Conversion of a k-space trajectory to the gradient waveform that traces it."""
+
+from __future__ import annotations
+
+__all__ = ["traj_to_grad"]
+
+import numpy as np
+
+from ._opts import default_system
+
+#: Fraction of the slew-rate limit the solver is held under. MRArbGrad
+#: returns waveforms up to 0.03 % past the limit it is given, on a 4 us
+#: raster, which make_arbitrary_grad's check then refuses.
+_SOLVER_SLEW_MARGIN = 1e-3
+
+
+def traj_to_grad(
+    k: np.ndarray,
+    raster_time: float | None = None,
+    *,
+    time_optimal: bool = True,
+    system=None,
+    oversampling: int = 8,
+    start_at_zero: bool = True,
+    end_at_zero: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Convert a k-space trajectory to gradient and slew-rate waveforms.
+
+    By default, samples describe geometry and MRArbGrad chooses the timing
+    within vector gradient and slew limits; output length can differ from
+    input length. With ``time_optimal=False``, samples already lie on the
+    raster and are differentiated without limit enforcement.
+
+    Parameters
+    ----------
+    k : numpy.ndarray
+        K-space trajectory, **time last**: shape ``(n,)``, ``(2, n)`` or
+        ``(3, n)``, in 1/m.
+    raster_time : float, default=None
+        Gradient raster (s). Defaults to the system's.
+    time_optimal : bool, default=True
+        Re-parameterise the path within the limits rather than differentiate it.
+    system : pypulseqpp.Opts, default=None
+        System limits; supplies ``max_grad``, ``max_slew`` and, when
+        ``raster_time`` is omitted, the raster. Not limiting when
+        ``time_optimal`` is false.
+    oversampling : int, default=8
+        Path-resampling factor the solver works at; read only when
+        ``time_optimal``.
+    start_at_zero, end_at_zero : bool, default=True
+        Ramp the waveform up from and back down to zero amplitude; read only
+        when ``time_optimal``.
+
+    Returns
+    -------
+    g : numpy.ndarray
+        Gradient waveform (Hz/m), time last like ``k``.
+    slew : numpy.ndarray
+        Slew rate (Hz/m/s), one value per gradient sample, shaped like ``g``.
+
+    Examples
+    --------
+    An analytic spiral becomes a playable gradient:
+
+    >>> import numpy as np
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+    >>> theta = np.linspace(0, 8 * np.pi, 2000)
+    >>> radius = np.linspace(0, 250.0, 2000)
+    >>> k = np.stack([radius * np.cos(theta), radius * np.sin(theta)])
+    >>> g, slew = pp.traj_to_grad(k, system=system)
+    >>> bool(np.abs(np.linalg.norm(g, axis=0)).max() <= system.max_grad * 1.001)
+    True
+
+    Then hand it to a factory per axis::
+
+        gx = pp.make_arbitrary_grad("x", g[0], system=system)
+
+    Differentiating instead, for a path already on the raster:
+
+    >>> g, slew = pp.traj_to_grad(k, system=system, time_optimal=False)
+    >>> g.shape[1] == k.shape[1] - 1
+    True
+
+    See Also
+    --------
+    make_arbitrary_grad : wrap one axis of the result as an event.
+    """
+    k = np.asarray(k, dtype=float)
+    system = default_system(system)
+    if raster_time is None:
+        raster_time = system.grad_raster_time
+
+    if not time_optimal:
+        return _differentiate(k, raster_time)
+
+    from . import _arbgrad
+
+    flat = k[None, :] if k.ndim == 1 else k
+    # The solver wants a plane at minimum; a single axis rides in one of a pair.
+    solved = flat if flat.shape[0] >= 2 else np.vstack([flat, np.zeros_like(flat)])
+    gradient = _arbgrad.traj2grad(
+        solved.T,
+        max_slew=system.max_slew * (1 - _SOLVER_SLEW_MARGIN),
+        max_grad=system.max_grad,
+        dt=raster_time,
+        oversampling=oversampling,
+        start_at_zero=start_at_zero,
+        end_at_zero=end_at_zero,
+    )
+    # The solver always works in three dimensions; give back the ones asked for.
+    g = gradient.T[: flat.shape[0]]
+    slew = np.diff(g, axis=-1, prepend=g[..., :1]) / raster_time
+    return (g[0], slew[0]) if k.ndim == 1 else (g, slew)
+
+
+def _differentiate(k: np.ndarray, raster_time: float) -> tuple[np.ndarray, np.ndarray]:
+    """Finite difference of an already-rastered trajectory.
+
+    The gradient falls between k-space points and the slew between gradient
+    points, so the slew is averaged back onto the gradient samples.
+    """
+    g = (k[..., 1:] - k[..., :-1]) / raster_time
+    between = (g[..., 1:] - g[..., :-1]) / raster_time
+
+    slew = np.zeros((*between.shape[:-1], between.shape[-1] + 1))
+    slew[..., 0] = between[..., 0]
+    slew[..., 1:-1] = 0.5 * (between[..., :-1] + between[..., 1:])
+    slew[..., -1] = between[..., -1]
+    return g, slew

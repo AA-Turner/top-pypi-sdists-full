@@ -11,18 +11,17 @@ disclose it but not the positions. Binary artifact uploads bypass this module.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from typing import Any
 
 from . import values as _coerce
 from ..errors import ValidationError
+from ..routes import is_metrics_post, is_span_batch
 
 NUL = "\x00"
 ESCAPE = "\\0"
 RECORD_KEY = "probe.nul_escaped"
 _MAX_DEPTH = 256
-_SPAN_ROUTE = re.compile(r"/v1/runs/[^/?#]+/spans/?")
 # Descriptive span fields (incl. ATIF's nested tool-output copies). New fields are refused until understood.
 _TEXT_FIELDS = frozenset(
     {
@@ -134,9 +133,7 @@ def escape_nuls(body: Any, *, path: str, method: str = "POST") -> tuple[Any, dic
     """
     if not has_nul(body):
         return body, {}
-    span_request = method.upper() == "POST" and (
-        _SPAN_ROUTE.fullmatch(path) is not None or path in ("/ingest/v1/runs", "/ingest/v1/runs/")
-    )
+    span_request = is_span_batch(method, path)
     counts: dict[str, int] = {}
 
     def walk(item: Any, location: tuple = (), allowed: bool = False, depth: int = 0):
@@ -241,7 +238,6 @@ def describe(counts: Mapping[str, int]) -> str:
 
 STEP_MIN, STEP_MAX = -(2**63), 2**63 - 1
 MAX_METRIC_KEY_BYTES = 2048
-_METRICS_ROUTE = re.compile(r"/v1/runs/[^/?#]+/metrics/?")
 
 
 def step_out_of_range(step: Any) -> bool:
@@ -257,7 +253,7 @@ def key_too_long(key: Any) -> bool:
 def drop_unstorable_points(method: str, path: str, body: Any) -> tuple[Any, list[str]]:
     """``body`` minus metric points the server cannot store, plus a reason per drop
     ("step" or "key"). Only a metrics POST is touched; else unchanged."""
-    if method.upper() != "POST" or not _METRICS_ROUTE.fullmatch(path.split("?", 1)[0]):
+    if not is_metrics_post(method, path):
         return body, []
     points = body.get("points") if isinstance(body, dict) else None
     if not isinstance(points, list):

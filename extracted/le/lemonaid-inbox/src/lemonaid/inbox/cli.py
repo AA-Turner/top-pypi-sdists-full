@@ -1,0 +1,207 @@
+"""CLI commands for the inbox."""
+
+import argparse
+import functools
+import json
+import sys
+from dataclasses import asdict
+from datetime import datetime
+
+import lemonaid.inbox.arrange.cli
+import lemonaid.messages.cli
+
+from . import db, decorate_cli, pin_cli, show_cli, snooze_cli
+
+
+def _notification_to_json(n: db.Notification) -> dict:
+    """Convert notification to JSON-serializable dict."""
+    return asdict(n)
+
+
+def cmd_list(args: argparse.Namespace) -> None:
+    """List unread notifications."""
+    with db.connect() as conn:
+        notifications = db.get_unread(conn)
+
+    if getattr(args, "json", False):
+        print(json.dumps([_notification_to_json(n) for n in notifications]))
+        return
+
+    if not notifications:
+        print("No unread notifications.")
+        return
+
+    for n in notifications:
+        created = datetime.fromtimestamp(n.created_at).strftime("%H:%M:%S")
+        name_part = f" ({n.name})" if n.name else ""
+        print(f"[{n.id}] {created} | {n.channel}{name_part} | {n.message}")
+
+
+def cmd_get(args: argparse.Namespace) -> None:
+    """Get a specific notification by ID."""
+    with db.connect() as conn:
+        notification = db.get(conn, args.id)
+
+    if notification is None:
+        if getattr(args, "json", False):
+            print("null")
+        else:
+            print(f"Notification {args.id} not found", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    if getattr(args, "json", False):
+        print(json.dumps(_notification_to_json(notification)))
+    else:
+        created = datetime.fromtimestamp(notification.created_at).strftime("%Y-%m-%d %H:%M:%S")
+        print(f"ID:      {notification.id}")
+        print(f"Channel: {notification.channel}")
+        if notification.name:
+            print(f"Name:    {notification.name}")
+        print(f"Message: {notification.message}")
+        print(f"Status:  {notification.status}")
+        print(f"Created: {created}")
+
+
+def cmd_add(args: argparse.Namespace) -> None:
+    """Add a notification."""
+    metadata = None
+    if args.metadata:
+        try:
+            metadata = json.loads(args.metadata)
+        except json.JSONDecodeError as e:
+            print(f"Error: invalid JSON metadata: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    with db.connect() as conn:
+        notification = db.add(
+            conn,
+            channel=args.channel,
+            message=args.message,
+            name=args.name,
+            metadata=metadata,
+        )
+    print(f"Added notification {notification.id}")
+
+
+def cmd_read(args: argparse.Namespace) -> None:
+    """Mark a notification as read."""
+    with db.connect() as conn:
+        db.mark_read(conn, args.id)
+    print(f"Marked notification {args.id} as read")
+
+
+def cmd_snoozed(args: argparse.Namespace) -> None:
+    """List snoozed sessions and their wake times."""
+    with db.connect() as conn:
+        db.wake_expired(conn)
+        notifications = db.get_snoozed(conn)
+
+    if getattr(args, "json", False):
+        print(json.dumps([_notification_to_json(n) for n in notifications]))
+        return
+
+    if not notifications:
+        print("No snoozed sessions.")
+        return
+
+    for n in notifications:
+        wakes = (
+            datetime.fromtimestamp(n.snooze_until).strftime("%Y-%m-%d %H:%M")
+            if n.snooze_until
+            else "unknown"
+        )
+        name_part = f" ({n.name})" if n.name else ""
+        print(f"[{n.id}] wakes {wakes} | {n.channel}{name_part} | {n.message}")
+
+
+def cmd_purge(args: argparse.Namespace) -> None:
+    """Delete old archived/read notifications."""
+    with db.connect() as conn:
+        count = db.clear_old(conn, days=args.older_than)
+    if count > 0:
+        print(f"Purged {count} notification(s) older than {args.older_than} days")
+    else:
+        print("Nothing to purge")
+
+
+def has_terminal() -> bool:
+    """The TUI spins at full CPU without a terminal on both stdin and stdout."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def cmd_tui(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Launch the inbox TUI, or print help when there is no terminal."""
+    if not has_terminal():
+        parser.print_help()
+
+        return
+
+    from .tui import LemonaidApp
+
+    app = LemonaidApp()
+    app.run()
+
+
+def setup_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Set up the inbox subcommand and its sub-subcommands."""
+    inbox_parser = subparsers.add_parser(
+        "inbox",
+        help="Attention inbox - track notifications from lemons",
+        description="Manage notifications from Claude Code and other tools",
+    )
+    inbox_subparsers = inbox_parser.add_subparsers(dest="inbox_command")
+
+    # inbox list
+    list_parser = inbox_subparsers.add_parser("list", aliases=["ls"], help="List unread")
+    list_parser.add_argument("-v", "--verbose", action="store_true", help="Show full messages")
+    list_parser.add_argument("--json", action="store_true", help="Output as JSON (for lemons)")
+    list_parser.set_defaults(func=cmd_list)
+
+    # inbox get
+    get_parser = inbox_subparsers.add_parser("get", help="Get a notification by ID")
+    get_parser.add_argument("id", type=int, help="Notification ID")
+    get_parser.add_argument("--json", action="store_true", help="Output as JSON (for lemons)")
+    get_parser.set_defaults(func=cmd_get)
+
+    # inbox add
+    add_parser = inbox_subparsers.add_parser("add", help="Add a notification")
+    add_parser.add_argument("channel", help="Channel/source identifier")
+    add_parser.add_argument("message", help="Notification message")
+    add_parser.add_argument("-n", "--name", help="Optional session name")
+    add_parser.add_argument("--metadata", help="JSON metadata for handlers")
+    add_parser.set_defaults(func=cmd_add)
+
+    # inbox read
+    read_parser = inbox_subparsers.add_parser("read", help="Mark notification as read")
+    read_parser.add_argument("id", type=int, help="Notification ID")
+    read_parser.set_defaults(func=cmd_read)
+
+    show_cli.add_parser(inbox_subparsers)
+    decorate_cli.add_parsers(inbox_subparsers)
+    snooze_cli.add_parser(inbox_subparsers)
+    pin_cli.add_parsers(inbox_subparsers)
+    lemonaid.inbox.arrange.cli.add_parser(inbox_subparsers)
+    lemonaid.messages.cli.add_inbox_parsers(inbox_subparsers)
+    lemonaid.messages.service_cli.add_parser(inbox_subparsers)
+
+    # inbox snoozed
+    snoozed_parser = inbox_subparsers.add_parser(
+        "snoozed", help="List snoozed sessions and when they wake"
+    )
+    snoozed_parser.add_argument("--json", action="store_true", help="Output as JSON (for lemons)")
+    snoozed_parser.set_defaults(func=cmd_snoozed)
+
+    # inbox purge
+    purge_parser = inbox_subparsers.add_parser(
+        "purge", help="Delete old archived/read notifications"
+    )
+    purge_parser.add_argument(
+        "--older-than", type=int, default=90, help="Days threshold (default: 90)"
+    )
+    purge_parser.set_defaults(func=cmd_purge)
+
+    # Default for bare "lemonaid inbox" is TUI
+    inbox_parser.set_defaults(
+        func=functools.partial(cmd_tui, parser=inbox_parser), inbox_command=None
+    )

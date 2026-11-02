@@ -1,0 +1,12 @@
+pub mod blame;
+pub mod corpus;
+pub mod corrections;
+pub mod digest;
+pub mod facts;
+pub mod grep;
+pub mod list;
+pub mod scratchpad;
+pub mod show;
+pub mod slice;
+pub mod stats;
+pub mod watch;

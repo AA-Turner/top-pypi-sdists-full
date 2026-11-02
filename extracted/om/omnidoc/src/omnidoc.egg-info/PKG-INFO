@@ -1,0 +1,181 @@
+Metadata-Version: 2.4
+Name: omnidoc
+Version: 0.1.7
+Summary: OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation in 38 languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/
+Project-URL: Homepage, https://omnidoc.top/
+Project-URL: Homepage (China), https://omnidoc.cn/
+Project-URL: Documentation, https://docs.omnidoc.top/
+Project-URL: Download, https://download.omnidoc.top/
+Keywords: omnidoc,document translation,pdf translation,translate pdf,pdf to word,layout preserved,document conversion,content extraction,structured extraction,docx,pptx,latex,mcp,mcp server,claude,cursor,ai office,ai office suite,api client
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31
+Provides-Extra: test
+Requires-Dist: pytest>=8; extra == "test"
+
+# OmniDoc: the world-leading AI office suite. Any-format conversion, layout-preserving translation, structured extraction, and a native AI MCP for every document
+
+**One app. One API. Your layout stays exactly where it was.**
+
+Stop re-typing translated PDFs. OmniDoc translates PDF, Word, PowerPoint, LaTeX and 11 more formats into 38 languages and puts every table, formula and footnote back in place. Then it goes further: four free offline editors, interactive documents that publish as web pages, and a built-in MCP server with 40+ tools so Claude, Cursor and other AI assistants create and edit your files for you.
+
+- **AI office.** One sentence and AI writes the Word report, builds the Excel workbook with formulas that are recalculated and checked, or lays out the PowerPoint deck, then checks its own work.
+- **Any-format conversion.** PDF to editable Word, PDF to HTML with selectable text, PDF to images, UniDoc to Word, PDF and lossless HTML; merge, split and compress PDFs. Offline and free on your own computer.
+- **World-leading PDF layout reconstruction.** Keep every page 1:1, or rebuild paragraphs, headings, lists and reading order into a Word file you can edit right away.
+- **Layout-preserving translation.** Tables, formulas, footnotes, scans and LaTeX papers stay in place; bilingual side-by-side output is ready to hand in.
+- **Structured content extraction.** Headings, paragraphs, lists, tables, formulas, headers, footers, footnotes and reading order, read out of PDFs, Word files and scans.
+- **Native AI MCP for every document.** Word, Excel, PowerPoint, PDF, interactive UniDoc pages and Zotero: Claude, Cursor and any MCP app work on your real files, with no API key to paste.
+
+38 languages · 15 file formats · 40+ MCP tools · Offline editing · Windows · macOS · Linux · Web
+
+```bash
+pip install omnidoc
+```
+
+```python
+from omnidoc import OmniDocClient
+
+# one call: upload, translate with the layout kept, download side-by-side bilingual files
+OmniDocClient().translate_file("contract.pdf", "en", output_dir="out", output_mode="bilingual")
+```
+
+- Website: <https://omnidoc.top/>
+- Download the free desktop app: <https://download.omnidoc.top/>
+- API documentation: <https://docs.omnidoc.top/>
+
+This package is the **OmniDoc Python SDK**. It calls the OmniDoc API, so it needs an OmniDoc account and an API key (see [Quick start](#quick-start)).
+
+## Why OmniDoc
+
+**The world's most powerful AI document engine, all in one app.**
+
+The first product to put PDF layout reconstruction, interactive dynamic documents and AI-native office work into one app: translated PDFs keep their layout, documents become web pages, and AI builds your Word, Excel and PowerPoint files. The desktop app is free.
+
+- **Papers and contracts translated, layout intact.** Tables, formulas and footnotes stay in place, scans and LaTeX papers work too, and bilingual output is ready to hand in.
+- **The world's most powerful PDF layout reconstruction.** Keep every page 1:1 as it looks, or rebuild paragraphs, headings, lists and reading order into a Word file you can edit right away. Offline on your computer.
+- **Documents that move, shared as web pages.** Put charts, animations and flowcharts in the document and readers can interact with them; export to Word or PDF whenever you need.
+- **One sentence, and AI makes the Word, Excel or PPT.** Connect Claude, Cursor or another AI assistant to write documents, build spreadsheets and decks, and convert PDFs on your own computer, at no cost.
+
+## Three core technologies behind every OmniDoc product
+
+Structure extraction that keeps the layout, documents that are interactive web pages, and an office suite that AI assistants operate directly.
+
+**Production-grade structure extraction that keeps the layout.** OmniDoc reads PDFs, Word files and scans into their real structure: headings, paragraphs, lists, tables, formulas, headers, footers, footnotes and reading order. Translation and conversion put every element back where it was, so a translated paper keeps its equations and a converted PDF keeps its pages. PDF to a web page with selectable text in about one second on your own computer; scanned and complex pages go through visual structure extraction.
+
+**From a fixed PDF layout to a flowing document.** A PDF only records where each piece of text sits on the page; it has no paragraphs or headings. OmniDoc rebuilds paragraphs, headings, lists, tables and reading order from those scattered blocks and writes an editable, flowing document, or keeps the original layout page by page when you need it.
+
+**UniDoc: documents that are interactive web pages.** A UniDoc document can hold interactive charts, animations, flowcharts, tabs, cards and numbered equations that readers click, drag and play. Publish it and it stays interactive at a public web address; when you need a static copy, export the same file to Word, PDF or lossless HTML. AI assistants can write a whole interactive document in one go. Native .udoc format, about 9 ms from keystroke to layout, and the same editor in the desktop app and the browser.
+
+**An AI-native office suite: your assistant does the work.** OmniDoc Desktop ships with an MCP server of more than 40 tools. Claude, Cursor and other MCP apps use it to create and edit Word, Excel and PowerPoint files, convert PDFs, translate, publish and manage Zotero papers, and to check their own work: every edit returns layout problems, recalculated formulas or slide previews. Runs on your computer: editing and conversion are offline and free; cloud services such as translation use credits.
+
+## Ask your AI assistant, get a finished file
+
+Install OmniDoc Desktop and add it to Claude Desktop or Cursor in one click, or to any app that supports MCP. Your assistant then works on real files on your computer.
+
+- **Word documents.** Write reports, papers and résumés from templates, import an existing .docx, and save Word, PDF and lossless HTML in one call. Figures, tables and equations are numbered, and layout problems are reported back.
+- **Excel workbooks.** Build or change .xlsx files with formulas that are recalculated and checked, native Excel charts, pivot tables, conditional formatting, filters and sparklines.
+- **PowerPoint decks.** Create decks from your own template or a blank 16:9 deck, fill layouts with text, tables, charts and pictures, add animations and transitions, and catch overflowing text on every slide.
+- **PDF conversion.** Convert PDFs offline to Word with the page layout kept or as editable paragraphs, to HTML with selectable text, or to images; merge, split and compress PDFs.
+- **Read, translate and publish.** Read Word and PDF files in reading order, translate files with the same engines as omnidoc.top, and turn any document into a public web link.
+- **Papers and Zotero.** Search your Zotero library, add papers with their PDFs, notes and tags, and fetch a paper's full text from open-access sources or your own institutional sign-in.
+
+Editing and conversion run offline at no cost. Translation and other cloud services use credits, and your assistant acts as the account signed in to OmniDoc, so there is no API key to paste.
+
+## APIs for developers
+
+- **Document API.** REST endpoints to upload files, run translation jobs, track them and download results, plus file tools, glossaries, instant text translation and audio and video jobs.
+- **OpenAI-compatible AI API.** Point any OpenAI SDK at https://omnidoc.top/v1 and call Claude Haiku 5.5, with streaming. Each call is charged its actual model cost: 1 yuan of cost is 1,000 credits.
+- **MCP server.** The local MCP server in OmniDoc Desktop gives AI agents more than 40 document tools that work offline, with no API key.
+
+## Pricing
+
+Translation is charged for what is actually delivered, roughly 4 credits per page. The smallest pack is 3,000 credits for ¥9.9 (about 750 pages), and bought credits never expire. The editors and offline conversion are free.
+
+---
+
+# Python SDK
+
+## Install
+
+```bash
+pip install omnidoc
+```
+
+Requires Python 3.9 or newer. The only dependency is `requests`.
+
+## Quick start
+
+Create an API key (it starts with `sk_`) in the API center at <https://omnidoc.top/app/api-keys> and put it in the environment:
+
+```bash
+export OMNIDOC_API_KEY="sk_your_key"
+```
+
+```python
+from omnidoc import OmniDocClient
+
+client = OmniDocClient()  # reads OMNIDOC_API_KEY
+files = client.translate_file("report.docx", "en", output_dir="out")
+print(files)
+```
+
+`translate_file` uploads the file (presign, direct upload, finalize), creates a translation job, polls until it ends and downloads every artifact. A failed job raises `JobFailedError`; `quota_exceeded` is true when the balance was too low to start, in which case nothing is charged.
+
+## Step by step
+
+```python
+doc_id = client.upload("report.docx")
+job = client.create_job(doc_id, "en", output_mode="bilingual")
+job = client.wait_job(job["id"], poll_interval=3, timeout=1800)
+for artifact in client.list_artifacts(job["id"]):
+    client.download_artifact(artifact["id"], "out")
+```
+
+Each `create_job` call generates a new `Idempotency-Key`; internal retries reuse it, so a job is never created or charged twice. To retry the same submission yourself, pass the same `idempotency_key`.
+
+## Account and other endpoints
+
+```python
+client.get_job(job_id)           # job status (free)
+client.cancel_job(job_id)        # cancel a job
+client.credit_balance()          # credit balance (free)
+client.credit_operations()       # credit history
+client.usage_summary()           # usage summary
+
+# Endpoints not wrapped yet: call them by the path shown on docs.omnidoc.top
+client.get_json("<path>", params={...})
+client.post_json("<path>", json={...})
+```
+
+## Errors and retries
+
+- API errors raise `OmniDocError` with `status_code`, `code`, `message` and `request_id` (the `X-Request-Id` response header).
+- 429 and 5xx responses are retried using `Retry-After` or exponential backoff, up to `max_retries` times (default 4).
+- `AUTH_API_KEY_QUOTA_EXCEEDED` is not retried: the key's budget is used up and has to be raised first.
+
+## Webhook signatures
+
+```python
+from omnidoc import parse_webhook
+
+event = parse_webhook(raw_body, request.headers["X-Webhook-Signature"], secret)
+```
+
+Verify with the raw request body bytes. A bad signature or an old timestamp raises `ValueError`. De-duplicate events by `data.job_id` and `data.status`.
+
+## Security
+
+- Keep the key on your server or in a controlled environment, never in source code, logs or a public repository.
+- The key is sent only to the API address, never to the direct-upload `upload_url`.
+
+## Development
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+The tests use a fake HTTP session: no API key and no network.

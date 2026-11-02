@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+import logging
+import os
+import re
+import sys
+from typing import TYPE_CHECKING, Optional
+
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.shortcuts import prompt as ptk_prompt
+
+from teddy_executor.adapters.outbound.console_interactor_helpers import (
+    restore_terminal_mode,
+)
+from teddy_executor.core.utils.editor_names import is_cli_editor
+from teddy_executor.core.utils.stdin_ownership import stdin_owned
+
+if TYPE_CHECKING:
+    from teddy_executor.adapters.outbound.console_tooling import (
+        ConsoleToolingHelper,
+    )
+    from teddy_executor.core.ports.outbound.system_environment import (
+        ISystemEnvironment,
+    )
+
+# Regex to match ANSI SGR codes and OSC sequences, including partially
+# stripped OSC color-palette tails whose leading ESC byte was consumed by
+# terminal processing (e.g., `]10;rgb:8080/8989/b3b3`).
+#   - ANSI SGR: ESC [ <params> m (e.g., \x1b[31m) or any final byte [a-zA-Z]
+#   - OSC (full): ESC ] ... ST (ESC \ or BEL \x07)
+#   - OSC (stripped tail): `]10;[<params>;]rgb:<hex...>` — narrowed to the
+#     `rgb:` palette syntax emitted by terminals when restoring dynamic colors,
+#     so ordinary text like `]1, 2, 3` is never stripped.
+_ESCAPE_SEQUENCE_RE = re.compile(
+    r"\x1b\[[0-9;]*[a-zA-Z]"
+    r"|\x1b\][^\x1b]*(?:\x1b\\|\x07)"
+    r"|(?![\d;,])]10;(?:\d+;)?rgb:[\da-fA-F/]+(?::$|[a-zA-Z])?(?:\x1b\\|\x07)?"
+)
+
+logger = logging.getLogger(__name__)
+
+
+class ConsoleAskLoop:
+    """Handles the interactive loop for capturing user response via terminal or editor."""
+
+    def __init__(self, system_env: ISystemEnvironment, tooling: ConsoleToolingHelper):
+        self._system_env = system_env
+        self._tooling = tooling
+        self._history = InMemoryHistory()
+        self._active_editor_path: Optional[str] = None
+
+    def _is_tty(self) -> bool:
+        """Check if stdin is a real TTY (vs pipe/test runner)."""
+        return sys.stdin.isatty()
+
+    def _flush_stdin(self) -> None:
+        """Flush stale escape sequences from the TTY input buffer.
+
+        After an editor process exits, the terminal emulator may have written
+        escape sequences into the shared stdin buffer. Flushing before the next
+        prompt prevents them from being captured as user input.
+
+        Supports both POSIX (termios.tcflush) and Windows (msvcrt.kbhit/getwch).
+        Falls back to no-op if both are unavailable.
+        """
+        if not self._is_tty():
+            return
+        try:
+            import termios  # noqa: PLC0415
+
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)
+        except ImportError:
+            # Windows path: msvcrt is only available on Windows.
+            # Use an inner try/except so that if msvcrt itself is unavailable
+            # (e.g., running on non-Windows or patched __import__ during tests),
+            # the failure is silently caught rather than propagating.
+            try:
+                import msvcrt  # noqa: PLC0415
+
+                while msvcrt.kbhit():
+                    msvcrt.getwch()  # drain one character (discarded)
+            except ImportError:
+                pass
+        except Exception:  # nosec B110
+            pass
+
+    def _strip_escape_sequences(self, text: str) -> str:
+        """Remove ANSI escape sequences and OSC control sequences from text."""
+        return _ESCAPE_SEQUENCE_RE.sub("", text)
+
+    def _pt_prompt(self, prompt_text: str) -> str:
+        """Prompt the user using prompt_toolkit (TTY) or input() (non-TTY/pipe)."""
+        if not self._is_tty():
+            try:
+                return input(prompt_text)
+            except EOFError:
+                return ""
+        try:
+            return ptk_prompt(prompt_text, history=self._history)
+        except EOFError:
+            return ""
+
+    def run(self, prompt: str) -> str:
+        """Orchestrates the interactive loop for capturing user response.
+
+        The loop runs until the user provides a non-empty response. Typing 'e'
+        opens an external editor synchronously. After the editor exits, the
+        file content is read and returned if non-empty.
+        """
+        with stdin_owned():
+            while True:
+                if self._active_editor_path:
+                    prompt_text = (
+                        "Editor opened. Terminal reply or [Enter] to confirm editor › "
+                    )
+                else:
+                    prompt_text = "Response (type 'e' for editor) › "
+                raw_input = self._pt_prompt(prompt_text).strip()
+                # Gate stripping: only strip when editor is active
+                # (prevents antipattern of stripping intentional escape sequences
+                # from direct user input)
+                if self._active_editor_path:
+                    user_input = self._strip_escape_sequences(raw_input)
+                else:
+                    user_input = raw_input
+
+                if user_input.lower() == "e":
+                    content = self._launch_editor_background(prompt)
+                    if content:
+                        return content
+                    # FIX: flush stale terminal escape sequences immediately after
+                    # the editor spawn, BEFORE the next prompt reads from stdin.
+                    self._flush_stdin()
+                    # Empty editor content: back to normal prompt
+                    continue
+
+                if user_input:
+                    self._discard_pending_draft()
+                    return user_input
+
+                response = self._handle_empty_input(prompt)
+                if response is not None:
+                    return response
+
+    def _discard_pending_draft(self) -> None:
+        """Deletes an abandoned editor draft and clears the pending state.
+
+        A draft is abandoned when the user answers in the terminal instead of
+        harvesting the opened editor. The session shares one loop instance
+        across turns, so a surviving draft pins the next turn to the
+        "Editor opened" prompt and leaves the temp file on disk.
+        """
+        if not self._active_editor_path:
+            return
+        temp_path = self._active_editor_path
+        self._active_editor_path = None
+        self._system_env.delete_file(temp_path)
+
+    def _launch_editor_background(self, prompt: str) -> str:
+        """Opens an external editor in the background and returns the harvested content.
+
+        Creates a temp file with initial content (marker + prompt), spawns the editor
+        via subprocess.Popen with TTY inheritance, and stores the path for later harvest.
+        On subsequent calls, reuses the stored persistent file and preserves user edits.
+        """
+        marker = "<!-- Please enter your response above this line. -->"
+
+        # Check for editor availability BEFORE creating a temp file.
+        # If no editor is configured, return early without any file operations.
+        # This prevents a FileNotFoundError on Windows where the mock path
+        # `/tmp/fake_editor.md` is invalid.
+        editor_cmd = self._tooling.find_editor()
+        if not editor_cmd:
+            logger.info(
+                "Editor is disabled in config. Set 'editor' in .teddy/config.yaml to enable."
+            )
+            return ""
+
+        if self._active_editor_path:
+            # Persistent file reuse: preserve previous edits, update prompt
+            temp_path = self._active_editor_path
+            try:
+                with open(temp_path, "r", encoding="utf-8") as f:
+                    existing = f.read()
+                if marker in existing:
+                    user_edits = existing.split(marker)[0].strip()
+                    if user_edits:
+                        content = f"{user_edits}\n\n{marker}\n\n{prompt}\n"
+                    else:
+                        content = f"\n\n{marker}\n\n{prompt}\n"
+                else:
+                    content = f"\n\n{marker}\n\n{prompt}\n"
+            except Exception:
+                content = f"\n\n{marker}\n\n{prompt}\n"
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.write(content)
+        else:
+            temp_path = self._system_env.create_temp_file(suffix=".md")
+            initial_content = f"\n\n{marker}\n\n{prompt}\n"
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.write(initial_content)
+            self._active_editor_path = temp_path
+        editor_name = (
+            os.path.basename(editor_cmd[0])
+            if isinstance(editor_cmd, list) and editor_cmd
+            else "editor"
+        )
+        logger.info("Opening Editor: %s", editor_name)
+
+        # Classify editor: synchronous for CLI editors, async for GUI. The
+        # shared helper strips Windows launcher suffixes, so a wrapper such as
+        # `nvim.CMD` still takes the suspend path instead of the GUI launch.
+        if is_cli_editor(editor_cmd):
+            import subprocess  # noqa: PLC0415
+
+            subprocess.run(editor_cmd + [temp_path])  # nosec B603
+            # An external CLI editor may exit in raw mode; mirror
+            # ConsoleInteractorAdapter._launch_editor_synchronous and restore
+            # the terminal cooked mode (re-enabling ISIG|IEXTEN so Ctrl+C keeps
+            # generating SIGINT) before returning to the interactive loop.
+            restore_terminal_mode()
+            self._flush_stdin()
+
+            # Read harvested content
+            with open(temp_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            content = self._strip_escape_sequences(content)
+            marker = "<!-- Please enter your response above this line. -->"
+            if marker in content:
+                content = content.split(marker)[0].strip()
+
+            # Clean up temp file (if it was newly created, not persistent)
+            if temp_path == self._active_editor_path:
+                self._system_env.delete_file(temp_path)
+                self._active_editor_path = None
+
+            return content if content else ""
+
+        # GUI editor: fire-and-forget with Popen, return empty string to continue the loop
+        import subprocess  # noqa: PLC0415
+
+        # Mirrors spawn_editor() in textual_plan_reviewer_editor.py: spawn the
+        # GUI editor's launcher chain (e.g. codium.CMD -> cmd.exe -> node ->
+        # Electron) detached from OUR console. Without this, the chain's console
+        # init can mutate the shared console input mode mid-prompt-session
+        # (clearing ENABLE_VIRTUAL_TERMINAL_INPUT), leaving prompt_toolkit's
+        # capability-selected Vt100ConsoleInputReader in the inconsistent state
+        # where arrow-key '\x00' VK records are silently dropped. On Windows,
+        # CREATE_NO_WINDOW gives the chain its own invisible console.
+        popen_kwargs: dict = {}
+        if sys.platform == "win32":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        subprocess.Popen(editor_cmd + [temp_path], **popen_kwargs)  # nosec B603
+        self._flush_stdin()
+        return ""
+
+    def _handle_empty_input(self, prompt: str) -> Optional[str]:
+        """Handles logic when Enter is pressed without terminal input.
+
+        If an editor has been opened (via _active_editor_path), harvest the content
+        from the persistent file. Otherwise, prompt for confirmation.
+        """
+        if self._active_editor_path:
+            # Flush main stdin buffer before reading file
+            self._flush_stdin()
+            temp_path = self._active_editor_path
+            self._active_editor_path = None
+            try:
+                with open(temp_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                content = self._strip_escape_sequences(content)
+                marker = "<!-- Please enter your response above this line. -->"
+                if marker in content:
+                    content = content.split(marker)[0].strip()
+                self._system_env.delete_file(temp_path)
+                self._flush_stdin()
+                return content if content else None
+            except Exception as exc:
+                logger.warning(
+                    "Could not harvest the editor draft %s: %s", temp_path, exc
+                )
+                self._system_env.delete_file(temp_path)
+                return None
+
+        confirm = self._pt_prompt(
+            "Press [Enter] again to confirm empty response › "
+        ).strip()
+        if not confirm:
+            return ""
+        if confirm.lower() == "e":
+            content = self._launch_editor_background(prompt)
+            if content:
+                return content
+            return None
+        return confirm

@@ -1,0 +1,372 @@
+version: 1
+
+defaults:
+  include:
+    - package: std
+    - package: zapros-public
+    - package: zapros-internal
+
+packages:
+  zapros-public:
+    rules:
+      - id: async-client
+        match: '\bAsyncClient\b'
+        replace: 'Client'
+
+      - id: async-base-handler
+        match: '\bAsyncBaseHandler\b'
+        replace: 'BaseHandler'
+
+      - id: async-base-middleware
+        match: '\bAsyncBaseMiddleware\b'
+        replace: 'BaseMiddleware'
+
+      - id: async-iter-bytes
+        match: '\basync_iter_bytes\b'
+        replace: 'iter_bytes'
+
+      - id: async-iter-text
+        match: '\basync_iter_text\b'
+        replace: 'iter_text'
+
+      - id: async-iter-raw
+        match: '\basync_iter_raw\b'
+        replace: 'iter_raw'
+
+      - id: async-iter-next
+        match: '\basync_iter_next\b'
+        replace: 'iter_next'
+
+      - id: aclose
+        match: '\baclose\b'
+        replace: 'close'
+
+      - id: aread
+        match: '\baread\b'
+        replace: 'read'
+      
+      - id: async-base-websocket
+        match: '\bAsyncBaseWebSocket\b'
+        replace: 'BaseWebSocket'
+      - id: async-websocket
+        match: '\bAsyncWebSocket\b'
+        replace: 'WebSocket'
+
+  zapros-internal:
+    rules:
+      - match: '\bahandle\b'
+        replace: 'handle'
+
+      - match: '\bensure_async_handler\b'
+        replace: 'ensure_sync_handler'
+
+      - match: '\baconnect\b'
+        replace: 'connect'
+
+      - match: '\baconnect_ws\b'
+        replace: 'connect_ws'
+
+      - match: '\basync_next\b'
+        replace: 'next'
+
+      - match: '\bhandle_async_request\b'
+        replace: 'handle_request'
+
+      - match: '\bwrap_with_async_middleware\b'
+        replace: 'wrap_with_middleware'
+
+      - match: '\bAsyncPyreqwestHandler\b'
+        replace: 'PyreqwestHandler'
+
+      - match: '\bAsyncStdNetworkHandler\b'
+        replace: 'StdNetworkHandler'
+
+      - match: '\bAsyncStdNetworkHandlerConfig\b'
+        replace: 'StdNetworkHandlerConfig'
+
+      - match: '\bAsyncHttp1Connection\b'
+        replace: 'Http1Connection'
+
+      - match: '\bAsyncHttp1ResponseStream\b'
+        replace: 'Http1ResponseStream'
+
+      - match: '\bAsyncHttpConnection\b'
+        replace: 'HttpConnection'
+
+      - match: '\b_async_http1\b'
+        replace: '_sync_http1'
+
+      - match: '\bAsyncIterable\b'
+        replace: 'Iterable'
+
+      - match: '\bAsyncIdlePoolConnection\b'
+        replace: 'IdlePoolConnection'
+
+      - match: '\bAsyncPoolConnection\b'
+        replace: 'PoolConnection'
+
+      - match: '\bAsyncClosableStream\b'
+        replace: 'ClosableStream'
+
+      - match: '\bAsyncBaseNetworkStream\b'
+        replace: 'BaseNetworkStream'
+
+      - match: '\bAsyncBaseTransport\b'
+        replace: 'BaseTransport'
+
+      - match: '\bAsyncHttp1ConnectionPool\b'
+        replace: 'Http1ConnectionPool'
+
+      - match: '\bAsyncHttp2ConnectionPool\b'
+        replace: 'Http2ConnectionPool'
+
+      - match: '\bAsyncConn\b'
+        replace: 'Conn'
+
+      - match: '\bAsyncPyreqwestStream\b'
+        replace: 'PyreqwestStream'
+
+      - match: '\bAsyncStdStream\b'
+        replace: 'StdStream'
+
+      - match: '\bAsyncStream\b'
+        replace: 'Stream'
+
+      - match: '\b_async_iter_source\b'
+        replace: '_iter_source'
+
+      - match: '\bAsyncPyodideHandler\b'
+        replace: 'PyodideHandler'
+
+      - match: '\bAsyncIOTransport\b'
+        replace: 'SyncTransport'
+
+      - match: 'from zapros\._io\._asyncio import SyncTransport'
+        replace: 'from zapros._io._sync import SyncTransport'
+
+      - match: 'zapros\._async_io'
+        replace: 'zapros._sync_io'
+
+      - match: '\._async_io'
+        replace: '._sync_io'
+
+      - match: 'zapros\._async_base'
+        replace: 'zapros._sync_base'
+
+      - match: '\._async_base'
+        replace: '._sync_base'
+
+      - match: 'zapros\._async_pool'
+        replace: 'zapros._sync_pool'
+
+      - match: '\._async_pool'
+        replace: '._sync_pool'
+
+      - match: 'self\._wait_with_timeout\((.*)\)'
+        replace: 'self._cond.wait($1)'
+
+      - match: '\bClientBuilder\b'
+        replace: 'SyncClientBuilder'
+
+      - match: 'from pyreqwest\.response import Response as PyreqwestResponse'
+        replace: 'from pyreqwest.response import SyncResponse as PyreqwestResponse'
+
+      - match: 'Response as PyreqwestResponse'
+        replace: 'SyncResponse as PyreqwestResponse'
+
+      - match: '\bpytest_asyncio\b'
+        replace: 'pytest'
+
+      - match: '\bmock_server\b'
+        replace: 'mock_server'
+
+      - match: '\basync_mock_builder\b'
+        replace: 'mock_builder'
+
+      - match: 'MockAsyncConnection'
+        replace: 'MockConnection'
+
+      - match: '\bAsyncMockServer\b'
+        replace: 'MockServer'
+
+      - match: '\bachunked_stream\b'
+        replace: 'chunked_stream'
+
+      - match: '\b_aiter_single\b'
+        replace: '_iter_single'
+
+      - match: '\bAsyncStreamLimiter\b'
+        replace: 'StreamLimiter'
+
+      - match: '\bAsyncHttp2Connection\b'
+        replace: 'Http2Connection'
+
+      - match: '\bAsyncHttp2ResponseStream\b'
+        replace: 'Http2ResponseStream'
+
+      - match: 'from zapros._compat import AnyLock'
+        replace: 'from threading import Lock'
+
+      - match: 'from ._compat import AnyLock'
+        replace: 'from threading import Lock'
+
+      - match: '_async_http2'
+        replace: '_sync_http2'
+
+      - match: '\bAnyLock\b'
+        replace: 'Lock'
+
+targets:
+  - input: src/zapros/_handlers/_async_base.py
+    output: src/zapros/_handlers/_sync_base.py
+
+  - input: src/zapros/_handlers/_async_pyreqwest.py
+    output: src/zapros/_handlers/_sync_pyreqwest.py
+
+  - input: src/zapros/_handlers/_std/_async.py
+    output: src/zapros/_handlers/_std/_sync.py
+
+  - input: src/zapros/_handlers/_std/_async_http1.py
+    output: src/zapros/_handlers/_std/_sync_http1.py
+
+  - input: src/zapros/_handlers/_std/_async_http2.py
+    output: src/zapros/_handlers/_std/_sync_http2.py
+    rules:
+      - match: '\bfrom zapros\._compat import AnyLock\b'
+        replace: 'from threading import Lock'
+      - match: '\bAnyLock\b'
+        replace: 'Lock'
+      - match: '\bAsyncHttp2Connection\b'
+        replace: 'Http2Connection'
+
+
+  - input: src/zapros/_async_client.py
+    output: src/zapros/_sync_client.py
+
+  - input: tests/test_async_client.py
+    output: tests/test_sync_client.py
+
+  - input: src/zapros/_async_pool.py
+    output: src/zapros/_sync_pool.py
+    rules:
+      - match: '\bfrom ._compat import AnyLock\b'
+        replace: 'from threading import Lock'
+      - match: '\bfrom ._compat import AnyLock, AnySemaphore\b'
+        replace: 'from threading import Lock, Semaphore'
+      - match: '\bAnyLock\b'
+        replace: 'Lock'
+      - match: '\bAnySemaphore\b'
+        replace: 'Semaphore'
+
+  - input: tests/handlers/test_async_basic.py
+    output: tests/handlers/test_sync_basic.py
+
+  - input: tests/handlers/test_async_proxy.py
+    output: tests/handlers/test_sync_proxy.py
+
+  - input: tests/handlers/test_async_http1.py
+    output: tests/handlers/test_sync_http1.py
+    rules:
+      - match: '\bAsyncMockStream\b'
+        replace: 'MockStream'
+      - match: '\bAsyncIterator\b'
+        replace: 'Iterator'
+
+  - input: tests/handlers/test_async_http2.py
+    output: tests/handlers/test_sync_http2.py
+    rules:
+      - match: '\bAsyncMockStream\b'
+        replace: 'MockStream'
+      - match: '\bAsyncRecordingStream\b'
+        replace: 'RecordingStream'
+      - match: '\bAsyncHttp1OnceStream\b'
+        replace: 'Http1OnceStream'
+      - match: '\bAsyncH2Stream\b'
+        replace: 'H2Stream'
+      - match: '\bAsyncMockTransport\b'
+        replace: 'MockTransport'
+      - match: '_std\._async\.h2'
+        replace: '_std._sync.h2'
+
+  - input: tests/handlers/test_async_std_pool.py
+    output: tests/handlers/test_sync_std_pool.py
+    rules:
+      - match: '\bfrom zapros._compat import anysleep\b'
+        replace: 'from time import sleep'
+      - match: '\banysleep\b'
+        replace: 'sleep'
+
+  - input: tests/test_async_pool.py
+    output: tests/test_sync_pool.py
+    rules:
+      - match: '\bfrom zapros._compat import anysleep\b'
+        replace: 'from time import sleep'
+      - match: '\banysleep\b'
+        replace: 'sleep'
+
+
+  - input: tests/test_async_auth.py
+    output: tests/test_sync_auth.py
+
+  - input: tests/handlers/test_async_cassette.py
+    output: tests/handlers/test_sync_cassette.py
+
+  - input: tests/handlers/test_async_caching.py
+    output: tests/handlers/test_sync_caching.py
+    rules:
+      - match: '\banysqlite\b'
+        replace: 'sqlite3'
+      - match: '\bAsyncSqliteStorage\b'
+        replace: 'SyncSqliteStorage'
+
+  - tag: cassetteMiddleware
+    rules:
+      - match: '\b_amaterialize_request\b'
+        replace: '_materialize_request'
+
+  - tag: retryMiddleware
+    rules:
+      - match: '\banysleep\b'
+        replace: 'time.sleep'
+
+  - tag: cacheMiddleware
+    rules:
+      # TODO: adopt ry in Hishel and import it's rules here instead of duplicating them
+      - match: '_get_async_cache_proxy'
+        replace: '_get_sync_cache_proxy'
+      - match: '\bAsyncCacheProxy\b'
+        replace: 'SyncCacheProxy'
+      - match: '\b_async_send_request\b'
+        replace: '_sync_send_request'
+      - match: '\bHishelAsyncBaseStorage\b'
+        replace: 'HishelSyncBaseStorage'
+
+  - tag: TestBaseUrl
+    rules:
+      - match: '\btest_async\b'
+        replace: 'test_sync'
+
+  - input: src/zapros/websocket/_async.py
+    output: src/zapros/websocket/_sync.py
+    rules:
+      - match: '\bfrom zapros\._compat import AnyLock\b'
+        replace: 'from threading import Lock'
+      - match: '\bfrom zapros\._compat import AnyLock, AnySemaphore\b'
+        replace: 'from threading import Lock, Semaphore'
+      - match: '\bAnyLock\b'
+        replace: 'Lock'
+      - match: '\bAnySemaphore\b'
+        replace: 'Semaphore'
+      - match: '\bfrom zapros\._compat import AnyEvent\b'
+        replace: 'from threading import Event'
+      - match: '\bAnyEvent\b'
+        replace: 'Event'
+  - input: tests/websocket/test_async.py
+    output: tests/websocket/test_sync.py
+    rules:
+      - match: 'from zapros._websocket._async'
+        replace: 'from zapros._websocket._sync'
+      - match: '\bfrom zapros._compat import anysleep\b'
+        replace: 'from time import sleep'
+      - match: '\banysleep\b'
+        replace: 'sleep'

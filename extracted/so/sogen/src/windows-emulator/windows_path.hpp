@@ -1,0 +1,393 @@
+#pragma once
+
+#include <list>
+#include <optional>
+#include <filesystem>
+#include <utils/string.hpp>
+
+#include <serialization.hpp>
+
+namespace sogen
+{
+
+    namespace windows_path_detail
+    {
+        constexpr std::u16string_view unc_prefix = u"\\??\\";
+
+        // Win32 long-path prefix. Ntdll converts "\\?\C:\..." to "\??\C:\..." before a path reaches a
+        // syscall, so filesystem lookups never deliver this spelling. It still arrives wherever a caller's
+        // path is passed through unconverted: kernel32's SxS activation-context request, for example, or the
+        // current directory of a process started from a directory set with this prefix.
+        constexpr std::u16string_view long_path_prefix = u"\\\\?\\";
+
+        inline std::u16string_view strip_unc_prefix(const std::u16string_view path)
+        {
+            if (path.starts_with(long_path_prefix))
+            {
+                return path.substr(long_path_prefix.size());
+            }
+
+            if (!path.starts_with(unc_prefix))
+            {
+                return path;
+            }
+
+            return path.substr(unc_prefix.size());
+        }
+
+        inline bool is_slash(const char16_t chr)
+        {
+            return chr == u'\\' || chr == u'/';
+        }
+    }
+
+    class windows_path
+    {
+      public:
+        friend std::hash<windows_path>;
+
+        windows_path() = default;
+
+        windows_path(const std::filesystem::path& path)
+        {
+            const auto full_path = path.u16string();
+            const auto canonical_path = windows_path_detail::strip_unc_prefix(full_path);
+
+            std::u16string folder{};
+
+            for (const auto chr : canonical_path)
+            {
+                if (chr == u':' && this->spelled_folders_.empty() && !this->drive_.has_value() && folder.size() == 1)
+                {
+                    this->drive_ = static_cast<char>(*folder.cbegin());
+                    folder.clear();
+                    continue;
+                }
+
+                if (windows_path_detail::is_slash(chr))
+                {
+                    if (folder.empty())
+                    {
+                        continue;
+                    }
+
+                    this->spelled_folders_.push_back(std::move(folder));
+                    folder = {};
+                    continue;
+                }
+
+                folder.push_back(chr);
+            }
+
+            if (!folder.empty())
+            {
+                this->spelled_folders_.push_back(folder);
+            }
+
+            this->canonicalize();
+        }
+
+        template <typename T>
+            requires(!std::is_same_v<std::remove_cvref_t<T>, windows_path> &&
+                     !std::is_same_v<std::remove_cvref_t<T>, std::filesystem::path> &&
+                     !std::is_same_v<std::remove_cvref_t<T>, utils::buffer_deserializer>)
+        windows_path(T&& path_like)
+            : windows_path(std::filesystem::path(std::forward<T>(path_like)))
+        {
+        }
+
+        windows_path(const std::optional<char> drive, std::list<std::u16string> folders)
+            : drive_(drive),
+              spelled_folders_(std::move(folders))
+        {
+            this->canonicalize();
+        }
+
+        bool is_absolute() const
+        {
+            return this->drive_.has_value();
+        }
+
+        bool is_relative() const
+        {
+            return !this->is_absolute();
+        }
+
+        std::u16string u16string() const
+        {
+            std::u16string path{};
+            if (this->drive_)
+            {
+                path.push_back(static_cast<char16_t>(*this->drive_));
+                path.push_back(u':');
+            }
+
+            for (const auto& folder : this->folders_)
+            {
+                if (!path.empty())
+                {
+                    path.push_back(u'\\');
+                }
+
+                path.append(folder);
+            }
+
+            if (this->is_absolute() && this->folders_.empty())
+            {
+                path.push_back(u'\\');
+            }
+
+            return path;
+        }
+
+        std::string string() const
+        {
+            return u16_to_u8(this->u16string());
+        }
+
+        std::u16string to_unc_path() const
+        {
+            if (this->is_relative())
+            {
+                return this->u16string();
+            }
+
+            return std::u16string(windows_path_detail::unc_prefix) + this->u16string();
+        }
+
+        // Keeps the case the path was given in, so files and directories are created on the host the way the guest
+        // spelled them.
+        std::filesystem::path to_portable_path() const
+        {
+            std::u16string path{};
+            if (this->drive_)
+            {
+                path.push_back(static_cast<char16_t>(*this->drive_));
+            }
+
+            for (const auto& folder : this->spelled_folders_)
+            {
+                if (!path.empty())
+                {
+                    path.push_back(u'/');
+                }
+
+                path.append(folder);
+            }
+
+            return path;
+        }
+
+        std::u16string to_device_path() const
+        {
+            if (is_relative())
+            {
+                throw std::runtime_error("Device path can not be computed for relative paths!");
+            }
+
+            auto path = this->volume_device_name();
+            path.push_back(u'\\');
+            path.append(this->without_drive().u16string());
+
+            return path;
+        }
+
+        std::u16string volume_device_name() const
+        {
+            const auto drive_index = this->drive_.value_or('a') - 'a';
+            const auto drive_number = std::to_string(drive_index + 1);
+
+            std::u16string name = u"\\Device\\HarddiskVolume";
+            name.append(drive_number.begin(), drive_number.end());
+            return name;
+        }
+
+        std::optional<char> get_drive() const
+        {
+            return this->drive_;
+        }
+
+        windows_path without_drive() const
+        {
+            return windows_path{std::nullopt, this->spelled_folders_};
+        }
+
+        windows_path operator/(const windows_path& path) const
+        {
+            if (path.is_absolute())
+            {
+                return path;
+            }
+
+            auto folders = this->spelled_folders_;
+
+            for (const auto& folder : path.spelled_folders_)
+            {
+                folders.push_back(folder);
+            }
+
+            return {this->drive_, std::move(folders)};
+        }
+
+        windows_path& operator/=(const windows_path& path)
+        {
+            *this = *this / path;
+            return *this;
+        }
+
+        windows_path parent() const
+        {
+            auto folders = this->spelled_folders_;
+            if (!folders.empty())
+            {
+                folders.pop_back();
+            }
+
+            return {this->drive_, std::move(folders)};
+        }
+
+        windows_path lexically_normal() const
+        {
+            std::list<std::u16string> folders{};
+
+            for (const auto& folder : this->spelled_folders_)
+            {
+                if (folder == u".")
+                {
+                    continue;
+                }
+
+                if (folder == u"..")
+                {
+                    if (!folders.empty())
+                    {
+                        folders.pop_back();
+                    }
+
+                    continue;
+                }
+
+                folders.push_back(folder);
+            }
+
+            return {this->drive_, std::move(folders)};
+        }
+
+        // Number of path components (excluding the drive).
+        size_t depth() const
+        {
+            return this->folders_.size();
+        }
+
+        // If `base` equals this path or is one of its ancestor directories (same drive,
+        // case-insensitive since components are canonicalized to lower case), returns the
+        // portion of this path below `base` as a relative windows_path. Otherwise nullopt.
+        std::optional<windows_path> relative_to(const windows_path& base) const
+        {
+            if (this->drive_ != base.drive_ || base.folders_.size() > this->folders_.size())
+            {
+                return std::nullopt;
+            }
+
+            auto self_it = this->folders_.begin();
+            auto spelled_it = this->spelled_folders_.begin();
+            for (const auto& base_folder : base.folders_)
+            {
+                if (*self_it != base_folder)
+                {
+                    return std::nullopt;
+                }
+                ++self_it;
+                ++spelled_it;
+            }
+
+            return windows_path{std::nullopt, std::list<std::u16string>(spelled_it, this->spelled_folders_.end())};
+        }
+
+        std::u16string leaf() const
+        {
+            if (this->folders_.empty())
+            {
+                return {};
+            }
+
+            return this->folders_.back();
+        }
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write_optional(this->drive_);
+            buffer.write_list(this->spelled_folders_);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read_optional(this->drive_);
+            buffer.read_list(this->spelled_folders_);
+            this->canonicalize();
+        }
+
+        bool operator==(const windows_path& other) const
+        {
+            return this->drive_ == other.drive_ && this->folders_ == other.folders_;
+        }
+
+        bool operator!=(const windows_path& other) const
+        {
+            return !this->operator==(other);
+        }
+
+        bool empty() const
+        {
+            return this->is_relative() && this->folders_.empty();
+        }
+
+      private:
+        std::optional<char> drive_{};
+        // Components in lower case, which identify the path, and as they were given.
+        std::list<std::u16string> folders_{};
+        std::list<std::u16string> spelled_folders_{};
+
+        void canonicalize()
+        {
+            if (this->drive_.has_value())
+            {
+                this->drive_ = utils::string::char_to_lower(*this->drive_);
+            }
+
+            this->folders_ = this->spelled_folders_;
+            for (auto& folder : this->folders_)
+            {
+                for (auto& chr : folder)
+                {
+                    chr = utils::string::char_to_lower(chr);
+                }
+            }
+        }
+    };
+
+} // namespace sogen
+
+namespace std
+{
+    template <>
+    struct hash<sogen::windows_path>
+    {
+        std::size_t operator()(const sogen::windows_path& k) const noexcept
+        {
+            auto hash = std::hash<bool>()(k.drive_.has_value());
+
+            if (k.drive_.has_value())
+            {
+                hash ^= std::hash<char>()(*k.drive_);
+            }
+
+            for (const auto& folder : k.folders_)
+            {
+                hash ^= std::hash<std::u16string>()(folder);
+            }
+
+            return hash;
+        }
+    };
+}

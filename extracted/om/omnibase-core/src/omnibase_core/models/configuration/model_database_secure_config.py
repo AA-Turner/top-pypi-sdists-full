@@ -18,6 +18,9 @@ from omnibase_core.models.configuration.model_connection_parse_result import (
     PoolRecommendations,
 )
 from omnibase_core.models.configuration.model_latency_profile import ModelLatencyProfile
+from omnibase_core.models.configuration.model_network_defaults import (
+    ModelNetworkDefaults,
+)
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.models.security.model_secure_credentials import (
     ModelSecureCredentials,
@@ -200,7 +203,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
         v = v.strip().lower()
 
         # Allow localhost and IP addresses
-        if v in {"localhost", "127.0.0.1", "::1"}:
+        if v in ModelNetworkDefaults.load().loopback_hosts:
             return v
 
         # Check for valid domain format
@@ -412,7 +415,9 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
     def _get_sqlite_connection_string(self) -> str:
         """Generate SQLite connection string."""
         # For SQLite, database field contains the file path
-        return f"sqlite:///{self.database}"
+        return ModelNetworkDefaults.load().sqlite_connection_url_template.format(
+            database=self.database
+        )
 
     def _get_oracle_connection_string(self, password: str) -> str:
         """Generate Oracle connection string."""
@@ -432,7 +437,9 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
             params.append("Encrypt=yes")
             params.append("TrustServerCertificate=no")
 
-        return "mssql://?" + "&".join(params)
+        return ModelNetworkDefaults.load().mssql_connection_url_template.format(
+            params="&".join(params)
+        )
 
     def _get_mongodb_connection_string(self, password: str) -> str:
         """Generate MongoDB connection string."""
@@ -990,12 +997,14 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
     def create_postgresql(
         cls,
         host: str,
-        port: int = 5432,
+        port: int | None = None,
         database: str = "onex_dev",
         username: str = "onex_user",
         password: str | None = None,
     ) -> "ModelDatabaseSecureConfig":
-        """Create PostgreSQL configuration."""
+        """Create PostgreSQL configuration; the port defaults from the network defaults contract."""
+        if port is None:
+            port = ModelNetworkDefaults.load().postgresql_port
         if password is None:
             raise ModelOnexError(
                 message="Password is required for database configuration",
@@ -1015,12 +1024,14 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
     def create_mysql(
         cls,
         host: str,
-        port: int = 3306,
+        port: int | None = None,
         database: str = "onex_dev",
         username: str = "onex_user",
         password: str | None = None,
     ) -> "ModelDatabaseSecureConfig":
-        """Create MySQL configuration."""
+        """Create MySQL configuration; the port defaults from the network defaults contract."""
+        if port is None:
+            port = ModelNetworkDefaults.load().mysql_port
         if password is None:
             raise ModelOnexError(
                 message="Password is required for database configuration",
@@ -1044,7 +1055,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
         """Create SQLite configuration."""
         return cls(
             host="sqlite",  # Required by model but not used for SQLite
-            port=0,  # Not applicable for SQLite
+            port=ModelNetworkDefaults.load().sqlite_placeholder_port,  # Not applicable for SQLite
             database=database_path,
             username="sqlite",  # Not applicable but required by model
             password=SecretStr(""),  # Not applicable but required by model
@@ -1065,7 +1076,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
         """Create production-ready PostgreSQL configuration with SSL."""
         return cls(
             host=host,
-            port=5432,
+            port=ModelNetworkDefaults.load().postgresql_port,
             database=database,
             username=username,
             password=SecretStr(password),

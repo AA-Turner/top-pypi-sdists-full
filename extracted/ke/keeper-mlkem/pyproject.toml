@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keeper-mlkem"
+dynamic = ["version"]
+description = "Fast ML-KEM implementation with C extensions"
+readme = "README.md"
+authors = [
+    {name = "Keeper Security", email = "ops@keepersecurity.com"}
+]
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Security :: Cryptography",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+keywords = ["cryptography", "post-quantum", "kyber", "ml-kem", "lattice-based", "key-encapsulation", "pqc", "fips-203"]
+requires-python = ">=3.11"
+
+[project.urls]
+Homepage = "https://github.com/Keeper-Security/commander-qrc"
+Documentation = "https://github.com/Keeper-Security/commander-qrc/blob/master/README.md"
+Repository = "https://github.com/Keeper-Security/commander-qrc"
+Issues = "https://github.com/Keeper-Security/commander-qrc/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "mlkem.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mlkem*"]
+exclude = ["tests*", "docs*"]
+

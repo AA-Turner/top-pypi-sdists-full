@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: cortex-code-agent-sdk
+Version: 1.0.7
+Summary: SDK for interacting with Cortex Code CLI programmatically
+License-Expression: LicenseRef-Snowflake-Proprietary
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: anyio>=4.0
+Requires-Dist: mcp>=1.0
+Requires-Dist: snowflake-connector-python<5,>=4.7.1
+Requires-Dist: typing-extensions>=4.0

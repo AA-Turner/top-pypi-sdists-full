@@ -1989,10 +1989,10 @@ class BuiltinObjectType(PyObjectType):
             check += f'||(({arg}) == Py_None)'
         return check + f' || __Pyx_RaiseUnexpectedTypeError("{self.name}", {arg})'
 
-    def convert_to_basetype(self, code, pos, arg_cname, allow_none=True, arg_name_cstring="NULL"):
+    def convert_to_basetype(self, code, pos, arg_cname_lvalue, allow_none=True, arg_name_cstring="NULL"):
         """Generate type checking code that converts compatible (number) types to the plain base type in-place.
 
-        Replaces the C value in 'arg_cname' on conversion or error, decrefing the original value.
+        Replaces the C value in 'arg_cname_lvalue' on conversion or error, decrefing the original value.
         """
         if self.is_pyfloat_type:
             utility_code_name = "pyfloat_simplify"
@@ -2002,14 +2002,14 @@ class BuiltinObjectType(PyObjectType):
             cfunc = "__Pyx_PyInt_FromNumber"
         else:
             # No conversion, simple type check.
-            type_test = self.type_test_code(code.globalstate, arg_cname, allow_none=allow_none)
+            type_test = self.type_test_code(code.globalstate, arg_cname_lvalue, allow_none=allow_none)
             code.putln(f"if (!({type_test})) {code.error_goto(pos)}")
             return
 
         code.globalstate.use_utility_code(
             UtilityCode.load_cached(utility_code_name, "TypeConversion.c"))
         code.put_error_if_neg(
-            pos, f"{cfunc}(&{arg_cname}, {arg_name_cstring}, {allow_none:d})"
+            pos, f"{cfunc}(&{arg_cname_lvalue}, {arg_name_cstring}, {allow_none:d})"
         )
 
     def declaration_code(self, entity_code,
@@ -4978,6 +4978,11 @@ class EnumMixin:
     Common implementation details for C and C++ enums.
     """
 
+    _subinterpreters_incompatible_message = (
+        "Module is declared as 'subinterpreters_compatible' but uses cpdef enums. "
+        "This is not supported yet since it uses global cdef objects and will likely crash."
+    )
+
     def create_enum_to_py_utility_code(self, env):
         from .UtilityCode import CythonUtilityCode
         self.to_py_function = "__Pyx_Enum_%s_to_py" % type_identifier(self)
@@ -5086,7 +5091,9 @@ class CppScopedEnumType(CType, EnumMixin):
                 "enum_doc": self.doc,
                 "static_modname": env.qualified_name,
             },
-            outer_module_scope=env.global_scope())
+            outer_module_scope=env.global_scope(),
+            subinterpreters_incompatible_message=self._subinterpreters_incompatible_message
+        )
 
         env.use_utility_code(rst)
 
@@ -5204,7 +5211,9 @@ class CEnumType(CIntLike, CType, EnumMixin):
                      "enum_to_pyint_func": enum_to_pyint_func,
                      "static_modname": env.qualified_name,
                      },
-            outer_module_scope=env.global_scope()))
+            outer_module_scope=env.global_scope(),
+            subinterpreters_incompatible_message=self._subinterpreters_incompatible_message
+        ))
 
     def create_to_py_utility_code(self, env):
         if self.to_py_function is not None:

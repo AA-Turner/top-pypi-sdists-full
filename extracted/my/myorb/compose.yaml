@@ -1,0 +1,25 @@
+# Run myOrb with: docker compose up -d
+# Then find the setup link with: docker logs myorb
+services:
+  myorb:
+    image: ghcr.io/eriktelepovsky/myorb:latest
+    container_name: myorb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - myorb-data:/data
+    environment:
+      # Your time zone (e.g. Europe/Bratislava), used for "today" and event times
+      MYORB_TIMEZONE: ${MYORB_TIMEZONE:-UTC}
+      # Public address when myOrb runs behind a reverse proxy, e.g. https://myorb.example.com
+      MYORB_PUBLIC_URL: ${MYORB_PUBLIC_URL:-}
+      # IP addresses or networks of the reverse proxy whose X-Forwarded-* headers are trusted
+      MYORB_TRUSTED_PROXIES: ${MYORB_TRUSTED_PROXIES:-127.0.0.1}
+      # Key that encrypts stored credentials; when empty, one is generated in the data volume
+      MYORB_SECRET_KEY: ${MYORB_SECRET_KEY:-}
+      # Custom plugins to install at startup, e.g. "myorb-wallet==1.2" or a local path
+      MYORB_PLUGINS: ${MYORB_PLUGINS:-}
+
+volumes:
+  myorb-data:

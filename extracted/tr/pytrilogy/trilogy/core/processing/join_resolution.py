@@ -390,6 +390,11 @@ def _extent_free_join(
         binder, other = (
             (left_facts, right_facts) if left_binds else (right_facts, left_facts)
         )
+        # A binder keyed by the span itself (a `~` notes table beside the
+        # customers) is a lookup, not a fact referencing it: it has no rows of
+        # its own to anchor, and the members it lacks keep the other side's.
+        if binder.grain and binder.grain <= span_keys:
+            return None, None
         # The other side carrying the span's whole domain and the binder no
         # NULL on it: every binder row has its partner, so anchoring preserves
         # nothing. Typed INNER here rather than left to the narrowing pass,
@@ -1249,9 +1254,11 @@ def _row_independent(ds: DataSource) -> bool:
     # An UNNEST source here is the standalone literal flavor (`unnest([1,2,3])
     # as value` beside an unrelated scan): its fan-out is authored by the
     # query, not a lost join key. A row-correlated unnest rides an UnnestJoin,
-    # never a keyless SourceJoin.
+    # never a keyless SourceJoin. One carrying its parent's columns beside
+    # the elements (`group_id` beside `unnest(group_regions)`) is correlated.
     if isinstance(ds, QueryDatasource) and ds.source_type == SourceType.UNNEST:
-        return True
+        elements = {c.address for c in ds.join_derived_concepts}
+        return all(c.address in elements for c in ds.output_concepts)
     outputs = ds.output_concepts
     if bool(outputs) and all(c.granularity == Granularity.SINGLE_ROW for c in outputs):
         return True
@@ -1269,6 +1276,19 @@ def _row_independent(ds: DataSource) -> bool:
     )
 
 
+def _closure_keys(
+    concept: BuildConcept, environment: BuildEnvironment | None
+) -> frozenset[str]:
+    """The keys whose rows determine `concept`: its declared keys, or for a
+    bare key the rows of every table binding it."""
+    if environment is None:
+        return frozenset(concept.keys or ())
+    # Imported lazily: the v4 helper package imports join resolution.
+    from trilogy.core.processing.v4_helper.functional_dependency import row_keys
+
+    return row_keys(concept, environment)
+
+
 def _raise_if_keyless_row_bearing_join(
     joins: list[JoinOrderOutput],
     ds_node_map: dict[str, DataSource],
@@ -1281,7 +1301,7 @@ def _raise_if_keyless_row_bearing_join(
     projections of ONE relation (``_sole_projected_relation``) and so hold the
     same rows however their axes look. The axis test is FD-aware: one side's
     outputs (hidden included, since hiding is how an axis gets lost) closed
-    over concept ``keys`` and pseudonyms, intersected with the
+    over row keys and pseudonyms, intersected with the
     other side's direct addresses, after canonicalization. Axis-DISJOINT
     row-bearing sides off DIFFERENT relations cross-join legitimately
     (selecting an aggregate without its grouping key is an authored fan-out),
@@ -1328,8 +1348,8 @@ def _raise_if_keyless_row_bearing_join(
         return result
 
     def key_closure(node: str) -> frozenset[str]:
-        """Direct axis plus everything reachable through concept ``keys`` and
-        pseudonyms, to fixpoint: the addresses whose rows
+        """Direct axis plus everything reachable through row keys
+        (`_closure_keys`) and pseudonyms, to fixpoint: the addresses whose rows
         FD-determine this source's PROJECTED values. A rename chain can hide
         its key several environment hops deep. Seeded from outputs only, for
         the same reason as `direct_axis`."""
@@ -1340,7 +1360,7 @@ def _raise_if_keyless_row_bearing_join(
         for concept in ds.output_concepts:
             frontier.add(concept.address)
             frontier.update(concept.pseudonyms)
-            frontier.update(concept.keys or set())
+            frontier.update(_closure_keys(concept, environment))
         closure: set[str] = set()
         while frontier:
             addr = frontier.pop()
@@ -1354,7 +1374,7 @@ def _raise_if_keyless_row_bearing_join(
             ) or environment.alias_origin_lookup.get(addr)
             if concept_ref is None:
                 continue
-            frontier.update(concept_ref.keys or set())
+            frontier.update(_closure_keys(concept_ref, environment))
             frontier.update(concept_ref.pseudonyms)
         result = frozenset({_canon(a) for a in closure}) - rollup_padded_addresses
         closure_cache[node] = result
@@ -1756,6 +1776,22 @@ def _pads_beside(other: SideFacts, key: str, spans: frozenset[str]) -> bool:
     )
 
 
+def _equality_drops_padding(
+    pairs: list[ConceptPair],
+    padded: SideFacts,
+    spans: frozenset[str],
+    canon_node: Callable[[str], str],
+) -> bool:
+    """The join compares with `=` a key those regions also pad: the padded
+    rows are NULL on it and pair with nothing."""
+    return any(
+        not pair.is_nullable
+        and spans
+        <= padded.span_padding.get(canon_node(pair.right.address), frozenset())
+        for pair in pairs
+    )
+
+
 def _padding_guard(
     join: JoinOrderOutput,
     facts: JoinFacts,
@@ -1794,6 +1830,7 @@ def _padding_guard(
                     or key not in padded.value_nullables
                     or key not in other.value_nullables
                     or _pads_beside(other, key, spans)
+                    or _equality_drops_padding(pairs, padded, spans, canon_node)
                 ):
                     continue
                 witnesses = _padding_witness(

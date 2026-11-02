@@ -16,6 +16,7 @@ from schemathesis.generation.case import Case
 if TYPE_CHECKING:
     import requests
 
+    from schemathesis.checks import CheckResult
     from schemathesis.config import OutputConfig
     from schemathesis.generation.stateful.state_machine import Transition
 
@@ -106,6 +107,7 @@ class ScenarioRecorder:
         parent_id: str | None = None,
         transition: Transition | None = None,
         is_transition_applied: bool = False,
+        is_probe: bool = False,
     ) -> None:
         """Record a test case and its relationship to a parent, if applicable."""
         self.cases[case.id] = CaseNode(
@@ -113,6 +115,7 @@ class ScenarioRecorder:
             parent_id=parent_id,
             transition=transition,
             is_transition_applied=is_transition_applied,
+            is_probe=is_probe,
         )
 
     def record_response(self, *, case_id: str, response: Response) -> None:
@@ -173,6 +176,36 @@ class ScenarioRecorder:
                 failure_info=CheckFailureInfo(code_sample=code_sample, failure=failure, steps=steps or []),
             )
         )
+
+    def record_reproducible_failure(
+        self, *, name: str, case_id: str, failure: Failure, cases: Iterable[Case], verify: bool
+    ) -> None:
+        """Record a failure of a check, reproduced by sending `cases` in order."""
+        steps = self.reproduction_steps(cases, failure=failure, verify=verify)
+        self.record_check_failure(
+            name=name,
+            case_id=case_id,
+            code_sample="\n".join(step.curl for step in steps),
+            failure=failure,
+            steps=steps,
+        )
+
+    def record_check_results(self, case: Case, response: Response, results: list[CheckResult]) -> None:
+        """Record the results of checks that ran on `response` to `case`."""
+        for result in results:
+            if result.failure is not None:
+                code_sample = case.as_reproduction_command(
+                    headers=dict(response.request.headers),
+                    verify=response.verify,
+                )
+                self.record_check_failure(
+                    name=result.name,
+                    case_id=case.id,
+                    code_sample=code_sample,
+                    failure=result.failure,
+                )
+            else:
+                self.record_check_success(name=result.name, case_id=case.id)
 
     def record_filtered_failure(self, *, case_id: str) -> None:
         """Record that a `filter_failure` hook dropped a failure for a given test case."""
@@ -325,6 +358,8 @@ class CaseNode:
     # and outside of the implemented transition logic (e.g. spec-specific stateful transitions)
     transition: Transition | None
     is_transition_applied: bool
+    # A request sent on the parent case's behalf, e.g. by a check, not a generated test case.
+    is_probe: bool
 
 
 @dataclass(slots=True)
@@ -352,7 +387,7 @@ class ReproductionStep:
     def from_case(
         cls, case: Case, *, headers: dict[str, Any] | None, verify: bool, roles: Mapping[str, str]
     ) -> ReproductionStep:
-        curl = case.as_curl_command(headers=headers, verify=verify)
+        curl = case.as_reproduction_command(headers=headers, verify=verify)
         # Requests sent as different identities look alike once credentials are masked.
         role = roles.get(case.auth_identity) if case.auth_identity is not None else None
         sender = f"{case.auth_identity} ({role})" if role is not None else None

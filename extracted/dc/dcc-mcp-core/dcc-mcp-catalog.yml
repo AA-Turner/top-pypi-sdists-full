@@ -1,0 +1,837 @@
+# DCC-MCP Public Catalog
+# Built-in index for DCC adapter discovery and bootstrap planning.
+#
+# This catalog contains first-party adapters, infrastructure entries, and remote
+# connectors. Skill pack install metadata lives in the official marketplace.json
+# at dcc-mcp/marketplace and is managed by the `marketplace` subcommand.
+#
+# Schema version: "1"
+# Fields:
+#   name        - Unique package / adapter name (required)
+#   description - Human-readable description (required)
+#   dcc         - DCC target(s): maya, blender, houdini, photoshop, ... (list)
+#   url         - Canonical URL (GitHub repo, docs, PyPI, ...) (optional)
+#   issues_url  - Canonical public GitHub issues URL (optional)
+#   tags        - Searchable tags (list, optional)
+#   install.python_path      - Optional host Python interpreter for package install
+#   install.instructions_url - Raw adapter-maintained install.md for agent setup
+#   install.sop_version       - Install SOP schema version the runbook targets (optional, author-declared)
+#   install.sop_schema_digest - Lowercase hex SHA-256 of that SOP schema document (optional).
+#                               Anchors the schema file's bytes; it is not proof the
+#                               runbook conforms to that schema.
+
+version: "1"
+entries:
+  - name: "dcc-mcp-photocraft"
+    description: "Experimental PhotoCraft adapter with native CLI discovery and a bounded headless image workflow; desktop and Web acceptance remain unqualified"
+    dcc: ["photocraft"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-photocraft"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-photocraft/issues"
+    tags: ["adapter", "photocraft", "experimental", "storytold", "image-editing", "native-cli"]
+    version: "0.2.0"
+    min_core_version: "0.20.44"
+    maintainer: "dcc-mcp"
+    policy:
+      installation: "not_available"
+      reason: "Discovery only: automatic installation awaits a bounded Core requirement, pinned artifact and Install SOP qualification."
+
+  - name: "dcc-mcp-kdenlive"
+    description: "Kdenlive adapter with 27 typed project, media, timeline, effect, catalog, export, interchange, native and setup tools, plus shared DCC-CUA editor control"
+    dcc: ["kdenlive"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-kdenlive"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-kdenlive/issues"
+    tags: ["adapter", "kdenlive", "official", "video-editing", "mlt"]
+    version: "0.1.2"
+    min_core_version: "0.20.28"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-kdenlive"
+      url: "https://files.pythonhosted.org/packages/c8/02/0ca33a9fa3c9992e4b7ba9cbf0cbef1c13a46898c48814dd55b63997fcde/dcc_mcp_kdenlive-0.1.2-py3-none-any.whl"
+      sha256: "43ac951f0afad0a2eac8e6297bf85fbf444e1105725bbbc4c28a7df94168d193"
+      entry_point: "dcc_mcp_kdenlive.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-kdenlive/dfe3d5d1d8b7e0e3bdcc40f390dae658f8c3d859/install.md"
+      sop_version: 1
+      sop_schema_digest: "2b3a8a101384a5163c7569c4a2b0de6586c672c5ee291735f94334a33b7d37a0"
+
+  - name: "dcc-mcp-core"
+    description: "Foundational Rust + Python library for the DCC-MCP ecosystem"
+    dcc: []
+    url: "https://github.com/dcc-mcp/dcc-mcp-core"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-core/issues"
+    tags: ["core", "official", "rust", "python", "library"]
+
+  - name: "dcc-mcp-office"
+    description: "Office shared core for DCC-MCP — office-rpc/1 protocol, C# COM sidecar, Open XML worker, Microsoft Graph connector and Office skill packs"
+    dcc: ["office"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-office"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-office/issues"
+    tags: ["office", "core", "official", "powerpoint", "word", "excel", "outlook"]
+
+  - name: "dcc-mcp-PowerPoint"
+    description: "PowerPoint adapter for DCC-MCP — deck generation (Deck IR → Open XML compile → COM render), slide composition and review decks"
+    dcc: ["powerpoint"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-PowerPoint"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-PowerPoint/issues"
+    tags: ["adapter", "powerpoint", "office", "official", "deck", "skills"]
+    version: "0.2.3"
+    min_core_version: "0.18.2"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-powerpoint"
+      url: "https://files.pythonhosted.org/packages/06/fe/565d7fe12d972f5c1e0babacd236b8a03bbf1ade87c275910d0737d2a0da/dcc_mcp_powerpoint-0.2.3-py3-none-any.whl"
+      sha256: "48f412e4c52cca9c4f9f17401e36f4c2fab872acc345d96e7eae256f50186cf0"
+      entry_point: "dcc_mcp_powerpoint._standalone_entry:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-PowerPoint/6d3fc4cb193ee6e92ba47057b4451b9aa8d55474/install.md"
+
+  - name: "dcc-mcp-maya"
+    description: "Core Maya adapter for DCC-MCP — gateway-managed instance, mayapy-based MCP server"
+    dcc: ["maya"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-maya"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-maya/issues"
+    tags: ["adapter", "maya", "official", "pip", "core"]
+    version: "0.9.42"
+    min_core_version: "0.20.0"
+    core_requirement: ">=0.20.0,<0.21.0"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-maya"
+      url: "https://files.pythonhosted.org/packages/30/ba/681a80c257a9a502328e6afdb31d8ec5730379e25a35ab0e197ec65b4c0a/dcc_mcp_maya-0.9.42-py3-none-any.whl"
+      sha256: "9df720c154bfeacedd4241ee80925bc13ddb700f71dc6a0e74c6e1dd1c225965"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-maya/e582e5881f01e1a7e6e77eca54f5b3ec7ec08350/install.md"
+      sop_version: 1
+      sop_schema_digest: "2b3a8a101384a5163c7569c4a2b0de6586c672c5ee291735f94334a33b7d37a0"
+
+  - name: "dcc-mcp-blender"
+    description: "Core Blender adapter for DCC-MCP — Blender add-on with in-process MCP server"
+    dcc: ["blender"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-blender"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-blender/issues"
+    tags: ["adapter", "blender", "official", "pip", "addon", "core"]
+    version: "0.1.43"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-blender"
+      url: "https://files.pythonhosted.org/packages/8c/56/3a075f0389408e64268b193447f56cd68be7a4cedb2ac759c49ba4497b27/dcc_mcp_blender-0.1.43-py3-none-any.whl"
+      sha256: "0f2c4a0957dd41f72b711d164e36b0da039f6f13311b0eb0fecb73059bd7c0bf"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-blender/main/install.md"
+
+  - name: "dcc-mcp-houdini"
+    description: "Core Houdini adapter for DCC-MCP — Houdini tools exposed through MCP"
+    dcc: ["houdini"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-houdini"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-houdini/issues"
+    tags: ["adapter", "houdini", "official", "pip", "core"]
+    version: "0.31.5"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-houdini"
+      url: "https://files.pythonhosted.org/packages/af/9e/7e37c169d3f52ccad8ad441521dc1dbff5e8eabd984d21c6e2f65a2f49d4/dcc_mcp_houdini-0.31.5-py3-none-any.whl"
+      sha256: "af8b68d2d7c6002a575e93de073404f2bebc04f415833d6d1a60363b607d5c15"
+      entry_point: "dcc_mcp_houdini.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-houdini/main/install.md"
+
+  - name: "dcc-mcp-3dsmax"
+    description: "Core 3ds Max adapter for DCC-MCP — 3ds Max plugin with host-side bridge and sidecar support"
+    dcc: ["3dsmax", "3ds max", "3ds-max", "max"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-3dsmax"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-3dsmax/issues"
+    tags: ["adapter", "3dsmax", "3ds-max", "official", "pip", "core"]
+    version: "0.1.40"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-3dsmax"
+      url: "https://files.pythonhosted.org/packages/f0/23/db420ca34459f378e2a9fa294ceb525b49c1242dec817ca53f39f13343fd/dcc_mcp_3dsmax-0.1.40-py3-none-any.whl"
+      sha256: "c5b117c232f35d47cbb9e4801cd57de5d1e84e15bf40391f99529edb4b7c8ccd"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-3dsmax/main/install.md"
+
+  - name: "dcc-mcp-photoshop"
+    description: "Core Photoshop adapter for DCC-MCP — Python bridge for a Photoshop UXP plugin with one-click installer"
+    dcc: ["photoshop"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-photoshop"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-photoshop/issues"
+    tags: ["adapter", "photoshop", "official", "pip", "uxp", "core", "setup"]
+    version: "0.1.44"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-photoshop"
+      url: "https://files.pythonhosted.org/packages/fc/b2/db13d1dbb4d39559e83b77be87bc7151fd6c6840b7c6edd7e359c313f3ee/dcc_mcp_photoshop-0.1.44-py3-none-any.whl"
+      sha256: "302dd849e52c69587e17822be4343f9136db9e25220c12a7ea073301fbbf13a7"
+      entry_point: "dcc_mcp_photoshop.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-photoshop/57f7ad4c60ab2597fbdd6eeb8d3e1ef1eeb50ff3/install.md"
+
+  - name: "dcc-mcp-nuke"
+    description: "Foundry Nuke adapter for DCC-MCP"
+    dcc: ["nuke"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-nuke"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-nuke/issues"
+    tags: ["adapter", "nuke", "official", "pip", "compositing"]
+    version: "0.13.1"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-nuke"
+      url: "https://files.pythonhosted.org/packages/2f/33/84bbba6cff8bd69d6e33eb2a62fbef678c3d2e18b37e134a809e7cf305df/dcc_mcp_nuke-0.13.1-py3-none-any.whl"
+      sha256: "c00aef395d6b6c50724acb093ece25063cc2c50d64348059b334e562fc9a67bf"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-nuke/main/README.md"
+
+  - name: "dcc-mcp-unreal"
+    description: "Unreal Engine plugin and adapter for DCC-MCP"
+    dcc: ["unreal"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-unreal"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-unreal/issues"
+    tags: ["adapter", "unreal", "official", "pip", "game-engine"]
+    version: "0.3.0"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-unreal"
+      url: "https://files.pythonhosted.org/packages/0b/e2/e70e3f6d0433ac7155b34668453b131efed2e5fea060ff7f1997494196e6/dcc_mcp_unreal-0.3.0-py3-none-any.whl"
+      sha256: "4df543a902bcd771bc0733c1ba894fd802a64e1e897adb65c29800dcf5cb2ccf"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-unreal/main/README.md"
+
+  - name: "dcc-mcp-liquigen"
+    # Pin the immutable PyPI wheel published through the repository's trusted publisher.
+    description: "LiquiGen adapter with typed node-graph inspection, simulation controls, VAT export, and Unreal Engine handoff"
+    dcc: ["liquigen"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-liquigen"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-liquigen/issues"
+    tags: ["adapter", "liquigen", "official", "water", "simulation", "vat", "unreal"]
+    version: "0.1.0"
+    min_core_version: "0.20.22"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-liquigen"
+      url: "https://files.pythonhosted.org/packages/57/04/09ef0e03c75d0aa2694338a4bb5d3e19d1b5c3d996dac3e635dab2ad450c/dcc_mcp_liquigen-0.1.0-py3-none-any.whl"
+      sha256: "130caacfb16b99b9365db071f145a7613f20b45d9b11a7397934c918b7691d0b"
+      entry_point: "dcc_mcp_liquigen.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-liquigen/main/README.md"
+
+  - name: "dcc-mcp-zbrush"
+    description: "ZBrush adapter for DCC-MCP"
+    dcc: ["zbrush"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-zbrush"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-zbrush/issues"
+    tags: ["adapter", "zbrush", "official", "pip", "sculpting"]
+    version: "0.2.26"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-zbrush"
+      url: "https://files.pythonhosted.org/packages/57/6a/8d0a1d6b5f28dbe9a41cd4ba5661e96a1903545d3eb041701e76c5c58573/dcc_mcp_zbrush-0.2.26-py3-none-any.whl"
+      sha256: "d4b5bd94edf1b243b9a46d78502cb166c328b4f2036b88ff255d676291d41a0a"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-zbrush/1c61bd65cf97ea654f184e13fb75c7ff9f4fc855/install.md"
+
+  - name: "dcc-mcp-premiere"
+    description: "Adobe Premiere Pro adapter for DCC-MCP"
+    dcc: ["premiere"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-premiere"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-premiere/issues"
+    tags: ["adapter", "premiere", "official", "pip", "editing"]
+    version: "0.6.3"
+    min_core_version: "0.20.34"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-premiere"
+      url: "https://files.pythonhosted.org/packages/45/e4/21e305116bee10ce6153665528e4fc65fd21bf2e4039a4fa60c31c0e7ae4/dcc_mcp_premiere-0.6.3-py3-none-any.whl"
+      sha256: "d872850c2c693c5aa423bffca262eaf8d1c2a81b150a3f7532909c91ca54d999"
+      entry_point: "dcc_mcp_premiere.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-premiere/a4a541492e7f8ab3e3192aafcb44f66b13388f98/install.md"
+
+  - name: "dcc-mcp-aftereffects"
+    description: "Adobe After Effects adapter with typed project, layer, render queue, and official DOM workflows"
+    dcc: ["aftereffects", "after-effects", "after effects"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-aftereffects"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-aftereffects/issues"
+    tags: ["adapter", "aftereffects", "after-effects", "official", "pip", "cep", "motion-graphics"]
+    version: "0.7.3"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-aftereffects"
+      url: "https://files.pythonhosted.org/packages/f0/eb/39410aedfd363aa8f9877d35da52c472e29b4f2b4a4b5df98c77b4bdaa58/dcc_mcp_aftereffects-0.7.3-py3-none-any.whl"
+      sha256: "e2ca0e74ad03c6314a2788793cac38669a67fdd8457ec3b5e2a02e4f4dd41417"
+      entry_point: "dcc_mcp_aftereffects.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-aftereffects/3907a3da3e318efd78a43833b9e518cd4c8a0bbc/install.md"
+
+  - name: "dcc-mcp-illustrator"
+    description: "Adobe Illustrator adapter with typed document, artwork, export, and official DOM workflows"
+    dcc: ["illustrator"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-illustrator"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-illustrator/issues"
+    tags: ["adapter", "illustrator", "official", "pip", "cep", "vector-graphics"]
+    version: "0.3.3"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-illustrator"
+      url: "https://files.pythonhosted.org/packages/6e/9a/c335d49bb8768e4eb32407459a922e387f4f57eac76511392fe257ad4ebe/dcc_mcp_illustrator-0.3.3-py3-none-any.whl"
+      sha256: "36f1261b36f9126972e15b2d7b7d6bf7ca6a58e6e0f2980f359b8bc4eff3e85e"
+      entry_point: "dcc_mcp_illustrator.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-illustrator/6a6b6fdf607e362089c5355663c85f126701953e/install.md"
+
+  - name: "dcc-mcp-gimp"
+    description: "GIMP 3 adapter with typed image, layer, save, and production export workflows"
+    dcc: ["gimp"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-gimp"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-gimp/issues"
+    tags: ["adapter", "gimp", "official", "pip", "image-editing", "painting"]
+    version: "0.4.1"
+    min_core_version: "0.19.91"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-gimp"
+      url: "https://files.pythonhosted.org/packages/94/08/2e79c3a888f161bbd43263da3b5ca0d5702cf5c8fd0ce37d6cb492c1cb0f/dcc_mcp_gimp-0.4.1-py3-none-any.whl"
+      sha256: "5cbc37af4a927f4d29f9b036e4961caa08b9b0c477d737534e206f01d4333614"
+      entry_point: "dcc_mcp_gimp.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-gimp/05bbd132993b937ea33cbca798e21f7b4193fc52/install.md"
+
+  - name: "dcc-mcp-krita"
+    description: "Krita adapter with typed document, layer, painting, save, and export workflows"
+    dcc: ["krita"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-krita"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-krita/issues"
+    tags: ["adapter", "krita", "official", "pip", "digital-painting", "image-editing"]
+    version: "0.4.0"
+    min_core_version: "0.19.38"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-krita"
+      url: "https://files.pythonhosted.org/packages/fd/df/661059ce16a97350fa8fd9837707f2061a1712c36fa3acdf1e083899aa51/dcc_mcp_krita-0.4.0-py3-none-any.whl"
+      sha256: "288b307aea00d98242ce3c20c377cdd825eab785a6ffc33ba6af08e893e5314a"
+      entry_point: "dcc_mcp_krita.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-krita/5f4bd69b1ad886f97f2f4b72187a0388a3e40b51/install.md"
+
+  - name: "dcc-mcp-katana"
+    description: "Foundry Katana adapter for DCC-MCP"
+    dcc: ["katana"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-katana"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-katana/issues"
+    tags: ["adapter", "katana", "official", "pip", "lookdev"]
+    version: "0.5.0"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-katana"
+      url: "https://files.pythonhosted.org/packages/00/4a/97501745ee4ee1e4b3bc3fdc195ab8a850bbad59754cdd98803b5999be15/dcc_mcp_katana-0.5.0-py3-none-any.whl"
+      sha256: "5f3b3f5d9dbe215b52610a8d9b717cec75d149d16f56dbb51e2fe92bd8022fd2"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-katana/393596937d562c4fd1c623c70893f9a682b4ce99/install.md"
+
+  - name: "dcc-mcp-mobu"
+    description: "Autodesk MotionBuilder adapter for DCC-MCP"
+    dcc: ["mobu"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-mobu"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-mobu/issues"
+    tags: ["adapter", "mobu", "motionbuilder", "official", "pip", "animation"]
+    version: "0.4.0"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-mobu"
+      url: "https://files.pythonhosted.org/packages/12/54/0f3298bd9e11d9ae4678fe1ecde5e1e19bd99cf8812a286b8bb43c1388e2/dcc_mcp_mobu-0.4.0-py3-none-any.whl"
+      sha256: "cc7971fc7975a1db99c0b5e0ee93a342d842e6fdf34a286b6f086c3746363b13"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-mobu/275bdc62a724b347c6b7312dd08eb65ffca9994f/install.md"
+
+  - name: "dcc-mcp-renderdoc"
+    description: "RenderDoc capture and replay automation for DCC-MCP"
+    dcc: ["renderdoc"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-renderdoc"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-renderdoc/issues"
+    tags: ["adapter", "renderdoc", "official", "pip", "graphics-debugging"]
+    version: "0.3.0"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-renderdoc"
+      url: "https://files.pythonhosted.org/packages/db/ef/0966f1657f016669be5b57bdc5657f140a3863aac459979e1f2a15b1f0be/dcc_mcp_renderdoc-0.3.0-py3-none-any.whl"
+      sha256: "f8d0290c825c6e167acade9d1fbdaafc2c5e42edc06eaca6506acde251d4aa17"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-renderdoc/main/README.md"
+
+  - name: "dcc-mcp-obs"
+    description: "Native OBS Studio adapter with exact-process scene and source inspection plus typed recording control"
+    dcc: ["obs"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-obs"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-obs/issues"
+    tags: ["adapter", "obs", "official", "pip", "recording", "streaming", "broadcast"]
+    version: "1.5.1"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-obs"
+      url: "https://files.pythonhosted.org/packages/50/37/65b42856500d50548d5673a399ccfa1a85a61a7458858bb52881422ed6c2/dcc_mcp_obs-1.5.1-py3-none-any.whl"
+      sha256: "c47e2127e2331e5b8650a98ff777e97f76cedfccaf0fe2a5187981dfbffe57af"
+      entry_point: "dcc_mcp_obs:ObsMcpServer"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-obs/475046ba823a199195f32ee729983770c2da6898/install.md"
+
+  - name: "dcc-mcp-substance3d-designer"
+    description: "Substance 3D Designer adapter for DCC-MCP"
+    dcc: ["substance3d_designer"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-substance3d-designer"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-substance3d-designer/issues"
+    tags: ["adapter", "substance3d_designer", "official", "pip", "materials"]
+    version: "0.3.0"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-substance3d-designer"
+      url: "https://files.pythonhosted.org/packages/c2/3c/e7cacb084b2087380a7785edf83c05f3a05d77779eeb99899a47c9546df6/dcc_mcp_substance3d_designer-0.3.0-py3-none-any.whl"
+      sha256: "65e16406a0ba4a15dfdde9dd082a2092685c204c678681da5e228dc68fe9b29c"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-substance3d-designer/main/README.md"
+
+  - name: "dcc-mcp-substance3d-painter"
+    description: "Substance 3D Painter adapter for DCC-MCP"
+    dcc: ["substance3d_painter"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-substance3d-painter"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-substance3d-painter/issues"
+    tags: ["adapter", "substance3d_painter", "official", "pip", "texturing"]
+    version: "0.4.1"
+    min_core_version: "0.20.15"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-substance3d-painter"
+      url: "https://files.pythonhosted.org/packages/a2/37/2f63943bda1c723269c33c179e6c064410f11447ea985b4ba9dca11f0575/dcc_mcp_substance3d_painter-0.4.1-py3-none-any.whl"
+      sha256: "247f8a9bb46121057ae50b40c0cd0dd92e7095305211af5ac163ce280116e388"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-substance3d-painter/1c75a5ca2a3a2f4f33bc977341bb233b83d60de1/install.md"
+
+  - name: "dcc-mcp-godot"
+    description: "Godot Engine adapter and game-authoring skills for DCC-MCP"
+    dcc: ["godot"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-godot"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-godot/issues"
+    tags: ["adapter", "godot", "official", "pip", "game-engine"]
+    version: "0.9.6"
+    min_core_version: "0.20.41"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-godot"
+      url: "https://files.pythonhosted.org/packages/c3/f3/4a104c92c6a7b9dd9dc7519d08a8804c50896a1ecc9bbf796a80493f89a6/dcc_mcp_godot-0.9.6-py3-none-any.whl"
+      sha256: "1aa17201803e800638033e2581002e5d01d00c6ac772d6b54688bf2a1cc384dc"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-godot/141a2a2253d72035ef099dab8e81e0f98aa4db80/install.md"
+
+  - name: "dcc-mcp-unity"
+    description: "Unity Editor adapter and typed game-authoring skills for DCC-MCP"
+    dcc: ["unity"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-unity"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-unity/issues"
+    tags: ["adapter", "unity", "official", "pip", "game-engine", "upm"]
+    version: "0.11.2"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-unity"
+      url: "https://files.pythonhosted.org/packages/d5/d7/a4ef262fae42a8ae7ba95057b85a2128d7a1ec54a320b777adf768550889/dcc_mcp_unity-0.11.2-py3-none-any.whl"
+      sha256: "aab6097038ec0153bfd9bd3a111ce9435a1d57aecfc8bc76030e7bf73643eedd"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-unity/main/install.md"
+
+  - name: "dcc-mcp-marmoset"
+    description: "Marmoset Toolbag adapter and typed PBR scene/rendering skills for DCC-MCP"
+    dcc: ["marmoset"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-marmoset"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-marmoset/issues"
+    tags: ["adapter", "marmoset", "toolbag", "official", "pip", "pbr", "rendering"]
+    version: "0.1.1"
+    min_core_version: "0.19.86"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-marmoset"
+      url: "https://files.pythonhosted.org/packages/26/b8/cac4c22c973f46129bae4d74397ae11fe460a50ecd599ec2d48df5741a72/dcc_mcp_marmoset-0.1.1-py3-none-any.whl"
+      sha256: "3c368e8889b1af87b412b625635e222fe5fc01cc21841dba28656b056acab9df"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-marmoset/main/install.md"
+
+  - name: "dcc-mcp-openscad"
+    description: "OpenSCAD adapter for deterministic model validation, export, and rendering"
+    dcc: ["openscad"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-openscad"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-openscad/issues"
+    tags: ["adapter", "openscad", "official", "pip", "cad", "modeling"]
+    version: "0.2.1"
+    min_core_version: "0.20.36"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-openscad"
+      url: "https://files.pythonhosted.org/packages/ce/0e/3bcb11f2ebeab949859be9f68fa0391dae8fcbbfa89f14c946190522ecdb/dcc_mcp_openscad-0.2.1-py3-none-any.whl"
+      sha256: "ef2ddb3d458fd693581071670165b13d35974e89bb45d78b5c02358d57459354"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-openscad/main/README.md"
+
+  - name: "dcc-mcp-freecad"
+    description: "FreeCAD adapter for typed parametric modeling, document validation, and CAD exchange"
+    dcc: ["freecad"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-freecad"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-freecad/issues"
+    tags: ["adapter", "freecad", "official", "pip", "cad", "parametric-modeling"]
+    version: "0.3.0"
+    min_core_version: "0.20.36"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-freecad"
+      url: "https://files.pythonhosted.org/packages/3e/d4/54b4786c85a692e429a53f941145a406fb1d8444c4f85fa039469b196d76/dcc_mcp_freecad-0.3.0-py3-none-any.whl"
+      sha256: "bfd21e4e7d1cd12076f4a93f65396b742e4c563e24c8b208a8663d9fc1e4f59f"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-freecad/main/README.md"
+
+  - name: "dcc-mcp-cinema4d"
+    description: "Cinema 4D adapter for typed headless modeling, interchange, inspection, and rendering"
+    dcc: ["c4d", "cinema4d"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-cinema4d"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-cinema4d/issues"
+    tags: ["adapter", "cinema4d", "cinema-4d", "official", "pip", "modeling", "rendering"]
+    version: "0.2.0"
+    min_core_version: "0.20.36"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-cinema4d"
+      url: "https://files.pythonhosted.org/packages/10/de/c615676821de491c2effab9ca96286f89c4757b333fbebafdf5856006eec/dcc_mcp_cinema4d-0.2.0-py3-none-any.whl"
+      sha256: "e0874e4da7ce05c08c857d1e9dfa173ab808e3be71d1ec766f566881f18b5afc"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-cinema4d/main/README.md"
+
+  - name: "dcc-mcp-comfyui"
+    description: "ComfyUI adapter with 21 typed workflow, catalog, queue, and artifact tools"
+    dcc: ["comfyui", "comfy-ui"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-comfyui"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-comfyui/issues"
+    tags: ["adapter", "comfyui", "official", "pip", "node-graph", "image-generation"]
+    version: "0.1.4"
+    min_core_version: "0.20.8"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-comfyui"
+      url: "https://files.pythonhosted.org/packages/4e/f4/ce16423ffb5792723d1325a86a95a949397306a726977b84b1c0a234c1c9/dcc_mcp_comfyui-0.1.4-py3-none-any.whl"
+      sha256: "4fb5a1ba0310c0c5c544d11ee4403fdad892755c6c95ef0d76d45ea60ba07679"
+      entry_point: "dcc_mcp_comfyui.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-comfyui/9c43fa6b0fa43b8f6279b09e0726a8a556ae8e3c/install.md"
+
+  - name: "dcc-mcp-mari"
+    description: "Mari adapter for typed project, geometry, channel, node-graph, layer, shader, image, and export workflows"
+    dcc: ["mari"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-mari"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-mari/issues"
+    tags: ["adapter", "mari", "official", "pip", "texturing", "lookdev"]
+    version: "0.2.1"
+    min_core_version: "0.19.91"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-mari"
+      url: "https://files.pythonhosted.org/packages/76/81/f1bf615945acd175ff579d0084f35df249fd027d96870fa321647b724bf8/dcc_mcp_mari-0.2.1-py3-none-any.whl"
+      sha256: "de160ebe7ee7910238bf05e76a96ab8d35c0945885c1651b2c5809aeb61555a7"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-mari/main/README.md"
+
+  - name: "dcc-mcp-sketchup"
+    description: "SketchUp adapter with typed modeling, materials, scenes, validation, and interchange workflows"
+    dcc: ["sketchup"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-sketchup"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-sketchup/issues"
+    tags: ["adapter", "sketchup", "official", "pip", "ruby", "modeling", "interchange"]
+    version: "0.2.0"
+    min_core_version: "0.20.36"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-sketchup"
+      url: "https://files.pythonhosted.org/packages/54/ed/b9e2435bfcb72565931b76f34720901e7e682c6b44a5e85126bf318a4a64/dcc_mcp_sketchup-0.2.0-py3-none-any.whl"
+      sha256: "b4bffc71df94c493e5797fc2cdc859b1ba7b2c3532d6eb8011dbc494102cdb4e"
+      entry_point: "dcc_mcp_sketchup.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-sketchup/main/README.md"
+
+  - name: "dcc-mcp-touchdesigner"
+    description: "TouchDesigner adapter with 19 typed operator graph, parameter, DAT, timeline, capture, and project tools dispatched on the main thread"
+    dcc: ["touchdesigner"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-touchdesigner"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-touchdesigner/issues"
+    tags: ["adapter", "touchdesigner", "official", "pip", "node-graph", "real-time", "interactive-media"]
+    version: "0.1.1"
+    min_core_version: "0.19.91"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-touchdesigner"
+      url: "https://files.pythonhosted.org/packages/a3/bd/2b67130f5a889824659dc87398ed61e0140bc7a9cc55110a984b6a0256de/dcc_mcp_touchdesigner-0.1.1-py3-none-any.whl"
+      sha256: "99ce677d8bdb674116849220ff92751c15b9f3ba410aff8b3371ff96ef13f4dc"
+      entry_point: "dcc_mcp_touchdesigner:TouchDesignerMcpServer"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-touchdesigner/main/install.md"
+
+  - name: "dcc-mcp-shogun"
+    description: "Vicon Shogun Post adapter with 67 typed Scene, channel, camera, file, Timeline, editing, production-context, pipeline-context, and capability-gated Offline processing tools"
+    dcc: ["shogun"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-shogun"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-shogun/issues"
+    tags: ["adapter", "shogun", "vicon", "official", "pip", "motion-capture", "timeline", "processing"]
+    version: "0.10.0"
+    min_core_version: "0.19.86"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-shogun"
+      url: "https://files.pythonhosted.org/packages/14/1f/c609d3cab3862722206153b17c9ce2ab27d8ce40a2e41a8c503477c02402/dcc_mcp_shogun-0.10.0-py3-none-any.whl"
+      sha256: "c6c223d86d25902a32fd4cf057feb78de7670c6bacc5c848aeb7a8e82e14392b"
+      entry_point: "dcc_mcp_shogun:ShogunMcpServer"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-shogun/main/install.md"
+
+  - name: "dcc-mcp-tiled"
+    description: "Tiled adapter for typed workspace-bounded map authoring, validation, and conversion"
+    dcc: ["tiled"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-tiled"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-tiled/issues"
+    tags: ["adapter", "tiled", "official", "pip", "level-design", "tilemap", "game-engine"]
+    version: "0.5.1"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-tiled"
+      url: "https://files.pythonhosted.org/packages/b5/b9/45f67a48723099bcc749b07e042ecfe1d37af684154ab8394260f3e1fde9/dcc_mcp_tiled-0.5.1-py3-none-any.whl"
+      sha256: "9ce57d7fc56c00c222d0f24cd3c76e5775b50e7be53391f4c2c939d521236891"
+      entry_point: "dcc_mcp_tiled.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-tiled/8d09626ec71ded0e5cbcfa914189950e4196c341/install.md"
+
+  - name: "dcc-mcp-material-maker"
+    # Automatic install is omitted until a wheel is published.
+    description: "Material Maker adapter for typed bounded .ptex inspection, validation, and native export"
+    dcc: ["material-maker"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-material-maker"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-material-maker/issues"
+    tags: ["adapter", "material-maker", "official", "pip", "procedural-materials", "ptex", "lookdev"]
+    version: "0.3.1"
+    min_core_version: "0.19.38"
+    maintainer: "dcc-mcp"
+
+  - name: "dcc-mcp-wwise"
+    description: "Audiokinetic Wwise Authoring adapter with typed WAAPI project, audio, SoundBank, and profiler workflows"
+    dcc: ["wwise"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-wwise"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-wwise/issues"
+    tags: ["adapter", "wwise", "official", "pip", "waapi", "game-audio", "soundbank"]
+    version: "0.1.6"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-wwise"
+      url: "https://files.pythonhosted.org/packages/60/bb/e18794ecacf2d5313d29b10423682381ded8af84d72d9fb25cfd193be238/dcc_mcp_wwise-0.1.6-py3-none-any.whl"
+      sha256: "4367e7d3ca753b103041cc7be68bdb0ca85b3b44f502478ebd68c344e57e5869"
+      entry_point: "dcc_mcp_wwise.cli:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-wwise/948c0692a2bf7c86befddec9919ab7292dce2274/install.md"
+
+  - name: "dcc-mcp-excel"
+    description: "Excel adapter for DCC-MCP — headless Workbook IR to XLSX compile with read-back verification over the dcc-mcp-office runtime"
+    dcc: ["excel"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-excel"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-excel/issues"
+    tags: ["adapter", "excel", "office", "official", "xlsx", "spreadsheet"]
+    version: "0.1.3"
+    min_core_version: "0.18.2"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-excel"
+      pip_extras: ["headless"]
+      url: "https://files.pythonhosted.org/packages/fe/73/f08ed9e8a3b909a7c24b4d3d6c12a0bd75602fb4bb76ebdd7cf5bfd31684/dcc_mcp_excel-0.1.3-py3-none-any.whl"
+      sha256: "3a6d12bb6bd63891e7b63c5b8436620fe351fe371a37dfdaa5302f0b080da84b"
+      entry_point: "dcc_mcp_excel._standalone_entry:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-excel/0fe44fa5fd42f3a4098679561b65088d4f5efd29/install.md"
+
+  - name: "dcc-mcp-word"
+    description: "Word adapter for DCC-MCP — headless Word IR to DOCX compile with read-back verification over the dcc-mcp-office runtime"
+    dcc: ["word"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-word"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-word/issues"
+    tags: ["adapter", "word", "office", "official", "docx", "document"]
+    version: "0.1.2"
+    min_core_version: "0.18.2"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-word"
+      pip_extras: ["headless"]
+      url: "https://files.pythonhosted.org/packages/ed/9e/95453a48bbeda3a2971fd8d5598105673cf245c793cc43f2ab2280521ebb/dcc_mcp_word-0.1.2-py3-none-any.whl"
+      sha256: "f4ac79722b4ad653b0acd9844fa1a992994e8a8935f2a65bb7d473376c833a5c"
+      entry_point: "dcc_mcp_word._standalone_entry:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-word/8e59aa34b34ac23ffc9c419979c5644046561d22/README.md"
+
+  - name: "dcc-mcp-fpt"
+    description: "Autodesk Flow Production Tracking adapter for DCC-MCP"
+    dcc: ["shotgrid"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-fpt"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-fpt/issues"
+    tags: ["adapter", "shotgrid", "fpt", "official", "pip", "production-tracking"]
+    version: "0.1.9"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-fpt"
+      url: "https://files.pythonhosted.org/packages/1b/b8/a8a7fb253ef6735447eaaf83dba406771bcc63dfd87f59b0d7df5bc94abe/dcc_mcp_fpt-0.1.9-py3-none-any.whl"
+      sha256: "179a3f15f8b5706046d6e9801f6365a5b0d27098070f0c36ff92c4278e2b0bc4"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-fpt/39174590c788234cba21bd982a71d11f42955444/install.md"
+
+  - name: "dcc-mcp-openusd"
+    description: "OpenUSD adapter and skills for DCC-MCP"
+    dcc: ["openusd"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-openusd"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-openusd/issues"
+    tags: ["adapter", "openusd", "usd", "official", "pip", "interchange"]
+    version: "0.8.2"
+    min_core_version: "0.19.45"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-openusd"
+      url: "https://files.pythonhosted.org/packages/09/e6/6c5ae7427b36e517139343b2f858c118187c4689826ee7c2f25603bc9478/dcc_mcp_openusd-0.8.2-py3-none-any.whl"
+      sha256: "8e03a04dbc37c0fa8d19e74d963d8a41bc3a120d29888cadc9077c9b8d7081c4"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-openusd/fd62299342ea1ac59aca20780c5335126e963af1/install.md"
+
+  - name: "autodesk-product-help"
+    description: "Opt-in Autodesk Product Help remote MCP connector for read-only documentation lookup"
+    dcc: ["autodesk-help"]
+    url: "https://developer.api.autodesk.com/knowledge/public/v1/mcp"
+    tags: ["docs", "autodesk", "read-only", "infrastructure"]
+
+  - name: "dcc-mcp-autocad"
+    description: "AutoCAD adapter for DCC-MCP — inspect and edit DWG drawings and layers through interactive COM or headless accoreconsole"
+    dcc: ["autocad"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-autocad"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-autocad/issues"
+    tags: ["adapter", "autocad", "official", "pip", "cad", "dwg"]
+    version: "0.1.2"
+    min_core_version: "0.20.36"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-autocad"
+      url: "https://files.pythonhosted.org/packages/aa/15/84638074a83453904a48a7c2b39de4c162df0087b4582410fa037fe5c81b/dcc_mcp_autocad-0.1.2-py3-none-any.whl"
+      sha256: "5cd0112d05557f7de75bc55e748be2dd5ded885f130e184fd2d7eab0610d1537"
+      entry_point: "dcc_mcp_autocad.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-autocad/976d99d95cd97959c9536e1cb2a576f050ef4fac/install.md"
+
+  - name: "dcc-mcp-capcut"
+    description: "CapCut Desktop adapter for DCC-MCP — compile edit plans, assemble video timelines and verify exports through a typed local bridge"
+    dcc: ["capcut"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-capcut"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-capcut/issues"
+    tags: ["adapter", "capcut", "official", "pip", "video-editing", "timeline"]
+    version: "0.5.0"
+    min_core_version: "0.19.90"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-capcut"
+      url: "https://files.pythonhosted.org/packages/e5/79/940c7f086e6061677084e093cd543ca2371da717d56a1ed0635676221823/dcc_mcp_capcut-0.5.0-py3-none-any.whl"
+      sha256: "ffdfb6020dae9b07982c4593b0d63912d1439711caac4179687747b6b5de1122"
+      entry_point: "dcc_mcp_capcut:CapCutMcpServer"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-capcut/12f5256086e10e814fb6a6ce19c1dbc1c08d9770/README.md"
+
+  - name: "dcc-mcp-epic"
+    description: "Epic Games Launcher, Fab and Unreal adapter for DCC-MCP — inspect engines, verify projects and search local asset libraries; engine install is plan-only"
+    dcc: ["epic", "unreal"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-epic"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-epic/issues"
+    tags: ["adapter", "epic", "fab", "unreal", "official", "pip", "asset-library"]
+    version: "0.2.1"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-epic"
+      url: "https://files.pythonhosted.org/packages/d9/7a/13c4f69b0c04e86716bf6c5a362c06b4cf09306038fbddc3591cc307475a/dcc_mcp_epic-0.2.1-py3-none-any.whl"
+      sha256: "fb05a3fbb7c7184f311a97a0ee14a60b882e25432a77072031b8632f28a5bd98"
+      entry_point: "dcc_mcp_epic.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-epic/1157defe203aab4beaa8f7be56f8063caac2a415/README.md"
+
+  - name: "dcc-mcp-gaea"
+    description: "Gaea Build Swarm adapter for DCC-MCP — plan terrain builds and verify height and weight-map outputs; real Gaea builds remain unvalidated"
+    dcc: ["gaea"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-gaea"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-gaea/issues"
+    tags: ["adapter", "gaea", "official", "pip", "terrain", "landscape"]
+    version: "0.1.1"
+    min_core_version: "0.20.23"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-gaea"
+      url: "https://files.pythonhosted.org/packages/2a/e9/b2a67becf913a57dcee6911d94c4fec2661e69dccb218d2a1a9245bd4606/dcc_mcp_gaea-0.1.1-py3-none-any.whl"
+      sha256: "2fd9aea692803cbb3ab19a0532b86a4dc24acc2a1ad9725c81ddfbab6799e7e6"
+      entry_point: "dcc_mcp_gaea.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-gaea/b95d3f81b8f883732c73d268658100d09d9cad84/README.md"
+
+  - name: "dcc-mcp-openscreen"
+    description: "OpenScreen adapter for DCC-MCP — capture discovery, screen recording and video export workflows through typed CLI operations"
+    dcc: ["openscreen"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-openscreen"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-openscreen/issues"
+    tags: ["adapter", "openscreen", "official", "pip", "screen-recording", "capture"]
+    version: "0.1.1"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-openscreen"
+      url: "https://files.pythonhosted.org/packages/06/b4/5daa7b649f2b0fe8078ac05935efad2ad2f2f38ae5a5ff2e22941250700c/dcc_mcp_openscreen-0.1.1-py3-none-any.whl"
+      sha256: "c3e756014a35579fb9776b4819c9d0ff5b6a5354f16b61d0b0e81f8dc0b083c4"
+      entry_point: "dcc_mcp_openscreen.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-openscreen/5a32837d9d1b3bd2aea04bf61e61b4a54bbd5262/README.md"
+
+  - name: "dcc-mcp-speedtree"
+    description: "SpeedTree adapter for DCC-MCP — edit experimental native generator graphs, run the licensed Modeler CLI and verify vegetation exports"
+    dcc: ["speedtree"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-speedtree"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-speedtree/issues"
+    tags: ["adapter", "speedtree", "official", "pip", "vegetation", "modeler"]
+    version: "0.1.1"
+    min_core_version: "0.20.22"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-speedtree"
+      url: "https://files.pythonhosted.org/packages/70/75/42856319fe812e13afa65dca17e7c54ba2d06a8e08251d0031e86cfc8460/dcc_mcp_speedtree-0.1.1-py3-none-any.whl"
+      sha256: "2bee22d5dd386e39f5714781019b8e394e43bbdc8a0dbb77ea646f035710c27c"
+      entry_point: "dcc_mcp_speedtree.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-speedtree/595f0bd308aa0f4f0635a399c2b63bd76f16caf8/README.md"
+
+  - name: "dcc-mcp-tracy"
+    description: "Tracy profiler adapter for DCC-MCP — capture instrumented applications, export trace CSV data and analyze zone timing"
+    dcc: ["tracy"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-tracy"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-tracy/issues"
+    tags: ["adapter", "tracy", "official", "pip", "profiling", "performance"]
+    version: "0.2.5"
+    min_core_version: "0.19.38"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-tracy"
+      url: "https://files.pythonhosted.org/packages/c6/4b/017613df6a5ec878c466a24146473a56caa1732c60f899517a152432d1b2/dcc_mcp_tracy-0.2.5-py3-none-any.whl"
+      sha256: "7f435ee47469a85a066f33b02d6f8708e9f748180e8b73ac7009004aecd72c95"
+      entry_point: "dcc_mcp_tracy.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-tracy/a5e29b7bcef28ccd6a2ee17667dbdbcb7c45b119/README.md"

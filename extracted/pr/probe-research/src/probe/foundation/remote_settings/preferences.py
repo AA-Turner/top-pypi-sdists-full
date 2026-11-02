@@ -1,6 +1,6 @@
 """Staff asked to change ONE setting on ONE device, once, only quieter (research-os control/074; v1: new-session default).
 
-The `settings-requested` mark (`off`/`read`); any later `probe` command applies it via `probe.cli.remote_settings.apply_pending`; stdlib, never raises.
+The `settings-requested` mark (`off`/`read`); any later `probe` command applies it via `probe.cli.lifecycle.remote_settings.apply_pending`; stdlib, never raises.
 """
 
 from __future__ import annotations

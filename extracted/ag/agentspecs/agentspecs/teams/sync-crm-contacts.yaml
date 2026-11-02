@@ -1,0 +1,118 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# Team Specification: Sync CRM Contacts
+# Auto-extracted from agent spec sync-crm-contacts
+
+id: sync-crm-contacts
+version: 0.0.1
+name: Sync CRM Contacts Team
+description: 'A multi-agent team that collects and aggregates contact data from multiple CRM sources,
+  analyzes and deduplicates records, writes cleaned data back, and generates sync summary reports.
+
+  '
+tags:
+- sales
+- crm
+- data-sync
+- deduplication
+enabled: true
+icon: people
+emoji: 🔄
+color: blue
+agent_spec_id: sync-crm-contacts:0.0.1
+orchestration_protocol: datalayer
+execution_mode: sequential
+supervisor:
+  name: CRM Orchestrator Agent
+  model: bedrock:us.anthropic.claude-sonnet-4-6
+routing_instructions: 'Route data collection tasks to the Data Collector first, then analysis, then sync,
+  then reporting. Escalate to human if sync fails 3 times.
+
+  '
+validation:
+  timeout: 300s
+  retry_on_failure: true
+  max_retries: 3
+agents:
+- id: tm-1
+  name: Data Collector Agent
+  role: initiator
+  goal: Collect and aggregate contact data from multiple CRM sources
+  model: openai:gpt-4.1
+  mcp_server: Data Processing MCP
+  tools:
+  - API Connector
+  - Data Parser
+  trigger: 'Schedule: Daily at 2:00 AM'
+  approval: auto
+- id: tm-2
+  name: Analyzer Agent
+  role: contributor
+  goal: Analyze collected data and identify patterns and duplicates
+  model: bedrock:us.anthropic.claude-sonnet-4-6
+  mcp_server: Analytics MCP
+  tools:
+  - Statistical Analysis
+  - ML Predictor
+  - Deduplicator
+  depends_on:
+  - tm-1
+  approval: manual
+- id: tm-3
+  name: Sync Writer Agent
+  role: contributor
+  goal: Write cleaned and merged contacts back to the CRM systems
+  model: openai:gpt-4.1
+  mcp_server: CRM Write MCP
+  tools:
+  - Salesforce Connector
+  - HubSpot Connector
+  depends_on:
+  - tm-2
+  approval: manual
+- id: tm-4
+  name: Report Generator Agent
+  role: finalizer
+  goal: Generate sync summary reports and send notifications
+  model: openai:gpt-4.1
+  mcp_server: Document Generation MCP
+  tools:
+  - PDF Generator
+  - Chart Builder
+  - Email Sender
+  depends_on:
+  - tm-3
+  approval: auto
+reaction_rules:
+- id: rr-crm-1
+  trigger: 'sync_conflict_detected'
+  action: log_and_skip
+  auto: true
+  max_retries: 3
+  escalate_after_retries: 3
+  priority: medium
+- id: rr-crm-2
+  trigger: 'api_rate_limit_hit'
+  action: backoff_and_retry
+  auto: true
+  max_retries: 5
+  escalate_after_retries: 5
+  priority: low
+health_monitoring:
+  heartbeat_interval: 30s
+  stale_threshold: 120s
+  unresponsive_threshold: 300s
+  stuck_threshold: 600s
+  max_restart_attempts: 3
+notifications:
+  on_start: false
+  on_completion: true
+  on_failure: true
+  on_escalation: false
+output:
+  formats:
+  - json
+  - csv
+  template: CRM Sync Summary
+  storage: s3://reports/crm-sync/

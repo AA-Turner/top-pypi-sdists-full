@@ -1,0 +1,94 @@
+id: "make-heatmap-and-matrix-apis-explicit-and-safe"
+title: "Make heatmap and matrix APIs explicit and safe"
+worktree: "main"
+priority: "High"
+status: "Completed"
+description: |
+  Harden the matrix-based chart APIs before publication. Two issues need to be
+  corrected: the advertised heatmap color_scheme option does not actually
+  change colored output, and malformed matrix/label shapes are silently
+  truncated instead of producing actionable errors for callers.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Add failing tests for sequential heatmap colors and malformed matrix inputs"
+    status: done
+  - id: w2
+    summary: "Wire the selected heatmap color scheme into rendered output"
+    needs: [w1]
+    status: done
+  - id: w3
+    summary: "Add upfront shape validation for heatmap and rank-table matrix helpers"
+    needs: [w1]
+    status: done
+  - id: w4
+    summary: "Document accepted matrix contracts and raised exceptions"
+    needs: [w2, w3]
+    status: done
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "release"
+    - "heatmap"
+    - "api-contract"
+  estimated_effort: "Medium"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T09:20:00"
+impact:
+  business_value: |
+    Prevents misleading public API claims and makes user errors diagnosable.
+  user_impact: |
+    Callers can rely on the documented color scheme behavior and get fast
+    feedback when their input matrix is malformed.
+  technical_debt: |
+    Removes silent truncation paths that are hard to debug and expensive to
+    support after release.
+files_affected:
+  modified:
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/rank_table.py"
+    - "README.md"
+    - "tests/"
+must_preserve:
+  - "Valid heatmap and rank-table inputs still render successfully with existing public constructors"
+  - "The default heatmap scheme remains backward-compatible unless explicitly documented otherwise"
+  - "Matrix helpers still support the current row-major input convention"
+approach: |
+  Add deterministic tests first so the color-scheme and truncation defects are
+  locked down. Then thread the chosen scheme through the rendering path instead
+  of using a hardcoded background scale. For validation, reject mismatched row
+  counts, column counts, and ragged rows as early as possible with clear
+  ValueError messages, and document the contract in README/examples.
+anti_patterns:
+  - "DO NOT silently pad or trim user data — because that hides data-shape bugs — raise explicit validation errors instead"
+  - "DO NOT add scheme flags that only change internal state — because users care about rendered output — verify the selected scheme affects visible cells"
+verification:
+  - description: "Heatmap and rank-table tests cover both valid and invalid matrix shapes"
+    command: ".venv/bin/python -m pytest -q tests"
+    expected_output: "tests pass including color-scheme and validation cases"
+  - description: "Build remains healthy after API hardening"
+    command: "uv build"
+    expected_output: "build completes successfully"
+scope_limit:
+  only_modify:
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/rank_table.py"
+    - "README.md"
+    - "tests/"
+success_metrics:
+  - "color_scheme='sequential' changes rendered heatmap output in color mode"
+  - "Malformed matrix inputs raise clear validation errors instead of truncating silently"
+completed_date: "2026-03-06"
+
+sections:
+  "Implementation Summary": |
+    Added standalone tests for real colored heatmap output and malformed
+    matrix inputs, then wired the selected heatmap color scheme into the
+    background rendering path. Added explicit dimension validation to the
+    heatmap constructor and rank-table matrix factory, and documented the
+    required matrix shape in the README.
+
+  "Verification": |
+    .venv/bin/python -m pytest -q
+    uv build

@@ -1,0 +1,7029 @@
+//! C FFI bindings for the encrypted-UDP mesh transport.
+//!
+//! Surface targeted at the Go SDK. Mirrors the Rust SDK's `Mesh`
+//! type (not the full core `MeshNode`) — just the common path:
+//! handshake, per-peer streams, channels, shard receive.
+//!
+//! Everything crosses the boundary as:
+//!
+//! - Opaque handles (`*mut T`) freed via dedicated `_free` functions.
+//! - Scalar ids as `u64`.
+//! - Everything else as JSON strings allocated with
+//!   `CString::into_raw`, freed by the caller via `net_free_string`.
+//!
+//! Handshake + per-peer sends are async on the core side; the FFI
+//! drives them via a shared `tokio::runtime::Runtime` (lazy OnceLock)
+//! identical to the one used by `ffi/cortex.rs`.
+//!
+//! # Safety
+//!
+//! Every entry point in this module is `unsafe extern "C"` and shares
+//! the same caller-side contract:
+//!
+//! - Opaque handle pointers are valid, properly aligned, produced by
+//!   this crate's matching constructor (`Box::into_raw` inside the
+//!   FFI surface), and not used after their `_free` counterpart (or
+//!   `net_shutdown`) has returned. Foreign-allocated pointers will UB
+//!   when consumed by `Box::from_raw` in the corresponding `_free`.
+//! - String pointers are non-null, NUL-terminated, and point to valid
+//!   UTF-8 (or, where documented, to opaque bytes paired with an
+//!   explicit length argument).
+//! - Out-parameter pointers (`*mut T`) are non-null and writable for
+//!   the lifetime of the call.
+//! - Buffer / length pairs accurately describe the producer-allocated
+//!   memory the callee may read or write.
+//!
+//! These are the same invariants `include/net.h` documents for C
+//! callers. The per-call `# Safety` rustdoc is intentionally
+//! suppressed (`clippy::missing_safety_doc`) and per-block `// SAFETY:`
+//! comments are gated by the module-level `#![expect]` below — every
+//! `unsafe { }` in this file inherits the contract above, and inlining
+//! the same wording at each of the ~120 call sites adds noise without
+//! signal.
+#![allow(clippy::missing_safety_doc)]
+#![expect(
+    clippy::undocumented_unsafe_blocks,
+    reason = "module-wide FFI safety contract documented in the # Safety preamble above"
+)]
+#![expect(
+    clippy::multiple_unsafe_ops_per_block,
+    reason = "FFI entry points routinely deref + write to multiple out-parameter fields under the same caller contract; splitting per-op would obscure the single boundary-cross"
+)]
+
+use std::ffi::{c_char, c_int, CStr, CString};
+use std::mem::ManuallyDrop;
+use std::sync::Arc;
+
+use bytes::Bytes;
+use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
+
+use crate::adapter::net::identity::{
+    EntityId, IdentityState as InnerIdentityState, PermissionToken, TokenCache,
+    TokenError as CoreTokenError, TokenScope, IDENTITY_STATE_SIZE,
+};
+use crate::adapter::net::{
+    ChannelConfig as InnerChannelConfig, ChannelConfigRegistry, ChannelHash, ChannelId,
+    ChannelName as InnerChannelName, ChannelPublisher, EntityKeypair, MeshNode, MeshNodeConfig,
+    OnFailure as InnerOnFailure, PublishConfig as InnerPublishConfig,
+    PublishReport as InnerPublishReport, Reliability, Stream as CoreStream, StreamConfig,
+    StreamError, Visibility as InnerVisibility, DEFAULT_STREAM_WINDOW_BYTES, MAX_EVENT_SIZE,
+};
+use crate::adapter::net::{SubnetId, SubnetPolicy, SubnetRule};
+use crate::adapter::Adapter;
+use crate::error::AdapterError;
+
+use super::handle_guard::{HandleGuard, FFI_HANDLE_FREE_DEADLINE};
+use super::NetError;
+
+// =========================================================================
+// Mesh-specific error codes. Continues the -100..-99 range used by
+// `ffi/cortex.rs`. The Go layer maps these to typed sentinels.
+// =========================================================================
+
+/// The stream already has a receiver (`net_mesh_open_stream_inbox`):
+/// one inbox per stream id per node. Close the first to open another.
+pub(crate) const NET_ERR_MESH_STREAM_OCCUPIED: c_int = -109;
+pub(crate) const NET_ERR_MESH_INIT: c_int = -110;
+pub(crate) const NET_ERR_MESH_HANDSHAKE: c_int = -111;
+pub(crate) const NET_ERR_MESH_BACKPRESSURE: c_int = -112;
+pub(crate) const NET_ERR_MESH_NOT_CONNECTED: c_int = -113;
+pub(crate) const NET_ERR_MESH_TRANSPORT: c_int = -114;
+pub(crate) const NET_ERR_CHANNEL: c_int = -115;
+pub(crate) const NET_ERR_CHANNEL_AUTH: c_int = -116;
+/// The stream handle names a session incarnation the peer no longer
+/// has (R12). Distinct from `NOT_CONNECTED`: the peer is connected
+/// and the stream id may be open on its successor session, which this
+/// handle does not own. Re-open; retrying the handle cannot succeed.
+pub(crate) const NET_ERR_MESH_SESSION_SUPERSEDED: c_int = -117;
+/// One event in the batch is larger than a single Net packet can
+/// carry. Nothing was sent. Distinct from `TRANSPORT`: no I/O was
+/// attempted, the payload itself is the fault, and retrying cannot
+/// help — the caller must split it.
+pub(crate) const NET_ERR_MESH_EVENT_TOO_LARGE: c_int = -118;
+/// `net_mesh_start` started nothing (an `accept()` was mid-handshake).
+/// The node is left stopped; retrying once the `accept()` returns starts it.
+pub(crate) const NET_ERR_MESH_START_REFUSED: c_int = -129;
+
+// Identity + token error codes. Block -120..-129 mirrors the
+// `"identity: ..."` / `"token: <kind>"` prefix convention used by
+// PyO3 and NAPI; each `kind` gets its own integer so Go callers can
+// `errors.Is(err, net.ErrTokenExpired)` without parsing strings.
+pub(crate) const NET_ERR_IDENTITY: c_int = -120;
+pub(crate) const NET_ERR_TOKEN_INVALID_FORMAT: c_int = -121;
+pub(crate) const NET_ERR_TOKEN_INVALID_SIGNATURE: c_int = -122;
+pub(crate) const NET_ERR_TOKEN_EXPIRED: c_int = -123;
+pub(crate) const NET_ERR_TOKEN_NOT_YET_VALID: c_int = -124;
+pub(crate) const NET_ERR_TOKEN_DELEGATION_EXHAUSTED: c_int = -125;
+pub(crate) const NET_ERR_TOKEN_DELEGATION_NOT_ALLOWED: c_int = -126;
+pub(crate) const NET_ERR_TOKEN_NOT_AUTHORIZED: c_int = -127;
+
+// NAT-traversal error codes. Block -130..-139 — one integer per
+// `TraversalError::kind()` so Go callers can
+// `errors.Is(err, net.ErrTraversalPunchFailed)` without parsing
+// strings, matching the token-error pattern above. Framing (plan
+// §5): every `TraversalError` represents a missed *optimization*,
+// not a connectivity failure — the routed-handshake path is
+// always available. See `TraversalError` docs for per-variant
+// semantics.
+// Per-variant traversal error codes. Gated on the feature
+// because they're only referenced by `traversal_err_to_code`,
+// which only compiles with the feature on. `NET_ERR_TRAVERSAL_UNSUPPORTED`
+// below is unconditional — the no-feature stubs need it.
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_REFLEX_TIMEOUT: c_int = -130;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_PEER_NOT_REACHABLE: c_int = -131;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_TRANSPORT: c_int = -132;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_RENDEZVOUS_NO_RELAY: c_int = -133;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_RENDEZVOUS_REJECTED: c_int = -134;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_PUNCH_FAILED: c_int = -135;
+#[cfg(feature = "nat-traversal")]
+pub(crate) const NET_ERR_TRAVERSAL_PORT_MAP_UNAVAILABLE: c_int = -136;
+// Unconditional — the `#[cfg(not(feature = "nat-traversal"))]`
+// FFI stubs below return this so the Go / NAPI / PyO3 bindings
+// surface `ErrTraversalUnsupported` when built against a cdylib
+// without the feature, rather than failing at dlopen with a
+// missing-symbol error.
+pub(crate) const NET_ERR_TRAVERSAL_UNSUPPORTED: c_int = -137;
+
+#[cfg(feature = "nat-traversal")]
+fn traversal_err_to_code(e: &crate::adapter::net::traversal::TraversalError) -> c_int {
+    use crate::adapter::net::traversal::TraversalError;
+    match e {
+        TraversalError::ReflexTimeout => NET_ERR_TRAVERSAL_REFLEX_TIMEOUT,
+        TraversalError::PeerNotReachable => NET_ERR_TRAVERSAL_PEER_NOT_REACHABLE,
+        TraversalError::Transport(_) => NET_ERR_TRAVERSAL_TRANSPORT,
+        TraversalError::RendezvousNoRelay => NET_ERR_TRAVERSAL_RENDEZVOUS_NO_RELAY,
+        TraversalError::RendezvousRejected(_) => NET_ERR_TRAVERSAL_RENDEZVOUS_REJECTED,
+        TraversalError::PunchFailed => NET_ERR_TRAVERSAL_PUNCH_FAILED,
+        TraversalError::PortMapUnavailable => NET_ERR_TRAVERSAL_PORT_MAP_UNAVAILABLE,
+        TraversalError::Unsupported => NET_ERR_TRAVERSAL_UNSUPPORTED,
+    }
+}
+
+/// Stable string form of a `NatClass`. Same vocabulary as the
+/// NAPI / PyO3 bindings — callers branch on
+/// `"open" | "cone" | "symmetric" | "unknown"`.
+#[cfg(feature = "nat-traversal")]
+fn nat_class_to_str(class: crate::adapter::net::traversal::classify::NatClass) -> &'static str {
+    use crate::adapter::net::traversal::classify::NatClass;
+    match class {
+        NatClass::Open => "open",
+        NatClass::Cone => "cone",
+        NatClass::Symmetric => "symmetric",
+        NatClass::Unknown => "unknown",
+    }
+}
+
+fn token_err_to_code(e: &CoreTokenError) -> c_int {
+    match e {
+        CoreTokenError::InvalidFormat => NET_ERR_TOKEN_INVALID_FORMAT,
+        CoreTokenError::InvalidSignature => NET_ERR_TOKEN_INVALID_SIGNATURE,
+        CoreTokenError::Expired => NET_ERR_TOKEN_EXPIRED,
+        CoreTokenError::NotYetValid => NET_ERR_TOKEN_NOT_YET_VALID,
+        CoreTokenError::DelegationExhausted => NET_ERR_TOKEN_DELEGATION_EXHAUSTED,
+        CoreTokenError::DelegationNotAllowed => NET_ERR_TOKEN_DELEGATION_NOT_ALLOWED,
+        CoreTokenError::NotAuthorized => NET_ERR_TOKEN_NOT_AUTHORIZED,
+        // A revoked chain link is an authorization failure from the
+        // caller's perspective — the credential was valid-shaped but
+        // is no longer honored. Same code as `NotAuthorized`; the
+        // `Display` message distinguishes the cause.
+        CoreTokenError::Revoked => NET_ERR_TOKEN_NOT_AUTHORIZED,
+        // Maps to `NET_ERR_IDENTITY` since a public-only keypair
+        // is fundamentally an identity-availability issue, not a
+        // token-content issue. The error message in `Display`
+        // makes the cause clear to the caller.
+        CoreTokenError::ReadOnly => NET_ERR_IDENTITY,
+        // A zero-TTL request is a malformed token-issue
+        // input. Routes to `NET_ERR_TOKEN_INVALID_FORMAT` (the
+        // closest existing semantic — invalid input shape) so
+        // the C/Go header surface stays unchanged. The Display
+        // message ("token TTL must be > 0 seconds") tells the
+        // caller exactly what was wrong.
+        CoreTokenError::ZeroTtl => NET_ERR_TOKEN_INVALID_FORMAT,
+        // An over-long TTL is another malformed token-issue input
+        // (`duration_secs` past the hard ceiling). Same mapping as
+        // `ZeroTtl`; the `Display` message names the limit.
+        CoreTokenError::TtlTooLong => NET_ERR_TOKEN_INVALID_FORMAT,
+    }
+}
+
+// =========================================================================
+// Shared utilities
+// =========================================================================
+
+/// Shared tokio runtime. One per process, lazy-initialized.
+///
+/// On `tokio::Builder::build()` failure (worker-thread
+/// `pthread_create` failure under `RLIMIT_NPROC` / container
+/// limits / memory pressure) we `eprintln! + std::process::abort()`
+/// rather than panic. `abort` is `extern "C"`-safe (terminates
+/// rather than unwinds), so the failure cannot escape across the
+/// surrounding `extern "C"` FFI frame into C / Go-cgo / NAPI /
+/// PyO3 callers — that would be undefined behaviour. A daemon
+/// that can't construct its async runtime is dead in the water,
+/// so termination is the appropriate response.
+fn runtime() -> &'static Arc<Runtime> {
+    use std::sync::OnceLock;
+    static RT: OnceLock<Arc<Runtime>> = OnceLock::new();
+    RT.get_or_init(|| {
+        match tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(rt) => Arc::new(rt),
+            Err(e) => {
+                eprintln!(
+                    "FATAL: mesh FFI tokio runtime build failure ({e:?}); aborting to avoid panic across the FFI boundary"
+                );
+                std::process::abort();
+            }
+        }
+    })
+}
+
+/// `block_on(...)` wrapper that aborts on runtime-in-runtime
+/// rather than panicking across the FFI boundary.
+///
+/// Calling `Runtime::block_on` from a thread that already holds a
+/// tokio runtime context panics with "Cannot start a runtime from
+/// within a runtime". The cortex / mesh FFI functions are
+/// `extern "C"`, so the panic would unwind across cgo / N-API / cffi
+/// — undefined behavior. The check costs one TLS lookup
+/// (`Handle::try_current`) per FFI call, which is negligible against
+/// the work the FFI is about to do (network I/O, JSON parsing,
+/// channel operations). Common-case callers (C / Go / Python without
+/// an embedding Rust runtime) hit the fast path; embedded-Rust
+/// callers who violate the contract get a clean abort with a
+/// diagnosable message instead of UB.
+/// Crate-internal: `tokio::Runtime::block_on` against the
+/// shared mesh-FFI runtime. Aborts on runtime-in-runtime so a
+/// stray sync-from-async call doesn't panic across the FFI
+/// boundary. Re-used by `ffi::aggregator` and any future FFI
+/// module that needs the same runtime semantics.
+pub(super) fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    if tokio::runtime::Handle::try_current().is_ok() {
+        eprintln!(
+            "FATAL: mesh FFI called from inside a tokio runtime context; \
+             aborting to avoid runtime-in-runtime panic across the FFI boundary"
+        );
+        std::process::abort();
+    }
+    runtime().block_on(future)
+}
+
+/// The output borrow's lifetime is tied (via Rust's elision rules)
+/// to the input reference's lifetime, so the caller cannot pick
+/// `'static` and produce a dangling borrow. The borrow lives only
+/// as long as the local stack frame holding the pointer — which is
+/// the caller's responsibility to keep valid for the duration of
+/// any resulting `&str` use, but no longer. Compare
+/// `cortex.rs::c_str_to_owned` which sidesteps the issue entirely
+/// by returning `Option<String>`.
+///
+/// Returns an OWNED `String` (not a borrowed `&str` tied to the C
+/// buffer). The previous `Option<&str>` signature was a soundness
+/// trap: lifetime elision on `&*const c_char` bound the returned
+/// `&str` to the local pointer reference's stack slot rather than
+/// to the underlying C buffer, so a future refactor that moved the
+/// result into `tokio::spawn(async move { ... })` would compile
+/// silently and hand a dangling pointer to the spawned task. The
+/// owned-`String` shape removes the hazard at the cost of one
+/// allocation per call, which is acceptable on FFI entry paths.
+///
+/// # Safety
+/// Caller must ensure `p` is null or points to a NUL-terminated C
+/// string valid at least until this function returns.
+#[inline]
+pub(super) unsafe fn c_str_to_string(p: *const c_char) -> Option<String> {
+    if p.is_null() {
+        return None;
+    }
+    CStr::from_ptr(p).to_str().ok().map(str::to_owned)
+}
+
+/// Null-check `out_ptr` and `out_len` before writing through them.
+/// The helper is callable from any FFI boundary; a future caller
+/// forgetting to check produced UB (write through null). Returns
+/// `NetError::NullPointer` so the FFI caller can distinguish "I
+/// forgot to provide outputs" from "the operation failed."
+fn write_json_out<T: Serialize>(
+    value: &T,
+    out_ptr: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if out_ptr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Ok(s) = serde_json::to_string(value) else {
+        return NetError::Unknown.into();
+    };
+    let len = s.len();
+    let Ok(cs) = CString::new(s) else {
+        return NetError::Unknown.into();
+    };
+    unsafe {
+        *out_ptr = cs.into_raw();
+        *out_len = len;
+    }
+    0
+}
+
+pub(super) fn write_string_out(s: String, out_ptr: *mut *mut c_char, out_len: *mut usize) -> c_int {
+    if out_ptr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let len = s.len();
+    let Ok(cs) = CString::new(s) else {
+        return NetError::Unknown.into();
+    };
+    unsafe {
+        *out_ptr = cs.into_raw();
+        *out_len = len;
+    }
+    0
+}
+
+fn adapter_err_to_code(err: &AdapterError) -> c_int {
+    match err {
+        AdapterError::Connection(_) => NET_ERR_MESH_HANDSHAKE,
+        _ => NET_ERR_MESH_TRANSPORT,
+    }
+}
+
+fn stream_err_to_code(err: &StreamError) -> c_int {
+    match err {
+        StreamError::Backpressure => NET_ERR_MESH_BACKPRESSURE,
+        StreamError::NotConnected => NET_ERR_MESH_NOT_CONNECTED,
+        StreamError::SessionSuperseded => NET_ERR_MESH_SESSION_SUPERSEDED,
+        StreamError::Transport(_) => NET_ERR_MESH_TRANSPORT,
+        StreamError::EventTooLarge { .. } => NET_ERR_MESH_EVENT_TOO_LARGE,
+        // `StreamError` is `#[non_exhaustive]`, so a variant this ABI
+        // has never heard of can reach here. It becomes the generic
+        // failure code and NOTHING else: mapping an unrecognised
+        // failure onto an existing variant's code would tell a C
+        // caller something specific and false — `BACKPRESSURE` invites
+        // a retry loop, `NOT_CONNECTED` invites a reconnect — and both
+        // are guesses about a condition we do not know. A caller that
+        // sees this has failed, and can ask for the detail string.
+        _ => NetError::Unknown.into(),
+    }
+}
+
+/// Map a send failure to its code **and** hand the caller the two
+/// numbers a [`StreamError::EventTooLarge`] carried.
+///
+/// The pair is the core's own attribution, copied out verbatim:
+/// `size` is the length of the event `send_on_stream` refused —
+/// which is not necessarily the first element of the batch above
+/// [`MAX_EVENT_SIZE`] — and `limit` is the bound that actually
+/// applied to *this* peer, which is `MAX_EVENT_SIZE` (8 104) for a
+/// peer that does not reassemble fragments and
+/// `protocol::MAX_FRAGMENTED_EVENT_SIZE` (64 832) for one that
+/// does.
+///
+/// Before this, the refusal crossed as a bare `c_int` and every
+/// binding had to guess both numbers back. Go guessed with the
+/// single-packet accessor plus a first-match scan of the caller's
+/// own array, which is wrong in exactly the two cases the core
+/// already distinguishes: a fragmenting peer's refusal reported
+/// 8 104 instead of the ceiling that applied, and a mixed batch
+/// refused for its SECOND event was attributed to its first. A
+/// reconstruction cannot know either fact; only the error does.
+///
+/// # Contract
+///
+/// The out-params are written **if and only if** the return value
+/// is `NET_ERR_MESH_EVENT_TOO_LARGE`. On every other outcome —
+/// success included — they are left untouched, so a caller must
+/// not read them without checking the code first. Either may be
+/// null, which means "do not report that half".
+///
+/// # Safety
+///
+/// `out_size` and `out_limit` must each be null or point to a
+/// writable `usize`.
+unsafe fn stream_err_to_code_attributed(
+    err: &StreamError,
+    out_size: *mut usize,
+    out_limit: *mut usize,
+) -> c_int {
+    if let StreamError::EventTooLarge { size, limit } = err {
+        if !out_size.is_null() {
+            unsafe { *out_size = *size };
+        }
+        if !out_limit.is_null() {
+            unsafe { *out_limit = *limit };
+        }
+    }
+    stream_err_to_code(err)
+}
+
+// =========================================================================
+// MeshNode
+// =========================================================================
+
+#[derive(Deserialize)]
+struct SubnetPolicyJson {
+    #[serde(default)]
+    rules: Vec<SubnetRuleJson>,
+}
+
+#[derive(Deserialize)]
+struct SubnetRuleJson {
+    tag_prefix: String,
+    level: u32,
+    #[serde(default)]
+    values: std::collections::HashMap<String, u32>,
+}
+
+fn u8_from_u32(value: u32) -> Option<u8> {
+    if value > 255 {
+        None
+    } else {
+        Some(value as u8)
+    }
+}
+
+fn subnet_id_from_json(levels: Vec<u32>) -> Option<SubnetId> {
+    if levels.is_empty() || levels.len() > 4 {
+        return None;
+    }
+    let mut bytes = [0u8; 4];
+    for (i, raw) in levels.iter().enumerate() {
+        bytes[i] = u8_from_u32(*raw)?;
+    }
+    Some(SubnetId::new(&bytes[..levels.len()]))
+}
+
+fn subnet_policy_from_json(p: SubnetPolicyJson) -> Option<SubnetPolicy> {
+    let mut policy = SubnetPolicy::new();
+    for rule_json in p.rules {
+        let level = u8_from_u32(rule_json.level)?;
+        if level > 3 {
+            return None;
+        }
+        let mut rule = SubnetRule::new(rule_json.tag_prefix, level);
+        for (tag_value, raw_val) in rule_json.values {
+            let v = u8_from_u32(raw_val)?;
+            // `SubnetRule::map` panics when `v == 0` — zero is
+            // reserved by the core as "unmatched / no restriction"
+            // and must not appear as an explicit mapping. Reject
+            // at the FFI boundary so Go callers surface a clean
+            // `NET_ERR_MESH_INIT` instead of a cdylib abort.
+            if v == 0 {
+                return None;
+            }
+            rule = rule.map(tag_value, v);
+        }
+        policy = policy.add_rule(rule);
+    }
+    Some(policy)
+}
+
+#[derive(Deserialize)]
+struct MeshNewConfig {
+    bind_addr: String,
+    /// Hex-encoded 32-byte pre-shared key.
+    psk_hex: String,
+    heartbeat_ms: Option<u64>,
+    session_timeout_ms: Option<u64>,
+    num_shards: Option<u16>,
+    /// Capability GC interval (ms). Drives eviction of stale
+    /// capability index entries.
+    capability_gc_interval_ms: Option<u64>,
+    /// Reject unsigned capability announcements when `true`.
+    /// Defaults to the core's default (`true`).
+    require_signed_capabilities: Option<bool>,
+    /// 1–4 bytes, each 0–255. Leave unset for `SubnetId::GLOBAL`.
+    subnet: Option<Vec<u32>>,
+    /// Optional `{"rules": [{"tag_prefix", "level", "values"}]}` policy.
+    subnet_policy: Option<SubnetPolicyJson>,
+    /// Subnet AUTHORITY trust anchors (review-10 P1-7) — the plane that
+    /// decides which authorities this node will accept protected subnet
+    /// assertions from. Distinct from `subnet` / `subnet_policy` above,
+    /// which are unauthenticated routing state.
+    ///
+    /// `[{"authority_hex", "root_hexes": [..], "maximum_grant_lifetime_secs"}]`.
+    /// An empty or absent list means every protected subnet assertion
+    /// fails closed. Duplicate authorities, empty root sets, duplicate
+    /// roots, and zero lifetimes are refused HERE, before the node
+    /// exists.
+    #[serde(default)]
+    subnet_authorities:
+        Option<Vec<crate::adapter::net::subnet::provision::dto::SubnetAuthorityConfigDto>>,
+    /// This node's own SECURITY attachment point — the local topology
+    /// coordinate credentials are checked against, as `[levels]`
+    /// (0–4 entries, each 0–255). Distinct from `subnet`; omitting it
+    /// preserves the core compatibility fallback, which protected
+    /// deployments should not rely on.
+    #[serde(default)]
+    subnet_attachment: Option<Vec<u8>>,
+    /// Treat an ordinary configured channel as a subnet control-fact
+    /// ARRIVAL path. Confers no authority — facts verify by signature
+    /// regardless of how they arrive.
+    #[serde(default)]
+    subnet_control_channel: Option<String>,
+    /// NAMED subnet exports (review-10 P1-6): the provider-local labels
+    /// `net_subnet_serve_exported` resolves against.
+    ///
+    /// `[{"name", "access": "sameOrg"|"granted",
+    ///    "binding": {"subnet": {"authority_hex", "path": {"levels": [..]}},
+    ///                "topology_epoch"}}]`.
+    ///
+    /// Resolved ONCE here into a checked map held by the node, so the
+    /// name→binding resolution is Rust-owned at the C boundary too —
+    /// which has no wrapper object to hold a map of its own. Empty and
+    /// duplicate labels are refused before the node exists.
+    #[serde(default)]
+    subnet_exports: Option<Vec<crate::adapter::net::subnet::provision::dto::SubnetNamedExportDto>>,
+    /// Hex-encoded 32-byte ed25519 seed — when present, the mesh
+    /// reproduces the same `entity_id` as
+    /// `IdentityFromSeed(sameSeed)`. Leave unset to generate a fresh
+    /// keypair. A seeded mesh also derives its Noise static key from
+    /// this seed (unless `noise_static_key_hex` is set), so its
+    /// rendezvous address survives a restart.
+    identity_seed_hex: Option<String>,
+    /// Hex-encoded 32-byte Noise (X25519) static private key the caller
+    /// stores. Keeps the node's public key stable across restarts
+    /// independently of the identity. Unset: derived from
+    /// `identity_seed_hex`, or fresh per process with no seed.
+    #[serde(default)]
+    noise_static_key_hex: Option<String>,
+    /// Pin this mesh's publicly-advertised reflex address (an
+    /// `"ip:port"` string). Classification is skipped; the node
+    /// starts in `nat:open` with this address on its capability
+    /// announcements. Silently ignored when the cdylib is built
+    /// without `--features nat-traversal`.
+    #[serde(default)]
+    reflex_override: Option<String>,
+    /// Opt into opportunistic UPnP / NAT-PMP / PCP port mapping
+    /// at startup. Silently ignored when the cdylib is built
+    /// without `--features port-mapping`.
+    #[serde(default)]
+    try_port_mapping: bool,
+    /// Enable the background direct-path upgrade: relay-routed
+    /// sessions are opportunistically re-handshaked over a direct
+    /// path and migrated (Stage 3; optimization, not correctness —
+    /// traffic rides the relay until the swap). Silently ignored
+    /// when the cdylib is built without `--features nat-traversal`.
+    ///
+    /// Tri-state on purpose: absent inherits the core default (on),
+    /// `false` is an explicit kill switch. A plain `bool` here would
+    /// collapse "unset" into "off" and make the flag impossible to
+    /// disable through a JSON surface that omits empty values.
+    #[serde(default)]
+    auto_direct_upgrade: Option<bool>,
+}
+
+/// FFI handle for a [`MeshNode`].
+///
+/// `HandleGuard`-protected: the box stays leaked across `_free`;
+/// ops register via `try_enter` and `_free` quiesces them via
+/// `begin_free`. Without this, an unconditional `Box::from_raw`
+/// would race concurrent `net_mesh_send` (and ~60 other entry
+/// points) into UAF on the dropped Box.
+///
+/// `inner` and `channel_configs` live in `ManuallyDrop` so
+/// `_free` can take them out after the drain. Other Arc clones
+/// held by surviving `MeshStreamHandle._node` keep `MeshNode`
+/// alive until those streams are also freed.
+pub struct MeshNodeHandle {
+    inner: ManuallyDrop<Arc<MeshNode>>,
+    channel_configs: ManuallyDrop<Arc<ChannelConfigRegistry>>,
+    guard: HandleGuard,
+}
+
+/// Create a new mesh node. `config_json` is:
+///
+/// ```json
+/// {
+///   "bind_addr": "127.0.0.1:9000",
+///   "psk_hex":   "42424242...",   // 64 hex chars
+///   "heartbeat_ms": 5000,
+///   "session_timeout_ms": 30000,
+///   "num_shards": 4
+/// }
+/// ```
+///
+/// Installs an empty `ChannelConfigRegistry` at creation time so
+/// `net_mesh_register_channel` can insert without a mutable ref.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_new(
+    config_json: *const c_char,
+    out_handle: *mut *mut MeshNodeHandle,
+) -> c_int {
+    if config_json.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(s) = (unsafe { c_str_to_string(config_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let cfg: MeshNewConfig = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let bind_addr: std::net::SocketAddr = match cfg.bind_addr.parse() {
+        Ok(a) => a,
+        Err(_) => return NET_ERR_MESH_INIT,
+    };
+    let psk_bytes = match hex::decode(&cfg.psk_hex) {
+        Ok(b) => b,
+        Err(_) => return NET_ERR_MESH_INIT,
+    };
+    if psk_bytes.len() != 32 {
+        return NET_ERR_MESH_INIT;
+    }
+    let mut psk = [0u8; 32];
+    psk.copy_from_slice(&psk_bytes);
+
+    let mut node_cfg = MeshNodeConfig::new(bind_addr, psk);
+    // Reject `0` for `heartbeat_ms` and `session_timeout_ms`.
+    // A zero heartbeat interval busy-loops the heartbeat task
+    // (saturating a CPU); a zero session timeout makes every
+    // session expire instantly. The Rust-side configs do their
+    // own validation but the FFI JSON path bypasses that — pin
+    // the guard here so a misconfig fails fast rather than
+    // producing a hung daemon.
+    if let Some(ms) = cfg.heartbeat_ms {
+        if ms == 0 {
+            return NetError::InvalidJson.into();
+        }
+        node_cfg = node_cfg.with_heartbeat_interval(std::time::Duration::from_millis(ms));
+    }
+    if let Some(ms) = cfg.session_timeout_ms {
+        if ms == 0 {
+            return NetError::InvalidJson.into();
+        }
+        node_cfg = node_cfg.with_session_timeout(std::time::Duration::from_millis(ms));
+    }
+    if let Some(n) = cfg.num_shards {
+        node_cfg = node_cfg.with_num_shards(n);
+    }
+    if let Some(ms) = cfg.capability_gc_interval_ms {
+        node_cfg = node_cfg.with_capability_gc_interval(std::time::Duration::from_millis(ms));
+    }
+    if let Some(b) = cfg.require_signed_capabilities {
+        node_cfg = node_cfg.with_require_signed_capabilities(b);
+    }
+    if let Some(levels) = cfg.subnet {
+        let Some(id) = subnet_id_from_json(levels) else {
+            return NET_ERR_MESH_INIT;
+        };
+        node_cfg = node_cfg.with_subnet(id);
+    }
+    if let Some(policy_js) = cfg.subnet_policy {
+        let Some(policy) = subnet_policy_from_json(policy_js) else {
+            return NET_ERR_MESH_INIT;
+        };
+        node_cfg = node_cfg.with_subnet_policy(Arc::new(policy));
+    }
+    // Subnet AUTHORITY plane (review-10 P1-7). Converted and validated
+    // through the SAME frozen DTOs the Rust, Node, and Python
+    // constructors use — that conversion now lives in the core
+    // (`subnet::provision`) precisely so this constructor can reach it,
+    // which is what makes Go and C first-class here rather than
+    // gateway-incapable. Every configuration mistake refuses before the
+    // node exists.
+    {
+        use crate::adapter::net::subnet::provision;
+        let authorities = cfg.subnet_authorities.unwrap_or_default();
+        let mut core_authorities = Vec::with_capacity(authorities.len());
+        for dto in &authorities {
+            let Ok(a) = dto.to_core() else {
+                return NET_ERR_MESH_INIT;
+            };
+            core_authorities.push(a);
+        }
+        if provision::validate_subnet_authorities(&core_authorities).is_err() {
+            return NET_ERR_MESH_INIT;
+        }
+        for authority in core_authorities {
+            node_cfg = node_cfg.with_subnet_authority(authority);
+        }
+        if let Some(levels) = cfg.subnet_attachment {
+            let Ok(path) = (provision::dto::SubnetPathDto { levels }).to_core() else {
+                return NET_ERR_MESH_INIT;
+            };
+            // Direct field write: the core deliberately has no
+            // `with_subnet_attachment` (the `configured_identity`
+            // precedent).
+            node_cfg.subnet_attachment = Some(path);
+        }
+        if let Some(name) = cfg.subnet_control_channel {
+            let Ok(channel) = crate::adapter::net::ChannelName::new(&name) else {
+                return NET_ERR_MESH_INIT;
+            };
+            node_cfg = node_cfg.with_subnet_control_channel(channel);
+        }
+        for dto in cfg.subnet_exports.unwrap_or_default().iter() {
+            let Ok(export) = dto.to_core() else {
+                return NET_ERR_MESH_INIT;
+            };
+            node_cfg = node_cfg.with_subnet_export(export);
+        }
+        // Empty / duplicate labels are refused by `MeshNode::new`, which
+        // freezes the map — one checker, not a second copy here.
+    }
+    #[cfg(feature = "nat-traversal")]
+    if let Some(external_str) = cfg.reflex_override.as_deref() {
+        let Ok(external) = external_str.parse::<std::net::SocketAddr>() else {
+            return NET_ERR_MESH_INIT;
+        };
+        node_cfg = node_cfg.with_reflex_override(external);
+    }
+    // Silently drop the field in builds without nat-traversal so
+    // Go callers compiled against a full-feature cdylib can fall
+    // back to a thin cdylib without a JSON-parse error.
+    #[cfg(not(feature = "nat-traversal"))]
+    let _ = cfg.reflex_override;
+    #[cfg(feature = "port-mapping")]
+    if cfg.try_port_mapping {
+        node_cfg = node_cfg.with_try_port_mapping(true);
+    }
+    // Same drop-on-the-floor pattern as reflex_override above.
+    #[cfg(not(feature = "port-mapping"))]
+    let _ = cfg.try_port_mapping;
+    #[cfg(feature = "nat-traversal")]
+    if let Some(enabled) = cfg.auto_direct_upgrade {
+        node_cfg = node_cfg.with_auto_direct_upgrade(enabled);
+    }
+    // Same drop-on-the-floor pattern as reflex_override above.
+    #[cfg(not(feature = "nat-traversal"))]
+    let _ = cfg.auto_direct_upgrade;
+
+    // Record identity provenance (§D1a of ORG_CAPABILITY_LANGUAGE_SDKS_PLAN):
+    // a caller-supplied seed is a durable, org-bindable identity; a generated
+    // fallback is ephemeral. The org facade reads this through
+    // `MeshNode::has_configured_identity()` to refuse binding on an ephemeral
+    // node. This is the third mesh constructor to need it — the napi and PyO3
+    // ones each silently omitted it and refused a seeded caller until fixed.
+    node_cfg.configured_identity = cfg.identity_seed_hex.is_some();
+
+    let identity = match cfg.identity_seed_hex {
+        Some(seed_hex) => {
+            let bytes = match hex::decode(&seed_hex) {
+                Ok(b) => b,
+                Err(_) => return NET_ERR_MESH_INIT,
+            };
+            if bytes.len() != 32 {
+                return NET_ERR_MESH_INIT;
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            EntityKeypair::from_bytes(arr)
+        }
+        None => EntityKeypair::generate(),
+    };
+    // Noise static key: an explicit one wins. Without it, `MeshNode::new`
+    // derives one from a seeded (configured) identity, so the node's
+    // rendezvous address survives a restart, and otherwise generates a
+    // fresh key.
+    if let Some(key_hex) = cfg.noise_static_key_hex {
+        let arr: [u8; 32] = match hex::decode(&key_hex).ok().and_then(|b| b.try_into().ok()) {
+            Some(arr) => arr,
+            None => return NET_ERR_MESH_INIT,
+        };
+        node_cfg = node_cfg.with_static_key(crate::adapter::net::NoiseStaticKey::from_private(arr));
+    }
+    let result = block_on(async move { MeshNode::new(identity, node_cfg).await });
+    match result {
+        Ok(mut node) => {
+            let channel_configs = Arc::new(ChannelConfigRegistry::new());
+            node.set_channel_configs(channel_configs.clone());
+            // Install a fresh TokenCache — channel auth needs one to
+            // supply the RevocationRegistry and clock-skew tolerance,
+            // and `require_token` channels reject outright without it.
+            // Subscriber-presented tokens do NOT land here; they are
+            // verified inline against the channel's `token_roots` and
+            // retained as chains. Matches the PyO3 / NAPI behaviour.
+            node.set_token_cache(Arc::new(TokenCache::new()));
+            let handle = Box::new(MeshNodeHandle {
+                inner: ManuallyDrop::new(Arc::new(node)),
+                channel_configs: ManuallyDrop::new(channel_configs),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_handle = Box::into_raw(handle);
+            }
+            0
+        }
+        Err(_) => NET_ERR_MESH_INIT,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_free(handle: *mut MeshNodeHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping the inner. Box stays
+    // leaked. Other Arc clones held by surviving
+    // MeshStreamHandle._node keep MeshNode alive until their own
+    // _free runs.
+    let h: &MeshNodeHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let mh = &mut *handle;
+            let inner = ManuallyDrop::take(&mut mh.inner);
+            let configs = ManuallyDrop::take(&mut mh.channel_configs);
+            drop(inner);
+            drop(configs);
+        }
+    } else {
+        tracing::warn!(
+            "net_mesh_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// Crate-internal accessor: return an `Arc<MeshNode>` clone
+/// from a borrowed handle without crossing the FFI boundary.
+/// Used by sibling FFI modules (`ffi::aggregator`) that need
+/// the inner Arc without round-tripping through the extern
+/// `net_mesh_arc_clone` + `net_mesh_arc_free` pair. The only
+/// consumer (`ffi::aggregator`) is itself cortex-feature-only,
+/// so the gate keeps the symbol out of cortex-off builds and
+/// avoids a dead-code warning.
+///
+/// Gated on the handle's [`HandleGuard`]: the `try_enter` op is held
+/// across the `Arc::clone` so a concurrent `net_mesh_free` cannot take
+/// the inner out of `ManuallyDrop` mid-clone. Returns `None` if `_free`
+/// has begun — callers must surface a null/error result. Once the clone
+/// lands the bumped refcount keeps the node alive independently.
+// Available to the aggregator FFI (`cortex`) and the transport FFI
+// (`dataforts`), both of which clone the node Arc to drive an op under
+// the handle guard.
+#[cfg(any(feature = "cortex", feature = "dataforts"))]
+pub(super) fn mesh_node_arc(h: &MeshNodeHandle) -> Option<Arc<MeshNode>> {
+    let _op = h.guard.try_enter()?;
+    Some(Arc::clone(&h.inner))
+}
+
+/// Clone the `Arc<MeshNode>` backing this handle and return a
+/// `*mut Arc<MeshNode>`. Used by the compute-FFI crate so the
+/// Go binding's `DaemonRuntime` can share the live mesh node
+/// without opening a second socket.
+///
+/// Caller takes ownership of the returned pointer and MUST free it
+/// with [`net_mesh_arc_free`]. Returns NULL if `handle` is NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_arc_clone(handle: *mut MeshNodeHandle) -> *mut Arc<MeshNode> {
+    if handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    let h = unsafe { &*handle };
+    // Returns NULL on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let cloned: Arc<MeshNode> = Arc::clone(&h.inner);
+    Box::into_raw(Box::new(cloned))
+}
+
+/// Clone the shared `Arc<ChannelConfigRegistry>` backing this
+/// handle. Used by compute-FFI so migration-triggered channel
+/// rebind replays hit the same registry the mesh publishes to.
+///
+/// Caller takes ownership and MUST free with
+/// [`net_mesh_channel_configs_arc_free`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_channel_configs_arc_clone(
+    handle: *mut MeshNodeHandle,
+) -> *mut Arc<ChannelConfigRegistry> {
+    if handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    let h = unsafe { &*handle };
+    // Returns NULL on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return std::ptr::null_mut(),
+    };
+    let cloned: Arc<ChannelConfigRegistry> = Arc::clone(&h.channel_configs);
+    Box::into_raw(Box::new(cloned))
+}
+
+/// Free an `Arc<MeshNode>` handle produced by
+/// [`net_mesh_arc_clone`]. Idempotent on NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_arc_free(p: *mut Arc<MeshNode>) {
+    if p.is_null() {
+        return;
+    }
+    unsafe {
+        drop(Box::from_raw(p));
+    }
+}
+
+/// Free an `Arc<ChannelConfigRegistry>` handle produced by
+/// [`net_mesh_channel_configs_arc_clone`]. Idempotent on NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_channel_configs_arc_free(p: *mut Arc<ChannelConfigRegistry>) {
+    if p.is_null() {
+        return;
+    }
+    unsafe {
+        drop(Box::from_raw(p));
+    }
+}
+
+/// Write the hex-encoded 32-byte Noise static public key of this
+/// node to `*out`. Caller frees via `net_free_string`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_public_key_hex(
+    handle: *mut MeshNodeHandle,
+    out_ptr: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_ptr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let s = hex::encode(h.inner.public_key());
+    write_string_out(s, out_ptr, out_len)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_node_id(handle: *mut MeshNodeHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*handle };
+    // Returns 0 on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.inner.node_id()
+}
+
+/// Writes the 32-byte ed25519 entity id of this mesh into `out[32]`.
+/// Matches `Identity::from_seed(seed).entity_id` when the mesh was
+/// constructed with `identity_seed_hex = hex::encode(seed)`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_entity_id(handle: *mut MeshNodeHandle, out: *mut u8) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let bytes = h.inner.entity_id().as_bytes();
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, 32);
+    }
+    0
+}
+/// Parse a NUL-terminated 64-char-hex peer public key into its
+/// 32-byte form. Shared by every `net_mesh_connect*` entry point so
+/// the validation rules and error codes can't drift apart between
+/// wrappers (cubic P2). Error codes match what the wrappers
+/// historically returned inline: `InvalidUtf8` for a non-UTF-8 C
+/// string, `NET_ERR_MESH_HANDSHAKE` for bad hex or a wrong-length
+/// key.
+///
+/// # Safety
+///
+/// `peer_pubkey_hex` must be a valid, NUL-terminated C string
+/// pointer (callers null-check before invoking).
+unsafe fn parse_peer_pubkey_hex(peer_pubkey_hex: *const c_char) -> Result<[u8; 32], c_int> {
+    let Some(pk_s) = (unsafe { c_str_to_string(peer_pubkey_hex) }) else {
+        return Err(NetError::InvalidUtf8.into());
+    };
+    let pk_bytes = match hex::decode(pk_s) {
+        Ok(b) => b,
+        Err(_) => return Err(NET_ERR_MESH_HANDSHAKE),
+    };
+    if pk_bytes.len() != 32 {
+        return Err(NET_ERR_MESH_HANDSHAKE);
+    }
+    let mut pk = [0u8; 32];
+    pk.copy_from_slice(&pk_bytes);
+    Ok(pk)
+}
+
+/// Connect (initiator). Blocks until the handshake completes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_connect(
+    handle: *mut MeshNodeHandle,
+    peer_addr: *const c_char,
+    peer_pubkey_hex: *const c_char,
+    peer_node_id: u64,
+) -> c_int {
+    if handle.is_null() || peer_addr.is_null() || peer_pubkey_hex.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(addr_s) = (unsafe { c_str_to_string(peer_addr) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let addr: std::net::SocketAddr = match addr_s.parse() {
+        Ok(a) => a,
+        Err(_) => return NET_ERR_MESH_HANDSHAKE,
+    };
+    let pk = match unsafe { parse_peer_pubkey_hex(peer_pubkey_hex) } {
+        Ok(pk) => pk,
+        Err(code) => return code,
+    };
+
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.connect(addr, &pk, peer_node_id).await }) {
+        Ok(_) => 0,
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+/// Accept an incoming connection (responder). Writes the peer's wire
+/// address to `*out_addr` (caller frees via `net_free_string`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_accept(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    out_addr: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_addr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.accept(peer_node_id).await }) {
+        Ok((addr, _)) => write_string_out(addr.to_string(), out_addr, out_len),
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_start(handle: *mut MeshNodeHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    // `start` spawns internal tasks via tokio::spawn; run under the
+    // shared runtime. `start` also enables the periodic capability
+    // re-announce (keeps the node discoverable past one TTL).
+    //
+    // `try_start`, not `start`: a refusal against an in-flight
+    // `accept()` used to return 0 with nothing started, leaving a node
+    // that sends but never receives.
+    match block_on(async move { node.try_start() }) {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_MESH_START_REFUSED,
+    }
+}
+
+/// Shut down the node. Must be called before `net_mesh_free` to
+/// release network resources. Idempotent.
+///
+/// Runs unconditionally — `MeshNode::shutdown` takes `&self` and
+/// the underlying primitives (shutdown flag, notify, deactivate)
+/// are safe to call while other handles still hold the `Arc`. A
+/// prior version silently returned 0 whenever `Arc::strong_count`
+/// exceeded 1, which meant a caller that held a stream handle
+/// would see "shutdown successful" without any tasks actually
+/// stopping — the node kept running until every stream was
+/// dropped. Callers now always get the real shutdown outcome.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_shutdown(handle: *mut MeshNodeHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match block_on(async { h.inner.shutdown().await }) {
+        Ok(()) => 0,
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+// =========================================================================
+// NAT traversal
+// =========================================================================
+//
+// Framing (plan §5, load-bearing): every user-visible docstring
+// positions NAT traversal as **optimization, not correctness**.
+// Nodes behind NAT can always reach each other through the
+// routed-handshake path. A `nat_type` of `"symmetric"` or any
+// `NET_ERR_TRAVERSAL_*` code is not a connectivity failure —
+// traffic keeps riding the relay. Each function returns early
+// with `NetError::Unsupported` (= -1 NetError variant) when the
+// crate is built without `nat-traversal`, so cgo call sites that
+// unconditionally reference these symbols still link.
+
+/// Write this mesh's NAT classification into `out_str` as one of
+/// `"open" | "cone" | "symmetric" | "unknown"`. Stable vocabulary
+/// — matches the NAPI / PyO3 binding strings. Caller frees via
+/// `net_free_string`.
+///
+/// Returns `0` on success or a NetError code on failure. Only
+/// present when the crate is built with `--features nat-traversal`.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_nat_type(
+    handle: *mut MeshNodeHandle,
+    out_str: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_str.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    write_string_out(
+        nat_class_to_str(h.inner.nat_class()).to_string(),
+        out_str,
+        out_len,
+    )
+}
+
+/// Write this mesh's last-observed reflex `ip:port` into
+/// `out_str`. When no reflex has been observed yet (pre-
+/// classification, or only one peer connected), writes an empty
+/// string and still returns `0`.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_reflex_addr(
+    handle: *mut MeshNodeHandle,
+    out_str: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_str.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let s = h
+        .inner
+        .reflex_addr()
+        .map(|a| a.to_string())
+        .unwrap_or_default();
+    write_string_out(s, out_str, out_len)
+}
+
+/// Write `peer_node_id`'s advertised NAT classification (read
+/// from its `nat:*` capability tag) into `out_str`. Returns
+/// `"unknown"` when we have no announcement from that peer.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_peer_nat_type(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    out_str: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_str.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    write_string_out(
+        nat_class_to_str(h.inner.peer_nat_class(peer_node_id)).to_string(),
+        out_str,
+        out_len,
+    )
+}
+
+/// Send one reflex probe to `peer_node_id` and write the public
+/// `ip:port` the peer observed into `out_str`. Blocks on the
+/// shared runtime until the probe completes or times out.
+///
+/// Returns `0` on success or a `NET_ERR_TRAVERSAL_*` code on
+/// failure. `NET_ERR_TRAVERSAL_REFLEX_TIMEOUT` means the probe
+/// didn't complete in time; `NET_ERR_TRAVERSAL_PEER_NOT_REACHABLE`
+/// means we have no session with `peer_node_id`.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_probe_reflex(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    out_str: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_str.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.probe_reflex(peer_node_id).await }) {
+        Ok(addr) => write_string_out(addr.to_string(), out_str, out_len),
+        Err(e) => traversal_err_to_code(&e),
+    }
+}
+
+/// Explicitly re-run the NAT classification sweep. No-op when
+/// fewer than 2 peers are connected. Never returns an error;
+/// callers that want the result should read `nat_type` +
+/// `reflex_addr` afterward.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_reclassify_nat(handle: *mut MeshNodeHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    block_on(async move { node.reclassify_nat().await });
+    0
+}
+
+/// Fill `out_punches_attempted`, `out_punches_succeeded`,
+/// `out_relay_fallbacks` with the current cumulative counters.
+/// Each pointer may be null to skip that field. Monotonic —
+/// counters never decrease or reset.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_traversal_stats(
+    handle: *mut MeshNodeHandle,
+    out_punches_attempted: *mut u64,
+    out_punches_succeeded: *mut u64,
+    out_relay_fallbacks: *mut u64,
+) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let snap = h.inner.traversal_stats();
+    unsafe {
+        if !out_punches_attempted.is_null() {
+            *out_punches_attempted = snap.punches_attempted;
+        }
+        if !out_punches_succeeded.is_null() {
+            *out_punches_succeeded = snap.punches_succeeded;
+        }
+        if !out_relay_fallbacks.is_null() {
+            *out_relay_fallbacks = snap.relay_fallbacks;
+        }
+    }
+    0
+}
+
+/// Establish a session to `peer_node_id` via rendezvous through
+/// `coordinator`, picking between direct-handshake and a
+/// coordinated punch per the pair-type matrix. Always resolves
+/// (on punch-failed, falls back to routed). Inspect the stats
+/// counters afterward to distinguish outcomes.
+///
+/// `peer_pubkey_hex` is the peer's 32-byte Noise static public
+/// key as a 64-char hex string.
+///
+/// Returns `0` on success or a `NET_ERR_TRAVERSAL_*` /
+/// `NET_ERR_MESH_HANDSHAKE` code on failure.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_connect_direct(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    peer_pubkey_hex: *const c_char,
+    coordinator: u64,
+) -> c_int {
+    if handle.is_null() || peer_pubkey_hex.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let pk = match unsafe { parse_peer_pubkey_hex(peer_pubkey_hex) } {
+        Ok(pk) => pk,
+        Err(code) => return code,
+    };
+
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.connect_direct(peer_node_id, &pk, coordinator).await }) {
+        Ok(_) => 0,
+        Err(e) => traversal_err_to_code(&e),
+    }
+}
+
+/// Like `net_mesh_connect_direct`, but auto-selects the rendezvous
+/// coordinator (routing next-hop → `relay-capable` mutual peer →
+/// any mutual peer). Punch-needing pairs with no candidate fail
+/// with `NET_ERR_TRAVERSAL_RENDEZVOUS_NO_RELAY` — the caller stays
+/// on the routed path; connectivity is never at risk.
+///
+/// `peer_pubkey_hex` is the peer's 32-byte Noise static public
+/// key as a 64-char hex string.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_connect_direct_auto(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    peer_pubkey_hex: *const c_char,
+) -> c_int {
+    if handle.is_null() || peer_pubkey_hex.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let pk = match unsafe { parse_peer_pubkey_hex(peer_pubkey_hex) } {
+        Ok(pk) => pk,
+        Err(code) => return code,
+    };
+
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.connect_direct_auto(peer_node_id, &pk).await }) {
+        Ok(_) => 0,
+        Err(e) => traversal_err_to_code(&e),
+    }
+}
+
+/// Full traversal-stats snapshot for `net_mesh_traversal_stats_v2`.
+/// `#[repr(C)]` — field order, widths, and the 64-byte address
+/// buffer are ABI; matched by `net_traversal_stats_v2_t` in
+/// `include/net.go.h`. Extend only by appending a new versioned
+/// struct + call, never by mutating this one.
+#[repr(C)]
+pub struct NetTraversalStatsV2 {
+    /// Punches whose `PunchRequest` was successfully mediated.
+    pub punches_attempted: u64,
+    /// Mediated punches that produced a direct session.
+    pub punches_succeeded: u64,
+    /// Derived: `punches_attempted - punches_succeeded` (saturating).
+    pub punches_failed: u64,
+    /// `connect_direct` calls that resolved on the routed path.
+    pub relay_fallbacks: u64,
+    /// Punch flows that gave up on a deadline (cause counter).
+    pub punch_timeouts: u64,
+    /// Punch flows refused by a typed `PunchReject` (cause counter).
+    pub punch_rejections: u64,
+    /// Punch-needing pairs skipped with no coordinator candidate.
+    pub rendezvous_no_relay: u64,
+    /// Background direct-path upgrades started (Stage 3).
+    pub upgrades_attempted: u64,
+    /// Upgrades that replaced a relay session with a direct one.
+    pub upgrades_succeeded: u64,
+    /// Upgrades deferred by the C3 busy gate (retried; not failures).
+    pub upgrades_deferred_busy: u64,
+    /// Successful renewal ticks since the current mapping installed.
+    pub port_mapping_renewals: u64,
+    /// 1 when a port mapping is currently installed, else 0.
+    pub port_mapping_active: u8,
+    /// NUL-terminated `"ip:port"` of the mapped external address;
+    /// empty string when no mapping is active. 64 bytes covers the
+    /// longest textual form (`[v6]:65535` ≤ 54 chars).
+    pub port_mapping_external: [c_char; 64],
+}
+
+/// Copy a core snapshot into the C-ABI v2 struct. Factored out of
+/// the extern fn so the field mapping (and the external-address
+/// string encoding) is unit-testable without a live node.
+#[cfg(feature = "nat-traversal")]
+fn fill_traversal_stats_v2(
+    snap: &crate::adapter::net::traversal::TraversalStatsSnapshot,
+    out: &mut NetTraversalStatsV2,
+) {
+    out.punches_attempted = snap.punches_attempted;
+    out.punches_succeeded = snap.punches_succeeded;
+    out.punches_failed = snap.punches_failed;
+    out.relay_fallbacks = snap.relay_fallbacks;
+    out.punch_timeouts = snap.punch_timeouts;
+    out.punch_rejections = snap.punch_rejections;
+    out.rendezvous_no_relay = snap.rendezvous_no_relay;
+    out.upgrades_attempted = snap.upgrades_attempted;
+    out.upgrades_succeeded = snap.upgrades_succeeded;
+    out.upgrades_deferred_busy = snap.upgrades_deferred_busy;
+    out.port_mapping_renewals = snap.port_mapping_renewals;
+    out.port_mapping_active = u8::from(snap.port_mapping_active);
+    out.port_mapping_external = [0; 64];
+    if let Some(addr) = snap.port_mapping_external {
+        let s = addr.to_string();
+        // Truncation guard: leave the final byte as NUL. `[v6]:port`
+        // tops out ≤ 54 chars, so this never actually truncates —
+        // the guard exists so a future address form degrades to a
+        // clipped string rather than an unterminated buffer.
+        let n = s.len().min(63);
+        for (dst, src) in out.port_mapping_external[..n].iter_mut().zip(s.as_bytes()) {
+            *dst = *src as c_char;
+        }
+    }
+}
+
+/// Fill `out` with the complete traversal-stats snapshot — the
+/// stage-5 v2 surface. The v1 3-out-param
+/// `net_mesh_traversal_stats` stays ABI-stable for compiled
+/// consumers; new callers should prefer this one.
+///
+/// Base counters are monotonic; two fields are exempt from delta
+/// math: `punches_failed` is derived at snapshot time
+/// (`attempted - succeeded`) and can decrease when an in-flight
+/// punch lands, and `port_mapping_renewals` resets on each fresh
+/// mapping install. Returns `0` on success.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_traversal_stats_v2(
+    handle: *mut MeshNodeHandle,
+    out: *mut NetTraversalStatsV2,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let snap = h.inner.traversal_stats();
+    fill_traversal_stats_v2(&snap, unsafe { &mut *out });
+    0
+}
+
+/// Install a runtime reflex override. `external` is a
+/// UTF-8 / null-terminated `"ip:port"` string. Forces `nat_type`
+/// to `"open"` and `reflex_addr` to `external` immediately;
+/// short-circuits any further classifier sweeps.
+///
+/// Returns `0` on success or `NET_ERR_MESH_INIT` on a malformed
+/// address.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_set_reflex_override(
+    handle: *mut MeshNodeHandle,
+    external: *const c_char,
+) -> c_int {
+    if handle.is_null() || external.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(external) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Ok(addr) = s.parse::<std::net::SocketAddr>() else {
+        return NET_ERR_MESH_INIT;
+    };
+    h.inner.set_reflex_override(addr);
+    0
+}
+
+/// Drop a previously-installed reflex override. The classifier
+/// resumes on its normal cadence; `reflex_addr` clears to empty
+/// immediately so a between-sweep read doesn't return a stale
+/// override.
+///
+/// No-op when no override is active. Always returns `0` on a
+/// live handle.
+#[cfg(feature = "nat-traversal")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_clear_reflex_override(handle: *mut MeshNodeHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    h.inner.clear_reflex_override();
+    0
+}
+
+// =========================================================================
+// NAT-traversal fallback stubs — built when the core is
+// compiled *without* `--features nat-traversal`.
+//
+// Bug L (cubic, P1): the Go / NAPI / PyO3 bindings unconditionally
+// link against these symbols, so a cdylib without the feature
+// used to fail at dlopen / load time with missing-symbol
+// errors. The doc comment on each binding promised
+// `ErrTraversalUnsupported` as the runtime surface for a no-
+// feature build, but there were no stubs to back that promise.
+//
+// These stubs make the promise real: the symbol resolves, the
+// call returns `NET_ERR_TRAVERSAL_UNSUPPORTED`, and the Go
+// error-mapping layer translates that to
+// `ErrTraversalUnsupported`. No heap allocation — the `_out_*`
+// pointers are left untouched (the Go side treats them as
+// invalid on a nonzero return).
+//
+// Every signature mirrors the `#[cfg(feature = "nat-traversal")]`
+// definition above. Ordering matches the feature-on block so
+// diff review can line up the pair at a glance.
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_nat_type(
+    _handle: *mut MeshNodeHandle,
+    _out_str: *mut *mut c_char,
+    _out_len: *mut usize,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_reflex_addr(
+    _handle: *mut MeshNodeHandle,
+    _out_str: *mut *mut c_char,
+    _out_len: *mut usize,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_peer_nat_type(
+    _handle: *mut MeshNodeHandle,
+    _peer_node_id: u64,
+    _out_str: *mut *mut c_char,
+    _out_len: *mut usize,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_probe_reflex(
+    _handle: *mut MeshNodeHandle,
+    _peer_node_id: u64,
+    _out_str: *mut *mut c_char,
+    _out_len: *mut usize,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_reclassify_nat(_handle: *mut MeshNodeHandle) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_traversal_stats(
+    _handle: *mut MeshNodeHandle,
+    _out_punches_attempted: *mut u64,
+    _out_punches_succeeded: *mut u64,
+    _out_relay_fallbacks: *mut u64,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_connect_direct(
+    _handle: *mut MeshNodeHandle,
+    _peer_node_id: u64,
+    _peer_pubkey_hex: *const c_char,
+    _coordinator: u64,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_connect_direct_auto(
+    _handle: *mut MeshNodeHandle,
+    _peer_node_id: u64,
+    _peer_pubkey_hex: *const c_char,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_traversal_stats_v2(
+    _handle: *mut MeshNodeHandle,
+    _out: *mut NetTraversalStatsV2,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_set_reflex_override(
+    _handle: *mut MeshNodeHandle,
+    _external: *const c_char,
+) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+#[cfg(not(feature = "nat-traversal"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_clear_reflex_override(_handle: *mut MeshNodeHandle) -> c_int {
+    NET_ERR_TRAVERSAL_UNSUPPORTED
+}
+
+// =========================================================================
+// Streams
+// =========================================================================
+
+#[derive(Deserialize, Default)]
+struct StreamOpenConfig {
+    /// `"reliable" | "fire_and_forget"`. Default `"fire_and_forget"`.
+    reliability: Option<String>,
+    /// Initial send-credit window in bytes. 0 disables backpressure.
+    /// Default: `DEFAULT_STREAM_WINDOW_BYTES` (64 KB).
+    window_bytes: Option<u32>,
+    fairness_weight: Option<u8>,
+}
+
+/// FFI handle for an open stream against a [`MeshNode`].
+///
+/// `HandleGuard`-protected. Without it, two distinct UAFs can
+/// fire: `_node: Arc<MeshNode>` keeps the underlying node alive
+/// but **not** the `MeshStreamHandle` Box itself —
+/// `net_mesh_free(node_handle)` could deallocate the node
+/// handle's box while `net_mesh_send` was deref'ing
+/// `&*node_handle` for the `Arc::ptr_eq` check in
+/// `handles_match`. The same hazard applies to this stream
+/// handle's own box: a concurrent `net_mesh_stream_free` while
+/// `net_mesh_send` was reading `sh.stream` / `sh._node` would
+/// UAF the dropped fields. The guard closes both: the box stays
+/// leaked across `_free`; ops register via `try_enter` and
+/// `_free` quiesces them via `begin_free`.
+pub struct MeshStreamHandle {
+    stream: ManuallyDrop<CoreStream>,
+    // Keep the node alive as long as the stream is alive so sends
+    // don't race a concurrent shutdown.
+    _node: ManuallyDrop<Arc<MeshNode>>,
+    guard: HandleGuard,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_open_stream(
+    handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    stream_id: u64,
+    config_json: *const c_char,
+    out_stream: *mut *mut MeshStreamHandle,
+) -> c_int {
+    if handle.is_null() || out_stream.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let cfg_json: StreamOpenConfig = if config_json.is_null() {
+        StreamOpenConfig::default()
+    } else {
+        let Some(s) = (unsafe { c_str_to_string(config_json) }) else {
+            return NetError::InvalidUtf8.into();
+        };
+        match serde_json::from_str(&s) {
+            Ok(v) => v,
+            Err(_) => return NetError::InvalidJson.into(),
+        }
+    };
+    let reliability = match cfg_json.reliability.as_deref() {
+        None | Some("fire_and_forget") => Reliability::FireAndForget,
+        Some("reliable") => Reliability::Reliable,
+        Some(_) => return NET_ERR_MESH_TRANSPORT,
+    };
+    let window = cfg_json.window_bytes.unwrap_or(DEFAULT_STREAM_WINDOW_BYTES);
+    let weight = cfg_json.fairness_weight.unwrap_or(1);
+    let cfg = StreamConfig::new()
+        .with_reliability(reliability)
+        .with_window_bytes(window)
+        .with_fairness_weight(weight);
+    match h.inner.open_stream(peer_node_id, stream_id, cfg) {
+        Ok(stream) => {
+            let node_clone: Arc<MeshNode> = Arc::clone(&h.inner);
+            let sh = Box::new(MeshStreamHandle {
+                stream: ManuallyDrop::new(stream),
+                _node: ManuallyDrop::new(node_clone),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_stream = Box::into_raw(sh);
+            }
+            0
+        }
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+/// Close the underlying core stream, then free the handle.
+///
+/// `net_mesh_stream_free` only drops the FFI handle and its `Arc`. It
+/// does not call `MeshNode::close_stream`, so core stream state
+/// survived until node shutdown: a long-lived C or Go node could not
+/// release stream state eagerly, could not enforce a close/reopen
+/// epoch, and could not reopen the same stream id under a new
+/// configuration — the original "first open wins" config stayed in
+/// force. Rust, Node and Python have always had the core close.
+///
+/// Idempotent at the Go/C level in the same sense as
+/// `net_mesh_stream_free`: calling it twice on the same pointer is
+/// undefined, so callers must null their handle after the first call
+/// (Go's `MeshStream.Close` does).
+///
+/// Returns `0` on success, or a negative `NetError` code.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_close_stream(handle: *mut MeshStreamHandle) -> c_int {
+    if handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h: &MeshStreamHandle = unsafe { &*handle };
+    {
+        // Enter the guard BEFORE touching `stream`. This read used to
+        // sit above the `try_enter`, which is the one thing
+        // `HandleGuard` documents a caller must not do: a `None` return
+        // means a concurrent `net_mesh_stream_free` is taking the inner
+        // apart, and every field except the guard itself is off-limits.
+        // `MeshStreamHandle`'s own doc names this exact hazard — "a
+        // concurrent `net_mesh_stream_free` while `net_mesh_send` was
+        // reading `sh.stream` / `sh._node` would UAF the dropped
+        // fields". Every other op in this file enters first; this was
+        // the outlier.
+        //
+        // The read was survivable in practice — `CoreStream` is `Copy`,
+        // so `ManuallyDrop::take` leaves the bytes behind, and the box
+        // is deliberately leaked across `_free` — but it was correct by
+        // accident, and the accident belongs to a type that could stop
+        // being `Copy`.
+        let _op = match h.guard.try_enter() {
+            Some(op) => op,
+            None => return NetError::ShuttingDown.into(),
+        };
+        // The handle-addressed close (R12): this pointer owns a
+        // `CoreStream`, so closing by `(peer, stream_id)` would let a
+        // handle whose session was displaced tear down the successor
+        // session's stream of the same id. A refusal is reported and
+        // the handle is still freed — it is inert either way, and
+        // leaking it would be worse.
+        if let Err(e) = h._node.close_stream_handle(&h.stream) {
+            let code = stream_err_to_code(&e);
+            drop(_op);
+            unsafe { net_mesh_stream_free(handle) };
+            return code;
+        }
+    }
+    unsafe { net_mesh_stream_free(handle) };
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_free(handle: *mut MeshStreamHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping the inner. Box stays leaked.
+    let h: &MeshStreamHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            // CoreStream is Copy/non-Drop; just take it out and let
+            // it fall out of scope. The Arc<MeshNode> needs explicit
+            // drop() to release its refcount.
+            let _stream = ManuallyDrop::take(&mut (*handle).stream);
+            let node = ManuallyDrop::take(&mut (*handle)._node);
+            drop(node);
+        }
+    } else {
+        tracing::warn!(
+            "net_mesh_stream_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// Collect an array of borrowed `(ptr, len)` pairs into a
+/// `Vec<Bytes>`. Caller must keep the pointer / length arrays alive
+/// for the duration of the C call.
+///
+/// Returns `None` if any per-entry pointer is null *with* a non-zero
+/// length — the C contract has no "skip this entry" channel, so the
+/// only correct response is to refuse the whole batch. A null pointer
+/// with `len == 0` is treated as an empty payload (it never gets
+/// dereferenced).
+unsafe fn collect_payloads(
+    payloads: *const *const u8,
+    lens: *const usize,
+    count: usize,
+) -> Option<Vec<Bytes>> {
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        let ptr = *payloads.add(i);
+        let len = *lens.add(i);
+        if ptr.is_null() {
+            if len == 0 {
+                out.push(Bytes::new());
+                continue;
+            }
+            return None;
+        }
+        // `slice::from_raw_parts` requires `len <= isize::MAX`.
+        // A caller passing a sign-extended `-1` would otherwise
+        // immediately UB before any other validation runs.
+        if len > isize::MAX as usize {
+            return None;
+        }
+        let slice = std::slice::from_raw_parts(ptr, len);
+        out.push(Bytes::copy_from_slice(slice));
+    }
+    Some(out)
+}
+
+/// Ensure the supplied stream handle was created by the supplied
+/// node handle. Without this check, `net_mesh_send` would happily
+/// route bytes through whichever `MeshNode` was passed, even if the
+/// stream belonged to a different one — silent cross-session
+/// traffic. `Arc::ptr_eq` is O(1) and definitive: stream handles
+/// cache the originating
+/// node Arc in `_node` for exactly this purpose.
+#[inline]
+fn handles_match(sh: &MeshStreamHandle, nh: &MeshNodeHandle) -> bool {
+    Arc::ptr_eq(&sh._node, &nh.inner)
+}
+
+/// Send a batch of events on an open stream.
+///
+/// `out_size` / `out_limit` report the two numbers a
+/// `NET_ERR_MESH_EVENT_TOO_LARGE` refusal carried: the length of
+/// the event that was refused, and the limit that applied to this
+/// peer. **Written only when that code is returned**; either may
+/// be null. See `stream_err_to_code_attributed` for why the
+/// caller cannot derive them from `lens` and
+/// `net_mesh_max_event_size()`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_send(
+    handle: *mut MeshStreamHandle,
+    payloads: *const *const u8,
+    lens: *const usize,
+    count: usize,
+    node_handle: *mut MeshNodeHandle,
+    out_size: *mut usize,
+    out_limit: *mut usize,
+) -> c_int {
+    if handle.is_null() || node_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if count > 0 && (payloads.is_null() || lens.is_null()) {
+        return NetError::NullPointer.into();
+    }
+    let sh = unsafe { &*handle };
+    let nh = unsafe { &*node_handle };
+    // Gate both handles; either being freed concurrently would
+    // otherwise UAF the inner deref below.
+    let _sh_op = match sh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let _nh_op = match nh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    if !handles_match(sh, nh) {
+        return NetError::MismatchedHandles.into();
+    }
+    let payloads = match unsafe { collect_payloads(payloads, lens, count) } {
+        Some(v) => v,
+        None => return NetError::NullPointer.into(),
+    };
+    let node = Arc::clone(&nh.inner);
+    let stream = sh.stream.clone();
+    match block_on(async move { node.send_on_stream(&stream, &payloads).await }) {
+        Ok(()) => 0,
+        Err(e) => unsafe { stream_err_to_code_attributed(&e, out_size, out_limit) },
+    }
+}
+
+/// [`net_mesh_send`] with backpressure retries. `out_size` /
+/// `out_limit` carry the same refusal attribution, under the same
+/// write-only-on-`NET_ERR_MESH_EVENT_TOO_LARGE` contract — a
+/// refusal is not retried, so what they report is the one refusal
+/// that ended the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_send_with_retry(
+    handle: *mut MeshStreamHandle,
+    payloads: *const *const u8,
+    lens: *const usize,
+    count: usize,
+    max_retries: u32,
+    node_handle: *mut MeshNodeHandle,
+    out_size: *mut usize,
+    out_limit: *mut usize,
+) -> c_int {
+    if handle.is_null() || node_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if count > 0 && (payloads.is_null() || lens.is_null()) {
+        return NetError::NullPointer.into();
+    }
+    let sh = unsafe { &*handle };
+    let nh = unsafe { &*node_handle };
+    // Gate both handles; either being freed concurrently would
+    // otherwise UAF the inner deref below.
+    let _sh_op = match sh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let _nh_op = match nh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    if !handles_match(sh, nh) {
+        return NetError::MismatchedHandles.into();
+    }
+    let payloads = match unsafe { collect_payloads(payloads, lens, count) } {
+        Some(v) => v,
+        None => return NetError::NullPointer.into(),
+    };
+    let node = Arc::clone(&nh.inner);
+    let stream = sh.stream.clone();
+    match block_on(async move {
+        node.send_with_retry(&stream, &payloads, max_retries as usize)
+            .await
+    }) {
+        Ok(()) => 0,
+        Err(e) => unsafe { stream_err_to_code_attributed(&e, out_size, out_limit) },
+    }
+}
+
+/// [`net_mesh_send`] blocking until the window opens. `out_size` /
+/// `out_limit` carry the same refusal attribution under the same
+/// contract.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_send_blocking(
+    handle: *mut MeshStreamHandle,
+    payloads: *const *const u8,
+    lens: *const usize,
+    count: usize,
+    node_handle: *mut MeshNodeHandle,
+    out_size: *mut usize,
+    out_limit: *mut usize,
+) -> c_int {
+    if handle.is_null() || node_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if count > 0 && (payloads.is_null() || lens.is_null()) {
+        return NetError::NullPointer.into();
+    }
+    let sh = unsafe { &*handle };
+    let nh = unsafe { &*node_handle };
+    // Gate both handles; either being freed concurrently would
+    // otherwise UAF the inner deref below.
+    let _sh_op = match sh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let _nh_op = match nh.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    if !handles_match(sh, nh) {
+        return NetError::MismatchedHandles.into();
+    }
+    let payloads = match unsafe { collect_payloads(payloads, lens, count) } {
+        Some(v) => v,
+        None => return NetError::NullPointer.into(),
+    };
+    let node = Arc::clone(&nh.inner);
+    let stream = sh.stream.clone();
+    match block_on(async move { node.send_blocking(&stream, &payloads).await }) {
+        Ok(()) => 0,
+        Err(e) => unsafe { stream_err_to_code_attributed(&e, out_size, out_limit) },
+    }
+}
+
+/// The largest single event one packet can carry, in bytes.
+///
+/// This is the bound a peer that does **not** reassemble fragments
+/// is held to — every UDP peer, and every RTC peer that has not
+/// advertised fragment reassembly — so it is the `limit` most
+/// `NET_ERR_MESH_EVENT_TOO_LARGE` refusals name. It is **not**
+/// every refusal's limit: a peer that does reassemble is held to
+/// the fragmentation ceiling
+/// (`protocol::MAX_FRAGMENTED_EVENT_SIZE`, eight packets' worth)
+/// instead. Read the limit that applied from the send call's
+/// `out_limit`; this accessor is for sizing a payload *before*
+/// sending, when there is no refusal to read.
+///
+/// Does **not** admit or refuse anything: it is a pure accessor on
+/// a constant, needs no node and no stream, and never returns 0.
+/// The refusal stays exactly where it is — inside
+/// `MeshNode::send_on_stream`, before the peer is resolved — and
+/// nothing here extends it to a path that bypasses that function.
+#[unsafe(no_mangle)]
+pub extern "C" fn net_mesh_max_event_size() -> usize {
+    MAX_EVENT_SIZE
+}
+
+/// Unstable fixtures-only test bridge; not supported core API.
+///
+/// Drives the refusal-attribution seam every send entry point
+/// shares with a known attribution, so a language binding can
+/// prove it *reports* the pair the core produced instead of
+/// reconstructing one.
+///
+/// **This is not a send.** It opens nothing, resolves no peer and
+/// puts no byte on any wire. It collects `payloads` through the
+/// same `collect_payloads` the send entry points use, builds the
+/// same [`StreamError::EventTooLarge`] the core builds — `size` is
+/// the length of `payloads[attributed_index]`, `limit` is the
+/// supplied `limit` — and returns it through
+/// `stream_err_to_code_attributed`, the one writer all three
+/// send entry points return through.
+///
+/// **Why it has to exist.** The 64 832-byte fragmentation ceiling
+/// is only reachable when the resolved peer address is RTC, and
+/// this cdylib is built without the `webrtc` feature, so no send
+/// through it can produce that attribution live — nor the
+/// second-element attribution that goes with it, since without the
+/// ceiling every batch is refused at its first element above
+/// `MAX_EVENT_SIZE`. Those live attributions are covered on the
+/// Rust side (`tests/rtc_repairs.rs`); this seam covers the C →
+/// binding half of the same two pairs for a library that cannot
+/// reach them. Gated on `fixtures`, so no production build
+/// exports it.
+///
+/// Returns `NET_ERR_MESH_EVENT_TOO_LARGE`,
+/// `NetError::NullPointer` for a null/undersized array, or
+/// `NetError::InvalidArgument` when `attributed_index` names no
+/// element.
+///
+/// # Safety
+///
+/// `payloads` / `lens` must describe `count` valid slices, and the
+/// out-params must each be null or point to a writable `usize` —
+/// the same contract as [`net_mesh_send`].
+#[cfg(feature = "fixtures")]
+#[doc(hidden)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_test_send_refusal_attribution(
+    payloads: *const *const u8,
+    lens: *const usize,
+    count: usize,
+    attributed_index: usize,
+    limit: usize,
+    out_size: *mut usize,
+    out_limit: *mut usize,
+) -> c_int {
+    if count == 0 || payloads.is_null() || lens.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let payloads = match unsafe { collect_payloads(payloads, lens, count) } {
+        Some(v) => v,
+        None => return NetError::NullPointer.into(),
+    };
+    let Some(attributed) = payloads.get(attributed_index) else {
+        return NetError::InvalidArgument.into();
+    };
+    let err = StreamError::EventTooLarge {
+        size: attributed.len(),
+        limit,
+    };
+    unsafe { stream_err_to_code_attributed(&err, out_size, out_limit) }
+}
+
+#[derive(Serialize)]
+struct StreamStatsJson {
+    tx_seq: u64,
+    rx_seq: u64,
+    inbound_pending: u64,
+    last_activity_ns: u64,
+    active: bool,
+    backpressure_events: u64,
+    tx_credit_remaining: u32,
+    tx_window: u32,
+    credit_grants_received: u64,
+    credit_grants_sent: u64,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_stats(
+    node_handle: *mut MeshNodeHandle,
+    peer_node_id: u64,
+    stream_id: u64,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if node_handle.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*node_handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match h.inner.stream_stats(peer_node_id, stream_id) {
+        Some(s) => {
+            let js = StreamStatsJson {
+                tx_seq: s.tx_seq,
+                rx_seq: s.rx_seq,
+                inbound_pending: s.inbound_pending,
+                last_activity_ns: s.last_activity_ns,
+                active: s.active,
+                backpressure_events: s.backpressure_events,
+                tx_credit_remaining: s.tx_credit_remaining,
+                tx_window: s.tx_window,
+                credit_grants_received: s.credit_grants_received,
+                credit_grants_sent: s.credit_grants_sent,
+            };
+            write_json_out(&js, out_json, out_len)
+        }
+        None => {
+            // Encode `null` so Go can distinguish "no such stream"
+            // from an error.
+            write_string_out("null".to_string(), out_json, out_len)
+        }
+    }
+}
+
+// =========================================================================
+// Stream inbox: stream events WITH their authenticated sender
+// =========================================================================
+
+/// FFI handle for a [`crate::adapter::net::StreamInbox`].
+///
+/// `HandleGuard`-protected like [`MeshStreamHandle`]: the box stays
+/// leaked across `_free`, ops register via `try_enter`, and `_free`
+/// quiesces them. `_free` CLOSES the inbox before quiescing, which
+/// disconnects its channel, so a `recv` blocked in another thread returns
+/// at once rather than holding the free until its timeout.
+pub struct MeshStreamInboxHandle {
+    inbox: ManuallyDrop<crate::adapter::net::StreamInbox>,
+    guard: HandleGuard,
+}
+
+/// Receive every event on `stream_id`, from any peer, with the peer
+/// whose session authenticated it — what `net_mesh_recv_shard` cannot
+/// say (its events carry no sender).
+///
+/// At most `capacity` events wait (0 means 1); beyond that an arriving
+/// event is dropped and counted (`net_mesh_stream_inbox_dropped`)
+/// rather than stalling the mesh. Returns 0 and writes `*out_inbox`, or
+/// `NET_ERR_MESH_STREAM_OCCUPIED` when the stream already has a receiver.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_open_stream_inbox(
+    handle: *mut MeshNodeHandle,
+    stream_id: u64,
+    capacity: u32,
+    out_inbox: *mut *mut MeshStreamInboxHandle,
+) -> c_int {
+    if handle.is_null() || out_inbox.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match h.inner.open_stream_inbox(stream_id, capacity as usize) {
+        Some(inbox) => {
+            let boxed = Box::new(MeshStreamInboxHandle {
+                inbox: ManuallyDrop::new(inbox),
+                guard: HandleGuard::new(),
+            });
+            unsafe {
+                *out_inbox = Box::into_raw(boxed);
+            }
+            0
+        }
+        None => NET_ERR_MESH_STREAM_OCCUPIED,
+    }
+}
+
+/// Take the next event, waiting up to `timeout_ms`.
+///
+/// Returns 1 with `*out_from_node` (the authenticated sender),
+/// `*out_buf` and `*out_len` written — the buffer is the caller's, to
+/// release with `net_free_bytes(buf, len)`; an empty payload writes a
+/// NULL buffer and length 0. Returns 0 on timeout or once the inbox is
+/// closed, with nothing written; a negative `NET_ERR_*` on error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_inbox_recv(
+    inbox: *mut MeshStreamInboxHandle,
+    timeout_ms: u32,
+    out_from_node: *mut u64,
+    out_buf: *mut *mut u8,
+    out_len: *mut usize,
+) -> c_int {
+    if inbox.is_null() || out_from_node.is_null() || out_buf.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*inbox };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(event) = h
+        .inbox
+        .recv_timeout(std::time::Duration::from_millis(u64::from(timeout_ms)))
+    else {
+        return 0;
+    };
+    let len = event.payload.len();
+    let ptr = if len == 0 {
+        std::ptr::null_mut()
+    } else {
+        // An explicit `Layout::array::<u8>(len)`, the layout
+        // `net_free_bytes` releases with — not a `Box<[u8]>`, whose
+        // layout matching is an allocator-internals coincidence (see
+        // `write_bytes_out` in `ffi/blob.rs`).
+        let Ok(layout) = std::alloc::Layout::array::<u8>(len) else {
+            return NetError::IntOverflow.into();
+        };
+        // SAFETY: `layout` is non-zero-sized (len > 0).
+        let raw = unsafe { std::alloc::alloc(layout) };
+        if raw.is_null() {
+            return NET_ERR_MESH_TRANSPORT;
+        }
+        // SAFETY: `raw` is a fresh allocation of `len` bytes.
+        unsafe { std::ptr::copy_nonoverlapping(event.payload.as_ptr(), raw, len) };
+        raw
+    };
+    unsafe {
+        *out_from_node = event.from_node;
+        *out_buf = ptr;
+        *out_len = len;
+    }
+    1
+}
+
+/// Events dropped because `capacity` were already waiting. 0 for a
+/// NULL or freed handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_inbox_dropped(inbox: *mut MeshStreamInboxHandle) -> u64 {
+    if inbox.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*inbox };
+    match h.guard.try_enter() {
+        Some(_op) => h.inbox.dropped(),
+        None => 0,
+    }
+}
+
+/// Stop receiving, without freeing: a `recv` waiting in another thread
+/// returns 0 at once, and the stream's events go back to the shard
+/// queue. Idempotent. Free the handle with `net_mesh_stream_inbox_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_inbox_close(inbox: *mut MeshStreamInboxHandle) -> c_int {
+    if inbox.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*inbox };
+    match h.guard.try_enter() {
+        Some(_op) => {
+            h.inbox.close();
+            0
+        }
+        None => NetError::ShuttingDown.into(),
+    }
+}
+
+/// Close the inbox and free the handle. Calling it twice on the same
+/// pointer is undefined; null your handle afterwards.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_stream_inbox_free(inbox: *mut MeshStreamInboxHandle) {
+    if inbox.is_null() {
+        return;
+    }
+    let h: &MeshStreamInboxHandle = unsafe { &*inbox };
+    // Close first, under an op, so a `recv` blocked on the channel is
+    // woken before the quiesce below waits for it.
+    if let Some(_op) = h.guard.try_enter() {
+        h.inbox.close();
+    }
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let inbox = ManuallyDrop::take(&mut (*inbox).inbox);
+            drop(inbox);
+        }
+    } else {
+        tracing::warn!(
+            "net_mesh_stream_inbox_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// The stream id a label names — the browser leaf's derivation — so a
+/// native node and a page that agree on a label open the same stream.
+/// Any UTF-8 string is a label. Returns 0 and writes `*out_id`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_stream_id_from_label(label: *const c_char, out_id: *mut u64) -> c_int {
+    if label.is_null() || out_id.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(text) = (unsafe { c_str_to_string(label) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    unsafe {
+        *out_id = crate::adapter::net::stream_id_from_label(&text);
+    }
+    0
+}
+
+// =========================================================================
+// Shard receive
+// =========================================================================
+
+#[derive(Serialize)]
+struct RecvEventJson {
+    id: String,
+    /// Base64 payload (binary-safe across the JSON boundary).
+    payload_b64: String,
+    insertion_ts: u64,
+    shard_id: u16,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_recv_shard(
+    handle: *mut MeshNodeHandle,
+    shard_id: u16,
+    limit: u32,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    let result = block_on(async move { node.poll_shard(shard_id, None, limit as usize).await });
+    let result = match result {
+        Ok(r) => r,
+        Err(e) => return adapter_err_to_code(&e),
+    };
+    let events: Vec<RecvEventJson> = result
+        .events
+        .into_iter()
+        .map(|e| RecvEventJson {
+            id: e.id,
+            payload_b64: encode_b64(&e.raw),
+            insertion_ts: e.insertion_ts,
+            shard_id: e.shard_id,
+        })
+        .collect();
+    write_json_out(&events, out_json, out_len)
+}
+
+fn encode_b64(bytes: &[u8]) -> String {
+    // Small stdlib-free base64. Net already pulls in `base64` via
+    // other deps, but a local encoder keeps this module independent.
+    const ALPH: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut s = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let mut i = 0;
+    while i + 3 <= bytes.len() {
+        let chunk = &bytes[i..i + 3];
+        s.push(ALPH[(chunk[0] >> 2) as usize] as char);
+        s.push(ALPH[(((chunk[0] & 0b11) << 4) | (chunk[1] >> 4)) as usize] as char);
+        s.push(ALPH[(((chunk[1] & 0b1111) << 2) | (chunk[2] >> 6)) as usize] as char);
+        s.push(ALPH[(chunk[2] & 0b111111) as usize] as char);
+        i += 3;
+    }
+    let rem = bytes.len() - i;
+    if rem == 1 {
+        let b = bytes[i];
+        s.push(ALPH[(b >> 2) as usize] as char);
+        s.push(ALPH[((b & 0b11) << 4) as usize] as char);
+        s.push('=');
+        s.push('=');
+    } else if rem == 2 {
+        let b0 = bytes[i];
+        let b1 = bytes[i + 1];
+        s.push(ALPH[(b0 >> 2) as usize] as char);
+        s.push(ALPH[(((b0 & 0b11) << 4) | (b1 >> 4)) as usize] as char);
+        s.push(ALPH[((b1 & 0b1111) << 2) as usize] as char);
+        s.push('=');
+    }
+    s
+}
+
+// =========================================================================
+// Channels (distributed pub/sub)
+// =========================================================================
+
+#[derive(Deserialize)]
+struct ChannelConfigInput {
+    name: String,
+    visibility: Option<String>,
+    reliable: Option<bool>,
+    require_token: Option<bool>,
+    /// Root(s) of trust for token authorization: hex-encoded 32-byte
+    /// entity ids (64 hex chars each) whose signature may root a
+    /// presented token chain. Setting this turns on token enforcement
+    /// and anchors the channel; `require_token` alone (no roots) fails
+    /// every authorization closed.
+    token_roots: Option<Vec<String>>,
+    priority: Option<u8>,
+    max_rate_pps: Option<u32>,
+    /// Capability filter restricting who may publish on this
+    /// channel. Same POJO shape as `CapabilityFilter` (see
+    /// `net_mesh_find_nodes`).
+    publish_caps: Option<CapabilityFilterJson>,
+    /// Capability filter restricting who may subscribe. Subscribers
+    /// whose announced caps miss this filter are rejected with
+    /// `NET_ERR_CHANNEL_AUTH`.
+    subscribe_caps: Option<CapabilityFilterJson>,
+}
+
+fn parse_visibility(s: &str) -> Option<InnerVisibility> {
+    match s {
+        "subnet-local" => Some(InnerVisibility::SubnetLocal),
+        "parent-visible" => Some(InnerVisibility::ParentVisible),
+        "exported" => Some(InnerVisibility::Exported),
+        "global" => Some(InnerVisibility::Global),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_register_channel(
+    handle: *mut MeshNodeHandle,
+    config_json: *const c_char,
+) -> c_int {
+    if handle.is_null() || config_json.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(config_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let input: ChannelConfigInput = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let name = match InnerChannelName::new(&input.name) {
+        Ok(n) => n,
+        Err(_) => return NET_ERR_CHANNEL,
+    };
+    let mut cfg = InnerChannelConfig::new(ChannelId::new(name));
+    if let Some(v) = input.visibility {
+        let Some(vis) = parse_visibility(&v) else {
+            return NET_ERR_CHANNEL;
+        };
+        cfg = cfg.with_visibility(vis);
+    }
+    if let Some(r) = input.reliable {
+        cfg = cfg.with_reliable(r);
+    }
+    if let Some(t) = input.require_token {
+        cfg = cfg.with_require_token(t);
+    }
+    if let Some(roots) = input.token_roots {
+        let mut parsed = Vec::with_capacity(roots.len());
+        for hex_id in roots {
+            let bytes = match hex::decode(&hex_id) {
+                Ok(b) => b,
+                Err(_) => return NET_ERR_CHANNEL,
+            };
+            let Ok(arr) = <[u8; 32]>::try_from(bytes.as_slice()) else {
+                return NET_ERR_CHANNEL;
+            };
+            parsed.push(EntityId::from_bytes(arr));
+        }
+        cfg = cfg.with_token_roots(parsed);
+    }
+    if let Some(p) = input.priority {
+        cfg = cfg.with_priority(p);
+    }
+    if let Some(pps) = input.max_rate_pps {
+        cfg = cfg.with_rate_limit(pps);
+    }
+    if let Some(filter_json) = input.publish_caps {
+        cfg = match capability_filter_from_json(filter_json) {
+            Ok(f) => cfg.with_publish_caps(f),
+            Err(_) => return NetError::InvalidJson.into(),
+        };
+    }
+    if let Some(filter_json) = input.subscribe_caps {
+        cfg = match capability_filter_from_json(filter_json) {
+            Ok(f) => cfg.with_subscribe_caps(f),
+            Err(_) => return NetError::InvalidJson.into(),
+        };
+    }
+    h.channel_configs.insert(cfg);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_subscribe_channel(
+    handle: *mut MeshNodeHandle,
+    publisher_node_id: u64,
+    channel: *const c_char,
+) -> c_int {
+    subscribe_or_unsubscribe(handle, publisher_node_id, channel, true)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_unsubscribe_channel(
+    handle: *mut MeshNodeHandle,
+    publisher_node_id: u64,
+    channel: *const c_char,
+) -> c_int {
+    subscribe_or_unsubscribe(handle, publisher_node_id, channel, false)
+}
+
+/// Subscribe with a serialized `PermissionToken` attached. Parses
+/// the token client-side (rejecting malformed bytes with
+/// `NET_ERR_TOKEN_INVALID_FORMAT`) before dispatching the request
+/// to the publisher. Signature verification happens on the
+/// publisher side; a tampered token will surface as
+/// `NET_ERR_CHANNEL_AUTH` rather than a token error in this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_subscribe_channel_with_token(
+    handle: *mut MeshNodeHandle,
+    publisher_node_id: u64,
+    channel: *const c_char,
+    token: *const u8,
+    token_len: usize,
+) -> c_int {
+    if handle.is_null() || channel.is_null() || token.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let name = match InnerChannelName::new(&s) {
+        Ok(n) => n,
+        Err(_) => return NET_ERR_CHANNEL,
+    };
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if token_len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(token, token_len) };
+    let parsed = match PermissionToken::from_bytes(slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move {
+        node.subscribe_channel_with_token(publisher_node_id, name, parsed)
+            .await
+    }) {
+        Ok(()) => 0,
+        Err(e) => adapter_err_to_channel_code(&e),
+    }
+}
+
+fn subscribe_or_unsubscribe(
+    handle: *mut MeshNodeHandle,
+    publisher_node_id: u64,
+    channel: *const c_char,
+    subscribe: bool,
+) -> c_int {
+    if handle.is_null() || channel.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let name = match InnerChannelName::new(&s) {
+        Ok(n) => n,
+        Err(_) => return NET_ERR_CHANNEL,
+    };
+    let node = Arc::clone(&h.inner);
+    let outcome = if subscribe {
+        block_on(async move { node.subscribe_channel(publisher_node_id, name).await })
+    } else {
+        block_on(async move { node.unsubscribe_channel(publisher_node_id, name).await })
+    };
+    match outcome {
+        Ok(()) => 0,
+        Err(e) => adapter_err_to_channel_code(&e),
+    }
+}
+
+fn adapter_err_to_channel_code(err: &AdapterError) -> c_int {
+    if let AdapterError::Connection(msg) = err {
+        let prefix = "membership request rejected: ";
+        if let Some(tail) = msg.strip_prefix(prefix) {
+            if tail.trim() == "Some(Unauthorized)" {
+                return NET_ERR_CHANNEL_AUTH;
+            }
+        }
+    }
+    NET_ERR_CHANNEL
+}
+
+#[derive(Deserialize, Default)]
+struct PublishConfigInput {
+    reliability: Option<String>,
+    on_failure: Option<String>,
+    max_inflight: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct PublishReportJson {
+    attempted: u32,
+    delivered: u32,
+    errors: Vec<PublishFailureJson>,
+}
+
+#[derive(Serialize)]
+struct PublishFailureJson {
+    node_id: u64,
+    message: String,
+}
+
+fn to_publish_report_json(r: InnerPublishReport) -> PublishReportJson {
+    PublishReportJson {
+        attempted: r.attempted as u32,
+        delivered: r.delivered as u32,
+        errors: r
+            .errors
+            .into_iter()
+            .map(|(id, e)| PublishFailureJson {
+                node_id: id,
+                message: format!("{}", e),
+            })
+            .collect(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_publish(
+    handle: *mut MeshNodeHandle,
+    channel: *const c_char,
+    payload: *const u8,
+    len: usize,
+    config_json: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || channel.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(ch) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let name = match InnerChannelName::new(&ch) {
+        Ok(n) => n,
+        Err(_) => return NET_ERR_CHANNEL,
+    };
+    let cfg_in: PublishConfigInput = if config_json.is_null() {
+        PublishConfigInput::default()
+    } else {
+        let Some(s) = (unsafe { c_str_to_string(config_json) }) else {
+            return NetError::InvalidUtf8.into();
+        };
+        match serde_json::from_str(&s) {
+            Ok(v) => v,
+            Err(_) => return NetError::InvalidJson.into(),
+        }
+    };
+    let reliability = match cfg_in.reliability.as_deref() {
+        None | Some("fire_and_forget") => Reliability::FireAndForget,
+        Some("reliable") => Reliability::Reliable,
+        Some(_) => return NET_ERR_CHANNEL,
+    };
+    let on_failure = match cfg_in.on_failure.as_deref() {
+        None | Some("best_effort") => InnerOnFailure::BestEffort,
+        Some("fail_fast") => InnerOnFailure::FailFast,
+        Some("collect") => InnerOnFailure::Collect,
+        Some(_) => return NET_ERR_CHANNEL,
+    };
+    let max_inflight = cfg_in.max_inflight.unwrap_or(32) as usize;
+    let publish_cfg = InnerPublishConfig {
+        reliability,
+        on_failure,
+        max_inflight,
+    };
+    let publisher = ChannelPublisher::new(name, publish_cfg);
+
+    // Payload may be NULL only when len == 0.
+    let bytes = if len == 0 {
+        Bytes::new()
+    } else if payload.is_null() {
+        return NetError::NullPointer.into();
+    } else if len > isize::MAX as usize {
+        // `slice::from_raw_parts` requires `len <= isize::MAX`.
+        return NetError::InvalidJson.into();
+    } else {
+        Bytes::copy_from_slice(unsafe { std::slice::from_raw_parts(payload, len) })
+    };
+
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.publish(&publisher, bytes).await }) {
+        Ok(report) => {
+            let js = to_publish_report_json(report);
+            write_json_out(&js, out_json, out_len)
+        }
+        Err(e) => adapter_err_to_channel_code(&e),
+    }
+}
+
+// =========================================================================
+// Identity + permission tokens
+// =========================================================================
+
+/// Opaque handle holding an ed25519 keypair plus a local
+/// `TokenCache`. Matches the PyO3 / NAPI `Identity` pyclass layout —
+/// cheap to clone (both fields are `Arc`s inside the core), and the
+/// cache is owned by the handle rather than shared across peers.
+///
+/// Same `HandleGuard` recipe as the cortex handles (see
+/// `super::handle_guard` for soundness). Box stays leaked across
+/// `_free`; inner Arcs live in `ManuallyDrop` so the free can
+/// take and drop them after quiescing in-flight ops.
+pub struct IdentityHandle {
+    keypair: ManuallyDrop<Arc<EntityKeypair>>,
+    cache: ManuallyDrop<Arc<TokenCache>>,
+    /// This issuer's credential epoch, stamped onto every token
+    /// `net_identity_issue_token` mints. Plain `u32`, not shared:
+    /// `net_identity_at_generation` produces a *new* handle rather
+    /// than mutating this one, so a rotation cannot change what
+    /// another thread is in the middle of signing.
+    generation: u32,
+    guard: HandleGuard,
+}
+
+/// Allocate and copy `src` into a freshly allocated buffer owned by
+/// `std::alloc::alloc` with a layout of `Layout::array::<u8>(len)`.
+/// The matching `net_free_bytes` must deallocate with the same layout
+/// — both sides pin the capacity to `len`, so there is no reliance on
+/// `Vec::shrink_to_fit` producing `capacity == len` (which is not
+/// guaranteed by the allocator API).
+///
+/// Returns `NetError::NullPointer` (the FFI-safe sentinel) if either
+/// out-pointer is null. Every current call site filters nulls at the
+/// public `extern "C"` entry before reaching here, so this check is
+/// defence-in-depth — its purpose is to make `alloc_bytes` safe to
+/// reuse from future call sites without retracing the null-handling
+/// contract.
+fn alloc_bytes(src: &[u8], out_ptr: *mut *mut u8, out_len: *mut usize) -> c_int {
+    if out_ptr.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let len = src.len();
+    if len == 0 {
+        unsafe {
+            *out_ptr = std::ptr::null_mut();
+            *out_len = 0;
+        }
+        return 0;
+    }
+    // `Layout::array::<u8>(len)` rejects `len > isize::MAX` (the
+    // documented bound — NOT `usize::MAX`). The current call
+    // sites stay well under that limit because `to_bytes()`
+    // produces token-sized payloads, so the failure mode is
+    // unreachable today; defending against it here also keeps the
+    // helper safe to reuse from non-token code paths in the
+    // future. A panic here would unwind across the surrounding
+    // `extern "C"` boundary.
+    let layout = match std::alloc::Layout::array::<u8>(len) {
+        Ok(l) => l,
+        // Reuse the closest sentinel we have — `NET_ERR_IDENTITY`
+        // covers the only call sites today (token/identity helpers
+        // that delegate to `alloc_bytes`). The negative integer is
+        // an FFI-safe error code; the alternative `panic!` would
+        // unwind across `extern "C"`.
+        Err(_) => return NET_ERR_IDENTITY,
+    };
+    let ptr = unsafe { std::alloc::alloc(layout) };
+    if ptr.is_null() {
+        std::alloc::handle_alloc_error(layout);
+    }
+    unsafe {
+        std::ptr::copy_nonoverlapping(src.as_ptr(), ptr, len);
+        *out_ptr = ptr;
+        *out_len = len;
+    }
+    0
+}
+
+/// Free a byte buffer allocated by the Rust side (tokens, entity ids
+/// returned by reference, etc.). The `len` argument MUST match the
+/// length returned by the allocating call — the buffer was allocated
+/// with `Layout::array::<u8>(len)` and is freed with the same layout.
+///
+/// We silently no-op on `len > isize::MAX`: the allocation that
+/// produced `ptr` could not have come from this process under that
+/// layout (the allocator would have rejected the matching
+/// `alloc`), so any such call is already memory-corruption
+/// territory and the safest response is to abandon the free rather
+/// than unwind. `net_free_bytes` is `extern "C"` with no
+/// `catch_unwind` shim, so a panic would unwind across the FFI
+/// boundary into a C / Go-cgo / NAPI / PyO3 caller — undefined
+/// behaviour.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_free_bytes(ptr: *mut u8, len: usize) {
+    if ptr.is_null() || len == 0 {
+        return;
+    }
+    // Reject `len > isize::MAX` before calling `Layout::array`. The
+    // allocating call paired with this free uses the same layout and
+    // would itself have failed for any such `len`, so a buffer
+    // matching this `len` cannot have come from us; treat as a no-op
+    // rather than panic across the FFI boundary.
+    let layout = match std::alloc::Layout::array::<u8>(len) {
+        Ok(l) => l,
+        Err(_) => return,
+    };
+    unsafe {
+        std::alloc::dealloc(ptr, layout);
+    }
+}
+
+fn entity_id_from_bytes(bytes: *const u8, len: usize) -> Option<EntityId> {
+    if bytes.is_null() || len != 32 {
+        return None;
+    }
+    let slice = unsafe { std::slice::from_raw_parts(bytes, 32) };
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(slice);
+    Some(EntityId::from_bytes(arr))
+}
+
+fn parse_scope_list(raw: &str) -> Option<TokenScope> {
+    // JSON array of string scope names — same shape as PyO3's
+    // `Vec<String>` parsing. Keeps the ABI aligned to the Python /
+    // NAPI surfaces for round-trip fixtures.
+    let values: Vec<String> = serde_json::from_str(raw).ok()?;
+    let mut acc = TokenScope::NONE;
+    for s in &values {
+        acc = acc.union(match s.as_str() {
+            "publish" => TokenScope::PUBLISH,
+            "subscribe" => TokenScope::SUBSCRIBE,
+            "admin" => TokenScope::ADMIN,
+            "delegate" => TokenScope::DELEGATE,
+            // WILDCARD authorizes the token's actions on *every*
+            // channel, regardless of its `channel_hash`. It was absent
+            // here, so a wildcard grant could not be issued from this
+            // binding at all, and a Rust-issued one crossing the wire
+            // had the bit dropped on parse — misrepresenting the
+            // credential's authority to the very caller deciding
+            // whether to trust it.
+            "wildcard" => TokenScope::WILDCARD,
+            _ => return None,
+        });
+    }
+    Some(acc)
+}
+
+fn scope_to_strings(scope: TokenScope) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    if scope.contains(TokenScope::PUBLISH) {
+        out.push("publish");
+    }
+    if scope.contains(TokenScope::SUBSCRIBE) {
+        out.push("subscribe");
+    }
+    if scope.contains(TokenScope::ADMIN) {
+        out.push("admin");
+    }
+    if scope.contains(TokenScope::DELEGATE) {
+        out.push("delegate");
+    }
+    // See the parse side: absent here, a Rust-issued wildcard token
+    // rendered as if it carried no cross-channel authority.
+    if scope.contains(TokenScope::WILDCARD) {
+        out.push("wildcard");
+    }
+    out
+}
+
+fn channel_name_to_hash(channel: &str) -> Option<ChannelHash> {
+    InnerChannelName::new(channel).ok().map(|n| n.hash())
+}
+
+/// Generate a fresh ed25519 identity. Writes an owned handle to
+/// `*out_handle`. Free via `net_identity_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_generate(out_handle: *mut *mut IdentityHandle) -> c_int {
+    if out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let handle = Box::new(IdentityHandle {
+        keypair: ManuallyDrop::new(Arc::new(EntityKeypair::generate())),
+        cache: ManuallyDrop::new(Arc::new(TokenCache::new())),
+        // A fresh key has no rotation history.
+        generation: 0,
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(handle);
+    }
+    0
+}
+
+/// Construct an identity from a caller-owned 32-byte ed25519 seed.
+/// Installs a fresh, empty `TokenCache` — reinstall tokens via
+/// `net_identity_install_token` after rehydrating from disk.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_from_seed(
+    seed: *const u8,
+    seed_len: usize,
+    out_handle: *mut *mut IdentityHandle,
+) -> c_int {
+    if seed.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if seed_len != 32 {
+        return NET_ERR_IDENTITY;
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(unsafe { std::slice::from_raw_parts(seed, 32) });
+    let handle = Box::new(IdentityHandle {
+        keypair: ManuallyDrop::new(Arc::new(EntityKeypair::from_bytes(arr))),
+        cache: ManuallyDrop::new(Arc::new(TokenCache::new())),
+        // The seed carries no epoch. An issuer that has rotated and
+        // comes back through here mints at zero — below its own
+        // published floor. `net_identity_from_state` is the path that
+        // restores the issuer rather than just the key.
+        generation: 0,
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(handle);
+    }
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_free(handle: *mut IdentityHandle) {
+    if handle.is_null() {
+        return;
+    }
+    // Quiesce in-flight ops before dropping inner; box leaked.
+    let h: &IdentityHandle = unsafe { &*handle };
+    if h.guard.begin_free(FFI_HANDLE_FREE_DEADLINE) {
+        // SAFETY: drained; sole writable reference.
+        unsafe {
+            let mh = &mut *handle;
+            let kp = ManuallyDrop::take(&mut mh.keypair);
+            let cache = ManuallyDrop::take(&mut mh.cache);
+            drop(kp);
+            drop(cache);
+        }
+    } else {
+        tracing::warn!(
+            "net_identity_free: in-flight ops did not drain within deadline; \
+             leaking inner to avoid use-after-free"
+        );
+    }
+}
+
+/// Size of the buffer `net_identity_to_state` writes, in bytes.
+///
+/// The header carries this as `NET_IDENTITY_STATE_SIZE`; this export
+/// exists so a stale header is detectable rather than silently
+/// under-allocating a buffer the implementation then writes past. A C
+/// caller that wants the check can assert the two agree at startup.
+#[unsafe(no_mangle)]
+pub extern "C" fn net_identity_state_size() -> usize {
+    IDENTITY_STATE_SIZE
+}
+
+/// This issuer's current credential epoch.
+///
+/// Every token `net_identity_issue_token` mints carries it, and a
+/// verifier rejects that token once its revocation floor for this
+/// entity exceeds it. Returns `0` for a NULL or shutting-down handle —
+/// indistinguishable from a genuine generation zero, which is the
+/// conservative reading (zero is the epoch that claims the least).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_generation(handle: *mut IdentityHandle) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*handle };
+    let Some(_op) = h.guard.try_enter() else {
+        return 0;
+    };
+    h.generation
+}
+
+/// The same key at a later generation, as a **new** handle written to
+/// `*out_handle`. The input handle is unchanged; free both separately.
+///
+/// `next == net_identity_generation(handle)` is accepted and
+/// idempotent at every generation including `UINT32_MAX`, so
+/// re-applying a persisted generation on restart is never an error.
+/// Going backwards returns `NET_ERR_IDENTITY`.
+///
+/// There is no generation above `UINT32_MAX` to name, so an issuer
+/// there can re-apply but not advance; past that, rotate the identity
+/// key.
+///
+/// Rotation order: build the generation-N handle here, persist
+/// `net_identity_to_state` atomically and durably, distribute verifier
+/// floor N, then start issuing. Publishing floor N before the state is
+/// durable leaves a crashed issuer announcing a floor it cannot
+/// satisfy — it can mint nothing a verifier accepts, and only a key
+/// rotation recovers it.
+///
+/// The token cache is NOT shared with the source handle: the C ABI
+/// hands out owning pointers, and sharing an `Arc<TokenCache>` across
+/// two independently-freeable handles would make one `_free` observable
+/// through the other.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_at_generation(
+    handle: *mut IdentityHandle,
+    next: u32,
+    out_handle: *mut *mut IdentityHandle,
+) -> c_int {
+    if handle.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Ok(generation) = InnerIdentityState::check_rotation(h.generation, next) else {
+        return NET_ERR_IDENTITY;
+    };
+    let rotated = Box::new(IdentityHandle {
+        keypair: ManuallyDrop::new(Arc::clone(&h.keypair)),
+        cache: ManuallyDrop::new(Arc::new(TokenCache::new())),
+        generation,
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(rotated);
+    }
+    0
+}
+
+/// Write the versioned issuer state — version, seed, generation —
+/// into `out[NET_IDENTITY_STATE_SIZE]`.
+///
+/// **Secret material**: these bytes contain the ed25519 signing seed,
+/// exactly as `net_identity_to_seed` does. Encrypt at rest, and write
+/// atomically; a torn write here is an issuer that cannot come back.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_to_state(handle: *mut IdentityHandle, out: *mut u8) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let bytes = InnerIdentityState {
+        seed: *h.keypair.secret_bytes(),
+        generation: h.generation,
+    }
+    .to_bytes();
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len());
+    }
+    0
+}
+
+/// Restore an issuer — key *and* generation — from
+/// `net_identity_to_state` output.
+///
+/// The restart path for anything that rotates. `net_identity_from_seed`
+/// restores the key only and comes back at generation zero, which for a
+/// rotated issuer is below its own floor. Returns `NET_ERR_IDENTITY`
+/// for a wrong length or a version this build does not understand —
+/// a partial parse of credential state is how an issuer silently comes
+/// back on the wrong epoch.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_from_state(
+    state: *const u8,
+    state_len: usize,
+    out_handle: *mut *mut IdentityHandle,
+) -> c_int {
+    if state.is_null() || out_handle.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(state, state_len) };
+    let Ok(parsed) = InnerIdentityState::from_bytes(bytes) else {
+        return NET_ERR_IDENTITY;
+    };
+    let handle = Box::new(IdentityHandle {
+        keypair: ManuallyDrop::new(Arc::new(EntityKeypair::from_bytes(parsed.seed))),
+        cache: ManuallyDrop::new(Arc::new(TokenCache::new())),
+        generation: parsed.generation,
+        guard: HandleGuard::new(),
+    });
+    unsafe {
+        *out_handle = Box::into_raw(handle);
+    }
+    0
+}
+
+/// Write the 32-byte ed25519 seed into `out[32]`. Caller must pass
+/// a buffer of at least 32 bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_to_seed(handle: *mut IdentityHandle, out: *mut u8) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let seed = h.keypair.secret_bytes();
+    unsafe {
+        std::ptr::copy_nonoverlapping(seed.as_ptr(), out, 32);
+    }
+    0
+}
+
+/// Write the 32-byte entity id into `out[32]`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_entity_id(
+    handle: *mut IdentityHandle,
+    out: *mut u8,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let id = h.keypair.entity_id().as_bytes();
+    unsafe {
+        std::ptr::copy_nonoverlapping(id.as_ptr(), out, 32);
+    }
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_node_id(handle: *mut IdentityHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*handle };
+    // Returns 0 on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.keypair.node_id()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_origin_hash(handle: *mut IdentityHandle) -> u64 {
+    if handle.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*handle };
+    // Returns 0 on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.keypair.origin_hash()
+}
+
+/// Sign `msg[len]` with the identity's ed25519 secret key. Writes a
+/// 64-byte signature into `out_sig[64]`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_sign(
+    handle: *mut IdentityHandle,
+    msg: *const u8,
+    len: usize,
+    out_sig: *mut u8,
+) -> c_int {
+    if handle.is_null() || out_sig.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if len > 0 && msg.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let slice = if len == 0 {
+        &[][..]
+    } else if len > isize::MAX as usize {
+        // `slice::from_raw_parts` requires `len <= isize::MAX`.
+        return NetError::InvalidJson.into();
+    } else {
+        unsafe { std::slice::from_raw_parts(msg, len) }
+    };
+    let sig = h.keypair.sign(slice).to_bytes();
+    unsafe {
+        std::ptr::copy_nonoverlapping(sig.as_ptr(), out_sig, 64);
+    }
+    0
+}
+
+/// Verify a detached ed25519 signature against a 32-byte entity id.
+///
+/// The verifying half of `net_identity_sign`. Every binding exposed
+/// signing and none exposed verification for an arbitrary message, so
+/// a signature produced through the C ABI could only be checked from
+/// Rust — and the binding tests asserted the signature's *length*
+/// rather than a round trip, which passes for any 64 bytes.
+///
+/// Strict verification: the malleable `(R, S + L)` variant is
+/// rejected, so one logical message cannot appear under two byte
+/// encodings.
+///
+/// Writes `1` to `*out_valid` when the signature is valid for this
+/// exact `(entity_id, message)` pair and `0` when it is not. Returns
+/// `0` on success, or a negative code only for a malformed argument —
+/// so a `0` result with `*out_valid == 0` means "did not verify",
+/// never "called wrong".
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_verify_signature(
+    entity_id: *const u8,
+    entity_id_len: usize,
+    msg: *const u8,
+    msg_len: usize,
+    signature: *const u8,
+    signature_len: usize,
+    out_valid: *mut c_int,
+) -> c_int {
+    if out_valid.is_null() {
+        return NetError::NullPointer.into();
+    }
+    if (msg_len > 0 && msg.is_null()) || signature.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(id) = entity_id_from_bytes(entity_id, entity_id_len) else {
+        return NET_ERR_IDENTITY;
+    };
+    if signature_len != 64 {
+        return NET_ERR_IDENTITY;
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if msg_len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let msg_slice = if msg_len == 0 {
+        &[][..]
+    } else {
+        unsafe { std::slice::from_raw_parts(msg, msg_len) }
+    };
+    let sig_slice = unsafe { std::slice::from_raw_parts(signature, 64) };
+    let Ok(sig) = <[u8; 64]>::try_from(sig_slice) else {
+        return NET_ERR_IDENTITY;
+    };
+    let valid = id.verify_bytes(msg_slice, &sig).is_ok();
+    unsafe {
+        *out_valid = c_int::from(valid);
+    }
+    0
+}
+
+/// Issue a token to `subject`. Writes a newly-allocated blob to
+/// `*out_token`; caller frees via `net_free_bytes(ptr, *out_len)`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_issue_token(
+    signer: *mut IdentityHandle,
+    subject: *const u8,
+    subject_len: usize,
+    scope_json: *const c_char,
+    channel: *const c_char,
+    ttl_seconds: u32,
+    delegation_depth: u8,
+    out_token: *mut *mut u8,
+    out_token_len: *mut usize,
+) -> c_int {
+    if signer.is_null() || out_token.is_null() || out_token_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(subject_id) = entity_id_from_bytes(subject, subject_len) else {
+        return NET_ERR_IDENTITY;
+    };
+    let Some(scope_s) = (unsafe { c_str_to_string(scope_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(scope) = parse_scope_list(&scope_s) else {
+        return NET_ERR_IDENTITY;
+    };
+    let Some(channel_s) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(channel_hash) = channel_name_to_hash(&channel_s) else {
+        return NET_ERR_IDENTITY;
+    };
+    let h = unsafe { &*signer };
+    // Gate before touching `h.keypair` (which lives in
+    // `ManuallyDrop`). A concurrent `net_identity_free` would
+    // otherwise drop the keypair while `try_issue` borrows it.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    // Route through `try_issue` so a public-only signer keypair
+    // (post-migration zeroize, etc.) surfaces as
+    // `TokenError::ReadOnly` → `NET_ERR_IDENTITY` instead of
+    // panic-unwinding across this `extern "C"` frame into the
+    // caller's binding.
+    let token = match PermissionToken::try_issue_with_generation(
+        &h.keypair,
+        h.generation,
+        subject_id,
+        scope,
+        channel_hash,
+        u64::from(ttl_seconds),
+        delegation_depth,
+    ) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    alloc_bytes(&token.to_bytes(), out_token, out_token_len)
+}
+
+/// Install a token received from another issuer. Signature +
+/// structural checks run on insert; malformed or tampered tokens
+/// return the relevant `NET_ERR_TOKEN_*` code.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_install_token(
+    handle: *mut IdentityHandle,
+    token: *const u8,
+    len: usize,
+) -> c_int {
+    if handle.is_null() || token.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(token, len) };
+    let parsed = match PermissionToken::from_bytes(slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match h.cache.insert(parsed) {
+        Ok(()) => 0,
+        Err(e) => token_err_to_code(&e),
+    }
+}
+
+/// Look up a cached token by `(subject, channel)`. Writes a newly-
+/// allocated blob to `*out_token` on hit; writes `NULL` / `0` on
+/// miss. Caller must always free on hit via `net_free_bytes`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_lookup_token(
+    handle: *mut IdentityHandle,
+    subject: *const u8,
+    subject_len: usize,
+    channel: *const c_char,
+    out_token: *mut *mut u8,
+    out_token_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || out_token.is_null() || out_token_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(subject_id) = entity_id_from_bytes(subject, subject_len) else {
+        return NET_ERR_IDENTITY;
+    };
+    let Some(channel_s) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(channel_hash) = channel_name_to_hash(&channel_s) else {
+        return NET_ERR_IDENTITY;
+    };
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match h.cache.get(&subject_id, channel_hash) {
+        Some(token) => alloc_bytes(&token.to_bytes(), out_token, out_token_len),
+        None => {
+            unsafe {
+                *out_token = std::ptr::null_mut();
+                *out_token_len = 0;
+            }
+            0
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_identity_token_cache_len(handle: *mut IdentityHandle) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    let h = unsafe { &*handle };
+    // Returns 0 on shutting-down — same shape as absent-handle.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return 0,
+    };
+    h.cache.len() as u32
+}
+
+// -------------------------------------------------------------------------
+// Module-level token helpers
+// -------------------------------------------------------------------------
+
+#[derive(Serialize)]
+struct ParsedTokenJson {
+    issuer_hex: String,
+    subject_hex: String,
+    scope: Vec<&'static str>,
+    channel_hash: ChannelHash,
+    not_before: u64,
+    not_after: u64,
+    delegation_depth: u8,
+    /// Issuer generation this token was minted under.
+    ///
+    /// `RevocationRegistry` rejects tokens below the issuer's
+    /// monotonic floor; without this field a C or Go operator could
+    /// see a credential refused but not why.
+    issuer_generation: u32,
+    nonce: u64,
+    signature_hex: String,
+}
+
+/// Parse a serialized `PermissionToken` into a JSON dict. Fields are
+/// hex-encoded on the wire (`issuer_hex`, `subject_hex`,
+/// `signature_hex`) so the JSON round-trips cleanly. Binary variants
+/// live on the `Identity` handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_parse_token(
+    token: *const u8,
+    len: usize,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if token.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(token, len) };
+    let parsed = match PermissionToken::from_bytes(slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    let out = ParsedTokenJson {
+        issuer_hex: hex::encode(parsed.issuer.as_bytes()),
+        subject_hex: hex::encode(parsed.subject.as_bytes()),
+        scope: scope_to_strings(parsed.scope),
+        channel_hash: parsed.channel_hash,
+        not_before: parsed.not_before,
+        not_after: parsed.not_after,
+        delegation_depth: parsed.delegation_depth,
+        issuer_generation: parsed.issuer_generation,
+        nonce: parsed.nonce,
+        signature_hex: hex::encode(parsed.signature),
+    };
+    write_json_out(&out, out_json, out_len)
+}
+
+/// Verify a serialized token's ed25519 signature. Writes `1` for
+/// valid / `0` for tampered-or-wrong-subject. Time-bound validity is
+/// a separate check — see `net_token_is_expired`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_verify_token(
+    token: *const u8,
+    len: usize,
+    out_ok: *mut c_int,
+) -> c_int {
+    if token.is_null() || out_ok.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(token, len) };
+    let parsed = match PermissionToken::from_bytes(slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    unsafe {
+        *out_ok = if parsed.verify().is_ok() { 1 } else { 0 };
+    }
+    0
+}
+
+/// Writes `1` to `*out_expired` if the token's `not_after` has
+/// passed; `0` otherwise. Pure time check — a tampered-but-expired
+/// token still reports `1`. Use `net_verify_token` for signature
+/// integrity.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_token_is_expired(
+    token: *const u8,
+    len: usize,
+    out_expired: *mut c_int,
+) -> c_int {
+    if token.is_null() || out_expired.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let slice = unsafe { std::slice::from_raw_parts(token, len) };
+    let parsed = match PermissionToken::from_bytes(slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    unsafe {
+        *out_expired = if parsed.is_expired() { 1 } else { 0 };
+    }
+    0
+}
+
+/// Delegate a token to a new subject. Returns the child token blob;
+/// caller frees via `net_free_bytes`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_delegate_token(
+    signer: *mut IdentityHandle,
+    parent: *const u8,
+    parent_len: usize,
+    new_subject: *const u8,
+    new_subject_len: usize,
+    restricted_scope_json: *const c_char,
+    out_token: *mut *mut u8,
+    out_token_len: *mut usize,
+) -> c_int {
+    if signer.is_null()
+        || parent.is_null()
+        || new_subject.is_null()
+        || restricted_scope_json.is_null()
+        || out_token.is_null()
+        || out_token_len.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    // `slice::from_raw_parts` requires `len <= isize::MAX`.
+    if parent_len > isize::MAX as usize {
+        return NetError::InvalidJson.into();
+    }
+    let parent_slice = unsafe { std::slice::from_raw_parts(parent, parent_len) };
+    let parent_tok = match PermissionToken::from_bytes(parent_slice) {
+        Ok(t) => t,
+        Err(e) => return token_err_to_code(&e),
+    };
+    let Some(subject_id) = entity_id_from_bytes(new_subject, new_subject_len) else {
+        return NET_ERR_IDENTITY;
+    };
+    let Some(scope_s) = (unsafe { c_str_to_string(restricted_scope_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(scope) = parse_scope_list(&scope_s) else {
+        return NET_ERR_IDENTITY;
+    };
+    let h = unsafe { &*signer };
+    // Gate before touching `h.keypair` (in `ManuallyDrop`).
+    // A concurrent `net_identity_free` would otherwise drop the
+    // keypair while `parent_tok.delegate` borrows it.
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    match parent_tok.delegate(&h.keypair, subject_id, scope) {
+        Ok(child) => alloc_bytes(&child.to_bytes(), out_token, out_token_len),
+        Err(e) => token_err_to_code(&e),
+    }
+}
+
+/// Hash a channel name to its canonical 64-bit [`ChannelHash`]
+/// (substrate-wide ACL / config / storage key). The 16-bit wire
+/// hash used by `NetHeader::channel_hash` is the low 16 bits of
+/// the returned value. Returns `NET_ERR_IDENTITY` for invalid names.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_channel_hash(channel: *const c_char, out_hash: *mut u64) -> c_int {
+    if channel.is_null() || out_hash.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(s) = (unsafe { c_str_to_string(channel) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(hash) = channel_name_to_hash(&s) else {
+        return NET_ERR_IDENTITY;
+    };
+    unsafe {
+        *out_hash = hash;
+    }
+    0
+}
+
+// =========================================================================
+// Capabilities (announce / find_nodes)
+// =========================================================================
+
+// Local alias to keep the capability helpers out of the mesh module's
+// import list when the Go surface doesn't need them.
+use crate::adapter::net::behavior::capability::{
+    AcceleratorInfo, AcceleratorType, CapabilityFilter, CapabilitySet, GpuInfo, GpuVendor,
+    HardwareCapabilities, Modality, ModelCapability, ResourceLimits, SoftwareCapabilities,
+    ToolCapability, TAG_SCOPE_REGION_PREFIX, TAG_SCOPE_SUBNET_LOCAL, TAG_SCOPE_TENANT_PREFIX,
+};
+
+// ----- enum helpers (byte-for-byte mirrors of PyO3/NAPI) ---------------------
+
+fn parse_gpu_vendor_cap(s: &str) -> GpuVendor {
+    match s.to_ascii_lowercase().as_str() {
+        "nvidia" => GpuVendor::Nvidia,
+        "amd" => GpuVendor::Amd,
+        "intel" => GpuVendor::Intel,
+        "apple" => GpuVendor::Apple,
+        "qualcomm" => GpuVendor::Qualcomm,
+        _ => GpuVendor::Unknown,
+    }
+}
+
+fn gpu_vendor_to_string_cap(v: GpuVendor) -> &'static str {
+    match v {
+        GpuVendor::Nvidia => "nvidia",
+        GpuVendor::Amd => "amd",
+        GpuVendor::Intel => "intel",
+        GpuVendor::Apple => "apple",
+        GpuVendor::Qualcomm => "qualcomm",
+        GpuVendor::Unknown => "unknown",
+    }
+}
+
+fn parse_modality_cap(s: &str) -> Option<Modality> {
+    match s.to_ascii_lowercase().as_str() {
+        "text" => Some(Modality::Text),
+        "image" => Some(Modality::Image),
+        "audio" => Some(Modality::Audio),
+        "video" => Some(Modality::Video),
+        "code" => Some(Modality::Code),
+        "embedding" => Some(Modality::Embedding),
+        "tool-use" | "tool_use" | "tooluse" => Some(Modality::ToolUse),
+        // Pre-fix unknown strings (typos) silently fell back to
+        // `Modality::Text`. For announce-capabilities that meant
+        // a node advertised "Text" support it didn't actually
+        // have; for find-nodes filters that meant a typo'd
+        // constraint (`require_modalities: ["audoi"]`) was
+        // re-interpreted as "require Text" and returned the
+        // wrong nodes. Now `None`; callers must handle the
+        // unknown case explicitly.
+        _ => None,
+    }
+}
+
+fn parse_accelerator_type_cap(s: &str) -> AcceleratorType {
+    match s.to_ascii_lowercase().as_str() {
+        "tpu" => AcceleratorType::Tpu,
+        "npu" => AcceleratorType::Npu,
+        "fpga" => AcceleratorType::Fpga,
+        "asic" => AcceleratorType::Asic,
+        "dsp" => AcceleratorType::Dsp,
+        _ => AcceleratorType::Unknown,
+    }
+}
+
+// ----- JSON shapes -----------------------------------------------------------
+
+#[derive(Deserialize, Default)]
+struct CapabilitySetJson {
+    #[serde(default)]
+    hardware: Option<HardwareJson>,
+    #[serde(default)]
+    software: Option<SoftwareJson>,
+    #[serde(default)]
+    models: Vec<ModelJson>,
+    #[serde(default)]
+    tools: Vec<ToolJson>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    limits: Option<LimitsJson>,
+}
+
+#[derive(Deserialize, Default)]
+struct HardwareJson {
+    cpu_cores: Option<u32>,
+    cpu_threads: Option<u32>,
+    memory_gb: Option<u32>,
+    gpu: Option<GpuJson>,
+    #[serde(default)]
+    additional_gpus: Vec<GpuJson>,
+    storage_gb: Option<u64>,
+    network_gbps: Option<u32>,
+    #[serde(default)]
+    accelerators: Vec<AcceleratorJson>,
+}
+
+#[derive(Deserialize)]
+struct GpuJson {
+    vendor: Option<String>,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    vram_gb: u32,
+    compute_units: Option<u32>,
+    tensor_cores: Option<u32>,
+    fp16_tflops_x10: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct AcceleratorJson {
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    model: String,
+    memory_gb: Option<u32>,
+    tops_x10: Option<u32>,
+}
+
+#[derive(Deserialize, Default)]
+struct SoftwareJson {
+    os: Option<String>,
+    os_version: Option<String>,
+    #[serde(default)]
+    runtimes: Vec<Vec<String>>,
+    #[serde(default)]
+    frameworks: Vec<Vec<String>>,
+    cuda_version: Option<String>,
+    #[serde(default)]
+    drivers: Vec<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct ModelJson {
+    #[serde(default)]
+    model_id: String,
+    #[serde(default)]
+    family: String,
+    parameters_b_x10: Option<u32>,
+    context_length: Option<u32>,
+    quantization: Option<String>,
+    #[serde(default)]
+    modalities: Vec<String>,
+    tokens_per_sec: Option<u32>,
+    loaded: Option<bool>,
+}
+
+#[derive(Deserialize)]
+struct ToolJson {
+    #[serde(default)]
+    tool_id: String,
+    #[serde(default)]
+    name: String,
+    version: Option<String>,
+    input_schema: Option<String>,
+    output_schema: Option<String>,
+    #[serde(default)]
+    requires: Vec<String>,
+    estimated_time_ms: Option<u32>,
+    stateless: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+struct LimitsJson {
+    max_concurrent_requests: Option<u32>,
+    max_tokens_per_request: Option<u32>,
+    rate_limit_rpm: Option<u32>,
+    max_batch_size: Option<u32>,
+    max_input_bytes: Option<u32>,
+    max_output_bytes: Option<u32>,
+}
+
+#[derive(Deserialize, Default)]
+struct CapabilityFilterJson {
+    #[serde(default)]
+    require_tags: Vec<String>,
+    #[serde(default)]
+    require_models: Vec<String>,
+    #[serde(default)]
+    require_tools: Vec<String>,
+    min_memory_gb: Option<u32>,
+    require_gpu: Option<bool>,
+    gpu_vendor: Option<String>,
+    min_vram_gb: Option<u32>,
+    min_context_length: Option<u32>,
+    #[serde(default)]
+    require_modalities: Vec<String>,
+}
+
+// ----- Conversions -----------------------------------------------------------
+
+fn pair_vec(xs: Vec<Vec<String>>) -> Vec<(String, String)> {
+    xs.into_iter()
+        .filter_map(|mut p| {
+            if p.len() >= 2 {
+                Some((std::mem::take(&mut p[0]), std::mem::take(&mut p[1])))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Clamp an untrusted JSON `u32` into a core `u16` field,
+/// saturating at `u16::MAX`. Bare `as u16` silently wraps on
+/// overflow — a Go caller reporting 65536 cores could land 0 on
+/// the wire. Applied uniformly so every capability JSON
+/// conversion is consistent with the NAPI + PyO3 paths.
+#[inline]
+fn saturating_u16_cap(v: u32) -> u16 {
+    v.min(u16::MAX as u32) as u16
+}
+
+fn gpu_info_from_json(g: GpuJson) -> GpuInfo {
+    let vendor = g
+        .vendor
+        .as_deref()
+        .map(parse_gpu_vendor_cap)
+        .unwrap_or(GpuVendor::Unknown);
+    let mut info = GpuInfo::new(vendor, g.model, g.vram_gb);
+    if let Some(cu) = g.compute_units {
+        info = info.with_compute_units(saturating_u16_cap(cu));
+    }
+    if let Some(tc) = g.tensor_cores {
+        info = info.with_tensor_cores(saturating_u16_cap(tc));
+    }
+    if let Some(tf) = g.fp16_tflops_x10 {
+        // Write the integer field directly — the same fix the Node
+        // binding already carries (CR-25).
+        //
+        // This used to saturate at `u16::MAX` before an f32
+        // round-trip. The round-trip was the real problem: f32 has a
+        // 24-bit mantissa, so `u32 → f32/10.0 → with_fp16_tflops →
+        // *10.0 as u32` could land a different value than the
+        // operator declared. Capping at `u16::MAX` did keep the
+        // round-trip exact, but at the cost of narrowing a field
+        // whose public type is `u32` on every other binding — a
+        // caller could submit a value its own types allow and have it
+        // silently changed only on C and Go.
+        //
+        // That matters more than the dynamic range argument the old
+        // comment made. The field was deliberately widened from u16
+        // to u32 in core because per-node and per-mesh rollups exceed
+        // the u16 ceiling, and saturation is especially unsuitable
+        // for a *scheduling* metric: two nodes above the cap compare
+        // equal, so the placement scorer stops being able to order
+        // them at all. Bypassing f32 preserves both the full range
+        // and the exactness.
+        info.fp16_tflops_x10 = tf;
+    }
+    info
+}
+
+fn accelerator_from_json(a: AcceleratorJson) -> AcceleratorInfo {
+    AcceleratorInfo {
+        accel_type: parse_accelerator_type_cap(&a.kind),
+        model: a.model,
+        memory_gb: a.memory_gb.unwrap_or(0),
+        tops_x10: a.tops_x10.map(saturating_u16_cap).unwrap_or(0),
+    }
+}
+
+fn hardware_from_json(h: HardwareJson) -> HardwareCapabilities {
+    let mut hw = HardwareCapabilities::new();
+    match (h.cpu_cores, h.cpu_threads) {
+        (Some(c), Some(t)) => hw = hw.with_cpu(saturating_u16_cap(c), saturating_u16_cap(t)),
+        (Some(c), None) => {
+            let c16 = saturating_u16_cap(c);
+            hw = hw.with_cpu(c16, c16);
+        }
+        _ => {}
+    }
+    if let Some(mb) = h.memory_gb {
+        hw = hw.with_memory(mb);
+    }
+    if let Some(g) = h.gpu {
+        hw = hw.with_gpu(gpu_info_from_json(g));
+    }
+    for g in h.additional_gpus {
+        hw = hw.add_gpu(gpu_info_from_json(g));
+    }
+    if let Some(mb) = h.storage_gb {
+        hw = hw.with_storage(mb);
+    }
+    if let Some(gbps) = h.network_gbps {
+        hw = hw.with_network(gbps);
+    }
+    for a in h.accelerators {
+        hw = hw.add_accelerator(accelerator_from_json(a));
+    }
+    hw
+}
+
+fn software_from_json(s: SoftwareJson) -> SoftwareCapabilities {
+    let mut sw = SoftwareCapabilities::new()
+        .with_os(s.os.unwrap_or_default(), s.os_version.unwrap_or_default());
+    for (k, v) in pair_vec(s.runtimes) {
+        sw = sw.add_runtime(k, v);
+    }
+    for (k, v) in pair_vec(s.frameworks) {
+        sw = sw.add_framework(k, v);
+    }
+    if let Some(c) = s.cuda_version {
+        sw = sw.with_cuda(c);
+    }
+    sw.drivers = pair_vec(s.drivers);
+    sw
+}
+
+fn model_from_json(m: ModelJson) -> Result<ModelCapability, String> {
+    let mut mc = ModelCapability::new(m.model_id, m.family);
+    if let Some(p) = m.parameters_b_x10 {
+        mc.parameters_b_x10 = p;
+    }
+    if let Some(c) = m.context_length {
+        mc = mc.with_context_length(c);
+    }
+    if let Some(q) = m.quantization {
+        mc = mc.with_quantization(q);
+    }
+    for modality in m.modalities {
+        // Reject, rather than skip. Skipping was already better
+        // than the original silent fallback to Text — which
+        // advertised a capability the node does not have — but it
+        // still let a typo through as a successfully announced set
+        // with one modality quietly missing. The caller cannot see
+        // the difference between "I did not claim audio" and "my
+        // spelling of audio was dropped".
+        match parse_modality_cap(&modality) {
+            Some(parsed) => mc = mc.add_modality(parsed),
+            None => return Err(modality),
+        }
+    }
+    if let Some(t) = m.tokens_per_sec {
+        mc = mc.with_tokens_per_sec(t);
+    }
+    if let Some(l) = m.loaded {
+        mc = mc.with_loaded(l);
+    }
+    Ok(mc)
+}
+
+fn tool_from_json(t: ToolJson) -> ToolCapability {
+    let mut tc = ToolCapability::new(t.tool_id, t.name);
+    if let Some(v) = t.version {
+        tc = tc.with_version(v);
+    }
+    if let Some(s) = t.input_schema {
+        tc = tc.with_input_schema(s);
+    }
+    if let Some(s) = t.output_schema {
+        tc = tc.with_output_schema(s);
+    }
+    for r in t.requires {
+        tc = tc.requires(r);
+    }
+    if let Some(ms) = t.estimated_time_ms {
+        tc = tc.with_estimated_time(ms);
+    }
+    if let Some(st) = t.stateless {
+        tc = tc.with_stateless(st);
+    }
+    tc
+}
+
+fn limits_from_json(l: LimitsJson) -> ResourceLimits {
+    let mut rl = ResourceLimits::new();
+    if let Some(n) = l.max_concurrent_requests {
+        rl = rl.with_max_concurrent(n);
+    }
+    if let Some(n) = l.max_tokens_per_request {
+        rl = rl.with_max_tokens(n);
+    }
+    if let Some(n) = l.rate_limit_rpm {
+        rl = rl.with_rate_limit(n);
+    }
+    if let Some(n) = l.max_batch_size {
+        rl = rl.with_max_batch(n);
+    }
+    if let Some(n) = l.max_input_bytes {
+        rl.max_input_bytes = n;
+    }
+    if let Some(n) = l.max_output_bytes {
+        rl.max_output_bytes = n;
+    }
+    rl
+}
+
+fn capability_set_from_json(caps: CapabilitySetJson) -> Result<CapabilitySet, String> {
+    let mut cs = CapabilitySet::new();
+    if let Some(h) = caps.hardware {
+        cs = cs.with_hardware(hardware_from_json(h));
+    }
+    if let Some(s) = caps.software {
+        cs = cs.with_software(software_from_json(s));
+    }
+    for m in caps.models {
+        cs = cs.add_model(model_from_json(m)?);
+    }
+    for t in caps.tools {
+        cs = cs.add_tool(tool_from_json(t));
+    }
+    // Reserved-prefix scope tags can't go through `add_tag` — it
+    // uses `Tag::parse_user` which rejects reserved prefixes and
+    // silently drops them, leaving the announcement with no scope
+    // and resolving to `CapabilityScope::Global` (visible to every
+    // tenant / region query). Route the three scope shapes to the
+    // typed helpers so wire-form `scope:*` strings from bindings
+    // land as `Tag::Reserved` entries the scope resolver sees.
+    for tag in caps.tags {
+        if tag == TAG_SCOPE_SUBNET_LOCAL {
+            cs = cs.with_subnet_local_scope();
+        } else if let Some(id) = tag.strip_prefix(TAG_SCOPE_TENANT_PREFIX) {
+            cs = cs.with_tenant_scope(id);
+        } else if let Some(name) = tag.strip_prefix(TAG_SCOPE_REGION_PREFIX) {
+            cs = cs.with_region_scope(name);
+        } else {
+            cs = cs.add_tag(tag);
+        }
+    }
+    if let Some(l) = caps.limits {
+        cs = cs.with_limits(limits_from_json(l));
+    }
+    Ok(cs)
+}
+
+fn capability_filter_from_json(f: CapabilityFilterJson) -> Result<CapabilityFilter, String> {
+    let mut cf = CapabilityFilter::new();
+    for t in f.require_tags {
+        cf = cf.require_tag(t);
+    }
+    for m in f.require_models {
+        cf = cf.require_model(m);
+    }
+    for t in f.require_tools {
+        cf = cf.require_tool(t);
+    }
+    if let Some(mb) = f.min_memory_gb {
+        cf = cf.with_min_memory(mb);
+    }
+    if f.require_gpu.unwrap_or(false) {
+        cf = cf.require_gpu();
+    }
+    if let Some(v) = f.gpu_vendor {
+        cf = cf.with_gpu_vendor(parse_gpu_vendor_cap(&v));
+    }
+    if let Some(mb) = f.min_vram_gb {
+        cf = cf.with_min_vram(mb);
+    }
+    if let Some(n) = f.min_context_length {
+        cf = cf.with_min_context(n);
+    }
+    for m in f.require_modalities {
+        // Reject. On a filter this is the fail-open direction: the
+        // previous behaviour dropped the unrecognized constraint,
+        // so a typo widened the query to every otherwise-eligible
+        // node and the scheduler picked one that cannot do the
+        // work. The comment this replaces conceded exactly that
+        // ("the resulting filter is too permissive"), reasoning
+        // that matching too broadly beats matching the wrong type.
+        // Both are wrong answers to a question the caller can be
+        // told to fix.
+        match parse_modality_cap(&m) {
+            Some(parsed) => cf = cf.require_modality(parsed),
+            None => return Err(m),
+        }
+    }
+    Ok(cf)
+}
+
+// ----- Exports ---------------------------------------------------------------
+
+pub(crate) const NET_ERR_CAPABILITY: c_int = -128;
+
+/// Announce this node's capabilities to every directly-connected
+/// peer. Also self-indexes, so `find_nodes` on the same node matches
+/// on the announcement. Multi-hop propagation is deferred.
+///
+/// `caps_json` is the same POJO shape as PyO3 / NAPI:
+/// `{hardware, software, models, tools, tags, limits}`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_announce_capabilities(
+    handle: *mut MeshNodeHandle,
+    caps_json: *const c_char,
+) -> c_int {
+    if handle.is_null() || caps_json.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(caps_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed: CapabilitySetJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    // An unrecognized modality rejects the whole announcement. It
+    // used to be dropped with a warning, which shipped a set that
+    // silently lacked the capability the caller believed it declared.
+    let caps = match capability_set_from_json(parsed) {
+        Ok(c) => c,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.announce_capabilities(caps).await }) {
+        Ok(()) => 0,
+        Err(_) => NET_ERR_CAPABILITY,
+    }
+}
+
+/// Query the local capability index. Writes a JSON array of node
+/// ids (u64) to `*out_json`; caller frees via `net_free_string`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_find_nodes(
+    handle: *mut MeshNodeHandle,
+    filter_json: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null() || filter_json.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(filter_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed: CapabilityFilterJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    // An unrecognized modality rejects the query. Dropping it widened
+    // the filter to every otherwise-eligible node — fail-open
+    // scheduling.
+    let filter = match capability_filter_from_json(parsed) {
+        Ok(f) => f,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let ids = h.inner.find_nodes_by_filter(&filter);
+    write_json_out(&ids, out_json, out_len)
+}
+
+/// JSON shape of a [`ScopeFilter`] for the C ABI. Mirrors the
+/// NAPI / PyO3 tagged-union form:
+///
+/// ```text
+/// {"kind": "any"}
+/// {"kind": "global_only"}
+/// {"kind": "same_subnet"}
+/// {"kind": "tenant", "tenant": "<id>"}
+/// {"kind": "tenants", "tenants": ["<id>", ...]}
+/// {"kind": "region", "region": "<name>"}
+/// {"kind": "regions", "regions": ["<name>", ...]}
+/// ```
+///
+/// An unrecognized `kind`, a missing/empty required selector, or a list
+/// that is empty once empty entries are removed is REJECTED with
+/// [`NetError::InvalidArgument`] — see [`scope_filter_from_json`] for
+/// why widening to `Any` was the wrong default. Matches the PyO3 / NAPI
+/// converters.
+#[derive(serde::Deserialize)]
+struct ScopeFilterJson {
+    kind: String,
+    #[serde(default)]
+    tenant: Option<String>,
+    #[serde(default)]
+    tenants: Option<Vec<String>>,
+    #[serde(default)]
+    region: Option<String>,
+    #[serde(default)]
+    regions: Option<Vec<String>>,
+}
+
+/// Owned scope filter holding the strings the borrowed
+/// [`net::adapter::net::behavior::capability::ScopeFilter`] points
+/// into. Constructed inside [`net_mesh_find_nodes_scoped`] and
+/// dropped at the end of the call so the borrow stays valid for
+/// the query.
+enum ScopeFilterOwned {
+    Any,
+    GlobalOnly,
+    SameSubnet,
+    Tenant(String),
+    Tenants(Vec<String>),
+    Region(String),
+    Regions(Vec<String>),
+}
+
+/// Convert the deserialized scope-filter object into the owned form.
+///
+/// Returns `Err(NetError::InvalidArgument)` for an object that parsed as
+/// JSON but carries no usable selector: an unrecognized `kind`, a
+/// missing/empty required selector, or a list that is empty once empty
+/// entries are removed.
+///
+/// These three shapes all used to collapse to [`ScopeFilterOwned::Any`],
+/// on the reasoning that an empty tenant id could never match a real
+/// tenant tag. But `Any` is the BROADEST filter — every non-`SubnetLocal`
+/// peer in the mesh — so a caller whose tenant id came through empty
+/// silently queried everything and selected a provider from it. A
+/// narrowing filter that cannot narrow must fail, not widen.
+///
+/// `GlobalOnly` is deliberately not used as the fallback either: it
+/// would still return (and let the caller select from) every unscoped
+/// provider. The caller asked to narrow by an identity it did not
+/// supply; the honest answers are an error or no matches.
+fn scope_filter_from_json(f: ScopeFilterJson) -> Result<ScopeFilterOwned, NetError> {
+    // Drop empty entries, then require at least one survivor —
+    // `scope_from_membership_tags` never produces an empty tenant/region,
+    // so an all-empty list can only be caller error.
+    fn clean(v: Vec<String>) -> Option<Vec<String>> {
+        let cleaned: Vec<String> = v.into_iter().filter(|s| !s.is_empty()).collect();
+        (!cleaned.is_empty()).then_some(cleaned)
+    }
+    let filter = match f.kind.as_str() {
+        "any" => ScopeFilterOwned::Any,
+        "global_only" | "globalOnly" => ScopeFilterOwned::GlobalOnly,
+        "same_subnet" | "sameSubnet" => ScopeFilterOwned::SameSubnet,
+        "tenant" => match f.tenant {
+            Some(t) if !t.is_empty() => ScopeFilterOwned::Tenant(t),
+            _ => return Err(NetError::InvalidArgument),
+        },
+        "tenants" => match f.tenants.and_then(clean) {
+            Some(ts) => ScopeFilterOwned::Tenants(ts),
+            None => return Err(NetError::InvalidArgument),
+        },
+        "region" => match f.region {
+            Some(r) if !r.is_empty() => ScopeFilterOwned::Region(r),
+            _ => return Err(NetError::InvalidArgument),
+        },
+        "regions" => match f.regions.and_then(clean) {
+            Some(rs) => ScopeFilterOwned::Regions(rs),
+            None => return Err(NetError::InvalidArgument),
+        },
+        _ => return Err(NetError::InvalidArgument),
+    };
+    Ok(filter)
+}
+
+/// Run `f` with a borrowed scope filter projected from `owned`.
+/// Multi-element variants need an intermediate `Vec<&str>` that
+/// outlives the borrow — that intermediate lives on this call's
+/// stack, matching the NAPI / PyO3 helpers.
+fn with_scope_filter<R>(
+    owned: &ScopeFilterOwned,
+    f: impl FnOnce(&crate::adapter::net::behavior::capability::ScopeFilter<'_>) -> R,
+) -> R {
+    use crate::adapter::net::behavior::capability::ScopeFilter as F;
+    match owned {
+        ScopeFilterOwned::Any => f(&F::Any),
+        ScopeFilterOwned::GlobalOnly => f(&F::GlobalOnly),
+        ScopeFilterOwned::SameSubnet => f(&F::SameSubnet),
+        ScopeFilterOwned::Tenant(t) => f(&F::Tenant(t.as_str())),
+        ScopeFilterOwned::Tenants(ts) => {
+            let refs: Vec<&str> = ts.iter().map(|s| s.as_str()).collect();
+            f(&F::Tenants(refs.as_slice()))
+        }
+        ScopeFilterOwned::Region(r) => f(&F::Region(r.as_str())),
+        ScopeFilterOwned::Regions(rs) => {
+            let refs: Vec<&str> = rs.iter().map(|s| s.as_str()).collect();
+            f(&F::Regions(refs.as_slice()))
+        }
+    }
+}
+
+/// Scoped variant of [`net_mesh_find_nodes`]. Filters candidates
+/// through a scope filter derived from each node's `scope:*`
+/// reserved tags. Untagged nodes resolve to `Global` and stay
+/// visible under most filters; nodes tagged `scope:subnet-local`
+/// only show up under `{"kind":"same_subnet"}`.
+///
+/// `scope_json` is a tagged-union JSON form (see the private
+/// `ScopeFilterJson` struct above):
+///
+/// ```text
+/// {"kind": "any"}
+/// {"kind": "global_only"}
+/// {"kind": "same_subnet"}
+/// {"kind": "tenant", "tenant": "<id>"}
+/// {"kind": "tenants", "tenants": ["<id>", ...]}
+/// {"kind": "region", "region": "<name>"}
+/// {"kind": "regions", "regions": ["<name>", ...]}
+/// ```
+///
+/// `filter_json` is the same shape as [`net_mesh_find_nodes`].
+/// Result: JSON array of u64 node ids written to `*out_json`;
+/// caller frees via `net_free_string`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_find_nodes_scoped(
+    handle: *mut MeshNodeHandle,
+    filter_json: *const c_char,
+    scope_json: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if handle.is_null()
+        || filter_json.is_null()
+        || scope_json.is_null()
+        || out_json.is_null()
+        || out_len.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(filter_s) = (unsafe { c_str_to_string(filter_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(scope_s) = (unsafe { c_str_to_string(scope_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed_filter: CapabilityFilterJson = match serde_json::from_str(&filter_s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let parsed_scope: ScopeFilterJson = match serde_json::from_str(&scope_s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let filter = match capability_filter_from_json(parsed_filter) {
+        Ok(f) => f,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let owned = match scope_filter_from_json(parsed_scope) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
+    let ids = with_scope_filter(&owned, |sf| {
+        h.inner.find_nodes_by_filter_scoped(&filter, sf)
+    });
+    write_json_out(&ids, out_json, out_len)
+}
+
+/// JSON shape of [`CapabilityRequirement`] for the C ABI. Mirrors
+/// the field set of the core type with snake_case keys; weights are
+/// f32 in [0.0, 1.0] (the core clamps).
+///
+/// ```text
+/// {
+///   "filter": { … CapabilityFilter shape … },
+///   "prefer_more_memory":     0.5,
+///   "prefer_more_vram":       1.0,
+///   "prefer_faster_inference": 0.0,
+///   "prefer_loaded_models":   0.0
+/// }
+/// ```
+#[derive(serde::Deserialize)]
+struct CapabilityRequirementJson {
+    #[serde(default)]
+    filter: CapabilityFilterJson,
+    #[serde(default)]
+    prefer_more_memory: f32,
+    #[serde(default)]
+    prefer_more_vram: f32,
+    #[serde(default)]
+    prefer_faster_inference: f32,
+    #[serde(default)]
+    prefer_loaded_models: f32,
+}
+
+fn capability_requirement_from_json(
+    j: CapabilityRequirementJson,
+) -> Result<crate::adapter::net::behavior::capability::CapabilityRequirement, String> {
+    Ok(
+        crate::adapter::net::behavior::capability::CapabilityRequirement::from_filter(
+            capability_filter_from_json(j.filter)?,
+        )
+        .prefer_memory(j.prefer_more_memory)
+        .prefer_vram(j.prefer_more_vram)
+        .prefer_speed(j.prefer_faster_inference)
+        .prefer_loaded(j.prefer_loaded_models),
+    )
+}
+
+/// Pick the best-scoring node for a placement requirement. Writes
+/// the winning node id to `*out_node_id` and `1` to `*out_has_match`
+/// when a node matches; writes `0` to `*out_has_match` and leaves
+/// `*out_node_id` untouched when no node matches. Returns `0` for
+/// success in either case; non-zero only on input / parse error.
+///
+/// `requirement_json` is the JSON form documented on the private
+/// `CapabilityRequirementJson` struct above — a `filter` object
+/// plus four optional `prefer_*` weights in `[0.0, 1.0]`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_find_best_node(
+    handle: *mut MeshNodeHandle,
+    requirement_json: *const c_char,
+    out_node_id: *mut u64,
+    out_has_match: *mut c_int,
+) -> c_int {
+    if handle.is_null()
+        || requirement_json.is_null()
+        || out_node_id.is_null()
+        || out_has_match.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(s) = (unsafe { c_str_to_string(requirement_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed: CapabilityRequirementJson = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let req = match capability_requirement_from_json(parsed) {
+        Ok(r) => r,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    match h.inner.find_best_node(&req) {
+        Some(node_id) => unsafe {
+            *out_node_id = node_id;
+            *out_has_match = 1;
+        },
+        None => unsafe {
+            *out_has_match = 0;
+        },
+    }
+    0
+}
+
+/// Scoped variant of [`net_mesh_find_best_node`]. Filters
+/// candidates through `scope_json` (same shape as
+/// [`net_mesh_find_nodes_scoped`]) before scoring; picks the
+/// highest-scoring node within the scope-filtered set.
+///
+/// Same out-param contract as [`net_mesh_find_best_node`]:
+/// `*out_has_match = 1` + `*out_node_id = winner` on hit;
+/// `*out_has_match = 0` on no match.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_find_best_node_scoped(
+    handle: *mut MeshNodeHandle,
+    requirement_json: *const c_char,
+    scope_json: *const c_char,
+    out_node_id: *mut u64,
+    out_has_match: *mut c_int,
+) -> c_int {
+    if handle.is_null()
+        || requirement_json.is_null()
+        || scope_json.is_null()
+        || out_node_id.is_null()
+        || out_has_match.is_null()
+    {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(req_s) = (unsafe { c_str_to_string(requirement_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let Some(scope_s) = (unsafe { c_str_to_string(scope_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed_req: CapabilityRequirementJson = match serde_json::from_str(&req_s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let parsed_scope: ScopeFilterJson = match serde_json::from_str(&scope_s) {
+        Ok(v) => v,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let req = match capability_requirement_from_json(parsed_req) {
+        Ok(r) => r,
+        Err(_) => return NetError::InvalidJson.into(),
+    };
+    let owned = match scope_filter_from_json(parsed_scope) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
+    let result = with_scope_filter(&owned, |sf| h.inner.find_best_node_scoped(&req, sf));
+    match result {
+        Some(node_id) => unsafe {
+            *out_node_id = node_id;
+            *out_has_match = 1;
+        },
+        None => unsafe {
+            *out_has_match = 0;
+        },
+    }
+    0
+}
+
+/// Normalize a GPU vendor string to its canonical lowercase form.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_normalize_gpu_vendor(
+    raw: *const c_char,
+    out_json: *mut *mut c_char,
+    out_len: *mut usize,
+) -> c_int {
+    if raw.is_null() || out_json.is_null() || out_len.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let Some(s) = (unsafe { c_str_to_string(raw) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let canonical = gpu_vendor_to_string_cap(parse_gpu_vendor_cap(&s));
+    write_string_out(canonical.to_string(), out_json, out_len)
+}
+
+// =========================================================================
+// Gang-claim GPU-island scheduler — C ABI shipped in `net.h`
+// =========================================================================
+//
+// Node-level surface (D3: reuse the existing `MeshNodeHandle`). Match
+// criteria and the island record cross the boundary as small JSON
+// strings (the codebase's `_json` convention), so the C ABI stays one
+// `const char*` instead of a struct + string-array marshaling.
+
+// Declared for C in include/net.go.h (mirrored in go/net.h).
+// `.github/scripts/check-c-abi.py` fails if a value here and its header differ.
+/// Returned for a bad / unparseable criteria or record JSON.
+pub(crate) const NET_ERR_GANG_INVALID: c_int = -140;
+
+/// Flat match criteria (parsed from the `criteria_json` argument). Built
+/// into the core `MatchCriteria` so callers never touch the internal
+/// `CapabilityQuery` / policy enum shapes.
+#[derive(Deserialize)]
+struct GangCriteriaJson {
+    // Host capability match (step 1) — mirrors `CapabilityFilter`.
+    #[serde(default)]
+    tags_all: Vec<String>,
+    #[serde(default)]
+    tags_any: Vec<String>,
+    #[serde(default)]
+    tag_groups_all: Vec<Vec<String>>,
+    // Host network-locality (subnet / zone / availability region).
+    #[serde(default)]
+    region: Option<String>,
+    // Live island numeric filter (step 2).
+    #[serde(default)]
+    min_units: usize,
+    #[serde(default)]
+    max_load: Option<f32>,
+    #[serde(default)]
+    max_p50_latency_us: Option<u32>,
+    #[serde(default)]
+    require_all: Vec<String>,
+    #[serde(default)]
+    require_any: Vec<String>,
+    #[serde(default)]
+    selection: Option<String>,
+    #[serde(default)]
+    load_band_target: Option<f32>,
+    #[serde(default)]
+    prefer_capability: Option<String>,
+}
+
+/// One island a node self-publishes (parsed from `record_json`). Its
+/// `host` is forced to this node.
+#[derive(Deserialize)]
+struct IslandRecordJson {
+    id: u64,
+    #[serde(default)]
+    units: Vec<u32>,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    #[serde(default)]
+    load: f32,
+    #[serde(default)]
+    p50_latency_us: u32,
+}
+
+fn build_gang_criteria(
+    c: GangCriteriaJson,
+) -> Option<crate::adapter::net::behavior::gang::MatchCriteria> {
+    use crate::adapter::net::behavior::fold::{CapabilityFilter, CapabilityQuery};
+    use crate::adapter::net::behavior::gang::{MatchCriteria, NumericFilter, SelectionPolicy};
+    let selection = match c.selection.as_deref() {
+        None | Some("least_loaded") => SelectionPolicy::LeastLoaded,
+        Some("pack") => SelectionPolicy::Pack,
+        Some("lowest_id") => SelectionPolicy::LowestId,
+        Some("load_band") => SelectionPolicy::LoadBand(c.load_band_target.unwrap_or(0.5)),
+        Some(_) => return None,
+    };
+    Some(MatchCriteria {
+        capability: CapabilityQuery::Composite(CapabilityFilter {
+            tags_all: c.tags_all,
+            tags_any: c.tags_any,
+            tag_groups_all: c.tag_groups_all,
+            region: c.region,
+            ..Default::default()
+        }),
+        numeric: NumericFilter {
+            min_units: c.min_units,
+            max_load: c.max_load,
+            max_p50_latency_us: c.max_p50_latency_us,
+            require_all: c.require_all,
+            require_any: c.require_any,
+        },
+        selection,
+        prefer_capability: c.prefer_capability,
+    })
+}
+
+/// Publish this node's island-topology record (host forced to self).
+/// `record_json` is `{"id":..,"units":[..],"capabilities":[..],"load":..,
+/// "p50_latency_us":..}`. The peer fan-out count is written to
+/// `*out_count` (may be NULL).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_publish_island_topology(
+    handle: *mut MeshNodeHandle,
+    record_json: *const c_char,
+    out_count: *mut usize,
+) -> c_int {
+    if handle.is_null() || record_json.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(js) = (unsafe { c_str_to_string(record_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let rec: IslandRecordJson = match serde_json::from_str(&js) {
+        Ok(r) => r,
+        Err(_) => return NET_ERR_GANG_INVALID,
+    };
+    use crate::adapter::net::behavior::fold::{IslandRecord, UnitSet};
+    let record = IslandRecord {
+        id: rec.id,
+        units: UnitSet::new(rec.units),
+        host: 0, // forced to this node by publish
+        capabilities: rec.capabilities,
+        load: rec.load,
+        p50_latency_us: rec.p50_latency_us,
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.publish_island_topology(record).await }) {
+        Ok(n) => {
+            if !out_count.is_null() {
+                unsafe {
+                    *out_count = n;
+                }
+            }
+            0
+        }
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+/// Match islands against `criteria_json` (read-only). Up to `cap`
+/// island ids are written to `out_ids`; the total match count (which may
+/// exceed `cap`) is written to `*out_count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_match_islands(
+    handle: *mut MeshNodeHandle,
+    criteria_json: *const c_char,
+    out_ids: *mut u64,
+    cap: usize,
+    out_count: *mut usize,
+) -> c_int {
+    if handle.is_null() || criteria_json.is_null() || out_count.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(js) = (unsafe { c_str_to_string(criteria_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed: GangCriteriaJson = match serde_json::from_str(&js) {
+        Ok(c) => c,
+        Err(_) => return NET_ERR_GANG_INVALID,
+    };
+    let Some(criteria) = build_gang_criteria(parsed) else {
+        return NET_ERR_GANG_INVALID;
+    };
+    let ids = h.inner.match_islands(&criteria);
+    unsafe {
+        *out_count = ids.len();
+        if !out_ids.is_null() {
+            let n = ids.len().min(cap);
+            std::ptr::copy_nonoverlapping(ids.as_ptr(), out_ids, n);
+        }
+    }
+    0
+}
+
+/// Reserve `island` until `until_unix_us`. On success writes `0` (won)
+/// or `1` (lost) to `*out_outcome`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_reserve_island(
+    handle: *mut MeshNodeHandle,
+    island: u64,
+    until_unix_us: u64,
+    out_outcome: *mut c_int,
+) -> c_int {
+    if handle.is_null() || out_outcome.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.reserve_island(island, until_unix_us).await }) {
+        Ok(outcome) => {
+            unsafe {
+                *out_outcome = claim_outcome_code(outcome);
+            }
+            0
+        }
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+/// Release `island` this node holds. On success writes `0` (won) or
+/// `1` (lost — wasn't the holder) to `*out_outcome`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_release_island(
+    handle: *mut MeshNodeHandle,
+    island: u64,
+    out_outcome: *mut c_int,
+) -> c_int {
+    if handle.is_null() || out_outcome.is_null() {
+        return NetError::NullPointer.into();
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.release_island(island).await }) {
+        Ok(outcome) => {
+            unsafe {
+                *out_outcome = claim_outcome_code(outcome);
+            }
+            0
+        }
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+/// Match + reserve the first available island. On success `*out_found`
+/// is 1 and `*out_island` holds the id, or `*out_found` is 0 when
+/// nothing matched / all contended.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn net_mesh_claim_island(
+    handle: *mut MeshNodeHandle,
+    criteria_json: *const c_char,
+    until_unix_us: u64,
+    out_found: *mut c_int,
+    out_island: *mut u64,
+) -> c_int {
+    if handle.is_null() || criteria_json.is_null() || out_found.is_null() || out_island.is_null() {
+        return NetError::NullPointer.into();
+    }
+    // Pre-zero both out-params so every non-error return leaves them
+    // deterministic — a caller that reads `out_island` without first
+    // checking `out_found` sees 0, not stale stack data. The success arm
+    // overwrites them.
+    unsafe {
+        *out_found = 0;
+        *out_island = 0;
+    }
+    let h = unsafe { &*handle };
+    let _op = match h.guard.try_enter() {
+        Some(op) => op,
+        None => return NetError::ShuttingDown.into(),
+    };
+    let Some(js) = (unsafe { c_str_to_string(criteria_json) }) else {
+        return NetError::InvalidUtf8.into();
+    };
+    let parsed: GangCriteriaJson = match serde_json::from_str(&js) {
+        Ok(c) => c,
+        Err(_) => return NET_ERR_GANG_INVALID,
+    };
+    let Some(criteria) = build_gang_criteria(parsed) else {
+        return NET_ERR_GANG_INVALID;
+    };
+    let node = Arc::clone(&h.inner);
+    match block_on(async move { node.claim_island(&criteria, until_unix_us).await }) {
+        Ok(Some(id)) => {
+            unsafe {
+                *out_found = 1;
+                *out_island = id;
+            }
+            0
+        }
+        Ok(None) => 0,
+        Err(e) => adapter_err_to_code(&e),
+    }
+}
+
+fn claim_outcome_code(o: crate::adapter::net::behavior::gang::ClaimOutcome) -> c_int {
+    use crate::adapter::net::behavior::gang::ClaimOutcome;
+    match o {
+        ClaimOutcome::Won => 0,
+        ClaimOutcome::Lost => 1,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `net_mesh_start` returns `NET_ERR_MESH_START_REFUSED` for a start
+    /// that started nothing (it used to return 0). Both header copies must
+    /// declare the number this module returns; a constant restated only in
+    /// Rust would agree with itself.
+    #[test]
+    fn headers_declare_the_start_refused_code() {
+        for (name, header) in [
+            ("include/net.go.h", include_str!("../../include/net.go.h")),
+            ("go/net.h", include_str!("../../../../../go/net.h")),
+        ] {
+            let line = header
+                .lines()
+                .find(|l| l.trim_start().starts_with("NET_ERR_MESH_START_REFUSED ="))
+                .unwrap_or_else(|| panic!("{name} must declare NET_ERR_MESH_START_REFUSED"));
+            let declared: c_int = line
+                .split('=')
+                .nth(1)
+                .and_then(|v| v.trim().trim_end_matches(',').parse().ok())
+                .unwrap_or_else(|| panic!("{name}: unparseable `{line}`"));
+            assert_eq!(declared, NET_ERR_MESH_START_REFUSED, "{name}");
+        }
+    }
+
+    /// D-C5-1 (C SDK plan, C5): after `net_mesh_shutdown` + `net_mesh_free`
+    /// the node must be reclaimed. LeakSanitizer found two in-process nodes
+    /// still allocated at exit, reachable only through the freed handles'
+    /// tombstones — a strong reference nobody holds.
+    mod node_reclaim_c_abi {
+        use super::super::*;
+        use std::ffi::CString;
+        use std::ptr::null_mut;
+        use std::sync::Weak;
+        use std::time::{Duration, Instant};
+
+        fn free_port() -> String {
+            let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind");
+            socket.local_addr().expect("addr").to_string()
+        }
+
+        fn new_node(addr: &str, seed: u8) -> *mut MeshNodeHandle {
+            let cfg = CString::new(format!(
+                r#"{{"bind_addr":"{addr}","psk_hex":"{}","heartbeat_ms":200,"identity_seed_hex":"{}"}}"#,
+                "42".repeat(32),
+                format!("{seed:02x}").repeat(32)
+            ))
+            .unwrap();
+            let mut handle = null_mut();
+            assert_eq!(unsafe { net_mesh_new(cfg.as_ptr(), &mut handle) }, 0);
+            handle
+        }
+
+        fn public_key(handle: *mut MeshNodeHandle) -> CString {
+            let (mut out, mut len) = (null_mut(), 0usize);
+            assert_eq!(
+                unsafe { net_mesh_public_key_hex(handle, &mut out, &mut len) },
+                0
+            );
+            let key = unsafe { std::ffi::CStr::from_ptr(out) }.to_owned();
+            unsafe { crate::ffi::net_free_string(out) };
+            key
+        }
+
+        /// Two started, connected nodes, as `cu_mesh_build` +
+        /// `cu_mesh_handshake` make them.
+        fn connected_pair() -> (*mut MeshNodeHandle, *mut MeshNodeHandle) {
+            let (a_addr, b_addr) = (free_port(), free_port());
+            let a = new_node(&a_addr, 0xA1);
+            let b = new_node(&b_addr, 0xB2);
+            let (a_id, b_id) = unsafe { (net_mesh_node_id(a), net_mesh_node_id(b)) };
+            let b_ptr = b as usize;
+            let accept = std::thread::spawn(move || {
+                let (mut out, mut len) = (null_mut(), 0usize);
+                let rc = unsafe {
+                    net_mesh_accept(b_ptr as *mut MeshNodeHandle, a_id, &mut out, &mut len)
+                };
+                if !out.is_null() {
+                    unsafe { crate::ffi::net_free_string(out) };
+                }
+                rc
+            });
+            std::thread::sleep(Duration::from_millis(50));
+            let b_key = public_key(b);
+            let b_at = CString::new(b_addr).unwrap();
+            assert_eq!(
+                unsafe { net_mesh_connect(a, b_at.as_ptr(), b_key.as_ptr(), b_id) },
+                0
+            );
+            assert_eq!(accept.join().unwrap(), 0);
+            unsafe {
+                assert_eq!(net_mesh_start(a), 0);
+                assert_eq!(net_mesh_start(b), 0);
+            }
+            (a, b)
+        }
+
+        fn weak_of(handle: *mut MeshNodeHandle) -> Weak<MeshNode> {
+            Arc::downgrade(unsafe { &*(*handle).inner })
+        }
+
+        fn reclaimed(weak: &Weak<MeshNode>) -> bool {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < deadline {
+                if weak.upgrade().is_none() {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            false
+        }
+
+        fn assert_reclaimed(label: &str, weak: &Weak<MeshNode>) {
+            assert!(
+                reclaimed(weak),
+                "{label}: the MeshNode is still alive 5 s after net_mesh_free \
+                 (strong count {}): something retains a strong reference",
+                weak.strong_count()
+            );
+        }
+
+        /// lifecycle.c's sequence: shutdown twice, a query after shutdown,
+        /// then free.
+        #[test]
+        fn nodes_are_reclaimed_after_the_lifecycle_sequence() {
+            let (a, b) = connected_pair();
+            let (wa, wb) = (weak_of(a), weak_of(b));
+            unsafe {
+                assert_eq!(net_mesh_shutdown(a), 0);
+                assert_eq!(net_mesh_shutdown(a), 0);
+                let _ = public_key(a);
+                assert_eq!(net_mesh_shutdown(b), 0);
+                net_mesh_free(a);
+                net_mesh_free(b);
+            }
+            assert_reclaimed("A", &wa);
+            assert_reclaimed("B", &wb);
+        }
+
+        /// The smallest case: one node, started, shut down and freed. Each
+        /// `h.inner.clone()` in an entry point (start, connect, accept, ...)
+        /// cloned the `ManuallyDrop` wrapper and so leaked one strong count.
+        #[test]
+        fn a_started_node_is_reclaimed_after_shutdown_and_free() {
+            let a = new_node(&free_port(), 0xC3);
+            let w = weak_of(a);
+            unsafe {
+                assert_eq!(net_mesh_start(a), 0);
+                assert_eq!(net_mesh_shutdown(a), 0);
+                net_mesh_free(a)
+            };
+            assert_reclaimed("start+shutdown+free", &w);
+        }
+
+        /// The minimal sequence: one shutdown each, then free.
+        #[test]
+        fn nodes_are_reclaimed_after_shutdown_and_free() {
+            let (a, b) = connected_pair();
+            let (wa, wb) = (weak_of(a), weak_of(b));
+            unsafe {
+                assert_eq!(net_mesh_shutdown(a), 0);
+                assert_eq!(net_mesh_shutdown(b), 0);
+                net_mesh_free(a);
+                net_mesh_free(b);
+            }
+            assert_reclaimed("A", &wa);
+            assert_reclaimed("B", &wb);
+        }
+    }
+
+    /// The stream inbox through the C ABI, end to end over real UDP:
+    /// what the Go binding calls, witnessed here because cgo cannot be
+    /// built on every developer machine.
+    mod stream_inbox_c_abi {
+        use super::super::*;
+        use std::ffi::CString;
+        use std::ptr::null_mut;
+        use std::time::{Duration, Instant};
+
+        fn free_port() -> String {
+            let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind");
+            socket.local_addr().expect("addr").to_string()
+        }
+
+        fn new_node(addr: &str) -> *mut MeshNodeHandle {
+            let cfg = CString::new(format!(
+                r#"{{"bind_addr":"{addr}","psk_hex":"{}","heartbeat_ms":200}}"#,
+                "42".repeat(32)
+            ))
+            .unwrap();
+            let mut handle = null_mut();
+            assert_eq!(unsafe { net_mesh_new(cfg.as_ptr(), &mut handle) }, 0);
+            handle
+        }
+
+        fn public_key(handle: *mut MeshNodeHandle) -> CString {
+            let (mut out, mut len) = (null_mut(), 0usize);
+            assert_eq!(
+                unsafe { net_mesh_public_key_hex(handle, &mut out, &mut len) },
+                0
+            );
+            let key = unsafe { std::ffi::CStr::from_ptr(out) }.to_owned();
+            unsafe { crate::ffi::net_free_string(out) };
+            key
+        }
+
+        #[test]
+        fn a_c_inbox_receives_each_event_with_its_sender_wakes_on_close_and_frees() {
+            let (a_addr, b_addr) = (free_port(), free_port());
+            let a = new_node(&a_addr);
+            let b = new_node(&b_addr);
+            let (a_id, b_id) = unsafe { (net_mesh_node_id(a), net_mesh_node_id(b)) };
+
+            let b_ptr = b as usize;
+            let accept = std::thread::spawn(move || {
+                let (mut out, mut len) = (null_mut(), 0usize);
+                let rc = unsafe {
+                    net_mesh_accept(b_ptr as *mut MeshNodeHandle, a_id, &mut out, &mut len)
+                };
+                if !out.is_null() {
+                    unsafe { crate::ffi::net_free_string(out) };
+                }
+                rc
+            });
+            std::thread::sleep(Duration::from_millis(50));
+            let b_key = public_key(b);
+            let b_at = CString::new(b_addr).unwrap();
+            assert_eq!(
+                unsafe { net_mesh_connect(a, b_at.as_ptr(), b_key.as_ptr(), b_id) },
+                0
+            );
+            assert_eq!(accept.join().unwrap(), 0);
+            unsafe {
+                assert_eq!(net_mesh_start(a), 0);
+                assert_eq!(net_mesh_start(b), 0);
+            }
+
+            let label = CString::new("store/c-abi-inbox").unwrap();
+            let mut sid = 0u64;
+            assert_eq!(
+                unsafe { net_stream_id_from_label(label.as_ptr(), &mut sid) },
+                0
+            );
+            assert_eq!(
+                sid,
+                crate::adapter::net::stream_id_from_label("store/c-abi-inbox")
+            );
+
+            let mut inbox = null_mut();
+            assert_eq!(
+                unsafe { net_mesh_open_stream_inbox(b, sid, 8, &mut inbox) },
+                0
+            );
+            let mut second = null_mut();
+            assert_eq!(
+                unsafe { net_mesh_open_stream_inbox(b, sid, 8, &mut second) },
+                NET_ERR_MESH_STREAM_OCCUPIED
+            );
+
+            let cfg = CString::new(r#"{"reliability":"reliable"}"#).unwrap();
+            let mut stream = null_mut();
+            assert_eq!(
+                unsafe { net_mesh_open_stream(a, b_id, sid, cfg.as_ptr(), &mut stream) },
+                0
+            );
+            let payload: &[u8] = b"from-c";
+            let (ptrs, lens) = ([payload.as_ptr()], [payload.len()]);
+            let (mut size, mut limit) = (0usize, 0usize);
+            assert_eq!(
+                unsafe {
+                    net_mesh_send(
+                        stream,
+                        ptrs.as_ptr(),
+                        lens.as_ptr(),
+                        1,
+                        a,
+                        &mut size,
+                        &mut limit,
+                    )
+                },
+                0
+            );
+
+            let (mut from, mut buf, mut len) = (0u64, null_mut(), 0usize);
+            assert_eq!(
+                unsafe { net_mesh_stream_inbox_recv(inbox, 5_000, &mut from, &mut buf, &mut len) },
+                1
+            );
+            assert_eq!(from, a_id, "the authenticated sender");
+            assert_eq!(unsafe { std::slice::from_raw_parts(buf, len) }, b"from-c");
+            unsafe { net_free_bytes(buf, len) };
+            assert_eq!(
+                unsafe { net_mesh_stream_inbox_recv(inbox, 20, &mut from, &mut buf, &mut len) },
+                0
+            );
+            assert_eq!(unsafe { net_mesh_stream_inbox_dropped(inbox) }, 0);
+
+            // `close` wakes a recv parked in another thread at once.
+            let inbox_ptr = inbox as usize;
+            let waiter = std::thread::spawn(move || {
+                let (mut from, mut buf, mut len) = (0u64, null_mut(), 0usize);
+                let started = Instant::now();
+                let rc = unsafe {
+                    net_mesh_stream_inbox_recv(
+                        inbox_ptr as *mut MeshStreamInboxHandle,
+                        10_000,
+                        &mut from,
+                        &mut buf,
+                        &mut len,
+                    )
+                };
+                (rc, started.elapsed())
+            });
+            std::thread::sleep(Duration::from_millis(100));
+            assert_eq!(unsafe { net_mesh_stream_inbox_close(inbox) }, 0);
+            let (rc, waited) = waiter.join().unwrap();
+            assert_eq!(rc, 0);
+            assert!(
+                waited < Duration::from_secs(5),
+                "close must wake the parked recv, waited {waited:?}"
+            );
+
+            unsafe { net_mesh_stream_inbox_free(inbox) };
+            let mut again = null_mut();
+            assert_eq!(
+                unsafe { net_mesh_open_stream_inbox(b, sid, 8, &mut again) },
+                0,
+                "freeing released the stream"
+            );
+            unsafe {
+                net_mesh_stream_inbox_free(again);
+                net_mesh_stream_free(stream);
+                net_mesh_free(a);
+                net_mesh_free(b);
+            }
+        }
+    }
+
+    /// Scope filters that deserialize cleanly but carry no usable
+    /// selector must return `InvalidArgument`, not resolve to the
+    /// broadest filter.
+    ///
+    /// Pre-fix these all produced `ScopeFilterOwned::Any` — every
+    /// non-`SubnetLocal` peer in the mesh — so a caller whose tenant id
+    /// arrived empty silently queried everything and selected a
+    /// provider from it
+    /// (SECURITY_AUDIT_2026_07_31_SCOPED_CAPABILITIES.md).
+    mod scope_filter_rejects_unusable {
+        use super::super::{scope_filter_from_json, ScopeFilterJson, ScopeFilterOwned};
+        use crate::ffi::NetError;
+
+        fn kind(kind: &str) -> ScopeFilterJson {
+            ScopeFilterJson {
+                kind: kind.into(),
+                tenant: None,
+                tenants: None,
+                region: None,
+                regions: None,
+            }
+        }
+
+        #[test]
+        fn unknown_kind_is_invalid_argument() {
+            assert!(matches!(
+                scope_filter_from_json(kind("tenat")),
+                Err(NetError::InvalidArgument)
+            ));
+        }
+
+        #[test]
+        fn missing_or_empty_selectors_are_invalid_argument() {
+            let cases = vec![
+                kind("tenant"),
+                ScopeFilterJson {
+                    tenant: Some(String::new()),
+                    ..kind("tenant")
+                },
+                kind("tenants"),
+                ScopeFilterJson {
+                    tenants: Some(vec![String::new()]),
+                    ..kind("tenants")
+                },
+                kind("region"),
+                ScopeFilterJson {
+                    region: Some(String::new()),
+                    ..kind("region")
+                },
+                kind("regions"),
+                ScopeFilterJson {
+                    regions: Some(vec![String::new(), String::new()]),
+                    ..kind("regions")
+                },
+            ];
+            for case in cases {
+                let label = case.kind.clone();
+                assert!(
+                    matches!(scope_filter_from_json(case), Err(NetError::InvalidArgument)),
+                    "kind {label:?} with an unusable selector must be \
+                     InvalidArgument, not a silent widen to Any"
+                );
+            }
+        }
+
+        /// Both spellings resolve, and the selector-bearing kinds still
+        /// work with empty entries stripped.
+        #[test]
+        fn usable_filters_still_convert() {
+            assert!(matches!(
+                scope_filter_from_json(kind("any")),
+                Ok(ScopeFilterOwned::Any)
+            ));
+            for k in ["global_only", "globalOnly"] {
+                assert!(matches!(
+                    scope_filter_from_json(kind(k)),
+                    Ok(ScopeFilterOwned::GlobalOnly)
+                ));
+            }
+            assert!(matches!(
+                scope_filter_from_json(ScopeFilterJson {
+                    tenants: Some(vec![String::new(), "oem-123".into()]),
+                    ..kind("tenants")
+                }),
+                Ok(ScopeFilterOwned::Tenants(ts)) if ts == vec!["oem-123".to_string()]
+            ));
+        }
+    }
+
+    /// ABI parity between the Rust `#[repr(C)] NetTraversalStatsV2` and
+    /// the hand-maintained C header `include/net.go.h`. The Go guard
+    /// `go/header_parity_test.go` compares the two C headers against
+    /// each other, but nothing checked either against the Rust struct —
+    /// so a field reordered / retyped / added on one side but not the
+    /// other is silent cgo ABI corruption (Go reads at the wrong
+    /// offsets) with no compile error and no test failure (review #5).
+    #[cfg(feature = "nat-traversal")]
+    mod traversal_stats_abi {
+        use super::super::NetTraversalStatsV2;
+        use std::mem::{align_of, offset_of, size_of};
+
+        /// Byte offset of a struct field by its C name. `offset_of!`
+        /// needs a literal field ident, so this match is the one
+        /// hand-maintained seam: a renamed or removed field fails to
+        /// compile here until it's updated.
+        fn rust_offset(name: &str) -> Option<usize> {
+            Some(match name {
+                "punches_attempted" => offset_of!(NetTraversalStatsV2, punches_attempted),
+                "punches_succeeded" => offset_of!(NetTraversalStatsV2, punches_succeeded),
+                "punches_failed" => offset_of!(NetTraversalStatsV2, punches_failed),
+                "relay_fallbacks" => offset_of!(NetTraversalStatsV2, relay_fallbacks),
+                "punch_timeouts" => offset_of!(NetTraversalStatsV2, punch_timeouts),
+                "punch_rejections" => offset_of!(NetTraversalStatsV2, punch_rejections),
+                "rendezvous_no_relay" => offset_of!(NetTraversalStatsV2, rendezvous_no_relay),
+                "upgrades_attempted" => offset_of!(NetTraversalStatsV2, upgrades_attempted),
+                "upgrades_succeeded" => offset_of!(NetTraversalStatsV2, upgrades_succeeded),
+                "upgrades_deferred_busy" => offset_of!(NetTraversalStatsV2, upgrades_deferred_busy),
+                "port_mapping_renewals" => offset_of!(NetTraversalStatsV2, port_mapping_renewals),
+                "port_mapping_active" => offset_of!(NetTraversalStatsV2, port_mapping_active),
+                "port_mapping_external" => offset_of!(NetTraversalStatsV2, port_mapping_external),
+                _ => return None,
+            })
+        }
+
+        /// (size, align) of a C scalar/array type as spelled in the
+        /// header. Derived from the Rust primitive each field maps to,
+        /// NOT hardcoded: `uint64_t` is not 8-byte-aligned on every C
+        /// ABI (x86-32 System V aligns it to 4), and a `#[repr(C)]`
+        /// struct follows that same target ABI — so hardcoding 8 here
+        /// would false-fail the offset/size cross-check on 32-bit
+        /// targets where the header and Rust struct are in fact
+        /// compatible. Panics on an unrecognized type so a
+        /// newly-introduced field type forces this table to be extended.
+        fn c_type_layout(ctype: &str) -> (usize, usize) {
+            use std::mem::{align_of, size_of};
+            use std::os::raw::c_char;
+            match ctype {
+                "uint64_t" => (size_of::<u64>(), align_of::<u64>()),
+                "uint8_t" => (size_of::<u8>(), align_of::<u8>()),
+                "char[64]" => (size_of::<c_char>() * 64, align_of::<c_char>()),
+                other => panic!("unhandled C type in net_traversal_stats_v2_t: {other:?}"),
+            }
+        }
+
+        fn round_up(off: usize, align: usize) -> usize {
+            off.div_ceil(align) * align
+        }
+
+        /// Ordered `(ctype, name)` fields of the anonymous
+        /// `net_traversal_stats_v2_t` struct body. `char x[64]` folds
+        /// to ctype `char[64]`, name `x`.
+        fn parse_header_fields(header: &str) -> Vec<(String, String)> {
+            let end = header
+                .find("} net_traversal_stats_v2_t;")
+                .expect("stats typedef present in header");
+            let open = header[..end].rfind('{').expect("struct open brace");
+            let mut fields = Vec::new();
+            for line in header[open + 1..end].lines() {
+                let line = line.trim();
+                if line.is_empty()
+                    || line.starts_with("//")
+                    || line.starts_with('*')
+                    || line.starts_with("/*")
+                {
+                    continue;
+                }
+                let decl = line.trim_end_matches(';').trim();
+                let (ctype, name_arr) = decl
+                    .rsplit_once(char::is_whitespace)
+                    .expect("field decl shaped `type name`");
+                let (ctype, name_arr) = (ctype.trim(), name_arr.trim());
+                if let Some((name, arr)) = name_arr.split_once('[') {
+                    fields.push((format!("{ctype}[{arr}"), name.to_string()));
+                } else {
+                    fields.push((ctype.to_string(), name_arr.to_string()));
+                }
+            }
+            fields
+        }
+
+        #[test]
+        fn c_header_layout_matches_rust_repr_c() {
+            let header =
+                std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/include/net.go.h"))
+                    .expect("read include/net.go.h");
+            let fields = parse_header_fields(&header);
+            assert_eq!(
+                fields.len(),
+                13,
+                "expected 13 fields in net_traversal_stats_v2_t, parsed {fields:?}",
+            );
+
+            // Recompute the C struct layout with C alignment rules and
+            // cross-check every field offset against the Rust struct.
+            // Catches reorder (offsets shift), retype (offset/size
+            // shift), and add/remove (size or name-resolution mismatch).
+            let mut off = 0usize;
+            let mut align = 1usize;
+            for (ctype, name) in &fields {
+                let (sz, al) = c_type_layout(ctype);
+                off = round_up(off, al);
+                align = align.max(al);
+                let rust = rust_offset(name)
+                    .unwrap_or_else(|| panic!("header field `{name}` has no Rust struct field"));
+                assert_eq!(
+                    rust, off,
+                    "field `{name}`: Rust offset {rust} != C offset {off}"
+                );
+                off += sz;
+            }
+            assert_eq!(
+                size_of::<NetTraversalStatsV2>(),
+                round_up(off, align),
+                "net_traversal_stats_v2_t total size drift (Rust vs C header)",
+            );
+            assert_eq!(
+                align_of::<NetTraversalStatsV2>(),
+                align,
+                "net_traversal_stats_v2_t alignment drift (Rust vs C header)",
+            );
+        }
+    }
+
+    /// Regression for a cubic-flagged P2: Go-supplied JSON values
+    /// wider than u16::MAX silently wrapped via `as u16` in
+    /// `gpu_info_from_json` / `accelerator_from_json` /
+    /// `hardware_from_json`, turning 65536 cores into 0. Every
+    /// conversion site now routes through `saturating_u16_cap`.
+    ///
+    /// The NAPI binding has parallel end-to-end tests on
+    /// `hardware_from_js`; the Go side verifies saturation in
+    /// its own integration suite by round-tripping an overflow
+    /// announcement through `announce_capabilities` (separate
+    /// file).
+    #[test]
+    fn saturating_u16_cap_clamps_at_u16_max() {
+        assert_eq!(saturating_u16_cap(0), 0);
+        assert_eq!(saturating_u16_cap(42), 42);
+        assert_eq!(saturating_u16_cap(u16::MAX as u32), u16::MAX);
+        assert_eq!(saturating_u16_cap(u16::MAX as u32 + 1), u16::MAX);
+        assert_eq!(saturating_u16_cap(u32::MAX), u16::MAX);
+    }
+
+    /// The shared pubkey parser behind every `net_mesh_connect*`
+    /// entry point: valid 64-char hex round-trips; non-hex, wrong
+    /// length, and non-UTF-8 inputs return the exact codes the
+    /// wrappers historically produced inline. One implementation =
+    /// the three wrappers can't drift apart (cubic P2).
+    #[test]
+    fn parse_peer_pubkey_hex_accepts_valid_and_rejects_malformed() {
+        use std::ffi::CString;
+
+        let valid = CString::new("ab".repeat(32)).unwrap();
+        // SAFETY: valid NUL-terminated pointer for the call's lifetime.
+        let parsed = unsafe { parse_peer_pubkey_hex(valid.as_ptr()) };
+        assert_eq!(parsed, Ok([0xABu8; 32]), "64-char hex round-trips");
+
+        let bad_hex = CString::new("zz".repeat(32)).unwrap();
+        // SAFETY: as above.
+        let err = unsafe { parse_peer_pubkey_hex(bad_hex.as_ptr()) };
+        assert_eq!(err, Err(NET_ERR_MESH_HANDSHAKE), "non-hex rejects");
+
+        let short = CString::new("abcd").unwrap();
+        // SAFETY: as above.
+        let err = unsafe { parse_peer_pubkey_hex(short.as_ptr()) };
+        assert_eq!(err, Err(NET_ERR_MESH_HANDSHAKE), "wrong length rejects");
+
+        // Valid CString bytes, invalid UTF-8 → the UTF-8 code.
+        let non_utf8 = CString::new(vec![0xFFu8, 0xFEu8]).unwrap();
+        // SAFETY: as above.
+        let err = unsafe { parse_peer_pubkey_hex(non_utf8.as_ptr()) };
+        assert_eq!(
+            err,
+            Err(NetError::InvalidUtf8.into()),
+            "non-UTF-8 C string rejects with the UTF-8 code",
+        );
+    }
+
+    /// The v2 stats fill maps every core-snapshot field into the
+    /// C-ABI struct, encodes the external address as a
+    /// NUL-terminated string, and leaves the buffer empty when no
+    /// mapping is active. Pins the field mapping so an added core
+    /// field that's forgotten here shows up as a compile error
+    /// (struct literal) or a failing assert (value).
+    #[cfg(feature = "nat-traversal")]
+    #[test]
+    fn traversal_stats_v2_fill_maps_all_fields() {
+        use crate::adapter::net::traversal::TraversalStatsSnapshot;
+
+        let snap = TraversalStatsSnapshot {
+            punches_attempted: 1,
+            punches_succeeded: 2,
+            relay_fallbacks: 3,
+            port_mapping_active: true,
+            port_mapping_external: Some("203.0.113.5:4321".parse().unwrap()),
+            port_mapping_renewals: 4,
+            upgrades_attempted: 5,
+            upgrades_succeeded: 6,
+            upgrades_deferred_busy: 7,
+            punches_failed: 8,
+            punch_timeouts: 9,
+            punch_rejections: 10,
+            rendezvous_no_relay: 11,
+        };
+        let mut out = NetTraversalStatsV2 {
+            punches_attempted: 0,
+            punches_succeeded: 0,
+            punches_failed: 0,
+            relay_fallbacks: 0,
+            punch_timeouts: 0,
+            punch_rejections: 0,
+            rendezvous_no_relay: 0,
+            upgrades_attempted: 0,
+            upgrades_succeeded: 0,
+            upgrades_deferred_busy: 0,
+            port_mapping_renewals: 0,
+            port_mapping_active: 0,
+            port_mapping_external: [0x7F; 64], // poisoned: fill must clear
+        };
+        fill_traversal_stats_v2(&snap, &mut out);
+
+        assert_eq!(out.punches_attempted, 1);
+        assert_eq!(out.punches_succeeded, 2);
+        assert_eq!(out.relay_fallbacks, 3);
+        assert_eq!(out.port_mapping_renewals, 4);
+        assert_eq!(out.upgrades_attempted, 5);
+        assert_eq!(out.upgrades_succeeded, 6);
+        assert_eq!(out.upgrades_deferred_busy, 7);
+        assert_eq!(out.punches_failed, 8);
+        assert_eq!(out.punch_timeouts, 9);
+        assert_eq!(out.punch_rejections, 10);
+        assert_eq!(out.rendezvous_no_relay, 11);
+        assert_eq!(out.port_mapping_active, 1);
+        let s: String = out
+            .port_mapping_external
+            .iter()
+            .take_while(|&&c| c != 0)
+            .map(|&c| c as u8 as char)
+            .collect();
+        assert_eq!(s, "203.0.113.5:4321");
+        // NUL-terminated within the buffer.
+        assert!(out.port_mapping_external.contains(&0));
+
+        // Inactive mapping → empty string, active = 0.
+        let snap_off = TraversalStatsSnapshot {
+            port_mapping_active: false,
+            port_mapping_external: None,
+            ..snap
+        };
+        fill_traversal_stats_v2(&snap_off, &mut out);
+        assert_eq!(out.port_mapping_active, 0);
+        assert_eq!(
+            out.port_mapping_external[0], 0,
+            "empty string when inactive"
+        );
+    }
+
+    /// Regression: `parse_modality_cap` must surface unknown
+    /// modality strings as `None`, not silently fall back to
+    /// `Modality::Text`. Pre-fix a typo in announce-capabilities
+    /// like `"audoi"` advertised a Text capability the node
+    /// didn't have; in find-nodes filters, the same typo was
+    /// reinterpreted as `require Text` and returned the wrong
+    /// nodes. The strict shape lets callers handle the unknown
+    /// case explicitly; callers in this file now reject the whole
+    /// request (see `unknown_modality_rejects_*` below), because
+    /// warn-and-skip still shipped an announcement missing a
+    /// capability, and a filter missing a constraint.
+    #[test]
+    fn parse_modality_cap_returns_none_on_unknown_strings() {
+        // Known values still parse.
+        for (s, expected) in [
+            ("text", Modality::Text),
+            ("Text", Modality::Text),
+            ("TEXT", Modality::Text),
+            ("image", Modality::Image),
+            ("audio", Modality::Audio),
+            ("video", Modality::Video),
+            ("code", Modality::Code),
+            ("embedding", Modality::Embedding),
+            ("tool-use", Modality::ToolUse),
+            ("tool_use", Modality::ToolUse),
+            ("tooluse", Modality::ToolUse),
+        ] {
+            assert_eq!(
+                parse_modality_cap(s),
+                Some(expected),
+                "known modality `{s}` must parse",
+            );
+        }
+
+        // Typos and unknowns return None, NOT Modality::Text.
+        for s in ["audoi", "imageX", "vidoe", "embeding", "garbage", ""] {
+            assert_eq!(
+                parse_modality_cap(s),
+                None,
+                "unknown modality `{s}` must return None — pre-fix this \
+                 fell back to Modality::Text, advertising a capability \
+                 the node didn't actually have",
+            );
+        }
+    }
+
+    /// Call `net_verify_signature` the way C does, and read
+    /// `*out_valid`.
+    ///
+    /// The tests below went through `EntityId::verify_bytes` instead,
+    /// which is the layer *underneath* the export — so the null guards,
+    /// the 64-byte length check, the zero-length message branch and the
+    /// `out_valid` write were all unexercised. That is the same shape of
+    /// gap the export exists to close: the binding tests asserted the
+    /// signature's *length*, which passes for any 64 bytes.
+    fn abi_verify(entity_id: &[u8], msg: &[u8], sig: &[u8]) -> (c_int, c_int) {
+        let mut valid: c_int = -1;
+        let rc = unsafe {
+            net_verify_signature(
+                entity_id.as_ptr(),
+                entity_id.len(),
+                // A zero-length slice's `as_ptr` is a dangling non-null
+                // pointer; pass a real NULL so the empty-message branch
+                // is what C would actually hit.
+                if msg.is_empty() {
+                    std::ptr::null()
+                } else {
+                    msg.as_ptr()
+                },
+                msg.len(),
+                sig.as_ptr(),
+                sig.len(),
+                &mut valid,
+            )
+        };
+        (rc, valid)
+    }
+
+    /// Sign then verify, through the C ABI, in one round trip.
+    ///
+    /// Every binding exposed `sign` and none exposed verification for
+    /// an arbitrary message, so a signature produced through the ABI
+    /// could only be checked from Rust. The binding tests asserted the
+    /// signature's *length* — which passes for any 64 bytes, including
+    /// 64 zeros.
+    #[test]
+    fn verify_signature_round_trips_and_rejects_tampering() {
+        use crate::adapter::net::identity::EntityKeypair;
+
+        let keypair = EntityKeypair::generate();
+        let entity = keypair.entity_id().as_bytes().to_vec();
+        let message = b"the exact bytes that were signed";
+        let sig = keypair.sign(message).to_bytes();
+
+        assert_eq!(
+            abi_verify(&entity, message, &sig),
+            (0, 1),
+            "a freshly produced signature must verify",
+        );
+
+        // Wrong message. `rc == 0` with `valid == 0` is the contract:
+        // "did not verify", never "called wrong".
+        assert_eq!(
+            abi_verify(&entity, b"different bytes", &sig),
+            (0, 0),
+            "a signature must not verify against another message",
+        );
+
+        // Wrong key.
+        let other = EntityKeypair::generate();
+        assert_eq!(
+            abi_verify(other.entity_id().as_bytes(), message, &sig),
+            (0, 0),
+            "a signature must not verify under another entity",
+        );
+
+        // Tampered signature — and the all-zero signature the
+        // length-only assertions would have accepted.
+        let mut bad = sig;
+        bad[0] ^= 0xff;
+        assert_eq!(abi_verify(&entity, message, &bad), (0, 0));
+        assert_eq!(
+            abi_verify(&entity, message, &[0u8; 64]),
+            (0, 0),
+            "64 zero bytes is the signature a length check accepts",
+        );
+    }
+
+    /// An empty message is a legitimate thing to sign, and the ABI's
+    /// null-pointer guard must not confuse "zero-length" with
+    /// "missing".
+    ///
+    /// `msg == NULL` with `msg_len == 0` must succeed, because that is
+    /// what a C caller with no message has to pass.
+    #[test]
+    fn verify_signature_handles_an_empty_message() {
+        use crate::adapter::net::identity::EntityKeypair;
+
+        let keypair = EntityKeypair::generate();
+        let entity = keypair.entity_id().as_bytes().to_vec();
+        let sig = keypair.sign(b"").to_bytes();
+
+        assert_eq!(
+            abi_verify(&entity, b"", &sig),
+            (0, 1),
+            "a NULL message with length 0 is an empty message, not a \
+             missing argument",
+        );
+        // And it must not verify some other message's signature.
+        let other_sig = keypair.sign(b"not empty").to_bytes();
+        assert_eq!(abi_verify(&entity, b"", &other_sig), (0, 0));
+    }
+
+    /// Malformed arguments return a negative code and never claim a
+    /// verdict.
+    ///
+    /// The split matters: `0` with `*out_valid == 0` means the
+    /// signature did not verify, and a caller that cannot tell that
+    /// from "you passed a 63-byte signature" will treat a bug as a
+    /// failed check.
+    #[test]
+    fn verify_signature_rejects_malformed_arguments() {
+        use crate::adapter::net::identity::EntityKeypair;
+
+        let keypair = EntityKeypair::generate();
+        let entity = keypair.entity_id().as_bytes().to_vec();
+        let msg = b"payload";
+        let sig = keypair.sign(msg).to_bytes();
+
+        // Wrong entity-id length, both directions.
+        for bad_id_len in [0usize, 31, 33] {
+            let bad_id = vec![0u8; bad_id_len];
+            let (rc, _) = abi_verify(&bad_id, msg, &sig);
+            assert_eq!(
+                rc, NET_ERR_IDENTITY,
+                "a {bad_id_len}-byte entity id must be refused",
+            );
+        }
+
+        // Wrong signature length, both directions.
+        for bad_sig_len in [0usize, 63, 65] {
+            let bad_sig = vec![0u8; bad_sig_len];
+            let (rc, _) = abi_verify(&entity, msg, &bad_sig);
+            assert_eq!(
+                rc, NET_ERR_IDENTITY,
+                "a {bad_sig_len}-byte signature must be refused",
+            );
+        }
+
+        // NULL out_valid: nowhere to write the verdict, so the call
+        // cannot report anything and must say so.
+        let rc = unsafe {
+            net_verify_signature(
+                entity.as_ptr(),
+                entity.len(),
+                msg.as_ptr(),
+                msg.len(),
+                sig.as_ptr(),
+                sig.len(),
+                std::ptr::null_mut(),
+            )
+        };
+        assert_eq!(rc, c_int::from(NetError::NullPointer));
+
+        // NULL signature, and a NULL message with a non-zero length —
+        // the latter is the case the `msg_len > 0` guard exists for.
+        let mut valid: c_int = -1;
+        let rc = unsafe {
+            net_verify_signature(
+                entity.as_ptr(),
+                entity.len(),
+                msg.as_ptr(),
+                msg.len(),
+                std::ptr::null(),
+                64,
+                &mut valid,
+            )
+        };
+        assert_eq!(rc, c_int::from(NetError::NullPointer));
+
+        let rc = unsafe {
+            net_verify_signature(
+                entity.as_ptr(),
+                entity.len(),
+                std::ptr::null(),
+                7,
+                sig.as_ptr(),
+                sig.len(),
+                &mut valid,
+            )
+        };
+        assert_eq!(
+            rc,
+            c_int::from(NetError::NullPointer),
+            "a NULL message with a non-zero length must not be \
+             dereferenced",
+        );
+    }
+
+    /// A wildcard grant must survive the C/Go boundary in both
+    /// directions.
+    ///
+    /// `WILDCARD` authorizes the token's actions on every channel
+    /// regardless of its `channel_hash`. The scope converters listed
+    /// only publish/subscribe/admin/delegate, so this binding could
+    /// not issue one, and a Rust-issued wildcard token crossing the
+    /// wire rendered without the bit — under-reporting the
+    /// credential's authority to the caller deciding whether to trust
+    /// it.
+    #[test]
+    fn wildcard_scope_round_trips_through_the_c_converters() {
+        let parsed = parse_scope_list(r#"["publish","wildcard"]"#).expect("wildcard must parse");
+        assert!(parsed.contains(TokenScope::WILDCARD));
+        assert!(parsed.contains(TokenScope::PUBLISH));
+
+        let rendered = scope_to_strings(parsed);
+        assert!(
+            rendered.contains(&"wildcard"),
+            "wildcard must render, got {rendered:?}",
+        );
+    }
+
+    /// The other four still round-trip, and an unknown name is still
+    /// refused — widening the vocabulary must not have opened it.
+    #[test]
+    fn scope_vocabulary_is_exactly_the_five_names() {
+        for name in ["publish", "subscribe", "admin", "delegate", "wildcard"] {
+            let json = format!(r#"["{name}"]"#);
+            let parsed = parse_scope_list(&json).expect("documented scope must parse");
+            assert!(scope_to_strings(parsed).contains(&name));
+        }
+        for bad in [
+            r#"["wild"]"#,
+            r#"["WILDCARD"]"#,
+            r#"["all"]"#,
+            r#"["none"]"#,
+        ] {
+            assert!(
+                parse_scope_list(bad).is_none(),
+                "unknown scope must be refused: {bad}",
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_modality_rejects_the_announcement() {
+        let json = r#"{"models":[{"model_id":"m","modalities":["audoi"]}]}"#;
+        let parsed: CapabilitySetJson = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            capability_set_from_json(parsed).unwrap_err(),
+            "audoi",
+            "the error must name the offending value",
+        );
+    }
+
+    /// The filter direction is the fail-open one: a dropped constraint
+    /// widens the query to every otherwise-eligible node, so the
+    /// scheduler can pick a node that cannot do the work.
+    #[test]
+    fn unknown_modality_rejects_the_filter() {
+        let json = r#"{"require_modalities":["audoi"]}"#;
+        let parsed: CapabilityFilterJson = serde_json::from_str(json).unwrap();
+        assert_eq!(capability_filter_from_json(parsed).unwrap_err(), "audoi");
+    }
+
+    /// The whole documented vocabulary still round-trips through both
+    /// conversions, so rejection did not narrow what callers can say.
+    #[test]
+    fn every_documented_modality_still_converts() {
+        for name in [
+            "text",
+            "image",
+            "audio",
+            "video",
+            "code",
+            "embedding",
+            "tool-use",
+            "tool_use",
+            "tooluse",
+            "TEXT",
+        ] {
+            let json = format!(r#"{{"require_modalities":["{name}"]}}"#);
+            let parsed: CapabilityFilterJson = serde_json::from_str(&json).unwrap();
+            assert!(
+                capability_filter_from_json(parsed).is_ok(),
+                "documented modality {name:?} must convert",
+            );
+        }
+    }
+
+    /// `gpu_info_from_json` must preserve the declared
+    /// `fp16_tflops_x10` exactly.
+    ///
+    /// Two things used to go wrong here in sequence. The original code
+    /// ran the value through `with_fp16_tflops(tf as f32 / 10.0)`,
+    /// and f32's 24-bit mantissa loses precision above 16,777,216, so
+    /// the round-trip could land a different number than the operator
+    /// declared. The fix for that capped the input at `u16::MAX`
+    /// first — exact, but it narrowed a field whose public type is
+    /// `u32` everywhere else, and silently, only on C and Go.
+    ///
+    /// Saturation is the worse failure for a scheduling metric: two
+    /// nodes above the cap compare equal, so the placement scorer can
+    /// no longer order them. Writing the integer field directly keeps
+    /// both the range and the exactness.
+    #[test]
+    fn gpu_info_from_json_preserves_full_u32_fp16_tflops() {
+        for declared in [
+            0u32,
+            825,                 // 82.5 TFLOPS — an ordinary GPU
+            u16::MAX as u32,     // the old cap
+            u16::MAX as u32 + 1, // one past it
+            16_777_217,          // one past f32's exact-integer range
+            1_000_000_000,       // the value the old test pinned to 65_535
+            u32::MAX,
+        ] {
+            let g = GpuJson {
+                vendor: None,
+                model: "test".to_string(),
+                vram_gb: 0,
+                compute_units: None,
+                tensor_cores: None,
+                fp16_tflops_x10: Some(declared),
+            };
+            assert_eq!(
+                gpu_info_from_json(g).fp16_tflops_x10,
+                declared,
+                "fp16_tflops_x10 must survive the C boundary unchanged",
+            );
+        }
+    }
+
+    /// Ordering must survive too — the property saturation destroyed.
+    #[test]
+    fn gpu_info_from_json_keeps_large_fp16_values_orderable() {
+        let make = |tf: u32| GpuJson {
+            vendor: None,
+            model: "test".to_string(),
+            vram_gb: 0,
+            compute_units: None,
+            tensor_cores: None,
+            fp16_tflops_x10: Some(tf),
+        };
+        let smaller = gpu_info_from_json(make(1_000_000_000)).fp16_tflops_x10;
+        let larger = gpu_info_from_json(make(2_000_000_000)).fp16_tflops_x10;
+        assert!(
+            smaller < larger,
+            "both values used to saturate to 65_535 and compare equal, \
+             so a placement scorer could not rank them",
+        );
+    }
+
+    /// Regression: `alloc_bytes` used to call `Vec::shrink_to_fit`
+    /// and then hand the raw `(ptr, len)` to C, expecting
+    /// `net_free_bytes` to reconstruct with
+    /// `Vec::from_raw_parts(ptr, len, len)`. `shrink_to_fit` is not
+    /// guaranteed to make `capacity == len`, so the reconstruction
+    /// could UB on drop (allocator size mismatch). The fix uses
+    /// `Layout::array::<u8>(len)` on both sides so the capacity is
+    /// always exactly `len`.
+    ///
+    /// This test exercises the alloc/free round-trip across a range
+    /// of sizes; under miri (or with the system allocator) any size
+    /// mismatch would surface here.
+    #[test]
+    fn alloc_bytes_round_trip_across_sizes() {
+        for size in [0usize, 1, 15, 16, 17, 32, 64, 1024, 8192] {
+            let src: Vec<u8> = (0..size).map(|i| (i as u8).wrapping_mul(37)).collect();
+            let mut ptr: *mut u8 = std::ptr::null_mut();
+            let mut len: usize = 0;
+            let rc = alloc_bytes(&src, &mut ptr as *mut _, &mut len as *mut _);
+            assert_eq!(rc, 0);
+            assert_eq!(len, size);
+            if size == 0 {
+                assert!(ptr.is_null());
+            } else {
+                assert!(!ptr.is_null());
+                let observed = unsafe { std::slice::from_raw_parts(ptr, len) };
+                assert_eq!(observed, &src[..]);
+            }
+            // Freeing with a null or zero-len must be a no-op; freeing
+            // a real buffer must not abort or corrupt the allocator.
+            unsafe { net_free_bytes(ptr, len) };
+        }
+    }
+
+    #[test]
+    fn net_free_bytes_null_and_zero_len_are_noops() {
+        // Both explicitly documented as safe no-ops.
+        unsafe { net_free_bytes(std::ptr::null_mut(), 0) };
+        unsafe { net_free_bytes(std::ptr::null_mut(), 42) };
+        // A non-null pointer with len == 0 is also a no-op — we must
+        // not try to free it, since we never allocated.
+        let mut sentinel: u8 = 0;
+        unsafe { net_free_bytes(&mut sentinel as *mut u8, 0) };
+    }
+
+    /// `net_free_bytes` must NOT panic when called with a
+    /// `len` larger than `isize::MAX`. Pre-fix
+    /// `Layout::array::<u8>(len).expect(...)` panicked on such
+    /// values (a documented `Layout::array` failure mode); the
+    /// panic would unwind across the `extern "C"` boundary into
+    /// any non-Rust caller (C / Go-cgo / NAPI / PyO3) — undefined
+    /// behaviour. Now the function silently no-ops on
+    /// `Layout::array` failure: an allocation of that size could
+    /// not have come from this process under matching layout
+    /// rules, so it's already memory-corruption territory and
+    /// abandoning the free is the safest response.
+    #[test]
+    fn net_free_bytes_does_not_panic_on_oversized_len() {
+        // We can't actually allocate a buffer of `isize::MAX + 1`
+        // bytes to free; the fix's load-bearing check is that the
+        // function reaches the `Err(_) => return` branch instead
+        // of panicking. Pass a non-null pointer with an oversized
+        // len; with the old `expect("byte layout")` this panics.
+        // We use a stack sentinel as the pointer — the function
+        // must short-circuit without touching it.
+        let mut sentinel: u8 = 0;
+        let ptr = &mut sentinel as *mut u8;
+        // `usize::MAX` is well past `isize::MAX`, so
+        // `Layout::array::<u8>(usize::MAX)` is `Err(LayoutError)`.
+        unsafe { net_free_bytes(ptr, usize::MAX) };
+        // If we got here without panicking, the fix is in place.
+        // Sentinel must still be untouched (we never tried to free).
+        assert_eq!(sentinel, 0, "sentinel must not have been written through");
+    }
+
+    /// Regression for a cubic-flagged P1: `net_mesh_shutdown`
+    /// previously returned success (0) without actually shutting
+    /// the node down whenever `Arc::strong_count(&inner) > 1`
+    /// (e.g. the FFI caller was holding a stream handle). The real
+    /// shutdown was silently skipped, so background tasks kept
+    /// draining UDP and consuming CPU. This test holds an extra
+    /// `Arc` clone, calls `net_mesh_shutdown`, and asserts the
+    /// shutdown flag flipped.
+    #[test]
+    fn net_mesh_shutdown_runs_even_with_outstanding_arc_refs() {
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut out: *mut MeshNodeHandle = std::ptr::null_mut();
+        let rc = unsafe { net_mesh_new(cfg_c.as_ptr(), &mut out) };
+        assert_eq!(rc, 0, "net_mesh_new failed: {rc}");
+        assert!(!out.is_null());
+
+        // Clone the inner Arc so strong_count > 1 — this is what a
+        // live stream handle would look like from the guard's POV.
+        let inner_clone = {
+            let h = unsafe { &*out };
+            Arc::clone(&h.inner)
+        };
+        assert!(Arc::strong_count(&inner_clone) >= 2);
+        assert!(!inner_clone.is_shutdown());
+
+        let rc = unsafe { net_mesh_shutdown(out) };
+        assert_eq!(rc, 0, "net_mesh_shutdown returned {rc}");
+        assert!(
+            inner_clone.is_shutdown(),
+            "shutdown flag must be set even when extra Arc refs are outstanding"
+        );
+
+        drop(inner_clone);
+        // Use the production _free; it drains via HandleGuard and
+        // takes inner. The outer box is intentionally leaked
+        // (small per-call leak; acceptable in tests).
+        unsafe { net_mesh_free(out) };
+    }
+
+    /// G-prov (§D1a): the FFI mesh constructor — the code path Go's
+    /// `NewMeshNode` rides — must record identity provenance so the org
+    /// facade can refuse to bind an ephemeral node. A caller-supplied
+    /// `identity_seed_hex` is a durable identity (`has_configured_identity()`
+    /// true); its absence is a generated ephemeral fallback (false). The napi
+    /// and PyO3 constructors each silently omitted this and refused a seeded
+    /// caller `persistent_identity_required` until fixed; this is the third
+    /// constructor and the witness that closes the same gap for Go.
+    #[test]
+    fn net_mesh_new_records_identity_provenance() {
+        // Seeded → configured.
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+            "identity_seed_hex": "7a".repeat(32),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut out: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut out) }, 0);
+        assert!(
+            unsafe { &*out }.inner.has_configured_identity(),
+            "a caller-supplied identity_seed_hex must set configured_identity"
+        );
+        unsafe { net_mesh_free(out) };
+
+        // No seed → ephemeral fallback, NOT configured.
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut out: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut out) }, 0);
+        assert!(
+            !unsafe { &*out }.inner.has_configured_identity(),
+            "a generated ephemeral fallback must leave configured_identity false"
+        );
+        unsafe { net_mesh_free(out) };
+    }
+
+    /// Regression: BUG_REPORT.md #19 — `net_mesh_send` family
+    /// accepted any `(MeshStreamHandle, MeshNodeHandle)` pair and
+    /// sent through the supplied node, regardless of whether the
+    /// stream was opened on it. The fix uses `Arc::ptr_eq` to
+    /// require the stream's cached `_node` to match the supplied
+    /// node handle's inner `Arc`.
+    ///
+    /// Build two distinct nodes via the FFI constructor (so all
+    /// the internal fields are populated correctly), open a stream
+    /// on the first, then verify `handles_match` accepts the
+    /// matched pair and rejects the cross-pair.
+    #[test]
+    fn handles_match_rejects_stream_node_mismatch() {
+        fn make_node_handle() -> *mut MeshNodeHandle {
+            let cfg = serde_json::json!({
+                "bind_addr": "127.0.0.1:0",
+                "psk_hex": "0".repeat(64),
+            });
+            let cfg_c = CString::new(cfg.to_string()).unwrap();
+            let mut out: *mut MeshNodeHandle = std::ptr::null_mut();
+            let rc = unsafe { net_mesh_new(cfg_c.as_ptr(), &mut out) };
+            assert_eq!(rc, 0);
+            assert!(!out.is_null());
+            out
+        }
+
+        let nh_a = make_node_handle();
+        let nh_b = make_node_handle();
+
+        // Build a stream handle whose `_node` Arc is node_a's
+        // inner. We can't go through `open_stream` here because
+        // that requires an established session with the peer
+        // (which the unit test can't synthesize), but `handles_match`
+        // only inspects the cached `_node` Arc — the stream fields
+        // are irrelevant to the check. The crate-internal
+        // `Stream::new` is the constructor; the fields themselves are
+        // private so an application cannot mint one.
+        let sh_a = {
+            let h = unsafe { &*nh_a };
+            let node_clone: Arc<MeshNode> = Arc::clone(&h.inner);
+            MeshStreamHandle {
+                stream: ManuallyDrop::new(CoreStream::new(0xDEAD, 0, 1, 0, StreamConfig::new())),
+                _node: ManuallyDrop::new(node_clone),
+                guard: HandleGuard::new(),
+            }
+        };
+
+        // Matched pair: stream's _node == nh_a.inner — accepted.
+        assert!(
+            handles_match(&sh_a, unsafe { &*nh_a }),
+            "stream from node_a + node_a handle must match"
+        );
+        // Mismatched pair: stream's _node != nh_b.inner — rejected.
+        assert!(
+            !handles_match(&sh_a, unsafe { &*nh_b }),
+            "stream from node_a + node_b handle must be rejected (#19)"
+        );
+
+        // Cleanup: take ManuallyDrop inner fields out of sh_a so
+        // they're properly dropped (rather than leaking when sh_a
+        // falls out of scope). Then call production _free on the
+        // node handles (drains via HandleGuard; leaks the outer
+        // boxes per the soundness rule — acceptable for tests).
+        // SAFETY: sh_a was just built on this thread; no
+        // concurrent access; ManuallyDrop fields haven't been
+        // taken yet.
+        unsafe {
+            let mut sh_a = sh_a;
+            let _ = ManuallyDrop::take(&mut sh_a.stream);
+            let _ = ManuallyDrop::take(&mut sh_a._node);
+        }
+        unsafe { net_mesh_free(nh_a) };
+        unsafe { net_mesh_free(nh_b) };
+    }
+
+    /// `net_mesh_close_stream` on an already-freed handle must report
+    /// `ShuttingDown` from the guard alone, without reading `stream`.
+    ///
+    /// The guard's contract is that a `None` from `try_enter` means
+    /// every field but the guard is off-limits — `net_mesh_stream_free`
+    /// has taken `stream` and dropped `_node` by then. This function
+    /// read `h.stream.peer_node_id()` and `h.stream.stream_id()` ABOVE
+    /// the `try_enter`, the only op in this file that touched a field
+    /// first.
+    ///
+    /// A plain assertion cannot see the difference: `CoreStream` is
+    /// `Copy`, so `ManuallyDrop::take` leaves readable bytes, and the
+    /// box is deliberately leaked across `_free`. What this pins is the
+    /// reachable half — the call is defined, returns the typed code,
+    /// and does not touch the dropped `_node` — so the path stays
+    /// exercised for a Miri or ASan run, and a future `CoreStream` that
+    /// stops being `Copy` fails here rather than in the field.
+    #[test]
+    fn close_stream_after_free_reports_shutting_down() {
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut nh: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut nh) }, 0);
+
+        // Crate-internal `Stream::new`, as in
+        // `handles_match_rejects_stream_node_mismatch`:
+        // `open_stream` needs an established session a unit test cannot
+        // synthesize, and neither the guard nor the ids depend on one.
+        let sh = Box::into_raw(Box::new(MeshStreamHandle {
+            stream: ManuallyDrop::new(CoreStream::new(0xDEAD, 0, 7, 0, StreamConfig::new())),
+            _node: ManuallyDrop::new(Arc::clone(&unsafe { &*nh }.inner)),
+            guard: HandleGuard::new(),
+        }));
+
+        // First close: the guard is open, so this closes the core
+        // stream and frees the inner.
+        assert_eq!(unsafe { net_mesh_close_stream(sh) }, 0);
+
+        // Second close: `freeing` is latched, so the guard refuses. The
+        // box is still valid memory (leaked on purpose), so reading the
+        // guard is defined — reading `stream` is what is not.
+        assert_eq!(
+            unsafe { net_mesh_close_stream(sh) },
+            c_int::from(NetError::ShuttingDown),
+            "a close after free must come from the guard, not from a \
+             field read that happens to survive",
+        );
+
+        // And the plain free stays idempotent alongside it.
+        unsafe { net_mesh_stream_free(sh) };
+
+        unsafe { net_mesh_free(nh) };
+    }
+
+    /// `net_mesh_free` must be idempotent — the post-fix protocol
+    /// does `if begin_free { ManuallyDrop::take(...) }`, so a
+    /// second call must observe `freeing=true` and skip the take
+    /// branch (taking again would panic since `ManuallyDrop` is
+    /// already moved out). The `HandleGuard` core test pins the
+    /// protocol; this test pins the per-handle wiring is correct.
+    #[test]
+    fn net_mesh_free_is_idempotent() {
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut nh: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut nh) }, 0);
+        assert!(!nh.is_null());
+
+        unsafe { net_mesh_free(nh) };
+        // Second free: must not panic, must not double-take the
+        // ManuallyDrop fields, must not deallocate the (leaked)
+        // outer box.
+        unsafe { net_mesh_free(nh) };
+    }
+
+    /// `net_identity_free` must be idempotent; same wiring check
+    /// as `net_mesh_free_is_idempotent` for the IdentityHandle
+    /// (which holds keypair + cache in `ManuallyDrop`).
+    #[test]
+    fn net_identity_free_is_idempotent() {
+        let mut h: *mut IdentityHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_identity_generate(&mut h) }, 0);
+        assert!(!h.is_null());
+
+        unsafe { net_identity_free(h) };
+        // Second free: must not panic.
+        unsafe { net_identity_free(h) };
+    }
+
+    /// `net_mesh_free` racing an in-flight op via the same handle
+    /// must wait for the op to drop its `try_enter` guard before
+    /// taking the inner. Without the guard, `_free` would proceed
+    /// immediately and the op's subsequent inner deref would UAF.
+    ///
+    /// We exercise the guard directly (rather than through a
+    /// long-running FFI op) so the timing window is deterministic
+    /// and not dependent on real network / IO latency. The
+    /// worker holds a `try_enter` op until released; main thread
+    /// calls `_free`, which post-fix must block on `begin_free`'s
+    /// drain loop until the worker drops the op.
+    #[test]
+    fn net_mesh_free_waits_for_inflight_op() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut nh: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut nh) }, 0);
+        assert!(!nh.is_null());
+
+        // Smuggle the raw pointer to the worker via usize (same
+        // shape as cortex's `redex_file_free_waits_for_inflight_append`).
+        let nh_addr = nh as usize;
+        let started = Arc::new(AtomicBool::new(false));
+        let release = Arc::new(AtomicBool::new(false));
+        let started_w = started.clone();
+        let release_w = release.clone();
+
+        let worker = std::thread::spawn(move || {
+            let h = unsafe { &*(nh_addr as *mut MeshNodeHandle) };
+            // Take the guard directly — every gated FFI entry
+            // point does this internally. Holding it past the
+            // main thread's begin_free is what we're testing.
+            let op = h.guard.try_enter().expect("entry must succeed pre-free");
+            started_w.store(true, Ordering::SeqCst);
+            while !release_w.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            drop(op);
+        });
+
+        // Wait for the worker to enter the op.
+        while !started.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+
+        // Schedule release ~50ms out so begin_free has time to
+        // observe `active_ops > 0` and enter its drain loop.
+        let release_clone = release.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            release_clone.store(true, Ordering::SeqCst);
+        });
+
+        // _free MUST block until the worker drops its op.
+        let t0 = Instant::now();
+        unsafe { net_mesh_free(nh) };
+        let elapsed = t0.elapsed();
+        assert!(
+            elapsed >= Duration::from_millis(40),
+            "net_mesh_free returned in {:?} — pre-fix it would have proceeded \
+             immediately and the worker's subsequent op would UAF",
+            elapsed,
+        );
+        worker.join().unwrap();
+    }
+
+    /// Post-free `net_mesh_stream_stats` must bail with
+    /// ShuttingDown rather than touching the freed
+    /// `inner: ManuallyDrop<Arc<MeshNode>>`. Without the guard,
+    /// the function would do `&*node_handle;
+    /// h.inner.stream_stats(...)` and race UAF against
+    /// `net_mesh_free`.
+    #[test]
+    fn net_mesh_stream_stats_returns_shutting_down_after_free() {
+        let cfg = serde_json::json!({
+            "bind_addr": "127.0.0.1:0",
+            "psk_hex": "0".repeat(64),
+        });
+        let cfg_c = CString::new(cfg.to_string()).unwrap();
+        let mut nh: *mut MeshNodeHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_mesh_new(cfg_c.as_ptr(), &mut nh) }, 0);
+        assert!(!nh.is_null());
+
+        // Free first; subsequent stream_stats must bail before
+        // touching the taken-out inner.
+        unsafe { net_mesh_free(nh) };
+
+        let mut out_json: *mut c_char = std::ptr::null_mut();
+        let mut out_len: usize = 0;
+        let rc = unsafe { net_mesh_stream_stats(nh, 0xDEAD, 1, &mut out_json, &mut out_len) };
+        assert_eq!(
+            rc,
+            NetError::ShuttingDown as c_int,
+            "post-free stream_stats must surface ShuttingDown (got {rc})",
+        );
+        assert!(
+            out_json.is_null(),
+            "no payload may be written after the guard fires",
+        );
+    }
+
+    /// Post-free `net_identity_issue_token` must bail with
+    /// ShuttingDown rather than borrowing the freed keypair
+    /// (which lives in `ManuallyDrop` and is taken out by
+    /// `net_identity_free`).
+    #[test]
+    fn net_identity_issue_token_returns_shutting_down_after_free() {
+        let mut signer: *mut IdentityHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_identity_generate(&mut signer) }, 0);
+        assert!(!signer.is_null());
+        unsafe { net_identity_free(signer) };
+
+        // Well-formed inputs (so we reach the guard rather than
+        // bailing on parse).
+        let subject = [0u8; 32];
+        let scope = CString::new("[\"publish\"]").unwrap();
+        let channel = CString::new("test-channel").unwrap();
+        let mut out_token: *mut u8 = std::ptr::null_mut();
+        let mut out_token_len: usize = 0;
+        let rc = unsafe {
+            net_identity_issue_token(
+                signer,
+                subject.as_ptr(),
+                subject.len(),
+                scope.as_ptr(),
+                channel.as_ptr(),
+                60,
+                0,
+                &mut out_token,
+                &mut out_token_len,
+            )
+        };
+        assert_eq!(
+            rc,
+            NetError::ShuttingDown as c_int,
+            "post-free issue_token must surface ShuttingDown (got {rc})",
+        );
+        assert!(out_token.is_null(), "no token bytes may be allocated");
+    }
+
+    /// Post-free `net_delegate_token` must bail with ShuttingDown
+    /// rather than borrowing the freed signer keypair. The parent
+    /// token must validate first (parse before guard), so we
+    /// issue a real one from a live signer, then free that signer
+    /// and reuse it as the delegating signer.
+    #[test]
+    fn net_delegate_token_returns_shutting_down_after_free() {
+        let mut signer: *mut IdentityHandle = std::ptr::null_mut();
+        assert_eq!(unsafe { net_identity_generate(&mut signer) }, 0);
+        assert!(!signer.is_null());
+
+        // Issue a real parent token while signer is alive.
+        let subject = [0u8; 32];
+        let scope = CString::new("[\"publish\",\"delegate\"]").unwrap();
+        let channel = CString::new("test-channel").unwrap();
+        let mut parent_bytes: *mut u8 = std::ptr::null_mut();
+        let mut parent_len: usize = 0;
+        assert_eq!(
+            unsafe {
+                net_identity_issue_token(
+                    signer,
+                    subject.as_ptr(),
+                    subject.len(),
+                    scope.as_ptr(),
+                    channel.as_ptr(),
+                    60,
+                    1,
+                    &mut parent_bytes,
+                    &mut parent_len,
+                )
+            },
+            0,
+        );
+        assert!(!parent_bytes.is_null());
+
+        // Now free the signer and try to delegate using it.
+        unsafe { net_identity_free(signer) };
+
+        let new_subject = [1u8; 32];
+        let restricted = CString::new("[\"publish\"]").unwrap();
+        let mut child_bytes: *mut u8 = std::ptr::null_mut();
+        let mut child_len: usize = 0;
+        let rc = unsafe {
+            net_delegate_token(
+                signer,
+                parent_bytes,
+                parent_len,
+                new_subject.as_ptr(),
+                new_subject.len(),
+                restricted.as_ptr(),
+                &mut child_bytes,
+                &mut child_len,
+            )
+        };
+        assert_eq!(
+            rc,
+            NetError::ShuttingDown as c_int,
+            "post-free delegate_token must surface ShuttingDown (got {rc})",
+        );
+        assert!(child_bytes.is_null(), "no child token may be allocated");
+
+        // Cleanup: free the parent token bytes.
+        unsafe { net_free_bytes(parent_bytes, parent_len) };
+    }
+
+    #[test]
+    fn hardware_from_json_saturates_overflow_cpu_fields() {
+        // 70_000 > u16::MAX (65_535). Pre-fix: 70_000 as u16 = 4464.
+        // Post-fix: saturates to 65_535.
+        let h = HardwareJson {
+            cpu_cores: Some(70_000),
+            cpu_threads: Some(200_000),
+            memory_gb: None,
+            gpu: None,
+            additional_gpus: Vec::new(),
+            storage_gb: None,
+            network_gbps: None,
+            accelerators: Vec::new(),
+        };
+        let hw = hardware_from_json(h);
+        assert_eq!(hw.cpu_cores, u16::MAX);
+        assert_eq!(hw.cpu_threads, u16::MAX);
+    }
+
+    /// A C caller passing `(size_t)-1` as `len` to the token-parsing
+    /// FFI entry points previously triggered immediate UB in
+    /// `slice::from_raw_parts` (which requires `len <= isize::MAX`).
+    /// The guard must short-circuit with a typed error before the
+    /// dangling pointer is dereferenced. The sentinel pointer is
+    /// never read because the size check fires first.
+    #[test]
+    fn token_entry_points_reject_oversize_len() {
+        let invalid_json: c_int = NetError::InvalidJson.into();
+        let mut sentinel: u8 = 0;
+        let token = &mut sentinel as *mut u8 as *const u8;
+
+        let mut out_json: *mut c_char = std::ptr::null_mut();
+        let mut out_len: usize = 0;
+        assert_eq!(
+            unsafe { net_parse_token(token, usize::MAX, &mut out_json, &mut out_len) },
+            invalid_json,
+        );
+        assert!(out_json.is_null());
+
+        let mut out_ok: c_int = -42;
+        assert_eq!(
+            unsafe { net_verify_token(token, usize::MAX, &mut out_ok) },
+            invalid_json,
+        );
+
+        let mut out_expired: c_int = -42;
+        assert_eq!(
+            unsafe { net_token_is_expired(token, usize::MAX, &mut out_expired) },
+            invalid_json,
+        );
+
+        assert_eq!(
+            sentinel, 0,
+            "sentinel must not be touched: the length guard fires before any deref"
+        );
+    }
+}
+
+#[cfg(all(test, not(feature = "nat-traversal")))]
+mod nat_traversal_stub_tests {
+    //! Regression coverage for cubic-flagged P1 Bug L: the Go /
+    //! NAPI / PyO3 bindings unconditionally link against the
+    //! `net_mesh_nat_type` / `net_mesh_connect_direct` / ...
+    //! symbols. Without these stubs, a cdylib built without
+    //! `--features nat-traversal` failed at dlopen with a missing-
+    //! symbol error, contradicting the binding docs' promise of
+    //! `ErrTraversalUnsupported` at runtime.
+    //!
+    //! Each test here asserts the stub resolves *and* returns
+    //! [`super::NET_ERR_TRAVERSAL_UNSUPPORTED`] (-137) — the exact
+    //! value the Go / NAPI / PyO3 translation layers map to their
+    //! respective `Unsupported` sentinels.
+    //!
+    //! Only compiled in the no-feature build; the feature-on path
+    //! has different semantics (real NAT-traversal work) tested
+    //! elsewhere.
+    use super::*;
+    use std::ptr;
+
+    #[test]
+    fn nat_type_stub_returns_unsupported() {
+        let mut out_str: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        // SAFETY: stub path — null handle is the documented sentinel
+        // the stub fast-paths to `NET_ERR_TRAVERSAL_UNSUPPORTED`.
+        let code = unsafe { net_mesh_nat_type(ptr::null_mut(), &mut out_str, &mut out_len) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn reflex_addr_stub_returns_unsupported() {
+        let mut out_str: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_reflex_addr(ptr::null_mut(), &mut out_str, &mut out_len) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn peer_nat_type_stub_returns_unsupported() {
+        let mut out_str: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code =
+            unsafe { net_mesh_peer_nat_type(ptr::null_mut(), 0, &mut out_str, &mut out_len) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn probe_reflex_stub_returns_unsupported() {
+        let mut out_str: *mut c_char = ptr::null_mut();
+        let mut out_len: usize = 0;
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_probe_reflex(ptr::null_mut(), 0, &mut out_str, &mut out_len) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn reclassify_nat_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_reclassify_nat(ptr::null_mut()) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn traversal_stats_stub_returns_unsupported() {
+        let mut a: u64 = 0;
+        let mut b: u64 = 0;
+        let mut c: u64 = 0;
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_traversal_stats(ptr::null_mut(), &mut a, &mut b, &mut c) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn connect_direct_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_connect_direct(ptr::null_mut(), 0, ptr::null(), 0) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn connect_direct_auto_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_connect_direct_auto(ptr::null_mut(), 0, ptr::null()) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn traversal_stats_v2_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_traversal_stats_v2(ptr::null_mut(), ptr::null_mut()) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn set_reflex_override_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_set_reflex_override(ptr::null_mut(), ptr::null()) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    #[test]
+    fn clear_reflex_override_stub_returns_unsupported() {
+        // SAFETY: stub path — see `nat_type_stub_returns_unsupported`.
+        let code = unsafe { net_mesh_clear_reflex_override(ptr::null_mut()) };
+        assert_eq!(code, NET_ERR_TRAVERSAL_UNSUPPORTED);
+    }
+
+    /// Pins the constant itself. If anyone ever renumbers
+    /// `NET_ERR_TRAVERSAL_UNSUPPORTED`, every Go / NAPI / PyO3
+    /// binding's error translation silently breaks — the stubs
+    /// return the new value but the mapping layers are hardcoded
+    /// to -137.
+    #[test]
+    fn unsupported_code_is_stable() {
+        assert_eq!(NET_ERR_TRAVERSAL_UNSUPPORTED, -137);
+    }
+
+    /// Repro for the failing Go `TestHardwareAndGpuFilter_Matches`:
+    /// parse the exact JSON the Go binding marshals, convert via
+    /// the FFI helpers, then verify the GpuVendor lands as Nvidia.
+    #[test]
+    fn capability_set_from_go_marshal_preserves_gpu_vendor() {
+        let json = r#"{"hardware":{"cpu_cores":16,"memory_gb":64,"gpu":{"vendor":"nvidia","model":"h100","vram_gb":80}},"tags":["gpu"]}"#;
+        let parsed: CapabilitySetJson = serde_json::from_str(json).expect("JSON should parse");
+        let caps = capability_set_from_json(parsed).expect("valid capability set");
+        // Phase A.5.5: read through views() so the test asserts
+        // the projection — the same surface every consumer sees
+        // post-Phase-A.5.N when typed-struct fields are removed.
+        let views = caps.views();
+        assert_eq!(
+            views.hardware().gpu_vendor(),
+            Some(super::GpuVendor::Nvidia),
+            "vendor lost in conversion"
+        );
+        assert_eq!(views.hardware().memory_gb, 64);
+        assert_eq!(views.hardware().total_vram_gb(), 80);
+        assert!(caps.has_tag("gpu"));
+    }
+
+    /// Regression: BUG_REPORT.md #15 — `collect_payloads` previously
+    /// dereferenced every per-entry pointer without a null check, so a C
+    /// caller passing an array containing a null entry produced UB on
+    /// `from_raw_parts(null, len)`. The fix returns `None` for any null
+    /// pointer with non-zero length so the caller can return
+    /// `NetError::NullPointer`. A null pointer with length 0 is treated
+    /// as an empty payload (allowed because the pointer is never
+    /// dereferenced).
+    #[test]
+    fn collect_payloads_rejects_null_entry_with_nonzero_length() {
+        let buf_a = b"hello".as_slice();
+        let buf_b = b"world".as_slice();
+        let ptrs: [*const u8; 3] = [buf_a.as_ptr(), std::ptr::null(), buf_b.as_ptr()];
+        let lens: [usize; 3] = [buf_a.len(), 4, buf_b.len()];
+
+        let result = unsafe { collect_payloads(ptrs.as_ptr(), lens.as_ptr(), 3) };
+        assert!(
+            result.is_none(),
+            "null entry with non-zero length must reject the whole batch"
+        );
+    }
+
+    #[test]
+    fn collect_payloads_allows_null_entry_with_zero_length() {
+        let buf_a = b"hello".as_slice();
+        let ptrs: [*const u8; 2] = [buf_a.as_ptr(), std::ptr::null()];
+        let lens: [usize; 2] = [buf_a.len(), 0];
+
+        let result = unsafe { collect_payloads(ptrs.as_ptr(), lens.as_ptr(), 2) }
+            .expect("zero-length null is treated as empty payload");
+        assert_eq!(result.len(), 2);
+        assert_eq!(&result[0][..], b"hello");
+        assert!(result[1].is_empty());
+    }
+
+    #[test]
+    fn collect_payloads_happy_path() {
+        let buf_a = b"abc".as_slice();
+        let buf_b = b"defg".as_slice();
+        let ptrs: [*const u8; 2] = [buf_a.as_ptr(), buf_b.as_ptr()];
+        let lens: [usize; 2] = [buf_a.len(), buf_b.len()];
+
+        let result = unsafe { collect_payloads(ptrs.as_ptr(), lens.as_ptr(), 2) }
+            .expect("non-null entries should succeed");
+        assert_eq!(result.len(), 2);
+        assert_eq!(&result[0][..], b"abc");
+        assert_eq!(&result[1][..], b"defg");
+    }
+}
+
+#[cfg(all(test, feature = "net"))]
+mod subnet_authority_config_tests {
+    //! Base `libnet`'s JSON constructor accepts subnet TRUST ANCHORS
+    //! (review-10 P1-7).
+    //!
+    //! Go and C both receive their node from this constructor. Before the
+    //! conversion moved into the core they could not declare an authority,
+    //! a security attachment, or a control channel at all — so their
+    //! advertised provider verb could never produce an authorized
+    //! subnet-exported service, however correct the rest of the binding
+    //! was. These tests pin that the fields parse, that the SAME
+    //! validation every other SDK runs applies here, and that a
+    //! configuration mistake is refused rather than silently dropped.
+
+    use super::*;
+
+    const AUTHORITY: &str = "d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7";
+    const ROOT: &str = "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1";
+
+    fn parse(json: &str) -> Result<MeshNewConfig, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+
+    /// The three authority fields deserialize into the core DTOs, and a
+    /// well-formed set converts.
+    #[test]
+    fn trust_anchor_fields_parse_and_convert() {
+        let cfg = parse(&format!(
+            r#"{{"bind_addr":"127.0.0.1:0","psk_hex":"{psk}",
+                 "subnet_authorities":[{{"authority_hex":"{AUTHORITY}",
+                     "root_hexes":["{ROOT}"],"maximum_grant_lifetime_secs":604800}}],
+                 "subnet_attachment":[3,9],
+                 "subnet_control_channel":"subnet.control"}}"#,
+            psk = "42".repeat(32),
+        ))
+        .expect("config parses");
+
+        let authorities = cfg.subnet_authorities.expect("authorities present");
+        assert_eq!(authorities.len(), 1);
+        let core = authorities[0].to_core().expect("converts");
+        assert_eq!(core.maximum_grant_lifetime_secs, 604_800);
+        assert_eq!(core.roots.len(), 1);
+        assert!(
+            crate::adapter::net::subnet::provision::validate_subnet_authorities(&[core]).is_ok(),
+            "a well-formed anchor must validate",
+        );
+
+        assert_eq!(cfg.subnet_attachment.as_deref(), Some(&[3u8, 9][..]));
+        assert_eq!(
+            cfg.subnet_control_channel.as_deref(),
+            Some("subnet.control")
+        );
+    }
+
+    /// Omitting them is the ordinary case and must stay valid — an
+    /// unconfigured node simply fails every protected subnet assertion
+    /// closed rather than refusing to start.
+    #[test]
+    fn trust_anchor_fields_are_optional() {
+        let cfg = parse(&format!(
+            r#"{{"bind_addr":"127.0.0.1:0","psk_hex":"{}"}}"#,
+            "42".repeat(32)
+        ))
+        .expect("config parses without any subnet authority field");
+        assert!(cfg.subnet_authorities.is_none());
+        assert!(cfg.subnet_attachment.is_none());
+        assert!(cfg.subnet_control_channel.is_none());
+    }
+
+    /// The SAME validation every other SDK runs applies here. Each of
+    /// these is a configuration mistake the constructor must refuse, not
+    /// a runtime verification outcome — and refusing means
+    /// `NET_ERR_MESH_INIT`, never a node that came up trusting nothing.
+    #[test]
+    fn configuration_mistakes_are_refused() {
+        use crate::adapter::net::subnet::provision::{
+            dto::SubnetAuthorityConfigDto, validate_subnet_authorities,
+        };
+
+        let good = SubnetAuthorityConfigDto {
+            authority_hex: AUTHORITY.to_string(),
+            root_hexes: vec![ROOT.to_string()],
+            maximum_grant_lifetime_secs: 604_800,
+        };
+
+        // Malformed hex never reaches validation — the DTO refuses it.
+        let bad_hex = SubnetAuthorityConfigDto {
+            authority_hex: "not-hex".to_string(),
+            ..good.clone()
+        };
+        assert!(bad_hex.to_core().is_err(), "a malformed id must be refused");
+
+        // Empty root set: would fail closed forever.
+        let empty_roots = SubnetAuthorityConfigDto {
+            root_hexes: Vec::new(),
+            ..good.clone()
+        };
+        assert!(validate_subnet_authorities(&[empty_roots.to_core().expect("converts")]).is_err());
+
+        // Zero lifetime.
+        let zero_life = SubnetAuthorityConfigDto {
+            maximum_grant_lifetime_secs: 0,
+            ..good.clone()
+        };
+        assert!(validate_subnet_authorities(&[zero_life.to_core().expect("converts")]).is_err());
+
+        // Duplicate authority.
+        let one = good.to_core().expect("converts");
+        let two = good.to_core().expect("converts");
+        assert!(validate_subnet_authorities(&[one, two]).is_err());
+    }
+
+    /// The EXACT JSON the Go binding emits deserializes here.
+    ///
+    /// Go's `[]uint8` is `[]byte`, and `encoding/json` special-cases that
+    /// as BASE64 on the way out — so `SubnetAttachment []uint8` reached
+    /// this constructor as `"Awk="` instead of `[3,9]` and the whole
+    /// config was refused as invalid JSON. The asymmetry is what made it
+    /// easy to ship: unmarshalling `[3,9]` INTO `[]uint8` succeeds, so the
+    /// manifest parsed and only the constructor failed.
+    ///
+    /// This is a captured sample of `json.Marshal(MeshConfig{...})` after
+    /// the fix, so a future Go type change that reintroduces base64 (or
+    /// renames a field) fails HERE rather than in a cgo test that cannot
+    /// build on every host.
+    #[test]
+    fn the_go_bindings_emitted_config_deserializes() {
+        const GO_EMITTED: &str = r#"{"bind_addr":"127.0.0.1:0","psk_hex":"4242424242424242424242424242424242424242424242424242424242424242","subnet_exports":[{"name":"factory-export","access":"granted","binding":{"subnet":{"authority_hex":"d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7","path":{"levels":[3,9]}},"topology_epoch":0}}],"subnet_authorities":[{"authority_hex":"d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7","root_hexes":["d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7"],"maximum_grant_lifetime_secs":604800}],"subnet_attachment":[3]}"#;
+
+        let cfg = parse(GO_EMITTED).expect("the Go binding's own JSON must deserialize");
+        assert_eq!(cfg.subnet_attachment.as_deref(), Some(&[3u8][..]));
+        let exports = cfg.subnet_exports.expect("exports present");
+        assert_eq!(exports.len(), 1);
+        let export = exports[0].to_core().expect("export converts");
+        assert_eq!(export.name, "factory-export");
+        let authorities = cfg.subnet_authorities.expect("authorities present");
+        assert!(authorities[0].to_core().is_ok());
+    }
+
+    /// The base64 shape a `[]uint8` field WOULD produce is refused, so the
+    /// regression above cannot pass by the deserializer being lenient.
+    #[test]
+    fn a_base64_level_array_is_refused() {
+        let base64_attachment =
+            r#"{"bind_addr":"127.0.0.1:0","psk_hex":"42","subnet_attachment":"Awk="}"#;
+        assert!(
+            parse(base64_attachment).is_err(),
+            "a base64 attachment must be refused, not silently accepted",
+        );
+    }
+
+    /// A path deeper than the four-level hierarchy is refused rather
+    /// than truncated.
+    #[test]
+    fn an_over_deep_attachment_is_refused() {
+        use crate::adapter::net::subnet::provision::dto::SubnetPathDto;
+        assert!(SubnetPathDto {
+            levels: vec![1, 2, 3, 4, 5]
+        }
+        .to_core()
+        .is_err());
+        assert!(SubnetPathDto {
+            levels: vec![1, 2, 3, 4]
+        }
+        .to_core()
+        .is_ok());
+        assert!(SubnetPathDto { levels: vec![] }.to_core().is_ok());
+    }
+}
+
+#[cfg(all(test, feature = "net"))]
+mod named_export_construction_tests {
+    //! The NAMED EXPORT map is Rust-owned and frozen at construction
+    //! (review-10 P1-6).
+    //!
+    //! It lives on the node rather than in each language wrapper so that
+    //! name→binding resolution happens in one place for every boundary —
+    //! including the C ABI, which has no wrapper object to hold a map. A
+    //! node must never come up holding an ambiguous map.
+
+    use super::*;
+    use crate::adapter::net::identity::EntityKeypair;
+    use crate::adapter::net::subnet::provision::{NamedSubnetExport, SubnetExportAccess};
+    use crate::adapter::net::subnet::{SubnetRef, TopologySubnetId};
+
+    fn export(name: &str) -> NamedSubnetExport {
+        NamedSubnetExport {
+            name: name.to_string(),
+            access: SubnetExportAccess::Granted,
+            subnet: SubnetRef {
+                authority: EntityKeypair::from_bytes([0x11; 32]).entity_id().clone(),
+                path: TopologySubnetId::new(&[3, 9]),
+            },
+            topology_epoch: 0,
+        }
+    }
+
+    async fn build(exports: Vec<NamedSubnetExport>) -> Result<MeshNode, AdapterError> {
+        let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0u8; 32]);
+        for e in exports {
+            cfg = cfg.with_subnet_export(e);
+        }
+        MeshNode::new(EntityKeypair::generate(), cfg).await
+    }
+
+    /// A configured map is frozen on the node and resolves by name.
+    #[tokio::test]
+    async fn configured_exports_are_resolvable_from_the_node() {
+        let node = build(vec![export("factory-export"), export("lab-export")])
+            .await
+            .expect("distinct names construct");
+        let map = node.subnet_exports();
+        assert!(map.resolve("factory-export").is_some());
+        assert!(map.resolve("lab-export").is_some());
+        assert!(
+            map.resolve("no-such-export").is_none(),
+            "an unconfigured name must not resolve",
+        );
+    }
+
+    /// A duplicate label is a configuration mistake: the node REFUSES to
+    /// come up rather than silently keeping one of the two.
+    #[tokio::test]
+    async fn a_duplicate_export_name_refuses_construction() {
+        let Err(err) = build(vec![export("dup"), export("dup")]).await else {
+            panic!("a duplicate label must refuse construction");
+        };
+        assert!(
+            err.to_string().contains("duplicate_export_name"),
+            "expected the stable kind in the refusal, got {err}",
+        );
+    }
+
+    /// So is an empty one.
+    #[tokio::test]
+    async fn an_empty_export_name_refuses_construction() {
+        let Err(err) = build(vec![export("")]).await else {
+            panic!("an empty label must refuse construction");
+        };
+        assert!(
+            err.to_string().contains("empty_export_name"),
+            "expected the stable kind in the refusal, got {err}",
+        );
+    }
+
+    /// No exports is the ordinary case and must stay valid — the map is
+    /// simply empty, and every serve against a name fails to resolve.
+    #[tokio::test]
+    async fn no_exports_is_valid_and_resolves_nothing() {
+        let node = build(Vec::new()).await.expect("no exports constructs");
+        assert!(node.subnet_exports().is_empty());
+        assert!(node.subnet_exports().resolve("anything").is_none());
+    }
+}

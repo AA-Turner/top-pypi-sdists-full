@@ -1,0 +1,621 @@
+"""Canonical per-request audience resolution — one comparable identity space.
+
+Design decision D5. Every content-returning read resolves a canonical audience
+at its *surface boundary* and threads it to the release decision, so a grant
+authored against one surface matches the same human arriving over another.
+The binding is a contextvar + `request_scope()` — a deliberate clone of
+`capabilities.active_surface` / `command_surface.mcp_request_context`, which
+already prove the set/reset shape works through the synchronous tool wrapper
+and `run_in_threadpool`.
+
+Two invariants this module exists to hold:
+
+- **stdio/CLI is the owner.** A local process talking to its own vault has no
+  identity to resolve; that is `OWNER_AUDIENCE`, not a failed resolution. It
+  is stated explicitly at the entry point (`owner_principal` / `library_scope`),
+  never inferred from an absent binding.
+- **unresolved-but-expected fails closed.** When a surface *should* produce an
+  identity (a remote HTTP transport, a hosted cell) and cannot, the audience is
+  `MOST_RESTRICTIVE_AUDIENCE` — never the owner, and never OPEN. Callers pair
+  this with the `Policy.empty` → `Policy.blocked` check: an unresolved
+  principal must not be able to reach the open fast path.
+- **an ABSENT binding fails closed too.** `effective_principal()` treats "no
+  principal bound" as unresolved rather than as the owner, so forgetting a
+  `request_scope` costs disclosure rather than granting it.
+
+`purpose` is NOT a surface property — it arrives as a per-call leaf parameter,
+so it layers onto a bound principal via `with_purpose()` rather than being
+resolved here.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .authorization_session_lifecycle import AuthorizationSessionContext
+
+# The vault's own operator: stdio MCP, the CLI, the shared REST key, and any
+# in-process/library call with no surface bound.
+OWNER_AUDIENCE = "owner"
+
+# The fail-closed floor. Deliberately a reserved id no authored rule can name
+# as a grant target (a grant is keyed on `audience`, and this value can never
+# be produced by `normalize_audience`), so "deny" cannot be widened by policy.
+MOST_RESTRICTIVE_AUDIENCE = "\x00unresolved"
+
+# A stand-in for "whoever the policy does not name" — never bound to a request
+# and never resolvable, on the same reserved `\x00` prefix so no document and
+# no credential can mint it. Policy review enumerates audiences from the rules
+# and grants a proposal touches, which by construction cannot see a change to
+# the DEFAULT that applies where no rule matches; this id puts that default in
+# the compared lattice so removing a `default_deny` declaration reports as the
+# widening it is.
+UNNAMED_AUDIENCE_PROBE = "\x00unnamed"
+
+# Surface-scope prefixes whose payload is ALREADY a sha256 over `iss\0sub` —
+# the same formula `normalize_audience` uses, so they fold into the shared id
+# space by relabelling rather than by re-hashing. `cf-access:` is minted in
+# `server_rest._rest_principal`; `principal:` in `command_surface`.
+_OAUTH_EQUIVALENT_PREFIXES = ("principal:", "cf-access:")
+
+_LOCAL_OWNER_ISSUER_FAMILIES = {
+    "cli": "cli-local-owner",
+    "library": "library-local-owner",
+    "mcp": "mcp-local-stdio",
+    "rest": "rest-api-key",
+    "transfer": "transfer-local-owner",
+}
+
+_REQUEST_PRINCIPAL: ContextVar[RequestPrincipal | None] = ContextVar(
+    "exomem_request_principal", default=None
+)
+
+# What one product invocation's compiles served, for the terminal guard's passes
+# over the same invocation (`context_views`). `invocation_scope` owns it, so a
+# compile and every guard pass of one invocation share it, and it ends with that
+# invocation. A thread that runs part of the invocation in a copied context
+# mutates the same mapping.
+_INVOCATION_SERVED: ContextVar[dict[Any, Any] | None] = ContextVar(
+    "exomem_invocation_served", default=None
+)
+
+# The host's explicit binding of one remote OAuth identity as the owner. It is
+# read only from the process environment the host's service configuration
+# supplies -- never from the vault, a policy document, a request or a claim --
+# so no remote surface can create or widen it. The grammar is spelled out in
+# ASCII because `\d`, `str.isdecimal()` and `int()` all accept Unicode digits.
+REMOTE_OWNER_SUBJECT_ENV = "EXOMEM_OWNER_OAUTH_SUBJECT"
+_GITHUB_OWNER_SUBJECT = re.compile(r"github:([1-9][0-9]{0,18})", re.ASCII)
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteOwnerBinding:
+    """One armed binding: the provider subject and the issuer it must come from."""
+
+    provider: str
+    user_id: int
+    issuer: str
+
+
+@dataclass(frozen=True, slots=True)
+class ClientBinding:
+    """The authenticated client, independent of its owner's audience."""
+
+    issuer: str
+    client_id: str
+
+    def __post_init__(self) -> None:
+        if any(not isinstance(value, str) or not value.strip()
+               for value in (self.issuer, self.client_id)):
+            raise ValueError("invalid client binding")
+
+
+@dataclass(frozen=True, slots=True)
+class OriginSessionBinding:
+    """Bearer-free login identity for live delegated-capability validation."""
+
+    session_id: str
+    generation: str
+    audience: str
+
+    def __post_init__(self) -> None:
+        if any(not isinstance(value, str) or not value.strip()
+               for value in (self.session_id, self.generation, self.audience)):
+            raise ValueError("invalid origin session binding")
+
+
+@dataclass(frozen=True, slots=True)
+class RequestPrincipal:
+    """Who is asking, in the one id space the release decision compares against."""
+
+    audience_id: str
+    surface: str = "library"
+    session_id: str | None = None
+    authorization_session_id: str | None = None
+    purpose: str | None = None
+    resolved: bool = True
+    issuer_family: str | None = None
+    verified_authorization_session: AuthorizationSessionContext | None = None
+    # True only for the owner audience reached through the host's explicit
+    # remote binding. It labels the request; it never changes a decision.
+    remote_owner: bool = False
+    # True only for the owner audience reached with a local client token over
+    # the supervisor's local listener. A label, like `remote_owner`.
+    local_owner: bool = False
+    client_binding: ClientBinding | None = None
+    origin_session: OriginSessionBinding | None = None
+    administrative_ingress: bool = False
+
+    @property
+    def principal_kind(self) -> str:
+        """Closed audit label: `owner`, `owner-oauth`, `owner-local`,
+        `principal` or `unresolved`."""
+        if not self.resolved:
+            return "unresolved"
+        if self.audience_id == OWNER_AUDIENCE:
+            if self.remote_owner:
+                return "owner-oauth"
+            return "owner-local" if self.local_owner else "owner"
+        return "principal"
+
+    def with_purpose(self, purpose: str | None) -> RequestPrincipal:
+        """Layer a per-call declared purpose on without mutating the binding."""
+        if purpose is None:
+            return self
+        return replace(self, purpose=purpose)
+
+    def with_authorization_session(self, handle: str | None) -> RequestPrincipal:
+        """Bind the explicit client-conversation authorization identity."""
+        return replace(self, authorization_session_id=handle)
+
+    def with_verified_authorization_session(
+        self,
+        context: AuthorizationSessionContext | None,
+        *,
+        issuer_family: str,
+    ) -> RequestPrincipal:
+        """Bind dispatcher-verified capability context without retaining its bearer."""
+        return replace(
+            self,
+            authorization_session_id=context.session_id if context is not None else None,
+            issuer_family=issuer_family,
+            verified_authorization_session=context,
+        )
+
+
+def normalize_audience(*, subject: Any, issuer: Any = None) -> str:
+    """Map an identity claim pair into the single comparable audience id space.
+
+    An empty subject is not an identity: it returns the fail-closed floor so a
+    caller that forgets to check `resolved` still cannot land on the owner.
+    """
+    clean_subject = str(subject or "").strip()
+    if not clean_subject:
+        return MOST_RESTRICTIVE_AUDIENCE
+    clean_issuer = str(issuer or "").strip() or "verified-principal"
+    digest = hashlib.sha256(f"{clean_issuer}\0{clean_subject}".encode()).hexdigest()
+    return f"principal:{digest}"
+
+
+def _canonical_scope(scope: str) -> str:
+    """Fold an already-minted per-surface principal scope into the id space."""
+    clean = scope.strip()
+    if not clean:
+        return MOST_RESTRICTIVE_AUDIENCE
+    for prefix in _OAUTH_EQUIVALENT_PREFIXES:
+        if clean.startswith(prefix):
+            payload = clean[len(prefix) :].strip()
+            return f"principal:{payload}" if payload else MOST_RESTRICTIVE_AUDIENCE
+    # An opaque surface scope (a hosted gateway scope, an MCP bearer digest):
+    # stable and comparable to itself, distinct from every other scope.
+    return normalize_audience(subject=clean, issuer="surface-scope")
+
+
+def owner_principal(*, surface: str = "cli", purpose: str | None = None) -> RequestPrincipal:
+    """The local operator: stdio MCP, the CLI, the vault's own REST key."""
+    return RequestPrincipal(
+        audience_id=OWNER_AUDIENCE,
+        surface=surface,
+        purpose=purpose,
+        resolved=True,
+        issuer_family=_LOCAL_OWNER_ISSUER_FAMILIES.get(surface),
+        # Closed ingress names identify actual local administration, not owner identity.
+        administrative_ingress=surface in {"cli", "mcp", "library"},  # nosemgrep: ep-word-membership -- closed local ingress surfaces, not a vocabulary
+    )
+
+
+#: The issuer family of a local client token, whichever surface it reaches.
+LOCAL_INGRESS_ISSUER_FAMILY = "mcp-local"
+
+
+def local_owner_principal(*, surface: str) -> RequestPrincipal:
+    """The owner, reached with a local client token over local ingress.
+
+    Its own issuer family keeps session authority from crossing between this
+    door and the stdio, REST-key or remote doors.
+    """
+    from .. import local_ingress
+
+    grant = local_ingress.current_grant()
+    return RequestPrincipal(
+        audience_id=OWNER_AUDIENCE,
+        surface=surface,
+        resolved=True,
+        issuer_family=LOCAL_INGRESS_ISSUER_FAMILY,
+        local_owner=True,
+        client_binding=(ClientBinding(local_ingress.LOCAL_ISSUER, grant.client_id)
+                        if grant is not None else None),
+        origin_session=grant.origin_session if grant is not None else None,
+    )
+
+
+def most_restrictive_principal(*, surface: str) -> RequestPrincipal:
+    """Identity was expected and did not resolve — deny, do not open."""
+    return RequestPrincipal(
+        audience_id=MOST_RESTRICTIVE_AUDIENCE, surface=surface, resolved=False
+    )
+
+
+def _mcp_identity_claims() -> tuple[dict[str, Any] | None, str | None]:
+    """`(claims, expectation)` for the live FastMCP request.
+
+    `expectation` is `"authenticated"` when the transport says an identity
+    SHOULD be resolvable (a remote HTTP request) but none was — the
+    fail-closed trigger. A plain stdio invocation yields `(None, None)`,
+    which is the owner. Separated from `resolve_mcp_principal` so tests pin
+    the resolution contract without pinning FastMCP internals.
+    """
+    try:
+        from fastmcp.server.dependencies import get_access_token, get_http_headers, get_http_request
+    except ImportError:  # pragma: no cover - fastmcp is a hard dependency
+        return None, None
+
+    try:
+        access_token = get_access_token()
+    except (LookupError, RuntimeError):
+        access_token = None
+    if access_token is not None:
+        claims = getattr(access_token, "claims", None) or {}
+        if str(claims.get("sub") or "").strip():
+            return dict(claims), None
+        # An auth provider is in play but produced no subject.
+        return None, "authenticated"
+
+    try:
+        headers = get_http_headers(include={"authorization"})
+    except (LookupError, RuntimeError):
+        return None, None
+    if not headers:
+        # A request containing only excluded headers also produces {}.
+        # Only absence of an HTTP binding, or the stdio transport's own
+        # header-less request, proves the stdio fallback.
+        try:
+            request = get_http_request()
+        except (LookupError, RuntimeError):
+            return None, None
+        from .authorization_transport import is_stdio_request
+
+        if is_stdio_request(request):
+            return None, None
+        return None, "authenticated"
+    authorization = str(headers.get("authorization", "")).strip()
+    scheme, separator, credential = authorization.partition(" ")
+    if separator and scheme.lower() == "bearer" and credential.strip():
+        return {"sub": credential.strip(), "iss": "bearer"}, None
+    return None, "authenticated"
+
+
+def _allowed_github_user_id(environ: Mapping[str, str]) -> int | None:
+    """The account the sign-in verifier admits, parsed as `build_oauth` does."""
+    raw = str(environ.get("EXOMEM_GITHUB_USER_ID", "") or "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def _parse_remote_owner_subject(raw: str) -> int | None:
+    match = _GITHUB_OWNER_SUBJECT.fullmatch(raw)
+    return int(match.group(1)) if match is not None else None
+
+
+def remote_owner_binding_state(environ: Mapping[str, str] | None = None) -> str:
+    """`unset`, `malformed`, `mismatch` or `active` -- content-free by design.
+
+    `mismatch` is a well-formed binding that names an account other than the
+    one allowed to sign in, so it can never apply.
+    """
+    env = os.environ if environ is None else environ
+    raw = str(env.get(REMOTE_OWNER_SUBJECT_ENV, "") or "").strip()
+    if not raw:
+        return "unset"
+    user_id = _parse_remote_owner_subject(raw)
+    if user_id is None:
+        return "malformed"
+    if user_id != _allowed_github_user_id(env):
+        return "mismatch"
+    return "active"
+
+
+def remote_owner_binding(
+    environ: Mapping[str, str] | None = None,
+) -> RemoteOwnerBinding | None:
+    """The armed binding, or None -- which is exactly today's behaviour.
+
+    Unset, malformed, naming an account other than the allowed sign-in account,
+    or lacking this install's base URL all read as "no binding": failing closed
+    on privilege while the service stays up.
+    """
+    env = os.environ if environ is None else environ
+    if remote_owner_binding_state(env) != "active":
+        return None
+    issuer = str(env.get("EXOMEM_BASE_URL", "") or "").strip().rstrip("/")
+    if not issuer:
+        return None
+    user_id = _parse_remote_owner_subject(
+        str(env.get(REMOTE_OWNER_SUBJECT_ENV, "") or "").strip()
+    )
+    if user_id is None:  # pragma: no cover - the state check above parsed it
+        return None
+    return RemoteOwnerBinding(provider="github", user_id=user_id, issuer=issuer)
+
+
+def _verified_access_token() -> object | None:
+    """The live request's verified access token, or None. Never reads headers."""
+    try:
+        from fastmcp.server.dependencies import get_access_token
+    except ImportError:  # pragma: no cover - fastmcp is a hard dependency
+        return None
+    try:
+        return get_access_token()
+    except (LookupError, RuntimeError, TypeError):
+        return None
+
+
+def _is_bound_remote_owner(token: object, binding: RemoteOwnerBinding | None) -> bool:
+    """Whether a verified token is the host's bound remote owner.
+
+    Provenance first: only the durable session proxy's own token type carries
+    the marker, so a raw bearer header, a plain `AccessToken`, another
+    verifier, or a hosted or cell credential with copied claims never matches.
+    Then this install's issuer, and a typed id that `sub` agrees with.
+    """
+    if binding is None or token is None:
+        return False
+    from ..session_oauth import ExomemSessionAccessToken
+
+    if not isinstance(token, ExomemSessionAccessToken):
+        return False
+    claims = getattr(token, "claims", None)
+    if not isinstance(claims, Mapping):
+        return False
+    user_id = claims.get("github_user_id")
+    return (
+        type(user_id) is int
+        and user_id == binding.user_id
+        and claims.get("sub") == str(user_id)
+        and claims.get("iss") == binding.issuer
+    )
+
+
+def _local_ingress_owner() -> bool:
+    """Whether this request is a verified local client over local ingress.
+
+    Both halves are required: the request's live grant, which only the
+    local-ingress gate binds after verifying the bearer against the local
+    audience, and a verified token that is that grant's own object. Claims
+    alone never qualify, whatever they say.
+    """
+    from .. import local_ingress
+
+    if local_ingress.current_grant() is None:
+        return False
+    return local_ingress.is_local_grant_token(_verified_access_token())
+
+
+def cloud_owner_binding_matches(cell_id: str) -> bool:
+    """Whether this process currently serves the immutable cell that granted authority."""
+    from ..cloud_cell import CloudCellCredentials, CloudConfigError, cloud_mode_enabled
+
+    if not cloud_mode_enabled():
+        return False
+    try:
+        configured = CloudCellCredentials.from_env()
+    except CloudConfigError:
+        return False
+    return configured.cell_id == cell_id
+
+
+def cloud_owner_principal(cell_id: str, *, surface: str) -> RequestPrincipal:
+    """Bind an authenticated Cloud operation after checking the current cell configuration."""
+    from ..cloud_cell import issuer_family
+
+    if not cloud_owner_binding_matches(cell_id):
+        return most_restrictive_principal(surface=surface)
+    return RequestPrincipal(
+        audience_id=OWNER_AUDIENCE, surface=surface, issuer_family=issuer_family(cell_id)
+    )
+
+
+def resolve_mcp_principal() -> RequestPrincipal:
+    """MCP boundary: OAuth principal, bearer credential, or local-stdio owner."""
+    if _local_ingress_owner():
+        return local_owner_principal(surface="mcp")
+    from ..server_auth import CloudCellAccessToken
+
+    token = _verified_access_token()
+    if type(token) is CloudCellAccessToken and cloud_owner_binding_matches(token.client_id):
+        from .. import cloud_origin
+
+        return cloud_origin.with_origin(cloud_owner_principal(token.client_id, surface="mcp"))
+    claims, expectation = _mcp_identity_claims()
+    if claims is not None:
+        audience = normalize_audience(subject=claims.get("sub"), issuer=claims.get("iss"))
+        if audience != MOST_RESTRICTIVE_AUDIENCE:
+            issuer = str(claims.get("iss") or "verified-principal").strip()
+            issuer_digest = hashlib.sha256(issuer.encode()).hexdigest()
+            from ..session_oauth import ExomemSessionAccessToken
+
+            token = _verified_access_token()
+            client_binding = None
+            origin_session = None
+            if isinstance(token, ExomemSessionAccessToken) and token.client_id:
+                client_binding = ClientBinding(issuer, token.client_id)
+                origin_session = token.origin_session
+            binding = remote_owner_binding()
+            if binding is not None and _is_bound_remote_owner(token, binding):
+                # One more explicit owner entry point, not a normalisation: the
+                # remote issuer family is kept so session authority never
+                # crosses between the owner's local and remote doors.
+                return RequestPrincipal(
+                    audience_id=OWNER_AUDIENCE,
+                    surface="mcp",
+                    resolved=True,
+                    issuer_family=f"mcp-oauth:{issuer_digest}",
+                    remote_owner=True,
+                    client_binding=client_binding,
+                    origin_session=origin_session,
+                )
+            return RequestPrincipal(
+                audience_id=audience,
+                surface="mcp",
+                resolved=True,
+                issuer_family=f"mcp-oauth:{issuer_digest}",
+                client_binding=client_binding,
+                origin_session=origin_session,
+            )
+        return most_restrictive_principal(surface="mcp")
+    if expectation is not None:
+        return most_restrictive_principal(surface="mcp")
+    return owner_principal(surface="mcp")
+
+
+def resolve_rest_principal(principal_scope: str | None) -> RequestPrincipal:
+    """REST boundary: `None` is the vault's own shared key, i.e. the owner.
+
+    `server_rest._rest_principal` returns `(True, None)` only after a
+    constant-time match against `EXOMEM_REST_API_KEY` (or an upload token
+    minted from it) — that credential *is* the owner's. A CF-Access scope
+    carries a real third-party identity and folds into the OAuth id space.
+    """
+    if principal_scope is None:
+        return owner_principal(surface="rest")
+    audience = _canonical_scope(principal_scope)
+    if audience == MOST_RESTRICTIVE_AUDIENCE:
+        return most_restrictive_principal(surface="rest")
+    return RequestPrincipal(
+        audience_id=audience,
+        surface="rest",
+        resolved=True,
+        issuer_family="rest-cf-access",
+    )
+
+
+
+
+def current_principal() -> RequestPrincipal | None:
+    """The principal bound by this invocation's surface, if any."""
+    return _REQUEST_PRINCIPAL.get()
+
+
+def effective_principal() -> RequestPrincipal:
+    """The bound principal, or the fail-closed floor when nothing bound one.
+
+    This default is the single most load-bearing line in the module, and it
+    used to read `owner_principal(...)`. From inside this function, "no
+    surface adapter ran" and "a surface adapter ran and forgot to bind" are
+    the *same observation* — and the second one is a total bypass of the
+    release plane, because every consumer that reaches here is deciding what
+    to disclose. An implicit owner default means any new code path, any
+    hand-registered handler, any helper invoked off the dispatcher gets full
+    disclosure by omission. That is fail-open by construction.
+
+    So the unbound reading is `most_restrictive_principal`. Genuine
+    owner-local, in-process callers — the CLI's own entry point, an embedding
+    library caller inside the owner's process — declare themselves with
+    `library_scope()`. Declaring is cheap; the failure mode of not declaring
+    is now an empty result instead of a leak.
+    """
+    bound = _REQUEST_PRINCIPAL.get()
+    if bound is not None:
+        return bound
+    return most_restrictive_principal(surface="unbound")
+
+
+def invocation_served() -> dict[Any, Any] | None:
+    """What this invocation's compiles served, or None outside any `invocation_scope`."""
+    return _INVOCATION_SERVED.get()
+
+
+@contextmanager
+def invocation_scope() -> Iterator[None]:
+    """Keep what one product invocation serves for its own guard passes, and discard it at the end.
+
+    One invocation is one MCP tool call, one REST request, one CLI
+    command or one library call: through the dispatcher, or to a leaf that guards its own
+    result. The outermost scope owns the record and a nested one joins it, so the dispatcher's
+    scope joins the MCP surface's. A `request_scope` or `library_scope` that spans many
+    invocations neither opens nor extends it.
+    """
+    token = _INVOCATION_SERVED.set({}) if _INVOCATION_SERVED.get() is None else None
+    try:
+        yield
+    finally:
+        if token is not None:
+            _INVOCATION_SERVED.reset(token)
+
+
+@contextmanager
+def request_scope(principal: RequestPrincipal) -> Iterator[None]:
+    """Bind one principal for a nested, task-local surface invocation."""
+    token = _REQUEST_PRINCIPAL.set(principal)
+    try:
+        yield
+    finally:
+        _REQUEST_PRINCIPAL.reset(token)
+
+
+@contextmanager
+def library_scope() -> Iterator[None]:
+    """Declare an owner-local, in-process caller — the explicit form of what
+    `effective_principal()` used to assume.
+
+    Deliberately a no-op when a surface principal is already bound: a library
+    helper running *underneath* a remote request must never escalate that
+    request back to the owner, which would reintroduce the same fail-open
+    hole one frame deeper.
+    """
+    if _REQUEST_PRINCIPAL.get() is not None:
+        yield
+        return
+    with request_scope(owner_principal(surface="library")):
+        yield
+
+
+@contextmanager
+def owner_local_producer(vault_root: Path, boundary: str) -> Iterator[None]:
+    """Run a producer of shared state as the owner, in a disclosure boundary of its own.
+
+    Unlike `library_scope`, this escalates under a bound request, so it is only for
+    state that every audience shares and no caller reads except through a per-caller
+    serve; computing it from one caller's view would make it depend on whoever ran
+    it last. The boundary keeps the producer's release decisions off the caller's
+    receipt.
+    """
+    from . import egress  # egress imports this module at load time
+
+    with (
+        egress.disclosure_boundary(Path(vault_root), boundary),
+        request_scope(owner_principal(surface="library")),
+    ):
+        yield

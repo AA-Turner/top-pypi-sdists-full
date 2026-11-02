@@ -1,0 +1,73 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "frontend"
+description = "Frontend-owned code has been modified"
+reviewers = ["$frontend"]
+paths = ["**/*", "!e2e/**/*", "!.github/**/*"]
+request = 1
+require = 1
+labels = ["frontend"]
+
+[[scopes]]
+name = "frontend-interested"
+ownership = "append"
+reviewers = ["$frontend-interested"]
+paths = ["**/*", "!e2e/**/*", "!.github/**/*"]
+request = 1
+require = 0
+
+# Temporary to make sure Jens is assigned to all frontend prs
+[[scopes]]
+name = "temp-jens"
+ownership = "append"
+reviewers = ["hvassup"]
+paths = ["**/*", "!e2e/**/*", "!.github/**/*"]
+request = 1
+require = 0
+
+[[scopes]]
+name = "test-automation"
+description = "Test Automation code has been modified"
+reviewers = ["$test-automation"]
+paths = ["e2e/**/*"]
+request = 1
+require = 1
+labels = ["test-automation"]
+
+[[scopes]]
+name = "test-automation-interested"
+ownership = "append"
+reviewers = ["$test-automation-interested"]
+paths = ["e2e/**/*"]
+request = 1
+require = 0
+
+
+[[scopes]]
+name = "dev-ops"
+description = "Dev Ops code has been modified"
+reviewers = ["$dev-ops"]
+paths = [".github/**/*"]
+request = 1
+require = 1
+labels = ["dev-ops"]
+
+[[scopes]]
+name = "dev-ops-interested"
+ownership = "append"
+reviewers = ["$dev-ops-interested"]
+paths = [".github/**/*"]
+request = 1
+require = 0
+
+# Temporary until full transition to dev ops is possible
+[[scopes]]
+name = "temp-tim-ci"
+ownership = "append"
+reviewers = ["timmarschall-coach"]
+paths = [".github/**/*"]
+request = 1
+require = 1

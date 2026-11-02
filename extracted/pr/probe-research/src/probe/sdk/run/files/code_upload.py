@@ -290,4 +290,170 @@ class CodeUploadMixin:
             "n_files": summary["n_files"],
             **drift_meta,
         }
+    def _archive_pending_code(
+        self, manifest: dict, cwd: str | None, *, max_upload_bytes: int
+    ) -> tuple[dict, str | None, dict | None]:
+        """Run open's code bytes: one deterministic archive, built now.
+
+        Per-file capture needs the batch presign/confirm doors, which no queued op kind can
+        drive, so the open stores the `code-bytes` archive. Its code-snapshot row names it by
+        ``code_bytes.archive_sha256`` (the archive's id is the server's, minted when the queued
+        upload lands); readers match the run's `code_bytes` row on that hash. The archive pass
+        re-hashes every member against the manifest as it streams, so its bytes are the
+        open-time bytes whatever happens to the files later. Returns ``(code_bytes meta,
+        archive path, its row meta)``; the caller hands the archive to `_stage_open_archive`,
+        which owns the file from then on. A build that fails (other than over the size cap) is
+        a capture gap and one warning, as the upload path's is: the run still opens.
+        """
+        pending = _snapshot.pending_entries(manifest)
+        if not pending:
+            return {
+                "uploaded": False,
+                "pending_upload": 0,
+                "reason": "nothing pending",
+                "storage": CODE_STORAGE_ARCHIVE,
+            }, None, None
+        root = os.path.abspath(cwd or os.getcwd())
+        tmp = tempfile.NamedTemporaryFile(prefix="probe-code-", suffix=".tar.gz", delete=False)
+        tmp.close()
+        try:
+            summary = _snapshot.build_pending_archive(
+                root, manifest, tmp.name, max_bytes=max_upload_bytes
+            )
+        except _snapshot.SnapshotTooLarge:
+            _unlink_quietly(tmp.name)
+            raise
+        except (errors.RosError, OSError) as exc:
+            # A file that shrank or changed under the stream twice, a malformed entry, a full
+            # temp disk: the bytes are not stored, the run opens anyway, and the count says so.
+            _unlink_quietly(tmp.name)
+            _diagnostics.warn(
+                f"code-bytes archive not built ({exc}); {len(pending)} files remain unstored "
+                "and this run is not reproducible from the record alone.",
+                stacklevel=3,
+            )
+            return {
+                "uploaded": False,
+                "pending_upload": len(pending),
+                "reason": "archive failed",
+                "storage": CODE_STORAGE_ARCHIVE,
+            }, None, None
+        except BaseException:
+            _unlink_quietly(tmp.name)
+            raise
+        drifted = list(summary["missing"]) + list(summary["changed"])
+        drift_meta = {"drifted": drifted[: _snapshot.DRIFTED_META_LIMIT]} if drifted else {}
+        if drifted or summary["n_files"] == 0:
+            _diagnostics.warn(
+                f"code capture stored {summary['n_files']} of {len(pending)} files; "
+                f"{summary['drift_message']}",
+                stacklevel=3,
+            )
+        if summary["n_files"] == 0:
+            _unlink_quietly(tmp.name)
+            return {
+                "uploaded": False,
+                "pending_upload": len(pending),
+                "reason": "tree drifted during capture",
+                "storage": CODE_STORAGE_ARCHIVE,
+                **drift_meta,
+            }, None, None
+        drifted_set = set(drifted)
+        meta = {
+            "n_files": summary["n_files"],
+            "uncompressed_bytes": summary["uncompressed_bytes"],
+            "tree_sha256": manifest.get("tree_sha256"),
+            "paths": [e["path"] for e in pending if e["path"] not in drifted_set],
+            **drift_meta,
+        }
+        return {
+            "uploaded": False,
+            "queued": True,
+            "pending_upload": len(drifted),
+            "storage": CODE_STORAGE_ARCHIVE,
+            "archive_sha256": summary["sha256"],
+            "size_bytes": summary["size_bytes"],
+            "n_files": summary["n_files"],
+            **drift_meta,
+        }, tmp.name, meta
+
+    def _stage_open_archive(self, path: str, meta: dict, code_bytes: dict) -> dict:
+        """Queue the open's archive as a NON-blocking upload with its bytes copied into the
+        outbox now, then delete the temp file; returns the code_bytes meta to record.
+
+        Never an upload from the caller's thread: an archive the outbox has no room to stage
+        is not stored (one warning; the row says so), and one over the inspection limit is
+        staged in parts for the outbox when a features answer already in hand says the server
+        takes multipart uploads, else not stored (the open asks the server nothing).
+        Non-blocking: a storage outage never holds the run's close; `finish()` still drains
+        it, after the run's own writes."""
+        from ...artifact.filetype import kind_to_send, name_with_extension
+        from ...artifact.storage_handlers import multipart as _multipart
+        from ...delivery.journal.headroom import INLINE_HASH_MAX_BYTES
+
+        try:
+            size_bytes = os.path.getsize(path)
+            name = name_with_extension(_snapshot.CODE_BYTES_ARTIFACT, path)
+            try:
+                queued = self._client.journal.append_upload(
+                    anchor="run",
+                    anchor_id=self.id,
+                    name=name,
+                    src_path=path,
+                    inline_hash=size_bytes <= INLINE_HASH_MAX_BYTES,
+                    content_type="application/gzip",
+                    kind=kind_to_send("code_bytes"),
+                    meta=meta,
+                    run_ref=self.id,
+                    require_staged=True,
+                    blocking=False,
+                    # Its own lane: the record's PATCH and row rewrite queue after it, and a
+                    # storage outage parking it must not hold them (final review of #3792).
+                    lane=f"code-bytes:{self.id}",
+                )
+            except Exception:  # noqa: BLE001 -- over the inspection limit, or no journal
+                queued = {}
+            if queued.get("staged"):
+                self._client._after_enqueue()
+                return code_bytes
+            why = queued.get("unstaged_reason") or "the outbox could not take it"
+            if _multipart.over_threshold(path):
+                # Only a verdict in hand: asking `/v1/server/features` here would put a network
+                # wait back on the open's thread (final review of #3792).
+                known = getattr(self._client, "_server_features_cache", None)
+                if known is None:
+                    why = "over the inspection limit; multipart uploads not yet known at open"
+                elif _multipart.FEATURE not in known:
+                    why = "over the inspection limit, and no multipart door"
+                else:
+                    refusals: list[str] = []
+                    handled = self._maybe_multipart(
+                        name, path, kind="code_bytes", content_type="application/gzip",
+                        span_id=None, step_index=None, meta=meta, strict=False, sync=False,
+                        refused=refusals.append,
+                    )
+                    if handled is None and not refusals:
+                        return code_bytes  # staged in parts, queued
+                    why = refusals[0] if refusals else "over the inspection limit, and no multipart door"
+            _diagnostics.warn(
+                f"code-bytes archive not stored ({why}); {meta.get('n_files')} files remain "
+                "unstored and this run is not reproducible from the record alone.",
+                stacklevel=3,
+            )
+            return {
+                **{k: v for k, v in code_bytes.items() if k != "queued"},
+                "pending_upload": int(meta.get("n_files") or 0)
+                + int(code_bytes.get("pending_upload") or 0),
+                "reason": "archive not stored",
+            }
+        finally:
+            _unlink_quietly(path)
+
+def _unlink_quietly(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 from probe.sdk.run.files.files import _gate_reason  # noqa: E402 -- pieces need each other; the front door loads this one first

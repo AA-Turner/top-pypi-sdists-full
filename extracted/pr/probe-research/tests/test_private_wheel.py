@@ -196,7 +196,7 @@ def test_every_private_file_vendored_into_a_plugin_ships_as_source():
     published |= {op.dest for op in ops if op.dest.startswith("src/probe/") and set(op.sources) & published}
     published = {path.removeprefix("src/probe/") for path in published if path.startswith("src/probe/")}
     published &= set(PRIVATE_PY)
-    assert {"tap_core/transcript.py", "service/procid.py", "shared/updates/version_policy.py"} <= published, "the scan broke"
+    assert {"tap_core/transcript.py", "foundation/service_api/procid.py", "shared/updates/version_policy.py"} <= published, "the scan broke"
     assert published == set(manifest.PUBLISHED_IN_PLUGINS)
 
 
@@ -210,13 +210,13 @@ def _write_wheel(path: Path, names: list[str]) -> Path:
 def test_the_wheel_check_refuses_public_modules_compiled_source_and_generated_c(tmp_path):
     check_wheel = _load_tool("check_wheel")
     wheel = _write_wheel(tmp_path / "probe_research_cli-0-cp310-abi3-linux_x86_64.whl",
-                         ["probe/sdk/client/client.py", "probe/cli/main.py", "probe/cli/main.c", "probe/doctrine.abi3.so"])
+                         ["probe/sdk/client/client.py", "probe/cli/cli.py", "probe/cli/cli.c", "probe/doctrine.abi3.so"])
     problems = "\n".join(check_wheel.check_private(wheel, PACKAGE)[0])
     assert "probe/sdk/client/client.py: not private" in problems
-    assert "probe/cli/main.py: source of a module that must ship compiled" in problems
-    assert "probe/cli/main.c: generated or source file" in problems
+    assert "probe/cli/cli.py: source of a module that must ship compiled" in problems
+    assert "probe/cli/cli.c: generated or source file" in problems
     assert "probe/doctrine.abi3.so" not in problems  # a private root module, compiled: fine
-    assert "probe/service/server.py: no compiled extension" in problems
+    assert "probe/service/server/server.py: no compiled extension" in problems
     assert "no METADATA" in problems
 
 

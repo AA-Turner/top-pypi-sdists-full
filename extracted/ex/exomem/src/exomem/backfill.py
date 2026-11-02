@@ -1,0 +1,531 @@
+"""Bulk media back-fill — make pre-existing KB binaries searchable.
+
+`exomem backfill-media` walks the whole `Knowledge Base/` tree (not just
+`Evidence/`), and for every media file (image/audio/video/pdf):
+  1. writes a `.md` sidecar if missing — so `find()` can surface it (a CLIP/text match maps
+     to `<file>.md`, which must exist);
+  2. extracts text (OCR / ASR / PDF) if not already done — text-searchable;
+  3. CLIP-embeds images — searchable by visual content.
+
+Coverage is the whole KB so a binary filed anywhere a note can live (an invoice
+under `Finance/`, a screenshot under `Sources/`) becomes searchable — not only
+the `Evidence/` claim-backing tree. Config/cruft dirs are pruned
+(`vault.VAULT_SCAN_SKIP_DIRS`).
+
+Idempotent: re-running only does outstanding work. Runs on CPU or GPU (engines auto-detect).
+The *incremental* path (new uploads) is handled live by the server; this is the deliberate
+one-shot pass over content that predates the feature — or for a friend's existing vault.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from . import (
+    embeddings,
+    extract,
+    index_sync,
+    preserve,
+    recall_policy,
+    rename_journal,
+    scene_frames,
+    semantic_segments,
+)
+from .kbdir import kb_dirname, kb_prefix
+from .vault import VAULT_SCAN_SKIP_DIRS, in_append_only_tree
+
+log = logging.getLogger(__name__)
+
+_EXTRACTED_BY_RE = re.compile(r"(?m)^extracted_by:\s*(.+?)\s*$")
+_PARENT_MEDIA_RE = re.compile(r"(?m)^parent_media:\s*\S")
+_NOT_DONE = {"none", "pending"}
+
+
+def iter_kb_files(root: Path):
+    """Yield every file under `root`, pruning config/cruft/index dirs.
+
+    Replaces a bare `rglob("*")` so a whole-KB walk never descends into
+    `.git`, the embedding sqlite dir, `_Schema`, etc. (`VAULT_SCAN_SKIP_DIRS`).
+    Shared with the live media worker's KB scans.
+    """
+    stack = [root]
+    while stack:
+        d = stack.pop()
+        try:
+            children = list(d.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if child.is_dir():
+                if child.name not in VAULT_SCAN_SKIP_DIRS:
+                    stack.append(child)
+            elif child.is_file():
+                yield child
+
+
+def _iter_media_files(root: Path):
+    """Yield media files under `root` (pruned walk). `.md` sidecars and other
+    non-media files are filtered out by `extract.media_type_for`."""
+    for f in iter_kb_files(root):
+        if extract.media_type_for(f):
+            yield f
+
+
+def _sidecar_for(binary: Path) -> Path:
+    name = binary.name
+    if name.lower().endswith(".md"):
+        return binary.with_name(name[:-3] + "-notes.md")
+    return binary.with_name(name + ".md")
+
+
+def _is_automatic_media_candidate(vault_root: Path, binary: Path) -> bool:
+    """Whether a media path may receive automatic recall-derived work.
+
+    A renamed import file that no Source page binds yet is left for the next `apply` to settle.
+    """
+    return not rename_journal.is_held(vault_root, binary) and not recall_policy.is_structured_only_path(
+        vault_root, _sidecar_for(binary)
+    )
+
+
+def _purge_suppressed_clip(clip_index, vault_root: Path, binary: Path) -> None:
+    try:
+        sidecar = _sidecar_for(binary).relative_to(vault_root).as_posix()
+    except ValueError:
+        return
+    clip_index.purge_markdown_paths_if_present([sidecar])
+
+
+def _extracted_engine(sidecar: Path) -> str | None:
+    """The sidecar's raw `extracted_by:` value, or None when absent/unreadable."""
+    try:
+        head = sidecar.read_text("utf-8")[:800]
+    except OSError:
+        return None
+    m = _EXTRACTED_BY_RE.search(head)
+    return m.group(1).strip() if m else None
+
+
+def _ocr_done(sidecar: Path) -> bool:
+    """True if the sidecar already has extracted text (a real engine in extracted_by)."""
+    v = _extracted_engine(sidecar)
+    return v is not None and v not in _NOT_DONE and not v.startswith("failed:")
+
+
+def _needs_rediarize(sidecar: Path, media_type: str | None) -> bool:
+    """True for an audio/video sidecar transcribed BEFORE diarization was enabled: a
+    completed ASR engine (not pending/failed/no-audio) without the `+diarized` marker —
+    that marker is the re-diarize done-state, which keeps the pass idempotent."""
+    if media_type not in ("audio", "video"):
+        return False
+    v = _extracted_engine(sidecar)
+    if v is None or v in _NOT_DONE or v.startswith("failed:") or v == "no-audio":
+        return False
+    return not v.endswith("+diarized")
+
+
+def _needs_retime(sidecar: Path, media_type: str | None) -> bool:
+    """True for an audio/video sidecar transcribed BEFORE timed transcripts: a
+    completed ASR engine (not pending/failed/no-audio) without the `+timed`
+    marker — that marker is the re-time done-state, keeping the pass idempotent."""
+    if media_type not in ("audio", "video"):
+        return False
+    v = _extracted_engine(sidecar)
+    if v is None or v in _NOT_DONE or v.startswith("failed:") or v == "no-audio":
+        return False
+    if "+timed" in v:
+        return False  # already timed — the done-marker
+    # A diarized transcript can only be re-timed with diarization ACTIVE: a plain
+    # re-extraction would DROP the speaker labels the sidecar already holds.
+    # Refuse rather than silently downgrade — the user re-runs with EXOMEM_DIARIZE
+    # (or --rediarize), which regenerates the labels alongside the timestamps.
+    if v.endswith("+diarized") and not extract._diarize_enabled():
+        return False
+    return True
+
+
+def _is_frame_child(sidecar: Path) -> bool:
+    """True for a scene-frame child sidecar (`parent_media:` set). Such images never
+    get their own ClipIndex rows — the parent video's per-scene vectors own visual
+    search — but they DO get sidecars/OCR like any image."""
+    try:
+        head = sidecar.read_text("utf-8")[:800]
+    except OSError:
+        return False
+    return bool(_PARENT_MEDIA_RE.search(head))
+
+
+def _scenes_done(video: Path) -> bool:
+    """True when the video already has at least one persisted scene frame + sidecar."""
+    d = scene_frames.frames_dir_for(video)
+    if not d.is_dir():
+        return False
+    for f in d.glob("scene-*.jpg"):
+        if (
+            scene_frames.parse_frame_ts(f.name) is not None
+            and f.with_name(f.name + ".md").exists()
+        ):
+            return True
+    return False
+
+
+@dataclass
+class BackfillStats:
+    scanned: int = 0
+    sidecars_created: int = 0
+    extracted: int = 0
+    extract_failed: int = 0
+    rediarized: int = 0
+    retimed: int = 0
+    clip_indexed: int = 0
+    scene_frames_written: int = 0
+    skipped: int = 0
+    artifact_pages_created: int = 0
+
+
+def _iter_unpaged_artifacts(vault_root: Path, root: Path):
+    """Yield stored non-media artifacts that have no page beside them.
+
+    Media is excluded because `ensure_media_sidecar` and reconciliation already
+    own those. `.md` files are excluded because a markdown file in an
+    append-only tree is either a page already or an artifact whose page is
+    `<stem>-notes.md`, and the latter is handled by the same helper.
+    """
+    for candidate in iter_kb_files(root):
+        if extract.media_type_for(candidate):
+            continue
+        rel = candidate.relative_to(vault_root).as_posix()
+        if in_append_only_tree(rel) is None:
+            continue
+        if candidate.name.lower().endswith(".md"):
+            continue
+        if _sidecar_for(candidate).exists() or rename_journal.is_held(vault_root, candidate):
+            continue
+        yield candidate
+
+
+def backfill_artifact_pages(
+    vault_root: Path, *, dry_run: bool = False, log_fn=log.info
+) -> int:
+    """Give every stored non-media artifact the page that makes it citable.
+
+    Whether an artifact received a page used to depend on whether its extension
+    was extractable, so a `.csv`, `.eml`, or `.json` preserved earlier has bytes
+    and nothing else. `backfill_media` cannot reach them — it walks media files
+    only — and without a page they are absent from find, from the graph, and
+    from every `sources:` citation. Idempotent.
+    """
+    kb = vault_root / kb_dirname()
+    if not kb.is_dir():
+        return 0
+    created = 0
+    for artifact in _iter_unpaged_artifacts(vault_root, kb):
+        rel = artifact.relative_to(vault_root).as_posix()
+        if dry_run:
+            log_fn(f"would write a page for {rel}")
+            created += 1
+            continue
+        try:
+            _, wrote = preserve.ensure_artifact_page(vault_root, artifact)
+        except (OSError, ValueError) as error:
+            log_fn(f"could not write a page for {rel}: {error}")
+            continue
+        if wrote:
+            created += 1
+            log_fn(f"wrote a page for {rel}")
+    return created
+
+
+def backfill_media(
+    vault_root: Path,
+    *,
+    do_ocr: bool = True,
+    do_clip: bool = True,
+    rediarize: bool = False,
+    retime: bool = False,
+    dry_run: bool = False,
+    log_fn=log.info,
+) -> BackfillStats:
+    """Back-fill sidecars + text + CLIP for every media file under Knowledge Base/. Idempotent.
+
+    `rediarize` re-extracts audio/video whose transcript predates diarization (a completed
+    ASR engine without `+diarized`) so they gain labeled turns + `speakers:` frontmatter.
+    `retime` re-extracts audio/video whose transcript predates timed transcripts (no
+    `+timed` marker) so they gain per-segment `[m:ss]` lines — the substrate for
+    semantic segmentation. One re-extraction serves both flags when both are requested.
+    """
+    stats = BackfillStats()
+    kb = vault_root / kb_dirname()
+    if not kb.is_dir():
+        log_fn(f"no {kb_prefix()} directory; nothing to back-fill")
+        return stats
+    # Non-media artifacts first: it is a cheap metadata pass, and it makes them
+    # citable even if the expensive extraction below is disabled or fails.
+    stats.artifact_pages_created = backfill_artifact_pages(
+        vault_root, dry_run=dry_run, log_fn=log_fn
+    )
+    if rediarize and not extract._diarize_enabled():
+        log_fn(
+            "--rediarize requested but EXOMEM_DIARIZE is not enabled; "
+            "skipping re-diarization (set EXOMEM_DIARIZE=1)"
+        )
+        rediarize = False
+    if retime and not semantic_segments.semantic_segments_enabled():
+        log_fn(
+            "--retime requested but EXOMEM_SEMANTIC_SEGMENTS is not enabled; "
+            "skipping re-timing (set EXOMEM_SEMANTIC_SEGMENTS=1)"
+        )
+        retime = False
+    # Warm the text-embedding model BEFORE any A/V extraction runs. Diarization
+    # loads speechbrain, whose import poisons a LATER first-import of bge
+    # (sentence-transformers) in the same process — flipping embeddings to
+    # soft-disabled so the re-embed (and semantic-segment chunks) silently never
+    # happens. Establishing bge's import first (as the service does at boot)
+    # sidesteps the ordering hazard. Best-effort: embeddings stay soft.
+    if (do_ocr or rediarize or retime) and not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        try:
+            embeddings.get_model()
+        except Exception:  # noqa: BLE001 — warm-up is best-effort
+            log.warning("embedding warm-up failed; re-embedding may be skipped this run")
+    # Fast media first (image/pdf OCR is quick) so screenshots/docs are searchable in
+    # minutes; slow A/V transcription (Whisper) runs last instead of starving the queue.
+    _order = {"image": 0, "pdf": 1, "audio": 2, "video": 3}
+    files: list[Path] = []
+    suppressed_sidecars: list[str] = []
+    for media in _iter_media_files(kb):
+        sidecar = _sidecar_for(media)
+        if not _is_automatic_media_candidate(vault_root, media):
+            try:
+                suppressed_sidecars.append(sidecar.relative_to(vault_root).as_posix())
+            except ValueError:
+                pass
+            continue
+        files.append(media)
+    # A policy transition must evict stale rows even when CLIP is disabled or
+    # unavailable. The model-free purge leaves an absent derived store absent.
+    clip_store = embeddings.get_clip_index(vault_root)
+    if suppressed_sidecars:
+        if dry_run:
+            log_fn(
+                "would purge CLIP rows for "
+                f"{len(suppressed_sidecars)} suppressed media file(s)"
+            )
+        else:
+            clip_store.purge_markdown_paths_if_present(suppressed_sidecars)
+    clip_index = clip_store if do_clip else None
+    files.sort(
+        key=lambda p: (_order.get(extract.media_type_for(p), 9), p.as_posix()),
+    )
+    stats.scanned = len(files)
+    log_fn(f"scanning {len(files)} media file(s) under {kb_prefix()} (dry_run={dry_run})")
+
+    for i, f in enumerate(files, 1):
+        if not _is_automatic_media_candidate(vault_root, f):
+            if dry_run:
+                log_fn(
+                    f"  [{i}/{len(files)}] "
+                    f"{f.relative_to(vault_root).as_posix()} -> purge CLIP"
+                )
+            else:
+                _purge_suppressed_clip(clip_store, vault_root, f)
+            continue
+        media_type = extract.media_type_for(f)
+        try:
+            rel = f.resolve().relative_to(vault_root.resolve()).as_posix()
+        except (ValueError, OSError):
+            continue
+        sidecar = _sidecar_for(f)
+        need_sidecar = not sidecar.exists()
+        need_ocr = do_ocr and not _ocr_done(sidecar)
+        # Video idempotency keys on per-keyframe rows (has_frames), so a legacy
+        # single-vector video (frame_ts NULL) is re-indexed per-keyframe, not skipped.
+        # Images stay on has() (one row = done). Scene-frame children are excluded:
+        # the parent video's per-scene vectors own visual search.
+        need_clip = (
+            do_clip and clip_index is not None and media_type in ("image", "video")
+            and not (clip_index.has_frames(rel) if media_type == "video" else clip_index.has(rel))
+            and not (media_type == "image" and _is_frame_child(sidecar))
+        )
+        # Scene frames (EXOMEM_VIDEO_SCENE_FRAMES): a video without persisted frames
+        # re-processes once — one decode pass replaces its CLIP rows with scene-aware
+        # vectors AND writes the representative JPEGs. Idempotent via _scenes_done.
+        need_scenes = (
+            do_clip and clip_index is not None and media_type == "video"
+            and scene_frames.scene_frames_enabled() and not _scenes_done(f)
+        )
+        # Re-diarize targets ONLY sidecars whose extraction is otherwise done (`not
+        # need_ocr`): a pending/missing sidecar takes the normal OCR path, which
+        # diarizes anyway when the flag is on.
+        need_rediarize = (
+            rediarize and do_ocr and not need_ocr and _needs_rediarize(sidecar, media_type)
+        )
+        need_retime = (
+            retime and do_ocr and not need_ocr and _needs_retime(sidecar, media_type)
+        )
+        if not (need_sidecar or need_ocr or need_clip or need_scenes or need_rediarize
+                or need_retime):
+            stats.skipped += 1
+            continue
+        if dry_run:
+            todo = " ".join(t for t, on in
+                            (("sidecar", need_sidecar), ("ocr", need_ocr), ("clip", need_clip),
+                             ("scenes", need_scenes), ("rediarize", need_rediarize),
+                             ("retime", need_retime)) if on)
+            log_fn(f"  [{i}/{len(files)}] {rel} -> {todo}")
+            stats.sidecars_created += need_sidecar
+            stats.extracted += need_ocr
+            stats.clip_indexed += need_clip
+            stats.rediarized += need_rediarize
+            stats.retimed += need_retime
+            continue
+
+        if need_sidecar:
+            if not _is_automatic_media_candidate(vault_root, f):
+                _purge_suppressed_clip(clip_store, vault_root, f)
+                continue
+            sidecar, created = preserve.ensure_media_sidecar(vault_root, f)
+            stats.sidecars_created += int(created)
+        if need_ocr or need_rediarize or need_retime:
+            if not _is_automatic_media_candidate(vault_root, f):
+                _purge_suppressed_clip(clip_store, vault_root, f)
+                continue
+            try:
+                res = extract.extract_text(f, media_type=media_type, vault_root=vault_root)
+                if not _is_automatic_media_candidate(vault_root, f):
+                    _purge_suppressed_clip(clip_store, vault_root, f)
+                    continue
+                # Each requested upgrade is judged by its engine marker (extract's
+                # soft-fail contract). A failed upgrade disables its pass for the rest
+                # (every further attempt would fail the same way); the sidecar is
+                # written when first-time OCR ran or at least one upgrade materialized
+                # — a fully-failed upgrade leaves bytes it already holds untouched.
+                got_diarized = res.engine.endswith("+diarized")
+                got_timed = "+timed" in res.engine
+                if need_rediarize and not got_diarized:
+                    log_fn(
+                        f"  ! diarization unavailable (engine {res.engine}); "
+                        "skipping re-diarization for the rest"
+                    )
+                    rediarize = False
+                if need_retime and not got_timed:
+                    log_fn(
+                        f"  ! timed rendering unavailable (engine {res.engine}); "
+                        "skipping re-timing for the rest"
+                    )
+                    retime = False
+                upgrade_gained = (need_rediarize and got_diarized) or (
+                    need_retime and got_timed
+                )
+                if need_ocr or upgrade_gained:
+                    preserve.update_sidecar_extraction(
+                        vault_root, sidecar,
+                        text=res.sidecar_text, engine=res.engine,
+                        speakers=res.speakers, ocr=res.ocr,
+                    )
+                    if need_ocr:
+                        stats.extracted += 1
+                    if need_rediarize and got_diarized:
+                        stats.rediarized += 1
+                    if need_retime and got_timed:
+                        stats.retimed += 1
+            except extract.ExtractionUnavailable as e:
+                log_fn(f"  ! extraction engine unavailable ({e}); skipping OCR for the rest")
+                do_ocr = False
+            except Exception:  # noqa: BLE001 — one bad file shouldn't abort the pass
+                log.exception("backfill: extraction failed for %s", f.name)
+                stats.extract_failed += 1
+        if need_clip or need_scenes:
+            if not _is_automatic_media_candidate(vault_root, f):
+                _purge_suppressed_clip(clip_store, vault_root, f)
+                continue
+            try:
+                mtime = f.stat().st_mtime
+                if media_type == "video" and need_scenes:
+                    vectors, pairs = embeddings.embed_video_scenes(f)
+                    parent_clip_samples = scene_frames.projection_clip_samples(vectors)
+                    if not _is_automatic_media_candidate(vault_root, f):
+                        _purge_suppressed_clip(clip_store, vault_root, f)
+                        continue
+                    clip_index.upsert_frames(rel, vectors, mtime)
+                    if not _is_automatic_media_candidate(vault_root, f):
+                        _purge_suppressed_clip(clip_store, vault_root, f)
+                        continue
+                    if need_clip:
+                        stats.clip_indexed += 1
+                    written = scene_frames.write_scene_frames(
+                        vault_root,
+                        f,
+                        pairs,
+                        parent_clip_samples=parent_clip_samples,
+                    )
+                    stats.scene_frames_written += len(written)
+                    if do_ocr and written:
+                        do_ocr = _ocr_new_scene_frames(vault_root, written, stats, log_fn)
+                    if (
+                        written
+                        and _is_automatic_media_candidate(vault_root, f)
+                        and semantic_segments.semantic_segments_enabled()
+                    ):
+                        # Fold the fresh visual/OCR boundary events into the parent's
+                        # semantic segments (mirrors the worker's trailing re-embed).
+                        index_sync.upsert_after_write(vault_root, [sidecar])
+                elif media_type == "video":
+                    vectors = embeddings.embed_video_frames(f)
+                    if not _is_automatic_media_candidate(vault_root, f):
+                        _purge_suppressed_clip(clip_store, vault_root, f)
+                        continue
+                    clip_index.upsert_frames(rel, vectors, mtime)
+                    stats.clip_indexed += 1
+                else:
+                    vector = embeddings.embed_image(f)
+                    if not _is_automatic_media_candidate(vault_root, f):
+                        _purge_suppressed_clip(clip_store, vault_root, f)
+                        continue
+                    clip_index.upsert(rel, vector, mtime)
+                    stats.clip_indexed += 1
+            except embeddings.ClipUnavailable as e:
+                log_fn(f"  ! CLIP unavailable ({e}); skipping CLIP for the rest")
+                do_clip = False
+            except Exception:  # noqa: BLE001
+                log.exception("backfill: CLIP failed for %s", f.name)
+        if i % 25 == 0:
+            log_fn(f"  …{i}/{len(files)} processed")
+
+    log_fn(f"backfill done: {asdict(stats)}")
+    return stats
+
+
+def _ocr_new_scene_frames(
+    vault_root: Path,
+    written: list[tuple[Path, Path]],
+    stats: BackfillStats,
+    log_fn,
+) -> bool:
+    """OCR freshly written scene frames in-line (they postdate this run's file
+    snapshot). Returns the updated `do_ocr` flag — False when the engine is
+    unavailable, leaving the remaining sidecars `pending` for the live worker's
+    restart scan to heal."""
+    for jpg, frame_sidecar in written:
+        if not _is_automatic_media_candidate(vault_root, jpg):
+            continue
+        try:
+            res = extract.extract_text(jpg, media_type="image")
+            if not _is_automatic_media_candidate(vault_root, jpg):
+                continue
+            preserve.update_sidecar_extraction(
+                vault_root, frame_sidecar,
+                text=res.sidecar_text, engine=res.engine,
+                ocr=res.ocr,
+            )
+            stats.extracted += 1
+        except extract.ExtractionUnavailable as e:
+            log_fn(f"  ! extraction engine unavailable ({e}); scene frames left pending")
+            return False
+        except Exception:  # noqa: BLE001 — one bad frame shouldn't abort the pass
+            log.exception("backfill: frame OCR failed for %s", jpg.name)
+            stats.extract_failed += 1
+    return True

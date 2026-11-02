@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added support for CPython free-threaded builds.

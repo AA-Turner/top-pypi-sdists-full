@@ -185,4 +185,4 @@ def sync_dir(
 from probe.sdk.delivery.offline.lineage import _LATE, _OBSERVATIONS_FEATURE, _drop_untaken_lineage, _take_gated  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.offline.offline import _context_name, local_ref  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.offline.queue import amend, describe, read_manifest, read_mapping  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.sinks.offline import LINEAGE_ROUTES  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.offline.lineage import LINEAGE_ROUTES  # noqa: E402 -- pieces need each other; the front door loads this one first

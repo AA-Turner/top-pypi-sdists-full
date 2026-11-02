@@ -16,13 +16,15 @@ from __future__ import annotations
 import json
 import pytest
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 
 
 @pytest.fixture(autouse=True)
 def installed_cli_flags(monkeypatch):
     # These tests fake the agent's event stream, not a separate --help probe.
-    monkeypatch.setattr(bf, "supported_flags", lambda *args: None)
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *args: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *args: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *args: None)
 
 
 def _tool_use(name: str, **args) -> str:
@@ -215,7 +217,10 @@ def test_piped_output_counts_files_read_not_uploads(tmp_path, monkeypatch):
             return 0
 
     out = io.StringIO()  # NOT a tty -> the plain, appending branch
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", lambda *a, **k: _Proc())
     bf.launch_agent(tmp_path, "prompt", stream=out, total=704, workdir=tmp_path / "w")
 
@@ -259,7 +264,10 @@ def test_progress_false_gives_the_raw_transcript(tmp_path, monkeypatch):
             return 0
 
     out = io.StringIO()
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", lambda *a, **k: _Proc())
     bf.launch_agent(tmp_path, "prompt", stream=out, total=9, progress=False, workdir=tmp_path / "w")
 
@@ -295,7 +303,10 @@ def test_a_piped_unit_line_says_which_unit_it_is(tmp_path, monkeypatch):
             return 0
 
     out = io.StringIO()
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", lambda *a, **k: _Proc())
     bf.launch_agent(
         tmp_path, "prompt", stream=out, total=40, label="odyssey-plm", workdir=tmp_path / "w"
@@ -327,7 +338,10 @@ def test_an_unlabelled_run_does_not_grow_a_stray_space(tmp_path, monkeypatch):
             return 0
 
     out = io.StringIO()
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", lambda *a, **k: _Proc())
     bf.launch_agent(tmp_path, "prompt", stream=out, total=40, workdir=tmp_path / "w")
     assert out.getvalue().startswith("  1/40 ·")
@@ -339,7 +353,7 @@ def test_standalone_progress_owns_and_closes_one_board(tmp_path, monkeypatch, ca
     import io
     import re
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     class _Screen(io.StringIO):
         def isatty(self):
@@ -362,11 +376,25 @@ def test_standalone_progress_owns_and_closes_one_board(tmp_path, monkeypatch, ca
         raise OSError("cannot stage prompt")
 
     out = _Screen()
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "columns", lambda: columns)
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: columns)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: columns)
+    monkeypatch.setattr(tui.layout, "columns", lambda: columns)
+    monkeypatch.setattr(tui.progress, "columns", lambda: columns)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: columns)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", spawn)
-    monkeypatch.setattr(bf, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.process, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.digest, "stop_all", lambda: None)
+    monkeypatch.setattr(bf.agents.launch_once, "stop_all", lambda: None)
     if finish == "staging_failed":
         monkeypatch.setattr(bf.tempfile, "TemporaryFile", fail_staging)
     if finish == "interrupted":
@@ -409,7 +437,10 @@ def test_a_caller_owned_progress_row_does_not_open_another_board(tmp_path, monke
 
     out = _Screen()
     painted = []
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
     monkeypatch.setattr(bf.subprocess, "Popen", lambda *a, **k: _Proc())
     ok, _ = bf.launch_agent(
         tmp_path, "prompt", stream=out, total=3, paint_to=painted.append

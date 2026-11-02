@@ -25,11 +25,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capture_state, doctor, service_calls
-from probe.cli.service_calls import Reach
-from probe.service import procid
-from probe.service.protocol import Method
-from probe.service.registry import Registry
+from probe.cli.capture import state as capture_state
+from probe.cli.wizard import doctor
+from probe.cli.lifecycle import service_calls
+from probe.cli.lifecycle.service_calls import Reach
+from probe.foundation.service_api import procid
+from probe.foundation.service_api.wire import Method
+from probe.service.sessions.sessions import Registry
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 from tests.test_service_recorders import _THREADENV, _params
 
@@ -404,7 +406,7 @@ def test_recorders_reads_the_services_status(service_home, tmp_path, monkeypatch
 def test_the_update_report_sees_a_session_the_service_records_on_an_older_tap(service_home, tmp_path):
     """Audit #6, against a real service: it loaded tap 0.10.13 for a session,
     the tap on disk is 0.10.16 now, and no `tap watch` command line shows it."""
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     proc, owner = spawn_agent()
     sid = f"capture-truth-old-tap-{os.getpid()}"
@@ -571,7 +573,7 @@ def test_probe_capture_off_on_windows_looks_at_the_watchers_pid_files_without_a_
     watcher folder), and Windows has no `os.getuid`. The stop looks at them
     and goes on; before, the uid check crashed it after the killswitch was
     set, before the service was asked to finish its recorders."""
-    from probe.cli import capture
+    from probe.cli.capture import capture
 
     monkeypatch.delenv(capture.PID_DIR_ENV, raising=False)
     monkeypatch.setattr(capture_state, "_watcher_dir", lambda source=None: tmp_path)

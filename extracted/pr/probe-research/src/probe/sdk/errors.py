@@ -39,9 +39,12 @@ class TransportError(RosError):
     """Network failure, timeout, or unreachable host (no HTTP status).
 
     ``unreachable`` is True when the request never reached the server (a
-    connect failure or timeout), as opposed to a response that was lost."""
+    connect failure or timeout), as opposed to a response that was lost.
+    ``offline`` is True when an offline run's own transport refused it without
+    trying: it says nothing about the server (the drain charges no attempt)."""
 
     unreachable: bool = False
+    offline: bool = False
 
 
 class DeadlineExceeded(TransportError):
@@ -159,7 +162,7 @@ class NotFoundError(RosError):
 #: write named does not exist for the credential that sent it. A run token's
 #: refusal, a swept multipart upload, R2 and an absent route also answer 404,
 #: with other details, and their writes are lost for reasons of ours.
-#: tests/unit/test_delivery_alert_config.py pins it to the server's.
+#: tests/unit/external/analytics/test_delivery_alert_config.py pins it to the server's.
 RUN_NOT_FOUND_DETAIL = "run not found"
 
 
@@ -316,15 +319,47 @@ class ValidationError(RosError):
 #: none" with this in a 422's `detail.code` (2026-10-14, per-computer workspaces).
 WORKSPACE_REQUIRED = "workspace_required"
 
+#: How the server's 422 detail (a plain string) starts when a create names a workspace
+#: that is gone: deleted, or another team's (twin: app/projects/workspaces/workspaces.py).
+WORKSPACE_NOT_FOUND = "workspace_id not found"
+
 
 class WorkspaceRequired(ValidationError):
     """422 - a new project needs a workspace and this computer has none set.
 
-    Raised before anything is created: a team with several workspaces never has
-    one guessed for it (the old guess, its oldest, filed every member's work
-    under its first member). Fix: `probe workspace use <slug>` (this computer),
-    `PROBE_WORKSPACE`, or `workspace=` / `--workspace` for one call.
+    Raised before anything is created, once the client could not fall back to
+    your home workspace (none, or `probe workspace use --clear`): a team with
+    several workspaces never has one guessed for it (the old guess, its oldest,
+    filed every member's work under its first member). Fix: `probe workspace use
+    <slug>` (this computer), `PROBE_WORKSPACE`, or `workspace=` / `--workspace`.
     """
+
+
+class ProjectRequired(ValidationError):
+    """A run was opened with no project or experiment, and none is set on this computer.
+
+    Raised before any request: every run has a home. Fix: `project=` / `experiment=`
+    (`--project` / `--experiment`), `PROBE_PROJECT`, or `probe project use <slug>`.
+    """
+
+    def __init__(self, message: str = "", **kw: Any):
+        super().__init__(message or PROJECT_REQUIRED_FIX, **kw)
+
+
+#: What a run with no home is told (`ProjectRequired`): every way to name one.
+PROJECT_REQUIRED_FIX = (
+    "A run needs a project. Pass project= (or experiment=; CLI: --project / --experiment), "
+    "set PROBE_PROJECT, or run `probe project use <slug>`. If none fits, create one: "
+    "`probe project create <slug>`."
+)
+
+
+def build_unfiled_parent_error(run_ref: object) -> ProjectRequired:
+    """A child or fork inherits its parent's home; an unfiled parent (an older CLI made it) has none."""
+    return ProjectRequired(
+        f"run {run_ref} has no project, so a run descended from it has none to inherit. "
+        f"Move the parent first: `probe run move {run_ref} --to <project>`."
+    )
 
 
 #: The server marks a refused workspace limit (`X-Probe-Workspace-Limit`) with these

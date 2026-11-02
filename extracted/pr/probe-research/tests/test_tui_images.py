@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import tui
-from probe.cli.tui import ImageProtocol
+from probe.cli.wizard import terminal as tui
+from probe.cli.wizard.terminal.images import ImageProtocol
 
 _TERMINAL_ENV = ("TERM", "TERM_PROGRAM", "KITTY_WINDOW_ID", "TMUX", "STY", tui.ICONS_ENV)
 

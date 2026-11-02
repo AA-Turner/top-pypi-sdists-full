@@ -1,0 +1,1068 @@
+//! Functions for helping with caching an ast and finding the parts the changed.
+
+use std::sync::Arc;
+
+use indexmap::IndexMap;
+use itertools::EitherOrBoth;
+use itertools::Itertools;
+use kcl_api::Object;
+use kcl_api::ObjectId;
+use kittycad_modeling_cmds::KclVersion;
+use tokio::sync::RwLock;
+
+use crate::ExecOutcome;
+use crate::ExecutorContext;
+use crate::SourceRange;
+use crate::errors::KclError;
+use crate::execution::ConstraintKey;
+use crate::execution::ConstraintState;
+use crate::execution::EnvironmentRef;
+use crate::execution::ExecutorSettings;
+use crate::execution::KclValue;
+use crate::execution::KclValueView;
+use crate::execution::annotations;
+#[cfg(test)]
+use crate::execution::computed_kcl_version;
+use crate::execution::memory::Stack;
+use crate::execution::state::ModuleInfoMap;
+use crate::execution::state::NotYetAdded;
+use crate::execution::state::{self as exec_state};
+use crate::modules::ModuleId;
+use crate::modules::ModulePath;
+use crate::modules::ModuleSource;
+use crate::parsing::ast::types::Annotation;
+use crate::parsing::ast::types::Node;
+use crate::parsing::ast::types::Program;
+use crate::walk::Node as WalkNode;
+
+#[derive(Debug, Default)]
+struct CacheInner {
+    /// Last successful execution state for the cache.
+    pub old_ast: Option<GlobalState>,
+    // The last successful run's memory. Not cleared after an unsuccessful run.
+    pub prev_memory: Option<SketchModeState>,
+    /// Counts the runs that changed the engine scene. Never reset, so callers
+    /// can tell whether the scene changed since they last looked.
+    /// If the counter hasn't moved, the scene hasn't changed. If it has moved,
+    /// the scene may have changed.
+    pub engine_scene_generation: usize,
+}
+
+/// Cached execution state for one engine session and its associated mock execution.
+///
+/// Clones share the same state. A default cache is empty and independent of all
+/// other caches. Callers must serialize executions that share an engine session;
+/// this cache only locks individual state accesses.
+#[derive(Debug, Clone)]
+pub struct Cache(Arc<dyn CacheStorage>);
+
+// Hide the cache's concrete state graph from Send/Sync proofs in callers.
+trait CacheStorage: std::fmt::Debug + Send + Sync {
+    fn inner(&self) -> &RwLock<CacheInner>;
+}
+
+impl CacheStorage for RwLock<CacheInner> {
+    fn inner(&self) -> &RwLock<CacheInner> {
+        self
+    }
+}
+
+impl Default for Cache {
+    fn default() -> Self {
+        Self(Arc::new(RwLock::new(CacheInner::default())))
+    }
+}
+
+impl Cache {
+    /// Read the old AST state from the cache.
+    pub(super) async fn read_old_ast(&self) -> Option<GlobalState> {
+        self.0.inner().read().await.old_ast.clone()
+    }
+
+    pub(super) async fn write_old_ast(&self, old_state: GlobalState) {
+        let mut inner = self.0.inner().write().await;
+        inner.old_ast = Some(old_state);
+    }
+
+    pub(crate) async fn read_old_memory(&self) -> Option<SketchModeState> {
+        self.0.inner().read().await.prev_memory.clone()
+    }
+
+    pub(crate) async fn write_old_memory(&self, mem: SketchModeState) {
+        let mut inner = self.0.inner().write().await;
+        inner.prev_memory = Some(mem);
+    }
+
+    /// The number of runs that have changed the engine scene.
+    pub(crate) async fn engine_scene_generation(&self) -> usize {
+        self.0.inner().read().await.engine_scene_generation
+    }
+
+    pub(super) async fn bump_engine_scene_generation(&self) {
+        let mut inner = self.0.inner().write().await;
+        inner.engine_scene_generation = inner.engine_scene_generation.wrapping_add(1);
+    }
+
+    /// Invalidate live execution state while preserving usable sketch-mode memory.
+    pub async fn bust_cache(&self) {
+        let mut inner = self.0.inner().write().await;
+        inner.old_ast = None;
+    }
+
+    /// Clear the memory reused by mock execution.
+    pub async fn clear_mem_cache(&self) {
+        let mut inner = self.0.inner().write().await;
+        inner.prev_memory = None;
+    }
+
+    /// Read a named value from the previous sketch-mode execution.
+    pub async fn read_old_memory_var(&self, name: &str) -> Option<KclValue> {
+        self.read_old_memory()
+            .await
+            .and_then(|memory| memory.stack.get(name, SourceRange::default()).ok())
+    }
+}
+
+/// Information for the caching an AST and smartly re-executing it if we can.
+#[derive(Debug, Clone)]
+pub struct CacheInformation<'a> {
+    pub ast: &'a Node<Program>,
+    pub settings: &'a ExecutorSettings,
+    /// The KCL version of this execution.
+    pub kcl_version: KclVersion,
+}
+
+impl<'a> CacheInformation<'a> {
+    #[cfg(test)]
+    fn new(ast: &'a Node<Program>, settings: &'a ExecutorSettings) -> Self {
+        // If the version couldn't be parsed, the default is used.
+        let kcl_version = computed_kcl_version(ast);
+        Self {
+            ast,
+            settings,
+            kcl_version,
+        }
+    }
+}
+
+/// The cached state of the whole program.
+#[derive(Debug, Clone)]
+pub(super) struct GlobalState {
+    pub(super) main: ModuleState,
+    /// The exec state.
+    pub(super) exec_state: exec_state::GlobalState,
+    /// The last settings used for execution.
+    pub(super) settings: ExecutorSettings,
+    /// The KCL version of this execution.
+    pub kcl_version: KclVersion,
+}
+
+impl GlobalState {
+    pub fn new(
+        state: exec_state::ExecState,
+        settings: ExecutorSettings,
+        kcl_version: KclVersion,
+        ast: Node<Program>,
+        result_env: EnvironmentRef,
+    ) -> Self {
+        Self {
+            main: ModuleState {
+                ast,
+                exec_state: state.mod_local,
+                result_env,
+            },
+            exec_state: state.global,
+            settings,
+            kcl_version,
+        }
+    }
+
+    pub fn with_settings(mut self, settings: ExecutorSettings) -> GlobalState {
+        self.settings = settings;
+        self
+    }
+
+    pub fn reconstitute_exec_state(&self, ctx: &ExecutorContext) -> exec_state::ExecState {
+        exec_state::ExecState {
+            execution_callbacks: ctx.execution_callbacks.clone(),
+            global: self.exec_state.clone(),
+            mod_local: self.main.exec_state.clone(),
+        }
+    }
+
+    pub async fn into_exec_outcome(self, ctx: &ExecutorContext) -> Result<ExecOutcome, KclError> {
+        // Fields are opt-in so that we don't accidentally leak private internal
+        // state when we add more to ExecState.
+        let variables = self.main.exec_state.variables(self.main.result_env)?;
+        #[cfg(test)]
+        let test_program_memory = variables.clone();
+        let variables = variables
+            .into_iter()
+            .map(|(key, value)| (key, KclValueView::from(value)))
+            .collect();
+        Ok(ExecOutcome {
+            variables,
+            filenames: self.exec_state.filenames(),
+            engine_scene_generation: ctx.cache.engine_scene_generation().await,
+            operations: self.exec_state.operations_by_module(),
+            artifact_graph: self.exec_state.artifacts.graph,
+            scene_objects: self.exec_state.root_module_artifacts.scene_objects,
+            source_range_to_object: self.exec_state.root_module_artifacts.source_range_to_object,
+            var_solutions: self.exec_state.root_module_artifacts.var_solutions,
+            refactor_metadata: self.exec_state.root_module_artifacts.refactor_metadata.clone(),
+            issues: self.exec_state.issues,
+            source_files: self.exec_state.id_to_source,
+            default_planes: ctx.engine.get_default_planes().read().await.clone(),
+            #[cfg(test)]
+            test_program_memory,
+        })
+    }
+
+    pub fn mock_memory_state(&self) -> Result<SketchModeState, KclError> {
+        let mut stack = self.main.exec_state.stack.deep_clone()?;
+        stack.restore_env(self.main.result_env)?;
+
+        Ok(SketchModeState {
+            stack,
+            module_infos: self.exec_state.module_infos.clone(),
+            path_to_source_id: self.exec_state.path_to_source_id.clone(),
+            id_to_source: self.exec_state.id_to_source.clone(),
+            never_type_ranges: self.exec_state.never_type_ranges.clone(),
+            constraint_state: self.main.exec_state.constraint_state.clone(),
+            scene_objects: self.exec_state.root_module_artifacts.scene_objects.clone(),
+            std_not_yet_added: self.exec_state.std_not_yet_added.clone(),
+            kcl_version: self.exec_state.entry_point_kcl_version.unwrap_or_default(),
+        })
+    }
+}
+
+/// Per-module cached state
+#[derive(Debug, Clone)]
+pub(super) struct ModuleState {
+    /// The AST of the module.
+    pub(super) ast: Node<Program>,
+    /// The ExecState of the module.
+    pub(super) exec_state: exec_state::ModuleState,
+    /// The memory env for the module.
+    pub(super) result_env: EnvironmentRef,
+}
+
+/// Cached state for sketch mode.
+#[derive(Debug, Clone)]
+pub(crate) struct SketchModeState {
+    /// The stack of the main module.
+    pub stack: Stack,
+    /// The module info map.
+    pub module_infos: ModuleInfoMap,
+    /// Map from source file path to module ID.
+    pub path_to_source_id: IndexMap<ModulePath, ModuleId>,
+    /// Map from module ID to source file contents.
+    pub id_to_source: IndexMap<ModuleId, ModuleSource>,
+    /// Deferred `never` type uses in imported local modules.
+    pub never_type_ranges: IndexMap<ModuleId, Vec<SourceRange>>,
+    /// Sticky per-constraint state persisted across sketch-mode mock solves.
+    pub constraint_state: IndexMap<ObjectId, IndexMap<ConstraintKey, ConstraintState>>,
+    /// The scene objects.
+    pub scene_objects: Vec<Object>,
+    /// See `GlobalState::std_not_yet_added`. Restored because a run reusing
+    /// this memory skips the prelude.
+    pub std_not_yet_added: IndexMap<String, NotYetAdded>,
+    /// The effective kclVersion (declared, or the default) of the program that
+    /// wrote this memory; see [`Self::reusable_for`].
+    pub kcl_version: KclVersion,
+}
+
+impl SketchModeState {
+    /// Whether a program with the effective `kcl_version` may reuse this
+    /// memory. Memory from another version keeps bindings, module outcomes,
+    /// and a prelude this program must not see, and the LSP worker reuses
+    /// memory with no other invalidation. Only the version counts: after other
+    /// settings changes the frontend may execute a single sketch, which needs
+    /// this memory and cannot rebuild it.
+    pub(crate) fn reusable_for(&self, kcl_version: KclVersion) -> bool {
+        self.kcl_version == kcl_version
+    }
+}
+
+#[cfg(test)]
+impl SketchModeState {
+    pub(crate) fn new_for_tests() -> Self {
+        Self {
+            stack: Stack::new_for_tests(),
+            module_infos: ModuleInfoMap::default(),
+            path_to_source_id: Default::default(),
+            id_to_source: Default::default(),
+            never_type_ranges: Default::default(),
+            constraint_state: Default::default(),
+            scene_objects: Vec::new(),
+            std_not_yet_added: Default::default(),
+            kcl_version: KclVersion::default(),
+        }
+    }
+}
+
+/// The result of a cache check.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
+pub(super) enum CacheResult {
+    ReExecute {
+        /// Should we clear the scene and start over?
+        clear_scene: bool,
+        /// Do we need to reapply settings?
+        reapply_settings: bool,
+        /// The program that needs to be executed.
+        program: Node<Program>,
+    },
+    /// Check only the imports, and not the main program.
+    /// Before sending this we already checked the main program and it is the same.
+    /// And we made sure the import statements > 0.
+    CheckImportsOnly {
+        /// Argument is whether we need to reapply settings.
+        reapply_settings: bool,
+        /// The ast of the main file, which did not change.
+        ast: Node<Program>,
+    },
+    /// Argument is whether we need to reapply settings.
+    NoAction(bool),
+}
+
+/// Given an old ast, old program memory and new ast, find the parts of the code that need to be
+/// re-executed.
+/// This function should never error, because in the case of any internal error, we should just pop
+/// the cache.
+pub(super) async fn get_changed_program(old: CacheInformation<'_>, new: CacheInformation<'_>) -> CacheResult {
+    let mut reapply_settings = false;
+
+    if old.kcl_version != new.kcl_version {
+        // If the KCL version differs, we need to send the version and
+        // re-execute.
+        return CacheResult::ReExecute {
+            clear_scene: true,
+            reapply_settings: true,
+            program: new.ast.clone(),
+        };
+    }
+
+    // If the settings are different we might need to bust the cache.
+    // We specifically do this before checking if they are the exact same.
+    if old.settings != new.settings {
+        // If anything else is different we may not need to re-execute, but rather just
+        // run the settings again.
+        reapply_settings = true;
+    }
+
+    // If the ASTs are the EXACT same we return None.
+    // We don't even need to waste time computing the digests.
+    if old.ast == new.ast {
+        // First we need to make sure an imported file didn't change it's ast.
+        // We know they have the same imports because the ast is the same.
+        // If we have no imports, we can skip this.
+        if !old.ast.has_import_statements() {
+            return CacheResult::NoAction(reapply_settings);
+        }
+
+        // Tell the CacheResult we need to check all the imports, but the main ast is the same.
+        return CacheResult::CheckImportsOnly {
+            reapply_settings,
+            ast: old.ast.clone(),
+        };
+    }
+
+    // We have to clone just because the digests are stored inline :-(
+    let mut old_ast = old.ast.clone();
+    let mut new_ast = new.ast.clone();
+
+    // The digests should already be computed, but just in case we don't
+    // want to compare against none.
+    old_ast.compute_digest();
+    new_ast.compute_digest();
+
+    // Check if the digest is the same.
+    if old_ast.digest == new_ast.digest {
+        // First we need to make sure an imported file didn't change it's ast.
+        // We know they have the same imports because the ast is the same.
+        // If we have no imports, we can skip this.
+        if !old.ast.has_import_statements() {
+            return CacheResult::NoAction(reapply_settings);
+        }
+
+        // Tell the CacheResult we need to check all the imports, but the main ast is the same.
+        return CacheResult::CheckImportsOnly {
+            reapply_settings,
+            ast: old.ast.clone(),
+        };
+    }
+
+    // Check if the block annotations like @settings() are different.
+    if !old_ast
+        .inner_attrs
+        .iter()
+        .filter(annotations::is_significant)
+        .zip_longest(new_ast.inner_attrs.iter().filter(annotations::is_significant))
+        .all(|pair| {
+            match pair {
+                EitherOrBoth::Both(old, new) => {
+                    // Compare annotations, ignoring source ranges.  Digests must
+                    // have been computed before this.
+                    let Annotation { name, properties, .. } = &old.inner;
+                    let Annotation {
+                        name: new_name,
+                        properties: new_properties,
+                        ..
+                    } = &new.inner;
+
+                    name.as_ref().map(|n| n.digest) == new_name.as_ref().map(|n| n.digest)
+                        && properties
+                            .as_ref()
+                            .map(|props| props.iter().map(|p| p.digest).collect::<Vec<_>>())
+                            == new_properties
+                                .as_ref()
+                                .map(|props| props.iter().map(|p| p.digest).collect::<Vec<_>>())
+                }
+                _ => false,
+            }
+        })
+    {
+        // If any of the annotations are different at the beginning of the
+        // program, it's likely the settings, and we have to bust the cache and
+        // re-execute the whole thing.
+        return CacheResult::ReExecute {
+            clear_scene: true,
+            reapply_settings: true,
+            program: new.ast.clone(),
+        };
+    }
+
+    // Check if the changes were only to Non-code areas, like comments or whitespace.
+    generate_changed_program(old_ast, new_ast, reapply_settings)
+}
+
+/// Force-generate a new CacheResult, even if one shouldn't be made. The
+/// way in which this gets invoked should always be through
+/// [get_changed_program]. This is purely to contain the logic on
+/// how we construct a new [CacheResult].
+///
+/// A CacheResult's program may be a *diff* of only the parts that need
+/// to be executed (only in the case of "pure additions" at time of writing.).
+/// This diff-based AST should not be persisted or used anywhere beyond the execution flow,
+/// as it will be incomplete.
+///
+/// Digests *must* be computed before calling this.
+fn generate_changed_program(old_ast: Node<Program>, mut new_ast: Node<Program>, reapply_settings: bool) -> CacheResult {
+    if !old_ast.body.iter().zip(new_ast.body.iter()).all(|(old, new)| {
+        let old_node: WalkNode = old.into();
+        let new_node: WalkNode = new.into();
+        old_node.digest() == new_node.digest()
+    }) {
+        // If any of the nodes are different in the stretch of body that
+        // overlaps, we have to bust cache and rebuild the scene. This
+        // means a single insertion or deletion will result in a cache
+        // bust.
+
+        return CacheResult::ReExecute {
+            clear_scene: true,
+            reapply_settings,
+            program: new_ast,
+        };
+    }
+
+    // otherwise the overlapping section of the ast bodies matches.
+    // Let's see what the rest of the slice looks like.
+
+    match new_ast.body.len().cmp(&old_ast.body.len()) {
+        std::cmp::Ordering::Less => {
+            // the new AST is shorter than the old AST -- statements
+            // were removed from the "current" code in the "new" code.
+            //
+            // Statements up until now match which means this is a
+            // "pure delete" of the remaining slice, when we get to
+            // supporting that.
+
+            // Cache bust time.
+            CacheResult::ReExecute {
+                clear_scene: true,
+                reapply_settings,
+                program: new_ast,
+            }
+        }
+        std::cmp::Ordering::Greater => {
+            // the new AST is longer than the old AST, which means
+            // statements were added to the new code we haven't previously
+            // seen.
+            //
+            // Statements up until now are the same, which means this
+            // is a "pure addition" of the remaining slice.
+
+            new_ast.body = new_ast.body[old_ast.body.len()..].to_owned();
+
+            CacheResult::ReExecute {
+                clear_scene: false,
+                reapply_settings,
+                program: new_ast,
+            }
+        }
+        std::cmp::Ordering::Equal => {
+            // currently unreachable, but let's pretend like the code
+            // above can do something meaningful here for when we get
+            // to diffing and yanking chunks of the program apart.
+
+            // We don't actually want to do anything here; so we're going
+            // to not clear and do nothing. Is this wrong? I don't think
+            // so but i think many things. This def needs to change
+            // when the code above changes.
+
+            CacheResult::NoAction(reapply_settings)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::execution::ExecTestResults;
+    use crate::execution::parse_execute;
+    use crate::execution::parse_execute_with_project_dir;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code() {
+        let new = r#"// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(new).await.unwrap();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(false));
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_changed_whitespace() {
+        let old = r#" // Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25) "#;
+
+        let new = r#"// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old).await.unwrap();
+
+        let program_new = crate::Program::parse_no_errs(new).unwrap();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&program_new.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(false));
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_changed_code_comment_start_of_program() {
+        let old = r#" // Removed the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25) "#;
+
+        let new = r#"// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old).await.unwrap();
+
+        let program_new = crate::Program::parse_no_errs(new).unwrap();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&program_new.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(false));
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_changed_code_comments_attrs() {
+        let old = r#"@foo(whatever = whatever)
+@bar
+// Removed the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0]) // my thing
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25) "#;
+
+        let new = r#"@foo(whatever = 42)
+@baz
+// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old).await.unwrap();
+
+        let program_new = crate::Program::parse_no_errs(new).unwrap();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&program_new.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(false));
+        exec_ctxt.close().await;
+    }
+
+    // Changing the grid settings with the exact same file should NOT bust the cache.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_but_different_grid_setting() {
+        let new = r#"// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults {
+            program, mut exec_ctxt, ..
+        } = parse_execute(new).await.unwrap();
+
+        // Change the settings.
+        exec_ctxt.settings.show_grid = !exec_ctxt.settings.show_grid;
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &Default::default()),
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(true));
+        exec_ctxt.close().await;
+    }
+
+    // Changing the edge visibility settings with the exact same file should NOT bust the cache.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_but_different_edge_visibility_setting() {
+        let new = r#"// Remove the end face for the extrusion.
+firstSketch = startSketchOn(XY)
+  |> startProfile(at = [-12, 12])
+  |> line(end = [24, 0])
+  |> line(end = [0, -24])
+  |> line(end = [-24, 0])
+  |> close()
+  |> extrude(length = 6)
+
+// Remove the end face for the extrusion.
+shell(firstSketch, faces = [END], thickness = 0.25)"#;
+
+        let ExecTestResults {
+            program, mut exec_ctxt, ..
+        } = parse_execute(new).await.unwrap();
+
+        // Change the settings.
+        exec_ctxt.settings.highlight_edges = !exec_ctxt.settings.highlight_edges;
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &Default::default()),
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(true));
+
+        // Change the settings back.
+        let old_settings = exec_ctxt.settings.clone();
+        exec_ctxt.settings.highlight_edges = !exec_ctxt.settings.highlight_edges;
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &old_settings),
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(true));
+
+        // Change the settings back.
+        let old_settings = exec_ctxt.settings.clone();
+        exec_ctxt.settings.highlight_edges = !exec_ctxt.settings.highlight_edges;
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &old_settings),
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(result, CacheResult::NoAction(true));
+        exec_ctxt.close().await;
+    }
+
+    // Changing only the KCL version must invalidate the cache and re-execute the whole program.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_but_different_kcl_version_using_annotation() {
+        for (old_version, new_version) in [
+            ("2.0", "\"3.0-preview\""),
+            ("2.0", "3.0"),
+            ("3.0", "2.0"),
+            ("\"3.0-preview\"", "3.0"),
+            ("3.0", "\"3.0-preview\""),
+        ] {
+            let old_code = format!("@settings(kclVersion = {old_version})\nx = 1\ny = x + 1\n");
+            let new_code = format!("@settings(kclVersion = {new_version})\nx = 1\ny = x + 1\n");
+            let mut program = crate::Program::parse_no_errs(&old_code).unwrap();
+            program.compute_digest();
+            let mut new_program = crate::Program::parse_no_errs(&new_code).unwrap();
+            new_program.compute_digest();
+            let settings = ExecutorSettings::default();
+
+            let result = get_changed_program(
+                CacheInformation::new(&program.ast, &settings),
+                CacheInformation::new(&new_program.ast, &settings),
+            )
+            .await;
+
+            assert_eq!(
+                result,
+                CacheResult::ReExecute {
+                    clear_scene: true,
+                    reapply_settings: true,
+                    program: new_program.ast,
+                },
+                "{old_version} -> {new_version}"
+            );
+        }
+    }
+
+    // Changing the units settings using an annotation with the exact same file
+    // should bust the cache.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_but_different_unit_setting_using_annotation() {
+        let old_code = r#"@settings(defaultLengthUnit = in)
+startSketchOn(XY)
+"#;
+        let new_code = r#"@settings(defaultLengthUnit = mm)
+startSketchOn(XY)
+"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old_code).await.unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(new_code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            CacheResult::ReExecute {
+                clear_scene: true,
+                reapply_settings: true,
+                program: new_program.ast,
+            }
+        );
+        exec_ctxt.close().await;
+    }
+
+    // Removing the units settings using an annotation, when it was non-default
+    // units, with the exact same file should bust the cache.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_same_code_but_removed_unit_setting_using_annotation() {
+        let old_code = r#"@settings(defaultLengthUnit = in)
+startSketchOn(XY)
+"#;
+        let new_code = r#"
+startSketchOn(XY)
+"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old_code).await.unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(new_code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            CacheResult::ReExecute {
+                clear_scene: true,
+                reapply_settings: true,
+                program: new_program.ast,
+            }
+        );
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_multi_file_no_changes_does_not_reexecute() {
+        let code = r#"import "toBeImported.kcl" as importedCube
+
+importedCube
+
+sketch001 = startSketchOn(XZ)
+profile001 = startProfile(sketch001, at = [-134.53, -56.17])
+  |> angledLine(angle = 0, length = 79.05, tag = $rectangleSegmentA001)
+  |> angledLine(angle = segAng(rectangleSegmentA001) - 90, length = 76.28)
+  |> angledLine(angle = segAng(rectangleSegmentA001), length = -segLen(rectangleSegmentA001), tag = $seg01)
+  |> line(endAbsolute = [profileStartX(%), profileStartY(%)], tag = $seg02)
+  |> close()
+extrude001 = extrude(profile001, length = 100)
+sketch003 = startSketchOn(extrude001, face = seg02)
+sketch002 = startSketchOn(extrude001, face = seg01)
+"#;
+
+        let other_file = (
+            std::path::PathBuf::from("toBeImported.kcl"),
+            r#"sketch001 = startSketchOn(XZ)
+profile001 = startProfile(sketch001, at = [281.54, 305.81])
+  |> angledLine(angle = 0, length = 123.43, tag = $rectangleSegmentA001)
+  |> angledLine(angle = segAng(rectangleSegmentA001) - 90, length = 85.99)
+  |> angledLine(angle = segAng(rectangleSegmentA001), length = -segLen(rectangleSegmentA001))
+  |> line(endAbsolute = [profileStartX(%), profileStartY(%)])
+  |> close()
+extrude(profile001, length = 100)"#
+                .to_string(),
+        );
+
+        let tmp_dir = std::env::temp_dir();
+        let tmp_dir = tmp_dir.join(uuid::Uuid::new_v4().to_string());
+
+        // Create a temporary file for each of the other files.
+        let tmp_file = tmp_dir.join(other_file.0);
+        std::fs::create_dir_all(tmp_file.parent().unwrap()).unwrap();
+        std::fs::write(tmp_file, other_file.1).unwrap();
+
+        let ExecTestResults { program, exec_ctxt, .. } =
+            parse_execute_with_project_dir(code, Some(crate::TypedPath(tmp_dir)))
+                .await
+                .unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        let CacheResult::CheckImportsOnly { reapply_settings, .. } = result else {
+            panic!("Expected CheckImportsOnly, got {result:?}");
+        };
+
+        assert_eq!(reapply_settings, false);
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_cache_multi_file_only_other_file_changes_should_reexecute() {
+        let code = r#"import "toBeImported.kcl" as importedCube
+
+importedCube
+
+sketch001 = startSketchOn(XZ)
+profile001 = startProfile(sketch001, at = [-134.53, -56.17])
+  |> angledLine(angle = 0, length = 79.05, tag = $rectangleSegmentA001)
+  |> angledLine(angle = segAng(rectangleSegmentA001) - 90, length = 76.28)
+  |> angledLine(angle = segAng(rectangleSegmentA001), length = -segLen(rectangleSegmentA001), tag = $seg01)
+  |> line(endAbsolute = [profileStartX(%), profileStartY(%)], tag = $seg02)
+  |> close()
+extrude001 = extrude(profile001, length = 100)
+sketch003 = startSketchOn(extrude001, face = seg02)
+sketch002 = startSketchOn(extrude001, face = seg01)
+"#;
+
+        let other_file = (
+            std::path::PathBuf::from("toBeImported.kcl"),
+            r#"sketch001 = startSketchOn(XZ)
+profile001 = startProfile(sketch001, at = [281.54, 305.81])
+  |> angledLine(angle = 0, length = 123.43, tag = $rectangleSegmentA001)
+  |> angledLine(angle = segAng(rectangleSegmentA001) - 90, length = 85.99)
+  |> angledLine(angle = segAng(rectangleSegmentA001), length = -segLen(rectangleSegmentA001))
+  |> line(endAbsolute = [profileStartX(%), profileStartY(%)])
+  |> close()
+extrude(profile001, length = 100)"#
+                .to_string(),
+        );
+
+        let other_file2 = (
+            std::path::PathBuf::from("toBeImported.kcl"),
+            r#"sketch001 = startSketchOn(XZ)
+profile001 = startProfile(sketch001, at = [281.54, 305.81])
+  |> angledLine(angle = 0, length = 123.43, tag = $rectangleSegmentA001)
+  |> angledLine(angle = segAng(rectangleSegmentA001) - 90, length = 85.99)
+  |> angledLine(angle = segAng(rectangleSegmentA001), length = -segLen(rectangleSegmentA001))
+  |> line(endAbsolute = [profileStartX(%), profileStartY(%)])
+  |> close()
+extrude(profile001, length = 100)
+|> translate(z=100) 
+"#
+            .to_string(),
+        );
+
+        let tmp_dir = std::env::temp_dir();
+        let tmp_dir = tmp_dir.join(uuid::Uuid::new_v4().to_string());
+
+        // Create a temporary file for each of the other files.
+        let tmp_file = tmp_dir.join(other_file.0);
+        std::fs::create_dir_all(tmp_file.parent().unwrap()).unwrap();
+        std::fs::write(&tmp_file, other_file.1).unwrap();
+
+        let ExecTestResults { program, exec_ctxt, .. } =
+            parse_execute_with_project_dir(code, Some(crate::TypedPath(tmp_dir)))
+                .await
+                .unwrap();
+
+        // Change the other file.
+        std::fs::write(tmp_file, other_file2.1).unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        let CacheResult::CheckImportsOnly { reapply_settings, .. } = result else {
+            panic!("Expected CheckImportsOnly, got {result:?}");
+        };
+
+        assert_eq!(reapply_settings, false);
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_added_outer_attribute() {
+        let old_code = r#"import "tests/inputs/cube.step"
+"#;
+        let new_code = r#"@(coords = opengl)
+import "tests/inputs/cube.step"
+"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old_code).await.unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(new_code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            CacheResult::ReExecute {
+                clear_scene: true,
+                reapply_settings: false,
+                program: new_program.ast,
+            }
+        );
+        exec_ctxt.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_changed_program_different_outer_attribute() {
+        let old_code = r#"@(coords = vulkan)
+import "tests/inputs/cube.step"
+"#;
+        let new_code = r#"@(coords = opengl)
+import "tests/inputs/cube.step"
+"#;
+
+        let ExecTestResults { program, exec_ctxt, .. } = parse_execute(old_code).await.unwrap();
+
+        let mut new_program = crate::Program::parse_no_errs(new_code).unwrap();
+        new_program.compute_digest();
+
+        let result = get_changed_program(
+            CacheInformation::new(&program.ast, &exec_ctxt.settings),
+            CacheInformation::new(&new_program.ast, &exec_ctxt.settings),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            CacheResult::ReExecute {
+                clear_scene: true,
+                reapply_settings: false,
+                program: new_program.ast,
+            }
+        );
+        exec_ctxt.close().await;
+    }
+}

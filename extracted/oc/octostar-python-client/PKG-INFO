@@ -1,0 +1,159 @@
+Metadata-Version: 2.4
+Name: octostar-python-client
+Version: 0.1.1134
+Summary: A client library for accessing Octostar API
+Author-email: Octostar <systems@octostar.com>
+License-Expression: MIT
+Project-URL: Homepage, https://octostar.com
+Project-URL: Repository, https://github.com/Octostarco/octostar-api
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx<0.28.0,>=0.20.0
+Requires-Dist: attrs>=21.3.0
+Requires-Dist: python-dateutil<3,>=2.8.0
+Requires-Dist: PyJWT<3,>=2.0.0
+Requires-Dist: python-dotenv<2,>=1.0.0
+Requires-Dist: tenacity<9,>=8.3.0
+Requires-Dist: aiofiles>=22.0.0
+Requires-Dist: pytimeparse<2,>=1.1.0
+Provides-Extra: streamlit
+Requires-Dist: octostar-streamlit<1,>=0.1.26; extra == "streamlit"
+Provides-Extra: test
+Requires-Dist: pytest>=7.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21; extra == "test"
+Dynamic: license-file
+
+# octostar-python-client
+A client library for accessing Octostar API
+
+## Usage
+First, create a client:
+
+```python
+from octostar import Client
+
+client = Client(base_url="https://api.example.com")
+```
+
+If the endpoints you're going to hit require authentication, use `AuthenticatedClient` instead:
+
+```python
+from octostar import AuthenticatedClient
+
+client = AuthenticatedClient(base_url="https://api.example.com", token="SuperSecretToken")
+```
+
+Now call your endpoint and use your models:
+
+```python
+from octostar.models import MyDataModel
+from octostar.api.my_tag import get_my_data_model
+from octostar.types import Response
+
+my_data: MyDataModel = get_my_data_model.sync(client=client)
+# or if you need more info (e.g. status_code)
+response: Response[MyDataModel] = get_my_data_model.sync_detailed(client=client)
+```
+
+Or do the same thing with an async version:
+
+```python
+from octostar.models import MyDataModel
+from octostar.api.my_tag import get_my_data_model
+from octostar.types import Response
+
+my_data: MyDataModel = await get_my_data_model.asyncio(client=client)
+response: Response[MyDataModel] = await get_my_data_model.asyncio_detailed(client=client)
+```
+
+By default, when you're calling an HTTPS API it will attempt to verify that SSL is working correctly. Using certificate verification is highly recommended most of the time, but sometimes you may need to authenticate to a server (especially an internal server) using a custom certificate bundle.
+
+```python
+client = AuthenticatedClient(
+    base_url="https://internal_api.example.com", 
+    token="SuperSecretToken",
+    verify_ssl="/path/to/certificate_bundle.pem",
+)
+```
+
+You can also disable certificate validation altogether, but beware that **this is a security risk**.
+
+```python
+client = AuthenticatedClient(
+    base_url="https://internal_api.example.com", 
+    token="SuperSecretToken", 
+    verify_ssl=False
+)
+```
+
+There are more settings on the generated `Client` class which let you control more runtime behavior, check out the docstring on that class for more info.
+
+Things to know:
+1. Every path/method combo becomes a Python module with four functions:
+    1. `sync`: Blocking request that returns parsed data (if successful) or `None`
+    1. `sync_detailed`: Blocking request that always returns a `Request`, optionally with `parsed` set if the request was successful.
+    1. `asyncio`: Like `sync` but async instead of blocking
+    1. `asyncio_detailed`: Like `sync_detailed` but async instead of blocking
+
+1. All path/query params, and bodies become method arguments.
+1. If your endpoint had any tags on it, the first tag will be used as a module name for the function (my_tag above)
+1. Any endpoint which did not have a tag will be in `octostar.api.default`
+
+## Installing
+
+```bash
+pip install octostar-python-client
+```
+
+### Testing a PR build (TestPyPI)
+
+Every pull request that touches the SDK publishes a pre-release to
+[TestPyPI](https://test.pypi.org/project/octostar-python-client/) versioned
+`0.0.<pr>.dev<run_number>` (e.g. `0.0.898.dev1319`) — the `<pr>` segment is the
+PR number, so you can find the build for your PR. Use it to test SDK changes
+before they merge.
+
+TestPyPI does not host third-party dependencies (`httpx`, `tenacity`, …), so
+point the resolver at PyPI as an extra index for them:
+
+```bash
+# pip
+pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  octostar-python-client==0.0.<pr>.dev<N>
+```
+
+```bash
+# uv (--index-strategy so uv considers both indexes per-package)
+uv pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  --index-strategy unsafe-best-match \
+  octostar-python-client==0.0.<pr>.dev<N>
+```
+
+## Releasing
+
+Releases are automated. On every merge to `main`, the octostar-api release
+pipeline builds this package and publishes it to PyPI, stamped with the
+octostar-api version. There is no manual publish step.
+
+To build the package locally for development:
+
+```bash
+./scripts/sdk/build.sh          # writes octostar_python_client/dist/*.whl and *.tar.gz
+pip install octostar_python_client/dist/*.whl
+```

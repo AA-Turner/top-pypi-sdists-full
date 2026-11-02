@@ -1,0 +1,1075 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+
+use anyhow::Result;
+use serde_json::json;
+
+use super::kcl_doc::ConstData;
+use super::kcl_doc::DocCategory;
+use super::kcl_doc::DocData;
+use super::kcl_doc::ExampleProperties;
+use super::kcl_doc::FnData;
+use super::kcl_doc::ModData;
+use super::kcl_doc::Properties;
+use super::kcl_doc::TyData;
+use crate::ConnectionError;
+use crate::ExecutorContext;
+use crate::errors::ExecErrorWithState;
+use crate::util::RetryConfig;
+use crate::util::execute_with_retries;
+
+mod type_formatter;
+
+const STDLIB_LINK_PREFIX: &str = "/docs/kcl-std";
+const KCL_LANG_TYPES_LINK: &str = "/docs/kcl-lang/types";
+
+fn output_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../docs/kcl-std")
+}
+
+fn escape_frontmatter_value(value: &str) -> String {
+    // YAML frontmatter is double-quoted in templates, so escape backslashes and quotes.
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn check_deprecation_attrs(qual_name: &str, props: &Properties) -> Result<()> {
+    if props.deprecated && props.deprecated_since.is_some() {
+        return Err(anyhow::anyhow!(
+            "{qual_name} has both `deprecated` and `deprecated_since` set; only one may be specified"
+        ));
+    }
+    Ok(())
+}
+
+fn init_handlebars() -> Result<handlebars::Handlebars<'static>> {
+    let mut hbs = handlebars::Handlebars::new();
+
+    hbs.register_helper(
+        "firstLine",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                // Get the first parameter passed to the helper
+                let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
+
+                // Get the first line using lines() iterator
+                let first = param.lines().next().unwrap_or("");
+
+                // Write the result
+                out.write(first)?;
+                Ok(())
+            },
+        ),
+    );
+
+    hbs.register_helper(
+        "firstLineTableCell",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
+                let first = param.lines().next().unwrap_or("");
+
+                // A literal pipe starts a new Markdown table cell, even when it
+                // appears inside inline code.
+                out.write(&first.replace('|', "\\|"))?;
+                Ok(())
+            },
+        ),
+    );
+
+    hbs.register_helper(
+        "frontmatter_escape",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                let input = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
+                let first_line = input.lines().next().unwrap_or("");
+                out.write(&escape_frontmatter_value(first_line))?;
+                Ok(())
+            },
+        ),
+    );
+
+    // Register a helper to do safe YAML new lines.
+    hbs.register_helper(
+        "safe_yaml",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                if let Some(param) = h.param(0)
+                    && let Some(string) = param.value().as_str()
+                {
+                    // Only get the first part before the newline.
+                    // This is to prevent the YAML from breaking.
+                    let first_line = string.lines().next().unwrap_or("");
+                    out.write(&escape_frontmatter_value(first_line))?;
+                    return Ok(());
+                }
+                out.write("")?;
+                Ok(())
+            },
+        ),
+    );
+
+    hbs.register_template_string("index", include_str!("templates/index.hbs"))?;
+    hbs.register_template_string("function", include_str!("templates/function.hbs"))?;
+    hbs.register_template_string("const", include_str!("templates/const.hbs"))?;
+    hbs.register_template_string("module", include_str!("templates/module.hbs"))?;
+    hbs.register_template_string("kclType", include_str!("templates/kclType.hbs"))?;
+
+    Ok(hbs)
+}
+
+fn write_doc_output(relative_file_name: &str, output: &str) -> Result<()> {
+    let path = output_root().join(format!("{relative_file_name}.md"));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    expectorate::assert_contents(path, output);
+    Ok(())
+}
+
+fn generate_index(kcl_lib: &ModData) -> Result<()> {
+    let hbs = init_handlebars()?;
+
+    let mut functions = HashMap::new();
+    functions.insert("std".to_owned(), Vec::new());
+
+    let mut constants = HashMap::new();
+
+    let mut types = HashMap::new();
+    types.insert("Primitive types".to_owned(), Vec::new());
+
+    let mut module_properties: HashMap<String, Properties> = HashMap::new();
+    module_properties.insert(kcl_lib.qual_name.clone(), kcl_lib.properties.clone());
+    for d in kcl_lib.all_docs() {
+        if let DocData::Mod(m) = d {
+            module_properties.insert(m.qual_name.clone(), m.properties.clone());
+        }
+    }
+
+    for d in kcl_lib.all_docs() {
+        if d.hide() {
+            continue;
+        }
+
+        let group = match d.doc_category() {
+            DocCategory::Functions => functions.entry(d.mod_name()).or_default(),
+            DocCategory::Constants => constants.entry(d.mod_name()).or_default(),
+            DocCategory::Modules => continue,
+            DocCategory::Types => types.entry(d.mod_name()).or_default(),
+        };
+
+        group.push((
+            d.preferred_name().to_owned(),
+            format!("{STDLIB_LINK_PREFIX}/{}", d.file_name()),
+            d.is_experimental(),
+        ));
+    }
+
+    let mut sorted_fns: Vec<_> = functions
+        .into_iter()
+        .map(|(m, mut fns)| {
+            fns.sort();
+            let experimental = module_properties.get(&m).is_some_and(|p| p.experimental);
+            let val = json!({
+                "name": m,
+                "file_name": format!("/docs/kcl-std/modules/{}", m.replace("::", "-")),
+                "experimental": experimental,
+                "items": fns.into_iter().map(|(n, f, e)| json!({
+                    "name": n,
+                    "file_name": f,
+                    "experimental": e,
+                })).collect::<Vec<_>>(),
+            });
+            (m, val)
+        })
+        .collect();
+    sorted_fns.sort_by(|t1, t2| t1.0.cmp(&t2.0));
+    let functions_data: Vec<_> = sorted_fns.into_iter().map(|(_, val)| val).collect();
+
+    let mut sorted_consts: Vec<_> = constants
+        .into_iter()
+        .map(|(m, mut consts)| {
+            consts.sort();
+            let experimental = module_properties.get(&m).is_some_and(|p| p.experimental);
+            let val = json!({
+                "name": m,
+                "file_name": format!("/docs/kcl-std/modules/{}", m.replace("::", "-")),
+                "experimental": experimental,
+                "items": consts.into_iter().map(|(n, f, e)| json!({
+                    "name": n,
+                    "file_name": f,
+                    "experimental": e,
+                })).collect::<Vec<_>>(),
+            });
+            (m, val)
+        })
+        .collect();
+    sorted_consts.sort_by(|t1, t2| t1.0.cmp(&t2.0));
+    let consts_data: Vec<_> = sorted_consts.into_iter().map(|(_, val)| val).collect();
+
+    let mut sorted_types: Vec<_> = types
+        .into_iter()
+        .map(|(m, mut tys)| {
+            let file_name = if m == "Primitive types" {
+                KCL_LANG_TYPES_LINK.to_owned()
+            } else {
+                format!("{STDLIB_LINK_PREFIX}/modules/{}", m.replace("::", "-"))
+            };
+            tys.sort();
+            let experimental = module_properties.get(&m).is_some_and(|p| p.experimental);
+            let val = json!({
+                "name": m,
+                "file_name": file_name,
+                "experimental": experimental,
+                "items": tys.into_iter().map(|(n, f, e)| json!({
+                    "name": n,
+                    "file_name": f,
+                    "experimental": e,
+                })).collect::<Vec<_>>(),
+            });
+            (m, val)
+        })
+        .collect();
+    sorted_types.sort_by(|t1, t2| t1.0.cmp(&t2.0));
+    let types_data: Vec<_> = sorted_types.into_iter().map(|(_, val)| val).collect();
+
+    let data = json!({
+        "functions": functions_data,
+        "consts": consts_data,
+        "types": types_data,
+        "types_overview_link": KCL_LANG_TYPES_LINK,
+    });
+
+    let output = hbs.render("index", &data)?;
+
+    write_doc_output("index", &output)?;
+
+    Ok(())
+}
+
+fn generate_example(index: usize, src: &str, props: &ExampleProperties, file_name: &str) -> Option<serde_json::Value> {
+    if props.inline && props.norun {
+        return None;
+    }
+
+    let content = if props.inline {
+        String::new()
+    } else {
+        crate::unparser::fmt(src).unwrap()
+    };
+
+    let gltf_path = if props.norun || props.no3d {
+        String::new()
+    } else {
+        // Refers to the specific path of zoo.dev that assets are served under.
+        // Look in website repo's ContentLayer configuration to find how this is set.
+        // Right now, we assume the GLB export is called 'output' but in the future, we should
+        // pass its name in from the process which ran the export.
+        format!("/kcl-test-outputs/models/serial_test_example_{file_name}{index}_output.glb")
+    };
+
+    let image_path = if props.norun {
+        String::new()
+    } else {
+        // Refers to the specific path of zoo.dev that assets are served under.
+        // Look in website repo's ContentLayer configuration to find how this is set.
+        format!("/kcl-test-outputs/serial_test_example_{file_name}{index}.png")
+    };
+
+    Some(json!({
+        "content": content,
+        "gltf_path": gltf_path,
+        "image_path": image_path,
+    }))
+}
+
+/// Renders a type's documentation page to markdown, without resolving type
+/// links against the stdlib and without writing output. Split from
+/// `generate_type_from_kcl` so the rendering can be unit tested with a
+/// synthetic `TyData`.
+fn render_type_page(ty: &TyData, example_name: &str) -> Result<String> {
+    check_deprecation_attrs(&ty.qual_name, &ty.properties)?;
+
+    let hbs = init_handlebars()?;
+
+    let examples: Vec<serde_json::Value> = ty
+        .examples
+        .iter()
+        .enumerate()
+        .filter_map(|(index, example)| generate_example(index, &example.0, &example.1, example_name))
+        .collect();
+
+    let definition = if let Some(t) = ty.alias.as_ref() {
+        Some(format!("type {} = {t}", ty.preferred_name))
+    } else if !ty.variants.is_empty() {
+        let arms = ty
+            .variants
+            .iter()
+            .map(|v| format!("  | {}", v.name))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Some(format!("type {} {{\n{arms}\n}}", ty.name))
+    } else {
+        None
+    };
+
+    let data = json!({
+        "name": ty.preferred_name,
+        "module": mod_name_std(&ty.module_name),
+        "definition": definition,
+        "summary": ty.summary.clone(),
+        "description": ty.description.clone(),
+        "added_in": ty.properties.added_in.as_ref().map(ToString::to_string),
+        "deprecated": ty.properties.deprecated,
+        "deprecated_since": ty.properties.deprecated_since.as_ref().map(ToString::to_string),
+        "experimental": ty.properties.experimental,
+        "examples": examples,
+        "variants": ty.variants.iter().map(|v| json!({
+            "name": v.name,
+            "docs": v.docs,
+        })).collect::<Vec<_>>(),
+    });
+
+    Ok(hbs.render("kclType", &data)?)
+}
+
+fn generate_type_from_kcl(ty: &TyData, file_name: String, example_name: String, kcl_std: &ModData) -> Result<()> {
+    if ty.properties.doc_hidden {
+        return Ok(());
+    }
+
+    let output = render_type_page(ty, &example_name)?;
+    let output = cleanup_types(&output, kcl_std);
+    write_doc_output(&file_name, &output)?;
+
+    Ok(())
+}
+
+fn generate_mod_from_kcl(m: &ModData, file_name: String) -> Result<()> {
+    fn list_items(m: &ModData, namespace: &str) -> Vec<gltf_json::Value> {
+        let mut items: Vec<_> = m
+            .children
+            .iter()
+            .filter(|(k, _)| k.starts_with(namespace))
+            .map(|(_, v)| {
+                (
+                    v.preferred_name().to_owned(),
+                    format!("{STDLIB_LINK_PREFIX}/{}", v.file_name()),
+                )
+            })
+            .collect();
+
+        items.sort();
+        items
+            .into_iter()
+            .map(|(n, f)| {
+                json!({
+                    "name": n,
+                    "file_name": f,
+                })
+            })
+            .collect()
+    }
+    let hbs = init_handlebars()?;
+
+    let functions = list_items(m, "I:");
+    let modules = list_items(m, "M:");
+    let types = list_items(m, "T:");
+
+    let data = json!({
+        "name": m.name,
+        "module": mod_name_std(&m.module_name),
+        "summary": m.summary.clone(),
+        "description": m.description.clone(),
+        "experimental": m.properties.experimental,
+        "modules": modules,
+        "functions": functions,
+        "types": types,
+    });
+
+    let output = hbs.render("module", &data)?;
+    write_doc_output(&file_name, &output)?;
+
+    Ok(())
+}
+
+fn mod_name_std(name: &str) -> String {
+    assert_ne!(name, "prelude");
+    if name == "std" {
+        name.to_owned()
+    } else {
+        format!("std::{name}")
+    }
+}
+
+/// Render the markdown page for a function. Split out of
+/// `generate_function_from_kcl` so the rendering can be unit tested with a
+/// synthetic `FnData`.
+fn render_function_page(function: &FnData, example_name: &str, kcl_std: &ModData) -> Result<String> {
+    check_deprecation_attrs(&function.qual_name, &function.properties)?;
+
+    let hbs = init_handlebars()?;
+
+    let examples: Vec<serde_json::Value> = function
+        .examples
+        .iter()
+        .enumerate()
+        .filter_map(|(index, example)| generate_example(index, &example.0, &example.1, example_name))
+        .collect();
+    let args = function
+        .args
+        .iter()
+        .map(|arg| {
+            let docs = arg.docs.clone();
+            if let Some(docs) = &docs {
+                // We deliberately truncate to one line in the template so that if we are using the docs
+                // from the type, then we only take the summary. However, if there's a newline in the
+                // arg docs, then they would get truncated unintentionally.
+                assert!(!docs.contains('\n'), "Arg docs will get truncated");
+            };
+            json!({
+                "name": arg.name,
+                "type_": arg.ty,
+                "description": docs
+                        .or_else(|| arg.ty.as_ref().and_then(|t| docs_for_type(t, kcl_std)))
+                        .unwrap_or_default(),
+                "required": arg.kind.required(),
+                "experimental": arg.experimental,
+                "added_in": arg.added_in.as_ref().map(ToString::to_string),
+                "deprecated": arg.deprecated,
+                "deprecated_since": arg.deprecated_since.as_ref().map(ToString::to_string),
+                "removed_in": arg.removed_in.as_ref().map(ToString::to_string),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let data = json!({
+        "name": function.preferred_name,
+        "module": mod_name_std(&function.module_name),
+        "summary": function.summary.clone(),
+        "description": function.description.clone(),
+        "added_in": function.properties.added_in.as_ref().map(ToString::to_string),
+        "deprecated": function.properties.deprecated,
+        "deprecated_since": function.properties.deprecated_since.as_ref().map(ToString::to_string),
+        "experimental": function.properties.experimental,
+        "fn_signature": function.preferred_name.clone() + &function.fn_signature(),
+        "examples": examples,
+        "args": args,
+        "return_value": function.return_type.as_ref().map(|t| {
+            json!({
+                "type_": t,
+                "description": docs_for_type(t, kcl_std).unwrap_or_default(),
+            })
+        }),
+    });
+
+    Ok(hbs.render("function", &data)?)
+}
+
+fn generate_function_from_kcl(
+    function: &FnData,
+    file_name: String,
+    example_name: String,
+    kcl_std: &ModData,
+) -> Result<()> {
+    if function.properties.doc_hidden {
+        return Ok(());
+    }
+
+    let output = render_function_page(function, &example_name, kcl_std)?;
+    let output = cleanup_types(&output, kcl_std);
+    write_doc_output(&file_name, &output)?;
+
+    Ok(())
+}
+
+fn docs_for_type(ty: &str, kcl_std: &ModData) -> Option<String> {
+    let key = if ty.starts_with("number") { "number" } else { ty };
+
+    if !key.contains('|')
+        && !key.contains('[')
+        && let Some(data) = kcl_std.find_by_name(key)
+    {
+        return data.summary().cloned();
+    }
+
+    None
+}
+
+/// Render the markdown page for a constant; split out so it can be unit tested.
+fn render_const_page(cnst: &ConstData, example_name: &str, kcl_std: &ModData) -> Result<String> {
+    check_deprecation_attrs(&cnst.qual_name, &cnst.properties)?;
+
+    let hbs = init_handlebars()?;
+
+    let examples: Vec<serde_json::Value> = cnst
+        .examples
+        .iter()
+        .enumerate()
+        .filter_map(|(index, example)| generate_example(index, &example.0, &example.1, example_name))
+        .collect();
+
+    let data = json!({
+        "name": cnst.preferred_name,
+        "module": mod_name_std(&cnst.module_name),
+        "summary": cnst.summary.clone(),
+        "description": cnst.description.clone(),
+        "added_in": cnst.properties.added_in.as_ref().map(ToString::to_string),
+        "deprecated": cnst.properties.deprecated,
+        "deprecated_since": cnst.properties.deprecated_since.as_ref().map(ToString::to_string),
+        "experimental": cnst.properties.experimental,
+        "type_": cnst.ty,
+        "type_desc": cnst.ty.as_ref().map(|t| {
+            docs_for_type(t, kcl_std).unwrap_or_default()
+        }),
+        "examples": examples,
+        "value": cnst.value.as_deref().unwrap_or(""),
+    });
+
+    Ok(hbs.render("const", &data)?)
+}
+
+fn generate_const_from_kcl(cnst: &ConstData, file_name: String, example_name: String, kcl_std: &ModData) -> Result<()> {
+    if cnst.properties.doc_hidden {
+        return Ok(());
+    }
+
+    let output = render_const_page(cnst, &example_name, kcl_std)?;
+    let output = cleanup_types(&output, kcl_std);
+    write_doc_output(&file_name, &output)?;
+
+    Ok(())
+}
+
+fn cleanup_types(input: &str, kcl_std: &ModData) -> String {
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+    enum State {
+        Text,
+        PreCodeBlock,
+        CodeBlock,
+        CodeBlockType,
+        Slash,
+        Comment,
+    }
+
+    let mut output = String::new();
+    let mut code_annot = String::new();
+    let mut code = String::new();
+    let mut code_type = String::new();
+    let mut state = State::Text;
+    let mut ticks = 0;
+
+    for c in input.chars() {
+        if state == State::CodeBlockType {
+            if ['`', ',', '\n', ')', '/'].contains(&c) {
+                if code_type.starts_with(' ') {
+                    code.push(' ');
+                }
+                code.push_str(&cleanup_type_string(code_type.trim(), false, kcl_std));
+                if code_type.ends_with(' ') {
+                    code.push(' ');
+                }
+
+                code_type = String::new();
+                state = State::CodeBlock;
+            } else {
+                code_type.push(c);
+                continue;
+            }
+        }
+        if c == '`' {
+            if state == State::Comment {
+                code.push(c);
+            } else {
+                if state == State::Slash {
+                    state = State::CodeBlock;
+                }
+
+                ticks += 1;
+                if ticks == 3 {
+                    if state == State::Text {
+                        state = State::PreCodeBlock;
+                    } else {
+                        output.push_str("```");
+                        output.push_str(&code_annot);
+                        output.push_str(&code);
+                        // `code` includes the first two of three backticks
+                        output.push('`');
+                        state = State::Text;
+                        code_annot = String::new();
+                        code = String::new();
+                    }
+                    ticks = 0;
+                } else if state == State::Text && ticks == 2 && !code.is_empty() {
+                    output.push_str(&cleanup_type_string(&code, true, kcl_std));
+                    code = String::new();
+                    ticks = 0;
+                } else if state == State::CodeBlock {
+                    code.push(c);
+                }
+            }
+        } else {
+            if ticks == 2 {
+                // Empty code block
+                ticks = 0;
+            }
+
+            if c == '\n' && (state == State::PreCodeBlock || state == State::Comment) {
+                state = State::CodeBlock;
+            }
+
+            if c == '/' {
+                match state {
+                    State::CodeBlock => state = State::Slash,
+                    State::Slash => state = State::Comment,
+                    _ => {}
+                }
+            } else if state == State::Slash {
+                state = State::CodeBlock;
+            }
+
+            match state {
+                State::Text if ticks == 0 => output.push(c),
+                State::Text if ticks == 1 => code.push(c),
+                State::Text => unreachable!(),
+                State::PreCodeBlock => code_annot.push(c),
+                State::CodeBlock | State::Slash | State::Comment => code.push(c),
+                State::CodeBlockType => unreachable!(),
+            }
+
+            if c == ':' && state == State::CodeBlock {
+                state = State::CodeBlockType;
+            }
+        }
+    }
+
+    output
+}
+
+fn cleanup_type_string(input: &str, fmt_for_text: bool, kcl_std: &ModData) -> String {
+    let type_tree = match type_formatter::parse(input) {
+        Ok(type_tree) => type_tree,
+        Err(e) => {
+            eprintln!("Could not parse: {input} because {e}");
+            return input.to_owned();
+        }
+    };
+    let fmtd = type_tree.format(fmt_for_text, kcl_std);
+    if !fmtd.contains('`') && fmt_for_text {
+        format!("`{fmtd}`")
+    } else {
+        fmtd
+    }
+}
+
+/// Renders a synthetic enum type, constructed directly rather than parsed
+/// from a std file, so the variant rendering is covered even while std
+/// declares no enums.
+#[test]
+fn test_render_type_page_enum_variants() {
+    let mut ty = TyData {
+        name: "Direction".to_owned(),
+        preferred_name: "turns::Direction".to_owned(),
+        qual_name: "std::turns::Direction".to_owned(),
+        properties: Properties {
+            added_in: None,
+            deprecated: false,
+            deprecated_since: None,
+            experimental: true,
+            doc_hidden: false,
+            exported: true,
+            impl_kind: crate::execution::annotations::Impl::Kcl,
+            doc_category: None,
+        },
+        alias: None,
+        variants: vec![
+            super::kcl_doc::TyVariantData {
+                name: "Clockwise".to_owned(),
+                docs: Some("Turns in the direction of a clock's hands.".to_owned()),
+            },
+            super::kcl_doc::TyVariantData {
+                name: "Counterclockwise".to_owned(),
+                docs: None,
+            },
+        ],
+        summary: Some("The direction of rotation.".to_owned()),
+        description: None,
+        examples: Vec::new(),
+        module_name: "turns".to_owned(),
+    };
+
+    let page = render_type_page(&ty, "std-turns-Direction").unwrap();
+
+    assert!(page.lines().count() > 10, "expected a full page, got:\n{page}");
+    assert!(page.contains("The direction of rotation."));
+    assert!(page.contains("**WARNING:** This type is experimental"));
+    assert!(
+        page.contains("type Direction {\n  | Clockwise\n  | Counterclockwise\n}"),
+        "expected the enum definition block, got:\n{page}"
+    );
+    assert!(page.contains("### Variants"));
+    assert!(
+        page.contains("| `Clockwise` | Turns in the direction of a clock's hands. |"),
+        "expected a table row with the variant's docs, got:\n{page}"
+    );
+    assert!(page.contains("| `Counterclockwise` |"));
+
+    // A type without variants must not render the section. The exact
+    // whitespace of real pages is pinned by test_generate_stdlib_markdown_docs.
+    ty.variants.clear();
+    let page = render_type_page(&ty, "std-turns-Direction").unwrap();
+    assert!(!page.contains("### Variants"));
+    assert!(!page.contains("Clockwise"));
+}
+
+/// Renders a synthetic function page so the argument table's lifecycle
+/// markers are covered even while std declares no `added_in` parameter. The
+/// exact whitespace of real pages is pinned by
+/// test_generate_stdlib_markdown_docs.
+#[test]
+fn test_render_function_page_marks_arg_lifecycle() {
+    fn arg(name: &str, docs: &str) -> super::kcl_doc::ArgData {
+        super::kcl_doc::ArgData {
+            name: name.to_owned(),
+            experimental: false,
+            ty: Some("number".to_owned()),
+            kind: super::kcl_doc::ArgKind::Labelled(true),
+            override_in_snippet: None,
+            docs: Some(docs.to_owned()),
+            snippet_array: None,
+            added_in: None,
+            deprecated: false,
+            deprecated_since: None,
+            removed_in: None,
+        }
+    }
+    let version = crate::execution::annotations::VersionConstraint::parse;
+
+    let mut new_arg = arg("newArg", "A new argument accepting `Face | Tag`.");
+    new_arg.added_in = version("3.0");
+    let mut old_arg = arg("oldArg", "An old argument.");
+    old_arg.added_in = version("2.0");
+    old_arg.deprecated_since = version("2.0");
+    old_arg.removed_in = version("3.0");
+
+    let function = FnData {
+        name: "foo".to_owned(),
+        preferred_name: "foo".to_owned(),
+        qual_name: "std::foo".to_owned(),
+        args: vec![new_arg, old_arg],
+        return_type: None,
+        properties: Properties {
+            added_in: None,
+            deprecated: false,
+            deprecated_since: None,
+            experimental: false,
+            doc_hidden: false,
+            exported: true,
+            impl_kind: crate::execution::annotations::Impl::Kcl,
+            doc_category: None,
+        },
+        summary: Some("Does a thing.".to_owned()),
+        description: None,
+        examples: Vec::new(),
+        module_name: "std".to_owned(),
+    };
+
+    let page = render_function_page(&function, "std-foo", &crate::docs::kcl_doc::walk_stdlib()).unwrap();
+
+    assert!(
+        page.contains("| `newArg` | `number` | **Added in KCL 3.0.** A new argument accepting `Face \\| Tag`. | No |"),
+        "expected the added-in marker, got:\n{page}"
+    );
+    // Markers follow the parameter's lifecycle: added, deprecated, removed.
+    assert!(
+        page.contains(
+            "| `oldArg` | `number` | **Added in KCL 2.0.** **Deprecated as of KCL 2.0.** **Removed in KCL 3.0.** An old argument. | No |"
+        ),
+        "expected the lifecycle markers in order, got:\n{page}"
+    );
+}
+
+/// Synthetic pages cover the added-in line while std declares no `added_in`
+/// item; real-page whitespace is pinned by test_generate_stdlib_markdown_docs.
+#[test]
+fn test_render_pages_mark_added_in() {
+    let kcl_std = crate::docs::kcl_doc::walk_stdlib();
+    let properties = |added_in: Option<&str>| Properties {
+        added_in: added_in.and_then(crate::execution::annotations::VersionConstraint::parse),
+        deprecated: false,
+        deprecated_since: None,
+        experimental: false,
+        doc_hidden: false,
+        exported: true,
+        impl_kind: crate::execution::annotations::Impl::Kcl,
+        doc_category: None,
+    };
+    const ADDED_IN_LINE: &str = "**Added in KCL 3.0.**";
+
+    let mut function = FnData {
+        name: "foo".to_owned(),
+        preferred_name: "foo".to_owned(),
+        qual_name: "std::foo".to_owned(),
+        args: Vec::new(),
+        return_type: None,
+        properties: properties(Some("3.0")),
+        summary: Some("Does a thing.".to_owned()),
+        description: None,
+        examples: Vec::new(),
+        module_name: "std".to_owned(),
+    };
+    let page = render_function_page(&function, "std-foo", &kcl_std).unwrap();
+    assert!(
+        page.contains("Does a thing.\n\n**Added in KCL 3.0.**\n\n```kcl\nfoo()"),
+        "expected the added-in line between the summary and the signature, got:\n{page}"
+    );
+    assert_eq!(page.matches(ADDED_IN_LINE).count(), 1, "{page}");
+    // Without the attribute the page is unchanged.
+    function.properties = properties(None);
+    let page = render_function_page(&function, "std-foo", &kcl_std).unwrap();
+    assert!(page.contains("Does a thing.\n\n```kcl\nfoo()"), "{page}");
+    assert!(!page.contains("Added in"), "{page}");
+
+    let ty = TyData {
+        name: "Pair".to_owned(),
+        preferred_name: "Pair".to_owned(),
+        qual_name: "std::types::Pair".to_owned(),
+        properties: properties(Some("3.0")),
+        alias: Some("[number; 2]".to_owned()),
+        variants: Vec::new(),
+        summary: Some("Two numbers.".to_owned()),
+        description: None,
+        examples: Vec::new(),
+        module_name: "types".to_owned(),
+    };
+    let page = render_type_page(&ty, "std-types-Pair").unwrap();
+    assert!(
+        page.contains("Two numbers.\n\n**Added in KCL 3.0.**\n\n```kcl\ntype Pair = [number; 2]"),
+        "expected the added-in line between the summary and the definition, got:\n{page}"
+    );
+    assert_eq!(page.matches(ADDED_IN_LINE).count(), 1, "{page}");
+
+    let cnst = ConstData {
+        name: "FOO".to_owned(),
+        preferred_name: "FOO".to_owned(),
+        qual_name: "std::FOO".to_owned(),
+        value: Some("1".to_owned()),
+        ty: Some("number".to_owned()),
+        properties: properties(Some("3.0")),
+        summary: Some("A constant.".to_owned()),
+        description: None,
+        examples: Vec::new(),
+        module_name: "std".to_owned(),
+    };
+    let page = render_const_page(&cnst, "std-FOO", &kcl_std).unwrap();
+    assert!(
+        page.contains("A constant.\n\n**Added in KCL 3.0.**\n\n```kcl\n"),
+        "expected the added-in line between the summary and the value, got:\n{page}"
+    );
+    assert_eq!(page.matches(ADDED_IN_LINE).count(), 1, "{page}");
+}
+
+#[test]
+fn test_generate_stdlib_markdown_docs() {
+    let kcl_std = crate::docs::kcl_doc::walk_stdlib();
+
+    generate_index(&kcl_std).unwrap();
+
+    for d in kcl_std.all_docs() {
+        match d {
+            DocData::Fn(f) => generate_function_from_kcl(f, d.file_name(), d.example_name(), &kcl_std).unwrap(),
+            DocData::Const(c) => generate_const_from_kcl(c, d.file_name(), d.example_name(), &kcl_std).unwrap(),
+            DocData::Ty(t) => generate_type_from_kcl(t, d.file_name(), d.example_name(), &kcl_std).unwrap(),
+            DocData::Mod(m) => generate_mod_from_kcl(m, d.file_name()).unwrap(),
+        }
+    }
+    generate_mod_from_kcl(&kcl_std, "modules/std".to_owned()).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_code_in_topics() {
+    let mut failures = Vec::new();
+    for entry in fs::read_dir("../../docs/kcl-lang").unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        let text = std::fs::read_to_string(&path).unwrap();
+
+        for (i, (eg, attr)) in find_examples(&text, &path).into_iter().enumerate() {
+            if attr.contains("norun") || attr == "no_run" || !attr.contains("kcl") {
+                continue;
+            }
+
+            // This is one scheduled test, so keep at most one engine connection
+            // active instead of opening a connection for every example at once.
+            // run_example closes each connection before the next example starts.
+            if let Err(error) = run_example_with_retries(&eg).await {
+                failures.push(format!("{}, example {i}: {error}", path.display()));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "Failures: {}", failures.join(", "))
+}
+
+fn find_examples(text: &str, filename: &Path) -> Vec<(String, String)> {
+    let mut buf = String::new();
+    let mut attr = String::new();
+    let mut in_eg = false;
+    let mut result = Vec::new();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("```") {
+            if in_eg {
+                result.push((buf, attr));
+                buf = String::new();
+                attr = String::new();
+                in_eg = false;
+            } else {
+                attr = rest.to_owned();
+                in_eg = true;
+            }
+            continue;
+        }
+        if in_eg {
+            buf.push('\n');
+            buf.push_str(line)
+        }
+    }
+
+    assert!(!in_eg, "Unclosed code tags in {}", filename.display());
+
+    result
+}
+
+/// Execute the example code, with retries if we get a transient error from the
+/// engine.
+async fn run_example_with_retries(text: &str) -> Result<()> {
+    let program = crate::Program::parse_no_errs(text)?;
+    execute_with_retries(&RetryConfig::default(), || run_example(&program)).await?;
+    Ok(())
+}
+
+async fn run_example(program: &crate::Program) -> Result<(), ExecErrorWithState> {
+    let version = program
+        .language_version()
+        .map_err(crate::KclErrorWithOutputs::no_outputs)
+        .map_err(crate::ExecError::from)?;
+    let ctx = ExecutorContext::new_geometry_only_with_version(version)
+        .await
+        .map_err(ConnectionError::CouldNotMakeClient)?;
+    let mut exec_state = crate::execution::ExecState::new(&ctx);
+    let result = ctx
+        .run(program, &mut exec_state)
+        .await
+        .map_err(|err| ExecErrorWithState::new(err.into(), exec_state, None));
+    // Always close, even when there's an error.
+    ctx.close().await;
+    result.map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cleanup_type_string() {
+        let kcl_std = crate::docs::kcl_doc::walk_stdlib();
+
+        struct Test {
+            input: &'static str,
+            expected_text: &'static str,
+            expected_no_text: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: "v",
+                expected_text: "`v`",
+                expected_no_text: "v",
+            },
+            Test {
+                input: "number(mm)",
+                expected_text: "[`number(mm)`](/docs/kcl-std/types/std-types-number)",
+                expected_no_text: "number(mm)",
+            },
+            Test {
+                input: "number(mm) | string",
+                expected_text: "[`number(mm)`](/docs/kcl-std/types/std-types-number) or [`string`](/docs/kcl-std/types/std-types-string)",
+                expected_no_text: "number(mm) | string",
+            },
+            Test {
+                input: "[string; 1+]",
+                expected_text: "[[`string`](/docs/kcl-std/types/std-types-string); 1+]",
+                expected_no_text: "[string; 1+]",
+            },
+            Test {
+                input: "[string; 1+] | number(mm)",
+                expected_text: "[[`string`](/docs/kcl-std/types/std-types-string); 1+] or [`number(mm)`](/docs/kcl-std/types/std-types-number)",
+                expected_no_text: "[string; 1+] | number(mm)",
+            },
+            Test {
+                input: "[string | number(mm)]",
+                expected_text: "[[`string`](/docs/kcl-std/types/std-types-string) or [`number(mm)`](/docs/kcl-std/types/std-types-number)]",
+                expected_no_text: "[string | number(mm)]",
+            },
+            Test {
+                input: "[a, b, c]",
+                expected_text: "`[a, b, c]`",
+                expected_no_text: "[a, b, c]",
+            },
+            // A type links to the page of the module that declares it, not to
+            // `std::types`. `CameraView`, `Orientation` and `Projection` are
+            // declared in `std::view`; `Solid` keeps the `std-types-` form, so
+            // the rule is "ask the type where its page is" rather than "swap one
+            // module for another".
+            Test {
+                input: "Solid",
+                expected_text: "[`Solid`](/docs/kcl-std/types/std-types-Solid)",
+                expected_no_text: "Solid",
+            },
+            Test {
+                input: "CameraView",
+                expected_text: "[`CameraView`](/docs/kcl-std/types/std-view-CameraView)",
+                expected_no_text: "CameraView",
+            },
+            Test {
+                input: "Orientation",
+                expected_text: "[`Orientation`](/docs/kcl-std/types/std-view-Orientation)",
+                expected_no_text: "Orientation",
+            },
+            Test {
+                input: "Projection | Solid",
+                expected_text: "[`Projection`](/docs/kcl-std/types/std-view-Projection) or [`Solid`](/docs/kcl-std/types/std-types-Solid)",
+                expected_no_text: "Projection | Solid",
+            },
+        ];
+        for test in tests {
+            let actual_text = cleanup_type_string(test.input, true, &kcl_std);
+            assert_eq!(actual_text, test.expected_text, "Failed formatted text");
+            let actual_no_text = cleanup_type_string(test.input, false, &kcl_std);
+            assert_eq!(actual_no_text, test.expected_no_text, "Failed no text");
+        }
+    }
+}

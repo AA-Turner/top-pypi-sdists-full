@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: evernote3
+Version: 1.25.14
+Summary: Evernote SDK for Python3
+Home-page: http://dev.evernote.com
+Author: Evernote Corporation
+Author-email: api@evernote.com
+License: BSD
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3

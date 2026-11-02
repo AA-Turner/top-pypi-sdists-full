@@ -5,7 +5,7 @@ from contextlib import nullcontext
 import httpx
 import pytest
 
-from probe.cli import desktop
+from probe.cli.imports import desktop
 from probe.sdk import errors
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings

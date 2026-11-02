@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=77.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "octostar-python-client"
+# Fallback only. Release builds override this via the SDK_VERSION env var
+# (see scripts/sdk/build.sh); on main the version tracks the octostar-api
+# GitVersion tag.
+version = "0.1.1134"
+description = "A client library for accessing Octostar API"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Octostar", email = "systems@octostar.com" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "httpx >= 0.20.0, < 0.28.0",
+    "attrs >= 21.3.0",
+    "python-dateutil >= 2.8.0, < 3",
+    "PyJWT >= 2.0.0, < 3",
+    "python-dotenv >= 1.0.0, < 2",
+    "tenacity >= 8.3.0, < 9",
+    "aiofiles >= 22.0.0",
+    "pytimeparse >= 1.1.0, < 2"
+]
+
+[project.urls]
+Homepage = "https://octostar.com"
+Repository = "https://github.com/Octostarco/octostar-api"
+
+[project.optional-dependencies]
+streamlit = ["octostar-streamlit >= 0.1.26, < 1"]
+test = [
+    "pytest >= 7.0",
+    "pytest-asyncio >= 0.21",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["octostar*"]
+
+[tool.setuptools.package-data]
+"octostar" = ["py.typed"]

@@ -1,0 +1,252 @@
+[project]
+name = "starpulse"
+version = "0.5.0"
+description = "StarPulse visualizes the workflows runs adapters read, lifecycle machines and the agents moving through them"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "sqlalchemy>=2.1.1",
+    "pydantic>=2",
+    "python-statemachine>=3.2.1,<4",
+    "pyyaml>=6.0.3",
+    "jsonschema>=4.25.1",
+    "numpy>=2.5.4",
+    "alembic>=1.16",
+    "hypercorn[h3]>=0.18.0",
+    "starlette>=1.9.0",
+    "connect-python==0.9.0",
+    "protobuf>=7.36.2",
+]
+
+[project.scripts]
+starpulse = "starpulse.__main__:main"
+
+[project.optional-dependencies]
+temporal = [
+    "temporalio>=1.34.0",
+]
+
+[dependency-groups]
+bench = [
+    "locust>=2.46.7",
+    "playwright>=1.63.0",
+]
+dev = [
+    "commitizen>=4.19.2",
+    "grpcio>=1.84.0",
+    "grpcio-tools>=1.84.0",
+    "hypothesis>=6.170.8",
+    "import-linter>=2.15",
+    "pytest>=9",
+    "pytest-cov>=7.1.0",
+    "pytest-memray>=1.11.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "temporalio>=1.34.0",
+]
+
+# deptry reads `starpulse` imports as the project's own.
+[tool.deptry]
+known_first_party = ["starpulse"]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["starpulse*"]
+exclude = ["starpulse.tests", "starpulse.tests.*"]
+
+# The built page and the machine schema are read from beside the module through `__file__`.
+[tool.setuptools.package-data]
+starpulse = ["static/**/*", "schemas/*.json", "machine.schema.json", "machines/*.yaml", "skills/**/*", "_internal/eventlog/migrations/*.py", "_internal/eventlog/migrations/versions/*.py"]
+
+# The tiers the package is organized in (docs: StarPulse Is Layered Around Its Event Log): a module imports from its own
+# tier or one below, never above.
+[tool.importlinter]
+root_package = "starpulse"
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "entrypoints, producers, derived features and the core are layered, and siblings in a tier are independent"
+type = "layers"
+# Four tiers, each importing only the tiers below it and `contracts`. Features on one `|` line are independent; a line
+# of its own marks a named edge (the ADR "StarPulse Is Layered Around Its Event Log"): `kit` drives a `server`,
+# `server` serves the doctor's checks from `cli`, `pulls` reads GitHub Actions runs from `runs`,
+# `scheduler` samples the board feed and the harness machine, and the
+# history store in `eventlog` reads `config` and `machines`.
+layers = [
+    # entrypoints
+    "starpulse._internal.kit",
+    "starpulse._internal.server",
+    "starpulse._internal.cli",
+    # producers
+    "starpulse._internal.pulls | starpulse._internal.scheduler",
+    "starpulse._internal.board | starpulse._internal.runs | starpulse._internal.harnesses",
+    # derived
+    "starpulse._internal.level",
+    "starpulse._internal.feed | starpulse._internal.ci",
+    # core
+    "starpulse._internal.store",
+    "starpulse._internal.eventlog",
+    "starpulse._internal.config | starpulse._internal.machines | starpulse._internal.github_api | starpulse._internal.signals",
+    "starpulse.contracts",
+]
+
+[[tool.importlinter.contracts]]
+id = "page-contract"
+name = "Only the server and the kit import the page contract"
+type = "forbidden"
+# The wire DTOs in `contracts.api` are the inbound adapter's published language: the server maps features onto them and
+# encodes them, and the kit drives a server. Every other tier reads `contracts.adapters` and the rest of `contracts`.
+source_modules = [
+    "starpulse._internal.cli",
+    "starpulse._internal.pulls", "starpulse._internal.scheduler",
+    "starpulse._internal.board", "starpulse._internal.runs", "starpulse._internal.harnesses",
+    "starpulse._internal.level",
+    "starpulse._internal.feed", "starpulse._internal.ci",
+    "starpulse._internal.store", "starpulse._internal.eventlog",
+    "starpulse._internal.config", "starpulse._internal.machines", "starpulse._internal.github_api",
+    "starpulse._internal.signals",
+]
+forbidden_modules = ["starpulse.contracts.api"]
+
+[[tool.importlinter.contracts]]
+id = "store-table-private"
+name = "Only the store package imports the event store's tables"
+type = "forbidden"
+# A stream is appended through `EventStore` alone: its compare-and-swap, outbox row and envelope are what make the
+# stream trustworthy, so a module that imports the table could write around them.
+# The wildcards list every sibling of the store, tests included; a root or `_internal` source would contain the table
+# and be skipped, and the store package itself contains it, so it may import it.
+source_modules = ["starpulse.*", "starpulse._internal.*"]
+forbidden_modules = ["starpulse._internal.store.tables"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "readmodel-table-private"
+name = "Only the read model package imports its tables"
+type = "forbidden"
+# A Task row is written by the projector alone and read through `ReadModel`: a module that imports the tables could
+# write a row no History folds into, or filter in Python what an index serves. The wildcards work as for the store.
+source_modules = ["starpulse.*", "starpulse._internal.*"]
+forbidden_modules = ["starpulse._internal.readmodel.tables"]
+allow_indirect_imports = true
+
+# Bounded contexts: one per StarPulse context, id `context-<glossary slug>`.
+# forbidden_modules is every other context's packages except the map's upstreams (direct imports; transitive stay
+# allowed). The shared kernel (`config`, `eventlog`, `machines`, `github_api`, `signals`, `contracts`) and the entrypoints
+# belong to no context.
+
+[[tool.importlinter.contracts]]
+id = "context-board"
+name = "Board imports no other StarPulse context"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.board", "starpulse._internal.feed"]
+forbidden_modules = [
+    "starpulse._internal.scheduler",
+    "starpulse._internal.level",
+    "starpulse._internal.harnesses",
+    "starpulse._internal.pulls", "starpulse._internal.ci",
+    "starpulse._internal.runs",
+]
+
+[[tool.importlinter.contracts]]
+id = "context-scheduler"
+name = "Scheduler imports only Board, Harness Telemetry and Flow Metrics among StarPulse contexts"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.scheduler"]
+forbidden_modules = [
+    "starpulse._internal.pulls", "starpulse._internal.ci",
+    "starpulse._internal.runs",
+]
+
+[[tool.importlinter.contracts]]
+id = "context-flow-metrics"
+name = "Flow Metrics imports only Board and Runs among StarPulse contexts"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.level"]
+forbidden_modules = [
+    "starpulse._internal.scheduler",
+    "starpulse._internal.harnesses",
+    "starpulse._internal.pulls", "starpulse._internal.ci",
+]
+
+[[tool.importlinter.contracts]]
+id = "context-harness-telemetry"
+name = "Harness Telemetry imports no other StarPulse context"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.harnesses"]
+forbidden_modules = [
+    "starpulse._internal.board", "starpulse._internal.feed",
+    "starpulse._internal.scheduler",
+    "starpulse._internal.level",
+    "starpulse._internal.pulls", "starpulse._internal.ci",
+    "starpulse._internal.runs",
+]
+
+[[tool.importlinter.contracts]]
+id = "context-delivery"
+name = "Delivery imports only Board among StarPulse contexts"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.pulls", "starpulse._internal.ci"]
+forbidden_modules = [
+    "starpulse._internal.scheduler",
+    "starpulse._internal.level",
+    "starpulse._internal.harnesses",
+    "starpulse._internal.runs",
+]
+
+[[tool.importlinter.contracts]]
+id = "context-runs"
+name = "Runs imports only Board among StarPulse contexts"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["starpulse._internal.runs"]
+forbidden_modules = [
+    "starpulse._internal.scheduler",
+    "starpulse._internal.level",
+    "starpulse._internal.harnesses",
+    "starpulse._internal.pulls", "starpulse._internal.ci",
+]
+
+[tool.pytest.ini_options]
+# `starpulse/tests/e2e/` runs only when asked for, `uv run pytest -m e2e`, and nightly tests only in the nightly suite,
+# `-m "not e2e"`: a later `-m` replaces this one.
+addopts = ["--import-mode=importlib", "-m", "not e2e and not nightly"]
+markers = [
+    "e2e: an operator's entry point end to end; deselected unless `-m e2e` asks for it",
+    "nightly: a budget test (leak, latency, soak) too slow for the gate's 5 s ceiling; only the nightly suite runs it",
+    "slow: a gate test excused from the 5 s ceiling (ci/slow_tests.py)",
+]
+# A test that never returns fails after this many seconds instead of holding the job: one spinning worker grows
+# by about 6.5 MB/s through log capture.
+timeout = 120
+testpaths = ["starpulse/tests", "ci"]
+# The UI preview script under `ci/` is imported by its module name.
+pythonpath = ["ci"]
+
+# The nightly's per-test coverage map (ci/coverage_map.py) records which source files each test runs: line coverage only,
+# test files included so a test that runs no package code still leaves its own file under its context, and relative
+# paths so shard data combines across runners. The default core stays: `core = "sysmon"` is cheaper but records no
+# per-test contexts.
+[tool.coverage.run]
+source = ["starpulse", "ci"]
+relative_files = true
+
+# `cz bump` names the beta that release.yml publishes for a merge to main (see its build job); a stable release is still
+# a version bump merged by hand and a matching tag.
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "uv"
+tag_format = "v$version"
+# A breaking change is a minor bump before 1.0 (the releases ADR), so cz never proposes 1.0.0.
+major_version_zero = true

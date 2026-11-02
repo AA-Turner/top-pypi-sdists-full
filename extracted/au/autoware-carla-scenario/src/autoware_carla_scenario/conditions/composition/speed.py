@@ -1,0 +1,222 @@
+"""Speed condition for scenario evaluation."""
+
+from __future__ import annotations
+
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from ...entity_role import EntityRole
+from ...kinematics import Vector3
+from ...kinematics.walker_motion import WalkerVelocities
+from ..base import ScenarioResult, find_actor_by_role_name
+from ..entity_existence import find_present_actor_by_role_name
+from ..comparison import ComparisonRule, ScalarComparisonRule
+from .base import CompositionCondition, entity_axes
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+
+class SpeedDirection(Enum):
+    """Which speed component to evaluate.
+
+    Attributes:
+        LONGITUDINAL: Speed component along the reference direction.
+        LATERAL: Speed component perpendicular to the reference direction.
+        MAGNITUDE: Scalar speed (Euclidean magnitude of the velocity vector).
+    """
+
+    LONGITUDINAL = auto()
+    LATERAL = auto()
+    MAGNITUDE = auto()
+
+
+class SpeedCoordinateSystem(Enum):
+    """Coordinate system for velocity decomposition.
+
+    Attributes:
+        WORLD: Decompose velocity in the CARLA world frame.
+            Longitudinal corresponds to the world x-axis (East),
+            lateral corresponds to the world y-axis (South).
+        ENTITY: Decompose velocity relative to a reference entity's orientation.
+            Longitudinal is along the reference entity's forward direction,
+            lateral is perpendicular (positive = left of the reference entity).
+            Requires ``reference_entity_name`` to be set.
+    """
+
+    WORLD = auto()
+    ENTITY = auto()
+
+
+class SpeedCondition(CompositionCondition):
+    """Pass condition that triggers when an entity's speed meets a comparison.
+
+    Evaluates the specified speed component of an entity against a threshold
+    using the given comparison rule.  The component can be the scalar
+    magnitude, or the longitudinal / lateral projection in a chosen
+    coordinate system.
+
+    Args:
+        entity_name: The ``role_name`` attribute of the actor to evaluate.
+        value: Threshold speed (m/s) to compare against.
+        rule: Comparison operator.
+        direction: Which speed component to evaluate.
+            Defaults to :attr:`SpeedDirection.MAGNITUDE`.
+        coordinate_system: Coordinate system for longitudinal / lateral
+            decomposition.  Ignored when *direction* is
+            :attr:`SpeedDirection.MAGNITUDE`.
+            Defaults to :attr:`SpeedCoordinateSystem.WORLD`.
+        reference_entity_name: ``role_name`` of the entity whose orientation
+            defines the reference frame.  Required when *coordinate_system*
+            is :attr:`SpeedCoordinateSystem.ENTITY`.
+        tolerance: Tolerance for :attr:`ComparisonRule.EQUAL_TO`.
+            Defaults to ``1e-6``.
+    """
+
+    # Declared for the static check (docs/typecheck.md).
+    _comparison: ScalarComparisonRule
+    _direction: SpeedDirection
+    _coordinate_system: SpeedCoordinateSystem
+    _reference_entity_name: Optional[str]
+    _velocities: WalkerVelocities
+
+    def __init__(
+        self,
+        entity_name: Union[EntityRole, str],
+        value: float,
+        rule: ComparisonRule,
+        direction: SpeedDirection = SpeedDirection.MAGNITUDE,
+        coordinate_system: SpeedCoordinateSystem = SpeedCoordinateSystem.WORLD,
+        reference_entity_name: Union[EntityRole, str, None] = None,
+        tolerance: float = 1e-6,
+        *,
+        label: str,
+    ) -> None:
+        if tolerance < 0:
+            raise ValueError("tolerance must be non-negative")
+        if (
+            coordinate_system == SpeedCoordinateSystem.ENTITY
+            and reference_entity_name is None
+        ):
+            raise ValueError(
+                "reference_entity_name is required " "when coordinate_system is ENTITY"
+            )
+        super().__init__(entity_name=entity_name, label=label)
+        self._comparison = ScalarComparisonRule(
+            field="speed", rule=rule, value=value, tolerance=tolerance
+        )
+        self._direction = direction
+        self._coordinate_system = coordinate_system
+        # Kept as its string, the one thing every use of it reads.
+        self._reference_entity_name = (
+            str(reference_entity_name) if reference_entity_name is not None else None
+        )
+        # A walker's velocity, measured from where it stood when last checked.
+        self._velocities = WalkerVelocities()
+
+    def close(self) -> None:
+        """Forget the walkers measured (the run is over), then close the
+        guards (:meth:`CompositionCondition.close`): a condition registered
+        once is checked again next run."""
+        self._velocities.clear()
+        super().close()
+
+    def get_details(self) -> dict[str, Any]:
+        details = super().get_details()
+        details.update(
+            {
+                "value": self._comparison.value,
+                "rule": self._comparison.rule.name,
+                "direction": self._direction.name,
+                "coordinate_system": self._coordinate_system.name,
+            }
+        )
+        if self._reference_entity_name is not None:
+            details["reference_entity_name"] = str(self._reference_entity_name)
+        return details
+
+    def _extract_speed_component(
+        self,
+        entity: carla.Actor,
+        world: "carla.World",
+        elapsed: float = 0.0,
+    ) -> Optional[float]:
+        """Extract the relevant speed component from *entity*.
+
+        Args:
+            entity: The target actor whose velocity is measured.
+            world: The world, to look up the reference entity in.
+            elapsed: The scenario's elapsed time, to measure a walker's
+                velocity by
+                (:class:`~...kinematics.walker_motion.WalkerVelocities`).
+
+        Returns:
+            The speed value (m/s), or ``None`` if the reference entity
+            required for :attr:`SpeedCoordinateSystem.ENTITY` cannot be
+            found or has a degenerate forward vector.
+        """
+        read = self._velocities.velocity(entity, elapsed)
+        if read is None:
+            return None  # a walker not measured yet
+        # Annotated, so Codon unwraps the Optional (docs/typecheck.md).
+        vel: Vector3 = read
+
+        if self._direction == SpeedDirection.MAGNITUDE:
+            return vel.magnitude()
+
+        if self._coordinate_system == SpeedCoordinateSystem.WORLD:
+            if self._direction == SpeedDirection.LONGITUDINAL:
+                return vel.x
+            # LATERAL
+            return vel.y
+
+        # --- ENTITY coordinate system ---
+        assert self._reference_entity_name is not None
+        ref_entity = find_present_actor_by_role_name(world, self._reference_entity_name)
+        if ref_entity is None:
+            return None
+
+        axes = entity_axes(ref_entity)
+        if axes is None:
+            return None
+        forward_unit, left_unit = axes
+
+        if self._direction == SpeedDirection.LONGITUDINAL:
+            return vel.dot(forward_unit)
+
+        return vel.dot(left_unit)
+
+    def _check(self, world: carla.World, elapsed: float) -> Optional[ScenarioResult]:
+        """Return a pass result if the entity's speed satisfies the rule.
+
+        Args:
+            world: The CARLA world instance.
+            elapsed: Elapsed time in seconds since the scenario started.
+
+        Returns:
+            :class:`ScenarioResult` with ``passed=True`` if the speed
+            condition is met, ``None`` otherwise.
+        """
+        assert self._entity_name is not None
+        entity = find_actor_by_role_name(world, self._entity_name)
+        if entity is None:
+            return None
+
+        speed_component = self._extract_speed_component(entity, world, elapsed)
+        if speed_component is None:
+            return None
+
+        if self._comparison.satisfied(speed_component):
+            rule_text = self._comparison.rule.text
+            return ScenarioResult(
+                passed=True,
+                message=(
+                    f"Entity '{self._entity_name}' speed"
+                    f" {self._direction.name.lower()}"
+                    f" ({speed_component:.2f} m/s)"
+                    f" {rule_text} {self._comparison.value:.2f} m/s"
+                ),
+                elapsed_seconds=elapsed,
+            )
+
+        return None

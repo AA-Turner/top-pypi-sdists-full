@@ -170,11 +170,13 @@ def test_a_rejected_version_is_skipped_only_until_it_expires(tools, monkeypatch)
     24 h does not, and a newer release is never held off by an older ban."""
     import json
 
-    from probe.cli import updater
+    from probe.cli.install import updater
     from probe.core import adopt
 
     adopt.reset()
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     installed: list[str] = []
 
     def install(version, *_args, **_kwargs):

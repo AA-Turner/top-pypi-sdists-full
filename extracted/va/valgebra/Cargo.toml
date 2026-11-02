@@ -1,0 +1,105 @@
+[workspace]
+members = ["crates/valgebra-core", "crates/valgebra-py"]
+# Resolver 3 is the edition-2024 default and is MSRV-aware.
+resolver = "3"
+
+[workspace.package]
+version = "0.0.22"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ppigazzini/valgebra"
+
+[workspace.dependencies]
+# Keep one PyO3 version across the extension: jiter's `python` feature also
+# depends on PyO3, and two PyO3 lines cannot coexist in one extension module.
+# Held at 0.29: under the two reference-pool cfgs `.cargo/config.toml` sets,
+# 0.30.0 and 0.30.1 take a `Py<PyAny>` by value in `register_decref`, drop it on
+# return and re-enter themselves, which
+# `a_validator_dropped_while_detached_leaks_its_pool` holds. `.github/
+# dependabot.yml` ignores those two releases and the jiter that needs them.
+pyo3 = "0.29"
+# FxHash for the internal maps keyed by trusted, build-checked data (field names,
+# pool ids), pinned once so both crates share one hasher version. Pure Rust, so
+# the core crate stays interpreter-free while using it.
+rustc-hash = "2.1"
+# The regex engine, for the descriptor's string and bytes components: a set of
+# strings is a regular language, and the three operations it must be closed
+# under are automata constructions. Already in the tree -- the binding's
+# `regex` depends on it -- so the core shares a version rather than adding one.
+regex-automata = { version = "0.4", default-features = false, features = [
+  "std",
+  "syntax",
+  "dfa-build",
+  "unicode",
+] }
+valgebra-core = { path = "crates/valgebra-core" }
+
+# Lints configured once for the whole workspace; each crate opts in with
+# `[lints] workspace = true`. CI runs `cargo clippy -- -D warnings`, so every
+# warning below is a hard failure there.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unreachable_pub = "warn"
+# A public item with no doc comment is one a reader meets with no statement of
+# what it denotes, and this project's doc comments carry the denotations. It also
+# catches the shape a doc-comment sweep by eye does not: an item inserted between
+# a comment and the item it describes leaves the comment attached to the newcomer
+# and the original undocumented. It reads public items only: the same shape on a
+# private function passes, as two doc blocks stacked over one item.
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# The summary rustdoc prints in a module listing is an item's first *paragraph*,
+# so a paragraph running four sentences is a listing entry running four
+# sentences. Named rather than taken with the group it belongs to: one lint whose
+# subject is how this project already writes, against a group whose other
+# members are style preferences it has not made.
+too_long_first_doc_paragraph = "warn"
+# Four lints outside the default groups that read zero hits over every target,
+# switched on so the allocation and the stack cost they refuse cannot arrive
+# unseen: an instruction gate reads one of them as a percent or two, inside its
+# ceiling. `redundant_clone` and `needless_collect` are left off: nursery lints
+# with false positives, and every hit either has is in a test.
+or_fun_call = "warn"
+rc_buffer = "warn"
+set_contains_or_insert = "warn"
+large_stack_frames = "warn"
+# No answer and no instruction count may depend on the order a hash table is
+# walked in, which the instruction gates assume and this holds: a walk over one
+# is refused, and the one site whose order is not read says why.
+iter_over_hash_type = "warn"
+
+# Fast local iteration: the Rust side is debugged through the Python test suite,
+# not a native debugger, so the default full debuginfo is build and link cost
+# with no payoff. Dropping it cuts the clean workspace build by roughly eight
+# percent and trims incremental rebuilds. The shipped wheel uses `release` and
+# is unaffected; for a native debugging session, build under `profiling`.
+[profile.dev]
+debug = 0
+# Overflow is a program error, and which behavior a build gets is a per-profile
+# choice rather than something to inherit. Trapping in dev and test is what makes
+# the discipline pay: every intended saturation in this tree is spelled --
+# `saturating_add` on the node-count sum, `saturating_sub` on the required-field
+# counter and the union probe's depth, `checked_sub` in the decision budget -- so
+# a bare `+` that wraps is a defect these profiles catch rather than a shape
+# somebody meant.
+overflow-checks = true
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "unwind"
+# Wrapping, stated rather than inherited. The shipped wheel is a validation hot
+# path and every arithmetic site that could overflow is either bounded by a
+# collection length or spelled as a saturating operation, so the check buys
+# nothing here that the dev and test profiles do not already catch.
+overflow-checks = false
+
+# Release-grade optimization with symbols retained, for profiling the hot path.
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = true

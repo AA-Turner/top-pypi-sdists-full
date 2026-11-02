@@ -1,0 +1,336 @@
+"""FastAPI dependency providers for async Redis clients."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from inspect import isawaitable
+from typing import TYPE_CHECKING, Annotated, Any, TypeAlias, cast
+
+if TYPE_CHECKING:
+    from redis_fastapi.cache_backend import CacheBackend, SyncCacheBackend
+    from redis_fastapi.ratelimit_backend import (
+        RateLimitBackend,
+        SyncRateLimitBackend,
+        _BackendCapabilities,
+    )
+
+from fastapi import Depends, FastAPI, Request
+from redis.asyncio import ConnectionPool as AsyncConnectionPool
+from redis.asyncio import Redis as AsyncRedis
+from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
+from redis.asyncio.sentinel import Sentinel as AsyncSentinel
+from redis.asyncio.sentinel import SentinelConnectionPool as AsyncSentinelPool
+
+from redis_fastapi.config import get_settings
+
+# Imported at runtime, not under TYPE_CHECKING, and that is load-bearing.
+# FastAPI resolves an endpoint's annotations with ``get_type_hints``, which
+# evaluates the forward reference inside ``Annotated[...]`` against *this*
+# module's namespace.  A name that exists only for the type checker raises
+# NameError there, and FastAPI then treats the parameter as an ordinary query
+# parameter - so the endpoint answers 422 instead of receiving its session.
+# Under ``from __future__ import annotations`` in the caller's module this is
+# the only spelling that works.  There is no import cycle: session_backend
+# never imports deps at module level.
+from redis_fastapi.session_backend import (
+    RedisSessionStore,
+    SessionState,
+    SessionStore,
+    SyncSessionStore,
+    _StoreCapabilities,
+)
+from redis_fastapi.sessions import Session, session_of, session_state_of
+
+logger = logging.getLogger(__name__)
+
+# Type alias for async clients (standalone or cluster)
+AsyncClient: TypeAlias = AsyncRedis | AsyncRedisCluster
+
+
+class _PoolState:
+    """Connection pool / cluster state stored on ``app.state._redis``.
+
+    Initialised by the lifespan and accessed via :func:`_get_pool_state`.
+    Client instances are cached so that ``get_async_redis()`` returns
+    the same wrapper on every call, avoiding the overhead of creating
+    (and closing) a new wrapper per request.
+    """
+
+    async_pool: AsyncConnectionPool | None = None
+    async_cluster: AsyncRedisCluster | None = None
+    async_sentinel: AsyncSentinel | None = None
+    _async_client: AsyncRedis | None = None
+
+    # Shared, pool-lifetime rate-limit capability cache (INCREX / EVAL support
+    # and the registered Lua script).  Lazily created by
+    # ``get_rate_limit_backend`` and reset on shutdown so detection is paid
+    # once per process, not per request.  The type is a TYPE_CHECKING-only
+    # forward ref (annotations are lazy here), so this needs no runtime import
+    # and there is no import cycle: ratelimit_backend never imports deps.
+    ratelimit_capabilities: _BackendCapabilities | None = None
+
+    # The same idea for the session store: HSETEX support is a property of the
+    # server, so it is discovered once per pool rather than on every request.
+    session_capabilities: _StoreCapabilities | None = None
+
+    # -- pool / cluster builders (static) -----------------------------------
+
+    @staticmethod
+    def build_async_pool() -> AsyncConnectionPool:
+        """Create an async ``ConnectionPool`` from settings (URL or KV)."""
+        settings = get_settings()
+        kw = settings.connection_kwargs()
+        url = kw.pop("url", None)
+        if url is not None:
+            return AsyncConnectionPool.from_url(url, **kw)
+        return AsyncConnectionPool(**kw)
+
+    @staticmethod
+    def build_async_cluster() -> AsyncRedisCluster:
+        """Create an async ``RedisCluster`` from settings."""
+        settings = get_settings()
+        kw = settings.connection_kwargs()
+        url = kw.pop("url", None)
+        if url is not None:
+            return AsyncRedisCluster.from_url(url, **kw)
+        return AsyncRedisCluster(**kw)
+
+    @staticmethod
+    def build_async_sentinel() -> tuple[AsyncSentinel, AsyncSentinelPool]:
+        """Create a ``Sentinel`` and a pool of connections to its primary.
+
+        The pool asks the Sentinels for the primary's address on every new
+        connection, so clients follow a failover without a restart.
+        """
+        settings = get_settings()
+        sentinel = AsyncSentinel(  # type: ignore[no-untyped-call]
+            settings.sentinel_addresses(),
+            sentinel_kwargs=settings.sentinel_kwargs(),
+        )
+        pool = AsyncSentinelPool(  # type: ignore[no-untyped-call]
+            settings.sentinel_master_name,
+            sentinel,
+            **settings.sentinel_connection_kwargs(),
+        )
+        return sentinel, pool
+
+    # -- client accessors ---------------------------------------------------
+
+    def get_async_client(self) -> AsyncClient:
+        """Return a cached async Redis client backed by the shared pool.
+
+        Raises:
+            RuntimeError: If no pool/cluster has been initialized by the
+                lifespan.  Call ``FastAPIRedis(app).lifespan()`` or use
+                ``redis_lifespan`` before injecting Redis dependencies.
+        """
+        settings = get_settings()
+        if settings.cluster:
+            cluster = self.async_cluster
+            if cluster is None:
+                raise RuntimeError(
+                    "Redis cluster not initialised — no lifespan has been "
+                    "registered.  Call FastAPIRedis(app).lifespan() or "
+                    "compose redis_lifespan in your own lifespan handler."
+                )
+            return cluster
+        pool = self.async_pool
+        if pool is None:
+            raise RuntimeError(
+                "Redis connection pool not initialised — no lifespan has "
+                "been registered.  Call FastAPIRedis(app).lifespan() or "
+                "compose redis_lifespan in your own lifespan handler."
+            )
+        client = self._async_client
+        if client is None or client.connection_pool is not pool:
+            client = AsyncRedis(connection_pool=pool)
+            self._async_client = client
+        return client
+
+    def clear(self) -> None:
+        """Reset cached clients (called during lifespan shutdown)."""
+        self._async_client = None
+        self.ratelimit_capabilities = None
+        self.session_capabilities = None
+
+
+def _get_pool_state(app: FastAPI) -> _PoolState:
+    """Return the ``_PoolState`` attached to *app*, creating one if needed."""
+    state: _PoolState | None = getattr(app.state, "_redis", None)
+    if state is None:
+        state = _PoolState()
+        app.state._redis = state
+    return state
+
+
+async def get_async_redis(request: Request) -> AsyncClient:
+    """Return an async Redis client backed by the shared connection pool.
+
+    Returns a cached client instance - the same wrapper is reused
+    across calls to avoid per-request overhead.
+
+    In cluster mode returns an ``AsyncRedisCluster`` instance.  In sentinel
+    mode returns an ``AsyncRedis`` connected to the current primary.
+
+    Raises:
+        RuntimeError: If no lifespan has initialized the pool.
+    """
+    return _get_pool_state(request.app).get_async_client()
+
+
+async def get_cache_backend(request: Request) -> CacheBackend:
+    """Return a :class:`CacheBackend` backed by the shared async pool."""
+    from redis_fastapi.cache_backend import CacheBackend
+
+    client = await get_async_redis(request)
+    return CacheBackend(client)
+
+
+async def get_sync_cache_backend(request: Request) -> SyncCacheBackend:
+    """Return a :class:`SyncCacheBackend` for use in sync endpoints.
+
+    The underlying async :class:`CacheBackend` is resolved on the event
+    loop; the returned wrapper bridges each call back via
+    :func:`anyio.from_thread.run`.
+    """
+    from redis_fastapi.cache_backend import SyncCacheBackend
+
+    backend = await get_cache_backend(request)
+    return SyncCacheBackend(backend)
+
+
+async def get_rate_limit_backend(request: Request) -> RateLimitBackend:
+    """Return a :class:`RateLimitBackend` backed by the shared async pool.
+
+    The backend is constructed per request, but its server-capability cache is
+    sourced from (and stored on) the pool state so INCREX / EVAL detection is
+    paid once per process rather than re-probed on every request.
+    """
+    from redis_fastapi.ratelimit_backend import (
+        RateLimitBackend,
+        _BackendCapabilities,
+    )
+
+    state = _get_pool_state(request.app)
+    if state.ratelimit_capabilities is None:
+        state.ratelimit_capabilities = _BackendCapabilities()
+    client = await get_async_redis(request)
+    return RateLimitBackend(client, capabilities=state.ratelimit_capabilities)
+
+
+async def get_sync_rate_limit_backend(request: Request) -> SyncRateLimitBackend:
+    """Return a :class:`SyncRateLimitBackend` for use in sync endpoints.
+
+    The underlying async :class:`RateLimitBackend` is resolved on the event
+    loop; the returned wrapper bridges each call back via
+    :func:`anyio.from_thread.run`.
+    """
+    from redis_fastapi.ratelimit_backend import SyncRateLimitBackend
+
+    backend = await get_rate_limit_backend(request)
+    return SyncRateLimitBackend(backend)
+
+
+async def get_session_store(request: Request) -> SessionStore:
+    """Return the session store for this request.
+
+    Three things can decide what comes back, in order:
+
+    1. ``app.dependency_overrides[get_session_store]``, consulted here rather
+       than only by FastAPI.  The middleware calls this function directly - it
+       runs before dependency resolution - so without this check an override
+       reached handlers and not the load path, and the two halves of a request
+       used different stores.  That gap is why the test suite used to reach
+       into ``app.user_middleware`` and rewrite a private kwarg.
+    2. A ``store`` or ``store_factory`` passed to ``add_redis_sessions``.
+    3. Otherwise a :class:`RedisSessionStore` built from the options given to
+       ``add_redis_sessions`` - coder, encryptor, id_factory, key_prefix and
+       the two clocks.
+
+    Built per request in case 3, but its server-capability cache lives on the
+    pool state, so ``HSETEX`` detection is paid once per process rather than
+    re-probed on every request.
+    """
+    override = request.app.dependency_overrides.get(get_session_store)
+    if override is not None:
+        result = override(request)
+        return cast("SessionStore", await result if isawaitable(result) else result)
+
+    options: _SessionStoreOptions | None = getattr(
+        request.app.state, "_redis_session_options", None
+    )
+    if options is not None:
+        if options.store is not None:
+            return options.store
+        if options.store_factory is not None:
+            built = options.store_factory(request)
+            return cast("SessionStore", await built if isawaitable(built) else built)
+
+    state = _get_pool_state(request.app)
+    if state.session_capabilities is None:
+        state.session_capabilities = _StoreCapabilities()
+    client = await get_async_redis(request)
+    return RedisSessionStore(
+        client,
+        capabilities=state.session_capabilities,
+        **(options.kwargs if options is not None else {}),
+    )
+
+
+@dataclass
+class _SessionStoreOptions:
+    """How ``add_redis_sessions`` was asked to build or supply the store.
+
+    Stashed on ``app.state`` at setup time and read here, so every seam the
+    store constructor offers is reachable from the supported entry point
+    rather than only by replacing the dependency wholesale.
+    """
+
+    store: SessionStore | None = None
+    store_factory: Callable[[Request], Any] | None = None
+    kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+async def get_sync_session_store(request: Request) -> SyncSessionStore:
+    """Return a :class:`SyncSessionStore` for use in sync endpoints.
+
+    The underlying async store is resolved on the event loop; the returned
+    wrapper bridges each call back via :func:`anyio.from_thread.run`.
+    """
+    store = await get_session_store(request)
+    return SyncSessionStore(store)
+
+
+async def get_session_state(request: Request) -> SessionState:
+    """Return the session handle the middleware built for this request.
+
+    Performs no I/O.  Pair it with ``SessionStoreDep`` to rotate or revoke::
+
+        async def logout(state: SessionStateDep, store: SessionStoreDep):
+            await store.revoke(state)
+    """
+    return session_state_of(request)
+
+
+async def get_session(request: Request) -> Session:
+    """Return the session the middleware already loaded for this request.
+
+    Performs no I/O.  The read happened before the application ran, because
+    ``request.session`` is a synchronous property and cannot await.
+    """
+    return session_of(request)
+
+
+AsyncRedisDep = Annotated[AsyncClient, Depends(get_async_redis)]
+CacheBackendDep = Annotated["CacheBackend", Depends(get_cache_backend)]
+SyncCacheBackendDep = Annotated["SyncCacheBackend", Depends(get_sync_cache_backend)]
+RateLimitBackendDep = Annotated["RateLimitBackend", Depends(get_rate_limit_backend)]
+SyncRateLimitBackendDep = Annotated[
+    "SyncRateLimitBackend", Depends(get_sync_rate_limit_backend)
+]
+SessionStoreDep = Annotated[SessionStore, Depends(get_session_store)]
+SyncSessionStoreDep = Annotated[SyncSessionStore, Depends(get_sync_session_store)]
+SessionDep = Annotated[Session, Depends(get_session)]
+SessionStateDep = Annotated[SessionState, Depends(get_session_state)]

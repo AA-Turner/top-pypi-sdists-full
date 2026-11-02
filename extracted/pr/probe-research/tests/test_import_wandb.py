@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 
 from probe import cli
-from probe.cli import import_wandb as import_wandb_mod
+from probe.cli.commands.data import import_wandb as import_wandb_mod
 from tests.conftest import make_client
 
 

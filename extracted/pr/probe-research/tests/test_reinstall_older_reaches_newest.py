@@ -19,7 +19,8 @@ import time
 
 import pytest
 
-from probe.service import paths, updater
+from probe.foundation.service_api import paths
+from probe.service import updater
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Set up Python
+      run: uv python install 3.13
+
+    - name: Install dependencies
+      run: uv sync --extra data
+
+    - name: Check code formatting with ruff
+      run: uv run ruff format --check optopsy/ tests/
+
+    - name: Lint with ruff
+      run: uv run ruff check optopsy/ tests/
+
+    - name: Type check with ty
+      run: uv run ty check optopsy/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+        extras: ["", "data", "ui"]
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        if [ -n "${{ matrix.extras }}" ]; then
+          uv sync --extra ${{ matrix.extras }}
+        else
+          uv sync
+        fi
+
+    - name: Run tests with pytest
+      run: uv run pytest tests/ -v --cov=optopsy --cov-report=term-missing

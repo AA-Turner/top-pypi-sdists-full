@@ -1,0 +1,367 @@
+Metadata-Version: 2.4
+Name: rl-rock
+Version: 1.11.0
+Summary: ROCK-Reinforcement Open Construction Kit
+Author: chatos@alibaba
+Requires-Python: <4.0,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx
+Requires-Dist: anyio
+Requires-Dist: build
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: opentelemetry-exporter-otlp
+Requires-Dist: opentelemetry-exporter-prometheus
+Requires-Dist: requests
+Requires-Dist: pydantic
+Requires-Dist: python-multipart
+Requires-Dist: rich
+Requires-Dist: oss2
+Requires-Dist: pyyaml
+Requires-Dist: jinja2
+Requires-Dist: tzdata
+Requires-Dist: python-statemachine>=3.1.1
+Provides-Extra: admin
+Requires-Dist: rl-rock[rocklet]; extra == "admin"
+Requires-Dist: ray[default]==2.43.0; extra == "admin"
+Requires-Dist: nacos-sdk-python>=0.1.14; extra == "admin"
+Requires-Dist: redis==7.2.0; extra == "admin"
+Requires-Dist: apscheduler; extra == "admin"
+Requires-Dist: websockets>=15.0.1; extra == "admin"
+Requires-Dist: aiohttp>=3.12.15; extra == "admin"
+Requires-Dist: alibabacloud_cr20181201==2.0.5; extra == "admin"
+Requires-Dist: sqlmodel; extra == "admin"
+Requires-Dist: aiosqlite; extra == "admin"
+Requires-Dist: asyncpg; extra == "admin"
+Requires-Dist: psycopg2-binary; extra == "admin"
+Requires-Dist: boto3; extra == "admin"
+Requires-Dist: ray[default]==2.43.0; extra == "admin"
+Requires-Dist: pip; extra == "admin"
+Requires-Dist: cryptography==39.0.1; extra == "admin"
+Requires-Dist: fakeredis[json]; extra == "admin"
+Requires-Dist: kubernetes>=35.0.0; extra == "admin"
+Requires-Dist: opensandbox>=0.1.13; extra == "admin"
+Requires-Dist: aiolimiter>=1.2.1; extra == "admin"
+Requires-Dist: httptools; extra == "admin"
+Requires-Dist: uvloop; extra == "admin"
+Provides-Extra: rocklet
+Requires-Dist: fastapi; extra == "rocklet"
+Requires-Dist: uvicorn; extra == "rocklet"
+Requires-Dist: pexpect; sys_platform != "win32" and extra == "rocklet"
+Requires-Dist: bashlex; sys_platform != "win32" and extra == "rocklet"
+Requires-Dist: psutil; extra == "rocklet"
+Requires-Dist: twisted; sys_platform != "win32" and extra == "rocklet"
+Requires-Dist: gem-llm>=0.1.0; sys_platform != "win32" and extra == "rocklet"
+Requires-Dist: numpy<=2.2.6; extra == "rocklet"
+Provides-Extra: sandbox-actor
+Requires-Dist: apscheduler>=3.11.0; extra == "sandbox-actor"
+Requires-Dist: gem-llm>=0.1.0; extra == "sandbox-actor"
+Requires-Dist: sqlmodel; extra == "sandbox-actor"
+Requires-Dist: nacos-sdk-python>=0.1.14; extra == "sandbox-actor"
+Requires-Dist: redis; extra == "sandbox-actor"
+Requires-Dist: boto3; extra == "sandbox-actor"
+Provides-Extra: builder
+Requires-Dist: swebench; extra == "builder"
+Requires-Dist: gem-llm>=0.1.0; extra == "builder"
+Requires-Dist: docker; extra == "builder"
+Provides-Extra: model-service
+Requires-Dist: fastapi; extra == "model-service"
+Requires-Dist: uvicorn; extra == "model-service"
+Requires-Dist: psutil; extra == "model-service"
+Requires-Dist: swebench; extra == "model-service"
+Requires-Dist: alibabacloud_cr20181201==2.0.5; extra == "model-service"
+Requires-Dist: openai>=1.50.0; extra == "model-service"
+Requires-Dist: httpx; extra == "model-service"
+Provides-Extra: all
+Requires-Dist: rl-rock[admin]; extra == "all"
+Requires-Dist: rl-rock[rocklet]; extra == "all"
+Requires-Dist: rl-rock[builder]; extra == "all"
+Dynamic: license-file
+
+<div align="center">
+
+<img src="./assets/rock.png" width="50%" alt="ROCK Logo">
+
+# ROCK: Reinforcement Open Construction Kit
+
+<h4>🚀 An easy-to-use, massively scalable environment management framework for agentic reinforcement learning
+ 🚀</h4>
+
+<p>
+  <a href="https://github.com/alibaba/ROCK/blob/master/LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License">
+  </a>
+  <a href="https://github.com/alibaba/ROCK/issues">
+    <img src="https://img.shields.io/github/issues/alibaba/ROCK" alt="GitHub issues">
+  </a>
+  <a href="https://github.com/alibaba/ROCK/stargazers">
+    <img src="https://img.shields.io/github/stars/alibaba/ROCK?style=social" alt="Repo stars">
+  </a>
+</p>
+
+</div>
+
+ROCK (Reinforcement Open Construction Kit) is a easy-to-use, and scalable sandbox environment management framework, primarily for agentic reinforcement learning environments. It provides tools for building, managing, and scheduling reinforcement learning environments, suitable for development, testing, and research scenarios.
+
+ROCK adopts a client-server architecture, supports different levels of isolation mechanisms to ensure stable environment operation, and supports integration with various reinforcement learning training frameworks through SDK. ROCK not only supports traditional sandbox management functions but also is compatible with GEM-like protocols, providing standardized interfaces for reinforcement learning environments.
+
+
+## 🚀 Get Started
+[Documents](https://alibaba.github.io/ROCK/)
+
+### Quick Start
+
+[Installation](https://alibaba.github.io/ROCK/docs/Getting%20Started/installation)
+[Quick Start](https://alibaba.github.io/ROCK/docs/Getting%20Started/quickstart)
+[Configuration](https://alibaba.github.io/ROCK/docs/User%20Guides/configuration)
+[API References](https://alibaba.github.io/ROCK/docs/References/api)
+
+---
+**Recommended**:
+Install from source (using `uv`), or install from PyPI.  
+To start the local admin server, make sure Docker and `uv` are installed and that you can pull the `python:3.11` Docker image. If you’re using macOS, see the “Getting Started” guide—especially the “macOS startup” section.
+
+```bash
+# Clone repository
+git clone https://github.com/alibaba/ROCK.git
+cd ROCK
+
+# Create virtual environment (using uv-managed Python)
+uv venv --python 3.11 --python-preference only-managed
+
+# Install dependencies using uv
+uv sync --all-extras
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# for MacOS, change ROCK_WORKER_ENV_TYPE to uv
+# export ROCK_WORKER_ENV_TYPE=uv
+
+# Start admin server
+rock admin start
+```
+
+### PyPI Installation (Recommended for simple testing)
+
+To install ROCK from PyPI (recommended only for simple testing):
+
+```bash
+# Install from PyPI
+pip install rl-rock
+
+# If using the pip runtime environment (for sandbox dependency installation),
+# you may need to set runtime environment type to pip:
+export ROCK_WORKER_ENV_TYPE=pip
+
+# Start admin server
+rock admin start
+```
+
+**Notes**: ROCK depends on Docker and uv tools for environment management.
+
+1. **Python Environment Configuration**: To ensure ROCK can correctly mount the project and virtual environment along with its base Python interpreter, it is strongly recommended to use uv-managed Python environments to create virtual environments rather than system Python. This can be achieved through the `--python-preference only-managed` parameter.
+
+2. **Distributed Environment Consistency**: In distributed multi-machine environments, please ensure that all machines use the same root Python interpreter for ROCK and uv Python configurations to avoid environment inconsistencies.
+
+3. **Dependency Management**: Use the `uv` command to install all dependency groups, ensuring consistency between development, testing, and production environments.
+
+4. **Pip Source Installation**: For pip source installation (e.g., `pip install rl-rock`), you need to set the `ROCK_WORKER_ENV_TYPE=pip` environment variable and ensure network access for the sandbox to install dependencies. See [Configuration Documentation](https://alibaba.github.io/ROCK/docs/User%20Guides/configuration) for more details on runtime environment options and environment variables.
+
+5. **OS Support**: ROCK recommends managing environments on the same operating system, such as managing Linux image environments on a Linux system. However, it also supports cross-operating system level image management, for example, launching Ubuntu images on MacOS. 
+
+### Using Env Protocol
+ROCK is fully compatible with the GEM protocol, providing standardized environment interfaces:
+
+```python
+import rock
+import random
+# Create environment using GEM standard interface
+env_id = "game:Sokoban-v0-easy"
+env = rock.make(env_id)
+
+# Reset environment
+observation, info = env.reset(seed=42)
+
+while True:
+    # Interactive environment operations
+    action = f"\\boxed{{{random.choice(['up', 'left', 'right', 'down'])}}}"
+    observation, reward, terminated, truncated, info = env.step(action)
+
+    if terminated or truncated:
+        break
+
+# Close environment
+env.close()
+```
+
+### Sandbox SDK Usage
+```python
+import asyncio
+
+from rock.actions import CreateBashSessionRequest
+from rock.sdk.sandbox.client import Sandbox
+from rock.sdk.sandbox.config import SandboxConfig
+
+
+async def run_sandbox():
+    config = SandboxConfig(image="python:3.11", memory="8g", cpus=2.0)
+    sandbox = Sandbox(config)
+
+    await sandbox.start()
+    await sandbox.create_session(CreateBashSessionRequest(session="bash-1"))
+    result = await sandbox.arun(cmd="echo Hello Rock", session="bash-1")
+    await sandbox.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_sandbox())
+```
+
+---
+
+## 🚀 Core Features
+
+* **Multi-Protocol Action Support**: Supports multiple action protocols including GEM, Bash, and Chat.
+* **Sandbox Runtime**: Stateful runtime environments with multiple isolation mechanisms to ensure consistency and security
+* **Flexible Deployment**: Supports different deployment methods for diverse environment requirements and Operating System
+* **Unified SDK Interface**: Clean Python SDK for Env and Sandbox interaction
+* **Layered Service Architecture**: Distributed Admin, Worker, and Rocklet architecture for scalable resource management
+* **Efficient Resource Management**: Automatic sandbox lifecycle management with configurable resource allocation
+
+---
+
+## 📢 Updates
+
+| Date | Release |
+|:-------------|:---|
+| **[Latest]** | 🎉 ROCK v1.11.0 Released (2026-07-27) — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.11.x/Release%20Notes/v1.11.0) |
+| **[2026-07-07]** | 🎉 ROCK v1.10.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.10.x/Release%20Notes/v1.10.0) |
+| **[2026-06-11]** | 🎉 ROCK v1.9.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.9.x/Release%20Notes/v1.9.0) |
+| **[2026-05-21]** | 🎉 ROCK v1.8.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.8.x/Release%20Notes/v1.8.0) |
+| **[2026-04-24]** | 🎉 ROCK v1.7.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.7.x/Release%20Notes/v1.7.0) |
+| **[2026-04-17]** | 🎉 ROCK v1.6.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.6.x/Release%20Notes/v1.6.0) |
+| **[2026-04-10]** | 🎉 ROCK v1.5.0 Released — [Release Notes](https://rock.io.alibaba-inc.com/docs/1.5.x/Release%20Notes/v1.5.0) |
+
+---
+
+## 🛠️ System Architecture
+
+### ROCK Service Architecture
+The service layer implements a distributed architecture with three core node roles:
+- **ROCK SDK**: Environment development toolkit that provides development tools to assist developers in building, registering, deploying, and accessing Environments.
+- **ROCK CLI**: Command-line interface tool that helps users manage and operate Environments and Services.
+- **ROCK Admin**: The scheduling node responsible for deploying Environments as Sandboxes and managing Sandbox resource scheduling and allocation
+- **ROCK Worker**: The working node that allocates machine physical resources to Sandboxes and executes the specific Sandbox runtime
+- **ROCK Rocklet**: A lightweight proxy service component that handles SDK-to-Sandbox Action communication and supports external internet service access
+- **ROCK Envhub**: Environment repository that provides registration and storage for Environment data.
+
+### Core Technologies
+- **Distributed Architecture**: Multi-node design with Admin, Worker, and Rocklet components for scalability
+- **Runtime Isolation**: Stateful sandbox runtimes with multiple isolation mechanisms
+- **Flexible Deployment**: Support for different deployment methods for diverse environment requirements and Operating System
+- **Protocol Compatibility**: Support for multiple interaction protocols 
+- **Container Orchestration**: Docker-based container management with resource allocation
+
+
+#### GEM Protocol Support
+ROCK maintains compatibility with GEM interfaces for reinforcement learning environments:
+- `make(env_id)`: Create environment instance
+- `reset(seed)`: Reset environment state
+- `step(action)`: Execute action and return results
+
+GEM environments follow standard return formats:
+```python
+# reset() returns
+observation, info = env.reset()
+
+# step() returns
+observation, reward, terminated, truncated, info = env.step(action)
+```
+
+---
+
+## 📄 Configuration
+
+### Server Configuration
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Start Rock service, default local startup
+rock admin start
+```
+
+> **Service Information**: The ROCK Local Admin service runs by default on `http://127.0.0.1:8080`. You can access this address through your browser to view the management interface.
+For additional configuration information such as logs and Rocklet service startup methods, please refer to [Configuration](https://alibaba.github.io/ROCK/docs/User%20Guides/configuration)
+
+### Development Environment Configuration
+```bash
+# Sync dependencies using uv
+uv sync --all-extras --all-groups
+
+# Run in virtual environment
+source .venv/bin/activate
+
+# Run tests
+uv run pytest tests
+```
+
+## 🤝 Contribution
+
+We welcome contributions from the community! Here's how to get involved:
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+### Reporting Issues
+Please use the GitHub issue tracker to report bugs or suggest features.
+
+### Code Style
+Follow existing code style and conventions. Please run tests before submitting pull requests.
+
+---
+
+## 📄 License
+
+ROCK is distributed under the Apache License (Version 2.0). This product contains various third-party components under other open source licenses.
+
+---
+
+## 🙏 Acknowledgements
+
+ROCK is developed by Alibaba Group. The rocklet component of our project is mainly based on SWE-ReX, with significant modifications and enhancements for our specific use cases. And we deeply appreciate the inspiration we have gained from the GEM project.
+
+Special thanks to:
+
+* [SWE-agent/SWE-ReX](https://github.com/SWE-agent/SWE-ReX)
+* [axon-rl/gem](https://github.com/axon-rl/gem)
+
+---
+
+## 🤝 About [ROCK & ROLL Team]
+ROCK is a project jointly developed by Taotian Future Living Lab and Alibaba AI Engine Team, with a strong emphasis on pioneering the future of Reinforcement Learning (RL). Our mission is to explore and shape innovative forms of future living powered by advanced RL technologies. If you are passionate about the future of RL and want to be part of its evolution, we warmly welcome you to join us! 
+
+For more information about **ROLL**, please visit:
+- [Official Documentation](https://alibaba.github.io/ROLL/)
+- [GitHub Repository](https://github.com/alibaba/ROLL)
+
+Learn more about the ROCK & ROLL Team through our official channels below👇
+
+<a href="./assets/rock_wechat.png" target="_blank">
+  <img src="https://img.shields.io/badge/WeChat-green?logo=wechat" alt="WeChat QR">
+</a>
+<a href="./assets/future_lab.png" target="_blank">
+  <img src="https://img.shields.io/twitter/follow/FutureLab2025?style=social" alt="X QR">
+</a>
+
+---
+
+<div align="center">
+Welcome community contributions! 🤝
+</div>

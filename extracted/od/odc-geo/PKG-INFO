@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: odc-geo
-Version: 0.5.3
+Version: 0.5.4
 Summary: Geometry Classes and Operations (opendatacube)
 Keywords: gis,geospatial,opendatacube
 Author: Open Data Cube
@@ -19,11 +19,11 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: affine
+Requires-Dist: affine>=3.0.0
 Requires-Dist: cachetools
 Requires-Dist: numpy
 Requires-Dist: pyproj>=3.0.0
-Requires-Dist: shapely
+Requires-Dist: shapely>=2.1.0
 Requires-Dist: xarray>=0.19
 Requires-Dist: rasterio ; extra == "all"
 Requires-Dist: tifffile ; extra == "all"

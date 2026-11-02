@@ -1,0 +1,331 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2020 Unrud <unrud@outlook.com>
+# Copyright © 2024-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import io
+import logging
+import re
+import sys
+import unicodedata
+import xml.etree.ElementTree as ET
+from typing import Optional, Union
+from urllib.parse import unquote
+
+from radicale import (auth, config, group, hook, httputils, log, pathutils,
+                      rights, sharing, storage, types, utils, web, xmlutils)
+from radicale.log import logger
+from radicale.rights import intersect
+
+# HACK: https://github.com/tiran/defusedxml/issues/54
+import defusedxml.ElementTree as DefusedET  # isort:skip
+sys.modules["xml.etree"].ElementTree = ET  # type:ignore[attr-defined]
+
+USER_PATTERN_STRICT: str = "a-zA-Z0-9@\\.\\-_"
+PATH_PATTERN_STRICT: str = USER_PATTERN_STRICT + "\\/~"  # / as separator
+
+USER_PATTERN_STRICT_RE: str = "^[" + USER_PATTERN_STRICT + "]+$"
+PATH_PATTERN_STRICT_RE: str = "^[" + PATH_PATTERN_STRICT + "]+$"
+
+USER_BLACKLIST_MINIMAL: list = [":", "'", '"', '*', '?', ',']
+PATH_BLACKLIST_MINIMAL: list = USER_BLACKLIST_MINIMAL
+
+BASE_WHITELIST_UNICODE: list = ["-", ".", "@", "_", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+
+USER_WHITELIST_UNICODE: list = BASE_WHITELIST_UNICODE   # from USER_PATTERN_STRICT
+PATH_WHITELIST_UNICODE: list = BASE_WHITELIST_UNICODE + ["/", "~"]  # from PATH_PATTERN_STRICT
+
+
+def _check_format(self: storage.BaseStorage,
+                  string: str,
+                  blacklist_minimal: list[str],
+                  whitelist_unicode: list[str],
+                  validation_type: str,
+                  ) -> bool:
+    check_minimal = (validation_type == "minimal")
+    check_unicode_letter = (validation_type == "unicode-letter")
+    check_no_unicode = (validation_type == "no-unicode")
+    logger.trace("_check_format investigate %r (validation_type=%r check_minimal=%s check_unicode_letter=%s check_no_unicode=%s)", string, validation_type, check_minimal, check_unicode_letter, check_no_unicode)
+    if not self._supports_trailing_whitespace and string.endswith(' '):
+        return False
+    for c in string:
+        if c <= chr(31) or (c >= chr(127) and c <= chr(159)):
+            # ASCII: control char
+            return False
+        if unicodedata.category(c)[0] == "C":
+            # https://unicodeplus.com/category
+            # Unicode: control
+            return False
+        if check_minimal or not self._supports_problematic_chars:
+            if c in blacklist_minimal:
+                logger.trace("_check_format found %r", c)
+                return False
+        if check_unicode_letter:
+            if c not in whitelist_unicode:
+                if unicodedata.category(c)[0] != "L":
+                    logger.trace("_check_format found %r (%r)", c, unicodedata.category(c)[0])
+                    return False
+        if check_no_unicode:
+            if ord(c) > 255:
+                return False
+    return True
+
+
+def _check_user_format(self: storage.BaseStorage,
+                       user: str,
+                       validation_type: str,
+                       urldecode_username: bool,
+                       enforceUser: bool = True,
+                       ) -> bool:
+    logger.trace("_check_user_format investigate %r (urldecode_username=%r)", user, urldecode_username)
+    if urldecode_username:
+        user = unquote(user)
+    if (user.startswith(sharing.SHARING_SEPARATOR_GROUP) or user.startswith(sharing.SHARING_SEPARATOR_REALM)):
+        if enforceUser:
+            # group/realm identifiers
+            return False
+    if enforceUser:
+        if user.count(sharing.SHARING_SEPARATOR_GROUP) > 0:
+            # not allowed (avoid injecting a group)
+            return False
+        elif user.count(sharing.SHARING_SEPARATOR_REALM) > 1:
+            # only allowed once
+            return False
+    if (user.endswith(sharing.SHARING_SEPARATOR_GROUP) or user.endswith(sharing.SHARING_SEPARATOR_REALM)):
+        # group/realm identifiers
+        return False
+    if user.startswith(sharing.SHARING_SEPARATOR_GROUP):
+        # strip 1st char
+        user = user[1:]
+        for user_group in user.split(','):
+            logger.trace("_check_user_format investigate group %r", user_group)
+            if validation_type == "strict":
+                if re.search(USER_PATTERN_STRICT_RE, user_group) is None:
+                    return False
+            else:
+                if not _check_format(self,
+                                     user_group,
+                                     USER_BLACKLIST_MINIMAL,
+                                     USER_WHITELIST_UNICODE,
+                                     validation_type,
+                                     ):
+                    return False
+        # all passed
+        return True
+    else:
+        pass
+
+    if validation_type == "strict":
+        return (re.search(USER_PATTERN_STRICT_RE, user) is not None)
+    else:
+        return _check_format(self,
+                             user,
+                             USER_BLACKLIST_MINIMAL,
+                             USER_WHITELIST_UNICODE,
+                             validation_type,
+                             )
+
+
+def _check_path_format(self: storage.BaseStorage,
+                       path: str,
+                       validation_type: str
+                       ) -> bool:
+    if validation_type == "strict":
+        return (re.search(PATH_PATTERN_STRICT_RE, path) is not None)
+    else:
+        return _check_format(self,
+                             path,
+                             PATH_BLACKLIST_MINIMAL,
+                             PATH_WHITELIST_UNICODE,
+                             validation_type,
+                             )
+
+
+class ApplicationBase:
+
+    configuration: config.Configuration
+    _auth: auth.BaseAuth
+    _group: group.BaseGroup
+    _storage: storage.BaseStorage
+    _rights: rights.BaseRights
+    _web: web.BaseWeb
+    _sharing: sharing.BaseSharing
+    _encoding: str
+    _max_resource_size: int
+    _max_vevent_rrule_occurrence: int
+    _permit_delete_collection: bool
+    _permit_overwrite_collection: bool
+    _strict_preconditions: bool
+    _validate_user_value: str
+    _validate_path_format: str
+    _hook: hook.BaseHook
+
+    def __init__(self, configuration: config.Configuration) -> None:
+        self.configuration = configuration
+        self._auth = auth.load(configuration)
+        self._group = group.load(configuration)
+        self._storage = storage.load(configuration)
+        self._rights = rights.load(configuration)
+        self._web = web.load(configuration)
+        self._sharing = sharing.load(configuration)
+        self._encoding = configuration.get("encoding", "request")
+        self._log_bad_put_request_content = configuration.get("logging", "bad_put_request_content")
+        self._response_content_on_debug = configuration.get("logging", "response_content_on_debug")
+        self._request_content_on_debug = configuration.get("logging", "request_content_on_debug")
+        self._response_content_on_notice_condition = configuration.get("logging", "response_content_on_notice_condition")
+        self._request_content_on_notice_condition = configuration.get("logging", "request_content_on_notice_condition")
+        self._limit_content = configuration.get("logging", "limit_content")
+        self._validate_user_value = configuration.get("server", "validate_user_value")
+        self._validate_path_value = configuration.get("server", "validate_path_value")
+        self._hook = hook.load(configuration)
+
+    def _read_xml_request_body(self,
+                               environ: types.WSGIEnviron,
+                               request_info: dict,
+                               ) -> Optional[ET.Element]:
+        content = httputils.decode_request(
+            self.configuration, environ,
+            httputils.read_raw_request_body(self.configuration, environ))
+        if not content:
+            return None
+        try:
+            xml_content = DefusedET.fromstring(content)
+        except ET.ParseError as e:
+            logger.debug("Request content (Invalid XML):\n%s", content)
+            raise RuntimeError("Failed to parse XML: %s" % e) from e
+        if self._request_content_on_debug:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Request content (XML):\n%s", utils.textwrap_str(xmlutils.pretty_xml(xml_content)))
+        else:
+            if self._request_content_on_notice_condition != {}:
+                if log.log_conditional(
+                        "request-content",
+                        condition=self._request_content_on_notice_condition,
+                        value=request_info,
+                        ):
+                    if logger.isEnabledFor(log.LOG_LEVEL_NOTICE):
+                        logger.notice("Request content (XML, log condition passed):\n%s", utils.textwrap_str(xmlutils.pretty_xml(xml_content)))
+                else:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Request content (XML, log condition skipped): suppressed")
+            else:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("Request content (XML): suppressed by config/option [logging] request_content_on_debug")
+        return xml_content
+
+    def _xml_response(self, xml_content: ET.Element, request_info: dict) -> bytes:
+        if self._response_content_on_debug:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Response content (XML):\n%s",
+                             utils.textwrap_str(xmlutils.pretty_xml(xml_content), self._limit_content))
+        else:
+            if self._response_content_on_notice_condition != {}:
+                if log.log_conditional(
+                        "response-content",
+                        condition=self._response_content_on_notice_condition,
+                        value=request_info,
+                        ):
+                    if logger.isEnabledFor(log.LOG_LEVEL_NOTICE):
+                        logger.notice("Response content (XML, log condition passed):\n%s", utils.textwrap_str(xmlutils.pretty_xml(xml_content)))
+                else:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Response content (XML, log condition skipped): suppressed")
+            else:
+                logger.debug("Response content (XML): suppressed by config/option [logging] response_content_on_debug")
+        f = io.BytesIO()
+        ET.ElementTree(xml_content).write(f, encoding=self._encoding,
+                                          xml_declaration=True)
+        return f.getvalue()
+
+    def _webdav_error_response(self, status: int, human_tag: str, request_info: dict
+                               ) -> types.WSGIResponse:
+        """Generate XML error response."""
+        headers = {"Content-Type": "text/xml; charset=%s" % self._encoding}
+        content = self._xml_response(xmlutils.webdav_error(human_tag), request_info)
+        return status, headers, content, None
+
+
+def _with_implied_freebusy(permissions: str) -> str:
+    if "r" in permissions and "f" not in permissions:
+        return permissions + "f"
+    return permissions
+
+
+class Access:
+    """Helper class to check access rights of an item"""
+
+    user: str
+    user_groups: set
+    path: str
+    parent_path: str
+    permissions: str
+    _rights: rights.BaseRights
+    _parent_permissions: Optional[str]
+    _permissions_filter: Union[str, None] = None
+
+    def __init__(self, rights: rights.BaseRights, user: str, user_groups: set, path: str, permissions_filter: Union[str, None] = None
+                 ) -> None:
+        self._rights = rights
+        self.user = user
+        self.user_groups = user_groups
+        self.path = path
+        self.parent_path = pathutils.parent_path(path)
+        self.permissions = self._rights.authorization(self.user, self.user_groups, self.path)
+        if permissions_filter is not None:
+            self._permissions_filter = permissions_filter
+            self.permissions = intersect(
+                _with_implied_freebusy(self.permissions), permissions_filter)
+        self._parent_permissions = None
+
+    @property
+    def parent_permissions(self) -> str:
+        if self.path == self.parent_path:
+            return self.permissions
+        if self._parent_permissions is None:
+            self._parent_permissions = self._rights.authorization(
+                self.user, self.user_groups, self.parent_path)
+        if self._permissions_filter is not None:
+            self._parent_permissions = intersect(
+                _with_implied_freebusy(self._parent_permissions),
+                self._permissions_filter)
+        return self._parent_permissions
+
+    def check(self, permission: str,
+              item: Optional[types.CollectionOrItem] = None) -> bool:
+        if permission not in rights.INTERNAL_PERMISSIONS_ITEM:
+            raise ValueError("Invalid permission argument: %r" % permission)
+        if not item:
+            permissions = permission + permission.upper()
+            parent_permissions = permission
+        elif isinstance(item, storage.BaseCollection):
+            if item.tag:
+                permissions = permission
+            else:
+                permissions = permission.upper()
+            parent_permissions = ""
+        else:
+            permissions = ""
+            parent_permissions = permission
+        return bool(rights.intersect(self.permissions, permissions) or (
+            self.path != self.parent_path and
+            rights.intersect(self.parent_permissions, parent_permissions)))
+
+    def allows_freebusy(self, item: Optional[types.CollectionOrItem] = None
+                        ) -> bool:
+        if item is not None and (
+                not isinstance(item, storage.BaseCollection) or
+                item.tag != "VCALENDAR"):
+            return False
+        return "r" in self.permissions or "f" in self.permissions

@@ -1,0 +1,197 @@
+name: release
+
+# Daily at 01:07 UTC (9:07 PM Eastern during daylight time, 8:07 PM in winter, since cron runs in
+# UTC by default), and on demand from the Actions tab or `gh workflow run release.yml`. A run first
+# finishes the highest v* tag if it has no published GitHub Release (an earlier run failed
+# partway). Otherwise it requires the latest main commit's tests to pass and, if change
+# files were added since the highest tag and its workflow files match main's, tags that
+# commit with the next version. The tagged build is published to PyPI as lemonaid-inbox
+# and given a GitHub Release whose notes are those files. It never commits to main.
+on:
+  schedule:
+    - cron: "7 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # to push the tag
+      actions: read # to check the latest main commit's tests
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      previous: ${{ steps.plan.outputs.previous }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - id: plan
+        timeout-minutes: 17
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(uv run --no-project scripts/release.py latest)
+          published=$(gh release view "v$latest" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft | not' 2>/dev/null || echo false)
+          if [ "$published" != "true" ]; then
+            echo "v$latest is tagged but has no published Release: finishing it"
+            echo "Finishing existing tag v$latest. Main commits after that tag belong to a later release." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "release=true"
+              echo "version=$latest"
+              echo "previous=$(uv run --no-project scripts/release.py latest --below "$latest")"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin main
+          sha=$(git rev-parse FETCH_HEAD)
+          deadline=$((SECONDS + 900))
+          while true; do
+            test_status=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test --branch main --event push --commit "$sha" --limit 1 --json status,conclusion --jq '.[0] | if . == null then "missing" elif .status == "completed" then .conclusion else .status end')
+            case "$test_status" in
+              queued|in_progress|waiting|pending|requested)
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  test_status="timed out after 15 minutes ($test_status)"
+                  break
+                fi
+                echo "Waiting for test workflow on $sha: $test_status"
+                sleep 30
+                ;;
+              *) break ;;
+            esac
+          done
+          if [ "$test_status" != "success" ]; then
+            message="Release deferred: latest main commit $sha has test status '$test_status'. Rerun after its test workflow succeeds."
+            echo "::warning::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          status=0
+          version=$(uv run --no-project scripts/release.py version --since "v$latest" --until "$sha") || status=$?
+          if [ "$status" -eq 2 ]; then
+            echo "nothing to release at $sha"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
+
+          # GitHub refuses to let this token create a ref at a commit whose workflow
+          # files differ from main's, by git push or through the API.
+          status=0
+          git diff --quiet "$sha" HEAD -- .github/workflows || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "workflow files changed on main after $sha: waiting for a newer commit to pass the test workflow"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
+
+          current=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$current" != "$sha" ]; then
+            message="Release deferred: main advanced from $sha to $current during planning. Rerun to include the new changes."
+            echo "::warning::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Fails, rather than moving it, if the tag already exists.
+          git push origin "$sha:refs/tags/v$version"
+          echo "Releasing main commit $sha as v$version. Later merges belong to the next release." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "release=true"
+            echo "version=$version"
+            echo "previous=$latest"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: v${{ needs.plan.outputs.version }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          uv build
+          # hatch-vcs takes the version from the tag; a dev version here means it didn't.
+          unzip -p dist/*.whl '*.dist-info/METADATA' | grep -qx "Version: $VERSION"
+      - env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          PREVIOUS: ${{ needs.plan.outputs.previous }}
+        run: |
+          status=0
+          uv run --no-project scripts/release.py notes --since "v$PREVIOUS" --until "v$VERSION" > release-notes.md || status=$?
+          if [ "$status" -eq 2 ]; then
+            # A version from before changes/ existed.
+            uv run --no-project scripts/changelog-section.py "$VERSION" > release-notes.md
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release
+          path: |
+            dist/
+            release-notes.md
+
+  pypi:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/lemonaid-inbox/${{ needs.plan.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          # A run finishing a tag must not fail on files an earlier run uploaded.
+          skip-existing: true
+
+  github-release:
+    needs: [plan, pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          # A draft means an earlier run failed partway: finish it instead.
+          draft=$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)
+          if [ "$draft" = "true" ]; then
+            gh release upload "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md --draft=false
+          else
+            gh release create "v$VERSION" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "v$VERSION" \
+              --notes-file release-notes.md
+          fi

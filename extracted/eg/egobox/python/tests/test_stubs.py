@@ -1,0 +1,217 @@
+import ast
+import inspect
+import unittest
+from pathlib import Path
+
+import egobox as egx
+
+STUB_PATH = Path(egx.__file__).parent / "egobox.pyi"
+DICT_ANY = "builtins.dict[builtins.str, typing.Any]"
+
+
+def _stub_classes():
+    tree = ast.parse(STUB_PATH.read_text())
+    return {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+
+
+def _stub_functions(body):
+    """Public methods and constructor of a stub class body, properties excluded"""
+    return {
+        node.name: node
+        for node in body
+        if isinstance(node, ast.FunctionDef)
+        and (node.name == "__new__" or not node.name.startswith("_"))
+        and not any(
+            ast.unparse(d).endswith("setter") or ast.unparse(d) == "property"
+            for d in node.decorator_list
+        )
+    }
+
+
+def _is_enum(cls: ast.ClassDef) -> bool:
+    return any(ast.unparse(base) == "enum.Enum" for base in cls.bases)
+
+
+def _param_names(fn: ast.FunctionDef):
+    names = [a.arg for a in fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs]
+    return [n for n in names if n not in ("self", "cls")]
+
+
+def _runtime_param_names(obj):
+    return [n for n in inspect.signature(obj).parameters if n not in ("self", "cls")]
+
+
+class TestStubs(unittest.TestCase):
+    def test_enum_members_match_runtime(self):
+        for name, cls in _stub_classes().items():
+            if not _is_enum(cls):
+                continue
+            # members are `MEMBER = ...`, long name aliases are `ALIAS: Enum` class attributes
+            stub_members = {
+                target.id
+                for node in cls.body
+                if isinstance(node, (ast.Assign, ast.AnnAssign))
+                for target in (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+                if isinstance(target, ast.Name)
+            }
+            runtime_cls = getattr(egx, name)
+            runtime_members = {
+                attr
+                for attr in dir(runtime_cls)
+                if not attr.startswith("_")
+                and isinstance(getattr(runtime_cls, attr), runtime_cls)
+            }
+            self.assertEqual(stub_members, runtime_members, f"enum {name}")
+
+    def test_configs_have_constructor_in_stub(self):
+        classes = _stub_classes()
+        for name in ("GpConfig", "QEiConfig", "TregoConfig"):
+            self.assertIn("__new__", _stub_functions(classes[name].body), name)
+
+    def test_signatures_match_runtime(self):
+        # stubtest cannot compare these signatures because pyo3 renders defaults as `...`
+        # at runtime, so at least check that the parameter names are in sync
+        for name, cls in _stub_classes().items():
+            if _is_enum(cls):
+                continue
+            runtime_cls = getattr(egx, name)
+            for fname, fn in _stub_functions(cls.body).items():
+                runtime_fn = (
+                    runtime_cls if fname == "__new__" else getattr(runtime_cls, fname)
+                )
+                self.assertEqual(
+                    _param_names(fn),
+                    _runtime_param_names(runtime_fn),
+                    f"{name}.{fname}",
+                )
+        tree = ast.parse(STUB_PATH.read_text())
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                self.assertEqual(
+                    _param_names(node),
+                    _runtime_param_names(getattr(egx, node.name)),
+                    node.name,
+                )
+
+    def test_egor_optim_forwards_result(self):
+        cls = _stub_classes()["EgorOptim"]
+        members = {node.name for node in cls.body if isinstance(node, ast.FunctionDef)}
+        for name in (
+            "result",
+            "status",
+            "x_opt",
+            "y_opt",
+            "x_doe",
+            "y_doe",
+            "__iter__",
+        ):
+            self.assertIn(name, members, f"EgorOptim.{name}")
+
+    def test_removed_names_not_in_stub(self):
+        # names deprecated in 0.38.0 are removed in 1.0.0, only the new ones remain
+        classes = _stub_classes()
+        renamed = {
+            ("Egor", "__new__"): [
+                ("n_start", "infill_n_start"),
+                ("doe", "x_doe"),
+                ("cstr_tol", "cstr_specs"),
+            ],
+            ("GpConfig", "__new__"): [
+                ("n_start", "theta_n_start"),
+                ("max_eval", "theta_max_eval"),
+            ],
+            ("GpMix", "__new__"): [
+                ("n_start", "theta_n_start"),
+                ("max_eval", "theta_max_eval"),
+            ],
+            ("Gpx", "builder"): [
+                ("n_start", "theta_n_start"),
+                ("max_eval", "theta_max_eval"),
+            ],
+            ("SparseGpMix", "__new__"): [
+                ("n_start", "theta_n_start"),
+                ("nz", "n_inducing"),
+                ("z", "inducing"),
+            ],
+            ("SparseGpx", "builder"): [
+                ("n_start", "theta_n_start"),
+                ("nz", "n_inducing"),
+                ("z", "inducing"),
+            ],
+            ("QEiConfig", "__new__"): [("optmod", "optim_every")],
+            ("TregoConfig", "__new__"): [
+                ("n_gl_steps", "n_global_local_steps"),
+                ("d", "radius_bounds"),
+            ],
+        }
+        for (name, fname), pairs in renamed.items():
+            fn = _stub_functions(classes[name].body)[fname]
+            self.assertEqual(fn.args.kwonlyargs, [], f"{name}.{fname}")
+            for old, new in pairs:
+                self.assertIn(new, _param_names(fn), f"{name}.{fname}({new})")
+                self.assertNotIn(old, _param_names(fn), f"{name}.{fname}({old})")
+        removed = {
+            "Egor": ["get_result", "get_result_index"],
+            "CstrSpec": ["btw"],
+            "GpConfig": ["n_start", "max_eval"],
+            "QEiConfig": ["optmod"],
+            "TregoConfig": ["n_gl_steps", "d"],
+        }
+        for name, olds in removed.items():
+            members = {
+                node.name
+                for node in classes[name].body
+                if isinstance(node, ast.FunctionDef)
+            }
+            for old in olds:
+                self.assertNotIn(old, members, f"{name}.{old}")
+        egor = _stub_functions(classes["Egor"].body)
+        for name in ("best_result", "best_index"):
+            self.assertIn(name, egor, f"Egor.{name}")
+        cstr_spec = _stub_functions(classes["CstrSpec"].body)
+        self.assertIn("tol", _param_names(cstr_spec["between"]), "CstrSpec.between")
+        tree = ast.parse(STUB_PATH.read_text())
+        sampling = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "sampling"
+        )
+        self.assertEqual(
+            _param_names(sampling), ["xspecs", "n_samples", "method", "seed"]
+        )
+
+    def test_gpx_additions_in_stub(self):
+        classes = _stub_classes()
+        for name in ("Gpx", "SparseGpx"):
+            body = classes[name].body
+            props = {
+                node.name
+                for node in body
+                if isinstance(node, ast.FunctionDef)
+                and any(ast.unparse(d) == "property" for d in node.decorator_list)
+            }
+            self.assertLessEqual(
+                {"nx", "ny", "thetas", "variances", "likelihoods"}, props, name
+            )
+            predict = _stub_functions(body)["predict"]
+            self.assertIn("return_std", _param_names(predict), name)
+            self.assertIn("tuple", ast.unparse(predict.returns), name)
+
+    def test_no_any_in_public_signatures(self):
+        tree = ast.parse(STUB_PATH.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            annotations = [a.annotation for a in node.args.args + node.args.kwonlyargs]
+            annotations.append(node.returns)
+            for ann in annotations:
+                if ann is None:
+                    continue
+                text = ast.unparse(ann).replace(DICT_ANY, "")
+                self.assertNotIn("typing.Any", text, f"{node.name}: {ast.unparse(ann)}")
+
+
+if __name__ == "__main__":
+    unittest.main()

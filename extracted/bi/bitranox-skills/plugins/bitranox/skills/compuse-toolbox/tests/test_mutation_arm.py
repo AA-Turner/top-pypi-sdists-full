@@ -1,0 +1,1364 @@
+"""Tests for mutation_arm.py - mutate by exact anchor, run one test arm, restore.
+
+The fixtures build a real tiny project and run real pytest against it: the whole value of this
+tool is what pytest actually reports, so a stubbed runner would test the wrong thing.
+"""
+
+import json
+import os
+import py_compile
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import pytest
+
+import mutation_arm as M
+
+TOOL = Path(__file__).resolve().parents[1] / "scripts" / "mutation_arm.py"
+
+
+SOURCE = '''\
+def classify(value):
+    if value < 0:
+        return "negative"
+    if value == 0:
+        return "zero"
+    return "positive"
+'''
+
+TEST = '''\
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+from src import classify
+
+
+def test_negative():
+    assert classify(-1) == "negative"
+
+
+def test_zero():
+    assert classify(0) == "zero"
+'''
+
+
+def make_project(tmp_path):
+    (tmp_path / "src.py").write_text(SOURCE, encoding="utf-8")
+    (tmp_path / "test_src.py").write_text(TEST, encoding="utf-8")
+    return tmp_path
+
+
+def run(tmp_path, *args):
+    return subprocess.run(
+        [sys.executable, str(TOOL), *args],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(tmp_path),
+    )
+
+
+# --------------------------------------------------------------------------
+# The summary line, not a grep of the log
+# --------------------------------------------------------------------------
+
+
+def test_failure_line_reads_the_summary_not_the_traceback():
+    """The motivating trap: a pytest.raises(X) SOURCE line echoed in a traceback contains X,
+    so a grep for X concludes X was raised. The summary says the opposite."""
+    output = (
+        "    with pytest.raises(KernelError):\n"
+        "E   Failed: DID NOT RAISE <class 'KernelError'>\n"
+        "=========================== short test summary info ============================\n"
+        "FAILED test_src.py::test_boom - Failed: DID NOT RAISE <class 'KernelError'>\n"
+    )
+    assert M.failure_reason(output) == "Failed: DID NOT RAISE <class 'KernelError'>"
+
+
+def test_failure_line_is_none_when_nothing_failed():
+    assert M.failure_reason("2 passed in 0.01s\n") is None
+
+
+def test_failure_line_handles_a_collection_error():
+    output = (
+        "=========================== short test summary info ============================\n"
+        "ERROR test_src.py - ModuleNotFoundError: No module named 'nope'\n"
+    )
+    assert "ModuleNotFoundError" in M.failure_reason(output)
+
+
+# --------------------------------------------------------------------------
+# End to end against real pytest
+# --------------------------------------------------------------------------
+
+
+def test_a_mutation_the_test_notices_is_killed(tmp_path):
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "killed"
+    assert "assert" in (data["failure"] or "").lower()
+
+
+def test_a_long_node_id_still_reports_the_assertion(tmp_path):
+    """pytest drops the message from a summary line that does not fit the terminal width, and a
+    captured child sees a narrow default. The reason must survive a long node id."""
+    p = make_project(tmp_path)
+    long_name = "test_zero_" + "x" * 90
+    (p / "test_src.py").write_text(TEST.replace("def test_zero", f"def {long_name}"),
+                                   encoding="utf-8")
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", f"test_src.py::{long_name}", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "killed"
+    assert (data["failure"] or "").startswith("AssertionError"), data["failure"]
+
+
+def test_a_mutation_the_test_cannot_see_survives(tmp_path):
+    """The finding worth having: this arm does not cover that line."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "survived"
+
+
+def test_the_file_is_restored_byte_for_byte(tmp_path):
+    p = make_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_an_absent_anchor_refuses_and_writes_nothing(tmp_path):
+    p = make_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text("this text is not in the file", encoding="utf-8")
+    (p / "new.txt").write_text("x", encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_a_test_that_never_ran_is_inconclusive_not_a_pass(tmp_path):
+    """pytest exits 5 when it collects nothing. Reading that as 'survived' would report a
+    vacuous test as a covered one."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_does_not_exist", "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "inconclusive"
+
+
+def test_several_anchors_mutate_together_in_one_arm(tmp_path):
+    """Defence in depth leaves a single-layer mutation green, so an arm must break every layer."""
+    p = make_project(tmp_path)
+    (p / "a_old.txt").write_text('if value < 0:', encoding="utf-8")
+    (p / "a_new.txt").write_text('if value < -10**9:', encoding="utf-8")
+    (p / "b_old.txt").write_text('if value == 0:', encoding="utf-8")
+    (p / "b_new.txt").write_text('if value == -10**9:', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "a_old.txt", "a_new.txt",
+               "--mutate", "src.py", "b_old.txt", "b_new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert len(data["mutations"]) == 2
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+SPINNING_TEST = '''\
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+from src import classify
+
+
+def test_spins_until_classify_reports_zero():
+    """Bounded only by the behaviour under test, so a mutation makes it loop forever."""
+    seen = []
+    while "zero" not in seen:
+        seen.append(classify(0))
+    assert seen == ["zero"]
+'''
+
+
+def test_a_mutation_that_makes_the_arm_SPIN_is_reported_not_waited_on(tmp_path):
+    """The failure this tool exists to prevent, in the tool itself.
+
+    A mutation can make the arm loop forever rather than fail: the test's only exit is the
+    behaviour being mutated. Measured 2026-09-02 in agentswarm, twice in one sweep - the arm ran
+    at 97% CPU until it was killed by hand, and killing it skipped the restore, leaving a mutated
+    file on disk. An unbounded `subprocess.run` here turns one hanging arm into a hanging battery
+    and reports nothing at all, which is strictly worse than a wrong verdict.
+    """
+    p = make_project(tmp_path)
+    (p / "test_src.py").write_text(SPINNING_TEST, encoding="utf-8")
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_spins_until_classify_reports_zero",
+               "--timeout", "5", "--json")
+
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "timeout", data
+    assert data["pytest_returncode"] is None, "a killed run has no exit code to report"
+    assert data["restored"] is True, "the restore must run even when the arm is killed"
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_a_timeout_is_not_reported_as_the_arm_noticing(tmp_path):
+    """The control. A hang says the arm could not answer, never that it answered no - folding it
+    into `killed` would report an untested mutation as a covered one, which is the same false
+    all-clear `verdict_for` already refuses for pytest's exit 5."""
+    assert M.verdict_for(None) == "timeout"
+    assert M.exit_code_for("timeout") == 2
+
+
+def test_an_arm_inside_the_timeout_is_unaffected(tmp_path):
+    """A bound set where it can fire during a healthy arm is not a bound, it is a flaky tool."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--timeout", "120", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "killed"
+
+
+# --------------------------------------------------------------------------
+# Bytecode: the arm must not read a cache older than the mutation, nor leave
+# one holding the mutant behind
+# --------------------------------------------------------------------------
+
+
+LENGTH_PRESERVING = ('return "negative"', 'return "positive"')
+
+
+def _at_the_start_of_a_second():
+    """Wait until a second has just ticked over.
+
+    The whole hazard is an mtime SECOND collision, so a trial that begins mid-second sometimes
+    straddles the tick and stops reproducing. Starting fresh gives the compile and the arm's write
+    the better part of a second to land together, which is what a fast edit-then-verify loop does
+    anyway.
+    """
+    time.sleep(1.0 - (time.time() % 1.0))
+
+
+def test_the_arm_leaves_no_bytecode_for_a_mutated_source(tmp_path):
+    """Measured 2026-09-03 against the unpatched tool: the arm left `src.cpython-314.pyc` holding
+    the MUTANT's constants beside a restored source that reads correctly. It is served whenever the
+    source's mtime second equals the arm's write second, which a fast edit-then-verify loop
+    produces routinely, and then a later run fails against bytecode no source file contains while
+    grep and inspect.getsource both agree the code is right."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    leftovers = list((p / "__pycache__").glob("src.*.pyc"))
+    assert leftovers == [], f"cached mutant left behind: {leftovers}"
+
+
+def test_a_cache_predating_the_mutation_is_not_served_in_place_of_it(tmp_path):
+    """The opposite direction, and the worse one: a valid cache whose recorded mtime and size still
+    match the mutant is served INSTEAD of it, the test passes, and the arm reports SURVIVED - it
+    says the test is vacuous when the mutation never ran. Interleaved A/B, 2026-09-03: 6 of 6
+    trials SURVIVED before the purge and 6 of 6 KILLED after."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text(LENGTH_PRESERVING[0], encoding="utf-8")
+    (p / "new.txt").write_text(LENGTH_PRESERVING[1], encoding="utf-8")
+    assert len(LENGTH_PRESERVING[0]) == len(LENGTH_PRESERVING[1]), "the hazard needs an equal size"
+
+    for _ in range(2):
+        shutil.rmtree(p / "__pycache__", ignore_errors=True)
+        _at_the_start_of_a_second()
+        now = int(time.time())
+        os.utime(p / "src.py", (now, now))
+        py_compile.compile(str(p / "src.py"), doraise=True)
+        cached = list((p / "__pycache__").glob("src.*.pyc"))
+        assert cached, "the trial needs a cache to be at risk of serving"
+
+        proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+                   "--test", "test_src.py::test_negative", "--json")
+
+        data = json.loads(proc.stdout)["data"]
+        assert data["verdict"] == "killed", f"the mutant never ran: {data}"
+        assert [Path(c).name for c in data["bytecode_purged"]] == [c.name for c in cached]
+
+
+def test_the_child_runs_with_bytecode_writing_off(tmp_path):
+    """The braces to the purge's belt. Removing the cache afterwards still leaves a window where
+    the mutant is on disk for anything else to import; not writing it is what closes that."""
+    p = make_project(tmp_path)
+    seen = p / "seen.txt"
+    probe = (f"import os, pathlib; pathlib.Path({str(seen)!r}).write_text("
+             "os.environ.get('PYTHONDONTWRITEBYTECODE', 'UNSET')); raise SystemExit(1)")
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+
+    M.run_arm(planned, "test_src.py::test_zero", runner=[sys.executable, "-c", probe])
+
+    assert seen.read_text() == "1"
+
+
+def test_the_cache_search_uses_the_files_real_name_and_covers_every_tag(tmp_path):
+    """The miss that deepened the original trap: the cache is named for the SOURCE FILE, so a
+    hyphenated hook module caches as `ci-watch-nudge.cpython-314.pyc` while a search by its
+    underscored import alias matches only a sibling and reads as "no stale cache present"."""
+    source = tmp_path / "ci-watch-nudge.py"
+    source.write_text("x = 1\n", encoding="utf-8")
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    mine = {"ci-watch-nudge.cpython-313.pyc", "ci-watch-nudge.cpython-314.pyc",
+            "ci-watch-nudge.cpython-314.opt-1.pyc"}
+    for name in mine | {"ci_watch_nudge.cpython-314.pyc"}:
+        (cache / name).write_bytes(b"")
+
+    found = {c.name for c in M.bytecode_caches(source)}
+
+    assert found == mine, "every tag and opt level of THIS file, and no neighbour's"
+    assert M.bytecode_caches(tmp_path / "claims.toml") == [], "a data file has no bytecode"
+
+
+def test_a_cache_that_cannot_be_removed_refuses_the_arm(tmp_path):
+    """Refusing beats proceeding: the guarantee is about the state, not about the unlink call, and
+    an arm that may be running bytecode nobody wrote answers nothing."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    cache = p / "__pycache__"
+    cache.mkdir()
+    (cache / "src.cpython-314.pyc").write_bytes(b"")
+    before = (p / "src.py").read_bytes()
+    cache.chmod(0o555)
+    try:
+        try:
+            (cache / "src.cpython-314.pyc").unlink()
+            pytest.skip("this user can unlink inside a read-only directory, so there is no refusal to test")
+        except OSError:
+            pass
+
+        proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+
+        assert proc.returncode == 2, (proc.stdout, proc.stderr)
+        assert "refused before mutating" in proc.stderr
+        assert (p / "src.py").read_bytes() == before, "the refusal must precede the mutation"
+    finally:
+        cache.chmod(0o755)
+
+
+# The ARM leaves behind something named like a cache for the mutated source that cannot be
+# unlinked: a DIRECTORY. unlink() refuses a directory on every platform, so the after-arm purge
+# fails the same way a read-only __pycache__ would, with no chmod and no root caveat.
+_LEAVES_UNREMOVABLE_CACHE = TEST + '''
+
+def test_leaves_cache():
+    here = __import__("pathlib").Path(__file__).parent
+    (here / "__pycache__" / "src.cpython-399.pyc").mkdir(parents=True)
+'''
+
+
+def test_a_cache_that_survives_the_arm_is_not_reported_as_refused_before_mutating(tmp_path):
+    """The purge after the arm raised the same error as the purge before it, so main() said
+    "refused before mutating" about an arm that had mutated, run and restored."""
+    p = make_project(tmp_path)
+    (p / "test_src.py").write_text(_LEAVES_UNREMOVABLE_CACHE, encoding="utf-8")
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_leaves_cache", "--json")
+
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "refused before mutating" not in proc.stderr
+    assert "the arm ran" in proc.stderr and "restored" in proc.stderr
+    assert "src.cpython-399.pyc" in proc.stderr
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "survived", "the verdict the arm earned is still reported"
+    assert data["restored"] is True
+    assert data["bytecode_left"] and data["bytecode_left"][0].endswith("src.cpython-399.pyc")
+    assert (p / "src.py").read_bytes() == before, "restored even though the purge failed"
+
+
+def test_an_arm_that_cannot_start_is_an_error_after_restoring_not_a_refusal(tmp_path):
+    """Sibling of the above: the runner fails to START after the mutation is on disk. Raised, it
+    reached main() as "refused before mutating" about a file that had been mutated."""
+    p = make_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+
+    report = M.run_arm(planned, "test_src.py::test_zero",
+                       runner=[str(tmp_path / "no-such-interpreter")])
+
+    assert report["verdict"] == "error"
+    assert "could not start the arm" in report["failure"]
+    assert report["restored"] is True
+    assert (p / "src.py").read_bytes() == before
+    assert M.exit_code_for(report["verdict"]) == 2
+
+
+def test_a_clean_arm_reports_no_bytecode_left(tmp_path):
+    """Control: the field is empty when the after-arm purge succeeded."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["bytecode_left"] == []
+
+
+# --------------------------------------------------------------------------
+# An exit 1 is KILLED only when pytest actually reported a failure
+# --------------------------------------------------------------------------
+
+
+def test_a_runner_without_pytest_is_inconclusive_not_killed(tmp_path):
+    """The documented `uv run scripts/mutation_arm.py` gives an interpreter with no pytest:
+    `python -m pytest` then exits 1 with "No module named pytest", which read as KILLED for
+    every arm - a whole battery reporting perfect tests that never ran."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+
+    report = M.run_arm(planned, "test_src.py::test_zero",
+                       runner=[sys.executable, "-m", "no_such_module_pytest_zz"])
+
+    assert report["pytest_returncode"] == 1
+    assert report["verdict"] == "inconclusive"
+    assert M.exit_code_for(report["verdict"]) == 2
+
+
+def test_the_cli_reports_a_pytest_that_never_ran_as_inconclusive(tmp_path):
+    """End to end: a `pytest` module that exits 1 without running anything, as a missing or
+    broken pytest does, must not be scored as the arm noticing the mutation."""
+    p = make_project(tmp_path)
+    (p / "pytest.py").write_text(
+        "import sys\nprint('No module named pytest', file=sys.stderr)\nraise SystemExit(1)\n",
+        encoding="utf-8")
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+               "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "inconclusive"
+
+
+def test_verdict_needs_a_summary_line_for_killed():
+    assert M.verdict_for(1, "FAILED t.py::x - AssertionError\n") == "inconclusive"
+    summary =("=== short test summary info ===\n"
+               "FAILED t.py::x - AssertionError: boom\n")
+    assert M.verdict_for(1, summary) == "killed"
+    assert M.verdict_for(1, "No module named pytest\n") == "inconclusive"
+    assert M.verdict_for(0, "") == "survived"
+    assert M.verdict_for(None, "") == "timeout"
+
+
+# --------------------------------------------------------------------------
+# Every failure to read or write is exit 2, never a traceback read as SURVIVED
+# --------------------------------------------------------------------------
+
+
+def test_no_mutate_is_a_usage_error(tmp_path):
+    proc = run(make_project(tmp_path), "--test", "test_src.py::test_zero")
+    assert proc.returncode == 2
+    assert "no --mutate" in proc.stderr
+
+
+def test_a_non_utf8_source_is_refused_before_anything_is_written(tmp_path):
+    p = make_project(tmp_path)
+    latin = b"# -*- coding: latin-1 -*-\n" + SOURCE.replace("zero", "z\xe9ro").encode("latin-1")
+    (p / "src.py").write_bytes(latin)
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "Traceback" not in proc.stderr
+    assert "nothing written" in proc.stderr
+    assert (p / "src.py").read_bytes() == latin
+
+
+def test_a_non_utf8_anchor_file_is_refused(tmp_path):
+    p = make_project(tmp_path)
+    (p / "old.txt").write_bytes(b'return "z\xe9ro"')
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "Traceback" not in proc.stderr
+
+
+def test_a_bom_anchor_file_still_matches(tmp_path):
+    """Notepad writes a BOM; read as plain utf-8 it becomes part of the anchor, which then
+    appears 0 times in the source."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_bytes(b'\xef\xbb\xbfreturn "zero"')
+    (p / "new.txt").write_bytes(b'\xef\xbb\xbfreturn "ZERO"')
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+               "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def _cannot_write(path):
+    """True when making `path` read-only really stops this user writing it (not root)."""
+    path.chmod(0o444)
+    try:
+        with open(path, "ab"):
+            pass
+    except OSError:
+        return True
+    return False
+
+
+def test_an_unwritable_source_is_exit_2_not_a_traceback(tmp_path):
+    p = make_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    try:
+        if not _cannot_write(p / "src.py"):
+            pytest.skip("this user can write a read-only file, so there is no failure to test")
+        proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+                   "--test", "test_src.py::test_zero", "--json")
+    finally:
+        (p / "src.py").chmod(0o644)
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "Traceback" not in proc.stderr
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "error" and data["restored"] is True
+    assert "RESTORE FAILED" not in proc.stderr, "an untouched file is not a failed restore"
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_a_restore_that_cannot_write_is_reported_loudly(tmp_path):
+    """The arm leaves the mutant on disk and makes it unwritable, so the restore fails. That must
+    be exit 2 and RESTORE FAILED, never a traceback."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    probe = p / "probe.txt"
+    probe.write_text("x", encoding="utf-8")
+    if not _cannot_write(probe):
+        pytest.skip("this user can write a read-only file, so there is no failure to test")
+    lock = f"import os; os.chmod({str(p / 'src.py')!r}, 0o444); raise SystemExit(1)"
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+    try:
+        report = M.run_arm(planned, "test_src.py::test_zero", runner=[sys.executable, "-c", lock])
+    finally:
+        (p / "src.py").chmod(0o644)
+    assert report["restored"] is False
+    assert 'return "ZERO"' in (p / "src.py").read_text(encoding="utf-8")
+
+
+LOCKING_TEST = '''\
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from src import classify
+
+
+def test_zero():
+    # Leaves the mutant on disk read-only, so the tool's restore cannot write it back.
+    os.chmod(Path(__file__).parent / "src.py", 0o444)
+    assert classify(0) == "zero"
+'''
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_the_cli_says_restore_failed_and_exits_2(tmp_path, as_json):
+    """The loud half of a failed restore is the CLI's stderr line and its exit code; run_arm's
+    report alone does not prove a user running the tool would ever see it."""
+    p = make_project(tmp_path)
+    (p / "test_src.py").write_text(LOCKING_TEST, encoding="utf-8")
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    probe = p / "probe.txt"
+    probe.write_text("x", encoding="utf-8")
+    if not _cannot_write(probe):
+        pytest.skip("this user can write a read-only file, so there is no failure to test")
+    try:
+        proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+                   "--test", "test_src.py::test_zero", *(["--json"] if as_json else []))
+    finally:
+        (p / "src.py").chmod(0o644)
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "RESTORE FAILED" in proc.stderr, proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert 'return "ZERO"' in (p / "src.py").read_text(encoding="utf-8"), "the arm must really fail"
+    if as_json:
+        assert json.loads(proc.stdout)["ok"] is False
+
+
+# --------------------------------------------------------------------------
+# Several mutations: each anchor is checked against the text the earlier ones leave
+# --------------------------------------------------------------------------
+
+
+def test_an_anchor_consumed_by_an_earlier_mutation_is_refused_before_writing(tmp_path):
+    p = make_project(tmp_path)
+    (p / "a_old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "a_new.txt").write_text('return "ZERO"', encoding="utf-8")
+    specs = [[str(p / "src.py"), str(p / "a_old.txt"), str(p / "a_new.txt")],
+             [str(p / "src.py"), str(p / "a_old.txt"), str(p / "a_new.txt")]]
+    with pytest.raises(M.AnchorError):
+        M.plan_mutations(specs)
+    proc = run(p, "--mutate", "src.py", "a_old.txt", "a_new.txt",
+               "--mutate", "src.py", "a_old.txt", "a_new.txt", "--test", "test_src.py::test_zero")
+    assert proc.returncode == 2
+    assert "nothing written" in proc.stderr
+
+
+def test_a_second_anchor_created_by_the_first_mutation_is_accepted(tmp_path):
+    """The control: validation sees the text as the arm will, so a chain that only makes sense
+    in order is planned, not refused."""
+    p = make_project(tmp_path)
+    (p / "a_old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "a_new.txt").write_text('return "ZERO"', encoding="utf-8")
+    (p / "b_old.txt").write_text('return "ZERO"', encoding="utf-8")
+    (p / "b_new.txt").write_text('return "Zero"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "a_old.txt"), str(p / "a_new.txt")],
+                                [str(p / "src.py"), str(p / "b_old.txt"), str(p / "b_new.txt")]])
+    assert len(planned) == 2
+
+
+# --------------------------------------------------------------------------
+# CRLF sources stay CRLF while the arm runs
+# --------------------------------------------------------------------------
+
+
+def test_a_crlf_source_keeps_its_line_endings_during_the_arm(tmp_path):
+    p = make_project(tmp_path)
+    crlf = SOURCE.replace("\n", "\r\n").encode("utf-8")
+    (p / "src.py").write_bytes(crlf)
+    (p / "old.txt").write_text('if value == 0:\n        return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('if value == 0:\n        return "ZERO"', encoding="utf-8")
+    seen = p / "seen.bin"
+    probe = (f"import pathlib; pathlib.Path({str(seen)!r}).write_bytes("
+             f"pathlib.Path({str(p / 'src.py')!r}).read_bytes()); raise SystemExit(0)")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+    M.run_arm(planned, "test_src.py::test_zero", runner=[sys.executable, "-c", probe])
+    during = seen.read_bytes()
+    assert b'return "ZERO"\r\n' in during
+    assert during.count(b"\n") == during.count(b"\r\n")
+    assert (p / "src.py").read_bytes() == crlf
+
+
+# --------------------------------------------------------------------------
+# The reported reason, and output a console cannot encode
+# --------------------------------------------------------------------------
+
+
+def test_a_parametrize_id_containing_the_separator_does_not_cut_the_reason():
+    output = ("=========================== short test summary info ============================\n"
+              "FAILED test_src.py::test_x[a - b] - AssertionError: assert 'ZERO' == 'zero'\n")
+    assert M.failure_reason(output) == "AssertionError: assert 'ZERO' == 'zero'"
+
+
+@pytest.mark.parametrize("node, reason", [
+    ("test_src.py::test_x[a[1] - b]", "AssertionError: boom"),
+    ("test_src.py::test_x[[a - b]]", "AssertionError: boom"),
+    ("test_src.py::T::test_x[a[1] - b]", "AssertionError: boom"),
+    ("test_src.py::test_x[a]b]", "AssertionError: boom"),               # unbalanced id
+    ("test_src.py::test_x[a]", "AssertionError: assert [1] - [2] == x"),
+])
+def test_a_nested_bracket_parametrize_id_does_not_cut_the_reason(node, reason):
+    output = ("=========================== short test summary info ============================\n"
+              f"FAILED {node} - {reason}\n")
+    assert M.failure_reason(output) == reason
+
+
+def test_a_line_separator_inside_the_reason_does_not_cut_it():
+    output = ("=========================== short test summary info ============================\n"
+              "FAILED test_src.py::test_x - AssertionError: a\u2028b\n")
+    assert M.failure_reason(output) == "AssertionError: a\u2028b"
+
+
+def test_a_non_cp1252_node_id_does_not_crash_a_cp1252_console(tmp_path):
+    """A traceback here exits 1, which reads as SURVIVED - a false finding."""
+    p = make_project(tmp_path)
+    (p / "test_src.py").write_text(TEST + "\n\ndef test_日本():\n"
+                                   "    assert classify(0) == 'zero'\n", encoding="utf-8")
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, str(TOOL), "--mutate", "src.py", "old.txt", "new.txt",
+         "--test", "test_src.py::test_日本"],
+        capture_output=True, cwd=str(p), check=False,
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert b"Traceback" not in proc.stderr
+    assert proc.stdout.startswith(b"KILLED")
+
+
+# --------------------------------------------------------------------------
+# The --json envelope's "ok" follows the exit code: false exactly when it is 2
+# --------------------------------------------------------------------------
+
+
+def test_json_ok_is_false_when_the_arm_is_inconclusive(tmp_path):
+    """The arm: an inconclusive arm exits 2, and an envelope reading "ok": true beside it tells a
+    caller that parses the JSON rather than the exit code that the arm gave a verdict."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_does_not_exist", "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    envelope = json.loads(proc.stdout)
+    assert envelope["data"]["verdict"] == "inconclusive"
+    assert envelope["ok"] is False
+
+
+@pytest.mark.parametrize(("anchor", "mutant", "code", "verdict"), [
+    ('return "zero"', 'return "ZERO"', 0, "killed"),
+    ('return "negative"', 'return "NEGATIVE"', 1, "survived"),
+])
+def test_json_ok_is_true_for_a_verdict_killed_or_survived(tmp_path, anchor, mutant, code,
+                                                          verdict):
+    """The control: SURVIVED exits 1 as the FINDING, not as an error, so it keeps "ok": true."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text(anchor, encoding="utf-8")
+    (p / "new.txt").write_text(mutant, encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == code, (proc.stdout, proc.stderr)
+    envelope = json.loads(proc.stdout)
+    assert envelope["data"]["verdict"] == verdict
+    assert envelope["ok"] is True
+
+
+def test_json_ok_is_false_when_the_restore_failed(tmp_path):
+    """A failed restore exits 2 whatever the verdict was; the envelope must say so too."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    probe = p / "probe.txt"
+    probe.write_text("x", encoding="utf-8")
+    if not _cannot_write(probe):
+        pytest.skip("this user can write a read-only file, so there is no failure to test")
+    lock = f"import os; os.chmod({str(p / 'src.py')!r}, 0o444); raise SystemExit(0)"
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+    try:
+        report = M.run_arm(planned, "test_src.py::test_zero", runner=[sys.executable, "-c", lock])
+    finally:
+        (p / "src.py").chmod(0o644)
+    assert report["restored"] is False and report["verdict"] == "survived"
+    assert M.outcome_code(report) == 2
+    assert json.loads(M.json_envelope(report))["ok"] is False
+
+
+@pytest.mark.parametrize("verdict", ["inconclusive", "timeout", "error"])
+def test_json_ok_is_false_for_every_verdict_that_exits_2(verdict):
+    report = {"verdict": verdict, "restored": True, "bytecode_left": []}
+    assert M.outcome_code(report) == 2
+    assert json.loads(M.json_envelope(report))["ok"] is False
+
+
+def test_a_json_refusal_still_prints_an_envelope(tmp_path):
+    """A --json caller parses stdout; a refusal that printed only to stderr handed it an empty
+    string, which fails as a JSON error rather than as the refusal it was."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text("this text is not in the file", encoding="utf-8")
+    (p / "new.txt").write_text("x", encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    envelope = json.loads(proc.stdout)
+    assert envelope["ok"] is False
+    assert envelope["command"] == "mutation_arm"
+    assert "nothing written" in envelope["error"]
+    assert "nothing written" in proc.stderr
+    assert envelope["data"] == {} and envelope["skipped"] == []
+
+
+def test_a_json_usage_error_still_prints_an_envelope(tmp_path):
+    proc = run(make_project(tmp_path), "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 2
+    assert json.loads(proc.stdout)["ok"] is False
+
+
+
+# --------------------------------------------------------------------------
+# Wave D: the crash boundary, the import guard, the envelope's skipped key
+# --------------------------------------------------------------------------
+
+
+def _zero_anchors(p):
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+
+
+def test_an_internal_crash_exits_2_never_the_survived_1(tmp_path, capsys, monkeypatch):
+    """A traceback exits 1, which is this tool's SURVIVED - the worst lie it can tell."""
+    p = make_project(tmp_path)
+    _zero_anchors(p)
+    monkeypatch.chdir(p)
+
+    def explode(*_a, **_k):
+        raise RuntimeError("kaboom")
+
+    # The process boundary is under test, so the crash is injected at the arm main runs.
+    monkeypatch.setattr(M, "run_arm", explode)
+    rc = M.main(["--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+                 "--json"])
+    cap = capsys.readouterr()
+    assert rc == 2
+    assert json.loads(cap.out)["ok"] is False and "internal error" in cap.err
+
+
+def test_a_missing_anchor_edit_sibling_is_exit_2_not_a_traceback(tmp_path):
+    p = make_project(tmp_path)
+    _zero_anchors(p)
+    shim = ("import os, runpy, sys; sys.modules['anchor_edit'] = None; script = sys.argv[1]; "
+            "sys.path.insert(0, os.path.dirname(script)); "
+            "sys.argv = sys.argv[1:]; runpy.run_path(script, run_name='__main__')")
+    proc = subprocess.run(
+        [sys.executable, "-c", shim, str(TOOL), "--mutate", "src.py", "old.txt", "new.txt",
+         "--test", "test_src.py::test_zero", "--json"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(p))
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "anchor_edit" in proc.stderr and "Traceback" not in proc.stderr
+    assert json.loads(proc.stdout)["ok"] is False
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_finished_arm_envelope_carries_skipped_and_names_the_runner(tmp_path):
+    p = make_project(tmp_path)
+    _zero_anchors(p)
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+               "--json")
+    envelope = json.loads(proc.stdout)
+    assert list(envelope)[:4] == ["ok", "command", "data", "skipped"]
+    assert envelope["data"]["runner"] == [sys.executable, "-m", "pytest"]
+    assert envelope["data"]["runner_source"] == "this interpreter"
+    assert envelope["data"]["caught_by"] == ["test_src.py::test_zero"]
+
+
+# --------------------------------------------------------------------------
+# C13: which interpreter runs the arm is a flag, and the envelope says which
+# --------------------------------------------------------------------------
+
+
+def test_python_flag_runs_the_arm_under_that_interpreter(tmp_path):
+    p = make_project(tmp_path)
+    _zero_anchors(p)
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+               "--python", sys.executable, "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["runner"][0] == sys.executable and data["runner_source"] == "--python"
+
+
+def test_a_python_that_does_not_exist_is_refused_before_mutating(tmp_path):
+    p = make_project(tmp_path)
+    _zero_anchors(p)
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero",
+               "--python", str(tmp_path / "no-such-python"))
+    assert proc.returncode == 2 and "no-such-python" in proc.stderr
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_venv_beside_the_cwd_is_used_when_no_runner_is_named(tmp_path):
+    venv_python = tmp_path / M.VENV_PYTHON
+    venv_python.parent.mkdir(parents=True)
+    venv_python.write_bytes(b"")
+    runner, source = M.resolve_runner(cwd=tmp_path)
+    assert runner == [str(venv_python), "-m", "pytest"] and source == "cwd .venv"
+
+
+def test_without_a_venv_the_arm_runs_under_this_interpreter(tmp_path):
+    assert M.resolve_runner(cwd=tmp_path) == ([sys.executable, "-m", "pytest"], "this interpreter")
+
+
+def test_with_deps_runs_under_uv_with_pytest_and_each_dep(tmp_path):
+    runner, source = M.resolve_runner(with_deps=["httpx", "protobuf"], cwd=tmp_path,
+                                      which=lambda name: "/opt/uv" if name == "uv" else None)
+    assert source == "--with"
+    assert runner == ["/opt/uv", "run", "--no-project", "--with", "pytest", "--with", "httpx",
+                      "--with", "protobuf", "python", "-m", "pytest"]
+
+
+def test_with_deps_without_uv_is_refused(tmp_path):
+    with pytest.raises(M.RunnerError, match="uv"):
+        M.resolve_runner(with_deps=["httpx"], cwd=tmp_path, which=lambda _name: None)
+
+
+def test_python_and_with_together_are_a_usage_error(tmp_path):
+    p = make_project(tmp_path)
+    proc = run(p, "--mutate", "src.py", "a", "b", "--test", "t", "--python", sys.executable,
+               "--with", "httpx", "--json")
+    assert proc.returncode == 2 and json.loads(proc.stdout)["ok"] is False
+
+
+# --------------------------------------------------------------------------
+# C39: a battery - labelled arms, baseline green first and last, who caught each
+# --------------------------------------------------------------------------
+
+# SOURCE's classify() has three branches; TEST covers negative and zero only, so a mutation of the
+# positive branch is the known SURVIVED arm and the other two are known KILLED ones.
+
+
+def _battery(tmp_path, arms, tests=("test_src.py",)):
+    spec = tmp_path / "battery.json"
+    spec.write_text(json.dumps({"tests": list(tests), "arms": arms}), encoding="utf-8",
+                    newline="")
+    return spec
+
+
+def test_a_battery_reports_which_test_caught_each_arm(tmp_path):
+    p = make_project(tmp_path)
+    spec = _battery(p, [
+        {"label": "zero-branch", "file": "src.py", "old": 'return "zero"', "new": 'return "ZERO"'},
+        {"label": "negative-branch", "file": "src.py", "old": 'return "negative"',
+         "new": 'return "NEG"'},
+    ])
+    proc = run(p, "--battery", str(spec), "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["baseline"]["green"] is True and data["final_baseline"]["green"] is True
+    by_label = {arm["label"]: arm for arm in data["arms"]}
+    assert by_label["zero-branch"]["verdict"] == "killed"
+    assert by_label["zero-branch"]["caught_by"] == ["test_src.py::test_zero"]
+    assert by_label["negative-branch"]["caught_by"] == ["test_src.py::test_negative"]
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_battery_with_a_surviving_arm_exits_1_and_names_it(tmp_path):
+    p = make_project(tmp_path)
+    spec = _battery(p, [
+        {"label": "zero-branch", "file": "src.py", "old": 'return "zero"', "new": 'return "ZERO"'},
+        {"label": "uncovered-positive", "file": "src.py", "old": 'return "positive"',
+         "new": 'return "POS"'},
+    ])
+    proc = run(p, "--battery", str(spec))
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+    assert "SURVIVED" in proc.stdout and "uncovered-positive" in proc.stdout
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_battery_refuses_to_mutate_when_the_baseline_is_red(tmp_path):
+    p = make_project(tmp_path)
+    (p / "test_src.py").write_text(TEST + "\n\ndef test_red():\n    assert False\n",
+                                   encoding="utf-8")
+    spec = _battery(p, [{"label": "zero", "file": "src.py", "old": 'return "zero"',
+                         "new": 'return "ZERO"'}])
+    proc = run(p, "--battery", str(spec), "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["baseline"]["green"] is False and data["arms"] == []
+    assert "baseline" in proc.stderr
+
+
+def test_a_battery_with_an_absent_anchor_runs_no_arm_at_all(tmp_path):
+    p = make_project(tmp_path)
+    spec = _battery(p, [
+        {"label": "good", "file": "src.py", "old": 'return "zero"', "new": 'return "ZERO"'},
+        {"label": "bad", "file": "src.py", "old": "not in the file", "new": "x"},
+    ])
+    proc = run(p, "--battery", str(spec), "--json")
+    assert proc.returncode == 2
+    assert "bad" in json.loads(proc.stdout)["error"]
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_battery_arm_may_carry_several_mutations(tmp_path):
+    """Layered validation absorbs a single break, so one arm can hold several, applied together."""
+    p = make_project(tmp_path)
+    spec = _battery(p, [{"label": "both", "mutations": [
+        {"file": "src.py", "old": 'return "zero"', "new": 'return "ZERO"'},
+        {"file": "src.py", "old": 'return "negative"', "new": 'return "NEG"'}]}])
+    proc = run(p, "--battery", str(spec), "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    arm = json.loads(proc.stdout)["data"]["arms"][0]
+    assert sorted(arm["caught_by"]) == ["test_src.py::test_negative", "test_src.py::test_zero"]
+
+
+@pytest.mark.parametrize("spec_text,needle", [
+    ("[]", "no arms"),
+    ('{"tests": ["t"], "arms": [{"label": "x", "file": "src.py", "old": "a"}]}', "new"),
+    ('{"arms": [{"label": "x", "file": "src.py", "old": "a", "new": "b"}]}', "tests"),
+    (('{"tests": ["t"], "arms": [{"label": "x", "file": "src.py", "old": "a", "new": "b"}, '
+      '{"label": "x", "file": "src.py", "old": "c", "new": "d"}]}'), "duplicate"),
+    ("{not json", "JSON"),
+])
+def test_a_malformed_battery_is_refused(tmp_path, spec_text, needle):
+    p = make_project(tmp_path)
+    spec = p / "battery.json"
+    spec.write_text(spec_text, encoding="utf-8")
+    proc = run(p, "--battery", str(spec))
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert needle in proc.stderr
+
+
+def test_battery_and_mutate_together_are_refused(tmp_path):
+    p = make_project(tmp_path)
+    spec = _battery(p, [{"label": "z", "file": "src.py", "old": 'return "zero"',
+                         "new": 'return "ZERO"'}])
+    _zero_anchors(p)
+    proc = run(p, "--battery", str(spec), "--mutate", "src.py", "old.txt", "new.txt")
+    assert proc.returncode == 2 and "--battery" in proc.stderr
+
+
+def test_battery_code_is_2_when_any_arm_is_inconclusive():
+    result = {"baseline": {"green": True}, "final_baseline": {"green": True},
+              "arms": [{"verdict": "killed", "restored": True, "bytecode_left": []},
+                       {"verdict": "survived", "restored": True, "bytecode_left": []},
+                       {"verdict": "timeout", "restored": True, "bytecode_left": []}]}
+    assert M.battery_code(result) == 2
+    result["arms"].pop()
+    assert M.battery_code(result) == 1
+    result["arms"].pop()
+    assert M.battery_code(result) == 0
+    result["final_baseline"] = {"green": False}
+    assert M.battery_code(result) == 2
+
+
+# --------------------------------------------------------------------------
+# --revert FILE REV: run the arm against the committed version of a file
+# --------------------------------------------------------------------------
+
+FIXED = SOURCE  # the work tree: test_zero passes
+BUGGY = SOURCE.replace('return "zero"', 'return "ZERO"')  # what HEAD holds
+
+
+def _git(cwd, *args):
+    return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", check=True).stdout.strip()
+
+
+def make_git_project(tmp_path, committed=BUGGY, worktree=FIXED):
+    """HEAD holds `committed`, the work tree `worktree`: the shape of an uncommitted fix."""
+    p = make_project(tmp_path)
+    (p / "src.py").write_text(committed, encoding="utf-8")
+    _git(p, "init", "-q")
+    _git(p, "config", "user.name", "t")
+    _git(p, "config", "user.email", "t@example.com")
+    _git(p, "add", "src.py", "test_src.py")
+    _git(p, "commit", "-q", "-m", "c1")
+    (p / "src.py").write_text(worktree, encoding="utf-8")
+    return p
+
+
+def test_a_revert_the_test_notices_is_killed(tmp_path):
+    p = make_git_project(tmp_path)
+    proc = run(p, "--revert", "src.py", "HEAD", "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "killed"
+    assert data["reverts"] == [{"path": "src.py", "rev": "HEAD", "sha": _git(p, "rev-parse", "HEAD")}]
+
+
+def test_a_revert_the_test_cannot_see_survives(tmp_path):
+    p = make_git_project(tmp_path, committed=SOURCE.replace('"negative"', '"NEGATIVE"'))
+    proc = run(p, "--revert", "src.py", "HEAD", "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "survived"
+
+
+def test_a_revert_restores_the_uncommitted_work_byte_for_byte(tmp_path):
+    p = make_git_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    run(p, "--revert", "src.py", "HEAD", "--test", "test_src.py::test_zero")
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_a_revert_restores_after_a_timeout(tmp_path):
+    p = make_git_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    planned, _ = M.plan_reverts([[str(p / "src.py"), "HEAD"]])
+    report = M.run_arm(planned, "test_src.py::test_zero", timeout=1,
+                       runner=[sys.executable, "-c", "import time; time.sleep(30)"])
+    assert report["verdict"] == "timeout"
+    assert (p / "src.py").read_bytes() == before
+
+
+@pytest.mark.parametrize("case", ["untracked", "not_a_repo", "bad_rev", "identical"])
+def test_a_revert_that_cannot_mean_anything_is_refused_and_writes_nothing(tmp_path, case):
+    p = make_git_project(tmp_path) if case != "not_a_repo" else make_project(tmp_path)
+    target, rev = "src.py", "HEAD"
+    if case == "untracked":
+        (p / "extra.py").write_text("x = 1\n", encoding="utf-8")
+        target = "extra.py"
+    elif case == "bad_rev":
+        rev = "no-such-rev"
+    elif case == "identical":
+        (p / "src.py").write_text(BUGGY, encoding="utf-8")
+    before = (p / target).read_bytes()
+    proc = run(p, "--revert", target, rev, "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 2, (case, proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["ok"] is False
+    # The tool's own refusal, not argparse rejecting an unknown flag, which also exits 2.
+    assert "refused, nothing written" in proc.stderr, (case, proc.stderr)
+    assert (p / target).read_bytes() == before
+
+
+def test_a_revert_and_a_mutation_apply_together_as_one_arm(tmp_path):
+    """Alone, either one is KILLED; together the test passes - which only happens when both
+    were applied."""
+    p = make_git_project(tmp_path)
+    (p / "old.txt").write_text('assert classify(0) == "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('assert classify(0) == "ZERO"', encoding="utf-8")
+    proc = run(p, "--revert", "src.py", "HEAD", "--mutate", "test_src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+
+
+def test_a_mutation_anchor_is_checked_against_the_reverted_text(tmp_path):
+    """'return "ZERO"' exists only at HEAD, so the anchor must be looked up after the revert."""
+    p = make_git_project(tmp_path)
+    (p / "old.txt").write_text('return "ZERO"', encoding="utf-8")
+    (p / "new.txt").write_text('return "zero"', encoding="utf-8")
+    proc = run(p, "--revert", "src.py", "HEAD", "--mutate", "src.py", "old.txt", "new.txt",
+               "--test", "test_src.py::test_zero", "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+
+
+def test_a_reverted_crlf_checkout_keeps_its_line_endings_during_the_arm(tmp_path):
+    p = make_git_project(tmp_path)
+    _git(p, "config", "core.autocrlf", "true")
+    (p / "src.py").write_bytes(FIXED.replace("\n", "\r\n").encode("utf-8"))
+    before = (p / "src.py").read_bytes()
+    seen = p / "seen.bin"
+    probe = (f"import pathlib; pathlib.Path({str(seen)!r}).write_bytes("
+             f"pathlib.Path({str(p / 'src.py')!r}).read_bytes()); raise SystemExit(0)")
+    planned, _ = M.plan_reverts([[str(p / "src.py"), "HEAD"]])
+    M.run_arm(planned, "test_src.py::test_zero", runner=[sys.executable, "-c", probe])
+    during = seen.read_bytes()
+    assert b'return "ZERO"\r\n' in during
+    assert during.count(b"\n") == during.count(b"\r\n")
+    assert (p / "src.py").read_bytes() == before
+
+
+def test_revert_and_battery_together_are_refused(tmp_path):
+    p = make_git_project(tmp_path)
+    (p / "spec.json").write_text('{"tests": ["test_src.py"], "arms": []}', encoding="utf-8")
+    proc = run(p, "--battery", "spec.json", "--revert", "src.py", "HEAD")
+    assert proc.returncode == 2
+    assert "separate modes" in proc.stderr
+
+
+# --------------------------------------------------------------------------
+# The restore puts the content back with a FRESH mtime, and a non-pytest command can be the arm
+# --------------------------------------------------------------------------
+
+
+def test_the_restored_source_gets_a_fresh_mtime_so_an_mtime_cache_rebuilds(tmp_path):
+    """Restoring with copy2 put the ORIGINAL mtime back, older than the mutant's build, so cargo
+    and make reused the MUTANT build for the restored source (an implementer had to touch the
+    file by hand before the gate)."""
+    p = make_project(tmp_path)
+    before = (p / "src.py").read_bytes()
+    os.utime(p / "src.py", (978307200, 978307200))            # 2001-01-01
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    started = time.time()
+    run(p, "--mutate", "src.py", "old.txt", "new.txt", "--test", "test_src.py::test_zero")
+    assert (p / "src.py").read_bytes() == before
+    assert (p / "src.py").stat().st_mtime >= started - 2, "the old mtime came back"
+
+
+CHECK = '''\
+import sys
+sys.path.insert(0, ".")
+from src import classify
+raise SystemExit(0 if classify(0) == "zero" else 3)
+'''
+
+
+def _cmd_project(tmp_path):
+    p = make_project(tmp_path)
+    (p / "check.py").write_text(CHECK, encoding="utf-8")
+    return p
+
+
+def test_a_command_arm_that_fails_under_the_mutant_is_killed(tmp_path):
+    p = _cmd_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--cmd", f'"{sys.executable}" check.py', "--json")
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "killed" and data["runner_source"] == "--cmd"
+    assert "exit 3" in data["failure"]
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_a_command_arm_that_passes_under_the_mutant_survives(tmp_path):
+    p = _cmd_project(tmp_path)
+    (p / "old.txt").write_text('return "positive"', encoding="utf-8")
+    (p / "new.txt").write_text('return "POSITIVE"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--cmd", f'"{sys.executable}" check.py', "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+    assert json.loads(proc.stdout)["data"]["verdict"] == "survived"
+
+
+def test_a_mutant_that_does_not_build_is_inconclusive_not_killed(tmp_path):
+    """A compile error is the mutant being unbuildable, not a test noticing it."""
+    p = _cmd_project(tmp_path)
+    (p / "build.py").write_text(
+        "print('error[E0425]: cannot find value `x`')\n"
+        "print('error: could not compile `demo` (lib) due to 1 previous error')\n"
+        "raise SystemExit(101)\n", encoding="utf-8")
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt",
+               "--cmd", f'"{sys.executable}" build.py', "--json")
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["verdict"] == "inconclusive" and "did not build" in data["failure"]
+
+
+def test_a_battery_under_a_command_needs_no_pytest_tests(tmp_path):
+    p = _cmd_project(tmp_path)
+    spec = tmp_path / "battery.json"
+    spec.write_text(json.dumps({"arms": [
+        {"label": "zero", "file": "src.py", "old": 'return "zero"', "new": 'return "ZERO"'},
+        {"label": "positive", "file": "src.py", "old": 'return "positive"', "new": 'return "P"'},
+    ]}), encoding="utf-8", newline="")
+    proc = run(p, "--battery", str(spec), "--cmd", f'"{sys.executable}" check.py', "--json")
+    assert proc.returncode == 1, (proc.stdout, proc.stderr)
+    data = json.loads(proc.stdout)["data"]
+    assert data["baseline"]["green"] and data["final_baseline"]["green"]
+    assert {a["label"]: a["verdict"] for a in data["arms"]} == {"zero": "killed",
+                                                                 "positive": "survived"}
+
+
+@pytest.mark.parametrize("extra", [["--test", "test_src.py::test_zero"], ["--python", sys.executable]])
+def test_cmd_with_a_pytest_option_is_a_usage_error(tmp_path, extra):
+    p = _cmd_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    proc = run(p, "--mutate", "src.py", "old.txt", "new.txt", "--cmd", "x", *extra)
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+
+
+def test_an_inconclusive_arm_names_the_missing_module_and_the_retry(tmp_path):
+    """A PEP 723 script repo whose .venv has no pytest made every arm INCONCLUSIVE; the verdict
+    was honest but did not say the fix."""
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "negative"', encoding="utf-8")
+    (p / "new.txt").write_text('return "NEGATIVE"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+    report = M.run_arm(planned, "test_src.py::test_zero",
+                       runner=[sys.executable, "-m", "no_such_module_pytest_zz"])
+    assert report["verdict"] == "inconclusive"
+    assert "no_such_module_pytest_zz" in report["failure"]
+    assert "--with pytest" in report["failure"] and "--python" in report["failure"]
+
+
+def test_a_red_baseline_from_a_missing_pytest_names_the_retry_too(tmp_path):
+    p = make_project(tmp_path)
+    (p / "pytest.py").write_text(
+        "import sys\nprint(\"ModuleNotFoundError: No module named 'pytest'\", file=sys.stderr)\n"
+        "raise SystemExit(1)\n", encoding="utf-8")
+    spec = _battery(p, [{"label": "z", "file": "src.py", "old": 'return "zero"',
+                         "new": 'return "ZERO"'}])
+    proc = run(p, "--battery", str(spec), "--json")
+    assert proc.returncode == 2
+    assert "--with pytest" in json.loads(proc.stdout)["data"]["baseline"]["failure"]
+
+
+@pytest.mark.parametrize("output", [
+    "test tests::adds ... FAILED\nerror: test failed, to rerun pass `--lib`\n",
+    "FAIL: test_x\nmake: *** [Makefile:3: check] Error 1\n",
+    "FAIL: test_x\nmake[1]: *** [check] Error 2\n",
+])
+def test_a_failing_test_run_is_killed_even_when_its_runner_says_error(output):
+    """cargo ends a FAILING test run with `error: test failed`, make ends any failed recipe with
+    `make: ***`: neither says the mutant did not build."""
+    assert M.command_verdict(101, output)[0] == "killed"
+
+
+@pytest.mark.parametrize("output", [
+    "error[E0425]: cannot find value `x` in this scope\n",
+    "error: could not compile `demo` (lib) due to 1 previous error\n",
+    "src/a.c:3:1: error: expected ';' before '}' token\ncompilation terminated.\n",
+])
+def test_a_compile_error_is_inconclusive(output):
+    assert M.command_verdict(1, output)[0] == "inconclusive"
+
+
+# --------------------------------------------------------------------------
+# A timed-out arm whose grandchild holds the pipes; a Windows --cmd with quotes
+# --------------------------------------------------------------------------
+
+
+def _gone(pid: int) -> bool:
+    """Whether `pid` no longer runs (absent, or a zombie waiting for init to reap it)."""
+    if os.name == "nt":
+        # os.kill(pid, 0) TERMINATES a process on Windows, so ask tasklist instead.
+        listing = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True,
+                                 text=True, encoding="utf-8", errors="replace", check=False)
+        return str(pid) not in listing.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    status = Path(f"/proc/{pid}/status")
+    return status.is_file() and "State:\tZ" in status.read_text(encoding="utf-8")
+
+
+# The arm starts a grandchild that inherits its stdout and outlives it, then waits on it.
+_GRANDCHILD = ("import subprocess, sys, time; "
+               "g = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+               "open(sys.argv[1], 'w').write(str(g.pid)); time.sleep(30)")
+
+
+@pytest.mark.parametrize("command", [True, False])
+def test_a_timed_out_arm_kills_the_grandchild_holding_its_pipes_and_restores(tmp_path, command):
+    # Killing only the direct child left the grandchild running on the mutant; on Windows it also
+    # held the pipes, so collecting the output waited out its sleep with the mutant on disk.
+    p = make_project(tmp_path)
+    (p / "old.txt").write_text('return "zero"', encoding="utf-8")
+    (p / "new.txt").write_text('return "ZERO"', encoding="utf-8")
+    planned = M.plan_mutations([[str(p / "src.py"), str(p / "old.txt"), str(p / "new.txt")]])
+    pidfile = tmp_path / "grandchild.pid"
+    runner = [sys.executable, "-c", _GRANDCHILD, str(pidfile)]
+    started = time.monotonic()
+    report = M.run_arm(planned, "test_src.py::test_zero", runner=runner, timeout=3,
+                       command=command)
+    assert time.monotonic() - started < 20
+    assert report["verdict"] == "timeout" and report["restored"] is True
+    assert (p / "src.py").read_text(encoding="utf-8") == SOURCE
+    grandchild = int(pidfile.read_text(encoding="utf-8").strip())
+    deadline = time.monotonic() + 5
+    while not _gone(grandchild) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert _gone(grandchild)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="describes how a quoted --cmd is split ON Windows")
+def test_a_windows_cmd_is_split_by_commandlinetoargvw_without_its_quotes():
+    argv, _ = M.command_runner(f'"{sys.executable}" -c "import sys; sys.exit(0)" "my crate"')
+    assert argv == [sys.executable, "-c", "import sys; sys.exit(0)", "my crate"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="asserts the POSIX shlex split")
+def test_a_posix_cmd_is_split_by_shlex():
+    assert M.split_command("'my crate' a\\ b") == ["my crate", "a b"]

@@ -146,7 +146,7 @@ def test_the_dead_letter_pointer_for_an_old_op_carries_no_notes():
 def test_backfill_delivery_never_sends_a_manifest_rows_notes(tmp_path):
     """An import's manifest "notes" is the project writer's input (it reads the
     manifests), never an upload field."""
-    from probe.cli import backfill_delivery
+    from probe.cli.imports.folder.upload import receipts as backfill_delivery
 
     (tmp_path / "a.csv").write_text("x\n")
     row = {
@@ -227,7 +227,6 @@ def test_a_correlated_upload_keeps_the_digest_older_clients_recorded(tmp_path, m
     match that digest, so the slot stays in the DIGESTED request -- while the
     queued upload itself carries no `notes`."""
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     queue = journal_mod.Journal.for_receipts(
         tmp_path / "outbox", context={"name": None, "base_url": "http://test"}

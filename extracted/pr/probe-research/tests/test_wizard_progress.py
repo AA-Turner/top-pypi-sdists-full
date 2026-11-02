@@ -12,9 +12,10 @@ import importlib
 import threading
 
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-from probe.cli import tui, upgrading
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capability
+from probe.cli.wizard import terminal as tui
+from probe.cli.install import upgrade as upgrading
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capability
 
 from tests.test_parallel_install_update import one_update  # noqa: F401 - fixture
 
@@ -38,9 +39,18 @@ class _Status:
 
 
 def test_a_working_line_inside_another_keeps_the_outer_one(monkeypatch):
-    monkeypatch.setattr(tui, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
     monkeypatch.setattr(threading, "Thread", lambda **k: (_ for _ in ()).throw(RuntimeError("no threads")))
-    monkeypatch.setattr(tui, "sys", type("S", (), {"stdout": __import__("io").StringIO()}))
+    fake_sys = type("S", (), {"stdout": __import__("io").StringIO()})
+    monkeypatch.setattr(tui.terminal, "sys", fake_sys)
+    monkeypatch.setattr(tui.clipboard, "sys", fake_sys)
+    monkeypatch.setattr(tui.images, "sys", fake_sys)
+    monkeypatch.setattr(tui.status_board, "sys", fake_sys)
     with tui.working("outer") as outer:
         outer.set(fraction=0.4)
         with tui.working("inner") as inner:
@@ -53,7 +63,7 @@ def test_a_working_line_inside_another_keeps_the_outer_one(monkeypatch):
 def test_the_install_bar_moves_while_the_first_agent_installs_for_every_agent(monkeypatch):
     """The batch reports each agent's refresh and installs as they finish,
     from the thread that draws the screen, and the heading says whose."""
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", lambda source: claude_cli.Result(ok=True))
     monkeypatch.setattr(wizard.plugin_cli, "install", lambda source, plugin_id: claude_cli.Result(ok=True))
     plan = {
         "claude_code": [(Capability.TRACKING, "probe-research"), (Capability.CAPTURE, "probe-research-tap")],
@@ -139,9 +149,20 @@ def test_a_hook_that_raises_never_fails_the_update(one_update):  # noqa: F811
 def test_a_result_with_newlines_is_measured_as_the_rows_it_draws(monkeypatch):
     """`page()` splits a line holding newlines into rows; counted as one, the
     padding above pushed the heading and percentage off a small screen."""
-    monkeypatch.setattr(tui, "rows", lambda: 24)
-    monkeypatch.setattr(tui, "columns", lambda: 80)
-    monkeypatch.setattr(tui, "onboarding_header", lambda: None)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 24)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 24)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 24)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 24)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 24)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: 80)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: 80)
+    monkeypatch.setattr(tui.layout, "columns", lambda: 80)
+    monkeypatch.setattr(tui.progress, "columns", lambda: 80)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: 80)
+    monkeypatch.setattr(tui.terminal, "onboarding_header", lambda: None)
+    monkeypatch.setattr(tui.layout, "onboarding_header", lambda: None)
+    monkeypatch.setattr(tui.progress, "onboarding_header", lambda: None)
+    monkeypatch.setattr(tui.status_board, "onboarding_header", lambda: None)
     progress = tui.Progress("This run will:", ["install", "rules"])
     body = progress.block() + ["What changed:", "  - " + "\n    ".join(f"line {i}" for i in range(8))]
     room = 24 - 2 * tui.safe_margin(24)

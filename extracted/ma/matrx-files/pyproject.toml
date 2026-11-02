@@ -1,0 +1,129 @@
+[project]
+name = "matrx-files"
+version = "0.2.328"
+description = "All things files: cloud storage, media management, conversion, PDF, sharing — the platform's independent file service."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Matrx", email = "admin@aimatrx.com" }]
+requires-python = ">=3.13"
+keywords = ["matrx", "files", "media", "s3", "cdn", "pdf"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
+# RULE (INDEPENDENCE.md): every import in this package must resolve from THIS
+# list alone. Declared matrx-* siblings are allowed; the host application never is.
+dependencies = [
+    # asset_envelope.py / api/router_tus.py import VisibilityInput,
+    # VisibilityLiteral, VISIBILITY_VALUES and normalize_visibility — first
+    # exported by matrx-utils 2.0.7. Unbounded here would resolve 1.x.
+    "matrx-utils>=2.0.109",
+    "matrx-connect>=0.1.257",
+    "matrx-orm>=3.1.275",
+    "pydantic>=2.0.0",
+    "httpx>=0.28.1",
+    "requests>=2.32.5",
+    "pyyaml>=6.0.3",
+    # Cloud storage
+    "boto3>=1.42.59",
+    "boto3-stubs[s3]>=1.42.59",
+    # Imaging (Pillow core; HEIC/AVIF codecs are the [media] extra)
+    "pillow>=12.3.0",
+    "mozjpeg-lossless-optimization>=1.1.0",
+    # PDF rendering + text (small); PyMuPDF manipulation is the [pdf] extra, OCR the [ocr] extra.
+    "pypdfium2>=4.30.0",
+    # Office (OpenXML) codec — extract to markdown/pages + generate from specs.
+    # Pure-python, bare-venv-resolvable (the independence gate installs them).
+    # docx: python-docx | pptx: python-pptx | xlsx: openpyxl (read) + xlsxwriter (write).
+    "python-docx>=1.1.2",
+    "python-pptx>=1.0.2",
+    "openpyxl>=3.1.5",
+    "xlsxwriter>=3.2.0",
+]
+
+[project.optional-dependencies]
+# The heavy native stacks are OPTIONAL (Arman, 2026-10-08: never ship ~900 MB of ML/media to a
+# slim host such as Matrx 2's tools service). Each module of an extra is imported at the point of
+# use through matrx_files._extras.require, which raises MissingExtraError naming the extra.
+# The platform server installs [all]; a host declares exactly the extras whose features it calls.
+pdf = ["pymupdf>=1.27.0"]
+ocr = ["pytesseract>=0.3.13"]
+media = [
+    # Image edit pipeline: rembg + onnxruntime (foreground extraction, CPU is fine for u2net/u2netp),
+    # opencv-python-headless + numpy (Telea / Navier-Stokes inpaint, document detection, video).
+    "rembg>=2.0.85",
+    "onnxruntime>=1.16",
+    "opencv-python-headless>=4.9",
+    "numpy>=1.26,<2.5",  # numba (via rembg->pymatting) caps numpy <2.5; without this cap a bare resolve backtracks to fossil numba 0.53/llvmlite 0.36 that cannot build on py3.13 — the independence gate catches it. Lift when numba supports numpy 2.5.
+    # Video composition (compose_slideshow): a static ffmpeg build, no system ffmpeg needed.
+    "imageio-ffmpeg>=0.5",
+    # HEIC (iPhone uploads) and AVIF codecs, registered with Pillow on import.
+    "pillow-heif>=0.18.0",
+    "pillow-avif-plugin>=1.4.6",
+]
+all = ["matrx-files[pdf,ocr,media]"]
+# `standalone` = everything needed to run the package as its own microservice.
+# Host mode does not need these (the host brings its own server stack).
+standalone = [
+    # The standalone service (and the independence gate) exercises every surface.
+    "matrx-files[all]",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    # Form/File upload endpoints (router_files upload, TUS) require the
+    # multipart parser at import time — caught by the full-mode container
+    # boot, invisible to the bare smoke tests.
+    "python-multipart>=0.0.9",
+]
+# Stage 2 PDF subsystem extras — install per capability instead of pulling
+# heavy deps into every consumer. See matrx_files/specific_handlers/pdf/__init__.py
+# for the layout these groups feed.
+pdf-tables       = ["tabula-py>=2.9"]              # Stage 1 legacy backend (Java required)
+pdf-tables-extra = ["camelot-py>=0.11"]            # Lattice/stream fallback for tricky bordered tables
+pdf-ocr          = ["ocrmypdf>=16"]                # Searchable-PDF + PDF/A generation
+pdf-forms        = ["PyPDFForm>=1.4"]              # AcroForm read/fill/flatten
+pdf-signatures   = ["pyHanko>=0.20"]               # PAdES sign + verify
+pdf-html         = ["weasyprint>=60"]              # HTML/CSS → PDF when CSS3 fidelity matters
+pdf-generate     = ["reportlab>=4.0"]              # Programmatic PDF generation (PyMuPDF Story covers most)
+pdf-ml-llm       = ["pymupdf4llm>=0.0.30"]         # Markdown export + RAG-friendly chunking
+pdf-redact-ner   = ["presidio-analyzer>=2.2", "presidio-anonymizer>=2.2", "spacy>=3.7"]
+pdf-cloud-ocr    = ["boto3", "azure-ai-documentintelligence", "google-cloud-documentai"]
+
+[project.urls]
+Homepage = "https://github.com/AI-Matrix-Engine/aidream-current"
+Repository = "https://github.com/AI-Matrix-Engine/aidream-current"
+Issues = "https://github.com/AI-Matrix-Engine/aidream-current/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "httpx>=0.28",
+    # Independent PDF fixtures exercise page generation and reading directly.
+    "pypdf>=5.0.0",
+    "reportlab>=4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_files"]
+artifacts = ["matrx_files/**/*.sql", "matrx_files/analysis/label_presets/*.json"]
+# Non-Python migration assets must be explicit wheel artifacts. ``artifacts``
+# preserves their package-relative paths without the duplication caused by a
+# force-include mapping.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "integration: tests that require the live platform database (skip when SUPABASE_MATRIX_* is unset)",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+matrx-utils = { workspace = true }
+matrx-connect = { workspace = true }
+matrx-orm = { workspace = true }

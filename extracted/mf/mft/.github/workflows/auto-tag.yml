@@ -1,0 +1,46 @@
+name: Auto-tag
+
+# Merging a release PR (one that bumps the version in Cargo.toml) tags that commit
+# `vX.Y.Z` and runs ci.yml on the tag, which builds and publishes the wheels. Other pushes find
+# the tag already exists and stop. A version without notes in CHANGELOG.md isn't tagged until a
+# push adds them.
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    name: Tag new version
+    runs-on: ubuntu-latest
+    # Two quick merges must not both see the tag as missing.
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Tag the Cargo.toml version and start the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          [ -n "$VERSION" ] || { echo "no version found in Cargo.toml"; exit 1; }
+          TAG="v$VERSION"
+          EXISTING="$(git ls-remote --tags origin "refs/tags/$TAG")"
+          if [ -n "$EXISTING" ]; then
+            echo "$TAG already exists, nothing to release"
+            exit 0
+          fi
+          scripts/release-notes.sh "$VERSION" > /dev/null
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+          # A tag pushed with GITHUB_TOKEN doesn't trigger `push: tags`, but a dispatch does.
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"

@@ -17,13 +17,14 @@ from __future__ import annotations
 import pytest
 from backfill_test_client import ScopedClient
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_ledger as bl
-from probe.cli import backfill_plan as bp
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.upload import ledger as bl
+from probe.cli.imports.folder.classify import plan as bp
 from probe.cli import backfill_run as br
-from probe.cli import tui
-from probe.cli.backfill_coverage import Coverage, Scope
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
 
 #: The REAL enqueue, captured at import -- before the autouse `quiet` fixture
 #: replaces the attribute with a stub for every test in this file. Two tests
@@ -47,10 +48,15 @@ def quiet(tmp_path, monkeypatch):
     d = tmp_path / "state"
     d.mkdir()
     monkeypatch.setenv("PROBE_BACKFILL_STATE_DIR", str(d))
-    monkeypatch.setattr(bf, "which_agent", lambda agent: f"/bin/{agent.value}")
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     return d
 
 
@@ -91,7 +97,7 @@ def test_a_refused_project_does_not_cost_the_classification(folder, monkeypatch)
         classifies.append(1)
         return plan, "", "sess"
 
-    monkeypatch.setattr(br, "classify", counted_classify)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", counted_classify)
     client = _Client(refuse={"odyssey"})
 
     lines = br.execute(
@@ -122,7 +128,7 @@ def test_the_retry_creates_the_projects_without_reclassifying(folder, monkeypatc
         classifies.append(1)
         return plan, "", "sess"
 
-    monkeypatch.setattr(br, "classify", counted_classify)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", counted_classify)
 
     refusing = _Client(refuse={"odyssey"})
     br.execute(client_factory=lambda: refusing, folder=folder, agent=bf.Agent.CLAUDE, yes=True)
@@ -143,8 +149,8 @@ def test_projects_are_still_created_before_any_unit_runs(folder, monkeypatch):
     project that does not exist yet is the race the up-front creation removes."""
     order: list[str] = []
 
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (_plan(folder), "", "s"))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: order.append("units") or [])
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (_plan(folder), "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: order.append("units") or [])
 
     class _Ordered(_Client):
         def create_project(self, slug, name=None, description=None, **kw):
@@ -165,7 +171,7 @@ def test_several_sibling_projects_are_all_created_from_a_real_run(folder, monkey
             bp.Assignment(path=f, project=f"odyssey-sibling-{i}") for i, f in enumerate(files)
         ],
     )
-    monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "s"))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", lambda *a, **k: (plan, "", "s"))
 
     client = _Client()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE, yes=True)
@@ -178,7 +184,7 @@ def test_several_sibling_projects_are_all_created_from_a_real_run(folder, monkey
 def _delivery_harness(tmp_path, monkeypatch):
     from test_backfill_scoped_orchestration import make_harness
 
-    monkeypatch.setattr(br, "run_units", _REAL_RUN_UNITS)
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", _REAL_RUN_UNITS)
     return make_harness(tmp_path, monkeypatch)
 
 
@@ -376,7 +382,7 @@ def test_a_stranded_unit_with_no_manifest_file_uses_its_durable_rows(tmp_path, m
 
 
 def test_a_lost_manifest_before_ingestion_reruns_only_its_approved_unit(tmp_path, monkeypatch):
-    from probe.cli import backfill_delivery
+    from probe.cli.imports.folder.upload import receipts as backfill_delivery
 
     h = _delivery_harness(tmp_path, monkeypatch)
     ingest = backfill_delivery.ingest_manifests

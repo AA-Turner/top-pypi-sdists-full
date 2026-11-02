@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
 def run_session(session: Session, hooks: RunHooks, stopper: Stopper) -> int:
     """One run of a session's worker, start to exit code: the per-process
     worker's whole life (`main`), or one run in the daemon host."""
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     sid = session.session_id
     if barrier.workers_held() or not barrier.wait():

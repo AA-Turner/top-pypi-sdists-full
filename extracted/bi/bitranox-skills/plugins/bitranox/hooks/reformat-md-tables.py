@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""PostToolUse(Write|Edit|MultiEdit|Bash|PowerShell|Monitor) hook: auto-realign markdown tables after a write.
+
+Formatter-on-save for markdown tables (Mode A). When a markdown file is written or edited, reuse the
+docs-md-table-formatting skill's `reformat_tables.reformat_file()` to realign its tables in place, so a
+table can never ship misaligned and the "reformat after editing a table" rule cannot be skipped.
+
+Bash is covered too, and that is the point: Write and Edit declare their target, so the rule held
+for them, while a heredoc, a `python3 -` script or `sed -i` wrote markdown with no declared path
+and slipped past entirely. For a Bash event the hook looks at which markdown actually changed
+under the working directory instead of parsing the command, which cannot see a runtime path.
+Monitor is registered for the same reason: it carries a shell command too, so it can write markdown
+with no declared path in exactly the same way. The scan never parses the command - it reads what
+changed on disk - so it keys on the event CARRYING a command rather than on the tool being a shell,
+and any command-carrying tool the matcher admits is covered.
+
+NotebookEdit is deliberately NOT registered: its event names the target `notebook_path`, which
+always ends in `.ipynb`, never in `_MD_SUFFIXES`, so there is nothing to reformat. hooks.json
+keeps this hook and `tell-sweep.py` in their own PostToolUse group without NotebookEdit, while the
+hooks that do read `notebook_path` keep it.
+
+A checkout can opt out as a whole: `git config bitranox.reformatMdTables false`, run once inside
+it. That is for an UPSTREAM checkout the working directory itself belongs to (a vendored
+microsoft/openvmm mirror, say), whose docs are someone else's style: realigning them is churn that
+diverges from upstream on every edit. The nested-repo prune below only covers a checkout BELOW the
+working directory, and nothing in a checkout says whose style it follows, so the owner says it.
+The knob is per checkout and never committed. Unset, or any other value, keeps the formatter on.
+
+Silent by design: it just fixes the file. `reformat_tables` is safe-by-design (it bails on tables
+with inconsistent column counts and skips non-markdown fenced code blocks), so a normal edit is left
+alone. Pure standard library plus the shipped reformat script. Every failure path exits 0, so a
+broken hook never wedges a turn.
+"""
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import self_improve_signals as sig
+from shell_text import is_git_verb, iter_segments, strip_heredoc_bodies
+
+_MD_SUFFIXES = (".md", ".markdown", ".mdown", ".mkd")
+
+# Bash writes markdown without declaring a path, so the fallback looks at what
+# changed. Bounded so a big tree cannot make the hook slow: only files touched
+# inside the window, only this many of them, and never inside a vendored tree.
+_BASH_WINDOW_SECONDS = 120
+_BASH_FILE_CAP = 40
+_SKIP_DIRS = frozenset({".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"})
+
+# git subcommands that rewrite tracked files wholesale. Every markdown they touch
+# gets a fresh mtime and so looks just-written to the scan below, but none of it
+# was authored by the operator - it is whatever the target revision holds.
+_GIT_TREE_WRITERS = frozenset({
+    "checkout", "switch", "merge", "rebase", "pull", "clone", "reset",
+    "stash", "cherry-pick", "revert", "am", "apply", "restore", "worktree",
+})
+
+
+OPT_OUT_KEY = "bitranox.reformatMdTables"
+
+# Variables that point git at a repository other than the one `-C` names. A hook launched from a
+# git hook of a linked worktree inherits GIT_DIR, and git reads it BEFORE `-C`, so the knob would be
+# read from the wrong checkout.
+_GIT_SCOPE_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
+
+
+def opted_out(directory) -> bool:
+    """True when the checkout holding `directory` set `bitranox.reformatMdTables` to false.
+
+    Asked through git itself (`--bool` normalises false/no/off/0), so a worktree's shared config,
+    an include and a global setting all count the way git counts them. Any failure - no git, not a
+    checkout, a timeout - answers False: the formatter stays on unless the owner said otherwise.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_SCOPE_VARS}
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(directory), "config", "--bool", "--get", OPT_OUT_KEY],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=5, env=env, check=False,
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return done.returncode == 0 and done.stdout.strip() == "false"
+
+
+def _rewrites_the_tree(command: str, tool_name=None) -> bool:
+    """Whether a shell command runs a git subcommand that rewrites tracked files.
+
+    The path-guessing fallback below must not fire for these. Reformatting a file
+    git just wrote is never what was asked for, and mid-operation it is
+    destructive: a `git merge` in a re-cut sequence aborted with "your local
+    changes would be overwritten" because this hook had modified the files the
+    next merge needed, leaving a half-assembled integration branch.
+
+    Matched on the SUBCOMMAND, so read-only git (log, status, diff) still allows
+    the fallback - a doc written beside `git log` is the operator's.
+
+    Asked per STATEMENT through shell_text, because the subcommand also has to be a
+    command rather than data. Scanning the raw command matched a git verb the text
+    merely NAMED, so writing a doc whose body explains how to recover from a merge
+    turned this fallback off for that very write and the table it wrote shipped
+    misaligned - the one case where the hook is the only formatter in the loop.
+
+    KNOWN GAP, measured rather than assumed. Heredoc bodies ARE stripped, so a script
+    written and executed by one command - `cat > s.sh <<EOF ... git merge ... EOF;
+    bash s.sh` - rewrites the tree without this seeing it. That is 8 of the 360
+    firings this walk removes on the real corpus. Not stripping is NOT the fix: a
+    quoted heredoc delimiter makes its body literal, so markdown backticks around
+    `git merge --abort` would then parse as a command substitution and reinstate
+    exactly the defect this walk exists to close. Detecting write-then-run needs
+    ordering the write against the execution, the same gap already open against
+    gated-prep-nudge; it belongs there, once, not hand-rolled here.
+    """
+    for _at, segment in iter_segments(strip_heredoc_bodies(command or ""), tool_name):
+        if is_git_verb(segment.strip().lstrip("(").strip(), _GIT_TREE_WRITERS, tool_name or "Bash"):
+            return True
+    return False
+
+
+def _git_rewrite_marker(cwd):
+    """Where the last-git-tree-write time for `cwd` is recorded. Keyed per project (not per
+    session): the mtime scan below is itself per-cwd, so the marker must be too."""
+    return sig._audit_dir() / (sig.proj_key(cwd) + ".reformat-md-git-rewrite.txt")
+
+
+def _record_git_rewrite(cwd):
+    """Note that a git command just rewrote the tree at `cwd`. `_rewrites_the_tree` only stops
+    the SAME event's own mtime scan from picking the restamped files up; without this record, the
+    NEXT, unrelated, non-git Bash call within `_BASH_WINDOW_SECONDS` has no memory of the git
+    write and reformats the file anyway, because its mtime alone looks just-written. Never raises."""
+    try:
+        marker = _git_rewrite_marker(cwd)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(repr(time.time()), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _last_git_rewrite(cwd):
+    """time.time() of the last recorded git-tree-write at `cwd`, else None. Never raises. A
+    marker older than `_BASH_WINDOW_SECONDS` needs no special handling: it only ever excludes a
+    file whose own mtime is just as old, which the `cutoff` test below already drops."""
+    try:
+        return float(_git_rewrite_marker(cwd).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _reformat_file_fn():
+    """Import reformat_file() from the docs-md-table-formatting skill (resolved from the plugin root)."""
+    root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    base = Path(root) if root else Path(__file__).resolve().parent.parent
+    script = base / "skills" / "docs-md-table-formatting" / "reformat_tables.py"
+    spec = importlib.util.spec_from_file_location("_bx_reformat_tables", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.reformat_file
+
+
+def _markdown_paths_from_a_command(event) -> list[str]:
+    """Return markdown files a shell command just wrote, newest-first.
+
+    Write and Edit announce their target in ``file_path``; a command does not. A
+    heredoc, a ``python3 -`` script or a ``sed -i`` writes markdown with no
+    declared path at all, so the formatter-on-save silently did not apply to any
+    of them and a table written that way shipped misaligned.
+
+    Rather than parse the command, which cannot see a path built at runtime, look
+    at what actually changed: markdown under the working directory whose mtime
+    falls inside the window this command ran in. Reformatting is idempotent, so
+    catching a neighbouring file costs nothing.
+
+    A NESTED REPOSITORY is the exception, and it is not a cosmetic one. mtime says
+    a file was written, never by whom: a `git checkout`, `merge` or `clone` inside
+    a checkout vendored under the working directory restamps every file it touches,
+    and the fallback then reads someone else's source as ours and restyles it.
+    Measured 2026-08-07: seven docs in a vendored microsoft/openvmm mirror carried
+    alignment-only churn nobody made, unnoticed until `git merge --ff-only` refused
+    to run. Committing that churn would be permanent divergence from upstream for a
+    style they never adopted, so any directory below the working directory that
+    holds its own `.git` is pruned. The working directory's own repo stays in scope.
+    """
+    raw_cwd = event.get("cwd") or "."
+    if _rewrites_the_tree((event.get("tool_input") or {}).get("command") or "", event.get("tool_name")):
+        _record_git_rewrite(raw_cwd)
+        return []
+    cwd = Path(raw_cwd)
+    if not cwd.is_dir():
+        return []
+    cutoff = time.time() - _BASH_WINDOW_SECONDS
+    # Files git itself restamped (tracked by cwd, above) are excluded even when their mtime is
+    # inside the window: a file genuinely written by THIS command always has a newer mtime than
+    # an earlier git write, so this never drops a real target.
+    git_rewrite = _last_git_rewrite(raw_cwd)
+    found: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(cwd):
+        if len(found) >= _BASH_FILE_CAP:
+            break
+        here = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not (here / d / ".git").exists()]
+        for name in filenames:
+            if len(found) >= _BASH_FILE_CAP:
+                break
+            if not name.lower().endswith(_MD_SUFFIXES):
+                continue
+            path = here / name
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            if mtime < cutoff:
+                continue
+            if git_rewrite is not None and mtime <= git_rewrite:
+                continue
+            found.append(str(path))
+    # Asked only when there is something to restyle: this runs after EVERY shell command, and a
+    # git process per call is a cost the common case (nothing written) should not pay.
+    if found and opted_out(cwd):
+        return []
+    return found
+
+
+def main():
+    try:
+        event = json.load(sys.stdin)
+    except Exception:  # noqa: BLE001
+        return 0
+    path = (event.get("tool_input") or {}).get("file_path") or ""
+    if path.lower().endswith(_MD_SUFFIXES) and Path(path).is_file():
+        if opted_out(Path(path).parent):
+            return 0
+        targets = [path]
+    elif isinstance((event.get("tool_input") or {}).get("command"), str):
+        targets = _markdown_paths_from_a_command(event)
+    else:
+        return 0  # not a markdown file -> nothing to align
+    if not targets:
+        return 0
+    try:
+        reformat = _reformat_file_fn()
+    except Exception:  # noqa: BLE001 - no formatter means nothing to do for ANY file
+        return 0
+    for target in targets:
+        _reformat_one(reformat, target)
+    return 0
+
+
+def _reformat_one(reformat, target) -> bool:
+    """Realign one file in place; False when that file could not be reformatted.
+
+    One file's failure is that file's alone. A non-UTF-8 or unreadable markdown found by the Bash
+    scan used to end the whole loop, so every target after it went unformatted.
+    """
+    try:
+        reformat(target)  # in-place realign; bails safely on malformed tables
+    except Exception:  # noqa: BLE001 - a bad file must never wedge a turn
+        return False
+    return True
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:  # noqa: BLE001
+        sys.exit(0)

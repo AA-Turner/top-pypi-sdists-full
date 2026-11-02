@@ -1,0 +1,859 @@
+"""JWKS fetching and caching for the AdCP request-signing profile.
+
+Production deployments MUST validate JWKS URIs against SSRF per the AdCP
+webhook-URL rules: reject reserved IP ranges (loopback, private, link-local,
+multicast, reserved) and known cloud metadata endpoints. This module enforces
+those rules at resolution time and provides a per-URL cache with a 30-second
+refetch cooldown between fetches — the cooldown blocks attack-driven cache
+invalidation (where an attacker forces a verifier to hammer the signer's
+`jwks_uri` on every rejection).
+
+DNS-rebinding-resistant transport (resolve-then-connect with IP pinning) is
+tracked in #190 and not implemented here — the current design is vulnerable to
+a TOCTOU where DNS resolves to an allowed IP during validation and a blocked
+IP at connect time.
+
+Naming conventions
+------------------
+* Classes use the ``Async`` CapWords prefix (``AsyncCachingJwksResolver``).
+* Free functions use the ``async_`` snake_case prefix
+  (``async_default_jwks_fetcher``).
+* Methods use the ``a`` prefix (``aclose``, ``aprime``) — matches the
+  ``httpx`` / ``anyio`` ecosystem.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import ipaddress
+import socket
+import threading
+import time
+from collections.abc import Callable
+from typing import Any, ClassVar, Literal, Protocol, runtime_checkable
+from urllib.parse import urlsplit
+
+import httpx
+import idna
+
+from adcp.signing._bounded_http import async_read_limited_bytes, read_limited_bytes
+from adcp.signing._idna_canonicalize import canonicalize_host
+from adcp.signing._strict_json import parse_strict_json
+from adcp.signing.errors import (
+    REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+    REQUEST_SIGNATURE_JWKS_UNTRUSTED,
+    SignatureVerificationError,
+)
+
+DEFAULT_JWKS_COOLDOWN_SECONDS = 30.0
+# security.mdx:1457 @ AdCP 3.1.8 caps JWKS freshness at the revocation
+# polling ceiling (30 minutes).
+DEFAULT_JWKS_MAX_AGE_SECONDS = 1800.0
+DEFAULT_JWKS_TIMEOUT_SECONDS = 10.0
+DEFAULT_MAX_JWKS_BYTES = 1024 * 1024
+
+# Cloud metadata endpoints that MUST be blocked even if somehow marked non-private
+BLOCKED_METADATA_IPS: frozenset[str] = frozenset(
+    {
+        "169.254.169.254",  # AWS, Azure, GCP, DigitalOcean, Alibaba
+        "fd00:ec2::254",  # AWS IPv6
+        "100.100.100.200",  # Alibaba
+        "192.0.0.192",  # Oracle Cloud
+    }
+)
+
+# Reserved ranges that Python's ``ipaddress`` flags do NOT classify, so the
+# ``is_private``/``is_reserved``/... check below misses them on its own.
+#
+# * ``100.64.0.0/10`` — RFC 6598 carrier-grade NAT. AdCP names this range
+#   explicitly in the reserved-range deny list a fetcher MUST apply
+#   (spec 3.1.1, "Webhook URL validation (SSRF)", step 2), but
+#   ``is_private`` is False for it: RFC 6598 designates shared address
+#   space, not private space. It is routable inside carrier and container
+#   networks (and is where Alibaba's metadata endpoint lives), so leaving
+#   it open is a real SSRF path into an operator's internal network.
+# * ``192.88.99.0/24`` — RFC 7526 deprecated 6to4 relay anycast. Traffic
+#   sent here is tunnelled by whatever relay answers, which makes the
+#   destination unattributable; ``is_reserved`` does not cover it.
+# * ``192.31.196.0/24`` (RFC 7535 AS112-v4), ``192.52.193.0/24`` (RFC 7450
+#   AMT), ``192.175.48.0/24`` (RFC 7534 AS112 direct delegation) and
+#   ``2001:20::/28`` (RFC 7343 ORCHIDv2) — IANA special-use anycast and
+#   non-routable identifier space. None is ever a legitimate JWKS or webhook
+#   destination, and none is caught by any flag.
+#
+# Verified empirically across the supported interpreter matrix (3.10, 3.11,
+# 3.12, 3.13): every range above is classified non-reserved by all six flags on
+# ALL of them, so each entry is load-bearing on every supported version — none
+# is redundant anywhere. In particular ``100.64.0.0/10`` is still
+# ``is_private == False`` on 3.12.9 and 3.13.11.
+#
+# ``not ip.is_global`` is NOT a usable substitute: it reports True (i.e.
+# globally reachable) for the 6to4-relay, AS112, AMT and ORCHIDv2 ranges on
+# every supported version, so it would close none of these holes.
+#
+# Ranges deliberately absent because the flags already cover them on every
+# supported version — 6to4 ``2002::/16``, Teredo ``2001::/32``, NAT64
+# ``64:ff9b::/96``, and IPv4 NAT64 ``192.0.0.8``. Their embedded IPv4 needs no
+# decoding: the whole prefix is rejected before any address is unwrapped.
+# ``test_ssrf_flag_covered_special_ranges_stay_blocked`` pins that so a future
+# CPython reclassification cannot silently open them.
+_EXTRA_BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("192.88.99.0/24"),
+    ipaddress.ip_network("192.31.196.0/24"),
+    ipaddress.ip_network("192.52.193.0/24"),
+    ipaddress.ip_network("192.175.48.0/24"),
+    ipaddress.ip_network("2001:20::/28"),
+)
+
+# The ranges ``allow_private`` admits, and the only ones it admits.
+#
+# ``allow_private`` exists so a deployment can dial a destination on a network
+# the operator controls: a test's own loopback origin, a container-bridge
+# address, an on-prem service on RFC 1918 or RFC 4193 space. Those are the
+# ranges below.
+#
+# Every other range the policy blocks stays blocked under ``allow_private``
+# and moves behind ``allow_special_use``. The distinction is reachability
+# intent, not classification accident:
+#
+# * ``ipaddress.is_private`` is a far wider predicate than RFC 1918. On every
+#   supported interpreter it also reports True for, among others, RFC 5737
+#   documentation space (``192.0.2.0/24``, ``198.51.100.0/24``,
+#   ``203.0.113.0/24``), RFC 2544 benchmarking (``198.18.0.0/15``),
+#   RFC 6890 IETF protocol assignments (``192.0.0.0/24``), ``240.0.0.0/4``,
+#   RFC 3849 ``2001:db8::/32``, 6to4 ``2002::/16`` and Teredo ``2001::/32``.
+#   None of those is a private destination an operator deploys a service to.
+# * ``is_multicast``, ``is_reserved``, ``is_unspecified`` and the
+#   ``_EXTRA_BLOCKED_NETWORKS`` anycast and identifier ranges are never a
+#   unicast destination at all. ``is_reserved`` alone covers unallocated IPv6
+#   space (``400::/8`` and up), which is why the special-use half is DERIVED
+#   as "blocked by the base policy, not a private destination" rather than
+#   enumerated — an enumeration cannot be complete, and a range CPython
+#   reclassifies later lands on the right side without an edit here.
+#   ``100.64.0.0/10`` in particular is a range AdCP names in the deny list a
+#   fetcher MUST apply (spec 3.1.1, "Webhook URL validation (SSRF)", step 2).
+# * Link-local (``169.254.0.0/16``, ``fe80::/10``) is autoconfiguration and
+#   metadata space — three of the four entries in
+#   :data:`BLOCKED_METADATA_IPS` live in or beside it — so it sits with the
+#   special-use ranges rather than with the private ones.
+#
+# Membership is a subset of what the base policy below blocks, so
+# ``allow_private=False`` refuses exactly what it refused before this split.
+# ``test_private_destination_networks_are_a_subset_of_the_base_policy`` pins
+# that.
+_PRIVATE_DESTINATION_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC 1918
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC 1918
+    ipaddress.ip_network("127.0.0.0/8"),  # RFC 1122 loopback
+    ipaddress.ip_network("fc00::/7"),  # RFC 4193 unique local
+    ipaddress.ip_network("::1/128"),  # RFC 4291 loopback
+)
+
+# Recommended destination ports for hardened SSRF-validated outbound HTTP
+# deployments. AdCP itself does not constrain ``pushNotificationConfig.url``
+# ports (see ``schemas/cache/core/push-notification-config.json``), so the
+# default port-allowlist is permissive — adopters who want a hardening posture
+# pass ``allowed_ports=DEFAULT_ALLOWED_PORTS`` (or a custom set) explicitly.
+# Rejecting non-standard ports closes a smuggle vector for buyers bouncing
+# traffic to internal services on the same routable IP — :25 (SMTP relay),
+# :6379 (Redis), :11211 (Memcached), etc. — but that's an operator choice,
+# not a framework default that breaks legitimate :9443 / :4443 buyers.
+DEFAULT_ALLOWED_PORTS: frozenset[int] = frozenset({443, 8443})
+
+# Upper bound on the number of resolved addresses examined per validation call.
+# A malicious DNS server can return thousands of records as a mild amplification
+# vector against the validator's inner loop.
+_MAX_RESOLVED_ADDRESSES = 32
+
+
+class SSRFValidationError(Exception):
+    """Raised when a URL resolves to an IP in a reserved or blocked range."""
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
+class JwksFetcher(Protocol):
+    """A callable that fetches and parses a JWKS document from a URL."""
+
+    def __call__(self, uri: str, *, allow_private: bool = False) -> dict[str, Any]: ...
+
+
+class AsyncJwksFetcher(Protocol):
+    """Async variant of :class:`JwksFetcher`."""
+
+    async def __call__(self, uri: str, *, allow_private: bool = False) -> dict[str, Any]: ...
+
+
+class JwksResolver(Protocol):
+    """Resolves a keyid to a JWK, or returns None if unknown.
+
+    The canonical Protocol used by the sync RFC 9421 verifier and the
+    sync JWS document verifier. Implementations include
+    :class:`StaticJwksResolver` (in-memory, for tests) and
+    :class:`CachingJwksResolver` (fetches + caches from a URI).
+
+    Async callers use :class:`AsyncJwksResolver` instead.
+    """
+
+    def __call__(self, keyid: str) -> dict[str, Any] | None: ...
+
+
+class AsyncJwksResolver(Protocol):
+    """Async variant of :class:`JwksResolver`.
+
+    Used by the async JWS document verifier and the async revocation
+    checker so JWKS cache-misses don't block the event loop.
+    Implementations: :class:`AsyncCachingJwksResolver`. For tests,
+    :class:`StaticJwksResolver` doubles as an async resolver if you wrap
+    it in a thin async callable — there's no async work, just a dict
+    lookup — but typically you'll just use the static one directly where
+    an :class:`AsyncJwksResolver` is expected via :func:`as_async`.
+    """
+
+    async def __call__(self, keyid: str) -> dict[str, Any] | None: ...
+
+
+@runtime_checkable
+class BrandSourcedJwksResolver(Protocol):
+    """A :class:`JwksResolver` whose keys were resolved via a
+    brand.json walk (operator-attested key source per ADCP #3690).
+
+    The verifier checks operator key origins even when publisher pins narrow
+    the accepted set. Legacy resolvers without source metadata retain their
+    compatibility behavior; discovery helpers always supply that metadata.
+
+    Surfacing the contract as a runtime-checkable Protocol means
+    ``isinstance(resolver, BrandSourcedJwksResolver)`` at the verifier
+    layer is a typed predicate — not just a duck-typed
+    ``hasattr(resolver, "jwks_source")``. Adopters wiring custom
+    brand.json-walking resolvers declare conformance by setting
+    ``jwks_source = "brand_json"`` (class attribute) and exposing
+    ``jwks_uri`` (instance attribute); :func:`isinstance` will then
+    return True even without inheriting from this Protocol.
+
+    Implementations in this package:
+
+    * :class:`adcp.signing.brand_jwks.BrandJsonJwksResolver` —
+      production resolver walking brand.json on every cache miss.
+    * ``adcp.signing.agent_resolver._BrandJsonStaticJwksResolver`` —
+      one-shot static resolver constructed by
+      :func:`verify_from_agent_url` from a frozen JWK set.
+    """
+
+    jwks_source: ClassVar[Literal["brand_json"]]
+    jwks_uri: str
+
+    def __call__(self, keyid: str) -> dict[str, Any] | None:
+        """Resolve a JWK by keyid. Same shape as :meth:`JwksResolver.__call__`."""
+
+
+def validate_jwks_uri(
+    uri: str,
+    *,
+    allow_private: bool = False,
+    allow_special_use: bool = False,
+    allowed_ports: frozenset[int] | None = None,
+) -> None:
+    """Raise SSRFValidationError on blocked IP, bad scheme, or disallowed port.
+
+    Standalone no-return helper for callers that only want validation —
+    :func:`resolve_and_validate_host` returns the accepted IP when the
+    caller needs it for IP-pinned connects.
+    """
+    resolve_and_validate_host(
+        uri,
+        allow_private=allow_private,
+        allow_special_use=allow_special_use,
+        allowed_ports=allowed_ports,
+    )
+
+
+def validate_uri_static(
+    uri: str,
+    *,
+    allowed_ports: frozenset[int] | None = None,
+) -> str:
+    """Validate a URI's scheme, host, IDNA form, and port without DNS.
+
+    Returns the canonicalized hostname. This is the registration-time half
+    of SSRF validation only: callers MUST still validate every resolved IP
+    with :func:`validate_resolved_ip` when the URI is dialled. Use
+    :func:`resolve_and_validate_host` when resolution can happen immediately.
+    """
+    parts = urlsplit(uri)
+    if parts.scheme not in ("http", "https"):
+        raise SSRFValidationError(
+            f"unsupported URI scheme for SSRF-validated fetch: "
+            f"{parts.scheme!r} (only http/https allowed)"
+        )
+    host = parts.hostname
+    if host is None or host == "":
+        raise SSRFValidationError(f"URI has no host: {uri!r}")
+    try:
+        host = canonicalize_host(host)
+    except (idna.IDNAError, UnicodeError, UnicodeEncodeError) as exc:
+        raise SSRFValidationError(f"URI host {host!r} is not IDNA-valid: {exc}") from exc
+
+    try:
+        port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
+    except ValueError as exc:
+        raise SSRFValidationError(f"URI has an invalid port: {uri!r} ({exc})") from exc
+    if allowed_ports is not None and port not in allowed_ports:
+        raise SSRFValidationError(
+            f"port {port} not allowed for SSRF-validated fetch "
+            f"(allowed: {sorted(allowed_ports) if allowed_ports else '<empty>'})"
+        )
+    return host
+
+
+def _normalize_resolved_ip(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    """Unwrap IPv4-mapped IPv6 consistently across supported Pythons."""
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
+def _is_blocked_by_base_policy(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """True when the address is outside the set a hardened fetcher may dial.
+
+    The union the policy has always refused: the six ``ipaddress`` flags plus
+    the ranges those flags miss. Spelled once so the two relaxation gates
+    partition this set instead of each restating part of it.
+    """
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+        or any(ip in network for network in _EXTRA_BLOCKED_NETWORKS)
+    )
+
+
+def _is_private_destination(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """True for a destination on a network the operator controls.
+
+    See :data:`_PRIVATE_DESTINATION_NETWORKS` for the ranges and why the
+    rest of the blocked set is not among them.
+    """
+    return any(ip in network for network in _PRIVATE_DESTINATION_NETWORKS)
+
+
+def validate_resolved_ip(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+    *,
+    allow_private: bool = False,
+    allow_special_use: bool = False,
+) -> None:
+    """Validate one already-resolved address against the shared SSRF policy.
+
+    Cloud metadata endpoints are always rejected. The rest of the blocked set
+    splits in two, and each half has its own gate:
+
+    * **Private destinations** — RFC 1918, RFC 4193 unique-local, and
+      loopback. ``allow_private`` admits these, which is what lets a test
+      dial its own loopback origin or a container-bridge address.
+    * **Special-use ranges** — everything else the policy refuses:
+      link-local, multicast, unspecified, documentation and benchmarking
+      space, RFC 6598 carrier-grade NAT, and the IANA anycast and identifier
+      ranges in :data:`_EXTRA_BLOCKED_NETWORKS`. ``allow_special_use`` admits
+      these. None is a destination an operator deploys a service to, so
+      enabling private addresses leaves them refused.
+
+    IPv4-mapped IPv6 addresses are unwrapped internally so behavior is
+    identical on Python 3.10 and newer.
+    """
+    ip = _normalize_resolved_ip(ip)
+    if str(ip) in BLOCKED_METADATA_IPS:
+        raise SSRFValidationError(f"cloud metadata IP {ip} blocked")
+    if not _is_blocked_by_base_policy(ip):
+        return
+    if _is_private_destination(ip):
+        if not allow_private:
+            raise SSRFValidationError(f"resolved IP {ip} is in a reserved range")
+        return
+    if not allow_special_use:
+        raise SSRFValidationError(
+            f"resolved IP {ip} is in a reserved range (IANA special-use; "
+            f"allow_private does not admit it)"
+        )
+
+
+def resolve_and_validate_host(
+    uri: str,
+    *,
+    allow_private: bool = False,
+    allow_special_use: bool = False,
+    allowed_ports: frozenset[int] | None = None,
+) -> tuple[str, str, int]:
+    """Resolve the URI's hostname once and return ``(hostname, ip, port)``.
+
+    Runs the full SSRF validation — reserved-range rejection + cloud-
+    metadata blocklist — and returns the first IP that passes. Callers
+    that connect by IP (see :class:`adcp.signing.IpPinnedTransport`)
+    use the returned IP to close the DNS-rebinding TOCTOU: they resolve
+    ONCE through this helper, then pin subsequent connects to that IP.
+
+    The returned IP is always ASCII (no IPv6 scope id, no IPv4-mapped
+    IPv6 wrapping) so it can be handed verbatim to
+    :func:`socket.create_connection`.
+
+    Parameters
+    ----------
+    uri:
+        A full URL. Only ``http`` and ``https`` schemes are accepted.
+    allow_private:
+        Admit RFC 1918, RFC 4193 unique-local and loopback destinations.
+        For tests and on-prem deployments; cloud-metadata IPs and the
+        special-use ranges remain blocked.
+    allow_special_use:
+        Admit the rest of the blocked set — link-local, multicast,
+        unspecified, documentation and benchmarking space, RFC 6598
+        carrier-grade NAT, and the IANA anycast and identifier ranges.
+        Cloud-metadata IPs remain blocked unconditionally.
+    allowed_ports:
+        Optional destination-port allowlist. ``None`` (default) imposes
+        no port filter — the URL's port is unrestricted. Hardened
+        deployments pass :data:`DEFAULT_ALLOWED_PORTS` (`{443, 8443}`)
+        or a custom set; the validator then rejects URIs whose port
+        is outside the set. AdCP doesn't constrain webhook ports in
+        the spec, so this is operator policy, not a framework default.
+
+    Returns
+    -------
+    tuple[str, str, int]
+        ``(hostname, ip, port)`` — hostname and port are parsed from
+        the URI; IP is the validated resolution.
+
+    Raises
+    ------
+    SSRFValidationError
+        Scheme is not ``http``/``https``, ``allowed_ports`` is set and
+        the URI's port is outside it, the hostname doesn't resolve, or
+        every resolved IP is in a blocked range.
+    """
+    host = validate_uri_static(uri, allowed_ports=allowed_ports)
+    parts = urlsplit(uri)
+    port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError as exc:
+        raise SSRFValidationError(f"cannot resolve host {host!r}: {exc}", transient=True) from exc
+
+    accepted_ip: str | None = None
+    last_rejection: str | None = None
+    for _family, _, _, _, sockaddr in infos[:_MAX_RESOLVED_ADDRESSES]:
+        ip_raw = sockaddr[0]
+        ip_str = str(ip_raw)
+        # Strip IPv6 scope id if present
+        if "%" in ip_str:
+            ip_str = ip_str.split("%", 1)[0]
+        ip: ipaddress.IPv4Address | ipaddress.IPv6Address = ipaddress.ip_address(ip_str)
+        # Unwrap IPv4-mapped IPv6 (::ffff:a.b.c.d). On Python 3.10 the direct
+        # flag checks (is_loopback, is_private, etc.) on the mapped form return
+        # False — the fix landed in 3.11.4 via bpo-44269. The SDK targets 3.10+
+        # per pyproject.toml so we unwrap explicitly.
+        ip = _normalize_resolved_ip(ip)
+        try:
+            validate_resolved_ip(
+                ip, allow_private=allow_private, allow_special_use=allow_special_use
+            )
+        except SSRFValidationError as exc:
+            last_rejection = str(exc)
+            # Historical behavior of validate_jwks_uri was to raise on
+            # ANY reserved IP in the result list, not to skip-and-try-
+            # the-next-one. Preserve that: reject immediately so a host
+            # with mixed public + private results doesn't silently pin
+            # the public one.
+            raise
+        if accepted_ip is None:
+            accepted_ip = str(ip)
+
+    if accepted_ip is None:
+        # Shouldn't happen — getaddrinfo with results + no raise means
+        # at least one entry passed. Belt-and-braces.
+        raise SSRFValidationError(
+            f"host {host!r} resolved but no usable IP ({last_rejection or 'unknown'})"
+        )
+    return host, accepted_ip, port
+
+
+def default_jwks_fetcher(
+    uri: str,
+    *,
+    allow_private: bool = False,
+    max_body_bytes: int = DEFAULT_MAX_JWKS_BYTES,
+) -> dict[str, Any]:
+    """Validate + resolve the URI once, then GET the JWKS over an IP-pinned
+    transport.
+
+    Pinning closes the DNS-rebinding TOCTOU that would otherwise let a
+    ``TTL=0`` attacker pass SSRF validation with one IP and connect to
+    a different one. See :mod:`adcp.signing.ip_pinned_transport`.
+    """
+    # Import lazily to avoid a module-load cycle with the transport module
+    # (which imports from this file).
+    from adcp.signing.ip_pinned_transport import build_ip_pinned_transport
+
+    transport = build_ip_pinned_transport(uri, allow_private=allow_private)
+    # follow_redirects=False: a 302 to a different hostname would
+    # bypass the pin. trust_env=False: httpx's default True picks up
+    # HTTPS_PROXY / HTTP_PROXY from the environment and routes the
+    # request through an HTTPProxy pool that ignores our pinned
+    # backend entirely — a process with HTTPS_PROXY set to an
+    # attacker-controlled endpoint would bypass the TOCTOU fix.
+    with httpx.Client(
+        transport=transport,
+        timeout=DEFAULT_JWKS_TIMEOUT_SECONDS,
+        follow_redirects=False,
+        trust_env=False,
+    ) as client:
+        with client.stream(
+            "GET", uri, headers={"Accept": "application/json", "Accept-Encoding": "identity"}
+        ) as response:
+            response.raise_for_status()
+            body = parse_strict_json(read_limited_bytes(response, limit=max_body_bytes))
+    if not isinstance(body, dict) or "keys" not in body:
+        raise ValueError(f"JWKS document at {uri!r} has no 'keys' array")
+    return body
+
+
+def _index_jwks_keys(jwks: dict[str, Any], *, uri: str) -> dict[str, dict[str, Any]]:
+    """Validate the JWKS container and index object-shaped keys by ``kid``.
+
+    Keys without a ``kid`` remain ignorable, matching the resolver's existing
+    behavior.  Entries that cannot be JWK objects, and present ``kid`` values
+    that cannot be resolver identifiers, make the document malformed.
+    """
+    keys = jwks.get("keys")
+    if not isinstance(keys, list):
+        raise ValueError(f"JWKS document at {uri!r} has no 'keys' array")
+
+    indexed: dict[str, dict[str, Any]] = {}
+    for index, jwk in enumerate(keys):
+        if not isinstance(jwk, dict):
+            raise ValueError(f"JWKS key at index {index} in {uri!r} is not an object")
+        kid = jwk.get("kid")
+        if kid is None:
+            continue
+        if not isinstance(kid, str):
+            raise ValueError(f"JWKS key at index {index} in {uri!r} has a non-string 'kid'")
+        indexed[kid] = jwk
+    return indexed
+
+
+class CachingJwksResolver:
+    """JWKS resolver with per-URI cache and refetch cooldown.
+
+    Behavior:
+    - On a lookup miss, refresh if the cooldown has elapsed since the last
+      refresh (success or failure). This prevents attacker-driven
+      request-amplification on the signer's JWKS endpoint.
+    - Cache keyed on `kid`. Unknown keyids return None (verifier converts to
+      `request_signature_key_unknown`).
+    - SSRF failures surface as `request_signature_jwks_untrusted`; network
+      failures surface as `request_signature_jwks_unavailable`.
+    """
+
+    def __init__(
+        self,
+        jwks_uri: str,
+        *,
+        fetcher: JwksFetcher | None = None,
+        cooldown_seconds: float = DEFAULT_JWKS_COOLDOWN_SECONDS,
+        max_age_seconds: float = DEFAULT_JWKS_MAX_AGE_SECONDS,
+        allow_private: bool = False,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._jwks_uri = jwks_uri
+        self._fetcher = fetcher or default_jwks_fetcher
+        self._cooldown = cooldown_seconds
+        self._max_age = max_age_seconds
+        self._allow_private = allow_private
+        self._clock = clock
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._last_attempt: float | None = None
+        self._last_successful_refresh: float | None = None
+        self._last_failure: SignatureVerificationError | None = None
+        self._primed = False
+        self._refresh_lock = threading.Lock()
+
+    def __call__(self, keyid: str) -> dict[str, Any] | None:
+        now = self._clock()
+        cache_expired = (
+            self._primed
+            and self._last_successful_refresh is not None
+            and now - self._last_successful_refresh >= self._max_age
+        )
+        miss_can_refresh = keyid not in self._cache and (
+            self._last_attempt is not None and now - self._last_attempt >= self._cooldown
+        )
+        if not self._primed or cache_expired or miss_can_refresh:
+            with self._refresh_lock:
+                # Re-check after waiting: another thread may have refreshed a
+                # cold/expired cache or populated this kid while we blocked.
+                now = self._clock()
+                cache_expired = (
+                    self._primed
+                    and self._last_successful_refresh is not None
+                    and now - self._last_successful_refresh >= self._max_age
+                )
+                miss_can_refresh = keyid not in self._cache and (
+                    self._last_attempt is not None and now - self._last_attempt >= self._cooldown
+                )
+                if (
+                    cache_expired
+                    and self._last_attempt is not None
+                    and (now - self._last_attempt < self._cooldown)
+                ):
+                    raise SignatureVerificationError(
+                        REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+                        step=7,
+                        message="cached JWKS is expired and refresh cooldown has not elapsed",
+                    )
+                if not self._primed or cache_expired or miss_can_refresh:
+                    self._refresh(now)
+        return self._cache.get(keyid)
+
+    def _refresh(self, now: float) -> None:
+        self._last_attempt = now
+        try:
+            jwks = self._fetcher(self._jwks_uri, allow_private=self._allow_private)
+            cache = _index_jwks_keys(jwks, uri=self._jwks_uri)
+        except SSRFValidationError as exc:
+            # The gate also raises, marked transient, when the host does not
+            # resolve: a DNS failure is the transient fetch failure, not a
+            # refused destination.
+            error = SignatureVerificationError(
+                (
+                    REQUEST_SIGNATURE_JWKS_UNAVAILABLE
+                    if exc.transient
+                    else REQUEST_SIGNATURE_JWKS_UNTRUSTED
+                ),
+                step=7,
+                message=f"JWKS URI failed SSRF check: {exc}",
+            )
+            self._last_failure = error
+            raise error from exc
+        except (httpx.HTTPError, ValueError, OSError) as exc:
+            error = SignatureVerificationError(
+                REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+                step=7,
+                message=f"JWKS fetch failed: {exc}",
+            )
+            self._last_failure = error
+            raise error from exc
+        self._primed = True
+        self._cache = cache
+        self._last_successful_refresh = now
+        self._last_failure = None
+
+
+class StaticJwksResolver:
+    """Resolves keyids from a fixed in-memory JWKS — convenient for tests."""
+
+    def __init__(self, jwks: dict[str, Any]) -> None:
+        self._keys = {jwk["kid"]: jwk for jwk in jwks.get("keys", []) if "kid" in jwk}
+
+    def __call__(self, keyid: str) -> dict[str, Any] | None:
+        return self._keys.get(keyid)
+
+
+# ---------------------------------------------------------------------------
+# Async variants
+# ---------------------------------------------------------------------------
+
+
+async def async_default_jwks_fetcher(
+    uri: str,
+    *,
+    allow_private: bool = False,
+    max_body_bytes: int = DEFAULT_MAX_JWKS_BYTES,
+) -> dict[str, Any]:
+    """Async counterpart to :func:`default_jwks_fetcher`.
+
+    Uses :class:`httpx.AsyncClient` with an IP-pinned transport so
+    callers on an asyncio event loop don't block the loop on JWKS
+    fetches AND the DNS-rebinding TOCTOU stays closed. Same SSRF +
+    follow-redirects rules as the sync version.
+    """
+    from adcp.signing.ip_pinned_transport import build_async_ip_pinned_transport
+
+    transport = build_async_ip_pinned_transport(uri, allow_private=allow_private)
+    # See default_jwks_fetcher for why trust_env=False matters.
+    async with httpx.AsyncClient(
+        transport=transport,
+        timeout=DEFAULT_JWKS_TIMEOUT_SECONDS,
+        follow_redirects=False,
+        trust_env=False,
+    ) as client:
+        async with client.stream(
+            "GET", uri, headers={"Accept": "application/json", "Accept-Encoding": "identity"}
+        ) as response:
+            response.raise_for_status()
+            body = parse_strict_json(await async_read_limited_bytes(response, limit=max_body_bytes))
+    if not isinstance(body, dict) or "keys" not in body:
+        raise ValueError(f"JWKS document at {uri!r} has no 'keys' array")
+    return body
+
+
+class AsyncCachingJwksResolver:
+    """Async JWKS resolver with per-URI cache and refetch cooldown.
+
+    Identical semantics to :class:`CachingJwksResolver` — per-``kid``
+    cache, cooldown-gated refresh on miss, SSRF errors surface as
+    ``request_signature_jwks_untrusted``, network errors as
+    ``request_signature_jwks_unavailable`` — but awaitable and backed by
+    :class:`httpx.AsyncClient`.
+
+    Concurrency: a single :class:`asyncio.Lock` serializes refreshes so
+    N parallel verifying tasks all driving the first miss don't fire N
+    fetches.
+    """
+
+    def __init__(
+        self,
+        jwks_uri: str,
+        *,
+        fetcher: AsyncJwksFetcher | None = None,
+        cooldown_seconds: float = DEFAULT_JWKS_COOLDOWN_SECONDS,
+        max_age_seconds: float = DEFAULT_JWKS_MAX_AGE_SECONDS,
+        allow_private: bool = False,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._jwks_uri = jwks_uri
+        self._fetcher = fetcher or async_default_jwks_fetcher
+        self._cooldown = cooldown_seconds
+        self._max_age = max_age_seconds
+        self._allow_private = allow_private
+        self._clock = clock
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._last_attempt: float | None = None
+        self._last_successful_refresh: float | None = None
+        self._last_failure: SignatureVerificationError | None = None
+        self._primed = False
+        # Construct the lock eagerly. Lazy init was racy: two tasks both
+        # seeing ``self._lock is None`` would each construct a separate
+        # Lock and proceed in parallel without serialization. In Python
+        # 3.10+ ``asyncio.Lock()`` no longer requires a running loop at
+        # construction time — it binds to whatever loop is running the
+        # first ``async with`` call. Instances are per-loop: don't share
+        # across ``asyncio.run`` boundaries.
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def __call__(self, keyid: str) -> dict[str, Any] | None:
+        now = self._clock()
+        cache_expired = (
+            self._primed
+            and self._last_successful_refresh is not None
+            and now - self._last_successful_refresh >= self._max_age
+        )
+        miss_can_refresh = keyid not in self._cache and (
+            self._last_attempt is not None and now - self._last_attempt >= self._cooldown
+        )
+        if not self._primed or cache_expired or miss_can_refresh:
+            async with self._lock:
+                # Re-check after acquiring: another task may have refreshed.
+                now = self._clock()
+                cache_expired = (
+                    self._primed
+                    and self._last_successful_refresh is not None
+                    and now - self._last_successful_refresh >= self._max_age
+                )
+                miss_can_refresh = keyid not in self._cache and (
+                    self._last_attempt is not None and now - self._last_attempt >= self._cooldown
+                )
+                if (
+                    cache_expired
+                    and self._last_attempt is not None
+                    and (now - self._last_attempt < self._cooldown)
+                ):
+                    raise SignatureVerificationError(
+                        REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+                        step=7,
+                        message="cached JWKS is expired and refresh cooldown has not elapsed",
+                    )
+                if not self._primed or cache_expired or miss_can_refresh:
+                    await self._refresh(now)
+        return self._cache.get(keyid)
+
+    async def _refresh(self, now: float) -> None:
+        self._last_attempt = now
+        try:
+            jwks = await self._fetcher(self._jwks_uri, allow_private=self._allow_private)
+            cache = _index_jwks_keys(jwks, uri=self._jwks_uri)
+        except SSRFValidationError as exc:
+            # The gate also raises, marked transient, when the host does not
+            # resolve: a DNS failure is the transient fetch failure, not a
+            # refused destination.
+            error = SignatureVerificationError(
+                (
+                    REQUEST_SIGNATURE_JWKS_UNAVAILABLE
+                    if exc.transient
+                    else REQUEST_SIGNATURE_JWKS_UNTRUSTED
+                ),
+                step=7,
+                message=f"JWKS URI failed SSRF check: {exc}",
+            )
+            self._last_failure = error
+            raise error from exc
+        except (httpx.HTTPError, ValueError, OSError) as exc:
+            error = SignatureVerificationError(
+                REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+                step=7,
+                message=f"JWKS fetch failed: {exc}",
+            )
+            self._last_failure = error
+            raise error from exc
+        self._primed = True
+        self._cache = cache
+        self._last_successful_refresh = now
+        self._last_failure = None
+
+
+def as_async_resolver(resolver: JwksResolver) -> AsyncJwksResolver:
+    """Wrap a sync :class:`JwksResolver` so it satisfies :class:`AsyncJwksResolver`.
+
+    Useful for tests: pass a :class:`StaticJwksResolver` through
+    :func:`as_async_resolver` to plug it into an async-verifier
+    pipeline that types ``AsyncJwksResolver``. There's no real async
+    work (just a dict lookup); the wrapper is a shape adapter.
+    """
+
+    async def resolve(keyid: str) -> dict[str, Any] | None:
+        return resolver(keyid)
+
+    return resolve
+
+
+__all__ = [
+    "BLOCKED_METADATA_IPS",
+    "AsyncCachingJwksResolver",
+    "AsyncJwksFetcher",
+    "AsyncJwksResolver",
+    "CachingJwksResolver",
+    "DEFAULT_ALLOWED_PORTS",
+    "DEFAULT_JWKS_COOLDOWN_SECONDS",
+    "DEFAULT_JWKS_MAX_AGE_SECONDS",
+    "DEFAULT_JWKS_TIMEOUT_SECONDS",
+    "DEFAULT_MAX_JWKS_BYTES",
+    "JwksFetcher",
+    "JwksResolver",
+    "SSRFValidationError",
+    "StaticJwksResolver",
+    "as_async_resolver",
+    "async_default_jwks_fetcher",
+    "default_jwks_fetcher",
+    "resolve_and_validate_host",
+    "validate_resolved_ip",
+    "validate_uri_static",
+    "validate_jwks_uri",
+]

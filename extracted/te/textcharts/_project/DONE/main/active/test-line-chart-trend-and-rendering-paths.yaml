@@ -1,0 +1,68 @@
+id: test-line-chart-trend-and-rendering-paths
+title: "Add tests for LineChart trend line computation and rendering branches"
+worktree: main
+priority: Medium-High
+status: Completed
+completed_date: "2026-03-07"
+category: "Testing and Quality Assurance"
+description: |
+  line_chart.py has the lowest coverage in the project at 70% (58 missed lines).
+  The largest gap is the trend line computation (moving average) at lines 218-321
+  and multi-series rendering paths at lines 124-131, 244-250, 277-282. These are
+  non-trivial algorithms that should have behavioral tests.
+
+work:
+  - id: w1
+    summary: "Test trend line rendering — verify moving average computation produces expected trend points for known input"
+    status: done
+    notes: |
+      Key lines: 218-226 (trend computation), 244-250 (trend rendering),
+      306-321 (trend line drawing). Test with a simple ascending series
+      where the expected moving average is easy to verify manually.
+
+  - id: w2
+    summary: "Test multi-series rendering — verify legend, series differentiation, and overlapping point handling"
+    needs: [w1]
+    status: done
+    notes: |
+      Key lines: 124-131 (series setup), 277-282 (multi-series drawing),
+      294, 300, 333-347 (series legend/labels). Test with 2-3 named series.
+
+  - id: w3
+    summary: "Test string x-axis labels and edge cases — non-numeric x values, single-point series"
+    needs: [w1]
+    status: done
+    notes: |
+      Key lines: 85, 106 (string x handling), 116-117 (single point),
+      145, 154 (label formatting), 178-179, 206 (axis rendering)
+
+must_preserve:
+  - "All existing tests pass"
+  - "Golden output for line_chart unchanged"
+
+approach: |
+  Create tests in a new test_line_chart_behavior.py following the pattern of
+  test_histogram_behavior.py. Use LineChart directly with use_color=False and
+  fixed width. For trend tests, use a predictable dataset (e.g., values 1-10)
+  where the moving average is trivially verifiable.
+
+verification:
+  - description: "All tests pass"
+    command: "uv run python -m pytest --override-ini=addopts='' tests/test_line_chart_behavior.py -v"
+    expected_output: "all tests pass"
+  - description: "line_chart.py coverage reaches >=85%"
+    command: "COVERAGE_FILE=/tmp/textcharts-line.coverage uv run python -m pytest --override-ini=addopts='' --cov=textcharts.line_chart --cov-report=term-missing tests/test_line_chart_behavior.py -q"
+    expected_output: "line_chart.py coverage >= 85%"
+
+scope_limit:
+  only_modify:
+    - "tests/"
+  do_not_modify:
+    - "src/"
+
+metadata:
+  tags:
+    - testing
+    - coverage
+  estimated_effort: "1 day"
+  created_date: "2026-03-07"

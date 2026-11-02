@@ -1,0 +1,171 @@
+"""Unit tests for the 3D modules (camera model, triangulation, SGM, hole filling, writers)."""
+import os
+import struct
+import sys
+import tempfile
+
+import numpy as np
+
+try:
+    import orthomosaic._mvs  # noqa: F401
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from orthomosaic import _mvs, export, sfm  # noqa: E402
+from orthomosaic.backend import CPUBackend  # noqa: E402
+from orthomosaic.camera import project, rodrigues, undistort_normalized  # noqa: E402
+from orthomosaic.mvs import fill_holes  # noqa: E402
+
+
+def test_undistort_inverts_project():
+    rng = np.random.default_rng(0)
+    n = 200
+    R = np.repeat(rodrigues(np.array([[np.pi, 0, 0]])), n, 0)
+    C = np.zeros((n, 3))
+    X = np.column_stack([rng.uniform(-20, 20, (n, 2)), np.full(n, -50.0)])
+    f, k1, k2 = np.full(n, 1000.0), np.full(n, -0.08), np.full(n, 0.02)
+    cx, cy = np.full(n, 600.0), np.full(n, 450.0)
+    uv, z = project(R, C, X, f, k1, k2, cx, cy)
+    nrm = undistort_normalized(uv, f, k1, k2, cx, cy)
+    xc = np.einsum("nij,nj->ni", R, X - C)
+    assert np.abs(nrm - xc[:, :2] / xc[:, 2:]).max() < 1e-6
+
+
+def test_triangulate_exact():
+    rng = np.random.default_rng(1)
+    N, P = 5, 50
+    R = rodrigues(np.column_stack([np.full(N, np.pi), rng.normal(0, 0.03, (N, 2))]))
+    C = np.column_stack([rng.uniform(-10, 10, (N, 2)), np.full(N, 60.0)])
+    X = np.column_stack([rng.uniform(-15, 15, (P, 2)), rng.uniform(0, 15, P)])
+    intr = np.array([[1200.0, -0.05, 0.01, 0.0, 600.0, 450.0]])
+    pp = np.array([[600.0, 450.0]])
+    cg = np.zeros(N, np.int32)
+    oc = np.repeat(np.arange(N, dtype=np.int32)[None], P, 0).ravel()
+    op = np.repeat(np.arange(P, dtype=np.int32), N)
+    uv, _ = project(R[oc], C[oc], X[op], np.full(len(oc), 1200.0), np.full(len(oc), -0.05),
+                    np.full(len(oc), 0.01), np.full(len(oc), 600.0), np.full(len(oc), 450.0))
+    Xt, ang = sfm.triangulate(R, C, intr, pp, cg, oc, op, uv, P)
+    assert np.abs(Xt - X).max() < 1e-6 and ang.min() > 1.0
+
+
+def test_sample_view_projects_ground():
+    be = CPUBackend()
+    img = np.zeros((100, 100, 1), np.float32)
+    img[50, 60, 0] = 1.0           # a bright pixel
+    R = np.diag([1.0, -1.0, -1.0])  # looking straight down, image x = east, y = south
+    C = np.array([0.0, 0.0, 10.0])
+    # ground point that projects to (u, v) = (60, 50): x = (60-49.5)/f*10, y = -(50-49.5)/f*10
+    f = 100.0
+    X, Y = (60 - 49.5) / f * 10, -(50 - 49.5) / f * 10
+    Z = np.zeros((1, 1), np.float32)
+    out, valid = be.sample_view(img, (R, C, f, 0.0, 0.0, 0.0, 49.5, 49.5), X - 0.005, Y + 0.005, 0.01, Z)
+    assert valid[0, 0] == 1 and abs(out[0, 0, 0] - 1.0) < 1e-4
+
+
+def test_sgm_prefers_smooth_labels():
+    rng = np.random.default_rng(2)
+    D, H, W = 20, 30, 40
+    cost = (1.0 + rng.uniform(0, 0.01, (D, H, W))).astype(np.float32)   # textureless = flat cost (as in mvs)
+    cost[7, :, :W // 4] = 0.0            # strong evidence only in the left quarter
+    agg = _mvs.sgm(cost, 0.05, 0.6)
+    lab = np.argmin(agg, axis=0)
+    assert (np.abs(lab - 7) <= 1).mean() > 0.97   # propagated (within one height step) across the rest
+
+
+def test_bilateral_preserves_edges():
+    rng = np.random.default_rng(5)
+    z = np.zeros((60, 60), np.float32)
+    z[:, 30:] = 10.0                                  # a sharp 10 m building edge
+    z += rng.normal(0, 0.25, z.shape).astype(np.float32)   # surface noise
+    v = np.ones((60, 60), np.uint8)
+    o = _mvs.bilateral(np.ascontiguousarray(z), v, 3, 0.5, 2.0)
+    assert o[10:50, 5:20].std() < 0.4 * z[10:50, 5:20].std()   # flat regions much smoother
+    assert abs((o[30, 40] - o[30, 15]) - 10.0) < 0.3           # 10 m step preserved
+
+
+def test_fill_holes_smooth():
+    z = np.fromfunction(lambda y, x: 0.01 * x + 0.02 * y, (120, 160)).astype(np.float32)
+    t = z.copy()
+    z[40:80, 50:110] = np.nan
+    f = fill_holes(z)
+    assert np.isfinite(f).all() and np.abs(f - t).max() < 0.3
+
+
+def test_writers_roundtrip():
+    rng = np.random.default_rng(3)
+    xyz = rng.uniform(0, 10, (100, 3))
+    rgb = rng.integers(0, 256, (100, 3)).astype(np.uint8)
+    with tempfile.TemporaryDirectory() as d:
+        export.write_ply(os.path.join(d, "p.ply"), xyz, rgb)
+        raw = open(os.path.join(d, "p.ply"), "rb").read()
+        body = raw[raw.index(b"end_header\n") + 11:]
+        rec = np.frombuffer(body, dtype=[("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("r", "u1"), ("g", "u1"), ("b", "u1")])
+        assert np.allclose(rec["x"], xyz[:, 0], atol=1e-5) and (rec["r"] == rgb[:, 0]).all()
+        export.write_las(os.path.join(d, "p.las"), xyz + 500000, rgb, epsg=32646)
+        las = open(os.path.join(d, "p.las"), "rb").read()
+        assert las[:4] == b"LASF" and struct.unpack("<I", las[107:111])[0] == 100
+        Z = rng.uniform(0, 5, (20, 30)).astype(np.float32)
+        V, F, UV = export.grid_mesh(Z, np.ones_like(Z, bool), 0.0, 10.0, 0.5)
+        assert len(V) == 600 and len(F) == 2 * 19 * 29 and F.max() < len(V)
+        from PIL import Image
+        export.write_glb(os.path.join(d, "m.glb"), V, F, UV, Image.new("RGB", (8, 8)))
+        g = open(os.path.join(d, "m.glb"), "rb").read()
+        assert struct.unpack("<III", g[:12])[2] == len(g)
+
+
+def test_gps_warp_maps_products_onto_gps():
+    """RTK camera layout fit: products are resampled so a point at BA position p lands at warp(p)."""
+    import types
+    from orthomosaic.reconstruct import _write_raster, fit_gps_warp
+    from orthomosaic.geotiff import read_geotiff
+    rng = np.random.default_rng(0)
+    th = np.radians(0.8)
+    L = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]]) @ np.diag([0.98, 1.0])
+    C = np.c_[rng.uniform(0, 40, 60), rng.uniform(-90, 0, 60), np.full(60, 30.0)]
+    gps = (C[:, :2] - 20) @ L.T + 20 + [0.1, -0.05]
+    gps[3] += 1.5                                        # one bad fix: rejected by the robust fit
+    frames = [types.SimpleNamespace(gps_std_h=0.09) for _ in C]
+    ar = types.SimpleNamespace(positions=gps, frames=frames, alignment=types.SimpleNamespace(georeferenced=True))
+    rec = types.SimpleNamespace(used=list(range(len(C))), C=C)
+    w = fit_gps_warp(ar, rec)
+    assert np.allclose(w.L, L, atol=1e-6)
+    assert np.abs(w.xy(C)[:, :2] - gps).max(axis=1)[np.arange(60) != 3].max() < 1e-6
+    for f in frames:
+        f.gps_std_h = 3.0
+    assert fit_gps_warp(ar, rec) is None                 # consumer GPS: left alone
+    g, ox, oy = 0.05, 500000.0, 4000000.0
+    rgba = np.zeros((900, 1000, 4), np.uint8)
+    rgba[..., 3] = 255
+    pts = np.array([[10.0, -10.0], [40.0, -35.0], [5.0, -40.0]])
+    for x, y in pts:
+        rgba[int(-y / g) - 2:int(-y / g) + 3, int(x / g) - 2:int(x / g) + 3, :3] = 255
+    with tempfile.TemporaryDirectory() as d:
+        f = os.path.join(d, "o.tif")
+        _write_raster(f, rgba, "rgba", 32633, (ox, oy), g, warp=w, offset=(ox, oy))
+        a, geo = read_geotiff(f)
+        for x, y in w.xy(pts + g * np.array([0.5, -0.5])):       # dot centres (cell centres)
+            c, r = (x + ox - geo["origin"][0]) / g - 0.5, (geo["origin"][1] - (y + oy)) / g - 0.5
+            win = a[int(r) - 5:int(r) + 6, int(c) - 5:int(c) + 6, 0] > 128
+            yy, xx = np.nonzero(win)
+            assert abs(xx.mean() - 5 - (c - int(c))) < 0.6 and abs(yy.mean() - 5 - (r - int(r))) < 0.6
+
+
+def test_smooth_footprint_removes_steps_keeps_interior():
+    from orthomosaic.reconstruct import smooth_footprint
+    H, W = 400, 400
+    yy, xx = np.mgrid[0:H, 0:W]
+    valid = xx < 200 + 0.5 * yy                                  # diagonal border ...
+    valid &= ~(((yy // 40) % 2 == 0) & (xx > 180 + 0.5 * yy))    # ... with 20-cell notches every 40 rows
+    valid[150:160, 50:60] = False                                 # an interior hole
+    out = smooth_footprint(valid, 0.02, 0.4)                      # radius 20 cells
+    assert not (out & ~valid).any()                               # never adds cells
+    assert not out[150:160, 50:60].any() and out[100:200, 20:40].all()   # interior kept, hole kept
+    # the border: column of the last valid cell per row varies smoothly (no 20-cell jumps)
+    last = np.array([np.flatnonzero(out[r])[-1] for r in range(60, 340)])
+    assert np.abs(np.diff(last)).max() <= 3
+
+
+if __name__ == "__main__":
+    for k, fn in list(globals().items()):
+        if k.startswith("test_"):
+            fn()
+            print("ok", k)

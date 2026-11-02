@@ -1,0 +1,416 @@
+"""The status-rot scanner: it must find BOTH polarities, and it must be able to say "clean".
+
+The tool exists because a memory pointer line is always-loaded while the thing it asserts is
+owned elsewhere, so a ship-state claim rots silently. Two properties matter most:
+
+* it must not be blind to one polarity - the first hand-rolled version looked only for TODO-ish
+  words and so missed 33 of the 37 status claims on the chain it was pointed at;
+* it must be able to report NOTHING, or it asserts nothing at all.
+"""
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import statusrot  # noqa: E402
+
+TOOL = Path(statusrot.__file__).resolve()
+
+
+def _level(tmp_path: Path, *lines: str) -> Path:
+    """Write a minimal CLAUDE.local.md carrying the given pointer lines."""
+    p = tmp_path / "CLAUDE.local.md"
+    p.write_text("# Memory index\n\n## Memory index\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    return p
+
+
+class TestParsePointers:
+    def test_reads_title_slug_and_hook(self):
+        line = "- [A title](mem:some-slug) - When X happens, do Y. <!-- bx:src=s -->"
+        (ptr,) = statusrot.parse_pointers(line)
+        assert ptr.slug == "some-slug"
+        assert ptr.title == "A title"
+        assert "When X happens" in ptr.hook
+        assert "bx:src" not in ptr.hook, "the managed trailer is not part of the hook"
+
+    def test_accepts_a_dotted_slug(self):
+        # The engine's charset allows a dot; a hand-rolled [a-z0-9-]+ silently skips these.
+        line = "- [T](mem:reference-pwshpy-tier-b-reuse-ps7.6-assemblies) - When X, do Y."
+        (ptr,) = statusrot.parse_pointers(line)
+        assert ptr.slug == "reference-pwshpy-tier-b-reuse-ps7.6-assemblies"
+
+    def test_ignores_non_pointer_lines(self):
+        assert statusrot.parse_pointers("## Memory index\nsome prose\n") == []
+
+
+class TestClassify:
+    def test_finds_the_positive_polarity(self):
+        ptr = statusrot.Pointer("l", "s", "T", "When X, know it is deployed and folded into feat-net.")
+        assert "SHIPPED" in statusrot.classify(ptr)
+
+    def test_finds_the_unstarted_polarity(self):
+        ptr = statusrot.Pointer("l", "s", "T", "When X, know this is TODO, not started.")
+        assert "UNSTARTED" in statusrot.classify(ptr)
+
+    def test_finds_a_bare_issue_id(self):
+        ptr = statusrot.Pointer("l", "s", "T", "When X, do Y. Tracked as task #34.")
+        assert "ID_REF" in statusrot.classify(ptr)
+
+    def test_a_mechanism_hook_is_NOT_flagged(self):
+        # The negative control. Without this the scanner could flag everything and still "pass".
+        ptr = statusrot.Pointer(
+            "l", "s", "T",
+            "When a guest LSO frame goes to a TAP, recompute the IPv4 header checksum for every "
+            "segmentation frame, because NDIS has the guest zero ip_check on LSO.")
+        assert statusrot.classify(ptr) == set()
+
+
+class TestSelfContradiction:
+    def test_slug_says_blocked_while_hook_says_superseded(self):
+        # The dm-linux-hotadd shape: title, hook and body were all corrected and the SLUG was not.
+        ptr = statusrot.Pointer(
+            "l", "dm-linux-hotadd-blocked-by-acpi-s4", "DM Linux hot-add works on stock firmware",
+            "When you plan a DM hot-add test, know the ACPI-S4 blocker is SUPERSEDED: it works.")
+        assert statusrot.self_contradiction(ptr) is not None
+
+    def test_agreeing_slug_and_hook_are_not_flagged(self):
+        ptr = statusrot.Pointer(
+            "l", "project-net-tap-offload-contract-defaults-off", "net_tap offload contract",
+            "When working on offloads, treat set_offloads(0) as the contract, not a gap.")
+        assert statusrot.self_contradiction(ptr) is None
+
+
+class TestScan:
+    def test_counts_distinct_entries_not_hits(self, tmp_path):
+        # One entry carrying TWO kinds must count once, or the population is overstated.
+        lvl = _level(tmp_path, "- [T](mem:s) - When X, it is deployed. Tracked as task #34.")
+        result = statusrot.scan([lvl])
+        assert result.total_pointers == 1
+        assert result.distinct_flagged == 1
+
+    def test_a_clean_level_reports_nothing(self, tmp_path):
+        lvl = _level(tmp_path, "- [T](mem:s) - When a TAP frame arrives, recompute the checksum.")
+        result = statusrot.scan([lvl])
+        assert result.distinct_flagged == 0
+        assert result.contradictions == []
+
+
+class TestCli:
+    def test_exit_1_when_a_self_contradiction_is_found(self, tmp_path):
+        lvl = _level(
+            tmp_path,
+            "- [T](mem:thing-blocked-by-x) - When X, know the blocker is SUPERSEDED, it works.")
+        proc = subprocess.run(
+            [sys.executable, str(TOOL), "scan", "--level", str(lvl), "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+        assert '"ok": true' in proc.stdout
+
+    def test_exit_0_on_a_clean_level(self, tmp_path):
+        lvl = _level(tmp_path, "- [T](mem:s) - When a frame arrives, recompute the checksum.")
+        proc = subprocess.run(
+            [sys.executable, str(TOOL), "scan", "--level", str(lvl), "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+
+    def test_exit_2_and_json_on_a_missing_level(self, tmp_path):
+        proc = subprocess.run(
+            [sys.executable, str(TOOL), "scan", "--level", str(tmp_path / "nope.md"), "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert proc.returncode == 2
+        assert '"ok": false' in proc.stdout, "a --json run must still emit JSON when it fails"
+
+
+class TestSelfContradictionPrecision:
+    """Measured false positives from the live chain, 2026-08-21: 5 of 5 flagged entries were
+    wrong. A slug word like fails/works/done/deployed almost always names the TRIGGER or the
+    SUBJECT, not an asserted state, so the rule needs an explicit REVERSAL marker in the hook
+    and a slug token that is genuinely a state claim."""
+
+    def test_deployed_in_a_slug_is_subject_matter(self):
+        ptr = statusrot.Pointer(
+            "l", "project-re-train-rerere-from-the-deployed-integration-for-a-safe-re-cut",
+            "Re-train rerere",
+            "When re-cutting after editing topics, do NOT clear .git/rr-cache; re-train rerere "
+            "from the DEPLOYED integration, then re-cut.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_fails_in_a_slug_is_a_trigger_condition(self):
+        ptr = statusrot.Pointer(
+            "l", "seed-winre-when-reagentc-enable-fails-1614", "Seed WinRE",
+            "When reagentc /enable fails 1614, the machine has no staged Winre.wim - normal "
+            "after a recovery partition was deleted. Seed it from install media.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_broken_in_a_slug_is_the_trigger_not_what_turned_out(self):
+        # "broken" names the situation the lesson fires in; "turned out" reports an INSTANCE
+        # (the VM was unneeded). Neither reverses the other, and `clear` refuses a contradiction,
+        # so a false flag here can only be silenced by rewording a correct hook.
+        ptr = statusrot.Pointer(
+            "l", "feedback-ask-whether-a-broken-matrix-vm-is-needed-before-repairing-it",
+            "Ask whether a broken matrix VM is needed",
+            "When a matrix VM looks broken, ask if it is needed first; one turned out unneeded.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_broken_trigger_with_the_instance_in_the_same_sentence(self):
+        # The same lesson written as one sentence: the slug word sits in the When-clause, so it
+        # is the condition, not a state the trailing "turned out" could reverse.
+        ptr = statusrot.Pointer(
+            "l", "feedback-ask-whether-a-broken-matrix-vm-is-needed-before-repairing-it",
+            "Ask whether a broken matrix VM is needed",
+            "When a matrix VM looks broken, ask if it is needed first, since one turned out "
+            "to be unused.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_broken_slug_whose_hook_never_says_broken(self):
+        # The stored hook of that entry words the trigger differently ("fails the re-bake"), so
+        # the reversal marker cannot be about the slug's state at all.
+        ptr = statusrot.Pointer(
+            "l", "feedback-ask-whether-a-broken-matrix-vm-is-needed-before-repairing-it",
+            "Ask whether a broken matrix VM is needed before repairing it",
+            "When a proxmox06 matrix VM fails the re-bake and needs repair, first check whether "
+            "anything uses it and offer repair vs re-clone vs delete. 66001 cost two failed DISM "
+            "repairs before it turned out to be unused.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_broken_slug_under_a_hook_that_says_it_is_no_longer_broken(self):
+        # A real contradiction of the same slug word: the hook reverses the slug's own claim.
+        ptr = statusrot.Pointer(
+            "l", "project-nested-kvm-broken-on-kernel-6-14", "Nested KVM on 6.14",
+            "When running nested KVM on 6.14, know it is no longer broken: the 6.14.3 fix "
+            "landed, so plan guests on it normally.")
+        assert statusrot.self_contradiction(ptr) is not None
+
+    def test_a_reversal_that_never_names_the_state_is_missed_by_design(self):
+        # The price of the rule above: "it is superseded" cannot be told apart from an instance
+        # sentence that happens to use a marker, so it is not flagged. Precision wins here
+        # because this category sets exit 1 and `clear` refuses it.
+        ptr = statusrot.Pointer(
+            "l", "thing-blocked-by-x", "Thing", "When X, it is SUPERSEDED, it works.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_works_in_a_slug_beside_a_cannot_in_the_hook(self):
+        ptr = statusrot.Pointer(
+            "l", "dm-linux-hotadd-works-on-stock-firmware-openvmm-clears-s4", "DM hot-add",
+            "When you plan a DM hot-add test, know it works on STOCK firmware. Windows CLIENT "
+            "still cannot hot-add (a Server feature).")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_done_as_part_of_open_vs_done(self):
+        ptr = statusrot.Pointer(
+            "l", "feedback-status-hygiene-verify-open-vs-done-against-the-cited-doc", "Status hygiene",
+            "When judging whether an item is still open, verify against ground truth, not TODO "
+            "prose plus one grep.")
+        assert statusrot.self_contradiction(ptr) is None
+
+    def test_the_real_shape_is_still_caught(self):
+        # The known positive must survive the precision fix, or the fix removed the tool's point.
+        ptr = statusrot.Pointer(
+            "l", "dm-linux-hotadd-blocked-by-acpi-s4", "DM Linux hot-add works on stock firmware",
+            "When you plan a DM hot-add test, know the ACPI-S4 blocker is SUPERSEDED: openvmm "
+            "clears S4 itself, so it works on stock MSVM.fd.")
+        assert statusrot.self_contradiction(ptr) is not None
+
+
+def _hook(text: str) -> set[str]:
+    return statusrot.classify(statusrot.Pointer("l", "s", "T", text))
+
+
+class TestIdRefAtTheEndOfASentence:
+    """A hook is a sentence, so an id usually sits right before its full stop."""
+
+    @pytest.mark.parametrize("hook", ["When X, do Y. Tracked as #34.", "When X, do Y. See #34.",
+                                      "When X, do Y. Issue #7", "When X, do Y (#34)."])
+    def test_a_sentence_final_id_is_found(self, hook):
+        assert "ID_REF" in _hook(hook)
+
+    @pytest.mark.parametrize("hook", ["When X, pin version 1.#34.5 exactly.",
+                                      "When X, colour #34ab is the accent.",
+                                      "When X, see #34.5 in the spec."])
+    def test_a_version_or_colour_is_not_an_id(self, hook):
+        assert "ID_REF" not in _hook(hook)
+
+
+class TestLegacyPointers:
+    def test_a_legacy_uuid_pointer_is_scanned(self):
+        line = ("- [T](uuid:0f3c9a4e-1111-4222-8333-944455556666) - When X, it is deployed and "
+                "shipped. <!-- bx:slug=legacy-fact -->")
+        ptrs = statusrot.parse_pointers(line)
+        assert [p.slug for p in ptrs] == ["legacy-fact"]
+        assert "SHIPPED" in statusrot.classify(ptrs[0])
+
+
+def _cli(*args: str, cwd: Path | None = None, env: dict | None = None):
+    return subprocess.run([sys.executable, str(TOOL), *args], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", cwd=cwd, env=env)
+
+
+class TestCliArguments:
+    def test_a_relative_level_and_a_chain_over_the_same_file_scan_it_once(self, tmp_path):
+        _level(tmp_path,
+               "- [T](mem:thing-blocked-by-x) - When X, the blocker is SUPERSEDED, it works.")
+        proc = _cli("scan", "--level", "CLAUDE.local.md", "--chain", ".", "--json", cwd=tmp_path)
+        assert proc.returncode == 1, proc.stderr
+        env = json.loads(proc.stdout)
+        data = env["data"]
+        assert data["total_pointers"] == 1 and len(data["contradictions"]) == 1
+        assert env["ok"] is True          # ran without error; the contradiction is the answer
+
+    def test_a_mistyped_chain_is_refused(self, tmp_path):
+        _level(tmp_path, "- [T](mem:s) - When X, it is deployed.")
+        proc = _cli("scan", "--chain", str(tmp_path / "projj"), "--json")
+        assert proc.returncode == 2
+        env = json.loads(proc.stdout)
+        assert env["ok"] is False and env["error"]
+        assert env["data"] == {} and env["skipped"] == []     # the full envelope on exit 2 too
+
+    def test_a_clear_error_carries_the_full_envelope(self, tmp_path):
+        """clear's own refusals (here: no store to record against) are exit 2 with the same
+        four keys as every other envelope, not a reduced {ok, command, error}."""
+        lvl = _level(tmp_path, "- [T](mem:s) - When X, it is deployed.")
+        proc = _cli("clear", "--level", str(lvl), "--json", cwd=tmp_path)
+        assert proc.returncode == 2, proc.stdout + proc.stderr
+        env = json.loads(proc.stdout)
+        assert env["ok"] is False and env["command"] == "clear" and env["error"]
+        assert env["data"] == {} and env["skipped"] == []
+
+    def test_no_levels_is_exit_2_with_json(self, tmp_path):
+        proc = _cli("scan", "--json", cwd=tmp_path)
+        assert proc.returncode == 2
+        assert json.loads(proc.stdout)["ok"] is False
+
+    def test_a_missing_level_without_json_is_an_error_line_on_stderr(self, tmp_path):
+        proc = _cli("scan", "--level", str(tmp_path / "nope.md"))
+        assert proc.returncode == 2
+        assert proc.stderr.startswith("error:") and proc.stdout == ""
+
+
+class TestLevelEncoding:
+    def test_a_non_utf8_level_is_exit_2_with_json(self, tmp_path):
+        lvl = tmp_path / "CLAUDE.local.md"
+        lvl.write_bytes(b"# Memory index\n- [T](mem:s) - When X, caf\xe9 is deployed.\n")
+        proc = _cli("scan", "--level", str(lvl), "--json")
+        assert proc.returncode == 2, proc.stderr
+        assert "Traceback" not in proc.stderr
+        assert json.loads(proc.stdout)["ok"] is False
+
+    @pytest.mark.parametrize("as_json", [True, False])
+    def test_a_non_utf8_level_error_names_the_file(self, tmp_path, as_json):
+        """A decode error's own text names a codec and a byte offset, never a file, so a run over
+        a chain of levels said which byte was bad and not in which of them."""
+        good = _level(tmp_path, "- [T](mem:s) - When X, it is deployed.")
+        bad_dir = tmp_path / "sub"
+        bad_dir.mkdir()
+        bad = bad_dir / "CLAUDE.local.md"
+        bad.write_bytes(b"# Memory index\n- [T](mem:t) - When X, caf\xe9 is deployed.\n")
+        args = ["scan", "--level", str(good), "--level", str(bad)] + (["--json"] if as_json else [])
+        proc = _cli(*args)
+        assert proc.returncode == 2, proc.stderr
+        said = json.loads(proc.stdout)["error"] if as_json else proc.stderr
+        assert str(bad) in said, said
+
+    def test_a_bom_on_the_first_pointer_line_is_read(self, tmp_path):
+        lvl = tmp_path / "CLAUDE.local.md"
+        lvl.write_bytes(b"\xef\xbb\xbf- [T](mem:s) - When X, it is deployed.\n")
+        assert statusrot.scan([lvl]).total_pointers == 1
+
+    def test_a_cp1252_stdout_does_not_crash_on_a_non_ascii_level(self, tmp_path):
+        d = tmp_path / "l日本"
+        d.mkdir()
+        _level(d, "- [T](mem:s) - When X, it is deployed.")
+        env = dict(os.environ, PYTHONIOENCODING="cp1252")
+        env.pop("PYTHONUTF8", None)
+        proc = subprocess.run([sys.executable, str(TOOL), "scan", "--chain", str(d)],
+                              capture_output=True, check=False, env=env)
+        assert b"Traceback" not in proc.stderr, proc.stderr.decode("utf-8", "replace")
+        assert proc.returncode == 0
+
+
+def _curated(level_dir: Path, *lines: str) -> None:
+    """A level carrying a managed pointer block, which is what the engine counts as a level."""
+    level_dir.mkdir(parents=True, exist_ok=True)
+    (level_dir / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    (level_dir / "CLAUDE.local.md").write_text(
+        statusrot.uuid_store.INDEX_BEGIN + "\n## Memory index\n" + "\n".join(lines)
+        + "\n" + statusrot.uuid_store.INDEX_END + "\n", encoding="utf-8")
+
+
+class TestTreeMode:
+    """A tree dream sweeps the WHOLE tree, siblings included. With only --level and --chain, a
+    caller had to enumerate every level by hand (109 --level flags from a slow find), which is
+    the hand-rolled walk the engine's single tree walk exists to replace."""
+
+    def _tree(self, tmp_path: Path) -> Path:
+        anchor = tmp_path / "anchor"
+        _curated(anchor, "- [T](mem:top-fact) - When X, know it is deployed.")
+        _curated(anchor / "a", "- [T](mem:a-fact) - When X, know it is shipped.")
+        _curated(anchor / "b", "- [T](mem:b-fact) - When X, do Y.")
+        (anchor / ".claude-memory" / "facts").mkdir(parents=True)
+        stub = anchor / "runs" / "w"
+        stub.mkdir(parents=True)
+        (stub / "CLAUDE.local.md").write_text("<!-- stub -->\n", encoding="utf-8")
+        return anchor
+
+    def test_tree_scans_every_curated_level_from_any_dir_inside_it(self, tmp_path):
+        anchor = self._tree(tmp_path)
+        proc = _cli("scan", "--tree", str(anchor / "a"), "--json")
+        assert proc.returncode == 0, proc.stderr
+        data = json.loads(proc.stdout)["data"]
+        assert data["total_pointers"] == 3, data
+        flagged = {c["slug"] for kind in data["candidates"].values() for c in kind}
+        assert flagged == {"top-fact", "a-fact"}
+
+    def test_tree_without_a_memory_store_is_refused(self, tmp_path):
+        bare = tmp_path / "bare"
+        _curated(bare, "- [T](mem:s) - When X, it is deployed.")
+        proc = _cli("scan", "--tree", str(bare), "--json")
+        assert proc.returncode == 2
+        assert json.loads(proc.stdout)["ok"] is False
+
+    def test_clear_tree_records_a_slug_from_a_sibling_level(self, tmp_path):
+        """clear shares scan's --tree wiring, so this test was written after the code and passed
+        first run. Its RED arm is proven: mutating main() so that clear walks the CHAIN of --tree
+        (chain_levels) instead of the whole tree fails it with "not a flagged candidate in this
+        scope: a-fact" - the sibling slug is exactly what a chain-scoped clear cannot reach."""
+        anchor = self._tree(tmp_path)
+        before = json.loads(_cli("scan", "--tree", str(anchor / "b"), "--json").stdout)["data"]
+        assert "a-fact" in before["new_or_changed"], before
+        proc = _cli("clear", "--tree", str(anchor / "b"), "--slug", "a-fact")
+        assert proc.returncode == 0, proc.stderr
+        after = json.loads(_cli("scan", "--tree", str(anchor), "--json").stdout)["data"]
+        assert "a-fact" not in after["new_or_changed"] and "top-fact" in after["new_or_changed"]
+
+
+# ---- argparse usage errors keep the --json contract ------------------------------------------
+
+def _usage_run(*args):
+    return subprocess.run([sys.executable, str(TOOL), *args], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
+
+
+@pytest.mark.parametrize("argv,command", [
+    (["scan", "--json", "--no-such-flag"], "scan"),
+    (["clear", "--json", "--level"], "clear"),
+    (["--json"], "statusrot"),
+])
+def test_a_usage_error_under_json_prints_the_envelope(argv, command):
+    """argparse's own exit 2 printed usage text only, so a --json caller parsing stdout got
+    nothing; the envelope now comes first, the usage text still goes to stderr."""
+    proc = _usage_run(*argv)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    env = json.loads(proc.stdout)
+    assert env["ok"] is False and env["command"] == command and env["error"]
+    assert env["data"] == {} and env["skipped"] == []
+    assert "usage:" in proc.stderr
+
+
+def test_a_usage_error_without_json_prints_no_envelope():
+    proc = _usage_run("scan", "--no-such-flag")
+    assert proc.returncode == 2
+    assert proc.stdout == "" and "usage:" in proc.stderr

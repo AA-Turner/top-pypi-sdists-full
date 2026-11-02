@@ -244,7 +244,7 @@ repos:
   # check-yaml reads, on a service whose failure mode is a docs build
   # that stops happening
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.2
+    rev: 0.39.0
     hooks:
       - id: check-dependabot
       - id: check-readthedocs
@@ -258,14 +258,14 @@ repos:
       # this tree still holds one of each
       - id: check-github-issue-config
       - id: check-github-issue-forms
-  # the shape of the yaml itself, which actionlint and zizmor do not read:
-  # the first says whether a workflow is valid, the second whether it is
-  # safe, and neither says whether a line has grown past the width
-  # .yamllint.yaml sets, a key is written twice, or a block is indented
-  # under nothing. yamllint's default rule set, less the two
-  # .yamllint.yaml disables by name, with the width at 100 rather than the
-  # 80 the prose gets -- that file carries the arithmetic behind both
-  # check-only: yamllint has no fix mode, and its own README names none
+  # the shape of the yaml itself, which actionlint and zizmor do not read: the
+  # first says whether a workflow is valid, the second whether it is safe, and
+  # neither says whether a line has grown past the width .yamllint.yaml sets, a
+  # key is written twice, or a block is indented under nothing. yamllint's
+  # default rule set, less the two .yamllint.yaml disables by name, with the
+  # width at 140 rather than the 80 the prose gets -- that file carries the
+  # arithmetic behind both. Check-only: yamllint has no fix mode, and its own
+  # README names none
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0
     hooks:
@@ -319,12 +319,12 @@ repos:
   # check-changelog runs ahead of markdownlint-cli2 below: that hook's
   # `--fix` repairs the very seam the third check exists to name.
   - repo: https://github.com/btclib-org/.github
-    rev: 0e359a9b5ae51cf1e17b8f59a650b2f2b58e38e9
+    rev: c3d81fbdf89364dd100be2dc37c58c21cc8d5888 # frozen: v2026.10.26
     hooks:
       - id: check-changelog
         args: [--grandfathered, "24"]
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.23.3
+    rev: v0.24.0
     hooks:
       - id: markdownlint-cli2
         name: markdownlint-cli2 (in place fixes)
@@ -411,11 +411,11 @@ repos:
         name: a local markdown link destination begins with ./ or ../
         language: pygrep
         # one line, and no literal space in it -- "\x20" is the space the
-        # reference branch allows -- so yamllint reads the value as a
-        # single unbreakable word and its 100-column rule exempts it. A
-        # block scalar rather than a quoted one for the same reason a
-        # folded scalar was rejected: folding joins lines with a space,
-        # which would land inside the regex
+        # reference branch allows -- so yamllint reads the value as a single
+        # unbreakable word, which its line-length rule exempts. A block scalar
+        # rather than a quoted one for the same reason a folded scalar was
+        # rejected: folding joins lines with a space, which would land inside
+        # the regex
         entry: |-
           (?<![`!\[])(?:!?\[(?:[^]]|\]\([^)]*\))*\]\(|^\x20{0,3}\[[^]]+\]:\s*)(?!\.\.?/|#|[A-Za-z][A-Za-z0-9+.-]*:)[^)\s]
         types: [markdown]
@@ -453,14 +453,17 @@ repos:
       # older entries alone cannot be written; and
       # check-useless-excludes asks the pattern to match some file the
       # hook selects rather than each name in it, which is what lets a
-      # tree with no release notes carry the same line
+      # tree with no release notes carry the same line.
+      # `changelog/` holds the older releases' sections, out of reach for
+      # the same reason: `changelog/v0.8.0.5.md` carries a `"<summary>"`
+      # in a `gh pr review` command
       - id: unquoted-placeholder
         name: a placeholder standing as a whole argument is unquoted
         language: pygrep
         entry: |-
           ^(?![\x20\t]*[A-Za-z_][A-Za-z0-9_.-]*[\x20\t]+=[\x20\t])(?:(?:[^"'\n]|'[^'\n]*')*"<[^<>"'`\n]*>"|(?:[^"'\n]|"[^"\n]*")*'<[^<>"'`\n]*>')
         types: [markdown]
-        exclude: ^(CHANGELOG|RELEASE_NOTES)\.md$
+        exclude: ^(CHANGELOG|RELEASE_NOTES)\.md$|^changelog/
   # what ruff-format is for Python, on the structured files ruff does not
   # read: yaml, and the jsonc that carries a comment. Before yamllint above
   # in effect and not in order -- pre-commit runs this file top to bottom, so
@@ -534,7 +537,7 @@ repos:
   # The rule selection (and what each family stands in for) is documented
   # there
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.1
+    rev: v0.17.2
     hooks:
       - id: ruff-check
         name: ruff (lint, in place fixes)
@@ -627,7 +630,7 @@ repos:
         files: ^src/btclib_secp256k1/.*\.py$
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.4.0
+    rev: v2.4.1
     hooks:
       - id: mypy
         # matching a sibling repository's own mypy hook, which checks its
@@ -660,8 +663,8 @@ repos:
         additional_dependencies:
           - cffi==2.1.1
           - types-cffi==2.1.0.20260827
-          - hatchling==1.32.4
-          - pytest==9.1.1
+          - hatchling==1.33.0
+          - pytest==9.2.0
           # hyphenated as uv.lock spells it, hook_pins_test.py keying
           # the two on one name
           - typing-extensions==4.16.0
@@ -796,7 +799,7 @@ repos:
   # keeps a dependency added to pyproject.toml from reaching a branch
   # without the lock entry that pins it
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.13.1
+    rev: 0.13.5
     hooks:
       - id: uv-lock
       # build-constraints.txt is what the wheel builds pass as build

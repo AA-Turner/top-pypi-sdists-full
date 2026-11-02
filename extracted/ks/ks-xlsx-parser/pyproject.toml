@@ -1,0 +1,117 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ks-xlsx-parser"
+version = "0.2.1"
+description = "Production-grade Excel Workflow Parser for RAG + auditability systems"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "XLSX Parser Contributors"}
+]
+keywords = [
+    "excel",
+    "xlsx",
+    "parser",
+    "rag",
+    "workbook",
+    "spreadsheet",
+    "extraction",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+]
+dependencies = [
+    "openpyxl>=3.1.0",
+    "pydantic>=2.0",
+    "lxml>=4.9.0",
+    "xxhash>=3.0.0",
+    "tiktoken>=0.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/knowledgestack/ks-xlsx-parser"
+Repository = "https://github.com/knowledgestack/ks-xlsx-parser"
+Documentation = "https://github.com/knowledgestack/ks-xlsx-parser#readme"
+
+[project.scripts]
+xlsx-parser-api = "ks_xlsx_parser.api:main"
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "python-multipart>=0.0.6",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
+    "pytest-timeout>=2.2.0",
+    "python-calamine>=0.2.0",
+    "requests>=2.28.0",
+    "ruff>=0.6.0",
+    "mypy>=1.0",
+]
+# Retrieval-recall benchmark (scripts/eval_retrieval.py). Heavy — only the
+# benchmark Docker image and `make bench-retrieval` need these.
+bench = [
+    "sentence-transformers>=2.2.0",
+    "numpy>=1.24.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "crossval: cross-validation tests against calamine",
+    "invariant: structural invariant tests",
+    "corpus: external corpus tests (skipped by default)",
+    "slow: tests taking >10 seconds",
+]
+addopts = "-m 'not corpus'"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ks_xlsx_parser*"]
+
+[tool.setuptools.package-data]
+ks_xlsx_parser = ["py.typed"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = ["examples/stress_test", "dist", "build"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "B008",   # function call in default arg (FastAPI pattern)
+    "SIM105", # try/except/pass — often clearer than contextlib.suppress at call sites
+    "B007",   # unused loop control variable (fine in generators)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "B017"]
+"scripts/**" = ["B008"]

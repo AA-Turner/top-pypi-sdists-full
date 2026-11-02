@@ -1,0 +1,1067 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_fleet_gate.py
+# Purpose:   Tests for the rehearsal gate and the full-fleet sweep
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""The two ways a fleet gate lies, and the tests that stop it (issue #215).
+
+It reports success on having run NOTHING, or it treats a repo it could not
+reach as a repo that is fine. Both look identical to a green tick from outside,
+which is why each has its own test here rather than being folded into the
+happy path.
+"""
+
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT / "scripts"))
+
+import fixture_fleet  # noqa: E402
+
+
+def _load(stem: str, name: str):
+    spec = importlib.util.spec_from_file_location(name, _ROOT / "scripts" / stem)
+    assert spec is not None and spec.loader is not None  # a real file always resolves
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+gate = _load("rehearse-gate.py", "rehearse_gate")
+sweep = _load("sweep-fleet.py", "sweep_fleet")
+rehearse = _load("rehearse-branch.py", "rehearse_branch")
+
+
+class TestTheRehearsalRecord:
+    """What the rehearsal writes is what the gate reads back."""
+
+    def test_round_trip(self) -> None:
+        block = rehearse.record_block("a" * 40, 12345, "pass")
+        record = rehearse.parse_record("body text" + block)
+        assert record == {
+            "hyperi-ci-sha": "a" * 40,
+            "run-id": "12345",
+            "verdict": "pass",
+        }
+
+    def test_a_body_without_a_record_reads_as_none(self) -> None:
+        assert rehearse.parse_record("Throwaway rehearsal PR.") is None
+
+    def test_an_empty_body_reads_as_none(self) -> None:
+        assert rehearse.parse_record(None) is None
+        assert rehearse.parse_record("") is None
+
+    def test_a_truncated_record_reads_as_none(self) -> None:
+        """Half a record is not a rehearsal."""
+        assert rehearse.parse_record("Rehearsal record\nhyperi-ci-sha: abc\n") is None
+
+    def test_the_newest_record_wins(self) -> None:
+        body = (
+            "x"
+            + rehearse.record_block("a" * 40, 1, "fail")
+            + rehearse.record_block("b" * 40, 2, "pass")
+        )
+        record = rehearse.parse_record(body)
+        assert record is not None
+        assert record["hyperi-ci-sha"] == "b" * 40
+
+    def test_find_record_matches_the_commit_not_the_fixture(self) -> None:
+        prs = [
+            {"body": rehearse.record_block("a" * 40, 1, "pass")},
+            {"body": rehearse.record_block("b" * 40, 2, "pass")},
+        ]
+        found = gate.find_record(prs, "b" * 40)
+        assert found is not None and found["run-id"] == "2"
+
+    def test_a_record_for_another_commit_does_not_count(self) -> None:
+        """Push another commit and the rehearsal stops applying."""
+        prs = [{"body": rehearse.record_block("a" * 40, 1, "pass")}]
+        assert gate.find_record(prs, "c" * 40) is None
+
+
+class TestTheGateVerdict:
+    def test_nothing_required_is_a_pass(self) -> None:
+        code, _ = gate.gate_verdict([], [])
+        assert code == 0
+
+    def test_all_proven_passes(self) -> None:
+        outcomes = [gate.Outcome("ci-test-go-app", gate.PROVEN, "run 1")]
+        assert gate.gate_verdict(["ci-test-go-app"], outcomes)[0] == 0
+
+    def test_required_but_nothing_checked_is_not_a_pass(self) -> None:
+        """The failure this gate exists for: a green tick over zero evidence."""
+        code, lines = gate.gate_verdict(["ci-test-go-app"], [])
+        assert code == 2
+        assert any("NOT CHECKED" in line for line in lines)
+
+    def test_one_fixture_answered_out_of_two_is_not_a_pass(self) -> None:
+        outcomes = [gate.Outcome("ci-test-go-app", gate.PROVEN, "run 1")]
+        code, lines = gate.gate_verdict(
+            ["ci-test-go-app", "ci-test-rust-app"], outcomes
+        )
+        assert code == 2
+        assert any("ci-test-rust-app" in line for line in lines)
+
+    def test_an_unreachable_fixture_is_not_a_pass(self) -> None:
+        outcomes = [gate.Outcome("ci-test-go-app", gate.UNREACHABLE, "no token")]
+        assert gate.gate_verdict(["ci-test-go-app"], outcomes)[0] == 2
+
+    def test_unreachable_outranks_unproven(self) -> None:
+        """Unknown and known-bad are different answers; say the weaker one."""
+        outcomes = [
+            gate.Outcome("ci-test-go-app", gate.UNPROVEN, "no record"),
+            gate.Outcome("ci-test-rust-app", gate.UNREACHABLE, "gh failed"),
+        ]
+        code, _ = gate.gate_verdict(["ci-test-go-app", "ci-test-rust-app"], outcomes)
+        assert code == 2
+
+    def test_an_unrehearsed_fixture_fails(self) -> None:
+        outcomes = [gate.Outcome("ci-test-go-app", gate.UNPROVEN, "no record")]
+        assert gate.gate_verdict(["ci-test-go-app"], outcomes)[0] == 1
+
+    def test_a_failed_rehearsal_fails(self) -> None:
+        outcomes = [gate.Outcome("ci-test-go-app", gate.FAILED, "run 9 did not pass")]
+        assert gate.gate_verdict(["ci-test-go-app"], outcomes)[0] == 1
+
+    def test_the_advice_names_the_command(self) -> None:
+        lines = gate._advice("fix/thing", ["ci-test-go-app"])
+        assert any(
+            "rehearse-branch.py --branch fix/thing --repo hyperi-io/ci-test-go-app"
+            in line
+            for line in lines
+        )
+
+
+class TestACompositeChangeIsUnrehearsed:
+    """The lang workflows call composites @main, so no rehearsal runs one (#366)."""
+
+    def test_changed_composites_are_named_once_each(self) -> None:
+        paths = [
+            ".github/actions/predict-version/action.yml",
+            "./.github/actions/predict-version/resolve.py",
+            ".github/actions/setup-runtime/action.yml",
+            ".github/workflows/python-ci.yml",
+            "src/hyperi_ci/cli.py",
+        ]
+        assert gate.composite_changes(paths) == ["predict-version", "setup-runtime"]
+
+    def test_no_composite_touched_names_none(self) -> None:
+        assert gate.composite_changes([".github/workflows/python-ci.yml"]) == []
+
+    def test_a_proven_rehearsal_does_not_prove_a_composite(self) -> None:
+        outcomes = [gate.Outcome("ci-test-python-app", gate.PROVEN, "run 1")]
+        code, lines = gate.gate_verdict(
+            ["ci-test-python-app"], outcomes, ["predict-version"]
+        )
+        assert code == 1
+        assert any(
+            "UNREHEARSED" in line and "predict-version" in line for line in lines
+        )
+
+    def test_an_unknown_fixture_still_reads_as_unknown(self) -> None:
+        outcomes = [gate.Outcome("ci-test-python-app", gate.UNREACHABLE, "gh failed")]
+        code, _ = gate.gate_verdict(
+            ["ci-test-python-app"], outcomes, ["predict-version"]
+        )
+        assert code == 2
+
+    def test_a_composite_with_no_fixture_selected_is_not_a_pass(self) -> None:
+        code, lines = gate.gate_verdict([], [], ["predict-version"])
+        assert code == 1
+        assert not any("No consumer surface" in line for line in lines)
+
+    def _main(self, monkeypatch, changed: list[str]) -> int:
+        argv = ["rehearse-gate.py", "--head-sha", "a" * 40, "--branch", "fix/x"]
+        for path in changed:
+            argv += ["--changed-file", path]
+        monkeypatch.setattr(sys, "argv", argv)
+        monkeypatch.setattr(
+            gate, "verify", lambda name, _sha: gate.Outcome(name, gate.PROVEN, "run 1")
+        )
+        return gate.main()
+
+    def test_the_gate_refuses_a_proven_composite_change(
+        self, monkeypatch, capsys
+    ) -> None:
+        code = self._main(monkeypatch, [".github/actions/predict-version/action.yml"])
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "COMPOSITE UNREHEARSED: predict-version" in out
+        assert "REHEARSED: every required fixture" not in out
+
+    def test_a_proven_workflow_change_still_passes(self, monkeypatch, capsys) -> None:
+        code = self._main(monkeypatch, [".github/workflows/python-ci.yml"])
+        assert code == 0
+        assert "COMPOSITE UNREHEARSED" not in capsys.readouterr().out
+
+
+class TestANestedWorkflowChangeIsUnrehearsed:
+    """The lang workflows call `_release-tail.yml` @main, so no rehearsal runs it (#626)."""
+
+    def _nested(self, paths: list[str]) -> list[str]:
+        fleet = fixture_fleet.load_fleet()
+        return gate.nested_workflow_changes(
+            paths,
+            fixture_fleet.read_workflow_texts(),
+            fixture_fleet.language_workflows(fleet),
+        )
+
+    def test_a_workflow_only_called_by_another_is_nested(self) -> None:
+        assert self._nested([".github/workflows/_release-tail.yml"]) == [
+            "_release-tail.yml"
+        ]
+
+    def test_a_language_workflow_stays_rehearsable(self) -> None:
+        assert self._nested([".github/workflows/rust-ci.yml"]) == []
+
+    def test_a_mixed_diff_names_only_the_nested_one(self) -> None:
+        paths = [
+            "./.github/workflows/rust-ci.yml",
+            ".github/workflows/_release-tail.yml",
+            "src/hyperi_ci/cli.py",
+        ]
+        assert self._nested(paths) == ["_release-tail.yml"]
+
+    def test_the_set_is_read_from_uses_lines(self) -> None:
+        texts = {
+            "a.yml": "jobs:\n  j:\n    uses: hyperi-io/hyperi-ci/.github/workflows/_x.yml@main\n",
+            "_x.yml": "jobs: {}\n",
+        }
+        paths = [".github/workflows/_x.yml", ".github/workflows/a.yml"]
+        assert gate.nested_workflow_changes(paths, texts, set()) == ["_x.yml"]
+
+    def test_a_proven_rehearsal_does_not_prove_a_nested_workflow(self) -> None:
+        outcomes = [gate.Outcome("ci-test-rust-app", gate.PROVEN, "run 1")]
+        code, lines = gate.gate_verdict(
+            ["ci-test-rust-app"], outcomes, None, ["_release-tail.yml"]
+        )
+        assert code == 1
+        assert any("_release-tail.yml" in line for line in lines)
+
+    def test_the_gate_refuses_a_proven_nested_change(self, monkeypatch, capsys) -> None:
+        argv = ["rehearse-gate.py", "--head-sha", "a" * 40, "--branch", "fix/x"]
+        argv += ["--changed-file", ".github/workflows/_release-tail.yml"]
+        monkeypatch.setattr(sys, "argv", argv)
+        monkeypatch.setattr(
+            gate, "verify", lambda name, _sha: gate.Outcome(name, gate.PROVEN, "run 1")
+        )
+        code = gate.main()
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "NESTED WORKFLOW UNREHEARSED: _release-tail.yml" in out
+        assert "REHEARSED: every required fixture" not in out
+
+
+class TestTheSweepVerdict:
+    def test_a_green_fleet_passes(self) -> None:
+        results = [sweep.Result("ci-test-go-app", sweep.PASS, "run 1")]
+        assert sweep.sweep_verdict(["ci-test-go-app"], results)[0] == 0
+
+    def test_selecting_nothing_is_not_a_pass(self) -> None:
+        code, lines = sweep.sweep_verdict([], [])
+        assert code == 2
+        assert any("0 fixtures" in line for line in lines)
+
+    def test_running_nothing_is_not_a_pass(self) -> None:
+        """A sweep that dispatched nothing has proven nothing about main."""
+        code, lines = sweep.sweep_verdict(["ci-test-go-app"], [])
+        assert code == 2
+        assert any("0 fixtures" in line for line in lines)
+
+    def test_a_fixture_with_no_answer_is_not_a_pass(self) -> None:
+        results = [sweep.Result("ci-test-go-app", sweep.PASS, "run 1")]
+        code, lines = sweep.sweep_verdict(
+            ["ci-test-go-app", "ci-test-rust-app"], results
+        )
+        assert code == 2
+        assert any("NOT RUN" in line and "ci-test-rust-app" in line for line in lines)
+
+    def test_an_unreachable_repo_is_not_a_pass(self) -> None:
+        results = [
+            sweep.Result("ci-test-go-app", sweep.PASS, "run 1"),
+            sweep.Result("ci-test-rust-app", sweep.UNREACHABLE, "dispatch refused"),
+        ]
+        code, _ = sweep.sweep_verdict(["ci-test-go-app", "ci-test-rust-app"], results)
+        assert code == 2
+
+    def test_a_failing_fixture_is_a_red_fleet(self) -> None:
+        results = [sweep.Result("ci-test-go-app", sweep.FAIL, "run 1")]
+        assert sweep.sweep_verdict(["ci-test-go-app"], results)[0] == 1
+
+    def test_a_run_still_going_is_inconclusive_not_red(self) -> None:
+        """A run that outlasted the deadline has not failed."""
+        results = [sweep.Result("ci-test-go-app", sweep.TIMEOUT, "run 1 still going")]
+        assert sweep.sweep_verdict(["ci-test-go-app"], results)[0] == 2
+        assert sweep.TIMEOUT in sweep.INCONCLUSIVE
+
+    @pytest.mark.parametrize("neighbour", [sweep.UNREACHABLE, sweep.TIMEOUT])
+    def test_a_failure_outranks_an_inconclusive_neighbour(self, neighbour: str) -> None:
+        """A proven failure is an answer whatever else could not be read.
+
+        Reported as inconclusive, negative-cases prints "it did not prove any
+        gate" over a gate it just proved leaks.
+        """
+        results = [
+            sweep.Result("ci-test-go-app", sweep.FAIL, "run 1"),
+            sweep.Result("ci-test-rust-app", neighbour, "gone"),
+        ]
+        code, lines = sweep.sweep_verdict(
+            ["ci-test-go-app", "ci-test-rust-app"], results
+        )
+        assert code == 1
+        assert any(neighbour in line for line in lines)
+
+    def test_a_failure_outranks_a_fixture_that_never_ran(self) -> None:
+        results = [sweep.Result("ci-test-go-app", sweep.FAIL, "run 1")]
+        code, lines = sweep.sweep_verdict(
+            ["ci-test-go-app", "ci-test-rust-app"], results
+        )
+        assert code == 1
+        assert any("NOT RUN" in line and "ci-test-rust-app" in line for line in lines)
+
+    def test_a_held_fixture_is_not_a_pass(self) -> None:
+        results = [
+            sweep.Result("ci-test-go-app", sweep.PASS, "run 1"),
+            sweep.Result("ci-test-rust-app", sweep.HELD, "held by fix/x"),
+        ]
+        code, _ = sweep.sweep_verdict(["ci-test-go-app", "ci-test-rust-app"], results)
+        assert code == 2
+        assert sweep.HELD in sweep.INCONCLUSIVE
+
+
+# ci-test-manifests run 36515341852 as `gh run view --json jobs` returns it:
+# green, with a non-reusable job and two skipped ones. The sweep called it red.
+_RUN_401 = json.loads(
+    (Path(__file__).parent / "data" / "fleet-sweep-run-36515341852.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+def _settling(jobs: list[dict]) -> list[dict]:
+    """The same jobs with the last one read before it carries a conclusion."""
+    *done, last = (dict(job) for job in jobs)
+    return [*done, {**last, "status": "queued", "conclusion": ""}]
+
+
+class TestReadingOneFixtureRun:
+    """A fixture run's verdict is the run's own conclusion (issue #401)."""
+
+    def test_the_401_run_passes(self) -> None:
+        result = sweep.run_result(
+            "ci-test-manifests", 36515341852, _RUN_401["conclusion"], None
+        )
+        assert result == sweep.Result(
+            "ci-test-manifests", sweep.PASS, "run 36515341852"
+        )
+
+    def test_a_job_still_settling_does_not_turn_a_green_run_red(self) -> None:
+        jobs = _settling(_RUN_401["jobs"])
+        # The job-by-job reading the sweep used to apply fails this shape.
+        assert sweep.rehearse_branch.summarise_jobs(jobs)[0] is False
+        result = sweep.run_result("ci-test-manifests", 1, "success", jobs)
+        assert result.state == sweep.PASS
+
+    def test_a_failed_run_names_the_job_that_failed(self) -> None:
+        jobs = [dict(job) for job in _RUN_401["jobs"]]
+        container = next(job for job in jobs if job["name"].endswith("Container"))
+        container["conclusion"] = "failure"
+        result = sweep.run_result("ci-test-manifests", 7, "failure", jobs)
+        assert result.state == sweep.FAIL
+        assert result.detail == (
+            "run 7 concluded failure: ci / Release tail / Container failure"
+        )
+
+    def test_a_cancelled_run_is_not_a_pass(self) -> None:
+        result = sweep.run_result("ci-test-manifests", 7, "cancelled", [])
+        assert result == sweep.Result(
+            "ci-test-manifests", sweep.FAIL, "run 7 concluded cancelled"
+        )
+
+    def test_unreadable_jobs_still_fail_a_failed_run(self) -> None:
+        result = sweep.run_result("ci-test-manifests", 7, "failure", None)
+        assert result.state == sweep.FAIL
+        assert "could not be read" in result.detail
+
+    def test_a_null_conclusion_reads_as_none_not_the_word(self, monkeypatch) -> None:
+        answer = json.dumps({"status": "in_progress", "conclusion": None})
+        monkeypatch.setattr(
+            sweep,
+            "_run",
+            lambda args, **_k: subprocess.CompletedProcess(args, 0, stdout=answer),
+        )
+        assert sweep._run_state("o/r", 1) == ("in_progress", "")
+
+
+class TestPollingOneFixtureRun:
+    """The sweep loop reads a verdict only once the run carries a conclusion."""
+
+    @staticmethod
+    def _sweep(monkeypatch, states: list[tuple[str, str]], jobs: list[dict]):
+        clock = _Clock()
+        answers = iter(states)
+        job_reads: list[int] = []
+
+        def read_jobs(_repo, run_id):
+            job_reads.append(run_id)
+            return jobs
+
+        monkeypatch.setattr(sweep, "time", clock)
+        monkeypatch.setattr(sweep, "_rehearsal_branches", lambda _repo: [])
+        monkeypatch.setattr(sweep, "_start", lambda _name, _deadline: 36515341852)
+        monkeypatch.setattr(sweep, "_run_state", lambda *_a: next(answers))
+        monkeypatch.setattr(sweep, "_read_jobs", read_jobs)
+        results = sweep._sweep([{"name": "ci-test-manifests"}], 5)
+        return results, job_reads
+
+    def test_the_401_run_passes_whatever_its_jobs_say(self, monkeypatch) -> None:
+        results, job_reads = self._sweep(
+            monkeypatch,
+            [("in_progress", ""), ("completed", _RUN_401["conclusion"])],
+            _settling(_RUN_401["jobs"]),
+        )
+        assert [r.state for r in results] == [sweep.PASS]
+        # A green run needs no job read, so none can disagree with it.
+        assert job_reads == []
+
+    @pytest.mark.parametrize(
+        ("states", "verdict"),
+        [
+            pytest.param([None, ("completed", "success")], sweep.PASS, id="one-miss"),
+            pytest.param(
+                [None, None, ("completed", "success")], sweep.PASS, id="two-misses"
+            ),
+            pytest.param(
+                [None, ("in_progress", ""), None, None, ("completed", "success")],
+                sweep.PASS,
+                id="a-good-read-resets-the-count",
+            ),
+            pytest.param([None, None, None], sweep.UNREACHABLE, id="three-in-a-row"),
+        ],
+    )
+    def test_a_failed_read_is_retried_before_the_run_is_unreachable(
+        self, monkeypatch, states: list, verdict: str
+    ) -> None:
+        results, _ = self._sweep(monkeypatch, states, [])
+        assert [r.state for r in results] == [verdict]
+
+    def test_completed_with_no_conclusion_is_still_going(self, monkeypatch) -> None:
+        results, _ = self._sweep(
+            monkeypatch,
+            [("completed", ""), ("completed", "success")],
+            [],
+        )
+        assert [r.state for r in results] == [sweep.PASS]
+
+    def test_a_failed_run_is_read_for_its_jobs(self, monkeypatch) -> None:
+        failed = [
+            {"name": "ci / Quality", "status": "completed", "conclusion": "failure"}
+        ]
+        results, job_reads = self._sweep(
+            monkeypatch, [("completed", "failure")], failed
+        )
+        assert [r.state for r in results] == [sweep.FAIL]
+        assert "ci / Quality failure" in results[0].detail
+        assert job_reads == [36515341852]
+
+    def test_a_run_going_at_the_deadline_keeps_its_id(self, monkeypatch) -> None:
+        results, _ = self._sweep(monkeypatch, [("in_progress", "")] * 20, [])
+        assert results == [
+            sweep.Result(
+                "ci-test-manifests",
+                sweep.TIMEOUT,
+                "run 36515341852 still going",
+                36515341852,
+            )
+        ]
+
+
+class _Clock:
+    """Stands in for the sweep's `time` module: sleeping advances the clock."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def time(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+_REHEARSAL = ["rehearse/fix-312-fetch-followups"]
+_FAILED = "gh: Server Error (HTTP 502)"
+
+
+def _matching_refs(branches: list[str]) -> str:
+    """The body GitHub's matching-refs endpoint returns for these branches."""
+    return json.dumps(
+        [
+            {
+                "ref": f"refs/heads/{branch}",
+                "node_id": "REF_x",
+                "url": f"https://api.github.com/repos/o/r/git/refs/heads/{branch}",
+                "object": {"sha": "c" * 40, "type": "commit", "url": "u"},
+            }
+            for branch in branches
+        ]
+    )
+
+
+def _refs_answer(args: list[str], answer) -> subprocess.CompletedProcess:
+    """A branch list, a failed gh call (a string), or an unreadable body (bytes)."""
+    if isinstance(answer, str):
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr=answer)
+    if isinstance(answer, bytes):
+        return subprocess.CompletedProcess(args, 0, stdout=answer.decode())
+    return subprocess.CompletedProcess(args, 0, stdout=_matching_refs(answer))
+
+
+class TestReadingARehearsalHold:
+    """A rehearsal's branch is pushed before its override is set, and deleted
+    after the override is put back, so the branch covers the whole hold."""
+
+    def _read(self, monkeypatch, answer) -> list[str]:
+        asked: list[list[str]] = []
+
+        def fake_run(args, **_kwargs):
+            asked.append(args)
+            return _refs_answer(args, answer)
+
+        monkeypatch.setattr(sweep, "_run", fake_run)
+        branches = sweep._rehearsal_branches("hyperi-io/ci-test-go-app")
+        assert asked == [
+            [
+                "gh",
+                "api",
+                "repos/hyperi-io/ci-test-go-app/git/matching-refs/heads/rehearse/",
+            ]
+        ]
+        return branches
+
+    def test_each_rehearse_branch_is_named(self, monkeypatch) -> None:
+        both = ["rehearse/fix-312-fetch-followups", "rehearse/fix-x"]
+        assert self._read(monkeypatch, both) == both
+
+    def test_no_rehearse_branch_is_no_hold(self, monkeypatch) -> None:
+        assert self._read(monkeypatch, []) == []
+
+    def test_a_failed_read_is_not_read_as_no_hold(self, monkeypatch) -> None:
+        with pytest.raises(sweep.HoldUnreadableError, match="HTTP 502"):
+            self._read(monkeypatch, _FAILED)
+
+    def test_an_unreadable_answer_is_not_read_as_no_hold(self, monkeypatch) -> None:
+        with pytest.raises(sweep.HoldUnreadableError):
+            self._read(monkeypatch, b"<html>")
+
+
+class TestAFixtureARehearsalHolds:
+    """A rehearsal points a fixture's CLI at its branch, repo-wide.
+
+    Every run that starts meanwhile installs that branch, so a sweep that
+    dispatched into it would certify main on a CLI main never shipped.
+    """
+
+    @staticmethod
+    def _sweep(monkeypatch, holds: dict[str, list], minutes: int = 1):
+        """Run `_sweep` over fake gh, popping each fixture's branch reads in turn.
+
+        Returns (results, dispatch times by fixture, hold reads by fixture).
+        """
+        clock = _Clock()
+        dispatched: dict[str, float] = {}
+        reads: dict[str, int] = {}
+
+        def fake_run(args, **_kwargs):
+            name = args[2].split("/")[2]
+            reads[name] = reads.get(name, 0) + 1
+            queue = holds[name]
+            return _refs_answer(args, queue.pop(0) if len(queue) > 1 else queue[0])
+
+        def read_override(repo):
+            raise AssertionError(f"the sweep read {repo}'s install override")
+
+        def run_ids(repo):
+            name = repo.rsplit("/", 1)[-1]
+            return {7} if name in dispatched else set()
+
+        def dispatch(repo):
+            dispatched[repo.rsplit("/", 1)[-1]] = clock.now
+            return ""
+
+        monkeypatch.setattr(sweep, "time", clock)
+        monkeypatch.setattr(sweep, "_run", fake_run)
+        monkeypatch.setattr(sweep.rehearse_branch, "_read_override", read_override)
+        monkeypatch.setattr(sweep, "_run_ids", run_ids)
+        monkeypatch.setattr(sweep, "_dispatch", dispatch)
+        monkeypatch.setattr(sweep, "_run_state", lambda *_a: ("completed", "success"))
+        monkeypatch.setattr(
+            sweep, "_read_jobs", lambda *_a: [{"name": "ci", "conclusion": "success"}]
+        )
+        targets = [{"name": name} for name in holds]
+        results = sweep._sweep(targets, minutes)
+        return {r.fixture: r for r in results}, dispatched, reads
+
+    def test_a_hold_that_clears_is_swept_once_it_does(self, monkeypatch) -> None:
+        results, dispatched, reads = self._sweep(
+            monkeypatch, {"ci-test-go-app": [_REHEARSAL, _REHEARSAL, []]}
+        )
+        assert results["ci-test-go-app"].state == sweep.PASS
+        # Read three times, dispatched on the third, one poll apart each.
+        assert reads["ci-test-go-app"] == 3
+        assert dispatched == {"ci-test-go-app": 2 * sweep._POLL_SECONDS}
+
+    def test_a_hold_that_outlasts_the_deadline_is_never_dispatched(
+        self, monkeypatch
+    ) -> None:
+        results, dispatched, _ = self._sweep(
+            monkeypatch, {"ci-test-go-app": [_REHEARSAL]}
+        )
+        held = results["ci-test-go-app"]
+        assert held.state == sweep.HELD
+        assert "rehearse/fix-312-fetch-followups" in held.detail
+        assert dispatched == {}
+
+    def test_a_free_fixture_does_not_wait_behind_a_held_one(self, monkeypatch) -> None:
+        results, dispatched, _ = self._sweep(
+            monkeypatch,
+            {
+                "ci-test-a-held": [_REHEARSAL],
+                "ci-test-b-freed": [_REHEARSAL, []],
+                "ci-test-c-free": [[]],
+            },
+        )
+        assert dispatched == {
+            "ci-test-c-free": 0.0,
+            "ci-test-b-freed": sweep._POLL_SECONDS,
+        }
+        assert [results[n].state for n in sorted(results)] == [
+            sweep.HELD,
+            sweep.PASS,
+            sweep.PASS,
+        ]
+        code, _ = sweep.sweep_verdict(sorted(results), list(results.values()))
+        assert code == 2
+
+    def test_an_unreadable_hold_is_unreachable_not_dispatched(
+        self, monkeypatch
+    ) -> None:
+        results, dispatched, _ = self._sweep(
+            monkeypatch, {"ci-test-go-app": [_FAILED], "ci-test-rust-app": [[]]}
+        )
+        assert results["ci-test-go-app"].state == sweep.UNREACHABLE
+        assert "HTTP 502" in results["ci-test-go-app"].detail
+        assert dispatched == {"ci-test-rust-app": 0.0}
+
+
+_CANARY_RUN = 37765375560
+
+
+def _canary_listing(answer) -> subprocess.CompletedProcess:
+    """A canary run list: a status for one run, or a failed gh call (bytes)."""
+    if isinstance(answer, bytes):
+        return subprocess.CompletedProcess([], 1, stdout="", stderr=answer.decode())
+    runs = [{"databaseId": _CANARY_RUN, "status": answer}]
+    return subprocess.CompletedProcess([], 0, stdout=json.dumps(runs))
+
+
+class TestTheSweepWaitsForTheImageCanary:
+    """hyperi-infra's runner-image canary dispatches the same fixtures on main.
+
+    The fixtures' concurrency group cancels whichever run started first, so a
+    sweep dispatched mid-canary cancelled the 2.13.4 canary (issue #608).
+    """
+
+    @staticmethod
+    def _main(monkeypatch, answers: list, *extra: str):
+        """Run main() over fake gh, popping one canary listing per read.
+
+        Returns (exit code, clock time the sweep dispatched at or None, gh calls).
+        """
+        clock = _Clock()
+        calls: list[tuple[list[str], dict | None]] = []
+        swept: list[float] = []
+        name = fixture_fleet.load_fleet()[0]["name"]
+
+        def fake_run(args, **kwargs):
+            calls.append((args, kwargs.get("env")))
+            return _canary_listing(answers.pop(0) if len(answers) > 1 else answers[0])
+
+        def fake_sweep(targets, _minutes):
+            swept.append(clock.now)
+            return [sweep.Result(t["name"], sweep.PASS, "run 1") for t in targets]
+
+        monkeypatch.setattr(sweep, "time", clock)
+        monkeypatch.setattr(sweep.rehearse_branch, "_run", fake_run)
+        monkeypatch.setattr(sweep, "_sweep", fake_sweep)
+        monkeypatch.setattr(sys, "argv", ["sweep-fleet.py", "--only", name, *extra])
+        code = sweep.main()
+        return code, (swept[0] if swept else None), calls
+
+    def test_a_running_canary_holds_the_sweep_until_it_finishes(
+        self, monkeypatch, capsys
+    ) -> None:
+        code, swept_at, calls = self._main(
+            monkeypatch, ["in_progress", "queued", "completed"]
+        )
+        assert code == 0
+        assert len(calls) == 3
+        assert swept_at == 2 * sweep._CANARY_POLL_SECONDS
+        args = calls[0][0]
+        assert args[args.index("-R") + 1] == "hyperi-io/hyperi-infra"
+        assert args[args.index("--workflow") + 1] == "arc-runner-images.yml"
+        assert str(_CANARY_RUN) in capsys.readouterr().out
+
+    @pytest.mark.parametrize(
+        ("extra", "answers", "code", "canary_reads", "swept"),
+        [
+            # The wait runs in its own step, so the dispatch token is minted after it.
+            pytest.param(
+                ("--canary-only",), ["completed"], 0, 1, False, id="wait-only"
+            ),
+            pytest.param(
+                ("--canary-only",), ["in_progress"], 2, None, False, id="wait-only-held"
+            ),
+            pytest.param(
+                ("--skip-canary",), ["in_progress"], 0, 0, True, id="dispatch-only"
+            ),
+        ],
+    )
+    def test_the_canary_wait_splits_from_the_dispatch(
+        self,
+        monkeypatch,
+        extra: tuple[str, ...],
+        answers: list,
+        code: int,
+        canary_reads: int | None,
+        swept: bool,
+    ) -> None:
+        got, swept_at, calls = self._main(monkeypatch, answers, *extra)
+        assert got == code
+        assert (swept_at is not None) is swept
+        if canary_reads is not None:
+            assert len(calls) == canary_reads
+
+    def test_a_canary_outlasting_the_wait_fails_with_nothing_dispatched(
+        self, monkeypatch, capsys
+    ) -> None:
+        code, swept_at, calls = self._main(monkeypatch, ["in_progress"])
+        assert code == 2
+        assert swept_at is None
+        assert sweep.time.now == 90 * 60
+        assert len(calls) == 90 * 60 // sweep._CANARY_POLL_SECONDS + 1
+        out = capsys.readouterr().out
+        assert "::error::SWEEP NOT RUN" in out
+        assert "arc-runner-images.yml" in out
+
+    def test_unreadable_canary_runs_warn_and_sweep(self, monkeypatch, capsys) -> None:
+        code, swept_at, _ = self._main(
+            monkeypatch, [b"gh: Could not resolve to a Repository (HTTP 404)"]
+        )
+        assert code == 0
+        assert swept_at == 0.0
+        out = capsys.readouterr().out
+        assert "::warning::cannot read hyperi-io/hyperi-infra runs" in out
+        assert "HTTP 404" in out
+
+    def test_a_failed_read_after_a_running_canary_keeps_waiting(
+        self, monkeypatch
+    ) -> None:
+        code, swept_at, calls = self._main(
+            monkeypatch, ["in_progress", b"gh: HTTP 502", "completed"]
+        )
+        assert code == 0
+        assert len(calls) == 3
+        assert swept_at == 2 * sweep._CANARY_POLL_SECONDS
+
+    def test_the_canary_token_reads_the_canary(self, monkeypatch) -> None:
+        monkeypatch.setenv(sweep.CANARY_TOKEN_ENV, "ghs_canary")
+        _, _, calls = self._main(monkeypatch, ["completed"])
+        env = calls[0][1]
+        assert env is not None
+        assert env["GH_TOKEN"] == "ghs_canary"
+
+    def test_no_canary_token_uses_gh_own_auth(self, monkeypatch) -> None:
+        monkeypatch.setenv(sweep.CANARY_TOKEN_ENV, "")
+        _, _, calls = self._main(monkeypatch, ["completed"])
+        assert calls[0][1] is None
+
+
+class TestSlowRunsAreCollectedUnderAFreshToken:
+    """A run that outlasts the sweep's window is read to a verdict by --collect.
+
+    The App token the sweep reads with lives 60 minutes, so the second read
+    runs in its own step under a freshly minted one.
+    """
+
+    @staticmethod
+    def _names() -> tuple[str, str]:
+        fleet = fixture_fleet.load_fleet()
+        return fleet[0]["name"], fleet[1]["name"]
+
+    @classmethod
+    def _results(cls, states: tuple[str, str]) -> list:
+        return [
+            sweep.Result(
+                name, state, f"run {n}", 100 + n if state == sweep.TIMEOUT else None
+            )
+            for n, (name, state) in enumerate(zip(cls._names(), states, strict=True))
+        ]
+
+    def _first_step(self, monkeypatch, tmp_path, states, defer=False):
+        """main() over a faked sweep. Returns (code, pending file, GITHUB_OUTPUT)."""
+        pending_file = tmp_path / "pending.json"
+        output = tmp_path / "output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        monkeypatch.setattr(sweep, "_sweep", lambda *_a: self._results(states))
+        argv = ["sweep-fleet.py", "--only", ",".join(self._names()), "--skip-canary"]
+        if defer:
+            argv += ["--pending-file", str(pending_file)]
+        monkeypatch.setattr(sys, "argv", argv)
+        code = sweep.main()
+        written = pending_file if pending_file.exists() else None
+        return code, written, output.read_text() if output.exists() else ""
+
+    @pytest.mark.parametrize(
+        ("states", "code", "deferred"),
+        [
+            pytest.param((sweep.PASS, sweep.PASS), 0, False, id="all-pass"),
+            pytest.param((sweep.PASS, sweep.TIMEOUT), 0, True, id="slow-run-deferred"),
+            pytest.param(
+                (sweep.FAIL, sweep.TIMEOUT),
+                1,
+                False,
+                id="failure-is-red-before-collect",
+            ),
+            pytest.param((sweep.PASS, sweep.FAIL), 1, False, id="failure-is-red"),
+            pytest.param(
+                (sweep.PASS, sweep.UNREACHABLE), 2, False, id="unreachable-inconclusive"
+            ),
+        ],
+    )
+    def test_the_first_step_defers_only_runs_still_going(
+        self, monkeypatch, tmp_path, capsys, states, code: int, deferred: bool
+    ) -> None:
+        got, written, output = self._first_step(monkeypatch, tmp_path, states, True)
+        out = capsys.readouterr().out
+        assert got == code
+        assert (written is not None) is deferred
+        assert ("pending=true" in output) is deferred
+        assert ("collect step reads them" in out) is deferred
+        assert ("FLEET" in out or "INCONCLUSIVE" in out) is not deferred
+
+    def test_nothing_pending_means_no_file_for_a_collect(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        _, written, output = self._first_step(
+            monkeypatch, tmp_path, (sweep.PASS, sweep.PASS), True
+        )
+        assert written is None
+        assert output == ""
+
+    def test_without_a_pending_file_a_slow_run_is_inconclusive(
+        self, monkeypatch, tmp_path, capsys
+    ) -> None:
+        code, written, _ = self._first_step(
+            monkeypatch, tmp_path, (sweep.PASS, sweep.TIMEOUT)
+        )
+        assert (code, written) == (2, None)
+        assert "SWEEP INCONCLUSIVE" in capsys.readouterr().out
+
+    def test_the_pending_file_round_trips(self, tmp_path) -> None:
+        a, b = self._names()
+        settled = [sweep.Result(a, sweep.FAIL, "run 1: ci / Quality failure")]
+        path = tmp_path / "pending.json"
+        sweep.write_pending(path, [a, b], settled, {b: 101})
+        assert sweep.read_pending(path) == ([a, b], settled, {b: 101})
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(None, id="missing"),
+            pytest.param("not json", id="garbled"),
+            pytest.param('{"targets": []}', id="short"),
+        ],
+    )
+    def test_an_unreadable_pending_file_proves_nothing(
+        self, monkeypatch, tmp_path, capsys, content: str | None
+    ) -> None:
+        path = tmp_path / "pending.json"
+        if content is not None:
+            path.write_text(content, encoding="utf-8")
+        monkeypatch.setattr(sys, "argv", ["sweep-fleet.py", "--collect", str(path)])
+        assert sweep.main() == 2
+        assert "cannot read the pending runs" in capsys.readouterr().out
+
+    @pytest.mark.parametrize(
+        ("settled", "reads", "code", "headline"),
+        [
+            pytest.param(
+                sweep.PASS,
+                [("in_progress", ""), ("completed", "success")],
+                0,
+                "FLEET GREEN",
+                id="slow-but-passing",
+            ),
+            pytest.param(
+                sweep.PASS,
+                [("in_progress", "")],
+                2,
+                "SWEEP INCONCLUSIVE",
+                id="still-going-after-both-windows",
+            ),
+            pytest.param(
+                sweep.PASS,
+                [("completed", "failure")],
+                1,
+                "FLEET RED",
+                id="slow-then-failed",
+            ),
+            pytest.param(
+                sweep.FAIL,
+                [("completed", "success")],
+                1,
+                "FLEET RED",
+                id="first-step-failure-survives",
+            ),
+        ],
+    )
+    def test_the_collect_step_gives_the_combined_verdict(
+        self, monkeypatch, tmp_path, capsys, settled, reads, code, headline
+    ) -> None:
+        a, b = self._names()
+        path = tmp_path / "pending.json"
+        sweep.write_pending(path, [a, b], [sweep.Result(a, settled, "run 1")], {b: 101})
+        answers = list(reads)
+        monkeypatch.setattr(sweep, "time", _Clock())
+        monkeypatch.setattr(
+            sweep,
+            "_run_state",
+            lambda *_a: answers.pop(0) if answers[1:] else answers[0],
+        )
+        monkeypatch.setattr(sweep, "_read_jobs", lambda *_a: [])
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["sweep-fleet.py", "--collect", str(path), "--timeout-minutes", "1"],
+        )
+        assert sweep.main() == code
+        assert headline in capsys.readouterr().out
+
+
+class TestSelectingSweepTargets:
+    FLEET = [
+        {"name": "ci-test-rs-app", "language": "rust"},
+        {"name": "ci-test-go-app", "language": "go"},
+        {"name": "ci-test-py-app", "language": "python"},
+    ]
+
+    def test_the_whole_fleet_by_default_in_name_order(self) -> None:
+        names = [e["name"] for e in sweep.select_targets(self.FLEET, [], "")]
+        assert names == ["ci-test-go-app", "ci-test-py-app", "ci-test-rs-app"]
+
+    def test_one_language(self) -> None:
+        names = [e["name"] for e in sweep.select_targets(self.FLEET, [], "rust")]
+        assert names == ["ci-test-rs-app"]
+
+    def test_an_explicit_list(self) -> None:
+        names = [
+            e["name"] for e in sweep.select_targets(self.FLEET, ["ci-test-go-app"], "")
+        ]
+        assert names == ["ci-test-go-app"]
+
+    def test_a_filter_matching_nobody_returns_empty_rather_than_the_fleet(self) -> None:
+        """Returning everything on an unmatched filter would sweep the fleet by
+        accident; returning empty lets the verdict refuse it."""
+        assert sweep.select_targets(self.FLEET, [], "cobol") == []
+
+
+class TestThePushFilterIsTheConsumerSurface:
+    """The sweep's `paths:` filter and config/fixtures.yaml have to agree about
+    which workflows a consumer actually runs."""
+
+    def _sweep_workflow(self) -> dict:
+        text = (_ROOT / ".github" / "workflows" / "fleet-sweep.yml").read_text("utf-8")
+        return yaml.safe_load(text)
+
+    def test_the_exclusions_are_exactly_the_non_consumer_workflows(self) -> None:
+        fleet = fixture_fleet.load_fleet()
+        present = {p.name for p in (_ROOT / ".github" / "workflows").glob("*.yml")}
+        consumed = fixture_fleet.language_workflows(fleet) | {
+            name for name in present if name.startswith("_")
+        }
+        # `on` parses as the boolean True in YAML 1.1, which is what PyYAML is.
+        paths = self._sweep_workflow()[True]["push"]["paths"]
+        excluded = {
+            p.removeprefix("!.github/workflows/") for p in paths if p.startswith("!")
+        }
+        assert excluded == present - consumed
+
+    def test_the_filter_covers_both_surfaces(self) -> None:
+        paths = self._sweep_workflow()[True]["push"]["paths"]
+        assert ".github/workflows/**" in paths
+        assert ".github/actions/**" in paths
+
+    def test_every_app_token_is_scoped_to_named_repos(self) -> None:
+        """With `owner` set and no `repositories`, the token reaches the org."""
+        token_steps = [
+            step
+            for job in self._sweep_workflow()["jobs"].values()
+            for step in job["steps"]
+            if "create-github-app-token" in step.get("uses", "")
+        ]
+        assert token_steps
+        for step in token_steps:
+            if step.get("id") != "canary":
+                assert "steps.fleet.outputs.repos" in step["with"]["repositories"]
+
+    def test_the_canary_token_reads_only_hyperi_infra_actions(self) -> None:
+        sweep_job = self._sweep_workflow()["jobs"]["sweep"]
+        steps = {step.get("id"): step for step in sweep_job["steps"]}
+        granted = {
+            key: value
+            for key, value in steps["canary"]["with"].items()
+            if key.startswith("permission-")
+        }
+        assert steps["canary"]["with"]["repositories"] == "hyperi-infra"
+        assert granted == {"permission-actions": "read"}
+        run_step = next(
+            s for s in sweep_job["steps"] if "sweep-fleet.py" in s.get("run", "")
+        )
+        assert (
+            run_step["env"][sweep.CANARY_TOKEN_ENV]
+            == "${{ steps.canary.outputs.token }}"
+        )
+
+    def test_no_dispatch_input_is_spliced_into_a_shell_script(self) -> None:
+        for job in self._sweep_workflow()["jobs"].values():
+            for step in job["steps"]:
+                assert "${{ inputs." not in step.get("run", ""), step.get("name")
+
+
+class TestTheTokenScope:
+    """Which fixture repos a fleet workflow's app token may reach."""
+
+    def test_the_sweep_reaches_the_whole_fleet(self) -> None:
+        fleet = fixture_fleet.load_fleet()
+        assert fixture_fleet.token_scope(fleet) == [e["name"] for e in fleet]
+
+    def test_negative_cases_reach_only_their_fixtures(self) -> None:
+        fleet = fixture_fleet.load_fleet()
+        scope = fixture_fleet.token_scope(fleet, negative_cases_only=True)
+        assert scope
+        assert set(scope) == {e["name"] for e in fleet if e.get("negative_cases")}
+
+    def test_an_empty_scope_is_refused_not_passed_on(self, monkeypatch, capsys) -> None:
+        monkeypatch.setattr(fixture_fleet, "load_fleet", lambda: [])
+        monkeypatch.setattr(sys, "argv", ["fixture_fleet.py"])
+        assert fixture_fleet.main() == 1
+        assert "repos=" not in capsys.readouterr().out

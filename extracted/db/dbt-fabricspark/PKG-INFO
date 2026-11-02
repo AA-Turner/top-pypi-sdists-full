@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-fabricspark
-Version: 1.13.10
+Version: 1.13.11
 Summary: A Microsoft Fabric Spark adapter plugin for dbt
 Project-URL: homepage, https://github.com/microsoft/dbt-fabricspark
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabricspark-profile
@@ -668,6 +668,11 @@ attempts include the original execution. Matching failures use capped
 exponential backoff; non-matching failures return immediately without retrying.
 Use narrow patterns because replaying a non-idempotent SQL statement or API
 operation can produce duplicate effects.
+
+While a `streaming_table` model awaits its run, a `metadata_error` status row whose
+failure matches a pattern is treated as a transient catalog read. The adapter keeps
+polling with the same backoff until `statement_timeout`; any other failure still
+fails the model.
 
 ### Configuration Reference
 

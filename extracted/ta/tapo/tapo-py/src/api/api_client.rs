@@ -1,0 +1,271 @@
+use std::time::Duration;
+
+use pyo3::prelude::*;
+use tapo::{
+    ApiClient, CameraHandler, CameraHubHandler, CameraPtzHandler, ColorLightHandler,
+    DeviceDiscovery, DeviceDiscoveryRaw, Error, HubHandler, HubIrHandler, LightHandler,
+    PlugEnergyMonitoringHandler, PlugHandler, PowerStripEnergyMonitoringHandler, PowerStripHandler,
+    RgbLightStripHandler, RgbicLightStripHandler,
+};
+
+use crate::call_handler_constructor;
+
+use super::{
+    PyCameraHandler, PyCameraHubHandler, PyCameraPtzHandler, PyColorLightHandler,
+    PyDeviceDiscovery, PyDeviceDiscoveryRaw, PyHubHandler, PyHubIrHandler, PyLightHandler,
+    PyPlugEnergyMonitoringHandler, PyPlugHandler, PyPowerStripEnergyMonitoringHandler,
+    PyPowerStripHandler, PyRgbLightStripHandler, PyRgbicLightStripHandler,
+};
+
+#[pyclass(name = "ApiClient")]
+pub struct PyApiClient {
+    client: ApiClient,
+}
+
+/// Tapo API Client constructor.
+#[pymethods]
+impl PyApiClient {
+    #[new]
+    #[pyo3(signature = (tapo_username, tapo_password, timeout_s=None))]
+    pub fn new(
+        tapo_username: String,
+        tapo_password: String,
+        timeout_s: Option<u64>,
+    ) -> Result<Self, Error> {
+        let client = match timeout_s {
+            Some(timeout_s) => ApiClient::new(tapo_username, tapo_password)
+                .with_timeout(Duration::from_secs(timeout_s)),
+            None => ApiClient::new(tapo_username, tapo_password),
+        };
+
+        Ok(Self { client })
+    }
+}
+
+/// Device discovery.
+#[pymethods]
+impl PyApiClient {
+    #[pyo3(signature = (target, timeout_s=10))]
+    pub async fn discover_devices(
+        &self,
+        target: String,
+        timeout_s: u64,
+    ) -> Result<PyDeviceDiscovery, Error> {
+        let discovery: DeviceDiscovery =
+            call_handler_constructor!(self, tapo::ApiClient::discover_devices, target, timeout_s);
+        Ok(PyDeviceDiscovery::new(discovery))
+    }
+}
+
+/// Debug API.
+#[pymethods]
+impl PyApiClient {
+    #[staticmethod]
+    #[pyo3(signature = (target, timeout_s=10))]
+    pub async fn discover_devices_raw(
+        target: String,
+        timeout_s: u64,
+    ) -> Result<PyDeviceDiscoveryRaw, Error> {
+        let discovery: DeviceDiscoveryRaw = crate::runtime::tokio()
+            .spawn(ApiClient::discover_devices_raw(target, timeout_s))
+            .await
+            .map_err(anyhow::Error::from)??;
+        Ok(PyDeviceDiscoveryRaw::new(discovery))
+    }
+}
+
+/// Device handler builders.
+#[pymethods]
+impl PyApiClient {
+    pub async fn l510(&self, ip_address: String) -> PyResult<PyLightHandler> {
+        let handler: LightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l510, ip_address);
+        Ok(PyLightHandler::new(handler))
+    }
+
+    pub async fn l520(&self, ip_address: String) -> PyResult<PyLightHandler> {
+        let handler: LightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l520, ip_address);
+        Ok(PyLightHandler::new(handler))
+    }
+
+    pub async fn l430(&self, ip_address: String) -> PyResult<PyColorLightHandler> {
+        let handler: ColorLightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l430, ip_address);
+        Ok(PyColorLightHandler::new(handler))
+    }
+
+    pub async fn l530(&self, ip_address: String) -> PyResult<PyColorLightHandler> {
+        let handler: ColorLightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l530, ip_address);
+        Ok(PyColorLightHandler::new(handler))
+    }
+
+    pub async fn l535(&self, ip_address: String) -> PyResult<PyColorLightHandler> {
+        let handler: ColorLightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l535, ip_address);
+        Ok(PyColorLightHandler::new(handler))
+    }
+
+    pub async fn l610(&self, ip_address: String) -> PyResult<PyLightHandler> {
+        let handler: LightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l610, ip_address);
+        Ok(PyLightHandler::new(handler))
+    }
+
+    pub async fn l630(&self, ip_address: String) -> PyResult<PyColorLightHandler> {
+        let handler: ColorLightHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l630, ip_address);
+        Ok(PyColorLightHandler::new(handler))
+    }
+
+    pub async fn l900(&self, ip_address: String) -> PyResult<PyRgbLightStripHandler> {
+        let handler: RgbLightStripHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l900, ip_address);
+        Ok(PyRgbLightStripHandler::new(handler))
+    }
+
+    pub async fn l920(&self, ip_address: String) -> PyResult<PyRgbicLightStripHandler> {
+        let handler: RgbicLightStripHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l920, ip_address);
+        Ok(PyRgbicLightStripHandler::new(handler))
+    }
+
+    pub async fn l930(&self, ip_address: String) -> PyResult<PyRgbicLightStripHandler> {
+        let handler: RgbicLightStripHandler =
+            call_handler_constructor!(self, tapo::ApiClient::l930, ip_address);
+        Ok(PyRgbicLightStripHandler::new(handler))
+    }
+
+    pub async fn p100(&self, ip_address: String) -> PyResult<PyPlugHandler> {
+        let handler: PlugHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p100, ip_address);
+        Ok(PyPlugHandler::new(handler))
+    }
+
+    pub async fn p105(&self, ip_address: String) -> PyResult<PyPlugHandler> {
+        let handler: PlugHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p105, ip_address);
+        Ok(PyPlugHandler::new(handler))
+    }
+
+    pub async fn p125(&self, ip_address: String) -> PyResult<PyPlugHandler> {
+        let handler: PlugHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p125, ip_address);
+        Ok(PyPlugHandler::new(handler))
+    }
+
+    pub async fn tp10(&self, ip_address: String) -> PyResult<PyPlugHandler> {
+        let handler: PlugHandler =
+            call_handler_constructor!(self, tapo::ApiClient::tp10, ip_address);
+        Ok(PyPlugHandler::new(handler))
+    }
+
+    pub async fn p110(&self, ip_address: String) -> PyResult<PyPlugEnergyMonitoringHandler> {
+        let handler: PlugEnergyMonitoringHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p110, ip_address);
+        Ok(PyPlugEnergyMonitoringHandler::new(handler))
+    }
+
+    pub async fn p115(&self, ip_address: String) -> PyResult<PyPlugEnergyMonitoringHandler> {
+        let handler: PlugEnergyMonitoringHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p115, ip_address);
+        Ok(PyPlugEnergyMonitoringHandler::new(handler))
+    }
+
+    pub async fn p300(&self, ip_address: String) -> PyResult<PyPowerStripHandler> {
+        let handler: PowerStripHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p300, ip_address);
+        Ok(PyPowerStripHandler::new(handler))
+    }
+
+    pub async fn p304(&self, ip_address: String) -> PyResult<PyPowerStripEnergyMonitoringHandler> {
+        let handler: PowerStripEnergyMonitoringHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p304, ip_address);
+        Ok(PyPowerStripEnergyMonitoringHandler::new(handler))
+    }
+
+    pub async fn p306(&self, ip_address: String) -> PyResult<PyPowerStripHandler> {
+        let handler: PowerStripHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p306, ip_address);
+        Ok(PyPowerStripHandler::new(handler))
+    }
+
+    pub async fn p316(&self, ip_address: String) -> PyResult<PyPowerStripEnergyMonitoringHandler> {
+        let handler: PowerStripEnergyMonitoringHandler =
+            call_handler_constructor!(self, tapo::ApiClient::p316, ip_address);
+        Ok(PyPowerStripEnergyMonitoringHandler::new(handler))
+    }
+
+    pub async fn h100(&self, ip_address: String) -> PyResult<PyHubHandler> {
+        let handler: HubHandler =
+            call_handler_constructor!(self, tapo::ApiClient::h100, ip_address);
+        Ok(PyHubHandler::new(handler))
+    }
+
+    pub async fn h110(&self, ip_address: String) -> PyResult<PyHubIrHandler> {
+        let handler: HubIrHandler =
+            call_handler_constructor!(self, tapo::ApiClient::h110, ip_address);
+        Ok(PyHubIrHandler::new(handler))
+    }
+
+    pub async fn h200(&self, ip_address: String) -> PyResult<PyCameraHubHandler> {
+        let handler: CameraHubHandler =
+            call_handler_constructor!(self, tapo::ApiClient::h200, ip_address);
+        Ok(PyCameraHubHandler::new(handler))
+    }
+
+    pub async fn h500(&self, ip_address: String) -> PyResult<PyCameraHubHandler> {
+        let handler: CameraHubHandler =
+            call_handler_constructor!(self, tapo::ApiClient::h500, ip_address);
+        Ok(PyCameraHubHandler::new(handler))
+    }
+
+    pub async fn c120(&self, ip_address: String) -> PyResult<PyCameraHandler> {
+        let handler: CameraHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c120, ip_address);
+        Ok(PyCameraHandler::new(handler))
+    }
+
+    pub async fn c210(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c210, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn c220(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c220, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn c225(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c225, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn c325wb(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c325wb, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn c520ws(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::c520ws, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn tc40(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::tc40, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+
+    pub async fn tc70(&self, ip_address: String) -> PyResult<PyCameraPtzHandler> {
+        let handler: CameraPtzHandler =
+            call_handler_constructor!(self, tapo::ApiClient::tc70, ip_address);
+        Ok(PyCameraPtzHandler::new(handler))
+    }
+}

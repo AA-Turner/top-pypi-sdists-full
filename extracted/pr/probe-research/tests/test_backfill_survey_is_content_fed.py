@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import inspect
 
-from probe.cli import backfill_prompts as prompts
+from probe.cli.imports.folder.agents import prompts as prompts
 from probe.cli import backfill_run
 
 

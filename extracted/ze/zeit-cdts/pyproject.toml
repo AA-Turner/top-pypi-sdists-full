@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=77", "wheel", "setuptools-rust>=1.9"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zeit-cdts"
+version = "2.5.0"
+description = "Change detection and time series analysis of Earth observation data cubes: LandTrendr, CCDC, BFAST, TWDTW, phenology, accuracy assessment, embeddings and deep learning"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+keywords = ["remote sensing", "earth observation", "change detection", "time series", "landtrendr", "ccdc", "bfast", "xarray", "stac"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "numpy",
+    "numba>=0.53.0",
+    "rasterio",
+    "scikit-learn",
+    "scipy",
+    "dask[array]",
+    "xarray",
+    "pystac-client",
+    "stackstac",
+    "geopandas",
+    "planetary-computer",
+    "earthengine-api",
+    "requests",
+    "cryptography",
+    "zarr",
+    "pyarrow",
+    "rioxarray",
+    "geotessera>=0.11; python_version >= '3.12'"
+]
+
+[project.optional-dependencies]
+ai = [
+    "torch"
+]
+plot = [
+    "matplotlib",
+    "anywidget>=0.9"
+]
+dev = [
+    "torch",
+    "pytest",
+    "pytest-cov",
+    "pymannkendall",
+    "minisom==2.3.6",
+    "matplotlib",
+    "anywidget>=0.9"
+]
+
+[project.urls]
+Homepage = "https://github.com/sacridini/zeit-cdts"
+Documentation = "https://sacridini.github.io/zeit-cdts/"
+Issues = "https://github.com/sacridini/zeit-cdts/issues"
+
+[project.scripts]
+zeit = "zeit.cli:main"

@@ -1,0 +1,1 @@
+import{B as r}from"./index-Dkn7ZTWz.js";import{r as e}from"./_.contribution-dVTBEpIB.js";import"./editor.api-T72b7Uzm.js";e({id:"sql",extensions:[".sql"],aliases:["SQL"],loader:()=>r(()=>import("./sql-CCSDG5nI.js"),[])});

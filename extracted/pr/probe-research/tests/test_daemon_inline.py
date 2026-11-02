@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from probe import cli
-from probe.cli import daemon_cli
+from probe.cli.commands.daemon import daemon as daemon_cli
 from probe.daemon import worker as worker_mod
 from probe.sdk import session_marker
 
@@ -191,7 +191,7 @@ def test_quota_handoff_preserves_machine_preferences_and_refuses_failed_publicat
 
 
 def test_quota_read_only_cli_refuses_even_a_directed_write(daemon_session, capsys):
-    from probe.cli.write_gate import EXIT_REFUSED
+    from probe.cli.lifecycle.write_gate import EXIT_REFUSED
 
     session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
     assert session_marker.inline_on_budget(SID, session_marker.STATE_READ_ONLY)
@@ -522,9 +522,9 @@ def test_the_switch_is_refused_as_the_switch(guard, monkeypatch, capsys, start, 
 
 
 def test_while_inline_only_the_switch_and_the_question_folder_are_refused(guard, monkeypatch, capsys, tmp_path):
-    assert _denied(_run(guard, monkeypatch, capsys, _pre("probe project create my-sweep")))
+    assert _denied(_run(guard, monkeypatch, capsys, _pre("probe experiment create my-sweep")))
     session_marker.switch_to_inline(SID)
-    for command in ("probe project create my-sweep", "probe run list", "probe search 'lr sweep'",
+    for command in ("probe experiment create my-sweep", "probe run list", "probe search 'lr sweep'",
                     "probe notes push --file n.md", "probe session status"):
         assert not _denied(_run(guard, monkeypatch, capsys, _pre(command))), command
     assert not _denied(_run(guard, monkeypatch, capsys, _pre(tool="mcp__probe-research__search", tool_input={})))
@@ -541,7 +541,7 @@ def test_while_inline_only_the_switch_and_the_question_folder_are_refused(guard,
 
 def test_a_full_without_the_marker_stays_closed(guard, monkeypatch, capsys):
     session_marker.set_session_state(SID, session_marker.STATE_FULL)
-    out = _run(guard, monkeypatch, capsys, _pre("probe project create my-sweep"))
+    out = _run(guard, monkeypatch, capsys, _pre("probe experiment create my-sweep"))
     assert _denied(out)
     assert "`/probe inline`" in json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
 
@@ -551,7 +551,7 @@ def test_the_researchers_switch_ends_inline(guard, monkeypatch, capsys):
     _run(guard, monkeypatch, capsys, _prompt("/probe on"))
     assert session_marker.session_state(SID) == session_marker.STATE_DAEMON
     assert not session_marker.is_inline(SID)
-    assert _denied(_run(guard, monkeypatch, capsys, _pre("probe project create my-sweep")))
+    assert _denied(_run(guard, monkeypatch, capsys, _pre("probe experiment create my-sweep")))
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,224 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from numbers import Integral
+
+from .allele_read_helpers import get_single_allele_from_reads
+from .assembly import iterative_overlap_assembly
+from .default_parameters import (
+    MIN_VARIANT_SEQUENCE_COVERAGE,
+    VARIANT_SEQUENCE_LENGTH,
+    VARIANT_SEQUENCE_ASSEMBLY,
+    MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE
+)
+from .logging import get_logger
+from .read_identity import observation_groups
+from .variant_sequence_helpers import (
+    initial_variant_sequences_from_reads,
+    trim_variant_sequences,
+)
+
+logger = get_logger(__name__)
+
+
+class VariantSequenceCreator(object):
+    """
+    Assemble AlleleReads into candidate VariantSequence objects based on
+    overlap, retaining contained candidates with their compatible read
+    support for reference matching.
+    """
+    def __init__(
+            self,
+            min_variant_sequence_coverage=MIN_VARIANT_SEQUENCE_COVERAGE,
+            preferred_sequence_length=VARIANT_SEQUENCE_LENGTH,
+            variant_sequence_assembly=VARIANT_SEQUENCE_ASSEMBLY,
+            min_assembly_overlap_size=MIN_VARIANT_SEQUENCE_ASSEMBLY_OVERLAP_SIZE,
+            min_flanking_sequence_length=0):
+        """
+        Parameters
+        ----------
+        min_variant_sequence_coverage : int
+            Minimum number of RNA reads supporting each nucleotide of the
+            variant cDNA sequence
+
+        preferred_sequence_length : int
+            Preferred total number of nucleotides, including the alternate
+            allele. The allele and required flanking context may exceed this
+            budget; neither is discarded to meet a preferred output length.
+
+        variant_sequence_assembly : bool
+            Construct variant sequences by merging overlapping reads. If False
+            then variant sequences must be fully spanned by cDNA reads.
+
+        min_assembly_overlap_size : int
+            Minimum number of nucleotides shared by two sequences before they
+            can be merged into a single VariantSequence object.
+
+        min_flanking_sequence_length : int
+            Minimum desired context on each side of the variant, retained
+            when available even if the preferred total length is exceeded.
+            Both genomic sides are needed since transcript strand is not yet
+            known. This does not pad reads or invent missing sequence.
+
+        """
+        if (isinstance(min_variant_sequence_coverage, bool)
+                or not isinstance(min_variant_sequence_coverage, Integral) or min_variant_sequence_coverage < 0):
+            raise ValueError("min_variant_sequence_coverage must be a non-negative integer")
+        if preferred_sequence_length < 0:
+            raise ValueError("preferred_sequence_length must be non-negative")
+        if min_flanking_sequence_length < 0:
+            raise ValueError("min_flanking_sequence_length must be non-negative")
+        self.min_variant_sequence_coverage = min_variant_sequence_coverage
+        self.preferred_sequence_length = preferred_sequence_length
+        self.variant_sequence_assembly = variant_sequence_assembly
+        self.min_assembly_overlap_size = min_assembly_overlap_size
+        self.min_flanking_sequence_length = min_flanking_sequence_length
+
+    def reads_to_variant_sequences(
+            self,
+            variant,
+            reads):
+        """
+        Collapse variant-supporting RNA reads into consensus sequences of
+        approximately the preferred length (may differ at the ends of transcripts),
+        and trim consensus sequences to the requested RNA read coverage.
+
+        Parameters
+        ----------
+        variant : varcode.Variant
+
+        reads : list of AlleleRead objects
+            Reads which support the variant allele
+
+        Returns
+        -------
+        list of VariantSequence
+        """
+        # convert to list in case it's a generator
+        variant_reads = list(reads)
+
+        if len(variant_reads) == 0:
+            return []
+
+        alt_seq, variant_reads = get_single_allele_from_reads(variant_reads)
+
+        # the number of context nucleotides on either side of the variant
+        # is half the desired length (minus the number of variant nucleotides)
+        n_alt_nucleotides = len(alt_seq)
+
+        # The alternate allele may consume or exceed the preferred budget.
+        # Still retain the context needed for reference matching on either
+        # strand, and never pass negative flank limits to sequence slicing.
+        max_nucleotides_before_variant, max_nucleotides_after_variant = \
+            self.flanking_sequence_lengths(n_alt_nucleotides)
+
+        variant_sequences = initial_variant_sequences_from_reads(
+            variant_reads=variant_reads,
+            max_nucleotides_before_variant=max_nucleotides_before_variant,
+            max_nucleotides_after_variant=max_nucleotides_after_variant)
+
+        logger.debug(
+            "Initial pool of %d variant sequences (min length=%d, max length=%d)",
+            len(variant_sequences),
+            min(len(s) for s in variant_sequences),
+            max(len(s) for s in variant_sequences))
+
+        if self.variant_sequence_assembly:
+            # this is a tricky parameter to set correctly:
+            # by how many bases should two sequences overlap before
+            # we merge, currently defaulting to either half the non-variant
+            # nucleotides or the specified min_assembly_overlap_size
+            # (whichever is smaller)
+            min_overlap_size = min(
+                self.min_assembly_overlap_size,
+                max(1, (
+                    max_nucleotides_before_variant
+                    + max_nucleotides_after_variant) // 2))
+            variant_sequences = iterative_overlap_assembly(
+                variant_sequences,
+                min_overlap_size=min_overlap_size,
+                preserve_candidate_sequences=True)
+
+        if variant_sequences:
+            logger.debug(
+                "After overlap assembly: %d variant sequences (min length=%d, max length=%d)",
+                len(variant_sequences),
+                min(len(s) for s in variant_sequences),
+                max(len(s) for s in variant_sequences))
+        else:
+            logger.info("After overlap assembly: 0 variant sequences")
+            return []
+
+        # Ranking waits until after reference matching and translation: a
+        # shorter or less-supported sequence may be the only one in frame.
+        variant_sequences = trim_variant_sequences(
+            variant_sequences, self.min_variant_sequence_coverage)
+
+        if variant_sequences:
+            logger.debug(
+                ("After coverage filtering: %d variant sequences "
+                 "(min length=%d, max length=%d)"),
+                len(variant_sequences),
+                min(len(s) for s in variant_sequences),
+                max(len(s) for s in variant_sequences))
+        else:
+            logger.debug("After coverage filtering: 0 variant sequences")
+            return []
+
+        # Sort by decreasing read support, with content-based ties even when
+        # overlap assembly is disabled.
+        variant_sequences.sort(key=lambda vs: (
+            -len(observation_groups(vs.reads)), vs.prefix, vs.alt, vs.suffix))
+        return variant_sequences
+
+    def flanking_sequence_lengths(self, n_alt_nucleotides):
+        """Maximum genomic-side flanks entering a local assembly."""
+        n_surrounding_nucleotides = max(
+            self.preferred_sequence_length - n_alt_nucleotides,
+            2 * self.min_flanking_sequence_length)
+        max_after = n_surrounding_nucleotides // 2
+        # Prefer one extra prefix base when the available budget is odd.
+        return n_surrounding_nucleotides - max_after, max_after
+
+    def sequences_from_alt_reads_generator(self, variant_and_reads_generator):
+        """
+        For each (variant, [AlleleRead]) pair in the input generator,
+        collapse the reads into a list of VariantSequence objects.
+
+        Parameters
+        ----------
+        variant_and_reads_generator : generator
+            Sequence of Variant objects paired with a list of reads which
+            support that variant.
+
+        Yields pairs with the following fields:
+            - Variant
+            - list of VariantSequence objects
+        """
+        for variant, reads in variant_and_reads_generator:
+            variant_sequences = self.reads_to_variant_sequences(
+                variant=variant,
+                reads=reads)
+            yield variant, variant_sequences
+
+    def sequences_from_read_evidence_generator(
+            self, variant_and_read_evidence_generator):
+        """
+        Given a generator of (Variant, ReadEvidence) pairs, generate a
+        sequence of (Variant, [VariantSequence]) pairs.
+        """
+        reads_gen = (
+            (variant, read_evidence.alt_reads)
+            for (variant, read_evidence) in
+            variant_and_read_evidence_generator
+        )
+        return self.sequences_from_alt_reads_generator(reads_gen)

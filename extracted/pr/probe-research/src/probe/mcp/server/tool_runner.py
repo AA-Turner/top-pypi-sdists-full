@@ -31,12 +31,12 @@ def _view_default(fn: Callable[..., Any]) -> Any:
     shape worth seeing. inspect.signature is too expensive to run per call.
     """
     try:
-        param = inspect.signature(fn).parameters.get("view")
+        parameter = inspect.signature(fn).parameters.get("view")
     except (TypeError, ValueError):
         return None
-    if param is None or param.default is inspect.Parameter.empty:
+    if parameter is None or parameter.default is inspect.Parameter.empty:
         return None
-    return param.default
+    return parameter.default
 
 
 def _argument_validator(fn: Callable[..., Any]) -> Callable[[dict], dict]:

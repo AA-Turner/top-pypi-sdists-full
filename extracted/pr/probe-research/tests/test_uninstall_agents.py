@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import uninstall_agents
+from probe.cli.install.uninstall import agent_traces as uninstall_agents
 from probe.foundation.harness_registry import get_registry
 
 
@@ -151,7 +151,7 @@ def test_pi_entry_and_its_clone_go(homes, monkeypatch):
 
 
 def test_rules_skills_and_status_line_go_and_what_they_wrapped_comes_back(homes):
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
     from probe.shared.harness.harnesses.claude_code import statusline
 
     claude = homes / ".claude"
@@ -174,7 +174,7 @@ def test_rules_skills_and_status_line_go_and_what_they_wrapped_comes_back(homes)
 
 
 def test_a_rules_file_goes_only_when_probes_block_was_all_it_held(homes):
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     claude = homes / ".claude"
     claude.mkdir()
@@ -218,8 +218,9 @@ def test_a_settings_file_probe_made_alone_goes_with_it(homes):
 
 
 def test_turning_capture_off_for_removal_makes_no_tap_folder(homes, monkeypatch):
-    from probe.cli import capture
-    from probe.cli.capabilities import agent_target, tap_plugin_dir
+    from probe.cli.capture import capture
+    from probe.cli.wizard.state.agent_identity import agent_target
+    from probe.cli.wizard.state.capture_credentials import tap_plugin_dir
 
     with agent_target("codex"):
         assert capture._set_killswitch(create=False) is True

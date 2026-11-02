@@ -333,6 +333,8 @@ class ExecuteMixin:
         """Try to deliver captured outputs before the terminal status, like
         finish(), within what is left of the close's deadline. They are
         non-blocking: whatever does not land is left to the detached drainer."""
+        if getattr(self._client, "_drains_by_hand", False):
+            return  # an offline run: only `probe sync` delivers its queue, nothing here can
         while deadline is None or time.monotonic() < deadline:
             try:
                 self._client.flush(run_ref=self.id)

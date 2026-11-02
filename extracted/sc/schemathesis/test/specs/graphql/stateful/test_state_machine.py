@@ -7,7 +7,9 @@ from hypothesis.stateful import RuleBasedStateMachine
 import schemathesis
 from schemathesis.core.errors import NoProducers
 from schemathesis.core.failures import FailureGroup
+from schemathesis.generation.stateful.state_machine import BundleStateMachine
 from schemathesis.specs.graphql.stateful import GraphQLStateMachine, create_state_machine
+from test.utils import saved_example_keys
 
 _FULL_SCHEMA_SDL = """
     type Book { id: ID! }
@@ -227,7 +229,7 @@ def test_init_raises_NoProducers_when_no_rules(ctx):
 )
 def test_routing_override_present(method_name):
     # Regression: rule-declared target= must populate its bundle (overrides the parent's filter).
-    assert method_name in GraphQLStateMachine.__dict__
+    assert method_name in BundleStateMachine.__dict__
 
 
 def test_state_machine_has_real_transition_controller(ctx):
@@ -261,3 +263,11 @@ def test_state_machine_finds_planted_bug_via_python_api(book_id_scalar, ctx):
                 suppress_health_check=list(hypothesis.HealthCheck),
             )
         )
+
+
+def test_saved_scenarios_are_kept_per_schema(ctx):
+    use_after_create = ctx.graphql.apps.use_after_create().schema_url
+    keys = saved_example_keys(schemathesis.graphql.from_url(use_after_create).as_state_machine())
+    assert keys == saved_example_keys(schemathesis.graphql.from_url(use_after_create).as_state_machine())
+    use_after_delete = ctx.graphql.apps.use_after_delete().schema_url
+    assert keys.isdisjoint(saved_example_keys(schemathesis.graphql.from_url(use_after_delete).as_state_machine()))

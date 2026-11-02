@@ -146,6 +146,8 @@ def wired(app, tmp_path, monkeypatch):
     monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
     monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
+    # A job's project, as in real use: a bare logger's run opens there (every run has one).
+    monkeypatch.setenv("PROBE_PROJECT", "e1-home")
 
 
 def _points(app, run_id: str, key: str) -> list[int]:
@@ -257,6 +259,15 @@ def test_a_failed_init_is_a_no_op_logger(app, wired, tmp_path, monkeypatch):
         _trainer(logger, tmp_path).fit(Tiny(), _loader())  # training finishes
     assert app.runs == {}
     assert isinstance(logger.experiment, DummyExperiment)
+
+
+def test_a_run_with_no_project_stops_training_at_its_start(app, wired, tmp_path, monkeypatch):
+    """No project named and none set is a setup mistake, not an outage: it raises
+    instead of training unrecorded (every run has a project)."""
+    monkeypatch.delenv("PROBE_PROJECT")
+    with pytest.raises(probe.errors.ProjectRequired):
+        _trainer(ProbeLogger(), tmp_path).fit(Tiny(), _loader())
+    assert app.runs == {}
 
 
 def test_a_non_zero_rank_writes_nothing(app, wired, monkeypatch, tmp_path):

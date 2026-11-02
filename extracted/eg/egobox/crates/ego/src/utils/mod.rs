@@ -1,0 +1,37 @@
+mod bounds;
+mod cstr_pof;
+mod find_result;
+mod hot_start;
+mod logei_helper;
+mod misc;
+mod portfolio;
+mod sort_axis;
+mod start_points;
+
+pub(crate) mod gp_recorder;
+pub(crate) mod logging;
+
+pub use bounds::*;
+pub use cstr_pof::*;
+pub use find_result::*;
+pub use gp_recorder::*;
+pub use hot_start::*;
+pub use logei_helper::*;
+pub use misc::*;
+pub use portfolio::*;
+pub use start_points::*;
+
+/// Env variable to enable logging feature
+pub const EGOBOX_LOG: &str = "EGOBOX_LOG";
+
+/// Env variable to enable the portfolio method used for global infill criterion optimization
+pub const EGOR_USE_GP_VAR_PORTFOLIO: &str = "EGOR_USE_GP_VAR_PORTFOLIO";
+
+/// Gaussian process filename to save initial GPs built from initial_doe
+pub const EGOR_INITIAL_GP_FILENAME: &str = "egor_initial_gp.bin";
+
+/// Gaussian process filename to save GPs built at the last iteration
+pub const EGOR_GP_FILENAME: &str = "egor_gp.bin";
+
+/// Env variable to trigger run recording
+pub const EGOR_USE_STATE_RECORDING: &str = "EGOR_USE_STATE_RECORDING";

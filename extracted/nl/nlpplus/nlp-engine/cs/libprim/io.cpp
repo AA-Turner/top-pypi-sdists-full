@@ -1,0 +1,260 @@
+/*******************************************************************************
+Copyright (c) 1998-2009 by Text Analysis International, Inc.
+All rights reserved.
+*******************************************************************************/
+/****************************************
+Copyright � 1995 by Conceptual Systems.
+Copyright (c) 1995 by Conceptual Systems.
+All rights reserved.
+*****************************************/ 
+/*******************************************************************************
+*
+*									IO.C
+*
+* FILE:	conch.�/io.c
+* SUBJ:	Input/output stuff.
+* CR:	8/26/95 AM.
+*
+*******************************************************************************/
+
+#include "StdAfx.h"
+#include <filesystem>		// #323.
+#include <fstream>											// Upgrade	// 01/24/01 AM.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <string>
+#ifdef LINUX
+#include <sys/wait.h>	// WIFEXITED/WEXITSTATUS for run_silent.
+#endif
+#include "prim/libprim.h"
+#include "prim/prim.h"
+#include "prim/str.h"
+#include "prim/io.h"
+
+// Local defs.
+
+/**************************************************
+*						INDENT
+* FUN:	indent
+* SUBJ:	Print given number of spaces.
+* CR:	10/28/95 AM.
+*
+**************************************************/
+
+LIBPRIM_API void
+//indent(int num, FILE *out)		// 04/20/99 AM.
+indent(int num, std::_t_ostream *out)		// 04/20/99 AM.
+{
+while (num-- > 0)
+   //fprintf(out, " ");				// 04/20/99 AM.
+	*out << _T(" ");						// 04/20/99 AM.
+*out << std::flush;							// 04/20/99 AM.
+}
+
+
+/**************************************************
+*						SKIP_BLANKS
+* FUN:	skip_blanks
+* SUBJ:	Skip whitespace in input stream.
+* ASS:	Look at given char.  Don't skip newlines.
+* CR:	8/26/95 AM.
+* RET:	char after whitespace.
+*
+**************************************************/
+
+LIBPRIM_API _TCHAR
+//skip_blanks(char cc, FILE *fp)			// 04/20/99 AM.
+skip_blanks(_TCHAR cc, std::_t_istream *fp)		// 04/20/99 AM.
+{
+for (;;)
+   {
+   switch (cc)
+      {
+      case ' ':			/* Whitespace.		*/
+      case '\t':
+			// 04/16/99 AM. Problems with macros in DLL libraries.
+         //cc = getc(fp);		// 04/16/99 AM.
+			//cc = fgetc(fp);		// 04/16/99 AM.
+			cc = fp->get();				// 04/20/99 AM.
+         break;
+      default:			/* Newline,EOF,nonwhite. */
+         return(cc);
+      }
+   }
+}
+
+
+
+/**************************************************
+*						TAB
+* FUN:	tab
+* SUBJ:	Print given number of tabs.
+* CR:	10/28/95 AM.
+*
+**************************************************/
+
+LIBPRIM_API void
+//tab(int num, FILE *out)			// 04/20/99 AM.
+// Name conflicts with Gnu	// 10/27/06 AM.
+vttab(int num, std::_t_ostream *out)		// 04/20/99 AM.
+{
+while (num-- > 0)
+   //fprintf(out, "\t");		// 04/20/99 AM.
+	*out << _T("\t") << std::flush;		// 04/20/99 AM.
+}
+
+/********************************************
+* FN:		RESOLVE_FILE
+* CR:		07/01/03 AM.
+* SUBJ:	Given filename and base dir, resolve.
+* RET:	True if resolved ok, else false.
+* NOTE:	Buf assumed to be large enough for
+*			fname + bname + a few extra.
+*			Assuming basename is good, if present.
+********************************************/
+
+LIBPRIM_API bool
+resolve_file(_TCHAR *fname, _TCHAR *bname, /*DU*/ _TCHAR *buf)
+{
+// One way for every platform (#323): a name with a root ("/x", "C:\\x",
+// "\\x") is used as is, any other is taken relative to BNAME.
+if (Str_empty(fname))
+	{
+	*buf = '\0';
+	return false;
+	}
+std::filesystem::path p(fname);
+if (!p.has_root_path() && !Str_empty(bname))
+	p = std::filesystem::path(bname) / p;
+_tcscpy(buf, p.string().c_str());
+return true;
+}
+
+
+
+/********************************************
+* FN:		RUN_SILENT
+* CR:		03/16/07 AM.
+* SUBJ:	Run without popping up an MS-DOS Command Window.
+* RET:	T
+* NOTE:	Taken from Steven Szelei at
+*	http://www.codeproject.com/win32/runsilent.asp?df=100&forumid=4227&exp=0&select=581591
+********************************************/
+
+LIBPRIM_API DWORD run_silent(_TCHAR* strCMD);	// Defined below.
+
+LIBPRIM_API DWORD
+run_silent(_TCHAR* strFunct, _TCHAR* strstrParams)
+{
+#ifndef LINUX
+	STARTUPINFO StartupInfo;
+	PROCESS_INFORMATION ProcessInfo;
+	_TCHAR Args[4096];
+	_TCHAR *pEnvCMD = NULL;
+	_TCHAR *pDefaultCMD = _T("CMD.EXE");
+	ULONG rc;
+	
+	memset(&StartupInfo, 0, sizeof(StartupInfo));
+	StartupInfo.cb = sizeof(STARTUPINFO);
+	StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
+	StartupInfo.wShowWindow = SW_HIDE;
+
+	Args[0] = 0;
+
+	pEnvCMD = _tgetenv(_T("COMSPEC"));	// FIX.	// 06/04/07 AM.
+
+	// Bounded: an over-long command used to overrun Args.	// 10/13/26 DD.
+	int n = _sntprintf(Args, sizeof(Args)/sizeof(Args[0]), _T("%s /c %s %s"),
+		pEnvCMD ? pEnvCMD : pDefaultCMD,
+		strFunct ? strFunct : _T(""), strstrParams ? strstrParams : _T(""));
+	if (n < 0 || n >= (int)(sizeof(Args)/sizeof(Args[0])))
+		return (DWORD)-1;
+
+	if (!CreateProcess( NULL, Args, NULL, NULL, FALSE,
+		CREATE_NEW_CONSOLE, 
+		NULL, 
+		NULL,
+		&StartupInfo,
+		&ProcessInfo))
+	{
+		return GetLastError();		
+	}
+
+	WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+	if(!GetExitCodeProcess(ProcessInfo.hProcess, &rc))
+		rc = 0;
+
+	CloseHandle(ProcessInfo.hThread);
+	CloseHandle(ProcessInfo.hProcess);
+
+	return rc;
+#else
+	std::string cmd = std::string(strFunct ? strFunct : "") + " " + (strstrParams ? strstrParams : "");
+	return run_silent((_TCHAR *)cmd.c_str());
+#endif
+}
+
+// VARIANT	// 09/15/08 AM.
+LIBPRIM_API DWORD
+run_silent(_TCHAR* strCMD)
+{
+#ifndef LINUX
+	STARTUPINFO StartupInfo;
+	PROCESS_INFORMATION ProcessInfo;
+	_TCHAR Args[4096];
+	_TCHAR *pEnvCMD = NULL;
+	_TCHAR *pDefaultCMD = _T("CMD.EXE");
+	ULONG rc;
+	
+	memset(&StartupInfo, 0, sizeof(StartupInfo));
+	StartupInfo.cb = sizeof(STARTUPINFO);
+	StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
+	StartupInfo.wShowWindow = SW_HIDE;
+
+	Args[0] = 0;
+
+	pEnvCMD = _tgetenv(_T("COMSPEC"));	// FIX.	// 06/04/07 AM.
+
+	// "/c" option - Do the command then terminate the command window.
+	// Bounded: an over-long command used to overrun Args.	// 10/13/26 DD.
+	int n = _sntprintf(Args, sizeof(Args)/sizeof(Args[0]), _T("%s /c %s"),
+		pEnvCMD ? pEnvCMD : pDefaultCMD, strCMD ? strCMD : _T(""));
+	if (n < 0 || n >= (int)(sizeof(Args)/sizeof(Args[0])))
+		return (DWORD)-1;
+
+	if (!CreateProcess( NULL, Args, NULL, NULL, FALSE,
+		CREATE_NEW_CONSOLE, 
+		NULL, 
+		NULL,
+		&StartupInfo,
+		&ProcessInfo))
+	{
+		return GetLastError();		
+	}
+
+	WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+	if(!GetExitCodeProcess(ProcessInfo.hProcess, &rc))
+		rc = 0;
+
+	CloseHandle(ProcessInfo.hThread);
+	CloseHandle(ProcessInfo.hProcess);
+
+	return rc;
+#else
+	// Linux and macOS have no console window to hide, so this is the shell.
+	// It used to be "return 0": the command never ran, yet reported success,
+	// so system() and mkdir() did nothing outside Windows (#546).	// 10/13/26 DD.
+	if (!strCMD || !*strCMD)
+		return (DWORD)-1;
+	int status = system(strCMD);
+	if (status == -1)
+		return (DWORD)-1;
+	return (DWORD)(WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+#endif
+}
+
+// Possible alternates.	// 01/10 AM.
+// ShellExecute(0, "open", "whatever.exe", args, 0, SW_HIDE);

@@ -1,0 +1,465 @@
+"""
+Unit tests for the typed Tika server exception hierarchy.
+
+Status values and envelope shapes follow Tika 4's documented PipesResult statuses and the
+error-body format in the 4.x server migration guide. Some bodies are representative rather
+than captured: the 418 and FAILED_TO_INITIALIZE cases are constructed to exercise the
+fallback paths, and the oversized body is synthetic.
+
+These require neither Docker nor a live Tika server.
+"""
+
+from __future__ import annotations
+
+import copy
+import pickle
+from typing import Any
+
+import pytest
+
+from tika_client.exceptions import TikaBadRequestError
+from tika_client.exceptions import TikaContainerParseError
+from tika_client.exceptions import TikaCrashError
+from tika_client.exceptions import TikaEmbeddedParseError
+from tika_client.exceptions import TikaError
+from tika_client.exceptions import TikaParseErrorGroup
+from tika_client.exceptions import TikaPartialParseError
+from tika_client.exceptions import TikaPayloadTooLargeError
+from tika_client.exceptions import TikaSaturatedError
+from tika_client.exceptions import TikaServerError
+from tika_client.exceptions import TikaTimeoutError
+from tika_client.exceptions import raise_for_tika_status
+
+
+class FakeResponse:
+    """A minimal stand-in satisfying ResponseProtocol for exception-parsing tests."""
+
+    def __init__(self, status_code: int, text: str, headers: dict[str, Any] | None = None) -> None:
+        self.status_code = status_code
+        self.text = text
+        self.headers = headers or {}
+
+    def raise_for_status(self) -> None:  # pragma: no cover - not exercised here
+        pass
+
+    def json(self) -> Any:  # noqa: ANN401 - not exercised here
+        pass
+
+
+class TestTimeout:
+    def test_503_timeout_with_retry_after(self) -> None:
+        body = (
+            '{"status":"TIMEOUT","message":"java.lang.RuntimeException: '
+            'Server-side progress timeout: no progress for 4ms (limit: 1ms)"}'
+        )
+        response = FakeResponse(503, body, headers={"Retry-After": "5"})
+
+        with pytest.raises(TikaTimeoutError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "TIMEOUT"
+        assert "progress timeout" in (err.value.message or "")
+        assert err.value.retry_after == 5.0
+        assert err.value.status_code == 503
+
+    def test_500_timeout_status_also_maps_to_timeout_error(self) -> None:
+        """A 500 (not just 503) carrying a TIMEOUT envelope is still a timeout, matching
+        how TikaCrashError already treats OOM/UNSPECIFIED_CRASH regardless of status code."""
+        response = FakeResponse(500, '{"status":"TIMEOUT"}')
+
+        with pytest.raises(TikaTimeoutError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "TIMEOUT"
+        assert err.value.status_code == 500
+
+
+class TestSaturated:
+    def test_429_no_message_field(self) -> None:
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": "1"})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "CLIENT_UNAVAILABLE_WITHIN_MS"
+        assert err.value.message is None
+        assert err.value.retry_after == 1.0
+
+    def test_429_non_string_retry_after_header_does_not_escape_as_type_error(self) -> None:
+        # A multi-value header mapping may hand back a list rather than a str; float()
+        # would raise TypeError, which must not escape exception construction.
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": ["5"]})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "CLIENT_UNAVAILABLE_WITHIN_MS"
+        assert err.value.retry_after is None
+        assert err.value.status_code == 429
+
+
+class TestPayloadTooLarge:
+    def test_413_plain_text_body(self) -> None:
+        response = FakeResponse(413, "Request body exceeds maxRequestSizeBytes")
+
+        with pytest.raises(TikaPayloadTooLargeError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status is None
+        assert err.value.response_text == "Request body exceeds maxRequestSizeBytes"
+
+    def test_413_json_body(self) -> None:
+        response = FakeResponse(413, '{"status":"PAYLOAD_LIMIT_EXCEEDED"}')
+
+        with pytest.raises(TikaPayloadTooLargeError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "PAYLOAD_LIMIT_EXCEEDED"
+
+
+class TestPartialParse:
+    def test_422_empty_body(self) -> None:
+        response = FakeResponse(422, "")
+
+        with pytest.raises(TikaPartialParseError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.response_text == ""
+        assert err.value.tika_status is None
+
+    def test_422_partial_content_body_is_not_parsed_as_json(self) -> None:
+        response = FakeResponse(422, "<html><body>partial content, not JSON</body>")
+
+        with pytest.raises(TikaPartialParseError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.response_text == "<html><body>partial content, not JSON</body>"
+        assert err.value.tika_status is None
+
+
+class TestCrashInference:
+    def test_503_oom_status_maps_to_crash_error(self) -> None:
+        response = FakeResponse(503, '{"status":"OOM"}')
+
+        with pytest.raises(TikaCrashError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "OOM"
+
+    def test_500_oom_status_also_maps_to_crash_error(self) -> None:
+        """A 500 (not just 503) carrying an OOM status envelope is still a crash, not a bare TikaServerError."""
+        response = FakeResponse(500, '{"status":"OOM"}')
+
+        with pytest.raises(TikaCrashError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "OOM"
+        assert err.value.status_code == 500
+
+
+class TestFallback:
+    def test_unrecognized_status_code_falls_back_to_base_error(self) -> None:
+        response = FakeResponse(418, "I'm a teapot")
+
+        with pytest.raises(TikaServerError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert not isinstance(err.value, (TikaTimeoutError, TikaCrashError, TikaSaturatedError))
+        assert err.value.response_text == "I'm a teapot"
+
+    def test_500_with_json_envelope_is_not_json_gated_to_specific_codes(self) -> None:
+        response = FakeResponse(500, '{"status":"FAILED_TO_INITIALIZE","message":"config error"}')
+
+        with pytest.raises(TikaServerError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status == "FAILED_TO_INITIALIZE"
+        assert err.value.message == "config error"
+
+    def test_2xx_does_not_raise(self) -> None:
+        response = FakeResponse(200, '{"ok": true}')
+        raise_for_tika_status(response)  # type: ignore[arg-type]  # must not raise
+
+    def test_deeply_nested_json_body_does_not_raise_recursion_error(self) -> None:
+        """A hostile or corrupt server could return deeply nested JSON on an error path;
+        constructing the exception must degrade to tika_status=None, never crash instead."""
+        body = "[" * 100_000 + "]" * 100_000
+        response = FakeResponse(500, body)
+
+        with pytest.raises(TikaServerError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.tika_status is None
+        assert err.value.message is None
+
+
+class TestRetryAfterClamping:
+    def test_infinite_retry_after_is_discarded(self) -> None:
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": "inf"})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.retry_after is None
+
+    def test_nan_retry_after_is_discarded(self) -> None:
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": "nan"})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.retry_after is None
+
+    def test_negative_retry_after_is_discarded(self) -> None:
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": "-5"})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.retry_after is None
+
+    def test_normal_retry_after_is_unaffected(self) -> None:
+        response = FakeResponse(429, '{"status":"CLIENT_UNAVAILABLE_WITHIN_MS"}', headers={"Retry-After": "5"})
+
+        with pytest.raises(TikaSaturatedError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        assert err.value.retry_after == 5.0
+
+
+class TestStrRepresentation:
+    def test_str_includes_status_code_and_tika_status_and_message(self) -> None:
+        body = '{"status":"TIMEOUT","message":"progress timeout"}'
+        response = FakeResponse(503, body)
+
+        with pytest.raises(TikaTimeoutError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        rendered = str(err.value)
+        assert "503" in rendered
+        assert "TIMEOUT" in rendered
+        assert "progress timeout" in rendered
+
+    def test_str_degrades_gracefully_with_no_status_or_message(self) -> None:
+        response = FakeResponse(413, "Request body exceeds maxRequestSizeBytes")
+
+        with pytest.raises(TikaPayloadTooLargeError) as err:
+            raise_for_tika_status(response)  # type: ignore[arg-type]
+
+        rendered = str(err.value)
+        assert "413" in rendered
+        assert rendered != ""
+
+
+class TestBadRequest:
+    """
+    400 is a distinct category in Tika 4: the request is malformed and retrying never helps.
+
+    The migration guide tells clients branching on status code to account for the
+    429 / 400 / 413 mappings. Without a type of its own, callers cannot tell a
+    permanently bad request from a transient server problem.
+    """
+
+    def test_400_raises_bad_request(self) -> None:
+        """A malformed request is its own type rather than the generic server error."""
+        response = FakeResponse(400, '{"status":"FETCHER_NOT_FOUND"}')
+
+        with pytest.raises(TikaBadRequestError) as err:
+            raise_for_tika_status(response)
+
+        assert err.value.status_code == 400
+        assert err.value.tika_status == "FETCHER_NOT_FOUND"
+
+    def test_400_from_an_unknown_handler_name(self) -> None:
+        """Naming handlers in the path means a client/server skew surfaces as a 400."""
+        response = FakeResponse(400, "Unrecognized handler: bogus. Valid types: text, html, body")
+
+        with pytest.raises(TikaBadRequestError):
+            raise_for_tika_status(response)
+
+    def test_bad_request_is_distinguishable_from_server_error(self) -> None:
+        """A 500 must not be caught by a handler that only wants non-retryable failures."""
+        with pytest.raises(TikaServerError) as err:
+            raise_for_tika_status(FakeResponse(500, ""))
+
+        assert not isinstance(err.value, TikaBadRequestError)
+
+
+class TestEnvelopeClassificationPrecedence:
+    """
+    The 422 branch ran before the envelope was parsed, so it swallowed crash statuses.
+
+    The module documents that TIMEOUT and crash statuses are classified regardless of
+    status code. The 422 short-circuit contradicted that for any 422 carrying an envelope.
+    """
+
+    def test_422_carrying_timeout_is_classified_as_timeout(self) -> None:
+        """An envelope status wins over the bare status code when declared as JSON."""
+        response = FakeResponse(
+            422,
+            '{"status":"TIMEOUT"}',
+            headers={"Content-Type": "application/json"},
+        )
+
+        with pytest.raises(TikaTimeoutError):
+            raise_for_tika_status(response)
+
+    def test_422_without_an_envelope_is_still_a_partial_parse(self) -> None:
+        """The common 422 shape, raw partial content, keeps its existing meaning."""
+        response = FakeResponse(422, "<html><body>partial content</body>")
+
+        with pytest.raises(TikaPartialParseError):
+            raise_for_tika_status(response)
+
+    def test_empty_422_is_still_a_partial_parse(self) -> None:
+        """An empty 422 body has no envelope to classify from."""
+        with pytest.raises(TikaPartialParseError):
+            raise_for_tika_status(FakeResponse(422, ""))
+
+
+class TestParseErrorGroup:
+    """
+    Docker-free coverage of TikaParseErrorGroup, including derive().
+
+    derive() is the reason the class carries a type: ignore, and split() / subgroup() are
+    the only things that exercise it. Every other group test needs a container, so without
+    these the subtlest code in the hierarchy runs only on the Docker leg.
+    """
+
+    @staticmethod
+    def _group() -> TikaParseErrorGroup:
+        return TikaParseErrorGroup(
+            "2 of 3 documents failed to parse",
+            [
+                TikaContainerParseError(data={}, detail="container failed"),
+                TikaEmbeddedParseError(data={}, detail="embedded failed"),
+            ],
+        )
+
+    def test_is_catchable_as_tika_error(self) -> None:
+        """The whole point of the subclass: a bare ExceptionGroup escapes except TikaError."""
+        with pytest.raises(TikaError):
+            raise self._group()
+
+    def test_subgroup_preserves_the_subclass(self) -> None:
+        """derive() keeps subgroup() from degrading to a plain ExceptionGroup."""
+        matched = self._group().subgroup(TikaEmbeddedParseError)
+
+        assert isinstance(matched, TikaParseErrorGroup)
+        assert len(matched.exceptions) == 1
+
+    def test_split_preserves_the_subclass_on_both_halves(self) -> None:
+        """Both halves of a split must survive as the subclass."""
+        matched, rest = self._group().split(TikaContainerParseError)
+
+        assert isinstance(matched, TikaParseErrorGroup)
+        assert isinstance(rest, TikaParseErrorGroup)
+
+    def test_subgroup_with_no_match_returns_none(self) -> None:
+        """An empty result is None rather than an illegal empty group."""
+        assert self._group().subgroup(TikaTimeoutError) is None
+
+    def test_except_star_dispatches_into_the_subclass(self) -> None:
+        """except* must see the concrete class, not a degraded group."""
+        caught: list[BaseException] = []
+        try:
+            raise self._group()
+        except* TikaContainerParseError as eg:
+            caught.extend(eg.exceptions)
+        except* TikaEmbeddedParseError:
+            # Unmatched parts of a group propagate, so the remainder needs a handler too.
+            pass
+
+        assert len(caught) == 1
+        assert isinstance(caught[0], TikaContainerParseError)
+
+    def test_empty_group_is_rejected(self) -> None:
+        """CPython enforces a non-empty sequence, so callers must guard before raising."""
+        with pytest.raises(ValueError, match="non-empty"):
+            TikaParseErrorGroup("nothing failed", [])
+
+
+class TestEnvelopeOverrideIsGatedOnContentType:
+    """
+    A 422 body is user-supplied document content, so it must not steer classification.
+
+    Envelope classification is right for a real error body, but a 422 carries the raw
+    partially-extracted document. A JSON document that happens to extract to something
+    shaped like an error envelope would otherwise pick its own exception type.
+    """
+
+    def test_422_json_envelope_with_json_content_type_is_classified(self) -> None:
+        """A genuine error envelope, declared as JSON, still wins over the status code."""
+        response = FakeResponse(
+            422,
+            '{"status":"TIMEOUT"}',
+            headers={"Content-Type": "application/json"},
+        )
+
+        with pytest.raises(TikaTimeoutError):
+            raise_for_tika_status(response)
+
+    def test_422_envelope_shaped_document_content_is_not_classified(self) -> None:
+        """Extracted document content that mimics an envelope stays a partial parse."""
+        response = FakeResponse(
+            422,
+            '{"status":"TIMEOUT"}',
+            headers={"Content-Type": "text/html;charset=UTF-8"},
+        )
+
+        with pytest.raises(TikaPartialParseError):
+            raise_for_tika_status(response)
+
+    def test_422_without_a_content_type_is_not_classified(self) -> None:
+        """Absent a declared JSON type, the conservative reading is a partial parse."""
+        response = FakeResponse(422, '{"status":"OOM"}')
+
+        with pytest.raises(TikaPartialParseError):
+            raise_for_tika_status(response)
+
+    def test_non_422_envelopes_are_unaffected_by_content_type(self) -> None:
+        """Only 422 carries document content; a 503 body is always a real error body."""
+        response = FakeResponse(503, '{"status":"TIMEOUT"}', headers={"Content-Type": "text/plain"})
+
+        with pytest.raises(TikaTimeoutError):
+            raise_for_tika_status(response)
+
+
+class TestParseErrorsSurviveProcessBoundaries:
+    """
+    Parse errors are aggregated into groups, which is exactly what crosses process
+    boundaries under concurrent.futures, celery or pytest-xdist. Keyword-only __init__
+    with empty .args made them die on unpickling with an unrelated TypeError.
+    """
+
+    def test_parse_error_pickle_round_trip(self) -> None:
+        """The error survives transport with its detail and data intact."""
+        original = TikaContainerParseError(data={"a": "b"}, detail="boom")
+
+        restored = pickle.loads(pickle.dumps(original))  # noqa: S301
+
+        assert isinstance(restored, TikaContainerParseError)
+        assert restored.detail == "boom"
+        assert restored.data == {"a": "b"}
+
+    def test_parse_error_deepcopy(self) -> None:
+        """deepcopy uses the same reduction path as pickle."""
+        original = TikaEmbeddedParseError(data={"a": "b"}, detail="boom")
+
+        restored = copy.deepcopy(original)
+
+        assert isinstance(restored, TikaEmbeddedParseError)
+        assert restored.detail == "boom"
+
+    def test_group_pickle_round_trip(self) -> None:
+        """A group of parse errors survives transport, sub-exceptions included."""
+        original = TikaParseErrorGroup(
+            "1 of 2 documents failed to parse",
+            [TikaContainerParseError(data={}, detail="boom")],
+        )
+
+        restored = pickle.loads(pickle.dumps(original))  # noqa: S301
+
+        assert isinstance(restored, TikaParseErrorGroup)
+        assert len(restored.exceptions) == 1
+        assert restored.exceptions[0].detail == "boom"

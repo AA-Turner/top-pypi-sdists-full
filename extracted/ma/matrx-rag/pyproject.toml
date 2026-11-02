@@ -1,0 +1,63 @@
+[project]
+name = "matrx-rag"
+version = "0.1.392"
+description = "Multi-tenant RAG: hybrid retrieval, chunking, embeddings, ingestion, PDF + image + repo pipelines, agent-extraction indexing, priority-aware ranking."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Matrx", email = "admin@aimatrx.com" }]
+requires-python = ">=3.13"
+keywords = ["matrx", "rag", "retrieval", "embeddings", "supabase", "pgvector"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    # Core
+    "matrx-utils>=2.0.109",
+    "matrx-files[pdf,ocr]>=0.2.328",
+    "pydantic>=2.12",
+    # Embeddings + LLM (defaults; injection seams replace in Phase 2b)
+    "openai>=2.0",
+    "voyageai>=0.3",
+    # Chunking
+    "langchain-text-splitters>=0.3",
+    "tiktoken>=0.8",
+    # PDF
+    "pdfplumber>=0.11",
+    # DB — matrx-orm is a CORE dependency: the package ships its own
+    # generated Model classes (matrx_rag/db/models*.py) and binds them to a
+    # pool via bind_to_host/bootstrap_db. The platform DB exports used at
+    # module scope first shipped in 3.1.49.
+    "asyncpg>=0.30",
+    "matrx-orm>=3.1.275",
+]
+
+[project.optional-dependencies]
+host = [
+    "matrx-connect>=0.1.257",
+]
+api = [
+    "fastapi>=0.115",
+    "matrx-connect>=0.1.257",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_rag"]
+# matrx_rag/migrations/*.sql are auto-included by hatchling because they
+# live inside the package directory. Don't add force-include here — it
+# duplicates each .sql file in the wheel.

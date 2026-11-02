@@ -17,11 +17,16 @@ import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.failures import AcceptedNegativeData, Failure
+from schemathesis.core.failures import AcceptedNegativeData, AuthScenario, Failure, IgnoredAuth
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator, resolve_bundled_ref
 from schemathesis.core.jsonschema.types import JsonSchema, as_object_schema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
-from schemathesis.core.parameters import ParameterLocation, plain_str_values
+from schemathesis.core.parameters import (
+    CONCRETE_LOCATIONS,
+    PARAMETER_LOCATIONS,
+    ParameterLocation,
+    plain_str_values,
+)
 from schemathesis.core.transport import (
     AUTH_REJECTION_STATUSES,
     HTTP_METHODS_SCHEMA,
@@ -42,9 +47,7 @@ from schemathesis.generation.meta import (
 )
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
-    AuthScenario,
     EnsureResourceAvailability,
-    IgnoredAuth,
     JsonSchemaError,
     MalformedMediaType,
     MissingContentType,
@@ -233,7 +236,10 @@ def response_headers_conformance(ctx: CheckContext, response: Response, case: Ca
         # A header whose schema names a missing component has nothing to validate against.
         if header.unresolvable_reference is not None:
             continue
-        coerced = _coerce_header_value(values[0], header.schema, explode=header.definition.get("explode", False))
+        if header.is_json:
+            coerced = _parse_json_header_value(values[0])
+        else:
+            coerced = _coerce_header_value(values[0], header.schema, explode=header.definition.get("explode", False))
         for exc in header.validator.iter_errors(coerced):
             errors.append(
                 JsonSchemaError.from_exception(
@@ -252,6 +258,14 @@ def response_headers_conformance(ctx: CheckContext, response: Response, case: Ca
         errors.append(MissingHeaders(operation=case.operation.label, message=message, missing_headers=missing_headers))
 
     return maybe_raise_one_or_more(errors)  # type: ignore[func-returns-value]
+
+
+def _parse_json_header_value(value: str) -> object:
+    # A value that is not JSON is validated as text, so the schema reports the mismatch
+    try:
+        return json.loads(value)
+    except ValueError:
+        return value
 
 
 def _coerce_header_value(value: str, schema: dict[str, Any], *, explode: bool = False) -> Any:
@@ -335,13 +349,7 @@ def _has_other_negated_location(case: Case, *locations: ParameterLocation) -> bo
     """Whether a location outside `locations` carries a negation the server could act on."""
     meta = case.meta
     assert meta is not None
-    for other in (
-        ParameterLocation.PATH,
-        ParameterLocation.QUERY,
-        ParameterLocation.HEADER,
-        ParameterLocation.COOKIE,
-        ParameterLocation.BODY,
-    ):
+    for other in PARAMETER_LOCATIONS:
         if other in locations:
             continue
         if not meta.is_negative_at(other):
@@ -793,12 +801,7 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
 
     has_negative = False
 
-    for location in (
-        ParameterLocation.PATH,
-        ParameterLocation.QUERY,
-        ParameterLocation.HEADER,
-        ParameterLocation.COOKIE,
-    ):
+    for location in CONCRETE_LOCATIONS:
         if not meta.is_negative_at(location):
             continue
 
@@ -849,10 +852,7 @@ def _negative_body_replaced_by_caller(ctx: CheckContext, case: Case) -> bool:
 
 @schemathesis.check
 def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-    if not _is_openapi(case):
-        case.operation.schema.evaluate_negative_data(case, response)
-        return None
-    return _openapi_negative_data_rejection(ctx, response, case)
+    return case.operation.schema.evaluate_negative_data(ctx, response, case)
 
 
 @skips_on_unexpected_http_status
@@ -1064,10 +1064,7 @@ def _grants_credentials(operation: APIOperation) -> bool:
 
 @schemathesis.check
 def positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-    if not _is_openapi(case):
-        case.operation.schema.evaluate_positive_data(case, response)
-        return None
-    return _openapi_positive_data_acceptance(ctx, response, case)
+    return case.operation.schema.evaluate_positive_data(ctx, response, case)
 
 
 @skips_on_unexpected_http_status
@@ -1564,10 +1561,13 @@ class AuthKind(enum.StrEnum):
 
 
 @schemathesis.check
-@requires_openapi_schema
-@skips_on_unexpected_http_status
 def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     """Check if an operation declares authentication as a requirement but does not actually enforce it."""
+    return case.operation.schema.evaluate_auth(ctx, response, case)
+
+
+@skips_on_unexpected_http_status
+def _openapi_ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     from schemathesis.specs.openapi.adapter.security import has_effective_optional_auth
 
     operation = case.operation
@@ -1636,7 +1636,11 @@ def _has_undeclared_explicit_authorization(
         ctx.internals.override.headers if ctx.internals.override else None,
         response._override.headers if response._override else None,
     ]
-    return any(headers is not None and any(name.lower() == "authorization" for name in headers) for headers in sources)
+    return any(headers is not None and _has_header(headers, "Authorization") for headers in sources)
+
+
+def _has_header(headers: Mapping[str, Any], name: str) -> bool:
+    return any(key.lower() == name.lower() for key in headers)
 
 
 def _enforces_auth(response: Response, authenticated: Response) -> bool:
@@ -1717,8 +1721,8 @@ def _contains_auth(
                 # Explicit CLI headers
                 (internals.headers is not None and name in internals.headers)
                 # Other kinds of overrides
-                or (internals.override and name in internals.override.headers)
-                or (response._override and name in response._override.headers)
+                or (internals.override and _has_header(internals.override.headers, name))
+                or (response._override and _has_header(response._override.headers, name))
             ):
                 return AuthKind.EXPLICIT
             return AuthKind.GENERATED

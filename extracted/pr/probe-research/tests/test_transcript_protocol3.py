@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core import atif_fragment
 from probe.tap_core import session_journal as sj
 from probe.tap_core.session_journal import (
@@ -1347,7 +1347,8 @@ def test_a_pending_protocol_3_body_with_a_credential_in_a_fragment_is_refused(tm
 def test_the_importer_uploads_on_protocol_3_when_offered(tmp_path, monkeypatch):
     monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
     wire = DoorWire(offers=True)
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     transcript = _transcript(tmp_path)
     poster = bt.Poster(wire.base_url, wire.token)
     record = bt.SessionRecord(session_id=transcript.session_id)
@@ -1369,7 +1370,8 @@ def test_the_importer_restarts_a_refused_batch_0_on_protocol_2_in_the_same_run(t
     monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
     wire = DoorWire(offers=True)
     wire.enabled = False  # offered by the receipts answer, refused by the door
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     transcript = _transcript(tmp_path)
     record = bt.SessionRecord(session_id=transcript.session_id)
     result = bt.upload_session(transcript, record, bt.Poster(wire.base_url, wire.token), device_id="")
@@ -1386,7 +1388,8 @@ def test_an_import_budget_below_protocol_3s_target_still_sends(tmp_path, monkeyp
     monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setattr(sj, "MAX_FRAGMENT_BODY_BYTES", 40_000)
     wire = DoorWire(offers=True)
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     sid, path = _long_session(tmp_path)  # 12 lines, ~38 KB of fragments
     transcript = bt.Transcript(path, sid, "claude_code", CWD, path.stat().st_size, path.stat().st_mtime)
     record = bt.SessionRecord(session_id=sid)
@@ -1404,7 +1407,8 @@ def test_the_importer_sends_a_retired_protocol_2_batch_0_again_on_3_in_the_same_
     staged and never delivered is restarted on protocol 3 inline."""
     monkeypatch.setenv("PROBE_TRANSCRIPT_STATE_DIR", str(tmp_path / "state"))
     door = DoorWire(offers=False)
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: door)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: door)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: door)
     transcript = _transcript(tmp_path)
     poster = bt.Poster(door.base_url, door.token)
     monkeypatch.setattr(door, "post", lambda body: (503, {"detail": "unavailable"}))
@@ -1431,7 +1435,8 @@ def test_the_importer_stops_restarting_a_session_whose_server_flips(tmp_path, mo
     door = DoorWire(offers=True)
     door.refuse_batch0 = "protocol 3 not enabled"
     door.protocol2_new_streams = False
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: door)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: door)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: door)
     transcript = _transcript(tmp_path)
     result = bt.upload_session(
         transcript, bt.SessionRecord(session_id=transcript.session_id),

@@ -1,5 +1,6 @@
 """NotesResource (client.notes, typed reads) and NotesMixin, Client's methods: notes, sub-notes, the
-notes catalog, the project notes file and the team note (twins: app/notes, app/team_notes)."""
+notes catalog, the project notes file and the team note
+(twins: app/projects/notes, app/projects/team_notes)."""
 
 from __future__ import annotations
 from ....generated.models import (
@@ -13,6 +14,7 @@ from ....generated.models import (
 from ..resource import Resource
 
 from ... import errors
+from probe.sdk.routes import WriteOp, path_for
 
 
 class NotesMixin:
@@ -52,7 +54,7 @@ class NotesMixin:
         # queued write skips that check entirely, so under async the guard
         # would never run. These are one-shot metadata writes, not loop
         # traffic, so paying the round trip costs nothing that matters.
-        queued = self.write(
+        queued = self.send(
             "PATCH",
             f"/v1/projects/{project_id}",
             # force: this door replaces a whole document with no version in hand
@@ -61,7 +63,6 @@ class NotesMixin:
             # what this verb has always done; `probe notes checkout`/`push` is
             # the door that actually merges.
             {"notes": text, "force": True},
-            sync=True,
             raise_permanent=True,
         )
         # scanning disabled: from .redaction import default_scrub
@@ -140,7 +141,7 @@ class NotesMixin:
                 journaled=self._journals(strict=strict, sync=sync),
             )
         if entity == "run":
-            return self.write("PATCH", f"/v1/runs/{entity_id}", body, **kw)
+            return self.write("PATCH", path_for(WriteOp.RUN_PATCH, entity_id), body, **kw)
         raise errors.RosError(
             f"{entity!r} carries no notes; expected one of {', '.join(self.NOTES_ENTITIES)}"
         )
@@ -310,17 +311,16 @@ class NotesMixin:
             body["force"] = True
         else:
             body["base_version"] = base_version
-        return self.write(
+        return self.send(
             "PATCH",
             f"/v1/sub-notes/{sub_note_id}",
             body,
             strict=True,
-            sync=True,
             raise_permanent=True,
         )
 
     def _rename_sub_note(self, sub_note_id: str, title: str) -> dict | None:
-        return self.write(
+        return self.send(
             "PATCH",
             f"/v1/sub-notes/{sub_note_id}",
             {"title": title},
@@ -435,12 +435,11 @@ class NotesMixin:
         # and the merged body when the server combined two edits). Journaling
         # this write for later delivery would hand back None and leave the local
         # base copy pointing at a version that never existed.
-        return self.write(
+        return self.send(
             "POST",
             "/v1/team-note/sync",
             {"body": body, "base_version": base_version},
             strict=True,
-            sync=True,
         )
 
     def append_team_note(self, text: str) -> dict:
@@ -459,12 +458,11 @@ class NotesMixin:
         # strict + sync: never journaled. A refusal replayed later is the same
         # refusal, and a queued write would hand back None instead of the
         # version the caller reports.
-        return self.write(
+        return self.send(
             "POST",
             "/v1/team-note/apply/paragraph",
             {"text": text},
             strict=True,
-            sync=True,
             raise_permanent=True,
         )
 
@@ -475,12 +473,11 @@ class NotesMixin:
         409's detail carries `match_count`. `new_text=""` deletes it. Same
         return shape and other refusals as `append_team_note`.
         """
-        return self.write(
+        return self.send(
             "POST",
             "/v1/team-note/apply/span",
             {"old_text": old_text, "new_text": new_text},
             strict=True,
-            sync=True,
             raise_permanent=True,
         )
 
@@ -509,7 +506,7 @@ class NotesMixin:
         number and is itself recorded, so undoing an undo is possible and the
         history never loses the versions being stepped over.
         """
-        return self.write("POST", f"/v1/team-note/versions/{version}/restore", {}, strict=True)
+        return self.send("POST", f"/v1/team-note/versions/{version}/restore", {}, strict=True)
 
 
 class NotesResource(Resource):

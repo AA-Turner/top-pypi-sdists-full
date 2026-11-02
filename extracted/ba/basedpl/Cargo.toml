@@ -1,0 +1,131 @@
+[workspace]
+members = ["py"]
+
+[workspace.metadata.fastfmt]
+join_comments = true
+
+[workspace.package]
+version = "0.1.82"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+rustymath = { version = ">=0.1.53, <1", default-features = false }
+rustymath-buffer = ">=0.1.53, <1"
+pyo3 = ">=0.29.2, <1"
+pyo3-build-config = ">=0.29.2, <1"
+ctrlc = ">=3.5.2, <4"
+kernmini = ">=0.1.22, <1"
+# Custom bindings override Emacs Alt-digit prefixes in this fork.
+rustyline = { git = "https://github.com/AnswerDotAI/rustyline.git", branch = "master", default-features = false, features = ["custom-bindings", "with-file-history"] }
+
+[package]
+name = "basedpl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "BasedPL, the Based-array Programming Language, is an APL-derived array language, borrowing ideas from J and BQN, with an emphasis on simple, consistent notation."
+
+[lib]
+doctest = false
+# Without a unit-test build, `cargo test` compiles the library only once.
+test = false
+
+[profile.test]
+inherits = "release"
+
+[profile.release]
+opt-level = 2
+# Thin LTO across the crate's own codegen units, Cargo's default. Incremental builds put `#[inline]` helpers such as iterator adapters in codegen units of their own, where only LTO can inline them.
+lto = false
+overflow-checks = false
+debug-assertions = false
+incremental = true
+# Line tables change with every shifted line and recompile the code below it.
+debug = false
+
+[profile.dist]
+inherits = "release"
+incremental = false
+strip = true
+
+# A local run before each release (`cargo test --profile checked`): debug assertions add `session()`'s turn check and the standard library's checks in unsafe code, at 12 to 55% per call.
+[profile.checked]
+inherits = "test"
+debug-assertions = true
+
+[features]
+default = ["native"]
+# rustymath's own linear algebra, beside Accelerate on macOS, for `RUSTYMATH_NATIVE=1`. The Mac release builds turn it off.
+native = ["rustymath/native"]
+
+[dependencies]
+csv = "1"
+tempfile = "3"
+serde = ">=1.0.229, <2"
+serde_json = { version = "1", features = ["arbitrary_precision", "preserve_order"] }
+unicode-width = { version = ">=0.2.2, <1", default-features = false }
+num-rational = ">=0.4.2, <1"
+num-complex = { version = ">=0.4.6, <1", features = ["bytemuck"] }
+num-bigint = ">=0.4.6, <0.5"
+num-traits = ">=0.2.19, <1"
+half = { version = ">=2.7.1, <3", features = ["num-traits", "bytemuck"] }
+rustymath.workspace = true
+strength_reduce = ">=0.2.4, <1"
+rand = { version = ">=0.10.2, <1", features = ["chacha"] }
+# AnswerDotAI's fork measures text with a canvas, which works in a Web Worker: plotters-rs/plotters#746.
+plotters = { git = "https://github.com/AnswerDotAI/plotters.git", branch = "master", default-features = false, features = ["svg_backend", "colormaps", "full_palette"] }
+base64 = ">=0.22.1, <1"
+stacker = ">=0.1.25, <1"
+bytemuck = { version = ">=1.25.2, <2", features = ["extern_crate_alloc"] }
+json5 = ">=1.3.1, <2"
+roxmltree = { version = ">=0.21.1, <1", default-features = false, features = ["std"] }
+sha2 = ">=0.10.9, <1"
+uuid = { version = ">=1.26.1, <2", features = ["v1", "v3", "v4", "v5", "v6", "v7", "v8"] }
+chrono = ">=0.4.45, <0.5"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = ">=1.1.5, <2", features = ["termios", "fs"] }
+nix = { version = ">=0.31.3, <1", default-features = false, features = ["user"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+# The Mac build links the zlib that macOS ships, in place of compiling `miniz_oxide`.
+flate2 = { version = ">=1.1.10, <2", default-features = false, features = ["zlib"] }
+
+[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+flate2 = ">=1.1.10, <2"
+# Macs decode and encode images through ImageIO instead.
+image = { version = ">=0.25.6, <1", default-features = false, features = ["png", "jpeg"] }
+png = ">=0.18.1, <1"
+
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+chrono = { version = ">=0.4.45, <0.5", features = ["unstable-locales"] }
+icu_normalizer = ">=2, <3"
+fancy-regex = "0.20"
+walkdir = ">=2.5.0, <3"
+globset = ">=0.4.20, <1"
+# Cranelift compiles a typed program's loops while BPL runs. The browser build has no JIT.
+cranelift-codegen = { version = "0.137", default-features = false, features = ["std", "host-arch"] }
+cranelift-frontend = "0.137"
+cranelift-jit = "0.137"
+cranelift-module = "0.137"
+cranelift-native = "0.137"
+
+# The browser build. `build.rs` sets `cfg(web)` for the same target.
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = ">=0.4.3, <0.5", features = ["wasm_js"] }
+uuid = { version = ">=1.26.1, <2", features = ["js"] }
+web-time = ">=1.1.0, <2"
+js-sys = ">=0.3.106, <0.4"
+web-sys = { version = ">=0.3.106, <0.4", features = ["Url", "XmlHttpRequest", "XmlHttpRequestResponseType"] }
+wasm-bindgen = ">=0.2.129, <0.3"
+
+# `tests/units.rs` reads the development build's object files.
+[dev-dependencies]
+object = { version = ">=0.39.1, <1", default-features = false, features = ["read"] }
+rustc-demangle = ">=0.1.28, <1"
+
+[build-dependencies]
+serde_json = "1"

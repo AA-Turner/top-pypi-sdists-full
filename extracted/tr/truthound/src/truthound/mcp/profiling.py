@@ -1,0 +1,269 @@
+"""Closed native profiling composition; results remain owned full artifacts."""
+
+from typing import Annotated, Literal
+
+from pydantic import Field, JsonValue, model_validator
+
+from truthound.mcp.contracts import Name, WireModel
+from truthound.mcp.policy import MCPError
+from truthound.mcp.session_contracts import AssetInput, Handle
+from truthound.mcp.validator_wire import _known_type, contracts, fields, record_fields
+
+
+class Component(WireModel):
+    component: Name
+    settings: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class SchemaEvolution(WireModel):
+    baseline_id: Handle
+    current_id: Handle
+    detect_renames: bool = True
+    rename_similarity_threshold: float = 0.8
+
+
+class SchemaCompatibility(WireModel):
+    baseline_id: Handle
+    current_id: Handle
+    rules: list[Literal["types", "nullability", "column_presence"]] | None = Field(
+        default=None, max_length=16
+    )
+    strict: bool = False
+    baseline_nullability: Annotated[dict[Annotated[str, Field(min_length=1, max_length=1024)], bool], Field(max_length=1000)] | None = None
+    current_nullability: Annotated[dict[Annotated[str, Field(min_length=1, max_length=1024)], bool], Field(max_length=1000)] | None = None
+
+    @model_validator(mode="after")
+    def nullable_pair(self):
+        if (self.baseline_nullability is None) != (self.current_nullability is None):
+            raise ValueError("Both declared nullability maps are required")
+        if self.baseline_nullability is not None and self.rules and "nullability" not in self.rules:
+            raise ValueError("Declared nullability requires the nullability rule")
+        return self
+
+
+def schema_compatibility(arguments, baseline, current):
+    prefix = "truthound.profiler.evolution.compatibility."
+    targets = {
+        "types": "TypeCompatibilityChecker",
+        "nullability": "NullabilityCompatibilityChecker",
+        "column_presence": "ColumnPresenceChecker",
+    }
+    classes = {key: _known_type(prefix + value) for key, value in targets.items()}
+    _known_type(prefix + "CompatibilityResult")
+    _known_type("truthound.profiler.evolution.changes.SchemaChange")
+    selection = arguments.rules
+    if arguments.baseline_nullability is not None and not selection:
+        selection = ["types", "nullability", "column_presence"]
+    analyzer = _known_type(prefix + "SchemaCompatibilityAnalyzer")(
+        rules=None if selection is None else [
+            classes[name](old_nullable=arguments.baseline_nullability, new_nullable=arguments.current_nullability)
+            if name == "nullability" else classes[name]() for name in selection
+        ],
+        strict=arguments.strict,
+    )
+    result = analyzer.analyze(baseline.schema, current.schema)
+    return {
+        "is_compatible": result.is_compatible,
+        "level": result.level.value,
+        "issues": [issue.to_dict() for issue in result.issues],
+        "rules_checked": result.rules_checked,
+    }
+
+
+class EditSimilarity(WireModel):
+    kind: Literal["levenshtein", "token"]
+
+
+class JaroSimilarity(WireModel):
+    kind: Literal["jaro_winkler"]
+    prefix_scale: float = 0.1
+
+
+class NgramSimilarity(WireModel):
+    kind: Literal["ngram"]
+    n: int = 2
+
+
+Similarity = Annotated[
+    EditSimilarity | JaroSimilarity | NgramSimilarity, Field(discriminator="kind")
+]
+
+
+class WeightedSimilarity(WireModel):
+    calculator: Similarity
+    weight: float
+
+
+class CompositeSimilarity(WireModel):
+    kind: Literal["composite"]
+    calculators: Annotated[list[WeightedSimilarity], Field(max_length=16)] | None = None
+
+
+class ColumnRenames(WireModel):
+    baseline_id: Handle
+    current_id: Handle
+    similarity_threshold: float = 0.8
+    require_type_match: bool = True
+    allow_compatible_types: bool = True
+    high_confidence_threshold: float = 0.9
+    low_confidence_threshold: float = 0.7
+    calculator: (
+        Annotated[
+            EditSimilarity | JaroSimilarity | NgramSimilarity | CompositeSimilarity,
+            Field(discriminator="kind"),
+        ]
+        | None
+    ) = None
+
+
+def column_renames(arguments, baseline, current):
+    prefix = "truthound.profiler.evolution.rename_detector."
+
+    def calculator(value):
+        targets = {
+            "levenshtein": "LevenshteinSimilarity",
+            "token": "TokenSimilarity",
+            "jaro_winkler": "JaroWinklerSimilarity",
+            "ngram": "NgramSimilarity",
+            "composite": "CompositeSimilarity",
+        }
+        options = value.model_dump(exclude={"kind"})
+        if value.kind == "composite" and value.calculators is not None:
+            options["calculators"] = [
+                (calculator(item.calculator), item.weight) for item in value.calculators
+            ]
+        return _known_type(prefix + targets[value.kind])(**options)
+
+    options = arguments.model_dump(exclude={"baseline_id", "current_id", "calculator"})
+    for name in (
+        "RenameCandidate",
+        "RenameDetectionResult",
+        "CompositeSimilarity",
+        "LevenshteinSimilarity",
+        "JaroWinklerSimilarity",
+        "TokenSimilarity",
+        "NgramSimilarity",
+    ):
+        _known_type(prefix + name)
+    detector = _known_type(prefix + "ColumnRenameDetector")(
+        **options, calculator=calculator(arguments.calculator) if arguments.calculator else None
+    )
+    added = {name: dtype for name, dtype in current.schema.items() if name not in baseline.schema}
+    removed = {name: dtype for name, dtype in baseline.schema.items() if name not in current.schema}
+    return detector.detect(added, removed).to_dict()
+
+
+def schema_evolution(arguments, baseline, current):
+    detector = _known_type("truthound.profiler.evolution.detector.SchemaEvolutionDetector")(
+        **arguments.model_dump(exclude={"baseline_id", "current_id"})
+    )
+    _known_type("truthound.profiler.evolution.changes.SchemaChange")
+    _known_type("truthound.profiler.evolution.changes.SchemaChangeSummary")
+    changes = detector.detect_changes(current.schema, baseline.schema)
+    return {
+        "changes": [change.to_dict() for change in changes],
+        "summary": detector.get_change_summary(changes).to_dict(),
+    }
+
+
+def component(group, value, *, build=False):
+    row = contracts()["profiling"]["components"][group].get(value.component)
+    if row is None:
+        raise MCPError("unknown_component")
+    # Custom patterns execute regex. Native reviewed extension objects require
+    # an explicit trust binding, not a dictionary smuggled into discovery.
+    if value.settings.get("patterns") is not None:
+        raise MCPError("operator_configuration_required")
+    settings = fields(row["fields"], value.settings, build=build)
+    return _known_type(row["target"])(**settings) if build else None
+
+
+class Profile(AssetInput):
+    config: dict[str, JsonValue] = Field(default_factory=dict)
+    options: dict[str, JsonValue] = Field(default_factory=dict)
+    column_analyzers: Annotated[list[Component], Field(min_length=1, max_length=20)] | None = None
+    table_analyzers: Annotated[list[Component], Field(min_length=1, max_length=20)] | None = None
+    type_inferrers: Annotated[list[Component], Field(min_length=1, max_length=20)] | None = None
+    name: str = ""
+    source: str = ""
+
+    @model_validator(mode="after")
+    def configuration(self):
+        row = contracts()["profiling"]
+        fields(record_fields(row["config"]), self.config)
+        options = row["components"]["profiler"]["DataProfiler"]["fields"]
+        forbidden = {"config", "column_profiler", "table_analyzers"}
+        if forbidden.intersection(self.options):
+            raise MCPError("invalid_arguments")
+        fields({key: value for key, value in options.items() if key not in forbidden}, self.options)
+        for group in ("column_analyzers", "table_analyzers", "type_inferrers"):
+            for value in getattr(self, group) or ():
+                component(group, value)
+        return self
+
+
+class GenerateRules(Profile):
+    generator: Component
+    strictness: Literal["loose", "medium", "strict"] = "medium"
+    column: Name | None = None
+    representation: Literal["rules", "validator_configs"] = "rules"
+
+    @model_validator(mode="after")
+    def generator_configuration(self):
+        component("rule_generators", self.generator)
+        return self
+
+
+def generate_rules(arguments, frame):
+    from truthound.profiler import Strictness
+
+    profile = execute(arguments, frame)
+    generator = component("rule_generators", arguments.generator, build=True)
+    _known_type("truthound.profiler.generators.base.GeneratedRule")
+    _known_type("truthound.profiler.base.TableProfile")
+    # Execute exactly the selected native generator after the profile completeness check.
+    strictness = Strictness(arguments.strictness)
+    rules = (
+        generator.generate(profile, strictness)
+        if arguments.column is None
+        else generator.generate_for_column(profile[arguments.column], strictness)
+    )
+    if arguments.representation == "validator_configs":
+        return [
+            {"validator_class": rule.validator_class, "config": rule.to_validator_config()}
+            for rule in rules
+        ], profile
+    return [rule.to_dict() for rule in rules], profile
+
+
+def execute(arguments, frame):
+    from truthound.profiler import ColumnProfiler, DataProfiler
+
+    row = contracts()["profiling"]
+    config_type = _known_type(row["config"]["target"])
+    config = config_type(**fields(record_fields(row["config"]), arguments.config, build=True))
+    groups = {
+        group: None
+        if getattr(arguments, group) is None
+        else [component(group, value, build=True) for value in getattr(arguments, group)]
+        for group in ("column_analyzers", "table_analyzers", "type_inferrers")
+    }
+    # Verify source pins for the native composition classes, not only leaf analyzers.
+    _known_type("truthound.profiler.column_profiler.ColumnProfiler")
+    cls = _known_type("truthound.profiler.table_profiler.DataProfiler")
+    assert cls is DataProfiler
+    options = fields(
+        row["components"]["profiler"]["DataProfiler"]["fields"], arguments.options, build=True
+    )
+    config = cls._effective_config(config, options)
+    columns = ColumnProfiler(
+        analyzers=groups["column_analyzers"], type_inferrers=groups["type_inferrers"], config=config
+    )
+    result = cls(
+        config=config, column_profiler=columns, table_analyzers=groups["table_analyzers"], **options
+    ).profile(frame.lazy(), name=arguments.name, source=arguments.source)
+    if not result.complete:
+        from truthound.profiler.errors import IncompleteProfileError
+
+        raise IncompleteProfileError(result)
+    return result

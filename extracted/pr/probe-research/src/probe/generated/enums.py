@@ -963,8 +963,8 @@ class OnboardingStep(StrEnum):
 class OriginType(StrEnum):
     """
     What a node's origin is. Not `LineageEntityType`: an origin can be a
-    container that is never an edge end (a group, a workspace, the unfiled
-    bucket), and an experiment and a project -- one `projects` row type -- are
+    container that is never an edge end (a group, a workspace), and an
+    experiment and a project -- one `projects` row type -- are
     named apart so a reader need not look the kind up.
     """
 
@@ -976,7 +976,6 @@ class OriginType(StrEnum):
     paper = 'paper'
     workspace = 'workspace'
     shared_folder = 'shared_folder'
-    unfiled = 'unfiled'
 
 
 class OriginVia(StrEnum):

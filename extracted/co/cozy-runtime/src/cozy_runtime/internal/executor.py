@@ -169,6 +169,7 @@ from cozy_runtime.internal.accel import ResidencyError
 from cozy_runtime.internal.config import inherited_environment, restore_seal, seal_snapshot
 from cozy_runtime.internal.derive import Observations, serving_substrate
 from cozy_runtime.internal.discovery import discover_installed
+from cozy_runtime.internal.encoding import leaves
 from cozy_runtime.internal.encoding.leaves import FORMATS, serving
 from cozy_runtime.internal.encoding.selection import (
     launch_providers,
@@ -1074,12 +1075,6 @@ class Executor:
         accel.first_launches(torch, self.device_kind)
         if opening:
             _cuda(self.channel, "open")
-        if self.device_kind == "cuda" and self.world == 1:
-            # The prebuilt 8-bit op opens from here, before any request, beside the weight fill:
-            # a component first built mid-request (Klein's on-demand upsampler under a 16-bit
-            # main model) would ask for it only then, and serve its whole stage on a fallback
-            # while it lands. Its first ask waits for it.
-            int8_linear.prime(torch, torch.cuda.current_device())
         self._device_ready = True
         place(self._device())
         return None
@@ -2435,6 +2430,12 @@ class Executor:
 
         stage("runtime_imports")
         _restore_seal()
+        if self.device_kind == "cuda" and self.world == 1:
+            # Every encoded GEMM's kernels open from here, on threads of their own, before the
+            # first construction and beside its weight fill: one first asked mid-request served
+            # its whole stage on a fallback while it landed (Klein's on-demand upsampler; H3's
+            # nvfp4 layers through step 1 on an RTX 5090, cr-241). Each first ask waits for it.
+            leaves.prime(torch, torch.cuda.current_device())
         if self.world > 1 and self.rank == 0:
             # THE FOLLOWERS RESOLVE BESIDE RANK 0, not after it: the load goes to every rank
             # before this one reads a header, and the plans are compared at the residence
@@ -3761,6 +3762,8 @@ class Executor:
             sparse_kernels = attention.sparse_names(served_attention.totals())
             if sparse_kernels:
                 sparse_name = "+".join(sparse_kernels)
+                # The counts that happened: all six beside these three overrun an observation's
+                # eight fields, which dropped the last (xs-142).
                 record.emit(
                     "confession",
                     "attention.sol.calls",
@@ -3768,7 +3771,7 @@ class Executor:
                     rank=0,
                     world=self.world,
                     dense_reference=_dense(sparse_kernels),
-                    **sol_counts,
+                    **{kind: n for kind, n in sol_counts.items() if n},
                 )
                 for rank, counts in sorted(sol_rank_counts.items()):
                     record.emit(
@@ -3777,7 +3780,7 @@ class Executor:
                         sparse_name,
                         rank=rank,
                         world=self.world,
-                        **counts,
+                        **{kind: n for kind, n in counts.items() if n},
                     )
             # Where this request's Sol kernel came from (h3a-087): loaded from the machine
             # store, waited for behind a builder, or compiled here, and how long each took.

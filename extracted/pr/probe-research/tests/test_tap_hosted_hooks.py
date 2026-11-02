@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service.protocol import Method
+from probe.foundation.service_api.wire import Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the hooks are POSIX shell")
@@ -73,7 +73,8 @@ def test_a_hosted_session_from_start_to_end(service_home, tmp_path, monkeypatch)
         # recorded while its recorder holds the session (`recording` in its status row).
         # This one's server (127.0.0.1:1) never answers, so its recorder holds
         # nothing; with no answer from the service, the marker alone, as before.
-        from probe.cli import capture_state, service_calls
+        from probe.cli.capture import state as capture_state
+        from probe.cli.lifecycle import service_calls
 
         row = next(r for r in service_home.call(Method.STATUS)["recorders"] if r["sid"] == sid)
         state = capture_state.session_capture_state(sid, "claude_code")

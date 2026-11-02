@@ -1,0 +1,216 @@
+import bz2
+import gzip
+import platform
+from pathlib import Path
+
+import pytest
+
+from suitesparse_graphblas import (
+    bool_types,
+    check_status,
+    complex_types,
+    ffi,
+    grb_types,
+    lib,
+    matrix,
+    real_types,
+    signed_integer_types,
+    supports_complex,
+    unsigned_integer_types,
+    vector,
+)
+
+try:
+    import lzma
+except ImportError:  # Pyodide before 314 has it as a separate package
+    lzma = None
+
+if platform.system() == "Windows":
+    pytest.skip("skipping windows-only tests", allow_module_level=True)
+
+from suitesparse_graphblas.io import binary  # isort:skip
+
+NULL = ffi.NULL
+
+
+def _test_elements(T):
+    if T in bool_types:
+        return [True, False], [0, 0], [1, 1]
+    elif T in signed_integer_types:
+        return [1, -42], [0, 0], [1, 1]
+    elif T in unsigned_integer_types:
+        return [1, 42], [0, 0], [1, 1]
+    elif T in real_types:
+        return [1.0, -42.42], [0, 0], [1, 1]
+    elif T in complex_types:
+        return [complex(1.0, 1.0), complex(42.0, -42.0)], [0, 0], [1, 1]
+
+
+_element_setters = {
+    lib.GrB_BOOL: lib.GrB_Matrix_setElement_BOOL,
+    lib.GrB_INT8: lib.GrB_Matrix_setElement_INT8,
+    lib.GrB_INT16: lib.GrB_Matrix_setElement_INT16,
+    lib.GrB_INT32: lib.GrB_Matrix_setElement_INT32,
+    lib.GrB_INT64: lib.GrB_Matrix_setElement_INT64,
+    lib.GrB_UINT8: lib.GrB_Matrix_setElement_UINT8,
+    lib.GrB_UINT16: lib.GrB_Matrix_setElement_UINT16,
+    lib.GrB_UINT32: lib.GrB_Matrix_setElement_UINT32,
+    lib.GrB_UINT64: lib.GrB_Matrix_setElement_UINT64,
+    lib.GrB_FP32: lib.GrB_Matrix_setElement_FP32,
+    lib.GrB_FP64: lib.GrB_Matrix_setElement_FP64,
+}
+
+if supports_complex():
+    _element_setters.update(
+        {
+            lib.GxB_FC32: lib.GxB_Matrix_setElement_FC32,
+            lib.GxB_FC64: lib.GxB_Matrix_setElement_FC64,
+        }
+    )
+
+
+_eq_ops = {
+    lib.GrB_BOOL: lib.GrB_EQ_BOOL,
+    lib.GrB_INT8: lib.GrB_EQ_INT8,
+    lib.GrB_INT16: lib.GrB_EQ_INT16,
+    lib.GrB_INT32: lib.GrB_EQ_INT32,
+    lib.GrB_INT64: lib.GrB_EQ_INT64,
+    lib.GrB_UINT8: lib.GrB_EQ_UINT8,
+    lib.GrB_UINT16: lib.GrB_EQ_UINT16,
+    lib.GrB_UINT32: lib.GrB_EQ_UINT32,
+    lib.GrB_UINT64: lib.GrB_EQ_UINT64,
+    lib.GrB_FP32: lib.GrB_EQ_FP32,
+    lib.GrB_FP64: lib.GrB_EQ_FP64,
+}
+
+if supports_complex():
+    _eq_ops.update(
+        {
+            lib.GxB_FC32: lib.GxB_EQ_FC32,
+            lib.GxB_FC64: lib.GxB_EQ_FC64,
+        }
+    )
+
+
+def test_serialize_matrix():
+    T = lib.GrB_INT64
+    A = matrix.matrix_new(T, 2, 2)
+    for args in zip(*_test_elements(T)):
+        f = _element_setters[T]
+        check_status(A, f(A[0], *args))
+    data = matrix.serialize(A)
+    B = matrix.deserialize(data)
+
+    # Test equal
+    C = matrix.matrix_new(lib.GrB_BOOL, 2, 2)
+    check_status(
+        C,
+        lib.GrB_Matrix_eWiseAdd_BinaryOp(C[0], NULL, NULL, _eq_ops[T], A[0], B[0], NULL),
+    )
+    assert matrix.matrix_nvals(A) == matrix.matrix_nvals(B) == matrix.matrix_nvals(C)
+    is_eq = ffi.new("bool*")
+    check_status(
+        C,
+        lib.GrB_Matrix_reduce_BOOL(is_eq, NULL, lib.GrB_LAND_MONOID_BOOL, C[0], NULL),
+    )
+    assert is_eq[0]
+
+
+def test_serialize_vector():
+    T = lib.GrB_INT64
+    v = vector.vector_new(T, 3)
+    check_status(v, lib.GrB_Vector_setElement_INT64(v[0], 2, 0))
+    check_status(v, lib.GrB_Vector_setElement_INT64(v[0], 10, 1))
+    data = vector.serialize(v, lib.GxB_COMPRESSION_LZ4HC, level=7)
+    w = vector.deserialize(data)
+
+    # Test equal
+    x = vector.vector_new(lib.GrB_BOOL, 3)
+    check_status(
+        x,
+        lib.GrB_Vector_eWiseAdd_BinaryOp(x[0], NULL, NULL, _eq_ops[T], v[0], w[0], NULL),
+    )
+    assert vector.vector_nvals(v) == vector.vector_nvals(w) == vector.vector_nvals(x)
+    is_eq = ffi.new("bool*")
+    check_status(
+        x,
+        lib.GrB_Vector_reduce_BOOL(is_eq, NULL, lib.GrB_LAND_MONOID_BOOL, x[0], NULL),
+    )
+    assert is_eq[0]
+
+
+def test_matrix_binfile_read_write(tmp_path):
+    openers = [Path.open, gzip.open, bz2.open]
+    if lzma is not None:
+        openers.append(lzma.open)
+    for opener in openers:
+        for format in (lib.GxB_BY_ROW, lib.GxB_BY_COL):
+            for T in grb_types:
+                for sparsity in (lib.GxB_HYPERSPARSE, lib.GxB_SPARSE, lib.GxB_BITMAP, lib.GxB_FULL):
+                    A = matrix.matrix_new(T, 2, 2)
+
+                    if T is not lib.GxB_FULL:
+                        for args in zip(*_test_elements(T)):
+                            f = _element_setters[T]
+                            check_status(A, f(A[0], *args))
+                    else:
+                        Tone = _test_elements(T)[0][0]
+                        check_status(
+                            A[0],
+                            lib.GrB_assign(
+                                A,
+                                NULL,
+                                NULL,
+                                Tone,
+                                lib.GrB_ALL,
+                                0,
+                                lib.GrB_ALL,
+                                0,
+                                NULL,
+                            ),
+                        )
+                    matrix.matrix_set_sparsity_control(A, sparsity)
+                    matrix.matrix_set_format(A, format)
+
+                    binfilef = tmp_path / "binfilewrite_test.binfile"
+                    binary.binwrite(A, binfilef, opener=opener)
+                    B = binary.binread(binfilef, opener=opener)
+
+                    assert matrix.matrix_type(A) == matrix.matrix_type(B)
+                    assert matrix.matrix_nrows(A) == matrix.matrix_nrows(B)
+                    assert matrix.matrix_ncols(A) == matrix.matrix_ncols(B)
+                    assert matrix.matrix_hyper_switch(A) == matrix.matrix_hyper_switch(B)
+                    assert matrix.matrix_bitmap_switch(A) == matrix.matrix_bitmap_switch(B)
+                    # assert matrix.matrix_sparsity_control(A) == matrix.matrix_sparsity_control(B)
+
+                    C = matrix.matrix_new(lib.GrB_BOOL, 2, 2)
+
+                    check_status(
+                        C,
+                        lib.GrB_Matrix_eWiseAdd_BinaryOp(
+                            C[0], NULL, NULL, _eq_ops[T], A[0], B[0], NULL
+                        ),
+                    )
+
+                    assert (
+                        matrix.matrix_nvals(A) == matrix.matrix_nvals(B) == matrix.matrix_nvals(C)
+                    )
+
+                    is_eq = ffi.new("bool*")
+                    check_status(
+                        C,
+                        lib.GrB_Matrix_reduce_BOOL(
+                            is_eq, NULL, lib.GrB_LAND_MONOID_BOOL, C[0], NULL
+                        ),
+                    )
+
+                    assert is_eq[0]
+
+
+def test_binwrite_failure_keeps_matrix(tmp_path):
+    # `binwrite` unpacks the matrix to write its arrays, and must put them back regardless
+    A = matrix.matrix_new(lib.GrB_INT64, 2, 2)
+    check_status(A, lib.GrB_Matrix_setElement_INT64(A[0], 1, 0, 0))
+    with pytest.raises(OSError):
+        binary.binwrite(A, tmp_path / "missing_directory" / "matrix.binfile")
+    assert matrix.matrix_nvals(A) == 1

@@ -1,0 +1,953 @@
+#!/usr/bin/env python3
+"""PreToolUse(Bash|PowerShell) guard against claiming success on a gate whose exit status a pipe ate.
+
+The mistake, seen twice in one session on a rule that was already written down twice:
+
+    cargo fmt -- --check 2>&1 | head -20 && echo "FMT-OK"
+    cargo clippy -- -D warnings 2>&1 | grep -E "^error" ; git add -A && git commit -m ...
+
+A pipeline's exit status is its LAST element's. Piping a gate into head/grep/tail
+throws the gate's status away: `head` succeeds, so the `&&` fires and the `;`
+sequences on regardless. The result is a printed "OK" while the gate was red, or a
+commit of a red state - and the output scrolling past looks like it was checked.
+
+This blocks exactly that shape and nothing else:
+  - the command must run a recognised GATE (cargo/pytest/ruff/pyright/... ) as a program
+    word (`shell_text.gate_program_in`), never as an argument: `grep pytest docs/x.md` runs grep;
+  - that gate must sit in a pipeline where it is NOT the last element, so its
+    status is masked;
+  - and a LATER statement must claim success (an OK-ish echo) or commit/push.
+
+A pipeline whose status is handled correctly is never blocked: `set -o pipefail`
+and any `PIPESTATUS` expansion are honoured as the fix and exit clean (the bare
+words in a quoted message or a comment are not), as does
+running the gate bare (no pipe) or ending the pipeline with the gate itself.
+
+A STATE CHANGE that is no gate is blocked in a narrower shape (`masks_a_state_change`): a git
+commit/merge/rebase/cherry-pick/push/bundle create/tag, a make run or a pip install, piped into
+head/tail/grep/wc and chained by `&&` into a git commit/push/merge/tag, make release, rm, scp or
+ssh - `git merge --ff-only x | tail -2 && git push` pushes whether or not the merge happened. A
+read-only producer, a `;` or newline after the pipeline, a `grep -q` predicate ending it, pipefail,
+PIPESTATUS and the redirect form `step > log 2>&1 && ...` all pass.
+
+A BACKGROUNDED gate (`run_in_background`) is blocked too when the task's exit code will not be
+the gate's own: something runs after it (`; tail`, `&& echo`, `| tee`, a newline), a trailing `&`
+detaches it, or it is a `gh run watch` without --exit-status. A gate backgrounded alone is
+allowed. gate.py is the gate that decides when it runs, not an exemption: alone its status is
+the gate's, but `gate.py ... > log; tail log` reports tail's like any other. A gate whose program
+is a quoted path (`"$X/ci_wait.py"`) is still a gate. gate.py under `uv run` gets an advisory.
+
+Pure standard library: no jq, no shell. Reads the PreToolUse event JSON on stdin.
+Exit 2 blocks the call and shows stderr to the model; every other path (including
+any error) exits 0, so a broken guard never wedges a turn.
+"""
+
+import json
+import os
+import re
+import sys
+
+import shell_text
+from shell_text import (
+    BACKGROUND_GATE_RE,
+    GATE_JIG_NAME,
+    GATE_RE,
+    LIST_SEP,
+    basename_for_tool,
+    blank_heredoc_bodies,
+    blank_unexpanded_text,
+    gate_program_in,
+    iter_segments,
+    mask_data_regions,
+    past_command_prefix,
+    strip_data_sink_statements,
+    strip_heredoc_bodies,
+)
+
+# Commands whose exit status is a quality verdict worth protecting (shared: shell_text.GATE_RE).
+GATE = GATE_RE
+
+# Filters that swallow the upstream status by becoming the pipeline's exit code. A filter written
+# as a subshell element (`gate | (tail -3)`) still sets the status - the subshell's is tail's.
+FILTER = re.compile(r"^[\s(]*(?:head|tail|grep|egrep|wc|cut|awk|sed|sort|uniq|tee)\b")
+
+# Statements that assert the gate passed, or act as though it did.
+CONSUMER = re.compile(
+    r"\bgit\s+(?:commit|push|tag)\b"
+    r"|\becho\b[^|;&]*\b(?:OK|PASS|PASSED|GREEN|SUCCESS|CLEAN|ALL\s+GOOD)\b",
+    re.IGNORECASE,
+)
+
+# The correct handlings - if either is present the author is not making this mistake. They are
+# looked for where they can ACT, never in prose (see `handles_pipe_status`).
+_PIPEFAIL = re.compile(r"\bpipefail\b")
+_PIPESTATUS_READ = re.compile(r"\$\{?PIPESTATUS\b")
+
+# One pipeline element boundary: `|` or `|&` (which pipes stderr too). `||` never reaches here -
+# the statement split has already consumed it.
+_PIPE = re.compile(r"\|&?")
+
+# The jig that returns the GATE's own status and can chain the follow-up itself. The file NAME
+# `gate.py`, never a longer name ending in it: `\b` sits between `-` and `g`, so a bare `\bgate`
+# read `hooks/repo-gate.py` (and `test_gate.py` is kept out by `_` being a word character).
+_JIG_NAME = GATE_JIG_NAME
+
+JIG = re.compile(_JIG_NAME)
+
+# A gate whose verdict a BACKGROUND job's completion notice will misreport (shared:
+# shell_text.BACKGROUND_GATE_RE, which arbitrary-sleep-nudge reads for a gate detached with `&`).
+BACKGROUND_GATE = BACKGROUND_GATE_RE
+
+# The jig launched under `uv run`, which it asks never to be (its LAUNCH_WITH is python3).
+_JIG_UNDER_UV = re.compile(r"\buv\s+run\b[^\n;&|]*?" + _JIG_NAME)
+
+# `gh run watch` exits 0 whatever the run concluded unless it is told --exit-status, so its OWN
+# status is no verdict either, even with nothing after it.
+_WATCH_WITHOUT_VERDICT = re.compile(r"\bgh\s+run\s+watch\b(?![^\n;&|]*--exit-status\b)")
+
+# A backslash-newline continues the SAME command; it is not the newline that ends a statement.
+_LINE_CONTINUATION = re.compile(r"\\\r?\n")
+
+# How the block tells a reader to launch that jig: the plain interpreter gate.py's docstring
+# asks for, never `uv run`. `python` on Windows, where `python3` is usually the Store stub.
+# toolbox-nudge suggests the same launch; a test pins the two together.
+_PLAIN_PYTHON = "python" if os.name == "nt" else "python3"
+
+
+def backgrounded_gate_with_a_misreported_status(command: str, *, background: object) -> str | None:
+    """Name the gate in a BACKGROUNDED command whose task exit code will not be the gate's own.
+
+    A background job's completion is announced as `completed (exit code 0)`, and that code
+    belongs to the compound's LAST command, not to the gate inside it. Measured 2026-09-02:
+    the safe redirect form was written correctly, the harness said exit code 0, that
+    sentence was relayed as "the gate passed", and the log said RC=2 with a failing test.
+    The rule against it was already loaded and correctly worded, and an advisory on the
+    sibling pipe form was read, quoted and stepped past in the same message - so this is a
+    BLOCK. Prose has failed twice; a third wording is not the fix.
+
+    ``background`` is ``tool_input["run_in_background"]`` as it arrives, untyped on purpose.
+    Only a literal ``True`` triggers, so a harness that stops sending the field, or sends
+    something else, degrades to not firing rather than to blocking every gate. That field is
+    DOC-VERIFIED (the hooks page documents it in the Bash ``tool_input`` example) and was not
+    probed live here; the conservative reading is the price of that.
+
+    Args:
+        command: The pending Bash command.
+        background: Whatever the event carried for ``run_in_background``.
+
+    Returns:
+        The matched gate text, or ``None`` when nothing should be blocked.
+    """
+    if background is not True:
+        return None
+    found = running_background_gate(command)
+    if found is None:
+        return None
+    return found.group(0) if gate_status_is_not_the_tasks(command) else None
+
+
+def _joined(command: str) -> str:
+    """The command as the shell reads its statements: heredoc bodies gone, continuations joined."""
+    return _LINE_CONTINUATION.sub("  ", strip_heredoc_bodies(command))
+
+
+def _runnable_text(joined: str, tool_name: str = "Bash") -> str:
+    """`joined` with everything that cannot RUN as a command blanked, offsets preserved.
+
+    A gate NAMED is not a gate RUN: `sleep 1800; echo "BACKSTOP: make test not reported"` was
+    blocked as a backgrounded gate because the gate was searched on the raw command. Each
+    statement is masked on its own, so quoted text, comments and `${...}` are filler while the
+    body of a `$(...)` stays readable - the statement walk cuts at `$(`, so that body is its own
+    statement, and a gate in it really runs (`out=$(make test 2>&1)`). An `echo`/`printf`
+    operand is blanked before that, since an unquoted `echo waiting on make test` runs no gate
+    either. Both passes preserve length, so an offset found here indexes the masked command too.
+
+    What lies BETWEEN statements is kept as written (`;`, `$(`, `)`). Filling it with the mask's
+    word-character filler glued `QQmake test` together and erased the word boundary the gate
+    pattern starts with, so `out=$(make test 2>&1); ... | tail` lost its gate.
+
+    One quoted argument is a command after all: the one `ssh host "..."` or `bash -c "..."` hands
+    to another shell. Such a statement is kept as written, so a gate in it is found - the replay
+    that priced this fix found exactly one real backgrounded gate it would otherwise have lost,
+    `timeout 1500 ssh ... "cmd /c ... pytest ... & echo RC=%ERRORLEVEL%"`.
+    """
+    return _runnable_view(joined, tool_name)[0]
+
+
+def _runnable_view(joined: str, tool_name: str = "Bash") -> tuple[str, list[tuple[int, int]]]:
+    """`_runnable_text`, plus the (start, end) spans of statements that run a quoted command."""
+    sinkless = strip_data_sink_statements(joined, tool_name)
+    out = list(sinkless)
+    opaque: list[tuple[int, int]] = []
+    for at, segment in iter_segments(sinkless, tool_name):
+        masked = mask_data_regions(segment, tool_name=tool_name)
+        if _runs_a_quoted_command(masked, tool_name):
+            opaque.append((at, at + len(segment)))
+        else:
+            out[at:at + len(segment)] = _program_words_kept(segment, masked, tool_name)
+    return "".join(out), opaque
+
+
+# Words that RUN the command word after them, so a quoted path there is the program, exactly as
+# it is at the start of a statement. `uv run` is `uv` plus the `run` subcommand, skipped below.
+_LAUNCHER = re.compile(
+    r"python[\d.]*|py|uvx?|node|bash|sh|zsh|dash|pwsh|powershell"
+    r"|nice|ionice|timeout|sudo|doas|env|stdbuf|nohup|setsid|chrt|taskset|time|command|exec",
+    re.IGNORECASE,
+)
+_OPERAND_SCAN_LIMIT = 12
+
+
+def _program_words_kept(raw: str, masked: str, tool_name: str = "Bash") -> str:
+    """`masked`, with a QUOTED program path put back as written.
+
+    Masking quoted text is what keeps a gate NAMED in an argument from reading as a gate RUN, but
+    it blanked the program too when its path was quoted: `uv run "$X/ci_wait.py" ...; echo x` and
+    `python3 "$TB/scripts/gate.py" --gate "make test" > log; tail log` ran a gate the walk could no
+    longer see. The program word is the first word of the statement, or the first operand of a
+    launcher in front of it (`python3`, `uv run`, `timeout 900`, `env A=1`). Only a quoted word
+    with no whitespace inside is restored: a program path rarely has one, while the code handed to
+    `python3 -c "..."` and every prose argument does. A quoted OPERAND stays masked
+    (`cat "$X/gate.py"`, `python3 tool.py "make test"`): the walk stops at the first unquoted
+    program that is no launcher.
+
+    An ASSIGNMENT runs nothing, so its word is blanked: `G=/p/scripts/gate.py; ...; python3 "$G"`
+    names the jig in `G=`, and reading that as the jig running judged everything after it - a
+    common idiom in real backgrounded commands, where the jig itself ran last and alone.
+    """
+    tokens = [(m.start(), m.end()) for m in re.finditer(r"\S+", masked)]
+    at = _past_assignments(tokens, raw, 0)
+    out = _blanked(masked, tokens[:at])
+    while at < len(tokens):
+        start, end = tokens[at]
+        word = raw[start:end]
+        if masked[start:end] != word:
+            if not any(c.isspace() for c in word):
+                return out[:start] + word + out[end:]
+            return out
+        program = basename_for_tool(word, tool_name)
+        if program in _DECLARATIONS:
+            return _blanked(out, [t for t in tokens[at + 1:] if _ASSIGNMENT.match(raw, t[0])])
+        if not _LAUNCHER.fullmatch(program):
+            return out
+        at = _launched_word(tokens, raw, at + 1)
+    return out
+
+
+_ASSIGNMENT = re.compile(r"[A-Za-z_]\w*=")
+_DECLARATIONS = frozenset({"export", "local", "declare", "readonly", "typeset"})
+
+
+def _blanked(text: str, spans: list[tuple[int, int]]) -> str:
+    """`text` with each (start, end) span replaced by spaces, length preserved."""
+    chars = list(text)
+    for start, end in spans:
+        chars[start:end] = " " * (end - start)
+    return "".join(chars)
+
+
+def _past_assignments(tokens: list[tuple[int, int]], raw: str, at: int) -> int:
+    """Index of the first token at or after `at` that is not a `NAME=value` assignment."""
+    while at < len(tokens) and _ASSIGNMENT.match(raw, tokens[at][0]):
+        at += 1
+    return at
+
+
+def _launched_word(tokens: list[tuple[int, int]], raw: str, at: int) -> int:
+    """Index of the word a launcher runs: past its flags, a long flag's value, counts, `run`.
+
+    A launcher's own operands sit between it and the program (`timeout 900`, `nice -n 19`,
+    `uv run --with pytest`), so skipping only dashed words is not enough. Bounded like
+    shell_text's prefix scan: past the limit the statement is read as having no program word.
+    """
+    takes_value = False
+    for index in range(_past_assignments(tokens, raw, at),
+                       min(len(tokens), at + _OPERAND_SCAN_LIMIT)):
+        word = raw[tokens[index][0]:tokens[index][1]]
+        if word.startswith("-"):
+            takes_value = word.startswith("--") and "=" not in word
+            continue
+        if takes_value or word.isdigit() or word == "run":
+            takes_value = False
+            continue
+        return index
+    return len(tokens)
+
+
+# Programs whose quoted operand is a COMMAND another shell runs. A shell counts only with a `-c`
+# flag (`bash -lc`, `sh -c`); `bash script.sh "arg"` runs a file, not its argument.
+_REMOTE_RUNNERS = frozenset({"ssh"})
+_SHELLS = frozenset({"bash", "sh", "zsh", "dash"})
+_SHELL_COMMAND_FLAG = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
+
+
+def _runs_a_quoted_command(masked_segment: str, tool_name: str = "Bash") -> bool:
+    """True when this statement hands a quoted string to ssh or to a shell's `-c` to RUN."""
+    tokens = masked_segment.split()
+    at = 0
+    while at < len(tokens) and "=" in tokens[at] and not tokens[at].startswith("-"):
+        at += 1                                    # leading VAR=value environment assignments
+    if at >= len(tokens):
+        return False
+    launched = past_command_prefix(tokens, at, _REMOTE_RUNNERS | _SHELLS, tool_name)
+    at = at if launched is None else launched
+    program = basename_for_tool(tokens[at], tool_name)
+    if program in _REMOTE_RUNNERS:
+        return True
+    return program in _SHELLS and any(_SHELL_COMMAND_FLAG.match(t) for t in tokens[at + 1:])
+
+
+def running_background_gate(command: str, tool_name: str = "Bash") -> re.Match[str] | None:
+    """The gate whose status the task should end on, or None when one is only named in text.
+
+    The match indexes `_runnable_text(_joined(command))`, which is as long as the masked command
+    `gate_status_is_not_the_tasks` reads, so its offsets cut that text too.
+    """
+    runnable, opaque = _runnable_view(_joined(command), tool_name)
+    return _deciding_gate(runnable, opaque, tool_name)
+
+
+def _deciding_gate(runnable: str, opaque: list[tuple[int, int]],
+                   tool_name: str = "Bash") -> re.Match[str] | None:
+    """gate.py when the command runs it, else the first gate it runs.
+
+    The jig exits with its gate's own status, so what follows the JIG is what can mask the verdict:
+    `gate.py --gate "make test" > log; tail log` reports tail's. The jig used to exempt the whole
+    command by NAME, and with the `--gate` text quoted, so masked, nothing else was left to see -
+    the notice said exit 0 while the gate was red. Gates BEFORE the jig keep that exemption
+    (`ruff format src && gate.py ...`): the reported miss is about what runs after it.
+
+    A gate RUNS only as a statement's program word: searched anywhere, the file name and the
+    search term of `grep pytest docs/x.md | tail -5` read as pytest backgrounded. The `opaque`
+    statements are the exception: they hand a quoted string to ssh or `bash -c`, whose own
+    statements cannot be walked here, so a gate anywhere in them still counts.
+    """
+    jig = gate = None
+    for at, segment in iter_segments(runnable, tool_name):
+        end = at + len(segment)
+        if any(start <= at < stop for start, stop in opaque):
+            found_jig = JIG.search(runnable, at, end)
+            found_gate = BACKGROUND_GATE.search(runnable, at, end)
+        else:
+            found_jig = gate_program_in(runnable, tool_name, JIG, at, end)
+            found_gate = gate_program_in(runnable, tool_name, BACKGROUND_GATE, at, end)
+        jig = jig or found_jig
+        gate = gate or found_gate
+    return jig or gate
+
+
+def gate_status_is_not_the_tasks(command: str, tool_name: str = "Bash") -> bool:
+    """True when the task's exit code would NOT be the gate's own verdict.
+
+    That is so when anything runs after the gate.py jig, or after the FIRST gate when no jig runs
+    - `; tail`, `&& echo`, `| tee`, `|| true`,
+    a second gate on a new line - or a trailing `&` makes the task itself exit at once, and when
+    the gate is a `gh run watch` without --exit-status. A LONE gate (redirected, prefixed by a
+    `cd DIR &&`, its argument built by a `$(...)`) is not masked: its status is the task's, which
+    is exactly what the completion notice reports, so blocking it refused the correct form.
+
+    The gate is located by `running_background_gate`, so a gate merely named in a quoted argument,
+    an echo operand, a comment or a heredoc body is no gate and nothing is masked. What runs AFTER
+    it is read on the command with quoted text, substitutions and comments masked, so a `;` inside
+    `--sha "$(a; b)"` or a comment is not a statement.
+
+    A gate inside the quoted command of `ssh host "..."` or `bash -c "..."` cannot be analysed
+    here, so it counts as masked - the conservative direction for a guard whose miss is a believed
+    false PASS.
+    """
+    joined = _joined(command)
+    runnable, opaque = _runnable_view(joined, tool_name)
+    first = _deciding_gate(runnable, opaque, tool_name)
+    if first is None:
+        return False
+    if _WATCH_WITHOUT_VERDICT.match(runnable, first.start()):
+        return True
+    if any(start <= first.start() < end for start, end in opaque):
+        return True
+    text = mask_data_regions(joined, tool_name=tool_name)
+    rest = text[first.end():]
+    if "|" in rest:
+        return True
+    for sep in LIST_SEP.finditer(rest):
+        if sep.group(0) == "&" or rest[sep.end():].strip():
+            return True
+    return False
+
+# Split into statements on shell_text's list separators (; && || & and newlines), trimming the
+# whitespace around each. A pipeline stays one statement: whether it masks a gate is the question.
+SPLIT = re.compile(r"\s*(?:" + LIST_SEP.pattern + r")\s*")
+
+
+def handles_pipe_status(command: str, tool_name: str = "Bash") -> bool:
+    """True when the command genuinely handles a pipeline's status: pipefail or a PIPESTATUS read.
+
+    Searched where each can ACT, never on the raw text, because the bare word in prose disabled
+    the block: `pytest -q | tail -3 && git commit -m "note: add pipefail later"` was let through.
+    `pipefail` must stand outside every quoted region, substitution and comment (it is an option
+    to `set` or `bash -o`); `PIPESTATUS` must be an EXPANSION (`$PIPESTATUS`, `${PIPESTATUS[0]}`),
+    read on text where only single quotes, escapes and comments are blanked, because it expands
+    inside double quotes - `[ "${PIPESTATUS[0]}" -eq 0 ]` is the documented fix.
+    """
+    base = blank_heredoc_bodies(command or "")
+    if _PIPEFAIL.search(mask_data_regions(base, tool_name=tool_name)):
+        return True
+    return bool(_PIPESTATUS_READ.search(blank_unexpanded_text(base, tool_name=tool_name)))
+
+
+def _comments_blanked(raw: str, masked: str) -> str:
+    """`raw` with only its comments blanked, given `masked = mask_data_regions(raw)`.
+
+    `mask_data_regions` fills quoted text and substitutions with a non-space filler and blanks
+    comments to spaces, so a space in `masked` where `raw` has something else is exactly a comment
+    character. Quoted text survives here on purpose: a success claim IS a quoted string
+    (`echo "PASS"`, `echo 'OK'`), and masking it would delete the evidence.
+    """
+    return "".join(" " if m == " " else r for r, m in zip(raw, masked))
+
+
+def _statements(command: str, tool_name: str) -> list[tuple[str, str]]:
+    """Each statement as `(raw, readable)`: the raw text, and the same span with comments blanked.
+
+    The separators are found on the MASKED command and the raw text is cut at those offsets (every
+    pass here preserves length), so a `;` or newline inside quotes or a comment is not a statement
+    boundary: `# note; git commit when green` is one comment, not a commit.
+    """
+    raw = blank_heredoc_bodies(command)
+    masked = mask_data_regions(raw, tool_name=tool_name)
+    readable = _comments_blanked(raw, masked)
+    out, start = [], 0
+    for sep in SPLIT.finditer(masked):
+        out.append((raw[start:sep.start()], readable[start:sep.start()]))
+        start = sep.end()
+    out.append((raw[start:], readable[start:]))
+    return out
+
+
+# A read of the previous command's status. `$?` after a pipeline is the LAST element's status,
+# so a pipe into a truncating filter makes it report the filter, not the command being measured.
+_STATUS_READ = re.compile(r"\$\?")
+
+
+def reads_masked_status(command: str, tool_name: str = "Bash") -> bool:
+    """True when a read of `$?` DIRECTLY follows a pipeline into a swallowing filter.
+
+    Orthogonal to :func:`masks_a_gate`, which needs the command to be a RECOGNISED gate before it
+    fires. That misses the other half of the same mistake: measuring a command's OWN exit code
+    during verification. Measured 2026-08-09 - `tool verify --sid <absent> | tail -5;
+    echo "rc=$?"` printed rc=0 while the tool had correctly exited 1, so a working negative
+    control read as broken; a passing one would have been recorded as proof. The command being
+    measured is arbitrary, so keying on a gate name can never catch it.
+
+    ADJACENCY is the whole precision of this check. `$?` holds the status of the IMMEDIATELY
+    preceding command, so only the statement directly after the pipeline can be reading the
+    filter's status by mistake; once any other command has run, `$?` is about that one. Without
+    this the guard fired on a command that piped one check into `tail` and then ran a SECOND check
+    redirected to a file - the correct form it exists to recommend.
+
+    Inert regions are blanked first: writing ABOUT the footgun is not committing it. Heredoc bodies
+    were the first such region; escaped `\\$?`, single-quoted strings and `#` comments are the rest,
+    and all three false-fired this guard on the day it shipped. A `$?` inside DOUBLE quotes still
+    counts, because it genuinely expands there - `echo "rc=$?"` is the exact mistake this catches,
+    so prose in double quotes is knowingly left as a false positive rather than lose the real case.
+
+    Two views of the same text, because the two questions need different ones. STRUCTURE - where a
+    statement ends, where a pipe joins - comes from the masked text, where every quoted region is
+    filler: read on the expansion view, which keeps double quotes, `echo "x | head ; rc=$?"` (one
+    echo) was a pipe into head followed by a status read. The `$?` is then looked for on the
+    expansion view at the same offsets; both views preserve length.
+
+    A command substitution is where the two views part company, and two rules settle it (both
+    pinned by a corpus replay): an ASSIGNMENT-only statement exits with its substitution's status,
+    so `o=$(tool | head -c 4000); rc=$?` reads head's; and a `$?` inside a later substitution reads
+    whatever ran before it THERE, so `$(tool; echo $?)` is about tool, while `$(echo $?)` still
+    reads the pipe.
+
+    Both views are read under `tool_name`'s escape rules: under PowerShell a backtick escapes and a
+    backslash is a path separator, so `"C:\\x\\" 'rc=$?'` holds a single-quoted, inert `$?`.
+    """
+    if handles_pipe_status(command, tool_name):
+        return False
+    base = blank_heredoc_bodies(command or "")
+    masked = mask_data_regions(base, tool_name=tool_name)
+    expanding = blank_unexpanded_text(base, tool_name=tool_name)
+    reads = _status_reads(expanding, tool_name=tool_name)
+    spans = [(a, b) for a, b in _spans(masked) if masked[a:b].strip()]
+    for index, (start, end) in enumerate(spans):
+        if not _ends_in_a_filter(base, masked, start, end, tool_name=tool_name):
+            continue
+        following = spans[index + 1] if index + 1 < len(spans) else (end, end)
+        if any(following[0] <= at < following[1] for at in reads):
+            return True
+    return False
+
+
+def _spans(masked: str) -> list[tuple[int, int]]:
+    """(start, end) of each statement of an already-masked command, pipelines kept whole."""
+    spans, start = [], 0
+    for sep in SPLIT.finditer(masked):
+        spans.append((start, sep.start()))
+        start = sep.end()
+    spans.append((start, len(masked)))
+    return spans
+
+
+# A statement made only of `NAME=value` words: it runs no program, so its exit status is the one
+# its last command substitution left.
+_ASSIGNMENTS_ONLY = re.compile(r"^\s*(?:[A-Za-z_]\w*=\S*\s*)+$")
+
+
+def _ends_in_a_filter(base: str, masked: str, start: int, end: int, *,
+                      tool_name: str = "Bash") -> bool:
+    """True when the statement at [start, end) leaves a swallowing filter's status in `$?`."""
+    structure = masked[start:end]
+    if _ASSIGNMENTS_ONLY.match(structure):
+        bodies = [b for b in _substitution_bodies(base, tool_name=tool_name) if start <= b[0] < end]
+        if not bodies:
+            return False
+        body = base[bodies[-1][0]:bodies[-1][1]]
+        inner = mask_data_regions(body, tool_name=tool_name)
+        last = [(a, b) for a, b in _spans(inner) if inner[a:b].strip()]
+        structure = inner[last[-1][0]:last[-1][1]] if last else ""
+    elements = [e for e in _PIPE.split(structure) if e.strip()]
+    return len(elements) >= 2 and any(FILTER.match(e) for e in elements[1:])
+
+
+def _walk(text: str, *, tool_name: str = "Bash"):
+    """(start, end, separator_before, openers) for each segment of the quote-aware walk.
+
+    `openers` is the stack of group openers (`$(`, a backtick, `(` ...) the segment sits inside.
+    """
+    stack: list[str] = []
+    previous_end = 0
+    for at, segment in iter_segments(text, tool_name):
+        separator = text[previous_end:at]
+        if stack and (separator == ")" or (separator == "`" and stack[-1] == "`")):
+            stack.pop()
+        elif separator in ("$(", "(", "<(", ">(", "`"):
+            stack.append(separator)
+        previous_end = at + len(segment)
+        yield at, previous_end, separator, tuple(stack)
+
+
+def _substitution_bodies(text: str, *, tool_name: str = "Bash") -> list[tuple[int, int]]:
+    """(start, end) of each outermost `$(...)` / backtick body in `text`."""
+    bodies, open_at = [], None
+    for at, _end, separator, openers in _walk(text, tool_name=tool_name):
+        if separator in ("$(", "`") and len(openers) == 1:
+            open_at = at
+        elif not openers and open_at is not None:
+            bodies.append((open_at, at - len(separator)))
+            open_at = None
+    return bodies
+
+
+def _status_reads(expanding: str, *, tool_name: str = "Bash") -> list[int]:
+    """Offsets of every `$?` that reads the status left BEFORE its statement.
+
+    Outside a substitution that is every one. Inside a `$(...)` only a read in the substitution's
+    FIRST statement qualifies; after `$(tool; echo $?)` has run tool, the read is about tool.
+    """
+    reads = []
+    for at, end, separator, openers in _walk(expanding, tool_name=tool_name):
+        substituted = any(o in ("$(", "`") for o in openers)
+        if substituted and separator not in ("$(", "`"):
+            continue
+        reads += [m.start() for m in _STATUS_READ.finditer(expanding, at, end)]
+    return reads
+
+
+def _pipeline_elements(statement: str, tool_name: str = "Bash") -> list[str]:
+    """The non-empty pipeline elements of one statement, read with its quoted regions masked.
+
+    The split runs on the MASKED text, so a `|` inside a quoted argument is not an element
+    boundary; `|&` counts as one (it pipes stderr too, and the filter still sets the status).
+    """
+    masked = mask_data_regions(statement, tool_name=tool_name)
+    return [e for e in _PIPE.split(masked) if e.strip()]
+
+
+def _first_gate(elements: list[str], tool_name: str = "Bash") -> tuple[int, re.Match[str]] | None:
+    """(index, match) of the first element whose PROGRAM is a gate, or None.
+
+    Only the program word counts: `grep pytest docs/x.md` and `cat pytest.ini` run grep and cat,
+    and reading their arguments as a gate refused a read-only look at a file before a commit.
+    """
+    for index, element in enumerate(elements):
+        found = gate_program_in(element, tool_name, GATE)
+        if found is not None:
+            return index, found
+    return None
+
+
+def masks_a_gate(statement: str, tool_name: str = "Bash") -> bool:
+    """True when a gate runs in this pipeline but is not what sets its status.
+
+    The gate is looked for at each element's program word, on the statement with quoted regions
+    masked, because a gate NAME inside an argument is not a gate being run: `grep -rn "npm test" .
+    | head -20` and `grep pytest docs/x.md | tail -5` both run grep. The mask is scoped to this
+    question on purpose - `CONSUMER` must still READ quoted text, since the success claim it looks
+    for IS a quoted string (`echo "PASS"`), and masking there deletes the evidence.
+    """
+    elements = _pipeline_elements(statement, tool_name)
+    if len(elements) < 2:
+        return False
+    first = _first_gate(elements, tool_name)
+    if first is None:
+        return False
+    # If the gate IS the last element, the pipeline's status is the gate's.
+    if gate_program_in(elements[-1], tool_name, GATE):
+        return False
+    # Only a swallowing filter AFTER the gate masks it. Filter names stand outside quotes, so the
+    # masked element reads the same as the raw one here.
+    return any(FILTER.match(e) for e in elements[first[0] + 1:])
+
+
+def _runs_a_gate(command: str, tool_name: str = "Bash") -> bool:
+    """True when any pipeline element of any statement runs a gate as its program word."""
+    return any(_first_gate(_pipeline_elements(raw, tool_name), tool_name)
+               for raw, _readable in _statements(command, tool_name))
+
+
+# A STATE-CHANGING step that is no gate: its failure is a refused merge, a rejected push, a commit
+# that never happened, an install that left the old version. Only these verbs, at the program word.
+# `bundle` counts only when it writes one. `tag` and `make` are matched bare and judged on their
+# arguments by `_step_changes_state`: whether `git tag` makes a tag or lists them, and whether a
+# `make` only prints, is decided by options anywhere on the line, past values a regex cannot skip.
+# `(?![\w-])` keeps `merge-base` and `commit-tree` out.
+_GIT_OPTIONS = r"git(?:\s+(?:-[Cc]\s+\S+|--[\w-]+(?:=\S+)?|-[A-Za-z]\b))*\s+"
+STATE_STEP = re.compile(
+    _GIT_OPTIONS + r"(?:commit|merge|rebase|cherry-pick|push|bundle\s+create|(?P<tag>tag))"
+    r"(?![\w-])"
+    r"|(?P<make>make)(?![\w-])"
+    # `uv` and `python -m` are launchers to the program-word walk, so `uv pip install` is read
+    # at `pip`; a bare `pip install` is the same state change and is matched with it.
+    r"|pip3?\s+install(?![\w-])"
+)
+
+# A redirection word: `2>&1`, `>log`, or a bare `>` whose file is the next word.
+_REDIRECTION = re.compile(r"^(?:\d*|&)(?:>>?|<)(?P<rest>.*)$")
+
+# `git tag` (git-tag(1)). A listing or verifying option makes it read-only whatever else is given;
+# a create/delete option, or a tag-name operand without one, makes it write.
+_TAG_READS = frozenset({"-l", "--list", "-v", "--verify", "--contains", "--no-contains",
+                        "--merged", "--no-merged", "--points-at"})
+_TAG_WRITES = frozenset({"-a", "--annotate", "-s", "--sign", "-u", "--local-user", "-f", "--force",
+                         "-d", "--delete", "-m", "--message", "-F", "--file", "-e", "--edit"})
+_TAG_VALUE_OPTS = frozenset({"-u", "--local-user", "-m", "--message", "-F", "--file", "--sort",
+                             "--format", "--cleanup", "--trailer"})
+
+# GNU make: options whose value is the next word, the two whose number is optional, the ones that
+# only print, and the targets that only print.
+_MAKE_VALUE_OPTS = frozenset({"-C", "--directory", "-f", "--file", "--makefile", "-I",
+                              "--include-dir", "-o", "--old-file", "--assume-old", "-W",
+                              "--what-if", "--new-file", "--assume-new", "-E", "--eval"})
+_MAKE_OPTIONAL_NUMBER = frozenset({"-j", "--jobs", "-l", "--load-average", "--max-load"})
+_MAKE_PRINTS = frozenset({"-n", "--dry-run", "--just-print", "--recon", "-q", "--question"})
+_MAKE_PRINT_TARGETS = frozenset({"help"})
+
+
+def _without_redirections(words: list[str]) -> list[str]:
+    """`words` without redirections, so `2>&1` and `> log` are not read as operands."""
+    kept, i = [], 0
+    while i < len(words):
+        redirection = _REDIRECTION.match(words[i])
+        if redirection is None:
+            kept.append(words[i])
+        elif not redirection.group("rest"):
+            i += 1                                   # the file of a bare `>`
+        i += 1
+    return kept
+
+
+def _short_cluster(word: str) -> str:
+    """The letters of a bundled short-option word (`-am` -> `am`), else ""."""
+    return word[1:] if re.fullmatch(r"-[A-Za-z]+", word) else ""
+
+
+def _cluster_flags(cluster: str, value_letters: str) -> tuple[str, bool]:
+    """(flag letters, value is the next word) of a bundled short-option cluster.
+
+    Read left to right the way getopt does: the first letter that takes a value ends the flags,
+    and the rest of the word is that value (`-Cfrontend` is -C with `frontend`, not -C -f -r ...
+    -n). Reading every letter as a flag let the letters of a value pose as a list or dry-run flag.
+    The value is the next word only when the value-taking letter is the cluster's last.
+    """
+    for at, letter in enumerate(cluster):
+        if letter in value_letters:
+            return cluster[:at + 1], at == len(cluster) - 1
+    return cluster, False
+
+
+def _tag_writes(args: list[str]) -> bool:
+    """Does `git tag <args>` create or delete a tag, rather than list or verify them?"""
+    reads = writes = operand = False
+    i = 0
+    while i < len(args):
+        word, cluster = args[i], _short_cluster(args[i])
+        name = word.split("=", 1)[0]
+        flags, value_next = _cluster_flags(cluster, "muF") if len(cluster) > 1 else ("", False)
+        reads = reads or name in _TAG_READS or bool(re.fullmatch(r"-n\d*", word))
+        reads = reads or bool(set(flags) & set("lv"))
+        writes = writes or name in _TAG_WRITES or bool(set(flags) & set("asufdmFe"))
+        if word == "--":
+            operand = operand or i + 1 < len(args)
+            break
+        if word.startswith("-"):
+            takes_value = word in _TAG_VALUE_OPTS or value_next
+            i += 2 if takes_value else 1
+            continue
+        operand, i = True, i + 1
+    return not reads and (writes or operand)
+
+
+def _make_writes(args: list[str]) -> bool:
+    """Does `make <args>` build something, rather than only print (`-n`, `help`)?"""
+    targets, i = [], 0
+    while i < len(args):
+        word, cluster = args[i], _short_cluster(args[i])
+        flags, value_next = _cluster_flags(cluster, "CfIoWE") if len(cluster) > 1 else ("", False)
+        if word.split("=", 1)[0] in _MAKE_PRINTS or set(flags) & set("nq"):
+            return False
+        if word.startswith("-"):
+            number_follows = i + 1 < len(args) and args[i + 1].isdigit()
+            takes_value = (word in _MAKE_VALUE_OPTS or value_next
+                           or (word in _MAKE_OPTIONAL_NUMBER and number_follows))
+            i += 2 if takes_value else 1
+            continue
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*\+?[:?!]?=", word):
+            targets.append(word)                 # NAME=value is a variable, not a target
+        i += 1
+    return not targets or not set(targets) <= _MAKE_PRINT_TARGETS
+
+
+def _step_changes_state(step: re.Match[str], element: str) -> bool:
+    """False for a `git tag` that only lists or a `make` that only prints; True for every other step."""
+    if not (step.group("tag") or step.group("make")):
+        return True
+    args = _without_redirections(element[step.end():].split())
+    return _tag_writes(args) if step.group("tag") else _make_writes(args)
+
+
+# The filters the owner decision names: each exits 0 on output it was handed, so it hides the step.
+STATE_FILTER = re.compile(r"^[\s(]*(?:head|tail|grep|egrep|wc)(?![\w-])")
+
+# What a masked step must not be allowed to set off: publishing, merging, tagging, a release, a
+# delete, a copy or command on another host.
+STATE_CONSEQUENCE = re.compile(
+    _GIT_OPTIONS + r"(?:commit|push|merge|tag)(?![\w-])"
+    r"|make\s+release(?![\w-])"
+    r"|(?:rm|scp|ssh)(?![\w-])"
+)
+
+# A `grep -q` / `--quiet` / `--silent` that ENDS the pipeline is a deliberate predicate on the
+# step's output (`git pull | grep -q 'Already up to date' && ...`), not a filter hiding a status.
+_QUIET_FLAG = re.compile(r"^(?:-[A-Za-z]*q[A-Za-z]*|--quiet|--silent)$")
+
+
+def _is_quiet_grep(element: str) -> bool:
+    """True when this pipeline element is a grep run as a yes/no predicate."""
+    words = element.replace("(", " ").split()
+    if not words or basename_for_tool(words[0]) not in ("grep", "egrep"):
+        return False
+    return any(_QUIET_FLAG.match(w) for w in words[1:])
+
+
+def _statements_with_separators(command: str, tool_name: str) -> list[tuple[str, str]]:
+    """Each statement's raw text and the list separator that FOLLOWS it (`&&`, `;`, ... or "").
+
+    Cut on the masked command, so a separator inside quotes, a substitution or a comment is not
+    one; a newline reads as "" like the end of the command, since it sequences unconditionally.
+    """
+    raw = blank_heredoc_bodies(command)
+    masked = mask_data_regions(raw, tool_name=tool_name)
+    out, start = [], 0
+    for sep in SPLIT.finditer(masked):
+        out.append((raw[start:sep.start()], sep.group(0).strip()))
+        start = sep.end()
+    out.append((raw[start:], ""))
+    return out
+
+
+def _masked_state_step(statement: str, tool_name: str) -> re.Match[str] | None:
+    """The state-changing step this pipeline hides behind a filter, or None."""
+    elements = _pipeline_elements(statement, tool_name)
+    if len(elements) < 2 or _is_quiet_grep(elements[-1]):
+        return None
+    for index, element in enumerate(elements[:-1]):
+        step = gate_program_in(element, tool_name, STATE_STEP)
+        if step is not None and _step_changes_state(step, element):
+            return step if any(STATE_FILTER.match(e) for e in elements[index + 1:]) else None
+    return None
+
+
+def masks_a_state_change(command: str, tool_name: str = "Bash") -> tuple[str, str, str] | None:
+    """(step, pipeline, consequence) when a masked state change is chained by `&&` into another.
+
+    The narrowed form of the pipefail guard (owner decision 2026-10-20). The literal form, refusing
+    any pipe into a filter, fired on about a quarter of all Bash calls and was mostly wrong, so this
+    needs all three: a state-changing STEP that is no gate (a gate is `masks_a_gate`'s case), a
+    head/tail/grep/wc after it in the same pipeline, and an `&&` chain from that pipeline into a
+    CONSEQUENCE. `git merge x | tail -2 && git push` pushes whether or not the merge happened.
+
+    Left alone on purpose: a read-only producer (`git log | head && git push`), a `;` or newline
+    after the pipeline (the next command runs regardless, so it is not gated on the step), a
+    `grep -q` predicate ending the pipeline, pipefail or a PIPESTATUS read, and the redirect form
+    `step > log 2>&1 && ...`, whose status is the step's.
+    """
+    if handles_pipe_status(command, tool_name):
+        return None
+    statements = _statements_with_separators(command, tool_name)
+    for index, (statement, separator) in enumerate(statements):
+        step = _masked_state_step(statement, tool_name)
+        if step is None:
+            continue
+        follow = index
+        while separator == "&&" and follow + 1 < len(statements):
+            follow += 1
+            following, separator = statements[follow]
+            masked = mask_data_regions(following, tool_name=tool_name)
+            if gate_program_in(masked, tool_name, STATE_CONSEQUENCE) is not None:
+                return step.group(0), statement.strip(), following.strip()
+    return None
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        return 0
+    cmd = (data.get("tool_input") or {}).get("command") or ""
+    if not cmd:
+        return 0
+    # Every reading below is under this shell's escape rules: PowerShell escapes with a backtick.
+    tool_name = data.get("tool_name") or "Bash"
+
+    # Advisories, emitted as ONE additionalContext: Claude Code reads a single JSON document from
+    # a hook's stdout, so two written separately would be neither.
+    advisories = []
+    # The verification shape, which needs no recognised gate: a pipe into a truncating filter and
+    # then a read of `$?`. Advisory rather than a block - measuring an exit code is legitimate
+    # work, and the mistake is reading the WRONG one, so the fix is to name the right form.
+    if reads_masked_status(cmd, tool_name):
+        advisories.append(
+            "MASKED EXIT STATUS: this pipes into a truncating filter and then reads `$?`, "
+            "which is the FILTER's status, not the command's. Measured: a tool that had "
+            "correctly exited 1 reported rc=0 this way, so a working negative control read "
+            "as broken - and a passing one would have been recorded as proof. Use "
+            "`cmd > out 2>&1; rc=$?` and read the file, or gate.py for a real gate.")
+    # The jig under `uv run`: advisory, not a block, because the failure it causes errs RED.
+    if _JIG_UNDER_UV.search(strip_heredoc_bodies(cmd)):
+        advisories.append(
+            f"GATE.PY UNDER UV RUN: launch gate.py with `{_PLAIN_PYTHON}`, not `uv run`. It runs "
+            "YOUR gate, and `uv run` puts its own throwaway interpreter first on the PATH the gate "
+            "inherits, so a `python3 -m pytest` gate dies with `No module named pytest` and reads "
+            "as a false RED.")
+    if advisories:
+        sys.stdout.write(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n\n".join(advisories),
+        }}) + "\n")
+
+    # A backgrounded gate that does not go through the jig: the completion notice will report
+    # the compound's last command, and that is what gets believed. Checked BEFORE the heredoc
+    # strip because the whole command is what runs in the background, body included.
+    backgrounded = backgrounded_gate_with_a_misreported_status(
+        cmd, background=(data.get("tool_input") or {}).get("run_in_background")
+    )
+    if backgrounded is not None:
+        return shell_text.refuse("\n".join([
+            "BLOCKED: a backgrounded gate whose verdict you will be told wrongly.",
+            "",
+            f"  gate: {backgrounded}",
+            "",
+            "The completion notice says `completed (exit code N)`, and N is the LAST command of",
+            "the compound - `tail`, `echo`, whatever ended it - never the gate's own. Measured",
+            "2026-09-02: the redirect form was written correctly, the notice said exit code 0,",
+            "that was relayed as `the gate passed`, and the log said RC=2 with a failing test.",
+            "(`gh run watch` is refused even alone unless given --exit-status: without it, it",
+            "exits 0 whatever the run concluded.)",
+            "",
+            "Run it through the jig, which returns the GATE's status and can chain the action:",
+            f"  {_PLAIN_PYTHON} <plugin>/skills/compuse-toolbox/scripts/gate.py \\",
+            '      --gate "<the gate>" [--then "<the action>"]',
+            "Its report ends with the path of a fresh per-invocation log; pass --log with an",
+            "ABSOLUTE path to pin one instead.",
+            "",
+            "Or background the gate ALONE, with nothing after it, so its status is the task's.",
+            "",
+            "Launch the jig with a plain interpreter, never `uv run`: it runs your gate, and",
+            "`uv run` puts its own isolated interpreter first on the PATH the gate inherits, so",
+            "a `python3 -m pytest` gate dies with `No module named pytest` and reads RED. Quote",
+            "the gate with DOUBLE quotes: a Windows command line has no single-quoting.",
+            "",
+            "Or run it in the FOREGROUND, where the exit status you see is the gate's own.",
+        ]))
+
+    # A state-changing step that is no gate, its failure hidden by a filter and chained into a
+    # publish or delete. Checked before the gate fast path below, which returns when no GATE runs.
+    hidden = masks_a_state_change(cmd, tool_name)
+    if hidden is not None:
+        step, pipeline, consequence = hidden
+        return shell_text.refuse("\n".join([
+            "BLOCKED: a state change whose failure the pipe hides, chained by && into another.",
+            "",
+            f"  step      : {step}",
+            f"  piped into: {pipeline[:100]}",
+            f"  then      : {consequence[:100]}",
+            "",
+            "A pipeline exits with its LAST element's status, so head/tail/grep/wc succeed even",
+            "when the step failed: a refused merge, a rejected push or a commit that never",
+            "happened still lets the && run what comes next.",
+            "",
+            "Fix it one of these ways:",
+            "  - redirect, then read the log:   <step> > out.log 2>&1 && <next>; tail out.log",
+            "  - check the step itself:         <step> | tail -3; [ \"${PIPESTATUS[0]}\" -eq 0 ] && <next>",
+            "  - make the pipe propagate:       set -o pipefail; <step> | tail -3 && <next>",
+        ]))
+
+    # A heredoc BODY is stdin data, so a doc that WRITES an example of the footgun is not one.
+    # Measured live: that shape blocked a real command while this guard was under investigation.
+
+    # Fast path: nothing further to protect if no gate runs here.
+    if not _runs_a_gate(cmd, tool_name):
+        return 0
+    # The author already handles the pipe's status correctly.
+    if handles_pipe_status(cmd, tool_name):
+        return 0
+
+    # A comment is never executed, so CONSUMER reads each statement with its comments blanked:
+    # `# after this, never git commit on a red gate` under a piped gate was blocked as a commit.
+    statements = _statements(cmd, tool_name)
+    masked_at = None
+    for i, (st, readable) in enumerate(statements):
+        if masked_at is None:
+            if masks_a_gate(st, tool_name):
+                masked_at = i
+            continue
+        if CONSUMER.search(readable):
+            first = _first_gate(_pipeline_elements(statements[masked_at][0], tool_name), tool_name)
+            gate = first[1] if first else None
+            msg = [
+                "BLOCKED: this claims success on a gate whose exit status the pipe threw away.",
+                "",
+                f"  gate      : {gate.group(0) if gate else '(gate)'}",
+                f"  piped into: {statements[masked_at][0].strip()[:100]}",
+                f"  then      : {st.strip()[:100]}",
+                "",
+                "A pipeline exits with its LAST element's status, so head/grep/tail succeed even",
+                "when the gate failed - the && fires, the ; sequences on, and you print OK or",
+                "commit a red state while the real failure scrolls past.",
+                "",
+                "Fix it one of these ways:",
+                "  - run the gate bare and let it set the status:   <gate> || exit 1",
+                "  - keep the pipe but check the gate:              ${PIPESTATUS[0]}",
+                "  - make the pipe propagate:                       set -o pipefail",
+                "  - redirect to a file, then grep it separately:   <gate> > out.log 2>&1 || { grep ... out.log; exit 1; }",
+            ]
+            return shell_text.refuse("\n".join(msg))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

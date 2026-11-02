@@ -99,7 +99,10 @@ class ProjectsMixin:
         ``workspace_id`` (an id, or a workspace slug) names the workspace;
         omitted (and no ``part_of``/``parent_project_id``), this computer's
         workspace (:meth:`computer_workspace_id`). With neither, a team with
-        several workspaces refuses (``WorkspaceRequired``).
+        several workspaces refuses, so your home workspace is pinned on this
+        computer and the create sent again; with no home (or after `probe
+        workspace use --clear`) it raises ``WorkspaceRequired``. A pin naming a
+        deleted workspace is dropped and the create sent once more the same way.
 
         Creation is always explicit: there is no get-or-create. A caller that
         does not know whether the project exists asks :meth:`resolve_project`
@@ -126,6 +129,7 @@ class ProjectsMixin:
             body["part_of"] = list(part_of)
         if parent_project_id is not None:
             body["parent_project_id"] = parent_project_id
+        is_computer_workspace = False
         if workspace_id is not None:
             # A slug is looked up only here, on the create itself: a caller
             # whose project already exists never pays for (or trips on) it.
@@ -138,6 +142,7 @@ class ProjectsMixin:
             # create: the server files that beside its first target, and
             # sending this computer's workspace would override it.
             workspace_id = self.computer_workspace_id()
+            is_computer_workspace = workspace_id is not None
         if workspace_id is not None:
             body["workspace_id"] = workspace_id
         if description is not None:
@@ -151,13 +156,28 @@ class ProjectsMixin:
         try:
             row = self.transport.post("/v1/projects", body)
         except errors.WorkspaceRequired:
-            # One-time handover: a member whose saved default (0354) moved their
-            # work to their own workspace gets it pinned on this computer
-            # instead of an error, once; then the request is sent again.
-            handed = None if "workspace_id" in body else self._hand_over_workspace()
-            if handed is None:
+            # No workspace on this computer: pin the person's home here, then send
+            # it again (every time, unless they ran `probe workspace use --clear`).
+            home = None if "workspace_id" in body else self._pin_home_workspace()
+            if home is None:
                 raise
-            body["workspace_id"] = handed
+            body["workspace_id"] = home
+            row = self.transport.post("/v1/projects", body)
+        except errors.ValidationError as exc:
+            # This computer's pin names a deleted workspace (A6): drop it and send
+            # once more as a fresh computer would, into the home when there is one.
+            if not (
+                is_computer_workspace
+                and isinstance(exc.detail, str)
+                and exc.detail.startswith(errors.WORKSPACE_NOT_FOUND)
+                and self._drop_dead_pin(body["workspace_id"])
+            ):
+                raise
+            home = self._pin_home_workspace()
+            if home is None:
+                del body["workspace_id"]  # the server files a lone workspace, else 422s
+            else:
+                body["workspace_id"] = home
             row = self.transport.post("/v1/projects", body)
         if tags is not None:
             self._verify_tags_written(tags, row, "POST /v1/projects")

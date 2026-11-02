@@ -1,0 +1,149 @@
+"""AST Container Enrichment for search matches.
+
+Extracts the enclosing AST syntax container (function, method, class)
+for search hits using tree-sitter or AST symbol parsing.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from tensor_grep.cli import repo_map
+from tensor_grep.cli.repo_map_coverage_gaps import target_file_gaps
+
+AST_ENRICH_FILE_LIMIT = 100
+
+
+def _symbols_for_container_enrichment(
+    path_obj: Path,
+    *,
+    parser_backed_only: bool,
+) -> list[dict[str, Any]]:
+    try:
+        if path_obj.stat().st_size > repo_map._max_parse_bytes():
+            return []
+    except OSError:
+        return []
+    if not parser_backed_only:
+        _, symbols = repo_map._imports_and_symbols_for_path(path_obj)
+        return symbols
+    from tensor_grep.cli import lang_registry
+    from tensor_grep.cli.repo_map import _rust_parser_symbols
+    from tensor_grep.cli.repo_map_lang_js import _js_ts_parser_symbols
+
+    spec = lang_registry.spec_for_path(path_obj)
+    if spec is not None and spec.language_id in ("javascript", "typescript"):
+        return _js_ts_parser_symbols(path_obj)
+    if spec is not None and spec.language_id == "rust":
+        return _rust_parser_symbols(path_obj)
+    try:
+        _, symbols = repo_map._imports_and_symbols_for_path(path_obj)
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+        return []
+    return symbols
+
+
+def enrich_match_with_container(
+    file_path: Path | str,
+    line_number: int,
+    symbols_cache: dict[Any, list[dict[str, Any]]] | None = None,
+    *,
+    parser_backed_only: bool = False,
+) -> dict[str, Any] | None:
+    """Return the nearest enclosing AST container (function, class, method) for a file and line number.
+
+    Returns dict with keys: 'name', 'kind', 'range' [start_line, end_line], or None if top-level / unparseable.
+    """
+    path_obj = Path(file_path)
+    norm_path = str(path_obj.resolve())
+
+    cache_key = (norm_path, parser_backed_only)
+    symbols: list[dict[str, Any]]
+    if symbols_cache is not None and cache_key in symbols_cache:
+        symbols = symbols_cache[cache_key]
+    else:
+        try:
+            symbols = _symbols_for_container_enrichment(
+                path_obj, parser_backed_only=parser_backed_only
+            )
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+            symbols = []
+        if symbols_cache is not None:
+            symbols_cache[cache_key] = symbols
+
+    candidates: list[dict[str, Any]] = []
+    for s in symbols:
+        start_line = s.get("start_line", s.get("line"))
+        end_line = s.get("end_line", start_line)
+        if isinstance(start_line, int) and isinstance(end_line, int):
+            if start_line <= line_number <= end_line:
+                candidates.append(s)
+
+    if not candidates:
+        return None
+
+    # Pick the smallest enclosing span
+    candidates.sort(
+        key=lambda s: (
+            int(s.get("end_line", s.get("line", 0))) - int(s.get("start_line", s.get("line", 0)))
+        )
+    )
+    smallest = candidates[0]
+    start = int(smallest.get("start_line", smallest.get("line", 0)))
+    end = int(smallest.get("end_line", start))
+    return {
+        "name": str(smallest.get("name", "")),
+        "kind": str(smallest.get("kind", "")),
+        "range": [start, end],
+    }
+
+
+def enrich_search_items_with_containers(
+    files: list[Path | str],
+    items: list[dict[str, Any]],
+    file_limit: int = AST_ENRICH_FILE_LIMIT,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Enrich a list of search result items with their enclosing AST container.
+
+    Bounded by file_limit unique files to protect latency on large codebases.
+    """
+    unique_files: list[str] = []
+    seen_files: set[str] = set()
+    for item in items:
+        p = item.get("path") or item.get("file")
+        if p and str(p) not in seen_files:
+            seen_files.add(str(p))
+            unique_files.append(str(p))
+
+    selected_files = set(unique_files[:file_limit])
+    truncated = len(unique_files) > file_limit
+
+    symbols_cache: dict[str, list[dict[str, Any]]] = {}
+    enriched_items: list[dict[str, Any]] = []
+    enriched_count = 0
+
+    for item in items:
+        p = str(item.get("path") or item.get("file") or "")
+        line_no = item.get("line_number", item.get("line"))
+        if p in selected_files and isinstance(line_no, int):
+            container = enrich_match_with_container(p, line_no, symbols_cache)
+            enriched_item = dict(item)
+            if container:
+                enriched_item["container"] = container
+                enriched_count += 1
+            elif target_file_gaps(Path(p)):
+                # G1.2 (r25): advisory annotation only (the match itself is exact, so no exit
+                # code change) -- but never a silently absent symbol for an unparseable file.
+                enriched_item["enclosing_symbol_status"] = "unparsed"
+            enriched_items.append(enriched_item)
+        else:
+            enriched_items.append(item)
+
+    diagnostics = {
+        "total_files": len(unique_files),
+        "parsed_files": min(len(unique_files), file_limit),
+        "enriched_items": enriched_count,
+        "truncated": truncated,
+    }
+    return enriched_items, diagnostics

@@ -1,0 +1,1325 @@
+/**
+ * CortEX + NetDb — typed event-sourced state with reactive watches.
+ *
+ * Wraps the native `@net-mesh/core` CortEX bindings with ergonomic
+ * TypeScript APIs: `AsyncIterable`-shaped watches (so `for await`
+ * works naturally), typed errors via `CortexError` / `NetDbError`
+ * pattern matching, and the `snapshotAndWatch` primitive whose race
+ * fix landed on v2 (see `docs/STORAGE_AND_CORTEX.md`).
+ *
+ * @example
+ * ```typescript
+ * import { NetDb, TaskStatus, CortexError } from '@net-mesh/sdk';
+ *
+ * const db = await NetDb.open({ originHash: 0xABCDEF01, withTasks: true });
+ * const tasks = db.tasks!;
+ *
+ * try {
+ *   tasks.create(1n, 'write docs', 100n);
+ *   await tasks.waitForSeq(seq);
+ * } catch (e) {
+ *   if (e instanceof CortexError) { /* handle adapter-level error *\/ }
+ *   else { throw e; }
+ * }
+ *
+ * // "Paint what's here now, then react to changes":
+ * const { snapshot, updates } = await tasks.snapshotAndWatch({
+ *   status: TaskStatus.Pending,
+ * });
+ * render(snapshot);
+ * for await (const next of updates) render(next);
+ * ```
+ */
+
+import {
+  Redex as NapiRedex,
+  NetDb as NapiNetDb,
+  TasksAdapter as NapiTasksAdapter,
+  MemoriesAdapter as NapiMemoriesAdapter,
+  TasksSnapshotAndWatch as NapiTasksSnapshotAndWatch,
+  MemoriesSnapshotAndWatch as NapiMemoriesSnapshotAndWatch,
+  TaskWatchIter as NapiTaskWatchIter,
+  MemoryWatchIter as NapiMemoryWatchIter,
+  RedexFile as NapiRedexFile,
+  RedexTailIter as NapiRedexTailIter,
+  WorkflowAdapter as NapiWorkflowAdapter,
+  ShardGroup as NapiShardGroup,
+  TriggerEngine as NapiTriggerEngine,
+  TaskStatus,
+  TasksOrderBy,
+  MemoriesOrderBy,
+  WriteToken,
+} from '@net-mesh/core';
+
+import type {
+  Task,
+  Memory,
+  TaskFilter,
+  MemoryFilter,
+  NetDbOpenConfig,
+  NetDbBundle,
+  CortexSnapshot,
+  RedexEventJs,
+  RedexFileConfigJs,
+  WorkflowTaskState,
+  WorkflowStatusCounts,
+  JoinResult,
+  TriggerAction,
+  NetMesh as NapiNetMesh,
+  ReplicationConfigJs,
+  GreedyConfigJs,
+  DataGravityConfigJs,
+} from '@net-mesh/core';
+
+/** Cross-node replication settings for one channel; see {@link RedexFileConfig.replication}. */
+export type ReplicationConfig = ReplicationConfigJs;
+/** Greedy-LRU dataforts settings; see {@link Redex.enableGreedyDataforts}. */
+export type GreedyConfig = GreedyConfigJs;
+/** Data-gravity settings; see {@link Redex.enableGravityForGreedy}. */
+export type DataGravityConfig = DataGravityConfigJs;
+
+// Re-export the NAPI value types so callers get them from one place.
+export {
+  TaskStatus,
+  TasksOrderBy,
+  MemoriesOrderBy,
+  WriteToken,
+};
+
+// Re-export NAPI type-only declarations.
+export type {
+  Task,
+  Memory,
+  TaskFilter,
+  MemoryFilter,
+  NetDbOpenConfig,
+  NetDbBundle,
+  CortexSnapshot,
+  WorkflowTaskState,
+  WorkflowStatusCounts,
+  JoinResult,
+  TriggerAction,
+};
+
+/**
+ * Workflow task lifecycle status. The state machine the
+ * {@link WorkflowAdapter} drives — distinct from the cortex tasks-model
+ * {@link TaskStatus}.
+ */
+export type WorkflowTaskStatus =
+  | 'submitted'
+  | 'running'
+  | 'waiting'
+  | 'blocked'
+  | 'done'
+  | 'failed';
+
+// Typed error classes shipped by `@net-mesh/core/errors`. Re-exported here
+// so SDK consumers can `import { CortexError } from '@net-mesh/sdk'`
+// without a second package path. `classifyError` is what the wrappers
+// below use internally.
+export { CortexError, NetDbError } from '@net-mesh/core/errors';
+import { classifyError } from '@net-mesh/core/errors';
+
+import { napiMeshOf } from './_internal.js';
+import type { MeshNode } from './mesh.js';
+import { wrapWatchIter, type RawWatchIter, type WatchIterable } from './watch-iter.js';
+
+/**
+ * Raised on `redex:` prefixed failures: append / tail / read / sync /
+ * close, invalid channel names, mutually-exclusive config options.
+ * Extends `Error`; catch with `instanceof RedexError`.
+ */
+export class RedexError extends Error {
+  constructor(detail?: string) {
+    super(detail ?? 'redex error');
+    this.name = 'RedexError';
+    Object.setPrototypeOf(this, RedexError.prototype);
+  }
+}
+
+/** Classify a napi-thrown error. Mirrors `@net-mesh/core/errors` for the
+ *  `redex:` prefix which that package does not yet recognize. */
+function classifyWithRedex(e: unknown): unknown {
+  const classified = classifyError(e);
+  if (classified !== e) return classified; // cortex: / netdb: already handled
+  const msg = (e as Error | undefined)?.message ?? '';
+  if (msg.startsWith('redex:')) return new RedexError(msg);
+  return e;
+}
+
+// ---------------------------------------------------------------------------
+// Redex manager
+// ---------------------------------------------------------------------------
+
+/** Construction options for {@link Redex}. */
+export interface RedexOptions {
+  /**
+   * Root directory for disk-backed files. Adapters opened with
+   * `persistent: true` write to `<persistentDir>/<channel>/{idx,dat}`
+   * and replay from disk on reopen. Omit for in-memory only.
+   */
+  persistentDir?: string;
+}
+
+/**
+ * Local RedEX manager. Holds the set of open files on this process.
+ * Cheap to share; adapters borrow it by reference.
+ */
+export class Redex {
+  /** @internal */
+  readonly napi: NapiRedex;
+
+  constructor(opts?: RedexOptions) {
+    // Untyped callers (plain JS, Bun without a type-check) have passed
+    // the directory itself — `new Redex(dir)`. That used to be read as
+    // "no options", built an in-memory store, and failed much later at
+    // the first `persistent: true` open with a message about the Rust
+    // builder. Refuse it here, naming the fix.
+    if (opts !== undefined && (opts === null || typeof opts !== 'object')) {
+      throw new TypeError(
+        `Redex options must be an object, e.g. new Redex({ persistentDir: ${JSON.stringify(
+          String(opts),
+        )} }); got ${opts === null ? 'null' : typeof opts}`,
+      );
+    }
+    this.napi = new NapiRedex(opts?.persistentDir);
+  }
+
+  /**
+   * Open (or get) a raw RedEX file for domain-agnostic persistent
+   * logging. Returns the same handle across repeat calls with the
+   * same `name`; `config` is honored only on first open.
+   *
+   * Use this when you want an append-only event log without the
+   * CortEX fold / typed-adapter layer. Appends, tailing, and range
+   * reads work directly over the file.
+   *
+   * With `config.persistent = true`, this manager must have been
+   * constructed with a `persistentDir`.
+   */
+  openFile(name: string, config?: RedexFileConfig): RedexFile {
+    try {
+      const napiCfg = toNapiFileConfig(config);
+      return new RedexFile(this.napi.openFile(name, napiCfg ?? null));
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  // ---- Replication -------------------------------------------------------
+  // `mesh` is the SDK's MeshNode or the native NetMesh.
+
+  /**
+   * Install cross-node replication rooted at `mesh`. Afterwards, files
+   * opened with `config.replication` run per-channel replication.
+   * Idempotent. Call before {@link openFile}, which otherwise rejects a
+   * replicated config.
+   */
+  enableReplication(mesh: MeshNode | NapiNetMesh): void {
+    try {
+      this.napi.enableReplication(napiMeshOf(mesh));
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /**
+   * Undo {@link enableReplication}: shut every channel's replication down
+   * (withdrawing its chain advertisement) and release this manager's
+   * reference to the mesh. Idempotent; open files stay open as local
+   * logs. Resolves once every channel's runtime has stopped and released
+   * the node: `await` it before `node.shutdown()`, which needs the node's
+   * only reference.
+   */
+  async disableReplication(): Promise<void> {
+    await this.napi.disableReplication();
+  }
+
+  /** Per-channel replication runtimes on this manager; `0` when replication is off. */
+  replicationRuntimeCount(): number {
+    return this.napi.replicationRuntimeCount();
+  }
+
+  /** Replication metrics as Prometheus text; empty when replication is off. */
+  replicationPrometheusText(): string {
+    return this.napi.replicationPrometheusText();
+  }
+
+  // ---- Greedy dataforts --------------------------------------------------
+
+  /**
+   * Install greedy-LRU dataforts rooted at `mesh`: this node caches
+   * channels it reads and announces them. Idempotent; call
+   * {@link disableGreedyDataforts} first to reconfigure.
+   */
+  enableGreedyDataforts(mesh: MeshNode | NapiNetMesh, config?: GreedyConfig): void {
+    try {
+      this.napi.enableGreedyDataforts(napiMeshOf(mesh), config ?? null);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Uninstall greedy dataforts. Idempotent. */
+  disableGreedyDataforts(): void {
+    this.napi.disableGreedyDataforts();
+  }
+
+  /** Channels in the greedy cache; `0` when greedy is off. */
+  greedyCachedChannelCount(): number {
+    return this.napi.greedyCachedChannelCount();
+  }
+
+  /** Greedy metrics as Prometheus text; empty when greedy is off. */
+  greedyPrometheusText(): string {
+    return this.napi.greedyPrometheusText();
+  }
+
+  /**
+   * The greedy cache's copy of a peer's `channel`, or `null` when it isn't
+   * cached or greedy is off. A hit counts as a served read (and, under
+   * gravity, heat). The file belongs to the greedy runtime: `close()` on it
+   * releases only this handle and leaves the cache running.
+   */
+  greedyCacheFor(channel: string): RedexFile | null {
+    try {
+      const file = this.napi.greedyCacheFor(channel);
+      return file ? new RedexFile(file) : null;
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /**
+   * Add data-gravity heat emission to the running greedy cache. Requires
+   * {@link enableGreedyDataforts} first; rejects otherwise.
+   */
+  enableGravityForGreedy(mesh: MeshNode | NapiNetMesh, config?: DataGravityConfig): void {
+    try {
+      this.napi.enableGravityForGreedy(napiMeshOf(mesh), config ?? null);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Remove the gravity layer; greedy keeps running. Idempotent. */
+  disableGravityForGreedy(): void {
+    this.napi.disableGravityForGreedy();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Raw RedEX file — domain-agnostic event log
+// ---------------------------------------------------------------------------
+
+/** Configuration for {@link Redex.openFile}. Mirrors the core
+ *  `RedexFileConfig` field-for-field; the two fsync options are
+ *  mutually exclusive (leave both unset for the default
+ *  `FsyncPolicy::Never`). */
+export interface RedexFileConfig {
+  /** Disk-backed storage. Requires `Redex` to have been constructed
+   *  with `persistentDir`. Default: `false` (heap only). */
+  persistent?: boolean;
+  /** Fsync after every N appends (`1` fsyncs on every append).
+   *  Mutually exclusive with `fsyncIntervalMs`. Ignored unless
+   *  `persistent: true`. */
+  fsyncEveryN?: bigint;
+  /** Fsync on a timer (milliseconds). Mutually exclusive with
+   *  `fsyncEveryN`. Ignored unless `persistent: true`. */
+  fsyncIntervalMs?: number;
+  /** Retain at most N events. */
+  retentionMaxEvents?: bigint;
+  /** Retain at most N bytes of payload. */
+  retentionMaxBytes?: bigint;
+  /** Drop entries older than this many milliseconds at the next
+   *  retention sweep. */
+  retentionMaxAgeMs?: bigint;
+  /** Replicate this channel across nodes. The owning `Redex` must have
+   *  called {@link Redex.enableReplication} first. Unset for a
+   *  single-node channel. */
+  replication?: ReplicationConfig;
+}
+
+function toNapiFileConfig(
+  c: RedexFileConfig | undefined,
+): RedexFileConfigJs | undefined {
+  if (!c) return undefined;
+  // Every native key, required: a field the native config gains and this
+  // mapper doesn't forward is a compile error, not a silent drop (how
+  // `replication` went missing until NODE_SDK_GAPS_PLAN.md S8).
+  const out: { [K in keyof Required<RedexFileConfigJs>]: RedexFileConfigJs[K] } = {
+    persistent: c.persistent,
+    fsyncEveryN: c.fsyncEveryN,
+    fsyncIntervalMs: c.fsyncIntervalMs,
+    retentionMaxEvents: c.retentionMaxEvents,
+    retentionMaxBytes: c.retentionMaxBytes,
+    retentionMaxAgeMs: c.retentionMaxAgeMs,
+    replication: c.replication,
+  };
+  return out;
+}
+
+/** A materialized RedEX event. */
+export interface RedexEvent {
+  seq: bigint;
+  payload: Buffer;
+  /** Low-28-bit xxh3 truncation stamped at append time. */
+  checksum: number;
+  /** True if stored inline in the 20-byte entry record. */
+  isInline: boolean;
+}
+
+function toRedexEvent(raw: RedexEventJs): RedexEvent {
+  return {
+    seq: raw.seq as bigint,
+    payload: raw.payload,
+    checksum: raw.checksum,
+    isInline: raw.isInline,
+  };
+}
+
+/** Raw RedEX file handle. Append, tail, range-read without the
+ *  CortEX adapter layer. */
+export class RedexFile {
+  /** @internal */
+  readonly napi: NapiRedexFile;
+
+  constructor(inner: NapiRedexFile) {
+    this.napi = inner;
+  }
+
+  /** Append one payload. Returns the assigned sequence number. */
+  append(payload: Buffer): bigint {
+    try {
+      return this.napi.append(payload);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Append a batch atomically. Returns the seq of the first event
+   *  (subsequent events are `first + 0, first + 1, ...`), or `null`
+   *  for an empty batch (no seq is allocated when there's nothing to
+   *  append). */
+  appendBatch(payloads: Buffer[]): bigint | null {
+    try {
+      return this.napi.appendBatch(payloads);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Read the half-open range `[start, end)` from the in-memory
+   *  index. Only retained entries are returned. */
+  readRange(start: bigint, end: bigint): RedexEvent[] {
+    try {
+      return this.napi.readRange(start, end).map(toRedexEvent);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Number of retained events (post-retention eviction). Returned
+   *  as `bigint` because event counts can exceed `Number.MAX_SAFE_INTEGER`
+   *  (~9 P) in theory — though in practice they'll fit in a `number`,
+   *  the lossless type is the safe surface. */
+  len(): bigint {
+    return this.napi.len() as bigint;
+  }
+
+  /** Open a live tail. Yields every event with `seq >= fromSeq`
+   *  (default `0n`) — atomically backfills the retained range and
+   *  then streams appends. Breaking out of `for await` releases the
+   *  native iterator via `return()`. */
+  async tail(fromSeq?: bigint): Promise<WatchIterable<RedexEvent>> {
+    try {
+      const iter: NapiRedexTailIter = await this.napi.tail(fromSeq ?? null);
+      const raw: RawWatchIter<RedexEvent> = {
+        // The napi tail emits `redex:` errors for tail-time failures
+        // (file closed mid-stream, decode failures on reopen, etc.).
+        // Without classifying here, those surface as bare `Error`s
+        // — callers doing `instanceof RedexError` miss them.
+        async next() {
+          try {
+            const v = await iter.next();
+            return v === null ? null : toRedexEvent(v);
+          } catch (e) {
+            throw classifyWithRedex(e);
+          }
+        },
+        close: () => iter.close(),
+      };
+      return wrapWatchIter(raw);
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Explicit fsync. Always fsyncs regardless of policy; no-op on
+   *  heap-only files. */
+  sync(): void {
+    try {
+      this.napi.sync();
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+
+  /** Close the file. Outstanding tail iterators end cleanly on
+   *  their next emission. */
+  close(): void {
+    try {
+      this.napi.close();
+    } catch (e) {
+      throw classifyWithRedex(e);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AsyncIterable wrapper for pull-based NAPI watch iterators
+// ---------------------------------------------------------------------------
+
+
+/** Return shape of `snapshotAndWatch` on every adapter. */
+export interface SnapshotAndWatch<T> {
+  /** Initial filter result captured atomically with the watcher. */
+  readonly snapshot: T[];
+  /**
+   * Subsequent filter results. Drops only leading emissions that
+   * equal `snapshot`; any divergent initial emission (caused by a
+   * mutation racing construction) is forwarded through.
+   */
+  readonly updates: WatchIterable<T[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Tasks adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Typed tasks adapter. CRUD plus `listTasks` / `watch` /
+ * `snapshotAndWatch` for reactive consumers.
+ */
+export class TasksAdapter {
+  /** @internal */
+  readonly napi: NapiTasksAdapter;
+
+  constructor(inner: NapiTasksAdapter) {
+    this.napi = inner;
+  }
+
+  /**
+   * Open a standalone tasks adapter against a `Redex`. For bundled
+   * tasks + memories access, prefer {@link NetDb.open}.
+   */
+  static async open(
+    redex: Redex,
+    originHash: bigint,
+    opts?: { persistent?: boolean },
+  ): Promise<TasksAdapter> {
+    try {
+      const inner = await NapiTasksAdapter.open(redex.napi, originHash, opts?.persistent ?? null);
+      return new TasksAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Restore from a snapshot captured via {@link TasksAdapter.snapshot}. */
+  static async openFromSnapshot(
+    redex: Redex,
+    originHash: bigint,
+    snapshot: CortexSnapshot,
+    opts?: { persistent?: boolean },
+  ): Promise<TasksAdapter> {
+    try {
+      const inner = await NapiTasksAdapter.openFromSnapshot(
+        redex.napi,
+        originHash,
+        snapshot.stateBytes,
+        snapshot.lastSeq ?? null,
+        opts?.persistent ?? null,
+      );
+      return new TasksAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  create(id: bigint, title: string, nowNs: bigint): bigint {
+    try {
+      return this.napi.create(id, title, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  rename(id: bigint, newTitle: string, nowNs: bigint): bigint {
+    try {
+      return this.napi.rename(id, newTitle, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  complete(id: bigint, nowNs: bigint): bigint {
+    try {
+      return this.napi.complete(id, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  delete(id: bigint): bigint {
+    try {
+      return this.napi.delete(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Total count in the materialized state (ignores any filter). */
+  count(): number {
+    try {
+      return this.napi.count();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Wait for the fold task to have applied every event up through `seq`. */
+  async waitForSeq(seq: bigint): Promise<void> {
+    try {
+      return await this.napi.waitForSeq(seq);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Hash of this adapter's channel: the `channelHash` of every token it issues. */
+  channelHash(): bigint {
+    return this.napi.channelHash();
+  }
+
+  /**
+   * The {@link WriteToken} naming the write that returned `seq` on this
+   * adapter (its origin, its channel and `seq`). Pass it to
+   * {@link waitForToken}.
+   */
+  token(seq: bigint): WriteToken {
+    return this.napi.token(seq);
+  }
+
+  /**
+   * Read-your-writes wait: resolve once this adapter's fold has applied the
+   * write `token` names, or reject after `deadlineMs`. A token from another
+   * origin or another channel, or a full wait queue, rejects at once. Get
+   * the token from the adapter that made the write ({@link token}), or
+   * `WriteToken.fromString` for one carried over the wire.
+   */
+  async waitForToken(token: WriteToken, deadlineMs: number): Promise<void> {
+    try {
+      return await this.napi.waitForToken(token, deadlineMs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Stop this adapter's fold task. Idempotent. */
+  close(): void {
+    try {
+      this.napi.close();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Whether the fold task is still running (`false` after {@link close}). */
+  isRunning(): boolean {
+    return this.napi.isRunning();
+  }
+
+  /** Snapshot query over the materialized state. */
+  listTasks(filter?: TaskFilter | null): Task[] {
+    try {
+      return this.napi.listTasks(filter ?? null);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Capture a serialized state snapshot for {@link TasksAdapter.openFromSnapshot}. */
+  snapshot(): CortexSnapshot {
+    try {
+      return this.napi.snapshot();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /**
+   * Reactive watch. Yields the current filter result first, then once
+   * per fold tick where the result differs from the previous emission.
+   * Breaking out of `for await` calls `close()` automatically.
+   */
+  async watch(filter?: TaskFilter | null): Promise<WatchIterable<Task[]>> {
+    try {
+      const iter: RawWatchIter<Task[]> = await this.napi.watchTasks(filter ?? null);
+      return wrapWatchIter(iter);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /**
+   * Atomic "paint what's here now, then react to changes." Returns the
+   * snapshot and an `AsyncIterable` of subsequent filter results.
+   *
+   * Prefer this to calling `listTasks` + `watch` separately — they
+   * race each other, and a mutation landing between the two reads
+   * would be silently lost.
+   */
+  async snapshotAndWatch(
+    filter?: TaskFilter | null,
+  ): Promise<SnapshotAndWatch<Task>> {
+    try {
+      const combined: NapiTasksSnapshotAndWatch =
+        await this.napi.snapshotAndWatchTasks(filter ?? null);
+      const iter: RawWatchIter<Task[]> = {
+        next: () => combined.next(),
+        close: () => combined.close(),
+      };
+      return {
+        snapshot: combined.snapshot,
+        updates: wrapWatchIter(iter),
+      };
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Memories adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Typed memories adapter. CRUD plus `listMemories` / `watch` /
+ * `snapshotAndWatch`.
+ */
+export class MemoriesAdapter {
+  /** @internal */
+  readonly napi: NapiMemoriesAdapter;
+
+  constructor(inner: NapiMemoriesAdapter) {
+    this.napi = inner;
+  }
+
+  static async open(
+    redex: Redex,
+    originHash: bigint,
+    opts?: { persistent?: boolean },
+  ): Promise<MemoriesAdapter> {
+    try {
+      const inner = await NapiMemoriesAdapter.open(redex.napi, originHash, opts?.persistent ?? null);
+      return new MemoriesAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  static async openFromSnapshot(
+    redex: Redex,
+    originHash: bigint,
+    snapshot: CortexSnapshot,
+    opts?: { persistent?: boolean },
+  ): Promise<MemoriesAdapter> {
+    try {
+      const inner = await NapiMemoriesAdapter.openFromSnapshot(
+        redex.napi,
+        originHash,
+        snapshot.stateBytes,
+        snapshot.lastSeq ?? null,
+        opts?.persistent ?? null,
+      );
+      return new MemoriesAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  store(
+    id: bigint,
+    content: string,
+    tags: string[],
+    source: string,
+    nowNs: bigint,
+  ): bigint {
+    try {
+      return this.napi.store(id, content, tags, source, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  retag(id: bigint, tags: string[], nowNs: bigint): bigint {
+    try {
+      return this.napi.retag(id, tags, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  pin(id: bigint, nowNs: bigint): bigint {
+    try {
+      return this.napi.pin(id, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  unpin(id: bigint, nowNs: bigint): bigint {
+    try {
+      return this.napi.unpin(id, nowNs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  delete(id: bigint): bigint {
+    try {
+      return this.napi.delete(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  count(): number {
+    try {
+      return this.napi.count();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  async waitForSeq(seq: bigint): Promise<void> {
+    try {
+      return await this.napi.waitForSeq(seq);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Hash of this adapter's channel: the `channelHash` of every token it issues. */
+  channelHash(): bigint {
+    return this.napi.channelHash();
+  }
+
+  /**
+   * The {@link WriteToken} naming the write that returned `seq` on this
+   * adapter (its origin, its channel and `seq`). Pass it to
+   * {@link waitForToken}.
+   */
+  token(seq: bigint): WriteToken {
+    return this.napi.token(seq);
+  }
+
+  /**
+   * Read-your-writes wait: resolve once this adapter's fold has applied the
+   * write `token` names, or reject after `deadlineMs`. A token from another
+   * origin or another channel, or a full wait queue, rejects at once. Get
+   * the token from the adapter that made the write ({@link token}), or
+   * `WriteToken.fromString` for one carried over the wire.
+   */
+  async waitForToken(token: WriteToken, deadlineMs: number): Promise<void> {
+    try {
+      return await this.napi.waitForToken(token, deadlineMs);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Stop this adapter's fold task. Idempotent. */
+  close(): void {
+    try {
+      this.napi.close();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Whether the fold task is still running (`false` after {@link close}). */
+  isRunning(): boolean {
+    return this.napi.isRunning();
+  }
+
+  listMemories(filter?: MemoryFilter | null): Memory[] {
+    try {
+      return this.napi.listMemories(filter ?? null);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  snapshot(): CortexSnapshot {
+    try {
+      return this.napi.snapshot();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  async watch(filter?: MemoryFilter | null): Promise<WatchIterable<Memory[]>> {
+    try {
+      const iter: RawWatchIter<Memory[]> = await this.napi.watchMemories(filter ?? null);
+      return wrapWatchIter(iter);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Atomic snapshot + delta stream. See {@link TasksAdapter.snapshotAndWatch}. */
+  async snapshotAndWatch(
+    filter?: MemoryFilter | null,
+  ): Promise<SnapshotAndWatch<Memory>> {
+    try {
+      const combined: NapiMemoriesSnapshotAndWatch =
+        await this.napi.snapshotAndWatchMemories(filter ?? null);
+      const iter: RawWatchIter<Memory[]> = {
+        next: () => combined.next(),
+        close: () => combined.close(),
+      };
+      return {
+        snapshot: combined.snapshot,
+        updates: wrapWatchIter(iter),
+      };
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NetDb facade
+// ---------------------------------------------------------------------------
+
+/**
+ * Unified NetDB handle. Bundles `TasksAdapter` + `MemoriesAdapter`
+ * under one object. Open with both models for the common case, or
+ * with only one if the other isn't needed.
+ */
+export class NetDb {
+  /** @internal */
+  readonly napi: NapiNetDb;
+
+  private constructor(inner: NapiNetDb) {
+    this.napi = inner;
+  }
+
+  static async open(config: NetDbOpenConfig): Promise<NetDb> {
+    try {
+      const inner = await NapiNetDb.open(config);
+      return new NetDb(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  static async openFromSnapshot(
+    config: NetDbOpenConfig,
+    bundle: NetDbBundle,
+  ): Promise<NetDb> {
+    try {
+      const inner = await NapiNetDb.openFromSnapshot(config, bundle);
+      return new NetDb(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** The tasks adapter, or `null` if `withTasks` wasn't set at open. */
+  get tasks(): TasksAdapter | null {
+    const t = this.napi.tasks;
+    return t ? new TasksAdapter(t) : null;
+  }
+
+  /** The memories adapter, or `null` if `withMemories` wasn't set. */
+  get memories(): MemoriesAdapter | null {
+    const m = this.napi.memories;
+    return m ? new MemoriesAdapter(m) : null;
+  }
+
+  /** Snapshot every enabled model into one bundle. */
+  snapshot(): NetDbBundle {
+    try {
+      return this.napi.snapshot();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Close every enabled adapter. Idempotent. */
+  close(): void {
+    this.napi.close();
+  }
+}
+
+/**
+ * Task-lifecycle adapter — a single-writer RedEX chain folded into
+ * per-task `{ step, status, attempts }`.
+ *
+ * The companion to the gang-claim scheduler (the `Mesh` island
+ * methods): the gang decides *who* holds an exclusive resource island;
+ * this plans what happens *after* it is held. Its status is the
+ * {@link WorkflowTaskStatus} lifecycle — distinct from the cortex
+ * tasks-model {@link TaskStatus}.
+ */
+export class WorkflowAdapter {
+  /** @internal */
+  readonly napi: NapiWorkflowAdapter;
+
+  constructor(inner: NapiWorkflowAdapter) {
+    this.napi = inner;
+  }
+
+  /** Open against a Redex manager. */
+  static async open(
+    redex: Redex,
+    originHash: bigint,
+    opts?: { persistent?: boolean },
+  ): Promise<WorkflowAdapter> {
+    try {
+      const inner = await NapiWorkflowAdapter.open(
+        redex.napi,
+        originHash,
+        opts?.persistent ?? null,
+      );
+      return new WorkflowAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Open from a snapshot, skipping replay up through `lastSeq`. */
+  static async openFromSnapshot(
+    redex: Redex,
+    originHash: bigint,
+    snapshot: CortexSnapshot,
+    opts?: { persistent?: boolean },
+  ): Promise<WorkflowAdapter> {
+    try {
+      const inner = await NapiWorkflowAdapter.openFromSnapshot(
+        redex.napi,
+        originHash,
+        snapshot.stateBytes,
+        snapshot.lastSeq ?? null,
+        opts?.persistent ?? null,
+      );
+      return new WorkflowAdapter(inner);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Submit a new task — enters at step 0, `submitted`. */
+  submit(id: bigint): bigint {
+    try {
+      return this.napi.submit(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Set a task's status. A terminal task is never moved. */
+  transition(id: bigint, status: WorkflowTaskStatus): bigint {
+    try {
+      return this.napi.transition(id, status);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Mark the task `running`. */
+  start(id: bigint): bigint {
+    try {
+      return this.napi.start(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Park the task `waiting`. */
+  wait(id: bigint): bigint {
+    try {
+      return this.napi.wait(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Park the task `blocked`. */
+  block(id: bigint): bigint {
+    try {
+      return this.napi.block(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Mark the task `done` (terminal success). */
+  complete(id: bigint): bigint {
+    try {
+      return this.napi.complete(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Mark the task `failed` (terminal failure). */
+  fail(id: bigint): bigint {
+    try {
+      return this.napi.fail(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Advance the step cursor (bumps step, resets attempts). */
+  advance(id: bigint): bigint {
+    try {
+      return this.napi.advance(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Retry the current step. Never resurrects a `done` task. */
+  retry(id: bigint): bigint {
+    try {
+      return this.napi.retry(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Delete a task, reclaiming its whole linked subtree. */
+  delete(id: bigint): bigint {
+    try {
+      return this.napi.delete(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Record a parent→child lineage edge (idempotent). */
+  link(parent: bigint, child: bigint): bigint {
+    try {
+      return this.napi.link(parent, child);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Request cancellation — a worker-observed signal. */
+  requestCancel(id: bigint): bigint {
+    try {
+      return this.napi.requestCancel(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Current state for `id`, or `null` if unknown. */
+  get(id: bigint): WorkflowTaskState | null {
+    try {
+      return this.napi.get(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Has cancellation been requested for `id`? */
+  isCancelRequested(id: bigint): boolean {
+    try {
+      return this.napi.isCancelRequested(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** `id` plus all transitive descendants — the delete subtree. */
+  subtree(id: bigint): bigint[] {
+    try {
+      return this.napi.subtree(id);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Roll-up of task counts per status. */
+  statusCounts(): WorkflowStatusCounts {
+    try {
+      return this.napi.statusCounts();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Capture a state snapshot for restore via `openFromSnapshot`. */
+  snapshot(): CortexSnapshot {
+    try {
+      return this.napi.snapshot();
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Block until every event up through `seq` has folded. */
+  async waitForSeq(seq: bigint): Promise<void> {
+    try {
+      await this.napi.waitForSeq(seq);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Fan out: submit every shard task. Returns the last append seq. */
+  fanOut(group: ShardGroup): bigint {
+    try {
+      return this.napi.fanOut(group.napi);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+
+  /** Try to join: submit the reduce once every shard is done, surface
+   *  failed shards, or report pending. Idempotent. */
+  tryJoin(group: ShardGroup): JoinResult {
+    try {
+      return this.napi.tryJoin(group.napi);
+    } catch (e) {
+      throw classifyError(e);
+    }
+  }
+}
+
+// ---- Tier 2: shards + triggers --------------------------------------------
+
+/** A map-reduce shard group: the shard task ids + the reduce task id. */
+export class ShardGroup {
+  /** @internal */
+  readonly napi: NapiShardGroup;
+
+  constructor(shards: bigint[], reduce: bigint) {
+    this.napi = new NapiShardGroup(shards, reduce);
+  }
+}
+
+/** The pure trigger engine, bound to a {@link WorkflowAdapter} (it reads
+ *  the adapter's state internally). Arm a dependency, then drive it with
+ *  {@link onTaskChange} — it returns the satisfied actions for the
+ *  caller to apply (it starts no tasks itself). */
+export class TriggerEngine {
+  /** @internal */
+  readonly napi: NapiTriggerEngine;
+
+  constructor(wf: WorkflowAdapter) {
+    this.napi = new NapiTriggerEngine(wf.napi);
+  }
+
+  /** Arm AfterTask(task) -> action (fires when `task` is done). */
+  armAfterTask(task: bigint, action: TriggerAction): void {
+    this.napi.armAfterTask(task, action.kind, action.id);
+  }
+
+  /** Arm AfterTerminal(task) -> action (fires on done OR failed). */
+  armAfterTerminal(task: bigint, action: TriggerAction): void {
+    this.napi.armAfterTerminal(task, action.kind, action.id);
+  }
+
+  /** Arm IfResult(task, key, value) -> action: fires when `task` is done
+   *  AND its recorded result `key` equals `value`. Record the result
+   *  first via {@link recordResult}. */
+  armIfResult(
+    task: bigint,
+    key: string,
+    value: string,
+    action: TriggerAction,
+  ): void {
+    this.napi.armIfResult(task, key, value, action.kind, action.id);
+  }
+
+  /** Record `task`'s result `key = value` for IfResult evaluation. */
+  recordResult(task: bigint, key: string, value: string): void {
+    this.napi.recordResult(task, key, value);
+  }
+
+  /** `task` changed: return the fired actions (evaluated against the
+   *  bound adapter's current state). */
+  onTaskChange(task: bigint, tick?: bigint): TriggerAction[] {
+    return this.napi.onTaskChange(task, tick ?? null);
+  }
+
+  /** Arm AtTick(tick) -> action (fires once the clock reaches `tick`). */
+  armAtTick(tick: bigint, action: TriggerAction): void {
+    this.napi.armAtTick(tick, action.kind, action.id);
+  }
+
+  /** The clock advanced to `now`: return the AtTick actions now due. */
+  onTick(now: bigint): TriggerAction[] {
+    return this.napi.onTick(now);
+  }
+
+  /** Total armed (not-yet-fired) triggers. */
+  armedCount(): number {
+    return this.napi.armedCount();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compile-time guard: every native method is wrapped
+// ---------------------------------------------------------------------------
+//
+// The same check `mesh.ts` runs for MeshNode (NODE_SDK_GAPS_PLAN.md S5),
+// extended to the cortex classes in S8 after nine `Redex` methods and the
+// adapters' `close` / `isRunning` turned out to be missing. A native
+// method with no SDK member fails the build, and the error names it.
+// Each list is the native methods deliberately not wrapped by name.
+
+type NativeMethod<T> = {
+  [K in keyof T]: T[K] extends (...args: never[]) => unknown ? K : never;
+}[keyof T];
+type Unwrapped<N, S, Allowed extends PropertyKey = never> = Exclude<
+  NativeMethod<N>,
+  keyof S | Allowed
+>;
+type AllWrapped<U> = [U] extends [never] ? true : U;
+
+const everyRedexMethodIsWrapped: AllWrapped<Unwrapped<NapiRedex, Redex>> = true;
+const everyRedexFileMethodIsWrapped: AllWrapped<Unwrapped<NapiRedexFile, RedexFile>> = true;
+const everyTasksMethodIsWrapped: AllWrapped<
+  // Wrapped as `watch` / `snapshotAndWatch`.
+  Unwrapped<NapiTasksAdapter, TasksAdapter, 'watchTasks' | 'snapshotAndWatchTasks'>
+> = true;
+const everyMemoriesMethodIsWrapped: AllWrapped<
+  // Wrapped as `watch` / `snapshotAndWatch`.
+  Unwrapped<NapiMemoriesAdapter, MemoriesAdapter, 'watchMemories' | 'snapshotAndWatchMemories'>
+> = true;
+const everyNetDbMethodIsWrapped: AllWrapped<Unwrapped<NapiNetDb, NetDb>> = true;
+const everyWorkflowMethodIsWrapped: AllWrapped<Unwrapped<NapiWorkflowAdapter, WorkflowAdapter>> =
+  true;
+const everyShardGroupMethodIsWrapped: AllWrapped<Unwrapped<NapiShardGroup, ShardGroup>> = true;
+const everyTriggerEngineMethodIsWrapped: AllWrapped<Unwrapped<NapiTriggerEngine, TriggerEngine>> =
+  true;
+void [
+  everyRedexMethodIsWrapped,
+  everyRedexFileMethodIsWrapped,
+  everyTasksMethodIsWrapped,
+  everyMemoriesMethodIsWrapped,
+  everyNetDbMethodIsWrapped,
+  everyWorkflowMethodIsWrapped,
+  everyShardGroupMethodIsWrapped,
+  everyTriggerEngineMethodIsWrapped,
+];

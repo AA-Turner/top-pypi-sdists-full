@@ -1,0 +1,16 @@
+API_URL = "https://api.monday.com/v2"
+FILE_UPLOAD_URL = "https://api.monday.com/v2/file"
+API_VERSION = "2026-01"
+TOKEN_HEADER = "Authorization"
+MAX_COMPLEXITY = 10000000  # Monday's API complexity limit per minute
+
+DEFAULT_MAX_RETRY_ATTEMPTS = 4
+DEFAULT_PAGE_LIMIT_ITEMS = 500
+DEFAULT_PAGE_LIMIT_UPDATES = 1000
+DEFAULT_PAGE_LIMIT_BOARDS = 50
+DEFAULT_PAGE_LIMIT_ACTIVITY_LOGS = 1000
+
+# The `items(ids: ...)` root query accepts at most 100 ids per request and
+# paginates its result with `limit` (which the API defaults to 25).
+MAX_ITEMS_BY_ID_PER_REQUEST = 100
+DEFAULT_PAGE_LIMIT_ITEMS_BY_ID = 100

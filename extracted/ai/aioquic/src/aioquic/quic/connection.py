@@ -859,15 +859,18 @@ class QuicConnection:
                     )
                 return
 
-            # Check destination CID matches.
+            # Check destination CID matches, except on a client's INITIAL and 0-RTT
+            # packets, which can use the CID it chose (RFC 9000 section 7.2).
             destination_cid_seq: Optional[int] = None
             for connection_id in self._host_cids:
                 if header.destination_cid == connection_id.cid:
                     destination_cid_seq = connection_id.sequence_number
                     break
-            if (
-                self._is_client or header.packet_type == QuicPacketType.HANDSHAKE
-            ) and destination_cid_seq is None:
+            if destination_cid_seq is None and (
+                self._is_client
+                or header.packet_type
+                not in (QuicPacketType.INITIAL, QuicPacketType.ZERO_RTT)
+            ):
                 if self._quic_logger is not None:
                     self._quic_logger.log_event(
                         category="transport",
@@ -1063,6 +1066,15 @@ class QuicConnection:
             # discard initial keys and packet space
             if not self._is_client and epoch == tls.Epoch.HANDSHAKE:
                 self._discard_epoch(tls.Epoch.INITIAL)
+
+            # Servers must discard 0-RTT keys shortly after receiving a 1-RTT
+            # packet, and may do so straight away (RFC 9001 section 4.9.3).
+            if (
+                not self._is_client
+                and epoch == tls.Epoch.ONE_RTT
+                and self._cryptos[tls.Epoch.ZERO_RTT].recv.is_valid()
+            ):
+                self._cryptos[tls.Epoch.ZERO_RTT].recv.teardown()
 
             # update state
             if self._peer_cid.sequence_number is None:
@@ -2957,19 +2969,20 @@ class QuicConnection:
         """
         Handle a retry packet.
 
-        A client acts upon at most one Retry packet. The packet is discarded if its
-        Destination Connection ID is not ours, if its Source Connection ID is the
-        same as the Destination Connection ID of our Initial packet, or if its
-        integrity tag cannot be verified.
+        A client acts upon at most one Retry packet, and only before it has processed
+        a packet from the server. The packet is discarded if its Source Connection ID
+        is the same as the Destination Connection ID of our Initial packet, if its
+        Retry Token is empty, or if its integrity tag cannot be verified.
 
         See:
         https://datatracker.ietf.org/doc/html/rfc9000#section-17.2.5
         """
         if (
             self._is_client
+            and self._state == QuicConnectionState.FIRSTFLIGHT
             and not self._retry_count
-            and header.destination_cid == self.host_cid
             and header.source_cid != self._peer_cid.cid
+            and header.token
             and header.integrity_tag
             == get_retry_integrity_tag(
                 packet_without_tag,
@@ -3564,6 +3577,15 @@ class QuicConnection:
             crypto.send.setup(
                 cipher_suite=cipher_suite, secret=secret, version=self._version
             )
+
+            # Clients should discard 0-RTT keys once they install 1-RTT keys
+            # (RFC 9001 section 4.9.3).
+            if (
+                self._is_client
+                and epoch == tls.Epoch.ONE_RTT
+                and self._cryptos[tls.Epoch.ZERO_RTT].send.is_valid()
+            ):
+                self._cryptos[tls.Epoch.ZERO_RTT].send.teardown()
         else:
             crypto.recv.setup(
                 cipher_suite=cipher_suite, secret=secret, version=self._version

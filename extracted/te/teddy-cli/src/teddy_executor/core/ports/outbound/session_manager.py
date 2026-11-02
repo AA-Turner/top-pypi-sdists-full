@@ -1,0 +1,134 @@
+from enum import Enum
+from pathlib import Path
+from typing import Any, Optional, Protocol, runtime_checkable
+from teddy_executor.core.domain.models import ExecutionReport
+from teddy_executor.core.domain.models.session import SessionOptions
+
+
+class SessionState(Enum):
+    """Represents the current state of a session based on its latest turn."""
+
+    EMPTY = "EMPTY"  # No plan.md exists
+    PENDING_PLAN = "PENDING_PLAN"  # plan.md exists, but no report.md
+    COMPLETE_TURN = "COMPLETE_TURN"  # report.md exists
+
+
+@runtime_checkable
+class ISessionManager(Protocol):
+    """
+    Outbound port for managing turn directories and metadata persistence.
+    """
+
+    def create_session(
+        self,
+        options: SessionOptions,
+    ) -> str:
+        """
+        Initializes a new session directory and bootstraps it for Turn 1.
+        Returns the path to the new session directory.
+        """
+        ...
+
+    def get_latest_turn(self, _session_name: str) -> str:
+        """
+        Identifies and returns the latest turn directory in the specified session.
+        """
+        ...
+
+    def get_session_state(
+        self,
+        session_name: str,
+    ) -> tuple[SessionState, str]:
+        """
+        Determines the state of the session and returns the state and the path
+        to the latest turn.
+        """
+        ...
+
+    def get_cumulative_cost(self, session_name: str) -> float:
+        """
+        Retrieves the total cumulative cost for the session from the latest turn's metadata.
+        """
+        ...
+
+    def load_turn_meta(self, turn_dir: str) -> dict[str, Any]:
+        """
+        Loads the turn's meta.yaml as a dictionary (empty dict if absent).
+        """
+        ...
+
+    def save_turn_meta(self, turn_dir: str, meta: dict[str, Any]) -> None:
+        """
+        Persists the turn's meta.yaml dictionary.
+        """
+        ...
+
+    def transition_to_next_turn(
+        self,
+        plan_path: str,
+        execution_report: Optional[ExecutionReport] = None,
+        turn_cost: float = 0.0,
+        is_validation_failure: bool = False,
+        pruned_paths: Optional[list[str]] = None,
+    ) -> str:
+        """
+        Calculates and creates the next turn directory based on the current turn
+        and the outcome of its plan.
+        """
+        ...
+
+    def resolve_context_paths(self, plan_path: str) -> dict[str, list[str]]:
+        """
+        Locates context files relative to the plan path and returns their contents.
+        """
+        ...
+
+    def rename_session(self, old_name: str, new_name: str) -> str:
+        """
+        Safely renames a session directory on the filesystem.
+        Returns the new path to the session directory.
+        """
+        ...
+
+    def get_latest_session_name(self) -> str:
+        """
+        Identifies and returns the name of the most recently modified session.
+        """
+        ...
+
+    def resolve_session_from_path(self, path: str) -> str:
+        """
+        Resolves a session name from a given path (session root, turn dir, or file).
+        """
+        ...
+
+    def resolve_session_from_slug(self, slug: str) -> str:
+        """
+        Resolves a session name from its timestamp-stripped slug
+        (e.g. 'add-user-auth' -> '20260124_153000-add-user-auth').
+        """
+        ...
+
+    def to_root_relative(self, turn_dir: Path, filename: str) -> str:
+        """
+        Calculates a root-relative path for a file within a turn directory.
+        """
+        ...
+
+    def preserve_turn_in_session_context(self, turn_dir: Path) -> None:
+        """
+        Re-evaluates a turn's preservation decision and, when it qualifies,
+        admits its plan.md/report.md to the session-scoped (prune-exempt)
+        ``session.context``. Mirrors the preservation arm of
+        ``transition_to_next_turn`` so a turn augmented AFTER its own
+        finalization can still be preserved.
+        """
+        ...
+
+    def set_session_agent(self, session_name: str, agent_name: str) -> None:
+        """
+        Permanently changes the session's agent. Updates meta.yaml
+        with the new agent_name and replaces the session's prompt
+        file with the new agent's prompt from .teddy/prompts/.
+        """
+        ...

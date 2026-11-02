@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any
+
+from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+from opentelemetry.util.http import get_excluded_urls
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.errors import ServerErrorMiddleware
+from starlette.routing import Match
+from starlette.schemas import SchemaGenerator
+
+from apitally.shared import activation, config, startup
+from apitally.shared.asgi import ApitallyASGIMiddleware, ExceptionRecordingMiddleware, get_default_span_details
+
+
+if TYPE_CHECKING:
+    from starlette.routing import BaseRoute
+    from starlette.types import Scope
+
+
+__all__ = ["init"]
+
+logger = logging.getLogger(__name__)
+
+
+def init(
+    app: Starlette,
+    *,
+    app_version: str | None = None,
+    **kwargs: Any,
+) -> None:
+    """
+    Set up Apitally for a Starlette application.
+
+    For more information, see:
+    - Setup guide: https://docs.apitally.io/setup-guides/starlette
+    - Reference: https://docs.apitally.io/sdk-reference/python
+    """
+    try:
+        cfg = activation.configure(**config.explicit_kwargs(kwargs))
+        if cfg.disabled:
+            return
+        _instrument_app(app)
+        startup.set_app_info(
+            framework="starlette",
+            paths=lambda: _get_paths(app),
+            versions=startup.resolve_versions(app_version, starlette="starlette"),
+        )
+    except Exception:  # pragma: no cover
+        logger.exception("Apitally setup for Starlette failed")
+
+
+def _instrument_app(app: Starlette) -> None:
+    if getattr(app, "_is_instrumented_by_apitally", False):
+        return
+    setattr(app, "_is_instrumented_by_apitally", True)
+    if getattr(app, "_is_instrumented_by_opentelemetry", False):
+        # Pre-instrumented app: insert the transport middleware just inside the existing
+        # OpenTelemetryMiddleware so it runs inside the SERVER span
+        index = next(i for i, m in enumerate(app.user_middleware) if m.cls is OpenTelemetryMiddleware)
+        app.user_middleware.insert(
+            index + 1,
+            Middleware(
+                ApitallyASGIMiddleware,
+                resolve_route=_resolve_route,
+                use_scope_client_address=True,
+            ),
+        )
+        app.user_middleware.insert(0, Middleware(activation.ASGIActivationShim))
+        if app.middleware_stack is not None:
+            app.middleware_stack = app.build_middleware_stack()
+        return
+    setattr(app, "_is_instrumented_by_opentelemetry", True)
+
+    # Replacing build_middleware_stack puts the transport middleware outside
+    # ServerErrorMiddleware, so 500 responses to unhandled exceptions pass through it
+    build_inner = app.build_middleware_stack
+
+    def build_with_shim() -> activation.ASGIActivationShim:
+        inner = build_inner()
+        if isinstance(inner, ServerErrorMiddleware):
+            inner.app = ExceptionRecordingMiddleware(inner.app)  # ty: ignore[invalid-assignment, invalid-argument-type]
+        return activation.ASGIActivationShim(
+            ApitallyASGIMiddleware(
+                # Composed directly instead of via StarletteInstrumentor.instrument_app, which
+                # does not accept exclude_spans and would create two receive/send spans per request
+                OpenTelemetryMiddleware(  # ty: ignore[invalid-argument-type]
+                    inner,
+                    excluded_urls=get_excluded_urls("STARLETTE"),
+                    default_span_details=get_default_span_details,
+                    exclude_spans=["receive", "send"],
+                ),
+                resolve_route=_resolve_route,
+                use_scope_client_address=True,
+            )
+        )
+
+    app.build_middleware_stack = build_with_shim  # ty: ignore[invalid-assignment]
+
+
+def _resolve_route(scope: Scope, routes: list[BaseRoute] | None = None) -> str | None:
+    # Returns the route template without the mount prefix; the transport middleware
+    # restores the prefix from the root_path delta
+    if routes is None:
+        app = scope.get("app")
+        routes = getattr(app, "routes", None) or []
+    endpoint = scope.get("endpoint")
+    for route in routes:
+        sub_routes = getattr(route, "routes", None)
+        if sub_routes is not None:
+            path = _resolve_route(scope, routes=sub_routes)
+            if path is not None:
+                return path
+        elif (path := getattr(route, "path", None)) is not None:
+            # After routing, only the matched endpoint's route counts
+            if endpoint is not None and getattr(route, "endpoint", None) is not endpoint:
+                continue
+            match, _ = route.matches(scope)
+            if match == Match.FULL:
+                return path
+    return None  # pragma: no cover
+
+
+def _get_paths(app: Starlette) -> list[dict[str, str]]:
+    endpoints = SchemaGenerator({}).get_endpoints(app.routes)
+    return [{"method": endpoint.http_method.upper(), "path": endpoint.path} for endpoint in endpoints]

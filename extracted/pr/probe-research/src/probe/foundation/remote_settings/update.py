@@ -1,6 +1,6 @@
 """Staff asked this machine to update now (research-os control/071): the `update-requested` mark.
 
-Acted on by `probe.cli.main._remote_update_notice` via the normal updater. Stdlib only; never raises.
+Acted on by `probe.cli.lifecycle.notices.remote_update._remote_update_notice` via the normal updater. Stdlib only; never raises.
 """
 
 from __future__ import annotations

@@ -15,10 +15,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 from probe.shared.harness.harnesses import pi as pi_config
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capabilities
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capabilities
 from probe.shared.harness.harnesses.claude_code.binary import Result
 from probe.sdk import session_marker
 
@@ -155,16 +155,24 @@ class _Moves:
     """The switch's outside calls, recorded: key, libraries, plugins."""
 
     def __init__(self, monkeypatch, *, update_to=None):
-        from probe.cli import companion, daemon_cli
+        from probe.cli.commands.daemon import companion, daemon as daemon_cli
 
         self.log: list = []
-        monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+        monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: True)
         monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "test")
         monkeypatch.setattr(companion, "provision_daemon", lambda *a, **k: [])
-        monkeypatch.setattr(wizard, "install_plugin", lambda name, **kw: self.log.append(("install", name)) or Result(ok=True))
-        monkeypatch.setattr(wizard, "uninstall_plugin",
+        monkeypatch.setattr(wizard.apply.plugins, "install_plugin", lambda name, **kw: self.log.append(("install", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.apply, "install_plugin", lambda name, **kw: self.log.append(("install", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.recorder, "install_plugin", lambda name, **kw: self.log.append(("install", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.plugins, "uninstall_plugin",
                             lambda name, **kw: self.log.append(("uninstall", name)) or Result(ok=True))
-        monkeypatch.setattr(wizard, "live_daemon_sessions", lambda: 0)
+        monkeypatch.setattr(wizard.apply.apply, "uninstall_plugin",
+                            lambda name, **kw: self.log.append(("uninstall", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.recorder, "uninstall_plugin",
+                            lambda name, **kw: self.log.append(("uninstall", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.removal, "uninstall_plugin",
+                            lambda name, **kw: self.log.append(("uninstall", name)) or Result(ok=True))
+        monkeypatch.setattr(wizard.apply.recorder, "live_daemon_sessions", lambda: 0)
         self.update_to = update_to
 
         def update(env=None):
@@ -241,7 +249,8 @@ def test_the_switch_pairs_pi_outside_the_spinner(isolate, monkeypatch):
     """The approval prints a link to open; inside the spinner nobody sees it."""
     import contextlib
 
-    from probe.cli import daemon_cli, tui
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.wizard import terminal as tui
 
     cli_main = importlib.import_module("probe.cli.main")
     events: list = []
@@ -253,16 +262,16 @@ def test_the_switch_pairs_pi_outside_the_spinner(isolate, monkeypatch):
         events.append(("done", label))
 
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "1" * 32)
-    monkeypatch.setattr(tui, "working", working)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+    monkeypatch.setattr(tui.status_board, "working", working)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: True)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "test")
-    monkeypatch.setattr(wizard, "daemon_availability", lambda base_url=None: (True, None))
+    monkeypatch.setattr(wizard.apply.recorder, "daemon_availability", lambda base_url=None: (True, None))
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: None)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: False)
-    monkeypatch.setattr(wizard, "daemon_package_ready", lambda source: wizard._Ready(True, []))
-    monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: events.append(("pair", source)) or ["paired"])
-    monkeypatch.setattr(wizard, "apply_recorder",
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.daemon_package_ready", lambda source: wizard._Ready(True, []))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "pair_capture", lambda source, **kw: events.append(("pair", source)) or ["paired"])
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder",
                         lambda caps, value, **kw: events.append(("apply", caps.agent_source)) or [])
     cli_main._run_recorder_action(
         yes=False, caps_by_source={"pi": _pi_caps()}, base_now="https://api.test",
@@ -280,21 +289,21 @@ def test_the_switch_pairs_pi_outside_the_spinner(isolate, monkeypatch):
 def test_an_old_package_stops_the_switch_before_pairing(isolate, monkeypatch):
     """Pairing mints pi's own capture token: a switch that then stopped on an
     old package would leave pi capturing on agent, which it never did."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     calls: list = []
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "1" * 32)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: True)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "test")
-    monkeypatch.setattr(wizard, "daemon_availability", lambda base_url=None: (True, None))
+    monkeypatch.setattr(wizard.apply.recorder, "daemon_availability", lambda base_url=None: (True, None))
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: None)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: False)
     _install_mirror_entry(isolate, version="0.2.0")
     monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="offline"))
-    monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: calls.append(("pair", source)) or [])
-    monkeypatch.setattr(wizard, "apply_recorder", lambda caps, value, **kw: calls.append(("apply", value)) or [])
+    monkeypatch.setattr(wizard.apply.capture_credentials, "pair_capture", lambda source, **kw: calls.append(("pair", source)) or [])
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder", lambda caps, value, **kw: calls.append(("apply", value)) or [])
 
     lines = cli_main._run_recorder_action(
         yes=False, caps_by_source={"pi": _pi_caps()}, base_now="https://api.test",
@@ -338,21 +347,22 @@ def test_enter_on_a_daemon_machine_brings_pi_along(isolate, monkeypatch):
     after the upgrade. Enter on Who records moves pi; nothing moves on its own."""
     import contextlib
 
-    from probe.cli import daemon_cli, tui
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.wizard import terminal as tui
 
     cli_main = importlib.import_module("probe.cli.main")
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "1" * 32)
     monkeypatch.setenv("PROBE_PI_TAP_TOKEN", "ros_ing_pi")
-    monkeypatch.setattr(tui, "working", lambda label: contextlib.nullcontext())
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+    monkeypatch.setattr(tui.status_board, "working", lambda label: contextlib.nullcontext())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: True)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "test")
-    monkeypatch.setattr(wizard, "daemon_availability", lambda base_url=None: (True, None))
+    monkeypatch.setattr(wizard.apply.recorder, "daemon_availability", lambda base_url=None: (True, None))
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: None)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: False)
     moved = []
-    monkeypatch.setattr(wizard, "apply_recorder", lambda caps, value, **kw: moved.append((caps.agent_source, value)) or [])
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder", lambda caps, value, **kw: moved.append((caps.agent_source, value)) or [])
     pi = Capabilities(agent_source="pi", tracking_plugin_installed=True, capture_plugin_installed=True)
     assert pi.configured
     cli_main._run_recorder_action(
@@ -411,7 +421,7 @@ def test_an_old_extension_reading_the_json_still_finds_every_old_field(isolate, 
 
 
 def test_doctor_names_who_records_per_agent_and_pis_package(isolate, monkeypatch):
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     _install_mirror_entry(isolate, version="0.2.0")
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)

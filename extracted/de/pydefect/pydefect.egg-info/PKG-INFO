@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: pydefect
+Version: 0.10.1
+Summary: Integrated environment for first-principles point-defect calculations
+Home-page: https://github.com/kumagai-group/pydefect
+Author: Yu Kumagai
+Author-email: yuuukuma@gmail.com
+License: MIT license
+Classifier: Programming Language :: Python :: 3.7
+Classifier: License :: OSI Approved :: MIT License
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: monty
+Requires-Dist: pymatgen-core
+Requires-Dist: vise
+Requires-Dist: tabulate
+Requires-Dist: adjustText
+Requires-Dist: matplotlib-label-lines
+Requires-Dist: scikit-image
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

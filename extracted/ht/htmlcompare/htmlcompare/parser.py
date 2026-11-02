@@ -1,0 +1,257 @@
+# SPDX-License-Identifier: MIT
+
+import re
+import xml.etree.ElementTree as ET
+from collections.abc import Sequence
+from typing import Optional, Union
+
+import html5lib
+
+from htmlcompare.nodes import (
+    Comment,
+    ConditionalComment,
+    ConditionalCommentMarker,
+    Doctype,
+    Document,
+    Element,
+    Node,
+    TextNode,
+)
+
+
+__all__ = ['parse_html']
+
+
+_CONDITIONAL_START_RE = re.compile(r'^\[if\s+([^\]]+)\]>')
+_CONDITIONAL_END_RE = re.compile(r'<!\[endif\]$')
+
+# Markers of a *downlevel-revealed* conditional comment. Its HTML is not part of
+# the comment, so html5lib reports two ordinary comments with the HTML as their
+# sibling. These patterns match the comment contents html5lib produces (verified):
+#
+#   <!--[if !mso]><!-->   ->  "[if !mso]><!"     <!--<![endif]-->  ->  "<![endif]"
+#   <!--[if !mso]><!---->  ->  "[if !mso]><!--"
+#   <![if !IE]>           ->  "[if !IE]"         <![endif]>        ->  "[endif]"
+_REVEALED_START_RE = re.compile(r'^\[if\s+([^\]]+)\]><!-{0,2}$')
+_REVEALED_RAW_START_RE = re.compile(r'^\[if\s+([^\]]+)\]$')
+_REVEALED_END_RE = re.compile(r'^(?:<!)?\[endif\]$')
+
+# start of the DOCTYPE declaration, which separates the document prefix from the
+# document itself. HTML declares it case-insensitive.
+_DOCTYPE_RE = re.compile(r'<!doctype', re.IGNORECASE)
+_DOCTYPE_BYTES_RE = re.compile(rb'<!doctype', re.IGNORECASE)
+
+# Marker attribute to track self-closing tags through html5lib parsing
+_SELF_CLOSING_MARKER = 'data-htmlcompare-self-closing'
+
+# pattern to detect self-closing tags: <tag ... /> (but not <!-- or <!)
+# captures: (1) tag name, (2) attributes section
+_SELF_CLOSING_TAG_PATTERN = rb'<([a-zA-Z][a-zA-Z0-9:_-]*)(\s[^>]*)?\s*/>'
+
+
+def _mark_self_closing_tags(html_string: Union[str, bytes]) -> Union[str, bytes]:
+    """
+    Pre-process HTML to mark self-closing tags with a marker attribute.
+
+    This is needed because html5lib normalizes self-closing syntax away.
+    We inject a marker attribute that survives parsing.
+    """
+    if not isinstance(html_string, (str, bytes)):
+        raise TypeError("html_string must be str or bytes")
+    elif isinstance(html_string, bytes):
+        def _inject_bytes_marker_attribute(match) -> bytes:
+            tag = match.group(1)
+            attrs = match.group(2) or b''
+            _marker = f' {_SELF_CLOSING_MARKER}="true" '.encode('utf-8')
+            return b'<' + tag + attrs + _marker + b'/>'
+        _regex = re.compile(_SELF_CLOSING_TAG_PATTERN, re.DOTALL)
+        return _regex.sub(_inject_bytes_marker_attribute, html_string)
+    else:
+        def _inject_str_marker_attribute(match) -> str:
+            tag = match.group(1)
+            attrs = match.group(2) or ''
+            return f'<{tag}{attrs} {_SELF_CLOSING_MARKER}="true" />'
+        pattern = _SELF_CLOSING_TAG_PATTERN.decode('utf-8')
+        _SELF_CLOSING_TAG_RE = re.compile(pattern, re.DOTALL)
+        return _SELF_CLOSING_TAG_RE.sub(_inject_str_marker_attribute, html_string)
+
+
+def parse_html(html_string: Union[str, bytes]) -> Document:
+    """
+    Parse an HTML string into a Document tree of Node objects.
+
+    Uses html5lib for HTML5-compliant parsing, then converts the
+    resulting tree into our internal node representation.
+    """
+    TreeBuilder = html5lib.getTreeBuilder('etree')
+    parser = html5lib.HTMLParser(tree=TreeBuilder, namespaceHTMLElements=False)
+    prefix, document_source = _split_document_prefix(html_string)
+    marked_html = _mark_self_closing_tags(document_source)
+    parser.parse(marked_html)
+
+    doctype = _extract_doctype(parser.tree.document)
+    html_element = parser.tree.getDocument()
+    html_node = _element_to_node(html_element)
+    return Document(children=[html_node], doctype=doctype, prefix=prefix)
+
+
+def _split_document_prefix(
+    html_string: Union[str, bytes],
+) -> tuple[str, Union[str, bytes]]:
+    """
+    Split the source into everything before the DOCTYPE and the document itself.
+
+    This is not only about keeping the prefix: character data before the DOCTYPE
+    forces html5lib out of its "initial" insertion mode, so the DOCTYPE is
+    dropped and the document is relocated into "<body>". Removing the prefix
+    first repairs that parse.
+
+        parse_html('{# subject: x #}\n<!doctype html>...').doctype   # None (!)
+
+    Return an *empty* prefix when there is no DOCTYPE at all - the alternative
+    would be to declare every document without one to be a prefix.
+    """
+    if isinstance(html_string, bytes):
+        bytes_match = _DOCTYPE_BYTES_RE.search(html_string)
+        if bytes_match is None:
+            return ('', html_string)
+        start = bytes_match.start()
+        return (_decode_prefix(html_string[:start]), html_string[start:])
+    if not isinstance(html_string, str):
+        raise TypeError("html_string must be str or bytes")
+    match = _DOCTYPE_RE.search(html_string)
+    if match is None:
+        return ('', html_string)
+    return (html_string[:match.start()], html_string[match.start():])
+
+
+def _decode_prefix(prefix: bytes) -> str:
+    try:
+        return prefix.decode('utf-8')
+    except UnicodeDecodeError:
+        # "latin-1" maps every byte to a distinct code point, so no data is lost
+        # and two different prefixes can not decode into the same string
+        return prefix.decode('latin-1')
+
+
+def _extract_doctype(document) -> Optional[Doctype]:
+    for child in document.childNodes:
+        element = getattr(child, '_element', None)
+        if element is None:
+            continue
+        is_document_type_node = (getattr(element, 'tag', None) == '<!DOCTYPE>')
+        if is_document_type_node:
+            name = element.text or ''
+            public_id = element.attrib.get('publicId', '')
+            system_id = element.attrib.get('systemId', '')
+            return Doctype(name=name, public_id=public_id, system_id=system_id)
+    return None
+
+
+def _element_to_node(element) -> Element:
+    # Extract tag name (removes any namespace prefix)
+    tag = element.tag
+    if '}' in tag:
+        tag = tag.split('}', 1)[1]
+
+    is_self_closing = False
+    attributes = {}
+    for key, value in element.attrib.items():
+        if isinstance(key, tuple):
+            _namespace, attr_name = key
+        else:
+            attr_name = key
+
+        if attr_name == _SELF_CLOSING_MARKER:
+            is_self_closing = True
+            # don't include marker in final attributes
+            continue
+
+        attributes[attr_name] = value
+
+    children = _convert_children(element)
+    return Element(
+        tag=tag,
+        attributes=attributes,
+        children=children,
+        is_self_closing=is_self_closing,
+    )
+
+
+def _convert_children(element) -> Sequence[Node]:
+    children: list[Node] = []
+    if element.text:
+        # leading text before any child elements
+        children.append(TextNode(content=element.text))
+    for child in element:
+        if _is_comment(child):
+            comment_content = child.text or ''
+            conditional = (
+                _parse_conditional_comment(comment_content)
+                or _parse_conditional_marker(comment_content)
+            )
+            children.append(conditional or Comment(content=comment_content))
+        else:
+            # regular element
+            node = _element_to_node(child)
+            children.append(node)
+        # tail text after this child element
+        if child.tail:
+            children.append(TextNode(content=child.tail))
+    return children
+
+
+def _is_comment(element) -> bool:
+    # html5lib represents comments with a special function tag
+    return callable(element.tag) or element.tag == ET.Comment
+
+
+
+def _parse_conditional_comment(content: str) -> Optional[ConditionalComment]:
+    """
+    Parse an IE conditional comment if the content matches the pattern.
+
+    Returns a ConditionalComment node if the content is a conditional comment,
+    otherwise returns None.
+    """
+    start_match = _CONDITIONAL_START_RE.match(content)
+    end_match = _CONDITIONAL_END_RE.search(content)
+    if not (start_match and end_match):
+        return None
+
+    condition = start_match.group(1).strip()
+    # extract the HTML content between the condition and the endif
+    inner_html = content[start_match.end():end_match.start()]
+    inner_doc = parse_html(inner_html)
+    # The inner HTML gets wrapped in html/head/body, extract the body children
+    inner_children = _extract_body_children(inner_doc)
+    return ConditionalComment(condition=condition, children=inner_children)
+
+
+def _parse_conditional_marker(content: str) -> Optional[ConditionalCommentMarker]:
+    """
+    Parse one marker of a downlevel-revealed conditional comment.
+
+    Returns a `ConditionalCommentMarker` node if the content is such a marker,
+    otherwise returns `None`. Both spellings of the opening marker ("<!-->" and
+    "<!---->") produce the same node: they render identically in every browser,
+    so telling them apart would report a difference which is not one.
+    """
+    if _REVEALED_END_RE.match(content):
+        return ConditionalCommentMarker(condition='', is_start=False)
+    start_match = _REVEALED_START_RE.match(content) or _REVEALED_RAW_START_RE.match(content)
+    if start_match is None:
+        return None
+    return ConditionalCommentMarker(condition=start_match.group(1).strip(), is_start=True)
+
+
+def _extract_body_children(doc: Document) -> list:
+    if not doc.children:
+        return []
+    html_elem = doc.children[0]
+    if not isinstance(html_elem, Element) or html_elem.tag != 'html':
+        return []
+    for child in html_elem.children:
+        if isinstance(child, Element) and child.tag == 'body':
+            return list(child.children)
+    return []

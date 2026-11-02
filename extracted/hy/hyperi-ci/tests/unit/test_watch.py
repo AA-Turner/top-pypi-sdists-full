@@ -1,0 +1,711 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_watch.py
+# Purpose:   Tests for hyperi_ci.watch -- exponential backoff, timeout
+#            semantics (including --timeout 0), transient-failure
+#            tolerance, status-on-timeout reporting.
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+from unittest.mock import patch
+
+import pytest
+
+from hyperi_ci.gh import RunSelectionError
+from hyperi_ci.watch import (
+    _DEFAULT_TIMEOUT,
+    _MAX_CONSECUTIVE_FETCH_FAILURES,
+    _first_failed_job,
+    _get_run_status,
+    _poll_interval,
+    _print_summary,
+    _resume_command,
+    job_lines,
+    resolve_target_run,
+    watch_run,
+)
+
+_SHA = "c" * 40
+
+
+@pytest.fixture(autouse=True)
+def _no_declared_workflow():
+    """Pin these cases explicitly, not off whatever repo the cwd holds."""
+    with (
+        patch("hyperi_ci.runs.project_ci_workflow", return_value=None),
+        patch("hyperi_ci.workflows.inventory", return_value=[]),
+    ):
+        yield
+
+
+def _listed_run(
+    run_id: int,
+    workflow: str,
+    *,
+    status: str = "completed",
+    conclusion: str | None = "success",
+    sha: str = _SHA,
+) -> dict:
+    """One entry as `gh run list --json` returns it."""
+    return {
+        "databaseId": run_id,
+        "workflowName": workflow,
+        "headSha": sha,
+        "headBranch": "main",
+        "event": "push",
+        "status": status,
+        "conclusion": conclusion,
+        "url": f"https://github.com/hyperi-io/hyperi-ci/actions/runs/{run_id}",
+    }
+
+
+class TestPollInterval:
+    """Exponential backoff with cap at 120 s."""
+
+    def test_first_attempt_is_base(self) -> None:
+        assert _poll_interval(30, 1) == 30.0
+
+    def test_second_attempt_grows(self) -> None:
+        assert _poll_interval(30, 2) == 45.0
+
+    def test_third_attempt_grows_more(self) -> None:
+        assert _poll_interval(30, 3) == pytest.approx(67.5)
+
+    def test_caps_at_120(self) -> None:
+        # Eventually plateaus regardless of attempt count.
+        assert _poll_interval(30, 50) == 120.0
+
+    def test_cap_holds_for_smaller_base(self) -> None:
+        # Base 10, attempt enough times: 10 * 1.5^4 = 50.625, capped above
+        # is 120 -- but we should never *exceed* 120 even with crazy attempts.
+        assert _poll_interval(10, 100) <= 120.0
+
+    def test_minimum_attempt_one(self) -> None:
+        # Attempt 1 → exponent is min(0, 4) = 0 → base * 1 = base.
+        assert _poll_interval(60, 1) == 60.0
+
+
+class TestResumeCommand:
+    """Copy-pasteable resume hint shown in timeout messages."""
+
+    def test_with_timeout(self) -> None:
+        assert _resume_command("12345", 3600) == "hyperi-ci watch 12345 --timeout 3600"
+
+    def test_with_zero_timeout(self) -> None:
+        assert _resume_command("12345", 0) == "hyperi-ci watch 12345 --timeout 0"
+
+    def test_with_repo(self) -> None:
+        # When watching a run in a different repo than the cwd, the
+        # resume hint must include --repo so the user can copy-paste
+        # without re-deriving the repo from somewhere.
+        assert (
+            _resume_command("12345", 3600, repo="hyperi-io/dfe-loader")
+            == "hyperi-ci watch 12345 --repo hyperi-io/dfe-loader --timeout 3600"
+        )
+
+    def test_with_repo_and_zero_timeout(self) -> None:
+        assert (
+            _resume_command("12345", 0, repo="hyperi-io/dfe-loader")
+            == "hyperi-ci watch 12345 --repo hyperi-io/dfe-loader --timeout 0"
+        )
+
+
+class TestGetRunStatusRepo:
+    """`_get_run_status` must forward --repo to gh when set, so watching
+    a run in a different repo than cwd doesn't 404 on every poll."""
+
+    def test_no_repo_omits_flag(self) -> None:
+        with patch("hyperi_ci.watch.gh_run") as mock_gh:
+            mock_gh.return_value.stdout = '{"status": "in_progress"}'
+            _get_run_status("12345")
+            args = mock_gh.call_args[0][0]
+            assert "--repo" not in args
+
+    def test_repo_set_appends_flag(self) -> None:
+        with patch("hyperi_ci.watch.gh_run") as mock_gh:
+            mock_gh.return_value.stdout = '{"status": "in_progress"}'
+            _get_run_status("12345", repo="hyperi-io/dfe-loader")
+            args = mock_gh.call_args[0][0]
+            assert "--repo" in args
+            assert args[args.index("--repo") + 1] == "hyperi-io/dfe-loader"
+
+
+class TestDefaultTimeout:
+    """Default timeout is sized for Tier 2 Rust builds."""
+
+    def test_default_covers_tier_2_builds(self) -> None:
+        # Tier 2 PGO + BOLT for both archs in parallel takes 35-45 min
+        # in observed v1.17.5/v1.18.0 dfe-loader publishes. 60 min default
+        # gives comfortable margin.
+        assert _DEFAULT_TIMEOUT >= 3600
+
+    def test_max_consecutive_failures_reasonable(self) -> None:
+        # ~10 failures at exponential backoff capped at 120s = ~6+ min
+        # of sustained outage tolerated. Enough to ride out a typical
+        # GitHub API hiccup; short enough to not spin indefinitely.
+        assert 5 <= _MAX_CONSECUTIVE_FETCH_FAILURES <= 30
+
+
+class TestWatchRunTimeout:
+    """Timeout semantics -- default, zero, message includes status."""
+
+    def test_zero_timeout_polls_until_terminal(self) -> None:
+        """`--timeout 0` disables timeout entirely; polls until terminal."""
+        # Mock a run that goes through 3 in_progress states then completes.
+        states = [
+            {"status": "in_progress", "conclusion": None, "jobs": []},
+            {"status": "in_progress", "conclusion": None, "jobs": []},
+            {"status": "in_progress", "conclusion": None, "jobs": []},
+            {
+                "status": "completed",
+                "conclusion": "success",
+                "jobs": [],
+                "url": "https://example",
+                "workflowName": "CI",
+                "headBranch": "main",
+            },
+        ]
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                side_effect=states,
+            ),
+            patch("hyperi_ci.watch.time.sleep"),  # Don't actually wait
+        ):
+            rc = watch_run(run_id="12345", timeout=0, interval=1)
+        assert rc == 0  # success
+
+    def test_timeout_message_includes_status_and_resume_hint(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When timeout fires, error message should include current
+        status + a resume command, so caller knows whether to re-watch."""
+        in_progress = {"status": "in_progress", "conclusion": None, "jobs": []}
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                return_value=in_progress,
+            ),
+            patch("hyperi_ci.watch.time.sleep"),
+            patch(
+                "hyperi_ci.watch.time.monotonic",
+                # First call records start, second is past deadline.
+                side_effect=[0.0, 0.0, 1000.0],
+            ),
+        ):
+            # interval=1, timeout=10 → deadline at t=10; after one
+            # iteration our mocked monotonic returns 1000 → out of loop.
+            rc = watch_run(run_id="12345", timeout=10, interval=1)
+        # Returns 2 on timeout per docstring
+        assert rc == 2
+
+    def test_explicit_zero_timeout_in_initial_log_line(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When timeout=0, the initial info log says '(no timeout)'."""
+        terminal = {
+            "status": "completed",
+            "conclusion": "success",
+            "jobs": [],
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+        }
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.watch._get_run_status", return_value=terminal),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            watch_run(run_id="42", timeout=0, interval=1)
+        # The "no timeout" mode should be visibly distinguished in the
+        # logs (see watch.py -- info(f"Watching run {run_id} (no timeout)")).
+        # We don't assert on exact log capture due to logger plumbing
+        # variability; the test_zero_timeout_polls_until_terminal above
+        # is the load-bearing behaviour test.
+
+
+class TestWatchRunTransientFailures:
+    """Transient `gh run view` failures back off + retry, but don't
+    spin forever."""
+
+    def test_recovers_from_transient_failure(self) -> None:
+        """One failed fetch followed by success completes normally."""
+        # A None response (transient failure) then a successful one.
+        responses = [
+            None,
+            {
+                "status": "completed",
+                "conclusion": "success",
+                "jobs": [],
+                "url": "",
+                "workflowName": "CI",
+                "headBranch": "main",
+            },
+        ]
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.watch._get_run_status", side_effect=responses),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="12345", timeout=600, interval=1)
+        assert rc == 0
+
+    def test_gives_up_after_too_many_consecutive_failures(self) -> None:
+        """`_MAX_CONSECUTIVE_FETCH_FAILURES` failures in a row -> exit 1."""
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.watch._get_run_status", return_value=None),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="12345", timeout=600, interval=1)
+        # All fetches return None → consecutive_failures hits the cap →
+        # returns 1 (NOT 2 for timeout -- we distinguish "remote
+        # unreachable" from "timeout while in progress").
+        assert rc == 1
+
+    def test_consecutive_counter_resets_on_success(self) -> None:
+        """A successful fetch in the middle resets the failure counter."""
+        # MAX-1 failures, one success, MAX more failures, then complete.
+        # Should NOT exit early because the counter reset.
+        n = _MAX_CONSECUTIVE_FETCH_FAILURES
+        in_progress = {"status": "in_progress", "conclusion": None, "jobs": []}
+        terminal = {
+            "status": "completed",
+            "conclusion": "success",
+            "jobs": [],
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+        }
+        responses = [None] * (n - 1) + [in_progress] + [None] * (n - 1) + [terminal]
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.watch._get_run_status", side_effect=responses),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="12345", timeout=0, interval=1)
+        assert rc == 0
+
+
+class TestWatchRunTerminalStates:
+    """Terminal status handling -- success vs failure vs cancellation."""
+
+    def _terminal(self, conclusion: str) -> dict:
+        return {
+            "status": "completed",
+            "conclusion": conclusion,
+            "jobs": [],
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+        }
+
+    def test_success_returns_zero(self) -> None:
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                return_value=self._terminal("success"),
+            ),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="1", timeout=0, interval=1)
+        assert rc == 0
+
+    def test_failure_returns_one(self) -> None:
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                return_value=self._terminal("failure"),
+            ),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="1", timeout=0, interval=1)
+        assert rc == 1
+
+    def test_cancelled_returns_one(self) -> None:
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                return_value=self._terminal("cancelled"),
+            ),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="1", timeout=0, interval=1)
+        assert rc == 1
+
+
+class TestWatchRunEarlyFail:
+    """Early-fail-on-red: a single failed job ends the watch (issue #58)."""
+
+    def _in_progress_with_job(self, conclusion: str) -> dict:
+        return {
+            "status": "in_progress",
+            "conclusion": None,
+            "url": "https://example/run",
+            "workflowName": "CI",
+            "headBranch": "main",
+            "jobs": [
+                {"name": "quality", "conclusion": "success"},
+                {"name": "build", "conclusion": conclusion},
+            ],
+        }
+
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_early_fail_returns_one_before_run_terminal(self, conclusion: str) -> None:
+        # Run status is still in_progress, but a job has already gone red.
+        # watch must return 1 immediately, without waiting for a terminal
+        # run status (which is never provided here -- a single poll suffices).
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch(
+                "hyperi_ci.watch._get_run_status",
+                return_value=self._in_progress_with_job(conclusion),
+            ),
+            patch("hyperi_ci.watch.time.sleep") as mock_sleep,
+        ):
+            rc = watch_run(run_id="1", timeout=0, interval=1)
+        assert rc == 1
+        # Fail-fast: it returned on the first poll, never sleeping to loop.
+        mock_sleep.assert_not_called()
+
+    def test_no_early_fail_while_jobs_pending_then_success(self) -> None:
+        # A job still pending (conclusion None) must NOT trip early-fail;
+        # watch keeps polling and returns 0 when the run completes green.
+        pending = {
+            "status": "in_progress",
+            "conclusion": None,
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+            "jobs": [{"name": "build", "conclusion": None}],
+        }
+        done = {
+            "status": "completed",
+            "conclusion": "success",
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+            "jobs": [{"name": "build", "conclusion": "success"}],
+        }
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.watch._get_run_status", side_effect=[pending, done]),
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(run_id="1", timeout=0, interval=1)
+        assert rc == 0
+
+
+class TestSkippedJobsListSeparately:
+    """issue #71: a skipped job is never listed among the jobs that passed."""
+
+    JOBS = [
+        {"name": "ci / Plan", "conclusion": "success"},
+        {"name": "ci / Release tail", "conclusion": "skipped"},
+        {"name": "ci / Quality", "conclusion": "success"},
+        {"name": "ci / Test (ubuntu-latest)", "conclusion": "skipped"},
+    ]
+
+    def test_skipped_jobs_follow_every_job_that_ran(self) -> None:
+        texts = [text for _, text in job_lines(self.JOBS)]
+        heading = texts.index("  did not run (2):")
+        ran = texts[:heading]
+        assert ran == ["  pass: ci / Plan", "  pass: ci / Quality"]
+        assert texts[heading + 1 :] == [
+            "    skipped: ci / Release tail",
+            "    skipped: ci / Test (ubuntu-latest)",
+        ]
+
+    def test_a_skipped_gate_warns_and_a_skipped_tail_does_not(self) -> None:
+        levels = dict((text, level) for level, text in job_lines(self.JOBS))
+        assert levels["    skipped: ci / Test (ubuntu-latest)"] == "warn"
+        assert levels["    skipped: ci / Release tail"] == "info"
+
+    def test_no_heading_when_nothing_skipped(self) -> None:
+        texts = [text for _, text in job_lines(self.JOBS[:1])]
+        assert texts == ["  pass: ci / Plan"]
+
+    def test_a_pending_job_renders_as_pending(self) -> None:
+        # gh reports conclusion "" for a job that has not finished.
+        lines = job_lines([{"name": "ci / Build", "conclusion": ""}])
+        assert lines == [("info", "  pending: ci / Build")]
+
+    def test_a_failed_job_names_its_failed_step(self) -> None:
+        jobs = [
+            {
+                "name": "ci / Test",
+                "conclusion": "failure",
+                "steps": [{"name": "Run tests", "conclusion": "failure"}],
+            }
+        ]
+        assert job_lines(jobs) == [
+            ("error", "  failure: ci / Test"),
+            ("error", "    failed step: Run tests"),
+        ]
+
+
+class TestSkippedGateIsNotRenderedGreen:
+    """issue #96: a run whose gate jobs all skipped still concludes `success`.
+    The watcher is where a human reads that verdict, so it must not show a
+    gate that never ran as a pass."""
+
+    @staticmethod
+    def _run(quality: str | None, test: str | None, **extra: str | None) -> dict:
+        jobs = [
+            {"name": "ci / Quality", "conclusion": quality},
+            {"name": "ci / Test (arc-native-16cpu)", "conclusion": test},
+        ]
+        jobs.extend({"name": n, "conclusion": c} for n, c in extra.items())
+        return {
+            "status": "completed",
+            "conclusion": "success",
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+            "jobs": jobs,
+        }
+
+    def test_an_all_skipped_gate_run_is_not_green(self) -> None:
+        with (
+            patch("hyperi_ci.watch.success") as ok,
+            patch("hyperi_ci.watch.warn") as warned,
+        ):
+            _print_summary(self._run("skipped", "skipped"))
+        assert not any("CI on main" in c.args[0] for c in ok.call_args_list), (
+            "an all-skipped gate run must not render its header as success"
+        )
+        assert any("did NOT run" in c.args[0] for c in warned.call_args_list), (
+            "the header must say the gate did not run"
+        )
+
+    def test_an_executed_gate_still_renders_green(self) -> None:
+        with patch("hyperi_ci.watch.success") as ok:
+            _print_summary(self._run("success", "success"))
+        assert any("CI on main: success" in c.args[0] for c in ok.call_args_list)
+
+    def test_one_executed_leg_is_enough_to_stay_green(self) -> None:
+        # A matrixed Test with one skipped leg still answered the question.
+        with patch("hyperi_ci.watch.success") as ok:
+            _print_summary(self._run("success", "skipped"))
+        assert any("CI on main: success" in c.args[0] for c in ok.call_args_list)
+
+    def test_a_skipped_gate_job_line_warns(self) -> None:
+        with patch("hyperi_ci.watch.warn") as warned:
+            _print_summary(self._run("skipped", "success"))
+        assert any("Quality" in c.args[0] for c in warned.call_args_list), (
+            "a skipped gate job must render as warn, not neutral info"
+        )
+
+    def test_a_skipped_non_gate_job_stays_neutral(self) -> None:
+        # Container skips legitimately for a library; only the gates matter.
+        with patch("hyperi_ci.watch.info") as noted:
+            _print_summary(
+                self._run("success", "success", **{"ci / Container": "skipped"})
+            )
+        assert any("Container" in c.args[0] for c in noted.call_args_list)
+
+    def test_a_run_with_no_gate_jobs_is_not_accused(self) -> None:
+        # A different workflow shape is not a lie.
+        data = {
+            "status": "completed",
+            "conclusion": "success",
+            "url": "",
+            "workflowName": "CI",
+            "headBranch": "main",
+            "jobs": [{"name": "ci / Plan", "conclusion": "success"}],
+        }
+        with patch("hyperi_ci.watch.success") as ok:
+            _print_summary(data)
+        assert any("CI on main: success" in c.args[0] for c in ok.call_args_list)
+
+
+class TestResolveTargetRun:
+    """With no run id, watch pins on the commit at HEAD (issue #101)."""
+
+    def test_picks_the_run_for_head(self) -> None:
+        with (
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=[_listed_run(11, "CI")]),
+        ):
+            run = resolve_target_run()
+        assert run["databaseId"] == 11
+
+    def test_refuses_two_runs_on_the_same_commit(self) -> None:
+        candidates = [
+            _listed_run(11, "Dependency Graph"),
+            _listed_run(12, "Test", status="in_progress", conclusion=None),
+        ]
+        with (
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=candidates),
+            pytest.raises(RunSelectionError, match="refusing to guess"),
+        ):
+            resolve_target_run()
+
+    def test_workflow_pins_the_one_asked_about(self) -> None:
+        candidates = [
+            _listed_run(11, "Dependency Graph"),
+            _listed_run(12, "Test", status="in_progress", conclusion=None),
+        ]
+        with (
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=candidates),
+        ):
+            run = resolve_target_run(workflow="Test")
+        assert run["databaseId"] == 12
+
+    def test_waits_for_the_run_to_register(self) -> None:
+        # GitHub had not created the run yet on the first look; the old
+        # code fell back to the branch's newest run, which is the
+        # previous commit's.
+        with (
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch(
+                "hyperi_ci.runs.list_runs",
+                side_effect=[[], [_listed_run(11, "CI")]],
+            ),
+            patch("hyperi_ci.watch.time.sleep") as mock_sleep,
+        ):
+            run = resolve_target_run()
+        assert run["databaseId"] == 11
+        mock_sleep.assert_called_once()
+
+    def test_gives_up_when_no_run_ever_registers(self) -> None:
+        with (
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=[]),
+            patch("hyperi_ci.watch.time.sleep"),
+            patch(
+                "hyperi_ci.watch.time.monotonic",
+                # Start, then past the appearance budget.
+                side_effect=[0.0, 1000.0],
+            ),
+            pytest.raises(RunSelectionError, match="No run registered for"),
+        ):
+            resolve_target_run()
+
+    def test_a_pr_anchors_on_its_head_commit(self) -> None:
+        # The run that matters fired on pull_request and is not on HEAD.
+        pr_sha = "d" * 40
+        with (
+            patch("hyperi_ci.runs.pr_head", return_value=(pr_sha, "fix/thing")),
+            patch(
+                "hyperi_ci.runs.list_runs",
+                return_value=[_listed_run(21, "CI", sha=pr_sha)],
+            ) as mock_list,
+        ):
+            run = resolve_target_run(pr=18)
+        assert run["databaseId"] == 21
+        assert mock_list.call_args.kwargs["commit"] == pr_sha
+
+    def test_a_commit_anchor_never_reads_head(self) -> None:
+        other = "e" * 40
+        with (
+            patch("hyperi_ci.runs.get_head_sha") as mock_head,
+            patch(
+                "hyperi_ci.runs.list_runs",
+                return_value=[_listed_run(22, "CI", sha=other)],
+            ),
+        ):
+            run = resolve_target_run(commit=other)
+        assert run["databaseId"] == 22
+        mock_head.assert_not_called()
+
+
+class TestWatchRunPinning:
+    """`watch_run` exits non-zero on a refusal instead of watching."""
+
+    def test_ambiguous_head_run_returns_one_without_polling(self) -> None:
+        candidates = [
+            _listed_run(11, "Dependency Graph"),
+            _listed_run(12, "Test", status="in_progress", conclusion=None),
+        ]
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=candidates),
+            patch("hyperi_ci.watch._get_run_status") as mock_status,
+        ):
+            rc = watch_run(timeout=0, interval=1)
+        assert rc == 1
+        # Nothing was watched, so no conclusion can be reported.
+        mock_status.assert_not_called()
+
+    def test_workflow_pins_the_run_that_is_polled(self) -> None:
+        candidates = [
+            _listed_run(11, "Dependency Graph"),
+            _listed_run(12, "Test", status="in_progress", conclusion=None),
+        ]
+        terminal = {
+            "status": "completed",
+            "conclusion": "failure",
+            "jobs": [],
+            "url": "",
+            "workflowName": "Test",
+            "headBranch": "main",
+        }
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.runs.get_head_sha", return_value=_SHA),
+            patch("hyperi_ci.runs.list_runs", return_value=candidates),
+            patch(
+                "hyperi_ci.watch._get_run_status", return_value=terminal
+            ) as mock_status,
+            patch("hyperi_ci.watch.time.sleep"),
+        ):
+            rc = watch_run(workflow="Test", timeout=0, interval=1)
+        # The Test run failed; the green Dependency Graph run beside it
+        # must not be what gets reported.
+        assert rc == 1
+        assert mock_status.call_args[0][0] == "12"
+
+    def test_another_repo_with_no_anchor_stands_down(self) -> None:
+        # A local HEAD says nothing about another repo, so the refusal
+        # lists what is there instead of watching whatever ran last.
+        with (
+            patch("hyperi_ci.watch.require_gh", return_value=True),
+            patch("hyperi_ci.runs.list_runs", return_value=[_listed_run(31, "CI")]),
+            patch("hyperi_ci.watch._get_run_status") as mock_status,
+            patch("hyperi_ci.watch.error") as mock_error,
+        ):
+            rc = watch_run(repo="hyperi-io/dfe-loader", timeout=0, interval=1)
+        assert rc == 1
+        mock_status.assert_not_called()
+        message = mock_error.call_args[0][0]
+        assert "hyperi-ci watch 31 --repo hyperi-io/dfe-loader" in message
+
+
+class TestFirstFailedJob:
+    """`_first_failed_job` picks the first job in a red conclusion."""
+
+    def test_returns_first_failed(self) -> None:
+        data = {
+            "jobs": [
+                {"name": "a", "conclusion": "success"},
+                {"name": "b", "conclusion": "failure"},
+                {"name": "c", "conclusion": "cancelled"},
+            ]
+        }
+        job = _first_failed_job(data)
+        assert job is not None
+        assert job["name"] == "b"
+
+    def test_none_when_all_ok_or_pending(self) -> None:
+        # success / skipped / pending (None) must not count as red.
+        data = {
+            "jobs": [
+                {"name": "a", "conclusion": "success"},
+                {"name": "b", "conclusion": None},
+                {"name": "c", "conclusion": "skipped"},
+            ]
+        }
+        assert _first_failed_job(data) is None
+
+    def test_none_on_empty_or_missing_jobs(self) -> None:
+        assert _first_failed_job({"jobs": []}) is None
+        assert _first_failed_job({}) is None

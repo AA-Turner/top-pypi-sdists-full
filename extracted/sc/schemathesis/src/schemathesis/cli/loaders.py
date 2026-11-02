@@ -14,20 +14,52 @@ from typing import TYPE_CHECKING, Any
 
 import click
 
-from schemathesis import graphql, openapi
+from schemathesis import graphql, grpc, openapi
 from schemathesis.cli.constants import MISSING_BASE_URL_MESSAGE
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
-from schemathesis.config import ProjectConfig
-from schemathesis.core.errors import HookExecutionError, InvalidSchema, LoaderError, LoaderErrorKind
+from schemathesis.config import ProjectConfig, ReportFormat
+from schemathesis.core.errors import HookExecutionError, IncorrectUsage, InvalidSchema, LoaderError, LoaderErrorKind
 from schemathesis.core.fs import file_exists
 from schemathesis.engine.events import EventGenerator, FatalError, Interrupted
+from schemathesis.grpc.loaders import BUILD_HINT, require_extra
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from schemathesis.engine import events
     from schemathesis.schemas import BaseSchema
 
+GRPC_HTTP_REPORTS_MESSAGE = (
+    "HAR, VCR and pytest reports describe HTTP/1.1 requests and are not available for gRPC targets"
+)
+GRPC_DESCRIPTOR_SET_EXTENSIONS = (".binpb", ".pb", ".protoset")
+PROTO_FILE_MESSAGE = f"Schemathesis reads descriptor sets, not `.proto` files. {BUILD_HINT} and run `schemathesis run api.binpb --url URL`"
+
 
 def into_event_stream(
+    *,
+    location: str,
+    config: ProjectConfig,
+    filter_set: dict[str, Any],
+    engine_callback: Callable[[BaseSchema], Iterable[events.EngineEvent]],
+) -> EventGenerator:
+    # Checked before any report handler creates its file.
+    if is_grpc_location(location):
+        if any(
+            config.reports.get(report_format).enabled
+            for report_format in (ReportFormat.HAR, ReportFormat.VCR, ReportFormat.PYTEST)
+        ):
+            raise click.UsageError(GRPC_HTTP_REPORTS_MESSAGE)
+        try:
+            require_extra()
+        except ImportError as exc:
+            raise click.ClickException(str(exc)) from None
+    if location.endswith(".proto") and file_exists(location):
+        raise click.UsageError(PROTO_FILE_MESSAGE)
+    return _event_stream(location=location, config=config, filter_set=filter_set, engine_callback=engine_callback)
+
+
+def _event_stream(
     *,
     location: str,
     config: ProjectConfig,
@@ -56,6 +88,11 @@ def into_event_stream(
                 )
             raise click.UsageError(message)
         base_url = schema.get_base_url()
+    except IncorrectUsage as exc:
+        raise click.UsageError(str(exc)) from None
+    except ImportError as exc:
+        # A loader that needs an optional extra names it in the message.
+        raise click.ClickException(str(exc)) from None
     except KeyboardInterrupt:
         yield Interrupted(phase=None)
         return
@@ -78,11 +115,18 @@ def into_event_stream(
 
 def load_schema(location: str, config: ProjectConfig) -> BaseSchema:
     """Load API schema automatically based on the provided configuration."""
+    return _try_load_schema(location, config, _candidate_modules(location))
+
+
+def _candidate_modules(location: str) -> tuple[ModuleType, ...]:
+    """Loader modules to try for `location`, most likely first."""
+    if is_grpc_location(location):
+        return (grpc,)
+    if is_openapi_file(location):
+        return (openapi,)
     if is_probably_graphql(location):
-        # Try GraphQL first, then fallback to Open API
-        return _try_load_schema(location, config, graphql, openapi)
-    # Try Open API first, then fallback to GraphQL
-    return _try_load_schema(location, config, openapi, graphql)
+        return (graphql, openapi)
+    return (openapi, graphql)
 
 
 def should_try_more(exc: LoaderError) -> bool:
@@ -111,24 +155,23 @@ def detect_loader(location: str, module: Any) -> Callable:
     return module.from_url
 
 
-def _try_load_schema(location: str, config: ProjectConfig, first_module: Any, second_module: Any) -> BaseSchema:
-    """Try to load schema with fallback option."""
+def _try_load_schema(location: str, config: ProjectConfig, modules: tuple[ModuleType, ...]) -> BaseSchema:
+    """Load with the first module, falling back to the rest in order."""
     from urllib3.exceptions import InsecureRequestWarning
 
+    first, *rest = modules
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", InsecureRequestWarning)
         try:
-            return _load_schema(location, config, first_module)
+            return _load_schema(location, config, first)
         except LoaderError as exc:
-            # If this was the OpenAPI loader on an explicit OpenAPI file, don't fallback
-            if first_module is openapi and is_openapi_file(location):
-                raise exc
             if should_try_more(exc):
-                try:
-                    return _load_schema(location, config, second_module)
-                except Exception as second_exc:
-                    if is_specific_exception(second_exc):
-                        raise second_exc
+                for module in rest:
+                    try:
+                        return _load_schema(location, config, module)
+                    except Exception as other_exc:
+                        if is_specific_exception(other_exc):
+                            raise other_exc
             # Re-raise the original error
             raise exc
 
@@ -159,6 +202,12 @@ def is_specific_exception(exc: Exception) -> bool:
 def is_probably_graphql(location: str) -> bool:
     """Detect whether it is likely that the given location is a GraphQL endpoint."""
     return location.endswith(("/graphql", "/graphql/", ".graphql", ".gql"))
+
+
+def is_grpc_location(location: str) -> bool:
+    if location.startswith(("grpc://", "grpcs://")):
+        return True
+    return location.endswith(GRPC_DESCRIPTOR_SET_EXTENSIONS) and file_exists(location)
 
 
 def is_openapi_file(location: str) -> bool:

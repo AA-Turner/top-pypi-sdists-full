@@ -1,2 +1,0 @@
-version = "0.37.*"
-requires = ["types-flask", "marshmallow", "apispec"]

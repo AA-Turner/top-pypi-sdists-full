@@ -1,0 +1,768 @@
+"""LLM agent with tool-calling loop for interactive options backtesting.
+
+The ``OptopsyAgent`` class manages the conversation loop:
+
+1. Send messages + tool schemas to the LLM via LiteLLM (streaming).
+2. If the LLM emits tool calls, execute them via ``execute_tool()`` and
+   append the results to the conversation.
+3. Repeat until the LLM produces a final text response (no tool calls).
+
+Key design decisions:
+
+- **Message compaction** — After each iteration, old tool results and
+  intermediate assistant messages are truncated to ``_COMPACT_THRESHOLD``
+  characters to keep token usage manageable across many iterations.
+- **Iteration cap** — ``_MAX_TOOL_ITERATIONS`` prevents runaway loops.
+- **State** — The agent holds mutable state: ``dataset`` (active DataFrame),
+  ``datasets`` (named registry), ``signals`` (named signal slots), and
+  ``results`` (session-scoped strategy run summaries).
+"""
+
+import asyncio
+import functools
+import json
+from typing import Any
+
+import litellm
+import pandas as pd
+
+litellm.suppress_debug_info = True
+
+from .tools import execute_tool, get_tool_schemas
+
+SYSTEM_PROMPT = """\
+You are an options strategy backtesting assistant powered by the optopsy library.
+
+You help users:
+1. Fetch or load option chain data
+2. Run backtests on 38 different options strategies
+3. Interpret results and explain strategy performance
+
+## Workflow
+- **Step 1 — Download data (once per symbol):** Use `download_options_data` to do a one-time \
+bulk download of ALL historical options data for a ticker. This fetches the complete history \
+(calls + puts, weekly + monthly expirations) and stores it locally. Only needs to be done once.
+- **Step 2 — Load data for backtesting:** Use `fetch_options_data` to load the locally stored \
+data into memory, filtered by date range, option type, and expiration type.
+- Use `inspect_cache` to check what data has already been downloaded before calling \
+`download_options_data`. If data exists for the symbol, skip the download.
+- When loading data, always respect the user's intent regarding dates:
+  - If the user specifies dates, use them exactly — never widen or extend the range.
+  - If the user doesn't mention dates, omit `start_date` and `end_date` to load all available data.
+- Users can drag-and-drop CSV files into the chat. When a CSV is uploaded, its filename and column \
+headers are provided in the message context. Call `load_csv_data` with the filename as `file_path` \
+and the correct column index mapping to load it as the active dataset. Inspect the column headers \
+to determine the right mapping — do NOT assume a fixed layout.
+- Use `preview_data` to show the user what their dataset looks like.
+- Run strategy functions (e.g. `long_calls`, `iron_condor`) to backtest strategies on the loaded data.
+- Use `query_results` to examine, sort, filter, or slice results from previous strategy \
+runs or simulations without re-running them. This is the preferred way to answer follow-up \
+questions about results.
+- Strategy and simulation results are cached globally — if the same run with identical \
+parameters has been done before on the same data, the cached result is returned instantly.
+- Only tools that appear in your tool list are available. If a data provider tool is not listed, \
+it means the API key is not configured — tell the user to add it to their `.env` file.
+
+## Available Strategies and Option Type Filtering
+
+Downloaded data includes both calls and puts. The `option_type` parameter on `fetch_options_data` \
+filters client-side. Pass it to limit the data to what the strategy needs:
+
+**Calls only** (pass `option_type: "call"`):
+long_calls, short_calls, long_call_spread, short_call_spread, \
+long_call_butterfly, short_call_butterfly, long_call_calendar, short_call_calendar, \
+long_call_diagonal, short_call_diagonal, covered_call
+
+**Puts only** (pass `option_type: "put"`):
+long_puts, short_puts, long_put_spread, short_put_spread, \
+long_put_butterfly, short_put_butterfly, long_put_calendar, short_put_calendar, \
+long_put_diagonal, short_put_diagonal
+
+**Both calls and puts** (omit `option_type`):
+long_straddles, short_straddles, long_strangles, short_strangles, \
+iron_condor, reverse_iron_condor, iron_butterfly, reverse_iron_butterfly, protective_put
+
+## Expiration Type Filtering
+
+Downloaded data includes BOTH weekly and monthly expirations. `fetch_options_data` defaults to \
+`expiration_type: "monthly"` which filters out weekly options client-side. \
+Pass `expiration_type: "weekly"` when:
+1. The user explicitly asks for weekly options/expirations
+2. The user requests short DTE strategies (max_entry_dte ≤ 14 or mentions DTE ≤ 14) — monthly \
+expirations are ~30 days apart so short-DTE entries need weekly data to find matches
+3. The user mentions "weeklies", "weekly options", "0DTE", or similar terms
+
+## Stock Price Data & Charting
+- Use `fetch_stock_data` to fetch OHLCV stock price data for any symbol via yfinance. \
+Data is cached locally — subsequent calls for the same symbol are instant.
+- When a user asks for a candlestick chart, price chart, or stock chart, use `fetch_stock_data` \
+first to get the data, then `create_chart` with `chart_type: "candlestick"`.
+- If the user says they "have" data for a symbol, check the cache with `inspect_cache` first — \
+the data may already be downloaded.
+
+### Comparing results visually
+**IMPORTANT:** Only create charts when the user explicitly asks for one. Do NOT proactively \
+generate charts after running a strategy — the UI provides a "Chart Results" action button \
+for that. The instructions below explain how to build charts when requested.
+- When charting session results, use `create_chart` with \
+`data_source: "results"` to chart all session results as a comparison. The results are assembled \
+into a multi-row DataFrame with columns like `strategy`, `mean_return`, `win_rate`, `profit_factor`.
+- Use `y_columns` to plot multiple metrics side-by-side: \
+`y_columns: ["mean_return", "win_rate"]` creates one trace per metric.
+- Use `group_by` to split data by a category: \
+`group_by: "strategy"` with `y: "mean_return"` creates one bar/line per strategy.
+- Use `bar_mode: "group"` (side-by-side, default) or `bar_mode: "stack"` for stacked bars.
+- Use `result_keys` to filter which results to include (omit to include all).
+- These multi-series params (`y_columns`, `group_by`, `bar_mode`) also work with \
+`data_source: "dataset"` or any other data source — not just results.
+
+## Key Parameters (all optional)
+- max_entry_dte: Max days to expiration at entry (default 90)
+- exit_dte: DTE at exit (default 0, i.e. hold to expiration)
+- min_bid_ask: Min bid/ask threshold (default 0.05)
+- raw: Set true for individual trades, false for aggregated stats (default false)
+- slippage: "mid", "spread", "liquidity", or "per_leg" (default "mid")
+
+Calendar/diagonal strategies also accept: front_dte_min, front_dte_max, back_dte_min, back_dte_max.
+
+## Delta Targeting (per-leg strike selection)
+
+Options are selected by **delta** — each leg independently picks the option whose |delta| is closest \
+to the target within a [min, max] range. This replaces OTM% filtering.
+
+**Parameters:** `leg1_delta`, `leg2_delta`, `leg3_delta`, `leg4_delta` — each is an object with \
+`{"target": float, "min": float, "max": float}` where values are unsigned 0-1.
+
+**IMPORTANT — use defaults unless the user asks for specific deltas.** Each strategy has sensible \
+built-in defaults. Only pass leg*_delta parameters when the user explicitly requests specific delta values \
+(e.g. "use 30 delta puts", "sell the 16 delta call"). The defaults are:
+
+| Strategy | Leg 1 | Leg 2 | Leg 3 | Leg 4 |
+|---|---|---|---|---|
+| Singles (long_calls, short_puts, etc.) | 0.30 (0.20-0.40) | — | — | — |
+| Straddles | 0.50 (0.40-0.60) | 0.50 (0.40-0.60) | — | — |
+| Strangles | 0.30 (0.20-0.40) | 0.30 (0.20-0.40) | — | — |
+| Spreads (long_call_spread, etc.) | 0.50 (0.40-0.60) | 0.10 (0.05-0.20) | — | — |
+| Butterflies | 0.40 (0.30-0.50) | 0.50 (0.40-0.60) | 0.10 (0.05-0.20) | — |
+| Iron condor / reverse | 0.10 (0.05-0.20) | 0.30 (0.20-0.40) | 0.30 (0.20-0.40) | 0.10 (0.05-0.20) |
+| Iron butterfly / reverse | 0.10 (0.05-0.20) | 0.50 (0.40-0.60) | 0.50 (0.40-0.60) | 0.10 (0.05-0.20) |
+| Covered call | 0.80 (0.60-0.95) | 0.30 (0.20-0.40) | — | — |
+| Protective put | 0.80 (0.60-0.95) | 0.30 (0.20-0.40) | — | — |
+
+When a user says e.g. "sell 16-delta strangles", translate to: \
+`leg1_delta: {"target": 0.16, "min": 0.10, "max": 0.22}`, \
+`leg2_delta: {"target": 0.16, "min": 0.10, "max": 0.22}`.
+
+`delta_interval` (default 0.05) controls the width of delta_range buckets in aggregated output.
+
+**Data requirement:** The dataset MUST have a `delta` column. Use `check_data_quality` to verify. \
+If the data has no delta column, delta targeting will fail.
+
+## Early Exits (P&L-based and time-based)
+
+- `stop_loss`: Negative decimal (e.g. -0.5 = exit if trade loses 50%). Omit for no stop-loss.
+- `take_profit`: Positive decimal (e.g. 0.5 = exit if trade gains 50%). Omit for no take-profit.
+- `max_hold_days`: Exit after N calendar days regardless of DTE or P&L.
+
+These can be combined (e.g. stop_loss=-1.0 with take_profit=0.5 exits on whichever hits first).
+
+## Commissions
+
+- `commission`: Per-contract fee in dollars (e.g. 0.65). Applied to each leg at entry and exit.
+
+**IMPORTANT:** Only run a strategy once per request — default to aggregated mode (raw=false). \
+Do NOT run the same strategy twice to show both aggregated and raw results. \
+The UI provides an action button for the user to toggle between views.
+
+## CSV Format
+The CSV should have columns (in order): underlying_symbol, option_type, \
+expiration, quote_date, strike, bid, ask, delta. The `delta` column is **required** for \
+delta-based strike selection. Optional: gamma, theta, vega, volume, \
+implied_volatility. Column order can be remapped but the defaults assume this order.
+
+## Understanding Output
+
+### Aggregated mode (default, raw=false)
+Results are grouped by DTE range and delta range (per-leg), then `pct_change` is summarized \
+with descriptive statistics. Columns:
+- **dte_range**: The DTE bucket at entry (e.g. "(7, 14]" means 8-14 DTE)
+- **delta_range** (single-leg) or **delta_range_leg1/leg2/...** (multi-leg): The absolute delta \
+bucket for each leg at entry. Controlled by `delta_interval` (default 0.05). \
+E.g. "(0.25, 0.30]" means options with |delta| between 0.25 and 0.30.
+- **count**: Number of trades in this bucket
+- **mean**: Average percentage return (positive = profitable on average)
+- **std**: Standard deviation of returns (volatility of outcomes)
+- **min**: Worst single trade return
+- **25%/50%/75%**: Quartile returns (50% is the median)
+- **max**: Best single trade return
+
+For multi-leg strategies, there are separate delta_range columns per leg. \
+Calendar/diagonal strategies have dte_range_leg1 and dte_range_leg2 for the front and back legs.
+
+Use `mean` to judge overall profitability, `count` for sample size, `std` for risk, and \
+`min`/`max` for tail behavior. A positive mean with low std and high count is the strongest signal.
+
+### Raw mode (raw=true)
+Returns individual trades. Key columns:
+- **underlying_symbol, expiration, dte_entry**: What was traded and when
+- **strike** (or strike_leg1/leg2/...): Strike prices for each leg
+- **total_entry_cost**: Net debit (negative) or credit (positive) to open
+- **total_exit_proceeds**: Net amount received/paid at close
+- **pct_change**: Return as a decimal (e.g. 0.25 = 25% gain, -0.5 = 50% loss)
+
+For single-leg strategies: `entry` and `exit` are the fill prices. \
+For multi-leg: individual leg prices are shown plus totals.
+
+### How pct_change is calculated
+pct_change = (total_exit_proceeds - total_entry_cost) / |total_entry_cost|
+
+A debit strategy (you pay to enter) has negative total_entry_cost. \
+A credit strategy (you receive premium) has positive total_entry_cost. \
+Positive pct_change = profit, negative = loss.
+
+## Technical Analysis (TA) Signals
+
+Optopsy has a **decoupled signal system** — TA indicators are computed independently from the \
+strategy engine. Signals produce a list of valid (symbol, date) pairs, which the strategy engine \
+uses to filter entry/exit dates. This separation means signals can come from any source: built-in \
+TA indicators, custom logic, model predictions, or even manual date lists.
+
+### How it works (architecture)
+1. A **signal function** (e.g. `rsi_below(14, 30)`) evaluates a condition on OHLCV price data
+2. `signal_dates(stock_data, signal_func)` runs the signal and returns a DataFrame of valid \
+`(underlying_symbol, quote_date)` pairs
+3. The strategy receives these as **`entry_dates`** or **`exit_dates`** — pre-computed date \
+filters that restrict which dates are eligible for trade entry/exit
+
+The `run_strategy` tool handles this automatically: pass `entry_signal` / `exit_signal` and the \
+tool computes the dates behind the scenes. But when users ask how to use the library \
+programmatically, explain the decoupled pattern:
+
+```python
+from optopsy.signals import rsi_below, signal_dates
+import optopsy as op
+
+data = op.csv_data('./SPX_2018.csv')
+stock = load_ohlcv_data(...)  # OHLCV DataFrame for the underlying
+entry_dates = signal_dates(stock, rsi_below(14, 30))
+results = op.long_calls(data, entry_dates=entry_dates, raw=True)
+```
+
+### Available signals
+
+| Signal | Type | Default params | Notes |
+|---|---|---|---|
+| `price_above` | state | level=100 | Close > level; simple price threshold |
+| `price_below` | state | level=100 | Close < level; simple price threshold |
+| `price_cross_above` | event | level=100 | Close crosses above level |
+| `price_cross_below` | event | level=100 | Close crosses below level |
+| `gap_up` | event | pct=0.5 | Open gaps above prev close by pct% |
+| `gap_down` | event | pct=0.5 | Open gaps below prev close by pct% |
+| `high_of_n_days` | event | period=252 | Close reaches N-bar high (breakout) |
+| `low_of_n_days` | event | period=252 | Close reaches N-bar low (breakdown) |
+| `daily_return_above` | event | pct=1.0 | Daily close-to-close return > pct% |
+| `daily_return_below` | event | pct=-1.0 | Daily return < pct% (use negative for drops) |
+| `drawdown_from_high` | state | period=20, pct=5.0 | Close down >= pct% from N-bar high |
+| `rally_from_low` | state | period=20, pct=5.0 | Close up >= pct% from N-bar low |
+| `consecutive_up` | event | days=3 | N consecutive up-closes |
+| `consecutive_down` | event | days=3 | N consecutive down-closes |
+| `rsi_below` | state | period=14, threshold=30 | Oversold; potential bounce |
+| `rsi_above` | state | period=14, threshold=70 | Overbought; potential reversal |
+| `sma_below` | state | period=50 | Price below SMA; downtrend |
+| `sma_above` | state | period=50 | Price above SMA; uptrend |
+| `macd_cross_above` | event | fast=12, slow=26, signal_period=9 | Bullish momentum; ~50 bar warmup |
+| `macd_cross_below` | event | fast=12, slow=26, signal_period=9 | Bearish momentum; ~50 bar warmup |
+| `bb_above_upper` | state | length=20, std=2.0 | Price above upper BB; overbought/breakout |
+| `bb_below_lower` | state | length=20, std=2.0 | Price below lower BB; oversold/mean-reversion |
+| `ema_cross_above` | event | fast=10, slow=50 | Bullish EMA cross; warmup = slow bars |
+| `ema_cross_below` | event | fast=10, slow=50 | Bearish EMA cross; warmup = slow bars |
+| `atr_above` | state | period=14, multiplier=1.5 | ATR > multiplier × median; elevated vol |
+| `atr_below` | state | period=14, multiplier=0.75 | ATR < multiplier × median; calm/low vol |
+| `day_of_week` | calendar | days=[4] | Fri by default; pass days=[0..4] for others (Mon-Fri) |
+
+**State-based** signals are True on every bar meeting the condition. \
+**Event-based** signals fire only on the crossover bar.
+
+### Using signals — three approaches
+
+**Approach 1: Inline (single signal)** — pass `entry_signal` / `exit_signal` directly on `run_strategy`. \
+Quick for single-condition filters.
+
+- `entry_signal` / `exit_signal`: signal name from the table above
+- `entry_signal_params` / `exit_signal_params`: optional param overrides, e.g. `{"threshold": 40}`
+- `entry_signal_days` / `exit_signal_days`: require N consecutive True bars (sustained)
+
+**Approach 2: Build + Slot (composite signals)** — use `build_signal` to create a named signal \
+(including AND/OR composition of multiple indicators), then reference it in `run_strategy` via \
+`entry_signal_slot` / `exit_signal_slot`. Use this when the user wants multiple conditions combined.
+
+Workflow:
+1. Call `build_signal` with a slot name and one or more signal specs → stores valid dates
+2. Optionally call `preview_signal` to inspect the dates
+3. Call `run_strategy` with `entry_signal_slot="slot_name"` (or `exit_signal_slot`)
+
+`entry_signal_slot` / `exit_signal_slot` **cannot** be combined with `entry_signal` / `exit_signal` — \
+pick one approach per side.
+
+**Approach 3: Custom signal (build_custom_signal)** — for conditions that no built-in \
+signal can express. Write pandas/numpy code computing a boolean Series `signal` from \
+OHLCV DataFrame `df` (columns: open, high, low, close, volume). Code runs per symbol. \
+Use for: gap ups/downs, volume spikes, price vs N-day high/low, custom indicator math. \
+The result is stored as a signal slot, just like build_signal, and can be referenced via \
+entry_signal_slot / exit_signal_slot.
+
+### Signal data requirements
+
+- Most TA signals need **OHLCV price data** for the underlying. The tools fetch this \
+automatically via yfinance with ~1 year of padding for indicator warmup.
+- `day_of_week` is **calendar-only** — it needs no price data and works with just the \
+option chain dates.
+- MACD needs ~50 bars of warmup; EMA cross needs `slow` bars. Use state-based signals \
+(RSI, SMA) for shorter datasets.
+- **Signal date alignment**: Signal dates are automatically intersected with the loaded \
+options data — only dates where both signal AND options data exist are used as entry/exit \
+dates. If you see "0 valid dates" or an "overlap" warning, it means the signal fired on \
+historical price dates that fall outside the options data window. Fix by fetching options \
+data for the period when the signal fires (e.g. if RSI was oversold in 2024, fetch options \
+from 2024), or adjust signal parameters so the signal triggers within the options date range.
+- **Stock data is the authority for signal backtests**: When running strategies with TA signals, \
+the stock price data determines where valid signals can exist. If the stock data covers \
+2020-2024 but options data covers 2018-2025, signals can only fire within the stock data range. \
+Be aware of this when interpreting results — the effective backtest window is the overlap of \
+both datasets, not the full options data range.
+
+### Composing signals (library API)
+
+When users ask how to combine signals programmatically (outside the chat), optopsy supports:
+- `and_signals(sig1, sig2, ...)` — all conditions must be True
+- `or_signals(sig1, sig2, ...)` — any condition is True
+- `sustained(signal_func, days=5)` — require N consecutive True bars
+- Fluent API: `signal(rsi_below(14, 30)) & signal(day_of_week(3))`
+
+### Typical use-cases
+
+**Single signal (inline):**
+- "Sell puts only when oversold" → `entry_signal="rsi_below"`
+- "RSI below 40" → `entry_signal="rsi_below"`, `entry_signal_params={"threshold": 40}`
+- "200-day SMA trend filter" → `entry_signal="sma_above"`, `entry_signal_params={"period": 200}`
+- "MACD bullish cross" → `entry_signal="macd_cross_above"`
+- "Enter only on Thursdays" → `entry_signal="day_of_week"`, `entry_signal_params={"days": [3]}`
+- "RSI below 30 for 5 days" → `entry_signal="rsi_below"`, `entry_signal_days=5`
+- "Exit when overbought" → `exit_signal="rsi_above"`
+- "Enter when price above 450" → `entry_signal="price_above"`, `entry_signal_params={"level": 450}`
+- "Enter on gap up > 1%" → `entry_signal="gap_up"`, `entry_signal_params={"pct": 1.0}`
+- "Enter on 52-week high" → `entry_signal="high_of_n_days"`, `entry_signal_params={"period": 252}`
+- "Enter after a 3% daily drop" → `entry_signal="daily_return_below"`, `entry_signal_params={"pct": -3.0}`
+- "Enter when 10% off 20-day high" → `entry_signal="drawdown_from_high"`, `entry_signal_params={"period": 20, "pct": 10.0}`
+- "Enter after 3 consecutive down days" → `entry_signal="consecutive_down"`, `entry_signal_params={"days": 3}`
+
+**Composite signal (build_signal + slot):**
+- "Enter when RSI < 30 AND above 200-day SMA" → `build_signal(slot="entry", \
+signals=[{"name": "rsi_below"}, {"name": "sma_above", "params": {"period": 200}}])` then \
+`run_strategy(..., entry_signal_slot="entry")`
+- "Enter on low-vol Fridays" → `build_signal(slot="entry", \
+signals=[{"name": "atr_below"}, {"name": "day_of_week"}])`
+- "Enter on MACD cross OR RSI oversold" → `build_signal(slot="entry", \
+signals=[{"name": "macd_cross_above"}, {"name": "rsi_below"}], combine="or")`
+
+**Cross-symbol signal (build_signal with signal_symbol):**
+- "Enter long puts on SPX when VIX crosses above 25" → `build_signal(slot="entry", \
+signals=[{"name": "price_cross_above", "params": {"level": 25}}], signal_symbol="^VIX")` \
+then `run_strategy(strategy="long_puts", entry_signal_slot="entry")`. \
+The `signal_symbol` parameter fetches stock data for a different ticker (VIX) and maps \
+the resulting signal dates to the options dataset's symbol (SPX) for intersection.
+
+## Guidelines
+## Multiple Datasets
+
+You can load more than one dataset in the same session — each gets a name (ticker or filename). \
+Use the `dataset_name` parameter on `run_strategy`, `preview_data`, and `build_signal` to target \
+a specific dataset. Omit it to use the most-recently-loaded dataset. This lets you compare the \
+same strategy across different tickers or time periods without reloading.
+
+Example — compare long_calls on SPY vs QQQ:
+1. Fetch/load SPY data (stored as "SPY")
+2. Fetch/load QQQ data (stored as "QQQ")
+3. `run_strategy(strategy_name="long_calls", dataset_name="SPY")`
+4. `run_strategy(strategy_name="long_calls", dataset_name="QQQ")`
+
+## Guidelines
+- Always load data before running strategies.
+- **IMPORTANT — no unnecessary re-fetching**: Do not re-fetch data for the same symbol and date range that \
+has already been fetched. Data is cached locally with intelligent gap detection — if you need a wider date \
+range, the system will only fetch the missing dates. However, do not expand the date range on your own; \
+only do so if the user explicitly requests different dates.
+- **Non-empty results = success**: If `run_strategy` returns ANY rows (even just 1), that is a successful \
+result. Present it to the user immediately — do NOT re-run the strategy to try to get "more" or "better" \
+results. Only retry when the result is completely empty (0 rows).
+- **Empty strategy results (0 rows only)**: If `run_strategy` returns no results, use `preview_data` to \
+inspect the loaded dataset — check available DTE ranges, strike distributions, option types, and date \
+coverage. **Critical**: if `preview_data` shows only 1 unique quote_date, STOP immediately — backtesting \
+requires multiple quote dates to build entry/exit pairs. Tell the user the data is too sparse and suggest \
+fetching a wider date range or using monthly expirations. Otherwise, intelligently adjust parameters based \
+on what the data actually contains (e.g. if max DTE in the data is 45, don't set max_entry_dte to 90). \
+Retry up to 10 times, changing one or two parameters each attempt. Explain your reasoning to the user each \
+time. After 10 failed attempts, report what you tried and suggest the user try a different strategy, date \
+range, or expiration type. Never re-fetch data just because a strategy was empty.
+- When interpreting aggregated results, focus on: which DTE/delta buckets are most profitable (highest mean), \
+which have enough trades to be statistically meaningful (count > 10), and risk-adjusted performance (mean/std). \
+Delta buckets show which strike selections (by delta) performed best — useful for fine-tuning delta targets.
+- For comparisons, run both strategies and compare mean returns, win rates (% of buckets with positive mean), \
+and consistency (lower std is better).
+- Be concise but helpful. The tool results are already formatted as markdown tables.
+
+## Avoiding Redundant Strategy Calls
+- Before running a strategy when the user has not specified parameters, call \
+`suggest_strategy_params` first to get data-anchored DTE recommendations. Do not guess.
+- When comparing multiple DTE values or strategies, use `scan_strategies` (one \
+call) instead of multiple `run_strategy` calls.
+- Before re-running a strategy with parameters you may have tried before, call `list_results` \
+to check what combinations were already executed this session.
+- `scan_strategies` does not support TA signals or calendar strategies — use `run_strategy` \
+for those.
+"""
+
+
+_MAX_TOOL_ITERATIONS = 15
+
+# Tool results longer than this (in chars) get truncated in older messages
+# to keep token usage manageable across many iterations.
+_COMPACT_THRESHOLD = 300
+
+
+def _sanitize_tool_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove tool messages whose tool_call_id has no matching tool_calls entry.
+
+    The Anthropic API requires every ``tool_result`` block to reference a
+    ``tool_use`` block in the preceding assistant message.  When a session is
+    resumed from persisted steps, intermediate assistant messages (which carry
+    ``tool_calls``) may not have been saved, leaving orphaned tool messages
+    that trigger ``invalid_request_error``.
+
+    This function drops those orphaned tool messages so the conversation
+    history is always valid before sending to the LLM.
+    """
+    valid_tc_ids: set[str] = set()
+    for m in messages:
+        if m.get("role") == "assistant":
+            for tc in m.get("tool_calls", []):
+                tc_id = tc.get("id", "")
+                if tc_id:
+                    valid_tc_ids.add(tc_id)
+    return [
+        m
+        for m in messages
+        if m.get("role") != "tool" or m.get("tool_call_id") in valid_tc_ids
+    ]
+
+
+def _compact_history(messages: list[dict[str, Any]]) -> None:
+    """Truncate old tool results and assistant reasoning in-place.
+
+    Called at the start of each iteration (after the first) so previous
+    tool outputs — which the LLM has already processed — don't bloat every
+    subsequent API call.  Only the *last* tool result and assistant message
+    are left intact so the LLM has full context for its next decision.
+    """
+    # Find indices of all tool-result messages (excluding the last batch)
+    tool_indices = [i for i, m in enumerate(messages) if m.get("role") == "tool"]
+    # Find indices of all assistant messages with tool_calls (intermediate turns)
+    assistant_tc_indices = [
+        i
+        for i, m in enumerate(messages)
+        if m.get("role") == "assistant" and m.get("tool_calls")
+    ]
+
+    # Keep the last batch of tool results intact (messages after the last
+    # assistant-with-tool-calls message).
+    last_assistant_tc = assistant_tc_indices[-1] if assistant_tc_indices else -1
+    old_tool_indices = [i for i in tool_indices if i < last_assistant_tc]
+    old_assistant_indices = (
+        assistant_tc_indices[:-1] if len(assistant_tc_indices) > 1 else []
+    )
+
+    for i in old_tool_indices:
+        content = messages[i].get("content") or ""
+        if len(content) > _COMPACT_THRESHOLD:
+            # Keep just the first line (e.g. "long_calls — 37 aggregated stats")
+            first_line = content.split("\n", 1)[0]
+            messages[i]["content"] = first_line + " [truncated]"
+
+    for i in old_assistant_indices:
+        content = messages[i].get("content") or ""
+        if len(content) > _COMPACT_THRESHOLD:
+            messages[i]["content"] = content[:_COMPACT_THRESHOLD] + "… [truncated]"
+
+
+class OptopsyAgent:
+    """Tool-calling LLM agent for options strategy backtesting.
+
+    Wraps LiteLLM to stream responses, execute tools, and manage session
+    state (datasets, signals, strategy results) across conversation turns.
+    """
+
+    def __init__(self, model: str = "anthropic/claude-haiku-4-5-20251001"):
+        self.model = model
+        self.tools = get_tool_schemas()
+        # Cache tool schemas as a prefix on Anthropic models — add cache_control
+        # to the last tool so all tool definitions are cached together.  Cache
+        # order: tools → system → messages.  On subsequent tool-loop iterations
+        # this saves ~2,250 tokens per call (cache hit = 10% of base price).
+        if (
+            self.model.startswith("anthropic/") or self.model.startswith("claude")
+        ) and self.tools:
+            self.tools[-1] = {**self.tools[-1], "cache_control": {"type": "ephemeral"}}
+        self.dataset: pd.DataFrame | None = None
+        self.signals: dict[str, pd.DataFrame] = {}
+        # Named dataset registry — multiple datasets can be active at once.
+        # Keys are ticker symbols or filenames; values are DataFrames.
+        self.datasets: dict[str, pd.DataFrame] = {}
+        # Uploaded CSV file paths — keyed by filename, values are local paths.
+        # Stored so the agent can load them later with explicit column kwargs.
+        self.uploaded_files: dict[str, str] = {}
+        # Session-scoped strategy run registry — keyed by result key string,
+        # values are lightweight scalar summaries (no DataFrames).
+        self.results: dict[str, dict] = {}
+        # Content hash of the active dataset — computed once per dataset load
+        # and passed to execute_tool so handlers can build cache keys.
+        self._dataset_fingerprint: str | None = None
+
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        on_tool_call=None,
+        on_token=None,
+        on_thinking_token=None,
+        on_assistant_tool_calls=None,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """
+        Run the agent loop: send messages to LLM, execute any tool calls,
+        and return (final_response_text, updated_messages).
+
+        on_tool_call: async callback(tool_name, arguments, result: ToolResult, tool_call_id)
+                      — UI step display.  ``result`` is a ToolResult instance
+                      (may carry ``chart_figure`` for Plotly rendering).
+        on_token: async callback(token_str) — called for each streamed token on
+                  the *final* response (the one shown to the user).
+        on_thinking_token: async callback(token_str) — called for streamed tokens
+                  on intermediate tool-calling turns (reasoning shown separately).
+        on_assistant_tool_calls: async callback(tool_calls: list[dict]) — fired
+                  when the LLM emits tool_calls so the UI can persist them for
+                  session resume.
+
+        Note: The system prompt is prepended on every LLM call so context is
+        maintained across tool-calling iterations.  This is intentional but
+        means token usage grows with conversation length.  For very long
+        sessions consider adding history summarization before calling chat().
+        """
+        # Build the system message.  For Anthropic models, use the content-block
+        # form so we can attach cache_control to the static prompt and append a
+        # dynamic results memo without invalidating the cached prefix.
+        # The results memo gives the LLM passive awareness of prior strategy runs
+        # without requiring an explicit list_results tool call — critical for
+        # comparisons where old tool results have already been compacted away.
+        system_msg: dict[str, Any]
+        if self.model.startswith("anthropic/") or self.model.startswith("claude"):
+            system_content: list[dict[str, Any]] = [
+                {
+                    "type": "text",
+                    "text": SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            # Append a stable memo of session results count.  The LLM can
+            # use query_results to access full data.  This avoids cache
+            # invalidation — only the count changes, not full result details.
+            if self.results:
+                memo = (
+                    f"Session has {len(self.results)} strategy/simulation result(s). "
+                    "Use query_results to access full data."
+                )
+                system_content.append({"type": "text", "text": memo})
+            system_msg = {"role": "system", "content": system_content}
+        else:
+            system_msg = {"role": "system", "content": SYSTEM_PROMPT}
+
+        full_messages = [system_msg] + _sanitize_tool_messages(messages)
+
+        for _iteration in range(_MAX_TOOL_ITERATIONS):
+            # Throttle LLM calls: skip delay on the first iteration,
+            # pause briefly on subsequent ones to avoid rate-limiting.
+            if _iteration > 0:
+                await asyncio.sleep(1)
+                # Compact previous tool results and assistant reasoning to
+                # reduce token usage.  The LLM has already seen these — it
+                # only needs a short reminder of what happened.
+                _compact_history(full_messages)
+
+            # Stream every LLM turn so the user sees reasoning tokens live,
+            # even during intermediate tool-calling iterations.
+            # Retry on RateLimitError with exponential backoff (up to 3 attempts).
+            content_parts: list[str] = []
+            # tool_calls_acc: index -> {id, name, arguments_chunks}
+            tool_calls_acc: dict[int, dict[str, Any]] = {}
+
+            _MAX_LLM_RETRIES = 3
+            for _attempt in range(_MAX_LLM_RETRIES):
+                content_parts = []
+                tool_calls_acc = {}
+                # On the first attempt stream tokens live to on_thinking_token
+                # (intermediate reasoning).  We don't yet know if this is a
+                # final turn — that's determined only after the stream ends.
+                # On retries, collect silently to avoid garbled partial output.
+                live_token_cb = on_thinking_token if _attempt == 0 else None
+                try:
+                    stream = await litellm.acompletion(
+                        model=self.model,
+                        messages=full_messages,
+                        tools=self.tools,
+                        tool_choice="auto",
+                        stream=True,
+                    )
+                    async for chunk in stream:
+                        delta = chunk.choices[0].delta if chunk.choices else None
+                        if delta is None:
+                            continue
+                        # Accumulate text content
+                        if delta.content:
+                            content_parts.append(delta.content)
+                            if live_token_cb:
+                                await live_token_cb(delta.content)
+                        # Accumulate tool call chunks
+                        if delta.tool_calls:
+                            for tc_chunk in delta.tool_calls:
+                                idx = tc_chunk.index
+                                if idx not in tool_calls_acc:
+                                    tool_calls_acc[idx] = {
+                                        "id": "",
+                                        "name": "",
+                                        "arguments": "",
+                                    }
+                                if tc_chunk.id:
+                                    tool_calls_acc[idx]["id"] = tc_chunk.id
+                                if tc_chunk.function:
+                                    if tc_chunk.function.name:
+                                        tool_calls_acc[idx]["name"] += (
+                                            tc_chunk.function.name
+                                        )
+                                    if tc_chunk.function.arguments:
+                                        tool_calls_acc[idx]["arguments"] += (
+                                            tc_chunk.function.arguments
+                                        )
+                    break  # Success — exit retry loop
+                except litellm.AuthenticationError:
+                    raise RuntimeError(
+                        "No API key configured. Add your LLM provider key "
+                        "(e.g. `OPENAI_API_KEY`) to a `.env` file in this directory."
+                    )
+                except litellm.RateLimitError:
+                    if _attempt == _MAX_LLM_RETRIES - 1:
+                        raise RuntimeError(
+                            "LLM rate limit exceeded after retries. "
+                            "Wait a moment and try again, or switch to a model "
+                            "with higher rate limits."
+                        )
+                    backoff = 2**_attempt  # 1s, 2s
+                    await asyncio.sleep(backoff)
+                except (litellm.ServiceUnavailableError, litellm.APIConnectionError):
+                    if _attempt == _MAX_LLM_RETRIES - 1:
+                        raise RuntimeError(
+                            "LLM service is temporarily unavailable. Please try again shortly."
+                        )
+                    await asyncio.sleep(2**_attempt)
+
+            content = "".join(content_parts)
+            tool_calls_list = [
+                {
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tc["name"],
+                        "arguments": tc["arguments"],
+                    },
+                }
+                for tc in tool_calls_acc.values()
+            ]
+
+            # Append assistant message to history
+            msg_dict: dict[str, Any] = {"role": "assistant", "content": content}
+            if tool_calls_list:
+                msg_dict["tool_calls"] = tool_calls_list
+            full_messages.append(msg_dict)
+
+            # Notify the UI so it can persist tool_calls for session resume.
+            if tool_calls_list and on_assistant_tool_calls:
+                await on_assistant_tool_calls(tool_calls_list)
+
+            # If no tool calls this is the final answer.
+            # The content was streamed to on_thinking_token (or silently on
+            # retries), so re-emit it to on_token for the main message.
+            if not tool_calls_list:
+                if on_token and content:
+                    for chunk in content_parts:
+                        await on_token(chunk)
+                return content, full_messages[1:]
+
+            # Execute each tool call
+            for tc in tool_calls_list:
+                tc_func = tc["function"]
+                assert isinstance(tc_func, dict)
+                func_name = tc_func["name"]
+                tc_id = tc["id"]
+                try:
+                    args = json.loads(tc_func["arguments"])
+                except json.JSONDecodeError:
+                    args = {}
+
+                # Run tool in a thread so the event loop stays alive
+                # (keeps WebSocket heartbeats flowing during long fetches).
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    functools.partial(
+                        execute_tool,
+                        func_name,
+                        args,
+                        self.dataset,
+                        self.signals,
+                        self.datasets,
+                        self.results,
+                        dataset_fingerprint=self._dataset_fingerprint,
+                        uploaded_files=self.uploaded_files,
+                    ),
+                )
+                # Update dataset and recompute fingerprint.  Always
+                # recompute when a dataset is returned so that in-place
+                # mutations are reflected in the fingerprint.
+                self.dataset = result.dataset
+                if self.dataset is not None:
+                    self._dataset_fingerprint = str(
+                        pd.util.hash_pandas_object(self.dataset, index=False).sum()
+                    )
+                else:
+                    self._dataset_fingerprint = None
+                if result.signals is not None:
+                    self.signals = result.signals
+                if result.datasets is not None:
+                    self.datasets = result.datasets
+                if result.results is not None:
+                    self.results = result.results
+
+                # Show the rich version to the user in the UI
+                if on_tool_call:
+                    await on_tool_call(func_name, args, result, tc_id)
+
+                # Send only the concise summary to the LLM
+                full_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": result.llm_summary,
+                    }
+                )
+
+        # If we exhausted the iteration limit, return what we have
+        raise RuntimeError(
+            f"Agent exceeded {_MAX_TOOL_ITERATIONS} tool-calling iterations. "
+            "This likely indicates a loop — please simplify your request."
+        )

@@ -5,14 +5,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill as bf, backfill_import, backfill_run, backfill_transcripts
-from probe.cli import import_job_messages, import_jobs, import_jobs_ui, tui
-from probe.cli.backfill_coverage import CoverageError
+from probe.cli.imports import folder as bf, transcripts as backfill_transcripts
+from probe.cli.imports.folder import flow as backfill_import
+from probe.cli import backfill_run
+from probe.cli.imports.jobs import messages as import_job_messages, ui as import_jobs_ui
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import CoverageError
 
 
 @pytest.fixture
 def flow(monkeypatch, tmp_path):
-    monkeypatch.setattr(bf, "choose_folder_wandb", lambda *a, **k: (None, False))
+    monkeypatch.setattr(bf.flow.choices, "choose_folder_wandb", lambda *a, **k: (None, False))
+    monkeypatch.setattr(bf.folder, "choose_folder_wandb", lambda *a, **k: (None, False))
     state = SimpleNamespace(
         folder=tmp_path, events=[], calls={}, reply=bf.FolderImportMode.REVIEW_FIRST,
         queued={"id": "saved-job", "kind": import_jobs.Kind.FOLDER, "state": import_jobs.State.QUEUED},
@@ -52,11 +57,13 @@ def flow(monkeypatch, tmp_path):
         assert job is state.latest and label == "Folder import"
         return ["Saved folder import is running"]
 
-    monkeypatch.setattr(bf, "choose_directory", choose)
-    monkeypatch.setattr(bf, "resolve_agent", resolve)
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(backfill_run, "execute", execute)
-    monkeypatch.setattr(backfill_import, "enqueue_auto_import", enqueue, raising=False)
+    monkeypatch.setattr(bf.flow.choices, "choose_directory", choose)
+    monkeypatch.setattr(bf.folder, "choose_directory", choose)
+    monkeypatch.setattr(bf.flow.choices, "resolve_agent", resolve)
+    monkeypatch.setattr(bf.folder, "resolve_agent", resolve)
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run.execute", execute)
+    monkeypatch.setattr(backfill_import.auto_import, "enqueue_auto_import", enqueue, raising=False)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", handoff)
     monkeypatch.setattr(import_job_messages, "enqueue_report", report)
     return state
@@ -125,7 +132,7 @@ def test_automatic_folder_mode_keeps_the_optional_session_lane_separate(flow, mo
         assert kwargs == {"client": client, "interactive": True, "background": True, "budget_bytes": 1234}
         return ["Sessions queued separately"]
 
-    monkeypatch.setattr(backfill_transcripts, "run_lane", sessions)
+    monkeypatch.setattr(backfill_transcripts.lane, "run_lane", sessions)
     result = bf.run(client_factory=lambda: nullcontext(client), background=True, transcripts=True, transcripts_budget=1234)
     assert result == ["Saved folder import is running", "Sessions queued separately"]
     assert flow.events[-2:] == ["report", "sessions"]
@@ -139,7 +146,7 @@ def test_enqueue_failure_returns_safe_guidance_without_opening_a_handoff(flow, m
     def fail(**kwargs):
         raise error
 
-    monkeypatch.setattr(backfill_import, "enqueue_auto_import", fail)
+    monkeypatch.setattr(backfill_import.auto_import, "enqueue_auto_import", fail)
     text = "\n".join(bf.run(client_factory=object, background=True))
     assert "Folder import could not start" in text
     assert "private transport detail" not in text
@@ -150,7 +157,8 @@ def test_enqueue_failure_returns_safe_guidance_without_opening_a_handoff(flow, m
 
 @pytest.mark.parametrize("agent_result", [(None, None), (tui.BACK, None), (None, "No supported coding agent found.")])
 def test_agent_exit_or_failure_does_not_open_the_mode_choice(flow, monkeypatch, agent_result):
-    monkeypatch.setattr(bf, "resolve_agent", lambda *args, **kwargs: agent_result)
+    monkeypatch.setattr(bf.flow.choices, "resolve_agent", lambda *args, **kwargs: agent_result)
+    monkeypatch.setattr(bf.folder, "resolve_agent", lambda *args, **kwargs: agent_result)
     result = bf.run(client_factory=object, folder=flow.folder, background=True)
     assert result == ([agent_result[1]] if agent_result[1] else None)
     assert flow.events == []

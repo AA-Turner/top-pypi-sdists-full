@@ -1,0 +1,1207 @@
+use crate::canvas::{Command, Document, Page, PageGeometry};
+use crate::debug::{DebugLogger, json_escape};
+use crate::font::FontRegistry;
+use crate::page_data::{PageDataContext, PageDataValue};
+use crate::types::{Pt, Rect, Size};
+use std::collections::{BTreeSet, HashMap};
+use std::sync::Arc;
+
+pub type DocId = usize;
+pub type PaintableId = usize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JitMode {
+    Off,
+    PlanOnly,
+    PlanAndReplay,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layer {
+    Background,
+    Content,
+    Overlay,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Transform {
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+    pub d: f32,
+    pub e: f32,
+    pub f: f32,
+}
+
+impl Transform {
+    pub fn identity() -> Self {
+        Self {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: 0.0,
+            f: 0.0,
+        }
+    }
+
+    pub fn translate(tx: f32, ty: f32) -> Self {
+        Self {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: tx,
+            f: ty,
+        }
+    }
+
+    pub fn scale(sx: f32, sy: f32) -> Self {
+        Self {
+            a: sx,
+            b: 0.0,
+            c: 0.0,
+            d: sy,
+            e: 0.0,
+            f: 0.0,
+        }
+    }
+
+    pub fn rotate(angle: f32) -> Self {
+        let cos = angle.cos();
+        let sin = angle.sin();
+        Self {
+            a: cos,
+            b: sin,
+            c: -sin,
+            d: cos,
+            e: 0.0,
+            f: 0.0,
+        }
+    }
+
+    pub fn matrix(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32) -> Self {
+        Self { a, b, c, d, e, f }
+    }
+
+    pub fn mul(self, other: Self) -> Self {
+        Self {
+            a: self.a * other.a + self.c * other.b,
+            b: self.b * other.a + self.d * other.b,
+            c: self.a * other.c + self.c * other.d,
+            d: self.b * other.c + self.d * other.d,
+            e: self.a * other.e + self.c * other.f + self.e,
+            f: self.b * other.e + self.d * other.f + self.f,
+        }
+    }
+
+    pub fn apply(&self, x: f32, y: f32) -> (f32, f32) {
+        (
+            self.a * x + self.c * y + self.e,
+            self.b * x + self.d * y + self.f,
+        )
+    }
+
+    /// The same involution used by PDF/raster consumers to cross between
+    /// top-down page coordinates and PDF's bottom-up user space.
+    pub(crate) fn page_basis(page_height: Pt) -> Self {
+        Self::matrix(1.0, 0.0, 0.0, -1.0, 0.0, page_height.to_f32())
+    }
+
+    pub(crate) fn for_command(command: &Command, page_height: Pt) -> Option<Self> {
+        let pdf = match command {
+            Command::Translate(x, y) => Self::translate(x.to_f32(), -y.to_f32()),
+            Command::CssTransformOrigin { x, y, inverse } => {
+                let sign = if *inverse { -1.0 } else { 1.0 };
+                Self::translate(x.to_f32() * sign, (page_height - *y).to_f32() * sign)
+            }
+            Command::Scale(x, y) => Self::scale(*x, *y),
+            Command::Rotate(angle) => Self::rotate(-*angle),
+            Command::ConcatMatrix { a, b, c, d, e, f } => {
+                Self::matrix(*a, -*b, -*c, *d, e.to_f32(), -f.to_f32())
+            }
+            _ => return None,
+        };
+        let basis = Self::page_basis(page_height);
+        Some(basis.mul(pdf).mul(basis))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PlacedItem {
+    pub paintable_id: PaintableId,
+    pub layer: Layer,
+    pub bbox: Option<Rect>,
+    pub transform: Option<Transform>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PagePlan {
+    pub page_number: usize,
+    pub page_count: usize,
+    pub page_size: Size,
+    pub page_data: Option<HashMap<String, PageDataValue>>,
+    pub placements: Vec<PlacedItem>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Paintable {
+    PageCommands { commands: Vec<Command> },
+}
+
+pub type FontFaceId = String;
+pub type GlyphSet = BTreeSet<u32>;
+
+#[derive(Debug, Clone)]
+pub struct DocPlan {
+    pub doc_id: DocId,
+    pub page_size: Size,
+    pub page_count: usize,
+    pub pages: Vec<PagePlan>,
+    pub page_data: Option<PageDataContext>,
+    pub font_use: HashMap<FontFaceId, GlyphSet>,
+    pub paintables: Vec<Paintable>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PageOps {
+    pub commands: Vec<Command>,
+}
+
+pub fn plan_document_with_overlay(
+    doc_id: DocId,
+    document: &Document,
+    background: Option<&Document>,
+    overlay: Option<&Document>,
+    page_data: Option<PageDataContext>,
+    debug: Option<Arc<DebugLogger>>,
+    font_registry: Option<&FontRegistry>,
+) -> DocPlan {
+    let mut paintables = Vec::with_capacity(document.pages.len() * 2);
+    let mut pages = Vec::with_capacity(document.pages.len());
+    let page_count = document.pages.len();
+    let capture_precise_bounds = debug.is_some();
+
+    for (page_index, page) in document.pages.iter().enumerate() {
+        let page_size = PageGeometry::for_page(page, document.page_size).logical_size;
+        let page_bbox = Rect {
+            x: Pt::ZERO,
+            y: Pt::ZERO,
+            width: page_size.width,
+            height: page_size.height,
+        };
+        let mut placements = Vec::new();
+        let page_data_snapshot = page_data
+            .as_ref()
+            .and_then(|ctx| ctx.pages.get(page_index).cloned());
+
+        if !page.commands.is_empty() {
+            let paintable_id = paintables.len();
+            let bbox = capture_precise_bounds
+                .then(|| commands_bbox(&page.commands, page_size.height, font_registry))
+                .flatten();
+            paintables.push(Paintable::PageCommands {
+                commands: page.commands.clone(),
+            });
+            placements.push(PlacedItem {
+                paintable_id,
+                layer: Layer::Content,
+                bbox: bbox.or(Some(page_bbox)),
+                transform: None,
+            });
+        }
+
+        if let Some(bg_doc) = background {
+            if let Some(bg_page) = bg_doc.pages.get(page_index) {
+                if !bg_page.commands.is_empty() {
+                    let paintable_id = paintables.len();
+                    let bbox = capture_precise_bounds
+                        .then(|| commands_bbox(&bg_page.commands, page_size.height, font_registry))
+                        .flatten();
+                    paintables.push(Paintable::PageCommands {
+                        commands: bg_page.commands.clone(),
+                    });
+                    placements.push(PlacedItem {
+                        paintable_id,
+                        layer: Layer::Background,
+                        bbox: bbox.or(Some(page_bbox)),
+                        transform: None,
+                    });
+                }
+            }
+        }
+
+        if let Some(overlay_doc) = overlay {
+            if let Some(overlay_page) = overlay_doc.pages.get(page_index) {
+                if !overlay_page.commands.is_empty() {
+                    let paintable_id = paintables.len();
+                    let bbox = capture_precise_bounds
+                        .then(|| {
+                            commands_bbox(&overlay_page.commands, page_size.height, font_registry)
+                        })
+                        .flatten();
+                    paintables.push(Paintable::PageCommands {
+                        commands: overlay_page.commands.clone(),
+                    });
+                    placements.push(PlacedItem {
+                        paintable_id,
+                        layer: Layer::Overlay,
+                        bbox: bbox.or(Some(page_bbox)),
+                        transform: None,
+                    });
+                }
+            }
+        }
+
+        sort_placements(&mut placements);
+        pages.push(PagePlan {
+            page_number: page_index + 1,
+            page_count,
+            page_size,
+            page_data: page_data_snapshot,
+            placements,
+        });
+    }
+
+    let plan = DocPlan {
+        doc_id,
+        page_size: document.page_size,
+        page_count: pages.len(),
+        pages,
+        page_data,
+        font_use: HashMap::new(),
+        paintables,
+    };
+
+    if let Some(logger) = debug.as_deref() {
+        let overlay_pages = overlay.map(|doc| doc.pages.len()).unwrap_or(0);
+        let background_pages = background.map(|doc| doc.pages.len()).unwrap_or(0);
+        let json = format!(
+            "{{\"type\":\"jit.plan\",\"doc_id\":{},\"pages\":{},\"paintables\":{},\"overlay_pages\":{},\"background_pages\":{},\"page_data\":{},\"page_bounds\":{}}}",
+            plan.doc_id,
+            plan.page_count,
+            plan.paintables.len(),
+            overlay_pages,
+            background_pages,
+            if plan.page_data.is_some() {
+                "true"
+            } else {
+                "false"
+            },
+            page_bounds_json(&plan.pages)
+        );
+        logger.log_json(&json);
+        logger.log_json(&plan_to_json(&plan));
+    }
+
+    plan
+}
+
+pub fn paint_plan(plan: &DocPlan, debug: Option<Arc<DebugLogger>>) -> Vec<PageOps> {
+    let mut out = Vec::with_capacity(plan.pages.len());
+
+    for (page_index, page) in plan.pages.iter().enumerate() {
+        let mut commands = Vec::new();
+        for placement in &page.placements {
+            match &plan.paintables[placement.paintable_id] {
+                Paintable::PageCommands { commands: cmds } => {
+                    commands.extend_from_slice(cmds);
+                }
+            }
+        }
+        out.push(PageOps { commands });
+
+        if let Some(logger) = debug.as_deref() {
+            let json = format!(
+                "{{\"type\":\"jit.paint\",\"doc_id\":{},\"page\":{},\"commands\":{}}}",
+                plan.doc_id,
+                page_index + 1,
+                out.last().map(|ops| ops.commands.len()).unwrap_or(0)
+            );
+            logger.log_json(&json);
+        }
+    }
+
+    out
+}
+
+pub fn paint_plan_parallel(plan: &DocPlan, debug: Option<Arc<DebugLogger>>) -> Vec<PageOps> {
+    let results: Vec<(usize, PageOps)> =
+        crate::parallel::map_indexed_ordered(&plan.pages, |page_index, page| {
+            let mut commands = Vec::new();
+            for placement in &page.placements {
+                match &plan.paintables[placement.paintable_id] {
+                    Paintable::PageCommands { commands: cmds } => {
+                        commands.extend_from_slice(cmds);
+                    }
+                }
+            }
+            if let Some(logger) = debug.as_deref() {
+                let json = format!(
+                    "{{\"type\":\"jit.paint\",\"doc_id\":{},\"page\":{},\"commands\":{}}}",
+                    plan.doc_id,
+                    page_index + 1,
+                    commands.len()
+                );
+                logger.log_json(&json);
+            }
+            (page_index, PageOps { commands })
+        });
+
+    results.into_iter().map(|(_, ops)| ops).collect()
+}
+
+fn layer_rank(layer: Layer) -> u8 {
+    match layer {
+        Layer::Background => 0,
+        Layer::Content => 1,
+        Layer::Overlay => 2,
+    }
+}
+
+fn sort_placements(placements: &mut Vec<PlacedItem>) {
+    placements.sort_by_key(|p| layer_rank(p.layer));
+}
+
+fn page_bounds_json(pages: &[PagePlan]) -> String {
+    let mut out = String::from("[");
+    for (idx, page) in pages.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        let mut bounds: Option<(f32, f32, f32, f32)> = None;
+        for placement in &page.placements {
+            if let Some(rect) = placement.bbox {
+                let min_x = rect.x.to_f32();
+                let min_y = rect.y.to_f32();
+                let max_x = min_x + rect.width.to_f32();
+                let max_y = min_y + rect.height.to_f32();
+                union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+            }
+        }
+        if let Some((min_x, min_y, max_x, max_y)) = bounds {
+            out.push_str(&format!(
+                "{{\"x\":{:.3},\"y\":{:.3},\"w\":{:.3},\"h\":{:.3}}}",
+                min_x,
+                min_y,
+                (max_x - min_x).max(0.0),
+                (max_y - min_y).max(0.0)
+            ));
+        } else {
+            out.push_str("null");
+        }
+    }
+    out.push(']');
+    out
+}
+
+fn plan_to_json(plan: &DocPlan) -> String {
+    let mut out = String::from("{\"type\":\"jit.docplan\"");
+    out.push_str(&format!(
+        ",\"doc_id\":{},\"page_size\":{{\"w\":{:.3},\"h\":{:.3}}},\"page_count\":{},\"font_use\":{},\"pages\":[",
+        plan.doc_id,
+        plan.page_size.width.to_f32(),
+        plan.page_size.height.to_f32(),
+        plan.page_count,
+        plan.font_use.len()
+    ));
+
+    for (idx, page) in plan.pages.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{{\"n\":{},\"page_count\":{},\"page_size\":{{\"w\":{:.3},\"h\":{:.3}}},\"placements\":[",
+            page.page_number, page.page_count, page.page_size.width.to_f32(), page.page_size.height.to_f32()
+        ));
+
+        for (pidx, placement) in page.placements.iter().enumerate() {
+            if pidx > 0 {
+                out.push(',');
+            }
+            out.push_str("{\"id\":");
+            out.push_str(&placement.paintable_id.to_string());
+            out.push_str(",\"layer\":");
+            out.push_str(match placement.layer {
+                Layer::Background => "\"bg\"",
+                Layer::Content => "\"content\"",
+                Layer::Overlay => "\"overlay\"",
+            });
+            if let Some(rect) = placement.bbox {
+                out.push_str(&format!(
+                    ",\"bbox\":{{\"x\":{:.3},\"y\":{:.3},\"w\":{:.3},\"h\":{:.3}}}",
+                    rect.x.to_f32(),
+                    rect.y.to_f32(),
+                    rect.width.to_f32(),
+                    rect.height.to_f32()
+                ));
+            }
+            if let Some(tx) = placement.transform {
+                out.push_str(&format!(
+                    ",\"tx\":[{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}]",
+                    tx.a, tx.b, tx.c, tx.d, tx.e, tx.f
+                ));
+            }
+            out.push('}');
+        }
+        out.push(']');
+
+        if let Some(ref data) = page.page_data {
+            out.push_str(",\"data\":");
+            out.push_str(&page_data_json(data));
+        }
+        out.push('}');
+    }
+    out.push_str("]}");
+    out
+}
+
+fn page_data_json(data: &HashMap<String, PageDataValue>) -> String {
+    let mut keys: Vec<&String> = data.keys().collect();
+    keys.sort();
+    let mut out = String::from("{");
+    for (idx, key) in keys.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push('"');
+        out.push_str(&json_escape(key));
+        out.push_str("\":");
+        if let Some(value) = data.get(*key) {
+            out.push_str(&page_value_json(value));
+        } else {
+            out.push_str("null");
+        }
+    }
+    out.push('}');
+    out
+}
+
+fn page_value_json(value: &PageDataValue) -> String {
+    match value {
+        PageDataValue::Count(v) => format!("{{\"count\":{}}}", v),
+        PageDataValue::Sum { scale, value } => {
+            format!("{{\"sum\":{},\"scale\":{}}}", value, scale)
+        }
+        PageDataValue::Every(items) => {
+            let mut out = String::from("{\"every\":[");
+            let limit = 200usize;
+            let shown = items.len().min(limit);
+            for (idx, item) in items.iter().take(shown).enumerate() {
+                if idx > 0 {
+                    out.push(',');
+                }
+                out.push('"');
+                out.push_str(&json_escape(item));
+                out.push('"');
+            }
+            out.push(']');
+            if items.len() > limit {
+                out.push_str(&format!(",\"truncated\":true,\"total\":{}", items.len()));
+            }
+            out.push('}');
+            out
+        }
+    }
+}
+
+fn union_bounds(bounds: &mut Option<(f32, f32, f32, f32)>, rect: (f32, f32, f32, f32)) {
+    let (min_x, min_y, max_x, max_y) = rect;
+    match bounds {
+        None => *bounds = Some((min_x, min_y, max_x, max_y)),
+        Some(existing) => {
+            existing.0 = existing.0.min(min_x);
+            existing.1 = existing.1.min(min_y);
+            existing.2 = existing.2.max(max_x);
+            existing.3 = existing.3.max(max_y);
+        }
+    }
+}
+
+fn rect_from_bounds(bounds: Option<(f32, f32, f32, f32)>) -> Option<Rect> {
+    bounds.map(|(min_x, min_y, max_x, max_y)| Rect {
+        x: Pt::from_f32(min_x),
+        y: Pt::from_f32(min_y),
+        width: Pt::from_f32((max_x - min_x).max(0.0)),
+        height: Pt::from_f32((max_y - min_y).max(0.0)),
+    })
+}
+
+fn commands_bbox(
+    commands: &[Command],
+    page_height: Pt,
+    font_registry: Option<&FontRegistry>,
+) -> Option<Rect> {
+    let mut bounds: Option<(f32, f32, f32, f32)> = None;
+    let mut path_points: Vec<(f32, f32)> = Vec::new();
+    let mut transform = Transform::identity();
+    let mut stack = Vec::new();
+    let mut font_name = "Helvetica".to_string();
+    let mut font_size = Pt::from_f32(12.0);
+
+    for cmd in commands {
+        match cmd {
+            Command::SaveState => stack.push((transform, font_name.clone(), font_size)),
+            Command::RestoreState => {
+                if let Some(saved) = stack.pop() {
+                    (transform, font_name, font_size) = saved;
+                }
+            }
+            Command::Translate(..)
+            | Command::CssTransformOrigin { .. }
+            | Command::Scale(..)
+            | Command::Rotate(..)
+            | Command::ConcatMatrix { .. } => {
+                transform = transform.mul(Transform::for_command(cmd, page_height).unwrap());
+            }
+            Command::SetFontName(name) => font_name = name.clone(),
+            Command::SetFontSize(size) => font_size = *size,
+            Command::SetTextRenderingMode(_) => {}
+            Command::MoveTo { x, y } => {
+                let (tx, ty) = transform.apply(x.to_f32(), y.to_f32());
+                path_points.push((tx, ty));
+            }
+            Command::LineTo { x, y } => {
+                let (tx, ty) = transform.apply(x.to_f32(), y.to_f32());
+                path_points.push((tx, ty));
+            }
+            Command::CurveTo {
+                x1,
+                y1,
+                x2,
+                y2,
+                x,
+                y,
+            } => {
+                let p1 = transform.apply(x1.to_f32(), y1.to_f32());
+                let p2 = transform.apply(x2.to_f32(), y2.to_f32());
+                let p3 = transform.apply(x.to_f32(), y.to_f32());
+                path_points.extend([p1, p2, p3]);
+            }
+            Command::ClosePath => {}
+            Command::Fill
+            | Command::FillEvenOdd
+            | Command::Stroke
+            | Command::FillStroke
+            | Command::FillStrokeEvenOdd
+            | Command::ShadingFill(_) => {
+                if !path_points.is_empty() {
+                    let mut min_x = path_points[0].0;
+                    let mut min_y = path_points[0].1;
+                    let mut max_x = path_points[0].0;
+                    let mut max_y = path_points[0].1;
+                    for (x, y) in &path_points {
+                        min_x = min_x.min(*x);
+                        min_y = min_y.min(*y);
+                        max_x = max_x.max(*x);
+                        max_y = max_y.max(*y);
+                    }
+                    union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+                    path_points.clear();
+                }
+            }
+            Command::DrawRect {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                let x0 = x.to_f32();
+                let y0 = y.to_f32();
+                let x1 = x0 + width.to_f32();
+                let y1 = y0 + height.to_f32();
+                let corners = [
+                    transform.apply(x0, y0),
+                    transform.apply(x1, y0),
+                    transform.apply(x1, y1),
+                    transform.apply(x0, y1),
+                ];
+                let mut min_x = corners[0].0;
+                let mut min_y = corners[0].1;
+                let mut max_x = corners[0].0;
+                let mut max_y = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    min_x = min_x.min(*cx);
+                    min_y = min_y.min(*cy);
+                    max_x = max_x.max(*cx);
+                    max_y = max_y.max(*cy);
+                }
+                union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+            }
+            Command::DrawImage {
+                x,
+                y,
+                width,
+                height,
+                ..
+            }
+            | Command::DrawForm {
+                x,
+                y,
+                width,
+                height,
+                ..
+            }
+            | Command::DrawFilteredForm {
+                x,
+                y,
+                width,
+                height,
+                ..
+            }
+            | Command::DrawMaskedForm {
+                x,
+                y,
+                width,
+                height,
+                ..
+            } => {
+                let x0 = x.to_f32();
+                let y0 = y.to_f32();
+                let x1 = x0 + width.to_f32();
+                let y1 = y0 + height.to_f32();
+                let corners = [
+                    transform.apply(x0, y0),
+                    transform.apply(x1, y0),
+                    transform.apply(x1, y1),
+                    transform.apply(x0, y1),
+                ];
+                let mut min_x = corners[0].0;
+                let mut min_y = corners[0].1;
+                let mut max_x = corners[0].0;
+                let mut max_y = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    min_x = min_x.min(*cx);
+                    min_y = min_y.min(*cy);
+                    max_x = max_x.max(*cx);
+                    max_y = max_y.max(*cy);
+                }
+                union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+            }
+            Command::DrawString { x, y, text } => {
+                let width = if let Some(registry) = font_registry {
+                    registry.measure_text_width(&font_name, font_size, text)
+                } else {
+                    let approx = text.chars().count() as f32 * 0.6;
+                    Pt::from_f32(font_size.to_f32() * approx)
+                };
+                let height = font_size;
+                let x0 = x.to_f32();
+                let y0 = y.to_f32();
+                let x1 = x0 + width.to_f32();
+                let y1 = y0 + height.to_f32();
+                let corners = [
+                    transform.apply(x0, y0),
+                    transform.apply(x1, y0),
+                    transform.apply(x1, y1),
+                    transform.apply(x0, y1),
+                ];
+                let mut min_x = corners[0].0;
+                let mut min_y = corners[0].1;
+                let mut max_x = corners[0].0;
+                let mut max_y = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    min_x = min_x.min(*cx);
+                    min_y = min_y.min(*cy);
+                    max_x = max_x.max(*cx);
+                    max_y = max_y.max(*cy);
+                }
+                union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+            }
+            Command::DrawStringTransformed {
+                x,
+                y,
+                text,
+                m00,
+                m01,
+                m10,
+                m11,
+            } => {
+                let width = if let Some(registry) = font_registry {
+                    registry.measure_text_width(&font_name, font_size, text)
+                } else {
+                    let approx = text.chars().count() as f32 * 0.6;
+                    Pt::from_f32(font_size.to_f32() * approx)
+                };
+                let height = font_size;
+                // Unlike DrawString, this command carries a PDF-space
+                // baseline and an explicit linear text matrix.
+                let text_transform =
+                    transform
+                        .mul(Transform::page_basis(page_height))
+                        .mul(Transform::matrix(
+                            *m00,
+                            *m01,
+                            *m10,
+                            *m11,
+                            x.to_f32(),
+                            y.to_f32(),
+                        ));
+                let corners = [
+                    text_transform.apply(0.0, 0.0),
+                    text_transform.apply(width.to_f32(), 0.0),
+                    text_transform.apply(width.to_f32(), height.to_f32()),
+                    text_transform.apply(0.0, height.to_f32()),
+                ];
+                let mut min_x = corners[0].0;
+                let mut min_y = corners[0].1;
+                let mut max_x = corners[0].0;
+                let mut max_y = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    min_x = min_x.min(*cx);
+                    min_y = min_y.min(*cy);
+                    max_x = max_x.max(*cx);
+                    max_y = max_y.max(*cy);
+                }
+                union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+            }
+            Command::DrawGlyphRun { x, y, advances, .. } => {
+                let mut pen_x = x.to_f32();
+                let mut pen_y = y.to_f32();
+                let mut min_x = pen_x;
+                let mut min_y = pen_y;
+                let mut max_x = pen_x;
+                let mut max_y = pen_y;
+                for (dx, dy) in advances {
+                    pen_x += dx.to_f32();
+                    pen_y += dy.to_f32();
+                    min_x = min_x.min(pen_x);
+                    min_y = min_y.min(pen_y);
+                    max_x = max_x.max(pen_x);
+                    max_y = max_y.max(pen_y);
+                }
+                let pad = font_size.to_f32().max(1.0);
+                let corners = [
+                    transform.apply(min_x - pad, min_y - pad),
+                    transform.apply(max_x + pad, min_y - pad),
+                    transform.apply(max_x + pad, max_y + pad),
+                    transform.apply(min_x - pad, max_y + pad),
+                ];
+                let mut bx0 = corners[0].0;
+                let mut by0 = corners[0].1;
+                let mut bx1 = corners[0].0;
+                let mut by1 = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    bx0 = bx0.min(*cx);
+                    by0 = by0.min(*cy);
+                    bx1 = bx1.max(*cx);
+                    by1 = by1.max(*cy);
+                }
+                union_bounds(&mut bounds, (bx0, by0, bx1, by1));
+            }
+            Command::DrawSyntheticBoldGlyphRun {
+                x,
+                y,
+                advances,
+                offsets,
+                stroke_width,
+                ..
+            } => {
+                let mut pen_x = x.to_f32();
+                let mut pen_y = y.to_f32();
+                let mut min_x = pen_x;
+                let mut min_y = pen_y;
+                let mut max_x = pen_x;
+                let mut max_y = pen_y;
+                for (index, (dx, dy)) in advances.iter().enumerate() {
+                    let (offset_x, offset_y) = offsets
+                        .get(index)
+                        .map(|(ox, oy)| (ox.to_f32(), oy.to_f32()))
+                        .unwrap_or((0.0, 0.0));
+                    min_x = min_x.min(pen_x + offset_x);
+                    min_y = min_y.min(pen_y + offset_y);
+                    max_x = max_x.max(pen_x + offset_x);
+                    max_y = max_y.max(pen_y + offset_y);
+                    pen_x += dx.to_f32();
+                    pen_y += dy.to_f32();
+                }
+                min_x = min_x.min(pen_x);
+                min_y = min_y.min(pen_y);
+                max_x = max_x.max(pen_x);
+                max_y = max_y.max(pen_y);
+                let pad = font_size.to_f32().max(1.0) + stroke_width.to_f32() * 0.5;
+                let corners = [
+                    transform.apply(min_x - pad, min_y - pad),
+                    transform.apply(max_x + pad, min_y - pad),
+                    transform.apply(max_x + pad, max_y + pad),
+                    transform.apply(min_x - pad, max_y + pad),
+                ];
+                let mut bx0 = corners[0].0;
+                let mut by0 = corners[0].1;
+                let mut bx1 = corners[0].0;
+                let mut by1 = corners[0].1;
+                for (cx, cy) in &corners[1..] {
+                    bx0 = bx0.min(*cx);
+                    by0 = by0.min(*cy);
+                    bx1 = bx1.max(*cx);
+                    by1 = by1.max(*cy);
+                }
+                union_bounds(&mut bounds, (bx0, by0, bx1, by1));
+            }
+            Command::Meta { key, value } => {
+                if key == "__fb_bbox" {
+                    if let Some(rect) = parse_bbox_meta(value) {
+                        let min_x = rect.x.to_f32();
+                        let min_y = rect.y.to_f32();
+                        let max_x = min_x + rect.width.to_f32();
+                        let max_y = min_y + rect.height.to_f32();
+                        union_bounds(&mut bounds, (min_x, min_y, max_x, max_y));
+                        // Layout metadata supplements the display commands;
+                        // it must never suppress later off-page paint.
+                    }
+                }
+            }
+            Command::ClipPath { .. } => path_points.clear(),
+            Command::ClipRect { .. }
+            | Command::SetFillColor(_)
+            | Command::SetStrokeColor(_)
+            | Command::SetLineWidth(_)
+            | Command::SetLineCap(_)
+            | Command::SetLineJoin(_)
+            | Command::SetMiterLimit(_)
+            | Command::SetDash { .. }
+            | Command::SetOpacity { .. }
+            | Command::SetBlendMode { .. }
+            | Command::ApplyBackdropFilter { .. }
+            | Command::DefineForm { .. }
+            | Command::DefineIsolatedForm { .. }
+            | Command::BeginTag { .. }
+            | Command::BeginTagActualText { .. }
+            | Command::EndTag
+            | Command::BeginArtifact { .. }
+            | Command::BeginOptionalContent { .. }
+            | Command::EndMarkedContent => {}
+        }
+    }
+
+    rect_from_bounds(bounds)
+}
+
+fn parse_bbox_meta(raw: &str) -> Option<Rect> {
+    let mut parts = raw.split(',');
+    let x = parts.next()?.trim().parse::<i64>().ok()?;
+    let y = parts.next()?.trim().parse::<i64>().ok()?;
+    let w = parts.next()?.trim().parse::<i64>().ok()?;
+    let h = parts.next()?.trim().parse::<i64>().ok()?;
+    Some(Rect {
+        x: Pt::from_milli_i64(x),
+        y: Pt::from_milli_i64(y),
+        width: Pt::from_milli_i64(w),
+        height: Pt::from_milli_i64(h),
+    })
+}
+
+pub fn ops_to_document(page_size: Size, ops: Vec<PageOps>) -> Document {
+    let mut pages = Vec::with_capacity(ops.len());
+    for page_ops in ops {
+        pages.push(Page {
+            commands: page_ops.commands,
+        });
+    }
+    Document { page_size, pages }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ChartKind, ChartSeries, ChartSpec, ChartTable, FullBleed, PreparedChart};
+
+    fn rect(x: f32, y: f32, width: f32, height: f32) -> Command {
+        Command::DrawRect {
+            x: Pt::from_f32(x),
+            y: Pt::from_f32(y),
+            width: Pt::from_f32(width),
+            height: Pt::from_f32(height),
+        }
+    }
+
+    fn assert_bounds(actual: Rect, expected: (f32, f32, f32, f32)) {
+        let observed = (
+            actual.x.to_f32(),
+            actual.y.to_f32(),
+            actual.width.to_f32(),
+            actual.height.to_f32(),
+        );
+        for (a, b) in [
+            (observed.0, expected.0),
+            (observed.1, expected.1),
+            (observed.2, expected.2),
+            (observed.3, expected.3),
+        ] {
+            assert!((a - b).abs() < 0.005, "{observed:?} != {expected:?}");
+        }
+    }
+
+    #[test]
+    fn scaled_commands_use_the_same_page_basis_as_pdf_and_raster() {
+        let commands = [Command::Scale(0.75, 0.75), rect(10.0, 20.0, 40.0, 60.0)];
+        // A PDF-space scale acts around the page bottom, not its top.
+        assert_bounds(
+            commands_bbox(&commands, Pt::from_f32(792.0), None).unwrap(),
+            (7.5, 213.0, 30.0, 45.0),
+        );
+    }
+
+    #[test]
+    fn graphics_restore_restores_font_metrics_as_well_as_transform() {
+        let commands = [
+            Command::SetFontSize(Pt::from_f32(10.0)),
+            Command::SaveState,
+            Command::SetFontSize(Pt::from_f32(100.0)),
+            Command::RestoreState,
+            Command::DrawString {
+                x: Pt::from_f32(20.0),
+                y: Pt::from_f32(20.0),
+                text: "AB".into(),
+            },
+        ];
+        assert_bounds(
+            commands_bbox(&commands, Pt::from_f32(792.0), None).unwrap(),
+            (20.0, 20.0, 12.0, 10.0),
+        );
+    }
+
+    #[test]
+    fn transformed_strings_use_pdf_baseline_and_the_explicit_text_matrix() {
+        let commands = [
+            Command::SetFontSize(Pt::from_f32(10.0)),
+            Command::DrawStringTransformed {
+                x: Pt::from_f32(20.0),
+                y: Pt::from_f32(752.0),
+                text: "AB".into(),
+                m00: 2.0,
+                m01: 0.0,
+                m10: 0.5,
+                m11: 1.0,
+            },
+        ];
+        assert_bounds(
+            commands_bbox(&commands, Pt::from_f32(792.0), None).unwrap(),
+            (20.0, 30.0, 29.0, 10.0),
+        );
+    }
+
+    #[test]
+    fn layout_metadata_does_not_hide_later_off_page_paint() {
+        let commands = [
+            Command::Meta {
+                key: "__fb_bbox".into(),
+                value: "36000,36000,100000,100000".into(),
+            },
+            rect(-20.0, 10.0, 10.0, 10.0),
+        ];
+        assert!(
+            commands_bbox(&commands, Pt::from_f32(792.0), None)
+                .unwrap()
+                .x
+                < Pt::ZERO
+        );
+    }
+
+    #[test]
+    fn affine_reported_bounds_match_actual_native_raster_pixels() {
+        let origin = |inverse| Command::CssTransformOrigin {
+            x: Pt::from_f32(100.0),
+            y: Pt::from_f32(70.0),
+            inverse,
+        };
+        let cases = [
+            vec![Command::Scale(0.5, 0.75)],
+            vec![
+                origin(false),
+                Command::Rotate(core::f32::consts::FRAC_PI_2),
+                origin(true),
+            ],
+            vec![origin(false), Command::Scale(0.5, 1.25), origin(true)],
+            vec![Command::ConcatMatrix {
+                a: 0.75,
+                b: 0.125,
+                c: -0.125,
+                d: 0.75,
+                e: Pt::from_f32(80.0),
+                f: Pt::from_f32(15.0),
+            }],
+            vec![
+                Command::SaveState,
+                Command::Scale(2.0, 3.0),
+                Command::RestoreState,
+                Command::Translate(Pt::from_f32(12.0), Pt::from_f32(9.0)),
+            ],
+        ];
+        for mut commands in cases {
+            commands.push(rect(80.0, 60.0, 40.0, 20.0));
+            let document = Document {
+                page_size: Size {
+                    width: Pt::from_f32(612.0),
+                    height: Pt::from_f32(792.0),
+                },
+                pages: vec![Page { commands }],
+            };
+            let bbox = commands_bbox(&document.pages[0].commands, document.page_size.height, None)
+                .unwrap();
+            let png = crate::raster::document_to_png_pages(&document, 72, None, false).unwrap();
+            let pixels = crate::image_native::load_from_memory(&png[0])
+                .unwrap()
+                .into_rgba8();
+            let mut actual = (612.0_f32, 792.0_f32, 0.0_f32, 0.0_f32);
+            for y in 0..792 {
+                for x in 0..612 {
+                    if pixels.get_pixel(x, y).0[..3]
+                        .iter()
+                        .any(|value| *value < 250)
+                    {
+                        actual.0 = actual.0.min(x as f32);
+                        actual.1 = actual.1.min(y as f32);
+                        actual.2 = actual.2.max(x as f32 + 1.0);
+                        actual.3 = actual.3.max(y as f32 + 1.0);
+                    }
+                }
+            }
+            for (observed, reported) in [
+                (actual.0, bbox.x.to_f32()),
+                (actual.1, bbox.y.to_f32()),
+                (actual.2, (bbox.x + bbox.width).to_f32()),
+                (actual.3, (bbox.y + bbox.height).to_f32()),
+            ] {
+                assert!(
+                    (observed - reported).abs() <= 1.01,
+                    "pixels {actual:?}, bounds {bbox:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn real_overflow_remains_visible_on_each_page_edge_and_after_metadata() {
+        for paint in [
+            rect(-2.0, 40.0, 10.0, 10.0),
+            rect(40.0, -2.0, 10.0, 10.0),
+            rect(608.0, 40.0, 10.0, 10.0),
+            rect(40.0, 788.0, 10.0, 10.0),
+        ] {
+            let commands = [
+                Command::Meta {
+                    key: "__fb_bbox".into(),
+                    value: "36000,36000,100000,100000".into(),
+                },
+                Command::SaveState,
+                Command::Translate(Pt::from_f32(4.0), Pt::from_f32(8.0)),
+                Command::Translate(Pt::from_f32(-4.0), Pt::from_f32(-8.0)),
+                paint,
+                Command::RestoreState,
+            ];
+            let bbox = commands_bbox(&commands, Pt::from_f32(792.0), None).unwrap();
+            assert!(
+                bbox.x < Pt::ZERO
+                    || bbox.y < Pt::ZERO
+                    || bbox.x + bbox.width > Pt::from_f32(612.0)
+                    || bbox.y + bbox.height > Pt::from_f32(792.0)
+            );
+        }
+    }
+
+    #[test]
+    fn clip_path_is_consumed_without_painting_it() {
+        let commands = [
+            Command::MoveTo {
+                x: Pt::from_f32(-100.0),
+                y: Pt::from_f32(-100.0),
+            },
+            Command::LineTo {
+                x: Pt::from_f32(200.0),
+                y: Pt::from_f32(200.0),
+            },
+            Command::ClipPath { evenodd: false },
+            Command::MoveTo {
+                x: Pt::from_f32(20.0),
+                y: Pt::from_f32(30.0),
+            },
+            Command::LineTo {
+                x: Pt::from_f32(40.0),
+                y: Pt::from_f32(50.0),
+            },
+            Command::Stroke,
+        ];
+        assert_bounds(
+            commands_bbox(&commands, Pt::from_f32(792.0), None).unwrap(),
+            (20.0, 30.0, 20.0, 20.0),
+        );
+    }
+
+    #[test]
+    fn named_page_size_is_carried_in_each_serialized_page_plan() {
+        let document = Document {
+            page_size: Size {
+                width: Pt::from_f32(612.0),
+                height: Pt::from_f32(792.0),
+            },
+            pages: vec![Page {
+                commands: vec![
+                    Command::Meta {
+                        key: crate::canvas::META_PAGE_SIZE_KEY.into(),
+                        value: "100000,200000".into(),
+                    },
+                    Command::Scale(0.5, 0.5),
+                    rect(20.0, 20.0, 40.0, 40.0),
+                ],
+            }],
+        };
+        let plan = plan_document_with_overlay(0, &document, None, None, None, None, None);
+        assert_eq!(plan.pages[0].page_size.height, Pt::from_f32(200.0));
+        assert!(plan_to_json(&plan).contains("\"page_size\":{\"w\":100.000,\"h\":200.000}"));
+        assert_bounds(
+            commands_bbox(
+                &document.pages[0].commands,
+                plan.pages[0].page_size.height,
+                None,
+            )
+            .unwrap(),
+            (10.0, 110.0, 20.0, 20.0),
+        );
+    }
+
+    #[test]
+    fn chart_labels_and_table_have_contained_reported_paint_bounds() {
+        let mut spec = ChartSpec::new(
+            "bounds-proof",
+            ChartKind::Bar,
+            "Monthly comparison",
+            vec!["January".into(), "February".into()],
+            vec![
+                ChartSeries::new("revenue", "Revenue", vec![Some(10.0), Some(20.0)]),
+                ChartSeries::new("forecast", "Planned amount", vec![Some(9.0), Some(19.0)]),
+            ],
+        );
+        spec.width = 640;
+        spec.height = 320;
+        spec.table = ChartTable::Visible;
+        let pending = PreparedChart::new("bounds-proof", spec).unwrap();
+        let engine = FullBleed::builder()
+            .register_font_file(crate::tests::repo_font_path("Inter-Variable.ttf"))
+            .svg_form_xobjects(false)
+            .build()
+            .unwrap();
+        let css = "@page { size: Letter; margin: 36pt; } figure { margin:0; font-family:Inter; font-size:18pt; }";
+        let compiled = engine
+            .compile_chart_document(
+                &format!("<figure>{}</figure>", pending.placeholder_html()),
+                css,
+                &[pending],
+            )
+            .unwrap();
+        let document = engine.render_to_document(&compiled.html, css).unwrap();
+        assert_eq!(document.pages.len(), 1);
+        let bbox = commands_bbox(
+            &document.pages[0].commands,
+            document.page_size.height,
+            Some(&engine.font_registry),
+        )
+        .unwrap();
+        assert!(bbox.x >= Pt::ZERO && bbox.y >= Pt::ZERO, "{bbox:?}");
+        assert!(bbox.x + bbox.width <= document.page_size.width, "{bbox:?}");
+        assert!(
+            bbox.y + bbox.height <= document.page_size.height,
+            "{bbox:?}"
+        );
+    }
+}

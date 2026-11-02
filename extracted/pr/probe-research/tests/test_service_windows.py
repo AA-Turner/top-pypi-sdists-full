@@ -33,7 +33,8 @@ def _wait(predicate, timeout: float):
 
 @pytest.fixture
 def win_home(tmp_path, monkeypatch):
-    from probe.service import client, paths
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api import paths
 
     local = tmp_path / "Local"
     profile = tmp_path / "profile"
@@ -76,7 +77,7 @@ def win_home(tmp_path, monkeypatch):
 
 
 def test_the_service_folder_and_pipe_are_this_users():
-    from probe.service import paths, winpipe
+    from probe.foundation.service_api import paths, winpipe
 
     assert paths.WINDOWS
     assert str(paths.root_dir()).startswith(os.environ["LOCALAPPDATA"]) or "AppData" in str(paths.root_dir())
@@ -87,7 +88,7 @@ def test_the_service_folder_and_pipe_are_this_users():
 
 
 def test_process_identity_is_the_creation_time_and_never_kills():
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
@@ -105,7 +106,7 @@ def test_process_identity_is_the_creation_time_and_never_kills():
 
 
 def test_a_lock_is_per_open_handle(tmp_path):
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     path = tmp_path / "x.lock"
     first = os.open(path, os.O_RDWR | os.O_CREAT)
@@ -121,7 +122,7 @@ def test_a_lock_is_per_open_handle(tmp_path):
 
 
 def test_the_service_serves_its_pipe_and_registers_a_session(win_home):
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     status = win_home.start()
     assert status["state"] in ("running", "discovering", "grace")  # grace: nothing holds it yet
@@ -144,7 +145,7 @@ def test_the_service_serves_its_pipe_and_registers_a_session(win_home):
 
 def test_the_service_records_a_session_itself(win_home, tmp_path):
     """Plan A2 on Windows: no `tap watch`, no Git Bash wrapper."""
-    from probe.service import client
+    from probe.foundation import service_api as client
     from tests.test_service_recorders import _params, _tap
 
     win_home.start()
@@ -169,7 +170,7 @@ def test_the_service_records_a_session_itself(win_home, tmp_path):
 def test_another_users_pipe_is_never_trusted(monkeypatch):
     """The client checks the serving process's user (a pipe made first by
     someone else under the name)."""
-    from probe.service import winpipe
+    from probe.foundation.service_api import winpipe
 
     monkeypatch.setattr(winpipe, "process_sid", lambda pid: "S-1-5-21-0-0-0-500")
     name = rf"\\.\pipe\probe-service-test-{os.getpid()}"
@@ -196,8 +197,8 @@ def test_the_keeper_is_never_installed_under_another_profile():
 def test_a_cli_update_stops_the_service_and_starts_it_again(win_home, monkeypatch):
     """Windows cannot replace a file the service holds open: the CLI's own
     updater stops it for the upgrade and starts it again after (R3)."""
-    from probe.cli import upgrading, updater
-    from probe.service import client
+    from probe.cli.install import upgrade as upgrading, updater
+    from probe.foundation import service_api as client
 
     first = win_home.start()
     seen = []
@@ -206,7 +207,7 @@ def test_a_cli_update_stops_the_service_and_starts_it_again(win_home, monkeypatc
         seen.append(win_home.status())
         return updater.CliResult(True, True, False, current, current, "fake")
 
-    monkeypatch.setattr(updater, "upgrade_cli", upgrade)
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", upgrade)
     with upgrading._service_stopped_on_windows(updater.Install(updater.Method.UV_TOOL)) as stopped:
         assert stopped is True
         upgrade(None, "1", "1")
@@ -252,8 +253,8 @@ def test_the_keeper_task_runs_on_battery_too(tmp_path, monkeypatch):
     from probe.service import keeper
 
     name = f"Probe keeper test {os.getpid()}"
-    monkeypatch.setattr(keeper, "_task_name", lambda: name)
-    monkeypatch.setattr(keeper, "_task_marker", lambda: tmp_path / "marker.txt")
+    monkeypatch.setattr(keeper.schedulers.windows_task, "_task_name", lambda: name)
+    monkeypatch.setattr(keeper.schedulers.windows_task, "_task_marker", lambda: tmp_path / "marker.txt")
     monkeypatch.setattr(keeper.paths, "root_dir", lambda: tmp_path)
     try:
         assert keeper._install_schtasks(sys.executable) == "installed"
@@ -274,7 +275,7 @@ def test_an_action_child_runs_with_the_services_own_path():
     """No login shell on Windows: the child keeps the service's PATH as it is."""
     import asyncio
 
-    from probe.service import loginenv
+    from probe.service.actions import loginenv
 
     env = asyncio.run(loginenv.child_env(vars=True))
     assert env == {"PATH": os.environ.get("PATH", "")}
@@ -285,7 +286,7 @@ def test_an_action_childs_events_are_read_on_windows(win_home, monkeypatch):
     events and hands them to the loop."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     script = ("import json, sys; request = json.loads(sys.stdin.read());"
               "print(json.dumps({'event': 'progress', 'echo': request['n']}), flush=True);"
@@ -443,7 +444,7 @@ def test_a_detached_update_child_never_holds_its_command(tmp_path):
 def test_the_service_starts_on_the_base_interpreter_never_a_venv_launcher(tmp_path):
     # The venv launcher runs its child in a KILL_ON_JOB_CLOSE job: the service
     # died, silently, with whatever ended its launcher (Windows live run).
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     venv = tmp_path / "v"
     subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], check=True, timeout=120)

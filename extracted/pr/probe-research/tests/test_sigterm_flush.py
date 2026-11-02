@@ -170,12 +170,14 @@ while True:
 #: journal's append lock: the op file's write sends the signal, then either
 #: finishes after a pause (`slow`) or never does (`stuck`).
 _IN_THE_APPEND_LOCK = _PRELUDE + """
-from probe.sdk.delivery.journal import journal
+from probe.sdk.delivery.journal import append, producers, status_file, waiting_room
+from probe.sdk.delivery.journal.failures import discards, failures, pause
+from probe.sdk.delivery.journal.receipts import receipts
 from probe.sdk.delivery.ops import op_handler
-from probe.sdk.delivery.outbox.drain import accounts, drain, holds
+from probe.sdk.delivery.outbox.drain import accounts, holds, settle
 
 mode, at = sys.argv[2], int(sys.argv[1])
-real = journal.write_text_atomic
+real = append.write_text_atomic
 calls = {"n": 0}
 
 def write_text_atomic(path, *args, **kwargs):
@@ -188,7 +190,8 @@ def write_text_atomic(path, *args, **kwargs):
     return real(path, *args, **kwargs)
 
 # Every piece that writes op files binds it (they were one module before the split).
-for piece in (journal, op_handler, accounts, drain, holds):
+for piece in (append, discards, failures, pause, producers, receipts, status_file, waiting_room,
+              op_handler, accounts, settle, holds):
     piece.write_text_atomic = write_text_atomic
 run = probe.init(experiment="e1", name="preempted")
 say("opened", run_id=run.id)
@@ -925,7 +928,7 @@ def test_the_close_thread_never_waits_on_a_stream_another_thread_holds(
 #: server a flat 0.6s per request, close to what a loopback call costs when
 #: every core is oversubscribed.
 _SLOW_LOCAL_FINALIZERS = _PRELUDE + """
-from probe.sdk import inputs as _inputs
+from probe.sdk.capture import lineage as _inputs
 
 data, out, folder = sys.argv[2], sys.argv[3], sys.argv[4]
 FACTOR = 1.6

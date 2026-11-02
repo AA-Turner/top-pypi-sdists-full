@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import backfill_ledger as ledger_mod
-from probe.cli.backfill_ledger import Ledger, MAX_UNIT_ATTEMPTS, Unit, UnitState
+from probe.cli.imports.folder.upload import ledger as ledger_mod
+from probe.cli.imports.folder.upload.ledger import Ledger, MAX_UNIT_ATTEMPTS, Unit, UnitState
 
 from test_backfill_scoped_orchestration import Harness  # noqa: F401 -- fixture source
 
@@ -96,7 +96,8 @@ def test_retirement_marks_exactly_the_files_that_never_landed(tmp_path, monkeypa
     still leaves a manifest and its files still land. That is correct, and it
     means the interesting case is the one where no manifest was ever written.
     """
-    from probe.cli.backfill_coverage import Coverage, Scope
+    from probe.cli.imports.folder.coverage.coverage import Coverage
+    from probe.cli.imports.folder.coverage.scope import Scope
 
     folder = tmp_path / "folder"
     folder.mkdir()
@@ -144,8 +145,9 @@ def test_retirement_marks_exactly_the_files_that_never_landed(tmp_path, monkeypa
 
 
 def test_the_report_tells_the_reader_how_to_get_them_back(tmp_path):
-    from probe.cli import backfill_delivery as delivery
-    from probe.cli.backfill_coverage import Coverage, Scope
+    from probe.cli.imports.folder.upload import receipts as delivery
+    from probe.cli.imports.folder.coverage.coverage import Coverage
+    from probe.cli.imports.folder.coverage.scope import Scope
 
     folder = tmp_path / "folder"
     folder.mkdir()

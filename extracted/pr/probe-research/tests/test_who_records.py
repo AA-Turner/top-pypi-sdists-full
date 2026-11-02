@@ -17,10 +17,13 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import agent_rules, capabilities, daemon_cli, updater
+from probe.cli.wizard.apply import agent_rules
+from probe.cli.wizard import state as capabilities
+from probe.cli.commands.daemon import daemon as daemon_cli
+from probe.cli.install import updater
 from probe.shared.harness import plugins as plugin_cli
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capabilities
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capabilities
 from probe.shared.harness.harnesses.claude_code.binary import Result
 from probe.shared import mailbox
 from probe.sdk import session_marker
@@ -187,14 +190,14 @@ def test_the_codex_update_re_adds_the_profiles_plugin(isolate, monkeypatch):
     monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/bin/codex")
     monkeypatch.setattr(updater.plugin_cli, "refresh_marketplace", lambda *_a: Result(ok=True))
     monkeypatch.setattr(updater.plugin_cli, "install", lambda _src, plugin_id: added.append(plugin_id) or Result(ok=True))
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda *_a: {})
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda *_a: {})
     updater.update_codex_plugins()
     assert added == ["probe-research-daemon@research-os-agent", "probe-research-tap@research-os-agent"]
 
 
 def test_a_rerun_of_the_rules_keeps_the_daemon_blurb(isolate, monkeypatch):
-    monkeypatch.setattr(wizard, "apply_statusline", lambda: [])
-    monkeypatch.setattr(wizard, "seed_team_note_block", lambda: [])
+    monkeypatch.setattr(wizard.apply.agent_files, "apply_statusline", lambda: [])
+    monkeypatch.setattr(wizard.apply.agent_files, "seed_team_note_block", lambda: [])
     monkeypatch.setenv("PROBE_AGENT", "claude_code")
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
     wizard.apply_agent_rules(True)
@@ -212,17 +215,25 @@ class Calls:
     def __init__(self, monkeypatch, *, fail: str | None = None, key_granted: bool = True):
         self.log: list[tuple] = []
         self.key = {"held": False}
-        monkeypatch.setattr(wizard, "install_plugin", self.install)
-        monkeypatch.setattr(wizard, "uninstall_plugin", self.uninstall)
-        monkeypatch.setattr(wizard, "companion_token_held", lambda: self.key["held"])
-        monkeypatch.setattr(wizard, "_revoke", self.revoke)
+        monkeypatch.setattr(wizard.apply.plugins, "install_plugin", self.install)
+        monkeypatch.setattr(wizard.apply.apply, "install_plugin", self.install)
+        monkeypatch.setattr(wizard.apply.recorder, "install_plugin", self.install)
+        monkeypatch.setattr(wizard.apply.plugins, "uninstall_plugin", self.uninstall)
+        monkeypatch.setattr(wizard.apply.apply, "uninstall_plugin", self.uninstall)
+        monkeypatch.setattr(wizard.apply.recorder, "uninstall_plugin", self.uninstall)
+        monkeypatch.setattr(wizard.apply.removal, "uninstall_plugin", self.uninstall)
+        monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: self.key["held"])
+        monkeypatch.setattr(wizard.account.sign_in, "_revoke", self.revoke)
+        monkeypatch.setattr(wizard.account.sign_out, "_revoke", self.revoke)
+        monkeypatch.setattr(wizard.apply.recorder, "_revoke", self.revoke)
         self.fail = fail
         # A machine that can run the daemon, whatever this test runner has
         # installed, and whose agent CLI answers the plugin listing.
-        from probe.cli import capabilities, daemon_cli
+        from probe.cli.wizard import state as capabilities
+        from probe.cli.commands.daemon import daemon as daemon_cli
 
         monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "test")
-        monkeypatch.setattr(capabilities, "installed_plugins", lambda **_kw: capabilities.PluginState(
+        monkeypatch.setattr(capabilities.plugins, "installed_plugins", lambda **_kw: capabilities.PluginState(
             names=frozenset({wizard.TRACKING_PLUGIN_NAME, wizard.DAEMON_PLUGIN_NAME}), verified=True))
 
         def provision(base_url, **_kw):
@@ -230,7 +241,7 @@ class Calls:
             self.key["held"] = key_granted
             return ["The Probe daemon has its own key."] if key_granted else ["! declined"]
 
-        from probe.cli import companion
+        from probe.cli.commands.daemon import companion
 
         monkeypatch.setattr(companion, "provision_daemon", provision)
 
@@ -336,7 +347,7 @@ def test_back_to_the_agent_keeps_the_key_while_a_daemon_session_is_open(isolate,
     calls.key["held"] = True
     save_context({"companion_token": "probe_pat_" + "1" * 32})
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
-    monkeypatch.setattr(wizard, "live_daemon_sessions", lambda: 2)
+    monkeypatch.setattr(wizard.apply.recorder, "live_daemon_sessions", lambda: 2)
     caps = Capabilities(agent_source="claude_code", tracking_plugin_installed=True, capture_plugin_installed=True)
     lines = wizard.apply_recorder(caps, session_marker.RECORDER_AGENT, base_url="https://api.test")
     assert ("revoke", "https://api.test") not in calls.log
@@ -403,7 +414,7 @@ def test_agent_rules_beside_who_records_writes_the_daemon_block(isolate, monkeyp
 
 
 def test_the_row_sits_above_the_default_for_new_sessions():
-    from probe.cli.actions import ACTION_GROUPS, Action, DEVICE_ACTIONS
+    from probe.cli.wizard.actions.onboarding import ACTION_GROUPS, Action, DEVICE_ACTIONS
 
     assert dict(ACTION_GROUPS)["Defaults"] == (Action.RECORDER, Action.DEFAULTS)
     assert Action.RECORDER in DEVICE_ACTIONS, "one value for the device, not one per agent"
@@ -435,7 +446,8 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
               rules_seen=None, consent=True, consents=None, disclosed=False):
     import contextlib
 
-    from probe.cli import daemon_cli, tui
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli.wizard import terminal as tui
 
     if signed_in:
         monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "1" * 32)
@@ -458,10 +470,10 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
         yield
         events.append(("done", label))
 
-    monkeypatch.setattr(tui, "working", working)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(wizard, "companion_token_held", key if callable(key) else (lambda: key))
-    monkeypatch.setattr(wizard, "daemon_availability",
+    monkeypatch.setattr(tui.status_board, "working", working)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", key if callable(key) else (lambda: key))
+    monkeypatch.setattr(wizard.apply.recorder, "daemon_availability",
                         lambda base_url=None: events.append(("ask", None)) or (offered, None))
 
     def apply(caps, value, *, base_url, rules=None):
@@ -473,16 +485,16 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
         session_marker.write_recorder(caps.agent_source, value)
         return [f"moved {caps.agent_source}"]
 
-    monkeypatch.setattr(wizard, "apply_recorder", apply)
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder", apply)
     # pi's pre-flight (package check, then its capture pairing) is
     # test_pi_daemon_profile.py's; here it is ready and paired.
-    monkeypatch.setattr(wizard, "daemon_package_ready", lambda source: wizard._Ready(True, []))
-    monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.daemon_package_ready", lambda source: wizard._Ready(True, []))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "pair_capture", lambda source, **kw: [])
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: pages.append(1) or page)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: refused)
     # The daemon's consent page, answered `consent`; `consents` records each showing.
     monkeypatch.setattr(
-        wizard, "run_daemon_consent",
+        wizard.settings.defaults, "run_daemon_consent",
         lambda sources: (consents.append(tuple(sources)) if consents is not None else None) or consent,
     )
     caps = caps or {"claude_code": Capabilities(), "codex": Capabilities(agent_source="codex")}
@@ -543,7 +555,7 @@ def test_a_plan_refusal_and_a_missing_key_are_reported_before_anything_moves(iso
     _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, tel=tel, offered=False)
     (props,) = _changed(tel)
     assert (props["outcome"], props["agents"]) == (tm.RecorderOutcome.REFUSED_PLAN, [])
-    monkeypatch.setattr("probe.cli.companion.provision_daemon", lambda base, **_kw: ["declined"])
+    monkeypatch.setattr("probe.cli.commands.daemon.companion.provision_daemon", lambda base, **_kw: ["declined"])
     tel = _Tel()
     applied, _pages, _lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, tel=tel, key=False)
     assert applied == [] and _changed(tel)[0]["outcome"] == tm.RecorderOutcome.NO_KEY
@@ -578,7 +590,7 @@ def test_the_check_and_the_move_show_the_spinner_never_a_blank_screen(isolate, m
 
 def test_the_daemons_sign_in_runs_before_the_spinner(isolate, monkeypatch):
     """It prints the approval link and waits on the browser: never under a spinner."""
-    from probe.cli import companion
+    from probe.cli.commands.daemon import companion
 
     spins: list = []
     held = {"key": False}
@@ -605,7 +617,7 @@ def test_a_held_key_with_missing_libraries_installs_them_without_an_approval(iso
     """The "missing packages" failure (2026-09-29): the key was held, so the
     switch skipped provisioning, and the move then refused for the libraries it
     never installed. R12: the libraries install, visibly, with no approval."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     installed = {"version": None}
@@ -622,7 +634,7 @@ def test_a_held_key_with_missing_libraries_installs_them_without_an_approval(iso
 
 
 def test_libraries_that_do_not_install_move_nothing(isolate, monkeypatch):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
     from probe.cli import telemetry as tm
 
     def fails():
@@ -659,9 +671,10 @@ def _installed_probe(tmp_path: Path, *, installs: bool = True) -> Path:
 def _run_from_npx(monkeypatch, probe_bin: Path) -> None:
     """This wizard is `npx probe-research`'s temporary copy in uv's cache, and
     `probe_bin` is the installed `probe` the tap starts the daemon from."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.EPHEMERAL))
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.EPHEMERAL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.EPHEMERAL))
     monkeypatch.setattr(bootstrap, "_installed_binary", lambda: str(probe_bin))
     monkeypatch.setattr(daemon_cli, "daemon_install", _REAL_DAEMON_INSTALL)
     monkeypatch.setattr(daemon_cli, "_installed_copy_ready", {})
@@ -735,7 +748,7 @@ def test_a_signed_out_machine_switches_nothing(isolate, monkeypatch):
 def test_enter_on_the_daemon_row_replaces_a_refused_key(isolate, monkeypatch):
     """A key revoked on the dashboard: Enter on the row is the repair (switching
     away and back would revoke the key and ask for a second approval)."""
-    from probe.cli import companion
+    from probe.cli.commands.daemon import companion
 
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
     session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
@@ -759,7 +772,7 @@ def test_enter_on_the_daemon_row_replaces_a_refused_key(isolate, monkeypatch):
 def test_a_declined_re_approval_leaves_no_key_and_moves_nothing(isolate, monkeypatch):
     """Declining the new approval must not read as success: the refused key is
     gone, so the switch reports NO_KEY instead of moving onto a dead key."""
-    from probe.cli import companion
+    from probe.cli.commands.daemon import companion
     from probe.cli import telemetry as tm
     from probe.sdk.settings.settings import load_context, save_context
 
@@ -781,7 +794,7 @@ def test_a_signed_out_machine_can_still_leave_the_daemon(isolate, monkeypatch):
 
 
 def test_enter_on_the_daemon_row_installs_missing_libraries(isolate, monkeypatch):
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
@@ -832,7 +845,7 @@ def test_the_wizard_hands_the_agent_rules_flag_to_the_recorder_action(isolate, m
     seen = {}
     monkeypatch.setattr(cli_main, "_run_recorder_action", lambda **kw: seen.update(kw) or [])
     cli_main._run_wizard_action(
-        importlib.import_module("probe.cli.actions").Action.RECORDER,
+        importlib.import_module("probe.cli.wizard.actions.onboarding").Action.RECORDER,
         caps=Capabilities(), base_now="https://api.test", yes=True, tracking=None, capture=None,
         auto_update=None, agent_rules=False, uninstall=False, configured=True, recorder="daemon",
     )
@@ -918,7 +931,7 @@ def test_enter_on_the_row_opens_the_daemons_page_only_when_it_records(isolate, m
 
 
 def test_the_menu_routes_a_switch_to_the_recorder_action():
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
 
     assert wizard.RecorderChoice("daemon").value == "daemon"
     switch = wizard._RecorderSwitch(wizard.action_choices())
@@ -953,7 +966,7 @@ def test_no_ai_libraries_no_move(isolate, monkeypatch):
     """Without the daemon's AI libraries the worker cannot start, and in the
     daemon profile the agent cannot record either: provisioning is tried (it
     installs them), and when they are still missing nothing moves."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     calls = Calls(monkeypatch)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
@@ -1039,7 +1052,7 @@ def test_the_main_menu_hands_its_agents_to_the_who_records_row(monkeypatch):
         seen.append(caps_by_source)
         raise RuntimeError("stop after building the rows")
 
-    monkeypatch.setattr(wizard, "action_choices", choices)
+    monkeypatch.setattr(wizard.screens.screens, "action_choices", choices)
     caps = {"pi": Capabilities()}
     with pytest.raises(RuntimeError):
         wizard.run_action_menu(caps)
@@ -1049,7 +1062,7 @@ def test_the_main_menu_hands_its_agents_to_the_who_records_row(monkeypatch):
 def test_a_scripted_switch_with_missing_libraries_still_marks_the_error(isolate, monkeypatch):
     """`--yes` prints the raw report, `!` and all: only the wizard's page drops
     the marker into its headline."""
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     def fails():
         raise typer.Exit(1)
@@ -1081,7 +1094,7 @@ def test_a_new_daemon_key_shows_the_daemons_consent_first(isolate, monkeypatch):
         held["key"] = True
         return []
 
-    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    monkeypatch.setattr("probe.cli.commands.daemon.companion.provision_daemon", provision)
     applied, _pages, _lines = _recorder(
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents,
     )
@@ -1103,7 +1116,7 @@ def test_a_run_nobody_watches_keeps_the_browser_approval(isolate, monkeypatch):
         held["key"] = True
         return []
 
-    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    monkeypatch.setattr("probe.cli.commands.daemon.companion.provision_daemon", provision)
     _recorder(
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents, yes=True,
     )
@@ -1121,7 +1134,7 @@ def test_desktop_recorder_switch_reuses_sign_in_without_terminal_consent(isolate
         held["key"] = True
         return []
 
-    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    monkeypatch.setattr("probe.cli.commands.daemon.companion.provision_daemon", provision)
     applied, _, _ = _recorder(
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"],
         consents=consents, yes=True,
@@ -1133,7 +1146,7 @@ def test_desktop_recorder_switch_reuses_sign_in_without_terminal_consent(isolate
 
 def test_declining_the_daemons_consent_mints_and_moves_nothing(isolate, monkeypatch):
     minted: list = []
-    monkeypatch.setattr("probe.cli.companion.provision_daemon", lambda base, **_kw: minted.append(base) or [])
+    monkeypatch.setattr("probe.cli.commands.daemon.companion.provision_daemon", lambda base, **_kw: minted.append(base) or [])
     tel = _Tel()
     applied, _pages, _lines = _recorder(
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=False, consent=False, tel=tel,
@@ -1151,7 +1164,7 @@ def test_no_consent_page_when_the_key_is_held_or_already_disclosed(isolate, monk
     session_marker.write_recorder("codex", session_marker.RECORDER_AGENT)
     held = {"key": False}
     monkeypatch.setattr(
-        "probe.cli.companion.provision_daemon", lambda base, **_kw: held.update(key=True) or [],
+        "probe.cli.commands.daemon.companion.provision_daemon", lambda base, **_kw: held.update(key=True) or [],
     )
     applied, _pages, _lines = _recorder(
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents,

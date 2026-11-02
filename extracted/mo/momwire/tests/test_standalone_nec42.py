@@ -1,6 +1,9 @@
 """momwire-nec42-sinusoidal-standalone (standalone/, MW_EXE_BASIS=sin42,
 momwire#1607 B4b): the NEC-4.2 slot's sinusoidal launcher as one Python-free
-executable.
+executable; and the same for momwire-nec42-sinusoidal-galerkin-standalone
+(MW_EXE_BASIS=sg42, momwire#1718 S4), the Sinusoidal-Galerkin launcher, and
+for momwire-nec42-standalone (MW_EXE_BASIS=bspline_nec42, momwire#1607 Phase C2), the
+slot's default launcher `momwire-nec42` (bs2).
 
 Every printout is held to `momwire-nec42-sinusoidal`'s (this environment's
 launcher) byte for byte, except the two lines the NEC-4.2 slot fills with
@@ -19,7 +22,8 @@ which are masked by exact line pattern, the same number on both sides
 
 The executable needs its OpenBLAS and a CMake build, which only the
 `standalone` workflow's Linux job makes, so this module runs only when
-MOMWIRE_NEC42_SIN_STANDALONE_EXE names one.
+MOMWIRE_NEC42_SIN_STANDALONE_EXE (or MOMWIRE_NEC42_SG_STANDALONE_EXE, or
+MOMWIRE_NEC42_STANDALONE_EXE) names one.
 """
 
 from __future__ import annotations
@@ -37,17 +41,35 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 NEC42 = FIXTURES / "eznec_nec42"
-EXE = os.environ.get("MOMWIRE_NEC42_SIN_STANDALONE_EXE")
-LAUNCHER = "momwire-nec42-sinusoidal"
+# The same gates hold `momwire-nec42-sinusoidal-galerkin-standalone`
+# (MW_EXE_BASIS=sg42, momwire#1718 S4) to `momwire-nec42-sinusoidal-galerkin`
+# when MOMWIRE_NEC42_SG_STANDALONE_EXE names it instead.
+# And `momwire-nec42-standalone` (MW_EXE_BASIS=bspline_nec42, momwire#1607 Phase C2)
+# to `momwire-nec42`, the slot's default (bs2), under
+# MOMWIRE_NEC42_STANDALONE_EXE.
+_SG = os.environ.get("MOMWIRE_NEC42_SG_STANDALONE_EXE")
+_BS = os.environ.get("MOMWIRE_NEC42_STANDALONE_EXE")
+EXE = os.environ.get("MOMWIRE_NEC42_SIN_STANDALONE_EXE") or _SG or _BS
+if EXE is not None and EXE == _SG:
+    BASIS = "sinusoidal-galerkin"
+elif EXE is not None and EXE == _BS:
+    BASIS = "bspline"
+else:
+    BASIS = "sinusoidal"
+LAUNCHER = "momwire-nec42" if BASIS == "bspline" else f"momwire-nec42-{BASIS}"
 
 pytestmark = pytest.mark.skipif(
     not EXE,
-    reason="MOMWIRE_NEC42_SIN_STANDALONE_EXE does not name a built executable",
+    reason="none of MOMWIRE_NEC42_SIN_STANDALONE_EXE, "
+    "MOMWIRE_NEC42_SG_STANDALONE_EXE, MOMWIRE_NEC42_STANDALONE_EXE names a "
+    "built executable",
 )
 
 DIPOLE = NEC42 / "0224_dipole-ex0.nec"
 CURRENT = NEC42 / "0223_dipole-ex6.nec"
-GROUND = NEC42 / "0239_dipole-buried-gn3.nec"  # not served yet (B6)
+# wires on both sides of the interface with no crossing junction: served by
+# the point-matched copy (momwire#1718 S12), not yet by the Galerkin one
+GROUND = NEC42 / "probes" / "p9_above_and_buried_gn2.nec"
 REFUSED = NEC42 / "refused" / "r1_gd_after_a_run.nec"
 DECKS = (DIPOLE, CURRENT, GROUND, REFUSED)
 
@@ -83,8 +105,14 @@ _RUNTIME = tempfile.mkdtemp(prefix="mw-nec42-exe-")
 
 
 def _env(**extra) -> dict:
+    # MOMWIRE_BELOW_ANCHORS=off: a buried deck's below grid is the exact one
+    # on both sides (its anchors follow the frequencies a process has seen)
     return dict(
-        os.environ, MOMWIRE_THREADS="1", MOMWIRE_PORTAL_RUNTIME_DIR=_RUNTIME, **extra
+        os.environ,
+        MOMWIRE_THREADS="1",
+        MOMWIRE_PORTAL_RUNTIME_DIR=_RUNTIME,
+        MOMWIRE_BELOW_ANCHORS="off",
+        **extra,
     )
 
 
@@ -148,7 +176,7 @@ def test_the_version_line_is_the_launchers():
     exe = subprocess.run([EXE, "-version"], capture_output=True, check=True)
     ref = subprocess.run([_launcher(), "-version"], capture_output=True, check=True)
     assert exe.stdout == ref.stdout
-    assert exe.stdout.startswith(b"NEC42 momwire-nec42-sinusoidal [sb] ")
+    assert exe.stdout.startswith(f"NEC42 {LAUNCHER} [sb] ".encode())
 
 
 def _decks(root: Path):
@@ -236,10 +264,18 @@ def test_an_unreadable_deck(deck, tmp_path):
 
 def test_a_refused_deck_and_an_unserved_one(tmp_path):
     _same(*_both([REFUSED.name, "x.out"], tmp_path))
-    exe, _ref, de, _dl = _both([GROUND.name, "y.out"], tmp_path / "g")
+    run = _both([GROUND.name, "y.out"], tmp_path / "g")
+    if BASIS != "sinusoidal-galerkin":
+        # the point-matched copy serves the mixed deck as the launcher does
+        # (momwire#1718 S12: the transmitted blocks)
+        _same(*run)
+        assert b"NEC ERROR" not in (run[2] / "y.out").read_bytes()
+        return
+    # the Galerkin copy serves a wholly-buried deck and declines the mixed one
+    # (momwire#1718 S11a), in its own words
     assert (
-        b"NEC ERROR - not served by this build: a wire below the ground plane"
-        in (de / "y.out").read_bytes()
+        b"NEC ERROR - not served by this build: wires on both sides of the interface"
+        in (run[2] / "y.out").read_bytes()
     )
 
 
@@ -268,7 +304,7 @@ def test_a_cxx_exception_is_the_internal_error_printout(fail, line, tmp_path):
     want = tmp_path / "want.out"
     text = DIPOLE.read_bytes().decode("latin-1")
     _shell.write_printout(
-        want, _printout.render_refusal(text, line, basis="sinusoidal", dialect="nec4")
+        want, _printout.render_refusal(text, line, basis=BASIS, dialect="nec4")
     )
     got = out.read_bytes()
     assert got.split(b"\r\n")[2:] == want.read_bytes().split(b"\r\n")[2:]
@@ -327,3 +363,50 @@ def test_the_streaming_call(stream, tmp_path):
         return
     assert _mask(exe.stdout) == _mask(ref.stdout)
     assert exe.stderr == b""
+
+
+# --- the Sommerfeld store (the perf-1028 study's finding 3) --------------------
+
+GN2 = NEC42 / "0231_dipole-10m-gn2.nec"
+BURIED = NEC42 / "0239_dipole-buried-gn3.nec"
+
+
+@pytest.mark.parametrize("deck", [GN2, BURIED], ids=["gn2 masters", "buried table"])
+def test_the_ground_store_is_kept_and_moves_no_byte(deck, tmp_path):
+    """Every NEC-4.2 executable keeps its Sommerfeld masters (GN 2 above the
+    plane) and its below/below table (a buried deck) in the store between
+    runs, as the NEC-5 ones do: run cold, the store holds the grids; a second
+    run reads them (MOMWIRE_TIMES counts no build) and prints the cold run's
+    bytes, which are the launcher's under the time mask. Until the sinusoidal
+    route configured the store, its warm run refilled every grid."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    import times_check as tc
+
+    store = tmp_path / "store"
+    env = _env(MOMWIRE_SOMM_CACHE_DIR=str(store), MOMWIRE_SOMM_CACHE="1")
+    ref = subprocess.run(
+        [_launcher(), str(deck), str(tmp_path / "ref.out")],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+    assert ref.returncode == 0, ref.stderr
+    want = _mask((tmp_path / "ref.out").read_bytes())
+
+    def exe_run(name):
+        r = subprocess.run(
+            [EXE, str(deck), str(tmp_path / f"{name}.out")],
+            env=dict(env, MOMWIRE_TIMES="1"),
+            capture_output=True,
+            check=False,
+        )
+        assert r.returncode == 0, r.stderr
+        assert _mask((tmp_path / f"{name}.out").read_bytes()) == want, name
+        (line,) = tc.times_lines(r.stderr)
+        return line
+
+    cold = exe_run("cold")
+    assert sorted((store / "exe").glob("*/*.grid")), "nothing kept"
+    warm = exe_run("warm")
+    assert cold["ground_built"] > 0 and warm["ground_built"] == 0, (cold, warm)
+    assert warm["ground_disk"] >= 1, warm

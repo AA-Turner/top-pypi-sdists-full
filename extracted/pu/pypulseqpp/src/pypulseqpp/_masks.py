@@ -1,0 +1,806 @@
+"""Cartesian sampling support: encoded views and boolean masks.
+
+Support functions select which Cartesian views an acquisition encodes. They
+return either explicit zero-based encoded coordinates or a boolean mask whose
+``True`` entries are the acquired views. They assign no temporal order, no
+shot or echo index and no label; :mod:`pypulseqpp._ordering` orders a
+selected set, and the sequence function scales its phase-encoding
+gradients and writes its labels from the coordinates.
+
+References
+----------
+Poisson-disc sampling derives from SigPy (BSD 3-Clause).
+"""
+
+from __future__ import annotations
+
+__all__ = [
+    "make_caipirinha_mask",
+    "make_cartesian_axis_sampling",
+    "make_cartesian_plane_sampling",
+    "make_poisson_disc_mask",
+    "make_random_mask",
+]
+
+import numpy as np
+
+#: The support schemes :func:`make_cartesian_plane_sampling` draws from.
+_PLANE_SCHEMES = ("lattice", "poisson")
+# Density of a Poisson-disc draw at its tightest spacing, and its density times
+# the area of its exclusion ellipse in views, fitted to make_poisson_disc_mask.
+_DENSITY_CAP = 0.74
+_DENSITY_SCALE = 0.8
+_BINS = 1024
+
+
+def make_cartesian_axis_sampling(
+    n: int,
+    acceleration: int = 1,
+    n_acs: int = 0,
+    *,
+    partial_fourier: float = 1.0,
+) -> tuple[list[int], list[int]]:
+    r"""Select the acquired views of one Cartesian encoding axis.
+
+    The views are the zero-based indices ``0 .. n - 1`` of the axis, with the
+    k-space centre at index ``n // 2``. With ``R = acceleration``, the
+    undersampled lattice is
+
+    .. math::
+
+        \{\, i : (i - \lfloor n/2 \rfloor) \bmod R = 0 \,\},
+
+    so the centre view is acquired for every ``R``. Partial Fourier removes
+    the indices below ``n - round(partial_fourier * n)``; the centre and the
+    far edge are retained. The calibration region is the ``n_acs`` contiguous
+    views centred on ``n // 2``, fully sampled and clipped by partial Fourier.
+
+    The routine applies to any Cartesian encoding axis: the phase-encoding
+    lines of a 2D acquisition, or the partitions of a stack-of-stars,
+    stack-of-spirals or stack-of-blades acquisition.
+
+    Parameters
+    ----------
+    n : int
+        Number of views on the axis (the encoding matrix size).
+    acceleration : int, default=1
+        Undersampling factor ``R`` of the lattice.
+    n_acs : int, default=0
+        Number of fully sampled calibration (ACS) views centred on
+        ``n // 2``. Ignored when ``acceleration`` is 1.
+    partial_fourier : float, default=1.0
+        Fraction of the axis acquired, in ``(0.5, 1]``.
+
+    Returns
+    -------
+    calibration : list of int
+        Calibration views, ascending. Empty when ``acceleration`` is 1 or
+        ``n_acs`` is 0.
+    imaging : list of int
+        Lattice views not in ``calibration``, ascending. The two lists are
+        disjoint; the acquired support is their union. Neither list is an
+        acquisition order: the sequence function decides when each view is
+        acquired, and creates its labels.
+
+    Raises
+    ------
+    ValueError
+        If ``acceleration`` is below one, ``n_acs`` is negative, or
+        ``partial_fourier`` is outside ``(0.5, 1]``.
+
+    See Also
+    --------
+    make_cartesian_plane_sampling : the same selection over two encoding axes.
+    make_traversal_order : a loop order over the selected views.
+
+    Notes
+    -----
+    The two groups are returned separately so that a sequence function
+    can treat them differently, for example by acquiring the calibration
+    views first or marking them with the ``IMA`` label. Both lists are in
+    ascending order; ``sorted(calibration + imaging)`` is the whole support in
+    ascending order.
+
+    Examples
+    --------
+    >>> import pypulseqpp as pp
+    >>> pp.make_cartesian_axis_sampling(8)
+    ([], [0, 1, 2, 3, 4, 5, 6, 7])
+
+    Twofold undersampling about the centre view ``4``, with four calibration
+    views. The imaging views exclude the calibration views:
+
+    >>> calibration, imaging = pp.make_cartesian_axis_sampling(8, 2, 4)
+    >>> calibration
+    [2, 3, 4, 5]
+    >>> imaging
+    [0, 6]
+
+    Partial Fourier with fraction 0.75 removes the first two views:
+
+    >>> pp.make_cartesian_axis_sampling(8, partial_fourier=0.75)
+    ([], [2, 3, 4, 5, 6, 7])
+    """
+    if acceleration < 1:
+        raise ValueError(f"acceleration must be at least 1, got {acceleration}")
+    if n_acs < 0:
+        raise ValueError(f"n_acs must be nonnegative, got {n_acs}")
+    first = n - round(_checked_partial_fourier(partial_fourier) * n)
+    size = n_acs if acceleration > 1 else 0
+    calibration = list(
+        range(max(n // 2 - size // 2, first), min(n // 2 + (size + 1) // 2, n))
+    )
+    imaging = [
+        i
+        for i in range(first, n)
+        if (i - n // 2) % acceleration == 0 and i not in calibration
+    ]
+    return calibration, imaging
+
+
+def make_cartesian_plane_sampling(
+    shape: tuple[int, int],
+    acceleration: tuple[int, int] = (1, 1),
+    n_acs: tuple[int, int] = (0, 0),
+    *,
+    caipi_shift: int = 0,
+    partial_fourier: tuple[float, float] = (1.0, 1.0),
+    elliptical: bool = False,
+    elliptical_acs: bool = False,
+    sampling: str = "lattice",
+    seed: int = 0,
+    train_length: int = 1,
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """Select the acquired ``(line, partition)`` views of a Cartesian ky-kz plane.
+
+    A view is a zero-based encoded coordinate ``(y, z)`` on the
+    ``(n_y, n_z)`` grid, whose k-space centre is ``(n_y // 2, n_z // 2)``.
+
+    With ``sampling='lattice'`` the support is the CAIPIRINHA lattice. With
+    ``R_y, R_z = acceleration`` and ``Δ = caipi_shift``, line ``y`` is
+    acquired when ``(y - n_y // 2) mod R_y = 0``; on the ``j``-th acquired line
+    counted from the centre line, ``j = (y - n_y // 2) // R_y``, partition
+    ``z`` is acquired when ``(z - n_z // 2 - Δ j) mod R_z = 0``. The centre
+    view is always acquired; ``Δ = 0`` gives a rectangular lattice.
+
+    With ``sampling='poisson'`` the support is a variable-density Poisson-disc
+    draw at nominal acceleration ``R_y * R_z`` from
+    :func:`make_poisson_disc_mask`. A rectangular calibration region is
+    seeded into the draw as a fully sampled block; an elliptical one
+    (``elliptical_acs=True``) is not, so the corners of its bounding
+    rectangle follow the draw and only the ellipse is acquired in full.
+    ``caipi_shift`` is ignored. A draw holds the number of views of its
+    expected density (:func:`calc_cartesian_plane_sampling_probability`),
+    rounded to the nearest view: views beyond it are dropped at random and
+    missing ones are added as for ``train_length``, so
+    :func:`count_cartesian_plane_sampling` counts them without a draw.
+
+    For either scheme, partial Fourier and the ``elliptical`` crop are
+    applied to the views outside the calibration region, and the calibration
+    region is acquired in full within partial Fourier. ``elliptical`` has the
+    same meaning for both schemes: with ``False`` no view is removed for lying
+    outside the inscribed ellipse.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        ``(n_y, n_z)``, the number of lines and partitions.
+    acceleration : tuple of int, default=(1, 1)
+        ``(R_y, R_z)``, the undersampling factor on each axis.
+    n_acs : tuple of int, default=(0, 0)
+        ``(n_acs_y, n_acs_z)``, extent of the fully sampled calibration region
+        centred on the centre view. Ignored when ``R_y * R_z`` is 1.
+    caipi_shift : int, default=0
+        CAIPIRINHA shift ``Δ``: partitions the lattice is displaced by per
+        acquired line. ``sampling='lattice'`` only.
+    partial_fourier : tuple of float, default=(1.0, 1.0)
+        Fraction of each axis acquired, in ``(0.5, 1]``. The views with the
+        lowest indices are removed.
+    elliptical : bool, default=False
+        Restrict the views outside the calibration region to the ellipse
+        inscribed in the grid, for both support schemes.
+    elliptical_acs : bool, default=False
+        Make the fully sampled calibration region the ellipse inscribed in
+        its ``n_acs`` rectangle. The rectangle's corners are then acquired
+        only where the support scheme selects them.
+    sampling : {'lattice', 'poisson'}, default='lattice'
+        Support scheme: the deterministic CAIPIRINHA lattice, or a
+        variable-density Poisson-disc draw.
+    seed : int, default=0
+        Random seed of the Poisson-disc draw. ``sampling='poisson'`` only.
+    train_length : int, default=1
+        Number of views per echo train. The unsampled views nearest the
+        centre, by distance normalised to the grid and within partial
+        Fourier, are added to ``imaging`` until the number of views is a
+        multiple of it, so that every train is full. They lie inside the
+        ``elliptical`` crop while any view there is unsampled. When fewer
+        views than that remain unsampled, all of them are added and the last
+        train stays short.
+
+    Returns
+    -------
+    calibration : list of tuple of int
+        Calibration views ``(y, z)``, ordered by line and then by partition.
+        Empty when there is no calibration region.
+    imaging : list of tuple of int
+        Acquired views ``(y, z)`` not in ``calibration``, in the same order.
+        The two lists are disjoint; the acquired support is their union.
+        Neither list is an acquisition order: the sequence function
+        decides when each view is acquired, and creates its labels.
+
+    Raises
+    ------
+    ValueError
+        If an undersampling factor is below one, a calibration extent is
+        negative, a partial-Fourier fraction is outside ``(0.5, 1]``, or
+        ``sampling`` is unknown.
+
+    See Also
+    --------
+    make_cartesian_axis_sampling : the same selection over one encoding axis.
+    make_caipirinha_mask : the lattice as a boolean mask, without calibration.
+    make_poisson_disc_mask : the Poisson-disc support as a boolean mask.
+    make_radial_order : assignment of the selected views to echo trains.
+
+    Notes
+    -----
+    This routine is the prescription-level support selection used by the
+    shipped 3D Cartesian sequences. The mask generators produce support only;
+    this routine combines a support scheme with the calibration region,
+    partial Fourier and elliptical cropping, and returns the result as
+    coordinate lists separated by role. With ``sampling='poisson'`` the
+    realised acceleration can differ from ``R_y * R_z``: partial Fourier and
+    an elliptical calibration region are applied after the draw.
+
+    Examples
+    --------
+    Twofold undersampling on both axes of a 4 x 4 grid, with a 2 x 2
+    calibration region at the centre view ``(2, 2)``:
+
+    >>> import pypulseqpp as pp
+    >>> calibration, imaging = pp.make_cartesian_plane_sampling(
+    ...     (4, 4), acceleration=(2, 2), n_acs=(2, 2)
+    ... )
+    >>> calibration
+    [(1, 1), (1, 2), (2, 1), (2, 2)]
+    >>> imaging
+    [(0, 0), (0, 2), (2, 0)]
+
+    The view ``(2, 2)`` is on the lattice and in the calibration region; it is
+    listed once, in ``calibration``. A CAIPIRINHA shift of one partition per
+    acquired line displaces the partitions of line 0 relative to line 2:
+
+    >>> pp.make_cartesian_plane_sampling((4, 4), (2, 2), caipi_shift=1)[1]
+    [(0, 1), (0, 3), (2, 0), (2, 2)]
+
+    The coordinates convert directly to a boolean mask:
+
+    >>> import numpy as np
+    >>> mask = np.zeros((4, 4), dtype=bool)
+    >>> mask[tuple(np.transpose(calibration + imaging))] = True
+    >>> mask.astype(int)
+    array([[1, 0, 1, 0],
+           [0, 1, 1, 0],
+           [1, 1, 1, 0],
+           [0, 0, 0, 0]])
+    """
+    return tuple(
+        _views(mask)
+        for mask in _plane_masks(
+            shape,
+            acceleration,
+            n_acs,
+            caipi_shift,
+            partial_fourier,
+            elliptical,
+            elliptical_acs,
+            sampling,
+            seed,
+            train_length=train_length,
+        )[:2]
+    )
+
+
+def _plane_masks(
+    shape: tuple[int, int],
+    acceleration: tuple[int, int],
+    n_acs: tuple[int, int],
+    caipi_shift: int,
+    partial_fourier: tuple[float, float],
+    elliptical: bool,
+    elliptical_acs: bool,
+    sampling: str,
+    seed: int,
+    expected: bool = False,
+    train_length: int = 1,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the calibration and imaging masks :func:`make_cartesian_plane_sampling` lists.
+
+    With ``expected``, a Poisson-disc support is its expected density rather
+    than a draw, and the imaging mask is a probability. The third value is the
+    number of views listed, known without a draw.
+    """
+    (n_y, n_z), (r_y, r_z) = shape, acceleration
+    if r_y < 1 or r_z < 1:
+        raise ValueError(
+            f"acceleration must be at least 1 on each axis, got {acceleration}"
+        )
+    if n_acs[0] < 0 or n_acs[1] < 0:
+        raise ValueError(f"n_acs must be nonnegative on each axis, got {n_acs}")
+    if sampling not in _PLANE_SCHEMES:
+        raise ValueError(f"sampling must be one of {_PLANE_SCHEMES}, got {sampling!r}")
+    if train_length < 1:
+        raise ValueError(f"train_length must be at least 1, got {train_length}")
+    first_y = n_y - round(_checked_partial_fourier(partial_fourier[0]) * n_y)
+    first_z = n_z - round(_checked_partial_fourier(partial_fourier[1]) * n_z)
+    n_acs_y, n_acs_z = n_acs if r_y * r_z > 1 else (0, 0)
+    # Offsets of each line and partition from the centre view.
+    y = np.arange(n_y)[:, None] - n_y // 2
+    z = np.arange(n_z)[None, :] - n_z // 2
+
+    def inside(extent_y: int, extent_z: int) -> np.ndarray:
+        # Offsets normalised to the ellipse's axes.
+        dy, dz = y / extent_y, z / extent_z
+        return dy * dy + dz * dz <= 0.25
+
+    calibrating = np.zeros((n_y, n_z), dtype=bool)
+    calibrating[
+        max(n_y // 2 - n_acs_y // 2, first_y) : min(n_y // 2 + (n_acs_y + 1) // 2, n_y),
+        max(n_z // 2 - n_acs_z // 2, first_z) : min(n_z // 2 + (n_acs_z + 1) // 2, n_z),
+    ] = True
+    if elliptical_acs and calibrating.any():
+        calibrating &= inside(n_acs_y, n_acs_z)
+    if sampling == "poisson" and r_y * r_z > 1:
+        # A rectangular ACS region is seeded into the draw as its fully sampled
+        # block. An elliptical one is not: the draw then covers the corners of
+        # the rectangle like the rest of the plane, and only the ellipse is
+        # added in full. The ellipse cut below is applied to the imaging views
+        # of both schemes; ``crop_corner`` only makes the acceleration search
+        # count the same region.
+        calib = (0, 0) if elliptical_acs else (n_acs_y, n_acs_z)
+        density = _poisson_disc_density((n_y, n_z), float(r_y * r_z), calib, elliptical)
+        support = (
+            density
+            if expected
+            else make_poisson_disc_mask(
+                (n_y, n_z),
+                float(r_y * r_z),
+                calib=calib,
+                seed=seed,
+                crop_corner=elliptical,
+            )
+        )
+    elif sampling == "poisson":
+        density = support = np.ones((n_y, n_z), dtype=bool)
+    else:
+        density = support = (y % r_y == 0) & ((z - caipi_shift * (y // r_y)) % r_z == 0)
+
+    def crop(mask: np.ndarray) -> np.ndarray:
+        mask = mask * ~calibrating
+        mask[:first_y] = False
+        mask[:, :first_z] = False
+        return mask * inside(n_y, n_z) if elliptical else mask
+
+    # The views a draw ends with: its expected number, filled to whole trains
+    # with the views of the partial-Fourier region left, as many as there are.
+    n_calibration = int(np.count_nonzero(calibrating))
+    region = np.ones((n_y, n_z), dtype=bool)
+    region[:first_y] = False
+    region[:, :first_z] = False
+    available = int(np.count_nonzero(region | calibrating))
+    views = n_calibration + round(float(crop(density).sum()))
+    target = min(-(-views // train_length) * train_length, available)
+    imaging = crop(support)
+    if expected:
+        return calibrating, imaging, target
+    excess = n_calibration + int(np.count_nonzero(imaging)) - target
+    if excess > 0:
+        # A draw holding more views than expected drops some at random.
+        lines, partitions = np.nonzero(imaging)
+        drop = np.random.default_rng(seed).choice(lines.size, excess, replace=False)
+        imaging[lines[drop], partitions[drop]] = False
+    elif excess < 0:
+        # The unsampled views nearest the centre fill the rest.
+        free = region & ~(calibrating | imaging)
+        lines, partitions = np.nonzero(free)
+        radius = ((lines - n_y // 2) / n_y) ** 2 + ((partitions - n_z // 2) / n_z) ** 2
+        nearest = np.lexsort((partitions, lines, radius))[:-excess]
+        imaging[lines[nearest], partitions[nearest]] = True
+    return calibrating, imaging, target
+
+
+def count_cartesian_plane_sampling(
+    shape: tuple[int, int],
+    acceleration: tuple[int, int] = (1, 1),
+    n_acs: tuple[int, int] = (0, 0),
+    *,
+    caipi_shift: int = 0,
+    partial_fourier: tuple[float, float] = (1.0, 1.0),
+    elliptical: bool = False,
+    elliptical_acs: bool = False,
+    sampling: str = "lattice",
+    seed: int = 0,
+    train_length: int = 1,
+) -> tuple[int, int]:
+    """Count the views :func:`make_cartesian_plane_sampling` returns, without listing them.
+
+    The arguments are those of :func:`make_cartesian_plane_sampling`.
+
+    Returns
+    -------
+    n_calibration : int
+        Number of calibration views.
+    n_imaging : int
+        Number of the other acquired views.
+
+    Examples
+    --------
+    >>> import pypulseqpp as pp
+    >>> pp.count_cartesian_plane_sampling((4, 4), acceleration=(2, 2), n_acs=(2, 2))
+    (4, 3)
+    """
+    calibrating, _, views = _plane_masks(
+        shape,
+        acceleration,
+        n_acs,
+        caipi_shift,
+        partial_fourier,
+        elliptical,
+        elliptical_acs,
+        sampling,
+        seed,
+        expected=True,
+        train_length=train_length,
+    )
+    n_calibration = int(np.count_nonzero(calibrating))
+    return n_calibration, views - n_calibration
+
+
+def calc_cartesian_plane_sampling_probability(
+    shape: tuple[int, int],
+    acceleration: tuple[int, int] = (1, 1),
+    n_acs: tuple[int, int] = (0, 0),
+    *,
+    caipi_shift: int = 0,
+    partial_fourier: tuple[float, float] = (1.0, 1.0),
+    elliptical: bool = False,
+    elliptical_acs: bool = False,
+    sampling: str = "lattice",
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the probability that :func:`make_cartesian_plane_sampling` acquires each view.
+
+    The arguments are those of :func:`make_cartesian_plane_sampling`. A
+    lattice is deterministic, so its probabilities are 0 or 1. A Poisson-disc
+    draw is replaced by its expected density, at a fraction of the cost of a
+    draw: the density of views at minimum distances ``r_y`` and ``r_z``, in
+    views, is approximated as ``min(0.74, 0.8 / (r_y r_z))``, constants
+    fitted to draws of :func:`make_poisson_disc_mask`, with the slope of the
+    distances set by bisection so that the expected count reaches the
+    acceleration. The fullest partition of the density holds the lines of the
+    fullest partition of a mean over draws to within a few per cent; a single
+    draw departs from it by its own fluctuation.
+
+    Returns
+    -------
+    calibration : numpy.ndarray
+        Probability, 0 or 1, that each view ``(y, z)`` is a calibration view.
+    imaging : numpy.ndarray
+        Probability that each view is one of the other acquired views.
+
+    Examples
+    --------
+    >>> import pypulseqpp as pp
+    >>> calibration, imaging = pp.calc_cartesian_plane_sampling_probability(
+    ...     (4, 4), acceleration=(2, 2), n_acs=(2, 2)
+    ... )
+    >>> int(calibration.sum()), int(imaging.sum())
+    (4, 3)
+    """
+    calibrating, imaging, _ = _plane_masks(
+        shape,
+        acceleration,
+        n_acs,
+        caipi_shift,
+        partial_fourier,
+        elliptical,
+        elliptical_acs,
+        sampling,
+        0,
+        expected=True,
+    )
+    return calibrating.astype(float), imaging.astype(float)
+
+
+def _poisson_disc_density(
+    shape: tuple[int, int], accel: float, calib: tuple[int, int], crop_corner: bool
+) -> np.ndarray:
+    """Return the expected density of :func:`make_poisson_disc_mask` on the same arguments."""
+    (n_y, n_z), (c_y, c_z) = shape, calib
+
+    def distance(n: int, c: int) -> np.ndarray:
+        # Normalised distance outside the calibration block, as the draw takes it.
+        d = np.maximum(np.abs(np.arange(n) - n / 2) - c / 2, 0.0)
+        return d / d.max() if d.max() > 0 else d
+
+    radius = np.hypot(distance(n_y, c_y)[:, None], distance(n_z, c_z)[None, :])
+    block = np.zeros(shape, dtype=bool)
+    block[
+        n_y // 2 - c_y // 2 : n_y // 2 + (c_y + 1) // 2,
+        n_z // 2 - c_z // 2 : n_z // 2 + (c_z + 1) // 2,
+    ] = True
+    counted = ~block & (radius < 1) if crop_corner else ~block
+    radius = radius[counted]
+    longest = max(n_y, n_z)
+    # The bisection sums over a histogram of the radii rather than every view.
+    bins = np.bincount(np.minimum(radius * _BINS, _BINS * 1.5).astype(int))
+    centres = (np.arange(bins.size) + 0.5) / _BINS
+
+    def density(slope: float, radius: np.ndarray) -> np.ndarray:
+        spacing = 1.0 + slope * radius
+        area = np.maximum(spacing * (n_y / longest), 1.0) * np.maximum(
+            spacing * (n_z / longest), 1.0
+        )
+        return np.minimum(_DENSITY_CAP, _DENSITY_SCALE / area)
+
+    target = n_y * n_z / accel - np.count_nonzero(block)
+    low, high = 0.0, float(longest)
+    for _ in range(40):
+        slope = (low + high) / 2
+        if bins @ density(slope, centres) > target:
+            low = slope
+        else:
+            high = slope
+    result = block.astype(float)
+    result[counted] = density(slope, radius)
+    return result
+
+
+def _views(mask: np.ndarray) -> list[tuple[int, int]]:
+    """Return the ``(y, z)`` views ``mask`` selects, ordered by line and then by partition."""
+    lines, partitions = np.nonzero(mask)
+    return list(zip(lines.tolist(), partitions.tolist(), strict=True))
+
+
+def _checked_partial_fourier(partial_fourier: float) -> float:
+    if not 0.5 < partial_fourier <= 1.0:
+        raise ValueError("partial_fourier must be in (0.5, 1]")
+    return partial_fourier
+
+
+def make_random_mask(
+    shape: tuple[int, int],
+    accel: float,
+    *,
+    calib: tuple[int, int] = (0, 0),
+    seed: int | None = None,
+) -> np.ndarray:
+    """Generate a uniform-random Cartesian sampling mask with a calibration region.
+
+    ``mask[y, z]`` is ``True`` when the view ``(y, z)`` is acquired. The mask
+    holds ``round(n_y * n_z / accel)`` views: the centred calibration block,
+    and the remainder drawn uniformly without replacement from the other
+    views. If the calibration block alone exceeds that number, the mask is
+    the calibration block.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Mask shape ``(n_y, n_z)``.
+    accel : float
+        Target acceleration factor, greater than one.
+    calib : tuple of int, default=(0, 0)
+        Extent of the fully sampled calibration block centred on
+        ``(n_y // 2, n_z // 2)``.
+    seed : int or None, default=None
+        Seed of the random draw.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean support mask of shape ``shape``. It encodes no acquisition
+        order.
+
+    Raises
+    ------
+    ValueError
+        If the acceleration is not greater than one.
+
+    See Also
+    --------
+    make_poisson_disc_mask : variable-density draw with a minimum distance.
+    make_caipirinha_mask : deterministic lattice for parallel imaging.
+    make_linear_order : echo-train ordering of views taken from a mask with
+        ``np.argwhere`` and centred.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pypulseqpp as pp
+    >>> mask = pp.make_random_mask((6, 6), 3.0, calib=(2, 2), seed=0)
+    >>> mask.dtype, mask.shape, int(mask.sum())
+    (dtype('bool'), (6, 6), 12)
+    >>> bool(mask[2:4, 2:4].all())
+    True
+
+    ``np.argwhere`` lists the acquired views as ``(y, z)`` coordinates:
+
+    >>> np.argwhere(mask)[:4].tolist()
+    [[0, 0], [0, 1], [0, 2], [1, 1]]
+    """
+    if accel <= 1:
+        raise ValueError(f"accel must be greater than 1, got {accel}")
+    ny, nz = shape
+    rng = np.random.default_rng(seed)
+    mask = np.zeros(shape, dtype=bool)
+    y0 = ny // 2 - calib[0] // 2
+    z0 = nz // 2 - calib[1] // 2
+    mask[y0 : y0 + calib[0], z0 : z0 + calib[1]] = True
+
+    n_target = round(ny * nz / accel)
+    n_extra = max(0, n_target - int(mask.sum()))
+    free = np.flatnonzero(~mask.ravel())
+    chosen = rng.choice(free, size=min(n_extra, free.size), replace=False)
+    flat = mask.ravel()
+    flat[chosen] = True
+    return flat.reshape(shape)
+
+
+def make_caipirinha_mask(
+    shape: tuple[int, int],
+    ry: int,
+    rz: int,
+    *,
+    delta: int = 1,
+) -> np.ndarray:
+    """Generate a CAIPIRINHA lattice sampling mask.
+
+    ``mask[y, z]`` is ``True`` when the view ``(y, z)`` is acquired: line
+    ``y`` is acquired when ``y mod ry = 0``, and on it partition ``z`` when
+    ``(z - delta * (y // ry)) mod rz = 0``. The lattice is anchored at
+    ``(0, 0)`` and spreads the aliasing along both phase-encoding directions
+    [1]_.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Mask shape ``(n_y, n_z)``.
+    ry : int
+        Undersampling factor along the first axis.
+    rz : int
+        Undersampling factor along the second axis.
+    delta : int, default=1
+        CAIPIRINHA shift: partitions the lattice is displaced by per acquired
+        line. ``delta=0`` gives a rectangular ``ry x rz`` lattice.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean support mask of shape ``shape``, with nominal acceleration
+        ``ry * rz``; the finite grid can change the realised factor. It
+        encodes no acquisition order.
+
+    Raises
+    ------
+    ValueError
+        If an undersampling factor is below one.
+
+    See Also
+    --------
+    make_cartesian_plane_sampling : the same lattice anchored on the k-space
+        centre, with calibration and partial Fourier.
+    make_epi_shot_offsets : segmented blipped-CAIPI shot offsets that tile
+        this lattice.
+
+    References
+    ----------
+    .. [1] Breuer FA, Blaimer M, Mueller MF, et al. Controlled aliasing in
+       volumetric parallel imaging (2D CAIPIRINHA). *Magnetic Resonance in
+       Medicine*. 2006;55(3):549-556. https://doi.org/10.1002/mrm.20787
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pypulseqpp as pp
+    >>> mask = pp.make_caipirinha_mask((4, 4), 2, 2, delta=1)
+    >>> mask.astype(int)
+    array([[1, 0, 1, 0],
+           [0, 0, 0, 0],
+           [0, 1, 0, 1],
+           [0, 0, 0, 0]])
+    >>> np.argwhere(mask).tolist()
+    [[0, 0], [0, 2], [2, 1], [2, 3]]
+    """
+    if ry < 1 or rz < 1:
+        raise ValueError("ry and rz must be >= 1")
+    ny, nz = shape
+    ky = np.arange(ny)[:, None]
+    kz = np.arange(nz)[None, :]
+    shift = (ky // ry) * delta
+    return (ky % ry == 0) & ((kz - shift) % rz == 0)
+
+
+def make_poisson_disc_mask(
+    shape: tuple[int, int],
+    accel: float,
+    *,
+    calib: tuple[int, int] = (0, 0),
+    seed: int = 0,
+    max_attempts: int = 30,
+    tol: float = 0.1,
+    crop_corner: bool = True,
+) -> np.ndarray:
+    """Generate a variable-density Poisson-disc Cartesian sampling mask.
+
+    ``mask[y, z]`` is ``True`` when the view ``(y, z)`` is acquired. The
+    minimum distance between acquired views grows with the distance ``r``
+    from the k-space centre as ``1 + s r``; the slope ``s`` is found by
+    bisection so that the realised acceleration matches ``accel`` within
+    ``tol``. Views are placed by Bridson's dart throwing [1]_. The algorithm
+    is adapted from ``sigpy.mri.samp.poisson``.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Mask shape ``(n_y, n_z)``.
+    accel : float
+        Target acceleration factor, greater than one.
+    calib : tuple of int, default=(0, 0)
+        Extent ``(c_y, c_z)`` of the fully sampled calibration block: rows
+        ``n_y // 2 - c_y // 2`` to ``n_y // 2 + (c_y + 1) // 2 - 1``, and
+        likewise for columns. It is seeded into the draw, so no other view is
+        placed within the minimum distance of it.
+    seed : int, default=0
+        Seed of the random draw. Equal seeds give equal masks.
+    max_attempts : int, default=30
+        Bridson candidate attempts per active point.
+    tol : float, default=0.1
+        Allowed deviation of the realised acceleration from ``accel``.
+    crop_corner : bool, default=True
+        Remove the views whose normalised distance outside the calibration
+        block is at least 1: with no calibration block, the views outside the
+        ellipse inscribed in the grid. The calibration block is kept.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean support mask of shape ``shape``. It encodes no acquisition
+        order; :func:`make_shuffling_order` is an echo ordering, not a
+        support.
+
+    Raises
+    ------
+    ValueError
+        If the acceleration is not greater than one, a shape entry is not
+        positive, a calibration extent exceeds the shape, or the draw cannot
+        reach the acceleration within ``tol``.
+
+    See Also
+    --------
+    make_cartesian_plane_sampling : Poisson-disc support with calibration and
+        partial Fourier, as coordinate lists (``sampling='poisson'``).
+
+    References
+    ----------
+    .. [1] Bridson R. Fast Poisson disk sampling in arbitrary dimensions.
+       *ACM SIGGRAPH 2007 Sketches*. 2007:22.
+       https://doi.org/10.1145/1278780.1278807
+
+    Examples
+    --------
+    >>> import pypulseqpp as pp
+    >>> mask = pp.make_poisson_disc_mask((24, 24), 3.0, calib=(6, 6), seed=1)
+    >>> mask.dtype, mask.shape
+    (dtype('bool'), (24, 24))
+    >>> bool(mask[9:15, 9:15].all())
+    True
+    >>> again = pp.make_poisson_disc_mask((24, 24), 3.0, calib=(6, 6), seed=1)
+    >>> bool((again == mask).all())
+    True
+    """
+    if accel <= 1:
+        raise ValueError(f"accel must be greater than 1, got {accel}")
+    from pypulseqpp._ext import sampling
+
+    return sampling.poisson_disc_mask(
+        shape, accel, calib, seed, max_attempts, tol, crop_corner
+    )

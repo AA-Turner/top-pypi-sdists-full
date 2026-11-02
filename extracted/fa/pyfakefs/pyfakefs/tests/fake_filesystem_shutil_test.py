@@ -23,10 +23,11 @@ import shutil
 import sys
 import tempfile
 import unittest
+from os import stat_result
 from pathlib import Path
 
 from pyfakefs import fake_filesystem_unittest
-from pyfakefs.helpers import get_uid, set_uid, is_root, IS_PYPY
+from pyfakefs.helpers import IS_PYPY, IS_WIN, get_uid, is_root, set_uid
 from pyfakefs.tests.test_utils import RealFsTestMixin, skip_if_symlink_not_supported
 
 is_windows = sys.platform == "win32"
@@ -90,6 +91,18 @@ class FakeShutilModuleTest(RealFsTestCase):
         self.assertFalse(os.path.exists(dir_path))
         self.assertFalse(os.path.exists(file_path))
 
+    def test_rmtree_with_symlink_to_dir(self):
+        skip_if_symlink_not_supported()
+        directory = self.make_path("xyzzy")
+        target_dir = self.make_path("target_dir")
+        target_file = self.os.path.join(target_dir, "file")
+        self.create_file(target_file)
+        link_path = self.os.path.join(directory, "link_to_dir")
+        self.create_symlink(link_path, target_dir)
+        shutil.rmtree(directory)
+        self.assertFalse(self.os.path.exists(directory))
+        self.assertTrue(self.os.path.exists(target_file))
+
     def test_rmtree_with_trailing_slash(self):
         directory = self.make_path("xyzzy")
         dir_path = os.path.join(directory, "subdir")
@@ -149,9 +162,8 @@ class FakeShutilModuleTest(RealFsTestCase):
         self.create_file(os.path.join(dir_path, "bar"))
         file_path = os.path.join(dir_path, "baz")
         self.create_file(file_path)
-        with open(file_path, encoding="utf8"):
-            with self.assertRaises(OSError):
-                shutil.rmtree(dir_path)
+        with open(file_path, encoding="utf8"), self.assertRaises(OSError):
+            shutil.rmtree(dir_path)
         self.assertTrue(os.path.exists(dir_path))
 
     def test_rmtree_non_existing_dir(self):
@@ -270,8 +282,7 @@ class FakeShutilModuleTest(RealFsTestCase):
         src_stat = os.stat(src_file)
         dst_stat = os.stat(dst_file)
         self.assertEqual(src_stat.st_mode, dst_stat.st_mode)
-        self.assertAlmostEqual(src_stat.st_atime, dst_stat.st_atime, places=0)
-        self.assertAlmostEqual(src_stat.st_mtime, dst_stat.st_mtime, places=2)
+        self.check_stat_times(dst_stat, src_stat)
 
     @unittest.skipIf(IS_PYPY, "Functionality not supported in PyPy")
     def test_copystat_symlinks(self):
@@ -297,8 +308,7 @@ class FakeShutilModuleTest(RealFsTestCase):
         src_stat = os.stat(src_file)
         dst_stat = os.stat(dst_file)
         self.assertEqual(src_stat.st_mode, dst_stat.st_mode)
-        self.assertAlmostEqual(src_stat.st_atime, dst_stat.st_atime, places=0)
-        self.assertAlmostEqual(src_stat.st_mtime, dst_stat.st_mtime, places=2)
+        self.check_stat_times(dst_stat, src_stat)
 
     def test_copy2_directory(self):
         src_file = self.make_path("xyzzy")
@@ -315,14 +325,20 @@ class FakeShutilModuleTest(RealFsTestCase):
         src_stat = os.stat(src_file)
         dst_stat = os.stat(dst_file)
         self.assertEqual(src_stat.st_mode, dst_stat.st_mode)
-        self.assertAlmostEqual(src_stat.st_atime, dst_stat.st_atime, places=0)
-        self.assertAlmostEqual(src_stat.st_mtime, dst_stat.st_mtime, places=2)
+        self.check_stat_times(dst_stat, src_stat)
+
+    def check_stat_times(self, dst_stat: stat_result, src_stat: stat_result):
+        # these tests do not work in a specific pypy versions due to a pypy bug
+        # the bug is fixed in main, this check can be removed after the next release
+        if not IS_PYPY or not IS_WIN or sys.version_info < (3, 11, 15):
+            self.assertAlmostEqual(src_stat.st_atime, dst_stat.st_atime, places=0)
+            self.assertAlmostEqual(src_stat.st_mtime, dst_stat.st_mtime, places=2)
 
     def test_copytree(self):
         src_directory = self.make_path("xyzzy")
         dst_directory = self.make_path("xyzzy_copy")
         self.create_dir(src_directory)
-        self.create_dir("%s/subdir" % src_directory)
+        self.create_dir(f"{src_directory}/subdir")
         self.create_file(os.path.join(src_directory, "subfile"))
         self.assertTrue(os.path.exists(src_directory))
         self.assertFalse(os.path.exists(dst_directory))

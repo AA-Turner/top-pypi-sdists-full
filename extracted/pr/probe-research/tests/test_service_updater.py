@@ -33,9 +33,13 @@ import pytest
 
 import probe
 from probe.shared.updates import installs as installs_mod
-from probe.service import appupdate, barrier, client, paths
+from probe.service.updater.app import locate as appupdate
+from probe.service.updater.quiet import barrier
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
 from probe.service import updater
-from probe.service.protocol import Client, Method, Mode, StopReason
+from probe.foundation.service_api.vocabularies import Client, Mode, StopReason
+from probe.foundation.service_api.wire import Method
 from tests.service_fakes import (
     FakeCore,
     autoupdate_state,
@@ -569,7 +573,7 @@ def test_a_cycle_holds_the_service_while_its_update_child_runs_and_then_hold_s_a
     child is killed), then HOLD_S for the rest of the cycle."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     u = updater.Updater(version="1.0.0", emit=lambda topic, payload: None, changed=lambda: None,
                         stop=lambda reason: None, action_running=lambda: False, discovering=lambda: False)
@@ -1454,7 +1458,7 @@ def test_the_cli_asks_the_service_instead_of_spawning_an_updater(monkeypatch):
     )
     monkeypatch.setattr(cli_main, "subprocess", fake)
     monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.append(("detached", argv, env)))
-    from probe.service import client as service_client
+    from probe.foundation import service_api as service_client
 
     monkeypatch.setattr(service_client, "runtime_python", lambda: sys.executable)
     cli_main._spawn_update("--apply-if-newer", trigger="session_start")
@@ -1729,7 +1733,7 @@ def test_a_wizard_lock_the_barrier_does_not_prove_ours_is_never_overridden(servi
     try:
         assert wait_for(ready.exists, 10.0)
         if holder != "the-app-s-update-action":
-            from probe.service import procid
+            from probe.foundation.service_api import procid
 
             start = procid.start_time(proc.pid) if holder == "a-person-s-wizard" else "1"
             paths.barrier_path().write_text(json.dumps(
@@ -1760,7 +1764,7 @@ def test_an_overrun_is_only_past_its_limit_and_never_this_process(service_home):
         start_new_session=True,
     )
     try:
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         start = wait_for(lambda: procid.start_time(sleeper.pid), 5.0)
 
@@ -1831,7 +1835,7 @@ def test_a_previous_update_is_stopped_with_its_group_and_never_its_neighbours(tm
     it is signalled, never its neighbours."""
     import asyncio
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     leader, first, second = _group(tmp_path, "answer" if mode == "group-member" else mode)
     target = first if mode == "group-member" else leader.pid
@@ -1852,7 +1856,7 @@ def test_a_cancelled_stop_sends_nothing_more(tmp_path):
     is out, no SIGKILL follows from an abandoned wait (a thread did, before)."""
     import asyncio
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     leader, _, _ = _group(tmp_path, "note")
     noted = tmp_path / "pids.term"
@@ -1947,7 +1951,7 @@ def test_a_command_started_as_the_group_is_stopped_is_found_or_never_signalled(t
     import asyncio
     import threading
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     path = tmp_path / "pids"
     leader = subprocess.Popen([sys.executable, "-c", _SPAWNS_ON_TERM, str(path), mode], start_new_session=True)
@@ -2001,7 +2005,7 @@ def test_a_process_that_left_the_group_is_neither_its_anchor_nor_signalled(tmp_p
     import asyncio
     import threading
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     path = tmp_path / "pids"
     leader = subprocess.Popen([sys.executable, "-c", _LEAVES_ON_TERM, str(path)], start_new_session=True)
@@ -2024,7 +2028,7 @@ def test_this_service_s_child_whose_identity_could_not_be_read_is_never_signalle
     it nothing is sent (on POSIX), and the stop says the child is still there."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
     _STAND_INS.append(child)
@@ -2258,7 +2262,7 @@ def test_a_setup_that_has_held_the_lock_a_day_is_updated_past_at_once(
     when) says how long it has held the device, so a day of that is past the
     limit at this service's first look, however long the service itself has
     deferred; one that took it a minute ago still defers."""
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     record = json.dumps({"pid": os.getpid(), "start": procid.start_time(os.getpid()), "at": time.time() - held_for})
     if holder == "wizard.lock":
@@ -2424,7 +2428,7 @@ def test_a_forced_update_tells_the_child_so_it_does_not_defer_again(service_home
 
 
 def test_the_child_skips_its_run_check_only_when_the_service_forced_it(monkeypatch, tmp_path):
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
 
     assert upgrading.FORCED_ENV == "PROBE_UPDATE_FORCED"
     from probe.service import updater
@@ -2437,7 +2441,7 @@ def test_a_cli_start_waits_for_a_barrier_from_before_the_machine_key(service_hom
     in the shared folder (`paths.legacy_barrier_path`)."""
     from probe import _entry
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     record = {"pid": os.getpid(), "start_time": procid.start_time(os.getpid()), "token": "o" * 32,
               "created_at": time.time()}
@@ -2516,7 +2520,7 @@ def test_a_run_that_just_started_is_not_updated_under_after_a_day_of_worker_wait
 
 
 def test_a_plugins_only_update_is_a_success_not_a_failed_cli_step():
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
 
     res = upgrading.cli_left_alone("1.2.3")
     assert (res.ok, res.changed, res.before, res.after) == (True, False, "1.2.3", "1.2.3")
@@ -2674,7 +2678,7 @@ def test_a_start_that_waited_out_an_in_place_update_runs_again_on_the_new_code(s
     """A machine's first update is in place and long: `probe session status`
     and `probe --version` answered busy (exit 75) to agents mid-work, and a
     start that waited went on with the old `probe.service` modules it had
-    imported under the new CLI (`module 'probe.service.procid' has no
+    imported under the new CLI (`module 'probe.foundation.service_api.procid' has no
     attribute 'exists'`; release gate, 2026-10-25). Now every non-hook start
     waits it out and runs again in a fresh interpreter."""
     import threading
@@ -2812,7 +2816,7 @@ def test_the_self_step_and_the_update_action_expect_the_switched_version(service
     MUTATION: drop either call."""
     import asyncio
 
-    from probe.service import children
+    from probe.service.actions import children
 
     async def read(action, params, timeout):
         return 0, {"cli_version": "0.1.0"}

@@ -1,0 +1,119 @@
+"""Artifact models for AgentEnv."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
+
+from pydantic import BaseModel, Field, field_validator
+
+from agent_env.entity.refs import EntityRef
+
+if TYPE_CHECKING:
+    from agent_env.bundle.authoring import AuthoringContext
+    from agent_env.artifact.ref import ArtifactRef
+    from agent_env.artifact.store import ArtifactQuery
+
+
+def _write_twin(data: dict[str, Any], legacy: str, neutral: str, value: Any) -> None:
+    """Write a renamed field under both its legacy and its neutral key, when the dump has it under either: readers
+    of either spelling keep working, and a field the dump excluded stays excluded."""
+    if legacy in data or neutral in data:
+        data[legacy] = data[neutral] = value
+
+
+@dataclass(frozen=True)
+class FolderChild:
+    """An artifact written from a bundle folder besides the one the folder is for."""
+
+    id: str
+    path: str  # where in the folder it's written from
+
+
+class Artifact(BaseModel):
+    """Base class for all environment artifacts. Immutable - each modification creates a new version."""
+
+    id: str = Field(description="Unique artifact identifier")
+    version: int = Field(default=0, description="Artifact version: 0 takes the next free one on put; another must be the next")
+    type: str = Field(description="The type of Artifact")
+    metadata: dict[str, Any] = Field(default_factory=dict, description=(
+        "What is learned about this version after it's written, such as a computer's inspected images; outside the "
+        "versioned fields, and changed only by compare-and-swap (merge_metadata)"))
+
+    toml_refs: ClassVar[tuple[EntityRef, ...]] = ()
+    toml_keys: ClassVar[dict[str, type]] = {}  # what an artifact.toml may set, for a type without an accept_toml
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _canonical_type(cls, value):
+        """Accept a spelling `[artifacts] type_aliases` maps to this type's own."""
+        from agent_env.artifact.registry import canonical_type
+
+        return canonical_type(value) if isinstance(value, str) else value
+
+    def as_ref(self) -> "ArtifactRef":
+        from agent_env.artifact.ref import ArtifactRef
+
+        if self.version < 1:
+            raise ValueError(
+                f"Cannot create a ref for unpersisted artifact {self.id!r} "
+                "(version=0). Call put() first."
+            )
+        return ArtifactRef(id=self.id, version=self.version)
+
+    @classmethod
+    def get(cls, id: str, version: Optional[int] = None) -> Self:
+        """The artifact stored under ``id``, which must be a ``cls``: the store builds the class
+        its stored type names, so ``FileArtifact.get`` refuses an id that holds another type."""
+        from agent_env.artifact.store import get_artifact_store
+
+        artifact = get_artifact_store().get(id, version)
+        if not isinstance(artifact, cls):
+            raise TypeError(f"artifact {id!r} is a {artifact.type!r} artifact, not a {cls.__name__}")
+        return artifact
+
+    @classmethod
+    def put(cls, **kwargs: Any) -> Self:
+        from agent_env.artifact.store import get_artifact_store
+
+        instance = cls(**kwargs)
+        return get_artifact_store().put_document(instance)
+
+    def merge_metadata(self, updates: dict[str, Any], retries: int = 3) -> None:
+        """Merge ``updates`` into this version's stored metadata, re-reading and trying again when another writer
+        changed it meanwhile."""
+        from agent_env.artifact.store import get_artifact_store
+        from agent_env.store.base import ConcurrentModificationError
+
+        if self.version < 1:
+            raise ValueError(f"artifact {self.id!r} isn't stored yet, so it has no metadata to update")
+        store, metadata = get_artifact_store(), self.metadata
+        for attempt in range(retries + 1):
+            try:
+                self.metadata = store.update_metadata(self.id, self.version, metadata, {**metadata, **updates})
+                return
+            except ConcurrentModificationError:
+                if attempt == retries:
+                    raise
+                metadata = store.get(self.id, self.version).metadata
+
+    @classmethod
+    def from_toml(cls, data: dict[str, Any], ctx: AuthoringContext) -> Self:
+        """Write the artifact authored as ``data`` (its toml, with the keys ``toml_refs`` declares
+        resolved to ids) under ``ctx.id`` and return it. The default suits a type that is only a
+        document; one whose ``put`` uploads files or images overrides this."""
+        fields = {key: value for key, value in data.items() if key not in ("id", "type", "version")}
+        return cls.put(id=ctx.id, **fields)
+
+    @classmethod
+    def written_besides(cls, ctx: AuthoringContext) -> tuple[FolderChild, ...]:
+        """The artifacts ``from_toml`` writes from the entry's folder besides ``ctx.id``, which a bundle checks
+        before anything is written: none, unless a type writing others too overrides this to name them. Raises
+        BundleError when the folder can't be read."""
+        return ()
+
+    @classmethod
+    def query(cls) -> "ArtifactQuery":
+        from agent_env.artifact.store import ArtifactQuery, get_artifact_store
+
+        return ArtifactQuery(get_artifact_store())

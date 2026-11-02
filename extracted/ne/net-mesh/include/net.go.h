@@ -1,0 +1,2122 @@
+/*
+ * Net C API Header
+ *
+ * High-performance event bus for AI runtime workloads.
+ * This header provides C-compatible bindings for use with CGO.
+ */
+
+#ifndef NET_SDK_H
+#define NET_SDK_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Opaque handle to the event bus */
+typedef void* net_handle_t;
+
+/*
+ * Error codes.
+ *
+ * Kept in sync with the Rust-side `NetError` enum and the
+ * canonical `include/net.h`. The library has a regression test
+ * that scans both headers to detect drift.
+ */
+typedef enum {
+    NET_SUCCESS = 0,
+    NET_ERR_NULL_POINTER = -1,
+    NET_ERR_INVALID_UTF8 = -2,
+    NET_ERR_INVALID_JSON = -3,
+    NET_ERR_INIT_FAILED = -4,
+    NET_ERR_INGESTION_FAILED = -5,
+    NET_ERR_POLL_FAILED = -6,
+    NET_ERR_BUFFER_TOO_SMALL = -7,
+    NET_ERR_SHUTTING_DOWN = -8,
+    /* Response byte count exceeds c_int::MAX. */
+    NET_ERR_INT_OVERFLOW = -9,
+    /* Stream handle does not belong to the supplied node. */
+    NET_ERR_MISMATCHED_HANDLES = -10,
+    /* CString::new interior NUL — see net.h for full rationale. */
+    NET_ERR_INTERIOR_NUL = -11,
+    /* Parsed but semantically unusable input (e.g. a scope filter with an
+     * unknown kind or an empty required selector) — see net.h. */
+    NET_ERR_INVALID_ARGUMENT = -12,
+    NET_ERR_UNKNOWN = -99,
+    /* CortEX / RedEX surface (compiled when the Rust cdylib has
+     * `netdb` + `redex-disk` features on). Codes below -99 so they
+     * don't collide with the event-bus surface above. */
+    NET_ERR_CORTEX_CLOSED = -100,
+    NET_ERR_CORTEX_FOLD = -101,
+    NET_ERR_NETDB = -102,
+    NET_ERR_REDEX = -103,
+    /* Mesh / channel surface (compiled when the Rust cdylib has the
+     * `net` feature on). */
+    /* The stream already has a receiver (net_mesh_open_stream_inbox):
+     * one inbox per stream id per node. */
+    NET_ERR_MESH_STREAM_OCCUPIED = -109,
+    NET_ERR_MESH_INIT = -110,
+    NET_ERR_MESH_HANDSHAKE = -111,
+    NET_ERR_MESH_BACKPRESSURE = -112,
+    NET_ERR_MESH_NOT_CONNECTED = -113,
+    NET_ERR_MESH_TRANSPORT = -114,
+    NET_ERR_CHANNEL = -115,
+    NET_ERR_CHANNEL_AUTH = -116,
+    /* Stream handle names a session incarnation the peer no longer has.
+     * Distinct from NET_ERR_MESH_NOT_CONNECTED: the peer is connected and
+     * the stream id may be open on its successor session, which the handle
+     * does not own. Re-open; retrying the handle cannot succeed. */
+    NET_ERR_MESH_SESSION_SUPERSEDED = -117,
+    /* One payload in the batch is larger than what this stream can
+     * carry to this peer. Nothing was sent. Not a transport fault and
+     * not retryable: no receive path accepts an over-cap packet, so
+     * the payload must be split by the caller.
+     *
+     * The refused event's length and the limit that applied come back
+     * in the send call's `out_size` / `out_limit`, which are written
+     * only for this code. Do not reconstruct them: the limit is
+     * per-peer (`net_mesh_max_event_size()` for a peer that does not
+     * reassemble fragments, the eight-packet fragmentation ceiling for
+     * one that does), and the refused element of a batch is not
+     * necessarily its first one above `net_mesh_max_event_size()`. No
+     * send function returns a detail string — earlier revisions of
+     * this comment promised one that never existed. */
+    NET_ERR_MESH_EVENT_TOO_LARGE = -118,
+    /* Identity + permission-token surface (compiled when the Rust
+     * cdylib has the `net` feature on). Codes below -119 — one per
+     * `TokenError` kind so Go callers can `errors.Is` without
+     * parsing strings. Mirrors the PyO3 / NAPI prefix conventions
+     * (`"identity: ..."` / `"token: <kind>"`). */
+    NET_ERR_IDENTITY = -120,
+    NET_ERR_TOKEN_INVALID_FORMAT = -121,
+    NET_ERR_TOKEN_INVALID_SIGNATURE = -122,
+    NET_ERR_TOKEN_EXPIRED = -123,
+    NET_ERR_TOKEN_NOT_YET_VALID = -124,
+    NET_ERR_TOKEN_DELEGATION_EXHAUSTED = -125,
+    NET_ERR_TOKEN_DELEGATION_NOT_ALLOWED = -126,
+    NET_ERR_TOKEN_NOT_AUTHORIZED = -127,
+    /* Capability announce / find_nodes errors. Wraps core
+     * `AdapterError` when announcement dispatch fails. */
+    NET_ERR_CAPABILITY = -128,
+    /* net_mesh_start started nothing: an accept() was mid-handshake,
+     * and starting the receive loop then would race the responder.
+     * The node is left stopped (it would send but never receive).
+     * Retryable: call net_mesh_start again once the accept() returns. */
+    NET_ERR_MESH_START_REFUSED = -129,
+    /* NAT-traversal surface (compiled when the Rust cdylib has
+     * the `nat-traversal` feature on). Codes mirror core
+     * `TraversalError` variants — one integer per `kind` so Go
+     * callers can `errors.Is(err, net.ErrTraversalPunchFailed)`.
+     * Framing (plan §5): every traversal error is a missed
+     * optimization, not a connectivity failure — the routed-
+     * handshake path is always available. */
+    NET_ERR_TRAVERSAL_REFLEX_TIMEOUT = -130,
+    NET_ERR_TRAVERSAL_PEER_NOT_REACHABLE = -131,
+    NET_ERR_TRAVERSAL_TRANSPORT = -132,
+    NET_ERR_TRAVERSAL_RENDEZVOUS_NO_RELAY = -133,
+    NET_ERR_TRAVERSAL_RENDEZVOUS_REJECTED = -134,
+    NET_ERR_TRAVERSAL_PUNCH_FAILED = -135,
+    NET_ERR_TRAVERSAL_PORT_MAP_UNAVAILABLE = -136,
+    NET_ERR_TRAVERSAL_UNSUPPORTED = -137
+} net_error_t;
+
+/* Watch / tail cursor status codes. Returned from net_*_next functions
+ * instead of the negative error scheme; positive to distinguish
+ * "no event available" from an actual failure. */
+#define NET_STREAM_TIMEOUT 1
+#define NET_STREAM_ENDED   2
+
+/*
+ * Initialize a new event bus with optional JSON configuration.
+ *
+ * @param config_json JSON configuration string (UTF-8, null-terminated), or NULL for defaults.
+ * @return Handle to the event bus, or NULL on failure.
+ *
+ * Example config:
+ * {
+ *   "num_shards": 8,
+ *   "ring_buffer_capacity": 1048576,
+ *   "backpressure_mode": "DropOldest"
+ * }
+ */
+net_handle_t net_init(const char* config_json);
+
+/*
+ * Ingest a single event (parses JSON).
+ *
+ * @param handle Event bus handle.
+ * @param event_json JSON event string.
+ * @param len Length of the event string.
+ * @return 0 on success, negative error code on failure.
+ */
+int net_ingest(net_handle_t handle, const char* event_json, size_t len);
+
+/*
+ * Ingest a raw JSON string (fastest path, no parsing).
+ *
+ * @param handle Event bus handle.
+ * @param json JSON string.
+ * @param len Length of the JSON string.
+ * @return 0 on success, negative error code on failure.
+ */
+int net_ingest_raw(net_handle_t handle, const char* json, size_t len);
+
+/*
+ * Ingest multiple raw JSON strings in a batch.
+ *
+ * @param handle Event bus handle.
+ * @param jsons Array of pointers to JSON strings.
+ * @param lens Array of lengths for each JSON string.
+ * @param count Number of events.
+ * @return Number of successfully ingested events.
+ */
+int net_ingest_raw_batch(
+    net_handle_t handle,
+    const char** jsons,
+    const size_t* lens,
+    size_t count
+);
+
+/*
+ * Ingest multiple events from a JSON array.
+ *
+ * @param handle Event bus handle.
+ * @param events_json JSON array of events.
+ * @return Number of ingested events, or negative error code.
+ */
+int net_ingest_batch(net_handle_t handle, const char* events_json);
+
+/*
+ * Poll events from the bus.
+ *
+ * @param handle Event bus handle.
+ * @param request_json JSON request (e.g., {"limit": 100}).
+ * @param out_buffer Output buffer for JSON response.
+ * @param buffer_len Size of output buffer.
+ * @return Bytes written on success, negative error code on failure.
+ */
+int net_poll(
+    net_handle_t handle,
+    const char* request_json,
+    char* out_buffer,
+    size_t buffer_len
+);
+
+/*
+ * Get event bus statistics.
+ *
+ * @param handle Event bus handle.
+ * @param out_buffer Output buffer for JSON statistics.
+ * @param buffer_len Size of output buffer.
+ * @return Bytes written on success, negative error code on failure.
+ */
+int net_stats(net_handle_t handle, char* out_buffer, size_t buffer_len);
+
+/*
+ * Flush pending batches to the adapter.
+ *
+ * @param handle Event bus handle.
+ * @return 0 on success, negative error code on failure.
+ */
+int net_flush(net_handle_t handle);
+
+/*
+ * Get the number of shards.
+ *
+ * @param handle Event bus handle.
+ * @return Number of shards, or 0 if handle is null.
+ */
+uint16_t net_num_shards(net_handle_t handle);
+
+/*
+ * Shut down the event bus and free resources.
+ *
+ * @param handle Event bus handle (invalid after this call).
+ * @return 0 on success, negative error code on failure.
+ */
+int net_shutdown(net_handle_t handle);
+
+/*
+ * Get the library version.
+ *
+ * @return Version string (static, do not free).
+ */
+const char* net_version(void);
+
+/*
+ * Generate a new Net keypair (requires Net feature).
+ *
+ * @return JSON string with hex-encoded public_key and secret_key,
+ *         or NULL if Net is not enabled. Caller must free with net_free_string.
+ */
+char* net_generate_keypair(void);
+
+/*
+ * Free a string returned by Net functions.
+ *
+ * @param s String to free (may be NULL).
+ */
+void net_free_string(char* s);
+
+/* =========================================================================
+ * RedEX / CortEX / NetDb surface.
+ *
+ * Moved into the dedicated `net_cortex.h` header so C consumers who only
+ * want this slice of `libnet` (without the rest of `net.go.h`'s mesh /
+ * compute / capability surface) can include it standalone. The previous
+ * inline declarations stayed here through v0.16; the split lands in v0.17.
+ *
+ * `net_cortex.h` is self-contained — depends only on `<stdint.h>` and
+ * `<stddef.h>`. Symbols resolve when the cdylib is built with
+ * `--features "netdb redex-disk"`.
+ * ========================================================================= */
+#include "net_cortex.h"
+
+/* =========================================================================
+ * Redis Streams consumer-side dedup helper (`redis` feature).
+ *
+ * Mirrors `net::adapter::RedisStreamDedup` and the cross-language
+ * wrappers in the Node / Python SDKs. The Redis adapter writes a
+ * stable `dedup_id` field on every XADD entry
+ * (`"{producer_nonce:hex}:{shard_id}:{sequence_start}:{i}"`); this
+ * helper filters duplicates whose `dedup_id`s repeat — handling the
+ * producer-side `MULTI/EXEC`-timeout race that lands two stream
+ * entries for one logical event.
+ *
+ * Each handle wraps an LRU-bounded set of seen ids; the LRU is
+ * mutex-protected so concurrent calls from multiple goroutines /
+ * threads are safe but serialize. Production callers typically
+ * instantiate one helper per consumer goroutine and key on the
+ * `dedup_id` field they extract from each `XRANGE` / `XREAD`
+ * entry. See `bindings/go/README.md` and the Python / Node SDK
+ * READMEs for runnable examples.
+ * ========================================================================= */
+
+typedef struct net_redis_dedup_s net_redis_dedup_t;
+
+/* Create a new dedup helper. `capacity == 0` selects the default
+ * (4096); production callers should size to their dedup window
+ * (consumer at ~10k events/sec with a 1 min window: ~600,000).
+ * Never returns NULL. Free with `net_redis_dedup_free`.
+ */
+net_redis_dedup_t* net_redis_dedup_new(size_t capacity);
+
+/* Free a helper handle. NULL is a no-op. */
+void net_redis_dedup_free(net_redis_dedup_t* handle);
+
+/* Test-and-insert. Returns:
+ *    1 — duplicate (caller should skip the entry)
+ *    0 — new       (caller should process AND we've now marked it seen)
+ *   -1 — NULL handle or NULL dedup_id
+ *   -2 — invalid UTF-8 in dedup_id
+ */
+int net_redis_dedup_is_duplicate(net_redis_dedup_t* handle, const char* dedup_id);
+
+/* Number of distinct ids currently tracked. Returns 0 on NULL
+ * handle (mirrors the "no ids" semantic).
+ */
+size_t net_redis_dedup_len(net_redis_dedup_t* handle);
+
+/* Configured maximum capacity. Returns 0 on NULL handle. */
+size_t net_redis_dedup_capacity(net_redis_dedup_t* handle);
+
+/* Returns 1 if no ids are tracked, 0 if the helper has at least
+ * one id, -1 on NULL handle.
+ */
+int net_redis_dedup_is_empty(net_redis_dedup_t* handle);
+
+/* Clear all tracked ids. Use after a consumer-group rebalance.
+ * NULL is a no-op.
+ */
+void net_redis_dedup_clear(net_redis_dedup_t* handle);
+
+/* =========================================================================
+ * Mesh transport (`net` feature).
+ *
+ * Encrypted UDP mesh: handshake, per-peer streams, channels (named
+ * pub/sub), shard receive. Mirrors the Rust SDK's `Mesh` type; not
+ * full parity with the core `MeshNode`.
+ *
+ * Strings returned via `char**` are heap-allocated and must be freed
+ * with `net_free_string`.
+ * ========================================================================= */
+
+typedef struct net_meshnode_s    net_meshnode_t;
+typedef struct net_mesh_stream_s net_mesh_stream_t;
+typedef struct net_mesh_stream_inbox_s net_mesh_stream_inbox_t;
+
+/* ---- Lifecycle ---- */
+
+/* Open a mesh node. `config_json`:
+ *   { "bind_addr": "127.0.0.1:9000",
+ *     "psk_hex":   "<64 hex chars>",
+ *     "heartbeat_ms":        5000,      // optional
+ *     "session_timeout_ms":  30000,     // optional
+ *     "num_shards":          4 }        // optional
+ */
+int      net_mesh_new(const char* config_json, net_meshnode_t** out);
+void     net_mesh_free(net_meshnode_t* handle);
+int      net_mesh_shutdown(net_meshnode_t* handle);
+
+/* ---- Identity + handshake ---- */
+
+int      net_mesh_public_key_hex(net_meshnode_t* handle,
+                                 char** out_hex, size_t* out_len);
+uint64_t net_mesh_node_id(net_meshnode_t* handle);
+
+int      net_mesh_connect(net_meshnode_t* handle,
+                          const char* peer_addr,
+                          const char* peer_pubkey_hex,
+                          uint64_t peer_node_id);
+int      net_mesh_accept(net_meshnode_t* handle,
+                         uint64_t peer_node_id,
+                         char** out_addr, size_t* out_len);
+/* Idempotent: 0 when the node is running afterwards (this call or an
+ * earlier one started it). NET_ERR_MESH_START_REFUSED when nothing was
+ * started; see that code. */
+int      net_mesh_start(net_meshnode_t* handle);
+
+/* ---- Gang-claim resource-island scheduler ----
+ *
+ * Resource-agnostic: an island is a co-located pool of exclusive units
+ * (a GPU NVLink domain is the motivating instance). GPU specifics ride
+ * plain capability tags, e.g. "gpu:h100" / "model:<hex>".
+ *
+ * `criteria_json` (host match: tags_*; island resident match: require_*):
+ *   { "tags_all": ["gpu:h100"],   // host must carry ALL (AND)
+ *     "tags_any": ["zone:a","zone:b"], // host carries >=1 (OR), optional
+ *     "tag_groups_all": [["a","b"],["c"]], // >=1 per group (AND of ORs), opt
+ *     "region": "us-east-1",      // host network-locality (subnet/zone), opt
+ *     "min_units": 8,             // optional
+ *     "max_load": 0.8,           // optional (0.0..=1.0)
+ *     "max_p50_latency_us": 5000, // optional
+ *     "require_all": ["model:2a"],  // island resident tags, ALL (AND), opt
+ *     "require_any": ["model:2a","model:2b"], // resident, >=1 (OR), opt
+ *     "selection": "least_loaded",// least_loaded|pack|load_band|lowest_id
+ *     "load_band_target": 0.5,    // for the load_band policy
+ *     "prefer_capability": "model:2a" } // optional (soft affinity tag)
+ * `record_json`:
+ *   { "id": 1, "units": [0,1,2,3], "capabilities": ["model:2a"],
+ *     "load": 0.1, "p50_latency_us": 800 }   // host forced to this node
+ *
+ * reserve/release write the outcome to *out_outcome: 0 = won, 1 = lost.
+ */
+#define NET_ERR_GANG_INVALID  -140  /* bad or unparseable criteria / record JSON */
+
+int      net_mesh_publish_island_topology(net_meshnode_t* handle,
+                                          const char* record_json,
+                                          size_t* out_count);
+int      net_mesh_match_islands(net_meshnode_t* handle,
+                                const char* criteria_json,
+                                uint64_t* out_ids, size_t cap,
+                                size_t* out_count);
+int      net_mesh_reserve_island(net_meshnode_t* handle, uint64_t island,
+                                 uint64_t until_unix_us, int* out_outcome);
+int      net_mesh_release_island(net_meshnode_t* handle, uint64_t island,
+                                 int* out_outcome);
+int      net_mesh_claim_island(net_meshnode_t* handle,
+                               const char* criteria_json,
+                               uint64_t until_unix_us,
+                               int* out_found, uint64_t* out_island);
+
+/* ---- Per-peer streams ---- */
+
+/* `config_json`:
+ *   { "reliability": "reliable" | "fire_and_forget",
+ *     "window_bytes":    65536,
+ *     "fairness_weight": 1 }
+ * May be NULL for defaults.
+ */
+int      net_mesh_open_stream(net_meshnode_t* handle,
+                              uint64_t peer_node_id,
+                              uint64_t stream_id,
+                              const char* config_json,
+                              net_mesh_stream_t** out_stream);
+void     net_mesh_stream_free(net_mesh_stream_t* handle);
+
+/* Close the underlying core stream, then free the handle.
+ *
+ * `net_mesh_stream_free` above only drops the FFI handle; core stream
+ * state survives until node shutdown. Use this to release it eagerly,
+ * to enforce a close/reopen epoch, or to reopen the same stream id
+ * under a new configuration — without it the original "first open
+ * wins" config stays in force for the life of the node.
+ *
+ * Returns 0 on success or a negative NET_ERR_* code. The handle is
+ * freed either way, including on a refusal. Null your handle
+ * afterwards; calling it or net_mesh_stream_free twice on the same
+ * pointer is undefined.
+ *
+ * Returns NET_ERR_MESH_SESSION_SUPERSEDED when the peer's session was
+ * replaced since the handle was opened: the stream id may be live on
+ * the successor session and closing it is not this handle's to do. */
+int      net_mesh_close_stream(net_mesh_stream_t* handle);
+
+/* ---- Stream inbox: stream events WITH their authenticated sender ----
+ *
+ * `net_mesh_recv_shard` returns events without a sender. An inbox
+ * receives every event on one stream id, from any peer, with the peer
+ * whose session authenticated it — the receive path for anything that
+ * decides by who is asking (a native host serving the browser store).
+ *
+ * open:    0, or NET_ERR_MESH_STREAM_OCCUPIED if the stream already has
+ *          a receiver. At most `capacity` events wait (0 means 1); more
+ *          are dropped and counted, never blocking the mesh.
+ * recv:    1 = an event: `*out_from_node`, `*out_buf`, `*out_len`
+ *          written; release the buffer with net_free_bytes(buf, len)
+ *          (NULL/0 for an empty payload). 0 = timeout or closed, nothing
+ *          written. Negative = NET_ERR_*.
+ * close:   stop receiving without freeing; a waiting recv returns 0.
+ * free:    close and release. Null your handle afterwards.
+ */
+int      net_mesh_open_stream_inbox(net_meshnode_t* handle,
+                                    uint64_t stream_id,
+                                    uint32_t capacity,
+                                    net_mesh_stream_inbox_t** out_inbox);
+int      net_mesh_stream_inbox_recv(net_mesh_stream_inbox_t* inbox,
+                                    uint32_t timeout_ms,
+                                    uint64_t* out_from_node,
+                                    uint8_t** out_buf,
+                                    size_t* out_len);
+uint64_t net_mesh_stream_inbox_dropped(net_mesh_stream_inbox_t* inbox);
+int      net_mesh_stream_inbox_close(net_mesh_stream_inbox_t* inbox);
+void     net_mesh_stream_inbox_free(net_mesh_stream_inbox_t* inbox);
+
+/* The stream id a label names — the browser leaf's derivation. Any
+ * UTF-8 string is a label. Returns 0 and writes `*out_id`. */
+int      net_stream_id_from_label(const char* label, uint64_t* out_id);
+
+/* Send a batch of payloads on an open stream.
+ *
+ * `payloads` is a pointer to an array of `count` byte-pointers;
+ * `lens` is the parallel array of lengths. Borrowed for the call
+ * duration only — caller owns the memory. Pass `node_handle` so the
+ * FFI can reach the owning runtime without creating a global index.
+ *
+ * Returns `NET_ERR_MESH_BACKPRESSURE` when the window is full,
+ * `NET_ERR_MESH_NOT_CONNECTED` when the peer is gone,
+ * `NET_ERR_MESH_SESSION_SUPERSEDED` when the peer's session was
+ * replaced since this handle was opened,
+ * `NET_ERR_MESH_EVENT_TOO_LARGE` when one payload exceeds what this
+ * stream can carry to this peer (nothing is sent), and
+ * `NET_ERR_MESH_TRANSPORT` for other I/O errors.
+ *
+ * `out_size` and `out_limit` report the refused event's length and
+ * the limit that applied to it. They are written IF AND ONLY IF the
+ * return value is `NET_ERR_MESH_EVENT_TOO_LARGE`; on every other
+ * outcome, success included, they are untouched, so check the code
+ * before reading them. Either may be NULL for "do not report that
+ * half".
+ *
+ * Neither number is derivable by the caller, which is why they are
+ * here. The limit is per-peer: `net_mesh_max_event_size()` for a
+ * peer that does not reassemble fragments, and the eight-packet
+ * fragmentation ceiling for one that does. The size is whichever
+ * element the send path refused, which in a batch is not
+ * necessarily the first one above `net_mesh_max_event_size()`.
+ */
+int      net_mesh_send(net_mesh_stream_t* stream,
+                       const uint8_t* const* payloads,
+                       const size_t* lens,
+                       size_t count,
+                       net_meshnode_t* node_handle,
+                       size_t* out_size,
+                       size_t* out_limit);
+int      net_mesh_send_with_retry(net_mesh_stream_t* stream,
+                                  const uint8_t* const* payloads,
+                                  const size_t* lens,
+                                  size_t count,
+                                  uint32_t max_retries,
+                                  net_meshnode_t* node_handle,
+                                  size_t* out_size,
+                                  size_t* out_limit);
+int      net_mesh_send_blocking(net_mesh_stream_t* stream,
+                                const uint8_t* const* payloads,
+                                const size_t* lens,
+                                size_t count,
+                                net_meshnode_t* node_handle,
+                                size_t* out_size,
+                                size_t* out_limit);
+
+/* The largest single event ONE PACKET can carry, in bytes:
+ * MAX_PAYLOAD_SIZE minus the event frame's 4-byte length prefix.
+ *
+ * This is the bound a peer that does not reassemble fragments is
+ * held to — every UDP peer, and every RTC peer that has not
+ * advertised fragment reassembly — so it is the limit most
+ * NET_ERR_MESH_EVENT_TOO_LARGE refusals name. It is not every
+ * refusal's limit: a peer that does reassemble is held to the
+ * eight-packet fragmentation ceiling instead. Read the limit that
+ * actually applied from the send call's `out_limit`; this accessor
+ * is for sizing a payload BEFORE sending, when there is no refusal
+ * to read.
+ *
+ * Query it once — it cannot change for the life of the loaded
+ * library, needs no node or stream, and never returns 0. It admits
+ * nothing: the refusal remains inside the send path.
+ */
+size_t   net_mesh_max_event_size(void);
+
+/* Stream stats — JSON shape mirrors `StreamStats`. Writes `null` to
+ * *out_json when the stream isn't open. */
+int      net_mesh_stream_stats(net_meshnode_t* handle,
+                               uint64_t peer_node_id,
+                               uint64_t stream_id,
+                               char** out_json, size_t* out_len);
+
+/* ---- Shard receive ----
+ *
+ * Drain up to `limit` events from shard `shard_id`. Output is a JSON
+ * array of {id, payload_b64, insertion_ts, shard_id}.
+ */
+int      net_mesh_recv_shard(net_meshnode_t* handle,
+                             uint16_t shard_id, uint32_t limit,
+                             char** out_json, size_t* out_len);
+
+/* ---- Channels ----
+ *
+ * `config_json`:
+ *   { "name": "sensors/temp",
+ *     "visibility": "global" | "subnet-local" | "parent-visible" | "exported",
+ *     "reliable":      false,
+ *     "require_token": false,
+ *     "token_roots":   ["<64 hex chars>", ...],
+ *     "priority":      0,
+ *     "max_rate_pps":  1000,
+ *     "publish_caps":   { ... CapabilityFilter ... },   // Stage G-4
+ *     "subscribe_caps": { ... CapabilityFilter ... } }  // Stage G-4
+ *
+ * `token_roots` are hex-encoded 32-byte entity ids whose signature may
+ * root a presented token chain. Required whenever `require_token` is
+ * true: core rejects every authorization when token enforcement is on
+ * and no roots are installed, so `require_token` alone does not give
+ * you a token-gated channel — it gives you a permanently closed one.
+ */
+int      net_mesh_register_channel(net_meshnode_t* handle, const char* config_json);
+int      net_mesh_subscribe_channel(net_meshnode_t* handle,
+                                    uint64_t publisher_node_id,
+                                    const char* channel);
+
+/* Subscribe with a serialized `PermissionToken` (169 bytes) attached.
+ * A full `TokenChain` is a different shape — `1 + count * 169` bytes —
+ * and is not accepted here.
+ * Required when the publisher set `require_token=true`, or when the
+ * subscriber's announced caps don't satisfy `subscribe_caps`. Parses
+ * the token client-side — malformed bytes return
+ * `NET_ERR_TOKEN_INVALID_FORMAT` with no network I/O. Signature
+ * tampering is caught server-side and surfaces as
+ * `NET_ERR_CHANNEL_AUTH`. */
+int      net_mesh_subscribe_channel_with_token(net_meshnode_t* handle,
+                                               uint64_t publisher_node_id,
+                                               const char* channel,
+                                               const uint8_t* token,
+                                               size_t token_len);
+
+int      net_mesh_unsubscribe_channel(net_meshnode_t* handle,
+                                      uint64_t publisher_node_id,
+                                      const char* channel);
+/* Publish one payload to every subscriber. `config_json`:
+ *   { "reliability": "reliable" | "fire_and_forget",
+ *     "on_failure":  "best_effort" | "fail_fast" | "collect",
+ *     "max_inflight": 32 }
+ * May be NULL. Writes a JSON `PublishReport` to `*out_json`. */
+int      net_mesh_publish(net_meshnode_t* handle,
+                          const char* channel,
+                          const uint8_t* payload, size_t len,
+                          const char* config_json,
+                          char** out_json, size_t* out_len);
+
+/* =========================================================================
+ * Identity + permission tokens (Stage G — security surface).
+ *
+ * `net_identity_t` is an opaque handle bundling an ed25519 keypair
+ * with a local token cache. Free with `net_identity_free`. Binary
+ * buffers returned as `uint8_t**` + `size_t*` are heap-allocated by
+ * Rust and must be released with `net_free_bytes(ptr, len)` — do NOT
+ * use `net_free_string` on them (CString-only).
+ * ========================================================================= */
+
+typedef struct net_identity_s net_identity_t;
+
+/* Free a byte buffer returned by any `net_*` function that returns
+ * raw token / entity-id bytes through `uint8_t**`. Uses `len` to
+ * reconstruct the Vec — pass the exact length returned via the
+ * matching `size_t*` out-param. No-op on NULL / len=0. */
+void     net_free_bytes(uint8_t* ptr, size_t len);
+
+/* Lifecycle + seed round-trip */
+int      net_identity_generate(net_identity_t** out_handle);
+int      net_identity_from_seed(const uint8_t* seed, size_t seed_len,
+                                net_identity_t** out_handle);
+void     net_identity_free(net_identity_t* handle);
+
+/* Writes the 32-byte ed25519 seed into `out[32]`. Caller owns the
+ * buffer — treat the bytes as secret material. */
+int      net_identity_to_seed(net_identity_t* handle, uint8_t* out);
+
+/* --- Issuer generation + durable issuer state -------------------------
+ *
+ * A token carries the credential epoch of the identity that signed it,
+ * and a verifier rejects it once its revocation floor for that issuer
+ * exceeds the epoch. That is only usable if an issuer can restart still
+ * knowing which epoch it is on, and the 32-byte seed above cannot carry
+ * one: `net_identity_from_seed` comes back at generation zero, which
+ * for an issuer that has already published floor N means it can mint
+ * nothing a verifier will accept.
+ *
+ * Persisted state layout (identical in every binding):
+ *
+ *     offset  size  field
+ *          0     1  version (currently 1)
+ *          1    32  ed25519 seed
+ *         33     4  issuer generation, uint32 little-endian
+ */
+
+#define NET_IDENTITY_STATE_SIZE 37
+
+/* Returns the size this build writes. Compare against
+ * NET_IDENTITY_STATE_SIZE at startup if you want a stale header to
+ * fail loudly rather than under-allocate a buffer. */
+size_t   net_identity_state_size(void);
+
+/* This issuer's current credential epoch. Returns 0 for a NULL or
+ * shutting-down handle — indistinguishable from a genuine zero, which
+ * is the epoch that claims the least. */
+uint32_t net_identity_generation(net_identity_t* handle);
+
+/* The same key at a later generation, as a NEW handle. The input is
+ * unchanged; free both. `next` equal to the current generation is
+ * accepted and idempotent at every generation, UINT32_MAX included.
+ * Returns NET_ERR_IDENTITY when `next` is lower. There is no
+ * generation above UINT32_MAX to name, so an issuer there can
+ * re-apply but not advance; past that, rotate the identity key.
+ *
+ * Rotation order: build the generation-N handle, persist
+ * net_identity_to_state atomically and durably, distribute verifier
+ * floor N, then issue. Publishing floor N before the state is durable
+ * leaves a crashed issuer announcing a floor it cannot satisfy.
+ *
+ * The token cache is NOT shared with the source handle — two
+ * independently-freeable handles must not share one. */
+int      net_identity_at_generation(net_identity_t* handle, uint32_t next,
+                                    net_identity_t** out_handle);
+
+/* Writes NET_IDENTITY_STATE_SIZE bytes into `out`. Secret material:
+ * contains the signing seed. Encrypt at rest and write atomically. */
+int      net_identity_to_state(net_identity_t* handle, uint8_t* out);
+
+/* Restores key AND generation. Returns NET_ERR_IDENTITY on a wrong
+ * length or an unrecognized version rather than parsing what it can —
+ * a partial parse of credential state is how an issuer silently comes
+ * back on the wrong epoch. */
+int      net_identity_from_state(const uint8_t* state, size_t state_len,
+                                 net_identity_t** out_handle);
+
+/* Writes the 32-byte entity id into `out[32]`. */
+int      net_identity_entity_id(net_identity_t* handle, uint8_t* out);
+
+uint64_t net_identity_node_id(net_identity_t* handle);
+uint64_t net_identity_origin_hash(net_identity_t* handle);
+
+/* Signs `msg[len]`; writes a 64-byte ed25519 signature into `out_sig[64]`. */
+/* Verify a detached ed25519 signature against a 32-byte entity id.
+ *
+ * The verifying half of net_identity_sign. Writes 1 to *out_valid when
+ * the signature is valid for this exact (entity_id, msg) pair and 0
+ * when it is not; returns 0 on success, or a negative code only for a
+ * malformed argument. So a 0 return with *out_valid == 0 means "did
+ * not verify", never "called wrong".
+ *
+ * Strict verification — the malleable (R, S + L) signature variant is
+ * rejected, so one logical message cannot appear under two encodings.
+ *
+ * `signature_len` must be exactly 64 and `entity_id_len` exactly 32. */
+int      net_verify_signature(const uint8_t* entity_id, size_t entity_id_len,
+                              const uint8_t* msg, size_t msg_len,
+                              const uint8_t* signature, size_t signature_len,
+                              int* out_valid);
+
+int      net_identity_sign(net_identity_t* handle,
+                           const uint8_t* msg, size_t len,
+                           uint8_t* out_sig);
+
+/* Issue a token to `subject` (32 bytes). `scope_json` is a JSON
+ * array of strings: `["publish"]`, `["subscribe","delegate"]`, etc.
+ * `channel` is the canonical name (not the u16 hash). Writes a
+ * newly-allocated blob — free via `net_free_bytes`. */
+int      net_identity_issue_token(net_identity_t* signer,
+                                  const uint8_t* subject, size_t subject_len,
+                                  const char* scope_json,
+                                  const char* channel,
+                                  uint32_t ttl_seconds,
+                                  uint8_t delegation_depth,
+                                  uint8_t** out_token,
+                                  size_t* out_token_len);
+
+/* Install a token received from another issuer. Signature check
+ * runs on insert — malformed / tampered tokens return the relevant
+ * `NET_ERR_TOKEN_*` code. */
+int      net_identity_install_token(net_identity_t* handle,
+                                    const uint8_t* token, size_t len);
+
+/* Look up a cached token by `(subject, channel)`. On hit, writes a
+ * newly-allocated blob (free via `net_free_bytes`). On miss, writes
+ * NULL/0 and returns `NET_SUCCESS`. */
+int      net_identity_lookup_token(net_identity_t* handle,
+                                   const uint8_t* subject, size_t subject_len,
+                                   const char* channel,
+                                   uint8_t** out_token,
+                                   size_t* out_token_len);
+
+uint32_t net_identity_token_cache_len(net_identity_t* handle);
+
+/* Parse a serialized `PermissionToken` into a JSON dict with keys
+ * `issuer_hex`, `subject_hex`, `scope`, `channel_hash`, `not_before`,
+ * `not_after`, `delegation_depth`, `nonce`, `signature_hex`. Returns
+ * `NET_ERR_TOKEN_INVALID_FORMAT` on bad length / layout. */
+int      net_parse_token(const uint8_t* token, size_t len,
+                         char** out_json, size_t* out_len);
+
+/* Verify the token's ed25519 signature. Writes 1 (valid) or 0
+ * (tampered/wrong-subject) to `*out_ok`. Does NOT check time-bound
+ * validity — see `net_token_is_expired`. */
+int      net_verify_token(const uint8_t* token, size_t len, int* out_ok);
+
+/* Writes 1 to `*out_expired` if `not_after` has passed. */
+int      net_token_is_expired(const uint8_t* token, size_t len, int* out_expired);
+
+/* Delegate a token to a new subject. Parent must have the
+ * `delegate` scope and `delegation_depth > 0`; `signer` must be the
+ * subject of the parent. */
+int      net_delegate_token(net_identity_t* signer,
+                            const uint8_t* parent, size_t parent_len,
+                            const uint8_t* new_subject, size_t new_subject_len,
+                            const char* restricted_scope_json,
+                            uint8_t** out_token, size_t* out_token_len);
+
+/* Writes the mesh's 32-byte ed25519 entity id into `out[32]`. */
+int      net_mesh_entity_id(net_meshnode_t* handle, uint8_t* out);
+
+/* =========================================================================
+ * NAT traversal surface (compiled when the Rust cdylib has the
+ * `nat-traversal` feature on). Framing (plan §5): these APIs let
+ * the mesh upgrade to a *direct* path when the underlying NATs
+ * allow it — they are NOT required for NATed peers to
+ * communicate. The routed-handshake path reaches every peer
+ * regardless. Strings use the stable vocabulary
+ * `"open" | "cone" | "symmetric" | "unknown"`.
+ * ========================================================================= */
+
+/* Write this mesh's NAT classification into `out_str`. Caller
+ * frees via `net_free_string`. */
+int      net_mesh_nat_type(net_meshnode_t* handle,
+                           char** out_str, size_t* out_len);
+
+/* Write this mesh's last-observed reflex `ip:port`. Empty string
+ * when classification has not yet produced an observation. */
+int      net_mesh_reflex_addr(net_meshnode_t* handle,
+                              char** out_str, size_t* out_len);
+
+/* Write `peer_node_id`'s advertised NAT classification (read
+ * from its `nat:*` capability tag). Returns `"unknown"` when we
+ * have no announcement from that peer. */
+int      net_mesh_peer_nat_type(net_meshnode_t* handle,
+                                uint64_t peer_node_id,
+                                char** out_str, size_t* out_len);
+
+/* Send one reflex probe to `peer_node_id` and write the public
+ * `ip:port` the peer observed. Blocks on the shared runtime. */
+int      net_mesh_probe_reflex(net_meshnode_t* handle,
+                               uint64_t peer_node_id,
+                               char** out_str, size_t* out_len);
+
+/* Explicitly re-run the classification sweep. No-op when fewer
+ * than 2 peers are connected; never returns an error. */
+int      net_mesh_reclassify_nat(net_meshnode_t* handle);
+
+/* Fill cumulative traversal counters. Any of the out-pointers may
+ * be NULL to skip that field. Monotonic — counters never reset.
+ * Legacy 3-field surface; new callers should prefer
+ * `net_mesh_traversal_stats_v2`. */
+int      net_mesh_traversal_stats(net_meshnode_t* handle,
+                                  uint64_t* out_punches_attempted,
+                                  uint64_t* out_punches_succeeded,
+                                  uint64_t* out_relay_fallbacks);
+
+/* Full traversal-stats snapshot (stage 5). Field order, widths,
+ * and the 64-byte address buffer are ABI — matches the Rust
+ * `#[repr(C)] NetTraversalStatsV2`. `punches_failed` is derived
+ * (`attempted - succeeded`, saturating); the three cause counters
+ * (timeouts / rejections / no-relay) include pre-mediation
+ * failures and are not a partition of `punches_failed`.
+ * `port_mapping_external` is a NUL-terminated "ip:port", empty
+ * when no mapping is active. */
+typedef struct {
+    uint64_t punches_attempted;
+    uint64_t punches_succeeded;
+    uint64_t punches_failed;
+    uint64_t relay_fallbacks;
+    uint64_t punch_timeouts;
+    uint64_t punch_rejections;
+    uint64_t rendezvous_no_relay;
+    uint64_t upgrades_attempted;
+    uint64_t upgrades_succeeded;
+    uint64_t upgrades_deferred_busy;
+    uint64_t port_mapping_renewals;
+    uint8_t  port_mapping_active;
+    char     port_mapping_external[64];
+} net_traversal_stats_v2_t;
+
+/* Fill `out` with the complete traversal snapshot. Returns 0 on
+ * success. Base counters are monotonic; `punches_failed` is
+ * derived (`attempted - succeeded`) and can decrease while a
+ * punch is in flight, and `port_mapping_renewals` resets on each
+ * fresh install — difference only the base counters for rates.
+ * See the struct comment for the cause-counter semantics. */
+int      net_mesh_traversal_stats_v2(net_meshnode_t* handle,
+                                     net_traversal_stats_v2_t* out);
+
+/* Establish a session via rendezvous through `coordinator`. The
+ * pair-type matrix picks between a direct handshake and a
+ * coordinated punch. Always resolves (on punch-failed, falls
+ * back to routed). Inspect `net_mesh_traversal_stats` afterward
+ * to distinguish outcomes. */
+int      net_mesh_connect_direct(net_meshnode_t* handle,
+                                 uint64_t peer_node_id,
+                                 const char* peer_pubkey_hex,
+                                 uint64_t coordinator);
+
+/* Like `net_mesh_connect_direct`, but auto-selects the rendezvous
+ * coordinator (routing next-hop, then a relay-capable mutual
+ * peer, then any mutual peer). Punch-needing pairs with no
+ * candidate fail with NET_ERR_TRAVERSAL_RENDEZVOUS_NO_RELAY; the
+ * caller stays on the routed path. */
+int      net_mesh_connect_direct_auto(net_meshnode_t* handle,
+                                      uint64_t peer_node_id,
+                                      const char* peer_pubkey_hex);
+
+/* Install a runtime reflex override. `external` is a
+ * null-terminated "ip:port" string. Forces `nat_type` to "open"
+ * and `reflex_addr` to `external`; short-circuits any further
+ * classifier sweeps. */
+int      net_mesh_set_reflex_override(net_meshnode_t* handle,
+                                      const char* external);
+
+/* Drop a previously-installed reflex override. The classifier
+ * resumes on its normal cadence. No-op when no override is
+ * active. */
+int      net_mesh_clear_reflex_override(net_meshnode_t* handle);
+
+/* Hash a channel name to its canonical 64-bit substrate identifier
+ * (used for ACL/storage/config keys; the wire NetHeader fast-path
+ * hint is the low 16 bits of this value). */
+int      net_channel_hash(const char* channel, uint64_t* out_hash);
+
+/* =========================================================================
+ * Capabilities (announce / find_nodes).
+ *
+ * `caps_json` is the same POJO shape as PyO3 / NAPI:
+ *   { "hardware": {...}, "software": {...},
+ *     "models": [{...}], "tools": [{...}],
+ *     "tags": ["gpu", "prod"], "limits": {...} }
+ *
+ * `filter_json`:
+ *   { "require_tags": [...], "require_models": [...],
+ *     "require_tools": [...], "min_memory_gb": N,
+ *     "require_gpu": bool, "gpu_vendor": "nvidia",
+ *     "min_vram_gb": N, "min_context_length": N,
+ *     "require_modalities": [...] }
+ * ========================================================================= */
+int      net_mesh_announce_capabilities(net_meshnode_t* handle,
+                                        const char* caps_json);
+
+/* Writes a JSON array `[node_id, ...]` of matching nodes (including
+ * own node id when self-match). Free `*out_json` via `net_free_string`. */
+int      net_mesh_find_nodes(net_meshnode_t* handle,
+                             const char* filter_json,
+                             char** out_json, size_t* out_len);
+
+/* Scoped variant of `net_mesh_find_nodes`. `scope_json` is a tagged
+ * union by `kind`:
+ *   {"kind": "any"}                              — all non-SubnetLocal nodes
+ *   {"kind": "global_only"}                      — only untagged nodes
+ *   {"kind": "same_subnet"}                      — caller's subnet only
+ *   {"kind": "tenant", "tenant": "<id>"}         — that tenant + Global
+ *   {"kind": "tenants", "tenants": ["<id>", …]}  — any of those + Global
+ *   {"kind": "region", "region": "<name>"}       — that region + Global
+ *   {"kind": "regions", "regions": ["<name>", …]}— any of those + Global
+ *
+ * Untagged nodes resolve to Global and stay visible under most
+ * filters; nodes tagged `scope:subnet-local` only show up under
+ * `same_subnet`. */
+int      net_mesh_find_nodes_scoped(net_meshnode_t* handle,
+                                    const char* filter_json,
+                                    const char* scope_json,
+                                    char** out_json, size_t* out_len);
+
+/* Pick the best-scoring node for a placement requirement. Writes
+ * the winning node id to `*out_node_id` and `1` to `*out_has_match`
+ * on hit; writes `0` to `*out_has_match` on no match. Returns 0 in
+ * either case; non-zero only on input / parse error.
+ *
+ * `requirement_json` is `{"filter": <CapabilityFilter>,
+ * "prefer_more_memory": f, "prefer_more_vram": f,
+ * "prefer_faster_inference": f, "prefer_loaded_models": f}` —
+ * weights are optional and clamped to `[0.0, 1.0]`. */
+int      net_mesh_find_best_node(net_meshnode_t* handle,
+                                 const char* requirement_json,
+                                 uint64_t* out_node_id,
+                                 int* out_has_match);
+
+/* Scoped variant of `net_mesh_find_best_node`. `scope_json` accepts
+ * the same shapes as `net_mesh_find_nodes_scoped`. Picks the highest-
+ * scoring node within the scope-filtered set. Same out-param
+ * contract as `net_mesh_find_best_node`. */
+int      net_mesh_find_best_node_scoped(net_meshnode_t* handle,
+                                        const char* requirement_json,
+                                        const char* scope_json,
+                                        uint64_t* out_node_id,
+                                        int* out_has_match);
+
+/* Normalize a GPU vendor string to canonical lowercase
+ * (`"nvidia"` | `"amd"` | `"intel"` | `"apple"` | `"qualcomm"` |
+ * `"unknown"`). Writes the result via `*out` / `*out_len`; free via
+ * `net_free_string`. Matches the NAPI / PyO3 helper so every SDK
+ * produces the same wire-normalized value. */
+int      net_normalize_gpu_vendor(const char* raw,
+                                  char** out, size_t* out_len);
+
+/* Stateless predicate evaluation (Phase 9c of
+ * CAPABILITY_SYSTEM_SDK_PLAN.md). Mirrors the SDK-layer
+ * `evaluate_predicate(pred, tags, metadata)` surface every
+ * binding ships, exposed at the C ABI for raw consumers
+ * (C / C++ / Zig / Swift / Java JNI / etc.) so they can filter
+ * candidates locally without going through nRPC.
+ *
+ * Inputs are NUL-terminated UTF-8 JSON strings:
+ *   - predicate_json — wire-format `PredicateWire`.
+ *     Cross-binding compat pinned by
+ *     `tests/cross_lang_capability/predicate_eval.json`.
+ *   - tags_json      — `["hardware.gpu", "scope:tenant:foo"]`.
+ *     Reserved-prefix tags accepted (privileged Tag::parse).
+ *   - metadata_json  — `{"key":"value"}`.
+ *
+ * Returns:
+ *   1 — predicate evaluated to true.
+ *   0 — predicate evaluated to false.
+ *   NET_ERR_NULL_POINTER  — any input pointer is NULL.
+ *   NET_ERR_INVALID_UTF8  — input bytes aren't valid UTF-8.
+ *   NET_ERR_INVALID_JSON  — predicate / tags / metadata failed to
+ *                           parse, OR a tag string was malformed.
+ *
+ * Stateless. Thread-safe. Pure helper — no handle, no allocation
+ * out-params; the caller's buffers aren't retained. */
+int      net_predicate_evaluate(const char* predicate_json,
+                                const char* tags_json,
+                                const char* metadata_json);
+
+/* Encode a wire-format Predicate as the canonical
+ * `net-where:` request-header pair (Phase 9b of
+ * CAPABILITY_SYSTEM_SDK_PLAN.md). Mirror of the Go SDK's
+ * `WhereHeader` helper.
+ *
+ * The returned `(name, value)` pair drops into the
+ * `(headers_ptr, header_count)` argument of
+ * `net_rpc_call_with_headers` / `_call_service_with_headers` /
+ * `_call_streaming_with_headers` (declared in `net_rpc.h`) for
+ * end-to-end predicate pushdown.
+ *
+ * Input (NUL-terminated UTF-8 JSON):
+ *   - predicate_json — wire-format `PredicateWire`. Same shape
+ *     `net_predicate_evaluate` accepts.
+ *
+ * Outputs:
+ *   - *out_header_name/_len — `"net-where"` (always).
+ *     Free with `net_free_string`.
+ *   - *out_value_ptr/_len   — JSON-encoded PredicateWire bytes,
+ *     capped at `MAX_PREDICATE_RPC_HEADER_VALUE_LEN` (4096).
+ *     Free with `net_free_string`.
+ *
+ * Returns:
+ *   0                      — success.
+ *   NET_ERR_NULL_POINTER   — any pointer is NULL.
+ *   NET_ERR_INVALID_UTF8   — input bytes aren't valid UTF-8.
+ *   NET_ERR_INVALID_JSON   — predicate failed to parse OR
+ *                            encoded bytes exceed the 4096-byte
+ *                            header-value cap.
+ *
+ * Cross-binding wire format pinned by
+ * `tests/cross_lang_capability/predicate_nrpc_envelope.json`. */
+int      net_predicate_to_where_header(const char* predicate_json,
+                                       char** out_header_name,
+                                       size_t* out_header_name_len,
+                                       char** out_value_ptr,
+                                       size_t* out_value_len);
+
+/* Validate a wire-format `CapabilitySet` against the canonical
+ * `AXIS_SCHEMA` (Phase 9a of CAPABILITY_SYSTEM_SDK_PLAN.md).
+ * Mirrors the SDK-layer `validate_capabilities` surface every
+ * binding ships, exposed at the C ABI for raw consumers
+ * (C / C++ / Zig / Swift / Java JNI / etc.).
+ *
+ * Input is a NUL-terminated UTF-8 JSON `CapabilitySet`:
+ *   {"tags": [...], "metadata": {...}}
+ *
+ * On success writes a JSON `ValidationReport` to `*out_report_json`
+ * / `*out_report_len`, free with `net_free_string`. Wire shape:
+ *   {
+ *     "errors":   [{"kind": "<unknown_axis|type_mismatch|index_malformed>", ...}, ...],
+ *     "warnings": [{"kind": "<unknown_key|metadata_oversize|legacy_tag>", ...}, ...]
+ *   }
+ *
+ * Both arrays are sorted by JSON-stringified entry so cross-
+ * binding fixture comparisons are order-independent.
+ *
+ * Returns:
+ *   0                       — success; report written.
+ *   NET_ERR_NULL_POINTER    — any pointer is NULL.
+ *   NET_ERR_INVALID_UTF8    — input bytes aren't valid UTF-8.
+ *   NET_ERR_INVALID_JSON    — input failed to parse as a
+ *                             CapabilitySet.
+ *
+ * Stateless. Thread-safe. Cross-binding compat pinned by
+ * `tests/cross_lang_capability/capability_validation.json`. */
+int      net_validate_capabilities(const char* caps_json,
+                                   char** out_report_json,
+                                   size_t* out_report_len);
+
+/* Predicate debug-session helpers (Phase 9d of
+ * CAPABILITY_SYSTEM_SDK_PLAN.md). Three pure helpers exposing
+ * what every binding ships at the SDK layer. Cross-binding
+ * contracts pinned by:
+ *   - tests/cross_lang_capability/predicate_trace.json
+ *   - tests/cross_lang_capability/predicate_debug_report.json
+ *   - tests/cross_lang_capability/predicate_debug_report_redacted.json
+ */
+
+/* Evaluate a predicate against (tags, metadata) and produce a
+ * `ClauseTrace` tree mirroring the AST that actually ran (And /
+ * Or short-circuits drop unevaluated siblings).
+ *
+ * Inputs (NUL-terminated UTF-8 JSON):
+ *   - predicate_json — wire-format `PredicateWire`.
+ *   - tags_json      — JSON array of tag strings.
+ *   - metadata_json  — JSON object of `string -> string`.
+ *
+ * Outputs:
+ *   - *out_result    — 1 if predicate matched, 0 otherwise.
+ *   - *out_trace_json/_len — JSON `{label, result, children}`
+ *     tree. Free with `net_free_string`.
+ *
+ * Returns 0 on success, NET_ERR_* (negative) otherwise. */
+int      net_predicate_evaluate_with_trace(const char* predicate_json,
+                                           const char* tags_json,
+                                           const char* metadata_json,
+                                           int* out_result,
+                                           char** out_trace_json,
+                                           size_t* out_trace_len);
+
+/* Run `predicate` against every entry in `contexts_json` and
+ * produce a `PredicateDebugReport` aggregated across the corpus.
+ *
+ * Inputs (NUL-terminated UTF-8 JSON):
+ *   - predicate_json — wire-format `PredicateWire`.
+ *   - contexts_json  — `[{"tags":[...], "metadata":{...}}, ...]`.
+ *
+ * Output: *out_report_json/_len — JSON
+ *   {
+ *     "total_candidates": N,
+ *     "matched": M,
+ *     "clause_stats": [{"label":..., "evaluated":..., "matched":...}, ...]
+ *   }
+ * `clause_stats` sorted by label (BTreeMap iteration order on
+ * the substrate side). Free with `net_free_string`.
+ *
+ * Returns 0 on success, NET_ERR_* (negative) otherwise. */
+int      net_predicate_aggregate_debug_report(const char* predicate_json,
+                                              const char* contexts_json,
+                                              char** out_report_json,
+                                              size_t* out_report_len);
+
+/* Rewrite metadata-clause labels in a `PredicateDebugReport` to
+ * scrub sensitive values before persistence / sharing. Pure
+ * host-side: the substrate doesn't ship a redaction impl; each
+ * binding implements it. This C ABI ports the same logic as TS /
+ * Python / Go.
+ *
+ * Rules:
+ *   MetadataEquals(<key>=<value>)            → MetadataEquals(<key>=<redacted>)
+ *   MetadataMatches(<key> contains "<pat>")  → MetadataMatches(<key> contains "<redacted>")
+ *   MetadataNumericAtLeast(<key> >= <thr>)   → MetadataNumericAtLeast(<key> >= <redacted>)
+ *   MetadataExists(<key>)                    — unchanged (no value)
+ *   non-metadata labels                      — unchanged
+ *
+ * Stats with the same redacted label merge; output is sorted by
+ * label. Idempotent: redact(redact(r,k),k) == redact(r,k).
+ *
+ * Inputs (NUL-terminated UTF-8 JSON):
+ *   - report_json — wire-format `PredicateDebugReport` (output
+ *     of net_predicate_aggregate_debug_report).
+ *   - keys_json   — `["api_key", "secret_token"]`.
+ *
+ * Output: *out_redacted_json/_len — same wire shape, free with
+ * `net_free_string`.
+ *
+ * Returns 0 on success, NET_ERR_* (negative) otherwise. */
+int      net_predicate_redact_metadata_keys(const char* report_json,
+                                            const char* keys_json,
+                                            char** out_redacted_json,
+                                            size_t* out_redacted_len);
+
+/* CR-8: same redaction over a wire-format trace tree (output of
+ * net_predicate_evaluate_with_trace). Walks the tree and rewrites
+ * every `label` matching the metadata-clause shapes; preserves
+ * children order and `result` fields.
+ *
+ * Inputs (NUL-terminated UTF-8 JSON):
+ *   - trace_json — wire-format ClauseTrace (`{"label", "result",
+ *     "children": [...]}` recursively).
+ *   - keys_json  — `["api_key", "secret_token"]`.
+ *
+ * Output: *out_redacted_json/_len — same wire shape, free with
+ * `net_free_string`. Idempotent.
+ *
+ * Returns 0 on success, NET_ERR_* (negative) otherwise. */
+int      net_predicate_redact_trace_metadata_keys(const char* trace_json,
+                                                  const char* keys_json,
+                                                  char** out_redacted_json,
+                                                  size_t* out_redacted_len);
+
+/* =========================================================================
+ * Compute — MeshDaemon + migration. Stage 6 of
+ * SDK_COMPUTE_SURFACE_PLAN.md. Symbols are compiled into `libnet`;
+ * `bindings/go/compute-ffi` is an rlib linked into it and emits no
+ * library of its own. Link with `-lnet` and nothing else.
+ * ========================================================================= */
+
+/* Opaque handles. Go wrappers own the pointer lifetime via
+ * runtime.SetFinalizer — consistent with `net_meshnode_t`. */
+typedef struct net_compute_runtime_s      net_compute_runtime_t;
+typedef struct net_compute_mesh_arc_s     net_compute_mesh_arc_t;
+typedef struct net_compute_cc_arc_s       net_compute_cc_arc_t;
+
+/* Compute error codes (negative). */
+#define NET_COMPUTE_OK                   0
+#define NET_COMPUTE_ERR_NULL            -1
+#define NET_COMPUTE_ERR_CALL_FAILED     -2
+#define NET_COMPUTE_ERR_DUPLICATE_KIND  -3
+/* `_register_placement_filter`-only — surfaces when the dispatcher
+ * hasn't been installed yet via
+ * `net_compute_set_placement_filter_dispatcher`. Documented at the
+ * call site below. */
+#define NET_COMPUTE_ERR_NO_DISPATCHER   -4
+/* `_register_placement_filter`-only — `id_ptr` bytes don't decode
+ * as UTF-8. Documented at the call site below. */
+#define NET_COMPUTE_ERR_INVALID_UTF8    -5
+
+/* --- Arc<MeshNode> / Arc<ChannelConfigRegistry> accessors ---
+ *
+ * Produced by `net_mesh_*_arc_clone` (in libnet); compute-ffi's
+ * `net_compute_runtime_new` CONSUMES them. Pair each clone with
+ * either a `net_compute_runtime_new` consume-call or a matching
+ * `_free`.
+ */
+net_compute_mesh_arc_t* net_mesh_arc_clone(net_meshnode_t* handle);
+void                    net_mesh_arc_free(net_compute_mesh_arc_t* p);
+
+net_compute_cc_arc_t*   net_mesh_channel_configs_arc_clone(net_meshnode_t* handle);
+void                    net_mesh_channel_configs_arc_free(net_compute_cc_arc_t* p);
+
+/* --- Runtime lifecycle --- */
+
+/* Build a DaemonRuntime sharing the given mesh's node + channel
+ * configs. Both Arc pointers are consumed on success (do not free
+ * afterwards). Returns NULL if any input is NULL. */
+net_compute_runtime_t*  net_compute_runtime_new(
+    net_compute_mesh_arc_t* node_arc,
+    net_compute_cc_arc_t* channel_configs_arc);
+
+/* Free a runtime handle. The underlying MeshNode is untouched. */
+void                    net_compute_runtime_free(net_compute_runtime_t* handle);
+
+/* Return the monotonic, process-unique identifier assigned to this
+ * runtime by `net_compute_runtime_new`. Go uses this id to scope
+ * its factory map so two runtimes in the same process can register
+ * the same `kind` without colliding. Returns 0 on NULL input. */
+uint64_t                net_compute_runtime_id(const net_compute_runtime_t* handle);
+
+/* Transition to Ready. On failure, writes a heap-allocated char*
+ * detail to `*err_out` (free via `net_compute_free_cstring`). */
+int                     net_compute_runtime_start(
+    net_compute_runtime_t* handle,
+    char** err_out);
+
+/* Tear down the runtime. `*err_out` carries detail on failure. */
+int                     net_compute_runtime_shutdown(
+    net_compute_runtime_t* handle,
+    char** err_out);
+
+/* 1 = ready, 0 = not-ready, NET_COMPUTE_ERR_NULL on NULL handle. */
+int                     net_compute_runtime_is_ready(net_compute_runtime_t* handle);
+
+/* Number of daemons registered. Returns -1 on NULL handle. */
+int64_t                 net_compute_runtime_daemon_count(net_compute_runtime_t* handle);
+
+/* Register a placeholder kind. Enables `spawn`; migration-target
+ * reconstruction falls back to NoopBridge (migrated-in daemons on
+ * this node run as no-op). Use `net_compute_register_factory_with_func`
+ * when you need migrated-in daemons to run user code. */
+int                     net_compute_register_factory(
+    net_compute_runtime_t* handle,
+    const char* kind_ptr,
+    size_t kind_len);
+
+/* Register a kind with a Go-side factory func (the caller already
+ * stored the func in the Go-side factoryFuncs map; we install an
+ * SDK factory closure that reaches back via the dispatcher's
+ * factory trampoline on every migration-target reconstruction). */
+int                     net_compute_register_factory_with_func(
+    net_compute_runtime_t* handle,
+    const char* kind_ptr,
+    size_t kind_len);
+
+/* Free a CString returned by compute-ffi (e.g., an err_out detail). */
+void                    net_compute_free_cstring(char* s);
+
+/* --- Callback dispatcher (sub-step 2) ---
+ *
+ * Go registers four trampolines with C linkage via
+ * `net_compute_set_dispatcher` in its `init()`. Rust invokes them
+ * whenever a bridged daemon's `process` / `snapshot` / `restore`
+ * method needs to run, plus a `free` callback on daemon drop so
+ * Go can release its registry entry.
+ */
+
+typedef struct net_compute_outputs_s      net_compute_outputs_t;
+typedef struct net_compute_daemon_handle_s net_compute_daemon_handle_t;
+
+typedef int (*net_compute_process_fn)(
+    uint64_t daemon_id,
+    uint64_t origin_hash,
+    uint64_t sequence,
+    const uint8_t* payload_ptr,
+    size_t payload_len,
+    net_compute_outputs_t* outputs);
+
+typedef int (*net_compute_snapshot_fn)(
+    uint64_t daemon_id,
+    uint8_t** out_ptr,
+    size_t* out_len);
+
+typedef int (*net_compute_restore_fn)(
+    uint64_t daemon_id,
+    const uint8_t* state_ptr,
+    size_t state_len);
+
+typedef void (*net_compute_free_fn)(uint64_t daemon_id);
+
+typedef int (*net_compute_factory_fn)(
+    uint64_t runtime_id,
+    const char* kind_ptr,
+    size_t kind_len,
+    uint64_t* out_daemon_id);
+
+/* Register the deallocator for buffers the handler callbacks allocate.
+ * MUST be called before any dispatcher registration.
+ *
+ * A handler returns its response (and error string) in memory it
+ * allocated. This library copies the bytes out and then has to release
+ * them — and on Windows it cannot, because each module carries its own
+ * CRT heap and freeing across that boundary corrupts it. Confirmed
+ * under Application Verifier: StopCode 0x6, "using wrong heap", on a
+ * block that was exactly a handler response.
+ *
+ * So the allocator supplies the release. Pass a function that frees
+ * with the same allocator your handlers use.
+ *
+ * Idempotent first-call-wins. Returns 0 on success, -1 for NULL. */
+typedef void (*net_compute_callback_free_fn)(void* ptr);
+
+int                     net_compute_set_callback_free(
+    net_compute_callback_free_fn free_fn);
+
+/* Install the Go dispatcher. Call once from Go's init; second call
+ * is ignored (first registration wins). All five pointers must be
+ * non-NULL. */
+int                     net_compute_set_dispatcher(
+    net_compute_process_fn process,
+    net_compute_snapshot_fn snapshot,
+    net_compute_restore_fn restore,
+    net_compute_free_fn free,
+    net_compute_factory_fn factory);
+
+/* Push one output payload into the outputs vec. Called by Go's
+ * process trampoline. Copies `len` bytes. */
+int                     net_compute_outputs_push(
+    net_compute_outputs_t* vec,
+    const uint8_t* data,
+    size_t len);
+
+/* Free a snapshot buffer the Go side malloc'd and handed to Rust
+ * via `net_compute_snapshot_fn`. (The Rust bridge calls this after
+ * copying the bytes into its own Bytes.) Normal callers should not
+ * invoke this directly. */
+void                    net_compute_snapshot_bytes_free(uint8_t* ptr, size_t len);
+
+/* --- Daemon capability authoring (Phase 6 of
+ * CAPABILITY_SYSTEM_SDK_PLAN.md) ---
+ *
+ * Optional per-daemon capability declaration. Wires the
+ * substrate's `MeshDaemon::required_capabilities` /
+ * `optional_capabilities` (Phase G slice 2) through the C ABI.
+ *
+ * If the consumer never installs this dispatcher, daemons get
+ * empty cap sets — `StandardPlacement` treats them as "runs
+ * anywhere" and capability-driven placement decisions don't
+ * select for them. Consumers that DO install it can declare
+ * per-daemon caps so the in-tree axes (resource, intent,
+ * scope) and the hard-required check have something to work
+ * against.
+ *
+ * Wire shape: substrate calls back per `GoBridge` construction
+ * (both initial spawn AND migration-target reconstruction),
+ * passing the `daemon_id`. Consumer writes JSON-encoded
+ * `CapabilitySet`s ({tags: [...], metadata: {k:v}}) to the
+ * out-params. NULL out-pointer / zero len means "no caps
+ * declared for this side"; either side may be omitted
+ * independently. Buffers MUST be allocated via `C.malloc` /
+ * `libc::malloc` so Rust can release them via `libc::free`
+ * after parsing.
+ *
+ * Idempotent: invoked once per bridge construction, parsed once
+ * into a `CapabilitySet`, stored on the bridge for the daemon's
+ * lifetime. No re-call on event processing.
+ */
+
+typedef int (*net_compute_daemon_caps_fn)(
+    uint64_t daemon_id,
+    char** out_required_json, size_t* out_required_len,
+    char** out_optional_json, size_t* out_optional_len);
+
+/* Install the optional daemon-caps dispatcher. First-call-wins
+ * (matches `_set_dispatcher` semantics). Returns NET_COMPUTE_OK
+ * on success, NET_COMPUTE_ERR_NULL on NULL pointer. */
+int                     net_compute_set_daemon_caps_dispatcher(
+    net_compute_daemon_caps_fn dispatcher);
+
+/* --- Custom PlacementFilter callback (Phase 7 of
+ * CAPABILITY_SYSTEM_SDK_PLAN.md) ---
+ *
+ * Custom predicate hook for `StandardPlacement.custom_filter_id`.
+ * The substrate calls back into the consumer (Go / language X)
+ * once per candidate when scoring a placement decision. Return
+ * `1` keeps the candidate, `0` drops it, negative is treated as
+ * veto + the consumer is responsible for logging detail.
+ *
+ * Wire shape: substrate marshals each candidate as JSON
+ * `{"node_id": uint64, "tags": [string], "metadata": map}`
+ * — keeps the C ABI tight (one byte buffer per call) at the
+ * cost of a per-call serde roundtrip on the consumer side. The
+ * removed Go reference impl (S7 ledger, GO_BINDING_CONSOLIDATION_AND_BLOBS_PLAN.md)
+ * decodes inside the trampoline before invoking the user
+ * predicate; non-Go consumers parse the JSON the same way. The
+ * filter id and JSON buffers are owned by Rust for the call's
+ * duration only — copy them on the consumer side if needed.
+ *
+ * Lifecycle: call `_set_placement_filter_dispatcher` ONCE at
+ * process init (first-call-wins; subsequent calls are no-ops).
+ * Then `_register_placement_filter(mesh_arc, id_ptr, id_len)`
+ * for each filter; daemons spec'd with the matching id route
+ * scoring through the dispatcher. Counter
+ * `dataforts_placement_callback_invocations_total{binding}`
+ * increments per scoring call (binding label set by the consumer
+ * SDK at register-time on the Rust side).
+ *
+ * Compatible with `_set_dispatcher` above — the placement filter
+ * dispatcher is independent. */
+
+typedef int (*net_compute_placement_filter_fn)(
+    const char* filter_id_ptr, size_t filter_id_len,
+    uint64_t node_id,
+    const char* candidate_json_ptr, size_t candidate_json_len);
+
+/* Install the consumer-side placement-filter trampoline. Idempotent
+ * after first success (matches `_set_dispatcher` semantics).
+ * Returns NET_COMPUTE_OK on success, NET_COMPUTE_ERR_NULL on NULL
+ * pointer. */
+int                     net_compute_set_placement_filter_dispatcher(
+    net_compute_placement_filter_fn dispatcher);
+
+/* Register a placement-filter id under `mesh_arc`. The Rust side
+ * looks up `*Arc<MeshNode>` so the filter can resolve the
+ * candidate's `CapabilitySet` from the local index when scoring.
+ * `mesh_arc` is NOT consumed — caller still owns it.
+ *
+ * Returns:
+ *   NET_COMPUTE_OK                — registered.
+ *   NET_COMPUTE_ERR_NULL          — `mesh_arc` or `id_ptr` NULL.
+ *   NET_COMPUTE_ERR_DUPLICATE_KIND — `id` already registered
+ *                                    (no-overwrite contract; SDKs
+ *                                    generate unique ids).
+ *   NET_COMPUTE_ERR_NO_DISPATCHER — dispatcher not yet installed
+ *                                  (call `_set_placement_filter_dispatcher`).
+ *   NET_COMPUTE_ERR_INVALID_UTF8  — `id_ptr` is not valid UTF-8.
+ *
+ * Existing `Arc<dyn PlacementFilter>` clones held by in-flight
+ * scoring calls keep the predicate alive until those calls
+ * finish; `_unregister` is safe to call concurrently. */
+int                     net_compute_register_placement_filter(
+    net_compute_mesh_arc_t* mesh_arc,
+    const char* id_ptr, size_t id_len);
+
+/* Drop the placement-filter registration under `id`.
+ *
+ * Returns 1 if `id` was registered, 0 otherwise.
+ * NET_COMPUTE_ERR_NULL on NULL / non-UTF-8 `id_ptr`. */
+int                     net_compute_unregister_placement_filter(
+    const char* id_ptr, size_t id_len);
+
+/* Whether `id` is currently registered. Diagnostic helper.
+ * Returns 1 if registered, 0 otherwise. NET_COMPUTE_ERR_NULL on
+ * NULL / non-UTF-8 `id_ptr`. */
+int                     net_compute_has_placement_filter(
+    const char* id_ptr, size_t id_len);
+
+/* --- Spawn / stop / deliver --- */
+
+/* Spawn a daemon. `daemon_id` is the Go-side registry key
+ * trampolines will receive on every callback. `identity_seed`
+ * points at 32 bytes of ed25519 seed. Writes the opaque handle to
+ * `*out_handle` on success. `auto_snapshot_interval` and
+ * `max_log_entries` take 0 for defaults. */
+int                     net_compute_spawn(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr,
+    size_t kind_len,
+    const uint8_t* identity_seed,
+    uint64_t daemon_id,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    net_compute_daemon_handle_t** out_handle,
+    char** err_out);
+
+/* Read the origin_hash from a daemon handle. Returns 0 on NULL. */
+uint64_t                net_compute_daemon_handle_origin_hash(
+    const net_compute_daemon_handle_t* handle);
+
+/* Copy the 32-byte entity_id from a daemon handle into `out`. */
+int                     net_compute_daemon_handle_entity_id(
+    const net_compute_daemon_handle_t* handle,
+    uint8_t* out);
+
+/* Free a daemon handle (does NOT stop the daemon — call
+ * `net_compute_runtime_stop(origin_hash)` separately). */
+void                    net_compute_daemon_handle_free(
+    net_compute_daemon_handle_t* handle);
+
+/* Stop a daemon by origin_hash. */
+int                     net_compute_runtime_stop(
+    net_compute_runtime_t* runtime,
+    uint64_t origin_hash,
+    char** err_out);
+
+/* Deliver one event. Writes a heap-allocated outputs vec to
+ * `*out_outputs`; caller reads via `net_compute_outputs_len`/`_at`
+ * and frees via `net_compute_outputs_free`. */
+int                     net_compute_runtime_deliver(
+    net_compute_runtime_t* runtime,
+    uint64_t origin_hash,
+    uint64_t event_origin_hash,
+    uint64_t event_sequence,
+    const uint8_t* event_payload,
+    size_t event_payload_len,
+    net_compute_outputs_t** out_outputs,
+    char** err_out);
+
+size_t                  net_compute_outputs_len(const net_compute_outputs_t* vec);
+int                     net_compute_outputs_at(
+    const net_compute_outputs_t* vec,
+    size_t idx,
+    const uint8_t** out_ptr,
+    size_t* out_len);
+void                    net_compute_outputs_free(net_compute_outputs_t* vec);
+
+/* --- Snapshot + restore (sub-step 3) --- */
+
+/* Take a snapshot of a running daemon. On success, `*out_outputs`
+ * carries the serialized StateSnapshot bytes as a single-entry
+ * outputs vec, or an empty vec for stateless daemons. */
+int                     net_compute_runtime_snapshot(
+    net_compute_runtime_t* runtime,
+    uint64_t origin_hash,
+    net_compute_outputs_t** out_outputs,
+    char** err_out);
+
+/* Spawn from a previously-taken snapshot. `snapshot_ptr` /
+ * `snapshot_len` must be the exact bytes returned by a prior
+ * `net_compute_runtime_snapshot`. Corrupted bytes fail fast with
+ * `daemon: snapshot decode failed`; identity mismatch surfaces via
+ * the SDK's existing `snapshot identity mismatch` error. */
+int                     net_compute_spawn_from_snapshot(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr,
+    size_t kind_len,
+    const uint8_t* identity_seed,
+    const uint8_t* snapshot_ptr,
+    size_t snapshot_len,
+    uint64_t daemon_id,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    net_compute_daemon_handle_t** out_handle,
+    char** err_out);
+
+/* --- Migration (sub-step 4) ---
+ *
+ * Error messages from the migration surface use the prefix
+ * `migration: <kind>[: <detail>]` (written into the `err_out`
+ * CString) so the Go side can dispatch on the stable kind:
+ * `not-ready` | `factory-not-found` | `compute-not-supported` |
+ * `state-failed` | `already-migrating` | `identity-transport-failed` |
+ * `not-ready-timeout` | `daemon-not-found` | `target-unavailable` |
+ * `wrong-phase` | `snapshot-too-large`.
+ */
+
+typedef struct net_compute_migration_handle_s net_compute_migration_handle_t;
+
+/* Start a migration. `transport_identity`: 0 = skip envelope,
+ * non-zero = seal the daemon's keypair into the snapshot.
+ * `retry_not_ready_ms`: 0 disables retry; otherwise the source
+ * backs off + re-initiates on `NotReady` up to this budget. */
+int                     net_compute_start_migration(
+    net_compute_runtime_t* runtime,
+    uint64_t origin_hash,
+    uint64_t source_node,
+    uint64_t target_node,
+    uint8_t transport_identity,
+    uint64_t retry_not_ready_ms,
+    net_compute_migration_handle_t** out_handle,
+    char** err_out);
+
+/* Declare that a migration will land on this node for
+ * `origin_hash`. Uses the snapshot's envelope to supply the
+ * keypair. */
+int                     net_compute_expect_migration(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr,
+    size_t kind_len,
+    uint64_t origin_hash,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    char** err_out);
+
+/* Register an identity for target-side restore when the source
+ * migrates without an envelope (transport_identity=0). */
+int                     net_compute_register_migration_target_identity(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr,
+    size_t kind_len,
+    const uint8_t* identity_seed,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    char** err_out);
+
+/* Query the orchestrator phase for `origin_hash`. Returns NULL
+ * if no migration is in flight, else a heap-allocated CString
+ * the caller frees with `net_compute_free_cstring`. */
+char*                   net_compute_migration_phase(
+    net_compute_runtime_t* runtime,
+    uint64_t origin_hash);
+
+/* Free a migration handle. Does NOT cancel the migration. */
+void                    net_compute_migration_handle_free(
+    net_compute_migration_handle_t* handle);
+
+uint64_t                net_compute_migration_handle_origin_hash(
+    const net_compute_migration_handle_t* handle);
+uint64_t                net_compute_migration_handle_source_node(
+    const net_compute_migration_handle_t* handle);
+uint64_t                net_compute_migration_handle_target_node(
+    const net_compute_migration_handle_t* handle);
+
+/* Current phase or NULL (same semantics as
+ * `net_compute_migration_phase`). Caller frees non-NULL result. */
+char*                   net_compute_migration_handle_phase(
+    const net_compute_migration_handle_t* handle);
+
+/* Block until terminal state. 0 on `complete`; err_out carries
+ * `migration: <kind>` body on abort/failure. */
+int                     net_compute_migration_handle_wait(
+    net_compute_migration_handle_t* handle,
+    char** err_out);
+
+int                     net_compute_migration_handle_wait_with_timeout(
+    net_compute_migration_handle_t* handle,
+    uint64_t timeout_ms,
+    char** err_out);
+
+int                     net_compute_migration_handle_cancel(
+    net_compute_migration_handle_t* handle,
+    char** err_out);
+
+/* Test-only helper — `net_compute_test_inject_synthetic_peer` —
+ * lives in the test-only Go file `groups_testhelpers_test.go`,
+ * gated at the Rust layer behind the `test-helpers` cargo
+ * feature on compute-ffi. Intentionally NOT declared here
+ * because this header ships with production consumers; the test
+ * binary supplies its own extern declaration. */
+
+/* =========================================================================
+ * Groups — Stage 4 of SDK_GROUPS_SURFACE_PLAN.md.
+ *
+ * `ReplicaGroup` / `ForkGroup` / `StandbyGroup` overlays on top of
+ * `DaemonRuntime`. Errors use the stable prefix
+ * `group: <kind>[: <detail>]`, where `<kind>` is one of:
+ *   `not-ready` | `factory-not-found` | `no-healthy-member` |
+ *   `placement-failed` | `registry-failed` | `invalid-config` |
+ *   `daemon`
+ * ========================================================================= */
+
+typedef struct net_compute_replica_group_s  net_compute_replica_group_t;
+typedef struct net_compute_fork_group_s     net_compute_fork_group_t;
+typedef struct net_compute_standby_group_s  net_compute_standby_group_t;
+
+/* --- ReplicaGroup --- */
+
+int  net_compute_replica_group_spawn(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr, size_t kind_len,
+    uint32_t replica_count,
+    const uint8_t* group_seed,
+    const char* lb_strategy_ptr, size_t lb_strategy_len,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    net_compute_replica_group_t** out_handle,
+    char** err_out);
+
+void net_compute_replica_group_free(net_compute_replica_group_t* h);
+int  net_compute_replica_group_replica_count(const net_compute_replica_group_t* h);
+int  net_compute_replica_group_healthy_count(const net_compute_replica_group_t* h);
+uint32_t net_compute_replica_group_group_id(const net_compute_replica_group_t* h);
+
+/* status: 0=healthy 1=degraded 2=dead. `out_healthy` / `out_total` are
+ * filled only when degraded; otherwise both are 0 (use `_healthy_count`
+ * and `_replica_count`). */
+int  net_compute_replica_group_health(
+    const net_compute_replica_group_t* h,
+    int* out_status, uint32_t* out_healthy, uint32_t* out_total);
+
+int  net_compute_replica_group_route_event(
+    const net_compute_replica_group_t* h,
+    const char* routing_key_ptr, size_t routing_key_len,
+    uint64_t* out_origin, char** err_out);
+
+int  net_compute_replica_group_scale_to(
+    const net_compute_replica_group_t* h,
+    uint32_t n, char** err_out);
+
+void net_compute_replica_group_on_node_recovery(
+    const net_compute_replica_group_t* h, uint64_t node_id);
+
+/* Returns JSON string; free with `net_compute_free_cstring`. */
+char* net_compute_replica_group_members_json(
+    const net_compute_replica_group_t* h);
+
+/* --- ForkGroup --- */
+
+int  net_compute_fork_group_spawn(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr, size_t kind_len,
+    uint64_t parent_origin,
+    uint64_t fork_seq,
+    uint32_t fork_count,
+    const char* lb_strategy_ptr, size_t lb_strategy_len,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    net_compute_fork_group_t** out_handle,
+    char** err_out);
+
+void net_compute_fork_group_free(net_compute_fork_group_t* h);
+int  net_compute_fork_group_fork_count(const net_compute_fork_group_t* h);
+int  net_compute_fork_group_healthy_count(const net_compute_fork_group_t* h);
+uint64_t net_compute_fork_group_parent_origin(const net_compute_fork_group_t* h);
+uint64_t net_compute_fork_group_fork_seq(const net_compute_fork_group_t* h);
+/* Returns 1 if every fork's lineage verifies, 0 otherwise. */
+int  net_compute_fork_group_verify_lineage(const net_compute_fork_group_t* h);
+int  net_compute_fork_group_scale_to(
+    const net_compute_fork_group_t* h, uint32_t n, char** err_out);
+void net_compute_fork_group_on_node_recovery(
+    const net_compute_fork_group_t* h, uint64_t node_id);
+
+char* net_compute_fork_group_members_json(const net_compute_fork_group_t* h);
+char* net_compute_fork_group_fork_records_json(const net_compute_fork_group_t* h);
+
+/* --- StandbyGroup --- */
+
+int  net_compute_standby_group_spawn(
+    net_compute_runtime_t* runtime,
+    const char* kind_ptr, size_t kind_len,
+    uint32_t member_count,
+    const uint8_t* group_seed,
+    uint64_t auto_snapshot_interval,
+    uint32_t max_log_entries,
+    net_compute_standby_group_t** out_handle,
+    char** err_out);
+
+void net_compute_standby_group_free(net_compute_standby_group_t* h);
+int  net_compute_standby_group_member_count(const net_compute_standby_group_t* h);
+int  net_compute_standby_group_standby_count(const net_compute_standby_group_t* h);
+int  net_compute_standby_group_active_index(const net_compute_standby_group_t* h);
+uint64_t net_compute_standby_group_active_origin(const net_compute_standby_group_t* h);
+int  net_compute_standby_group_active_healthy(const net_compute_standby_group_t* h);
+uint32_t net_compute_standby_group_group_id(const net_compute_standby_group_t* h);
+int  net_compute_standby_group_buffered_event_count(const net_compute_standby_group_t* h);
+
+int  net_compute_standby_group_sync_standbys(
+    const net_compute_standby_group_t* h,
+    uint64_t* out_through, char** err_out);
+int  net_compute_standby_group_promote(
+    const net_compute_standby_group_t* h,
+    uint64_t* out_origin, char** err_out);
+void net_compute_standby_group_on_node_recovery(
+    const net_compute_standby_group_t* h, uint64_t node_id);
+
+char* net_compute_standby_group_members_json(const net_compute_standby_group_t* h);
+/* Returns "active" | "standby" (caller frees) or NULL for OOB. */
+char* net_compute_standby_group_member_role(
+    const net_compute_standby_group_t* h, uint32_t index);
+
+/* ========================================================================= */
+/* Dataforts MeshBlobAdapter (v0.2) + active overflow (v0.3)                 */
+/*                                                                           */
+/* All symbols require a libnet built with the                               */
+/* `dataforts + netdb + redex-disk` feature triple to provide real impls;    */
+/* otherwise the symbols still resolve (via the `blob_stubs` module) and     */
+/* return NET_ERR_FEATURE_NOT_BUILT / NULL.                                  */
+/* ========================================================================= */
+
+typedef struct net_mesh_blob_adapter_s net_mesh_blob_adapter_t;
+
+/* Free a buffer the adapter returned via `*out_data` (fetch path). */
+void net_blob_free_buffer(uint8_t* ptr, size_t len);
+
+/* Copy the 32-byte BLAKE3 hash out of an encoded BlobRef, into a
+ * caller-allocated 32-byte buffer. The fetch path (net_fetch_blob)
+ * addresses a blob by its raw hash while a published ref crosses as
+ * the encoded wire form, so this is the join between the two. */
+int net_blob_ref_hash(const uint8_t* encoded, size_t encoded_len, uint8_t* out_hash);
+
+/* ---- Process-wide blob adapter registry ----
+ *
+ * Adapters are addressed by id across the whole process. Error codes are
+ * the NET_ERR_BLOB_* band (-110..-120, src/ffi/blob.rs). Buffers written to
+ * the out-params are freed with net_blob_free_buffer; on error they are
+ * left at (NULL, 0). Null or non-UTF-8 strings return -2 (InvalidUtf8).
+ */
+
+/* The NET_ERR_BLOB_* band (src/ffi/blob.rs). Its values overlap the mesh
+ * codes of net_error_t (-110..-118, -120) on purpose: a code's meaning is
+ * the surface that returned it, and these are returned only by the
+ * net_blob_* and net_mesh_blob_adapter_* functions. */
+#define NET_ERR_BLOB_DECODE                  -110  /* BlobRef decode failed       */
+#define NET_ERR_BLOB_DUPLICATE_ID            -111  /* adapter id already in use   */
+#define NET_ERR_BLOB_NOT_REGISTERED          -112  /* adapter id not registered   */
+#define NET_ERR_BLOB_NOT_FOUND               -113  /* adapter has no such blob    */
+#define NET_ERR_BLOB_HASH_MISMATCH           -114  /* bytes failed verification   */
+#define NET_ERR_BLOB_BACKEND                 -115  /* other backend error         */
+#define NET_ERR_BLOB_UNSUPPORTED_SCHEME      -116  /* unknown scheme or adapter   */
+#define NET_ERR_BLOB_PANIC                   -117  /* panic caught at the boundary */
+#define NET_ERR_BLOB_ADAPTER_NOT_CONFIGURED  -118  /* channel names no adapter    */
+#define NET_ERR_BLOB_ADAPTER_NOT_REGISTERED  -119  /* channel's adapter missing   */
+#define NET_ERR_BLOB_UNAUTHORIZED            -120  /* backend refused the caller  */
+#define NET_ERR_BLOB_INVALID_ARGUMENT        -150  /* argument out of contract    */
+#ifndef NET_ERR_FEATURE_NOT_BUILT
+#define NET_ERR_FEATURE_NOT_BUILT  -107  /* the feature behind this call was not built */
+#endif
+
+/* Register a filesystem adapter rooted at `root` (accepts file: URIs; a blob
+ * is stored at <root>/<hash[0:2]>/<hash>). 0, or -111 for a duplicate id. */
+int net_blob_register_fs_adapter(const char* adapter_id, const char* root);
+
+/* 1 if an adapter was removed, 0 if none was registered under the id. */
+int net_blob_unregister_adapter(const char* adapter_id);
+
+/* 1 if the id is registered, 0 otherwise. */
+int net_blob_adapter_registered(const char* adapter_id);
+
+/* Store `data` through the adapter and write the encoded BlobRef. */
+int net_blob_publish(const char* adapter_id,
+                     const char* uri,
+                     const uint8_t* data,
+                     size_t data_len,
+                     uint8_t** out_payload,
+                     size_t* out_payload_len);
+
+/* Resolve an encoded BlobRef through the adapter to its content. */
+int net_blob_resolve(const char* adapter_id,
+                     const uint8_t* payload,
+                     size_t payload_len,
+                     uint8_t** out_content,
+                     size_t* out_content_len);
+
+/* Callback-backed adapter: the substrate dispatches BlobAdapter calls into a
+ * caller-supplied function table. Every entry must be non-NULL (-115
+ * otherwise). Calls arrive on substrate worker threads and may overlap.
+ * fetch / fetch_range return a buffer the substrate hands back to
+ * free_buffer once it has copied the bytes. */
+typedef struct net_blob_adapter_vtable_s {
+    int (*store)(void* ctx, const char* uri, const uint8_t* hash, uint64_t size,
+                 const uint8_t* data, size_t data_len);
+    int (*fetch)(void* ctx, const char* uri, const uint8_t* hash, uint64_t size,
+                 uint8_t** out_data, size_t* out_len);
+    int (*fetch_range)(void* ctx, const char* uri, const uint8_t* hash, uint64_t size,
+                       uint64_t range_start, uint64_t range_end,
+                       uint8_t** out_data, size_t* out_len);
+    int (*exists)(void* ctx, const char* uri, const uint8_t* hash, uint64_t size,
+                  int* out_exists);
+    void (*free_buffer)(void* ctx, uint8_t* data, size_t len);
+} net_blob_adapter_vtable_t;
+
+typedef void (*net_blob_adapter_release_fn)(void* ctx);
+
+/* Register a callback adapter that takes ownership of `ctx`: release_fn(ctx)
+ * runs exactly once, after the adapter is unregistered AND the last in-flight
+ * call holding ctx has returned (including its free_buffer). On any non-zero
+ * return (NULL vtable or release_fn: -1; NULL entry: -115; duplicate id:
+ * -111) release_fn is never called and ctx stays the caller's. */
+int net_blob_register_callback_adapter_owned(const char* adapter_id,
+                                             const net_blob_adapter_vtable_t* vtable,
+                                             void* ctx,
+                                             net_blob_adapter_release_fn release_fn);
+
+/* ---- v0.3 tree / erasure / range / repair ----
+ *
+ * Contract (docs/internal/plans/GO_BINDING_CONSOLIDATION_AND_BLOBS_PLAN.md,
+ * "New C ABI contract (S6)"): required out-pointers are checked before
+ * anything is written (NULL -> -1), then every out slot is set to NULL / 0
+ * before any later failure. A well-formed call refused on its arguments
+ * returns NET_ERR_BLOB_INVALID_ARGUMENT (-150). JSON results are freed with
+ * net_free_string, byte results with net_blob_free_buffer. Feature-off
+ * builds return NET_ERR_FEATURE_NOT_BUILT (-107).
+ */
+
+/* Like net_mesh_blob_adapter_new, plus a handle out-param and an options
+ * object: NULL / "" or {"overflow": {...legacy overflow object...},
+ * "tree_node_cache_bytes": N}. Unknown keys are refused (-3). An absent
+ * cache key means no cache; 0 installs a zero-capacity cache. */
+int net_mesh_blob_adapter_new_v2(
+    net_redex_t* redex,
+    const char* adapter_id,
+    int persistent,
+    const char* options_json,
+    net_mesh_blob_adapter_t** out_handle);
+
+/* Bytes [start, end) of any ref shape (tree refs included). start > end,
+ * a non-empty range over 1 GiB, or end past the blob's size: -150.
+ * start == end: 0 with (NULL, 0), even beyond the size. */
+int net_mesh_blob_adapter_fetch_range(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* blob_ref_bytes,
+    size_t blob_ref_len,
+    uint64_t start,
+    uint64_t end,
+    uint8_t** out_data,
+    size_t* out_len);
+
+/* Store as a tree blob. encoding_kind 0 = Replicated (rs_k = rs_m = 0),
+ * 1 = Reed-Solomon (rs_k = rs_m = 0 for the defaults, else both >= 1 and
+ * rs_k + rs_m <= 255). Anything else: -150. */
+int net_mesh_blob_adapter_store_tree(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t encoding_kind,
+    uint8_t rs_k,
+    uint8_t rs_m,
+    uint8_t** out_ref,
+    size_t* out_ref_len);
+
+/* Repair a Reed-Solomon tree blob in place; the report is JSON with u64
+ * fields stripes_walked, stripes_already_healthy, stripes_repaired,
+ * chunks_restored, stripes_unrecoverable, replicated_stripes_skipped,
+ * replicated_leaves_skipped. Unrecoverable stripes are counted, not an
+ * error. */
+int net_mesh_blob_adapter_repair_blob(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* blob_ref_bytes,
+    size_t blob_ref_len,
+    char** out_json);
+
+/* {"hits","misses","bytes","entries"} (u64), or JSON null with no cache. */
+int net_mesh_blob_adapter_tree_node_cache_stats(
+    const net_mesh_blob_adapter_t* handle,
+    char** out_json);
+
+/* Describe an encoded ref as JSON: version, uri, size, is_tree, is_chunked;
+ * hash (small refs), tree_root_hash + tree_depth (tree refs) and encoding
+ * (chunked refs) only where the shape has them. */
+int net_blob_ref_describe(const uint8_t* encoded,
+                          size_t encoded_len,
+                          char** out_json);
+
+net_mesh_blob_adapter_t* net_mesh_blob_adapter_new(
+    net_redex_t* redex,
+    const char* adapter_id,
+    int persistent,
+    const char* overflow_json
+);
+
+void net_mesh_blob_adapter_free(net_mesh_blob_adapter_t* handle);
+
+int net_mesh_blob_adapter_store(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* blob_ref_bytes,
+    size_t blob_ref_len,
+    const uint8_t* data,
+    size_t data_len
+);
+
+/* Mint a content address for `data` (BLAKE3), store it through the
+ * adapter, and write the encoded BlobRef to (*out_ref, *out_ref_len) for
+ * the caller to free via net_blob_free_buffer. This is the producer
+ * half: net_mesh_blob_adapter_store needs an already-encoded ref. */
+int net_mesh_blob_adapter_publish(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* uri_ptr,
+    size_t uri_len,
+    const uint8_t* data,
+    size_t data_len,
+    uint8_t** out_ref,
+    size_t* out_ref_len
+);
+
+int net_mesh_blob_adapter_fetch(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* blob_ref_bytes,
+    size_t blob_ref_len,
+    uint8_t** out_data,
+    size_t* out_len
+);
+
+int net_mesh_blob_adapter_exists(
+    const net_mesh_blob_adapter_t* handle,
+    const uint8_t* blob_ref_bytes,
+    size_t blob_ref_len,
+    int* out_exists
+);
+
+char* net_mesh_blob_adapter_prometheus_text(const net_mesh_blob_adapter_t* handle);
+
+int net_mesh_blob_adapter_overflow_enabled(const net_mesh_blob_adapter_t* handle);
+int net_mesh_blob_adapter_overflow_active(const net_mesh_blob_adapter_t* handle);
+char* net_mesh_blob_adapter_overflow_config(const net_mesh_blob_adapter_t* handle);
+int net_mesh_blob_adapter_set_overflow_enabled(
+    const net_mesh_blob_adapter_t* handle, int enabled);
+int net_mesh_blob_adapter_set_overflow_config(
+    const net_mesh_blob_adapter_t* handle, const char* config_json);
+
+/* ---- Blob transfer over the mesh (mirrors net_transport.h) ----
+ *
+ * The engine must be installed on BOTH nodes: a fetch needs it just as
+ * much as a serve does. A fetch addresses the blob by its raw 32-byte
+ * BLAKE3 hash, not by the encoded ref — get one from an encoded ref
+ * with net_blob_ref_hash above.
+ */
+int net_serve_blob_transfer(const net_meshnode_t* node,
+                            const net_mesh_blob_adapter_t* adapter);
+
+int net_fetch_blob(const net_meshnode_t* node,
+                   uint64_t holder_id,
+                   const uint8_t* hash,
+                   uint8_t** out_bytes,
+                   size_t* out_len);
+
+/* Free a buffer returned by net_fetch_blob / net_fetch_blob_discovered /
+ * net_store_dir. */
+void net_transport_free_buffer(uint8_t* ptr, size_t len);
+
+/* Like net_fetch_blob, but discovers the holder among connected peers.
+ * Returns NET_ERR_TRANSFER_ALL_PEERS_FAILED (-202) if no connected peer
+ * has the content. */
+int net_fetch_blob_discovered(const net_meshnode_t* node,
+                              const uint8_t* hash,
+                              uint8_t** out_bytes,
+                              size_t* out_len);
+
+/* ---- Directory transfer (mirrors net_transport.h) ----
+ *
+ * Errors are the transfer band plus NET_ERR_DIR_INVALID_MANIFEST (-210),
+ * NET_ERR_DIR_PATH_INVALID (-211) and NET_ERR_DIR_IO (-213); the
+ * constants themselves are defined in net_transport.h.
+ */
+
+/* Store the tree at `root_path` as blobs in `adapter`. Writes the encoded
+ * manifest BlobRef to (*out_manifest_ref, *out_len); free it with
+ * net_transport_free_buffer. */
+int net_store_dir(const net_mesh_blob_adapter_t* adapter,
+                  const char* root_path,
+                  uint8_t** out_manifest_ref,
+                  size_t* out_len);
+
+/* Fetch the tree named by the encoded manifest ref from `source_id` and
+ * reconstruct it under `dest_path`. *out_files / *out_bytes may be NULL;
+ * both are set to 0 on entry. */
+int net_fetch_dir(const net_meshnode_t* node,
+                  uint64_t source_id,
+                  const uint8_t* manifest_ref,
+                  size_t manifest_ref_len,
+                  const char* dest_path,
+                  uint64_t* out_files,
+                  uint64_t* out_bytes);
+
+/* Fetch + decode the manifest without reconstructing the tree, as JSON
+ * in (*out_json, *out_len); free with net_free_string. (NULL, 0) on
+ * entry, so a failed call reads (NULL, 0). */
+int net_dir_manifest_read(const net_meshnode_t* node,
+                          uint64_t source_id,
+                          const uint8_t* manifest_ref,
+                          size_t manifest_ref_len,
+                          char** out_json,
+                          size_t* out_len);
+
+/* ============================================================
+ * Capability aggregation — Phase 6c of
+ * `MULTIFOLD_PHASE_6C_CAPACITY_AGGREGATION.md`.
+ *
+ * Two operations against the local `CapabilityFold`:
+ *   - `net_capability_aggregate` — bucket-and-count primitive.
+ *   - `net_capability_capacity_ranking` — state-broken-down
+ *     materialized view with latency gate, optional summed
+ *     capacity, sort, truncate.
+ *
+ * Wire shape: every aggregation type (TagMatcher / GroupBy /
+ * Aggregation / CapacityQuery / row outputs) crosses the C ABI
+ * as serde-JSON-encoded UTF-8 strings. The Rust core derives
+ * Serialize/Deserialize with the cross-binding-pinned wire
+ * format (`serde_shapes_match_cross_binding_wire_format` test
+ * in `capability_aggregation.rs`); each binding emits the same
+ * JSON shape so they all interoperate against this single ABI.
+ *
+ * Memory: returned `char*` strings are heap-allocated by Rust;
+ * caller frees with `net_compute_free_cstring`. Returning NULL
+ * indicates fail-closed: any input JSON parse error or NULL
+ * mesh_arc surfaces as NULL.
+ * ============================================================ */
+
+char* net_capability_aggregate(
+    const net_compute_mesh_arc_t* mesh_arc,
+    const char* matcher_json,
+    const char* group_by_json,
+    const char* aggregation_json);
+
+char* net_capability_capacity_ranking(
+    const net_compute_mesh_arc_t* mesh_arc,
+    const char* query_json,
+    const char* rtt_map_json);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* NET_SDK_H */

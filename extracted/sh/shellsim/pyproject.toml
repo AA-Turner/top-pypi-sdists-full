@@ -1,0 +1,82 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "shellsim"
+dynamic = ["version"]
+description = "In-process BusyBox-like environment for RL rollouts and agent tests"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["packaging>=24"]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "The shellsim authors" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+keywords = ["agents", "containers", "reinforcement-learning", "sandbox", "simulation", "testing"]
+
+[project.optional-dependencies]
+pypi = ["uv>=0.12,<1", "tomli>=2; python_version < '3.11'"]
+buildomatic = [
+    "marin-rigging==0.2.165.dev38153482028; python_version >= '3.12'",
+    "marin-iris[iap]==0.2.165.dev38153482028; python_version >= '3.12' and python_version < '3.14'",
+    "marin-finelog==0.2.63.dev38062449553; python_version >= '3.12' and python_version < '3.14'",
+]
+
+[project.urls]
+Homepage = "https://github.com/rjpower/shellsim"
+Issues = "https://github.com/rjpower/shellsim/issues"
+Repository = "https://github.com/rjpower/shellsim"
+
+[project.scripts]
+shellsim = "shellsim._cli:main"
+
+[dependency-groups]
+test = ["pytest>=8"]
+
+[tool.maturin]
+manifest-path = "python/native/Cargo.toml"
+module-name = "shellsim._native"
+python-source = "python"
+features = ["pyo3/extension-module"]
+locked = true
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python_package", "tests/tooling", "ports"]
+addopts = "--import-mode=importlib"
+
+[tool.marin-style]
+checks = ["ruff-check", "ruff-format"]
+include = [
+    "infra/*.py",
+    "infra/**/*.py",
+    "python/**/*.py",
+    "ports/*.py",
+    "ports/**/*.py",
+    "tests/python_package/**/*.py",
+    "tests/tooling/**/*.py",
+    "tests/fixtures/wasm/**/*.py",
+    "tools/*.py",
+    "tools/**/*.py",
+]
+main_branch = "main"
+ruff_version = "0.14.3"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4"]
+ignore = ["E501"]

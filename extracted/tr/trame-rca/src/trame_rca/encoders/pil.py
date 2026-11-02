@@ -1,0 +1,73 @@
+from contextlib import suppress
+from io import BytesIO
+
+from numpy.typing import NDArray
+from PIL import Image
+
+from trame_rca.encoders.img import TO_IMAGE_FORMAT, TO_IMAGE_TYPE, rgbx_view
+
+# Not supported on all platform so make it optional
+with suppress(ImportError):
+    import pillow_avif  # noqa
+
+
+def encode(
+    np_image: NDArray,
+    img_format: str,
+    cols: int,
+    rows: int,
+    quality: int,
+    now_ms: int,
+) -> tuple[bytes, dict, int]:
+    meta = dict(
+        type=TO_IMAGE_TYPE[img_format],
+        codec="",
+        w=cols,
+        h=rows,
+        st=now_ms,
+        key="key",
+        quality=quality,
+    )
+
+    return (
+        encode_np_img_to_bytes(np_image, cols, rows, img_format, quality),
+        meta,
+        now_ms,
+    )
+
+
+def encode_np_img_to_bytes(
+    image: NDArray,
+    cols: int,
+    rows: int,
+    img_format: str,
+    quality: int,
+) -> bytes:
+    """
+    Numpy implementation of JPEG conversion of the input image.
+    Input image should be a numpy array as extracted from the render to image function.
+    This method uses numpy arrays as input for compatibility with Python's multiprocessing.
+    """
+
+    if not (cols and rows):
+        return b""
+
+    # t0 = time.time()
+    fake_file = BytesIO()
+    rgbx = rgbx_view(image)
+    if rgbx is None:
+        # Copies: Pillow stores RGB as 4 bytes per pixel, so it can't share a
+        # 3-channel array
+        image = Image.fromarray(image)
+    else:
+        # VtkRemoteControlledArea frame: map its RGBX buffer without a copy
+        height, width = rgbx.shape[:2]
+        image = Image.frombuffer("RGBX", (width, height), rgbx, "raw", "RGBX", 0, 1)
+        if TO_IMAGE_FORMAT[img_format] != "jpeg":
+            # PNG can't write RGBX; this is the one copy fromarray would make
+            image = image.convert("RGB")
+    image.save(fake_file, TO_IMAGE_FORMAT[img_format], quality=quality)
+    # t1 = time.time()
+    # print(f"pill encode {t1-t0:.04f}s")
+
+    return fake_file.getvalue()

@@ -1,5 +1,6 @@
 """LineageResource (client.lineage, typed reads) and LineageMixin, Client's methods: edges, inputs,
-outputs, upstream, by-hash, branches, records, versions (twins: app/lineage, app/execution)."""
+outputs, upstream, by-hash, branches, records, versions
+(twins: app/projects/lineage, app/runs/execution)."""
 
 from __future__ import annotations
 from ....generated.models import (

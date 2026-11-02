@@ -1,0 +1,119 @@
+Metadata-Version: 2.4
+Name: bluesky-queueserver
+Version: 0.0.25
+Summary: Server for queueing and executing Bluesky plans.
+Author: Brookhaven National Laboratory
+License: BSD 3-Clause License
+        
+        Copyright (c) 2019-2021, Brookhaven National Laboratory
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its contributors
+           may be used to endorse or promote products derived from this software
+           without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: GitHub, https://github.com/bluesky/bluesky-queueserver
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS.rst
+Requires-Dist: bluesky>=1.7.0
+Requires-Dist: ipykernel
+Requires-Dist: jsonschema
+Requires-Dist: jupyter-client>=7.4.2
+Requires-Dist: jupyter-console
+Requires-Dist: numpydoc
+Requires-Dist: openpyxl
+Requires-Dist: ophyd
+Requires-Dist: packaging
+Requires-Dist: pydantic
+Requires-Dist: python-multipart
+Requires-Dist: pyyaml
+Requires-Dist: pyzmq
+Requires-Dist: redis[hiredis]
+Requires-Dist: requests
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: happi>=1.14.0; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-xprocess; extra == "dev"
+Requires-Dist: pytest-split; extra == "dev"
+Requires-Dist: py; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: intake; extra == "dev"
+Requires-Dist: numpydoc; extra == "dev"
+Requires-Dist: scikit-image; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx_rtd_theme; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
+Requires-Dist: pyarrow; extra == "dev"
+Requires-Dist: h5py; extra == "dev"
+Requires-Dist: aioca; extra == "dev"
+Requires-Dist: ophyd-async; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
+
+===================
+bluesky-queueserver
+===================
+
+.. image:: https://img.shields.io/pypi/v/bluesky-queueserver.svg
+        :target: https://pypi.python.org/pypi/bluesky-queueserver
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/bluesky-queueserver
+        :target: https://anaconda.org/conda-forge/bluesky-queueserver
+
+..
+  .. image:: https://img.shields.io/codecov/c/github/bluesky/bluesky-queueserver
+          :target: https://codecov.io/gh/bluesky/bluesky-queueserver
+
+.. image:: https://img.shields.io/github/commits-since/bluesky/bluesky-queueserver/latest
+        :target: https://github.com/bluesky/bluesky-queueserver
+
+.. image:: https://img.shields.io/pypi/dm/bluesky-queueserver?label=PyPI%20downloads
+        :target: https://pypi.python.org/pypi/bluesky-queueserver
+
+.. image:: https://img.shields.io/conda/dn/conda-forge/bluesky-queueserver?label=Conda-Forge%20downloads
+        :target: https://anaconda.org/conda-forge/bluesky-queueserver
+
+
+Server for managing and executing Bluesky plans.
+
+* Free software: 3-clause BSD license
+* `Installation instructions <https://bluesky.github.io/bluesky-queueserver/installation.html>`_.
+* `Brief description of the project <https://bluesky.github.io/bluesky-queueserver/introduction_for_users.html>`_.
+* `Full documentation <https://bluesky.github.io/bluesky-queueserver>`_.
+* `'bluesky-queueserver-api': Python API for Queue Server <https://bluesky.github.io/bluesky-queueserver-api>`_.
+* `'bluesky-httpserver': HTTP Server providing REST API for Queue Server <https://bluesky.github.io/bluesky-httpserver>`_.

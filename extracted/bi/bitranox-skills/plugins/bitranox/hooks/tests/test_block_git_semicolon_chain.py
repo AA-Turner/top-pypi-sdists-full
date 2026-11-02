@@ -1,0 +1,869 @@
+"""Tests for block-git-semicolon-chain.py.
+
+The guard blocks a single Bash command that joins two or more state-changing git verbs with `;`
+(or a newline) rather than `&&`, because `;` runs the later steps after an earlier one failed and
+the later steps then report their no-op as success.
+
+Most of the cases below came from two adversarial reviews of the first implementation, which found
+five Criticals between them. They are kept as tests rather than summarised, because each one is a
+concrete shell shape the flat-split parser got wrong once and can get wrong again.
+
+The decisive question for any case here: WOULD `&&` BE CORRECT ADVICE? The guard's message tells
+the author to use `&&`, so a command where that advice is wrong must not be blocked.
+"""
+
+import io
+import json
+import subprocess
+import sys
+import pytest
+from pathlib import Path
+
+import block_git_semicolon_chain as G
+
+HOOKS_DIR = Path(__file__).resolve().parent.parent
+SCRIPT = HOOKS_DIR / "block-git-semicolon-chain.py"
+SHIM = HOOKS_DIR / "run-python.sh"
+
+
+# --- fires: state-changing verbs reachable across an unguarded `;` -------------------------------
+
+
+def test_commit_then_push_via_semicolon():
+    assert G.chained_state_changes("git commit -m x ; git push") == ["commit", "push"]
+
+
+def test_intervening_harmless_statement_still_fires():
+    assert G.chained_state_changes("git commit -F m.txt ; echo RC=$? ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_mixed_separators_fire_when_the_path_crosses_a_semicolon():
+    """The pair named is the step that FAILS and the step that masks it.
+
+    A failed commit skips the merge (`&&`) but still reaches the push (`;`), whose
+    `Everything up-to-date` is what hides the failure - so `commit -> push` is the honest
+    report. Consecutive-only pairing named `merge -> push` and skipped the actual failure.
+    """
+    verbs = G.chained_state_changes("git commit -m x && git merge --ff-only b ; git push")
+    assert verbs == ["commit", "push"]
+
+
+def test_newline_separator_is_a_semicolon():
+    assert G.chained_state_changes("git commit -m x\ngit push") == ["commit", "push"]
+
+
+def test_env_assignment_prefix_does_not_hide_the_verb():
+    assert G.chained_state_changes("GIT_EDITOR=true git commit ; git push") == ["commit", "push"]
+
+
+def test_the_command_that_motivated_this_guard():
+    """The real 2026-08-16 command, including the `$(...)` line the first version choked on.
+
+    `git commit -F` refused with rc 1 because nothing was staged. The `;` let the rest run, and
+    `git merge --ff-only` then printed `Bereits aktuell` and `git push` printed
+    `Everything up-to-date`, both exit 0, so the sequence read as a successful ship.
+    """
+    command = (
+        "cd ~/wt-capsys && git commit -F /tmp/msg.txt > /tmp/commit.log 2>&1; "
+        'echo "COMMIT_RC=$?"; tail -3 /tmp/commit.log\n'
+        "MAIN=$(git worktree list | head -1 | awk '{print $1}')\n"
+        'cd "$MAIN" && git checkout master > /dev/null 2>&1 '
+        "&& git merge --ff-only capsys-fix > /tmp/merge.log 2>&1; "
+        'echo "MERGE_RC=$?"\n'
+        "git push origin master > /tmp/push.log 2>&1; "
+        'echo "PUSH_RC=$?"'
+    )
+    assert G.chained_state_changes(command) == ["commit", "checkout"]
+
+
+# --- fires: shapes the FIRST implementation missed (from the false-negative review) --------------
+
+
+def test_quoted_dash_c_value_does_not_hide_the_verb():
+    """Masking must consume the quote characters too.
+
+    Blanking only the CONTENT leaves `"$MAIN"` as two bare `"` tokens, `-C` eats the first, the
+    parser stops on the second, and the whole statement reads as a non-git command. The unquoted
+    form kept working throughout, so a test using it reads as covering this and does not.
+    """
+    assert G.chained_state_changes('git -C "$MAIN" commit -F f ; git -C "$MAIN" push') == [
+        "commit",
+        "push",
+    ]
+
+
+def test_single_quoted_dash_c_value():
+    assert G.chained_state_changes("git -C '/repo' commit -F f ; git -C '/repo' push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_unquoted_dash_c_form_is_still_recognised():
+    assert G.chained_state_changes("git -C /repo commit -F f ; git -C /repo push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_errexit_after_the_chain_does_not_protect_it():
+    assert G.chained_state_changes("git commit -m x ; git push ; set -e") == ["commit", "push"]
+
+
+def test_errexit_switched_back_off_does_not_protect():
+    assert G.chained_state_changes("set -e ; set +e ; git commit -m x ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_errexit_is_a_state_so_a_repeated_set_e_is_undone_by_one_set_plus_e():
+    """`set -e` is idempotent: bash's errexit is a flag, not a counter.
+
+    Ground truth from bash itself: after `set -e; set -e; set +e`, `$-` carries no `e`. A counter
+    left errexit "on" there, so this real hazard went unblocked.
+    """
+    assert G.chained_state_changes("set -e ; set -e ; set +e ; git commit -m x ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_errexit_switched_on_after_an_earlier_set_plus_e_protects_the_chain():
+    """`set +e` with errexit already off is a no-op, so the later `set -e` turns it on.
+
+    A counter went to -1 then back to 0 and blocked this correctly-protected command.
+    """
+    assert G.chained_state_changes("set +e ; git status ; set -e ; git commit -m x ; git push") is None
+
+
+def test_an_unbalanced_group_is_not_judged():
+    """A `(` with no closing `)` survives the group masking, and a flat split cannot model it.
+
+    The guard bails (allows) rather than guess; the control shows the same chain without the stray
+    paren is blocked, so it is the unbalanced group that decides. The paren sits AFTER the pair on
+    purpose: `git commit -m x ; ( git push` is allowed even with the bail deleted, because
+    `( git push` never parses as a git verb, so that shape cannot prove the bail is reached.
+    """
+    assert G.chained_state_changes("git commit -m x ; git push ; (") is None
+    assert G.chained_state_changes("git commit -m x ; git push") == ["commit", "push"]
+
+
+def test_or_true_on_an_unrelated_statement_does_not_excuse_the_gap():
+    """The `;` right after the commit is the hazard; a `|| true` two statements later is not it."""
+    assert G.chained_state_changes("git commit -m x ; rm -f /tmp/log || true ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_stash_pop_or_true_between_checkout_and_merge():
+    command = "git checkout master ; git stash pop || true ; git merge topic"
+    assert G.chained_state_changes(command) == ["checkout", "merge"]
+
+
+def test_ampersand_backgrounding_is_a_separator():
+    assert G.chained_state_changes("git commit -m x & git push") == ["commit", "push"]
+
+
+def test_redirection_ampersands_are_not_separators():
+    assert G.chained_state_changes("git commit -m x > log 2>&1 && git push &>out") is None
+
+
+def test_wrapper_prefixes_do_not_hide_the_verb():
+    assert G.chained_state_changes("sudo git commit -m x ; sudo git push") == ["commit", "push"]
+
+
+def test_timeout_wrapper_with_a_duration():
+    assert G.chained_state_changes("timeout 60 git push ; git tag -a v1 -m x") == ["push", "tag"]
+
+
+def test_sudo_with_a_user_option():
+    assert G.chained_state_changes("sudo -u git git commit -m x ; sudo -u git git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_fetch_then_ff_merge_fires():
+    """A failed fetch leaves origin/master stale, and the ff-merge then prints the very string
+    this guard exists to distrust."""
+    assert G.chained_state_changes("git fetch ; git merge --ff-only origin/master") == [
+        "fetch",
+        "merge",
+    ]
+
+
+def test_update_index_then_commit_fires():
+    assert G.chained_state_changes("git update-index --chmod=+x f ; git commit -m x") == [
+        "update-index",
+        "commit",
+    ]
+
+
+# --- does not fire: correct forms (from the false-positive review) -------------------------------
+
+
+def test_and_separator_is_the_correct_form():
+    assert G.chained_state_changes("git commit -m x && git push") is None
+
+
+def test_newline_after_and_is_a_line_continuation():
+    """The worst defect the reviews found: this is ALREADY the form the guard demands.
+
+    Blocking it printed a message saying "join them with &&", which the author had done, so no
+    edit could satisfy the guard - the fastest way to train someone to route around one.
+    """
+    assert G.chained_state_changes("git checkout main &&\ngit merge --ff-only origin/main") is None
+
+
+def test_backslash_continuation_after_and():
+    assert G.chained_state_changes("git commit -m x && \\\n  git push") is None
+
+
+def test_multi_line_and_chain():
+    command = "cd /repo &&\ngit add -A &&\ngit commit -F /tmp/m.txt &&\ngit push origin main"
+    assert G.chained_state_changes(command) is None
+
+
+def test_blank_line_inside_an_and_chain():
+    assert G.chained_state_changes("git checkout main &&\n\ngit merge origin/main") is None
+
+
+def test_comment_line_inside_an_and_chain():
+    assert G.chained_state_changes("git checkout main &&\n# now merge\ngit merge origin/main") is None
+
+
+def test_checkout_with_double_dash_is_a_path_restore():
+    """`git checkout -- Makefile` moves no branch, so its failure invalidates nothing after it.
+
+    This was the largest single false-positive class measured against real command history, and it
+    comes straight from this repo's own workflow of dropping bmk's Makefile regen before a commit.
+    """
+    command = "git checkout -- Makefile 2>/dev/null\ngit commit -q -m x"
+    assert G.chained_state_changes(command) is None
+
+
+def test_two_independent_path_restores():
+    assert G.chained_state_changes("git checkout -- README.md; git checkout -- CHANGELOG.md") is None
+
+
+def test_abort_forms_are_cleanup():
+    command = "git merge --abort 2>/dev/null; git reset --hard origin/main"
+    assert G.chained_state_changes(command) is None
+
+
+def test_tag_listing_forms_are_read_only():
+    assert G.chained_state_changes("git tag -l 'v5.*' ; git push") is None
+    assert G.chained_state_changes("git tag --list ; git push") is None
+    assert G.chained_state_changes("git tag ; git push") is None
+
+
+def test_repeated_verb_is_parallel_work_not_a_pipeline():
+    """`&&` would be WRONG advice here: you want branch two pushed even if branch one fails.
+
+    Limited to the per-target verbs. A repeated `commit` or `checkout` is NOT exempt - see
+    test_repeated_verb_exemption_is_limited_to_per_target_verbs for why.
+    """
+    assert G.chained_state_changes("git push origin main ; git push origin topic") is None
+    assert G.chained_state_changes("git -C /a push ; git -C /b push") is None
+    assert G.chained_state_changes("git tag -d v1 ; git tag -d v2") is None
+
+
+def test_any_or_handler_marks_deliberate_continuation():
+    assert G.chained_state_changes("git tag -d v1 || true ; git push --delete origin v1") is None
+    assert G.chained_state_changes("git tag -d v1 || : ; git push --delete origin v1") is None
+    assert G.chained_state_changes("git commit -m x || exit 1; git push") is None
+    assert G.chained_state_changes("git commit -am wip || echo 'nothing staged'; git push") is None
+
+
+def test_errexit_before_the_chain_exempts_it():
+    assert G.chained_state_changes("set -e ; git commit -m x ; git push") is None
+    assert G.chained_state_changes("set -euo pipefail\ngit commit -m x\ngit push") is None
+    assert G.chained_state_changes("set -o errexit ; git commit -m x ; git push") is None
+    assert G.chained_state_changes("set -x -e; git commit -m x; git push") is None
+    assert G.chained_state_changes("set -o pipefail -e; git commit -m x; git push") is None
+
+
+def test_set_u_alone_is_not_errexit():
+    assert G.chained_state_changes("set -u ; git commit -m x ; git push") == ["commit", "push"]
+
+
+def test_single_state_changing_verb_never_fires():
+    # No shell keyword anywhere: the earlier form used `echo done`, and `done` tripped the scope
+    # bail, so the test passed without the verb count ever being consulted.
+    assert G.chained_state_changes("git commit -m x ; echo ok ; ls -la") is None
+
+
+def test_read_only_verbs_never_fire():
+    assert G.chained_state_changes("git status ; git log ; git diff") is None
+
+
+def test_a_read_only_verb_does_not_pair_with_a_state_changing_one():
+    """Discriminates on STATE_CHANGING membership: adding `status` to it makes this fail.
+
+    The all-read-only case above cannot do that - with nothing state-changing on either side the
+    membership test is never reached, so it stayed green through a mutation that added `status`.
+    """
+    assert G.chained_state_changes("git status ; git push") is None
+    assert G.chained_state_changes("git log -1 ; git commit -m x") is None
+    assert G.chained_state_changes("git diff ; git merge topic") is None
+
+
+def test_a_word_ending_in_git_is_not_git():
+    assert G.chained_state_changes("mygit commit ; mygit push") is None
+
+
+def test_pipe_is_not_a_continue_after_failure_separator():
+    """Both verbs must be state-changing, or the separator logic is never consulted at all."""
+    assert G.chained_state_changes("git commit -m x | tee /tmp/log && git push") is None
+
+
+# --- does not fire: data regions ------------------------------------------------------------------
+
+
+def test_heredoc_body_is_data_not_commands():
+    command = "cat <<'EOF' > note.md\ngit commit -m x ; git push\nEOF\ngit status"
+    assert G.chained_state_changes(command) is None
+
+
+def test_single_quoted_prose_is_data():
+    assert G.chained_state_changes("echo 'git commit -m x ; git push'") is None
+
+
+def test_double_quoted_prose_is_data():
+    assert G.chained_state_changes('git commit -m "wip; git push origin" ; echo ok') is None
+
+
+def test_newline_inside_a_quoted_message_is_not_a_separator():
+    assert G.chained_state_changes("git commit -m 'line one\nline two' && git push") is None
+
+
+def test_comment_is_not_a_command():
+    assert G.chained_state_changes("git commit -m x  # ; git push") is None
+
+
+def test_semicolon_inside_command_substitution_is_not_a_separator():
+    """The `;` inside the substitution is hidden only by `mask_data_regions`.
+
+    If it stopped masking `$(...)`, the walk would read that `;` as a separator between the
+    checkout and the push and this would block. The unit-level proof that the masking itself
+    works lives in tests/test_shell_text.py; this asserts the behaviour a user sees.
+    """
+    command = "git checkout -B rel/$(cd /v; git describe --tags) && git push -u origin HEAD"
+    assert G.chained_state_changes(command) is None
+
+
+# --- does not judge: block structure --------------------------------------------------------------
+
+
+def test_if_else_branches_are_mutually_exclusive():
+    """Exactly one branch runs, and `&&` cannot express that - joining them is a different program."""
+    command = 'if [ -n "$X" ]; then\n  git merge --ff-only origin/main\nelse\n  git rebase origin/main\nfi'
+    assert G.chained_state_changes(command) is None
+
+
+def test_loop_body_semicolons_in_the_gap_are_required_syntax():
+    command = "git checkout main && for r in a b c; do echo $r; done && git push --all"
+    assert G.chained_state_changes(command) is None
+
+
+def test_brace_group_in_the_gap():
+    assert G.chained_state_changes("git commit -m x && { echo done; date; } && git push") is None
+
+
+def test_two_subshells_joined_by_and():
+    assert G.chained_state_changes("(cd /a; git checkout main) && (cd /b; git merge x)") is None
+
+
+def test_function_definitions_are_not_executed():
+    command = "a() {\n git checkout main\n}\nb() {\n git merge topic\n}"
+    assert G.chained_state_changes(command) is None
+
+
+def test_parameter_expansion_braces_do_not_trigger_the_scope_bail():
+    """`${VAR}` is a word, not a brace GROUP - masking it keeps ordinary commands judgeable."""
+    assert G.chained_state_changes("echo ${FOO} ; git commit -m x ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+# --- degenerate input -----------------------------------------------------------------------------
+
+
+def test_degenerate_inputs_are_clean():
+    for command in ["", " ", ";", ";;;", "\n", "||", "&&", "|", "git commit -m '", 'git commit -m "']:
+        assert G.chained_state_changes(command) is None
+
+
+def test_none_command_is_clean():
+    assert G.chained_state_changes(None) is None
+
+
+# --- main(): exit codes and message ---------------------------------------------------------------
+
+
+def _run_main(command, monkeypatch, capsys):
+    payload = json.dumps({"tool_input": {"command": command}})
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    rc = G.main()
+    return rc, capsys.readouterr()
+
+
+def test_main_blocks_the_chained_form(monkeypatch, capsys):
+    rc, captured = _run_main("git commit -m x ; git push", monkeypatch, capsys)
+    assert rc == 2
+    assert "&&" in captured.err
+    assert "commit" in captured.err and "push" in captured.err
+
+
+def test_main_allows_the_and_form(monkeypatch, capsys):
+    rc, captured = _run_main("git commit -m x && git push", monkeypatch, capsys)
+    assert rc == 0
+    assert captured.err == ""
+
+
+def test_main_survives_malformed_stdin(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert G.main() == 0
+
+
+def test_main_survives_a_missing_command_field(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({})))
+    assert G.main() == 0
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='bare "bash" on a Windows runner resolves to the WSL stub in System32, not Git Bash; this drives the bash shim directly')
+def test_subprocess_through_the_shim_blocks():
+    payload = json.dumps({"tool_input": {"command": "git commit -m x ; git push"}})
+    proc = subprocess.run(
+        ["bash", str(SHIM), str(SCRIPT)],
+        input=payload,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert proc.returncode == 2
+    assert "&&" in proc.stderr
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='bare "bash" on a Windows runner resolves to the WSL stub in System32, not Git Bash; this drives the bash shim directly')
+def test_subprocess_through_the_shim_allows_the_and_form():
+    payload = json.dumps({"tool_input": {"command": "git commit -m x && git push"}})
+    proc = subprocess.run(
+        ["bash", str(SHIM), str(SCRIPT)],
+        input=payload,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert proc.returncode == 0
+
+
+# --- third review round: fixes and the defects those fixes introduced -----------------------------
+
+
+def test_escaped_quote_does_not_end_the_masked_region():
+    """`\"` inside a double-quoted message does not close it.
+
+    Stopping at the first `"` leaves the rest of the message to be scanned as shell, and the real
+    closing quote then opens a region that swallows everything after it.
+    """
+    command = 'git commit -m "fix the \\"already up to date\\" trap" ; git push'
+    assert G.chained_state_changes(command) == ["commit", "push"]
+
+
+def test_escaped_quote_does_not_manufacture_a_statement():
+    command = 'git commit -m "see \\"docs\\"; git push it" && git tag v9'
+    assert G.chained_state_changes(command) is None
+
+
+def test_wrapper_options_that_take_no_value():
+    """`sudo -u <user>` consumes a value and `sudo -n` does not; one shared set gets half wrong."""
+    assert G.chained_state_changes("env -i git push ; git commit -m x") == ["push", "commit"]
+    assert G.chained_state_changes("sudo -n git push ; git commit -m x") == ["push", "commit"]
+
+
+def test_wrapper_options_that_do_take_a_value():
+    assert G.chained_state_changes("timeout -s KILL 60 git push ; git commit -m x") == [
+        "push",
+        "commit",
+    ]
+    assert G.chained_state_changes("nice -n 10 git commit -m x ; git push") == ["commit", "push"]
+    assert G.chained_state_changes("stdbuf -oL git commit -m x ; git push") == ["commit", "push"]
+
+
+def test_a_brace_group_is_masked_not_bailed_on():
+    """An error handler on its own line was silencing the guard over an unrelated pair below it."""
+    command = (
+        "pytest -q > t.log 2>&1 || { tail -10 t.log; exit 1; }\n"
+        "git add -A && git commit -q -m x\n"
+        "git push -q origin main"
+    )
+    assert G.chained_state_changes(command) == ["commit", "push"]
+
+
+def test_revspec_braces_are_not_a_brace_group():
+    command = "git commit -m x\ngit push\ngit rev-list --count @{u}...HEAD"
+    assert G.chained_state_changes(command) == ["commit", "push"]
+
+
+def test_find_exec_braces_are_not_a_brace_group():
+    command = "find . -name '__pycache__' -exec rm -rf {} +\ngit commit -m x\ngit push"
+    assert G.chained_state_changes(command) == ["commit", "push"]
+
+
+def test_repeated_verb_exemption_is_limited_to_per_target_verbs():
+    """`checkout ; checkout -b` is a real chain: a failed first branches off the wrong base.
+
+    The exemption exists for parallel work over independent targets, which is a property of push,
+    fetch and tag - not of repetition itself.
+    """
+    assert G.chained_state_changes("git checkout master ; git checkout -b feature") == [
+        "checkout",
+        "checkout",
+    ]
+    assert G.chained_state_changes("git commit -m a ; git commit --amend --no-edit") == [
+        "commit",
+        "commit",
+    ]
+
+
+def test_every_pair_is_examined_not_only_consecutive_ones():
+    """An exempted middle verb used to hide the gap behind it.
+
+    (merge, merge) was exempt and (merge, push) is `&&`-joined, so consecutive-only pairing
+    reported nothing - while the `;` letting a failed ff-merge run the second merge sat right there.
+    """
+    command = "git merge --ff-only origin/main ; git merge topic && git push"
+    assert G.chained_state_changes(command) == ["merge", "merge"]
+
+
+def test_fetch_after_push_is_verification_not_a_chain():
+    """`&&` is wrong advice here - the confirmation is wanted ESPECIALLY when the push failed.
+
+    It is also the confirmation this guard's own refusal message asks the author to perform.
+    """
+    command = (
+        "git push origin main 2>&1 | tail -3\n"
+        "git fetch -q origin\n"
+        "git rev-parse --short origin/main"
+    )
+    assert G.chained_state_changes(command) is None
+
+
+def test_fetch_is_still_the_first_half_of_a_pair():
+    assert G.chained_state_changes("git fetch ; git merge --ff-only origin/master") == [
+        "fetch",
+        "merge",
+    ]
+
+
+def test_help_and_dry_run_forms_are_inert():
+    command = "git commit --help 2>&1 | grep -i fixup; echo ---; git rebase --help 2>&1 | grep -i x"
+    assert G.chained_state_changes(command) is None
+    assert G.chained_state_changes("git commit -h ; git push -h") is None
+    assert G.chained_state_changes("git push --dry-run origin main ; git commit -m x") is None
+    assert G.chained_state_changes("git push -n origin main ; git commit -m x") is None
+
+
+def test_a_trailing_state_changing_verb_does_not_raise():
+    """Iterating EVERY statement means the last one has no following separator to read.
+
+    Introduced by the all-pairs fix and caught before shipping: `main()` swallows the IndexError
+    and returns 0, so the guard would have failed OPEN - silently allowing everything - rather
+    than crashing visibly.
+    """
+    assert G.chained_state_changes("git commit -m x && git push") is None
+    assert G.chained_state_changes("ls ; git push") is None
+
+
+def test_gap_walk_reads_past_the_first_separator():
+    assert G.chained_state_changes("git commit -m x && echo committed ; git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_tag_read_only_flags_match_by_prefix():
+    assert G.chained_state_changes("git tag -n5 ; git push") is None
+    assert G.chained_state_changes("git tag --sort=-v:refname ; git push") is None
+
+
+def test_quit_is_an_abort_form():
+    assert G.chained_state_changes("git merge --quit ; git reset --hard origin/main") is None
+
+
+def test_an_absolute_git_path_is_still_git():
+    assert G.chained_state_changes("/usr/bin/git commit -m x ; /usr/bin/git push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_git_value_options_other_than_dash_c():
+    assert G.chained_state_changes("git -c user.name=x commit -m y ; git push") == [
+        "commit",
+        "push",
+    ]
+    assert G.chained_state_changes('git --git-dir "$D/.git" commit -m x ; git push') == [
+        "commit",
+        "push",
+    ]
+
+
+def test_a_conditional_set_e_still_exempts_and_the_docstring_says_so():
+    """Position is tracked, reachability is not - and suppressing this would cost a real command.
+
+    `cd /repo && set -e ; git commit ; git push` IS protected, and a rule strict enough to catch
+    `false && set -e` would refuse it. For a BLOCKING guard the safe direction is to miss.
+    """
+    assert G.chained_state_changes("false && set -e ; git commit -m x ; git push") is None
+    assert G.chained_state_changes("cd /repo && set -e ; git commit -m x ; git push") is None
+
+
+# --- a repo change between the pair breaks the dependency ------------------------------------------
+
+
+def test_differing_dash_c_targets_are_different_repositories():
+    """Committing to one sub-repo then another is two pieces of work, not a chain."""
+    command = (
+        "cd /umbrella\n"
+        'git -C provmm_planning add -A && git -C provmm_planning commit -q -m "notes"\n'
+        'git -C provmm_proxmox add -A && git -C provmm_proxmox commit -q -m "code"'
+    )
+    assert G.chained_state_changes(command) is None
+
+
+def test_a_cd_between_the_two_verbs_means_a_different_tree():
+    """Locks an off-by-one: statements are the EVEN indices, separators the odd ones.
+
+    Walking the odd indices matches no statement at all, so the rule silently did half its job -
+    the `git -C` half worked and the `cd` half never fired. Measured before and after: 44 of these
+    survived, which is what exposed it.
+    """
+    command = "cd /repo-a && git commit -m x ; cd /repo-b && git commit -m y"
+    assert G.chained_state_changes(command) is None
+
+
+def test_same_tree_sequential_commits_still_block():
+    """No `cd` and no `-C`: one repo, and a failed first commit lets the second report success."""
+    assert G.chained_state_changes("git commit -m a ; git commit -m b") == ["commit", "commit"]
+
+
+def test_the_same_dash_c_target_twice_is_one_tree():
+    assert G.chained_state_changes("git -C /repo commit -m x ; git -C /repo push") == [
+        "commit",
+        "push",
+    ]
+
+
+def test_a_leading_cd_before_both_verbs_is_not_a_tree_change():
+    """Both verbs must REPEAT, or the exemption short-circuits and this asserts nothing.
+
+    Written first with `commit` then `push`, it passed through `verb_a == verb_b` without ever
+    calling `_tree_may_have_changed` - so mutating the scan to start at index 0, the exact defect
+    the name claims to lock, left it green.
+    """
+    assert G.chained_state_changes("cd /repo\ngit commit -m x\ngit commit -m y") == [
+        "commit",
+        "commit",
+    ]
+
+
+def test_a_cd_does_not_excuse_a_pair_of_DIFFERENT_verbs():
+    """The incident itself, in two steps - a directory change is not a repository change.
+
+    `~/wt-capsys` and `$MAIN` are a worktree and its main checkout of ONE repo, so the commit
+    failing absolutely did invalidate the push. Nothing in the text separates that from two
+    unrelated repos, so the tree reading is confined to a REPEATED verb, where both readings agree.
+    """
+    assert G.chained_state_changes('cd ~/wt && git commit -m x ; cd "$MAIN" && git push') == [
+        "commit",
+        "push",
+    ]
+    assert G.chained_state_changes(
+        'cd ~/wt && git commit -F m.txt ; cd "$MAIN" && git merge --ff-only wt'
+    ) == ["commit", "merge"]
+
+
+# --- a `cd` that does not MOVE is not a tree change ------------------------------------------------
+
+
+def test_re_entering_the_same_directory_is_not_a_move():
+    """`git commit --amend` after a refused commit rewrites the PREVIOUS commit and exits 0.
+
+    That is this guard's whole subject, and a no-op `cd` on each step was excusing it.
+    """
+    command = "cd /repo && git commit -F m.txt ; cd /repo && git commit --amend --no-edit"
+    assert G.chained_state_changes(command) == ["commit", "commit"]
+
+
+def test_non_moving_cd_targets():
+    for target in (".", "./", "$PWD", "${PWD}", "$(pwd)", ""):
+        command = "git commit -F m.txt ; cd %s ; git commit --amend --no-edit" % target
+        assert G.chained_state_changes(command) == ["commit", "commit"], target
+
+
+def test_a_no_op_cd_does_not_override_the_shapes_the_tests_require():
+    """Both of these are asserted elsewhere in this file; a `cd /repo` on each step re-admitted them."""
+    assert G.chained_state_changes(
+        "cd /repo ; git checkout master ; cd /repo ; git checkout -b feature"
+    ) == ["checkout", "checkout"]
+    assert G.chained_state_changes(
+        "cd /repo && git merge --ff-only origin/main ; cd /repo && git merge topic"
+    ) == ["merge", "merge"]
+
+
+def test_pushd_and_popd_count_as_directory_commands():
+    assert G.chained_state_changes("git commit -m a ; pushd /elsewhere ; git commit -m b") is None
+
+
+def test_an_environment_prefix_before_cd_is_skipped():
+    assert G.chained_state_changes("git commit -m a ; FOO=1 cd /elsewhere ; git commit -m b") is None
+
+
+def test_a_program_whose_name_merely_starts_with_cd_is_not_cd():
+    assert G.chained_state_changes("git commit -m a ; cdrecord -scanbus ; git commit -m b") == [
+        "commit",
+        "commit",
+    ]
+    assert G.chained_state_changes("git commit -m a ; cd-hook /x ; git commit -m b") == [
+        "commit",
+        "commit",
+    ]
+
+
+def test_the_word_cd_must_start_the_statement():
+    assert G.chained_state_changes("git commit -m a ; echo cd /x ; git commit -m b") == [
+        "commit",
+        "commit",
+    ]
+
+
+# --- repository identity, not string identity ------------------------------------------------------
+
+
+def test_dash_c_targets_are_compared_on_the_raw_text_not_the_masked_text():
+    """Masked, two quoted paths of EQUAL length become the same filler run.
+
+    The verdict then turned on how many characters a variable name had: `"$PLAN"` vs `"$PROX"`
+    blocked while `"$PLANNING"` vs `"$PROX"` did not - same command shape, same intent.
+    """
+    assert G.chained_state_changes('git -C "$PLAN" commit -m x ; git -C "$PROX" commit -m y') is None
+    assert (
+        G.chained_state_changes('git -C "$PLANNING" commit -m x ; git -C "$PROX" commit -m y')
+        is None
+    )
+
+
+def test_spellings_of_one_path_are_the_same_repository():
+    assert G.chained_state_changes(
+        "git -C /repo commit -m a ; git -C /repo/ commit --amend --no-edit"
+    ) == ["commit", "commit"]
+    assert G.chained_state_changes(
+        'git -C "/repo" commit -m a ; git -C /repo commit --amend --no-edit'
+    ) == ["commit", "commit"]
+
+
+def test_an_identical_absolute_dash_c_outranks_an_unrelated_cd():
+    """Positive proof of one repository must beat the weaker `cd` signal, whatever the order."""
+    command = "git -C /a commit -m x ; cd /b ; git -C /a commit --amend --no-edit"
+    assert G.chained_state_changes(command) == ["commit", "commit"]
+
+
+def test_a_relative_dash_c_proves_nothing_so_it_does_not_veto():
+    assert G.chained_state_changes("git -C sub commit -m x ; cd /b ; git -C sub commit -m y") is None
+
+
+def test_the_dash_c_passthrough_survives_config_options():
+    command = (
+        'git -c user.name=x -C /a commit -m x ; git -c user.name=x -C /b commit -m y'
+    )
+    assert G.chained_state_changes(command) is None
+
+
+def test_git_dir_and_work_tree_also_name_a_tree():
+    assert G.chained_state_changes(
+        "git --git-dir /a/.git commit -m x ; git --git-dir /b/.git commit -m y"
+    ) is None
+
+
+# --- statements inside a subshell or brace group are judged too ------------------------------------
+
+
+@pytest.mark.parametrize("command", [
+    "(git commit -m x ; git push)",
+    "cd /r && (git commit -m x ; git push)",
+    "git commit -m x ; (git push)",
+    "(git commit -m x) ; git push",
+    "{ git commit -m x; git push; }",
+])
+def test_a_semicolon_chain_inside_or_across_a_group_is_blocked(command):
+    """A group used to be masked whole, so the `;` inside it, or the one leading into it, was never
+    read: `(git commit -m x ; git push)` is the incident with a pair of parens around it. The
+    control is the same chain without the group, blocked by the first test in this file."""
+    assert G.chained_state_changes(command) == ["commit", "push"]
+
+
+def test_a_chain_inside_a_brace_group_after_and_is_blocked():
+    """`&&` guards the GROUP's entry, not the `;` inside it: a failed ff-merge still runs the push."""
+    command = "git fetch -q && { git merge --ff-only origin/main; git push; }"
+    assert G.chained_state_changes(command) == ["merge", "push"]
+
+
+@pytest.mark.parametrize("command", [
+    "(git commit -m x) && git push",
+    "git commit -m x && (git push ; echo pushed)",
+    "(git commit -m x) || true ; git push",
+    "(cd /a && git commit -m x) || exit 1 ; git push",
+    "{ git commit -m x; } && git push",
+    "{ git commit -m x; } || true ; git push",
+    "git commit -m x &&\n(git push; echo pushed)",
+])
+def test_a_group_does_not_turn_a_guarded_chain_into_a_finding(command):
+    """The other direction of the same change. A failed commit stops at `&&` and skips the WHOLE
+    next group, `;` inside it included; a `||` handler written after the group is the author's
+    failure path for the commit inside it, exactly as `git commit -m x || true ; git push` is."""
+    assert G.chained_state_changes(command) is None
+
+
+def test_quoted_parens_in_a_label_are_not_groups():
+    """The 7.23.3 replay's lesson: a paren split on RAW text cut `echo "=== (must PASS) ==="`."""
+    assert G.chained_state_changes('echo "=== (must PASS) ===" ; git commit -m x ; git push') == [
+        "commit",
+        "push",
+    ]
+    assert G.chained_state_changes('git commit -m x && echo "(must PASS)" && git push') is None
+
+
+@pytest.mark.parametrize("tail", ["echo {", "echo }", "echo x{", "printf '%s' }"])
+def test_a_lone_brace_argument_does_not_silence_the_guard(tail):
+    """A brace is a reserved word only at COMMAND position; as an argument it is a plain word
+    (`bash -c 'echo {'` prints `{`). The old character-level bail read it as an unbalanced group
+    and allowed the whole chain."""
+    assert G.chained_state_changes("git commit -m x ; git push ; " + tail) == ["commit", "push"]
+
+
+def test_a_stray_paren_still_bails_because_bash_refuses_the_command():
+    """`echo )` and `echo (` are syntax errors to bash (`bash -n` exits 2), so nothing runs and
+    allowing is correct - the paren half of the lone-bracket report is not a defect."""
+    assert G.chained_state_changes("git commit -m x ; git push ; echo )") is None
+    assert G.chained_state_changes("git commit -m x ; git push ; echo (") is None
+
+
+def test_an_unbalanced_command_position_brace_bails():
+    """`{ git commit; git push` never closes: bash refuses it, so the guard does not judge it."""
+    assert G.chained_state_changes("{ git commit -m x ; git push") is None
+
+
+def test_a_one_line_function_definition_is_not_executed():
+    assert G.chained_state_changes("f() { git commit -m x; git push; }") is None

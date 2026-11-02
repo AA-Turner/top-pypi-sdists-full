@@ -18,10 +18,13 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import capabilities as capabilities_mod
-from probe.cli import capture, doctor, setup, tui
-from probe.cli.actions import Action
-from probe.cli.capabilities import Capabilities, Capability, TokenSource, tap_plugin_dir
+from probe.cli.wizard import state as capabilities_mod
+from probe.cli.capture import capture
+from probe.cli.wizard import doctor, terminal as tui
+from probe.cli import wizard as setup
+from probe.cli.wizard.actions.onboarding import Action
+from probe.cli.wizard.state.state import Capabilities, Capability, TokenSource
+from probe.cli.wizard.state.capture_credentials import tap_plugin_dir
 from probe.sdk.settings.settings import load_context, save_context
 from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
 
@@ -41,9 +44,10 @@ def home(tmp_path, monkeypatch):
         monkeypatch.delenv(name, raising=False)
     revoked: list[object] = []
     monkeypatch.setattr(capture, "revoke_capture_device", lambda *a, **k: revoked.append(a) or True)
-    monkeypatch.setattr(capabilities_mod, "verify_mcp_credential", lambda **_: True)
+    monkeypatch.setattr(capabilities_mod.mcp_checks, "verify_mcp_credential", lambda **_: True)
     monkeypatch.setattr(main, "_register_local_capabilities", lambda caps, **_: [])
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "")  # restored on teardown, unlike delenv of an unset name
     save_context({"token": "probe_pat_signed_in", "ingest_token": "ros_ing_claude_code"})
     return revoked
@@ -87,9 +91,9 @@ def test_a_settings_commit_leaves_capture_it_did_not_touch(home, monkeypatch):
     plugin installed, and `turn_off` revoked the parked credential."""
     _lock("claude_code")
     snapshot = _pending()
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
     updates: list[bool] = []
-    monkeypatch.setattr(setup, "apply_auto_update", lambda want: updates.append(want) or [])
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", lambda want: updates.append(want) or [])
 
     main._apply_capability_settings(
         {setup.Setting.AUTO_UPDATE: True},
@@ -106,7 +110,7 @@ def test_a_settings_commit_leaves_capture_it_did_not_touch(home, monkeypatch):
 def test_settings_hands_every_untouched_capability_over_as_preserved(home, monkeypatch):
     snapshot = _pending()
     handed = []
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
     monkeypatch.setattr(main, "_run_wizard_action", lambda a, **kw: handed.append(kw["selection_override"]) or [])
 
     main._apply_capability_settings(
@@ -155,9 +159,9 @@ def test_updates_question_turns_on_only_capture_a_sign_in_left_waiting(home, mon
     _lock("codex")
     claude = _pending()
     codex = _pending("codex", capture_token_sources=())
-    monkeypatch.setattr(doctor, "collect", lambda: claude)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: claude)
     asked: list[tuple[str, ...]] = []
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: asked.append(tuple(sources)) or True)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: asked.append(tuple(sources)) or True)
 
     lines = main._confirm_pending_capture(
         {"claude_code": claude, "codex": codex}, base_now="https://api.test"
@@ -172,7 +176,7 @@ def test_updates_question_turns_on_only_capture_a_sign_in_left_waiting(home, mon
 
 def test_not_now_changes_nothing(home, monkeypatch):
     _lock("claude_code")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: False)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: False)
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("applied after Not now"))
 
     assert main._confirm_pending_capture({"claude_code": _pending()}, base_now="https://api.test") == []
@@ -181,7 +185,7 @@ def test_not_now_changes_nothing(home, monkeypatch):
 
 def test_a_deliberate_off_is_never_asked_about(home, monkeypatch):
     _lock("claude_code", "disabled by the Probe Research wizard\n")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: pytest.fail("asked"))
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: pytest.fail("asked"))
 
     snapshot = _pending(capture_awaiting_confirmation=False)
     assert main._confirm_pending_capture({"claude_code": snapshot}, base_now="https://api.test") == []
@@ -193,7 +197,7 @@ def test_the_menus_update_asks_before_it_hands_off(entry, monkeypatch):  # noqa:
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "")  # restored on teardown, unlike delenv of an unset name
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
     picks = iter([Action.UPDATE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
     order: list[tuple] = []
     monkeypatch.setattr(
         main,
@@ -225,7 +229,7 @@ def test_an_update_with_yes_never_asks(entry, monkeypatch):  # noqa: F811
 
 def test_collect_reads_a_sign_ins_lock_into_the_menu_and_doctor(home, monkeypatch):
     """The flag comes from the file, through the real `doctor.collect`."""
-    from probe.cli.capabilities import PluginState
+    from probe.cli.wizard.state.plugins import PluginState
 
     monkeypatch.setenv("PROBE_AGENT", "claude_code")
     _lock("claude_code")
@@ -241,7 +245,7 @@ def test_a_settings_commit_plans_nothing_for_a_signed_out_tracking_plugin(home, 
     the row that changed."""
     signed_out = _pending(logged_in_as=None, api_credential_valid=False, mcp_authenticated=False)
     handed = []
-    monkeypatch.setattr(doctor, "collect", lambda: signed_out)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: signed_out)
     monkeypatch.setattr(main, "_run_wizard_action", lambda a, **kw: handed.append(kw["selection_override"]) or [])
     main._apply_capability_settings(
         {setup.Setting.AUTO_UPDATE: True}, caps_by_source={"claude_code": signed_out}, base_now="https://api.test"
@@ -251,9 +255,9 @@ def test_a_settings_commit_plans_nothing_for_a_signed_out_tracking_plugin(home, 
 
 def test_preserved_tracking_removes_no_skills(home, monkeypatch):
     snapshot = _pending(tracking_plugin_installed=False)
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
-    monkeypatch.setattr(setup, "apply_auto_update", lambda want: [])
-    monkeypatch.setattr(setup, "remove_root_skills", lambda *a, **k: pytest.fail("removed skills on a Settings toggle"))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", lambda want: [])
+    monkeypatch.setattr(setup.apply.apply, "remove_root_skills", lambda *a, **k: pytest.fail("removed skills on a Settings toggle"))
     main._apply_capability_settings(
         {setup.Setting.AUTO_UPDATE: True}, caps_by_source={"claude_code": snapshot}, base_now="https://api.test"
     )
@@ -266,13 +270,13 @@ def test_preserved_tracking_removes_no_skills(home, monkeypatch):
 )
 def test_only_an_agent_capture_can_actually_resume_on_is_asked_about(home, monkeypatch, overrides):
     _lock("claude_code")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: pytest.fail("asked"))
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: pytest.fail("asked"))
     assert main._confirm_pending_capture({"claude_code": _pending(**overrides)}, base_now="https://api.test") == []
 
 
 def test_a_failed_turn_on_says_capture_is_still_off(home, monkeypatch):
     _lock("claude_code")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: True)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: True)
 
     def boom(*_a, **_kw):
         raise typer.Exit(1)
@@ -287,7 +291,7 @@ def test_a_failed_turn_on_says_capture_is_still_off(home, monkeypatch):
 @pytest.mark.parametrize("answer", [None, tui.BACK])
 def test_esc_or_ctrl_c_at_the_question_is_handed_back_and_changes_nothing(home, monkeypatch, answer):
     _lock("claude_code")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: answer)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: answer)
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("applied"))
     assert main._confirm_pending_capture({"claude_code": _pending()}, base_now="https://api.test") is answer
     assert capture.awaiting_confirmation("claude_code")
@@ -298,7 +302,7 @@ def test_the_question_marks_the_environment_the_hand_off_carries(home, monkeypat
     """The newest release the hand-off execs inherits this environment, and
     must not ask again after a "Not now" (`CAPTURE_QUESTION_ASKED_ENV`)."""
     _lock("claude_code")
-    monkeypatch.setattr(setup, "confirm_pending_capture", lambda sources: False)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_pending_capture", lambda sources: False)
     main._confirm_pending_capture({"claude_code": _pending()}, base_now="https://api.test")
     assert os.environ.get(main.CAPTURE_QUESTION_ASKED_ENV) == "1"
 
@@ -307,7 +311,7 @@ def test_an_update_already_asked_upstream_does_not_ask_again(entry, monkeypatch)
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "1")
     picks = iter([Action.UPDATE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
     monkeypatch.setattr(main, "_confirm_pending_capture", lambda *a, **k: pytest.fail("asked twice"))
     monkeypatch.setattr(main, "_run_wizard_action", lambda action, **kw: ["Updated."])
     result = CliRunner().invoke(main.app, ["wizard"])
@@ -319,7 +323,7 @@ def test_esc_at_the_question_returns_to_the_menu_without_updating(entry, monkeyp
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
     picks = iter([Action.UPDATE, Action.EXIT])
     menus: list[int] = []
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: menus.append(1) or next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: menus.append(1) or next(picks))
     monkeypatch.setattr(main, "_confirm_pending_capture", lambda *a, **k: tui.BACK)
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **k: pytest.fail("updated after Esc"))
     result = CliRunner().invoke(main.app, ["wizard"])
@@ -331,11 +335,13 @@ def test_the_questions_result_reaches_the_result_page(entry, monkeypatch):  # no
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "")  # restored on teardown, unlike delenv of an unset name
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
     picks = iter([Action.UPDATE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
     monkeypatch.setattr(main, "_confirm_pending_capture", lambda *a, **k: ["Session capture is on for Claude Code."])
     monkeypatch.setattr(main, "_run_wizard_action", lambda action, **kw: ["Updated."])
     pages: list = []
-    monkeypatch.setattr(tui, "page", lambda lines, **kw: pages.append(list(lines)))
+    monkeypatch.setattr(tui.layout, "page", lambda lines, **kw: pages.append(list(lines)))
+    monkeypatch.setattr(tui.forms, "page", lambda lines, **kw: pages.append(list(lines)))
+    monkeypatch.setattr(tui.progress, "page", lambda lines, **kw: pages.append(list(lines)))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert pages and pages[0][0] == "Session capture is on for Claude Code."
@@ -344,10 +350,12 @@ def test_the_questions_result_reaches_the_result_page(entry, monkeypatch):  # no
 def test_a_two_agent_update_asks_before_the_hand_off(entry, monkeypatch):  # noqa: F811
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "")  # restored on teardown, unlike delenv of an unset name
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
-    monkeypatch.setattr(setup, "run_agent_menu", lambda *a, **k: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "run_agent_menu", lambda *a, **k: ("claude_code", "codex"))
     picks = iter([Action.UPDATE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
     order: list[tuple] = []
     monkeypatch.setattr(
         main, "_confirm_pending_capture", lambda caps_by_source, **_: order.append(("ask", tuple(caps_by_source))) or []
@@ -378,8 +386,8 @@ def test_a_scripted_re_run_with_other_work_never_revokes_a_pending_credential(ho
     machine: the run has other work, so it does not stop at "Already set up"."""
     _lock("claude_code")
     snapshot = _pending()
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
-    monkeypatch.setattr(setup, "apply_auto_update", lambda want: [])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", lambda want: [])
     main._run_wizard_action(
         Action.CONFIGURE, caps=snapshot, base_now="https://api.test", yes=True,
         tracking=None, capture=None, auto_update=True, agent_rules=None,
@@ -391,12 +399,14 @@ def test_a_scripted_re_run_with_other_work_never_revokes_a_pending_credential(ho
 
 def test_a_scripted_two_agent_re_run_keeps_only_the_pending_agents_capture(entry, monkeypatch):  # noqa: F811
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
     snapshots = {
         "claude_code": _pending(capture_killswitched=False, capture_awaiting_confirmation=False),
         "codex": _pending("codex"),
     }
-    monkeypatch.setattr(doctor, "collect", lambda: snapshots[os.environ.get("PROBE_AGENT", "claude_code")])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshots[os.environ.get("PROBE_AGENT", "claude_code")])
     handed: dict[str, object] = {}
     monkeypatch.setattr(
         main, "_run_wizard_action",
@@ -430,9 +440,11 @@ def test_no_lock_kind_is_torn_down_by_an_unrelated_apply(home, monkeypatch, kind
     if text is not None:
         _lock("claude_code", text)
     snapshot = _pending(**overrides)
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
-    monkeypatch.setattr(setup, "apply_auto_update", lambda want: [])
-    monkeypatch.setattr(setup, "install_plugin", lambda *a, **k: pytest.fail("installed a plugin"))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", lambda want: [])
+    monkeypatch.setattr(setup.apply.plugins, "install_plugin", lambda *a, **k: pytest.fail("installed a plugin"))
+    monkeypatch.setattr(setup.apply.apply, "install_plugin", lambda *a, **k: pytest.fail("installed a plugin"))
+    monkeypatch.setattr(setup.apply.recorder, "install_plugin", lambda *a, **k: pytest.fail("installed a plugin"))
     if action == "settings-commit":
         lines = main._apply_capability_settings(
             {setup.Setting.AUTO_UPDATE: True}, caps_by_source={"claude_code": snapshot}, base_now="https://api.test"
@@ -456,8 +468,9 @@ def test_the_degraded_install_leaves_a_pending_lock_pending(home, monkeypatch):
     the sign-in, so capture is kept, and the union's off is not applied."""
     _lock("claude_code")
     snapshot = _pending(claude_available=False, agent_rules_stale=True)
-    monkeypatch.setattr(doctor, "collect", lambda: snapshot)
-    monkeypatch.setattr(setup, "apply_agent_rules", lambda *a, **k: [])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: snapshot)
+    monkeypatch.setattr(setup.apply.agent_files, "apply_agent_rules", lambda *a, **k: [])
+    monkeypatch.setattr(setup.apply.removal, "apply_agent_rules", lambda *a, **k: [])
     selection = setup.Selection(
         tracking=True, capture=False, auto_update=False, agent_rules=True,
         preserve=frozenset({Capability.CAPTURE}),
@@ -474,7 +487,9 @@ def test_the_degraded_install_leaves_a_pending_lock_pending(home, monkeypatch):
 def test_the_degraded_install_screen_hands_over_a_selection_that_keeps_capture(entry, monkeypatch):  # noqa: F811
     """The wizard's own degraded screen (no agent CLI on PATH) builds it."""
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ())
     handed = []
     monkeypatch.setattr(main, "_run_wizard_action", lambda action, **kw: handed.append(kw.get("selection_override")) or [])
     result = CliRunner().invoke(main.app, ["wizard", "--action", "configure", "--agent", "claude_code"])
@@ -488,11 +503,13 @@ def test_a_failed_turn_on_is_shown_before_the_hand_off(entry, monkeypatch):  # n
     monkeypatch.setenv(main.CAPTURE_QUESTION_ASKED_ENV, "")
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
     picks = iter([Action.UPDATE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(picks))
     failed = ["! Session capture is still off for Claude Code."]
     monkeypatch.setattr(main, "_confirm_pending_capture", lambda *a, **k: list(failed))
     order: list = []
-    monkeypatch.setattr(tui, "page", lambda lines, **kw: order.append(("page", list(lines))))
+    monkeypatch.setattr(tui.layout, "page", lambda lines, **kw: order.append(("page", list(lines))))
+    monkeypatch.setattr(tui.forms, "page", lambda lines, **kw: order.append(("page", list(lines))))
+    monkeypatch.setattr(tui.progress, "page", lambda lines, **kw: order.append(("page", list(lines))))
     monkeypatch.setattr(main, "_run_wizard_action", lambda action, **kw: order.append(("update",)) or ["Updated."])
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output

@@ -18,6 +18,7 @@ from probe.sdk.hardware.hardware import HwMonitor, elect_leader
 from probe.sdk.hardware.resources.nvidia import NvidiaResource
 from probe.sdk.hardware.resources.openmetrics import OpenMetricsResource
 from probe.sdk.hardware.resources.system import SystemResource
+from probe.sdk.routes import WriteOp, path_for
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ def _emit_for(client, run_handle):
     from probe.models import MetricPointIn  # stable import seam over _generated
 
     handle_ref = weakref.ref(run_handle)
-    path = f"/v1/runs/{run_handle.id}/metrics"
+    path = path_for(WriteOp.METRICS, run_handle.id)
 
     def emit(points) -> None:
         handle = handle_ref()
@@ -221,7 +222,14 @@ def _publish_from_sources(client, handle_ref, run_id: str, sources) -> None:
     def current_env_ref():
         handle = handle_ref()
         # A gone run counts as pinned: never overwrite what its snapshot left.
-        return "<run gone>" if handle is None else handle.env_ref
+        if handle is None:
+            return "<run gone>"
+        # The open's snapshot asks for its record on a thread of its own (bounded): its pin
+        # comes once that answers, so ask after it, or a hardware-only record races it. Once
+        # the run is closing, nothing may pin: a PATCH queued now lands after the status.
+        if not handle._wait_for_open_record():
+            return handle.env_ref or "<run closing>"
+        return handle.env_ref
 
     try:
         inventory: dict = {}
@@ -260,10 +268,10 @@ def publish_inventory(client, *, run_id: str, env_ref, inventory: dict) -> None:
     if _current_env_ref(env_ref):
         logger.debug("hw: run %s already has env_ref; inventory mint skipped", run_id)
         return
-    record = client.write(
+    record = client.send(
         "POST", "/v1/execution-records", {"hardware": inventory}, durable=False
     )
     content_hash = (record or {}).get("content_hash")
     # Re-checked before queueing: a snapshot() that pinned while the record was in flight must win.
     if content_hash and not _current_env_ref(env_ref):
-        _write_to_run(client, "PATCH", f"/v1/runs/{run_id}", {"env_ref": content_hash})
+        _write_to_run(client, "PATCH", path_for(WriteOp.RUN_PATCH, run_id), {"env_ref": content_hash})

@@ -1,0 +1,1155 @@
+# Copyright (c) 2026 MiniStack Contributors. SPDX-License-Identifier: MIT
+# Copies or substantial portions, including AI-assisted ports or rewrites, must retain this notice (see LICENSE).
+"""
+AutoScaling Service Emulator.
+Query API (Action=...) — groups, launch configs, policies, hooks, scheduled actions.
+All in-memory, no actual instance scaling.
+
+Supports:
+  ASG:       CreateAutoScalingGroup, DescribeAutoScalingGroups, UpdateAutoScalingGroup,
+             DeleteAutoScalingGroup, SetDesiredCapacity, DescribeAutoScalingInstances,
+             DescribeScalingActivities
+  Refresh:   StartInstanceRefresh, DescribeInstanceRefreshes, CancelInstanceRefresh
+  LC:        CreateLaunchConfiguration, DescribeLaunchConfigurations, DeleteLaunchConfiguration
+  Policies:  PutScalingPolicy, DescribePolicies, DeletePolicy
+  Hooks:     PutLifecycleHook, DescribeLifecycleHooks, DeleteLifecycleHook,
+             CompleteLifecycleAction, RecordLifecycleActionHeartbeat
+  Schedule:  PutScheduledUpdateGroupAction, DescribeScheduledActions, DeleteScheduledAction
+  Tags:      CreateOrUpdateTags, DescribeTags, DeleteTags
+"""
+
+import copy
+import logging
+import os
+import re
+import time
+from decimal import Decimal
+from xml.sax.saxutils import escape
+
+from ministack.core.responses import (
+    AccountRegionScopedDict,
+    AccountScopedDict,
+    get_account_id,
+    get_region,
+    new_uuid,
+    now_iso,
+)
+
+logger = logging.getLogger("autoscaling")
+REGION = os.environ.get("MINISTACK_REGION", "us-east-1")
+
+_asgs = AccountRegionScopedDict()
+_launch_configs = AccountRegionScopedDict()
+_policies = AccountRegionScopedDict()
+_hooks = AccountRegionScopedDict()
+_scheduled_actions = AccountRegionScopedDict()
+_tags = AccountRegionScopedDict()  # asg_name -> [{"Key":..., "Value":...}, ...]
+
+
+def _clear_state():
+    _asgs.clear()
+    _launch_configs.clear()
+    _policies.clear()
+    _hooks.clear()
+    _scheduled_actions.clear()
+    _tags.clear()
+
+
+def get_state():
+    return {
+        "asgs": copy.deepcopy(_asgs),
+        "launch_configs": copy.deepcopy(_launch_configs),
+        "policies": copy.deepcopy(_policies),
+        "hooks": copy.deepcopy(_hooks),
+        "scheduled_actions": copy.deepcopy(_scheduled_actions),
+        "tags": copy.deepcopy(_tags),
+    }
+
+
+def load_persisted_state(data):
+    return _restore_state(data)
+
+
+def _restore_state(data):
+    if not data:
+        return
+
+    _clear_state()
+    _asgs.update(data.get("asgs", {}))
+    _launch_configs.update(data.get("launch_configs", {}))
+
+    asg_regions = {
+        (account_id, asg_name): region
+        for (account_id, region, asg_name), _asg in _asgs.all_items()
+    }
+    for store, key in (
+        (_policies, "policies"),
+        (_hooks, "hooks"),
+        (_scheduled_actions, "scheduled_actions"),
+        (_tags, "tags"),
+    ):
+        _restore_asg_child_store(store, data.get(key, {}), asg_regions)
+
+
+def _restore_asg_child_store(store, restored, asg_regions):
+    """Adopt legacy name-keyed child state into its parent ASG's region."""
+    if isinstance(restored, AccountRegionScopedDict):
+        store.update(restored)
+        return
+
+    if isinstance(restored, AccountScopedDict):
+        items = restored._data.items()
+    else:
+        account_id = get_account_id()
+        items = (((account_id, key), value) for key, value in restored.items())
+
+    for (account_id, key), value in items:
+        asg_name = value.get("AutoScalingGroupName") if isinstance(value, dict) else key
+        region = asg_regions.get(
+            (account_id, asg_name),
+            store._region_for_legacy_value(key, value),
+        )
+        store.set_scoped(account_id, region, key, value)
+
+
+
+
+def reset():
+    _clear_state()
+
+
+def _p(params, key):
+    v = params.get(key, "")
+    return v[0] if isinstance(v, list) else v
+
+
+def _parse_member_list(params, prefix):
+    items = []
+    i = 1
+    while True:
+        key = f"{prefix}.member.{i}"
+        val = _p(params, key)
+        if not val:
+            break
+        items.append(val)
+        i += 1
+    return items
+
+
+def _xml(status, root_tag, inner):
+    body = (f'<?xml version="1.0" encoding="UTF-8"?>'
+            f'<{root_tag} xmlns="http://autoscaling.amazonaws.com/doc/2011-01-01/">'
+            f'{inner}'
+            f'<ResponseMetadata><RequestId>{new_uuid()}</RequestId></ResponseMetadata>'
+            f'</{root_tag}>').encode("utf-8")
+    return status, {"Content-Type": "application/xml"}, body
+
+
+def _error(code, message, status=400):
+    # Query error envelope: <Type> in <Error>, no <?xml?> (AWS captures).
+    fault_type = "Sender" if status < 500 else "Receiver"
+    body = (f'<ErrorResponse xmlns="http://autoscaling.amazonaws.com/doc/2011-01-01/">'
+            f'<Error><Type>{fault_type}</Type><Code>{code}</Code><Message>{message}</Message></Error>'
+            f'<RequestId>{new_uuid()}</RequestId>'
+            f'</ErrorResponse>').encode("utf-8")
+    return status, {"Content-Type": "application/xml"}, body
+
+
+def _asg_arn(name):
+    return f"arn:aws:autoscaling:{get_region()}:{get_account_id()}:autoScalingGroup:{new_uuid()}:autoScalingGroupName/{name}"
+
+
+# ---------------------------------------------------------------------------
+# AutoScalingGroup
+#
+# No real instances run, but terraform-provider-aws's aws_autoscaling_group
+# capacity waiter polls DescribeAutoScalingGroups until DesiredCapacity
+# instances report InService/Healthy. A group that reports zero forever blocks
+# every apply for the full wait_for_capacity_timeout (10m) and then fails, so we
+# materialize DesiredCapacity mock instances the same way a real ASG launches
+# them. They ride the group record, inheriting the existing persistence / reset
+# plumbing (like InstanceRefreshes).
+# ---------------------------------------------------------------------------
+
+def _reconcile_instances(asg):
+    """Resize the group's Instances list to exactly DesiredCapacity entries.
+
+    Scale-up appends InService/Healthy instances round-robined across the
+    group's AZs; scale-down removes from the end, matching a Default
+    termination policy.
+    """
+    desired = asg["DesiredCapacity"]
+    instances = asg["Instances"]
+    if len(instances) > desired:
+        del instances[desired:]
+        return
+    azs = asg["AvailabilityZones"] or [f"{get_region()}a"]
+    launch_template = (asg.get("LaunchTemplate")
+                       or ((asg.get("MixedInstancesPolicy") or {}).get("LaunchTemplate") or {}).get(
+                           "LaunchTemplateSpecification") or {})
+    launch_config = asg.get("LaunchConfigurationName", "")
+    while len(instances) < desired:
+        instances.append({
+            "InstanceId": "i-" + new_uuid().replace("-", "")[:17],
+            "LifecycleState": "InService",
+            "HealthStatus": "Healthy",
+            "AvailabilityZone": azs[len(instances) % len(azs)],
+            # Real ASGs stamp new instances with the group's scale-in setting.
+            "ProtectedFromScaleIn": asg["NewInstancesProtectedFromScaleIn"],
+            "LaunchTemplate": launch_template,
+            "LaunchConfigurationName": launch_config,
+        })
+
+
+def _missing_template_id_message(lt_id):
+    """AWS (captured) calls an unknown id malformed unless it is lt-<lowercase hex> shorter than 17 digits,
+    or one that exists in another region of the account, which are missing."""
+    from ministack.services import ec2
+
+    if re.fullmatch(r"lt-[0-9a-f]+", lt_id):
+        elsewhere = any(key[0] == get_account_id() and rec.get("LaunchTemplateId") == lt_id
+                        for key, rec in ec2._launch_templates.all_items())
+        if len(lt_id) - 3 < 17 or elsewhere:
+            return f"The specified launch template, with template ID {lt_id}, does not exist."
+    return f"Malformed launch template Id: {lt_id}"
+
+
+def resolve_launch_template(lt_id, lt_name, version=None):
+    """(spec, error message): the group's LaunchTemplate with the EC2 template's id and name, and the version
+    as given (absent when not given), or AWS's ValidationError text (captured, us-east-1, 2026-10-28/29)."""
+    if not (lt_id or lt_name or version):
+        return {}, None
+    if bool(lt_id) == bool(lt_name):
+        return None, "Valid requests must contain either launchTemplateId or LaunchTemplateName"
+    if version and version not in ("$Default", "$Latest") and not version.isdigit():
+        return None, ("Invalid launch template version: either '$Default', '$Latest', or a numeric version "
+                      "are allowed.")
+    from ministack.services import ec2
+
+    if lt_id:
+        record = ec2._launch_templates.get(lt_id)
+        if not record:
+            return None, _missing_template_id_message(lt_id)
+    else:
+        record = next((t for t in ec2._launch_templates.values() if t.get("LaunchTemplateName") == lt_name), None)
+        if not record:
+            return None, f"The specified launch template, with template name {lt_name}, does not exist."
+    if version and version not in ("$Default", "$Latest") and not any(
+            str(v.get("VersionNumber")) == version for v in record.get("Versions", [])):
+        return None, (f"Could not find the specified version {version} for the launch template with ID "
+                      f"{record['LaunchTemplateId']}.")
+    spec = {"LaunchTemplateId": record["LaunchTemplateId"], "LaunchTemplateName": record["LaunchTemplateName"]}
+    if version:
+        spec["Version"] = version
+    return spec, None
+
+
+def _launch_template_spec(p):
+    return resolve_launch_template(_p(p, "LaunchTemplate.LaunchTemplateId"),
+                                   _p(p, "LaunchTemplate.LaunchTemplateName"),
+                                   _p(p, "LaunchTemplate.Version"))
+
+
+_SOURCE_ERROR = ("Valid requests must contain either LaunchTemplate, LaunchConfigurationName, InstanceId or "
+                 "MixedInstancesPolicy parameter.")
+_INSTANCES_DISTRIBUTION_DEFAULTS = {
+    "OnDemandAllocationStrategy": "prioritized", "OnDemandBaseCapacity": 0,
+    "OnDemandPercentageAboveBaseCapacity": 100, "SpotAllocationStrategy": "lowest-price", "SpotInstancePools": 2,
+}
+
+
+def _model_shape(name):
+    import botocore.session
+
+    global _MODEL
+    if "_MODEL" not in globals():
+        _MODEL = botocore.session.get_session().get_service_model("autoscaling")
+    return _MODEL.shape_for(name)
+
+
+def _query_value(params, prefix, shape):
+    """A Query-protocol member under *prefix*, typed by its botocore shape, or None when absent."""
+    if shape.type_name == "structure":
+        out = {}
+        for member, member_shape in shape.members.items():
+            value = _query_value(params, f"{prefix}.{member}", member_shape)
+            if value is not None:
+                out[member] = value
+        return out or None
+    if shape.type_name == "list":
+        items, i = [], 1
+        while True:
+            value = _query_value(params, f"{prefix}.member.{i}", shape.member)
+            if value is None:
+                break
+            items.append(value)
+            i += 1
+        return items or None
+    if prefix not in params:
+        return None
+    raw = _p(params, prefix)
+    if shape.type_name == "integer":
+        return int(raw)
+    if shape.type_name in ("double", "float"):
+        return float(raw)
+    if shape.type_name == "boolean":
+        return raw.lower() == "true"
+    return raw
+
+
+def _shape_xml(value, shape):
+    if shape.type_name == "structure":
+        return "".join(f"<{k}>{_shape_xml(value[k], shape.members[k])}</{k}>" for k in shape.members if k in value)
+    if shape.type_name == "list":
+        return "".join(f"<member>{_shape_xml(v, shape.member)}</member>" for v in value)
+    if shape.type_name == "boolean":
+        return "true" if value else "false"
+    return escape(str(value))
+
+
+def resolve_mixed_instances_policy(policy):
+    """(policy, error message): the policy as AWS stores it, its launch templates resolved like a group's."""
+    lt = dict(policy.get("LaunchTemplate") or {})
+    spec = lt.get("LaunchTemplateSpecification") or {}
+    resolved, error = resolve_launch_template(spec.get("LaunchTemplateId"), spec.get("LaunchTemplateName"),
+                                              spec.get("Version"))
+    if error:
+        return None, error
+    lt["LaunchTemplateSpecification"] = resolved
+    overrides = []
+    for override in lt.get("Overrides") or []:
+        override = dict(override)
+        if override.get("LaunchTemplateSpecification"):
+            o_spec = override["LaunchTemplateSpecification"]
+            o_resolved, error = resolve_launch_template(o_spec.get("LaunchTemplateId"), o_spec.get("LaunchTemplateName"),
+                                                        o_spec.get("Version"))
+            if error:
+                return None, error
+            override["LaunchTemplateSpecification"] = o_resolved
+        overrides.append(override)
+    lt["Overrides"] = overrides
+    distribution = {**_INSTANCES_DISTRIBUTION_DEFAULTS, **(policy.get("InstancesDistribution") or {})}
+    return {"LaunchTemplate": lt, "InstancesDistribution": distribution}, None
+
+
+def _mixed_instances_policy(p):
+    policy = _query_value(p, "MixedInstancesPolicy", _model_shape("MixedInstancesPolicy"))
+    return resolve_mixed_instances_policy(policy) if policy else (None, None)
+
+
+def _has_member(p, name):
+    return any(k == name or k.startswith(name + ".") for k in p)
+
+
+def _launch_template_xml(lt):
+    fields = "".join(f"<{k}>{lt[k]}</{k}>" for k in ("LaunchTemplateId", "LaunchTemplateName", "Version") if lt.get(k))
+    return f"<LaunchTemplate>{fields}</LaunchTemplate>"
+
+
+def _instance_member_xml(inst, include_group_name=""):
+    """Render one instance. DescribeAutoScalingInstances also carries the
+    owning AutoScalingGroupName, so callers pass it when needed."""
+    launch_template = inst.get("LaunchTemplate") or {}
+    lt_xml = ""
+    if launch_template:
+        lt_xml = _launch_template_xml(launch_template)
+    launch_config = inst.get("LaunchConfigurationName", "")
+    lc_xml = f"<LaunchConfigurationName>{launch_config}</LaunchConfigurationName>" if launch_config else ""
+    group_xml = f"<AutoScalingGroupName>{include_group_name}</AutoScalingGroupName>" if include_group_name else ""
+    return (f"<member>"
+            f"<InstanceId>{inst['InstanceId']}</InstanceId>"
+            f"{group_xml}"
+            f"<AvailabilityZone>{inst['AvailabilityZone']}</AvailabilityZone>"
+            f"<LifecycleState>{inst['LifecycleState']}</LifecycleState>"
+            f"<HealthStatus>{inst['HealthStatus']}</HealthStatus>"
+            f"<ProtectedFromScaleIn>{'true' if inst['ProtectedFromScaleIn'] else 'false'}</ProtectedFromScaleIn>"
+            f"{lt_xml}{lc_xml}"
+            f"</member>")
+
+
+def _instances_xml(asg):
+    if not asg["Instances"]:
+        return "<Instances/>"
+    return "<Instances>" + "".join(_instance_member_xml(i) for i in asg["Instances"]) + "</Instances>"
+
+
+def _create_asg(p):
+    name = _p(p, "AutoScalingGroupName")
+    if not name:
+        return _error("ValidationError", "AutoScalingGroupName is required")
+    if name in _asgs:
+        return _error("AlreadyExists", f"AutoScalingGroup {name} already exists")
+    sources = [_has_member(p, m) for m in ("LaunchTemplate", "MixedInstancesPolicy")]
+    if all(sources) or not (any(sources) or _p(p, "LaunchConfigurationName") or _p(p, "InstanceId")):
+        return _error("ValidationError", _SOURCE_ERROR)
+    launch_template, lt_error = _launch_template_spec(p)
+    if lt_error:
+        return _error("ValidationError", lt_error)
+    mixed, mixed_error = _mixed_instances_policy(p)
+    if mixed_error:
+        return _error("ValidationError", mixed_error)
+
+    arn = _asg_arn(name)
+    _asgs[name] = {
+        "AutoScalingGroupName": name,
+        "AutoScalingGroupARN": arn,
+        "LaunchConfigurationName": _p(p, "LaunchConfigurationName"),
+        "LaunchTemplate": {},
+        "MinSize": int(_p(p, "MinSize") or 0),
+        "MaxSize": int(_p(p, "MaxSize") or 0),
+        "DesiredCapacity": int(_p(p, "DesiredCapacity") or _p(p, "MinSize") or 0),
+        "DefaultCooldown": int(_p(p, "DefaultCooldown") or 300),
+        "AvailabilityZones": _parse_member_list(p, "AvailabilityZones") or [f"{get_region()}a"],
+        "HealthCheckType": _p(p, "HealthCheckType") or "EC2",
+        "HealthCheckGracePeriod": int(_p(p, "HealthCheckGracePeriod") or 300),
+        "Instances": [],
+        "CreatedTime": now_iso(),
+        "VPCZoneIdentifier": _p(p, "VPCZoneIdentifier") or "",
+        "TerminationPolicies": _parse_member_list(p, "TerminationPolicies") or ["Default"],
+        "NewInstancesProtectedFromScaleIn": _p(p, "NewInstancesProtectedFromScaleIn") == "true",
+        "ServiceLinkedRoleARN": _p(p, "ServiceLinkedRoleARN") or "",
+        "Tags": [],
+        "Status": "",
+    }
+
+    if launch_template:
+        _asgs[name]["LaunchTemplate"] = launch_template
+    if mixed:
+        _asgs[name]["MixedInstancesPolicy"] = mixed
+
+    # Parse tags
+    i = 1
+    tags = []
+    while _p(p, f"Tags.member.{i}.Key"):
+        tags.append({
+            "Key": _p(p, f"Tags.member.{i}.Key"),
+            "Value": _p(p, f"Tags.member.{i}.Value"),
+            "ResourceId": name,
+            "ResourceType": "auto-scaling-group",
+            "PropagateAtLaunch": _p(p, f"Tags.member.{i}.PropagateAtLaunch") == "true",
+        })
+        i += 1
+    _asgs[name]["Tags"] = tags
+    _tags[name] = tags
+
+    _reconcile_instances(_asgs[name])
+
+    logger.info("CreateAutoScalingGroup: %s", name)
+    return _xml(200, "CreateAutoScalingGroupResponse", "<CreateAutoScalingGroupResult/>")
+
+
+def _describe_asgs(p):
+    names = _parse_member_list(p, "AutoScalingGroupNames")
+    members = ""
+    for name, asg in _asgs.items():
+        if names and name not in names:
+            continue
+        azs = "".join(f"<member>{az}</member>" for az in asg["AvailabilityZones"])
+        tp = "".join(f"<member>{t}</member>" for t in asg["TerminationPolicies"])
+        tags_xml = "".join(
+            f"<member><Key>{t['Key']}</Key><Value>{t['Value']}</Value>"
+            f"<ResourceId>{t['ResourceId']}</ResourceId><ResourceType>{t['ResourceType']}</ResourceType>"
+            f"<PropagateAtLaunch>{'true' if t.get('PropagateAtLaunch') else 'false'}</PropagateAtLaunch></member>"
+            for t in asg.get("Tags", [])
+        )
+        lt = asg.get("LaunchTemplate", {})
+        lt_xml = ""
+        if asg.get("MixedInstancesPolicy"):
+            lt_xml = (f"<MixedInstancesPolicy>{_shape_xml(asg['MixedInstancesPolicy'], _model_shape('MixedInstancesPolicy'))}"
+                      f"</MixedInstancesPolicy>")
+        elif lt:
+            lt_xml = _launch_template_xml(lt)
+        members += (f"<member>"
+                    f"<AutoScalingGroupName>{name}</AutoScalingGroupName>"
+                    f"<AutoScalingGroupARN>{asg['AutoScalingGroupARN']}</AutoScalingGroupARN>"
+                    f"<MinSize>{asg['MinSize']}</MinSize>"
+                    f"<MaxSize>{asg['MaxSize']}</MaxSize>"
+                    f"<DesiredCapacity>{asg['DesiredCapacity']}</DesiredCapacity>"
+                    f"<DefaultCooldown>{asg['DefaultCooldown']}</DefaultCooldown>"
+                    f"<AvailabilityZones>{azs}</AvailabilityZones>"
+                    f"<HealthCheckType>{asg['HealthCheckType']}</HealthCheckType>"
+                    f"<HealthCheckGracePeriod>{asg['HealthCheckGracePeriod']}</HealthCheckGracePeriod>"
+                    f"<CreatedTime>{asg['CreatedTime']}</CreatedTime>"
+                    f"<VPCZoneIdentifier>{asg['VPCZoneIdentifier']}</VPCZoneIdentifier>"
+                    f"<TerminationPolicies>{tp}</TerminationPolicies>"
+                    f"<NewInstancesProtectedFromScaleIn>{'true' if asg['NewInstancesProtectedFromScaleIn'] else 'false'}</NewInstancesProtectedFromScaleIn>"
+                    f"<Tags>{tags_xml}</Tags>"
+                    f"{_instances_xml(asg)}"
+                    f"{lt_xml}"
+                    f"<LaunchConfigurationName>{asg.get('LaunchConfigurationName', '')}</LaunchConfigurationName>"
+                    f"</member>")
+    return _xml(200, "DescribeAutoScalingGroupsResponse",
+                f"<DescribeAutoScalingGroupsResult><AutoScalingGroups>{members}</AutoScalingGroups></DescribeAutoScalingGroupsResult>")
+
+
+def _update_asg(p):
+    name = _p(p, "AutoScalingGroupName")
+    asg = _asgs.get(name)
+    if not asg:
+        return _error("ValidationError", f"AutoScalingGroup {name} not found")
+    if _has_member(p, "LaunchTemplate") and _has_member(p, "MixedInstancesPolicy"):
+        return _error("ValidationError", _SOURCE_ERROR)
+    launch_template, lt_error = _launch_template_spec(p)
+    if lt_error:
+        return _error("ValidationError", lt_error)
+    mixed, mixed_error = _mixed_instances_policy(p)
+    if mixed_error:
+        return _error("ValidationError", mixed_error)
+    if mixed:
+        asg["MixedInstancesPolicy"] = mixed
+        asg["LaunchTemplate"] = {}
+    elif launch_template:
+        asg.pop("MixedInstancesPolicy", None)
+    for k, pk in [("MinSize", "MinSize"), ("MaxSize", "MaxSize"), ("DesiredCapacity", "DesiredCapacity"),
+                   ("DefaultCooldown", "DefaultCooldown"), ("HealthCheckGracePeriod", "HealthCheckGracePeriod")]:
+        v = _p(p, pk)
+        if v:
+            asg[k] = int(v)
+    if _p(p, "HealthCheckType"):
+        asg["HealthCheckType"] = _p(p, "HealthCheckType")
+    if _p(p, "VPCZoneIdentifier"):
+        asg["VPCZoneIdentifier"] = _p(p, "VPCZoneIdentifier")
+    if launch_template:
+        asg["LaunchTemplate"] = launch_template
+    _reconcile_instances(asg)
+    return _xml(200, "UpdateAutoScalingGroupResponse", "<UpdateAutoScalingGroupResult/>")
+
+
+def _set_desired_capacity(p):
+    name = _p(p, "AutoScalingGroupName")
+    asg = _asgs.get(name)
+    if not asg:
+        return _error("ValidationError", f"AutoScalingGroup {name} not found")
+    desired = _p(p, "DesiredCapacity")
+    if desired == "":
+        return _error("ValidationError", "DesiredCapacity is required")
+    asg["DesiredCapacity"] = int(desired)
+    _reconcile_instances(asg)
+    return _xml(200, "SetDesiredCapacityResponse", "")
+
+
+def _delete_asg(p):
+    name = _p(p, "AutoScalingGroupName")
+    _asgs.pop(name, None)
+    _tags.pop(name, None)
+    _delete_group_hooks(name)
+    _delete_group_policies(name)
+    return _xml(200, "DeleteAutoScalingGroupResponse", "<DeleteAutoScalingGroupResult/>")
+
+
+def _describe_asg_instances(p):
+    wanted = _parse_member_list(p, "InstanceIds")
+    members = ""
+    for name, asg in _asgs.items():
+        for inst in asg["Instances"]:
+            if wanted and inst["InstanceId"] not in wanted:
+                continue
+            members += _instance_member_xml(inst, include_group_name=name)
+    return _xml(200, "DescribeAutoScalingInstancesResponse",
+                f"<DescribeAutoScalingInstancesResult><AutoScalingInstances>{members}</AutoScalingInstances></DescribeAutoScalingInstancesResult>")
+
+
+def _describe_scaling_activities(p):
+    return _xml(200, "DescribeScalingActivitiesResponse",
+                "<DescribeScalingActivitiesResult><Activities/></DescribeScalingActivitiesResult>")
+
+
+# ---------------------------------------------------------------------------
+# Instance Refresh
+#
+# No real instances run, so a refresh has nothing to roll. We record it and
+# report it as immediately Successful (100% complete) to satisfy the
+# terraform-provider-aws contract, which polls DescribeInstanceRefreshes until
+# the refresh reaches a terminal state.
+# ---------------------------------------------------------------------------
+
+def _start_instance_refresh(p):
+    name = _p(p, "AutoScalingGroupName")
+    asg = _asgs.get(name)
+    if not asg:
+        return _error("ValidationError", f"AutoScalingGroup {name} not found")
+    refresh_id = new_uuid()
+    ts = now_iso()
+    refresh = {
+        "InstanceRefreshId": refresh_id,
+        "AutoScalingGroupName": name,
+        "Status": "Successful",
+        "StatusReason": "Refresh completed",
+        "StartTime": ts,
+        "EndTime": ts,
+        "PercentageComplete": 100,
+        "InstancesToUpdate": 0,
+        "Preferences": {
+            "MinHealthyPercentage": _p(p, "Preferences.MinHealthyPercentage"),
+            "InstanceWarmup": _p(p, "Preferences.InstanceWarmup"),
+        },
+    }
+    # Most-recent-first, matching AWS describe ordering.
+    asg.setdefault("InstanceRefreshes", []).insert(0, refresh)
+    return _xml(200, "StartInstanceRefreshResponse",
+                f"<StartInstanceRefreshResult><InstanceRefreshId>{refresh_id}</InstanceRefreshId></StartInstanceRefreshResult>")
+
+
+def _describe_instance_refreshes(p):
+    name = _p(p, "AutoScalingGroupName")
+    asg = _asgs.get(name)
+    if not asg:
+        return _error("ValidationError", f"AutoScalingGroup {name} not found")
+    wanted = _parse_member_list(p, "InstanceRefreshIds")
+    members = ""
+    for r in asg.get("InstanceRefreshes", []):
+        if wanted and r["InstanceRefreshId"] not in wanted:
+            continue
+        members += (f"<member>"
+                    f"<InstanceRefreshId>{r['InstanceRefreshId']}</InstanceRefreshId>"
+                    f"<AutoScalingGroupName>{r['AutoScalingGroupName']}</AutoScalingGroupName>"
+                    f"<Status>{r['Status']}</Status>"
+                    f"<StatusReason>{r['StatusReason']}</StatusReason>"
+                    f"<StartTime>{r['StartTime']}</StartTime>"
+                    f"<EndTime>{r['EndTime']}</EndTime>"
+                    f"<PercentageComplete>{r['PercentageComplete']}</PercentageComplete>"
+                    f"<InstancesToUpdate>{r['InstancesToUpdate']}</InstancesToUpdate>"
+                    f"</member>")
+    return _xml(200, "DescribeInstanceRefreshesResponse",
+                f"<DescribeInstanceRefreshesResult><InstanceRefreshes>{members}</InstanceRefreshes></DescribeInstanceRefreshesResult>")
+
+
+def _cancel_instance_refresh(p):
+    name = _p(p, "AutoScalingGroupName")
+    asg = _asgs.get(name)
+    if not asg:
+        return _error("ValidationError", f"AutoScalingGroup {name} not found")
+    refreshes = asg.get("InstanceRefreshes", [])
+    active = next((r for r in refreshes if r["Status"] not in
+                   ("Successful", "Failed", "Cancelled")), None)
+    if not active:
+        return _error("ActiveInstanceRefreshNotFound",
+                      f"No active Instance Refresh for Auto Scaling group {name}")
+    active["Status"] = "Cancelled"
+    active["StatusReason"] = "Cancelled by user"
+    active["EndTime"] = now_iso()
+    return _xml(200, "CancelInstanceRefreshResponse",
+                f"<CancelInstanceRefreshResult><InstanceRefreshId>{active['InstanceRefreshId']}</InstanceRefreshId></CancelInstanceRefreshResult>")
+
+
+# ---------------------------------------------------------------------------
+# LaunchConfiguration
+# ---------------------------------------------------------------------------
+
+def _create_lc(p):
+    name = _p(p, "LaunchConfigurationName")
+    if not name:
+        return _error("ValidationError", "LaunchConfigurationName is required")
+    if name in _launch_configs:
+        return _error("AlreadyExists", f"LaunchConfiguration {name} already exists")
+    arn = f"arn:aws:autoscaling:{get_region()}:{get_account_id()}:launchConfiguration:{new_uuid()}:launchConfigurationName/{name}"
+    _launch_configs[name] = {
+        "LaunchConfigurationName": name,
+        "LaunchConfigurationARN": arn,
+        "ImageId": _p(p, "ImageId") or "ami-00000000",
+        "InstanceType": _p(p, "InstanceType") or "t2.micro",
+        "KeyName": _p(p, "KeyName") or "",
+        "SecurityGroups": _parse_member_list(p, "SecurityGroups"),
+        "UserData": _p(p, "UserData") or "",
+        "CreatedTime": now_iso(),
+    }
+    return _xml(200, "CreateLaunchConfigurationResponse", "<CreateLaunchConfigurationResult/>")
+
+
+def _describe_lcs(p):
+    names = _parse_member_list(p, "LaunchConfigurationNames")
+    members = ""
+    for name, lc in _launch_configs.items():
+        if names and name not in names:
+            continue
+        sgs = "".join(f"<member>{sg}</member>" for sg in lc.get("SecurityGroups", []))
+        members += (f"<member>"
+                    f"<LaunchConfigurationName>{name}</LaunchConfigurationName>"
+                    f"<LaunchConfigurationARN>{lc['LaunchConfigurationARN']}</LaunchConfigurationARN>"
+                    f"<ImageId>{lc['ImageId']}</ImageId>"
+                    f"<InstanceType>{lc['InstanceType']}</InstanceType>"
+                    f"<CreatedTime>{lc['CreatedTime']}</CreatedTime>"
+                    f"<SecurityGroups>{sgs}</SecurityGroups>"
+                    f"</member>")
+    return _xml(200, "DescribeLaunchConfigurationsResponse",
+                f"<DescribeLaunchConfigurationsResult><LaunchConfigurations>{members}</LaunchConfigurations></DescribeLaunchConfigurationsResult>")
+
+
+def _delete_lc(p):
+    name = _p(p, "LaunchConfigurationName")
+    _launch_configs.pop(name, None)
+    return _xml(200, "DeleteLaunchConfigurationResponse", "<DeleteLaunchConfigurationResult/>")
+
+
+# ---------------------------------------------------------------------------
+# Scaling Policy
+# ---------------------------------------------------------------------------
+
+# Typed per the autoscaling service-2.json shapes; every other leaf is a string.
+_POLICY_FLOATS = frozenset({"TargetValue", "MetricIntervalLowerBound", "MetricIntervalUpperBound"})
+_POLICY_INTS = frozenset({"ScalingAdjustment", "EstimatedInstanceWarmup",
+                          "MinAdjustmentMagnitude", "Period", "SchedulingBufferTime",
+                          "MaxCapacityBuffer"})
+_POLICY_BOOLS = frozenset({"DisableScaleIn", "ReturnData", "Enabled"})
+_POLICY_OPTIONAL = ("EstimatedInstanceWarmup", "MetricAggregationType",
+                    "MinAdjustmentMagnitude", "PredictiveScalingConfiguration",
+                    "StepAdjustments", "TargetTrackingConfiguration")
+
+
+def _policy_typed(value, key=None):
+    if isinstance(value, dict):
+        return {k: _policy_typed(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_policy_typed(v) for v in value]
+    if key in _POLICY_FLOATS:
+        return float(value)
+    if key in _POLICY_INTS:
+        return int(value)
+    if key in _POLICY_BOOLS:
+        return value if isinstance(value, bool) else str(value).lower() == "true"
+    return value
+
+
+def _parse_nested(params, prefix):
+    """The query members under ``prefix`` as nested dicts, ``.member.N`` levels as lists."""
+    tree = {}
+    for key in params:
+        if not key.startswith(prefix + "."):
+            continue
+        tokens = key[len(prefix) + 1:].split(".")
+        path = []
+        i = 0
+        while i < len(tokens):
+            if tokens[i] == "member" and i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                path.append(int(tokens[i + 1]))
+                i += 2
+            else:
+                path.append(tokens[i])
+                i += 1
+        node = tree
+        for step in path[:-1]:
+            node = node.setdefault(step, {})
+        node[path[-1]] = _p(params, key)
+
+    def listify(node):
+        if isinstance(node, dict):
+            if node and all(isinstance(k, int) for k in node):
+                return [listify(node[k]) for k in sorted(node)]
+            return {k: listify(v) for k, v in node.items()}
+        return node
+
+    return listify(tree)
+
+
+def _policy_record(asg_name, policy_name, arn, fields):
+    """A policy record with only the members its type has, from API members or template properties."""
+    policy_type = fields.get("PolicyType") or "SimpleScaling"
+    record = {
+        "PolicyARN": arn,
+        "PolicyName": policy_name,
+        "AutoScalingGroupName": asg_name,
+        "PolicyType": policy_type,
+        "Enabled": _policy_typed(fields.get("Enabled", True), "Enabled"),
+    }
+    if policy_type in ("SimpleScaling", "StepScaling"):
+        record["AdjustmentType"] = fields.get("AdjustmentType") or "ChangeInCapacity"
+    if policy_type == "SimpleScaling":
+        record["ScalingAdjustment"] = int(fields.get("ScalingAdjustment") or 0)
+        record["Cooldown"] = int(fields.get("Cooldown") or 300)
+    for member in _POLICY_OPTIONAL:
+        value = fields.get(member)
+        if value not in (None, "", [], {}):
+            record[member] = _policy_typed(value, member)
+    tracking = record.get("TargetTrackingConfiguration")
+    if tracking is not None:
+        tracking.setdefault("DisableScaleIn", False)
+    predictive = record.get("PredictiveScalingConfiguration")
+    if predictive is not None:
+        # "Defaults to HonorMaxCapacity if not specified" (service-2.json).
+        predictive.setdefault("MaxCapacityBreachBehavior", "HonorMaxCapacity")
+    return record
+
+
+def _put_scaling_policy(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    policy_name = _p(p, "PolicyName")
+    if not policy_name:
+        return _error("ValidationError", "PolicyName is required")
+    arn = f"arn:aws:autoscaling:{get_region()}:{get_account_id()}:scalingPolicy:{new_uuid()}:autoScalingGroupName/{asg_name}:policyName/{policy_name}"
+    key = f"{asg_name}/{policy_name}"
+    fields = {k: _p(p, k) for k in ("PolicyType", "AdjustmentType", "ScalingAdjustment",
+                                    "Cooldown", "Enabled", "EstimatedInstanceWarmup",
+                                    "MetricAggregationType", "MinAdjustmentMagnitude")
+              if _p(p, k) != ""}
+    fields["StepAdjustments"] = _parse_nested(p, "StepAdjustments")
+    fields["TargetTrackingConfiguration"] = _parse_nested(p, "TargetTrackingConfiguration")
+    fields["PredictiveScalingConfiguration"] = _parse_nested(p, "PredictiveScalingConfiguration")
+    try:
+        record = _policy_record(asg_name, policy_name, arn, fields)
+    except ValueError as exc:
+        return _error("ValidationError", f"Invalid numeric value in the scaling policy: {escape(str(exc))}")
+    _delete_policy_alarms(_policies.get(key))
+    _put_tracking_alarms(record)
+    _policies[key] = record
+    return _xml(200, "PutScalingPolicyResponse",
+                f"<PutScalingPolicyResult><PolicyARN>{arn}</PolicyARN>"
+                f"<Alarms>{_member_xml(record.get('Alarms', []))}</Alarms></PutScalingPolicyResult>")
+
+
+_TRACKING_METRICS = {
+    "ASGAverageCPUUtilization": ("CPUUtilization", None),
+    "ASGAverageNetworkIn": ("NetworkIn", "Bytes"),
+    "ASGAverageNetworkOut": ("NetworkOut", "Bytes"),
+}
+
+
+def _tracking_metric(tracking, asg_name):
+    """The alarm metric of a target tracking configuration, or None for types without modelled alarms."""
+    predefined = tracking.get("PredefinedMetricSpecification") or {}
+    if predefined.get("PredefinedMetricType") in _TRACKING_METRICS:
+        name, unit = _TRACKING_METRICS[predefined["PredefinedMetricType"]]
+        return {"Namespace": "AWS/EC2", "MetricName": name, "Statistic": "Average", "Unit": unit,
+                "Dimensions": [{"Name": "AutoScalingGroupName", "Value": asg_name}]}
+    custom = tracking.get("CustomizedMetricSpecification") or {}
+    if custom.get("MetricName"):
+        return {"Namespace": custom.get("Namespace"), "MetricName": custom["MetricName"],
+                "Statistic": custom.get("Statistic"), "Unit": custom.get("Unit"),
+                "Dimensions": custom.get("Dimensions", [])}
+    return None
+
+
+def _put_tracking_alarms(record):
+    """Create the AlarmHigh and, unless scale-in is disabled, AlarmLow alarms of a target tracking policy."""
+    tracking = record.get("TargetTrackingConfiguration")
+    metric = tracking and _tracking_metric(tracking, record["AutoScalingGroupName"])
+    if not metric:
+        return
+    from ministack.services import cloudwatch as _cw
+    target = Decimal(str(tracking.get("TargetValue", 0)))
+    levels = [("High", 3, target, "GreaterThanThreshold")]
+    if not tracking.get("DisableScaleIn"):
+        levels.append(("Low", 15, target * Decimal("0.9"), "LessThanThreshold"))
+    record["Alarms"] = []
+    for level, periods, threshold, operator in levels:
+        name = f"TargetTracking-{record['AutoScalingGroupName']}-Alarm{level}-{new_uuid()}"
+        now = int(time.time())
+        alarm = {k: v for k, v in {
+            "AlarmName": name,
+            "AlarmArn": f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}",
+            "AlarmDescription": f"DO NOT EDIT OR DELETE. For TargetTrackingScaling policy {record['PolicyARN']}.",
+            "ActionsEnabled": True,
+            "OKActions": [],
+            "AlarmActions": [record["PolicyARN"]],
+            "InsufficientDataActions": [],
+            "StateValue": "INSUFFICIENT_DATA",
+            "StateReason": "Unchecked: Initial alarm creation",
+            "StateUpdatedTimestamp": now,
+            "AlarmConfigurationUpdatedTimestamp": now,
+            **metric,
+            "Period": 60,
+            "EvaluationPeriods": periods,
+            "Threshold": float(threshold),
+            "ComparisonOperator": operator,
+        }.items() if v is not None}
+        _cw.cloudformation_put_metric_alarm(alarm)
+        record["Alarms"].append({"AlarmName": name, "AlarmARN": alarm["AlarmArn"]})
+
+
+def _delete_policy_alarms(record):
+    """Delete the alarms a policy created."""
+    from ministack.services import cloudwatch as _cw
+    for alarm in (record or {}).get("Alarms", []):
+        _cw.cloudformation_delete_metric_alarm(alarm["AlarmName"])
+
+
+def _delete_group_policies(asg_name):
+    """Delete the policies of a group and their alarms."""
+    for k, policy in list(_policies.items()):
+        if policy.get("AutoScalingGroupName") == asg_name:
+            _delete_policy_alarms(_policies.pop(k, None))
+
+
+def _delete_group_hooks(asg_name):
+    """Delete the lifecycle hooks of a group."""
+    for k, hook in list(_hooks.items()):
+        if hook.get("AutoScalingGroupName") == asg_name:
+            _hooks.pop(k, None)
+
+
+def _member_xml(value):
+    """A stored member as query-protocol XML."""
+    if isinstance(value, dict):
+        return "".join(f"<{k}>{_member_xml(v)}</{k}>" for k, v in value.items())
+    if isinstance(value, list):
+        return "".join(f"<member>{_member_xml(v)}</member>" for v in value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return escape(str(value))
+
+
+def _describe_policies(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    members = ""
+    for key, pol in _policies.items():
+        if asg_name and pol["AutoScalingGroupName"] != asg_name:
+            continue
+        body = dict(pol)
+        body.setdefault("Enabled", True)
+        body.setdefault("StepAdjustments", [])
+        body.setdefault("Alarms", [])
+        if "MinAdjustmentMagnitude" in body:
+            body["MinAdjustmentStep"] = body["MinAdjustmentMagnitude"]
+        members += f"<member>{_member_xml(body)}</member>"
+    return _xml(200, "DescribePoliciesResponse",
+                f"<DescribePoliciesResult><ScalingPolicies>{members}</ScalingPolicies></DescribePoliciesResult>")
+
+
+def _delete_policy(p):
+    policy_name = _p(p, "PolicyName")
+    asg_name = _p(p, "AutoScalingGroupName")
+    key = f"{asg_name}/{policy_name}"
+    _delete_policy_alarms(_policies.pop(key, None))
+    return _xml(200, "DeletePolicyResponse", "<DeletePolicyResult/>")
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle Hook
+# ---------------------------------------------------------------------------
+
+def _hook_record(asg_name, hook_name, fields):
+    """A lifecycle hook record, from API members or template properties."""
+    return {
+        "LifecycleHookName": hook_name,
+        "AutoScalingGroupName": asg_name,
+        "LifecycleTransition": fields.get("LifecycleTransition") or "autoscaling:EC2_INSTANCE_LAUNCHING",
+        "HeartbeatTimeout": int(fields.get("HeartbeatTimeout") or 3600),
+        "DefaultResult": fields.get("DefaultResult") or "ABANDON",
+        "NotificationTargetARN": fields.get("NotificationTargetARN") or "",
+        "RoleARN": fields.get("RoleARN") or "",
+        "NotificationMetadata": fields.get("NotificationMetadata") or "",
+    }
+
+
+def _put_lifecycle_hook(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    hook_name = _p(p, "LifecycleHookName")
+    key = f"{asg_name}/{hook_name}"
+    _hooks[key] = _hook_record(asg_name, hook_name, {
+        member: _p(p, member) for member in (
+            "LifecycleTransition", "HeartbeatTimeout", "DefaultResult",
+            "NotificationTargetARN", "RoleARN", "NotificationMetadata")})
+    return _xml(200, "PutLifecycleHookResponse", "<PutLifecycleHookResult/>")
+
+
+def _describe_lifecycle_hooks(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    members = ""
+    for key, hook in _hooks.items():
+        if hook["AutoScalingGroupName"] != asg_name:
+            continue
+        metadata = hook.get("NotificationMetadata")
+        metadata_xml = f"<NotificationMetadata>{escape(metadata)}</NotificationMetadata>" if metadata else ""
+        members += (f"<member>"
+                    f"<LifecycleHookName>{hook['LifecycleHookName']}</LifecycleHookName>"
+                    f"<AutoScalingGroupName>{hook['AutoScalingGroupName']}</AutoScalingGroupName>"
+                    f"<LifecycleTransition>{hook['LifecycleTransition']}</LifecycleTransition>"
+                    f"{metadata_xml}"
+                    f"<HeartbeatTimeout>{hook['HeartbeatTimeout']}</HeartbeatTimeout>"
+                    f"<DefaultResult>{hook['DefaultResult']}</DefaultResult>"
+                    f"</member>")
+    return _xml(200, "DescribeLifecycleHooksResponse",
+                f"<DescribeLifecycleHooksResult><LifecycleHooks>{members}</LifecycleHooks></DescribeLifecycleHooksResult>")
+
+
+def _delete_lifecycle_hook(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    hook_name = _p(p, "LifecycleHookName")
+    _hooks.pop(f"{asg_name}/{hook_name}", None)
+    return _xml(200, "DeleteLifecycleHookResponse", "<DeleteLifecycleHookResult/>")
+
+
+def _complete_lifecycle_action(p):
+    return _xml(200, "CompleteLifecycleActionResponse", "<CompleteLifecycleActionResult/>")
+
+
+def _record_lifecycle_heartbeat(p):
+    return _xml(200, "RecordLifecycleActionHeartbeatResponse", "<RecordLifecycleActionHeartbeatResult/>")
+
+
+# ---------------------------------------------------------------------------
+# Scheduled Action
+# ---------------------------------------------------------------------------
+
+def _scheduled_action_record(asg_name, action_name, arn, fields):
+    """A scheduled action record; an omitted capacity is -1 and left out of the response."""
+    def capacity(member):
+        value = fields.get(member)
+        return -1 if value in (None, "") else int(value)
+
+    record = {
+        "ScheduledActionARN": arn,
+        "ScheduledActionName": action_name,
+        "AutoScalingGroupName": asg_name,
+        "Recurrence": fields.get("Recurrence") or "",
+        "MinSize": capacity("MinSize"),
+        "MaxSize": capacity("MaxSize"),
+        "DesiredCapacity": capacity("DesiredCapacity"),
+    }
+    for member in ("StartTime", "EndTime", "TimeZone"):
+        if fields.get(member):
+            record[member] = str(fields[member])
+    return record
+
+
+def _put_scheduled_action(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    action_name = _p(p, "ScheduledActionName")
+    key = f"{asg_name}/{action_name}"
+    arn = f"arn:aws:autoscaling:{get_region()}:{get_account_id()}:scheduledUpdateGroupAction:{new_uuid()}:autoScalingGroupName/{asg_name}:scheduledActionName/{action_name}"
+    _scheduled_actions[key] = _scheduled_action_record(asg_name, action_name, arn, {
+        member: _p(p, member) for member in (
+            "Recurrence", "MinSize", "MaxSize", "DesiredCapacity",
+            "StartTime", "EndTime", "TimeZone")})
+    return _xml(200, "PutScheduledUpdateGroupActionResponse", "<PutScheduledUpdateGroupActionResult/>")
+
+
+def _describe_scheduled_actions(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    members = ""
+    for key, sa in _scheduled_actions.items():
+        if asg_name and sa["AutoScalingGroupName"] != asg_name:
+            continue
+        members += (f"<member>"
+                    f"<ScheduledActionARN>{sa['ScheduledActionARN']}</ScheduledActionARN>"
+                    f"<ScheduledActionName>{sa['ScheduledActionName']}</ScheduledActionName>"
+                    f"<AutoScalingGroupName>{sa['AutoScalingGroupName']}</AutoScalingGroupName>"
+                    f"<Recurrence>{escape(sa.get('Recurrence', ''))}</Recurrence>")
+        for member in ("MinSize", "MaxSize", "DesiredCapacity"):
+            value = sa.get(member, -1)
+            if value is not None and int(value) >= 0:
+                members += f"<{member}>{int(value)}</{member}>"
+        # StartTime is also answered as the deprecated Time.
+        if sa.get("StartTime"):
+            members += (f"<StartTime>{escape(sa['StartTime'])}</StartTime>"
+                        f"<Time>{escape(sa['StartTime'])}</Time>")
+        for member in ("EndTime", "TimeZone"):
+            if sa.get(member):
+                members += f"<{member}>{escape(sa[member])}</{member}>"
+        members += "</member>"
+    return _xml(200, "DescribeScheduledActionsResponse",
+                f"<DescribeScheduledActionsResult><ScheduledUpdateGroupActions>{members}</ScheduledUpdateGroupActions></DescribeScheduledActionsResult>")
+
+
+def _delete_scheduled_action(p):
+    asg_name = _p(p, "AutoScalingGroupName")
+    action_name = _p(p, "ScheduledActionName")
+    _scheduled_actions.pop(f"{asg_name}/{action_name}", None)
+    return _xml(200, "DeleteScheduledActionResponse", "<DeleteScheduledActionResult/>")
+
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+
+def _create_or_update_tags(p):
+    i = 1
+    while _p(p, f"Tags.member.{i}.Key"):
+        asg_name = _p(p, f"Tags.member.{i}.ResourceId")
+        tag = {
+            "Key": _p(p, f"Tags.member.{i}.Key"),
+            "Value": _p(p, f"Tags.member.{i}.Value"),
+            "ResourceId": asg_name,
+            "ResourceType": "auto-scaling-group",
+            "PropagateAtLaunch": _p(p, f"Tags.member.{i}.PropagateAtLaunch") == "true",
+        }
+        existing = _tags.setdefault(asg_name, [])
+        existing = [t for t in existing if t["Key"] != tag["Key"]]
+        existing.append(tag)
+        _tags[asg_name] = existing
+        if asg_name in _asgs:
+            _asgs[asg_name]["Tags"] = existing
+        i += 1
+    return _xml(200, "CreateOrUpdateTagsResponse", "<CreateOrUpdateTagsResult/>")
+
+
+def _describe_tags(p):
+    members = ""
+    for asg_name, tag_list in _tags.items():
+        for t in tag_list:
+            members += (f"<member>"
+                        f"<Key>{t['Key']}</Key><Value>{t['Value']}</Value>"
+                        f"<ResourceId>{t['ResourceId']}</ResourceId>"
+                        f"<ResourceType>{t['ResourceType']}</ResourceType>"
+                        f"<PropagateAtLaunch>{'true' if t.get('PropagateAtLaunch') else 'false'}</PropagateAtLaunch>"
+                        f"</member>")
+    return _xml(200, "DescribeTagsResponse",
+                f"<DescribeTagsResult><Tags>{members}</Tags></DescribeTagsResult>")
+
+
+def _delete_tags(p):
+    i = 1
+    while _p(p, f"Tags.member.{i}.Key"):
+        asg_name = _p(p, f"Tags.member.{i}.ResourceId")
+        key = _p(p, f"Tags.member.{i}.Key")
+        existing = _tags.get(asg_name, [])
+        _tags[asg_name] = [t for t in existing if t["Key"] != key]
+        if asg_name in _asgs:
+            _asgs[asg_name]["Tags"] = _tags[asg_name]
+        i += 1
+    return _xml(200, "DeleteTagsResponse", "<DeleteTagsResult/>")
+
+
+# ---------------------------------------------------------------------------
+# Request handler
+# ---------------------------------------------------------------------------
+
+_ACTION_MAP = {
+    "CreateAutoScalingGroup": _create_asg,
+    "DescribeAutoScalingGroups": _describe_asgs,
+    "UpdateAutoScalingGroup": _update_asg,
+    "DeleteAutoScalingGroup": _delete_asg,
+    "SetDesiredCapacity": _set_desired_capacity,
+    "DescribeAutoScalingInstances": _describe_asg_instances,
+    "DescribeScalingActivities": _describe_scaling_activities,
+    "StartInstanceRefresh": _start_instance_refresh,
+    "DescribeInstanceRefreshes": _describe_instance_refreshes,
+    "CancelInstanceRefresh": _cancel_instance_refresh,
+    "CreateLaunchConfiguration": _create_lc,
+    "DescribeLaunchConfigurations": _describe_lcs,
+    "DeleteLaunchConfiguration": _delete_lc,
+    "PutScalingPolicy": _put_scaling_policy,
+    "DescribePolicies": _describe_policies,
+    "DeletePolicy": _delete_policy,
+    "PutLifecycleHook": _put_lifecycle_hook,
+    "DescribeLifecycleHooks": _describe_lifecycle_hooks,
+    "DeleteLifecycleHook": _delete_lifecycle_hook,
+    "CompleteLifecycleAction": _complete_lifecycle_action,
+    "RecordLifecycleActionHeartbeat": _record_lifecycle_heartbeat,
+    "PutScheduledUpdateGroupAction": _put_scheduled_action,
+    "DescribeScheduledActions": _describe_scheduled_actions,
+    "DeleteScheduledAction": _delete_scheduled_action,
+    "CreateOrUpdateTags": _create_or_update_tags,
+    "DescribeTags": _describe_tags,
+    "DeleteTags": _delete_tags,
+}
+
+
+async def handle_request(method, path, headers, body, query_params):
+    from urllib.parse import parse_qs
+    if body:
+        params = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=True)
+        params = {k: v[0] if len(v) == 1 else v for k, v in params.items()}
+    else:
+        params = dict(query_params) if query_params else {}
+
+    action = params.get("Action", "")
+    if isinstance(action, list):
+        action = action[0]
+
+    handler = _ACTION_MAP.get(action)
+    if not handler:
+        s, h, b = _error("InvalidAction", f"Unknown AutoScaling action: {action}")
+        return s, h, b
+
+    s, h, b = handler(params)
+    return s, h, b

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core import session_journal as sj
 from test_backfill_transcripts_upload import FakeWire, _transcript
 

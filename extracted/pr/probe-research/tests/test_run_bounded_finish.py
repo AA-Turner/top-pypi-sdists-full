@@ -317,10 +317,17 @@ def test_a_close_with_nowhere_to_record_it_warns_instead_of_raising(
             raise OSError(errno.EROFS, "Read-only file system", str(path))
         return real_write(path, *a, **k)
 
-    monkeypatch.setattr(journal_module.journal, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.append, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.discards, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.failures, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.pause, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.producers, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.receipts.receipts, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.status_file, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.waiting_room, "write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", read_only)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", read_only)
 
     with pytest.warns(UserWarning, match="could not be closed"):
@@ -1389,7 +1396,6 @@ def test_a_run_whose_writes_hit_the_cap_still_gets_its_close_and_marker(app, tmp
     from probe.sdk.delivery import journal as journal_module
 
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 5)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 5)
     run_id, client, run = _setup(app, tmp_path)
     mp = pytest.MonkeyPatch()
     _fail_metrics(client, mp)
@@ -1428,10 +1434,17 @@ def test_the_drop_warning_does_not_claim_a_marker_it_could_not_record(app, tmp_p
             raise OSError(errno.EROFS, "Read-only file system", str(path))
         return real_write(path, *a, **k)
 
-    monkeypatch.setattr(journal_module.journal, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.append, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.discards, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.failures, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.failures.pause, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.producers, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.receipts.receipts, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.status_file, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.waiting_room, "write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", read_only)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.write_text_atomic", read_only)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", read_only)
     with pytest.warns(UserWarning, match="could NOT be marked"):
         report = run.finish(flush_timeout=0.5)
@@ -1460,7 +1473,6 @@ def test_a_close_that_fails_open_is_queued_even_at_the_cap(app, tmp_path, monkey
 
     run_id, client, run = _setup(app, tmp_path)
     monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 3)
-    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 3)
     for n in range(3):
         client.journal.append_http("POST", "/v1/runs/other/metrics", {"points": [{"i": n}]})
     _fail_status_patch(client, monkeypatch, run_id)

@@ -29,6 +29,20 @@ from probe.sdk.values.tags import canonical_tags as _canonical_tags
 from probe.transport import Transport
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _cli_helper_pieces_loaded() -> None:
+    """cli/main.py's door defers its wizard and harness helpers until a command needs them. Load
+    them before any test patches: a piece first loaded under a patch would keep the fake."""
+    importlib.import_module("probe.cli.main")
+    for piece in sys.modules["probe.cli.main"]._DEFERRED:
+        importlib.import_module(piece)
+    # The folder import's lazy doors: their pieces, as the old eager doors loaded them (tests reach
+    # `bf.agents.launch` and the like); production loads only what a read needs (test_backfill_front_door).
+    for door in ("probe.cli.imports.folder", "probe.cli.imports.folder.evidence"):
+        for piece in importlib.import_module(door)._PIECES:
+            importlib.import_module(piece)
+
+
 @pytest.fixture(autouse=True)
 def _daemon_bites_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """The daemon's default mode is `conversation` (2026-09-27); the suite's worker
@@ -45,6 +59,26 @@ def _outbox_linger(monkeypatch: pytest.MonkeyPatch) -> None:
     it (longer than the client's 1 s kick throttle). The linger's own tests
     (test_outbox.py) set it back."""
     monkeypatch.setenv("PROBE_OUTBOX_LINGER_S", "1.5")
+
+
+@pytest.fixture(autouse=True)
+def _send_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A drainer holds a run's telemetry for its writer's collect window
+    (`PROBE_SEND_INTERVAL_SEC`, 5 s by default, plan T2). The suite's delivery tests
+    were written for send-at-once and pin 0, unless the run sets it:
+    `PROBE_SEND_INTERVAL_SEC=5 pytest ...` runs them under the window. The window's
+    own tests (test_collect_window.py) set it."""
+    if "PROBE_SEND_INTERVAL_SEC" not in os.environ:
+        monkeypatch.setenv("PROBE_SEND_INTERVAL_SEC", "0")
+
+
+@pytest.fixture(autouse=True)
+def _fsync_each_op(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`log()` leaves its fsync to a flusher thread by default (`PROBE_OUTBOX_FSYNC=interval`,
+    plan T6); the suite's fsync-counting tests were written for one per op and pin `each`
+    unless the run sets it. The flusher's own tests (test_journal_flusher.py) unset it."""
+    if "PROBE_OUTBOX_FSYNC" not in os.environ:
+        monkeypatch.setenv("PROBE_OUTBOX_FSYNC", "each")
 
 
 @pytest.fixture(autouse=True)
@@ -162,15 +196,15 @@ def _onboarding_prompts_pass(request: pytest.FixtureRequest, monkeypatch: pytest
     yes. A module setting `FRESH_DEVICE_ONBOARDING = "real"` keeps the routing,
     one setting `ONBOARDING_PROMPTS = "real"` keeps both prompts; a test stands
     its own answer in."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     if getattr(request.module, "FRESH_DEVICE_ONBOARDING", None) != "real":
         main = importlib.import_module("probe.cli.main")
         monkeypatch.setattr(main, "_opens_onboarding", lambda *_a, **_kw: False)
     if getattr(request.module, "ONBOARDING_PROMPTS", None) == "real":
         return
-    monkeypatch.setattr(setup, "run_defaults_step", lambda pick, **_kw: (True, pick))
-    monkeypatch.setattr(setup, "run_daemon_consent", lambda sources: True)
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_step", lambda pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup.settings.defaults, "run_daemon_consent", lambda sources: True)
 
 
 @pytest.fixture(autouse=True)
@@ -183,9 +217,9 @@ def _no_real_sign_in_mint(request: pytest.FixtureRequest, monkeypatch: pytest.Mo
     monkeypatch.delenv("PROBE_TOKEN", raising=False)
     if "real_sign_in_mint" in request.fixturenames:
         return
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
-    monkeypatch.setattr(setup, "mint_from_sign_in", lambda *_a, **_kw: None)
+    monkeypatch.setattr(setup.apply.capture_credentials, "mint_from_sign_in", lambda *_a, **_kw: None)
 
 
 @pytest.fixture
@@ -316,7 +350,7 @@ def _no_real_import_agent_settings(monkeypatch: pytest.MonkeyPatch, request: pyt
     the builtin settings: exactly the launches the import made before the read
     existed. Tests ABOUT the read ask for `real_import_agent_settings`. A
     developer's own override never reaches a test either."""
-    from probe.cli import import_agent_settings
+    from probe.cli.imports import agent_settings as import_agent_settings
 
     monkeypatch.delenv(import_agent_settings.ENV_VAR, raising=False)
     if "real_import_agent_settings" in request.fixturenames:
@@ -335,13 +369,13 @@ def _no_real_computer_workspace(monkeypatch: pytest.MonkeyPatch, request: pytest
     """No install-flow test may list a real server's workspaces.
 
     Every finished install runs the wizard's "Where should this computer's work
-    go?" step (`probe.cli.computer_workspace.choose`), which lists workspaces
+    go?" step (`probe.cli.wizard.account.computer_workspace.choose`), which lists workspaces
     with the saved credential -- or a developer's exported PROBE_TOKEN, against
     whatever base URL the test set, production included. Replaced with a step
     that shows nothing. Tests ABOUT the step ask for `real_computer_workspace`."""
     if "real_computer_workspace" in request.fixturenames:
         return
-    from probe.cli import computer_workspace
+    from probe.cli.wizard.account import computer_workspace
 
     monkeypatch.setattr(computer_workspace, "choose", lambda **_k: [])
 
@@ -363,7 +397,7 @@ def _no_real_service_start(monkeypatch: pytest.MonkeyPatch, request: pytest.Fixt
     `real_service_start`."""
     if "real_service_start" in request.fixturenames:
         return
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     monkeypatch.setattr(install_pipeline, "start_service", lambda **_k: None)
 
@@ -377,13 +411,13 @@ def real_service_start() -> None:
 def _no_real_daemon_install(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test may pip-install the daemon's AI libraries for real.
 
-    Choosing `daemon` provisions them (`probe.cli.companion.provision_daemon`),
+    Choosing `daemon` provisions them (`probe.cli.commands.daemon.companion.provision_daemon`),
     and whether that path installs depends on what the machine running the
     tests already has: a dev box with the extra skips it, a CI runner without
     it ran `pip install` and failed a release gate (0.186.0). Tests of the
     install path replace `daemon_install` themselves.
     """
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     def _explode() -> None:
         raise AssertionError("a test reached the real `probe daemon install` (pip)")
@@ -403,10 +437,10 @@ def _no_real_codex_hook_approval(monkeypatch: pytest.MonkeyPatch) -> None:
     cannot be asked. Tests of `approve` call the real one through its own module.
     """
     from probe.shared.harness.harnesses.codex import hooks as codex_hooks
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     monkeypatch.setattr(codex_hooks, "approve", lambda *_a, **_k: None)
-    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: False)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.hook_approval.codex_hooks_waiting", lambda: False)
 
 
 @pytest.fixture(autouse=True)
@@ -442,9 +476,9 @@ def _no_ambient_pi_binary(monkeypatch: pytest.MonkeyPatch) -> None:
     so they are unaffected either way.
     """
     from probe.shared.harness.harnesses import pi as pi_config
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
-    monkeypatch.setattr(wizard, "pi_binary_available", lambda: False)
+    monkeypatch.setattr(wizard.agents, "pi_binary_available", lambda: False)
     monkeypatch.setattr(pi_config.pi, "pi_binary_available", lambda: False)
 
 
@@ -532,10 +566,10 @@ def _no_real_device_state(monkeypatch: pytest.MonkeyPatch) -> None:
     `doctor.collect()` ask the old way: exactly what every existing wizard test
     already stubs. `test_device_state.py` drives the real call against a
     served fake."""
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     monkeypatch.setattr(
-        capabilities,
+        capabilities.device_state,
         "fetch_device_state",
         lambda *_a, **_k: capabilities.DeviceState(capabilities.DeviceStateOutcome.UNSUPPORTED),
     )
@@ -554,9 +588,9 @@ def _no_real_wizard_account_lookup(monkeypatch: pytest.MonkeyPatch, request: pyt
     "Installed Probe in", failing 5 `test_wizard_summary.py` tests.)"""
     if "real_wizard_account_lookup" in request.fixturenames:
         return
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
-    monkeypatch.setattr(setup, "_record_login_account", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(setup.apply.authorize, "_record_login_account", lambda *a, **k: None, raising=False)
 
 
 @pytest.fixture
@@ -572,7 +606,7 @@ def _no_real_identity_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
     DEFAULT endpoint with fake tokens: answered "unreachable" here (nothing is
     dropped or flagged on it), never sent to production.
     tests/test_reinstall_identity.py answers it per token itself."""
-    from probe.cli import identity_check
+    from probe.cli.install import identity_check
 
     monkeypatch.setattr(identity_check, "whoami", lambda token, base_url: ("unreachable", None))
     monkeypatch.setattr(identity_check, "_once", None)
@@ -750,7 +784,7 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     monkeypatch.setenv("USERPROFILE", str(root))  # Windows' Path.home() reads this, not HOME
     if os.name == "nt":
         # The service's folder on Windows is %LOCALAPPDATA%\probe\service, not
-        # under HOME (`probe.service.paths.root_dir`), and the CLI's uv install
+        # under HOME (`probe.foundation.service_api.paths.root_dir`), and the CLI's uv install
         # under %APPDATA%: unredirected, every test that touched the service's
         # files wrote the runner's (or a developer's) real ones, and the next
         # test read what the last one left there.
@@ -798,6 +832,8 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # would otherwise send it on every request the suite makes.
     monkeypatch.delenv("PROBE_WORKSPACE_LIMIT", raising=False)
     monkeypatch.delenv("PROBE_WORKSPACE_LIMIT_TEAM_ITEMS", raising=False)
+    # A run with no project named takes this one (`settings.project`).
+    monkeypatch.delenv("PROBE_PROJECT", raising=False)
     monkeypatch.delenv("PROBE_IGNORE_FILE", raising=False)
     monkeypatch.delenv("PROBE_IGNORE_EXPORTED", raising=False)
     # CODEX_THREAD_ID / CODEX_SANDBOX are the same hole again, and this pair
@@ -1209,10 +1245,6 @@ class FakeApp:
     # RunPatch forbids no extra fields, so such a server answers 200 and DROPS
     # the field -- which is why the SDK must not send it there.
     supports_config_merge = True
-    # False models a backend PREDATING floating runs (daemon v2): POST /v1/runs
-    # is FastAPI's 405 and GET /v1/runs IGNORES `unfiled=true`, answering with
-    # filed runs -- the shape the SDK's guard refuses to count as unfiled.
-    supports_floating = True
     # 0185 writer fencing, mirrored from app/telemetry/fencing.py: a write
     # CARRYING an epoch older than the run's is refused 409 at the door (an
     # epoch-less write passes). The real server has fenced since 0185, and a
@@ -1562,17 +1594,16 @@ class FakeApp:
         "fork": "forked_from", "resume": "resumed_from", "retry": "retried_from", "branch": "branched_from",
     }
 
-    def _run_origin(self, run: dict) -> dict:
-        """Mirrors app/lineage/origin.py for what the fake stores: the first
-        parent, else the group, else the experiment, else the project, else the
-        unfiled bucket."""
+    def _run_origin(self, run: dict) -> dict | None:
+        """Mirrors app/projects/lineage/origin.py for what the fake stores: the
+        first parent, else the group, else the experiment, else the project."""
         if run.get("parent_run_id"):
             return {"type": "run", "id": run["parent_run_id"], "via": "lineage",
                     "relation": self._PARENT_RELATIONS.get(run.get("parent_relation") or "")}
         for key, kind in (("group_id", "group"), ("experiment_id", "experiment"), ("project_id", "project")):
             if run.get(key):
                 return {"type": kind, "id": run[key], "via": "container", "relation": None}
-        return {"type": "unfiled", "id": None, "via": "container", "relation": None}
+        return None
 
     def _project_origin(self, pid: str) -> dict | None:
         """A project end it builds on or replaces (a stored link), else its
@@ -1751,6 +1782,15 @@ class FakeApp:
             }
         )
 
+    def seed_run(self, **body) -> dict:
+        """A project-direct run straight into the fake, no HTTP (its project id made up)."""
+        return self._new_run(str(uuid.uuid4()), None, body)
+
+    def seed_unfiled_run(self, **body) -> dict:
+        """A row with NO project, which only a server before 0418 could answer (daemon v2's
+        floating runs): for the SDK's own refusals of such a parent, nothing else."""
+        return self._new_run(str(uuid.uuid4()), None, body, floating=True)
+
     def seed_experiment(self, slug: str, *, project_id: str | None = None) -> dict:
         """Put an experiment straight into the fake, no HTTP.
 
@@ -1851,6 +1891,8 @@ class FakeApp:
                 "created_at": _T0,
             },
         }
+        #: Every workspace id `PUT /v1/workspaces/{id}/default` made the caller's home.
+        self.home_saves: list[str] = []
         # Artifacts are keyed by an anchor key ("run:<id>", "project:<id>", ...) so the
         # one confirm handler can find a row whatever it hangs off, exactly like the
         # server's single confirm core.
@@ -3717,7 +3759,7 @@ class FakeApp:
         if path == "/v1/sql" and method == "POST":
             # Schema discovery only: a fake has no database to run SQL against.
             # Execution, RLS and limits are proven against real Postgres in
-            # research-os tests/integration/test_sql_route.py.
+            # research-os tests/integration/agents/sql/test_sql_route.py.
             return httpx.Response(
                 200,
                 json={
@@ -3802,6 +3844,12 @@ class FakeApp:
                     },
                 )
             workspace_id = body.get("workspace_id")
+            if workspace_id is not None and workspace_id not in self.workspaces:
+                # `resolve_workspace_for_create`: a plain-string 422, never a guess.
+                return httpx.Response(
+                    422,
+                    json={"detail": "workspace_id not found: no workspace with that id on this team"},
+                )
             if workspace_id is None:
                 # 0401: a linked create with no workspace is filed beside its
                 # first `part_of` target, as a parented one was beside its parent.
@@ -4002,8 +4050,8 @@ class FakeApp:
                         }
                     },
                 )
-            # Team kind, no owner: the route mints nothing else (no default
-            # since per-computer workspaces, 2026-10-14).
+            # Team kind, no owner, open: the creator may make it their home, and it
+            # IS their home when they had none (home workspace per member, 2026-11-01).
             row = {
                 "id": str(uuid.uuid4()),
                 "customer_id": "lab-42",
@@ -4012,7 +4060,8 @@ class FakeApp:
                 "kind": "team",
                 "owner_user_id": None,
                 "project_count": 0,
-                "is_default": False,
+                "home_eligible": True,
+                "is_default": not any(w.get("is_default") is True for w in self.workspaces.values()),
                 "created_at": self._stamp(),
             }
             self.workspaces[row["id"]] = row
@@ -4020,8 +4069,18 @@ class FakeApp:
 
         m = _WS_DEFAULT.match(path)
         if m and method == "PUT":
-            # Retired with per-person defaults (2026-10-14).
-            return httpx.Response(410, json={"detail": "there is no per-person default workspace any more"})
+            # Save the caller's home: only on a workspace they may write on merit.
+            row = self.workspaces.get(m.group(1))
+            if row is None:
+                return httpx.Response(404, json={"detail": "workspace not found"})
+            if row.get("home_eligible") is not True:
+                return httpx.Response(
+                    403, json={"detail": {"code": "workspace_write_denied", "message": "not yours to write"}}
+                )
+            for other in self.workspaces.values():
+                other["is_default"] = other is row
+            self.home_saves.append(row["id"])
+            return httpx.Response(200, json=row)
 
         if path == "/v1/workspaces" and method == "GET":
             # Server order does not depend on the caller or historical kind:
@@ -4150,43 +4209,12 @@ class FakeApp:
                 rows = [row for row in rows if str(row.get("name", "")).lower() == name.lower()]
             return httpx.Response(200, json=rows)
 
-        if path == "/v1/runs" and method == "POST":
-            # Daemon v2 FLOATING run: the project-direct body, no project at all.
-            # A backend predating it has GET /v1/runs only, so POST is a 405.
-            if not self.supports_floating:
-                return httpx.Response(405, json={"detail": "Method Not Allowed"})
-            if body.get("group_id") is not None:
-                return httpx.Response(
-                    422, json={"detail": "group_id requires an experiment-attached run"}
-                )
-            replay = self._creation_replay(path, body)
-            if replay is not None:
-                return replay
-            conflict = self._run_external_id_conflict(body)
-            if conflict is not None:
-                return conflict
-            rid = str(uuid.uuid4())
-            row = self._new_run(rid, None, body, floating=True)
-            self._remember_creation(path, body, rid)
-            return httpx.Response(201, json=row)
-
         if path == "/v1/runs" and method == "GET":
             rows = list(self.runs.values())
             params = request.url.params
-            if params.get("unfiled") == "true" and self.supports_floating:
-                # The caller's floating runs (the fake has one caller).
-                rows = [row for row in rows if row.get("project_id") is None]
-            elif (
-                self.supports_floating
-                and not params.get("experiment_id")
-                and not params.get("project_id")
-                and not params.get("name")
-                and not params.get("foreign_key")
-            ):
-                # 0260, app/runs/service.py `fetch_runs_page`: an unscoped
-                # BROWSE holds filed runs only; an identity lookup (name /
-                # foreign_key) still sees unfiled ones.
-                rows = [row for row in rows if row.get("project_id") is not None]
+            if params.get("unfiled") == "true":
+                # Retired with unfiled runs (0418): an empty page (app/runs/api/read.py).
+                rows = []
             # Exact, case-insensitive -- mirrors the engine's ?name= filter.
             name = request.url.params.get("name")
             if name:
@@ -6908,6 +6936,8 @@ def make_client(
         ingest_token="ros_ing_cafef00d",
         hmac_secret="s3cr3t",
         workspace=workspace,
+        # As `resolve()` reads it: a job's PROBE_PROJECT is where its runs open.
+        project=os.environ.get("PROBE_PROJECT"),
     )
     httpx_client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(app.handler))
     transport = Transport(settings, client=httpx_client)

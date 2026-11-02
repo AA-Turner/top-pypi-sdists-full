@@ -1,0 +1,2435 @@
+"""The scene world (ADR 0009): one world, shots as viewpoints onto it, the
+lowering to `stage` placements and stream tweens, and the continuity lints.
+
+The fixture is the `prop_swap` corpus project (a lamp prop), which keeps every
+check in the core and browser-free: a member's extent is the compiled
+specimen's box, and a lowered shot compiles like any other.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import warnings
+from pathlib import Path
+
+import pytest
+
+from an.base import RIDER_BEHIND, RIDER_IN_FRONT, rider_host_key
+
+from an.ir.compose import flatten, parallel
+from an.ir.schema import (
+    SHOT_SIZES,
+    AssetRef,
+    Attachment,
+    Meta,
+    Resolution,
+    SceneIR,
+    Shot,
+    World,
+    WorldMember,
+    StagePlacement,
+    Stream,
+    Travel,
+    Viewpoint,
+)
+from an.ir.world import (
+    Projection,
+    WorldError,
+    fit_channel,
+    has_world,
+    lower_world,
+    member_placements,
+    resolve_viewpoint,
+    stream_instances,
+)
+from an.ir.sync import ir_to_markdown, markdown_to_ir, merge_markdown
+from an.ir.validate import validate_semantic
+from an.project import load
+
+ROOT = Path(__file__).resolve().parents[1]
+LAMP = ROOT / "misc" / "bench" / "corpus" / "prop_swap"
+PLANES = ROOT / "misc" / "bench" / "corpus" / "front_plane"
+
+#: A 20 px tall, 10 px wide art with its placement point at its feet.
+BOX = (-5.0, -20.0, 5.0, 0.0)
+W, H = 320.0, 240.0
+
+
+def _lamp(id: str, **world) -> WorldMember:
+    return WorldMember(kind="prop", id=id, store="props", ref="lamp", **world)
+
+
+def _project(tmp_path: Path, corpus: Path = LAMP):
+    return load(Path(shutil.copytree(corpus, tmp_path / corpus.name)))
+
+
+def _validate(project, scene):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return validate_semantic(
+            scene,
+            available_props=project.mall["props"],
+            available_environments=project.mall["environments"],
+        )
+
+
+def _two_lamps_scene(**timeline_kwargs) -> SceneIR:
+    """Two lamps side by side two units away, and a viewpoint at the origin."""
+    world = World(
+        members=[
+            _lamp("left", at=(-0.5, 0.4, 2.0), height=0.8),
+            _lamp("right", at=(0.5, 0.4, 2.0), height=0.8),
+        ],
+        viewpoints={
+            "two": Viewpoint(at=(0.0, 0.0, 0.0), focal=300.0),
+            "right_cu": Viewpoint(subject="right", size="close_up", focal=300.0),
+        },
+    )
+    return SceneIR(
+        meta=Meta(fps=24, resolution=Resolution(width=int(W), height=int(H))),
+        world=world,
+        **timeline_kwargs,
+    )
+
+
+EXTENTS = {"left": BOX, "right": BOX, "hat": BOX, "pole": BOX}
+
+
+# --- the schema and scene.md --------------------------------------------------
+
+
+def test_a_scene_without_a_space_dumps_as_before():
+    assert "world" not in json.loads(SceneIR().model_dump_json())
+    assert "viewpoint" not in json.loads(Shot(id="s").model_dump_json())
+    assert not has_world(SceneIR(timeline=[Shot(id="s")]))
+
+
+def test_scene_md_round_trips_the_space_and_the_viewpoints():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="a",
+                duration=1.0,
+                viewpoint="two",
+                entities=[AssetRef(kind="prop", id="left", store="props", ref="lamp")],
+            ),
+            Shot(
+                id="b",
+                duration=1.0,
+                viewpoint=Viewpoint(
+                    subject=["left", "right"], size="wide", subject_at=(10.0, -5.0)
+                ),
+            ),
+            Shot(id="c", duration=0.5),
+        ]
+    )
+    scene.world.travel = Travel(
+        speed=4.0,
+        far=30.0,
+        streams=[Stream(id="pole", ref="lamp", height=1.5, every=(3.0, 5.0), lane=1.2)],
+        plates={"far": ["set/sky"]},
+    )
+    scene.meta.duration = 2.5  # what the reader fills in from the shots
+    md = ir_to_markdown(scene)
+    assert "```yaml world" in md and "viewpoint: two" in md
+    back = markdown_to_ir(md)
+    assert back.world == scene.world
+    assert [s.viewpoint for s in back.timeline] == [s.viewpoint for s in scene.timeline]
+    assert ir_to_markdown(back) == md
+
+
+def test_subject_survives_yaml_because_on_would_not():
+    """`on:` is a YAML boolean (`on: paul` reads as `True: paul`); the field is `subject`."""
+    md = ir_to_markdown(_two_lamps_scene(timeline=[Shot(id="a", viewpoint="right_cu")]))
+    assert "subject: right" in md
+    assert markdown_to_ir(md).world.viewpoints["right_cu"].subject == "right"
+
+
+def test_merge_markdown_inserts_the_space_block_after_meta_and_keeps_prose():
+    before = _two_lamps_scene(timeline=[Shot(id="a", duration=1.0)])
+    before.world = None
+    existing = ir_to_markdown(before).replace(
+        "## Shot a", "Some prose the author wrote.\n\n## Shot a"
+    )
+    after = _two_lamps_scene(timeline=[Shot(id="a", duration=1.0)])
+    merged = merge_markdown(existing, after)
+    assert "Some prose the author wrote." in merged
+    assert (
+        merged.index("```yaml meta")
+        < merged.index("```yaml world")
+        < merged.index("## Shot a")
+    )
+    assert markdown_to_ir(merged).world == after.world
+
+
+@pytest.mark.parametrize(
+    "bad, says",
+    [
+        (dict(stage=StagePlacement(at=(1.0, 2.0))), "carries `stage`"),
+        (dict(), "exactly one of `at:"),
+        (dict(at=(0.0, 0.0, 1.0)), "exactly one of `height`"),
+        (dict(at=(0.0, 0.0, 1.0), height=1.0, width=1.0), "exactly one of `height`"),
+        (dict(attached=Attachment(to="x"), height=1.0), "relative to the host"),
+    ],
+)
+def test_a_member_has_one_way_to_be_placed(bad, says):
+    with pytest.raises(ValueError, match=re.escape(says)):
+        WorldMember(kind="prop", id="x", store="props", ref="lamp", **bad)
+
+
+@pytest.mark.parametrize(
+    "bad, says",
+    [
+        (dict(fov=50.0, focal=300.0), "not both"),
+        (dict(size="close_up"), "needs `subject"),
+        (dict(subject="a", at=(0.0, 0.0, 0.0)), "computes its own position"),
+        (dict(subject="a", size="huge"), "unknown shot size"),
+        (dict(look_at=(0.0, 0.0, 1.0), look=(10.0, 0.0, 0.0)), "only carry a roll"),
+    ],
+)
+def test_a_viewpoint_has_one_front_door(bad, says):
+    with pytest.raises(ValueError, match=says):
+        Viewpoint(**bad)
+
+
+def test_the_space_refuses_duplicates_and_dangling_attachments():
+    with pytest.raises(ValueError, match="duplicate ids"):
+        World(
+            members=[
+                _lamp("a", at=(0, 0, 1), height=1),
+                _lamp("a", at=(0, 0, 2), height=1),
+            ]
+        )
+    with pytest.raises(ValueError, match="not a member"):
+        World(members=[_lamp("a", attached=Attachment(to="ghost"))])
+    with pytest.raises(ValueError, match="cycle"):
+        World(
+            members=[
+                _lamp("a", attached=Attachment(to="b")),
+                _lamp("b", attached=Attachment(to="a")),
+            ]
+        )
+
+
+# --- the geometry --------------------------------------------------------------
+
+
+def test_size_on_screen_falls_with_depth():
+    scene = _two_lamps_scene()
+    scene.world.members.append(_lamp("far", at=(0.5, 0.4, 8.0), height=0.8))
+    eye = resolve_viewpoint(
+        scene.world, "two", extents={**EXTENTS, "far": BOX}, width=W, height=H
+    )
+    placed = member_placements(
+        scene.world, eye, extents={**EXTENTS, "far": BOX}, width=W, height=H
+    )
+    assert placed["right"].scale == pytest.approx(4 * placed["far"].scale)
+    assert placed["right"].at[0] == pytest.approx(4 * placed["far"].at[0])
+    # 0.8 units over a 20 px art is 0.04 units per pixel; at depth 2 with focal 300 that is ×6.
+    assert placed["right"].scale == pytest.approx(0.04 * 300 / 2)
+
+
+def test_the_vanishing_point_lands_where_it_says():
+    eye = resolve_viewpoint(
+        None,
+        Viewpoint(at=(0.0, 0.0, 0.0), vanish=(30.0, -80.0), focal=300.0),
+        extents={},
+        width=W,
+        height=H,
+    )
+    sx, sy, _ = eye.project((0.0, 0.0, 1000.0))
+    assert (sx, sy) == pytest.approx((30.0, -80.0), abs=0.05)
+
+
+def test_a_yawed_viewpoint_is_a_side_window():
+    eye = resolve_viewpoint(
+        None,
+        Viewpoint(at=(0.0, 0.0, 0.0), look=(90.0, 0.0, 0.0), focal=300.0),
+        extents={},
+        width=W,
+        height=H,
+    )
+    ahead = eye.project(
+        (10.0, 0.0, 0.0)
+    )  # to the right of the origin: straight ahead now
+    assert ahead[:2] == pytest.approx((0.0, 0.0), abs=1e-9) and ahead[
+        2
+    ] == pytest.approx(10.0)
+    assert (
+        eye.project((10.0, 0.0, 5.0))[0] < 0
+    )  # the road ahead (+z) is on the left of a right-facing window
+
+
+def test_a_close_up_is_the_same_world_seen_from_nearer():
+    """Distances and sizes scale together: the close-up keeps the two-shot's layout."""
+    scene = _two_lamps_scene()
+    two = member_placements(
+        scene.world,
+        resolve_viewpoint(scene.world, "two", extents=EXTENTS, width=W, height=H),
+        extents=EXTENTS,
+        width=W,
+        height=H,
+    )
+    cu = member_placements(
+        scene.world,
+        resolve_viewpoint(scene.world, "right_cu", extents=EXTENTS, width=W, height=H),
+        extents=EXTENTS,
+        width=W,
+        height=H,
+    )
+    k = cu["right"].scale / two["right"].scale
+    assert k > 1
+    assert cu["left"].at[0] - cu["right"].at[0] == pytest.approx(
+        k * (two["left"].at[0] - two["right"].at[0])
+    )
+    # the close-up's band (the top 35 % of the lamp) fills 90 % of the frame, on
+    # whichever axis binds first (this lamp is wide for a 4:3 frame: its width)
+    top, bottom, fill = SHOT_SIZES["close_up"]
+    band_px, width_px = (
+        cu["right"].scale * (bottom - top) * 20.0,
+        cu["right"].scale * 10.0,
+    )
+    assert max(band_px / (fill * H), width_px / (fill * W)) == pytest.approx(1.0)
+    # and its centre sits at the frame centre
+    band_centre_y = cu["right"].at[1] + cu["right"].scale * (
+        -20.0 + (top + bottom) / 2 * 20.0
+    )
+    assert band_centre_y == pytest.approx(0.0)
+
+
+def test_a_two_shot_fits_both_subjects_in_the_frame():
+    scene = _two_lamps_scene()
+    vp = Viewpoint(subject=["left", "right"], size="full", focal=300.0)
+    placed = member_placements(
+        scene.world,
+        resolve_viewpoint(scene.world, vp, extents=EXTENTS, width=W, height=H),
+        extents=EXTENTS,
+        width=W,
+        height=H,
+    )
+    for pid in ("left", "right"):
+        x0, y0, x1, y1 = placed[pid].box
+        assert -W / 2 <= x0 and x1 <= W / 2 and -H / 2 <= y0 and y1 <= H / 2
+
+
+# --- the lowering --------------------------------------------------------------
+
+
+def test_shots_without_a_viewpoint_are_untouched():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="plain",
+                entities=[
+                    AssetRef(
+                        kind="prop",
+                        id="lamp",
+                        store="props",
+                        ref="lamp",
+                        stage=StagePlacement(at=(0.0, 90.0)),
+                    )
+                ],
+            )
+        ]
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    assert lowered.scene.timeline[0] is scene.timeline[0]
+    assert lowered.notes == []
+
+
+def test_the_world_adds_what_the_frame_shows_and_fills_what_is_listed():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="two",
+                duration=1.0,
+                viewpoint="two",
+                entities=[AssetRef(kind="prop", id="left", store="props", ref="lamp")],
+            )
+        ]
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    shot = lowered.scene.timeline[0]
+    assert [e.id for e in shot.entities] == ["left", "right"]
+    assert shot.entities[0].stage.at == pytest.approx((-75.0, 60.0)) and shot.entities[
+        0
+    ].stage.scale == pytest.approx(6.0)
+    assert shot.entities[1].stage.at == pytest.approx((75.0, 60.0))
+    assert [(n.kind, n.entity, n.severity) for n in lowered.notes] == [
+        ("added", "right", "info")
+    ]
+
+
+def test_hide_and_the_frame_leave_members_out():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="a",
+                viewpoint=Viewpoint(at=(0.0, 0.0, 0.0), focal=300.0, hide=["left"]),
+            )
+        ]
+    )
+    scene.world.members.append(_lamp("behind", at=(0.0, 0.0, -1.0), height=0.8))
+    scene.world.members.append(_lamp("offside", at=(40.0, 0.0, 2.0), height=0.8))
+    lowered = lower_world(scene, extents={**EXTENTS, "behind": BOX, "offside": BOX})
+    assert [e.id for e in lowered.scene.timeline[0].entities] == ["right"]
+
+
+def test_a_hand_placement_wins_and_is_noted():
+    by_hand = AssetRef(
+        kind="prop",
+        id="right",
+        store="props",
+        ref="lamp",
+        stage=StagePlacement(at=(40.0, 0.0), scale=9.0),
+    )
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="two", viewpoint="two", entities=[by_hand])]
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    right = next(e for e in lowered.scene.timeline[0].entities if e.id == "right")
+    assert right.stage.at == (40.0, 0.0) and right.stage.scale == 9.0
+    (hand,) = [n for n in lowered.notes if n.kind == "hand"]
+    assert (
+        hand.severity == "warning"
+        and "(75, 60)" in hand.message
+        and "hand placement wins" in hand.message
+    )
+    # the same placement as the world's says nothing
+    agreed = by_hand.model_copy(
+        update={"stage": StagePlacement(at=(75.0, 60.0), scale=6.0)}
+    )
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="two", viewpoint="two", entities=[agreed])]
+    )
+    assert [n.kind for n in lower_world(scene, extents=EXTENTS).notes] == ["added"]
+
+
+def test_attached_members_follow_the_host():
+    scene = _two_lamps_scene(timeline=[Shot(id="two", viewpoint="two")])
+    scene.world.members += [
+        _lamp("hat", attached=Attachment(to="right", at=(0.0, -20.0), scale=0.5)),
+        _lamp("hands", attached=Attachment(to="right")),  # placed by another pass
+    ]
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    by_id = {e.id: e for e in shot.entities}
+    assert by_id["hat"].stage.at == pytest.approx((75.0, 60.0 - 6.0 * 20.0)) and by_id[
+        "hat"
+    ].stage.scale == pytest.approx(3.0)
+    assert by_id["hands"].stage is None
+    # under a hand placement of the host, the attachment follows the hand (as the compiler's passes do)
+    by_hand = AssetRef(
+        kind="prop",
+        id="right",
+        store="props",
+        ref="lamp",
+        stage=StagePlacement(at=(40.0, 0.0), scale=2.0),
+    )
+    scene.timeline[0] = Shot(id="two", viewpoint="two", entities=[by_hand])
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    hat = next(e for e in shot.entities if e.id == "hat")
+    assert hat.stage.at == pytest.approx(
+        (40.0, -40.0)
+    ) and hat.stage.scale == pytest.approx(1.0)
+
+
+def test_draw_order_is_depth_with_environments_first_and_the_rest_on_top():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="two",
+                viewpoint="two",
+                entities=[
+                    AssetRef(
+                        kind="prop",
+                        id="card",
+                        store="props",
+                        ref="lamp",
+                        stage=StagePlacement(at=(0.0, 0.0)),
+                    ),
+                    AssetRef(
+                        kind="environment",
+                        id="set",
+                        store="environments",
+                        ref="default",
+                    ),
+                ],
+            )
+        ]
+    )
+    scene.world.members.insert(0, _lamp("near", at=(0.0, 0.4, 1.0), height=0.8))
+    scene.world.members.append(_lamp("far", at=(0.0, 0.4, 9.0), height=0.8))
+    shot = lower_world(
+        scene, extents={**EXTENTS, "near": BOX, "far": BOX}
+    ).scene.timeline[0]
+    assert [e.id for e in shot.entities] == [
+        "set",
+        "far",
+        "left",
+        "right",
+        "near",
+        "card",
+    ]
+
+
+def test_an_unknown_viewpoint_or_subject_raises_a_space_error():
+    scene = _two_lamps_scene(timeline=[Shot(id="a", viewpoint="nowhere")])
+    with pytest.raises(WorldError, match="unknown viewpoint 'nowhere'"):
+        lower_world(scene, extents=EXTENTS)
+    with pytest.raises(WorldError, match="not a member"):
+        resolve_viewpoint(
+            scene.world, Viewpoint(subject="nobody"), extents=EXTENTS, width=W, height=H
+        )
+    with pytest.raises(WorldError, match="cannot be measured"):
+        resolve_viewpoint(
+            scene.world, "right_cu", extents={"right": None}, width=W, height=H
+        )
+
+
+# --- the travelling view ---------------------------------------------------------
+
+
+def _travel_scene(*shots: Shot, yaw: float = 0.0) -> SceneIR:
+    scene = _two_lamps_scene(timeline=list(shots))
+    scene.world.viewpoints["road"] = Viewpoint(
+        at=(0.0, -1.0, 0.0), look=(yaw, 0.0, 0.0), focal=300.0
+    )
+    scene.world.travel = Travel(
+        speed=4.0,
+        far=30.0,
+        near=0.5,
+        streams=[Stream(id="pole", ref="lamp", height=1.5, every=3.0, lane=1.2, y=0.0)],
+    )
+    return scene
+
+
+def _channel(
+    shot: Shot, entity: str, prop: str
+) -> list[tuple[float, float, float | None, float]]:
+    """``(start, end, from, to)`` of every tween of one channel, in time order."""
+    out = []
+    for f in flatten(parallel(*shot.actions)):
+        a = f.action
+        if (
+            getattr(a, "kind", "") == "tween"
+            and a.target == entity
+            and a.property == prop
+        ):
+            out.append((f.start, f.start + a.duration, a.from_value, a.to_value))
+    return sorted(out)
+
+
+def test_stream_instances_are_positioned_once_in_the_world():
+    stream = Stream(
+        id="pole", ref="lamp", height=1.5, every=(2.0, 4.0), lane=(1.0, 2.0), seed=3
+    )
+    a = stream_instances(stream, Travel(speed=1.0), s_min=0.0, s_max=40.0)
+    b = stream_instances(stream, Travel(speed=1.0), s_min=10.0, s_max=25.0)
+    assert (
+        dict(b).items() <= dict(a).items()
+    )  # a narrower window is a subset, instance for instance
+    spacings = [q[1][2] - p[1][2] for p, q in zip(a, a[1:])]
+    assert all(2.0 - 1e-9 <= d <= 4.0 + 1e-9 for d in spacings)
+    assert all(1.0 <= p[1][0] <= 2.0 for p in a)
+
+
+def test_streams_keep_phase_across_the_cut():
+    scene = _travel_scene(
+        Shot(id="s1", duration=2.0, viewpoint="road"),
+        Shot(id="s2", duration=2.0, viewpoint="road"),
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    s1, s2 = lowered.scene.timeline
+    common = sorted(
+        {e.id for e in s1.entities} & {e.id for e in s2.entities} - {"left", "right"}
+    )
+    assert common, "an instance on screen at the cut is in both shots"
+    for eid in common:
+        ends = _channel(s1, eid, "x")
+        starts = _channel(s2, eid, "x")
+        if (
+            ends
+            and starts
+            and ends[-1][1] == pytest.approx(2.0)
+            and starts[0][0] == 0.0
+        ):
+            assert starts[0][2] == pytest.approx(ends[-1][3], abs=1e-6)
+
+
+def test_a_side_window_scrolls_in_one_linear_stretch():
+    scene = _travel_scene(Shot(id="s1", duration=2.0, viewpoint="road"), yaw=90.0)
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    poles = [e.id for e in shot.entities if e.id.startswith("pole_")]
+    assert poles
+    for eid in poles:
+        xs = _channel(shot, eid, "x")
+        assert len(xs) == 1, "constant depth: one tween, no bend"
+        assert _channel(shot, eid, "scale_x") == []  # size does not change
+
+
+def test_the_fit_tracks_the_projection_within_tolerance():
+    segs = fit_channel(
+        lambda t: 300.0 / (10.0 - 4.0 * t), 0.0, 2.0, tolerance=0.5, min_step=1 / 24
+    )
+    assert 2 <= len(segs) <= 10
+    from an.timing.easing import apply_easing
+
+    for t0, t1, v0, v1, easing in segs:
+        for u in (0.1, 0.3, 0.5, 0.7, 0.9):
+            t = t0 + u * (t1 - t0)
+            assert v0 + (v1 - v0) * apply_easing(easing, u) == pytest.approx(
+                300.0 / (10.0 - 4.0 * t), abs=0.5
+            )
+
+
+def test_a_lowered_travelling_shot_compiles_and_moves_as_the_world_says(tmp_path):
+    from an.ir.world import _mul, _unit
+    from an.stage.compile import compile_shot
+    from an.stage.timeline import screen_position, timeline_from_scene
+    from an.timing import evaluate_timeline
+
+    project = _project(tmp_path)
+    scene = _travel_scene(Shot(id="s1", duration=2.0, viewpoint="road"))
+    lowered = lower_world(scene, extents=EXTENTS)
+    shot = lowered.scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, mall=project.mall, width=int(W), height=int(H), fps=24)
+    timeline = timeline_from_scene(doc)
+    eye = resolve_viewpoint(scene.world, "road", extents=EXTENTS, width=W, height=H)
+    instances = dict(
+        stream_instances(
+            scene.world.travel.streams[0], scene.world.travel, s_min=-100.0, s_max=100.0
+        )
+    )
+    checked = 0
+    for entity in shot.entities:
+        if not entity.id.startswith("pole_"):
+            continue
+        world = instances[int(entity.id.split("_")[1])]
+        for i in range(0, 25):
+            t = i / 12
+            pose = evaluate_timeline(timeline, t)
+            if pose.get((entity.id, "alpha"), 1.0) == 0.0:
+                continue
+            exact = eye.moved(_mul(_unit((0.0, 0.0, 1.0)), 4.0 * t)).project(world)
+            if exact is None or abs(exact[0]) > W / 2 or abs(exact[1]) > H / 2:
+                continue
+            sx, sy = screen_position(doc, entity.id, pose=pose)
+            # exact (an#629): one projective tween per channel
+            assert (sx - W / 2, sy - H / 2) == pytest.approx(exact[:2], abs=1e-6)
+            checked += 1
+    assert checked > 20
+
+
+# --- validate ---------------------------------------------------------------------
+
+
+def test_validate_reports_the_lowering_and_resolves_actions_on_added_members(tmp_path):
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="two",
+                duration=1.0,
+                viewpoint="two",
+                actions=[
+                    {
+                        "kind": "set",
+                        "target": "right",
+                        "property": "alpha",
+                        "value": 0.5,
+                        "at": 0.2,
+                    }
+                ],
+            )
+        ]
+    )
+    report = _validate(project, scene)
+    descriptions = [f.description for f in report.findings]
+    assert any("the world adds it" in d and "'left'" in d for d in descriptions)
+    assert not any(
+        "unknown" in d.lower() and "target" in d.lower() for d in descriptions
+    )
+    assert not any(f.severity == "error" for f in report.findings), descriptions
+
+
+def test_validate_names_an_unknown_viewpoint_and_subject(tmp_path):
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(timeline=[Shot(id="a", viewpoint="nowhere")])
+    scene.world.viewpoints["bad"] = Viewpoint(subject="nobody", hide=["ghost"])
+    report = _validate(project, scene)
+    errors = [
+        (f.ir_path, f.description) for f in report.findings if f.severity == "error"
+    ]
+    assert any(path == "world" and "nowhere" in d for path, d in errors)
+    assert any(path == "world/viewpoints/bad" and "nobody" in d for path, d in errors)
+    assert any(path == "world/viewpoints/bad" and "ghost" in d for path, d in errors)
+
+
+def test_cut_continuity_is_silent_across_two_viewpoints_and_loud_within_one(tmp_path):
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", duration=0.5, viewpoint="two"),
+            Shot(id="cu", duration=0.5, viewpoint="right_cu"),
+        ]
+    )
+    jumps = [
+        f
+        for f in _validate(project, scene).findings
+        if "jumps across the cut" in f.description
+    ]
+    assert jumps == []
+    by_hand = AssetRef(
+        kind="prop",
+        id="right",
+        store="props",
+        ref="lamp",
+        stage=StagePlacement(at=(40.0, 0.0), scale=9.0),
+    )
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", duration=0.5, viewpoint="two"),
+            Shot(id="again", duration=0.5, viewpoint="two", entities=[by_hand]),
+        ]
+    )
+    jumps = [
+        f
+        for f in _validate(project, scene).findings
+        if "jumps across the cut" in f.description
+    ]
+    assert jumps and "'right'" in jumps[0].description
+
+
+def test_crossing_the_line_is_a_warning(tmp_path):
+    project = _project(tmp_path)
+
+    def shot(id, a_x, b_x):
+        return Shot(
+            id=id,
+            duration=0.5,
+            entities=[
+                AssetRef(
+                    kind="prop",
+                    id="a",
+                    store="props",
+                    ref="lamp",
+                    stage=StagePlacement(at=(a_x, 0.0), scale=0.3),
+                ),
+                AssetRef(
+                    kind="prop",
+                    id="b",
+                    store="props",
+                    ref="lamp",
+                    stage=StagePlacement(at=(b_x, 0.0), scale=0.3),
+                ),
+            ],
+        )
+
+    scene = project.scene.model_copy(
+        update={"timeline": [shot("s1", -50.0, 50.0), shot("s2", 60.0, -60.0)]}
+    )
+    flips = [
+        f for f in _validate(project, scene).findings if "swap sides" in f.description
+    ]
+    assert (
+        len(flips) == 1
+        and "180°" in flips[0].description
+        and "'a'" in flips[0].description
+    )
+    scene = project.scene.model_copy(
+        update={"timeline": [shot("s1", -50.0, 50.0), shot("s2", -90.0, 10.0)]}
+    )
+    assert [
+        f for f in _validate(project, scene).findings if "swap sides" in f.description
+    ] == []
+
+
+def test_plates_under_a_travel_must_be_declared(tmp_path):
+    root = Path(shutil.copytree(LAMP, tmp_path / "p"))
+    shutil.copytree(
+        PLANES / "assets" / "environments" / "stage",
+        root / "assets" / "environments" / "stage",
+    )
+    project = load(root)
+    env = AssetRef(kind="environment", id="set", store="environments", ref="stage")
+    scene = _travel_scene(Shot(id="s1", duration=0.5, viewpoint="road", entities=[env]))
+    scene.meta = project.scene.meta
+    report = _validate(project, scene)
+    undeclared = [
+        f.description
+        for f in report.findings
+        if "does not say what it holds" in f.description
+    ]
+    assert any("'set/sky'" in d for d in undeclared) and any(
+        "'set/hill'" in d for d in undeclared
+    )
+    scene.world.travel.plates = {
+        "far": ["set/sky"],
+        "vehicle": ["set/hill", "set/rail"],
+    }
+    report = _validate(project, scene)
+    assert [
+        f for f in report.findings if "does not say what it holds" in f.description
+    ] == []
+    pinned = [
+        f.description
+        for f in report.findings
+        if "a far plate is pinned" in f.description
+    ]
+    assert any("'set/sky'" in d for d in pinned), (
+        "sky is declared far but its parallax factor is 1"
+    )
+
+
+# --- the entry points and the CLI ----------------------------------------------------
+
+
+def test_every_entry_point_lowers_the_scene_before_compiling():
+    """`an render` (and `an probe`, which prepares shots through it), `an preview`
+    and the orchestrator compile the LOWERED scene, and nothing writes it back."""
+    for module, fn in (
+        ("an/render.py", "_prepare_shots"),
+        ("an/stage/preview.py", "preview_project"),
+        ("an/orchestrate.py", "_strict_asset_findings"),
+    ):
+        src = (ROOT / module).read_text(encoding="utf-8")
+        body = src[src.index(f"def {fn}(") :]
+        assert "lower_scene(" in body, f"{module}::{fn} must compile the lowered scene"
+    assert "lower_scene" not in (ROOT / "an" / "ir" / "sync.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_an_space_show_prints_the_lowered_shots(tmp_path, capsys):
+    from an.world_cli import show
+
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", duration=1.0, viewpoint="two"),
+            Shot(id="plain", duration=0.5),
+        ]
+    )
+    scene.meta = project.scene.meta
+    (project.root / "scene.md").write_text(ir_to_markdown(scene), encoding="utf-8")
+    shutil.rmtree(project.root / "ir")
+    text = show(str(project.root))
+    assert "## two" in text and "## plain" not in text
+    assert "the world adds it" in text and "left" in text and "right" in text
+    as_json = json.loads(show(str(project.root), json=True))
+    assert [row["shot"] for row in as_json] == ["two"]
+
+
+# --- what the adversarial review found (ADR 0009 review, 2026-10-21) ----------------
+
+
+def test_a_member_whose_art_cannot_compile_is_a_finding_not_a_traceback(tmp_path):
+    """B1: a missing ref, an unregistered kind or no stores at all: validate reports."""
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(timeline=[Shot(id="two", duration=0.5, viewpoint="two")])
+    scene.world.members.append(
+        _lamp("ghost", at=(0.0, 0.4, 2.0), height=0.8).model_copy(
+            update={"ref": "no_such_prop"}
+        )
+    )
+    report = _validate(project, scene)
+    said = [
+        f for f in report.findings
+        if "'ghost'" in f.description or "no_such_prop" in f.description
+    ]  # fmt: skip
+    # an#516: said once, as the member's error (not again per shot)
+    assert [(f.severity, f.ir_path) for f in said] == [("error", "world/members/2")]
+    assert not any("Traceback" in f.description for f in said)
+    # no stores at all: the lowering cannot measure, and still does not raise
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        bare = validate_semantic(scene)
+    assert any("'left'" in f.description for f in bare.findings)
+    # an unknown kind is the world check's finding, and the lowering survives it
+    scene.world.members.append(
+        WorldMember(
+            kind="alien",
+            id="zed",
+            store="props",
+            ref="lamp",
+            at=(0.0, 0.0, 2.0),
+            height=1.0,
+        )
+    )
+    report = _validate(project, scene)
+    assert any(
+        f.ir_path.startswith("world/members/") and "alien" in f.description
+        for f in report.findings
+    )
+    from an.world_cli import show
+
+    (project.root / "scene.md").write_text(ir_to_markdown(scene), encoding="utf-8")
+    shutil.rmtree(project.root / "ir")
+    assert "## two" in show(str(project.root))
+
+
+def test_a_travel_reuses_entities_and_refuses_past_its_budget():
+    """B2: entities are slots bounded by the depth range, not by the shot's length; a
+    lowering past `max_actions` is refused with the knobs named."""
+    from an.ir.world import stream_slots
+
+    scene = _travel_scene(Shot(id="long", duration=40.0, viewpoint="road"))
+    stream, travel = scene.world.travel.streams[0], scene.world.travel
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    poles = [e for e in shot.entities if e.id.startswith("pole_")]
+    assert 0 < len(poles) <= stream_slots(stream, travel) == 11
+    passes = sum(
+        1
+        for f in flatten(parallel(*shot.actions))
+        if getattr(f.action, "property", "") == "alpha" and f.action.value == 1.0
+    )
+    assert passes > len(poles), "a slot draws several instances one after another"
+    scene.world.travel = travel.model_copy(update={"max_actions": 50})
+    with pytest.raises(WorldError, match="max_actions"):
+        lower_world(scene, extents=EXTENTS)
+
+
+def test_lowering_is_idempotent():
+    """S1: a lowered scene lowered again gains no entity and no action."""
+    scene = _travel_scene(Shot(id="s1", duration=2.0, viewpoint="road"))
+    once = lower_world(scene, extents=EXTENTS).scene
+    twice = lower_world(once, extents=EXTENTS).scene
+    assert [e.id for e in twice.timeline[0].entities] == [
+        e.id for e in once.timeline[0].entities
+    ]
+    assert len(twice.timeline[0].actions) == len(once.timeline[0].actions)
+
+
+def test_the_listing_wins_over_hide_and_says_so():
+    """S2: a member the viewpoint hides but the shot lists stays, with a note."""
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="a",
+                viewpoint=Viewpoint(at=(0.0, 0.0, 0.0), focal=300.0, hide=["left"]),
+                entities=[AssetRef(kind="prop", id="left", store="props", ref="lamp")],
+            )
+        ]
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    assert [e.id for e in lowered.scene.timeline[0].entities] == ["left", "right"]
+    assert any(
+        n.kind == "listed" and n.entity == "left" and "listing wins" in n.message
+        for n in lowered.notes
+    )
+
+
+def test_a_hand_at_keeps_the_worlds_scale_unless_a_scale_is_set():
+    """S3: `stage: {at: [...]}` nudges a member; its size stays the world's (the
+    default scale 1.0 means the world's), and what is attached to it follows."""
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="two",
+                viewpoint="two",
+                entities=[
+                    AssetRef(
+                        kind="prop",
+                        id="right",
+                        store="props",
+                        ref="lamp",
+                        stage=StagePlacement(at=(76.0, 60.0)),
+                    )
+                ],
+            )
+        ]
+    )
+    scene.world.members.append(
+        _lamp("hat", attached=Attachment(to="right", at=(0.0, -20.0), scale=0.5))
+    )
+    lowered = lower_world(scene, extents=EXTENTS)
+    by_id = {e.id: e for e in lowered.scene.timeline[0].entities}
+    assert by_id["right"].stage.at == (76.0, 60.0) and by_id[
+        "right"
+    ].stage.scale == pytest.approx(6.0)
+    assert by_id["hat"].stage.at == pytest.approx((76.0, 60.0 - 6.0 * 20.0)) and by_id[
+        "hat"
+    ].stage.scale == pytest.approx(3.0)
+    # a nudge of a pixel is within tolerance: no hand note
+    assert not any(n.kind == "hand" for n in lowered.notes)
+
+
+def test_a_composition_over_two_depths_frames_both():
+    """S4: the camera stands back far enough for the NEAREST subject."""
+    scene = _two_lamps_scene()
+    scene.world.members.append(_lamp("close", at=(0.0, 0.4, 0.5), height=0.8))
+    vp = Viewpoint(subject=["close", "right"], size="full", focal=300.0)
+    eye = resolve_viewpoint(
+        scene.world, vp, extents={**EXTENTS, "close": BOX}, width=W, height=H
+    )
+    placed = member_placements(
+        scene.world, eye, extents={**EXTENTS, "close": BOX}, width=W, height=H
+    )
+    assert placed["close"].in_frame and placed["right"].in_frame
+    assert placed["close"].depth > 0 and placed["right"].depth > placed["close"].depth
+
+
+def test_an_added_attached_member_carries_its_attachment():
+    """S5: a pass that places a body prop from its host finds the host on the entity."""
+    from an.ir.world import ATTACHED_OVERRIDE
+
+    scene = _two_lamps_scene(timeline=[Shot(id="two", viewpoint="two")])
+    scene.world.members.append(_lamp("hands", attached=Attachment(to="right")))
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    hands = next(e for e in shot.entities if e.id == "hands")
+    assert hands.stage is None and hands.overrides[ATTACHED_OVERRIDE] == {"to": "right"}
+
+
+def test_findings_on_a_framed_shot_name_the_authors_entities(tmp_path):
+    """S8: a finding's `entities/<j>` is the author's index, or `~<id>` for one the
+    world added, never the lowered list's index."""
+    project = _project(tmp_path)
+    # `right` is listed first by the author but drawn after `left`... both at one depth,
+    # so the lowered order is the listed order; an added member comes with `~`.
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(
+                id="two",
+                duration=0.5,
+                viewpoint="two",
+                entities=[
+                    AssetRef(
+                        kind="prop",
+                        id="right",
+                        store="props",
+                        ref="lamp",
+                        stage=StagePlacement(after="nobody"),
+                    )
+                ],
+            )
+        ]
+    )
+    report = _validate(project, scene)
+    after = [f for f in report.findings if "nobody" in f.description]
+    assert after and after[0].ir_path.startswith("timeline/0/entities/0")
+    scene.world.members.append(
+        _lamp("ghost", at=(0.0, 0.4, 2.0), height=0.8).model_copy(
+            update={"ref": "no_such_prop", "units_per_px": 0.04, "height": None}
+        )
+    )
+    report = _validate(project, scene)
+    ghost = [
+        f for f in report.findings if f.ir_path.startswith("timeline/0/entities/~ghost")
+    ]
+    assert ghost, [f.ir_path + " " + f.description[:60] for f in report.findings]
+
+
+def test_short_film_starts_are_refused():
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="a", viewpoint="two"), Shot(id="b", viewpoint="two")]
+    )
+    with pytest.raises(WorldError, match="film_starts"):
+        lower_world(scene, extents=EXTENTS, film_starts=[0.0])
+
+
+def test_a_world_block_inside_a_shot_is_refused():
+    from an.ir.sync import SceneMarkdownError
+
+    md = ir_to_markdown(_two_lamps_scene(timeline=[Shot(id="a", duration=1.0)]))
+    head, _, tail = md.partition("## Shot a")
+    moved = (
+        head.replace("```yaml world", "```yaml notworld")
+        + "## Shot a"
+        + tail
+        + "\n```yaml world\nmembers: []\n```\n"
+    )
+    with pytest.raises(SceneMarkdownError, match="before the first shot"):
+        markdown_to_ir(moved)
+
+
+def test_a_wide_lens_side_window_gets_the_slots_its_view_needs():
+    """Review B3 (an#516): a wide lens on a side window shows more of the row
+    than the depth range; the slots are sized from the on-screen span, so it
+    lowers (the lowering still asserts no slot holds two passes at once)."""
+    from an.ir.world import stream_slots
+
+    scene = _travel_scene(Shot(id="s1", duration=6.0, viewpoint="road"), yaw=90.0)
+    scene.world.viewpoints["road"] = Viewpoint(
+        at=(0.0, -1.0, 0.0), look=(90.0, 0.0, 0.0), fov=120.0
+    )
+    scene.world.travel = scene.world.travel.model_copy(
+        update={
+            "far": 30.0,
+            "streams": [
+                Stream(id="pole", ref="lamp", height=6.0, every=2.0, lane=20.0, y=0.0)
+            ],
+        }
+    )
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    slots = {e.id for e in shot.entities if e.id.startswith("pole_")}
+    depth_count = stream_slots(scene.world.travel.streams[0], scene.world.travel)
+    assert len(slots) > depth_count, (len(slots), depth_count)
+
+
+# --- ground-plane perspective on hand placements (catalogue A6) ----------------
+
+
+def _handed(at, scale=1.0):
+    return AssetRef(
+        kind="prop",
+        id="right",
+        store="props",
+        ref="lamp",
+        stage=StagePlacement(at=at, scale=scale),
+    )
+
+
+def _perspective(scene):
+    return [
+        n for n in lower_world(scene, extents=EXTENTS).notes if n.kind == "perspective"
+    ]
+
+
+def test_a_world_placement_is_in_perspective():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", viewpoint="two", entities=[_handed((75.0, 60.0), 6.0)])
+        ]
+    )
+    assert _perspective(scene) == []
+
+
+def test_walking_a_member_nearer_by_hand_without_resizing_it_is_a_warning():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", viewpoint="two", entities=[_handed((75.0, 120.0), 6.0)])
+        ]
+    )
+    (note,) = _perspective(scene)
+    assert note.severity == "warning" and note.entity == "right"
+    assert "scale 12" in note.message  # twice as far below the horizon: twice the size
+
+
+def test_a_hand_scale_that_follows_the_row_is_clean():
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="two", viewpoint="two", entities=[_handed((75.0, 120.0), 12.0)])
+        ]
+    )
+    assert _perspective(scene) == []
+
+
+# --- an#516: the review's second pass, slice A ---------------------------------
+
+
+def test_a_lowered_shot_is_known_by_its_marker_not_by_its_names():
+    """Slot entities carry `overrides.stream`; a lowered scene lowered again is
+    recognised by it (with an info note), and an AUTHORED entity merely named
+    like a slot is refused instead of silently un-lowering the shot."""
+    from an.ir.world import STREAM_OVERRIDE
+
+    scene = _travel_scene(Shot(id="s1", duration=2.0, viewpoint="road"))
+    once = lower_world(scene, extents=EXTENTS)
+    slots = [e for e in once.scene.timeline[0].entities if e.id.startswith("pole_")]
+    assert slots and all(e.overrides[STREAM_OVERRIDE] == "pole" for e in slots)
+    twice = lower_world(once.scene, extents=EXTENTS)
+    assert any(n.kind == "lowered" and n.severity == "info" for n in twice.notes)
+    impostor = AssetRef(kind="prop", id="pole_0", store="props", ref="lamp")
+    named = _travel_scene(
+        Shot(id="s1", duration=2.0, viewpoint="road", entities=[impostor])
+    )
+    with pytest.raises(WorldError, match="named like a stream's slots"):
+        lower_world(named, extents=EXTENTS)
+
+
+def test_cut_continuity_and_screen_direction_skip_an_entity_unseen_on_a_side(tmp_path):
+    """A hidden entity (alpha 0) at a cut does not jump: S11."""
+    from an.ir.schema import SetAction
+
+    project = _project(tmp_path)
+    by_hand = AssetRef(
+        kind="prop", id="right", store="props", ref="lamp",
+        stage=StagePlacement(at=(40.0, 0.0), scale=9.0),
+    )  # fmt: skip
+
+    def jumps(*end_actions):
+        scene = _two_lamps_scene(
+            timeline=[
+                Shot(
+                    id="two", duration=0.5, viewpoint="two", actions=list(end_actions)
+                ),
+                Shot(id="again", duration=0.5, viewpoint="two", entities=[by_hand]),
+            ]
+        )
+        return [
+            f
+            for f in _validate(project, scene).findings
+            if "jumps across the cut" in f.description and "'right'" in f.description
+        ]
+
+    assert jumps(), "seen on both sides: the jump is reported"
+    hidden = SetAction(target="right", property="alpha", value=0.0, at=0.0)
+    assert jumps(hidden) == []
+
+
+def test_a_world_member_whose_ref_is_missing_is_an_error(tmp_path):
+    """S12: the lowering cannot draw it, so validate says so as an error, as it
+    does for a listed entity."""
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(timeline=[Shot(id="two", duration=0.5, viewpoint="two")])
+    scene.world.members.append(
+        WorldMember(
+            kind="prop",
+            id="ghost",
+            store="props",
+            ref="nope",
+            at=(0.0, 0.0, 2.0),
+            height=0.5,
+        )
+    )
+    errors = [
+        f for f in _validate(project, scene).findings
+        if f.severity == "error" and "'nope'" in f.description
+    ]  # fmt: skip
+    assert errors and errors[0].ir_path == "world/members/2"
+
+
+def test_a_shot_whose_members_cannot_be_measured_says_so():
+    """Without the stores no member has an extent: one info line for the shot."""
+    scene = _two_lamps_scene(timeline=[Shot(id="two", duration=0.5, viewpoint="two")])
+    notes = lower_world(scene, extents={}).notes
+    assert any(n.kind == "unplaced" and n.severity == "info" for n in notes)
+    assert not any(
+        n.kind == "unplaced" and n.severity == "info"
+        for n in lower_world(scene, extents=EXTENTS).notes
+    )
+
+
+def test_the_render_says_what_the_lowering_could_not_draw(tmp_path):
+    """S12: a member the lowering cannot place is a warning at render, not a
+    silent drop (`_prepare_shots` routes the lowering's notes)."""
+    import dataclasses
+
+    from an.measurements import ShotFindingWarning
+    from an.render import _prepare_shots
+
+    project = _project(tmp_path)
+    scene = _two_lamps_scene(timeline=[Shot(id="two", duration=0.5, viewpoint="two")])
+    scene.world.members.append(
+        WorldMember(
+            kind="prop",
+            id="ghost",
+            store="props",
+            ref="nope",
+            at=(0.0, 0.0, 2.0),
+            height=0.5,
+        )
+    )
+    with pytest.warns(ShotFindingWarning, match="'ghost'"):
+        _prepare_shots(
+            dataclasses.replace(project, scene=scene), tmp_path / "work", fps=None,
+            resolution=None, strict_assets=False, supersample=1, pix_fmt=None,
+            capture=None, step_hz=None,
+        )  # fmt: skip
+
+
+def test_a_stream_of_stroked_paths_compiles_with_its_slot_marker(tmp_path):
+    """A road marking is a `PathDescriptor` prop: the slot marker is the core's
+    key, not a path field, so the path resolves (an#516 review blocker)."""
+    from an.paths import PathDescriptor
+
+    project = _project(tmp_path)
+    project.mall["props"]["dash"] = PathDescriptor(
+        name="dash", points=[(0, 0), (0, -40)]
+    ).model_dump(mode="json")
+    scene = _travel_scene(Shot(id="s1", duration=2.0, viewpoint="road"))
+    scene.world.travel = scene.world.travel.model_copy(
+        update={
+            "streams": [
+                Stream(id="dash", ref="dash", height=1.5, every=3.0, lane=1.2, y=0.0)
+            ]
+        }
+    )
+    report = _validate(project, scene)
+    bad = [
+        f
+        for f in report.findings
+        if "PathDescriptor" in f.description or "did NOT run" in f.description
+    ]
+    assert bad == [], bad
+
+
+def test_the_core_override_keys_are_the_owners_constants():
+    from an.base import (
+        CORE_OVERRIDE_KEYS,
+        PAINT_KEYS_OVERRIDE,
+        PLANE_FACTORS_OVERRIDE,
+        SWAY_OVERRIDE,
+    )
+    from an.ir.world import ATTACHED_OVERRIDE, STREAM_OVERRIDE
+    from an.stage.hold import AIM_OVERRIDE, ON_OVERRIDE
+
+    owners = {
+        ATTACHED_OVERRIDE,
+        STREAM_OVERRIDE,
+        ON_OVERRIDE,
+        AIM_OVERRIDE,
+        PLANE_FACTORS_OVERRIDE,
+        PAINT_KEYS_OVERRIDE,
+        SWAY_OVERRIDE,
+    }
+    assert owners == set(CORE_OVERRIDE_KEYS)
+
+
+def test_a_member_ref_of_the_wrong_kind_is_an_error_once(tmp_path):
+    """The listed entity's rule, for a member: a ref in the store that is not a
+    prop is an error at the member, and the lowering's per-shot note on it is
+    not repeated."""
+    project = _project(tmp_path)
+    project.mall["props"]["junk"] = {"kind": "CharacterDescriptor", "name": "junk"}
+    scene = _two_lamps_scene(
+        timeline=[
+            Shot(id="a", duration=0.5, viewpoint="two"),
+            Shot(id="b", duration=0.5, viewpoint="two"),
+        ]
+    )
+    scene.world.members.append(
+        WorldMember(
+            kind="prop",
+            id="ghost",
+            store="props",
+            ref="junk",
+            at=(0.0, 0.0, 2.0),
+            height=0.5,
+        )
+    )
+    on_ghost = [
+        f for f in _validate(project, scene).findings
+        if "ghost" in f.description or "'junk'" in f.description
+    ]  # fmt: skip
+    assert [f.severity for f in on_ghost] == ["error"], on_ghost
+    assert on_ghost[0].ir_path == "world/members/2"
+
+
+def test_screen_direction_skips_an_entity_unseen_on_a_side(tmp_path):
+    """Two lamps swap sides across a cut; hidden on one side, they do not."""
+    from an.ir.schema import SetAction
+
+    project = _project(tmp_path)
+    placed = {
+        "left": AssetRef(
+            kind="prop",
+            id="left",
+            store="props",
+            ref="lamp",
+            stage=StagePlacement(at=(60.0, 0.0)),
+        ),
+        "right": AssetRef(
+            kind="prop",
+            id="right",
+            store="props",
+            ref="lamp",
+            stage=StagePlacement(at=(-60.0, 0.0)),
+        ),
+    }
+
+    def swaps(*end_actions):
+        scene = _two_lamps_scene(
+            timeline=[
+                Shot(
+                    id="two", duration=0.5, viewpoint="two", actions=list(end_actions)
+                ),
+                Shot(
+                    id="again",
+                    duration=0.5,
+                    viewpoint="two",
+                    entities=list(placed.values()),
+                ),
+            ]
+        )
+        return [
+            f
+            for f in _validate(project, scene).findings
+            if "swap sides" in f.description
+        ]
+
+    assert swaps(), "seen on both sides: the swap is reported"
+    assert swaps(SetAction(target="left", property="alpha", value=0.0, at=0.0)) == []
+
+
+def test_a_travel_past_its_budget_stops_fitting_early(monkeypatch):
+    """S9: the budget is counted as passes are fitted, so a refused road stops
+    fitting once it is past, instead of fitting every pass first."""
+    import an.ir.world as world_mod
+
+    calls = []
+    real = world_mod._fit_pass
+
+    def counting(*a, **k):
+        calls.append(1)
+        return real(*a, **k)
+
+    monkeypatch.setattr(world_mod, "_fit_pass", counting)
+    scene = _travel_scene(Shot(id="s1", duration=6.0, viewpoint="road"))
+    lower_world(scene, extents=EXTENTS)
+    every = len(calls)
+    calls.clear()
+    scene.world.travel = scene.world.travel.model_copy(update={"max_actions": 20})
+    with pytest.raises(WorldError, match="at least .* actions, already past"):
+        lower_world(scene, extents=EXTENTS)
+    assert 0 < len(calls) < every / 2, (len(calls), every)
+
+
+def test_a_lane_range_is_measured_across_it_not_at_its_ends():
+    """B3 review: a field of trees over lanes 2..60 under a wide side window.
+    Neither end sees much (60 is past `far`), the lanes between see most."""
+    scene = _travel_scene(Shot(id="s1", duration=6.0, viewpoint="road"), yaw=90.0)
+    scene.world.viewpoints["road"] = Viewpoint(
+        at=(0.0, -1.0, 0.0), look=(90.0, 0.0, 0.0), fov=120.0
+    )
+    scene.world.travel = scene.world.travel.model_copy(
+        update={
+            "far": 30.0,
+            "streams": [
+                Stream(
+                    id="pole",
+                    ref="lamp",
+                    height=6.0,
+                    every=3.0,
+                    lane=(2.0, 60.0),
+                    y=0.0,
+                )
+            ],
+        }
+    )
+    lower_world(scene, extents=EXTENTS)  # no "two instances in one slot"
+
+
+def _lane(scene: SceneIR, lane: float) -> SceneIR:
+    (stream,) = scene.world.travel.streams
+    scene.world.travel = scene.world.travel.model_copy(
+        update={"streams": [stream.model_copy(update={"lane": lane})]}
+    )
+    return scene
+
+
+@pytest.mark.parametrize("lane", [1.2, 0.2])
+def test_a_travel_is_not_reported_as_solids_through_each_other(tmp_path, lane):
+    """an#632: three shots down a road of poles. A slot hidden between passes
+    overlaps nothing, a nearer pole over a farther one is occlusion, and the
+    draw-order check leaves slots to the world. And since an#634 a slot reused
+    for a farther instance drops behind the nearer ones, so no pole is painted
+    over a nearer one (7 such pairs a shot at lane 1.2 before, 17 at 0.2)."""
+    project = _project(tmp_path)
+    scene = _lane(
+        _travel_scene(*[Shot(id=f"s{i}", duration=3.0, viewpoint="road") for i in range(3)]),
+        lane,
+    )
+    found = _validate(project, scene).findings
+    assert not [f for f in found if "drawn through each other" in f.description]
+    assert not [f for f in found if "the order flips" in f.description]
+    assert not [f for f in found if "though it is the farther" in f.description]
+
+
+def test_a_reused_slot_is_painted_by_the_depth_of_the_instance_it_draws(tmp_path):
+    """an#634: at every frame, the stream's visible slots are painted far to
+    near (the larger, nearer pole later), read off the compiled document's
+    ``z_index`` keys the way the stage sorts the scene's children."""
+    from an.base import PAINT_KEYS_OVERRIDE, Z_INDEX_PROPERTY
+    from an.stage.compile import compile_shot
+    from an.stage.timeline import entity_alpha, timeline_from_scene
+    from an.timing.timeline import evaluate_timeline
+
+    project = _project(tmp_path)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    slots = [e.id for e in shot.entities if e.overrides and "stream" in e.overrides]
+    assert all(PAINT_KEYS_OVERRIDE in e.overrides for e in shot.entities)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, project.mall)
+    kids = {n.name: n for n in doc.scene.children}
+    timeline = timeline_from_scene(doc)
+    changed = 0
+    for i in range(61):
+        t = 3.0 * i / 60
+        pose = evaluate_timeline(timeline, t)
+        seen = [s for s in slots if entity_alpha(doc, pose, s) > 1e-3]
+        z = {s: pose.get((s, Z_INDEX_PROPERTY), kids[s].z_index) for s in seen}
+        changed += any(z[s] != kids[s].z_index for s in seen)
+        scale = {s: pose.get((s, "scale_x"), kids[s].transform.scale_x) for s in seen}
+        by_paint = sorted(seen, key=z.__getitem__)
+        assert [scale[s] for s in by_paint] == sorted(scale[s] for s in by_paint), t
+    assert changed  # the slots were reused, and their order moved with them
+
+
+def test_a_shot_whose_order_holds_carries_no_paint_keys():
+    """No slot reused (a short shot): nothing recorded, nothing compiled."""
+    from an.base import PAINT_KEYS_OVERRIDE
+
+    scene = _travel_scene(Shot(id="s1", duration=0.2, viewpoint="road"))
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    assert not [e for e in shot.entities if PAINT_KEYS_OVERRIDE in (e.overrides or {})]
+
+
+# --- an#629: a closed-form pass is one exact tween per channel -----------------
+
+
+def test_a_closed_form_pass_is_one_perspective_tween_per_channel_and_exact():
+    """A point at lateral X, height Y, depth z0 - v·t: its projection is drawn
+    by `projective(z_out / z_in)` between the window's ends, exactly."""
+    from an.ir.world import _fit_pass
+    from an.timing.easing import apply_easing
+
+    focal, X, Y, z0, v = 300.0, 1.7, 0.6, 30.0, 6.0
+
+    def depth(t):
+        return z0 - v * t
+
+    def g(t):
+        return focal * X / depth(t), focal * Y / depth(t), 0.5 * focal / depth(t)
+
+    p = _fit_pass(
+        g, 0.0, 4.0, box=BOX, ref_height=20.0, tol=0.5, min_step=0.05,
+        width=W, height=H, depth=depth,
+    )  # fmt: skip
+    for prop, i in (("x", 0), ("y", 1), ("scale_x", 2)):
+        ((ta, tb, va, vb, ease),) = p.channels[prop]
+        assert ease.startswith("projective(")
+        for k in range(1, 20):
+            t = ta + (tb - ta) * k / 20
+            drawn = va + (vb - va) * apply_easing(ease, (t - ta) / (tb - ta))
+            assert drawn == pytest.approx(g(t)[i], rel=1e-9, abs=1e-9)
+
+
+def test_a_minute_of_road_costs_a_third_of_what_fitting_did():
+    """S9's case: a 60 s road with a pole every 2 units. Fitted, it lowered to
+    3695 actions; one tween per channel per pass, 1312. A budget of 2000
+    refused it, and now holds it."""
+    scene = _travel_scene(Shot(id="s1", duration=60.0, viewpoint="road"))
+    scene.world.travel = scene.world.travel.model_copy(
+        update={
+            "streams": [
+                Stream(id="pole", ref="lamp", height=1.5, every=2.0, lane=1.2, y=0.0)
+            ],
+            "max_actions": 2000,
+        }
+    )
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    assert 0 < len(shot.actions) <= 2000
+
+
+def _compiled_road(
+    tmp_path,
+    *,
+    member_after: str | None = None,
+    right_after: str | None = None,
+    stream_after: str | None = "set/hill",
+    hill_depth: float = 1.0,
+    extra: tuple = (),
+):
+    """The road at lane 0.2 under an environment with a foreground band
+    (``set/rail`` over everything), its poles after ``stream_after``;
+    ``left`` / ``right`` placed after ``member_after`` / ``right_after`` when
+    given; the hill at ``hill_depth`` (not 1: the entities after it ride a
+    wrapper). The compiled document."""
+    from an.stage.compile import compile_shot
+
+    project, scene = _road(
+        tmp_path, member_after=member_after, right_after=right_after,
+        stream_after=stream_after, hill_depth=hill_depth, extra=extra,
+    )  # fmt: skip
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return compile_shot(shot, project.mall)
+
+
+def _road(
+    tmp_path,
+    *,
+    member_after: str | None = None,
+    right_after: str | None = None,
+    stream_after: str | None = "set/hill",
+    hill_depth: float = 1.0,
+    extra: tuple = (),
+):
+    """The project and scene :func:`_compiled_road` compiles."""
+    root = Path(shutil.copytree(LAMP, tmp_path / "p"))
+    env_dir = root / "assets/environments/stage"
+    shutil.copytree(PLANES / "assets/environments/stage", env_dir)
+    for f in env_dir.glob("*.json"):
+        doc = json.loads(f.read_text(encoding="utf-8"))
+        for plane in doc.get("planes", ()):
+            if plane["name"] == "hill":
+                plane["depth"] = hill_depth
+        f.write_text(json.dumps(doc), encoding="utf-8")
+    project = load(root)
+    env = AssetRef(kind="environment", id="set", store="environments", ref="stage")
+    scene = _lane(
+        _travel_scene(Shot(id="s1", duration=3.0, viewpoint="road", entities=[env])), 0.2
+    )
+    (stream,) = scene.world.travel.streams
+    scene.world.travel = scene.world.travel.model_copy(
+        update={
+            "streams": [stream.model_copy(update={"after": stream_after})],
+            "plates": {"far": ["set/sky"], "vehicle": ["set/hill", "set/rail"]},
+        }
+    )
+    left, right = scene.world.members
+    scene.world.members = [
+        left.model_copy(update={"after": member_after}) if member_after else left,
+        right.model_copy(update={"after": right_after}) if right_after else right,
+        *extra,
+    ]
+    return project, scene
+
+
+def _painted(doc, t: float) -> list[str]:
+    from an.base import Z_INDEX_PROPERTY
+    from an.stage.timeline import timeline_from_scene
+    from an.timing.timeline import evaluate_timeline
+
+    pose = evaluate_timeline(timeline_from_scene(doc), t)
+    z = {
+        n.name: (pose.get((n.name, Z_INDEX_PROPERTY), n.z_index), i)
+        for i, n in enumerate(doc.scene.children)
+    }
+    return sorted(z, key=z.get)
+
+
+@pytest.mark.parametrize("member_after", [None, "set/rail", "pole_0"])
+def test_a_reordered_slot_never_crosses_what_the_author_placed(tmp_path, member_after):
+    """an#634 review: the slots move only among their keyed neighbours. The
+    foreground band stays over every pole; a member placed after the rail
+    stays over the band; one placed after a pole stays just after it; and as
+    the shot opens the order is the built one."""
+    doc = _compiled_road(tmp_path, member_after=member_after)
+    built = [n.name for n in doc.scene.children]
+    assert _painted(doc, 0.0) == built
+    moved, pole_0_places = False, set()
+    for t in (0.5, 1.6, 2.3, 2.9):
+        order = _painted(doc, t)
+        moved |= order != built
+        poles = [i for i, n in enumerate(order) if n.startswith("pole_")]
+        assert max(poles) < order.index("set__band_1")
+        if member_after == "set/rail":
+            assert order.index("left") > order.index("set__band_1")
+        if member_after == "pole_0":
+            assert order.index("left") == order.index("pole_0") + 1
+            pole_0_places.add(order.index("pole_0"))
+    assert moved
+    if member_after == "pole_0":  # it rides pole_0, which still moves (an#648)
+        assert len(pole_0_places) > 1
+
+
+@pytest.mark.parametrize("stream_after", [None, "set/hill"])
+def test_a_member_placed_after_a_plane_beside_the_slots_compiles(tmp_path, stream_after):
+    """an#634 re-review: ``right`` placed after the hill lands beside the slots
+    out of depth order; the run ends there, so the scene compiles (as on main)
+    and the slots still move among themselves."""
+    doc = _compiled_road(tmp_path, right_after="set/hill", stream_after=stream_after)
+    built = [n.name for n in doc.scene.children]
+    assert _painted(doc, 0.0) == built
+    assert any(_painted(doc, t) != built for t in (0.5, 1.6, 2.3, 2.9))
+
+
+def test_slots_riding_a_plane_wrapper_are_ordered_inside_it(tmp_path):
+    """an#634 re-review: a stream after a plane whose depth is not 1 rides the
+    plane's ``<env>__after_<k>`` wrapper; its slots are reordered there, and
+    only a child that moves carries ``z_index`` keys."""
+    from an.base import Z_INDEX_PROPERTY
+
+    doc = _compiled_road(tmp_path, hill_depth=0.8)
+    (wrapper,) = [n for n in doc.scene.children if n.scope == "" and n.children]
+    poles = [n.name for n in wrapper.children if n.name.startswith("pole_")]
+    assert len(poles) > 2
+    keyed = {
+        ch.target
+        for clip in doc.animations.values()
+        for ch in clip.channels
+        if ch.property == Z_INDEX_PROPERTY
+    }
+    assert keyed and keyed <= set(poles)
+    assert all(
+        len({k.value for k in ch.keyframes}) > 1
+        for clip in doc.animations.values()
+        for ch in clip.channels
+        if ch.property == Z_INDEX_PROPERTY
+    )
+
+
+def test_a_pole_passing_a_member_at_rest_is_painted_over_it_once_nearer(tmp_path, monkeypatch):
+    """an#648: the lamps ride the car at depth 2; each pole comes from far
+    away and passes them. While a pole is farther it is painted under them,
+    and from the instant it is nearer, over them (keyed again at the crossing,
+    not by its depth as the shot opens). Depths are the closed-form passes'
+    own, read where the lowering keys them."""
+    from an.ir import world as world_mod
+    from an.stage.compile import compile_shot
+    from an.stage.timeline import entity_alpha, timeline_from_scene
+    from an.timing.timeline import evaluate_timeline
+
+    seen = _spy_passes(monkeypatch)
+    project = _project(tmp_path)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    rest = 2.0  # the lamps ride the car two units ahead
+
+    def depth(pole: str, t: float) -> float:
+        _, depth0, rate = [p for p in seen[pole] if p[0] <= t][-1]
+        return depth0 + rate * t
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, project.mall)
+    timeline = timeline_from_scene(doc)
+    checked = {True: 0, False: 0}
+    for i in range(1, 60):
+        t = 3.0 * i / 60 + 0.013  # between the key times
+        order = _painted(doc, t)
+        pose = evaluate_timeline(timeline, t)
+        for pole in (n for n in order if n.startswith("pole_")):
+            if entity_alpha(doc, pose, pole) <= 1e-3:
+                continue
+            nearer = depth(pole, t) < rest
+            assert (order.index(pole) > order.index("left")) == nearer, (pole, t)
+            checked[nearer] += 1
+    assert checked[True] and checked[False]
+
+
+def test_only_entities_the_draw_order_check_leaves_to_the_world_are_reordered(tmp_path):
+    """an#648: the cut-to-cut ``draw_order`` check reads the order as a shot
+    opens, which is right because the only entities a shot reorders within
+    itself (``z_index`` keys) are world members and stream slots, which that
+    check leaves to the world (an#632)."""
+    from an.base import STREAM_OVERRIDE, Z_INDEX_PROPERTY
+    from an.stage.compile import compile_shot
+
+    project = _project(tmp_path)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    world = {m.id for m in scene.world.members} | {
+        e.id for e in shot.entities if STREAM_OVERRIDE in (e.overrides or {})
+    }
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, project.mall)
+    keyed = {
+        ch.target
+        for clip in doc.animations.values()
+        for ch in clip.channels
+        if ch.property == Z_INDEX_PROPERTY
+    }
+    assert keyed and keyed <= world
+
+
+def test_a_chain_of_riders_follows_its_first_host(tmp_path):
+    """an#648 review: `left` after `right` after `pole_0` (names that sort
+    against the chain): both ride pole_0, in that order, while it moves."""
+    doc = _compiled_road(tmp_path, member_after="right", right_after="pole_0")
+    places = set()
+    for t in (0.0, 0.5, 1.6, 2.3, 2.9):
+        order = _painted(doc, t)
+        assert order.index("right") == order.index("pole_0") + 1, t
+        assert order.index("left") == order.index("right") + 1, t
+        places.add(order.index("pole_0"))
+    assert len(places) > 1
+
+
+def test_a_rider_whose_host_is_in_a_plane_wrapper_keeps_its_place(tmp_path):
+    """an#648 review: the poles ride the hill's wrapper (depth 0.8); `left`,
+    placed after a pole but built at the root, has no sibling to ride, so it
+    keeps its built place rather than a key no root sibling has."""
+    from an.base import Z_INDEX_PROPERTY
+
+    doc = _compiled_road(tmp_path, member_after="pole_1", hill_depth=0.8)
+    keyed = {
+        ch.target
+        for clip in doc.animations.values()
+        for ch in clip.channels
+        if ch.property == Z_INDEX_PROPERTY
+    }
+    assert keyed and "left" not in keyed
+
+
+def _spy_passes(monkeypatch) -> dict:
+    """The lowering's passes per slot, ``{slot: [(start, depth0, motion)]}`` (the
+    motion a rate, or a scanned pass's depths on the scan grid, an#658)."""
+    from an.ir import world as world_mod
+
+    seen: dict = {}
+    real = world_mod._slot_paint_keys
+
+    def spy(slots):
+        seen.update({e.id: list(passes) for e, passes in slots})
+        return real(slots)
+
+    monkeypatch.setattr(world_mod, "_slot_paint_keys", spy)
+    return seen
+
+
+def test_a_member_moving_with_the_road_keeps_its_place_among_the_poles(tmp_path, monkeypatch):
+    """an#648 review: `left` stands by the road (in the world, depth 8 as the
+    shot opens) and approaches with the poles; `right` rides the car at depth
+    2. Each pole is painted over `left` exactly when it is nearer than it
+    (which never changes), and over `right` once it has passed depth 2."""
+    from an.stage.compile import compile_shot
+    from an.stage.timeline import entity_alpha, timeline_from_scene
+    from an.timing.timeline import evaluate_timeline
+
+    seen = _spy_passes(monkeypatch)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    left = scene.world.members[0]
+    scene.world.members[0] = left.model_copy(update={"frame": "world", "at": (0.5, 0.0, 8.0)})
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    timeline = timeline_from_scene(doc)
+    checked = 0
+    for i in range(1, 60):
+        t = 3.0 * i / 60 + 0.013
+        order = _painted(doc, t)
+        pose = evaluate_timeline(timeline, t)
+        for pole in (n for n in order if n.startswith("pole_")):
+            if entity_alpha(doc, pose, pole) <= 1e-3:
+                continue
+            _, depth0, rate = [p for p in seen[pole] if p[0] <= t][-1]
+            assert (order.index(pole) > order.index("left")) == (depth0 < 8.0), (pole, t)
+            assert (order.index(pole) > order.index("right")) == (depth0 + rate * t < 2.0), (pole, t)
+            checked += 1
+    assert checked
+
+
+# --- an#658: crossings between things that move differently ----------------------
+
+#: Pairs whose true depths are closer than this at a checked instant are left
+#: out (they are crossing there; the keys switch exactly at the crossing).
+_DEPTH_MARGIN = 1e-3
+
+
+def _spied_depth(
+    seen: dict, slot: str, t: float, *, duration: float, fps: float = 24.0
+) -> float:
+    """A slot's true depth at ``t`` from the lowering's own passes: a closed
+    form, or a scanned pass's depths on the scan grid (linear between them)."""
+    from an.ir import world as world_mod
+
+    _, depth0, motion = [p for p in seen[slot] if p[0] <= t][-1]
+    if isinstance(motion, float):
+        return depth0 + motion * t
+    grid = world_mod._grid(0.0, duration, world_mod._MIN_SAMPLE_FRAMES / fps)
+    i = min(max(1, sum(g <= t for g in grid)), len(grid) - 1)
+    u = (t - grid[i - 1]) / (grid[i] - grid[i - 1])
+    return motion[i - 1] + (motion[i] - motion[i - 1]) * u
+
+
+def _assert_painted_far_to_near(tmp_path, scene: SceneIR, depth_of) -> set:
+    """At instants between the key times, every visible pair of entities whose
+    true depth ``depth_of(name, t)`` is known is painted farther first. The
+    pairs seen in both orders (a crossing happened) are returned."""
+    from an.stage.compile import compile_shot
+    from an.stage.timeline import entity_alpha, timeline_from_scene
+    from an.timing.timeline import evaluate_timeline
+
+    shot = lower_world(scene, extents={**EXTENTS, "post": BOX, "car": BOX}).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    timeline = timeline_from_scene(doc)
+    duration = float(shot.duration)
+    orders: dict[tuple[str, str], set[bool]] = {}
+    for i in range(1, 60):
+        t = duration * i / 60 + 0.013
+        order = _painted(doc, t)
+        pose = evaluate_timeline(timeline, t)
+        depth = {
+            n: d
+            for n in order
+            if (d := depth_of(n, t)) is not None and entity_alpha(doc, pose, n) > 1e-3
+        }
+        for a in depth:
+            for b in depth:
+                if a < b and abs(depth[a] - depth[b]) > _DEPTH_MARGIN:
+                    a_nearer = depth[a] < depth[b]
+                    assert (order.index(a) > order.index(b)) == a_nearer, (a, b, t, depth[a], depth[b])
+                    orders.setdefault((a, b), set()).add(a_nearer)
+    assert orders
+    return {pair for pair, seen in orders.items() if len(seen) == 2}
+
+
+def _with_stream(scene: SceneIR, stream: Stream) -> SceneIR:
+    scene.world.travel = scene.world.travel.model_copy(
+        update={"streams": [*scene.world.travel.streams, stream]}
+    )
+    return scene
+
+
+def test_streams_at_different_rates_are_painted_by_their_depths(tmp_path, monkeypatch):
+    """an#658: the poles stand in the world (they approach at the car's
+    speed); the posts ride the car (rate 0: at rest relative to the camera,
+    as the lamps are). The poles pass both the lamps and the posts, and at
+    every instant each visible pair is painted far to near."""
+    seen = _spy_passes(monkeypatch)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    scene = _with_stream(
+        scene,
+        Stream(id="post", ref="lamp", height=1.5, every=2.5, lane=-0.3, y=0.0, frame="vehicle"),
+    )
+
+    def depth_of(name: str, t: float) -> float | None:
+        if name in ("left", "right"):
+            return 2.0
+        if name in seen:
+            return _spied_depth(seen, name, t, duration=3.0)
+        return None
+
+    crossed = _assert_painted_far_to_near(tmp_path, scene, depth_of)
+    kinds = {tuple(sorted(n.split("_")[0] for n in pair)) for pair in crossed}
+    assert ("pole", "post") in kinds and ("left", "pole") in kinds, kinds
+
+
+def test_a_scanned_stream_is_painted_by_its_depth_among_the_others(tmp_path, monkeypatch):
+    """an#658: oncoming cars stand in a frame that moves toward the camera, so
+    their passes are scanned, not closed-form; they overtake the poles' depths
+    and pass the lamps, and every visible pair is painted far to near."""
+    from an.ir.schema import Frame, FrameMoving
+
+    seen = _spy_passes(monkeypatch)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    scene.world.frames = {
+        "oncoming": Frame(moving=FrameMoving(direction=(0.0, 0.0, -1.0), speed=4.0))
+    }
+    scene = _with_stream(
+        scene,
+        Stream(id="car", ref="lamp", height=1.5, every=5.0, lane=-0.4, y=0.0, frame="oncoming"),
+    )
+
+    def depth_of(name: str, t: float) -> float | None:
+        if name in ("left", "right"):
+            return 2.0
+        if name in seen:
+            return _spied_depth(seen, name, t, duration=3.0)
+        return None
+
+    crossed = _assert_painted_far_to_near(tmp_path, scene, depth_of)
+    car_motions = [m for s, ps in seen.items() if s.startswith("car_") for _, _, m in ps]
+    assert car_motions and not any(isinstance(m, float) for m in car_motions)
+    kinds = {tuple(sorted(n.split("_")[0] for n in pair)) for pair in crossed}
+    assert ("car", "pole") in kinds and ("car", "left") in kinds, kinds
+
+
+def test_a_member_walking_away_is_painted_by_its_depth_among_the_poles(tmp_path, monkeypatch):
+    """an#658: ``right`` walks away down the car (``at_z`` from 2 to 14) while
+    the poles come at it: each pole is painted under it while farther and over
+    it once nearer, and ``left`` (at rest) under it once it is past."""
+    from an.ir.compose import tween
+
+    seen = _spy_passes(monkeypatch)
+    walk = tween("right", "at_z", to=14.0, duration=3.0, from_=2.0, easing="linear")
+    scene = _lane(
+        _travel_scene(Shot(id="s1", duration=3.0, viewpoint="road", actions=[walk])), 0.2
+    )
+
+    def depth_of(name: str, t: float) -> float | None:
+        if name == "left":
+            return 2.0
+        if name == "right":
+            return 2.0 + 4.0 * t
+        if name in seen:
+            return _spied_depth(seen, name, t, duration=3.0)
+        return None
+
+    crossed = _assert_painted_far_to_near(tmp_path, scene, depth_of)
+    kinds = {tuple(sorted(n.split("_")[0] for n in pair)) for pair in crossed}
+    assert ("pole", "right") in kinds, kinds
+
+
+def test_a_member_moving_with_the_road_passes_one_at_rest(tmp_path, monkeypatch):
+    """an#658: ``left`` stands by the road (approaching like the poles, so the
+    shared-rate keys hold) and passes ``right``, at rest in the car, at 1.5 s:
+    its crossing re-keys ``right`` as a pole's does, and every visible pair is
+    painted far to near."""
+    seen = _spy_passes(monkeypatch)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    left = scene.world.members[0]
+    scene.world.members[0] = left.model_copy(update={"frame": "world", "at": (-0.5, 0.4, 8.0)})
+
+    def depth_of(name: str, t: float) -> float | None:
+        if name == "left":
+            return 8.0 - 4.0 * t
+        if name == "right":
+            return 2.0
+        if name in seen:
+            return _spied_depth(seen, name, t, duration=3.0)
+        return None
+
+    assert ("left", "right") in _assert_painted_far_to_near(tmp_path, scene, depth_of)
+
+
+def test_a_member_entering_view_late_is_keyed_at_its_opening_depth(tmp_path, monkeypatch):
+    """an#658 review: the car backs away (the road recedes), and ``left``
+    stands behind the camera as the shot opens, entering view at about 0.6 s.
+    Its key is its depth at 0 (as every slot's and member's at rest is), not
+    its depth as it enters view, so it stays painted over the poles farther
+    than it for the rest of the shot."""
+    seen = _spy_passes(monkeypatch)
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    scene.world.travel = scene.world.travel.model_copy(update={"direction": (0.0, 0.0, -1.0)})
+    left = scene.world.members[0]
+    scene.world.members[0] = left.model_copy(update={"frame": "world", "at": (-0.3, 0.4, -2.0)})
+
+    def depth_of(name: str, t: float) -> float | None:
+        if name == "left":
+            return -2.0 + 4.0 * t
+        if name == "right":
+            return 2.0
+        if name in seen:
+            return _spied_depth(seen, name, t, duration=3.0)
+        return None
+
+    crossed = _assert_painted_far_to_near(tmp_path, scene, depth_of)
+    assert ("left", "right") in crossed, crossed
+
+
+def _key_at(keys: list, t: float) -> tuple:
+    """The paint key in force at ``t`` (the last one recorded at or before it)."""
+    return [k for s, k in keys if s <= t][-1]
+
+
+def _line(lo: float, hi: float, d_lo: float, d_hi: float):
+    from an.ir.world import _DepthPiece
+
+    return _DepthPiece(lo, hi, (lo, hi), (d_lo, d_hi))
+
+
+def test_a_crossing_behind_the_near_plane_still_swaps_the_keys():
+    """an#658 review: ``a`` and ``b`` recede at 2 and 4 per second and cross at
+    0.8 s at depth 0.4, behind the near plane (0.5); they emerge in front with
+    ``b`` the farther, so from there on ``b`` is keyed under ``a``, though the
+    stretch they crossed in (to a third entity's next pass, at 1 s) began
+    before either was visible."""
+    from an.ir.world import _depth_paint_keys
+
+    keys = _depth_paint_keys(
+        {
+            "a": ([_line(0.0, 2.0, -1.2, 2.8)], 0.0),
+            "b": ([_line(0.0, 2.0, -2.8, 5.2)], 1.0),
+            "c": ([_line(0.0, 1.0, 20.0, 20.0), _line(1.0, 2.0, 20.0, 20.0)], 2.0),
+        },
+        duration=2.0,
+        near=0.5,
+    )
+    t = 0.9  # a at 0.6, b at 0.8: both in front of the near plane
+    assert _key_at(keys["b"], t) < _key_at(keys["a"], t)  # b farther, painted first
+
+
+def test_a_tie_that_splits_is_keyed_after_the_split():
+    """an#658 review: ``b`` comes level with ``a`` (at rest at 5) at 1 s, stays
+    level to 2 s, then comes nearer: from 2 s on it is keyed over ``a`` by its
+    depth, not by the tiebreak."""
+    from an.ir.world import _DepthPiece, _depth_paint_keys
+
+    knots = (0.0, 1.0, 2.0, 3.0)
+    keys = _depth_paint_keys(
+        {
+            "a": ([_line(0.0, 3.0, 5.0, 5.0)], 1.0),
+            "b": ([_DepthPiece(0.0, 3.0, knots, (6.0, 5.0, 5.0, 4.0))], 0.0),
+        },
+        duration=3.0,
+        near=0.5,
+    )
+    t = 2.5  # b at 4.5, nearer than a
+    assert _key_at(keys["a"], t) < _key_at(keys["b"], t)  # a painted first
+
+
+def test_breakpoints_a_float_noise_apart_are_one():
+    """an#658 review: a crossing computed at 0.9999999999999999 and a pass
+    beginning at 1.0 are one breakpoint, not a stretch of no length."""
+    from an.ir.world import _depth_paint_keys
+
+    rate = 0.1 + 0.2  # 0.30000000000000004
+    keys = _depth_paint_keys(
+        {
+            "a": ([_line(0.0, 3.0, 0.1, 0.1 + 3.0 * rate)], 0.0),
+            "b": ([_line(0.0, 3.0, 0.1 + rate, 0.1 + rate)], 1.0),
+            "c": ([_line(0.0, 1.0, 20.0, 20.0), _line(1.0, 3.0, 20.0, 20.0)], 2.0),
+        },
+        duration=3.0,
+        near=0.0,
+    )
+    times = sorted({t for ks in keys.values() for t, _ in ks})
+    assert all(t1 - t0 > 1e-6 for t0, t1 in zip(times, times[1:])), times
+
+
+def test_a_pair_the_paint_keys_order_is_not_reported_out_of_order():
+    """an#681: ``left`` stands by the road and passes ``right`` (at rest in
+    the car) at 1.5 s, right behind it on screen. The paint keys swap them
+    there, so the ``draw_order`` check, which reads each instant's order from
+    those keys, has nothing to report about the pair."""
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 0.2)
+    left = scene.world.members[0]
+    scene.world.members[0] = left.model_copy(update={"frame": "world", "at": (0.5, 0.4, 8.0)})
+    notes = lower_world(scene, extents=EXTENTS).notes
+    assert [n.message for n in notes if n.kind == "draw_order"] == []
+
+
+def test_a_walker_passes_behind_a_standing_member_with_no_travel(tmp_path):
+    """an#679: no travel. ``left`` walks away from the camera (``at_z`` from
+    1 to 5) past ``right``, standing at depth 2, at 0.75 s: it is painted over
+    ``right`` while nearer and under it once behind, keyed at the crossing as
+    in a travelling view."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    walk = tween("left", "at_z", to=5.0, duration=3.0, from_=1.0, easing="linear")
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="s1", duration=3.0, viewpoint="two", actions=[walk])]
+    )
+    assert scene.world.travel is None
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    seen = set()
+    for i in range(60):
+        t = 3.0 * i / 60 + 0.013  # between the key times
+        nearer = 1.0 + 4.0 * t / 3.0 < 2.0
+        order = _painted(doc, t)
+        assert (order.index("left") > order.index("right")) == nearer, (t, order)
+        seen.add(nearer)
+    assert seen == {True, False}
+
+
+@pytest.mark.parametrize(
+    "switch, reported",
+    [
+        (2.0, True),
+        (1.5 + 1e-3, True),
+        (1.5, False),
+        (1.5 - 1e-3, False),
+        (1.5 + 1e-12, False),  # within the window epsilon
+        (1.5 + 1e-9, False),  # exactly at it: in force (bisect_right, not left)
+    ],
+)
+def test_the_draw_order_check_reads_the_key_in_force_at_each_sample(switch, reported):
+    """an#685: each member's paint key is looked up once per sample (bisect),
+    in force from its start (within the window epsilon) on. ``a`` walks past
+    ``b`` at 1.5 s; its key moves it in front of ``b`` at ``switch``. Keyed in
+    front by the sample at 1.5 s, nothing is wrong; keyed later, it is."""
+    from an.base import PAINT_KEYS_OVERRIDE
+    from an.ir.world import depth_order_problems
+
+    a = AssetRef(
+        kind="prop", id="a", store="props", ref="a",
+        overrides={PAINT_KEYS_OVERRIDE: [[0.0, [0]], [switch, [2]]]},
+    )  # fmt: skip
+    b = AssetRef(
+        kind="prop", id="b", store="props", ref="b",
+        overrides={PAINT_KEYS_OVERRIDE: [[0.0, [1]]]},
+    )  # fmt: skip
+    times = [0.0, 0.5, 1.0, 1.5, 2.0]
+    whole = {"a": [(0.0, 2.0)], "b": [(0.0, 2.0)]}
+    found = depth_order_problems(
+        [a, b], times, {"a": [10.0, 8.0, 6.0, 4.0, 2.0], "b": 5.0}, whole
+    )
+    assert bool(found) is reported
+    if reported:
+        assert "from 1.50 s" in found[0][1]
+
+
+def _beside(doc, rider: str, host: str, *, side: int, duration: float = 3.0):
+    """The places ``host`` takes over the shot, asserting at each of 60
+    sampled frames that ``rider`` is painted right beside it, on ``side``
+    (``RIDER_BEHIND``: just behind, ``RIDER_IN_FRONT``: just in front)."""
+    places = set()
+    for i in range(60):
+        t = duration * i / 60 + 0.013  # between the key times
+        order = _painted(doc, t)
+        assert order.index(rider) == order.index(host) + side, (t, order)
+        places.add(order.index(host))
+    return places
+
+
+def test_a_member_attached_to_a_walker_is_painted_with_it(tmp_path):
+    """an#678: a hat attached to ``right``, which walks away down the car
+    (``at_z`` from 2 to 14) while the poles pass it, rides its host's paint
+    keys: at every sampled frame it is painted right after ``right``, with no
+    pole between them, though the poles' places around the pair change."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    walk = tween("right", "at_z", to=14.0, duration=3.0, from_=2.0, easing="linear")
+    scene = _lane(
+        _travel_scene(Shot(id="s1", duration=3.0, viewpoint="road", actions=[walk])), 0.2
+    )
+    scene.world.members.append(_lamp("hat", attached=Attachment(to="right")))
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    assert len(_beside(doc, "hat", "right", side=RIDER_IN_FRONT)) > 1  # poles passed
+
+
+@pytest.mark.parametrize("listed_before", [True, False])
+def test_an_attachment_keeps_its_built_side_of_its_host(tmp_path, listed_before):
+    """an#678 review, regression 1 and its mirror: no travel, ``hat`` attached
+    to ``right`` and listed before it (painted behind it in the still shot) or
+    after it (in front). With ``left`` walking past them (``at_z`` 1 to 5), the
+    hat stays on that side of ``right`` at every frame: the side is read from
+    the built order, before ``right`` takes its crossing keys."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    walk = tween("left", "at_z", to=5.0, duration=3.0, from_=1.0, easing="linear")
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="s1", duration=3.0, viewpoint="two", actions=[walk])]
+    )
+    left, right = scene.world.members
+    hat = _lamp("hat", attached=Attachment(to="right"))
+    scene.world.members = [left, hat, right] if listed_before else [left, right, hat]
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    side = RIDER_BEHIND if listed_before else RIDER_IN_FRONT
+    assert len(_beside(doc, "hat", "right", side=side)) > 1  # `left` did pass the pair
+
+
+def test_two_attachments_on_one_side_keep_their_built_order(tmp_path):
+    """an#678 review: ``zeta`` then ``alpha``, both attached to the walking
+    ``right`` and listed after it, are painted ``right, zeta, alpha`` at every
+    frame, as in the still shot: riders on one side follow the built order,
+    not their ids."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    walk = tween("right", "at_z", to=14.0, duration=3.0, from_=2.0, easing="linear")
+    scene = _lane(
+        _travel_scene(Shot(id="s1", duration=3.0, viewpoint="road", actions=[walk])), 0.2
+    )
+    scene.world.members += [
+        _lamp(i, attached=Attachment(to="right")) for i in ("zeta", "alpha")
+    ]
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, _project(tmp_path).mall)
+    _beside(doc, "zeta", "right", side=RIDER_IN_FRONT)
+    _beside(doc, "alpha", "zeta", side=RIDER_IN_FRONT)
+
+
+def test_an_attachment_after_a_plane_still_rides_its_host(tmp_path):
+    """an#678 review, regression 2: an attachment whose ``after`` names no
+    entity (``set/hill``, a plane) still rides its host's keys, rather than
+    falling back to a static key at the host's opening depth."""
+    from an.base import PAINT_KEYS_OVERRIDE
+
+    hat = _lamp("hat", attached=Attachment(to="right"), after="set/hill")
+    _, scene = _road(tmp_path, extra=(hat,))
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    keys = {e.id: (e.overrides or {}).get(PAINT_KEYS_OVERRIDE) for e in shot.entities}
+    right, rides = keys["right"], keys["hat"]
+    assert len(right) > 1, "the poles key `right` as they pass it"
+    assert [t for t, _ in rides] == [t for t, _ in right]
+    assert all(
+        rider_host_key(k) == tuple(r) and k[-2] == RIDER_IN_FRONT
+        for (_, k), (_, r) in zip(rides, right)
+    )
+
+
+def test_a_walker_setting_off_beside_one_standing_is_keyed(tmp_path):
+    """an#684: ``left`` starts at ``right``'s depth (2) and walks nearer
+    (``at_z`` 2 to 1), overlapping it on screen. The tie as the shot opens is
+    a crossing, so from the first frame on ``left`` is painted over ``right``
+    (it fell back to the entity index, behind, for the whole shot)."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    walk = tween("left", "at_z", to=1.0, duration=3.0, from_=2.0, easing="linear")
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="s1", duration=3.0, viewpoint="two", actions=[walk])]
+    )
+    left = scene.world.members[0]
+    scene.world.members[0] = left.model_copy(update={"at": (0.45, 0.4, 2.0)})
+    lowered = lower_world(scene, extents=EXTENTS)
+    assert not [n for n in lowered.notes if n.kind == "draw_order"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(lowered.scene.timeline[0], _project(tmp_path).mall)
+    for i in range(60):
+        t = 3.0 * i / 60 + 0.013
+        order = _painted(doc, t)
+        assert order.index("left") > order.index("right"), (t, order)
+
+
+def test_a_member_level_with_another_as_a_travel_opens_is_keyed_apart():
+    """an#684 review: under a travel, ``left`` stands in the world at
+    ``right``'s depth (40) as the shot opens and the car leaves it behind. The
+    tie at 0 is their only crossing; keyed from it, ``left`` is painted over
+    ``right`` (nearer from the first sample) and nothing is reported. It used
+    to keep the listing order and be reported as a keyed pair (an#686)."""
+    from an.base import PAINT_KEYS_OVERRIDE
+
+    scene = _lane(_travel_scene(Shot(id="s1", duration=3.0, viewpoint="road")), 1.2)
+    left, right = scene.world.members
+    scene.world.members = [
+        left.model_copy(update={"frame": "world", "at": (0.45, 0.4, 40.0)}),
+        right.model_copy(update={"at": (0.5, 0.4, 40.0)}),
+    ]
+    lowered = lower_world(scene, extents=EXTENTS)
+    assert not [n for n in lowered.notes if n.kind == "draw_order"]
+    keys = {
+        e.id: (e.overrides or {})[PAINT_KEYS_OVERRIDE]
+        for e in lowered.scene.timeline[0].entities
+        if e.id in ("left", "right")
+    }
+    assert keys["right"][0][1] < keys["left"][0][1]  # right farther: painted first
+
+
+def test_a_keyed_pair_out_of_order_is_explained_by_its_keys():
+    """an#686: a pair both keyed is painted in its keys' order, and the keys
+    are cut from the very depths the check samples, so a disagreement is a
+    lowering bug and the note says so, not the first-depth rule that orders
+    an unkeyed pair (whose note keeps that text). The keys here are written
+    by hand to disagree, as no correct lowering would."""
+    from an.base import PAINT_KEYS_OVERRIDE
+    from an.ir.world import depth_order_problems
+
+    def ref(id, keys=None):
+        over = {PAINT_KEYS_OVERRIDE: keys} if keys else None
+        return AssetRef(kind="prop", id=id, store="props", ref=id, overrides=over)
+
+    times = [0.0, 0.5, 1.0, 1.5, 2.0]
+    depths = {"a": [10.0, 8.0, 6.0, 4.0, 2.0], "b": 5.0}  # `a` passes `b` at 1.5 s
+    whole = {"a": [(0.0, 2.0)], "b": [(0.0, 2.0)]}
+    late = [ref("a", [[0.0, [0]], [2.0, [2]]]), ref("b", [[0.0, [1]]])]
+    ((_, keyed),) = depth_order_problems(late, times, depths, whole)
+    assert "from 1.50 s" in keyed
+    assert "their paint keys put it behind there too" in keyed
+    assert "a bug in the world's lowering: report it with the scene" in keyed
+    assert "where it first shows" not in keyed
+    ((_, plain),) = depth_order_problems([ref("a"), ref("b")], times, depths, whole)
+    assert "the world orders each member by its depth where it first shows" in plain
+
+
+def test_a_kind_s_own_shot_size_band_frames_its_close_up():
+    """reeleehq/cutan#106: a subject whose rig puts the close-up band lower
+    (a big-headed build: the chin at 0.6 of its height, not 0.35) is framed
+    from farther, so the band still fills the frame; a subject with no band of
+    its own, or a size the band does not give, keeps `SHOT_SIZES`'."""
+    from an.ir.world import resolve_viewpoint
+
+    scene = _two_lamps_scene(timeline=[Shot(id="s", duration=1.0, viewpoint="right_cu")])
+    world = scene.world
+
+    def distance(**kw):
+        eye = resolve_viewpoint(world, "right_cu", extents=EXTENTS, width=W, height=H, **kw)
+        return 2.0 - eye.at[2]  # `right` stands 2 deep, the camera in front of it
+
+    table = distance()  # here the lamp's WIDTH binds: 0.4 units at 0.9 of 320 px
+    # the band binds: 0.6 of the lamp's 0.8 units filling 0.9 of 240 px at focal 300
+    own = distance(bands={"right": {"close_up": (0.0, 0.6)}})
+    assert own == pytest.approx(300.0 * 0.6 * 0.8 / (0.9 * 240.0)) and own > table
+    assert distance(bands={"left": {"close_up": (0.0, 0.6)}}) == table  # not the subject
+    assert distance(bands={"right": {"medium": (0.0, 0.7)}}) == table  # not this size
+
+
+def _prop_kind_with(monkeypatch, hook):
+    """The `prop` entity kind, as the registry gives it, with `shot_sizes`."""
+    import dataclasses
+
+    import an.genres.registry as registry
+
+    real = registry.entity_kind
+
+    def kind(name):
+        found = real(name)
+        if name == "prop" and found is not None:
+            return dataclasses.replace(found, shot_sizes=hook)
+        return found
+
+    monkeypatch.setattr(registry, "entity_kind", kind)
+
+
+def test_member_shot_sizes_read_a_kind_s_hook_and_say_what_cannot_be_used(monkeypatch):
+    """reeleehq/cutan#106: `member_shot_sizes` hands each member's kind hook
+    (`EntityKind.shot_sizes`) its measured box; a hook that raises, a value
+    that is not (top, bottom), a band outside 0 <= top < bottom <= 1 or a size
+    the table does not name gives nothing, and `problems` says why."""
+    from an.stage.world import member_shot_sizes
+
+    scene = _two_lamps_scene()
+    seen = {}
+
+    def bands(member, mall, box):
+        seen[member.id] = box
+        if member.id == "left":
+            raise KeyError("no head bone")
+        return {"close_up": (0.0, 0.6), "medium": (0.7, 0.2), "wide": None,
+                "full": (0, 0.6, 0.9), "closeup": (0.0, 0.5)}  # fmt: skip
+
+    _prop_kind_with(monkeypatch, bands)
+    problems = {}
+    got = member_shot_sizes(scene.world, {}, extents=EXTENTS, problems=problems)
+    assert got == {"right": {"close_up": (0.0, 0.6)}}
+    assert seen["right"] == EXTENTS["right"]
+    assert "raised KeyError" in problems["left"]["*"]
+    assert sorted(problems["right"]) == ["closeup", "full", "medium", "wide"]
+    assert "'closeup' is not a shot size" in problems["right"]["closeup"]
+
+
+def test_a_rig_s_own_close_up_reaches_the_lowered_shot_and_a_dropped_one_is_noted(
+    monkeypatch,
+):
+    """reeleehq/cutan#106: through `lower_scene` (render, preview and validate
+    all lower this way), a kind's own close-up band moves the framed shot's
+    placement; one it cannot give is a `shot_size` note on the shot."""
+    from an.stage.world import lower_scene
+
+    def lamp_scene():
+        scene = _two_lamps_scene(timeline=[Shot(id="cu", duration=1.0, viewpoint="right_cu")])
+        return scene
+
+    def placed(lowered):
+        (shot,) = lowered.scene.timeline
+        right = next(e for e in shot.entities if e.id == "right")
+        return right.stage.scale
+
+    import an.stage.world as stage_world
+
+    monkeypatch.setattr(stage_world, "member_extents", lambda *a, **k: dict(EXTENTS))
+    table = placed(lower_scene(lamp_scene(), {}, continues=False))
+    _prop_kind_with(monkeypatch, lambda m, mall, box: {"close_up": (0.0, 0.6)})
+    own = lower_scene(lamp_scene(), {}, continues=False)
+    assert placed(own) < table  # framed from farther: the lamp is drawn smaller
+    _prop_kind_with(monkeypatch, lambda m, mall, box: {"close_up": (0.9, 0.1)})
+    noted = lower_scene(lamp_scene(), {}, continues=False)
+    assert [n.entity for n in noted.notes if n.kind == "shot_size"] == ["right"]
+    assert placed(noted) == table
+    # a bad band for ANOTHER size says nothing about this close-up
+    _prop_kind_with(
+        monkeypatch, lambda m, mall, box: {"close_up": (0.0, 0.6), "medium": (0.9, 0.1)}
+    )
+    other = lower_scene(lamp_scene(), {}, continues=False)
+    assert not [n for n in other.notes if n.kind == "shot_size"]
+
+
+def test_the_shot_size_hook_is_genre_code_the_shot_cache_digests():
+    """reeleehq/cutan#106: a genre's `shot_sizes` places the camera, so its
+    module is part of the code a shot's cache key digests (`hook_modules`)."""
+    from an.genres.registry import (
+        EntityKind,
+        hook_modules,
+        register_entity_kind,
+        unregister_owner,
+    )
+
+    def bands(member, mall, box):
+        return {"close_up": (0.0, 0.5)}
+
+    register_entity_kind(EntityKind(name="demo_rig", shot_sizes=bands), owner="demo_shot_sizes")
+    try:
+        assert __name__ in hook_modules()
+    finally:
+        unregister_owner("demo_shot_sizes")

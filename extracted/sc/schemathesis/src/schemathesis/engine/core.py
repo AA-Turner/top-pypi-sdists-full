@@ -201,7 +201,8 @@ class ExecutionPlan:
                     if engine.is_interrupted:
                         break  # type: ignore[unreachable]
                     for event in self._run_phase(engine, phase):
-                        if isinstance(event, events.ScenarioFinished):
+                        # A scenario that sent no request, e.g. one whose inputs were all sent before, explores nothing.
+                        if isinstance(event, events.ScenarioFinished) and event.recorder.interactions:
                             executed += 1
                         elif (
                             isinstance(event, events.PhaseFinished)
@@ -252,10 +253,7 @@ class ExecutionPlan:
         try:
             payload = self._adapt_execution(engine, phase)
         except HookExecutionError as exc:
-            yield events.NonFatalError(
-                error=exc, phase=phase.name, label=f"`{exc.hook_name}` hook", related_to_operation=False
-            )
-            yield events.PhaseFinished(phase=phase, status=Status.ERROR, payload=None)
+            yield from events.fail_phase(phase, exc, label=f"`{exc.hook_name}` hook")
             return
         yield events.PhaseStarted(phase=phase, payload=payload, operations=only)
         engine.reserve_time(self._time_to_reserve_after(phase, engine))

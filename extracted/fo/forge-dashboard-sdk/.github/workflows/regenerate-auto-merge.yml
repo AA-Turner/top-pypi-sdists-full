@@ -1,0 +1,59 @@
+# regenerate.yml opens a spec-regeneration pull request but never merges
+# it. Ryan granted a durable, account-wide standing exception for this
+# class of PR on 2026-09-21 (rules/sdk-generation.md's "Regeneration in
+# CI" section, alrayyes/dotfiles#629): merge once CI is green, the same
+# way a Renovate/Dependabot/release-please PR already does, whether
+# oasdiff classified the underlying spec change as additive or breaking --
+# oasdiff's own classification (already reflected in the commit's
+# Conventional Commits type) is the judgment call, not a second human read
+# of the generated diff.
+#
+# Gated on the branch name regenerate.yml opens its pull request from and
+# the label it applies, matching the hush-hush-{go,node,python,php} version
+# of this workflow.
+#
+# pull_request, not pull_request_target: regenerate.yml's pull request
+# comes from a branch on this repo, never a fork.
+name: regenerate-auto-merge
+
+# labeled: regenerate.yml adds the label right after it opens the pull request,
+# so the opened event can read the labels first and skip the job.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: |
+      github.event.pull_request.head.ref == 'chore/regenerate-spec' &&
+      contains(github.event.pull_request.labels.*.name, 'dependencies')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # RELEASE_TOKEN, not the default GITHUB_TOKEN: a GITHUB_TOKEN merge
+      # produces a commit GitHub won't re-trigger workflows on, which
+      # would leave this repo's own release.yml never firing after an
+      # auto-merged regeneration lands on main.
+      - name: Merge the PR
+        run: |
+          set -euo pipefail
+          if out=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+            echo "$out"; exit 0
+          fi
+          echo "$out" >&2
+          case "$out" in
+            *"is in unstable status"* | *"is in clean status"*)
+              state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)
+              case "$state" in
+                UNSTABLE | CLEAN) gh pr merge --squash "$PR_URL" ;;
+                *) echo "Not merging directly: merge state is $state" >&2; exit 1 ;;
+              esac ;;
+            *) exit 1 ;;
+          esac
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

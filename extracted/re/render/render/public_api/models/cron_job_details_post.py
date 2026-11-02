@@ -1,0 +1,180 @@
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, Union
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..models.paid_plan import PaidPlan
+from ..models.region import Region
+from ..models.service_env import ServiceEnv
+from ..models.service_runtime import ServiceRuntime
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.docker_details import DockerDetails
+    from ..models.native_environment_details import NativeEnvironmentDetails
+
+
+T = TypeVar("T", bound="CronJobDetailsPOST")
+
+
+@_attrs_define
+class CronJobDetailsPOST:
+    """
+    Attributes:
+        schedule (str):
+        build_source_id (Union[Unset, str]):
+        env (Union[Unset, ServiceEnv]): This field has been deprecated, runtime should be used in its place.
+        runtime (Union[Unset, ServiceRuntime]): Runtime
+        env_specific_details (Union['DockerDetails', 'NativeEnvironmentDetails', Unset]):
+        plan (Union[Unset, PaidPlan]): Defaults to `0.5c-512mb` when creating a new service.
+        region (Union[Unset, Region]): Defaults to "oregon"
+    """
+
+    schedule: str
+    build_source_id: Union[Unset, str] = UNSET
+    env: Union[Unset, ServiceEnv] = UNSET
+    runtime: Union[Unset, ServiceRuntime] = UNSET
+    env_specific_details: Union["DockerDetails", "NativeEnvironmentDetails", Unset] = UNSET
+    plan: Union[Unset, PaidPlan] = UNSET
+    region: Union[Unset, Region] = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        from ..models.docker_details import DockerDetails
+
+        schedule = self.schedule
+
+        build_source_id = self.build_source_id
+
+        env: Union[Unset, str] = UNSET
+        if not isinstance(self.env, Unset):
+            env = self.env.value
+
+        runtime: Union[Unset, str] = UNSET
+        if not isinstance(self.runtime, Unset):
+            runtime = self.runtime.value
+
+        env_specific_details: Union[Unset, dict[str, Any]]
+        if isinstance(self.env_specific_details, Unset):
+            env_specific_details = UNSET
+        elif isinstance(self.env_specific_details, DockerDetails):
+            env_specific_details = self.env_specific_details.to_dict()
+        else:
+            env_specific_details = self.env_specific_details.to_dict()
+
+        plan: Union[Unset, str] = UNSET
+        if not isinstance(self.plan, Unset):
+            plan = self.plan.value
+
+        region: Union[Unset, str] = UNSET
+        if not isinstance(self.region, Unset):
+            region = self.region.value
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "schedule": schedule,
+            }
+        )
+        if build_source_id is not UNSET:
+            field_dict["buildSourceId"] = build_source_id
+        if env is not UNSET:
+            field_dict["env"] = env
+        if runtime is not UNSET:
+            field_dict["runtime"] = runtime
+        if env_specific_details is not UNSET:
+            field_dict["envSpecificDetails"] = env_specific_details
+        if plan is not UNSET:
+            field_dict["plan"] = plan
+        if region is not UNSET:
+            field_dict["region"] = region
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.docker_details import DockerDetails
+        from ..models.native_environment_details import NativeEnvironmentDetails
+
+        d = dict(src_dict)
+        schedule = d.pop("schedule")
+
+        build_source_id = d.pop("buildSourceId", UNSET)
+
+        _env = d.pop("env", UNSET)
+        env: Union[Unset, ServiceEnv]
+        if isinstance(_env, Unset):
+            env = UNSET
+        else:
+            env = ServiceEnv(_env)
+
+        _runtime = d.pop("runtime", UNSET)
+        runtime: Union[Unset, ServiceRuntime]
+        if isinstance(_runtime, Unset):
+            runtime = UNSET
+        else:
+            runtime = ServiceRuntime(_runtime)
+
+        def _parse_env_specific_details(data: object) -> Union["DockerDetails", "NativeEnvironmentDetails", Unset]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemasenv_specific_details_type_0 = DockerDetails.from_dict(data)
+
+                return componentsschemasenv_specific_details_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            componentsschemasenv_specific_details_type_1 = NativeEnvironmentDetails.from_dict(data)
+
+            return componentsschemasenv_specific_details_type_1
+
+        env_specific_details = _parse_env_specific_details(d.pop("envSpecificDetails", UNSET))
+
+        _plan = d.pop("plan", UNSET)
+        plan: Union[Unset, PaidPlan]
+        if isinstance(_plan, Unset):
+            plan = UNSET
+        else:
+            plan = PaidPlan(_plan)
+
+        _region = d.pop("region", UNSET)
+        region: Union[Unset, Region]
+        if isinstance(_region, Unset):
+            region = UNSET
+        else:
+            region = Region(_region)
+
+        cron_job_details_post = cls(
+            schedule=schedule,
+            build_source_id=build_source_id,
+            env=env,
+            runtime=runtime,
+            env_specific_details=env_specific_details,
+            plan=plan,
+            region=region,
+        )
+
+        cron_job_details_post.additional_properties = d
+        return cron_job_details_post
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

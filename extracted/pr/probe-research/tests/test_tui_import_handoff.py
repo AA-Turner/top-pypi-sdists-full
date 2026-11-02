@@ -5,8 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
-from probe.cli import import_job_messages, import_jobs, import_jobs_ui as ui, tui
+from probe.cli.imports import transcripts as bt
+from probe.cli.imports.jobs import messages as import_job_messages, ui as ui
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.wizard import terminal as tui
 from tests.test_backfill_transcripts import lane as lane
 from tests.test_tui_review import _run
 
@@ -30,7 +32,7 @@ def saved_import(monkeypatch):
         mutations.append((args, kwargs))
         return deepcopy(job)
 
-    monkeypatch.setattr(import_jobs, "get_job", get_job)
+    monkeypatch.setattr(import_jobs.jobs, "get_job", get_job)
     for name in ("enqueue", "resume", "recover_jobs", "spawn_child"):
         monkeypatch.setattr(import_jobs, name, observe_mutation)
     return SimpleNamespace(job=job, reads=reads, mutations=mutations)
@@ -96,7 +98,7 @@ def test_unreadable_started_import_retains_the_last_saved_snapshot(monkeypatch, 
     def unreadable(job_id):
         raise import_jobs.JobError("The saved import job could not be read.")
 
-    monkeypatch.setattr(import_jobs, "get_job", unreadable)
+    monkeypatch.setattr(import_jobs.jobs, "get_job", unreadable)
     answer, frames = _run(
         monkeypatch, ["\r"], height=40, render=lambda: ui.show_started_import(original),
     )
@@ -115,7 +117,7 @@ def test_handoff_returns_a_fresh_snapshot_after_navigation(monkeypatch, saved_im
         saved_import.job["state"] = import_jobs.State.SUCCEEDED
         return tui.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     result = ui.show_started_import(original)
     assert result["state"] == import_jobs.State.SUCCEEDED
     assert original["state"] == import_jobs.State.RUNNING
@@ -140,7 +142,7 @@ def test_approved_folder_delivery_has_folder_status_and_no_additional_review(mon
             assert "Importing" in current and "continues in the background" in current
         return tui.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     assert ui.show_started_import(deepcopy(saved_import.job)) == saved_import.job
     assert saved_import.mutations == []
 
@@ -152,7 +154,8 @@ def test_transcript_lane_reports_the_state_returned_by_the_post_enqueue_handoff(
     queued = {"id": "queued-session-job", "state": import_jobs.State.RUNNING}
     latest = {**queued, "state": state, "error": "Account needs attention." if state == "failed" else None}
     original_report = import_job_messages.enqueue_report
-    monkeypatch.setattr(bt, "_background_payload", lambda *args, **kwargs: approved)
+    monkeypatch.setattr(bt.background, "_background_payload", lambda *args, **kwargs: approved)
+    monkeypatch.setattr(bt.lane, "_background_payload", lambda *args, **kwargs: approved)
 
     def review(*args, **kwargs):
         events.append("approval")
@@ -173,8 +176,8 @@ def test_transcript_lane_reports_the_state_returned_by_the_post_enqueue_handoff(
         assert job is latest
         return original_report(job, label)
 
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(import_jobs, "enqueue", enqueue)
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr(import_jobs.jobs, "enqueue", enqueue)
     monkeypatch.setattr(ui, "show_started_import", handoff)
     monkeypatch.setattr(import_job_messages, "enqueue_report", report)
     seen, lines = lane(interactive=True, background=True)
@@ -186,15 +189,16 @@ def test_transcript_lane_reports_the_state_returned_by_the_post_enqueue_handoff(
 
 def test_yes_queues_transcripts_without_opening_the_handoff(lane, monkeypatch):
     calls = []
-    monkeypatch.setattr(bt, "_background_payload", lambda *args, **kwargs: {"approved": True})
-    monkeypatch.setattr(tui, "review", lambda *args, **kwargs: pytest.fail("unexpected approval prompt"))
+    monkeypatch.setattr(bt.background, "_background_payload", lambda *args, **kwargs: {"approved": True})
+    monkeypatch.setattr(bt.lane, "_background_payload", lambda *args, **kwargs: {"approved": True})
+    monkeypatch.setattr(tui.forms, "review", lambda *args, **kwargs: pytest.fail("unexpected approval prompt"))
     monkeypatch.setattr(ui, "show_started_import", lambda *args: pytest.fail("unexpected handoff"))
 
     def enqueue(kind, payload, label):
         calls.append((kind, payload))
         return {"id": "yes-job", "state": import_jobs.State.QUEUED}
 
-    monkeypatch.setattr(import_jobs, "enqueue", enqueue)
+    monkeypatch.setattr(import_jobs.jobs, "enqueue", enqueue)
     seen, lines = lane(interactive=True, background=True, yes=True)
     assert seen == {} and calls == [("transcripts", {"approved": True})]
     assert "Session import queued: yes-job" in lines
@@ -214,6 +218,6 @@ def test_partial_finished_import_keeps_its_actual_completion(monkeypatch, saved_
         assert "Your session import is complete" not in "\n".join(shown)
         return ui.Navigation.CONTINUE
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     ui.show_started_import(saved_import.job)
     assert saved_import.mutations == []

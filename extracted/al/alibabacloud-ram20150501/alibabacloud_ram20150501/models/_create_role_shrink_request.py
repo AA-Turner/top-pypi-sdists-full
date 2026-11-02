@@ -14,22 +14,22 @@ class CreateRoleShrinkRequest(DaraModel):
         role_name: str = None,
         tag_shrink: str = None,
     ):
-        # Specifies whether console logon is allowed for the RAM role. Valid values:
-        # - true: Console logon is allowed.
-        # - false: Console logon is not allowed.
+        # Specifies whether the RAM role is allowed to log on to the console. Valid values:
+        # - true: allowed
+        # - false: not allowed
         self.allow_console_login = allow_console_login
-        # The trust policy. Specifies one or more principals that are allowed to assume the RAM role. The principal can be an Alibaba Cloud account, an Alibaba Cloud service, or an identity provider.
+        # The trust policy. Specifies one or more principals that are allowed to assume the RAM role. The principals can be Alibaba Cloud accounts, Alibaba Cloud services, or identity providers.
         # >Resource Access Management (RAM) users cannot assume RAM roles whose trusted entity is an Alibaba Cloud service.
         self.assume_role_policy_document = assume_role_policy_document
         # The description of the RAM role.
         # 
-        # The description must be 1 to 1024 characters in length.
+        # The description must be 1 to 1,024 characters in length.
         self.description = description
         # The maximum session duration of the RAM role.
         # 
         # Valid values: 3600 to 43200. Unit: seconds. Default value: 3600.
         # 
-        # If you leave this parameter empty, the default value is used.
+        # If this parameter is left empty, the default value is used.
         self.max_session_duration = max_session_duration
         # The name of the RAM role.
         # 

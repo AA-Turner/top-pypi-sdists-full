@@ -7,9 +7,11 @@ import requests
 
 import schemathesis
 from schemathesis.core.transport import Response
+from schemathesis.engine.errors import is_connection_refused
 from schemathesis.engine.health import HealthState
 from schemathesis.engine.outage import CONFIRMATION_INTERVAL, REPORTED_REQUESTS, SERVER_LABEL, ServerMonitor
 from schemathesis.engine.run import PhaseName
+from test.apps.catalog.grpc.descriptors import load
 from test.utils import refusing_url
 
 # Connecting to an unused loopback port times out on Windows instead of being refused, so there is no
@@ -74,6 +76,17 @@ def test_outage_lists_the_newest_requests_in_send_order(operation):
     assert report.info.message == expected_message(operation, list(reversed(cases))[:REPORTED_REQUESTS])
 
 
+def test_outage_lists_a_request_sent_several_times_once(operation):
+    monitor = ServerMonitor()
+    first = operation.Case(query={"q": "first"})
+    repeated = operation.Case(query={"q": "repeated"})
+    for case in (first, repeated, repeated):
+        monitor.track(case, lambda case=case: answer(case), transport_kwargs={})
+
+    assert monitor.is_down(refusal(operation.base_url))
+    assert monitor.take_report(PhaseName.FUZZING).info.message == expected_message(operation, [repeated, first])
+
+
 def test_outage_lists_a_request_that_never_came_back(operation):
     monitor = ServerMonitor()
     answered = operation.Case(query={"q": "answered"})
@@ -107,6 +120,57 @@ def test_workers_left_hanging_by_the_outage_do_not_hide_the_answered_culprit(ope
         release.set()
         for worker in workers:
             worker.join()
+
+
+def test_first_request_to_time_out_after_the_last_answer_leads_the_outage(operation):
+    monitor = ServerMonitor()
+    slow = operation.Case(query={"q": "slow"})
+    with pytest.raises(requests.ReadTimeout):
+        monitor.track(slow, lambda: time_out(slow), transport_kwargs={})
+    answered = operation.Case(query={"q": "answered"})
+    monitor.track(answered, lambda: answer(answered), transport_kwargs={})
+    # Requests sent after the culprit hang on the same outage until they time out too.
+    timed_out = [operation.Case(query={"q": f"timed-out-{index}"}) for index in range(REPORTED_REQUESTS)]
+    for case in timed_out:
+        with pytest.raises(requests.ReadTimeout):
+            monitor.track(case, lambda case=case: time_out(case), transport_kwargs={})
+
+    assert monitor.is_down(refusal(operation.base_url))
+    info = monitor.take_report(PhaseName.FUZZING).info
+    # The culprit is listed, so no tip points to older requests.
+    assert (info.message, info.suggestion()) == (expected_message(operation, [timed_out[0], answered]), None)
+
+
+def drop(case):
+    request = requests.Request("GET", f"{case.operation.base_url}/users").prepare()
+    raise requests.ConnectionError(ConnectionResetError("Connection reset by peer"), request=request)
+
+
+def test_call_dropped_by_the_crash_leads_calls_left_hanging_timed_out_and_dropped_after_it(operation):
+    monitor = ServerMonitor()
+    answered = operation.Case(query={"q": "answered"})
+    monitor.track(answered, lambda: answer(answered), transport_kwargs={})
+    timed_out = operation.Case(query={"q": "timed-out"})
+    with pytest.raises(requests.ReadTimeout):
+        monitor.track(timed_out, lambda: time_out(timed_out), transport_kwargs={})
+    hanging = operation.Case(query={"q": "hanging"})
+    release = threading.Event()
+    worker = hang(monitor, hanging, release)
+    crash = operation.Case(query={"q": "crash"})
+    later = operation.Case(query={"q": "later"})
+    try:
+        with pytest.raises(requests.ConnectionError) as exc_info:
+            monitor.track(crash, lambda: drop(crash), transport_kwargs={})
+        with pytest.raises(requests.ConnectionError):
+            monitor.track(later, lambda: drop(later), transport_kwargs={})
+
+        assert monitor.is_down(exc_info.value)
+        assert monitor.take_report(PhaseName.FUZZING).info.message == expected_message(
+            operation, [crash, hanging, timed_out, later, answered]
+        )
+    finally:
+        release.set()
+        worker.join()
 
 
 def test_workers_refused_after_the_verdict_reuse_it_instead_of_probing_again(operation):
@@ -174,3 +238,136 @@ def test_tracked_answers_and_timeouts_set_the_operation_timeout(operation):
             monitor.track(case, lambda: time_out(case), transport_kwargs={})
 
     assert health.timeout_override(operation.label) == 2.0
+
+
+@pytest.mark.parametrize("proxied", [False, True], ids=["direct", "behind-port-proxy"])
+@pytest.mark.parametrize("tls", [False, True], ids=["plaintext", "tls"])
+def test_grpc_server_that_stops_is_an_outage(ctx, app_runner, tls, proxied):
+    server = ctx.grpc.apps.users(tls=tls)
+    target = server.target
+    if proxied:
+        scheme_and_host, _, port = target.rpartition(":")
+        target = f"{scheme_and_host}:{app_runner.run_port_proxy(int(port))}"
+    config = {"base-url": target, **({"tls-verify": str(server.ca_path)} if tls else {})}
+    case = grpc_operation(server, **config).Case(body={"userId": 7})
+    monitor = ServerMonitor()
+    monitor.track(case, case.call, transport_kwargs={})
+    server.stop()
+
+    with pytest.raises(requests.ConnectionError) as exc_info:
+        monitor.track(case, case.call, transport_kwargs={})
+
+    assert monitor.is_down(exc_info.value)
+    info = monitor.take_report(PhaseName.FUZZING).info
+    # The cached channel may send the second call before it sees the closed connection, and a port proxy resets the
+    # call instead of refusing it; a call cut off or reset is listed as the culprit, so no tip about older requests.
+    tip = (
+        # HAR reports do not record gRPC calls.
+        "If the server crashed, the request that caused it may be older than these."
+        if is_connection_refused(exc_info.value)
+        else None
+    )
+    assert (info.message, info.suggestion()) == (
+        f"{target} stopped responding. Last request before it went away:\n\n"
+        f"    {case.as_reproduction_command(headers={}, verify=True)}",
+        tip,
+    )
+
+
+def grpc_operation(server, **config):
+    return load(server, **config)["pkg.Users"]["GetUser"]
+
+
+def answered_then_crash(ctx, how="exit"):
+    """A crashing server that answered one call, and the call that brings it down."""
+    server = ctx.grpc.apps.crashing_users(how)
+    operation = grpc_operation(server)
+    answered = operation.Case(body={"userId": 7})
+    crash = operation.Case(body={"userId": 500})
+    monitor = ServerMonitor()
+    monitor.track(answered, answered.call, transport_kwargs={})
+    return server, operation, monitor, answered, crash
+
+
+def grpc_message(server, cases):
+    commands = "\n\n".join(f"    {case.as_reproduction_command(headers={}, verify=True)}" for case in cases)
+    return f"{server.target} stopped responding. Last requests before it went away:\n\n{commands}"
+
+
+# The culprit is listed, so no tip points to older requests.
+@pytest.mark.parametrize("how", ["exit", "stop"], ids=["connection-dropped", "calls-cancelled"])
+def test_grpc_call_that_crashes_the_server_is_listed_in_the_outage(ctx, how):
+    server, _, monitor, answered, crash = answered_then_crash(ctx, how)
+
+    with pytest.raises(requests.ConnectionError) as exc_info:
+        monitor.track(crash, crash.call, transport_kwargs={})
+
+    assert monitor.is_down(exc_info.value)
+    info = monitor.take_report(PhaseName.FUZZING).info
+    assert (info.message, info.suggestion()) == (grpc_message(server, [crash, answered]), None)
+
+
+def test_grpc_call_that_timed_out_before_the_crash_is_listed_after_the_call_it_dropped(ctx):
+    server, operation, monitor, answered, crash = answered_then_crash(ctx)
+    slow = operation.Case(body={"userId": 13})
+    with pytest.raises(requests.ReadTimeout):
+        monitor.track(slow, lambda: slow.call(timeout=0.2), transport_kwargs={})
+
+    with pytest.raises(requests.ConnectionError) as exc_info:
+        monitor.track(crash, crash.call, transport_kwargs={})
+
+    assert monitor.is_down(exc_info.value)
+    assert monitor.is_after_outage(exc_info.value) is False
+    assert monitor.take_report(PhaseName.FUZZING).info.message == grpc_message(server, [crash, slow, answered])
+
+
+# The call only cut off by the crash confirms the outage first, yet the culprit alone is an error of its own.
+def test_grpc_calls_dropped_together_by_a_crash_list_the_latest_first_and_only_it_as_an_operation_error(ctx):
+    server, operation, monitor, answered, crash = answered_then_crash(ctx)
+    slow = operation.Case(body={"userId": 13})
+    slow_errors = []
+
+    def call_slow():
+        with pytest.raises(requests.ConnectionError) as slow_info:
+            monitor.track(slow, slow.call, transport_kwargs={})
+        slow_errors.append(slow_info.value)
+
+    worker = threading.Thread(target=call_slow)
+    worker.start()
+    server.wait_for_call(13)
+    with pytest.raises(requests.ConnectionError) as exc_info:
+        monitor.track(crash, crash.call, transport_kwargs={})
+    worker.join()
+
+    assert monitor.is_down(slow_errors[0])
+    assert monitor.is_down(exc_info.value)
+    assert (monitor.is_after_outage(slow_errors[0]), monitor.is_after_outage(exc_info.value)) == (True, False)
+    assert monitor.take_report(PhaseName.FUZZING).info.message == grpc_message(server, [crash, slow, answered])
+
+
+@pytest.mark.parametrize("tls", [False, True], ids=["plaintext", "tls"])
+def test_live_grpc_server_after_a_dropped_call_is_not_an_outage(ctx, tls):
+    server = ctx.grpc.apps.users(tls=tls)
+    operation = grpc_operation(server, **({"tls-verify": str(server.ca_path)} if tls else {}))
+    case = operation.Case(body={"userId": 7})
+    monitor = ServerMonitor()
+    monitor.track(case, case.call, transport_kwargs={})
+    request = requests.Request("POST", f"{server.target}{operation.path}").prepare()
+    dropped = requests.ConnectionError(ConnectionAbortedError("Connection aborted. Socket closed"), request=request)
+
+    assert not monitor.is_down(dropped)
+
+
+@pytest.mark.parametrize(
+    ("variable", "is_down"),
+    [("ALL_PROXY", True), ("grpc_proxy", False)],
+    ids=["ignored-by-grpc", "used-by-grpc"],
+)
+def test_grpc_outage_follows_grpc_proxy_variables(ctx, monkeypatch, variable, is_down):
+    _, _, monitor, _, crash = answered_then_crash(ctx)
+    monkeypatch.setenv(variable, "http://127.0.0.1:1")
+
+    with pytest.raises(requests.ConnectionError) as exc_info:
+        monitor.track(crash, crash.call, transport_kwargs={})
+
+    assert monitor.is_down(exc_info.value) is is_down

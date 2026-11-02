@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 import time
-from ....foundation.durable import durable
+
 from probe.sdk.delivery.outbox.drainers.detached import _env_fingerprints, _spawn_detached, _worker_env, maybe_spawn
+
+from ....foundation.durable import durable
 
 
 # -- rescuing writes stranded under a dead credential ------------------------
@@ -27,9 +29,11 @@ RESCUE_IDLE_SECONDS = 6 * 3600.0
 _RESCUE_WAITING_SECONDS = 600.0
 
 
-def rescue_enabled() -> bool:
-    """Whether stranded writes may be rescued by themselves (`RESCUE_ENV`)."""
-    return (os.environ.get(RESCUE_ENV) or "").strip().lower() not in ("0", "off", "false", "no")
+def rescue_enabled(environ=None) -> bool:
+    """Whether stranded writes may be rescued by themselves (`RESCUE_ENV`). ``environ``: another
+    process's variables (the Probe service reads the login shell's)."""
+    env = os.environ if environ is None else environ
+    return (env.get(RESCUE_ENV) or "").strip().lower() not in ("0", "off", "false", "no")
 
 
 def _rescue_stamp(journal):
@@ -117,25 +121,67 @@ def _rescue_due(stamp) -> bool:
         return False
 
 
+def _claim(journal, stamp) -> bool:
+    """Claim the look ``stamp`` paces (`_rescue_due`) for this process, under a lock so
+    concurrent commands start one. Raises what the file system raised."""
+    from ..journal.item_locks import _try_lock
+    from ....foundation.durable.durable import now_iso
+
+    with _try_lock(journal.dir / ".rescue-claim.lock") as claimed:
+        if not claimed or not _rescue_due(stamp):
+            return False
+        durable.write_text_atomic(stamp, now_iso() + "\n", mode=0o600)
+    return True
+
+
+#: ONE-TIME (`journal/failures/restores.py`; delete with it): when a restore look last started.
+_RESTORE_STAMP = ".restore-at"
+
+
+def claim_restore(journal) -> bool:
+    """ONE-TIME (`journal/failures/restores.py`; delete with it): whether to start `rescue` for
+    the restore now. True while ``journal``'s root has no `RESTORE_DONE` marker, holds a
+    ``discarded/`` folder and is not paused, at most once per `RESCUE_EVERY_SECONDS` (claimed), whatever an idle
+    rescue's back-off says. One stat once the marker is there. Raises what the file system raised."""
+    from ..journal.failures.restores import is_restore_done
+
+    if is_restore_done(journal.dir) or not (journal.dir / "discarded").is_dir():
+        return False
+    if os.path.lexists(journal.paused_file):
+        return False  # a paused outbox rescues nothing; its look comes after the pause
+    stamp = journal.dir / _RESTORE_STAMP
+    return _rescue_due(stamp) and _claim(journal, stamp)
+
+
+def maybe_restore(journal) -> bool:
+    """ONE-TIME (`journal/failures/restores.py`; delete with it): the every-command check of an
+    outbox with no status file yet: start `rescue` when `claim_restore` says so. Never raises;
+    True when one started."""
+    if not rescue_enabled() or os.environ.get("PROBE_OUTBOX_WORKER"):
+        return False
+    try:
+        if not claim_restore(journal):
+            return False
+    except Exception:  # noqa: BLE001 -- the every-command path never raises
+        return False
+    return spawn_rescuer(journal)
+
+
 def maybe_rescue(journal, status: dict) -> bool:
     """The CLI's every-command check (`cli.main._outbox_notice`): at most once per
     `RESCUE_EVERY_SECONDS` per outbox root (`RESCUE_IDLE_SECONDS` after a rescue with nothing
     to send), and only when writes are held back or a credential queue holds discards, start
-    `rescue` in a process of its own. One stat when not due; the interval is claimed under a
-    lock so concurrent commands start one. Never raises; True when one started."""
+    `rescue` in a process of its own; also while the one-time restore is not done
+    (`claim_restore`). Two stats when not due; the interval is claimed under a lock so
+    concurrent commands start one. Never raises; True when one started."""
     if not rescue_enabled() or os.environ.get("PROBE_OUTBOX_WORKER"):
         return False
-    stamp = _rescue_stamp(journal)
-    if not _rescue_due(stamp):
-        return False
     try:
-        from ..journal.item_locks import _try_lock
-        from ..journal.journal import now_iso
-
-        with _try_lock(journal.dir / ".rescue-claim.lock") as claimed:
-            if not claimed or not _rescue_due(stamp):
-                return False
-            durable.write_text_atomic(stamp, now_iso() + "\n", mode=0o600)
+        if claim_restore(journal):
+            return spawn_rescuer(journal)
+        stamp = _rescue_stamp(journal)
+        if not _rescue_due(stamp) or not _claim(journal, stamp):
+            return False
         if not _writes_held_back(journal, status) and not _discards_held_in_queues(journal):
             return False
     except Exception:  # noqa: BLE001 -- the every-command path never raises
@@ -172,25 +218,34 @@ def _discards_held_in_queues(journal) -> bool:
     return any(discards_to_relocate(root.dir) for root in _rescue_roots(journal))
 
 
-def _rescuer_env() -> dict:
-    """The rescuer's environment: a worker's, with no environment credential (it sends
-    adopted writes with the stored login only; the kicking process's PROBE_TOKEN is not its
-    to use) and none of the kicking command's identity: a daemon command's
-    PROBE_IDEMPOTENCY_KEY numbers its own writes and the rescuer's would reuse those keys for
-    other writes (the server refuses a reused key, 422)."""
+def _rescuer_env(base: dict | None = None) -> dict:
+    """The rescuer's environment: a worker's (``base``, when given, in place of this
+    process's: the login shell's variables the Probe service read), with no environment
+    credential (it sends adopted writes with the stored login only; the kicking process's
+    PROBE_TOKEN is not its to use) and none of the kicking command's identity: a daemon
+    command's PROBE_IDEMPOTENCY_KEY numbers its own writes and the rescuer's would reuse those
+    keys for other writes (the server refuses a reused key, 422)."""
     from ..transport.transport import _IDEMPOTENCY_ENV
+    from ....foundation.service_api.env import secret_env
 
-    env = _worker_env()
+    if base is None:
+        env = _worker_env()
+    else:
+        # As the service starts its other children: its own clean environment (HOME, TMPDIR,
+        # LANG) under the caller's variables, never a credential of its own.
+        own = {name: value for name, value in os.environ.items() if not secret_env(name)}
+        env = {**own, **base, "PROBE_OUTBOX_WORKER": "1"}
     for var in ("PROBE_TOKEN", "PROBE_INGEST_TOKEN", _IDEMPOTENCY_ENV):
         env.pop(var, None)
     return env
 
 
-def spawn_rescuer(journal) -> bool:
-    """Start `rescue` for the outbox root ``journal`` in a detached process.
-    Never raises; True when one was started."""
+def spawn_rescuer(journal, *, env: dict | None = None) -> bool:
+    """Start `rescue` for the outbox root ``journal`` in a detached process (``env``: its
+    variables in place of this process's, `_rescuer_env`). Never raises; True when one was
+    started."""
     try:
-        child = _spawn_detached(journal, ["--rescue", str(journal.dir)], _rescuer_env())
+        child = _spawn_detached(journal, ["--rescue", str(journal.dir)], _rescuer_env(env))
     except Exception:  # noqa: BLE001
         return False
     if child is False:
@@ -199,6 +254,26 @@ def spawn_rescuer(journal) -> bool:
         return child.poll() in (None, 0)
     except Exception:  # noqa: BLE001 -- a liveness probe never fails the spawn
         return True
+
+
+def adopt_before_discard(journal) -> int:
+    """`probe outbox discard --held` first: hand to the stored login every dead credential of
+    the signed-in account whose writes wait in ``journal``'s outbox (`rescue_stranded`, the
+    rescuer's checks; never one this shell holds), so the discard sets aside only what the login
+    cannot send. Returns how many writes the login now sends (rescued now or adopted before).
+    Not with `RESCUE_ENV` off: then only `probe outbox adopt` adopts. Never raises."""
+    from .drain.adoption import rescue_stranded
+    from .drain.credentials import _stored_login_fingerprint
+
+    if not rescue_enabled():
+        return 0
+    try:
+        login = _stored_login_fingerprint(None)
+        here = set(_env_fingerprints()) | ({login} if login else set())
+        report = rescue_stranded(journal, here=here)
+    except Exception:  # noqa: BLE001 -- the discard goes on as before
+        return 0
+    return sum(report.rescued.values()) + report.adopted_waiting
 
 
 #: How long the rescuer waits for a drain lock another drainer holds.
@@ -234,16 +309,17 @@ def rescue(directory: str) -> int:
     (`journal.rescue_stranded`) in this outbox and every other of this user's
     (`_rescue_roots`), deliver the adopted writes in one foreground pass (`drain_adopted`),
     then let workers take over. First it moves every credential queue's discards to its root
-    (`journal.relocate_discards`; reports `outbox.discarded`, reason `relocated`). One
-    rescuer at a time per user (`journal.rescue_lock_path`); one finding nothing to send, and
-    nothing put off, defers the next look by `RESCUE_IDLE_SECONDS`. Prints to drainer.log;
-    reports `outbox.rescued`."""
+    (`journal.relocate_discards`; reports `outbox.discarded`, reason `relocated`); then, once
+    per root until done, the one-time restore (`_restore_root`). One rescuer at a time per
+    user (`journal.rescue_lock_path`); one finding nothing to send, and nothing put off,
+    defers the next look by `RESCUE_IDLE_SECONDS`. Prints to drainer.log; reports
+    `outbox.rescued` (and `outbox.restored`)."""
     from ..journal.failures.discards import (
         DiscardCounts,
         relocate_discards)
-    from ..journal.journal import (
-        Journal,
-        now_iso)
+    from ..journal.failures.restores import RestoreCounts
+    from ....foundation.durable.durable import now_iso
+    from ..journal.journal import Journal
     from .drain.credentials import _stored_login_fingerprint
     from ..journal.item_locks import _try_lock
     from .drain.adoption import (
@@ -280,11 +356,18 @@ def rescue(directory: str) -> int:
             # are moved: nothing left to start a rescuer for).
             _look_again_later(root)
             return 0
+        restored = RestoreCounts()
+        restoring: list = []
         for one in _rescue_roots(root):
             try:
                 if one.paused:
                     continue
+                done = _restore_root(one, restored)
+                if done is not None:
+                    restoring.append((one, done))
                 report = rescue_stranded(one, here=here)
+                if done is not None:
+                    _refuse_restored(one, report, restored)
             except Exception as exc:  # noqa: BLE001 -- one root never stops the rest
                 print(f"rescue skipped {one.dir}: {type(exc).__name__}", flush=True)
                 deferred += 1
@@ -313,6 +396,7 @@ def rescue(directory: str) -> int:
                 + ("; another drain held a lock" if busy else ""),
                 flush=True,
             )
+        deferred += _settle_restore(restoring, restored)
         if rescued:
             from .... import analytics as telemetry
 
@@ -334,6 +418,80 @@ def rescue(directory: str) -> int:
         except Exception:  # noqa: BLE001
             pass
     return 0
+
+
+# -- ONE-TIME: the restore's steps in `rescue` (`journal/failures/restores.py`; delete with it)
+
+
+def _restore_root(root, counts) -> "int | None":
+    """Put back the root ``root``'s restorable set-aside writes (`restore_set_aside`), before the
+    rescue adopts their credential, adding what it did to ``counts``. Returns how many it could
+    not read or move (0: a clean restore), or None when its restore is done already or failed:
+    no marker is written for it this pass. Never raises."""
+    from ..journal.failures.restores import is_restore_done, restore_set_aside
+
+    if is_restore_done(root.dir):
+        return None
+    try:
+        mine = restore_set_aside(root)
+    except Exception as exc:  # noqa: BLE001 -- the next pass tries again
+        print(f"restoring set-aside writes skipped {root.dir}: {type(exc).__name__}", flush=True)
+        return None
+    counts.merge(mine)
+    return mine.unmoved
+
+
+def _refuse_restored(root, report, counts) -> None:
+    """When the rescue refused the restored writes' credential as things stand (another account
+    or server, a scope, no account on record: not `DEFERRING`), move them back aside, still
+    stamped, so no pass tries them again. Never raises: what did not move stays queued."""
+    from ..journal.failures.restores import RESTORE_FINGERPRINT, put_back_restored
+    from .drain.adoption import DEFERRING
+
+    why = report.refused.get(RESTORE_FINGERPRINT)
+    if why is None or why in DEFERRING:
+        return
+    try:
+        if put_back_restored(root, counts):
+            counts.refused_reason = str(why)
+    except Exception as exc:  # noqa: BLE001 -- they stay queued: deferred, looked at next pass
+        print(f"setting refused restored writes aside skipped {root.dir}: {type(exc).__name__}", flush=True)
+
+
+def _settle_restore(roots: list, counts) -> int:
+    """After the pass: restored writes still queued are deferred (the next pass sends them); a
+    root with none left, and none it could not read or move, is done (`RESTORE_DONE`). Prints
+    and reports what the pass did (`outbox.restored`): when it moved writes, or on its last
+    pass. Returns 1 when the restore is not done (the next look must not back off), else 0.
+    Never raises."""
+    from ..journal.failures.restores import RESTORE_FINGERPRINT, mark_restore_done, restored_waiting
+    from ....foundation.durable.durable import now_iso
+
+    unfinished = 0
+    for one, unmoved in roots:
+        try:
+            waiting = restored_waiting(one)
+        except Exception:  # noqa: BLE001 -- unknown: looked at again next pass
+            unfinished += 1
+            continue
+        counts.deferred += waiting
+        if waiting or unmoved:
+            unfinished += 1
+        else:
+            mark_restore_done(one.dir)
+    if counts.writes or counts.refused or counts.unmoved:
+        print(
+            f"restored {counts.writes} set-aside write(s) of credential {RESTORE_FINGERPRINT}; "
+            f"{counts.refused} set aside again ({counts.refused_reason or 'none refused'}); "
+            f"{counts.deferred} still queued; {counts.unmoved} could not be moved; "
+            f"kept aside: {dict(counts.kept) or 'none'} ({now_iso()})",
+            flush=True,
+        )
+    if counts.writes or counts.refused or (counts.kept and not unfinished):
+        from .... import analytics as telemetry
+
+        telemetry.emit_outbox_restored(counts)
+    return 1 if unfinished else 0
 
 
 def _look_again_later(root) -> None:

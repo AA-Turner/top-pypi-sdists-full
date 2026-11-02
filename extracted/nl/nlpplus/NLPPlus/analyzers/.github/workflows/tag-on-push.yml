@@ -1,0 +1,86 @@
+# Install at: VisualText/package-analyzers -> .github/workflows/tag-on-push.yml
+#
+# Source of the percolation chain for DIRECT analyzer edits (see
+# VisualText/nlp-engine/docs/PERCOLATION.md).
+#
+# When you edit an analyzer (address-parser, emailaddress, links, telephone) and
+# push to main, this auto-computes the next semver tag and pushes it. Pushing the
+# v* tag fires dispatch-update-package-analyzers.yml, which pings the npm and
+# Python packages to bump + auto-publish.
+#
+# parse-en-us is intentionally NOT in the path filter: parse-en-us changes arrive
+# via update-parse-en-us.yml (driven by parse-en-us-release), which tags itself.
+# Keeping the two paths disjoint avoids double-tagging.
+#
+# Requires the shared CLASSIC_PAT secret (a GITHUB_TOKEN-pushed tag cannot
+# trigger dispatch-update-package-analyzers.yml in turn).
+
+name: Tag on push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'address-parser/**'
+      - 'emailaddress/**'
+      - 'links/**'
+      - 'telephone/**'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver component to bump"
+        required: true
+        default: "patch"
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.CLASSIC_PAT }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Compute next version
+        id: version
+        run: |
+          set -euo pipefail
+          bump="${{ inputs.bump }}"
+          bump="${bump:-patch}"   # push events have no inputs
+          latest=$(git tag --sort=-v:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | head -n1 || true)
+          latest=${latest:-v0.0.0}
+          IFS='.' read -r major minor patch <<<"${latest#v}"
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          new="v${major}.${minor}.${patch}"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+          echo "Tagging $latest -> $new"
+
+      - name: Tag and push
+        run: |
+          set -euo pipefail
+          git tag -a "${{ steps.version.outputs.new }}" -m "Release ${{ steps.version.outputs.new }}"
+          git push origin "${{ steps.version.outputs.new }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new }}
+          name: ${{ steps.version.outputs.new }}
+          generate_release_notes: true
+          token: ${{ secrets.CLASSIC_PAT || secrets.GITHUB_TOKEN }}

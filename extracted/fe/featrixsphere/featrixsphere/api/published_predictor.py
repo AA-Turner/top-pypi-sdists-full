@@ -292,15 +292,12 @@ class PublishedPredictor:
             # Single batch call
             results = self.batch_predict(batch, customer_metadata=customer_metadata)
 
-            # Compare: importance = |original_confidence - ablated_confidence|
+            # Compare: importance = how far the answer moved
             original = results[0]
             importance = {}
-            original_conf = original.confidence or 0.0
 
             for i, col in enumerate(columns):
-                ablated_result = results[i + 1]
-                ablated_conf = ablated_result.confidence or 0.0
-                delta = abs(original_conf - ablated_conf)
+                delta = abs(original.ablation_score() - results[i + 1].ablation_score())
                 importance[col] = round(delta, 4)
 
             original.feature_importance = dict(sorted(

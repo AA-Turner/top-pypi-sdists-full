@@ -13,7 +13,7 @@ class DecodeDiagnosticMessageResponseBody(DaraModel):
         decoded_diagnostic_message: main_models.DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessage = None,
         request_id: str = None,
     ):
-        # The decoded diagnostic message.
+        # The decoded diagnostic information.
         self.decoded_diagnostic_message = decoded_diagnostic_message
         # The request ID.
         self.request_id = request_id
@@ -65,11 +65,11 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessage(DaraModel):
         self.auth_principal = auth_principal
         # The resource used for authentication in the user request.
         self.auth_resource = auth_resource
-        # Indicates whether the denial is explicit.
+        # Indicates whether the request is explicitly denied.
         self.explicit_deny = explicit_deny
         # The list of policies matched during authentication.
         self.matched_policies = matched_policies
-        # The policy type that caused the permission denial.
+        # The type of the policy that results in the access denied error.
         self.no_permission_policy_type = no_permission_policy_type
 
     def validate(self):
@@ -158,23 +158,21 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageMatchedPolicies
         policy_type: str = None,
         policy_version: str = None,
     ):
-        # The entity type to which the policy is attached.
+        # The type of the entity to which the policy is attached.
         self.attached_entity_type = attached_entity_type
         # The scope to which the policy is attached.
         self.attached_scope = attached_scope
         # The policy effect.
         self.effect = effect
-        # The policy name, as follows:
+        # The policy name information. The value varies based on the policy type:
         # 
-        # - Control policy: The control policy ID.
-        # 
-        # - RAM access policy: The access policy name.
+        # - Control policy: the ID of the control policy.
+        # - RAM access policy: the name of the access policy.
         self.policy_identifier = policy_identifier
         # The policy type.
         self.policy_type = policy_type
         # The policy version number.
-        # 
-        # > Only custom policies have version numbers.
+        # > Only a custom policy has a version number.
         self.policy_version = policy_version
 
     def validate(self):
@@ -234,15 +232,13 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageAuthPrincipal(D
         auth_principal_owner_id: str = None,
         auth_principal_type: str = None,
     ):
-        # The identity identifier used for authentication in the user request, as follows:
+        # The identity identifier used for authentication in the user request. The value varies based on the identity type:
         # 
-        # - RAM user: The UID of the RAM user.
-        # 
-        # - RAM role: The role name and role session name (for example, RoleName:RoleSessionName).
-        # 
-        # - SSO federated identity: The identity provider type and name (for example, saml-provider/AzureAD).
+        # - Resource Access Management (RAM) user: the UID of the RAM user.
+        # - RAM role: the role name and role session name (example: RoleName:RoleSessionName).
+        # - SSO federated identity: the identity provider type and identity provider name (example: saml-provider/AzureAD).
         self.auth_principal_display_name = auth_principal_display_name
-        # The Alibaba Cloud account UID of the identity used for authentication in the user request.
+        # The UID of the Alibaba Cloud account to which the identity used for authentication in the user request belongs.
         self.auth_principal_owner_id = auth_principal_owner_id
         # The identity type used for authentication in the user request.
         self.auth_principal_type = auth_principal_type
@@ -285,9 +281,9 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageAuthConditions(
         condition_key: str = None,
         condition_values: List[str] = None,
     ):
-        # The key of the authentication condition.
+        # The condition key.
         self.condition_key = condition_key
-        # The list of values corresponding to the authentication condition key.
+        # The list of values corresponding to the condition key.
         self.condition_values = condition_values
 
     def validate(self):

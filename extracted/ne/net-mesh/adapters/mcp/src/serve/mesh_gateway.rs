@@ -1,0 +1,999 @@
+//! The real [`CapabilityGateway`]: a thin client over a joined [`Mesh`]
+//! (`MCP_BRIDGE_PLAN.md` Phase 2, demand side).
+//!
+//! Discovery and invocation both route over the mesh:
+//! - **search** — find bridge providers by the [`BRIDGE_PROVIDER_TAG`] in the
+//!   capability fold, then fetch each one's catalog via the describe service
+//!   ([`bridge::DESCRIBE_SERVICE`](crate::bridge::DESCRIBE_SERVICE)) and filter
+//!   by the query.
+//! - **describe** — fetch one tool's full descriptor from its provider.
+//! - **invoke** — `Mesh::call` the tool's nRPC service on its provider; decode
+//!   the `CallToolResult`.
+//!
+//! A [`CapabilityId`]'s `provider` is the provider's node id (v0 is
+//! node-namespaced; aliases are a Phase 4 display concern and never enter ids).
+//!
+//! **The reply-channel race.** A cross-node `Mesh::call` to a freshly-served
+//! handler can lose its first reply if the handler answers before the caller's
+//! per-caller reply subscription has propagated (it surfaces as a timeout /
+//! no-route). Every call here is therefore bounded and retried a few times.
+//! Owner-scope denials and other application errors are **not** retried — they
+//! are deterministic answers, not transient failures.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+
+use async_trait::async_trait;
+use bytes::Bytes;
+use futures::stream::{self, StreamExt};
+use net_sdk::capabilities::CapabilityFilter;
+use net_sdk::mesh::Mesh;
+use net_sdk::mesh_rpc::{CallOptions, RpcError};
+use serde_json::Value;
+use tokio::sync::Mutex;
+
+use super::backend::{
+    CapabilityDetail, CapabilityGateway, CapabilityId, CapabilitySummary, GatewayError,
+    InvokeSafety,
+};
+use super::grouping::{
+    descriptor_fingerprint, group_capabilities, is_collapsible, CapabilityGroup,
+};
+use crate::bridge::{
+    BridgedToolInfo, DescribeRequest, DescribeResponse, BRIDGE_PROVIDER_TAG, DESCRIBE_SERVICE,
+};
+use crate::spec::CallToolResult;
+use crate::wrap::invoke::{
+    ERR_BAD_REQUEST, ERR_DELEGATION, ERR_OWNER_SCOPE, ERR_PAYMENT, ERR_POLICY, ERR_TOOL,
+    ERR_UPSTREAM,
+};
+use crate::wrap::DelegationSigner;
+
+/// The most one provider call spends opening a session to a provider it
+/// learned of through a hub (direct first, then relayed).
+const ENSURE_SESSION_MAX: Duration = Duration::from_secs(5);
+
+/// How many times a bounded call is retried before giving up (covers the
+/// reply-channel first-reply race).
+const MAX_ATTEMPTS: usize = 4;
+/// Per-attempt deadline for a describe (catalog fetch) — an idempotent read
+/// that should return promptly; a lost reply fails fast so the retry lands.
+const DESCRIBE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Default per-attempt deadline for an invoke. A bridged MCP tool can
+/// legitimately run far longer than a describe (a web fetch, image generation,
+/// a long shell command), so the invoke deadline is generous and overridable
+/// ([`MeshGateway::with_invoke_timeout`]) — not the 5s that made any slower
+/// tool time out on every attempt and never return success.
+const DEFAULT_INVOKE_TIMEOUT: Duration = Duration::from_secs(120);
+/// Backoff between attempts.
+const RETRY_BACKOFF: Duration = Duration::from_millis(120);
+/// Max provider catalogs fetched concurrently during `search` — bounds the
+/// fan-out so a large mesh doesn't open one describe call per provider at once.
+const MAX_CONCURRENT_FETCHES: usize = 8;
+
+/// A [`CapabilityGateway`] backed by a joined mesh node.
+pub struct MeshGateway {
+    mesh: Arc<Mesh>,
+    /// `(capability, provider node) -> descriptor fingerprint`, learned as
+    /// providers are described (search + describe). Failover consults it so it
+    /// only ever routes to a provider whose contract matches the *primary's*
+    /// — the same equivalence `group_capabilities` proved at search time — even
+    /// after the primary is down and can't be re-described.
+    fingerprints: Mutex<HashMap<(String, u64), u64>>,
+    /// Per-attempt deadline for an invoke (default [`DEFAULT_INVOKE_TIMEOUT`]).
+    invoke_timeout: Duration,
+    /// Whether to collapse equivalent providers into one logical capability and
+    /// fail invoke/describe over between them (Phase 4). **Off by default**:
+    /// equivalence is proven only from wire-declared attributes a peer controls,
+    /// so on a multi-identity mesh a hostile co-tenant could forge a matching
+    /// fingerprint and become a group's representative or a failover target —
+    /// receiving the operator's arguments. The operator opts in only when the
+    /// mesh's peers are trustworthy-equivalent (their own nodes).
+    trust_equivalent_providers: bool,
+    /// Optional caller-side delegation signer (Phase 3 Slice B2). When set,
+    /// every **invoke** carries a `net-delegation` chain + a fresh
+    /// per-invoke `net-delegation-sig` so a provider running a `DelegationGate`
+    /// admits the call by verified delegation (not the spoofable owner-scope
+    /// origin). Describe / search calls never carry it (their visibility is the
+    /// provider's owner-scope concern).
+    delegation: Option<Arc<DelegationSigner>>,
+}
+
+impl MeshGateway {
+    /// Build a gateway over an already-joined `mesh`.
+    pub fn new(mesh: Arc<Mesh>) -> Self {
+        Self {
+            mesh,
+            fingerprints: Mutex::new(HashMap::new()),
+            invoke_timeout: DEFAULT_INVOKE_TIMEOUT,
+            trust_equivalent_providers: false,
+            delegation: None,
+        }
+    }
+
+    /// Attach a caller-side [`DelegationSigner`] so every invoke carries a
+    /// verified delegation chain + per-invoke signature. The gateway invokes as
+    /// the chain's leaf identity; a provider running a `DelegationGate` anchored
+    /// at the matching owner root admits the call regardless of the (spoofable)
+    /// owner-scope origin, and audits the leaf.
+    pub fn with_delegation(mut self, signer: Arc<DelegationSigner>) -> Self {
+        self.delegation = Some(signer);
+        self
+    }
+
+    /// Override the per-attempt invoke deadline (default 120s). Describe keeps a
+    /// short fixed deadline — only tool invocation can legitimately run long, so
+    /// a host wrapping slow tools can widen just this.
+    pub fn with_invoke_timeout(mut self, timeout: Duration) -> Self {
+        self.invoke_timeout = timeout;
+        self
+    }
+
+    /// Opt in to cross-provider collapse + failover (Phase 4). Default off.
+    ///
+    /// Enable ONLY when every peer on the mesh is trusted to be a genuine
+    /// equivalent of the operator's own providers — because equivalence is
+    /// decided from forgeable wire attributes (`substitutability`,
+    /// `credential_status`, schema), not a verified shared owner identity (that
+    /// verification is a later refinement). With it off, each provider's
+    /// capability is discovered, pinned, and invoked on its own node id, so a
+    /// peer can never silently stand in for another.
+    pub fn trust_equivalent_providers(mut self, trust: bool) -> Self {
+        self.trust_equivalent_providers = trust;
+        self
+    }
+
+    /// Record a provider's descriptor fingerprint for later failover matching.
+    async fn remember_fingerprint(&self, capability: &str, node: u64, info: &BridgedToolInfo) {
+        self.fingerprints
+            .lock()
+            .await
+            .insert((capability.to_string(), node), descriptor_fingerprint(info));
+    }
+
+    /// The last-known fingerprint of `capability` on `node`, if we've described
+    /// it before (via search or a successful describe).
+    async fn known_fingerprint(&self, capability: &str, node: u64) -> Option<u64> {
+        self.fingerprints
+            .lock()
+            .await
+            .get(&(capability.to_string(), node))
+            .copied()
+    }
+
+    /// One bounded `Mesh::call` with a per-attempt `timeout`. An outer timeout
+    /// maps to [`RpcError::Timeout`] so the retry logic treats a hung/lost call
+    /// uniformly.
+    async fn call_once(
+        &self,
+        node: u64,
+        service: &str,
+        body: Bytes,
+        timeout: Duration,
+        headers: Vec<(String, Vec<u8>)>,
+    ) -> Result<Bytes, RpcError> {
+        let opts = CallOptions {
+            request_headers: headers,
+            ..CallOptions::default()
+        };
+        // A provider discovered through a hub has no session with this
+        // node yet: open one (direct first, then relayed) through the SDK,
+        // bounded by this attempt's budget. The session is the provider's
+        // own, endpoint-authenticated — never the hub's. A failure is left
+        // to the call, which reports the missing route itself.
+        let started = tokio::time::Instant::now();
+        let _ = self
+            .mesh
+            .ensure_session(node, (timeout / 2).min(ENSURE_SESSION_MAX))
+            .await;
+        let timeout = timeout.saturating_sub(started.elapsed());
+        match tokio::time::timeout(timeout, self.mesh.call(node, service, body, opts)).await {
+            Ok(Ok(reply)) => Ok(reply.body),
+            Ok(Err(e)) => Err(e),
+            Err(_elapsed) => Err(RpcError::Timeout {
+                elapsed_ms: timeout.as_millis() as u64,
+            }),
+        }
+    }
+
+    /// Call with a per-attempt `timeout`, retrying while `retriable` says the
+    /// error is worth another attempt. Application errors
+    /// ([`RpcError::ServerError`]) always return immediately — they are the
+    /// answer. `retriable` differs by call idempotency: a describe (idempotent)
+    /// retries any transient error; a non-idempotent invoke only retries errors
+    /// that prove the call never executed (see [`retriable_send_safe`]).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "private call-plumbing helper with exactly one caller per parameter \
+                  combination; a params struct would name-launder the same eight values \
+                  without making any call site clearer"
+    )]
+    async fn call_retry(
+        &self,
+        node: u64,
+        service: &str,
+        body: Bytes,
+        timeout: Duration,
+        retriable: fn(&RpcError) -> bool,
+        delegate: bool,
+        extra_headers: &[(String, Vec<u8>)],
+    ) -> Result<Bytes, RpcError> {
+        let mut last: Option<RpcError> = None;
+        for attempt in 0..MAX_ATTEMPTS {
+            // Mint fresh delegation headers PER ATTEMPT: the provider's replay
+            // guard rejects a reused nonce, so a retry after a lost reply must
+            // carry a new signature. Only invokes delegate; describe/search
+            // never do. `extra_headers` (the payment-quote binding) are
+            // attempt-stable — the provider's redemption is idempotent per
+            // quote, so a retry presents the same one.
+            let mut headers = if delegate {
+                self.delegation
+                    .as_ref()
+                    .map(|s| s.headers(service, &body))
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            headers.extend_from_slice(extra_headers);
+            match self
+                .call_once(node, service, body.clone(), timeout, headers)
+                .await
+            {
+                Ok(bytes) => return Ok(bytes),
+                Err(e) if retriable(&e) => {
+                    last = Some(e);
+                    if attempt + 1 < MAX_ATTEMPTS {
+                        tokio::time::sleep(RETRY_BACKOFF).await;
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Err(last.unwrap_or(RpcError::Timeout { elapsed_ms: 0 }))
+    }
+
+    /// Fetch a provider's catalog (optionally filtered to one tool).
+    async fn fetch_catalog(
+        &self,
+        node: u64,
+        req: &DescribeRequest,
+    ) -> Result<DescribeResponse, GatewayError> {
+        let body = Bytes::from(
+            serde_json::to_vec(req)
+                .map_err(|e| GatewayError::Other(format!("encode describe request: {e}")))?,
+        );
+        match self
+            .call_retry(
+                node,
+                DESCRIBE_SERVICE,
+                body,
+                DESCRIBE_TIMEOUT,
+                is_retriable,
+                false,
+                &[],
+            )
+            .await
+        {
+            Ok(bytes) => serde_json::from_slice(&bytes)
+                .map_err(|e| GatewayError::Other(format!("decode describe response: {e}"))),
+            Err(e) => Err(map_describe_error(e, node)),
+        }
+    }
+
+    /// Describe `id`'s capability on one specific provider node.
+    async fn describe_on(
+        &self,
+        node: u64,
+        id: &CapabilityId,
+    ) -> Result<CapabilityDetail, GatewayError> {
+        let catalog = self
+            .fetch_catalog(
+                node,
+                &DescribeRequest {
+                    tool_id: Some(id.capability.clone()),
+                },
+            )
+            .await?;
+        let info = catalog
+            .tools
+            .into_iter()
+            .find(|t| t.tool_id == id.capability)
+            .ok_or_else(|| GatewayError::NotFound(id.display()))?;
+        // Learn this provider's contract for later failover matching.
+        self.remember_fingerprint(&id.capability, node, &info).await;
+        Ok(detail_from(id, info))
+    }
+
+    /// Reachable providers PROVABLY interchangeable with `id`'s primary,
+    /// excluding `primary` — the failover candidates. A candidate qualifies only
+    /// if it is collapsible (the operator's `provider_equivalent` assertion) AND
+    /// its contract fingerprint matches the primary's — the same equivalence
+    /// `group_capabilities` requires at search time, so failover never routes to
+    /// a same-name / different-contract provider. Sorted node order, so
+    /// `describe` and `invoke` fail over to the same one.
+    ///
+    /// The primary itself needs no separate collapsibility check: the
+    /// fingerprint folds in `substitutability` and `credential_status` (see
+    /// [`descriptor_fingerprint`]), so a credentialed or provider-local primary
+    /// can never share a fingerprint with a collapsible candidate — the match on
+    /// the next line rejects it by construction.
+    ///
+    /// **Fail safe:** without the primary's known fingerprint (never searched or
+    /// described while it was up) no candidate can be proven equivalent, so we
+    /// do not fail over — better a transport error than sending
+    /// primary-validated arguments to an unverified provider.
+    async fn equivalent_providers(
+        &self,
+        id: &CapabilityId,
+        primary: u64,
+    ) -> Vec<(u64, BridgedToolInfo)> {
+        // Failover across providers is the same opt-in as collapse: without it,
+        // an invoke stays on its declared provider and never routes the caller's
+        // arguments to a peer that merely advertised a matching wire contract.
+        if !self.trust_equivalent_providers {
+            return Vec::new();
+        }
+        let Some(target_fp) = self.known_fingerprint(&id.capability, primary).await else {
+            return Vec::new();
+        };
+        let mut nodes: Vec<u64> = self
+            .mesh
+            .find_nodes(&CapabilityFilter::new().require_tag(&id.capability))
+            .into_iter()
+            .filter(|&n| n != primary)
+            .collect();
+        nodes.sort_unstable();
+        let mut out = Vec::new();
+        for node in nodes {
+            if let Ok(catalog) = self
+                .fetch_catalog(
+                    node,
+                    &DescribeRequest {
+                        tool_id: Some(id.capability.clone()),
+                    },
+                )
+                .await
+            {
+                if let Some(info) = catalog
+                    .tools
+                    .into_iter()
+                    .find(|t| t.tool_id == id.capability)
+                {
+                    if is_collapsible(&info) && descriptor_fingerprint(&info) == target_fp {
+                        out.push((node, info));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Invoke `capability` on one provider node, mapping the nRPC result:
+    /// success / a tool-level error / a malformed-request or upstream error are
+    /// all `Ok(CallToolResult)` (the provider answered); an owner-scope
+    /// rejection is `Err(Denied)`; an unreachable provider is `Err(Transport)`
+    /// — the only error the caller fails over on.
+    async fn invoke_on(
+        &self,
+        node: u64,
+        capability: &str,
+        body: Bytes,
+        retriable: fn(&RpcError) -> bool,
+        payment_headers: &[(String, Vec<u8>)],
+    ) -> Result<CallToolResult, GatewayError> {
+        match self
+            .call_retry(
+                node,
+                capability,
+                body,
+                self.invoke_timeout,
+                retriable,
+                true,
+                payment_headers,
+            )
+            .await
+        {
+            // Success: the wrap handler encoded the CallToolResult as the body.
+            Ok(bytes) => serde_json::from_slice::<CallToolResult>(&bytes)
+                .map_err(|e| GatewayError::Other(format!("decode tool result: {e}"))),
+            // A provider application error — classify it (authorization verdict
+            // vs tool-level vs in-band) in one place so the demand side and the
+            // tests agree on the mapping.
+            Err(RpcError::ServerError {
+                status,
+                message,
+                headers,
+            }) => map_invoke_server_error(status, message, &headers),
+            Err(e) => Err(GatewayError::Transport(e.to_string())),
+        }
+    }
+}
+
+/// Map a provider application error (nRPC `ServerError`) from an *invoke* to a
+/// gateway result.
+///
+/// **Authorization verdicts become `Denied`.** An owner-scope rejection
+/// ([`ERR_OWNER_SCOPE`], the confused-deputy defense), a delegation-gate
+/// rejection ([`ERR_DELEGATION`] — a bad/replayed/stale signature, or the
+/// operator case of a chain the provider has since revoked), and an
+/// invoke-policy refusal ([`ERR_POLICY`] — the in-root toll booth declined, e.g.
+/// an allowlist deny or a dangerous-tool approval that was refused / could not
+/// reach the operator) are all authorization answers, not remote tool bugs.
+/// Surfacing them as `Denied` (rather
+/// than the opaque `is_error` tool result the fall-through would produce) keeps
+/// it consistent with its owner-scope sibling, so the demand side reports
+/// `denied` and a model doesn't mistake a revoked chain for a tool failure and
+/// retry. Failover never applies to either — a peer rooted elsewhere refuses the
+/// same chain.
+///
+/// A tool-level error ([`ERR_TOOL`]) rides back as the structured
+/// `CallToolResult`; an upstream / malformed-request error surfaces in-band; any
+/// other status is a generic in-band error.
+fn map_invoke_server_error(
+    status: u16,
+    message: String,
+    headers: &[(String, Vec<u8>)],
+) -> Result<CallToolResult, GatewayError> {
+    match status {
+        // Payment and policy rejections join the authorization family: an
+        // unpaid / already-redeemed / frozen quote, or a policy deny (the
+        // in-root toll booth declined), is a verdict, not a tool bug, and no
+        // failover peer would answer differently. Payment refusals may carry
+        // a failure schematic on the reply headers — decoded tolerantly, so
+        // the human message never depends on it.
+        ERR_OWNER_SCOPE | ERR_DELEGATION | ERR_PAYMENT | ERR_POLICY => Err(GatewayError::Denied {
+            message,
+            schematic: schematic_from_error_headers(headers),
+        }),
+        // The wrap handler put the full CallToolResult JSON in the message;
+        // recover it so the model sees the structured error, falling back to a
+        // plain text error if it won't decode.
+        ERR_TOOL => Ok(serde_json::from_str::<CallToolResult>(&message)
+            .unwrap_or_else(|_| CallToolResult::text_error(message))),
+        // The bridge couldn't reach the tool, or the request was malformed
+        // (should not happen — we pre-validate). Surface in-band.
+        ERR_UPSTREAM | ERR_BAD_REQUEST => Ok(CallToolResult::text_error(message)),
+        _ => Ok(CallToolResult::text_error(format!(
+            "provider error {status:#06x}: {message}"
+        ))),
+    }
+}
+
+/// Decode the failure schematic from an error reply's headers, per the
+/// discipline rule: exactly one `net-failure-schematic` header, valid
+/// JSON, correct object tag — anything else (absent, duplicated,
+/// malformed) is `None` and the human error stands alone. Never an
+/// error: the schematic is a sidecar, not a dependency.
+///
+/// The name match is ASCII-case-insensitive: the mesh carries header
+/// names verbatim (lowercase, as the producer emits them), but a
+/// schematic may also arrive via the outbound HTTP 402 two-way door,
+/// where header names are case-insensitive and intermediaries routinely
+/// re-case them. Two entries that differ only in case still count as a
+/// duplicate here — the fail-safe branch below applies unchanged.
+fn schematic_from_error_headers(
+    headers: &[(String, Vec<u8>)],
+) -> Option<Box<net_sdk::tool_payment::FailureSchematic>> {
+    let mut entries = headers.iter().filter(|(name, _)| {
+        name.eq_ignore_ascii_case(net_sdk::tool_payment::HDR_FAILURE_SCHEMATIC)
+    });
+    let first = entries.next()?;
+    if entries.next().is_some() {
+        return None;
+    }
+    net_sdk::tool_payment::FailureSchematic::from_header_bytes(&first.1).map(Box::new)
+}
+
+#[async_trait]
+impl CapabilityGateway for MeshGateway {
+    async fn search(&self, query: &str) -> Result<Vec<CapabilitySummary>, GatewayError> {
+        let providers = self
+            .mesh
+            .find_nodes(&CapabilityFilter::new().require_tag(BRIDGE_PROVIDER_TAG));
+        let q = query.to_lowercase();
+
+        // Fetch provider catalogs concurrently with bounded fan-out, so search
+        // completes in ~the slowest provider's time rather than the sum — a
+        // single slow/unreachable provider (which can burn the full retry
+        // budget) no longer blocks the others. `buffered` (not
+        // `buffer_unordered`) preserves the deterministic `find_nodes` order, so
+        // results are stable across runs regardless of which provider answers
+        // first.
+        let catalogs: Vec<(u64, Result<DescribeResponse, GatewayError>)> = stream::iter(providers)
+            .map(|node| async move {
+                (
+                    node,
+                    self.fetch_catalog(node, &DescribeRequest::default()).await,
+                )
+            })
+            .buffered(MAX_CONCURRENT_FETCHES)
+            .collect()
+            .await;
+
+        // Flatten every reachable provider's catalog into (provider, tool)
+        // pairs. Any per-provider failure makes that provider invisible — never
+        // fail the whole search. Concretely: `Denied` (out of owner scope),
+        // `Transport` (unreachable, or serving no describe service — a `NoRoute`
+        // maps here), or `Other` (a catalog we couldn't decode). One bad or
+        // hostile provider must not abort global discovery.
+        let mut discovered: Vec<(u64, BridgedToolInfo)> = Vec::new();
+        for (node, result) in catalogs {
+            let Ok(catalog) = result else { continue };
+            for t in catalog.tools {
+                discovered.push((node, t));
+            }
+        }
+
+        // Remember each provider's contract fingerprint so a later invoke can
+        // fail over only within the same proven-equivalent group.
+        for (node, info) in &discovered {
+            self.remember_fingerprint(&info.tool_id, *node, info).await;
+        }
+
+        // Collapse interchangeable providers into one logical capability each
+        // (Phase 4, opt-in — see `trust_equivalent_providers`), then filter by
+        // the query — matched against every provider's text in the group, not
+        // just the primary's.
+        let out = group_capabilities(discovered, self.trust_equivalent_providers)
+            .into_iter()
+            .filter(|g| q.is_empty() || g.matches_query(&q))
+            .map(group_summary)
+            .collect();
+        Ok(out)
+    }
+
+    async fn describe(&self, id: &CapabilityId) -> Result<CapabilityDetail, GatewayError> {
+        let primary = parse_node(&id.provider)?;
+        // Try the primary provider; if it's unreachable, describe an equivalent
+        // provider instead (same contract) — so a pinned/known capability keeps
+        // describing after its primary goes down.
+        match self.describe_on(primary, id).await {
+            Err(GatewayError::Transport(reason)) => {
+                match self
+                    .equivalent_providers(id, primary)
+                    .await
+                    .into_iter()
+                    .next()
+                {
+                    Some((_, info)) => Ok(detail_from(id, info)),
+                    None => Err(GatewayError::Transport(format!(
+                        "no reachable provider for `{}` ({reason})",
+                        id.display()
+                    ))),
+                }
+            }
+            other => other,
+        }
+    }
+
+    /// Invoke, with transparent failover to an equivalent provider when the
+    /// primary is unreachable.
+    ///
+    /// **Duplicate-execution safety.** A timeout does not prove the primary
+    /// didn't execute the call, so re-running it — via the same-node retry in
+    /// `call_retry` *or* failover to another provider — can execute a tool more
+    /// than once. Both are gated on [`InvokeSafety`]:
+    ///
+    /// - **Same-node retry** uses `retriable_send_safe` for
+    ///   [`InvokeSafety::AtMostOnce`], so a credentialed / stateful tool is
+    ///   never re-sent on a mere timeout; a [`InvokeSafety::DuplicateSafe`] tool
+    ///   retries transient timeouts, recovering from the reply-channel
+    ///   first-reply race.
+    /// - **Failover** happens ONLY between providers `group_capabilities`
+    ///   collapsed, which requires the operator's `provider_equivalent` opt-in
+    ///   AND `credential_status == none` — the same uncredentialed class that is
+    ///   duplicate-safe. A credentialed tool never collapses, so it has no
+    ///   failover candidates and stays on its single provider.
+    ///
+    /// Net: for a credentialed tool the whole path is at-most-once; for an
+    /// uncredentialed one the operator has asserted duplicate execution is
+    /// harmless (running on any provider yields the same result).
+    async fn invoke(
+        &self,
+        id: &CapabilityId,
+        arguments: Value,
+        safety: InvokeSafety,
+        payment: Option<crate::serve::payment::PaymentProof>,
+    ) -> Result<CallToolResult, GatewayError> {
+        let primary = parse_node(&id.provider)?;
+        let body = Bytes::from(
+            serde_json::to_vec(&arguments)
+                .map_err(|e| GatewayError::Other(format!("encode arguments: {e}")))?,
+        );
+        // The paid-invocation binding rides as a header; the provider's
+        // gate redeems it before the handler runs. Attempt-stable (the
+        // provider's redemption is per-quote idempotent). Note failover:
+        // a payment is provider-bound, so an equivalent provider will
+        // correctly refuse the quote — paid tools effectively never fail
+        // over, which is the right money-path behavior.
+        let payment_headers: Vec<(String, Vec<u8>)> = payment
+            .map(|p| {
+                let mut headers = vec![(
+                    crate::serve::payment::HDR_PAYMENT_QUOTE.to_string(),
+                    p.quote_id.into_bytes(),
+                )];
+                if let Some(sig) = p.binding_sig {
+                    headers.push((crate::serve::payment::HDR_PAYMENT_BINDING.to_string(), sig));
+                }
+                headers
+            })
+            .unwrap_or_default();
+        // A duplicate-safe call retries any transient error; an at-most-once
+        // invoke only retries errors that prove non-execution.
+        let retriable: fn(&RpcError) -> bool = if safety.allows_timeout_retry() {
+            is_retriable
+        } else {
+            retriable_send_safe
+        };
+        match self
+            .invoke_on(
+                primary,
+                &id.capability,
+                body.clone(),
+                retriable,
+                &payment_headers,
+            )
+            .await
+        {
+            // Primary unreachable — fail over to an equivalent provider (see the
+            // duplicate-execution note above; only uncredentialed, collapsible
+            // tools ever have candidates here). Only a transport failure fails
+            // over: a `Denied` (authorization) or a tool-level error is a real
+            // answer another provider wouldn't change.
+            Err(GatewayError::Transport(primary_reason)) => {
+                for (node, _) in self.equivalent_providers(id, primary).await {
+                    match self
+                        .invoke_on(
+                            node,
+                            &id.capability,
+                            body.clone(),
+                            retriable,
+                            &payment_headers,
+                        )
+                        .await
+                    {
+                        Err(GatewayError::Transport(_)) => continue, // this one is down too
+                        answer => return answer,
+                    }
+                }
+                Err(GatewayError::Transport(format!(
+                    "all providers for `{}` are unreachable (primary: {primary_reason})",
+                    id.display()
+                )))
+            }
+            answer => answer,
+        }
+    }
+}
+
+/// True for errors worth retrying an **idempotent** call (a describe, or an
+/// uncredentialed invoke whose duplicate execution is harmless): the
+/// reply-channel first-reply race and transient routing all surface as one of
+/// these, and re-running the call has no ill effect.
+fn is_retriable(e: &RpcError) -> bool {
+    matches!(
+        e,
+        RpcError::NoRoute { .. } | RpcError::Timeout { .. } | RpcError::Transport(_)
+    )
+}
+
+/// True only for errors that prove a **non-idempotent** call (an invoke of a
+/// credentialed / stateful tool) never reached a handler, so retrying cannot
+/// execute the tool twice. A `NoRoute` means the router found no handler — the
+/// request was never delivered. A `Timeout` or generic `Transport` failure is
+/// ambiguous (the handler may have run and only the reply was lost to the
+/// first-reply race), so it is NOT retried: better an at-most-once error the
+/// caller can act on than a duplicated side effect (a second issue / charge).
+fn retriable_send_safe(e: &RpcError) -> bool {
+    matches!(e, RpcError::NoRoute { .. })
+}
+
+/// Map a describe-call error to a gateway error.
+fn map_describe_error(e: RpcError, node: u64) -> GatewayError {
+    match e {
+        RpcError::ServerError {
+            status, message, ..
+        } if status == ERR_OWNER_SCOPE => GatewayError::denied(message),
+        RpcError::NoRoute { .. } => GatewayError::Transport(format!(
+            "node {node} does not serve the describe service (not a bridge provider, or withdrawn)"
+        )),
+        RpcError::Timeout { elapsed_ms } => GatewayError::Transport(format!(
+            "describe on node {node} timed out after {elapsed_ms}ms"
+        )),
+        other => GatewayError::Transport(other.to_string()),
+    }
+}
+
+/// Build a `CapabilityDetail` from a provider's descriptor, keeping the
+/// caller's cap_id (the primary handle) even when a failover provider answered
+/// — the providers are interchangeable, so the schema/status are equivalent.
+fn detail_from(id: &CapabilityId, info: BridgedToolInfo) -> CapabilityDetail {
+    CapabilityDetail {
+        id: id.clone(),
+        name: info.name,
+        description: info.description,
+        input_schema: info.input_schema,
+        output_schema: info.output_schema,
+        compat_tier: info.compat_tier,
+        credential_status: info.credential_status,
+        substitutability: info.substitutability,
+        version: info.version,
+        pricing_terms: info.pricing_terms,
+    }
+}
+
+/// Build a search summary for a grouped logical capability. The id is the
+/// primary provider's; `providers` lists all of them so invoke can fail over.
+fn group_summary(group: CapabilityGroup) -> CapabilitySummary {
+    CapabilitySummary {
+        id: CapabilityId::new(group.primary().to_string(), group.capability.clone()),
+        name: group.info.name,
+        description: group.info.description,
+        compat_tier: group.info.compat_tier,
+        credential_status: group.info.credential_status,
+        providers: group.providers,
+    }
+}
+
+/// Parse a provider node-id string (decimal or `0x`-hex) back to a `u64`.
+fn parse_node(provider: &str) -> Result<u64, GatewayError> {
+    let s = provider.trim();
+    let parsed = match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => s.parse::<u64>(),
+    };
+    parsed.map_err(|_| GatewayError::NotFound(format!("provider `{provider}` is not a node id")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invoke_deadline_is_more_generous_than_describe() {
+        // F5: a bridged tool can legitimately run far longer than a catalog
+        // fetch, so the invoke deadline must not be pinned to the short describe
+        // one — the old single 5s CALL_TIMEOUT made any slower tool time out on
+        // every attempt and never return success.
+        assert!(
+            DEFAULT_INVOKE_TIMEOUT > DESCRIBE_TIMEOUT,
+            "invoke must allow longer than describe",
+        );
+        assert!(
+            DEFAULT_INVOKE_TIMEOUT >= Duration::from_secs(60),
+            "the invoke deadline should comfortably exceed slow-tool runtimes",
+        );
+    }
+
+    #[test]
+    fn parse_node_accepts_decimal_and_hex() {
+        assert_eq!(parse_node("12345").unwrap(), 12345);
+        assert_eq!(parse_node("0x2a").unwrap(), 42);
+        assert_eq!(parse_node(" 7 ").unwrap(), 7);
+        assert!(parse_node("not-a-node").is_err());
+    }
+
+    #[test]
+    fn retriable_covers_transient_not_application_errors() {
+        assert!(is_retriable(&RpcError::Timeout { elapsed_ms: 10 }));
+        assert!(is_retriable(&RpcError::NoRoute {
+            target: 1,
+            reason: "x".into(),
+        }));
+        assert!(!is_retriable(&RpcError::ServerError {
+            status: ERR_OWNER_SCOPE,
+            message: "denied".into(),
+            headers: vec![],
+        }));
+    }
+
+    #[test]
+    fn send_safe_retriable_only_covers_proven_non_execution() {
+        // F1: a non-idempotent invoke may retry ONLY on an error proving the
+        // call never reached a handler — a NoRoute — so a credentialed side
+        // effect is never duplicated. A Timeout or Transport failure is
+        // ambiguous (the tool may have run, only the reply lost), so it is not
+        // retried; the describe/idempotent predicate still retries a Timeout.
+        assert!(retriable_send_safe(&RpcError::NoRoute {
+            target: 1,
+            reason: "x".into(),
+        }));
+        assert!(!retriable_send_safe(&RpcError::Timeout { elapsed_ms: 10 }));
+        assert!(!retriable_send_safe(&RpcError::ServerError {
+            status: ERR_OWNER_SCOPE,
+            message: "denied".into(),
+            headers: vec![],
+        }));
+        assert!(
+            is_retriable(&RpcError::Timeout { elapsed_ms: 10 }),
+            "the idempotent predicate keeps retrying a timeout",
+        );
+    }
+
+    #[test]
+    fn describe_error_maps_owner_scope_to_denied() {
+        let mapped = map_describe_error(
+            RpcError::ServerError {
+                status: ERR_OWNER_SCOPE,
+                message: "caller root identity does not match owner scope".into(),
+                headers: vec![],
+            },
+            9,
+        );
+        assert!(matches!(mapped, GatewayError::Denied { .. }));
+        // A no-route is a transport-level "not a provider", not a denial.
+        assert!(matches!(
+            map_describe_error(
+                RpcError::NoRoute {
+                    target: 9,
+                    reason: "unknown".into()
+                },
+                9
+            ),
+            GatewayError::Transport(_)
+        ));
+    }
+
+    #[test]
+    fn invoke_maps_authorization_errors_to_denied() {
+        // Both the owner-scope gate and the delegation gate are authorization
+        // verdicts, so both must surface as `Denied` (the demand side reports
+        // `denied`) — NOT as an opaque `is_error` tool result a model could
+        // mistake for a tool failure and retry.
+        assert!(matches!(
+            map_invoke_server_error(ERR_OWNER_SCOPE, "no owner match".into(), &[]),
+            Err(GatewayError::Denied { .. })
+        ));
+        assert!(
+            matches!(
+                map_invoke_server_error(ERR_DELEGATION, "chain revoked".into(), &[]),
+                Err(GatewayError::Denied { message, .. }) if message == "chain revoked"
+            ),
+            "a delegation-gate rejection must be Denied, like its owner-scope sibling",
+        );
+    }
+
+    #[test]
+    fn invoke_maps_tool_and_upstream_errors_in_band() {
+        // A tool-level error rides back as the structured CallToolResult...
+        let structured = CallToolResult::text_error("boom");
+        let encoded = serde_json::to_string(&structured).unwrap();
+        match map_invoke_server_error(ERR_TOOL, encoded, &[]) {
+            Ok(r) => {
+                assert!(r.is_error);
+                assert_eq!(r.text(), "boom");
+            }
+            other => panic!("expected an in-band tool result, got {other:?}"),
+        }
+        // ...upstream / bad-request surface in-band as a text error...
+        assert!(matches!(
+            map_invoke_server_error(ERR_UPSTREAM, "unreachable".into(), &[]),
+            Ok(r) if r.is_error && r.text() == "unreachable"
+        ));
+        // ...and an unknown application status is a generic in-band error (never
+        // a Denied, so it can't be confused with an authorization verdict).
+        match map_invoke_server_error(0x8099, "weird".into(), &[]) {
+            Ok(r) => {
+                assert!(r.is_error);
+                assert!(r.text().contains("0x8099"), "{}", r.text());
+            }
+            other => panic!("expected a generic in-band error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn group_summary_uses_primary_node_and_lists_providers() {
+        let info = BridgedToolInfo {
+            tool_id: "echo".into(),
+            name: "Echo".into(),
+            description: None,
+            input_schema: serde_json::json!({}),
+            output_schema: None,
+            pricing_terms: None,
+            version: "1".into(),
+            compat_tier: "mcp_bridge".into(),
+            credential_status: "none".into(),
+            substitutability: "provider_equivalent".into(),
+            visibility: "owner_only".into(),
+            invocation_scope: "same_root_identity".into(),
+            schema_hash: String::new(),
+        };
+        // Build the group through the real path so the primary/provider list
+        // come from grouping, not a hand-rolled struct. Collapse enabled: this
+        // exercises the two-provider representative selection.
+        let group = group_capabilities(vec![(99, info.clone()), (42, info)], true)
+            .into_iter()
+            .next()
+            .expect("one collapsed group");
+        let s = group_summary(group);
+        assert_eq!(
+            s.id.display(),
+            "42/echo",
+            "id uses the primary (lowest) node"
+        );
+        assert_eq!(s.providers, vec![42, 99]);
+    }
+
+    /// The header-discipline rule at the demand side: exactly one valid
+    /// `net-failure-schematic` header decodes; zero, duplicates, or
+    /// malformed bytes leave the human error standing alone — never an
+    /// error, never a guess.
+    #[test]
+    fn a_payment_denial_decodes_its_schematic_per_the_discipline_rule() {
+        let schematic = net_sdk::tool_payment::FailureSchematic::missing_quote("t");
+        let entry = schematic.header_entry().expect("fits");
+
+        // Exactly one valid header -> decoded, riding the denial.
+        match map_invoke_server_error(ERR_PAYMENT, "no quote".into(), &[entry.clone()]) {
+            Err(GatewayError::Denied {
+                schematic: Some(s), ..
+            }) => assert_eq!(s.reason, "missing_quote"),
+            other => panic!("expected a schematic-carrying denial, got {other:?}"),
+        }
+
+        // Duplicates -> the schematic is ignored entirely.
+        match map_invoke_server_error(
+            ERR_PAYMENT,
+            "no quote".into(),
+            &[entry.clone(), entry.clone()],
+        ) {
+            Err(GatewayError::Denied {
+                schematic: None,
+                message,
+            }) => assert_eq!(message, "no quote"),
+            other => panic!("duplicates must fall back to the human error, got {other:?}"),
+        }
+
+        // Malformed bytes -> ignored.
+        let bad = (
+            net_sdk::tool_payment::HDR_FAILURE_SCHEMATIC.to_string(),
+            b"{ not json".to_vec(),
+        );
+        match map_invoke_server_error(ERR_PAYMENT, "no quote".into(), &[bad]) {
+            Err(GatewayError::Denied {
+                schematic: None, ..
+            }) => {}
+            other => panic!("malformed must fall back to the human error, got {other:?}"),
+        }
+
+        // A legacy provider (no header) -> exactly today's behavior.
+        match map_invoke_server_error(ERR_PAYMENT, "no quote".into(), &[]) {
+            Err(GatewayError::Denied {
+                schematic: None,
+                message,
+            }) => assert_eq!(message, "no quote"),
+            other => panic!("expected the plain denial, got {other:?}"),
+        }
+    }
+
+    /// The name match is ASCII-case-insensitive, so a schematic that
+    /// crosses a case-normalizing hop (e.g. the HTTP 402 door) still
+    /// decodes — and a case-only duplicate still trips the fail-safe.
+    #[test]
+    fn a_case_shifted_schematic_header_still_decodes() {
+        let schematic = net_sdk::tool_payment::FailureSchematic::missing_quote("t");
+        let (_, bytes) = schematic.header_entry().expect("fits");
+
+        // Title-cased name -> decoded.
+        let recased = ("Net-Failure-Schematic".to_string(), bytes.clone());
+        match map_invoke_server_error(ERR_PAYMENT, "no quote".into(), &[recased.clone()]) {
+            Err(GatewayError::Denied {
+                schematic: Some(s), ..
+            }) => assert_eq!(s.reason, "missing_quote"),
+            other => panic!("a re-cased header must still decode, got {other:?}"),
+        }
+
+        // Same header in two casings is still a duplicate -> fall back.
+        let lower = (
+            net_sdk::tool_payment::HDR_FAILURE_SCHEMATIC.to_string(),
+            bytes,
+        );
+        match map_invoke_server_error(ERR_PAYMENT, "no quote".into(), &[recased, lower]) {
+            Err(GatewayError::Denied {
+                schematic: None, ..
+            }) => {}
+            other => panic!("case-only duplicates must fall back, got {other:?}"),
+        }
+    }
+}

@@ -166,7 +166,7 @@ class LineageViewsMixin:
         payload: dict[str, Any] = {}
         # Lineage plan 2 (L18): where the run came from, derived by the server
         # -- its first parent, else what it built on, else its group, its
-        # experiment or project, else `unfiled`. Lifted out of the ancestry read
+        # experiment or project. Lifted out of the ancestry read
         # so every lineage view answers "where did this come from" under one key.
         if "origin" in ancestry:
             payload["origin"] = ancestry.pop("origin")

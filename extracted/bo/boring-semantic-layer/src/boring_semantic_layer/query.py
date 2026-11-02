@@ -1,0 +1,974 @@
+"""
+Query interface for semantic API with filter and time dimension support.
+
+Provides parameter-based querying as an alternative to method chaining.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, ClassVar, Literal
+
+import ibis
+from attrs import frozen
+from ibis.common.collections import FrozenDict
+from toolz import curry
+
+from .errors import QueryError, UnknownFieldError, suggest_kinded, unwrap_or_raise
+from .fieldref import resolve_suffix
+from .safe_eval import safe_eval
+
+
+def _get_ibis_api():
+    """Return xorq's vendored ibis API if available, else plain ibis.
+
+    Filter expressions built with ``ibis._`` / ``ibis.literal()`` must use the
+    same ibis implementation as the table they will be resolved against.  This
+    helper only provides a *default* flavor for contexts where no table is in
+    scope yet (eager validation, value parsing without a target table).  The
+    filter callables built in ``Filter.to_callable`` pick the flavor from the
+    actual table at resolve time via ``get_ibis_module`` — tables on backends
+    that xorq does not support stay plain ibis even when xorq is installed,
+    and mixing flavors silently produces wrong predicates.
+    """
+    try:
+        from ._xorq import api as xo
+
+        return xo
+    except Exception:
+        return ibis
+
+
+# Time grain type alias
+TimeGrain = Literal[
+    "TIME_GRAIN_YEAR",
+    "TIME_GRAIN_QUARTER",
+    "TIME_GRAIN_MONTH",
+    "TIME_GRAIN_WEEK",
+    "TIME_GRAIN_DAY",
+    "TIME_GRAIN_HOUR",
+    "TIME_GRAIN_MINUTE",
+    "TIME_GRAIN_SECOND",
+]
+
+# Mapping of time grain identifiers to ibis truncate units (immutable)
+TIME_GRAIN_TRANSFORMATIONS: FrozenDict = {
+    "TIME_GRAIN_YEAR": "Y",
+    "TIME_GRAIN_QUARTER": "Q",
+    "TIME_GRAIN_MONTH": "M",
+    "TIME_GRAIN_WEEK": "W",
+    "TIME_GRAIN_DAY": "D",
+    "TIME_GRAIN_HOUR": "h",
+    "TIME_GRAIN_MINUTE": "m",
+    "TIME_GRAIN_SECOND": "s",
+}
+
+# Order of grains from finest to coarsest (immutable)
+TIME_GRAIN_ORDER: tuple[str, ...] = (
+    "TIME_GRAIN_SECOND",
+    "TIME_GRAIN_MINUTE",
+    "TIME_GRAIN_HOUR",
+    "TIME_GRAIN_DAY",
+    "TIME_GRAIN_WEEK",
+    "TIME_GRAIN_MONTH",
+    "TIME_GRAIN_QUARTER",
+    "TIME_GRAIN_YEAR",
+)
+
+
+# Filter parsing and compilation lives in ``boring_semantic_layer.predicate``.
+
+
+@curry
+def _is_time_dimension(dims_dict: dict[str, Any], dim_name: str) -> bool:
+    """Check if a dimension is a time dimension (curried for partial application)."""
+    return dim_name in dims_dict and dims_dict[dim_name].is_time_dimension
+
+
+def find_time_dimension(semantic_table: Any, dimensions: list[str]) -> str | None:
+    """
+    Find the first time dimension in the query dimensions list.
+
+    Uses functional composition to find matching dimension.
+    """
+    dims_dict = semantic_table.get_dimensions()
+    is_time_dim = _is_time_dimension(dims_dict)
+    return next((dim for dim in dimensions if is_time_dim(dim)), None)
+
+
+def _find_any_time_dimension(semantic_table: Any) -> str | None:
+    """Find the first declared time dimension on a semantic table."""
+    dims_dict = semantic_table.get_dimensions()
+    return next((name for name, dim in dims_dict.items() if dim.is_time_dimension), None)
+
+
+@curry
+def _make_grain_id(grain: str) -> str:
+    """Convert grain name to TIME_GRAIN_ identifier (curried)."""
+    return f"TIME_GRAIN_{grain.upper()}"
+
+
+def _normalize_grain(grain: str) -> str:
+    """Accept both short ("month") and long ("TIME_GRAIN_MONTH") grain names."""
+    if grain in TIME_GRAIN_TRANSFORMATIONS:
+        return grain
+    canonical = _make_grain_id(grain)
+    if canonical in TIME_GRAIN_TRANSFORMATIONS:
+        return canonical
+    raise ValueError(
+        f"Invalid time grain: '{grain}'. "
+        f"Valid values: {list(TIME_GRAIN_TRANSFORMATIONS.keys())} "
+        f"or short forms like 'month', 'quarter', 'year', etc.",
+    )
+
+
+def _validate_time_grain(
+    time_grain: TimeGrain,
+    smallest_allowed_grain: str | None,
+    dimension_name: str,
+) -> None:
+    """
+    Validate that requested time grain is not finer than smallest allowed grain.
+
+    Raises:
+        ValueError: If requested grain is finer than allowed grain.
+    """
+    if not smallest_allowed_grain:
+        return
+
+    # _normalize_grain accepts both spellings ("day" and "TIME_GRAIN_DAY")
+    # and raises on anything else — a silently-skipped validation here would
+    # let queries run at grains the model forbids.
+    smallest_grain = _normalize_grain(smallest_allowed_grain)
+
+    requested_idx = TIME_GRAIN_ORDER.index(time_grain)
+    smallest_idx = TIME_GRAIN_ORDER.index(smallest_grain)
+
+    if requested_idx < smallest_idx:
+        raise ValueError(
+            f"Requested time grain '{time_grain}' is finer than the smallest "
+            f"allowed grain '{smallest_allowed_grain}' for dimension '{dimension_name}'",
+        )
+
+
+@frozen(kw_only=True, slots=True)
+class Filter:
+    """
+    Unified filter class supporting JSON, string, and callable formats.
+
+    Examples:
+        # JSON simple filter
+        Filter(filter={"field": "country", "operator": "=", "value": "US"})
+
+        # JSON compound filter
+        Filter(filter={
+            "operator": "AND",
+            "conditions": [
+                {"field": "country", "operator": "=", "value": "US"},
+                {"field": "tier", "operator": "in", "values": ["gold", "platinum"]}
+            ]
+        })
+
+        # String expression (evaluated with ibis._)
+        Filter(filter="_.carrier == 'AA'")
+
+        # Callable function
+        Filter(filter=lambda t: t.amount > 1000)
+    """
+
+    filter: FrozenDict | str | Callable
+
+    COMPOUND_OPERATORS: ClassVar[set] = {"AND", "OR"}
+
+    def __attrs_post_init__(self) -> None:
+        if not isinstance(self.filter, dict | str) and not callable(self.filter):
+            raise ValueError("Filter must be a dict, string, or callable")
+
+    def _convert_filter_value(self, value: Any) -> Any:
+        """
+        Convert string date/timestamp values to ibis literals for proper SQL generation.
+
+        This fixes TYPE_MISMATCH errors on backends like Athena that require typed
+        date literals. Uses a simple loop to avoid nested try/except blocks.
+        """
+        if not isinstance(value, str):
+            return value
+
+        # Try parsing as timestamp first (more general), then date
+        _ibis = _get_ibis_api()
+        for dtype in ("timestamp", "date"):
+            try:
+                return _ibis.literal(value, type=dtype)
+            except (ValueError, TypeError):
+                pass
+
+        # Not a date/timestamp, return original value
+        return value
+
+    def to_callable(self) -> Callable:
+        """Convert filter to callable that can be used with SemanticTable.filter().
+
+        The ibis flavor (plain vs xorq-vendored) is picked from the table the
+        filter actually resolves against, not from whether xorq is importable:
+        on backends xorq can't wrap, the table stays plain ibis, and literals
+        built with the other flavor mis-compose (equality silently yields a
+        constant-false predicate; ordering raises TypeError).
+        """
+        from . import predicate as pred_mod
+        from .nested_compile import get_ibis_module
+        from .ops import _ensure_xorq_table
+
+        def _resolve_target(t):
+            # Dimension-aware resolver proxies must be resolved against
+            # directly: _ensure_xorq_table would silently unwrap them (the
+            # proxy forwards .op()), resolving field names to raw columns
+            # and bypassing same-named dimension expressions.
+            if type(t).__module__.startswith("boring_semantic_layer"):
+                return t
+            return _ensure_xorq_table(t)
+
+        if isinstance(self.filter, dict):
+            pred = pred_mod.from_dict(self.filter)
+
+            def _dict_filter(t):
+                tbl = _resolve_target(t)
+                ibis_module = get_ibis_module(tbl)
+                # Compile directly against the semantic resolver.  In
+                # particular, ``resolver["items.status"]`` retains source
+                # ownership across a joined table whose left input also has
+                # a ``status`` column.  Building a Deferred after first
+                # discarding that prefix cannot recover the ownership later.
+                return pred_mod.compile(
+                    pred,
+                    tbl,
+                    ibis_module=ibis_module,
+                    strict_qualified=True,
+                )
+
+            # Deferred resolution: columns can't be statically introspected
+            # (see ops._dimension_only_source_table). Marked so callers can opt
+            # out of static-column optimizations consistently regardless of
+            # whether xorq is installed.
+            _dict_filter.__bsl_deferred_resolution__ = True
+            # Preserve the exact semantic spellings from the JSON AST. Lowering
+            # uses these to synthesize qualified raw-column dimensions before
+            # resolution; callable/string filters intentionally remain opaque.
+            _dict_filter.__bsl_filter_fields__ = frozenset(pred_mod.fields(pred))
+            return _dict_filter
+        elif isinstance(self.filter, str):
+            filter_str = self.filter
+            # Validate eagerly (syntax, allowed names) so bad filter strings
+            # fail at build time; the flavor-matched expression is built per
+            # table at resolve time and memoized per ibis module.
+            _default = _get_ibis_api()
+            unwrap_or_raise(
+                safe_eval(filter_str, context={"_": _default._, "ibis": _default}),
+                context=f"Invalid filter expression ({filter_str!r})",
+                error=QueryError,
+            )
+            _expr_cache: dict[int, Any] = {}
+
+            def _str_filter(t):
+                tbl = _resolve_target(t)
+                _ibis = get_ibis_module(tbl)
+                key = id(_ibis)
+                if key not in _expr_cache:
+                    _expr_cache[key] = unwrap_or_raise(
+                        safe_eval(filter_str, context={"_": _ibis._, "ibis": _ibis}),
+                        context=f"Invalid filter expression ({filter_str!r})",
+                        error=QueryError,
+                    )
+                return _expr_cache[key].resolve(tbl)
+
+            _str_filter.__bsl_deferred_resolution__ = True
+            return _str_filter
+        elif callable(self.filter):
+            return self.filter
+        raise ValueError("Filter must be a dict, string, or callable")
+
+
+@curry
+def _normalize_filter(
+    filter_spec: dict[str, Any] | str | Callable | Filter,
+) -> Callable:
+    """
+    Normalize filter specification to callable (curried for composition).
+
+    Accepts dict, string, callable, or Filter and returns unified callable.
+    """
+    if isinstance(filter_spec, Filter):
+        return filter_spec.to_callable()
+    elif isinstance(filter_spec, dict | str):
+        return Filter(filter=filter_spec).to_callable()
+    elif callable(filter_spec):
+        return filter_spec
+    else:
+        raise ValueError(f"Unsupported filter type: {type(filter_spec)}")
+
+
+@curry
+def _make_order_key(field: str, direction: str):
+    """Create order key for sorting (curried)."""
+    normalized = direction.lower() if isinstance(direction, str) else direction
+    if normalized in ("desc", "descending"):
+        return ibis.desc(field)
+    if normalized in ("asc", "ascending"):
+        return field
+    raise ValueError(
+        f"Invalid order_by direction {direction!r} for field {field!r}. "
+        "Valid directions: 'asc', 'ascending', 'desc', 'descending'"
+    )
+
+
+def _normalize_field_name(
+    field_name: str,
+    known_fields: set[str],
+    expected_prefix: str | None = None,
+) -> str:
+    """Resolve model-prefixed field names for standalone models."""
+    if field_name in known_fields or "." not in field_name:
+        return field_name
+
+    prefix, unprefixed = field_name.split(".", 1)
+    if expected_prefix is None or prefix != expected_prefix:
+        return field_name
+
+    return unprefixed if unprefixed in known_fields else field_name
+
+
+def _normalize_fields(
+    fields: Sequence[str] | None,
+    known_fields: set[str],
+    expected_prefix: str | None = None,
+) -> list[str]:
+    """Normalize a list of field names against known semantic fields."""
+    if not fields:
+        return []
+    return [_normalize_field_name(field, known_fields, expected_prefix) for field in fields]
+
+
+def _normalize_order_by(
+    order_by: Sequence[tuple[str, str]] | None,
+    known_fields: set[str],
+    expected_prefix: str | None = None,
+) -> list[tuple[str, str]] | None:
+    """Normalize order_by fields using the same fallback as dimensions/measures."""
+    if not order_by:
+        return order_by
+
+    return [
+        (_normalize_field_name(field, known_fields, expected_prefix), direction)
+        for field, direction in order_by
+    ]
+
+
+def _extract_filter_fields(filter_spec: dict) -> set[str]:
+    """Extract all field names referenced by a dict filter (including compound)."""
+    from . import predicate as pred_mod
+
+    if not isinstance(filter_spec, dict):
+        return set()
+    return pred_mod.fields(pred_mod.from_dict(filter_spec))
+
+
+def _normalize_filter_fields(
+    filter_obj: dict,
+    known_fields: set[str],
+    model_name: str | None = None,
+) -> dict:
+    """Recursively normalize field names inside a filter dict."""
+    if filter_obj.get("operator") in ("AND", "OR"):
+        return {
+            **filter_obj,
+            "conditions": [
+                _normalize_filter_fields(c, known_fields, model_name)
+                for c in filter_obj.get("conditions", [])
+            ],
+        }
+    field = filter_obj.get("field")
+    if field:
+        normalized = _normalize_field_name(field, known_fields, model_name)
+        if normalized != field:
+            return {**filter_obj, "field": normalized}
+    return filter_obj
+
+
+def _build_post_agg_predicate(filter_obj: dict) -> Any:
+    """Build an ibis predicate (``Deferred``) for post-aggregation filters.
+
+    Delegates to the ``Predicate`` AST in ``predicate``. Bracket-access
+    field resolution preserves dotted names from joined models (e.g.
+    ``orders.total_amount``) on the aggregated table.
+    """
+    from . import predicate as pred_mod
+
+    pred = pred_mod.from_dict(filter_obj)
+    return pred_mod.compile(pred, ibis._, post_agg=True, ibis_module=ibis)
+
+
+def _normalize_post_agg_filter(
+    filter_spec: Any,
+    known_fields: set[str],
+    model_name: str | None = None,
+) -> Callable:
+    """Normalize a measure filter for post-aggregation (HAVING) application.
+
+    Handles dict, Filter objects, and callables.  For dict/Filter filters the
+    field names are accessed via bracket notation so dotted names from joined
+    models work correctly after aggregation.  Field names are normalised
+    against *known_fields* so that ``"model.total_sales"`` resolves to
+    ``"total_sales"`` on standalone models but stays prefixed on joins.
+    """
+    raw = filter_spec.filter if isinstance(filter_spec, Filter) else filter_spec
+    if isinstance(raw, dict):
+        raw = _normalize_filter_fields(raw, known_fields, model_name)
+        expr = _build_post_agg_predicate(raw)
+        return lambda t: expr.resolve(t)
+    if callable(raw):
+        return raw
+    return _normalize_filter(filter_spec)
+
+
+def _is_measure_filter(
+    filter_spec: Any,
+    known_measures: set[str],
+    model_name: str | None = None,
+) -> bool:
+    """Return True if *any* field in a dict/Filter filter references a known measure."""
+    # Unwrap Filter objects to inspect their inner dict
+    raw = filter_spec
+    if isinstance(raw, Filter):
+        raw = raw.filter
+    if not isinstance(raw, dict):
+        return False
+    for field in _extract_filter_fields(raw):
+        if field in known_measures:
+            return True
+        # Handle model-prefixed names like "lineitems.metric_ventas"
+        if "." in field:
+            _prefix, name = field.split(".", 1)
+            if name in known_measures:
+                return True
+            if model_name and _prefix == model_name and name in known_measures:
+                return True
+    return False
+
+
+def _split_filter(
+    filter_spec: Any,
+    known_measures: set[str],
+    model_name: str | None,
+    pre_agg: list,
+    post_agg: list,
+) -> None:
+    """Route *filter_spec* to *pre_agg* or *post_agg* lists.
+
+    For AND compound filters mixing dimension and measure conditions the
+    compound is split so that each condition lands in the right bucket.
+    OR compounds with any measure field are kept whole in *post_agg*.
+    """
+    raw = filter_spec.filter if isinstance(filter_spec, Filter) else filter_spec
+
+    # Compound AND: split individual conditions
+    if isinstance(raw, dict) and raw.get("operator") == "AND":
+        conditions = raw.get("conditions", [])
+        if not conditions:
+            raise ValueError("Compound filter must have non-empty conditions list")
+        for cond in conditions:
+            _split_filter(cond, known_measures, model_name, pre_agg, post_agg)
+        return
+
+    if _is_measure_filter(filter_spec, known_measures, model_name):
+        post_agg.append(filter_spec)
+    else:
+        pre_agg.append(filter_spec)
+
+
+def _validate_post_agg_filter_fields(
+    filters: Sequence[Any],
+    selected_fields: set[str],
+    known_fields: set[str],
+    model_name: str | None,
+) -> None:
+    """Reject inspectable HAVING fields absent from the aggregate output.
+
+    A semantic measure can be known to the model without being selected by
+    this query.  Previously such a field passed normalization and failed much
+    later as an ibis ``AttributeError`` when the HAVING predicate was applied.
+    Dict filters are fully inspectable, so fail at query construction with the
+    actual semantic mistake.  Opaque callable/string filters retain their
+    existing runtime behavior because their referenced fields cannot be
+    recovered reliably here.
+    """
+    for filter_spec in filters:
+        raw = filter_spec.filter if isinstance(filter_spec, Filter) else filter_spec
+        if not isinstance(raw, dict):
+            continue
+        normalized = _normalize_filter_fields(raw, known_fields, model_name)
+        missing = sorted(_extract_filter_fields(normalized) - selected_fields)
+        if missing:
+            raise ValueError(
+                "A post-aggregation filter references field(s) not selected "
+                f"by this query: {missing}. Add them to dimensions/measures "
+                "or remove the filter."
+            )
+
+
+def _build_time_range_filters(
+    semantic_table: Any, time_dimension: str, time_range: Mapping[str, str]
+) -> list[Callable]:
+    """Build reusable filters for a specific time dimension and range."""
+    if not isinstance(time_range, dict) or "start" not in time_range or "end" not in time_range:
+        raise ValueError("time_range must be a dict with 'start' and 'end' keys")
+
+    from datetime import datetime, timedelta
+
+    dim_obj = semantic_table.get_dimensions().get(time_dimension)
+    if dim_obj is None:
+        raise ValueError(
+            f"Dimension '{time_dimension}' not found. "
+            f"Available dimensions: {list(semantic_table.get_dimensions().keys())}"
+        )
+    if not dim_obj.is_time_dimension:
+        raise ValueError(
+            f"Dimension '{time_dimension}' is not a time dimension. "
+            "compare_periods and time ranges require a time dimension."
+        )
+
+    start_dt = datetime.fromisoformat(time_range["start"])
+    end_dt = datetime.fromisoformat(time_range["end"])
+    if end_dt < start_dt:
+        raise ValueError("time_range end must be greater than or equal to start")
+
+    # A date-only end means "through the end of that day" (the documented
+    # usage: end "2000-12-31" covers the whole year). Parsing it as midnight
+    # and comparing <= would silently drop end-date rows with intra-day
+    # times, so use an exclusive bound at the next midnight instead. An end
+    # with an explicit time component keeps inclusive <= semantics.
+    end_is_date_only = _is_date_only(time_range["end"])
+    if end_is_date_only:
+        end_bound = end_dt + timedelta(days=1)
+        end_filter = lambda t, dim=dim_obj, end=end_bound: dim(t) < end  # noqa: E731
+    else:
+        end_filter = lambda t, dim=dim_obj, end=end_dt: dim(t) <= end  # noqa: E731
+    return [
+        lambda t, dim=dim_obj, start=start_dt: dim(t) >= start,
+        end_filter,
+    ]
+
+
+def _is_date_only(value: str) -> bool:
+    from datetime import date
+
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def compare_periods(
+    semantic_table: Any,
+    dimensions: Sequence[str] | None = None,
+    measures: Sequence[str] | None = None,
+    current_time_range: Mapping[str, str] | None = None,
+    previous_time_range: Mapping[str, str] | None = None,
+    filters: Sequence[dict[str, Any] | str | Callable | Filter] | None = None,
+    time_dimension: str | None = None,
+    time_grain: TimeGrain | None = None,
+    time_grains: Mapping[str, TimeGrain] | None = None,
+    order_by: Sequence[tuple[str, str]] | None = None,
+    limit: int | None = None,
+) -> Any:
+    """Compare two time ranges and return current/previous/delta columns."""
+    from ._xorq import null_safe_equal
+
+    dimensions = list(dimensions or [])
+    measures = list(measures or [])
+    filters = list(filters or [])
+
+    if not measures:
+        raise ValueError("compare_periods requires at least one measure")
+    if current_time_range is None or previous_time_range is None:
+        raise ValueError(
+            "compare_periods requires both 'current_time_range' and 'previous_time_range'"
+        )
+
+    dims_dict = semantic_table.get_dimensions()
+    known_dimensions = set(dims_dict)
+    known_measures = set(semantic_table.get_measures()) | set(
+        semantic_table.get_calculated_measures()
+    )
+    model_name = getattr(semantic_table, "name", None)
+
+    dimensions = _normalize_fields(dimensions, known_dimensions, expected_prefix=model_name)
+    measures = _normalize_fields(measures, known_measures, expected_prefix=model_name)
+
+    resolved_time_dimension = time_dimension
+    if resolved_time_dimension is not None:
+        resolved_time_dimension = _normalize_fields(
+            [resolved_time_dimension], known_dimensions, expected_prefix=model_name
+        )[0]
+    else:
+        resolved_time_dimension = find_time_dimension(
+            semantic_table, dimensions
+        ) or _find_any_time_dimension(semantic_table)
+
+    if resolved_time_dimension is None:
+        raise ValueError(
+            "compare_periods requires a time dimension. Mark one with "
+            ".with_dimensions(dim_name={'expr': ..., 'is_time_dimension': True}) "
+            "or pass time_dimension explicitly."
+        )
+
+    current_result = query(
+        semantic_table=semantic_table,
+        dimensions=dimensions,
+        measures=measures,
+        filters=[
+            *filters,
+            *_build_time_range_filters(semantic_table, resolved_time_dimension, current_time_range),
+        ],
+        time_grain=time_grain,
+        time_grains=time_grains,
+    )
+    previous_result = query(
+        semantic_table=semantic_table,
+        dimensions=dimensions,
+        measures=measures,
+        filters=[
+            *filters,
+            *_build_time_range_filters(
+                semantic_table, resolved_time_dimension, previous_time_range
+            ),
+        ],
+        time_grain=time_grain,
+        time_grains=time_grains,
+    )
+
+    current_tbl = current_result.as_table().table.rename(
+        {f"{measure}_current": measure for measure in measures}
+    )
+    previous_tbl = previous_result.as_table().table.rename(
+        {
+            **{f"{measure}_previous": measure for measure in measures},
+            **{f"__previous_{dim}": dim for dim in dimensions},
+        }
+    )
+
+    if dimensions:
+        # SQL equality does not match NULL to NULL, but grouping semantics do:
+        # a NULL dimension member is one group in each period and therefore
+        # must form one comparison row rather than independent +/- rows.
+        join_predicates = [
+            null_safe_equal(current_tbl[dim], previous_tbl[f"__previous_{dim}"])
+            for dim in dimensions
+        ]
+        joined = current_tbl.join(previous_tbl, join_predicates, how="outer")
+        result_tbl = joined.select(
+            *[joined[dim].coalesce(joined[f"__previous_{dim}"]).name(dim) for dim in dimensions],
+            *[joined[f"{measure}_current"] for measure in measures],
+            *[joined[f"{measure}_previous"] for measure in measures],
+        )
+    else:
+        joined = current_tbl.join(previous_tbl, how="cross")
+        result_tbl = joined.select(
+            *[joined[f"{measure}_current"] for measure in measures],
+            *[joined[f"{measure}_previous"] for measure in measures],
+        )
+
+    pct_mutations = {}
+    delta_mutations = {}
+    for measure in measures:
+        current_col = result_tbl[f"{measure}_current"]
+        previous_col = result_tbl[f"{measure}_previous"]
+        delta_expr = current_col.fill_null(0) - previous_col.fill_null(0)
+        delta_mutations[f"{measure}_delta"] = delta_expr
+        pct_mutations[f"{measure}_pct_change"] = delta_expr / previous_col.nullif(0)
+
+    result_tbl = result_tbl.mutate(**delta_mutations, **pct_mutations)
+
+    if order_by:
+        order_by = _normalize_order_by(
+            order_by, set(result_tbl.columns), expected_prefix=model_name
+        )
+        result_tbl = result_tbl.order_by(
+            [
+                result_tbl[field].desc() if direction.lower() == "desc" else result_tbl[field]
+                for field, direction in order_by
+            ]
+        )
+    if limit is not None:
+        result_tbl = result_tbl.limit(limit)
+
+    # The comparison table IS a query result (dims + current/previous/delta
+    # measures), so the wrapper is a materialized-result model: executable,
+    # unlike a definition-side semantic model.
+    from .expr import SemanticModel
+
+    return SemanticModel(
+        table=result_tbl,
+        dimensions=None,
+        measures=None,
+        calc_measures=None,
+        name=f"{model_name or 'model'}_period_comparison",
+        _materialized_result=True,
+    )
+
+
+def query(
+    semantic_table: Any,  # SemanticModel, but avoiding circular import
+    dimensions: Sequence[str] | None = None,
+    measures: Sequence[str] | None = None,
+    filters: Sequence[dict[str, Any] | str | Callable | Filter] | None = None,
+    order_by: Sequence[tuple[str, str]] | None = None,
+    limit: int | None = None,
+    time_grain: TimeGrain | None = None,
+    time_grains: Mapping[str, TimeGrain] | None = None,
+    time_range: Mapping[str, str] | None = None,
+    having: Sequence[dict[str, Any] | str | Callable | Filter] | None = None,
+) -> Any:  # Returns SemanticModel or SemanticAggregate
+    """
+    Query semantic table using parameter-based interface with time dimension support.
+
+    Args:
+        semantic_table: The SemanticTable to query
+        dimensions: List of dimension names to group by
+        measures: List of measure names to aggregate
+        filters: List of filters (dict, str, callable, or Filter objects).
+            Dict filters referencing measure fields are automatically applied
+            after aggregation (HAVING semantics).  Callable/string filters are
+            always applied before aggregation.
+        order_by: List of (field, direction) tuples
+        limit: Maximum number of rows to return
+        time_grain: Optional time grain to apply to ALL time dimensions (e.g., "TIME_GRAIN_MONTH").
+            Cannot be used together with time_grains.
+        time_grains: Optional per-dimension time grains as a dict mapping dimension names
+            to grain values (e.g., {"order_date": "TIME_GRAIN_MONTH", "ship_date": "TIME_GRAIN_QUARTER"}).
+            Cannot be used together with time_grain.
+        time_range: Optional time range filter with 'start' and 'end' keys
+        having: Optional list of post-aggregation filters.  These are always
+            applied after group-by/aggregate regardless of field type.  Use
+            this for callable/lambda filters that reference measures.
+
+    Returns:
+        SemanticAggregate or SemanticTable ready for execution
+
+    Examples:
+        # Basic query
+        result = st.query(
+            dimensions=["carrier"],
+            measures=["flight_count"]
+        ).execute()
+
+        # With JSON filter on a measure (auto-detected as HAVING)
+        result = st.query(
+            dimensions=["carrier"],
+            measures=["flight_count"],
+            filters=[{"field": "flight_count", "operator": ">", "value": 100}]
+        ).execute()
+
+        # With explicit having for callable filters on measures
+        result = st.query(
+            dimensions=["carrier"],
+            measures=["flight_count"],
+            having=[lambda t: t.flight_count > 100]
+        ).execute()
+
+        # With time grain (applies to all time dimensions)
+        result = st.query(
+            dimensions=["order_date"],
+            measures=["total_sales"],
+            time_grain="TIME_GRAIN_MONTH"
+        ).execute()
+
+        # With per-dimension time grains
+        result = st.query(
+            dimensions=["order_date", "ship_date"],
+            measures=["total_sales"],
+            time_grains={"order_date": "TIME_GRAIN_MONTH", "ship_date": "TIME_GRAIN_QUARTER"}
+        ).execute()
+
+        # With time range
+        result = st.query(
+            dimensions=["order_date"],
+            measures=["total_sales"],
+            time_range={"start": "2024-01-01", "end": "2024-12-31"}
+        ).execute()
+    """
+    from .ops import Dimension
+
+    if not dimensions and not measures:
+        raise QueryError(
+            "query() requires at least one dimension or measure — an empty "
+            "query has no semantic result. For raw rows, use .to_untagged()."
+        )
+
+    result = semantic_table
+    model_name = getattr(result, "name", None)
+    known_dimensions = set(result.get_dimensions())
+    known_measures = set(result.get_measures()) | set(result.get_calculated_measures())
+    known_order_fields = known_dimensions | known_measures
+
+    dimensions = _normalize_fields(dimensions, known_dimensions, expected_prefix=model_name)
+    measures = (
+        _normalize_fields(measures, known_measures, expected_prefix=model_name)
+        if measures is not None
+        else None
+    )
+    order_by = _normalize_order_by(order_by, known_order_fields, expected_prefix=model_name)
+    filters = list(filters or [])  # Copy to avoid mutating input
+
+    # Fail fast on unknown names, with suggestions — before any compilation,
+    # so the user never sees a backend error listing physical columns.
+    raw_columns = set(getattr(result, "columns", ()) or ())
+    for dim in dimensions:
+        if (
+            dim not in known_dimensions
+            and dim not in raw_columns
+            and resolve_suffix(dim, known_dimensions, raw_columns) is None
+        ):
+            hint = suggest_kinded(dim, [("dimension", known_dimensions), ("column", raw_columns)])
+            raise UnknownFieldError(
+                f"Unknown dimension {dim!r}. Declared dimensions: "
+                f"{sorted(known_dimensions)}.{' ' + hint if hint else ''}"
+            )
+    for meas in measures or ():
+        if meas not in known_measures and resolve_suffix(meas, known_measures) is None:
+            hint = suggest_kinded(
+                meas, [("measure", known_measures), ("dimension", known_dimensions)]
+            )
+            raise UnknownFieldError(
+                f"Unknown measure {meas!r}. Declared measures: "
+                f"{sorted(known_measures)}.{' ' + hint if hint else ''}"
+            )
+
+    selected_fields = set(dimensions) | set(measures or [])
+    produces_aggregate = bool(dimensions or measures)
+    if produces_aggregate and order_by:
+        missing_order_fields = sorted(
+            field for field, _direction in order_by if field not in selected_fields
+        )
+        if missing_order_fields:
+            raise ValueError(
+                "order_by references field(s) not selected by this query: "
+                f"{missing_order_fields}. Add them to dimensions/measures or "
+                "remove them from order_by."
+            )
+
+    # Step 0: Add time_range as a filter if specified
+    if time_range:
+        time_dim_name = find_time_dimension(result, dimensions)
+        if not time_dim_name:
+            raise ValueError(
+                "time_range filter requires a time dimension in the query dimensions. "
+                f"Available dimensions: {list(dimensions)}. "
+                "Mark a dimension as a time dimension using: "
+                ".with_dimensions(dim_name={'expr': lambda t: t.column, 'is_time_dimension': True})"
+            )
+
+        filters.extend(_build_time_range_filters(result, time_dim_name, time_range))
+
+    # Step 1: Apply row filters — separate pre-agg (dimension) from post-agg
+    # (measure). Pre-agg filters must run BEFORE any grain transformation:
+    # they reference dimensions as the queried model defines them, and once
+    # the time dimension is swapped for its truncated version a range filter
+    # would compare truncated bucket starts instead of raw values, silently
+    # dropping in-range rows (and, at week grain, including out-of-range ones).
+    pre_agg_filters = []
+    post_agg_filters = list(having or [])
+    for filter_spec in filters:
+        _split_filter(filter_spec, known_measures, model_name, pre_agg_filters, post_agg_filters)
+
+    known_post_agg_fields = known_dimensions | known_measures
+    _validate_post_agg_filter_fields(
+        post_agg_filters,
+        selected_fields,
+        known_post_agg_fields,
+        model_name,
+    )
+
+    for filter_spec in pre_agg_filters:
+        filter_fn = _normalize_filter(filter_spec)
+        result = result.filter(filter_fn)
+
+    # Step 2: Handle time grain transformations
+    if time_grain and time_grains:
+        raise ValueError(
+            "Cannot specify both 'time_grain' and 'time_grains'. "
+            "Use 'time_grain' to apply a single grain to all time dimensions, "
+            "or 'time_grains' to specify per-dimension grains."
+        )
+
+    # Build per-dimension grain mapping: either from time_grains directly,
+    # or by expanding time_grain to all time dimensions in the query.
+    grain_map: dict[str, str] = {}
+    if time_grains:
+        grain_map = {dim: _normalize_grain(g) for dim, g in time_grains.items()}
+    elif time_grain:
+        normalized = _normalize_grain(time_grain)
+        dims_dict = result.get_dimensions()
+        for dim_name in dimensions:
+            if dim_name in dims_dict and dims_dict[dim_name].is_time_dimension:
+                grain_map[dim_name] = normalized
+
+    if grain_map:
+        time_dims_to_transform = {}
+        dims_dict = result.get_dimensions()
+        for dim_name, grain in grain_map.items():
+            if dim_name not in dims_dict:
+                raise ValueError(
+                    f"Dimension '{dim_name}' not found. "
+                    f"Available dimensions: {list(dims_dict.keys())}",
+                )
+            dim_obj = dims_dict[dim_name]
+            if not dim_obj.is_time_dimension:
+                raise ValueError(
+                    f"Dimension '{dim_name}' is not a time dimension. "
+                    "time_grains can only be applied to time dimensions.",
+                )
+            _validate_time_grain(grain, dim_obj.smallest_time_grain, dim_name)
+
+            # NOTE: We capture dim_obj (not dim_obj.expr) and call dim(t) because
+            # Dimension.__call__ properly resolves Deferred expressions via:
+            #   self.expr.resolve(table) if _is_deferred(self.expr) else self.expr(table)
+            # Calling orig_expr(t) directly on a Deferred would cause infinite recursion.
+            truncate_unit = TIME_GRAIN_TRANSFORMATIONS[grain]
+            time_dims_to_transform[dim_name] = Dimension(
+                expr=lambda t, dim=dim_obj, unit=truncate_unit: dim(t).truncate(unit),
+                description=dim_obj.description,
+                is_time_dimension=dim_obj.is_time_dimension,
+                smallest_time_grain=dim_obj.smallest_time_grain,
+            )
+
+        if time_dims_to_transform:
+            result = result.with_dimensions(**time_dims_to_transform)
+
+    # Step 3: Group by and aggregate
+    if dimensions:
+        result = result.group_by(*dimensions)
+        # Materialize grouped dimensions even when no measures are requested.
+        # This avoids returning a bare group-by object that compiles to SELECT *.
+        result = result.aggregate(*measures) if measures else result.aggregate()
+    elif measures:
+        # No dimensions = grand total aggregation
+        result = result.group_by().aggregate(*measures)
+
+    # Step 3.5: Apply measure filters after aggregation (HAVING semantics)
+    for filter_spec in post_agg_filters:
+        filter_fn = _normalize_post_agg_filter(filter_spec, known_post_agg_fields, model_name)
+        result = result.filter(filter_fn)
+
+    # Step 4: Apply ordering using functional composition
+    if order_by:
+        order_keys = [_make_order_key(field, direction) for field, direction in order_by]
+        result = result.order_by(*order_keys)
+
+    # Step 5: Apply limit. `limit=0` is a real LIMIT 0 (zero rows), not
+    # "no limit" — truthiness would silently return the full result set.
+    if limit is not None:
+        if isinstance(limit, bool):
+            raise ValueError(f"limit must be an integer, got {limit!r}")
+        result = result.limit(limit)
+
+    return result

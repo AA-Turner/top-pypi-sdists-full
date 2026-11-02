@@ -1,0 +1,118 @@
+# @package _global_
+#
+# Settings for a driver policy, used when `ego.entity: carla_driver`.
+# The policy serves `egodriver.EgodriverService` at `address`.
+driver:
+  address: localhost:50051
+  # A policy the run serves itself, in its own process, instead of dialling
+  # `address`: `route_follower`, `constant_speed`, or `package.module:Class` for your
+  # own BaseDriver. null dials a policy serving at `address` in a process of its own:
+  #   carla-driver-interface serve --policy route_follower --port 50051
+  policy: null
+  # How the run reaches the policy. tcp: dial `address`, or serve `policy` on a free
+  # local port. unix: a Unix socket instead -- `policy` on one of the run's own, or
+  # `address` naming one (unix:///run/policy.sock). direct: call the servicer of the
+  # `policy` the run serves, no socket (needs `policy`). unix with `policy` and
+  # direct need carla-driver-interface 2.2+.
+  transport: tcp
+  timeout_s: 60.0
+  # Must be a positive integer multiple of the 0.05 s simulation step.
+  policy_timestep_s: 0.1
+  image_quality: 90
+  # Seconds of run-up onto the spawn pose, the policy planning but not driving,
+  # so a policy that reads a history starts with one. 0 starts it cold.
+  warmup_s: 0.0
+  route_horizon_m: 80.0
+  route_resolution_m: 2.0
+  # null derives the rig origin offset from the vehicle's wheel physics.
+  rear_axle_offset_m: null
+  send_ground_truth: false
+  # CARLA ground truth for the policy (traffic light, other vehicles, speed limit).
+  # Turning this off does not error on the policy side -- it just makes the world
+  # look empty, so any rule about lights or traffic quietly stops applying.
+  send_renderer_data: true
+  send_actor_ground_truth: true
+  # 0 falls back to CARLA's trigger volumes, which only report a light on arrival.
+  traffic_light_sight_distance_m: 60.0
+  actor_horizon_m: 150.0
+  # The policy's session seed; null hands it the run's seed (`seed`).
+  random_seed: null
+  cameras:
+    - logical_id: camera_front_wide_120fov
+      image_width: 960
+      image_height: 604
+      fov: 120.0
+      fps: 20.0
+      position_x: 1.5
+      position_y: 0.0
+      position_z: 1.6
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+  # LiDARs whose sweeps ride in renderer_data (rig frame), e.g.
+  #   lidars:
+  #     - {logical_id: lidar_top, channels: 64, range_m: 100.0, position_z: 2.0}
+  lidars: []
+  # A stack serving the policy's world (splatsim, say) that pulls the scenario's
+  # mission over the AutowareBridge and reports when it is ready; the policy starts
+  # only then. null runs the policy alone. A mapping takes AutowareBridgeConfig's
+  # fields, e.g. {address: "0.0.0.0:50052", ready_timeout_ticks: 1200}; the
+  # scenario then needs a goal (ego.goal_lanelet_id).
+  bridge: null
+  # Write the world's map here at scenario start (<map_dir>/<map_id>/, via roadgen:
+  # the `map` extra); every traffic light is then sent with where to stop for it.
+  map_dir: null
+  map_formats: [lanelet2]
+  # A local Lanelet2 .osm to write as the set's Lanelet2 map instead of the one
+  # roadgen converts (needs map_dir); null converts it with roadgen.
+  lanelet2_path: null
+  # Every drive also carries the run so far as a tier4/e2e-devkit T4Scene, for a
+  # policy that plans from scenes (carla_driver_interface's T4SceneDriver); its
+  # map goes into the map set as the `t4` format. Needs map_dir and
+  # send_renderer_data, and carla-driver-interface 2.4 (docs/t4_scene.md).
+  t4_scene: false
+  # How far back a scene reaches, the current 0.1 s row aside.
+  t4_scene_history_s: 3.0
+  # The ego's wheel base in the scenes' ego shape; null leaves it out.
+  t4_scene_wheel_base_m: null
+  # The scenes' goal: scenario (its route_to's) or road_ahead (the far end of
+  # the road ahead the policy is sent).
+  t4_scene_goal: scenario
+  # The scenes' map: run (the run's Lanelet2 map) or map_set (map_dir's, the
+  # one a policy reading the egodriver observations is given).
+  t4_scene_map: run
+  control:
+    lookahead_gain_s: 0.6
+    min_lookahead_m: 4.0
+    max_lookahead_m: 20.0
+    wheelbase_m: 2.8
+    # CARLA 0.10 turns the wheels by about 56 deg * steer**2 (see ControlConfig).
+    max_steer_angle_deg: 56.0
+    steer_exponent: 2.0
+    max_steer_rate: 4.0
+    # Integral trim on the measured yaw rate; 0 steers open-loop.
+    yaw_rate_ki: 3.0
+    # Longitudinal: a port of Autoware's autoware_pid_longitudinal_controller, with
+    # its parameter names and defaults (autoware_pid_longitudinal_controller.param.yaml;
+    # every one of them can be set here). The plan's speeds are put on it as
+    # autoware_tensorrt_e2e puts them on its own: distance per plan step, then a
+    # forward moving average. time_indexed tracks the plan on its clock instead (the
+    # speed_*, position_*, speed_preview_s and stop_distance_m keys tune it).
+    longitudinal_controller: pid
+    velocity_smoothing_window: 8
+    stopping_threshold: 0.3
+    delay_compensation_time: 0.17
+    drive_state_stop_dist: 0.5
+    stopping_state_stop_dist: 0.5
+    stopped_acc: -3.4
+    max_acc: 3.0
+    min_acc: -5.0
+    max_jerk: 2.0
+    min_jerk: -5.0
+    # Vehicle interface: the controller's acceleration goes through the ego's powertrain
+    # model (read from its CARLA physics control). A floor on a standing car's throttle
+    # asked to speed up: CARLA 0.10's MKZ stays put below 0.25, a real car creeps.
+    throttle_deadband: 0.3
+    standstill_speed_mps: 0.5
+    # Brake with no plan to track.
+    stop_brake: 0.6

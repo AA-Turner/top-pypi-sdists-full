@@ -4,9 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloakbrowser.config import DEFAULT_VIEWPORT
-
-
 # All tests mock launch() to avoid needing a binary.
 # launch_context() calls launch() internally, then browser.new_context().
 
@@ -22,15 +19,16 @@ def _make_mock_browser():
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
 @patch("cloakbrowser.browser.launch")
 def test_default_viewport(mock_launch, _mock_bin):
-    """DEFAULT_VIEWPORT applied when no viewport given."""
+    """No emulated viewport when none is given, headless included."""
     browser, context = _make_mock_browser()
     mock_launch.return_value = browser
 
     from cloakbrowser.browser import launch_context
     launch_context()
 
-    ctx_kwargs = browser.new_context.call_args
-    assert ctx_kwargs[1]["viewport"] == DEFAULT_VIEWPORT
+    ctx_kwargs = browser.new_context.call_args[1]
+    assert ctx_kwargs.get("no_viewport") is True
+    assert "viewport" not in ctx_kwargs
 
 
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
@@ -125,7 +123,7 @@ def test_conflicting_viewport_kwargs_deduped(mock_launch, _mock_bin):
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
 @patch("cloakbrowser.browser.launch")
 def test_custom_viewport(mock_launch, _mock_bin):
-    """Custom viewport overrides DEFAULT_VIEWPORT."""
+    """Custom viewport is honored."""
     browser, context = _make_mock_browser()
     mock_launch.return_value = browser
 
@@ -394,15 +392,16 @@ async def test_async_storage_state_forwarded(mock_launch_async, _mock_bin):
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
 @patch("cloakbrowser.browser.launch_async")
 async def test_async_default_viewport(mock_launch_async, _mock_bin):
-    """DEFAULT_VIEWPORT applied when no viewport given (async)."""
+    """No emulated viewport when none is given (async)."""
     browser, context = _make_mock_async_browser()
     mock_launch_async.return_value = browser
 
     from cloakbrowser.browser import launch_context_async
     await launch_context_async()
 
-    ctx_kwargs = browser.new_context.call_args
-    assert ctx_kwargs[1]["viewport"] == DEFAULT_VIEWPORT
+    ctx_kwargs = browser.new_context.call_args[1]
+    assert ctx_kwargs.get("no_viewport") is True
+    assert "viewport" not in ctx_kwargs
 
 
 @pytest.mark.asyncio

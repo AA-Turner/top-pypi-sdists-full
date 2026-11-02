@@ -1,0 +1,187 @@
+id: "add-subject-parameter-to-chart-titles"
+title: "Add subject parameter to compose domain context into chart titles"
+worktree: "main"
+priority: "High"
+status: "Completed"
+completed_date: "2026-03-09"
+description: |
+  After neutralize-default-labels-and-titles completes, chart default titles
+  will be generic (e.g., "Histogram", "Cumulative Distribution"). Callers who
+  want domain context in the title must currently construct the full title
+  string themselves (title="Query Latency Histogram").
+
+  A new `subject` parameter lets callers provide just the domain noun phrase
+  (e.g., "Query Latency") and have it automatically prepended to the chart's
+  default title, producing "Query Latency Histogram". When both `title` and
+  `subject` are provided, explicit `title` wins. When neither is provided,
+  the generic default is used as today.
+
+  This keeps the library neutral by default while giving callers a lightweight
+  way to add domain context without duplicating the chart type name.
+
+  Title composition: `f"{subject} {default_title}"` — simple prefix.
+
+  Applies to all chart constructors that accept `title`, the executor layer,
+  the MCP server handler, and factory functions.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Add subject parameter to ASCIIChartBase and implement title composition logic"
+    status: done
+    notes: |
+      Add `subject: str | None = None` to ASCIIChartBase.__init__() and store it.
+      Add a helper method (e.g., _compose_title(default: str) -> str) that returns:
+        - title if explicitly provided
+        - f"{subject} {default}" if subject is provided
+        - default otherwise
+      Each chart constructor replaces `self.title = title or "Default"` with
+      `self.title = self._compose_title("Default")` after passing title and subject
+      to super().__init__().
+
+  - id: w2
+    summary: "Add subject parameter to all chart constructors and factory functions"
+    needs: [w1]
+    status: done
+    notes: |
+      Charts to update (13 constructors):
+        histogram.py, diverging_bar.py, percentile_ladder.py, cdf_chart.py,
+        stacked_bar.py, bar_chart.py, comparison_bar.py, box_plot.py,
+        line_chart.py, scatter_plot.py, heatmap.py, sparkline_table.py,
+        rank_table.py, normalized_speedup.py
+      Each: add `subject: str | None = None` param, pass to super().__init__(),
+      use self._compose_title("Default Title") for self.title.
+
+      summary_box.py is special — subject could be added to SummaryStats dataclass
+      or composed when setting parsed_data.title in executor.py.
+
+      Factory functions: add subject param, pass through to constructor.
+
+  - id: w3
+    summary: "Thread subject through executor and MCP server layers"
+    needs: [w1]
+    status: done
+    notes: |
+      executor.py: Add `subject: str | None = None` to execute_command(), pass
+      as ctor_kwargs["subject"] when not None (same pattern as title/subtitle).
+
+      mcp_server.py: Add `subject: str | None = None` to the handler signature
+      with docstring "Optional subject noun phrase prepended to default title
+      (e.g., 'Query Latency' → 'Query Latency Histogram')". Pass to
+      execute_command().
+
+  - id: w4
+    summary: "Add tests for subject parameter and harden existing title assertions"
+    needs: [w2, w3]
+    status: done
+    notes: |
+      New test cases for subject parameter:
+        - subject alone → "Subject Default Title"
+        - title alone → explicit title (subject ignored)
+        - both title and subject → explicit title wins
+        - neither → generic default
+        - subject via MCP handler
+        - subject via factory function
+
+      Harden existing brittle title tests that assert on hardcoded default strings.
+      These break on every default title change (just happened in neutralize TODO):
+        - tests/test_commands.py:test_parse_summary_empty asserts result.title == "Summary"
+          → assert title is a non-empty string, or use explicit title input
+        - tests/test_edge_cases_and_features.py:test_grouped_render_single_chart_when_few_queries
+          asserts result.count("Histogram") == 1
+          → pass explicit title="TestTitle" and count that instead
+      Pattern: tests should pass explicit titles when testing non-title behavior,
+      or test title composition via subject rather than hardcoding defaults.
+      Update golden snapshots if any existing tests are affected.
+
+  - id: w5
+    summary: "Run full test suite and regenerate golden snapshots"
+    needs: [w4]
+    status: done
+    notes: |
+      Run tests with --update-golden for intentional changes.
+      Verify no regressions in existing callers.
+
+deps:
+  needs:
+    - "neutralize-default-labels-and-titles"
+
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "backward-compatible"
+  estimated_effort: "Small"
+  created_date: "2026-03-09"
+  last_updated: "2026-03-09T00:00:00"
+
+impact:
+  business_value: |
+    Enables callers to add domain context to chart titles with a single
+    parameter instead of constructing full title strings that duplicate
+    the chart type name.
+  user_impact: |
+    MCP users and library callers get a clean API for contextualizing charts
+    (subject="Query Latency") without needing to know each chart's default title.
+  technical_debt: |
+    Centralizes title composition logic in the base class rather than
+    requiring each caller to implement string concatenation.
+
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/percentile_ladder.py"
+    - "src/textcharts/cdf_chart.py"
+    - "src/textcharts/stacked_bar.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/box_plot.py"
+    - "src/textcharts/line_chart.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/sparkline_table.py"
+    - "src/textcharts/rank_table.py"
+    - "src/textcharts/normalized_speedup.py"
+    - "src/textcharts/summary_box.py"
+    - "src/textcharts/mcp_server.py"
+    - "src/textcharts/commands/executor.py"
+    - "tests/test_commands.py"
+    - "tests/test_edge_cases_and_features.py"
+
+must_preserve:
+  - "All existing callers that omit subject see identical output (pure additive API change)"
+  - "Explicit title parameter always wins over subject composition"
+  - "uv run python -m pytest tests/ passes after golden snapshot regeneration"
+
+approach: |
+  Follow the subtitle pattern: add to base class __init__, thread through each
+  chart constructor, executor, and MCP server. Title composition is a simple
+  f-string prefix in a base class helper method, keeping each chart's
+  constructor change to a one-liner.
+
+anti_patterns:
+  - "DO NOT change the title parameter behavior — because existing callers pass explicit titles — subject is additive only"
+  - "DO NOT put composition logic in each chart — because that duplicates logic — centralize in ASCIIChartBase"
+  - "DO NOT make subject affect subtitle — because subtitle is an independent display line — subject only modifies the title"
+
+verification:
+  - description: "Full test suite passes"
+    command: "uv run python -m pytest tests/ -x -q"
+    expected_output: "all tests pass"
+  - description: "Subject composes with default title"
+    command: "uv run python -c \"from textcharts.histogram import ASCIIQueryHistogram, HistogramBar; h = ASCIIQueryHistogram([HistogramBar('q1', 10)], subject='Query Latency'); print(h.title)\""
+    expected_output: "Query Latency Histogram"
+  - description: "Explicit title wins over subject"
+    command: "uv run python -c \"from textcharts.histogram import ASCIIQueryHistogram, HistogramBar; h = ASCIIQueryHistogram([HistogramBar('q1', 10)], title='Custom', subject='Ignored'); print(h.title)\""
+    expected_output: "Custom"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/"
+    - "tests/"
+  do_not_modify:
+    - "docs/"
+    - "scripts/"

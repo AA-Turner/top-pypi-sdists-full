@@ -1,0 +1,56 @@
+"""Tracker issue ``/links`` operations, declared once (sans-IO).
+
+Examples:
+    >>> delete("DE-130", "42").path
+    'issues/DE-130/links/42'
+"""
+
+from __future__ import annotations
+
+from http import HTTPMethod
+from typing import TYPE_CHECKING
+
+from ycli.yandex.core.endpoint import Effect, Endpoint, Paged, segment
+from ycli.yandex.core.pagination import PageNumberPagination
+from ycli.yandex.models import ItemList
+from ycli.yandex.tracker.links.models import ImportLink, Link, LinkCreate, LinkPage
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+PAGE_SIZE = 50
+
+
+def list_(issue_key: str) -> Endpoint[ItemList[Link]]:
+    return Endpoint(HTTPMethod.GET, f"issues/{segment(issue_key)}/links", ItemList[Link])
+
+
+def list_filtered(
+    issue_key: str, *, link_types: Sequence[str] | None = None, fields: Sequence[str] | None = None
+) -> Paged[LinkPage, Link]:
+    """``POST /issues/{key}/links/_list`` only reads: a page of links, filtered by the body."""
+    body = {"fields": fields, "linkTypes": link_types}
+    return Paged(
+        # violation(arch-3): POST _list only reads
+        Endpoint(
+            HTTPMethod.POST,
+            f"issues/{segment(issue_key)}/links/_list",
+            LinkPage,
+            json={name: value for name, value in body.items() if value is not None},
+            effect=Effect.READ,
+        ),
+        PageNumberPagination(page_size=PAGE_SIZE),
+        lambda page: page.links,
+    )
+
+
+def create(issue_key: str, body: LinkCreate) -> Endpoint[Link]:
+    return Endpoint(HTTPMethod.POST, f"issues/{segment(issue_key)}/links", Link, json=body)
+
+
+def delete(issue_key: str, link_id: str) -> Endpoint[None]:
+    return Endpoint(HTTPMethod.DELETE, f"issues/{segment(issue_key)}/links/{segment(link_id)}")
+
+
+def import_(issue_key: str, body: ImportLink) -> Endpoint[Link]:
+    return Endpoint(HTTPMethod.POST, f"issues/{segment(issue_key)}/links/_import", Link, json=body)

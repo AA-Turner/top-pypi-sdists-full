@@ -93,9 +93,7 @@ class HueyStats(object):
         if database.obj is None:
             database.initialize(self.db)
         if create_tables:
-            # The writer thread opens its own connection. Close the one
-            # create_tables opens, so forked children do not inherit a live
-            # socket. Leave a connection the caller opened alone.
+            # Don't leave a live socket for forked children to inherit.
             was_closed = self.db.is_closed()
             self.db.create_tables(MODELS, safe=True)
             if was_closed:
@@ -118,11 +116,8 @@ class HueyStats(object):
         self._writer.start()
 
     def _reset_after_fork(self):
-        # Runs in the forked child while it is still single-threaded. The
-        # writer thread exists only in the parent, along with any locks it
-        # held at fork time. Rows buffered before the fork are the parent's
-        # to write. Inherited connections, pooled ones included, share a
-        # socket with the parent, so discard them rather than close them.
+        # The writer, its locks and buffered rows stay with the parent.
+        # Inherited conns share the parent's socket, so discard, don't close.
         if self._stop.is_set():
             return
         self._lock = threading.Lock()
@@ -165,7 +160,6 @@ class HueyStats(object):
             logger.exception('stats event dropped.')
 
     def _format_args(self, task):
-        # A task argument whose repr() raises must not cost us the event.
         try:
             return ('%r %r' % (task.args, task.kwargs))[:400]
         except Exception:
@@ -180,17 +174,14 @@ class HueyStats(object):
             self.db.close()
 
     def _flush(self):
-        # Held for the whole write, so the shutdown hook cannot return while
-        # the writer is mid-flush and lose that batch to os._exit.
+        # Held for the whole write, so a shutdown flush waits on the writer.
         with self._flush_lock:
             with self._lock:
                 batch = self._buf
                 self._buf = []
             if not batch:
                 return
-            # One inflight op per task, applied in task_id order, so
-            # concurrent writers acquire row locks identically and cannot
-            # deadlock.
+            # Applied in task_id order so concurrent writers can't deadlock.
             inflight = {}
             for row in batch:
                 if row['signal'] == S.SIGNAL_EXECUTING:
@@ -239,8 +230,6 @@ class HueyStats(object):
                  .execute())
         except Exception:
             logger.exception('stats prune failed.')
-        if len(self._start) > 10000:
-            self._start.clear()
 
     def close(self):
         if self._stop.is_set():
@@ -249,9 +238,7 @@ class HueyStats(object):
         self._wake.set()
         if self._writer is not None:
             self._writer.join(timeout=2)
-        # Rows appended while the writer was inside its last flush are still
-        # buffered: it re-checks the stop flag before flushing again, and
-        # exits. Drain them here rather than lose the tail of every process.
+        # Drain rows appended during the writer's final flush.
         self._flush()
 
     def _events(self):
@@ -366,7 +353,8 @@ class HueyStats(object):
         return {'completed': completed, 'errors': errors,
                 'retries': window.get(S.SIGNAL_RETRYING, 0),
                 'error_rate': (errors / total) if total else 0,
-                'inflight': len(self.inflight())}
+                'inflight': HueyInflight.select().where(
+                    HueyInflight.queue == self.name).count()}
 
 
 def live_counts(huey):
@@ -416,9 +404,7 @@ def dashboard_context(huey, stats, list_limit=50, event_limit=50,
     for row in known:
         row['stats'] = stats_map.get(row['full'])
         row['registered'] = True
-    # A web process does not autodiscover tasks the way the consumer does, so
-    # without this the table lists whatever happens to be imported here and
-    # hides every task that actually ran.
+    # Tasks that ran but aren't imported in this (e.g. web) process.
     seen = {row['full'] for row in known}
     for full, row in sorted(stats_map.items()):
         if full not in seen:
@@ -431,6 +417,25 @@ def dashboard_context(huey, stats, list_limit=50, event_limit=50,
             'pending': pending_tasks(huey, list_limit),
             'scheduled': scheduled_tasks(huey, list_limit),
             'throughput': stats.throughput(throughput_minutes)}
+
+
+def run_action(huey, op, form):
+    if op == 'revoke_task':
+        huey.revoke_all(huey._registry.string_to_task(form['task']))
+    elif op == 'restore_task':
+        huey.restore_all(huey._registry.string_to_task(form['task']))
+    elif op == 'revoke_id':
+        huey.revoke_by_id(form['id'])
+    elif op == 'restore_id':
+        huey.restore_by_id(form['id'])
+    elif op == 'flush_queue':
+        huey.storage.flush_queue()
+    elif op == 'flush_results':
+        huey.storage.flush_results()
+    elif op == 'flush_schedule':
+        huey.storage.flush_schedule()
+    elif op == 'flush_locks':
+        huey.flush_locks()
 
 
 def enable_stats(huey, db, **kwargs):

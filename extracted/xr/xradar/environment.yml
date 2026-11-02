@@ -1,0 +1,40 @@
+name: xradar-dev
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python >=3.12,<3.14
+  - pydata-sphinx-theme
+  - pip
+  - cffconvert
+  - myst-parser
+  - sphinx
+  - sphinx-copybutton
+  - sphinx-favicon
+  - ipykernel
+  - h5netcdf
+  - h5py
+  - lat_lon_parser
+  - netCDF4
+  - open-radar-data>=0.9.0
+  - pyproj
+  - pip:
+    - xarray >= 2026.4.0
+  - xmltodict
+  - cartopy
+  - cmweather
+  - dask
+  - matplotlib-base
+  - scipy
+  - boto3
+  - arm_pyart
+  - wradlib
+  - ffmpeg
+  - zarr>=3
+  - pytest-xdist
+  - pytest-cov
+  - pre-commit
+  - diff-cover
+  - myst-nb
+  - sphinx-copybutton
+  - linkify-it-py

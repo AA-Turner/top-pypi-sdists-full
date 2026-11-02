@@ -1,0 +1,8576 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import date, datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "CardPayment",
+    "Element",
+    "ElementCardAuthentication",
+    "ElementCardAuthenticationChallenge",
+    "ElementCardAuthenticationChallengeAttempt",
+    "ElementCardAuthenticationDeviceChannel",
+    "ElementCardAuthenticationDeviceChannelBrowser",
+    "ElementCardAuthenticationDeviceChannelMerchantInitiated",
+    "ElementCardAuthenticationMessageCategory",
+    "ElementCardAuthenticationMessageCategoryNonPayment",
+    "ElementCardAuthenticationMessageCategoryPayment",
+    "ElementCardAuthorization",
+    "ElementCardAuthorizationAdditionalAmounts",
+    "ElementCardAuthorizationAdditionalAmountsClinic",
+    "ElementCardAuthorizationAdditionalAmountsDental",
+    "ElementCardAuthorizationAdditionalAmountsOriginal",
+    "ElementCardAuthorizationAdditionalAmountsPrescription",
+    "ElementCardAuthorizationAdditionalAmountsSurcharge",
+    "ElementCardAuthorizationAdditionalAmountsTotalCumulative",
+    "ElementCardAuthorizationAdditionalAmountsTotalHealthcare",
+    "ElementCardAuthorizationAdditionalAmountsTransit",
+    "ElementCardAuthorizationAdditionalAmountsUnknown",
+    "ElementCardAuthorizationAdditionalAmountsVision",
+    "ElementCardAuthorizationHealthcare",
+    "ElementCardAuthorizationNetworkDetails",
+    "ElementCardAuthorizationNetworkDetailsPulse",
+    "ElementCardAuthorizationNetworkDetailsVisa",
+    "ElementCardAuthorizationNetworkIdentifiers",
+    "ElementCardAuthorizationSchemeFee",
+    "ElementCardAuthorizationVerification",
+    "ElementCardAuthorizationVerificationCardVerificationCode",
+    "ElementCardAuthorizationVerificationCardholderAddress",
+    "ElementCardAuthorizationVerificationCardholderName",
+    "ElementCardAuthorizationExpiration",
+    "ElementCardBalanceInquiry",
+    "ElementCardBalanceInquiryAdditionalAmounts",
+    "ElementCardBalanceInquiryAdditionalAmountsClinic",
+    "ElementCardBalanceInquiryAdditionalAmountsDental",
+    "ElementCardBalanceInquiryAdditionalAmountsOriginal",
+    "ElementCardBalanceInquiryAdditionalAmountsPrescription",
+    "ElementCardBalanceInquiryAdditionalAmountsSurcharge",
+    "ElementCardBalanceInquiryAdditionalAmountsTotalCumulative",
+    "ElementCardBalanceInquiryAdditionalAmountsTotalHealthcare",
+    "ElementCardBalanceInquiryAdditionalAmountsTransit",
+    "ElementCardBalanceInquiryAdditionalAmountsUnknown",
+    "ElementCardBalanceInquiryAdditionalAmountsVision",
+    "ElementCardBalanceInquiryNetworkDetails",
+    "ElementCardBalanceInquiryNetworkDetailsPulse",
+    "ElementCardBalanceInquiryNetworkDetailsVisa",
+    "ElementCardBalanceInquiryNetworkIdentifiers",
+    "ElementCardBalanceInquirySchemeFee",
+    "ElementCardBalanceInquiryVerification",
+    "ElementCardBalanceInquiryVerificationCardVerificationCode",
+    "ElementCardBalanceInquiryVerificationCardholderAddress",
+    "ElementCardBalanceInquiryVerificationCardholderName",
+    "ElementCardDecline",
+    "ElementCardDeclineAdditionalAmounts",
+    "ElementCardDeclineAdditionalAmountsClinic",
+    "ElementCardDeclineAdditionalAmountsDental",
+    "ElementCardDeclineAdditionalAmountsOriginal",
+    "ElementCardDeclineAdditionalAmountsPrescription",
+    "ElementCardDeclineAdditionalAmountsSurcharge",
+    "ElementCardDeclineAdditionalAmountsTotalCumulative",
+    "ElementCardDeclineAdditionalAmountsTotalHealthcare",
+    "ElementCardDeclineAdditionalAmountsTransit",
+    "ElementCardDeclineAdditionalAmountsUnknown",
+    "ElementCardDeclineAdditionalAmountsVision",
+    "ElementCardDeclineNetworkDetails",
+    "ElementCardDeclineNetworkDetailsPulse",
+    "ElementCardDeclineNetworkDetailsVisa",
+    "ElementCardDeclineNetworkIdentifiers",
+    "ElementCardDeclineSchemeFee",
+    "ElementCardDeclineVerification",
+    "ElementCardDeclineVerificationCardVerificationCode",
+    "ElementCardDeclineVerificationCardholderAddress",
+    "ElementCardDeclineVerificationCardholderName",
+    "ElementCardFinancial",
+    "ElementCardFinancialAdditionalAmounts",
+    "ElementCardFinancialAdditionalAmountsClinic",
+    "ElementCardFinancialAdditionalAmountsDental",
+    "ElementCardFinancialAdditionalAmountsOriginal",
+    "ElementCardFinancialAdditionalAmountsPrescription",
+    "ElementCardFinancialAdditionalAmountsSurcharge",
+    "ElementCardFinancialAdditionalAmountsTotalCumulative",
+    "ElementCardFinancialAdditionalAmountsTotalHealthcare",
+    "ElementCardFinancialAdditionalAmountsTransit",
+    "ElementCardFinancialAdditionalAmountsUnknown",
+    "ElementCardFinancialAdditionalAmountsVision",
+    "ElementCardFinancialNetworkDetails",
+    "ElementCardFinancialNetworkDetailsPulse",
+    "ElementCardFinancialNetworkDetailsVisa",
+    "ElementCardFinancialNetworkIdentifiers",
+    "ElementCardFinancialSchemeFee",
+    "ElementCardFinancialVerification",
+    "ElementCardFinancialVerificationCardVerificationCode",
+    "ElementCardFinancialVerificationCardholderAddress",
+    "ElementCardFinancialVerificationCardholderName",
+    "ElementCardFuelConfirmation",
+    "ElementCardFuelConfirmationNetworkIdentifiers",
+    "ElementCardFuelConfirmationSchemeFee",
+    "ElementCardIncrement",
+    "ElementCardIncrementAdditionalAmounts",
+    "ElementCardIncrementAdditionalAmountsClinic",
+    "ElementCardIncrementAdditionalAmountsDental",
+    "ElementCardIncrementAdditionalAmountsOriginal",
+    "ElementCardIncrementAdditionalAmountsPrescription",
+    "ElementCardIncrementAdditionalAmountsSurcharge",
+    "ElementCardIncrementAdditionalAmountsTotalCumulative",
+    "ElementCardIncrementAdditionalAmountsTotalHealthcare",
+    "ElementCardIncrementAdditionalAmountsTransit",
+    "ElementCardIncrementAdditionalAmountsUnknown",
+    "ElementCardIncrementAdditionalAmountsVision",
+    "ElementCardIncrementNetworkIdentifiers",
+    "ElementCardIncrementSchemeFee",
+    "ElementCardRefund",
+    "ElementCardRefundCashback",
+    "ElementCardRefundInterchange",
+    "ElementCardRefundNetworkIdentifiers",
+    "ElementCardRefundPurchaseDetails",
+    "ElementCardRefundPurchaseDetailsCarRental",
+    "ElementCardRefundPurchaseDetailsFleet",
+    "ElementCardRefundPurchaseDetailsLodging",
+    "ElementCardRefundPurchaseDetailsTravel",
+    "ElementCardRefundPurchaseDetailsTravelAncillary",
+    "ElementCardRefundPurchaseDetailsTravelAncillaryService",
+    "ElementCardRefundPurchaseDetailsTravelTripLeg",
+    "ElementCardRefundSchemeFee",
+    "ElementCardReversal",
+    "ElementCardReversalNetworkIdentifiers",
+    "ElementCardReversalSchemeFee",
+    "ElementCardSettlement",
+    "ElementCardSettlementCashback",
+    "ElementCardSettlementInterchange",
+    "ElementCardSettlementNetworkIdentifiers",
+    "ElementCardSettlementPurchaseDetails",
+    "ElementCardSettlementPurchaseDetailsCarRental",
+    "ElementCardSettlementPurchaseDetailsFleet",
+    "ElementCardSettlementPurchaseDetailsLodging",
+    "ElementCardSettlementPurchaseDetailsTravel",
+    "ElementCardSettlementPurchaseDetailsTravelAncillary",
+    "ElementCardSettlementPurchaseDetailsTravelAncillaryService",
+    "ElementCardSettlementPurchaseDetailsTravelTripLeg",
+    "ElementCardSettlementSchemeFee",
+    "ElementCardSettlementSurcharge",
+    "ElementCardValidation",
+    "ElementCardValidationAdditionalAmounts",
+    "ElementCardValidationAdditionalAmountsClinic",
+    "ElementCardValidationAdditionalAmountsDental",
+    "ElementCardValidationAdditionalAmountsOriginal",
+    "ElementCardValidationAdditionalAmountsPrescription",
+    "ElementCardValidationAdditionalAmountsSurcharge",
+    "ElementCardValidationAdditionalAmountsTotalCumulative",
+    "ElementCardValidationAdditionalAmountsTotalHealthcare",
+    "ElementCardValidationAdditionalAmountsTransit",
+    "ElementCardValidationAdditionalAmountsUnknown",
+    "ElementCardValidationAdditionalAmountsVision",
+    "ElementCardValidationNetworkDetails",
+    "ElementCardValidationNetworkDetailsPulse",
+    "ElementCardValidationNetworkDetailsVisa",
+    "ElementCardValidationNetworkIdentifiers",
+    "ElementCardValidationSchemeFee",
+    "ElementCardValidationVerification",
+    "ElementCardValidationVerificationCardVerificationCode",
+    "ElementCardValidationVerificationCardholderAddress",
+    "ElementCardValidationVerificationCardholderName",
+    "ElementOther",
+    "State",
+]
+
+
+class ElementCardAuthenticationChallengeAttempt(BaseModel):
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time of the Card
+    Authentication Challenge Attempt.
+    """
+
+    outcome: Literal["successful", "failed"]
+    """The outcome of the Card Authentication Challenge Attempt.
+
+    - `successful` - The attempt was successful.
+    - `failed` - The attempt was unsuccessful.
+    """
+
+
+class ElementCardAuthenticationChallenge(BaseModel):
+    """Details about the challenge, if one was requested."""
+
+    attempts: List[ElementCardAuthenticationChallengeAttempt]
+    """Details about the challenge verification attempts, if any happened."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the Card
+    Authentication Challenge was started.
+    """
+
+    one_time_code: str
+    """The one-time code used for the Card Authentication Challenge."""
+
+    real_time_decision_id: Optional[str] = None
+    """The identifier of the Real-Time Decision used to deliver this challenge."""
+
+    verification_method: Literal["text_message", "email", "none_available"]
+    """The method used to verify the Card Authentication Challenge.
+
+    - `text_message` - The one-time code was sent via text message.
+    - `email` - The one-time code was sent via email.
+    - `none_available` - The one-time code could not be delivered because the card
+      has no phone number or email on file.
+    """
+
+    verification_value: Optional[str] = None
+    """
+    E.g., the email address or phone number used for the Card Authentication
+    Challenge.
+    """
+
+
+class ElementCardAuthenticationDeviceChannelBrowser(BaseModel):
+    """Fields specific to the browser device channel."""
+
+    accept_header: Optional[str] = None
+    """The accept header from the cardholder's browser."""
+
+    ip_address: Optional[str] = None
+    """The IP address of the cardholder's browser."""
+
+    javascript_enabled: Optional[Literal["enabled", "disabled"]] = None
+    """Whether JavaScript is enabled in the cardholder's browser.
+
+    - `enabled` - JavaScript is enabled in the cardholder's browser.
+    - `disabled` - JavaScript is not enabled in the cardholder's browser.
+    """
+
+    language: Optional[str] = None
+    """The language of the cardholder's browser."""
+
+    user_agent: Optional[str] = None
+    """The user agent of the cardholder's browser."""
+
+
+class ElementCardAuthenticationDeviceChannelMerchantInitiated(BaseModel):
+    """Fields specific to merchant initiated transactions."""
+
+    indicator: Literal[
+        "recurring_transaction",
+        "installment_transaction",
+        "add_card",
+        "maintain_card_information",
+        "account_verification",
+        "split_delayed_shipment",
+        "top_up",
+        "mail_order",
+        "telephone_order",
+        "whitelist_status_check",
+        "other_payment",
+        "billing_agreement",
+        "device_binding_status_check",
+        "card_security_code_status_check",
+        "delayed_shipment",
+        "split_payment",
+        "fido_credential_deletion",
+        "fido_credential_registration",
+        "decoupled_authentication_fallback",
+    ]
+    """The merchant initiated indicator for the transaction.
+
+    - `recurring_transaction` - Recurring transaction.
+    - `installment_transaction` - Installment transaction.
+    - `add_card` - Add card.
+    - `maintain_card_information` - Maintain card information.
+    - `account_verification` - Account verification.
+    - `split_delayed_shipment` - Split or delayed shipment.
+    - `top_up` - Top up.
+    - `mail_order` - Mail order.
+    - `telephone_order` - Telephone order.
+    - `whitelist_status_check` - Whitelist status check.
+    - `other_payment` - Other payment.
+    - `billing_agreement` - Billing agreement.
+    - `device_binding_status_check` - Device binding status check.
+    - `card_security_code_status_check` - Card security code status check.
+    - `delayed_shipment` - Delayed shipment.
+    - `split_payment` - Split payment.
+    - `fido_credential_deletion` - FIDO credential deletion.
+    - `fido_credential_registration` - FIDO credential registration.
+    - `decoupled_authentication_fallback` - Decoupled authentication fallback.
+    """
+
+
+class ElementCardAuthenticationDeviceChannel(BaseModel):
+    """The device channel of the card authentication attempt."""
+
+    browser: Optional[ElementCardAuthenticationDeviceChannelBrowser] = None
+    """Fields specific to the browser device channel."""
+
+    category: Literal["app", "browser", "three_ds_requestor_initiated"]
+    """The category of the device channel.
+
+    - `app` - The authentication attempt was made from an app.
+    - `browser` - The authentication attempt was made from a browser.
+    - `three_ds_requestor_initiated` - The authentication attempt was initiated by
+      the 3DS Requestor.
+    """
+
+    merchant_initiated: Optional[ElementCardAuthenticationDeviceChannelMerchantInitiated] = None
+    """Fields specific to merchant initiated transactions."""
+
+
+class ElementCardAuthenticationMessageCategoryNonPayment(BaseModel):
+    """Fields specific to non-payment authentication attempts."""
+
+    pass
+
+
+class ElementCardAuthenticationMessageCategoryPayment(BaseModel):
+    """Fields specific to payment authentication attempts."""
+
+    purchase_amount: int
+    """The purchase amount in minor units."""
+
+    purchase_amount_cardholder_estimated: Optional[int] = None
+    """
+    The purchase amount in the cardholder's currency (i.e., USD) estimated using
+    daily conversion rates from the card network.
+    """
+
+    purchase_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    authentication attempt's purchase currency.
+    """
+
+    transaction_type: Optional[
+        Literal[
+            "goods_service_purchase",
+            "check_acceptance",
+            "account_funding",
+            "quasi_cash_transaction",
+            "prepaid_activation_and_load",
+        ]
+    ] = None
+    """The type of transaction being authenticated.
+
+    - `goods_service_purchase` - Purchase of goods or services.
+    - `check_acceptance` - Check acceptance.
+    - `account_funding` - Account funding.
+    - `quasi_cash_transaction` - Quasi-cash transaction.
+    - `prepaid_activation_and_load` - Prepaid activation and load.
+    """
+
+
+class ElementCardAuthenticationMessageCategory(BaseModel):
+    """The message category of the card authentication attempt."""
+
+    category: Literal["payment_authentication", "non_payment_authentication"]
+    """The category of the card authentication attempt.
+
+    - `payment_authentication` - The authentication attempt is for a payment.
+    - `non_payment_authentication` - The authentication attempt is not for a
+      payment.
+    """
+
+    non_payment: Optional[ElementCardAuthenticationMessageCategoryNonPayment] = None
+    """Fields specific to non-payment authentication attempts."""
+
+    payment: Optional[ElementCardAuthenticationMessageCategoryPayment] = None
+    """Fields specific to payment authentication attempts."""
+
+
+class ElementCardAuthentication(BaseModel):
+    """A Card Authentication object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_authentication`. Card Authentications are attempts to authenticate a transaction or a card with 3DS.
+    """
+
+    id: str
+    """The Card Authentication identifier."""
+
+    access_control_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the Access Control Server (us) for this
+    transaction.
+    """
+
+    billing_address_city: Optional[str] = None
+    """
+    The city of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    billing_address_country: Optional[str] = None
+    """
+    The country of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    billing_address_line1: Optional[str] = None
+    """
+    The first line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_line2: Optional[str] = None
+    """
+    The second line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_line3: Optional[str] = None
+    """
+    The third line of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_postal_code: Optional[str] = None
+    """
+    The postal code of the cardholder billing address associated with the card used
+    for this purchase.
+    """
+
+    billing_address_state: Optional[str] = None
+    """
+    The US state of the cardholder billing address associated with the card used for
+    this purchase.
+    """
+
+    card_id: str
+    """The identifier of the Card."""
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    cardholder_email: Optional[str] = None
+    """The email address of the cardholder."""
+
+    cardholder_name: Optional[str] = None
+    """The name of the cardholder."""
+
+    challenge: Optional[ElementCardAuthenticationChallenge] = None
+    """Details about the challenge, if one was requested."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the Card
+    Authentication was attempted.
+    """
+
+    deny_reason: Optional[
+        Literal[
+            "group_locked",
+            "card_not_active",
+            "entity_not_active",
+            "transaction_not_allowed",
+            "webhook_denied",
+            "webhook_timed_out",
+        ]
+    ] = None
+    """The reason why this authentication attempt was denied, if it was.
+
+    - `group_locked` - The group was locked.
+    - `card_not_active` - The card was not active.
+    - `entity_not_active` - The entity was not active.
+    - `transaction_not_allowed` - The transaction was not allowed.
+    - `webhook_denied` - The webhook was denied.
+    - `webhook_timed_out` - The webhook timed out.
+    """
+
+    device_channel: ElementCardAuthenticationDeviceChannel
+    """The device channel of the card authentication attempt."""
+
+    directory_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the Directory Server (the card network) for this
+    transaction.
+    """
+
+    merchant_acceptor_id: Optional[str] = None
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: Optional[str] = None
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_country: Optional[str] = None
+    """The country the merchant resides in."""
+
+    merchant_name: Optional[str] = None
+    """The name of the merchant."""
+
+    message_category: ElementCardAuthenticationMessageCategory
+    """The message category of the card authentication attempt."""
+
+    prior_authenticated_card_payment_id: Optional[str] = None
+    """
+    The ID of a prior Card Authentication that the requestor used to authenticate
+    this cardholder for a previous transaction.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    authentication attempt.
+    """
+
+    requestor_authentication_indicator: Optional[
+        Literal[
+            "payment_transaction",
+            "recurring_transaction",
+            "installment_transaction",
+            "add_card",
+            "maintain_card",
+            "emv_token_cardholder_verification",
+            "billing_agreement",
+        ]
+    ] = None
+    """
+    The 3DS requestor authentication indicator describes why the authentication
+    attempt is performed, such as for a recurring transaction.
+
+    - `payment_transaction` - The authentication is for a payment transaction.
+    - `recurring_transaction` - The authentication is for a recurring transaction.
+    - `installment_transaction` - The authentication is for an installment
+      transaction.
+    - `add_card` - The authentication is for adding a card.
+    - `maintain_card` - The authentication is for maintaining a card.
+    - `emv_token_cardholder_verification` - The authentication is for EMV token
+      cardholder verification.
+    - `billing_agreement` - The authentication is for a billing agreement.
+    """
+
+    requestor_challenge_indicator: Optional[
+        Literal[
+            "no_preference",
+            "no_challenge_requested",
+            "challenge_requested_3ds_requestor_preference",
+            "challenge_requested_mandate",
+            "no_challenge_requested_transactional_risk_analysis_already_performed",
+            "no_challenge_requested_data_share_only",
+            "no_challenge_requested_strong_consumer_authentication_already_performed",
+            "no_challenge_requested_utilize_whitelist_exemption_if_no_challenge_required",
+            "challenge_requested_whitelist_prompt_requested_if_challenge_required",
+        ]
+    ] = None
+    """Indicates whether a challenge is requested for this transaction.
+
+    - `no_preference` - No preference.
+    - `no_challenge_requested` - No challenge requested.
+    - `challenge_requested_3ds_requestor_preference` - Challenge requested, 3DS
+      Requestor preference.
+    - `challenge_requested_mandate` - Challenge requested, mandate.
+    - `no_challenge_requested_transactional_risk_analysis_already_performed` - No
+      challenge requested, transactional risk analysis already performed.
+    - `no_challenge_requested_data_share_only` - No challenge requested, data share
+      only.
+    - `no_challenge_requested_strong_consumer_authentication_already_performed` - No
+      challenge requested, strong consumer authentication already performed.
+    - `no_challenge_requested_utilize_whitelist_exemption_if_no_challenge_required` -
+      No challenge requested, utilize whitelist exemption if no challenge required.
+    - `challenge_requested_whitelist_prompt_requested_if_challenge_required` -
+      Challenge requested, whitelist prompt requested if challenge required.
+    """
+
+    requestor_name: str
+    """The name of the 3DS requestor."""
+
+    requestor_url: str
+    """The URL of the 3DS requestor."""
+
+    shipping_address_city: Optional[str] = None
+    """The city of the shipping address associated with this purchase."""
+
+    shipping_address_country: Optional[str] = None
+    """The country of the shipping address associated with this purchase."""
+
+    shipping_address_line1: Optional[str] = None
+    """The first line of the shipping address associated with this purchase."""
+
+    shipping_address_line2: Optional[str] = None
+    """The second line of the shipping address associated with this purchase."""
+
+    shipping_address_line3: Optional[str] = None
+    """The third line of the shipping address associated with this purchase."""
+
+    shipping_address_postal_code: Optional[str] = None
+    """The postal code of the shipping address associated with this purchase."""
+
+    shipping_address_state: Optional[str] = None
+    """The US state of the shipping address associated with this purchase."""
+
+    status: Literal[
+        "denied",
+        "authenticated_with_challenge",
+        "authenticated_without_challenge",
+        "awaiting_challenge",
+        "validating_challenge",
+        "canceled",
+        "timed_out_awaiting_challenge",
+        "errored",
+        "exceeded_attempt_threshold",
+    ]
+    """The status of the card authentication.
+
+    - `denied` - The authentication attempt was denied.
+    - `authenticated_with_challenge` - The authentication attempt was authenticated
+      with a challenge.
+    - `authenticated_without_challenge` - The authentication attempt was
+      authenticated without a challenge.
+    - `awaiting_challenge` - The authentication attempt is awaiting a challenge.
+    - `validating_challenge` - The authentication attempt is validating a challenge.
+    - `canceled` - The authentication attempt was canceled.
+    - `timed_out_awaiting_challenge` - The authentication attempt timed out while
+      awaiting a challenge.
+    - `errored` - The authentication attempt errored.
+    - `exceeded_attempt_threshold` - The authentication attempt exceeded the attempt
+      threshold.
+    """
+
+    three_d_secure_server_transaction_identifier: str
+    """
+    A unique identifier assigned by the 3DS Server initiating the authentication
+    attempt for this transaction.
+    """
+
+    type: Literal["card_authentication"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_authentication`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardAuthorizationAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardAuthorizationAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardAuthorizationAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardAuthorizationAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardAuthorizationAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardAuthorizationAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardAuthorizationAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardAuthorizationAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardAuthorizationAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardAuthorizationAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardAuthorizationAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardAuthorizationAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardAuthorizationHealthcare(BaseModel):
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_ninety_percent_eligibility: Literal["eligible", "not_eligible"]
+    """
+    The merchant's eligibility under the Internal Revenue Service's 90% Rule for
+    Flexible Spending Account (FSA) and Health Savings Account (HSA) eligible
+    products. The eligibility is determined based on the list of merchants
+    maintained by the Special Interest Group for IIAS Standards (SIGIS).
+
+    - `eligible` - The merchant is eligible for treatment under the 90% rule.
+    - `not_eligible` - The merchant is not eligible for treatment under the 90%
+      rule.
+    """
+
+
+class ElementCardAuthorizationNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class ElementCardAuthorizationNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class ElementCardAuthorizationNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[ElementCardAuthorizationNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[ElementCardAuthorizationNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class ElementCardAuthorizationNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardAuthorizationSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardAuthorizationVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class ElementCardAuthorizationVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class ElementCardAuthorizationVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class ElementCardAuthorizationVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: ElementCardAuthorizationVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: ElementCardAuthorizationVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[ElementCardAuthorizationVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class ElementCardAuthorization(BaseModel):
+    """A Card Authorization object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_authorization`. Card Authorizations are temporary holds placed on a customer's funds with the intent to later clear a transaction.
+    """
+
+    id: str
+    """The Card Authorization identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this authorization was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: ElementCardAuthorizationAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    expires_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which this
+    authorization will expire and the pending transaction will be released.
+    """
+
+    healthcare: Optional[ElementCardAuthorizationHealthcare] = None
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: ElementCardAuthorizationNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: ElementCardAuthorizationNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    original_card_payment_id: Optional[str] = None
+    """
+    The ID of the Card Payment containing the original authorization or card
+    validation this transaction references. For a merchant-initiated transaction,
+    this is the Card Payment from when the card was first stored, which is typically
+    where the CVV2 was verified. The reference this is derived from is supplied by
+    the merchant or their acquirer, so it is not guaranteed to be present.
+    """
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Transaction."""
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """The pending amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the authorization, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[ElementCardAuthorizationSchemeFee]
+    """The scheme fees associated with this card authorization."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    type: Literal["card_authorization"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_authorization`.
+    """
+
+    verification: ElementCardAuthorizationVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardAuthorizationExpiration(BaseModel):
+    """A Card Authorization Expiration object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_authorization_expiration`. Card Authorization Expirations are cancellations of authorizations that were never settled by the acquirer.
+    """
+
+    id: str
+    """The Card Authorization Expiration identifier."""
+
+    card_authorization_id: str
+    """The identifier for the Card Authorization this reverses."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the reversal's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    expired_amount: int
+    """
+    The amount of this authorization expiration in the minor unit of the
+    transaction's currency. For dollars, for example, this is cents.
+    """
+
+    network: Literal["visa", "pulse"]
+    """The card network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    type: Literal["card_authorization_expiration"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_authorization_expiration`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardBalanceInquiryAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardBalanceInquiryAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardBalanceInquiryAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardBalanceInquiryAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardBalanceInquiryAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardBalanceInquiryAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardBalanceInquiryAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardBalanceInquiryAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardBalanceInquiryAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardBalanceInquiryAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardBalanceInquiryAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardBalanceInquiryAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardBalanceInquiryNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class ElementCardBalanceInquiryNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class ElementCardBalanceInquiryNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[ElementCardBalanceInquiryNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[ElementCardBalanceInquiryNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class ElementCardBalanceInquiryNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardBalanceInquirySchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardBalanceInquiryVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class ElementCardBalanceInquiryVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class ElementCardBalanceInquiryVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class ElementCardBalanceInquiryVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: ElementCardBalanceInquiryVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: ElementCardBalanceInquiryVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[ElementCardBalanceInquiryVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class ElementCardBalanceInquiry(BaseModel):
+    """A Card Balance Inquiry object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_balance_inquiry`. Card Balance Inquiries are transactions that allow merchants to check the available balance on a card without placing a hold on funds, commonly used when a customer requests their balance at an ATM.
+    """
+
+    id: str
+    """The Card Balance Inquiry identifier."""
+
+    additional_amounts: ElementCardBalanceInquiryAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    balance: int
+    """The balance amount in the minor unit of the account's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the account's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: ElementCardBalanceInquiryNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: ElementCardBalanceInquiryNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[ElementCardBalanceInquirySchemeFee]
+    """The scheme fees associated with this card balance inquiry."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    type: Literal["card_balance_inquiry"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_balance_inquiry`.
+    """
+
+    verification: ElementCardBalanceInquiryVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardDeclineAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardDeclineAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardDeclineAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardDeclineAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardDeclineAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardDeclineAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardDeclineAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardDeclineAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardDeclineAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardDeclineAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardDeclineAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardDeclineAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardDeclineNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class ElementCardDeclineNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class ElementCardDeclineNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[ElementCardDeclineNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[ElementCardDeclineNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class ElementCardDeclineNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardDeclineSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardDeclineVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class ElementCardDeclineVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class ElementCardDeclineVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class ElementCardDeclineVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: ElementCardDeclineVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: ElementCardDeclineVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[ElementCardDeclineVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class ElementCardDecline(BaseModel):
+    """A Card Decline object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_decline`.
+    """
+
+    id: str
+    """The Card Decline identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this authorization was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: ElementCardDeclineAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The declined amount in the minor unit of the destination account currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the destination
+    account currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    declined_transaction_id: str
+    """The identifier of the declined transaction created for this Card Decline."""
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    incremented_card_authorization_id: Optional[str] = None
+    """
+    The identifier of the card authorization this request attempted to incrementally
+    authorize.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: ElementCardDeclineNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: ElementCardDeclineNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """
+    The declined amount in the minor unit of the transaction's presentment currency.
+    """
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the authorization, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    real_time_decision_reason: Optional[
+        Literal[
+            "insufficient_funds",
+            "transaction_never_allowed",
+            "exceeds_approval_limit",
+            "card_temporarily_disabled",
+            "suspected_fraud",
+            "additional_customer_authentication_required",
+            "other",
+        ]
+    ] = None
+    """
+    This is present if a specific decline reason was given in the real-time
+    decision.
+
+    - `insufficient_funds` - The cardholder does not have sufficient funds to cover
+      the transaction. The merchant may attempt to process the transaction again.
+    - `transaction_never_allowed` - This type of transaction is not allowed for this
+      card. This transaction should not be retried.
+    - `exceeds_approval_limit` - The transaction amount exceeds the cardholder's
+      approval limit. The merchant may attempt to process the transaction again.
+    - `card_temporarily_disabled` - The card has been temporarily disabled or not
+      yet activated. The merchant may attempt to process the transaction again.
+    - `suspected_fraud` - The transaction is suspected to be fraudulent. The
+      merchant may attempt to process the transaction again.
+    - `additional_customer_authentication_required` - Additional customer
+      authentication is required to complete the transaction, such as 3DS.
+    - `other` - The transaction was declined for another reason. The merchant may
+      attempt to process the transaction again. This should be used sparingly.
+    """
+
+    reason: Literal[
+        "account_closed",
+        "card_not_active",
+        "card_canceled",
+        "physical_card_not_active",
+        "entity_not_active",
+        "group_locked",
+        "insufficient_funds",
+        "cvv2_mismatch",
+        "pin_mismatch",
+        "card_expiration_mismatch",
+        "transaction_not_allowed",
+        "breaches_limit",
+        "webhook_declined",
+        "webhook_timed_out",
+        "declined_by_stand_in_processing",
+        "invalid_physical_card",
+        "missing_original_authorization",
+        "invalid_cryptogram",
+        "failed_3ds_authentication",
+        "suspected_card_testing",
+        "suspected_fraud",
+    ]
+    """Why the transaction was declined.
+
+    - `account_closed` - The account has been closed.
+    - `card_not_active` - The Card was not active.
+    - `card_canceled` - The Card has been canceled.
+    - `physical_card_not_active` - The Physical Card was not active.
+    - `entity_not_active` - The account's entity was not active.
+    - `group_locked` - The account was inactive.
+    - `insufficient_funds` - The Card's Account did not have a sufficient available
+      balance.
+    - `cvv2_mismatch` - The given CVV2 did not match the card's value.
+    - `pin_mismatch` - The given PIN did not match the card's value.
+    - `card_expiration_mismatch` - The given expiration date did not match the
+      card's value. Only applies when a CVV2 is present.
+    - `transaction_not_allowed` - The attempted card transaction is not allowed per
+      Increase's terms.
+    - `breaches_limit` - The transaction was blocked by a limit or an authorization
+      control.
+    - `webhook_declined` - Your application declined the transaction via webhook.
+    - `webhook_timed_out` - Your application webhook did not respond without the
+      required timeout.
+    - `declined_by_stand_in_processing` - Declined by stand-in processing.
+    - `invalid_physical_card` - The card read had an invalid CVV or dCVV.
+    - `missing_original_authorization` - The original card authorization for this
+      incremental authorization does not exist.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `failed_3ds_authentication` - The transaction was declined because the 3DS
+      authentication failed.
+    - `suspected_card_testing` - The transaction was suspected to be used by a card
+      tester to test for valid card numbers.
+    - `suspected_fraud` - The transaction was suspected to be fraudulent. Please
+      reach out to support@increase.com for more information.
+    """
+
+    scheme_fees: List[ElementCardDeclineSchemeFee]
+    """The scheme fees associated with this card decline."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    verification: ElementCardDeclineVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardFinancialAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardFinancialAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardFinancialAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardFinancialAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardFinancialAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardFinancialAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardFinancialAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardFinancialAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardFinancialAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardFinancialAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardFinancialAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardFinancialAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardFinancialNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class ElementCardFinancialNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class ElementCardFinancialNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[ElementCardFinancialNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[ElementCardFinancialNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class ElementCardFinancialNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardFinancialSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardFinancialVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class ElementCardFinancialVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class ElementCardFinancialVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class ElementCardFinancialVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: ElementCardFinancialVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: ElementCardFinancialVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[ElementCardFinancialVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class ElementCardFinancial(BaseModel):
+    """A Card Financial object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_financial`. Card Financials are card transactions that have cleared and settled. Unlike a Card Settlement, which clears a previous authorization, a Card Financial is authorized and cleared in a single message.
+    """
+
+    id: str
+    """The Card Financial identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this financial was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: ElementCardFinancialAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: ElementCardFinancialNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: ElementCardFinancialNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """The pending amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the financial, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[ElementCardFinancialSchemeFee]
+    """The scheme fees associated with this card financial."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_financial"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_financial`.
+    """
+
+    verification: ElementCardFinancialVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardFuelConfirmationNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardFuelConfirmationSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardFuelConfirmation(BaseModel):
+    """A Card Fuel Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_fuel_confirmation`. Card Fuel Confirmations update the amount of a Card Authorization after a fuel pump transaction is completed.
+    """
+
+    id: str
+    """The Card Fuel Confirmation identifier."""
+
+    card_authorization_id: str
+    """The identifier for the Card Authorization this updates."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the increment's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    network: Literal["visa", "pulse"]
+    """The card network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: ElementCardFuelConfirmationNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    pending_transaction_id: Optional[str] = None
+    """
+    The identifier of the Pending Transaction associated with this Card Fuel
+    Confirmation.
+    """
+
+    scheme_fees: List[ElementCardFuelConfirmationSchemeFee]
+    """The scheme fees associated with this card fuel confirmation."""
+
+    type: Literal["card_fuel_confirmation"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_fuel_confirmation`.
+    """
+
+    updated_authorization_amount: int
+    """
+    The updated authorization amount after this fuel confirmation, in the minor unit
+    of the transaction's currency. For dollars, for example, this is cents.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardIncrementAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardIncrementAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardIncrementAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardIncrementAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardIncrementAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardIncrementAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardIncrementAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardIncrementAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardIncrementAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardIncrementAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardIncrementAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardIncrementAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardIncrementNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardIncrementSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardIncrement(BaseModel):
+    """A Card Increment object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_increment`. Card Increments increase the pending amount of an authorized transaction.
+    """
+
+    id: str
+    """The Card Increment identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this authorization was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: ElementCardIncrementAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The amount of this increment in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_authorization_id: str
+    """The identifier for the Card Authorization this increments."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the increment's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    network: Literal["visa", "pulse"]
+    """The card network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: ElementCardIncrementNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest.
+    """
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Card Increment."""
+
+    presentment_amount: int
+    """
+    The amount of this increment in the minor unit of the transaction's presentment
+    currency.
+    """
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    incremental authorization.
+    """
+
+    scheme_fees: List[ElementCardIncrementSchemeFee]
+    """The scheme fees associated with this card increment."""
+
+    type: Literal["card_increment"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_increment`.
+    """
+
+    updated_authorization_amount: int
+    """
+    The updated authorization amount after this increment, in the minor unit of the
+    transaction's currency. For dollars, for example, this is cents.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardRefundCashback(BaseModel):
+    """Cashback debited for this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    amount: str
+    """The cashback amount given as a string containing a decimal number.
+
+    The amount is a positive number if it will be credited to you (e.g.,
+    settlements) and a negative number if it will be debited (e.g., refunds).
+    """
+
+    currency: Literal["USD"]
+    """The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the cashback.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class ElementCardRefundInterchange(BaseModel):
+    """Interchange assessed as a part of this transaction."""
+
+    amount: str
+    """
+    The interchange amount given as a string containing a decimal number in major
+    units (so e.g., "3.14" for $3.14). The amount is a positive number if it is
+    credited to Increase (e.g., settlements) and a negative number if it is debited
+    (e.g., refunds).
+    """
+
+    code: Optional[str] = None
+    """The card network specific interchange code."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the interchange
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class ElementCardRefundNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for this refund."""
+
+    acquirer_business_id: str
+    """
+    A network assigned business ID that identifies the acquirer that processed this
+    transaction.
+    """
+
+    acquirer_reference_number: str
+    """A globally unique identifier for this settlement."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardRefundPurchaseDetailsCarRental(BaseModel):
+    """Fields specific to car rentals."""
+
+    car_class_code: Optional[str] = None
+    """Code indicating the vehicle's class."""
+
+    checkout_date: Optional[date] = None
+    """
+    Date the customer picked up the car or, in the case of a no-show or pre-pay
+    transaction, the scheduled pick up date.
+    """
+
+    daily_rental_rate_amount: Optional[int] = None
+    """Daily rate being charged for the vehicle."""
+
+    daily_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily rental
+    rate.
+    """
+
+    days_rented: Optional[int] = None
+    """Number of days the vehicle was rented."""
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "gas", "extra_mileage", "late_return", "one_way_service_fee", "parking_violation"]
+    ] = None
+    """Additional charges (gas, late fee, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `gas` - Gas
+    - `extra_mileage` - Extra mileage
+    - `late_return` - Late return
+    - `one_way_service_fee` - One way service fee
+    - `parking_violation` - Parking violation
+    """
+
+    fuel_charges_amount: Optional[int] = None
+    """Fuel charges for the vehicle."""
+
+    fuel_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel charges
+    assessed.
+    """
+
+    insurance_charges_amount: Optional[int] = None
+    """Any insurance being charged for the vehicle."""
+
+    insurance_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the insurance
+    charges assessed.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show_for_specialized_vehicle"]] = None
+    """
+    An indicator that the cardholder is being billed for a reserved vehicle that was
+    not actually rented (that is, a "no-show" charge).
+
+    - `not_applicable` - Not applicable
+    - `no_show_for_specialized_vehicle` - No show for specialized vehicle
+    """
+
+    one_way_drop_off_charges_amount: Optional[int] = None
+    """
+    Charges for returning the vehicle at a different location than where it was
+    picked up.
+    """
+
+    one_way_drop_off_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the one-way
+    drop-off charges assessed.
+    """
+
+    renter_name: Optional[str] = None
+    """Name of the person renting the vehicle."""
+
+    weekly_rental_rate_amount: Optional[int] = None
+    """Weekly rate being charged for the vehicle."""
+
+    weekly_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the weekly
+    rental rate.
+    """
+
+
+class ElementCardRefundPurchaseDetailsFleet(BaseModel):
+    """Fields specific to fleet purchases."""
+
+    employee_number: Optional[str] = None
+    """The fleet employee number."""
+
+    fuel_quantity: Optional[str] = None
+    """
+    The quantity of fuel purchased, given as a string containing a decimal number in
+    the indicated unit of measure.
+    """
+
+    fuel_type: Optional[
+        Literal[
+            "regular",
+            "mid_or_plus",
+            "premium_or_super",
+            "mid_or_plus_2",
+            "premium_or_super_2",
+            "regular_ethanol_5_blend_non_us",
+            "mid_or_plus_ethanol_5_blend_non_us",
+            "premium_or_super_ethanol_5_blend_non_us",
+            "ethanol_7_7_blend",
+            "mid_or_plus_2_ethanol_5_blend_non_us",
+            "green_gasoline_regular",
+            "green_gasoline_mid_or_plus",
+            "green_gasoline_premium_or_super",
+            "regular_diesel_2",
+            "premium_diesel_2",
+            "regular_diesel_1",
+            "compressed_natural_gas",
+            "liquid_propane_gas",
+            "liquid_natural_gas",
+            "e85",
+            "regular_reformulated",
+            "mid_or_plus_reformulated",
+            "premium_or_super_reformulated",
+            "mid_or_plus_2_reformulated",
+            "premium_or_super_2_reformulated",
+            "diesel_off_road_1_2_non_taxable",
+            "diesel_off_road_non_taxable",
+            "biodiesel_blend_off_road_non_taxable",
+            "racing_fuel",
+            "mid_or_plus_2_ethanol_10_blend",
+            "premium_or_super_2_ethanol_10_blend",
+            "mid_or_plus_ethanol_2_15_blend",
+            "premium_or_super_ethanol_2_15_blend",
+            "premium_or_super_2_ethanol_5_blend_non_us",
+            "regular_ethanol_10_blend",
+            "mid_or_plus_ethanol_10_blend",
+            "premium_or_super_ethanol_10_blend",
+            "b2_diesel_blend_2_biodiesel",
+            "b5_diesel_blend_5_biodiesel",
+            "b10_diesel_blend_10_biodiesel",
+            "b11_diesel_blend_11_biodiesel",
+            "b15_diesel_blend_15_biodiesel",
+            "b20_diesel_blend_20_biodiesel",
+            "b100_diesel_blend_100_biodiesel",
+            "b1_diesel_blend_1_biodiesel",
+            "additized_diesel_2",
+            "additized_diesel_3",
+            "b7_diesel_blend_7_biodiesel_non_us",
+            "b7_premium_diesel_blend_7_biodiesel_non_us",
+            "renewable_diesel_r95_or_greater",
+            "renewable_diesel_biodiesel_6_to_20",
+            "diesel_exhaust_fluid_pump",
+            "premium_diesel_1",
+            "regular_ethanol_15_blend",
+            "mid_or_plus_ethanol_15_blend",
+            "premium_or_super_ethanol_15_blend",
+            "premium_diesel_blend_less_than_20_biodiesel",
+            "premium_diesel_blend_20_or_more_biodiesel",
+            "b75_diesel_blend_75_biodiesel",
+            "b99_diesel_blend_99_biodiesel",
+            "reserved_for_preauthorization_use_only",
+            "undefined_fuel_reserved_for_proprietary_use",
+            "miscellaneous_fuel",
+            "jet_fuel",
+            "aviation_fuel_regular",
+            "aviation_fuel_premium",
+            "aviation_fuel_jp8",
+            "aviation_fuel_4",
+            "aviation_fuel_5",
+            "biojet_diesel",
+            "aviation_biofuel_gasoline",
+            "undefined_aviation_fuel_reserved_for_proprietary_use",
+            "miscellaneous_aviation_fuel",
+            "marine_fuel_1",
+            "marine_fuel_2",
+            "marine_fuel_3",
+            "marine_fuel_4",
+            "marine_fuel_5",
+            "marine_other",
+            "marine_diesel",
+            "miscellaneous_marine_fuel",
+            "kerosene_low_sulfur",
+            "white_gas",
+            "heating_oil",
+            "other_fuel_non_taxable",
+            "kerosene_ultra_low_sulfur",
+            "electric_vehicle_charging_level_1_110_volt",
+            "electric_vehicle_charging_level_2_240_volt",
+            "electric_vehicle_charging_level_3_480_volt",
+            "renewable_diesel_r95_or_greater_off_road_non_taxable",
+            "biodiesel_blend_1_off_road_non_taxable",
+            "biodiesel_blend_75_off_road_non_taxable",
+            "biodiesel_blend_99_off_road_non_taxable",
+            "biodiesel_blend_100_off_road_non_taxable",
+            "renewable_diesel_biodiesel_6_to_20_off_road_non_taxable",
+            "electric_vehicle_charging_level_4_800_volt",
+            "electric_vehicle_charging_level_5_megawatt",
+            "hydrotreated_vegetable_oil_100",
+            "bio_compressed_natural_gas",
+            "miscellaneous_other_fuel",
+        ]
+    ] = None
+    """The type of fuel purchased.
+
+    - `regular` - Regular
+    - `mid_or_plus` - Mid or plus
+    - `premium_or_super` - Premium or super
+    - `mid_or_plus_2` - Mid or plus 2
+    - `premium_or_super_2` - Premium or super 2
+    - `regular_ethanol_5_blend_non_us` - Regular ethanol 5% blend outside the United
+      States
+    - `mid_or_plus_ethanol_5_blend_non_us` - Mid or plus ethanol 5% blend outside
+      the United States
+    - `premium_or_super_ethanol_5_blend_non_us` - Premium or super ethanol 5% blend
+      outside the United States
+    - `ethanol_7_7_blend` - Ethanol 7.7% blend
+    - `mid_or_plus_2_ethanol_5_blend_non_us` - Mid or plus 2 ethanol 5% blend
+      outside the United States
+    - `green_gasoline_regular` - Green gasoline regular
+    - `green_gasoline_mid_or_plus` - Green gasoline mid or plus
+    - `green_gasoline_premium_or_super` - Green gasoline premium or super
+    - `regular_diesel_2` - Regular diesel 2
+    - `premium_diesel_2` - Premium diesel 2
+    - `regular_diesel_1` - Regular diesel 1
+    - `compressed_natural_gas` - Compressed natural gas
+    - `liquid_propane_gas` - Liquid propane gas
+    - `liquid_natural_gas` - Liquid natural gas
+    - `e85` - E85
+    - `regular_reformulated` - Regular reformulated
+    - `mid_or_plus_reformulated` - Mid or plus reformulated
+    - `premium_or_super_reformulated` - Premium or super reformulated
+    - `mid_or_plus_2_reformulated` - Mid or plus 2 reformulated
+    - `premium_or_super_2_reformulated` - Premium or super 2 reformulated
+    - `diesel_off_road_1_2_non_taxable` - Diesel off-road 1/2 non-taxable
+    - `diesel_off_road_non_taxable` - Diesel off-road non-taxable
+    - `biodiesel_blend_off_road_non_taxable` - Biodiesel blend off-road non-taxable
+    - `racing_fuel` - Racing fuel
+    - `mid_or_plus_2_ethanol_10_blend` - Mid or plus 2 ethanol 10% blend
+    - `premium_or_super_2_ethanol_10_blend` - Premium or super 2 ethanol 10% blend
+    - `mid_or_plus_ethanol_2_15_blend` - Mid or plus ethanol 2–15% blend
+    - `premium_or_super_ethanol_2_15_blend` - Premium or super ethanol 2–15% blend
+    - `premium_or_super_2_ethanol_5_blend_non_us` - Premium or super 2 ethanol 5%
+      blend outside the United States
+    - `regular_ethanol_10_blend` - Regular ethanol 10% blend
+    - `mid_or_plus_ethanol_10_blend` - Mid or plus ethanol 10% blend
+    - `premium_or_super_ethanol_10_blend` - Premium or super ethanol 10% blend
+    - `b2_diesel_blend_2_biodiesel` - B2 diesel blend 2% biodiesel
+    - `b5_diesel_blend_5_biodiesel` - B5 diesel blend 5% biodiesel
+    - `b10_diesel_blend_10_biodiesel` - B10 diesel blend 10% biodiesel
+    - `b11_diesel_blend_11_biodiesel` - B11 diesel blend 11% biodiesel
+    - `b15_diesel_blend_15_biodiesel` - B15 diesel blend 15% biodiesel
+    - `b20_diesel_blend_20_biodiesel` - B20 diesel blend 20% biodiesel
+    - `b100_diesel_blend_100_biodiesel` - B100 diesel blend 100% biodiesel
+    - `b1_diesel_blend_1_biodiesel` - B1 diesel blend 1% biodiesel
+    - `additized_diesel_2` - Additized diesel 2
+    - `additized_diesel_3` - Additized diesel 3
+    - `b7_diesel_blend_7_biodiesel_non_us` - B7 diesel blend 7% biodiesel outside
+      the United States
+    - `b7_premium_diesel_blend_7_biodiesel_non_us` - B7 premium diesel blend 7%
+      biodiesel outside the United States
+    - `renewable_diesel_r95_or_greater` - Renewable diesel R95 or greater
+    - `renewable_diesel_biodiesel_6_to_20` - Renewable diesel biodiesel 6% to 20%
+    - `diesel_exhaust_fluid_pump` - Diesel exhaust fluid pump
+    - `premium_diesel_1` - Premium diesel 1
+    - `regular_ethanol_15_blend` - Regular ethanol 15% blend
+    - `mid_or_plus_ethanol_15_blend` - Mid or plus ethanol 15% blend
+    - `premium_or_super_ethanol_15_blend` - Premium or super ethanol 15% blend
+    - `premium_diesel_blend_less_than_20_biodiesel` - Premium diesel blend less than
+      20% biodiesel
+    - `premium_diesel_blend_20_or_more_biodiesel` - Premium diesel blend 20% or more
+      biodiesel
+    - `b75_diesel_blend_75_biodiesel` - B75 diesel blend 75% biodiesel
+    - `b99_diesel_blend_99_biodiesel` - B99 diesel blend 99% biodiesel
+    - `reserved_for_preauthorization_use_only` - Reserved for preauthorization use
+      only
+    - `undefined_fuel_reserved_for_proprietary_use` - Undefined fuel reserved for
+      proprietary use
+    - `miscellaneous_fuel` - Miscellaneous fuel
+    - `jet_fuel` - Jet fuel
+    - `aviation_fuel_regular` - Aviation fuel regular
+    - `aviation_fuel_premium` - Aviation fuel premium
+    - `aviation_fuel_jp8` - Aviation fuel JP8
+    - `aviation_fuel_4` - Aviation fuel 4
+    - `aviation_fuel_5` - Aviation fuel 5
+    - `biojet_diesel` - Biojet diesel
+    - `aviation_biofuel_gasoline` - Aviation biofuel gasoline
+    - `undefined_aviation_fuel_reserved_for_proprietary_use` - Undefined aviation
+      fuel reserved for proprietary use
+    - `miscellaneous_aviation_fuel` - Miscellaneous aviation fuel
+    - `marine_fuel_1` - Marine fuel 1
+    - `marine_fuel_2` - Marine fuel 2
+    - `marine_fuel_3` - Marine fuel 3
+    - `marine_fuel_4` - Marine fuel 4
+    - `marine_fuel_5` - Marine fuel 5
+    - `marine_other` - Marine other
+    - `marine_diesel` - Marine diesel
+    - `miscellaneous_marine_fuel` - Miscellaneous marine fuel
+    - `kerosene_low_sulfur` - Kerosene low sulfur
+    - `white_gas` - White gas
+    - `heating_oil` - Heating oil
+    - `other_fuel_non_taxable` - Other fuel non-taxable
+    - `kerosene_ultra_low_sulfur` - Kerosene ultra low sulfur
+    - `electric_vehicle_charging_level_1_110_volt` - Electric vehicle charging level
+      1 110 volt
+    - `electric_vehicle_charging_level_2_240_volt` - Electric vehicle charging level
+      2 240 volt
+    - `electric_vehicle_charging_level_3_480_volt` - Electric vehicle charging level
+      3 480 volt
+    - `renewable_diesel_r95_or_greater_off_road_non_taxable` - Renewable diesel R95
+      or greater off-road non-taxable
+    - `biodiesel_blend_1_off_road_non_taxable` - Biodiesel blend 1% off-road
+      non-taxable
+    - `biodiesel_blend_75_off_road_non_taxable` - Biodiesel blend 75% off-road
+      non-taxable
+    - `biodiesel_blend_99_off_road_non_taxable` - Biodiesel blend 99% off-road
+      non-taxable
+    - `biodiesel_blend_100_off_road_non_taxable` - Biodiesel blend 100% off-road
+      non-taxable
+    - `renewable_diesel_biodiesel_6_to_20_off_road_non_taxable` - Renewable diesel
+      biodiesel 6% to 20% off-road non-taxable
+    - `electric_vehicle_charging_level_4_800_volt` - Electric vehicle charging level
+      4 800 volt
+    - `electric_vehicle_charging_level_5_megawatt` - Electric vehicle charging level
+      5 megawatt
+    - `hydrotreated_vegetable_oil_100` - Hydrotreated vegetable oil 100
+    - `bio_compressed_natural_gas` - Bio compressed natural gas
+    - `miscellaneous_other_fuel` - Miscellaneous other fuel
+    """
+
+    fuel_unit_cost_amount: Optional[int] = None
+    """The cost per unit of fuel in minor units."""
+
+    fuel_unit_cost_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel unit
+    cost.
+    """
+
+    fuel_unit_of_measure: Optional[
+        Literal["liter", "us_gallon", "imperial_gallon", "kilogram", "pound", "charging_minutes", "kilowatt_hour"]
+    ] = None
+    """The unit of measure for the fuel quantity.
+
+    - `liter` - Liter
+    - `us_gallon` - US gallon
+    - `imperial_gallon` - Imperial gallon
+    - `kilogram` - Kilogram
+    - `pound` - Pound
+    - `charging_minutes` - Charging minutes
+    - `kilowatt_hour` - Kilowatt hour
+    """
+
+    gross_fuel_price_amount: Optional[int] = None
+    """The gross fuel price in minor units."""
+
+    gross_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross fuel
+    price.
+    """
+
+    gross_non_fuel_price_amount: Optional[int] = None
+    """The gross non-fuel price in minor units."""
+
+    gross_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross
+    non-fuel price.
+    """
+
+    net_fuel_price_amount: Optional[int] = None
+    """The net fuel price in minor units."""
+
+    net_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net fuel
+    price.
+    """
+
+    net_non_fuel_price_amount: Optional[int] = None
+    """The net non-fuel price in minor units."""
+
+    net_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net non-fuel
+    price.
+    """
+
+    odometer_reading: Optional[int] = None
+    """The odometer reading reported by the merchant."""
+
+    purchase_type: Optional[
+        Literal[
+            "fuel_purchase", "non_fuel_purchase", "fuel_and_non_fuel_purchase", "fuel_purchase_with_multiple_fuel_types"
+        ]
+    ] = None
+    """The type of fleet purchase.
+
+    - `fuel_purchase` - Fuel purchase
+    - `non_fuel_purchase` - Non-fuel purchase
+    - `fuel_and_non_fuel_purchase` - Fuel and non-fuel purchase
+    - `fuel_purchase_with_multiple_fuel_types` - Fuel purchase with multiple fuel
+      types
+    """
+
+    service_type: Optional[Literal["full_service", "self_service", "high_speed_dispense"]] = None
+    """The type of service provided.
+
+    - `full_service` - Full service
+    - `self_service` - Self service
+    - `high_speed_dispense` - High speed dispense
+    """
+
+    trailer_number: Optional[str] = None
+    """The fleet trailer number."""
+
+
+class ElementCardRefundPurchaseDetailsLodging(BaseModel):
+    """Fields specific to lodging."""
+
+    check_in_date: Optional[date] = None
+    """Date the customer checked in."""
+
+    daily_room_rate_amount: Optional[int] = None
+    """Daily rate being charged for the room."""
+
+    daily_room_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily room
+    rate.
+    """
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "restaurant", "gift_shop", "mini_bar", "telephone", "other", "laundry"]
+    ] = None
+    """Additional charges (phone, late check-out, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `restaurant` - Restaurant
+    - `gift_shop` - Gift shop
+    - `mini_bar` - Mini bar
+    - `telephone` - Telephone
+    - `other` - Other
+    - `laundry` - Laundry
+    """
+
+    folio_cash_advances_amount: Optional[int] = None
+    """Folio cash advances for the room."""
+
+    folio_cash_advances_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the folio cash
+    advances.
+    """
+
+    food_beverage_charges_amount: Optional[int] = None
+    """Food and beverage charges for the room."""
+
+    food_beverage_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the food and
+    beverage charges.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show"]] = None
+    """
+    Indicator that the cardholder is being billed for a reserved room that was not
+    actually used.
+
+    - `not_applicable` - Not applicable
+    - `no_show` - No show
+    """
+
+    prepaid_expenses_amount: Optional[int] = None
+    """Prepaid expenses being charged for the room."""
+
+    prepaid_expenses_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the prepaid
+    expenses.
+    """
+
+    room_nights: Optional[int] = None
+    """Number of nights the room was rented."""
+
+    total_room_tax_amount: Optional[int] = None
+    """Total room tax being charged."""
+
+    total_room_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total room
+    tax.
+    """
+
+    total_tax_amount: Optional[int] = None
+    """Total tax being charged for the room."""
+
+    total_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total tax
+    assessed.
+    """
+
+
+class ElementCardRefundPurchaseDetailsTravelAncillaryService(BaseModel):
+    category: Optional[
+        Literal[
+            "none",
+            "bundled_service",
+            "baggage_fee",
+            "change_fee",
+            "cargo",
+            "carbon_offset",
+            "frequent_flyer",
+            "gift_card",
+            "ground_transport",
+            "in_flight_entertainment",
+            "lounge",
+            "medical",
+            "meal_beverage",
+            "other",
+            "passenger_assist_fee",
+            "pets",
+            "seat_fees",
+            "standby",
+            "service_fee",
+            "store",
+            "travel_service",
+            "unaccompanied_travel",
+            "upgrades",
+            "wifi",
+        ]
+    ] = None
+    """Category of the ancillary service.
+
+    - `none` - None
+    - `bundled_service` - Bundled service
+    - `baggage_fee` - Baggage fee
+    - `change_fee` - Change fee
+    - `cargo` - Cargo
+    - `carbon_offset` - Carbon offset
+    - `frequent_flyer` - Frequent flyer
+    - `gift_card` - Gift card
+    - `ground_transport` - Ground transport
+    - `in_flight_entertainment` - In-flight entertainment
+    - `lounge` - Lounge
+    - `medical` - Medical
+    - `meal_beverage` - Meal beverage
+    - `other` - Other
+    - `passenger_assist_fee` - Passenger assist fee
+    - `pets` - Pets
+    - `seat_fees` - Seat fees
+    - `standby` - Standby
+    - `service_fee` - Service fee
+    - `store` - Store
+    - `travel_service` - Travel service
+    - `unaccompanied_travel` - Unaccompanied travel
+    - `upgrades` - Upgrades
+    - `wifi` - Wi-fi
+    """
+
+    sub_category: Optional[str] = None
+    """Sub-category of the ancillary service, free-form."""
+
+
+class ElementCardRefundPurchaseDetailsTravelAncillary(BaseModel):
+    """Ancillary purchases in addition to the airfare."""
+
+    connected_ticket_document_number: Optional[str] = None
+    """
+    If this purchase has a connection or relationship to another purchase, such as a
+    baggage fee for a passenger transport ticket, this field should contain the
+    ticket document number for the other purchase.
+    """
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "other",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `other` - Other
+    """
+
+    passenger_name_or_description: Optional[str] = None
+    """Name of the passenger or description of the ancillary purchase."""
+
+    services: List[ElementCardRefundPurchaseDetailsTravelAncillaryService]
+    """Additional travel charges, such as baggage fees."""
+
+    ticket_document_number: Optional[str] = None
+    """Ticket document number."""
+
+
+class ElementCardRefundPurchaseDetailsTravelTripLeg(BaseModel):
+    carrier_code: Optional[str] = None
+    """Carrier code (e.g., United Airlines, Jet Blue, etc.)."""
+
+    destination_city_airport_code: Optional[str] = None
+    """Code for the destination city or airport."""
+
+    fare_basis_code: Optional[str] = None
+    """Fare basis code."""
+
+    flight_number: Optional[str] = None
+    """Flight number."""
+
+    service_class: Optional[str] = None
+    """Service class (e.g., first class, business class, etc.)."""
+
+    stop_over_code: Optional[Literal["none", "stop_over_allowed", "stop_over_not_allowed"]] = None
+    """Indicates whether a stopover is allowed on this ticket.
+
+    - `none` - None
+    - `stop_over_allowed` - Stop over allowed
+    - `stop_over_not_allowed` - Stop over not allowed
+    """
+
+
+class ElementCardRefundPurchaseDetailsTravel(BaseModel):
+    """Fields specific to travel."""
+
+    ancillary: Optional[ElementCardRefundPurchaseDetailsTravelAncillary] = None
+    """Ancillary purchases in addition to the airfare."""
+
+    computerized_reservation_system: Optional[str] = None
+    """Indicates the computerized reservation system used to book the ticket."""
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_cancellation",
+            "other",
+            "partial_refund_of_airline_ticket",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `airline_ticket_cancellation` - Airline ticket cancellation
+    - `other` - Other
+    - `partial_refund_of_airline_ticket` - Partial refund of airline ticket
+    """
+
+    departure_date: Optional[date] = None
+    """Date of departure."""
+
+    origination_city_airport_code: Optional[str] = None
+    """Code for the originating city or airport."""
+
+    passenger_name: Optional[str] = None
+    """Name of the passenger."""
+
+    restricted_ticket_indicator: Optional[Literal["no_restrictions", "restricted_non_refundable_ticket"]] = None
+    """Indicates whether this ticket is non-refundable.
+
+    - `no_restrictions` - No restrictions
+    - `restricted_non_refundable_ticket` - Restricted non-refundable ticket
+    """
+
+    ticket_change_indicator: Optional[Literal["none", "change_to_existing_ticket", "new_ticket"]] = None
+    """Indicates why a ticket was changed.
+
+    - `none` - None
+    - `change_to_existing_ticket` - Change to existing ticket
+    - `new_ticket` - New ticket
+    """
+
+    ticket_number: Optional[str] = None
+    """Ticket number."""
+
+    travel_agency_code: Optional[str] = None
+    """Code for the travel agency if the ticket was issued by a travel agency."""
+
+    travel_agency_name: Optional[str] = None
+    """Name of the travel agency if the ticket was issued by a travel agency."""
+
+    trip_legs: Optional[List[ElementCardRefundPurchaseDetailsTravelTripLeg]] = None
+    """Fields specific to each leg of the journey."""
+
+
+class ElementCardRefundPurchaseDetails(BaseModel):
+    """
+    Additional details about the card purchase, such as tax and industry-specific fields.
+    """
+
+    car_rental: Optional[ElementCardRefundPurchaseDetailsCarRental] = None
+    """Fields specific to car rentals."""
+
+    customer_reference_identifier: Optional[str] = None
+    """An identifier from the merchant for the customer or consumer."""
+
+    fleet: Optional[ElementCardRefundPurchaseDetailsFleet] = None
+    """Fields specific to fleet purchases."""
+
+    local_tax_amount: Optional[int] = None
+    """The state or provincial tax amount in minor units."""
+
+    local_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    lodging: Optional[ElementCardRefundPurchaseDetailsLodging] = None
+    """Fields specific to lodging."""
+
+    national_tax_amount: Optional[int] = None
+    """The national tax amount in minor units."""
+
+    national_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    purchase_identifier: Optional[str] = None
+    """An identifier from the merchant for the purchase to the issuer and cardholder."""
+
+    purchase_identifier_format: Optional[
+        Literal[
+            "free_text",
+            "order_number",
+            "rental_agreement_number",
+            "hotel_folio_number",
+            "invoice_number",
+            "visa_recurrent_reference_identifier",
+        ]
+    ] = None
+    """The format of the purchase identifier.
+
+    - `free_text` - Free text
+    - `order_number` - Order number
+    - `rental_agreement_number` - Rental agreement number
+    - `hotel_folio_number` - Hotel folio number
+    - `invoice_number` - Invoice number
+    - `visa_recurrent_reference_identifier` - Visa Recurrent reference identifier
+    """
+
+    travel: Optional[ElementCardRefundPurchaseDetailsTravel] = None
+    """Fields specific to travel."""
+
+
+class ElementCardRefundSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardRefund(BaseModel):
+    """A Card Refund object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_refund`. Card Refunds move money back to the cardholder. While they are usually connected to a Card Settlement, an acquirer can also refund money directly to a card without relation to a transaction.
+    """
+
+    id: str
+    """The Card Refund identifier."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's settlement currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    cashback: Optional[ElementCardRefundCashback] = None
+    """Cashback debited for this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's settlement currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    interchange: Optional[ElementCardRefundInterchange] = None
+    """Interchange assessed as a part of this transaction."""
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """The 4-digit MCC describing the merchant's business."""
+
+    merchant_city: str
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_name: str
+    """The name of the merchant."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code. For US merchants this is always a 5-digit ZIP code."""
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network: Literal["visa", "pulse"]
+    """The card network on which this transaction was processed.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: ElementCardRefundNetworkIdentifiers
+    """Network-specific identifiers for this refund."""
+
+    presentment_amount: int
+    """The amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    purchase_details: Optional[ElementCardRefundPurchaseDetails] = None
+    """
+    Additional details about the card purchase, such as tax and industry-specific
+    fields.
+    """
+
+    scheme_fees: List[ElementCardRefundSchemeFee]
+    """The scheme fees associated with this card refund."""
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_refund"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_refund`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardReversalNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardReversalSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardReversal(BaseModel):
+    """A Card Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_reversal`. Card Reversals cancel parts of or the entirety of an existing Card Authorization.
+    """
+
+    id: str
+    """The Card Reversal identifier."""
+
+    card_authorization_id: str
+    """The identifier for the Card Authorization this reverses."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the reversal's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: Optional[str] = None
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network: Literal["visa", "pulse"]
+    """The card network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: ElementCardReversalNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Card Reversal."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the reversal's
+    presentment currency.
+    """
+
+    reversal_amount: int
+    """The amount of this reversal in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    reversal_presentment_amount: int
+    """
+    The amount of this reversal in the minor unit of the transaction's presentment
+    currency. For dollars, for example, this is cents.
+    """
+
+    reversal_reason: Optional[
+        Literal[
+            "reversed_by_customer", "reversed_by_network_or_acquirer", "reversed_by_point_of_sale", "partial_reversal"
+        ]
+    ] = None
+    """Why this reversal was initiated.
+
+    - `reversed_by_customer` - The Card Reversal was initiated at the customer's
+      request.
+    - `reversed_by_network_or_acquirer` - The Card Reversal was initiated by the
+      network or acquirer.
+    - `reversed_by_point_of_sale` - The Card Reversal was initiated by the point of
+      sale device.
+    - `partial_reversal` - The Card Reversal was a partial reversal, for any reason.
+    """
+
+    scheme_fees: List[ElementCardReversalSchemeFee]
+    """The scheme fees associated with this card reversal."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    type: Literal["card_reversal"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_reversal`.
+    """
+
+    updated_authorization_amount: int
+    """
+    The amount left pending on the Card Authorization in the minor unit of the
+    transaction's currency. For dollars, for example, this is cents.
+    """
+
+    updated_authorization_presentment_amount: int
+    """
+    The amount left pending on the Card Authorization in the minor unit of the
+    transaction's presentment currency. For dollars, for example, this is cents.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardSettlementCashback(BaseModel):
+    """Cashback earned on this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    amount: str
+    """The cashback amount given as a string containing a decimal number.
+
+    The amount is a positive number if it will be credited to you (e.g.,
+    settlements) and a negative number if it will be debited (e.g., refunds).
+    """
+
+    currency: Literal["USD"]
+    """The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the cashback.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class ElementCardSettlementInterchange(BaseModel):
+    """Interchange assessed as a part of this transaction."""
+
+    amount: str
+    """
+    The interchange amount given as a string containing a decimal number in major
+    units (so e.g., "3.14" for $3.14). The amount is a positive number if it is
+    credited to Increase (e.g., settlements) and a negative number if it is debited
+    (e.g., refunds).
+    """
+
+    code: Optional[str] = None
+    """The card network specific interchange code."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the interchange
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+
+class ElementCardSettlementNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for this refund."""
+
+    acquirer_business_id: str
+    """
+    A network assigned business ID that identifies the acquirer that processed this
+    transaction.
+    """
+
+    acquirer_reference_number: str
+    """A globally unique identifier for this settlement."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardSettlementPurchaseDetailsCarRental(BaseModel):
+    """Fields specific to car rentals."""
+
+    car_class_code: Optional[str] = None
+    """Code indicating the vehicle's class."""
+
+    checkout_date: Optional[date] = None
+    """
+    Date the customer picked up the car or, in the case of a no-show or pre-pay
+    transaction, the scheduled pick up date.
+    """
+
+    daily_rental_rate_amount: Optional[int] = None
+    """Daily rate being charged for the vehicle."""
+
+    daily_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily rental
+    rate.
+    """
+
+    days_rented: Optional[int] = None
+    """Number of days the vehicle was rented."""
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "gas", "extra_mileage", "late_return", "one_way_service_fee", "parking_violation"]
+    ] = None
+    """Additional charges (gas, late fee, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `gas` - Gas
+    - `extra_mileage` - Extra mileage
+    - `late_return` - Late return
+    - `one_way_service_fee` - One way service fee
+    - `parking_violation` - Parking violation
+    """
+
+    fuel_charges_amount: Optional[int] = None
+    """Fuel charges for the vehicle."""
+
+    fuel_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel charges
+    assessed.
+    """
+
+    insurance_charges_amount: Optional[int] = None
+    """Any insurance being charged for the vehicle."""
+
+    insurance_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the insurance
+    charges assessed.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show_for_specialized_vehicle"]] = None
+    """
+    An indicator that the cardholder is being billed for a reserved vehicle that was
+    not actually rented (that is, a "no-show" charge).
+
+    - `not_applicable` - Not applicable
+    - `no_show_for_specialized_vehicle` - No show for specialized vehicle
+    """
+
+    one_way_drop_off_charges_amount: Optional[int] = None
+    """
+    Charges for returning the vehicle at a different location than where it was
+    picked up.
+    """
+
+    one_way_drop_off_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the one-way
+    drop-off charges assessed.
+    """
+
+    renter_name: Optional[str] = None
+    """Name of the person renting the vehicle."""
+
+    weekly_rental_rate_amount: Optional[int] = None
+    """Weekly rate being charged for the vehicle."""
+
+    weekly_rental_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the weekly
+    rental rate.
+    """
+
+
+class ElementCardSettlementPurchaseDetailsFleet(BaseModel):
+    """Fields specific to fleet purchases."""
+
+    employee_number: Optional[str] = None
+    """The fleet employee number."""
+
+    fuel_quantity: Optional[str] = None
+    """
+    The quantity of fuel purchased, given as a string containing a decimal number in
+    the indicated unit of measure.
+    """
+
+    fuel_type: Optional[
+        Literal[
+            "regular",
+            "mid_or_plus",
+            "premium_or_super",
+            "mid_or_plus_2",
+            "premium_or_super_2",
+            "regular_ethanol_5_blend_non_us",
+            "mid_or_plus_ethanol_5_blend_non_us",
+            "premium_or_super_ethanol_5_blend_non_us",
+            "ethanol_7_7_blend",
+            "mid_or_plus_2_ethanol_5_blend_non_us",
+            "green_gasoline_regular",
+            "green_gasoline_mid_or_plus",
+            "green_gasoline_premium_or_super",
+            "regular_diesel_2",
+            "premium_diesel_2",
+            "regular_diesel_1",
+            "compressed_natural_gas",
+            "liquid_propane_gas",
+            "liquid_natural_gas",
+            "e85",
+            "regular_reformulated",
+            "mid_or_plus_reformulated",
+            "premium_or_super_reformulated",
+            "mid_or_plus_2_reformulated",
+            "premium_or_super_2_reformulated",
+            "diesel_off_road_1_2_non_taxable",
+            "diesel_off_road_non_taxable",
+            "biodiesel_blend_off_road_non_taxable",
+            "racing_fuel",
+            "mid_or_plus_2_ethanol_10_blend",
+            "premium_or_super_2_ethanol_10_blend",
+            "mid_or_plus_ethanol_2_15_blend",
+            "premium_or_super_ethanol_2_15_blend",
+            "premium_or_super_2_ethanol_5_blend_non_us",
+            "regular_ethanol_10_blend",
+            "mid_or_plus_ethanol_10_blend",
+            "premium_or_super_ethanol_10_blend",
+            "b2_diesel_blend_2_biodiesel",
+            "b5_diesel_blend_5_biodiesel",
+            "b10_diesel_blend_10_biodiesel",
+            "b11_diesel_blend_11_biodiesel",
+            "b15_diesel_blend_15_biodiesel",
+            "b20_diesel_blend_20_biodiesel",
+            "b100_diesel_blend_100_biodiesel",
+            "b1_diesel_blend_1_biodiesel",
+            "additized_diesel_2",
+            "additized_diesel_3",
+            "b7_diesel_blend_7_biodiesel_non_us",
+            "b7_premium_diesel_blend_7_biodiesel_non_us",
+            "renewable_diesel_r95_or_greater",
+            "renewable_diesel_biodiesel_6_to_20",
+            "diesel_exhaust_fluid_pump",
+            "premium_diesel_1",
+            "regular_ethanol_15_blend",
+            "mid_or_plus_ethanol_15_blend",
+            "premium_or_super_ethanol_15_blend",
+            "premium_diesel_blend_less_than_20_biodiesel",
+            "premium_diesel_blend_20_or_more_biodiesel",
+            "b75_diesel_blend_75_biodiesel",
+            "b99_diesel_blend_99_biodiesel",
+            "reserved_for_preauthorization_use_only",
+            "undefined_fuel_reserved_for_proprietary_use",
+            "miscellaneous_fuel",
+            "jet_fuel",
+            "aviation_fuel_regular",
+            "aviation_fuel_premium",
+            "aviation_fuel_jp8",
+            "aviation_fuel_4",
+            "aviation_fuel_5",
+            "biojet_diesel",
+            "aviation_biofuel_gasoline",
+            "undefined_aviation_fuel_reserved_for_proprietary_use",
+            "miscellaneous_aviation_fuel",
+            "marine_fuel_1",
+            "marine_fuel_2",
+            "marine_fuel_3",
+            "marine_fuel_4",
+            "marine_fuel_5",
+            "marine_other",
+            "marine_diesel",
+            "miscellaneous_marine_fuel",
+            "kerosene_low_sulfur",
+            "white_gas",
+            "heating_oil",
+            "other_fuel_non_taxable",
+            "kerosene_ultra_low_sulfur",
+            "electric_vehicle_charging_level_1_110_volt",
+            "electric_vehicle_charging_level_2_240_volt",
+            "electric_vehicle_charging_level_3_480_volt",
+            "renewable_diesel_r95_or_greater_off_road_non_taxable",
+            "biodiesel_blend_1_off_road_non_taxable",
+            "biodiesel_blend_75_off_road_non_taxable",
+            "biodiesel_blend_99_off_road_non_taxable",
+            "biodiesel_blend_100_off_road_non_taxable",
+            "renewable_diesel_biodiesel_6_to_20_off_road_non_taxable",
+            "electric_vehicle_charging_level_4_800_volt",
+            "electric_vehicle_charging_level_5_megawatt",
+            "hydrotreated_vegetable_oil_100",
+            "bio_compressed_natural_gas",
+            "miscellaneous_other_fuel",
+        ]
+    ] = None
+    """The type of fuel purchased.
+
+    - `regular` - Regular
+    - `mid_or_plus` - Mid or plus
+    - `premium_or_super` - Premium or super
+    - `mid_or_plus_2` - Mid or plus 2
+    - `premium_or_super_2` - Premium or super 2
+    - `regular_ethanol_5_blend_non_us` - Regular ethanol 5% blend outside the United
+      States
+    - `mid_or_plus_ethanol_5_blend_non_us` - Mid or plus ethanol 5% blend outside
+      the United States
+    - `premium_or_super_ethanol_5_blend_non_us` - Premium or super ethanol 5% blend
+      outside the United States
+    - `ethanol_7_7_blend` - Ethanol 7.7% blend
+    - `mid_or_plus_2_ethanol_5_blend_non_us` - Mid or plus 2 ethanol 5% blend
+      outside the United States
+    - `green_gasoline_regular` - Green gasoline regular
+    - `green_gasoline_mid_or_plus` - Green gasoline mid or plus
+    - `green_gasoline_premium_or_super` - Green gasoline premium or super
+    - `regular_diesel_2` - Regular diesel 2
+    - `premium_diesel_2` - Premium diesel 2
+    - `regular_diesel_1` - Regular diesel 1
+    - `compressed_natural_gas` - Compressed natural gas
+    - `liquid_propane_gas` - Liquid propane gas
+    - `liquid_natural_gas` - Liquid natural gas
+    - `e85` - E85
+    - `regular_reformulated` - Regular reformulated
+    - `mid_or_plus_reformulated` - Mid or plus reformulated
+    - `premium_or_super_reformulated` - Premium or super reformulated
+    - `mid_or_plus_2_reformulated` - Mid or plus 2 reformulated
+    - `premium_or_super_2_reformulated` - Premium or super 2 reformulated
+    - `diesel_off_road_1_2_non_taxable` - Diesel off-road 1/2 non-taxable
+    - `diesel_off_road_non_taxable` - Diesel off-road non-taxable
+    - `biodiesel_blend_off_road_non_taxable` - Biodiesel blend off-road non-taxable
+    - `racing_fuel` - Racing fuel
+    - `mid_or_plus_2_ethanol_10_blend` - Mid or plus 2 ethanol 10% blend
+    - `premium_or_super_2_ethanol_10_blend` - Premium or super 2 ethanol 10% blend
+    - `mid_or_plus_ethanol_2_15_blend` - Mid or plus ethanol 2–15% blend
+    - `premium_or_super_ethanol_2_15_blend` - Premium or super ethanol 2–15% blend
+    - `premium_or_super_2_ethanol_5_blend_non_us` - Premium or super 2 ethanol 5%
+      blend outside the United States
+    - `regular_ethanol_10_blend` - Regular ethanol 10% blend
+    - `mid_or_plus_ethanol_10_blend` - Mid or plus ethanol 10% blend
+    - `premium_or_super_ethanol_10_blend` - Premium or super ethanol 10% blend
+    - `b2_diesel_blend_2_biodiesel` - B2 diesel blend 2% biodiesel
+    - `b5_diesel_blend_5_biodiesel` - B5 diesel blend 5% biodiesel
+    - `b10_diesel_blend_10_biodiesel` - B10 diesel blend 10% biodiesel
+    - `b11_diesel_blend_11_biodiesel` - B11 diesel blend 11% biodiesel
+    - `b15_diesel_blend_15_biodiesel` - B15 diesel blend 15% biodiesel
+    - `b20_diesel_blend_20_biodiesel` - B20 diesel blend 20% biodiesel
+    - `b100_diesel_blend_100_biodiesel` - B100 diesel blend 100% biodiesel
+    - `b1_diesel_blend_1_biodiesel` - B1 diesel blend 1% biodiesel
+    - `additized_diesel_2` - Additized diesel 2
+    - `additized_diesel_3` - Additized diesel 3
+    - `b7_diesel_blend_7_biodiesel_non_us` - B7 diesel blend 7% biodiesel outside
+      the United States
+    - `b7_premium_diesel_blend_7_biodiesel_non_us` - B7 premium diesel blend 7%
+      biodiesel outside the United States
+    - `renewable_diesel_r95_or_greater` - Renewable diesel R95 or greater
+    - `renewable_diesel_biodiesel_6_to_20` - Renewable diesel biodiesel 6% to 20%
+    - `diesel_exhaust_fluid_pump` - Diesel exhaust fluid pump
+    - `premium_diesel_1` - Premium diesel 1
+    - `regular_ethanol_15_blend` - Regular ethanol 15% blend
+    - `mid_or_plus_ethanol_15_blend` - Mid or plus ethanol 15% blend
+    - `premium_or_super_ethanol_15_blend` - Premium or super ethanol 15% blend
+    - `premium_diesel_blend_less_than_20_biodiesel` - Premium diesel blend less than
+      20% biodiesel
+    - `premium_diesel_blend_20_or_more_biodiesel` - Premium diesel blend 20% or more
+      biodiesel
+    - `b75_diesel_blend_75_biodiesel` - B75 diesel blend 75% biodiesel
+    - `b99_diesel_blend_99_biodiesel` - B99 diesel blend 99% biodiesel
+    - `reserved_for_preauthorization_use_only` - Reserved for preauthorization use
+      only
+    - `undefined_fuel_reserved_for_proprietary_use` - Undefined fuel reserved for
+      proprietary use
+    - `miscellaneous_fuel` - Miscellaneous fuel
+    - `jet_fuel` - Jet fuel
+    - `aviation_fuel_regular` - Aviation fuel regular
+    - `aviation_fuel_premium` - Aviation fuel premium
+    - `aviation_fuel_jp8` - Aviation fuel JP8
+    - `aviation_fuel_4` - Aviation fuel 4
+    - `aviation_fuel_5` - Aviation fuel 5
+    - `biojet_diesel` - Biojet diesel
+    - `aviation_biofuel_gasoline` - Aviation biofuel gasoline
+    - `undefined_aviation_fuel_reserved_for_proprietary_use` - Undefined aviation
+      fuel reserved for proprietary use
+    - `miscellaneous_aviation_fuel` - Miscellaneous aviation fuel
+    - `marine_fuel_1` - Marine fuel 1
+    - `marine_fuel_2` - Marine fuel 2
+    - `marine_fuel_3` - Marine fuel 3
+    - `marine_fuel_4` - Marine fuel 4
+    - `marine_fuel_5` - Marine fuel 5
+    - `marine_other` - Marine other
+    - `marine_diesel` - Marine diesel
+    - `miscellaneous_marine_fuel` - Miscellaneous marine fuel
+    - `kerosene_low_sulfur` - Kerosene low sulfur
+    - `white_gas` - White gas
+    - `heating_oil` - Heating oil
+    - `other_fuel_non_taxable` - Other fuel non-taxable
+    - `kerosene_ultra_low_sulfur` - Kerosene ultra low sulfur
+    - `electric_vehicle_charging_level_1_110_volt` - Electric vehicle charging level
+      1 110 volt
+    - `electric_vehicle_charging_level_2_240_volt` - Electric vehicle charging level
+      2 240 volt
+    - `electric_vehicle_charging_level_3_480_volt` - Electric vehicle charging level
+      3 480 volt
+    - `renewable_diesel_r95_or_greater_off_road_non_taxable` - Renewable diesel R95
+      or greater off-road non-taxable
+    - `biodiesel_blend_1_off_road_non_taxable` - Biodiesel blend 1% off-road
+      non-taxable
+    - `biodiesel_blend_75_off_road_non_taxable` - Biodiesel blend 75% off-road
+      non-taxable
+    - `biodiesel_blend_99_off_road_non_taxable` - Biodiesel blend 99% off-road
+      non-taxable
+    - `biodiesel_blend_100_off_road_non_taxable` - Biodiesel blend 100% off-road
+      non-taxable
+    - `renewable_diesel_biodiesel_6_to_20_off_road_non_taxable` - Renewable diesel
+      biodiesel 6% to 20% off-road non-taxable
+    - `electric_vehicle_charging_level_4_800_volt` - Electric vehicle charging level
+      4 800 volt
+    - `electric_vehicle_charging_level_5_megawatt` - Electric vehicle charging level
+      5 megawatt
+    - `hydrotreated_vegetable_oil_100` - Hydrotreated vegetable oil 100
+    - `bio_compressed_natural_gas` - Bio compressed natural gas
+    - `miscellaneous_other_fuel` - Miscellaneous other fuel
+    """
+
+    fuel_unit_cost_amount: Optional[int] = None
+    """The cost per unit of fuel in minor units."""
+
+    fuel_unit_cost_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fuel unit
+    cost.
+    """
+
+    fuel_unit_of_measure: Optional[
+        Literal["liter", "us_gallon", "imperial_gallon", "kilogram", "pound", "charging_minutes", "kilowatt_hour"]
+    ] = None
+    """The unit of measure for the fuel quantity.
+
+    - `liter` - Liter
+    - `us_gallon` - US gallon
+    - `imperial_gallon` - Imperial gallon
+    - `kilogram` - Kilogram
+    - `pound` - Pound
+    - `charging_minutes` - Charging minutes
+    - `kilowatt_hour` - Kilowatt hour
+    """
+
+    gross_fuel_price_amount: Optional[int] = None
+    """The gross fuel price in minor units."""
+
+    gross_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross fuel
+    price.
+    """
+
+    gross_non_fuel_price_amount: Optional[int] = None
+    """The gross non-fuel price in minor units."""
+
+    gross_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the gross
+    non-fuel price.
+    """
+
+    net_fuel_price_amount: Optional[int] = None
+    """The net fuel price in minor units."""
+
+    net_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net fuel
+    price.
+    """
+
+    net_non_fuel_price_amount: Optional[int] = None
+    """The net non-fuel price in minor units."""
+
+    net_non_fuel_price_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the net non-fuel
+    price.
+    """
+
+    odometer_reading: Optional[int] = None
+    """The odometer reading reported by the merchant."""
+
+    purchase_type: Optional[
+        Literal[
+            "fuel_purchase", "non_fuel_purchase", "fuel_and_non_fuel_purchase", "fuel_purchase_with_multiple_fuel_types"
+        ]
+    ] = None
+    """The type of fleet purchase.
+
+    - `fuel_purchase` - Fuel purchase
+    - `non_fuel_purchase` - Non-fuel purchase
+    - `fuel_and_non_fuel_purchase` - Fuel and non-fuel purchase
+    - `fuel_purchase_with_multiple_fuel_types` - Fuel purchase with multiple fuel
+      types
+    """
+
+    service_type: Optional[Literal["full_service", "self_service", "high_speed_dispense"]] = None
+    """The type of service provided.
+
+    - `full_service` - Full service
+    - `self_service` - Self service
+    - `high_speed_dispense` - High speed dispense
+    """
+
+    trailer_number: Optional[str] = None
+    """The fleet trailer number."""
+
+
+class ElementCardSettlementPurchaseDetailsLodging(BaseModel):
+    """Fields specific to lodging."""
+
+    check_in_date: Optional[date] = None
+    """Date the customer checked in."""
+
+    daily_room_rate_amount: Optional[int] = None
+    """Daily rate being charged for the room."""
+
+    daily_room_rate_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the daily room
+    rate.
+    """
+
+    extra_charges: Optional[
+        Literal["no_extra_charge", "restaurant", "gift_shop", "mini_bar", "telephone", "other", "laundry"]
+    ] = None
+    """Additional charges (phone, late check-out, etc.) being billed.
+
+    - `no_extra_charge` - No extra charge
+    - `restaurant` - Restaurant
+    - `gift_shop` - Gift shop
+    - `mini_bar` - Mini bar
+    - `telephone` - Telephone
+    - `other` - Other
+    - `laundry` - Laundry
+    """
+
+    folio_cash_advances_amount: Optional[int] = None
+    """Folio cash advances for the room."""
+
+    folio_cash_advances_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the folio cash
+    advances.
+    """
+
+    food_beverage_charges_amount: Optional[int] = None
+    """Food and beverage charges for the room."""
+
+    food_beverage_charges_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the food and
+    beverage charges.
+    """
+
+    no_show_indicator: Optional[Literal["not_applicable", "no_show"]] = None
+    """
+    Indicator that the cardholder is being billed for a reserved room that was not
+    actually used.
+
+    - `not_applicable` - Not applicable
+    - `no_show` - No show
+    """
+
+    prepaid_expenses_amount: Optional[int] = None
+    """Prepaid expenses being charged for the room."""
+
+    prepaid_expenses_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the prepaid
+    expenses.
+    """
+
+    room_nights: Optional[int] = None
+    """Number of nights the room was rented."""
+
+    total_room_tax_amount: Optional[int] = None
+    """Total room tax being charged."""
+
+    total_room_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total room
+    tax.
+    """
+
+    total_tax_amount: Optional[int] = None
+    """Total tax being charged for the room."""
+
+    total_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the total tax
+    assessed.
+    """
+
+
+class ElementCardSettlementPurchaseDetailsTravelAncillaryService(BaseModel):
+    category: Optional[
+        Literal[
+            "none",
+            "bundled_service",
+            "baggage_fee",
+            "change_fee",
+            "cargo",
+            "carbon_offset",
+            "frequent_flyer",
+            "gift_card",
+            "ground_transport",
+            "in_flight_entertainment",
+            "lounge",
+            "medical",
+            "meal_beverage",
+            "other",
+            "passenger_assist_fee",
+            "pets",
+            "seat_fees",
+            "standby",
+            "service_fee",
+            "store",
+            "travel_service",
+            "unaccompanied_travel",
+            "upgrades",
+            "wifi",
+        ]
+    ] = None
+    """Category of the ancillary service.
+
+    - `none` - None
+    - `bundled_service` - Bundled service
+    - `baggage_fee` - Baggage fee
+    - `change_fee` - Change fee
+    - `cargo` - Cargo
+    - `carbon_offset` - Carbon offset
+    - `frequent_flyer` - Frequent flyer
+    - `gift_card` - Gift card
+    - `ground_transport` - Ground transport
+    - `in_flight_entertainment` - In-flight entertainment
+    - `lounge` - Lounge
+    - `medical` - Medical
+    - `meal_beverage` - Meal beverage
+    - `other` - Other
+    - `passenger_assist_fee` - Passenger assist fee
+    - `pets` - Pets
+    - `seat_fees` - Seat fees
+    - `standby` - Standby
+    - `service_fee` - Service fee
+    - `store` - Store
+    - `travel_service` - Travel service
+    - `unaccompanied_travel` - Unaccompanied travel
+    - `upgrades` - Upgrades
+    - `wifi` - Wi-fi
+    """
+
+    sub_category: Optional[str] = None
+    """Sub-category of the ancillary service, free-form."""
+
+
+class ElementCardSettlementPurchaseDetailsTravelAncillary(BaseModel):
+    """Ancillary purchases in addition to the airfare."""
+
+    connected_ticket_document_number: Optional[str] = None
+    """
+    If this purchase has a connection or relationship to another purchase, such as a
+    baggage fee for a passenger transport ticket, this field should contain the
+    ticket document number for the other purchase.
+    """
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "other",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `other` - Other
+    """
+
+    passenger_name_or_description: Optional[str] = None
+    """Name of the passenger or description of the ancillary purchase."""
+
+    services: List[ElementCardSettlementPurchaseDetailsTravelAncillaryService]
+    """Additional travel charges, such as baggage fees."""
+
+    ticket_document_number: Optional[str] = None
+    """Ticket document number."""
+
+
+class ElementCardSettlementPurchaseDetailsTravelTripLeg(BaseModel):
+    carrier_code: Optional[str] = None
+    """Carrier code (e.g., United Airlines, Jet Blue, etc.)."""
+
+    destination_city_airport_code: Optional[str] = None
+    """Code for the destination city or airport."""
+
+    fare_basis_code: Optional[str] = None
+    """Fare basis code."""
+
+    flight_number: Optional[str] = None
+    """Flight number."""
+
+    service_class: Optional[str] = None
+    """Service class (e.g., first class, business class, etc.)."""
+
+    stop_over_code: Optional[Literal["none", "stop_over_allowed", "stop_over_not_allowed"]] = None
+    """Indicates whether a stopover is allowed on this ticket.
+
+    - `none` - None
+    - `stop_over_allowed` - Stop over allowed
+    - `stop_over_not_allowed` - Stop over not allowed
+    """
+
+
+class ElementCardSettlementPurchaseDetailsTravel(BaseModel):
+    """Fields specific to travel."""
+
+    ancillary: Optional[ElementCardSettlementPurchaseDetailsTravelAncillary] = None
+    """Ancillary purchases in addition to the airfare."""
+
+    computerized_reservation_system: Optional[str] = None
+    """Indicates the computerized reservation system used to book the ticket."""
+
+    credit_reason_indicator: Optional[
+        Literal[
+            "no_credit",
+            "passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_and_passenger_transport_ancillary_purchase_cancellation",
+            "airline_ticket_cancellation",
+            "other",
+            "partial_refund_of_airline_ticket",
+        ]
+    ] = None
+    """Indicates the reason for a credit to the cardholder.
+
+    - `no_credit` - No credit
+    - `passenger_transport_ancillary_purchase_cancellation` - Passenger transport
+      ancillary purchase cancellation
+    - `airline_ticket_and_passenger_transport_ancillary_purchase_cancellation` -
+      Airline ticket and passenger transport ancillary purchase cancellation
+    - `airline_ticket_cancellation` - Airline ticket cancellation
+    - `other` - Other
+    - `partial_refund_of_airline_ticket` - Partial refund of airline ticket
+    """
+
+    departure_date: Optional[date] = None
+    """Date of departure."""
+
+    origination_city_airport_code: Optional[str] = None
+    """Code for the originating city or airport."""
+
+    passenger_name: Optional[str] = None
+    """Name of the passenger."""
+
+    restricted_ticket_indicator: Optional[Literal["no_restrictions", "restricted_non_refundable_ticket"]] = None
+    """Indicates whether this ticket is non-refundable.
+
+    - `no_restrictions` - No restrictions
+    - `restricted_non_refundable_ticket` - Restricted non-refundable ticket
+    """
+
+    ticket_change_indicator: Optional[Literal["none", "change_to_existing_ticket", "new_ticket"]] = None
+    """Indicates why a ticket was changed.
+
+    - `none` - None
+    - `change_to_existing_ticket` - Change to existing ticket
+    - `new_ticket` - New ticket
+    """
+
+    ticket_number: Optional[str] = None
+    """Ticket number."""
+
+    travel_agency_code: Optional[str] = None
+    """Code for the travel agency if the ticket was issued by a travel agency."""
+
+    travel_agency_name: Optional[str] = None
+    """Name of the travel agency if the ticket was issued by a travel agency."""
+
+    trip_legs: Optional[List[ElementCardSettlementPurchaseDetailsTravelTripLeg]] = None
+    """Fields specific to each leg of the journey."""
+
+
+class ElementCardSettlementPurchaseDetails(BaseModel):
+    """
+    Additional details about the card purchase, such as tax and industry-specific fields.
+    """
+
+    car_rental: Optional[ElementCardSettlementPurchaseDetailsCarRental] = None
+    """Fields specific to car rentals."""
+
+    customer_reference_identifier: Optional[str] = None
+    """An identifier from the merchant for the customer or consumer."""
+
+    fleet: Optional[ElementCardSettlementPurchaseDetailsFleet] = None
+    """Fields specific to fleet purchases."""
+
+    local_tax_amount: Optional[int] = None
+    """The state or provincial tax amount in minor units."""
+
+    local_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    lodging: Optional[ElementCardSettlementPurchaseDetailsLodging] = None
+    """Fields specific to lodging."""
+
+    national_tax_amount: Optional[int] = None
+    """The national tax amount in minor units."""
+
+    national_tax_currency: Optional[str] = None
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the local tax
+    assessed.
+    """
+
+    purchase_identifier: Optional[str] = None
+    """An identifier from the merchant for the purchase to the issuer and cardholder."""
+
+    purchase_identifier_format: Optional[
+        Literal[
+            "free_text",
+            "order_number",
+            "rental_agreement_number",
+            "hotel_folio_number",
+            "invoice_number",
+            "visa_recurrent_reference_identifier",
+        ]
+    ] = None
+    """The format of the purchase identifier.
+
+    - `free_text` - Free text
+    - `order_number` - Order number
+    - `rental_agreement_number` - Rental agreement number
+    - `hotel_folio_number` - Hotel folio number
+    - `invoice_number` - Invoice number
+    - `visa_recurrent_reference_identifier` - Visa Recurrent reference identifier
+    """
+
+    travel: Optional[ElementCardSettlementPurchaseDetailsTravel] = None
+    """Fields specific to travel."""
+
+
+class ElementCardSettlementSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardSettlementSurcharge(BaseModel):
+    """Surcharge amount details, if applicable.
+
+    The amount is positive if the surcharge is added to the overall transaction amount (surcharge), and negative if the surcharge is deducted from the overall transaction amount (discount).
+    """
+
+    amount: int
+    """
+    The surcharge amount in the minor unit of the transaction's settlement currency.
+    """
+
+    presentment_amount: int
+    """
+    The surcharge amount in the minor unit of the transaction's presentment
+    currency.
+    """
+
+
+class ElementCardSettlement(BaseModel):
+    """A Card Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_settlement`. Card Settlements are card transactions that have cleared and settled. While a settlement is usually preceded by an authorization, an acquirer can also directly clear a transaction without first authorizing it.
+    """
+
+    id: str
+    """The Card Settlement identifier."""
+
+    amount: int
+    """The amount in the minor unit of the transaction's settlement currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_authorization: Optional[str] = None
+    """
+    The Card Authorization that was created prior to this Card Settlement, if one
+    exists.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    cashback: Optional[ElementCardSettlementCashback] = None
+    """Cashback earned on this transaction, if eligible.
+
+    Cashback is paid out in aggregate, monthly.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's settlement currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    interchange: Optional[ElementCardSettlementInterchange] = None
+    """Interchange assessed as a part of this transaction."""
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """The 4-digit MCC describing the merchant's business."""
+
+    merchant_city: str
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_name: str
+    """The name of the merchant."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code. For US merchants this is always a 5-digit ZIP code."""
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network: Literal["visa", "pulse"]
+    """The card network on which this transaction was processed.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    network_identifiers: ElementCardSettlementNetworkIdentifiers
+    """Network-specific identifiers for this refund."""
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Transaction."""
+
+    presentment_amount: int
+    """The amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    purchase_details: Optional[ElementCardSettlementPurchaseDetails] = None
+    """
+    Additional details about the card purchase, such as tax and industry-specific
+    fields.
+    """
+
+    scheme_fees: List[ElementCardSettlementSchemeFee]
+    """The scheme fees associated with this card settlement."""
+
+    surcharge: Optional[ElementCardSettlementSurcharge] = None
+    """Surcharge amount details, if applicable.
+
+    The amount is positive if the surcharge is added to the overall transaction
+    amount (surcharge), and negative if the surcharge is deducted from the overall
+    transaction amount (discount).
+    """
+
+    transaction_id: str
+    """The identifier of the Transaction associated with this Transaction."""
+
+    type: Literal["card_settlement"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_settlement`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementCardValidationAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class ElementCardValidationAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[ElementCardValidationAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[ElementCardValidationAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[ElementCardValidationAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[ElementCardValidationAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[ElementCardValidationAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[ElementCardValidationAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[ElementCardValidationAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[ElementCardValidationAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[ElementCardValidationAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[ElementCardValidationAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class ElementCardValidationNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class ElementCardValidationNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class ElementCardValidationNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[ElementCardValidationNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[ElementCardValidationNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class ElementCardValidationNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class ElementCardValidationSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class ElementCardValidationVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class ElementCardValidationVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class ElementCardValidationVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class ElementCardValidationVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: ElementCardValidationVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: ElementCardValidationVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[ElementCardValidationVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class ElementCardValidation(BaseModel):
+    """An Inbound Card Validation object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_validation`. Inbound Card Validations are requests from a merchant to verify that a card number and optionally its address and/or Card Verification Value are valid.
+    """
+
+    id: str
+    """The Card Validation identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this authorization was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: ElementCardValidationAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: ElementCardValidationNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: ElementCardValidationNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[ElementCardValidationSchemeFee]
+    """The scheme fees associated with this card validation."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    type: Literal["inbound_card_validation"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `inbound_card_validation`.
+    """
+
+    verification: ElementCardValidationVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ElementOther(BaseModel):
+    """
+    If the category of this Transaction source is equal to `other`, this field will contain an empty object, otherwise it will contain null.
+    """
+
+    pass
+
+
+class Element(BaseModel):
+    category: Literal[
+        "card_authorization",
+        "card_authentication",
+        "card_balance_inquiry",
+        "card_validation",
+        "card_decline",
+        "card_reversal",
+        "card_authorization_expiration",
+        "card_increment",
+        "card_settlement",
+        "card_refund",
+        "card_fuel_confirmation",
+        "card_financial",
+        "other",
+    ]
+    """The type of the resource.
+
+    We may add additional possible values for this enum over time; your application
+    should be able to handle such additions gracefully.
+
+    - `card_authorization` - Card Authorization: details will be under the
+      `card_authorization` object.
+    - `card_authentication` - Card Authentication: details will be under the
+      `card_authentication` object.
+    - `card_balance_inquiry` - Card Balance Inquiry: details will be under the
+      `card_balance_inquiry` object.
+    - `card_validation` - Inbound Card Validation: details will be under the
+      `card_validation` object.
+    - `card_decline` - Card Decline: details will be under the `card_decline`
+      object.
+    - `card_reversal` - Card Reversal: details will be under the `card_reversal`
+      object.
+    - `card_authorization_expiration` - Card Authorization Expiration: details will
+      be under the `card_authorization_expiration` object.
+    - `card_increment` - Card Increment: details will be under the `card_increment`
+      object.
+    - `card_settlement` - Card Settlement: details will be under the
+      `card_settlement` object.
+    - `card_refund` - Card Refund: details will be under the `card_refund` object.
+    - `card_fuel_confirmation` - Card Fuel Confirmation: details will be under the
+      `card_fuel_confirmation` object.
+    - `card_financial` - Card Financial: details will be under the `card_financial`
+      object.
+    - `other` - Unknown card payment element.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the card payment element was created.
+    """
+
+    card_authentication: Optional[ElementCardAuthentication] = None
+    """A Card Authentication object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_authentication`. Card Authentications are attempts to
+    authenticate a transaction or a card with 3DS.
+    """
+
+    card_authorization: Optional[ElementCardAuthorization] = None
+    """A Card Authorization object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_authorization`. Card Authorizations are temporary holds placed on
+    a customer's funds with the intent to later clear a transaction.
+    """
+
+    card_authorization_expiration: Optional[ElementCardAuthorizationExpiration] = None
+    """A Card Authorization Expiration object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_authorization_expiration`. Card Authorization Expirations are
+    cancellations of authorizations that were never settled by the acquirer.
+    """
+
+    card_balance_inquiry: Optional[ElementCardBalanceInquiry] = None
+    """A Card Balance Inquiry object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_balance_inquiry`. Card Balance Inquiries are transactions that
+    allow merchants to check the available balance on a card without placing a hold
+    on funds, commonly used when a customer requests their balance at an ATM.
+    """
+
+    card_decline: Optional[ElementCardDecline] = None
+    """A Card Decline object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_decline`.
+    """
+
+    card_financial: Optional[ElementCardFinancial] = None
+    """A Card Financial object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_financial`. Card Financials are card transactions that have
+    cleared and settled. Unlike a Card Settlement, which clears a previous
+    authorization, a Card Financial is authorized and cleared in a single message.
+    """
+
+    card_fuel_confirmation: Optional[ElementCardFuelConfirmation] = None
+    """A Card Fuel Confirmation object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_fuel_confirmation`. Card Fuel Confirmations update the amount of
+    a Card Authorization after a fuel pump transaction is completed.
+    """
+
+    card_increment: Optional[ElementCardIncrement] = None
+    """A Card Increment object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_increment`. Card Increments increase the pending amount of an
+    authorized transaction.
+    """
+
+    card_refund: Optional[ElementCardRefund] = None
+    """A Card Refund object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_refund`. Card Refunds move money back to the cardholder. While
+    they are usually connected to a Card Settlement, an acquirer can also refund
+    money directly to a card without relation to a transaction.
+    """
+
+    card_reversal: Optional[ElementCardReversal] = None
+    """A Card Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_reversal`. Card Reversals cancel parts of or the entirety of an
+    existing Card Authorization.
+    """
+
+    card_settlement: Optional[ElementCardSettlement] = None
+    """A Card Settlement object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_settlement`. Card Settlements are card transactions that have
+    cleared and settled. While a settlement is usually preceded by an authorization,
+    an acquirer can also directly clear a transaction without first authorizing it.
+    """
+
+    card_validation: Optional[ElementCardValidation] = None
+    """An Inbound Card Validation object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_validation`. Inbound Card Validations are requests from a
+    merchant to verify that a card number and optionally its address and/or Card
+    Verification Value are valid.
+    """
+
+    other: Optional[ElementOther] = None
+    """
+    If the category of this Transaction source is equal to `other`, this field will
+    contain an empty object, otherwise it will contain null.
+    """
+
+
+class State(BaseModel):
+    """The summarized state of this card payment."""
+
+    authorized_amount: int
+    """The total authorized amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    fuel_confirmed_amount: int
+    """
+    The total amount from fuel confirmations in the minor unit of the transaction's
+    currency. For dollars, for example, this is cents.
+    """
+
+    incremented_amount: int
+    """
+    The total incrementally updated authorized amount in the minor unit of the
+    transaction's currency. For dollars, for example, this is cents.
+    """
+
+    refund_authorized_amount: int
+    """
+    The total refund authorized amount in the minor unit of the transaction's
+    currency. For dollars, for example, this is cents.
+    """
+
+    refunded_amount: int
+    """The total refunded amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    reversed_amount: int
+    """The total reversed amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    settled_amount: int
+    """The total settled amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+
+class CardPayment(BaseModel):
+    """
+    Card Payments group together interactions related to a single card payment, such as an authorization and its corresponding settlement. For more information, see our guide on the [Card Payment lifecycle](https://increase.com/documentation/card-payment-lifecycle).
+    """
+
+    id: str
+    """The Card Payment identifier."""
+
+    account_id: str
+    """The identifier for the Account the Transaction belongs to."""
+
+    card_id: str
+    """The Card identifier for this payment."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the Card
+    Payment was created.
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """The Digital Wallet Token identifier for this payment."""
+
+    elements: List[Element]
+    """The interactions related to this card payment."""
+
+    physical_card_id: Optional[str] = None
+    """The Physical Card identifier for this payment."""
+
+    state: State
+    """The summarized state of this card payment."""
+
+    type: Literal["card_payment"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_payment`.
+    """

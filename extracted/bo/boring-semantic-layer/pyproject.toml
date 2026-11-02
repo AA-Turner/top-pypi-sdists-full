@@ -1,0 +1,138 @@
+[project]
+name = "boring-semantic-layer"
+version = "0.3.18"
+description = "A boring semantic layer built with ibis"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "attrs>=25.3.0",
+    "ibis-framework>=11.0.0,<12",  # deep Relation/Deferred internals coupling; expand after matrix-testing a new major
+    "packaging",
+    "pyyaml>=6.0",
+    "returns>=0.26.0",
+    "toolz>=1.0.0",
+]
+urls = { Homepage = "https://github.com/boringdata/boring-semantic-layer/tree/main" }
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+
+[project.scripts]
+bsl = "boring_semantic_layer.agents.cli:main"
+
+[project.entry-points."xorq.from_tag_node"]
+bsl = "boring_semantic_layer.serialization.tag_handler:bsl_tag_handler"
+
+[project.optional-dependencies]
+xorq = ["xorq>=0.3.31"]
+examples = ["xorq[duckdb]>=0.3.31", "duckdb<1.4"]
+
+# Visualization backends
+viz-altair = ["altair>=5.0.0", "vl-convert-python>=1.0.0"]
+viz-plotly = ["plotly>=6.3.0", "kaleido", "nbformat>=4.2.0"]
+viz-plotext = ["plotext>=5.0.0"]
+
+agent = [
+    "langchain>=0.3.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "plotext>=5.0.0",
+]
+
+# MCP server backend
+mcp = [
+    "fastmcp>=2.12.4",
+]
+
+# HTTP API server
+server = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+]
+
+# Baseline test environment for the no-xorq CI leg: pulled in via
+# `uv sync --all-extras` so the suite has a duckdb backend (and pyarrow)
+# without depending on xorq or the examples extra.
+test-core = [
+    "ibis-framework[duckdb]>=11.0.0,<12",
+    "pytest",
+    "pytest-xdist",
+    "pandas>=2.3.0",
+    "pytest-asyncio",
+]
+
+dev = [
+    # LLM provider clients needed to test agent backends (not user-facing extras)
+    "openai>=1.0.0",
+    "langchain-openai>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    # Developer tooling
+    "ruff>=0.6.7",
+    "pre-commit>=4.2.0",
+    "pytest",
+    "pytest-xdist",
+    "pandas>=2.3.0",
+    "urllib3>=2.2.3",
+    "pytest-asyncio",
+    "malloy>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boring_semantic_layer"]
+# Test suites (and their fixture data / sys.path-mutating conftests) are
+# development-only; they do not ship to end users.
+exclude = ["**/tests"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"docs/md/skills" = "share/bsl/skills"
+"docs/md/doc" = "share/bsl/doc"
+"docs/md/prompts" = "share/bsl/prompts"
+"docs/md/index.json" = "share/bsl/index.json"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: tests that need external services or downloaded datasets",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+]
+ignore = [
+    "E501",  # line-too-long (handled by formatter)
+    "E731",  # lambda-assignment: named lambdas are idiomatic in this
+             # deferred-expression codebase (dimension/measure defs)
+    "E741",  # ambiguous-variable-name: `l`/`r` are the join-predicate
+             # convention throughout (lambda l, r: ...)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = [
+    "E402",  # importorskip/path setup precedes imports by design
+    "B017",  # blind Exception asserts: revisit with the typed exception
+             # hierarchy (refactor phase 2)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["boring_semantic_layer"]
+
+[dependency-groups]
+dev = [
+    "ipython>=8.38.0",
+]

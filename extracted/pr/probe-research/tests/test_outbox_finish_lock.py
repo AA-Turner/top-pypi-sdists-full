@@ -46,7 +46,6 @@ def isolated(monkeypatch, tmp_path):
     # the fake below can hold; the many-file doors are pinned elsewhere.
     monkeypatch.setenv("PROBE_UPLOAD_MANY", "0")
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 def run_id(n: int) -> str:
@@ -175,7 +174,15 @@ def test_three_closes_return_in_seconds_while_a_big_upload_is_in_flight(app, tmp
     # stopped). This test is about live closes: make the pass wait for them.
     monkeypatch.setattr(lock_module, "_WANT_WAIT_SECONDS", 120.0)
     outbox = tmp_path / "outbox"
-    upload_run, *closing = (seeded_run(app, tmp_path) for _ in range(4))
+    upload_run = seeded_run(app, tmp_path)
+    closing = []
+    while len(closing) < 3:
+        run = seeded_run(app, tmp_path)
+        # Run locks are 256 slots: a run in the upload run's slot WAITS for that
+        # upload by design (`_DrainHold.busy`), 3 in 256 draws. This test is about
+        # runs that do not share a slot with it.
+        if _DrainHold._slot(None, run) != _DrainHold._slot(None, upload_run):
+            closing.append(run)
     assert len({upload_run, *closing}) == 4
     server = Server()
     owner = make_client(app, tmp_spool=outbox, async_writes=True)
@@ -369,6 +376,123 @@ def test_a_run_another_drain_is_sending_waits_and_the_rest_go(tmp_path):
     assert report.delivered == 1 and report.dead_lettered == 0
     assert drain(queue, client_factory=lambda _c: server).delivered == 2
     assert [entry[2] for entry in server.of_run(a)] == ["POST", "PATCH"]
+
+
+# -- a run in another run's lock slot -----------------------------------------
+
+
+class AppServer(Server):
+    """`Server` whose JSON writes also land on ``app``, the server the closes write to: one
+    server, so what the worker delivers for a closing run counts for that run (#3776's test
+    gave the worker its own fake, so its deliveries looked missing)."""
+
+    def __init__(self, app):
+        super().__init__()
+        self.app_client = make_client(app)
+        self.transport = SimpleNamespace(request=self._forward)
+
+    def _forward(self, method, path, *, json_body=None, **kwargs):
+        self._request(method, path, json_body=json_body)
+        return self.app_client.transport.request(method, path, json_body=json_body, **kwargs)
+
+
+def _close_in_the_uploads_slot(app, tmp_path, monkeypatch):
+    """A run with three queued points whose run lock is the slot another run's in-flight upload
+    holds (every run in one slot), and a worker whose pass is away on that gated upload."""
+    monkeypatch.setattr(lock_module, "_RUN_LOCK_SLOTS", 1)
+    outbox = tmp_path / "outbox"
+    upload_run, run = seeded_run(app, tmp_path), seeded_run(app, tmp_path)
+    server = AppServer(app)
+    owner = make_client(app, tmp_spool=outbox, async_writes=True)
+    queue_upload(owner.journal, tmp_path, upload_run, "ckpt.pt")
+    server.gate("ckpt.pt")
+    client = make_client(app, tmp_spool=outbox, async_writes=True)
+    for step in range(3):
+        client.write("POST", f"/v1/runs/{run}/metrics",
+                     {"points": [{"key": "loss", "value": 1.0, "step_index": step}]})
+    worker, report = in_thread(drain, Journal(outbox), client_factory=lambda _c: server)
+    assert server.started["ckpt.pt"].wait(30), "the upload never started"
+    return SimpleNamespace(outbox=outbox, run=run, server=server, worker=worker, report=report,
+                           handle=Run(client, {"id": run}), clients=[owner, client, server.app_client])
+
+
+def test_a_close_in_an_uploads_slot_defers_behind_its_points_and_both_land_after_it(app, tmp_path, monkeypatch):
+    """Run locks are `_RUN_LOCK_SLOTS` slots, so a close can share one with another run's
+    upload, cannot tell that drain is not sending its own run, and waits (#3776). Past its
+    deadline it must not read `completed` ahead of its points: the close is queued behind
+    them, the pass that held the slot sends the points after its upload, and the next pass
+    (the detached worker's) the close. Delivered late, never lost."""
+    shared = _close_in_the_uploads_slot(app, tmp_path, monkeypatch)
+    run = shared.run
+    seen_busy = threading.Event()
+    busy = _DrainHold.busy
+
+    def noting_busy(self, lane):
+        answer = busy(self, lane)
+        if answer and lane == run:
+            seen_busy.set()
+        return answer
+
+    monkeypatch.setattr(_DrainHold, "busy", noting_busy)
+    try:
+        with pytest.warns(UserWarning, match="still queued on disk"):
+            closed = shared.handle.finish(flush_timeout=2)
+        assert closed["finish_queued"] is True and closed["delivered"] == 0
+        assert app.runs[run]["status"] == "running" and run not in app.metric_points_posted
+        assert len(Journal(shared.outbox).run_ops(run).pending()) == 4  # 3 points, the close behind
+        assert seen_busy.is_set(), "the close was held by something other than the shared slot"
+    finally:
+        shared.server.gates["ckpt.pt"].set()
+        shared.worker.join(60)
+    assert not shared.worker.is_alive(), "the worker's pass never ended"
+
+    assert shared.report[0].delivered == 4  # the upload, then the 3 point ops it had read (one POST)
+    assert len(app.metric_points_posted[run]) == 3 and app.runs[run]["status"] == "running"
+    assert drain(Journal(shared.outbox), client_factory=lambda _c: shared.server).delivered == 1
+    assert app.runs[run]["status"] == "completed" and len(app.metric_points_posted[run]) == 3
+    assert [entry[2] for entry in shared.server.of_run(run)] == ["POST", "PATCH"]
+    assert Journal(shared.outbox).pending() == [] and Journal(shared.outbox).failed() == []
+    for client in shared.clients:
+        client.close()
+
+
+def test_a_close_in_an_uploads_slot_closes_itself_once_the_upload_ends(app, tmp_path, monkeypatch):
+    """The upload ends while the close still waits: the close's next pass finds its run free
+    (or the worker sent its points) and it closes `completed` itself, its points first."""
+    shared = _close_in_the_uploads_slot(app, tmp_path, monkeypatch)
+    run = shared.run
+    seen_busy = threading.Event()
+    busy = _DrainHold.busy
+
+    def noting_busy(self, lane):
+        answer = busy(self, lane)
+        if answer and lane == run:
+            seen_busy.set()
+        return answer
+
+    monkeypatch.setattr(_DrainHold, "busy", noting_busy)
+    out: list = []
+    closer = threading.Thread(target=lambda: out.append(shared.handle.finish(flush_timeout=120)), daemon=True)
+    closer.start()
+    try:
+        assert seen_busy.wait(60), "the close never met the upload's run lock"
+        assert app.runs[run]["status"] == "running"
+    finally:
+        shared.server.gates["ckpt.pt"].set()
+        closer.join(150)
+        shared.worker.join(60)
+
+    assert out and not out[0].get("finish_queued"), out
+    assert app.runs[run]["status"] == "completed" and len(app.metric_points_posted[run]) == 3
+    # Whoever sent them (the close or the worker), the points reached the server before
+    # `completed` did: no metrics POST of the run after its closing PATCH.
+    sent = [(request.method, json.loads(request.content or b"{}").get("status"))
+            for request in app.requests if request.url.path in (f"/v1/runs/{run}/metrics", f"/v1/runs/{run}")]
+    closed_at = sent.index(("PATCH", "completed"))
+    assert ("POST", None) in sent[:closed_at] and ("POST", None) not in sent[closed_at:], sent
+    assert Journal(shared.outbox).pending() == [] and Journal(shared.outbox).failed() == []
+    for client in shared.clients:
+        client.close()
 
 
 def test_a_close_never_waits_past_its_deadline_to_take_the_lock_back(tmp_path):

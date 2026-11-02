@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-memory"
-version = "0.18.7"
+version = "0.18.8"
 description = "OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -378,7 +378,6 @@ module = [
     "omnimemory.models.contracts.model_contract_orchestrator_extended",
     "omnimemory.models.contracts.model_contract_reducer_extended",
     "omnimemory.protocols.error_models",
-    "omnimemory.topics",
 ]
 disallow_subclassing_any = false
 

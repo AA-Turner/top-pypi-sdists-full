@@ -1,0 +1,357 @@
+"""Excitation and refocusing of one slice or one slab."""
+
+from __future__ import annotations
+
+__all__ = ["SpatialSelectiveExcitation", "SpatialSelectiveRefocusing"]
+
+import numpy as np
+
+import pypulseqpp as pp
+
+from ._base import RfModule, b1_fitted, rf_reference, selective_slr
+
+_AXES = ("x", "y", "z")
+
+
+class SpatialSelectiveExcitation(RfModule):
+    """SLR excitation with a selection gradient and optional rephasing.
+
+    A slice plays ``gz`` and ``gz_reph`` in two blocks. With ``is_slab=True``
+    the rephaser is merged into ``gz`` in one block. ``rephase=False`` omits
+    it, for a readout that includes the rephaser's moment.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    flip_angle_deg : float
+        Flip angle (degrees).
+    thickness_m : float
+        Slice or slab thickness (m), set by the selection gradient plateau
+        against the pulse's measured bandwidth.
+    duration_s : float, default=0.003
+        Pulse duration (s); lengthened, flip angle and time-bandwidth product
+        held, when the pulse would peak above the derated ``system.max_b1``.
+    is_slab : bool, default=False
+        Merge the rephaser into the selection gradient.
+    rephase : bool, default=True
+        Include the slice rephaser.
+    time_bw_product : float, default=4.0
+        Time-bandwidth product; a higher value gives a squarer profile and a
+        longer pulse at the same bandwidth.
+    axis : {'z', 'x', 'y'}, default='z'
+        Selection axis.
+    pulse_type : {'st', 'ex', 'se', 'inv', 'sat'}, default='st'
+        SLR design: small-tip, excitation, spin-echo, inversion or saturation.
+    use : str, default='excitation'
+        Pulseq RF use tag.
+    passband_ripple, stopband_ripple : float, default=0.01
+        Ripple allowed in each band of the slice profile.
+
+    Attributes
+    ----------
+    rf : RfEvent
+        The pulse. Its ``delay`` already places it on the gradient's flat top.
+    gz : TrapEvent or GradEvent
+        The selection gradient; under ``is_slab`` the rephaser is part of it.
+    gz_reph : TrapEvent
+        The rephaser. Only when not ``is_slab`` and ``rephase``.
+    selection_amplitude : float
+        Plateau amplitude of the selection lobe (Hz/m), which a slice offset
+        is converted against: ``freq_offset = selection_amplitude * position``.
+    slice_thickness : float
+        The thickness selected (m), the pulse's measured bandwidth over
+        ``selection_amplitude``: ``thickness_m`` to rounding.
+    pulse_duration : float
+        Duration the pulse is designed at (s): ``duration_s``, or longer where
+        ``system.max_b1`` requires.
+
+    Raises
+    ------
+    ValueError
+        If ``thickness_m`` or ``duration_s`` is not positive, or ``axis`` is
+        not a gradient channel.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> slice_ = design.SpatialSelectiveExcitation(pp.Opts(), 15.0, 5e-3)
+    >>> len(slice_.blocks), slice_.gz_reph.channel
+    (2, 'z')
+
+    >>> slab = design.SpatialSelectiveExcitation(pp.Opts(), 8.0, 0.12, is_slab=True)
+    >>> len(slab.blocks), slab.gz.type
+    (1, 'grad')
+
+    The module diagram and simulated slice profile are generated from the same
+    RF event and selection gradient:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp.plot import plot_rf
+       from pypulseqpp.sequences import SpatialSelectiveExcitation
+
+       module = SpatialSelectiveExcitation(pp.Opts(), 15.0, 5e-3)
+       module.seq.paper_plot()
+       plot_rf(module, extent=8, plot_now=False)
+       plt.show()
+    """
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        flip_angle_deg: float,
+        thickness_m: float,
+        duration_s: float = 3e-3,
+        *,
+        is_slab: bool = False,
+        rephase: bool = True,
+        time_bw_product: float = 4.0,
+        axis: str = "z",
+        pulse_type: str = "st",
+        use: str = "excitation",
+        passband_ripple: float = 0.01,
+        stopband_ripple: float = 0.01,
+    ) -> None:
+        if thickness_m <= 0:
+            raise ValueError("thickness_m must be positive")
+        if duration_s <= 0:
+            raise ValueError("duration_s must be positive")
+        if axis not in _AXES:
+            raise ValueError(f"axis must be one of {_AXES}, got {axis!r}")
+
+        self.pulse_duration, (rf, gz, gz_reph) = b1_fitted(
+            system,
+            duration_s,
+            lambda duration: selective_slr(
+                flip_angle_deg,
+                thickness_m,
+                duration=duration,
+                time_bw_product=time_bw_product,
+                pulse_type=pulse_type,
+                passband_ripple=passband_ripple,
+                stopband_ripple=stopband_ripple,
+                use=use,
+                system=system,
+            ),
+        )
+        gz.channel = axis
+        gz_reph.channel = axis
+
+        # Taken before a slab's rephaser is concatenated onto the lobe.
+        self.slice_thickness = float(pp.calc_rf_bandwidth(rf) / abs(gz.amplitude))
+        self.selection_amplitude = float(gz.amplitude)
+
+        self.seq = pp.Sequence(system)
+
+        if is_slab:
+            if rephase:
+                # Concatenated, not summed over one interval: the rephaser
+                # starts where the selection lobe ends.
+                gz_reph.delay = pp.calc_duration(gz)
+                gz = pp.add_gradients(grads=[gz, gz_reph], system=system)
+            self.seq.add_block(rf, gz)
+        else:
+            self.seq.add_block(rf, gz)
+            if rephase:
+                self.seq.add_block(gz_reph)
+
+        self.center = rf_reference(rf)
+
+
+class SpatialSelectiveRefocusing(RfModule):
+    """SLR refocusing with matched crushers joined to the selection plateau.
+
+    Uses the spin-echo SLR profile. The selection plateau is centred on the
+    pulse's recorded centre, its magnitude peak, and extends past the pulse
+    until that centre lies on the block raster.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    thickness_m : float
+        Slice thickness (m).
+    flip_angle_deg : float, default=180.0
+        Flip angle (degrees).
+    duration_s : float, default=0.003
+        Pulse duration (s); lengthened, flip angle and time-bandwidth product
+        held, when the pulse would peak above the derated ``system.max_b1``.
+    spoiling_cycles : float, default=4.0
+        Cycles of dephasing each crusher produces across ``voxel_size_m``.
+        Zero leaves the bare selection lobe.
+    voxel_size_m : float, default=0.001
+        Length the dephasing is counted over (m).
+    time_bw_product : float, default=4.0
+        Time-bandwidth product.
+    axis : {'z', 'x', 'y'}, default='z'
+        Selection axis; the crushers share it.
+    phase_offset_rad : float, default=np.pi / 2
+        RF phase (rad); the default is the CPMG quarter turn relative to a
+        zero-phase excitation.
+    use : str, default='refocusing'
+        Pulseq RF use tag; the trajectory core negates accumulated k at a
+        refocusing pulse.
+    passband_ripple, stopband_ripple : float, default=0.01
+        Ripple allowed in each band of the slice profile.
+
+
+    Attributes
+    ----------
+    rf_ref : RfEvent
+        The refocusing pulse, delayed onto the plateau between the crushers
+        so that its recorded centre is the plateau's midpoint.
+    gz : GradEvent
+        Crusher, selection plateau and crusher, as one gradient.
+    selection_amplitude : float
+        Plateau amplitude of the selection lobe (Hz/m), which a slice offset
+        is converted against; ``gz.amplitude`` is the crushers' peak.
+    pulse_duration : float
+        Duration the pulse is designed at (s): ``duration_s``, or longer where
+        ``system.max_b1`` requires.
+
+    Raises
+    ------
+    ValueError
+        If a thickness, duration or voxel size is not positive, ``axis`` is not
+        a gradient channel, or ``spoiling_cycles`` is negative.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> refocusing = design.SpatialSelectiveRefocusing(pp.Opts(), 5e-3)
+    >>> len(refocusing.blocks), refocusing.gz.type
+    (1, 'grad')
+
+    The envelope and the refocusing efficiency across the slice, which is
+    the response an ``"se"`` design is solved against:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp.plot import plot_rf
+       from pypulseqpp.sequences import SpatialSelectiveRefocusing
+
+       system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+       module = SpatialSelectiveRefocusing(system, 3e-3)
+       module.seq.paper_plot()
+       plot_rf(module, extent=8, plot_now=False)
+       plt.show()
+    """
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        thickness_m: float,
+        flip_angle_deg: float = 180.0,
+        duration_s: float = 3e-3,
+        *,
+        spoiling_cycles: float = 4.0,
+        voxel_size_m: float = 1e-3,
+        time_bw_product: float = 4.0,
+        axis: str = "z",
+        phase_offset_rad: float = np.pi / 2,
+        use: str = "refocusing",
+        passband_ripple: float = 0.01,
+        stopband_ripple: float = 0.01,
+    ) -> None:
+        if thickness_m <= 0:
+            raise ValueError("thickness_m must be positive")
+        if duration_s <= 0:
+            raise ValueError("duration_s must be positive")
+        if voxel_size_m <= 0:
+            raise ValueError("voxel_size_m must be positive")
+        if spoiling_cycles < 0:
+            raise ValueError("spoiling_cycles must be >= 0")
+        if axis not in _AXES:
+            raise ValueError(f"axis must be one of {_AXES}, got {axis!r}")
+
+        self.pulse_duration, (rf_ref, gz, _) = b1_fitted(
+            system,
+            duration_s,
+            lambda duration: pp.make_slr_pulse(
+                np.deg2rad(flip_angle_deg),
+                duration=duration,
+                slice_thickness=thickness_m,
+                time_bw_product=time_bw_product,
+                pulse_type="se",
+                phase_offset=phase_offset_rad,
+                passband_ripple=passband_ripple,
+                stopband_ripple=stopband_ripple,
+                return_gz=True,
+                delay=system.rf_dead_time,
+                use=use,
+                system=system,
+            ),
+        )
+        gz.channel = axis
+        self.selection_amplitude = float(gz.amplitude)
+
+        if spoiling_cycles:
+            # Each crusher is solved to arrive at, or leave from, the plateau,
+            # so the three pieces share their vertices and become one waveform:
+            # crusher up, selection flat top, crusher down.
+            _, times_pre, amplitudes_pre = pp.make_crusher(
+                spoiling_cycles,
+                voxel_size_m,
+                axis,
+                grad_end=gz.amplitude,
+                system=system,
+            )
+            _, times_post, amplitudes_post = pp.make_crusher(
+                spoiling_cycles,
+                voxel_size_m,
+                axis,
+                grad_start=gz.amplitude,
+                system=system,
+            )
+            flat_start = float(times_pre[-1])
+        else:
+            flat_start = float(gz.delay) + float(gz.rise_time)
+
+        # The recorded centre is the magnitude peak, which an 'se' design puts
+        # beside the midpoint. The plateau is centred on it and widened until
+        # it lands on the block raster, so a spin echo can place the pulse
+        # midway and the two halves of the lobe carry equal areas.
+        center = float(rf_ref.center)
+        duration = float(rf_ref.shape_dur)
+        middle = pp.ceil_to_raster(
+            flat_start + max(center, duration - center), system.block_duration_raster
+        )
+        half = middle - flat_start
+        rf_ref.delay = pp.round_to_raster(middle - center, system.rf_raster_time)
+
+        if not spoiling_cycles:
+            gz = pp.make_trapezoid(
+                channel=axis,
+                amplitude=gz.amplitude,
+                flat_time=2 * half,
+                rise_time=gz.rise_time,
+                fall_time=gz.fall_time,
+                delay=gz.delay,
+                system=system,
+            )
+        else:
+            flat_end = flat_start + 2 * half
+            gz = pp.make_extended_trapezoid(
+                channel=axis,
+                amplitudes=np.concatenate(
+                    [amplitudes_pre, [gz.amplitude], amplitudes_post[1:]]
+                ),
+                times=np.concatenate(
+                    [times_pre, [flat_end], flat_end + np.asarray(times_post[1:])]
+                ),
+                system=system,
+            )
+
+        self.seq = pp.Sequence(system)
+        self.seq.add_block(rf_ref, gz)
+
+        self.center = rf_reference(rf_ref)

@@ -1,0 +1,82 @@
+"""Forms integration groups (hooks) FastMCP tools (reads + writes, honest hints)."""
+
+from typing import Annotated
+
+from fastmcp.dependencies import Depends
+from pydantic import Field
+
+from ycli.yandex.forms.client import FormsClient
+from ycli.yandex.forms.dependencies import (
+    DESTRUCTIVE,
+    RO,
+    WRITE,
+    WRITE_IDEMPOTENT,
+    HookID,
+    SurveyID,
+    forms_client,
+    new_server,
+)
+from ycli.yandex.forms.hooks.models import Hook, HookCreate, HookUpdate
+from ycli.yandex.models import Ack, ItemList
+
+mcp = new_server("forms-hooks")
+
+
+@mcp.tool(name="hooks_list", annotations={**RO, "title": "List Forms integration groups"})
+def list_(survey_id: SurveyID, client: FormsClient = Depends(forms_client)) -> ItemList[Hook]:
+    """A form's integration groups, each with its conditions and integrations.
+
+    An integration group (hook) runs its active integrations on every new answer that matches
+    its conditions; ``conditions_hook_*`` edit the conditions, ``subscriptions_*`` the
+    integrations.
+    """
+    return client.hooks.list(survey_id)
+
+
+@mcp.tool(name="hooks_get", annotations={**RO, "title": "Get Forms integration group"})
+def get(survey_id: SurveyID, hook_id: HookID, client: FormsClient = Depends(forms_client)) -> Hook:
+    """One integration group by id, with its conditions and integrations."""
+    return client.hooks.get(survey_id, hook_id)
+
+
+@mcp.tool(
+    name="hooks_create",
+    annotations={**WRITE, "title": "Create Forms integration group"},
+)
+def create(
+    survey_id: SurveyID,
+    body: Annotated[HookCreate, Field(description="Group name and active flag (both optional).")],
+    client: FormsClient = Depends(forms_client),
+) -> Hook:
+    """Create an empty integration group on a form; returns it with its integer ``id``.
+
+    Add integrations with ``subscriptions_create`` and conditions with
+    ``conditions_hook_create``.
+    """
+    return client.hooks.create(survey_id, body)
+
+
+@mcp.tool(
+    name="hooks_update",
+    annotations={**WRITE_IDEMPOTENT, "title": "Modify Forms integration group"},
+)
+def update(
+    survey_id: SurveyID,
+    hook_id: HookID,
+    body: Annotated[HookUpdate, Field(description="Fields to change; unset ones stay.")],
+    client: FormsClient = Depends(forms_client),
+) -> Hook:
+    """Rename an integration group or switch it on or off; only the fields set change."""
+    return client.hooks.update(survey_id, hook_id, body)
+
+
+@mcp.tool(
+    name="hooks_delete",
+    annotations={**DESTRUCTIVE, "title": "Delete Forms integration group"},
+)
+def delete(
+    survey_id: SurveyID, hook_id: HookID, client: FormsClient = Depends(forms_client)
+) -> Ack:
+    """Delete an integration group together with its integrations and conditions."""
+    client.hooks.delete(survey_id, hook_id)
+    return Ack.deleted("hook", hook_id, from_=f"survey {survey_id}")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from probe.cli.capabilities import verify_mcp_credential
+from probe.cli.wizard.state.mcp_checks import verify_mcp_credential
 from probe.sdk.settings import settings as config
 
 

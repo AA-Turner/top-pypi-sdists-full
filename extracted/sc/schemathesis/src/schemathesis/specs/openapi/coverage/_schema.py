@@ -78,7 +78,7 @@ from schemathesis.core.jsonschema.patterns import (
 )
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type, to_json_type_name
-from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
+from schemathesis.core.parameters import EXTRA_PROPERTY_LOCATIONS, HEADER_LOCATIONS, ParameterLocation
 from schemathesis.core.transforms import deepclone, jsonify_python_specific_types
 from schemathesis.core.validation import contains_unicode_surrogate_pair, has_invalid_characters, is_latin_1_encodable
 from schemathesis.generation import GenerationMode
@@ -86,6 +86,7 @@ from schemathesis.generation._cache import schema_cache_key
 from schemathesis.generation.coverage import DEFAULT_GENERATION_SESSION, GenerationSession
 from schemathesis.generation.hypothesis import UNSATISFIABLE_RESULT, examples
 from schemathesis.generation.jsonschema.builder import build
+from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.jsonschema.strategy import json_identity
 from schemathesis.generation.meta import CoverageScenario
 from schemathesis.openapi.generation.filters import is_invalid_path_parameter
@@ -98,7 +99,7 @@ from schemathesis.specs.openapi.coverage._wire import (
 )
 from schemathesis.specs.openapi.formats import format_length_bounds, format_lengths_for
 from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
-from schemathesis.transport.serialization import contains_binary
+from schemathesis.transport.serialization import Binary, contains_binary
 
 # A string where these alone surround `format`: nothing else can widen what the generator produces.
 _FORMAT_WITH_LENGTH_KEYS = frozenset({"format", "maxLength", "minLength", "type"})
@@ -416,7 +417,7 @@ def _keeps_length_within(pattern: str, min_length: int | None, max_length: int |
     return max_length is None or (pattern_max is not None and pattern_max <= max_length)
 
 
-def _character_rules_strategy(rules: CharacterRules) -> st.SearchStrategy[str]:
+def _character_rules_strategy(rules: CharacterRules, alphabet: Alphabet) -> st.SearchStrategy[str]:
     # Lookaheads only filter what the rest of the pattern draws, and a random string rarely holds a
     # character of every required class; placing one of each first leaves nothing to chance.
     forbidden = [re.compile(text, re.ASCII) for text in rules.forbidden]
@@ -426,7 +427,7 @@ def _character_rules_strategy(rules: CharacterRules) -> st.SearchStrategy[str]:
         return body.fullmatch(char) is not None and not any(pattern.fullmatch(char) for pattern in forbidden)
 
     def characters(text: str) -> st.SearchStrategy[str]:
-        return st.from_regex(re.compile(text, re.ASCII), fullmatch=True).filter(is_allowed)
+        return _from_regex_within(re.compile(text, re.ASCII), alphabet).filter(is_allowed)
 
     required = st.tuples(*(characters(text) for text in rules.required))
     count = len(rules.required)
@@ -438,13 +439,29 @@ def _character_rules_strategy(rules: CharacterRules) -> st.SearchStrategy[str]:
     return st.tuples(required, rest).flatmap(lambda parts: st.permutations([*parts[0], *parts[1]])).map("".join)
 
 
+def _from_regex_within(compiled: re.Pattern[str], alphabet: Alphabet) -> st.SearchStrategy[str]:
+    """Full matches drawn from the alphabet, or from any character when the alphabet bars every match."""
+    strategy = st.from_regex(compiled, fullmatch=True, alphabet=alphabet.as_strategy())
+    try:
+        strategy.validate()
+    except InvalidArgument:
+        # The schema outranks the alphabet.
+        return st.from_regex(compiled, fullmatch=True)
+    return strategy
+
+
 def _pattern_strategy(
-    session: GenerationSession, pattern: str, min_length: int | None, max_length: int | None, fmt: str | None
+    session: GenerationSession,
+    pattern: str,
+    min_length: int | None,
+    max_length: int | None,
+    fmt: str | None,
+    alphabet: Alphabet,
 ) -> st.SearchStrategy | None:
     """Strings the pattern matches within the length bounds, or `None` when Python `re` cannot read it."""
     # Memoized because `cached_draw` keys on the strategy itself: a pattern rebuilt per draw arrives as
     # a fresh object every time, so the same regex gets drawn from again instead of answering from cache.
-    key = (pattern, min_length, max_length, fmt)
+    key = (pattern, min_length, max_length, fmt, alphabet)
     cached = session.pattern_strategies.get(key)
     if cached is not MISSING:
         return cached
@@ -454,9 +471,9 @@ def _pattern_strategy(
         return None
     rules = character_rules(compiled.pattern)
     if rules is None:
-        strategy = st.from_regex(compiled, fullmatch=True)
+        strategy = _from_regex_within(compiled, alphabet)
     else:
-        strategy = _character_rules_strategy(rules)
+        strategy = _character_rules_strategy(rules, alphabet)
     strategy = strategy.filter(matches_pattern(pattern))
     if min_length is not None and max_length is not None:
         strategy = strategy.filter(lambda s: min_length <= len(s) <= max_length)
@@ -481,6 +498,7 @@ class CoverageContext:
     custom_formats: dict[str, st.SearchStrategy]
     validator_cls: type[jsonschema_rs.Validator]
     update_pattern: Callable[[str, int | None, int | None], str] | None
+    alphabet: Alphabet
     _resolver: Resolver | None
     allow_extra_parameters: bool
     expanding: dict[str, int]
@@ -497,6 +515,7 @@ class CoverageContext:
         "custom_formats",
         "validator_cls",
         "update_pattern",
+        "alphabet",
         "_resolver",
         "_root_token_cell",
         "_leaf_reference_cache",
@@ -519,6 +538,7 @@ class CoverageContext:
         custom_formats: dict[str, st.SearchStrategy],
         validator_cls: type[jsonschema_rs.Validator],
         update_pattern: Callable[[str, int | None, int | None], str] | None = None,
+        alphabet: Alphabet | None = None,
         _resolver: Resolver | None = None,
         _path_str_cache_cell: list[str | None] | None = None,
         _root_token_cell: list[object] | None = None,
@@ -543,6 +563,7 @@ class CoverageContext:
         self.custom_formats = custom_formats
         self.validator_cls = validator_cls
         self.update_pattern = update_pattern
+        self.alphabet = alphabet if alphabet is not None else Alphabet()
         self._resolver = _resolver
         # Shared like the path cell: every context over this document answers with the same token.
         self._root_token_cell: list[object] = _root_token_cell if _root_token_cell is not None else [None]
@@ -657,6 +678,7 @@ class CoverageContext:
             custom_formats=self.custom_formats,
             validator_cls=self.validator_cls,
             update_pattern=self.update_pattern,
+            alphabet=self.alphabet,
             _resolver=self._resolver,
             _path_str_cache_cell=self._path_str_cache_cell,
             _root_token_cell=self._root_token_cell,
@@ -678,6 +700,7 @@ class CoverageContext:
             custom_formats=self.custom_formats,
             validator_cls=self.validator_cls,
             update_pattern=self.update_pattern,
+            alphabet=self.alphabet,
             _resolver=self._resolver,
             _path_str_cache_cell=self._path_str_cache_cell,
             _root_token_cell=self._root_token_cell,
@@ -726,6 +749,7 @@ class CoverageContext:
                 draft=draft,
                 formats=self.custom_formats,
                 format_lengths=format_lengths_for(self.custom_formats),
+                alphabet=self.alphabet,
             )
         except InvalidSchema:
             return None
@@ -771,6 +795,7 @@ class CoverageContext:
                 self.session.token_for(self.custom_formats),
                 self.session.token_for(self.update_pattern),
                 self.validator_cls,
+                self.alphabet,
             )
         except (TypeError, ValueError):
             cache_key = None
@@ -881,6 +906,7 @@ class CoverageContext:
                 self.session.token_for(self.custom_formats),
                 self.session.token_for(self.update_pattern),
                 self.validator_cls,
+                self.alphabet,
             )
         except (TypeError, ValueError):
             cache_key = None
@@ -1116,7 +1142,7 @@ class CoverageContext:
         # Spelling the length into the pattern fixes the shape of every match, so a format the
         # first match fails is one no redraw satisfies; checking once beats searching for it.
         strategy = _pattern_strategy(
-            self.session, pattern, min_length, max_length, None if length_is_pinned else validated
+            self.session, pattern, min_length, max_length, None if length_is_pinned else validated, self.alphabet
         )
         if strategy is None:
             raise Unsatisfiable from None
@@ -1357,6 +1383,8 @@ def _convert_bytes_for_hashing(value: Any) -> Any:
     """Convert bytes/non-string keys to a hashable string representation for JSON encoding."""
     if isinstance(value, bytes):
         return f"__bytes__:{value.hex()}"
+    if isinstance(value, Binary):
+        return f"__binary__:{value.data.hex()}"
     if isinstance(value, dict):
         return {(k if isinstance(k, str) else str(k)): _convert_bytes_for_hashing(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -2124,17 +2152,16 @@ def _cover_positive_for_type(
     elif ty is not None or _implies_object_type(schema) or _implies_array_type(schema):
         yield from _positive_for_describing_keywords(ctx, schema, ty, template)
     if "not" in schema and isinstance(schema["not"], (dict, bool)):
-        # For 'not' schemas: generate negative cases of inner schema (violations)
-        # These violations are positive for the outer schema, so flip the mode.
-        # The inner-violation alone doesn't guarantee the value satisfies the outer's
-        # other constraints (type, properties, etc.); validate before yielding.
+        # Values invalid for the inner schema are valid for the outer one only if they also satisfy
+        # its other constraints (type, properties, etc.).
         nctx = ctx.with_negative()
-        for flipped in _flip_generation_mode_for_not(cover_schema_iter(nctx, schema["not"])):
-            if flipped.generation_mode == GenerationMode.POSITIVE and not _is_valid_with_formats(
-                flipped.value, schema, ctx
-            ):
-                continue
-            yield flipped
+        for generated in cover_schema_iter(nctx, schema["not"]):
+            if _is_valid_with_formats(generated.value, schema, ctx):
+                yield PositiveValue(
+                    generated.value,
+                    scenario=CoverageScenario.DEFAULT_POSITIVE_TEST,
+                    description="Value not matching the 'not' schema",
+                )
 
 
 def _inline_allof_refs(
@@ -2626,13 +2653,18 @@ def _negative_not(
 ) -> Generator[GeneratedValue, None, None]:
     if not isinstance(value, (dict, bool)):
         return
-    # For 'not' schemas: generate positive cases of inner schema (valid values)
-    # These valid values are negative for the outer schema, so flip the mode
+    # Values valid for the inner schema are invalid for the outer one, and are reported by the `not` they violate.
     pctx = ctx.with_positive()
     # Nothing satisfies the schema around a `not` that admits everything, so what a value is
     # says nothing about why it is rejected.
-    description = "Value is not allowed" if value == {} or value is True else None
-    yield from _flip_generation_mode_for_not(cover_schema_iter(pctx, value, seen), description=description)
+    description = "Value is not allowed" if value == {} or value is True else "Value matches the 'not' schema"
+    for generated in cover_schema_iter(pctx, value, seen):
+        yield NegativeValue(
+            generated.value,
+            scenario=CoverageScenario.MATCHES_NOT_SCHEMA,
+            description=description,
+            location=ctx.current_path,
+        )
 
 
 _ALL_TYPES = ("null", "boolean", "string", "number", "array", "object")
@@ -2717,7 +2749,7 @@ def cover_schema_iter(
         types = list(_ALL_TYPES)
     else:
         types = schema.get("type", [])
-    push_examples_to_properties(schema)
+    schema = push_examples_to_properties(schema)
     if not isinstance(types, list):
         types = [types]  # type: ignore[unreachable]
     leaves = _fold(schema, ctx) if GenerationMode.POSITIVE in ctx.generation_modes else None
@@ -2738,8 +2770,7 @@ def cover_schema_iter(
         baseline_emitted = False
         if not ctx.wire.can_be_negated(schema):
             return
-        # Snapshot: walking a keyword can push examples down into a schema shared with this one,
-        # and a key landing here mid-walk is not one this pass was meant to cover anyway.
+        # Snapshot: a key landing here mid-walk is not one this pass was meant to cover.
         for key, value in list(schema.items()):
             with _ignore_unfixable(), ctx.at(key):
                 if _negation_ignored_by_dialect(ctx, key):
@@ -2770,12 +2801,7 @@ def cover_schema_iter(
                 elif key == "additionalProperties" and schema.get("type") in ["object", None]:
                     if value is False and "pattern" not in schema:
                         # additionalProperties: false - add unexpected property
-                        if not ctx.allow_extra_parameters and ctx.location in (
-                            ParameterLocation.QUERY,
-                            ParameterLocation.HEADER,
-                            ParameterLocation.COOKIE,
-                            ParameterLocation.BODY,
-                        ):
+                        if not ctx.allow_extra_parameters and ctx.location in EXTRA_PROPERTY_LOCATIONS:
                             continue
                         template = template or _generate_template_with_deflation_fallback(
                             ctx, schema, _get_template_schema(schema, "object", ctx)
@@ -2890,7 +2916,7 @@ def _positive_for_describing_keywords(
 ) -> Generator[GeneratedValue, None, None]:
     """Positive values built from the describing keywords alone (type, bounds, `items`, `properties`, ...)."""
     if ty == "null":
-        yield PositiveValue(None, scenario=CoverageScenario.NULL_VALUE, description="Value null value")
+        yield PositiveValue(None, scenario=CoverageScenario.NULL_VALUE, description="Valid null value")
     elif ty == "boolean":
         yield PositiveValue(True, scenario=CoverageScenario.VALID_BOOLEAN, description="Valid boolean value")
         yield PositiveValue(False, scenario=CoverageScenario.VALID_BOOLEAN, description="Valid boolean value")
@@ -4170,16 +4196,17 @@ def _negative_prefix_items(
     # For each position, generate negative values and yield arrays with one invalid item
     nctx = ctx.with_negative()
     for idx, item_schema in enumerate(item_schemas):
-        for neg_value in cover_schema_iter(nctx, item_schema):
-            items = valid_items.copy()
-            items[idx] = neg_value.value
-            if ctx.wire.leads_to_negative_test_case(items):
-                yield NegativeValue(
-                    items,
-                    scenario=neg_value.scenario,
-                    description=f"Array with invalid item at index {idx}: {neg_value.description}",
-                    location=nctx.current_path,
-                )
+        with nctx.at(idx):
+            for neg_value in cover_schema_iter(nctx, item_schema):
+                items = valid_items.copy()
+                items[idx] = neg_value.value
+                if ctx.wire.leads_to_negative_test_case(items):
+                    yield NegativeValue(
+                        items,
+                        scenario=neg_value.scenario,
+                        description=f"Array with invalid item at index {idx}: {neg_value.description}",
+                        location=nctx.current_path,
+                    )
 
 
 def _not_matching_pattern(value: str, pattern: re.Pattern) -> bool:
@@ -4204,7 +4231,7 @@ def _negative_pattern(
         return
     # The same regex recurs verbatim across operations; one Hypothesis search covers the whole audit.
     # `representable` makes the outcome location-dependent, so the location is part of the key.
-    cache_key = ("negative_pattern", pattern, min_length, max_length, ctx.location, ctx.validator_cls)
+    cache_key = ("negative_pattern", pattern, min_length, max_length, ctx.location, ctx.validator_cls, ctx.alphabet)
     value = ctx.session.values.get(cache_key)
     if value is UNSATISFIABLE_RESULT:
         raise Unsatisfiable
@@ -4217,7 +4244,7 @@ def _negative_pattern(
         except Exception:
             validator = None
         strategy = (
-            st.text(min_size=min_length or 0, max_size=max_length)
+            st.text(ctx.alphabet.as_strategy(), min_size=min_length or 0, max_size=max_length)
             .filter(partial(_not_matching_pattern, pattern=compiled))
             .filter(ctx.wire.representable)
         )
@@ -4719,43 +4746,28 @@ def _negative_type(
             )
 
 
-def _flip_generation_mode_for_not(
-    values: Generator[GeneratedValue, None, None],
-    description: str | None = None,
-) -> Generator[GeneratedValue, None, None]:
-    """Flip generation mode for values from 'not' schemas.
-
-    For 'not' schemas, the semantic is inverted:
-    - Positive values for the inner schema are negative for the outer schema
-    - Negative values for the inner schema are positive for the outer schema
-    """
-    for value in values:
-        flipped_mode = (
-            GenerationMode.NEGATIVE if value.generation_mode == GenerationMode.POSITIVE else GenerationMode.POSITIVE
-        )
-        yield GeneratedValue(
-            value=value.value,
-            generation_mode=flipped_mode,
-            scenario=value.scenario,
-            description=description or value.description,
-            location=value.location,
-            parameter=value.parameter,
-            deduplication_key=value.deduplication_key,
-        )
-
-
-def push_examples_to_properties(schema: JsonSchemaObject) -> None:
-    """Push examples from the top-level 'examples' field to the corresponding properties."""
-    if "examples" in schema and "properties" in schema:
-        properties = schema["properties"]
-        for example in schema["examples"]:
-            if isinstance(example, dict):
-                for prop, value in example.items():
-                    if prop in properties and isinstance(properties[prop], dict):
-                        if "examples" not in properties[prop]:
-                            properties[prop]["examples"] = []
-                        if value not in properties[prop]["examples"]:
-                            properties[prop]["examples"].append(value)
+def push_examples_to_properties(schema: JsonSchemaObject) -> JsonSchemaObject:
+    """`schema` with its top-level `examples` values also listed on the matching properties; never modifies the input."""
+    if "examples" not in schema or "properties" not in schema:
+        return schema
+    properties = schema["properties"]
+    pushed: dict[str, list[JsonValue]] = {}
+    for example in schema["examples"]:
+        if isinstance(example, dict):
+            for prop, value in example.items():
+                if prop in properties and isinstance(properties[prop], dict):
+                    values = pushed.setdefault(prop, list(properties[prop].get("examples", [])))
+                    if value not in values:
+                        values.append(value)
+    if not pushed:
+        return schema
+    return {
+        **schema,
+        "properties": {
+            **properties,
+            **{prop: {**properties[prop], "examples": values} for prop, values in pushed.items()},
+        },
+    }
 
 
 # Negative handlers for keywords that need no shared object template; the template-bound

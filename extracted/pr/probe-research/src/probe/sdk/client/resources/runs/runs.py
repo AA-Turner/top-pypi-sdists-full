@@ -133,10 +133,11 @@ class RunsMixin:
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
-        :meth:`_run_impl` (unchanged). ``workspace`` (a slug or an id) is where a
+        ``client/resources/runs/DESIGN.md`` ("Opening a run"). ``workspace`` (a slug or an id) is where a
         NEW project is filed; without it, this computer's workspace (``probe
         workspace use``, ``PROBE_WORKSPACE``). A team with several workspaces and
-        none set raises ``WorkspaceRequired`` before anything is created. ``hw=True`` (or ``PROBE_HW=1``) also
+        none set files into your home workspace, and raises ``WorkspaceRequired``
+        before anything is created when you have none. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (docs/2026-08-05-hw-metrics-design.md). ``snapshot``
@@ -150,11 +151,12 @@ class RunsMixin:
         out. A detached run (``heartbeat=False``, ``awaiting_attach``) captures
         nothing: this process is not the work.
 
-        With NEITHER ``experiment`` NOR ``project`` the run opens FLOATING (daemon
-        v2): no home yet, filed afterwards by the Probe daemon or `probe run
-        move`. ``intent`` is free text saying what the run is meant to show; it
-        rides in the run's ``metadata.intent`` (the run schema has no field for
-        it), and the daemon files and describes the run by it.
+        Every run has a home. With NEITHER ``experiment`` NOR ``project`` it opens in
+        this computer's project (``PROBE_PROJECT``, else ``probe project use``); with
+        none set it raises ``ProjectRequired`` before any request. ``intent`` is free
+        text saying what the run is meant to show; it rides in the run's
+        ``metadata.intent`` (the run schema has no field for it), and the daemon
+        files and describes the run by it.
 
         ``ignore`` adds gitignore-style patterns to the ``.probeignore`` file at
         the git toplevel and to ``PROBE_IGNORE`` (plan (n)): matching files are
@@ -246,188 +248,18 @@ class RunsMixin:
         workspace: str | None = None,
         **run_kw,
     ) -> Run:
-        """Open a run inside an experiment — or straight under a project.
-
-        With ``experiment``, the run opens inside that experiment (and ``project``,
-        if also given, is a cross-check). With only ``project`` (W&B shape), the run
-        attaches PROJECT-DIRECT — no experiment at all. With neither, it opens
-        FLOATING (daemon v2): no home until it is filed.
-
-        Resolution is strict by default: an unknown slug raises, naming the closest
-        existing ones.
-
-        ``question=`` is the ONE opt-in to creation. Pass it and an absent
-        experiment (and its project) is created; omit it and nothing is ever
-        created. Creation is gated this way because a question is the thing you
-        can only write when you know what you are trying to find out — so the cost of a new
-        experiment is one sentence, and an accident cannot pay it.
-
-        That opt-in is SDK-only on purpose. Here the slug is written once in a file
-        and code-reviewed; on the CLI it is hand-typed on every invocation, which is
-        where typos come from — so ``probe run start`` cannot create at all. Use
-        ``probe experiment create`` / ``probe project create`` there.
-
-        For work with no question, the honest home is a project-direct run, not an
-        experiment named after whatever directory you happened to be in.
-
-        ``on_conflict`` decides what a duplicate ``external_id`` means.
-        ``"auto"`` (the default) reads the incumbent's state: dead
-        (failed/crashed/canceled) → RESUME it in place — same run, same curve,
-        recovery on the record; completed or still alive → the 409 stands,
-        because repeating a good run or hijacking a live one must be
-        deliberate. ``"resume"`` demands the resume and errors when the
-        incumbent is not dead. ``"supersede"`` treats the collision as a
-        from-scratch RETRY: a fresh run opens as ``external_id-rN`` with
-        ``parent_relation="retry"`` pointing at the incumbent, and a dead
-        incumbent is tagged ``superseded`` so nobody trusts its partial
-        numbers (a completed one is left unmarked — a repeat is not a
-        correction). ``"error"`` keeps the bare 409. The two recovery policies
-        split on step continuity: resume continues the curve past the crash
-        point (checkpointed relaunch), supersede replays it from step 0.
-
-        A REQUEUE (2.3): when the incumbent still reads ``running`` but its
-        process is gone (a replaced pod the reaper has not reached yet),
-        ``"auto"``, ``"resume"`` and ``Rewind`` take it over once the server
-        judges it silent for three heartbeat intervals (at least 180 s),
-        waiting up to ``PROBE_TAKEOVER_WAIT_SEC`` (300; 0 in a notebook) with
-        one stderr line. An incumbent that speaks while this waits is a live
-        duplicate and still conflicts. Before any resume or takeover, what the
-        incumbent left queued in this outbox is delivered first (bounded by
-        ``PROBE_TAKEOVER_DRAIN_SEC``, 120), because the reopen's new write
-        epoch would refuse it. A server without ``run_reopen_takeover``
-        keeps today's conflict.
-
-        ``snapshot`` — None (default) follows ``PROBE_AUTO_SNAPSHOT`` (on
-        unless set to "0"); False skips the auto-capture; True forces it
-        regardless of the env var. A run opened here and then driven through
-        ``run.execute()`` snapshots twice; the second is cheap (same tree →
-        same execution record via server dedupe, code-bytes deduped by the
-        presign have-check) and overwrites the launch block with the more
-        specific child argv — intended. This dedupe is genuine even in a git
-        repo: the execution record hashes the code MANIFEST only, never the
-        per-snapshot shadow commit (design doc D1), so two snapshots of an
-        unchanged tree always land on the same content_hash regardless of how
-        many shadow refs were minted along the way."""
-        if not isinstance(on_conflict, Rewind) and on_conflict not in (
-            "auto",
-            "error",
-            "supersede",
-            "resume",
-        ):
-            raise errors.ValidationError(
-                f'on_conflict={on_conflict!r} is not a policy. Use "auto" '
-                '(resume a dead incumbent, else 409), "resume" (demand it), '
-                '"supersede" (retry lineage under a fresh -rN external_id), '
-                '"error" (the bare 409), or probe.Rewind(step=N) — resume '
-                "from an earlier checkpoint, overwriting the run's record "
-                "from step N onward (0185)."
-            )
-        # NO FALLBACK to the git repo or script name when both are missing: that
-        # silently created an experiment named after whatever directory you
-        # happened to be in. Daemon v2 opens the run FLOATING instead (below),
-        # with no home at all, and the daemon files it where it belongs.
-        if experiment_name is not None and question is None:
-            raise errors.ValidationError(
-                "experiment_name only titles an experiment run() CREATES, and "
-                "creation needs a question. Pass question=, or rename an "
-                "existing experiment with update_experiment()."
-            )
-        if question is not None and not experiment:
-            raise errors.ValidationError(
-                "question= creates an experiment, so it needs an experiment "
-                "slug. A project-direct run has no experiment to hold one."
-            )
-        if question is not None and not project:
-            raise errors.ValidationError(
-                "creating an experiment needs an explicit project slug. Pass "
-                "project= after creating the project first."
-            )
-        if question is not None and not question.strip():
-            # `question=args.question or ""` is an ordinary way to get here.
-            # Creation gates on `is not None` while create_experiment gates on
-            # falsiness, so an empty string used to unlock the create path far
-            # enough to commit a PROJECT before failing on the experiment.
-            raise errors.ValidationError(
-                "question= is empty. Creating an experiment needs one that says "
-                "something: what do you expect this to show? Pass a real "
-                "question, or drop the argument to open an existing experiment."
-            )
-        self.ensure_authenticated()
+        """Open a run inside an experiment or straight under a project. Resolution,
+        ``question=``, ``on_conflict`` and ``snapshot``: DESIGN.md."""
         if not experiment and not project:
-            # FLOATING (daemon v2, D1). Every validation above still ran; the
-            # only one this skips is "needs an experiment slug", which is the
-            # point. `question=` cannot reach here (it needs an experiment).
-            if run_kw.get("group_id") is not None:
-                raise errors.ValidationError(
-                    "a group needs an experiment: run groups are "
-                    "experiment-anchored, so a run with no project cannot join "
-                    "one. Name the experiment or drop the group."
-                )
-            run_kw.pop("group_id", None)
-            self._maybe_attach_retry_parent(run_kw, project_id=None)
-            handle = self._create_run_with_policy(
-                lambda kw, nm: self.create_floating_run(nm, **kw),
-                run_kw,
-                name,
-                on_conflict,
-                experiment_id=None,
-                project_id=None,
-            )
-            self._maybe_auto_snapshot(handle, snapshot, ignore)
-            return handle
-        # NO FALLBACK. This fabricated `run-<timestamp>` whenever the caller left
-        # the name unset, and the server reads ANY supplied name as human-chosen:
-        # it stamps `name_customized` and freezes the run out of generated titles
-        # forever (app/generation/kinds/title.py, whose docstring names this exact
-        # string as the thing it exists to replace). Passing None through is what
-        # lets the server name the run after the caller's slug -- or a petname when
-        # there is none -- and leave the flag False so the title kind may improve it
-        # later. It must be None and NOT `name or slug`: runs never pass through
-        # `chosen_name()` (that is the projects/experiments door), so a slug sent as
-        # a name is indistinguishable from a human choice and re-freezes the row.
-        # A project named by an id must exist: never created, whatever `question=` says.
-        by_id, slug = self._project_named(project) if project else (None, None)
-        # Refuse an uncreatable experiment slug BEFORE any parent is committed.
-        # ensure_project runs first below, so without this a refused experiment
-        # leaves a brand-new orphan project behind — the exact stray identity the
-        # refusal exists to prevent.
-        if experiment and question is not None:
-            # Read-only: the project may not exist yet (ensure_project below
-            # creates it), and then the lookup is tenant-wide.
-            known = by_id or (self.resolve_project(slug) if slug else None)
-            if (
-                self.resolve_experiment(experiment, project_id=known["id"] if known else None)
-                is None
-            ):
-                self._guard_creatable("experiment", experiment)
-        project_id = None
-        if project:
-            # The project follows the experiment: creation is unlocked only by a
-            # question, so a project-direct run (which cannot carry one) always
-            # resolves strictly.
-            # `workspace` (a slug or an id) is where a NEW project is filed;
-            # without it, this computer's workspace (`create_project`). An
-            # existing project keeps its own: nothing ever moves.
-            project_id = (
-                by_id["id"]
-                if by_id is not None
-                else self.ensure_project(
-                    slug,
-                    authored_by=run_kw.get("authored_by"),
-                    **({"workspace_id": workspace} if workspace else {}),
-                )["id"]
-                if question is not None
-                else self.resolve_or_raise("project", slug)["id"]
-            )
+            # This computer's project, only when NEITHER is named: filling it beside an
+            # experiment would scope that tenant-wide lookup to the wrong project.
+            project = self.settings.project
+        _check_run_arguments(on_conflict, experiment, question, project, experiment_name)
+        self.ensure_authenticated()
+        project_id = self._resolve_run_project(project, experiment, question, workspace, run_kw)
         if not experiment:
             # Project-direct (0054): the run attaches straight to the project.
-            if run_kw.get("group_id") is not None:
-                raise errors.ValidationError(
-                    "a group needs an experiment: run groups are "
-                    "experiment-anchored, so a project-direct run cannot join "
-                    "one. Name the experiment or drop the group."
-                )
-            run_kw.pop("group_id", None)
+            _refuse_group_without_experiment(run_kw, "a project-direct run")
             self._maybe_attach_retry_parent(run_kw, project_id=project_id)
             handle = self._create_run_with_policy(
                 lambda kw, nm: self.create_project_run(project_id, nm, **kw),
@@ -439,32 +271,9 @@ class RunsMixin:
             )
             self._maybe_auto_snapshot(handle, snapshot, ignore)
             return handle
-        if question is not None:
-            exp = self.ensure_experiment(
-                experiment,
-                # `experiment_name or experiment` used to pass the SLUG as the
-                # name. The server nulls a slug-equal name, so it was a no-op --
-                # but paired with an authorship declaration it claims someone
-                # chose the identifier as the title. Omit it instead.
-                experiment_name,
-                question=question,
-                project_id=project_id,
-                # An experiment auto-created for a run inherits the run's
-                # authorship: the same caller composed both, and without this
-                # the parent is stamped human-owned by the server's historical
-                # inference and locked out of naming forever.
-                authored_by=run_kw.get("authored_by"),
-            )
-        else:
-            exp = self.resolve_or_raise("experiment", experiment, project_id=project_id)
-        # Naming a project for an experiment that already lives somewhere else is a
-        # real mistake rather than a no-op: `project` would otherwise silently do
-        # nothing, which is its own quiet wrong answer.
-        if project_id and exp.get("project_id") not in (None, project_id):
-            raise errors.ValidationError(
-                f"experiment {experiment!r} is not in project {project!r}. "
-                "Drop the project argument, or name the one it actually belongs to."
-            )
+        exp = self._resolve_run_experiment(
+            experiment, experiment_name, question, project, project_id, run_kw
+        )
         self._maybe_attach_retry_parent(run_kw, experiment_id=exp["id"])
         handle = self._create_run_with_policy(
             lambda kw, nm: self.create_run(exp["id"], nm, project_id=exp.get("project_id"), **kw),
@@ -476,6 +285,71 @@ class RunsMixin:
         )
         self._maybe_auto_snapshot(handle, snapshot, ignore)
         return handle
+
+    def _resolve_run_project(
+        self,
+        project: str | None,
+        experiment: str | None,
+        question: str | None,
+        workspace: str | None,
+        run_kw: dict,
+    ) -> str | None:
+        """The project id a run opens under; created only with ``question=`` (DESIGN.md)."""
+        # A project named by an id must exist: never created, whatever `question=` says.
+        by_id, slug = self._project_named(project) if project else (None, None)
+        # Refuse an uncreatable experiment slug BEFORE ensure_project commits a parent,
+        # else a refused experiment leaves an orphan project behind.
+        if experiment and question is not None:
+            # Read-only: the project may not exist yet (ensure_project below
+            # creates it), and then the lookup is tenant-wide.
+            known = by_id or (self.resolve_project(slug) if slug else None)
+            if (
+                self.resolve_experiment(experiment, project_id=known["id"] if known else None)
+                is None
+            ):
+                self._guard_creatable("experiment", experiment)
+        if not project:
+            return None
+        # Only a question unlocks creation; `workspace` files a NEW project (DESIGN.md).
+        return (
+            by_id["id"]
+            if by_id is not None
+            else self.ensure_project(
+                slug,
+                authored_by=run_kw.get("authored_by"),
+                **({"workspace_id": workspace} if workspace else {}),
+            )["id"]
+            if question is not None
+            else self.resolve_or_raise("project", slug)["id"]
+        )
+
+    def _resolve_run_experiment(
+        self,
+        experiment: str,
+        experiment_name: str | None,
+        question: str | None,
+        project: str | None,
+        project_id: str | None,
+        run_kw: dict,
+    ) -> dict:
+        """The experiment a run opens in; created only with ``question=`` (DESIGN.md)."""
+        if question is not None:
+            exp = self.ensure_experiment(
+                experiment,
+                experiment_name,  # never the slug as a name (DESIGN.md)
+                question=question,
+                project_id=project_id,
+                authored_by=run_kw.get("authored_by"),  # inherits the run's authorship
+            )
+        else:
+            exp = self.resolve_or_raise("experiment", experiment, project_id=project_id)
+        # A project that is not the experiment's own is a mistake, not a no-op.
+        if project_id and exp.get("project_id") not in (None, project_id):
+            raise errors.ValidationError(
+                f"experiment {experiment!r} is not in project {project!r}. "
+                "Drop the project argument, or name the one it actually belongs to."
+            )
+        return exp
 
     @staticmethod
     def _maybe_auto_snapshot(handle: Run, snapshot: bool | None, ignore: Any = None) -> None:
@@ -500,7 +374,9 @@ class RunsMixin:
                 # of `probe.init()`'s retry budget (plan 2.5), so it keeps its
                 # own timeouts however long the create took.
                 with without_patience():
-                    handle.snapshot()  # in-process: THIS interpreter is the env
+                    # In-process: THIS interpreter is the env. No network on this thread:
+                    # everything is queued, the record POSTed off it (`_snapshot_at_open`).
+                    handle._snapshot_at_open()
             except Exception as exc:
                 warnings.warn(
                     f"auto-snapshot failed; run continues uncaptured: {exc}",
@@ -524,13 +400,12 @@ class RunsResource(Resource):
         project_id: str | None = None,
         direct: bool = False,
         tags: list[str] | None = None,
-        unfiled: bool = False,
         **params: Any,
     ) -> Page:
         """A page of runs, filtered as `Client.list_runs` filters them."""
         page = self._client.list_runs(
             experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags,
-            unfiled=unfiled, **params,
+            **params,
         )
         return self._to_typed_page(RunDetailOut, page)
 
@@ -588,3 +463,64 @@ class RunsResource(Resource):
         return self._to_models(WriterOut, self._client.list_writers(run_id))
 
 from probe.sdk.client.resources.runs.reopen.conflict import Rewind  # noqa: E402 -- pieces need each other; the front door loads this one first
+
+
+def _check_run_arguments(
+    on_conflict: str | Rewind,
+    experiment: str | None,
+    question: str | None,
+    project: str | None,
+    experiment_name: str | None,
+) -> None:
+    """Refuse argument combinations ``run()`` cannot honour, before any request."""
+    if not isinstance(on_conflict, Rewind) and on_conflict not in (
+        "auto",
+        "error",
+        "supersede",
+        "resume",
+    ):
+        raise errors.ValidationError(
+            f'on_conflict={on_conflict!r} is not a policy. Use "auto" '
+            '(resume a dead incumbent, else 409), "resume" (demand it), '
+            '"supersede" (retry lineage under a fresh -rN external_id), '
+            '"error" (the bare 409), or probe.Rewind(step=N) — resume '
+            "from an earlier checkpoint, overwriting the run's record "
+            "from step N onward (0185)."
+        )
+    if experiment_name is not None and question is None:
+        raise errors.ValidationError(
+            "experiment_name only titles an experiment run() CREATES, and "
+            "creation needs a question. Pass question=, or rename an "
+            "existing experiment with update_experiment()."
+        )
+    if question is not None and not experiment:
+        raise errors.ValidationError(
+            "question= creates an experiment, so it needs an experiment "
+            "slug. A project-direct run has no experiment to hold one."
+        )
+    if question is not None and not project:
+        raise errors.ValidationError(
+            "creating an experiment needs an explicit project slug. Pass "
+            "project= after creating the project first."
+        )
+    if question is not None and not question.strip():
+        # `question=args.question or ""` lands here; an empty string once committed a
+        # PROJECT before failing on the experiment (DESIGN.md).
+        raise errors.ValidationError(
+            "question= is empty. Creating an experiment needs one that says "
+            "something: what do you expect this to show? Pass a real "
+            "question, or drop the argument to open an existing experiment."
+        )
+    if not experiment and not project:
+        raise errors.ProjectRequired()
+
+
+def _refuse_group_without_experiment(run_kw: dict, who: str) -> None:
+    """Run groups are experiment-anchored: refuse a group on a run with no experiment."""
+    if run_kw.get("group_id") is not None:
+        raise errors.ValidationError(
+            "a group needs an experiment: run groups are "
+            f"experiment-anchored, so {who} cannot join "
+            "one. Name the experiment or drop the group."
+        )
+    run_kw.pop("group_id", None)

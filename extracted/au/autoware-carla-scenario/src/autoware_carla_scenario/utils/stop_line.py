@@ -1,0 +1,285 @@
+"""Stop line linestring extraction from Lanelet2 regulatory elements.
+
+Pure map reading: the caller supplies the ``LaneletMap``.  Reaching
+:class:`~..coordinate.map_manager.MapManager` for it instead would put this
+module on top of ``coordinate`` -- which imports it -- and the two packages
+would be a cycle whose resolution depends on which one an entry point reached
+first.  The value is one attribute, and every caller already holds a map.
+
+:mod:`..coordinate.stop_line` wraps these for the ambient run, where the map is
+the singleton's.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Iterable, Union
+
+if TYPE_CHECKING:
+    from autoware_lanelet2_extension_python.regulatory_elements import (
+        AutowareTrafficLight,
+        RoadMarking,
+    )
+    from lanelet2.core import (
+        AttributeMap,
+        ConstLanelet,
+        ConstLineString3d,
+        LaneletMap,
+        RegulatoryElement,
+        RightOfWay,
+        TrafficLight,
+        TrafficSign,
+    )
+
+__all__ = [
+    "get_stop_line_linestrings",
+    "get_stop_line_linestrings_with_following",
+    "regulatory_element_stop_lines",
+]
+
+logger = logging.getLogger(__name__)
+
+
+def _attr_get(attrs: AttributeMap, key: str) -> str | None:
+    """Safely get a value from a lanelet2 AttributeMap.
+
+    The lanelet2 ``AttributeMap`` does not support ``.get()``, so this
+    helper uses ``in`` + ``[]`` access instead.
+    """
+    try:
+        if key in attrs:
+            return str(attrs[key])
+    except Exception:
+        pass
+    return None
+
+
+def _collect_stop_lines_from_reg_elems(
+    reg_elems: Iterable[RegulatoryElement],
+    seen_ids: set[int],
+) -> list[ConstLineString3d]:
+    """Extract stop line linestrings from a sequence of regulatory elements.
+
+    :func:`regulatory_element_stop_lines` of each element, in order.
+    """
+    results: list[ConstLineString3d] = []
+
+    for reg_elem in reg_elems:
+        results.extend(regulatory_element_stop_lines(reg_elem, seen_ids))
+
+    return results
+
+
+def regulatory_element_stop_lines(
+    reg_elem: Union[
+        TrafficLight,
+        AutowareTrafficLight,
+        RightOfWay,
+        TrafficSign,
+        RoadMarking,
+        RegulatoryElement,
+    ],
+    seen_ids: set[int],
+) -> list[ConstLineString3d]:
+    """The stop line linestrings of one regulatory element not in *seen_ids*.
+
+    Adds the id of each one returned to *seen_ids*.  Searches three patterns:
+
+    1. **Traffic light RE**: ``reg_elem.stopLine``, where it is a property
+       (lanelet2's ``TrafficLight`` and ``RightOfWay``, Autoware's
+       ``AutowareTrafficLight``).  On Autoware's ``DetectionArea`` and
+       ``NoStoppingArea`` ``stopLine`` is a method, and is not read here.
+    2. **Traffic sign or detection area RE**: ``ref_line`` parameter (any
+       linestring in the ``ref_line`` role is treated as a stop line
+       regardless of its attributes; a detection area's ``stopLine()`` is
+       the line in that role)
+    3. **Road marking RE**: ``refers`` parameter with ``type="stop_line"``
+
+    Which pattern applies is asked of the element (``hasattr``, its
+    ``subtype``), whatever its class: the annotation lists the classes the
+    static check compiles this for, since Codon decides ``hasattr`` by the
+    static type (docs/typecheck.md).
+    """
+    results: list[ConstLineString3d] = []
+
+    # Pattern 1: Traffic light — stopLine attribute
+    if hasattr(reg_elem, "stopLine"):
+        try:
+            stop_line = reg_elem.stopLine
+            if TYPE_CHECKING:
+                # The model declares stopLine only where it is a property.
+                is_line = True
+            else:
+                # A DetectionArea's (or NoStoppingArea's) stopLine is a
+                # method: its bound method is no line (pattern 2 reads it).
+                # The `types` module is not modelled for Codon.
+                from types import BuiltinMethodType, MethodType  # noqa: PLC0415
+
+                is_line = not isinstance(stop_line, (BuiltinMethodType, MethodType))
+            if is_line and stop_line is not None and stop_line.id not in seen_ids:
+                seen_ids.add(stop_line.id)
+                results.append(stop_line)
+        except Exception:
+            pass
+
+    attrs = reg_elem.attributes if hasattr(reg_elem, "attributes") else None
+    subtype = ""
+    if attrs is not None:
+        found = _attr_get(attrs, "subtype")
+        if found is not None:
+            subtype = found
+
+    # Pattern 2: Traffic sign or detection area — ref_line role (all ref_line
+    # entries are stop lines; a detection area's stopLine() reads that role)
+    if subtype == "traffic_sign" or subtype == "detection_area":
+        try:
+            params = reg_elem.parameters
+            if "ref_line" in params:
+                for rl in params["ref_line"]:
+                    if rl.id not in seen_ids:
+                        seen_ids.add(rl.id)
+                        results.append(rl)
+        except Exception:
+            pass
+
+    # Pattern 3: Road marking — refers with type="stop_line"
+    if subtype == "road_marking":
+        if TYPE_CHECKING:
+            # A `refers` parameter may be any of lanelet2's primitives, which
+            # the model types as what they all have; this pattern returns them
+            # as line strings, so Codon does not compile it (UNCALLED).
+            pass
+        else:
+            results.extend(_road_marking_stop_lines(reg_elem, seen_ids))
+
+    return results
+
+
+def _road_marking_stop_lines(
+    reg_elem: RegulatoryElement, seen_ids: set[int]
+) -> list[ConstLineString3d]:
+    """The ``refers`` of a road marking with ``type="stop_line"`` not in
+    *seen_ids* (pattern 3 of :func:`regulatory_element_stop_lines`)."""
+    results: list[ConstLineString3d] = []
+    try:
+        params = reg_elem.parameters
+        if "refers" in params:
+            for refers_ls in params["refers"]:
+                if refers_ls.id not in seen_ids:
+                    ls_attrs = (
+                        refers_ls.attributes
+                        if hasattr(refers_ls, "attributes")
+                        else None
+                    )
+                    if (
+                        ls_attrs is not None
+                        and _attr_get(ls_attrs, "type") == "stop_line"
+                    ):
+                        seen_ids.add(refers_ls.id)
+                        results.append(refers_ls)
+    except Exception:
+        pass
+    return results
+
+
+def get_stop_line_linestrings(
+    lanelet_map: LaneletMap, lanelet_id: int
+) -> list[ConstLineString3d]:
+    """Return stop line linestrings associated with the given lanelet.
+
+    Searches three types of regulatory elements:
+
+    1. **Traffic light RE**: ``reg_elem.stopLine``
+    2. **Traffic sign or detection area RE**: all linestrings in the
+       ``ref_line`` parameter
+    3. **Road marking RE**: ``reg_elem.parameters['refers']`` with ``type="stop_line"``
+
+    Duplicate stop lines (same linestring ID) are excluded.
+
+    Args:
+        lanelet_map: The loaded Lanelet2 map to search.
+        lanelet_id: The Lanelet2 lanelet ID to search for stop lines.
+
+    Returns:
+        List of lanelet2 linestring objects for each unique stop line found.
+        Empty list if no stop lines are associated with the lanelet.
+
+    Raises:
+        ValueError: If the lanelet ID is not found in the map.
+    """
+    try:
+        lanelet = lanelet_map.laneletLayer[lanelet_id]
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Lanelet ID {lanelet_id} not found in map") from exc
+
+    seen_ids: set[int] = set()
+    return _collect_stop_lines_from_reg_elems(lanelet.regulatoryElements, seen_ids)
+
+
+def get_stop_line_linestrings_with_following(
+    lanelet_map: LaneletMap,
+    lanelet_id: int,
+    depth: int = 1,
+) -> list[tuple[int, ConstLineString3d]]:
+    """Return stop line linestrings from the lanelet and its successors.
+
+    Searches the given lanelet first, then its ``following`` lanelets in the
+    routing graph one step at a time, up to *depth* steps. Returns the stop
+    lines of the first step that has any.
+
+    Args:
+        lanelet_map: The loaded Lanelet2 map to search.
+        lanelet_id: The starting Lanelet2 lanelet ID.
+        depth: How many steps of successors to search.  A spawn walked back
+            from a stop line can be more than one lanelet short of it, when
+            the lane before the line is short.
+
+    Returns:
+        List of ``(owner_lanelet_id, linestring)`` tuples.
+        Empty list if no stop lines are found.
+
+    Raises:
+        ValueError: If the lanelet ID is not found in the map.
+    """
+    import lanelet2.routing
+    import lanelet2.traffic_rules
+
+    try:
+        lanelet = lanelet_map.laneletLayer[lanelet_id]
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Lanelet ID {lanelet_id} not found in map") from exc
+
+    seen_ids: set[int] = set()
+
+    # First: check the lanelet itself
+    results = _collect_stop_lines_from_reg_elems(lanelet.regulatoryElements, seen_ids)
+    if results:
+        return [(lanelet_id, ls) for ls in results]
+
+    # Second: check following lanelets
+    traffic_rules = lanelet2.traffic_rules.create(
+        lanelet2.traffic_rules.Locations.Germany,
+        lanelet2.traffic_rules.Participants.Vehicle,
+    )
+    routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
+    # A Lanelet, then the routing graph's ConstLanelets.
+    frontier: list[ConstLanelet] = []
+    frontier.append(lanelet)
+    visited = {lanelet_id}
+    for _ in range(depth):
+        following: list[ConstLanelet] = []
+        for current in frontier:
+            for fll in routing_graph.following(current):
+                if fll.id not in visited:
+                    visited.add(fll.id)
+                    following.append(fll)
+        frontier = following
+        all_results: list[tuple[int, ConstLineString3d]] = []
+        for fll in frontier:
+            fll_results = _collect_stop_lines_from_reg_elems(
+                fll.regulatoryElements, seen_ids
+            )
+            all_results.extend((fll.id, ls) for ls in fll_results)
+        if all_results:
+            return all_results
+    return []

@@ -20,8 +20,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import client, paths
-from probe.service.protocol import Client, Method, Mode
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.foundation.service_api.vocabularies import Client, Mode
+from probe.foundation.service_api.wire import Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")

@@ -1,0 +1,2679 @@
+//! OSDK S3 — the composed exit witness.
+//!
+//! Two live nodes, real transport, both access modes, through the two verbs and
+//! nothing else:
+//!
+//! ```ignore
+//! let org = mesh.org(credentials)?;
+//! let result: Pong = org.call("customer.read", &request).await?;
+//! ```
+//!
+//! Each test asserts the call actually traversed canonical admission — the
+//! handler receives the five-field `Admitted` projection and the raw
+//! `net-org-admission` header is gone — rather than assuming a successful
+//! response implies it.
+
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use net::adapter::net::behavior::capability::CapabilitySet;
+use net::adapter::net::behavior::org_admission::OrgAdmission;
+use net::adapter::net::cortex::{
+    RpcContext, RpcHandler, RpcHandlerError, RpcResponsePayload, RpcStatus,
+};
+use net::adapter::net::identity::{EntityId, EntityKeypair};
+use net::adapter::net::subnet::{
+    admission::unix_now_secs, SubnetAuthorityConfig, SubnetBoundarySet, SubnetCredentialSet,
+    SubnetExportBinding, SubnetGrant, SubnetRef, SubnetRights, TopologySubnetId,
+};
+use net::adapter::net::{ChannelConfigRegistry, MeshNode, MeshNodeConfig};
+
+use super::credentials::OrgCredentials;
+use super::error::OrgDiscoveryError;
+use super::serve::{OrgAccess, OrgCaller};
+use super::tests::{belonging, cap, discover_grant, org_a, org_b};
+use super::types::*;
+use super::OrgSdkError;
+use crate::identity::Identity;
+use crate::mesh::Mesh;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Ping {
+    n: u32,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+struct Pong {
+    n: u32,
+    served_by: String,
+}
+
+/// [`bring_up`] for MORE than one caller against one provider.
+///
+/// Every `accept()` must complete before `start()` — the node refuses a
+/// `start` while an accept is in flight, and refuses an accept once
+/// started. A three-node cell therefore cannot call `bring_up` twice: it
+/// has to land every handshake first, then start everyone.
+async fn bring_up_all(callers: &[&Mesh], provider: &Mesh) {
+    let provider_pub = *provider.public_key();
+    let provider_addr = provider.local_addr().to_string();
+    for caller in callers {
+        let p_clone = provider.node().clone();
+        let caller_id = caller.node_id();
+        let accept = tokio::spawn(async move { p_clone.accept(caller_id).await });
+        let connected = caller
+            .connect(&provider_addr, &provider_pub, provider.node_id())
+            .await;
+        settle_handshake(connected, accept).await;
+    }
+    provider.start().expect("mesh start");
+    for caller in callers {
+        caller.start().expect("mesh start");
+    }
+    for m in callers.iter().copied().chain([provider]) {
+        m.node()
+            .announce_capabilities(CapabilitySet::new())
+            .await
+            .expect("announce");
+    }
+
+    let provider_id = provider.node_id();
+    for _ in 0..100 {
+        let pinned = callers.iter().all(|c| {
+            c.node().peer_entity_id(provider_id).is_some()
+                && provider.node().peer_entity_id(c.node_id()).is_some()
+        });
+        if pinned {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("entity pins were not established in both directions for every caller");
+}
+
+/// Resolve one connect/accept pair, failing with BOTH sides' errors.
+///
+/// A rare CI flake had `connect` time out (the whole ~15 s budget) on
+/// loopback; panicking on the connect error alone threw away the responder's
+/// own diagnosis — its error names a paced source or the last rejected
+/// datagram — so the flake could not be told apart from a lost packet.
+async fn settle_handshake<T: std::fmt::Debug>(
+    connected: Result<T, crate::error::SdkError>,
+    accept: tokio::task::JoinHandle<Result<(std::net::SocketAddr, u64), net::error::AdapterError>>,
+) {
+    match connected {
+        Ok(_) => {
+            accept.await.expect("accept task").expect("accept");
+        }
+        Err(connect_err) => {
+            // The responder gives up within its own budget; wait a little
+            // past it for its diagnosis rather than aborting it.
+            let accepted = tokio::time::timeout(Duration::from_secs(20), accept).await;
+            panic!("connect: {connect_err:?}; accept side: {accepted:?}");
+        }
+    }
+}
+
+/// Handshake two meshes and wait for both entity pins — protected RPC is
+/// direct-session-only, so the pins ARE the precondition.
+async fn bring_up(caller: &Mesh, provider: &Mesh) {
+    let provider_pub = *provider.public_key();
+    let provider_addr = provider.local_addr();
+    let caller_id = caller.node_id();
+    let p = provider.node();
+    let p_clone = p.clone();
+    let accept = tokio::spawn(async move { p_clone.accept(caller_id).await });
+    let connected = caller
+        .connect(
+            &provider_addr.to_string(),
+            &provider_pub,
+            provider.node_id(),
+        )
+        .await;
+    settle_handshake(connected, accept).await;
+    caller.start().expect("mesh start");
+    provider.start().expect("mesh start");
+
+    for m in [caller, provider] {
+        m.node()
+            .announce_capabilities(CapabilitySet::new())
+            .await
+            .expect("announce");
+    }
+    let provider_id = provider.node_id();
+    for _ in 0..100 {
+        if caller.node().peer_entity_id(provider_id).is_some()
+            && provider.node().peer_entity_id(caller_id).is_some()
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("entity pins were not established in both directions");
+}
+
+/// Drive propagation to convergence.
+///
+/// Emission is asynchronous and the scoped envelope ships on its own
+/// subprotocol, so re-announce and poll the caller's own authority decision
+/// until the provider actually resolves — the same shape the core's live
+/// granted-discovery witness uses.
+async fn converge_discovery(
+    provider: &Mesh,
+    client: &super::OrgClient,
+    capability: &CapabilityAuthorityId,
+) -> bool {
+    for _ in 0..100 {
+        provider
+            .node()
+            .announce_capabilities(CapabilitySet::new())
+            .await
+            .ok();
+        if client
+            .authorized_candidates(capability)
+            .map(|(candidates, _)| !candidates.is_empty())
+            .unwrap_or(false)
+        {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    false
+}
+
+/// A mesh whose node re-announces promptly, adopted into `owner`'s org.
+///
+/// The scoped envelope ships on the announce path, and the default
+/// `min_announce_interval` is 10 s — far longer than a test should wait — so
+/// this builds the node directly with a short interval and wraps it via the
+/// public `Mesh::from_node_arc` seam rather than adding an SDK builder knob
+/// that exists only for tests.
+///
+/// `shared_audience` models §3.4's out-of-band pre-staging: owner-scoped
+/// discovery is keyed on ONE per-organization audience, so two independently
+/// adopted nodes each minting their own could never open each other's
+/// envelopes.
+async fn fast_mesh(
+    tag: &str,
+    owner: &OrgKeypair,
+    shared_audience: Option<&OwnerAudienceCredential>,
+) -> (Mesh, Identity, std::path::PathBuf) {
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32])
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    // The caller IS supplying an identity here (below), so record that
+    // provenance the way MeshBuilder::identity would.
+    cfg.configured_identity = true;
+
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(channel_configs.clone());
+    let node = Arc::new(node);
+
+    let entity = identity.entity_id().clone();
+    let cert = OrgMembershipCert::try_issue(owner, entity.clone(), 1, 3600).expect("cert");
+    let dir = std::env::temp_dir().join(format!(
+        "net-osdk-s3-{tag}-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    let authority = NodeAuthority::adopt(&dir, cert, &entity, 0, None).expect("adopt");
+    let authority = match shared_audience {
+        None => authority,
+        Some(shared) => NodeAuthority {
+            config: authority.config.clone(),
+            audience: OwnerAudienceCredential::decode_config(&shared.encode_config())
+                .expect("decode shared owner audience"),
+            revocation: authority.revocation.clone(),
+        },
+    };
+    node.install_node_authority(Arc::new(authority))
+        .expect("install authority");
+    node.set_owner_cert_emission(true)
+        .expect("enable owner-cert emission");
+
+    let mesh = Mesh::from_node_arc(node, channel_configs, Some(identity.clone()));
+    (mesh, identity, dir)
+}
+
+/// A configured mesh whose authority is installed through the PRODUCTION path a
+/// binding takes — `NodeAuthority::adopt` writes the dir (the `net node adopt`
+/// ceremony), then `Mesh::install_org_authority(dir)` opens and installs it.
+///
+/// Distinct from `fast_mesh`, which installs the in-memory authority directly.
+/// This proves the dir-loading path (§7) actually composes into a working call.
+async fn provisioned_mesh(tag: &str, owner: &OrgKeypair) -> (Mesh, Identity, std::path::PathBuf) {
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32])
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    cfg.configured_identity = true;
+
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(channel_configs.clone());
+    let node = Arc::new(node);
+    let entity = identity.entity_id().clone();
+
+    // The ADOPTION ceremony writes the authority files (operator/CLI step).
+    let cert = OrgMembershipCert::try_issue(owner, entity.clone(), 1, 3600).expect("cert");
+    let dir = std::env::temp_dir().join(format!(
+        "net-osdk-provision-{tag}-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = NodeAuthority::adopt(&dir, cert, &entity, 0, None).expect("adopt writes the dir");
+
+    let mesh = Mesh::from_node_arc(node, channel_configs, Some(identity.clone()));
+    // The STARTUP step a binding performs: load the adopted files and install.
+    mesh.install_org_authority(&dir)
+        .expect("install_org_authority loads and installs the adopted dir");
+    // Owner-cert emission needs the authority installed first.
+    mesh.node()
+        .set_owner_cert_emission(true)
+        .expect("enable owner-cert emission");
+    (mesh, identity, dir)
+}
+
+/// Assertions a protected handler makes about its own admission.
+struct Facts {
+    ran: Arc<AtomicUsize>,
+    attribution_ok: Arc<AtomicBool>,
+}
+
+impl Facts {
+    fn new() -> Self {
+        Self {
+            ran: Arc::new(AtomicUsize::new(0)),
+            attribution_ok: Arc::new(AtomicBool::new(false)),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The composed example — SameOrg
+// ---------------------------------------------------------------------------
+
+/// Same-organization: one org, a provider and a dispatcher, over live
+/// transport. The provider serves privately; the caller discovers privately and
+/// invokes — through `mesh.org(..)` and `serve_org(..)` alone.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_same_org_call_through_the_facade() {
+    let a = org_a();
+    let (provider, _p_identity, p_dir) = fast_mesh("live-same-provider", &a, None).await;
+    // The caller shares the organization's owner audience — §3.4's out-of-band
+    // pre-staging step, without which it could not open the envelope at all.
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("live-same-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+
+    let facts = Facts::new();
+    let expected_caller = c_identity.entity_id().clone();
+    let expected_provider = provider.node().entity_id().clone();
+    let ran = facts.ran.clone();
+    let ok = facts.attribution_ok.clone();
+    let org_id = a.org_id();
+    let _serve = provider
+        .serve_org(
+            "internal.reindex",
+            OrgAccess::SameOrg,
+            move |c: OrgCaller, req: Ping| {
+                let (ran, ok) = (ran.clone(), ok.clone());
+                let (expected_caller, expected_provider) =
+                    (expected_caller.clone(), expected_provider.clone());
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    // The five verified facts, none caller-claimed.
+                    ok.store(
+                        c.entity == expected_caller
+                            && c.acting_org == org_id
+                            && c.provider_org == org_id
+                            && c.provider == expected_provider
+                            && c.capability == cap("nrpc:internal.reindex")
+                            && c.is_same_org(),
+                        Ordering::SeqCst,
+                    );
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "provider".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // ---- the composed example ----
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:internal.reindex")).await,
+        "the caller privately resolved the provider over the live scoped send"
+    );
+    let pong: Pong = org
+        .call("internal.reindex", &Ping { n: 41 })
+        .await
+        .expect("the protected call is admitted");
+    // ------------------------------
+
+    assert_eq!(
+        pong,
+        Pong {
+            n: 42,
+            served_by: "provider".to_string()
+        }
+    );
+    assert_eq!(
+        facts.ran.load(Ordering::SeqCst),
+        1,
+        "handler ran exactly once"
+    );
+    assert!(
+        facts.attribution_ok.load(Ordering::SeqCst),
+        "the handler saw the full verified attribution — the call traversed canonical admission"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+// ---------------------------------------------------------------------------
+// SSDK — the exported plane: shared fixture
+// ---------------------------------------------------------------------------
+
+const EXPORT_SERVICE: &str = "fleet.telemetry";
+const SUBNET_DAY: u64 = 24 * 60 * 60;
+/// The provider's local attachment and the exported crossing under it.
+const PROVIDER_ATTACHMENT: &[u8] = &[3];
+const EXPORTED_CROSSING: &[u8] = &[3, 9];
+
+/// The provider machine's subnet authority root — a separate VERTICAL
+/// root, never an org key (topology-is-not-authority doctrine).
+fn subnet_root() -> EntityKeypair {
+    EntityKeypair::from_bytes([0xD7; 32])
+}
+
+fn exported_binding() -> SubnetExportBinding {
+    SubnetExportBinding::new(
+        SubnetRef {
+            authority: subnet_root().entity_id().clone(),
+            path: TopologySubnetId::new(EXPORTED_CROSSING),
+        },
+        0,
+    )
+}
+
+/// Counts invocations; when expectations are supplied, also verifies the
+/// admitted attribution the exported dispatch hands the handler.
+struct ExportedHandler {
+    calls: Arc<AtomicUsize>,
+    attribution_ok: Arc<AtomicBool>,
+    expected_caller: Option<EntityId>,
+    expected_org: Option<OrgId>,
+}
+
+#[async_trait::async_trait]
+impl RpcHandler for ExportedHandler {
+    async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if let (Some(expected_caller), Some(expected_org)) =
+            (self.expected_caller.as_ref(), self.expected_org.as_ref())
+        {
+            if let Some(admitted) = ctx.org_admission.as_ref() {
+                self.attribution_ok.store(
+                    &admitted.caller == expected_caller
+                        && &admitted.acting_org == expected_org
+                        && &admitted.provider_org == expected_org,
+                    Ordering::SeqCst,
+                );
+            }
+        }
+        let req: Ping = serde_json::from_slice(&ctx.payload.body).map_err(|e| {
+            RpcHandlerError::Application {
+                code: 0x8001,
+                message: format!("bad request: {e}"),
+            }
+        })?;
+        let body = serde_json::to_vec(&Pong {
+            n: req.n + 1,
+            served_by: "exported-provider".to_string(),
+        })
+        .expect("encode pong");
+        Ok(RpcResponsePayload {
+            status: RpcStatus::Ok,
+            headers: vec![],
+            body: bytes::Bytes::from(body),
+        })
+    }
+}
+
+impl ExportedHandler {
+    fn counting(calls: Arc<AtomicUsize>) -> Self {
+        Self {
+            calls,
+            attribution_ok: Arc::new(AtomicBool::new(false)),
+            expected_caller: None,
+            expected_org: None,
+        }
+    }
+}
+
+/// `fast_mesh` plus the subnet plane: authority roots and the local
+/// attachment are CONSTRUCTION state (`MeshNodeConfig`), so a
+/// subnet-exported provider must be built with them — there is no
+/// post-construction configure seam, deliberately.
+///
+/// `preinstall_channel_defaults`: tests that register through the CORE
+/// `serve_rpc_subnet_exported` pass `true` (the fixture performs the
+/// channel registration the facade owns); the facade-seam test passes
+/// `false` to prove the seam installs them itself.
+async fn subnet_provider_mesh(
+    tag: &str,
+    owner: &OrgKeypair,
+    preinstall_channel_defaults: bool,
+) -> (Mesh, Identity, std::path::PathBuf) {
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32])
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5))
+        .with_subnet_authority(SubnetAuthorityConfig {
+            authority: subnet_root().entity_id().clone(),
+            roots: vec![subnet_root().entity_id().clone()],
+            maximum_grant_lifetime_secs: 7 * SUBNET_DAY,
+        });
+    cfg.subnet_attachment = Some(TopologySubnetId::new(PROVIDER_ATTACHMENT));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    cfg.configured_identity = true;
+    // Review-10 P1-6: the named-export map is NODE state now, so the
+    // fixture configures it here and `Mesh::serve_subnet_exported`
+    // resolves against it. `SameOrg` matches the caller these tests
+    // build (same owner org as the provider).
+    cfg = cfg.with_subnet_export(crate::subnet::NamedSubnetExport {
+        name: FIXTURE_EXPORT_NAME.to_string(),
+        access: crate::subnet::SubnetExportAccess::SameOrg,
+        subnet: SubnetRef {
+            authority: subnet_root().entity_id().clone(),
+            path: TopologySubnetId::new(EXPORTED_CROSSING),
+        },
+        topology_epoch: 0,
+    });
+
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    // Tests registering through the CORE `serve_rpc_subnet_exported`
+    // need the fixture to perform the channel registration the facade
+    // seam owns (the `install_rpc_service_defaults` promotion,
+    // SUBNET_AUTH_SDK_PLAN.md §3.5). Without it a strict registry
+    // refuses the caller's reply-channel subscribe (`UnknownChannel`).
+    if preinstall_channel_defaults {
+        channel_configs
+            .install_rpc_service_defaults(EXPORT_SERVICE)
+            .expect("the fixture's export service name must be installable");
+    }
+    node.set_channel_configs(channel_configs.clone());
+    let node = Arc::new(node);
+
+    let entity = identity.entity_id().clone();
+    let cert = OrgMembershipCert::try_issue(owner, entity.clone(), 1, 3600).expect("cert");
+    let dir = std::env::temp_dir().join(format!(
+        "net-ssdk-{tag}-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    let authority = NodeAuthority::adopt(&dir, cert, &entity, 0, None).expect("adopt");
+    node.install_node_authority(Arc::new(authority))
+        .expect("install authority");
+    node.set_owner_cert_emission(true)
+        .expect("enable owner-cert emission");
+
+    let mesh = Mesh::from_node_arc(node, channel_configs, Some(identity.clone()));
+    (mesh, identity, dir)
+}
+
+/// The export label `subnet_provider_mesh` configures. Provider-local:
+/// never announced, never accepted from a caller.
+const FIXTURE_EXPORT_NAME: &str = "factory-export";
+
+/// Gateway provisioning for the exported crossing: the declared boundary
+/// plus this node's own EXPORT credential at exactly that scope.
+fn provision_export(provider: &Mesh, provider_identity: &Identity) {
+    provider
+        .node()
+        .declare_subnet_boundaries(SubnetBoundarySet::new(
+            subnet_root().entity_id().clone(),
+            0,
+            [TopologySubnetId::new(EXPORTED_CROSSING)],
+        ));
+    provider
+        .node()
+        .install_subnet_gateway_credentials(&[SubnetCredentialSet::Direct(
+            SubnetGrant::try_issue(
+                &subnet_root(),
+                subnet_root().entity_id().clone(),
+                TopologySubnetId::new(EXPORTED_CROSSING),
+                0,
+                provider_identity.entity_id().clone(),
+                SubnetRights::EXPORT,
+                1,
+                unix_now_secs() - 60,
+                SUBNET_DAY,
+            )
+            .expect("issue export grant"),
+        )])
+        .expect("install gateway credentials");
+}
+
+/// Drive PUBLIC discovery to convergence: re-announce and poll the
+/// caller's one-snapshot owner-projection query until the provider
+/// appears (or does not, for the anti-convergence witnesses).
+async fn converge_public_discovery(provider: &Mesh, caller: &Mesh, service: &str) -> bool {
+    for _ in 0..100 {
+        provider
+            .node()
+            .announce_capabilities(CapabilitySet::new())
+            .await
+            .ok();
+        if !caller
+            .node()
+            .public_owned_service_providers(service)
+            .is_empty()
+        {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    false
+}
+
+// ---------------------------------------------------------------------------
+// SSDK S0 — the discovery gap the exported caller verb exists to close
+// ---------------------------------------------------------------------------
+
+/// A subnet-exported provider announces on the PUBLIC capability plane
+/// (`UnaryAdmission::SubnetExported` carries `CapabilityVisibility::Public`),
+/// while `OrgClient::call` discovers exclusively through encrypted private
+/// announcements. The private-only verb therefore cannot reach a
+/// subnet-exported service: the provider is live and correctly provisioned,
+/// the caller's credentials are impeccable and SHOWN to work against a
+/// private registration of the same service, yet private discovery resolves
+/// zero candidates and the call fails locally with nothing sent.
+///
+/// This is a permanent contract, not a temporary RED
+/// (`SUBNET_AUTH_SDK_PLAN.md` §2.4/§3.6): the gap is closed by a NEW verb,
+/// `call_exported`, and `call` stays private-only. The handler-never-ran
+/// assertion is what makes the gap claim exact rather than inferred from an
+/// error string.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_private_call_cannot_reach_a_subnet_exported_service() {
+    let a = org_a();
+    let (provider, p_identity, p_dir) = subnet_provider_mesh("gap-provider", &a, true).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("gap-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+    provision_export(&provider, &p_identity);
+
+    // The subnet-exported registration — the provider under test.
+    let exported_calls = Arc::new(AtomicUsize::new(0));
+    let _serve = provider
+        .node()
+        .serve_rpc_subnet_exported(
+            EXPORT_SERVICE,
+            Arc::new(ExportedHandler::counting(exported_calls.clone())),
+            OrgAdmission::OwnerDelegated,
+            exported_binding(),
+            Arc::new(|_| true),
+        )
+        .expect("serve subnet-exported");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    // Anti-convergence: give discovery every chance the positive tests
+    // give it — repeated provider announcements, generous polling — and
+    // assert the private view NEVER resolves a candidate.
+    assert!(
+        !converge_discovery(&provider, &org, &cap("nrpc:fleet.telemetry")).await,
+        "private discovery must never resolve a subnet-exported (public-plane) provider",
+    );
+
+    let outcome: Result<Pong, OrgSdkError> = org.call(EXPORT_SERVICE, &Ping { n: 41 }).await;
+    match outcome {
+        Err(OrgSdkError::Discovery(d)) => {
+            assert_eq!(
+                d.wire_kind(),
+                "no_authorized_provider",
+                "the refusal is the local discovery gap, not transport: {d}",
+            );
+        }
+        other => panic!(
+            "a private-only call to a subnet-exported service must fail local \
+             discovery; got {other:?}"
+        ),
+    }
+    assert_eq!(
+        exported_calls.load(Ordering::SeqCst),
+        0,
+        "nothing was sent: the exported handler must never have run",
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+// ---------------------------------------------------------------------------
+// SSDK S1 — the exported caller verb closes the gap
+// ---------------------------------------------------------------------------
+
+/// The composed positive: the SAME provisioning the gap witness uses, now
+/// invoked through `org.call_exported` — public verified-owner discovery,
+/// same-org classification from the VERIFIED projection, one admitted
+/// call, and the handler sees canonical attribution.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_call_exported_reaches_a_subnet_exported_service() {
+    let a = org_a();
+    let (provider, p_identity, p_dir) = subnet_provider_mesh("pos-provider", &a, true).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("pos-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+    provision_export(&provider, &p_identity);
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let attribution_ok = Arc::new(AtomicBool::new(false));
+    let policy_evals = Arc::new(AtomicUsize::new(0));
+    let policy_evals_in = policy_evals.clone();
+    let _serve = provider
+        .node()
+        .serve_rpc_subnet_exported(
+            EXPORT_SERVICE,
+            Arc::new(ExportedHandler {
+                calls: calls.clone(),
+                attribution_ok: attribution_ok.clone(),
+                expected_caller: Some(c_identity.entity_id().clone()),
+                expected_org: Some(a.org_id()),
+            }),
+            OrgAdmission::OwnerDelegated,
+            exported_binding(),
+            Arc::new(move |_| {
+                policy_evals_in.fetch_add(1, Ordering::SeqCst);
+                true
+            }),
+        )
+        .expect("serve subnet-exported");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        converge_public_discovery(&provider, &caller, EXPORT_SERVICE).await,
+        "the caller must resolve the provider through the public verified-owner projection",
+    );
+
+    let pong: Pong = org
+        .call_exported(EXPORT_SERVICE, &Ping { n: 41 })
+        .await
+        .expect("the exported call is admitted");
+    assert_eq!(
+        pong,
+        Pong {
+            n: 42,
+            served_by: "exported-provider".to_string()
+        }
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "handler ran exactly once");
+    assert!(
+        attribution_ok.load(Ordering::SeqCst),
+        "the handler saw the verified caller attribution — the call traversed canonical admission",
+    );
+    assert_eq!(
+        policy_evals.load(Ordering::SeqCst),
+        1,
+        "exactly one admission evaluation: one call, one send",
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// A public candidate WITHOUT a verified owner projection is ineligible:
+/// an ordinary public `serve_rpc` provider (no org authority, no owner
+/// cert on its announcements) is never a `call_exported` candidate, and
+/// the refusal reports zero considered candidates.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_unowned_public_provider_is_ineligible_for_call_exported() {
+    let a = org_a();
+    // A plain node: real identity, NO org authority, NO owner emission.
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32])
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    cfg.configured_identity = true;
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(channel_configs.clone());
+    let provider = Mesh::from_node_arc(Arc::new(node), channel_configs, Some(identity));
+
+    let (caller, c_identity, c_dir) = fast_mesh("unowned-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+
+    // An ordinary PUBLIC registration of the same service name.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let _serve = provider
+        .node()
+        .serve_rpc(
+            EXPORT_SERVICE,
+            Arc::new(ExportedHandler::counting(calls.clone())),
+        )
+        .expect("serve public");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        !converge_public_discovery(&provider, &caller, EXPORT_SERVICE).await,
+        "an unowned public announcement must never enter the verified-owner projection",
+    );
+
+    let outcome: Result<Pong, OrgSdkError> =
+        org.call_exported(EXPORT_SERVICE, &Ping { n: 1 }).await;
+    match outcome {
+        Err(OrgSdkError::Discovery(OrgDiscoveryError::NoAuthorizedProvider {
+            considered, ..
+        })) => {
+            assert_eq!(considered, 0, "zero eligible public candidates were seen");
+        }
+        other => panic!("expected NoAuthorizedProvider, got {other:?}"),
+    }
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "the public handler never ran"
+    );
+
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// A provider-side denial is terminal for that call: the facade never
+/// retries a signed proof. Exactly ONE admission evaluation happens for
+/// one `call_exported`, and the handler never runs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_exported_denial_is_never_retried() {
+    let a = org_a();
+    let (provider, p_identity, p_dir) = subnet_provider_mesh("deny-provider", &a, true).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("deny-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+    provision_export(&provider, &p_identity);
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let policy_evals = Arc::new(AtomicUsize::new(0));
+    let policy_evals_in = policy_evals.clone();
+    let _serve = provider
+        .node()
+        .serve_rpc_subnet_exported(
+            EXPORT_SERVICE,
+            Arc::new(ExportedHandler::counting(calls.clone())),
+            OrgAdmission::OwnerDelegated,
+            exported_binding(),
+            Arc::new(move |_| {
+                policy_evals_in.fetch_add(1, Ordering::SeqCst);
+                false
+            }),
+        )
+        .expect("serve subnet-exported");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        converge_public_discovery(&provider, &caller, EXPORT_SERVICE).await,
+        "discovery must resolve; the refusal under test is admission, not discovery",
+    );
+
+    let outcome: Result<Pong, OrgSdkError> =
+        org.call_exported(EXPORT_SERVICE, &Ping { n: 1 }).await;
+    assert!(
+        matches!(outcome, Err(OrgSdkError::AdmissionDenied(_))),
+        "a provider-policy refusal surfaces as the admission-denied domain: {outcome:?}",
+    );
+    assert_eq!(
+        policy_evals.load(Ordering::SeqCst),
+        1,
+        "one call, one admission evaluation — the facade never retried the signed proof",
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "the handler never ran");
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// SSDK S2 — the two-verb surface end to end through the FACADE seam:
+/// the provider registers against a NAMED export via
+/// `serve_subnet_exported_bytes_node` (which must install the channel
+/// defaults itself — the fixture deliberately does not), and the caller
+/// invokes with `call_exported`. No authority object is constructed on
+/// the serve path; the name resolved to the checked binding.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_facade_seam_serves_through_a_named_export() {
+    use crate::subnet::{
+        serve_subnet_exported_bytes_node, NamedSubnetExport, NamedSubnetExports, SubnetExportAccess,
+    };
+
+    let a = org_a();
+    let (provider, p_identity, p_dir) = subnet_provider_mesh("facade-provider", &a, false).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("facade-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+    provision_export(&provider, &p_identity);
+
+    // The named-export map a binding would retain beside its node arc.
+    let exports = NamedSubnetExports::try_new([NamedSubnetExport {
+        name: "factory-export".to_string(),
+        access: SubnetExportAccess::SameOrg,
+        subnet: SubnetRef {
+            authority: subnet_root().entity_id().clone(),
+            path: TopologySubnetId::new(EXPORTED_CROSSING),
+        },
+        topology_epoch: 0,
+    }])
+    .expect("named exports");
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_in = calls.clone();
+    let _serve = serve_subnet_exported_bytes_node(
+        provider.node().clone(),
+        &exports,
+        EXPORT_SERVICE,
+        "factory-export",
+        move |_caller, body: bytes::Bytes| {
+            let calls_in = calls_in.clone();
+            async move {
+                calls_in.fetch_add(1, Ordering::SeqCst);
+                let req: Ping = serde_json::from_slice(&body)
+                    .map_err(|e| crate::org::OrgHandlerError::Internal(e.to_string()))?;
+                let out = serde_json::to_vec(&Pong {
+                    n: req.n + 1,
+                    served_by: "facade".to_string(),
+                })
+                .expect("encode");
+                Ok(bytes::Bytes::from(out))
+            }
+        },
+    )
+    .expect("serve through the named export");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        converge_public_discovery(&provider, &caller, EXPORT_SERVICE).await,
+        "the facade-registered service must be publicly discoverable with a verified owner",
+    );
+    let pong: Pong = org
+        .call_exported(EXPORT_SERVICE, &Ping { n: 9 })
+        .await
+        .expect("the exported call is admitted — the seam installed the channel defaults");
+    assert_eq!(
+        pong,
+        Pong {
+            n: 10,
+            served_by: "facade".to_string()
+        }
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "handler ran exactly once");
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// S4 Rust live cell (review-10 P1-8) — the FROZEN provider verb,
+/// end to end, plus a clean close.
+///
+/// `live_facade_seam_serves_through_a_named_export` above drives the
+/// binding seam with a locally-built map. This drives what an ordinary
+/// Rust application actually writes:
+///
+/// ```ignore
+/// mesh.serve_subnet_exported(service, export_name, handler)?;
+/// org.call_exported(service, &req).await?;
+/// ```
+///
+/// It is the reference shape the TypeScript, Python, Go, and C cells
+/// mirror, and it covers the five things the S4 gate asks for in one
+/// run: configure a provider, serve a NAMED export, call it, preserve
+/// caller attribution at the handler, and close without a callback
+/// racing the teardown.
+///
+/// The export is configured on the NODE (review-10 P1-6), so this also
+/// witnesses that `Mesh::serve_subnet_exported` resolves against the
+/// node's map rather than a second SDK-local one.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_s4_cell_serve_named_export_call_attribute_and_close() {
+    let a = org_a();
+    let (provider, p_identity, p_dir) = subnet_provider_mesh("s4-provider", &a, false).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("s4-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+    provision_export(&provider, &p_identity);
+
+    // (1) An UNKNOWN name is refused before anything is registered or
+    //     announced — the inverse, asserted first so a later success
+    //     cannot be mistaken for "any name works".
+    let unknown = provider.serve_subnet_exported::<Ping, Pong, _, _>(
+        EXPORT_SERVICE,
+        "no-such-export",
+        |_caller, req: Ping| async move {
+            Ok(Pong {
+                n: req.n,
+                served_by: "unreachable".to_string(),
+            })
+        },
+    );
+    let Err(err) = unknown else {
+        panic!("an unconfigured export name must be refused");
+    };
+    assert!(
+        err.to_string().contains("unknown_export_name"),
+        "the stable kind must ride the registration refusal, got {err}",
+    );
+
+    // (2) The configured name serves, through the frozen verb.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let attribution_ok = Arc::new(AtomicBool::new(false));
+    let calls_in = calls.clone();
+    let attribution_in = attribution_ok.clone();
+    let expected_caller = c_identity.entity_id().clone();
+    let expected_org = a.org_id();
+    let handle = provider
+        .serve_subnet_exported::<Ping, Pong, _, _>(
+            EXPORT_SERVICE,
+            FIXTURE_EXPORT_NAME,
+            move |caller: crate::org::OrgCaller, req: Ping| {
+                let calls_in = calls_in.clone();
+                let attribution_in = attribution_in.clone();
+                let expected_caller = expected_caller.clone();
+                async move {
+                    calls_in.fetch_add(1, Ordering::SeqCst);
+                    // Attribution is the provider's VERIFIED view, never
+                    // anything the caller asserted.
+                    if caller.entity == expected_caller
+                        && caller.acting_org == expected_org
+                        && caller.provider_org == expected_org
+                    {
+                        attribution_in.store(true, Ordering::SeqCst);
+                    }
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "s4-cell".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("the configured export name serves");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        converge_public_discovery(&provider, &caller, EXPORT_SERVICE).await,
+        "the named export must be publicly discoverable with a verified owner",
+    );
+
+    // (3) The call, and (4) the attribution it carried.
+    let pong: Pong = org
+        .call_exported(EXPORT_SERVICE, &Ping { n: 100 })
+        .await
+        .expect("the exported call is admitted");
+    assert_eq!(
+        pong,
+        Pong {
+            n: 101,
+            served_by: "s4-cell".to_string()
+        }
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "handler ran exactly once");
+    assert!(
+        attribution_ok.load(Ordering::SeqCst),
+        "the handler saw the verified four-party attribution",
+    );
+
+    // (5) Teardown. `ServeHandle` unregisters on Drop; a call after it
+    //     must not reach a handler that is no longer registered — the
+    //     callback-race shape the S4 gate asks about. The bridge task
+    //     exits on its own once the dispatcher's sender is dropped, so
+    //     "dropped" has to mean "no further dispatch", not "eventually".
+    drop(handle);
+    // Bounded: after teardown the provider is still an announced
+    // candidate for a while, so the call reaches it and gets nothing
+    // back. What must NOT happen is a handler invocation — an unbounded
+    // wait here would turn a correct refusal into a hung test.
+    let after = tokio::time::timeout(
+        Duration::from_secs(5),
+        org.call_exported::<Ping, Pong>(EXPORT_SERVICE, &Ping { n: 200 }),
+    )
+    .await;
+    match after {
+        Err(_elapsed) => { /* no reply, as expected */ }
+        Ok(Err(_denied)) => { /* refused, also expected */ }
+        Ok(Ok(reply)) => panic!("a call after teardown must not be served; got {reply:?}"),
+    }
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "no handler invocation may land after teardown",
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+// ---------------------------------------------------------------------------
+// The composed example — Granted (cross-org)
+// ---------------------------------------------------------------------------
+
+/// Cross-organization: org B's provider serves a capability B granted to org A,
+/// announced only inside the grant audience. A's dispatcher discovers it
+/// privately and invokes it. Four-party attribution is asserted in the handler.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_cross_org_call_through_the_facade() {
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("live-x-provider", &b, None).await;
+    let (caller, c_identity, c_dir) = fast_mesh("live-x-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+
+    let facts = Facts::new();
+    let expected_caller = c_identity.entity_id().clone();
+    let expected_provider = provider.node().entity_id().clone();
+    let ran = facts.ran.clone();
+    let ok = facts.attribution_ok.clone();
+    let (a_id, b_id) = (a.org_id(), b.org_id());
+    let _serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |c: OrgCaller, req: Ping| {
+                let (ran, ok) = (ran.clone(), ok.clone());
+                let (expected_caller, expected_provider) =
+                    (expected_caller.clone(), expected_provider.clone());
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    // Four-party attribution: S acted for A, under B's grant,
+                    // on exact provider P — never "A invoked B".
+                    ok.store(
+                        c.entity == expected_caller
+                            && c.acting_org == a_id
+                            && c.provider_org == b_id
+                            && c.provider == expected_provider
+                            && c.capability == cap("nrpc:customer.read")
+                            && !c.is_same_org(),
+                        Ordering::SeqCst,
+                    );
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "b-provider".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // B grants A discover+invoke over the capability on any B-owned node, and
+    // provisions the provider side (the contract: registration first, audience
+    // after).
+    let (grant, secret) = discover_grant(&b, a.org_id(), cap("nrpc:customer.read"), 3600);
+    let provider_secret =
+        OrgAudienceSecret::decode_config(&secret.encode_config()).expect("copy secret");
+    provider
+        .node()
+        .install_provider_grant_audience(grant.clone(), provider_secret)
+        .expect("provider audience");
+
+    // ---- the composed example ----
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials =
+        OrgCredentials::new(cert, dg, vec![grant], vec![secret]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:customer.read")).await,
+        "the grantee privately resolved the B-owned provider over the live scoped send"
+    );
+    let pong: Pong = org
+        .call("customer.read", &Ping { n: 7 })
+        .await
+        .expect("the cross-org protected call is admitted");
+    // ------------------------------
+
+    assert_eq!(
+        pong,
+        Pong {
+            n: 8,
+            served_by: "b-provider".to_string()
+        }
+    );
+    assert_eq!(
+        facts.ran.load(Ordering::SeqCst),
+        1,
+        "handler ran exactly once"
+    );
+    assert!(
+        facts.attribution_ok.load(Ordering::SeqCst),
+        "four-party attribution reached the handler — canonical admission ran"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// Grant revocation, end to end over real transport: an admitted cross-org
+/// call works; org B then revokes the capability grant it issued, carried to
+/// the provider over the live floor service with a signed attestation; the
+/// very next call under that grant is refused before the handler runs. Before
+/// grant revocation existed, B's only recourse was to wait out `not_after`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_cross_org_call_is_refused_after_the_provider_org_revokes_the_grant() {
+    use super::grant_revocation::{
+        request_org_grant_revocation, GrantEntryState, OrgGrantRevocationOutcome,
+        OrgGrantRevocationRequest,
+    };
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("live-revoke-provider", &b, None).await;
+    let (caller, c_identity, c_dir) = fast_mesh("live-revoke-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+    let _floors = super::floors::serve_org_floor(provider.node()).expect("floor service");
+
+    let ran = Arc::new(AtomicUsize::new(0));
+    let ran_h = ran.clone();
+    let _serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |_c: OrgCaller, req: Ping| {
+                let ran = ran_h.clone();
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "b-provider".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+    let (grant, secret) = discover_grant(&b, a.org_id(), cap("nrpc:customer.read"), 3600);
+    let provider_secret =
+        OrgAudienceSecret::decode_config(&secret.encode_config()).expect("copy secret");
+    provider
+        .node()
+        .install_provider_grant_audience(grant.clone(), provider_secret)
+        .expect("provider audience");
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials =
+        OrgCredentials::new(cert, dg, vec![grant.clone()], vec![secret]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+    assert!(converge_discovery(&provider, &org, &cap("nrpc:customer.read")).await);
+    let _: Pong = org
+        .call("customer.read", &Ping { n: 1 })
+        .await
+        .expect("admitted before the revocation");
+    assert_eq!(ran.load(Ordering::SeqCst), 1);
+
+    // B revokes the grant at the provider, and gets the provider's signed word.
+    let bundle = OrgGrantRevocationBundle::try_issue(&b, [RevokedGrant::capability(&grant)])
+        .expect("bundle");
+    let request = OrgGrantRevocationRequest::new(&bundle, provider.node().entity_id().clone())
+        .expect("request");
+    let attestation = request_org_grant_revocation(
+        caller.node(),
+        provider.node_id(),
+        &request,
+        Duration::from_secs(10),
+    )
+    .await
+    .expect("the provider answers");
+    attestation
+        .verify_for(&request)
+        .expect("signed by the provider, for this request");
+    assert_eq!(attestation.outcome, OrgGrantRevocationOutcome::Applied);
+    assert_eq!(
+        attestation.state_of(RevokedGrantKind::Capability, &grant.grant_id),
+        Some(GrantEntryState::Revoked)
+    );
+
+    let refused = org.call::<_, Pong>("customer.read", &Ping { n: 2 }).await;
+    assert!(
+        refused.is_err(),
+        "a call under the revoked grant is refused"
+    );
+    assert_eq!(
+        ran.load(Ordering::SeqCst),
+        1,
+        "the handler never ran for the refused call"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// A Granted `customer.read` provider in org B, its grant to org A
+/// installed, counting handler runs.
+fn serve_granted_counting(
+    provider: &Mesh,
+    b: &OrgKeypair,
+    a_org: OrgId,
+) -> (
+    Arc<AtomicUsize>,
+    OrgCapabilityGrant,
+    OrgAudienceSecret,
+    impl Drop,
+) {
+    let ran = Arc::new(AtomicUsize::new(0));
+    let ran_h = ran.clone();
+    let serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |_c: OrgCaller, req: Ping| {
+                let ran = ran_h.clone();
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "b-provider".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+    let (grant, secret) = discover_grant(b, a_org, cap("nrpc:customer.read"), 3600);
+    let provider_secret =
+        OrgAudienceSecret::decode_config(&secret.encode_config()).expect("copy secret");
+    provider
+        .node()
+        .install_provider_grant_audience(grant.clone(), provider_secret)
+        .expect("provider audience");
+    (ran, grant, secret, serve)
+}
+
+/// Bind a granted org client for `identity` in org `a`.
+async fn granted_client(
+    caller: &Mesh,
+    provider: &Mesh,
+    a: &OrgKeypair,
+    identity: &Identity,
+    grant: &OrgCapabilityGrant,
+    secret: &OrgAudienceSecret,
+) -> super::OrgClient {
+    let (cert, dg) = belonging(a, identity.entity_id());
+    let secret = OrgAudienceSecret::decode_config(&secret.encode_config()).expect("copy secret");
+    let credentials =
+        OrgCredentials::new(cert, dg, vec![grant.clone()], vec![secret]).expect("credentials");
+    let org = caller.org(credentials).expect("bind");
+    assert!(converge_discovery(provider, &org, &cap("nrpc:customer.read")).await);
+    org
+}
+
+/// The cross-org revocation relay, end to end: the provider in org B starts
+/// with NONE of org A's floors, so it admits A's member M (counted as an
+/// unverified admission). A's operator then removes M at A's own node C1
+/// only. C1's next call to B carries A's signed floor bundle in its request;
+/// B merges it (in the background, off the RPC path), and M's next call is
+/// refused. Before the relay, B kept admitting M for the life of its
+/// certificate.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_caller_relays_its_orgs_floor_and_the_provider_then_refuses_the_removed_member() {
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("relay-provider", &b, None).await;
+    let (c1, c1_identity, c1_dir) = fast_mesh("relay-c1", &a, None).await;
+    let (c2, c2_identity, c2_dir) = fast_mesh("relay-c2", &a, None).await;
+    bring_up_all(&[&c1, &c2], &provider).await;
+    let (ran, grant, secret, _serve) = serve_granted_counting(&provider, &b, a.org_id());
+    let org1 = granted_client(&c1, &provider, &a, &c1_identity, &grant, &secret).await;
+    let org2 = granted_client(&c2, &provider, &a, &c2_identity, &grant, &secret).await;
+
+    let _: Pong = org2
+        .call("customer.read", &Ping { n: 1 })
+        .await
+        .expect("M is admitted while B holds none of A's floors");
+    assert!(
+        provider.foreign_revocation_unverified_admissions() >= 1,
+        "the admission without any of A's material is counted"
+    );
+
+    // A's operator removes M (floor 2 over its generation-1 cert) at C1.
+    let mut floors = std::collections::BTreeMap::new();
+    floors.insert(c2_identity.entity_id().clone(), 2u32);
+    let removal = OrgRevocationBundle::try_issue(&a, &floors).expect("floor bundle");
+    c1.node()
+        .org_revocation_store()
+        .expect("C1 store")
+        .apply_bundle(&removal)
+        .expect("applied at C1");
+
+    let _: Pong = org1
+        .call("customer.read", &Ping { n: 2 })
+        .await
+        .expect("C1 is admitted, and its call carried A's floor");
+    // B holds no freshness requirement for A, so nothing about C1's own
+    // admission waits on the relay: B merges it off the RPC path, shortly
+    // after the call. The merge publishes the floor first and retains the
+    // bundle for relay just after, outside the apply's locks
+    // (`retain_for_relay`), so wait for both: reading the relay cache the
+    // moment the floor shows raced that second step.
+    let provider_store = provider.node().org_revocation_store().expect("B store");
+    let merged = async {
+        while provider_store.floor_for(&a.org_id(), c2_identity.entity_id()) < 2
+            || provider_store
+                .latest_issued_at(&a.org_id(), unix_now_secs())
+                .is_none()
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(5), merged)
+        .await
+        .expect("B merged A's relayed floor and retained it for relay");
+
+    let before = ran.load(Ordering::SeqCst);
+    let refused = org2.call::<_, Pong>("customer.read", &Ping { n: 3 }).await;
+    assert!(refused.is_err(), "the removed member is refused at B");
+    assert_eq!(ran.load(Ordering::SeqCst), before, "its handler never ran");
+
+    // B takes material only from orgs it has a reason to: a stranger's
+    // self-signed bundle is refused, and a grantee cannot grow B's state
+    // past the foreign-org cap.
+    use super::types::{MaterialRefusal, RevocationMaterial, MAX_FOREIGN_ORG_ENTRIES};
+    let stranger = OrgKeypair::generate();
+    let strange = OrgRevocationBundle::try_issue(&stranger, &floors).expect("bundle");
+    assert_eq!(
+        provider.apply_org_revocation_material(&RevocationMaterial::floors(&strange)),
+        Err(MaterialRefusal::NotAccepted(stranger.org_id()))
+    );
+    let flood: std::collections::BTreeMap<_, _> = (0..=MAX_FOREIGN_ORG_ENTRIES as u32)
+        .map(|i| {
+            let mut id = [0u8; 32];
+            id[..4].copy_from_slice(&i.to_le_bytes());
+            (EntityId::from_bytes(id), 1u32)
+        })
+        .collect();
+    let flood = OrgRevocationBundle::try_issue(&a, &flood).expect("bundle");
+    assert_eq!(
+        provider.apply_org_revocation_material(&RevocationMaterial::floors(&flood)),
+        Err(MaterialRefusal::OverCap(a.org_id()))
+    );
+
+    for dir in [p_dir, c1_dir, c2_dir] {
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// Opt-in freshness: a provider that requires recent revocation material
+/// from org A refuses A's callers while it holds none, instead of silently
+/// admitting them. Once A's operator issues a heartbeat (an empty, signed
+/// floor bundle) at an A node, that node's next call relays it and is
+/// admitted on the same request.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_freshness_requirement_refuses_until_the_callers_org_proves_itself_current() {
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("fresh-provider", &b, None).await;
+    let (caller, c_identity, c_dir) = fast_mesh("fresh-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+    let (ran, grant, secret, _serve) = serve_granted_counting(&provider, &b, a.org_id());
+    provider.require_fresh_org_revocations(a.org_id(), Some(Duration::from_secs(3600)));
+    let org = granted_client(&caller, &provider, &a, &c_identity, &grant, &secret).await;
+
+    let refused = org.call::<_, Pong>("customer.read", &Ping { n: 1 }).await;
+    assert!(
+        refused.is_err(),
+        "no material from A: refused, not admitted"
+    );
+    assert_eq!(ran.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        provider.foreign_revocation_unverified_admissions(),
+        0,
+        "nothing was admitted unverified"
+    );
+
+    let heartbeat =
+        OrgRevocationBundle::try_issue(&a, &std::collections::BTreeMap::new()).expect("heartbeat");
+    caller
+        .node()
+        .org_revocation_store()
+        .expect("caller store")
+        .apply_bundle(&heartbeat)
+        .expect("applied at the caller");
+    let _: Pong = org
+        .call("customer.read", &Ping { n: 2 })
+        .await
+        .expect("the heartbeat rode the call and satisfied the requirement");
+    assert_eq!(ran.load(Ordering::SeqCst), 1);
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// A caller whose org holds NO grant for the capability cannot even discover
+/// the cross-org provider: the encrypted announcement is opaque without the
+/// audience, so the facade refuses locally and sends nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_cross_org_without_a_grant_discovers_nothing() {
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("live-nogrant-provider", &b, None).await;
+    let (caller, c_identity, c_dir) = fast_mesh("live-nogrant-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+
+    let ran = Arc::new(AtomicUsize::new(0));
+    let ran_h = ran.clone();
+    let _serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |_c: OrgCaller, req: Ping| {
+                let ran = ran_h.clone();
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    Ok(Pong {
+                        n: req.n,
+                        served_by: "b".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // Provision the PROVIDER side only — the caller holds no grant or secret.
+    let (grant, secret) = discover_grant(&b, a.org_id(), cap("nrpc:customer.read"), 3600);
+    provider
+        .node()
+        .install_provider_grant_audience(grant, secret)
+        .expect("provider audience");
+    for _ in 0..10 {
+        provider
+            .node()
+            .announce_capabilities(CapabilitySet::new())
+            .await
+            .ok();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let org = caller
+        .org(OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials"))
+        .expect("bind");
+
+    let err = org
+        .call::<_, Pong>("customer.read", &Ping { n: 1 })
+        .await
+        .expect_err("nothing discoverable without the audience");
+    assert!(
+        matches!(err, OrgSdkError::Discovery(_)),
+        "refused locally, before anything was sent — got {err:?}"
+    );
+    assert_eq!(
+        ran.load(Ordering::SeqCst),
+        0,
+        "the provider's handler stayed dark"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// A LIVE remote denial: local checks pass, the provider refuses.
+///
+/// This is the distinction the whole error hierarchy exists for. The caller's
+/// membership is revoked at the PROVIDER (a floor the caller has no way to
+/// know about), so the facade's local pre-flight passes, the request is
+/// actually sent, and admission refuses it — surfacing as
+/// `OrgSdkError::AdmissionDenied` with the coarse wire reason rather than a
+/// credential error or a transport error.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_a_provider_side_revocation_surfaces_as_admission_denied() {
+    use net::adapter::net::behavior::org::OrgRevocationBundle;
+
+    let a = org_a();
+    let (provider, _p_identity, p_dir) = fast_mesh("live-revoked-provider", &a, None).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("live-revoked-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+
+    let ran = Arc::new(AtomicUsize::new(0));
+    let ran_h = ran.clone();
+    let _serve = provider
+        .serve_org(
+            "internal.reindex",
+            OrgAccess::SameOrg,
+            move |_c: OrgCaller, req: Ping| {
+                let ran = ran_h.clone();
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    Ok(Pong {
+                        n: req.n,
+                        served_by: "p".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // The caller's credentials are minted at generation 1 and stay locally
+    // valid for the whole test.
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let org = caller
+        .org(OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials"))
+        .expect("bind");
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:internal.reindex")).await,
+        "the caller resolved the provider before revocation"
+    );
+
+    // The org raises a floor to generation 2 for the caller, and ONLY the
+    // provider imports the bundle — exactly the split that makes this a remote
+    // decision the caller cannot anticipate.
+    let mut floors = std::collections::BTreeMap::new();
+    floors.insert(c_identity.entity_id().clone(), 2u32);
+    let bundle = OrgRevocationBundle::try_issue(&a, &floors).expect("floors");
+    provider
+        .node()
+        .node_authority()
+        .expect("authority")
+        .revocation
+        .apply_bundle(&bundle)
+        .expect("provider imports the floor");
+
+    let err = org
+        .call::<_, Pong>("internal.reindex", &Ping { n: 1 })
+        .await
+        .expect_err("the provider refuses the revoked membership");
+    match err {
+        OrgSdkError::AdmissionDenied(reason) => {
+            // Coarse by design — a precise reason would be a credential oracle.
+            assert_eq!(
+                reason,
+                CoarseAdmissionReason::Denied,
+                "coarse denial bucket"
+            );
+        }
+        other => panic!("expected a remote admission denial, got {other:?}"),
+    }
+    assert_eq!(
+        ran.load(Ordering::SeqCst),
+        0,
+        "the handler stayed dark — admission refused before dispatch"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// R1: the typed verb IS the raw verb plus JSON.
+///
+/// Proved by crossing the seams: a TYPED `serve_org` handler answers a
+/// hand-written-JSON `call_bytes`, and a RAW `serve_org_bytes` handler answers
+/// a typed `call`. If the codec layer did anything beyond marshaling — a
+/// different framing, an extra header, a second authority step — one direction
+/// would fail.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_raw_and_typed_seams_interoperate() {
+    let a = org_a();
+    let (provider, _p_identity, p_dir) = fast_mesh("live-r1-provider", &a, None).await;
+    let shared = OwnerAudienceCredential::decode_config(
+        &provider
+            .node()
+            .node_authority()
+            .expect("authority")
+            .audience
+            .encode_config(),
+    )
+    .expect("copy owner audience");
+    let (caller, c_identity, c_dir) = fast_mesh("live-r1-caller", &a, Some(&shared)).await;
+    bring_up(&caller, &provider).await;
+
+    // A TYPED handler…
+    let _typed = provider
+        .serve_org(
+            "typed.svc",
+            OrgAccess::SameOrg,
+            |_c: OrgCaller, req: Ping| async move {
+                Ok(Pong {
+                    n: req.n + 1,
+                    served_by: "typed".to_string(),
+                })
+            },
+        )
+        .expect("typed serve");
+
+    // …and a RAW handler that does its own JSON, asserting it sees the same
+    // verified facts the typed one does.
+    let saw_caller = Arc::new(AtomicBool::new(false));
+    let saw = saw_caller.clone();
+    let org_id = a.org_id();
+    let _raw = provider
+        .serve_org_bytes(
+            "raw.svc",
+            OrgAccess::SameOrg,
+            move |c: OrgCaller, body: bytes::Bytes| {
+                let saw = saw.clone();
+                async move {
+                    saw.store(c.acting_org == org_id && c.is_same_org(), Ordering::SeqCst);
+                    let req: Ping = serde_json::from_slice(&body).map_err(|e| {
+                        crate::org::OrgHandlerError::Application {
+                            code: 0x8000,
+                            message: format!("bad body: {e}"),
+                        }
+                    })?;
+                    let out = serde_json::to_vec(&Pong {
+                        n: req.n + 1,
+                        served_by: "raw".to_string(),
+                    })
+                    .expect("encode");
+                    Ok(bytes::Bytes::from(out))
+                }
+            },
+        )
+        .expect("raw serve");
+
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let org = caller
+        .org(OrgCredentials::new(cert, dg, vec![], vec![]).expect("credentials"))
+        .expect("bind");
+    assert!(converge_discovery(&provider, &org, &cap("nrpc:typed.svc")).await);
+    assert!(converge_discovery(&provider, &org, &cap("nrpc:raw.svc")).await);
+
+    // Raw caller → typed handler. The bytes are exactly what the codec emits.
+    let raw_reply = org
+        .call_bytes(
+            "typed.svc",
+            bytes::Bytes::from(serde_json::to_vec(&Ping { n: 1 }).expect("encode")),
+        )
+        .await
+        .expect("call_bytes reaches the typed handler");
+    let decoded: Pong = serde_json::from_slice(&raw_reply).expect("decode");
+    assert_eq!(decoded.n, 2);
+    assert_eq!(decoded.served_by, "typed");
+
+    // Typed caller → raw handler.
+    let typed_reply: Pong = org
+        .call("raw.svc", &Ping { n: 10 })
+        .await
+        .expect("typed call reaches the raw handler");
+    assert_eq!(typed_reply.n, 11);
+    assert_eq!(typed_reply.served_by, "raw");
+    assert!(
+        saw_caller.load(Ordering::SeqCst),
+        "the raw handler receives the same verified OrgCaller as the typed one"
+    );
+
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+/// **Workstream R's acceptance witness — the binding rehearsal.**
+///
+/// Drives the entire facade the way a language binding will, and only that way:
+///
+/// - credentials arrive as canonical wire BYTES plus an audience-secret file
+///   PATH (`from_parts`), so no in-memory secret and no Rust-typed credential
+///   is constructed by the "application";
+/// - the provider registers through `serve_org_bytes` and the caller invokes
+///   through `call_bytes`, so no generic crosses the seam;
+/// - the handler still receives the five verified `OrgCaller` facts;
+/// - and it runs cross-org over real two-node transport, so the audience-secret
+///   file is genuinely load-bearing — without it the caller discovers nothing.
+///
+/// If this passes, the path every binding will take is proven to work before
+/// any binding exists. If it fails, no amount of napi/PyO3/cgo marshaling would
+/// have saved it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_binding_rehearsal_from_files_through_the_raw_seams() {
+    use std::io::Write;
+
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_identity, p_dir) = fast_mesh("live-rehearsal-provider", &b, None).await;
+    let (caller, c_identity, c_dir) = fast_mesh("live-rehearsal-caller", &a, None).await;
+    bring_up(&caller, &provider).await;
+
+    // ---- provider: the RAW seam, doing its own JSON like a binding does ----
+    let facts_ok = Arc::new(AtomicBool::new(false));
+    let seen = facts_ok.clone();
+    let expected_caller = c_identity.entity_id().clone();
+    let (a_id, b_id) = (a.org_id(), b.org_id());
+    let _serve = provider
+        .serve_org_bytes(
+            "customer.read",
+            OrgAccess::Granted,
+            move |c: OrgCaller, body: bytes::Bytes| {
+                let seen = seen.clone();
+                let expected_caller = expected_caller.clone();
+                async move {
+                    seen.store(
+                        c.entity == expected_caller
+                            && c.acting_org == a_id
+                            && c.provider_org == b_id
+                            && c.capability == cap("nrpc:customer.read")
+                            && !c.is_same_org(),
+                        Ordering::SeqCst,
+                    );
+                    let req: Ping = serde_json::from_slice(&body).map_err(|e| {
+                        crate::org::OrgHandlerError::Application {
+                            code: 0x8000,
+                            message: format!("bad body: {e}"),
+                        }
+                    })?;
+                    let out = serde_json::to_vec(&Pong {
+                        n: req.n * 2,
+                        served_by: "rehearsal".to_string(),
+                    })
+                    .expect("encode");
+                    Ok(bytes::Bytes::from(out))
+                }
+            },
+        )
+        .expect("raw serve");
+
+    // ---- operator: issue the grant, provision both sides out of band ----
+    let (grant, secret) = discover_grant(&b, a.org_id(), cap("nrpc:customer.read"), 3600);
+    let provider_secret =
+        OrgAudienceSecret::decode_config(&secret.encode_config()).expect("copy for provider");
+    provider
+        .node()
+        .install_provider_grant_audience(grant.clone(), provider_secret)
+        .expect("provider audience");
+
+    // The grantee's copy lands on DISK, 0600 — the only way a binding can
+    // supply it, because the key never crosses a language boundary.
+    let secret_dir = std::env::temp_dir().join(format!(
+        "net-osdk-rehearsal-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&secret_dir);
+    std::fs::create_dir_all(&secret_dir).expect("secret dir");
+    let secret_path = secret_dir.join("customer-read.audience");
+    {
+        let mut f = std::fs::File::create(&secret_path).expect("create");
+        f.write_all(&secret.encode_config()).expect("write");
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600))
+            .expect("chmod 0600");
+    }
+    // The application's own copy of the secret is dropped here; from now on the
+    // key exists only inside Rust, loaded from the file.
+    drop(secret);
+
+    // ---- caller: bytes + a path, exactly the binding constructor ----
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::from_parts(
+        &cert.to_bytes(),
+        &dg.to_bytes(),
+        &[grant.to_bytes()],
+        &[secret_path],
+    )
+    .expect("credentials load from wire bytes + a secret file");
+
+    let org = caller.org(credentials).expect("bind");
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:customer.read")).await,
+        "the file-loaded audience secret really did enable private discovery"
+    );
+
+    // ---- the call: raw bytes in, raw bytes out ----
+    let reply = org
+        .call_bytes(
+            "customer.read",
+            bytes::Bytes::from(serde_json::to_vec(&Ping { n: 21 }).expect("encode")),
+        )
+        .await
+        .expect("the cross-org protected call is admitted");
+    let pong: Pong = serde_json::from_slice(&reply).expect("decode");
+
+    assert_eq!(pong.n, 42);
+    assert_eq!(pong.served_by, "rehearsal");
+    assert!(
+        facts_ok.load(Ordering::SeqCst),
+        "four-party attribution reached the RAW handler — canonical admission ran"
+    );
+
+    let _ = std::fs::remove_dir_all(&secret_dir);
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+// ---------------------------------------------------------------------------
+// X2 — the live cross-language scenario, driven from generated on-disk artifacts
+// ---------------------------------------------------------------------------
+
+/// Render bytes as lowercase hex — for comparing a verified admission
+/// fact against the identity the manifest declares, without either side
+/// re-deriving the other.
+fn hex_of(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
+}
+
+/// Decode a 64-char hex string into a 32-byte seed/psk.
+fn seed32(hex: &str) -> [u8; 32] {
+    assert_eq!(hex.len(), 64, "expected 64 hex chars");
+    let mut out = [0u8; 32];
+    for (i, b) in out.iter_mut().enumerate() {
+        *b = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).expect("hex byte");
+    }
+    out
+}
+
+/// Build a mesh EXACTLY as a language binding would from a manifest role: a
+/// seeded identity (so the entity matches the certs the generator issued) and
+/// an adopted authority loaded from the generated directory through the same
+/// `install_org_authority(dir)` a binding calls. Short announce interval only
+/// so the test converges promptly.
+async fn mesh_from_manifest_role(
+    seed_hex: &str,
+    psk_hex: &str,
+    authority_dir: &std::path::Path,
+) -> Mesh {
+    let identity = Identity::from_seed(seed32(seed_hex));
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), seed32(psk_hex))
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    cfg.configured_identity = true;
+
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(channel_configs.clone());
+    let node = Arc::new(node);
+    let mesh = Mesh::from_node_arc(node, channel_configs, Some(identity));
+    mesh.install_org_authority(authority_dir)
+        .expect("install_org_authority from the generated directory");
+    mesh.node()
+        .set_owner_cert_emission(true)
+        .expect("enable owner-cert emission");
+    mesh
+}
+
+/// S4 — the Rust cell over the GENERATED subnet scenario, proving all
+/// ten contract points from the manifest alone.
+///
+/// `live_s4_cell_serve_named_export_call_attribute_and_close` drives the
+/// same verbs from an in-process fixture. This one loads the exact
+/// bytes-and-paths a TypeScript / Python / Go / C harness loads, so the
+/// manifest is proven to be a workable contract BEFORE four other
+/// languages are written against it — and a generator change that
+/// silently breaks a consumer fails here first.
+///
+/// The ten points, in order:
+///
+/// ```text
+///  1 provider construction: roots, attachment, named exports
+///  2 local refusal of an unknown export, before announcement
+///  3 serve through the frozen named-export API
+///  4 caller construction from real generated org credentials
+///  5 live public discovery
+///  6 a successful call_exported
+///  7 verified caller + organization attribution at the handler
+///  8 fail-closed for a foreign-org caller
+///  9 that denial is not retried
+/// 10 clean close, with no callback racing teardown
+/// ```
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_s4_cell_from_a_generated_scenario() {
+    use crate::subnet::dto;
+    use crate::subnet::fixtures;
+
+    let dir = std::env::temp_dir().join(format!(
+        "net-ssdk-s4-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("scenario dir");
+    let manifest = fixtures::write_subnet_scenario(&dir).expect("generate subnet scenario");
+
+    // ---- (1) provider construction: roots, attachment, named export ----
+    let identity = Identity::from_seed(seed32(&manifest.provider.seed_hex));
+    let mut cfg = MeshNodeConfig::new(
+        "127.0.0.1:0".parse().expect("addr"),
+        seed32(&manifest.psk_hex),
+    )
+    .with_heartbeat_interval(Duration::from_millis(200))
+    .with_session_timeout(Duration::from_secs(5));
+    cfg.min_announce_interval = Duration::from_millis(50);
+    cfg.configured_identity = true;
+    for a in &manifest.subnet_authorities {
+        cfg = cfg.with_subnet_authority(
+            dto::SubnetAuthorityConfigDto {
+                authority_hex: a.authority_hex.clone(),
+                root_hexes: a.root_hexes.clone(),
+                maximum_grant_lifetime_secs: a.maximum_grant_lifetime_secs,
+            }
+            .to_core()
+            .expect("manifest trust anchor converts"),
+        );
+    }
+    cfg.subnet_attachment = Some(TopologySubnetId::new(&manifest.provider.attachment));
+    cfg = cfg.with_subnet_export(
+        dto::SubnetNamedExportDto {
+            name: manifest.export_name.clone(),
+            access: manifest.export_access.clone(),
+            binding: dto::SubnetExportBindingDto {
+                subnet: dto::SubnetRefDto {
+                    authority_hex: manifest.export_binding.authority_hex.clone(),
+                    path: dto::SubnetPathDto {
+                        levels: manifest.export_binding.path.clone(),
+                    },
+                },
+                topology_epoch: manifest.export_binding.topology_epoch,
+            },
+        }
+        .to_core()
+        .expect("manifest export converts"),
+    );
+
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("MeshNode::new from the manifest");
+    let channel_configs = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(channel_configs.clone());
+    let provider = Mesh::from_node_arc(Arc::new(node), channel_configs, Some(identity));
+    provider
+        .install_org_authority(&dir.join(&manifest.provider.authority_dir))
+        .expect("install the generated org authority");
+    provider
+        .node()
+        .set_owner_cert_emission(true)
+        .expect("enable owner-cert emission");
+
+    // Gateway provisioning, from the generated artifacts.
+    crate::subnet::admin::install_gateway_credentials_node(
+        provider.node(),
+        &[
+            std::fs::read(dir.join(&manifest.provider.gateway_credentials_path))
+                .expect("read gateway credentials"),
+        ],
+    )
+    .expect("install the generated gateway credentials");
+    crate::subnet::admin::declare_boundaries_node(
+        provider.node(),
+        dto::entity_id_from_hex(&manifest.export_binding.authority_hex).expect("authority hex"),
+        manifest.export_binding.topology_epoch,
+        manifest
+            .provider
+            .boundary_paths
+            .iter()
+            .map(|p| TopologySubnetId::new(p))
+            .collect(),
+    )
+    .expect("declare the generated boundaries");
+
+    // ---- (4) both callers, from the generated credentials ----
+    //
+    // Built BEFORE the handshake because every `accept()` must complete
+    // before `start()` — a three-node cell cannot bring peers up one at a
+    // time the way the two-node cells do.
+    let caller = mesh_from_manifest_role(
+        &manifest.caller.seed_hex,
+        &manifest.psk_hex,
+        &dir.join(&manifest.caller.authority_dir),
+    )
+    .await;
+    let foreign = mesh_from_manifest_role(
+        &manifest.foreign_caller.seed_hex,
+        &manifest.psk_hex,
+        &dir.join(&manifest.foreign_caller.authority_dir),
+    )
+    .await;
+    bring_up_all(&[&caller, &foreign], &provider).await;
+
+    // ---- (2) an unknown export is refused locally, before the service is
+    //          registered or announced ----
+    let refused = provider.serve_subnet_exported::<Ping, Pong, _, _>(
+        &manifest.exported_service,
+        &manifest.unknown_export_name,
+        |_c, r: Ping| async move {
+            Ok(Pong {
+                n: r.n,
+                served_by: "unreachable".to_string(),
+            })
+        },
+    );
+    let Err(err) = refused else {
+        panic!("an unconfigured export name must be refused");
+    };
+    assert!(
+        err.to_string().contains("unknown_export_name"),
+        "the stable kind must ride the refusal, got {err}",
+    );
+
+    // ---- (3) serve through the frozen named-export API ----
+    let calls = Arc::new(AtomicUsize::new(0));
+    let attribution_ok = Arc::new(AtomicBool::new(false));
+    let calls_in = calls.clone();
+    let attribution_in = attribution_ok.clone();
+    let expected_caller = Identity::from_seed(seed32(&manifest.caller.seed_hex))
+        .entity_id()
+        .clone();
+    let expected_org_hex = manifest.caller.org_id_hex.clone();
+    let handle = provider
+        .serve_subnet_exported::<Ping, Pong, _, _>(
+            &manifest.exported_service,
+            &manifest.export_name,
+            move |c: OrgCaller, req: Ping| {
+                let calls_in = calls_in.clone();
+                let attribution_in = attribution_in.clone();
+                let expected_caller = expected_caller.clone();
+                let expected_org_hex = expected_org_hex.clone();
+                async move {
+                    calls_in.fetch_add(1, Ordering::SeqCst);
+                    // (7) attribution: the provider's VERIFIED view, checked
+                    // against the manifest's own declared identities.
+                    let acting = hex_of(c.acting_org.as_bytes());
+                    let provider_org = hex_of(c.provider_org.as_bytes());
+                    if c.entity == expected_caller
+                        && acting == expected_org_hex
+                        && provider_org == expected_org_hex
+                        && c.is_same_org()
+                    {
+                        attribution_in.store(true, Ordering::SeqCst);
+                    }
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "s4-generated".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("the configured export serves");
+
+    // ---- (4) caller credentials, from the generated files ----
+    let credentials = OrgCredentials::from_parts(
+        &std::fs::read(dir.join(&manifest.caller.membership_path)).expect("membership"),
+        &std::fs::read(dir.join(&manifest.caller.dispatcher_path)).expect("dispatcher"),
+        &[],
+        &[],
+    )
+    .expect("caller credentials from the generated files");
+    let org = caller.org(credentials).expect("bind");
+
+    // ---- (5) live public discovery ----
+    assert!(
+        converge_public_discovery(&provider, &caller, &manifest.exported_service).await,
+        "the named export must become publicly discoverable with a verified owner",
+    );
+
+    // ---- (6) the call ----
+    let pong: Pong = org
+        .call_exported(&manifest.exported_service, &Ping { n: 1 })
+        .await
+        .expect("the exported call is admitted");
+    assert_eq!(
+        pong,
+        Pong {
+            n: 2,
+            served_by: "s4-generated".to_string()
+        }
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "handler ran exactly once");
+    // ---- (7) ----
+    assert!(
+        attribution_ok.load(Ordering::SeqCst),
+        "the handler saw the verified caller and organization attribution",
+    );
+
+    // ---- (8) fail-closed: a FOREIGN-org caller, valid credentials ----
+    let foreign_credentials = OrgCredentials::from_parts(
+        &std::fs::read(dir.join(&manifest.foreign_caller.membership_path)).expect("membership"),
+        &std::fs::read(dir.join(&manifest.foreign_caller.dispatcher_path)).expect("dispatcher"),
+        &[],
+        &[],
+    )
+    .expect("foreign credentials are internally valid — only the ORG is wrong");
+    let foreign_org = foreign.org(foreign_credentials).expect("bind");
+
+    let before = calls.load(Ordering::SeqCst);
+    let denied: Result<Pong, _> = foreign_org
+        .call_exported(&manifest.exported_service, &Ping { n: 50 })
+        .await;
+    assert!(
+        denied.is_err(),
+        "a caller from a different organization must be refused; got {denied:?}",
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        before,
+        "the handler must never run for a refused caller",
+    );
+
+    // ---- (9) the denial is not retried ----
+    //
+    // A signed proof is never resent. Observed provider-side: a second
+    // refused call still never reaches the handler, so no retry smuggled
+    // one through.
+    let denied_again: Result<Pong, _> = foreign_org
+        .call_exported(&manifest.exported_service, &Ping { n: 51 })
+        .await;
+    assert!(denied_again.is_err(), "still refused");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        before,
+        "no retry may smuggle a refused caller into the handler",
+    );
+
+    // ---- (10) clean close, no callback racing teardown ----
+    drop(handle);
+    let after = tokio::time::timeout(
+        Duration::from_secs(5),
+        org.call_exported::<Ping, Pong>(&manifest.exported_service, &Ping { n: 99 }),
+    )
+    .await;
+    match after {
+        Err(_elapsed) => {}
+        Ok(Err(_refused)) => {}
+        Ok(Ok(reply)) => panic!("a call after teardown must not be served; got {reply:?}"),
+    }
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "no handler invocation may land after teardown",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The strongest parity witness the Rust tier can carry alone (OSDK-L X2): the
+/// deterministic scenario generator (`write_cross_org_scenario`) mints the whole
+/// cross-org issuance chain to disk, and a two-node live call runs from those
+/// files ALONE — the exact bytes-and-paths a Go / Node / Python harness loads.
+///
+/// The provider builds from `provider.seed_hex`, installs its authority from
+/// `provider.authority_dir`, installs the grant audience from
+/// `provider.grant_path` + `provider.grant_secret_path`, and serves `Granted`.
+/// The caller builds from `caller.seed_hex`, installs its authority, assembles
+/// credentials via `from_parts` from the caller files (the secret by PATH), and
+/// calls. Admission + four-party attribution prove the manifest is sufficient;
+/// each language binding then loads the SAME manifest on CI to close the matrix.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_cross_org_call_from_a_generated_scenario() {
+    // ---- generate the scenario to a fresh temp dir ----
+    let dir = std::env::temp_dir().join(format!(
+        "net-osdk-x2-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("scenario dir");
+    let manifest = super::fixtures::write_cross_org_scenario(&dir).expect("generate scenario");
+    let read = |rel: &str| std::fs::read(dir.join(rel)).expect("read generated file");
+
+    // ---- provider: build from the manifest, install the grant audience, serve ----
+    let provider = mesh_from_manifest_role(
+        &manifest.provider.seed_hex,
+        &manifest.psk_hex,
+        &dir.join(&manifest.provider.authority_dir),
+    )
+    .await;
+    provider
+        .install_provider_grant_audience(
+            &read(&manifest.provider.grant_path),
+            &dir.join(&manifest.provider.grant_secret_path),
+        )
+        .expect("install provider grant audience from generated files");
+
+    let facts = Facts::new();
+    let ran = facts.ran.clone();
+    let ok = facts.attribution_ok.clone();
+    let expected_caller = Identity::from_seed(seed32(&manifest.caller.seed_hex))
+        .entity_id()
+        .clone();
+    let expected_provider = provider.node().entity_id().clone();
+    let (a_id, b_id) = (org_a().org_id(), org_b().org_id());
+    let _serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |c: OrgCaller, req: Ping| {
+                let (ran, ok) = (ran.clone(), ok.clone());
+                let (expected_caller, expected_provider) =
+                    (expected_caller.clone(), expected_provider.clone());
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    ok.store(
+                        c.entity == expected_caller
+                            && c.acting_org == a_id
+                            && c.provider_org == b_id
+                            && c.provider == expected_provider
+                            && c.capability == cap("nrpc:customer.read")
+                            && !c.is_same_org(),
+                        Ordering::SeqCst,
+                    );
+                    Ok(Pong {
+                        n: req.n + 1,
+                        served_by: "x2-provider".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // ---- caller: build from the manifest, credentials from files, call ----
+    let caller = mesh_from_manifest_role(
+        &manifest.caller.seed_hex,
+        &manifest.psk_hex,
+        &dir.join(&manifest.caller.authority_dir),
+    )
+    .await;
+    bring_up(&caller, &provider).await;
+
+    let credentials = OrgCredentials::from_parts(
+        &read(&manifest.caller.membership_path),
+        &read(&manifest.caller.dispatcher_path),
+        &[read(&manifest.caller.grant_path)],
+        &[dir.join(&manifest.caller.grant_secret_path)],
+    )
+    .expect("credentials from generated files + a secret PATH");
+    let org = caller.org(credentials).expect("bind");
+
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:customer.read")).await,
+        "the file-loaded audience secret enabled private discovery of the B-owned provider"
+    );
+    let pong: Pong = org
+        .call("customer.read", &Ping { n: 7 })
+        .await
+        .expect("the cross-org protected call is admitted from generated artifacts");
+
+    assert_eq!(
+        pong,
+        Pong {
+            n: 8,
+            served_by: "x2-provider".to_string()
+        }
+    );
+    assert_eq!(
+        facts.ran.load(Ordering::SeqCst),
+        1,
+        "handler ran exactly once"
+    );
+    assert!(
+        facts.attribution_ok.load(Ordering::SeqCst),
+        "four-party attribution reached the handler — the generated scenario drives real admission"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---------------------------------------------------------------------------
+// §7 provisioning — the methods that make the org surface usable from a binding
+// ---------------------------------------------------------------------------
+
+/// `install_org_authority(dir)` loads an adopted directory and satisfies the
+/// bind precondition. Before it, `mesh.org` fails `NodeAuthorityRequired`;
+/// after it, the same credentials get past that check.
+///
+/// This is THE gap that made the bindings non-functional: without an authority
+/// install path, a Node/Python `mesh.org(..)` could never succeed.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_org_authority_unblocks_binding() {
+    let a = org_a();
+    // A configured mesh with NO authority yet.
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32]);
+    cfg.configured_identity = true;
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("node");
+    let ccfg = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(ccfg.clone());
+    let node = Arc::new(node);
+    let entity = identity.entity_id().clone();
+    let mesh = Mesh::from_node_arc(node, ccfg, Some(identity.clone()));
+
+    let creds = || {
+        let (cert, dg) = belonging(&a, &entity);
+        OrgCredentials::new(cert, dg, vec![], vec![]).expect("assembles")
+    };
+
+    // No authority yet → refused for exactly that reason.
+    let err = mesh.org(creds()).expect_err("no authority installed");
+    assert!(
+        matches!(
+            err,
+            OrgSdkError::Credentials(crate::org::OrgCredentialError::NodeAuthorityRequired)
+        ),
+        "got {err:?}"
+    );
+
+    // Adopt a dir for THIS entity, then install through the production path.
+    let cert = OrgMembershipCert::try_issue(&a, entity.clone(), 1, 3600).expect("cert");
+    let dir = std::env::temp_dir().join(format!(
+        "net-osdk-install-auth-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = NodeAuthority::adopt(&dir, cert, &entity, 0, None).expect("adopt");
+
+    mesh.install_org_authority(&dir).expect("install succeeds");
+    // Now the SAME credentials get past the authority check (to member binding,
+    // which passes because the membership names this entity).
+    mesh.org(creds())
+        .expect("binds after the authority is installed");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `install_org_authority` refuses a directory adopted for a DIFFERENT entity —
+/// `NodeAuthority::open` self-verifies against this node's identity, so a
+/// binding cannot install someone else's authority.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_org_authority_refuses_a_foreign_directory() {
+    let a = org_a();
+    let identity = Identity::generate();
+    let mut cfg = MeshNodeConfig::new("127.0.0.1:0".parse().expect("addr"), [0x51u8; 32]);
+    cfg.configured_identity = true;
+    let mut node = MeshNode::new((**identity.keypair()).clone(), cfg)
+        .await
+        .expect("node");
+    let ccfg = Arc::new(ChannelConfigRegistry::new());
+    node.set_channel_configs(ccfg.clone());
+    let node = Arc::new(node);
+    let mesh = Mesh::from_node_arc(node, ccfg, Some(identity.clone()));
+
+    // Adopt a dir for a STRANGER entity, not this node.
+    let stranger = net::adapter::net::identity::EntityKeypair::generate()
+        .entity_id()
+        .clone();
+    let cert = OrgMembershipCert::try_issue(&a, stranger.clone(), 1, 3600).expect("cert");
+    let dir = std::env::temp_dir().join(format!(
+        "net-osdk-foreign-auth-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = NodeAuthority::adopt(&dir, cert, &stranger, 0, None).expect("adopt");
+
+    mesh.install_org_authority(&dir)
+        .expect_err("an authority adopted for another entity must be refused");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `install_provider_grant_audience(bytes, path)` — the provider-side method a
+/// granted `serve_org` needs — installs from wire bytes plus a secret file, and
+/// refuses a mismatched secret.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_provider_grant_audience_round_trips_from_bytes_and_a_path() {
+    use std::io::Write;
+
+    let (a, b) = (org_a(), org_b());
+    let (mesh, _identity, dir) = provisioned_mesh("provider-audience", &b).await;
+    let provider_entity = mesh.node().entity_id().clone();
+
+    // B grants A discover+invoke on this provider.
+    let (grant, secret) = OrgCapabilityGrant::try_issue(
+        &b,
+        a.org_id(),
+        cap("nrpc:customer.read"),
+        GrantRights::INVOKE.union(GrantRights::DISCOVER),
+        GrantTargetScope::ExactNode(provider_entity),
+        3600,
+    )
+    .expect("grant");
+    let secret = secret.expect("discover mints a secret");
+
+    let sdir = std::env::temp_dir().join(format!(
+        "net-osdk-prov-secret-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&sdir);
+    std::fs::create_dir_all(&sdir).expect("mkdir");
+    let secret_path = sdir.join("g.audience");
+    {
+        let mut f = std::fs::File::create(&secret_path).expect("create");
+        f.write_all(&secret.encode_config()).expect("write");
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600))
+            .expect("chmod");
+    }
+
+    mesh.install_provider_grant_audience(&grant.to_bytes(), &secret_path)
+        .expect("installs from bytes + a path");
+    assert_eq!(mesh.node().provider_grant_audiences_len_for_test(), 1);
+
+    // A secret for a DIFFERENT grant is refused.
+    let (_other, other_secret) = discover_grant(&b, a.org_id(), cap("nrpc:other"), 3600);
+    let other_path = sdir.join("other.audience");
+    {
+        let mut f = std::fs::File::create(&other_path).expect("create");
+        f.write_all(&other_secret.encode_config()).expect("write");
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&other_path, std::fs::Permissions::from_mode(0o600))
+            .expect("chmod");
+    }
+    mesh.install_provider_grant_audience(&grant.to_bytes(), &other_path)
+        .expect_err("a secret that is not this grant's key must be refused");
+
+    let _ = std::fs::remove_dir_all(&sdir);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The whole binding-shaped path, live: a provider provisioned entirely through
+/// the §7 methods (`install_org_authority` + `install_provider_grant_audience`)
+/// serves a granted capability that a caller — also provisioned via
+/// `install_org_authority`, binding a grant + secret FILE — invokes.
+///
+/// Every provisioning step here is exactly what a Node or Python app does; no
+/// direct `install_node_authority` / in-memory secret is used.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn live_cross_org_call_through_the_provisioning_methods() {
+    use std::io::Write;
+
+    let (a, b) = (org_a(), org_b());
+    let (provider, _p_id, p_dir) = provisioned_mesh("prov-provider", &b).await;
+    let (caller, c_identity, c_dir) = provisioned_mesh("prov-caller", &a).await;
+    bring_up(&caller, &provider).await;
+
+    let ran = Arc::new(AtomicUsize::new(0));
+    let ran_h = ran.clone();
+    let _serve = provider
+        .serve_org(
+            "customer.read",
+            OrgAccess::Granted,
+            move |_c: OrgCaller, req: Ping| {
+                let ran = ran_h.clone();
+                async move {
+                    ran.fetch_add(1, Ordering::SeqCst);
+                    Ok(Pong {
+                        n: req.n + 100,
+                        served_by: "prov".to_string(),
+                    })
+                }
+            },
+        )
+        .expect("serve_org");
+
+    // Issue the grant; write BOTH sides' secrets to files (the binding shape).
+    let (grant, secret) = discover_grant(&b, a.org_id(), cap("nrpc:customer.read"), 3600);
+    let sdir = std::env::temp_dir().join(format!(
+        "net-osdk-prov-live-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&sdir);
+    std::fs::create_dir_all(&sdir).expect("mkdir");
+    let write_secret = |name: &str, s: &OrgAudienceSecret| {
+        let path = sdir.join(name);
+        let mut f = std::fs::File::create(&path).expect("create");
+        f.write_all(&s.encode_config()).expect("write");
+        drop(f);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("chmod");
+        }
+        path
+    };
+    let provider_secret_path = write_secret("provider.audience", &secret);
+    let caller_secret_path = write_secret("caller.audience", &secret);
+
+    // Provider provisions its grant audience from bytes + a path.
+    provider
+        .install_provider_grant_audience(&grant.to_bytes(), &provider_secret_path)
+        .expect("provider audience from the §7 method");
+
+    // Caller binds a grant + secret FILE — the whole point of the asymmetry.
+    let (cert, dg) = belonging(&a, c_identity.entity_id());
+    let credentials = OrgCredentials::from_parts(
+        &cert.to_bytes(),
+        &dg.to_bytes(),
+        &[grant.to_bytes()],
+        &[caller_secret_path],
+    )
+    .expect("credentials from files");
+    let org = caller.org(credentials).expect("bind");
+    assert!(
+        converge_discovery(&provider, &org, &cap("nrpc:customer.read")).await,
+        "resolved through a provider provisioned entirely via the §7 methods"
+    );
+
+    let pong: Pong = org
+        .call("customer.read", &Ping { n: 5 })
+        .await
+        .expect("the fully binding-shaped cross-org call is admitted");
+    assert_eq!(pong.n, 105);
+    assert_eq!(pong.served_by, "prov");
+    assert_eq!(ran.load(Ordering::SeqCst), 1);
+
+    let _ = std::fs::remove_dir_all(&sdir);
+    let _ = std::fs::remove_dir_all(&p_dir);
+    let _ = std::fs::remove_dir_all(&c_dir);
+}
+
+// ---------------------------------------------------------------------------
+// The design test
+// ---------------------------------------------------------------------------
+
+/// OSDK's acceptance criterion: the common path must work without the user
+/// knowing the substrate's vocabulary. This function is the whole caller-side
+/// API surface an application touches, and it names NONE of:
+///
+/// `OrgProofIntent`, `OwnerDelegated`, `CrossOrgGranted`, the
+/// `OrgAudienceSecret` commitment, `ScopedCapabilityAnnouncement`,
+/// `VerifiedScopedCapability`, `CoarseAdmissionReason`, `GrantTargetScope`.
+///
+/// It compiles, so the claim is checked rather than asserted. (Credentials
+/// arrive from the operator's issuance tooling; assembling them is not part of
+/// the calling surface.)
+#[allow(dead_code)]
+async fn design_test_the_secure_path_is_short(
+    mesh: &Mesh,
+    credentials: OrgCredentials,
+) -> Result<Pong, OrgSdkError> {
+    let org = mesh.org(credentials)?;
+    org.call("customer.read", &Ping { n: 1 }).await
+}
+
+/// The provider half of the same claim.
+#[allow(dead_code)]
+fn design_test_the_serve_path_is_short(mesh: &Mesh) -> Result<crate::mesh_rpc::ServeHandle, ()> {
+    mesh.serve_org(
+        "customer.read",
+        OrgAccess::Granted,
+        |caller: OrgCaller, req: Ping| async move {
+            let _ = caller.acting_org;
+            Ok(Pong {
+                n: req.n,
+                served_by: "p".to_string(),
+            })
+        },
+    )
+    .map_err(|_| ())
+}

@@ -1,0 +1,34 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Bedrock Claude Fable 5
+
+id: "bedrock:us.anthropic.claude-fable-5"
+version: 0.0.1
+name: Bedrock Claude Fable 5
+description: Claude Fable 5 via AWS Bedrock
+provider: bedrock
+provider_url: "https://aws.amazon.com/bedrock/anthropic/"
+default: false
+# Switched off: the AWS account backing this deployment is not entitled to it.
+# Bedrock answers `AccessDeniedException` (403) — "is not available for this
+# account" — so offering it in a model menu is offering a request that can only
+# fail. Flip back to `true` once the entitlement is granted.
+available: false
+tokens_limit: 64000
+
+# AWS's on-demand price for the US cross-region (geo) inference profile this
+# `us.` id names, US East (N. Virginia) — "Geo and In-region Cross-region
+# Inference" on https://aws.amazon.com/bedrock/pricing/ (AWS price list
+# published 2026-10-07, read 2026-10-08). Cache writes and reads are priced
+# apart there (5m write $13.75, 1h write $22, read $1.10); the catalogue has
+# no field for them.
+# The same as pydantic/genai-prices (main bd966a9, read 2026-10-08).
+pricing:
+  input_usd_per_million: 11.0
+  output_usd_per_million: 55.0
+
+required_env_vars:
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_DEFAULT_REGION

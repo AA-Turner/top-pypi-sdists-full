@@ -1,0 +1,1246 @@
+"""Candidate lane acquisition and fusion for semantic find()."""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import Callable, Mapping
+from collections.abc import Set as AbstractSet
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .embedding_index import ChunkRef
+
+from . import find_policy, find_results, find_types
+from .find_types import FindTimings, GraphProvenance, ParsedPage, RankingPage
+from .ranking_config import LANE_ORDER, RankingConfig
+
+log = logging.getLogger(__name__)
+_span = find_types.timing_span
+_mark_source = find_types.timing_mark_source
+
+PageOf = Callable[[str], ParsedPage | RankingPage | None]
+
+
+@dataclass(frozen=True)
+class PreparedQuery:
+    """An encoder result or failure retained only for its current request."""
+
+    index: Any = None
+    identity: Any = None
+    vector: Any = None
+    error: Exception | None = None
+    deferred: bool = False
+    non_applicable_reason: str | None = None
+
+    def encoded(self) -> tuple[Any, Any]:
+        if self.error is not None:
+            raise self.error
+        if self.vector is None:
+            from . import recall_space
+
+            raise recall_space.ServingEncoderCold("query input was deferred before selection")
+        return self.identity, self.vector
+
+
+@dataclass
+class PreparedQueryInputs:
+    """The serving, building, and image inputs needed before SQL selection."""
+
+    unit: PreparedQuery | None = None
+    page: PreparedQuery | None = None
+    clip: PreparedQuery | None = None
+    serving: Any = None
+    building: Any = None
+    embeddings_deferred: bool = False
+
+    def require_current_serving(self, vault_root: Path) -> None:
+        """Keep prepared rankings out of a cache for another serving sidecar."""
+        from . import index_paths, recall_space
+
+        path = getattr(self.serving, "path", None)
+        if path is not None and path != index_paths.sidecar_path(vault_root):
+            raise recall_space.VectorSpaceMismatch("serving sidecar changed after preparation")
+
+
+def _prepare_clip_query(vault_root: Path, query: str) -> PreparedQuery:
+    """Decide applicability before readiness or encoding, once per request."""
+    from . import embeddings, readiness
+
+    if not embeddings.clip_enabled() or not query.strip():
+        return PreparedQuery(non_applicable_reason="clip_disabled")
+    try:
+        index = embeddings.get_clip_index(vault_root)
+        if not index.has_vectors():
+            return PreparedQuery(index, non_applicable_reason="no_image_vectors")
+        if readiness.should_defer("clip"):
+            return PreparedQuery(index, deferred=True)
+        return PreparedQuery(index, vector=embeddings.embed_clip_text(query))
+    except Exception as error:  # noqa: BLE001 - the image lane reports the retained failure.
+        return PreparedQuery(error=error)
+
+
+def prepare_query_inputs(
+    vault_root: Path, query: str, *, unit: bool, page: bool, timings: Any = None,
+) -> PreparedQueryInputs:
+    """Run encoders before retaining catalogue rows; replay failures in their lanes."""
+    from . import embeddings, readiness, recall_migration, recall_space, runtime_resources
+
+    prepared = PreparedQueryInputs()
+
+    def encode(index: Any) -> PreparedQuery:
+        identity = getattr(index, "identity", None)
+        try:
+            with _span(timings, "vector.embed"), recall_space.encoding_for(index):
+                vector = embeddings.embed_texts([query], is_query=True)[0]
+            return PreparedQuery(index, identity, vector)
+        except Exception as error:  # noqa: BLE001 - the existing lane classifies this failure.
+            return PreparedQuery(index, identity, error=error)
+
+    with _span(timings, "query_prepare"):
+        prepared.embeddings_deferred = readiness.should_defer("embeddings")
+        if (
+            (unit or page) and query.strip()
+            and not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS")
+            and not prepared.embeddings_deferred
+        ):
+            try:
+                prepared.serving = embeddings.get_embedding_index(vault_root)
+            except Exception as error:  # noqa: BLE001 - each existing lane replays its own failure.
+                if unit:
+                    prepared.unit = PreparedQuery(error=error)
+                if page:
+                    prepared.page = PreparedQuery(error=error)
+            else:
+                if unit:
+                    prepared.unit = encode(prepared.serving)
+                    if isinstance(prepared.unit.error, runtime_resources.ModelBusyError):
+                        return prepared
+                if page:
+                    try:
+                        prepared.building = recall_migration.building_sidecar(vault_root)
+                        selected = (
+                            embeddings.get_building_index(vault_root, prepared.building)
+                            if prepared.building is not None else prepared.serving
+                        )
+                        shared = prepared.unit
+                        if (
+                            shared is not None and shared.error is None
+                            and (
+                                prepared.building is None
+                                or prepared.serving.identity in (None, selected.identity)
+                            )
+                        ):
+                            prepared.page = PreparedQuery(selected, shared.identity, shared.vector)
+                        else:
+                            prepared.page = encode(selected)
+                    except Exception as error:  # noqa: BLE001 - replay inside the page lane.
+                        prepared.page = PreparedQuery(error=error)
+            dense = prepared.page if page else prepared.unit
+            if dense is not None and isinstance(dense.error, runtime_resources.ModelBusyError):
+                return prepared
+        if page:
+            prepared.clip = _prepare_clip_query(vault_root, query)
+    return prepared
+
+
+@dataclass
+class CandidateBundle:
+    """All candidate-lane state needed to build semantic find hits."""
+
+    fused: list[tuple[str, float]]
+    had_rankings: bool
+    vector_ranking: list[str]
+    bm25_ranking: list[str]
+    keyword_ranking: list[str]
+    clip_ranking: list[str]
+    graph_ranking: list[str]
+    temporal_ranking: list[str]
+    chunk_text_by_path: dict[str, str | ChunkRef]
+    bm25_score_by_path: dict[str, float]
+    vector_score_by_path: dict[str, float]
+    clip_score_by_path: dict[str, float]
+    clip_frame_ts_by_path: dict[str, float | None]
+    frame_attribution: dict[str, tuple[str, float | None]]
+    graph_in_degree_by_path: dict[str, int]
+    graph_provenance_by_path: dict[str, GraphProvenance]
+    usage_map: dict[str, float]
+    lane_rankings: dict[str, list[str]]
+    lane_weights: dict[str, float]
+    lane_statuses: dict[str, dict[str, Any]]
+    rrf_k: int
+    raw_fused_score_by_path: dict[str, float]
+    adjusted_score_by_path: dict[str, float]
+    multiplier_chain_by_path: dict[str, list[dict[str, float | str]]] | None
+    #: Why the request crosses scripts, or None (see `_lexical_visibility`).
+    lexical_crossing: str | None = None
+    #: Pages whose lexical votes fusion withheld, with the rank each lexical
+    #: lane gave them before it did (`WITHHELD_REASON`). The lane rankings above
+    #: are the ones fusion used, so they no longer hold these pages.
+    lexical_votes_withheld: dict[str, dict[str, int]] = field(default_factory=dict)
+    frame_sources: dict[str, str] = field(default_factory=dict)
+    ranking_pages: dict[str, RankingPage | None] = field(default_factory=dict)
+
+
+def empty_bundle(
+    *,
+    usage_map: dict[str, float] | None = None,
+    lane_statuses: dict[str, dict[str, Any]] | None = None,
+    rrf_k: int = 60,
+) -> CandidateBundle:
+    return CandidateBundle(
+        fused=[],
+        had_rankings=False,
+        vector_ranking=[],
+        bm25_ranking=[],
+        keyword_ranking=[],
+        clip_ranking=[],
+        graph_ranking=[],
+        temporal_ranking=[],
+        chunk_text_by_path={},
+        bm25_score_by_path={},
+        vector_score_by_path={},
+        clip_score_by_path={},
+        clip_frame_ts_by_path={},
+        frame_attribution={},
+        graph_in_degree_by_path={},
+        graph_provenance_by_path={},
+        usage_map=usage_map or {},
+        lane_rankings={name: [] for name in LANE_ORDER},
+        lane_weights={name: 1.0 for name in LANE_ORDER},
+        lane_statuses=lane_statuses or {},
+        rrf_k=rrf_k,
+        raw_fused_score_by_path={},
+        adjusted_score_by_path={},
+        multiplier_chain_by_path=None,
+    )
+
+
+def collapse_frame_children(
+    ranking: list[str],
+    vault_root: Path,
+    page_of: PageOf,
+    attribution: dict[str, tuple[str, float | None]],
+    *aux_maps: dict,
+    parent_hints: Mapping[str, str | None] | None = None,
+    recall_paths: AbstractSet[str] | None = None,
+    metadata_paths: AbstractSet[str] | None = None,
+    frame_sources: dict[str, str] | None = None,
+) -> list[str]:
+    """Remap scene-frame sidecar candidates onto their parent video sidecar."""
+    if not ranking:
+        return ranking
+    out: list[str] = []
+    seen: set[str] = set()
+    from . import recall_policy
+
+    def admitted(rel: str) -> bool:
+        return (
+            rel in recall_paths
+            if recall_paths is not None
+            else recall_policy.is_recall_candidate(vault_root, vault_root / rel)
+        )
+
+    for rel in ranking:
+        if not admitted(rel):
+            continue
+        # Offline hints select hydration. Managed ranking retains the admitted
+        # generation; only selected output and frame evidence reopen Markdown.
+        page = (
+            None
+            if metadata_paths is None and parent_hints is not None and parent_hints.get(rel) is None and rel in parent_hints
+            else page_of(rel)
+        )
+        parent = page.parent_media if page is not None else None
+        if parent:
+            parent_sidecar = parent + ".md"
+            if (
+                admitted(parent_sidecar)
+                and (
+                    parent_sidecar in metadata_paths
+                    if metadata_paths is not None
+                    else recall_policy.is_recall_candidate(vault_root, vault_root / parent_sidecar)
+                    and (vault_root / parent_sidecar).exists()
+                )
+            ):
+                attribution.setdefault(parent_sidecar, (page.media_file or rel, page.frame_ts))
+                if frame_sources is not None:
+                    frame_sources.setdefault(parent_sidecar, rel)
+                for m in aux_maps:
+                    if rel in m:
+                        v = m.pop(rel)
+                        m.setdefault(parent_sidecar, v)
+                rel = parent_sidecar
+        if rel in seen:
+            continue
+        seen.add(rel)
+        out.append(rel)
+    return out
+
+
+LexicalVisibility = find_policy.LexicalVisibility
+_LEXICALLY_VISIBLE = find_policy.LEXICALLY_VISIBLE
+CROSSING_VOTES_WITHHELD = find_policy.CROSSING_VOTES_WITHHELD
+CROSSING_UNMATCHED = find_policy.CROSSING_UNMATCHED
+WITHHELD_REASON = find_policy.WITHHELD_REASON
+
+
+def _lexical_visibility(
+    *,
+    query: str,
+    vector_ranking: list[str],
+    lexical_rankings: tuple[list[str], ...],
+    lane_weights: tuple[float, ...],
+    rrf_k: int,
+    window: int,
+    page_of: PageOf,
+) -> LexicalVisibility:
+    """The dense-lead guard over admitted ranking fields or offline pages."""
+    return find_policy.lexical_visibility(
+        query=query,
+        vector_ranking=vector_ranking,
+        lexical_rankings=lexical_rankings,
+        lane_weights=lane_weights,
+        rrf_k=rrf_k,
+        window=window,
+        view_of=page_of,
+    )
+
+
+def collect_candidates(
+    vault_root: Path,
+    *,
+    query: str,
+    query_norm: str,
+    limit: int,
+    scope: str,
+    mode: str,
+    graph: bool,
+    temporal: bool,
+    intent: str | None,
+    prefer_compiled: bool,
+    prefer_active: bool,
+    prefer_used: bool,
+    config: RankingConfig,
+    timings: FindTimings | None,
+    snapshot: Any,
+    page_of: PageOf,
+    keyword_match_paths: Callable[..., list[str]],
+    outbound_wikilink_paths: Callable[..., list[str]],
+    get_query_resolver: Callable[..., object],
+    record_degradation: Callable[[str], None],
+    degraded_out: list[str] | None,
+    failed_out: list[str] | None,
+    recall_paths: AbstractSet[str],
+    lexical_repair: bool = True,
+    eligible_paths: set[str] | None = None,
+    filtered: bool = False,
+    admitted_paths: set[str] | None = None,
+    capture_trace: bool = False,
+    query_vector_provider: Callable[[], Any] | None = None,
+    prepared_queries: PreparedQueryInputs | None = None,
+    shadow: Callable[[list[str]], list[str]] | None = None,
+    status_basis: Any = None,
+    type_basis: Any = None,
+    ranking_metadata: Callable[[set[str]], Mapping[str, RankingPage | None]] | None = None,
+) -> CandidateBundle:
+    """Collect vector/BM25/keyword/CLIP/graph/temporal lanes and fuse them.
+
+    `shadow` optionally removes identities no lane may attest -- the caller's
+    exact pending-visibility overlay owns those generations -- and is applied to
+    every lane this collector builds itself, at its source, before rank lookups,
+    frame collapsing, eligibility, graph seeding, fusion and every lane cap
+    consume it. The keyword lane is excluded because it arrives from the
+    caller's own provider already shadowed. Default None is a strict no-op.
+
+    `filtered` says `eligible_paths` holds the caller's own filters, so the pool
+    reaches their whole eligible set. Admission alone never deepens it: every
+    lane already ranks only `eligible_paths`, so each hands fusion its top
+    `candidate_k` admitted pages, as it would over a corpus without the rest.
+    """
+    from . import (
+        bm25,
+        embeddings,
+        epistemic_graph,
+        fusion,
+        lexstore,
+        readiness,
+        recall_migration,
+        recall_space,
+        runtime_resources,
+    )
+
+    usage_map: dict[str, float] = {}
+    if prefer_used:
+        from . import usage as usage_module
+        usage_map = usage_module.activation_map(config)
+
+    candidate_k = max(
+        limit * config.candidate_multiplier,
+        config.candidate_floor,
+        len(eligible_paths) if filtered and eligible_paths is not None else 0,
+    )
+    semantic_paths = (
+        recall_paths if eligible_paths is None else (recall_paths & eligible_paths)
+    )
+
+    def _eligible(ranking: list[str]) -> list[str]:
+        return [
+            path
+            for path in ranking
+            if path in recall_paths and (eligible_paths is None or path in eligible_paths)
+        ]
+    frame_attribution: dict[str, tuple[str, float | None]] = {}
+    frame_sources: dict[str, str] = {}
+    lane_statuses: dict[str, dict[str, Any]] = {}
+
+    vector_ranking: list[str] = []
+    chunk_text_by_path: dict[str, str | ChunkRef] = {}
+    vector_score_by_path: dict[str, float] = {}
+    if os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
+        if capture_trace:
+            lane_statuses["vector"] = {
+                "status": "disabled",
+                "reason": "embeddings_disabled",
+                "model": embeddings.MODEL_NAME,
+            }
+        if timings is not None:
+            timings.skipped("vector")
+    elif readiness.should_defer("embeddings") or (
+        prepared_queries is not None and prepared_queries.embeddings_deferred
+    ):
+        if capture_trace:
+            lane_statuses["vector"] = {
+                "status": "warming",
+                "reason": "model_warming",
+                "model": embeddings.MODEL_NAME,
+            }
+        if timings is not None:
+            timings.skipped("vector")
+        if degraded_out is not None:
+            degraded_out.append("embeddings")
+    else:
+        try:
+            with _span(timings, "vector"):
+                if prepared_queries is not None:
+                    prepared = prepared_queries.page
+                    if prepared is None:
+                        raise recall_space.ServingEncoderCold("page query was not prepared")
+                    encoded_for, query_vec = prepared.encoded()
+                    prepared_queries.require_current_serving(vault_root)
+                    idx, serving, building = (
+                        prepared.index, prepared_queries.serving, prepared_queries.building
+                    )
+                    if recall_migration.building_sidecar(vault_root) != building:
+                        raise recall_space.VectorSpaceMismatch(
+                            "building sidecar changed after preparation"
+                        )
+                    if timings is not None:
+                        timings.skipped("vector.index")
+                        timings.skipped("vector.embed")
+                else:
+                    with _span(timings, "vector.index", source=find_types.SOURCE_INDEX):
+                        idx = serving = embeddings.get_embedding_index(vault_root)
+                        building = recall_migration.building_sidecar(vault_root)
+                        if building is not None:
+                            # A building sidecar may use another encoder space.
+                            idx = embeddings.get_building_index(vault_root, building)
+                    with _span(timings, "vector.embed"):
+                        if query_vector_provider is not None and (
+                            building is None or serving.identity in (None, idx.identity)
+                        ):
+                            encoded_for, query_vec = query_vector_provider()
+                        else:
+                            encoded_for = getattr(idx, "identity", None)
+                            with recall_space.encoding_for(idx):
+                                query_vec = embeddings.embed_texts([query], is_query=True)[0]
+                recall_space.require_same_space(idx, encoded_for, query_vec)
+                sources = [idx]
+                if building is not None:
+                    # Live writes since the build began are only in the serving
+                    # sidecar. It joins only when it records exactly the space
+                    # the query was encoded in, so two spaces never mix.
+                    if serving.identity is not None and serving.identity == (
+                        encoded_for or recall_space.current_identity(len(query_vec))
+                    ):
+                        sources.append(serving)
+                    if degraded_out is not None:
+                        degraded_out.append("embeddings")
+                elif degraded_out is not None and recall_migration.coverage_unchecked(vault_root):
+                    degraded_out.append("embeddings")
+                with _span(timings, "vector.search"):
+                    chunk_hits = []
+                    for source in sources:
+                        search = source.select_chunks if isinstance(source, embeddings.EmbeddingIndex) else source.search
+                        hits = search(
+                            query_vec,
+                            k=candidate_k * 3,
+                            allowed_paths=semantic_paths,
+                            # A managed service never loads a cold corpus matrix on
+                            # a request thread; a one-shot caller has no later
+                            # request to serve and keeps the inline load.
+                            **(
+                                {"encoded_for": encoded_for, "defer_cold_load": readiness.runtime_managed()}
+                                if isinstance(source, embeddings.EmbeddingIndex)
+                                else {}
+                            ),
+                        )
+                        if building is not None and source is idx:
+                            # The build holds a changed page's old rows until its
+                            # catch-up pass: they answer for text it no longer has.
+                            current = recall_migration.current_in_build(vault_root, idx, {hit[0] for hit in hits})
+                            hits = [hit for hit in hits if hit[0] in current]
+                        chunk_hits.extend(hits)
+                best_per_file: dict[str, tuple[float, str | ChunkRef]] = {}
+                for fp, _idx, ctext, score in chunk_hits:
+                    existing = best_per_file.get(fp)
+                    if existing is None or score > existing[0]:
+                        best_per_file[fp] = (score, ctext)
+                vector_ranking = sorted(
+                    best_per_file.keys(), key=lambda p: -best_per_file[p][0]
+                )[:candidate_k]
+                chunk_text_by_path = {p: best_per_file[p][1] for p in vector_ranking}
+                vector_score_by_path = {p: best_per_file[p][0] for p in vector_ranking}
+                if capture_trace:
+                    lane_statuses["vector"] = {
+                        "status": "participated" if vector_ranking else "available_nonmatching",
+                        "backend": type(idx).__name__,
+                        "model": encoded_for.model if isinstance(encoded_for, recall_space.SpaceIdentity) else recall_space.serving_model(idx),
+                        "metric": {
+                            "name": "cosine_similarity",
+                            "direction": "higher",
+                            "range": [-1.0, 1.0],
+                            "rounding": 6,
+                        },
+                    }
+        except ImportError as e:
+            if capture_trace:
+                lane_statuses["vector"] = {
+                    "status": "unavailable",
+                    "reason": "dependency_unavailable",
+                    "model": embeddings.MODEL_NAME,
+                }
+            log.info("vector search unavailable (%s); keyword/BM25-only ranking", e)
+            if timings is not None:
+                timings.error("vector", e)
+        except runtime_resources.ModelBusyError:
+            raise
+        except recall_space.ServingEncoderCold as e:
+            if capture_trace:
+                lane_statuses["vector"] = {
+                    "status": "warming",
+                    "reason": e.reason,
+                    "model": embeddings.MODEL_NAME,
+                }
+            log.info("vector search deferred (%s); ranking without the dense lane", e)
+            if timings is not None:
+                timings.skipped("vector")
+            if degraded_out is not None:
+                degraded_out.append("embeddings")
+        except recall_space.VectorSpaceMismatch as e:
+            # The sidecar holds another encoder's vectors: the dense lane is
+            # absent until it is rebuilt in this space, and the others serve.
+            if capture_trace:
+                lane_statuses["vector"] = {
+                    "status": "unavailable",
+                    "reason": recall_space.VectorSpaceMismatch.reason,
+                    "model": embeddings.MODEL_NAME,
+                }
+            log.info("vector search unavailable (%s); ranking without the dense lane", e)
+            if timings is not None:
+                timings.skipped("vector")
+            if degraded_out is not None:
+                degraded_out.append("embeddings")
+        except Exception as e:  # noqa: BLE001 - vector search is best-effort
+            if capture_trace:
+                lane_statuses["vector"] = {
+                    "status": "failed",
+                    "reason": "search_failed",
+                    "model": embeddings.MODEL_NAME,
+                }
+            log.warning("vector search failed: %s; falling back to BM25-only", e)
+            record_degradation("vector")
+            if failed_out is not None:
+                failed_out.append("vector")
+            if timings is not None:
+                timings.error("vector", e)
+    clip_ranking: list[str] = []
+    clip_score_by_path: dict[str, float] = {}
+    clip_frame_ts_by_path: dict[str, float | None] = {}
+    clip_input = (
+        prepared_queries.clip if prepared_queries is not None
+        else _prepare_clip_query(vault_root, query)
+    )
+    if clip_input is not None and clip_input.non_applicable_reason is not None:
+        if capture_trace:
+            lane_statuses["clip"] = {
+                "status": "non_applicable" if clip_input.non_applicable_reason == "no_image_vectors" else "disabled",
+                "reason": clip_input.non_applicable_reason,
+                "model": embeddings.CLIP_MODEL_NAME,
+            }
+        if timings is not None:
+            timings.skipped("clip")
+    elif clip_input is not None and clip_input.deferred:
+        if capture_trace:
+            lane_statuses["clip"] = {
+                "status": "warming",
+                "reason": "model_warming",
+                "model": embeddings.CLIP_MODEL_NAME,
+            }
+        if timings is not None:
+            timings.skipped("clip")
+        if degraded_out is not None:
+            degraded_out.append("clip")
+    else:
+        try:
+            with _span(timings, "clip"):
+                if clip_input is None:
+                    raise embeddings.ClipUnavailable("image query was not prepared")
+                _identity, clip_qvec = clip_input.encoded()
+                clip_idx = clip_input.index
+                allowed_images = {
+                    path.removesuffix(".md")
+                    for path in semantic_paths
+                    if path.endswith(".md")
+                }
+                clip_search = clip_idx.search_above_chance(
+                    clip_qvec,
+                    k=candidate_k * 8,
+                    allowed_paths=allowed_images,
+                    alpha=config.clip_semantic_alpha,
+                    min_population=config.clip_semantic_min_population,
+                )
+                for img_rel, frame_ts, score in clip_search.hits:
+                    if len(clip_ranking) >= candidate_k:
+                        break
+                    sidecar_rel = img_rel + ".md"
+                    if sidecar_rel not in clip_score_by_path and (vault_root / sidecar_rel).exists():
+                        clip_ranking.append(sidecar_rel)
+                        clip_score_by_path[sidecar_rel] = score
+                        clip_frame_ts_by_path[sidecar_rel] = frame_ts
+                if capture_trace:
+                    lane_statuses["clip"] = {
+                        "status": "participated" if clip_ranking else "available_nonmatching",
+                        "backend": type(clip_idx).__name__,
+                        "model": embeddings.CLIP_MODEL_NAME,
+                        "band": clip_search.band,
+                        "withheld_pages": clip_search.withheld_pages,
+                        "metric": {
+                            "name": "cosine_similarity",
+                            "direction": "higher",
+                            "range": [-1.0, 1.0],
+                            "rounding": 6,
+                        },
+                    }
+        except embeddings.ClipUnavailable as e:
+            if capture_trace:
+                lane_statuses["clip"] = {
+                    "status": "unavailable",
+                    "reason": "dependency_unavailable",
+                    "model": embeddings.CLIP_MODEL_NAME,
+                }
+            log.warning("CLIP search unavailable (%s); skipping image search", e)
+            record_degradation("clip")
+            if failed_out is not None:
+                failed_out.append("clip")
+            if timings is not None:
+                timings.error("clip", e)
+        except runtime_resources.ModelBusyError:
+            raise
+        except Exception as e:  # noqa: BLE001 - image search is best-effort
+            if capture_trace:
+                lane_statuses["clip"] = {
+                    "status": "failed",
+                    "reason": "search_failed",
+                    "model": embeddings.CLIP_MODEL_NAME,
+                }
+            log.warning("CLIP search failed: %s; skipping image search", e)
+            record_degradation("clip")
+            if failed_out is not None:
+                failed_out.append("clip")
+            if timings is not None:
+                timings.error("clip", e)
+    bm25_ranking: list[str] = []
+    bm25_score_by_path: dict[str, float] = {}
+    keyword_ranking: list[str] = []
+    if mode == "vector":
+        if capture_trace:
+            lane_statuses["bm25"] = {
+                "status": "non_applicable",
+                "reason": "requested_mode_vector",
+            }
+            lane_statuses["keyword"] = {
+                "status": "non_applicable",
+                "reason": "requested_mode_vector",
+            }
+        if timings is not None:
+            timings.skipped("bm25")
+            timings.skipped("keyword")
+        rankings = [r for r in (vector_ranking, clip_ranking) if r]
+    else:
+        try:
+            with _span(timings, "bm25"):
+                if not lexical_repair and lexstore.maintained_content_index_enabled():
+                    catalog_result = lexstore.search_bm25_result(
+                        vault_root,
+                        query,
+                        k=candidate_k,
+                        scope=scope,
+                        freshness=snapshot.for_scope(scope),
+                        allowed_paths=eligible_paths,
+                        admitted_paths=admitted_paths,
+                    )
+                    if not catalog_result.readiness.complete:
+                        _mark_source(timings, "bm25", find_types.SOURCE_DECLINED)
+                        raise lexstore.CatalogUnavailable(catalog_result.readiness)
+                    _mark_source(timings, "bm25", find_types.SOURCE_INDEX)
+                    bm25_hits = list(catalog_result.value or [])
+                else:
+                    # The in-process corpus path: it builds from the scope when
+                    # cold, so it is `computed`, never `index`.
+                    _mark_source(timings, "bm25", find_types.SOURCE_COMPUTED)
+                    bm25_hits = bm25.search(
+                        vault_root,
+                        query,
+                        k=candidate_k,
+                        scope=scope,
+                        freshness=snapshot.for_scope(scope),
+                        allowed_paths=eligible_paths,
+                        admitted_paths=admitted_paths,
+                        repair=lexical_repair,
+                    )
+                bm25_ranking = [p for p, _ in bm25_hits]
+                bm25_score_by_path = {p: float(score) for p, score in bm25_hits}
+                if capture_trace:
+                    lane_statuses["bm25"] = {
+                        "status": "participated" if bm25_ranking else "available_nonmatching",
+                        "backend": lexstore.cache_token(vault_root),
+                        "metric": {
+                            "name": "raw_bm25_score",
+                            "direction": "higher",
+                            "range": "backend_dependent",
+                            "rounding": 6,
+                            "caveat": "diagnostic; not comparable across backends or corpora",
+                        },
+                    }
+        except lexstore.CatalogUnavailable:
+            raise
+        except ImportError as e:
+            if capture_trace:
+                lane_statuses["bm25"] = {
+                    "status": "unavailable",
+                    "reason": "dependency_unavailable",
+                }
+            log.warning("BM25 unavailable (%s); using vector-only", e)
+            if timings is not None:
+                timings.error("bm25", e)
+        except Exception as e:  # noqa: BLE001 - BM25 search is best-effort
+            if capture_trace:
+                lane_statuses["bm25"] = {
+                    "status": "failed",
+                    "reason": "search_failed",
+                }
+            log.warning("BM25 search failed: %s; using vector-only", e)
+            if timings is not None:
+                timings.error("bm25", e)
+        with _span(timings, "keyword"):
+            # Hydration is one of the four stages the contract names, so this
+            # lane reports its source instead of carrying the static `computed`
+            # default. `index` is the basis, not a courtesy: this lane's only
+            # source of paths is the injected `keyword_match_paths` provider,
+            # which resolves from the maintained lexical index and never
+            # enumerates the scope. The branch that CAN enumerate is the
+            # empty-query one in `find._find_keyword`, which marks itself
+            # `computed` when it takes the walk.
+            _mark_source(timings, "keyword", find_types.SOURCE_INDEX)
+            # Over-fetch by the same factor the BM25 lane uses, and for the same
+            # reason: `collapse_frame_children` and `_eligible` below can drop
+            # members, so a lane that supplied exactly the fused depth could
+            # arrive under it. Before this the lane supplied *everything* --
+            # every matching page in the vault, on every call (#516).
+            keyword_ranking = keyword_match_paths(
+                vault_root,
+                query_norm,
+                scope,
+                freshness=snapshot.for_scope(scope),
+                repair=lexical_repair,
+                k=candidate_k * 3,
+            )
+    if shadow is not None:
+        # Before anything downstream reads a lane: a shadowed identity must not
+        # seed the graph lane, reach the parent-hint seam, occupy a bounded lane
+        # window, or take a fused position derived from its stale rank.
+        #
+        # Deliberately not `keyword_ranking`: that lane comes from the caller's
+        # own `keyword_match_paths` provider, which has already suppressed the
+        # identities the caller shadows AND merged back the generations only it
+        # can attest. Shadowing it again here would delete that attestation.
+        vector_ranking = shadow(vector_ranking)
+        clip_ranking = shadow(clip_ranking)
+        bm25_ranking = shadow(bm25_ranking)
+    raw_rankings = (vector_ranking, clip_ranking, bm25_ranking, keyword_ranking)
+    admitted_raw_paths = set().union(*raw_rankings) & recall_paths
+    parent_hints: Mapping[str, str | None] | None = None
+    if admitted_raw_paths:
+        recall_checkpoint = snapshot.recall_checkpoint(scope)
+        with _span(timings, "parent_hints"):
+            hint_result = lexstore.emitted_parent_hints_result(
+                vault_root,
+                admitted_raw_paths,
+                scope=scope,
+                freshness=snapshot.for_scope(scope),
+                recall_checkpoint=recall_checkpoint,
+            )
+            _mark_source(
+                timings, "parent_hints",
+                find_types.SOURCE_INDEX if hint_result.readiness.complete else find_types.SOURCE_DECLINED,
+            )
+        if hint_result.readiness.complete:
+            parent_hints = hint_result.value
+
+    ranking_pages: dict[str, RankingPage | None] = {}
+    ranking_of = page_of
+    if ranking_metadata is not None:
+        if admitted_raw_paths:
+            with _span(timings, "fusion"):
+                ranking_pages.update(ranking_metadata(admitted_raw_paths))
+        ranking_of = ranking_pages.get
+
+    vector_ranking = collapse_frame_children(
+        vector_ranking,
+        vault_root,
+        ranking_of,
+        frame_attribution,
+        chunk_text_by_path,
+        vector_score_by_path,
+        parent_hints=parent_hints,
+        recall_paths=recall_paths,
+        metadata_paths=ranking_pages.keys() if ranking_metadata is not None else None,
+        frame_sources=frame_sources,
+    )
+    vector_ranking = _eligible(vector_ranking)
+    clip_ranking = collapse_frame_children(
+        clip_ranking,
+        vault_root,
+        ranking_of,
+        frame_attribution,
+        clip_score_by_path,
+        clip_frame_ts_by_path,
+        parent_hints=parent_hints,
+        recall_paths=recall_paths,
+        metadata_paths=ranking_pages.keys() if ranking_metadata is not None else None,
+        frame_sources=frame_sources,
+    )
+    clip_ranking = _eligible(clip_ranking)
+    bm25_ranking = collapse_frame_children(
+        bm25_ranking,
+        vault_root,
+        ranking_of,
+        frame_attribution,
+        bm25_score_by_path,
+        parent_hints=parent_hints,
+        recall_paths=recall_paths,
+        metadata_paths=ranking_pages.keys() if ranking_metadata is not None else None,
+        frame_sources=frame_sources,
+    )
+    bm25_ranking = _eligible(bm25_ranking)
+    keyword_ranking = collapse_frame_children(
+        keyword_ranking,
+        vault_root,
+        ranking_of,
+        frame_attribution,
+        parent_hints=parent_hints,
+        recall_paths=recall_paths,
+        metadata_paths=ranking_pages.keys() if ranking_metadata is not None else None,
+        frame_sources=frame_sources,
+    )
+    keyword_ranking = _eligible(keyword_ranking)
+    visibility = _LEXICALLY_VISIBLE
+    if mode != "vector" and vector_ranking:
+        guard_weights = config.intent_weights(intent or find_policy.classify_intent(query))
+        with _span(timings, "lexical_guard"):
+            visibility = _lexical_visibility(
+                query=query_norm,
+                vector_ranking=vector_ranking,
+                lexical_rankings=(bm25_ranking, keyword_ranking),
+                lane_weights=tuple(guard_weights[:3]),
+                rrf_k=config.rrf_k,
+                window=candidate_k,
+                page_of=ranking_of,
+            )
+    if capture_trace and mode != "vector":
+        lane_statuses["keyword"] = {
+            "status": "participated" if keyword_ranking else "available_nonmatching",
+            "backend": "case_insensitive_substring",
+            "metric": {"name": "rank", "direction": "lower", "rounding": "none"},
+        }
+    lexical_votes_withheld: dict[str, dict[str, int]] = {}
+    if visibility.withheld:
+        for lane_name, ranking in (("bm25", bm25_ranking), ("keyword", keyword_ranking)):
+            for rank, path in enumerate(ranking, start=1):
+                if path in visibility.withheld:
+                    lexical_votes_withheld.setdefault(path, {})[lane_name] = rank
+        bm25_ranking = [path for path in bm25_ranking if path not in visibility.withheld]
+        keyword_ranking = [path for path in keyword_ranking if path not in visibility.withheld]
+        if capture_trace:
+            for lane_name in ("bm25", "keyword"):
+                count = sum(1 for lanes in lexical_votes_withheld.values() if lane_name in lanes)
+                if count and lane_name in lane_statuses:
+                    # Additive and undeclared in `retrieval_models.LaneProfile`
+                    # so the published outputSchema does not move.
+                    lane_statuses[lane_name]["votes_withheld"] = {
+                        "count": count,
+                        "reason": WITHHELD_REASON,
+                    }
+    rankings = [
+        r
+        for r in (vector_ranking, bm25_ranking, keyword_ranking, clip_ranking)
+        if r
+    ]
+
+    graph_ranking: list[str] = []
+    graph_resolver_deferred = False
+    graph_in_degree_by_path: dict[str, int] = {}
+    graph_provenance_by_path: dict[str, GraphProvenance] = {}
+    if not graph and timings is not None:
+        timings.skipped("graph")
+    if not graph:
+        if capture_trace:
+            lane_statuses["graph"] = {
+                "status": "non_applicable",
+                "reason": "request_disabled",
+            }
+    if graph:
+        # A restricted caller resolves links over the pages it may see, as in a
+        # vault without the others; `recall_paths` is already that view. The
+        # owner keeps the whole-vault resolution and its cost.
+        link_view = recall_paths.__contains__ if admitted_paths is not None else None
+        with _span(timings, "graph"):
+            primary_set: set[str] = set(vector_ranking) | set(bm25_ranking)
+            vector_set: set[str] = set(vector_ranking)
+            graph_seeds: list[str] = []
+            seen_seed: set[str] = set()
+            with _span(timings, "graph.seeds"):
+                for r in (vector_ranking, bm25_ranking):
+                    for p in r[:config.graph_seed_cap]:
+                        if p in seen_seed:
+                            continue
+                        seen_seed.add(p)
+                        if p in vector_set:
+                            graph_seeds.append(p)
+                            continue
+                        page = ranking_of(p)
+                        if page is None:
+                            continue
+                        if (
+                            find_results.literal_tokens_present(page, query_norm)
+                            or find_results.stem_tokens_present(page, query_norm)
+                        ):
+                            graph_seeds.append(p)
+            # A request never stacks the O(corpus) cold proof of an inherited
+            # sidecar (#1454): it proves inline when no proof is running, and
+            # serves without the lane while another reader's proof is.
+            graph_index = epistemic_graph.EpistemicGraphIndex(
+                vault_root, prove_cold_snapshots=epistemic_graph.SINGLE_FLIGHT
+            )
+            graph_state = graph_index.availability_state(prove=epistemic_graph.SINGLE_FLIGHT)
+            if graph_state == "unproven":
+                if degraded_out is not None:
+                    degraded_out.append("graph")
+                if capture_trace:
+                    lane_statuses["graph"] = {
+                        "status": "warming",
+                        "reason": "graph_unproven",
+                        "backend": "epistemic_graph",
+                    }
+            elif graph_state == "available":
+                # Hybrid: seeds with a sidecar file node get typed expansion; seeds
+                # outside the indexed scope (e.g. an out-of-KB page under
+                # scope="vault" — rebuild_all only walks the KB tree) have no node
+                # at all, so typed expansion alone would silently drop them. Those
+                # seeds fall back to the legacy 1-hop wikilink expansion instead,
+                # preserving pre-change recall for out-of-KB seeds.
+                with _span(timings, "graph.sidecar", source=find_types.SOURCE_INDEX):
+                    indexed = graph_index.indexed_paths(graph_seeds)
+                    typed_seeds = [s for s in graph_seeds if s in indexed]
+                    legacy_seeds = [s for s in graph_seeds if s not in indexed]
+                    # The view re-resolves typed links with the request's resolver.
+                    # Without one it cannot, so those seeds wait like legacy ones.
+                    view_resolver = None
+                    if link_view is not None and typed_seeds:
+                        view_resolver = get_query_resolver(
+                            vault_root, freshness=snapshot.projection_key("vault")
+                        )
+                        graph_resolver_deferred = view_resolver is None
+                    neighbors = (
+                        graph_index.neighbors_for(
+                            typed_seeds, keep=link_view, resolver=view_resolver
+                        )
+                        if typed_seeds and not graph_resolver_deferred
+                        else []
+                    )
+
+                # Family precedence MUST be decided BEFORE target dedup: when a
+                # target is reached by both a typed relation and a plain
+                # links_to/unregistered edge, first-seen-wins would let arbitrary
+                # edge order misclassify the target's tier and provenance. Group
+                # every edge touching a target, then keep the highest-precedence
+                # (lowest tier) edge as the surfacing/provenance edge. in-degree is
+                # still tallied for EVERY edge, matching the existing invariant.
+                with _span(timings, "graph.expand"):
+                    best_tier_for_target: dict[str, int] = {}
+                    best_neighbor_for_target: dict[str, epistemic_graph.GraphNeighbor] = {}
+                    first_pos_for_target: dict[str, int] = {}
+                    for pos, neighbor in enumerate(neighbors):
+                        target_rel = neighbor.other_rel
+                        if target_rel not in recall_paths:
+                            continue
+                        graph_in_degree_by_path[target_rel] = (
+                            graph_in_degree_by_path.get(target_rel, 0) + 1
+                        )
+                        if target_rel in primary_set:
+                            continue
+                        if eligible_paths is not None and target_rel not in eligible_paths:
+                            continue
+                        family = neighbor.family
+                        tier = 0 if (neighbor.relation_type and family and family != "link") else 1
+                        current_best = best_tier_for_target.get(target_rel)
+                        if current_best is None or tier < current_best:
+                            best_tier_for_target[target_rel] = tier
+                            best_neighbor_for_target[target_rel] = neighbor
+                            first_pos_for_target[target_rel] = pos
+                    typed_targets = sorted(
+                        best_tier_for_target,
+                        key=lambda t: (best_tier_for_target[t], first_pos_for_target[t]),
+                    )
+                    for target_rel in typed_targets:
+                        neighbor = best_neighbor_for_target[target_rel]
+                        graph_provenance_by_path[target_rel] = GraphProvenance(
+                            relation_type=neighbor.relation_type,
+                            direction=neighbor.direction,
+                            seed=neighbor.seed_rel,
+                            relation_label=neighbor.relation_label,
+                        )
+                    seen_target = set(typed_targets)
+
+                    legacy_targets: list[str] = []
+                    if legacy_seeds:
+                        resolver = (
+                            view_resolver
+                            if link_view is not None and typed_seeds
+                            else get_query_resolver(
+                                vault_root, freshness=snapshot.projection_key("vault")
+                            )
+                        )
+                        graph_resolver_deferred = resolver is None
+                        # Passing None to the legacy helper would construct a
+                        # resolver on the reader, undoing the admission decision.
+                        for seed_rel in legacy_seeds if resolver is not None else ():
+                            page = ranking_of(seed_rel)
+                            if page is None:
+                                continue
+                            for target_rel in outbound_wikilink_paths(
+                                page,
+                                vault_root,
+                                resolver=resolver,
+                                allowed_paths=recall_paths,
+                                visible=link_view,
+                            ):
+                                if target_rel not in recall_paths:
+                                    continue
+                                graph_in_degree_by_path[target_rel] = (
+                                    graph_in_degree_by_path.get(target_rel, 0) + 1
+                                )
+                                if target_rel in primary_set or target_rel in seen_target:
+                                    continue
+                                if eligible_paths is not None and target_rel not in eligible_paths:
+                                    continue
+                                seen_target.add(target_rel)
+                                legacy_targets.append(target_rel)
+
+                    graph_ranking = typed_targets + legacy_targets
+                if capture_trace:
+                    lane_statuses["graph"] = {
+                        "status": "participated" if graph_ranking else "available_nonmatching",
+                        "backend": "epistemic_graph",
+                        "metric": {"name": "rank", "direction": "lower", "rounding": "none"},
+                    }
+                if graph_ranking:
+                    rankings.append(graph_ranking)
+            else:
+                # Fallback: the pre-existing 1-hop outbound-wikilink expansion,
+                # byte-identical to the pre-change ordering. Do not refactor.
+                # `graph.expand` is reported by BOTH branches, and the manual
+                # timers this replaced split the fallback at exactly this point:
+                # `graph.resolver` was resolver construction only, and everything
+                # after it was `graph.expand`. Wrapping the whole branch in one
+                # `graph.resolver` span both drops a stage other code reads and
+                # bills the expansion loop as resolver time.
+                with _span(timings, "graph.resolver"):
+                    resolver = (
+                        get_query_resolver(
+                            vault_root, freshness=snapshot.projection_key("vault")
+                        )
+                        if graph_seeds else None
+                    )
+                    graph_resolver_deferred = bool(graph_seeds) and resolver is None
+                with _span(timings, "graph.expand"):
+                    seen_target = set()
+                    for seed_rel in graph_seeds if resolver is not None else ():
+                        page = ranking_of(seed_rel)
+                        if page is None:
+                            continue
+                        for target_rel in outbound_wikilink_paths(
+                            page,
+                            vault_root,
+                            resolver=resolver,
+                            allowed_paths=recall_paths,
+                            visible=link_view,
+                        ):
+                            if target_rel not in recall_paths:
+                                continue
+                            graph_in_degree_by_path[target_rel] = (
+                                graph_in_degree_by_path.get(target_rel, 0) + 1
+                            )
+                            if target_rel in primary_set or target_rel in seen_target:
+                                continue
+                            if eligible_paths is not None and target_rel not in eligible_paths:
+                                continue
+                            seen_target.add(target_rel)
+                            graph_ranking.append(target_rel)
+                if graph_ranking:
+                    rankings.append(graph_ranking)
+                if capture_trace:
+                    lane_statuses["graph"] = {
+                        "status": "participated" if graph_ranking else "available_nonmatching",
+                        "backend": "wikilink_fallback",
+                        "metric": {"name": "rank", "direction": "lower", "rounding": "none"},
+                    }
+
+            if capture_trace and graph_resolver_deferred:
+                lane_statuses["graph"] = {
+                    "status": "warming",
+                    "reason": "resolver_warming",
+                    "backend": lane_statuses["graph"]["backend"],
+                }
+
+    if not rankings:
+        return empty_bundle(
+            usage_map=usage_map,
+            lane_statuses=lane_statuses,
+            rrf_k=config.rrf_k,
+        )
+
+    temporal_ranking: list[str] = []
+    if temporal and find_policy.is_temporal_query(query):
+        with _span(timings, "temporal"):
+            pool: list[str] = []
+            for lane in (vector_ranking, bm25_ranking, keyword_ranking, clip_ranking):
+                pool.extend(lane)
+            temporal_ranking = find_policy.recency_ranking(pool, ranking_of, candidate_k)
+        if capture_trace:
+            lane_statuses["temporal"] = {
+                "status": "participated" if temporal_ranking else "available_nonmatching",
+                "backend": "updated_frontmatter",
+                "metric": {"name": "rank", "direction": "lower", "rounding": "none"},
+            }
+    elif timings is not None:
+        timings.skipped("temporal")
+    if capture_trace and "temporal" not in lane_statuses:
+        lane_statuses["temporal"] = {
+            "status": "non_applicable",
+            "reason": "query_not_temporal" if temporal else "request_disabled",
+        }
+
+    with _span(timings, "fusion"):
+        intent_label = intent or find_policy.classify_intent(query)
+        weights = config.intent_weights(intent_label)
+        if shadow is not None:
+            graph_ranking = shadow(graph_ranking)
+            temporal_ranking = shadow(temporal_ranking)
+        lane_rankings = [
+            vector_ranking,
+            bm25_ranking,
+            keyword_ranking,
+            clip_ranking,
+            graph_ranking,
+            temporal_ranking,
+        ]
+        active_lists: list[list[str]] = []
+        active_weights: list[float] = []
+        for lane, w in zip(lane_rankings, weights, strict=True):
+            if lane:
+                active_lists.append(lane)
+                active_weights.append(w)
+        fused = fusion.reciprocal_rank_fusion_weighted(
+            active_lists, active_weights, k=config.rrf_k
+        )
+        if ranking_metadata is not None:
+            missing = {path for path, _score in fused if path not in ranking_pages}
+            if missing:
+                ranking_pages.update(ranking_metadata(missing))
+        raw_fused_score_by_path = dict(fused) if capture_trace else {}
+        multiplier_chain_by_path: (
+            dict[str, list[dict[str, float | str]]] | None
+        ) = ({} if capture_trace else None)
+        fused = find_policy.apply_post_rrf_multipliers(
+            fused,
+            query,
+            config,
+            prefer_compiled=prefer_compiled,
+            prefer_active=prefer_active,
+            status_basis=status_basis,
+            type_basis=type_basis,
+            temporal=temporal,
+            page_of=ranking_of,
+            usage_map=usage_map,
+            evidence_out=multiplier_chain_by_path,
+            # Bound the pass at the depth this system already says it needs.
+            # `candidate_k` is at least `limit * 5` and at least the 50-entry
+            # floor, while the consumer in `_find_semantic` stops building hits
+            # at `limit * 3` — so the exact prefix always covers what is read,
+            # with headroom for the candidates that loop skips. Without this the
+            # pass loads every fused page from disk purely to rank them (#283).
+            top_n=candidate_k,
+        )
+        adjusted_score_by_path = dict(fused) if capture_trace else {}
+
+    trace_lane_rankings = (
+        dict(zip(LANE_ORDER, lane_rankings, strict=True)) if capture_trace else {}
+    )
+    lane_weights = (
+        dict(zip(LANE_ORDER, weights, strict=True)) if capture_trace else {}
+    )
+
+    return CandidateBundle(
+        fused=fused,
+        had_rankings=True,
+        vector_ranking=vector_ranking,
+        bm25_ranking=bm25_ranking,
+        keyword_ranking=keyword_ranking,
+        clip_ranking=clip_ranking,
+        graph_ranking=graph_ranking,
+        temporal_ranking=temporal_ranking,
+        chunk_text_by_path=chunk_text_by_path,
+        bm25_score_by_path=bm25_score_by_path if capture_trace else {},
+        vector_score_by_path=vector_score_by_path,
+        clip_score_by_path=clip_score_by_path,
+        clip_frame_ts_by_path=clip_frame_ts_by_path,
+        frame_attribution=frame_attribution,
+        graph_in_degree_by_path=graph_in_degree_by_path,
+        graph_provenance_by_path=graph_provenance_by_path,
+        usage_map=usage_map,
+        lane_rankings=trace_lane_rankings,
+        lane_weights=lane_weights,
+        lane_statuses=lane_statuses,
+        rrf_k=config.rrf_k,
+        raw_fused_score_by_path=raw_fused_score_by_path,
+        adjusted_score_by_path=adjusted_score_by_path,
+        multiplier_chain_by_path=multiplier_chain_by_path,
+        lexical_crossing=visibility.crossing,
+        lexical_votes_withheld=lexical_votes_withheld,
+        frame_sources=frame_sources,
+        ranking_pages=ranking_pages,
+    )

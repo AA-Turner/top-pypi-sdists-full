@@ -1,5 +1,5 @@
 """SessionsResource (client.sessions, typed reads) and SessionsMixin, Client's methods: captured
-coding-agent sessions, their transcripts and ATIF export (twin: app/sessions)."""
+coding-agent sessions, their transcripts and ATIF export (twin: app/capture/sessions)."""
 
 from __future__ import annotations
 from ....generated.models import (

@@ -1,0 +1,142 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tabpfn_time_series"
+# Bumped by .github/workflows/release-create-pr.yml; the release tag is
+# verified against this value before anything is published.
+version = "1.4.0"
+authors = [{ name = "Liam Shi Bin Hoo", email = "hoos@tf.uni-freiburg.de" }]
+description = "Zero-shot time series forecasting with TabPFNv2"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    # Floored so `--resolution lowest-direct` in CI has something to pin to;
+    # 4.66 is what the tree already resolves to transitively.
+    "tqdm>=4.66",
+    # 2.2 introduced the `ME` month-end alias that `data_preparation.py` maps
+    # and the tests generate.
+    "pandas>=2.2",
+    "gluonts>=0.16.0",
+    # 0.5.3 is the first client that lists the `v3.5_default` alias that
+    # `defaults.py` pins in CLIENT mode.
+    "tabpfn-client>=0.5.3",
+    # 9.2.0 is the first release whose estimators take `enable_torch_compile`,
+    # which the pipeline sets by default on CUDA.
+    "tabpfn>=9.2.0",
+    "statsmodels>=0.14.5",
+    # 4.0 is the first release that reads the `List` feature type, which the
+    # Chronos datasets on the Hub (used by the how-it-works notebook) now carry.
+    "datasets>=4",
+    "python-dotenv>=1.1.0",
+    "pyyaml>=6.0.1",
+    "backoff>=2.2.1",
+    "tabpfn-common-utils[telemetry-interactive]>=0.2.2",
+    # 0.8.0 is the first release that allows `datasets>=4`; 0.6.1 and 0.7.0
+    # require `datasets<4.0`.
+    "fev>=0.8.0",
+]
+
+[project.optional-dependencies]
+benchmarking = [
+    "autogluon.timeseries>=1.5.0, <2.0"
+]
+explainability = [
+    "shapiq>=1.4",
+    "matplotlib>=3.10.3",
+]
+
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+exclude = ["docs", "gift_eval"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["docs", "gift_eval"]
+
+[dependency-groups]
+# The minimum subset of the dev dependencies required to run the tests in CI.
+# The idea is to stay as close to a user's deployment environment as possible,
+# so a passing test run means the published package works — not that our local
+# tooling happens to paper over a gap.
+ci = [
+    "pytest>=8.4.1",
+    # -n auto for the example smoke run.
+    "pytest-xdist>=3.6.0",
+]
+dev = [
+    {include-group = "ci"},
+    "tabpfn-time-series[benchmarking,explainability]",
+    "jupyter",
+    "wandb>=0.19.8",
+    "submitit>=1.5.2",
+    "ruff~=0.12.0",
+    "pre-commit",
+    "twine",
+    "build",
+    "hatch",
+    "towncrier>=24.8.0",
+    "ipykernel>=6.29.5",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/PriorLabs/tabpfn-time-series"
+"Bug Tracker" = "https://github.com/PriorLabs/tabpfn-time-series/issues"
+
+[tool.uv]
+# autogluon-timeseries 1.6.x caps torch<2.11 on macOS. Without this, a single
+# torch>=2.11 lock pushes macOS onto an AutoGluon prerelease that lacks the cap.
+constraint-dependencies = ["torch<2.11; sys_platform == 'darwin'"]
+
+[tool.pytest.ini_options]
+markers = [
+    "uses_tabpfn_client: These tests require a TabPFN API key.",
+]
+
+[tool.changelog-bot.towncrier_changelog]
+enabled = true
+changelog_skip_label = "no changelog needed"
+
+[tool.towncrier]
+directory = "changelog"
+filename = "CHANGELOG.md"
+start_string = "## [Unreleased]\n"
+title_format = "## [{version}] - {project_date}"
+issue_format = "[#{issue}](https://github.com/PriorLabs/tabpfn-time-series/pull/{issue})"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.section]]
+path = ""
+name = ""

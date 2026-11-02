@@ -1,0 +1,367 @@
+/* pvfrd -- C ABI for reading CalculiX FRD (.frd) result files.
+ *
+ * This header is the whole public surface. It is plain C with no C++ types
+ * crossing the boundary, so it binds from ctypes, from another C++ project
+ * consuming this as a submodule, or from WebAssembly, without a Python
+ * extension module anywhere in the picture.
+ *
+ * Two things a caller should know before reading further:
+ *
+ *   - Opening a file parses the mesh and *indexes* the result blocks. The
+ *     values of a time step are materialised when that step is first asked
+ *     for, so opening a 500-step file and reading one step does not pay for
+ *     the other 499.
+ *   - Every pointer returned by an accessor is owned by the reader and stays
+ *     valid until pvfrd_close(). Do not free them. A reader is immutable
+ *     apart from that per-step materialisation, which is guarded, so several
+ *     threads may read from one reader concurrently.
+ *
+ * The behavioural contract is pyvista's `FRDReader`: this library exists to
+ * produce the same arrays that reader produces, from the same bytes. Where it
+ * deliberately differs, doc/divergences.md says so and names the test that
+ * pins the difference.
+ */
+
+#ifndef PVFRD_PVFRD_H
+#define PVFRD_PVFRD_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#if defined(_WIN32) && defined(PVFRD_SHARED)
+#if defined(PVFRD_BUILDING)
+#define PVFRD_API __declspec(dllexport)
+#else
+#define PVFRD_API __declspec(dllimport)
+#endif
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#define PVFRD_API __attribute__((visibility("default")))
+#else
+#define PVFRD_API
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Bumped on any change to the declarations below, additions included: the
+ * check is an equality, not a floor, so a binding that meets an older library
+ * missing a symbol reports the version rather than failing at bind time.
+ *
+ *   1  reading
+ *   2  writing
+ *   3  original element ids */
+#define PVFRD_ABI_VERSION 3u
+
+typedef enum pvfrd_status {
+  PVFRD_OK = 0,
+  PVFRD_E_IO = 1,      /* file missing or unreadable */
+  PVFRD_E_FORMAT = 2,  /* the file parsed but produced nothing usable */
+  PVFRD_E_RANGE = 3,   /* index out of range, or destination too small */
+  PVFRD_E_NOMEM = 4,   /* allocation failed */
+  PVFRD_E_INVALID = 5, /* NULL argument or misuse */
+  PVFRD_E_RAGGED = 6,  /* a result block gave two nodes different component
+                        * counts; see pvfrd_last_error for which */
+  PVFRD_E_INTERNAL = 7 /* an unexpected failure inside the library, not a
+                        * property of the file. Distinct from PVFRD_E_FORMAT
+                        * on purpose: reporting a library fault as a bad file
+                        * sends the caller to inspect a file that is fine.
+                        * pvfrd_last_error carries what() where there was
+                        * one. Please report it. */
+} pvfrd_status;
+
+/* CalculiX element type codes, as they appear in the second field of a `-1`
+ * record inside a `3C` block. */
+typedef enum pvfrd_element_type {
+  PVFRD_HE8 = 1,
+  PVFRD_PE6 = 2,
+  PVFRD_TE4 = 3,
+  PVFRD_HE20 = 4,
+  PVFRD_PE15 = 5,
+  PVFRD_TE10 = 6,
+  PVFRD_TR3 = 7,
+  PVFRD_TR6 = 8,
+  PVFRD_QU4 = 9,
+  PVFRD_QU8 = 10,
+  PVFRD_BE2 = 11,
+  PVFRD_BE3 = 12,
+  PVFRD_PY5 = 15, /* experimental pyramid, CalculiX C3D5 */
+  PVFRD_PY13 = 16 /* experimental pyramid, CalculiX C3D13 */
+} pvfrd_element_type;
+
+/* How a PE6 (linear wedge) has its nodes ordered on output.
+ *
+ * This is an option rather than a constant because the answer is a property
+ * of the *consumer*, not of the file: VTK changed its wedge node order at
+ * 9.7, and this library cannot see which VTK its caller will hand the cells
+ * to. There is deliberately no "detect" value -- there is nothing here to
+ * detect from.
+ *
+ * PVFRD_WEDGE_SWAP reproduces what pyvista does on VTK < 9.7: nodes 1 and 2
+ * are exchanged, and 4 and 5 with them. PVFRD_WEDGE_ASIS passes CalculiX's
+ * order through, which is what VTK >= 9.7 wants. */
+typedef enum pvfrd_wedge_order { PVFRD_WEDGE_ASIS = 0, PVFRD_WEDGE_SWAP = 1 } pvfrd_wedge_order;
+
+/* Why an element was reported as questionable. The reader keeps parsing in
+ * every case; TOO_FEW and UNSUPPORTED elements are dropped from the mesh,
+ * TOO_MANY are kept and truncated to the cell's point count. */
+typedef enum pvfrd_diagnostic_kind {
+  PVFRD_DIAG_TOO_MANY_POINTS = 0,
+  PVFRD_DIAG_TOO_FEW_POINTS = 1,
+  PVFRD_DIAG_UNSUPPORTED_ELEMENT = 2
+} pvfrd_diagnostic_kind;
+
+/* Whether an array came off the file or was computed from one that did. */
+typedef enum pvfrd_array_kind { PVFRD_ARRAY_RAW = 0, PVFRD_ARRAY_DERIVED = 1 } pvfrd_array_kind;
+
+typedef struct pvfrd_file pvfrd_file;
+
+/* Options for pvfrd_open_ex. Zero-initialise and set what you need; a
+ * zeroed struct is the documented default (PVFRD_WEDGE_ASIS). */
+typedef struct pvfrd_open_options {
+  int32_t wedge_order; /* one of pvfrd_wedge_order */
+  int32_t reserved;    /* must be 0 */
+} pvfrd_open_options;
+
+typedef struct pvfrd_array_info {
+  const char *name; /* NUL-terminated, owned by the reader */
+  uint64_t n_tuples;
+  uint32_t n_components;
+  int32_t kind; /* one of pvfrd_array_kind */
+} pvfrd_array_info;
+
+typedef struct pvfrd_diagnostic {
+  int32_t kind;         /* one of pvfrd_diagnostic_kind */
+  int32_t element_type; /* the raw code from the file, valid or not */
+  int64_t line;         /* 1-based line of the element's `-1` record */
+  int64_t n_expected;   /* -1 when the element type was not recognised */
+  int64_t n_actual;     /* -1 when the element type was not recognised */
+} pvfrd_diagnostic;
+
+/* ---- Library ---- */
+
+PVFRD_API uint32_t pvfrd_abi_version(void);
+
+/* Which struct pvfrd_struct_size is being asked about. */
+typedef enum pvfrd_struct {
+  PVFRD_STRUCT_OPEN_OPTIONS = 0,
+  PVFRD_STRUCT_ARRAY_INFO = 1,
+  PVFRD_STRUCT_DIAGNOSTIC = 2
+} pvfrd_struct;
+
+/* Size in bytes of one of the structs above, as compiled. Returns 0 for an
+ * unknown value. A binding declaring these layouts by hand has no compiler
+ * checking it, and a field in the wrong order produces garbage rather than an
+ * error -- on whichever platform's alignment rules differ from the one the
+ * binding was written on. Comparing sizes catches it where it can still be
+ * reported. */
+PVFRD_API uint32_t pvfrd_struct_size(int which);
+
+/* A short, stable description of a status code. Never NULL. */
+PVFRD_API const char *pvfrd_status_message(int status);
+
+/* The last failure recorded on this reader, or "" if none. Owned by the
+ * reader. Carries the detail a status code cannot -- which array was ragged,
+ * which line refused to parse.
+ *
+ * `file` may be NULL: a failure in pvfrd_open leaves no reader to ask, which
+ * is when the detail is most wanted, so NULL returns the last failure on the
+ * *calling thread* instead. That message is valid until the next failing call
+ * on the same thread. Never NULL. */
+PVFRD_API const char *pvfrd_last_error(const pvfrd_file *file);
+
+/* ---- Opening ---- */
+
+/* Open by path. Equivalent to pvfrd_open_ex with zeroed options.
+ *
+ * `path` is UTF-8 on every platform, including Windows, where it is converted
+ * to UTF-16 internally. Passing bytes in the active code page instead would
+ * open the wrong file for any path outside ASCII. */
+PVFRD_API pvfrd_status pvfrd_open(const char *path, pvfrd_file **out);
+
+PVFRD_API pvfrd_status pvfrd_open_ex(const char *path, const pvfrd_open_options *options,
+                                     pvfrd_file **out);
+
+/* Open from bytes already in memory. The buffer is copied, so the caller may
+ * release it as soon as this returns. `options` may be NULL.
+ *
+ * This exists so a caller holding the file in an archive member, an HTTP
+ * response, or a memory-mapped blob does not have to invent a temporary file
+ * to read it. */
+PVFRD_API pvfrd_status pvfrd_open_memory(const void *data, size_t size,
+                                         const pvfrd_open_options *options, pvfrd_file **out);
+
+/* Release a reader. Safe to call with NULL. */
+PVFRD_API void pvfrd_close(pvfrd_file *file);
+
+/* ---- Mesh ----
+ *
+ * Points are ordered by ascending node id, which is what makes the point
+ * index deterministic and independent of the order nodes appear in the file.
+ * pvfrd_node_ids gives the original ids in that same order. */
+
+PVFRD_API uint64_t pvfrd_n_points(const pvfrd_file *file);
+
+/* 3 * n_points doubles, xyz interleaved. */
+PVFRD_API const double *pvfrd_points(const pvfrd_file *file);
+
+/* n_points ids, strictly ascending. */
+PVFRD_API const int64_t *pvfrd_node_ids(const pvfrd_file *file);
+
+PVFRD_API uint64_t pvfrd_n_cells(const pvfrd_file *file);
+
+/* Original element ids, in returned cell order (not sorted). Skipped cells
+ * have no entry. An unparseable ASCII element id is represented by 0. */
+PVFRD_API const int64_t *pvfrd_cell_ids(const pvfrd_file *file);
+
+/* One VTK cell type per cell. */
+PVFRD_API const uint8_t *pvfrd_cell_types(const pvfrd_file *file);
+
+/* n_cells + 1 offsets into the connectivity array (VTK 9 form). */
+PVFRD_API const int64_t *pvfrd_cell_offsets(const pvfrd_file *file);
+
+/* Zero-based point indices; pvfrd_cell_offsets[n_cells] entries in total. */
+PVFRD_API const int64_t *pvfrd_cell_connectivity(const pvfrd_file *file);
+
+/* ---- Diagnostics ----
+ *
+ * Available immediately after open: they come out of the element block, which
+ * is parsed eagerly. A caller that wants to warn before touching results can
+ * do so without materialising any. */
+
+PVFRD_API uint64_t pvfrd_n_diagnostics(const pvfrd_file *file);
+
+PVFRD_API pvfrd_status pvfrd_diagnostic_at(const pvfrd_file *file, uint64_t index,
+                                           pvfrd_diagnostic *out);
+
+/* ---- Time steps ---- */
+
+PVFRD_API uint64_t pvfrd_n_steps(const pvfrd_file *file);
+
+/* Step times, ascending. Steps sharing a time value are one step here, as
+ * they are one dictionary entry in the reference reader. */
+PVFRD_API pvfrd_status pvfrd_step_time(const pvfrd_file *file, uint64_t step, double *out);
+
+/* ---- Result arrays ----
+ *
+ * Arrays are addressed by index within a step, in the order their blocks
+ * appeared in the file, with each derived array immediately following the one
+ * it was computed from. That order is part of the contract: a caller
+ * comparing two implementations compares array i with array i.
+ *
+ * The first call for a given step materialises it. Later calls are lookups. */
+
+PVFRD_API pvfrd_status pvfrd_n_arrays(const pvfrd_file *file, uint64_t step, uint64_t *out);
+
+PVFRD_API pvfrd_status pvfrd_array_info_at(const pvfrd_file *file, uint64_t step, uint64_t index,
+                                           pvfrd_array_info *out);
+
+/* Describe `count` arrays starting at `first`: pvfrd_array_info_at in a loop,
+ * but one crossing of the boundary rather than one per array, which matters
+ * to a foreign-function caller paying a fixed cost per call.
+ *
+ * PVFRD_E_RANGE and nothing written if first + count runs past the end. A
+ * count of zero succeeds and writes nothing. */
+PVFRD_API pvfrd_status pvfrd_array_info_range(const pvfrd_file *file, uint64_t step, uint64_t first,
+                                              uint64_t count, pvfrd_array_info *out);
+
+/* n_tuples * n_components doubles, component-major within a tuple. Nodes the
+ * block did not mention are zero, which is what the reference reader does. */
+PVFRD_API pvfrd_status pvfrd_array_data(const pvfrd_file *file, uint64_t step, uint64_t index,
+                                        const double **out);
+
+/* Index of the array called `name` within `step`, or -1 if there is none. */
+PVFRD_API int64_t pvfrd_find_array(const pvfrd_file *file, uint64_t step, const char *name);
+
+/* How many times a step's values have been parsed. Zero after opening, and
+ * thereafter the number of *distinct* steps asked about.
+ *
+ * Exposed because laziness is otherwise an unverifiable claim: a reader that
+ * parsed everything up front, or re-parsed on every request, returns identical
+ * arrays and identical timings on any file that fits in page cache. Parses are
+ * counted rather than parsed steps, so a re-parse is visible at all. */
+PVFRD_API uint64_t pvfrd_steps_parsed(const pvfrd_file *file);
+
+/* ---- Writing ---- */
+
+/* The FRD format codes, which are the last field of every block header. The
+ * reader accepts all four; the writer emits all four. */
+typedef enum pvfrd_format {
+  PVFRD_FORMAT_KEEP = -1, /* rewrite only: leave each block as it was found */
+  PVFRD_FORMAT_SHORT_ASCII = 0,
+  PVFRD_FORMAT_LONG_ASCII = 1,
+  PVFRD_FORMAT_BINARY_FLOAT = 2,
+  PVFRD_FORMAT_BINARY_DOUBLE = 3
+} pvfrd_format;
+
+/* Read a document and write it out again, optionally in another format.
+ *
+ * With PVFRD_FORMAT_KEEP this is the identity on all 1,111 FRD files this
+ * project has found, byte for byte, across two dialects that differ in id
+ * width and in how they spell an exponent -- the check that says the writer
+ * produces CalculiX's bytes and not merely bytes CalculiX would accept.
+ *
+ * Any other format is the conversion the format code has always implied and
+ * no tool offered: binary becomes ASCII, ASCII becomes a third of the size.
+ *
+ * `*out` is allocated here and must be released with pvfrd_free. */
+PVFRD_API pvfrd_status pvfrd_rewrite_memory(const void *data, size_t size, int32_t format,
+                                            char **out, size_t *out_size);
+
+/* Release a buffer handed back by this library. Never free one with your own
+ * allocator: on Windows the two can hold different heaps. */
+PVFRD_API void pvfrd_free(char *buffer);
+
+/* A document being built. A builder rather than a caller-filled struct, whose
+ * layout would be in the ABI and whose every later field a new size for every
+ * binding to agree about. */
+typedef struct pvfrd_writer pvfrd_writer;
+
+/* `format` is one of the four codes above; PVFRD_FORMAT_KEEP is not valid
+ * here, since there is nothing yet to keep. Returns NULL if it is. */
+PVFRD_API pvfrd_writer *pvfrd_writer_new(int32_t format);
+
+PVFRD_API void pvfrd_writer_free(pvfrd_writer *writer);
+
+/* The mesh. `node_ids` may be NULL, in which case nodes are numbered from 1.
+ * `xyz` is 3 * n_points doubles. */
+PVFRD_API pvfrd_status pvfrd_writer_set_nodes(pvfrd_writer *writer, uint64_t n_points,
+                                              const int64_t *node_ids, const double *xyz);
+
+/* Cells in VTK terms -- the arrays this library hands back on read -- which
+ * are converted to CalculiX type codes and CalculiX node order on the way
+ * out. `cell_ids` may be NULL, in which case elements are numbered from 1.
+ * `wedge_order` must match the convention `connectivity` is written in.
+ *
+ * Fails with PVFRD_E_FORMAT if a cell type has no CalculiX equivalent, naming
+ * it; silently dropping a cell would produce a file that is smaller than the
+ * mesh it claims to describe. */
+PVFRD_API pvfrd_status pvfrd_writer_set_cells(pvfrd_writer *writer, uint64_t n_cells,
+                                              const uint8_t *cell_types, const int64_t *offsets,
+                                              const int64_t *connectivity, const int64_t *cell_ids,
+                                              int32_t wedge_order);
+
+/* Open a step. Arrays added afterwards belong to it. */
+PVFRD_API pvfrd_status pvfrd_writer_begin_step(pvfrd_writer *writer, int32_t number, double time);
+
+/* One nodal array of the open step. `values` is n_points * n_components
+ * doubles, component-major within a node, in the node order given to
+ * pvfrd_writer_set_nodes.
+ *
+ * `component_names` may be NULL, in which case components are named after the
+ * array. `ictype` is CalculiX's own kind code -- 1 scalar, 2 vector, 4 tensor
+ * -- and 0 asks for it to be chosen from the component count. */
+PVFRD_API pvfrd_status pvfrd_writer_add_array(pvfrd_writer *writer, const char *name,
+                                              uint32_t n_components,
+                                              const char *const *component_names, int32_t ictype,
+                                              const double *values);
+
+/* Finish the document. `*out` is allocated here; release it with pvfrd_free.
+ * The writer may not be added to afterwards. */
+PVFRD_API pvfrd_status pvfrd_writer_finish(pvfrd_writer *writer, char **out, size_t *out_size);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif /* PVFRD_PVFRD_H */

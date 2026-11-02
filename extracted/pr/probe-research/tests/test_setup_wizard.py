@@ -15,17 +15,31 @@ import time
 
 import pytest
 
-from probe.cli import autoupdate, capture
-from probe.cli import capabilities as capabilities_mod
-from probe.cli import doctor, setup
+from probe.cli import autoupdate
+from probe.cli.capture import capture
+from probe.cli.wizard import state as capabilities_mod
+from probe.cli.wizard import doctor
+from probe.cli import wizard as setup
 from probe.shared.harness.harnesses import pi as pi_config
-from probe.cli.capabilities import (
+from probe.cli.wizard.state.capture_credentials import (
     ENV_INGEST_TOKEN,
+    capture_token_sources)
+from probe.cli.wizard.state.state import (
     Capabilities,
     Capability,
-    TokenSource,
-    capture_token_sources,
-)
+    TokenSource)
+
+#: `_wizard_session` and `_run_wizard_action`, with the functions they were cut into: a check on
+#: their source reads every part.
+_WIZARD_SESSION_PARTS = ("_wizard_session", "_begin_wizard_session", "_run_chosen_action")
+_WIZARD_ACTION_PARTS = ("_run_wizard_action", "_run_configure_action", "_run_configure_steps")
+
+
+def _source_of(module, names) -> str:
+    import inspect
+
+    return "".join(inspect.getsource(getattr(module, name)) for name in names)
+
 
 
 @pytest.fixture(autouse=True)
@@ -53,7 +67,7 @@ def isolate(tmp_path, monkeypatch):
     # any machine with a network. Default to the offline answer (None); a test
     # that cares about the revoke overrides it explicitly.
     monkeypatch.setattr(capture, "revoke_capture_device", lambda *a, **k: None)
-    monkeypatch.setattr(capabilities_mod, "verify_mcp_credential", lambda **_kwargs: True)
+    monkeypatch.setattr(capabilities_mod.mcp_checks, "verify_mcp_credential", lambda **_kwargs: True)
     # This suite exercises the install/menu decisions after account sign-in.
     # The browser-before-menu contract has its own test_wizard_auth_entry suite;
     # old interactive menu fixtures must never open a real authorization here.
@@ -63,7 +77,8 @@ def isolate(tmp_path, monkeypatch):
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
 
-    monkeypatch.setattr(setup, "sign_in", signed_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", signed_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", signed_in)
     return tmp_path
 
 
@@ -165,7 +180,7 @@ def test_detectable_sources_finds_pi_without_routing_through_plugin_cli(monkeypa
     default; this test flips it on explicitly to prove the wiring."""
     from probe.shared.harness import plugins as plugin_cli
 
-    monkeypatch.setattr(setup, "pi_binary_available", lambda: True)
+    monkeypatch.setattr(setup.agents, "pi_binary_available", lambda: True)
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
 
     assert setup.detectable_sources() == ("claude_code", "pi")
@@ -406,7 +421,9 @@ def _opener_opens(monkeypatch, open_):
     redirects, the environment's proxies), not `urllib.request.urlopen`."""
     from types import SimpleNamespace
 
-    monkeypatch.setattr(capabilities_mod, "_credential_opener", lambda: SimpleNamespace(open=open_))
+    monkeypatch.setattr(capabilities_mod.credential_http, "_credential_opener", lambda: SimpleNamespace(open=open_))
+    monkeypatch.setattr(capabilities_mod.capture_credentials, "_credential_opener", lambda: SimpleNamespace(open=open_))
+    monkeypatch.setattr(capabilities_mod.device_state, "_credential_opener", lambda: SimpleNamespace(open=open_))
 
 
 # --- auto-update -----------------------------------------------------------
@@ -525,7 +542,9 @@ def test_wizard_doctor_copies_all_selected_agents_and_troubleshooting(monkeypatc
 
     from typer.testing import CliRunner
 
-    from probe.cli import actions, bootstrap, tui
+    from probe.cli.wizard.actions import onboarding as actions
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import terminal as tui
     from probe.shared.harness import plugins as plugin_cli
     from probe.cli.main import app
 
@@ -534,20 +553,23 @@ def test_wizard_doctor_copies_all_selected_agents_and_troubleshooting(monkeypatc
     )
     monkeypatch.setattr(plugin_cli, "available", lambda source: source in ("claude_code", "codex"))
     monkeypatch.setattr(
-        doctor, "collect", lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code"))
+        doctor.doctor, "collect", lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code"))
     )
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     choices = iter([actions.Action.DIAGNOSE, None])
-    monkeypatch.setattr(setup, "run_action_menu", lambda caps: next(choices))
-    monkeypatch.setattr(setup, "run_agent_menu", lambda *a, **k: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda caps: next(choices))
+    monkeypatch.setattr(setup.screens.agent_picker, "run_agent_menu", lambda *a, **k: ("claude_code", "codex"))
     pages = []
 
     def page(lines, prompt=None, *, copyable=False):
         pages.append(("\n".join(lines), copyable))
         return ""
 
-    monkeypatch.setattr(tui, "page", page)
+    monkeypatch.setattr(tui.layout, "page", page)
+    monkeypatch.setattr(tui.forms, "page", page)
+    monkeypatch.setattr(tui.progress, "page", page)
     result = CliRunner().invoke(app, ["wizard", "--agent", "both"])
     assert result.exit_code == 0, result.output
     assert len(pages) == 1
@@ -619,8 +641,9 @@ def test_doctor_checks_codex_drift_even_when_codex_is_not_the_selected_agent(
         "probe-research", url="https://mcp.research.prbe.ai/mcp", token="probe_pat_old"
     )
     # The one probe in collect() that would otherwise make a real request.
-    monkeypatch.setattr(capabilities_mod, "verify_capture_credential", lambda *a, **k: None)
-    monkeypatch.setattr(setup, "current_mcp_token", lambda: "probe_pat_new")
+    monkeypatch.setattr(capabilities_mod.capture_credentials, "verify_capture_credential", lambda *a, **k: None)
+    monkeypatch.setattr("probe.shared.harness.mcp_token.current_mcp_token", lambda: "probe_pat_new")
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.current_mcp_token", lambda: "probe_pat_new")
 
     caps = doctor.collect()
 
@@ -649,7 +672,7 @@ def test_doctor_names_pis_own_env_var_not_the_claude_code_one():
     codex override on top -- so a pi device with `PROBE_PI_TAP_TOKEN` set in
     the shell had `probe doctor` tell it that `PROBE_INGEST_TOKEN` was the
     variable overriding its pairing, which is the wrong name to `unset`."""
-    from probe.cli.capabilities import ENV_PI_INGEST_TOKEN
+    from probe.cli.wizard.state.capture_credentials import ENV_PI_INGEST_TOKEN
 
     report = doctor.render(
         _caps(
@@ -665,7 +688,7 @@ def test_doctor_names_pis_own_env_var_not_the_claude_code_one():
 def test_turn_off_names_pis_own_env_var_in_the_cannot_unset_warning(isolate, monkeypatch):
     """Same bug, the `capture.turn_off()` copy of it: the "this process cannot
     unset it for you" warning named `PROBE_INGEST_TOKEN` for a pi device too."""
-    from probe.cli.capabilities import ENV_PI_INGEST_TOKEN
+    from probe.cli.wizard.state.capture_credentials import ENV_PI_INGEST_TOKEN
 
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setenv(ENV_PI_INGEST_TOKEN, "ros_ing_pi_shell")
@@ -748,7 +771,7 @@ def test_config_credentials_read_the_active_context_like_the_uploader(isolate):
     """The uploader reads contexts[current_context] and does NOT fall back to
     the top level. Reading only the top level would miss the credential on every
     modern config, so teardown would clear nothing and still report success."""
-    from probe.cli.capabilities import probe_config_credentials
+    from probe.cli.wizard.state.capture_credentials import probe_config_credentials
 
     (isolate / "probe" / "config.json").write_text(
         json.dumps(
@@ -1737,7 +1760,7 @@ def test_authorize_persists_every_minted_credential(isolate, monkeypatch):
 
     # The capture credential landed where the uploader actually looks for it.
     assert TokenSource.PROBE_CONFIG in capture_token_sources()
-    from probe.cli.capabilities import probe_config_credentials
+    from probe.cli.wizard.state.capture_credentials import probe_config_credentials
 
     creds = probe_config_credentials()
     assert creds["token"] == "probe_pat_api"
@@ -1948,7 +1971,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
     from probe.shared.harness import plugins as plugin_cli
     import probe.cli.main  # noqa: F401
 
@@ -1967,7 +1990,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
     # test mints gets a real 401 from prbe.ai on every run. None (unverifiable,
     # same as a genuinely offline machine) rather than True: a fabricated True
     # would hide a real drift in what this function does for source="pi".
-    monkeypatch.setattr(capabilities_mod, "verify_capture_credential", lambda *a, **k: None)
+    monkeypatch.setattr(capabilities_mod.capture_credentials, "verify_capture_credential", lambda *a, **k: None)
 
     plugin_calls: list[str] = []
     for name in ("install", "uninstall", "list_plugins", "add_marketplace", "refresh_marketplace"):
@@ -2055,14 +2078,14 @@ def test_agent_both_still_means_exactly_claude_and_codex_not_pi(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
@@ -2315,16 +2338,17 @@ def test_a_pi_run_schedules_tracking_and_agent_rules_work(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     seen: list = []
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(agent_source="pi"))
-    monkeypatch.setattr(wizard, "plan", lambda caps, selection: seen.append(selection) or [])
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps(agent_source="pi"))
+    monkeypatch.setattr(wizard.wizard, "plan", lambda caps, selection: seen.append(selection) or [])
+    monkeypatch.setattr(wizard.apply.plugins, "plan", lambda caps, selection: seen.append(selection) or [])
 
     result = CliRunner().invoke(
         cli_main.app,
@@ -2352,9 +2376,10 @@ def test_an_explicit_opt_out_cleans_a_note_an_older_opt_out_left(monkeypatch, tm
 
     from typer.testing import CliRunner
 
-    from probe.cli import agent_rules, bootstrap
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
+    from probe.cli.wizard.apply import agent_rules
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
@@ -2365,11 +2390,12 @@ def test_an_explicit_opt_out_cleans_a_note_an_older_opt_out_left(monkeypatch, tm
     calls: list = []
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source="claude_code", tracking_plugin_installed=True, auto_update_enabled=True),
     )
-    monkeypatch.setattr(wizard, "apply_agent_rules", lambda want, stale=False: calls.append(want) or [])
+    monkeypatch.setattr(wizard.apply.agent_files, "apply_agent_rules", lambda want, stale=False: calls.append(want) or [])
+    monkeypatch.setattr(wizard.apply.removal, "apply_agent_rules", lambda want, stale=False: calls.append(want) or [])
 
     result = CliRunner().invoke(
         cli_main.app,
@@ -2470,8 +2496,8 @@ def test_device_authorize_omits_grants_entirely_when_not_asked(monkeypatch):
 def test_manual_steps_are_generated_from_the_same_constants_the_wizard_uses():
     """The page's copy had already drifted from the commands printed beside it.
     A script generated from the real constants cannot drift."""
-    from probe.cli.actions import manual_steps
-    from probe.cli.capabilities import MARKETPLACE_REPO, PLUGIN_ID, TAP_PLUGIN_ID
+    from probe.cli.wizard.actions.onboarding import manual_steps
+    from probe.cli.wizard.state.state import MARKETPLACE_REPO, PLUGIN_ID, TAP_PLUGIN_ID
 
     steps = manual_steps(base_url="https://api.research.prbe.ai")
     assert f"claude plugin marketplace add {MARKETPLACE_REPO}" in steps
@@ -2487,7 +2513,7 @@ def test_manual_steps_are_generated_from_the_same_constants_the_wizard_uses():
 
 
 def test_manual_steps_use_codex_verbs_when_codex_is_selected():
-    from probe.cli.actions import manual_steps
+    from probe.cli.wizard.actions.onboarding import manual_steps
 
     steps = manual_steps(base_url="https://api.research.prbe.ai", agent_source="codex")
     assert "codex plugin marketplace upgrade research-os-agent" in steps
@@ -2497,7 +2523,7 @@ def test_manual_steps_use_codex_verbs_when_codex_is_selected():
 
 
 def test_manual_steps_include_each_selected_agent():
-    from probe.cli.actions import manual_steps
+    from probe.cli.wizard.actions.onboarding import manual_steps
 
     steps = manual_steps(
         base_url="https://api.research.prbe.ai",
@@ -2513,7 +2539,7 @@ def test_manual_steps_include_each_selected_agent():
 def test_troubleshooting_is_state_aware_not_a_static_list():
     """A static list makes the reader work out which item applies. The wizard
     already knows, so it should only say the relevant things."""
-    from probe.cli.actions import troubleshooting
+    from probe.cli.wizard.actions.onboarding import troubleshooting
 
     no_claude = troubleshooting(_caps(cli_version="0.9.2"))
     assert any("not on PATH" in note for note in no_claude)
@@ -2530,7 +2556,7 @@ def test_troubleshooting_is_state_aware_not_a_static_list():
 
 
 def test_codex_troubleshooting_uses_native_oauth_language():
-    from probe.cli.actions import troubleshooting
+    from probe.cli.wizard.actions.onboarding import troubleshooting
 
     notes = troubleshooting(_caps(agent_source="codex", codex_available=True))
     blob = " ".join(notes)
@@ -2544,7 +2570,7 @@ def test_pi_troubleshooting_never_tells_you_to_install_claude_code():
     `probe wizard --agent pi --action diagnose` on a machine with no Claude
     Code told a pi user to go install one -- for a run that was never about
     Claude Code, and the auto-update line named the wrong session-start too."""
-    from probe.cli.actions import troubleshooting
+    from probe.cli.wizard.actions.onboarding import troubleshooting
 
     notes = troubleshooting(
         _caps(
@@ -2565,7 +2591,7 @@ def test_pi_troubleshooting_never_tells_you_to_install_claude_code():
 
 
 def test_installed_but_not_logged_in_is_called_out():
-    from probe.cli.actions import troubleshooting
+    from probe.cli.wizard.actions.onboarding import troubleshooting
 
     notes = troubleshooting(
         _caps(cli_version="0.9.2", claude_available=True, tracking_plugin_installed=True)
@@ -2574,7 +2600,7 @@ def test_installed_but_not_logged_in_is_called_out():
 
 
 def test_every_menu_action_has_copy():
-    from probe.cli.actions import ACTION_COPY, Action
+    from probe.cli.wizard.actions.onboarding import ACTION_COPY, Action
 
     # MANUAL is deliberately absent: reachable via `--action manual` for
     # air-gapped users, but it is the rarest path and it made the menu longer
@@ -2599,7 +2625,7 @@ def test_state_summary_shows_the_killswitch_rather_than_a_bare_off(isolate):
 
 
 def test_self_host_notes_keep_the_hosted_endpoint_and_air_gap_path():
-    from probe.cli.actions import self_host_notes
+    from probe.cli.wizard.actions.onboarding import self_host_notes
 
     notes = self_host_notes(
         base_url="https://api.research.prbe.ai",
@@ -2617,7 +2643,7 @@ def test_ephemeral_launch_installs_the_cli_persistently(monkeypatch):
     """`npx probe-research` runs us through an EPHEMERAL `uv tool run`, which
     leaves nothing installed. Everything after the wizard assumes a real binary:
     `probe doctor`, the plugin's version-check hook, the MCP headers helper."""
-    from probe.cli import bootstrap, install_pipeline
+    from probe.cli.install import bootstrap, install as install_pipeline
 
     calls = []
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)
@@ -2649,7 +2675,7 @@ def test_ephemeral_launch_installs_the_cli_persistently(monkeypatch):
 
 def test_an_existing_install_is_left_alone(monkeypatch):
     """A re-run must not reinstall on every invocation."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: True)
     result = bootstrap.ensure_persistent_install()
@@ -2662,7 +2688,7 @@ def test_binary_outside_PATH_still_counts_as_installed(monkeypatch, tmp_path):
     """Claude Code launched from the dock sources no profile, so ~/.local/bin
     can be missing from PATH while the binary is right there. The plugin hook
     checks the same fallbacks, so we must agree or we reinstall forever."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     fake = tmp_path / ".local" / "bin" / "probe"
     fake.parent.mkdir(parents=True)
@@ -2681,7 +2707,7 @@ def test_binary_outside_PATH_still_counts_as_installed(monkeypatch, tmp_path):
 def test_no_uv_warns_with_the_command_instead_of_silently_continuing(monkeypatch):
     """The managed install is uv's (plan clean-uninstall-reinstall R-T1): without
     uv the install is refused, with the commands that put it right."""
-    from probe.cli import bootstrap, install_pipeline
+    from probe.cli.install import bootstrap, install as install_pipeline
 
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)
     monkeypatch.setattr(bootstrap.shutil, "which", lambda _: None)
@@ -2694,7 +2720,7 @@ def test_no_uv_warns_with_the_command_instead_of_silently_continuing(monkeypatch
 def test_never_falls_back_to_bare_pip(monkeypatch):
     """On a researcher's machine bare pip usually means conda or system Python,
     and mutating that to run an installer breaks training runs days later."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)
     monkeypatch.setattr(bootstrap.shutil, "which", lambda _: None)
@@ -2831,7 +2857,7 @@ def test_a_grouping_that_forgot_a_row_is_an_error_not_a_missing_menu_entry():
     """ACTION_GROUPS and ACTION_COPY are separate tables and a row needs both.
     Drift shows up as a menu that quietly has the wrong number of things in it,
     so it is caught where the menu is built rather than left to a reviewer."""
-    import probe.cli.actions as actions_mod
+    import probe.cli.wizard.actions.onboarding as actions_mod
 
     original = actions_mod.ACTION_GROUPS
     try:
@@ -2849,7 +2875,6 @@ def test_every_action_acts_rather_than_printing_a_command():
     """The Update action used to print "Run: probe update" and exit. Bouncing
     the user back to a shell to type a command themselves is exactly the
     failure a wizard exists to remove."""
-    import inspect
     import sys
 
     # NOT `from probe.cli import main` -- probe/cli/__init__.py defines a main()
@@ -2858,7 +2883,7 @@ def test_every_action_acts_rather_than_printing_a_command():
 
     cli_main = sys.modules["probe.cli.main"]
 
-    source = inspect.getsource(cli_main._wizard_session) + inspect.getsource(cli_main._run_wizard_action)
+    source = _source_of(cli_main, _WIZARD_SESSION_PARTS) + _source_of(cli_main, _WIZARD_ACTION_PARTS)
     # The specific regression: a literal instruction to go run something.
     assert 'print("Run:' not in source
     assert "perform_update" in source, "Update must perform the update in-process"
@@ -2896,7 +2921,8 @@ def test_the_wizard_is_the_only_discoverable_entry_point():
 def test_perform_update_records_the_attempt(isolate, monkeypatch):
     """A detached auto-update has no terminal, so a recorded attempt is the only
     way a month of silent failures becomes visible."""
-    from probe.cli import autoupdate, updater, upgrading
+    from probe.cli import autoupdate
+    from probe.cli.install import updater, upgrade as upgrading
 
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {})
     monkeypatch.setattr(
@@ -2926,7 +2952,7 @@ def test_the_auto_update_hook_targets_the_wizard():
 
 
 def test_there_is_an_exit_action():
-    from probe.cli.actions import ACTION_COPY, Action
+    from probe.cli.wizard.actions.onboarding import ACTION_COPY, Action
 
     assert Action.EXIT in ACTION_COPY
     assert ACTION_COPY[Action.EXIT][0] == "Exit"
@@ -2935,24 +2961,22 @@ def test_there_is_an_exit_action():
 def test_the_menu_comes_back_after_an_action():
     """Dropping to a shell after one task is the same "go do it yourself"
     failure as printing a command."""
-    import inspect
     import sys
 
     import probe.cli.main  # noqa: F401
 
-    source = inspect.getsource(sys.modules["probe.cli.main"]._wizard_session)
+    source = _source_of(sys.modules["probe.cli.main"], _WIZARD_SESSION_PARTS)
     assert "while True" in source, "the menu must loop"
     assert "run_action_menu" in source, "and re-prompt after each action"
 
 
 def test_a_flagged_action_does_not_loop_forever():
     """`--action manual` in a script must run once and exit."""
-    import inspect
     import sys
 
     import probe.cli.main  # noqa: F401
 
-    source = inspect.getsource(sys.modules["probe.cli.main"]._wizard_session)
+    source = _source_of(sys.modules["probe.cli.main"], _WIZARD_SESSION_PARTS)
     assert "if not looping:" in source
 
 
@@ -2962,10 +2986,10 @@ def test_an_ephemeral_uvx_env_is_not_mistaken_for_a_pip_install(monkeypatch):
     while there was nothing to upgrade anyway, since the env is discarded."""
     from pathlib import Path
 
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     monkeypatch.setattr(
-        updater,
+        updater.updater,
         "_probe_pkg_dir",
         lambda: Path("/Users/x/.cache/uv/archive-v0/abc123/lib/python3.13/site-packages/probe"),
     )
@@ -2973,7 +2997,7 @@ def test_an_ephemeral_uvx_env_is_not_mistaken_for_a_pip_install(monkeypatch):
 
 
 def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
-    from probe.cli import bootstrap, updater, upgrading
+    from probe.cli.install import bootstrap, updater, upgrade as upgrading
     from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
@@ -2985,8 +3009,8 @@ def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
     )
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {})
     monkeypatch.setattr(
-        "probe.cli.bootstrap.ensure_persistent_install",
-        lambda **_: __import__("probe.cli.bootstrap", fromlist=["x"]).BootstrapResult(
+        "probe.cli.install.bootstrap.ensure_persistent_install",
+        lambda **_: __import__("probe.cli.install.bootstrap", fromlist=["x"]).BootstrapResult(
             installed=True, already_persistent=False, message="Installed `probe` (uv tool)."
         ),
     )
@@ -2999,7 +3023,8 @@ def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
 def _ephemeral_update(monkeypatch, boot, *, latest=None, installed=(), reinstall=None):
     """Run the npx/uvx Update. `installed` is what `probe --version` reports, in
     order; `reinstall` is what installing @latest returns (and records its spec)."""
-    from probe.cli import bootstrap, run_lock, updater, upgrading
+    from probe.cli.install import bootstrap, updater, upgrade as upgrading
+    from probe.cli import run_lock
     from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
@@ -3025,7 +3050,7 @@ def _ephemeral_update(monkeypatch, boot, *, latest=None, installed=(), reinstall
 
 
 def _current():
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     return bootstrap.BootstrapResult(installed=False, already_persistent=True, message="")
 
@@ -3053,7 +3078,7 @@ def test_a_stale_installed_copy_is_upgraded_not_left_with_advice(monkeypatch):
     serve an old one. Sending the user back to a shell is what this module
     exists to stop, so it installs the latest itself -- that version by
     number, which the one installer puts beside the running one."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     outcome, attempt, specs = _ephemeral_update(
         monkeypatch,
@@ -3075,7 +3100,7 @@ def test_a_stale_installed_copy_is_upgraded_not_left_with_advice(monkeypatch):
 
 
 def test_an_install_that_lands_behind_the_latest_is_not_a_success(monkeypatch):
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     outcome, attempt, _ = _ephemeral_update(
         monkeypatch,
@@ -3095,7 +3120,7 @@ def test_an_install_that_lands_behind_the_latest_is_not_a_success(monkeypatch):
 def test_an_install_it_cannot_confirm_is_not_a_success(monkeypatch):
     """Recording it as a success filled in the manifest's latest: doctor said
     "success -> CLI 5.0.0" for a version nobody observed."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     outcome, attempt, _ = _ephemeral_update(
         monkeypatch,
@@ -3117,7 +3142,7 @@ def test_a_failed_permanent_install_is_a_failed_update(monkeypatch):
     """It was recorded as a success: doctor said "success -> CLI <latest>" and
     `probe update` exited 0. Its detail is stored, so it is scrubbed, and it
     records no version rather than "still at <latest>"."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     outcome, attempt, _ = _ephemeral_update(
         monkeypatch,
@@ -3142,7 +3167,7 @@ def test_bootstrap_upgrades_an_OLD_install_not_just_a_missing_one(monkeypatch):
     """Existence is not enough: every existing user has an old `probe`, and
     checking only existence left them on it forever while the wizard ran a new
     version ephemerally."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     monkeypatch.setattr(bootstrap, "_installed_binary", lambda: "/usr/local/bin/probe")
     monkeypatch.setattr(bootstrap, "_version_of", lambda b: "0.8.2")
@@ -3155,12 +3180,11 @@ def test_bootstrap_upgrades_an_OLD_install_not_just_a_missing_one(monkeypatch):
 def test_a_failed_approval_does_not_claim_the_install_finished():
     """ "Restart Claude Code to finish" after a FAILED approval reads as success.
     The user restarts, finds the capability off, and has no idea why."""
-    import inspect
     import sys
 
     import probe.cli.main  # noqa: F401
 
-    source = inspect.getsource(sys.modules["probe.cli.main"]._run_wizard_action)
+    source = _source_of(sys.modules["probe.cli.main"], _WIZARD_ACTION_PARTS)
     # The restart notice must be reachable only when nothing is missing.
     assert "missing = [grant for grant in needs if grant not in granted]" in source
     assert "if missing:" in source
@@ -3173,12 +3197,11 @@ def test_a_failed_approval_does_not_claim_the_install_finished():
 def test_authorize_result_is_used_not_discarded():
     """The bug was that authorize()'s return value was thrown away with `_`,
     so nothing downstream could tell success from failure."""
-    import inspect
     import sys
 
     import probe.cli.main  # noqa: F401
 
-    source = inspect.getsource(sys.modules["probe.cli.main"]._run_wizard_action)
+    source = _source_of(sys.modules["probe.cli.main"], _WIZARD_ACTION_PARTS)
     assert "granted, auth_messages = wizard.authorize(" in source
     assert "_, auth_messages = wizard.authorize(" not in source
 
@@ -3187,7 +3210,7 @@ def test_noop_wizard_rerun_still_refreshes_server_snapshot(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     caps = _caps(
@@ -3225,17 +3248,17 @@ def test_update_publishes_to_the_explicit_wizard_backend(monkeypatch):
     from types import SimpleNamespace
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     updated_caps = _caps(tracking_plugin_installed=True)
     seen = []
     monkeypatch.setattr(
-        "probe.cli.upgrading.perform_update",
+        "probe.cli.install.upgrade.upgrade.perform_update",
         lambda **kwargs: SimpleNamespace(lines=["updated"], restart_needed=False),
     )
-    monkeypatch.setattr(doctor, "collect", lambda: updated_caps)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: updated_caps)
     monkeypatch.setattr(
         cli_main,
         "_register_local_capabilities",
@@ -3270,19 +3293,25 @@ def _update_action(monkeypatch, caps):
     from types import SimpleNamespace
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor, setup
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor
+    from probe.cli import wizard as setup
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     calls = []
     monkeypatch.setattr(
-        "probe.cli.upgrading.perform_update",
+        "probe.cli.install.upgrade.upgrade.perform_update",
         lambda **kwargs: SimpleNamespace(lines=["updated"], restart_needed=False),
     )
-    monkeypatch.setattr(doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: _caps())
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     monkeypatch.setattr(
-        setup,
+        setup.apply.agent_files,
+        "apply_agent_rules",
+        lambda want, **kwargs: calls.append((want, kwargs)) or ["refreshed"],
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
         "apply_agent_rules",
         lambda want, **kwargs: calls.append((want, kwargs)) or ["refreshed"],
     )
@@ -3334,8 +3363,9 @@ def test_uninstall_preserves_token_and_explicit_backend_for_final_snapshot(
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor, setup
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor
+    from probe.cli import wizard as setup
+    from probe.cli.wizard.actions.onboarding import Action
     from probe.sdk.settings.settings import Settings
 
     cli_main = sys.modules["probe.cli.main"]
@@ -3350,8 +3380,8 @@ def test_uninstall_preserves_token_and_explicit_backend_for_final_snapshot(
             token="preserved-api-secret",
         ),
     )
-    monkeypatch.setattr(setup, "remove_everything", lambda caps: ["removed"])
-    monkeypatch.setattr(doctor, "collect", lambda: after)
+    monkeypatch.setattr(setup.apply.removal, "remove_everything", lambda caps: ["removed"])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: after)
     monkeypatch.setattr(
         cli_main,
         "_register_local_capabilities",
@@ -3383,7 +3413,7 @@ def test_uninstall_preserves_token_and_explicit_backend_for_final_snapshot(
 def test_escape_is_distinct_from_ctrl_c():
     """ "Go back one step" and "abandon the whole wizard" are different
     intentions. Collapsing both to None would make Escape quit."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     assert tui.BACK is not None
     import inspect
@@ -3394,9 +3424,14 @@ def test_escape_is_distinct_from_ctrl_c():
 def test_clearing_never_fires_on_a_pipe(monkeypatch, capsys):
     """Escape codes in a CI log or a captured pipe are noise, and there is no
     screen to clear anyway."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     tui.clear()
     assert capsys.readouterr().out == ""
 
@@ -3404,7 +3439,7 @@ def test_clearing_never_fires_on_a_pipe(monkeypatch, capsys):
 def test_selected_is_green_and_the_highlight_is_not_inverted():
     """The default inverts a whole entry into a block of background colour,
     which on a three-line choice paints three solid lines."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     rules = {name: style for name, style in tui.style().style_rules}
     assert "noreverse" in rules["highlighted"]
@@ -3412,7 +3447,7 @@ def test_selected_is_green_and_the_highlight_is_not_inverted():
 
 
 def test_checkmarks_replace_the_dots():
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from questionary.prompts import common
 
     tui.use_checkmarks()
@@ -3423,15 +3458,18 @@ def test_ctrl_c_and_back_stay_distinct_coming_out_of_the_confirm_screen(monkeypa
     """ "I chose wrong" and "get me out" must not collapse into each other —
     one rewinds to the agent screen, the other ends the wizard. The confirm
     screen reports them as distinct values and `wizard()` routes on that."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "ask", lambda question, height=None, header=None, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, height=None, header=None, **kwargs: None)
+    monkeypatch.setattr(tui.layout, "ask", lambda question, height=None, header=None, **kwargs: None)
     assert setup.run_confirm_install(("claude_code",)) is None
 
-    monkeypatch.setattr(tui, "ask", lambda question, height=None, header=None, **kwargs: tui.BACK)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, height=None, header=None, **kwargs: tui.BACK)
+    monkeypatch.setattr(tui.layout, "ask", lambda question, height=None, header=None, **kwargs: tui.BACK)
     assert setup.run_confirm_install(("claude_code",)) is tui.BACK
 
-    monkeypatch.setattr(tui, "ask", lambda question, height=None, header=None, **kwargs: True)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, height=None, header=None, **kwargs: True)
+    monkeypatch.setattr(tui.layout, "ask", lambda question, height=None, header=None, **kwargs: True)
     assert setup.run_confirm_install(("claude_code",)) is True
 
 
@@ -3451,24 +3489,27 @@ def test_install_is_a_verb_that_skips_the_action_menu(monkeypatch, selected_sour
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
 
     seen: list[str] = []
     bars: list[str] = []
@@ -3477,13 +3518,13 @@ def test_install_is_a_verb_that_skips_the_action_menu(monkeypatch, selected_sour
         seen.append("action-menu")
         raise AssertionError("`install` must not open the action menu")
 
-    monkeypatch.setattr(wizard, "run_action_menu", no_menu)
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", no_menu)
     monkeypatch.setattr(
-        wizard, "run_agent_menu", lambda _d, action=None: seen.append("agents") or selected_sources
+        wizard.screens.agent_picker, "run_agent_menu", lambda _d, action=None: seen.append("agents") or selected_sources
     )
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
     monkeypatch.setattr(
-        wizard, "run_confirm_install", lambda *a, **k: seen.append("confirm") or True
+        wizard.screens.confirm, "run_confirm_install", lambda *a, **k: seen.append("confirm") or True
     )
 
     def apply(*args, **kwargs):
@@ -3513,7 +3554,7 @@ def test_install_takes_the_same_flags_as_the_wizard():
     from typer.main import get_command
 
     import probe.cli.main  # noqa: F401
-    from probe.cli.capabilities import Capability
+    from probe.cli.wizard.state.state import Capability
 
     group = get_command(sys.modules["probe.cli.main"].app)
     assert "install" in group.commands, "the launcher forwards this verb verbatim"
@@ -3532,7 +3573,7 @@ def test_every_capability_is_reachable_as_a_flag():
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli.capabilities import Capability
+    from probe.cli.wizard.state.state import Capability
 
     cli_main = sys.modules["probe.cli.main"]
     params = inspect.signature(cli_main.wizard).parameters
@@ -3552,16 +3593,17 @@ def test_the_agent_rules_flag_actually_parses(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
     from probe.cli.main import app
 
     seen: list = []
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "plan", lambda caps, selection: seen.append(selection) or [])
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "plan", lambda caps, selection: seen.append(selection) or [])
+    monkeypatch.setattr(wizard.apply.plugins, "plan", lambda caps, selection: seen.append(selection) or [])
 
     for flag, expected in (("--agent-rules", True), ("--no-agent-rules", False)):
         seen.clear()
@@ -3576,15 +3618,15 @@ def test_agent_both_runs_one_shared_authorization_then_configures_each_agent(mon
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
 
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
@@ -3623,8 +3665,8 @@ def test_adding_codex_to_a_configured_claude_machine_keeps_claude_switched_on(mo
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
@@ -3643,7 +3685,7 @@ def test_adding_codex_to_a_configured_claude_machine_keeps_claude_switched_on(mo
 
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: fresh_codex if os.environ.get("PROBE_AGENT") == "codex" else configured_claude,
     )
@@ -3677,25 +3719,25 @@ def test_agent_both_uses_one_dual_agent_uninstall_confirmation(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(
             agent_source=os.environ.get("PROBE_AGENT", "claude_code"),
             tracking_plugin_installed=True,
         ),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
     confirmations: list[tuple[str, ...]] = []
     monkeypatch.setattr(
-        wizard,
+        wizard.screens.confirm_gates,
         "confirm_agent_removal",
         lambda sources: confirmations.append(tuple(sources)) or True,
     )
@@ -3723,25 +3765,28 @@ def test_interactive_wizard_asks_action_then_agent_then_runs_features(monkeypatc
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
 
     events: list[str] = []
     actions = iter((Action.CONFIGURE, Action.EXIT))
@@ -3762,10 +3807,10 @@ def test_interactive_wizard_asks_action_then_agent_then_runs_features(monkeypatc
         events.append("features")
         return ["done"]
 
-    monkeypatch.setattr(wizard, "run_action_menu", choose_action)
-    monkeypatch.setattr(wizard, "run_agent_menu", choose_agent)
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", choose_confirm)
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", choose_action)
+    monkeypatch.setattr(wizard.screens.agent_picker, "run_agent_menu", choose_agent)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", choose_confirm)
     monkeypatch.setattr(cli_main, "_run_wizard_action", run_features)
 
     result = CliRunner().invoke(cli_main.app, ["wizard"])
@@ -3787,24 +3832,27 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
 
     events: list[str] = []
     action_answers = iter(actions)
@@ -3823,9 +3871,9 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
         events.append("confirm")
         return next(confirm_answers)
 
-    monkeypatch.setattr(wizard, "run_action_menu", choose_action)
-    monkeypatch.setattr(wizard, "run_agent_menu", choose_agent)
-    monkeypatch.setattr(wizard, "run_confirm_install", choose_confirm)
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", choose_action)
+    monkeypatch.setattr(wizard.screens.agent_picker, "run_agent_menu", choose_agent)
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", choose_confirm)
     if defaults is not None:
         # The install's Defaults step (between the agents and Review), scripted
         # and recorded only by the tests that walk Back through it.
@@ -3835,14 +3883,14 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
             events.append("defaults")
             return next(default_answers), pick
 
-        monkeypatch.setattr(wizard, "run_defaults_step", choose_defaults)
+        monkeypatch.setattr(wizard.settings.defaults, "run_defaults_step", choose_defaults)
 
     def choose_imports(_sources, **kwargs):
         events.append("imports")
         answer = next(import_answers) if import_answers is not None else set()
         return answer
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", choose_imports)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", choose_imports)
 
     def apply(*_args, **_kwargs):
         events.append("apply")
@@ -3856,8 +3904,8 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
 
 def test_back_out_of_confirmation_returns_to_agent_choices(monkeypatch):
     """Back returns to the only choices that precede installation."""
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     result, events = _wizard_events(
         monkeypatch,
@@ -3889,8 +3937,8 @@ def test_back_with_an_agent_flag_lands_on_the_action_menu_not_a_second_agent_ste
 
     Back from confirmation returns to the action menu.
     """
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     result, events = _wizard_events(
         monkeypatch,
@@ -3906,8 +3954,8 @@ def test_back_with_an_agent_flag_lands_on_the_action_menu_not_a_second_agent_ste
 
 
 def test_back_from_import_choices_returns_to_the_menu_without_reinstalling(monkeypatch):
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     result, events = _wizard_events(
         monkeypatch,
@@ -3936,18 +3984,18 @@ def test_interactive_install_is_force_on_even_over_a_killswitch(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         # The machine that most tests the rule: capture explicitly OFF.
         lambda: _caps(
@@ -3957,12 +4005,15 @@ def test_interactive_install_is_force_on_even_over_a_killswitch(monkeypatch):
             logged_in_as="x@y.z",
         ),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
-    monkeypatch.setattr(wizard, "run_agent_menu", lambda _d, action=None: ("claude_code",))
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", lambda *a, **k: True)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.screens.agent_picker, "run_agent_menu", lambda _d, action=None: ("claude_code",))
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", lambda *a, **k: True)
 
     handed: dict = {}
 
@@ -3983,7 +4034,7 @@ def test_interactive_install_is_force_on_even_over_a_killswitch(monkeypatch):
 def test_ctrl_c_on_the_confirm_screen_still_abandons_the_wizard(monkeypatch):
     """Back and Ctrl-C are different intentions and must not collapse into each
     other: one is "I chose wrong", the other is "get me out". None is Ctrl-C."""
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
 
     result, events = _wizard_events(monkeypatch, confirms=[None], actions=[Action.CONFIGURE])
 
@@ -4011,7 +4062,7 @@ def test_removing_probe_also_takes_the_block_out_of_claude_md(monkeypatch, tmp_p
     It also pinned `Capabilities.configured` True forever, so a device that had
     removed everything could never look fresh again."""
 
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
@@ -4032,12 +4083,63 @@ def test_removing_probe_also_takes_the_block_out_of_claude_md(monkeypatch, tmp_p
             killswitch_set=True, daemon_stopped=True, plugin_removed=True
         ),
     )
+    monkeypatch.setattr(
+        setup.account.sign_out,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
     # A Result, which is what `uninstall_plugin` actually returns. The old stub
     # handed back a 2-tuple, matching the caller's broken unpacking rather than
     # the real signature -- so this test passed for as long as production
     # crashed.
     monkeypatch.setattr(
-        setup,
+        setup.apply.plugins,
+        "uninstall_plugin",
+        lambda name: claude_cli.Result(ok=True, detail="removed"),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "uninstall_plugin",
+        lambda name: claude_cli.Result(ok=True, detail="removed"),
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder,
+        "uninstall_plugin",
+        lambda name: claude_cli.Result(ok=True, detail="removed"),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
         "uninstall_plugin",
         lambda name: claude_cli.Result(ok=True, detail="removed"),
     )
@@ -4081,7 +4183,52 @@ def test_removing_probe_takes_the_codex_mcp_entry_with_it(monkeypatch, tmp_path)
         ),
     )
     monkeypatch.setattr(
-        setup, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+        setup.account.sign_out,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.plugins, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.apply, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.removal, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
     )
 
     messages = setup.remove_everything(_caps(agent_source="codex"))
@@ -4119,7 +4266,7 @@ def test_every_tui_reference_resolves():
     import pathlib
     import re
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     src_root = pathlib.Path(tui.__file__).parent
     referenced = set()
@@ -4671,8 +4818,8 @@ def test_an_empty_agent_answer_never_reaches_the_caller(monkeypatch):
     Asserted at the boundary rather than on the validator, so it holds however
     the guard is spelled.
     """
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
 
     # Pinned rather than left to this machine's real PATH: `run_agent_menu`
     # builds its row set from `detectable_sources()` now, and this test calls
@@ -4682,10 +4829,15 @@ def test_an_empty_agent_answer_never_reaches_the_caller(monkeypatch):
     # sources are offered, but pinning it keeps the test deterministic rather
     # than accidentally exercising a zero-row picker on a machine with
     # neither claude, codex, nor pi installed.
-    monkeypatch.setattr(wizard, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(wizard.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(wizard.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(wizard.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
     # The one condition every guard in this module exists for.
-    monkeypatch.setattr(tui, "checkbox_control", lambda question: None)
-    monkeypatch.setattr(tui, "ask", lambda question, height=None, header=None, **kwargs: [])
+    monkeypatch.setattr(tui.boxes, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.choices, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.forms, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, height=None, header=None, **kwargs: [])
+    monkeypatch.setattr(tui.layout, "ask", lambda question, height=None, header=None, **kwargs: [])
 
     answer = wizard.run_agent_menu(("claude_code",))
 
@@ -4710,31 +4862,37 @@ def test_the_wizard_survives_the_no_bindings_fallback_end_to_end(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
     # The degraded condition, and an empty answer submitted through it.
-    monkeypatch.setattr(tui, "checkbox_control", lambda question: None)
-    monkeypatch.setattr(tui, "ask", lambda question, height=None, header=None, **kwargs: [])
+    monkeypatch.setattr(tui.boxes, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.choices, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.forms, "checkbox_control", lambda question: None)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, height=None, header=None, **kwargs: [])
+    monkeypatch.setattr(tui.layout, "ask", lambda question, height=None, header=None, **kwargs: [])
 
     actions = iter((Action.CONFIGURE, Action.EXIT))
-    monkeypatch.setattr(wizard, "run_action_menu", lambda _caps: next(actions))
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", lambda _caps: next(actions))
 
     result = CliRunner().invoke(cli_main.app, ["wizard"])
 
@@ -4774,7 +4932,7 @@ def test_every_action_that_reaches_the_agent_step_says_what_it_is():
     enum rather than listed, so the guard cannot go stale the way the screen
     did.
     """
-    from probe.cli.actions import DEVICE_ACTIONS, IMPORT_ACTIONS, Action
+    from probe.cli.wizard.actions.onboarding import DEVICE_ACTIONS, IMPORT_ACTIONS, Action
 
     reachable = {
         action
@@ -4826,7 +4984,7 @@ def test_the_agent_step_falls_back_without_reaching_for_the_install_copy():
 def test_only_the_install_promises_an_install_on_the_agent_step():
     """Every string this screen can draw, checked as copy rather than as a
     render: the title, the lede, the question, and every row's detail."""
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
 
     for action, copy in setup.AGENT_SCREEN_COPY.items():
         if action == Action.CONFIGURE:
@@ -4849,7 +5007,7 @@ def test_every_prompt_in_the_wizard_uses_shared_sections():
     """
     import inspect
 
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     for prompt in (
         wizard.run_agent_menu,
@@ -4879,10 +5037,15 @@ def test_the_wizard_never_drops_to_a_bare_prompt():
 def test_piped_output_stays_flush_left(monkeypatch, capsys):
     """An indent in a log is noise every grep has to strip, and CI is the one
     consumer that never sees the layout."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.setenv("COLUMNS", "120")
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
 
     tui.say("hello")
     tui.page(["one", "two"])
@@ -4893,7 +5056,7 @@ def test_piped_output_stays_flush_left(monkeypatch, capsys):
 
 
 def _plugin_result(**kw):
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     base = dict(
         attempted=True, confirmed=True, changed=False, before=None, after="0.8.0", message="ok"
@@ -4919,7 +5082,8 @@ def test_a_failed_plugin_update_is_recorded(isolate, monkeypatch):
     """It used to live only in the printed lines, which a DETACHED run sends to
     /dev/null — so a plugin that had silently stopped updating looked exactly
     like one that worked. That is the failure this record exists to prevent."""
-    from probe.cli import autoupdate, updater, upgrading
+    from probe.cli import autoupdate
+    from probe.cli.install import updater, upgrade as upgrading
 
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
     monkeypatch.setattr(
@@ -4949,7 +5113,8 @@ def test_a_failed_plugin_update_is_recorded(isolate, monkeypatch):
 def test_no_claude_on_path_is_not_a_plugin_failure(isolate, monkeypatch):
     """A CLI-only user has no `claude`. Recording that as a failure every
     session trains everyone to ignore the one line meant to mean something."""
-    from probe.cli import autoupdate, updater, upgrading
+    from probe.cli import autoupdate
+    from probe.cli.install import updater, upgrade as upgrading
 
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
     monkeypatch.setattr(
@@ -4991,7 +5156,7 @@ def test_a_pi_update_never_touches_claude_or_codex_plugins(isolate, monkeypatch)
     a silent wrong answer would pass just as easily as a call count of zero
     would if this only checked a boolean.
     """
-    from probe.cli import updater, upgrading
+    from probe.cli.install import updater, upgrade as upgrading
 
     monkeypatch.setenv("PROBE_AGENT", "pi")
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
@@ -5001,7 +5166,8 @@ def test_a_pi_update_never_touches_claude_or_codex_plugins(isolate, monkeypatch)
 
     monkeypatch.setattr(upgrading.updater, "update_plugin", _boom)
     monkeypatch.setattr(upgrading.updater, "update_codex_plugins", _boom)
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -5016,14 +5182,15 @@ def test_an_update_from_claude_code_moves_pis_package_too(isolate, monkeypatch):
     """An Update from a plain terminal (claude_code by default) or Claude
     Code's auto-update used to skip pi, so pi stayed on the package it was
     installed with (2026-10-02)."""
-    from probe.cli import updater, upgrading
+    from probe.cli.install import updater, upgrade as upgrading
 
     monkeypatch.setenv("PROBE_AGENT", "claude_code")
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
     monkeypatch.setattr(
         upgrading.updater, "update_plugin", lambda target: _plugin_result(confirmed=True, message="current")
     )
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -5033,7 +5200,7 @@ def test_an_update_from_claude_code_moves_pis_package_too(isolate, monkeypatch):
 def test_a_codex_update_still_uses_the_codex_path(isolate, monkeypatch):
     """The pi guard above must not have collapsed codex into the claude_code
     branch on the way to excluding pi from it."""
-    from probe.cli import updater, upgrading
+    from probe.cli.install import updater, upgrade as upgrading
 
     monkeypatch.setenv("PROBE_AGENT", "codex")
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
@@ -5055,7 +5222,8 @@ def test_a_codex_update_still_uses_the_codex_path(isolate, monkeypatch):
 
 
 def test_a_successful_plugin_update_names_the_version(isolate, monkeypatch):
-    from probe.cli import autoupdate, updater, upgrading
+    from probe.cli import autoupdate
+    from probe.cli.install import updater, upgrade as upgrading
 
     _stub_cli_upgrade(monkeypatch, upgrading, updater)
     monkeypatch.setattr(
@@ -5131,12 +5299,11 @@ def test_the_install_phase_streams_instead_of_buffering():
     four apply steps finished. Since a step shells out to `claude`, that showed
     a blank screen for as long as the subprocesses took -- which is the entire
     reported symptom."""
-    import inspect
     import sys
 
     import probe.cli.main  # noqa: F401
 
-    source = inspect.getsource(sys.modules["probe.cli.main"]._run_wizard_action)
+    source = _source_of(sys.modules["probe.cli.main"], _WIZARD_ACTION_PARTS)
     # The tell-tale of the old shape: one list, extended by every apply, drained
     # at the end.
     assert "messages: list[str] = []" not in source
@@ -5157,17 +5324,24 @@ def test_a_present_plugin_is_not_reinstalled(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     installed: list[str] = []
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "install_plugin", lambda name, **kw: installed.append(name))
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     # Exactly the reported machine: both plugins on disk, no credential.
@@ -5176,7 +5350,7 @@ def test_a_present_plugin_is_not_reinstalled(monkeypatch):
         capture_plugin_installed=True,
         logged_in_as=None,
     )
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: present)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: present)
 
     cli_main._run_wizard_action(
         Action.CONFIGURE,
@@ -5198,8 +5372,8 @@ def test_the_plan_says_sign_in_when_only_the_credential_is_missing():
     """ "enable CLI + MCP" on a machine whose plugin is already installed
     describes work the run will not do. It is also the COMMON first-run case,
     because capture_on is credential-only."""
-    from probe.cli import setup as wizard
-    from probe.cli.capabilities import Capability
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard.state.state import Capability
 
     caps = _caps(tracking_plugin_installed=True, capture_plugin_installed=True)
     selection = wizard.Selection(tracking=True, capture=True, auto_update=False, agent_rules=False)
@@ -5221,7 +5395,7 @@ def test_a_successful_install_does_no_marketplace_work(monkeypatch):
     refresh again, so a clean install must touch the marketplace zero times.
     """
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     calls: list[list[str]] = []
     monkeypatch.setattr(
@@ -5240,7 +5414,7 @@ def test_refresh_marketplace_reports_the_update_result(monkeypatch):
     decides whether the catalog we install from is current, so it is the one
     that comes back."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     def fake_run(args, *, timeout):
         if "update" in args:
@@ -5261,7 +5435,7 @@ def test_a_first_add_is_the_refresh(monkeypatch, tmp_path):
     existing copy as it was."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     checkout = tmp_path / "marketplaces" / "research-os-agent"
     monkeypatch.setattr(plugin_cli, "marketplace_checkout", lambda source, name: checkout)
@@ -5289,7 +5463,7 @@ def test_an_install_for_several_agents_refreshes_their_marketplaces_at_once(monk
     import threading
 
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     both_running = threading.Barrier(2, timeout=5)
     ran: list[str] = []
@@ -5300,7 +5474,7 @@ def test_an_install_for_several_agents_refreshes_their_marketplaces_at_once(monk
             both_running.wait()  # raises BrokenBarrierError unless the two overlap
         return claude_cli.Result(ok=True, detail=source)
 
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", fake_refresh)
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", fake_refresh)
 
     with wizard.marketplace_refreshes(["claude_code", "codex"]):
         assert wizard.refresh_marketplace(source="claude_code").detail == "claude_code"
@@ -5337,7 +5511,7 @@ def test_the_install_verdict_asks_the_old_way_when_the_one_call_does_not_answer(
     `doctor.collect()` asks the old way."""
     import importlib
 
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     main = importlib.import_module("probe.cli.main")
     outcome = capabilities.DeviceStateOutcome
@@ -5348,16 +5522,16 @@ def test_the_install_verdict_asks_the_old_way_when_the_one_call_does_not_answer(
 
 
 def test_the_sign_in_refreshes_nothing_while_a_person_approves(monkeypatch):
-    """Nothing is written while the browser approval waits (`sdk.device`): a
+    """Nothing is written while the browser approval waits (`sdk.settings.device`): a
     first `add` writes the agent's own config. The batch refreshes at the
     install's refresh step, which a refused approval skips (`_run_wizard_action`)."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
     from probe.sdk.settings import device as device_flow
 
     ran: list[str] = []
     monkeypatch.setattr(
-        wizard, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True)
+        wizard.apply.plugins, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True)
     )
 
     def deny(base_url, **_):
@@ -5376,11 +5550,11 @@ def test_a_refresh_whose_thread_cannot_start_runs_on_its_own(monkeypatch):
     import threading
 
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     ran: list[str] = []
     monkeypatch.setattr(
-        wizard, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True, detail=source)
+        wizard.apply.plugins, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True, detail=source)
     )
 
     def refuse(self):
@@ -5400,7 +5574,7 @@ def test_a_later_thread_that_cannot_start_leaves_its_agent_to_its_own_step(monke
     import threading
 
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     ran: list[tuple[str, str]] = []
 
@@ -5408,7 +5582,7 @@ def test_a_later_thread_that_cannot_start_leaves_its_agent_to_its_own_step(monke
         ran.append((source, threading.current_thread().name))
         return claude_cli.Result(ok=True, detail=source)
 
-    monkeypatch.setattr(wizard, "_refresh_marketplace_now", refresh)
+    monkeypatch.setattr(wizard.apply.plugins, "_refresh_marketplace_now", refresh)
     real_start = threading.Thread.start
 
     def start(self):
@@ -5428,7 +5602,7 @@ def test_a_first_add_that_hits_a_blocked_git_is_the_reported_cause(monkeypatch):
     hits the Mac's blocked git; `update` then fails as "not found", which says
     nothing about the Xcode license that caused it."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     license_text = (
         "You have not agreed to the Xcode license agreements. Please run 'sudo xcodebuild "
@@ -5453,7 +5627,7 @@ def test_a_failed_install_retries_once_on_any_failure(monkeypatch):
     fires only on "not found in marketplace" stops firing the day Anthropic
     rewords it, silently, with every test still green."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     attempts: list[list[str]] = []
     refreshed: list[int] = []
@@ -5466,7 +5640,7 @@ def test_a_failed_install_retries_once_on_any_failure(monkeypatch):
         return claude_cli.Result(ok=True)
 
     monkeypatch.setattr(claude_cli, "run", fake_run)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda **_kwargs: refreshed.append(1))
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda **_kwargs: refreshed.append(1))
 
     budget = [1]
 
@@ -5488,13 +5662,13 @@ def test_the_retry_budget_is_per_run_not_per_plugin(monkeypatch):
     """Two plugins failing must not cost two refreshes and two reinstalls: that
     is how a fix for an 18-minute worst case becomes a 30-minute one."""
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     refreshed: list[int] = []
     monkeypatch.setattr(
         claude_cli, "run", lambda args, *, timeout: claude_cli.Result(ok=False, detail="no")
     )
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda **_kwargs: refreshed.append(1))
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda **_kwargs: refreshed.append(1))
 
     budget = [1]
 
@@ -5518,20 +5692,25 @@ def test_a_verified_absent_plugin_fails_the_run(monkeypatch):
     import typer
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "apply_tracking", lambda want, **kw: [])
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.apply, "apply_tracking", lambda want, **kw: [])
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     # Verified: we asked, and the plugin is not there.
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(tracking_plugin_installed=False, plugins_verified=True),
     )
@@ -5559,20 +5738,25 @@ def test_an_unverifiable_plugin_does_not_fail_the_run(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "apply_tracking", lambda want, **kw: [])
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.apply, "apply_tracking", lambda want, **kw: [])
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     # We could NOT ask. Absent is an unanswered question, not a finding.
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(tracking_plugin_installed=False, plugins_verified=False),
     )
@@ -5593,7 +5777,7 @@ def test_an_unverifiable_plugin_does_not_fail_the_run(monkeypatch):
 
 
 def test_plugin_state_will_not_report_absence_it_did_not_verify():
-    from probe.cli.capabilities import PluginState
+    from probe.cli.wizard.state.plugins import PluginState
 
     verified = PluginState(names=frozenset({"probe-research"}), verified=True)
     assert verified.missing(["probe-research", "probe-research-tap"]) == ["probe-research-tap"]
@@ -5603,7 +5787,7 @@ def test_plugin_state_will_not_report_absence_it_did_not_verify():
 
 
 def test_installed_plugins_is_unverified_without_claude(monkeypatch):
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     monkeypatch.setattr(
         capabilities.plugin_cli,
@@ -5619,12 +5803,22 @@ def test_installed_plugins_is_unverified_without_claude(monkeypatch):
 
 
 def test_progress_marks_a_failed_step_distinctly(monkeypatch, capsys):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.setenv("COLUMNS", "120")
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "rows", lambda: 40)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 40)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 40)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 40)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 40)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 40)
 
     progress = tui.Progress("This run will:", ["enable A", "enable B"])
     progress.finish(0, ok=True)
@@ -5636,9 +5830,14 @@ def test_progress_marks_a_failed_step_distinctly(monkeypatch, capsys):
 
 
 def test_the_bar_tracks_completed_steps(monkeypatch):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     progress = tui.Progress("t", ["a", "b", "c", "d"])
     assert progress.bar().endswith("  0%")
     progress.finish(0)
@@ -5650,9 +5849,14 @@ def test_the_bar_tracks_completed_steps(monkeypatch):
 
 @pytest.mark.parametrize("agent_screen_shown", [False, True])
 def test_install_progress_continues_across_agents(monkeypatch, agent_screen_shown):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     sources = ("claude_code", "codex", "pi")
     bars = [setup.install_progress(setup.STEP_CONFIRM, agent_screen_shown=agent_screen_shown)]
     run = setup.InstallRun(sources)
@@ -5695,9 +5899,14 @@ def test_progress_appends_one_line_per_step_when_piped(monkeypatch, capsys):
     once per step -- log spam, not progress. And `probe wizard --yes` is the
     one path where a human is NOT watching, so its log is the only evidence of
     which step a wedged CI job died on."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
 
     progress = tui.Progress("This run will:", ["enable A", "enable B"])
     progress.start(0)
@@ -5715,12 +5924,22 @@ def test_results_persist_across_redraws(monkeypatch, capsys):
     """clear() emits \\033[3J, which drops the scrollback. Anything not
     re-drawn is gone for good, so a failure message from step 1 must still be
     on screen after step 4 redraws."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.setenv("COLUMNS", "120")
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "rows", lambda: 40)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: 40)
+    monkeypatch.setattr(tui.choices, "rows", lambda: 40)
+    monkeypatch.setattr(tui.layout, "rows", lambda: 40)
+    monkeypatch.setattr(tui.progress, "rows", lambda: 40)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: 40)
 
     progress = tui.Progress("t", ["a", "b"])
     progress.note("could not install probe-research")
@@ -5741,19 +5960,29 @@ def test_ticking_capture_clears_the_killswitch_even_when_the_plugin_is_present(m
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     cleared: list[int] = []
     installed: list[str] = []
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
     monkeypatch.setattr(wizard, "clear_killswitch", lambda: cleared.append(1))
-    monkeypatch.setattr(wizard, "install_plugin", lambda name, **kw: installed.append(name))
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(wizard.account.sign_in, "clear_killswitch", lambda: cleared.append(1))
+    monkeypatch.setattr(wizard.apply.apply, "clear_killswitch", lambda: cleared.append(1))
+    monkeypatch.setattr(wizard.apply.removal, "clear_killswitch", lambda: cleared.append(1))
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", lambda name, **kw: installed.append(name))
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     # Plugin installed, credential present, but the killswitch is ON -- so
@@ -5764,7 +5993,7 @@ def test_ticking_capture_clears_the_killswitch_even_when_the_plugin_is_present(m
         capture_token_sources=(TokenSource.PAIRED_FILE,),
         plugins_verified=True,
     )
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: killswitched)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: killswitched)
 
     cli_main._run_wizard_action(
         Action.CONFIGURE,
@@ -5793,10 +6022,10 @@ def test_a_valid_pairing_does_not_hide_a_manually_removed_capture_plugin(monkeyp
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     installed: list[str] = []
@@ -5811,15 +6040,30 @@ def test_a_valid_pairing_does_not_hide_a_manually_removed_capture_plugin(monkeyp
     after = dataclasses.replace(before, capture_plugin_installed=True)
 
     monkeypatch.setenv("PROBE_AGENT", "codex")
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(
-        wizard,
+        wizard.apply.plugins,
         "install_plugin",
         lambda name, **kw: installed.append(name) or claude_cli.Result(ok=True),
     )
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: after)
+    monkeypatch.setattr(
+        wizard.apply.apply,
+        "install_plugin",
+        lambda name, **kw: installed.append(name) or claude_cli.Result(ok=True),
+    )
+    monkeypatch.setattr(
+        wizard.apply.recorder,
+        "install_plugin",
+        lambda name, **kw: installed.append(name) or claude_cli.Result(ok=True),
+    )
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: after)
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     cli_main._run_wizard_action(
@@ -5842,12 +6086,14 @@ def test_every_failure_message_the_wizard_emits_is_classified_as_one():
     """The progress tick decides ✔ vs ✗ from these strings. If a message the
     apply_* helpers can emit is not recognised, the screen shows a tick over a
     line that says the step failed."""
+    import importlib
     import inspect
     import re
 
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
-    source = inspect.getsource(wizard)
+    # Every piece the old setup.py was split into (cli/wizard's door lists them).
+    source = "".join(inspect.getsource(importlib.import_module(piece)) for piece in wizard._PIECES)
     # Every literal the module appends as a failure/warning message.
     emitted = re.findall(r'messages\.append\(\s*f?"([^"]+)"', source)
     emitted += re.findall(r'return \[\s*f?"(! [^"]+)"', source)
@@ -5873,23 +6119,34 @@ def test_the_marketplace_is_refreshed_before_the_first_install(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     order: list[str] = []
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda: order.append("refresh"))
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda: order.append("refresh"))
     monkeypatch.setattr(
-        wizard, "install_plugin", lambda name, **kw: order.append(f"install:{name}")
+        wizard.apply.plugins, "install_plugin", lambda name, **kw: order.append(f"install:{name}")
     )
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(
+        wizard.apply.apply, "install_plugin", lambda name, **kw: order.append(f"install:{name}")
+    )
+    monkeypatch.setattr(
+        wizard.apply.recorder, "install_plugin", lambda name, **kw: order.append(f"install:{name}")
+    )
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(tracking_plugin_installed=True, plugins_verified=True),
     )
@@ -5918,16 +6175,21 @@ def test_a_mac_that_cannot_run_git_gets_the_fix_not_apples_paragraph(monkeypatch
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
     monkeypatch.setattr(
-        wizard,
+        wizard.apply.plugins,
         "refresh_marketplace",
         lambda: claude_cli.Result(
             ok=False,
@@ -5937,11 +6199,13 @@ def test_a_mac_that_cannot_run_git_gets_the_fix_not_apples_paragraph(monkeypatch
             "Apple SDKs license.",
         ),
     )
-    monkeypatch.setattr(wizard, "install_plugin", lambda name, **kw: claude_cli.Result(ok=True))
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", lambda name, **kw: claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", lambda name, **kw: claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", lambda name, **kw: claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(tracking_plugin_installed=True, plugins_verified=True),
     )
@@ -5973,21 +6237,26 @@ def test_no_install_means_no_marketplace_refresh(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     refreshed: list[int] = []
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda: refreshed.append(1))
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda: refreshed.append(1))
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
 
     already = _caps(tracking_plugin_installed=True, logged_in_as="x@y.z", plugins_verified=True)
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: already)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: already)
 
     cli_main._run_wizard_action(
         Action.CONFIGURE,
@@ -6025,10 +6294,10 @@ def test_the_credential_is_minted_before_the_plugin_is_installed(monkeypatch):
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     order: list[str] = []
@@ -6044,14 +6313,23 @@ def test_the_credential_is_minted_before_the_plugin_is_installed(monkeypatch):
         order.append("authorize")
         return {grant: {"token": f"probe_pat_{grant}"} for grant in grants}, []
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda: order.append("refresh"))
-    monkeypatch.setattr(wizard, "install_plugin", _install)
-    monkeypatch.setattr(wizard, "authorize", _authorize)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda: order.append("refresh"))
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", _authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", _authorize)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", _authorize)
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(
             tracking_plugin_installed=True, logged_in_as="x@y.z", plugins_verified=True
@@ -6081,7 +6359,7 @@ def test_the_credential_is_minted_before_the_plugin_is_installed(monkeypatch):
 
 
 def _settings_defaults():
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     return dict.fromkeys(wizard.Setting, True)
 
@@ -6097,8 +6375,8 @@ def _built_menu(defaults=None):
     that the install has no picker, so it is the screen these key tests pin."""
     import questionary
 
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
 
     defaults = defaults or _settings_defaults()
     tui.use_checkmarks()
@@ -6268,7 +6546,7 @@ def test_enter_on_each_band_end_does_that_end_s_job():
     would apply the very settings the user was backing out of, and Enter on
     `Next ›` retreating would throw them away. Nothing else drives these.
     """
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     question, control, _ = _built_menu()
     control.pointed_at = control.choices.index(
@@ -6300,7 +6578,7 @@ def test_bulk_select_keys_cannot_desync_the_screen_from_the_answer():
     screen the answer disagrees with is the whole failure this gate exists to
     prevent.
     """
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     for key in ("a", "i"):
         question, control, rows = _built_menu()
@@ -6342,7 +6620,7 @@ def test_the_nav_band_is_dropped_when_we_cannot_own_the_keys():
     """
     import questionary
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     choices, _rows, _copy, _off = setup.settings_choices(_settings_defaults(), tui.body_indent())
     choices = [*choices, *setup.nav_footer(next_title=setup.APPLY_TITLE)]
@@ -6367,7 +6645,7 @@ def test_the_back_key_leaves_the_step_backwards():
     """
     from prompt_toolkit.keys import Keys
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     question, _control, _ = _built_menu()
     exited = _press_key(question, Keys.Left)
@@ -6413,10 +6691,10 @@ def test_a_refused_approval_installs_nothing(monkeypatch):
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     order: list[str] = []
@@ -6425,16 +6703,29 @@ def test_a_refused_approval_installs_nothing(monkeypatch):
         order.append(f"install:{name}")
         return claude_cli.Result(ok=True)
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda: order.append("refresh"))
-    monkeypatch.setattr(wizard, "install_plugin", _install)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda: order.append("refresh"))
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", _install)
     # The user closed the browser tab: approved nothing, minted nothing.
     monkeypatch.setattr(
-        wizard, "authorize", lambda grants, **kw: (order.append("authorize"), ({}, []))[1]
+        wizard.apply.authorize, "authorize", lambda grants, **kw: (order.append("authorize"), ({}, []))[1]
+    )
+    monkeypatch.setattr(
+        wizard.account.sign_in, "authorize", lambda grants, **kw: (order.append("authorize"), ({}, []))[1]
+    )
+    monkeypatch.setattr(
+        wizard.apply.capture_credentials, "authorize", lambda grants, **kw: (order.append("authorize"), ({}, []))[1]
     )
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: _caps())
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: _caps())
 
     with pytest.raises(typer.Exit):
         cli_main._run_wizard_action(
@@ -6469,10 +6760,10 @@ def test_a_partial_grant_installs_only_what_it_can_authenticate(monkeypatch):
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     order: list[str] = []
@@ -6485,15 +6776,27 @@ def test_a_partial_grant_installs_only_what_it_can_authenticate(monkeypatch):
         # api + mcp came back; capture did not.
         return {g: {"token": f"probe_pat_{g}"} for g in grants if g != "capture"}, []
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "refresh_marketplace", lambda: None)
-    monkeypatch.setattr(wizard, "install_plugin", _install)
-    monkeypatch.setattr(wizard, "authorize", _authorize)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.apply.plugins, "refresh_marketplace", lambda: None)
+    monkeypatch.setattr(wizard.apply.plugins, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.apply, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.recorder, "install_plugin", _install)
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", _authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", _authorize)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", _authorize)
     monkeypatch.setattr(wizard, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.account.sign_in, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.apply.apply, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.apply.removal, "clear_killswitch", lambda: None)
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda *a, **k: _caps(tracking_plugin_installed=True, logged_in_as="x@y.z"),
     )
@@ -6530,24 +6833,46 @@ def test_turning_a_capability_off_is_never_gated_on_a_credential(monkeypatch):
 
     import probe.cli.main  # noqa: F401
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     order: list[str] = []
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
     monkeypatch.setattr(
-        wizard,
+        wizard.apply.plugins,
         "uninstall_plugin",
         lambda name: (order.append(f"uninstall:{name}"), claude_cli.Result(ok=True))[1],
     )
-    monkeypatch.setattr(wizard, "authorize", lambda grants, **kw: ({}, []))
+    monkeypatch.setattr(
+        wizard.apply.apply,
+        "uninstall_plugin",
+        lambda name: (order.append(f"uninstall:{name}"), claude_cli.Result(ok=True))[1],
+    )
+    monkeypatch.setattr(
+        wizard.apply.recorder,
+        "uninstall_plugin",
+        lambda name: (order.append(f"uninstall:{name}"), claude_cli.Result(ok=True))[1],
+    )
+    monkeypatch.setattr(
+        wizard.apply.removal,
+        "uninstall_plugin",
+        lambda name: (order.append(f"uninstall:{name}"), claude_cli.Result(ok=True))[1],
+    )
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", lambda grants, **kw: ({}, []))
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", lambda grants, **kw: ({}, []))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", lambda grants, **kw: ({}, []))
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: _caps())
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: _caps())
 
     cli_main._run_wizard_action(
         Action.CONFIGURE,
@@ -6568,7 +6893,7 @@ def test_turning_a_capability_off_is_never_gated_on_a_credential(monkeypatch):
 def test_a_rerun_that_already_holds_its_grants_is_not_gated():
     """`granted` is empty on a healthy re-run -- nothing was requested. Reading
     that as failure would refuse to install on every machine already signed in."""
-    from probe.cli.capabilities import Capability
+    from probe.cli.wizard.state.state import Capability
 
     assert setup.blocked_by_missing_grants(Capability.TRACKING, needed=[], granted={}) == []
     assert (
@@ -6585,7 +6910,7 @@ def test_a_rerun_that_already_holds_its_grants_is_not_gated():
 def test_the_grant_table_is_the_only_source_of_what_a_capability_needs():
     """grants_for and the gate must read ONE table. Two hardcoded lists is how a
     third grant gets added to the request and not to the check."""
-    from probe.cli.capabilities import Capability
+    from probe.cli.wizard.state.state import Capability
 
     everything = setup.Selection(tracking=True, capture=True, auto_update=False, agent_rules=False)
     requested = set(setup.grants_for(everything))
@@ -6634,12 +6959,13 @@ def test_the_defaults_row_flips_the_machine_default_and_keeps_the_config(isolate
     )
     assert session_marker.default_tracking() is True  # shipped default
 
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "daemon_availability", lambda base_url=None: (None, None))
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda current, **kw: "read-only")
-    from probe.cli import tui
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.apply.recorder, "daemon_availability", lambda base_url=None: (None, None))
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda current, **kw: "read-only")
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     assert cli_main._run_defaults_action(yes=False, base_now="https://api.test") == [
         "Probe in new sessions → read"
@@ -6716,8 +7042,8 @@ def test_defaults_headless_reports_instead_of_answering_for_you(isolate, monkeyp
     assert any("Probe in new sessions" in line for line in lines)
     assert any("probe session default" in line for line in lines)
 
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda *a, **k: pytest.fail("drawn under env"))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda *a, **k: pytest.fail("drawn under env"))
     monkeypatch.setenv("PROBE_SESSION_STATE", "off")
     lines = cli_main._run_defaults_action(yes=False)
     assert any("env wins" in line for line in lines), lines
@@ -6729,18 +7055,19 @@ def test_choosing_the_current_default_or_backing_out_changes_nothing(isolate, mo
     """The picker opens on the current state, so Enter straight away is a
     no-op -- and a no-op returns None, which sends the menu straight back
     without a page to press through or a config write."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from probe.sdk import session_marker
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "daemon_availability", lambda base_url=None: (None, None))
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.apply.recorder, "daemon_availability", lambda base_url=None: (None, None))
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     for answer in (session_marker.DEFAULT_STATE, tui.BACK, None):
-        monkeypatch.setattr(setup, "run_defaults_menu", lambda current, _a=answer, **k: _a)
+        monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda current, _a=answer, **k: _a)
         assert cli_main._run_defaults_action(yes=False, base_now="https://api.test") is None
     assert not session_marker.config_path().is_file(), "nothing chosen, nothing written"
 
@@ -6750,18 +7077,19 @@ def test_a_state_saved_from_the_menu_row_skips_the_picker(isolate, monkeypatch):
     save: no picker, and -- when saving is all that happened -- no page to
     press through either; the row coming back wearing the new state is the
     confirmation."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from probe.sdk import session_marker
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda *a, **k: pytest.fail("picker drawn"))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda *a, **k: pytest.fail("picker drawn"))
     monkeypatch.setattr(
-        setup, "daemon_availability", lambda base_url=None: pytest.fail("asked for no daemon")
+        setup.apply.recorder, "daemon_availability", lambda base_url=None: pytest.fail("asked for no daemon")
     )
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     assert cli_main._run_defaults_action(
         yes=False, base_now="https://api.test", chosen="read-only"
@@ -6779,8 +7107,8 @@ def test_the_menu_row_never_saves_daemon_and_asks_no_server(isolate, monkeypatch
     asked = []
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "daemon_availability", lambda base_url=None: asked.append(1) or (True, None))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.apply.recorder, "daemon_availability", lambda base_url=None: asked.append(1) or (True, None))
     assert cli_main._run_defaults_action(yes=False, base_now="https://api.test", chosen="daemon") is None
     assert not session_marker.config_path().is_file(), "nothing written"
     assert asked == []
@@ -6809,7 +7137,7 @@ def test_settings_env_override_is_disclosed(isolate, monkeypatch):
 
 def test_settings_is_a_device_action():
     """One config file: no agent question, one pass, exactly like Account."""
-    from probe.cli.actions import ACCOUNT_ACTIONS, DEVICE_ACTIONS, Action
+    from probe.cli.wizard.actions.onboarding import ACCOUNT_ACTIONS, DEVICE_ACTIONS, Action
 
     assert Action.SETTINGS in DEVICE_ACTIONS
     assert Action.DEFAULTS in DEVICE_ACTIONS
@@ -6848,7 +7176,7 @@ def _defaults_picker_rows(monkeypatch, current, **gate):
     them to questionary -- captured, not rebuilt, so the test reads the real list."""
     import questionary
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     captured = {}
     real_checkbox = questionary.checkbox
@@ -6858,7 +7186,8 @@ def _defaults_picker_rows(monkeypatch, current, **gate):
         return real_checkbox(message, choices=choices, **kwargs)
 
     monkeypatch.setattr(questionary, "checkbox", spy_checkbox)
-    monkeypatch.setattr(tui, "ask", lambda q, height=None, **kw: tui.BACK)
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None, **kw: tui.BACK)
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None, **kw: tui.BACK)
     assert setup.run_defaults_menu(current, **gate) is tui.BACK
     values = [
         c.value
@@ -6873,17 +7202,18 @@ def _defaults_picker_rows(monkeypatch, current, **gate):
 def test_the_handler_skips_the_picker_under_a_recognized_env(isolate, monkeypatch):
     """The handler, not the screen, decides the lock -- from the parser's own
     recognition, so a typo like `of` still gets a working picker."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     cli_main = _settings_main()
     drawn = []
 
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "daemon_availability", lambda base_url=None: (None, None))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.apply.recorder, "daemon_availability", lambda base_url=None: (None, None))
     monkeypatch.setattr(
-        setup, "run_defaults_menu", lambda current, **kw: drawn.append(current) or tui.BACK
+        setup.settings.defaults, "run_defaults_menu", lambda current, **kw: drawn.append(current) or tui.BACK
     )
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
 
     monkeypatch.setenv("PROBE_SESSION_TRACKING", "on")
@@ -6903,21 +7233,22 @@ def test_backing_out_and_empty_diffs_say_nothing_happened(isolate, monkeypatch):
     the first ship of this screen turned Back into. An apply whose boxes
     match what is already stored is the same nothing.
     """
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from probe.sdk import session_marker
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
-    monkeypatch.setattr(setup, "run_settings_menu", lambda current, **kw: tui.BACK)
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", lambda current, **kw: tui.BACK)
     assert cli_main._run_settings_action(
         yes=False, caps_by_source={"claude_code": _caps()}, base_now="https://api.test"
     ) is None
 
     # Boxes returned exactly as they were: no write, not even a config file.
-    monkeypatch.setattr(setup, "run_settings_menu", lambda current, **kw: dict(current))
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", lambda current, **kw: dict(current))
     assert cli_main._run_settings_action(
         yes=False, caps_by_source={"claude_code": _caps()}, base_now="https://api.test"
     ) is None
@@ -6968,7 +7299,9 @@ def test_the_settings_registry_cannot_drift_silently(monkeypatch):
 
     assert setup.grouped_settings() == setup.SETTINGS_GROUPS
 
-    monkeypatch.setattr(setup, "SETTINGS_COPY", {})
+    no_copy: dict = {}
+    monkeypatch.setattr(setup.settings.menu, "SETTINGS_COPY", no_copy)
+    monkeypatch.setattr(setup.settings.defaults, "SETTINGS_COPY", no_copy)
     with _pytest.raises(AssertionError):
         setup.grouped_settings()
 
@@ -7015,20 +7348,23 @@ def test_the_picker_answer_becomes_a_full_settings_map(isolate, monkeypatch):
     still comes back as the state the row was actually left in. A setting the
     screen does not draw (the default for new sessions, Who records) is not in
     the answer; the daemon's page answers for its own rows only."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     current = _settings_defaults()
 
-    monkeypatch.setattr(tui, "ask", lambda q, height=None: [setup.Setting.AUTO_UPDATE])
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None: [setup.Setting.AUTO_UPDATE])
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None: [setup.Setting.AUTO_UPDATE])
     assert setup.run_settings_menu(current) == {
         setup.Setting.AUTO_UPDATE: True, setup.Setting.PASTED_IMAGES: False,
     }
-    monkeypatch.setattr(tui, "ask", lambda q, height=None: [])
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None: [])
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None: [])
     assert setup.run_settings_menu(current) == {
         setup.Setting.AUTO_UPDATE: False, setup.Setting.PASTED_IMAGES: False,
     }
 
-    monkeypatch.setattr(tui, "ask", lambda q, height=None: [setup.Setting.REASONING_SUMMARIES])
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None: [setup.Setting.REASONING_SUMMARIES])
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None: [setup.Setting.REASONING_SUMMARIES])
     assert setup.run_settings_menu(current, groups=setup.DAEMON_GROUPS) == {
         setup.Setting.REASONING_SUMMARIES: True
     }
@@ -7040,10 +7376,12 @@ def test_the_settings_band_is_dropped_when_we_cannot_own_the_keys(isolate, monke
     keys run, with an instruction that tells the truth about them."""
     import questionary
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setattr(tui, "checkbox_control", lambda q: None)
+    monkeypatch.setattr(tui.boxes, "checkbox_control", lambda q: None)
+    monkeypatch.setattr(tui.choices, "checkbox_control", lambda q: None)
+    monkeypatch.setattr(tui.forms, "checkbox_control", lambda q: None)
     built = []
     real_checkbox = questionary.checkbox
 
@@ -7052,7 +7390,8 @@ def test_the_settings_band_is_dropped_when_we_cannot_own_the_keys(isolate, monke
         return real_checkbox(message, choices=choices, instruction=instruction, **kwargs)
 
     monkeypatch.setattr(questionary, "checkbox", spy_checkbox)
-    monkeypatch.setattr(tui, "ask", lambda q, height=None: [])
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None: [])
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None: [])
 
     # A cycling row cannot cycle on this path -- our keys never loaded -- so
     # it degrades to the two states a questionary box can spell. A "Who
@@ -7077,10 +7416,9 @@ def test_the_loop_distinguishes_backed_out_from_streamed():
     Simplifying either to truthiness passes every stubbed test and silently
     stops the menu reflecting what an install just changed -- so the exact
     spelling is pinned here."""
-    import inspect
 
     cli_main = _settings_main()
-    source = inspect.getsource(cli_main._wizard_session)
+    source = _source_of(cli_main, _WIZARD_SESSION_PARTS)
     assert source.count("lines is not None") >= 2, (
         "the pause gate and the re-read gate must both distinguish None from []"
     )
@@ -7145,7 +7483,7 @@ def test_the_confirm_screen_names_the_off_switch(monkeypatch):
     turning single capabilities off."""
     import questionary
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     captured = {}
     real_select = questionary.select
@@ -7155,7 +7493,8 @@ def test_the_confirm_screen_names_the_off_switch(monkeypatch):
         return real_select(message, **kwargs)
 
     monkeypatch.setattr(questionary, "select", spy)
-    monkeypatch.setattr(tui, "ask", lambda q, height=None, **kwargs: True)
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None, **kwargs: True)
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None, **kwargs: True)
     setup.run_confirm_install(("claude_code",))
 
     assert "Uninstall" in captured["message"], captured["message"]
@@ -7170,39 +7509,42 @@ def test_the_agent_screen_is_skipped_when_there_is_no_choice(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(agent_source=os.environ.get("PROBE_AGENT", "claude_code")),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *args, **kwargs: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *args, **kwargs: None)
 
     events: list = []
     actions = iter((Action.CONFIGURE, Action.EXIT))
-    monkeypatch.setattr(wizard, "run_action_menu", lambda _c: next(actions))
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", lambda _c: next(actions))
     monkeypatch.setattr(
-        wizard, "run_agent_menu", lambda _d, action=None: events.append("agent") or ("claude_code",)
+        wizard.screens.agent_picker, "run_agent_menu", lambda _d, action=None: events.append("agent") or ("claude_code",)
     )
 
     def confirm(sources, **kwargs):
         events.append(("confirm", tuple(sources), kwargs.get("step")))
         return True
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", confirm)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", confirm)
 
     def apply(*args, **kwargs):
         header = kwargs["progress_header"](0.0)
@@ -7257,25 +7599,26 @@ def test_settings_capability_toggles_route_through_the_configure_machinery(
     agent, and the target Selection must change ONLY the toggled row."""
     import os as _os
 
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     claude = _caps(tracking_plugin_installed=True, logged_in_as="x@y.z")
     codex = _caps(agent_source="codex", tracking_plugin_installed=True, mcp_authenticated=True)
     caps_by_source = {"claude_code": claude, "codex": codex}
-    monkeypatch.setattr(doctor_impl, "collect", lambda: claude)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: claude)
 
     # The screen: automatic updates ticked ON (it was off everywhere).
     def menu(current, *, hidden=frozenset()):
         return {**current, setup.Setting.AUTO_UPDATE: True}
 
-    monkeypatch.setattr(setup, "run_settings_menu", menu)
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", menu)
 
     calls: list[dict] = []
 
@@ -7324,19 +7667,20 @@ def test_an_untouched_tracking_row_survives_an_unrelated_toggle(isolate, monkeyp
     plugin nobody asked about. The screen's predicates and the preserve
     baseline must be the same read (`capability_state_for`), or exactly this
     diverges."""
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import tui
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli.wizard import terminal as tui
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
-    from probe.cli.capabilities import Capability
+    from probe.cli.wizard.state.state import Capability
 
     snapshot = _caps(tracking_plugin_installed=True)  # no logged_in_as
     caps_by_source = {"claude_code": snapshot}
-    monkeypatch.setattr(doctor_impl, "collect", lambda: snapshot)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: snapshot)
 
     assert setup.capability_state_for(snapshot)[Capability.TRACKING] is True
 
@@ -7345,7 +7689,7 @@ def test_an_untouched_tracking_row_survives_an_unrelated_toggle(isolate, monkeyp
         picked[setup.Setting.AUTO_UPDATE] = True  # the only touched row
         return picked
 
-    monkeypatch.setattr(setup, "run_settings_menu", menu)
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", menu)
     handed = []
     monkeypatch.setattr(
         cli_main,
@@ -7369,14 +7713,15 @@ def test_an_unrelated_toggle_cannot_enable_capture_on_the_agent_that_had_it_off(
     Toggling only AUTO_UPDATE must hand Codex a target whose capture is still
     False — the union baseline used to normalize Codex up to Claude's on,
     which re-paired a transcript grant nobody touched."""
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import tui
-    from probe.cli.capabilities import TokenSource
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.state.state import TokenSource
 
     cli_main = _settings_main()
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     claude = _caps(
         tracking_plugin_installed=True,
@@ -7386,14 +7731,14 @@ def test_an_unrelated_toggle_cannot_enable_capture_on_the_agent_that_had_it_off(
     )
     codex = _caps(agent_source="codex", tracking_plugin_installed=True, mcp_authenticated=True)
     caps_by_source = {"claude_code": claude, "codex": codex}
-    monkeypatch.setattr(doctor_impl, "collect", lambda: claude)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: claude)
 
     def menu(current, *, hidden=frozenset()):
         picked = dict(current)
         picked[setup.Setting.AUTO_UPDATE] = not picked[setup.Setting.AUTO_UPDATE]
         return picked
 
-    monkeypatch.setattr(setup, "run_settings_menu", menu)
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", menu)
     handed = {}
 
     needs_seen = []
@@ -7427,19 +7772,20 @@ def test_a_failing_agent_does_not_kill_the_settings_commit(isolate, monkeypatch)
     no shared approval to stand down for, the second agent still runs."""
     import typer as typer_mod
 
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import tui
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli.wizard import terminal as tui
 
     cli_main = _settings_main()
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     claude = _caps(tracking_plugin_installed=True, logged_in_as="x@y.z")
     codex = _caps(agent_source="codex", tracking_plugin_installed=True, mcp_authenticated=True)
     caps_by_source = {"claude_code": claude, "codex": codex}
-    monkeypatch.setattr(doctor_impl, "collect", lambda: claude)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: claude)
     monkeypatch.setattr(
-        setup,
+        setup.settings.menu,
         "run_settings_menu",
         lambda current, *, hidden=frozenset(): {**current, setup.Setting.AUTO_UPDATE: True},
     )
@@ -7475,20 +7821,23 @@ def test_install_on_a_pluginless_machine_matches_the_degraded_screen(monkeypatch
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: False)  # the GPU-pod shape
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
 
     seen = {}
 
@@ -7496,8 +7845,8 @@ def test_install_on_a_pluginless_machine_matches_the_degraded_screen(monkeypatch
         seen["plugins_available"] = kwargs.get("plugins_available")
         return True
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", confirm)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", confirm)
     monkeypatch.setattr(
         cli_main,
         "_run_wizard_action",
@@ -7527,12 +7876,12 @@ def test_a_degraded_install_preserves_what_it_never_disclosed(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.capabilities import TokenSource
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.state.state import TokenSource
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
@@ -7546,12 +7895,15 @@ def test_a_degraded_install_preserves_what_it_never_disclosed(monkeypatch):
         agent_rules_installed=True,
         logged_in_as="x@y.z",
     )
-    monkeypatch.setattr(doctor_impl, "collect", lambda: configured)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", lambda *a, **k: True)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: configured)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", lambda *a, **k: True)
 
     seen = {}
     monkeypatch.setattr(
@@ -7575,22 +7927,23 @@ def test_the_degraded_apply_skips_the_plugin_steps_it_promised_to_skip(monkeypat
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
 
     cli_main = sys.modules["probe.cli.main"]
     installs = []
     monkeypatch.setattr(
-        wizard, "apply_tracking", lambda want, **kw: installs.append(want) or []
+        wizard.apply.apply, "apply_tracking", lambda want, **kw: installs.append(want) or []
     )
-    monkeypatch.setattr(wizard, "needs_authorization", lambda caps, selection: [])
+    monkeypatch.setattr(wizard.apply.authorize, "needs_authorization", lambda caps, selection: [])
     monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "say", lambda *a, **k: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.terminal, "say", lambda *a, **k: None)
     bare = _caps(claude_available=False, plugins_verified=False)
-    monkeypatch.setattr(doctor_impl, "collect", lambda *a, **k: bare)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda *a, **k: bare)
 
     result = cli_main._run_wizard_action(
         Action.CONFIGURE,
@@ -7620,38 +7973,41 @@ def test_back_on_a_one_agent_machine_lands_on_the_action_menu(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
 
     events = []
     actions = iter((Action.CONFIGURE, Action.EXIT))
     monkeypatch.setattr(
-        wizard, "run_action_menu", lambda _c: events.append("action") or next(actions)
+        wizard.screens.screens, "run_action_menu", lambda _c: events.append("action") or next(actions)
     )
     monkeypatch.setattr(
-        wizard, "run_confirm_install", lambda *a, **k: events.append("confirm") or tui.BACK
+        wizard.screens.confirm, "run_confirm_install", lambda *a, **k: events.append("confirm") or tui.BACK
     )
     # Back from Review lands on the Defaults step; Back again leaves the install.
     default_answers = iter((True, tui.BACK))
     monkeypatch.setattr(
-        wizard, "run_defaults_step",
+        wizard.settings.defaults, "run_defaults_step",
         lambda pick, **k: (events.append("defaults") or next(default_answers), pick),
     )
     monkeypatch.setattr(
-        wizard, "run_backfill_offer", lambda *a, **k: pytest.fail("installation was canceled")
+        wizard.screens.import_offer, "run_backfill_offer", lambda *a, **k: pytest.fail("installation was canceled")
     )
     monkeypatch.setattr(cli_main, "_run_wizard_action", lambda *a, **k: events.append("apply") or [])
 
@@ -7693,20 +8049,23 @@ def test_the_wizard_names_the_absent_half_of_a_both_selection(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
 
     seen = {}
 
@@ -7715,8 +8074,8 @@ def test_the_wizard_names_the_absent_half_of_a_both_selection(monkeypatch):
         seen["plugins_available"] = kwargs.get("plugins_available")
         return True
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", confirm)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", confirm)
     monkeypatch.setattr(cli_main, "_run_wizard_action", lambda a, **kw: ["done"])
 
     result = CliRunner().invoke(
@@ -7740,21 +8099,24 @@ def test_a_pi_only_machine_auto_selects_pi_without_the_agent_flag(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: False)
-    monkeypatch.setattr(wizard, "pi_binary_available", lambda: True)
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(agent_source="pi"))
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
+    monkeypatch.setattr(wizard.agents, "pi_binary_available", lambda: True)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps(agent_source="pi"))
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
 
     seen = {}
 
@@ -7763,8 +8125,8 @@ def test_a_pi_only_machine_auto_selects_pi_without_the_agent_flag(monkeypatch):
         seen["plugins_available"] = kwargs.get("plugins_available")
         return True
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", confirm)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", confirm)
     monkeypatch.setattr(cli_main, "_run_wizard_action", lambda a, **kw: ["done"])
 
     result = CliRunner().invoke(cli_main.app, ["wizard", "--action", "configure"])
@@ -7831,7 +8193,13 @@ def test_the_replaced_token_is_revoked_only_when_it_actually_changed(monkeypatch
     revoke the credential the device is standing on."""
     revoked = []
     monkeypatch.setattr(
-        setup, "_revoke", lambda token, *, base_url, what: revoked.append(token) or []
+        setup.account.sign_in, "_revoke", lambda token, *, base_url, what: revoked.append(token) or []
+    )
+    monkeypatch.setattr(
+        setup.account.sign_out, "_revoke", lambda token, *, base_url, what: revoked.append(token) or []
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder, "_revoke", lambda token, *, base_url, what: revoked.append(token) or []
     )
 
     previous = {"token": "probe_pat_old", "base_url": "https://api.test"}
@@ -7870,11 +8238,11 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
@@ -7885,7 +8253,7 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
     # Installed plugins alone do not prove their credentials are present.
     monkeypatch.setattr(
-        doctor_impl,
+        doctor_impl.doctor,
         "collect",
         lambda: _caps(
             claude_available=True,
@@ -7894,11 +8262,14 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
             logged_in_as="richard@prbe.ai",
         ),
     )
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
-    monkeypatch.setattr(wizard, "run_backfill_offer", lambda _s, **kw: set())
-    monkeypatch.setattr(wizard, "run_confirm_install", lambda *a, **k: True)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", lambda _s, **kw: set())
+    monkeypatch.setattr(wizard.screens.confirm, "run_confirm_install", lambda *a, **k: True)
 
     handed = {}
 
@@ -7924,20 +8295,26 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
 
 
 def test_the_backfill_offer_translates_its_answer(monkeypatch):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     monkeypatch.setattr(
-        tui, "ask", lambda q, height=None, **kwargs: [setup.BackfillChoice.PAST_SESSIONS]
+        tui.forms, "ask", lambda q, height=None, **kwargs: [setup.BackfillChoice.PAST_SESSIONS]
+    )
+    monkeypatch.setattr(
+        tui.layout, "ask", lambda q, height=None, **kwargs: [setup.BackfillChoice.PAST_SESSIONS]
     )
     assert setup.run_backfill_offer(("claude_code",)) == {setup.BackfillChoice.PAST_SESSIONS}
 
-    monkeypatch.setattr(tui, "ask", lambda q, height=None, **kwargs: [])
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None, **kwargs: [])
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None, **kwargs: [])
     assert setup.run_backfill_offer(("claude_code",)) == set()
 
-    monkeypatch.setattr(tui, "ask", lambda q, height=None, **kwargs: tui.BACK)
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None, **kwargs: tui.BACK)
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None, **kwargs: tui.BACK)
     assert setup.run_backfill_offer(("claude_code",)) is tui.BACK
 
-    monkeypatch.setattr(tui, "ask", lambda q, height=None, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "ask", lambda q, height=None, **kwargs: None)
+    monkeypatch.setattr(tui.layout, "ask", lambda q, height=None, **kwargs: None)
     assert setup.run_backfill_offer(("claude_code",)) is None
 
 
@@ -7958,30 +8335,32 @@ def test_canceled_or_failed_install_never_starts_selected_imports(monkeypatch, s
     import typer
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap, tui
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import terminal as tui
     from probe.shared.harness import plugins as plugin_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: True)
-    monkeypatch.setattr(doctor, "collect", lambda: _caps())
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     offered = []
 
     def offer(*args, **kwargs):
         offered.append(True)
         return tui.BACK if stop_at == "imports_back" else None
 
-    monkeypatch.setattr(setup, "run_backfill_offer", offer)
-    monkeypatch.setattr(setup, "run_confirm_install", lambda *a, **kw:
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", offer)
+    monkeypatch.setattr(setup.screens.confirm, "run_confirm_install", lambda *a, **kw:
                         None if stop_at == "confirm" else True)
     monkeypatch.setattr(cli_main, "_import_past_sessions", lambda **kw:
                         pytest.fail("an unfinished install must not import"))
     applied = []
 
     def apply(action, **kwargs):
-        from probe.cli.actions import Action
+        from probe.cli.wizard.actions.onboarding import Action
 
         assert action is Action.CONFIGURE, "an unfinished install must not import folders"
         applied.append(action)
@@ -8008,24 +8387,28 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
 
     from typer.testing import CliRunner
 
-    from probe.cli import backfill as backfill_impl
-    from probe.cli import backfill_transcripts as transcripts_mod
-    from probe.cli import bootstrap
-    from probe.cli import import_jobs_ui, onboarding_complete
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.imports import folder as backfill_impl
+    from probe.cli.imports import transcripts as transcripts_mod
+    from probe.cli.install import bootstrap
+    from probe.cli.imports.jobs import ui as import_jobs_ui
+    from probe.cli.wizard.account import onboarding_complete
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
-    from probe.cli import tui
-    from probe.cli.actions import Action
+    from probe.cli import wizard as wizard
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import Action
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(claude_available=True))
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **k: None)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps(claude_available=True))
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **k: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **k: None)
     events = []
     monkeypatch.setattr(
         import_jobs_ui, "show_imports",
@@ -8033,7 +8416,7 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
     )
     monkeypatch.setattr(onboarding_complete, "show", lambda base: events.append("dashboard") or True)
     monkeypatch.setattr(
-        wizard, "run_confirm_install", lambda *a, **k: events.append("confirm") or True
+        wizard.screens.confirm, "run_confirm_install", lambda *a, **k: events.append("confirm") or True
     )
     run_action = cli_main._run_wizard_action
 
@@ -8056,14 +8439,14 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
         offered.append(tuple(sources))
         return choices
 
-    monkeypatch.setattr(wizard, "run_backfill_offer", offer)
+    monkeypatch.setattr(wizard.screens.import_offer, "run_backfill_offer", offer)
     monkeypatch.setattr(
-        transcripts_mod,
+        transcripts_mod.lane,
         "run_lane",
         lambda **kwargs: events.append("sessions") or lane_runs.append(kwargs) or ["imported"],
     )
     monkeypatch.setattr(
-        backfill_impl, "run",
+        backfill_impl.folder, "run",
         lambda **kwargs: events.append("folder") or folder_runs.append(kwargs) or ["imported folder"],
     )
 
@@ -8091,7 +8474,7 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
     offered.clear()
     lane_runs.clear()
     folder_runs.clear()
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
     result = CliRunner().invoke(cli_main.app, ["wizard", "--action", "configure", "--yes"])
     assert result.exit_code == 0, result.output
     assert offered == [] and lane_runs == [] and folder_runs == []
@@ -8192,16 +8575,16 @@ def _headless(monkeypatch, argv, *, detected=()):
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
-    monkeypatch.setattr(wizard, "interactive", lambda: False)
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps())
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: False)
     monkeypatch.setattr(plugin_cli, "available", lambda source: source in detected)
 
     calls: list[str] = []
@@ -8441,7 +8824,7 @@ def test_a_launchers_temporary_copy_is_not_an_install(monkeypatch, tmp_path):
     PATH, so `which("probe")` finds THIS process on a machine with nothing
     installed. Measured shape, from a fresh container:
     `~/.cache/uv/archive-v0/<hash>/bin/probe`."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     home = tmp_path / "home"
     ephemeral = home / ".cache/uv/archive-v0/q6J9HkkgYO5GIi61/bin/probe"
@@ -8464,7 +8847,7 @@ def test_a_real_install_is_still_recognised(monkeypatch, tmp_path):
     is a SYMLINK into `~/.local/share/uv/tools/probe-research`, which is also
     that process's own `sys.prefix` -- so judging by `realpath` or by prefix
     would call a healthy install throwaway and reinstall it on every run."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     home = tmp_path / "home"
     tool = home / ".local/share/uv/tools/probe-research/bin/probe"
@@ -8487,7 +8870,7 @@ def test_a_real_install_is_still_recognised(monkeypatch, tmp_path):
 def test_a_relocated_uv_cache_is_still_a_cache(monkeypatch, tmp_path):
     """uv lets the cache move. A hardcoded `~/.cache/uv` would quietly stop
     matching for anyone who moved it — the same silent wrong answer again."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     cache = tmp_path / "somewhere-else"
     binary = cache / "archive-v0/abc/bin/probe"
@@ -8510,7 +8893,7 @@ def test_a_relocated_uv_cache_is_still_a_cache(monkeypatch, tmp_path):
 def test_the_defaults_picker_offers_on_read_off_and_asks_no_server(isolate, monkeypatch):
     """The daemon left this row (Richard 2026-09-29): the picker lists the three
     switch states, whatever the server would say about the daemon."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
     from probe.sdk import session_marker
 
     _captured, values = _defaults_picker_rows(monkeypatch, session_marker.STATE_FULL)
@@ -8520,9 +8903,9 @@ def test_the_defaults_picker_offers_on_read_off_and_asks_no_server(isolate, monk
     asked = []
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
     monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "run_defaults_menu", lambda current: tui.BACK)
-    monkeypatch.setattr(setup, "daemon_availability", lambda base_url=None: asked.append(1) or (False, None))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_menu", lambda current: tui.BACK)
+    monkeypatch.setattr(setup.apply.recorder, "daemon_availability", lambda base_url=None: asked.append(1) or (False, None))
     assert cli_main._run_defaults_action(yes=False, base_now="https://api.test") is None
     assert asked == []
 
@@ -8530,15 +8913,16 @@ def test_the_defaults_picker_offers_on_read_off_and_asks_no_server(isolate, monk
 def test_the_settings_screen_asks_the_server_nothing(isolate, monkeypatch):
     """Who records left this screen for the main menu (Richard 2026-09-29), so
     the server's answer is asked on the switch, never before this screen."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     cli_main = _settings_main()
     asked = []
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "run_settings_menu", lambda current, *, hidden=frozenset(): tui.BACK)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.settings.menu, "run_settings_menu", lambda current, *, hidden=frozenset(): tui.BACK)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     monkeypatch.setattr(
-        setup, "daemon_availability", lambda base_url=None: asked.append(base_url) or (True, None)
+        setup.apply.recorder, "daemon_availability", lambda base_url=None: asked.append(base_url) or (True, None)
     )
     cli_main._run_settings_action(
         yes=False,
@@ -8626,7 +9010,8 @@ def test_daemon_availability_gives_up_on_a_stalled_network(isolate, monkeypatch)
 
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_test")
     monkeypatch.setattr(transport_mod.transport, "Transport", Stalled)
-    monkeypatch.setattr(setup, "DAEMON_AVAILABILITY_BUDGET_S", 0.2)
+    monkeypatch.setattr(transport_mod.deadlines, "Transport", Stalled)
+    monkeypatch.setattr(setup.apply.recorder, "DAEMON_AVAILABILITY_BUDGET_S", 0.2)
     started = time.monotonic()
     try:
         assert setup.daemon_availability() == (None, None)
@@ -8644,6 +9029,7 @@ def test_daemon_availability_signed_out_asks_nothing(isolate, monkeypatch):
     for name in ("PROBE_TOKEN", "PROBE_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(transport_mod.transport, "Transport", no_request)
+    monkeypatch.setattr(transport_mod.deadlines, "Transport", no_request)
     assert setup.daemon_availability() == (None, None)
 
 
@@ -8688,15 +9074,15 @@ def test_the_account_screen_removes_another_saved_account_never_the_active_one(i
     ],
 )
 def test_a_new_agent_follows_the_devices_daemon(monkeypatch, recorders, source, moves):
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
     from probe.sdk import session_marker
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     calls = []
     monkeypatch.setattr(session_marker, "recorder", lambda s, config=None: recorders.get(s, "agent"))
-    monkeypatch.setattr(wizard, "apply_recorder", lambda caps, value, **kw: calls.append((caps, value)) or ["moved"])
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder", lambda caps, value, **kw: calls.append((caps, value)) or ["moved"])
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: True)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
 
     taken: list[int] = []
@@ -8719,13 +9105,13 @@ def test_a_new_agent_never_opens_a_browser_to_join_the_daemon(monkeypatch):
     """The daemon not ready here (no key, no libraries): setting it up would open
     a browser in the middle of an install, so the new agent records itself and
     the line says how to move it."""
-    from probe.cli import daemon_cli
-    from probe.cli import setup as wizard
+    from probe.cli.commands.daemon import daemon as daemon_cli
+    from probe.cli import wizard as wizard
     from probe.sdk import session_marker
 
     monkeypatch.setattr(session_marker, "recorder", lambda s, config=None: "daemon" if s == "claude_code" else "agent")
-    monkeypatch.setattr(wizard, "apply_recorder", lambda *a, **k: pytest.fail("no move without a ready daemon"))
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: False)
+    monkeypatch.setattr(wizard.apply.recorder, "apply_recorder", lambda *a, **k: pytest.fail("no move without a ready daemon"))
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: False)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
     lines = wizard.follow_machine_recorder("kimi_code", _caps(), base_url="https://api.test")
     assert lines and "Who records" in lines[0]

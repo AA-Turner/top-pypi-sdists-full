@@ -46,7 +46,7 @@ def test_a_guard_with_no_new_privs_never_calls_a_good_version_bad(switched, monk
     """Review (round 4): from a no_new_privs process `ensure` starts no
     service, so the watch saw "did not answer" and switched a good release
     back. There is nothing to watch from there: the version stays."""
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     monkeypatch.setattr(client, "no_new_privs", lambda: True)
     monkeypatch.setenv(guard.WATCH_ENV, "1")
@@ -84,7 +84,7 @@ def test_a_new_service_another_client_started_first_is_taken(switched, service_h
     old service (its exact process) is gone, so that one is the new version."""
     import subprocess
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     monkeypatch.setenv(guard.WATCH_ENV, "1")
     gone = subprocess.Popen(["true"])
@@ -102,7 +102,7 @@ def test_a_new_service_that_hangs_is_killed_by_its_lock_file(switched, service_h
     lock file does. SIGTERM, which it ignores, then SIGKILL."""
     import subprocess
 
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     monkeypatch.setattr(guard, "STOP_WAIT_S", 1.0)
     hung = subprocess.Popen([sys.executable, "-c", (
@@ -132,7 +132,7 @@ def test_a_new_service_restarting_on_purpose_in_its_watch_is_no_crash(switched, 
     one (the R2 local live run: a healthy release was switched back)."""
     import threading
 
-    from probe.service.protocol import Method
+    from probe.foundation.service_api.wire import Method
 
     monkeypatch.setenv(guard.WATCH_ENV, "5")
     first = service_home.start()
@@ -175,7 +175,7 @@ def _gone_old() -> list:
     """`--old-pid`/`--old-start` of a process that already exited."""
     import subprocess
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     gone = subprocess.Popen(["sleep", "0.2"])
     start = wait_for(lambda: procid.start_time(gone.pid), 2.0) or "x"

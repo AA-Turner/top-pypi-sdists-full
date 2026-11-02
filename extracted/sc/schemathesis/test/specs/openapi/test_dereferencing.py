@@ -8,7 +8,7 @@ import pytest
 from flask import Flask, jsonify
 from hypothesis import given, settings
 from hypothesis.errors import Unsatisfiable
-from jsonschema_rs import Draft4Validator
+from jsonschema_rs import Draft4Validator, Draft202012Validator
 from werkzeug.exceptions import InternalServerError
 
 import schemathesis
@@ -49,6 +49,38 @@ def test_request_body_schema_reference_to_plain_name_anchor(ctx):
         assert isinstance(case.body, str)
 
 
+@pytest.mark.parametrize(
+    ("identifier", "reference"),
+    [
+        ("tree", "tree"),
+        ("https://example.com/schemas/tree", "tree"),
+        ("schemas/tree", "tree"),
+        ("./tree", "tree"),
+    ],
+    ids=["relative-id", "reference-relative-to-id", "reference-relative-to-relative-id", "dot-segment-id"],
+)
+def test_request_body_relative_reference_to_declared_id(ctx, identifier, reference):
+    tree = {
+        "$id": identifier,
+        "type": "object",
+        "properties": {"id": {"type": "integer"}, "children": {"type": "array", "items": {"$ref": reference}}},
+        "required": ["id"],
+    }
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"application/json": {"schema": tree}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="3.1.0",
+    )
+    validator = Draft202012Validator(tree)
+
+    bodies = [case.body for case in generate_many(operation.as_strategy(), 10)]
+
+    assert [body for body in bodies if not validator.is_valid(body)] == []
+
+
 @pytest.mark.hypothesis_nested
 def test_request_body_reference_into_fragment_of_declared_id(ctx):
     operation = ctx.openapi.load_operation(
@@ -74,6 +106,81 @@ def test_request_body_reference_into_fragment_of_declared_id(ctx):
     @run_given(case=operation.as_strategy(), max_examples=3)
     def test(case):
         assert case.body == "alpha"
+
+
+def _object_with_own_code(uri, code):
+    return {
+        "$id": uri,
+        "type": "object",
+        "properties": {"code": {"$ref": "#/$defs/Code"}},
+        "required": ["code"],
+        "additionalProperties": False,
+        "$defs": {"Code": {"enum": [code]}},
+    }
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    ("version", "schema", "schemas", "expected"),
+    [
+        ("3.1.0", _object_with_own_code("https://example.invalid/item", "alpha"), {}, {"code": "alpha"}),
+        (
+            "3.0.2",
+            {
+                "id": "https://example.invalid/item",
+                "type": "object",
+                "properties": {"code": {"$ref": "#/definitions/Code"}},
+                "required": ["code"],
+                "additionalProperties": False,
+                "definitions": {"Code": {"enum": ["alpha"]}},
+            },
+            {},
+            {"code": "alpha"},
+        ),
+        (
+            "3.1.0",
+            {
+                **_object_with_own_code("https://example.invalid/outer", "alpha"),
+                "properties": {
+                    "code": {"$ref": "#/$defs/Code"},
+                    "inner": _object_with_own_code("https://example.invalid/inner", "beta"),
+                },
+                "required": ["code", "inner"],
+            },
+            {},
+            {"code": "alpha", "inner": {"code": "beta"}},
+        ),
+        (
+            "3.1.0",
+            {
+                "type": "object",
+                "properties": {"a": {"$ref": "https://example.invalid/a"}, "b": {"$ref": "https://example.invalid/b"}},
+                "required": ["a", "b"],
+                "additionalProperties": False,
+            },
+            {
+                "A": _object_with_own_code("https://example.invalid/a", "alpha"),
+                "B": _object_with_own_code("https://example.invalid/b", "beta"),
+            },
+            {"a": {"code": "alpha"}, "b": {"code": "beta"}},
+        ),
+    ],
+    ids=["defs", "draft-4-definitions", "nested-resource", "named-resources"],
+)
+def test_request_body_reference_into_own_definitions_of_declared_id(ctx, version, schema, schemas, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"application/json": {"schema": schema}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+        components={"schemas": schemas},
+    )
+
+    @run_given(case=operation.as_strategy(), max_examples=3)
+    def test(case):
+        assert case.body == expected
 
 
 def build_schema_with_recursion(schema, definition):

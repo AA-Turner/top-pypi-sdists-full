@@ -1,0 +1,953 @@
+"""Tests for the upstream-drift checker.
+
+No test touches the network. Every verdict is reachable through the ``--body`` seam or an injected
+fetcher, which is deliberate: a suite that needed the wire would pass by silently skipping on a CI
+runner without one, and a freshness check that can pass by not running is the failure it exists to
+prevent.
+"""
+
+import json
+import time
+from pathlib import Path
+
+import pytest
+
+import hookdoc_stamp as H
+
+SKILL = Path(__file__).resolve().parents[1]
+FIXTURES = SKILL / "tests" / "fixtures"
+SHIPPED_STAMP = SKILL / "references" / "upstream-stamp.json"
+REFS = SKILL / "references"
+
+
+def fixture(name: str) -> bytes:
+    return (FIXTURES / name).read_bytes()
+
+
+def sample_record() -> dict:
+    return json.loads((FIXTURES / "stamp-sample.json").read_text(encoding="utf-8"))["sources"][0]
+
+
+# --------------------------------------------------------------------------- normalisation
+
+
+def test_normalise_drops_only_the_preamble_before_the_h1():
+    body = H.normalise(fixture("hooks-sample.md"))
+    assert body.startswith("# Hooks reference")
+    assert "Documentation Index" not in body
+    assert "## Hook events" in body
+
+
+def test_normalise_is_idempotent():
+    once = H.normalise(fixture("hooks-sample.md"))
+    assert H.normalise(once) == once
+
+
+def test_normalise_on_a_body_with_no_h1_is_broken_not_empty():
+    with pytest.raises(H.ControlError):
+        H.normalise(b"just some text\nwith no heading at all\n")
+
+
+def test_normalise_rejects_invalid_utf8_as_broken():
+    with pytest.raises(H.ControlError):
+        H.normalise(b"# Title\n\xff\xfe not utf-8\n")
+
+
+def test_normalise_erases_crlf_and_trailing_whitespace_only():
+    src = "# T\r\n\r\nkeep   this   spacing   \r\n"
+    out = H.normalise(src.encode("utf-8"))
+    assert "\r" not in out
+    assert "keep   this   spacing" in out, "intra-line spacing must survive so a realignment stays visible"
+
+
+def test_normalise_collapses_long_blank_runs_to_at_most_two():
+    out = H.normalise(b"# T\n\n\n\n\n\n\nbody\n")
+    assert "\n\n\n\n" not in out, "a run longer than two blank lines must be collapsed"
+    assert "body" in out
+
+
+# --------------------------------------------------------------------------- fingerprint
+
+
+def test_fingerprint_lists_every_event_heading():
+    fp = H.fingerprint(H.normalise(fixture("hooks-sample.md")))
+    assert len(fp["events"]) == 33, "the fixture carries all 33 event headings"
+    assert "PreToolUse" in fp["events"]
+
+
+def test_fingerprint_reads_fences_whose_info_string_carries_an_attribute():
+    """The upstream page writes fences as ```json theme={null}.
+
+    A pattern that accepts only a bare language word rejects that opener and then reads the bare
+    closing fence as an opener, inverting the fence state for the rest of the document. Measured
+    against the live page, that yielded 0 of 31 events while reporting no error at all.
+    """
+    body = H.normalise(fixture("hooks-sample.md"))
+    assert "theme={null}" in body, "the fixture must keep the attribute-bearing fence"
+    fp = H.fingerprint(body)
+    assert len(fp["events"]) == 33
+    assert fp["handler_types"], "json fences must be recognised so handler types are extracted"
+
+
+def test_fingerprint_ignores_headings_inside_fenced_code_blocks():
+    text = "# T\n\n## Real\n\n```bash\n# not a heading\n## also not a heading\n```\n\n## Also Real\n"
+    fp = H.fingerprint(H.normalise(text.encode("utf-8")))
+    assert "H2:Real" in fp["headings"] and "H2:Also Real" in fp["headings"]
+    assert not any("not a heading" in h for h in fp["headings"])
+
+
+def test_fingerprint_is_stable_when_two_event_sections_swap_places():
+    """Membership defines the surface, so document order must not reach the structural digest."""
+    body = H.normalise(fixture("hooks-sample.md"))
+    a, b = "### PreToolUse\n\nFires for PreToolUse. See the table above.\n", "### Stop\n\nFires for Stop. See the table above.\n"
+    assert a in body and b in body
+    swapped = body.replace(a, "@@A@@").replace(b, a).replace("@@A@@", b)
+    assert swapped != body
+    assert H.structure_sha(H.fingerprint(swapped)) == H.structure_sha(H.fingerprint(body))
+
+
+def test_fingerprint_changes_when_an_event_is_renamed():
+    a = H.fingerprint(H.normalise(fixture("hooks-sample.md")))
+    b = H.fingerprint(H.normalise(fixture("hooks-sample-structural.md")))
+    assert H.structure_sha(a) != H.structure_sha(b)
+    assert "PostToolGroup" in b["events"] and "PostToolBatch" not in b["events"]
+
+
+def test_fingerprint_ignores_prose_rewording_and_unbackticked_table_cells():
+    a = H.fingerprint(H.normalise(fixture("hooks-sample.md")))
+    b = H.fingerprint(H.normalise(fixture("hooks-sample-cosmetic.md")))
+    assert H.structure_sha(a) == H.structure_sha(b), "rewording must not read as an API change"
+
+
+def test_fingerprint_excludes_json_schema_primitives_from_handler_types():
+    text = '# T\n\n## S\n\n```json theme={null}\n{ "hooks": [\n{ "type": "object" }\n{ "type": "command" }\n] }\n```\n'
+    fp = H.fingerprint(H.normalise(text.encode("utf-8")))
+    assert "command" in fp["handler_types"]
+    assert "object" not in fp["handler_types"], "a schema example must not look like a new handler type"
+
+
+def test_fingerprint_takes_handler_types_only_from_a_fence_that_configures_hooks():
+    """A ``"type"`` value in an input or output example is not a handler type.
+
+    The live page shows a Write ``tool_response`` carrying ``"type": "create"`` and a Stop
+    ``background_tasks`` entry carrying ``"type": "shell"``. Read as handler types, each became a
+    name ``coverage`` demanded the references document, and an upstream example edit read as a new
+    handler type. Only a fence that configures hooks - it has a ``"hooks"`` key - can name one.
+    """
+    text = (
+        '# T\n\n## S\n\n'
+        '```json theme={null}\n{ "tool_response": {\n    "filePath": "/p",\n    "type": "create"\n  } }\n```\n\n'
+        'Between.\n\n'
+        '```json theme={null}\n{ "background_tasks": [ {\n      "type": "shell"\n  } ] }\n```\n\n'
+        'Between.\n\n'
+        '```json theme={null}\n{\n  "hooks": {\n    "Stop": [ { "hooks": [\n'
+        '      { "type": "command", "command": "x" },\n      { "type": "http", "url": "u" }\n    ] } ]\n  }\n}\n```\n'
+    )
+    fp = H.fingerprint(H.normalise(text.encode("utf-8")))
+    assert fp["handler_types"] == ["command", "http"]
+
+
+def test_prose_tier_keeps_headings_only():
+    fp = H.fingerprint(H.normalise(fixture("hooks-sample.md")), tier="prose")
+    assert fp["headings"]
+    assert fp["events"] == [] and fp["json_fields"] == []
+
+
+# --------------------------------------------------------------------------- verdicts
+
+
+def test_identical_body_is_current():
+    assert H.compare(sample_record(), fixture("hooks-sample.md")).verdict == H.CURRENT
+
+
+def test_reworded_body_is_cosmetic_and_names_the_changed_sections():
+    v = H.compare(sample_record(), fixture("hooks-sample-cosmetic.md"))
+    assert v.verdict == H.COSMETIC
+    assert v.detail["changed_sections"], "a cosmetic report must localise the change"
+
+
+def test_renamed_event_is_structural_and_names_added_and_removed():
+    v = H.compare(sample_record(), fixture("hooks-sample-structural.md"))
+    assert v.verdict == H.STRUCTURAL
+    assert "PostToolGroup" in v.detail["added"]["events"]
+    assert "PostToolBatch" in v.detail["removed"]["events"]
+
+
+def test_truncated_body_is_broken_not_structural():
+    """A short read must not read as 'every event was removed'.
+
+    That verdict would be both false and maximally loud, which is how a checker teaches the people
+    who rely on it to stop believing it.
+    """
+    assert H.compare(sample_record(), fixture("hooks-sample-truncated.md")).verdict == H.BROKEN
+
+
+def test_a_body_missing_a_required_heading_is_broken():
+    rec = sample_record()
+    body = H.normalise(fixture("hooks-sample.md")).replace("## Security considerations", "## Something else")
+    assert H.compare(rec, body.encode("utf-8")).verdict == H.BROKEN
+
+
+def test_a_body_with_too_few_events_is_broken_not_structural():
+    rec = sample_record()
+    body = H.normalise(fixture("hooks-sample.md"))
+    head, _, _ = body.partition("### PostToolUse")
+    assert H.compare(rec, (head + "## Security considerations\n").encode("utf-8")).verdict == H.BROKEN
+
+
+# --------------------------------------------------------------------------- fetching
+
+
+def test_http_error_is_broken():
+    with pytest.raises(H.ControlError):
+        H.fetch_body("https://example.invalid/x", 1.0, lambda u, t: (404, b"", "text/markdown"))
+
+
+def test_wrong_content_type_is_broken():
+    with pytest.raises(H.ControlError):
+        H.fetch_body("https://example.invalid/x", 1.0, lambda u, t: (200, b"# T\n", "text/html"))
+
+
+def test_fetch_failure_is_broken_never_current():
+    def boom(url, timeout):
+        raise OSError("Network is unreachable")
+
+    with pytest.raises(H.ControlError):
+        H.fetch_body("https://example.invalid/x", 1.0, boom)
+
+
+def test_fetch_timeout_is_broken_and_returns_within_the_wall():
+    import time
+
+    def slow(url, timeout):
+        time.sleep(5)
+        return (200, b"# T\n", "text/markdown")
+
+    started = time.monotonic()
+    with pytest.raises(H.ControlError) as exc:
+        H.fetch_with_wall("https://example.invalid/x", 0.3, slow)
+    assert "timeout" in str(exc.value)
+    assert time.monotonic() - started < 3.0, "the wall must bound the total call, not each socket read"
+
+
+# --------------------------------------------------------------------------- stamp integrity
+
+
+def test_unreadable_stamp_is_broken_not_current(tmp_path):
+    bad = tmp_path / "s.json"
+    bad.write_text("{not json", encoding="utf-8")
+    with pytest.raises(H.ControlError):
+        H.load_stamp(bad)
+
+
+def test_stamp_with_a_foreign_normalisation_id_is_refused(tmp_path):
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    stamp["normalisation"]["id"] = "n0"
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps(stamp), encoding="utf-8")
+    with pytest.raises(H.ControlError):
+        H.load_stamp(p)
+
+
+def test_shipped_stamp_declares_the_normalisation_id_the_code_implements():
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    assert stamp["normalisation"]["id"] == H.NORMALISATION_ID
+    assert stamp["normalisation"]["rules"] == H.NORMALISATION_RULES
+
+
+def test_shipped_stamp_counts_match_its_own_fingerprint():
+    for src in json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))["sources"]:
+        for key, count in src["counts"].items():
+            assert len(src["fingerprint"][key]) == count, "%s/%s" % (src["name"], key)
+
+
+def test_shipped_stamp_lists_all_thirty_three_events():
+    api = [s for s in json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))["sources"] if s["tier"] == "api"]
+    assert len(api) == 1
+    events = api[0]["fingerprint"]["events"]
+    assert len(events) == 33
+    assert {"PreModelSwitch", "PostModelSwitch"} <= set(events)
+
+
+def test_shipped_stamp_has_no_recorded_coverage_gaps():
+    assert json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))["coverage_gaps"] == []
+
+
+# --------------------------------------------------------------------------- coverage
+
+
+def test_coverage_complete_for_the_shipped_stamp_and_references():
+    result = H.coverage(json.loads(SHIPPED_STAMP.read_text(encoding="utf-8")), REFS)
+    assert result["missing_events"] == []
+    assert result["phantom_events"] == []
+    assert result["missing_required"] == []
+    assert result["complete"] is True
+
+
+def test_coverage_reports_a_missing_event_section(tmp_path):
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    refs = tmp_path / "references"
+    refs.mkdir()
+    text = (REFS / "events.md").read_text(encoding="utf-8").replace("### FileChanged", "### Removed")
+    (refs / "events.md").write_text(text, encoding="utf-8")
+    for name in ("io-contract.md", "configuration.md", "authoring.md"):
+        (refs / name).write_text((REFS / name).read_text(encoding="utf-8"), encoding="utf-8")
+    result = H.coverage(stamp, refs)
+    assert "FileChanged" in result["missing_events"]
+    assert result["complete"] is False
+
+
+def test_a_mere_mention_does_not_count_as_documenting_an_event(tmp_path):
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    refs = tmp_path / "references"
+    refs.mkdir()
+    events = [e for s in stamp["sources"] if s["tier"] == "api" for e in s["fingerprint"]["events"]]
+    prose = "# Everything\n\n" + " ".join("The %s event exists." % e for e in events) + "\n"
+    (refs / "everything.md").write_text(prose, encoding="utf-8")
+    result = H.coverage(stamp, refs)
+    assert result["missing_events"], "prose mentions must not satisfy the bar; a heading is required"
+
+
+def test_coverage_with_no_reference_files_is_broken_not_complete(tmp_path):
+    empty = tmp_path / "references"
+    empty.mkdir()
+    with pytest.raises(H.ControlError):
+        H.coverage(json.loads(SHIPPED_STAMP.read_text(encoding="utf-8")), empty)
+
+
+def test_coverage_with_an_emptied_stamp_is_broken_not_complete():
+    with pytest.raises(H.ControlError):
+        H.coverage({"sources": [{"name": "x", "tier": "api", "fingerprint": {"events": []}}]}, REFS)
+
+
+# --------------------------------------------------------------------------- cache
+
+
+def test_fresh_cache_replays_without_fetching(tmp_path):
+    payload = {"verdict": H.CURRENT, "checked_at_epoch": 1000.0, "stamp_sha256": "abc"}
+    H.write_cache(tmp_path, payload)
+    assert H.read_cache(tmp_path, "abc", 600.0, 1100.0)["cached"] is True
+
+
+def test_cache_is_invalidated_when_the_stamp_hash_changes(tmp_path):
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": 1000.0, "stamp_sha256": "abc"})
+    assert H.read_cache(tmp_path, "different", 600.0, 1100.0) is None
+
+
+def test_expired_cache_triggers_a_fetch(tmp_path):
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": 1000.0, "stamp_sha256": "abc"})
+    assert H.read_cache(tmp_path, "abc", 60.0, 5000.0) is None
+
+
+def test_a_broken_verdict_expires_sooner_than_a_good_one(tmp_path):
+    H.write_cache(tmp_path, {"verdict": H.BROKEN, "checked_at_epoch": 1000.0, "stamp_sha256": "abc"})
+    assert H.read_cache(tmp_path, "abc", 604800.0, 1000.0 + 1000.0) is None
+
+
+# --------------------------------------------------------------------------- selftest
+
+
+def test_selftest_passes_on_the_shipped_fixtures():
+    assert H.run_selftest(FIXTURES)["passed"] is True
+
+
+def test_selftest_fails_when_the_comparator_always_says_current():
+    """The known-negative of the known-negative.
+
+    A comparator that answers CURRENT to everything is indistinguishable from a clean bill of
+    health, so the proof itself has to be shown capable of failing.
+    """
+    always_current = lambda record, raw: H.Verdict("x", H.CURRENT, "stub")  # noqa: E731
+    assert H.run_selftest(FIXTURES, comparator=always_current)["passed"] is False
+
+
+def test_selftest_fails_when_a_fixture_is_missing(tmp_path):
+    with pytest.raises(H.ControlError):
+        H.run_selftest(tmp_path)
+
+
+def test_selftest_expects_four_distinct_verdicts():
+    got = {expected for _, expected in H.SELFTEST_FIXTURES}
+    assert got == {H.CURRENT, H.COSMETIC, H.STRUCTURAL, H.BROKEN}
+
+
+# --------------------------------------------------------------------------- CLI
+
+
+def test_exit_codes_match_the_documented_table():
+    assert H._EXIT[H.CURRENT] == 0 and H._EXIT[H.COSMETIC] == 0
+    assert H._EXIT[H.STRUCTURAL] == 1
+    assert H._EXIT[H.BROKEN] == 2
+
+
+def test_coverage_command_json_envelope_shape(capsys):
+    rc = H.main(["coverage", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert set(payload) == {"ok", "command", "data", "skipped"}
+    assert payload["command"] == "hookdoc_stamp/coverage"
+    assert payload["ok"] is True
+
+
+def test_check_against_a_local_body_needs_no_network(capsys):
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-structural.md"), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert payload["data"]["verdict"] == H.STRUCTURAL
+    assert payload["ok"] is True   # ok = ran without error; the drift is the exit code's 1
+
+
+def test_expect_flag_fails_on_a_mismatched_verdict(capsys):
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample.md"), "--expect", H.STRUCTURAL])
+    capsys.readouterr()
+    assert rc == 1
+
+
+def test_a_broken_verdict_exits_2_even_when_expect_mismatches(capsys):
+    """--expect turned a run that could not look (BROKEN) into a plain 'no' (1)."""
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-truncated.md"), "--expect", H.CURRENT])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "expected CURRENT, got BROKEN" in err
+
+
+def test_a_broken_verdict_that_was_expected_still_exits_2(capsys):
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-truncated.md"), "--expect", H.BROKEN])
+    capsys.readouterr()
+    assert rc == 2
+
+
+def test_json_output_stays_parseable_when_the_stamp_is_broken(tmp_path, capsys):
+    bad = tmp_path / "s.json"
+    bad.write_text("{not json", encoding="utf-8")
+    rc = H.main(["coverage", "--stamp", str(bad), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert payload["ok"] is False
+    assert payload["data"]["verdict"] == H.BROKEN
+
+
+def test_selftest_command_exits_zero(capsys):
+    rc = H.main(["selftest"])
+    capsys.readouterr()
+    assert rc == 0
+
+
+def test_stamp_dry_run_does_not_write(tmp_path, capsys):
+    target = tmp_path / "stamp.json"
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    stamp["sources"] = json.loads((FIXTURES / "stamp-sample.json").read_text(encoding="utf-8"))["sources"]
+    target.write_text(json.dumps(stamp), encoding="utf-8")
+    before = target.read_bytes()
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample.md")])
+    capsys.readouterr()
+    assert rc == 0
+    assert target.read_bytes() == before, "a dry run must not touch the stamp"
+
+
+def test_baseline_check_matches_the_shipped_skill_md(capsys):
+    rc = H.main(["baseline"])
+    capsys.readouterr()
+    assert rc == 0, "SKILL.md baseline line is stale; run: hookdoc_stamp.py baseline --write"
+
+
+# --------------------------------------------------------------------------- hygiene
+
+
+def test_a_check_run_leaves_the_skill_dir_untouched(tmp_path, capsys):
+    """The installed skill lives inside a git clone that /plugin marketplace update pulls.
+
+    A cache file written into the skill dir would dirty that clone and break the update for every
+    user, so all mutable state belongs outside it.
+    """
+    before = {p: p.stat().st_mtime_ns for p in SKILL.rglob("*") if p.is_file() and "__pycache__" not in str(p)}
+    H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+            "--body", str(FIXTURES / "hooks-sample.md"), "--cache-dir", str(tmp_path / "cache")])
+    capsys.readouterr()
+    after = {p: p.stat().st_mtime_ns for p in SKILL.rglob("*") if p.is_file() and "__pycache__" not in str(p)}
+    assert before == after
+
+
+def test_module_imports_without_third_party_dependencies():
+    """The repo gate imports test modules with a bare interpreter and does not provision PEP 723
+    dependencies, so any third-party import must stay inside the function that needs it."""
+    source = (SKILL / "scripts" / "hookdoc_stamp.py").read_text(encoding="utf-8")
+    module_level = [
+        line for line in source.split("\n")
+        if (line.startswith("import ") or line.startswith("from ")) and "httpx" in line
+    ]
+    assert module_level == [], "httpx2 must be imported lazily inside _fetch"
+
+
+# --------------------------------------------------------------------------- output-contract gate
+
+
+def test_harvest_field_takes_identifier_dotted_and_key_colon_forms():
+    got = set()
+    for span in ("systemMessage", "hookSpecificOutput.worktreePath", "retry: true", "PostToolUse", "true"):
+        H._harvest_field(span, got)
+    assert "systemMessage" in got
+    assert "worktreePath" in got, "a dotted path must yield its last segment"
+    assert "retry" in got, "a key-with-value span must yield the key"
+    assert "PostToolUse" not in got, "an event name is not a field"
+    assert "ostToolUse" not in got, "matching words mid-token would fabricate fragments"
+    assert "true" not in got, "a literal is not a field"
+
+
+def test_output_fields_are_scoped_to_the_io_section():
+    text = (
+        "# T\n\n## Hook input and output\n\nThe `systemMessage` field warns the user.\n\n"
+        "## Hook events\n\n### PreToolUse\n\nThe `old_string` field is a tool input.\n"
+    )
+    fp = H.fingerprint(H.normalise(text.encode("utf-8")))
+    assert "systemMessage" in fp["output_fields"]
+    assert "old_string" not in fp["output_fields"], "a per-tool example key is not part of the output contract"
+
+
+def test_shipped_stamp_gates_the_real_output_contract_fields():
+    api = [s for s in json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))["sources"] if s["tier"] == "api"][0]
+    gated = set(api["fingerprint"]["output_fields"])
+    for field in ("continue", "stopReason", "suppressOutput", "systemMessage", "terminalSequence",
+                  "hookSpecificOutput", "hookEventName", "permissionDecision", "permissionDecisionReason",
+                  "additionalContext", "updatedInput", "updatedToolOutput", "retry", "displayContent",
+                  "worktreePath", "decision", "reason", "behavior"):
+        assert field in gated, "%s must be gated, not merely reported" % field
+
+
+@pytest.mark.parametrize("victim", ["updatedToolOutput", "terminalSequence", "retry"])
+def test_coverage_fails_when_a_real_output_field_stops_being_documented(tmp_path, victim):
+    """The control for the gate itself.
+
+    Widening the blocking set passed on the first run, which is exactly when a gate that asserts
+    nothing looks identical to one that works.
+    """
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    refs = tmp_path / "references"
+    refs.mkdir()
+    for f in REFS.glob("*.md"):
+        (refs / f.name).write_text(f.read_text(encoding="utf-8").replace(victim, "zzPlaceholder"), encoding="utf-8")
+    result = H.coverage(stamp, refs)
+    assert victim in result["missing_required"]
+    assert result["complete"] is False
+
+
+def test_coverage_does_not_fail_on_an_undocumented_per_tool_example_key(tmp_path):
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    api = [s for s in stamp["sources"] if s["tier"] == "api"][0]
+    api["fingerprint"]["json_fields"] = sorted(set(api["fingerprint"]["json_fields"]) | {"zzNeverDocumented"})
+    result = H.coverage(stamp, REFS)
+    assert "zzNeverDocumented" in result["undocumented_advisory"]
+    assert result["complete"] is True, "an example key must be reported, not blocking"
+
+
+def test_io_contract_documents_every_per_tool_input_schema():
+    text = (REFS / "io-contract.md").read_text(encoding="utf-8")
+    for tool in ("Bash", "PowerShell", "Write", "Edit", "Read", "Glob", "Grep", "WebFetch",
+                 "WebSearch", "Agent", "AskUserQuestion", "ExitPlanMode"):
+        assert "`%s`" % tool in text, "tool_input schema for %s is not documented" % tool
+    for field in ("old_string", "replace_all", "output_mode", "subagent_type", "planFilePath",
+                  "run_in_background", "blocked_domains"):
+        assert field in text, "%s missing from the per-tool schemas" % field
+
+
+# --------------------------------------------------------------------------- CLI version signal
+
+
+def test_local_cli_version_parses_a_version_string():
+    assert H.local_cli_version(lambda: "2.1.240 (Claude Code)") == "2.1.240"
+
+
+def test_local_cli_version_is_none_when_the_cli_is_absent():
+    assert H.local_cli_version(lambda: None) is None
+
+
+def test_local_cli_version_is_none_when_the_output_has_no_version():
+    assert H.local_cli_version(lambda: "not a version at all") is None
+
+
+def test_cli_ahead_of_docs_compares_numerically_not_lexically():
+    assert H.cli_ahead_of_docs("2.1.240", "2.1.99") is True, "a lexical compare would call 240 older than 99"
+    assert H.cli_ahead_of_docs("2.1.100", "2.1.234") is False
+    assert H.cli_ahead_of_docs("2.1.234", "2.1.234") is False
+
+
+def test_cli_ahead_of_docs_is_unknown_rather_than_false_when_either_side_is_missing():
+    """Unknown must not read as 'not ahead': that is the same not-looked/not-changed conflation
+    the BROKEN verdict exists to prevent, applied to this signal."""
+    assert H.cli_ahead_of_docs(None, "2.1.234") is None
+    assert H.cli_ahead_of_docs("2.1.240", None) is None
+    assert H.cli_ahead_of_docs("nonsense", "2.1.234") is None
+
+
+def test_check_payload_carries_the_version_signal(capsys):
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample.md"), "--json"])
+    payload = json.loads(capsys.readouterr().out)["data"]
+    assert rc == 0
+    for key in ("cli_version", "docs_cover_up_to", "cli_ahead_of_docs"):
+        assert key in payload
+
+
+def test_no_cli_probe_reports_the_signal_as_unavailable(capsys):
+    H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--source", "hooks-sample",
+            "--body", str(FIXTURES / "hooks-sample.md"), "--json", "--no-cli-probe"])
+    payload = json.loads(capsys.readouterr().out)["data"]
+    assert payload["cli_version"] is None
+    assert payload["cli_ahead_of_docs"] is None
+
+
+def test_a_cli_ahead_of_the_docs_shortens_the_cache_window(tmp_path):
+    """A stamp can match upstream exactly while upstream lags a newer CLI. The seven-day window is
+    where that goes unnoticed, so it drops to a day."""
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": 1000.0, "stamp_sha256": "abc"})
+    week, day = 604800.0, 86400.0
+    two_days_later = 1000.0 + 2 * day
+    assert H.read_cache(tmp_path, "abc", week, two_days_later) is not None, "the normal window still replays"
+    assert H.read_cache(tmp_path, "abc", min(week, day), two_days_later) is None, "the shortened window expires"
+
+
+def test_a_cache_hit_reports_the_LIVE_cli_version_not_the_cached_one(tmp_path, monkeypatch, capsys):
+    """`check` prints "your CLI is X" in the present tense, and on a cache hit X came from the
+    stored payload - a version the reader may have upgraded past days ago.
+
+    The cache exists for the network fetch. The CLI probe is a local call with a 10s timeout, so
+    replaying it costs nothing, and the staleness verdict that matters (docs versus CLI) is
+    computed from that number.
+    """
+    stamp = FIXTURES / "stamp-sample.json"
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": time.time(),
+                             "stamp_sha256": H.stamp_hash(stamp), "cli_version": "2.1.247",
+                             "docs_cover_up_to": "2.1.200", "source": "hooks-sample"})
+    monkeypatch.setattr(H, "local_cli_version", lambda *a, **k: "2.1.250")
+
+    H.main(["check", "--stamp", str(stamp), "--source", "hooks-sample", "--json",
+            "--cache-dir", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)["data"]
+
+    assert payload["cached"] is True, "the fetch must still be served from cache"
+    assert payload["cli_version"] == "2.1.250", "reported a stale CLI version as current"
+
+
+def test_a_cache_hit_with_no_cli_probe_does_not_invent_a_version(tmp_path, capsys):
+    stamp = FIXTURES / "stamp-sample.json"
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": time.time(),
+                             "stamp_sha256": H.stamp_hash(stamp), "cli_version": "2.1.247",
+                             "source": "hooks-sample"})
+    H.main(["check", "--stamp", str(stamp), "--source", "hooks-sample", "--json",
+            "--cache-dir", str(tmp_path), "--no-cli-probe"])
+    payload = json.loads(capsys.readouterr().out)["data"]
+    assert payload["cli_version"] is None
+
+
+# --------------------------------------------------------------------------- audit fixes
+#
+# The network is the one true external edge here, so `_fetch` is replaced by a map of the bundled
+# fixture bodies. Everything else runs for real.
+
+SAMPLE_URL = sample_record()["url"]
+SECOND_URL = "https://example.com/docs/en/second.md"
+
+
+class FakeNet:
+    """Serves fixture bodies by URL and records every fetch, so a test can assert none happened."""
+
+    def __init__(self, bodies: dict[str, str]) -> None:
+        self.bodies = bodies
+        self.calls: list[str] = []
+
+    def __call__(self, url: str, timeout: float) -> tuple[int, bytes, str]:
+        self.calls.append(url)
+        return 200, fixture(self.bodies[url]), "text/markdown; charset=utf-8"
+
+
+def two_source_stamp(tmp_path: Path) -> Path:
+    stamp = json.loads((FIXTURES / "stamp-sample.json").read_text(encoding="utf-8"))
+    second = dict(stamp["sources"][0], name="second", url=SECOND_URL)
+    stamp["sources"].append(second)
+    path = tmp_path / "two.json"
+    path.write_text(json.dumps(stamp), encoding="utf-8")
+    return path
+
+
+def sample_stamp_over_shipped(tmp_path: Path) -> Path:
+    """The shipped stamp with its sources replaced by the fixture one: coverage is complete."""
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    stamp["sources"] = json.loads((FIXTURES / "stamp-sample.json").read_text(encoding="utf-8"))["sources"]
+    path = tmp_path / "stamp.json"
+    path.write_text(json.dumps(stamp), encoding="utf-8")
+    return path
+
+
+def test_a_narrowed_check_does_not_certify_the_other_sources(tmp_path, monkeypatch, capsys):
+    """`check --source A` wrote the cache; a full `check` then replayed it and never looked at B."""
+    net = FakeNet({SAMPLE_URL: "hooks-sample.md", SECOND_URL: "hooks-sample-structural.md"})
+    monkeypatch.setattr(H, "_fetch", net)
+    stamp = two_source_stamp(tmp_path)
+    cache = tmp_path / "cache"
+    rc = H.main(["check", "--stamp", str(stamp), "--source", "hooks-sample", "--cache-dir", str(cache),
+                 "--no-cli-probe"])
+    capsys.readouterr()
+    assert rc == 0
+    rc = H.main(["check", "--stamp", str(stamp), "--cache-dir", str(cache), "--no-cli-probe", "--json"])
+    payload = json.loads(capsys.readouterr().out)["data"]
+    assert rc == 1, payload
+    assert payload["cached"] is False
+    assert payload["verdict"] == H.STRUCTURAL
+
+
+def test_a_repeated_full_check_is_served_from_the_cache(tmp_path, monkeypatch, capsys):
+    """The control: keying on the source must not stop a full check replaying a full check."""
+    net = FakeNet({SAMPLE_URL: "hooks-sample.md", SECOND_URL: "hooks-sample.md"})
+    monkeypatch.setattr(H, "_fetch", net)
+    stamp = two_source_stamp(tmp_path)
+    cache = tmp_path / "cache"
+    for _ in range(2):
+        H.main(["check", "--stamp", str(stamp), "--cache-dir", str(cache), "--no-cli-probe"])
+    capsys.readouterr()
+    assert len(net.calls) == 2, net.calls
+
+
+def test_offline_with_no_cache_fetches_nothing(tmp_path, monkeypatch, capsys):
+    net = FakeNet({SAMPLE_URL: "hooks-sample.md"})
+    monkeypatch.setattr(H, "_fetch", net)
+    rc = H.main(["check", "--stamp", str(FIXTURES / "stamp-sample.json"), "--offline",
+                 "--cache-dir", str(tmp_path), "--no-cli-probe"])
+    out = capsys.readouterr().out
+    assert rc == 2
+    assert "offline" in out
+    assert net.calls == []
+
+
+def test_an_offline_run_does_not_poison_the_next_online_check(tmp_path, monkeypatch, capsys):
+    """--offline looked at nothing, so its BROKEN is no result. Cached, the next ONLINE check
+    replayed "offline and no fresh cache" for the BROKEN window without fetching at all."""
+    net = FakeNet({SAMPLE_URL: "hooks-sample.md"})
+    monkeypatch.setattr(H, "_fetch", net)
+    stamp = FIXTURES / "stamp-sample.json"
+    common = ["--stamp", str(stamp), "--cache-dir", str(tmp_path), "--no-cli-probe", "--json"]
+    assert H.main(["check", "--offline", *common]) == 2
+    capsys.readouterr()
+    rc = H.main(["check", *common])
+    payload = json.loads(capsys.readouterr().out)["data"]
+    assert net.calls == [SAMPLE_URL]
+    assert payload["cached"] is False
+    assert rc == 0, payload
+
+
+def test_offline_with_a_fresh_cache_replays_it(tmp_path, monkeypatch, capsys):
+    net = FakeNet({SAMPLE_URL: "hooks-sample.md"})
+    monkeypatch.setattr(H, "_fetch", net)
+    stamp = FIXTURES / "stamp-sample.json"
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": time.time(),
+                             "stamp_sha256": H.stamp_hash(stamp), "source": None})
+    rc = H.main(["check", "--stamp", str(stamp), "--offline", "--cache-dir", str(tmp_path), "--no-cli-probe"])
+    capsys.readouterr()
+    assert rc == 0 and net.calls == []
+
+
+def test_expect_is_honoured_on_a_cache_hit(tmp_path, capsys):
+    stamp = FIXTURES / "stamp-sample.json"
+    H.write_cache(tmp_path, {"verdict": H.CURRENT, "checked_at_epoch": time.time(),
+                             "stamp_sha256": H.stamp_hash(stamp), "source": None})
+    rc = H.main(["check", "--stamp", str(stamp), "--cache-dir", str(tmp_path), "--no-cli-probe",
+                 "--expect", H.STRUCTURAL])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "expected STRUCTURAL, got CURRENT" in err
+
+
+def _refs_copy(tmp_path: Path) -> Path:
+    refs = tmp_path / "references"
+    refs.mkdir()
+    for f in REFS.glob("*.md"):
+        (refs / f.name).write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+    return refs
+
+
+def test_an_event_documented_but_dropped_from_the_stamp_is_a_phantom(tmp_path):
+    """The reverse check drew its candidates from the stamp under test, so it could never fire."""
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    for src in stamp["sources"]:
+        src["fingerprint"]["events"] = [e for e in src["fingerprint"].get("events", []) if e != "FileChanged"]
+    result = H.coverage(stamp, _refs_copy(tmp_path))
+    assert result["phantom_events"] == ["FileChanged"]
+    assert result["complete"] is False
+
+
+def test_the_coverage_command_reports_a_phantom_and_fails(tmp_path, capsys):
+    stamp = json.loads(SHIPPED_STAMP.read_text(encoding="utf-8"))
+    for src in stamp["sources"]:
+        src["fingerprint"]["events"] = [e for e in src["fingerprint"].get("events", []) if e != "FileChanged"]
+    path = tmp_path / "nofc.json"
+    path.write_text(json.dumps(stamp), encoding="utf-8")
+    rc = H.main(["coverage", "--stamp", str(path), "--refs", str(REFS)])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "phantom event: FileChanged" in out
+
+
+def test_stamp_refuses_to_write_a_new_event_the_references_do_not_document(tmp_path, capsys):
+    """The HIGH finding: the gate ran on the OLD stamp, so a new upstream event was stamped with
+    coverage_gaps [] and `check` then reported CURRENT while it was undocumented."""
+    target = sample_stamp_over_shipped(tmp_path)
+    assert H.coverage(json.loads(target.read_text(encoding="utf-8")), REFS)["complete"] is True
+    before = target.read_bytes()
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-structural.md"), "--write"])
+    out = capsys.readouterr().out
+    assert rc == 2, out   # a whole-action refusal is 'could not run'
+    assert "refusing" in out
+    assert target.read_bytes() == before
+
+
+def test_the_stamp_dry_run_predicts_the_same_refusal(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-structural.md")])
+    capsys.readouterr()
+    assert rc == 2
+
+
+def test_stamp_write_refreshes_a_source_when_coverage_holds(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    stamp = json.loads(target.read_text(encoding="utf-8"))
+    stamp["generated_at"] = "2000-01-01"
+    target.write_text(json.dumps(stamp), encoding="utf-8")
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-cosmetic.md"), "--write"])
+    capsys.readouterr()
+    assert rc == 0
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["generated_at"] != "2000-01-01"
+    assert written["coverage_gaps"] == []
+    assert written["sources"][0]["content_sha256"] == H.content_sha(H.normalise(fixture("hooks-sample-cosmetic.md")))
+
+
+def test_accept_gaps_writes_and_records_the_gap(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-structural.md"), "--write", "--accept-gaps"])
+    capsys.readouterr()
+    assert rc == 0
+    assert json.loads(target.read_text(encoding="utf-8"))["coverage_gaps"], "the gap must be recorded"
+
+
+def test_cosmetic_only_refuses_a_structural_body(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    before = target.read_bytes()
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-structural.md"), "--write", "--cosmetic-only",
+                 "--accept-gaps"])
+    out = capsys.readouterr().out
+    assert rc == 2 and "cosmetic-only" in out
+    assert target.read_bytes() == before
+
+
+def test_cosmetic_only_accepts_a_cosmetic_body(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-sample",
+                 "--body", str(FIXTURES / "hooks-sample-cosmetic.md"), "--write", "--cosmetic-only"])
+    capsys.readouterr()
+    assert rc == 0
+
+
+def test_stamp_with_an_unknown_source_is_an_error_and_writes_nothing(tmp_path, capsys):
+    target = sample_stamp_over_shipped(tmp_path)
+    before = target.read_bytes()
+    rc = H.main(["stamp", "--stamp", str(target), "--refs", str(REFS), "--source", "hooks-smaple",
+                 "--body", str(FIXTURES / "hooks-sample.md"), "--write"])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "hooks-smaple" in err
+    assert target.read_bytes() == before
+
+
+def test_stamp_on_a_malformed_stamp_is_broken_with_a_parseable_envelope(tmp_path):
+    import subprocess
+    import sys
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    proc = subprocess.run([sys.executable, str(SKILL / "scripts" / "hookdoc_stamp.py"), "stamp",
+                           "--stamp", str(bad), "--json"], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=60, check=False)
+    assert proc.returncode == 2, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["ok"] is False and payload["data"]["verdict"] == H.BROKEN
+
+
+def test_baseline_write_with_no_line_to_update_fails_and_leaves_the_file(tmp_path, capsys):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text("# Skill\n\nno baseline here\n", encoding="utf-8")
+    rc = H.main(["baseline", "--skill-md", str(skill_md), "--write"])
+    out = capsys.readouterr().out
+    assert rc == 2
+    assert "no baseline line" in out
+    assert skill_md.read_text(encoding="utf-8") == "# Skill\n\nno baseline here\n"
+
+
+def test_a_skill_md_that_is_not_utf8_exits_2_not_a_traceback(tmp_path, capsys):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_bytes(b"# Skill\n\nReference baseline: \xff\xfe stale\n")
+    rc = H.main(["--json", "baseline", "--skill-md", str(skill_md)])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert payload["ok"] is False and payload["data"]["verdict"] == H.BROKEN
+
+
+def test_an_unreadable_body_path_prints_the_envelope_under_json(tmp_path, capsys):
+    """OSError exits 2; under --json it printed nothing to stdout, so a parser got no JSON."""
+    rc = H.main(["--json", "fingerprint", str(tmp_path / "no-such-body.md")])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert payload["ok"] is False and "no-such-body.md" in payload["data"]["reason"]
+
+
+def test_a_selftest_fixture_stamp_that_is_not_json_exits_2(tmp_path, capsys):
+    (tmp_path / "stamp-sample.json").write_text("{not json", encoding="utf-8")
+    rc = H.main(["selftest", "--fixtures", str(tmp_path)])
+    assert rc == 2
+    assert "BROKEN" in capsys.readouterr().err
+
+
+def test_baseline_write_rewrites_a_stale_line(tmp_path, capsys):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text("# Skill\n\nReference baseline: stale\n", encoding="utf-8")
+    rc = H.main(["baseline", "--skill-md", str(skill_md), "--write"])
+    capsys.readouterr()
+    assert rc == 0
+    want = H.baseline_line(H.load_stamp(SHIPPED_STAMP))
+    assert want in skill_md.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("argv", [["--json", "selftest"], ["selftest", "--json"]])
+def test_json_is_honoured_before_or_after_the_subcommand(argv, capsys):
+    rc = H.main(argv)
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0 and payload["command"] == "hookdoc_stamp/selftest"
+
+
+def test_a_stamp_with_a_utf8_bom_still_loads(tmp_path, capsys):
+    path = tmp_path / "bom.json"
+    path.write_bytes(b"\xef\xbb\xbf" + SHIPPED_STAMP.read_bytes())
+    rc = H.main(["coverage", "--stamp", str(path)])
+    capsys.readouterr()
+    assert rc == 0
+
+
+def test_a_non_ascii_path_in_a_message_does_not_crash_a_cp1252_console(tmp_path):
+    import os
+    import subprocess
+    import sys
+    missing = tmp_path / ("d" + chr(0x65E5)) / "missing.md"
+    env = dict(os.environ, PYTHONIOENCODING="cp1252")
+    proc = subprocess.run([sys.executable, str(SKILL / "scripts" / "hookdoc_stamp.py"), "check",
+                           "--stamp", str(FIXTURES / "stamp-sample.json"), "--body", str(missing),
+                           "--no-cli-probe"], capture_output=True, env=env, timeout=60, check=False)
+    assert proc.returncode == 2, proc.stderr
+    assert b"Traceback" not in proc.stderr
+    assert b"BROKEN" in proc.stdout

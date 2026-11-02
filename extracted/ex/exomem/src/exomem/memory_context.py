@@ -1,0 +1,392 @@
+"""Bounded reasoning context assembled from canonical Markdown and derived indexes."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from . import context_pack, epistemic_graph, get_page, memory_refs, vault
+from . import find as find_module
+from .find_types import Hit, ParsedPage
+from .governance import egress
+
+
+def assemble_context(
+    vault_root: Path,
+    *,
+    path: str | None = None,
+    query: str | None = None,
+    unit_ref: str | None = None,
+    categories: list[str] | None = None,
+    kinds: list[str] | None = None,
+    depth: int = 1,
+    relation_types: list[str] | None = None,
+    node_types: list[str] | None = None,
+    max_nodes: int = 40,
+    max_edges: int = 80,
+    traversal_profile: str | None = None,
+    limit: int = 5,
+    max_body_chars: int = 3000,
+    entity_type_families: list[str] | None = None,
+) -> dict[str, Any]:
+    """Return a single bounded context envelope for one page or a query."""
+    unit_controls = unit_ref is not None or bool(categories) or bool(kinds)
+    if not path and not query and not unit_controls:
+        raise ValueError(
+            "INVALID_CONTEXT: provide `path`, `query`, `unit_ref`, `categories`, or `kinds`"
+        )
+    depth = max(0, min(int(depth), 5))
+    max_nodes = max(1, min(int(max_nodes), 200))
+    max_edges = max(0, min(int(max_edges), 400))
+    limit = max(1, min(int(limit), 10))
+    max_body_chars = max(500, min(int(max_body_chars), 6000))
+    # A caller other than the owner gets a context assembled from the pages it
+    # may see: seeds, packed pages and the neighbourhood are decided before
+    # they are assembled, so nothing counted, ranked or packed rests on a
+    # withheld page. The owner's assembly is unchanged (`keep` is None).
+    keep = egress.restricted_release_filter(vault_root)
+    graph: dict[str, Any] | None = None
+    if unit_controls:
+        if path:
+            path = _canonical_path(vault_root, path, keep)
+        seed_keep = egress.unit_seed_parent_filter(vault_root)
+        if unit_ref is not None and path:
+            _validate_unit_parent_path(
+                vault_root, unit_ref=unit_ref, path=path, keep=keep, seed_keep=seed_keep
+            )
+        graph = epistemic_graph.graph_context(
+            vault_root,
+            path=path,
+            query=query,
+            unit_ref=unit_ref,
+            categories=categories,
+            kinds=kinds,
+            depth=depth,
+            relation_types=relation_types,
+            node_types=node_types,
+            entity_type_families=entity_type_families,
+            max_nodes=max_nodes,
+            max_edges=max_edges,
+            traversal_profile=traversal_profile,
+            keep=keep,
+            seed_keep=seed_keep,
+        )
+        if keep is not None:
+            graph = egress.guard_graph_context(vault_root, graph)
+        hits = _hits_for_graph_seeds(vault_root, graph, limit=limit)
+    elif path or query:
+        hits = _context_hits(vault_root, path=path, query=query, limit=limit, keep=keep)
+    else:
+        hits = []
+    release = None
+    if keep is not None:
+        release = egress.annotate_hits(vault_root, hits, limit=limit)
+        hits = release.hits
+    pages = [
+        page
+        for hit in hits
+        if (page := find_module._CACHE.get(vault_root / hit.path, vault_root)) is not None
+    ]
+    strip_for = egress.release_strip_resolver(vault_root)
+    pack = context_pack.assemble_pack(
+        vault_root,
+        hits,
+        max_hits=limit,
+        max_neighbors=max_nodes,
+        max_tension=min(max_edges, 20),
+        strip_for=strip_for,
+    )
+    if release is not None:
+        pack = egress.annotate_pack(pack, release, strip_for=strip_for) or pack
+    ref_index = memory_refs.ReferenceIndex(vault_root)
+    documents: list[dict[str, Any]] = []
+    provenance: list[dict[str, Any]] = []
+    supersession: list[dict[str, Any]] = []
+    history: dict[str, list[dict[str, str]]] = {}
+    truncation = list(pack.get("truncation", []))
+    for page in pages:
+        prose = egress.prose_for_caller(vault_root, page.body, owner_path=page.rel_path)
+        body, truncated = _bounded(prose, max_body_chars)
+        document: dict[str, Any] = {
+            "path": page.rel_path,
+            "title": page.title,
+            "type": page.page_type,
+            "status": page.status,
+            "body": body,
+        }
+        if ref := ref_index.ref_for_path(page.rel_path):
+            document["ref"] = ref
+        if truncated:
+            document["body_truncated"] = True
+            truncation.append(f"body capped at {max_body_chars} characters: {page.rel_path}")
+        documents.append(document)
+        sources = _link_values(page.frontmatter.get("sources"))
+        evidence = []
+        for field in ("evidence", "evidences", "evidence_paths", "evidence_file"):
+            evidence.extend(_link_values(page.frontmatter.get(field)))
+        provenance.append(
+            {"path": page.rel_path, "sources": sources, "evidence": _dedupe(evidence)}
+        )
+        supersession.append(
+            {
+                "path": page.rel_path,
+                "status": page.status,
+                "supersedes": _link_values(page.frontmatter.get("supersedes")),
+                "superseded_by": _link_values(page.frontmatter.get("superseded_by")),
+            }
+        )
+        page_history = vault.read_log_entries(vault_root, page.rel_path)[:10]
+        if page_history:
+            history[page.rel_path] = page_history
+    if graph is None:
+        graph = _merge_graph_contexts(
+            vault_root,
+            pages,
+            depth=depth,
+            relation_types=relation_types,
+            node_types=node_types,
+            entity_type_families=entity_type_families,
+            max_nodes=max_nodes,
+            max_edges=max_edges,
+            traversal_profile=traversal_profile,
+            keep=keep,
+        )
+        if keep is not None:
+            graph = egress.guard_graph_context(vault_root, graph)
+    truncation.extend(str(item) for item in graph.get("truncation", []))
+    resolved_seed_path = hits[0].path if path and hits else path
+    seed: dict[str, Any] = {"path": resolved_seed_path, "query": query}
+    if path:
+        seed["ref"] = ref_index.ref_for_path(str(resolved_seed_path))
+    # A unit seed that resolves to no unit is not restated to a caller other
+    # than the owner: the entry filter decides the page a reference names, so
+    # the echo would survive for an absent page and not for a withheld one.
+    if unit_ref is not None and not (
+        keep is not None and (graph or {}).get("unit_status") == "missing"
+    ):
+        seed["unit_ref"] = unit_ref
+    if categories:
+        seed["categories"] = list(categories)
+    if kinds:
+        seed["kinds"] = list(kinds)
+    return {
+        "available": bool(documents),
+        "seed": seed,
+        "documents": documents,
+        "claims": pack.get("claims", {}),
+        "semantic_blocks": pack.get("semantic_blocks", {}),
+        "graph": graph,
+        "provenance": provenance,
+        "supersession": supersession,
+        "history": history,
+        "neighborhood": pack.get("neighborhood", []),
+        "contradictions": pack.get("contradictions", {}),
+        "truncation": _dedupe(truncation),
+    }
+
+
+def _canonical_path(vault_root: Path, path: str, keep: Any) -> str:
+    """The page `path` names, refused exactly as a missing page when withheld."""
+    try:
+        canonical_path = get_page.get_page(vault_root, path=path).path
+    except get_page.GetError as exc:
+        raise ValueError(f"{exc.code}: {exc.reason}") from exc
+    if keep is not None and not keep(canonical_path):
+        raise ValueError(f"NOT_FOUND: file does not exist: {get_page.missing_path_for(path)}")
+    return canonical_path
+
+
+def _context_hits(
+    vault_root: Path, *, path: str | None, query: str | None, limit: int, keep: Any = None
+) -> list[Hit]:
+    if path:
+        canonical_path = _canonical_path(vault_root, path, keep)
+        page = find_module._CACHE.get(vault_root / canonical_path, vault_root)
+        if page is None:
+            raise ValueError(f"NOT_FOUND: no readable page at {canonical_path}")
+        return [_hit_for_page(page)]
+    return find_module.find(
+        vault_root,
+        query=query or "",
+        # The same request-sized over-fetch `find` uses, so a withheld hit's
+        # slot is backfilled rather than left short.
+        limit=limit if keep is None else egress.pool_limit(limit),
+        scope="kb",
+        mode="hybrid",
+        # No graph lane for a caller other than the owner: its hops follow
+        # link resolution over the whole vault.
+        graph=keep is None,
+        rerank=False,
+        prefer_compiled=True,
+        prefer_active=True,
+        prefer_used=False,
+    )
+
+
+def _hit_for_page(page: ParsedPage) -> Hit:
+    return Hit(
+        path=page.rel_path,
+        type=page.page_type,
+        scope=page.scope,
+        title=page.title,
+        updated=page.updated,
+        excerpt="",
+        status=page.status,
+        superseded_by=page.superseded_by,
+    )
+
+
+def _hits_for_graph_seeds(
+    vault_root: Path, graph: dict[str, Any], *, limit: int
+) -> list[Hit]:
+    hits: list[Hit] = []
+    paths: set[str] = set()
+    for seed in graph.get("seeds", []):
+        rel = str(seed.get("path") or "")
+        if not rel or rel in paths:
+            continue
+        paths.add(rel)
+        page = find_module._CACHE.get(vault_root / rel, vault_root)
+        if page is not None:
+            hits.append(_hit_for_page(page))
+        if len(hits) >= limit:
+            break
+    return hits
+
+
+def _validate_unit_parent_path(
+    vault_root: Path,
+    *,
+    unit_ref: str,
+    path: str,
+    keep: Callable[[str], bool] | None = None,
+    seed_keep: Callable[[str], bool] | None = None,
+) -> None:
+    parent_paths, work_exhausted = epistemic_graph.indexed_unit_parent_path_resolution(
+        vault_root, unit_ref, keep=keep, seed_keep=seed_keep
+    )
+    if work_exhausted:
+        raise ValueError(
+            "INVALID_CONTEXT: unit_ref parent validation work capped at "
+            f"{epistemic_graph.UNIT_PARENT_REF_MAX_CANDIDATES}; cannot verify path"
+        )
+    if parent_paths and path not in parent_paths:
+        raise ValueError(
+            "INVALID_CONTEXT: unit_ref parent "
+            f"{', '.join(parent_paths)} does not match path {path}"
+        )
+
+
+def _merge_graph_contexts(
+    vault_root: Path,
+    pages: list[ParsedPage],
+    *,
+    depth: int,
+    relation_types: list[str] | None,
+    node_types: list[str] | None,
+    max_nodes: int,
+    max_edges: int,
+    traversal_profile: str | None = None,
+    keep: Any = None,
+    entity_type_families: list[str] | None = None,
+) -> dict[str, Any]:
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: dict[str, dict[str, Any]] = {}
+    seeds: dict[str, dict[str, Any]] = {}
+    warnings: list[Any] = []
+    truncation: list[str] = []
+    dropped_nodes = 0
+    dropped_edges = 0
+    available = False
+    resolved_profile: dict[str, Any] | None = None
+    registry_metadata: dict[str, Any] | None = None
+    included_families: set[str] = set()
+    excluded = {"profile": 0, "scope_violation": 0, "unregistered": 0}
+    for page in pages:
+        context = epistemic_graph.graph_context(
+            vault_root,
+            path=page.rel_path,
+            depth=depth,
+            relation_types=relation_types,
+            node_types=node_types,
+            entity_type_families=entity_type_families,
+            max_nodes=max_nodes,
+            max_edges=max_edges,
+            traversal_profile=traversal_profile,
+            keep=keep,
+        )
+        if not context.get("available"):
+            warnings.append(str(context.get("reason") or "graph unavailable"))
+            continue
+        available = True
+        resolved_profile = resolved_profile or context.get("profile")
+        registry_metadata = registry_metadata or context.get("registry")
+        included_families.update(context.get("included_relation_families", []))
+        for key in excluded:
+            excluded[key] += int(context.get("excluded", {}).get(key, 0))
+        for seed in context.get("seeds", []):
+            seeds.setdefault(seed["node_key"], seed)
+        for node in context.get("nodes", []):
+            key = node["node_key"]
+            if key in nodes:
+                continue
+            if len(nodes) < max_nodes:
+                nodes[key] = node
+            else:
+                dropped_nodes += 1
+        for edge in context.get("edges", []):
+            key = edge["edge_key"]
+            if key in edges:
+                continue
+            if len(edges) < max_edges:
+                edges[key] = edge
+            else:
+                dropped_edges += 1
+        truncation.extend(str(item) for item in context.get("truncation", []))
+        warnings.extend(context.get("warnings", []))
+    if dropped_nodes:
+        truncation.append(f"merged nodes capped at {max_nodes} ({dropped_nodes} more not shown)")
+    if dropped_edges:
+        truncation.append(f"merged edges capped at {max_edges} ({dropped_edges} more not shown)")
+    return {
+        "available": available,
+        "reason": None if available else (warnings[0] if warnings else "no graph seeds"),
+        "seeds": list(seeds.values()),
+        "nodes": list(nodes.values()),
+        "edges": list(edges.values()),
+        "truncation": _dedupe(truncation),
+        "warnings": _dedupe(warnings),
+        "profile": resolved_profile,
+        "registry": registry_metadata,
+        "included_relation_families": sorted(included_families),
+        "excluded": excluded,
+    }
+
+
+def _bounded(text: str, limit: int) -> tuple[str, bool]:
+    if len(text) <= limit:
+        return text, False
+    marker = "\n\n[truncated]"
+    return text[: max(0, limit - len(marker))].rstrip() + marker, True
+
+
+def _link_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return _dedupe(item for child in value for item in _link_values(child))
+    if isinstance(value, dict):
+        return _dedupe(item for child in value.values() for item in _link_values(child))
+    raw = str(value).strip()
+    if raw.startswith("[[") and raw.endswith("]]"):
+        raw = raw[2:-2].split("|", 1)[0]
+    return [raw] if raw else []
+
+
+def _dedupe(values) -> list:
+    out: list[Any] = []
+    for value in values:
+        if value not in out:
+            out.append(value)
+    return out

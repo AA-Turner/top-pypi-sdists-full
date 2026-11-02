@@ -529,15 +529,16 @@ uint64_t bits(double x) {
     return u;
 }
 
-// The file for one master: its key's exact bits, in hex.
+// The file for one master: the hash of its key's exact bits (momwire#1752).
+// The file carries the key itself, which a read checks bit for bit, so a
+// collision is a miss. Spelled out, the five fields made a ~90-character
+// name, which under a deep directory passes Windows' 260-character MAX_PATH.
 fs::path master_path(const double key[5]) {
-    std::string name = "master";
-    char buf[24];
-    for (int i = 0; i < 5; i++) {
-        std::snprintf(buf, sizeof buf, "-%016llx", static_cast<unsigned long long>(bits(key[i])));
-        name += buf;
-    }
-    return g_disk.dir / (name + ".grid");
+    std::string kb;
+    for (int i = 0; i < 5; i++) put(kb, key[i]);
+    char buf[40];
+    std::snprintf(buf, sizeof buf, "master-%016llx.grid", static_cast<unsigned long long>(fnv1a(kb)));
+    return g_disk.dir / buf;
 }
 
 std::string serialize(const double key[5], const Grid &g) {
@@ -797,6 +798,50 @@ bool disk_location(std::filesystem::path &dir, std::string &tag) {
 void disk_evict(const std::filesystem::path &keep) {
     if (g_disk.on) evict(keep);
 }
+
+bool disk_read(const std::string &name, std::string &bytes) {
+    if (!g_disk.on) return false;
+    const fs::path path = g_disk.dir / name;
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    std::stringstream ss;
+    ss << in.rdbuf();
+    if (!in.good() && !in.eof()) return false;
+    bytes = ss.str();
+    std::error_code ec;
+    fs::last_write_time(path, fs::file_time_type::clock::now(), ec);  // LRU
+    return true;
+}
+
+void disk_write(const std::string &name, const std::string &bytes) {
+    if (!g_disk.on) return;
+    std::error_code ec;
+    fs::create_directories(g_disk.dir, ec);
+    if (ec) return;
+    const fs::path path = g_disk.dir / name;
+    std::random_device rd;
+    char tmpname[64];
+    std::snprintf(tmpname, sizeof tmpname, ".%08x%08x.tmp", rd(), rd());
+    const fs::path tmp = g_disk.dir / (name + tmpname);
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        if (!out) return;
+        out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+        if (!out) {
+            out.close();
+            fs::remove(tmp, ec);
+            return;
+        }
+    }
+    fs::rename(tmp, path, ec);
+    if (ec) {
+        fs::remove(tmp, ec);
+        return;
+    }
+    evict(path);
+}
+
+uint64_t disk_hash(const std::string &bytes) { return fnv1a(bytes); }
 
 namespace {
 

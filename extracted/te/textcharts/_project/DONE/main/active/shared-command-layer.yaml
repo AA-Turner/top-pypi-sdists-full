@@ -1,0 +1,155 @@
+id: shared-command-layer
+title: "Design and implement shared command layer for CLI and MCP"
+worktree: main
+priority: Critical
+status: Completed
+completed_date: "2026-03-07"
+description: |
+  Create a shared command layer that defines the unified command surface for
+  textcharts. Both the CLI and MCP server will delegate to this layer, ensuring
+  identical command names, parameter schemas, validation, and rendering behavior.
+
+  The command layer maps 15 command names (one per chart type) to their chart
+  class, data model, and parameter schema. It accepts structured input (dicts),
+  validates it, constructs chart instances, and returns rendered strings.
+
+  This is the foundational piece — CLI and MCP are thin wrappers around it.
+
+category: Core Functionality
+
+work:
+  - id: w1
+    summary: "Define command registry: mapping of command names to chart classes, data models, and accepted parameters"
+    status: pending
+    notes: |
+      Create src/textcharts/commands/__init__.py and src/textcharts/commands/registry.py.
+      Registry maps short names to chart metadata:
+        "bar"        -> BarChart, BarData, {sort_by, metric_label}
+        "histogram"  -> Histogram, HistogramBar, {y_label, sort_by, max_per_chart, show_mean_line}
+        "heatmap"    -> Heatmap, None, {value_label, x_label, show_values, color_scheme}
+        "boxplot"    -> BoxPlot, BoxPlotSeries, {y_label, show_stats, show_mean}
+        "line"       -> LineChart, LinePoint, {x_label, y_label, show_trend}
+        "scatter"    -> ScatterPlot, ScatterPoint, {x_label, y_label, show_pareto}
+        "comparison" -> ComparisonBar, ComparisonBarData, {metric_label}
+        "diverging"  -> DivergingBar, DivergingBarData, {clip_pct}
+        "summary"    -> SummaryBox, SummaryStats, {}
+        "percentile" -> PercentileLadder, PercentileData, {metric_label}
+        "speedup"    -> NormalizedSpeedup, SpeedupData, {baseline_name}
+        "stacked"    -> StackedBar, StackedBarData, {}
+        "sparkline"  -> SparklineTable, SparklineTableData, {}
+        "cdf"        -> CDFChart, CDFSeriesData, {x_label, y_label, height}
+        "rank"       -> RankTable, RankTableData, {}
+      Each entry also declares the JSON input shape (for data) so both CLI and MCP
+      can validate/document it from the same source.
+
+  - id: w2
+    summary: "Implement input parsing: convert dicts/JSON to dataclass instances for each chart type"
+    needs: [w1]
+    status: pending
+    notes: |
+      Create src/textcharts/commands/parsers.py.
+      For each chart type, implement a function that takes a list of dicts (or a
+      dict for summary/sparkline/rank/heatmap) and returns the appropriate
+      dataclass instances. Handle type coercion (str->float, etc.) and validation
+      with clear error messages. Heatmap and RankTable take matrix-style input;
+      SummaryBox takes a flat stats dict; SparklineTable takes {platforms, columns}.
+
+  - id: w3
+    summary: "Implement execute_command() dispatcher: takes command name + data + options, returns rendered chart string"
+    needs: [w1, w2]
+    status: pending
+    notes: |
+      Create src/textcharts/commands/executor.py.
+      execute_command(command: str, data: Any, title: str | None = None,
+                      options: dict | None = None, **kwargs) -> str
+      Steps: look up registry -> parse input via parsers -> construct ChartOptions
+      from options dict -> instantiate chart class -> call render() -> return string.
+      Common options dict keys: width, height, use_color, use_unicode, theme,
+      show_legend, show_values. Chart-specific kwargs passed through.
+
+  - id: w4
+    summary: "Add command introspection API: list_commands(), describe_command(), get_input_schema()"
+    needs: [w1]
+    status: pending
+    notes: |
+      These functions let CLI generate --help and MCP generate tool descriptions
+      from the same source. list_commands() returns all command names with
+      one-line descriptions. describe_command(name) returns full parameter docs.
+      get_input_schema(name) returns JSON-Schema-like dict for the data input.
+
+  - id: w5
+    summary: "Unit tests for shared command layer"
+    needs: [w3, w4]
+    status: pending
+    notes: |
+      tests/test_commands.py — test registry lookup, input parsing for each chart
+      type (valid and invalid), execute_command() round-trip for all 15 charts,
+      error handling for unknown commands and malformed input, introspection APIs.
+
+deferred:
+  - summary: "Streaming/incremental rendering for large datasets"
+    reason: "Not needed for initial release; all current charts render synchronously"
+  - summary: "Plugin system for user-defined chart types in the command registry"
+    reason: "Over-engineering for v1; can add later if demand exists"
+
+metadata:
+  owners:
+    - joe
+  tags:
+    - cli
+    - mcp
+    - architecture
+  estimated_effort: "2-3 days"
+  created_date: "2026-03-07"
+
+impact:
+  business_value: |
+    Foundation for all external interfaces. Without a shared command layer, CLI
+    and MCP would diverge in behavior, creating maintenance burden and user
+    confusion.
+  user_impact: |
+    Users get identical behavior whether they use the CLI, MCP, or Python API.
+    One set of docs, one set of examples.
+
+files_affected:
+  added:
+    - "src/textcharts/commands/__init__.py"
+    - "src/textcharts/commands/registry.py"
+    - "src/textcharts/commands/parsers.py"
+    - "src/textcharts/commands/executor.py"
+    - "tests/test_commands.py"
+
+must_preserve:
+  - "All existing chart class constructors and render() signatures remain unchanged"
+  - "Zero new external dependencies — commands layer uses only stdlib + textcharts internals"
+  - "__init__.py public API (__all__) is not modified"
+
+approach: |
+  Create a new src/textcharts/commands/ subpackage. The registry is a dict of
+  dataclass descriptors, not a class hierarchy. Input parsers are plain functions
+  (one per chart type) that convert dicts to dataclass instances. The executor is
+  a single function that ties registry + parser + chart class together. Keep it
+  simple — no abstract base classes, no plugin system, no metaclasses.
+
+anti_patterns:
+  - "DO NOT create an abstract CommandHandler class — because this is a data-driven registry, not an OOP hierarchy — use a dict of descriptors and plain functions"
+  - "DO NOT add click/typer/argparse to this layer — because it must be interface-agnostic — CLI and MCP add their own argument handling on top"
+  - "DO NOT duplicate chart parameter defaults — because they are already defined in chart class __init__ signatures — read them from there or pass through kwargs"
+
+verification:
+  - description: "All 15 chart types can be rendered via execute_command()"
+    command: "uv run -- python -m pytest tests/test_commands.py -v"
+    expected_output: "all tests pass, 0 failures"
+  - description: "Existing test suite still passes"
+    command: "uv run -- python -m pytest tests/ -v --no-header -q"
+    expected_output: "all tests pass, coverage >= 85%"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/commands/"
+    - "tests/test_commands.py"
+  do_not_modify:
+    - "src/textcharts/__init__.py"
+    - "src/textcharts/base.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/histogram.py"

@@ -1,0 +1,1001 @@
+//! Standard library transforms.
+
+use anyhow::Result;
+use kcmc::ModelingCmd;
+use kcmc::each_cmd as mcmd;
+use kcmc::length_unit::LengthUnit;
+use kcmc::shared;
+use kcmc::shared::OriginType;
+use kcmc::shared::Point3d;
+use kittycad_modeling_cmds as kcmc;
+
+use crate::errors::KclError;
+use crate::errors::KclErrorDetails;
+use crate::execution::ExecState;
+use crate::execution::HideableGeometry;
+use crate::execution::KclValue;
+use crate::execution::ModelingCmdMeta;
+use crate::execution::SolidOrSketchOrImportedGeometry;
+use crate::execution::types::PrimitiveType;
+use crate::execution::types::RuntimeType;
+use crate::std::Args;
+use crate::std::args::TyF64;
+use crate::std::axis_or_reference::Axis3dOrPoint3d;
+
+fn transform_by<T>(property: T, set: bool, origin: OriginType) -> shared::TransformBy<T> {
+    shared::TransformBy::builder()
+        .property(property)
+        .set(set)
+        .origin(origin)
+        .build()
+}
+
+fn validate_rotation_angle(angle: &Option<TyF64>, argument_name: &str, args: &Args) -> Result<(), KclError> {
+    let Some(angle) = angle else {
+        return Ok(());
+    };
+
+    if !angle.n.is_finite() {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            format!("`{argument_name}` must be a finite number."),
+            vec![args.source_range],
+        )));
+    }
+
+    Ok(())
+}
+
+/// Scale a solid, a sketch, or a helix.
+pub async fn scale(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let objects = args.get_unlabeled_kw_arg(
+        "objects",
+        &RuntimeType::Union(vec![
+            RuntimeType::sketches(),
+            RuntimeType::solids(),
+            RuntimeType::helices(),
+            RuntimeType::imported(),
+        ]),
+        exec_state,
+    )?;
+    let scale_x: Option<TyF64> = args.get_kw_arg_opt("x", &RuntimeType::count(), exec_state)?;
+    let scale_y: Option<TyF64> = args.get_kw_arg_opt("y", &RuntimeType::count(), exec_state)?;
+    let scale_z: Option<TyF64> = args.get_kw_arg_opt("z", &RuntimeType::count(), exec_state)?;
+    let factor: Option<TyF64> = args.get_kw_arg_opt("factor", &RuntimeType::count(), exec_state)?;
+    for scale_dim in [&scale_x, &scale_y, &scale_z, &factor] {
+        if let Some(num) = scale_dim
+            && num.n == 0.0
+        {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Cannot scale by 0".to_string(),
+                vec![args.source_range],
+            )));
+        }
+    }
+    let (scale_x, scale_y, scale_z) = match (scale_x, scale_y, scale_z, factor) {
+        (None, None, None, Some(factor)) => (Some(factor.clone()), Some(factor.clone()), Some(factor)),
+        // Ensure at least one scale value is provided.
+        (None, None, None, None) => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `x`, `y`, `z` or `factor` to be provided.".to_string(),
+                vec![args.source_range],
+            )));
+        }
+        (x, y, z, None) => (x, y, z),
+        _ => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "If you give `factor` then you cannot use  `x`, `y`, or `z`".to_string(),
+                vec![args.source_range],
+            )));
+        }
+    };
+    let global = args.get_kw_arg_opt("global", &RuntimeType::bool(), exec_state)?;
+
+    let objects = inner_scale(
+        objects,
+        scale_x.map(|t| t.n),
+        scale_y.map(|t| t.n),
+        scale_z.map(|t| t.n),
+        global,
+        exec_state,
+        args,
+    )
+    .await?;
+    Ok(objects.into())
+}
+
+async fn inner_scale(
+    objects: SolidOrSketchOrImportedGeometry,
+    x: Option<f64>,
+    y: Option<f64>,
+    z: Option<f64>,
+    global: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<SolidOrSketchOrImportedGeometry, KclError> {
+    // If we have a solid, flush the fillets and chamfers.
+    // Only transforms needs this, it is very odd, see: https://github.com/KittyCAD/modeling-app/issues/5880
+    if let SolidOrSketchOrImportedGeometry::SolidSet(solids) = &objects {
+        exec_state
+            .flush_batch_for_solids(ModelingCmdMeta::from_args(exec_state, &args), solids)
+            .await?;
+    }
+
+    let is_global = global.unwrap_or(false);
+    let origin = if is_global {
+        OriginType::Global
+    } else {
+        OriginType::Local
+    };
+
+    let mut objects = objects.clone();
+    for object_id in objects.ids(&args.ctx).await? {
+        let transform = shared::ComponentTransform::builder()
+            .scale(transform_by(
+                Point3d {
+                    x: x.unwrap_or(1.0),
+                    y: y.unwrap_or(1.0),
+                    z: z.unwrap_or(1.0),
+                },
+                false,
+                origin,
+            ))
+            .build();
+        let transforms = vec![transform];
+        exec_state
+            .send_modeling_cmd(
+                ModelingCmdMeta::from_args(exec_state, &args),
+                ModelingCmd::from(
+                    mcmd::SetObjectTransform::builder()
+                        .object_id(object_id)
+                        .transforms(transforms)
+                        .build(),
+                ),
+            )
+            .await?;
+    }
+
+    Ok(objects)
+}
+
+/// Move a solid, a sketch, or a helix.
+pub async fn translate(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let objects = args.get_unlabeled_kw_arg(
+        "objects",
+        &RuntimeType::Union(vec![
+            RuntimeType::sketches(),
+            RuntimeType::solids(),
+            RuntimeType::helices(),
+            RuntimeType::imported(),
+        ]),
+        exec_state,
+    )?;
+    let translate_x: Option<TyF64> = args.get_kw_arg_opt("x", &RuntimeType::length(), exec_state)?;
+    let translate_y: Option<TyF64> = args.get_kw_arg_opt("y", &RuntimeType::length(), exec_state)?;
+    let translate_z: Option<TyF64> = args.get_kw_arg_opt("z", &RuntimeType::length(), exec_state)?;
+    let xyz: Option<[TyF64; 3]> = args.get_kw_arg_opt("xyz", &RuntimeType::point3d(), exec_state)?;
+    let global = args.get_kw_arg_opt("global", &RuntimeType::bool(), exec_state)?;
+
+    let objects = inner_translate(
+        objects,
+        xyz,
+        translate_x,
+        translate_y,
+        translate_z,
+        global,
+        exec_state,
+        args,
+    )
+    .await?;
+    Ok(objects.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn inner_translate(
+    objects: SolidOrSketchOrImportedGeometry,
+    xyz: Option<[TyF64; 3]>,
+    x: Option<TyF64>,
+    y: Option<TyF64>,
+    z: Option<TyF64>,
+    global: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<SolidOrSketchOrImportedGeometry, KclError> {
+    let (x, y, z) = match (xyz, x, y, z) {
+        (None, None, None, None) => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `x`, `y`, or `z` to be provided.".to_string(),
+                vec![args.source_range],
+            )));
+        }
+        (Some(xyz), None, None, None) => {
+            let [x, y, z] = xyz;
+            (Some(x), Some(y), Some(z))
+        }
+        (None, x, y, z) => (x, y, z),
+        (Some(_), _, _, _) => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "If you provide all 3 distances via the `xyz` arg, you cannot provide them separately via the `x`, `y` or `z` args."
+                    .to_string(),
+                vec![args.source_range],
+            )));
+        }
+    };
+    // If we have a solid, flush the fillets and chamfers.
+    // Only transforms needs this, it is very odd, see: https://github.com/KittyCAD/modeling-app/issues/5880
+    if let SolidOrSketchOrImportedGeometry::SolidSet(solids) = &objects {
+        exec_state
+            .flush_batch_for_solids(ModelingCmdMeta::from_args(exec_state, &args), solids)
+            .await?;
+    }
+
+    let is_global = global.unwrap_or(false);
+    let origin = if is_global {
+        OriginType::Global
+    } else {
+        OriginType::Local
+    };
+
+    let translation = shared::Point3d {
+        x: LengthUnit(x.as_ref().map(|t| t.unwrap_to_mm()).unwrap_or_default()),
+        y: LengthUnit(y.as_ref().map(|t| t.unwrap_to_mm()).unwrap_or_default()),
+        z: LengthUnit(z.as_ref().map(|t| t.unwrap_to_mm()).unwrap_or_default()),
+    };
+    let mut objects = objects.clone();
+    for object_id in objects.ids(&args.ctx).await? {
+        let transform = shared::ComponentTransform::builder()
+            .translate(transform_by(translation, false, origin))
+            .build();
+        let transforms = vec![transform];
+        exec_state
+            .batch_modeling_cmd(
+                ModelingCmdMeta::from_args(exec_state, &args),
+                ModelingCmd::from(
+                    mcmd::SetObjectTransform::builder()
+                        .object_id(object_id)
+                        .transforms(transforms)
+                        .build(),
+                ),
+            )
+            .await?;
+    }
+
+    Ok(objects)
+}
+
+/// Rotate a solid, a sketch, or a helix.
+pub async fn rotate(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let objects = args.get_unlabeled_kw_arg(
+        "objects",
+        &RuntimeType::Union(vec![
+            RuntimeType::sketches(),
+            RuntimeType::solids(),
+            RuntimeType::helices(),
+            RuntimeType::imported(),
+        ]),
+        exec_state,
+    )?;
+    let roll: Option<TyF64> = args.get_kw_arg_opt("roll", &RuntimeType::degrees(), exec_state)?;
+    let pitch: Option<TyF64> = args.get_kw_arg_opt("pitch", &RuntimeType::degrees(), exec_state)?;
+    let yaw: Option<TyF64> = args.get_kw_arg_opt("yaw", &RuntimeType::degrees(), exec_state)?;
+    let axis: Option<Axis3dOrPoint3d> = args.get_kw_arg_opt(
+        "axis",
+        &RuntimeType::Union(vec![
+            RuntimeType::Primitive(PrimitiveType::Axis3d),
+            RuntimeType::point3d(),
+        ]),
+        exec_state,
+    )?;
+    let origin = axis.clone().map(|a| a.axis_origin()).unwrap_or_default();
+    let axis = axis.map(|a| a.to_point3d());
+    let angle: Option<TyF64> = args.get_kw_arg_opt("angle", &RuntimeType::degrees(), exec_state)?;
+    let global = args.get_kw_arg_opt("global", &RuntimeType::bool(), exec_state)?;
+
+    // Check if no rotation values are provided.
+    if roll.is_none() && pitch.is_none() && yaw.is_none() && axis.is_none() && angle.is_none() {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "Expected `roll`, `pitch`, and `yaw` or `axis` and `angle` to be provided.".to_string(),
+            vec![args.source_range],
+        )));
+    }
+
+    // If they give us a roll, pitch, or yaw, they must give us at least one of them.
+    if roll.is_some() || pitch.is_some() || yaw.is_some() {
+        // Ensure they didn't also provide an axis or angle.
+        if axis.is_some() || angle.is_some() {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `axis` and `angle` to not be provided when `roll`, `pitch`, and `yaw` are provided."
+                    .to_owned(),
+                vec![args.source_range],
+            )));
+        }
+    }
+
+    // If they give us an axis or angle, they must give us both.
+    if axis.is_some() || angle.is_some() {
+        if axis.is_none() {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `axis` to be provided when `angle` is provided.".to_string(),
+                vec![args.source_range],
+            )));
+        }
+        if angle.is_none() {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `angle` to be provided when `axis` is provided.".to_string(),
+                vec![args.source_range],
+            )));
+        }
+
+        // Ensure they didn't also provide a roll, pitch, or yaw.
+        if roll.is_some() || pitch.is_some() || yaw.is_some() {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected `roll`, `pitch`, and `yaw` to not be provided when `axis` and `angle` are provided."
+                    .to_owned(),
+                vec![args.source_range],
+            )));
+        }
+    }
+
+    validate_rotation_angle(&roll, "roll", &args)?;
+    validate_rotation_angle(&pitch, "pitch", &args)?;
+    validate_rotation_angle(&yaw, "yaw", &args)?;
+    validate_rotation_angle(&angle, "angle", &args)?;
+
+    let objects = inner_rotate(
+        objects,
+        roll.map(|t| t.n),
+        pitch.map(|t| t.n),
+        yaw.map(|t| t.n),
+        // Don't adjust axis units since the axis must be normalized and only the direction
+        // should be significant, not the magnitude.
+        axis.map(|a| [a[0].n, a[1].n, a[2].n]),
+        // The origin is a point in space, so the engine needs it in mm.
+        origin.map(|a| [a[0].unwrap_to_mm(), a[1].unwrap_to_mm(), a[2].unwrap_to_mm()]),
+        angle.map(|t| t.n),
+        global,
+        exec_state,
+        args,
+    )
+    .await?;
+    Ok(objects.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn inner_rotate(
+    objects: SolidOrSketchOrImportedGeometry,
+    roll: Option<f64>,
+    pitch: Option<f64>,
+    yaw: Option<f64>,
+    axis: Option<[f64; 3]>,
+    origin: Option<[f64; 3]>,
+    angle: Option<f64>,
+    global: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<SolidOrSketchOrImportedGeometry, KclError> {
+    // If we have a solid, flush the fillets and chamfers.
+    // Only transforms needs this, it is very odd, see: https://github.com/KittyCAD/modeling-app/issues/5880
+    if let SolidOrSketchOrImportedGeometry::SolidSet(solids) = &objects {
+        exec_state
+            .flush_batch_for_solids(ModelingCmdMeta::from_args(exec_state, &args), solids)
+            .await?;
+    }
+
+    let origin = if let Some(origin) = origin {
+        OriginType::Custom {
+            origin: shared::Point3d {
+                x: origin[0],
+                y: origin[1],
+                z: origin[2],
+            },
+        }
+    } else if global.unwrap_or(false) {
+        OriginType::Global
+    } else {
+        OriginType::Local
+    };
+
+    let mut objects = objects.clone();
+    for object_id in objects.ids(&args.ctx).await? {
+        if let (Some(axis), Some(angle)) = (&axis, angle) {
+            let transform = shared::ComponentTransform::builder()
+                .rotate_angle_axis(transform_by(
+                    shared::Point4d {
+                        x: axis[0],
+                        y: axis[1],
+                        z: axis[2],
+                        w: angle,
+                    },
+                    false,
+                    origin,
+                ))
+                .build();
+            let transforms = vec![transform];
+            exec_state
+                .batch_modeling_cmd(
+                    ModelingCmdMeta::from_args(exec_state, &args),
+                    ModelingCmd::from(
+                        mcmd::SetObjectTransform::builder()
+                            .object_id(object_id)
+                            .transforms(transforms)
+                            .build(),
+                    ),
+                )
+                .await?;
+        } else {
+            // Do roll, pitch, and yaw.
+            let transform = shared::ComponentTransform::builder()
+                .rotate_rpy(transform_by(
+                    shared::Point3d {
+                        x: roll.unwrap_or(0.0),
+                        y: pitch.unwrap_or(0.0),
+                        z: yaw.unwrap_or(0.0),
+                    },
+                    false,
+                    origin,
+                ))
+                .build();
+            let transforms = vec![transform];
+            exec_state
+                .batch_modeling_cmd(
+                    ModelingCmdMeta::from_args(exec_state, &args),
+                    ModelingCmd::from(
+                        mcmd::SetObjectTransform::builder()
+                            .object_id(object_id)
+                            .transforms(transforms)
+                            .build(),
+                    ),
+                )
+                .await?;
+        }
+    }
+
+    Ok(objects)
+}
+
+/// Hide solids, planes, sketches, helices, or imported objects.
+pub async fn hide(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let objects = args.get_unlabeled_kw_arg(
+        "objects",
+        &RuntimeType::Union(vec![
+            RuntimeType::sketches(),
+            RuntimeType::solids(),
+            RuntimeType::planes(),
+            RuntimeType::helices(),
+            RuntimeType::imported(),
+            RuntimeType::gdts(),
+        ]),
+        exec_state,
+    )?;
+
+    let objects = hide_inner(objects, true, exec_state, args).await?;
+    Ok(objects.into())
+}
+
+async fn hide_inner(
+    mut objects: HideableGeometry,
+    hidden: bool,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<HideableGeometry, KclError> {
+    for object_id in objects.ids(&args.ctx).await? {
+        exec_state
+            .batch_modeling_cmd(
+                ModelingCmdMeta::from_args(exec_state, &args),
+                ModelingCmd::from(
+                    mcmd::ObjectVisible::builder()
+                        .object_id(object_id)
+                        .hidden(hidden)
+                        .build(),
+                ),
+            )
+            .await?;
+    }
+
+    Ok(objects)
+}
+
+/// Delete solids, sketches, helices, imported objects, or GD&T annotations.
+pub async fn delete(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let objects = args.get_unlabeled_kw_arg(
+        "objects",
+        &RuntimeType::Union(vec![
+            RuntimeType::sketches(),
+            RuntimeType::solids(),
+            RuntimeType::helices(),
+            RuntimeType::imported(),
+            RuntimeType::gdts(),
+        ]),
+        exec_state,
+    )?;
+
+    delete_inner(objects, exec_state, args).await.map(|()| KclValue::none())
+}
+
+async fn delete_inner(mut objects: HideableGeometry, exec_state: &mut ExecState, args: Args) -> Result<(), KclError> {
+    let ids = objects.ids(&args.ctx).await?.into_iter().collect();
+    exec_state
+        .batch_modeling_cmd(
+            ModelingCmdMeta::from_args(exec_state, &args),
+            ModelingCmd::from(mcmd::RemoveSceneObjects::builder().object_ids(ids).build()),
+        )
+        .await
+}
+
+#[cfg(test)]
+mod tests {
+    use kittycad_modeling_cmds::ModelingCmd;
+    use kittycad_modeling_cmds::shared::ComponentTransform;
+    use kittycad_modeling_cmds::shared::OriginType;
+    use pretty_assertions::assert_eq;
+
+    use crate::errors::Severity;
+    use crate::errors::Tag;
+    use crate::execution::Artifact;
+    use crate::execution::ExecutorSettings;
+    use crate::execution::MockConfig;
+    use crate::execution::parse_execute;
+
+    const PIPE: &str = r#"sweepPath = startSketchOn(XZ)
+    |> startProfile(at = [0.05, 0.05])
+    |> line(end = [0, 7])
+    |> tangentialArc(angle = 90, radius = 5)
+    |> line(end = [-3, 0])
+    |> tangentialArc(angle = -90, radius = 5)
+    |> line(end = [0, 7])
+
+// Create a hole for the pipe.
+pipeHole = startSketchOn(XY)
+    |> circle(
+        center = [0, 0],
+        radius = 1.5,
+    )
+sweepSketch = startSketchOn(XY)
+    |> circle(
+        center = [0, 0],
+        radius = 2,
+        )              
+    |> subtract2d(tool = pipeHole)
+    |> sweep(
+        path = sweepPath,
+    )"#;
+
+    async fn rotate_transform(arguments: &str) -> ComponentTransform {
+        rotate_transform_with_settings("", arguments).await
+    }
+
+    /// Like `rotate_transform`, but with `settings` (e.g. `@settings(...)`) at
+    /// the top of the file.
+    async fn rotate_transform_with_settings(settings: &str, arguments: &str) -> ComponentTransform {
+        let ast = format!("{settings}{PIPE}\n    |> rotate({arguments})");
+        let result = parse_execute(&ast).await.unwrap();
+
+        result
+            .root_module_artifact_commands()
+            .iter()
+            .find_map(|artifact_command| match &artifact_command.command {
+                ModelingCmd::SetObjectTransform(command) => command
+                    .transforms
+                    .iter()
+                    .find(|transform| transform.rotate_angle_axis.is_some() || transform.rotate_rpy.is_some()),
+                _ => None,
+            })
+            .cloned()
+            .expect("expected rotate() to dispatch a rotation transform")
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_empty() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate()
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `roll`, `pitch`, and `yaw` or `axis` and `angle` to be provided."#.to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_axis_no_angle() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    axis =  [0, 0, 1.0],
+    )
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `angle` to be provided when `axis` is provided."#.to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_angle_no_axis() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    angle = 90,
+    )
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `axis` to be provided when `angle` is provided."#.to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_accepts_axis_angles_outside_one_turn() {
+        for (input, expected) in [("371.5", 371.5), ("-371.5", -371.5), ("720", 720.0)] {
+            let transform = rotate_transform(&format!("axis = [0, 0, 1], angle = {input}")).await;
+            let rotation = transform
+                .rotate_angle_axis
+                .expect("expected an axis-angle rotation transform");
+
+            assert_eq!(rotation.property.w, expected, "input angle: {input}");
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_converts_custom_axis_origin_to_mm() {
+        // https://github.com/KittyCAD/modeling-app/issues/14208
+        // The axis `origin` is a point in space, so like `translate` it must
+        // reach the engine in mm. The axis `direction` only gives a direction,
+        // so it is sent as written.
+        let mm_file = "@settings(defaultLengthUnit = mm)\n";
+        let in_file = "@settings(defaultLengthUnit = in)\n";
+        for (settings, origin, expected) in [
+            (mm_file, "[1in, 2in, -3in]", [25.4, 50.8, -76.2]),
+            (mm_file, "[1cm, 2, 0]", [10.0, 2.0, 0.0]),
+            (mm_file, "[25.4, 50.8, -76.2]", [25.4, 50.8, -76.2]),
+            (in_file, "[1, 2, -3]", [25.4, 50.8, -76.2]),
+            (in_file, "[25.4mm, 50.8mm, -76.2mm]", [25.4, 50.8, -76.2]),
+        ] {
+            let arguments = format!("axis = {{ direction = [0, 0, 2], origin = {origin} }}, angle = 90deg");
+            let transform = rotate_transform_with_settings(settings, &arguments).await;
+            let rotation = transform
+                .rotate_angle_axis
+                .expect("expected an axis-angle rotation transform");
+
+            let OriginType::Custom { origin: actual } = rotation.origin else {
+                panic!("expected a custom origin, got {:?}", rotation.origin);
+            };
+            for (actual, expected) in [actual.x, actual.y, actual.z].into_iter().zip(expected) {
+                assert!(
+                    (actual - expected).abs() < 1e-9,
+                    "{settings}origin = {origin}: expected {expected:?} mm, got {actual:?}"
+                );
+            }
+            assert_eq!(
+                [rotation.property.x, rotation.property.y, rotation.property.z],
+                [0.0, 0.0, 2.0],
+                "{settings}origin = {origin}"
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_angle_axis_yaw() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    axis =  [0, 0, 1.0],
+    angle = 90,
+    yaw = 90,
+   ) 
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `axis` and `angle` to not be provided when `roll`, `pitch`, and `yaw` are provided."#
+                .to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_yaw_only() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    yaw = 90,
+    )
+"#;
+        parse_execute(&ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_pitch_only() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    pitch = 90,
+    )
+"#;
+        parse_execute(&ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_roll_only() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    pitch = 90,
+    )
+"#;
+        parse_execute(&ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_accepts_roll_pitch_and_yaw_outside_one_turn() {
+        let transform = rotate_transform("roll = 371.5, pitch = -371.5, yaw = 720").await;
+        let rotation = transform.rotate_rpy.expect("expected an RPY rotation transform");
+
+        assert_eq!(rotation.property.x, 371.5);
+        assert_eq!(rotation.property.y, -371.5);
+        assert_eq!(rotation.property.z, 720.0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_rejects_non_finite_angles() {
+        for (arguments, argument_name) in [
+            ("axis = [0, 0, 1], angle = 1 / 0", "angle"),
+            ("roll = 1 / 0", "roll"),
+            ("pitch = 0 / 0", "pitch"),
+            ("yaw = -1 / 0", "yaw"),
+        ] {
+            let ast = format!("{PIPE}\n    |> rotate({arguments})");
+            let err = parse_execute(&ast).await.unwrap_err();
+
+            assert!(matches!(err, crate::errors::KclError::Semantic { .. }));
+            assert_eq!(err.message(), format!("`{argument_name}` must be a finite number."));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rotate_roll_pitch_yaw_with_angle() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> rotate(
+    yaw = 90,
+    pitch = 90,
+    roll = 90,
+    angle = 90,
+    )
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `axis` and `angle` to not be provided when `roll`, `pitch`, and `yaw` are provided."#
+                .to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_translate_no_args() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> translate(
+    )
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `x`, `y`, or `z` to be provided."#.to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_scale_no_args() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> scale(
+    )
+"#;
+        let result = parse_execute(&ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"Expected `x`, `y`, `z` or `factor` to be provided."#.to_string()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn delete_marks_gdt_annotation_artifact_consumed() {
+        let program = crate::Program::parse_no_errs(
+            r#"@settings(kclVersion = 2.0)
+
+annotation = gdt::note(note = "Inspect this surface")
+delete(annotation)
+"#,
+        )
+        .unwrap();
+        let ctx = crate::ExecutorContext::new_mock(None).await;
+        let outcome = ctx.run_mock(&program, &MockConfig::default()).await.unwrap();
+        ctx.close().await;
+
+        let annotations = outcome
+            .artifact_graph
+            .values()
+            .filter_map(|artifact| match artifact {
+                Artifact::GdtAnnotation(annotation) => Some(annotation),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(annotations.len(), 1);
+        assert!(annotations[0].consumed);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn delete_marks_imported_geometry_artifact_consumed() {
+        let tmpdir = tempfile::TempDir::with_prefix("delete_imported_geometry").unwrap();
+        tokio::fs::write(tmpdir.path().join("model.obj"), "o model\n")
+            .await
+            .unwrap();
+        let program = crate::Program::parse_no_errs(
+            r#"@settings(kclVersion = 2.0)
+
+import "model.obj" as model
+delete(model)
+"#,
+        )
+        .unwrap();
+        let ctx = crate::ExecutorContext::new_mock(Some(ExecutorSettings {
+            project_directory: Some(crate::TypedPath(tmpdir.path().into())),
+            ..Default::default()
+        }))
+        .await;
+        let outcome = ctx.run_mock(&program, &MockConfig::default()).await.unwrap();
+        ctx.close().await;
+
+        let imported_geometry = outcome
+            .artifact_graph
+            .values()
+            .filter_map(|artifact| match artifact {
+                Artifact::ImportedGeometry(imported_geometry) => Some(imported_geometry),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(imported_geometry.len(), 1);
+        assert!(imported_geometry[0].consumed);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_hide_pipe_solid_ok() {
+        let ast = PIPE.to_string()
+            + r#"
+    |> hide()
+"#;
+        parse_execute(&ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn hide_consumed_solid_reports_deprecation_warning() {
+        let code = r#"
+targetSketch = sketch(on = XY) {
+  line1 = line(start = [var -10, var -10], end = [var 10, var -10])
+  line2 = line(start = [var 10, var -10], end = [var 10, var 10])
+  line3 = line(start = [var 10, var 10], end = [var -10, var 10])
+  line4 = line(start = [var -10, var 10], end = [var -10, var -10])
+  coincident([line1.end, line2.start])
+  coincident([line2.end, line3.start])
+  coincident([line3.end, line4.start])
+  coincident([line4.end, line1.start])
+  equalLength([line1, line2, line3, line4])
+}
+
+target = extrude(region(point = [0, 0], sketch = targetSketch), length = 20)
+
+toolSketch = sketch(on = XY) {
+  line1 = line(start = [var -2, var -2], end = [var 2, var -2])
+  line2 = line(start = [var 2, var -2], end = [var 2, var 2])
+  line3 = line(start = [var 2, var 2], end = [var -2, var 2])
+  line4 = line(start = [var -2, var 2], end = [var -2, var -2])
+  coincident([line1.end, line2.start])
+  coincident([line2.end, line3.start])
+  coincident([line3.end, line4.start])
+  coincident([line4.end, line1.start])
+  equalLength([line1, line2, line3, line4])
+}
+
+tool = extrude(region(point = [0, 0], sketch = toolSketch), length = 4)
+
+result = subtract(target, tools = [tool])
+hidden = hide(target)
+"#;
+
+        let program = crate::Program::parse_no_errs(code).unwrap();
+        let ctx = crate::ExecutorContext::new_mock(None).await;
+        let outcome = ctx.run_mock(&program, &MockConfig::default()).await;
+        ctx.close().await;
+        let outcome = outcome.unwrap();
+
+        assert!(
+            outcome.issues.iter().any(|issue| {
+                issue.severity == Severity::Warning
+                    && issue.tag == Tag::Deprecated
+                    && issue
+                        .message
+                        .contains("Calling `hide` with a consumed solid is deprecated")
+                    && issue
+                        .message
+                        .contains("`target` was already consumed by a `subtract` operation")
+            }),
+            "expected hide consumed-solid deprecation warning, got: {:#?}",
+            outcome.issues
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_hide_helix() {
+        let ast = r#"helixPath = helix(
+  axis = Z,
+  radius = 5,
+  length = 10,
+  revolutions = 3,
+  angleStart = 360,
+  ccw = false,
+)
+
+hide(helixPath)
+"#;
+        parse_execute(ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_hide_sketch_block() {
+        let ast = r#"sketch001 = sketch(on = XY) {
+  circle001 = circle(start = [var 1.16mm, var 4.24mm], center = [var -1.81mm, var -0.5mm])
+}
+
+hide(sketch001)
+"#;
+        parse_execute(ast).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_hide_plane() {
+        let ast = r#"plane001 = offsetPlane(YZ, offset = 500)
+
+hide(plane001)
+"#;
+        let result = parse_execute(ast).await.unwrap();
+        let object_visible_commands = result
+            .root_module_artifact_commands()
+            .iter()
+            .filter_map(|artifact_command| match &artifact_command.command {
+                ModelingCmd::ObjectVisible(object_visible) => Some(object_visible),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            object_visible_commands.len(),
+            1,
+            "expected exactly one ObjectVisible command, got: {:#?}",
+            result.root_module_artifact_commands()
+        );
+        assert!(
+            object_visible_commands[0].hidden,
+            "expected ObjectVisible command to hide the plane"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_hide_no_objects() {
+        let ast = r#"hidden = hide()"#;
+        let result = parse_execute(ast).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().message(),
+            r#"This function expects an unlabeled first parameter, but you haven't passed it one."#.to_string()
+        );
+    }
+}

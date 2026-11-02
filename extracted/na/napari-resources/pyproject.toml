@@ -1,0 +1,149 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://hatch.pypa.io/latest/config/metadata/
+[tool.hatch.version]
+source = "vcs"
+fallback_version = "0.0.0"
+
+# read more about configuring hatch at:
+# https://hatch.pypa.io/latest/config/build/
+[tool.hatch.build.targets.wheel]
+packages = ["src/napari_resources"]
+
+# custom hook which builds the logos so they are all included in the wheel
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+dependencies = ["lxml"]
+# must force-include because `generated` is gitignored by default
+# so hatch would otherwise exclude them from sdist and wheel.
+# the wheel includes the source svgs (templates/variants/special) plus the
+# generated ones so downstream can run generate_logos at runtime.
+[tool.hatch.build.targets.sdist.force-include]
+"src/napari_resources/resources/logos/generated" = "src/napari_resources/resources/logos/generated"
+[tool.hatch.build.targets.wheel.force-include]
+"src/napari_resources/resources/logos/generated" = "napari_resources/resources/logos/generated"
+
+# some generated svgs may byte-identical (e.g: pierogi light vs dark),
+# which is fine; disable the W002 "duplicate files" check
+[tool.check-wheel-contents]
+ignore = ["W002"]
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "napari-resources"
+dynamic = ["version"]
+description = "Resources for the napari project."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "napari team", email = "napari-steering-council@googlegroups.com" },
+]
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+# add your package dependencies here
+dependencies = [
+    'lxml'
+]
+
+[project.optional-dependencies]
+cli = ["click"]
+font = ["fontTools"]
+
+[project.urls]
+homepage = "https://github.com/napari/napari-resources"
+repository = "https://github.com/napari/napari-resources"
+
+# https://peps.python.org/pep-0735/
+# setup with `uv sync` or `pip install -e . --group dev`
+[dependency-groups]
+test = ["pytest", "pytest-cov", "napari-resources[cli,font]"]
+dev = [
+    { include-group = "test" },
+    "ipython",
+    "pdbpp",  # https://github.com/pdbpp/pdbpp
+    "prek",
+    "rich",  # https://github.com/Textualize/rich
+    "ruff",
+]
+
+[tool.uv.sources]
+napari-resources = { workspace = true }
+
+# https://docs.astral.sh/ruff
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src"]
+fix = true
+# unsafe-fixes = true
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D401", # First line should be in imperative mood (remove to opt in)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+"docs/*.py" = ["D", "A"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = false  # default is false
+
+# https://docs.pytest.org/
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["--color=yes"]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+
+# https://coverage.readthedocs.io/
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "raise AssertionError",
+    "\\.\\.\\.",
+    "raise NotImplementedError()",
+    "pass",
+]
+
+[tool.coverage.run]
+source = ["napari_resources"]
+
+# https://github.com/crate-ci/typos/blob/master/docs/reference.md
+[tool.typos.default]
+extend-ignore-identifiers-re = []

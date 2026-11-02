@@ -1,0 +1,968 @@
+"""
+Backend magic inherited from tensornetwork: pytorch backend
+"""
+
+# pylint: disable=invalid-name
+
+import logging
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
+from operator import mul
+from functools import reduce, partial
+
+from scipy.sparse import coo_matrix, csr_matrix
+import tensornetwork
+from tensornetwork.backends.pytorch import pytorch_backend
+from .abstract_backend import ExtendedBackend, normalize_axes
+
+dtypestr: str
+rdtypestr: str
+Tensor = Any
+pytree = Any
+
+torchlib: Any
+
+logger = logging.getLogger(__name__)
+
+
+# TODO(@refraction-ray): lack stateful random methods implementation for now
+# TODO(@refraction-ray): lack scatter impl for now
+# To be added once pytorch backend is ready
+
+
+class torch_optimizer:
+    def __init__(self, optimizer: Any) -> None:
+        self.optimizer = optimizer
+        self.is_init = False
+
+    def update(self, grads: pytree, params: pytree) -> pytree:
+        # flatten grad and param
+        params, treedef = PyTorchBackend.tree_flatten(None, params)
+        grads, _ = PyTorchBackend.tree_flatten(None, grads)
+        if self.is_init is False:
+            self.optimizer = self.optimizer(params)
+            self.is_init = True
+        with torchlib.no_grad():
+            for g, p in zip(grads, params):
+                p.grad = g
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        # reorg the param
+        params = PyTorchBackend.tree_unflatten(None, treedef, params)
+        return params
+
+
+def _conj_torch(self: Any, tensor: Tensor) -> Tensor:
+    t = torchlib.conj(tensor)
+    return t.resolve_conj()  # any side effect?
+
+
+def _sum_torch(
+    self: Any,
+    tensor: Tensor,
+    axis: Optional[Sequence[int]] = None,
+    keepdims: bool = False,
+) -> Tensor:
+    if axis is None:
+        axis = tuple([i for i in range(len(tensor.shape))])
+    return torchlib.sum(tensor, dim=axis, keepdim=keepdims)
+
+
+def _svd_torch(
+    self: Any,
+    tensor: Tensor,
+    pivot_axis: int = -1,
+    max_singular_values: Optional[int] = None,
+    max_truncation_error: Optional[float] = None,
+    relative: Optional[bool] = False,
+) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    left_dims = list(tensor.shape[:pivot_axis])
+    right_dims = list(tensor.shape[pivot_axis:])
+    matrix = torchlib.reshape(
+        tensor, [reduce(mul, left_dims, 1), reduce(mul, right_dims, 1)]
+    )
+    u, s, vh = torchlib.linalg.svd(matrix, full_matrices=False)
+    if max_singular_values is None:
+        max_singular_values = s.numel()
+    if max_truncation_error is not None:
+        trunc_errs = torchlib.sqrt(torchlib.cumsum(torchlib.flip(s, [0]) ** 2, 0))
+        threshold = max_truncation_error * s[0] if relative else max_truncation_error
+        num_sing_vals_err = torchlib.nonzero(trunc_errs > threshold).numel()
+        num_sing_vals_keep = min(max_singular_values, num_sing_vals_err)
+    else:
+        num_sing_vals_keep = max_singular_values
+    s = s.to(dtype=tensor.dtype)
+    s_rest = s[num_sing_vals_keep:]
+    s = s[:num_sing_vals_keep]
+    dim_s = s.shape[0]
+    u = torchlib.reshape(u[:, :num_sing_vals_keep], left_dims + [dim_s])
+    vh = torchlib.reshape(vh[:num_sing_vals_keep, :], [dim_s] + right_dims)
+    return u, s, vh, s_rest
+
+
+def _qr_torch(
+    self: Any,
+    tensor: Tensor,
+    pivot_axis: int = -1,
+    non_negative_diagonal: bool = False,
+) -> Tuple[Tensor, Tensor]:
+    """
+    Computes the QR decomposition of a tensor.
+    The QR decomposition is performed by treating the tensor as a matrix,
+    with an effective left (row) index resulting from combining the
+    axes `tensor.shape[:pivot_axis]` and an effective right (column)
+    index resulting from combining the axes `tensor.shape[pivot_axis:]`.
+
+    :Example:
+
+    If `tensor` had a shape (2, 3, 4, 5) and `pivot_axis` was 2,
+    then `q` would have shape (2, 3, 6), and `r` would
+    have shape (6, 4, 5).
+    The output consists of two tensors `Q, R` such that:
+
+    Q[i1,...,iN, j] * R[j, k1,...,kM] == tensor[i1,...,iN, k1,...,kM]
+
+    Note that the output ordering matches numpy.linalg.svd rather than tf.svd.
+
+    :param tensor: A tensor to be decomposed.
+    :type tensor: Tensor
+    :param pivot_axis: Where to split the tensor's axes before flattening into a matrix.
+    :type pivot_axis: int, optional
+    :param non_negative_diagonal: a bool indicating whether the tenor is diagonal non-negative matrix.
+    :type non_negative_diagonal: bool, optional
+    :returns: Q, the left tensor factor, and R, the right tensor factor.
+    :rtype: Tuple[Tensor, Tensor]
+    """
+    from .pytorch_ops import torchqr
+
+    left_dims = list(tensor.shape[:pivot_axis])
+    right_dims = list(tensor.shape[pivot_axis:])
+
+    tensor = torchlib.reshape(tensor, [reduce(mul, left_dims), reduce(mul, right_dims)])
+    q, r = torchqr.apply(tensor)
+    if non_negative_diagonal:
+        phases = torchlib.sign(torchlib.linalg.diagonal(r))
+        q = q * phases
+        r = phases[:, None] * r
+    center_dim = q.shape[1]
+    q = torchlib.reshape(q, left_dims + [center_dim])
+    r = torchlib.reshape(r, [center_dim] + right_dims)
+    return q, r
+
+
+def _rq_torch(
+    self: Any,
+    tensor: Tensor,
+    pivot_axis: int = 1,
+    non_negative_diagonal: bool = False,
+) -> Tuple[Tensor, Tensor]:
+    """
+    Computes the RQ decomposition of a tensor.
+    The QR decomposition is performed by treating the tensor as a matrix,
+    with an effective left (row) index resulting from combining the axes
+    `tensor.shape[:pivot_axis]` and an effective right (column) index
+    resulting from combining the axes `tensor.shape[pivot_axis:]`.
+
+    :Example:
+
+    If `tensor` had a shape (2, 3, 4, 5) and `pivot_axis` was 2,
+    then `r` would have shape (2, 3, 6), and `q` would
+    have shape (6, 4, 5).
+    The output consists of two tensors `Q, R` such that:
+
+    Q[i1,...,iN, j] * R[j, k1,...,kM] == tensor[i1,...,iN, k1,...,kM]
+
+    Note that the output ordering matches numpy.linalg.svd rather than tf.svd.
+
+    :param tensor: A tensor to be decomposed.
+    :type tensor: Tensor
+    :param pivot_axis: Where to split the tensor's axes before flattening into a matrix.
+    :type pivot_axis: int, optional
+    :param non_negative_diagonal: a bool indicating whether the tenor is diagonal non-negative matrix.
+    :type non_negative_diagonal: bool, optional
+    :returns: Q, the left tensor factor, and R, the right tensor factor.
+    :rtype: Tuple[Tensor, Tensor]
+    """
+    from .pytorch_ops import torchqr
+
+    left_dims = list(tensor.shape[:pivot_axis])
+    right_dims = list(tensor.shape[pivot_axis:])
+
+    tensor = torchlib.reshape(tensor, [reduce(mul, left_dims), reduce(mul, right_dims)])
+    q, r = torchqr.apply(tensor.adjoint())
+    if non_negative_diagonal:
+        phases = torchlib.sign(torchlib.linalg.diagonal(r))
+        q = q * phases
+        r = phases[:, None] * r
+    r, q = r.adjoint(), q.adjoint()
+    # M=r*q at this point
+    center_dim = r.shape[1]
+    r = torchlib.reshape(r, left_dims + [center_dim])
+    q = torchlib.reshape(q, [center_dim] + right_dims)
+    return r, q
+
+
+tensornetwork.backends.pytorch.pytorch_backend.PyTorchBackend.sum = _sum_torch
+tensornetwork.backends.pytorch.pytorch_backend.PyTorchBackend.conj = _conj_torch
+tensornetwork.backends.pytorch.pytorch_backend.PyTorchBackend.svd = _svd_torch
+tensornetwork.backends.pytorch.pytorch_backend.PyTorchBackend.qr = _qr_torch
+tensornetwork.backends.pytorch.pytorch_backend.PyTorchBackend.rq = _rq_torch
+
+
+def _patched_eigh(self: Any, matrix: Any) -> Tuple[Any, Any]:
+    eigvals, eigvecs = torchlib.linalg.eigh(matrix)
+    return eigvals, eigvecs
+
+
+pytorch_backend.PyTorchBackend.eigh = _patched_eigh
+
+
+class PyTorchBackend(pytorch_backend.PyTorchBackend, ExtendedBackend):  # type: ignore
+    """
+    See the original backend API at `pytorch backend
+    <https://github.com/google/TensorNetwork/blob/master/tensornetwork/backends/pytorch/pytorch_backend.py>`_
+
+    Note the functionality provided by pytorch backend is incomplete,
+    it currenly lacks native efficicent jit and vmap support.
+    """
+
+    def __init__(self) -> None:
+        super(PyTorchBackend, self).__init__()
+        global torchlib
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                "PyTorch not installed, please switch to a different "
+                "backend or install PyTorch."
+            )
+        torchlib = torch
+        self.name = "pytorch"
+
+    def eye(
+        self, N: int, dtype: Optional[str] = None, M: Optional[int] = None
+    ) -> Tensor:
+        if dtype is None:
+            dtype = dtypestr
+        torch_dtype = getattr(torchlib, dtype) if isinstance(dtype, str) else dtype
+        if not M:
+            M = N
+        return torchlib.eye(n=N, m=M, dtype=torch_dtype)
+
+    def ones(self, shape: Tuple[int, ...], dtype: Optional[str] = None) -> Tensor:
+        if dtype is None:
+            dtype = dtypestr
+        torch_dtype = getattr(torchlib, dtype) if isinstance(dtype, str) else dtype
+        return torchlib.ones(shape, dtype=torch_dtype)
+
+    def exp(self, tensor: Tensor) -> Tensor:
+        return torchlib.exp(tensor)
+
+    def log(self, tensor: Tensor) -> Tensor:
+        return torchlib.log(tensor)
+
+    def power(self, a: Tensor, b: Union[Tensor, float]) -> Tensor:
+        return torchlib.pow(a, b)
+
+    def zeros(self, shape: Tuple[int, ...], dtype: Optional[str] = None) -> Tensor:
+        if dtype is None:
+            dtype = dtypestr
+        torch_dtype = getattr(torchlib, dtype) if isinstance(dtype, str) else dtype
+        return torchlib.zeros(shape, dtype=torch_dtype)
+
+    def zeros_like(self, a: Tensor, dtype: Optional[str] = None) -> Tensor:
+        if dtype is None:
+            dtype = self.dtype(a)
+        r = torchlib.zeros_like(a)
+        return self.cast(r, dtype)
+
+    def ones_like(self, a: Tensor, dtype: Optional[str] = None) -> Tensor:
+        if dtype is None:
+            dtype = self.dtype(a)
+        r = torchlib.ones_like(a)
+        return self.cast(r, dtype)
+
+    def copy(self, a: Tensor) -> Tensor:
+        return a.clone()
+
+    def convert_to_tensor(self, tensor: Tensor, dtype: Optional[str] = None) -> Tensor:
+        if self.is_tensor(tensor):
+            result = tensor
+        elif dtype is not None:
+            return torchlib.tensor(tensor, dtype=getattr(torchlib, dtype))
+        else:
+            result = torchlib.tensor(tensor)
+        if dtype is not None:
+            result = self.cast(result, dtype)
+        return result
+
+    def set_random_state(
+        self, seed: Optional[int] = None, get_only: bool = False
+    ) -> Any:
+        if isinstance(seed, torchlib.Generator):
+            g = seed
+        else:
+            g = torchlib.Generator()
+            if seed is not None:
+                g.manual_seed(seed)
+        if get_only is False:
+            self.g = g
+        return g
+
+    def stateful_randn(
+        self,
+        g: Any,
+        shape: Union[int, Sequence[int]] = 1,
+        mean: float = 0,
+        stddev: float = 1,
+        dtype: Optional[str] = None,
+    ) -> Tensor:
+        if dtype is None:
+            dtype = rdtypestr
+        if isinstance(dtype, str):
+            dtype = dtype[-2:]
+        if isinstance(shape, int):
+            shape = (shape,)
+        if dtype == "32":
+            dtyper = torchlib.float32
+        elif dtype == "64":
+            dtyper = torchlib.float64
+        elif not isinstance(dtype, str):
+            dtyper = dtype
+        else:
+            raise ValueError("unspported `dtype` %s" % dtype)
+        r = torchlib.randn(size=shape, generator=g, dtype=dtyper) * stddev + mean
+        return r
+
+    def stateful_randu(
+        self,
+        g: Any,
+        shape: Union[int, Sequence[int]] = 1,
+        low: float = 0,
+        high: float = 1,
+        dtype: Optional[str] = None,
+    ) -> Tensor:
+        if dtype is None:
+            dtype = rdtypestr
+        if isinstance(dtype, str):
+            dtype = dtype[-2:]
+        if isinstance(shape, int):
+            shape = (shape,)
+        if dtype == "32":
+            dtyper = torchlib.float32
+        elif dtype == "64":
+            dtyper = torchlib.float64
+        elif not isinstance(dtype, str):
+            dtyper = dtype
+        else:
+            raise ValueError("unspported `dtype` %s" % dtype)
+        r = torchlib.rand(size=shape, generator=g, dtype=dtyper) * (high - low) + low
+        return r
+
+    def stateful_randc(
+        self,
+        g: Any,
+        a: Union[int, Sequence[int], Tensor],
+        shape: Union[int, Sequence[int]],
+        p: Optional[Union[Sequence[float], Tensor]] = None,
+    ) -> Tensor:
+        if isinstance(shape, int):
+            shape = (shape,)
+        if isinstance(a, int):
+            possible_values = torchlib.arange(a)
+            n = a
+        else:
+            possible_values = self.convert_to_tensor(a)
+            n = possible_values.shape[0]
+
+        if p is None:
+            indices = torchlib.randint(0, n, size=shape, generator=g)
+        else:
+            p = self.convert_to_tensor(p)
+            num_samples = reduce(mul, shape)
+            indices = torchlib.multinomial(
+                p, num_samples, replacement=True, generator=g
+            )
+            indices = torchlib.reshape(indices, shape)
+
+        return possible_values[indices]
+
+    def expm(self, a: Tensor) -> Tensor:
+        return torchlib.linalg.matrix_exp(a)
+        # raise NotImplementedError("pytorch backend doesn't support expm")
+        # in 2020, torch has no expm, hmmm. but that's ok,
+        # it doesn't support complex numbers which is more severe issue.
+        # see https://github.com/pytorch/pytorch/issues/9983
+
+    def sin(self, a: Tensor) -> Tensor:
+        return torchlib.sin(a)
+
+    def cos(self, a: Tensor) -> Tensor:
+        return torchlib.cos(a)
+
+    def acos(self, a: Tensor) -> Tensor:
+        return torchlib.acos(a)
+
+    def acosh(self, a: Tensor) -> Tensor:
+        return torchlib.acosh(a)
+
+    def asin(self, a: Tensor) -> Tensor:
+        return torchlib.asin(a)
+
+    def asinh(self, a: Tensor) -> Tensor:
+        return torchlib.asinh(a)
+
+    def atan(self, a: Tensor) -> Tensor:
+        return torchlib.atan(a)
+
+    def atan2(self, y: Tensor, x: Tensor) -> Tensor:
+        return torchlib.atan2(y, x)
+
+    def atanh(self, a: Tensor) -> Tensor:
+        return torchlib.atanh(a)
+
+    def cosh(self, a: Tensor) -> Tensor:
+        return torchlib.cosh(a)
+
+    def tan(self, a: Tensor) -> Tensor:
+        return torchlib.tan(a)
+
+    def tanh(self, a: Tensor) -> Tensor:
+        return torchlib.tanh(a)
+
+    def sinh(self, a: Tensor) -> Tensor:
+        return torchlib.sinh(a)
+
+    def size(self, a: Tensor) -> Tensor:
+        return a.size()
+
+    def sqrtmh(self, a: Tensor, psd: bool = False) -> Tensor:
+        """Return the PSD Hermitian matrix square root; ``psd`` is ignored."""
+        from .pytorch_ops import adaware_sqrtmh
+
+        return adaware_sqrtmh(a)
+
+    def eigvalsh(self, a: Tensor) -> Tensor:
+        return torchlib.linalg.eigvalsh(a)
+
+    def fft(self, a: Tensor) -> Tensor:
+        return torchlib.fft.fft(a)
+
+    def lobpcg_standard(
+        self,
+        a: Union[Tensor, Callable[[Tensor], Tensor]],
+        x0: Tensor,
+        m: int = 100,
+        tol: Optional[Union[Tensor, float]] = None,
+    ) -> Tuple[Tensor, Tensor, int]:
+        """
+        PyTorch LOBPCG implementation.
+        Note:
+        1. Complex input is not officially supported and is numerically unstable.
+        2. Callable input for operator 'a' is not supported.
+        """
+        if callable(a):
+            raise NotImplementedError(
+                "PyTorch backend `lobpcg` does not support callable linear operator yet."
+            )
+        theta, x = torchlib.lobpcg(
+            a, X=x0, niter=m, tol=tol, largest=True, ortho_fparams={"eps": 1e-6}
+        )
+        return theta, x, m
+
+    def kron(self, a: Tensor, b: Tensor) -> Tensor:
+        return torchlib.kron(a, b)
+
+    def numpy(self, a: Tensor) -> Tensor:
+        if self.is_sparse(a):
+            if a.is_sparse_csr:
+                return csr_matrix(
+                    (
+                        self.numpy(a.values()),
+                        self.numpy(a.col_indices()),
+                        self.numpy(a.crow_indices()),
+                    ),
+                    shape=a.shape,
+                )
+            a = a.coalesce()
+            return coo_matrix(
+                (self.numpy(a.values()), self.numpy(a.indices())), shape=a.shape
+            )
+        a = a.cpu()
+        if a.is_conj():
+            return a.resolve_conj().numpy()
+        if a.requires_grad:
+            return a.detach().numpy()
+        return a.numpy()
+
+    def i(self, dtype: Any = None) -> Tensor:
+        if not dtype:
+            dtype = getattr(torchlib, dtypestr)
+        if isinstance(dtype, str):
+            dtype = getattr(torchlib, dtype)
+        return torchlib.tensor(1j, dtype=dtype)
+
+    def det(self, a: Tensor) -> Tensor:
+        return torchlib.linalg.det(a)
+
+    def real(self, a: Tensor) -> Tensor:
+        if a.is_complex():
+            a = torchlib.real(a)
+        return a
+
+    def imag(self, a: Tensor) -> Tensor:
+        if a.is_complex():
+            return torchlib.imag(a)
+        return torchlib.zeros_like(a)
+
+    def dtype(self, a: Tensor) -> str:
+        return a.dtype.__str__().split(".")[-1]  # type: ignore
+
+    def stack(self, a: Sequence[Tensor], axis: int = 0) -> Tensor:
+        return torchlib.stack(a, dim=axis)
+
+    def concat(self, a: Sequence[Tensor], axis: int = 0) -> Tensor:
+        return torchlib.cat(a, dim=axis)
+
+    def tile(self, a: Tensor, rep: Tensor) -> Tensor:
+        return torchlib.tile(a, rep)
+
+    def mean(
+        self,
+        a: Tensor,
+        axis: Optional[Sequence[int]] = None,
+        keepdims: bool = False,
+    ) -> Tensor:
+        if axis is None:
+            axis = tuple([i for i in range(len(a.shape))])
+        return torchlib.mean(a, dim=axis, keepdim=keepdims)
+
+    def std(
+        self, a: Tensor, axis: Optional[Sequence[int]] = None, keepdims: bool = False
+    ) -> Tensor:
+        if axis is None:
+            axis = tuple([i for i in range(len(a.shape))])
+        return torchlib.std(a, dim=axis, unbiased=False, keepdim=keepdims)
+
+    def min(self, a: Tensor, axis: Optional[int] = None) -> Tensor:
+        if axis is None:
+            return torchlib.min(a)
+        return torchlib.min(a, dim=axis).values
+
+    def max(self, a: Tensor, axis: Optional[int] = None) -> Tensor:
+        if axis is None:
+            return torchlib.max(a)
+        return torchlib.max(a, dim=axis).values
+
+    def argmax(self, a: Tensor, axis: int = 0) -> Tensor:
+        return torchlib.argmax(a, dim=axis)
+
+    def argmin(self, a: Tensor, axis: int = 0) -> Tensor:
+        return torchlib.argmin(a, dim=axis)
+
+    def sort(self, a: Tensor, axis: int = -1) -> Tensor:
+        return torchlib.sort(a, dim=axis).values
+
+    def top_k(self, a: Tensor, k: int) -> Tuple[Tensor, Tensor]:
+        r = torchlib.topk(a, k)
+        return r.values, r.indices
+
+    def lexsort(self, keys: Any, axis: int = -1) -> Any:
+        # PyTorch stable sort for lexsort
+        if not keys:
+            return None
+        idx = torchlib.arange(keys[0].size(0), device=keys[0].device)
+        for k in keys:
+            idx = idx[torchlib.argsort(k[idx], stable=True)]
+        return idx
+
+    def repeat(self, a: Any, repeats: Any, axis: Optional[int] = None) -> Any:
+        return torchlib.repeat_interleave(a, repeats, dim=axis)
+
+    def popc(self, a: Any) -> Any:
+        if hasattr(torchlib, "bitwise_count"):  # PyTorch 1.10+
+            return torchlib.bitwise_count(a)
+        # Fallback
+        c = a.to(torchlib.int64)
+        c = c - ((c >> 1) & 0x5555555555555555)
+        c = (c & 0x3333333333333333) + ((c >> 2) & 0x3333333333333333)
+        weight_w = (((c + (c >> 4)) & 0x0F0F0F0F0F0F0F0F) * 0x0101010101010101) >> 56
+        return weight_w.to(torchlib.int32)
+
+    def argsort(self, a: Tensor, axis: int = -1) -> Tensor:
+        return torchlib.argsort(a, dim=axis)
+
+    def unique_with_counts(self, a: Tensor, **kws: Any) -> Tuple[Tensor, Tensor]:
+        return torchlib.unique(a, return_counts=True)  # type: ignore
+
+    def sigmoid(self, a: Tensor) -> Tensor:
+        return torchlib.sigmoid(a)
+
+    def relu(self, a: Tensor) -> Tensor:
+        return torchlib.relu(a)
+
+    def softmax(self, a: Tensor, axis: Optional[int] = None) -> Tensor:
+        if axis is None:
+            shape = a.shape
+            r = torchlib.nn.functional.softmax(a.reshape([-1]), dim=0)
+            return r.reshape(shape)
+        return torchlib.nn.functional.softmax(a, dim=axis)
+
+    def onehot(self, a: Tensor, num: int) -> Tensor:
+        a = a.long()
+        return torchlib.nn.functional.one_hot(a, num)
+
+    def cumsum(self, a: Tensor, axis: Optional[int] = None) -> Tensor:
+        if axis is None:
+            a = self.reshape(a, [-1])
+            return torchlib.cumsum(a, dim=0)
+        else:
+            return torchlib.cumsum(a, dim=axis)
+
+    def is_tensor(self, a: Any) -> bool:
+        if isinstance(a, torchlib.Tensor):
+            return True
+        return False
+
+    def cast(self, a: Tensor, dtype: Union[str, Any]) -> Tensor:
+        if isinstance(dtype, str):
+            torch_dtype = getattr(torchlib, dtype)
+        else:
+            torch_dtype = dtype
+        a = torchlib.as_tensor(a)
+        if torchlib.is_complex(a) and not getattr(torch_dtype, "is_complex", False):
+            a = torchlib.real(a)
+        return a.to(torch_dtype)
+
+    def arange(self, start: int, stop: Optional[int] = None, step: int = 1) -> Tensor:
+        if stop is None:
+            return torchlib.arange(start=0, end=start, step=step)
+        return torchlib.arange(start=start, end=stop, step=step)
+
+    def mod(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.fmod(x, y)
+
+    def floor_divide(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.floor_divide(x, y)
+
+    def floor(self, a: Tensor) -> Tensor:
+        return torchlib.floor(a)
+
+    def clip(self, a: Tensor, a_min: Tensor, a_max: Tensor) -> Tensor:
+        return torchlib.clamp(a, a_min, a_max)
+
+    def right_shift(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.bitwise_right_shift(x, y)
+
+    def left_shift(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.bitwise_left_shift(x, y)
+
+    def bitwise_and(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.bitwise_and(x, y)
+
+    def bitwise_xor(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.bitwise_xor(x, y)
+
+    def bitwise_or(self, x: Tensor, y: Tensor) -> Tensor:
+        return torchlib.bitwise_or(x, y)
+
+    def any(self, a: Tensor) -> Any:
+        return torchlib.any(a)
+
+    def all(self, a: Tensor, axis: Optional[Sequence[int]] = None) -> Any:
+        if axis is None:
+            return torchlib.all(a)
+        return torchlib.all(a, dim=axis)
+
+    def solve(self, A: Tensor, b: Tensor, **kws: Any) -> Tensor:
+        return torchlib.linalg.solve(A, b)
+
+    def searchsorted(self, a: Tensor, v: Tensor, side: str = "left") -> Tensor:
+        if not self.is_tensor(a):
+            a = self.convert_to_tensor(a)
+        if not self.is_tensor(v):
+            v = self.convert_to_tensor(v)
+        return torchlib.searchsorted(a, v, side=side)
+
+    def where(
+        self,
+        condition: Tensor,
+        x: Optional[Tensor] = None,
+        y: Optional[Tensor] = None,
+    ) -> Tensor:
+        if x is None and y is None:
+            return torchlib.where(condition)
+        assert x is not None and y is not None
+        return torchlib.where(condition, x, y)
+
+    def gather(self, operand: Tensor, indices: Tensor, axis: int = 0) -> Tensor:
+        ndim = len(operand.shape)
+        selected = torchlib.index_select(operand, axis, indices.reshape(-1).long())
+        axis = axis + ndim if axis < 0 else axis
+        shape = operand.shape[:axis] + indices.shape + operand.shape[axis + 1 :]
+        return selected.reshape(shape)
+
+    def scatter(
+        self, operand: Tensor, indices: Tensor, updates: Tensor, mode: str = "update"
+    ) -> Tensor:
+        operand_new = operand.clone()
+        index_depth = indices.shape[-1]
+        idx_tuple = tuple(indices[..., i] for i in range(index_depth))
+        if mode == "update":
+            return operand_new.index_put(idx_tuple, updates, accumulate=False)
+        elif mode == "add":
+            return operand_new.index_put(idx_tuple, updates, accumulate=True)
+        elif mode == "sub":
+            return operand_new.index_put(idx_tuple, -updates, accumulate=True)
+        else:
+            raise ValueError(f"Unsupported scatter mode: {mode}")
+
+    def reverse(self, a: Tensor) -> Tensor:
+        return torchlib.flip(a, dims=(-1,))
+
+    def flip(self, a: Tensor, axes: Sequence[int]) -> Tensor:
+        return torchlib.flip(a, dims=normalize_axes(axes, a.dim()))
+
+    def coo_sparse_matrix(
+        self, indices: Tensor, values: Tensor, shape: Tensor
+    ) -> Tensor:
+        # Convert COO format to PyTorch sparse tensor
+        indices = self.convert_to_tensor(indices)
+        return torchlib.sparse_coo_tensor(self.transpose(indices), values, shape)
+
+    def csr_sparse_matrix(
+        self, indptr: Tensor, indices: Tensor, values: Tensor, shape: Tensor
+    ) -> Tensor:
+        return torchlib.sparse_csr_tensor(
+            self.convert_to_tensor(indptr),
+            self.convert_to_tensor(indices),
+            self.convert_to_tensor(values),
+            size=tuple(shape),
+        )
+
+    def sparse_dense_matmul(
+        self,
+        sp_a: Tensor,
+        b: Tensor,
+    ) -> Tensor:
+        if b.dim() == 1:
+            return torchlib.sparse.mm(sp_a, b[:, None])[:, 0]
+        return torchlib.sparse.mm(sp_a, b)
+
+    def sparse_csr_from_coo(self, coo: Tensor, strict: bool = False) -> Tensor:
+        try:
+            # Convert COO to CSR format if supported
+            return coo.to_sparse_csr()
+        except AttributeError as e:
+            if not strict:
+                return coo
+            else:
+                raise e
+
+    def to_dense(self, sp_a: Tensor) -> Tensor:
+        # Convert sparse tensor to dense
+        return sp_a.to_dense()
+
+    def is_sparse(self, a: Tensor) -> bool:
+        return isinstance(a, torchlib.Tensor) and (a.is_sparse or a.is_sparse_csr)
+
+    def tree_map(self, f: Callable[..., Any], *pytrees: Any) -> Any:
+        # torch native tree_map not support multiple pytree args
+        # return torchlib.utils._pytree.tree_map(f, *pytrees)
+        args = []
+        for pytree in pytrees:
+            flat_args, spec = self.tree_flatten(pytree)
+            args.append(flat_args)
+        res = [
+            f(*[args[i][k] for i in range(len(pytrees))]) for k in range(len(flat_args))
+        ]
+        return self.tree_unflatten(spec, res)
+
+    def tree_flatten(self: Any, pytree: Any) -> Tuple[Any, Any]:
+        return torchlib.utils._pytree.tree_flatten(pytree)  # type: ignore
+
+    def tree_unflatten(self: Any, treedef: Any, leaves: Any) -> Any:
+        return torchlib.utils._pytree.tree_unflatten(leaves, treedef)
+
+    def from_dlpack(self, a: Any) -> Tensor:
+        return torchlib.utils.dlpack.from_dlpack(a)
+
+    def to_dlpack(self, a: Tensor) -> Any:
+        return torchlib.utils.dlpack.to_dlpack(a)
+
+    def cond(
+        self,
+        pred: bool,
+        true_fun: Callable[[], Tensor],
+        false_fun: Callable[[], Tensor],
+    ) -> Tensor:
+        if pred:
+            return true_fun()
+        return false_fun()
+
+    def switch(self, index: Tensor, branches: Sequence[Callable[[], Tensor]]) -> Tensor:
+        return branches[index.numpy()]()
+
+    def device(self, a: Tensor) -> str:
+        dev = a.device
+        return self._dev2str(dev)
+
+    def device_move(self, a: Tensor, dev: Any) -> Tensor:
+        if not isinstance(dev, str):
+            dev = self._dev2str(dev)
+        if dev.startswith("gpu"):
+            dev = "cuda:" + dev.split(":")[-1]
+        return a.to(device=dev)
+
+    def _dev2str(self, dev: Any) -> str:
+        if dev.type == "cpu":
+            return "cpu"
+        if dev.type == "cuda":
+            return "gpu:" + str(dev.index)
+        raise ValueError(
+            f"PyTorchBackend doesn't support non-GPU/CPU device, got dev={dev!r}"
+        )
+
+    def _str2dev(self, str_: str) -> Any:
+        if str_ == "cpu":
+            return torchlib.device("cpu")
+        if str_.startswith("gpu"):
+            _id = int(str_.split(":")[-1])
+            return torchlib.cuda.device(_id)
+        raise ValueError(
+            f"PyTorchBackend doesn't support non-GPU/CPU device, "
+            f"got device string={str_!r}"
+        )
+
+    def stop_gradient(self, a: Tensor) -> Tensor:
+        return a.detach()
+
+    def grad(
+        self,
+        f: Callable[..., Any],
+        argnums: Union[int, Sequence[int]] = 0,
+        has_aux: bool = False,
+    ) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kws: Any) -> Any:
+            y, gr = self.value_and_grad(f, argnums, has_aux)(*args, **kws)
+            if has_aux:
+                return gr, y[1:]
+            return gr
+
+        return wrapper
+
+    def value_and_grad(
+        self,
+        f: Callable[..., Any],
+        argnums: Union[int, Sequence[int]] = 0,
+        has_aux: bool = False,
+    ) -> Callable[..., Tuple[Any, Any]]:
+        def wrapper(*args: Any, **kws: Any) -> Any:
+            gavf = torchlib.func.grad_and_value(f, argnums=argnums, has_aux=has_aux)
+            g, v = gavf(*args, **kws)
+            return v, g
+
+        return wrapper
+
+    def vjp(
+        self,
+        f: Callable[..., Any],
+        inputs: Union[Tensor, Sequence[Tensor]],
+        v: Union[Tensor, Sequence[Tensor]],
+    ) -> Tuple[Union[Tensor, Sequence[Tensor]], Union[Tensor, Sequence[Tensor]]]:
+        single_input = not isinstance(inputs, (tuple, list))
+        if single_input:
+            inputs = (inputs,)
+        elif isinstance(inputs, list):
+            inputs = tuple(inputs)
+        value, pullback = torchlib.func.vjp(f, *inputs)
+        v = self.tree_unflatten(self.tree_flatten(value)[1], self.tree_flatten(v)[0])
+        gradients = pullback(v)
+        return value, gradients[0] if single_input else gradients
+
+    def jvp(
+        self,
+        f: Callable[..., Any],
+        inputs: Union[Tensor, Sequence[Tensor]],
+        v: Union[Tensor, Sequence[Tensor]],
+    ) -> Tuple[Union[Tensor, Sequence[Tensor]], Union[Tensor, Sequence[Tensor]]]:
+        inputs = tuple(inputs) if isinstance(inputs, (tuple, list)) else (inputs,)
+        v = tuple(v) if isinstance(v, (tuple, list)) else (v,)
+        # Reverse-over-reverse also supports operators with only a custom backward.
+        value, pullback = torchlib.func.vjp(f, *inputs)
+        zeros = self.tree_map(torchlib.zeros_like, value)
+        _, pushforward = torchlib.func.vjp(pullback, zeros)
+        return value, pushforward(v)[0]
+
+    def vmap(
+        self,
+        f: Callable[..., Any],
+        vectorized_argnums: Union[int, Sequence[int]] = 0,
+    ) -> Any:
+        if isinstance(vectorized_argnums, int):
+            vectorized_argnums = (vectorized_argnums,)
+
+        def wrapper(*args: Any, **kws: Any) -> Tensor:
+            in_axes = tuple([0 if i in vectorized_argnums else None for i in range(len(args))])  # type: ignore
+            return torchlib.vmap(f, in_axes, 0)(*args, **kws)
+
+        return wrapper
+
+    def jit(
+        self,
+        f: Callable[..., Any],
+        static_argnums: Optional[Union[int, Sequence[int]]] = None,
+        jit_compile: Optional[bool] = None,
+        **kws: Any,
+    ) -> Any:
+        if jit_compile is True:
+            # experimental feature reusing the jit_compile flag for tf
+            return torchlib.compile(f)
+        return f
+        # return f  # do nothing here until I figure out what torch.jit is for and how does it work
+        # see https://github.com/pytorch/pytorch/issues/36910
+
+    def vectorized_value_and_grad(
+        self,
+        f: Callable[..., Any],
+        argnums: Union[int, Sequence[int]] = 0,
+        vectorized_argnums: Union[int, Sequence[int]] = 0,
+        has_aux: bool = False,
+    ) -> Callable[..., Tuple[Any, Any]]:
+        # [WIP], not a consistent impl compared to tf and jax backend, but pytorch backend is not fully supported anyway
+        if isinstance(vectorized_argnums, int):
+            vectorized_argnums = (vectorized_argnums,)
+
+        def wrapper(
+            *args: Any, **kws: Any
+        ) -> Tuple[Tensor, Union[Tensor, Tuple[Tensor, ...]]]:
+            jf = self.value_and_grad(f, argnums=argnums, has_aux=has_aux)
+            jf = self.vmap(jf, vectorized_argnums=vectorized_argnums)
+            vs, gs = jf(*args, **kws)
+
+            if isinstance(argnums, int):
+                argnums_list = [argnums]
+                gs = [gs]
+            else:
+                argnums_list = argnums  # type: ignore
+                gs = list(gs)
+            for i, (j, g) in enumerate(zip(argnums_list, gs)):
+                if j not in vectorized_argnums:  # type: ignore
+                    gs[i] = self.tree_map(partial(torchlib.sum, dim=0), g)
+            if isinstance(argnums, int):
+                gs = gs[0]
+            else:
+                gs = tuple(gs)
+
+            return vs, gs
+
+        return wrapper
+
+    def expand_dims(self, a: Tensor, axis: int) -> Tensor:
+        return torchlib.unsqueeze(a, dim=axis)
+
+    vvag = vectorized_value_and_grad
+
+    def meshgrid(self, *args: Any, **kws: Any) -> Tensor:
+        return torchlib.meshgrid(*args, **kws)
+
+    optimizer = torch_optimizer

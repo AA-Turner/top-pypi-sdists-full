@@ -10,12 +10,16 @@ And it stays small after real traffic: RSS after 100 status/hello requests.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
+import threading
+import time
 
 import pytest
 
-from probe.service.protocol import Method
+from probe.foundation.service_api.wire import Method
 from tests.service_harness import service_home  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -27,12 +31,20 @@ PACKAGE_PARENTS = frozenset({"probe", "probe.errors", "probe.sdk", "probe.sdk.er
 #: The update child's contract the service shares with the CLI (agent:12: one definition where the
 #: service restated it): stdlib only, pinned by name like the parents above.
 UPDATE_CONTRACT = frozenset({"probe.shared", "probe.shared.updates", "probe.shared.updates.step"})
+#: The service's client side and the two stdlib-only helpers its split pieces use (agent:16):
+#: `foundation/service_api` is the client the tap vendors, `front_door` serves old module paths,
+#: `compose` folds a split class's parts back into it.
+SERVICE_FOUNDATION = ("probe.foundation.service_api", "probe.foundation.front_door", "probe.foundation.compose")
 #: The interpreter's own environment hooks (a venv's site customisation).
 ENVIRONMENT = ("__main__", "_virtualenv", "_distutils_hack", "__editable__")
-#: Sum of `-X importtime` self times, interpreter start included. ~65 ms on the
-#: devbox; the ceiling leaves room for a shared CI runner, the allowlist is the
-#: strict guard.
+#: CPU time (user + system) of the start path: interpreter start, imports and the
+#: self-test. ~130 ms on the devbox; the ceiling leaves room for a slower runner, the
+#: allowlist is the strict guard. CPU, not a stopwatch: a starved runner stretched the
+#: wall-clock import times to 1013 ms best of 5 (1111 ms on one core beside 8 busy
+#: loops, where the CPU time stays ~160 ms).
 IMPORT_BUDGET_MS = 400
+#: A hang guard only: an import that blocks (a DNS lookup, a lock) costs no CPU.
+WALL_CEILING_S = 5.0
 RSS_BUDGET_MB = 40
 
 
@@ -60,6 +72,8 @@ def test_the_start_path_imports_only_the_stdlib_and_the_service():
         and name not in UPDATE_CONTRACT
         and name != "probe.service"
         and not name.startswith("probe.service.")
+        and name != "probe.foundation"
+        and not name.startswith(SERVICE_FOUNDATION)
         and not name.startswith(ENVIRONMENT)
     ]
     assert not offenders, f"the service's start path imports {offenders}"
@@ -67,21 +81,50 @@ def test_the_start_path_imports_only_the_stdlib_and_the_service():
         assert heavy not in modules
 
 
-def _import_us() -> int:
-    _, stderr = _selftest()
-    total_us = 0
-    for line in stderr.splitlines():
-        if not line.startswith("import time:") or "self [us]" in line:
-            continue
-        total_us += int(line.split(":", 1)[1].split("|")[0].strip())
-    return total_us
+def _start_path_cpu() -> tuple[int, float, str]:
+    """The start path's CPU time in microseconds (`os.wait4`: this child's alone), its wall
+    time in seconds, and its `-X importtime` report, for the failure message."""
+    started = time.monotonic()
+    with tempfile.TemporaryFile() as stderr:
+        child = subprocess.Popen(
+            [sys.executable, "-I", "-X", "importtime", "-m", "probe.service", "--selftest"],
+            stdout=subprocess.DEVNULL,
+            stderr=stderr,
+            cwd="/",
+        )
+        watchdog = threading.Timer(60, child.kill)
+        watchdog.start()
+        try:
+            _, status, usage = os.wait4(child.pid, 0)
+        finally:
+            watchdog.cancel()
+        wall_s = time.monotonic() - started
+        child.returncode = os.waitstatus_to_exitcode(status)
+        stderr.seek(0)
+        report = stderr.read().decode(errors="replace")
+    assert child.returncode == 0, report[-2000:]
+    return int((usage.ru_utime + usage.ru_stime) * 1_000_000), wall_s, report
+
+
+def _slowest_imports(report: str, count: int = 8) -> list[str]:
+    timed = []
+    for line in report.splitlines():
+        if line.startswith("import time:") and "self [us]" not in line:
+            self_us, _cumulative, name = line.split(":", 1)[1].split("|")
+            timed.append((int(self_us), name.strip()))
+    return [f"{name} {us / 1000:.0f} ms" for us, name in sorted(timed, reverse=True)[:count]]
 
 
 def test_import_time_is_under_budget():
-    # Preemption only ever ADDS time to a run, so the fastest of a few is the
-    # cost of the imports; a real regression is slow in every one of them.
-    best_us = min(_import_us() for _ in range(5))
-    assert 0 < best_us < IMPORT_BUDGET_MS * 1000, f"start path imports took {best_us / 1000:.0f} ms (best of 5)"
+    # The fastest of a few is the cost of the start path; a real regression is
+    # slow in every one of them.
+    runs = [_start_path_cpu() for _ in range(5)]
+    best_us, _wall_s, report = min(runs)
+    assert min(wall_s for _us, wall_s, _report in runs) < WALL_CEILING_S, "the start path hangs"
+    assert 0 < best_us < IMPORT_BUDGET_MS * 1000, (
+        f"the start path took {best_us / 1000:.0f} ms of CPU (best of 5); slowest imports: "
+        f"{_slowest_imports(report)}"
+    )
 
 
 def _rss_kb(pid: int) -> int:

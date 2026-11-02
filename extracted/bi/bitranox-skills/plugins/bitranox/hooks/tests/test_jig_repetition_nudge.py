@@ -1,0 +1,902 @@
+"""Tests for jig-repetition-nudge.
+
+Two load-bearing cases, and they pull in opposite directions.
+
+The NEGATIVE one: a hook that fires on any two scripts of the same language would be noise, and
+noise gets ignored, which is how the catalogue hook's silence went unnoticed for six variants.
+
+The POSITIVE one, which the copy-only design failed: three scripts that solve ONE job by
+successively DIFFERENT means. `test_rewrites_score_below_the_copy_threshold` measures that they do
+not look alike, so the shingle channel provably cannot see them - and the lineage must still be
+handed to the model, via the topic channel and the ledger.
+"""
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+HOOK = Path(__file__).resolve().parent.parent / "jig-repetition-nudge.py"
+
+spec = importlib.util.spec_from_file_location("jig_repetition_nudge", HOOK)
+mod = importlib.util.module_from_spec(spec)
+sys.modules["jig_repetition_nudge"] = mod
+spec.loader.exec_module(mod)
+
+
+DELETE_V1 = """
+$root = 'C:\\Windows.old'
+$links = Get-ChildItem $root -Recurse -Directory -Force -Attributes ReparsePoint
+foreach ($l in $links) { cmd /c rd /q $l.FullName }
+$empty = Join-Path $env:TEMP ([guid]::NewGuid())
+robocopy $empty $root /MIR /XJ /R:0 /W:0 /MT:16
+cmd /c rd /s /q $root
+Write-Host ("free " + (Get-CimInstance Win32_LogicalDisk).FreeSpace)
+"""
+
+DELETE_V2 = """
+$root = 'C:\\Windows.old'
+$links = Get-ChildItem $root -Recurse -Directory -Force -Attributes ReparsePoint
+foreach ($l in $links) { cmd /c rd /q $l.FullName }
+$empty = Join-Path $env:TEMP ([guid]::NewGuid())
+robocopy $empty $root /MIR /XJ /R:0 /W:0 /MT:16 /NFL /NDL
+cmd /c rd /s /q $root
+Write-Host ("reclaimed " + (Get-CimInstance Win32_LogicalDisk).FreeSpace)
+"""
+
+DELETE_V3 = """
+$root = 'C:\\Windows.old'
+$links = Get-ChildItem $root -Recurse -Directory -Force -Attributes ReparsePoint
+foreach ($l in $links) { cmd /c rd /q $l.FullName }
+if (Test-Path $root) { Write-Host 'gate' }
+$empty = Join-Path $env:TEMP ([guid]::NewGuid())
+robocopy $empty $root /MIR /XJ /R:0 /W:0 /MT:16
+cmd /c rd /s /q $root
+"""
+
+UNRELATED = """
+$adapters = Get-NetAdapter | Sort-Object Name
+foreach ($a in $adapters) {
+    Write-Host ($a.Name + ' ' + $a.MacAddress + ' ' + $a.Status)
+}
+$ip = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }
+$ip | ForEach-Object { Write-Host $_.IPAddress }
+Get-Service wuauserv | Select-Object Name, Status, StartType
+"""
+
+# ---------------------------------------------------------------------------------------------
+# The REWRITE lineage: excerpts of the three real scripts (delwinold -> finishdel -> delrobo) that
+# solved one job - delete C:\Windows.old - three different ways in one session. Kept faithful to
+# the originals rather than retyped as look-alikes, because the whole point is how little they
+# share: a fixture written to "look like a rewrite" would test the fixture, not the hook.
+# ---------------------------------------------------------------------------------------------
+
+REWRITE_1 = """# Delete C:\\Windows.old WITHOUT touching permissions anywhere.
+#
+# Windows.old is largely HARD LINKS into the live installation. Deleting a link is safe - it only
+# decrements the link count. REWRITING permissions through one is not.
+$ErrorActionPreference = 'Continue'
+$root = 'C:\\Windows.old'
+$blockers = @()
+foreach ($item in Get-ChildItem $root -Recurse -Force -EA SilentlyContinue) {
+    try { Remove-Item $item.FullName -Force -Recurse -EA Stop }
+    catch { $blockers += $item.FullName }
+}
+Write-Host ("blockers : " + $blockers.Count)
+"""
+
+REWRITE_2 = """# Clear the residue. The remaining files sit at paths longer than MAX_PATH (260), which is why
+# Remove-Item could not delete them - their attributes are plain Archive, so this is NOT the
+# read-only trap and no permission change is warranted.
+#
+# robocopy /MIR from an EMPTY directory handles long paths natively and only deletes.
+$ErrorActionPreference = 'Continue'
+$root = 'C:\\Windows.old'
+if (-not (Test-Path $root)) { Write-Host "RESULT=ALREADY-GONE"; exit 0 }
+$before = @(Get-ChildItem $root -Recurse -File -Force -EA SilentlyContinue).Count
+$scratch = Join-Path $env:TEMP 'mtdir'
+New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+& robocopy.exe $scratch $root /MIR /R:0 /W:0 /NFL /NDL /NJH
+Write-Host ("files before : " + $before)
+"""
+
+REWRITE_3 = """# Delete Windows.old the way the skill actually prescribes: robocopy /MIR from an empty directory,
+# multithreaded, for the BULK - not a per-file Remove-Item loop. On 68000 the per-file loop took
+# ~73 min and still left residue. This run is the timed comparison.
+$ErrorActionPreference = 'Continue'
+$root = 'C:\\Windows.old'
+# A stale mounted WIM inside the tree must be discarded first.
+$mounts = & dism.exe /English /Get-MountedImageInfo 2>&1 | Select-String 'Mount Dir'
+$stamp = Get-Date
+$pool = Join-Path $env:TEMP ([guid]::NewGuid())
+New-Item -ItemType Directory -Path $pool -Force | Out-Null
+& robocopy.exe $pool $root /MIR /MT:32 /R:0 /W:0 /NP /NFL /NDL /NJH /NJS
+Write-Host ("elapsed : " + ((Get-Date) - $stamp).TotalMinutes)
+"""
+
+# The lineage's read-only sibling. It is part of the fixture because it was part of the real
+# session: a rewrite lineage is not three scripts in a row, it is a job worked on from several
+# angles, and the group the filter finds is made of BOTH kinds.
+PROBE_DELETE = """# Is the delete progressing? Free space is the honest signal here.
+$free = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+Write-Host ("free GB : " + [math]::Round($free / 1GB, 2))
+Write-Host ("present : " + (Test-Path 'C:\\Windows.old'))
+"""
+
+# A read-only probe about a DIFFERENT job, for the tests that must not be about the delete lineage.
+PROBE_WINDOWS_UPDATE = """# What state is Windows Update in right now?
+$svc = Get-Service wuauserv
+Write-Host ("wuauserv : " + $svc.Status + " " + $svc.StartType)
+Write-Host ("pending  : " + (Test-Path 'HKLM:\\SOFTWARE\\Microsoft\\WindowsUpdate\\Auto Update'))
+"""
+
+
+# ------------------------------------------------------------------------------- pure: shingles
+
+def test_near_duplicates_score_high():
+    assert mod.similarity(mod.shingles(DELETE_V1), mod.shingles(DELETE_V2)) >= mod.SIMILARITY
+
+
+def test_unrelated_scripts_score_below_threshold():
+    """The negative control: same language, different job, must NOT look like a variant."""
+    score = mod.similarity(mod.shingles(DELETE_V1), mod.shingles(UNRELATED))
+    assert score < mod.SIMILARITY, f"unrelated scripts scored {score}"
+
+
+def test_comments_do_not_create_similarity():
+    a = mod.shingles("# delete windows.old safely with robocopy mirror\n$x = 1\n")
+    b = mod.shingles("# delete windows.old safely with robocopy mirror\n$y = 2\n")
+    assert mod.similarity(a, b) == 0.0
+
+
+def test_count_kin_ignores_same_path():
+    """Iterating on ONE file is editing, not authoring a new variant."""
+    sh = mod.shingles(DELETE_V1)
+    store = {"/tmp/a.ps1": [list(t) for t in sh]}
+    assert mod.count_kin(store, "/tmp/a.ps1", sh) == []
+
+
+def test_rewrites_score_below_the_copy_threshold():
+    """The measurement that motivates the topic channel: rewrites do not look alike.
+
+    RED evidence, not an assumption. If this ever starts failing, the shingle channel alone would
+    have caught the lineage and the topic channel would be carrying less than it claims.
+    """
+    sh = [mod.shingles(t) for t in (REWRITE_1, REWRITE_2, REWRITE_3)]
+    scores = [mod.similarity(sh[0], sh[1]), mod.similarity(sh[0], sh[2]), mod.similarity(sh[1], sh[2])]
+    assert max(scores) < mod.SIMILARITY, f"rewrites looked like copies: {scores}"
+
+
+# -------------------------------------------------------------------------------- pure: purpose
+
+def _big_script(seed, lines=400):
+    """A script far larger than SHINGLE_LIMIT, so the stored sample is a strict subset."""
+    body = "\n".join(f"$v{i} = Get-Item 'C:\\p{i}'; Write-Host $v{i}.Length" for i in range(lines))
+    return f"# Delete the staging tree, attempt {seed}.\n$root = 'C:\\Windows.old'\n{body}\nrobocopy $e $root /MIR\n"
+
+
+def test_a_near_copy_is_still_recognised_when_it_exceeds_the_shingle_limit():
+    """Both sides of a comparison must use the same sketch.
+
+    Scoring a live FULL shingle set against a stored TRUNCATED one inflates the union without the
+    intersection, so a real near-copy scores low and slips through - measured on the real corpus as
+    delrobo/delrobo_xj falling from 0.298 to 0.234, under the threshold.
+    """
+    a, b = mod.shingles(_big_script(1)), mod.shingles(_big_script(2))
+    assert len(a) > mod.SHINGLE_LIMIT, "fixture too small to exercise truncation"
+    stored = {"s": [list(x) for x in sorted(mod.sketch(b))]}
+    assert mod._shares_text(a, stored), "a near-copy stopped registering once it was truncated"
+
+
+def test_sketch_is_bounded_and_deterministic():
+    sh = mod.shingles(_big_script(3))
+    assert len(mod.sketch(sh)) == mod.SHINGLE_LIMIT
+    assert mod.sketch(sh) == mod.sketch(sh)
+    assert mod.sketch(sh) <= sh
+
+
+def test_purpose_prefers_the_first_comment_line():
+    assert mod.purpose(REWRITE_1).startswith("Delete C:\\Windows.old WITHOUT touching permissions")
+
+
+def test_purpose_skips_the_shebang():
+    text = "#!/usr/bin/env bash\n# Wait for Windows.old to be gone.\nLOG=\"$1\"\n"
+    assert mod.purpose(text) == "Wait for Windows.old to be gone."
+
+
+def test_purpose_skips_boilerplate_preamble():
+    """$ErrorActionPreference identifies nothing, and every script that opens with it would
+    otherwise read as the same job as every other one."""
+    text = "$ErrorActionPreference='Continue'\nWrite-Host (Test-Path 'C:\\Windows.old')\n"
+    assert "ErrorActionPreference" not in mod.purpose(text)
+    assert "Windows.old" in mod.purpose(text)
+
+
+def test_purpose_falls_back_to_opening_code_when_there_is_no_comment():
+    assert "Get-NetAdapter" in mod.purpose(UNRELATED)
+
+
+def test_purpose_is_truncated():
+    assert len(mod.purpose("# " + "x" * 500)) <= mod.PURPOSE_WIDTH
+
+
+def test_purpose_of_empty_text_is_empty():
+    assert mod.purpose("") == ""
+
+
+# --------------------------------------------------------------------------------- pure: topic
+
+def test_name_tokens_link_a_del_family():
+    """delwinold / delrobo / delsafe share no whole word and no 4-character prefix."""
+    a, b, c = (mod.name_tokens(n) for n in ("delwinold.ps1", "delrobo.ps1", "delsafe.ps1"))
+    assert a & b and b & c and a & c, f"del-family did not link: {a} {b} {c}"
+
+
+def test_name_tokens_ignore_a_trailing_digit():
+    """delsafe2 is the second attempt at delsafe's job, not a different topic."""
+    assert mod.name_tokens("delsafe.ps1") <= mod.name_tokens("delsafe2.ps1")
+
+
+def test_unrelated_names_do_not_link():
+    assert not (mod.name_tokens("delrobo.ps1") & mod.name_tokens("netadapters.ps1"))
+
+
+def test_topic_tokens_ignore_the_body():
+    """The body is where two solutions to one job diverge most - that is what a rewrite IS."""
+    said = "# Delete Windows.old safely.\n"
+    assert (mod.topic_tokens("del.ps1", mod.purpose(said + "Remove-Item -Recurse\n"))
+            == mod.topic_tokens("del.ps1", mod.purpose(said + "& robocopy.exe $a $b /MIR\n")))
+
+
+def test_topic_tokens_link_the_real_rewrites():
+    pairs = [mod.topic_tokens(n, mod.purpose(t)) for n, t in
+             (("delwinold.ps1", REWRITE_1), ("finishdel.ps1", REWRITE_2), ("delrobo.ps1", REWRITE_3))]
+    assert pairs[0] & pairs[2], "the lineage's endpoints share no topic token"
+
+
+# --------------------------------------------------------------- pure: what counts as one JOB
+#
+# These four came out of replaying 2615 script writes from 97 real sessions. Every fixture below
+# is synthetic; the corpus supplied the SHAPES, never any text.
+
+
+def test_the_same_file_spelled_two_ways_is_one_file():
+    """A model writes `tests/t.py` from the repo root and `/repo/tests/t.py` a minute later.
+
+    The ledger's path key exists so that iterating on one script is not counted as writing another
+    variant of it, and a literal string key silently loses that whenever the spelling changes.
+    """
+    assert mod.same_file("tests/t.py", "/home/u/repo/tests/t.py")
+    assert mod.same_file("del.ps1", "C:\\scratch\\del.ps1")
+    assert mod.same_file("./a/b.sh", "a/b.sh")
+    assert mod.same_file("/tmp/a.ps1", "/tmp/a.ps1")
+
+
+def test_two_files_sharing_a_basename_in_different_directories_are_not_one_file():
+    """The negative control. Porting one file into two repos BY HAND is a repeated job, and
+    folding those two into one would hide exactly the case worth reporting."""
+    assert not mod.same_file("/repo/a/tests/t.py", "/repo/b/tests/t.py")
+    assert not mod.same_file("src/conftest.py", "tests/conftest.py")
+    assert not mod.same_file("", "/tmp/a.ps1")
+
+
+def test_a_numbered_name_is_the_same_script_again():
+    """`probe.ps1` then `probe2.ps1` says "attempt 2" in the filename itself."""
+    assert mod.numbered_retry("probe.ps1", "probe2.ps1")
+    assert mod.numbered_retry("/tmp/diag3.ps1", "/tmp/diag7.ps1")
+    assert mod.numbered_retry("check_it.py", "check_it2.py")
+
+
+def test_a_numbered_name_does_not_link_unrelated_scripts():
+    assert not mod.numbered_retry("probe2.ps1", "verify2.ps1")
+    assert not mod.numbered_retry("probe.ps1", "probe.ps1"), "one file is not two attempts"
+    assert not mod.numbered_retry("p1.py", "p2.py"), "a two-character stem is too generic"
+
+
+def test_a_pytest_module_is_not_a_one_off_script():
+    """The hook asks for "a TESTED JIG - a script with pytest cases", so a test suite is the END
+    STATE it wants. Counting test modules as repeated jobs nudges the one behaviour it asks for."""
+    assert mod.is_test_suite_file("test_thing.py")
+    assert mod.is_test_suite_file("/repo/tests/anything.py")
+    assert mod.is_test_suite_file("conftest.py")
+
+
+def test_a_one_off_probe_that_merely_ends_in_test_is_still_a_script():
+    """Real throwaway probes get called `rule_test.py`; suppressing those would lose the repeats
+    this hook exists for. Only the `test_` prefix pytest collects on, and only for .py."""
+    assert not mod.is_test_suite_file("rule_test.py")
+    assert not mod.is_test_suite_file("test1.sh")
+    assert not mod.is_test_suite_file("test_harness.ps1")
+
+
+def test_distinct_jobs_counts_jobs_not_paths():
+    group = ["/repo/probe.py", "probe.py", "/repo/tests/test_probe.py", "/repo/probe2.py"]
+    assert mod.distinct_jobs(group) == ["/repo/probe.py", "/repo/probe2.py"]
+
+
+# --------------------------------------------------------------------------- pure: changes_state
+
+def test_changes_state_sees_a_delete():
+    for text in (REWRITE_1, REWRITE_2, REWRITE_3, DELETE_V1):
+        assert mod.changes_state(text), text[:40]
+
+
+def test_changes_state_is_false_for_a_read_only_probe():
+    assert not mod.changes_state(PROBE_DELETE)
+    assert not mod.changes_state(PROBE_WINDOWS_UPDATE)
+    assert not mod.changes_state(UNRELATED)
+
+
+# ------------------------------------------------------------------------------- pure: budgets
+
+def _spent(change=0, observe=0, last_observe=None):
+    state = {"n_change": change, "n_observe": observe}
+    if last_observe is not None:
+        state["last_observe"] = last_observe
+    return state
+
+
+def test_a_spent_observe_budget_still_leaves_a_change_slot():
+    """The partition that made the difference: read-only repeats fill a session and would
+    otherwise spend the budget the destructive lineage needs."""
+    state = _spent(observe=mod.OBSERVE_NUDGE_CAP, last_observe=90)
+    assert not mod.budget_allows(state, "observe", 91)
+    assert mod.budget_allows(state, "change", 91)
+
+
+def test_the_change_track_stops_at_its_cap():
+    assert mod.budget_allows(_spent(change=mod.CHANGE_NUDGE_CAP - 1), "change", 50)
+    assert not mod.budget_allows(_spent(change=mod.CHANGE_NUDGE_CAP), "change", 50)
+
+
+def test_the_observe_track_waits_for_its_cooldown():
+    state = _spent(observe=1, last_observe=10)
+    assert not mod.budget_allows(state, "observe", 10 + mod.OBSERVE_COOLDOWN - 1)
+    assert mod.budget_allows(state, "observe", 10 + mod.OBSERVE_COOLDOWN)
+
+
+def test_should_nudge_needs_fresh_scripts():
+    """A group that grew by one script is the SAME finding again, not a new one."""
+    group = ["a.ps1", "b.ps1", "c.ps1", "d.ps1"]
+    assert mod.should_nudge(group, set(), {}, "change", 4)
+    assert not mod.should_nudge(group, {"a.ps1", "b.ps1", "c.ps1"}, {}, "change", 4)
+
+
+def test_should_nudge_needs_three_scripts():
+    assert not mod.should_nudge(["a.ps1", "b.ps1"], set(), {}, "change", 2)
+
+
+# ------------------------------------------------------------------------------- pure: message
+
+def _entry(name, said, mutates=False):
+    return {"p": "/scratch/" + name, "d": said, "m": mutates}
+
+
+def test_build_message_hands_over_the_ledger_with_purposes():
+    entries = [_entry("probe.ps1", "Read the CBS log"), _entry("delrobo.ps1", "Delete Windows.old", True)]
+    msg = mod.build_message(["/scratch/delrobo.ps1"], entries, 1)
+    assert "probe.ps1 - Read the CBS log" in msg
+    assert "delrobo.ps1 [changes state] - Delete Windows.old" in msg
+
+
+def test_build_message_asks_the_model_to_judge_and_offers_a_subagent():
+    msg = mod.build_message(["/scratch/a.ps1"], [_entry("a.ps1", "x")], 1)
+    assert "JUDGE" in msg
+    assert "subagent" in msg
+    assert "TESTED JIG" in msg
+    assert "ignore this and carry on" in msg, "a loose filter must say what to do when it is wrong"
+
+
+def test_build_message_says_which_nudge_this_is():
+    """Identical repeated nudges get tuned out; each one has to look different from the last."""
+    entries = [_entry("a.ps1", "x")]
+    assert "first time" in mod.build_message(["/scratch/a.ps1"], entries, 1)
+    assert "nudge 4" in mod.build_message(["/scratch/a.ps1"], entries, 4)
+
+
+def test_build_message_bounds_the_ledger_it_hands_over():
+    entries = [_entry(f"s{i}.ps1", "purpose " + "y" * 200) for i in range(200)]
+    msg = mod.build_message(["/scratch/s199.ps1"], entries, 1)
+    assert "s0.ps1" not in msg, "the whole session is not the recent context"
+    assert len(msg) < 5000
+
+
+# ---------------------------------------------------------------------------------- subprocess
+
+def _run(payload, home):
+    """Run the hook with HOME redirected.
+
+    The hook is a SUBPROCESS and its state dir resolves through Path.home(), so a parent-process
+    monkeypatch.setenv never reaches it - an earlier version of these tests wrote into the real
+    audit dir, passed once on a clean machine, and failed on re-run against its own leftover
+    state. The env must be handed to the child.
+    """
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home))
+    return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload),
+                          capture_output=True, text=True, encoding="utf-8", timeout=60, env=env)
+
+
+def _write_event(session, path, content):
+    return {"tool_name": "Write", "session_id": session,
+            "tool_input": {"file_path": path, "content": content}}
+
+
+def _context(result):
+    if not result.stdout.strip():
+        return ""
+    return json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_state_is_isolated_to_the_given_home(tmp_path):
+    """Guards the isolation itself: the state file must land under the redirected HOME."""
+    _run(_write_event("sess-iso", "/tmp/a.ps1", DELETE_V1), tmp_path)
+    assert list(tmp_path.rglob("*.jig-ledger.json")), "state did not land under the test HOME"
+
+
+def test_third_variant_nudges_and_first_two_do_not(tmp_path):
+    sess = "sess-jig-1"
+    r1 = _run(_write_event(sess, "/tmp/del_v1.ps1", DELETE_V1), tmp_path)
+    r2 = _run(_write_event(sess, "/tmp/del_v2.ps1", DELETE_V2), tmp_path)
+    r3 = _run(_write_event(sess, "/tmp/del_v3.ps1", DELETE_V3), tmp_path)
+    for r in (r1, r2, r3):
+        assert r.returncode == 0
+    assert r1.stdout.strip() == "", "first script must be silent"
+    assert r2.stdout.strip() == "", "second script must be silent"
+    assert "TESTED JIG" in r3.stdout, f"third variant should nudge, got: {r3.stdout!r}"
+
+
+def test_rewrite_lineage_nudges_although_it_does_not_look_like_a_copy(tmp_path):
+    """The regression this design exists for.
+
+    Three real scripts, one job, three different means. test_rewrites_score_below_the_copy_threshold
+    proves the shingle channel cannot see them; this proves the hook speaks up anyway.
+    """
+    sess = "sess-rewrite"
+    quiet = [_run(_write_event(sess, path, body), tmp_path) for path, body in (
+        ("/scratch/delwinold.ps1", REWRITE_1),
+        ("/scratch/delprogress.ps1", PROBE_DELETE),
+        ("/scratch/finishdel.ps1", REWRITE_2))]
+    ctx = _context(_run(_write_event(sess, "/scratch/delrobo.ps1", REWRITE_3), tmp_path))
+    assert [r.stdout.strip() for r in quiet] == ["", "", ""], "nudged before there was a pattern"
+    assert ctx, "the rewrite lineage never reached the model"
+    assert "delrobo.ps1" in ctx and "delwinold.ps1" in ctx and "finishdel.ps1" in ctx
+
+
+def test_the_nudge_carries_scripts_the_lexical_filter_did_not_group(tmp_path):
+    """The ledger, not the trigger group, is the payload.
+
+    The lexical filter cannot see every member of a rewrite lineage - that is the premise of the
+    whole design - so the model has to be shown the session's other scripts to judge for itself.
+    """
+    sess = "sess-ledger"
+    for path, body in (("/scratch/wuerr.ps1", UNRELATED),
+                       ("/scratch/delwinold.ps1", REWRITE_1),
+                       ("/scratch/delprogress.ps1", PROBE_DELETE),
+                       ("/scratch/finishdel.ps1", REWRITE_2)):
+        _run(_write_event(sess, path, body), tmp_path)
+    ctx = _context(_run(_write_event(sess, "/scratch/delrobo.ps1", REWRITE_3), tmp_path))
+    trigger, _, ledger = ctx.partition("Scripts written this session")
+    assert "wuerr.ps1" not in trigger, "the unrelated script should not be in the lexical group"
+    assert "wuerr.ps1" in ledger, "the ledger must carry it anyway, for the model to judge"
+
+
+def test_does_not_re_nudge_without_fresh_scripts(tmp_path):
+    """One more variant of an already-reported lineage is the same finding, not a new one."""
+    sess = "sess-once"
+    for path, body in (("/tmp/a.ps1", DELETE_V1), ("/tmp/b.ps1", DELETE_V2)):
+        _run(_write_event(sess, path, body), tmp_path)
+    first = _run(_write_event(sess, "/tmp/c.ps1", DELETE_V3), tmp_path)
+    second = _run(_write_event(sess, "/tmp/d.ps1", DELETE_V1 + "\n$z = 9\n"), tmp_path)
+    assert "TESTED JIG" in first.stdout
+    assert second.stdout.strip() == "", "must not repeat a finding that gained one script"
+
+
+def test_read_only_repeats_are_rate_limited(tmp_path):
+    """A session's probes repeat constantly. They may speak once, not every third script."""
+    sess = "sess-observe"
+    fired = 0
+    for i in range(9):
+        body = PROBE_WINDOWS_UPDATE + f"\nWrite-Host 'sample {i}'\n"
+        if _context(_run(_write_event(sess, f"/scratch/wustate{i}.ps1", body), tmp_path)):
+            fired += 1
+    assert fired == 1, f"read-only repeats nudged {fired} times in 9 scripts"
+
+
+def test_a_session_of_probes_leaves_the_change_budget_intact(tmp_path):
+    """The partition, end to end: probes first, then the rewrite lineage still gets through.
+
+    This is the failure the single-budget design had: replaying the real session, one shared
+    clock-paced budget reached the destructive lineage in 0% of unperturbed runs, this one in 100%.
+    """
+    sess = "sess-partition"
+    for i in range(9):
+        _run(_write_event(sess, f"/scratch/wustate{i}.ps1",
+                          PROBE_WINDOWS_UPDATE + f"\nWrite-Host 'sample {i}'\n"), tmp_path)
+    for path, body in (("/scratch/delwinold.ps1", REWRITE_1),
+                       ("/scratch/delprogress.ps1", PROBE_DELETE),
+                       ("/scratch/finishdel.ps1", REWRITE_2)):
+        _run(_write_event(sess, path, body), tmp_path)
+    ctx = _context(_run(_write_event(sess, "/scratch/delrobo.ps1", REWRITE_3), tmp_path))
+    assert ctx, "the change track was starved by read-only repeats"
+
+
+# ------------------------------------------------------------- cross-session behaviour, measured
+#
+# The hook was originally tuned on ONE session. These three encode what replaying 97 sessions
+# (2615 script writes) said about the other 96. Fixtures are synthetic - the corpus supplied the
+# shapes and the counts, never any text.
+
+MODULE_UNDER_TEST = """# Ledger of the things this tool has seen, with a bounded window.
+def record(entry, entries):
+    entries.append(entry)
+    return entries[-200:]
+"""
+
+
+def _suite_case(name, case):
+    return f'''# Tests for the ledger {name}.
+def test_{case}():
+    assert record({{"p": "x"}}, []) == [{{"p": "x"}}]
+'''
+
+
+def test_a_module_and_its_test_suite_stay_silent(tmp_path):
+    """The single largest false positive across the corpus, and the most self-defeating.
+
+    This hook's remedy is "build it once as a TESTED JIG - a script with pytest cases", so a
+    session writing a module and then filling up tests/ is doing precisely what it asks for.
+    Test-suite files are a quarter of all script writes measured, and every session the pytest
+    rule silenced had been nudged for writing a module beside its tests.
+    """
+    sess = "sess-suite"
+    written = [_run(_write_event(sess, "/repo/src/ledger.py", MODULE_UNDER_TEST), tmp_path)]
+    for name, case in (("window", "the_window_is_bounded"), ("io", "a_reread_round_trips"),
+                       ("bounds", "an_empty_ledger_is_not_an_error")):
+        written.append(_run(_write_event(sess, f"/repo/tests/test_ledger_{name}.py",
+                                         _suite_case(name, case)), tmp_path))
+    written.append(_run(_write_event(sess, "/repo/tests/conftest.py",
+                                     "# Put src on sys.path.\nimport sys\n"), tmp_path))
+    assert [r.stdout.strip() for r in written] == [""] * 5, "nudged a session for writing tests"
+
+
+NUMBERED_PROBES = ("# Which shells does the runner have?\nls -1 /bin/*sh\n",
+                   "# Does the array slice behave?\narr=(a b c); echo \"${arr[@]:1}\"\n",
+                   "# Is the trap inherited by the subshell?\ntrap 'echo bye' EXIT; (exit 3)\n")
+
+
+def test_a_numbered_family_nudges_although_the_names_share_one_short_token(tmp_path):
+    """The other side of the same coin: silence where the repetition is undeniable.
+
+    `net1.sh` .. `net3.sh` reduce to ONE name token, and the topic channel needs two, so a family
+    that says "attempt N" in its own filename went unreported. Measured: two corpus sessions that
+    wrote nine `testN.sh` and three `*_testN.py` got no nudge at all before this channel.
+    """
+    sess = "sess-numbered"
+    quiet = [_run(_write_event(sess, f"/scratch/net{i}.sh", body), tmp_path)
+             for i, body in enumerate(NUMBERED_PROBES[:2], 1)]
+    third = _run(_write_event(sess, "/scratch/net3.sh", NUMBERED_PROBES[2]), tmp_path)
+    assert [r.stdout.strip() for r in quiet] == ["", ""]
+    ctx = _context(third)
+    assert ctx, "a numbered retry family never reached the model"
+    assert "net1.sh" in ctx and "net3.sh" in ctx
+
+
+def test_respelling_one_path_does_not_make_it_a_second_variant(tmp_path):
+    """Two scripts plus a re-write of one of them is two jobs, not three.
+
+    The ledger is keyed by path so that iterating on a file is not counted as authoring another
+    variant; writing it once relative and once absolute defeated that. Measured: 110 of 2615 real
+    script writes respell a path already in the ledger.
+    """
+    sess = "sess-respelt"
+    body = "# Audit the staging tree for leftovers.\nfind /srv/staging -type f | wc -l\n"
+    results = [_run(_write_event(sess, "/work/audit_files.sh", body), tmp_path),
+               _run(_write_event(sess, "audit_files.sh", body + "echo done\n"), tmp_path),
+               _run(_write_event(sess, "/work/audit_files2.sh", body + "echo again\n"), tmp_path)]
+    assert [r.stdout.strip() for r in results] == ["", "", ""], "counted one file as two variants"
+
+
+def test_unrelated_second_script_never_nudges(tmp_path):
+    sess = "sess-jig-3"
+    a = _run(_write_event(sess, "/tmp/x1.ps1", DELETE_V1), tmp_path)
+    b = _run(_write_event(sess, "/tmp/x2.ps1", UNRELATED), tmp_path)
+    assert a.stdout.strip() == ""
+    assert b.stdout.strip() == "", "an unrelated second script must not nudge"
+
+
+def test_non_script_files_ignored(tmp_path):
+    sess = "sess-jig-4"
+    for i in range(4):
+        r = _run(_write_event(sess, f"/tmp/doc{i}.md", DELETE_V1), tmp_path)
+        assert r.stdout.strip() == ""
+        assert r.returncode == 0
+
+
+def test_utf8_content_survives_the_round_trip(tmp_path):
+    """A script full of non-ASCII must neither crash the hook nor mangle its state."""
+    sess = "sess-utf8"
+    body = "# Loesche C:\\Windows.old - Zugriff verweigert, \u00fcberpr\u00fcfen \u2713 \u4e2d\u6587\n" + REWRITE_1
+    for i in range(3):
+        r = _run(_write_event(sess, f"/scratch/loeschen{i}.ps1", body + f"\n$i = {i}\n"), tmp_path)
+        assert r.returncode == 0, r.stderr[-500:]
+    assert list(tmp_path.rglob("*.jig-ledger.json"))
+
+
+def test_a_corrupt_state_file_does_not_wedge_the_hook(tmp_path):
+    sess = "sess-corrupt"
+    _run(_write_event(sess, "/tmp/a.ps1", DELETE_V1), tmp_path)
+    for stale in tmp_path.rglob("*.jig-ledger.json"):
+        stale.write_text("{not json at all", encoding="utf-8")
+    r = _run(_write_event(sess, "/tmp/b.ps1", DELETE_V2), tmp_path)
+    assert r.returncode == 0
+    assert r.stdout.strip() == ""
+
+
+# ------------------------------------------------------------------------------------ heredocs
+
+def _heredoc(path, body, marker="EOS", quoted=True, op=">"):
+    q = "'" if quoted else ""
+    return f"cd /tmp && cat {op} {path} <<{q}{marker}{q}\n{body}\n{marker}\n"
+
+
+def _bash_event(session, command):
+    return {"tool_name": "Bash", "session_id": session, "tool_input": {"command": command}}
+
+
+def test_heredoc_write_is_extracted():
+    got = mod.heredoc_writes(_heredoc("del_v1.ps1", DELETE_V1))
+    assert len(got) == 1
+    assert got[0][0] == "del_v1.ps1"
+    assert "robocopy" in got[0][1]
+
+
+def test_heredoc_variants_written_via_bash_nudge(tmp_path):
+    """The regression this hook exists for: the scripts that motivated it were heredocs, not Writes."""
+    sess = "sess-heredoc"
+    r1 = _run(_bash_event(sess, _heredoc("del_v1.ps1", DELETE_V1)), tmp_path)
+    r2 = _run(_bash_event(sess, _heredoc("del_v2.ps1", DELETE_V2, marker="PS")), tmp_path)
+    r3 = _run(_bash_event(sess, _heredoc("del_v3.ps1", DELETE_V3, quoted=False)), tmp_path)
+    assert r1.stdout.strip() == ""
+    assert r2.stdout.strip() == ""
+    assert "TESTED JIG" in r3.stdout, f"heredoc-written third variant should nudge, got {r3.stdout!r}"
+
+
+def test_append_redirect_and_unquoted_marker_are_seen():
+    got = mod.heredoc_writes(_heredoc("x.sh", DELETE_V1, quoted=False, op=">>"))
+    assert [p for p, _ in got] == ["x.sh"]
+
+
+def test_heredoc_into_non_script_ignored():
+    assert mod.heredoc_writes(_heredoc("notes.md", DELETE_V1)) == []
+
+
+def test_stdin_heredoc_without_a_file_is_ignored():
+    """`python3 - <<PY ... PY` writes no file; it must not be counted as authoring a script."""
+    assert mod.heredoc_writes("python3 - <<'PY'\nprint(1)\nPY\n") == []
+
+
+def test_redirect_inside_the_body_is_not_taken_as_the_target():
+    cmd = "cat > real.ps1 <<'EOS'\nrobocopy $empty $root /MIR > decoy.ps1\nEOS\n"
+    assert [p for p, _ in mod.heredoc_writes(cmd)] == ["real.ps1"]
+
+
+def test_broken_stdin_exits_zero():
+    r = subprocess.run([sys.executable, str(HOOK)], input="not json",
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0
+    assert r.stdout.strip() == ""
+
+
+# --------------------------------------------------------------------------- real command shapes
+# RED evidence: the first version matched the FIRST redirect on the line, so any command carrying
+# an unrelated redirect ahead of the heredoc yielded /dev/null and the write vanished. Every
+# earlier fixture used a clean `cat > x.sh <<EOS`, which is why the suite stayed green while the
+# hook dropped most real writes. These are shapes taken from actual command lines.
+
+REAL_SHAPES = [
+    ("""D=$(ls -1d /tmp/jig-* 2>/dev/null | tail -1); cd "$D" && cat > probe_b.sh <<'EOS'
+echo hi
+EOS
+""", "probe_b.sh"),
+    ("""mkdir -p /tmp/x 2>/dev/null; cat > /tmp/x/run.ps1 <<'PS'
+Write-Host 1
+PS
+""", "/tmp/x/run.ps1"),
+    ("""cat > tool.sh 2>/dev/null <<'EOS'
+echo hi
+EOS
+""", "tool.sh"),
+    ("""set -e; foo >log.txt 2>&1; cat >> deploy.sh <<EOF
+echo deploy
+EOF
+""", "deploy.sh"),
+]
+
+
+def test_redirect_before_the_heredoc_does_not_steal_the_target():
+    for command, expected in REAL_SHAPES:
+        got = mod.heredoc_writes(command)
+        assert [p for p, _ in got] == [expected], f"{expected!r} not found in {command!r} -> {got}"
+
+
+def test_devnull_alone_yields_nothing():
+    """A heredoc with no script target must stay empty, not fall back to some other redirect."""
+    assert mod.heredoc_writes("python3 - 2>/dev/null <<'PY'\nprint(1)\nPY\n") == []
+
+
+def test_the_last_script_redirect_wins_when_the_line_carries_two():
+    """Two SCRIPT-suffixed redirects on one opener line: the heredoc's target is the last of them.
+
+    The other failure mode of matching the first redirect, and the worse one: here the first
+    target is itself a script, so the ledger did not merely lose the write - it recorded a file
+    that call never wrote, under the body of the file it did. A census of every heredoc opener in
+    the transcripts found this shape as well as the plain `2>/dev/null` one.
+    """
+    command = "python3 render.py > generated.py && cat > apply_patch.py <<'PY'\nprint(1)\nPY\n"
+    assert [p for p, _ in mod.heredoc_writes(command)] == ["apply_patch.py"]
+
+
+def test_live_shape_records_all_three_scripts(tmp_path):
+    """End-to-end over the exact command shape that silently dropped two of three writes."""
+    sess = "sess-realshape"
+    outs = []
+    for name, body in (("p_a.sh", DELETE_V1), ("p_b.sh", DELETE_V2), ("p_c.sh", DELETE_V3)):
+        cmd = f"""D=$(ls -1d /tmp/x-* 2>/dev/null | tail -1); cd "$D" && cat > {name} <<'EOS'
+{body}
+EOS
+"""
+        outs.append(_run(_bash_event(sess, cmd), tmp_path))
+    state = list(tmp_path.rglob("*.jig-*.json"))
+    assert state, "no ledger written"
+    import json as _json
+    d = _json.loads(state[0].read_text(encoding="utf-8"))
+    entries = d.get("entries", [])
+    names = {pathlib_name(e) for e in entries} if isinstance(entries, list) else set()
+    assert len(entries) == 3, f"expected all 3 scripts recorded, got {len(entries)}: {names}"
+
+
+def pathlib_name(entry):
+    from pathlib import Path as _P
+    return _P(entry.get("p", "")).name if isinstance(entry, dict) else ""
+
+
+# --------------------------------------------------------------------------- changes_state spellings
+# The pattern ended in `\b`, so any spelling whose last matched character is not followed by a
+# word boundary was read as read-only: `rm -rf` (the `r` is followed by `f`), `dd if=/dev/zero`
+# (`=` followed by `/`). The Python and long-option spellings were missing entirely although .py
+# is a script suffix, so a Python cleanup lineage always landed on the observe track.
+
+MUTATING_SPELLINGS = [
+    "rm -rf /srv/build/old", "rm -fr /srv/build/old", "rm -Rf /srv/build/old", "rm -rfv old/",
+    "rm --recursive --force /srv/old", "rm --force stale.lock",
+    "dd if=/dev/zero of=/dev/sda bs=1M",
+    "shutil.rmtree('/srv/old')", "os.remove(p)", "os.unlink(p)", "os.rmdir(d)",
+    "Path(p).unlink()", "p.unlink(missing_ok=True)",
+    "subprocess.run(['rm', '-rf', '/x'])",
+]
+
+
+def test_changes_state_sees_every_deletion_spelling():
+    missed = [t for t in MUTATING_SPELLINGS if not mod.changes_state(t)]
+    assert missed == []
+
+
+def test_changes_state_controls_still_hold():
+    for text in ("rm -r /srv/old", "rm -f x", "dd if=disk.img of=/dev/sdb",
+                 "Remove-Item -Recurse C:\\old"):
+        assert mod.changes_state(text), text
+    for text in ("ls -rf", "grep -rf patterns.txt src", "firmware=1", "os.removal_count = 3",
+                 "p.unlinked", "cat /etc/os-release",
+                 "farm -rf", "json.load(open(p))"):
+        assert not mod.changes_state(text), text
+
+
+def test_a_plain_rm_of_a_file_changes_state():
+    """`rm <file>` deletes as surely as `rm -f`; only the flagged spellings were counted, so a
+    lineage of scripts each removing a file stayed on the observe track."""
+    for text in ("rm notes.txt", 'rm "$TMP/out.json"', "rm -i stale.lock", "rm -- -odd.txt",
+                 "git rm old_module.py", "rm $f", "subprocess.run(['rm', path])",
+                 'subprocess.run(["rm", str(p)])'):
+        assert mod.changes_state(text), text
+
+
+def test_plain_rm_controls_stay_read_only():
+    """The `--rm` of `docker run` is a flag, and an identifier or word merely ending in rm is not
+    the program."""
+    for text in ("docker run --rm alpine true", "rm_count = 3", "alarm x", "perm y", "confirm z",
+                 "self.rm", "rm\n", "'rm'"):
+        assert not mod.changes_state(text), text
+
+
+def test_a_rm_rf_lineage_lands_on_the_change_track(tmp_path):
+    sess = "sess-rmrf"
+    for i in (1, 2, 3):
+        _run(_write_event(sess, "/tmp/purge_old%d.sh" % i,
+                          "# purge old build dirs\nrm -rf /srv/build/old%d\n" % i), tmp_path)
+    (state,) = list(tmp_path.rglob("*.jig-ledger.json"))
+    d = json.loads(state.read_text(encoding="utf-8"))
+    assert [e.get("m") for e in d["entries"]] == [True, True, True]
+
+
+# --------------------------------------------------------------------------- redirect after the opener
+
+def test_a_redirect_after_the_heredoc_opener_is_the_target():
+    got = mod.heredoc_writes("cat <<'EOS' > tool.sh\nrm -rf /x\nEOS\n")
+    assert got == [("tool.sh", "rm -rf /x")]
+
+
+def test_control_the_redirect_before_the_opener_still_works():
+    got = mod.heredoc_writes("cat > tool.sh <<'EOS'\nrm -rf /x\nEOS\n")
+    assert got == [("tool.sh", "rm -rf /x")]
+
+
+def test_a_pipe_after_the_opener_into_a_non_script_writes_nothing():
+    assert mod.heredoc_writes("cat <<'EOS' | tee notes.md\nhello\nEOS\n") == []
+
+
+# --------------------------------------------------------------------------- two heredocs in one call
+
+def test_both_scripts_of_a_two_heredoc_command_enter_the_ledger(tmp_path):
+    cmd = ("cat > first_probe.sh <<'A'\necho one\nA\n"
+           "cat > second_probe.py <<'B'\nprint(2)\nB\n")
+    assert [p for p, _ in mod.heredoc_writes(cmd)] == ["first_probe.sh", "second_probe.py"]
+    _run(_bash_event("sess-two-heredocs", cmd), tmp_path)
+    (state,) = list(tmp_path.rglob("*.jig-ledger.json"))
+    entries = json.loads(state.read_text(encoding="utf-8"))["entries"]
+    assert [pathlib_name(e) for e in entries] == ["first_probe.sh", "second_probe.py"]
+
+
+# --------------------------------------------------------------------------- PowerShell here-strings
+# The hook is registered for the PowerShell tool, whose way to author a script file is a
+# here-string piped or passed to Set-Content / Out-File / Add-Content or redirected with `>`.
+# Only bash heredocs were understood, so every such script write was invisible.
+
+def _ps_event(session, command):
+    return {"tool_name": "PowerShell", "session_id": session, "tool_input": {"command": command}}
+
+
+PS_SHAPES = [
+    ("Set-Content -Path delrobo.ps1 -Value @'\nrobocopy a b /MIR\n'@", "delrobo.ps1",
+     "robocopy a b /MIR"),
+    ("@\"\nWrite-Host $env:COMPUTERNAME\n\"@ | Out-File -FilePath C:\\tmp\\probe.ps1 -Encoding utf8",
+     "C:\\tmp\\probe.ps1", "Write-Host $env:COMPUTERNAME"),
+    ("@'\nimport os\nprint(os.getcwd())\n'@ > run_it.py", "run_it.py", "import os\nprint(os.getcwd())"),
+    ("$body = @'\nrd /s /q C:\\x\n'@\nSet-Content 'C:\\my dir\\del x.ps1' $body", None, None),
+    ("Add-Content -LiteralPath \"C:\\my dir\\step.ps1\" -Value @'\nStop-Service wuauserv\n'@",
+     "C:\\my dir\\step.ps1", "Stop-Service wuauserv"),
+]
+
+
+def test_powershell_here_string_script_writes_are_extracted():
+    for command, path, body in PS_SHAPES:
+        got = mod._written_scripts(_ps_event("s", command))
+        expected = [] if path is None else [(path, body)]
+        assert got == expected, command
+
+
+def test_a_here_string_that_writes_no_script_is_ignored():
+    for command in ("Set-Content -Path notes.txt -Value @'\nhello\n'@",
+                    "$x = @'\nrobocopy a b /MIR\n'@\nInvoke-Expression $x",
+                    "Write-Host @'\nsee run.ps1\n'@"):
+        assert mod._written_scripts(_ps_event("s", command)) == [], command
+
+
+def test_a_here_string_in_a_bash_command_is_not_read_as_one():
+    assert mod._written_scripts(_bash_event("s", "echo @'\nx\n'@ > a.ps1")) == []
+
+
+def test_control_a_bash_style_heredoc_in_powershell_is_still_read():
+    got = mod._written_scripts(_ps_event("s", "cat > x.ps1 <<'EOS'\nrobocopy a b\nEOS\n"))
+    assert got == [("x.ps1", "robocopy a b")]
+
+
+def test_here_string_variants_written_via_powershell_nudge(tmp_path):
+    sess = "sess-herestring"
+    outs = []
+    for name, body in (("del_v1.ps1", DELETE_V1), ("del_v2.ps1", DELETE_V2),
+                       ("del_v3.ps1", DELETE_V3)):
+        cmd = "Set-Content -Path %s -Value @'\n%s\n'@" % (name, body.strip("\n"))
+        outs.append(_run(_ps_event(sess, cmd), tmp_path).stdout)
+    assert outs[0].strip() == "" and outs[1].strip() == ""
+    assert "TESTED JIG" in outs[2]

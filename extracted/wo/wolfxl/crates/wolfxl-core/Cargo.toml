@@ -1,0 +1,16 @@
+[package]
+name = "wolfxl-core"
+version = "0.8.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure-Rust reader for xlsx/xls/xlsb/ods/csv with Excel number-format-aware cell rendering. Backs the wolfxl-cli previewer."
+readme = "README.md"
+keywords = ["xlsx", "excel", "spreadsheet", "xls", "csv"]
+categories = ["parser-implementations", "command-line-utilities"]
+
+[dependencies]
+chrono.workspace = true
+quick-xml.workspace = true
+zip.workspace = true
+wolfxl-reader = { path = "../wolfxl-reader", version = "0.1" }

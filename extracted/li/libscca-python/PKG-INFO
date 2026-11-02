@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: libscca-python
+Version: 20260527
+Summary: Python bindings for libscca
+Maintainer-email: Joachim Metz <joachim.metz@gmail.com>
+License-Expression: LGPL-3.0-or-later
+Project-URL: Documentation, https://github.com/libyal/libscca/wiki/Home
+Project-URL: Homepage, https://github.com/libyal/libscca
+Project-URL: Repository, https://github.com/libyal/libscca
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+Dynamic: license-file
+
+libscca is a library to access the Windows Prefetch File (SCCA) format.
+
+Project information:
+
+* Status: alpha
+* Licence: LGPL-3.0-or-later
+
+Planned:
+
+* Multi-threading support
+
+For more information see:
+
+* Project documentation: https://github.com/libyal/libscca/wiki/Home
+* How to build from source: https://github.com/libyal/libscca/wiki/Building
+

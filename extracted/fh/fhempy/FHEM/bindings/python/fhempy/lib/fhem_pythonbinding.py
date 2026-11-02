@@ -1,0 +1,1055 @@
+import asyncio
+import functools
+import getopt
+import http
+import importlib
+import ipaddress
+import logging
+import os
+import signal
+import site
+import sys
+import time
+import traceback
+
+import websockets
+import websockets.asyncio.server
+
+from . import (
+    celebration,
+    fhem,
+    fhem_modules,
+    generic,
+    pkg_installer,
+    updates,
+    utils,
+    version,
+)
+from .autodiscovery import first_start
+from .core.loop_watchdog import LoopWatchdog
+from .core.peer_installer import peer_installer
+from .core.zeroconf import zeroconf
+from .json_utils import json_dumps, json_loads
+
+logger = logging.getLogger(__name__)
+
+loadedModuleInstances = {}
+moduleLoadingRunning = {}
+id_received_timestamp = {}
+zc_info = None
+
+pip_lock = asyncio.Lock()
+
+connection_start = 0
+fct_timeout = 100
+
+stop_event = asyncio.Event()
+exit_code = 0
+
+# internal modules
+active_internal_modules = []
+conf = {"internal_modules": ["discover_fhempy"]}
+
+
+UNDEFINE_TIMEOUT = 60
+# FHEM defines its devices after connecting, afterwards programs which are kept
+# running across fhempy restarts are stopped if their device is gone (s)
+ORPHAN_CHECK_DELAY = 300
+# FHEM is blocked until it gets the reply to a Set. Set handlers which wait
+# for a device or cloud keep running in the background after this time (s).
+SET_REPLY_TIMEOUT = 0.05
+
+
+def is_backgroundable_set(hash):
+    args = hash.get("args") or []
+    return hash.get("function") == "Set" and len(args) > 1 and args[1] != "?"
+
+
+class ModuleDisabledException(Exception):
+    pass
+
+
+class ModuleDefineException(Exception):
+    pass
+
+
+def describe_hash(hash):
+    # NAME and function only, args and defargs might contain credentials
+    return f"{hash.get('NAME')} {hash.get('function', hash.get('msgtype'))}"
+
+
+def stopping_reply(hash):
+    args = hash.get("args", [])
+    if len(args) > 1 and args[1] == "?":
+        # FHEMWEB asks for the set/get list, no message needed
+        return ""
+    return "fhempy is restarting, command ignored"
+
+
+def getFhemPyDeviceByName(name):
+    if name in loadedModuleInstances:
+        return loadedModuleInstances[name]
+    return None
+
+
+async def activate_internal_modules():
+    for im in conf["internal_modules"]:
+        await pkg_installer.check_and_install_dependencies("core/" + im)
+        module_object = importlib.import_module("fhempy.lib.core." + im + "." + im)
+        # create instance of class with logger
+        module_class = getattr(module_object, im)
+        instance = module_class()
+        await instance.activate()
+        active_internal_modules.append(instance)
+
+
+async def stop_orphans():
+    """Tailscale of remote_access keeps running when fhempy restarts, stop it
+    if the device was deleted while fhempy wasn't running"""
+    await asyncio.sleep(ORPHAN_CHECK_DELAY)
+    from .remote_access import tailscale
+
+    for instance in loadedModuleInstances.values():
+        dev_hash = getattr(instance, "hash", None) or {}
+        if dev_hash.get("FHEMPYTYPE") == "remote_access":
+            return
+    try:
+        await tailscale.stop_orphan(logger)
+    except Exception:
+        logger.exception("Stopping Tailscale failed")
+
+
+async def pybinding(websocket):
+    global zc_info
+    if zc_info is not None:
+        # FHEM discovered us, stop zeroconf
+        await zeroconf.get_instance(logger).unregister_service(zc_info)
+        zc_info = None
+        # do not stop zeroconf, as it is needed to discover other fhempy
+        # instances on the network in discover_fhempy
+        # await zeroconf.get_instance(logger).stop()
+
+    global connection_start
+    connection_start = time.time()
+    logger.info("Incoming FHEM connection: " + websocket.remote_address[0])
+    pb = fhempy(websocket)
+    # handle SIGTERM to shutdown gracefuly
+    loop = asyncio.get_event_loop()
+    loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.create_task(pb.shutdown()))
+    loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(pb.shutdown()))
+    fhem.updateConnection(pb)
+    await activate_internal_modules()
+    discovery_task = None
+    if ipaddress.ip_address(websocket.remote_address[0]).is_loopback:
+        # only the local fhempy, peers use the IODev of their devices
+        discovery_task = asyncio.create_task(first_start.define_once(logger))
+    await fhem.send_version()
+    release_task = asyncio.create_task(fhem.send_latest_release())
+    # FHEM modules (.pm) matching this fhempy version, replaces FHEM update
+    modules_task = asyncio.create_task(fhem_modules.install())
+    orphan_task = asyncio.create_task(stop_orphans())
+    try:
+        async for message in websocket:
+            pb.create_background_task(pb.onMessage(message))
+            await asyncio.sleep(0)
+    except asyncio.CancelledError:
+        raise
+    except websockets.exceptions.ConnectionClosedError:
+        if not stop_event.is_set():
+            logger.error("Connection closed error", exc_info=True)
+            logger.info("Restart fhempy")
+            global exit_code
+            exit_code = 1
+            stop_event.set()
+    finally:
+        release_task.cancel()
+        modules_task.cancel()
+        orphan_task.cancel()
+        if discovery_task is not None:
+            discovery_task.cancel()
+        pb.connection_closed()
+
+
+class fhempy:
+    def __init__(self, websocket):
+        self.wsconnection = websocket
+        self.shutdown_started = 0
+        # awaitId -> callback for replies to commands sent to FHEM
+        self._msg_listeners = {}
+        self._closed = False
+        # restart or shutdown started, modules are being undefined
+        self._stopping = False
+        self._updating = False
+        self.msg_received_time = {}
+        self._last_msg_cleanup = 0
+        # keep references, the event loop only holds weak ones
+        self._background_tasks = set()
+        # Set commands of a device run one after the other, in FHEM's order
+        self._set_locks = {}
+
+    def create_background_task(self, coro):
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
+
+    def register_msg_listener(self, listener, awaitid):
+        self._msg_listeners[awaitid] = listener
+
+    def is_closed(self):
+        # no replies will arrive on this connection anymore
+        return self._closed or stop_event.is_set()
+
+    def connection_closed(self):
+        self._closed = True
+        # commands still waiting for a reply would wait for the full timeout
+        listeners = list(self._msg_listeners.values())
+        self._msg_listeners.clear()
+        for listener in listeners:
+            listener(None)
+        # FHEM doesn't wait for any function of this connection anymore
+        for entry in fhem.function_active:
+            if entry["timer"] is not None:
+                entry["timer"].cancel()
+        fhem.function_active.clear()
+        fhem.notifyFunctionWaiters()
+
+    def unregister_msg_listener(self, awaitid):
+        self._msg_listeners.pop(awaitid, None)
+
+    def _stop(self):
+        stop_event.set()
+        # the server closes the connection now, nothing is sent to FHEM anymore
+        self.connection_closed()
+
+    async def _send_reply(self, msg):
+        if self.is_closed():
+            return
+        try:
+            await self.wsconnection.send(msg.encode("utf-8"))
+        except websockets.exceptions.ConnectionClosed:
+            logger.debug("FHEM connection closed, reply not sent")
+
+    async def send(self, msg):
+        if stop_event.is_set():
+            return
+
+        await self.wsconnection.send(msg.encode("utf-8"))
+
+    async def sendBackReturn(self, hash, ret):
+        retHash = hash.copy()
+        retHash["finished"] = 1
+        retHash["returnval"] = ret
+        retHash["id"] = hash["id"]
+        msg = json_dumps(retHash)
+        duration = (
+            time.time() - id_received_timestamp.pop(retHash["id"], time.time())
+        ) * 1000
+        self._log_reply(retHash, duration)
+        await self._send_reply(msg)
+        self.msg_handling_completed(hash)
+        fhem.setFunctionInactive(hash)
+
+    async def sendBackError(self, hash, error):
+        # the hash contains the define arguments, which might be credentials
+        logger.error(f"{error} ({describe_hash(hash)})")
+        retHash = hash.copy()
+        retHash["finished"] = 1
+        retHash["error"] = error
+        if "id" in hash:
+            retHash["id"] = hash["id"]
+        msg = json_dumps(retHash)
+        duration = (
+            time.time() - id_received_timestamp.pop(retHash["id"], time.time())
+        ) * 1000
+        self._log_reply(retHash, duration)
+        await self._send_reply(msg)
+        self.msg_handling_completed(hash)
+        fhem.setFunctionInactive(hash)
+
+    def _log_reply(self, retHash, duration):
+        if duration > 1000:
+            logger.error(
+                f"<<< {int(retHash['id']):08d} {duration:.2f}ms: "
+                f"{describe_hash(retHash)}"
+            )
+        else:
+            logger.debug(f"<<< {int(retHash['id']):08d} {duration:.2f}ms: {retHash}")
+
+    async def updateHash(self, hash):
+        retHash = hash.copy()
+        retHash["msgtype"] = "update_hash"
+        del retHash["id"]
+        msg = json_dumps(retHash)
+        logger.debug("<<< WS: " + msg)
+        await self._send_reply(msg)
+
+    def getLogLevel(self, verbose_level):
+        if verbose_level == "5":
+            return logging.DEBUG
+        elif verbose_level == "4":
+            return logging.INFO
+        elif verbose_level == "3":
+            return logging.WARNING
+        else:
+            return logging.ERROR
+
+    def msg_handling_completed(self, hash):
+        if "id" in hash:
+            if hash["id"] in self.msg_received_time:
+                time_received = self.msg_received_time[hash["id"]]["time"]
+                desc = self.msg_received_time[hash["id"]]["desc"]
+                time_finished = time.time()
+                time_duration = (time_finished - time_received) * 1000
+                if time_duration > 5000:
+                    logger.warning(f"fhempy took {time_duration:.0f}ms for {desc}")
+                del self.msg_received_time[hash["id"]]
+
+                # cleanup old messages periodically (amortized O(1))
+                if time_finished - self._last_msg_cleanup > 30:
+                    self._last_msg_cleanup = time_finished
+                    for id, received in list(self.msg_received_time.items()):
+                        time_duration = (time_finished - received["time"]) * 1000
+                        if time_duration > 60000:
+                            logger.error(
+                                "fhempy didn't send a response within "
+                                f"{time_duration / 1000:.0f}s for {received['desc']}"
+                            )
+                            del self.msg_received_time[id]
+
+    async def onMessage(self, payload):
+        try:
+            await self._onMessage(payload)
+        except Exception:
+            # don't log the payload, it contains the define arguments
+            logger.exception("Failed to handle message")
+
+    async def _onMessage(self, payload):
+        if type(payload) is bytes:
+            try:
+                payload = payload.decode("utf-8")
+            except Exception:
+                # currently there is no need to handle
+                # none utf-8 messages
+                # images in readings might cause too many error msgs
+                # therefore we just skip it at the moment
+                logger.debug(f"Skipped non-utf8 payload: {payload}")
+                return
+        msg = payload
+        hash = None
+        try:
+            hash = json_loads(msg)
+            # keep this for one year (written on 11.10.2021)
+            if "PYTHONTYPE" in hash:
+                hash["FHEMPYTYPE"] = hash["PYTHONTYPE"]
+        except Exception:
+            logger.error("Websocket JSON couldn't be decoded")
+            return
+
+        global fct_timeout, connection_start
+        if time.time() - connection_start > 120:
+            fct_timeout = 30
+
+        try:
+            await self.handle_message(msg, hash)
+        except Exception:
+            if self.is_closed():
+                logger.debug("Failed to handle message", exc_info=True)
+                return
+            logger.error("Failed to handle message: ", exc_info=True)
+            await self.sendBackError(hash, "fhempy failed to handle message")
+
+    async def handle_message(self, msg, hash):
+        if "awaitId" in hash:
+            # reply to a command fhempy sent to FHEM
+            listener = self._msg_listeners.pop(hash["awaitId"], None)
+            if listener is not None:
+                listener(hash)
+            else:
+                logger.debug(f"No listener waiting for reply: {msg}")
+        elif hash["msgtype"] == "installPeer":
+            # don't log the message, it contains the peer's password
+            logger.debug(f">>> {int(hash['id']):08d}: installPeer")
+            error = peer_installer.start(hash, hash.get("args", []))
+            if error:
+                await fhem.readingsSingleUpdate(hash, "peer_install", error, 1)
+        else:
+            id_received_timestamp[hash["id"]] = time.time()
+            logger.debug(f">>> {int(hash['id']):08d}: {hash}")
+            if hash["msgtype"] == "update":
+                id_received_timestamp.pop(hash["id"], None)
+                await self.update_and_exit(hash)
+            elif hash["msgtype"] == "checkUpdate":
+                id_received_timestamp.pop(hash["id"], None)
+                await fhem.check_update()
+            elif hash["msgtype"] == "restart":
+                await self.restart(hash)
+            elif hash["msgtype"] == "version":
+                # FHEM requests the version after the connection setup, the
+                # version sent on connect might have been dropped by FHEM
+                id_received_timestamp.pop(hash["id"], None)
+                await fhem.send_version()
+            elif hash["msgtype"] == "function":
+                if "id" in hash:
+                    time_received = time.time()
+                    self.msg_received_time[hash["id"]] = {
+                        "time": time_received,
+                        "desc": describe_hash(hash),
+                    }
+                await self.handle_function(hash, msg)
+            elif hash["msgtype"] == "event":
+                await self.handle_event(hash, msg)
+            elif hash["msgtype"] == "events":
+                id_received_timestamp.pop(hash.get("id"), None)
+                await fhem.dispatch_recorded_events(hash["NAME"], hash["args"])
+
+    async def handle_event(self, hash, msg):
+        # events don't get a reply
+        id_received_timestamp.pop(hash.get("id"), None)
+        await fhem.dispatch_event(hash["NAME"], f"{hash['args'][0]}")
+
+    async def handle_function(self, hash, msg):
+        ret = ""
+        if self._stopping:
+            # modules are being undefined, don't call them anymore
+            await self.sendBackReturn(hash, stopping_reply(hash))
+            return 0
+        # this is needed to avoid 2 replies on dep installation
+        fhem_reply_done = False
+        fhem.setFunctionActive(hash)
+        # load module
+        nmInstance = None
+        redefine = False
+        if hash["function"] == "Rename":
+            new_name = hash["args"][0]
+            old_name = hash["args"][1]
+            if old_name in loadedModuleInstances:
+                await self.rename_device(hash, old_name, new_name)
+                return 0
+
+        if hash["function"] != "Undefine":
+            # Load module and execute Define
+            # if Define isn't called right now
+
+            if hash["function"] == "Define" and hash["NAME"] in loadedModuleInstances:
+                instance = loadedModuleInstances[hash["NAME"]]
+                previous_hash = getattr(instance, "hash", None)
+                if (
+                    previous_hash is not None
+                    and previous_hash.get("FHEMPYTYPE") == hash["FHEMPYTYPE"]
+                ):
+                    error = self._validate_define(type(instance), hash)
+                    if error:
+                        # Reject before Undefine; the working device stays intact.
+                        await self.sendBackReturn(hash, error)
+                        return 0
+                # this code is called on defmod
+                previous = loadedModuleInstances[hash["NAME"]]
+                redefine = getattr(previous, "hash", None) is not None and (
+                    getattr(previous, "_defargs", None) != hash["args"]
+                    or getattr(previous, "_defargsh", None) != hash["argsh"]
+                )
+                # if module is loaded and Define is called, do Undefine first
+                # call undefine
+                hash["function"] = "Undefine"
+                await self.execute_function(
+                    hash, fhem_reply_done, loadedModuleInstances[hash["NAME"]]
+                )
+                # delete module from loadedModuleInstances
+                del loadedModuleInstances[hash["NAME"]]
+                hash["function"] = "Define"
+
+            if not (hash["NAME"] in loadedModuleInstances):
+                if hash["NAME"] in moduleLoadingRunning:
+                    await self.sendBackReturn(hash, "")
+                    return 0
+
+                moduleLoadingRunning[hash["NAME"]] = True
+
+                # loading a module might take some time,
+                # therefore sendBackReturn now
+                await self.sendBackReturn(hash, "")
+                fhem_reply_done = True
+
+                try:
+                    await self.check_and_install_dependencies(hash)
+
+                    module_object = await self.import_module(hash)
+
+                    await self.define_module(hash, module_object, redefine=redefine)
+                except ModuleDisabledException:
+                    return 0
+                except ModuleDefineException as exc:
+                    logger.error("%s: %s", hash["NAME"], exc)
+                    await fhem.readingsSingleUpdate(hash, "state", str(exc), 1)
+                    return 0
+                except asyncio.TimeoutError:
+                    errorMsg = (
+                        f"Function execution >{fct_timeout}s, "
+                        f"cancelled: {hash['NAME']} Define"
+                    )
+                    if fhem_reply_done:
+                        await fhem.readingsSingleUpdate(hash, "state", errorMsg, 1)
+                    else:
+                        await self.sendBackError(hash, errorMsg)
+                    return 0
+                except ModuleNotFoundError:
+                    failed = pkg_installer.failed_requirements(hash["FHEMPYTYPE"])
+                    if failed:
+                        errorMsg = (
+                            f"Module failed to load: {hash['FHEMPYTYPE']}\n"
+                            f"Installation of {', '.join(failed)} failed, "
+                            f"see fhempy log for details."
+                        )
+                    else:
+                        errorMsg = (
+                            f"Module failed to load: {hash['FHEMPYTYPE']}\n"
+                            f"Maybe you need to update fhempy "
+                            f"on this or remote peer."
+                        )
+                    errorMsg += "\n\nStacktrace:\n" + traceback.format_exc()
+                    if fhem_reply_done:
+                        await fhem.readingsSingleUpdate(hash, "state", errorMsg, 1)
+                    else:
+                        await self.sendBackError(hash, errorMsg)
+                    return 0
+                except Exception:
+                    errorMsg = (
+                        "Failed to load module "
+                        + hash["FHEMPYTYPE"]
+                        + ": "
+                        + traceback.format_exc()
+                    )
+                    if fhem_reply_done:
+                        await fhem.readingsSingleUpdate(hash, "state", errorMsg, 1)
+                    else:
+                        await self.sendBackError(hash, errorMsg)
+                    return 0
+                finally:
+                    # allow a new Define after loading failed
+                    moduleLoadingRunning.pop(hash["NAME"], None)
+
+        try:
+            nmInstance = loadedModuleInstances[hash["NAME"]]
+        except Exception:
+            if hash["function"] != "Undefine":
+                logging.getLogger(hash["NAME"]).exception(
+                    f"Couldn't handle {hash['function']}"
+                )
+            nmInstance = None
+
+        if nmInstance is not None:
+            try:
+                if not fhem_reply_done and is_backgroundable_set(hash):
+                    task = asyncio.create_task(self.execute_set(hash, nmInstance))
+                    done, _ = await asyncio.wait({task}, timeout=SET_REPLY_TIMEOUT)
+                    if not done:
+                        # don't keep FHEM blocked while the device answers
+                        await self.sendBackReturn(hash, "")
+                        self.finish_set_in_background(hash, task, nmInstance)
+                        return 0
+                    ret = task.result()
+                else:
+                    ret = await self.execute_function(hash, fhem_reply_done, nmInstance)
+            except asyncio.TimeoutError:
+                errorMsg = (
+                    f"Function execution >{fct_timeout}s, "
+                    f"cancelled: {hash['NAME']} - {hash['function']}"
+                )
+                if fhem_reply_done:
+                    await fhem.readingsSingleUpdate(hash, "state", errorMsg, 1)
+                else:
+                    await self.sendBackError(hash, errorMsg)
+                return 0
+            except Exception:
+                errorMsg = (
+                    "Failed to execute function "
+                    + hash["function"]
+                    + ": "
+                    + traceback.format_exc()
+                )
+                if fhem_reply_done:
+                    await fhem.readingsSingleUpdate(hash, "state", errorMsg, 1)
+                else:
+                    await self.sendBackError(hash, errorMsg)
+                return 0
+
+        if fhem_reply_done is False:
+            await self.sendBackReturn(hash, ret)
+
+        if hash["function"] == "Undefine":
+            if hash["NAME"] in loadedModuleInstances:
+                del loadedModuleInstances[hash["NAME"]]
+
+    async def execute_set(self, hash, nmInstance):
+        lock = self._set_locks.setdefault(hash["NAME"], asyncio.Lock())
+        async with lock:
+            return await self.execute_function(hash, False, nmInstance)
+
+    def finish_set_in_background(self, hash, task, nmInstance):
+        if isinstance(nmInstance, generic.FhemModule):
+            # Undefine cancels the module's tasks
+            nmInstance.track_async_task(task)
+        task.add_done_callback(functools.partial(self.background_set_done, hash))
+
+    def background_set_done(self, hash, task):
+        if task.cancelled():
+            return
+        moduleLogger = logging.getLogger(hash["NAME"])
+        # only the set command, further arguments might be credentials
+        cmd = hash["args"][1]
+        exc = task.exception()
+        if isinstance(exc, asyncio.TimeoutError):
+            moduleLogger.error(f"set {cmd}: execution >{fct_timeout}s, cancelled")
+            return
+        if exc is not None:
+            moduleLogger.error(f"set {cmd} failed", exc_info=exc)
+            return
+        ret = task.result()
+        if ret:
+            # FHEM already got an empty reply, show the message in the log
+            moduleLogger.warning(f"set {cmd}: {ret}")
+        # the hash might have changed, FHEM gets it with the reply otherwise
+        update = asyncio.create_task(self.updateHash(hash))
+        self._background_tasks.add(update)
+        update.add_done_callback(self._background_tasks.discard)
+
+
+    @staticmethod
+    def _validate_define(module_class, hash):
+        validate = getattr(module_class, "validate_define", None)
+        if validate is None:
+            return None
+        if hash["function"] == "Define":
+            return validate(hash["args"], hash["argsh"])
+        return validate(hash["defargs"], hash["defargsh"])
+
+    async def define_module(self, hash, module_object, redefine=False):
+        # create instance of class with logger
+        target_class = getattr(module_object, hash["FHEMPYTYPE"])
+        error = self._validate_define(target_class, hash)
+        if error:
+            # No instance/resources have been created, so no cleanup is needed.
+            raise ModuleDefineException(error)
+        moduleLogger = logging.getLogger(hash["NAME"])
+        info = await fhem.getDeviceInfo(hash["NAME"], {"verbose": "3", "disable": "0"})
+        moduleLogger.setLevel(self.getLogLevel(info["attr"]["verbose"]))
+
+        nmInstance = target_class(moduleLogger)
+        loadedModuleInstances[hash["NAME"]] = nmInstance
+        # Keep lifecycle context on the instance, not in FHEM's device internals.
+        if isinstance(nmInstance, generic.FhemModule):
+            nmInstance._is_redefine = redefine
+
+        # check if module is disabled
+        disabled = info["attr"]["disable"] == "1"
+        if hash["function"] == "Attr" and hash["args"][2] == "disable":
+            # FHEM calls Attr before it stores the new value
+            disabled = hash["args"][0] == "set" and hash["args"][3] == "1"
+        if disabled:
+            raise ModuleDisabledException
+
+        if hash["function"] != "Define":
+            func = getattr(
+                loadedModuleInstances[hash["NAME"]],
+                "Define",
+                "nofunction",
+            )
+            await asyncio.wait_for(
+                func(hash, hash["defargs"], hash["defargsh"]),
+                fct_timeout,
+            )
+
+    async def execute_function(self, hash, fhem_reply_done, nmInstance):
+        ret = ""
+        # handle verbose level of logging
+        if hash["function"] == "Attr" and hash["args"][2] == "verbose":
+            moduleLogger = logging.getLogger(hash["NAME"])
+            if hash["args"][0] == "set":
+                moduleLogger.setLevel(self.getLogLevel(hash["args"][3]))
+            else:
+                moduleLogger.setLevel(logging.ERROR)
+            return ret
+
+        # handle disable
+        if hash["function"] == "Attr" and hash["args"][2] == "disable":
+            disable_device = False
+            if hash["args"][0] == "set":
+                if hash["args"][3] == "1":
+                    disable_device = True
+                else:
+                    disable_device = False
+            else:
+                # disable attr deleted
+                disable_device = False
+
+            if disable_device:
+                # call Undefine
+                hash["function"] = "Undefine"
+            else:
+                # class Define
+                hash["function"] = "Define"
+                hash["args"] = hash["defargs"]
+                hash["argsh"] = hash["defargsh"]
+
+        # Define sets hash, it wasn't called for disabled devices
+        defined = getattr(nmInstance, "hash", None) is not None
+        if hash["function"] == "Undefine" and not defined:
+            return ret
+        if hash["function"] == "Define" and defined:
+            # attr disable 0 on a running device, or Define was just
+            # called while loading the module
+            return ret
+
+        # call Set/Attr/Define/...
+        func = getattr(nmInstance, hash["function"], "nofunction")
+        if func != "nofunction":
+            if hash["function"] == "Undefine":
+                try:
+                    ret = await asyncio.wait_for(func(hash), fct_timeout)
+                except Exception:
+                    logger.exception(f"Undefine failed for {hash['NAME']}")
+                finally:
+                    if isinstance(nmInstance, generic.FhemModule):
+                        # cancel tasks even if the module's Undefine failed
+                        # or didn't call FhemModule.Undefine
+                        await generic.FhemModule.Undefine(nmInstance, hash)
+            else:
+                ret = await asyncio.wait_for(
+                    func(hash, hash["args"], hash["argsh"]),
+                    fct_timeout,
+                )
+            if ret is None:
+                ret = ""
+            if fhem_reply_done:
+                await self.updateHash(hash)
+
+        return ret
+
+    async def rename_device(self, hash, old_name, new_name):
+        loadedModuleInstances[new_name] = loadedModuleInstances[old_name]
+        del loadedModuleInstances[old_name]
+        await self.sendBackReturn(hash, "")
+        # disabled devices have no hash, Define wasn't called
+        dev_hash = getattr(loadedModuleInstances[new_name], "hash", None)
+        if dev_hash is not None:
+            dev_hash["NAME"] = new_name
+
+    async def update_and_exit(self, hash):
+        if self._updating or self._stopping:
+            return
+        try:
+            package = updates.package_requirement(hash.get("args", []))
+        except ValueError as error:
+            await fhem.readingsSingleUpdate(hash, "update_status", str(error), 1)
+            return
+        self._updating = True
+        try:
+            await fhem.readingsSingleUpdate(hash, "update_status", f"installing {package}", 1)
+            logger.info("Start update: %s", package)
+            try:
+                installed = await pkg_installer.force_update_package(package)
+            except Exception:
+                logger.exception("Failed to install %s", package)
+                installed = False
+            if not installed:
+                await fhem.readingsSingleUpdate(
+                    hash, "update_status", "failed: installation failed; see fhempy log", 1
+                )
+                return
+            await fhem.readingsSingleUpdate(hash, "update_status", f"installed {package}", 1)
+            await self.restart(hash)
+        finally:
+            self._updating = False
+
+    async def restart(self, hash):
+        # the version reading always shows the installed version
+        await fhem.readingsSingleUpdate(hash, "state", "restart...please wait", 1)
+        global exit_code
+        exit_code = 1
+        logger.info("Restart initiated...")
+        self._stopping = True
+        await self.undefine_all()
+        self._stop()
+
+    async def shutdown(self, *args):
+        global exit_code
+        exit_code = 0
+        if self.shutdown_started == 0:
+            self.shutdown_started = 1
+            logger.info("Shutdown initiated...")
+            self._stopping = True
+            await self.undefine_all()
+            self._stop()
+        else:
+            logger.info("Shutdown is already running, keep calm.")
+            asyncio.get_event_loop().remove_signal_handler(signal.SIGTERM)
+            asyncio.get_event_loop().remove_signal_handler(signal.SIGINT)
+
+    async def undefine_all(self):
+        tasks = {}
+        for name, dev_instance in list(loadedModuleInstances.items()):
+            func = getattr(dev_instance, "Undefine", None)
+            dev_hash = getattr(dev_instance, "hash", None)
+            if func is None or dev_hash is None:
+                # Define wasn't called, e.g. disabled device
+                continue
+            try:
+                tasks[asyncio.create_task(func(dev_hash))] = name
+            except Exception:
+                global exit_code
+                exit_code = 2
+                logger.exception(f"Undefine failed for {name}")
+
+        if len(tasks) == 0:
+            return
+
+        done, pending = await asyncio.wait(tasks, timeout=UNDEFINE_TIMEOUT)
+        for task in pending:
+            task.cancel()
+            logger.warning(
+                f"Undefine of {tasks[task]} didn't finish within {UNDEFINE_TIMEOUT}s"
+            )
+        for task in done:
+            if task.cancelled():
+                continue
+            exc = task.exception()
+            if exc is not None:
+                logger.warning(
+                    f"Undefine of {tasks[task]} failed: {exc!r}", exc_info=exc
+                )
+        logger.info("All modules undefined")
+
+    async def import_module(self, hash):
+        # import module
+        pymodule = "fhempy.lib." + hash["FHEMPYTYPE"] + "." + hash["FHEMPYTYPE"]
+
+        # import might take a long time, therefore run_blocking
+        module_object = await utils.run_blocking(
+            functools.partial(importlib.import_module, pymodule)
+        )
+
+        return module_object
+
+    async def check_and_install_dependencies(self, hash):
+        # check dependencies
+        deps_ok = await utils.run_blocking(
+            functools.partial(
+                pkg_installer.check_dependencies,
+                hash["FHEMPYTYPE"],
+            )
+        )
+        if deps_ok is False:
+            # readingsSingleUpdate inform about dep installation
+            await fhem.readingsSingleUpdate(hash, "state", "Installing updates...", 1)
+            # run only one installation and do depcheck
+            # before any other installation
+            async with pip_lock:
+                # make sure that all import caches
+                # are up2date before check
+                importlib.invalidate_caches()
+                # check again if something
+                # changed for dependencies
+                deps_ok = pkg_installer.check_dependencies(hash["FHEMPYTYPE"])
+                if deps_ok is False:
+                    # start installation in
+                    # a separate asyncio thread
+                    await pkg_installer.check_and_install_dependencies(
+                        hash["FHEMPYTYPE"]
+                    )
+                    # update cache again after install
+                    if not site.getusersitepackages() in sys.path:
+                        logger.debug("add pip path: " + site.getusersitepackages())
+                        sys.path.append(site.getusersitepackages())
+                    importlib.invalidate_caches()
+                    # when installation finished, inform user
+            await fhem.readingsSingleUpdate(
+                hash,
+                "state",
+                "Installation finished. Please wait...",
+                1,
+            )
+            # wait 3s so that user can read
+            # the msg about installation
+            await asyncio.sleep(3)
+            # continue define
+
+
+def usage():
+    print(
+        "Usage: fhempy [-h|--help] [-v|--version] [-i|--ip] [-b|--bind] [-p|--port] [-l|--local]"
+    )
+    print("  --local   Use only if you run fhempy on your FHEM machine")
+    print(
+        "  --ip      "
+        "Specify the IP address for FHEM connection setup (default: local ip)"
+    )
+    print("  --bind    Bind to the specified IP address (default: 0.0.0.0)")
+    print("  --port    Specify the port fhempy runs on (default: 15733)")
+    print("  --version Print version and exit")
+    print("  --help    This help text")
+
+
+async def health_check(connection, request):
+    if request.path == "/healthcheck":
+        return connection.respond(http.HTTPStatus.OK, "OK\n")
+
+
+async def async_main():
+    try:
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            "dhvli:p:b:",
+            ["help", "version", "ip=", "bind=", "port=", "local", "debug"],
+        )
+    except getopt.GetoptError as err:
+        logger.error(err)
+        usage()
+        return
+
+    ip, bindip, port, local = handle_cmdline_options(opts)
+
+    logger.info(f"Starting fhempy {version.__version__}...")
+
+    # logs where the event loop hangs, FHEM waits for fhempy meanwhile
+    watchdog = LoopWatchdog(asyncio.get_running_loop())
+    watchdog.start()
+
+    celebration.ReleaseBanner().show_in_log()
+
+    await pkg_installer.check_and_install_dependencies("core")
+
+    if not local:
+        await advertise_fhempy(ip, port)
+
+    logger.info("Waiting for FHEM connection")
+    try:
+        async with websockets.asyncio.server.serve(
+            pybinding,
+            bindip,
+            port,
+            ping_timeout=None,
+            ping_interval=None,
+            process_request=health_check,
+            max_size=None,
+            write_limit=2**20,
+            # FHEM doesn't answer the close frame, don't delay the restart
+            close_timeout=2,
+        ):
+            await stop_event.wait()
+    except OSError:
+        logger.error(
+            "Another instance of fhempy is running, stop the other instance first."
+        )
+    finally:
+        watchdog.stop()
+
+
+def handle_cmdline_options(opts):
+    ip = None
+    bindip = "0.0.0.0"
+    port = 15733
+    local = False
+
+    for o, a in opts:
+        if o in ("-v", "--version"):
+            print("fhempy " + str(version.__version__))
+            sys.exit()
+        elif o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-i", "--ip"):
+            ip = a
+        elif o in ("-b", "--bind"):
+            bindip = a
+        elif o in ("-p", "--port"):
+            port = int(a)
+        elif o in ("-l", "--local"):
+            local = True
+        elif o in ("-d", "--debug"):
+            logging.getLogger("").setLevel(logging.DEBUG)
+            logging.getLogger("websockets.server").setLevel(logging.ERROR)
+            asyncio.get_event_loop().set_debug(True)
+
+    if bindip != "0.0.0.0" and ip is None:
+        ip = bindip
+
+    return ip, bindip, port, local
+
+
+async def advertise_fhempy(ip, port):
+    # running on remote peer, start zeroconf for autodiscovery
+    if ip is None:
+        local_ip = utils.get_local_ip()
+    else:
+        local_ip = ip
+    logger.info(f"Advertise fhempy on local network with {local_ip}:{port}")
+    zc = zeroconf.get_instance(logger)
+    global zc_info
+    zc_info = await zc.register_service(
+        "_http",
+        "fhempy (" + local_ip + ")",
+        port,
+        {"port": port, "ip": local_ip},
+    )
+
+
+# from Home Assistant runner.py
+def _cancel_all_tasks_with_timeout(
+    loop: asyncio.AbstractEventLoop, timeout: int
+) -> None:
+    """Adapted _cancel_all_tasks from python 3.9 with a timeout."""
+    to_cancel = asyncio.all_tasks(loop)
+    if not to_cancel:
+        return
+
+    for task in to_cancel:
+        task.cancel()
+
+    loop.run_until_complete(asyncio.wait(to_cancel, timeout=timeout))
+
+    for task in to_cancel:
+        if task.cancelled():
+            continue
+        if not task.done():
+            logger.warning(
+                "Task could not be canceled and was still running after shutdown: %s",
+                task,
+            )
+            continue
+        if task.exception() is not None:
+            loop.call_exception_handler(
+                {
+                    "message": "unhandled exception during shutdown",
+                    "exception": task.exception(),
+                    "task": task,
+                }
+            )
+
+
+def run():
+    global exit_code
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    # httpx logs every request on INFO, polling modules (e.g. prusalink) flood the log
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    # Python 3.14+ doesn't create an event loop in get_event_loop() anymore
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(async_main())
+    finally:
+        try:
+            pass
+            # the code below currently doesn't work
+            # loop.run_until_complete doesn't end, therefore deactivated
+            # _cancel_all_tasks_with_timeout(loop, 10)
+            # loop.run_until_complete(loop.shutdown_asyncgens())
+            # loop.run_until_complete(loop.shutdown_default_executor())
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
+
+    logging.getLogger(__name__).info(f"Exit {exit_code}")
+
+    # sys.exit doesn't work well, therefore os._exit is used
+    os._exit(exit_code)

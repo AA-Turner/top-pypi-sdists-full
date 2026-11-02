@@ -1,0 +1,495 @@
+"""Base serialization types and utilities.
+
+This module contains shared types and utilities used by all serializers.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, ClassVar, Protocol, runtime_checkable
+
+import msgpack
+
+from cachekit._rust_serializer import check_msgpack_structure
+
+
+@runtime_checkable
+class SerializerProtocol(Protocol):
+    """Protocol for pluggable serialization strategies.
+
+    All serializers must implement this protocol to be compatible with
+    cachekit's caching system. Serializers are responsible for converting
+    Python objects to bytes and vice versa.
+
+    The protocol is runtime-checkable to enable isinstance() validation
+    without requiring explicit inheritance.
+
+    Encryption contract (``cross_sdk_compatible``):
+        Serializers carry a class-level ``cross_sdk_compatible: bool`` attribute
+        that declares this rule: after decryption (``metadata.encrypted`` is true),
+        ``deserialize`` decodes the one container its configuration fixes and raises
+        when the bytes do not parse as it, never returning a default or the input;
+        inspecting the bytes may only refuse, never select another decoder. Protocol
+        ENC-2 and ENC-3 require that of the step after decryption on every backend,
+        so the flag governs whether the serializer may be used under encryption —
+        see ``EncryptionWrapper`` and the validation in
+        ``CacheSerializationHandler.__init__``. Plaintext reads are outside the rule:
+        ArrowSerializer sniffs to accept a legacy raw entry there. Despite its name, it
+        does not mean other-language SDKs can read the format: ArrowSerializer's
+        envelope is not a cross-SDK wire format and still qualifies.
+
+        - ``True``  (StandardSerializer/MessagePack, OrjsonSerializer/JSON,
+          ArrowSerializer/checksummed Arrow IPC): the user's serializer is threaded
+          into the EncryptionWrapper and used as-is under encryption.
+        - ``False`` (AutoSerializer, which picks its decoder by inspecting the bytes;
+          and any serializer that does not declare the flag): combining it with
+          encryption is rejected at decoration time and when an
+          ``EncryptionWrapper`` is built.
+
+        This attribute is intentionally NOT part of the runtime-checkable structural
+        set: ``runtime_checkable`` would otherwise force every method-only custom
+        serializer to also declare it, breaking ``isinstance(x, SerializerProtocol)``
+        on the plaintext path across Python 3.10-3.14. It is enforced for type
+        checkers via ``CrossSDKSerializerProtocol`` below, and read at runtime via
+        ``getattr(type(s), "cross_sdk_compatible", False)`` (unmarked == refused under encryption).
+
+    Examples:
+        >>> class MySerializer:
+        ...     def serialize(self, obj: Any) -> tuple[bytes, SerializationMetadata]:
+        ...         try:
+        ...             return msgpack.packb(obj), SerializationMetadata(
+        ...                 serialization_format=SerializationFormat.MSGPACK
+        ...             )
+        ...         except Exception as e:
+        ...             raise SerializationError(f"Serialization failed: {e}") from e
+        ...     def deserialize(self, data: bytes, metadata: Any = None) -> Any:
+        ...         try:
+        ...             return msgpack.unpackb(data)
+        ...         except Exception as e:
+        ...             raise SerializationError(f"Deserialization failed: {e}") from e
+        >>> isinstance(MySerializer(), SerializerProtocol)
+        True
+
+        >>> # AutoSerializer implements SerializerProtocol
+        >>> from cachekit.serializers import AutoSerializer
+        >>> serializer = AutoSerializer()
+        >>> isinstance(serializer, SerializerProtocol)
+        True
+        >>> data, metadata = serializer.serialize({"key": "value"})
+        >>> isinstance(data, bytes)
+        True
+        >>> metadata.format
+        <SerializationFormat.MSGPACK: 'msgpack'>
+    """
+
+    def serialize(self, obj: Any) -> tuple[bytes, SerializationMetadata]:
+        """Serialize Python object to bytes.
+
+        Args:
+            obj: Python object to serialize (type support varies by implementation)
+
+        Returns:
+            Tuple of:
+            - bytes: Serialized data (ready for storage or transmission)
+            - SerializationMetadata: Format info, compression, encryption flags
+
+        Raises:
+            TypeError: If object type not supported by this serializer
+            SerializationError: If serialization fails
+
+        Examples:
+            >>> serializer = StandardSerializer()  # doctest: +SKIP
+            >>> data, metadata = serializer.serialize({"key": "value"})  # doctest: +SKIP
+            >>> isinstance(data, bytes)  # doctest: +SKIP
+            True
+            >>> metadata.format == SerializationFormat.MSGPACK  # doctest: +SKIP
+            True
+        """
+        ...
+
+    def deserialize(self, data: bytes | memoryview, metadata: Any = None) -> Any:
+        """Deserialize bytes to Python object.
+
+        Args:
+            data: Serialized bytes (from serialize() output)
+            metadata: Optional serialization metadata for optimization hints.
+                     Implementations may ignore this if format is self-describing.
+                     Type is Any to avoid circular import (SerializationMetadata).
+
+        Returns:
+            Deserialized Python object (type depends on original object)
+
+        Raises:
+            SerializationError: If data is corrupted or invalid format
+            TypeError: If data format doesn't match this serializer
+
+        Examples:
+            >>> serializer = StandardSerializer()  # doctest: +SKIP
+            >>> data, _ = serializer.serialize({"key": "value"})  # doctest: +SKIP
+            >>> obj = serializer.deserialize(data)  # doctest: +SKIP
+            >>> obj == {"key": "value"}  # doctest: +SKIP
+            True
+        """
+        ...
+
+
+class CrossSDKSerializerProtocol(SerializerProtocol, Protocol):
+    """SerializerProtocol plus the ``cross_sdk_compatible`` class attribute.
+
+    Static-typing-only extension of :class:`SerializerProtocol`. It is deliberately
+    NOT ``@runtime_checkable``: the marker is enforced by type checkers (so the core
+    serializers and any opt-in custom serializer must declare the flag), while the
+    runtime ``isinstance(x, SerializerProtocol)`` check stays method-only and never
+    rejects a valid method-only custom serializer just because it omits the flag.
+
+    At runtime the flag is read defensively via
+    ``getattr(type(serializer), "cross_sdk_compatible", False)``; an unmarked
+    serializer is refused under encryption.
+    """
+
+    cross_sdk_compatible: ClassVar[bool]
+
+
+class SerializerType(str, Enum):  # noqa: UP042 - StrEnum would change str() of members
+    """Available serialization strategies (user-facing API).
+
+    USER-FACING: Defines which serializer **implementation** to use.
+    Example: serializer=SerializerType.DEFAULT → instantiate StandardSerializer class
+
+    This is separate from encryption (which is a security layer on top).
+    Example: serializer="default", encryption=True → StandardSerializer wrapped with EncryptionWrapper
+
+    Examples:
+        >>> SerializerType.DEFAULT.value
+        'default'
+        >>> SerializerType.DEFAULT == "default"
+        True
+        >>> SerializerType.DEFAULT.name
+        'DEFAULT'
+    """
+
+    DEFAULT = "default"  # MessagePack + LZ4 compression + xxHash3-64 checksums (production-ready default)
+    # Future: PICKLE = "pickle", JSON = "json", etc.
+
+
+class SerializationFormat(Enum):
+    """Wire format of serialized data (internal metadata).
+
+    INTERNAL: Describes what **format** the bytes are actually in (for deserialization hints).
+    Example: StandardSerializer produces SerializationFormat.MSGPACK (MessagePack wire format)
+
+    Why separate from SerializerType?
+    - SerializerType = which class to instantiate (API choice)
+    - SerializationFormat = what wire format was produced (metadata hint)
+    - Currently 1:1 mapping, but future serializers may produce multiple formats
+      (e.g., PickleSerializer could produce PICKLE_V4 vs PICKLE_V5)
+
+    Examples:
+        >>> SerializationFormat.MSGPACK.value
+        'msgpack'
+        >>> SerializationFormat.ORJSON.value
+        'orjson'
+        >>> SerializationFormat.ARROW.value
+        'arrow'
+        >>> SerializationFormat("msgpack") == SerializationFormat.MSGPACK
+        True
+    """
+
+    MSGPACK = "msgpack"  # MessagePack wire format (produced by StandardSerializer)
+    # Note: StandardSerializer = MessagePack + LZ4 compression + xxHash3-64 checksums (via ByteStorage wrapper)
+    ORJSON = "orjson"  # Orjson JSON wire format (produced by OrjsonSerializer)
+    ARROW = "arrow"  # Apache Arrow IPC wire format (produced by ArrowSerializer)
+
+
+class SerializationMetadata:
+    """Metadata about serialized data.
+
+    ``encrypted`` on the metadata ``EncryptionWrapper`` passes to its inner serializer's
+    ``deserialize`` means the bytes are decrypted plaintext, whose container the reader's
+    configuration fixes: a serializer must not fall back to a legacy form it would sniff for
+    on a plaintext read.
+
+    Examples:
+        Create basic metadata:
+
+        >>> meta = SerializationMetadata(
+        ...     serialization_format=SerializationFormat.MSGPACK,
+        ...     compressed=True
+        ... )
+        >>> meta.format
+        <SerializationFormat.MSGPACK: 'msgpack'>
+        >>> meta.compressed
+        True
+        >>> meta.encrypted
+        False
+
+        Convert to dict and back:
+
+        >>> meta = SerializationMetadata(
+        ...     serialization_format=SerializationFormat.ORJSON,
+        ...     compressed=False,
+        ...     original_type="json"
+        ... )
+        >>> d = meta.to_dict()
+        >>> d["format"]
+        'orjson'
+        >>> restored = SerializationMetadata.from_dict(d)
+        >>> restored.format == meta.format
+        True
+
+        Encryption metadata included only when encrypted=True:
+
+        >>> encrypted_meta = SerializationMetadata(
+        ...     serialization_format=SerializationFormat.MSGPACK,
+        ...     encrypted=True,
+        ...     tenant_id="acme-corp",
+        ...     encryption_algorithm="AES-256-GCM"
+        ... )
+        >>> "tenant_id" in encrypted_meta.to_dict()
+        True
+    """
+
+    def __init__(
+        self,
+        serialization_format: SerializationFormat,
+        encoding: str = "utf-8",
+        compressed: bool = False,
+        original_type: str | None = None,
+        encrypted: bool = False,
+        tenant_id: str | None = None,
+        encryption_algorithm: str | None = None,
+        key_fingerprint: str | None = None,
+    ):
+        self.format = serialization_format
+        self.encoding = encoding
+        self.compressed = compressed
+        self.original_type = original_type
+        self.encrypted = encrypted
+        self.tenant_id = tenant_id
+        self.encryption_algorithm = encryption_algorithm
+        self.key_fingerprint = key_fingerprint
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert metadata to dictionary for storage."""
+        data = {
+            "format": self.format.value,
+            "encoding": self.encoding,
+            "compressed": self.compressed,
+            "original_type": self.original_type,
+        }
+
+        # Add encryption fields if present
+        if self.encrypted:
+            data.update(
+                {
+                    "encrypted": self.encrypted,
+                    "tenant_id": self.tenant_id,
+                    "encryption_algorithm": self.encryption_algorithm,
+                    "key_fingerprint": self.key_fingerprint,
+                }
+            )
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SerializationMetadata:
+        """Create metadata from dictionary."""
+        return cls(
+            serialization_format=SerializationFormat(data["format"]),
+            encoding=data.get("encoding", "utf-8"),
+            compressed=data.get("compressed", False),
+            original_type=data.get("original_type"),
+            encrypted=data.get("encrypted", False),
+            tenant_id=data.get("tenant_id"),
+            encryption_algorithm=data.get("encryption_algorithm"),
+            key_fingerprint=data.get("key_fingerprint"),
+        )
+
+
+class SerializationError(Exception):
+    """Exception raised when serialization/deserialization fails.
+
+    Examples:
+        >>> try:
+        ...     raise SerializationError("Invalid data format")
+        ... except SerializationError as e:
+        ...     str(e)
+        'Invalid data format'
+
+        >>> isinstance(SerializationError("test"), Exception)
+        True
+    """
+
+    pass
+
+
+class SuspiciousCacheEntryError(SerializationError):
+    """The unauthenticated envelope of a cache entry is inconsistent with the
+    handler's configuration in a way tampering would also produce.
+
+    Raised for the CWE-757 downgrade guard (an encryption-enabled handler read
+    an entry whose header claims plaintext) and for an encrypted entry missing
+    its tenant_id. Both have benign explanations (lazy plaintext→encrypted
+    migration, corrupt header), so callers keep treating this as a miss
+    (evict → recompute → re-store) even in fail-closed mode — but telemetry
+    counts it under its own ``suspicious_envelope`` reason label so a spike
+    outside a migration window is visible to operators.
+    """
+
+    pass
+
+
+class EnvelopeShapeError(SerializationError):
+    """An entry nothing verified decoded to the SHAPE of a ByteStorage envelope —
+    ``[bytes, [8 ints], int, format]`` with at least three slots intact — and was refused;
+    or, at write, a value that would decode to one.
+
+    Two populations reach this and the read path cannot tell them apart: a
+    rotted integrity-on envelope whose checksum can no longer be checked, and a legitimate
+    top-level 4-element list a caller cached that merely looks like one. Refusing both is
+    the chosen corner — returning a rotted envelope hands the caller its compressed payload
+    as their object. Callers treat it as a miss (evict → recompute). For the second
+    population recompute re-produces the same bytes, so an integrity-off
+    ``AutoSerializer.serialize`` raises this too and never writes the value: a plain miss,
+    not an eviction and a rewrite on every call. Telemetry counts the read-side refusal under
+    its own ``envelope_shape`` reason rather than ``corruption``: the same redacted key
+    repeating in the WARNING log is a value another writer is still storing, not storage
+    rot, and must not read as a corruption spike.
+    """
+
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Owned untrusted-decode bounds (protocol spec/interop-mode.md → Decode bounds)
+# ---------------------------------------------------------------------------
+
+#: cachekit's own nesting ceiling, enforced by cachekit-core's ``check_msgpack_structure``
+#: walk (through the Rust extension) before msgpack-python ever sees the document. Every
+#: array or map header on the path counts as a level, an empty one included. Two
+#: constraints pin it: the protocol requires every SDK's bound to sit in 32..=1024, and
+#: it must not exceed msgpack-python's C unpacker stack (a document at the ceiling has to
+#: decode after passing the walk; tests/unit/protocol/test_decode_bounds.py checks exactly that).
+MSGPACK_MAX_NESTING = 1024
+
+#: Everything a corrupted or forged payload can make a decode raise, for serializers
+#: to turn into ``SerializationError``. msgpack's own errors are ``ValueError``
+#: subclasses; the AutoSerializer object hook and the NumPy/DataFrame/Series
+#: reconstructors add ``TypeError`` (``np.frombuffer`` on a forged dtype string),
+#: ``OverflowError`` (a forged dict dtype whose itemsize is past C long), ``SyntaxError``
+#: (numpy's comma-string dtype parser runs ``ast.literal_eval`` on a forged shape prefix
+#: such as ``"(1,f8"``), ``KeyError`` / ``AttributeError`` (indexing a dict that is not
+#: the shape they wrote); ``BufferError`` is a non-u8 buffer exporter rejected at the
+#: PyO3 boundary. Anything else — above all ``RuntimeError`` for a missing
+#: optional dependency — is an environment fault, not a bad cache entry, and must bubble.
+PAYLOAD_DECODE_ERRORS = (ValueError, TypeError, KeyError, AttributeError, OverflowError, BufferError, SyntaxError)
+
+#: Character cap for any untrusted-payload-derived error text that a read path logs or folds into
+#: an outer message. A forged/corrupt cache entry controls the exception text — numpy echoes a
+#: whole forged dtype string, an inner ``{e}`` wrap carries it up — so it is unbounded. Measured
+#: on the pre-#276 code, an 8.3 KB envelope carrying a 1 MiB column name produced a 4.19 MB log
+#: line (505x); post-#276 the marker/column echoes are capped but ``_dtype_from_untrusted`` still
+#: echoes the full dtype (a 1 MiB forged dtype still floods). ``repr`` escapes newlines but the
+#: read paths log ``str(e)``, so :func:`bounded_error` also collapses them — one poisoned read is
+#: always exactly one bounded log line.
+ERROR_ECHO_MAX = 512
+
+#: Every char that could split a log record into extra lines or spoof a terminal, escaped so an
+#: attacker-controlled error message is always ONE terminal-safe line: all C0 controls (incl.
+#: ``\n``/``\r``/``\x0b``/``\x0c``), DEL, the C1 range (incl. NEL ``\x85``), and the Unicode
+#: line/paragraph separators ``U+2028``/``U+2029``. Applied by :func:`bounded_error` after the
+#: length clip, so the escape expansion works on a bounded string, never the raw payload.
+_LOG_UNSAFE_ESCAPES = {c: f"\\x{c:02x}" for c in (*range(0x20), 0x7F, *range(0x80, 0xA0))}
+_LOG_UNSAFE_ESCAPES.update({0x2028: "\\u2028", 0x2029: "\\u2029"})
+
+
+def bounded_error(exc: BaseException | str) -> str:
+    """``str(exc)`` clipped to :data:`ERROR_ECHO_MAX` and reduced to one terminal-safe line, for
+    logging or re-wrapping a failure whose text is influenced by untrusted cache bytes.
+
+    Accepts a bare ``str`` so a boundary whose "cause" is a comparison rather than a raised error
+    (``AutoSerializer._envelope_failure``) bounds through this same helper.
+
+    Applied once at each trust-boundary re-raise site (the read-path ``SerializationError``
+    wraps in ``cache_handler``) rather than per field: the bound then holds for
+    every attacker-inflatable field — marker, column name, dtype — including ones a future field
+    would add. Over-length text is truncated with the true length appended so the message still
+    says "this was huge", then every line/terminal-control char is escaped
+    (:data:`_LOG_UNSAFE_ESCAPES`) so one poisoned read is always exactly one line with no injected
+    ANSI or newlines. Clipping before escaping keeps output O(1) (escape expansion applies to at
+    most ``ERROR_ECHO_MAX`` chars). Log sinks do not use this: they render exceptions via
+    ``cachekit.hash_utils.redact_error_for_log``, which echoes no exception text at all.
+    """
+    text = str(exc)
+    if len(text) > ERROR_ECHO_MAX:
+        text = f"{text[:ERROR_ECHO_MAX]}… [truncated, {len(text)} chars total]"
+    return text.translate(_LOG_UNSAFE_ESCAPES)
+
+
+def immutable_buffer(data: bytes | bytearray | memoryview) -> bytes | memoryview:
+    """Return ``data`` as one flat, unsigned, immutable byte buffer, copying only when it must.
+
+    For callers that read one untrusted document twice (a structure walk then a decode, or a decode
+    then an envelope probe): a mutable exporter could change between the reads, so both must see
+    one snapshot.
+
+    Examples:
+        >>> immutable_buffer(bytearray(b"ab"))
+        b'ab'
+        >>> immutable_buffer(memoryview(b"\\x94").cast("b"))[0]  # a signed view reads 0x94 as -108
+        148
+    """
+    if isinstance(data, memoryview):
+        # cast("B") flattens a multi-dimensional view and retypes any C-contiguous format
+        # ("b"/"c"/"H"...) to unsigned bytes without copying, so len() is the byte count and indexing
+        # yields byte values; a non-contiguous view has no flat form and is copied.
+        data = data.cast("B") if data.c_contiguous else bytes(data)
+    if not isinstance(data, bytes) and not (isinstance(data, memoryview) and isinstance(data.obj, bytes)):
+        # A mutable exporter (bytearray, mmap, a memoryview over either) is snapshotted. bytes and a
+        # memoryview of bytes stay zero-copy — the same containment proof the Rust side's bytes_view uses.
+        data = bytes(data)
+    return data
+
+
+def unpackb_bounded(data: bytes | bytearray | memoryview, **unpack_opts: Any) -> Any:
+    """Decode one untrusted MessagePack document under cachekit-owned bounds.
+
+    Why not plain ``msgpack.unpackb``: a collection header costs 1-5 bytes but may
+    declare up to 2**32-1 elements, and the C unpacker pre-allocates the container
+    (``PyList_New(n)``) *before* decoding the children. Nested headers stack those
+    allocations depth-first, so the library's per-collection default cap
+    (``max_*_len = len(data)``) still permits ~8 x 1024 x len(data) bytes of
+    transient heap — measured 10 KB -> 67 MB.
+
+    The bound is cachekit-core's header-only walk (``check_msgpack_structure``,
+    documented there), which the Rust extension runs zero-copy before the decode. It
+    rejects a document that nests deeper than :data:`MSGPACK_MAX_NESTING` (every
+    array or map header counts, an empty one included) or whose open headers
+    declare more elements or bytes than the remaining input can back.
+    Every element that survives is backed by >= 1 input byte, so the real decode's
+    total container pre-allocation is bounded by len(data) rather than by
+    depth x declared length. The explicit ``max_*_len=len(data)`` caps on
+    ``unpackb`` are unreachable once the walk passes; they are defence in depth
+    against a walk regression, not an independent bound.
+
+    Every rejection is a ``ValueError`` (``FormatError``, ``ExtraData``, or the
+    walk's own ``ValueError`` naming the violated bound), which the read paths
+    already turn into a controlled cache miss. Trailing bytes are still rejected
+    by ``unpackb`` itself.
+
+    Examples:
+        >>> unpackb_bounded(msgpack.packb({"a": [1, 2]}), raw=False)
+        {'a': [1, 2]}
+        >>> unpackb_bounded(b"\\xdc\\x07\\xd0" * 5000)  # 15 KB nested-header bomb
+        Traceback (most recent call last):
+        ...
+        ValueError: Unpack failed: MessagePack document declares more elements than the input can back
+        >>> unpackb_bounded(b"\\x91" * 1025 + b"\\xc0")  # one level past the ceiling
+        Traceback (most recent call last):
+        ...
+        ValueError: Unpack failed: MessagePack document nests deeper than 1024 levels
+    """
+    data = immutable_buffer(data)  # the walk and the decode must see one document
+    n = len(data)
+    check_msgpack_structure(data, MSGPACK_MAX_NESTING)
+    return msgpack.unpackb(data, max_str_len=n, max_bin_len=n, max_array_len=n, max_map_len=n, max_ext_len=n, **unpack_opts)

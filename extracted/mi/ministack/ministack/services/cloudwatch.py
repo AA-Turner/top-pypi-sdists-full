@@ -1,0 +1,2528 @@
+# Copyright (c) 2026 MiniStack Contributors. SPDX-License-Identifier: MIT
+# Copies or substantial portions, including AI-assisted ports or rewrites, must retain this notice (see LICENSE).
+"""
+CloudWatch Metrics Service Emulator.
+Supports legacy Query API (form-encoded), smithy-rpc-v2-cbor (botocore 1.42+),
+and JSON/X-Amz-Target protocol.
+Operations: PutMetricData, GetMetricStatistics, GetMetricData, ListMetrics,
+            PutMetricAlarm, PutCompositeAlarm, DescribeAlarms, DescribeAlarmsForMetric,
+            DescribeAlarmHistory, DeleteAlarms,
+            EnableAlarmActions, DisableAlarmActions, SetAlarmState,
+            TagResource, UntagResource, ListTagsForResource,
+            PutDashboard, GetDashboard, DeleteDashboards, ListDashboards.
+"""
+
+import base64
+import copy
+import functools
+import json
+import logging
+import os
+import re
+import time
+import unicodedata
+from collections import defaultdict
+from datetime import datetime, timezone
+from urllib.parse import parse_qs
+from xml.sax.saxutils import escape as _xml_escape
+
+from ministack.core.arn import ArnParseError, parse_arn
+from ministack.core.responses import AccountRegionScopedDict, AccountScopedDict, get_account_id, get_region, new_uuid
+
+logger = logging.getLogger("cloudwatch")
+
+REGION = os.environ.get("MINISTACK_REGION", "us-east-1")
+TWO_WEEKS_SECONDS = 14 * 24 * 3600
+
+# Per-tenant, per-region metric store — keyed by (namespace, metric_name,
+# dims_key) via AccountRegionScopedDict so regional CloudWatch clients do not
+# see metrics emitted in another AWS region.
+_metrics = AccountRegionScopedDict()
+# Alarms and dashboards are region-specific in AWS — region-scope them so a
+# client in one region can't see/collide with another region's resources.
+# Alarms/composite alarms migrate region from their AlarmArn on legacy load;
+# dashboards/history have no ARN so legacy data lands in the default region.
+_alarms = AccountRegionScopedDict()
+_composite_alarms = AccountRegionScopedDict()
+# Composite alarm name -> names of its children that changed state since its last transition, newest first.
+_composite_triggers = AccountRegionScopedDict()
+# Alarm state-change history, per-account+region. Stored under a single key
+# "entries" so the standard list manipulation still applies to the caller's scope.
+_alarm_history = AccountRegionScopedDict()
+_resource_tags = AccountScopedDict()  # ARN-keyed; region is in the ARN
+_dashboards = AccountRegionScopedDict()  # dashboard_name -> {DashboardName, DashboardBody, LastModified}
+
+
+def _metric_bucket(key: tuple) -> list:
+    """Return the per-account point list for a metric key, creating it on first write."""
+    pts = _metrics.get(key)
+    if pts is None:
+        pts = []
+        _metrics[key] = pts
+    return pts
+
+
+def _history_entries() -> list:
+    entries = _alarm_history.get("entries")
+    if entries is None:
+        entries = []
+        _alarm_history["entries"] = entries
+    return entries
+
+
+def _alarm_name_from_local_arn(arn):
+    try:
+        spec = parse_arn(arn)
+    except ArnParseError:
+        return None
+    if spec.service != "cloudwatch" or spec.account_id != get_account_id() or spec.region != get_region():
+        return None
+    prefix = "alarm:"
+    if not spec.resource.startswith(prefix):
+        return None
+    name = spec.resource[len(prefix):]
+    return name or None
+
+
+def _validate_alarm_tag_arn(arn, is_json=False, is_cbor=False):
+    alarm_name = _alarm_name_from_local_arn(arn)
+    alarm = _alarms.get(alarm_name) if alarm_name else None
+    if not alarm:
+        alarm = _composite_alarms.get(alarm_name) if alarm_name else None
+    if not alarm or alarm.get("AlarmArn") != arn:
+        return _error(
+            "ResourceNotFound",
+            f"Alarm resource {arn} not found",
+            404,
+            use_json=is_json,
+            use_cbor=is_cbor,
+        )
+    return None
+
+
+def _is_sns_action_arn(action):
+    if not isinstance(action, str):
+        return False
+    try:
+        spec = parse_arn(action)
+    except ArnParseError:
+        return False
+    return spec.service == "sns" and spec.account_id == get_account_id() and spec.region == get_region()
+
+
+# ── Persistence ────────────────────────────────────────────
+
+def get_state():
+    return {
+        "metrics": copy.deepcopy(_metrics),
+        "alarms": copy.deepcopy(_alarms),
+        "composite_alarms": copy.deepcopy(_composite_alarms),
+        "composite_triggers": copy.deepcopy(_composite_triggers),
+        "alarm_history": copy.deepcopy(_alarm_history),
+        "dashboards": copy.deepcopy(_dashboards),
+        "resource_tags": copy.deepcopy(_resource_tags),
+    }
+
+
+def load_persisted_state(data):
+    return _restore_state(data)
+
+
+def _restore_state(data):
+    if data:
+        _metrics.update(data.get("metrics", {}))
+        _alarms.update(data.get("alarms", {}))
+        _composite_alarms.update(data.get("composite_alarms", {}))
+        _composite_triggers.update(data.get("composite_triggers", {}))
+        _alarm_history.update(data.get("alarm_history", {}))
+        _dashboards.update(data.get("dashboards", {}))
+        _resource_tags.update(data.get("resource_tags", {}))
+
+
+
+
+# ---------------------------------------------------------------------------
+# Timestamp helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_ts(value):
+    """Parse ISO-8601 string, epoch float, or None into a Unix timestamp."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        # rpc-v2-cbor timestamps (tag 1) decode to datetime; naive means UTC.
+        return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).timestamp()
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        for fmt in (
+            "%Y-%m-%dT%H:%M:%S.%fZ",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S.%f%z",
+            "%Y-%m-%dT%H:%M:%S%z",
+            "%Y-%m-%dT%H:%M:%S",
+        ):
+            try:
+                dt = datetime.strptime(value, fmt)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.timestamp()
+            except ValueError:
+                continue
+    return None
+
+
+def _ts_iso(epoch):
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# ---------------------------------------------------------------------------
+# Metric eviction
+# ---------------------------------------------------------------------------
+
+
+def _evict_old_metrics():
+    cutoff = time.time() - TWO_WEEKS_SECONDS
+    empty_keys = []
+    for key, pts in _metrics.items():
+        _metrics[key] = [p for p in pts if p["Timestamp"] >= cutoff]
+        if not _metrics[key]:
+            empty_keys.append(key)
+    for key in empty_keys:
+        del _metrics[key]
+
+
+# ---------------------------------------------------------------------------
+# Statistics helpers
+# ---------------------------------------------------------------------------
+
+
+def _point_stats(pt):
+    """(SampleCount, Sum, Minimum, Maximum) of one stored point: a value seen
+    ``Count`` times, or a published statistic set."""
+    sv = pt.get("_stat")
+    if sv is not None:
+        return (float(sv.get("SampleCount", 0)), float(sv.get("Sum", 0)),
+                float(sv.get("Minimum", 0)), float(sv.get("Maximum", 0)))
+    count = float(pt.get("Count", 1.0))
+    return count, pt["Value"] * count, pt["Value"], pt["Value"]
+
+
+def _calc_stats(points):
+    parts = [_point_stats(p) for p in points]
+    parts = [p for p in parts if p[0] > 0]
+    if not parts:
+        return {}
+    count = sum(p[0] for p in parts)
+    total = sum(p[1] for p in parts)
+    return {
+        "SampleCount": count,
+        "Sum": total,
+        "Average": total / count,
+        "Minimum": min(p[2] for p in parts),
+        "Maximum": max(p[3] for p in parts),
+    }
+
+
+def _percentile_samples(points):
+    """(value, weight) samples for percentiles, or None when CloudWatch has
+    none: any negative value, or a statistic set that is not a single
+    repeated value ("Min and Max are equal, and Sum is equal to Min
+    multiplied by SampleCount", or SampleCount 1 with Min, Max, Sum equal)."""
+    samples = []
+    for pt in points:
+        count, total, low, high = _point_stats(pt)
+        if count <= 0:
+            continue
+        if pt.get("_stat") is not None and not (low == high and total == low * count):
+            return None
+        if low < 0:
+            return None
+        samples.append((low, count))
+    return samples or None
+
+
+def _percentile(samples, pct):
+    """Extended-statistic percentile (0-100) of weighted samples: sort
+    ascending and linearly interpolate between the two nearest ranks, as if
+    each value appeared ``weight`` times (numpy's default "linear" method)."""
+    ordered = sorted(samples)
+    total = sum(w for _, w in ordered)
+    rank = (pct / 100.0) * (total - 1) if total > 1 else 0.0
+
+    def at(index):
+        seen = 0.0
+        for value, weight in ordered:
+            seen += weight
+            if index < seen:
+                return value
+        return ordered[-1][0]
+
+    lower = int(rank)
+    frac = rank - lower
+    low = at(lower)
+    return low + frac * (at(lower + 1) - low) if frac else low
+
+
+def _is_percentile_stat(stat_name):
+    return bool(stat_name) and stat_name[0] in ("p", "P") and stat_name[1:].replace(".", "", 1).isdigit()
+
+
+def _stat_value(stats, stat_name, points=None):
+    """Extract a single statistic. stat_name is either a basic statistic name
+    already present in stats (Average/Sum/Minimum/Maximum/SampleCount) or an
+    extended-statistic percentile (e.g. "p95", "p99.9") computed from the
+    period's points; None when the percentile is not available for them."""
+    if stat_name in stats:
+        return stats[stat_name]
+    if _is_percentile_stat(stat_name):
+        samples = _percentile_samples(points or [])
+        return _percentile(samples, float(stat_name[1:])) if samples else None
+    return stats.get("Average", 0)
+
+
+# ---------------------------------------------------------------------------
+# Alarm evaluation
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_alarm(alarm):
+    ns = alarm.get("Namespace")
+    mn = alarm.get("MetricName")
+    if not ns or not mn:
+        return
+
+    all_pts = []
+    for (k_ns, k_mn, _), pts in _metrics.items():
+        if k_ns == ns and k_mn == mn:
+            all_pts.extend(pts)
+    if not all_pts:
+        return
+
+    period = alarm.get("Period", 60)
+    eval_periods = alarm.get("EvaluationPeriods", 1)
+    cutoff = time.time() - period * eval_periods
+    recent = [p for p in all_pts if p["Timestamp"] >= cutoff]
+    if not recent:
+        return
+
+    stats = _calc_stats(recent)
+    # an alarm is configured with either Statistic (basic) or ExtendedStatistic (percentile),
+    # never both thus prefer whichever is set.
+    stat_name = alarm.get("ExtendedStatistic") or alarm.get("Statistic", "Average")
+    val = _stat_value(stats, stat_name, recent)
+    if val is None:
+        return
+    threshold = alarm.get("Threshold", 0)
+    op = alarm.get("ComparisonOperator", "")
+
+    cmp = {
+        "GreaterThanOrEqualToThreshold": val >= threshold,
+        "GreaterThanThreshold": val > threshold,
+        "LessThanThreshold": val < threshold,
+        "LessThanOrEqualToThreshold": val <= threshold,
+        "GreaterThanUpperThreshold": val > threshold,
+        "LessThanLowerThreshold": val < threshold,
+        "LessThanLowerOrGreaterThanUpperThreshold": val < threshold,
+    }
+    breaching = cmp.get(op, False)
+    old_state = alarm["StateValue"]
+    new_state = "ALARM" if breaching else "OK"
+    if old_state != new_state:
+        reason = f"Threshold Crossed: {stat_name} {val} {op} {threshold}"
+        alarm["StateValue"] = new_state
+        alarm["StateReason"] = reason
+        alarm["StateUpdatedTimestamp"] = int(time.time())
+        _record_history(alarm["AlarmName"], old_state, new_state, reason)
+        _dispatch_alarm_actions(alarm, old_state, new_state, reason)
+        _evaluate_parent_alarms(alarm)
+
+
+def _evaluate_all_alarms():
+    for alarm in _alarms.values():
+        try:
+            _evaluate_alarm(alarm)
+        except Exception:
+            logger.debug("alarm eval error", exc_info=True)
+
+
+def _record_history(alarm_name, old_state, new_state, reason, alarm_type="MetricAlarm", reason_data=None):
+    new = {"stateValue": new_state, "stateReason": reason}
+    if reason_data is not None:
+        new["stateReasonData"] = reason_data
+    _history_entries().append(
+        {
+            "AlarmName": alarm_name,
+            "AlarmType": alarm_type,
+            "Timestamp": _ts_iso(time.time()),
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": f"Alarm updated from {old_state} to {new_state}",
+            "HistoryData": json.dumps(
+                {
+                    "version": "1.0",
+                    "oldState": {"stateValue": old_state},
+                    "newState": new,
+                }
+            ),
+        }
+    )
+
+
+def first_alarm_time(alarm_arn: str, start: float, end: float) -> float | None:
+    """The earliest moment in ``[start, end]`` at which the alarm named by
+    ``alarm_arn`` was in ``ALARM``, or None if it never was (or the ARN names no
+    alarm of the current account and region).
+
+    Internal entry point for AppConfig's environment monitors. The alarm's state
+    over time is rebuilt from its StateUpdate history, so an alarm that fired
+    and recovered inside the window still counts. History timestamps carry
+    whole seconds.
+    """
+    name = _alarm_name_from_local_arn(alarm_arn)
+    alarm = (_alarms.get(name) or _composite_alarms.get(name)) if name else None
+    if not alarm:
+        return None
+    transitions = []
+    for entry in _history_entries():
+        if entry.get("AlarmName") != name or entry.get("HistoryItemType") != "StateUpdate":
+            continue
+        try:
+            data = json.loads(entry["HistoryData"])
+            at = datetime.strptime(entry["Timestamp"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+            transitions.append((at, data["oldState"]["stateValue"], data["newState"]["stateValue"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    transitions.sort(key=lambda t: t[0])
+    state_at_start = transitions[0][1] if transitions else alarm["StateValue"]
+    for at, _old, new in transitions:
+        if at > start:
+            break
+        state_at_start = new
+    if state_at_start == "ALARM":
+        return start
+    for at, _old, new in transitions:
+        if start < at <= end and new == "ALARM":
+            return at
+    return None
+
+
+def record_metric(namespace: str, metric_name: str, value: float,
+                  unit: str = "None", dimensions: dict | None = None) -> None:
+    """Internal entry point for other services to publish CloudWatch metrics
+    against AWS namespaces (``AWS/Lambda``, ``AWS/SQS``, etc.) without going
+    through the public PutMetricData wire path.
+
+    Multi-tenancy: writes into the *current* account-scoped bucket, so the
+    caller's contextvar account_id is used automatically. Safe to call from
+    any service handler. Errors are swallowed — instrumentation must never
+    break the primary operation.
+    """
+    dims = dimensions or {}
+    try:
+        _metric_bucket((namespace, metric_name, _dims_key(dims))).append(
+            {
+                "Timestamp": time.time(),
+                "Value": float(value),
+                "Unit": unit,
+                "Dimensions": dict(dims),
+            }
+        )
+    except Exception:
+        logger.debug("record_metric failed for %s/%s", namespace, metric_name, exc_info=True)
+
+
+def _dispatch_alarm_actions(alarm, old_state, new_state, reason):
+    """Fire SNS notifications for AlarmActions/OKActions/InsufficientDataActions
+    on alarm state transitions.
+
+    Mirrors real CloudWatch: each *Actions list is consulted only for the
+    matching destination state. Only SNS topic ARNs are dispatched; other
+    action types (autoscaling, EC2, SSM) are stored but not yet executed.
+    """
+    if not alarm.get("ActionsEnabled", True):
+        return
+    action_field = {
+        "ALARM": "AlarmActions",
+        "OK": "OKActions",
+        "INSUFFICIENT_DATA": "InsufficientDataActions",
+    }.get(new_state)
+    if not action_field:
+        return
+    actions = alarm.get(action_field) or []
+    sns_arns = [a for a in actions if _is_sns_action_arn(a)]
+    if not sns_arns:
+        return
+    try:
+        from ministack.services import sns as _sns
+    except Exception:
+        logger.debug("alarm actions: SNS module unavailable", exc_info=True)
+        return
+
+    payload = {
+        "AlarmName": alarm.get("AlarmName", ""),
+        "AlarmDescription": alarm.get("AlarmDescription", ""),
+        "AWSAccountId": get_account_id(),
+        "NewStateValue": new_state,
+        "NewStateReason": reason,
+        "StateChangeTime": _ts_iso(time.time()),
+        "Region": get_region(),
+        "OldStateValue": old_state,
+        "Trigger": {
+            "MetricName": alarm.get("MetricName", ""),
+            "Namespace": alarm.get("Namespace", ""),
+            "Statistic": alarm.get("Statistic", ""),
+            "Unit": alarm.get("Unit"),
+            "Period": alarm.get("Period", 60),
+            "EvaluationPeriods": alarm.get("EvaluationPeriods", 1),
+            "ComparisonOperator": alarm.get("ComparisonOperator", ""),
+            "Threshold": alarm.get("Threshold", 0),
+            "Dimensions": alarm.get("Dimensions", []),
+        },
+    }
+    message = json.dumps(payload)
+    subject = f'{new_state}: "{alarm.get("AlarmName", "")}" in {get_region()}'[:100]
+    for topic_arn in sns_arns:
+        try:
+            _sns._fanout(topic_arn, new_uuid(), message, subject)
+        except Exception:
+            logger.exception("alarm actions: SNS fanout failed for %s", topic_arn)
+
+
+# ---------------------------------------------------------------------------
+# Request dispatcher
+# ---------------------------------------------------------------------------
+
+
+async def handle_request(method, path, headers, body, query_params):
+    content_type = headers.get("content-type", "")
+    target = headers.get("x-amz-target", "")
+    is_cbor = "cbor" in content_type or "cbor" in headers.get("smithy-protocol", "")
+    is_json = (not is_cbor) and ("json" in content_type or bool(target))
+
+    params = dict(query_params)
+    cbor_data = {}
+
+    if body:
+        if is_cbor:
+            try:
+                import cbor2
+
+                cbor_data = cbor2.loads(body) or {}
+            except Exception as e:
+                logger.error("CBOR decode error: %s", e)
+                cbor_data = {}
+        elif is_json:
+            try:
+                cbor_data = json.loads(body) or {}
+            except Exception as e:
+                logger.error("JSON decode error: %s", e)
+                cbor_data = {}
+        else:
+            # "Tags.member.2.Value=" is an empty value on AWS, an absent one is null.
+            for k, v in parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=True).items():
+                params[k] = v
+
+    action = ""
+    if target and "." in target:
+        action = target.split(".")[-1]
+    if not action:
+        m = re.search(r"/operation/([^/?]+)", path)
+        if m:
+            action = m.group(1)
+    if not action:
+        action = _p(params, "Action")
+
+    _evict_old_metrics()
+
+    handlers = {
+        "PutMetricData": _put_metric_data,
+        "GetMetricStatistics": _get_metric_statistics,
+        "GetMetricData": _get_metric_data,
+        "ListMetrics": _list_metrics,
+        "PutMetricAlarm": _put_metric_alarm,
+        "PutCompositeAlarm": _put_composite_alarm,
+        "DescribeAlarms": _describe_alarms,
+        "DescribeAlarmsForMetric": _describe_alarms_for_metric,
+        "DescribeAlarmHistory": _describe_alarm_history,
+        "DeleteAlarms": _delete_alarms,
+        "EnableAlarmActions": _enable_alarm_actions,
+        "DisableAlarmActions": _disable_alarm_actions,
+        "SetAlarmState": _set_alarm_state,
+        "TagResource": _tag_resource,
+        "UntagResource": _untag_resource,
+        "ListTagsForResource": _list_tags_for_resource,
+        "PutDashboard": _put_dashboard,
+        "GetDashboard": _get_dashboard,
+        "DeleteDashboards": _delete_dashboards,
+        "ListDashboards": _list_dashboards,
+    }
+
+    handler = handlers.get(action)
+    if not handler:
+        return _error(
+            "InvalidAction", f"Unknown action: {action}", 400, use_json=is_json, use_cbor=is_cbor
+        )
+    return handler(params, cbor_data, is_cbor, is_json)
+
+
+# ---------------------------------------------------------------------------
+# PutMetricData
+# ---------------------------------------------------------------------------
+
+
+def _p_list(params, prefix):
+    out = []
+    while _p(params, f"{prefix}.member.{len(out) + 1}"):
+        out.append(float(_p(params, f"{prefix}.member.{len(out) + 1}")))
+    return out
+
+
+def _store_datum(namespace, name, dims, ts, unit, value, values, counts, stat_values):
+    """Store one MetricDatum: each of ``Values`` once per its ``Counts`` entry
+    (default 1), a statistic set as published, or a single ``Value``."""
+    bucket = _metric_bucket((namespace, name, _dims_key(dims)))
+    base = {"Timestamp": ts, "Unit": unit, "Dimensions": dims}
+    if values is not None:
+        counts = counts or [1.0] * len(values)
+        for v, c in zip(values, counts):
+            bucket.append({**base, "Value": float(v), "Count": float(c)})
+    elif stat_values is not None:
+        count = float(stat_values.get("SampleCount", 0))
+        bucket.append({**base, "Value": float(stat_values.get("Sum", 0)) / count if count else 0.0,
+                       "_stat": stat_values})
+    else:
+        bucket.append({**base, "Value": float(value or 0)})
+
+
+def _put_metric_data(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        namespace = cbor_data.get("Namespace", "")
+        for md in cbor_data.get("MetricData", []):
+            mn = md.get("MetricName", "")
+            dims = {d["Name"]: d["Value"] for d in md.get("Dimensions", [])}
+
+            _store_datum(
+                namespace, mn, dims, _parse_ts(md.get("Timestamp")) or time.time(),
+                md.get("Unit", "None"), md.get("Value"), md.get("Values"),
+                md.get("Counts"), md.get("StatisticValues"),
+            )
+    else:
+        namespace = _p(params, "Namespace")
+        i = 1
+        while _p(params, f"MetricData.member.{i}.MetricName"):
+            mn = _p(params, f"MetricData.member.{i}.MetricName")
+            value = float(_p(params, f"MetricData.member.{i}.Value") or "0")
+            unit = _p(params, f"MetricData.member.{i}.Unit") or "None"
+            ts_str = _p(params, f"MetricData.member.{i}.Timestamp")
+            ts = _parse_ts(ts_str) if ts_str else time.time()
+            dims = {}
+            j = 1
+            while _p(params, f"MetricData.member.{i}.Dimensions.member.{j}.Name"):
+                dims[
+                    _p(params, f"MetricData.member.{i}.Dimensions.member.{j}.Name")
+                ] = _p(params, f"MetricData.member.{i}.Dimensions.member.{j}.Value")
+                j += 1
+            values = _p_list(params, f"MetricData.member.{i}.Values")
+            counts = _p_list(params, f"MetricData.member.{i}.Counts")
+            sv = {
+                k: float(_p(params, f"MetricData.member.{i}.StatisticValues.{k}"))
+                for k in ("SampleCount", "Sum", "Minimum", "Maximum")
+                if _p(params, f"MetricData.member.{i}.StatisticValues.{k}")
+            }
+            _store_datum(namespace, mn, dims, ts, unit, value, values or None,
+                         counts or None, sv or None)
+            i += 1
+
+    _evaluate_all_alarms()
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "PutMetricDataResponse", "")
+
+
+# ---------------------------------------------------------------------------
+# ListMetrics
+# ---------------------------------------------------------------------------
+
+
+def _list_metrics(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        namespace = cbor_data.get("Namespace")
+        metric_name = cbor_data.get("MetricName")
+        req_dims = cbor_data.get("Dimensions")
+    else:
+        namespace = _p(params, "Namespace")
+        metric_name = _p(params, "MetricName")
+        req_dims = None
+
+    seen = set()
+    result = []
+    for (ns, mn, dk), points in _metrics.items():
+        if namespace and ns != namespace:
+            continue
+        if metric_name and mn != metric_name:
+            continue
+        key = (ns, mn, dk)
+        if key in seen:
+            continue
+        seen.add(key)
+        dims = [
+            {"Name": k, "Value": v}
+            for k, v in (points[0].get("Dimensions", {}) if points else {}).items()
+        ]
+
+        if req_dims:
+            match = all(
+                any(
+                    d["Name"] == rd.get("Name")
+                    and (not rd.get("Value") or d["Value"] == rd["Value"])
+                    for d in dims
+                )
+                for rd in req_dims
+            )
+            if not match:
+                continue
+
+        result.append({"Namespace": ns, "MetricName": mn, "Dimensions": dims})
+
+    if is_cbor:
+        return _cbor_ok({"Metrics": result})
+    if is_json:
+        return _json_ok({"Metrics": result})
+
+    members = ""
+    for item in result:
+        dims_xml = "".join(
+            f"<member><Name>{d['Name']}</Name><Value>{d['Value']}</Value></member>"
+            for d in item["Dimensions"]
+        )
+        members += (
+            f"<member><Namespace>{item['Namespace']}</Namespace>"
+            f"<MetricName>{item['MetricName']}</MetricName>"
+            f"<Dimensions>{dims_xml}</Dimensions></member>"
+        )
+    return _xml(
+        200,
+        "ListMetricsResponse",
+        f"<ListMetricsResult><Metrics>{members}</Metrics></ListMetricsResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# GetMetricStatistics — with time-range filtering + period aggregation
+# ---------------------------------------------------------------------------
+
+
+def _get_metric_statistics(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        namespace = cbor_data.get("Namespace")
+        metric_name = cbor_data.get("MetricName")
+        period = int(cbor_data.get("Period") or 60)
+        start_time = _parse_ts(cbor_data.get("StartTime"))
+        end_time = _parse_ts(cbor_data.get("EndTime"))
+        req_stats = cbor_data.get("Statistics", [])
+        req_extended = cbor_data.get("ExtendedStatistics", [])
+        req_dims = _dims_from_list(cbor_data.get("Dimensions") or [])
+    else:
+        namespace = _p(params, "Namespace")
+        metric_name = _p(params, "MetricName")
+        period = int(_p(params, "Period") or 60)
+        start_time = _parse_ts(_p(params, "StartTime"))
+        end_time = _parse_ts(_p(params, "EndTime"))
+        req_dims = {}
+        di = 1
+        while _p(params, f"Dimensions.member.{di}.Name"):
+            req_dims[_p(params, f"Dimensions.member.{di}.Name")] = _p(
+                params, f"Dimensions.member.{di}.Value"
+            )
+            di += 1
+        req_stats = []
+        si = 1
+        while _p(params, f"Statistics.member.{si}"):
+            req_stats.append(_p(params, f"Statistics.member.{si}"))
+            si += 1
+        req_extended = []
+        while _p(params, f"ExtendedStatistics.member.{len(req_extended) + 1}"):
+            req_extended.append(_p(params, f"ExtendedStatistics.member.{len(req_extended) + 1}"))
+
+    if not req_stats and not req_extended:
+        req_stats = ["SampleCount", "Sum", "Average", "Minimum", "Maximum"]
+
+    all_points = []
+    req_dims_key = _dims_key(req_dims) if req_dims else None
+    for (ns, mn, dk), pts in _metrics.items():
+        if ns == namespace and mn == metric_name:
+            if req_dims_key is not None and dk != req_dims_key:
+                continue
+            all_points.extend(pts)
+
+    if start_time is not None:
+        all_points = [p for p in all_points if p["Timestamp"] >= start_time]
+    if end_time is not None:
+        all_points = [p for p in all_points if p["Timestamp"] < end_time]
+
+    buckets = defaultdict(list)
+    for pt in all_points:
+        bucket_ts = int(pt["Timestamp"] // period) * period
+        buckets[bucket_ts].append(pt)
+
+    datapoints = []
+    for ts in sorted(buckets):
+        pts = buckets[ts]
+        stats = _calc_stats(pts)
+        dp = {
+            "Timestamp": _ts_iso(ts),
+            "Unit": all_points[0]["Unit"] if all_points else "None",
+        }
+        for s in req_stats:
+            if s in stats:
+                dp[s] = stats[s]
+        extended = {}
+        for s in req_extended:
+            v = _stat_value(stats, s, pts) if _is_percentile_stat(s) else None
+            if v is not None:
+                extended[s] = v
+        if extended:
+            dp["ExtendedStatistics"] = extended
+        datapoints.append(dp)
+
+    if is_cbor:
+        return _cbor_ok({"Datapoints": [_cbor_datapoint(dp) for dp in datapoints], "Label": metric_name})
+    if is_json:
+        return _json_ok({"Datapoints": datapoints, "Label": metric_name})
+
+    if not datapoints:
+        return _xml(
+            200,
+            "GetMetricStatisticsResponse",
+            f"<GetMetricStatisticsResult><Datapoints/><Label>{metric_name}</Label>"
+            f"</GetMetricStatisticsResult>",
+        )
+    dps = ""
+    for dp in datapoints:
+        inner = f"<Timestamp>{dp['Timestamp']}</Timestamp>"
+        for k, v in dp.items():
+            if k not in ("Timestamp",):
+                inner += f"<{k}>{v}</{k}>"
+        dps += f"<member>{inner}</member>"
+    return _xml(
+        200,
+        "GetMetricStatisticsResponse",
+        f"<GetMetricStatisticsResult><Datapoints>{dps}</Datapoints>"
+        f"<Label>{metric_name}</Label></GetMetricStatisticsResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# GetMetricData — modern multi-query API
+# ---------------------------------------------------------------------------
+
+
+def _get_metric_data(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        queries = cbor_data.get("MetricDataQueries", [])
+        start_time = _parse_ts(cbor_data.get("StartTime"))
+        end_time = _parse_ts(cbor_data.get("EndTime"))
+    else:
+        # Query protocol (form-encoded). Support the subset used by our tests.
+        queries = []
+        qi = 1
+        while _p(params, f"MetricDataQueries.member.{qi}.Id"):
+            qid = _p(params, f"MetricDataQueries.member.{qi}.Id")
+            label = _p(params, f"MetricDataQueries.member.{qi}.Label") or qid
+            return_data = _p(params, f"MetricDataQueries.member.{qi}.ReturnData")
+            return_data = return_data != "false"
+            ns = _p(
+                params,
+                f"MetricDataQueries.member.{qi}.MetricStat.Metric.Namespace",
+            )
+            mn = _p(
+                params,
+                f"MetricDataQueries.member.{qi}.MetricStat.Metric.MetricName",
+            )
+            period = int(
+                _p(params, f"MetricDataQueries.member.{qi}.MetricStat.Period") or "60"
+            )
+            stat_name = (
+                _p(params, f"MetricDataQueries.member.{qi}.MetricStat.Stat")
+                or "Average"
+            )
+            dims = []
+            dj = 1
+            _dim_base = f"MetricDataQueries.member.{qi}.MetricStat.Metric.Dimensions.member"
+            while _p(params, f"{_dim_base}.{dj}.Name"):
+                dims.append({
+                    "Name": _p(params, f"{_dim_base}.{dj}.Name"),
+                    "Value": _p(params, f"{_dim_base}.{dj}.Value"),
+                })
+                dj += 1
+            queries.append(
+                {
+                    "Id": qid,
+                    "Label": label,
+                    "ReturnData": return_data,
+                    "MetricStat": {
+                        "Metric": {"Namespace": ns, "MetricName": mn, "Dimensions": dims},
+                        "Period": period,
+                        "Stat": stat_name,
+                    },
+                }
+            )
+            qi += 1
+
+        start_time = _parse_ts(_p(params, "StartTime"))
+        end_time = _parse_ts(_p(params, "EndTime"))
+
+    results = []
+    for q in queries:
+        qid = q.get("Id", "")
+        label = q.get("Label", qid)
+        return_data = q.get("ReturnData", True)
+
+        if q.get("Expression"):
+            results.append(
+                {
+                    "Id": qid,
+                    "Label": label,
+                    "StatusCode": "InternalError",
+                    "Messages": [
+                        {"Code": "Unsupported", "Value": "Expressions not implemented"}
+                    ],
+                    "Timestamps": [],
+                    "Values": [],
+                }
+            )
+            continue
+
+        ms = q.get("MetricStat", {})
+        metric = ms.get("Metric", {})
+        ns = metric.get("Namespace", "")
+        mn = metric.get("MetricName", "")
+        period = int(ms.get("Period", 60))
+        stat_name = ms.get("Stat", "Average")
+
+        # Each (namespace, name, dimension-set) is a distinct metric. Resolve by
+        # the query's dimensions exactly, like GetMetricStatistics — otherwise a
+        # value published under one dimension set leaks into queries for another.
+        req_dims = _dims_from_list(metric.get("Dimensions") or [])
+        req_dims_key = _dims_key(req_dims) if req_dims else None
+
+        all_pts = []
+        for (k_ns, k_mn, k_dk), pts in _metrics.items():
+            if k_ns == ns and k_mn == mn:
+                if req_dims_key is not None and k_dk != req_dims_key:
+                    continue
+                all_pts.extend(pts)
+
+        if start_time is not None:
+            all_pts = [p for p in all_pts if p["Timestamp"] >= start_time]
+        if end_time is not None:
+            all_pts = [p for p in all_pts if p["Timestamp"] < end_time]
+
+        buckets = defaultdict(list)
+        for pt in all_pts:
+            buckets[int(pt["Timestamp"] // period) * period].append(pt)
+
+        timestamps = []
+        values = []
+        for ts in sorted(buckets):
+            bucket_pts = buckets[ts]
+            value = _stat_value(_calc_stats(bucket_pts), stat_name, bucket_pts)
+            if value is None:
+                continue
+            timestamps.append(_ts_iso(ts))
+            values.append(value)
+
+        if return_data:
+            results.append(
+                {
+                    "Id": qid,
+                    "Label": label,
+                    "Timestamps": timestamps,
+                    "Values": values,
+                    "StatusCode": "Complete",
+                }
+            )
+
+    if is_cbor:
+        return _cbor_ok({"MetricDataResults": [_cbor_metric_data_result(r) for r in results]})
+    if is_json:
+        return _json_ok({"MetricDataResults": results})
+
+    members = ""
+    for r in results:
+        ts_members = "".join(f"<member>{t}</member>" for t in r.get("Timestamps", []))
+        val_members = "".join(f"<member>{v}</member>" for v in r.get("Values", []))
+        members += (
+            "<member>"
+            f"<Id>{r.get('Id','')}</Id>"
+            f"<Label>{r.get('Label','')}</Label>"
+            f"<StatusCode>{r.get('StatusCode','Complete')}</StatusCode>"
+            f"<Timestamps>{ts_members}</Timestamps>"
+            f"<Values>{val_members}</Values>"
+            "</member>"
+        )
+    return _xml(
+        200,
+        "GetMetricDataResponse",
+        f"<GetMetricDataResult><MetricDataResults>{members}</MetricDataResults></GetMetricDataResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Alarms
+# ---------------------------------------------------------------------------
+
+
+def _put_metric_alarm(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        name = cbor_data.get("AlarmName", "")
+        alarm = {
+            "AlarmName": name,
+            "AlarmArn": f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}",
+            "AlarmDescription": cbor_data.get("AlarmDescription", ""),
+            "MetricName": cbor_data.get("MetricName"),
+            "Namespace": cbor_data.get("Namespace"),
+            "Statistic": cbor_data.get("Statistic", "Average"),
+            "ExtendedStatistic": cbor_data.get("ExtendedStatistic"),
+            "Period": int(cbor_data.get("Period", 60)),
+            "EvaluationPeriods": int(cbor_data.get("EvaluationPeriods", 1)),
+            "DatapointsToAlarm": _optional_int(cbor_data.get("DatapointsToAlarm")),
+            "Threshold": float(cbor_data.get("Threshold", 0)),
+            "ComparisonOperator": cbor_data.get("ComparisonOperator"),
+            "TreatMissingData": cbor_data.get("TreatMissingData", "missing"),
+            "StateValue": _alarms[name]["StateValue"]
+            if name in _alarms
+            else "INSUFFICIENT_DATA",
+            "StateReason": _alarms[name]["StateReason"]
+            if name in _alarms
+            else "Unchecked: Initial alarm creation",
+            "StateUpdatedTimestamp": _alarms[name].get("StateUpdatedTimestamp", int(time.time()))
+            if name in _alarms
+            else int(time.time()),
+            "ActionsEnabled": cbor_data.get("ActionsEnabled", True),
+            "AlarmActions": cbor_data.get("AlarmActions", []),
+            "OKActions": cbor_data.get("OKActions", []),
+            "InsufficientDataActions": cbor_data.get("InsufficientDataActions", []),
+            "Dimensions": cbor_data.get("Dimensions", []),
+            "Unit": cbor_data.get("Unit"),
+            "AlarmConfigurationUpdatedTimestamp": int(time.time()),
+        }
+    else:
+        name = _p(params, "AlarmName")
+        dims = []
+        di = 1
+        while _p(params, f"Dimensions.member.{di}.Name"):
+            dims.append(
+                {
+                    "Name": _p(params, f"Dimensions.member.{di}.Name"),
+                    "Value": _p(params, f"Dimensions.member.{di}.Value"),
+                }
+            )
+            di += 1
+        alarm_actions = []
+        ai = 1
+        while _p(params, f"AlarmActions.member.{ai}"):
+            alarm_actions.append(_p(params, f"AlarmActions.member.{ai}"))
+            ai += 1
+        ok_actions = []
+        oi = 1
+        while _p(params, f"OKActions.member.{oi}"):
+            ok_actions.append(_p(params, f"OKActions.member.{oi}"))
+            oi += 1
+        alarm = {
+            "AlarmName": name,
+            "AlarmArn": f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}",
+            "AlarmDescription": _p(params, "AlarmDescription"),
+            "MetricName": _p(params, "MetricName"),
+            "Namespace": _p(params, "Namespace"),
+            "Statistic": _p(params, "Statistic") or "Average",
+            "ExtendedStatistic": _p(params, "ExtendedStatistic") or None,
+            "Period": int(_p(params, "Period") or "60"),
+            "EvaluationPeriods": int(_p(params, "EvaluationPeriods") or "1"),
+            "DatapointsToAlarm": _optional_int(_p(params, "DatapointsToAlarm") or None),
+            "Threshold": float(_p(params, "Threshold") or "0"),
+            "ComparisonOperator": _p(params, "ComparisonOperator"),
+            "TreatMissingData": _p(params, "TreatMissingData") or "missing",
+            "StateValue": _alarms[name]["StateValue"]
+            if name in _alarms
+            else "INSUFFICIENT_DATA",
+            "StateReason": _alarms[name]["StateReason"]
+            if name in _alarms
+            else "Unchecked: Initial alarm creation",
+            "StateUpdatedTimestamp": _alarms[name].get("StateUpdatedTimestamp", int(time.time()))
+            if name in _alarms
+            else int(time.time()),
+            "ActionsEnabled": _p(params, "ActionsEnabled") != "false",
+            "AlarmActions": alarm_actions,
+            "OKActions": ok_actions,
+            "InsufficientDataActions": [],
+            "Dimensions": dims,
+            "Unit": _p(params, "Unit") or None,
+            "AlarmConfigurationUpdatedTimestamp": int(time.time()),
+        }
+
+    is_new = name not in _alarms
+    tags = _alarm_request_tags(params, cbor_data, is_cbor, is_json)
+    refused = _alarm_tags_refusal(tags, alarm["DatapointsToAlarm"], is_new, is_cbor, is_json)
+    if refused:
+        return refused
+
+    # AWS describes DatapointsToAlarm only when the request sets it.
+    if alarm["DatapointsToAlarm"] is None:
+        del alarm["DatapointsToAlarm"]
+
+    _alarms[name] = alarm
+    # Tags apply on create only; a key sent twice keeps its last value.
+    if is_new and tags:
+        _resource_tags[alarm["AlarmArn"]] = {t["Key"]: t["Value"] for t in tags}
+
+    if is_new:
+        _record_history(
+            name,
+            "INSUFFICIENT_DATA",
+            "INSUFFICIENT_DATA",
+            "Unchecked: Initial alarm creation",
+        )
+
+    _evaluate_alarm(alarm)
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "PutMetricAlarmResponse", "")
+
+
+_ALARM_TAG_LIMIT = 50
+
+
+_QUERY_TAG_MEMBER = re.compile(r"Tags\.member\.([1-9][0-9]*)\.(Key|Value)")
+
+
+def _alarm_request_tags(params, cbor_data, is_cbor, is_json=False):
+    """An alarm request's Tags, Query members in index order, or None when absent."""
+    if is_cbor or is_json:
+        return cbor_data.get("Tags")
+    members = {}
+    for param in params:
+        match = _QUERY_TAG_MEMBER.fullmatch(param)
+        if match:
+            members.setdefault(int(match.group(1)), {})[match.group(2)] = _p(params, param)
+    return [members[index] for index in sorted(members)] if members else None
+
+
+def _string_member_type_error(value):
+    """AWS's message for a non-string JSON/CBOR Key or Value, or None."""
+    if value is None or isinstance(value, str):
+        return None
+    if isinstance(value, bool):
+        return f"{'TRUE' if value else 'FALSE'}_VALUE cannot be converted to String"
+    if isinstance(value, int):
+        return "NUMBER_VALUE cannot be converted to String"
+    if isinstance(value, float):
+        return "DECIMAL_VALUE cannot be converted to String"
+    if isinstance(value, dict):
+        return "Start of structure or map found where not expected"
+    return ""
+
+
+def _tags_serialization_error(tags):
+    """The first wrong JSON type in Tags as (code, message, status), or None."""
+    if tags is None:
+        return None
+    if isinstance(tags, dict):
+        return "MalformedInput", "Start of structure or map found where not expected", 400
+    if not isinstance(tags, list):
+        return "MalformedInput", "Unexpected field type", 400
+    for tag in tags:
+        if tag is None:
+            return "InternalFailure", "", 500
+        if isinstance(tag, list):
+            return "MalformedInput", "", 400
+        if not isinstance(tag, dict):
+            return "MalformedInput", "Unexpected value type in payload", 400
+        for field in tag:
+            if field in ("Key", "Value"):
+                message = _string_member_type_error(tag[field])
+                if message is not None:
+                    return "MalformedInput", message, 400
+    return None
+
+
+def _tag_constraint_errors(tags):
+    """Constraint messages for each tag in order, Value before Key."""
+    errors = []
+    for i, tag in enumerate(tags or [], 1):
+        value, key = tag.get("Value"), tag.get("Key")
+        if value is None:
+            errors.append(f"Value null at 'tags.{i}.member.value' failed to satisfy constraint: Member must not be null")
+        elif len(value) > 256:
+            errors.append(f"Value '{value}' at 'tags.{i}.member.value' failed to satisfy constraint: "
+                          "Member must have length less than or equal to 256")
+        if key is None:
+            errors.append(f"Value null at 'tags.{i}.member.key' failed to satisfy constraint: Member must not be null")
+        elif not key:
+            errors.append(f"Value '' at 'tags.{i}.member.key' failed to satisfy constraint: "
+                          "Member must have length greater than or equal to 1")
+        elif len(key) > 128:
+            errors.append(f"Value '{key}' at 'tags.{i}.member.key' failed to satisfy constraint: "
+                          "Member must have length less than or equal to 128")
+    return errors
+
+
+_TAG_SPECIAL_CHARS = "_.:/=+-@"
+_TAG_CHARS_MESSAGE = ("Tags can only contain letters, numbers, spaces, and the following special characters: "
+                      "_ . : / = + - @")
+_MAX_LISTED_VALIDATION_ERRORS = 10
+
+
+def _java_hashmap_order(keys):
+    """Keys in java.util.HashMap iteration order, as AWS walks them."""
+    unique = list(dict.fromkeys(keys))
+    capacity = 16
+    while len(unique) > capacity * 0.75:
+        capacity *= 2
+
+    def bucket(key):
+        units = key.encode("utf-16-be")
+        h = 0
+        for i in range(0, len(units), 2):
+            h = (31 * h + int.from_bytes(units[i:i + 2], "big")) & 0xFFFFFFFF
+        return (h ^ (h >> 16)) & (capacity - 1)
+
+    return sorted(unique, key=lambda key: (bucket(key), unique.index(key)))
+
+
+def _tagset_error(tags):
+    """The create-only tag-set check on the de-duplicated tags: characters, then length."""
+    def too_long(text, limit):
+        return len(text.encode("utf-16-le")) // 2 > limit
+
+    def bad_chars(text):
+        return not all(unicodedata.category(ch)[0] in "LNZ" or ch in _TAG_SPECIAL_CHARS for ch in text)
+
+    values = {tag["Key"]: tag["Value"] for tag in tags or []}
+    order = _java_hashmap_order(tag["Key"] for tag in tags or [])
+    usable = [key for key in order if not too_long(key, 128)]
+    if any(bad_chars(key) or (not too_long(values[key], 256) and bad_chars(values[key])) for key in usable):
+        return _TAG_CHARS_MESSAGE
+    long_value = next((values[key] for key in usable if too_long(values[key], 256)), None)
+    if long_value is not None:
+        text, type_name = long_value, "TagValue"
+    else:
+        text = next((key for key in order if too_long(key, 128)), None)
+        if text is None:
+            return None
+        type_name = "TagKey"
+    return f"'{text}' is not a valid value for com.amazon.aws.platform.billing.tagset.type.{type_name} - it is too long"
+
+
+def _composite_system_tag_error(tags):
+    """PutCompositeAlarm's aws: key check, in the same tag-map order."""
+    for key in _java_hashmap_order(tag["Key"] for tag in tags or []):
+        if key.startswith("aws:"):
+            if ":" not in key[4:]:
+                return f"Invalid System Tag: {key} is missing Vendor Id."
+            return f"Invalid System Tag: {key} is not whitelisted for vendor:cloudwatch"
+        if key.lower().startswith("aws:"):
+            return f'Invalid System Tag: {key} must be prefixed with "aws:" in lowercase.'
+    return None
+
+
+def _alarm_tags_refusal(tags, datapoints, is_new, is_cbor, is_json, composite=False):
+    """The refusal for an alarm's Tags and DatapointsToAlarm, in AWS's order, or None."""
+    def refuse(code, message, status):
+        return _error(code, "" if is_cbor and code == "MalformedInput" else message, status,
+                      use_json=is_json, use_cbor=is_cbor)
+
+    if is_cbor or is_json:
+        wrong_type = _tags_serialization_error(tags)
+        if wrong_type:
+            return refuse(*wrong_type)
+    # An update ignores its Tags, so only a create refuses an aws: key.
+    if is_new and not composite and any(isinstance(t.get("Key"), str) and t["Key"].lower().startswith("aws:")
+                                        for t in tags or []):
+        return refuse("AccessDenied", 'The provided tag keys must not start with any case of "aws:"', 403)
+    errors = _tag_constraint_errors(tags)
+    if datapoints is not None and datapoints < 1:
+        errors.append(f"Value '{datapoints}' at 'datapointsToAlarm' failed to satisfy constraint: "
+                      "Member must have value greater than or equal to 1")
+    if errors:
+        errors = errors[:_MAX_LISTED_VALIDATION_ERRORS]
+        count = f"{len(errors)} validation error{'s' if len(errors) > 1 else ''} detected"
+        return refuse("ValidationError", f"{count}: {'; '.join(errors)}", 400)
+    if is_new:
+        invalid = _tagset_error(tags) or (_composite_system_tag_error(tags) if composite else None)
+        if invalid:
+            return refuse("ValidationError", invalid, 400)
+    if is_new and len({t["Key"] for t in tags or []}) > _ALARM_TAG_LIMIT:
+        return refuse("ValidationError", "The resultant tag set must not have more than 50 user tags.", 400)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Composite alarm rules
+# ---------------------------------------------------------------------------
+
+_RULE_TOKEN = re.compile(r'[(),]|"(?:[^"\\]|\\.)*"|[^\s(),"]+|\S')
+_RULE_STATES = ("ALARM", "OK", "INSUFFICIENT_DATA")
+_RULE_OPERAND = "'(', 'NOT', AT_LEAST, TRUE or FALSE, ALARM, OK, or INSUFFICIENT_DATA"
+# Nesting cap, so the result never depends on the process recursion limit (jsonata raises it).
+_RULE_MAX_DEPTH = 256
+
+
+@functools.lru_cache(maxsize=512)
+def _parse_alarm_rule(rule):
+    """Parse an AlarmRule into a tree of tuples, raising ValueError with the AWS message."""
+    tokens = [(m.group(), m.start()) for m in _RULE_TOKEN.finditer(rule)] + [("<EOF>", len(rule))]
+    at = depth = 0
+
+    def word():
+        return tokens[at][0]
+
+    def fail(expected=None):
+        text, pos = tokens[at]
+        expected = f", must be: {expected}" if expected else ""
+        raise ValueError(f"Error in AlarmRule [Unsupported token '{text}' at char {pos}{expected}]")
+
+    def take(expected):
+        nonlocal at
+        if word() != expected:
+            fail()
+        at += 1
+
+    def ref():
+        nonlocal at
+        text = tokens[at][0]
+        if text in ("(", ")", ",", '"', "<EOF>"):
+            fail()
+        at += 1
+        return re.sub(r"\\(.)", r"\1", text[1:-1]) if text.startswith('"') else text
+
+    def operand():
+        nonlocal at, depth
+        w = word()
+        if w in ("NOT", "(") and depth >= _RULE_MAX_DEPTH:
+            fail()
+        at += 1
+        if w == "NOT":
+            depth += 1
+            node = ("not", operand())
+            depth -= 1
+            return node
+        if w == "(":
+            depth += 1
+            node = disjunction()
+            take(")")
+            depth -= 1
+            return node
+        if w in ("TRUE", "FALSE"):
+            return ("const", w == "TRUE")
+        if w in _RULE_STATES:
+            take("(")
+            name = ref()
+            take(")")
+            return ("state", w, name)
+        if w == "AT_LEAST":
+            take("(")
+            count = re.fullmatch(r"(\d+)(%?)", tokens[at][0])
+            if not count:
+                fail()
+            at += 1
+            take(",")
+            negate = word() == "NOT"
+            at += negate
+            state = word()
+            if state not in _RULE_STATES:
+                fail()
+            at += 1
+            take(",")
+            take("(")
+            names = [ref()]
+            while word() == ",":
+                at += 1
+                names.append(ref())
+            take(")")
+            take(")")
+            return ("at_least", int(count.group(1)), bool(count.group(2)), negate, state, tuple(names))
+        at -= 1
+        fail(_RULE_OPERAND)
+
+    def conjunction():
+        nonlocal at
+        nodes = [operand()]
+        while word() == "AND":
+            at += 1
+            nodes.append(operand())
+        return nodes[0] if len(nodes) == 1 else ("and", *nodes)
+
+    def disjunction():
+        nonlocal at
+        nodes = [conjunction()]
+        while word() == "OR":
+            at += 1
+            nodes.append(conjunction())
+        return nodes[0] if len(nodes) == 1 else ("or", *nodes)
+
+    try:
+        tree = disjunction()
+    except RecursionError:
+        fail()
+    if at != len(tokens) - 1:
+        fail("<EOF>, 'AND', 'OR'")
+    return tree
+
+
+def _rule_alarm_state(ref):
+    name = _rule_ref_name(ref)
+    alarm = (_alarms.get(name) or _composite_alarms.get(name)) if name else None
+    return alarm["StateValue"] if alarm else None
+
+
+def _rule_true(node):
+    """Truth of a parsed AlarmRule over the current alarm states."""
+    kind = node[0]
+    if kind == "const":
+        return node[1]
+    if kind == "state":
+        return _rule_alarm_state(node[2]) == node[1]
+    if kind == "not":
+        return not _rule_true(node[1])
+    if kind == "and":
+        return all(_rule_true(child) for child in node[1:])
+    if kind == "or":
+        return any(_rule_true(child) for child in node[1:])
+    _, count, percent, negate, state, refs = node
+    hits = sum((_rule_alarm_state(r) == state) != negate for r in refs)
+    return hits * 100 >= count * len(refs) if percent else hits >= count
+
+
+def _rule_matches(node, target):
+    """Alarm references whose own condition gives the rule the value target (NOT flips it), in rule order."""
+    kind = node[0]
+    if kind == "state":
+        return [node[2]] if (_rule_alarm_state(node[2]) == node[1]) == target else []
+    if kind == "at_least":
+        _, _, _, negate, state, refs = node
+        return [r for r in refs if ((_rule_alarm_state(r) == state) != negate) == target]
+    if kind == "not":
+        return _rule_matches(node[1], not target)
+    if kind == "const":
+        return []
+    return [r for child in node[1:] for r in _rule_matches(child, target)]
+
+
+def _rule_refs(node):
+    """Alarm references of a parsed AlarmRule, in rule order."""
+    if node[0] == "state":
+        return [node[2]]
+    if node[0] == "at_least":
+        return list(node[5])
+    if node[0] == "const":
+        return []
+    return [r for child in node[1:] for r in _rule_refs(child)]
+
+
+def _rule_ref_name(ref):
+    """Alarm name for a rule reference (a name or an alarm ARN of this account and region)."""
+    return _alarm_name_from_local_arn(ref) if ref.startswith("arn:") else ref
+
+
+def _composite_children(alarm):
+    """Names of the alarms a composite alarm's rule references, in rule order."""
+    try:
+        refs = _rule_refs(_parse_alarm_rule(alarm.get("AlarmRule", "")))
+    except ValueError:
+        return []
+    return list(dict.fromkeys(name for name in map(_rule_ref_name, refs) if name))
+
+
+def _composite_rule_state(alarm):
+    return "ALARM" if _rule_true(_parse_alarm_rule(alarm["AlarmRule"])) else "OK"
+
+
+def _matching_children(alarm, state):
+    """Children whose condition in the rule agrees with state, the most recently changed first."""
+    refs = _rule_matches(_parse_alarm_rule(alarm["AlarmRule"]), state == "ALARM")
+    names = {n for n in map(_rule_ref_name, refs) if n and n != alarm["AlarmName"]}
+    # Whole-second timestamps tie often: the alarm created later counts as the more recent one.
+    created = [n for n in list(_alarms.keys()) + list(_composite_alarms.keys()) if n in names]
+    return sorted(reversed(created), reverse=True,
+                  key=lambda n: (_alarms.get(n) or _composite_alarms[n]).get("StateUpdatedTimestamp", 0))
+
+
+def _transition_composite(alarm, new_state, reason, triggers, seen=frozenset()):
+    """Move a composite alarm to new_state and re-evaluate the composite alarms above it."""
+    triggering = []
+    for name in triggers:
+        child = _alarms.get(name) or _composite_alarms.get(name)
+        if child:
+            at = datetime.fromtimestamp(child.get("StateUpdatedTimestamp", time.time()), tz=timezone.utc)
+            triggering.append({
+                "arn": child["AlarmArn"],
+                "state": {
+                    "value": child["StateValue"],
+                    "timestamp": at.strftime("%Y-%m-%dT%H:%M:%S.") + f"{at.microsecond // 1000:03d}+0000",
+                },
+            })
+    reason_data = {"triggeringAlarms": triggering}
+    old_state = alarm["StateValue"]
+    now = int(time.time())
+    alarm["StateValue"] = new_state
+    alarm["StateReason"] = reason
+    alarm["StateReasonData"] = json.dumps(reason_data, separators=(",", ":"))
+    alarm["StateUpdatedTimestamp"] = now
+    alarm["StateTransitionedTimestamp"] = now
+    _composite_triggers.pop(alarm["AlarmName"], None)
+    _record_history(alarm["AlarmName"], old_state, new_state, reason, "CompositeAlarm", reason_data)
+    _dispatch_alarm_actions(alarm, old_state, new_state, reason)
+    _evaluate_parent_alarms(alarm, seen)
+
+
+def _evaluate_parent_alarms(child, seen=frozenset()):
+    """Re-evaluate the composite alarms whose rule references child after its state changed."""
+    name = child["AlarmName"]
+    # A composite already on this path is part of a cycle: stop there.
+    seen = seen | {name}
+    for parent in list(_composite_alarms.values()):
+        parent_name = parent["AlarmName"]
+        if parent_name in seen or name not in _composite_children(parent):
+            continue
+        pending = [name] + [n for n in _composite_triggers.get(parent_name, []) if n != name]
+        _composite_triggers[parent_name] = pending
+        new_state = _composite_rule_state(parent)
+        if new_state != parent["StateValue"]:
+            at = datetime.fromtimestamp(child["StateUpdatedTimestamp"], tz=timezone.utc)
+            reason = (f"{child['AlarmArn']} transitioned to {child['StateValue']} at "
+                      f"{at.strftime('%A %d %B, %Y %H:%M:%S')} UTC")
+            # Named: the children that changed since the last transition and agree with the new state.
+            agree = set(_matching_children(parent, new_state))
+            _transition_composite(parent, new_state, reason, [n for n in pending if n in agree], seen)
+
+
+def _put_composite_alarm(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        name = cbor_data.get("AlarmName", "")
+        alarm_rule = cbor_data.get("AlarmRule", "")
+        desc = cbor_data.get("AlarmDescription", "")
+        actions_enabled = cbor_data.get("ActionsEnabled", True)
+        alarm_actions = cbor_data.get("AlarmActions", [])
+        ok_actions = cbor_data.get("OKActions", [])
+        insuff_actions = cbor_data.get("InsufficientDataActions", [])
+    else:
+        name = _p(params, "AlarmName")
+        alarm_rule = _p(params, "AlarmRule")
+        desc = _p(params, "AlarmDescription")
+        actions_enabled = _p(params, "ActionsEnabled") != "false"
+        alarm_actions = []
+        ai = 1
+        while _p(params, f"AlarmActions.member.{ai}"):
+            alarm_actions.append(_p(params, f"AlarmActions.member.{ai}"))
+            ai += 1
+        ok_actions = []
+        oi = 1
+        while _p(params, f"OKActions.member.{oi}"):
+            ok_actions.append(_p(params, f"OKActions.member.{oi}"))
+            oi += 1
+        insuff_actions = []
+        ii = 1
+        while _p(params, f"InsufficientDataActions.member.{ii}"):
+            insuff_actions.append(_p(params, f"InsufficientDataActions.member.{ii}"))
+            ii += 1
+
+    # Tags are checked before the rule and stored on create only.
+    is_new = name not in _composite_alarms
+    tags = _alarm_request_tags(params, cbor_data, is_cbor, is_json)
+    refused = _alarm_tags_refusal(tags, None, is_new, is_cbor, is_json, composite=True)
+    if refused:
+        return refused
+
+    try:
+        refs = _rule_refs(_parse_alarm_rule(alarm_rule))
+    except ValueError as exc:
+        return _error("ValidationError", str(exc), 400, use_json=is_json, use_cbor=is_cbor)
+    missing = []
+    for ref in dict.fromkeys(refs):
+        child = _rule_ref_name(ref)
+        if not child or (child not in _alarms and child not in _composite_alarms):
+            missing.append(ref if ref.startswith("arn:") else
+                           f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{ref}")
+    if missing:
+        return _error(
+            "ValidationError",
+            f"Could not save the composite alarm as alarms [{', '.join(missing)}] in the alarm rule do not exist",
+            400, use_json=is_json, use_cbor=is_cbor,
+        )
+
+    existing = _composite_alarms.get(name)
+    alarm = {
+        "AlarmName": name,
+        "AlarmArn": f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}",
+        "AlarmDescription": desc,
+        "AlarmRule": alarm_rule,
+        "StateValue": "INSUFFICIENT_DATA",
+        "StateReason": "Unchecked: Initial alarm creation",
+        "StateUpdatedTimestamp": int(time.time()),
+        "ActionsEnabled": actions_enabled,
+        "AlarmActions": alarm_actions,
+        "OKActions": ok_actions,
+        "InsufficientDataActions": insuff_actions,
+        "AlarmConfigurationUpdatedTimestamp": int(time.time()),
+    }
+    # An update keeps the state; the new rule is evaluated at once and moves it only when the result differs.
+    if existing:
+        for key in ("StateValue", "StateReason", "StateReasonData", "StateUpdatedTimestamp",
+                    "StateTransitionedTimestamp"):
+            if key in existing:
+                alarm[key] = existing[key]
+    _composite_alarms[name] = alarm
+    if is_new and tags:
+        _resource_tags[alarm["AlarmArn"]] = {t["Key"]: t["Value"] for t in tags}
+    new_state = _composite_rule_state(alarm)
+    if not existing or new_state != alarm["StateValue"]:
+        verb = "was updated and its new alarm rule evaluates to" if existing else \
+            "was created and its alarm rule evaluates to"
+        _transition_composite(alarm, new_state, f"{alarm['AlarmArn']} {verb} {new_state}",
+                              _matching_children(alarm, new_state))
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "PutCompositeAlarmResponse", "<PutCompositeAlarmResult/>")
+
+
+# ---------------------------------------------------------------------------
+# DescribeAlarms
+# ---------------------------------------------------------------------------
+
+
+def _max_records_error(raw):
+    """ValidationError message for a MaxRecords outside 1..100, else None."""
+    if raw in (None, ""):
+        return None
+    value = int(raw)
+    if value < 1:
+        bound = "greater than or equal to 1"
+    elif value > 100:
+        bound = "less than or equal to 100"
+    else:
+        return None
+    return (f"1 validation error detected: Value '{value}' at 'maxRecords' failed to satisfy constraint: "
+            f"Member must have value {bound}")
+
+
+def _encode_page_token(position):
+    return base64.urlsafe_b64encode(position.encode()).decode().rstrip("=")
+
+
+def _decode_page_token(token):
+    """Position carried by a token from _encode_page_token, or None for any other string."""
+    try:
+        return base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode()
+    except ValueError:
+        return None
+
+
+def _describe_alarms(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        names = cbor_data.get("AlarmNames", [])
+        prefix = cbor_data.get("AlarmNamePrefix")
+        state = cbor_data.get("StateValue")
+        alarm_types = cbor_data.get("AlarmTypes") or ["MetricAlarm"]
+        max_records = cbor_data.get("MaxRecords")
+        next_token = cbor_data.get("NextToken")
+    else:
+        names = [
+            _p(params, f"AlarmNames.member.{i}")
+            for i in range(1, 101)
+            if _p(params, f"AlarmNames.member.{i}")
+        ]
+        prefix = _p(params, "AlarmNamePrefix")
+        state = _p(params, "StateValue")
+        alarm_types = [
+            _p(params, f"AlarmTypes.member.{i}")
+            for i in range(1, 11)
+            if _p(params, f"AlarmTypes.member.{i}")
+        ] or ["MetricAlarm"]
+        max_records = _p(params, "MaxRecords")
+        next_token = _p(params, "NextToken")
+
+    invalid = _max_records_error(max_records)
+    if invalid:
+        return _error("ValidationError", invalid, 400, use_json=is_json, use_cbor=is_cbor)
+    max_records = int(max_records or 50)
+
+    metric_alarms = []
+    composite_results = []
+
+    if "MetricAlarm" in alarm_types:
+        for aname, alarm in _alarms.items():
+            if names and aname not in names:
+                continue
+            if prefix and not aname.startswith(prefix):
+                continue
+            if state and alarm["StateValue"] != state:
+                continue
+            metric_alarms.append(alarm)
+
+    if "CompositeAlarm" in alarm_types:
+        for aname, alarm in _composite_alarms.items():
+            if names and aname not in names:
+                continue
+            if prefix and not aname.startswith(prefix):
+                continue
+            if state and alarm["StateValue"] != state:
+                continue
+            composite_results.append(alarm)
+
+    # One listing in name order across both types; MaxRecords counts them together.
+    listing = sorted(
+        [(a["AlarmName"], 0, a) for a in metric_alarms] + [(a["AlarmName"], 1, a) for a in composite_results],
+        key=lambda entry: entry[:2],
+    )
+    # As on AWS, the token is the name of the next page's first alarm and a page starts at the first name at or
+    # after it, so any string is a valid token and alarms created or deleted between pages shift nothing.
+    if next_token:
+        listing = [entry for entry in listing if entry[0] >= next_token]
+    page = listing[:max_records]
+    token = listing[max_records][0] if len(listing) > max_records else None
+    metric_alarms = [a for _, kind, a in page if kind == 0]
+    composite_results = [a for _, kind, a in page if kind == 1]
+
+    if is_cbor:
+        result = {
+            "MetricAlarms": [_cbor_alarm(a) for a in metric_alarms],
+            "CompositeAlarms": [_cbor_alarm(a) for a in composite_results],
+        }
+        if token:
+            result["NextToken"] = token
+        return _cbor_ok(result)
+    if is_json:
+        result = {"MetricAlarms": metric_alarms, "CompositeAlarms": composite_results}
+        if token:
+            result["NextToken"] = token
+        return _json_ok(result)
+
+    metric_members = "".join(
+        f"<member><AlarmName>{a['AlarmName']}</AlarmName><AlarmArn>{a['AlarmArn']}</AlarmArn>"
+        f"<StateValue>{a['StateValue']}</StateValue><MetricName>{a.get('MetricName','')}</MetricName>"
+        f"<Namespace>{a.get('Namespace','')}</Namespace><Threshold>{a.get('Threshold','')}</Threshold>"
+        f"<ComparisonOperator>{a.get('ComparisonOperator','')}</ComparisonOperator>"
+        f"<EvaluationPeriods>{a.get('EvaluationPeriods','')}</EvaluationPeriods>"
+        + (f"<DatapointsToAlarm>{a['DatapointsToAlarm']}</DatapointsToAlarm>" if "DatapointsToAlarm" in a else "")
+        + f"<StateReason>{a.get('StateReason','')}</StateReason>"
+        f"</member>"
+        for a in metric_alarms
+    )
+    comp_members = "".join(
+        f"<member><AlarmName>{a['AlarmName']}</AlarmName><AlarmArn>{a['AlarmArn']}</AlarmArn>"
+        f"<AlarmRule>{a.get('AlarmRule','')}</AlarmRule>"
+        f"<StateValue>{a.get('StateValue','')}</StateValue>"
+        f"<StateReason>{a.get('StateReason','')}</StateReason>"
+        f"</member>"
+        for a in composite_results
+    )
+    return _xml(
+        200,
+        "DescribeAlarmsResponse",
+        f"<DescribeAlarmsResult>"
+        f"<MetricAlarms>{metric_members}</MetricAlarms>"
+        f"<CompositeAlarms>{comp_members}</CompositeAlarms>"
+        f"{f'<NextToken>{token}</NextToken>' if token else ''}"
+        f"</DescribeAlarmsResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# DescribeAlarmsForMetric
+# ---------------------------------------------------------------------------
+
+
+def _describe_alarms_for_metric(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        namespace = cbor_data.get("Namespace", "")
+        metric_name = cbor_data.get("MetricName", "")
+    else:
+        namespace = _p(params, "Namespace")
+        metric_name = _p(params, "MetricName")
+
+    result = [
+        a
+        for a in _alarms.values()
+        if a.get("Namespace") == namespace and a.get("MetricName") == metric_name
+    ]
+
+    if is_cbor:
+        return _cbor_ok({"MetricAlarms": [_cbor_alarm(a) for a in result]})
+    if is_json:
+        return _json_ok({"MetricAlarms": result})
+
+    members = "".join(
+        f"<member><AlarmName>{a['AlarmName']}</AlarmName><AlarmArn>{a['AlarmArn']}</AlarmArn>"
+        f"<StateValue>{a['StateValue']}</StateValue></member>"
+        for a in result
+    )
+    return _xml(
+        200,
+        "DescribeAlarmsForMetricResponse",
+        f"<DescribeAlarmsForMetricResult><MetricAlarms>{members}</MetricAlarms>"
+        f"</DescribeAlarmsForMetricResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# DescribeAlarmHistory
+# ---------------------------------------------------------------------------
+
+
+def _describe_alarm_history(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        alarm_name = cbor_data.get("AlarmName")
+        history_type = cbor_data.get("HistoryItemType")
+        start_date = _parse_ts(cbor_data.get("StartDate"))
+        end_date = _parse_ts(cbor_data.get("EndDate"))
+        alarm_types = cbor_data.get("AlarmTypes") or ["MetricAlarm"]
+        max_records = cbor_data.get("MaxRecords")
+        next_token = cbor_data.get("NextToken")
+        scan_by = cbor_data.get("ScanBy")
+    else:
+        alarm_name = _p(params, "AlarmName")
+        history_type = _p(params, "HistoryItemType")
+        start_date = _parse_ts(_p(params, "StartDate"))
+        end_date = _parse_ts(_p(params, "EndDate"))
+        alarm_types = [
+            _p(params, f"AlarmTypes.member.{i}")
+            for i in range(1, 11)
+            if _p(params, f"AlarmTypes.member.{i}")
+        ] or ["MetricAlarm"]
+        max_records = _p(params, "MaxRecords")
+        next_token = _p(params, "NextToken")
+        scan_by = _p(params, "ScanBy")
+
+    items = [(i, h) for i, h in enumerate(_history_entries()) if h.get("AlarmType", "MetricAlarm") in alarm_types]
+    if alarm_name:
+        items = [(i, h) for i, h in items if h["AlarmName"] == alarm_name]
+    if history_type:
+        items = [(i, h) for i, h in items if h["HistoryItemType"] == history_type]
+    if start_date is not None:
+        items = [(i, h) for i, h in items if _parse_ts(h["Timestamp"]) >= start_date]
+    if end_date is not None:
+        items = [(i, h) for i, h in items if _parse_ts(h["Timestamp"]) <= end_date]
+
+    invalid = _max_records_error(max_records)
+    if invalid:
+        return _error("ValidationError", invalid, 400, use_json=is_json, use_cbor=is_cbor)
+    max_records = int(max_records or 50)
+    start = None
+    if next_token:
+        start = _decode_page_token(next_token)
+        if start is None or not start.isdigit():
+            return _error("InvalidNextToken", f"Invalid NextToken : {next_token}", 400,
+                          use_json=is_json, use_cbor=is_cbor)
+        start = int(start)
+
+    # Entries are stored oldest first and only appended; ScanBy defaults to TimestampDescending.
+    # The token holds the stored index of the next entry, so new entries do not shift a scan.
+    descending = scan_by != "TimestampAscending"
+    if descending:
+        items.reverse()
+    if start is not None:
+        items = [(i, h) for i, h in items if (i <= start if descending else i >= start)]
+    token = _encode_page_token(str(items[max_records][0])) if len(items) > max_records else None
+    items = [h for _, h in items[:max_records]]
+
+    if is_cbor:
+        result = {"AlarmHistoryItems": [_cbor_history_item(i) for i in items]}
+        if token:
+            result["NextToken"] = token
+        return _cbor_ok(result)
+    if is_json:
+        result = {"AlarmHistoryItems": items}
+        if token:
+            result["NextToken"] = token
+        return _json_ok(result)
+
+    members = "".join(
+        f"<member><AlarmName>{h['AlarmName']}</AlarmName>"
+        f"<Timestamp>{h['Timestamp']}</Timestamp>"
+        f"<HistoryItemType>{h['HistoryItemType']}</HistoryItemType>"
+        f"<HistorySummary>{h['HistorySummary']}</HistorySummary></member>"
+        for h in items
+    )
+    return _xml(
+        200,
+        "DescribeAlarmHistoryResponse",
+        f"<DescribeAlarmHistoryResult><AlarmHistoryItems>{members}</AlarmHistoryItems>"
+        f"{f'<NextToken>{token}</NextToken>' if token else ''}"
+        f"</DescribeAlarmHistoryResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# DeleteAlarms / Enable / Disable
+# ---------------------------------------------------------------------------
+
+
+def _delete_alarms(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        names = cbor_data.get("AlarmNames", [])
+    else:
+        names = []
+        i = 1
+        while _p(params, f"AlarmNames.member.{i}"):
+            names.append(_p(params, f"AlarmNames.member.{i}"))
+            i += 1
+
+    composites = [n for n in dict.fromkeys(names) if n in _composite_alarms]
+    if len(composites) > 1:
+        return _error(
+            "ValidationError",
+            f"Cannot delete [{len(composites)}] Composite Alarms as only one composite alarm delete is allowed "
+            f"in single request",
+            400, use_json=is_json, use_cbor=is_cbor,
+        )
+    for n in names:
+        if (n in _alarms or n in _composite_alarms) and any(
+            n in _composite_children(parent) for parent in _composite_alarms.values()
+        ):
+            return _error(
+                "ValidationError",
+                f"Cannot delete {n} as there are composite alarm(s) depending on it.",
+                400, use_json=is_json, use_cbor=is_cbor,
+            )
+
+    for n in names:
+        _alarms.pop(n, None)
+        _composite_alarms.pop(n, None)
+        _composite_triggers.pop(n, None)
+        _resource_tags.pop(f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{n}", None)
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "DeleteAlarmsResponse", "")
+
+
+def _enable_alarm_actions(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        names = cbor_data.get("AlarmNames", [])
+    else:
+        names = [
+            _p(params, f"AlarmNames.member.{i}")
+            for i in range(1, 101)
+            if _p(params, f"AlarmNames.member.{i}")
+        ]
+    for n in names:
+        if n in _alarms:
+            _alarms[n]["ActionsEnabled"] = True
+        if n in _composite_alarms:
+            _composite_alarms[n]["ActionsEnabled"] = True
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "EnableAlarmActionsResponse", "")
+
+
+def _disable_alarm_actions(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        names = cbor_data.get("AlarmNames", [])
+    else:
+        names = [
+            _p(params, f"AlarmNames.member.{i}")
+            for i in range(1, 101)
+            if _p(params, f"AlarmNames.member.{i}")
+        ]
+    for n in names:
+        if n in _alarms:
+            _alarms[n]["ActionsEnabled"] = False
+        if n in _composite_alarms:
+            _composite_alarms[n]["ActionsEnabled"] = False
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "DisableAlarmActionsResponse", "")
+
+
+# ---------------------------------------------------------------------------
+# SetAlarmState — with history recording
+# ---------------------------------------------------------------------------
+
+
+def _set_alarm_state(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        name = cbor_data.get("AlarmName", "")
+        new_state = cbor_data.get("StateValue", "")
+        reason = cbor_data.get("StateReason", "")
+        reason_data = cbor_data.get("StateReasonData", "")
+    else:
+        name = _p(params, "AlarmName")
+        new_state = _p(params, "StateValue")
+        reason = _p(params, "StateReason")
+        reason_data = _p(params, "StateReasonData")
+
+    alarm = _alarms.get(name) or _composite_alarms.get(name)
+    if not alarm:
+        return _error(
+            "ResourceNotFound", f"Alarm {name} not found", 404, use_json=is_json, use_cbor=is_cbor
+        )
+
+    is_composite = name not in _alarms
+    old_state = alarm["StateValue"]
+    alarm["StateValue"] = new_state
+    alarm["StateReason"] = reason
+    if reason_data:
+        alarm["StateReasonData"] = reason_data
+    elif is_composite:
+        alarm.pop("StateReasonData", None)
+    alarm["StateUpdatedTimestamp"] = int(time.time())
+
+    if old_state != new_state:
+        if is_composite:
+            # The rule is evaluated again only when one of its children changes state.
+            alarm["StateTransitionedTimestamp"] = alarm["StateUpdatedTimestamp"]
+            _composite_triggers.pop(name, None)
+        _record_history(name, old_state, new_state, reason, "CompositeAlarm" if is_composite else "MetricAlarm")
+        _dispatch_alarm_actions(alarm, old_state, new_state, reason)
+        _evaluate_parent_alarms(alarm)
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "SetAlarmStateResponse", "")
+
+
+# ---------------------------------------------------------------------------
+# TagResource / UntagResource / ListTagsForResource
+# ---------------------------------------------------------------------------
+
+
+def _tag_resource(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        arn = cbor_data.get("ResourceARN", "")
+        tags = cbor_data.get("Tags", [])
+    else:
+        arn = _p(params, "ResourceARN")
+        tags = []
+        i = 1
+        while _p(params, f"Tags.member.{i}.Key"):
+            tags.append(
+                {
+                    "Key": _p(params, f"Tags.member.{i}.Key"),
+                    "Value": _p(params, f"Tags.member.{i}.Value"),
+                }
+            )
+            i += 1
+
+    validation_error = _validate_alarm_tag_arn(arn, is_json=is_json, is_cbor=is_cbor)
+    if validation_error:
+        return validation_error
+
+    if arn not in _resource_tags:
+        _resource_tags[arn] = {}
+    for t in tags:
+        _resource_tags[arn][t["Key"]] = t.get("Value", "")
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "TagResourceResponse", "<TagResourceResult/>")
+
+
+def _untag_resource(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        arn = cbor_data.get("ResourceARN", "")
+        keys = cbor_data.get("TagKeys", [])
+    else:
+        arn = _p(params, "ResourceARN")
+        keys = []
+        i = 1
+        while _p(params, f"TagKeys.member.{i}"):
+            keys.append(_p(params, f"TagKeys.member.{i}"))
+            i += 1
+
+    validation_error = _validate_alarm_tag_arn(arn, is_json=is_json, is_cbor=is_cbor)
+    if validation_error:
+        return validation_error
+
+    tag_map = _resource_tags.get(arn, {})
+    for k in keys:
+        tag_map.pop(k, None)
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "UntagResourceResponse", "<UntagResourceResult/>")
+
+
+def _list_tags_for_resource(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        arn = cbor_data.get("ResourceARN", "")
+    else:
+        arn = _p(params, "ResourceARN")
+
+    validation_error = _validate_alarm_tag_arn(arn, is_json=is_json, is_cbor=is_cbor)
+    if validation_error:
+        return validation_error
+
+    tags = [{"Key": k, "Value": v} for k, v in _resource_tags.get(arn, {}).items()]
+
+    if is_cbor:
+        return _cbor_ok({"Tags": tags})
+    if is_json:
+        return _json_ok({"Tags": tags})
+
+    members = "".join(
+        f"<member><Key>{t['Key']}</Key><Value>{t['Value']}</Value></member>"
+        for t in tags
+    )
+    return _xml(
+        200,
+        "ListTagsForResourceResponse",
+        f"<ListTagsForResourceResult><Tags>{members}</Tags></ListTagsForResourceResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dashboards
+# ---------------------------------------------------------------------------
+
+
+def _put_dashboard(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        name = cbor_data.get("DashboardName", "")
+        body = cbor_data.get("DashboardBody", "")
+    else:
+        name = _p(params, "DashboardName")
+        body = _p(params, "DashboardBody")
+
+    if not name:
+        return _error(
+            "InvalidParameterValue",
+            "DashboardName is required",
+            400,
+            use_json=is_json, use_cbor=is_cbor,
+        )
+
+    cloudformation_put_dashboard(name, body)
+
+    if is_cbor:
+        return _cbor_ok({"DashboardValidationMessages": []})
+    if is_json:
+        return _json_ok({"DashboardValidationMessages": []})
+    return _xml(
+        200,
+        "PutDashboardResponse",
+        "<PutDashboardResult><DashboardValidationMessages/></PutDashboardResult>",
+    )
+
+
+def _get_dashboard(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        name = cbor_data.get("DashboardName", "")
+    else:
+        name = _p(params, "DashboardName")
+
+    dash = _dashboards.get(name)
+    if not dash:
+        return _error(
+            "ResourceNotFound",
+            f"Dashboard {name} does not exist",
+            404,
+            use_json=is_json, use_cbor=is_cbor,
+        )
+
+    if is_cbor:
+        return _cbor_ok(
+            {
+                "DashboardArn": dash["DashboardArn"],
+                "DashboardBody": dash["DashboardBody"],
+                "DashboardName": dash["DashboardName"],
+            }
+        )
+    if is_json:
+        return _json_ok(
+            {
+                "DashboardArn": dash["DashboardArn"],
+                "DashboardBody": dash["DashboardBody"],
+                "DashboardName": dash["DashboardName"],
+            }
+        )
+    return _xml(
+        200,
+        "GetDashboardResponse",
+        f"<GetDashboardResult>"
+        f"<DashboardArn>{dash['DashboardArn']}</DashboardArn>"
+        f"<DashboardBody>{dash['DashboardBody']}</DashboardBody>"
+        f"<DashboardName>{dash['DashboardName']}</DashboardName>"
+        f"</GetDashboardResult>",
+    )
+
+
+def _delete_dashboards(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        names = cbor_data.get("DashboardNames", [])
+    else:
+        names = []
+        i = 1
+        while _p(params, f"DashboardNames.member.{i}"):
+            names.append(_p(params, f"DashboardNames.member.{i}"))
+            i += 1
+
+    missing = [n for n in names if n not in _dashboards]
+    if missing:
+        return _error("DashboardNotFoundError",
+                       f"Dashboard {', '.join(missing)} does not exist",
+                       404, use_json=is_json, use_cbor=is_cbor)
+
+    for n in names:
+        cloudformation_delete_dashboard(n)
+
+    if is_cbor:
+        return _cbor_ok({})
+    if is_json:
+        return _json_ok({})
+    return _xml(200, "DeleteDashboardsResponse", "<DeleteDashboardsResult/>")
+
+
+def _list_dashboards(params, cbor_data, is_cbor, is_json=False):
+    if is_cbor or is_json:
+        prefix = cbor_data.get("DashboardNamePrefix", "")
+    else:
+        prefix = _p(params, "DashboardNamePrefix")
+
+    entries = []
+    for name in sorted(_dashboards):
+        if prefix and not name.startswith(prefix):
+            continue
+        dash = _dashboards[name]
+        entries.append(
+            {
+                "DashboardName": dash["DashboardName"],
+                "DashboardArn": dash["DashboardArn"],
+                "Size": dash["Size"],
+                "LastModified": _ts_iso(dash["LastModified"]),
+            }
+        )
+
+    if is_cbor:
+        return _cbor_ok({"DashboardEntries": entries})
+    if is_json:
+        return _json_ok({"DashboardEntries": entries})
+
+    members = ""
+    for e in entries:
+        members += (
+            f"<member>"
+            f"<DashboardName>{e['DashboardName']}</DashboardName>"
+            f"<DashboardArn>{e['DashboardArn']}</DashboardArn>"
+            f"<Size>{e['Size']}</Size>"
+            f"<LastModified>{e['LastModified']}</LastModified>"
+            f"</member>"
+        )
+    return _xml(
+        200,
+        "ListDashboardsResponse",
+        f"<ListDashboardsResult><DashboardEntries>{members}</DashboardEntries></ListDashboardsResult>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Protocol / encoding helpers
+# ---------------------------------------------------------------------------
+
+
+def _dims_key(dims: dict) -> str:
+    return "|".join(f"{k}={v}" for k, v in sorted(dims.items()))
+
+
+def _dims_from_list(dimensions: list[dict]) -> dict:
+    return {
+        d["Name"]: d.get("Value", "")
+        for d in dimensions
+        if isinstance(d, dict) and d.get("Name")
+    }
+
+
+def _p(params, key, default=""):
+    val = params.get(key, [default])
+    return val[0] if isinstance(val, list) else val
+
+
+def _optional_int(value):
+    """``int(value)``, or ``None`` when the request leaves the member unset."""
+    return None if value is None else int(value)
+
+
+def _cbor_timestamp(value):
+    """Encode an epoch/ISO timestamp as CBOR tag 1 (epoch date-time).
+
+    smithy-rpc-v2-cbor (used by the Terraform AWS provider >= 6.50 for
+    CloudWatch) expects Timestamp members as CBOR tag 1. A bare Python ``int``
+    serializes as a CBOR unsigned integer, which the provider's typed decoder
+    rejects with ``unexpected value type cbor.Uint`` (issue #1261).
+    """
+    import cbor2
+
+    epoch = _parse_ts(value) if isinstance(value, str) else value
+    if epoch is None:
+        return value
+    return cbor2.CBORTag(1, float(epoch))
+
+
+def _cbor_alarm(alarm):
+    """Return a CBOR-safe copy of an alarm with Timestamp members tag-1 encoded."""
+    out = dict(alarm)
+    for field in (
+        "StateUpdatedTimestamp",
+        "AlarmConfigurationUpdatedTimestamp",
+        "StateTransitionedTimestamp",
+    ):
+        if out.get(field) is not None:
+            out[field] = _cbor_timestamp(out[field])
+    return out
+
+
+def _cbor_history_item(item):
+    """Return a CBOR-safe copy of an alarm-history item with a tag-1 Timestamp."""
+    out = dict(item)
+    if out.get("Timestamp") is not None:
+        out["Timestamp"] = _cbor_timestamp(out["Timestamp"])
+    return out
+
+
+def _cbor_datapoint(dp):
+    """Return a CBOR-safe copy of a GetMetricStatistics datapoint.
+
+    ``Datapoint.Timestamp`` is a smithy ``timestamp`` member, so over
+    rpc-v2-cbor it must be tag 1 (not the ISO string used by the XML path),
+    same class as the alarm timestamps in issue #1261.
+    """
+    out = dict(dp)
+    if out.get("Timestamp") is not None:
+        out["Timestamp"] = _cbor_timestamp(out["Timestamp"])
+    return out
+
+
+def _cbor_metric_data_result(result):
+    """Return a CBOR-safe copy of a GetMetricData result.
+
+    ``MetricDataResult.Timestamps`` is a list of smithy ``timestamp`` members,
+    so each element must be tag-1 encoded over rpc-v2-cbor.
+    """
+    out = dict(result)
+    if result.get("Timestamps"):
+        out["Timestamps"] = [_cbor_timestamp(t) for t in result["Timestamps"]]
+    return out
+
+
+def _cbor_strip_none(value):
+    """Recursively drop dict entries whose value is None.
+
+    smithy-rpc-v2-cbor decoders (Terraform AWS provider >= 6.50) reject a CBOR
+    Nil for a typed member with ``unexpected value type *cbor.Nil`` (issue
+    #1261): real AWS omits absent optional fields from the response rather than
+    encoding them as null, so a None must never reach cbor2.dumps(). Non-None
+    values — CBORTag timestamps, ints, empty strings, and empty lists — are
+    preserved unchanged.
+    """
+    if isinstance(value, dict):
+        return {k: _cbor_strip_none(v) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        return [_cbor_strip_none(v) for v in value]
+    return value
+
+
+def _cbor_ok(data: dict):
+    try:
+        import cbor2
+
+        body = cbor2.dumps(_cbor_strip_none(data))
+    except Exception:
+        body = json.dumps(data).encode()
+    return (
+        200,
+        {"Content-Type": "application/cbor", "smithy-protocol": "rpc-v2-cbor"},
+        body,
+    )
+
+
+def _json_timestamp(value):
+    """Encode one timestamp member for awsJson1_0, which models it as epoch seconds.
+
+    The XML path builds every timestamp as an ISO-8601 string (``_ts_iso``) and
+    the JSON branches return those same dicts unchanged, so an AWS SDK — which
+    parses a smithy ``timestamp`` over awsJson1_0 as a number — fails the whole
+    response with ``Expected real number, got implicit NaN``. Same class of bug
+    as the CBOR tag-1 issue (#1261), one protocol over: the data is right and
+    only its encoding is wrong.
+    """
+    if isinstance(value, str):
+        epoch = _parse_ts(value)
+        if epoch is not None:
+            # Int epoch, not float: the project convention for JSON bodies
+            # (Java SDK v2 rejects high-precision float timestamps).
+            return int(epoch)
+    return value
+
+
+def _json_timestamps(value):
+    """Recursively convert Timestamp members in a JSON response to epoch seconds.
+
+    Applied inside ``_json_ok`` rather than at each return site. CloudWatch has
+    five JSON responses carrying timestamps — GetMetricStatistics,
+    GetMetricData, DescribeAlarms, DescribeAlarmsForMetric and
+    DescribeAlarmHistory — and a per-shape converter for each, mirroring the
+    ``_cbor_*`` family, would be five chances to miss one and five more for
+    every response added later. Every timestamp member in this service's model
+    is named ``Timestamp`` or ``Timestamps``, so the key is a reliable marker.
+    """
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key.endswith("Timestamps") and isinstance(item, list):
+                out[key] = [_json_timestamp(each) for each in item]
+            elif key.endswith("Timestamp"):
+                out[key] = _json_timestamp(item)
+            else:
+                out[key] = _json_timestamps(item)
+        return out
+    if isinstance(value, list):
+        return [_json_timestamps(item) for item in value]
+    return value
+
+
+def _json_ok(data: dict):
+    return (200, {"Content-Type": "application/json"},
+            json.dumps(_json_timestamps(data)).encode())
+
+
+def _xml(status, root_tag, inner):
+    body = (
+        f'<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<{root_tag} xmlns="http://monitoring.amazonaws.com/doc/2010-08-01/">\n'
+        f"    {inner}\n"
+        f"    <ResponseMetadata><RequestId>{new_uuid()}</RequestId></ResponseMetadata>\n"
+        f"</{root_tag}>"
+    ).encode("utf-8")
+    return status, {"Content-Type": "application/xml"}, body
+
+
+# AWS escapes the Query error message, quotes included (&quot;).
+_XML_QUOTE = {'"': "&quot;"}
+
+
+def _error(code, message, status, use_json=False, use_cbor=False):
+    if use_cbor:
+        try:
+            import cbor2
+            body = cbor2.dumps({"__type": code, "message": message})
+            return status, {"Content-Type": "application/cbor", "smithy-protocol": "rpc-v2-cbor"}, body
+        except ImportError:
+            pass
+    if use_json or use_cbor:
+        return (
+            status,
+            {"Content-Type": "application/x-amz-json-1.0", "x-amzn-errortype": code},
+            json.dumps({"__type": code, "message": message}).encode(),
+        )
+    # Query error envelope: <Type> in <Error>, no <?xml?> (AWS captures).
+    fault_type = "Sender" if status < 500 else "Receiver"
+    body = (
+        f'<ErrorResponse xmlns="http://monitoring.amazonaws.com/doc/2010-08-01/">\n'
+        f"    <Error><Type>{fault_type}</Type><Code>{code}</Code>"
+        f"<Message>{_xml_escape(message, _XML_QUOTE)}</Message></Error>\n"
+        f"    <RequestId>{new_uuid()}</RequestId>\n"
+        f"</ErrorResponse>"
+    ).encode("utf-8")
+    return status, {"Content-Type": "application/xml"}, body
+
+
+# ---------------------------------------------------------------------------
+# CloudFormation integration
+# ---------------------------------------------------------------------------
+
+
+def cloudformation_put_metric_alarm(alarm: dict) -> None:
+    """Store a PutMetricAlarm-shaped alarm dict (CloudFormation create/update)."""
+    name = alarm["AlarmName"]
+    is_new = name not in _alarms
+    _alarms[name] = alarm
+    if is_new:
+        _record_history(
+            name,
+            "INSUFFICIENT_DATA",
+            "INSUFFICIENT_DATA",
+            "Unchecked: Initial alarm creation",
+        )
+    _evaluate_alarm(alarm)
+
+
+def cloudformation_set_metric_alarm_tags(name: str, tags: list) -> None:
+    """Replace the tag set of a metric alarm created from a template. PutMetricAlarm
+    ignores Tags on an existing alarm, so a template's Tags are applied the way
+    CloudFormation does it: the full set replaces what is there (TagResource for
+    what is declared, UntagResource for what was dropped)."""
+    arn = f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}"
+    _resource_tags[arn] = {t["Key"]: t.get("Value", "") for t in tags}
+
+
+def cloudformation_delete_metric_alarm(name: str, refuse_dependents: bool = False) -> None:
+    """Remove a metric alarm created from a template (not composite alarms).
+
+    ``refuse_dependents`` makes a stack delete fail, as DeleteAlarms does, while a composite alarm still needs it.
+    """
+    if refuse_dependents and name in _alarms and any(
+            name in _composite_children(parent) for parent in _composite_alarms.values()):
+        raise ValueError(f"Cannot delete {name} as there are composite alarm(s) depending on it.")
+    _alarms.pop(name, None)
+    _resource_tags.pop(
+        f"arn:aws:cloudwatch:{get_region()}:{get_account_id()}:alarm:{name}", None
+    )
+
+
+def cloudformation_put_dashboard(name: str, body: str) -> str:
+    """Create or replace a dashboard from a CloudFormation resource."""
+    arn = f"arn:aws:cloudwatch::{get_account_id()}:dashboard/{name}"
+    _dashboards[name] = {
+        "DashboardName": name,
+        "DashboardBody": body,
+        "DashboardArn": arn,
+        "LastModified": int(time.time()),
+        "Size": len(body),
+    }
+    return arn
+
+
+def cloudformation_delete_dashboard(name: str) -> None:
+    """Remove a dashboard created from a CloudFormation resource."""
+    _dashboards.pop(name, None)
+    _resource_tags.pop(
+        f"arn:aws:cloudwatch::{get_account_id()}:dashboard/{name}", None
+    )
+
+
+def reset():
+    _alarms.clear()
+    _composite_alarms.clear()
+    _composite_triggers.clear()
+    _alarm_history.clear()
+    _metrics.clear()
+    _resource_tags.clear()
+    _dashboards.clear()

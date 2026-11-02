@@ -43,10 +43,19 @@ pytestmark = pytest.mark.skipif(
 
 DIPOLE = FIXTURES / "razor_printout_3a" / "node_gap_two_sources.nec"
 REFUSES = FIXTURES / "razor_printout_3a" / "chain_then_refusal.nec"
-RAISES = FIXTURES / "razor_printout_3a" / "echo_raises_inf_field.nec"
+RAISES = FIXTURES / "razor_printout_3a" / "echo_raises_nxq.nec"
 BURIED = FIXTURES / "razor_printout_somm" / "gn0_buried_radial.nec"
 EXAMPLE3 = FIXTURES / "4nec2_example3" / "EXAMPLE3.inp"
 DECKS = (DIPOLE, REFUSES, RAISES, BURIED, EXAMPLE3)
+# What a build does not serve yet, by deck name (none since the Galerkin
+# build's crossing decks, momwire#1718 S11b).
+_NOT_YET: dict[str, str] = {}
+
+
+def _skip_unserved(*decks):
+    for d in decks:
+        if Path(d).name in _NOT_YET:
+            pytest.skip(f"not served by this build yet: {_NOT_YET[Path(d).name]}")
 
 
 def _launcher() -> str:
@@ -167,6 +176,7 @@ def test_no_python_anywhere_in_the_executable():
     ids=["served", "refused", "raised", "gmo", "buried"],
 )
 def test_a_deck_answers_as_the_launcher(deck, tmp_path):
+    _skip_unserved(deck)
     _same(*_both([deck.name, "x.out"], tmp_path))
 
 
@@ -214,6 +224,8 @@ _STREAMS = {
 def test_the_streaming_call(stream, tmp_path):
     """SimNEC's `- -` (momwire#1512): the same printouts on stdout, nothing
     on stderr, exit 0, no file written."""
+    if stream == _STREAMS["a refusal mid-stream"]:
+        _skip_unserved(REFUSES)
     runs = []
     for name, prog in (("exe", EXE), ("launcher", _launcher())):
         d = tmp_path / name
@@ -359,6 +371,7 @@ def test_momwire_times_is_honoured_as_the_launcher_honours_it(deck, tmp_path):
     TIMING and RUN TIME with measured seconds and write one `times:` line on
     stderr; every other byte is the untimed printout's. Off, they write the
     zeros (the corpus gates hold that)."""
+    _skip_unserved(deck)
     sys.path.insert(0, str(ROOT / "tests"))
     import times_check as tc
 
@@ -415,3 +428,119 @@ def test_momwire_times_streams_a_line_per_structure(tmp_path):
     assert lines[0]["start_ms"] > 0.0 and lines[1]["start_ms"] == 0.0
     fills, runs = tc.printout_timing(run.stdout)
     assert len(fills) == 2 and runs == []
+
+
+# --- the transmitted grid's store (momwire#1752 T1) ----------------------------
+
+MIXED = FIXTURES / "transmitted_mixed" / "m3_two_radii.nec"
+
+
+@pytest.mark.skipif(
+    BASIS != "bspline", reason="the transmitted blocks are bs2's (and sg5's) fill"
+)
+def test_the_transmitted_grid_is_stored_and_moves_no_byte(tmp_path):
+    """A mixed deck (wires above and below, no crossing node) fills the
+    below->above grid; the executable keeps it in its Sommerfeld store as
+    Python keeps it in `_somm_disk_cache`. Run cold, the store holds one
+    `trans-*.grid`; a second run reads it (MOMWIRE_TIMES counts no build) and
+    leaves it as it was; a damaged file is a miss, refilled to the same bytes;
+    every printout is the launcher's."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    import times_check as tc
+
+    store = tmp_path / "store"
+    env = dict(os.environ, MOMWIRE_SOMM_CACHE_DIR=str(store), MOMWIRE_SOMM_CACHE="1")
+    ref = subprocess.run(
+        [_launcher(), str(MIXED), str(tmp_path / "ref.out")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+    assert ref.returncode == 0, ref.stderr
+    want = (tmp_path / "ref.out").read_bytes()
+
+    def exe_run(name):
+        r = subprocess.run(
+            [EXE, str(MIXED), str(tmp_path / f"{name}.out")],
+            cwd=tmp_path,
+            env=dict(env, MOMWIRE_TIMES="1"),
+            capture_output=True,
+            check=False,
+        )
+        assert r.returncode == 0, r.stderr
+        got = (tmp_path / f"{name}.out").read_bytes().decode("latin-1")
+        assert tc.zero_timing(got).encode("latin-1") == want, name
+        (line,) = tc.times_lines(r.stderr)
+        return line
+
+    cold = exe_run("cold")
+    (grid,) = sorted((store / "exe").glob("*/trans-*.grid"))
+    stamp = grid.read_bytes()
+    warm = exe_run("warm")
+    # Nothing built: since the stores name their files by the key's hash
+    # (momwire#1752) every grid of the deck is kept, Windows' MAX_PATH under
+    # pytest's deep temporary directory included.
+    assert cold["ground_built"] > 0 and warm["ground_built"] == 0, (cold, warm)
+    assert warm["ground_disk"] >= 1, warm
+    names = sorted(p.name for p in (store / "exe").glob("*/*.grid"))
+    assert names and all(len(n) <= 32 for n in names), names
+    assert grid.read_bytes() == stamp
+    grid.write_bytes(stamp[:-9] + b"\0" * 9)
+    exe_run("damaged")
+    assert grid.read_bytes() == stamp
+
+
+# --- the near-interface sheets' store (the perf-1028 study) -------------------
+
+NEAR_BURIED = FIXTURES / "near_buried_1653" / "d1_buried_dipole.nec5.nec"
+
+
+def test_the_near_field_sheets_are_stored_and_move_no_byte(tmp_path):
+    """A buried deck's near field above and below the plane reads the
+    designed near-interface tables, whose sheets Python keeps in process
+    across renders; the executable keeps them in its Sommerfeld store. Run
+    cold, the store holds `nisheet-*.grid`; a second run reads every one
+    (MOMWIRE_TIMES counts no build) and leaves the files as they were; a
+    damaged file is a miss, refilled to the same bytes; every printout is the
+    launcher's."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    import times_check as tc
+
+    store = tmp_path / "store"
+    env = dict(os.environ, MOMWIRE_SOMM_CACHE_DIR=str(store), MOMWIRE_SOMM_CACHE="1")
+    ref = subprocess.run(
+        [_launcher(), str(NEAR_BURIED), str(tmp_path / "ref.out")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+    assert ref.returncode == 0, ref.stderr
+    want = (tmp_path / "ref.out").read_bytes()
+
+    def exe_run(name):
+        r = subprocess.run(
+            [EXE, str(NEAR_BURIED), str(tmp_path / f"{name}.out")],
+            cwd=tmp_path,
+            env=dict(env, MOMWIRE_TIMES="1"),
+            capture_output=True,
+            check=False,
+        )
+        assert r.returncode == 0, r.stderr
+        got = (tmp_path / f"{name}.out").read_bytes().decode("latin-1")
+        assert tc.zero_timing(got).encode("latin-1") == want, name
+        (line,) = tc.times_lines(r.stderr)
+        return line
+
+    cold = exe_run("cold")
+    sheets = sorted((store / "exe").glob("*/nisheet-*.grid"))
+    assert sheets, sorted(p.name for p in store.rglob("*"))
+    stamps = [p.read_bytes() for p in sheets]
+    warm = exe_run("warm")
+    assert cold["ground_built"] > 0 and warm["ground_built"] == 0, (cold, warm)
+    assert warm["ground_disk"] >= len(sheets), warm
+    assert [p.read_bytes() for p in sheets] == stamps
+    sheets[0].write_bytes(stamps[0][:-9] + b"\0" * 9)
+    exe_run("damaged")
+    assert [p.read_bytes() for p in sheets] == stamps

@@ -1,0 +1,104 @@
+name: In pull request
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test_compatibility:
+    name: Test Package Compatibility
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+            dependency-set: minimum
+          - os: macos-15-intel # We need x86 as ARM is python>= 3.11 only.
+            # https://github.com/actions/setup-python/issues/855
+            python-version: "3.10"
+            dependency-set: minimum
+          - os: ubuntu-latest
+            python-version: "3.13"
+            dependency-set: maximum
+          - os: macos-latest
+            python-version: "3.13"
+            dependency-set: maximum
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: Upgrade pip to 26.2.2 (eMudhra CA incident)
+        run: python -m pip install --disable-pip-version-check "pip @ https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl#sha256=fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+
+      - name: Install workflow Python deps
+        run: python -m pip install pip-tools tomli
+
+      - name: Generate requirements file for minimum dependencies
+        if: matrix.dependency-set == 'minimum'
+        run: python scripts/gen_requirements.py min requirements-generated.txt
+
+      - name: Generate requirements file for maximum dependencies
+        if: matrix.dependency-set == 'maximum'
+        run: python scripts/gen_requirements.py max requirements-generated.txt
+
+      - name: Generate requirements file for dev dependencies
+        run: python scripts/gen_requirements.py --dev passthrough dev-requirements-generated.txt
+
+      # Caching based on dependency set and python version. It needs to be done post any operations that modifies the file (like `write`, `touch`, etc.) that can change the hash of the dependency file and lead to a cache miss.
+      # REFER: https://github.com/actions/setup-python#caching-packages-dependencies
+      - name: Setup pip cache
+        id: pip-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ matrix.dependency-set }}-${{ hashFiles('pyproject.toml', 'requirements-generated.txt', 'dev-requirements-generated.txt')}}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ matrix.dependency-set }}-
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        id: install-deps
+        run: |
+          echo "::group::Installing dependencies"
+          START_TIME=$(date +%s%N)
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps
+          pip install -r requirements-generated.txt
+          pip install -r dev-requirements-generated.txt
+          END_TIME=$(date +%s%N)
+          DURATION=$((($END_TIME - $START_TIME)/1000000))
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "Dependencies installation took $DURATION ms"
+          echo "::endgroup::"
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
+
+      - name: Check for forbidden licenses
+        if: runner.os == 'macOS' && matrix.python-version == '3.10'
+        run: |
+          licensecheck \
+            --requirements-paths pyproject.toml \
+            --only-licenses APACHE MIT BSD ISC PYTHON ZLIB UNLICENSE UNKNOWN \
+            --ignore-packages certifi "tabpfn*" \
+            --show-only-failing \
+            -0
+
+      - name: Report cache status
+        run: |
+          echo "Cache status: ${{ steps.pip-cache.outputs.cache-hit == 'true' && 'HIT' || 'MISS'}}"
+          echo "Installation time: ${{ steps.install-deps.outputs.duration }} ms"
+
+      - name: Run Tests
+        run: |
+          pytest

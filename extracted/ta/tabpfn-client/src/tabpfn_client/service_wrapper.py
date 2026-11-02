@@ -1,0 +1,653 @@
+#  Copyright (c) Prior Labs GmbH 2025.
+#  Licensed under the Apache License, Version 2.0
+
+"""Classmethod wrappers around `ServiceClient` for auth, user data and inference."""
+
+from __future__ import annotations
+
+import logging
+import os
+from pathlib import Path
+from typing import Callable, Iterable
+
+import numpy as np
+import pandas as pd
+from uuid import UUID
+from tabpfn_client.client import (
+    ServiceClient,
+    ClientOptions,
+    PredictionResult,
+)
+import tabpfn_client.constants as constants
+from tabpfn_common_utils.utils import Singleton
+from tabpfn_client.api_models import (
+    FitTaskConfig,
+    ClassifierConfig,
+    FitResponse,
+    GetFitStatusResponse,
+    RegressorConfig,
+    ThinkingConfig,
+    TabPFNSystem,
+    TextHandling,
+)
+from tabpfn_client.options import get_opts
+from tabpfn_client.models import ApiMode
+
+logger = logging.getLogger(__name__)
+
+
+class ServiceClientWrapper:
+    """Base class of the `ServiceClient` wrappers."""
+
+    pass
+
+
+# Singleton class for user authentication
+class UserAuthenticationClient(ServiceClientWrapper, Singleton):
+    """Wrapper of ServiceClient to handle user authentication.
+
+    Covers user registration and login, and access token caching. Implemented
+    as a singleton class with classmethods.
+    """
+
+    CACHED_TOKEN_FILE = constants.CACHE_DIR / "config"
+
+    def __new__(cls):
+        """Refuse instantiation; use the classmethods instead.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise TypeError(
+            "This class should not be instantiated. Use classmethods instead."
+        )
+
+    @classmethod
+    def is_accessible_connection(cls) -> bool:
+        """Return whether the server is reachable and accepts the connection."""
+        return ServiceClient.try_connection()
+
+    @classmethod
+    def set_token(cls, access_token: str):
+        """Use *access_token* for this process. Does not touch the token cache.
+
+        A token supplied through TABPFN_TOKEN or `set_access_token()` belongs to
+        the caller, so we never copy it to disk behind their back. Only
+        `interactive_login()` persists, via `persist_token`.
+        """
+        ServiceClient.authorize(access_token)
+
+    @classmethod
+    def persist_token(cls, access_token: str):
+        """Cache *access_token* so later runs authenticate without prompting.
+
+        The sole caller is `interactive_login()`: the user explicitly logged in,
+        so remembering the result is what they asked for.
+        """
+        # Mitigate parallel writes by checking if the token is already set to
+        # the same value. We'll consider using fcntl if this problem persists.
+        try:
+            if cls.CACHED_TOKEN_FILE.read_text() == access_token:
+                return
+        except FileNotFoundError:
+            pass
+
+        # Write the new token
+        cls.CACHED_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        cls.CACHED_TOKEN_FILE.write_text(access_token)
+
+    @classmethod
+    def validate_email(cls, email: str) -> tuple[bool, str]:
+        """Check with the server that an email is valid and not already in use.
+
+        Returns:
+            Whether the email is valid, and the message returned by the server.
+        """
+        return ServiceClient.validate_email(email)
+
+    @classmethod
+    def get_password_policy(cls):
+        """Return the password policy from the server."""
+        return ServiceClient.get_password_policy()
+
+    @classmethod
+    def send_verification_email(cls, access_token: str) -> tuple[bool, str]:
+        """Ask the server to send an email-verification email.
+
+        Returns:
+            Whether the email was sent, and the message returned by the server.
+        """
+        return ServiceClient.send_verification_email(access_token)
+
+    @classmethod
+    def verify_email(cls, token: str, access_token: str) -> tuple[bool, str]:
+        """Verify the user's email with the token from the verification email.
+
+        Returns:
+            Whether the email was verified, and the message returned by the server.
+        """
+        return ServiceClient.verify_email(token, access_token)
+
+    @classmethod
+    def set_token_by_registration(
+        cls,
+        email: str,
+        password: str,
+        password_confirm: str,
+        validation_link: str,
+        additional_info: dict,
+    ) -> tuple[bool, str, str | None]:
+        """Register a new user and, on success, set and cache the returned token.
+
+        Returns:
+            Whether the user was created, the message returned by the server, and
+            the access token, which is None if registration failed.
+        """
+        is_created, message, access_token = ServiceClient.register(
+            email, password, password_confirm, validation_link, additional_info
+        )
+        if access_token is not None:
+            # Signing up is an explicit interactive act, so remembering the
+            # result is what the user asked for -- same rationale as
+            # interactive_login().
+            cls.set_token(access_token)
+            cls.persist_token(access_token)
+        return is_created, message, access_token
+
+    @classmethod
+    def resolve_token_with_source(cls) -> tuple[str | None, str | None]:
+        """Find an access token without prompting, and say where it came from.
+
+        Resolution order: a token already set on this process (via
+        `set_access_token`), then the TABPFN_TOKEN environment variable, then a
+        token cached by a previous run. The environment is read here rather than
+        at import time so that setting TABPFN_TOKEN after importing the package
+        still takes effect.
+
+        The source matters when a token turns out to be bad: only the source
+        that produced it may be discarded.
+
+        Returns:
+            The token and its source (``"process"``, ``"env"`` or ``"cache"``),
+            or ``(None, None)`` if no token is found.
+        """
+        access_token = ServiceClient.get_access_token()
+        if access_token:
+            return access_token, "process"
+
+        env_token = os.environ.get("TABPFN_TOKEN")
+        if env_token:
+            return env_token.strip(), "env"
+
+        if cls.CACHED_TOKEN_FILE.exists():
+            cached = cls.CACHED_TOKEN_FILE.read_text().strip()
+            if cached:
+                return cached, "cache"
+
+        return None, None
+
+    @classmethod
+    def resolve_token(cls) -> str | None:
+        """Find an access token without prompting, or return None."""
+        return cls.resolve_token_with_source()[0]
+
+    @classmethod
+    def try_reuse_existing_token(cls) -> tuple[bool, str | None]:
+        """Validate the resolved token with the server and use it if valid.
+
+        A rejected token is discarded from the source that produced it.
+
+        Returns:
+            Whether the token is valid, and the token. The token is None when none
+            was found or it was rejected; it is returned with False when the
+            account's email is unverified.
+        """
+        access_token, source = cls.resolve_token_with_source()
+        if access_token is None:
+            return False, None
+
+        is_valid = ServiceClient.is_auth_token_outdated(access_token)
+        if is_valid is False:
+            # Discard only what actually failed. A bad TABPFN_TOKEN must not
+            # take the cached token from an earlier login down with it, or
+            # unsetting the variable would leave the user with nothing.
+            cls._discard_token(source)
+            return False, None
+        elif is_valid is None:
+            return False, access_token
+
+        logger.debug(f"Reusing existing access token? {is_valid}")
+        cls.set_token(access_token)
+
+        return True, access_token
+
+    @classmethod
+    def reset_cache(cls):
+        """Drop the process token, the cached token and the TABPFN_TOKEN option."""
+        cls._reset_token()
+
+    @classmethod
+    def _discard_token(cls, source: str | None) -> None:
+        """Drop the rejected token, leaving the other sources intact."""
+        ServiceClient.reset_authorization()
+        if source == "cache":
+            cls.CACHED_TOKEN_FILE.unlink(missing_ok=True)
+        elif source == "env":
+            # The variable is set outside the client; here it can only be used
+            # or unset, never set.
+            get_opts().TABPFN_TOKEN = None
+
+    @classmethod
+    def _reset_token(cls):
+        """Drop the process token, the cached token and the TABPFN_TOKEN option."""
+        ServiceClient.reset_authorization()
+        cls.CACHED_TOKEN_FILE.unlink(missing_ok=True)
+        # The TABPFN_TOKEN var is always set externally in the environment, in
+        # the client it can only be used or unset, never set.
+        # Note: we should prefix with the module to make sure the variable is not
+        # only mutated in the local module binding.
+        get_opts().TABPFN_TOKEN = None
+
+    @classmethod
+    def retrieve_greeting_messages(cls):
+        """Return greeting messages from the server that are new for the user."""
+        return ServiceClient.retrieve_greeting_messages()
+
+
+class UserDataClient(ServiceClientWrapper, Singleton):
+    """Wrapper of ServiceClient to handle user data.
+
+    Queries or deletes user account data, and queries, downloads or deletes
+    uploaded data.
+    """
+
+    @classmethod
+    def get_data_summary(cls) -> dict:
+        """Return the summary of the user's data from the server."""
+        return ServiceClient.get_data_summary()
+
+    @classmethod
+    def download_all_data(cls, save_dir: Path = Path(".")) -> Path:
+        """Download all data uploaded by the user.
+
+        Args:
+            save_dir: Directory to save the download into.
+
+        Returns:
+            The path to the downloaded file.
+
+        Raises:
+            RuntimeError: If the download fails.
+        """
+        saved_path = ServiceClient.download_all_data(save_dir)
+        if saved_path is None:
+            raise RuntimeError("Failed to download data.")
+
+        logger.info(f"Data saved to {saved_path}")
+        return saved_path
+
+    @classmethod
+    def delete_dataset(cls, dataset_uid: str) -> list[str]:
+        """Delete a dataset; deleting a train set also deletes its test sets.
+
+        Args:
+            dataset_uid: The UID of the dataset to delete.
+
+        Returns:
+            The UIDs of the deleted datasets.
+        """
+        deleted_datasets = ServiceClient.delete_dataset(dataset_uid)
+        logger.info(f"Deleted datasets: {deleted_datasets}")
+        return deleted_datasets
+
+    @classmethod
+    def delete_all_datasets(cls) -> list[str]:
+        """Delete all datasets uploaded by the user.
+
+        Returns:
+            The UIDs of the deleted datasets.
+        """
+        deleted_datasets = ServiceClient.delete_all_datasets()
+        logger.info(f"Deleted datasets: {deleted_datasets}")
+        return deleted_datasets
+
+    @classmethod
+    def delete_user_account(cls):
+        """Delete the user account after the user confirms it interactively."""
+        # local import to avoid circular import
+        from tabpfn_client.prompt_agent import PromptAgent
+
+        if not PromptAgent.confirm_user_account_deletion():
+            logger.info("Account deletion cancelled — confirmation phrase not entered.")
+            return
+
+        ServiceClient.delete_user_account()
+        PromptAgent.prompt_account_deleted()
+
+
+class InferenceClient(ServiceClientWrapper, Singleton):
+    """Wrapper of ServiceClient to handle inference (fitting and prediction)."""
+
+    def __new__(cls):
+        """Refuse instantiation; use the classmethods instead.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise TypeError(
+            "This class should not be instantiated. Use classmethods instead."
+        )
+
+    @classmethod
+    def fit(
+        cls,
+        X: pd.DataFrame | np.ndarray,
+        y: pd.Series | np.ndarray,
+        task_config: FitTaskConfig,
+        tabpfn_systems: list[TabPFNSystem],
+        thinking_config: ThinkingConfig | None,
+        api_mode: ApiMode,
+        client_options: ClientOptions | None,
+        description: str | None,
+        text_handling: TextHandling = "advanced",
+    ) -> UUID:
+        """Upload a train set to the server, fit it, and wait for the fit.
+
+        Same as `fit_with_result`, returning only the fitted train set id.
+
+        Args:
+            X: The training input samples, of shape (n_samples, n_features).
+            y: The target values, of shape (n_samples,) or (n_samples, n_outputs).
+            task_config: The configuration for the fit task.
+            tabpfn_systems: The systems to use for the fit.
+            thinking_config: The configuration for the thinking mode.
+            api_mode: The API mode to use for the fit: SYNC, ASYNC, or AUTO.
+            client_options: Client specific options (e.g. timeout, headers).
+            description: Description of the dataset and task for the server.
+            text_handling: Text-processing preset, ``"advanced"`` or ``"simple"``.
+
+        Returns:
+            The unique ID of the fitted train set.
+
+        Raises:
+            ValueError: If ``text_handling`` is invalid or the in-memory size of
+                ``X`` or ``y`` exceeds the server limit.
+            FitFailedError: If the server reports that the fit failed.
+            TimeoutError: If the fit has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
+        """
+        return ServiceClient.fit(
+            X,
+            y,
+            task_config=task_config,
+            tabpfn_systems=tabpfn_systems,
+            text_handling=text_handling,
+            thinking_config=thinking_config,
+            api_mode=api_mode,
+            client_options=client_options,
+            description=description,
+        )
+
+    @classmethod
+    def fit_with_result(
+        cls,
+        X: pd.DataFrame | np.ndarray,
+        y: pd.Series | np.ndarray,
+        task_config: FitTaskConfig,
+        tabpfn_systems: list[TabPFNSystem],
+        thinking_config: ThinkingConfig | None,
+        api_mode: ApiMode,
+        client_options: ClientOptions | None,
+        description: str | None,
+        text_handling: TextHandling = "advanced",
+        wait: bool = True,
+    ) -> FitResponse:
+        """Upload a train set to the server and fit it.
+
+        See `ServiceClient.fit_with_result`.
+
+        Args:
+            X: The training input samples, of shape (n_samples, n_features).
+            y: The target values, of shape (n_samples,) or (n_samples, n_outputs).
+            task_config: The configuration for the fit task.
+            tabpfn_systems: The systems to use for the fit.
+            thinking_config: The configuration for the thinking mode.
+            api_mode: The API mode to use for the fit: SYNC, ASYNC, or AUTO.
+            client_options: Client specific options (e.g. timeout, headers).
+            description: Description of the dataset and task for the server.
+            text_handling: Text-processing preset, ``"advanced"`` or ``"simple"``.
+            wait: Whether to poll the server until the fit completes.
+
+        Returns:
+            The fit as the server reports it: its id, its status and its
+            timings. A fit not waited for may still be PENDING.
+
+        Raises:
+            ValueError: If ``text_handling`` is invalid or the in-memory size of
+                ``X`` or ``y`` exceeds the server limit.
+            FitFailedError: If the server reports that a fit waited for failed.
+            TimeoutError: If a fit waited for has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
+        """
+        return ServiceClient.fit_with_result(
+            X,
+            y,
+            task_config=task_config,
+            tabpfn_systems=tabpfn_systems,
+            text_handling=text_handling,
+            thinking_config=thinking_config,
+            api_mode=api_mode,
+            client_options=client_options,
+            description=description,
+            wait=wait,
+        )
+
+    @classmethod
+    def wait_for_fit(
+        cls,
+        fitted_train_set_id: UUID,
+        client_options: ClientOptions | None = None,
+    ) -> GetFitStatusResponse:
+        """Wait until the server completes a fit.
+
+        See `ServiceClient._wait_for_fit`.
+
+        Args:
+            fitted_train_set_id: The id of the fit.
+            client_options: Client specific options; only the headers apply.
+
+        Returns:
+            The status of the completed fit, with its timings.
+
+        Raises:
+            FitFailedError: If the server reports that the fit failed.
+            FittedModelNotFoundError: If the server has no fit with this id.
+            TimeoutError: If the fit has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
+            RuntimeError: If polling for the fit fails 4 times in a row with
+                an unexpected error.
+        """
+        return ServiceClient._wait_for_fit(
+            fitted_train_set_id,
+            headers=client_options.headers if client_options else None,
+        )
+
+    @classmethod
+    def predict(
+        cls,
+        X: pd.DataFrame | np.ndarray,
+        fitted_train_set_id: UUID,
+        task_config: ClassifierConfig | RegressorConfig,
+        client_options: ClientOptions | None = None,
+        *,
+        api_mode: ApiMode = ApiMode.SYNC,
+        n_train_rows: int | None = None,
+        thinking: bool = False,
+        on_accepted: Callable[[UUID | None], None] | None = None,
+    ) -> PredictionResult:
+        """Predict on a test set with a fitted train set.
+
+        See `ServiceClient.predict`.
+
+        Args:
+            X: The test input, of shape (n_samples, n_features).
+            fitted_train_set_id: The unique ID of the fitted train set in the server.
+            task_config: The classification or regression task configuration.
+            client_options: Client specific options (e.g. timeout, headers).
+            api_mode: The API mode to use for the prediction: SYNC, ASYNC, or AUTO.
+            n_train_rows: The fit's train rows, for AUTO; None if unknown.
+            thinking: Whether the fit runs in thinking mode, for AUTO.
+            on_accepted: Called once the server has accepted the prediction:
+                with its id before the client polls for it, when it runs as a
+                background job, or with None once the server has answered with
+                the prediction itself.
+
+        Returns:
+            The prediction, its metadata, the server-reported timings and the
+            prediction's id.
+
+        Raises:
+            ValueError: If the in-memory size of ``X`` exceeds the server
+                limit, or ``api_mode`` is not a valid mode.
+            FittedModelNotFoundError: If the fitted train set is not found.
+            PredictFailedError: If the server reports that the prediction
+                failed, in answer to the prediction request or to a poll for it.
+            RefitRequiredError: If the fitted model can no longer predict and
+                must be fitted again.
+            TimeoutError: If a prediction the client polls for has not completed
+                within the poll timeout.
+        """
+        return ServiceClient.predict(
+            x_test=X,
+            fitted_train_set_id=fitted_train_set_id,
+            task_config=task_config,
+            client_options=client_options,
+            api_mode=api_mode,
+            n_train_rows=n_train_rows,
+            thinking=thinking,
+            on_accepted=on_accepted,
+        )
+
+    @classmethod
+    def predict_chunks(
+        cls,
+        x_chunks: Iterable[pd.DataFrame | np.ndarray],
+        fitted_train_set_id: UUID,
+        task_config: ClassifierConfig | RegressorConfig,
+        client_options: ClientOptions | None = None,
+        *,
+        api_mode: ApiMode = ApiMode.SYNC,
+        n_train_rows: int | None = None,
+        thinking: bool = False,
+        on_accepted: Callable[[UUID | None], None] | None = None,
+    ) -> list[PredictionResult]:
+        """Predict several test sets with one fitted train set.
+
+        Background predictions overlap, up to 4 at once. See
+        `ServiceClient.predict_chunks`.
+
+        Args:
+            x_chunks: The test sets, each of shape (n_samples, n_features).
+            fitted_train_set_id: The unique ID of the fitted train set in the server.
+            task_config: The classification or regression task configuration.
+            client_options: Client specific options (e.g. timeout, headers).
+            api_mode: The API mode for each test set: SYNC, ASYNC, or AUTO.
+            n_train_rows: The fit's train rows, for AUTO; None if unknown.
+            thinking: Whether the fit runs in thinking mode, for AUTO.
+            on_accepted: Called once the server has accepted each test set's
+                prediction, as `predict` calls it.
+
+        Returns:
+            One result per test set, in the order of ``x_chunks``.
+
+        Raises:
+            ValueError: If the in-memory size of a test set exceeds the server
+                limit, or ``api_mode`` is not a valid mode.
+            FittedModelNotFoundError: If the fitted train set is not found.
+            PredictFailedError: If the server reports that a prediction
+                failed, in answer to its request or to a poll for it.
+            RefitRequiredError: If the fitted model can no longer predict and
+                must be fitted again.
+            TimeoutError: If a prediction the client polls for has not completed
+                within the poll timeout.
+        """
+        return ServiceClient.predict_chunks(
+            fitted_train_set_id=fitted_train_set_id,
+            x_chunks=x_chunks,
+            task_config=task_config,
+            client_options=client_options,
+            api_mode=api_mode,
+            n_train_rows=n_train_rows,
+            thinking=thinking,
+            on_accepted=on_accepted,
+        )
+
+    @classmethod
+    def submit_predict(
+        cls,
+        X: pd.DataFrame | np.ndarray,
+        fitted_train_set_id: UUID,
+        task_config: ClassifierConfig | RegressorConfig,
+        client_options: ClientOptions | None = None,
+    ) -> UUID:
+        """Start predicting on a test set, without waiting for the prediction.
+
+        See `ServiceClient.submit_predict`.
+
+        Args:
+            X: The test input, of shape (n_samples, n_features).
+            fitted_train_set_id: The unique ID of the fitted train set in the server.
+            task_config: The classification or regression task configuration.
+            client_options: Client specific options (e.g. timeout, headers).
+
+        Returns:
+            The id of the prediction, which `wait_for_predict` takes.
+
+        Raises:
+            ValueError: If the in-memory size of ``X`` exceeds the server limit.
+            FittedModelNotFoundError: If the fitted train set is not found.
+            RuntimeError: If the server does not run predictions as background
+                jobs.
+            PredictFailedError: If the server reports that the prediction
+                failed at once, for example because it could not queue it.
+        """
+        return ServiceClient.submit_predict(
+            x_test=X,
+            fitted_train_set_id=fitted_train_set_id,
+            task_config=task_config,
+            client_options=client_options,
+        )
+
+    @classmethod
+    def wait_for_predict(
+        cls,
+        fitted_test_set_id: UUID | str,
+        client_options: ClientOptions | None = None,
+    ) -> PredictionResult:
+        """Wait for a prediction the server accepted, and return it.
+
+        Also returns, for at least a day after it completes, the result of a
+        prediction whose wait broke off, given the id it logged. See
+        `ServiceClient.wait_for_predict`.
+
+        Args:
+            fitted_test_set_id: The id of the prediction, as a UUID or a string.
+            client_options: Client specific options (e.g. timeout, headers).
+
+        Returns:
+            The prediction, as `predict` returns it.
+
+        Raises:
+            ValueError: If `fitted_test_set_id` is not a valid id.
+            PredictFailedError: If the server reports that the prediction failed.
+            RefitRequiredError: If the fitted model can no longer predict and
+                must be fitted again.
+            TimeoutError: If the prediction has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
+            RuntimeError: If the server does not have the prediction, for
+                instance because its result is no longer stored, or polling
+                for it fails.
+        """
+        return ServiceClient.wait_for_predict(
+            fitted_test_set_id, client_options=client_options
+        )

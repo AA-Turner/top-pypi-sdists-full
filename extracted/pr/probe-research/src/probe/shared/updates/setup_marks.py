@@ -9,7 +9,7 @@ from pathlib import Path
 
 # At import, not in the calls: an update in place replaces these files before
 # the updater's last read of a record (updater.py's H8).
-from probe.service import procid
+from probe.foundation.service_api import procid
 from probe.shared.updates import step as update_step
 
 LOCK_FILENAME = update_step.WIZARD_LOCK_NAME

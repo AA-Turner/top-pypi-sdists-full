@@ -1,0 +1,29 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-catalog-plugin"
+version = "0.1.0"
+license = { text = "BSD-3-Clause" }
+description = "Catalog backend plugin for the Reactor music example"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+# Installing this distribution publishes its CLI commands: `reactor` discovers
+# the group and `reactor catalog songs` is there, with nothing on the host side
+# naming this package.
+[project.entry-points."datalayer.reactor.cli"]
+catalog = "catalog_plugin:plugin"
+
+[tool.setuptools]
+packages = ["catalog_plugin"]

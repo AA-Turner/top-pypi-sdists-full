@@ -1,0 +1,133 @@
+[project]
+name = "cc-transcript"
+version = "14.45.36" # informational — releases stamp the version from the git tag
+description = "Grep every Claude Code session you've ever run."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Yasyf Mohamedali", email = "yasyfm@gmail.com" }]
+keywords = [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "transcripts",
+    "jsonl",
+    "parser",
+    "cli",
+    "agents",
+    "sentiment",
+    "feedback-mining",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Rust",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "orjson>=3.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "anyio>=4.4",
+    "pytest>=8.0",
+    "pydantic>=2.0",
+    "ty>=0.0.44",
+    "ruff>=0.8",
+]
+llm = ["spawnllm>=0.17.1,<0.18"]
+judge = [
+    "sqlite-vec>=0.1.9",
+    "model2vec>=0.8.2",
+    "numpy>=1.26",
+]
+
+[project.scripts]
+cc-transcript = "cc_transcript._native:cli_main"
+
+[project.urls]
+Homepage = "https://github.com/yasyf/cc-transcript"
+Documentation = "https://yasyf.github.io/cc-transcript/"
+Repository = "https://github.com/yasyf/cc-transcript"
+Issues = "https://github.com/yasyf/cc-transcript/issues"
+Changelog = "https://github.com/yasyf/cc-transcript/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "cc_transcript._native"
+manifest-path = "rust/crates/py/Cargo.toml"
+python-source = "."
+features = ["extension-module"]
+include = [
+    "cc_transcript/sentiment/data/*.tsv",
+    { path = "cc_transcript/sentiment/data/en-ewt.udpipe", format = "sdist" },
+    "cc_transcript/snapshot_schema/*.json",
+]
+exclude = [{ path = "cc_transcript/sentiment/data/en-ewt.udpipe", format = "wheel" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--tb=short", "-q"]
+markers = [
+    "integration: Integration tests",
+]
+
+# ty (Astral) is the default type checker — run `uv run ty check cc_transcript`.
+# It is fast, understands modern syntax, and avoids the strict-pyright false
+# positives on pydantic/attrs-style dynamic defaults and PK-type overrides.
+[tool.ty.rules]
+# Keep cross-checker `# type: ignore` / `# pyright: ignore` comments from tripping ty.
+unused-type-ignore-comment = "ignore"
+unresolved-import = "ignore"
+
+# pyright is kept as a secondary checker (editors / `uvx pyright`). Basic mode plus
+# a few disables covers the noise; ty is the gate that runs in CI.
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+include = ["cc_transcript"]
+venvPath = "."
+venv = ".venv"
+reportImplicitOverride = "none"
+reportIncompatibleVariableOverride = "none"
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+reportUnknownLambdaType = "none"
+reportMissingTypeArgument = "none"
+reportPrivateImportUsage = "none"
+reportUnusedCallResult = "none"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+src = [".", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[dependency-groups]
+docs = [
+    # great-docs imports griffe's 2.x module layout; griffelib is the modern
+    # griffe (2.x) distribution, kept aligned with the griffe~=2.1 pin great-docs
+    # 0.15 now declares directly.
+    "griffelib>=2.0",
+    # 0.14 ships the build-time GitHub widget stats (embedded via the CI
+    # GITHUB_TOKEN) that drop the navbar widget's client-side API calls — the
+    # source of GitHub 403 errors on the published site — so the git-main pin is
+    # no longer needed.
+    "great-docs>=0.15,<0.16",
+]

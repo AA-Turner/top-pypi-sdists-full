@@ -1,3 +1,0 @@
-from typing import Any
-
-def bfs_beam_edges(G, source, value, width: Any | None = ...): ...

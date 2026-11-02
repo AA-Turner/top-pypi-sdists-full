@@ -167,7 +167,7 @@ class GetEntityMixin:
             # The card is what an agent reads before reporting on an entity, so
             # it is where the shareable link has to be if the report is going to
             # carry one. Omitted when unknown rather than guessed -- see
-            # sdk.links.dashboard_base_url.
+            # sdk.reads.links.dashboard_base_url.
             url = links.entity_url(
                 kind,
                 entity.get("id") if isinstance(entity, dict) else None,
@@ -188,7 +188,7 @@ class GetEntityMixin:
         next_cursor: str | None = None
         # A row view that emitted every row it has. False for an atomic view,
         # which has no rows and therefore no "walk" to be at the end of.
-        rows_exhausted = False
+        is_rows_exhausted = False
 
         if result.rows is None:
             if request.offset:
@@ -211,7 +211,7 @@ class GetEntityMixin:
                 emitted = _fit(window, max(0, token_budget - _tokens(data)))
             data[result.rows_key] = emitted
             budget_cut = len(emitted) < len(window)
-            rows_exhausted = not budget_cut and not result.more_beyond
+            is_rows_exhausted = not budget_cut and not result.more_beyond
             if (budget_cut or result.more_beyond) and result.resume_key:
                 # Resume on the route's own cursor, after the last row SENT --
                 # or, having sent none, from where this page itself began; but
@@ -252,7 +252,7 @@ class GetEntityMixin:
         #
         # The marker rides along either way; it just stops deciding the verdict.
         verdict = [
-            m for m in missing if not (m == MissingMarker.TOKEN_BUDGET_EXCEEDED and rows_exhausted)
+            m for m in missing if not (m == MissingMarker.TOKEN_BUDGET_EXCEEDED and is_rows_exhausted)
         ]
         # NO_MATCH outranks PARTIAL: it is the ANSWER to the question asked, while
         # `missing` describes the response's own completeness, and the two are

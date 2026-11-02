@@ -1,0 +1,294 @@
+#
+#            PySceneDetect: Python-Based Video Scene Detector
+#   -------------------------------------------------------------------
+#     [  Site:    https://scenedetect.com                           ]
+#     [  Docs:    https://scenedetect.com/docs/                     ]
+#     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
+#
+# Copyright (C) 2021 Brandon Castellano <http://www.bcastell.com>.
+# PySceneDetect is licensed under the BSD 3-Clause License; see the
+# included LICENSE file, or visit one of the above pages for details.
+#
+"""PySceneDetect Scene Detection Tests
+
+These tests ensure that the detection algorithms deliver consistent
+results by using known ground truths of scene cut locations in the
+test case material.
+"""
+
+import os
+from dataclasses import dataclass
+
+import numpy as np
+import pytest
+
+from scenedetect import FrameTimecode, SceneDetector, SceneManager, StatsManager, detect
+from scenedetect.backends.opencv import VideoStreamCv2
+from scenedetect.detectors import (
+    AdaptiveDetector,
+    ContentDetector,
+    HashDetector,
+    HistogramDetector,
+    ThresholdDetector,
+)
+
+# Untyped so each entry retains its concrete `type[...]` for parameterized construction
+# (calls below pass detector-specific kwargs like `min_scene_len`).
+FAST_CUT_DETECTORS = (
+    AdaptiveDetector,
+    ContentDetector,
+    HashDetector,
+    HistogramDetector,
+)
+
+ALL_DETECTORS = (*FAST_CUT_DETECTORS, ThresholdDetector)
+
+# TODO(https://scenedetect.com/issues/53): Add a test that verifies algorithms output relatively
+# consistent frame scores regardless of resolution. This will ensure that threshold values will hold
+# true for different input sources. Most detectors already provide this guarantee, so this is more
+# to prevent any regressions in the future.
+
+
+# TODO: Reduce code duplication here and in `conftest.py`
+def get_absolute_path(relative_path: str) -> str:
+    """Returns the absolute path to a (relative) path of a file that
+    should exist within the tests/ directory.
+
+    Throws FileNotFoundError if the file could not be found.
+    """
+    abs_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), relative_path)
+    if not os.path.exists(abs_path):
+        raise FileNotFoundError(
+            f"""
+Test video file ({relative_path}) must be present to run test case. This file can be obtained by running the following commands from the root of the repository:
+
+git fetch --depth=1 https://github.com/Breakthrough/PySceneDetect.git refs/heads/resources:refs/remotes/origin/resources
+git checkout refs/remotes/origin/resources -- tests/resources/
+git reset
+"""
+        )
+    return abs_path
+
+
+@dataclass
+class TestCase:
+    __test__ = False
+    """Properties for detector test cases."""
+    path: str
+    """Path to video for test case."""
+    detector: SceneDetector
+    """Detector instance to use."""
+    start_time: int
+    """Start time as frames."""
+    end_time: int
+    """End time as frames."""
+    scene_boundaries: list[int]
+    """Scene boundaries."""
+
+    def detect(self):
+        """Run scene detection for test case. Should only be called once."""
+        return detect(
+            video_path=self.path,
+            detector=self.detector,
+            start_time=self.start_time,
+            end_time=self.end_time,
+        )
+
+
+def get_fast_cut_test_cases():
+    """Fixture for parameterized test cases that detect fast cuts."""
+    test_cases = []
+    # goldeneye.mp4 with min_scene_len = 15 (default). HistogramDetector's recalibrated defaults
+    # (threshold=0.20, bins=128) are less sensitive and do not trigger on the cut at frame 1260.
+    test_cases += [
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/goldeneye.mp4"),
+                detector=detector_type(min_scene_len=15),
+                start_time=1199,
+                end_time=1450,
+                scene_boundaries=(
+                    [1199, 1226, 1281, 1334, 1365]
+                    if detector_type is HistogramDetector
+                    else [1199, 1226, 1260, 1281, 1334, 1365]
+                ),
+            ),
+            id=f"{detector_type.__name__}/default",
+        )
+        for detector_type in FAST_CUT_DETECTORS
+    ]
+    # goldeneye.mp4 with min_scene_len = 30
+    test_cases += [
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/goldeneye.mp4"),
+                detector=detector_type(min_scene_len=30),
+                start_time=1199,
+                end_time=1450,
+                scene_boundaries=(
+                    [1199, 1281, 1334, 1365]
+                    if detector_type is HistogramDetector
+                    else [1199, 1260, 1334, 1365]
+                ),
+            ),
+            id=f"{detector_type.__name__}/m=30",
+        )
+        for detector_type in FAST_CUT_DETECTORS
+    ]
+    return test_cases
+
+
+def get_fade_in_out_test_cases():
+    """Fixture for parameterized test cases that detect fades."""
+    # TODO: min_scene_len doesn't seem to be working as intended for ThresholdDetector.
+    # Possibly related to #278: https://github.com/Breakthrough/PySceneDetect/issues/278
+    return [
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/testvideo.mp4"),
+                detector=ThresholdDetector(),
+                start_time=0,
+                end_time=500,
+                scene_boundaries=[0, 15, 198, 377],
+            ),
+            id="threshold_testvideo_default",
+        ),
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/fades.mp4"),
+                detector=ThresholdDetector(),
+                start_time=0,
+                end_time=250,
+                scene_boundaries=[0, 84, 167],
+            ),
+            id="threshold_fades_default",
+        ),
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/fades.mp4"),
+                detector=ThresholdDetector(
+                    threshold=11.0,
+                    method=ThresholdDetector.Method.FLOOR,
+                    add_final_scene=True,
+                ),
+                start_time=0,
+                end_time=250,
+                scene_boundaries=[0, 84, 167, 245],
+            ),
+            id="threshold_fades_floor",
+        ),
+        pytest.param(
+            TestCase(
+                path=get_absolute_path("resources/fades.mp4"),
+                detector=ThresholdDetector(
+                    threshold=243.0,
+                    method=ThresholdDetector.Method.CEILING,
+                    add_final_scene=True,
+                ),
+                start_time=0,
+                end_time=250,
+                scene_boundaries=[0, 42, 126, 209],
+            ),
+            id="threshold_fades_ceil",
+        ),
+    ]
+
+
+@pytest.mark.parametrize("test_case", get_fast_cut_test_cases())
+def test_detect_fast_cuts(test_case: TestCase):
+    scene_list = test_case.detect()
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
+
+    assert start_frames == test_case.scene_boundaries
+    assert scene_list[0][0] == test_case.start_time
+    assert scene_list[-1][1] == test_case.end_time
+
+
+@pytest.mark.parametrize("test_case", get_fade_in_out_test_cases())
+def test_detect_fades(test_case: TestCase):
+    scene_list = test_case.detect()
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
+    assert start_frames == test_case.scene_boundaries
+    assert scene_list[0][0] == test_case.start_time
+    assert scene_list[-1][1] == test_case.end_time
+
+
+def test_detectors_with_stats(test_video_file):
+    """Test all detectors functionality with a StatsManager."""
+    # TODO(v1.0): Parameterize this test case (move fixture from cli to test config).
+    for detector in ALL_DETECTORS:
+        video = VideoStreamCv2(test_video_file)
+        stats = StatsManager()
+        scene_manager = SceneManager(stats_manager=stats)
+        scene_manager.add_detector(detector())
+        scene_manager.auto_downscale = True
+        end_time = FrameTimecode("00:00:05", video.frame_rate)
+        scene_manager.detect_scenes(video=video, end_time=end_time)
+        initial_scene_len = len(scene_manager.get_scene_list())
+        assert initial_scene_len > 0, "Test case must have at least one scene."
+        # Re-analyze using existing stats manager.
+        scene_manager = SceneManager(stats_manager=stats)
+        scene_manager.add_detector(detector())
+        video.reset()
+        scene_manager.auto_downscale = True
+        scene_manager.detect_scenes(video=video, end_time=end_time)
+        scene_list = scene_manager.get_scene_list()
+        assert len(scene_list) == initial_scene_len
+
+
+@pytest.mark.parametrize("detector_type", FAST_CUT_DETECTORS)
+@pytest.mark.parametrize(
+    "min_scene_len",
+    # 30 frames at goldeneye.mp4's 24000/1001 (~23.976) fps is ~1.2513s. All four forms should
+    # produce identical cut lists, demonstrating that detectors accept temporal as well as
+    # frame-count values.
+    [30, 1.25, "1.25s", "00:00:01.250"],
+)
+def test_min_scene_len_accepts_time_values(detector_type, min_scene_len):
+    """Detectors accept min_scene_len as int (frames), float (seconds), or str (timecode)."""
+    test_case = TestCase(
+        path=get_absolute_path("resources/goldeneye.mp4"),
+        detector=detector_type(min_scene_len=min_scene_len),
+        start_time=1199,
+        end_time=1450,
+        # HistogramDetector's recalibrated defaults do not trigger on the cut at frame 1260
+        # (see `get_fast_cut_test_cases`).
+        scene_boundaries=(
+            [1199, 1281, 1334, 1365]
+            if detector_type is HistogramDetector
+            else [1199, 1260, 1334, 1365]
+        ),
+    )
+    scene_list = test_case.detect()
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
+    assert start_frames == test_case.scene_boundaries
+
+
+def test_adaptive_detector_min_scene_len_uses_target_frame():
+    """AdaptiveDetector applies min_scene_len to the emitted cut, not the current frame.
+
+    AdaptiveDetector scores a target frame `window_width` behind the frame currently
+    being processed. Comparing min_scene_len against the current frame lets a second
+    peak emit a cut only `window_width` frames after the previous one (issue #408).
+    """
+    window_width = 20
+    min_scene_len = 24
+    detector = AdaptiveDetector(
+        adaptive_threshold=2.0,
+        window_width=window_width,
+        min_scene_len=min_scene_len,
+        min_content_val=15.0,
+        luma_only=True,
+    )
+    fps = 30.0
+    n_frames = 180
+    cuts: list[FrameTimecode] = []
+    for frame_num in range(n_frames):
+        # Hard cuts at 100 and 104 (4 frames apart) plus a later valid cut at 140.
+        # The 4-frame pair matches the report: min_scene_len - window_width.
+        value = 255 if 100 <= frame_num <= 103 or 140 <= frame_num <= 143 else 0
+        frame = np.full((16, 16, 3), value, dtype=np.uint8)
+        cuts.extend(detector.process_frame(FrameTimecode(frame_num, fps), frame))
+
+    cut_frames = [cut.frame_num for cut in cuts]
+    assert cut_frames == [100, 140]

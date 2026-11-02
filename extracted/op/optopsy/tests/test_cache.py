@@ -1,0 +1,303 @@
+from datetime import date, timedelta
+
+import pandas as pd
+import pytest
+
+pytest.importorskip("requests", reason="UI extras not installed")
+pytest.importorskip("pyarrow", reason="UI extras not installed")
+
+from optopsy.ui.providers.cache import ParquetCache, compute_date_gaps
+
+# -- ParquetCache --
+
+
+@pytest.fixture
+def cache(tmp_path):
+    return ParquetCache(cache_dir=str(tmp_path))
+
+
+@pytest.fixture
+def sample_df():
+    return pd.DataFrame({"symbol": ["AAPL", "AAPL"], "price": [150.0, 151.0]})
+
+
+class TestParquetCacheReadWrite:
+    def test_read_missing_returns_none(self, cache):
+        assert cache.read("options", "AAPL") is None
+
+    def test_write_then_read(self, cache, sample_df):
+        cache.write("options", "AAPL", sample_df)
+        result = cache.read("options", "AAPL")
+        assert result is not None
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_symbol_uppercased(self, cache, sample_df):
+        cache.write("options", "aapl", sample_df)
+        result = cache.read("options", "AAPL")
+        assert result is not None
+        assert len(result) == 2
+
+    def test_separate_categories(self, cache, sample_df):
+        cache.write("options", "AAPL", sample_df)
+        assert cache.read("stocks", "AAPL") is None
+
+    def test_corrupt_file_returns_none(self, cache, tmp_path):
+        path = tmp_path / "options"
+        path.mkdir()
+        (path / "AAPL.parquet").write_text("not a parquet file")
+        assert cache.read("options", "AAPL") is None
+
+    def test_read_does_not_create_directories(self, cache, tmp_path):
+        """read() should not create category directories as a side effect."""
+        cache.read("newcategory", "AAPL")
+        assert not (tmp_path / "newcategory").exists()
+
+
+class TestParquetCacheMergeAndSave:
+    def test_merge_no_existing(self, cache):
+        df = pd.DataFrame({"a": [1, 2]})
+        result = cache.merge_and_save("options", "AAPL", df)
+        assert len(result) == 2
+        assert cache.read("options", "AAPL") is not None
+
+    def test_merge_with_existing_deduplicates(self, cache):
+        df1 = pd.DataFrame({"a": [1, 2, 3]})
+        df2 = pd.DataFrame({"a": [2, 3, 4]})
+        cache.write("options", "AAPL", df1)
+        result = cache.merge_and_save("options", "AAPL", df2)
+        assert sorted(result["a"].tolist()) == [1, 2, 3, 4]
+
+    def test_merge_preserves_on_disk(self, cache):
+        df1 = pd.DataFrame({"a": [1, 2]})
+        df2 = pd.DataFrame({"a": [3, 4]})
+        cache.write("options", "AAPL", df1)
+        cache.merge_and_save("options", "AAPL", df2)
+        on_disk = cache.read("options", "AAPL")
+        assert sorted(on_disk["a"].tolist()) == [1, 2, 3, 4]
+
+    def test_merge_with_dedup_cols_keeps_last(self, cache):
+        """When dedup_cols is provided, newer data wins for matching keys."""
+        df1 = pd.DataFrame({"key": ["a", "b"], "val": [1, 2]})
+        df2 = pd.DataFrame({"key": ["b", "c"], "val": [20, 3]})
+        cache.write("options", "AAPL", df1)
+        result = cache.merge_and_save("options", "AAPL", df2, dedup_cols=["key"])
+        assert len(result) == 3
+        b_row = result[result["key"] == "b"]
+        assert b_row["val"].iloc[0] == 20  # newer value wins
+
+    def test_merge_with_empty_existing(self, cache, tmp_path):
+        """Existing cache file with zero rows should behave like no cache."""
+        empty_df = pd.DataFrame({"a": pd.Series([], dtype="int64")})
+        cache.write("options", "AAPL", empty_df)
+        # Verify read returns the empty frame (not None)
+        assert cache.read("options", "AAPL") is not None
+        assert cache.read("options", "AAPL").empty
+        # merge_and_save should treat it like no existing data
+        new_df = pd.DataFrame({"a": [1, 2]})
+        result = cache.merge_and_save("options", "AAPL", new_df)
+        assert len(result) == 2
+
+
+class TestParquetCacheClear:
+    def test_clear_all(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        cache.write("options", "AAPL", sample_df)
+        count = cache.clear()
+        assert count == 2
+        assert cache.size() == {}
+
+    def test_clear_symbol(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        cache.write("options", "AAPL", sample_df)
+        count = cache.clear(symbol="SPY")
+        assert count == 1
+        assert "options/SPY.parquet" not in cache.size()
+        assert "options/AAPL.parquet" in cache.size()
+
+    def test_clear_symbol_case_insensitive(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        count = cache.clear(symbol="spy")
+        assert count == 1
+
+    def test_clear_nonexistent(self, cache):
+        count = cache.clear(symbol="NOPE")
+        assert count == 0
+
+    def test_clear_across_categories(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        cache.write("stocks", "SPY", sample_df)
+        count = cache.clear(symbol="SPY")
+        assert count == 2
+
+
+class TestParquetCacheSize:
+    def test_empty_cache(self, tmp_path):
+        c = ParquetCache(cache_dir=str(tmp_path))
+        assert c.size() == {}
+        assert c.total_size_bytes() == 0
+
+    def test_with_files(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        entries = cache.size()
+        assert "options/SPY.parquet" in entries
+        assert entries["options/SPY.parquet"] > 0
+        assert cache.total_size_bytes() > 0
+
+    def test_multiple_files(self, cache, sample_df):
+        cache.write("options", "SPY", sample_df)
+        cache.write("options", "AAPL", sample_df)
+        entries = cache.size()
+        assert len(entries) == 2
+        assert cache.total_size_bytes() == sum(entries.values())
+
+    def test_nonexistent_cache_dir(self):
+        c = ParquetCache(cache_dir="/tmp/nonexistent_optopsy_cache_dir")
+        assert c.size() == {}
+        assert c.total_size_bytes() == 0
+
+
+# -- _compute_date_gaps --
+
+
+def _make_cached_df(dates, date_column="quote_date"):
+    return pd.DataFrame({date_column: pd.to_datetime(dates)})
+
+
+class TestComputeDateGaps:
+    def test_no_cache_returns_full_range(self):
+        gaps = compute_date_gaps(None, date(2024, 1, 1), date(2024, 3, 1))
+        assert gaps == [("2024-01-01", "2024-03-01")]
+
+    def test_empty_cache_returns_full_range(self):
+        gaps = compute_date_gaps(pd.DataFrame(), date(2024, 1, 1), date(2024, 3, 1))
+        assert gaps == [("2024-01-01", "2024-03-01")]
+
+    def test_no_dates_no_cache_returns_fetch_all(self):
+        """(None, None) means 'fetch everything' — no date filters applied."""
+        gaps = compute_date_gaps(None, None, None)
+        assert gaps == [(None, None)]
+
+    def test_full_cache_hit_no_gaps(self):
+        # Dense cache every 3 days — request falls entirely within
+        cached = _make_cached_df(pd.date_range("2024-01-01", "2024-03-01", freq="3D"))
+        gaps = compute_date_gaps(cached, date(2024, 1, 15), date(2024, 2, 15))
+        assert gaps == []
+
+    def test_gap_before_cache(self):
+        # Dense cache from Mar-Jun, request starts before cache
+        cached = _make_cached_df(pd.date_range("2024-03-01", "2024-06-01", freq="3D"))
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 5, 1))
+        assert gaps == [("2024-01-01", "2024-02-29")]
+
+    def test_gap_after_cache(self):
+        # Dense cache from Jan-Mar, request extends past cache
+        cached = _make_cached_df(pd.date_range("2024-01-01", "2024-03-01", freq="3D"))
+        gaps = compute_date_gaps(cached, date(2024, 2, 1), date(2024, 6, 1))
+        assert gaps == [("2024-03-02", "2024-06-01")]
+
+    def test_gaps_both_sides(self):
+        # Dense cache every 3 days — well under interior gap threshold
+        dates = pd.date_range("2024-03-01", "2024-06-01", freq="3D")
+        cached = _make_cached_df(dates)
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 9, 1))
+        assert ("2024-01-01", "2024-02-29") in gaps
+        # After-gap starts the day after the actual cached max
+        cached_max = dates[-1].date()
+        after_start = str(cached_max + timedelta(days=1))
+        assert (after_start, "2024-09-01") in gaps
+
+    def test_no_end_date_fetches_after_cache(self):
+        # Dense cache from Jan-Mar
+        cached = _make_cached_df(pd.date_range("2024-01-01", "2024-03-01", freq="3D"))
+        cached_max = pd.date_range("2024-01-01", "2024-03-01", freq="3D")[-1].date()
+        gaps = compute_date_gaps(cached, date(2024, 2, 1), None)
+        assert gaps == [(str(cached_max + timedelta(days=1)), None)]
+
+    def test_exact_match_dense_cache_no_gaps(self):
+        """Dense cache covering the full range produces no gaps."""
+        # Dates 3 days apart — well under the interior gap threshold
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-04", "2024-01-07", "2024-01-10"]
+        )
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 1, 10))
+        assert gaps == []
+
+    def test_custom_date_column(self):
+        # Dense cache from Jan-Mar with custom date column
+        cached = _make_cached_df(
+            pd.date_range("2024-01-01", "2024-03-01", freq="3D"),
+            date_column="date",
+        )
+        gaps = compute_date_gaps(
+            cached, date(2024, 2, 1), date(2024, 6, 1), date_column="date"
+        )
+        assert gaps == [("2024-03-02", "2024-06-01")]
+
+    def test_missing_date_column_returns_full_range(self):
+        cached = pd.DataFrame({"other_col": [1, 2, 3]})
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 3, 1))
+        assert gaps == [("2024-01-01", "2024-03-01")]
+
+    def test_interior_gap_detected(self):
+        """A >5-day hole inside the cached range triggers a re-fetch."""
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-02", "2024-02-01", "2024-02-02"]
+        )
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 2, 2))
+        # Jan 2 → Feb 1 is 30 days apart, well over the threshold
+        assert ("2024-01-03", "2024-01-31") in gaps
+
+    def test_small_interior_gap_ignored(self):
+        """Gaps ≤5 calendar days (normal weekends/holidays) are not flagged."""
+        # 4-day gap between Jan 3 and Jan 7 (typical weekend + 1)
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-03", "2024-01-07", "2024-01-10"]
+        )
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 1, 10))
+        assert gaps == []
+
+    def test_interior_gap_outside_request_ignored(self):
+        """Interior gaps outside the requested range are not flagged."""
+        # Big gap between Jan 5 and Feb 20, but request only covers Jan 1-5
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-05", "2024-02-20", "2024-02-25"]
+        )
+        gaps = compute_date_gaps(cached, date(2024, 1, 1), date(2024, 1, 5))
+        assert gaps == []
+
+    def test_interior_gap_straddling_overlap_detected(self):
+        """A gap that straddles the overlap boundary should still be detected."""
+        # Cache: Jan 1-2 and Mar 1-2 (big gap in between)
+        # Request: Jan 15 to Feb 15 (entirely inside the gap)
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-02", "2024-03-01", "2024-03-02"]
+        )
+        gaps = compute_date_gaps(cached, date(2024, 1, 15), date(2024, 2, 15))
+        # Gap should be clamped to the requested range
+        assert ("2024-01-15", "2024-02-15") in gaps
+
+    def test_interior_gap_clamped_to_request(self):
+        """Interior gap bounds should be clamped to the overlap region."""
+        # Cache: Jan 1 and Jun 1 (huge gap). Request: Feb 1 to Apr 1
+        cached = _make_cached_df(["2024-01-01", "2024-06-01"])
+        gaps = compute_date_gaps(cached, date(2024, 2, 1), date(2024, 4, 1))
+        # Should fetch Feb 1 to Apr 1, not Jan 2 to May 31
+        assert ("2024-02-01", "2024-04-01") in gaps
+
+    def test_check_interior_false_skips_interior_gaps(self):
+        """check_interior=False ignores interior gaps but still detects before/after."""
+        # 30-day interior gap between Jan 2 and Feb 1
+        cached = _make_cached_df(
+            ["2024-01-01", "2024-01-02", "2024-02-01", "2024-02-02"]
+        )
+        gaps = compute_date_gaps(
+            cached,
+            date(2023, 12, 1),
+            date(2024, 3, 1),
+            check_interior=False,
+        )
+        # Interior gap (Jan 3 → Jan 31) must NOT appear
+        assert ("2024-01-03", "2024-01-31") not in gaps
+        # Before and after gaps must still be detected
+        assert ("2023-12-01", "2023-12-31") in gaps
+        assert ("2024-02-03", "2024-03-01") in gaps

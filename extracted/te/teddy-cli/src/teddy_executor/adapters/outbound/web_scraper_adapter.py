@@ -1,0 +1,368 @@
+from teddy_executor.adapters.outbound.suppressed_logging import suppressed_logging
+from teddy_executor.core.ports.outbound.web_scraper import WebScraper
+from teddy_executor.core.ports.outbound.config_service import IConfigService
+
+
+MIN_GITHUB_CONTENT_LENGTH = 10
+HTTP_BAD_REQUEST = 400
+HTTP_FORBIDDEN = 403
+HTTP_NOT_ACCEPTABLE = 406
+HTTP_TOO_MANY_REQUESTS = 429
+HTTP_INTERNAL_SERVER_ERROR = 500
+
+
+class WebScraperAdapter(WebScraper):
+    """
+    An adapter that implements the WebScraper port using requests and trafilatura.
+    """
+
+    def __init__(self, config_service: IConfigService = None):  # type: ignore
+        self._config_service = config_service
+
+    def _get_trafilatura(self):
+        """Lazy-load trafilatura to keep CLI startup fast."""
+        import trafilatura
+
+        return trafilatura
+
+    def _get_bs4(self):
+        """Lazy-load BeautifulSoup to keep CLI startup fast."""
+        from bs4 import BeautifulSoup
+
+        return BeautifulSoup
+
+    def _extract_github_conversation(self, html: str) -> str:
+        """
+        Extracts issue or pull request content and comments from GitHub HTML.
+        Uses a hybrid strategy: JSON-embedded data (primary) and CSS selectors (fallback).
+        """
+        import json
+
+        soup = self._get_bs4()(html, "html.parser")
+
+        # 1. Primary: Try high-fidelity extraction from embedded JSON data
+        scripts = soup.find_all("script", type="application/json")
+        for script in scripts:
+            if not script.string:
+                continue
+            try:
+                data = json.loads(script.string)
+                result = self._parse_github_json(data)
+                if result:
+                    return result
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                continue
+
+        # 2. Fallback: CSS-based scraping
+        return self._scrape_github_html(soup)
+
+    def _find_key_recursive(self, obj, target_key):
+        """Recursively search for a key in a nested dictionary/list."""
+        if isinstance(obj, dict):
+            if target_key in obj:
+                return obj[target_key]
+            for v in obj.values():
+                res = self._find_key_recursive(v, target_key)
+                if res:
+                    return res
+        elif isinstance(obj, list):
+            for item in obj:
+                res = self._find_key_recursive(item, target_key)
+                if res:
+                    return res
+        return None
+
+    def _gather_edges_recursive(self, obj, edges_out: list):
+        """Recursively gather all 'edges' lists into the output list."""
+        if isinstance(obj, dict):
+            if "edges" in obj and isinstance(obj["edges"], list):
+                edges_out.extend(obj["edges"])
+            for v in obj.values():
+                self._gather_edges_recursive(v, edges_out)
+        elif isinstance(obj, list):
+            for i in obj:
+                self._gather_edges_recursive(i, edges_out)
+
+    def _parse_github_json(self, data: dict) -> str | None:
+        """Helper to recursively find and parse issue/PR data from JSON."""
+        container = self._find_key_recursive(data, "issue") or self._find_key_recursive(
+            data, "pullRequest"
+        )
+        if not container or not isinstance(container, dict):
+            return None
+
+        title = (
+            container.get("title")
+            or container.get("titleHtml")
+            or container.get("titleText")
+            or "Unknown Title"
+        )
+        body = container.get("body") or container.get("bodyHTML", "")
+
+        all_edges: list[dict] = []
+        self._gather_edges_recursive(data, all_edges)
+
+        comments = []
+        seen_ids = set()
+        for edge in all_edges:
+            node = edge.get("node", {}) if isinstance(edge, dict) else {}
+            node_id = node.get("id")
+            if node_id and node_id not in seen_ids:
+                if node.get("__typename") in [
+                    "IssueComment",
+                    "PullRequestReview",
+                    "PullRequestReviewComment",
+                ]:
+                    seen_ids.add(node_id)
+                    author = node.get("author", {}).get("login", "unknown")
+                    c_body = node.get("body") or node.get("bodyHTML") or ""
+                    comments.append(
+                        f"### {node.get('__typename')} by {author}\n{c_body}\n\n"
+                    )
+
+        return f"# {title}\n\n## Description\n{body}\n\n" + "".join(comments)
+
+    def _scrape_github_html(self, soup) -> str:
+        """Helper for CSS-based fallback scraping."""
+        title_elem = soup.select_one(".markdown-title") or soup.select_one(
+            ".gh-header-title"
+        )
+        title = title_elem.get_text(strip=True) if title_elem else "GitHub Content"
+
+        bodies = soup.select(".markdown-body")
+        content_blocks = []
+        for i, block in enumerate(bodies):
+            text = block.get_text(separator="\n", strip=True)
+            if len(text) > MIN_GITHUB_CONTENT_LENGTH:
+                label = "Description" if i == 0 else f"Comment {i}"
+                content_blocks.append(f"## {label}\n{text}\n\n")
+
+        return f"# {title}\n\n" + "".join(content_blocks)
+
+    def _is_retryable_error(self, status_code: int | None) -> bool:
+        """Determines if an HTTP error is transient and should be retried."""
+        if not status_code:
+            return True
+        # Retry on 5xx (server errors) or 429 (Too Many Requests)
+        return (
+            status_code >= HTTP_INTERNAL_SERVER_ERROR
+            or status_code == HTTP_TOO_MANY_REQUESTS
+        )
+
+    def _fetch_with_ua(self, url: str, ua: str, max_retries: int) -> str | None:
+        """Internal helper to attempt fetch with a specific User-Agent and retries."""
+        import requests
+        import time
+
+        headers = {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+        }
+
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=headers, timeout=5)
+                response.raise_for_status()
+                return response.text
+            except requests.exceptions.HTTPError as e:
+                status_code = getattr(e.response, "status_code", None)
+
+                # 403/406 signal a need for UA rotation, not same-UA retry
+                if status_code in [HTTP_FORBIDDEN, HTTP_NOT_ACCEPTABLE]:
+                    return None
+
+                if self._is_retryable_error(status_code) and attempt < max_retries - 1:
+                    time.sleep(2**attempt)
+                    continue
+                raise
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                if attempt < max_retries - 1:
+                    time.sleep(2**attempt)
+                    continue
+                return None
+            except Exception:
+                return None
+        return None
+
+    def _fetch_with_rotation(self, url: str) -> str | None:
+        """Attempts to fetch HTML content using a rotating pool of User-Agents and retries."""
+        user_agents = [
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
+        ]
+
+        max_retries = 3
+        if self._config_service:
+            val = self._config_service.get_setting("research.max_scraper_retries", 3)
+            if val is not None:
+                max_retries = int(val)
+
+        last_error: Exception | None = None
+
+        for ua in user_agents:
+            try:
+                html_content = self._fetch_with_ua(url, ua, max_retries)
+                if html_content:
+                    return html_content
+            except Exception as e:
+                last_error = e
+                continue
+
+        # FIX: Skip trafilatura fetch_url if we already have a last_error.
+        # Calling trafilatura.fetch_url on a URL that already failed will
+        # log "not a 200 response" to stderr, which we want to prevent.
+        if last_error is not None:
+            raise last_error
+
+        # Final Resort: Trafilatura's internal fetcher
+        html_content = self._get_trafilatura().fetch_url(url)
+        return html_content
+
+    def _handle_github_raw(self, url: str) -> str | None:
+        """Handles specialized fetching for GitHub raw content with retries."""
+        import requests
+        import time
+
+        is_raw_github = url.startswith("https://raw.githubusercontent.com/")
+        is_github_blob = url.startswith("https://github.com/") and "/blob/" in url
+
+        if not (is_raw_github or is_github_blob):
+            return None
+
+        target_url = (
+            url.replace("github.com", "raw.githubusercontent.com").replace(
+                "/blob/", "/"
+            )
+            if is_github_blob
+            else url
+        )
+
+        max_retries = 3
+        if self._config_service:
+            val = self._config_service.get_setting("research.max_scraper_retries", 3)
+            if val is not None:
+                max_retries = int(val)
+
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(
+                    target_url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, Gecko) Chrome/124.0.0.0 Safari/537.36"
+                    },
+                    timeout=5,
+                )
+                response.raise_for_status()
+                return response.text
+            except (
+                requests.exceptions.HTTPError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ) as e:
+                if attempt < max_retries - 1:
+                    status_code = getattr(
+                        getattr(e, "response", None), "status_code", None
+                    )
+                    # Don't retry on most 4xx
+                    if (
+                        status_code
+                        and HTTP_BAD_REQUEST <= status_code < HTTP_INTERNAL_SERVER_ERROR
+                        and status_code not in [HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]
+                    ):
+                        raise
+                    time.sleep(2**attempt)
+                    continue
+                raise
+        return None
+
+    def _truncate_content(self, markdown_content: str) -> str:
+        """Truncates markdown content based on read.max_lines configuration."""
+        if not self._config_service or not markdown_content:
+            return markdown_content
+
+        max_lines = self._config_service.get_setting("read.max_lines", None)
+        if max_lines is not None:
+            try:
+                max_lines_int = int(max_lines)
+                lines = markdown_content.splitlines()
+                if len(lines) > max_lines_int:
+                    return "\n".join(lines[:max_lines_int])
+            except (ValueError, TypeError):
+                pass
+        return markdown_content
+
+    def get_content(self, url: str, truncate: bool = True, **_kwargs) -> str:
+        """
+        Fetches and extracts the content from the given URL.
+        Employs a multi-stage stealth rotation to bypass automated blocking.
+
+        Args:
+            url: The URL to fetch content from.
+            truncate: Whether to apply the read.max_lines cap (default True).
+                Context assembly passes False so embedded content is verbatim.
+            **_kwargs: Optional extraction hints.
+
+        Returns:
+            The extracted text content.
+        """
+        # Suppress logging below CRITICAL to prevent trafilatura's internal
+        # LOGGER messages from reaching the terminal. A counted, thread-safe
+        # scope is required: get_content() runs concurrently (ContextService
+        # fetches context URLs via a ThreadPoolExecutor), and a bare
+        # logging.disable() enter/restore toggle is racy — the first caller
+        # to exit re-opens the process-global threshold while siblings are
+        # still inside trafilatura.extract(), letting their WARNINGs escape.
+        with suppressed_logging():
+            return self._get_content_impl(url, truncate=truncate, **_kwargs)
+
+    def _get_content_impl(self, url: str, truncate: bool = True, **_kwargs) -> str:
+        """Internal implementation of get_content (extracted for logging suppression wrapper)."""
+        # 1. Specialized handling for GitHub raw content
+        raw_github_content = self._handle_github_raw(url)
+        if raw_github_content is not None:
+            return raw_github_content
+
+        # 2. Multi-stage Stealth Rotation for general URLs
+        html_content = self._fetch_with_rotation(url)
+        if not html_content:
+            return ""
+
+        # 3. Routing: Use specialized extractor for GitHub Issues and Pull Requests
+        is_github_domain = (
+            "github.com" in url or "localhost" in url or "127.0.0.1" in url
+        )
+        if is_github_domain and ("/issues/" in url or "/pull/" in url):
+            github_content = self._extract_github_conversation(html_content)
+            if github_content:
+                return github_content
+
+        trafilatura = self._get_trafilatura()
+        markdown_content = trafilatura.extract(
+            html_content,
+            url=url,
+            output_format="markdown",
+            include_links=True,
+            include_formatting=True,
+            favor_recall=False,
+            include_comments=False,
+            include_tables=True,
+        )
+
+        if not markdown_content:
+            return ""
+
+        if not truncate:
+            return markdown_content
+
+        return self._truncate_content(markdown_content)

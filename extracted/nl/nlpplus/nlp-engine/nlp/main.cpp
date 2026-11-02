@@ -1,0 +1,520 @@
+/*******************************************************************************
+Copyright © 1999-2006 Text Analysis International, Inc.
+All rights reserved.
+********************************************************************************
+*
+* NAME: MAIN.CPP
+* FILE: main.cpp
+* CR:   01/29/99 AM.
+* SUBJ: Sample driver program that uses the Analyzer and KB API functions.
+*       Loading an analyzer invokes the user extensions library (user/user.dll).
+* ENV:  APPS - a default environment variable for VisualText applications.
+*
+*******************************************************************************/
+
+#include "lite/nlp_engine.h"
+#include "lite/zonerange.h"
+#include "version.h"
+
+#include <vector>
+
+#define NLP_ENGINE_VERSION "4.2.52"
+
+bool cmdReadArgs(int, _TCHAR *argv[], _TCHAR *&, _TCHAR *&, _TCHAR *&, _TCHAR *&, bool &, bool &, bool &, bool &, bool &, bool &, int &, bool &, bool &, _TCHAR *&, double &, _TCHAR *&);
+void cmdHelpargs(_TCHAR *);
+
+#include "lite/nlpdebug.h"
+
+#ifdef LINUX
+int main(
+#else
+int _tmain(
+#endif
+	int argc,
+	_TCHAR *argv[],
+	_TCHAR *envp[])
+{
+
+	/////////////////////////////////////////////////
+	// READ ARGUMENTS
+	/////////////////////////////////////////////////
+	// Need to get command line arguments and/or some kind of init file.
+	_TCHAR *analyzerpath = 0, *input = 0, *output = 0, *workdir = 0;
+	bool develop = false; // Development mode.
+	_TCHAR *sequence = 0;
+	bool compile = false;   // Compile analyzer and KB.
+	bool compiled = false;  // Run compiled/interp analyzer.
+	bool silent = false;    // No log/debug output files.
+	bool compileKB = false; // Compile only the KB to C++.
+	bool compileAna = false; // Compile only the analyzer to C++.
+	int debugPort = 0;       // -debug <port>: rule-level debug server. 0 = off.
+	bool stream = false;     // -STDIN: read input file paths from stdin.
+	bool dictSource = false; // -DICTSOURCE: nodes record their .dict file and line.
+	_TCHAR *datum = 0;       // -DATUM value: G("$datum") in the analyzer.
+	double timeLimit = 0;    // -TIMELIMIT seconds: stop a run past it. 0 = none.
+	_TCHAR *zones = 0;       // -ZONES 40-45: run only these zones in zone mode.
+
+	/////////////////////////////////////////////////
+	// GET APP INFORMATION
+	/////////////////////////////////////////////////
+
+	// Get analyzer name, input and output filenames from command line.
+	if (!cmdReadArgs(argc, argv, analyzerpath, input, output, workdir, develop, compile, compiled, silent, compileKB, compileAna, debugPort, stream, dictSource, datum, timeLimit, zones))
+		exit(1);
+	if (dictSource)
+		NLP_ENGINE::setDictSource(true);	// #432.
+
+	// Rule-level debugger. Blocks until a client attaches, so it is only started
+	// for an actual analysis run -- attaching to a compile would wait forever on
+	// a process that never reaches a rule.
+	if (debugPort > 0 && !compile && !compileKB && !compileAna)
+		NlpDebug::listen(debugPort);
+
+	// Each mode's result decides the exit status: a missing analyzer or input
+	// used to exit 0, so scripts and CI could not tell it had failed (#484).
+	int rc = 0;
+	// No -WORK means the current folder. Passing the null pointer on to the
+	// std::string parameter was undefined behavior and crashed (#347).	// 10/13/26 DD.
+	NLP_ENGINE *nlpEngine = new NLP_ENGINE(workdir ? workdir : _T(""));
+	if (datum)
+		nlpEngine->setDatum(datum);
+	if (timeLimit > 0)
+		nlpEngine->setRunLimit((long long)(timeLimit * 1000.0));
+	if (zones)
+		nlpEngine->setZoneRange(zones);	// Checked in cmdReadArgs.
+	if (compile)
+	{
+		// Compile mode: generate C++ code for the analyzer and KB.
+		// Analysis is not run; the generated C++ must be compiled externally
+		// (e.g. via the NLP++ language extension) before running with -COMPILED.
+		std::_t_cout << _T("[Compiling analyzer and KB: ") << analyzerpath << _T("]") << std::endl;
+		rc = nlpEngine->init(analyzerpath, develop, silent, compile, compiled, compileKB, compileAna);
+		std::_t_cout << (rc < 0 ? _T("[Compile failed.]") : _T("[Compile complete.]")) << std::endl;
+	}
+	else if (compileKB)
+	{
+		// KB-only compile: generate C++ code for the KB.
+		// The analyzer grammar is not loaded.
+		std::_t_cout << _T("[Compiling KB only: ") << analyzerpath << _T("]") << std::endl;
+		rc = nlpEngine->init(analyzerpath, develop, silent, compile, compiled, compileKB, compileAna);
+		std::_t_cout << (rc < 0 ? _T("[KB compile failed.]") : _T("[KB compile complete.]")) << std::endl;
+	}
+	else if (compileAna)
+	{
+		// Analyzer-only compile: generate C++ code for the analyzer rules.
+		// The KB is loaded but not regenerated/recompiled.
+		std::_t_cout << _T("[Compiling analyzer only: ") << analyzerpath << _T("]") << std::endl;
+		rc = nlpEngine->init(analyzerpath, develop, silent, compile, compiled, compileKB, compileAna);
+		std::_t_cout << (rc < 0 ? _T("[Analyzer compile failed.]") : _T("[Analyzer compile complete.]")) << std::endl;
+	}
+	else if (stream)
+	{
+		// Load once, then analyze each input file path read from stdin (#548).
+		rc = nlpEngine->analyzeStream(analyzerpath, std::cin, output, develop, silent, compiled);
+	}
+	else
+	{
+		rc = nlpEngine->analyze(analyzerpath, input, output, develop, silent, compile, compiled, compileKB, compileAna);
+	}
+	NlpDebug::runEnd();
+	NlpDebug::shutdown();
+	// A run stopped at -TIMELIMIT exits 2: it is neither a success nor the
+	// missing analyzer or input that exits 1.						// 10/25/26 DD.
+	bool stopped = nlpEngine->lastRunStopped();
+	delete nlpEngine;
+	return rc < 0 ? 1 : (stopped ? 2 : 0);
+}
+
+/********************************************
+ * FN:		CMDREADARGS
+ * CR:		11/30/98 AM.
+ * SUBJ:	Get command line arguments.
+ * RET:	True if ok read, else false if failed.
+ * NOTE:	06/16/02 AM. Renamed from dosReadargs, moved to user project.
+ ********************************************/
+
+bool cmdReadArgs(
+	int argc,
+	_TCHAR *argv[],
+	_TCHAR *&anapath,  // Analzyer name
+	_TCHAR *&input,	   // Input file from args.
+	_TCHAR *&output,   // Output file from args.
+	_TCHAR *&workdir,  // Working directory from args.
+	bool &develop,	   // Development mode (output intermediate files).
+	bool &compile,	   // true - compile analyzer and KB.
+	bool &compiled,	   // true - compiled ana. false=interp(DEFAULT).
+	bool &silent,	   // true == only output files specified by analyzer.
+	bool &compileKB,   // true - compile only the KB to C++.
+	bool &compileAna,  // true - compile only the analyzer to C++.
+	int &debugPort,	   // -debug <port>: rule-level debug server. 0 = off.
+	bool &stream,	   // -STDIN: read input file paths from stdin.
+	bool &dictSource,  // -DICTSOURCE: nodes record their .dict file and line.
+	_TCHAR *&datum,    // -DATUM value: G("$datum") in the analyzer.
+	double &timeLimit,  // -TIMELIMIT seconds: stop a run past it.
+	_TCHAR *&zones     // -ZONES spec: run only these zones in zone mode.
+)
+{
+	_TCHAR *ptr;
+	_TCHAR *ptrPrev;
+	_TCHAR **parg;
+	bool f_ana = false;
+	bool f_in = false;
+	bool f_out = false;
+	bool f_work = false;
+	bool f_debug = false;
+	bool f_datum = false;
+	bool f_timelimit = false;
+	bool f_zones = false;
+	bool flag = false;
+	bool compiledck = false; // If compiled/interp arg seen.
+	bool doubledash = false;
+
+	anapath = input = output = 0;
+	develop = false;   // Default is not development mode.
+	compile = false;   // Don't compile by default.
+	compiled = false;  // INTERP ANALYZER BY DEFAULT
+	silent = false;	   // Produce debug files, etc. by default.		// 06/16/02 AM.
+	compileKB = false; // Don't compile KB-only by default.
+	compileAna = false; // Don't compile analyzer-only by default.
+	debugPort = 0;	  // No debug server unless -debug <port> is given.
+	stream = false;	  // Inputs come from the command line by default.
+
+	for (--argc, parg = &(argv[1]); argc > 0; --argc, ++parg)
+	{
+		// For each command line argument.
+		//*gout << "command arg=" << *parg << std::endl;
+		ptr = *parg;
+
+		// Strip one pair of surrounding quotes. Needs two characters: an empty
+		// argument ("") used to read ptr[-1].					// 10/13/26 DD.
+		if (strlen(ptr) >= 2 &&
+			((ptr[0] == '"' && ptr[strlen(ptr) - 1] == '"') || (ptr[0] == '\'' && ptr[strlen(ptr) - 1] == '\'')))
+		{
+			ptr = &ptr[1];
+			ptr[strlen(ptr) - 1] = '\0';
+		}
+
+		if (strcmp_i(ptr, _T("--version")) && strcmp_i(ptr, _T("--help")))
+			std::_t_cerr << _T("[command arg: ") << ptr << _T("]") << std::endl;
+
+		if (*ptr == '-') // DOS or UNIX style arg.
+		{
+			if (flag)
+			{
+				std::_t_cerr << _T("[Error in command line args for ") << *ptr << _T("]") << std::endl;
+				return false;
+			}
+			++ptr;
+			doubledash = false;
+			if (*ptr == '-')
+			{
+				doubledash = true;
+				++ptr;
+			}
+			if (doubledash)
+			{
+				// --help and --version are successful runs: exit 0, not the
+				// failure path (which exits 1).						// 10/13/26 DD.
+				if (!strcmp_i(ptr, _T("help")))
+				{
+					cmdHelpargs(argv[0]);
+					exit(0);
+				}
+				else if (!strcmp_i(ptr, _T("version")))
+				{
+#ifdef LINUX
+					// std::_t_cout << "Version " << Version() << std::std::endl;
+					std::_t_cout << _T(NLP_ENGINE_VERSION) << std::endl;
+#else
+					std::_t_cout << _T(NLP_ENGINE_VERSION) << std::endl;
+#endif
+					exit(0);
+				}
+				else
+				{
+					std::_t_cerr << _T("[") << argv[0] << _T(": unknown option --") << ptr << _T("]") << std::endl;
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+			}
+			else if (!strcmp_i(ptr, _T("ana")))
+				f_ana = flag = true; // Expecting input file.
+			else if (!strcmp_i(ptr, _T("in")))
+				f_in = flag = true; // Expecting input file.
+			else if (!strcmp_i(ptr, _T("out")))
+				f_out = flag = true; // Expecting output file.
+			else if (!strcmp_i(ptr, _T("work")))
+				f_work = flag = true;			// Expecting output file.
+			else if (!strcmp_i(ptr, _T("debug")))
+				f_debug = flag = true;			// Expecting a TCP port.
+			else if (!strcmp_i(ptr, _T("datum")))
+				f_datum = flag = true;			// Expecting G("$datum").
+			else if (!strcmp_i(ptr, _T("timelimit")))
+				f_timelimit = flag = true;		// Expecting seconds.
+			else if (!strcmp_i(ptr, _T("zones")))
+				f_zones = flag = true;			// Expecting zone numbers.
+			else if (!strcmp_i(ptr, _T("dev"))) // 12/25/98 AM.
+			{
+				if (silent)
+				{
+					std::_t_cerr << _T("[Ignoring /dev flag.]");
+					develop = false;
+				}
+				else
+					develop = true; // Development mode.
+			}
+			else if (!strcmp_i(ptr, _T("silent"))) // 06/16/02 AM.
+			{
+				if (develop)
+				{
+					std::_t_cerr << _T("[Ignoring /dev flag.]");
+					develop = false;
+				}
+				silent = true; // 06/16/02 AM.
+			}
+			else if (!strcmp_i(ptr, _T("interp"))) // Run interpreted analyzer.
+			{
+				if (compiledck)
+					std::_t_cerr << _T("[Ignoring extra /compiled or /interp flag.]");
+				else
+				{
+					compiledck = true;
+					compiled = false;
+				}
+			}
+			else if (!strcmp_i(ptr, _T("compiled"))) // Run compiled analyzer.
+			{
+				if (compiledck)
+					std::_t_cerr << _T("[Ignoring extra /compiled or /interp flag.]");
+				else
+				{
+					compiledck = true;
+					compiled = true;
+				}
+			}
+			else if (!strcmp_i(ptr, _T("compile"))) // Compile analyzer and KB.
+			{
+				compile = true;
+			}
+			else if (!strcmp_i(ptr, _T("compilekb"))) // Compile only the KB to C++.
+			{
+				compileKB = true;
+			}
+			else if (!strcmp_i(ptr, _T("compileana"))) // Compile only the analyzer to C++.
+			{
+				compileAna = true;
+			}
+			else if (!strcmp_i(ptr, _T("stdin"))) // Read input file paths from stdin.
+			{
+				stream = true;
+			}
+			else if (!strcmp_i(ptr, _T("dictsource"))) // #432.
+			{
+				dictSource = true;
+			}
+			else
+			{
+				// Used to be ignored silently, so a typo like -ANALYZER ran with
+				// no analyzer at all.							// 10/13/26 DD.
+				std::_t_cerr << _T("[") << argv[0] << _T(": unknown option -") << ptr << _T("]") << std::endl;
+				cmdHelpargs(argv[0]);
+				return false;
+			}
+		}
+		else if (flag) // Expected an argument value.
+		{
+			if (f_ana)
+			{
+				if (anapath)
+				{
+					std::_t_cerr << _T("[") << argv[0] << _T(": analyzer specified twice.]");
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				anapath = ptr;
+				f_ana = flag = false;
+			}
+			else if (f_in)
+			{
+				if (input)
+				{
+					std::_t_cerr << _T("[") << argv[0] << _T(": Input file specified twice.]");
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				// Grab value as input file.
+				input = ptr;
+				f_in = flag = false;
+			}
+			else if (f_out)
+			{
+				if (output)
+				{
+					std::_t_cerr << _T("[") << argv[0]
+								 << _T(": Output file specified twice.]");
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				// Grab value as output file.
+				output = ptr;
+				f_out = flag = false;
+			}
+			else if (f_work)
+			{
+				if (workdir)
+				{
+					std::_t_cerr << _T("[") << argv[0]
+								 << _T(": Output file specified twice.]");
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				// Grab value as output file.
+				workdir = ptr;
+				f_work = flag = false;
+			}
+			else if (f_datum)
+			{
+				datum = ptr;
+				f_datum = flag = false;
+			}
+			else if (f_timelimit)
+			{
+				timeLimit = _tstof(ptr);
+				if (timeLimit <= 0)
+				{
+					std::_t_cerr << _T("[") << argv[0]
+								 << _T(": -TIMELIMIT needs a number of seconds above 0.]") << std::endl;
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				f_timelimit = flag = false;
+			}
+			else if (f_zones)
+			{
+				std::vector<std::pair<long,long>> ranges;
+				if (!parseZoneRange(ptr, ranges))
+				{
+					std::_t_cerr << _T("[") << argv[0]
+								 << _T(": -ZONES needs zone numbers from 1, eg 7, 40-45 or 3,40-45.]") << std::endl;
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				zones = ptr;
+				f_zones = flag = false;
+			}
+			else if (f_debug)
+			{
+				debugPort = _ttoi(ptr);
+				if (debugPort <= 0 || debugPort > 65535)
+				{
+					std::_t_cerr << _T("[") << argv[0]
+								 << _T(": -debug needs a TCP port between 1 and 65535.]") << std::endl;
+					cmdHelpargs(argv[0]);
+					return false;
+				}
+				f_debug = flag = false;
+			}
+		}
+		else // Got a "floating" value.
+		{
+			if (input && output)
+			{
+				std::_t_cerr << _T("[") << argv[0] << _T(": Extra arguments.]") << std::endl;
+				cmdHelpargs(argv[0]);
+				return false;
+			}
+			else if (input)
+				output = ptr;
+			else
+				input = ptr;
+		}
+		ptrPrev = ptr;
+	}
+	if (flag)
+	{
+		// The last argument was an option that takes a value, eg "-ANA".
+		std::_t_cerr << _T("[") << argv[0] << _T(": ")
+					 << (f_ana ? _T("-ANA") : f_in ? _T("-IN") : f_out ? _T("-OUT") : f_work ? _T("-WORK") : f_datum ? _T("-DATUM") : f_timelimit ? _T("-TIMELIMIT") : f_zones ? _T("-ZONES") : _T("-DEBUG"))
+					 << _T(" needs a value.]") << std::endl;
+		cmdHelpargs(argv[0]);
+		return false;
+	}
+	if (!anapath)
+	{
+		// Without an analyzer there is nothing to run. This used to go on and
+		// crash (#347).												// 10/13/26 DD.
+		std::_t_cerr << _T("[") << argv[0] << _T(": no analyzer given. Use -ANA <analyzer>.]") << std::endl;
+		cmdHelpargs(argv[0]);
+		return false;
+	}
+	if (stream && input)
+	{
+		std::_t_cerr << _T("[") << argv[0]
+					 << _T(": -STDIN reads its inputs from stdin; drop the input file argument.]") << std::endl;
+		return false;
+	}
+	return true;
+}
+
+/********************************************
+ * FN:		CMDHELPARGS
+ * CR:		11/30/98 AM.
+ * SUBJ:	Print command line argument help.
+ * RET:	True if ok read, else false if failed.
+ * NOTE:	06/16/02 AM. Renamed from dosHelpargs, moved to user project.
+ ********************************************/
+
+void cmdHelpargs(_TCHAR *name)
+{
+	std::_t_cout << std::endl
+				 << _T("usage: nlp -ANA <analyzer> [-WORK <engine folder>] [options] <input> [<outdir>]") << std::endl
+				 << _T("       nlp -ANA <analyzer> [-WORK <engine folder>] [options] -STDIN") << std::endl
+				 << _T("       nlp --help | --version") << std::endl
+				 << std::endl
+				 << _T("Running") << std::endl
+				 << _T("  -ANA analyzer       analyzer folder: a path, or a name under <engine folder>/analyzers") << std::endl
+				 << _T("  -WORK folder        the engine folder, holding data/ and analyzers/ (default: current folder)") << std::endl
+				 << _T("  -IN input           input file, or a folder of them; or give it as the first plain argument") << std::endl
+				 << _T("  -OUT folder         folder for this run's logs and trees, in place of <input>_log;") << std::endl
+				 << _T("                      made if missing. Or give it as the second plain argument") << std::endl
+				 << _T("  -STDIN              load once, then analyze one input file path per stdin line;") << std::endl
+				 << _T("                      a blank line or EOF ends the run. Each input is analyzed") << std::endl
+				 << _T("                      when the next line arrives, so $islastfile can be set") << std::endl
+				 << _T("  -DATUM value        a string the analyzer reads as G(\"$datum\")") << std::endl
+				 << std::endl
+				 << _T("Debugging") << std::endl
+				 << _T("  -DEV                write logs and the parse tree after every pass (slow on large inputs)") << std::endl
+				 << _T("  -SILENT             write no logs or output files, not even the analyzer's own") << std::endl
+				 << _T("  -DEBUG port         wait for a rule debugger on 127.0.0.1:port, then run under it") << std::endl
+				 << _T("  -DICTSOURCE         nodes built from .dict entries get dictfile and dictline") << std::endl
+				 << _T("                      attributes naming the entry's file and line") << std::endl
+				 << std::endl
+				 << _T("Limits and zone mode") << std::endl
+				 << _T("  -TIMELIMIT seconds  stop an input's analysis that runs longer, at its next") << std::endl
+				 << _T("                      while turn or pass; the run then exits 2") << std::endl
+				 << _T("  -ZONES 40-45        zone mode: run only these zones (7, 40-45, 3,40-45; from 1,") << std::endl
+				 << _T("                      as in z040-ana###.tree); the others get only the passes") << std::endl
+				 << _T("                      before the zone line") << std::endl
+				 << std::endl
+				 << _T("Compiled analyzers") << std::endl
+				 << _T("  -COMPILE            generate C++ for the analyzer and its KB; does not analyze") << std::endl
+				 << _T("  -COMPILEKB          generate C++ for the KB only") << std::endl
+				 << _T("  -COMPILEANA         generate C++ for the analyzer only") << std::endl
+				 << _T("  -COMPILED           run the compiled analyzer (bin/run and bin/kb libraries)") << std::endl
+				 << _T("  -INTERP             run the analyzer from its .nlp files (the default)") << std::endl
+				 << std::endl
+				 << _T("Environment") << std::endl
+				 << _T("  NLP_REC_LIMIT=N     a rec pass region may match N times plus N/50 per node;") << std::endl
+				 << _T("                      N is 1000 by default, and 0 lifts the limit") << std::endl
+				 << std::endl
+				 << _T("Exit status") << std::endl
+				 << _T("  0  success") << std::endl
+				 << _T("  1  bad arguments, or a missing analyzer, input or output folder") << std::endl
+				 << _T("  2  a run stopped at -TIMELIMIT") << std::endl
+				 << std::endl
+				 << _T("Directories in the nlp.exe files:") << std::endl
+				 << _T("   data        nlp engine bootstrap grammar") << std::endl
+				 << _T("   analyzers   default location for nlp++ analyzer folders") << std::endl
+				 << _T("   visualtext  common files for the VisualText IDE") << std::endl
+				 << std::endl;
+}

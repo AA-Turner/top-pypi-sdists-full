@@ -344,7 +344,9 @@ def prune_sources_for_aggregates(
     # Compare grains by canonical address so canonically-equivalent components
     # (e.g. `x_date.year` and `year_via_func` sharing the same lineage hash)
     # don't disqualify a precomputed datasource that binds the named form.
-    addr_to_canonical = {bc.address: bc.canonical_address for bc in g.concepts.values()}
+    addr_to_canonical = {
+        bc.address: bc.canonical_address for bc in [*g.concepts.values(), *all_concepts]
+    }
 
     def grain_key(grain) -> frozenset[str]:
         if grain.abstract:
@@ -428,6 +430,23 @@ def prune_sources_for_aggregates(
         node
         for node, ds in g.datasources.items()
         if isinstance(ds, BuildDatasource) and not _datasource_has_aggregate_output(ds)
+    )
+    # A stacked family the rollup search offered stays when every arm stores a
+    # column each aggregate re-aggregates from; which rollups hold was decided
+    # by `source_rollup_concepts` when the edges were drawn.
+    keep.update(
+        node
+        for node, ds in g.datasources.items()
+        if isinstance(ds, BuildUnionDatasource)
+        and all(
+            (
+                c.address in {o.address for o in arm.output_concepts}
+                or arm.rollup_column_for(c) is not None
+            )
+            and _datasource_materializes_aggregate(arm, c)
+            for arm in ds.children
+            for c in aggregate_concepts
+        )
     )
 
     # Partial concepts on kept aggregate datasources that fall on the target

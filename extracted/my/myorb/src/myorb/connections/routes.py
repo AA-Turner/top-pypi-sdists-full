@@ -1,0 +1,405 @@
+import hmac
+import secrets
+import time
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from myorb.auth.sessions import expected_origin, is_secure
+from myorb.auth.tokens import sign, unsign
+from myorb.connections import checklist, google, store
+from myorb.connections.form_routes import providers as form_providers
+from myorb.connections.models import Connection
+from myorb.connections.providers import Provider, ProviderError, RateLimited
+from myorb.db import get_db
+from myorb.paces import FIXED, GOOGLE, GOOGLE_PLUGINS, OPTIONS
+from myorb.plugins import Plugin
+from myorb.voice import load_voice
+
+router = APIRouter()
+
+Db = Annotated[AsyncSession, Depends(get_db)]
+
+CALLBACK_PATH = "/integrations/google/callback"
+OAUTH_COOKIE = "myorb_google_oauth"
+OAUTH_PURPOSE = "google-oauth"
+OAUTH_MAX_AGE = 10 * 60
+
+# Outcomes passed in the query string after a redirect; only these fixed texts are shown.
+MESSAGES = {
+    "saved": "The OAuth client was saved. Now connect your Google account.",
+    "connected": "The Google account was connected.",
+    "tested": "The connection was tested.",
+    "disconnected": "The Google account was disconnected.",
+    "denied": "Access was not granted in Google.",
+    "claude-saved": "The AI is connected. myOrb will write your brief every day.",
+    "claude-removed": "The AI was disconnected.",
+    "removed": "The connection was removed.",
+    "choices": "Saved. The numbers show only what you chose.",
+    "saved-connection": "Saved and tested again.",
+    "pace": "Saved. The numbers on the welcome screen follow the new pace.",
+    "music-saved": "The music settings were saved.",
+}
+
+
+def redirect_uri(request: Request) -> str:
+    return expected_origin(request) + CALLBACK_PATH
+
+
+async def oauth_client(request: Request, db: AsyncSession) -> google.OAuthClient | None:
+    data = await store.get_provider_settings(db, request.app.state.secret_box, google.PROVIDER)
+    return google.OAuthClient(**data) if data else None
+
+
+def _render(request: Request, template: str, context: dict[str, Any], status_code: int = 200):
+    return request.app.state.templates.TemplateResponse(
+        request, template, context, status_code=status_code
+    )
+
+
+# Where Google's APIs answer, and how often each Google widget refreshes.
+GOOGLE_HOSTS = ("gmail.googleapis.com", "www.googleapis.com", "oauth2.googleapis.com")
+
+
+def every(seconds: list[float]) -> str:
+    """How often, in words: "every 3 min", "every 2–30 min", "every 15 min to 2 h"."""
+
+    def words(value: float) -> str:
+        minutes = round(value / 60)
+        if minutes < 60:
+            return f"{minutes} min"
+        return "1 hour" if minutes == 60 else f"{minutes / 60:g} h"
+
+    if not seconds:
+        return ""
+    low, high = min(seconds), max(seconds)
+    if low == high:
+        return f"every {words(low)}"
+    if high < 60 * 60:
+        return f"every {round(low / 60)}–{round(high / 60)} min"
+    return f"every {words(low)} to {words(high)}"
+
+
+def _choices(
+    request: Request, service: str, default: list[float], shortest: float
+) -> dict[str, Any]:
+    """What the pace tile offers: the paces to choose from, the chosen one, the default."""
+    chosen = request.app.state.paces.chosen(service)
+    return {
+        "service": service,
+        "chosen": chosen,
+        "default": every(default),
+        "options": [(s, every([s]).removeprefix("every ")) for s in OPTIONS if s >= shortest],
+    }
+
+
+async def _pace(request: Request, plugin: Plugin, provider: Provider) -> dict[str, Any]:
+    """How often a service's data is fetched and how many requests it got in the last hour
+    (and how many of them it refused as too many), for its panel on this page."""
+    accounts = await request.app.state.connections.list(provider.id)
+    hosts = {host for account in accounts for host in provider.hosts(account.credentials)}
+    requests, limited = request.app.state.request_log.last_hour(hosts)
+    stats: dict[str, Any] = {"requests": requests, "limited": limited, "shown": bool(accounts)}
+    if hasattr(provider, "refresh_every"):  # paced per source (custom sources)
+        return {**stats, "every": every([provider.refresh_every(a.credentials) for a in accounts])}
+    default = [provider.refresh] if provider.refresh else [w.refresh for w in plugin.widgets()]
+    choice = _choices(request, provider.id, default, provider.min_refresh)
+    paces = [choice["chosen"]] if choice["chosen"] else default
+    return {**stats, **choice, "every": every(paces)}
+
+
+async def _integrations_page(
+    request: Request,
+    db: AsyncSession,
+    message: str | None = None,
+    error: str | None = None,
+    status_code: int = 200,
+    open_service: str | None = None,
+) -> Response:
+    providers = [
+        (provider, await store.list_connections(db, provider.id))
+        for _, provider in form_providers(request)
+    ]
+    context_connections = await store.list_connections(db, google.PROVIDER)
+    context = {
+        "client": await oauth_client(request, db),
+        "connections": context_connections,
+        "claude": (claude := await request.app.state.brief.settings()),
+        # What myOrb spent on Claude in the last 30 days, shown next to it.
+        "claude_spent": (
+            await request.app.state.brief.spent_eur(request.app.state.http) if claude else None
+        ),
+        "voice": await load_voice(request, db),
+        "plugin_settings": [
+            (plugin.name, plugin.settings)
+            for plugin in sorted(
+                request.app.state.plugins.values(), key=lambda p: (p.position, p.id)
+            )
+            if plugin.settings
+        ],
+        "providers": providers,
+        "failing": _failing(
+            request, [*context_connections, *(c for _, cs in providers for c in cs)]
+        ),
+        "paces": {
+            provider.id: await _pace(request, plugin, provider)
+            for plugin, provider in form_providers(request)
+        },
+        "google_pace": _google_pace(request),
+        "setup": await checklist.shown(request, db),
+        # Hidden with steps left: a link at the bottom brings it back.
+        "setup_hidden": not request.app.state.settings.demo
+        and await checklist.hidden(request, db)
+        and any(step.state != "done" for step in await checklist.steps(request, db)),
+        "message": message,
+        "error": error,
+        # The service a change came from opens again, with the message in it.
+        "open_service": open_service
+        if open_service in {google.PROVIDER, *(provider.id for provider, _ in providers)}
+        else None,
+    }
+    return _render(request, "integrations/index.html", context, status_code)
+
+
+def _failing(request: Request, connections: list[Connection]) -> dict[int, list[dict[str, Any]]]:
+    """Per connection, what failed since its last test while loading its data, as failed
+    capabilities: an expired key shows here before anyone tests the connection. Not what its
+    test already says, and not a service only asking to wait."""
+    failing: dict[int, list[dict[str, Any]]] = {}
+    for connection in connections:
+        tested = {c.get("detail") for c in connection.capabilities or [] if not c["ok"]}
+        details = dict.fromkeys(
+            str(error)
+            for error in request.app.state.cache.failures(f"{connection.provider}:{connection.id}:")
+            if isinstance(error, ProviderError | google.GoogleError)
+            and not isinstance(error, RateLimited | google.GoogleRateLimited)
+        )
+        problems = [
+            {"label": "Loading its data", "ok": False, "detail": detail}
+            for detail in details
+            if detail not in tested
+        ]
+        if problems:
+            failing[connection.id] = problems
+    return failing
+
+
+def _google_pace(request: Request) -> dict[str, Any]:
+    requests, limited = request.app.state.request_log.last_hour(GOOGLE_HOSTS)
+    plugins = request.app.state.plugins.values()
+    google_plugins = [p for p in plugins if p.id in GOOGLE_PLUGINS]
+    default = [widget.refresh for plugin in google_plugins for widget in plugin.widgets()]
+    choice = _choices(request, GOOGLE, default, 60)
+    paces = [choice["chosen"]] if choice["chosen"] else default
+    return {
+        "requests": requests,
+        "limited": limited,
+        "shown": True,
+        **choice,
+        "every": every(paces),
+    }
+
+
+@router.post("/integrations/{service}/pace")
+async def choose_pace(request: Request, service: str) -> Response:
+    """How often a service's data is fetched, as chosen on its tile; "default" goes back."""
+    providers = {p.id: p for _, p in form_providers(request) if p.id not in FIXED}
+    if service not in providers and service != GOOGLE:
+        raise HTTPException(status_code=404, detail="No such service")
+    shortest = providers[service].min_refresh if service in providers else 60
+    value = str((await request.form()).get("seconds", "default"))
+    seconds = None if value == "default" else float(value) if value.isdigit() else -1.0
+    if seconds is not None and (seconds not in OPTIONS or seconds < shortest):
+        raise HTTPException(status_code=400, detail="Choose one of the paces offered")
+    state = request.app.state
+    await state.paces.choose(state.sessionmaker, state.secret_box, service, seconds)
+    return RedirectResponse(f"/integrations?status=pace&provider={service}", 303)
+
+
+def forget_cached(request: Request, connection_id: int) -> None:
+    """Drop cached tokens and data of a connection that changed or was removed."""
+    request.app.state.google.forget(connection_id)
+    request.app.state.cache.invalidate(f"google:{connection_id}:")
+
+
+async def test_connection(request: Request, db: AsyncSession, connection: Connection) -> None:
+    """Check that the account is still accessible and which capabilities work."""
+    http = request.app.state.http
+    account = {"id": "account", "label": "Access to the account"}
+    client = await oauth_client(request, db)
+    try:
+        if client is None:
+            raise google.GoogleError("The OAuth client is missing. Set it up again.")
+        credentials = request.app.state.secret_box.decrypt(connection.credentials)
+        access_token, _ = await google.refresh_access_token(
+            http, client, credentials["refresh_token"]
+        )
+        granted = set(connection.scopes.split())
+        capabilities = [
+            {**account, "ok": True},
+            *await google.check_capabilities(http, access_token, granted),
+        ]
+    except google.GoogleError as error:
+        capabilities = [{**account, "ok": False, "detail": str(error)}]
+    await store.save_check(db, connection, capabilities)
+
+
+@router.get("/integrations", response_class=HTMLResponse)
+async def integrations(
+    request: Request, db: Db, status: str | None = None, provider: str | None = None
+) -> Response:
+    message = MESSAGES.get(status or "")
+    if status == "connected" and provider and provider != google.PROVIDER:
+        message = "The connection works."
+    return await _integrations_page(request, db, message=message, open_service=provider)
+
+
+@router.post("/integrations/setup/{choice}")
+async def show_or_hide_setup(request: Request, db: Db, choice: str) -> Response:
+    """Hide the Get started list, or bring it back."""
+    if choice not in ("hide", "show"):
+        raise HTTPException(status_code=404)
+    await checklist.hide(request, db, choice == "hide")
+    return RedirectResponse("/integrations", status_code=303)
+
+
+@router.get("/integrations/google/setup", response_class=HTMLResponse)
+async def google_setup_page(request: Request, db: Db) -> Response:
+    context = {"client": await oauth_client(request, db), "redirect_uri": redirect_uri(request)}
+    return _render(request, "integrations/google_setup.html", context)
+
+
+@router.post("/integrations/google/setup")
+async def google_setup(
+    request: Request,
+    db: Db,
+    client_id: Annotated[str, Form()],
+    client_secret: Annotated[str, Form()] = "",
+) -> Response:
+    client_id, client_secret = client_id.strip(), client_secret.strip()
+    existing = await oauth_client(request, db)
+    if not client_secret and existing and existing.client_id == client_id:
+        client_secret = existing.client_secret
+    error = None
+    if not google.is_valid_client_id(client_id):
+        error = "The client ID should end with .apps.googleusercontent.com."
+    elif not client_secret:
+        error = "Enter the client secret."
+    if error:
+        context = {
+            "client": existing,
+            "redirect_uri": redirect_uri(request),
+            "client_id": client_id,
+            "error": error,
+        }
+        return _render(request, "integrations/google_setup.html", context, status_code=400)
+    await store.save_provider_settings(
+        db,
+        request.app.state.secret_box,
+        google.PROVIDER,
+        {"client_id": client_id, "client_secret": client_secret},
+    )
+    return RedirectResponse("/integrations?status=saved", status_code=303)
+
+
+@router.post("/integrations/google/connect")
+async def google_connect(request: Request, db: Db) -> Response:
+    client = await oauth_client(request, db)
+    if client is None:
+        return RedirectResponse("/integrations/google/setup", status_code=303)
+    state = secrets.token_urlsafe(32)
+    verifier, challenge = google.pkce_pair()
+    session_key = request.app.state.auth.session_key
+    token = sign(session_key, OAUTH_PURPOSE, {"state": state, "verifier": verifier}, time.time())
+    response = RedirectResponse(
+        google.authorization_url(client, redirect_uri(request), state, challenge), status_code=303
+    )
+    response.set_cookie(
+        OAUTH_COOKIE,
+        token,
+        max_age=OAUTH_MAX_AGE,
+        path=CALLBACK_PATH,
+        httponly=True,
+        # Lax: the cookie must come along when Google redirects the browser back.
+        samesite="lax",
+        secure=is_secure(request),
+    )
+    return response
+
+
+@router.get(CALLBACK_PATH, response_class=HTMLResponse)
+async def google_callback(
+    request: Request,
+    db: Db,
+    state: str = "",
+    code: str | None = None,
+    error: str | None = None,
+) -> Response:
+    cookie = request.cookies.get(OAUTH_COOKIE)
+    session_key = request.app.state.auth.session_key
+    flow = cookie and unsign(session_key, cookie, OAUTH_PURPOSE, OAUTH_MAX_AGE, time.time())
+    if not flow or not hmac.compare_digest(state, flow["state"]):
+        response = await _integrations_page(
+            request,
+            db,
+            error="The sign-in with Google expired or did not start here. Try connecting again.",
+            status_code=400,
+        )
+    elif error or not code:
+        # Google's error parameter is not echoed into the page.
+        response = RedirectResponse("/integrations?status=denied", status_code=303)
+    else:
+        response = await _finish_connect(request, db, code, flow["verifier"])
+    response.delete_cookie(OAUTH_COOKIE, path=CALLBACK_PATH)
+    return response
+
+
+async def _finish_connect(request: Request, db: AsyncSession, code: str, verifier: str) -> Response:
+    http = request.app.state.http
+    client = await oauth_client(request, db)
+    try:
+        if client is None:
+            raise google.GoogleError("The OAuth client is missing. Set it up again.")
+        tokens = await google.exchange_code(http, client, code, redirect_uri(request), verifier)
+        if "refresh_token" not in tokens:
+            raise google.GoogleError("Google did not grant offline access. Try connecting again.")
+        email = await google.fetch_email(http, tokens["access_token"])
+    except google.GoogleError as error:
+        return await _integrations_page(request, db, error=str(error), status_code=400)
+    connection = await store.save_connection(
+        db,
+        request.app.state.secret_box,
+        google.PROVIDER,
+        email,
+        {"refresh_token": tokens["refresh_token"]},
+        tokens.get("scope", ""),
+    )
+    forget_cached(request, connection.id)
+    await test_connection(request, db, connection)
+    return RedirectResponse("/integrations?status=connected&provider=google", 303)
+
+
+async def _connection_or_404(db: AsyncSession, connection_id: int) -> Connection:
+    connection = await store.get_connection(db, google.PROVIDER, connection_id)
+    if connection is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    return connection
+
+
+@router.post("/integrations/google/{connection_id}/test")
+async def google_test(request: Request, db: Db, connection_id: int) -> Response:
+    connection = await _connection_or_404(db, connection_id)
+    await test_connection(request, db, connection)
+    return RedirectResponse("/integrations?status=tested&provider=google", 303)
+
+
+@router.post("/integrations/google/{connection_id}/disconnect")
+async def google_disconnect(request: Request, db: Db, connection_id: int) -> Response:
+    connection = await _connection_or_404(db, connection_id)
+    credentials = request.app.state.secret_box.decrypt(connection.credentials)
+    await google.revoke(request.app.state.http, credentials["refresh_token"])
+    forget_cached(request, connection.id)
+    await store.delete_connection(db, connection)
+    return RedirectResponse("/integrations?status=disconnected&provider=google", 303)

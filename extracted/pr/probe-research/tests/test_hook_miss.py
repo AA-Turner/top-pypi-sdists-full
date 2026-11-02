@@ -31,7 +31,10 @@ from pathlib import Path
 import pytest
 
 from probe import __version__
-from probe.service import client, hookqueue, paths, protocol
+from probe.foundation import service_api as client
+from probe.service.hooks import queue as hookqueue
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the hooks and the service are POSIX-only")
@@ -588,7 +591,7 @@ def _start(root: Path, env: dict, cwd: Path) -> subprocess.CompletedProcess:
 
 def _fake_lifeboat(tmp_path: Path) -> Path:
     """The lifeboat's folder with a wrapper that records how it was started."""
-    from probe.service import lifeboat
+    from probe.service.updater import lifeboat
 
     folder = paths.private_dir(lifeboat.root())
     mark = tmp_path / "lifeboat-ran"
@@ -670,7 +673,8 @@ def test_the_queue_wait_is_the_real_one_unless_a_test_says_otherwise(monkeypatch
 
 def test_the_dispatcher_names_what_the_service_writes():
     """It imports nothing of Probe, so the lifeboat's and the keeper's paths are spelled twice."""
-    from probe.service import keeper, lifeboat
+    from probe.service import keeper
+    from probe.service.updater import lifeboat
 
     dispatch = _dispatch()
     home = Path(os.environ["HOME"])

@@ -12,11 +12,16 @@ from schemathesis.core.errors import InvalidSchema, MalformedMediaType, RefResol
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, supplemental_formats
 from schemathesis.core.jsonschema.bundler import Bundle, bundle
 from schemathesis.core.jsonschema.resolver import Resolver
-from schemathesis.core.jsonschema.types import JsonSchema
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 from schemathesis.core.transport import expand_status_code
 from schemathesis.specs.openapi import types
 from schemathesis.specs.openapi.adapter.protocol import ResponseAdapter
-from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
+from schemathesis.specs.openapi.adapter.references import (
+    has_example_references,
+    iter_example_values,
+    maybe_resolve_with_resolver,
+    resolve_media_type_object,
+)
 from schemathesis.specs.openapi.converter import to_json_schema
 
 if TYPE_CHECKING:
@@ -141,6 +146,8 @@ class OpenApiResponse:
 
     status_code: str
     definition: Mapping[str, Any]
+    # The response object in the loaded document. Inferred links go there, so operations rebuilt later keep them
+    source: Mapping[str, Any]
     resolver: Resolver
     scope: str
     adapter: ResponseAdapter
@@ -149,6 +156,7 @@ class OpenApiResponse:
     __slots__ = (
         "status_code",
         "definition",
+        "source",
         "resolver",
         "scope",
         "adapter",
@@ -268,7 +276,7 @@ class OpenApiResponse:
 
     def get_sse_validator(self, resolved_media_type: str | None, schema: JsonSchema) -> SseValidator | None:
         """Get or build a cached SSE validator. Returns None if not an SSE media type."""
-        if resolved_media_type is None or not _is_sse_media_type(resolved_media_type):
+        if not media_types.is_sse(resolved_media_type):
             return None
         if not isinstance(self._sse_validator, NotSet):
             return self._sse_validator
@@ -285,6 +293,13 @@ class OpenApiResponse:
             self._sse_stream_validator = _SseValidator(schema, self.adapter.jsonschema_validator_cls)
         return self._sse_stream_validator
 
+    def describes_json_sequence(self, media_type: str) -> bool:
+        """Whether `media_type` is documented as a JSON Lines or JSON Text Sequence body with an `itemSchema`."""
+        if not media_types.is_json_sequence(media_type):
+            return False
+        media_type_object = _media_type_object(self.definition, media_type)
+        return media_type_object is not None and "itemSchema" in media_type_object
+
     def iter_documented_schemas(self) -> Iterator[JsonSchema]:
         """Every schema this response documents, as written and one per media type."""
         content = self.definition.get("content")
@@ -296,8 +311,12 @@ class OpenApiResponse:
         for media_type, media_type_object in content.items():
             if not isinstance(media_type_object, dict):
                 continue
+            # A media type left unresolved documents nothing but its own reference
+            if "$ref" in media_type_object:
+                yield media_type_object
+                continue
             schemas = [media_type_object.get("schema")]
-            if _is_sse_media_type(media_type):
+            if media_types.is_sse(media_type) or media_types.is_json_sequence(media_type):
                 schemas.append(media_type_object.get("itemSchema"))
             yield from (schema for schema in schemas if schema is not None)
 
@@ -327,7 +346,8 @@ class OpenApiResponse:
         return self.adapter.iter_response_examples(self.definition, self.status_code)
 
     def iter_links(self) -> Iterator[tuple[str, Mapping[str, Any]]]:
-        links = self.definition.get(self.adapter.links_keyword)
+        # Links inferred after this response was built land in the source only
+        links = self.source.get(self.adapter.links_keyword)
         if links is None:
             return
         for name, link in links.items():
@@ -381,6 +401,7 @@ class OpenApiResponses:
         instance = OpenApiResponse(
             status_code=status_code,
             definition=definition,
+            source=definition,
             resolver=self.resolver,
             scope=self.scope,
             adapter=self.adapter,
@@ -453,19 +474,48 @@ def _iter_resolved_responses(
         # Resolve one more level to support slightly malformed schemas with nested $ref chains
         # Some real-world schemas use: response -> $ref to definition -> $ref to actual schema
         # While technically not spec-compliant, this pattern is common enough to warrant leniency
-        response_resolver, resolved = maybe_resolve_with_resolver(resolved, response_resolver)
+        response_resolver, source = maybe_resolve_with_resolver(resolved, response_resolver)
+        resolved = source
+        content = source.get("content", {})
+        if not isinstance(content, dict):
+            # Written without an object value, `content` documents no media types
+            resolved = {**source, "content": {}}
+        elif any(not isinstance(entry, dict) or _has_reference(entry) for entry in content.values()):
+            resolved = {
+                **source,
+                "content": {
+                    media_type: _resolve_media_type(entry, response_resolver) for media_type, entry in content.items()
+                },
+            }
         new_scope = response_resolver.base_uri
         yield (
             status_code,
             OpenApiResponse(
                 status_code=status_code,
                 definition=resolved,
+                source=source,
                 resolver=response_resolver,
                 scope=new_scope,
                 adapter=adapter,
                 cache=cache,
             ),
         )
+
+
+def _has_reference(entry: object) -> bool:
+    """Whether a media type or one of its examples is given by `$ref`."""
+    return isinstance(entry, dict) and ("$ref" in entry or has_example_references(entry))
+
+
+def _resolve_media_type(entry: object, resolver: Resolver) -> object:
+    if not isinstance(entry, dict):
+        # Still documented as a media type, with no schema or examples
+        return {}
+    try:
+        return resolve_media_type_object(entry, resolver)[1]
+    except RefResolutionError:
+        # Kept as written: the response goes unvalidated and its reference is reported as unresolvable
+        return entry
 
 
 def extract_response_schema_v2(
@@ -496,7 +546,7 @@ def extract_raw_response_schema_v3(
     content = response.get("content", {})
     first_schema = None
     for media_type, media_type_object in content.items():
-        if _is_sse_media_type(media_type):
+        if media_types.is_sse(media_type):
             return _media_type_schema(media_type, media_type_object, schema_covers_stream=schema_covers_stream)
         if first_schema is None:
             first_schema = media_type_object.get("schema")
@@ -521,6 +571,8 @@ def _build_prepared_schema(
         update_quantifiers=False,
         clone=False,
         upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+        # Both follow from a Draft 2020-12 validator, which reads `prefixItems` and rejects array-form `items`
+        convert_prefix_items=not upgrade_legacy_exclusive_bounds,
         merge_ref_siblings=merge_ref_siblings,
     )
     return Bundle(schema=converted, name_to_uri=bundled.name_to_uri)
@@ -631,7 +683,7 @@ def extract_stream_schema_v3(
 ) -> Bundle | None:
     """Extract the schema an event stream documents for all of its events, read as an array."""
     media_type_object = _media_type_object(response, media_type)
-    if media_type is None or media_type_object is None or not _is_sse_media_type(media_type):
+    if media_type is None or media_type_object is None or not media_types.is_sse(media_type):
         return None
     # Without `itemSchema`, Open API before 3.2 has `schema` describe each event instead
     if not schema_covers_stream and "itemSchema" not in media_type_object:
@@ -673,18 +725,26 @@ def _media_type_schema(
 ) -> JsonSchema | None:
     """The schema a media type entry documents for one value - a single event for event streams."""
     schema = media_type_object.get("schema")
-    if _is_sse_media_type(media_type):
+    if media_types.is_sse(media_type):
         item_schema = media_type_object.get("itemSchema")
         if item_schema is not None:
             return item_schema
         if schema_covers_stream:
             return None
+    elif media_types.is_json_sequence(media_type):
+        item_schema = media_type_object.get("itemSchema")
+        if item_schema is not None:
+            # The records are validated as one array, with `schema` covering the whole sequence
+            sequence: JsonSchemaObject = {"type": "array", "items": item_schema}
+            if schema is not None:
+                sequence["allOf"] = [schema]
+            return sequence
     return schema
 
 
-def _is_sse_media_type(value: str) -> bool:
+def _is_json_media_type(value: str) -> bool:
     try:
-        return media_types.is_sse(value)
+        return media_types.is_json(value)
     except MalformedMediaType:
         return False
 
@@ -731,6 +791,12 @@ class OpenApiResponseHeader:
     @property
     def is_required(self) -> bool:
         return self.definition.get(self.adapter.header_required_keyword, False)
+
+    @property
+    def is_json(self) -> bool:
+        """Whether the header value is a JSON document, as declared by its `content` media type."""
+        content = _header_content(self.definition)
+        return content is not None and _is_json_media_type(content[0])
 
     def _get_bundle(self) -> Bundle:
         """Get the bundled schema for this header."""
@@ -800,6 +866,17 @@ def _iter_resolved_headers(
         )
 
 
+def _header_content(header: Mapping[str, Any]) -> tuple[str, Mapping[str, Any]] | None:
+    """The media type and its object for a header that describes its value through `content` instead of `schema`."""
+    content = header.get("content")
+    if "schema" in header or not isinstance(content, dict) or not content:
+        return None
+    media_type, media_type_object = next(iter(content.items()))
+    if not isinstance(media_type_object, dict):
+        return None
+    return media_type, media_type_object
+
+
 def extract_header_schema_v2(
     header: Mapping[str, Any], resolver: Resolver, scope: str, nullable_keyword: str
 ) -> Bundle:
@@ -816,6 +893,10 @@ def extract_header_schema_v3(
     merge_ref_siblings: bool = False,
 ) -> Bundle:
     schema = header.get("schema", {})
+    content = _header_content(header)
+    if content is not None:
+        resolver, media_type_object = maybe_resolve_with_resolver(content[1], resolver, allow_boolean=True)
+        schema = media_type_object.get("schema", {})
     return _build_prepared_schema(
         schema,
         resolver,
@@ -836,7 +917,7 @@ def iter_response_examples_v3(response: Mapping[str, Any], status_code: str) -> 
         # Try to get a more descriptive example name from the `$ref` value
         schema = definition.get("schema")
         schema_ref = schema.get("$ref") if isinstance(schema, dict) else None
-        if schema_ref:
+        if schema_ref and isinstance(schema_ref, str):
             name = schema_ref.split("/")[-1]
         else:
             name = f"{status_code}/{media_type}"
@@ -845,14 +926,8 @@ def iter_response_examples_v3(response: Mapping[str, Any], status_code: str) -> 
             ("examples", "example"),
             ("x-examples", "x-example"),
         ):
-            examples = definition.get(examples_container_keyword, {})
-            if isinstance(examples, dict):
-                for example in examples.values():
-                    if isinstance(example, dict) and "value" in example:
-                        yield name, example["value"]
-            elif isinstance(examples, list):
-                for example in examples:
-                    yield name, example
+            for value in iter_example_values(definition.get(examples_container_keyword)):
+                yield name, value
             if example_keyword in definition:
                 yield name, definition[example_keyword]
 

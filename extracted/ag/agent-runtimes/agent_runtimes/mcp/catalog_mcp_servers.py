@@ -1,0 +1,415 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+"""
+MCP Server Catalog.
+
+Predefined MCP server configurations that can be used by agents.
+Credentials are configured via environment variables.
+
+This file is AUTO-GENERATED from YAML specifications.
+DO NOT EDIT MANUALLY - run 'make specs' to regenerate.
+"""
+
+import os
+import tempfile
+from typing import Dict
+
+from agent_runtimes.types import MCPServer
+
+# ============================================================================
+# MCP Server Definitions
+# ============================================================================
+
+ALPHAVANTAGE_MCP_SERVER_0_0_1 = MCPServer(
+    id="alphavantage",
+    version="0.0.1",
+    name="Alpha Vantage",
+    description="Financial market data and stock information",
+    icon="@primer/octicons-react:graph",
+    emoji="💹",
+    command="uvx",
+    args=[
+        "av-mcp==0.2.1",
+        "${ALPHAVANTAGE_API_KEY}",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    env={
+        "MAX_RESPONSE_TOKENS": "100000",
+    },
+    required_env_vars=["ALPHAVANTAGE_API_KEY:0.0.1"],
+)
+
+CHART_MCP_SERVER_0_0_1 = MCPServer(
+    id="chart",
+    version="0.0.1",
+    name="Chart Generator",
+    description="Generate charts and visualizations",
+    icon="@datalayer/icons-react:chart-bar",
+    emoji="📊",
+    command="npx",
+    args=[
+        "-y",
+        "@antv/mcp-server-chart",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    required_env_vars=[],
+)
+
+DATALAYER_MCP_SERVER_0_0_1 = MCPServer(
+    id="datalayer",
+    version="0.0.1",
+    name="Datalayer",
+    description="Read, edit and run Jupyter notebooks on Datalayer, with sandboxes and data",
+    icon="@datalayer/icons-react:datalayer",
+    emoji="🚀",
+    command=None,
+    args=[],
+    transport="streamable-http",
+    enabled=False,
+    tools=[],
+    url="https://mcp.datalayer.run/mcp",
+    headers={
+        "Authorization": "Bearer ${DATALAYER_API_KEY}",
+    },
+    required_env_vars=["DATALAYER_API_KEY:0.0.1"],
+)
+
+EARTHDATA_MCP_SERVER_0_0_1 = MCPServer(
+    id="earthdata",
+    version="0.0.1",
+    name="Earthdata MCP",
+    description="Access NASA Earthdata search and metadata capabilities",
+    icon="@datalayer/icons-react:globe-americas",
+    emoji="🌍",
+    command=None,
+    args=[],
+    transport="streamable-http",
+    enabled=True,
+    tools=[],
+    url="https://mcp.datalayer.run/mcp?only=earthdata",
+    headers={
+        "Authorization": "Bearer ${DATALAYER_API_KEY}",
+    },
+    required_env_vars=["DATALAYER_API_KEY:0.0.1"],
+    sandbox_env_vars=["EARTHDATA_USERNAME:0.0.1", "EARTHDATA_PASSWORD:0.0.1"],
+)
+
+EURUS_MCP_SERVER_0_0_1 = MCPServer(
+    id="eurus",
+    version="0.0.1",
+    name="Eurus Climate MCP",
+    description="Climate and reanalysis analysis tools for spatial workflows",
+    icon="@primer/octicons-react:cloud",
+    emoji="🌦️",
+    command="eurus-mcp",
+    args=[],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    required_env_vars=[],
+)
+
+FILESYSTEM_MCP_SERVER_0_0_1 = MCPServer(
+    id="filesystem",
+    version="0.0.1",
+    name="Filesystem",
+    description="Local filesystem read/write operations",
+    icon="@primer/octicons-react:file-directory",
+    emoji="📁",
+    command="npx",
+    args=[
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${TMPDIR}",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    required_env_vars=[],
+)
+
+GITHUB_MCP_SERVER_0_0_1 = MCPServer(
+    id="github",
+    version="0.0.1",
+    name="GitHub",
+    description="GitHub repository operations (issues, PRs, code search)",
+    icon="@datalayer/icons-react:github-mark",
+    emoji="🐙",
+    command="docker",
+    args=[
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    env={
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
+    },
+    required_env_vars=["GITHUB_TOKEN:0.0.1"],
+)
+
+GOOGLE_WORKSPACE_MCP_SERVER_0_0_1 = MCPServer(
+    id="google-workspace",
+    version="0.0.1",
+    name="Google Workspace",
+    description="Gmail of the person an application acts for, read or read and send, with a token Datalayer mints per call",
+    icon="@datalayer/icons-react:google",
+    emoji="📧",
+    command="uvx",
+    args=[
+        "workspace-mcp",
+        "--transport",
+        "streamable-http",
+        "--permissions",
+        "gmail:send",
+    ],
+    transport="streamable-http",
+    enabled=True,
+    tools=[],
+    url="http://127.0.0.1:9711/mcp",
+    env={
+        "MCP_ENABLE_OAUTH21": "true",
+        "EXTERNAL_OAUTH21_PROVIDER": "true",
+        "GOOGLE_OAUTH_CLIENT_ID": "datalayer-iam",
+        "WORKSPACE_MCP_HOST": "127.0.0.1",
+        "WORKSPACE_MCP_PORT": "9711",
+    },
+    required_env_vars=[],
+)
+
+HUGGINGFACE_MCP_SERVER_0_0_1 = MCPServer(
+    id="huggingface",
+    version="0.0.1",
+    name="Hugging Face",
+    description="Hugging Face models, datasets, spaces, and papers access",
+    icon="@primer/octicons-react:hubot",
+    emoji="🤗",
+    command=None,
+    args=[],
+    transport="streamable-http",
+    enabled=False,
+    tools=[],
+    url="https://huggingface.co/mcp",
+    headers={
+        "Authorization": "Bearer ${HF_TOKEN}",
+    },
+    required_env_vars=["HF_TOKEN:0.0.1"],
+)
+
+KAGGLE_MCP_SERVER_0_0_1 = MCPServer(
+    id="kaggle",
+    version="0.0.1",
+    name="Kaggle",
+    description="Kaggle datasets, models, competitions, and notebooks access",
+    icon="@datalayer/icons-react:kaggle",
+    emoji="🏆",
+    command=None,
+    args=[],
+    transport="streamable-http",
+    enabled=False,
+    tools=[],
+    url="https://www.kaggle.com/mcp",
+    headers={
+        "Authorization": "Bearer ${KAGGLE_API_TOKEN}",
+    },
+    required_env_vars=["KAGGLE_API_TOKEN:0.0.1"],
+)
+
+ODOO_ACCOUNTING_MCP_SERVER_0_0_1 = MCPServer(
+    id="odoo-accounting",
+    version="0.0.1",
+    name="Odoo Accounting",
+    description="An accountant's day in Odoo — invoices, bills, journal entries, reconciliations, bank lines and tax returns — through the Datalayer MCP server",
+    icon="@datalayer/icons-react:odoo",
+    emoji="🧮",
+    command=None,
+    args=[],
+    transport="streamable-http",
+    enabled=False,
+    tools=[],
+    url="https://mcp.datalayer.run/mcp?only=odoo-accounting",
+    headers={
+        "Authorization": "Bearer ${DATALAYER_API_KEY}",
+    },
+    required_env_vars=["DATALAYER_API_KEY:0.0.1"],
+)
+
+ODOO_MCP_SERVER_0_0_1 = MCPServer(
+    id="odoo",
+    version="0.0.1",
+    name="Odoo",
+    description="Odoo ERP operations (search, invoices, journals, reconciliations)",
+    icon="@datalayer/icons-react:odoo",
+    emoji="🧾",
+    command="uvx",
+    args=[
+        "mcp-server-odoo",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    env={
+        "ODOO_URL": "${ODOO_URL}",
+        "ODOO_API_KEY": "${ODOO_API_KEY}",
+        "ODOO_DB": "${ODOO_DB}",
+        "ODOO_LOCALE": "${ODOO_LOCALE}",
+    },
+    required_env_vars=[],
+)
+
+SALESFORCE_MCP_SERVER_0_0_1 = MCPServer(
+    id="salesforce",
+    version="0.0.1",
+    name="Salesforce",
+    description="Salesforce CRM operations (queries, reports, objects, SOQL)",
+    icon="@primer/octicons-react:briefcase",
+    emoji="☁️",
+    command="npx",
+    args=[
+        "-y",
+        "@anthropic/salesforce-mcp-server",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    env={
+        "SALESFORCE_ACCESS_TOKEN": "${SALESFORCE_ACCESS_TOKEN}",
+        "SALESFORCE_INSTANCE_URL": "${SALESFORCE_INSTANCE_URL}",
+    },
+    required_env_vars=[
+        "SALESFORCE_ACCESS_TOKEN:0.0.1",
+        "SALESFORCE_INSTANCE_URL:0.0.1",
+    ],
+)
+
+SLACK_MCP_SERVER_0_0_1 = MCPServer(
+    id="slack",
+    version="0.0.1",
+    name="Slack",
+    description="Slack messaging and channel operations",
+    icon="@datalayer/icons-react:slack",
+    emoji="💬",
+    command="npx",
+    args=[
+        "-y",
+        "@datalayer/slack-mcp-server",
+    ],
+    transport="stdio",
+    enabled=False,
+    tools=[],
+    env={
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}",
+        "SLACK_CHANNEL_IDS": "${SLACK_CHANNEL_IDS}",
+    },
+    required_env_vars=[
+        "SLACK_BOT_TOKEN:0.0.1",
+        "SLACK_TEAM_ID:0.0.1",
+        "SLACK_CHANNEL_IDS:0.0.1",
+    ],
+)
+
+TAVILY_MCP_SERVER_0_0_1 = MCPServer(
+    id="tavily",
+    version="0.0.1",
+    name="Tavily Search",
+    description="Web search and research capabilities via Tavily API",
+    icon="@primer/octicons-react:search",
+    emoji="🔍",
+    command="npx",
+    args=[
+        "-y",
+        "tavily-mcp",
+    ],
+    transport="stdio",
+    enabled=True,
+    tools=[],
+    env={
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}",
+    },
+    required_env_vars=["TAVILY_API_KEY:0.0.1"],
+)
+
+# ============================================================================
+# MCP Server Catalog
+# ============================================================================
+
+MCP_SERVER_CATALOG: Dict[str, MCPServer] = {
+    "alphavantage": ALPHAVANTAGE_MCP_SERVER_0_0_1,
+    "chart": CHART_MCP_SERVER_0_0_1,
+    "datalayer": DATALAYER_MCP_SERVER_0_0_1,
+    "earthdata": EARTHDATA_MCP_SERVER_0_0_1,
+    "eurus": EURUS_MCP_SERVER_0_0_1,
+    "filesystem": FILESYSTEM_MCP_SERVER_0_0_1,
+    "github": GITHUB_MCP_SERVER_0_0_1,
+    "google-workspace": GOOGLE_WORKSPACE_MCP_SERVER_0_0_1,
+    "huggingface": HUGGINGFACE_MCP_SERVER_0_0_1,
+    "kaggle": KAGGLE_MCP_SERVER_0_0_1,
+    "odoo-accounting": ODOO_ACCOUNTING_MCP_SERVER_0_0_1,
+    "odoo": ODOO_MCP_SERVER_0_0_1,
+    "salesforce": SALESFORCE_MCP_SERVER_0_0_1,
+    "slack": SLACK_MCP_SERVER_0_0_1,
+    "tavily": TAVILY_MCP_SERVER_0_0_1,
+}
+
+
+def check_env_vars_available(env_vars: list[str]) -> bool:
+    """
+    Check if all required environment variables are set.
+
+    Args:
+        env_vars: List of environment variable names to check.
+
+    Returns:
+        True if all env vars are set (non-empty), False otherwise.
+    """
+    if not env_vars:
+        return True  # No env vars required
+    return all(os.environ.get(var.rsplit(":", 1)[0]) for var in env_vars)
+
+
+def get_catalog_server(server_id: str) -> MCPServer | None:
+    """
+    Get a catalog MCP server by ID (accepts both bare and versioned refs).
+
+    Args:
+        server_id: The unique identifier of the MCP server.
+
+    Returns:
+        The MCPServer configuration, or None if not found.
+    """
+    server = MCP_SERVER_CATALOG.get(server_id)
+    if server is not None:
+        return server
+    base, _, ver = server_id.rpartition(":")
+    if base and "." in ver:
+        return MCP_SERVER_CATALOG.get(base)
+    return None
+
+
+def list_catalog_servers() -> list[MCPServer]:
+    """
+    List all catalog MCP servers with availability status.
+
+    For each server, checks if the required environment variables are set
+    and updates the `is_available` field accordingly.
+
+    Returns:
+        List of all catalog MCPServer configurations with updated availability.
+    """
+    servers = []
+    for server in MCP_SERVER_CATALOG.values():
+        # Create a copy with updated availability
+        server_copy = server.model_copy()
+        server_copy.is_available = check_env_vars_available(server.required_env_vars)
+        servers.append(server_copy)
+    return servers

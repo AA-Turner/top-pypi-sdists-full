@@ -1,0 +1,462 @@
+"""Named waveform and timing results returned under ``compat=False``."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+__all__ = [
+    "AdcEchoes",
+    "AdcTimes",
+    "EventDefinitions",
+    "GradientStatistics",
+    "RfBandwidth",
+    "RfDefinition",
+    "RfGradients",
+    "RfInstances",
+    "RfTimes",
+    "Waveforms",
+    "WaveformsAndTimes",
+]
+
+#: Pulseq's RF uses, in the order `supported_rf_uses` lists them.
+RF_USES = (
+    "excitation",
+    "refocusing",
+    "inversion",
+    "saturation",
+    "preparation",
+    "other",
+    "undefined",
+)
+
+#: What a `use` reads as in a library row, which is its first letter.
+_BY_CODE = {use[0]: use for use in RF_USES}
+
+
+def use_of(code: str) -> str:
+    """Return the RF use a stored code denotes; `undefined` for any other code.
+
+    Parameters
+    ----------
+    code : str
+        A use as a library row records it, which is its first letter.
+
+    Returns
+    -------
+    str
+        One of `RF_USES`.
+    """
+    return _BY_CODE.get(code, "undefined")
+
+
+@dataclass(frozen=True)
+class Waveforms:
+    """Gradient corner waveforms and an optional complex RF envelope.
+
+    Attributes
+    ----------
+    gx, gy, gz : numpy.ndarray
+        ``(2, n)``: time (s), then gradient amplitude (Hz/m), after each
+        block's rotation.
+    rf : numpy.ndarray or None
+        ``(2, n)``: time (s), then complex RF amplitude (Hz); None unless RF
+        expansion was requested.
+    """
+
+    gx: np.ndarray
+    gy: np.ndarray
+    gz: np.ndarray
+    rf: np.ndarray | None = None
+
+    @property
+    def channels(self) -> list[np.ndarray]:
+        """The gradient channels as upstream returns them: a list, with RF appended."""
+        channels = [self.gx, self.gy, self.gz]
+        if self.rf is not None:
+            channels.append(self.rf)
+        return channels
+
+    @property
+    def duration(self) -> float:
+        """Latest time present on any channel, in seconds."""
+        ends = [channel[0, -1] for channel in self.channels if channel.shape[1]]
+        return float(max(ends)) if ends else 0.0
+
+
+@dataclass(frozen=True)
+class RfTimes:
+    """RF pulse centre times in play order, for all Pulseq RF uses.
+
+    Attributes
+    ----------
+    t : numpy.ndarray
+        Centre time of each pulse (s).
+    freq_offset : numpy.ndarray
+        Frequency offset (Hz), ppm offset included.
+    phase_offset : numpy.ndarray
+        Phase offset (rad), ppm offset included, plus
+        ``2*pi*freq_offset*centre`` where ``centre`` is the pulse centre
+        relative to the start of the RF event.
+    use : tuple[str, ...]
+        RF use of each pulse, one of `RF_USES`.
+    block : numpy.ndarray
+        1-based block of each pulse.
+    """
+
+    t: np.ndarray
+    freq_offset: np.ndarray
+    phase_offset: np.ndarray
+    use: tuple[str, ...]
+    block: np.ndarray
+
+    def of(self, *uses: str) -> RfTimes:
+        """Select pulses with any of the specified use tags.
+
+        An undefined use is not implicitly included with excitation; request
+        both tags to reproduce the PyPulseq excitation group.
+
+        Parameters
+        ----------
+        *uses : str
+            The uses to keep, each one of `RF_USES`.
+
+        Returns
+        -------
+        RfTimes
+            The pulses carrying one of ``uses``, in play order.
+
+        Raises
+        ------
+        ValueError
+            If a use is not one of `RF_USES`.
+        """
+        unknown = set(uses) - set(RF_USES)
+        if unknown:
+            raise ValueError(
+                f"unknown RF use(s) {sorted(unknown)}; expected one of {RF_USES}"
+            )
+        keep = np.array([tag in set(uses) for tag in self.use], dtype=bool)
+        return RfTimes(
+            t=self.t[keep],
+            freq_offset=self.freq_offset[keep],
+            phase_offset=self.phase_offset[keep],
+            use=tuple(tag for tag, taken in zip(self.use, keep, strict=True) if taken),
+            block=self.block[keep],
+        )
+
+    @property
+    def tfp(self) -> np.ndarray:
+        """``(3, n)``: time over frequency over phase, upstream's packing."""
+        return np.vstack((self.t, self.freq_offset, self.phase_offset))
+
+    def __len__(self) -> int:
+        return int(self.t.size)
+
+
+@dataclass(frozen=True)
+class AdcTimes:
+    """ADC sampling times and offsets, per window and per sample.
+
+    Attributes
+    ----------
+    t : numpy.ndarray
+        Per sample: time (s) from the start of the scan.
+    freq_offset, phase_offset : numpy.ndarray
+        Per window: the stored frequency offset (Hz) and phase offset (rad),
+        without ppm terms.
+    phase_modulation : numpy.ndarray
+        Per sample: phase modulation (rad).
+    sample_phase : numpy.ndarray
+        Per sample: phase (rad), including ppm terms, phase modulation and
+        ``2*pi*frequency*time`` accumulated within the ADC event.
+    sample_frequency : numpy.ndarray
+        Per sample: frequency (Hz).
+    block : numpy.ndarray
+        Per window: 1-based block.
+    num_samples : numpy.ndarray
+        Per window: number of samples.
+    """
+
+    t: np.ndarray
+    freq_offset: np.ndarray
+    phase_offset: np.ndarray
+    phase_modulation: np.ndarray
+    sample_phase: np.ndarray
+    sample_frequency: np.ndarray
+    block: np.ndarray
+    num_samples: np.ndarray
+
+    @property
+    def fp(self) -> np.ndarray:
+        """``(n_windows, 2)``: frequency over phase, upstream's ``fp_adc``."""
+        return np.stack((self.freq_offset, self.phase_offset), axis=-1)
+
+    def __len__(self) -> int:
+        return int(self.t.size)
+
+
+@dataclass(frozen=True)
+class WaveformsAndTimes:
+    """Waveforms, RF centres and ADC timing, including all RF use tags.
+
+    The PyPulseq-compatible tuple is ``(waveforms.channels,
+    rf.of("excitation", "undefined").tfp, rf.of("refocusing").tfp,
+    adc.t, adc.fp)``.
+    """
+
+    waveforms: Waveforms
+    rf: RfTimes
+    adc: AdcTimes
+
+
+@dataclass(frozen=True)
+class RfBandwidth:
+    """RF bandwidth, the spectrum it was measured on, and the bands in it.
+
+    Frequencies are in Hz. ``frequency`` is centred on where the pulse is
+    tuned; ``band_offsets`` are relative to that tuning, the pulse's own
+    frequency offset, so a single-band pulse has one band at zero. The
+    PyPulseq-compatible tuple is ``(bandwidth, spectrum, frequency)``.
+
+    Attributes
+    ----------
+    bandwidth : float
+        Width between the outermost crossings at ``cutoff`` of the peak, over
+        every band.
+    spectrum : numpy.ndarray
+        Complex Fourier transform of the envelope, one value per ``frequency``.
+    frequency : numpy.ndarray
+        Frequency of each bin of ``spectrum``. Upstream's axis, which the
+        compatible tuple returns, labels every bin one bin low.
+    band_offsets : numpy.ndarray
+        Magnitude-weighted centre of each band, lowest first.
+    band_bandwidths : numpy.ndarray
+        Width of each band at ``cutoff`` of that band's own peak.
+    """
+
+    bandwidth: float
+    spectrum: np.ndarray
+    frequency: np.ndarray
+    band_offsets: np.ndarray
+    band_bandwidths: np.ndarray
+
+    @property
+    def num_bands(self) -> int:
+        """Number of bands; one for a pulse with a single passband."""
+        return int(self.band_offsets.size)
+
+
+@dataclass(frozen=True)
+class AdcEchoes:
+    """Per readout, the axes its k-space moves along and the samples nearest the centre.
+
+    One entry per block that acquires, in play order; see
+    :meth:`pypulseqpp.Sequence.adc_echoes`.
+
+    Attributes
+    ----------
+    block : NDArray[np.int32]
+        ``(n,)``: the 1-based block.
+    num_samples : NDArray[np.int32]
+        ``(n,)``: the samples it acquires.
+    first_sample : NDArray[np.int64]
+        ``(n,)``: the column of its first sample in
+        :meth:`pypulseqpp.Sequence.adc_kspace`.
+    moving : NDArray[np.bool_]
+        ``(n, 3)``: whether its k-space moves along x, y and z.
+    echo : NDArray[np.int32]
+        ``(n, 2)``: the first and last 0-based sample no further from the
+        centre of k-space, over the moving axes, than the nearest sample plus
+        1% of the larger k step beside it; -1 for a readout that does not move
+        or has fewer than two samples.
+    start : NDArray[np.float64] or None
+        ``(n, 3)``: k-space at its first sample, in 1/m.
+    path : NDArray[np.int32] or None
+        ``(n,)``: the entry of :attr:`paths` it plays.
+    paths : tuple of NDArray[np.float64] or None
+        Each distinct ``(3, samples)`` path from a readout's first sample to
+        each of its samples, in 1/m, along the axes before the block's
+        rotation, so that readout ``r`` is sampled at
+        ``start[r, :, None] + R @ paths[path[r]]``, as
+        :meth:`pypulseqpp.Sequence.adc_kspace` places it, ``R`` being
+        ``rotations[rotation[r]]``, or the identity where that is -1.
+        Readouts whose gradients differ only before their first sample, or
+        only in their rotation, share one.
+    rotation : NDArray[np.int32] or None
+        ``(n,)``: the entry of :attr:`rotations` it plays under, -1 for none.
+    rotations : NDArray[np.float64] or None
+        ``(m, 3, 3)``: each distinct block rotation a readout plays under.
+
+    :attr:`start`, :attr:`path`, :attr:`paths`, :attr:`rotation` and
+    :attr:`rotations` are None when an RF pulse
+    plays in a block that acquires, unless its use is recorded as neither
+    excitation nor refocusing, and when more than one readout in 16 has a
+    path of its own.
+    """
+
+    block: np.ndarray
+    num_samples: np.ndarray
+    first_sample: np.ndarray
+    moving: np.ndarray
+    echo: np.ndarray
+    start: np.ndarray | None = None
+    path: np.ndarray | None = None
+    paths: tuple[np.ndarray, ...] | None = None
+    rotation: np.ndarray | None = None
+    rotations: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class RfGradients:
+    """The gradient each RF pulse plays under, along the channel axes.
+
+    One entry per block with RF, in play order; see
+    :meth:`pypulseqpp.Sequence.rf_gradients`.
+
+    Attributes
+    ----------
+    block : NDArray[np.int32]
+        ``(n,)``: the 1-based block.
+    steady : NDArray[np.bool_]
+        ``(n, 3)``: whether the gradient along x, y and z holds one value from
+        the pulse's first sample to its last; an axis without a gradient is
+        steady at zero.
+    gradient : NDArray[np.float64]
+        ``(n, 3)``: the gradient along x, y and z at the pulse's centre, in
+        Hz/m.
+    """
+
+    block: np.ndarray
+    steady: np.ndarray
+    gradient: np.ndarray
+
+
+@dataclass(frozen=True)
+class EventDefinitions:
+    """The definition each event of a sequence was deduplicated onto.
+
+    Entry ``i`` is event id ``i + 1``, and the value is a definition id
+    counted from 1. Events sharing a definition play the same thing at
+    different amplitudes, offsets or phases: the per-playout parameters are
+    what separates them, so a pulse generator materialises memory once per
+    definition rather than once per event. See
+    :meth:`pypulseqpp.Sequence.event_definitions`.
+
+    Attributes
+    ----------
+    rf : NDArray[np.int32]
+        ``(r,)``: by RF id. Magnitude, phase and time shapes, delay, centre
+        and use make the definition; the amplitude and the frequency and
+        phase offsets, ppm offsets included, do not.
+    gradient : NDArray[np.int32]
+        ``(g,)``: by gradient id, trapezoids and arbitrary gradients under one
+        numbering. A trapezoid's rise, flat and fall times and delay make the
+        definition, an arbitrary gradient's time shape and delay do; neither
+        amplitude does, and an arbitrary gradient's waveform belongs to the
+        playout.
+    adc : NDArray[np.int32]
+        ``(a,)``: by ADC id. Sample count, dwell and delay make the
+        definition; the frequency and phase offsets and the phase
+        modulation do not.
+    """
+
+    rf: np.ndarray
+    gradient: np.ndarray
+    adc: np.ndarray
+
+
+@dataclass(frozen=True)
+class RfDefinition:
+    """One RF pulse as the instances of a sequence play it, at unit peak magnitude.
+
+    An instance plays the RF amplitude ``amplitude * peak_hz * waveform`` on
+    its transmit channels, in Hz, at the sample times ``time``; see
+    :meth:`pypulseqpp.Sequence.rf_instances`.
+
+    Attributes
+    ----------
+    waveform : NDArray[np.complex128]
+        ``(channels, samples)``: the complex RF waveform of each transmit
+        channel, scaled to unit peak magnitude over all channels and samples,
+        with the block's RF shim applied. A single-transmit pulse has one
+        row, a dynamic pTx pulse one per channel, and a single-transmit pulse
+        under an RF shim one per shim weight. The RF event's frequency and
+        phase offsets are playout parameters and are not applied.
+    peak_hz : float
+        The peak magnitude, over all channels and samples, of the RF
+        amplitude of the base instance, in Hz.
+    time : NDArray[np.float64]
+        ``(samples,)``: the sample times in s from the start of the RF event,
+        its delay excluded. The channels share one time base.
+    delay : float
+        The delay of the RF event within its block, in s.
+    center : float
+        The RF pulse centre in s from the start of the RF event, as the event
+        states it.
+    use : str
+        The RF use: ``'excitation'``, ``'refocusing'``, ``'inversion'``,
+        ``'saturation'``, ``'preparation'``, ``'other'`` or ``'undefined'``.
+    flip_deg : float
+        The flip angle of the base instance's RF event in degrees, as
+        :meth:`pypulseqpp.Sequence.rf_flip_angles` gives it, so without the
+        RF shim.
+    """
+
+    waveform: np.ndarray
+    peak_hz: float
+    time: np.ndarray
+    delay: float
+    center: float
+    use: str
+    flip_deg: float
+
+
+@dataclass(frozen=True)
+class RfInstances:
+    """The RF events a sequence plays, and the distinct RF pulses they play.
+
+    One instance per block that contains an RF event, in block order; see
+    :meth:`pypulseqpp.Sequence.rf_instances`.
+
+    Attributes
+    ----------
+    definitions : tuple[RfDefinition, ...]
+        The distinct pulses, numbered in order of first play.
+    definition : NDArray[np.intp]
+        ``(n,)``: the index into ``definitions`` of the pulse each instance
+        plays.
+    amplitude : NDArray[np.float64]
+        ``(n,)``: the RF amplitude of each instance over that of the base
+        instance of its definition, which is the first instance with a
+        nonzero RF amplitude and so has amplitude 1. A definition played only
+        at amplitude zero has amplitude 1 for every instance and a zero
+        ``peak_hz``.
+    """
+
+    definitions: tuple[RfDefinition, ...]
+    definition: np.ndarray
+    amplitude: np.ndarray
+
+
+@dataclass(frozen=True)
+class GradientStatistics:
+    """Statistics of each gradient event's waveform, along its channel axis.
+
+    Entry ``i`` is gradient id ``i + 1``; see
+    :meth:`pypulseqpp.Sequence.gradient_statistics`.
+
+    Attributes
+    ----------
+    peak_slew : NDArray[np.float64]
+        ``(g,)``: the steepest slew rate, in Hz/m/s.
+    energy : NDArray[np.float64]
+        ``(g,)``: the integral of the squared gradient, in (Hz/m)^2 s.
+    slew_energy : NDArray[np.float64]
+        ``(g,)``: the integral of the squared slew rate, in (Hz/m/s)^2 s.
+    """
+
+    peak_slew: np.ndarray
+    energy: np.ndarray
+    slew_energy: np.ndarray

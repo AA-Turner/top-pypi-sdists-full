@@ -1,0 +1,143 @@
+id: cli-interface
+title: "Implement CLI entry point wrapping the shared command layer"
+worktree: main
+priority: High
+status: Completed
+completed_date: "2026-03-07"
+description: |
+  Create a CLI for textcharts that exposes all 15 chart types as subcommands.
+  The CLI is a thin wrapper around the shared command layer — it handles argument
+  parsing, stdin/file input, and terminal output, but all chart logic and
+  validation lives in the commands module.
+
+  Usage examples:
+    textcharts bar --title "Scores" --sort-by value < data.json
+    textcharts heatmap -f matrix.json --color-scheme sequential --width 120
+    textcharts line --title "Trend" --show-trend --theme dark < points.json
+    cat data.json | textcharts histogram --y-label "Latency (ms)"
+    textcharts list                  # list available chart types
+    textcharts bar --help            # show bar chart options and input format
+
+  Data input: JSON from stdin or --file/-f flag. JSON schema matches the shared
+  command layer's input schema exactly (same as MCP tool input).
+
+  Output: rendered chart string to stdout. Errors to stderr.
+
+category: Core Functionality
+
+deps:
+  needs:
+    - shared-command-layer
+
+work:
+  - id: w1
+    summary: "Create CLI entry point with argparse, register console_scripts entry point in pyproject.toml"
+    status: pending
+    notes: |
+      Create src/textcharts/cli.py with main() function.
+      Use argparse (stdlib only — no click/typer dependency).
+      Auto-generate subcommands from commands.list_commands().
+      Each subcommand gets chart-specific args from commands.describe_command().
+      Common args on parent parser: --width, --height, --color/--no-color,
+      --unicode/--no-unicode, --theme, --title, --file/-f.
+      Input: if --file given, read that; else read stdin. Parse as JSON.
+      Call commands.execute_command() and print result to stdout.
+      Add [project.scripts] section to pyproject.toml:
+        textcharts = "textcharts.cli:main"
+      Verify `uv run textcharts --help` works after install.
+
+  - id: w2
+    summary: "Add 'list' meta-command and --help enrichment from command introspection"
+    needs: [w1]
+    status: pending
+    notes: |
+      `textcharts list` prints all chart types with one-line descriptions.
+      Each subcommand --help shows the JSON input schema with an example.
+      Use commands.get_input_schema() and commands.describe_command() to
+      generate help text dynamically — no hardcoded docs.
+
+  - id: w3
+    summary: "CLI integration tests: all 15 chart types via subprocess, stdin and file input, error cases"
+    needs: [w1, w2]
+    status: pending
+    notes: |
+      tests/test_cli.py — invoke via subprocess (uv run textcharts ...).
+      Test: each chart type with sample JSON, --file vs stdin, --no-color,
+      list command, --help output, invalid JSON error, unknown command error.
+      Also run the full existing test suite to confirm no regressions.
+
+deferred:
+  - summary: "CSV input support as alternative to JSON for flat data chart types"
+    reason: "Adds complexity to initial CLI; JSON covers all chart types uniformly and matches MCP input format. Can be added as a convenience layer later."
+  - summary: "Interactive mode with prompts for data entry"
+    reason: "Niche use case; JSON input covers the main workflows"
+  - summary: "Output format flags (--output html, --output svg)"
+    reason: "Rendering is text-only by design; format conversion is a separate tool"
+  - summary: "Shell completions (bash/zsh/fish)"
+    reason: "Nice-to-have for v2; not blocking initial release"
+
+metadata:
+  owners:
+    - joe
+  tags:
+    - cli
+  estimated_effort: "1-2 days"
+  created_date: "2026-03-07"
+
+impact:
+  business_value: |
+    Makes textcharts usable from any language or workflow via the command line.
+    Enables piping data from other tools directly into chart rendering.
+  user_impact: |
+    Users can generate terminal charts without writing Python code.
+    Shell scripts and CI pipelines can produce charts with a single command.
+
+files_affected:
+  added:
+    - "src/textcharts/cli.py"
+    - "tests/test_cli.py"
+  modified:
+    - "pyproject.toml"
+
+must_preserve:
+  - "pyproject.toml [project] metadata (name, version, description, classifiers) unchanged"
+  - "Zero new external dependencies — CLI uses only argparse (stdlib)"
+  - "Existing library import paths and API unaffected"
+
+approach: |
+  Single file src/textcharts/cli.py using argparse. The main() function builds
+  the parser dynamically from the command registry. Each subcommand handler reads
+  input, calls execute_command(), and prints the result. Keep the CLI file thin —
+  all logic lives in the commands module.
+
+  For CSV support, add a parse_csv_input() helper that uses csv.DictReader and
+  maps column names to dataclass field names. Auto-detect format from file
+  extension (.csv vs .json) or explicit --format flag.
+
+anti_patterns:
+  - "DO NOT add click, typer, or rich as dependencies — because textcharts is zero-dependency — use argparse only"
+  - "DO NOT duplicate command definitions — because the registry is the single source of truth — auto-generate subcommands from it"
+  - "DO NOT put chart logic in cli.py — because it must stay interface-agnostic — cli.py only handles I/O and arg parsing"
+
+verification:
+  - description: "CLI help shows all 15 chart types"
+    command: "uv run -- textcharts list"
+    expected_output: "lists 15 chart types with descriptions"
+  - description: "Bar chart renders from stdin JSON"
+    command: "echo '[{\"label\":\"A\",\"value\":10},{\"label\":\"B\",\"value\":20}]' | uv run -- textcharts bar --no-color"
+    expected_output: "rendered bar chart text output"
+  - description: "Integration tests pass"
+    command: "uv run -- python -m pytest tests/test_cli.py -v"
+    expected_output: "all tests pass"
+  - description: "Existing test suite still passes"
+    command: "uv run -- python -m pytest tests/ -v --no-header -q"
+    expected_output: "all tests pass, coverage >= 85%"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/cli.py"
+    - "tests/test_cli.py"
+    - "pyproject.toml"
+  do_not_modify:
+    - "src/textcharts/__init__.py"
+    - "src/textcharts/commands/"

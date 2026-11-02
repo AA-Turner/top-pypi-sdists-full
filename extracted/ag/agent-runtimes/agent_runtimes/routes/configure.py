@@ -1,0 +1,1698 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""FastAPI routes for frontend configuration."""
+
+import asyncio
+import json
+import logging
+import os
+from pathlib import Path as FilePath
+from typing import Any, Literal, cast
+
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from pydantic import BaseModel
+
+from agent_runtimes.config import get_frontend_config
+from agent_runtimes.context.costs import get_cost_store
+from agent_runtimes.context.usage import get_usage_tracker
+from agent_runtimes.mcp import (
+    get_available_tools,
+    get_config_mcp_toolsets_info,
+    get_mcp_manager,
+)
+from agent_runtimes.node_mode import is_node_enabled, set_node_enabled
+from agent_runtimes.tools.decisions import DecisionQuestion, decide
+from agent_runtimes.types import AgentSuggestion, FrontendConfig
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/configure", tags=["configure"])
+
+
+# =========================================================================
+# Codemode Configuration Models
+# =========================================================================
+
+
+class SandboxStatus(BaseModel):
+    """
+    Code sandbox status.
+
+    For two-container setups (Kubernetes), the mcp_proxy_url enables
+    the Jupyter kernel to call MCP tools via HTTP to the agent-runtimes container.
+    """
+
+    variant: str  # "eval" or "jupyter-server"
+    jupyter_url: str | None = None
+    #: The token that Jupyter server wants, when it wants one.
+    #:
+    #: Sent because the browser is meant to drive this sandbox: the notebook
+    #: and document editors connect to it directly, and a URL without its token
+    #: is refused at the first request — a cell that runs and produces nothing
+    #: rather than an error anybody can act on. The sandbox is the caller's own
+    #: and this endpoint already configures and restarts it, so the token is not
+    #: a wider disclosure than the channel it travels on.
+    jupyter_token: str | None = None
+    #: The kernel the agent is using, so an editor joins it rather than
+    #: starting a rival one and diverging from what the agent sees.
+    kernel_id: str | None = None
+    kernel_name: str | None = None
+    jupyter_connected: bool = False
+    jupyter_error: str | None = None
+    sandbox_running: bool = False
+    is_executing: bool = False
+    generated_path: str | None = None
+    skills_path: str | None = None
+    python_path: str | None = None
+    mcp_proxy_url: str | None = None
+
+
+class CodemodeStatus(BaseModel):
+    """Codemode status response."""
+
+    enabled: bool
+    skills: list[dict[str, Any]]
+    available_skills: list[dict[str, Any]]
+    sandbox: SandboxStatus | None = None
+
+
+class CodemodeToggleRequest(BaseModel):
+    """Request to toggle codemode."""
+
+    enabled: bool
+    skills: list[str] | None = None
+    agent_id: str | None = None
+
+
+# =========================================================================
+# Codemode State (runtime state, not persistent)
+# =========================================================================
+
+_codemode_state: dict[str, Any] = {
+    "enabled": os.environ.get("AGENT_RUNTIMES_CODEMODE", "").lower() == "true",
+    "skills": [
+        s.strip()
+        for s in os.environ.get("AGENT_RUNTIMES_SKILLS", "").split(",")
+        if s.strip()
+    ],
+}
+
+InferenceProvider = Literal["local", "datalayer"]
+
+_inference_provider_override: dict[str, InferenceProvider | None] = {
+    "provider": None,
+}
+
+_tool_approvals_state: dict[str, bool] = {
+    "disabled": os.environ.get("AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS", "").lower()
+    == "true",
+}
+
+
+def get_tool_approvals_disabled() -> bool:
+    """Return whether tool approvals are disabled for new agent launches.
+
+    This reflects process-local runtime state (a module-level flag mirrored to an
+    env var); it does not propagate across multiple uvicorn workers or pods
+    unless backed by shared storage.
+    """
+    # Honor a live environment variable so that runtime/deployment configuration
+    # (set after this module was imported) is respected. Fall back to the
+    # in-memory toggle managed via ``set_tool_approvals_disabled``.
+    env_value = os.environ.get("AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS")
+    if env_value:
+        return env_value.lower() == "true"
+    return bool(_tool_approvals_state["disabled"])
+
+
+def set_tool_approvals_disabled(disabled: bool) -> bool:
+    """Update runtime tool approvals disable flag (process-local) and mirror to env.
+
+    The flag is stored in process-local state and an env var, so it does not
+    propagate across multiple uvicorn workers or pods unless backed by shared
+    storage.
+    """
+    _tool_approvals_state["disabled"] = bool(disabled)
+    os.environ["AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS"] = (
+        "true" if disabled else "false"
+    )
+    return _tool_approvals_state["disabled"]
+
+
+def _default_inference_provider() -> InferenceProvider:
+    """Infer the default provider from runtime environment and node state."""
+    configured = (
+        (os.environ.get("AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE") or "")
+        .strip()
+        .lower()
+    )
+    if configured in {"local", "datalayer"}:
+        return cast(InferenceProvider, configured)
+
+    if not is_node_enabled():
+        return "local"
+
+    if (os.environ.get("AGENT_NODE_ID") or "").strip():
+        return "datalayer"
+
+    mode = (os.environ.get("AGENT_NODE_MODE") or "").strip().lower()
+    if mode in {"private", "shared", "sleep"}:
+        return "datalayer"
+
+    return "local"
+
+
+def get_inference_provider_override() -> InferenceProvider | None:
+    """Return explicit runtime override (if user changed provider at runtime)."""
+    return _inference_provider_override["provider"]
+
+
+def configured_inference_provider_override() -> InferenceProvider | None:
+    """The provider this runtime routes every agent through, whatever its spec says.
+
+    Set at runtime (``PUT /configure/inference/provider``), else by
+    ``AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE`` — which the platform sets
+    to ``datalayer`` on a Datalayer runtime, so its agents call their models
+    through ai-inference although their agentspecs say ``local``.
+    """
+    override = get_inference_provider_override()
+    if override in {"local", "datalayer"}:
+        return override
+    configured = (
+        (os.environ.get("AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE") or "")
+        .strip()
+        .lower()
+    )
+    if configured in {"local", "datalayer"}:
+        return cast(InferenceProvider, configured)
+    return None
+
+
+def get_effective_inference_provider() -> InferenceProvider:
+    """Resolve effective inference provider from override/env/defaults."""
+    override = get_inference_provider_override()
+    if override in {"local", "datalayer"}:
+        return override
+    return _default_inference_provider()
+
+
+def _normalize_ai_inference_base_url(raw_url: str | None) -> str:
+    """Normalize AI inference base URL to the canonical /api/ai-inference/v1 path."""
+    base = (raw_url or "http://localhost:4450").strip().rstrip("/")
+    if base.endswith("/api/ai-inference/v1"):
+        return base
+    if base.endswith("/api/ai-inference"):
+        return f"{base}/v1"
+    return f"{base}/api/ai-inference/v1"
+
+
+class InferenceProviderRequest(BaseModel):
+    provider: InferenceProvider
+
+
+class ToolApprovalsRequest(BaseModel):
+    disabled: bool
+
+
+class NodeModeRequest(BaseModel):
+    enabled: bool
+
+
+@router.get("/node")
+async def get_node_mode() -> dict[str, Any]:
+    """Return whether Agent Node mode is enabled for this server process."""
+    return {
+        "enabled": is_node_enabled(),
+    }
+
+
+@router.put("/node")
+async def set_node_mode(body: NodeModeRequest) -> dict[str, Any]:
+    """Set Agent Node mode flag in env (applies fully after server restart)."""
+    set_node_enabled(body.enabled)
+    return {
+        "success": True,
+        "enabled": body.enabled,
+        "restart_required": True,
+    }
+
+
+@router.get("/inference/provider")
+async def get_inference_provider() -> dict[str, Any]:
+    """Return the effective runtime inference provider."""
+    explicit = get_inference_provider_override()
+    effective = get_effective_inference_provider()
+    source = "runtime-override" if explicit else "default"
+    return {
+        "provider": effective,
+        "source": source,
+    }
+
+
+@router.get("/tool-approvals")
+async def get_tool_approvals() -> dict[str, Any]:
+    """Return whether tool approvals are disabled for subsequent agent launches."""
+    return {
+        "disabled": get_tool_approvals_disabled(),
+    }
+
+
+@router.put("/tool-approvals")
+async def set_tool_approvals(body: ToolApprovalsRequest) -> dict[str, Any]:
+    """Enable or disable tool approval flows for subsequent agent launches."""
+    disabled = set_tool_approvals_disabled(body.disabled)
+    return {
+        "success": True,
+        "disabled": disabled,
+    }
+
+
+@router.put("/inference/provider")
+async def set_inference_provider(body: InferenceProviderRequest) -> dict[str, Any]:
+    """Update runtime inference provider used for subsequent agent launches."""
+    _inference_provider_override["provider"] = body.provider
+    os.environ["AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE"] = body.provider
+    return {
+        "success": True,
+        "provider": body.provider,
+    }
+
+
+class InferenceTokenRequest(BaseModel):
+    """The token a runtime calls ai-inference with, as the companion gives it."""
+
+    token: str
+
+
+@router.put("/inference/token")
+async def give_inference_token_endpoint(
+    request: Request, body: InferenceTokenRequest
+) -> dict[str, Any]:
+    """Give this runtime the token it calls ai-inference with, and ask ai-inference again.
+
+    The companion calls it as the runtime is assigned to its user, with that
+    user's token narrowed by IAM to ai-inference. Only the pod itself may: the
+    token decides whose account every model call is metered on. Which models
+    ai-inference serves is asked again with it, so the models offered are
+    those it serves rather than the sentence a pooled runtime started with.
+    """
+    from agent_runtimes.apps.callers import POD_SECRET_HEADER, is_the_pod
+    from agent_runtimes.models.offered import (
+        give_inference_token,
+        load_inference_models,
+        models_source,
+    )
+
+    if not is_the_pod(
+        request.client.host if request.client else None,
+        request.headers.get(POD_SECRET_HEADER),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the runtime's own pod gives it its ai-inference token.",
+        )
+    if not body.token.strip():
+        raise HTTPException(status_code=422, detail="The token is empty.")
+    expires_at = give_inference_token(body.token)
+    provider = get_effective_inference_provider()
+    served = list((await load_inference_models(refresh=True)).served or [])
+    source, note = models_source(provider)
+    return {
+        "provider": provider,
+        "expiresAt": expires_at,
+        "models": served,
+        "source": source,
+        "note": note,
+    }
+
+
+@router.get("/inference/models")
+async def list_inference_models() -> dict[str, Any]:
+    """The models this runtime's inference serves, as the runtime knows them.
+
+    Through datalayer-ai-inference, its answer to the one request the runtime
+    makes at startup, in catalogue ids; ``note`` says it in a sentence, and
+    why the list is empty when it is (no ai-inference configured, or it did
+    not answer). Calling the providers directly, nothing is listed here: the
+    runtime's own keys decide (``/configure/models``).
+    """
+    from agent_runtimes.models.offered import load_inference_models, models_source
+
+    provider = get_effective_inference_provider()
+    served: list[str] = []
+    if provider == "datalayer":
+        served = list((await load_inference_models()).served or [])
+    source, note = models_source(provider)
+    return {"provider": provider, "models": served, "source": source, "note": note}
+
+
+class DecisionsRequest(BaseModel):
+    """Typed questions about a text, as ``/decisions`` asks them."""
+
+    state: str
+    questions: list[DecisionQuestion]
+
+
+@router.post("/inference/decisions")
+async def ask_decisions(body: DecisionsRequest) -> dict[str, Any]:
+    """Ask Jev typed questions about a text, as the ``decide`` tool does.
+
+    Through this runtime's ai-inference, with the token its models are called
+    with: on Datalayer the user's, narrowed to ai-inference. ``loop``'s
+    ``/decisions`` asks here.
+
+    Parameters
+    ----------
+    body : DecisionsRequest
+        The text (``state``) and the questions, each named and typed.
+
+    Returns
+    -------
+    dict[str, Any]
+        ``model`` and ``answers`` by question name; or ``refusal``, the
+        sentence saying why nothing was decided.
+    """
+    answer = await decide(body.state, body.questions)
+    if isinstance(answer, str):
+        return {"refusal": answer}
+    return answer
+
+
+@router.get("/models")
+async def list_catalog_models(
+    agent_id: str | None = Query(
+        None,
+        description="An agent of this runtime: only its model and model_additionals",
+    ),
+) -> dict[str, Any]:
+    """The model catalog, with readiness and — for local models — reachability.
+
+    The list comes from agentspecs: that is what decides which models are
+    *offerable* — for an agent, its ``model`` and ``model_additionals``.
+    Whether a hosted one can be used is ai-inference's answer when the
+    runtime routes through it and it answered (``source`` and ``note`` say
+    which). Discovery only reports what is **reachable right now**, because
+    a local model is available when something is listening on a port, not when
+    an API key happens to be set.
+
+    A model installed locally with no spec is reported separately, as an
+    invitation to add a spec — never as a silent option.
+
+    When ai-inference decides (``source`` ``ai-inference``), only the models
+    it serves are listed: no local model, runtime or uncatalogued install,
+    and none of the agent's models it does not serve (a switch to one is
+    refused in a sentence).
+
+    The typed-decision models ai-inference lists (Jev) come apart, in
+    ``decision_models`` with ``decisions_note``: a decision asks them through
+    ``/decisions``, and no agent may be switched to one.
+    """
+    from agent_runtimes.models.local import (
+        LOCAL_PROVIDERS,
+        capability_warning,
+        discover_installed_models,
+        split_model_id,
+    )
+    from agent_runtimes.models.offered import (
+        DECISIONS_NOTE,
+        agent_inference_provider,
+        availability,
+        decision_rows,
+        listed,
+        load_inference_models,
+        models_source,
+        offered_model_ids,
+    )
+    from agent_runtimes.specs.models import get_model, is_chat_model, list_chat_models
+
+    await load_inference_models()
+    provider = agent_inference_provider(agent_id)
+    source, note = models_source(provider)
+    agent_models = offered_model_ids(agent_id)
+    if agent_id and agent_models is None:
+        raise HTTPException(
+            status_code=404, detail=f"No agent '{agent_id}' runs on this runtime."
+        )
+
+    # Local runtimes are not this runtime's when ai-inference decides.
+    on_ai_inference = source == "ai-inference"
+    installed = {} if on_ai_inference else discover_installed_models()
+
+    models: list[dict[str, Any]] = []
+    catalogued_local: set[tuple[str, str]] = set()
+
+    # A chat picker's models: a typed-decision model (Jev) is not one.
+    offered = (
+        [
+            spec
+            for spec in (get_model(m) for m in agent_models)
+            if spec is not None and is_chat_model(spec)
+        ]
+        if agent_models is not None
+        else list_chat_models()
+    )
+    offered = [model for model in offered if listed(model.id, provider)]
+    for model in offered:
+        # Through ai-inference the provider's keys are ai-inference's: this
+        # process needs none of them.
+        missing = (
+            []
+            if provider == "datalayer"
+            else [
+                name
+                for name in model.required_env_vars
+                if not os.getenv(name.split(":")[0])
+            ]
+        )
+        # The spec's variables are not the whole answer: a model whose
+        # credentials live in datalayer-ai-inference lists none, and needs its
+        # provider's own key when this process calls the provider directly;
+        # and when ai-inference said what it serves, that decides.
+        usable, unusable_reason = availability(model.id, provider)
+        entry: dict[str, Any] = {
+            "id": model.id,
+            "name": model.name,
+            "description": model.description,
+            "provider": model.provider,
+            "default": model.default,
+            "tokens_limit": model.tokens_limit,
+            "local": model.local,
+            "capabilities": list(model.capabilities),
+            "required_env_vars": list(model.required_env_vars),
+            "missing_env_vars": missing,
+        }
+
+        if model.local:
+            provider_name, model_name = split_model_id(model.id)
+            catalogued_local.add((provider_name, model_name))
+            provider_models = installed.get(provider_name)
+            # Reachability is a three-state answer: installed, runtime is up but
+            # this model is not pulled, or the runtime is not running at all.
+            if provider_models is None:
+                entry["reachable"] = False
+                entry["reason"] = f"{provider_name} is not running"
+            elif model_name in provider_models:
+                entry["reachable"] = True
+            else:
+                entry["reachable"] = False
+                entry["reason"] = f"not installed in {provider_name}"
+            entry["warning"] = capability_warning(model)
+            entry["available"] = entry["reachable"]
+        else:
+            entry["reachable"] = None
+            entry["warning"] = None
+            # Entitlement (the registry's `available`), readiness (the
+            # credentials) and, through ai-inference, whether it serves the
+            # model: `availability` asks all three, and says which failed.
+            entry["available"] = usable
+            if not usable:
+                entry["reason"] = unusable_reason
+
+        models.append(entry)
+
+    uncatalogued = [
+        {"provider": provider_name, "name": name}
+        for provider_name, names in installed.items()
+        for name in names
+        if (provider_name, name) not in catalogued_local
+    ]
+
+    runtimes = (
+        {}
+        if on_ai_inference
+        else {
+            name: {
+                "label": spec.label,
+                "base_url": spec.base_url(),
+                "reachable": name in installed,
+                "installed": list(installed.get(name, ())),
+            }
+            for name, spec in LOCAL_PROVIDERS.items()
+        }
+    )
+
+    return {
+        "models": models,
+        "source": source,
+        "note": note,
+        "decision_models": decision_rows(provider),
+        "decisions_note": DECISIONS_NOTE,
+        "local_runtimes": runtimes,
+        "uncatalogued_local": uncatalogued,
+    }
+
+
+@router.get("/skills")
+async def list_catalog_skills(agent_id: str | None = None) -> dict[str, Any]:
+    """The skill catalog, with readiness — and, when a sandbox is up, what is live.
+
+    The catalogue is what *exists*, and it answers without a sandbox: someone
+    should be able to see what a skill is before paying for compute to run it.
+    Whether a skill is installed and active is a second question, answerable
+    only when something is running.
+    """
+    from agent_runtimes.specs.skills import list_skill_specs
+
+    skills: list[dict[str, Any]] = []
+    for spec in list_skill_specs():
+        # Env var refs are versioned (`TAVILY_API_KEY:0.0.1`); the variable is
+        # the part before the colon.
+        required = [ref.split(":")[0] for ref in (spec.envvars or [])]
+        # `optional_env_vars` and `enabled` are written in the YAML but are not
+        # fields on SkillSpec, so pydantic drops them: read them defensively
+        # rather than assuming either shape.
+        optional = [
+            str(ref).split(":")[0]
+            for ref in (getattr(spec, "optional_env_vars", None) or [])
+        ]
+        missing = [name for name in required if not os.getenv(name)]
+
+        skills.append(
+            {
+                "id": spec.id,
+                "version": spec.version,
+                "name": spec.name,
+                "description": spec.description,
+                "tags": list(spec.tags or []),
+                "icon": spec.icon,
+                "emoji": spec.emoji,
+                "enabled": bool(getattr(spec, "enabled", True)),
+                "dependencies": list(spec.dependencies or []),
+                "required_env_vars": required,
+                "optional_env_vars": optional,
+                "missing_env_vars": missing,
+                "ready": not missing,
+            }
+        )
+
+    active: list[str] = []
+    sandbox: dict[str, Any] = {}
+    try:
+        status = await get_codemode_status(agent_id=agent_id)
+        if isinstance(status, dict):
+            sandbox = status.get("sandbox") or {}
+            active = [
+                str(entry.get("name"))
+                for entry in status.get("skills") or []
+                if isinstance(entry, dict) and entry.get("name")
+            ]
+    except Exception as error:  # noqa: BLE001
+        # No sandbox is not an error here: the catalogue still answers.
+        logger.debug("Codemode status unavailable while listing skills: %s", error)
+
+    for entry in skills:
+        entry["active"] = entry["id"] in active
+
+    return {"skills": skills, "active": active, "sandbox": sandbox}
+
+
+@router.get("", response_model=FrontendConfig)
+async def get_configuration(
+    mcp_url: str | None = Query(
+        None,
+        description="MCP server URL to fetch tools from",
+    ),
+    mcp_token: str | None = Query(
+        None,
+        description="Authentication token for MCP server",
+    ),
+    agent_id: str | None = Query(
+        None,
+        description="Agent ID to resolve agent-specific default model",
+    ),
+) -> Any:
+    """
+    Get frontend configuration.
+
+    Returns configuration information for the frontend:
+    - Available models
+    - Builtin tools (fetched from MCP server if URL provided)
+    - MCP servers
+    """
+    try:
+        # Fetch tools from MCP server if URL provided
+        available_tools: list[dict[str, Any]] = []
+        if mcp_url:
+            logger.info(f"Fetching tools from MCP server: {mcp_url}")
+            available_tools = await get_available_tools(
+                base_url=mcp_url,
+                token=mcp_token,
+            )
+            logger.info(f"Fetched {len(available_tools)} tools from MCP server")
+
+        # Get MCP servers - try lifecycle manager first, then fallback to mcp_manager
+        mcp_servers = []
+        try:
+            from agent_runtimes.mcp.lifecycle import get_mcp_lifecycle_manager
+
+            lifecycle_manager = get_mcp_lifecycle_manager()
+            running_instances = lifecycle_manager.get_all_running_servers()
+            logger.info(
+                f"Lifecycle manager has {len(running_instances)} running instances"
+            )
+            if running_instances:
+                mcp_servers = [instance.config for instance in running_instances]
+                logger.info(f"Got {len(mcp_servers)} servers from lifecycle manager")
+        except Exception as e:
+            logger.warning(f"Lifecycle manager error: {e}", exc_info=True)
+
+        # Fallback to mcp_manager if lifecycle manager has no servers
+        if not mcp_servers:
+            mcp_manager = get_mcp_manager()
+            mcp_servers = mcp_manager.get_servers()
+            logger.debug(f"Got {len(mcp_servers)} servers from mcp_manager (fallback)")
+
+        # The models on offer: an agent's own (its model and model_additionals),
+        # read against what ai-inference said it serves.
+        from agent_runtimes.models.offered import (
+            agent_inference_provider,
+            load_inference_models,
+            offered_model_ids,
+        )
+
+        await load_inference_models()
+
+        # Build frontend config
+        config = await get_frontend_config(
+            tools=available_tools,
+            mcp_servers=mcp_servers,
+            disable_tool_approvals=get_tool_approvals_disabled(),
+            model_ids=offered_model_ids(agent_id),
+            inference_provider=agent_inference_provider(agent_id),
+        )
+
+        # If the caller provides an agent, prefer the model configured by that
+        # agent spec over the global model catalogue default.
+        if agent_id:
+            from .agents import get_stored_agent_spec
+
+            spec = get_stored_agent_spec(agent_id)
+            spec_model = spec.get("model") if isinstance(spec, dict) else None
+            if isinstance(spec_model, str) and spec_model.strip():
+                config.default_model = spec_model
+
+            if isinstance(spec, dict):
+                spec_welcome = spec.get("welcome_message") or spec.get("welcomeMessage")
+                if isinstance(spec_welcome, str) and spec_welcome.strip():
+                    config.welcome_message = spec_welcome.strip()
+
+                # The agentspec's suggestions, kept with its creation spec
+                # as `AgentSuggestion` records.
+                config.suggestions = [
+                    AgentSuggestion.model_validate(item) for item in spec["suggestions"]
+                ]
+
+            # What has been sent to this agent so far, for the composer's arrow
+            # keys: part of the initial state, so a reloaded page walks back
+            # through the same prompts as the one before it.
+            from agent_runtimes.context.prompt_history import get_prompt_history
+
+            config.prompt_history = get_prompt_history(agent_id)
+
+        return config
+
+    except Exception as e:
+        logger.error(f"Error getting configuration: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/mcp-toolsets-info")
+async def get_toolsets_info() -> list[dict[str, Any]]:
+    """
+    Get information about running config MCP toolsets.
+
+    Returns:
+        List of running MCP server information (sensitive data redacted).
+    """
+    return get_config_mcp_toolsets_info()
+
+
+@router.get("/agents/{agent_id:path}/context-details")
+async def get_agent_context_details(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to get context details for",
+    ),
+) -> dict[str, Any]:
+    """
+    Get context usage details for a specific agent.
+
+    Returns context information including:
+    - Total tokens available (context window)
+    - Used tokens
+    - Breakdown by category (messages, tools, system, cache)
+
+    Args:
+        agent_id: The unique identifier of the agent.
+
+    Returns:
+        Context usage details for the agent.
+    """
+    from .history import refuse_every_visitors
+
+    refuse_every_visitors(agent_id)
+    tracker = get_usage_tracker()
+    return tracker.get_context_details(agent_id)
+
+
+@router.get("/agents/{agent_id:path}/cost-usage")
+async def get_agent_cost_usage_endpoint(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to get cost usage for",
+    ),
+) -> dict[str, Any]:
+    """Get current cost usage for a specific agent.
+
+    Returns per-run and cumulative costs, token totals, model breakdown,
+    and recent per-run trace records.
+    """
+    return get_cost_store().get_agent_usage_dict(agent_id)
+
+
+@router.get("/agents/{agent_id:path}/context-table")
+async def get_agent_context_table_endpoint(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to get context table for",
+    ),
+    show_context: bool = True,
+) -> dict[str, Any]:
+    """
+    Render the context snapshot table as plain text.
+
+    Args:
+        agent_id: The unique identifier of the agent.
+        show_context: Whether to include the CONTEXT section.
+
+    Returns:
+        A dict containing the rendered table text.
+    """
+    from io import StringIO
+
+    from rich.console import Console
+
+    from ..context.session import get_agent_context_snapshot
+    from .history import refuse_every_visitors
+
+    refuse_every_visitors(agent_id)
+    snapshot = get_agent_context_snapshot(agent_id)
+    if snapshot is None:
+        return {
+            "error": f"Agent '{agent_id}' not found",
+            "agentId": agent_id,
+            "table": "",
+        }
+
+    table = snapshot.to_table(show_context=show_context)
+    buffer = StringIO()
+    console = Console(
+        record=True,
+        file=buffer,
+        force_terminal=True,
+        color_system="truecolor",
+        width=100,
+    )
+    console.print(table)
+    return {"agentId": agent_id, "table": console.export_text(styles=True)}
+
+
+@router.post("/agents/{agent_id:path}/context-details/reset")
+async def reset_agent_context(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to reset context for",
+    ),
+) -> dict[str, str]:
+    """
+    Reset context usage statistics for an agent.
+
+    Args:
+        agent_id: The unique identifier of the agent.
+
+    Returns:
+        Confirmation message.
+    """
+    from .history import refuse_every_visitors
+
+    refuse_every_visitors(agent_id)
+    tracker = get_usage_tracker()
+    tracker.reset_agent(agent_id)
+    return {"status": "ok", "message": f"Context reset for agent '{agent_id}'"}
+
+
+@router.get("/agents/{agent_id:path}/context-export")
+async def export_agent_context_csv(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to export context for",
+    ),
+    truncate_message_chars: int = 200,
+) -> dict[str, Any]:
+    """
+    Export per-step usage data as CSV text.
+
+    Each row represents one model request/response cycle (step) with
+    the tool that was called, token counts, and timestamp.
+
+    Args:
+        agent_id: The unique identifier of the agent.
+        truncate_message_chars: Unused, kept for backward compatibility.
+
+    Returns:
+        Dict containing filename and CSV content.
+    """
+    import csv
+    from datetime import datetime
+    from io import StringIO
+
+    from ..context.session import get_agent_context_snapshot
+    from .history import refuse_every_visitors
+
+    refuse_every_visitors(agent_id)
+    snapshot = get_agent_context_snapshot(agent_id)
+    if snapshot is None:
+        return {
+            "error": f"Agent '{agent_id}' not found",
+            "agentId": agent_id,
+            "filename": "",
+            "csv": "",
+        }
+
+    # Use agent_id as session identifier for exported usage rows.
+    session_id = agent_id
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Write header matching the desired format
+    writer.writerow(
+        [
+            "Session_ID",
+            "Turn_ID",
+            "Step_Number",
+            "Tool_Name",
+            "Input_Tokens",
+            "Output_Tokens",
+            "Duration_ms",
+            "Timestamp",
+        ]
+    )
+
+    # Write per-step rows from per_request_usage
+    turn_id = "turn_01"
+    if snapshot.per_request_usage:
+        for step in snapshot.per_request_usage:
+            tool_name = ", ".join(step.tool_names) if step.tool_names else "Response"
+            writer.writerow(
+                [
+                    session_id,
+                    turn_id,
+                    step.request_num,
+                    tool_name,
+                    step.input_tokens,
+                    step.output_tokens,
+                    f"{step.duration_ms:.0f}",
+                    step.timestamp or "",
+                ]
+            )
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"cli_context_{timestamp}.csv"
+
+    return {
+        "agentId": agent_id,
+        "filename": filename,
+        "csv": output.getvalue(),
+        "stepsCount": len(snapshot.per_request_usage),
+    }
+
+
+@router.get("/agents/{agent_id:path}/spec")
+async def get_agent_spec_endpoint(
+    agent_id: str = Path(
+        ...,
+        description="Agent ID to get the creation spec for",
+    ),
+) -> dict[str, Any]:
+    """
+    Get the original creation spec for a specific agent.
+
+    Returns the spec as provided at agent creation time, including
+    separated system_prompt and system_prompt_codemode_addons fields
+    (which are merged at runtime and lost in the running agent).
+
+    This endpoint also includes the sandbox status when codemode is enabled.
+
+    Args:
+        agent_id: The unique identifier of the agent.
+
+    Returns:
+        The original agent creation spec with sandbox status.
+
+    Raises:
+        HTTPException: If agent spec not found.
+    """
+    from .agents import get_stored_agent_spec, set_up_refused
+
+    spec = get_stored_agent_spec(agent_id)
+    if spec is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agent spec not found for '{agent_id}'",
+        )
+
+    # Enrich with current sandbox status
+    sandbox_status = _get_sandbox_status()
+
+    refused = set_up_refused(agent_id)
+    return {
+        **spec,
+        "sandbox": sandbox_status.model_dump() if sandbox_status else None,
+        # Why its configure was refused — a secret its specs declare and it was
+        # not given (R-19) — so a launch waiting for it says so, and stops.
+        **({"set_up_refused": refused} if refused else {}),
+    }
+
+
+# =========================================================================
+# Codemode Configuration Endpoints
+# =========================================================================
+
+
+def _get_available_skills() -> list[dict[str, Any]]:
+    """Get all available skills from the skills directory and entrypoints."""
+    skills: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    try:
+        # Skills folder can be configured via env var, with fallback to repo root
+        skills_folder_path = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+        if skills_folder_path:
+            skills_path = FilePath(skills_folder_path)
+        else:
+            repo_root = FilePath(__file__).resolve().parents[2]
+            skills_path = repo_root / "skills"
+
+        if not skills_path.exists():
+            logger.debug(f"Skills directory not found: {skills_path}")
+        else:
+            # Try to use agent_skills if available
+            try:
+                from agent_skills import AgentSkill
+
+                for skill_md in skills_path.rglob("SKILL.md"):
+                    try:
+                        skill = AgentSkill.from_skill_md(skill_md)
+                        if skill.name not in seen_names:
+                            skills.append(
+                                {
+                                    "id": skill.name,
+                                    "name": skill.name,
+                                    "description": skill.description,
+                                    "tags": skill.tags
+                                    if hasattr(skill, "tags")
+                                    else [],
+                                    "source_variant": "path",
+                                    "path": str(skill_md.parent.name),
+                                }
+                            )
+                            seen_names.add(skill.name)
+                    except Exception as exc:
+                        logger.warning(f"Failed to load skill from {skill_md}: {exc}")
+                        continue
+            except ImportError:
+                # Fallback: scan skill directories manually
+                for skill_dir in skills_path.iterdir():
+                    if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                        skill_md_path = skill_dir / "SKILL.md"
+                        try:
+                            content = skill_md_path.read_text()
+                            # Parse basic info from SKILL.md
+                            name = skill_dir.name
+                            description = ""
+                            for line in content.split("\n"):
+                                if line.startswith("# "):
+                                    name = line[2:].strip()
+                                elif (
+                                    line.strip()
+                                    and not line.startswith("#")
+                                    and not description
+                                ):
+                                    description = line.strip()
+                                    break
+                            if name not in seen_names:
+                                skills.append(
+                                    {
+                                        "id": name,
+                                        "name": name,
+                                        "description": description,
+                                        "tags": [],
+                                        "source_variant": "path",
+                                        "path": str(skill_dir.name),
+                                    }
+                                )
+                                seen_names.add(name)
+                        except Exception as exc:
+                            logger.warning(f"Failed to parse {skill_md_path}: {exc}")
+                            continue
+
+        # Also discover skills registered via Python entrypoints
+        try:
+            from agent_skills import discover_entrypoint_skills
+
+            for ep_skill in discover_entrypoint_skills():
+                if ep_skill.name not in seen_names:
+                    module = getattr(ep_skill, "module", None)
+                    package = getattr(ep_skill, "package", None)
+                    method = getattr(ep_skill, "method", None)
+                    _raw_path = getattr(ep_skill, "path", None)
+                    path = str(_raw_path) if _raw_path is not None else None
+                    source_variant = "module"
+                    if package:
+                        source_variant = "package"
+                    elif path:
+                        source_variant = "path"
+                    skills.append(
+                        {
+                            "id": ep_skill.name,
+                            "name": ep_skill.name,
+                            "description": ep_skill.description,
+                            "tags": ep_skill.tags if hasattr(ep_skill, "tags") else [],
+                            "source_variant": source_variant,
+                            "module": module,
+                            "package": package,
+                            "method": method,
+                            "path": path,
+                        }
+                    )
+                    seen_names.add(ep_skill.name)
+        except ImportError:
+            logger.debug("agent_skills not available for entrypoint discovery")
+        except Exception as exc:
+            logger.debug(f"Entrypoint skill discovery failed: {exc}")
+
+    except Exception as e:
+        logger.error(f"Error scanning skills directory: {e}")
+
+    return skills
+
+
+@router.post("/sandbox/interrupt")
+async def interrupt_sandbox(agent_id: str | None = None) -> dict[str, Any]:
+    """
+    Interrupt the currently running code in the sandbox.
+
+    Returns:
+        Result of the interrupt request.
+    """
+    try:
+        sandbox = _sandbox_to_interrupt(agent_id)
+
+        if not sandbox.is_executing:
+            return {"interrupted": False, "reason": "No code is currently executing"}
+
+        success = sandbox.interrupt()
+        await notify_sandbox_status_change(agent_id=agent_id)
+        return {"interrupted": success}
+    except ImportError:
+        return {"interrupted": False, "reason": "code_sandboxes not installed"}
+    except Exception as e:
+        logger.warning(f"Error interrupting sandbox: {e}")
+        return {"interrupted": False, "reason": str(e)}
+
+
+def _get_sandbox_status() -> SandboxStatus | None:
+    """
+    Get the current code sandbox status.
+
+    Returns:
+        SandboxStatus with current sandbox configuration and connection status.
+    """
+    try:
+        from agent_runtimes.services.code_sandbox_manager import (
+            get_code_sandbox_manager,
+        )
+
+        manager = get_code_sandbox_manager()
+        status = manager.get_status()
+
+        sandbox_status = SandboxStatus(
+            variant=status["variant"],
+            jupyter_url=status.get("jupyter_url"),
+            jupyter_token=status.get("jupyter_token"),
+            kernel_id=status.get("kernel_id"),
+            kernel_name=status.get("kernel_name"),
+            sandbox_running=status.get("sandbox_running", False),
+            is_executing=False,
+            jupyter_connected=False,
+            jupyter_error=None,
+            generated_path=status.get("generated_path"),
+            skills_path=status.get("skills_path"),
+            python_path=status.get("python_path"),
+            mcp_proxy_url=status.get("mcp_proxy_url"),
+        )
+
+        # Check if sandbox is currently executing
+        try:
+            managed = manager.get_managed_sandbox()
+            sandbox_status.is_executing = managed.is_executing
+        except Exception:
+            pass
+
+        # Both variants are reached over a Jupyter server, so both are worth
+        # testing. Only "jupyter-server" was, which left a Datalayer runtime
+        # reporting `jupyter_connected: False` however healthy it was — and a
+        # browser reading that concludes there is nothing to connect a notebook
+        # to.
+        if status["variant"] in ("jupyter-server", "datalayer") and status.get(
+            "jupyter_url"
+        ):
+            jupyter_connected, jupyter_error = _test_jupyter_connection(
+                status["jupyter_url"], status.get("jupyter_token")
+            )
+            sandbox_status.jupyter_connected = jupyter_connected
+            sandbox_status.jupyter_error = jupyter_error
+
+        return sandbox_status
+    except ImportError:
+        logger.debug("code_sandboxes not installed, cannot get sandbox status")
+        return None
+    except Exception as e:
+        logger.warning(f"Error getting sandbox status: {e}")
+        return None
+
+
+def _test_jupyter_connection(
+    jupyter_url: str, jupyter_token: str | None
+) -> tuple[bool, str | None]:
+    """
+    Test connection to a Jupyter server.
+
+    Args:
+        jupyter_url: The Jupyter server URL
+        jupyter_token: The authentication token
+
+    Returns:
+        Tuple of (connected: bool, error_message: str | None)
+    """
+    import httpx
+
+    try:
+        # Strip trailing slash if present
+        base_url = jupyter_url
+        if base_url.endswith("/"):
+            base_url = base_url[:-1]
+
+        # Test connection by hitting the Jupyter server extension API endpoint
+        # For jupyter-server extension at /api/jupyter-server, the API is at /api/jupyter-server/api
+        headers = {}
+        if jupyter_token:
+            headers["Authorization"] = f"token {jupyter_token}"
+
+        status_url = f"{base_url}/api"
+
+        # Use a short timeout for the ping
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(status_url, headers=headers, follow_redirects=True)
+
+            if response.status_code == 200:
+                return True, None
+            elif response.status_code == 401 or response.status_code == 403:
+                return False, f"Authentication failed (HTTP {response.status_code})"
+            else:
+                return False, f"Jupyter server returned HTTP {response.status_code}"
+    except httpx.ConnectError:
+        return False, f"Connection refused - is Jupyter running at {jupyter_url}?"
+    except httpx.TimeoutException:
+        return (
+            False,
+            f"Connection timeout - Jupyter server at {jupyter_url} not responding",
+        )
+    except Exception as e:
+        return False, f"Connection error: {str(e)}"
+
+
+# =========================================================================
+# Sandbox Status WebSocket
+# =========================================================================
+
+
+_sandbox_status_subscribers: dict[str, set[asyncio.Queue[None]]] = {}
+
+
+def _subscriber_key(agent_id: str | None) -> str:
+    """Map optional agent IDs to subscriber dictionary keys."""
+    return agent_id or "__global__"
+
+
+def _subscribe_sandbox_status(agent_id: str | None) -> asyncio.Queue[None]:
+    """Register a websocket subscriber queue for sandbox status updates."""
+    key = _subscriber_key(agent_id)
+    queue: asyncio.Queue[None] = asyncio.Queue(maxsize=1)
+    subscribers = _sandbox_status_subscribers.setdefault(key, set())
+    subscribers.add(queue)
+    return queue
+
+
+def _unsubscribe_sandbox_status(
+    agent_id: str | None, queue: asyncio.Queue[None]
+) -> None:
+    """Unregister a sandbox status subscriber queue."""
+    key = _subscriber_key(agent_id)
+    subscribers = _sandbox_status_subscribers.get(key)
+    if not subscribers:
+        return
+    subscribers.discard(queue)
+    if not subscribers:
+        _sandbox_status_subscribers.pop(key, None)
+
+
+async def notify_sandbox_status_change(agent_id: str | None = None) -> None:
+    """Notify websocket listeners that sandbox status may have changed."""
+    keys = [_subscriber_key(agent_id)]
+    # Global listeners should also refresh for any specific agent change.
+    if keys[0] != "__global__":
+        keys.append("__global__")
+
+    for key in keys:
+        subscribers = _sandbox_status_subscribers.get(key)
+        if not subscribers:
+            continue
+        for queue in list(subscribers):
+            if queue.full():
+                continue
+            queue.put_nowait(None)
+
+
+def _sandbox_to_interrupt(agent_id: str | None) -> Any:
+    """The sandbox a person's interrupt should reach.
+
+    The agent's own sandbox first — the one its code runs in — then the one
+    its codemode toolset holds, then the global sandbox. It used to start at
+    the toolset, whose proxy may resolve to the global sandbox: an interrupt
+    pressed while the agent's sandbox ran a loop was answered with "nothing
+    is executing".
+    """
+    from agent_runtimes.services.code_sandbox_manager import get_code_sandbox_manager
+
+    manager = get_code_sandbox_manager()
+    if agent_id:
+        own = manager.get_agent_sandbox(agent_id)
+        if own is not None:
+            return own
+        codemode_toolset = _get_agent_codemode_toolset(agent_id)
+        if codemode_toolset is not None:
+            sandbox = getattr(codemode_toolset, "_sandbox", None)
+            if sandbox is None:
+                sandbox = getattr(codemode_toolset, "sandbox", None)
+            if sandbox is not None:
+                return sandbox
+    return manager.get_managed_sandbox()
+
+
+def _get_agent_codemode_toolset(agent_id: str) -> Any | None:
+    """Return the codemode toolset for an agent when available."""
+    try:
+        from agent_runtimes.context.session import _agents as context_agents
+
+        entry = context_agents.get(agent_id)
+        if not entry:
+            return None
+        adapter = entry[0]
+        toolsets = getattr(adapter, "_non_mcp_toolsets", []) or []
+        for toolset in toolsets:
+            if "CodemodeToolset" not in type(toolset).__name__:
+                continue
+            return toolset
+    except Exception:
+        return None
+    return None
+
+
+def _build_sandbox_ws_status(agent_id: str | None = None) -> dict[str, Any]:
+    """
+    Build a lightweight sandbox status dict for WebSocket streaming.
+
+    This is cheaper than calling ``_get_sandbox_status()`` because it
+    skips the Jupyter HTTP ping — for the WebSocket we already know the
+    variant and simply report execution state.
+    """
+    try:
+        from agent_runtimes.services.code_sandbox_manager import (
+            get_code_sandbox_manager,
+        )
+
+        manager = get_code_sandbox_manager()
+        status = manager.get_status()
+
+        sandbox_running = bool(status.get("sandbox_running", False))
+        is_executing = False
+        variant = status["variant"]
+        jupyter_url = status.get("jupyter_url")
+        # Carried with the URL, because a browser is a real client of this
+        # sandbox: the notebook and document editors connect to that Jupyter
+        # server directly. A URL without its token is refused at the first
+        # request, and Jupyter rejects a cross-origin call before attaching
+        # CORS headers — so the browser reports a missing
+        # `Access-Control-Allow-Origin` on a 403 and neither message names the
+        # cause. The kernel id is what lets an editor join the kernel the agent
+        # is using instead of starting a rival one beside it.
+        jupyter_token = status.get("jupyter_token")
+        kernel_id = status.get("kernel_id")
+        kernel_name = status.get("kernel_name")
+
+        # If an agent_id is provided, prefer the agent codemode sandbox state.
+        # This tracks the sandbox actually used for code execution.
+        if agent_id:
+            codemode_toolset = _get_agent_codemode_toolset(agent_id)
+            # The agent's own sandbox first: it is the one that says which
+            # variant runs and where. The toolset's is a proxy that may stand
+            # for it, or for the global sandbox.
+            agent_sandbox = (
+                manager.get_agent_sandbox(agent_id)
+                if hasattr(manager, "get_agent_sandbox")
+                else None
+            )
+            if agent_sandbox is None and codemode_toolset is not None:
+                agent_sandbox = getattr(codemode_toolset, "_sandbox", None)
+                if agent_sandbox is None:
+                    agent_sandbox = getattr(codemode_toolset, "sandbox", None)
+
+            if agent_sandbox is not None:
+                sandbox_running = True
+                # Prefer event-driven runtime execution state (set by codemode toolset).
+                runtime_exec = getattr(codemode_toolset, "runtime_is_executing", None)
+                if runtime_exec is not None:
+                    is_executing = bool(runtime_exec)
+                else:
+                    # Avoid forcing sandbox manager lookup via ManagedSandbox._sandbox().
+                    sb_manager = getattr(agent_sandbox, "_manager", None)
+                    underlying = (
+                        getattr(sb_manager, "_sandbox", None) if sb_manager else None
+                    )
+                    if underlying is not None:
+                        is_executing = bool(getattr(underlying, "is_executing", False))
+                    else:
+                        is_executing = bool(
+                            getattr(agent_sandbox, "is_executing", False)
+                        )
+                sandbox_cls = type(agent_sandbox).__name__.lower()
+                # The agent's own sandbox says which variant it runs — an
+                # eval sandbox beside a global Jupyter one used to be reported
+                # as Jupyter. Not asked of the managed proxy: its attributes
+                # reach through to the global sandbox, creating it if need be.
+                own_variant = (
+                    getattr(agent_sandbox, "variant", None)
+                    if sandbox_cls != "managedsandbox"
+                    else None
+                )
+                if own_variant:
+                    variant = str(own_variant)
+                elif "jupyter" in sandbox_cls:
+                    variant = "jupyter-server"
+                # From the agent's own sandbox, all of it or none of it. This
+                # branch replaces the URL; taking the token and kernel from the
+                # global sandbox instead would describe two different servers
+                # in one message.
+                agent_details = manager.connection_details(agent_sandbox)
+                agent_url = agent_details["jupyter_url"] or getattr(
+                    agent_sandbox, "_server_url", None
+                )
+                if agent_url:
+                    jupyter_url = str(agent_url)
+                    jupyter_token = agent_details["jupyter_token"]
+                    kernel_id = agent_details["kernel_id"]
+                    kernel_name = agent_details["kernel_name"]
+        else:
+            # Global fallback: inspect the existing sandbox instance without
+            # triggering sandbox creation on every poll tick.
+            existing = getattr(manager, "_sandbox", None)
+            if existing is not None:
+                is_executing = bool(getattr(existing, "is_executing", False))
+
+        return {
+            "variant": variant,
+            "sandbox_running": sandbox_running,
+            "is_executing": is_executing,
+            "jupyter_url": jupyter_url,
+            "jupyter_token": jupyter_token,
+            "kernel_id": kernel_id,
+            "kernel_name": kernel_name,
+        }
+    except ImportError:
+        return {
+            "variant": "unavailable",
+            "sandbox_running": False,
+            "is_executing": False,
+        }
+    except Exception as e:
+        logger.debug(f"Error building sandbox WS status: {e}")
+        return {
+            "variant": "error",
+            "sandbox_running": False,
+            "is_executing": False,
+            "error": str(e),
+        }
+
+
+@router.websocket("/sandbox/ws")
+async def sandbox_status_ws(websocket: WebSocket, agent_id: str | None = None) -> None:
+    """
+    WebSocket endpoint that streams sandbox status updates.
+
+    Sends a JSON message every time the status changes (or at most
+    every 500 ms).  The client can also send ``{"action": "interrupt"}``
+    to request a sandbox interrupt.
+
+    Message format (server → client)::
+
+        {
+            "variant": "eval" | "jupyter-server" | "unavailable",
+            "sandbox_running": true/false,
+            "is_executing": true/false,
+            "jupyter_url": "..." | null,
+            "jupyter_token": "..." | null,
+            "kernel_id": "..." | null,
+            "kernel_name": "..." | null
+        }
+
+    The token and kernel travel with the URL because the browser is a real
+    client of this sandbox: the workspace's editors connect to that Jupyter
+    server directly, and a URL on its own is an address they cannot use.
+    """
+    await websocket.accept()
+    logger.debug("Sandbox status WebSocket connected")
+    status_queue = _subscribe_sandbox_status(agent_id)
+
+    last_status: dict[str, Any] | None = None
+
+    async def send_status() -> None:
+        nonlocal last_status
+        status = _build_sandbox_ws_status(agent_id=agent_id)
+        # Only send when status changed.
+        if status != last_status:
+            last_status = status
+            await websocket.send_json(status)
+
+    try:
+        # Send initial status immediately.
+        await send_status()
+
+        while True:
+            recv_task = asyncio.create_task(websocket.receive_text())
+            status_task = asyncio.create_task(status_queue.get())
+
+            try:
+                done, pending = await asyncio.wait(
+                    {recv_task, status_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+
+                if recv_task in done:
+                    raw = recv_task.result()
+                    try:
+                        msg = json.loads(raw)
+                    except (json.JSONDecodeError, ValueError):
+                        msg = {}
+
+                    if msg.get("action") == "interrupt":
+                        logger.info("Sandbox interrupt requested via WebSocket")
+                        try:
+                            sandbox = _sandbox_to_interrupt(agent_id)
+                            success = (
+                                sandbox.interrupt() if sandbox.is_executing else False
+                            )
+                            await websocket.send_json(
+                                {"action": "interrupt", "success": success}
+                            )
+                            await notify_sandbox_status_change(agent_id=agent_id)
+                        except Exception as exc:
+                            await websocket.send_json(
+                                {
+                                    "action": "interrupt",
+                                    "success": False,
+                                    "error": str(exc),
+                                }
+                            )
+
+                if status_task in done:
+                    await send_status()
+            finally:
+                if not recv_task.done():
+                    recv_task.cancel()
+                if not status_task.done():
+                    status_task.cancel()
+
+    except WebSocketDisconnect:
+        logger.debug("Sandbox status WebSocket disconnected")
+    except Exception as exc:
+        logger.debug(f"Sandbox status WebSocket error: {exc}")
+    finally:
+        _unsubscribe_sandbox_status(agent_id, status_queue)
+
+
+@router.post("/codemode/toggle")
+async def toggle_codemode(request: CodemodeToggleRequest) -> dict[str, Any]:
+    """
+    Toggle codemode on/off and optionally update skills.
+
+    This updates the runtime state AND updates the agent adapters' toolsets
+    so codemode is enabled/disabled immediately without requiring a restart.
+
+    Args:
+        request: Toggle request with enabled state and optional skills list.
+
+    Returns:
+        Updated codemode status.
+    """
+    from agent_runtimes.routes.agui import get_all_agui_adapters
+
+    # When a specific agent_id is provided, scope the toggle to that agent
+    # only and avoid mutating the global _codemode_state / environment flags,
+    # so concurrent agents (e.g. codemode vs. no-codemode panes) remain
+    # independent.
+    scoped_agent_id = request.agent_id
+
+    if scoped_agent_id is None:
+        _codemode_state["enabled"] = request.enabled
+
+        if request.skills is not None:
+            _codemode_state["skills"] = request.skills
+
+        # Update environment variables for consistency
+        os.environ["AGENT_RUNTIMES_CODEMODE"] = "true" if request.enabled else "false"
+        if request.skills is not None:
+            os.environ["AGENT_RUNTIMES_SKILLS"] = ",".join(request.skills)
+
+    # Update registered AG-UI adapters (all or one, depending on scope)
+    adapters_updated = 0
+    adapters_failed = 0
+    all_adapters = get_all_agui_adapters()
+
+    # Scoped path: prefer the per-agent pydantic-ai adapter from the acp
+    # registry — this works for non-AG-UI transports (e.g. vercel-ai) where
+    # the AG-UI registry does not contain the agent.
+    if scoped_agent_id is not None:
+        applied_via_registry = False
+        try:
+            from .acp import _agents as _agent_registry
+
+            entry = _agent_registry.get(scoped_agent_id)
+            if entry is not None:
+                adapter_obj = entry[0]
+                if hasattr(adapter_obj, "set_codemode_enabled"):
+                    if adapter_obj.set_codemode_enabled(request.enabled):
+                        adapters_updated += 1
+                        applied_via_registry = True
+                        logger.info(
+                            f"Codemode {'enabled' if request.enabled else 'disabled'} for agent: {scoped_agent_id}"
+                        )
+                    else:
+                        adapters_failed += 1
+                        logger.warning(
+                            f"Failed to toggle codemode for agent: {scoped_agent_id}"
+                        )
+        except Exception as e:
+            logger.error(
+                f"Error toggling codemode via agent registry for {scoped_agent_id}: {e}",
+                exc_info=True,
+            )
+
+        if applied_via_registry:
+            target_adapters: dict[str, Any] = {}
+        elif scoped_agent_id in all_adapters:
+            target_adapters = {scoped_agent_id: all_adapters[scoped_agent_id]}
+        else:
+            target_adapters = {}
+    else:
+        target_adapters = dict(all_adapters)
+
+    for agent_id, agui_transport in target_adapters.items():
+        try:
+            # Get the underlying agent adapter (PydanticAIAdapter)
+            agent_adapter = agui_transport.agent
+            if hasattr(agent_adapter, "set_codemode_enabled"):
+                success = agent_adapter.set_codemode_enabled(request.enabled)
+                if success:
+                    adapters_updated += 1
+                    logger.info(
+                        f"Codemode {'enabled' if request.enabled else 'disabled'} for agent: {agent_id}"
+                    )
+                else:
+                    adapters_failed += 1
+                    logger.warning(f"Failed to toggle codemode for agent: {agent_id}")
+            else:
+                logger.debug(f"Agent {agent_id} does not support codemode toggling")
+        except Exception as e:
+            adapters_failed += 1
+            logger.error(
+                f"Error toggling codemode for agent {agent_id}: {e}", exc_info=True
+            )
+
+    logger.info(
+        f"Codemode toggled: enabled={request.enabled}, skills={_codemode_state['skills']}, adapters_updated={adapters_updated}, adapters_failed={adapters_failed}"
+    )
+
+    return {
+        "status": "ok",
+        "enabled": request.enabled
+        if scoped_agent_id is not None
+        else _codemode_state["enabled"],
+        "skills": _codemode_state["skills"],
+        "agent_id": scoped_agent_id,
+        "adapters_updated": adapters_updated,
+        "adapters_failed": adapters_failed,
+        "message": f"Codemode {'enabled' if request.enabled else 'disabled'} for {adapters_updated} agent(s).",
+    }
+
+
+@router.get("/codemode/status")
+async def get_codemode_status(
+    agent_id: str | None = Query(
+        default=None,
+        description="Optional agent id to resolve codemode status for a specific running agent",
+    ),
+) -> dict[str, Any]:
+    """Return current codemode status from the running server process.
+
+    This endpoint is intended for interactive clients (e.g. TUX slash
+    commands) so they can query a single source of truth instead of relying on
+    in-process state from a separate CLI process.
+    """
+    from agent_runtimes.streams.loop import build_codemode_status
+
+    status = build_codemode_status(agent_id=agent_id)
+    if status is None:
+        raise HTTPException(status_code=500, detail="Could not resolve codemode status")
+    return status

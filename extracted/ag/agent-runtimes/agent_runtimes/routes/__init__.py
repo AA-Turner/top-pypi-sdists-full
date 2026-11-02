@@ -1,0 +1,136 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""Server routes for agent-runtimes."""
+
+from ..evals.adapters.routes import router as evals_adapters_router
+from ..evals.routes import router as evals_router
+from .a2a import (
+    A2AAgentCard,
+    get_a2a_agents,
+    get_a2a_mounts,
+    register_a2a_agent,
+    set_a2a_app,
+    start_a2a_task_managers,
+    stop_a2a_task_managers,
+    unregister_a2a_agent,
+)
+from .a2a import (
+    router as a2a_protocol_router,
+)
+from .a2ui import router as a2ui_router
+
+# ACP support is optional: `acp` is not a declared dependency, and importing
+# it unconditionally makes `import agent_runtimes` fail outright wherever it is
+# absent. That took down every consumer that only wants the client — the
+# Datalayer sandbox reported it as "agent-runtimes package is required" while
+# the package was installed and merely unimportable.
+try:
+    from .acp import router as acp_router
+except ImportError:  # pragma: no cover - depends on what is installed
+    acp_router = None
+from .agent_node import router as agent_node_router
+from .agents import router as agents_router
+from .agui import (
+    cancel_all_threads as cancel_agui_threads,
+)
+from .agui import (
+    cancel_thread as cancel_agui_thread,
+)
+from .agui import (
+    get_agui_app,
+    get_agui_mounts,
+    register_agui_agent,
+    unregister_agui_agent,
+)
+from .agui import (
+    register_thread as register_agui_thread,
+)
+from .agui import (
+    router as agui_router,
+)
+from .agui import (
+    unregister_thread as unregister_agui_thread,
+)
+from .app_plugins import router as app_plugins_router
+from .apps import router as apps_router
+from .checkpoints import router as checkpoints_router
+from .configure import router as configure_router
+from .harnesses import router as harnesses_router
+from .health import router as health_router
+from .history import router as history_router
+from .identity import router as identity_router
+from .loop import router as loop_router
+from .mcp import router as mcp_router
+from .mcp_auth import router as mcp_auth_router
+from .mcp_proxy import router as mcp_proxy_router
+from .mcp_ui import register_mcp_ui_agent, unregister_mcp_ui_agent
+from .mcp_ui import router as mcp_ui_router
+from .notifications import router as notifications_router
+from .protocols import router as protocols_router
+from .sandbox import router as sandbox_router
+from .tool_approvals import legacy_router as tool_approvals_legacy_router
+from .tool_approvals import router as tool_approvals_router
+from .tool_approvals import ws_router as tool_approvals_ws_router
+from .vercel_ai import register_vercel_agent, unregister_vercel_agent
+from .vercel_ai import router as vercel_ai_router
+
+# Trigger routes (optional — from triggers module)
+try:
+    from ..triggers.webhook import webhook_router as _triggers_webhook_router
+
+    triggers_webhook_router = _triggers_webhook_router
+except ImportError:
+    triggers_webhook_router = None
+
+__all__ = [
+    "a2a_protocol_router",
+    "A2AAgentCard",
+    "a2ui_router",
+    "acp_router",
+    "agent_node_router",
+    "agents_router",
+    "agui_router",
+    "cancel_agui_thread",
+    "cancel_agui_threads",
+    "checkpoints_router",
+    "notifications_router",
+    "configure_router",
+    "evals_adapters_router",
+    "evals_router",
+    "get_a2a_agents",
+    "get_a2a_mounts",
+    "get_agui_app",
+    "get_agui_mounts",
+    "harnesses_router",
+    "health_router",
+    "history_router",
+    "identity_router",
+    "app_plugins_router",
+    "apps_router",
+    "protocols_router",
+    "loop_router",
+    "mcp_proxy_router",
+    "mcp_auth_router",
+    "mcp_router",
+    "mcp_ui_router",
+    "register_a2a_agent",
+    "register_agui_agent",
+    "register_agui_thread",
+    "register_mcp_ui_agent",
+    "register_vercel_agent",
+    "sandbox_router",
+    "set_a2a_app",
+    "start_a2a_task_managers",
+    "stop_a2a_task_managers",
+    "tool_approvals_legacy_router",
+    "tool_approvals_router",
+    "tool_approvals_ws_router",
+    "triggers_webhook_router",
+    "unregister_a2a_agent",
+    "unregister_agui_agent",
+    "unregister_agui_thread",
+    "unregister_mcp_ui_agent",
+    "unregister_vercel_agent",
+    "vercel_ai_router",
+]

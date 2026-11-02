@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from probe.cli import doctor
+from probe.cli.wizard import doctor
 from probe.shared.harness.harnesses import pi as pi_config
 
 
@@ -78,7 +78,7 @@ def test_the_project_scope_is_named_when_the_project_entry_wins(pi_agent, tmp_pa
 
 def test_the_session_row_states_the_closed_vocabulary_reason(pi_agent, tmp_path, monkeypatch):
     """The second half: is a daemon live for THIS session, and if not, why."""
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     _write(pi_agent / "settings.json", [pi_config.MIRROR_GIT_SOURCE])
     monkeypatch.setenv("PI_SESSION_ID", "sess-abc")
@@ -99,7 +99,7 @@ def test_a_machine_with_no_pi_install_says_nothing(pi_agent):
 
 def test_the_report_carries_the_filter_row(pi_agent):
     """End to end through `render`, where a person actually reads it."""
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
 
     _write(
         pi_agent / "settings.json",

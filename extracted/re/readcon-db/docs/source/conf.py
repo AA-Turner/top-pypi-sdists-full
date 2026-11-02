@@ -1,0 +1,147 @@
+project = "readcon-db"
+copyright = "2026, LODE developers"
+author = "LODE developers"
+release = "0.2.0"
+version = "0.2.0"
+
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "myst_parser",
+]
+
+templates_path = ["_templates"]
+exclude_patterns = []
+
+myst_enable_extensions = ["colon_fence", "deflist"]
+source_suffix = {".rst": "restructuredtext"}
+master_doc = "index"
+
+html_theme = "shibuya"
+html_static_path = ["_static"]
+html_favicon = "_static/favicon.svg"
+html_title = "readcon-db documentation"
+html_baseurl = "https://lode-org.github.io/readcon-db/"
+
+html_context = {
+    "source_type": "github",
+    "source_user": "lode-org",
+    "source_repo": "readcon-db",
+    "source_version": "main",
+    "source_docs_path": "/docs/source/",
+}
+
+html_sidebars = {
+    "**": [
+        "sidebars/localtoc.html",
+        "sidebars/repo-stats.html",
+        "sidebars/edit-this-page.html",
+    ],
+}
+
+html_theme_options = {
+    "github_url": "https://github.com/lode-org/readcon-db",
+    "accent_color": "teal",
+    "dark_code": True,
+    "globaltoc_expand_depth": 1,
+    "light_logo": "_static/logo-nav-light.svg",
+    "dark_logo": "_static/logo-nav-dark.svg",
+    "nav_links": [
+        {"title": "Start", "url": "tutorials/getting-started"},
+        {
+            "title": "Learn",
+            "children": [
+                {
+                    "title": "Tutorial: first corpus",
+                    "url": "tutorials/tutorial",
+                    "summary": "Open, ingest a fixture, select, hash",
+                },
+                {
+                    "title": "How-to by language",
+                    "url": "howto/howto",
+                    "summary": "Rust, Python, C, Fortran recipes",
+                },
+                {
+                    "title": "Campaign ops",
+                    "url": "howto/campaign",
+                    "summary": "Shards, drain, join, compact",
+                },
+            ],
+        },
+        {
+            "title": "Ecosystem",
+            "children": [
+                {
+                    "title": "eOn",
+                    "url": "https://eondocs.org",
+                    "summary": "Long-timescale saddle search",
+                },
+                {
+                    "title": "rgpot",
+                    "url": "https://rgpot.rgoswami.me",
+                    "summary": "Potential evaluation",
+                },
+                {
+                    "title": "rgmin",
+                    "url": "https://omnipotentrpc.github.io/rgmin",
+                    "summary": "Geometry optimization",
+                },
+                {
+                    "title": "rgsaddle",
+                    "url": "https://omnipotentrpc.github.io/rgsaddle",
+                    "summary": "Saddle searches",
+                },
+                {
+                    "title": "cpmdc",
+                    "url": "https://cpmdc.rgoswami.me",
+                    "summary": "CPMD frontend",
+                },
+                {
+                    "title": "rgpycrumbs",
+                    "url": "https://rgpycrumbs.rgoswami.me",
+                    "summary": "Python helpers",
+                },
+                {
+                    "title": "minimage",
+                    "url": "https://lode-org.github.io/minimage",
+                    "summary": "Minimum-image distances",
+                },
+                {
+                    "title": "linkcell",
+                    "url": "https://docs.rs/linkcell",
+                    "summary": "Cell lists",
+                },
+                {
+                    "title": "readcon",
+                    "url": "https://lode-org.github.io/readcon-core",
+                    "summary": "CON interchange",
+                },
+                {
+                    "title": "readcon-ops",
+                    "url": "https://github.com/lode-org/readcon-ops",
+                    "summary": "Campaign operations",
+                },
+            ],
+        },
+        {"title": "Architecture", "url": "explanation/architecture"},
+    ],
+}
+
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+copybutton_exclude = ".linenos, .gp, .go"
+copybutton_line_continuation_character = "\\"
+copybutton_here_doc_delimiter = "EOF"
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "readcon-core": ("https://lode-org.github.io/readcon-core/", None),
+}
+intersphinx_timeout = 5
+
+
+def setup(app):
+    app.add_css_file("custom.css")

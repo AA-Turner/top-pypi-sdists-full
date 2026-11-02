@@ -20,7 +20,9 @@ from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
 from schemathesis.core.jsonschema.patterns import (
     _PARTIAL_SCRIPT_CLASSES,
     _UNICODE_PROPERTY_RAW_MAP,
+    CharacterRules,
     _serialize,
+    character_rules,
     compile_ecma_pattern,
     is_valid_jsonschema_rs_regex,
     is_valid_python_regex,
@@ -152,7 +154,7 @@ from test.utils import run_given
             r"^[a-zA-Z0-9]+([-a-zA-Z0-9]?[a-zA-Z0-9])*$",
             5,
             64,
-            r"^[a-zA-Z0-9]{5,64}([\-a-zA-Z0-9]{0,1}[a-zA-Z0-9]){0,31}$",
+            r"^[a-zA-Z0-9]{1,64}([\-a-zA-Z0-9]{0,1}[a-zA-Z0-9]){0,63}$",
         ),
         (r"^\+[0-9]{5,}$", 6, 6, r"^\+[0-9]{5}$"),
         (r"^abcd$", 50, 50, r"^abcd$"),
@@ -168,7 +170,7 @@ from test.utils import run_given
         ("^(((?:DB|BR)[-a-zA-Z0-9_]+),?){1,}$", None, 6000, r"^(((?:DB|BR)[\-a-zA-Z0-9_]{1,}),{0,1}){1,2000}$"),
         # Optional `\*?` is preserved (collapsing it to `{0}` would reject "geo:abc*"),
         # while `\w*` still tightens to use the remaining length budget.
-        (r"^geo:\w*\*?$", 5, 200, r"^geo:\w{1,195}\*{0,1}$"),
+        (r"^geo:\w*\*?$", 5, 200, r"^geo:\w{0,196}\*{0,1}$"),
         (r"^[\w\W]$", 1, 3, r"^.{1}$"),
         (r"^[\w\W]+$", 1, 3, r"^.{1,3}$"),
         (r"^[\w\W]*$", 1, 3, r"^.{1,3}$"),
@@ -226,14 +228,14 @@ from test.utils import run_given
         (r"(\d{3})+", 1, 2, r"(\d{3})+"),
         (r"(\d{3})+", 7, 7, r"(\d{3})+"),
         (r"(\d{3})+", 0, 0, r"(\d{3})+"),
-        (r"(a|bb)+", 4, 8, r"^(a|bb){4,8}$"),
+        (r"(a|bb)+", 4, 8, "^(a|bb){2,8}$"),
         # Anchored multi-part with multi-char groups
         (r"^(abc)+(def)+$", 6, 6, r"^(abc){1}(def){1}$"),
         (r"^(abc)+(def)+$", 9, 9, r"^(abc){1}(def){2}$"),
         (r"^(ab)+(cd)+(ef)+$", 6, 6, r"^(ab){1}(cd){1}(ef){1}$"),
         (r"^(ab)+(cd)+(ef)+$", 10, 10, r"^(ab){1}(cd){1}(ef){3}$"),
         (r"^(\d{3})+(\w{2})+$", 10, 10, r"^(\d{3}){2}(\w{2}){2}$"),
-        (r"^(abc)+\d+$", 4, 10, r"^(abc){2,3}\d{1}$"),
+        (r"^(abc)+\d+$", 4, 10, r"^(abc){1,3}\d{1,7}$"),
         (r"^(abc)+(\d)+$", 7, 7, r"^(abc){1}(\d){4}$"),
         (r"^abc(\d{3})+$", 6, 12, r"^abc(\d{3}){1,3}$"),
         # Patterns containing lookahead / lookbehind assertions inside quantified groups
@@ -241,9 +243,8 @@ from test.utils import run_given
         (r"^([a-z]+(?!\s))+$", 1, 5, r"^([a-z]{1,}(?!\s)){1,5}$"),
         (r"^([a-z]+(?<=\s))+$", 1, 5, r"^([a-z]{1,}(?<=\s)){1,5}$"),
         (r"^([a-z]+(?=\s))+$", 1, 5, r"^([a-z]{1,}(?=\s)){1,5}$"),
-        # Branch alternation with finite per-tick max (1 or 2 chars) — outer count
-        # tightens to keep total length within bounds.
-        (r"^[a-z0-9]([a-z0-9]|-[a-z0-9])*$", 1, 100, r"^[a-z0-9]([a-z0-9]|-[a-z0-9]){0,49}$"),
+        # Branch alternation with 1 or 2 chars per repetition: the count leaves room for `"a" * 100`.
+        (r"^[a-z0-9]([a-z0-9]|-[a-z0-9])*$", 1, 100, r"^[a-z0-9]([a-z0-9]|-[a-z0-9]){0,99}$"),
         (r"^(foo|bar)+$", 3, 12, r"^(foo|bar){1,4}$"),
         # Outer bound already finite and unchanged; inner content is variable-length
         # — maxLength cannot be encoded through the outer repetition count alone.
@@ -264,6 +265,9 @@ from test.utils import run_given
         # Required-only siblings whose combined max can't reach the target minLength —
         # both greedy and balanced bail and the original schema is kept.
         (r"^[a-z]{1,3}_[a-z]{1,3}$", 10, 12, r"^[a-z]{1,3}_[a-z]{1,3}$"),
+        # A fixed count never drops below itself to fit the budget - the shorter strings miss the original pattern.
+        (r"^a?b{2}c{2}d?$", 2, 5, r"^a?b{2}c{2}d?$"),
+        (r"^\+[0-9]{5}$", 2, 5, r"^\+[0-9]{5}$"),
         # Nested unbounded inner (`([a-z]+)+`) — the per-tick max is unbounded so
         # the slot is pinned and only the outer count is preserved.
         (r"^([a-z]+)+$", 1, 100, r"^([a-z]{1,}){1,100}$"),
@@ -292,10 +296,12 @@ from test.utils import run_given
         ("^[a-z][0-9]+", 3, 6, "^[a-z][0-9]{2,5}$"),
         ("^foo[a-z]+", 4, 8, "^foo[a-z]{1,5}$"),
         ("^[a-z][0-9]+", 5, None, "^[a-z][0-9]{4,}"),
+        # A slot shorter than its maximum leaves the rest of the budget to its siblings.
+        (r"^[a-z]{1,3}[0-9]+$", None, 10, r"^[a-z]{1,3}[0-9]{1,9}$"),
         # A group is a part like any other, and its own repeat is where its share of the budget goes.
-        ("arn:([a-z0-9-]+):forecast:.*:.*:.+", 20, 40, r"^arn:([a-z0-9\-]{2,23}):forecast:.{0,22}:.{0,22}:.{2,23}$"),
-        ("^prefix-([a-z]+)-[0-9]+$", 12, 24, "^prefix-([a-z]{2,15})-[0-9]{2,15}$"),
-        ("^([a-z]+)-([0-9]+)$", 6, 12, "^([a-z]{3,10})-([0-9]{2,10})$"),
+        ("arn:([a-z0-9-]+):forecast:.*:.*:.+", 20, 40, r"^arn:([a-z0-9\-]{1,23}):forecast:.{0,22}:.{0,22}:.{1,23}$"),
+        ("^prefix-([a-z]+)-[0-9]+$", 12, 24, "^prefix-([a-z]{1,15})-[0-9]{1,15}$"),
+        ("^([a-z]+)-([0-9]+)$", 6, 12, "^([a-z]{1,10})-([0-9]{1,10})$"),
         # A group wrapping the whole pattern is transparent to the budget - the quantifier inside it still tightens.
         ("^([a-zA-Z0-9]*)$", 5, 5, "^([a-zA-Z0-9]{5})$"),
         ("^([a-zA-Z0-9]*)$", 1, 10, "^([a-zA-Z0-9]{1,10})$"),
@@ -312,6 +318,33 @@ from test.utils import run_given
         ("^(?!aws:)(?=x)[a-z]*$", 1, None, "^(?!aws:)(?=x)[a-z]{1,}$"),
         ("^(?!a)[a-z]+-[0-9]*$", 4, 4, "^(?!a)[a-z]{1}-[0-9]{2}$"),
         ("^(?!aws:)$", 1, None, "^(?!aws:)$"),
+        ("^a*(?:-+?)?", 0, 0, "^a{0}(?:-{1,}?){0}$"),
+        ("^a*()*b*$", 0, 0, "^a{0}(){0}b{0}$"),
+        ("^a(bc)x+$", None, 4096, "^a(bc)x{1,4093}$"),
+        ("^[a-z](0{0,2})+", 1, None, "^[a-z](0{0,2}){1,}"),
+        ("^.?-*", None, 1, "^.?-*"),
+        ("^(a)$", None, 4096, "^(a{1})$"),
+        ("^(a?)+b+$", 7, 12, "^(a?)+b+$"),
+        ("^(?:(?:a|bb){2}){1,3}$", 4, None, "^(?:(?:a|bb){2}){1,3}$"),
+        ("}", None, 1, "^}{1}$"),
+        ("^", None, 4096, "^"),
+        ("}?", 0, 0, "^}{0}$"),
+        ("a+b", 0, 10, "a+b"),
+        ("(ab)*", None, 1, "(ab)*"),
+        ("^a+()+$", 1, None, "^a+()+$"),
+        ("^a{1,3}.?", 4, None, "^a{1,3}.?"),
+        ("^\\uffff+$", None, 4096, "^\\uffff{1,4096}$"),
+        ("^(a?)+b+$", 0, 0, "^(a?)+b+$"),
+        ("\\w+(?<!\\s)", None, 4096, "\\w+(?<!\\s)"),
+        ("^(?-im:a)+$", None, 4096, "^(?-im:a){1,4096}$"),
+        ("^(x{0,2})?x+.$", None, 3, "^(x{0,2}){0,1}x{1,2}.$"),
+        ("^(?:ab|abcd)+$", None, 4096, "^(?:ab(?:|cd)){1,2048}$"),
+        ("^(?:.+){2}0{2}(?:.+a{1,3})+?$", 2, 5, "^(?:.+){2}0{2}(?:.+a{1,3})+?$"),
+        ("^(?=a)", 1, 3, "^(?=a)"),
+        # Every slot keeps every count some string within the bounds needs, e.g. `geo:abcdef` and `a0000`.
+        (r"^geo:\w*\*?$", None, 10, r"^geo:\w{0,6}\*{0,1}$"),
+        (r"^[a-z]{1,3}[0-9]+$", 5, 10, r"^[a-z]{1,3}[0-9]{2,9}$"),
+        (r"^(a?)+b+c+$", 7, 12, r"^(a{0,1}){1,}b{1,11}c{1,11}$"),
     ],
 )
 def test_update_quantifier(pattern, min_length, max_length, expected):
@@ -335,24 +368,42 @@ def test_update_quantifier_exact_length_is_bounded(pattern, length):
     assert pattern_length_bounds(update_quantifier(pattern, length, length)) == (length, length)
 
 
+REWRITE_ENUMERATION_MAX_LENGTH = 7
+
+
 @pytest.mark.parametrize(
-    ("pattern", "min_length", "max_length"),
+    ("pattern", "min_length", "max_length", "alphabet"),
     [
-        (r"^([a-zA-Z0-9]*)$", 5, 5),
-        (r"^([a-zA-Z0-9_.-]+)$", 3, 12),
-        (r"^(?i:[a-z]*)$", 4, 4),
-        (r"^(?i:([a-z-]+))$", 2, 9),
-        (r"^([a-zA-ZÀ-ÖØ-öø-ɏ \t\n\r\f\v0-9_.:/=+\-@]*)$", 256, 256),
+        (r"^([a-zA-Z0-9]*)$", 5, 5, "a0"),
+        (r"^([a-zA-Z0-9_.-]+)$", 3, 12, "a."),
+        (r"^(?i:[a-z]*)$", 4, 4, "aB"),
+        (r"^(?i:([a-z-]+))$", 2, 9, "a-"),
+        (r"^([a-zA-ZÀ-ÖØ-öø-ɏ \t\n\r\f\v0-9_.:/=+\-@]*)$", 256, 256, "a"),
+        # Unanchored: the rewrite keeps only the strings that match end to end.
+        (r"a{2}-+\.{2}", 7, 12, None),
+        (r"^[a-z]{1,3}[0-9]+$", 5, 10, "a0"),
+        (r"^(a?)+b+c+$", 7, 12, "abc"),
+        (r"^(a|bb)+$", 4, 8, "ab"),
+        (r"^[a-z]+[0-9]+$", 4, 8, "a0"),
     ],
 )
 @settings(max_examples=30, suppress_health_check=list(HealthCheck))
 @given(data=st.data())
-def test_group_rewrite_stays_within_the_original_language(pattern, min_length, max_length, data):
-    rewritten = update_quantifier(pattern, min_length, max_length)
-    assert rewritten != pattern
-    value = data.draw(st.from_regex(rewritten, fullmatch=True, alphabet=st.characters(codec=None)))
+def test_group_rewrite_stays_within_the_original_language(pattern, min_length, max_length, alphabet, data):
+    schema = {"type": "string", "pattern": pattern, "minLength": min_length, "maxLength": max_length}
+    rewritten_schema = dict(schema)
+    update_pattern_in_schema(rewritten_schema)
+    original = jsonschema_rs.validator_for(schema, pattern_options=FANCY_REGEX_OPTIONS)
+    folded = jsonschema_rs.validator_for(rewritten_schema, pattern_options=FANCY_REGEX_OPTIONS)
+    value = data.draw(st.from_regex(rewritten_schema["pattern"], fullmatch=True, alphabet=st.characters(codec=None)))
     assert re.search(pattern, value), f"{value!r} does not match {pattern}"
-    assert min_length <= len(value) <= max_length
+    assert not folded.is_valid(value) or original.is_valid(value), f"{value!r} under {rewritten_schema}"
+    if alphabet is None:
+        return
+    for length in range(min_length, min(max_length, REWRITE_ENUMERATION_MAX_LENGTH) + 1):
+        for letters in product(alphabet, repeat=length):
+            text = "".join(letters)
+            assert original.is_valid(text) == folded.is_valid(text), f"{text!r} under {rewritten_schema}"
 
 
 def test_update_quantifier_keeps_repeat_matching_empty():
@@ -376,6 +427,8 @@ def test_update_quantifier_invalid_pattern():
         ("abc*def*", 1, 3, "abc*def*"),
         ("[bc]*[de]*", 1, 3, "[bc]*[de]*"),
         ("[bc]3", 1, 3, "[bc]3"),
+        # Either slot may carry most of the length, so `minLength` stays with the schema.
+        ("[a-z]+[0-9]+", 4, 8, "^[a-z]{1,7}[0-9]{1,7}$"),
     ],
 )
 def test_update_quantifier_unanchored_multi(pattern, min_length, max_length, expected):
@@ -388,7 +441,6 @@ def test_update_quantifier_unanchored_multi(pattern, min_length, max_length, exp
     [
         ("[A-Za-z][A-Za-z0-9_.-]*", 1, 255),
         ("[a-z0-9_][a-z0-9_-]+[a-z0-9_]", 3, 63),
-        ("[a-z]+[0-9]+", 4, 8),
         ("[a-z][0-9]*", 4, 4),
     ],
 )
@@ -401,40 +453,42 @@ def test_update_quantifier_unanchored_multi_enforces_min(pattern, min_length, ma
 
 
 @pytest.mark.parametrize(
-    ("min_length", "max_length", "value"),
+    ("pattern", "min_length", "max_length", "value"),
     [
         # Multi-slot rewrite must accept any distribution that satisfies the original
         # pattern within the length budget; per-slot caps from a balanced split would
         # reject valid lengths the original pattern allowed.
-        (1, 128, "A" + "0" * 100),
-        (1, 128, "A" + "0" * 127),
-        (1, 128, "A" * 128),
+        (r"^[a-zA-Z*]+[a-zA-Z0-9-]*$", 1, 128, "A" + "0" * 100),
+        (r"^[a-zA-Z*]+[a-zA-Z0-9-]*$", 1, 128, "A" + "0" * 127),
+        (r"^[a-zA-Z*]+[a-zA-Z0-9-]*$", 1, 128, "A" * 128),
+        (r"^[a-z]{1,3}[0-9]+$", None, 10, "a" + "0" * 9),
+        (r"^[a-z]{1,3}[0-9]+$", 1, 10, "a" + "0" * 9),
     ],
 )
-def test_update_quantifier_admits_uneven_slot_distributions(min_length, max_length, value):
-    rewritten = update_quantifier(r"^[a-zA-Z*]+[a-zA-Z0-9-]*$", min_length, max_length)
+def test_update_quantifier_admits_uneven_slot_distributions(pattern, min_length, max_length, value):
+    rewritten = update_quantifier(pattern, min_length, max_length)
     assert re.match(rewritten, value), (rewritten, value)
 
 
 @pytest.mark.parametrize(
-    ("schema", "expected"),
+    ("bounds", "expected"),
     [
         (
-            {"type": "string", "pattern": r"^[a-z]+$", "minLength": 1, "maxLength": 10},
+            {"pattern": r"^[a-z]+$", "minLength": 1, "maxLength": 10},
             {"type": "string", "pattern": r"^[a-z]{1,10}$"},
         ),
         # Unbounded `{1,}` survives the rewrite; `maxLength` must stay so length is still enforced.
         (
-            {"type": "string", "pattern": r"^([a-z]+-){2,3}\d+$", "minLength": 1, "maxLength": 32},
+            {"pattern": r"^([a-z]+-){2,3}\d+$", "minLength": 1, "maxLength": 32},
             {"type": "string", "pattern": r"^([a-z]{1,}-){2,3}\d{1,28}$", "maxLength": 32},
         ),
         # Each slot's max is allocated as if it were the only one, so together they outrun the budget.
         (
-            {"type": "string", "pattern": r"^0+0+$", "maxLength": 3},
+            {"pattern": r"^0+0+$", "maxLength": 3},
             {"type": "string", "pattern": r"^0{1,2}0{1,2}$", "maxLength": 3},
         ),
         (
-            {"type": "string", "pattern": r"^[a-zA-Z]+([ '-][a-zA-Z]+){0,2}\.?$", "minLength": 1, "maxLength": 30},
+            {"pattern": r"^[a-zA-Z]+([ '-][a-zA-Z]+){0,2}\.?$", "minLength": 1, "maxLength": 30},
             {
                 "type": "string",
                 "pattern": r"^[a-zA-Z]{1,30}([ '\-][a-zA-Z]{1,}){0,2}\.{0,1}$",
@@ -443,7 +497,8 @@ def test_update_quantifier_admits_uneven_slot_distributions(min_length, max_leng
         ),
     ],
 )
-def test_update_pattern_in_schema_keeps_unenforced_bounds(schema, expected):
+def test_update_pattern_in_schema_keeps_unenforced_bounds(bounds, expected):
+    schema = {"type": "string", **bounds}
     update_pattern_in_schema(schema)
     assert schema == expected
 
@@ -472,6 +527,13 @@ SECRET_REFERENCE = r"(^arn:aws([a-z]|\-)*:secretsmanager:[a-z0-9-.]+:.*)|(\$(\.[
         (r"^[a-z]+$", 0, 0, True),
         # Back-references carry a length the walk cannot follow, so nothing is ruled out.
         (r"^(a+)\1$", 3, 3, False),
+        ("(?>abc)", None, 1, True),
+        ("}", 4096, None, True),
+        ("(foo)\\1", 2, 2, True),
+        ("|", 3, 1, True),
+        ("x{2}", None, 1, True),
+        ("^(ab|c)", 0, 0, True),
+        ("^(b*?)*?", None, 4096, False),
     ],
 )
 def test_pattern_length_is_unreachable(pattern, min_length, max_length, expected):
@@ -540,6 +602,37 @@ def test_pin_pattern_length_random(data):
     value = data.draw(st.from_regex(pinned, fullmatch=True, alphabet=st.characters(codec=None)))
     assert len(value) == length
     assert re.fullmatch(pattern, value), f"{value!r} does not match {pattern}"
+
+
+@pytest.mark.parametrize(
+    ("pattern", "min_length", "max_length", "expected"),
+    [
+        ("}?", 0, 0, ""),
+        ("^()+$", None, 4096, "^$"),
+        ("^[Ѐ-ӿ]+$", None, 4096, "^[Ѐ-ӿ]+$"),
+        ("^(?:^)*a+$", None, 4096, "^a{1}$"),
+        ("^(?:ab|abcd)+$", None, 4096, "^(?:ab|abcd)+$"),
+    ],
+)
+def test_pin_pattern_length_rewrite(pattern, min_length, max_length, expected):
+    assert pin_pattern_length(pattern, min_length, max_length) == expected
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (
+            r"^(?=.*[a-c])(?!.*[@#])[a-z0-9]{3,8}\Z",
+            CharacterRules(required=("[a-c]",), forbidden=("[@\\#]",), body="[a-z0-9]", min_size=3, max_size=8),
+        ),
+        (r"^(?=.*a)[a-z]+\Z", CharacterRules(required=("a",), forbidden=(), body="[a-z]", min_size=1, max_size=None)),
+        # A lookahead that needs a character before the class is not an anywhere-in-the-value rule.
+        (r"^(?=.+?[a-c])[a-z]{3,8}\Z", None),
+    ],
+    ids=["required-and-forbidden", "literal", "non-empty-prefix"],
+)
+def test_character_rules(pattern, expected):
+    assert character_rules(pattern) == expected
 
 
 def test_pin_pattern_length_leaves_possessive_repeats_alone():
@@ -940,6 +1033,8 @@ def is_valid_regex(pattern: str) -> bool:
         r"([a-z])\1+",
         # GROUPREF_EXISTS (conditional group)
         r"(x)(?(1)a|b)",
+        r"(x)?(?(1)a|b)",
+        r"(x)?(?(1)a)",
         # ATOMIC_GROUP
         "(?>abc)",
         "(?>\\d+)",
@@ -954,23 +1049,20 @@ def test_serialize_roundtrip(pattern):
     assert _serialize(list(sre_parse.parse(serialized))) == serialized
 
     # Semantically equivalent
-    for s in ["", "a", "abc", "ABC", "123", "a-b", "\t\n", "\x00"]:
+    for s in ["", "a", "abc", "ABC", "123", "a-b", "\t\n", "\x00", "xa", "b"]:
         assert bool(re.search(pattern, s)) == bool(re.search(serialized, s))
 
 
 @pytest.mark.parametrize(
-    "pattern",
+    ("pattern", "expected"),
     [
-        "a*+",
-        "a++",
-        "a{2,5}+",
+        ("a*+", "a{0,}+"),
+        ("a++", "a{1,}+"),
+        ("a{2,5}+", "a{2,5}+"),
     ],
 )
-def test_serialize_possessive(pattern):
-    parsed = sre_parse.parse(pattern)
-    serialized = _serialize(list(parsed))
-    re.compile(serialized)
-    assert _serialize(list(sre_parse.parse(serialized))) == serialized
+def test_serialize_possessive(pattern, expected):
+    assert _serialize(list(sre_parse.parse(pattern))) == expected
 
 
 @pytest.mark.parametrize("char", list(string.printable))
@@ -1385,6 +1477,8 @@ ALNUM = string.ascii_letters + string.digits
         ("[", ALNUM, False),
         ("abc", "abc", False),
         ("abcd", "abc", True),
+        ("[!-0]", ALNUM, False),
+        ("[9-@]", ALNUM, False),
     ],
 )
 def test_pattern_requires_char_outside(pattern, allowed, expected):

@@ -5,9 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_import as imp, import_jobs_ui, tui
-from probe.cli.backfill_coverage import CoverageError
-from probe.cli.backfill_ledger import Ledger, MAX_UNIT_ATTEMPTS
+from probe.cli.imports.folder import flow as imp
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import CoverageError
+from probe.cli.imports.folder.upload.ledger import Ledger, MAX_UNIT_ATTEMPTS
 from tests import test_backfill_background as fixtures
 
 background_harness = fixtures.background_harness
@@ -53,7 +55,7 @@ def test_partial_exhausted_unit_retries_only_the_sibling_without_a_receipt(
         reviews.append(title)
         return "import"
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     h.run(retry_dead=True, interactive=True, yes=False, background=True)
     assert "Review the import plan" in reviews

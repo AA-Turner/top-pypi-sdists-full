@@ -1,0 +1,88 @@
+# PR Activity → AI PR Loop Routing
+#
+# Routes synchronize events directly to the AI PR Loop; other PR events use the throttler.
+# Uses pull_request_target so it runs without approval even for Copilot PRs.
+# Synchronize dispatch bypasses only the global 60-second throttle; consumer guards remain active.
+
+name: AI PR Loop Dispatcher
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+      - ready_for_review
+      - review_requested
+      - closed
+
+permissions:
+  actions: write
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request_target' && github.event.action == 'synchronize' && format('ai-pr-loop-dispatcher-pr-{0}', github.event.pull_request.number) || 'ai-pr-loop-dispatcher' }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11"
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+      - name: Install agentic-devtools
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv pip install --system .
+          else
+            python -m pip install --upgrade pip
+            python -m pip install .
+          fi
+      - name: Dispatch AI PR Loop for synchronize
+        if: github.event_name == 'pull_request_target' && github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+        run: |
+          gh workflow run ai-pr-loop.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "${{ github.event.repository.default_branch }}" \
+            -f pr_number="${{ github.event.pull_request.number }}" \
+            -f head_sha="${{ github.event.pull_request.head.sha }}"
+      - name: Throttle check
+        id: throttle
+        env:
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AGDT_GITHUB_SECRETS_JSON: ${{ toJSON(secrets) }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: agdt-ai-pr-loop-dispatcher-wakeup --mode check --default-branch "$DEFAULT_BRANCH"
+
+      - name: Dispatch AI PR Loop Throttler
+        if: github.event.action != 'synchronize' && steps.throttle.outputs.throttled != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          DEFAULT_CLASSIC_REPO_WORKFLOW_PAT: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          AGDT_GITHUB_SECRETS_JSON: ${{ toJSON(secrets) }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: DEFAULT_CLASSIC_REPO_WORKFLOW_PAT
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: agdt-ai-pr-loop-dispatcher-wakeup --mode dispatch --default-branch "$DEFAULT_BRANCH"

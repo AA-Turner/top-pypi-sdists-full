@@ -1,0 +1,53 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/config/deprecated-files.yaml
+# Purpose:   Table of deprecated project files -> the nudge to show if present
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# hyperi-ci scans a project for these paths during `hyperi-ci check` and in CI
+# and emits a NON-FATAL warning (a GitHub ::warning:: annotation in CI) nudging
+# removal. This is the SSoT for "files hyperi-ci no longer wants". Driver:
+# src/hyperi_ci/quality/deprecated_files.py. Add an entry as:
+#
+#   - path: <project-relative path>
+#     level: warn          # warn (default) | info
+#     message: <one line: why it is deprecated + what to do instead>
+
+files:
+  # Every file semantic-release reads its config from. CI deletes them all and
+  # releases with the central config, so each one is dead weight.
+  - path: .releaserc
+    level: warn
+    message: &releaserc >-
+      CI ignores this semantic-release config: every repo releases with
+      hyperi-ci's central config and semantic-release's default bump rules.
+      Delete it. Per-repo version stamping is release.stamp_cmd in
+      .hyperi-ci.yaml.
+  - {path: .releaserc.json, level: warn, message: *releaserc}
+  - {path: .releaserc.yaml, level: warn, message: *releaserc}
+  - {path: .releaserc.yml, level: warn, message: *releaserc}
+  - {path: .releaserc.js, level: warn, message: *releaserc}
+  - {path: .releaserc.cjs, level: warn, message: *releaserc}
+  - {path: .releaserc.mjs, level: warn, message: *releaserc}
+  - {path: release.config.js, level: warn, message: *releaserc}
+  - {path: release.config.cjs, level: warn, message: *releaserc}
+  - {path: release.config.mjs, level: warn, message: *releaserc}
+  - path: .hypersec-ci.yaml
+    level: warn
+    message: >-
+      .hypersec-ci.yaml is no longer read by hyperi-ci, so every setting in it
+      is ignored. Rename it to .hyperi-ci.yaml.
+  - path: .hypersec-ci.yml
+    level: warn
+    message: >-
+      .hypersec-ci.yml is no longer read by hyperi-ci, so every setting in it
+      is ignored. Rename it to .hyperi-ci.yaml.
+  - path: TODO.md
+    level: warn
+    message: >-
+      TODO.md is retired: task state belongs in the active plan and in GitHub
+      issues, which are the only copies anyone else can see. A local TODO.md
+      goes stale invisibly - this repo's own ran two months behind and claimed
+      merged work was still blocked. Migrate anything still live to issues and
+      delete the file.

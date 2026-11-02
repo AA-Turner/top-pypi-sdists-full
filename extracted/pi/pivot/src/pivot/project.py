@@ -1,0 +1,160 @@
+import logging
+import os
+import pathlib
+
+logger = logging.getLogger(__name__)
+
+_project_root_cache: pathlib.Path | None = None
+
+
+def find_project_root() -> pathlib.Path:
+    """Walk up from cwd to find the top-most .pivot directory.
+
+    Raises:
+        ProjectNotInitializedError: If no .pivot directory exists above cwd.
+    """
+    from pivot import exceptions
+
+    current = pathlib.Path.cwd().resolve()
+    topmost_pivot: pathlib.Path | None = None
+
+    for parent in [current, *current.parents]:
+        if (parent / ".pivot").is_dir():
+            topmost_pivot = parent
+
+    if topmost_pivot is None:
+        msg = f"No .pivot directory found above '{current}'. Run 'pivot init' to initialize a Pivot project."
+        raise exceptions.ProjectNotInitializedError(msg)
+
+    logger.debug(f"Project root: {topmost_pivot}")
+    return topmost_pivot
+
+
+def get_project_root() -> pathlib.Path:
+    """Get project root (cached after first call)."""
+    global _project_root_cache
+    if _project_root_cache is None:
+        _project_root_cache = find_project_root()
+    return _project_root_cache
+
+
+def resolve_path(path: str | pathlib.Path) -> pathlib.Path:
+    """Resolve relative path from project root; absolute paths unchanged."""
+    p = pathlib.Path(os.fspath(path))
+    if p.is_absolute():
+        return p.resolve()
+    return (get_project_root() / p).resolve()
+
+
+def normalize_path(path: str | pathlib.Path, base: pathlib.Path | None = None) -> pathlib.Path:
+    """Make path absolute from base (default: project root), preserving symlinks.
+
+    Pivot runs on POSIX only, so ``/`` is the one separator: a backslash is part of a name.
+    """
+    if base is None:
+        base = get_project_root()
+
+    p = pathlib.Path(os.fspath(path))
+
+    abs_path = p.absolute() if p.is_absolute() else (base / p).absolute()
+    return pathlib.Path(os.path.normpath(abs_path))
+
+
+def contains_symlink_in_path(path: pathlib.Path, base: pathlib.Path) -> bool:
+    """Check if any component from base to path is a symlink.
+
+    Example: If /project/data is a symlink, and path is /project/data/file.csv,
+    returns True because 'data' component is a symlink.
+
+    Args:
+        path: Path to check for symlink components
+        base: Base path to stop checking at
+
+    Returns:
+        True if any component in the path is a symlink
+    """
+    current = path.absolute()
+    base_abs = base.absolute()
+
+    while current != base_abs:
+        if current.is_symlink():
+            return True
+        parent = current.parent
+        if parent == current:  # Reached filesystem root
+            break
+        current = parent
+
+    return False
+
+
+def real_location_outside(path: pathlib.Path, resolved_root: pathlib.Path) -> pathlib.Path | None:
+    """Where ``path`` really is, when that place lies outside ``resolved_root``, else None.
+
+    ``path`` is resolved, so a symlink anywhere on the way counts: this answers where a write
+    through ``path`` lands, which ``normalize_path`` and ``relative_within`` do not (both place a
+    path by its spelling, keeping symlinks). ``resolved_root`` is already resolved, so one walk
+    serves many paths. A ``path`` that cannot be resolved (a NUL byte, a filesystem error) counts
+    as outside and comes back as it was given, because where it leads is unknown.
+    """
+    try:
+        real = path.resolve()
+    except (OSError, ValueError):
+        return path
+    return None if real.is_relative_to(resolved_root) else real
+
+
+def resolve_path_for_comparison(path: str, context: str) -> pathlib.Path:
+    """Resolve path for overlap comparison, falling back to normalized for missing stage outputs."""
+    try:
+        return resolve_path(path)
+    except PermissionError as e:
+        raise PermissionError(f"Permission denied for {context} '{path}'") from e
+    except RuntimeError as e:
+        raise RuntimeError(f"Circular symlink in {context} '{path}'") from e
+    except FileNotFoundError:
+        if "stage output" in context.lower():
+            return normalize_path(path)
+        raise
+    except OSError as e:
+        raise OSError(f"Filesystem error for {context} '{path}': {e}") from e
+
+
+def relative_within(path: pathlib.Path, base: pathlib.Path) -> pathlib.Path | None:
+    """Return absolute ``path`` relative to ``base``, or None if it lies outside base.
+
+    A path inside base by its spelling is relative from base. Otherwise the outermost of the
+    path and its ancestors that resolves to base or a directory inside it stands for that place:
+    an absolute target typed under a symlink to the project root, or to a directory in it, is
+    inside. Symlinks below that one are kept, as ``normalize_path`` keeps them. A path holding
+    ``..`` or a NUL byte is placed by its spelling alone, so ``<link>/../x`` stays outside.
+    """
+    if ".." in path.parts or "\0" in str(path):
+        return None
+    if path.is_relative_to(base):
+        return path.relative_to(base)
+    resolved_base = base.resolve()
+    for ancestor in (*reversed(path.parents), path):
+        resolved = ancestor.resolve()
+        if resolved.is_relative_to(resolved_base):
+            return resolved.relative_to(resolved_base) / path.relative_to(ancestor)
+    return None
+
+
+def to_relative_path(abs_path: str | pathlib.Path, base: pathlib.Path | None = None) -> str:
+    """Convert absolute path to relative from base (default: project root).
+
+    A path is inside base by the rule of ``relative_within``. If path is already relative or
+    outside base, returns as-is with warning for outside paths.
+    """
+    path = pathlib.Path(abs_path)
+    if not path.is_absolute():
+        return str(abs_path)
+
+    if base is None:
+        base = get_project_root()
+
+    relative = relative_within(path, base)
+    if relative is None:
+        logger.warning(f"Path '{abs_path}' is outside base '{base}', keeping absolute")
+        return str(abs_path)
+    return str(relative)

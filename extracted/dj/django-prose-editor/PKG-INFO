@@ -1,0 +1,73 @@
+Metadata-Version: 2.5
+Name: django-prose-editor
+Version: 0.28.0
+Summary: Prose editor for the Django admin based on ProseMirror
+Project-URL: Documentation, https://django-prose-editor.readthedocs.io/
+Project-URL: Homepage, https://github.com/feincms/django-prose-editor/
+Author-email: Matthias Kestenholz <mk@feinheit.ch>
+License: BSD-3-Clause
+License-File: LICENSE
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Requires-Python: >=3.10
+Requires-Dist: django-js-asset>=5.0a1
+Requires-Dist: django>=4.2
+Provides-Extra: cabinet
+Requires-Dist: django-cabinet>=0.20.1; extra == 'cabinet'
+Provides-Extra: sanitize
+Requires-Dist: nh3>=0.3; extra == 'sanitize'
+Provides-Extra: tests
+Requires-Dist: asgiref; extra == 'tests'
+Requires-Dist: coverage; extra == 'tests'
+Requires-Dist: nh3>=0.3; extra == 'tests'
+Requires-Dist: pytest; extra == 'tests'
+Requires-Dist: pytest-asyncio; extra == 'tests'
+Requires-Dist: pytest-cov; extra == 'tests'
+Requires-Dist: pytest-django; extra == 'tests'
+Requires-Dist: pytest-playwright; extra == 'tests'
+Description-Content-Type: text/x-rst
+
+===================
+django-prose-editor
+===================
+
+Prose editor for the Django admin based on ProseMirror and Tiptap. `Announcement blog post <https://406.ch/writing/django-prose-editor-prose-editing-component-for-the-django-admin/>`__.
+
+
+Intro
+=====
+
+After installing the package (using ``pip install
+django-prose-editor[sanitize]``) the following should get you started:
+
+.. code-block:: python
+
+    from django_prose_editor.fields import ProseEditorField
+
+    content = ProseEditorField(
+        extensions={
+            "Bold": True,
+            "Italic": True,
+            "BulletList": True,
+            "ListItem": True,
+            "Link": True,
+        },
+        sanitize=True,  # Server side sanitization is strongly recommended.
+    )
+
+Check the `documentation <https://django-prose-editor.readthedocs.io>`__.

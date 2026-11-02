@@ -1,0 +1,89 @@
+#![doc = include_str!("../README.md")]
+
+mod belfegor;
+mod egor;
+mod gp_config;
+mod gp_mix;
+mod moo_config;
+mod qei_config;
+mod sampling;
+mod sparse_gp_mix;
+mod trego_config;
+
+pub(crate) mod domain;
+pub(crate) mod errors;
+pub(crate) mod logging;
+pub(crate) mod types;
+
+use belfegor::*;
+use egor::*;
+use gp_mix::*;
+use sampling::*;
+use sparse_gp_mix::*;
+use types::*;
+
+use pyo3::prelude::*;
+use pyo3_stub_gen::define_stub_info_gatherer;
+
+#[pyfunction]
+fn _run_gpx_cli(args: Vec<String>) -> i32 {
+    let argv: Vec<String> = std::iter::once("gpx".to_string()).chain(args).collect();
+    egobox_gpx::run_from_iter_with_exit_code(argv)
+}
+
+#[doc(hidden)]
+#[pymodule]
+fn egobox(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // egobox version
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+
+    // utils
+    m.add_function(wrap_pyfunction!(lhs, m)?)?;
+    m.add_function(wrap_pyfunction!(sampling::sampling, m)?)?;
+    m.add_function(wrap_pyfunction!(_run_gpx_cli, m)?)?;
+
+    // types
+    m.add_class::<sampling::Sampling>()?;
+    m.add_class::<gp_config::GpConfig>()?;
+    m.add_class::<qei_config::QEiConfig>()?;
+    m.add_class::<moo_config::MooConfig>()?;
+    m.add_class::<moo_config::MooStrategy>()?;
+    m.add_class::<moo_config::EimAggregation>()?;
+    m.add_class::<trego_config::TregoConfig>()?;
+    m.add_class::<RegressionSpec>()?;
+    m.add_class::<CorrelationSpec>()?;
+    m.add_class::<InfillStrategy>()?;
+    m.add_class::<FeasibleInfillStrategy>()?;
+    m.add_class::<ConstraintStrategy>()?;
+    m.add_class::<QEiStrategy>()?;
+    m.add_class::<FailsafeStrategy>()?;
+    m.add_class::<CstrSpec>()?;
+    m.add_class::<Verbose>()?;
+    m.add_class::<InfillOptimizer>()?;
+    m.add_class::<XType>()?;
+    m.add_class::<XSpec>()?;
+    m.add_class::<OptimResult>()?;
+    m.add_class::<EgorOptim>()?;
+    m.add_class::<ParetoResult>()?;
+    m.add_class::<BelfegorOptim>()?;
+    m.add_class::<Recombination>()?;
+    m.add_class::<RunInfo>()?;
+    m.add_class::<RunStatus>()?;
+    m.add_class::<ExitStatus>()?;
+
+    // Surrogate Model
+    m.add_class::<GpMix>()?;
+    m.add_class::<Gpx>()?;
+    m.add_class::<SparseGpMix>()?;
+    m.add_class::<SparseGpx>()?;
+    m.add_class::<SparseMethod>()?;
+
+    // Optimizer
+    m.add_class::<Egor>()?;
+    m.add_class::<Belfegor>()?;
+
+    Ok(())
+}
+
+// Define a function to gather stub information.
+define_stub_info_gatherer!(stub_info);

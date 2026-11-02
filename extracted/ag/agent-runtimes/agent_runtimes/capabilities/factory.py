@@ -1,0 +1,555 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""Build pydantic-ai capabilities from agent-runtimes Agentspec."""
+
+from __future__ import annotations
+
+import os
+from typing import TYPE_CHECKING, Any
+
+from pydantic_ai import UsageLimits
+
+from ..guardrails import (
+    DEFAULT_TOOL_PERMISSION_MAP,
+    AsyncGuardrailCapability,
+    BlockedKeywordsCapability,
+    ContentSafetyCapability,
+    CostBudgetCapability,
+    DataScopeCapability,
+    InputGuardCapability,
+    MCPToolsGuardrailCapability,
+    NoRefusalsCapability,
+    PermissionCapability,
+    PiiDetectorCapability,
+    PromptInjectionCapability,
+    SecretRedactionCapability,
+    SkillsGuardrailCapability,
+    TokenLimitCapability,
+    ToolGuardCapability,
+    _parse_token_limit,
+)
+from ..guardrails.tool_approvals import ToolApprovalConfig, ToolsGuardrailCapability
+from ..monitoring import (
+    CostMonitoringCapability,
+    LLMContextUsageCapability,
+    MonitoringCapability,
+    OTelHooksCapability,
+)
+
+if TYPE_CHECKING:
+    from ..memory.capability import MemoryCapability
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_money(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (float, int)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.strip().lower()
+        cleaned = cleaned.replace("$", "").replace("usd", "")
+        cleaned = cleaned.replace("per run", "").strip()
+        if not cleaned:
+            return None
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+
+def build_usage_limits_from_agent_spec(agent_spec: Any) -> UsageLimits | None:
+    """Build native UsageLimits from guardrail token limits when available."""
+    guardrails = list(getattr(agent_spec, "guardrails", None) or [])
+    if not guardrails:
+        return None
+
+    per_run: int | None = None
+    request_limit: int | None = None
+    tool_calls_limit: int | None = None
+
+    for entry in guardrails:
+        if not isinstance(entry, dict):
+            continue
+        token_limits = entry.get("token_limits") or {}
+        if isinstance(token_limits, dict):
+            if per_run is None and token_limits.get("per_run") is not None:
+                per_run = _parse_token_limit(token_limits.get("per_run"), 0)
+            if request_limit is None and token_limits.get("request_limit") is not None:
+                try:
+                    request_limit = int(token_limits["request_limit"])
+                except (TypeError, ValueError):
+                    request_limit = None
+            if (
+                tool_calls_limit is None
+                and token_limits.get("tool_calls_limit") is not None
+            ):
+                try:
+                    tool_calls_limit = int(token_limits["tool_calls_limit"])
+                except (TypeError, ValueError):
+                    tool_calls_limit = None
+        if (
+            per_run is not None
+            and request_limit is not None
+            and tool_calls_limit is not None
+        ):
+            break
+
+    if per_run is None and request_limit is None and tool_calls_limit is None:
+        return None
+
+    return UsageLimits(
+        total_tokens_limit=per_run,
+        request_limit=request_limit,
+        tool_calls_limit=tool_calls_limit,
+    )
+
+
+def apply_model_output_tokens_limit(
+    usage_limits: UsageLimits | None, model_id: str | None
+) -> UsageLimits | None:
+    """Set ``output_tokens_limit`` from the model spec's ``tokens_limit``.
+
+    Each model spec declares the maximum output tokens the model can emit in a
+    single run. Wiring it into ``UsageLimits.output_tokens_limit`` ensures the
+    generated output is not capped below the model's capability, and — because
+    the parent run's limits are enforced across delegated subagent runs — that
+    subagents inherit a sensible per-model budget instead of a hardcoded cap.
+
+    An explicit ``output_tokens_limit`` already present on ``usage_limits`` is
+    preserved.
+    """
+    if not model_id:
+        return usage_limits
+
+    from ..specs.models import get_model
+
+    spec = get_model(model_id)
+    tokens_limit = getattr(spec, "tokens_limit", None) if spec is not None else None
+    if not tokens_limit:
+        return usage_limits
+
+    if usage_limits is None:
+        return UsageLimits(output_tokens_limit=tokens_limit)
+
+    if getattr(usage_limits, "output_tokens_limit", None) is not None:
+        return usage_limits
+
+    import dataclasses
+
+    if dataclasses.is_dataclass(usage_limits) and not isinstance(usage_limits, type):
+        return dataclasses.replace(usage_limits, output_tokens_limit=tokens_limit)
+
+    model_copy = getattr(usage_limits, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update={"output_tokens_limit": tokens_limit})
+
+    return usage_limits
+
+
+def build_capabilities_from_agent_spec(
+    agent_spec: Any,
+    agent_id: str | None = None,
+    model: str | None = None,
+    compaction_max_tokens: int | None = None,
+) -> list[Any]:
+    """Convert agent-runtimes Agentspec guardrails into pydantic-ai capabilities.
+
+    ``model`` is the resolved model id the agent will run (env override, spec
+    model, or default). It budgets the compaction capability from the model
+    spec's ``tokens_limit``; when omitted the spec model is used.
+    ``compaction_max_tokens`` optionally caps the compaction history budget
+    below that model limit so a smaller ceiling can be exercised on demand.
+    """
+    capabilities: list[Any] = []
+    guardrails = list(getattr(agent_spec, "guardrails", None) or [])
+    explicit_capabilities = list(getattr(agent_spec, "capabilities", None) or [])
+    advanced = getattr(agent_spec, "advanced", None) or {}
+    monitoring_per_run_budget: float | None = None
+    monitoring_cumulative_budget: float | None = None
+
+    for entry in [*guardrails, *explicit_capabilities]:
+        if not isinstance(entry, dict):
+            continue
+
+        # Existing guardrail sections
+        token_limits = entry.get("token_limits") or {}
+        if isinstance(token_limits, dict) and token_limits:
+            capabilities.append(
+                TokenLimitCapability(
+                    per_run=_parse_token_limit(token_limits.get("per_run"), 100_000),
+                    per_day=_parse_token_limit(token_limits.get("per_day"), 500_000),
+                    per_month=_parse_token_limit(
+                        token_limits.get("per_month"), 5_000_000
+                    ),
+                    request_limit=token_limits.get("request_limit"),
+                    tool_calls_limit=token_limits.get("tool_calls_limit"),
+                )
+            )
+
+        cost_budget = entry.get("cost_budget") or {}
+        if isinstance(cost_budget, dict) and cost_budget:
+            if monitoring_per_run_budget is None:
+                monitoring_per_run_budget = _parse_money(cost_budget.get("per_run_usd"))
+            if monitoring_cumulative_budget is None:
+                monitoring_cumulative_budget = _parse_money(
+                    cost_budget.get("cumulative_usd")
+                )
+            capabilities.append(
+                CostBudgetCapability(
+                    per_run_usd=_parse_money(cost_budget.get("per_run_usd")),
+                    cumulative_usd=_parse_money(cost_budget.get("cumulative_usd")),
+                    on_budget_exceeded=cost_budget.get("on_budget_exceeded", "stop"),
+                    model_name=getattr(agent_spec, "model", None),
+                )
+            )
+
+        permissions = entry.get("permissions") or {}
+        if isinstance(permissions, dict) and permissions:
+            capabilities.append(
+                PermissionCapability(
+                    permissions=permissions,
+                    tool_permission_map=DEFAULT_TOOL_PERMISSION_MAP,
+                )
+            )
+
+        data_scope = entry.get("data_scope") or {}
+        data_handling = entry.get("data_handling") or {}
+        if isinstance(data_scope, dict) and data_scope:
+            capabilities.append(
+                DataScopeCapability(
+                    allowed_systems=list(data_scope.get("allowed_systems") or []),
+                    allowed_objects=list(data_scope.get("allowed_objects") or []),
+                    denied_objects=list(data_scope.get("denied_objects") or []),
+                    denied_fields=list(data_scope.get("denied_fields") or []),
+                    allow_row_level_output=bool(
+                        data_handling.get("allow_row_level_output", True)
+                    ),
+                    max_rows_in_output=int(
+                        data_handling.get("max_rows_in_output", 1000)
+                    ),
+                )
+            )
+
+        content_safety = entry.get("content_safety") or {}
+        if isinstance(content_safety, dict) and content_safety:
+            capabilities.append(
+                ContentSafetyCapability(
+                    treat_text_as_untrusted=bool(
+                        content_safety.get("treat_crm_text_fields_as_untrusted", True)
+                    ),
+                    block_data_instructions=bool(
+                        content_safety.get("do_not_follow_instructions_from_data", True)
+                    ),
+                )
+            )
+
+        # data_handling driven shields
+        if isinstance(data_handling, dict) and data_handling.get("pii_detection"):
+            pii_action = str(data_handling.get("pii_action", "block")).lower()
+            capabilities.append(
+                PiiDetectorCapability(
+                    action="log" if pii_action in {"warn", "redact"} else "block"
+                )
+            )
+
+        # Optional shield-style sections
+        if entry.get("prompt_injection"):
+            cfg = (
+                entry["prompt_injection"]
+                if isinstance(entry["prompt_injection"], dict)
+                else {}
+            )
+            capabilities.append(
+                PromptInjectionCapability(
+                    sensitivity=cfg.get("sensitivity", "medium"),
+                    categories=cfg.get("categories"),
+                    custom_patterns=cfg.get("custom_patterns"),
+                )
+            )
+
+        if entry.get("secret_redaction"):
+            cfg = (
+                entry["secret_redaction"]
+                if isinstance(entry["secret_redaction"], dict)
+                else {}
+            )
+            capabilities.append(
+                SecretRedactionCapability(
+                    detect=cfg.get("detect"),
+                    custom_patterns=cfg.get("custom_patterns"),
+                )
+            )
+
+        if entry.get("blocked_keywords"):
+            cfg = (
+                entry["blocked_keywords"]
+                if isinstance(entry["blocked_keywords"], dict)
+                else {}
+            )
+            capabilities.append(
+                BlockedKeywordsCapability(
+                    keywords=list(cfg.get("keywords") or []),
+                    case_sensitive=bool(cfg.get("case_sensitive", False)),
+                    whole_words=bool(cfg.get("whole_words", False)),
+                    use_regex=bool(cfg.get("use_regex", False)),
+                )
+            )
+
+        if entry.get("no_refusals"):
+            cfg = entry["no_refusals"] if isinstance(entry["no_refusals"], dict) else {}
+            capabilities.append(
+                NoRefusalsCapability(
+                    patterns=cfg.get("patterns"),
+                    allow_partial=bool(cfg.get("allow_partial", False)),
+                    min_response_length=int(cfg.get("min_response_length", 50)),
+                )
+            )
+
+        if entry.get("tool_guard"):
+            cfg = entry["tool_guard"] if isinstance(entry["tool_guard"], dict) else {}
+            capabilities.append(
+                ToolGuardCapability(
+                    blocked=list(cfg.get("blocked") or []),
+                    require_approval=list(cfg.get("require_approval") or []),
+                )
+            )
+
+        if entry.get("async_guardrail"):
+            cfg = (
+                entry["async_guardrail"]
+                if isinstance(entry["async_guardrail"], dict)
+                else {}
+            )
+            nested_input = cfg.get("input_guard") or {}
+            nested_guard = InputGuardCapability(guard=nested_input.get("guard"))
+            capabilities.append(
+                AsyncGuardrailCapability(
+                    guard=nested_guard,
+                    timing=cfg.get("timing", "concurrent"),
+                    cancel_on_failure=bool(cfg.get("cancel_on_failure", True)),
+                    timeout=cfg.get("timeout"),
+                )
+            )
+
+        if entry.get("tool_approval"):
+            cfg = (
+                entry["tool_approval"]
+                if isinstance(entry["tool_approval"], dict)
+                else {}
+            )
+            approval_config = ToolApprovalConfig.from_spec(cfg)
+            if agent_id:
+                approval_config.agent_id = agent_id
+            capabilities.append(ToolsGuardrailCapability(config=approval_config))
+
+    # Advanced fallback for cost budget
+    if isinstance(advanced, dict) and advanced.get("cost_limit"):
+        cost_limit = _parse_money(advanced.get("cost_limit"))
+        if cost_limit is not None:
+            already_has_budget = any(
+                isinstance(cap, CostBudgetCapability) for cap in capabilities
+            )
+            if not already_has_budget:
+                capabilities.append(
+                    CostBudgetCapability(
+                        per_run_usd=cost_limit,
+                        model_name=getattr(agent_spec, "model", None),
+                    )
+                )
+            if monitoring_per_run_budget is None:
+                monitoring_per_run_budget = cost_limit
+
+    # Subagent delegation via the in-repo subagents capability.
+    subagents_config = getattr(agent_spec, "subagents", None)
+    if subagents_config is not None:
+        from ..subagents import build_subagents_capability
+
+        subagents_capability = build_subagents_capability(
+            subagents_config,
+            default_model=getattr(agent_spec, "model", None),
+            agent_id=agent_id,
+        )
+        if subagents_capability is not None:
+            capabilities.append(subagents_capability)
+
+    # Durable memory via the in-repo memory capability (Mem0 by default).
+    memory_type = getattr(agent_spec, "memory", None)
+    if memory_type:
+        from ..memory import build_memory_capability
+        from ..memory.identity import resolve_memory_identity
+
+        # Memories are persisted under the composite (user_uid, agent_uid)
+        # key. The user is the trusted ownership boundary (never the agent id
+        # or any caller-provided value); the agent uid namespaces memories
+        # per agent within that user's personal account.
+        identity = resolve_memory_identity()
+        memory_config = getattr(agent_spec, "memory_config", None)
+        effective_memory_agent_id = agent_id
+        app_memory_key = ""
+        if isinstance(memory_config, dict):
+            override: Any = None
+            datalayer_overrides = memory_config.get("datalayer")
+            if isinstance(datalayer_overrides, dict):
+                override = datalayer_overrides.get("memory_agent_id")
+                # An application's memory: per person, shared as they allow
+                # (R-18, R-35, R-36).
+                if datalayer_overrides.get("app_memory"):
+                    app_memory_key = str(override or "").strip()
+                    if not app_memory_key:
+                        raise ValueError(
+                            "An application's memory is kept under its key: none was given."
+                        )
+            if override is None:
+                override = memory_config.get("memory_agent_id")
+            if isinstance(override, str) and override.strip():
+                effective_memory_agent_id = override.strip()
+
+            # Remove Datalayer-only controls before forwarding provider config.
+            if "datalayer" in memory_config or "memory_agent_id" in memory_config:
+                filtered_config = dict(memory_config)
+                filtered_config.pop("datalayer", None)
+                filtered_config.pop("memory_agent_id", None)
+                memory_config = filtered_config
+
+        memory_capability: MemoryCapability | None
+        if app_memory_key:
+            from ..apps.memory import app_memory_capability
+
+            memory_capability = app_memory_capability(app_memory_key)
+        else:
+            memory_capability = build_memory_capability(
+                memory_type,
+                user_id=identity.user_id,
+                agent_id=effective_memory_agent_id,
+                config=memory_config,
+            )
+        if memory_capability is not None:
+            capabilities.append(memory_capability)
+
+    # Conversation checkpoints: snapshots of the history the agent or the
+    # person can rewind to, with the tools to take and use them.
+    checkpoints_config = getattr(agent_spec, "checkpoints", None)
+    if checkpoints_config:
+        from ..checkpoints import build_checkpoints_capability
+
+        checkpoints_capability = build_checkpoints_capability(
+            checkpoints_config, agent_id=agent_id
+        )
+        if checkpoints_capability is not None:
+            capabilities.append(checkpoints_capability)
+
+    # Notifications: channels the agent can notify through, with the tools
+    # to do so; the page that shows them configures the channels.
+    notifications_config = getattr(agent_spec, "notifications", None)
+    if notifications_config is not None:
+        from ..notifications import build_notifications_capability
+
+        notifications_capability = build_notifications_capability(
+            notifications_config, agent_id=agent_id
+        )
+        if notifications_capability is not None:
+            capabilities.append(notifications_capability)
+
+    if _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_COST_MONITORING", True) and agent_id:
+        capabilities.append(
+            CostMonitoringCapability(
+                agent_id=agent_id,
+                model_name=getattr(agent_spec, "model", None),
+                per_run_budget_usd=monitoring_per_run_budget,
+                cumulative_budget_usd=monitoring_cumulative_budget,
+                service_name=os.environ.get(
+                    "DATALAYER_OTEL_SERVICE_NAME",
+                    "agent-runtimes",
+                ),
+                enabled=True,
+            )
+        )
+
+    if _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_OTEL", True):
+        capabilities.append(
+            OTelHooksCapability(
+                service_name=os.environ.get(
+                    "DATALAYER_OTEL_SERVICE_NAME",
+                    "agent-runtimes",
+                ),
+                enabled=True,
+                emit_prompt_preview=_env_bool(
+                    "AGENT_RUNTIMES_OTEL_PROMPT_PREVIEW",
+                    False,
+                ),
+            )
+        )
+
+    # LLM context usage tracking (centralises per-run token recording).
+    if (
+        _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_LLM_CONTEXT_USAGE", True)
+        and agent_id
+    ):
+        capabilities.append(
+            LLMContextUsageCapability(
+                agent_id=agent_id,
+                enabled=True,
+            )
+        )
+
+    # The prompt history the composer's arrow keys walk. Recorded here, on the
+    # run, rather than in each protocol route: every protocol ends in this
+    # agent running, so one capability sees them all.
+    if _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_PROMPT_HISTORY", True) and agent_id:
+        from ..context.prompt_history import PromptHistoryCapability
+
+        capabilities.append(PromptHistoryCapability(agent_id=agent_id))
+
+    # Monitoring snapshot broadcast (pushes to WebSocket after each run).
+    if _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_MONITORING", True) and agent_id:
+        capabilities.append(
+            MonitoringCapability(
+                agent_id=agent_id,
+                enabled=True,
+            )
+        )
+
+    # Answers that may be heard are written for the ear too: an agent spec's
+    # own voice (VO-41, VO-44); an application's is joined by
+    # app_capabilities.
+    from ..voice import agent_voice_capability
+
+    voicing = agent_voice_capability(agent_spec)
+    if voicing is not None:
+        capabilities.append(voicing)
+
+    # Always enforce user-selected skills and MCP tool toggles.
+    capabilities.extend(build_default_choice_guardrails(agent_id=agent_id))
+
+    # History compaction keeps the input under the model's declared
+    # ``tokens_limit`` by summarizing older messages before each request.
+    if _env_bool("AGENT_RUNTIMES_ENABLE_CAPABILITY_COMPACTION", True):
+        from ..compaction import build_compaction_capability
+
+        compaction_model = model or getattr(agent_spec, "model", None)
+        compaction_capability = build_compaction_capability(
+            compaction_model,
+            max_tokens_override=compaction_max_tokens,
+            agent_id=agent_id,
+        )
+        if compaction_capability is not None:
+            capabilities.append(compaction_capability)
+
+    return capabilities
+
+
+def build_default_choice_guardrails(agent_id: str | None = None) -> list[Any]:
+    """Build default guardrails that honor runtime user tool/skill selections."""
+    return [
+        SkillsGuardrailCapability(agent_id=agent_id),
+        MCPToolsGuardrailCapability(agent_id=agent_id),
+    ]

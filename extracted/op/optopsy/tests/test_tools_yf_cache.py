@@ -1,0 +1,723 @@
+"""Tests for yfinance caching in _yf_fetch_and_cache and _fetch_stock_data_for_signals."""
+
+from datetime import date, timedelta
+from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
+pytest.importorskip("yfinance", reason="yfinance not installed (install ui extras)")
+pytest.importorskip("chainlit", reason="chainlit not installed (install ui extras)")
+
+from optopsy.ui.providers.cache import ParquetCache
+from optopsy.ui.tools import _YF_CACHE_CATEGORY, _fetch_stock_data_for_signals
+from optopsy.ui.tools._helpers import _iv_signal_data, _yf_fetch_and_cache
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_options_dataset(symbol: str, dates: list[str]) -> pd.DataFrame:
+    """Minimal options DataFrame with just enough columns for the function."""
+    return pd.DataFrame(
+        {
+            "underlying_symbol": symbol,
+            "quote_date": pd.to_datetime(dates),
+            "strike": 100.0,
+            "bid": 1.0,
+            "ask": 1.1,
+        }
+    )
+
+
+def _make_yf_download_result(start: date, end: date) -> pd.DataFrame:
+    """Simulate a yfinance download result (DatetimeIndex, OHLCV columns)."""
+    dates = pd.date_range(start, end, freq="B")
+    df = pd.DataFrame(
+        {
+            "Open": 100.0,
+            "High": 105.0,
+            "Low": 98.0,
+            "Close": 102.0,
+            "Volume": 1_000_000,
+        },
+        index=dates,
+    )
+    df.index.name = "Date"
+    return df
+
+
+def _make_cached_df(symbol: str, start: date, end: date) -> pd.DataFrame:
+    """Pre-built cache DataFrame matching the stored schema (uses 'date' column)."""
+    dates = pd.date_range(start, end, freq="B")
+    return pd.DataFrame(
+        {
+            "underlying_symbol": symbol,
+            "date": pd.to_datetime(dates),
+            "open": 100.0,
+            "high": 105.0,
+            "low": 98.0,
+            "close": 102.0,
+            "volume": 1_000_000,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+def test_cache_miss_fetches_yfinance_and_writes_cache(tmp_path):
+    """On a cold cache, yfinance is called with period='max' and results are stored."""
+    dataset = _make_options_dataset("SPY", ["2025-12-16", "2025-12-17"])
+    cache = ParquetCache(str(tmp_path))
+
+    with (
+        patch("optopsy.data._yf_helpers._yf_cache", cache),
+        patch("optopsy.ui.tools._helpers._yf_cache", cache),
+        patch("yfinance.download") as mock_dl,
+    ):
+        # Return a realistic yfinance result
+        date_min = pd.to_datetime("2025-12-16").date()
+        date_max = pd.to_datetime("2025-12-17").date()
+        padded_start = date_min - timedelta(days=365)
+        mock_dl.return_value = _make_yf_download_result(padded_start, date_max)
+
+        result = _fetch_stock_data_for_signals(dataset)
+
+    assert result is not None
+    assert not result.empty
+    assert "quote_date" in result.columns
+    assert set(result["underlying_symbol"].unique()) == {"SPY"}
+
+    # Cache file must have been written
+    cached = cache.read(_YF_CACHE_CATEGORY, "SPY")
+    assert cached is not None
+    assert not cached.empty
+    assert "date" in cached.columns  # stored as 'date', not 'quote_date'
+
+    mock_dl.assert_called_once()
+    # Should use period="max" for all-or-nothing fetch
+    mock_dl.assert_called_with("SPY", period="max", progress=False)
+
+
+def test_full_cache_hit_skips_yfinance(tmp_path):
+    """When cache covers the full requested range, yfinance is never called."""
+    dataset = _make_options_dataset("SPY", ["2025-12-16", "2025-12-17"])
+    cache = ParquetCache(str(tmp_path))
+
+    # Pre-seed cache to cover padded_start → date_max
+    date_min = pd.to_datetime("2025-12-16").date()
+    date_max = pd.to_datetime("2025-12-17").date()
+    padded_start = date_min - timedelta(days=365)
+    cached_df = _make_cached_df("SPY", padded_start, date_max)
+    cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+    with (
+        patch("optopsy.data._yf_helpers._yf_cache", cache),
+        patch("optopsy.ui.tools._helpers._yf_cache", cache),
+        patch("yfinance.download") as mock_dl,
+    ):
+        result = _fetch_stock_data_for_signals(dataset)
+
+    assert result is not None
+    assert not result.empty
+    mock_dl.assert_not_called()
+
+
+def test_warm_cache_fetches_only_tail(tmp_path):
+    """When cache exists but is behind date_max, only the tail is fetched."""
+    dataset = _make_options_dataset("SPY", ["2025-12-16", "2025-12-17"])
+    cache = ParquetCache(str(tmp_path))
+
+    date_max = pd.to_datetime("2025-12-17").date()
+
+    # Cache ends a few days before date_max
+    cache_start = date_max - timedelta(days=400)  # plenty of history
+    cache_end = date_max - timedelta(days=5)
+    cached_df = _make_cached_df("SPY", cache_start, cache_end)
+    cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+    # _make_cached_df uses freq="B" so actual max may differ from cache_end;
+    # compute expected fetch start from the real cached max date, snapped
+    # forward to the next weekday (e.g. Sat→Mon).
+    from optopsy.data._yf_helpers import _snap_to_weekday
+
+    actual_cache_max = pd.to_datetime(cached_df["date"]).dt.date.max()
+    expected_fetch_start = str(
+        _snap_to_weekday(actual_cache_max + timedelta(days=1), forward=True)
+    )
+    expected_fetch_end = str(date_max + timedelta(days=1))
+
+    with (
+        patch("optopsy.data._yf_helpers._yf_cache", cache),
+        patch("optopsy.ui.tools._helpers._yf_cache", cache),
+        patch("yfinance.download") as mock_dl,
+    ):
+        mock_dl.return_value = _make_yf_download_result(
+            actual_cache_max + timedelta(days=1), date_max
+        )
+        result = _fetch_stock_data_for_signals(dataset)
+
+    assert result is not None
+    assert not result.empty
+    # Should fetch only the missing tail, not period="max"
+    mock_dl.assert_called_once_with(
+        "SPY",
+        start=expected_fetch_start,
+        end=expected_fetch_end,
+        progress=False,
+    )
+
+
+def test_result_uses_quote_date_column(tmp_path):
+    """Output DataFrame must expose 'quote_date', not 'date'."""
+    dataset = _make_options_dataset("SPY", ["2025-12-16"])
+    cache = ParquetCache(str(tmp_path))
+
+    date_min = pd.to_datetime("2025-12-16").date()
+    date_max = date_min
+    padded_start = date_min - timedelta(days=365)
+    cached_df = _make_cached_df("SPY", padded_start, date_max)
+    cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+    with patch("optopsy.ui.tools._helpers._yf_cache", cache):
+        result = _fetch_stock_data_for_signals(dataset)
+
+    assert result is not None
+    assert "quote_date" in result.columns
+    assert "date" not in result.columns
+
+
+def test_empty_dataset_returns_none():
+    """Empty dataset → None without touching yfinance or cache."""
+    with patch("yfinance.download") as mock_dl:
+        result = _fetch_stock_data_for_signals(pd.DataFrame())
+    assert result is None
+    mock_dl.assert_not_called()
+
+
+def test_multi_symbol_independent_cache_entries(tmp_path):
+    """Two symbols produce separate cache files and are both present in output."""
+    dataset = pd.DataFrame(
+        {
+            "underlying_symbol": ["SPY", "SPY", "QQQ", "QQQ"],
+            "quote_date": pd.to_datetime(
+                ["2025-12-16", "2025-12-17", "2025-12-16", "2025-12-17"]
+            ),
+            "strike": 100.0,
+            "bid": 1.0,
+            "ask": 1.1,
+        }
+    )
+    cache = ParquetCache(str(tmp_path))
+
+    date_min = pd.to_datetime("2025-12-16").date()
+    date_max = pd.to_datetime("2025-12-17").date()
+    padded_start = date_min - timedelta(days=365)
+
+    with (
+        patch("optopsy.data._yf_helpers._yf_cache", cache),
+        patch("optopsy.ui.tools._helpers._yf_cache", cache),
+        patch("yfinance.download") as mock_dl,
+    ):
+        mock_dl.return_value = _make_yf_download_result(padded_start, date_max)
+        result = _fetch_stock_data_for_signals(dataset)
+
+    assert result is not None
+    assert set(result["underlying_symbol"].unique()) == {"SPY", "QQQ"}
+    # Each symbol fetched once (cold cache)
+    assert mock_dl.call_count == 2
+    # Separate cache files written
+    assert cache.read(_YF_CACHE_CATEGORY, "SPY") is not None
+    assert cache.read(_YF_CACHE_CATEGORY, "QQQ") is not None
+
+
+def test_failed_symbol_does_not_block_other(tmp_path):
+    """When one symbol fetch fails (OSError/ValueError), the other symbol still succeeds."""
+    dataset = pd.DataFrame(
+        {
+            "underlying_symbol": ["SPY", "SPY", "QQQ", "QQQ"],
+            "quote_date": pd.to_datetime(
+                ["2025-12-16", "2025-12-17", "2025-12-16", "2025-12-17"]
+            ),
+            "strike": 100.0,
+            "bid": 1.0,
+            "ask": 1.1,
+        }
+    )
+    cache = ParquetCache(str(tmp_path))
+
+    date_min = pd.to_datetime("2025-12-16").date()
+    date_max = pd.to_datetime("2025-12-17").date()
+    padded_start = date_min - timedelta(days=365)
+
+    def fake_download(symbol, **kwargs):
+        if symbol == "SPY":
+            raise OSError("network error")
+        return _make_yf_download_result(padded_start, date_max)
+
+    with (
+        patch("optopsy.data._yf_helpers._yf_cache", cache),
+        patch("optopsy.ui.tools._helpers._yf_cache", cache),
+        patch("yfinance.download", side_effect=fake_download),
+    ):
+        result = _fetch_stock_data_for_signals(dataset)
+
+    # QQQ should succeed even though SPY failed
+    assert result is not None
+    assert set(result["underlying_symbol"].unique()) == {"QQQ"}
+    assert (
+        cache.read(_YF_CACHE_CATEGORY, "SPY") is None
+    )  # nothing cached for failed symbol
+
+
+# ---------------------------------------------------------------------------
+# Direct _yf_fetch_and_cache unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestYfFetchAndCache:
+    """Unit tests for _yf_fetch_and_cache edge cases.
+
+    Core cold/warm/hit paths are already covered by the integration tests
+    above (test_cache_miss_*, test_full_cache_hit_*, test_warm_cache_*).
+    These tests target behaviours only exercisable at the unit level.
+    """
+
+    def test_tail_fetch_returns_empty(self, tmp_path):
+        """yfinance returns empty for the tail → returns original cached data."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2020, 1, 1), date(2025, 12, 10))
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = pd.DataFrame()
+            result = _yf_fetch_and_cache("SPY", cached_df, date(2025, 12, 17))
+
+        assert result is not None
+        assert len(result) == len(cached_df)
+
+    def test_cold_fetch_returns_empty(self, tmp_path):
+        """Cold cache + yfinance returns empty → returns None."""
+        cache = ParquetCache(str(tmp_path))
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = pd.DataFrame()
+            result = _yf_fetch_and_cache("SPY", None, date(2025, 12, 17))
+
+        assert result is None
+
+    def test_interior_gaps_ignored(self, tmp_path):
+        """Cache with a 15-day interior gap does NOT trigger re-fetch.
+
+        This is the core regression test for the fix — the old gap-detection
+        logic would have flagged this as missing data and re-fetched.
+        """
+        cache = ParquetCache(str(tmp_path))
+        end = date(2025, 12, 17)
+
+        # 15-day gap between Nov 20 and Dec 5
+        part1 = _make_cached_df("SPY", date(2020, 1, 1), date(2025, 11, 20))
+        part2 = _make_cached_df("SPY", date(2025, 12, 5), end)
+        cached_df = pd.concat([part1, part2], ignore_index=True)
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            result = _yf_fetch_and_cache("SPY", cached_df, end)
+
+        mock_dl.assert_not_called()
+        assert result is not None
+
+    def test_weekend_end_dt_skips_fetch(self, tmp_path):
+        """When end_dt falls on a weekend and cache covers the last weekday, skip fetch."""
+        cache = ParquetCache(str(tmp_path))
+        # Cache ends on Friday Dec 12
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 12))
+
+        # Saturday Dec 13 as end_dt — should NOT trigger a fetch
+        saturday = date(2025, 12, 13)
+        assert saturday.weekday() == 5  # sanity check
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            result = _yf_fetch_and_cache("SPY", cached_df, saturday)
+
+        mock_dl.assert_not_called()
+        assert result is not None
+
+    def test_sunday_end_dt_skips_fetch(self, tmp_path):
+        """When end_dt falls on Sunday and cache covers Friday, skip fetch."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 12))
+
+        sunday = date(2025, 12, 14)
+        assert sunday.weekday() == 6  # sanity check
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            result = _yf_fetch_and_cache("SPY", cached_df, sunday)
+
+        mock_dl.assert_not_called()
+        assert result is not None
+
+    def test_monday_fetch_start_snaps_forward(self, tmp_path):
+        """On Monday with cache through Friday, fetch_start snaps Sat→Mon."""
+        cache = ParquetCache(str(tmp_path))
+        # Cache ends on Friday Dec 12
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 12))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        monday = date(2025, 12, 15)
+        assert monday.weekday() == 0  # sanity check
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(monday, monday)
+            _yf_fetch_and_cache("SPY", cached_df, monday)
+
+        # fetch_start should be Monday (snapped from Saturday), not Saturday
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(monday),
+            end=str(monday + timedelta(days=1)),
+            progress=False,
+        )
+
+    # ------------------------------------------------------------------
+    # Cache-through-Friday matrix
+    # ------------------------------------------------------------------
+
+    def test_friday_end_dt_cache_through_friday_skips(self, tmp_path):
+        """Friday end_dt with cache through Friday → skip."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 12))
+
+        friday = date(2025, 12, 12)
+        assert friday.weekday() == 4
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            result = _yf_fetch_and_cache("SPY", cached_df, friday)
+
+        mock_dl.assert_not_called()
+        assert result is not None
+
+    def test_tuesday_end_dt_cache_through_friday_fetches_mon_tue(self, tmp_path):
+        """Tuesday end_dt with cache through Friday → fetch Mon–Tue."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 12))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        tuesday = date(2025, 12, 16)
+        monday = date(2025, 12, 15)
+        assert tuesday.weekday() == 1
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(monday, tuesday)
+            _yf_fetch_and_cache("SPY", cached_df, tuesday)
+
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(monday),
+            end=str(tuesday + timedelta(days=1)),
+            progress=False,
+        )
+
+    # ------------------------------------------------------------------
+    # Cache-through-Thursday matrix
+    # ------------------------------------------------------------------
+
+    def test_friday_end_dt_cache_through_thursday_fetches_fri(self, tmp_path):
+        """Friday end_dt with cache through Thursday → fetch Fri only."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 11))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        friday = date(2025, 12, 12)
+        assert friday.weekday() == 4
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(friday, friday)
+            _yf_fetch_and_cache("SPY", cached_df, friday)
+
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(friday),
+            end=str(friday + timedelta(days=1)),
+            progress=False,
+        )
+
+    def test_saturday_end_dt_cache_through_thursday_fetches_fri(self, tmp_path):
+        """Saturday end_dt with cache through Thursday → snap to Fri, fetch Fri."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 11))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        saturday = date(2025, 12, 13)
+        friday = date(2025, 12, 12)
+        assert saturday.weekday() == 5
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(friday, friday)
+            _yf_fetch_and_cache("SPY", cached_df, saturday)
+
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(friday),
+            end=str(friday + timedelta(days=1)),
+            progress=False,
+        )
+
+    def test_sunday_end_dt_cache_through_thursday_fetches_fri(self, tmp_path):
+        """Sunday end_dt with cache through Thursday → snap to Fri, fetch Fri."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 11))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        sunday = date(2025, 12, 14)
+        friday = date(2025, 12, 12)
+        assert sunday.weekday() == 6
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(friday, friday)
+            _yf_fetch_and_cache("SPY", cached_df, sunday)
+
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(friday),
+            end=str(friday + timedelta(days=1)),
+            progress=False,
+        )
+
+    def test_monday_end_dt_cache_through_thursday_fetches_fri_to_mon(self, tmp_path):
+        """Monday end_dt with cache through Thursday → fetch Fri–Mon."""
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 11))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        monday = date(2025, 12, 15)
+        friday = date(2025, 12, 12)
+        assert monday.weekday() == 0
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(friday, monday)
+            _yf_fetch_and_cache("SPY", cached_df, monday)
+
+        mock_dl.assert_called_once_with(
+            "SPY",
+            start=str(friday),
+            end=str(monday + timedelta(days=1)),
+            progress=False,
+        )
+
+    def test_tail_merges_and_persists(self, tmp_path):
+        """Tail fetch data is merged with existing cache and persisted to disk."""
+        cache = ParquetCache(str(tmp_path))
+        end = date(2025, 12, 17)
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 12, 10))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+        actual_cache_max = pd.to_datetime(cached_df["date"]).dt.date.max()
+
+        with (
+            patch("optopsy.data._yf_helpers._yf_cache", cache),
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch("yfinance.download") as mock_dl,
+        ):
+            mock_dl.return_value = _make_yf_download_result(
+                actual_cache_max + timedelta(days=1), end
+            )
+            _yf_fetch_and_cache("SPY", cached_df, end)
+
+        on_disk = cache.read(_YF_CACHE_CATEGORY, "SPY")
+        assert on_disk is not None
+        assert len(on_disk) > len(cached_df)
+        disk_max = pd.to_datetime(on_disk["date"]).dt.date.max()
+        assert disk_max >= actual_cache_max
+
+
+# ---------------------------------------------------------------------------
+# Tests for _iv_signal_data yf cache fallback (PR #217 fix)
+# ---------------------------------------------------------------------------
+
+
+def _make_options_with_iv(symbol: str, dates: list[str]) -> pd.DataFrame:
+    """Options DataFrame with IV but WITHOUT a close column."""
+    rows = []
+    for d in dates:
+        ts = pd.Timestamp(d)
+        exp = ts + pd.Timedelta(days=30)
+        for strike_offset, opt_type in [(-5, "c"), (0, "c"), (5, "p")]:
+            rows.append(
+                {
+                    "underlying_symbol": symbol,
+                    "quote_date": ts,
+                    "strike": 100.0 + strike_offset,
+                    "option_type": opt_type,
+                    "implied_volatility": 0.25,
+                    "expiration": exp,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+class TestIvSignalDataCacheFallback:
+    """Tests for _iv_signal_data falling back to the yf stock price cache."""
+
+    def test_merges_close_from_yf_cache_when_no_price_col(self, tmp_path):
+        """When options data lacks price columns, close is merged from yf cache."""
+        dates = ["2025-01-02", "2025-01-03"]
+        dataset = _make_options_with_iv("SPY", dates)
+        cache = ParquetCache(str(tmp_path))
+
+        # Pre-populate the yf cache for SPY
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 1, 5))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        with patch("optopsy.ui.tools._helpers._yf_cache", cache):
+            result = _iv_signal_data(dataset)
+
+        assert result is not None
+        assert "close" in result.columns
+        assert result["close"].notna().any()
+
+    def test_merges_close_with_tz_aware_quote_date(self, tmp_path):
+        """Tz-aware quote_date in options data still merges with tz-naive cache."""
+        dates = ["2025-01-02", "2025-01-03"]
+        dataset = _make_options_with_iv("SPY", dates)
+        dataset["quote_date"] = pd.to_datetime(dataset["quote_date"]).dt.tz_localize(
+            "UTC"
+        )
+        cache = ParquetCache(str(tmp_path))
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 1, 5))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        with patch("optopsy.ui.tools._helpers._yf_cache", cache):
+            result = _iv_signal_data(dataset)
+
+        assert result is not None
+        assert "close" in result.columns
+        assert result["close"].notna().any()
+        assert result["quote_date"].dt.tz is None
+
+    def test_returns_none_when_cache_also_empty(self, tmp_path):
+        """Returns None when no price in dataset and yf cache is also empty."""
+        dates = ["2025-01-02", "2025-01-03"]
+        dataset = _make_options_with_iv("SPY", dates)
+        cache = ParquetCache(str(tmp_path))  # empty cache
+
+        with (
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch(
+                "optopsy.ui.tools._helpers._yf_fetch_and_cache",
+                return_value=None,
+            ),
+        ):
+            result = _iv_signal_data(dataset)
+
+        assert result is None
+
+    def test_uses_existing_price_col_without_cache_lookup(self, tmp_path):
+        """When close is already in the dataset, no cache read needed."""
+        dates = ["2025-01-02", "2025-01-03"]
+        dataset = _make_options_with_iv("SPY", dates)
+        dataset["close"] = 100.0
+        cache = ParquetCache(str(tmp_path))
+
+        with patch.object(cache, "read", wraps=cache.read) as spy_read:
+            with patch("optopsy.ui.tools._helpers._yf_cache", cache):
+                result = _iv_signal_data(dataset)
+
+        assert result is not None
+        assert "close" in result.columns
+        spy_read.assert_not_called()
+
+    def test_returns_none_when_implied_volatility_missing(self, tmp_path):
+        """Returns None immediately when implied_volatility is absent."""
+        dataset = pd.DataFrame(
+            {
+                "underlying_symbol": ["SPY"],
+                "quote_date": pd.to_datetime(["2025-01-02"]),
+                "strike": [100.0],
+                "option_type": ["c"],
+                "expiration": [pd.Timestamp("2025-02-02")],
+            }
+        )
+        cache = ParquetCache(str(tmp_path))
+
+        with patch("optopsy.ui.tools._helpers._yf_cache", cache):
+            result = _iv_signal_data(dataset)
+
+        assert result is None
+
+    def test_partial_cache_leaves_unmatched_dates_as_nan(self, tmp_path):
+        """Dates not in cache remain NaN after the left-merge (not dropped)."""
+        dates = ["2025-01-02", "2025-01-10"]  # Jan 10 not in cache
+        dataset = _make_options_with_iv("SPY", dates)
+        cache = ParquetCache(str(tmp_path))
+
+        # Cache only covers Jan 1-3
+        cached_df = _make_cached_df("SPY", date(2025, 1, 1), date(2025, 1, 3))
+        cache.write(_YF_CACHE_CATEGORY, "SPY", cached_df)
+
+        with (
+            patch("optopsy.ui.tools._helpers._yf_cache", cache),
+            patch(
+                "optopsy.ui.tools._helpers._yf_fetch_and_cache",
+                return_value=cached_df,
+            ),
+        ):
+            result = _iv_signal_data(dataset)
+
+        # Result is returned (some close values present from Jan 2)
+        assert result is not None
+        assert "close" in result.columns
+        # Jan 2 rows should have close; Jan 10 rows should be NaN
+        jan2 = result[result["quote_date"].dt.date == date(2025, 1, 2)]
+        jan10 = result[result["quote_date"].dt.date == date(2025, 1, 10)]
+        assert jan2["close"].notna().all()
+        assert jan10["close"].isna().all()

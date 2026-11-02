@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minizinc"
+version = "0.10.0"
+description = "Access MiniZinc directly from Python"
+readme = "README.md"
+authors = [{ name = "Jip J. Dekker", email = "jip@dekker.one" }]
+license = { text = "MPL-2.0" }
+requires-python = ">=3.8"
+classifiers = [
+	"Development Status :: 4 - Beta",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Programming Language :: Python :: Implementation :: CPython",
+	"Programming Language :: Python :: Implementation :: PyPy",
+	"License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+	"Operating System :: OS Independent",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
+	"Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.entry-points."pygments.lexers"]
+minizinclexer = "minizinc.pygments:MiniZincLexer"
+
+[project.optional-dependencies]
+dzn = ["lark-parser>=0.12.0"]
+docs = ["setuptools>=75.3.0", "sphinx>=7.1.2", "sphinx-rtd-theme>=3.0.2"]
+
+[project.urls]
+Homepage = "https://www.minizinc.org/"
+Documentation = "https://python.minizinc.dev/"
+Repository = "https://github.com/MiniZinc/minizinc-python.git"
+Issues = "https://github.com/MiniZinc/minizinc-python/issues"
+Changelog = "https://raw.githubusercontent.com/MiniZinc/minizinc-python/refs/heads/develop/CHANGELOG.rst"
+
+[dependency-groups]
+dev = [
+	"minizinc",
+	"mypy>=1.13.0",
+	"pytest>=8.3.4",
+	"ruff>=0.8.1",
+	"types-setuptools>=75.6.0.20241126",
+]
+
+[tool.mypy]
+python_version = "3.8"
+platform = "linux"
+# do not follow imports (except for ones found in typeshed)
+follow_imports = "skip"
+# since we're ignoring imports, writing .mypy_cache doesn't make any sense
+cache_dir = "/dev/null"
+# suppress errors about unsatisfied imports
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 80
+lint.ignore = ['E501', 'C901']
+lint.select = ['B', 'C', 'E', 'I', 'F', 'W']
+
+[tool.uv.sources]
+minizinc = { workspace = true }

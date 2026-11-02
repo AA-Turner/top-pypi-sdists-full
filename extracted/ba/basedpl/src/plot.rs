@@ -1,0 +1,484 @@
+use crate::{Described, Error, Span, Value, data::Options, display, keyed, primitive::real};
+use plotters::{coord::{Shift, ranged1d::{DefaultFormatting, KeyPointHint, Ranged}}, prelude::*};
+use rustymath::error::Kind;
+
+type Area<'a> = DrawingArea<SVGBackend<'a>, Shift>;
+
+const PLOT: &[&str] =
+    &["data", "mark", "title", "width", "height", "x", "y", "legend", "grid", "axes", "flip", "color", "palette", "colorbar", "size", "labels", "series"];
+const FIGURE: &[&str] = &["data", "title", "width", "height", "widths", "heights", "share"];
+const STYLE: &[&str] = &["mark", "color", "size", "labels"];
+const COLORS: [(&str, RGBColor); 10] = [
+    ("blue", RGBColor(31, 119, 180)), ("orange", RGBColor(255, 127, 14)), ("green", RGBColor(44, 160, 44)), ("red", RGBColor(214, 39, 40)),
+    ("purple", RGBColor(148, 103, 189)), ("brown", RGBColor(140, 86, 75)), ("pink", RGBColor(227, 119, 194)), ("gray", RGBColor(127, 127, 127)),
+    ("olive", RGBColor(188, 189, 34)), ("cyan", RGBColor(23, 190, 207)),
+];
+
+fn drawn<T, E: std::fmt::Display>(result: Result<T, E>) -> Result<T, Error> { result.map_err(|e| Error::domain(format!("plot drawing failed: {e}"))) }
+
+/// `X •plot Y` returns a spec holding the data `Y`, the settings in `X` and a renderer. Plain text `X` is shorthand for `mark`.
+pub(crate) fn plot(left: Option<&Value>, right: &Value, _: &Span) -> Result<Value, Error> {
+    let settings = match left {
+        Some(mark) if keyed::name(mark).is_some() => Some(keyed::vector(vec!["mark".into()], vec![mark.clone()])), left => left.cloned().map(Ok)
+    };
+    let spec = keyed::vector(vec!["data".into()], vec![right.clone()]).and_then(|spec| settings.map_or(Ok(spec.clone()), |s| keyed::merge(&spec, &s?)));
+    spec.and_then(|spec| spec.with_renderer(display::renderer("plot-renderer", render))).described("•plot settings must be a keyed vector or a mark")
+}
+
+fn render(_: Option<&Value>, spec: &Value, span: &Span) -> Result<Value, Error> {
+    let data = keyed::field(spec, "data").ok_or_else(|| Error::domain("•plot needs data"))?;
+    let figure = is_figure(&data);
+    let opts = Options::new("•plot", Some(spec), None, if figure { FIGURE } else { PLOT })?;
+    let size = (opts.number("width")?.unwrap_or(600.) as u32, opts.number("height")?.unwrap_or(400.) as u32);
+    let mut svg = String::new();
+    {
+        let root = SVGBackend::with_string(&mut svg, size).into_drawing_area();
+        drawn(root.fill(&WHITE))?;
+        if figure { draw_figure(&opts, &data, &root, span)? }
+        else { Chart::new(&opts)?.draw(&root)? }
+        drawn(root.present())?;
+    }
+    display::mime("image/svg+xml", keyed::text(&svg)).described("invalid plot MIME bundle")
+}
+
+fn record(opts: &Options, key: &str, allowed: &[&str]) -> Result<Options, Error> { Options::new("•plot", opts.values.get(key), None, allowed) }
+
+fn titled<'a>(area: &Area<'a>, title: &str) -> Result<Area<'a>, Error> {
+    if title.is_empty() { Ok(area.clone()) } else { drawn(area.titled(title, ("sans-serif", 18))) }
+}
+
+fn numbers(value: &Value) -> Result<Vec<f64>, Error> {
+    value.elements().map(|e| real(&e).and_then(|v| if v.is_finite() { Ok(v) } else { Err(Error::domain("•plot values must be finite")) })).collect()
+}
+
+fn names(value: &Value, axis: usize) -> Vec<String> {
+    value.keys(axis).map_or(vec![], |k| k.names().iter().enumerate().map(|(i, n)| n.as_ref().map_or_else(|| i.to_string(), |n| n.to_string())).collect())
+}
+
+fn axis_name(value: &Value, axis: usize) -> String { value.axis_name(axis).map_or(String::new(), |n| n.to_string()) }
+
+fn positions(n: usize) -> Vec<f64> { (0..n).map(|i| i as f64).collect() }
+
+/// Tick label text: up to ten decimals, without trailing zeros.
+fn label(v: f64) -> String {
+    let text = format!("{v:.10}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    if text == "-0" { "0".into() } else { text.into() }
+}
+
+/// The data's structure supplies x positions, category labels, series and titles.
+#[derive(Default)]
+struct Data { x: Vec<f64>, categories: Vec<String>, series: Vec<(Option<String>, Vec<f64>)>, x_title: String, legend_title: String }
+
+fn parse(data: &Value) -> Result<Data, Error> {
+    let mut d = Data::default();
+    match *data.shape() {
+        [_, cols] => {
+            let rows = names(data, 0);
+            d.series = numbers(data)?.chunks(cols.max(1)).enumerate().map(|(i, y)| (rows.get(i).cloned(), y.to_vec())).collect();
+            (d.x, d.categories, d.x_title, d.legend_title) = (positions(cols), names(data, 1), axis_name(data, 1), axis_name(data, 0));
+        }
+        [_] if data.keys(0).is_some() && data.elements().all(|e| !e.is_atom()) => {
+            let columns = keyed::pairs(data).described("invalid •plot table")?;
+            d.x = positions(columns.first().map_or(0, |(_, c)| c.len()));
+            for (name, column) in columns {
+                if &*name != "x" {
+                    d.series.push((Some(name.to_string()), numbers(&column)?));
+                } else if let Some(labels) = column.elements().map(|e| keyed::name(&e).map(|s| s.to_string())).collect::<Option<Vec<_>>>() {
+                    (d.x, d.categories) = (positions(labels.len()), labels);
+                } else { d.x = numbers(&column)?; }
+            }
+        }
+        [n] => (d.x, d.categories, d.series) = (positions(n), names(data, 0), vec![(None, numbers(data)?)]),
+        _ => return Err(Error::new(Kind::Rank, "•plot needs a vector, matrix or table")),
+    }
+    if d.series.iter().any(|(_, y)| y.len() != d.x.len()) { return Err(Error::new(Kind::Length, "•plot series need one value per x")); }
+    Ok(d)
+}
+
+/// `inner` hides an axis and its labels, for `"axis":$f` in its record, for `"axes":$f`, or when a neighbouring plot in a figure labels that axis. `reverse` runs the axis from `hi` to `lo`.
+#[derive(Default)]
+struct Axis { lo: f64, hi: f64, log: bool, title: String, ticks: Option<Value>, categories: Vec<String>, inner: bool, reverse: bool }
+
+impl Axis {
+    fn new(opts: &Options, title: String, categories: Vec<String>, shown: bool) -> Result<Self, Error> {
+        let log = match opts.text("scale", Some("linear"))?.as_str() {
+            "linear" => false, "log" => true, _ => return Err(Error::domain("•plot scale must be 'linear' or 'log'"))
+        };
+        Ok(Self { lo: 0., hi: 1., log, title: opts.text("title", Some(&title))?, ticks: opts.values.get("ticks").cloned(), categories,
+            inner: !opts.boolean("axis", shown)?, reverse: false })
+    }
+
+    fn map(&self, v: f64) -> Result<f64, Error> {
+        if !self.log { Ok(v) } else if v > 0. { Ok(v.log10()) } else { Err(Error::domain("log scales need positive values")) }
+    }
+
+    /// Fit the range to `values`, padded by `fraction` of the range and at least `pad`.
+    fn fit<'a>(&mut self, values: impl Iterator<Item = &'a f64>, zero: bool, fraction: f64, pad: f64) {
+        let (mut lo, mut hi) = values.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+        if zero && !self.log { (lo, hi) = (lo.min(0.), hi.max(0.)); }
+        if lo > hi { (lo, hi) = (0., 1.); }
+        let pad = if !self.categories.is_empty() { 0.5 } else if hi > lo { pad.max(fraction * (hi - lo)) } else { pad.max(1.) };
+        (self.lo, self.hi) = (lo - pad, hi + pad);
+    }
+
+    /// Tick positions and labels. `count` is the default number of ticks.
+    fn ticks(&self, count: f64) -> Result<Vec<(f64, String)>, Error> {
+        let ticks = match &self.ticks {
+            Some(t) if t.keys(0).is_some() => keyed::pairs(t).described("invalid •plot ticks")?.into_iter()
+                .map(|(name, v)| Ok((self.map(real(&v)?)?, name.to_string()))).collect::<Result<Vec<_>, Error>>()?,
+            Some(t) if !t.is_atom() => numbers(t)?.into_iter().map(|v| Ok((self.map(v)?, label(v)))).collect::<Result<_, Error>>()?,
+            None if !self.categories.is_empty() => self.categories.iter().enumerate().map(|(i, c)| (i as f64, c.clone())).collect(),
+            _ if self.log => {
+                // Short log ranges also tick at 2 and 5 times each power of 10.
+                let steps: &[f64] = if self.hi - self.lo < 3. { &[1., 2., 5.] } else { &[1.] };
+                (self.lo.floor() as i32..=self.hi.ceil() as i32).flat_map(|e| steps.iter().map(move |m| m * 10f64.powi(e))).map(|v| (v.log10(), label(v)))
+                    .collect()
+            }
+            given => {
+                let count = given.as_ref().map_or(Ok(count), |c| real(c))?;
+                let raw = (self.hi - self.lo) / count.max(1.);
+                let magnitude = 10f64.powf(raw.log10().floor());
+                let step = [1., 2., 5., 10.].into_iter().map(|m| m * magnitude).find(|&s| s >= raw).unwrap_or(raw);
+                ((self.lo / step).ceil() as i64..=(self.hi / step).floor() as i64).map(|i| (i as f64 * step, label(i as f64 * step))).collect()
+            }
+        };
+        Ok(ticks.into_iter().filter(|(t, _)| (self.lo..=self.hi).contains(t)).collect())
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Mark { Line, Point, Bar, Cell }
+
+fn mark(value: &Value) -> Result<Mark, Error> {
+    match keyed::name(value).as_deref() {
+        Some("line") => Ok(Mark::Line), Some("point") => Ok(Mark::Point), Some("bar") => Ok(Mark::Bar), Some("cell") => Ok(Mark::Cell),
+        _ => Err(Error::domain("•plot mark must be 'line', 'point', 'bar' or 'cell'"))
+    }
+}
+
+fn color(value: &Value) -> Result<RGBColor, Error> {
+    let name = keyed::name(value).ok_or_else(|| Error::domain("•plot colours must be text"))?;
+    if let Some(n) = name.strip_prefix('#').filter(|h| h.len() == 6).and_then(|h| u32::from_str_radix(h, 16).ok()) {
+        return Ok(RGBColor((n >> 16) as u8, (n >> 8) as u8, n as u8));
+    }
+    COLORS.iter().chain(&[("black", BLACK), ("white", WHITE)]).find(|(n, _)| **n == *name).map(|(_, c)| *c)
+        .ok_or_else(|| Error::domain(format!("unknown colour: {name}")))
+}
+
+/// The colour map for colours from data: a map name, or colours spaced evenly from the lowest value to the highest.
+fn palette(value: Option<&Value>) -> Result<Box<dyn ColorMap<RGBColor, f64>>, Error> {
+    let Some(value) = value else { return Ok(Box::new(ViridisRGB)) };
+    match keyed::name(value).as_deref() {
+        Some("viridis") => Ok(Box::new(ViridisRGB)), Some("gray") => Ok(Box::new(BlackWhite)),
+        Some(name) => Err(Error::domain(format!("unknown •plot palette: {name}"))),
+        None if value.is_empty() => Err(Error::domain("a •plot palette needs at least one colour")),
+        None => Ok(Box::new(DerivedColorMap::new(&value.elements().map(|e| color(&e)).collect::<Result<Vec<_>, _>>()?)))
+    }
+}
+
+/// Point radii: a unit is pixels; a vector is data scaled so that area follows value.
+fn radii(size: Option<&Value>, n: usize) -> Result<Vec<f64>, Error> {
+    let Some(size) = size else { return Ok(vec![4.; n]) };
+    if size.is_atom() { return Ok(vec![real(size)?; n]); }
+    let values = numbers(size)?;
+    if values.len() != n { return Err(Error::new(Kind::Length, "•plot size needs one value per point")); }
+    let max = values.iter().fold(0f64, |m, &v| m.max(v));
+    Ok(values.iter().map(|&v| if max > 0. { 12. * (v.max(0.) / max).sqrt() } else { 0. }).collect())
+}
+
+/// Data labels: `1` labels each point with its value; a vector gives one label per point.
+fn texts(labels: Option<&Value>, values: &[f64]) -> Result<Vec<String>, Error> {
+    let Some(labels) = labels else { return Ok(vec![]) };
+    if labels.is_atom() { return Ok(if real(labels)? != 0. { values.iter().map(|&v| label(v)).collect() } else { vec![] }); }
+    if labels.len() != values.len() { return Err(Error::new(Kind::Length, "•plot labels need one value per point")); }
+    labels.elements().map(|e| keyed::name(&e).map_or_else(|| real(&e).map(label), |s| Ok(s.to_string()))).collect()
+}
+
+struct Series { name: Option<String>, raw: Vec<f64>, y: Vec<f64>, mark: Mark, colors: Vec<RGBColor>, size: Option<Value>, labels: Option<Value> }
+
+/// Where series names appear: a boxed legend in a corner of the plot area, or beside each series' last point.
+#[derive(Clone)]
+enum Legend { Box(SeriesLabelPosition), End }
+
+struct Chart {
+    title: String, x: Axis, y: Axis, xs: Vec<f64>, series: Vec<Series>, flip: bool, grid: bool, legend: Option<Legend>, border: bool, legend_title: String,
+    colorbar: Option<Axis>, palette: Box<dyn ColorMap<RGBColor, f64>>
+}
+
+impl Chart {
+    fn new(opts: &Options) -> Result<Self, Error> {
+        let data = parse(opts.values.get("data").ok_or_else(|| Error::domain("•plot needs data"))?)?;
+        let axes = opts.boolean("axes", true)?;
+        let mut x = Axis::new(&record(opts, "x", &["title", "scale", "ticks", "axis"])?, data.x_title, data.categories, axes)?;
+        let styles = opts.values.get("series").map_or(Ok(vec![]), keyed::pairs).described("•plot series must be keyed by series name")?;
+        if let Some((name, _)) = styles.iter().find(|(name, _)| !data.series.iter().any(|(n, _)| n.as_deref() == Some(&**name))) {
+            return Err(Error::domain(format!("•plot has no series named {name}")));
+        }
+        let (mut series, mut shades) = (Vec::new(), Vec::new());
+        for (i, (name, raw)) in data.series.into_iter().enumerate() {
+            let own = Options::new("•plot", styles.iter().find(|(k, _)| name.as_deref() == Some(&**k)).map(|(_, v)| v), None, STYLE)?;
+            let get = |key: &str| own.values.get(key).or_else(|| opts.values.get(key));
+            let mark = get("mark").map_or(Ok(Mark::Line), |v| mark(v))?;
+            let n = raw.len();
+            // Numbers in `color`, or a cell's own values, become colours once the range over every series is known.
+            let (colors, shade) = match get("color") {
+                Some(c) if c.is_atom() || keyed::name(c).is_some() => (vec![color(c)?; n], None),
+                Some(c) if c.len() != n => return Err(Error::new(Kind::Length, "•plot color needs one value per point")),
+                Some(c) if c.elements().all(|e| keyed::name(&e).is_some()) => (c.elements().map(|e| color(&e)).collect::<Result<_, _>>()?, None),
+                Some(c) => (vec![], Some(numbers(c)?)), None if mark == Mark::Cell => (vec![], Some(raw.clone())),
+                None => (vec![COLORS[i % COLORS.len()].1; n], None)
+            };
+            shades.push(shade);
+            series.push(Series { mark, colors, size: get("size").cloned(), labels: get("labels").cloned(), name, raw, y: vec![] });
+        }
+        let palette = palette(opts.values.get("palette"))?;
+        let mut scale = Axis::default();
+        scale.fit(shades.iter().flatten().flatten(), false, 0., 0.);
+        let shaded = shades.iter().any(Option::is_some);
+        for (s, shade) in series.iter_mut().zip(shades) {
+            if let Some(values) = shade { s.colors = values.iter().map(|&v| palette.get_color_normalized(v, scale.lo, scale.hi)).collect(); }
+        }
+        let cells = series.iter().any(|s| s.mark == Mark::Cell);
+        if cells && series.iter().any(|s| s.mark != Mark::Cell) { return Err(Error::domain("•plot can't mix cells with other marks")); }
+        let rows = if cells { series.iter().map(|s| s.name.clone()).collect::<Option<Vec<_>>>().unwrap_or_default() } else { vec![] };
+        let mut y =
+            Axis::new(&record(opts, "y", &["title", "scale", "ticks", "axis"])?, if cells { data.legend_title.clone() } else { String::new() }, rows, axes)?;
+        for (r, s) in series.iter_mut().enumerate() {
+            s.y = if cells { vec![r as f64; s.raw.len()] } else { s.raw.iter().map(|&v| y.map(v)).collect::<Result<_, _>>()? };
+        }
+        let xs = data.x.iter().map(|&v| x.map(v)).collect::<Result<Vec<_>, _>>()?;
+        let flip = opts.boolean("flip", false)?;
+        if cells {
+            // Cells fill their positions exactly, and rows run down the plot, as a matrix prints.
+            x.fit(xs.iter(), false, 0., spacing(&xs) / 2.);
+            y.fit(series.iter().filter_map(|s| s.y.first()), false, 0., 0.5);
+            (x.reverse, y.reverse) = (flip, !flip);
+        } else {
+            let bars = series.iter().any(|s| s.mark == Mark::Bar);
+            x.fit(xs.iter(), false, 0.05, if bars { spacing(&xs) / 2. } else { 0. });
+            let labelled = series.iter().any(|s| s.labels.is_some());
+            y.fit(series.iter().flat_map(|s| &s.y), bars, if labelled { 0.12 } else { 0.05 }, 0.);
+        }
+        let legend = Options::new("•plot", opts.values.get("legend"), Some("position"), &["position", "border"])?;
+        let corner = |position| Some(Legend::Box(position));
+        let position = match legend.text("position", Some("none"))?.as_str() {
+            "none" => None, "end" => Some(Legend::End), "top-left" => corner(SeriesLabelPosition::UpperLeft), "top" => corner(SeriesLabelPosition::UpperMiddle),
+            "top-right" => corner(SeriesLabelPosition::UpperRight), "left" => corner(SeriesLabelPosition::MiddleLeft),
+            "center" => corner(SeriesLabelPosition::MiddleMiddle), "right" => corner(SeriesLabelPosition::MiddleRight),
+            "bottom-left" => corner(SeriesLabelPosition::LowerLeft), "bottom" => corner(SeriesLabelPosition::LowerMiddle),
+            "bottom-right" => corner(SeriesLabelPosition::LowerRight), _ => return Err(Error::domain("unknown •plot legend position"))
+        };
+        Ok(Self { title: opts.text("title", Some(""))?, flip, grid: opts.boolean("grid", !cells)?,
+            legend: position.filter(|_| !cells && series.iter().any(|s| s.name.is_some())), border: legend.boolean("border", true)?,
+            legend_title: data.legend_title, colorbar: (opts.boolean("colorbar", false)? && shaded).then_some(scale), palette, x, y, xs, series })
+    }
+
+    /// The horizontal and vertical axes.
+    fn axes(&mut self) -> [&mut Axis; 2] { if self.flip { [&mut self.y, &mut self.x] } else { [&mut self.x, &mut self.y] } }
+
+    fn draw(&self, area: &Area<'_>) -> Result<(), Error> {
+        let area = titled(area, &self.title)?;
+        let (h, v) = if self.flip { (&self.y, &self.x) } else { (&self.x, &self.y) };
+        let (width, height) = area.dim_in_pixel();
+        let (h_ticks, v_ticks) = (h.ticks((width as f64 / 100.).max(2.))?, v.ticks((height as f64 / 60.).max(2.))?);
+        let font = ("sans-serif", 12).into_font();
+        let size = |text: &str| font.box_size(text).map_or((0, 0), |(w, h)| (w as i32, h as i32));
+        let boxed = match &self.legend { Some(Legend::Box(position)) => Some(position.clone()), _ => None };
+        let end = matches!(self.legend, Some(Legend::End));
+        let right = if end { self.series.iter().filter_map(|s| s.name.as_deref()).map(|n| size(n).0 + 18).max().unwrap_or(10) } else { 10 };
+        let bar_ticks = self.colorbar.as_ref().map(|s| s.ticks((height as f64 / 60.).max(2.))).transpose()?;
+        let bar = bar_ticks.as_ref().map_or(0, |t| 32 + t.iter().map(|(_, l)| size(l).0).max().unwrap_or(0));
+        let mut chart = drawn(
+            ChartBuilder::on(&area).margin(10).margin_right(right + bar).x_label_area_size(if h.inner { 0 } else { 40 })
+                .y_label_area_size(if v.inner { 0 } else { 60 }).build_cartesian_2d(
+                    Coord { lo: h.lo, hi: h.hi, ticks: h_ticks.iter().map(|t| t.0).collect(), reverse: h.reverse },
+                    Coord { lo: v.lo, hi: v.hi, ticks: v_ticks.iter().map(|t| t.0).collect(), reverse: v.reverse }))?;
+        let tick = |ticks: &[(f64, String)], at: f64| ticks.iter().find(|(t, _)| *t == at).map_or(String::new(), |(_, s)| s.clone());
+        let (h_label, v_label) = (|at: &f64| tick(&h_ticks, *at), |at: &f64| tick(&v_ticks, *at));
+        let mut mesh = chart.configure_mesh();
+        mesh.x_label_formatter(&h_label).y_label_formatter(&v_label).x_desc(&h.title).y_desc(&v.title);
+        mesh.label_style(("sans-serif", 12)).axis_desc_style(("sans-serif", 14));
+        if !self.grid { mesh.disable_mesh(); }
+        drawn(mesh.draw())?;
+        if boxed.is_some() && !self.legend_title.is_empty() {
+            drawn(chart.draw_series(std::iter::empty::<PathElement<(f64, f64)>>()))?.label(&self.legend_title);
+        }
+        let at = |x: f64, y: f64| if self.flip { (y, x) } else { (x, y) };
+        let bars = self.series.iter().filter(|s| s.mark == Mark::Bar).count();
+        let slot = 0.8 * spacing(&self.xs) / bars.max(1) as f64;
+        let base = if self.y.log { self.y.lo } else { 0. };
+        let mut bar = 0;
+        let (mut labels, mut ends) = (Vec::new(), Vec::new());
+        for s in &self.series {
+            let points: Vec<_> = self.xs.iter().zip(&s.y).map(|(&x, &y)| at(x, y)).collect();
+            let (mark, color) = (s.mark, s.colors.first().copied().unwrap_or(BLACK));
+            let anno = match mark {
+                Mark::Line => {
+                    let width = s.size.as_ref().map_or(Ok(2.), |v| real(v))? as u32;
+                    if s.colors.windows(2).all(|w| w[0] == w[1]) {
+                        drawn(chart.draw_series(std::iter::once(PathElement::new(points.clone(), color.stroke_width(width)))))?
+                    } else {
+                        drawn(chart.draw_series(points.windows(2).zip(&s.colors).map(|(p, c)| PathElement::new(p.to_vec(), c.stroke_width(width)))))?
+                    }
+                }
+                Mark::Point => {
+                    let radii = radii(s.size.as_ref(), points.len())?;
+                    drawn(chart.draw_series(points.iter().zip(radii).zip(&s.colors).map(|((&p, r), c)| Circle::new(p, r, c.filled()))))?
+                }
+                Mark::Bar => {
+                    let offset = (bar as f64 - (bars - 1) as f64 / 2.) * slot;
+                    bar += 1;
+                    drawn(
+                        chart.draw_series(self.xs.iter().zip(&s.y).zip(&s.colors)
+                                .map(|((&x, &y), c)| Rectangle::new([at(x + offset - slot / 2., base), at(x + offset + slot / 2., y)], c.filled()))))?
+                }
+                Mark::Cell => {
+                    // One rectangle per run of neighbouring cells with the same colour keeps large matrices to fewer SVG elements.
+                    let (w, row) = (spacing(&self.xs), s.y.first().copied().unwrap_or(0.));
+                    let cells: Vec<usize> = (0..self.xs.len()).collect();
+                    let runs = cells.chunk_by(|&a, &b| s.colors[a] == s.colors[b] && self.xs[b] - self.xs[a] == w);
+                    drawn(chart.draw_series(runs.map(|run| {
+                        let (a, b) = (run[0], run[run.len() - 1]);
+                        Rectangle::new([at(self.xs[a] - w / 2., row - 0.5), at(self.xs[b] + w / 2., row + 0.5)], s.colors[a].filled())
+                    })))?
+                }
+            };
+            if let (Some(name), true) = (&s.name, boxed.is_some()) {
+                anno.label(name).legend(move |(x, y)| match mark {
+                    Mark::Line => PathElement::new(vec![(x, y), (x + 20, y)], color.stroke_width(2)).into_dyn(),
+                    Mark::Point => Circle::new((x + 10, y), 4, color.filled()).into_dyn(),
+                    Mark::Bar | Mark::Cell => Rectangle::new([(x + 4, y - 5), (x + 16, y + 5)], color.filled()).into_dyn(),
+                });
+            }
+            for (text, p) in texts(s.labels.as_ref(), &s.raw)?.into_iter().zip(&points).filter(|(t, _)| !t.is_empty()) {
+                labels.push((text, chart.backend_coord(p), BLACK));
+            }
+            if let (true, Some(name), Some(p)) = (end, &s.name, points.last()) { ends.push((name.clone(), chart.backend_coord(p), color)); }
+        }
+        if let Some(position) = boxed {
+            let border = if self.border { BLACK.mix(0.4) } else { TRANSPARENT };
+            drawn(chart.configure_series_labels().position(position).border_style(border).background_style(WHITE.mix(0.8)).draw())?;
+        }
+        // Data labels sit above their points and move up. End labels sit right of each series' last point and move down.
+        let above = labels.iter().map(|(t, (x, y), _)| {
+            let (w, h) = size(t);
+            [x - w / 2, y - 6 - h, x - w / 2 + w, y - 6]
+        }).collect();
+        let beside = ends.iter().map(|(t, (x, y), _)| {
+            let (w, h) = size(t);
+            [x + 8, y - h / 2, x + 8 + w, y - h / 2 + h]
+        }).collect();
+        let origin = area.get_base_pixel();
+        for ((text, _, color), [x0, y0, ..]) in labels.iter().zip(place(above, true)).chain(ends.iter().zip(place(beside, false))) {
+            drawn(area.draw(&Text::new(text.as_str(), (x0 - origin.0, y0 - origin.1), font.color(color))))?;
+        }
+        if let Some(scale) = &self.colorbar {
+            let (xr, yr) = chart.plotting_area().get_pixel_range();
+            let (left, top, bottom) = (xr.end + right - origin.0, yr.start - origin.1, yr.end - origin.1);
+            let pixel = |v: f64| bottom - ((v - scale.lo) / (scale.hi - scale.lo) * (bottom - top) as f64).round() as i32;
+            for y in (top..bottom).step_by(2) {
+                let v = scale.lo + (bottom - y) as f64 / (bottom - top) as f64 * (scale.hi - scale.lo);
+                drawn(area.draw(&Rectangle::new([(left, y), (left + 15, y + 2)], self.palette.get_color_normalized(v, scale.lo, scale.hi).filled())))?;
+            }
+            drawn(area.draw(&Rectangle::new([(left, top), (left + 15, bottom)], BLACK.mix(0.4))))?;
+            for (v, text) in bar_ticks.iter().flatten() {
+                let y = pixel(*v);
+                drawn(area.draw(&PathElement::new(vec![(left + 15, y), (left + 19, y)], BLACK.mix(0.4))))?;
+                drawn(area.draw(&Text::new(text.as_str(), (left + 22, y - size(text).1 / 2), font.color(&BLACK))))?;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// A linear plotters axis with ticks from `Axis::ticks`. Labels come from the mesh formatters.
+struct Coord { lo: f64, hi: f64, ticks: Vec<f64>, reverse: bool }
+
+impl Ranged for Coord {
+    type FormatOption = DefaultFormatting;
+    type ValueType = f64;
+    fn map(&self, v: &f64, (start, end): (i32, i32)) -> i32 {
+        let from = if self.reverse { self.hi - v } else { v - self.lo };
+        (start as f64 + from / (self.hi - self.lo) * (end - start) as f64).round() as i32
+    }
+    fn key_points<Hint: KeyPointHint>(&self, hint: Hint) -> Vec<f64> { if hint.weight().allow_light_points() { vec![] } else { self.ticks.clone() } }
+    fn range(&self) -> std::ops::Range<f64> { self.lo..self.hi }
+}
+
+/// The smallest gap between distinct x values, or 1.
+fn spacing(xs: &[f64]) -> f64 {
+    let mut sorted = xs.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let gap = sorted.windows(2).map(|w| w[1] - w[0]).filter(|&d| d > 0.).fold(f64::INFINITY, f64::min);
+    if gap.is_finite() { gap } else { 1. }
+}
+
+/// Label boxes `[x0, y0, x1, y1]` in pixels, each moved vertically just clear of the boxes placed before it. Boxes are placed nearest-first in the direction they move: upward if `up`, otherwise downward.
+fn place(boxes: Vec<[i32; 4]>, up: bool) -> Vec<[i32; 4]> {
+    let mut order: Vec<usize> = (0..boxes.len()).collect();
+    order.sort_by_key(|&i| if up { -boxes[i][3] } else { boxes[i][1] });
+    let mut placed = boxes.clone();
+    for (n, &i) in order.iter().enumerate() {
+        let mut b = boxes[i];
+        while let Some(o) = order[..n].iter().map(|&j| placed[j]).find(|o| b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]) {
+            let dy = if up { o[1] - 1 - b[3] } else { o[3] + 1 - b[1] };
+            (b[1], b[3]) = (b[1] + dy, b[3] + dy);
+        }
+        placed[i] = b;
+    }
+    placed
+}
+/// A figure's data holds plot specs, with `⍬` for empty cells.
+fn is_figure(data: &Value) -> bool {
+    let record = |e: &Value| e.shape().len() == 1 && e.keys(0).is_some() && !e.is_empty();
+    !data.is_atom() && data.elements().any(|e| record(&e)) && data.elements().all(|e| e.is_empty() || record(&e))
+}
+
+fn draw_figure(opts: &Options, data: &Value, root: &Area<'_>, span: &Span) -> Result<(), Error> {
+    let area = titled(root, &opts.text("title", Some(""))?)?;
+    let [rows, cols] = match *data.shape() {
+        [n] => [1, n], [r, c] => [r, c], _ => return Err(Error::new(Kind::Rank, "a •plot figure needs a vector or matrix of plots"))
+    };
+    // A plot repeated in adjacent cells spans them: [top, left, bottom, right) cell edges.
+    let mut cells: Vec<(Value, [usize; 4])> = Vec::new();
+    for (i, cell) in data.elements().enumerate().filter(|(_, c)| !c.is_empty()) {
+        let (r, c) = (i / cols, i % cols);
+        let mut found = None;
+        for (p, b) in &mut cells { if p.matches(&cell, span)? { found = Some(b); break; } }
+        match found { Some(b) => *b = [b[0].min(r), b[1].min(c), b[2].max(r + 1), b[3].max(c + 1)], None => cells.push((cell, [r, c, r + 1, c + 1])) }
+    }
+    let mut charts = cells.iter().map(|(p, _)| Chart::new(&Options::new("•plot", Some(p), None, PLOT)?)).collect::<Result<Vec<_>, _>>()?;
+    if opts.boolean("share", false)? {
+        // Plots in the same columns share their horizontal range, and plots in the same rows their vertical range. Only the bottom and left plots of a group label the shared axis.
+        let ranges: Vec<[(f64, f64); 2]> = charts.iter_mut().map(|c| c.axes().map(|a| (a.lo, a.hi))).collect();
+        for (i, chart) in charts.iter_mut().enumerate() {
+            let b = cells[i].1;
+            for (side, axis) in chart.axes().into_iter().enumerate() {
+                let group = |c: &[usize; 4]| if side == 0 { (c[1], c[3]) } else { (c[0], c[2]) };
+                for (j, (_, c)) in cells.iter().enumerate().filter(|(_, (_, c))| group(c) == group(&b)) {
+                    (axis.lo, axis.hi) = (axis.lo.min(ranges[j][side].0), axis.hi.max(ranges[j][side].1));
+                    axis.inner |= if side == 0 { c[0] >= b[2] } else { c[3] <= b[1] };
+                }
+            }
+        }
+    }
+    let (width, height) = area.dim_in_pixel();
+    let (xs, ys) = (edges(opts, "widths", cols, width)?, edges(opts, "heights", rows, height)?);
+    for (chart, (_, [top, left, bottom, right])) in charts.iter().zip(&cells) {
+        chart.draw(&area.clone().shrink((xs[*left], ys[*top]), (xs[*right] - xs[*left], ys[*bottom] - ys[*top])))?;
+    }
+    Ok(())
+}
+
+/// Pixel offsets of the cell edges along one side, from the relative sizes in option `key`.
+fn edges(opts: &Options, key: &str, n: usize, size: u32) -> Result<Vec<u32>, Error> {
+    let weights = opts.values.get(key).map_or(Ok(vec![1.; n]), |w| numbers(w))?;
+    if weights.len() != n { return Err(Error::new(Kind::Length, format!("•plot {key} needs one size per cell"))); }
+    let total: f64 = weights.iter().sum();
+    let mut sum = 0.;
+    Ok(std::iter::once(0).chain(weights.iter().map(|w| {
+        sum += w;
+        (size as f64 * sum / total).round() as u32
+    })).collect())
+}

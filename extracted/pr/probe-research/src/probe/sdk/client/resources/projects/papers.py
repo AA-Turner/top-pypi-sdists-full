@@ -1,5 +1,5 @@
 """PapersResource (client.papers, typed reads) and PapersMixin, Client's methods: project
-references, papers and the citation graph (twin: app/papers)."""
+references, papers and the citation graph (twin: app/knowledge/papers)."""
 
 from __future__ import annotations
 import builtins

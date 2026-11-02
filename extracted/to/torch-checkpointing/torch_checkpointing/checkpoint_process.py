@@ -1,0 +1,616 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+import contextvars
+import logging
+import os
+import pickle
+import time
+import traceback
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import ExitStack
+from dataclasses import dataclass
+from enum import Enum
+from multiprocessing.connection import Connection
+from multiprocessing.reduction import ForkingPickler
+from typing import Any, Callable
+
+import torch.multiprocessing as mp
+from torch.multiprocessing.spawn import ProcessExitedException
+
+from .checkpoint_base import CheckpointWriteInfo
+from .checkpoint_writer import CheckpointWriter, CheckpointWriterArgs
+from .logging_utils import (
+    checkpoint_logging_context,
+    dict_to_list_safe,
+    EventLogger,
+    EventType,
+)
+from .types import RankInfo
+from .utils import set_thread_name_safe
+
+logger = logging.getLogger(__name__)
+
+# Payload key constants to avoid string literal bugs
+PAYLOAD_KEY_PATH = "path"
+PAYLOAD_KEY_CHECKPOINT_INFO = "checkpoint_info"
+PAYLOAD_KEY_LOGGING_CONTEXT = "logging_context"
+
+
+@dataclass
+class CheckpointProcessConfig:
+    """
+    Configuration options for the CheckpointProcess.
+
+    This class provides configuration options for the checkpoint process,
+    including initialization functions, timeouts, and writer configuration.
+
+    Attributes:
+        subprocess_init_timeout_secs: Maximum time in seconds to wait for subprocess initialization.
+        subprocess_shutdown_timeout_secs: Maximum time in seconds to wait for subprocess shutdown.
+    """
+
+    subprocess_init_timeout_secs: int = 30
+    subprocess_shutdown_timeout_secs: int = 60
+    thread_name_prefix: str = "ckpt"
+
+
+class RequestType(Enum):
+    PING = "ping"
+    WRITE_CHECKPOINT = "write_checkpoint"
+    TERMINATE_PROCESS = "exit"
+
+
+@dataclass
+class WorkerRequest:
+    """
+    A dataclass for storing the command to be sent to the worker process.
+    Note: This relies on pickling to send the command to the worker process. Handle
+    backward compatibility accordingly.
+    """
+
+    request_type: RequestType
+    payload: dict[str, Any]
+
+
+@dataclass
+class WorkerResponse:
+    request_type: RequestType
+    success: bool
+    error_msg: str | None = None
+    payload: dict[str, Any] | None = None
+    serialized_exception_type: bytes | None = None
+
+
+def _restore_worker_exception(response: WorkerResponse) -> Exception:
+    """Reconstruct the worker exception, retaining its traceback if that fails."""
+    error_msg = f"Unexpected response from worker process: {response.error_msg}"
+    logger.error(error_msg)
+    if response.serialized_exception_type is not None:
+        try:
+            exception_type = pickle.loads(response.serialized_exception_type)
+            return exception_type(error_msg)
+        except Exception:
+            pass
+    return RuntimeError(error_msg)
+
+
+class CheckpointProcess:
+    """
+    A checkpoint writer that writes checkpoints to a remote process.
+
+    Initialization and write failures preserve their exception type and remote
+    traceback when the type can be transported and reconstructed from a message.
+    Otherwise, the parent raises RuntimeError with the remote traceback.
+    """
+
+    def __init__(
+        self,
+        rank_info: RankInfo,
+        config: CheckpointProcessConfig,
+        subprocess_init_fn: Callable[..., None],
+        subprocess_init_args: tuple[Any, ...],
+        checkpoint_writer_args: CheckpointWriterArgs,
+    ):
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        # Torch ties the subprocess death signal to its spawning thread. Keep that
+        # thread alive while the communication executor drains and cancels writes.
+        self._creation_executor = ThreadPoolExecutor(max_workers=1)
+        self._rank_info = rank_info
+        self._config = config
+        self._subprocess_init_fn = subprocess_init_fn
+        self._subprocess_init_args = subprocess_init_args
+        self._checkpoint_writer_args = checkpoint_writer_args
+        self._metric_prefix = checkpoint_writer_args.metric_prefix
+        self._barrier_scope = ExitStack()
+        barrier_config = checkpoint_writer_args.config.barrier_config
+        if barrier_config is not None:
+            self._barrier_scope.enter_context(barrier_config.use_in_subprocess())
+        self.process: mp.ProcessContext | None = None
+        self._parent_end: Connection | None = None
+        self._child_end: Connection | None = None
+        self._closed: bool = False
+        self._pickle_protocol: int = pickle.DEFAULT_PROTOCOL
+        if self._pickle_protocol < 5 and pickle.HIGHEST_PROTOCOL >= 5:
+            # Use more efficient protocol 5 if available
+            self._pickle_protocol = 5
+
+        self._creation_future: Future[None] | None = self._creation_executor.submit(
+            self._create_subprocess,
+            config,
+        )
+
+    def wait_for_init(self) -> None:
+        if self._creation_future:
+            self._creation_future.result()
+
+    def check_ok(self) -> None:
+        if self._creation_future and self._creation_future.done():
+            self._creation_future.result()
+
+        if (
+            not self._closed
+            and self.process
+            and not self.process.processes[0].is_alive()
+        ):
+            raise RuntimeError(
+                f"Child checkpointer process pid={self.process.processes[0].pid} died unexpectedly with exit code={self.process.processes[0].exitcode}"
+            )
+
+    def _create_subprocess(
+        self,
+        config: CheckpointProcessConfig,
+    ) -> None:
+        logger.info(f"Creating checkpoint subprocess for rank={self._rank_info}")
+        set_thread_name_safe(
+            f"{self._config.thread_name_prefix}-comm-{self._rank_info.global_rank}"
+        )
+
+        spawn_context = mp.get_context("spawn")
+        self._parent_end, child_end = spawn_context.Pipe()
+
+        # Known workaround for https://github.com/pytorch/pytorch/issues/37377
+        os.environ["MKL_SERVICE_FORCE_INTEL"] = "GNU"
+
+        self.process = mp.spawn(
+            fn=CheckpointProcess._subprocess,
+            args=(
+                self._rank_info,
+                child_end,
+                self._subprocess_init_fn,
+                self._subprocess_init_args,
+                self._checkpoint_writer_args,
+                self._config.thread_name_prefix,
+                self._metric_prefix,
+            ),
+            nprocs=1,
+            join=False,
+            daemon=True,
+        )
+
+        # close the child end of the pipe so recv on it will fail
+        # fast when the child process is terminated unexpectedly.
+        child_end.close()
+        self._send(
+            request_type=RequestType.PING,
+            payload={},
+        )
+
+        logger.info(
+            f"Waiting for checkpoint subprocess to initialize (timeout: {config.subprocess_init_timeout_secs}s)"
+        )
+
+        # wait for the timeout or a response from subprocess
+        assert self._parent_end is not None, "Parent end of pipe should be initialized"
+        if not self._parent_end.poll(timeout=config.subprocess_init_timeout_secs):
+            msg = f"Timed out after {config.subprocess_init_timeout_secs}s waiting for checkpoint subprocess to initialize"
+            logger.error(msg)
+            raise TimeoutError(msg)
+
+        self._recv()
+        logger.info("Checkpoint subprocess initialized successfully")
+
+    @staticmethod
+    def _subprocess(
+        sub_rank: int,
+        rank_info: RankInfo,
+        parent_pipe: Connection,
+        subprocess_init_fn: Callable[..., None],
+        subprocess_init_args: tuple[Any, ...],
+        checkpoint_writer_args: CheckpointWriterArgs,
+        thread_name_prefix: str = "ckpt",
+        metric_prefix: str = "train.checkpoint_write",
+    ) -> None:
+        logger.info(
+            f"Checkpoint subprocess started for rank {rank_info.global_rank}/{rank_info.global_world_size} (PID: {os.getpid()})"
+        )
+        set_thread_name_safe(f"{thread_name_prefix}-proc-{rank_info.global_rank}")
+
+        assert sub_rank == 0, "We need only one checkpointer per parent training"
+        # Only the type is kept across iterations, for the error path below. The
+        # request itself must not outlive the iteration that serves it.
+        request_type = RequestType.PING
+
+        # Cache for serialized metadata - once received, reuse for subsequent writes
+        metadata_cache: list[bytes | None] = [None]
+
+        try:
+            event_logger = EventLogger()
+            # Calling initialize callback, so we can perform app-specific initialization of the subprocess.
+            subprocess_init_fn(*subprocess_init_args)
+            logger.info(
+                f"Starting: initializing sub-process for checkpointing for sub rank {sub_rank}",
+                extra=event_logger(EventType.CHECKPOINT_SUBPROCESS_INIT_START),
+            )
+
+            # Initialize checkpoint writer via builder pattern.
+            checkpoint_writer = checkpoint_writer_args.build()
+
+            logger.info(
+                "Checkpointing subprocess initialized",
+                extra=event_logger(
+                    EventType.CHECKPOINT_SUBPROCESS_INIT_END,
+                    metric_name=f"{metric_prefix}.execute.subprocess_execute.initialize_e2e.latency_ms",
+                    end_to_end=True,
+                ),
+            )
+
+            should_terminate = False
+            while not should_terminate:
+                logger.info(
+                    f"Waiting for a checkpoint request for sub rank {sub_rank}",
+                    extra=event_logger(EventType.CHECKPOINT_WAIT_FOR_REQUEST),
+                )
+                # Safe to use recv() here because the parent sends a the byes of a
+                # pickled object
+                try:
+                    request = parent_pipe.recv()
+                except EOFError:
+                    # Die quietly rather than loudly to avoid log spam
+                    logger.info(
+                        "Checkpoint subprocess: Parent has closed or exited, therefore I should exit."
+                    )
+                    break
+
+                request_type = request.request_type
+                response = None
+                try:
+                    response = CheckpointProcess._subprocess_handle_request(
+                        request=request,
+                        checkpoint_writer=checkpoint_writer,
+                        metadata_cache=metadata_cache,
+                        event_logger=event_logger,
+                        metric_prefix=metric_prefix,
+                    )
+                    parent_pipe.send(response)
+                    should_terminate = (
+                        response.request_type == RequestType.TERMINATE_PROCESS
+                    )
+                finally:
+                    # Drop the request before blocking on the next one so that
+                    # shared memory can be freed.
+                    del request, response
+            logger.info("Subprocess terminated gracefully")
+        except Exception as e:
+            error_text = traceback.format_exc()
+            logger.error(f"Exception in subprocess  ({type(e).__name__}): {error_text}")
+
+            # Keep the type, not the exception's potentially unpicklable state.
+            # Separate bytes keep error_text available even
+            # when the parent cannot import the exception class.
+            try:
+                serialized_exception_type = pickle.dumps(type(e))
+            except Exception:
+                serialized_exception_type = None
+
+            # Communicating exception via the queue to the main process
+            parent_pipe.send(
+                WorkerResponse(
+                    request_type=request_type,
+                    success=False,
+                    error_msg=error_text,
+                    serialized_exception_type=serialized_exception_type,
+                )
+            )
+            parent_pipe.close()
+            logger.error(f"Subprocess terminated due to exception: {e}")
+
+    @staticmethod
+    def _subprocess_handle_request(
+        request: WorkerRequest,
+        checkpoint_writer: CheckpointWriter,
+        metadata_cache: list[bytes | None],
+        event_logger: EventLogger,
+        metric_prefix: str,
+    ) -> WorkerResponse:
+        """Handle one request, returning the response."""
+        log_ctx = request.payload.get(PAYLOAD_KEY_LOGGING_CONTEXT)
+        if log_ctx is not None:
+            checkpoint_logging_context.import_context(log_ctx)
+
+        if request.request_type == RequestType.PING:
+            return WorkerResponse(request_type=RequestType.PING, success=True)
+        if request.request_type == RequestType.TERMINATE_PROCESS:
+            logger.debug("Received termination request.")
+            return WorkerResponse(RequestType.TERMINATE_PROCESS, success=True)
+        if request.request_type != RequestType.WRITE_CHECKPOINT:
+            error_msg = f"Unknown request type: {request.request_type}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        path = request.payload[PAYLOAD_KEY_PATH]
+        step = checkpoint_logging_context.get("step")
+        logger.info(
+            f"(step {step}) Writing checkpoint to {path}",
+            extra=event_logger(EventType.CHECKPOINT_WRITE_START),
+        )
+
+        checkpoint_info: CheckpointWriteInfo = request.payload[
+            PAYLOAD_KEY_CHECKPOINT_INFO
+        ]
+
+        # Cache serialized metadata on first write that has it
+        if (
+            metadata_cache[0] is None
+            and checkpoint_info.serialized_distributed_metadata is not None
+        ):
+            metadata_cache[0] = checkpoint_info.serialized_distributed_metadata
+            logger.debug("Cached serialized_distributed_metadata for subsequent writes")
+        checkpoint_info = checkpoint_info.for_writes(metadata_cache[0])
+
+        writer_event_logger = EventLogger()
+        write_started_ns = time.perf_counter_ns()
+        checkpoint_writer.write(
+            path=path,
+            checkpoint_info=checkpoint_info,
+        )
+        write_elapsed_ms = (time.perf_counter_ns() - write_started_ns) / 1_000_000
+        logger.info(
+            f"(step {step}) Checkpoint written successfully to {path}",
+            extra=event_logger(EventType.CHECKPOINT_WRITE_END),
+        )
+        logger.info(
+            "Checkpoint subprocess writer completed",
+            extra=writer_event_logger(
+                EventType.LOG_METRIC,
+                metric_name=f"{metric_prefix}.execute.subprocess_writer.latency_ms",
+                value=write_elapsed_ms,
+                context=dict_to_list_safe({"checkpoint_path": path}),
+            ),
+        )
+        return WorkerResponse(RequestType.WRITE_CHECKPOINT, success=True)
+
+    def _send(self, request_type: RequestType, payload: dict[str, Any]) -> None:
+        # Attach checkpoint logging context to every request so the subprocess
+        # always has up-to-date context regardless of request type.
+        payload[PAYLOAD_KEY_LOGGING_CONTEXT] = (
+            checkpoint_logging_context.export_context()
+        )
+
+        # Only log pickle metric for WRITE_CHECKPOINT requests
+        event_logger = (
+            EventLogger() if request_type == RequestType.WRITE_CHECKPOINT else None
+        )
+        pickled_obj = ForkingPickler.dumps(
+            WorkerRequest(request_type=request_type, payload=payload),
+            protocol=self._pickle_protocol,
+        )
+        if event_logger:
+            logger.info(
+                f"Pickled {request_type.value} request ({len(pickled_obj)} bytes)",
+                extra=event_logger(
+                    EventType.LOG_METRIC,
+                    metric_name=f"{self._metric_prefix}.execute.subprocess_comm.pickle.latency_ms",
+                ),
+            )
+        try:
+            assert self._parent_end is not None, (
+                "Parent end of pipe should be initialized"
+            )
+            self._parent_end.send_bytes(pickled_obj)
+        except OSError as e:
+            error_msg = "Child process terminated unexpectedly"
+            logger.error(
+                f"Communication failed during {request_type.value} request: {e}"
+            )
+            raise RuntimeError(error_msg) from e
+
+    def _recv(self) -> dict[str, Any] | None:
+        try:
+            assert self._parent_end is not None, (
+                "Parent end of pipe should be initialized"
+            )
+            response = self._parent_end.recv()
+        except (EOFError, BrokenPipeError, ConnectionResetError) as e:
+            error_msg = f"Child process terminated unexpectedly: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+
+        if response.success is False:
+            raise _restore_worker_exception(response)
+        return response.payload
+
+    def write(
+        self,
+        checkpoint_info: CheckpointWriteInfo | Future[CheckpointWriteInfo],
+        path: str,
+    ) -> Future[None]:
+        event_logger = EventLogger()
+        logger.debug("Waiting for subprocess initialization to complete")
+
+        # wait until the process is started
+        if self._creation_future:
+            self._creation_future.result()
+            self._creation_future = None
+        # Snapshot the current contextvars (including checkpoint_logging_context
+        # step) so the comm thread sees the step that was set at submission
+        # time, not whatever the trainer updates it to later.
+        ctx = contextvars.copy_context()
+        submission_metadata: Future[dict[str, Any]] = Future()
+
+        def write_with_submission_log() -> None:
+            # A failed submission must not read a payload whose owner has unwound.
+            metadata = submission_metadata.result()
+            try:
+                logger.info("Submitted executor", extra=metadata)
+            finally:
+                self._write(checkpoint_info, path)
+
+        try:
+            write_future = self._executor.submit(ctx.run, write_with_submission_log)
+        except BaseException as error:
+            submission_metadata.set_exception(error)
+            raise
+        try:
+            # Submission latency excludes time queued behind earlier writes.
+            metadata = event_logger(
+                EventType.LOG_METRIC,
+                metric_name=f"{self._metric_prefix}.submit.executor_submit.latency_ms",
+            )
+        except BaseException as error:  # noqa: B036 - write_future raises this error.
+            # Return the future so the caller retains its staging-buffer ownership.
+            submission_metadata.set_exception(error)
+        else:
+            submission_metadata.set_result(metadata)
+        return write_future
+
+    def _write(
+        self,
+        checkpoint_info: CheckpointWriteInfo | Future[CheckpointWriteInfo],
+        path: str,
+    ) -> None:
+        event_logger = EventLogger()
+        step = checkpoint_logging_context.get("step")
+        logger.info(
+            f"(step {step}) Checkpointing communication thread started write to {path}",
+            extra=event_logger(EventType.CHECKPOINT_THREAD_START),
+        )
+        set_thread_name_safe(
+            f"{self._config.thread_name_prefix}-comm-{self._rank_info.global_rank}"
+        )
+
+        # Wait for checkpoint_info Future to be available
+        ckpt_info: CheckpointWriteInfo
+        if isinstance(checkpoint_info, Future):
+            logger.debug("Waiting for checkpoint_info Future to resolve")
+            ckpt_info = checkpoint_info.result()
+        else:
+            ckpt_info = checkpoint_info
+
+        logger.info(
+            "Future wait latency",
+            extra=event_logger(
+                EventType.LOG_METRIC,
+                metric_name=f"{self._metric_prefix}.execute.wait_future.latency_ms",
+            ),
+        )
+
+        # Log state_dict info only if debug logging is enabled
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"CheckpointInfo contains {len(ckpt_info.keys)} keys")
+
+        start_ts = time.perf_counter()
+        self._send(
+            request_type=RequestType.WRITE_CHECKPOINT,
+            payload={
+                PAYLOAD_KEY_CHECKPOINT_INFO: ckpt_info,
+                PAYLOAD_KEY_PATH: path,
+            },
+        )
+        end_ts = time.perf_counter()
+        diff_ts = end_ts - start_ts
+        logger.info(
+            "Finished state dict put into subprocess",
+            extra=event_logger(
+                EventType.LOG_METRIC,
+                metric_name=f"{self._metric_prefix}.execute.subprocess_comm.put.latency_ms",
+                value=diff_ts * 1000,
+            ),
+        )
+
+        logger.debug("Waiting for write completion response")
+        self._recv()
+        logger.info(
+            f"(step {step}) Checkpointing communication thread finished write to {path}",
+            extra=event_logger(
+                EventType.CHECKPOINT_THREAD_END,
+                end_to_end=True,
+                metric_name=f"{self._metric_prefix}.execute.subprocess_comm.e2e.latency_ms",
+            ),
+        )
+
+    def close(self) -> None:
+        try:
+            self._shutdown_subprocess()
+        finally:
+            try:
+                self._creation_executor.shutdown(wait=True, cancel_futures=True)
+            finally:
+                self._barrier_scope.close()
+
+    def _shutdown_subprocess(self) -> None:
+        logger.info(
+            f"Shutting down checkpoint process for rank {self._rank_info.global_rank}"
+        )
+        self._closed = True
+        self._executor.shutdown(wait=True, cancel_futures=True)
+        creation_future = self._creation_future
+        if creation_future is not None and not creation_future.cancel():
+            # Wait for in-flight initialization without re-raising its error, as
+            # executor shutdown did previously; a partially started child still
+            # needs cleanup before its spawning thread can exit.
+            creation_error = creation_future.exception()
+            if creation_error is not None:
+                logger.warning(
+                    "Checkpoint process initialization failed during shutdown: "
+                    f"{creation_error!r}"
+                )
+
+        if self.process is None:
+            logger.warning("Checkpoint process did not start, skipping termination!")
+            return
+
+        subprocess_pid = self.process.processes[0].pid
+        # send graceful termination to sub process
+        try:
+            if self._parent_end is not None:
+                self._parent_end.send(
+                    WorkerRequest(
+                        request_type=RequestType.TERMINATE_PROCESS,
+                        payload={},
+                    )
+                )
+            logger.info(
+                f"Sent termination request to subprocess (PID: {subprocess_pid})."
+            )
+        except BrokenPipeError:
+            logger.warning(
+                f"BrokenPipeError when sending termination request - subprocess (PID: {subprocess_pid}) may have already terminated"
+            )
+
+        try:
+            if not self.process.join(
+                timeout=self._config.subprocess_shutdown_timeout_secs
+            ):
+                # graceful shutdown failed, kill the process.
+                logger.warning(
+                    f"Subprocess (PID: {subprocess_pid}) did not terminate gracefully within {self._config.subprocess_shutdown_timeout_secs}s, killing it"
+                )
+                self.process.processes[0].kill()
+                logger.warning("Subprocess killed forcefully")
+        except ProcessExitedException as e:
+            # Get additional process information for debugging the root cause
+            exit_code = self.process.processes[0].exitcode
+
+            # Use exit code to determine if this was successful termination or an error
+            if exit_code != 0:
+                message = (
+                    f"Checkpoint subprocess (PID: {subprocess_pid}) terminated with exit_code: {exit_code}. ProcessExitedException details: {e}"
+                    if exit_code > 0
+                    else f"Checkpoint subprocess (PID: {subprocess_pid}) terminated - killed by signal {exit_code} (exit_code: {exit_code}). ProcessExitedException details: {e}"
+                )
+                logger.warning(message, exc_info=True)
+        logger.info(f"Terminated checkpointing process (PID: {subprocess_pid}).")

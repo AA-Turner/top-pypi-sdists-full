@@ -156,7 +156,7 @@ def op_credential(op: dict) -> tuple[str | None, bool]:
     stamp = (op.get("context") or {}).get("principal") if isinstance(op, dict) else None
     if not isinstance(stamp, dict):
         return None, False
-    ingest = op.get("kind") == "http" and is_ingest_path(op.get("path"))
+    ingest = op.get("kind") == "http" and routes.is_ingest(op.get("path"))
     key = stamp.get("ingest_fingerprint") if ingest else stamp.get("fingerprint")
     return (str(key) if key else None), ingest
 
@@ -194,30 +194,10 @@ def _route_fingerprint(settings, ingest: bool) -> str | None:
 def _settings_for_op(
     context: dict | None, *, ingest: bool = False, account: tuple[str, str] | None = None
 ):
-    """The credential to deliver an op with: the one that queued it, or none.
-
-    An op stamped with a credential (``context["principal"]``, #2035) goes out only with a key
-    whose fingerprint matches the one its ROUTE uses (the ingest token for an `/ingest` write
-    (``ingest``), the personal token otherwise) from whichever of the two this drainer can
-    build: what a client started in THIS environment would hold (a worker the job spawned
-    inherits its ``PROBE_TOKEN``), or the context's stored login. An env or in-code credential
-    has no fallback: anything else here may be another person's, so the op waits
-    (`CredentialNotHere`).
-
-    One queued under the stored login may also go out with that context's CURRENT stored login
-    (a re-login mints a new token and signing in promises to un-block queued writes), but only
-    when `GET /v1/me` with the new token names the same team and user that queued it: the
-    stamp's account, or ``account`` (the same token's account learned from another of its
-    writes; one token is one account). Without either, or with another account, the op waits.
-    Never an environment token; never for an ingest write, whose key `/v1/me` cannot vouch for.
-
-    An env or in-code credential the user ADOPTED (`probe outbox adopt`: process gone, token
-    dead, nothing else will send its writes) takes the same path, against the account recorded
-    at adoption. It skips the environment match: a job still running with the dead token would
-    hand it to its worker every pass. Never for an ingest write either.
-
-    An op queued before stamping keeps the old rule, `_settings_for`.
-    """
+    """The credential to deliver an op with: the one that queued it (matched by fingerprint, per
+    route), or none (`CredentialNotHere`, #2035). A stored login's write may follow a re-login only
+    when `GET /v1/me` names the same account; an adopted credential uses the account recorded at
+    adoption; never an environment token for someone else's write. DESIGN.md has every case."""
     stamp = (context or {}).get("principal")
     if not isinstance(stamp, dict) or not stamp.get("fingerprint"):
         return _settings_for(context)
@@ -361,7 +341,7 @@ def _cooling_refusals(journal: "Journal") -> dict[str, str]:
             cooling[str(refused)] = str(since)
     return cooling
 from probe.sdk.delivery.journal.journal import Journal  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.ops.ops import is_ingest_path  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk import routes  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.accounts import recorded_account  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.adoption import adopted_account  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import CredentialNotHere  # noqa: E402 -- pieces need each other; the front door loads this one first

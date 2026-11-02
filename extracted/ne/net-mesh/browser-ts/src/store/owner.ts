@@ -1,0 +1,2096 @@
+/**
+ * Owner dispatch: join, admission, `authorize`, projection, `man`
+ * (brief §1.3, §1.5, §1.12, §2) — slice C.
+ *
+ * ## The authenticated origin is an argument, never a field
+ *
+ * {@link StoreOwner.receive} takes the **authenticated originating
+ * peer** as a parameter, and there is no way to name a caller inside a
+ * store frame at all (§2's shapes have no originator field). That is
+ * the whole of §1.3's rule expressed as a signature: the identity comes
+ * from the session the bytes arrived on, which the transport
+ * authenticated — `LeafEvent::StreamData.peer_node` on the Rust side,
+ * `LeafStream.peerNode` in the package — and a dispatcher cannot read
+ * it off the payload because the payload does not carry one.
+ *
+ * A caller could still *lie to this function*, so the contract is
+ * stated where it is enforceable: whoever calls `receive` must pass the
+ * peer the transport proved, and the store's own entry points will
+ * (slice G). Nothing here can make a wrong argument right, and
+ * pretending otherwise is the mistake this module refuses to make.
+ *
+ * ## What is here, and what is deliberately not
+ *
+ * Here: `join` admission, handle binding and re-checking, `authorize`
+ * for the read request, the audience projection, and the `man` + `snap`
+ * emission that follows. Refusals for the paths that reach those.
+ *
+ * Not here: `act`/`in`/`res` and the ledger (slice E), `aud`/`resume`
+ * transitions (slice F), `delta` emission (slice D). Those kinds are
+ * refused `not-ready` or `invalid-data` rather than half-implemented,
+ * and the refusal says which layer owns them.
+ */
+
+import { Assembly, AssemblyTable } from './assembly.js';
+import { assertChunkingFits, chunkSnapshot } from './chunker.js';
+import { StoreCore } from './core.js';
+import { StoreError, type StoreErrorCode } from './errors.js';
+import type { JsonObject, JsonValue } from './json.js';
+import { applyVisibility, compileVisibility, type CompiledVisibility } from './visibility.js';
+import {
+  canonicalRequest,
+  digestBinding,
+  inlineBinding,
+  LedgerTable,
+  needsDigest,
+  type Outcome,
+  type RequestBinding,
+} from './ledger.js';
+import type {
+  AccessRequest,
+  ActionContext,
+  Cancel,
+  ActionSpec,
+  InputSpec,
+  Parse,
+  StoreDefinition,
+} from './types.js';
+import {
+  decimalValue,
+  decodeMessage,
+  encodeMessage,
+  utf8Length,
+  HANDLE_HEX_LENGTH,
+  INCARNATION_HEX_LENGTH,
+  type CallerMessage,
+  type Hex,
+  type WireOp,
+  MAX_PATH_SEGMENT_BYTES,
+} from './wire.js';
+
+/** Actions in flight per owner, against the pending bound (§2). */
+export const MAX_PENDING_ACTIONS = 32;
+
+/** Handles one owner will hold (brief §2). */
+export const MAX_HANDLES = 256;
+
+/**
+ * Handles one authenticated peer may hold at once. Room for siblings and
+ * for a reconnect that overlaps its predecessor's lease, but never the
+ * whole table: one peer could otherwise take all {@link MAX_HANDLES} and
+ * lock every other player out — the lobby's capacity rule counts distinct
+ * peers, so a seated player's repeat joins bypassed it (SDK audit
+ * 2026-10-11).
+ */
+export const MAX_HANDLES_PER_PEER = 16;
+
+/** How long a handle lives without an accepted authenticated message. */
+export const HANDLE_LEASE_MS = 60_000;
+
+/** What the owner needs from its host. */
+export interface OwnerDeps<S extends object, A extends ActionSpec, I extends InputSpec> {
+  readonly definition: StoreDefinition<S, A, I>;
+  /**
+   * WHICH store of this definition this owner is — the address a
+   * joiner names in `join.store`.
+   *
+   * A node may host several stores of one definition (a lobby and a
+   * match; three worlds in a harness), every host store on that node
+   * receives every frame, and a `join` names no handle. So without
+   * this, the store that answers a join is whichever listener
+   * happened to be registered first — and a caller asking for B got
+   * A's document, A's handle and A's state mutated by its actions.
+   * Found by review: two COLD stores, join the second, and the first
+   * answers.
+   */
+  readonly store: string;
+  /**
+   * The owner's policy. Receives the **authenticated** caller, because
+   * that is the only identity this module will ever hand it.
+   */
+  authorize(request: AccessRequest<A, I>): boolean;
+  /**
+   * The audience projection: what this caller may see. Returning the
+   * whole state is a decision, not a default — `empty()` is what
+   * absence looks like.
+   *
+   * Computed once per DISTINCT audience and shared by every handle
+   * carrying it. Exactly one of `project` and {@link projectFor} is
+   * given.
+   */
+  project?(state: S, audience: readonly string[]): S;
+  /**
+   * The per-player projection: what THIS player may see — their own
+   * hand, their own fog of war. Handed the authenticated peer with the
+   * audience it reads.
+   *
+   * Computed once per distinct (peer, audience) pair, so its cost per
+   * change grows with the number of players, where `project`'s grows
+   * with the number of distinct audiences. That is inherent: a view
+   * that depends on who is looking has to be taken for each of them.
+   */
+  projectFor?(state: S, viewer: Viewer): S;
+  /**
+   * The one hook for things that happen to players: `join`, `leave`,
+   * `area`. Runs on the host as a transaction with the player as
+   * `context.peer`, exactly like an action handler — so it can
+   * `setState` (a starting inventory on join) — and its changes reach
+   * every replica. Synchronous; a throw discards its writes.
+   */
+  onEvent?(event: StoreEvent, context: ActionContext<S>): void;
+  /**
+   * Development warnings: a store that sends everything to everyone
+   * without saying so, a projection the state validator refuses. Off
+   * unless given; never on by default in production.
+   */
+  warn?(message: string): void;
+  /**
+   * Which area a player is in, for `area` events: any string (a zone,
+   * a room, a grid cell), or `null` for none. Read-only; called after
+   * changes, for each present player.
+   */
+  areaOf?(state: S, peer: string): string | null;
+  /** The admissible frame size, derived from the transport (§1.9). */
+  readonly maxEventBytes: number;
+  /** Monotone clock, milliseconds. */
+  now(): number;
+  /** 32 lowercase hex. Unguessable: a handle is a capability. */
+  newHandle(): Hex;
+  /** 16 lowercase hex, one per owner incarnation. */
+  newIncarnation(): Hex;
+  /**
+   * Whether a projection can be taken right now.
+   *
+   * A host that is mid-frame, or whose world is being rebuilt, answers
+   * `false` and the control is DEFERRED rather than refused (§1.8) — a
+   * control is never answered `not-ready`.
+   */
+  canProject(): boolean;
+  /**
+   * The action handlers, one per declared action.
+   *
+   * Each runs inside ONE synchronous transaction: it stages writes
+   * through its context and returns the output, or throws to reject.
+   * A throw is an `action-rejected` outcome that is RETAINED (§1.10),
+   * not an absent one.
+   */
+  readonly actions: ActionHandlers<S, A>;
+  /** The latest-value input handlers. Fire-and-forget, no reply. */
+  readonly inputs: InputHandlers<S, I>;
+}
+
+/** Why a player left, as `onEvent` hears it. */
+export type LeaveReason =
+  /** The player closed their handle. */
+  | 'left'
+  /** Its lease ran out: a closed tab, a lost connection. */
+  | 'expired'
+  /** `authorize` stopped granting its read: a kick, a revoked permission. */
+  | 'refused'
+  /** Its view could not be delivered (too large, or `project` failed). */
+  | 'dropped';
+
+/**
+ * What happened to a player, for the host's single `onEvent` hook.
+ *
+ * - `join`: a player arrived — their first subscription, or the host's
+ *   own player (`hostPlayer`). Per player, not per connection.
+ * - `leave`: their last subscription ended, and why.
+ * - `area`: `areaOf(state, peer)` gave a different answer than it last
+ *   did for them (`from` is `null` the first time).
+ */
+export type StoreEvent =
+  | { readonly type: 'join'; readonly peer: string; readonly audience: readonly string[] }
+  | { readonly type: 'leave'; readonly peer: string; readonly reason: LeaveReason }
+  | { readonly type: 'area'; readonly peer: string; readonly from: string | null; readonly to: string | null };
+
+/** How many hook runs one drain may perform before it stops (see `drainEvents`). */
+export const MAX_EVENT_ROUNDS = 256;
+
+/** Who a per-player projection is for. */
+export interface Viewer {
+  /** The authenticated peer, 16 lowercase hex — as `context.peer`. */
+  readonly peer: string;
+  /** The audience this handle reads. */
+  readonly audience: readonly string[];
+}
+
+/** One handler per declared action. */
+export type ActionHandlers<S extends object, A extends ActionSpec> = {
+  readonly [K in keyof A]: (
+    input: A[K]['input'],
+    context: ActionContext<S>,
+  ) => A[K]['output'];
+};
+
+/** One handler per declared input. */
+export type InputHandlers<S extends object, I extends InputSpec> = {
+  readonly [K in keyof I]: (input: I[K], context: ActionContext<S>) => void;
+};
+
+/** One admitted subscription. */
+export interface OwnerHandle {
+  readonly h: Hex;
+  readonly inc: Hex;
+  /** The authenticated peer this handle is bound to (§1.3). */
+  readonly peer: string;
+  readonly audience: readonly string[];
+  /** The opaque key the `join` carried; every read decision passes it on. */
+  readonly key?: string;
+  /** Highest generation allocated for this handle; monotone (§1.7a). */
+  readonly generation: number;
+  /**
+   * The revision this replica's view is at: its installation's, then
+   * each delta's `r`. A delta's `base` is THIS, not the owner's previous
+   * revision — a replica whose view did not change on a commit was sent
+   * nothing and is still here, and a `base` it never had is a gap.
+   */
+  readonly revision: number;
+  /** Its interest set; `null` when it declared none (sees every entity). */
+  readonly interest: readonly string[] | null;
+  /** Last accepted authenticated message, for the lease. */
+  readonly lastSeen: number;
+}
+
+/** A frame the owner wants sent, and to whom. */
+export interface Outbound {
+  readonly peer: string;
+  readonly h: Hex | null;
+  readonly frame: string;
+}
+
+/** What one inbound frame produced. */
+export interface Dispatched {
+  readonly out: readonly Outbound[];
+  /** A stable, countable refusal reason, when the frame was refused. */
+  readonly refused: string | null;
+  /**
+   * The rest of an action whose request binding needed a digest.
+   *
+   * §1.10 puts one `await` in the ledger path, for inputs too large to
+   * retain verbatim. Rather than make every join and `alive` async to
+   * serve that one case, the synchronous answer comes back immediately
+   * and the remainder is handed over explicitly. A transport sends
+   * `out`, then sends the deferred result's `out` when it settles.
+   *
+   * `null` on every other path, which is all of them but one.
+   */
+  readonly deferred: Promise<Dispatched> | null;
+}
+
+interface Counters {
+  [reason: string]: number;
+}
+
+/** One entity that changed between two views of an interest collection. */
+interface InterestChange {
+  readonly collection: string;
+  readonly id: string;
+  readonly before: unknown;
+  readonly after: unknown;
+  readonly beforeKey: string | null;
+  readonly afterKey: string | null;
+}
+
+/**
+ * A commit's raw change to its entity collections, computed once and
+ * shared by every view: per collection, the ids whose entity is a
+ * different object, with both sides.
+ */
+interface EntityDelta {
+  readonly collections: readonly {
+    readonly collection: string;
+    readonly ids: readonly string[];
+    readonly before: Readonly<Record<string, unknown>>;
+    readonly after: Readonly<Record<string, unknown>>;
+  }[];
+}
+
+/** A view's change, split for per-handle interest filtering. */
+interface InterestDiff {
+  /** Root ops for everything outside the interest collections. */
+  readonly rest: readonly WireOp[];
+  readonly entities: readonly InterestChange[];
+  /** Interest collections that were not entity maps on both sides. */
+  readonly whole: readonly { readonly collection: string; readonly after: unknown }[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Placeholder correlation and handle for sizing a local result as the
+ * `res` a replica would receive. Same lengths as real ones, so the
+ * budget test measures the same bytes.
+ */
+const LOCAL_Q = '0'.repeat(16) as Hex;
+const LOCAL_H = '0'.repeat(32) as Hex;
+
+/**
+ * The owner half of the store protocol.
+ *
+ * Holds no transport: frames come in as text with an authenticated
+ * peer, and go out as text addressed to a peer. That is what lets the
+ * whole of slice C be exercised without a network.
+ */
+export class StoreOwner<S extends object, A extends ActionSpec, I extends InputSpec> {
+  private readonly handles = new Map<Hex, OwnerHandle>();
+  private readonly counters: Counters = {};
+  private readonly chunkBytes: number;
+  private readonly incarnation: Hex;
+  /**
+   * The authoritative document.
+   *
+   * The owner's state IS a store: one place that validates, reconciles,
+   * counts revisions and runs a handler's synchronous transaction.
+   * Keeping a second copy beside it would give handler writes and
+   * `commit` two truths to disagree about.
+   */
+  private readonly core: StoreCore<S, A, I>;
+  /** Digest computations in flight, against the pending bound (§2). */
+  private pending = 0;
+  private readonly ledgers = new LedgerTable();
+  /**
+   * One pending projection per handle (§1.8).
+   *
+   * A newer control REPLACES the pending one rather than queueing
+   * behind it, which is what keeps this a bound rather than a buffer.
+   */
+  private readonly deferred = new Map<Hex, { readonly q: Hex; readonly peer: string }>();
+  /** The revision every installed view is at, before the commit. */
+  private revisionBeforeCommit = 0;
+
+  constructor(private readonly deps: OwnerDeps<S, A, I>) {
+    // Fail fast rather than discover the numbers on the first
+    // projection (§1.9).
+    this.chunkBytes = assertChunkingFits(deps.maxEventBytes);
+    this.incarnation = deps.newIncarnation();
+    if (this.incarnation.length !== INCARNATION_HEX_LENGTH) {
+      throw new StoreError('invalid-data', 'newIncarnation must return 16 lowercase hex');
+    }
+    // Exactly one projection. Neither would ship nothing truthful;
+    // both would leave which one decides a secret to the reader of
+    // this file.
+    const projections = (typeof deps.project === 'function' ? 1 : 0) + (typeof deps.projectFor === 'function' ? 1 : 0);
+    const declared = deps.definition.visibility;
+    if (projections > 1 || (projections === 0 && declared === undefined)) {
+      throw new StoreError(
+        'invalid-data',
+        'a host needs one of `project` and `projectFor`, or a definition that declares `visibility`',
+      );
+    }
+    this.visibility = declared === undefined ? null : compileVisibility(declared);
+    this.perPlayer = typeof deps.projectFor === 'function' || this.visibility?.perPlayer === true;
+    this.core = new StoreCore({ definition: deps.definition, initialState: deps.definition.empty() });
+  }
+
+  /** Whether projections depend on the peer (`projectFor`, or an `owner` rule). */
+  private readonly perPlayer: boolean;
+  /** The definition's declared rules, compiled; `null` when it declares none. */
+  private readonly visibility: CompiledVisibility | null;
+  /** Development warnings already given, so each is said once. */
+  private readonly warned = new Set<string>();
+
+  private warnOnce(message: string): void {
+    if (this.deps.warn === undefined || this.warned.has(message)) return;
+    this.warned.add(message);
+    try {
+      this.deps.warn(message);
+    } catch {
+      // A logger's failure is not the store's.
+    }
+  }
+
+  /** The key under which two handles are certain to receive the same projection. */
+  private viewKey(peer: string, audience: readonly string[]): string {
+    return this.perPlayer ? JSON.stringify([peer, audience]) : JSON.stringify(audience);
+  }
+
+  /**
+   * Views whose change was projected from the changed entities alone
+   * (`sparseInterestDiff`). Not a refusal, so not in {@link snapshotCounters}.
+   */
+  get sparseViews(): number {
+    return this.sparseViewCount;
+  }
+  private sparseViewCount = 0;
+
+  /** Counters a host can report. Every refusal moves exactly one. */
+  snapshotCounters(): Readonly<Counters> {
+    return { ...this.counters };
+  }
+
+  /** Live handles, for a host's own bounds reporting. */
+  get handleCount(): number {
+    return this.handles.size;
+  }
+
+  /** The handle record, for a test or a host's introspection. */
+  handle(h: Hex): OwnerHandle | undefined {
+    return this.handles.get(h);
+  }
+
+  /**
+   * Replace the authoritative state, as `setState` does.
+   *
+   * Inside an open transaction the write JOINS it (`applySnapshot`
+   * stages) and the delta emission is DEFERRED to that transaction's
+   * commit (#5): `decide`/`input` diff the committed before/after at
+   * the transaction's end and ship exactly one delta, and a rollback
+   * ships nothing at all. Emitting here would put a staged-world
+   * delta on the wire that no rollback retracts.
+   */
+  commit(next: S): Dispatched {
+    const inTransaction = this.core.inTransaction;
+    const previous = this.core.getState() as S;
+    if (!inTransaction) this.revisionBeforeCommit = this.core.revision;
+    this.core.applySnapshot(next);
+    if (inTransaction) return this.accept([]);
+    const current = this.core.getState() as S;
+    if (Object.is(previous, current)) {
+      // An equivalent commit is not a change (§4): no revision moved,
+      // so there is nothing to tell anyone.
+      return this.accept([]);
+    }
+    return this.accept(this.propagate(previous, current));
+  }
+
+  /**
+   * Write entities of one declared collection, as `setEntities` does:
+   * each changed entity validated by its per-entity parser, no
+   * whole-document validation. Same transaction and delta rules as
+   * {@link commit}.
+   */
+  commitEntities(collection: string, changes: Readonly<Record<string, unknown>>): Dispatched {
+    const inTransaction = this.core.inTransaction;
+    const previous = this.core.getState() as S;
+    if (!inTransaction) this.revisionBeforeCommit = this.core.revision;
+    this.core.applyEntities(collection, changes);
+    if (inTransaction) return this.accept([]);
+    const current = this.core.getState() as S;
+    if (Object.is(previous, current)) return this.accept([]);
+    return this.accept(this.propagate(previous, current));
+  }
+
+  /**
+   * Tell every installed handle what changed (§1.9).
+   *
+   * Per audience, because a delta of the raw state would ship what a
+   * projection exists to withhold: the previous and current
+   * projections are both taken and the difference between THOSE is
+   * what goes out. The previous one is recomputed from the previous
+   * state rather than retained per handle — one projection can be a
+   * megabyte, and keeping one per handle is 256 of them.
+   *
+   * When a delta would not fit the message budget the owner allocates
+   * a new generation instead and sends a manifest: an owner-initiated
+   * replacement, admissible at a `ready` replica (§1.8).
+   */
+  private propagate(previous: S, current: S): Outbound[] {
+    const out: Outbound[] = [];
+    const r = String(this.core.revision);
+    const interestCache = new Map<string, InterestDiff | null>();
+    // One projection pair and one root diff per DISTINCT audience
+    // (per distinct peer and audience under `projectFor`), shared by
+    // every handle that carries it. Projecting and diffing
+    // per handle made this O(handles × world) JSON work per commit:
+    // both projections were freshly built per handle, so `shallowDiff`'s
+    // identity test could never fire and every key paid its
+    // serialization comparison once per handle.
+    const diffs = new Map<string, readonly WireOp[] | null>();
+    // The commit's raw entity change, when it qualifies for per-view
+    // projection of the changed entities alone (see `sparseInterestDiff`);
+    // computed on first need.
+    let entityChange: EntityDelta | null | undefined;
+    for (const handle of [...this.handles.values()]) {
+      // No `generation === 0` test: a handle is created and installed
+      // in one synchronous `join`, and a join whose emission fails
+      // deletes it, so a live handle always has a generation. What
+      // does need testing is a handle whose NEXT projection is still
+      // pending — a delta against a view it has not installed would
+      // name a revision it never had, and it has already cleared the
+      // old one locally.
+      if (this.deferred.has(handle.h)) continue;
+
+      // Re-authorize before shipping. Permission does not carry forward
+      // across time (the rule the read paths below all hold to), and the
+      // delta feed IS the read delivered fresh: a policy revocation has to
+      // stop it, not only the next projection. `join`, `aud`/`resume` and
+      // `resync` are all gated, and the `resync` refusal deliberately keeps
+      // the handle warm — which is why the feed cannot rely on the grant
+      // having been checked once at admission. The handle goes with the
+      // refusal here because the feed is the grant: leaving it alive would
+      // let `alive` renew the lease of a peer the policy now forbids.
+      if (!this.permitsRead(handle.peer, handle.audience, handle.key)) {
+        this.forget(handle.h, 'refused');
+        // `closed`, the wire's legal unsolicited refusal (§1.12 admits
+        // exactly `closed` and `owner-lost` without a `q`): it closes
+        // the subscription, the replica rejoins, and the JOIN — a
+        // request path that CAN carry a refusal — answers `forbidden`
+        // correlated. A q-less `forbidden` is not a frame the codec
+        // admits; `encodeMessage` throws it out of `propagate`.
+        out.push(this.no(handle.peer, handle.h, 'closed', null));
+        continue;
+      }
+
+      const audienceKey = this.viewKey(handle.peer, handle.audience);
+      let ops: readonly WireOp[] | null | undefined;
+      if (this.interestFns.length > 0 && handle.interest !== null) {
+        // Interest-filtered: the view's diff, shared per view, is split
+        // into the rest of the document and per-entity changes, and each
+        // handle takes only the entities its interest covers.
+        let diff = interestCache.get(audienceKey);
+        if (diff === undefined) {
+          if (entityChange === undefined) entityChange = this.entityDelta(previous, current);
+          diff =
+            entityChange === null
+              ? undefined
+              : this.sparseInterestDiff(handle.peer, handle.audience, entityChange);
+          if (diff === undefined) {
+            const before = this.project(handle.peer, handle.audience, previous);
+            const after = this.project(handle.peer, handle.audience, current);
+            diff = before === null || after === null ? null : this.interestDiff(before, after);
+          } else {
+            this.sparseViewCount += 1;
+          }
+          interestCache.set(audienceKey, diff);
+        }
+        ops = diff === null ? null : this.interestOps(diff, handle.interest);
+      } else {
+        ops = diffs.get(audienceKey);
+        if (ops === undefined) {
+          const before = this.project(handle.peer, handle.audience, previous);
+          const after = this.project(handle.peer, handle.audience, current);
+          ops =
+            before === null || after === null
+              ? null
+              : shallowDiff(before as JsonObject, after as JsonObject);
+          diffs.set(audienceKey, ops);
+        }
+      }
+      if (ops === null) {
+        // `project` and its `empty()` fallback both failed: there is
+        // nothing truthful to ship, exactly as when `install` cannot
+        // carry a projection. Silence — the previous `continue` — left
+        // the replica at its old revision reporting `ready, stale:
+        // false` until the next change to that audience happened to
+        // resync it. The handle goes with a typed notice: `closed`,
+        // the only unsolicited refusal the wire admits (§1.12), which
+        // closes the subscription and provokes a rejoin — and the
+        // JOIN, a request path that CAN carry a refusal, answers
+        // `capacity` correlated if the projection is still broken.
+        this.forget(handle.h);
+        out.push(this.no(handle.peer, handle.h, 'closed', null));
+        continue;
+      }
+      if (ops.length === 0) continue;
+
+      const delta = encodeDeltaWithin(
+        { k: 'delta', h: handle.h, g: String(handle.generation), base: String(handle.revision), r, ops },
+        this.deps.maxEventBytes,
+      );
+      if (delta !== null) {
+        out.push({ peer: handle.peer, h: handle.h, frame: delta });
+        this.handles.set(handle.h, { ...handle, revision: this.core.revision });
+        continue;
+      }
+      // Too large to carry as a patch: replace the whole view.
+      const frames = this.install(handle, null);
+      if (frames === null) {
+        this.forget(handle.h);
+        // `closed`, the legal unsolicited refusal: the replacement
+        // could not be carried at all. The rejoin it provokes is
+        // refused `capacity` correlated at the join.
+        out.push(this.no(handle.peer, handle.h, 'closed', null));
+        continue;
+      }
+      out.push(...frames);
+    }
+    return out;
+  }
+
+  /** The authoritative document, for a host's own reads. */
+  getState(): S {
+    return this.core.getState() as S;
+  }
+
+  /**
+   * Subscribe to the authoritative document.
+   *
+   * The owner's own code watches the state it serves — a host renders
+   * from this, and an action's commit is the same revision its
+   * subscribers see.
+   */
+  subscribe(listener: (state: S, previous: S) => void): Cancel {
+    return this.core.subscribe((state, previous) => {
+      listener(state as S, previous as S);
+    });
+  }
+
+  /** The current authoritative revision. */
+  get currentRevision(): number {
+    return this.core.revision;
+  }
+
+  /**
+   * The host's own player: whether `peer` may read `audience`.
+   *
+   * The same `authorize` call a `join` makes. There is no handle, no
+   * lease and no ledger — the host's player has no wire to lose a
+   * frame on and no request to replay — but there is the policy.
+   */
+  localRead(peer: string, audience: readonly string[]): boolean {
+    return this.permitsRead(peer, audience);
+  }
+
+  /** The host's own player: the projection a replica of `audience` receives. */
+  localView(peer: string, audience: readonly string[], interest: readonly string[] | null = null): S | null {
+    const view = this.project(peer, audience);
+    return view === null ? null : this.filterInterest(view, interest);
+  }
+
+  /**
+   * The host's own player: one action, through the ladder a replica's
+   * `act` takes after the wire — known name, `authorize`, then one
+   * transaction that parses the input, runs the handler and validates
+   * the output, and a result that must fit the message budget a
+   * replica would have received it in.
+   *
+   * `input` is what `parseStoreJson` produced from the caller's value,
+   * so the handler sees exactly what it would see from a replica.
+   */
+  localAct(
+    name: string,
+    input: JsonValue,
+    peer: string,
+  ): { readonly outcome: Outcome; readonly dispatched: Dispatched } {
+    if (!Object.prototype.hasOwnProperty.call(this.deps.definition.actions, name)) {
+      return {
+        outcome: { kind: 'refusal', code: 'invalid-data' },
+        dispatched: this.refuse('local-act-unknown-name'),
+      };
+    }
+    if (!this.permitsAction(peer, name, input)) {
+      return {
+        outcome: { kind: 'refusal', code: 'forbidden' },
+        dispatched: this.refuse('local-act-forbidden'),
+      };
+    }
+    const spec = this.deps.definition.actions[name as keyof A];
+    const before = this.core.getState() as S;
+    this.revisionBeforeCommit = this.core.revision;
+    let outcome: Outcome;
+    try {
+      const handler = this.deps.actions[name as keyof A];
+      const produced = this.core.transact(context => {
+        const out = spec.output(handler(spec.input(input), context)) as JsonObject;
+        // The budget a replica's `res` would have had to fit. A result
+        // that works for the host and not for its players is a bug the
+        // host would never see, so it is refused here the same way.
+        const frame = encodeMessage({
+          k: 'res',
+          q: LOCAL_Q,
+          h: LOCAL_H,
+          s: '1',
+          out,
+        });
+        if (utf8Length(frame) > this.deps.maxEventBytes) {
+          throw new StoreError('capacity', 'the result does not fit the message budget');
+        }
+        return out;
+      }, peer);
+      outcome = { kind: 'result', out: produced };
+    } catch (error) {
+      outcome = {
+        kind: 'refusal',
+        code:
+          error instanceof StoreError && error.code === 'capacity' ? 'capacity' : 'action-rejected',
+      };
+    }
+    const after = this.core.getState() as S;
+    const propagated = Object.is(before, after) ? [] : this.propagate(before, after);
+    return {
+      outcome,
+      dispatched:
+        outcome.kind === 'refusal'
+          ? this.refuse(`local-act-${outcome.code}`, propagated)
+          : this.accept(propagated),
+    };
+  }
+
+  /**
+   * The host's own player: one latest-value input, through the same
+   * ladder as a replica's `in` after the wire. No sequence: a local
+   * call cannot arrive out of order.
+   */
+  localInput(name: string, input: JsonValue, peer: string): Dispatched {
+    if (!Object.prototype.hasOwnProperty.call(this.deps.definition.inputs, name)) {
+      return this.refuse('local-in-unknown-name');
+    }
+    if (!this.permitsInput(peer, name, input)) return this.refuse('local-in-forbidden');
+    const before = this.core.getState() as S;
+    this.revisionBeforeCommit = this.core.revision;
+    try {
+      this.core.transact(context => {
+        const parse = this.deps.definition.inputs[name as keyof I];
+        const handler = this.deps.inputs[name as keyof I];
+        handler(parse(input), context);
+      }, peer);
+    } catch {
+      return this.refuse('local-in-rejected');
+    }
+    const after = this.core.getState() as S;
+    return this.accept(Object.is(before, after) ? [] : this.propagate(before, after));
+  }
+
+  /**
+   * Dispatch one inbound frame.
+   *
+   * `peer` is the **authenticated** originating caller — see the module
+   * note. It is not read from `frame`, and no frame can carry one.
+   */
+  receive(frame: string, peer: string, now: number = this.deps.now()): Dispatched {
+    const decoded = decodeMessage(frame, { maxBytes: this.deps.maxEventBytes, as: 'owner' });
+    if (!decoded.ok) return this.refuse(decoded.reason, []);
+
+    const message = decoded.message;
+    if (message.k === 'join') return this.join(message, peer, now);
+
+    // Every other kind names a handle. Binding is re-checked on every
+    // message, not only at admission (§1.3): a session replacement does
+    // not re-authorize a handle.
+    const bound = this.bind(message.h, peer, now);
+    if (typeof bound === 'string') {
+      return this.refuse(bound, [this.no(peer, message.h, 'closed', requestOf(message))]);
+    }
+
+    switch (message.k) {
+      case 'alive': {
+        this.handles.set(bound.h, { ...bound, lastSeen: now });
+        return this.accept([{ peer, h: bound.h, frame: encodeMessage({ k: 'ok', q: message.q, h: bound.h }) }]);
+      }
+      case 'leave': {
+        this.forget(bound.h, 'left');
+        return this.accept([{ peer, h: bound.h, frame: encodeMessage({ k: 'ok', q: message.q, h: bound.h }) }]);
+      }
+      case 'int':
+        return this.interestChange(message, bound, peer, now);
+      case 'act':
+        return this.action(message, bound, peer, now);
+      case 'in':
+        return this.input(message, bound, peer, now);
+      case 'resync': {
+        // §1.8. `g` and `have` are ADVISORY historical position, so
+        // they are deliberately not read: a replica installed at A
+        // whose replacement B timed out can only honestly name A, and
+        // a current-generation check would refuse exactly the caller
+        // that most needs recovering.
+        //
+        // But a resync takes a FRESH projection at the current
+        // revision, which makes it a READ — so the policy rules on it
+        // exactly as it ruled on the join. Binding the handle proves
+        // WHO is asking; it does not carry a permission decision
+        // forward across time, and a read the policy has since revoked
+        // must not be served because the handle is still warm. The
+        // handle survives the refusal: the request was refused, not
+        // the subscription.
+        if (!this.permitsRead(peer, bound.audience, bound.key)) {
+          return this.refuse(
+            'resync-forbidden',
+            [this.no(peer, bound.h, 'forbidden', message.q)]
+          );
+        }
+        const renewed = { ...bound, lastSeen: now };
+        this.handles.set(bound.h, renewed);
+        const frames = this.install(renewed, message.q);
+        if (frames === null) {
+          this.forget(bound.h);
+          return this.refuse(
+            'resync-projection-capacity',
+            [this.no(peer, bound.h, 'capacity', message.q)]
+          );
+        }
+        return this.accept(frames);
+      }
+      case 'aud':
+      case 'resume': {
+        // §1.7/§1.6. Both state the caller's DESIRED audience and both
+        // are reads, so both are authorized for that audience before
+        // any projection is taken — an audience the caller may not
+        // read is refused, never narrowed to one it may.
+        //
+        // `resume` differs from `resync` exactly here: a reconnecting
+        // caller must not be re-shown whatever audience the owner
+        // happened to hold last, because that audience may be wider
+        // than what the caller now wants.
+        // No audience-bound check here: the parser refuses
+        // `audience-too-many` at rung 6 (wire.ts, witnessed in
+        // wire.test.ts), so a frame carrying more than the bound never
+        // reaches dispatch. Re-checking it would be a claim.
+        if (!this.permitsRead(peer, message.aud, bound.key)) {
+          return this.refuse(
+            `${message.k}-forbidden`,
+            [this.no(peer, bound.h, 'forbidden', message.q)]
+          );
+        }
+
+        // The audience is rebound BEFORE the projection, so the
+        // projection can only ever be of the audience just authorized.
+        const rebound: OwnerHandle = {
+          ...bound,
+          audience: [...message.aud],
+          // A resume states the caller's desired interest too; an `aud`
+          // leaves it as it was.
+          interest: message.k === 'resume' && message.int !== undefined ? [...message.int] : bound.interest,
+          lastSeen: now,
+        };
+        this.handles.set(rebound.h, rebound);
+
+        // A caller control supersedes an in-flight emission (§1.7b).
+        // There is nothing to retire on THIS side: an emission is
+        // built complete and handed to the transport in one return, so
+        // the owner holds no unsent remainder. What enforces the rule
+        // is the replica refusing the superseded generation's chunks,
+        // and the new generation this allocates — the superseded one
+        // stays consumed either way.
+
+        if (!this.deps.canProject()) {
+          // §1.8's one disposition: DEFER, never refuse. A control is
+          // never answered `not-ready`, and holding one pending
+          // projection per handle is what lets the caller's own
+          // deadline be the bound.
+          this.deferred.set(rebound.h, { q: message.q, peer });
+          return this.accept([]);
+        }
+
+        const frames = this.install(rebound, message.q);
+        if (frames === null) {
+          this.forget(rebound.h);
+          return this.refuse(
+            `${message.k}-projection-capacity`,
+            [this.no(peer, rebound.h, 'capacity', message.q)]
+          );
+        }
+        return this.accept(frames);
+      }
+      default:
+        return this.refuse('unreachable-kind');
+    }
+  }
+
+  /**
+   * One action (§1.10).
+   *
+   * The ladder: gameplay readiness, then the sequence, then the
+   * ledger's disposition, then — only for a genuinely new request —
+   * `authorize` and one synchronous transaction.
+   *
+   * The digest path is the one place this module awaits. Everything
+   * decided before the await is discarded and decided again after it:
+   * the handle may have expired, the policy may have been revoked, and
+   * the ledger may have retained this very sequence while the digest
+   * was computing.
+   */
+  private action(
+    message: Extract<CallerMessage, { k: 'act' }>,
+    bound: OwnerHandle,
+    peer: string,
+    now: number,
+  ): Dispatched {
+    // No gameplay-readiness refusal here, and the absence is the
+    // honest answer rather than an oversight. §1.6 makes gameplay
+    // admissible once a handle's current generation has been emitted
+    // in full, and in this owner every accepted emission is built and
+    // handed over synchronously, before the reply that admits the
+    // handle — so a live handle is always emitted for its current
+    // generation. A `not-ready` branch here could not fire, and a
+    // check that cannot fire is a claim.
+    //
+    // Slice F introduces the state that makes it meaningful: a
+    // deferred projection (§1.8) allocates a generation whose chunks
+    // are not yet out, and an `act` arriving in that window is the
+    // first one that must be refused `not-ready`. It belongs in the
+    // slice that can produce it.
+    const name = message.name;
+    if (!Object.prototype.hasOwnProperty.call(this.deps.definition.actions, name)) {
+      return this.refuse('act-unknown-name', [this.no(peer, bound.h, 'invalid-data', message.q)]);
+    }
+
+    let canonical: string;
+    try {
+      canonical = canonicalRequest(name, message.in);
+    } catch {
+      return this.refuse('act-uncanonical', [this.no(peer, bound.h, 'invalid-data', message.q)]);
+    }
+
+    if (!needsDigest(canonical)) {
+      return this.decide(message, bound, peer, now, inlineBinding(canonical));
+    }
+
+    // The large-input path. The synchronous answer is "nothing yet";
+    // the rest arrives when the digest does.
+    if (this.pending >= MAX_PENDING_ACTIONS) {
+      return this.refuse('act-pending-bound', [this.no(peer, bound.h, 'capacity', message.q)]);
+    }
+    this.pending += 1;
+    const deferred = digestBinding(canonical)
+      .then(binding => {
+        // REVALIDATE. Nothing decided before the await is reused: the
+        // handle is re-bound to this peer and incarnation, readiness is
+        // re-checked, and the ledger is re-read.
+        const at = this.deps.now();
+        const rebound = this.bind(message.h, peer, at);
+        if (typeof rebound === 'string') {
+          return this.refuse(rebound, [this.no(peer, message.h, 'closed', message.q)]);
+        }
+        return this.decide(message, rebound, peer, at, binding);
+      })
+      .catch(() =>
+        // A digest that fails leaves the owner unable to say whether
+        // this request is the retained one, so it refuses rather than
+        // guessing either way.
+        this.refuse('act-digest-failed', [this.no(peer, message.h, 'indeterminate', message.q)]),
+      )
+      .finally(() => {
+        this.pending -= 1;
+      });
+    return { out: [], refused: null, deferred };
+  }
+
+  /**
+   * The ledger's decision, and the execution it may authorize.
+   *
+   * Synchronous from here on: no `await` may appear below this line,
+   * because the transaction it enters is synchronous by construction
+   * and a permission checked before a wait can have been revoked
+   * during it.
+   */
+  private decide(
+    message: Extract<CallerMessage, { k: 'act' }>,
+    bound: OwnerHandle,
+    peer: string,
+    now: number,
+    binding: RequestBinding,
+  ): Dispatched {
+    const ledger = this.ledgers.ledger(bound.h);
+    const s = decimalValue(message.s);
+    const disposition = ledger.disposition(s, binding, now);
+
+    switch (disposition.kind) {
+      case 'exhausted':
+        // The counter does not wrap: a fresh handle is the only way
+        // on, and prior outcomes are then unknown.
+        return this.refuse('act-sequence-exhausted', [this.no(peer, bound.h, 'capacity', message.q)]);
+      case 'conflict':
+        // A sequence identifies one request, not a slot. Not executed,
+        // and the retained entry is left exactly as it was.
+        return this.refuse('act-binding-mismatch', [this.no(peer, bound.h, 'invalid-data', message.q)]);
+      case 'expired':
+        // Used, and the outcome is gone. This asserts NOTHING about
+        // whether it committed.
+        return this.refuse('act-result-expired', [this.no(peer, bound.h, 'result-expired', message.q)]);
+      case 'replay': {
+        // A replay is re-authorized first: the retained outcome is not
+        // a permission that keeps working.
+        if (!this.permitsAction(peer, message.name, message.in)) {
+          return this.refuse('act-forbidden-replay', [this.no(peer, bound.h, 'forbidden', message.q)]);
+        }
+        this.renew(bound, now);
+        return this.accept([this.reply(bound, peer, message.q, s, disposition.outcome)]);
+      }
+      case 'execute':
+        break;
+    }
+
+    if (!this.permitsAction(peer, message.name, message.in)) {
+      // A denial is RETAINED. Otherwise a later policy change turns
+      // this refusal into an execution of the same sequence.
+      ledger.retain(s, binding, { kind: 'refusal', code: 'forbidden' }, now);
+      this.renew(bound, now);
+      return this.refuse('act-forbidden', [this.no(peer, bound.h, 'forbidden', message.q)]);
+    }
+
+    const spec = this.deps.definition.actions[message.name as keyof A];
+    const before = this.core.getState() as S;
+    this.revisionBeforeCommit = this.core.revision;
+    let outcome: Outcome;
+    try {
+      const handler = this.deps.actions[message.name as keyof A];
+      // Everything that can REFUSE this action happens inside the
+      // transaction — the input parse INCLUDED, because it is
+      // application code and a write it makes through the public
+      // `host.setState` must join the transaction like the handler's
+      // own: discarded on a throw, shipped once at the commit (#5).
+      // A parse run beside the transaction published its write and an
+      // emission of its own, and the rollback then answered
+      // `action-rejected` for a change that had already shipped.
+      //
+      // The output is validated here for the same reason: a throw
+      // inside the transaction discards the staged writes and a throw
+      // after it does not. Validating the output afterwards let a
+      // handler whose result the definition refuses commit its writes
+      // and ship a delta, answering `action-rejected` for a change
+      // that had already happened — and the same for a result too
+      // large to send, which left the caller with a document it could
+      // not be told about.
+      const produced = this.core.transact(context => {
+        const input = spec.input(message.in);
+        const out = spec.output(handler(input, context)) as JsonObject;
+        const frame = encodeMessage({
+          k: 'res',
+          q: message.q,
+          h: bound.h,
+          s: message.s,
+          out,
+        });
+        if (utf8Length(frame) > this.deps.maxEventBytes) {
+          throw new StoreError('capacity', 'the result does not fit the message budget');
+        }
+        return out;
+      }, peer);
+      outcome = { kind: 'result', out: produced };
+    } catch (error) {
+      // A handler that threw rejected the action, and the transaction
+      // discarded its writes. So did a result the definition refused
+      // or one that does not fit — and a result that cannot be sent
+      // is `capacity`, not `action-rejected`: the caller needs to know
+      // its request was well-formed and the ANSWER was not.
+      outcome = {
+        kind: 'refusal',
+        code:
+          error instanceof StoreError && error.code === 'capacity' ? 'capacity' : 'action-rejected',
+      };
+    }
+
+    ledger.retain(s, binding, outcome, now);
+    this.renew(bound, now);
+    // The handler's writes are a change like any other: every
+    // installed handle is told, including this caller's — the `res`
+    // answers the request, the delta moves the view, and they are two
+    // different facts.
+    const after = this.core.getState() as S;
+    const propagated = Object.is(before, after) ? [] : this.propagate(before, after);
+    return this.accept([this.reply(bound, peer, message.q, s, outcome), ...propagated]);
+  }
+
+  /** One latest-value input (§1.11). Fire and forget: no reply, ever. */
+  private input(
+    message: Extract<CallerMessage, { k: 'in' }>,
+    bound: OwnerHandle,
+    peer: string,
+    now: number,
+  ): Dispatched {
+    const name = message.name;
+    if (!Object.prototype.hasOwnProperty.call(this.deps.definition.inputs, name)) {
+      return this.refuse('in-unknown-name');
+    }
+    if (!this.ledgers.inputs(bound.h).admit(name, decimalValue(message.s))) {
+      // Stale. Loss is not an error here, and a dropped input may be
+      // the LAST one — the store promises no successor.
+      return this.refuse('in-stale-sequence');
+    }
+    if (!this.permitsInput(peer, name, message.in)) return this.refuse('in-forbidden');
+
+    const before = this.core.getState() as S;
+    this.revisionBeforeCommit = this.core.revision;
+    try {
+      // The parse runs INSIDE the transaction, exactly as the action
+      // ladder does (#5): it is application code, and a write it makes
+      // through the public `host.setState` joins the transaction —
+      // discarded with the handler's own writes on a throw, shipped
+      // once in the change this path reports at the end.
+      this.core.transact(context => {
+        const parse = this.deps.definition.inputs[name as keyof I];
+        const handler = this.deps.inputs[name as keyof I];
+        handler(parse(message.in), context);
+      }, peer);
+    } catch {
+      return this.refuse('in-rejected');
+    }
+    this.renew(bound, now);
+    // An input has no reply of its own, but the change it made is
+    // still a change every installed handle is told about.
+    const after = this.core.getState() as S;
+    return this.accept(Object.is(before, after) ? [] : this.propagate(before, after));
+  }
+
+  /** A `res` for a result, a `no` for a retained refusal. */
+  private reply(
+    bound: OwnerHandle,
+    peer: string,
+    q: Hex,
+    s: bigint,
+    outcome: Outcome,
+  ): Outbound {
+    // A freshly constructed envelope carrying the retained OUTCOME —
+    // never a retained reply message, whose `q` belonged to the
+    // original request (§1.10).
+    const frame =
+      outcome.kind === 'result'
+        ? encodeMessage({ k: 'res', q, h: bound.h, s: s.toString(), out: outcome.out })
+        : encodeMessage({ k: 'no', q, h: bound.h, code: outcome.code, s: s.toString() });
+    return { peer, h: bound.h, frame };
+  }
+
+  private permitsAction(peer: string, name: string, input: JsonValue): boolean {
+    const request = { type: 'action', peer, name, input } as unknown as AccessRequest<A, I>;
+    try {
+      return this.deps.authorize(request) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private permitsInput(peer: string, name: string, input: JsonValue): boolean {
+    const request = { type: 'input', peer, name, input } as unknown as AccessRequest<A, I>;
+    try {
+      return this.deps.authorize(request) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The lease is renewed by an accepted message, refusals excepted. */
+  private renew(bound: OwnerHandle, now: number): void {
+    const live = this.handles.get(bound.h);
+    if (live === undefined) return;
+    this.handles.set(bound.h, { ...live, lastSeen: now });
+  }
+
+  /**
+   * Everything that belongs to one handle, gone together.
+   *
+   * §2: the ledger goes with the handle. That is what makes a replay
+   * after eviction `closed` rather than `result-expired` — the owner
+   * no longer knows the sequence existed — and it is what keeps the
+   * ledger table bounded by live handles instead of by the owner's
+   * lifetime.
+   */
+  private forget(h: Hex, reason: LeaveReason = 'dropped'): void {
+    const gone = this.handles.get(h);
+    this.handles.delete(h);
+    this.ledgers.forget(h);
+    // §1.8: expiry retires any projection already pending, and a dead
+    // handle never acquires one.
+    this.deferred.delete(h);
+    if (gone === undefined) return;
+    this.presenceChanged(gone.peer, reason);
+    this.membershipChanged();
+  }
+
+  // ─────────────────────────────── events ───────────────────────────
+
+  /** Peers present as players: a handle installed, or a local player. */
+  private readonly present = new Set<string>();
+  private readonly localPlayers = new Set<string>();
+  private readonly pendingEvents: StoreEvent[] = [];
+  private readonly areas = new Map<string, string | null>();
+  private areasAt = -1;
+  /** Set by `farewell`: a closing store raises no more events. */
+  private ending = false;
+
+  private get wantsEvents(): boolean {
+    return this.deps.onEvent !== undefined || this.deps.areaOf !== undefined;
+  }
+
+  private isPresent(peer: string): boolean {
+    if (this.localPlayers.has(peer)) return true;
+    for (const handle of this.handles.values()) if (handle.peer === peer) return true;
+    return false;
+  }
+
+  /** Queue `join` / `leave` when a peer's presence actually flips. */
+  private presenceChanged(peer: string, reason: LeaveReason | null, audience: readonly string[] = []): void {
+    if (!this.wantsEvents || this.ending) return;
+    const now = this.isPresent(peer);
+    const was = this.present.has(peer);
+    if (now === was) return;
+    if (now) {
+      this.present.add(peer);
+      this.pendingEvents.push(Object.freeze({ type: 'join', peer, audience: Object.freeze([...audience]) }));
+    } else {
+      this.present.delete(peer);
+      this.areas.delete(peer);
+      this.pendingEvents.push(Object.freeze({ type: 'leave', peer, reason: reason ?? 'dropped' }));
+    }
+  }
+
+  /**
+   * The host's own player arriving or going (`hostPlayer`). It has no
+   * handle, but it is a player: `onEvent` hears it like any other.
+   */
+  localPresence(peer: string, joined: boolean, audience: readonly string[] = [], reason: LeaveReason = 'left'): void {
+    if (joined) this.localPlayers.add(peer);
+    else this.localPlayers.delete(peer);
+    this.presenceChanged(peer, joined ? null : reason, audience);
+  }
+
+  /** Queue `area` events for present players whose area moved. */
+  private detectAreas(): void {
+    const areaOf = this.deps.areaOf;
+    if (areaOf === undefined || this.ending) return;
+    if (this.areasAt === this.core.revision && [...this.present].every(peer => this.areas.has(peer))) return;
+    this.areasAt = this.core.revision;
+    const state = this.core.getState() as S;
+    for (const peer of this.present) {
+      let area: string | null;
+      try {
+        const value = this.core.runReadOnly(() => areaOf(state, peer));
+        area = typeof value === 'string' ? value : null;
+      } catch {
+        area = null;
+      }
+      const known = this.areas.has(peer);
+      const from = known ? (this.areas.get(peer) ?? null) : null;
+      this.areas.set(peer, area);
+      if (known ? from !== area : area !== null) {
+        this.pendingEvents.push(Object.freeze({ type: 'area', peer, from, to: area }));
+      }
+    }
+  }
+
+  /**
+   * Run `onEvent` for everything queued, each as its own transaction,
+   * and return what those transactions changed for the replicas.
+   *
+   * Called by the host AFTER the frame that caused the events has been
+   * dispatched — never inside it — so a hook never runs in the middle
+   * of a projection pass. A hook that throws discards its writes, as a
+   * handler's do, and is counted. A hook whose writes cause more events
+   * (a teleport on join) is served in the same drain, up to a bound, so
+   * two hooks cannot ping-pong forever.
+   */
+  drainEvents(): Dispatched {
+    const out: Outbound[] = [];
+    if (!this.wantsEvents) return this.accept(out);
+    for (let rounds = 0; ; rounds += 1) {
+      if (this.pendingEvents.length === 0) this.detectAreas();
+      const event = this.pendingEvents.shift();
+      if (event === undefined) break;
+      if (rounds >= MAX_EVENT_ROUNDS) {
+        this.pendingEvents.length = 0;
+        this.counters['event-rounds-bound'] = (this.counters['event-rounds-bound'] ?? 0) + 1;
+        break;
+      }
+      const hook = this.deps.onEvent;
+      if (hook === undefined) continue;
+      const before = this.core.getState() as S;
+      this.revisionBeforeCommit = this.core.revision;
+      try {
+        this.core.transact(context => hook(event, context), event.peer);
+      } catch {
+        this.counters['event-rejected'] = (this.counters['event-rejected'] ?? 0) + 1;
+        continue;
+      }
+      const after = this.core.getState() as S;
+      if (!Object.is(before, after)) out.push(...this.propagate(before, after));
+    }
+    return this.accept(out);
+  }
+
+  /** Listeners told when the set of installed handles changes. */
+  private readonly membership = new Set<() => void>();
+
+  private membershipChanged(): void {
+    for (const listener of [...this.membership]) {
+      try {
+        listener();
+      } catch {
+        // A listener is application code on the frame path; its
+        // failure must not take the dispatch down with it.
+      }
+    }
+  }
+
+  /**
+   * Be told when a handle is installed or forgotten — join, leave,
+   * expiry, a policy refusal, closure. Synchronous, inside the frame
+   * that caused it: a listener reads {@link peers} and must not call
+   * back into the owner.
+   */
+  onMembership(listener: () => void): Cancel {
+    this.membership.add(listener);
+    return () => {
+      this.membership.delete(listener);
+    };
+  }
+
+  /** The distinct authenticated peers with an installed handle. */
+  peers(): readonly string[] {
+    return [...new Set([...this.handles.values()].map(handle => handle.peer))];
+  }
+
+  /**
+   * Re-ask `authorize` for every installed read, now.
+   *
+   * The delta feed re-authorizes before shipping, but only when there
+   * is a change to ship: a policy that revokes a peer (a kick) would
+   * otherwise leave it subscribed until the next commit. A refused
+   * handle is forgotten with the same unsolicited `closed` the feed
+   * sends, so the replica rejoins and its join is answered
+   * `forbidden`.
+   */
+  reauthorize(): Dispatched {
+    const out: Outbound[] = [];
+    for (const handle of [...this.handles.values()]) {
+      if (this.permitsRead(handle.peer, handle.audience, handle.key)) continue;
+      this.forget(handle.h, 'refused');
+      out.push(this.no(handle.peer, handle.h, 'closed', null));
+    }
+    return this.accept(out);
+  }
+
+  /**
+   * Emit the projections that were deferred, now that one can be
+   * taken.
+   *
+   * Completion **revalidates**: a handle can die between the deferral
+   * and the availability, and an expired one never acquires a pending
+   * projection in the first place (§1.8).
+   */
+  resumeDeferred(now: number = this.deps.now()): Dispatched {
+    if (!this.deps.canProject()) return this.accept([]);
+    const out: Outbound[] = [];
+    for (const [h, pending] of [...this.deferred]) {
+      this.deferred.delete(h);
+      const bound = this.bind(h, pending.peer, now);
+      if (typeof bound === 'string') {
+        // The handle went while the projection was unavailable. The
+        // caller's own deadline covers this; nothing is emitted to a
+        // handle that no longer exists.
+        this.counters[`deferred-${bound}`] = (this.counters[`deferred-${bound}`] ?? 0) + 1;
+        continue;
+      }
+      const frames = this.install(bound, pending.q);
+      if (frames === null) {
+        this.forget(h);
+        out.push(this.no(pending.peer, h, 'capacity', pending.q));
+        continue;
+      }
+      out.push(...frames);
+    }
+    return this.accept(out);
+  }
+
+  /** Projections waiting on availability, for a host's bounds report. */
+  get deferredCount(): number {
+    return this.deferred.size;
+  }
+
+  /** Ledgers held, for a host's own bounds reporting (§2). */
+  get ledgerCount(): number {
+    return this.ledgers.size;
+  }
+
+  /** An accepted frame's reply. */
+  private accept(out: readonly Outbound[], deferred: Promise<Dispatched> | null = null): Dispatched {
+    return { out, refused: null, deferred };
+  }
+
+  /**
+   * Expire handles whose lease has run out (§2).
+   *
+   * Reports the PEER with the handle, because §1.6's expiry notice is
+   * addressed to a caller and the handle is gone by the time anyone
+   * could look it up. A host that cannot reach that peer sends
+   * nothing; no tombstone is retained to announce later.
+   */
+  sweep(now: number): readonly { readonly h: Hex; readonly peer: string }[] {
+    const expired: { h: Hex; peer: string }[] = [];
+    for (const [h, handle] of [...this.handles]) {
+      if (now - handle.lastSeen >= HANDLE_LEASE_MS) {
+        this.forget(h, 'expired');
+        expired.push({ h, peer: handle.peer });
+      }
+    }
+    return expired;
+  }
+
+  /**
+   * Say goodbye, once, to every replica this owner is serving.
+   *
+   * §1.6's doctrine is that a caller learns why rather than inferring
+   * it from silence, and it was applied to EXPIRY (`sweep`) and not
+   * to closure: a host that closed took its answer with it, so every
+   * bound replica's next write reached a store that no longer
+   * existed and the caller's only signal was a deadline — the
+   * `indeterminate` "the store did not answer before the deadline",
+   * measured over the real transport.
+   *
+   * The code is `owner-lost`, not `closed`, and the difference is
+   * the whole semantics: `closed` is the expiry notice and the
+   * replica REJOINS on it, which after a close would either hang or
+   * silently attach the caller to a SUCCESSOR's different document
+   * under the same handle. `owner-lost` is terminal — this
+   * incarnation held the document and is gone — so the replica's
+   * view is cleared, `ready()` rejects, and rejoining is the
+   * caller's decision to make explicitly.
+   *
+   * Every handle is forgotten here, so the frames are a one-shot:
+   * a second call has nothing to say.
+   */
+  farewell(): readonly Outbound[] {
+    this.ending = true;
+    this.pendingEvents.length = 0;
+    const out: Outbound[] = [];
+    for (const [h, handle] of [...this.handles]) {
+      this.forget(h);
+      out.push(this.no(handle.peer, h, 'owner-lost', null));
+    }
+    return out;
+  }
+
+  /** This owner's incarnation, which every manifest carries. */
+  get incarnationHex(): Hex {
+    return this.incarnation;
+  }
+
+  /**
+   * Admit a join.
+   *
+   * Order matters and is the ladder's: **the store address first**,
+   * because it decides whether this owner may answer at all; then
+   * definition identity and version, which are loud for the store
+   * they ARE addressed to; then capacity, `authorize`, and only then
+   * a handle. Nothing is allocated before the policy has ruled, so a
+   * refused caller costs one counter and no state.
+   *
+   * This summary is written out in full because it was wrong for one
+   * commit — it still listed the definition first, ten lines above
+   * the code that had just been reordered, in the rung whose
+   * position was the point of the change.
+   */
+  private join(
+    message: Extract<CallerMessage, { k: 'join' }>,
+    peer: string,
+    now: number,
+  ): Dispatched {
+    // THE ADDRESS DECIDES WHETHER THIS OWNER MAY SPEAK AT ALL, so it
+    // is read before anything else about the frame.
+    //
+    // Refused SILENTLY — no `no`, no reply: every host store on a
+    // node sees every join, and an owner that is not the addressee
+    // must neither answer it nor refuse it on the addressee's
+    // behalf. The one it IS addressed to answers.
+    //
+    // The order matters and used to be wrong. The definition and
+    // version checks below answer LOUDLY, with the joiner's own `q`,
+    // so a node hosting `app.chat` and `app.world` had the chat
+    // store reject a perfectly good `app.world` join —
+    // `version-mismatch`, status failed — before the world store's
+    // manifest could land. Same defect as the one this address
+    // exists to fix, two rungs higher, and found by review probe K.
+    if (message.store !== this.deps.store) {
+      return this.refuse('join-other-store', []);
+    }
+    // Addressed to THIS store, and wrong about it: that is worth
+    // saying out loud, and it is how a stale client learns it is
+    // stale.
+    if (message.def !== this.deps.definition.id) {
+      return this.refuse('join-wrong-definition', [this.no(peer, null, 'version-mismatch', message.q)]);
+    }
+    if (message.ver !== this.deps.definition.version) {
+      return this.refuse('join-wrong-version', [this.no(peer, null, 'version-mismatch', message.q)]);
+    }
+    if (this.handles.size >= MAX_HANDLES) {
+      return this.refuse('join-capacity', [this.no(peer, null, 'capacity', message.q)]);
+    }
+    let held = 0;
+    for (const existing of this.handles.values()) if (existing.peer === peer) held += 1;
+    if (held >= MAX_HANDLES_PER_PEER) {
+      return this.refuse('join-capacity', [this.no(peer, null, 'capacity', message.q)]);
+    }
+
+    // `authorize` receives the AUTHENTICATED peer and the audience it
+    // asked to read. A refusal is `forbidden` and allocates nothing.
+    if (!this.permitsRead(peer, message.aud, message.key)) {
+      return this.refuse('join-forbidden', [this.no(peer, null, 'forbidden', message.q)]);
+    }
+
+    const h = this.newHandle();
+    if (h === null || h.length !== HANDLE_HEX_LENGTH || this.handles.has(h)) {
+      return this.refuse('join-handle-unusable', [this.no(peer, null, 'owner-lost', message.q)]);
+    }
+
+    const handle: OwnerHandle = {
+      h,
+      inc: this.incarnation,
+      peer,
+      audience: [...message.aud],
+      key: message.key,
+      interest: message.int === undefined ? null : [...message.int],
+      generation: 0,
+      revision: this.core.revision,
+      lastSeen: now,
+    };
+    this.handles.set(h, handle);
+
+    const emitted = this.install(handle, message.q);
+    if (emitted === null) {
+      // The projection could not be encoded. The handle goes with it:
+      // admitting one that can never be served is worse than refusing.
+      this.forget(h);
+      return this.refuse('join-projection-capacity', [this.no(peer, null, 'capacity', message.q)]);
+    }
+    this.presenceChanged(peer, null, message.aud);
+    this.membershipChanged();
+    return this.accept(emitted);
+  }
+
+  /**
+   * Allocate the next generation and emit `man` + every `snap`.
+   *
+   * Returns `null` when the projection cannot be carried, so the caller
+   * decides what to do with the handle rather than this function
+   * guessing.
+   */
+  private install(handle: OwnerHandle, q: Hex | null): Outbound[] | null {
+    const base = this.project(handle.peer, handle.audience);
+    const projected = base === null ? null : this.filterInterest(base, handle.interest);
+    // `null` means the application could produce neither a projection
+    // nor its own empty value. There is nothing truthful to ship, so
+    // the emission fails and the caller refuses.
+    if (projected === null) return null;
+    let chunked;
+    try {
+      chunked = chunkSnapshot(projected, this.chunkBytes);
+    } catch {
+      return null;
+    }
+
+    // Owner-allocated, monotone per handle, only on acceptance (§1.7a).
+    const generation = handle.generation + 1;
+    this.handles.set(handle.h, { ...handle, generation, revision: this.core.revision });
+
+    const g = String(generation);
+    const r = String(this.core.revision);
+    const frames: Outbound[] = [
+      {
+        peer: handle.peer,
+        h: handle.h,
+        frame: encodeMessage(
+          q === null
+            ? { k: 'man', h: handle.h, inc: handle.inc, g, r, n: chunked.n, bytes: String(chunked.bytes) }
+            : { k: 'man', q, h: handle.h, inc: handle.inc, g, r, n: chunked.n, bytes: String(chunked.bytes) },
+        ),
+      },
+    ];
+    for (let i = 0; i < chunked.n; i += 1) {
+      frames.push({
+        peer: handle.peer,
+        h: handle.h,
+        frame: encodeMessage({ k: 'snap', h: handle.h, g, r, i, n: chunked.n, d: chunked.pieces[i] as string }),
+      });
+    }
+    return frames;
+  }
+
+  /**
+   * One read decision, for the join and for every later read.
+   *
+   * A throwing policy is a refusal, never an admission.
+   */
+  private permitsRead(peer: string, audience: readonly string[], key?: string): boolean {
+    // `key` is the join's opaque key, which `joinStore({ key })` documents
+    // as read by the host's policy; it was dropped here, so a key-gated
+    // room refused everyone (SDK audit 2026-10-11).
+    const request = (
+      key === undefined ? { type: 'read', peer, audience: [...audience] } : { type: 'read', peer, audience: [...audience], key }
+    ) as AccessRequest<A, I>;
+    try {
+      return this.deps.authorize(request) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** A handle from the application's allocator, or null if it threw. */
+  private newHandle(): Hex | null {
+    try {
+      return this.deps.newHandle();
+    } catch {
+      return null;
+    }
+  }
+
+  // ───────────────────────────── interest ───────────────────────────
+
+  /** The definition's interest collections and their key functions. */
+  private get interestFns(): readonly (readonly [string, (entity: unknown, id: string) => string | null])[] {
+    this.#interestFns ??= Object.entries(this.deps.definition.interest ?? {}).map(
+      ([collection, key]) => [collection, key as (entity: unknown, id: string) => string | null] as const,
+    );
+    return this.#interestFns;
+  }
+  #interestFns: readonly (readonly [string, (entity: unknown, id: string) => string | null])[] | undefined;
+
+  /** An entity's interest key; a key function that throws or returns a non-string means "no key": always delivered. */
+  private interestKey(fn: (entity: unknown, id: string) => string | null, entity: unknown, id: string): string | null {
+    try {
+      const key = this.core.runReadOnly(() => fn(entity, id));
+      return typeof key === 'string' ? key : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** A view narrowed to the entities an interest set covers. */
+  private filterInterest(view: S, interest: readonly string[] | null): S {
+    if (interest === null || this.interestFns.length === 0) return view;
+    const wanted = new Set(interest);
+    const out: Record<string, unknown> = { ...(view as Record<string, unknown>) };
+    for (const [collection, fn] of this.interestFns) {
+      const entities = out[collection];
+      if (!isRecord(entities)) continue;
+      const kept: Record<string, unknown> = {};
+      for (const [id, entity] of Object.entries(entities)) {
+        const key = this.interestKey(fn, entity, id);
+        if (key === null || wanted.has(key)) kept[id] = entity;
+      }
+      out[collection] = kept;
+    }
+    return out as S;
+  }
+
+  /**
+   * The commit's raw entity change, or `null` when this commit cannot be
+   * projected entity by entity.
+   *
+   * It can when the host projects only by DECLARED rules (no `project` /
+   * `projectFor`, which see the whole document), and every root key the
+   * commit changed is a collection declared in both `interest` and
+   * `entities`, and is an entity map on both sides. Declared rules are
+   * path patterns, so an entity's visibility is the same in a document
+   * holding only the changed entities; and `entities` is the contract that
+   * an entity is valid on its own, so its projection is validated by the
+   * per-entity parser instead of `state` over the whole view.
+   */
+  private entityDelta(previous: S, current: S): EntityDelta | null {
+    if (this.deps.project !== undefined || this.deps.projectFor !== undefined) return null;
+    const entities = this.deps.definition.entities;
+    if (entities === undefined) return null;
+    const interest = new Set(this.interestFns.map(([collection]) => collection));
+    const was = previous as Record<string, unknown>;
+    const now = current as Record<string, unknown>;
+    const collections: {
+      collection: string;
+      ids: string[];
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+    }[] = [];
+    for (const key of new Set([...Object.keys(was), ...Object.keys(now)])) {
+      const b = Object.prototype.hasOwnProperty.call(was, key) ? was[key] : undefined;
+      const a = Object.prototype.hasOwnProperty.call(now, key) ? now[key] : undefined;
+      if (Object.is(b, a)) continue;
+      if (!interest.has(key) || !Object.prototype.hasOwnProperty.call(entities, key)) return null;
+      if (!isRecord(b) || !isRecord(a)) return null;
+      const ids: string[] = [];
+      for (const id of new Set([...Object.keys(b), ...Object.keys(a)])) {
+        const before = Object.prototype.hasOwnProperty.call(b, id) ? b[id] : undefined;
+        const after = Object.prototype.hasOwnProperty.call(a, id) ? a[id] : undefined;
+        if (!Object.is(before, after)) ids.push(id);
+      }
+      collections.push({ collection: key, ids, before: b, after: a });
+    }
+    return { collections };
+  }
+
+  /**
+   * One view's change from the changed entities alone: O(changed) per
+   * view instead of two whole-world projections, a whole-view validation
+   * and a scan of every id. Returns `undefined` for anything it cannot
+   * answer exactly as `interestDiff` over full projections would (a rule
+   * hiding a whole collection, a projected entity its parser refuses),
+   * and the caller takes the full path.
+   */
+  private sparseInterestDiff(
+    peer: string,
+    audience: readonly string[],
+    delta: EntityDelta,
+  ): InterestDiff | undefined {
+    const viewer: Viewer = Object.freeze({ peer, audience: Object.freeze([...audience]) });
+    const define = (target: Record<string, unknown>, key: string, value: unknown): void => {
+      Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
+    };
+    const sparseBefore: Record<string, unknown> = {};
+    const sparseAfter: Record<string, unknown> = {};
+    for (const { collection, ids, before, after } of delta.collections) {
+      const b: Record<string, unknown> = {};
+      const a: Record<string, unknown> = {};
+      for (const id of ids) {
+        if (Object.prototype.hasOwnProperty.call(before, id)) define(b, id, before[id]);
+        if (Object.prototype.hasOwnProperty.call(after, id)) define(a, id, after[id]);
+      }
+      define(sparseBefore, collection, b);
+      define(sparseAfter, collection, a);
+    }
+    const projectedBefore =
+      this.visibility === null ? sparseBefore : applyVisibility(this.visibility, sparseBefore, viewer);
+    const projectedAfter =
+      this.visibility === null ? sparseAfter : applyVisibility(this.visibility, sparseAfter, viewer);
+    const keyFns = new Map(this.interestFns);
+    const entities = this.deps.definition.entities!;
+    const changes: InterestChange[] = [];
+    for (const { collection, ids } of delta.collections) {
+      const pb = projectedBefore[collection];
+      const pa = projectedAfter[collection];
+      if (!isRecord(pb) || !isRecord(pa)) return undefined;
+      const parse = entities[collection]!;
+      const fn = keyFns.get(collection)!;
+      // Untouched by the rules: these ARE committed entities, validated
+      // when committed, exactly as `project` returns a committed state.
+      const check = (projected: unknown, rebuilt: boolean): { ok: boolean; value: unknown } => {
+        if (projected === undefined || !rebuilt) return { ok: true, value: projected };
+        try {
+          return { ok: true, value: this.core.runReadOnly(() => parse(projected)) };
+        } catch {
+          return { ok: false, value: undefined };
+        }
+      };
+      for (const id of ids) {
+        const was = check(
+          Object.prototype.hasOwnProperty.call(pb, id) ? pb[id] : undefined,
+          projectedBefore !== sparseBefore,
+        );
+        const now = check(
+          Object.prototype.hasOwnProperty.call(pa, id) ? pa[id] : undefined,
+          projectedAfter !== sparseAfter,
+        );
+        if (!was.ok || !now.ok) return undefined;
+        if (
+          Object.is(was.value, now.value) ||
+          (was.value !== undefined &&
+            now.value !== undefined &&
+            JSON.stringify(was.value) === JSON.stringify(now.value))
+        ) {
+          continue;
+        }
+        changes.push({
+          collection,
+          id,
+          before: was.value,
+          after: now.value,
+          beforeKey: was.value === undefined ? null : this.interestKey(fn, was.value, id),
+          afterKey: now.value === undefined ? null : this.interestKey(fn, now.value, id),
+        });
+      }
+    }
+    return { rest: [], entities: changes, whole: [] };
+  }
+
+  /** One view's change, split for interest: the rest of the document, and per-entity changes with their keys. */
+  private interestDiff(before: S, after: S): InterestDiff {
+    const collections = new Set(this.interestFns.map(([collection]) => collection));
+    const strip = (view: S): JsonObject => {
+      const rest: JsonObject = {};
+      for (const [key, value] of Object.entries(view as JsonObject)) if (!collections.has(key)) rest[key] = value;
+      return rest;
+    };
+    const rest = shallowDiff(strip(before), strip(after));
+    const entities: InterestChange[] = [];
+    const whole: { collection: string; after: unknown }[] = [];
+    for (const [collection, fn] of this.interestFns) {
+      const b = (before as Record<string, unknown>)[collection];
+      const a = (after as Record<string, unknown>)[collection];
+      if (!isRecord(b) || !isRecord(a)) {
+        // Not an entity map on one side: replaced whole, filtered per handle.
+        if (JSON.stringify(b) !== JSON.stringify(a)) whole.push({ collection, after: a });
+        continue;
+      }
+      for (const id of new Set([...Object.keys(b), ...Object.keys(a)])) {
+        const was = Object.prototype.hasOwnProperty.call(b, id) ? b[id] : undefined;
+        const now = Object.prototype.hasOwnProperty.call(a, id) ? a[id] : undefined;
+        if (Object.is(was, now) || (was !== undefined && now !== undefined && JSON.stringify(was) === JSON.stringify(now))) {
+          continue;
+        }
+        entities.push({
+          collection,
+          id,
+          before: was,
+          after: now,
+          beforeKey: was === undefined ? null : this.interestKey(fn, was, id),
+          afterKey: now === undefined ? null : this.interestKey(fn, now, id),
+        });
+      }
+    }
+    return { rest, entities, whole };
+  }
+
+  /** The ops one handle receives for a split diff. */
+  private interestOps(diff: InterestDiff, interest: readonly string[]): WireOp[] {
+    const wanted = new Set(interest);
+    const covers = (key: string | null): boolean => key === null || wanted.has(key);
+    const ops: WireOp[] = [...diff.rest];
+    for (const change of diff.entities) {
+      const wasIn = change.before !== undefined && covers(change.beforeKey);
+      const isIn = change.after !== undefined && covers(change.afterKey);
+      if (isIn) ops.push({ o: 'r', p: [change.collection, change.id], val: change.after as JsonValue });
+      else if (wasIn) ops.push({ o: 'x', p: [change.collection, change.id] });
+    }
+    for (const entry of diff.whole) {
+      const filtered = this.filterInterest({ [entry.collection]: entry.after } as S, interest) as Record<string, unknown>;
+      ops.push({ o: 'r', p: [entry.collection], val: filtered[entry.collection] as JsonValue });
+    }
+    return ops;
+  }
+
+  /**
+   * A new interest set: the entities entering it arrive, the ones leaving
+   * go, in one delta — the view never blanks — and then `ok`.
+   *
+   * Interest is a filter, not a permission: nothing here asks `authorize`,
+   * because the audience (which is) is unchanged and every entity sent
+   * was already readable under it.
+   */
+  private interestChange(
+    message: Extract<CallerMessage, { k: 'int' }>,
+    bound: OwnerHandle,
+    peer: string,
+    now: number,
+  ): Dispatched {
+    const next: OwnerHandle = { ...bound, interest: [...message.int], lastSeen: now };
+    this.handles.set(next.h, next);
+    const ok: Outbound = { peer, h: bound.h, frame: encodeMessage({ k: 'ok', q: message.q, h: bound.h }) };
+    if (this.interestFns.length === 0 || this.deferred.has(bound.h)) {
+      // Nothing to filter, or an installation is pending that will
+      // project with the new set.
+      return this.accept([ok]);
+    }
+    const view = this.project(peer, bound.audience);
+    if (view === null) {
+      this.forget(bound.h);
+      return this.refuse('int-projection-capacity', [this.no(peer, bound.h, 'capacity', message.q)]);
+    }
+    const before = this.filterInterest(view, bound.interest) as Record<string, unknown>;
+    const after = this.filterInterest(view, next.interest) as Record<string, unknown>;
+    const ops: WireOp[] = [];
+    for (const [collection] of this.interestFns) {
+      const b = before[collection];
+      const a = after[collection];
+      if (!isRecord(b) || !isRecord(a)) continue;
+      for (const id of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, id)) ops.push({ o: 'r', p: [collection, id], val: a[id] as JsonValue });
+      for (const id of Object.keys(b)) if (!Object.prototype.hasOwnProperty.call(a, id)) ops.push({ o: 'x', p: [collection, id] });
+    }
+    if (ops.length === 0) return this.accept([ok]);
+    const r = String(this.core.revision);
+    const delta =
+      bound.revision === this.core.revision
+        ? encodeDeltaWithin(
+            { k: 'delta', h: bound.h, g: String(bound.generation), base: r, r, ops },
+            this.deps.maxEventBytes,
+          )
+        : null;
+    if (delta !== null) return this.accept([{ peer, h: bound.h, frame: delta }, ok]);
+    // Too large for one delta, or this replica is behind the current
+    // revision: replace the view whole — an owner-initiated
+    // installation, admissible at a ready replica — and then `ok`,
+    // which arrives after the last chunk.
+    const frames = this.install(next, null);
+    if (frames === null) {
+      this.forget(bound.h);
+      return this.refuse('int-projection-capacity', [this.no(peer, bound.h, 'capacity', message.q)]);
+    }
+    return this.accept([...frames, ok]);
+  }
+
+  /**
+   * The audience projection, validated by the definition.
+   *
+   * A projection that does not satisfy `state()` is the owner's bug and
+   * must not be shipped as a snapshot, so it becomes `empty()` — the
+   * value that represents absence — rather than the full state.
+   */
+  private project(
+    peer: string,
+    audience: readonly string[],
+    state: S = this.core.getState() as S,
+  ): S | null {
+    try {
+      const viewer: Viewer = Object.freeze({ peer, audience: Object.freeze([...audience]) });
+      const base =
+        this.deps.projectFor !== undefined
+          ? this.deps.projectFor(state, viewer)
+          : this.deps.project !== undefined
+            ? this.deps.project(state, audience)
+            : state;
+      if (this.visibility === null && base === state) {
+        this.warnOnce(
+          `store '${this.deps.definition.id}': every player receives the full state. ` +
+            "Declare `visibility: 'open'` on the definition if that is intended, or rules for what is secret.",
+        );
+      }
+      // Declared rules apply AFTER the hand-written projection: code can
+      // narrow what a rule allows, never widen it.
+      const projected = this.visibility === null ? base : applyVisibility(this.visibility, base, viewer);
+      // Nothing withheld and nothing rebuilt: this IS a committed state,
+      // which the core validated when it was committed. Validating again
+      // builds fresh objects, and fresh objects defeat every identity
+      // check downstream — the diff then serializes every entity to find
+      // the few that moved (measured, scripts/bench-world.mjs).
+      if (projected === state) return state;
+      try {
+        return this.deps.definition.state(projected);
+      } catch (error) {
+        this.warnOnce(
+          `store '${this.deps.definition.id}': a projection failed the state validator, so the player got empty() — ` +
+            `${error instanceof Error ? error.message : String(error)}` +
+            (this.visibility === null ? '' : ' (a hidden field is the HIDDEN marker: wrap its parser with hiddenOr)'),
+        );
+        throw error;
+      }
+    } catch {
+      // `empty()` is application code as well, and it is reached
+      // precisely when the application has already thrown once. A
+      // second failure has no value left to fall back to, so it
+      // becomes a refusal rather than an exception escaping the frame
+      // handler — which would take down the transport loop for every
+      // other handle.
+      try {
+        return this.deps.definition.empty();
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  /**
+   * Re-check the binding for every message (§1.3).
+   *
+   * Returns a countable reason instead of a handle when the handle is
+   * unknown, expired, or bound to a different authenticated peer — and
+   * the three are **one** refusal on the wire, so a refusal cannot
+   * disclose that a handle exists (§2).
+   */
+  private bind(h: Hex, peer: string, now: number): OwnerHandle | string {
+    const handle = this.handles.get(h);
+    if (handle === undefined) return 'handle-unknown';
+    if (now - handle.lastSeen >= HANDLE_LEASE_MS) {
+      this.forget(h, 'expired');
+      return 'handle-expired';
+    }
+    if (handle.peer !== peer) return 'handle-foreign-peer';
+    // No incarnation check here: a handle is created with this owner's
+    // incarnation and does not outlive the owner, so a stale one cannot
+    // reach this table. The incarnation rides the manifest as
+    // provenance for the replica, which is a different job. A check
+    // that cannot fire is not a defence — it is a claim.
+    return handle;
+  }
+
+  private no(peer: string, h: Hex | null, code: StoreErrorCode, q: Hex | null): Outbound {
+    return {
+      peer,
+      h,
+      frame: encodeMessage(
+        q === null
+          ? { k: 'no', h: h as Hex, code }
+          : h === null
+            ? { k: 'no', q, code }
+            : { k: 'no', q, h, code },
+      ),
+    };
+  }
+
+  private refuse(reason: string, out: readonly Outbound[] = []): Dispatched {
+    this.counters[reason] = (this.counters[reason] ?? 0) + 1;
+    return { out, refused: reason, deferred: null };
+  }
+}
+
+/**
+ * The root-level difference between two projections.
+ *
+ * Root level only, deliberately: §1.13's patch semantics replace a
+ * whole subtree at a path, and a deeper diff would buy smaller frames
+ * at the cost of a second traversal per handle per commit — the thing
+ * a 60 Hz loop cannot afford. A subtree that did not change is not
+ * emitted at all, which is where the saving actually is.
+ */
+function shallowDiff(before: JsonObject, after: JsonObject): WireOp[] {
+  const ops: WireOp[] = [];
+  for (const key of Object.keys(after)) {
+    const nextValue = after[key];
+    if (Object.prototype.hasOwnProperty.call(before, key) && Object.is(before[key], nextValue)) continue;
+    const previousValue = Object.prototype.hasOwnProperty.call(before, key) ? before[key] : undefined;
+    // One level deeper for a map on both sides: the entries that
+    // changed, not the whole map. Measured (scripts/bench-world.mjs):
+    // moving 5% of 500 ships resent all 62 KB of `ships` every tick,
+    // because any change inside a root key replaced it whole.
+    const entries = previousValue === undefined ? null : entryDiff(key, previousValue, nextValue);
+    if (entries !== null) {
+      ops.push(...entries);
+      continue;
+    }
+    // Not `Object.is` alone: reconciliation shares unchanged subtrees,
+    // so identity IS the comparison for anything it touched, and a
+    // value it could not share is compared by its serialization.
+    if (previousValue !== undefined && JSON.stringify(previousValue) === JSON.stringify(nextValue)) {
+      continue;
+    }
+    ops.push({ o: 'r', p: [key], val: nextValue as JsonValue });
+  }
+  for (const key of Object.keys(before)) {
+    if (!Object.prototype.hasOwnProperty.call(after, key)) ops.push({ o: 'x', p: [key] });
+  }
+  return ops;
+}
+
+/** Entry ops worth sending instead of replacing a whole map: at most this many. */
+const MAX_ENTRY_OPS = 128;
+
+/**
+ * The per-entry ops turning map `before` into map `after` under root
+ * `key`, or `null` when replacing the whole value is the better (or
+ * only) choice: not maps on both sides, an entry name the patch path
+ * cannot carry, or more changed entries than {@link MAX_ENTRY_OPS} or
+ * than half the map.
+ */
+function entryDiff(key: string, before: unknown, after: unknown): WireOp[] | null {
+  const isMap = (value: unknown): value is JsonObject =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (!isMap(before) || !isMap(after)) return null;
+  const ops: WireOp[] = [];
+  const limit = Math.min(MAX_ENTRY_OPS, Math.max(1, Math.floor(Object.keys(after).length / 2)));
+  const carriable = (entry: string): boolean =>
+    utf8Length(entry) <= MAX_PATH_SEGMENT_BYTES && !['__proto__', 'constructor', 'prototype'].includes(entry);
+  for (const entry of Object.keys(after)) {
+    const next = after[entry];
+    const had = Object.prototype.hasOwnProperty.call(before, entry);
+    if (had && (Object.is(before[entry], next) || JSON.stringify(before[entry]) === JSON.stringify(next))) continue;
+    if (!carriable(entry)) return null;
+    ops.push({ o: 'r', p: [key, entry], val: next as JsonValue });
+    if (ops.length > limit) return null;
+  }
+  for (const entry of Object.keys(before)) {
+    if (Object.prototype.hasOwnProperty.call(after, entry)) continue;
+    if (!carriable(entry)) return null;
+    ops.push({ o: 'x', p: [key, entry] });
+    if (ops.length > limit) return null;
+  }
+  return ops;
+}
+
+/** The delta frame, or null when it will not fit the budget (§1.9). */
+function encodeDeltaWithin(
+  message: Parameters<typeof encodeMessage>[0],
+  maxEventBytes: number,
+): string | null {
+  let frame: string;
+  try {
+    frame = encodeMessage(message);
+  } catch {
+    return null;
+  }
+  return utf8Length(frame) <= maxEventBytes ? frame : null;
+}
+
+/** The `q` a refusal for this message should carry, if any. */
+function requestOf(message: CallerMessage): Hex | null {
+  return 'q' in message && typeof message.q === 'string' ? message.q : null;
+}
+
+/** Re-exported so a host can hold assemblies without another import. */
+export { Assembly, AssemblyTable };
+
+export type { Parse };

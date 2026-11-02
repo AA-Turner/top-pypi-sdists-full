@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from probe.cli import backfill_index as idx
-from probe.cli import backfill_ledger as ledger_mod
-from probe.cli.backfill_ledger import Unit
+from probe.cli.imports.folder.walk import index as idx
+from probe.cli.imports.folder.upload import ledger as ledger_mod
+from probe.cli.imports.folder.upload.ledger import Unit
 
 
 def _rows(*paths):

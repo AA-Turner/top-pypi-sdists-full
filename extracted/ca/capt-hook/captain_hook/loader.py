@@ -1,0 +1,225 @@
+"""Hook discovery: imports a hooks package, loads its ``conf`` module, and registers every hook module."""
+
+from __future__ import annotations
+
+import importlib
+import importlib.util
+import pkgutil
+import re
+import sys
+from dataclasses import replace
+from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING
+
+from loguru import logger
+
+from captain_hook import faults
+from captain_hook.app import LoadError, _state, on
+from captain_hook.types import Event
+from captain_hook.util.caller import PACK_PACKAGE_PREFIX
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from captain_hook.events import BaseHookEvent
+    from captain_hook.types import HookResult
+
+CONF_MODULE = "conf"
+
+
+def stamp_identity(start: int, *, root: Path, pack: str | None = None) -> None:
+    """Stamp hooks registered since ``start`` with the stable-identity root and pack name.
+
+    ``RegisteredHook.state_key`` keys session state on the pack/location-relative source path
+    rather than the absolute ``source_file`` — which moves when a plugin update relands a pack
+    in a fresh versioned cache dir — so discovery records which root the source is relative to.
+    """
+    hooks = _state.hooks
+    root_str = str(root)
+    for i in range(start, len(hooks)):
+        hooks[i] = replace(hooks[i], state_root=root_str, pack_name=pack)
+
+
+def is_test_module(fqn: str) -> bool:
+    parts = fqn.split(".")
+    return parts[-1].startswith("test_") or parts[-1] == "conftest" or "tests" in parts
+
+
+def is_skip_marked(path: Path) -> bool:
+    """True when the module declares ``__capt_hook_skip__ = True`` — a library, not an auto-loaded hook."""
+    return path.is_file() and bool(re.search(r"^__capt_hook_skip__\s*=\s*True\b", path.read_text(), re.MULTILINE))
+
+
+def submodules(pkg: str) -> set[str]:
+    return {name for name in sys.modules if name.startswith(f"{pkg}.")}
+
+
+def drop_module(fqn: str) -> None:
+    parent, _, name = fqn.rpartition(".")
+    module = sys.modules.pop(fqn)
+    if (package := sys.modules.get(parent)) is not None and getattr(package, name, None) is module:
+        delattr(package, name)
+
+
+def evict_submodules(pkg: str) -> None:
+    for fqn in submodules(pkg):
+        del sys.modules[fqn]
+    if (package := sys.modules.get(pkg)) is not None:
+        for name, value in list(vars(package).items()):
+            if isinstance(value, ModuleType) and value.__name__ == f"{pkg}.{name}":
+                delattr(package, name)
+
+
+def discover_hooks(hooks_dir: str | Path) -> None:
+    from captain_hook.settings import build_settings
+
+    hooks_path = Path(hooks_dir).resolve()
+    if str(hooks_path.parent) not in sys.path:
+        sys.path.insert(0, str(hooks_path.parent))
+
+    pkg = hooks_path.name
+    evict_submodules(pkg)
+
+    top_level = {info.name for info in pkgutil.iter_modules([str(hooks_path)]) if not info.name.startswith("_")}
+
+    if CONF_MODULE in top_level:
+        conf_module = importlib.import_module(f"{pkg}.{CONF_MODULE}")
+        _state.settings = build_settings(conf_module)
+        if classifier := getattr(conf_module, "classifier", None):
+            _state.classifier = classifier
+
+    all_modules = {
+        info.name
+        for info in pkgutil.walk_packages([str(hooks_path)], prefix=f"{pkg}.")
+        if not info.name.rpartition(".")[2].startswith("_")
+        and not is_test_module(info.name)
+        and not is_skip_marked(hooks_path.parent / Path(*info.name.split(".")).with_suffix(".py"))
+    }
+
+    for fqn in sorted(all_modules - {f"{pkg}.{CONF_MODULE}"}):
+        # Broad catch is deliberate (see discover_pack): a single bad module must
+        # not abort discovery. Logged loudly at WARNING and recorded in
+        # ``state.load_errors`` so ``capt-hook test`` fails on it, never silently swallowed.
+        before = len(_state.hooks)
+        try:
+            importlib.import_module(fqn)
+        except Exception as exc:
+            logger.bind(module=fqn).opt(exception=True).warning("skipped unloadable hook module")
+            _state.load_errors.append(LoadError(fqn, exc))
+            faults.record(fqn, exc)
+        else:
+            stamp_identity(before, root=hooks_path)
+
+
+def ensure_pack_package(fqn: str, search_paths: list[str]) -> ModuleType:
+    if existing := sys.modules.get(fqn):
+        existing.__path__ = search_paths
+        return existing
+    spec = importlib.util.spec_from_loader(fqn, loader=None, is_package=True)
+    if spec is None:
+        raise ImportError(f"cannot synthesize package spec for {fqn}")
+    package = importlib.util.module_from_spec(spec)
+    package.__path__ = search_paths
+    package.__package__ = fqn
+    sys.modules[fqn] = package
+    return package
+
+
+def import_pack_module(fqn: str, path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(fqn, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load module spec for {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[fqn] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(fqn, None)
+        raise
+    return module
+
+
+def register_resource_provisioning(resources: Sequence[str]) -> None:
+    """Register the shared SessionStart hook that eagerly provisions a discovery's pack resources.
+
+    Called once per discovery pass with the union of every resolved pack descriptor's ``resources``,
+    so both event dispatch and settings generation see the async hook.
+    """
+
+    @on(Event.SessionStart, async_=True, source_file=__file__)
+    def provision_pack_resources(evt: BaseHookEvent) -> None:
+        from captain_hook.util.model_cache import provision_resources
+
+        provision_resources(resources)
+
+
+def register_pr_announcements() -> None:
+    """Register the shared sync SessionStart hook that surfaces changed PR outcomes to the user.
+
+    Called once per discovery pass, unconditionally: every gate (spawned run, no repo, no
+    database, repo not watched) lives in :func:`~captain_hook.review.announce.collect_announcements`.
+    The detached reviewer opens and resolves hook PRs on its own; this hook is how a session
+    start tells the user what happened.
+    """
+
+    @on(Event.SessionStart, max_fires=1, source_file=__file__)
+    def announce_pr_status(evt: BaseHookEvent) -> HookResult | None:
+        from captain_hook.review.announce import collect_announcements
+        from captain_hook.types import Action, HookResult
+
+        if message := collect_announcements(evt.ctx.project_root):
+            return HookResult(action=Action.warn, message=message)
+        return None
+
+
+def register_fault_announcements() -> None:
+    """Register the shared sync SessionStart hook that tells the user what failed where nobody looked.
+
+    Called once per discovery pass, unconditionally. A worker-thread dispatch, a hook handler, or a
+    plugin roster that would not enumerate all fail after — or beside — the response Claude Code
+    reads, so draining :mod:`captain_hook.faults` at session start is the one moment their failure
+    reaches a person rather than only the daemon log.
+    """
+
+    @on(Event.SessionStart, max_fires=1, source_file=__file__)
+    def announce_faults(evt: BaseHookEvent) -> HookResult | None:
+        from captain_hook.faults import drain
+        from captain_hook.types import Action, HookResult
+
+        if lines := drain(str(evt.cwd) if evt.cwd else None):
+            return HookResult(action=Action.warn, message="\n".join(lines))
+        return None
+
+
+def discover_pack(name: str, pack_dir: Path) -> None:
+    from captain_hook.packs.manager import pack_module_name
+
+    pkg = f"{PACK_PACKAGE_PREFIX}.{pack_module_name(name)}"
+    ensure_pack_package(PACK_PACKAGE_PREFIX, [])
+    ensure_pack_package(pkg, [str(pack_dir)])
+    evict_submodules(pkg)
+    for path in sorted(pack_dir.glob("*.py")):
+        fqn = f"{pkg}.{path.stem}"
+        if path.stem.startswith("_") or path.stem == CONF_MODULE or is_test_module(path.stem):
+            continue
+        if is_skip_marked(path) or fqn in sys.modules:
+            continue
+        # Broad catch is deliberate: one unloadable or non-hook .py must not abort
+        # the whole pack. Logged loudly at WARNING and recorded in ``load_errors`` so
+        # ``capt-hook test`` fails on it, never silently swallowed.
+        before = len(_state.hooks)
+        present = set(sys.modules)
+        try:
+            import_pack_module(fqn, path)
+        except Exception as exc:
+            # Roll back any hooks the module registered before it raised: a module that
+            # half-loads (e.g. one valid hook then an AsyncDecisionError) must contribute
+            # nothing, so a broken file never leaks a partially-wired guard.
+            del _state.hooks[before:]
+            for sibling in submodules(pkg) - present:
+                drop_module(sibling)
+            logger.bind(file=str(path)).opt(exception=True).warning("skipped unloadable hook file")
+            _state.load_errors.append(LoadError(str(path), exc, pack=name))
+        else:
+            stamp_identity(before, root=pack_dir, pack=name)

@@ -1,0 +1,1 @@
+export function zoom(){const z=parseFloat(getComputedStyle(document.documentElement).zoom);return Number.isFinite(z)&&z>0?z:1}

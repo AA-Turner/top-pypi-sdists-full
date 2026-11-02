@@ -1,0 +1,164 @@
+"""
+Tests for #298: more species support across Ensembl Genomes divisions
+(plants / fungi / metazoa / protists) and the URL-template branch that
+routes them through ``ftp.ensemblgenomes.ebi.ac.uk``.
+"""
+
+from weakref import WeakValueDictionary
+
+import pytest
+
+from pyensembl import EnsemblRelease
+from pyensembl.ensembl_url_templates import (
+    ENSEMBL_FTP_SERVER,
+    ENSEMBL_GENOMES_FTP_SERVER,
+)
+from pyensembl.species import (
+    Species,
+    anopheles_gambiae,
+    arabidopsis_thaliana,
+    aspergillus_nidulans,
+    candida_albicans,
+    fission_yeast,
+    maize,
+    plasmodium_falciparum,
+    rice,
+    soybean,
+    tomato,
+    toxoplasma_gondii,
+    wheat,
+)
+
+
+GENOMES_SPECIES_BY_DIVISION = {
+    "plants": [arabidopsis_thaliana, rice, wheat, maize, tomato, soybean],
+    "fungi": [fission_yeast, aspergillus_nidulans, candida_albicans],
+    "metazoa": [anopheles_gambiae],
+    "protists": [plasmodium_falciparum, toxoplasma_gondii],
+}
+
+
+@pytest.mark.parametrize("changed_routing", [
+    {"division": "protists"},
+    {"ensembl_genomes": False},
+])
+def test_species_routing_distinguishes_dictionary_keys(changed_routing):
+    fields = dict(
+        latin_name="test_routing_species",
+        reference_assemblies={"TestAssembly": (40, 58)},
+        division="fungi",
+        ensembl_genomes=True,
+    )
+    first = Species(**fields)
+    equal = Species(**fields)
+    other = Species(**dict(fields, **changed_routing))
+
+    assert first == equal
+    assert hash(first) == hash(equal)
+    assert first != other
+    cached = {first: "first", other: "other"}
+    assert len(cached) == 2
+    assert cached[equal] == "first"
+
+
+def test_cached_release_preserves_species_division(tmp_path, monkeypatch):
+    monkeypatch.setenv("PYENSEMBL_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(EnsemblRelease, "_genome_cache", WeakValueDictionary())
+    fields = dict(
+        latin_name="test_routing_species",
+        reference_assemblies={"TestAssembly": (40, 58)},
+        ensembl_genomes=True,
+    )
+    fungi = Species(division="fungi", **fields)
+    protists = Species(division="protists", **fields)
+    fungal_release = EnsemblRelease.cached(58, species=fungi)
+    protist_release = EnsemblRelease.cached(58, species=protists)
+
+    assert fungal_release is not protist_release
+    assert fungal_release != protist_release
+    for release, division in [(fungal_release, "fungi"), (protist_release, "protists")]:
+        assert release.species.division == division
+        assert "/%s/gtf/" % division in release.gtf_url
+        for url in release.transcript_fasta_urls + release.protein_fasta_urls:
+            assert "/%s/fasta/" % division in url
+        equal_species = Species(division=division, **fields)
+        assert EnsemblRelease.cached(58, species=equal_species) is release
+
+
+def test_ensembl_genomes_species_have_expected_divisions():
+    for division, species_list in GENOMES_SPECIES_BY_DIVISION.items():
+        for species in species_list:
+            assert species.division == division, (
+                "%s should be tagged division=%s, got %s"
+                % (species.latin_name, division, species.division)
+            )
+            assert species.ensembl_genomes is True
+
+
+def test_ensembl_genomes_species_route_through_genomes_server():
+    for species_list in GENOMES_SPECIES_BY_DIVISION.values():
+        for species in species_list:
+            latest = max(end for _, end in species.reference_assemblies.values())
+            release = EnsemblRelease(release=latest, species=species)
+            assert release.server == ENSEMBL_GENOMES_FTP_SERVER
+            assert release.gtf_url.startswith(ENSEMBL_GENOMES_FTP_SERVER)
+            assert "/%s/gtf/%s/" % (species.division, species.ensembl_name(latest)) in (
+                release.gtf_url
+            )
+            for url in release.transcript_fasta_urls + release.protein_fasta_urls:
+                assert url.startswith(ENSEMBL_GENOMES_FTP_SERVER)
+                assert "/%s/fasta/%s/" % (species.division, species.ensembl_name(latest)) in url
+
+
+def test_genomes_filenames_use_modern_layout_regardless_of_release():
+    # Older Ensembl releases (<= 75) used a different filename pattern on
+    # main Ensembl. Ensembl Genomes uses the modern pattern at every release.
+    release = EnsemblRelease(release=40, species=wheat)
+    for url in release.transcript_fasta_urls + release.protein_fasta_urls:
+        assert ".40." not in url, (
+            "Ensembl Genomes FASTA filenames should not embed the release"
+            " number, got %s" % url
+        )
+
+
+def test_existing_non_vertebrate_species_stay_on_main_ensembl():
+    """yeast / drosophila / C. elegans are tagged taxonomically as
+    fungi/metazoa but their reference_assemblies are registered against main
+    Ensembl release numbers, so they must keep routing through ftp.ensembl.org.
+    """
+    for latin_name in (
+        "saccharomyces_cerevisiae",
+        "drosophila_melanogaster",
+        "caenorhabditis_elegans",
+    ):
+        species = Species._latin_names_to_species[latin_name]
+        assert species.ensembl_genomes is False
+        release = EnsemblRelease(release=110, species=species)
+        assert release.server == ENSEMBL_FTP_SERVER
+        assert release.gtf_url.startswith(ENSEMBL_FTP_SERVER)
+
+
+def test_xenopus_picks_assembly_by_release():
+    """Xenopus tropicalis is served from main Ensembl with two assemblies:
+    Xenopus_tropicalis_v9.1 covers releases 98-106 and UCB_Xtro_10.0
+    covers 107 onwards. Verify both halves route through main Ensembl
+    and resolve to the right assembly per release."""
+    from pyensembl.ensembl_url_templates import ENSEMBL_FTP_SERVER
+
+    xenopus = Species._latin_names_to_species["xenopus_tropicalis"]
+    assert xenopus.division == "vertebrates"
+    assert xenopus.ensembl_genomes is False
+
+    r106 = EnsemblRelease(release=106, species=xenopus)
+    assert r106.server == ENSEMBL_FTP_SERVER
+    assert "Xenopus_tropicalis_v9.1" in r106.gtf_url
+
+    r107 = EnsemblRelease(release=107, species=xenopus)
+    assert r107.server == ENSEMBL_FTP_SERVER
+    assert "UCB_Xtro_10.0" in r107.gtf_url
+
+
+
+def test_is_plant_follows_the_division():
+    assert arabidopsis_thaliana.is_plant
+    assert not fission_yeast.is_plant

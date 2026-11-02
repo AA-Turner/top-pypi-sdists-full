@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from probe._shared import oscompat
-from probe.cli import wizard_lock
+from probe.cli.wizard.session import lock as wizard_lock
 from tests.test_wizard_json_events import _child_env
 
 

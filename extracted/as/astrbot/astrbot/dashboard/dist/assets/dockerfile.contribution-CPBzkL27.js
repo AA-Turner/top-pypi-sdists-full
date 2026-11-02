@@ -1,0 +1,1 @@
+import{B as e}from"./index-Dkn7ZTWz.js";import{r}from"./_.contribution-dVTBEpIB.js";import"./editor.api-T72b7Uzm.js";r({id:"dockerfile",extensions:[".dockerfile"],filenames:["Dockerfile"],aliases:["Dockerfile"],loader:()=>e(()=>import("./dockerfile-Zznr-cwX.js"),[])});

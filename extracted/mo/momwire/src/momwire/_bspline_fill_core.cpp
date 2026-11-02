@@ -11,6 +11,8 @@
 #include "_somm_proj_core.h"
 #include "_somm_below_remainder_inline.h"
 #include "_somm_below_fill_core.h"
+#include "_somm_transmitted_core.h"
+#include "_bspline_transmitted_core.h"
 #include "_field_galerkin_inline.h"
 #include "_somm_pairs_core.h"
 #include "_somm_remainder_core.h"
@@ -23,6 +25,8 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
+#include <exception>
 #include <array>
 #include <climits>
 #include <cmath>
@@ -397,7 +401,16 @@ CArray build_J_blocks(const Geometry &g, const std::vector<double> &radius_per_w
             J = offedge(s, s, seg_a, fp.k, d, fp.n_qp_pair, ek, fp.ladder);
         }
     }
-    // the same-edge blocks: `A_st + A_reg`
+    // the same-edge blocks: `A_st + A_reg`. A block is a function of its
+    // edge's arc table and radius alone, so an edge that repeats an earlier
+    // one to the bit -- a screen's radials -- copies that one's block out of
+    // J (momwire#1772): the same doubles its own evaluation would produce.
+    struct DoneEdge {
+        const std::vector<double> *arc;
+        double a_w;
+        size_t base;
+    };
+    std::vector<DoneEdge> done;
     for (size_t w = 0; w < g.per_wire.size(); w++) {
         const WireGeometry &pw = g.per_wire[w];
         const double a_w = radius_per_wire[w];
@@ -406,6 +419,26 @@ CArray build_J_blocks(const Geometry &g, const std::vector<double> &radius_per_w
             const size_t base = static_cast<size_t>(g.seg_offsets[w] + pw.edge_offsets[e]);
             const size_t n = arc.size() - 1;
             if (!is_toeplitz(arc)) throw FrontNotPorted("a non-uniform edge");
+            const DoneEdge *hit = nullptr;
+            for (const DoneEdge &de : done) {
+                if (de.a_w == a_w && de.arc->size() == arc.size() &&
+                    std::memcmp(de.arc->data(), arc.data(), arc.size() * sizeof(double)) == 0) {
+                    hit = &de;
+                    break;
+                }
+            }
+            if (hit != nullptr) {
+                for (int p = 0; p < nd; p++)
+                    for (int pp = 0; pp < nd; pp++)
+                        for (size_t i = 0; i < n; i++) {
+                            const size_t row = (static_cast<size_t>(p) * nd + pp) * N;
+                            std::copy(&J[(row + hit->base + i) * N + hit->base],
+                                      &J[(row + hit->base + i) * N + hit->base] + n,
+                                      &J[(row + base + i) * N + base]);
+                        }
+                continue;
+            }
+            done.push_back({&arc, a_w, base});
             const double h = arc[1] - arc[0];
             const nd::array_t<double> A_st =
                 fp.extended_kernel
@@ -2248,6 +2281,7 @@ std::vector<double> remainder_nodes(const Geometry &g, const std::vector<double>
 }
 
 constexpr double REMAINDER_GRADED_C = 4.0;  // `_REMAINDER_GRADED_C`
+constexpr int64_t REMAINDER_GRADED_MIN_Q = 16;  // `_REMAINDER_GRADED_MIN_Q` (momwire#1752 S3)
 
 }  // namespace
 
@@ -3078,31 +3112,90 @@ void remainder_raised_pairs(const Geometry &g, double gz, int64_t base, const ne
 // graded route: Q += P (Jf_graded - Jf_base) P over each pair's wings
 void remainder_pair_correction(std::vector<cdouble> &Qm, const Geometry &g, const Basis &b, double gz, double k,
                                const somm_proj::GridView &view, const somm_core::Grid &grid,
-                               const std::vector<int64_t> &I, const std::vector<int64_t> &J, int64_t base,
-                               const nec5::NumpyLinalg &np) {
+                               const std::vector<int64_t> &I, const std::vector<int64_t> &J,
+                               const std::vector<int64_t> &Qp, int64_t base, const nec5::NumpyLinalg &np) {
     const int d1 = b.degree + 1;
     const int64_t n_seg = g.n_segs_total, n_basis = b.n_basis;
-    GradedCtx ctx{g, gz, k, view, lattice_of(grid), {}, {}, d1};
-    if (!razor::leggauss(GRADED_N_PANEL, ctx.xg, ctx.wg)) throw FrontNotPorted("no graded rule");
-    std::vector<cdouble> dJ = graded_pair_moments(ctx, I, J);
-    // runs by J (stable), each against the base order
+    const size_t dd2 = static_cast<size_t>(d1 * d1);
+    // `_REMAINDER_GRADED_MIN_Q` (momwire#1752 S3): graded panels for a pair
+    // keyed at that order or more, the keyed Gauss rule below it
+    std::vector<int64_t> key(I.size());
+    std::vector<int64_t> gI, gJ;
+    std::vector<size_t> gpos;
+    for (size_t t = 0; t < I.size(); t++) {
+        const bool on = Qp[t] >= REMAINDER_GRADED_MIN_Q;
+        key[t] = on ? 0 : Qp[t];
+        if (on) {
+            gI.push_back(I[t]);
+            gJ.push_back(J[t]);
+            gpos.push_back(t);
+        }
+    }
+    std::vector<cdouble> dJ(I.size() * dd2, cdouble(0.0, 0.0));
+    if (!gI.empty()) {
+        GradedCtx ctx{g, gz, k, view, lattice_of(grid), {}, {}, d1};
+        if (!razor::leggauss(GRADED_N_PANEL, ctx.xg, ctx.wg)) throw FrontNotPorted("no graded rule");
+        const std::vector<cdouble> gd = graded_pair_moments(ctx, gI, gJ);
+        for (size_t u = 0; u < gpos.size(); u++)
+            std::copy(gd.begin() + static_cast<std::ptrdiff_t>(u * dd2),
+                      gd.begin() + static_cast<std::ptrdiff_t>((u + 1) * dd2),
+                      dJ.begin() + static_cast<std::ptrdiff_t>(gpos[u] * dd2));
+    }
+    // runs by (route/order, J) (`np.lexsort((J, key_q))`, stable), each
+    // against the base order; a keyed run also at its own order
     std::vector<size_t> grp(I.size());
     for (size_t t = 0; t < grp.size(); t++) grp[t] = t;
-    std::stable_sort(grp.begin(), grp.end(), [&](size_t x, size_t y) { return J[x] < J[y]; });
-    const size_t dd2 = static_cast<size_t>(d1 * d1);
+    std::stable_sort(grp.begin(), grp.end(),
+                     [&](size_t x, size_t y) { return key[x] != key[y] ? key[x] < key[y] : J[x] < J[y]; });
+    std::vector<std::pair<size_t, size_t>> runs;
     for (size_t r0 = 0; r0 < grp.size();) {
         size_t r1 = r0 + 1;
-        while (r1 < grp.size() && J[grp[r1]] == J[grp[r0]]) r1++;
-        std::vector<int64_t> obs;
-        for (size_t t = r0; t < r1; t++) obs.push_back(I[grp[t]]);
-        const std::vector<cdouble> lo = pair_moments_fixed(g, view, gz, k, d1, obs, J[grp[r0]], base);
-        for (size_t t = r0; t < r1; t++)
-            for (size_t e = 0; e < dd2; e++) {
-                cdouble &x = dJ[grp[t] * dd2 + e];
-                x = nec5::replay::c_sub(x, lo[(t - r0) * dd2 + e]);
-            }
+        while (r1 < grp.size() && J[grp[r1]] == J[grp[r0]] && key[grp[r1]] == key[grp[r0]]) r1++;
+        runs.push_back({r0, r1});
         r0 = r1;
     }
+    // The runs side by side (momwire#1772), as the Python route's one batched
+    // call runs them (`sommerfeld_remainder_bspline_runs`, momwire#1752 K2):
+    // each run writes its own pairs' rows of dJ, and its kernel calls are
+    // their own arithmetic at any thread count (nested inside this region
+    // they run on their thread alone). One run at a time was the screens'
+    // serial stage past one thread.
+    std::exception_ptr err = nullptr;
+    std::atomic<bool> failed(false);
+#if defined(_OPENMP)
+    #pragma omp parallel for schedule(dynamic)
+#endif
+    for (std::ptrdiff_t u = 0; u < static_cast<std::ptrdiff_t>(runs.size()); u++) {
+        if (failed.load()) continue;
+        try {
+            const size_t r0 = runs[static_cast<size_t>(u)].first, r1 = runs[static_cast<size_t>(u)].second;
+            std::vector<int64_t> obs;
+            for (size_t t = r0; t < r1; t++) obs.push_back(I[grp[t]]);
+            const std::vector<cdouble> lo = pair_moments_fixed(g, view, gz, k, d1, obs, J[grp[r0]], base);
+            if (key[grp[r0]] == 0) {
+                for (size_t t = r0; t < r1; t++)
+                    for (size_t e = 0; e < dd2; e++) {
+                        cdouble &x = dJ[grp[t] * dd2 + e];
+                        x = nec5::replay::c_sub(x, lo[(t - r0) * dd2 + e]);
+                    }
+            } else {
+                const std::vector<cdouble> hi =
+                    pair_moments_fixed(g, view, gz, k, d1, obs, J[grp[r0]], key[grp[r0]]);
+                for (size_t t = r0; t < r1; t++)
+                    for (size_t e = 0; e < dd2; e++)
+                        dJ[grp[t] * dd2 + e] = nec5::replay::c_sub(hi[(t - r0) * dd2 + e], lo[(t - r0) * dd2 + e]);
+            }
+        } catch (...) {
+#if defined(_OPENMP)
+            #pragma omp critical(mw_remainder_runs_err)
+#endif
+            {
+                if (!failed.load()) err = std::current_exception();
+                failed.store(true);
+            }
+        }
+    }
+    if (err) std::rethrow_exception(err);
     // `_segment_wing_table`: per segment its real wings (flat basis*d1+wing)
     std::vector<std::vector<int64_t>> wings(static_cast<size_t>(n_seg));
     for (int64_t m = 0; m < n_basis; m++)
@@ -3207,7 +3300,7 @@ void subtract_sommerfeld_remainder(std::vector<cdouble> &Z, const Geometry &g, c
     somm_core::remainder_bspline_Q(view, ground_z, k, nodes.data(), g.tangents.data(), W.data(), N, nodes.data(),
                                    g.tangents.data(), W.data(), N, q, nd, b.supp_seg.data(), b.polys.data(),
                                    n_basis, b.supp_seg.data(), b.polys.data(), n_basis, true, 0, Q.data(), 0);
-    if (!pI.empty()) remainder_pair_correction(Q, g, b, ground_z, k, view, G0, pI, pJ, n_qp_sommerfeld, np);
+    if (!pI.empty()) remainder_pair_correction(Q, g, b, ground_z, k, view, G0, pI, pJ, pQ, n_qp_sommerfeld, np);
     for (size_t t = 0; t < Z.size(); t++) Z[t] = cdouble(Z[t].real() - Q[t].real(), Z[t].imag() - Q[t].imag());
 }
 
@@ -3246,7 +3339,7 @@ void debug_chunk_pair(const Geometry &g, double gz, double k, const somm_core::G
 
 void debug_pair_moments(const Geometry &g, double gz, double k, const somm_core::Grid &grid, int d1,
                         const std::vector<int64_t> &I, const std::vector<int64_t> &J, int64_t base,
-                        std::vector<cdouble> &graded, std::vector<cdouble> &fixed) {
+                        std::vector<cdouble> &graded, std::vector<cdouble> &fixed, bool with_fixed) {
     const size_t n_reg = grid.regions.size();
     double r0[somm_proj::MAX_REGIONS], dr[somm_proj::MAX_REGIONS], th0[somm_proj::MAX_REGIONS],
         dth[somm_proj::MAX_REGIONS];
@@ -3271,6 +3364,7 @@ void debug_pair_moments(const Geometry &g, double gz, double k, const somm_core:
     razor::leggauss(GRADED_N_PANEL, ctx.xg, ctx.wg);
     graded = graded_pair_moments(ctx, I, J);
     fixed.clear();
+    if (!with_fixed) return;
     for (size_t t = 0; t < I.size(); t++) {
         const std::vector<cdouble> lo = pair_moments_fixed(g, view, gz, k, d1, {I[t]}, J[t], base);
         fixed.insert(fixed.end(), lo.begin(), lo.end());
@@ -3284,21 +3378,6 @@ void debug_pair_moments(const Geometry &g, double gz, double k, const somm_core:
 namespace {
 
 constexpr double PI_ = 3.141592653589793;
-
-// numpy's complex division (`CDOUBLE_divide`, Smith's)
-inline cdouble np_cdiv(cdouble a, cdouble b) {
-    const double in1r = a.real(), in1i = a.imag(), in2r = b.real(), in2i = b.imag();
-    const double in2r_abs = std::fabs(in2r), in2i_abs = std::fabs(in2i);
-    if (in2r_abs >= in2i_abs) {
-        if (in2r_abs == 0 && in2i_abs == 0) return cdouble(in1r / in2r_abs, in1i / in2i_abs);
-        const double rat = in2i / in2r;
-        const double scl = 1.0 / (in2r + in2i * rat);
-        return cdouble((in1r + in1i * rat) * scl, (in1i - in1r * rat) * scl);
-    }
-    const double rat = in2r / in2i;
-    const double scl = 1.0 / (in2i + in2r * rat);
-    return cdouble((in1r * rat + in1i) * scl, (in1i * rat - in1r) * scl);
-}
 
 // `_seg_seg_reg_moments(arc, a, k, max_d, n_qp)` at a complex k (the lower
 // medium's): numpy's branch. R from `reg_distance_table`, the kernel
@@ -3325,7 +3404,6 @@ Block reg_moments_cplx(const std::vector<double> &arc, double a_w, cdouble k, in
     }
     const CF sq = borrow(s_q, {static_cast<nd::ssize_t>(n * q)});
     const nd::array_t<double> R = reg_distance_table(sq, sq, a_w * a_w);
-    const double *Rp = R.data();
     std::vector<double> wu(static_cast<size_t>(nd) * n * q);
     for (int p = 0; p < nd; p++)
         for (size_t i = 0; i < n * q; i++) {
@@ -3333,52 +3411,10 @@ Block reg_moments_cplx(const std::vector<double> &arc, double a_w, cdouble k, in
             const double up = p == 0 ? 1.0 : p == 1 ? u : p == 2 ? u * u : std::pow(u, static_cast<double>(p));
             wu[static_cast<size_t>(p) * n * q + i] = w_q[i] * up;
         }
-    const size_t nq = n * q;
-    std::vector<double> Gr(nq * nq), Gi(nq * nq);
-    const double four_pi = 4.0 * PI_;
-    for (size_t t = 0; t < nq * nq; t++) {
-        const double r = Rp[t];
-        const double a = k.imag() * r, y = k.real() * r;
-        const double half = std::sin(0.5 * y);
-        double re = std::expm1(a) * std::cos(y);
-        re = re - 2.0 * half * half;
-        const double im = std::exp(a) * std::sin(y);
-        const cdouble g = np_cdiv(cdouble(re, 0.0 - im), cdouble(four_pi * r, 0.0));
-        Gr[t] = g.real();
-        Gi[t] = g.imag();
-    }
-    Block out(static_cast<size_t>(nd * nd) * n * n, false);
-    for (int p = 0; p < nd; p++)
-        for (int P = 0; P < nd; P++)
-            for (size_t i = 0; i < n; i++)
-                for (size_t j = 0; j < n; j++) {
-                    double ar = 0.0, ai = 0.0;
-                    if (n == 1) {
-                        for (size_t a = 0; a < q; a++)
-                            for (size_t b2 = 0; b2 < q; b2++) {
-                                const double w = wu[(static_cast<size_t>(p) * n + i) * q + a];
-                                const double v = wu[(static_cast<size_t>(P) * n + j) * q + b2];
-                                const size_t t = (i * q + a) * nq + j * q + b2;
-                                ar += (w * Gr[t]) * v;
-                                ai += (w * Gi[t]) * v;
-                            }
-                    } else {
-                        for (size_t a = 0; a < q; a++) {
-                            const double w = wu[(static_cast<size_t>(p) * n + i) * q + a];
-                            double lr = 0.0, li = 0.0;
-                            for (size_t b2 = 0; b2 < q; b2++) {
-                                const double v = wu[(static_cast<size_t>(P) * n + j) * q + b2];
-                                const size_t t = (i * q + a) * nq + j * q + b2;
-                                lr += (w * Gr[t]) * v;
-                                li += (w * Gi[t]) * v;
-                            }
-                            ar += lr;
-                            ai += li;
-                        }
-                    }
-                    out[((static_cast<size_t>(p) * nd + P) * n + i) * n + j] = cdouble(ar, ai);
-                }
-    return out;
+    // the kernel and the einsum: the extension's own (momwire#1752 L4)
+    const CF Rv = CF::borrow(R.buffer());
+    const CF wua = borrow(wu, {nd, static_cast<nd::ssize_t>(n), static_cast<nd::ssize_t>(q)});
+    return Block::adopt(seg_seg_reg_moments_bspline_cplx(Rv, wua, k));
 }
 
 // `_seg_seg_reg_moments(arc, a, k, max_d, n_qp, ek=...)` at a real k: the
@@ -3522,22 +3558,75 @@ void accumulate_subset(std::vector<cdouble> &Z, const Geometry &g, const Basis &
     const int64_t n_sub = static_cast<int64_t>(seg_idx.size());
     const int64_t row_bytes = static_cast<int64_t>(nd * nd) * n_sub * 16;
     const int64_t chunk = std::max<int64_t>(1, (swept_mem_mb * 1024 * 1024) / row_bytes);
+    const auto window = [&](int64_t i0, int64_t i1, int64_t j0, int64_t j1) {
+        const std::vector<size_t> rows = range(i0, i1), cols = range(j0, j1);
+        const std::vector<double> a_sub(a_row.begin() + i0, a_row.begin() + i1);
+        accumulate(offedge(real.take(rows), src.take(cols), a_sub, k, d, fp.n_qp_pair, ek_cut(ek, &rows, &cols),
+                           fp.ladder),
+                   i0, i1, j0, j1);
+    };
+    // `_SUBSET_SKIP_SAME_EDGE` (momwire#1752 L2): a direct block's sweep
+    // leaves each subset wire's edges' own blocks out, and the fixup adds the
+    // same-edge moments alone. `edge_lo`/`edge_hi` name each such row's edge.
+    std::vector<bool> on_subset(static_cast<size_t>(N), false);
+    for (int64_t s2 : seg_idx) on_subset[static_cast<size_t>(s2)] = true;
+    const bool skip = !mirror;
+    std::vector<int64_t> edge_lo, edge_hi;
+    if (skip) {
+        edge_lo.assign(static_cast<size_t>(N), -1);
+        edge_hi.assign(static_cast<size_t>(N), -1);
+        for (size_t w = 0; w < g.per_wire.size(); w++) {
+            if (!on_subset[static_cast<size_t>(g.seg_offsets[w])]) continue;
+            const WireGeometry &pw = g.per_wire[w];
+            for (size_t e = 0; e + 1 < pw.edge_offsets.size(); e++) {
+                const int64_t s0 = g.seg_offsets[w] + pw.edge_offsets[e], s1 = g.seg_offsets[w] + pw.edge_offsets[e + 1];
+                for (int64_t s2 = s0; s2 < s1; s2++) {
+                    edge_lo[static_cast<size_t>(s2)] = s0;
+                    edge_hi[static_cast<size_t>(s2)] = s1;
+                }
+            }
+        }
+    }
     for (const auto &run : runs)
         for (int64_t c0 = run.first; c0 < run.second; c0 += chunk) {
             const int64_t c1 = std::min(c0 + chunk, run.second);
-            const std::vector<size_t> rows = range(c0, c1);
-            const std::vector<double> a_sub(a_row.begin() + c0, a_row.begin() + c1);
             for (const auto &srun : runs) {
-                const std::vector<size_t> cols = range(srun.first, srun.second);
-                accumulate(offedge(real.take(rows), src.take(cols), a_sub, k, d, fp.n_qp_pair, ek_cut(ek, &rows, &cols),
-                                   fp.ladder),
-                           c0, c1, srun.first, srun.second);
+                const int64_t j0 = srun.first, j1 = srun.second;
+                if (!skip) {
+                    window(c0, c1, j0, j1);
+                    continue;
+                }
+                // the rows in runs of one fixed edge (or of none), each run's
+                // window less that edge's own columns: before, then after
+                for (int64_t r = c0; r < c1;) {
+                    const int64_t lo = edge_lo[static_cast<size_t>(r)];
+                    if (lo < 0) {
+                        int64_t r1 = r + 1;
+                        while (r1 < c1 && edge_lo[static_cast<size_t>(r1)] < 0) r1++;
+                        window(r, r1, j0, j1);
+                        r = r1;
+                        continue;
+                    }
+                    const int64_t hi = edge_hi[static_cast<size_t>(r)];
+                    const int64_t r1 = std::min(hi, c1);
+                    if (j0 < lo) window(r, r1, j0, std::min(j1, lo));
+                    if (j1 > hi) window(r, r1, std::max(j0, hi), j1);
+                    r = r1;
+                }
             }
         }
     if (mirror) return;
-    // the same-edge fixup, per edge of each subset wire (wire order)
-    std::vector<bool> on_subset(static_cast<size_t>(N), false);
-    for (int64_t s2 : seg_idx) on_subset[static_cast<size_t>(s2)] = true;
+    // the same-edge fixup, per edge of each subset wire (wire order). An
+    // edge's block is a function of its arc table and radius alone (and of
+    // this block's k and kernel), so an edge that repeats one already done
+    // to the bit -- a hub's radials -- takes that one's block (momwire#1772):
+    // the same doubles its own evaluation would produce.
+    struct SameEdge {
+        const std::vector<double> *arc;
+        double a_w;
+        Block corr;
+    };
+    std::vector<SameEdge> done;
     for (size_t w = 0; w < g.per_wire.size(); w++) {
         const WireGeometry &pw = g.per_wire[w];
         if (!on_subset[static_cast<size_t>(g.seg_offsets[w])]) continue;
@@ -3547,6 +3636,18 @@ void accumulate_subset(std::vector<cdouble> &Z, const Geometry &g, const Basis &
             const int64_t s0 = g.seg_offsets[w] + pw.edge_offsets[e], s1 = g.seg_offsets[w] + pw.edge_offsets[e + 1];
             const size_t n = arc.size() - 1;
             if (!is_toeplitz(arc)) throw FrontNotPorted("a non-uniform edge");
+            const SameEdge *hit = nullptr;
+            for (const SameEdge &d : done) {
+                if (d.a_w == a_w && d.arc->size() == arc.size() &&
+                    std::memcmp(d.arc->data(), arc.data(), arc.size() * sizeof(double)) == 0) {
+                    hit = &d;
+                    break;
+                }
+            }
+            if (hit != nullptr) {
+                accumulate(Block(hit->corr.begin(), hit->corr.end()), s0, s1, s0, s1);
+                continue;
+            }
             const double h = arc[1] - arc[0];
             // `_EK_SAME_EDGE` with the extended kernel on this block
             const nd::array_t<double> A_st = ek.on ? seg_seg_static_moments_bspline_uniform_ek(h, a_w, n, d, a_w, 0)
@@ -3557,17 +3658,23 @@ void accumulate_subset(std::vector<cdouble> &Z, const Geometry &g, const Basis &
             } else {
                 A_reg = reg_moments_real(arc, a_w, k, d, fp.n_qp_same_edge, ek.on);
             }
-            const std::vector<size_t> rows = range(s0, s1);
-            const std::vector<double> a_sub(a_row.begin() + s0, a_row.begin() + s1);
-            const Block J_edge =
-                offedge(real.take(rows), real.take(rows), a_sub, k, d, fp.n_qp_pair, ek_cut(ek, &rows, &rows), fp.ladder);
-            // corr = (A_st + A_reg) - J_edge
+            // `A_st + A_reg`: the sweep left this block out (momwire#1752 L2)
             Block corr(A_reg.size(), false);
             const double *st = A_st.data();
-            for (size_t t = 0; t < corr.size(); t++) {
-                const cdouble an(st[t] + A_reg[t].real(), 0.0 + A_reg[t].imag());
-                corr[t] = cdouble(an.real() - J_edge[t].real(), an.imag() - J_edge[t].imag());
+            for (size_t t = 0; t < corr.size(); t++) corr[t] = cdouble(st[t] + A_reg[t].real(), 0.0 + A_reg[t].imag());
+            // held only where a later edge repeats it (a held block is a
+            // copy: `accumulate` may scale its argument in place)
+            bool repeats = false;
+            for (size_t w2 = w; w2 < g.per_wire.size() && !repeats; w2++) {
+                const WireGeometry &pw2 = g.per_wire[w2];
+                if (!on_subset[static_cast<size_t>(g.seg_offsets[w2])] || radius_per_wire[w2] != a_w) continue;
+                for (size_t e2 = (w2 == w ? e + 1 : 0); e2 + 1 < pw2.edge_offsets.size() && !repeats; e2++) {
+                    const std::vector<double> &arc2 = pw2.edge_arc_edges[e2];
+                    repeats = arc2.size() == arc.size() &&
+                              std::memcmp(arc2.data(), arc.data(), arc.size() * sizeof(double)) == 0;
+                }
             }
+            if (repeats) done.push_back({&arc, a_w, Block(corr.begin(), corr.end())});
             accumulate(corr, s0, s1, s0, s1);
         }
     }
@@ -3750,6 +3857,81 @@ BuriedMedium buried_medium(double eps_r, double sigma, double omega, double eps,
     return m;
 }
 
+// `_pair_extents_below`'s two reductions over every unordered node pair
+// (i <= j) of the below plan: the largest r1^2 = rho^2 + (d_i + d_j)^2 and
+// the smallest (d_i + d_j)^2 / rho^2, by `x > max` / `x < min` (a NaN never
+// taken). A largest and a smallest are the same whatever order the pairs
+// come in, so the rows run side by side and W pairs a step (momwire#1772:
+// one thread's quadratic walk was the hubs' serial stage past one thread),
+// each pair's r1^2 and ratio the same expressions as one at a time.
+static void plan_extents(const std::vector<double> &plan_b, const std::vector<double> &d_b, double &r1sq_max,
+                  double &q_min) {
+    const size_t n_obs = plan_b.size() / 3;
+    std::vector<double> X(n_obs), Y(n_obs);
+    for (size_t i = 0; i < n_obs; i++) {
+        X[i] = plan_b[3 * i];
+        Y[i] = plan_b[3 * i + 1];
+    }
+    const double *xs = X.data(), *ys = Y.data(), *ds = d_b.data();
+    double r_all = r1sq_max, q_all = q_min;
+#if defined(_OPENMP)
+    #pragma omp parallel
+#endif
+    {
+        double r_my = r_all, q_my = q_all;
+        const auto one = [&](size_t i, size_t j) {
+            const double dx = xs[i] - xs[j], dy = ys[i] - ys[j];
+            const double rho2 = dx * dx + dy * dy;
+            const double hh = ds[i] + ds[j];
+            const double hh2 = hh * hh;
+            const double r1sq = rho2 + hh2;
+            if (r1sq > r_my) r_my = r1sq;
+            const double qq = hh2 / rho2;
+            if (qq < q_my) q_my = qq;
+        };
+#if defined(_OPENMP)
+        #pragma omp for schedule(dynamic, 16)
+#endif
+        for (std::ptrdiff_t ii = 0; ii < static_cast<std::ptrdiff_t>(n_obs); ii++) {
+            const size_t i = static_cast<size_t>(ii);
+            size_t j = i;
+#if MW_LANES_SIMD
+            using namespace mw_lanes;
+            for (; j < n_obs && j % static_cast<size_t>(W) != 0; j++) one(i, j);
+            const vd xi = set1(xs[i]), yi = set1(ys[i]), di = set1(ds[i]);
+            vd vr = set1(r_my), vq = set1(q_my);
+            for (; j + static_cast<size_t>(W) <= n_obs; j += static_cast<size_t>(W)) {
+                const vd dx = sub(xi, loadu(xs + j)), dy = sub(yi, loadu(ys + j));
+                const vd rho2 = add(mul(dx, dx), mul(dy, dy));
+                const vd hh = add(di, loadu(ds + j));
+                const vd hh2 = mul(hh, hh);
+                const vd r1sq = add(rho2, hh2);
+                vr = blend(vr, r1sq, cmp_gt(r1sq, vr));
+                const vd qq = div(hh2, rho2);
+                vq = blend(vq, qq, cmp_lt(qq, vq));
+            }
+            alignas(64) double lr[W], lq[W];
+            storeu(lr, vr);
+            storeu(lq, vq);
+            for (int l = 0; l < W; l++) {
+                if (lr[l] > r_my) r_my = lr[l];
+                if (lq[l] < q_my) q_my = lq[l];
+            }
+#endif
+            for (; j < n_obs; j++) one(i, j);
+        }
+#if defined(_OPENMP)
+        #pragma omp critical(mw_plan_extents)
+#endif
+        {
+            if (r_my > r_all) r_all = r_my;
+            if (q_my < q_all) q_all = q_my;
+        }
+    }
+    r1sq_max = r_all;
+    q_min = q_all;
+}
+
 std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::vector<double> &radius_per_wire,
                                  const FillParams &fp, double omega, double eps, double mu, double ground_z,
                                  double eps_r, double sigma, int64_t n_qp_sommerfeld, int64_t swept_mem_mb,
@@ -3766,11 +3948,37 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
     std::vector<int64_t> a_idx, b_idx;
     for (int64_t s2 = 0; s2 < N; s2++) (below[static_cast<size_t>(s2)] ? b_idx : a_idx).push_back(s2);
     const bool crossing = !a_idx.empty() && !b.crossing.empty();
-    if (!a_idx.empty() && !crossing) throw FrontNotPorted("buried-transmitted");
+    // wires on both sides with no crossing node (momwire#1718 S12): the two
+    // transmitted blocks over the below->above grid (`_somm_transmitted_core`)
+    const bool mixed = !a_idx.empty() && !crossing;
     const int64_t q = std::max<int64_t>(n_qp_sommerfeld, 6);  // `n_qp_buried_field`
     std::vector<double> obs_a, t_a, W_a, obs_b, t_b, W_b;
     buried_nodes(g, a_idx, q, nd, obs_a, t_a, W_a);
     buried_nodes(g, b_idx, q, nd, obs_b, t_b, W_b);
+    // the below/below remainder's own order (`N_QP_BELOW_REMAINDER`,
+    // momwire#1752 S1); its nodes stay out of the plan, inside the base
+    // nodes' hull (`plan_buried`)
+    const int64_t q_bb = std::max<int64_t>(n_qp_sommerfeld, 3);
+    std::vector<double> obs_bb, t_bb, W_bb;
+    buried_nodes(g, b_idx, q_bb, nd, obs_bb, t_bb, W_bb);
+    // the cross block's own order (`near_q_factor` over `cross_pair_
+    // separation`, momwire#1004): the raised nodes join the plan
+    int64_t q_x = q;
+    std::vector<double> obs_ax, t_ax, W_ax, obs_bx, t_bx, W_bx;
+    if (mixed) {
+        int64_t qf = 1;
+        try {
+            qf = somm_trans::near_q_factor(g.seg_l.data(), g.seg_r.data(), a_idx, b_idx);
+        } catch (const somm_trans::Refused &e) {
+            throw FrontNotPorted(std::string("buried-") + e.what());
+        }
+        q_x = q * qf;
+        if (qf > 1) {
+            buried_nodes(g, a_idx, q_x, nd, obs_ax, t_ax, W_ax);
+            buried_nodes(g, b_idx, q_x, nd, obs_bx, t_bx, W_bx);
+        }
+    }
+    const bool raised_x = q_x != q;
     // momwire#1672 (`BSplineSolver._below_remainder_pairs`): the below/below
     // pairs the remainder needs more than the base order for, a buried wire
     // within a segment of the surface; their raised-order nodes join the
@@ -3783,7 +3991,7 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
                 sl.push_back(g.seg_l[3 * static_cast<size_t>(s2) + c]);
                 sr.push_back(g.seg_r[3 * static_cast<size_t>(s2) + c]);
             }
-        raised_pairs_on(sl, sr, static_cast<int64_t>(b_idx.size()), gz, q, 1.0, 0.0, np, bbI, bbJ, bbQ);
+        raised_pairs_on(sl, sr, static_cast<int64_t>(b_idx.size()), gz, q_bb, 1.0, 0.0, np, bbI, bbJ, bbQ);
         // `_same_wire`: only the pairs along one wire are raised
         const auto wire_of = [&](int64_t s2) {
             return static_cast<int64_t>(std::upper_bound(g.seg_offsets.begin(), g.seg_offsets.end(), s2) -
@@ -3805,10 +4013,12 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
     const double r1_cap = (somm_below::R1_CAP_LAMBDA_M * lam_m) * (1.0 + 1e-9);
     const double floor = (0.05 - 2.0 * (0.05 / 3.0)) * (PI_ / 180.0);
     double r1_max = 0.0, th_min = 0.0;
+    somm_trans::CrossPlan cross_plan;
     // `plan_buried`'s backoff: the raised pairs halve until the plan's
     // grazing floor serves them (`_halved`), the base fill when none remain
     for (;;) {
         std::vector<double> plan_b(obs_b);
+        if (raised_x) plan_b.insert(plan_b.end(), obs_bx.begin(), obs_bx.end());
         if (!bbI.empty()) {
             std::vector<int64_t> qmax(b_idx.size(), 0);
             for (size_t t = 0; t < bbI.size(); t++) {
@@ -3831,27 +4041,34 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
         std::vector<double> d_b(n_obs);
         for (size_t i = 0; i < n_obs; i++) d_b[i] = gz - plan_b[3 * i + 2];
         double r1sq_max = 0.0, q_min = std::numeric_limits<double>::infinity();
-        for (size_t i = 0; i < n_obs; i++)
-            for (size_t j = i; j < n_obs; j++) {
-                const double dx = plan_b[3 * i] - plan_b[3 * j], dy = plan_b[3 * i + 1] - plan_b[3 * j + 1];
-                const double rho2 = dx * dx + dy * dy;
-                const double hh = d_b[i] + d_b[j];
-                const double hh2 = hh * hh;
-                const double r1sq = rho2 + hh2;
-                if (r1sq > r1sq_max) r1sq_max = r1sq;
-                const double qq = hh2 / rho2;
-                if (qq < q_min) q_min = qq;
-            }
+        plan_extents(plan_b, d_b, r1sq_max, q_min);
         r1_max = std::sqrt(r1sq_max);
         th_min = std::atan(std::sqrt(q_min));
         // past the cap Python asks the floor of the pairs inside it only,
         // which this walk does not: decline rather than choose differently
         if (r1_max > r1_cap && th_min < floor) throw FrontNotPorted("buried-capped-plan");
-        if (!(th_min < floor)) break;
+        bool graze = th_min < floor;
+        if (!graze && mixed) {
+            // `serve_plan`'s cross-medium section over the union of both
+            // rules' nodes; its grazing refusal backs the raised pairs off
+            // like the below one (`_is_grazing_refusal`)
+            std::vector<double> plan_a(obs_a);
+            if (raised_x) plan_a.insert(plan_a.end(), obs_ax.begin(), obs_ax.end());
+            try {
+                cross_plan = somm_trans::cross_extents(plan_a.data(), plan_a.size() / 3, plan_b.data(), n_obs, gz,
+                                                       bm.k_p, bm.k_m);
+            } catch (const somm_trans::Refused &e) {
+                if (std::string(e.what()) != "buried-cross-grazing")
+                    throw FrontNotPorted(std::string("buried-refusal: ") + e.what());
+                if (bbI.empty()) throw FrontNotPorted("buried-cross-grazing-refusal");
+                graze = true;
+            }
+        }
+        if (!graze) break;
         if (bbI.empty()) throw FrontNotPorted("buried-grazing-refusal");
         std::vector<int64_t> hI, hJ, hQ;
         for (size_t t = 0; t < bbI.size(); t++)
-            if (bbQ[t] / 2 > q) {
+            if (bbQ[t] / 2 > q_bb) {
                 hI.push_back(bbI[t]);
                 hJ.push_back(bbJ[t]);
                 hQ.push_back(bbQ[t] / 2);
@@ -4023,26 +4240,31 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
     rem.gz = gz;
     rem.k_p = bm.k_p;
     rem.k_m = bm.k_m;
+    const size_t QB = static_cast<size_t>(q_bb);
     const int64_t n_b = static_cast<int64_t>(b_idx.size());
-    const int64_t chunk = std::max<int64_t>(1, (int64_t(1) << 19) / std::max<int64_t>(n_b * q * q, 1));
+    // `_FIELD_GALERKIN_SYM_CHUNKS` (momwire#1752 L1): at least 8 observer
+    // chunks, so the mirror serves the upper rectangle on a small deck too
+    const int64_t chunk = std::min<int64_t>(
+        std::max<int64_t>(1, (int64_t(1) << 19) / std::max<int64_t>(n_b * q_bb * q_bb, 1)),
+        std::max<int64_t>(1, (n_b + 7) / 8));
     for (int64_t i0 = 0; i0 < n_b; i0 += chunk) {
         const int64_t i1 = std::min(i0 + chunk, n_b);
-        const size_t m = static_cast<size_t>(i1 - i0) * Q, S = static_cast<size_t>(n_b - i0) * Q;
-        rem.src.assign(obs_b.begin() + 3 * static_cast<std::ptrdiff_t>(i0) * q, obs_b.end());
-        rem.t_src.assign(t_b.begin() + 3 * static_cast<std::ptrdiff_t>(i0) * q, t_b.end());
+        const size_t m = static_cast<size_t>(i1 - i0) * QB, S = static_cast<size_t>(n_b - i0) * QB;
+        rem.src.assign(obs_bb.begin() + 3 * static_cast<std::ptrdiff_t>(i0) * q_bb, obs_bb.end());
+        rem.t_src.assign(t_bb.begin() + 3 * static_cast<std::ptrdiff_t>(i0) * q_bb, t_bb.end());
         rem.d_src.resize(S);
         for (size_t j = 0; j < S; j++) rem.d_src[j] = gz - rem.src[3 * j + 2];
         std::vector<cdouble> proj(m * S);
-        rem.project(&obs_b[3 * static_cast<size_t>(i0) * Q], &t_b[3 * static_cast<size_t>(i0) * Q],
+        rem.project(&obs_bb[3 * static_cast<size_t>(i0) * QB], &t_bb[3 * static_cast<size_t>(i0) * QB],
                     static_cast<std::ptrdiff_t>(m), proj.data());
-        std::vector<double> W_rows(static_cast<size_t>(nd) * (i1 - i0) * Q), W_cols(static_cast<size_t>(nd) * S);
+        std::vector<double> W_rows(static_cast<size_t>(nd) * (i1 - i0) * QB), W_cols(static_cast<size_t>(nd) * S);
         for (int p = 0; p < nd; p++) {
-            std::copy(W_b.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i0) * q,
-                      W_b.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i1) * q,
-                      W_rows.begin() + static_cast<std::ptrdiff_t>(p) * (i1 - i0) * q);
-            std::copy(W_b.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i0) * q,
-                      W_b.begin() + (static_cast<std::ptrdiff_t>(p) + 1) * n_b * q,
-                      W_cols.begin() + static_cast<std::ptrdiff_t>(p) * (n_b - i0) * q);
+            std::copy(W_bb.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i0) * q_bb,
+                      W_bb.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i1) * q_bb,
+                      W_rows.begin() + static_cast<std::ptrdiff_t>(p) * (i1 - i0) * q_bb);
+            std::copy(W_bb.begin() + (static_cast<std::ptrdiff_t>(p) * n_b + i0) * q_bb,
+                      W_bb.begin() + (static_cast<std::ptrdiff_t>(p) + 1) * n_b * q_bb,
+                      W_cols.begin() + static_cast<std::ptrdiff_t>(p) * (n_b - i0) * q_bb);
         }
         std::vector<int64_t> pos_s(pos.size()), pos_m(pos.size());
         for (size_t t = 0; t < pos.size(); t++) {
@@ -4059,7 +4281,7 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
         args.ps = pos_s.data();
         args.P = nd;
         args.nc = i1 - i0;
-        args.q = q;
+        args.q = q_bb;
         args.ns = n_b - i0;
         args.nb = n_basis;
         args.A = nd;
@@ -4080,7 +4302,30 @@ std::vector<cdouble> fill_buried(const Geometry &g, const Basis &b, const std::v
         mw_fg::assemble(args);
     }
     if (!bbI.empty())
-        below_pair_correction(Z, g, b, b_idx, bbI, bbJ, bbQ, q, nd, obs_b, t_b, W_b, rem);
+        below_pair_correction(Z, g, b, b_idx, bbI, bbJ, bbQ, q_bb, nd, obs_bb, t_bb, W_bb, rem);
+    // the two transmitted blocks (`compute_Z_operator_buried`'s mixed
+    // branch): `_field_galerkin_block` over the below->above table, observer
+    // chunks of `_FIELD_GALERKIN_CHUNK_ELEMS / (n_src q q)`, each upward pair
+    // read by `transmitted_field_proj_below_to_above` and each downward one by
+    // the reciprocity transpose over the same grid
+    if (mixed) {
+        const somm_trans::Grid *gt = nullptr;
+        try {
+            gt = &somm_trans::get_grid(bm.eps_t, bm.k_p, cross_plan.r_cross_max, cross_plan.zp_min,
+                                       cross_plan.zp_max, omega, mu, cross_plan.r_cross_min);
+        } catch (const somm_trans::Refused &e) {
+            throw FrontNotPorted(std::string("buried-") + e.what());
+        }
+        TransmittedSide up{raised_x ? &obs_ax : &obs_a, raised_x ? &t_ax : &t_a, raised_x ? &W_ax : &W_a, &pos_a,
+                           static_cast<int64_t>(a_idx.size())};
+        TransmittedSide down{raised_x ? &obs_bx : &obs_b, raised_x ? &t_bx : &t_b, raised_x ? &W_bx : &W_b, &pos,
+                             n_b};
+        try {
+            transmitted_blocks(Z, b.polys, b.supp_seg, nd, n_basis, q_x, *gt, gz, bm.k_p, bm.k_m, up, down);
+        } catch (const somm_trans::Refused &e) {
+            throw FrontNotPorted(std::string("buried-") + e.what());
+        }
+    }
     // the crossing serve (`_crossing_fill`, momwire#524 phase 2): the cross
     // block's split fill and the self completions, on a one-radius deck
     if (crossing && !stop_before_cross) {

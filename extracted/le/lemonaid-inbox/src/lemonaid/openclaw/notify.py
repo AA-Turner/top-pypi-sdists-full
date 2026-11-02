@@ -1,0 +1,454 @@
+"""OpenClaw notification hook handler.
+
+OpenClaw may not have explicit notification hooks like Claude Code, but
+this module provides the handler infrastructure in case hooks are added
+or for manual triggering.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+from ..config import load_config
+from ..inbox import db
+from ..inbox.channel import UnidentifiedSession, channel_id
+from ..lemon_watchers import (
+    detect_terminal_switch_source,
+    get_cmux_surface,
+    get_git_branch,
+    get_name_from_cwd,
+    get_tty,
+    shorten_path,
+)
+from ..log import get_logger
+from . import ssh
+from .utils import (
+    extract_session_id_from_filename,
+    find_session_path,
+    get_last_user_message,
+    get_session_key,
+    get_session_name,
+    read_session_header,
+)
+from .utils import (
+    list_recent_sessions as list_recent_local_sessions,
+)
+
+_log = get_logger("openclaw.notify")
+
+
+def _extract_session_id(data: dict, session_path: Path | None) -> str | None:
+    """Extract session ID from data or session path."""
+    for key in ("session_id", "sessionId", "id"):
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            return value
+
+    if session_path:
+        session_id = extract_session_id_from_filename(session_path.name)
+        if session_id:
+            return session_id
+
+        header = read_session_header(session_path)
+        if header and isinstance(header.get("id"), str):
+            return header["id"]
+
+    return None
+
+
+def _resolve_session_path(
+    session_id: str | None, agent_id: str | None, session_path: str | None
+) -> Path | None:
+    """Resolve the session file path."""
+    if session_path:
+        path = Path(session_path).expanduser()
+        if path.exists():
+            return path
+
+    if session_id:
+        return find_session_path(session_id, agent_id)
+
+    return None
+
+
+def _resolve_cwd(cwd: str | None, session_path: Path | None) -> str | None:
+    """Resolve the working directory."""
+    if cwd:
+        return cwd
+
+    if session_path:
+        header = read_session_header(session_path)
+        if header:
+            return header.get("cwd")
+
+    return None
+
+
+def handle_notification(
+    stdin_data: str | None = None,
+    *,
+    session_id: str | None = None,
+    agent_id: str | None = None,
+    session_path: str | None = None,
+    cwd: str | None = None,
+    name: str | None = None,
+    message: str | None = None,
+    notification_type: str | None = None,
+) -> None:
+    """Handle an OpenClaw notification.
+
+    Can be triggered by a hook or manually. Reads JSON from stdin
+    and adds a notification to the lemonaid inbox.
+    """
+    if stdin_data is None:
+        stdin_data = sys.stdin.read() if not sys.stdin.isatty() else ""
+
+    _log.info("stdin: %s", stdin_data[:200])
+
+    try:
+        data = json.loads(stdin_data) if stdin_data else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    agent_id = agent_id or data.get("agent_id") or data.get("agentId")
+    session_path_obj = _resolve_session_path(session_id, agent_id, session_path)
+    session_id = session_id or _extract_session_id(data, session_path_obj)
+    cwd = _resolve_cwd(cwd or data.get("cwd"), session_path_obj)
+    notification_type = (
+        notification_type
+        or data.get("notification_type")
+        or data.get("event")
+        or data.get("type")
+        or "idle"
+    )
+
+    if not message:
+        short_path = shorten_path(cwd or "")
+        if notification_type == "idle":
+            message = f"Waiting in {short_path}"
+        elif "approval" in notification_type or "permission" in notification_type:
+            message = f"Permission needed in {short_path}"
+        else:
+            message = f"{notification_type} in {short_path}"
+
+    if not name:
+        name = data.get("name") or data.get("title") or get_name_from_cwd(cwd or "")
+
+    switch_source = detect_terminal_switch_source()
+
+    metadata: dict[str, str] = {}
+    if cwd:
+        metadata["cwd"] = cwd
+    if session_id:
+        metadata["session_id"] = session_id
+    if agent_id:
+        metadata["agent_id"] = agent_id
+    if notification_type:
+        metadata["notification_type"] = notification_type
+    if session_path_obj:
+        metadata["session_path"] = str(session_path_obj)
+
+    branch = get_git_branch(cwd or "")
+    if branch:
+        metadata["git_branch"] = branch
+    if agent_id and session_id:
+        session_key = get_session_key(agent_id, session_id)
+        if session_key:
+            metadata["session_key"] = session_key
+    tty = get_tty()
+    if tty:
+        metadata["tty"] = tty
+        surface = get_cmux_surface()
+        if surface:
+            metadata["cmux_surface"] = surface
+
+    try:
+        channel = channel_id("openclaw", session_id)
+    except UnidentifiedSession:
+        _log.warning("dropped a notification with no session id: cwd=%s", cwd)
+        return
+
+    with db.connect() as conn:
+        db.add(
+            conn,
+            channel=channel,
+            message=message,
+            name=name,
+            metadata=metadata,
+            switch_source=switch_source if switch_source != "unknown" else None,
+        )
+
+    _log.info("added: channel=%s, type=%s", channel, notification_type)
+
+
+def dismiss_session(session_id: str, debug: bool = False) -> int:
+    """Dismiss (mark as read) the notification for an OpenClaw session."""
+    if not session_id:
+        if debug:
+            print("[dismiss] no session_id provided", file=sys.stderr)
+        return 0
+
+    channel = channel_id("openclaw", session_id)
+    with db.connect() as conn:
+        count = db.mark_all_read_for_channel(conn, channel)
+        if debug:
+            print(
+                f"[dismiss] marked {count} notification(s) as read for {channel}", file=sys.stderr
+            )
+        return count
+
+
+def handle_dismiss(debug: bool = False) -> None:
+    """Dismiss (mark as read) the notification for this OpenClaw session."""
+    _debug = debug or os.environ.get("LEMONAID_DEBUG") == "1"
+
+    stdin_raw = (sys.stdin.read() if not sys.stdin.isatty() else "{}") or "{}"
+
+    if _debug:
+        _log.info("dismiss stdin: %s", stdin_raw[:100])
+
+    try:
+        data = json.loads(stdin_raw)
+    except json.JSONDecodeError:
+        data = {}
+
+    session_id = _extract_session_id(data, None)
+    count = dismiss_session(session_id or "", debug=debug)
+
+    if _debug:
+        _log.info(
+            "dismiss: session_id=%s, marked=%d", session_id[:8] if session_id else "NONE", count
+        )
+
+
+def handle_register(session_id: str | None = None, cwd: str | None = None) -> bool:
+    """Register/update an OpenClaw session with the current TTY.
+
+    Designed to be run from within OpenClaw's TUI via the ! prefix:
+        !lemonaid openclaw register
+
+    If session_id is provided, registers that specific session.
+    Otherwise, finds the most recently modified session.
+
+    When config has [openclaw] remote_host, discovers sessions via SSH.
+
+    Returns True if successful, False otherwise.
+    """
+    config = load_config()
+    remote_host = config.openclaw.remote_host
+
+    # Get TTY - should inherit from TUI process
+    tty = get_tty()
+
+    _log.info("register: session_id=%s, tty=%s, remote=%s", session_id, tty, remote_host)
+
+    if not tty:
+        print("Warning: Could not detect TTY. Notification will use cwd-based matching.")
+
+    # Find session - local or remote
+    session_path: Path | str | None = None
+    agent_id: str | None = None
+    session_cwd: str | None = None
+    excluded_session_ids = _get_registered_session_ids_for_other_ttys(tty)
+
+    if remote_host:
+        session_path, session_id, agent_id, session_cwd = _find_session_remote(
+            remote_host, session_id, excluded_session_ids
+        )
+    elif session_id:
+        session_path = find_session_path(session_id)
+        if session_path:
+            header = read_session_header(session_path)
+            agent_id = session_path.parent.parent.name if session_path else None
+            session_cwd = header.get("cwd") if header else None
+        else:
+            agent_id, session_cwd = None, None
+    else:
+        candidates = list_recent_local_sessions(limit=30)
+        session_path, session_id, agent_id, session_cwd = _pick_session_candidate(
+            candidates, requested_session_id=None, excluded_session_ids=excluded_session_ids
+        )
+
+    if not session_path or not session_id:
+        if session_id:
+            print(f"Session not found: {session_id}")
+        else:
+            location = f" on {remote_host}" if remote_host else ""
+            print(f"No OpenClaw session found{location}")
+        _log.info("no session found")
+        return False
+
+    _log.info("found session: %s, agent=%s, cwd=%s", session_id[:8], agent_id, session_cwd)
+
+    # Use session's cwd (from header), not the TUI's working directory
+    cwd = session_cwd or cwd or os.getcwd()
+
+    # Build metadata
+    switch_source = detect_terminal_switch_source()
+    # Get session name: label > session key segment > cwd folder name
+    name = None
+    if agent_id:
+        if remote_host:
+            name = ssh.get_session_name(remote_host, agent_id, session_id)
+        else:
+            name = get_session_name(agent_id, session_id)
+    if not name:
+        name = get_name_from_cwd(cwd)
+    short_path = shorten_path(cwd)
+    message = f"Registered in {short_path}"
+
+    metadata: dict[str, str] = {
+        "cwd": cwd,
+        "session_id": session_id,
+        "session_path": str(session_path),
+    }
+    if agent_id:
+        metadata["agent_id"] = agent_id
+        if remote_host:
+            session_key = ssh.get_session_key(remote_host, agent_id, session_id)
+        else:
+            session_key = get_session_key(agent_id, session_id)
+        if session_key:
+            metadata["session_key"] = session_key
+    if tty:
+        metadata["tty"] = tty
+        surface = get_cmux_surface()
+        if surface:
+            metadata["cmux_surface"] = surface
+
+    branch = get_git_branch(cwd)
+    if branch:
+        metadata["git_branch"] = branch
+
+    try:
+        channel = channel_id("openclaw", session_id)
+    except UnidentifiedSession:
+        _log.warning("dropped a notification with no session id: cwd=%s", cwd)
+        return False
+
+    # Upsert the notification
+    with db.connect() as conn:
+        existing = db.get_by_channel(conn, channel, unread_only=False)
+
+        if existing:
+            # Update existing - preserve message but update TTY
+            new_metadata = {**existing.metadata, **metadata}
+            # Keep the existing message unless it's the default "Registered" message
+            if not existing.message.startswith("Registered"):
+                message = existing.message
+
+            db.add(
+                conn,
+                channel=channel,
+                message=message,
+                name=existing.name or name,
+                metadata=new_metadata,
+                switch_source=switch_source
+                if switch_source != "unknown"
+                else existing.switch_source,
+            )
+            action = "updated"
+        else:
+            db.add(
+                conn,
+                channel=channel,
+                message=message,
+                name=name,
+                metadata=metadata,
+                switch_source=switch_source if switch_source != "unknown" else None,
+            )
+            action = "created"
+
+    # Get session info for confirmation
+    session_name = None
+    if agent_id:
+        if remote_host:
+            session_name = ssh.get_session_name(remote_host, agent_id, session_id)
+        else:
+            session_name = get_session_name(agent_id, session_id)
+
+    if remote_host:
+        last_message = ssh.get_last_user_message(remote_host, str(session_path))
+    else:
+        last_message = get_last_user_message(Path(str(session_path)))
+
+    # Print confirmation with enough info to verify correct session
+    tty_display = tty.replace("/dev/", "") if tty else "none"
+    location = f" on {remote_host}" if remote_host else ""
+    selected_label = "session"
+    if session_id:
+        selected_label = f"session {session_id[:8]}"
+    print(f"Registered {selected_label}{location} (tty: {tty_display})")
+    print(f"  Channel: {channel}")
+    print(f"  Cwd: {cwd}")
+    if session_name:
+        print(f"  Name: {session_name}")
+    if last_message:
+        print(f"  Last input: {last_message}")
+    print()
+    print("If this is the wrong session, use: lemonaid openclaw register --session-id <id>")
+
+    _log.info("%s: %s, tty=%s", action, channel, tty)
+
+    return True
+
+
+def _find_session_remote(
+    host: str, session_id: str | None, excluded_session_ids: set[str]
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """Find a session on a remote host via SSH.
+
+    Returns (session_path, session_id, agent_id, cwd) or all Nones.
+    """
+    candidates = ssh.list_recent_sessions(host, limit=30)
+    return _pick_session_candidate(
+        candidates, requested_session_id=session_id, excluded_session_ids=excluded_session_ids
+    )
+
+
+def _get_registered_session_ids_for_other_ttys(current_tty: str | None) -> set[str]:
+    """Get OpenClaw session IDs currently registered to different TTYs."""
+    excluded: set[str] = set()
+    with db.connect() as conn:
+        for n in db.get_active(conn, switch_source=None):
+            if not n.channel.startswith("openclaw:"):
+                continue
+            existing_tty = n.metadata.get("tty")
+            session_id = n.metadata.get("session_id")
+            if not session_id:
+                continue
+            if current_tty and existing_tty == current_tty:
+                continue
+            excluded.add(session_id)
+    return excluded
+
+
+def _session_id_matches(requested_session_id: str, session_id: str) -> bool:
+    """Check if session IDs match exactly or by standard short-prefix semantics."""
+    if requested_session_id == session_id:
+        return True
+    if session_id.startswith(requested_session_id):
+        return True
+    return requested_session_id.startswith(session_id[:8])
+
+
+def _pick_session_candidate(
+    candidates: list[tuple[Path | str, str, str | None, str | None]],
+    requested_session_id: str | None,
+    excluded_session_ids: set[str],
+) -> tuple[Path | str | None, str | None, str | None, str | None]:
+    """Pick best session candidate with explicit-id and TTY-aware disambiguation."""
+    if requested_session_id:
+        for session_path, session_id, agent_id, session_cwd in candidates:
+            if _session_id_matches(requested_session_id, session_id):
+                return session_path, session_id, agent_id, session_cwd
+        return None, None, None, None
+
+    for session_path, session_id, agent_id, session_cwd in candidates:
+        if session_id not in excluded_session_ids:
+            return session_path, session_id, agent_id, session_cwd
+
+    if candidates:
+        return candidates[0]
+    return None, None, None, None

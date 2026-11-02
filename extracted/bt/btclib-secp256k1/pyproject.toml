@@ -1,6 +1,6 @@
 [project]
 name = "btclib-secp256k1"
-version = "0.8.0.13"
+version = "0.8.0.14"
 description = "Simple python bindings to libsecp256k1"
 readme = "README.md"
 # PEP 639: a SPDX expression and the files it refers to, replacing the
@@ -541,7 +541,7 @@ dev = [
 # the oldest uv that may read uv.lock, at most the uv a Dependabot run's
 # log names -- section 1 of the organization standard has the argument,
 # section 15 the commands that measure it
-required-version = ">=0.12.18"
+required-version = ">=0.13.4"
 
 [tool.mypy]
 # the package ships py.typed: its annotations are what the library
@@ -623,7 +623,7 @@ skip = "fuzz/corpus/*"
 # `intoto` is in-toto's own spelling, in the bundle's name
 # `<tag>.intoto.jsonl`. This table has no `ignore-regex`, so the entry covers
 # every file the hook reads -- RELEASING.md's fenced commands, SECURITY.md,
-# CHANGELOG.md -- and the dictionary offers "into" for it, which
+# changelog/ -- and the dictionary offers "into" for it, which
 # --write-changes applies
 ignore-words-list = "intoto"
 
@@ -641,7 +641,7 @@ extend-exclude = ["secp256k1/", "secp256k1-zkp/", "fuzz/corpus/**"]
 # auditwheel: a real name, and one no spelling of it can avoid
 delocate = "delocate"
 # ruff's flake8-copyright rule code, named above in `select` and in the
-# comment below it, and again in CHANGELOG.md's prose: a real rule code,
+# comment below it, and again in changelog/'s prose: a real rule code,
 # not a typo of "copy" or "cpu"
 cpy = "cpy"
 # `intoto` in the bundle's name `<tag>.intoto.jsonl`, as for codespell above:
@@ -663,8 +663,15 @@ extend-ignore-re = ['"[0-9a-fA-F]+"']
 # a backticked span in these files quotes its text rather than using it,
 # an abbreviated commit sha among them: the dictionary reads a run of its
 # hex digits as a misspelt word, and this hook runs with --write-changes,
-# so without this table it rewrites the citation into one naming no commit
-extend-glob = ["CHANGELOG.md", "RELEASE_NOTES.md", ".pre-commit-config.yaml"]
+# so without this table it rewrites the citation into one naming no commit.
+# A glob here matches a file's name and not its path, so `v[0-9]*.md` is
+# what reaches the files under changelog/
+extend-glob = [
+    "CHANGELOG.md",
+    "v[0-9]*.md",
+    "RELEASE_NOTES.md",
+    ".pre-commit-config.yaml",
+]
 extend-ignore-re = ['`[^`]*`']
 
 [tool.ruff]
@@ -1179,7 +1186,7 @@ fail_under = 100.0
 # (btclib-org/btclib-secp256k1#1032). A name is matched as spelled, so it
 # is written as uv.lock writes it
 test-requires = [
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
     "pytest-xdist==3.8.0",
     "pathspec==1.1.1",
@@ -1225,17 +1232,20 @@ skip = "pp*-win*"
 # reads a [tool.cibuildwheel] key, so the value moves by hand. Two things
 # say it is time: tests/cibuildwheel_images_test.py, which fails where a
 # digest below differs from that table, and a build failing on an
-# interpreter the pinned image does not carry.
+# interpreter the pinned image does not carry. A branch that moves the
+# two manylinux digests dispatches .github/workflows/upstream-tests.yml
+# on itself, since the image supplies the compiler that workflow tests
+# with; its trigger says why no path runs it.
 #
 # x86_64 and aarch64 are what archs = "auto64" above selects on the
 # Linux runners build-cibuildwheel names, and a PyPy identifier's
 # platform tag is `manylinux_x86_64` like a CPython one's, so it reads
 # the key below rather than the `pypy_x86_64` one cibuildwheel also
 # offers.
-manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64@sha256:4131ddd7acb9c6c966af02fe7e71edc51e078c2d41f475966697676430bfa2ae"
-manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64@sha256:abd1230aa9e4058a74b89d27cd14ba18c0db036d7bfe6e6f219a29ea63c24eb6"
-musllinux-x86_64-image = "quay.io/pypa/musllinux_1_2_x86_64@sha256:dc96c1f69b8a6241bcc8175a8d89b1caf0dccf959ff111a2272c42747af38350"
-musllinux-aarch64-image = "quay.io/pypa/musllinux_1_2_aarch64@sha256:83a69fa8383ba5ac2d4f01597b791ebf93269c9748270b51b7a54fbba0dcdd39"
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64@sha256:e0adf18521ad35192df733a6c62d35df7801957d24e0470238aacecfab2188a3"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64@sha256:a3e02308c822fb6ce0d12248b0c941817ba5e1a1bc9e7bb5929f29c50eaa40a9"
+musllinux-x86_64-image = "quay.io/pypa/musllinux_1_2_x86_64@sha256:04e877afa939007f6784f9076d2aa797d1156f31281cfe19f203945d7b624970"
+musllinux-aarch64-image = "quay.io/pypa/musllinux_1_2_aarch64@sha256:1db347533f8a7ea39aa20b0203f4e4af00630cdb621216a2b43771523c9983c5"
 
 # how SOURCE_DATE_EPOCH reaches the Linux build, and the only way it
 # can: the compile and the auditwheel repair after it both run inside a
@@ -1249,8 +1259,9 @@ musllinux-aarch64-image = "quay.io/pypa/musllinux_1_2_aarch64@sha256:83a69fa8383
 # the host and read the exported variable directly; cibuildwheel applies
 # environment-pass on Linux alone
 environment-pass = ["SOURCE_DATE_EPOCH"]
-# the uv in these images is older than `[tool.uv] required-version`, and
-# a uv that reads that file refuses to build or to make the test
+# the floor in `[tool.uv] required-version` and the image pins above move
+# separately, so the uv in an image can fall below the floor, and a uv
+# that reads that file then refuses to build or to make the test
 # environment; nothing else in `[tool.uv]` concerns either. A platform's
 # `environment` replaces the global one, so the constraint is written
 # again here

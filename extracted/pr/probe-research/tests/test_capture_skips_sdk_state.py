@@ -207,6 +207,9 @@ def test_a_job_started_in_tmpdir_with_no_usable_home(app, tmp_path):
     with serve(app) as url:
         from probe.sdk.client.client import Client
 
+        # The open's code bytes upload from the queue (a child process): presign
+        # to this server, so the PUT lands here instead of on an unresolvable host.
+        app.upload_base = url
         setup = Client(base_url=url, token="ros_pat_deadbeef", async_writes=False,
                        auto_drain=False, spool_dir=tmp_path / "setup-spool")
         try:

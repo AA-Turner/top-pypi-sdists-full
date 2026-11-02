@@ -1,0 +1,1013 @@
+//! Multi-fold framework.
+//!
+//! A generic state-aggregation runtime parameterized by the
+//! [`FoldKind`] trait. One implementation handles apply, query,
+//! snapshot, audit emission, TTL expiry, and node eviction for
+//! every concrete fold. The three built-in folds —
+//! [`CapabilityFold`], [`RoutingFold`], [`ReservationFold`] —
+//! plug in by implementing the trait.
+//!
+//! See `docs/internal/plans/SCALING_MULTIFOLD_PLAN.md` for the design
+//! rationale.
+
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use parking_lot::RwLock;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use tokio::sync::watch;
+
+pub mod audit;
+pub mod capability;
+pub mod capability_aggregation;
+pub mod capability_bridge;
+pub mod dispatch;
+pub mod expiry;
+pub mod island;
+pub mod metrics;
+pub mod reservation;
+pub mod routing;
+pub mod snapshot;
+pub mod state;
+pub mod tag_dictionary;
+pub mod tag_str;
+mod wheel;
+pub mod wire;
+
+#[cfg(test)]
+mod tag_tests;
+#[cfg(test)]
+mod tests;
+
+pub use audit::{FoldAuditSink, NoopSink, RingFoldAuditSink, VecFoldAuditSink};
+pub use capability::{
+    capability_tags_for, capability_tags_for_all, nodes_with_capability_tag, reflex_addr_for,
+    CapabilityFilter, CapabilityFold, CapabilityIndexInner, CapabilityMatch, CapabilityMembership,
+    CapabilityQuery, HardwareSummary, IndexMemory, NodeState,
+};
+pub use capability_aggregation::{Aggregation, CapacityQuery, CapacityRow, GroupBy, TagMatcher};
+pub use dispatch::{
+    DispatchError, FoldChannelRouter, FoldDispatch, FoldDispatchAdapter, FoldRegistry,
+    SUBPROTOCOL_FOLD,
+};
+pub use expiry::DEFAULT_SWEEP_INTERVAL;
+pub use island::{
+    IslandId, IslandQuery, IslandRecord, IslandRow, IslandTopologyFold, UnitId, UnitSet,
+};
+pub use metrics::{FoldMetrics, FoldStats};
+pub use reservation::{
+    holder_of, JobId, ReservationAnnouncement, ReservationFold, ReservationQuery, ReservationRow,
+    ReservationState, ResourceId,
+};
+pub use routing::{RouteAnnouncement, RouteRow, RoutingFold, RoutingQuery};
+pub use snapshot::{FoldSnapshot, FoldSnapshotEntry};
+pub use state::{
+    AdmissionStats, ApplyOutcome, BuildU64Hasher, EntryTransition, FoldEntry, FoldError, FoldIndex,
+    FoldState, FxU64Hasher, MergeAction, NoIndex, NodeId, NodeIdSet, NodeRecord, PayloadRejection,
+    PublisherRevision,
+};
+pub use tag_dictionary::{
+    validate_capability_tags, TagBudget, MAX_CAPABILITY_TAGS, MAX_CAPABILITY_TAG_LEN,
+};
+pub use tag_str::TagStr;
+pub use wire::{EnvelopeMeta, SignedAnnouncement, WireError};
+
+/// One typed fold definition. Each concrete fold (capability,
+/// routing, reservation, future kinds) is a unit type that
+/// implements this trait; the runtime materializes a [`Fold<K>`]
+/// per impl and routes incoming announcements through the
+/// associated payload type.
+///
+/// Every method has a sensible default for folds that don't
+/// override it; the only required choices are the associated
+/// types and [`Self::key_for`] / [`Self::build_index`] /
+/// [`Self::query`], which are inherently fold-specific.
+///
+/// See the plan's "The `FoldKind` trait" section for the design
+/// rationale on each field.
+pub trait FoldKind: Send + Sync + Sized + 'static {
+    /// Stable u16 identifier on the wire. Reserved ranges (per
+    /// the plan): `0x0000..=0x00FF` for built-in folds
+    /// (capability=1, routing=2, reservation=3); `0x0100..=0xFFFF`
+    /// for future / custom folds.
+    const KIND_ID: u16;
+
+    /// Channel-name prefix for this fold's announcements. The
+    /// per-class channel is `format!("{}{}", CHANNEL_PREFIX,
+    /// class)`. Subnet scope is NOT encoded in the channel name
+    /// — the substrate's existing `NetHeader.subnet_id` plus
+    /// `ChannelConfig::visibility` handle scoping at the gateway
+    /// layer.
+    const CHANNEL_PREFIX: &'static str;
+
+    /// Default TTL for entries in this fold. Per-announcement
+    /// `ttl_secs` overrides this when present.
+    const DEFAULT_TTL: Duration;
+
+    /// Indexing key. Must be hashable + cloneable +
+    /// serializable so the snapshot envelope can round-trip
+    /// keys without an additional codec. `Debug` is required so
+    /// the runtime's diagnostic output ([`FoldState`] /
+    /// [`FoldSnapshot`] Debug impls, audit event `key_repr`)
+    /// compiles without per-fold escape hatches.
+    type Key: Hash + Eq + Clone + std::fmt::Debug + Send + Sync + Serialize + DeserializeOwned;
+
+    /// Domain-specific payload carried in announcements. See
+    /// [`Self::Key`] for the `Debug` rationale.
+    type Payload: Clone + std::fmt::Debug + Send + Sync + Serialize + DeserializeOwned;
+
+    /// Query type the caller passes to [`Fold::query`].
+    type Query: Send + Sync;
+
+    /// Query result type the [`Self::query`] impl returns.
+    type Result: Send + Sync;
+
+    /// Secondary index — [`NoIndex`] is the default for folds
+    /// that don't maintain anything beyond the primary store.
+    type Index: FoldIndex<Self>;
+
+    /// Hasher for this fold's primary map ([`FoldState::entries`]) and
+    /// reverse index ([`FoldState::by_node`]).
+    ///
+    /// Required, with no default: associated type defaults are unstable
+    /// on the pinned toolchain. Folds whose keys are not all digests use
+    /// `std::collections::hash_map::RandomState`, the keyed SipHash
+    /// default. A fold may choose a fast unkeyed hasher only if an
+    /// adversarial publisher cannot cheaply manufacture colliding keys,
+    /// or if that cost is accepted on purpose: an unkeyed hasher turns
+    /// chosen keys into chosen collisions.
+    type KeyHasher: std::hash::BuildHasher + Default + Send + Sync;
+
+    /// Derive the indexing key from an announcement. The
+    /// publisher's `node_id` is passed separately so folds
+    /// keyed solely on the payload (like [`RoutingFold`]'s
+    /// `destination`) don't have to peel it back out.
+    fn key_for(node_id: NodeId, payload: &Self::Payload) -> Self::Key;
+
+    /// Construct a fresh secondary index. Called once at
+    /// [`Fold::new`] and again on [`Fold::restore`] before
+    /// re-populating from a snapshot.
+    fn build_index() -> Self::Index;
+
+    /// Cheap payload limits checked before merge, for every intake path
+    /// (signed dispatch, local apply) and for every row a restore would
+    /// install. A violation refuses the whole announcement (or restore)
+    /// with nothing changed. Default: no limits.
+    fn validate(payload: &Self::Payload) -> Result<(), PayloadRejection> {
+        let _ = payload;
+        Ok(())
+    }
+
+    /// How the runtime should treat an incoming announcement vs
+    /// the existing entry at its key. Default: last-write-wins
+    /// by generation, which is what capability + reservation
+    /// want; routing overrides to prefer the lower metric.
+    fn merge(
+        existing: Option<&FoldEntry<Self>>,
+        incoming: &SignedAnnouncement<Self::Payload>,
+    ) -> MergeAction {
+        match existing {
+            None => MergeAction::Insert,
+            Some(e) if incoming.generation > e.generation => MergeAction::Replace,
+            _ => MergeAction::Reject,
+        }
+    }
+
+    /// Evaluate a [`Self::Query`] against the current
+    /// [`FoldState`] + [`Self::Index`]. Read-only.
+    fn query(state: &FoldState<Self>, index: &Self::Index, query: Self::Query) -> Self::Result;
+
+    /// Optional audit emission. Returned events flow to the
+    /// installed [`FoldAuditSink`]. Default: emit nothing.
+    fn audit_event(transition: EntryTransition<'_, Self>) -> Option<AuditEvent> {
+        let _ = transition;
+        None
+    }
+}
+
+/// Tag identifying which transition produced an [`AuditEvent`].
+/// The five canonical variants cover the apply / sweep / evict
+/// transitions the runtime emits; folds that want to surface
+/// additional events (e.g. a `ReservationFold` takeover from an
+/// expired holder) emit them via [`AuditKind::Custom`] without
+/// having to widen the enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuditKind {
+    /// First-time install of a key.
+    Created,
+    /// Existing entry replaced under merge rules.
+    Replaced,
+    /// Incoming announcement rejected (stale generation, illegal
+    /// transition, etc.).
+    Rejected,
+    /// Entry removed via [`Fold::evict_node`] (SWIM / operator).
+    Evicted,
+    /// Entry removed because `expires_at` lapsed.
+    Expired,
+    /// Fold-specific transition outside the runtime's canonical
+    /// set. The `&'static str` is the fold's chosen tag (e.g.
+    /// `"reservation_takeover"`).
+    Custom(&'static str),
+}
+
+/// Audit-event payload emitted by [`FoldKind::audit_event`] for
+/// each transition the fold wants surfaced. The runtime collects
+/// them into the per-apply outcome and forwards to the installed
+/// [`FoldAuditSink`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditEvent {
+    /// Which transition produced this event. See [`AuditKind`].
+    pub kind: AuditKind,
+    /// Debug-shaped key representation. The runtime can't
+    /// `Debug`-format `K::Key` without an extra bound; impls
+    /// that want richer audit detail materialize the string
+    /// themselves.
+    pub key_repr: String,
+    /// Optional operator-readable detail string (e.g. the
+    /// `reason` passed to [`Fold::evict_node`], or
+    /// `"generation 7 → 8"` for a replace).
+    pub detail: Option<String>,
+}
+
+/// Runtime instance of a single fold.
+///
+/// Holds the primary state ([`FoldState`]) and the secondary
+/// index ([`FoldKind::Index`]) behind separate `RwLock`s so
+/// query traffic can run in parallel with index reads. The apply
+/// path takes both write locks in the fixed order `state →
+/// index`; query takes both read locks in the same order.
+/// Mixing those orders would deadlock; the runtime never does.
+///
+/// An optional [`FoldAuditSink`] receives transition events
+/// emitted by [`FoldKind::audit_event`], and a background tokio
+/// task wakes every [`DEFAULT_SWEEP_INTERVAL`] (or the per-fold
+/// override) to evict entries past their TTL. The task holds
+/// `Weak` references to the shared state, so dropping the fold
+/// ends the task naturally — no explicit shutdown signal needed.
+pub struct Fold<K: FoldKind> {
+    state: Arc<RwLock<FoldState<K>>>,
+    index: Arc<RwLock<K::Index>>,
+    metrics: Arc<FoldMetrics>,
+    /// Optional audit-event destination installed via
+    /// [`Self::set_audit_sink`]. Default `None`; `K::audit_event`
+    /// invocations are then no-ops at the call site.
+    audit_sink: Arc<RwLock<Option<Arc<dyn FoldAuditSink>>>>,
+    /// Background-sweeper join handle. Aborted in [`Self::drop`]
+    /// so tests that construct + drop many folds rapidly don't
+    /// accumulate stale tasks (the weakly-referenced state
+    /// inside the task would let it exit on its own, but only
+    /// after one sweep-interval tick).
+    sweep_handle: Option<tokio::task::JoinHandle<()>>,
+    /// Monotonic change-generation, bumped on every mutation that
+    /// alters what queries observe — apply (Insert/Replace),
+    /// `evict_node`, the expiry sweep, and `restore`. Consumers
+    /// take a [`watch::Receiver`] via [`Self::subscribe_changes`]
+    /// and `await rx.changed()` to react push-style instead of
+    /// polling. `watch` is missed-wakeup-safe: a bump between two
+    /// `changed()` awaits is still observed on the next await, and
+    /// it's multi-consumer. Wrapped in `Arc` so the background
+    /// expiry task holds a `Weak` and can signal reaps without
+    /// keeping the fold alive.
+    change_tx: Arc<watch::Sender<u64>>,
+    /// Process-unique identity of this fold instance, from
+    /// [`NEXT_FOLD_INSTANCE`]. Publisher revisions are numbered per fold,
+    /// so a consumer that caches against them (`CapabilitySetCache`)
+    /// records which fold an entry came from and never validates it
+    /// against another.
+    instance: u64,
+}
+
+/// Source of [`Fold`] instance ids. Starts at 1 and is never reused
+/// within a process.
+static NEXT_FOLD_INSTANCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+impl<K: FoldKind> Fold<K> {
+    /// Build a new fold instance with empty state and a fresh
+    /// index, spawning the background expiry sweeper at the
+    /// [`DEFAULT_SWEEP_INTERVAL`] cadence. For tighter cadences
+    /// (tests, latency-sensitive folds) use
+    /// [`Self::with_sweep_interval`].
+    pub fn new() -> Self {
+        Self::with_sweep_interval(DEFAULT_SWEEP_INTERVAL)
+    }
+
+    /// Build a new fold instance with a custom sweep cadence.
+    /// `interval = Duration::ZERO` disables the background
+    /// sweeper entirely — callers that want explicit control
+    /// (e.g. tests that drive expiry via
+    /// [`Self::sweep_expired_now`]) opt out this way.
+    pub fn with_sweep_interval(interval: Duration) -> Self {
+        Self::with_sweep_interval_and_index(interval, K::build_index())
+    }
+
+    /// [`Self::with_sweep_interval`] with a caller-built secondary index,
+    /// for an index configured at creation (the capability fold's tag
+    /// budget: `CapabilityIndexInner::with_tag_budget`).
+    pub fn with_sweep_interval_and_index(interval: Duration, index: K::Index) -> Self {
+        let state = Arc::new(RwLock::new(FoldState::new()));
+        let index = Arc::new(RwLock::new(index));
+        let metrics = Arc::new(FoldMetrics::new());
+        let audit_sink: Arc<RwLock<Option<Arc<dyn FoldAuditSink>>>> = Arc::new(RwLock::new(None));
+        // Generation-0 channel. The initial receiver is dropped
+        // immediately — `subscribe_changes` mints fresh receivers
+        // on demand, and `send_modify` applies (and bumps the
+        // generation) regardless of how many receivers exist, so a
+        // zero-receiver fold still tracks changes for the next
+        // subscriber.
+        let change_tx = Arc::new(watch::channel(0u64).0);
+
+        // Spawn the background sweeper only on a non-zero interval
+        // AND from inside a tokio runtime. Synchronous test paths
+        // (without a runtime) drive expiry via `sweep_expired_now`;
+        // the inbound dispatch path always has a runtime, so
+        // production never hits the `None` branch.
+        let sweep_handle = if interval.is_zero() || tokio::runtime::Handle::try_current().is_err() {
+            None
+        } else {
+            Some(expiry::spawn_expiry_task::<K>(
+                Arc::downgrade(&state),
+                Arc::downgrade(&index),
+                Arc::downgrade(&metrics),
+                Arc::downgrade(&audit_sink),
+                Arc::downgrade(&change_tx),
+                interval,
+            ))
+        };
+
+        Self {
+            state,
+            index,
+            metrics,
+            audit_sink,
+            sweep_handle,
+            change_tx,
+            instance: NEXT_FOLD_INSTANCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        }
+    }
+
+    /// Bump the change-generation, waking every
+    /// [`Self::subscribe_changes`] receiver. `send_modify` always
+    /// applies (never errors on zero receivers) and notifies
+    /// synchronously; the bump is a single short lock on the watch
+    /// channel, safe to call while holding the fold's state/index
+    /// write locks (the watch lock is a leaf — no re-entry).
+    #[inline]
+    fn signal_changed(&self) {
+        self.change_tx.send_modify(|g| *g = g.wrapping_add(1));
+    }
+
+    /// Subscribe to fold-change notifications. `await rx.changed()`
+    /// resolves whenever the fold mutates (apply Insert/Replace,
+    /// `evict_node`, expiry sweep, `restore`). Missed-wakeup-safe:
+    /// a mutation between two `changed()` awaits is still observed
+    /// on the next await. The `u64` payload is the monotonic
+    /// change-generation — useful for tests / debugging; consumers
+    /// that only need "something changed" can ignore the value and
+    /// re-query the fold. Basis for push-based `watch_*` surfaces
+    /// (replaces interval polling).
+    pub fn subscribe_changes(&self) -> watch::Receiver<u64> {
+        self.change_tx.subscribe()
+    }
+
+    /// This fold's process-unique instance id: distinct for every
+    /// [`Fold`] constructed in the process, live or dropped.
+    #[inline]
+    pub(crate) fn instance_id(&self) -> u64 {
+        self.instance
+    }
+
+    /// Read the current change-generation without subscribing;
+    /// cheaper than `subscribe_changes().borrow()` because it skips
+    /// minting a receiver. The generation moves on every fold change,
+    /// so it suits "has anything changed" checks. A per-publisher
+    /// cache wants [`FoldState::publisher_rev`] instead, which
+    /// `CapabilitySetCache` uses.
+    #[inline]
+    pub fn change_generation(&self) -> u64 {
+        *self.change_tx.borrow()
+    }
+
+    /// Apply a verified signed announcement to the fold.
+    ///
+    /// Rejects the wire-format `generation == 0` sentinel, then
+    /// acquires `state` and `index` write locks (in that fixed
+    /// order) and consults [`FoldKind::merge`] against the
+    /// existing entry. Insert / Replace updates the primary
+    /// store, `by_node` reverse index, secondary index, and
+    /// metric counters; Reject bumps the rejected-applies
+    /// counter and returns [`ApplyOutcome::Rejected`]. Any
+    /// [`FoldKind::audit_event`] result is forwarded to the
+    /// installed [`FoldAuditSink`].
+    ///
+    /// Signature verification is the dispatch layer's job; this
+    /// method trusts the caller. Tests bypass dispatch with
+    /// [`SignedAnnouncement::placeholder`]-stamped envelopes.
+    pub fn apply(&self, ann: SignedAnnouncement<K::Payload>) -> Result<ApplyOutcome, FoldError> {
+        if ann.generation == 0 {
+            self.metrics.on_reject();
+            return Err(FoldError::InvalidGeneration {
+                node_id: ann.node_id,
+            });
+        }
+
+        // Payload limits, before merge and before any lock: cheap, and a
+        // malformed advertisement never reaches the state.
+        if let Err(reason) = K::validate(&ann.payload) {
+            return Err(self.refuse_payload(ann.node_id, reason));
+        }
+
+        let key = K::key_for(ann.node_id, &ann.payload);
+        // Copied out before the accept arms move `ann` into
+        // `build_entry` (§5). `NodeId` is `Copy`, so this is free.
+        let node_id = ann.node_id;
+
+        let mut state = self.state.write();
+        let mut index = self.index.write();
+
+        let existing = state.entries.get(&key);
+        let action = K::merge(existing, &ann);
+
+        match action {
+            MergeAction::Insert => {
+                // No existing entry to evict; install fresh.
+                let mut entry = build_entry::<K>(ann);
+                // Room in the expiry wheel, then admission: both before any
+                // mutation, so a refusal leaves the state and index exactly
+                // as they were.
+                if !state.can_schedule() {
+                    let reason = PayloadRejection::IndexFull {
+                        slots: state.schedule_limit(),
+                    };
+                    return Err(self.refuse_payload(node_id, reason));
+                }
+                if let Err(reason) = index.admit(&mut entry.payload, None) {
+                    return Err(self.refuse_payload(node_id, reason));
+                }
+                index.on_insert(&key, &entry.payload);
+                self.metrics.set_admission(index.admission_stats());
+                state.attach_key(node_id, key.clone());
+                state.schedule(&key, &mut entry);
+                let audit = K::audit_event(EntryTransition::Created {
+                    key: &key,
+                    new: &entry,
+                });
+                self.emit_audit(audit);
+                state.entries.insert(key, entry);
+                debug_assert_eq!(state.scheduled_len(), state.entries.len());
+                self.metrics.on_insert();
+                self.signal_changed();
+                Ok(ApplyOutcome::Inserted)
+            }
+            MergeAction::Replace => {
+                // `merge` only returns `Replace` when `existing` was
+                // `Some`. The let-else fallback to `Reject` keeps the
+                // runtime sound (no `unwrap`) if a future `merge` impl
+                // ever violates that contract: we'd undercount replaces
+                // in metrics, never silently lose data.
+                let mut new_entry = build_entry::<K>(ann);
+                let Some(old_entry) = state.entries.get(&key) else {
+                    self.metrics.on_reject();
+                    return Ok(ApplyOutcome::Rejected);
+                };
+                // Admission first, net of what the old payload releases;
+                // all-or-nothing, so a refusal leaves everything as it was.
+                if let Err(reason) = index.admit(&mut new_entry.payload, Some(&old_entry.payload)) {
+                    return Err(self.refuse_payload(node_id, reason));
+                }
+                self.metrics.set_admission(index.admission_stats());
+                let old_owner = old_entry.node_id;
+                // The replacement inherits the entry's one expiry
+                // placement, moved to the new deadline below.
+                new_entry.expiry_node = old_entry.expiry_node;
+                let (expiry_node, deadline) = (new_entry.expiry_node, new_entry.expires_at);
+                // PERF_AUDIT §4.5 — steady-state refresh (same
+                // tags/region/state, new generation/TTL) skips the
+                // index churn. The default `index_payload_equivalent`
+                // returns `false`, so folds without a content-aware
+                // check fall through to remove-then-insert, which keeps
+                // the index hooks seeing two distinct events.
+                if !<K::Index as crate::adapter::net::behavior::fold::state::FoldIndex<K>>::index_payload_equivalent(
+                    &old_entry.payload,
+                    &new_entry.payload,
+                ) {
+                    index.on_remove(&key, &old_entry.payload);
+                    index.on_insert(&key, &new_entry.payload);
+                }
+                let audit = K::audit_event(EntryTransition::Replaced {
+                    key: &key,
+                    old: old_entry,
+                    new: &new_entry,
+                });
+                self.emit_audit(audit);
+                // Overwrite in place: no table churn, and the old
+                // entry's payload is dropped here.
+                if let Some(slot) = state.entries.get_mut(&key) {
+                    *slot = new_entry;
+                }
+                state.reschedule(expiry_node, deadline);
+                // Same owner (always, for a fold keyed on the
+                // publisher): `attach_key` advances the revision and
+                // re-lists the key if the record lost it, so a refresh
+                // repairs a reverse index that drifted (the membership
+                // check is O(1) for large records, a short scan for
+                // small ones). A different owner (a fold keyed on
+                // payload alone) moves the key between records.
+                if old_owner != node_id {
+                    state.detach_key(old_owner, &key);
+                }
+                state.attach_key(node_id, key);
+                self.metrics.on_replace();
+                self.signal_changed();
+                Ok(ApplyOutcome::Replaced)
+            }
+            MergeAction::Reject => {
+                let audit = K::audit_event(EntryTransition::Rejected {
+                    key: &key,
+                    existing,
+                    incoming: &ann,
+                });
+                self.emit_audit(audit);
+                self.metrics.on_reject();
+                Ok(ApplyOutcome::Rejected)
+            }
+        }
+    }
+
+    /// Run a query against the fold's state + secondary index.
+    /// Read-only; multiple queries can execute concurrently
+    /// (both locks are read-acquired).
+    pub fn query(&self, q: K::Query) -> K::Result {
+        self.metrics.on_query();
+        let state = self.state.read();
+        let index = self.index.read();
+        K::query(&state, &index, q)
+    }
+
+    /// Read-only access to both the live state and the secondary
+    /// index under their read locks for the closure's duration.
+    /// Both locks are read-acquired, so concurrent callers still
+    /// run in parallel.
+    ///
+    /// This is the borrow-only counterpart to [`Self::query`]: it
+    /// lets a caller resolve candidates via the index and inspect
+    /// the matching entries *by reference*, returning only what it
+    /// needs (e.g. a `Vec<NodeId>`) instead of cloning every
+    /// matched payload out through [`FoldKind::Result`]. Bulk
+    /// filter paths that discard the payload should prefer this.
+    pub fn with_state_and_index<R>(&self, f: impl FnOnce(&FoldState<K>, &K::Index) -> R) -> R {
+        self.metrics.on_query();
+        let state = self.state.read();
+        let index = self.index.read();
+        f(&state, &index)
+    }
+
+    /// Force-remove every entry owned by `node_id`. Called when
+    /// SWIM (or an operator) declares the node dead so the
+    /// fold's view of liveness matches the substrate's. O(keys
+    /// owned by node) via the `by_node` reverse index.
+    ///
+    /// `reason` is passed to [`FoldKind::audit_event`] for each
+    /// removed entry so the audit chain can record operator
+    /// context.
+    pub fn evict_node(&self, node_id: NodeId, reason: &str) {
+        let mut state = self.state.write();
+        let mut index = self.index.write();
+
+        let Some(keys) = state.remove_node(node_id) else {
+            return;
+        };
+        let mut removed = 0usize;
+        for key in keys {
+            if let Some(old_entry) = state.entries.remove(&key) {
+                state.unschedule(old_entry.expiry_node);
+                index.on_remove(&key, &old_entry.payload);
+                index.release(&old_entry.payload);
+                let audit = K::audit_event(EntryTransition::Evicted {
+                    key: &key,
+                    old: &old_entry,
+                    reason,
+                });
+                self.emit_audit(audit);
+                self.metrics.on_evict();
+                removed += 1;
+            }
+        }
+        debug_assert_eq!(state.scheduled_len(), state.entries.len());
+        self.metrics.set_admission(index.admission_stats());
+        if removed > 0 {
+            self.signal_changed();
+        }
+    }
+
+    /// Take an immutable point-in-time snapshot of the current
+    /// state. Cheap on the live runtime: a read-lock walk +
+    /// per-entry copy into the snapshot vec. Expired entries are
+    /// dropped from the dump (see [`FoldSnapshot::from_state`]).
+    pub fn snapshot(&self) -> FoldSnapshot<K> {
+        let state = self.state.read();
+        self.metrics.on_snapshot_taken();
+        FoldSnapshot::from_state(&state)
+    }
+
+    /// Restore state from a snapshot. Refuses to merge over a
+    /// non-empty fold unless `force` is set — the apply path is
+    /// the legitimate way to add entries to a live fold;
+    /// restore is for cold-start / forced-reset only.
+    ///
+    /// # Trust invariant
+    ///
+    /// `restore` repopulates `by_node` keyed directly on each
+    /// entry's `node_id` and performs **no** signature or
+    /// publisher-binding check — unlike the wire path, where
+    /// [`SignedAnnouncement::verify`] binds `node_id` to the
+    /// signing publisher. The snapshot is therefore trusted: only
+    /// ever pass one produced locally by [`Self::snapshot`] (or
+    /// durably persisted from it). Never feed a peer-supplied /
+    /// lower-privilege-writable snapshot here — doing so would let
+    /// a remote party plant capability/reservation entries under
+    /// arbitrary `node_id`s, reopening the cross-node injection the
+    /// wire-level binding closes.
+    ///
+    /// Re-anchors `received_at` / `expires_at` against the
+    /// current `Instant::now()` and consumes the wall-clock
+    /// interval since `snap.taken_at_unix_us` out of each entry's
+    /// remaining TTL — so a long downtime between dump and restore
+    /// can't extend an entry's lifetime past its original
+    /// deadline. Entries whose TTL has fully elapsed during the
+    /// pause are skipped at restore time (the sweeper would
+    /// evict them on its next tick anyway).
+    pub fn restore(&self, snap: FoldSnapshot<K>, force: bool) -> Result<(), FoldError> {
+        // Snapshot kind ↔ fold kind is a configuration invariant:
+        // the dispatch layer routes by kind, so a foreign-kind
+        // snapshot here means caller mis-wired the restore.
+        debug_assert!(
+            snap.kind == K::KIND_ID,
+            "FoldSnapshot::kind={} does not match K::KIND_ID={}",
+            snap.kind,
+            K::KIND_ID,
+        );
+
+        let anchor = Instant::now();
+        // Wall-clock interval since the snapshot was taken. Clock
+        // skew (now < taken_at) saturates to zero — a clock that
+        // jumped backwards means we behave as if the snapshot is
+        // freshly-dumped, which is the most permissive reading
+        // available without a monotonic source spanning processes.
+        let now_unix_us = crate::adapter::net::current_timestamp_micros();
+        let elapsed_since_dump =
+            Duration::from_micros(now_unix_us.saturating_sub(snap.taken_at_unix_us));
+
+        // The effective restored state, built before any lock: rows whose
+        // TTL elapsed during downtime are dropped (the same shape as
+        // `from_state` dropping already-expired entries at dump time),
+        // and a key listed twice (under two publishers, for a fold keyed
+        // on the payload) keeps its later row.
+        //
+        // Bounded by what this fold can hold (its expiry wheel and its
+        // index): a snapshot from a larger fold is refused at the first row
+        // past that, not after rehydrating and cloning all of it (cubic,
+        // PR #1210). Both limits are fixed at construction.
+        let capacity = self
+            .state
+            .read()
+            .schedule_limit()
+            .min(self.index.read().entry_capacity());
+        let mut rows: Vec<(K::Key, FoldEntry<K>)> =
+            Vec::with_capacity(snap.entries.len().min(capacity));
+        let mut row_of: HashMap<K::Key, usize, K::KeyHasher> = HashMap::default();
+        for snap_entry in &snap.entries {
+            let Some(entry) =
+                FoldSnapshot::<K>::rehydrate_entry(snap_entry, anchor, elapsed_since_dump)
+            else {
+                continue;
+            };
+            match row_of.get(&snap_entry.key) {
+                Some(&at) => rows[at] = (snap_entry.key.clone(), entry),
+                None => {
+                    if rows.len() == capacity {
+                        return Err(FoldError::RestoreRefused {
+                            reason: PayloadRejection::IndexFull { slots: capacity },
+                        });
+                    }
+                    row_of.insert(snap_entry.key.clone(), rows.len());
+                    rows.push((snap_entry.key.clone(), entry));
+                }
+            }
+        }
+        // Every row must pass the payload limits; one that does not
+        // refuses the whole restore, before the live fold is touched.
+        for (_, entry) in &rows {
+            K::validate(&entry.payload).map_err(|reason| FoldError::RestoreRefused { reason })?;
+        }
+
+        let mut state = self.state.write();
+        let mut index = self.index.write();
+
+        if !force && !state.entries.is_empty() {
+            return Err(FoldError::RestoreOverLiveState {
+                current_len: state.entries.len(),
+            });
+        }
+        // The state as a whole must fit the admission budget, checked
+        // before anything is cleared: a refused restore leaves the old
+        // fold exactly as it was.
+        {
+            let payloads: Vec<&K::Payload> = rows.iter().map(|(_, e)| &e.payload).collect();
+            index
+                .preflight_restore(&payloads)
+                .map_err(|reason| FoldError::RestoreRefused { reason })?;
+        }
+
+        state.clear_for_restore();
+        index.clear();
+
+        for (key, mut entry) in rows {
+            // Cannot fail: the preflight checked this exact state against
+            // the same budget, into the same emptied index.
+            if let Err(reason) = index.admit(&mut entry.payload, None) {
+                debug_assert!(false, "restore admission failed after preflight: {reason}");
+                continue;
+            }
+            index.on_insert(&key, &entry.payload);
+            state.attach_key(entry.node_id, key.clone());
+            state.schedule(&key, &mut entry);
+            state.entries.insert(key, entry);
+        }
+
+        debug_assert_eq!(state.scheduled_len(), state.entries.len());
+        self.metrics.set_admission(index.admission_stats());
+        let new_len = state.entries.len() as u64;
+        self.metrics.on_snapshot_restored(new_len);
+        // Restore replaced the entire entry set (cleared, then
+        // repopulated) — a change for any watcher even when the
+        // restored set is empty.
+        self.signal_changed();
+        Ok(())
+    }
+
+    /// Account for a refused payload and build its error: the normal
+    /// rejection count, the typed limit or budget counter, and one bounded
+    /// audit record (sizes and counts, never tag contents). Nothing in the
+    /// fold changed.
+    fn refuse_payload(&self, node_id: NodeId, reason: PayloadRejection) -> FoldError {
+        self.metrics.on_reject();
+        if reason.is_budget() {
+            self.metrics.on_budget_reject();
+        } else {
+            self.metrics.on_limit_reject();
+        }
+        self.emit_audit(Some(AuditEvent {
+            kind: AuditKind::Custom(if reason.is_budget() {
+                "payload-budget-rejected"
+            } else {
+                "payload-limit-rejected"
+            }),
+            key_repr: format!("node:{node_id:#x}"),
+            detail: Some(reason.to_string()),
+        }));
+        FoldError::PayloadRejected { node_id, reason }
+    }
+
+    /// Read-only handle to the metric counters.
+    pub fn metrics(&self) -> &FoldMetrics {
+        &self.metrics
+    }
+
+    /// Materialize a [`metrics::FoldStats`] snapshot of this
+    /// fold for the operator surface (CLI / Deck / Prometheus).
+    /// One atomic load per counter + one read lock on the
+    /// audit-sink slot; cheap enough to call per-tick.
+    pub fn stats(&self) -> metrics::FoldStats {
+        // Lock-free, like every other counter here: the admission
+        // counters are published into `metrics` under the index lock by
+        // the operations that change them. Taking the index lock here
+        // would deadlock an audit sink that calls `stats()` from
+        // `record`, which runs while an apply still holds that lock.
+        let admission = self.metrics.admission();
+        metrics::FoldStats {
+            kind: K::KIND_ID,
+            channel_prefix: K::CHANNEL_PREFIX.to_string(),
+            entries: self.metrics.entries(),
+            applies_inserted: self.metrics.applies_inserted(),
+            applies_replaced: self.metrics.applies_replaced(),
+            applies_rejected: self.metrics.applies_rejected(),
+            applies_total: self.metrics.applies_total(),
+            expiries: self.metrics.expiries(),
+            evictions: self.metrics.evictions(),
+            queries: self.metrics.queries(),
+            snapshots_taken: self.metrics.snapshots_taken(),
+            snapshots_restored: self.metrics.snapshots_restored(),
+            sweep_walks: self.metrics.sweep_walks(),
+            sweep_yielded: self.metrics.sweep_yielded(),
+            interned: admission.interned,
+            interned_bytes: admission.interned_bytes,
+            interned_overhead_bytes: admission.overhead_bytes,
+            limit_rejections: self.metrics.limit_rejections(),
+            budget_rejections: self.metrics.budget_rejections(),
+            has_audit_sink: self.has_audit_sink(),
+        }
+    }
+
+    /// Read-only access to the live state — held under the
+    /// state lock for the closure's duration. Tests and
+    /// diagnostics use this; production query paths should go
+    /// through [`Self::query`] so [`FoldKind::query`] can use
+    /// the secondary index.
+    ///
+    /// Deliberately **not** metered. A production read that is
+    /// replacing a [`Self::query`] call must use
+    /// [`Self::with_state_query`] instead, or the fold's query
+    /// counter silently loses that traffic.
+    pub fn with_state<R>(&self, f: impl FnOnce(&FoldState<K>) -> R) -> R {
+        let state = self.state.read();
+        f(&state)
+    }
+
+    /// Metered borrow of the live state — [`Self::with_state`] plus
+    /// the query counter [`Self::query`] and
+    /// [`Self::with_state_and_index`] both bump.
+    ///
+    /// This is what a production read reaches for when it wants to
+    /// answer a question from borrowed state instead of a
+    /// [`FoldKind::Result`] the caller would immediately throw away
+    /// — e.g. "who holds this reservation?", which via
+    /// `ReservationQuery::State` allocates a one-row `Vec` per call.
+    /// Swapping such a call to the unmetered [`Self::with_state`]
+    /// would drop it out of the fold's query telemetry, which is a
+    /// silent operational regression rather than an optimization
+    /// (PERF_AUDIT_2026_07_31_GANG_SCHEDULER §7).
+    pub fn with_state_query<R>(&self, f: impl FnOnce(&FoldState<K>) -> R) -> R {
+        self.metrics.on_query();
+        let state = self.state.read();
+        f(&state)
+    }
+
+    /// Narrow in-place mutation path for RECEIVER-LOCAL projection
+    /// fields of one publisher's payloads: `#[serde(skip)]` data that
+    /// participates in no secondary index, no wire form, and no
+    /// signing transcript (OA-1's floor-raise ownership retraction
+    /// clears `CapabilityMembership::owner` this way, review-8 §9).
+    ///
+    /// `update` runs on each of `node_id`'s payloads under the state
+    /// write lock and returns whether it changed that payload. When
+    /// any changed, the publisher's revision advances
+    /// ([`FoldState::publisher_rev`]), so a cache keyed on it misses
+    /// whatever field the update touched. Returns how many changed.
+    /// The change generation is NOT bumped here; callers that change
+    /// query-visible state follow up with the matching notification
+    /// (see [`Self::notify_projection_retracted`]).
+    ///
+    /// This replaced a general `&mut FoldState` escape hatch, which
+    /// could rewrite entries without advancing any revision. It is
+    /// deliberately `pub(crate)` and deliberately NOT a general
+    /// mutation surface: anything that affects indexed, signed, or
+    /// wire-visible payload state must go through [`Self::apply`] so
+    /// generation ordering and index maintenance hold.
+    pub(crate) fn update_payloads(
+        &self,
+        node_id: NodeId,
+        update: impl FnMut(&mut K::Payload) -> bool,
+    ) -> usize {
+        self.state.write().update_payloads(node_id, update)
+    }
+
+    /// Record an ownership-projection retraction: bump the change generation
+    /// AND emit the transition on the audit plane.
+    ///
+    /// The generation bump is review-9's requirement — retracting an ownership
+    /// projection changes query-visible state (`owner_org_for` results), so
+    /// watch-based consumers and generation-keyed caches must observe it
+    /// exactly like an `apply`.
+    ///
+    /// The audit event is §15. Every other fold transition — create, replace,
+    /// evict, expire — emits an [`AuditEvent`]; retraction emitted none, so a
+    /// deployment with an installed [`FoldAuditSink`] logged capability
+    /// lifecycle faithfully and was SILENT on the one security-relevant
+    /// transition the org feature produces: "a revocation floor rose and
+    /// retracted node N's proven ownership under org O." The only trace was a
+    /// `tracing::info!`, which is not the audit plane and is not what a
+    /// compliance consumer reads.
+    ///
+    /// Callers emit this ONLY when something was actually retracted, so the
+    /// per-floor install sweep does not flood the audit plane with no-ops.
+    pub(crate) fn notify_projection_retracted(&self, key_repr: String, detail: String) {
+        self.emit_audit(Some(AuditEvent {
+            kind: AuditKind::Custom("ownership-retracted"),
+            key_repr,
+            detail: Some(detail),
+        }));
+        self.signal_changed();
+    }
+
+    /// Install (or uninstall) the audit sink. Idempotent;
+    /// re-installing replaces the prior sink. After
+    /// `set_audit_sink(Some(...))`, every
+    /// [`FoldKind::audit_event`] that returns `Some` is
+    /// forwarded to the sink's `record` method synchronously
+    /// from the path that emitted the transition (apply,
+    /// evict_node, sweep_expired). See [`FoldAuditSink`] for the
+    /// contract.
+    pub fn set_audit_sink(&self, sink: Option<Arc<dyn FoldAuditSink>>) {
+        *self.audit_sink.write() = sink;
+    }
+
+    /// True iff an audit sink is currently installed.
+    pub fn has_audit_sink(&self) -> bool {
+        self.audit_sink.read().is_some()
+    }
+
+    /// Synchronous sweep: walk the primary store, evict entries
+    /// past their `expires_at`, return the count removed.
+    ///
+    /// Drives the background sweeper too — the spawned tokio
+    /// task calls into this primitive on every tick. Tests can
+    /// invoke it directly to make expiry deterministic without
+    /// relying on the runtime's scheduler.
+    pub fn sweep_expired_now(&self) -> usize {
+        // The sink is cloned out of its slot: no slot guard is held while
+        // the sweep calls `record` (see `emit_audit`).
+        let sink = self.audit_sink.read().clone();
+        let reaped =
+            expiry::sweep_expired::<K>(&self.state, &self.index, &self.metrics, sink.as_ref());
+        if reaped > 0 {
+            self.signal_changed();
+        }
+        reaped
+    }
+
+    /// Internal: forward an [`AuditEvent`] returned by
+    /// [`FoldKind::audit_event`] to the installed sink (if any).
+    /// `event = None` means the impl chose not to emit; in
+    /// either case this is a single short read-lock acquisition
+    /// on the sink slot.
+    #[inline]
+    fn emit_audit(&self, event: Option<AuditEvent>) {
+        let Some(event) = event else {
+            return;
+        };
+        // Clone the sink out and release the slot's read guard BEFORE
+        // `record` runs: a sink that reads `stats()` (which reads this
+        // slot) would otherwise re-enter the guard, and with a
+        // `set_audit_sink` writer queued between the two reads the
+        // re-entrant read waits on the writer, which waits on us.
+        let sink = self.audit_sink.read().clone();
+        if let Some(sink) = sink {
+            sink.record(event);
+        }
+    }
+}
+
+impl<K: FoldKind> Default for Fold<K> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<K: FoldKind> Drop for Fold<K> {
+    fn drop(&mut self) {
+        // Abort the background sweeper so dropped folds don't
+        // keep tasks alive on the runtime — the task's `Weak`
+        // upgrades would start failing on the next tick anyway,
+        // but `abort` shortens the tail latency to "next
+        // yield point" so test suites that churn through many
+        // folds don't accumulate stale tasks waiting on
+        // `tokio::time::interval::tick`.
+        if let Some(handle) = self.sweep_handle.take() {
+            handle.abort();
+        }
+    }
+}
+
+/// Build a fresh [`FoldEntry`] from an accepted announcement.
+/// Computes `expires_at` from the announcement's `ttl_secs`
+/// override (or [`FoldKind::DEFAULT_TTL`] when absent).
+///
+/// Takes the announcement **by value** and moves its payload into
+/// the entry. `Fold::apply` already owns the announcement and drops
+/// it immediately after, so the pre-2026-07-31 `&ann` +
+/// `payload.clone()` shape deep-cloned every accepted payload for
+/// nothing — a `CapabilityMembership` (tags Vec, metadata BTreeMap,
+/// three allow-list Vecs) on every capability announce, an
+/// `IslandRecord` on every island heartbeat, on every fold in the
+/// crate. See PERF_AUDIT_2026_07_31_GANG_SCHEDULER §5.
+fn build_entry<K: FoldKind>(ann: SignedAnnouncement<K::Payload>) -> FoldEntry<K> {
+    let now = Instant::now();
+    let ttl = ann
+        .ttl_secs
+        .map(|s| Duration::from_secs(s as u64))
+        .unwrap_or(K::DEFAULT_TTL);
+    FoldEntry {
+        node_id: ann.node_id,
+        generation: ann.generation,
+        // Moved last: reading the `Copy` scalars above after this
+        // partial move would still compile, but keeping the move at
+        // the end makes the ownership transfer obvious.
+        payload: ann.payload,
+        received_at: now,
+        expires_at: now.checked_add(ttl).unwrap_or(now),
+        expiry_node: wheel::NIL,
+    }
+}

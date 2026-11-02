@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill_github as gh
-from probe.cli.backfill import git_context
+from probe.cli.imports.folder.sources import github as gh
+from probe.cli.imports.folder.walk.git import git_context
 
 
 def git(root, *args):

@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: pyrage-stubs
+Version: 1.4.0
+Summary: A PEP 561 stub package for pyrage's types
+Author-email: William Woodruff <william@yossarian.net>
+License-Expression: MIT
+Project-URL: Homepage, https://pypi.org/project/pyrage/
+Project-URL: Issues, https://github.com/woodruffw/pyrage/issues
+Project-URL: Source, https://github.com/woodruffw/pyrage/tree/main/pyrage-stubs
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security :: Cryptography
+Classifier: Typing :: Stubs Only
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyrage<2.0,>=1.4.0
+Dynamic: license-file
+
+pyrage-stubs
+============
+
+This is a [PEP 561](https://peps.python.org/pep-0561/)-compatible stubs
+package for [`pyrage`](https://github.com/woodruffw/pyrage).
+

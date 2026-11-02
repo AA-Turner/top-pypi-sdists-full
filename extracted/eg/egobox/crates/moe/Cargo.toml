@@ -1,0 +1,69 @@
+[package]
+name = "egobox-moe"
+authors.workspace = true
+version = "0.36.2"
+license.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "A library for mixture of expert gaussian processes"
+keywords = [
+    "machine-learning",
+    "mixture",
+    "clustering",
+    "surrogate",
+    "gaussian-process",
+]
+categories = ["algorithms", "mathematics", "science"]
+readme = "README.md"
+
+[features]
+default = []
+# Use cobyla crate (C-ported NLopt COBYLA) instead of basin COBYLA for GP training
+c-cobyla = ["egobox-gp/c-cobyla"]
+
+blas = ["ndarray-linalg", "linfa/ndarray-linalg", "linfa-pls/blas"]
+
+[dependencies]
+egobox-doe = { version = "0.35.2", path = "../doe" }
+egobox-gp = { version = "0.37.1", path = "../gp", features = ["serializable"] }
+
+linfa.workspace = true
+linfa-linalg.workspace = true
+linfa-clustering = { version = "0.8", default-features = false, features = [
+    "serde",
+] }
+linfa-pls = { version = "0.8", default-features = false }
+
+ndarray.workspace = true
+ndarray-linalg = { version = "0.17", optional = true }
+ndarray-stats.workspace = true
+ndarray-rand.workspace = true
+ndarray-npy.workspace = true
+rand_xoshiro.workspace = true
+statrs.workspace = true
+
+paste = "1.0"
+bitflags = { version = "2.4.1", features = ["serde"] }
+dyn-clonable = "0.9"
+log.workspace = true
+env_logger.workspace = true
+thiserror.workspace = true
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+bincode.workspace = true
+
+typetag = { version = "0.2" }
+
+[dev-dependencies]
+criterion.workspace = true
+approx.workspace = true
+ndarray-npy.workspace = true
+ndarray-csv = "=0.5.3"
+csv = "1.1"
+argmin_testfunctions.workspace = true
+
+[[bench]]
+name = "bench_find_nb_clusters"
+harness = false

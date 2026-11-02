@@ -1,0 +1,80 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from .._models import BaseModel
+
+__all__ = ["AccountStatement", "Loan"]
+
+
+class Loan(BaseModel):
+    """The loan balances."""
+
+    due_at: Optional[datetime] = None
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the loan
+    payment is due.
+    """
+
+    due_balance: int
+    """The total amount due on the loan."""
+
+    past_due_balance: int
+    """The amount past due on the loan."""
+
+
+class AccountStatement(BaseModel):
+    """Account Statements are generated monthly for every active Account.
+
+    You can access the statement's data via the API or retrieve a PDF with its details via its associated File.
+    """
+
+    id: str
+    """The Account Statement identifier."""
+
+    account_id: str
+    """The identifier for the Account this Account Statement belongs to."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the Account
+    Statement was created.
+    """
+
+    ending_balance: int
+    """The Account's balance at the end of its statement period."""
+
+    file_id: str
+    """The identifier of the File containing a PDF of the statement."""
+
+    loan: Optional[Loan] = None
+    """The loan balances."""
+
+    starting_balance: int
+    """The Account's balance at the start of its statement period."""
+
+    statement_period_end: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time representing the end
+    of the period the Account Statement covers. The statement covers all
+    transactions up to, but not including this timestamp. Statement periods are
+    measured in UTC days, so this is usually midnight UTC on the first day of the
+    following month.
+    """
+
+    statement_period_start: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time representing the
+    start of the period the Account Statement covers. This is the first moment of
+    the statement period and is inclusive. Statement periods are measured in UTC
+    days, so this is usually midnight UTC on the first day of the month this
+    statement covers.
+    """
+
+    type: Literal["account_statement"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `account_statement`.
+    """

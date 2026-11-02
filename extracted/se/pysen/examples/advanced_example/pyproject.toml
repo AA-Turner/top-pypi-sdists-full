@@ -1,0 +1,12 @@
+[project]
+name = "example-advanced-package"
+version = "0.0.0"
+
+[tool.pysen]
+builder = "lint.py"
+
+[tool.pysen.lint]
+enable_mypy = true
+
+[[tool.pysen.lint.mypy_targets]]
+  paths = ["."]

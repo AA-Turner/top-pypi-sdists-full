@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langsmith
-Version: 0.14.16
+Version: 0.14.17
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://github.com/langchain-ai/langsmith-python
 Project-URL: Repository, https://github.com/langchain-ai/langsmith-python

@@ -1,0 +1,154 @@
+"""Original RNA regressions for three osteosarc fusion events, with their selection rule."""
+from collections import defaultdict
+import json
+
+import pysam
+import pytest
+
+from isovar.read_identity import segment_identity
+from isovar.sid_data import sam_digest
+from tests.data.fusions.audit_three_fusions import DATA, audit_candidates, pinned_json, run_case
+from tests.data.osteosarc.expansion.references import translate
+
+MANIFEST = json.loads((DATA / "manifest.json").read_text())
+PARD = "PARD3B--CDKN2B-AS1-CDKN2B"
+GABBR = "GABBR1--SLC29A1"
+OTUD = "OTUD7A--FMN1"
+GABBR_PEPTIDE = "MKRLVSSSRAWWRMPVIPAPTEAEAGESLESGRRRLQ"
+OTUD_PEPTIDE = "MAAKAGTSLEARSLRPAWPTC"
+PARD_PEPTIDE = "MNISNIHISTQKKKKKKSRF"
+
+
+def windows(event):
+    """The donor and acceptor windows, +/- the manifest's window around each boundary."""
+    return [(event[side]["contig"], event[side]["position"] - MANIFEST["window"],
+             event[side]["position"] + MANIFEST["window"]) for side in ("donor", "acceptor")]
+
+
+def select(bam, event):
+    """
+    The fixtures' documented selection rule: the original SAM lines of every
+    read-group/QNAME/mate segment whose mapped records touch both windows,
+    identical lines once. Returns the lines and the number of segments.
+
+    Reads the whole BAM from its start, so one handle can serve several events.
+    """
+    event_windows = windows(event)
+    touched, lines = defaultdict(set), []
+    bam.reset()
+    for read in bam:
+        if read.is_unmapped:
+            continue
+        key = segment_identity(read)
+        sides = {i for i, (contig, start, end) in enumerate(event_windows)
+                 if read.reference_name == contig and read.reference_start < end and start < read.reference_end}
+        if sides:
+            lines.append((read.to_string(), key))
+        touched[key] |= sides
+    selected = {key for key, sides in touched.items() if sides == {0, 1}}
+    return sorted({line for line, key in lines if key in selected}), len(selected)
+
+
+@pytest.fixture(scope="module")
+def case(tmp_path_factory):
+    cache = {}
+
+    def get(event, source, orientation):
+        key = event, source, orientation
+        if key not in cache:
+            result, records = run_case(DATA, *key, tmp_path_factory.mktemp("three-fusions"))
+            cache[key] = result, audit_candidates(result, records)
+        return cache[key]
+    return get
+
+
+@pytest.mark.parametrize("entry", MANIFEST["fixtures"], ids=lambda e: e["file"])
+def test_original_records_and_selection_survive_fixture_roundtrip(entry, tmp_path):
+    inventory = pinned_json(DATA, MANIFEST["source_inventory"])
+    assert MANIFEST["sources"][entry["source"]]["source_id"] in inventory
+    data = pinned_json(DATA, entry)
+    header = pysam.AlignmentHeader.from_dict(data["header"])
+    unsorted, bam = tmp_path / "unsorted.bam", tmp_path / "reads.bam"
+    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+        for digest, line in data["records"].items():
+            assert sam_digest(line) == digest
+            read = pysam.AlignedSegment.fromstring(line, header)
+            assert read.to_string() == line  # No sequence/QUAL/tag rewriting.
+            out.write(read)
+    pysam.sort("--no-PG", "-o", str(bam), str(unsorted))
+    pysam.index(str(bam))
+    with pysam.AlignmentFile(str(bam)) as handle:
+        event = MANIFEST["events"][entry["event"]]
+        assert entry["regions"] == [list(w) for w in windows(event)]
+        selected, segments = select(handle, event)
+    assert set(selected) == set(data["records"].values())
+    assert len(selected) == entry["records"] and segments == entry["segments"]
+
+
+@pytest.mark.parametrize("event,source,orientation,peptide,native,labels,tail", [
+    (GABBR, "ONT-T1", "forward", GABBR_PEPTIDE, 1, 1, 1),
+    (GABBR, "ONT-T2", "forward", GABBR_PEPTIDE, 3, 3, 3),
+    (OTUD, "ONT-T2", "reverse", OTUD_PEPTIDE, 9, 7, 8),
+    (PARD, "ONT-T1", "reverse", PARD_PEPTIDE, 4, 4, 4),
+    (PARD, "ONT-T3", "reverse", PARD_PEPTIDE, 2, 2, 2),
+])
+def test_complete_orfs_have_original_native_witnesses_but_no_proven_initiation(
+        case, event, source, orientation, peptide, native, labels, tail):
+    result, candidates = case(event, source, orientation)
+    candidate, = [c for c in candidates if c["amino_acids"] == peptide]
+    assert translate(candidate["nucleotides"], table=1) == (peptide, True)
+    assert candidate["native_fragments"] == candidate["native_q10_fragments"] == native
+    assert candidate["native_cb_ub_labels"] == labels
+    assert candidate["native_terminal_a10_fragments"] == tail
+    assert not candidate["annotated_start"]
+    assert not candidate["initiation_observed"] and not candidate["translation_observed"]
+    assert not any("breakpoint_junction" in t["departure_relations"]
+                   for p in result["paths"] for t in p["translations"])
+    if event in (PARD, GABBR):
+        starts = [c["start_evidence"] for p in result["paths"] for c in p["exploratory_orfs"]["candidates"]
+                  if c["amino_acids"] == peptide]
+        assert starts and all(s["tier"] == "sequence_only" and s["priority"] == 4 for s in starts)
+        assert all("intronic" in {r["region"] for r in s["assessments"]} for s in starts)
+        intronic = [r for s in starts for r in s["assessments"] if r["region"] == "intronic"]
+        assert all(r["splice_inference"] == "observed_path_assessed" for r in intronic)
+        assert all(r["splice_inclusion"]["qualified_fragments"] == 0 for r in intronic)
+        assert all("splice_inclusion" not in r and r["splice_inference"] == "not_assessed"
+                   for s in starts for r in s["assessments"] if r["region"] != "intronic")
+
+
+def test_gabbr_opposite_strand_junction_read_is_not_a_second_native_orf_witness(case):
+    _, candidates = case(GABBR, "ONT-T1", "forward")
+    candidate, = [c for c in candidates if c["amino_acids"] == GABBR_PEPTIDE]
+    assert candidate["orientation_counts"] == {"native": 1, "opposite": 1}
+
+
+def test_otud_catalogue_orientation_only_produces_reverse_complement_candidates(case):
+    _, candidates = case(OTUD, "ONT-T2", "forward")
+    assert candidates and any(len(c["amino_acids"]) >= 60 for c in candidates)
+    assert all(c["native_fragments"] == 0 for c in candidates)
+    assert all(c["orientation_counts"] == {"opposite": len(c["witnesses"])} for c in candidates)
+
+
+def test_pard_repeat_alternatives_are_retained_instead_of_replaced_by_one_consensus(case):
+    _, first = case(PARD, "ONT-T1", "reverse")
+    _, second = case(PARD, "ONT-T2", "reverse")
+    assert {c["amino_acids"]: c["native_fragments"] for c in first if c["native_fragments"]} == {
+        "MNISNIHISTQKKKKKE": 4,
+        "MNISNIHISTQKKKKKKKE": 3,
+        PARD_PEPTIDE: 4,
+        "MNISNIHISTQKKKKKRVDFKCSHHERNKYVR": 4,
+        "MNISNIHISTQKKKKKSRF": 7,
+    }
+    assert {c["amino_acids"]: c["native_fragments"] for c in second if c["native_fragments"]} == {
+        "MNISNIHISTQKKKKKE": 3,
+        "MNISNIHISTQKKKKKRVDFKCSHHERNKYVR": 3,
+        "MNISNIHISTQKKKKRVDFKCSHHERNKYVR": 3,
+    }
+
+
+def test_pard_pacbio_corroboration_preserves_missing_qualities(case):
+    _, candidates = case(PARD, "PacBio-T1", "reverse")
+    candidate, = [c for c in candidates if c["amino_acids"] == PARD_PEPTIDE]
+    assert candidate["native_fragments"] == candidate["native_missing_quality_fragments"] == 2
+    assert candidate["native_q10_fragments"] == 0
+    assert candidate["native_cb_ub_labels"] == 0  # Original XM is not a UB label.

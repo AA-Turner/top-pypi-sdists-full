@@ -1,0 +1,36 @@
+from tapo.debug_ext import DebugExt
+from tapo.device_handler_ext import DeviceHandlerExt
+from tapo.device_management_ext import DeviceManagementExt
+from tapo.on_off_ext import OnOffExt
+from tapo.responses import DeviceInfoPlugResult, DeviceUsageResult
+from tapo.schedule_ext import ScheduleExt
+from tapo.timer_ext import TimerExt
+
+class PlugHandler(DeviceHandlerExt, OnOffExt, DeviceManagementExt, TimerExt, ScheduleExt, DebugExt):
+    """Handler for the [P100](https://www.tapo.com/en/search/?q=P100),
+    [P105](https://www.tapo.com/en/search/?q=P105), [P125](https://www.tapo.com/en/search/?q=P125),
+    [P125M](https://www.tapo.com/en/search/?q=P125M) and
+    [TP10](https://www.tapo.com/en/search/?q=TP10) devices.
+    """
+
+    def __init__(self, handler: object):
+        """Private constructor.
+        It should not be called from outside the tapo library.
+        """
+
+    async def get_device_info(self) -> DeviceInfoPlugResult:
+        """Returns *device info* as `DeviceInfoPlugResult`.
+        It is not guaranteed to contain all the properties returned from the Tapo API.
+        If the deserialization fails, or if a property that you care about it's not present,
+        try `PlugHandler.get_device_info_json`.
+
+        Returns:
+            DeviceInfoPlugResult: Device info of Tapo P100, P105, P125, P125M and TP10.
+        """
+
+    async def get_device_usage(self) -> DeviceUsageResult:
+        """Returns *device usage* as `DeviceUsageResult`.
+
+        Returns:
+            DeviceUsageResult: Contains the time usage.
+        """

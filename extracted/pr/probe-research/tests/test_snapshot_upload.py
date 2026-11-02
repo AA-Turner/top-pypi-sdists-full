@@ -435,7 +435,7 @@ def test_a_storage_failure_in_fail_open_mode_does_not_read_as_stored(client, app
     assert cb["uploaded"] is False and cb["pending_upload"] == 3
     meta = next(a["meta"] for a in app.artifacts[run.id] if a.get("kind") == "code_snapshot")
     assert meta["n_pending_upload"] == 3 and meta["n_classified_pending"] == 3
-    from probe.cli.main import _code_bytes_row
+    from probe.cli.commands.snapshots.restore import _code_bytes_row
 
     assert _code_bytes_row(client, run.id) is None, "a pointer to a deleted tmp file is not stored bytes"
 

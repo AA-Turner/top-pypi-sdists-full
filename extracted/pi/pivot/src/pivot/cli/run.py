@@ -1,0 +1,463 @@
+"""Single-stage pipeline executor.
+
+The `pivot run` command executes specified stages directly, without
+resolving dependencies. Use `pivot repro` for DAG-aware execution.
+"""
+
+from __future__ import annotations
+
+import concurrent.futures
+import datetime
+import logging
+import pathlib
+import threading
+import time
+from typing import TYPE_CHECKING
+
+import anyio
+import click
+
+from pivot import config, expansion
+from pivot.cli import _run_common, completion
+from pivot.cli import decorators as cli_decorators
+from pivot.cli import helpers as cli_helpers
+from pivot.engine import engine
+from pivot.engine import sources as engine_sources
+from pivot.types import (
+    DisplayCategory,
+    ExecutionResultEvent,
+    OnError,
+    RunEventType,
+    SchemaVersionEvent,
+    categorize_stage_result,
+)
+
+if TYPE_CHECKING:
+    from pivot.executor import ExecutionSummary
+    from pivot.executor import core as executor_core
+
+_logger = logging.getLogger(__name__)
+
+# JSONL schema version for forward compatibility
+_JSONL_SCHEMA_VERSION = 2
+
+
+def _configure_oneshot_source(
+    eng: engine.Engine,
+    stages: list[str],
+    *,
+    force: bool,
+    resource_capacity: dict[str, int],
+    no_commit: bool,
+    on_error: OnError,
+    allow_uncached_incremental: bool,
+    checkout_missing: bool,
+) -> None:
+    """Configure OneShotSource for single-stage mode."""
+    eng.add_source(
+        engine_sources.OneShotSource(
+            stages=stages,
+            force=force,
+            reason="cli",
+            single_stage=True,  # Always single-stage for run command
+            resource_capacity=resource_capacity,
+            no_commit=no_commit,
+            on_error=on_error,
+            allow_uncached_incremental=allow_uncached_incremental,
+            checkout_missing=checkout_missing,
+        )
+    )
+
+
+def _run_with_tui(
+    stages_list: list[str],
+    force: bool = False,
+    tui_log: pathlib.Path | None = None,
+    no_commit: bool = False,
+    on_error: OnError = OnError.FAIL,
+    resource_capacity: dict[str, int] | None = None,
+    allow_uncached_incremental: bool = False,
+    checkout_missing: bool = False,
+) -> dict[str, ExecutionSummary] | None:
+    """Run pipeline with TUI display.
+
+    Uses run_tui_with_engine helper: background thread for engine,
+    main thread for TUI (required for signal handlers like SIGTSTP).
+    """
+
+    try:
+        from pivot_tui import run as tui_run
+    except ImportError as err:
+        raise click.UsageError(
+            "The TUI requires the 'pivot-tui' package. Install it with: pip install 'pivot[tui]' or: uv pip install pivot-tui"
+        ) from err
+
+    from pivot.engine.agent_rpc import AgentRpcHandler, AgentRpcSource, BroadcastEventSink
+
+    cancel_event = threading.Event()
+    pipeline = cli_decorators.get_pipeline_from_context()
+
+    state_dir = config.get_state_dir()
+    socket_path = state_dir / "agent.sock"
+
+    app = tui_run.PivotApp(
+        stage_names=stages_list,
+        tui_log=tui_log,
+        cancel_event=cancel_event,
+        socket_path=socket_path,
+    )
+
+    result_future: concurrent.futures.Future[dict[str, executor_core.ExecutionSummary]] = (
+        concurrent.futures.Future()
+    )
+
+    async def run_engine_fn(
+        socket_ready: threading.Event,
+    ) -> dict[str, executor_core.ExecutionSummary]:
+        async with engine.Engine(pipeline=pipeline) as eng:
+            result_sink = _run_common.configure_result_collector(eng)
+            _run_common.configure_output_sink(
+                eng,
+                quiet=False,
+                as_json=False,
+                use_console=False,
+                jsonl_callback=None,
+            )
+
+            eng.add_sink(eng._event_buffer)  # pyright: ignore[reportPrivateUsage]
+            rpc_handler = AgentRpcHandler(
+                engine=eng,
+                event_buffer=eng._event_buffer,  # pyright: ignore[reportPrivateUsage]
+            )
+            eng.add_source(
+                AgentRpcSource(socket_path=socket_path, handler=rpc_handler, ready=socket_ready)
+            )
+            eng.add_sink(BroadcastEventSink())
+
+            _configure_oneshot_source(
+                eng,
+                stages_list,
+                force=force,
+                resource_capacity=resource_capacity or {},
+                no_commit=no_commit,
+                on_error=on_error,
+                allow_uncached_incremental=allow_uncached_incremental,
+                checkout_missing=checkout_missing,
+            )
+            await eng.run(exit_on_completion=True)
+            stage_results = await result_sink.get_results()
+            return _run_common.convert_results(stage_results)
+
+    _run_common.run_tui_with_engine(
+        app,
+        run_engine_fn,
+        socket_path,
+        result_future=result_future,
+    )
+
+    # Return results (re-raises if engine raised an exception)
+    if result_future.done():
+        return result_future.result()
+    return {}
+
+
+def _run_json_mode(
+    stages_list: list[str],
+    *,
+    force: bool,
+    no_commit: bool,
+    on_error: OnError,
+    resource_capacity: dict[str, int],
+    allow_uncached_incremental: bool,
+    checkout_missing: bool,
+) -> dict[str, ExecutionSummary]:
+    """Run pipeline in JSON streaming mode."""
+    from pivot.executor import core as executor_core
+
+    # Emit schema version first
+    cli_helpers.emit_jsonl(
+        SchemaVersionEvent(type=RunEventType.SCHEMA_VERSION, version=_JSONL_SCHEMA_VERSION)
+    )
+
+    start_time = time.perf_counter()
+    pipeline = cli_decorators.get_pipeline_from_context()
+
+    async def json_main() -> dict[str, executor_core.ExecutionSummary]:
+        async with engine.Engine(pipeline=pipeline) as eng:
+            result_sink = _run_common.configure_result_collector(eng)
+            _run_common.configure_output_sink(
+                eng,
+                quiet=False,
+                as_json=True,
+                use_console=False,
+                jsonl_callback=cli_helpers.emit_jsonl,
+            )
+            _configure_oneshot_source(
+                eng,
+                stages_list,
+                force=force,
+                resource_capacity=resource_capacity,
+                no_commit=no_commit,
+                on_error=on_error,
+                allow_uncached_incremental=allow_uncached_incremental,
+                checkout_missing=checkout_missing,
+            )
+            await eng.run(exit_on_completion=True)
+            stage_results = await result_sink.get_results()
+            return _run_common.convert_results(stage_results)
+
+    results = anyio.run(json_main)
+
+    # Emit execution result
+    total_duration_ms = (time.perf_counter() - start_time) * 1000
+    ran, cached, blocked, cancelled, failed = executor_core.count_results(results)
+    skipped = cached + blocked + cancelled
+
+    # Compute failed stage names for JSONL output
+    failed_stage_names = sorted(
+        name
+        for name, r in results.items()
+        if categorize_stage_result(r["status"]) == DisplayCategory.FAILED
+    )
+
+    cli_helpers.emit_jsonl(
+        ExecutionResultEvent(
+            type=RunEventType.EXECUTION_RESULT,
+            ran=ran,
+            skipped=skipped,
+            failed=failed,
+            failed_stages=failed_stage_names,
+            total_duration_ms=total_duration_ms,
+            timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
+        )
+    )
+
+    return results
+
+
+def _run_plain_mode(
+    stages_list: list[str],
+    *,
+    force: bool,
+    no_commit: bool,
+    on_error: OnError,
+    resource_capacity: dict[str, int],
+    allow_uncached_incremental: bool,
+    checkout_missing: bool,
+    quiet: bool,
+    show_output: bool = False,
+) -> dict[str, ExecutionSummary]:
+    """Run pipeline in plain (non-TUI) mode with optional console output."""
+    from pivot.cli import console as tui_console
+    from pivot.executor import core as executor_core
+
+    console: tui_console.Console | None = None
+    if not quiet:
+        console = tui_console.Console()
+
+    start_time = time.perf_counter()
+    pipeline = cli_decorators.get_pipeline_from_context()
+
+    async def plain_main() -> dict[str, executor_core.ExecutionSummary]:
+        async with engine.Engine(pipeline=pipeline) as eng:
+            result_sink = _run_common.configure_result_collector(eng)
+            _run_common.configure_output_sink(
+                eng,
+                quiet=quiet,
+                as_json=False,
+                use_console=console is not None,
+                jsonl_callback=None,
+                show_output=show_output,
+            )
+            _configure_oneshot_source(
+                eng,
+                stages_list,
+                force=force,
+                resource_capacity=resource_capacity,
+                no_commit=no_commit,
+                on_error=on_error,
+                allow_uncached_incremental=allow_uncached_incremental,
+                checkout_missing=checkout_missing,
+            )
+            await eng.run(exit_on_completion=True)
+            stage_results = await result_sink.get_results()
+            return _run_common.convert_results(stage_results)
+
+    results = anyio.run(plain_main)
+
+    if console and results:
+        ran, cached, blocked, cancelled, failed = executor_core.count_results(results)
+        total_duration = time.perf_counter() - start_time
+        console.summary(ran, cached, blocked, cancelled, failed, total_duration)
+        # Print failed stage names after summary
+        failed_stage_names = sorted(
+            name
+            for name, r in results.items()
+            if categorize_stage_result(r["status"]) == DisplayCategory.FAILED
+        )
+        console.failed_stages(failed_stage_names)
+
+    return results
+
+
+def _validate_stages_required(stages_list: list[str] | None) -> list[str]:
+    """Validate that at least one stage was provided."""
+    if not stages_list:
+        raise click.UsageError("Missing argument 'STAGES...'.")
+    return stages_list
+
+
+@cli_decorators.pivot_command(allow_all=True)
+@click.argument("stages", nargs=-1, shell_complete=completion.complete_stages)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force re-run of stages, ignoring cache",
+)
+@click.option(
+    "--tui",
+    "tui_flag",
+    is_flag=True,
+    help="Use interactive TUI display (default: plain text)",
+)
+@click.option(
+    "--jsonl",
+    "--json",
+    "as_json",
+    is_flag=True,
+    help="Stream results as JSONL (one JSON object per line).",
+)
+@click.option(
+    "--show-output",
+    is_flag=True,
+    help="Stream stage output (stdout/stderr) to terminal",
+)
+@click.option(
+    "--tui-log",
+    type=click.Path(path_type=pathlib.Path),
+    help="Write TUI messages to JSONL file for monitoring",
+)
+@cli_decorators.resources_option
+@click.option(
+    "--no-commit",
+    is_flag=True,
+    help="Skip writing lock files and committing outputs; file hashes are still saved. "
+    + "Run 'pivot commit' to finalize.",
+)
+@click.option(
+    "--fail-fast",
+    is_flag=True,
+    help="Stop on first failure (default).",
+)
+@click.option(
+    "--keep-going",
+    "-k",
+    is_flag=True,
+    help="Continue running stages after failures.",
+)
+@click.option(
+    "--allow-uncached-incremental",
+    is_flag=True,
+    help="Allow running stages with incremental output files that exist but aren't in cache.",
+)
+@click.option(
+    "--checkout-missing",
+    is_flag=True,
+    help="Restore tracked files that don't exist on disk from cache before running.",
+)
+@click.pass_context
+def run(
+    ctx: click.Context,
+    stages: tuple[str, ...],
+    force: bool,
+    tui_flag: bool,
+    as_json: bool,
+    show_output: bool,
+    tui_log: pathlib.Path | None,
+    no_commit: bool,
+    fail_fast: bool,
+    keep_going: bool,
+    resource_capacity: dict[str, int],
+    allow_uncached_incremental: bool,
+    checkout_missing: bool,
+) -> None:
+    """Execute specified pipeline stages directly.
+
+    Runs STAGES in the order specified, without resolving dependencies.
+    At least one stage name must be provided.
+
+    Use 'pivot repro' to run stages with automatic dependency resolution.
+    """
+    cli_ctx = cli_helpers.get_cli_context(ctx)
+    quiet = cli_ctx["quiet"]
+    show_human_output = not as_json and not quiet
+
+    # Require at least one stage, then resolve bare names to registered stages. A mapped stage
+    # (Pipeline.map) or one of its instances is refused: it expands only in `pivot repro`.
+    targets = cli_helpers.stages_to_list(stages)
+    if targets:
+        pipeline = cli_helpers.get_pipeline()
+        registered = set(pipeline.list_stages())
+        templates = pipeline.list_templates()
+        for target in targets:
+            template = (
+                None if target in registered else cli_helpers.template_target(target, templates)
+            )
+            if template is not None:
+                raise expansion.single_stage_refusal(target, pipeline.get_template(template))
+    stages_list = _validate_stages_required(cli_helpers.resolve_stage_names(targets))
+
+    # Validate mutual exclusions
+    _run_common.validate_display_mode(tui_flag, as_json)
+    _run_common.validate_show_output(show_output, tui_flag, as_json, quiet)
+    tui_log = _run_common.validate_tui_log(tui_log, as_json, tui_flag)
+    on_error = _run_common.resolve_on_error(fail_fast, keep_going)
+
+    if tui_flag:
+        results = _run_with_tui(
+            stages_list,
+            force=force,
+            tui_log=tui_log,
+            no_commit=no_commit,
+            on_error=on_error,
+            resource_capacity=resource_capacity,
+            allow_uncached_incremental=allow_uncached_incremental,
+            checkout_missing=checkout_missing,
+        )
+        # TUI returns None if user quit early - don't show "No stages" message
+        if results is None:
+            return
+    elif as_json:
+        results = _run_json_mode(
+            stages_list,
+            force=force,
+            no_commit=no_commit,
+            on_error=on_error,
+            resource_capacity=resource_capacity,
+            allow_uncached_incremental=allow_uncached_incremental,
+            checkout_missing=checkout_missing,
+        )
+    else:
+        results = _run_plain_mode(
+            stages_list,
+            force=force,
+            no_commit=no_commit,
+            on_error=on_error,
+            resource_capacity=resource_capacity,
+            allow_uncached_incremental=allow_uncached_incremental,
+            checkout_missing=checkout_missing,
+            quiet=quiet,
+            show_output=show_output,
+        )
+
+    if not results and show_human_output:
+        click.echo("No stages to run")
+        return
+
+    if results:
+        from pivot.executor import core as executor_core
+
+        _, _, _, _, failed = executor_core.count_results(results)
+        if failed > 0:
+            raise SystemExit(1)

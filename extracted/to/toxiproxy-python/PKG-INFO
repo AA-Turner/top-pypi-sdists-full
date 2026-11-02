@@ -1,0 +1,23 @@
+Metadata-Version: 1.1
+Name: toxiproxy-python
+Version: 0.1.1
+Summary: Python library for Toxiproxy
+Home-page: https://github.com/douglas/toxiproxy-python
+Author: Douglas Soares de Andrade
+Author-email: contato@douglasandrade.com
+License: MIT License
+Description: A Python library for controlling Toxiproxy. Can be used in resiliency testing.
+Platform: Any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

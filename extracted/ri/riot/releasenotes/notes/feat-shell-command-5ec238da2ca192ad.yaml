@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added the shell command to spawn a shell inside a virtual environment
-    instance.

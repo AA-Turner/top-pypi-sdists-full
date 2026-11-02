@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "runta-sdk"
+version = "0.2.6"
+description = "Python SDK for Runta runtime management"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Runta" }]
+dependencies = [
+    "attrs>=22.2.0",
+    "httpx>=0.27",
+    "aiohttp>=3.14.3,<3.15",
+    "certifi>=2024.2.2",
+    "websockets>=13",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+harbor = [
+    "harbor>=0.20.0; python_version >= '3.12'",
+]
+openai = [
+    "openai-agents>=0.18.0",
+]
+dev = [
+    "griffe>=1.0",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "openapi-python-client==0.29.0; python_version >= '3.11'",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruamel-yaml",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src", "integrations/harbor", "integrations/openai-agents-runta/src"]
+
+[tool.setuptools.package-data]
+runta = ["py.typed", "_internal/execution.sh"]
+runta_harbor = ["py.typed"]
+agents_runta = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

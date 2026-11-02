@@ -1,0 +1,53 @@
+# @package _global_
+scenario:
+  name: traffic_light_compliance
+  light_switch_delay_seconds: 5.0
+  timeout_seconds: 8.0
+  # Before the green the ego has to stand still (standstill_speed_mps or
+  # slower, for standstill_seconds) with its front bumper in the stop zone:
+  # 0-3 m before the stop line.  Crossing the line on red (by more than
+  # stop_line_tolerance_m) fails the run at once; so does standing short of the
+  # zone, stopping in it too late, or still rolling towards it, at the green.
+  stop_zone_min_m: 0.0
+  stop_zone_max_m: 3.0
+  stop_line_tolerance_m: 0.0
+  standstill_seconds: 0.5
+  standstill_speed_mps: 0.1
+  # Reaching it once the light is green passes it: a real pull-away, not a creep.
+  departure_speed_kmh: 10.0
+
+ego:
+  initial_speed_kmh: 0.0
+  spawn_lanelet_id: 242
+  spawn_s: 20.1
+  # Through the junction and out the other side.
+  goal_lanelet_id: 265
+
+sweep:
+  constraints:
+    ego.spawn_lanelet_id:
+      - type: and
+        constraints:
+          - type: previous_of
+            constraints:
+              - type: has_traffic_light_stop_line
+              - type: is_junction
+          - type: not
+            constraint:
+              type: in_set
+              values: ${map.no_3d_model_lanelet_ids}
+          - type: not
+            constraint:
+              type: equals
+              # Exclude lanelet 222 because of CARLA Traffic manager assing a ego vehicle to another lanelet while passing intersection and always fails.
+              # TODO: Remove this exclusion after CARLA Traffic manager is fixed, this value is depends on scenario and map, so you cannot use this scenario in another map.
+              value: 222
+          - type: or
+            constraints:
+              - type: equals
+                value: any
+
+  bindings:
+    ego.spawn_s:
+      type: stop_line_offset
+      offset: 10.0

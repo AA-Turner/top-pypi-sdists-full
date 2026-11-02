@@ -1,0 +1,43 @@
+name: Test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update local toolchain
+        run: |
+          rustup update
+          rustup component add clippy
+          rustup install stable
+          pipx install ruff
+      - name: Toolchain info
+        run: |
+          cargo --version --verbose
+          rustc --version
+          cargo clippy --version
+      - name: Lint
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- --deny warnings
+          ruff check --no-fix
+          ruff format --check
+      - name: Rust Test
+        run: |
+          cargo check
+          cargo test
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Python Tests
+        run: |
+          python -m venv env
+          source env/bin/activate
+          pip install '.[test]'
+          pytest python-tests

@@ -11,8 +11,8 @@ import importlib
 
 import pytest
 
-from probe.cli import daemon_cli
-from probe.cli import setup as wizard
+from probe.cli.commands.daemon import daemon as daemon_cli
+from probe.cli import wizard as wizard
 from probe.sdk.settings.settings import save_context
 
 main = importlib.import_module("probe.cli.main")
@@ -47,7 +47,7 @@ def test_desktop_capture_only_configure_keeps_its_authorization_path(monkeypatch
 @pytest.mark.parametrize("capture", [False, True])
 def test_desktop_provisioning_failure_never_falls_back_to_device_approval(monkeypatch, capture):
     monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
-    monkeypatch.setattr(wizard, "mint_from_sign_in", lambda *a, **kw: None)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "mint_from_sign_in", lambda *a, **kw: None)
     monkeypatch.setattr("probe.sdk.settings.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
     lines = (wizard.pair_capture("pi", base_url="https://api.test") if capture
              else main._authorize_companion("https://api.test"))
@@ -67,8 +67,12 @@ def calls(monkeypatch):
         seen["revoke"].append(token)
         return [f"released {what}"]
 
-    monkeypatch.setattr(wizard, "authorize", fake_authorize)
-    monkeypatch.setattr(wizard, "_revoke", fake_revoke)
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "_revoke", fake_revoke)
+    monkeypatch.setattr(wizard.account.sign_out, "_revoke", fake_revoke)
+    monkeypatch.setattr(wizard.apply.recorder, "_revoke", fake_revoke)
     # Choosing `daemon` also provisions the daemon's AI libraries (E11). Pin
     # "already installed" so these tests are about the key, whatever this
     # machine has installed; the install path has its own test below.
@@ -85,7 +89,9 @@ def test_the_approval_link_is_printed_while_the_flow_waits(monkeypatch, capsys):
         on_prompt(DevicePrompt("ABCD-EFGH", "https://x/device", "https://x/device?code=ABCD-EFGH"))
         return {}, []
 
-    monkeypatch.setattr(wizard, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", fake_authorize)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", fake_authorize)
     main._authorize_companion("https://x", open_browser=False)
     out = capsys.readouterr().out
     assert "https://x/device?code=ABCD-EFGH" in out
@@ -93,7 +99,9 @@ def test_the_approval_link_is_printed_while_the_flow_waits(monkeypatch, capsys):
 
 
 def test_a_declined_approval_says_the_agent_keeps_recording(monkeypatch):
-    monkeypatch.setattr(wizard, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
     lines = main._authorize_companion("https://x")
     assert lines[0] == "approval declined"
     assert "keeps recording" in lines[1]
@@ -103,9 +111,11 @@ def test_the_command_exits_nonzero_when_no_key_was_minted(monkeypatch):
     """A script must be able to tell an expired or declined approval from a key."""
     from typer.testing import CliRunner
 
-    from probe.cli.companion import companion_app
+    from probe.cli.commands.daemon.companion import companion_app
 
-    monkeypatch.setattr(wizard, "authorize", lambda grants, **kw: ({}, ["approval expired"]))
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", lambda grants, **kw: ({}, ["approval expired"]))
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", lambda grants, **kw: ({}, ["approval expired"]))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", lambda grants, **kw: ({}, ["approval expired"]))
     result = CliRunner().invoke(companion_app, ["authorize", "--no-browser"])
     assert result.exit_code == 1
     assert "approval expired" in result.output
@@ -114,7 +124,7 @@ def test_the_command_exits_nonzero_when_no_key_was_minted(monkeypatch):
 def test_the_command_exits_zero_once_the_key_is_held(calls):
     from typer.testing import CliRunner
 
-    from probe.cli.companion import companion_app
+    from probe.cli.commands.daemon.companion import companion_app
 
     result = CliRunner().invoke(companion_app, ["authorize", "--no-browser"])
     assert result.exit_code == 0
@@ -126,11 +136,13 @@ def test_a_declined_approval_with_an_old_key_saved_still_exits_nonzero(monkeypat
     saved, and that must not read as success to a script."""
     from typer.testing import CliRunner
 
-    from probe.cli.companion import companion_app
+    from probe.cli.commands.daemon.companion import companion_app
 
     save_context({"companion_token": "probe_pat_" + "7" * 32})
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "installed")
-    monkeypatch.setattr(wizard, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", lambda grants, **kw: ({}, ["approval declined"]))
     result = CliRunner().invoke(companion_app, ["authorize", "--no-browser"])
     assert result.exit_code == 1
 

@@ -1,5 +1,6 @@
 """ReadsResource (client.reads, typed reads) and ReadsMixin, Client's methods: series, compare,
-search, browse, web, docs, ingest, SQL, events (twins: app/search, app/browse, app/websearch)."""
+search, browse, web, docs, ingest, SQL, events
+(twins: app/knowledge/search, app/projects/browse, app/knowledge/websearch)."""
 
 from __future__ import annotations
 from ....generated.models import (

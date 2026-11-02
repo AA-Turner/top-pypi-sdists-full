@@ -12,10 +12,10 @@ from __future__ import annotations
 import importlib
 
 import pytest
-from probe.cli import doctor, tui
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capabilities
-from probe.cli.setup import RunSummary, SummaryAction
+from probe.cli.wizard import doctor, terminal as tui
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capabilities
+from probe.cli.wizard.screens.run_summary import RunSummary, SummaryAction
 from probe.sdk import session_marker
 from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
 from typer.testing import CliRunner
@@ -168,7 +168,7 @@ def test_a_kept_daemon_key_is_a_next_step_not_an_error():
 
 
 def test_settings_never_claims_a_change_that_failed_everywhere(monkeypatch):
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     def stopped(changes, **_kw):
         return ["Claude Code:", "! not finished — re-run `probe wizard` › Settings to retry.", "",
@@ -176,17 +176,18 @@ def test_settings_never_claims_a_change_that_failed_everywhere(monkeypatch):
 
     monkeypatch.setattr(main, "_apply_capability_settings", stopped)
     monkeypatch.setattr(main, "_capability_setting_now", lambda setting: False)  # still off on disk
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(wizard, "read_settings", lambda caps: {wizard.Setting.AUTO_UPDATE: False})
-    monkeypatch.setattr(wizard, "run_settings_menu", lambda current, **k: {wizard.Setting.AUTO_UPDATE: True})
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(wizard.settings.settings, "read_settings", lambda caps: {wizard.Setting.AUTO_UPDATE: False})
+    monkeypatch.setattr(wizard.settings.menu, "run_settings_menu", lambda current, **k: {wizard.Setting.AUTO_UPDATE: True})
     caps = {"claude_code": _caps("claude_code"), "codex": _caps("codex")}
     lines = main._run_settings_action(yes=False, caps_by_source=caps, base_now="https://x")
     assert lines[0] == "Automatic updates did not change"
 
 
 def test_an_error_named_by_its_exception_needs_attention():
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     assert wizard.needs_attention("W&B history pending (ConnectError). File delivery continues.")
     assert wizard.needs_attention("reconstruction stage incomplete (OSError); saved work retained.")
@@ -194,7 +195,7 @@ def test_an_error_named_by_its_exception_needs_attention():
 
 
 def test_diagnose_names_an_mcp_that_needs_a_login_and_a_stuck_outbox(monkeypatch):
-    from probe.cli.capabilities import McpState
+    from probe.cli.wizard.state.state import McpState
 
     caps = _caps("claude_code", tracking_plugin_installed=True, outbox_status={"failed": 3})
     monkeypatch.setattr(type(caps), "mcp_state", property(lambda self: McpState.LOGIN_NEEDED))
@@ -207,15 +208,16 @@ def test_diagnose_names_an_mcp_that_needs_a_login_and_a_stuck_outbox(monkeypatch
 def test_settings_reports_what_the_device_holds_after_a_partial_apply(monkeypatch):
     """Configure can write the device-wide file, then fail on one agent's
     MCP: the setting did change, and the error is still shown."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     monkeypatch.setattr(main, "_apply_capability_settings", lambda changes, **k: [
         "Codex:", "! not finished — re-run `probe wizard` › Settings to retry.", ""])
     monkeypatch.setattr(main, "_capability_setting_now", lambda setting: True)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(wizard, "read_settings", lambda caps: {wizard.Setting.AUTO_UPDATE: False})
-    monkeypatch.setattr(wizard, "run_settings_menu", lambda current, **k: {wizard.Setting.AUTO_UPDATE: True})
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(wizard.settings.settings, "read_settings", lambda caps: {wizard.Setting.AUTO_UPDATE: False})
+    monkeypatch.setattr(wizard.settings.menu, "run_settings_menu", lambda current, **k: {wizard.Setting.AUTO_UPDATE: True})
     lines = main._run_settings_action(yes=False, caps_by_source={"codex": _caps("codex")}, base_now="https://x")
     assert lines[0] == "Automatic updates → on"
     assert "  Codex: not finished — re-run `probe wizard` › Settings to retry." in lines
@@ -243,7 +245,7 @@ def test_diagnose_says_what_lifts_a_sign_ins_capture_lock():
 def test_diagnose_counts_a_daemon_with_no_key(monkeypatch):
     """Recording through the daemon with no daemon key: nothing records, and
     the full report's "Daemon key: none" was the only place that said so."""
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: False)
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: False)
     page = doctor.summary({"claude_code": _caps("claude_code")}, recorder=session_marker.RECORDER_DAEMON)
     assert page[0] == "Probe Research doctor: 1 problem"
     assert "  The Probe daemon has no key: press Enter on Who records to approve one." in page
@@ -257,7 +259,7 @@ def test_an_import_keeps_its_never_silent_lines():
 def test_diagnose_names_each_problem_once_with_every_agent_that_has_it(monkeypatch):
     """Seen in a real terminal (0.333.0): the same capture warning under
     Claude Code and again under Codex, and Codex's MCP login said twice."""
-    from probe.cli.capabilities import McpState
+    from probe.cli.wizard.state.state import McpState
 
     warning = "could not verify the capture credential (offline or endpoint unavailable)"
     codex = _caps("codex", codex_available=True, warnings=(warning, "the probe-research MCP is installed but not logged in; "
@@ -285,7 +287,7 @@ def test_a_page_after_signing_out_says_finish_not_menu(entry, monkeypatch):  # n
     Uninstall is `probe uninstall` (#3511), which signs the device out and ends
     the wizard itself: no page after it offers the menu, and the menu never
     comes back."""
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
     from probe.sdk.settings.settings import save_context
 
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
@@ -295,9 +297,10 @@ def test_a_page_after_signing_out_says_finish_not_menu(entry, monkeypatch):  # n
         menus.append(_caps)
         return Action.UNINSTALL if len(menus) == 1 else Action.EXIT
 
-    monkeypatch.setattr(wizard, "run_action_menu", menu)
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(wizard.screens.screens, "run_action_menu", menu)
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
 
     runs: list[dict] = []
 
@@ -309,7 +312,9 @@ def test_a_page_after_signing_out_says_finish_not_menu(entry, monkeypatch):  # n
     monkeypatch.setattr(main, "_run_uninstall", uninstalled)
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("the per-agent removal ran"))
     prompts: list[str] = []
-    monkeypatch.setattr(tui, "page", lambda lines, **kw: prompts.append(kw.get("prompt")))
+    monkeypatch.setattr(tui.layout, "page", lambda lines, **kw: prompts.append(kw.get("prompt")))
+    monkeypatch.setattr(tui.forms, "page", lambda lines, **kw: prompts.append(kw.get("prompt")))
+    monkeypatch.setattr(tui.progress, "page", lambda lines, **kw: prompts.append(kw.get("prompt")))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert len(runs) == 1 and len(menus) == 1

@@ -1,1 +1,0 @@
-"""rusket.sequential subpackage."""

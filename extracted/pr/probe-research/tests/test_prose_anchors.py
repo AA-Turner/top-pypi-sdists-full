@@ -50,7 +50,7 @@ def _extract(pattern: str, path: str) -> str:
 
 
 def _pointer() -> str:
-    return _extract(r'POINTER_BODY = """(.*?)"""', "src/probe/cli/agent_rules.py")
+    return _extract(r'POINTER_BODY = """(.*?)"""', "src/probe/cli/wizard/apply/agent_rules.py")
 
 
 def _skill_description(name: str) -> str:

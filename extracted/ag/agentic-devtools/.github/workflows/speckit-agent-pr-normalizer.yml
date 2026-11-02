@@ -1,0 +1,162 @@
+name: SpecKit Copilot PR Normalizer
+
+# The subscription uses the canonical workflow name; completed runs carry a run title instead.
+# Gate those runs below by their observed title and exact upstream workflow path.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, edited, labeled]
+  workflow_run:
+    workflows: ["Copilot cloud agent"]
+    types: [completed]
+
+concurrency:
+  group: speckit-normalizer-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  normalize:
+    name: Normalize Copilot PR
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.user.login == 'copilot-swe-agent[bot]' &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'speckit:spec') ||
+        contains(github.event.pull_request.body || '', 'speckit:agent-assigned schema_version=1 engine=cloud-agent') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-1') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-2') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-3') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-4') ||
+        contains(github.event.pull_request.labels.*.name, 'speckit:phase-5')
+      )
+    steps:
+      - name: Checkout Repository (Normalizer Script)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          token: ${{ secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+
+      - name: Resolve SpecKit metadata and labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN || secrets.DEFAULT_CLASSIC_REPO_WORKFLOW_PAT }}
+          script: |
+            const path = require('path');
+            const { run } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'speckit-trigger',
+              'normalize-copilot-pr.js'
+            ));
+            await run({ github, context, core, pr: context.payload.pull_request });
+
+  assess-copilot-completion:
+    name: Assess Copilot completion (read-only)
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.name == 'Running Copilot cloud agent' &&
+      github.event.workflow_run.path == 'dynamic/copilot-swe-agent/copilot'
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      assessment_status: ${{ steps.assessment.outputs.assessment_status }}
+      assessment_reason: ${{ steps.assessment.outputs.assessment_reason }}
+    steps:
+      - name: Checkout trusted default-branch assessment helper
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up trusted Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install trusted delivery authority
+        run: python -m pip install .
+
+      - name: Assess terminal completion without mutation
+        id: assessment
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          script: |
+            const path = require('path');
+            const { assessCompletion, createPythonDeliveryAdapter } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'speckit-trigger',
+              'assess-copilot-completion.js'
+            ));
+            await assessCompletion({
+              github,
+              context,
+              core,
+              workflowRun: context.payload.workflow_run,
+              assessDelivery: createPythonDeliveryAdapter({
+                execFile: require('child_process').execFile,
+                env: process.env,
+                timeoutMs: 120000,
+                maxBuffer: 65536,
+                cwd: process.env.GITHUB_WORKSPACE,
+              }),
+            });
+
+  completion-summary:
+    name: Copilot completion assessment summary
+    runs-on: ubuntu-latest
+    needs: [assess-copilot-completion]
+    if: >-
+      github.event_name == 'workflow_run' &&
+      needs.assess-copilot-completion.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - name: Render bounded assessment summary
+        uses: actions/github-script@v7
+        env:
+          ASSESSMENT_STATUS: ${{ needs.assess-copilot-completion.outputs.assessment_status }}
+          ASSESSMENT_REASON: ${{ needs.assess-copilot-completion.outputs.assessment_reason }}
+        with:
+          script: |
+            const statuses = new Set(['verified_empty', 'unknown', 'not_admitted']);
+            const reasons = new Set([
+              'verified_no_delivery',
+              'assessment_adapter_unavailable',
+              'delivery_evidence_unknown',
+              'delivery_evidence_incomplete',
+              'delivery_evidence_malformed',
+              'delivery_not_admitted',
+              'workflow_not_success',
+              'pr_missing',
+              'pr_ambiguous',
+              'cross_repository',
+              'stale_head',
+              'pr_lookup_unavailable',
+            ]);
+            const status = statuses.has(process.env.ASSESSMENT_STATUS)
+              ? process.env.ASSESSMENT_STATUS
+              : 'unknown';
+            const reason = reasons.has(process.env.ASSESSMENT_REASON)
+              ? process.env.ASSESSMENT_REASON
+              : 'delivery_evidence_unknown';
+            await core.summary
+              .addHeading('Copilot completion assessment')
+              .addTable([
+                [{ data: 'Status', header: true }, status],
+                [{ data: 'Reason', header: true }, reason],
+              ])
+              .addRaw('This read-only assessment does not authorize PR lifecycle changes or a review request.')
+              .write();

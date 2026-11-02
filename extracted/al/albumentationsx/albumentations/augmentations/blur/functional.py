@@ -1,0 +1,587 @@
+"""Functional implementations of various blur operations for image processing.
+
+This module provides a collection of low-level functions for applying different blur effects
+to images, including standard blur, glass blur, defocus, and zoom effects.
+These functions form the foundation for the corresponding transform classes.
+"""
+
+import random
+from collections.abc import Sequence
+from functools import lru_cache
+from itertools import product
+from math import ceil, cos, radians, sin
+from typing import Literal, cast
+from warnings import warn
+
+import cv2
+import numpy as np
+from albucore import (
+    clipped,
+    float32_io,
+    preserve_channel_dim,
+    reduce_sum,
+    uint8_io,
+)
+from pydantic import ValidationInfo
+
+from albumentations.augmentations.geometric.functional import scale
+from albumentations.augmentations.pixel.functional import convolve
+from albumentations.core.type_definitions import EIGHT, ImageFloat32, ImageType, ImageUInt8
+
+__all__ = ["box_blur", "central_zoom", "defocus", "glass_blur", "mode_filter", "zoom_blur"]
+
+
+_PILLOW_FIXED_POINT_BITS = 24
+_PILLOW_FIXED_POINT_SCALE = 1 << _PILLOW_FIXED_POINT_BITS
+_PILLOW_FIXED_POINT_SCALE_F32 = np.float32(_PILLOW_FIXED_POINT_SCALE)
+_PILLOW_F32_ONE = np.float32(1.0)
+_PILLOW_F32_TWO = np.float32(2.0)
+_PILLOW_F32_THREE = np.float32(3.0)
+_PILLOW_F32_SIX = np.float32(6.0)
+_PILLOW_F32_TWELVE = np.float32(12.0)
+
+
+@preserve_channel_dim
+def box_blur(img: ImageType, ksize: int) -> ImageType:
+    """Smooth image with uniform rectangular kernel (moving average). ksize sets size. Use for
+    mild noise reduction or downscale prep.
+
+    This function applies a blur to an image.
+
+    Args:
+        img (ImageType): Input image.
+        ksize (int): Kernel size.
+
+    Returns:
+        ImageType: Blurred image.
+
+    """
+    result = np.array(img, copy=True, order="C")
+    cv2.blur(result, (ksize, ksize), dst=result)
+    return cast("ImageType", result)
+
+
+@preserve_channel_dim
+def glass_blur(
+    img: ImageType,
+    sigma: float,
+    max_delta: int,
+    iterations: int,
+    dxy: np.ndarray,
+    mode: Literal["fast", "exact"],
+) -> ImageType:
+    """Glass-like effect: Gaussian blur then random pixel swaps. Sigma, max_delta, iterations, dxy.
+    Use for frosted-glass look.
+
+    This function applies a glass blur to an image.
+
+    Args:
+        img (ImageType): Input image.
+        sigma (float): Sigma.
+        max_delta (int): Maximum delta.
+        iterations (int): Number of iterations.
+        dxy (np.ndarray): Dxy.
+        mode (Literal['fast', 'exact']): Mode.
+
+    Returns:
+        ImageType: Glass blurred image.
+
+    """
+    x = cv2.GaussianBlur(np.array(img), sigmaX=sigma, ksize=(0, 0))
+
+    if mode == "fast":
+        hs = np.arange(img.shape[0] - max_delta, max_delta, -1)
+        ws = np.arange(img.shape[1] - max_delta, max_delta, -1)
+        h: int | np.ndarray = np.tile(hs, ws.shape[0])
+        w: int | np.ndarray = np.repeat(ws, hs.shape[0])
+
+        for i in range(iterations):
+            dy = dxy[:, i, 0]
+            dx = dxy[:, i, 1]
+            x[h, w], x[h + dy, w + dx] = x[h + dy, w + dx], x[h, w]
+
+    elif mode == "exact":
+        for ind, (i, h, w) in enumerate(
+            product(
+                range(iterations),
+                range(img.shape[0] - max_delta, max_delta, -1),
+                range(img.shape[1] - max_delta, max_delta, -1),
+            ),
+        ):
+            idx = ind if ind < len(dxy) else ind % len(dxy)
+            dy = dxy[idx, i, 0]
+            dx = dxy[idx, i, 1]
+            x[h, w], x[h + dy, w + dx] = x[h + dy, w + dx], x[h, w]
+    else:
+        raise ValueError(f"Unsupported mode `{mode}`. Supports only `fast` and `exact`.")
+
+    return cast("ImageType", cv2.GaussianBlur(x, sigmaX=sigma, ksize=(0, 0)))
+
+
+@lru_cache(maxsize=128)
+def _create_defocus_kernel_cached(radius: int, alias_blur: float) -> np.ndarray:
+    length = np.arange(-max(8, radius), max(8, radius) + 1, dtype=np.float32)
+    ksize = 3 if radius <= EIGHT else 5
+
+    x, y = np.meshgrid(length, length)
+    aliased_disk = (x**2 + y**2 <= radius**2).astype(np.float32)
+    aliased_disk /= cast("np.float64", reduce_sum(aliased_disk))
+
+    return cv2.GaussianBlur(aliased_disk, (ksize, ksize), sigmaX=alias_blur)
+
+
+def create_defocus_kernel(radius: int, alias_blur: float) -> np.ndarray:
+    """Create defocus (aliased disk) convolution kernel. radius, alias_blur control disk
+    shape and smoothing. Returns kernel for convolve.
+    """
+    return _create_defocus_kernel_cached(radius, alias_blur).copy()
+
+
+def defocus(img: ImageType, radius: int, alias_blur: float) -> ImageType:
+    """Blur with aliased disk kernel to simulate out-of-focus. radius, alias_blur set size and
+    softness. Use for depth-of-field or bokeh-style effects.
+    """
+    return convolve(img, kernel=create_defocus_kernel(radius, alias_blur))
+
+
+def central_zoom(img: ImageType, zoom_factor: int) -> ImageType:
+    """Zoom from center by integer factor: crop center, upsample, trim to original size.
+    Used in zoom-blur pipeline; zoom_factor must be positive.
+
+    This function zooms an image.
+
+    Args:
+        img (ImageType): Input image.
+        zoom_factor (int): Zoom factor.
+
+    Returns:
+        ImageType: Zoomed image.
+
+    """
+    height, width = img.shape[:2]
+    h_ch, w_ch = ceil(height / zoom_factor), ceil(width / zoom_factor)
+    h_top, w_top = (height - h_ch) // 2, (width - w_ch) // 2
+
+    img = scale(img[h_top : h_top + h_ch, w_top : w_top + w_ch], zoom_factor, cv2.INTER_LINEAR)
+    h_trim_top, w_trim_top = (img.shape[0] - height) // 2, (img.shape[1] - width) // 2
+    return img[h_trim_top : h_trim_top + height, w_trim_top : w_trim_top + width]
+
+
+@float32_io
+@clipped
+def zoom_blur(img: ImageType, zoom_factors: np.ndarray | Sequence[int]) -> ImageType:
+    """Radial zoom blur: blend image with center-zoomed copies. zoom_factors; normalized result.
+    Use for motion or out-of-focus style. Float32 I/O, clipped.
+
+    This function zooms and blurs an image.
+
+    Args:
+        img (ImageType): Input image.
+        zoom_factors (np.ndarray | Sequence[int]): Zoom factors.
+
+    Returns:
+        ImageType: Zoomed and blurred image.
+
+    """
+    out = np.zeros_like(img, dtype=np.float32)
+
+    for zoom_factor in zoom_factors:
+        out += central_zoom(img, zoom_factor)
+
+    return (img + out) * np.float32(1.0 / (len(zoom_factors) + 1))
+
+
+@preserve_channel_dim
+@uint8_io
+def mode_filter(img: ImageType, kernel_size: int) -> ImageType:
+    """Replace each pixel with the most frequent value (mode) in its local square neighborhood,
+    computed per channel; ties broken by smallest value (scipy default).
+
+    Args:
+        img (ImageType): Input image (uint8 after @uint8_io conversion).
+        kernel_size (int): Side length of the square neighborhood (must be odd, ≥ 3).
+
+    Returns:
+        ImageType: Filtered image with the same shape and dtype as the input.
+
+    """
+    pad = kernel_size // 2
+    padded = np.pad(img, ((pad, pad), (pad, pad), (0, 0)), mode="reflect")
+    windows = np.lib.stride_tricks.sliding_window_view(padded, (kernel_size, kernel_size, 1))
+    flat = windows.reshape(windows.shape[0], windows.shape[1], windows.shape[2], -1)
+    sorted_flat = np.sort(flat, axis=-1)
+
+    best_values = sorted_flat[..., 0].copy()
+    best_counts = np.ones(sorted_flat.shape[:-1], dtype=np.uint8)
+    current_counts = np.ones_like(best_counts)
+
+    for value_idx in range(1, sorted_flat.shape[-1]):
+        previous_values = sorted_flat[..., value_idx - 1]
+        current_values = sorted_flat[..., value_idx]
+        same_as_previous = current_values == previous_values
+
+        current_counts = np.where(same_as_previous, current_counts + 1, 1)
+        better_run = current_counts > best_counts
+        best_counts = np.where(better_run, current_counts, best_counts)
+        best_values = np.where(better_run, current_values, best_values)
+
+    return cast("ImageType", best_values.astype(img.dtype, copy=False))
+
+
+def _ensure_min_value(result: tuple[int, int], min_value: int, field_name: str | None) -> tuple[int, int]:
+    if result[0] < min_value or result[1] < min_value:
+        new_result = (max(min_value, result[0]), max(min_value, result[1]))
+        warn(
+            f"{field_name}: Invalid kernel size range {result}. "
+            f"Values less than {min_value} are not allowed. "
+            f"Range automatically adjusted to {new_result}.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return new_result
+    return result
+
+
+def _ensure_odd_values(result: tuple[int, int], field_name: str | None = None) -> tuple[int, int]:
+    new_result = (
+        result[0] if result[0] == 0 or result[0] % 2 == 1 else result[0] + 1,
+        result[1] if result[1] == 0 or result[1] % 2 == 1 else result[1] + 1,
+    )
+    if new_result != result:
+        warn(
+            f"{field_name}: Non-zero kernel sizes must be odd. Range {result} automatically adjusted to {new_result}.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return new_result
+
+
+def process_blur_range(value: tuple[int, int], info: ValidationInfo, min_value: int = 0) -> tuple[int, int]:
+    """Validate a blur kernel range tuple, enforcing the `min_value` lower bound and odd kernel
+    sizes (non-odd values auto-adjusted with a warning).
+    """
+    if not isinstance(value, Sequence) or len(value) != 2:
+        raise ValueError("blur range must be a tuple of exactly 2 ints")
+
+    result = (value[0], value[1])
+    result = _ensure_min_value(result, min_value, info.field_name)
+    result = _ensure_odd_values(result, info.field_name)
+
+    if result[0] > result[1]:
+        final_result = (result[1], result[1])
+        warn(
+            f"{info.field_name}: Invalid range {result} (min > max). Range automatically adjusted to {final_result}.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return final_result
+
+    return result
+
+
+def create_motion_kernel(
+    kernel_size: int,
+    angle: float,
+    direction: float,
+    allow_shifted: bool,
+    random_state: random.Random,
+) -> np.ndarray:
+    """Create motion blur kernel (2D float32). kernel_size (odd), angle, direction (-1 to 1),
+    allow_shifted, random_state. Returns normalized kernel.
+
+    Args:
+        kernel_size (int): Size of the kernel (must be odd)
+        angle (float): Angle in degrees (counter-clockwise)
+        direction (float): Blur direction (-1.0 to 1.0)
+        allow_shifted (bool): Allow kernel to be randomly shifted from center
+        random_state (random.Random): Python's random.Random instance
+
+    Returns:
+        np.ndarray: Motion blur kernel
+
+    """
+    # Validate direction range to prevent unexpected interpolation results
+    direction = np.clip(direction, -1.0, 1.0)
+
+    kernel = np.zeros((kernel_size, kernel_size), dtype=np.float32)
+    center = kernel_size // 2
+
+    angle_rad = radians(angle)
+
+    dx = cos(angle_rad)
+    dy = sin(angle_rad)
+
+    line_length = kernel_size // 2
+
+    if direction < 0:
+        # Backward bias: interpolate between symmetric and backward-only
+        # direction = -1: only backward, direction = 0: symmetric
+        bias_factor = abs(direction)
+        t_start = float(-line_length)
+        t_end = line_length * (1 - bias_factor)
+    elif direction > 0:
+        # Forward bias: interpolate between symmetric and forward-only
+        # direction = 1: only forward, direction = 0: symmetric
+        bias_factor = direction
+        t_start = -line_length * (1 - bias_factor)
+        t_end = float(line_length)
+    else:
+        # Symmetric case (direction = 0)
+        t_start = float(-line_length)
+        t_end = float(line_length)
+
+    # Generate points along the biased line
+    t = np.linspace(t_start, t_end, kernel_size)
+
+    # Generate line coordinates
+    x = center + dx * t
+    y = center + dy * t
+
+    if allow_shifted:
+        shift_x = random_state.uniform(-1, 1) * line_length / 2
+        shift_y = random_state.uniform(-1, 1) * line_length / 2
+        x += shift_x
+        y += shift_y
+
+    # Round coordinates and clip to kernel bounds
+    x = np.clip(np.round(x), 0, kernel_size - 1).astype(int)
+    y = np.clip(np.round(y), 0, kernel_size - 1).astype(int)
+
+    # Keep only unique points to avoid multiple assignments
+    points = np.unique(np.column_stack([y, x]), axis=0)
+    kernel[points[:, 0], points[:, 1]] = 1
+
+    if not kernel.any():
+        kernel[center, center] = 1
+
+    return kernel
+
+
+def sample_odd_from_range(random_state: random.Random, low: int, high: int) -> int:
+    """Sample odd number from [low, high] (inclusive). Low/high normalized to odd (min 3).
+    For blur transforms when sampling kernel size from a range.
+
+    Args:
+        random_state (random.Random): instance of random.Random
+        low (int): lower bound (will be converted to nearest valid odd number)
+        high (int): upper bound (will be converted to nearest valid odd number)
+
+    Returns:
+        int: Randomly sampled odd number from the range
+
+    Note:
+        - Input values will be converted to nearest valid odd numbers:
+          * Values less than 3 will become 3
+          * Even values will be rounded up to next odd number
+        - After normalization, high must be >= low
+
+    """
+    # Normalize low value
+    low = max(3, low + (low % 2 == 0))
+    # Normalize high value
+    high = max(3, high + (high % 2 == 0))
+
+    high = max(high, low)
+
+    if low == high:
+        return low
+
+    num_odd_values = (high - low) // 2 + 1
+    # Generate random index and convert to corresponding odd number
+    rand_idx = random_state.randint(0, num_odd_values - 1)
+    return low + (2 * rand_idx)
+
+
+def create_gaussian_kernel(sigma: float, ksize: int = 0) -> np.ndarray:
+    """Create a discrete 2D Gaussian kernel. Sigma and ksize (0 = auto). Returns normalized
+    float32 kernel for separable or 2D convolution.
+
+    Args:
+        sigma (float): Standard deviation for Gaussian kernel.
+        ksize (int): Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1.
+            Otherwise, must be positive and odd.
+
+    Returns:
+        np.ndarray: 2D normalized Gaussian kernel.
+
+    """
+    size = int(sigma * 3.5) * 2 + 1 if ksize == 0 else ksize
+
+    size = size + 1 if size % 2 == 0 else size
+
+    x = np.linspace(-(size // 2), size // 2, size)
+
+    kernel_1d = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel_1d = kernel_1d / reduce_sum(kernel_1d)
+
+    return kernel_1d[:, np.newaxis] @ kernel_1d[np.newaxis, :]
+
+
+def create_gaussian_kernel_1d(sigma: float, ksize: int = 0) -> np.ndarray:
+    """Create a discrete 1D Gaussian kernel. Sigma and ksize (0 = auto). For separable
+    Gaussian blur; returns normalized float32 1D array.
+
+    Args:
+        sigma (float): Standard deviation for Gaussian kernel.
+        ksize (int): Kernel size. If 0, size is computed as int(sigma * 3.5) * 2 + 1.
+            Otherwise, must be positive and odd.
+
+    Returns:
+        np.ndarray: 1D normalized Gaussian kernel.
+
+    """
+    size = int(sigma * 3.5) * 2 + 1 if ksize == 0 else ksize
+
+    size = size + 1 if size % 2 == 0 else size
+
+    x = create_gaussian_kernel_input_array(size=size)
+
+    # Guard against sigma=0 (would cause division by zero)
+    if sigma == 0:
+        kernel_1d = np.zeros(size, dtype=np.float32)
+        kernel_1d[size // 2] = 1.0
+        return kernel_1d
+
+    x_f32 = x.astype(np.float32)
+    kernel_1d = np.exp(np.float32(-0.5) * (x_f32 / np.float32(sigma)) ** 2)
+    return (kernel_1d / reduce_sum(kernel_1d)).astype(np.float32)
+
+
+def create_pillow_gaussian_kernel(sigma: float) -> np.ndarray:
+    """Build the fixed-point extended-box kernel that Pillow uses to approximate Gaussian
+    blur, including fractional edge weights for exact uint8 rounding.
+
+    Args:
+        sigma (float): Standard deviation of the target Gaussian.
+
+    Returns:
+        np.ndarray: One-dimensional uint32 kernel in Pillow's 24-bit fixed-point scale.
+
+    """
+    sigma_f32 = np.float32(sigma)
+    variance = sigma_f32 * sigma_f32 / _PILLOW_F32_THREE
+    box_length = np.sqrt(_PILLOW_F32_TWELVE * variance + _PILLOW_F32_ONE)
+    integer_radius = np.floor((box_length - _PILLOW_F32_ONE) / _PILLOW_F32_TWO)
+    radius_plus_one = integer_radius + _PILLOW_F32_ONE
+    box_width = _PILLOW_F32_TWO * integer_radius + _PILLOW_F32_ONE
+    fractional_radius = box_width * (integer_radius * radius_plus_one - _PILLOW_F32_THREE * variance)
+    fractional_radius /= _PILLOW_F32_SIX * (variance - radius_plus_one * radius_plus_one)
+    box_radius = integer_radius + fractional_radius
+
+    radius = int(box_radius)
+    whole_weight = int(_PILLOW_FIXED_POINT_SCALE_F32 / (_PILLOW_F32_TWO * box_radius + _PILLOW_F32_ONE))
+    far_weight = (_PILLOW_FIXED_POINT_SCALE - (radius * 2 + 1) * whole_weight) // 2
+    kernel = np.full(radius * 2 + 3, whole_weight, dtype=np.uint32)
+    kernel[0] = far_weight
+    kernel[-1] = far_weight
+    return kernel
+
+
+def _pillow_gaussian_blur_uint8(
+    img: ImageUInt8,
+    kernel: np.ndarray,
+) -> ImageUInt8:
+    # The uint32 weights and uint8 samples fit exactly in float64. Adding 0.5 in OpenCV and then truncating during
+    # the uint8 copy reproduces Pillow's fixed-point round-half-up operation without separate full-image passes.
+    normalized_kernel = kernel.astype(np.float64) / _PILLOW_FIXED_POINT_SCALE
+    horizontal_kernel = normalized_kernel[np.newaxis, :]
+    vertical_kernel = normalized_kernel[:, np.newaxis]
+    result = np.array(img, copy=True, order="C")
+    output = np.empty_like(result)
+    filtered = np.empty(result.shape, dtype=np.float64)
+
+    for filter_kernel in (
+        horizontal_kernel,
+        horizontal_kernel,
+        horizontal_kernel,
+        vertical_kernel,
+        vertical_kernel,
+        vertical_kernel,
+    ):
+        cv2.filter2D(
+            result,
+            ddepth=cv2.CV_64F,
+            kernel=filter_kernel,
+            dst=filtered,
+            delta=0.5,
+            borderType=cv2.BORDER_REPLICATE,
+        )
+        np.copyto(output, filtered, casting="unsafe")
+        result, output = output, result
+
+    return result
+
+
+def _pillow_gaussian_blur_float32(
+    img: ImageFloat32,
+    kernel: np.ndarray,
+) -> ImageFloat32:
+    normalized_kernel = kernel.astype(np.float32) / _PILLOW_FIXED_POINT_SCALE_F32
+    horizontal_kernel = normalized_kernel[np.newaxis, :]
+    vertical_kernel = normalized_kernel[:, np.newaxis]
+    result = np.array(img, copy=True, order="C")
+    output = np.empty_like(result)
+
+    for filter_kernel in (
+        horizontal_kernel,
+        horizontal_kernel,
+        horizontal_kernel,
+        vertical_kernel,
+        vertical_kernel,
+        vertical_kernel,
+    ):
+        cv2.filter2D(
+            result,
+            ddepth=-1,
+            kernel=filter_kernel,
+            dst=output,
+            borderType=cv2.BORDER_REPLICATE,
+        )
+        result, output = output, result
+
+    return result
+
+
+@preserve_channel_dim
+def pillow_gaussian_blur(img: ImageType, kernel: np.ndarray) -> ImageType:
+    """Blur an image with Pillow's three-pass extended-box Gaussian approximation, reproducing
+    uint8 rounding without importing Pillow at runtime.
+
+    Float32 inputs use the same normalized kernel and replicated borders without uint8 quantization.
+
+    Args:
+        img (ImageType): Input image.
+        kernel (np.ndarray): Fixed-point extended-box kernel from `create_pillow_gaussian_kernel`.
+
+    Returns:
+        ImageType: Blurred image with the input shape and dtype.
+
+    """
+    whole_weight = int(kernel[1])
+    far_weight = int(kernel[0])
+    if whole_weight == _PILLOW_FIXED_POINT_SCALE and far_weight == 0:
+        return cast("ImageType", np.array(img, copy=True, order="C"))
+    if img.dtype == np.uint8:
+        return _pillow_gaussian_blur_uint8(cast("ImageUInt8", img), kernel)
+    return _pillow_gaussian_blur_float32(cast("ImageFloat32", img), kernel)
+
+
+def create_gaussian_kernel_input_array(size: int) -> np.ndarray:
+    """1-D x-coordinates -size/2 to size/2 for Gaussian kernel. Piecewise for size < 100
+    (faster than np.linspace). Returns float array.
+
+    Piecewise function is needed as equivalent python list comprehension is faster than np.linspace
+    for values of size < 100
+
+    Args:
+        size (int): kernel size
+
+    Returns:
+        np.ndarray: x-coordinate array which will be input for gaussian function that will be used for
+        separable gaussian blur
+
+    """
+    if size < 100:
+        return np.array(list(range(-(size // 2), (size // 2) + 1, 1)))
+
+    return np.linspace(-(size // 2), size // 2, size)

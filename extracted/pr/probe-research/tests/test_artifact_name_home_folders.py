@@ -17,8 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli.backfill_coverage import Coverage, Scope
-from probe.cli.backfill_delivery import enqueue
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.upload.receipts import enqueue
 from probe.sdk import errors
 from probe.sdk.delivery import journal as jm
 from probe.sdk.client.client import Client
@@ -39,7 +40,6 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 class Server:

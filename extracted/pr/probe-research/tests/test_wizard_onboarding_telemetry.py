@@ -15,9 +15,12 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import import_jobs_ui, onboarding_complete, setup, tui
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard.account import onboarding_complete
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
 from probe.cli import telemetry as tm
-from probe.cli.actions import Action
+from probe.cli.wizard.actions.onboarding import Action
 from tests import test_wizard_auth_entry as auth
 from tests import test_wizard_install_completion as completion
 
@@ -110,7 +113,7 @@ def test_the_import_offer_reports_every_answer_including_skip(
 ):
     """Skipping is the most common answer here. An event that only fired when
     a box was ticked would leave the single largest outcome invisible."""
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *a, **k: picked)
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *a, **k: picked)
     monkeypatch.setattr(main, "_run_selected_imports", lambda *a, **k: None)
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
     assert result.exit_code == 0, result.output
@@ -125,7 +128,7 @@ def test_the_import_offer_reports_every_answer_including_skip(
 def test_backing_out_of_the_import_offer_is_not_an_answer(
     installation, captured, monkeypatch,
 ):
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *a, **k: tui.BACK)
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *a, **k: tui.BACK)
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
     assert result.exit_code == 0, result.output
     chosen = _props(captured, tm.EVENT_WIZARD_IMPORTS_CHOSEN)
@@ -138,7 +141,7 @@ def test_a_reopened_offer_says_it_is_a_second_pass(installation, captured, monke
     """A lane that went Back reopens the offer with the unanswered choices.
     Without `offered_again` those re-asks inflate the selection counts."""
     answers = iter([{setup.BackfillChoice.PAST_SESSIONS}, set()])
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *a, **k: next(answers))
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *a, **k: next(answers))
     monkeypatch.setattr(main, "_run_selected_imports", lambda *a, **k: tui.BACK)
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
     assert result.exit_code == 0, result.output
@@ -188,7 +191,7 @@ def test_the_whole_guided_install_shares_one_session_id(installation, captured):
 
 # --- removal ----------------------------------------------------------------
 #
-# Uninstall is `probe uninstall` (`probe.cli.uninstall`) from every way in,
+# Uninstall is `probe uninstall` (`probe.cli.install.uninstall`) from every way in,
 # the menu's included. Its phases are stood in for here (they are
 # `test_uninstall.py`'s): what is asserted is the funnel the run emits.
 
@@ -202,11 +205,13 @@ PROBE_TRACES = {
 
 def _stub_uninstall(monkeypatch, *, server=None, integrations=None):
     """A machine with Probe on it, whose uninstall phases change nothing."""
-    from probe.cli import uninstall, uninstall_plan, uninstall_procs
+    from probe.cli.install import uninstall
+    from probe.cli.install.uninstall import plan as uninstall_plan, processes as uninstall_procs
 
     monkeypatch.setattr(uninstall_procs, "live_users", lambda: [])
     monkeypatch.setattr(uninstall_procs, "recorded_session_here", lambda: None)
-    monkeypatch.setattr(uninstall, "_all_traces", lambda: dict(PROBE_TRACES))
+    monkeypatch.setattr(uninstall.telemetry, "_all_traces", lambda: dict(PROBE_TRACES))
+    monkeypatch.setattr(uninstall.uninstall, "_all_traces", lambda: dict(PROBE_TRACES))
     monkeypatch.setattr(uninstall_plan, "contexts", lambda: {"default": {"token": "probe_pat_x"}})
     monkeypatch.setattr(uninstall_plan, "server_ids", lambda **_: {"device_ids": [], "installation_ids": [],
                                                                   "contexts": {}})
@@ -217,16 +222,18 @@ def _stub_uninstall(monkeypatch, *, server=None, integrations=None):
         steps[uninstall.Phase.INTEGRATIONS] = integrations
     # The funnel's last word, where the real state phase says it.
     steps[uninstall.Phase.STATE] = uninstall._telemetry_done
-    monkeypatch.setattr(uninstall, "_PHASE_STEPS", steps)
-    monkeypatch.setattr(uninstall, "_phase_finishing", lambda run: 0)
+    monkeypatch.setattr(uninstall.phase, "_PHASE_STEPS", steps)
+    monkeypatch.setattr(uninstall.uninstall, "_PHASE_STEPS", steps)
+    monkeypatch.setattr(uninstall.phases.finishing, "_phase_finishing", lambda run: 0)
+    monkeypatch.setattr(uninstall.uninstall, "_phase_finishing", lambda run: 0)
 
 
 @pytest.fixture
 def removal(entry, monkeypatch):
     """Probe on the machine, and Uninstall chosen from the menu."""
     actions = iter((Action.UNINSTALL, Action.EXIT))
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(actions))
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(actions))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     _stub_uninstall(monkeypatch)
     return monkeypatch
 
@@ -236,7 +243,7 @@ def test_uninstall_reports_what_was_on_the_machine_before_it_was_removed(
 ):
     """After the phases the state being removed is unreadable by construction,
     so the `started` event has to carry it."""
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: True)
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     started = _props(captured, tm.EVENT_WIZARD_UNINSTALL_STARTED)
@@ -258,7 +265,7 @@ def test_backing_out_of_the_confirmation_is_the_outcome_no_server_can_see(
 ):
     """The device is still here, so nothing reports anything: no capability
     report changes, no credential is revoked. This is the only record."""
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: answer)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: answer)
     CliRunner().invoke(main.app, ["wizard"])
     assert _props(captured, tm.EVENT_WIZARD_UNINSTALL_STARTED)["tracking_installed"] is True
     done = _props(captured, tm.EVENT_WIZARD_UNINSTALL_COMPLETED)
@@ -267,7 +274,7 @@ def test_backing_out_of_the_confirmation_is_the_outcome_no_server_can_see(
 
 
 def test_a_removal_that_left_something_behind_is_not_a_clean_one(removal, captured):
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: True)
     _stub_uninstall(removal, integrations=lambda run: run.out.append("! left the Codex MCP entry in place"))
     CliRunner().invoke(main.app, ["wizard"])
     done = _props(captured, tm.EVENT_WIZARD_UNINSTALL_COMPLETED)
@@ -292,7 +299,7 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
         lambda cfg, **kw: {"distinct_id": "user-uuid", "email": "r@lab.test",
                            "customer_id": "lab", "authenticated": True},
     )
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: True)
 
     def release_everything(run):
         # What the real one does: the token is gone by the time the event fires.
@@ -319,7 +326,7 @@ def test_an_unresolvable_identity_never_fails_the_removal(removal, captured, mon
         raise OSError("network down")
 
     monkeypatch.setattr(core, "resolve_identity", unreachable)
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: True)
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     record = next(
@@ -331,7 +338,7 @@ def test_an_unresolvable_identity_never_fails_the_removal(removal, captured, mon
 def test_a_declined_removal_needs_no_pin(removal, captured):
     """Nothing was released, so the ordinary lazy resolution still works -- and
     pinning every event would put a /v1/me call on the hot path."""
-    removal.setattr(setup, "confirm_removal", lambda *a, **k: False)
+    removal.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: False)
     CliRunner().invoke(main.app, ["wizard"])
     record = next(
         row for row in captured if row["event"] == tm.EVENT_WIZARD_UNINSTALL_COMPLETED
@@ -344,7 +351,7 @@ def test_unattended_uninstall_enters_the_funnel_without_a_prompt(captured, monke
     removal, and the fleet's scripted teardowns are exactly the population a
     `confirmed_via` breakdown exists to separate out."""
     _stub_uninstall(monkeypatch)
-    monkeypatch.setattr(setup, "confirm_removal", lambda *a, **k: pytest.fail("--yes asked"))
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: pytest.fail("--yes asked"))
     assert main.main(["wizard", "--action", "uninstall", "--yes"]) == 0
     assert _props(captured, tm.EVENT_WIZARD_UNINSTALL_STARTED)["confirmed_via"] == "flag"
     assert _props(captured, tm.EVENT_WIZARD_UNINSTALL_COMPLETED)["outcome"] == (

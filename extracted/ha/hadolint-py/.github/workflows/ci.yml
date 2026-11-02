@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (py${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "${{ matrix.python-version }}"
+          allow-prereleases: true
+
+      - name: Install package
+        run: pip install .
+
+      - name: Install test dependencies
+        # setuptools: tests/test_setup.py loads setup.py, which needs
+        # setuptools.command.bdist_wheel (setuptools >= 70.1).
+        run: pip install pytest pytest-cov "setuptools>=70.1"
+
+      - name: Run tests (fails below 100% coverage)
+        run: python -m pytest --cov --cov-report=term-missing
+
+      - name: Verify version derived from git tag
+        shell: bash
+        run: pip show hadolint-py | grep Version
+
+      - name: Verify hadolint binary
+        run: hadolint --version
+
+      - name: Lint test Dockerfile
+        run: hadolint tests/Dockerfile

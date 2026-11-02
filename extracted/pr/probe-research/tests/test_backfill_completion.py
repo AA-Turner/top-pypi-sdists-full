@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill_import as folder_import
-from probe.cli import backfill_transcripts as transcripts
-from probe.cli import backfill
-from probe.cli.backfill_coverage import CoverageError
+from probe.cli.imports.folder import flow as folder_import
+from probe.cli.imports import transcripts as transcripts
+from probe.cli.imports import folder as backfill
+from probe.cli.imports.folder.coverage.coverage import CoverageError
 from probe.sdk.errors import TransportError
 from tests import test_backfill_background as folder_fixtures
 from tests import test_backfill_transcripts_upload as transcript_fixtures
@@ -152,7 +152,7 @@ def test_folder_completion_updates_between_uploads_and_ignores_unrelated_outbox_
 def test_prepared_files_and_failed_uploads_leave_completion_at_zero(
     background_harness, monkeypatch,
 ):
-    from probe.cli.import_jobs import RetryableJobError
+    from probe.cli.imports.jobs.errors import RetryableJobError
 
     h, queued = background_harness
     h.run(background=True)
@@ -193,7 +193,7 @@ def test_folder_reference_counts_only_after_its_matching_receipt(background_harn
     h, queued = background_harness
     h.run(background=True)
     # References are decided by size, by code: make every file one.
-    from probe.cli import backfill_plan
+    from probe.cli.imports.folder.classify import plan as backfill_plan
 
     monkeypatch.setattr(backfill_plan, "REFERENCE_ABOVE_BYTES", 0)
     store = Store()

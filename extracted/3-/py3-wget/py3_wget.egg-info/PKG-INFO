@@ -1,0 +1,180 @@
+Metadata-Version: 2.4
+Name: py3_wget
+Version: 1.0.13
+Summary: A tool to download files. It supports progress bar, cksum, timeout, retry failed download.
+Author: Gabriele Berton
+Author-email: Gabriele Berton <bertongabri@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2024 Gabriele Berton
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Repository, https://github.com/gmberton/py3-wget
+Keywords: download,wget,http,https,progress-bar,file-transfer,retry,checksum
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.0
+Classifier: Programming Language :: Python :: 3.1
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Utilities
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
+Classifier: Topic :: System :: Archiving :: Backup
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Communications :: File Sharing
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Typing :: Typed
+Requires-Python: >=3.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: tqdm
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: types-requests>=2.31.0; extra == "dev"
+Dynamic: author
+Dynamic: license-file
+
+# py3-wget
+
+A Python library for downloading files of any size, especially optimized for large file downloads, with support for progress bars, checksum verification, timeout handling, and automatic retry on failed downloads.
+
+## Features
+
+- 🚀 Optimized for large file downloads
+- 📊 Progress bar visualization (optional)
+- 🔄 Automatic retry on failed downloads
+- 🔍 Optional integrity checks (cksum, MD5, SHA256)
+- ⏱️ Configurable timeout and retry settings
+- 🛡️ Safe file handling, optional overwrite
+- 📦 Simple and intuitive API
+- 💻 Cross-platform compatibility (works on any OS)
+
+## Installation
+
+```bash
+pip install py3-wget
+```
+
+## Quick Start
+
+### Basic Download
+```python
+from py3_wget import download_file
+
+# Simple download with progress bar
+download_file("https://raw.githubusercontent.com/python/cpython/3.11/LICENSE")
+```
+
+![Basic Download Demo](assets/e1.gif)
+
+### Advanced Usage
+
+#### Retry on Failure
+The library automatically retries failed downloads with exponential backoff:
+```python
+download_file(
+    "https://raw.githubusercontent.com/python/cpython/3.11/LICENSE",
+    max_tries=5,  # Maximum number of retry attempts
+    retry_seconds=2  # Initial retry delay in seconds
+)
+```
+
+#### Checksum Verification
+Verify downloaded files using checksums:
+```python
+download_file(
+    "https://raw.githubusercontent.com/python/cpython/3.11/LICENSE",
+    md5="fcf6b249c2641540219a727f35d8d2c2",  # MD5 checksum
+    sha256="3aff1954277c4fc27603346901e4848b58fe3c8bed63affe6086003dd6c2b9fe"  # SHA256 checksum
+)
+```
+
+![Checksum Verification Demo](assets/e4.gif)
+
+#### File Overwrite Control
+```python
+download_file(
+    "https://raw.githubusercontent.com/python/cpython/3.11/LICENSE",
+    output_path="downloads/test.bin",
+    overwrite=True  # Overwrite existing file
+)
+```
+
+![Overwrite Demo](assets/e3.gif)
+
+## API Reference
+
+### `download_file`
+
+```python
+download_file(
+    url: str,
+    output_path: Optional[Union[str, Path]] = None,
+    overwrite: bool = False,
+    verbose: bool = True,
+    cksum: Optional[int] = None,
+    md5: Optional[str] = None,
+    sha256: Optional[str] = None,
+    max_tries: int = 5,
+    block_size_bytes: int = 8192,
+    retry_seconds: Union[int, float] = 2,
+    timeout_seconds: Union[int, float] = 60,
+) -> None
+```
+
+#### Parameters
+
+- `url` (str): URL of the file to download
+- `output_path` (str or Path, optional): Path to save the file. If None, derived from URL
+- `overwrite` (bool): Overwrite existing file (default: False)
+- `verbose` (bool): Show progress bar and messages (default: True)
+- `cksum` (int, optional): Expected checksum value
+- `md5` (str, optional): Expected MD5 hash
+- `sha256` (str, optional): Expected SHA256 hash
+- `max_tries` (int): Maximum retry attempts (default: 5)
+- `block_size_bytes` (int): Download block size in bytes (default: 8192)
+- `retry_seconds` (int/float): Initial retry delay in seconds (default: 2)
+- `timeout_seconds` (int/float): Download timeout in seconds (default: 60)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

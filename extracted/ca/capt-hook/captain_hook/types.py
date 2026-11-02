@@ -1,0 +1,1092 @@
+from __future__ import annotations
+
+import inspect
+import re
+import warnings
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from enum import Flag, StrEnum, auto
+from functools import reduce
+from hashlib import sha256
+from operator import and_, or_
+from pathlib import Path
+from textwrap import dedent
+from types import NotImplementedType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    Protocol,
+    TypeVar,
+    get_args,
+    get_origin,
+    runtime_checkable,
+)
+
+from captain_hook.langs import LANG_GLOBS
+
+if TYPE_CHECKING:
+    from cc_transcript.command import CommandLine
+    from cc_transcript.tools import ToolCallBase
+
+    from captain_hook.confirm import Confirm
+    from captain_hook.events import BaseHookEvent
+    from captain_hook.signals.nlp import NlpSignal
+    from captain_hook.tickets import Tickets
+
+T = TypeVar("T", bound="ToolCallBase")
+
+PACKAGE_ROOT = str(Path(__file__).parent)
+ARGV_WORD = r"[A-Za-z0-9_]+"
+ARGV_GROUP = rf"\((?:\?:)?{ARGV_WORD}(?:\|{ARGV_WORD})+\)"
+ARGV_TOKEN = re.compile(rf"(?:\\s\+|\ )({ARGV_WORD}|{ARGV_GROUP})")
+MAX_RUNS_SUGGESTION = 16
+ARGV_PREFIX = re.compile(
+    rf"""\A (?: \^ | \\b )?
+         (?P<first> {ARGV_WORD} )
+         (?P<rest> (?: (?: \\s\+ | \  ) (?: {ARGV_WORD} | {ARGV_GROUP} ) )+ )
+         (?: \\b )? \Z""",
+    re.VERBOSE,
+)
+
+
+def _split_names(names: Sequence[str]) -> tuple[str, ...]:
+    """Flatten any embedded ``|`` alternations so ``("Edit|Write",)`` becomes ``("Edit", "Write")``."""
+    return tuple(part for name in names for part in name.split("|"))
+
+
+class StructuralConditionWarning(UserWarning):
+    """Raised when a regex condition says what a structural condition says without the false fires."""
+
+
+def author_stacklevel() -> int:
+    """Frames out to the first caller outside this package, so a wrapping primitive is not blamed.
+
+    ``Command`` is constructed both directly in a hook file and inside ``block_command`` and its
+    siblings; a fixed stacklevel is right for one and points at framework internals for the other.
+    The dataclass-generated ``__init__`` reports ``<string>`` and carries no ``__file__``, which is
+    why ``warnings.warn(skip_file_prefixes=...)`` cannot walk past it.
+    """
+    level, frame = 0, inspect.currentframe()
+    while frame and (frame.f_code.co_filename.startswith(PACKAGE_ROOT) or frame.f_code.co_filename == "<string>"):
+        level, frame = level + 1, frame.f_back
+    return level
+
+
+def top_level_alternatives(pattern: str) -> list[str]:
+    """Split a regex on its unescaped, unparenthesized ``|``."""
+    parts: list[str] = []
+    start = depth = index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "\\":
+            index += 1
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "|" and depth == 0:
+            parts.append(pattern[start:index])
+            start = index + 1
+        index += 1
+    return [*parts, pattern[start:]]
+
+
+def expand_argv(alternative: str) -> list[tuple[str, ...]] | None:
+    """Every argv a command-name-prefix alternative names, or ``None`` when it names something else."""
+    if not (matched := ARGV_PREFIX.fullmatch(alternative)):
+        return None
+    argvs = [(matched["first"],)]
+    for token in ARGV_TOKEN.findall(matched["rest"]):
+        spellings = token.strip("()").removeprefix("?:").split("|")
+        if len(argvs) * len(spellings) > MAX_RUNS_SUGGESTION:
+            return None
+        argvs = [(*argv, spelling) for argv in argvs for spelling in spellings]
+    return argvs
+
+
+def runs_spelling(pattern: str) -> list[tuple[str, ...]]:
+    """The ``Runs`` argvs a ``Command`` pattern is really asking for, empty when it needs the regex.
+
+    A pattern qualifies only when every alternative is a bare command-name prefix — words
+    joined by whitespace, optionally led by ``^`` or ``\\b``, with alternation groups of
+    words. Anything a ``Runs`` argv prefix cannot carry (a flag, a pipe, a redirect, a
+    wildcard) disqualifies the whole pattern, so the caller keeps its regex.
+
+    An end anchor disqualifies it too. ``$`` makes the regex reject the longer forms of the
+    command, which an argv *prefix* accepts, so the suggestion would widen the hook rather
+    than narrow it. A pattern naming more argvs than ``MAX_RUNS_SUGGESTION`` is dropped
+    instead of expanded: the product of its alternation groups grows exponentially, and
+    expanding it eagerly would cost that memory even where the warning is filtered out.
+    """
+    expanded = [expand_argv(alternative) for alternative in top_level_alternatives(pattern)]
+    return [argv for alternative in expanded if alternative for argv in alternative] if all(expanded) else []
+
+
+def render_runs(argvs: Sequence[tuple[str, ...]]) -> str:
+    """The suggested source spelling for ``argvs``, wrapped in ``Or(...)`` when there is more than one."""
+    calls = [f"Runs({', '.join(repr(token) for token in argv)})" for argv in argvs]
+    return calls[0] if len(calls) == 1 else f"Or({', '.join(calls)})"
+
+
+class Event(Flag):
+    """Hook lifecycle events that can trigger registered hooks.
+
+    Combinable with ``|`` to match multiple events in a single hook registration.
+
+    Example:
+        >>> hook(Event.Stop | Event.SubagentStop, message="review first", block=True)
+    """
+
+    PreToolUse = auto()
+    PostToolUse = auto()
+    PostToolUseFailure = auto()
+    UserPromptSubmit = auto()
+    Stop = auto()
+    SubagentStop = auto()
+    SubagentStart = auto()
+    PreCompact = auto()
+    Notification = auto()
+    SessionStart = auto()
+    SessionEnd = auto()
+    PermissionRequest = auto()
+    MessageDisplay = auto()
+    ResourcePressure = auto()
+
+    @property
+    def event_class(self) -> type[BaseHookEvent]:
+        from captain_hook.events import (
+            MessageDisplayEvent,
+            NotificationEvent,
+            PermissionRequestEvent,
+            PostToolUseEvent,
+            PostToolUseFailureEvent,
+            PreCompactEvent,
+            PreToolUseEvent,
+            ResourcePressureEvent,
+            SessionEndEvent,
+            SessionStartEvent,
+            StopEvent,
+            SubagentStartEvent,
+            SubagentStopEvent,
+            UserPromptSubmitEvent,
+        )
+
+        mapping: dict[Event, type[BaseHookEvent]] = {
+            Event.PreToolUse: PreToolUseEvent,
+            Event.PostToolUse: PostToolUseEvent,
+            Event.PostToolUseFailure: PostToolUseFailureEvent,
+            Event.UserPromptSubmit: UserPromptSubmitEvent,
+            Event.Stop: StopEvent,
+            Event.SubagentStop: SubagentStopEvent,
+            Event.SubagentStart: SubagentStartEvent,
+            Event.PreCompact: PreCompactEvent,
+            Event.Notification: NotificationEvent,
+            Event.SessionStart: SessionStartEvent,
+            Event.SessionEnd: SessionEndEvent,
+            Event.PermissionRequest: PermissionRequestEvent,
+            Event.MessageDisplay: MessageDisplayEvent,
+            Event.ResourcePressure: ResourcePressureEvent,
+        }
+        if cls := mapping.get(self):
+            return cls
+        raise ValueError(f"event_class requires a single-member flag, got {self!r}")
+
+
+TOOL_EVENTS: Event = Event.PreToolUse | Event.PostToolUse | Event.PostToolUseFailure | Event.PermissionRequest
+ALL_EVENTS: Event = reduce(or_, Event)
+HOST_EVENTS: Event = Event.ResourcePressure
+CLAUDE_EVENTS: Event = ALL_EVENTS & ~HOST_EVENTS
+
+
+class Action(StrEnum):
+    """Hook result action determining how the hook output is handled.
+
+    - ``block``: Prevents the tool use or stops the agent.
+    - ``warn``: Adds advisory context without blocking.
+    - ``allow``: Explicitly permits the action.
+    - ``rewrite``: Replaces a ``PreToolUse`` tool's input with ``updated_input`` and allows it, or a
+      ``MessageDisplay`` chunk's displayed text with ``message``.
+    """
+
+    block = "block"
+    warn = "warn"
+    allow = "allow"
+    rewrite = "rewrite"
+
+
+@dataclass(frozen=True, slots=True)
+class Tool:
+    """Condition matching the current event's tool name against one or more names.
+
+    Matching is exact membership, honoring cross-editor aliases (``Bash``/``Execute``,
+    ``Write``/``Create``, …) and MCP suffixes (``mcp__github__Grep`` matches ``Grep``) —
+    NOT a regex, so ``Tool("Edit.*")`` never matches. Pass names variadically, or as a
+    single ``|``-joined string for back-compat (``Tool("Bash|Execute")`` is
+    ``Tool("Bash", "Execute")``). ``Tool.EditTools`` is the prebuilt full edit-shaped
+    set — ``Tool("Edit", "MultiEdit", "NotebookEdit", "Write")``.
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[Tool("Bash", "Execute")], message="...", block=True)
+        >>> hook(Event.PreToolUse, only_if=[Tool.EditTools], message="...", block=True)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    EditTools: ClassVar[Tool]
+    names: tuple[str, ...]
+
+    def __init__(self, *names: str) -> None:
+        object.__setattr__(self, "names", _split_names(names))
+
+
+Tool.EditTools = Tool("Edit", "MultiEdit", "NotebookEdit", "Write")
+
+
+@dataclass(frozen=True, slots=True)
+class PatternsCondition:
+    patterns: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FilePath(PatternsCondition):
+    """Condition matching the current event's file path against glob patterns.
+
+    Accepts one or more glob patterns as positional arguments.
+
+    Example:
+        >>> hook(Event.PostToolUse, only_if=[FilePath("*.py", "*.pyi")], message="Python file edited")
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    project_only: bool
+
+    def __init__(self, *patterns: str, project_only: bool = True) -> None:
+        object.__setattr__(self, "patterns", patterns)
+        object.__setattr__(self, "project_only", project_only)
+
+
+@dataclass(frozen=True, slots=True)
+class Command:
+    """Condition matching the current event's bash command against a regex.
+
+    Searched against the raw command line *and* each parsed command's argv join, so a
+    pattern spanning pipes/operators/redirects (``curl ... | sh``) matches. That raw-text
+    reach is also the hazard: a command *named* inside a quoted string, a heredoc body, or
+    an ``echo`` argument matches too. Match a command by name with
+    [`Runs`][captain_hook.types.Runs] instead, and keep ``Command`` for the text no argv
+    prefix names — a flag, a pipeline, a redirect. Constructing a ``Command`` whose pattern
+    is a plain command-name prefix warns with the ``Runs`` spelling to use.
+
+    Only relevant for ``PreToolUse`` events targeting the Bash/Execute tool. The regex is
+    compiled at construction, so a malformed pattern raises immediately rather than at
+    dispatch.
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[Command(r"curl.*\\|\\s*sh")], message="blocked", block=True)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    pattern: str
+
+    def __post_init__(self) -> None:
+        re.compile(self.pattern)
+        if argvs := runs_spelling(self.pattern):
+            warnings.warn(
+                f'Command(r"{self.pattern}") matches a command-name prefix as raw text, so it also fires on a '
+                f"mention — a quoted string, a heredoc body, `echo {' '.join(argvs[0])}`. If you meant the "
+                f"command, say so structurally: {render_runs(argvs)}, which compares whole argv tokens "
+                f"rather than searching the line.",
+                StructuralConditionWarning,
+                stacklevel=author_stacklevel(),
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class Content:
+    """Condition matching the current event's file content against a regex.
+
+    Applies to Edit (new content) and Write (file content) tool events.
+
+    Args:
+        pattern: A regular expression searched against the content with ``re.MULTILINE``.
+        project_only: Only fire on files inside the repository root (default ``True``); set
+            ``False`` to also match scratch files, attachments, and other paths outside the repo.
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    pattern: str
+    project_only: bool = True
+
+    def __post_init__(self) -> None:
+        re.compile(self.pattern)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolInput:
+    """Condition matching top-level fields of the raw tool input against regexes.
+
+    Two spellings, both ANDing when more than one field is given:
+
+    - ``ToolInput(model=r"haiku", subagent_type="Explore")`` — kwargs, one regex per field.
+    - ``ToolInput("run-in-background", r"true")`` — a single ``(field, pattern)`` positional
+      pair, for keys that are not valid Python identifiers.
+
+    Each field's value is searched with ``re.MULTILINE``. Scalar (bool/int/float) values are
+    coerced to text first, so ``ToolInput(run_in_background="true")`` matches a JSON ``true``.
+    Works for any tool; false for non-tool events or a missing field. Patterns are compiled at
+    construction.
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[ToolInput(model=r"(?i)\\bhaiku\\b")], message="...", block=True)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    fields: tuple[tuple[str, str], ...]
+
+    def __init__(self, *positional: str, **fields: str) -> None:
+        match positional:
+            case ():
+                pairs = tuple(fields.items())
+            case (field, pattern) if not fields:
+                pairs = ((field, pattern),)
+            case _:
+                raise TypeError(
+                    "ToolInput takes either a single (field, pattern) positional pair or field=regex kwargs"
+                )
+        if not pairs:
+            raise ValueError("ToolInput requires at least one field to match")
+        for _, pattern in pairs:
+            re.compile(pattern)
+        object.__setattr__(self, "fields", tuple(sorted(pairs)))
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class WorkflowScript:
+    """Condition matching a ``Workflow`` tool's script source.
+
+    Each ``**opts`` kwarg names an ``agent()`` opts key and carries a regex ``re.search``ed
+    against every value pinned for that key anywhere in the script source —
+    ``WorkflowScript(model="haiku")``, ``WorkflowScript(effort=r"^low$")``,
+    ``WorkflowScript(agentType="code-reviewer")``, any future key. ``pattern`` (reserved, so
+    not usable as an opt key) searches the raw source with ``re.MULTILINE``. Everything given
+    ANDs: ``pattern`` (if any) must match and each opt key's regex must match at least one of
+    that key's pins.
+
+    Captured value forms: single-/double-quoted strings, a single-line template literal (raw
+    text incl. ``${…}``), and a bare token (identifier, dotted path, number, boolean) matched
+    by its source TEXT — so ``model: a.model`` matches ``WorkflowScript(model=r"a\\.model")``,
+    not the runtime value. The scan is whole-source (comments and data tables feeding
+    ``agent()`` count); anchor enum-like keys with ``^…$`` (each captured value is single-line).
+    Matching is per-SCRIPT, not per-``agent()``-call. At least one of ``pattern``/``**opts`` is
+    required. The source is the inline ``script``, or — when ``script`` is None and
+    ``script_path`` points at a file — that file's contents; a missing/unreadable path or a
+    file larger than ~1 MiB never matches and never raises. False for any non-Workflow tool.
+
+    Example:
+        >>> nudge("no haiku steps", only_if=[Tool("Workflow"), WorkflowScript(model="haiku")],
+        ...       events=Event.PreToolUse)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    pattern: str | None
+    opts: tuple[tuple[str, str], ...]
+
+    def __init__(self, pattern: str | None = None, **opts: str) -> None:
+        if pattern is None and not opts:
+            raise ValueError("WorkflowScript requires a pattern and/or at least one opts key to match")
+        if pattern is not None:
+            re.compile(pattern)
+        for value in opts.values():
+            re.compile(value)
+        object.__setattr__(self, "pattern", pattern)
+        object.__setattr__(self, "opts", tuple(sorted(opts.items())))
+
+
+@dataclass(frozen=True, slots=True)
+class Pattern:
+    """Condition matching the edit's new content against an ast-grep **structural** pattern.
+
+    Where [`Content`][captain_hook.types.Content] matches text with a regex, ``Pattern`` matches
+    code *shape* across languages — ``print($$$)`` matches a print call however its arguments are
+    spelled, ignoring matches inside strings or comments.
+
+    Args:
+        pattern: An ast-grep pattern string with metavariables, e.g. ``"os.system($CMD)"`` or
+            ``"print($$$)"``.
+        lang: ast-grep language id (the short keys of [`LANG_GLOBS`][captain_hook.langs.LANG_GLOBS],
+            e.g. ``"py"``, ``"go"``); inferred from the edited file's extension when omitted.
+        project_only: Only fire on files inside the repository root (default ``True``), like
+            [`Content`][captain_hook.types.Content].
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[Pattern("eval($$$)")], message="no eval", block=True)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    pattern: str
+    lang: str | None = None
+    project_only: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class UsedSkill:
+    """Transcript-history condition: true when a Skill tool use named one of ``names``.
+
+    Pass names variadically; a single ``|``-joined string still works for back-compat. A bare
+    name also matches the plugin-qualified spelling, so ``UsedSkill("codex")`` matches a skill
+    reported as ``codex:codex`` and ``UsedSkill("slop-cop-check")`` matches ``slop-cop:slop-cop-check``.
+    The search covers the current turn by default — the idiom for skipping a guard
+    once the agent has complied; ``scope="session"`` widens it to the whole session.
+
+    Example:
+        >>> nudge("run codex first", skip_if=[UsedSkill("codex")])
+    """
+
+    names: tuple[str, ...]
+    subagents: bool = True
+    scope: Literal["session", "turn"] = "turn"
+
+    def __init__(self, *names: str, subagents: bool = True, scope: Literal["session", "turn"] = "turn") -> None:
+        object.__setattr__(self, "names", _split_names(names))
+        object.__setattr__(self, "subagents", subagents)
+        object.__setattr__(self, "scope", scope)
+
+
+@dataclass(frozen=True, slots=True)
+class UsedTool:
+    """Transcript-history condition: true when a tool use named one of ``names`` exists.
+
+    Pass names variadically; a single ``|``-joined string still works for back-compat.
+    The search covers the current turn by default — the idiom for skipping a guard
+    once the agent has complied; ``scope="session"`` widens it to the whole session.
+
+    Example:
+        >>> hook(Event.PreToolUse, skip_if=[UsedTool("EnterPlanMode")], message="...", block=True)
+    """
+
+    names: tuple[str, ...]
+    subagents: bool = True
+    scope: Literal["session", "turn"] = "turn"
+
+    def __init__(self, *names: str, subagents: bool = True, scope: Literal["session", "turn"] = "turn") -> None:
+        object.__setattr__(self, "names", _split_names(names))
+        object.__setattr__(self, "subagents", subagents)
+        object.__setattr__(self, "scope", scope)
+
+
+@dataclass(frozen=True, slots=True)
+class ReadFile(PatternsCondition):
+    """Transcript-history condition: true when a Read tool use targeted a matching file.
+
+    Accepts one or more ``fnmatch`` glob patterns as positional arguments, matched against each
+    Read's full path and its basename — so ``ReadFile("*.md")`` matches by extension and a bare
+    ``ReadFile("TESTING.md")`` matches that file in any directory. Reads are recorded as absolute
+    paths, so anchor a directory match with a leading ``**/`` (``ReadFile("**/docs/**")``), the
+    same idiom the test-file globs use.
+    """
+
+    subagents: bool
+
+    def __init__(self, *patterns: str, subagents: bool = True) -> None:
+        object.__setattr__(self, "patterns", patterns)
+        object.__setattr__(self, "subagents", subagents)
+
+
+@dataclass(frozen=True, slots=True)
+class TestFile:
+    """Condition that matches when the current event targets a test file.
+
+    A test file is ``test_*.py``, ``*_test.py``, ``conftest.py``, any ``.py`` under a
+    ``tests/`` directory, ``*_test.go``, ``*.test.*``, or ``*.spec.*``.
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    __test__ = False
+
+    project_only: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class SourceEdits:
+    """Condition matching an ``Edit``/``Write`` of a non-test source file in one language.
+
+    True when the current event edits a file matching the language's globs and — unless
+    ``include_tests`` — is not a test file, optionally narrowed to ``paths``.
+
+    Args:
+        lang: Language key into [`LANG_GLOBS`][captain_hook.langs.LANG_GLOBS] (default ``"py"``);
+            unknown keys fall back to ``*.<lang>``.
+        include_tests: Include test files too (default ``False`` excludes them).
+        paths: One or more ``fnmatch`` globs the file must also match (e.g. ``("src/**", "lib/**")``);
+            ``None`` (default) imposes no path restriction.
+        project_only: Restrict matches to files inside the repository root (default ``True``); pass
+            ``False`` to also match external scratch files, attachments, or logs.
+
+    Example:
+        >>> hook(Event.PostToolUse, only_if=[SourceEdits(lang="ts", paths=("src/**", "lib/**"))], message="...")
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    lang: str
+    include_tests: bool
+    paths: tuple[str, ...]
+    project_only: bool = True
+
+    def __init__(
+        self,
+        lang: str = "py",
+        include_tests: bool = False,
+        paths: str | Sequence[str] | None = None,
+        project_only: bool = True,
+    ) -> None:
+        object.__setattr__(self, "lang", lang)
+        object.__setattr__(self, "include_tests", include_tests)
+        object.__setattr__(self, "paths", (paths,) if isinstance(paths, str) else tuple(paths or ()))
+        object.__setattr__(self, "project_only", project_only)
+
+    @property
+    def globs(self) -> tuple[str, ...]:
+        return LANG_GLOBS.get(self.lang, (f"*.{self.lang}",))
+
+
+@dataclass(frozen=True, slots=True)
+class Agent:
+    """Condition matching the current event's subagent type against one or more names.
+
+    Exact membership (not a regex). Pass names variadically, or as a single ``|``-joined string
+    for back-compat (``Agent("Explore|claude-code-guide")`` is ``Agent("Explore", "claude-code-guide")``).
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS | Event.SubagentStart | Event.SubagentStop
+    names: tuple[str, ...]
+
+    def __init__(self, *names: str) -> None:
+        object.__setattr__(self, "names", _split_names(names))
+
+
+@dataclass(frozen=True, slots=True)
+class FromSubagent:
+    """Condition matching when the current event originates from a subagent or teammate.
+
+    True when the event payload carries a non-empty ``agent_id``, which Claude Code sends
+    only for subagent and teammate events. Distinct from :class:`Agent`, which matches the
+    subagent *type*: this matches the event's *origin*.
+
+    Example:
+        >>> approve("teammate bash", only_if=[Tool("Bash"), FromSubagent(), SkipPermissions()])
+    """
+
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class SkipPermissions:
+    """Condition matching when the session was launched with permission bypass available.
+
+    Walks the process tree to the nearest ``claude`` ancestor and matches when that one
+    process was launched with ``--dangerously-skip-permissions`` **or**
+    ``--allow-dangerously-skip-permissions`` — either spelling means the user made bypass
+    *available* at launch, which counts as consent even while the active
+    ``permission_mode`` is something else (e.g. ``plan``).
+
+    Example:
+        >>> approve("teammate bash", only_if=[Tool("Bash"), FromSubagent(), SkipPermissions()])
+    """
+
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class TouchedFile(PatternsCondition):
+    """Transcript-history condition: true when an Edit/Write targeted a file matching the glob.
+
+    Accepts one or more glob patterns as positional arguments. Defaults to the main agent's edits
+    only (subagent edits rarely gate the main session); pass ``subagents=True`` to include sidechains.
+    """
+
+    subagents: bool
+
+    def __init__(self, *patterns: str, subagents: bool = False) -> None:
+        object.__setattr__(self, "patterns", patterns)
+        object.__setattr__(self, "subagents", subagents)
+
+
+@dataclass(frozen=True, slots=True)
+class Regex:
+    """A regex standing in for the literal argv a token-matching condition otherwise takes.
+
+    ``RanCommand(Regex(r"\bpytest\b"))`` matches when any parsed command's argv join matches
+    the pattern, so one entry covers ``pytest``, ``uv run pytest`` and ``poetry run pytest``
+    where the literal form needs one ``RanCommand`` per launcher and silently misses the one
+    you forgot. Opting in is a visible call rather than a property of the string, so a literal
+    token that happens to hold metacharacters (``c++``, ``a.out``) keeps matching literally.
+
+    The pattern is searched against each parsed command's argv join, never the raw line, so a
+    heredoc body and a redirect target cannot match. It is still text: ``echo pytest`` matches.
+    Where that distinction decides whether a gate stands down, list the literal spellings.
+    The regex is compiled at construction.
+    """
+
+    pattern: str
+
+    def __post_init__(self) -> None:
+        re.compile(self.pattern)
+
+
+@dataclass(frozen=True, slots=True)
+class RanCommand:
+    """Transcript-history condition: true when a Bash tool use running ``argv`` exists.
+
+    ``argv`` is matched as a leading token prefix of a parsed command's argv via
+    ``Session.has_command`` — wrapper-transparent (``sudo``/``env``/``timeout`` are
+    stripped) and quote-exact, so ``RanCommand("git", "push")`` matches
+    ``sudo git push -f`` but not ``echo "git push"``. Launchers are literal:
+    ``RanCommand("pytest")`` does not match ``uv run pytest`` — list each spelling
+    as its own entry.
+    """
+
+    argv: tuple[str, ...] | tuple[Regex]
+    subagents: bool
+
+    def __init__(self, *argv: str | Regex, subagents: bool = True) -> None:
+        if any(isinstance(token, Regex) for token in argv) and len(argv) != 1:
+            raise TypeError("RanCommand takes either literal argv tokens or one Regex, not a mix")
+        object.__setattr__(self, "argv", argv)
+        object.__setattr__(self, "subagents", subagents)
+
+    @property
+    def tokens(self) -> tuple[str, ...]:
+        """The literal argv tokens, empty when this condition carries a :class:`Regex` instead."""
+        return tuple(token for token in self.argv if isinstance(token, str))
+
+    @property
+    def regex(self) -> Regex | None:
+        """The regex this condition matches with, ``None`` when it compares literal tokens."""
+        return next((token for token in self.argv if isinstance(token, Regex)), None)
+
+
+@dataclass(frozen=True, slots=True)
+class InPlanMode:
+    """Matches when the agent is in plan mode.
+
+    Reads ``permission_mode`` from the current event payload; falls back to
+    counting ``EnterPlanMode`` vs ``ExitPlanMode`` tool uses in the transcript
+    when the payload omits the field.
+    """
+
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class Waiting:
+    """Condition matching while the session is parked on out-of-band work.
+
+    Any of three signals counts as waiting. The Stop payload's ``background_tasks``
+    and ``session_crons`` arrays (Claude Code 2.1.145+, ``Stop``/``SubagentStop``
+    only) report in-flight registry work: background shells, sub-agents, workflows,
+    monitors, teammates, and scheduled wake-ups — so a long-lived background shell
+    such as a dev server keeps the session waiting, by the platform's own "this will
+    wake the session back up" semantics. The transcript's notification queue holds a
+    ``<task-notification>`` that was enqueued but not yet delivered to the agent — a
+    finished task the agent hasn't seen. Or an async ``Agent``/``Task``/``Workflow``
+    launch (tracked across turns, so a launch in an earlier turn still counts) has no
+    delivered notification, and current-turn waits such as ``run_in_background`` Bash
+    or ``ScheduleWakeup``/``Monitor`` are in flight.
+
+    Blocking Stop gates built with ``gate``/``llm_gate`` skip on it automatically,
+    additively with any ``skip_if`` given, so the agent isn't nagged for pausing on
+    work it is correctly waiting on.
+
+    Example:
+        >>> gate("Run tests before stopping", skip_if=[Waiting()])
+    """
+
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class Runs:
+    """Structural Bash condition: true when a parsed command's argv starts with ``argv``.
+
+    Where [`Command`][captain_hook.types.Command] regex-matches the command text (and can false-fire
+    on ``echo git stash``), ``Runs`` matches the argv prefix of any command in the line — so
+    ``Runs("git", "stash")`` fires on ``git stash``, ``git stash pop``, and ``a && git stash`` but
+    not ``echo git stash``. Only relevant for Bash/Execute events.
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[Runs("git", "stash")], message="no stashing", block=True)
+    """
+
+    valid_events: ClassVar[Event] = TOOL_EVENTS
+    argv: tuple[str, ...]
+
+    def __init__(self, *argv: str) -> None:
+        object.__setattr__(self, "argv", argv)
+
+
+@dataclass(frozen=True, slots=True)
+class CwdHasFiles:
+    """Condition matching when every named file exists under the event's working directory.
+
+    All names must be present (AND) directly under ``evt.cwd`` for the condition to hold; a ``None``
+    cwd or any missing name fails it. Names resolve relative to the working directory only — no
+    parent walk — matching the vantage the command itself runs from. Pairs a command filter with an
+    on-disk repo shape, e.g. gating a maturin-only nudge on ``Cargo.toml`` and ``pyproject.toml``
+    both being present.
+
+    Example:
+        >>> nudge("uv sync no-ops on Rust-only changes",
+        ...       only_if=[Runs("uv", "sync"), CwdHasFiles("Cargo.toml", "pyproject.toml")])
+    """
+
+    names: tuple[str, ...]
+
+    def __init__(self, *names: str) -> None:
+        object.__setattr__(self, "names", names)
+
+
+@dataclass(frozen=True)
+class ConditionList:
+    """Container for a tuple of conditions; base class for combinators like ``Or``/``And``."""
+
+    conditions: tuple[TCondition, ...]
+
+
+class Or(ConditionList):
+    """Match if any of the inner conditions matches."""
+
+    def __init__(self, *conditions: TCondition) -> None:
+        super().__init__(conditions=tuple(conditions))
+
+
+class And(ConditionList):
+    """Match only if every inner condition matches (useful nested inside ``Or``/``Not``)."""
+
+    def __init__(self, *conditions: TCondition) -> None:
+        super().__init__(conditions=tuple(conditions))
+
+
+@dataclass(frozen=True, slots=True)
+class Not:
+    """Match only if the inner condition does not match."""
+
+    condition: TCondition
+
+
+@runtime_checkable
+class CustomCondition(Protocol):
+    """Protocol for user-defined hook conditions.
+
+    Implement ``check`` to create arbitrary matching logic beyond the
+    built-in condition types.
+
+    Override ``valid_events`` to restrict to the events your condition can read.
+
+    Example:
+        >>> class LargeFile(CustomCondition):
+        ...     def check(self, evt: BaseHookEvent) -> bool:
+        ...         return bool(evt.file and evt.file.path.stat().st_size > 1_000_000)
+        ...
+        >>> app.hook(Event.PreToolUse, only_if=[LargeFile()], message="Large file", block=True)
+    """
+
+    valid_events: ClassVar[Event] = ALL_EVENTS
+
+    @classmethod
+    def __subclasshook__(cls, other: type) -> bool | NotImplementedType:
+        if cls is CustomCondition:
+            return callable(getattr(other, "check", None))
+        return NotImplemented
+
+    def check(self, evt: BaseHookEvent) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class LambdaCondition(CustomCondition):
+    """Condition from a bare callable — the inline form of [`CustomCondition`][captain_hook.CustomCondition].
+
+    Wraps ``fn`` as the condition's ``check``, so one-off matching logic drops into
+    ``only_if``/``skip_if`` without declaring a class.
+
+    Example:
+        >>> hook(Event.PreToolUse, only_if=[LambdaCondition(lambda evt: evt.file is not None)],
+        ...      message="File edits need review here", block=True)
+    """
+
+    fn: Callable[[BaseHookEvent], bool]
+
+    def check(self, evt: BaseHookEvent) -> bool:
+        return self.fn(evt)
+
+
+class CustomInputTypeCondition(CustomCondition, Generic[T]):  # noqa: UP046
+    """CustomCondition that fires only for a specific typed tool call.
+
+    Parameterize with the tool call type and implement ``check_input``; ``check``
+    narrows the event's input to that type and skips events of any other tool.
+
+    Example:
+        >>> class BigRead(CustomInputTypeCondition[ReadCall]):
+        ...     def check_input(self, evt: BaseHookEvent, call: ReadCall) -> bool:
+        ...         return call.limit is not None and call.limit > 1000
+    """
+
+    _call_type: type[T]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        for base in getattr(cls, "__orig_bases__", ()):
+            if get_origin(base) is CustomInputTypeCondition:
+                (cls._call_type,) = get_args(base)
+                return
+        raise TypeError(f"{cls.__name__} must parameterize CustomInputTypeCondition with a tool call type")
+
+    def check(self, evt: BaseHookEvent) -> bool:
+        call = evt.as_input(self._call_type)
+        return call is not None and self.check_input(evt, call)
+
+    def check_input(self, evt: BaseHookEvent, call: T) -> bool:
+        raise NotImplementedError
+
+
+class CustomCommandLineCondition(CustomCondition):
+    """CustomCondition that fires only when a parsed Bash command line is present.
+
+    Implement ``check_command_line`` to match against the structured command line;
+    ``check`` returns False for events without one (non-Bash tools).
+    """
+
+    def check(self, evt: BaseHookEvent) -> bool:
+        if not (cmd := evt.cmd).raw:
+            return False
+        return self.check_command_line(evt, cmd.line)
+
+    def check_command_line(self, evt: BaseHookEvent, cl: CommandLine) -> bool:
+        raise NotImplementedError
+
+
+TCondition = (
+    Tool
+    | FilePath
+    | Command
+    | Content
+    | ToolInput
+    | WorkflowScript
+    | Pattern
+    | Agent
+    | FromSubagent
+    | SkipPermissions
+    | UsedSkill
+    | UsedTool
+    | ReadFile
+    | TestFile
+    | SourceEdits
+    | TouchedFile
+    | RanCommand
+    | Runs
+    | CwdHasFiles
+    | InPlanMode
+    | Waiting
+    | Or
+    | And
+    | Not
+    | CustomCondition
+)
+
+
+def condition_events(c: TCondition) -> Event:
+    """Return the lifecycle events on which a condition can possibly match."""
+    match c:
+        case And(conditions=conditions):
+            return reduce(and_, map(condition_events, conditions), ALL_EVENTS)
+        case Or(conditions=conditions):
+            return reduce(or_, map(condition_events, conditions), Event(0))
+        case Not():
+            return ALL_EVENTS
+        case _:
+            # Session-state conditions are event-agnostic unless their class declares otherwise.
+            return getattr(type(c), "valid_events", ALL_EVENTS)
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class Signal:
+    """A regex-based signal pattern used in the scoring pipeline.
+
+    Signals are matched against transcript text via ``re.search``. In a
+    :class:`Signals` bundle each matched signal contributes ``weight`` once toward
+    the threshold; pattern weights must be positive, and false positives are
+    suppressed with :attr:`Signals.vetoes`, not negative weights.
+
+    Example:
+        >>> Signal(pattern=r"retry", weight=2, flags=re.IGNORECASE)
+    """
+
+    pattern: str
+    weight: int = 1
+    flags: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class Signals:
+    """Bundle of signal patterns with a scoring threshold.
+
+    When a bare ``list[Signal]`` is passed to a primitive, ``resolve_signals``
+    wraps it with ``threshold=1`` — meaning *any* single signal match triggers.
+    Pass a higher threshold to require multiple signals to fire together.
+
+    ``scope`` selects how ``threshold`` is met across the scored candidate texts.
+    The default ``"window"`` sums by presence-union across the window: each signal
+    counts once toward ``threshold`` however many entries it matches, and the union
+    score is the sum of the distinct matching signals' weights — so a tell split
+    across turns (a checklist in one message, its sign-off in the next) still
+    accumulates. ``"text"`` instead requires a single candidate text to meet
+    ``threshold`` on its own, with ``window`` only bounding how far back a
+    qualifying text may sit; reach for it when co-occurrence in one message is the
+    tell. Pattern weights must be positive under either scope.
+
+    ``origin`` selects which candidate texts are eligible before scoring — an
+    upstream filter orthogonal to ``scope`` (which decides how ``threshold`` is met
+    among the eligible texts). The default ``"assistant"`` scores only the agent's own
+    prose (assistant messages, thinking blocks, prose-carrying tool calls), so a stance
+    nudge never fires on the user's words quoted back into the transcript. Pass
+    ``"any"`` to also score user messages — required for a hook that scores the user's
+    prompt or correction (a ``UserPromptSubmit`` nudge, say), where the just-submitted
+    prompt is prepended to the scan only under ``"any"``.
+
+    ``thinking`` keeps the agent's thinking blocks among the candidate texts. Pass
+    ``thinking=False`` for a stance nudge that judges what the agent wrote, not the
+    options it weighed privately on the way there.
+
+    ``vetoes`` are presence-only suppressors: if any veto matches any window entry
+    — including already-consumed ones — the bundle does not fire and consumes
+    nothing. A veto's ``weight`` is meaningless and must be left at its default.
+
+    ``window`` bounds how much transcript each scoring pass reads: the last
+    ``window`` scored prose entries by default, or the whole current turn with the
+    ``"turn"`` sentinel. Entries are the texts a signal can match — messages and
+    thinking blocks — so intervening tool calls never push a message out of range.
+    Use ``"turn"`` when the whole turn is the unit however much prose it holds.
+    """
+
+    patterns: Sequence[Signal | NlpSignal]
+    threshold: int
+    window: int | Literal["turn"] = 15
+    scope: Literal["text", "window"] = field(default="window", kw_only=True)
+    origin: Literal["assistant", "any"] = field(default="assistant", kw_only=True)
+    thinking: bool = field(default=True, kw_only=True)
+    vetoes: Sequence[Signal | NlpSignal] = ()
+
+    def __post_init__(self) -> None:
+        if self.threshold < 1:
+            raise ValueError(
+                f"signals threshold must be at least 1 (a threshold below 1 fires on zero matches); "
+                f"got {self.threshold}."
+            )
+        for p in self.patterns:
+            if p.weight <= 0:
+                raise ValueError(
+                    f"signal pattern weight must be positive (weights are additive, never "
+                    f"subtractive); got {p.weight}. Move suppressing patterns to `vetoes`."
+                )
+        for v in self.vetoes:
+            if v.weight != 1:
+                raise ValueError(f"veto signals match by presence; weight is meaningless — drop it (got {v.weight}).")
+
+
+@dataclass(frozen=True, kw_only=True)
+class HookResult:
+    """The return value from a hook handler, specifying the action and optional message.
+
+    ``updated_input`` and ``note`` carry the ``rewrite`` action's replacement tool
+    input and the advisory context surfaced alongside it. ``approve`` gates the
+    ``PreToolUse`` ``permissionDecision: allow`` rider a ``warn`` normally carries:
+    ``False`` surfaces the message as pure ``additionalContext`` without pre-approving
+    the tool (the ``evt.context`` variant). ``system_message`` is shown to the user as
+    Claude Code's top-level ``systemMessage`` alongside whatever the action renders, including
+    a ``Stop`` that allows; ``PreCompact``, whose stdout is plain text, drops it. ``confirm`` sends
+    a ``block`` through a small model before it lands (``evt.block(..., confirm=Confirm(...))``).
+    """
+
+    action: Action
+    message: str | None = None
+    updated_input: dict[str, Any] | None = None
+    note: str | None = None
+    approve: bool = True
+    system_message: str | None = None
+    confirm: Confirm | None = None
+
+    @classmethod
+    def of(cls, action: Action, message: str | None = None) -> HookResult:
+        """Build a ``HookResult``, dedenting and stripping ``message`` for readable triple-quoted handler returns."""
+        return cls(action=action, message=dedent(message).strip() if message is not None else None)
+
+
+type HookResponse = HookResult | None
+"""Return type of a hook handler: a :class:`HookResult`, or None to take no action."""
+
+
+from captain_hook.inline_tests import InlineTests as InlineTests  # noqa: E402
+
+
+@dataclass(frozen=True, kw_only=True)
+class HookSpec:
+    events: Event
+    only_if: tuple[TCondition, ...] = ()
+    skip_if: tuple[TCondition, ...] = ()
+    message: str | None = None
+    block: bool = False
+    confirm: Confirm | None = None
+    tickets: Tickets | None = None
+    advisory_on_deny: bool = False
+    respect_gitignore: bool = True
+    max_fires: int | None = None
+    tests: InlineTests | None = None
+    async_: bool = False
+    skip_planning_agents: bool = True
+    mandatory: bool = False
+    transcript_events: int | None = None
+    on_incomplete: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class RegisteredHook:
+    """A registered hook pairing a ``HookSpec`` with an optional handler callable."""
+
+    spec: HookSpec
+    handler: Callable[[BaseHookEvent], HookResult | None] | None = None
+    name: str = ""
+    source_file: str = ""
+    # Stable identity for ``state_key``, stamped by discovery: ``pack_name`` for a pack-loaded
+    # hook, and ``state_root`` the dir ``source_file`` is made relative against (the pack's hooks
+    # dir, or a repo's ``.claude/hooks``). Absent for ad-hoc registrations, which key on the
+    # absolute path.
+    pack_name: str | None = None
+    state_root: str | None = None
+
+    @property
+    def state_key(self) -> str:
+        """Filesystem-safe per-hook key for session state, namespaced by stable identity.
+
+        ``name`` alone collides when two packs each register a plain ``@on`` handler of the
+        same function name (``on`` keys on the bare ``fn.__name__``): both would share one
+        ``max_fires`` counter dir. The digest disambiguates them, but must key on *stable*
+        identity — not the absolute ``source_file``. A plugin update relands a pack under a
+        fresh versioned cache dir, so hashing the absolute path there would reset every
+        ``max_fires`` counter for a re-attached pack mid-session. Discovery stamps a pack-loaded
+        hook with its pack name and pack-root, and a repo-local ``.claude/hooks`` module with
+        its hooks dir, so the digest keys on the pack name plus the root-relative source path;
+        the absolute path is only a last-resort fallback for ad-hoc registrations with no root.
+        """
+        return f"{self.name}.{sha256(self._state_identity.encode()).hexdigest()[:12]}"
+
+    @property
+    def _state_identity(self) -> str:
+        if self.state_root:
+            try:
+                rel = Path(self.source_file).relative_to(self.state_root).as_posix()
+            except ValueError:
+                return self.source_file
+            return f"{self.pack_name}\0{rel}" if self.pack_name else rel
+        return self.source_file

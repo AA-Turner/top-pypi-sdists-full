@@ -113,14 +113,14 @@ class CatalogReadsMixin:
         """``GET /v1/catalog/{datasets|checkpoints|sources}``: one keyset page,
         `{items, next_cursor}` (checkpoints add `totals`). A filter left None is
         not sent; a boolean goes as `true`."""
-        params: dict[str, Any] = {"limit": limit}
+        parameters: dict[str, Any] = {"limit": limit}
         if cursor:
-            params["cursor"] = cursor
+            parameters["cursor"] = cursor
         for name, value in filters.items():
             if value is None:
                 continue
-            params[name] = str(value).lower() if isinstance(value, bool) else value
-        return self._catalog_get(f"/v1/catalog/{listing}", params) or {}
+            parameters[name] = str(value).lower() if isinstance(value, bool) else value
+        return self._catalog_get(f"/v1/catalog/{listing}", parameters) or {}
 
     def catalog_entity(self, kind: str, ref: str) -> dict:
         """One dataset (entry and every version, newest first), source or

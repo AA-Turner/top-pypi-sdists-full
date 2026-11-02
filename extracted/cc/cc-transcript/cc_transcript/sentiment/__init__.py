@@ -1,0 +1,44 @@
+# Re-exports establish the domain's public surface; pyright sees them as unused.
+# pyright: reportUnusedImport=false
+"""Sentiment-scoring domain: conversation buckets and a composable score spec.
+
+Built directly on the core event spine. Consumers bucket ``UserEvent`` /
+``AssistantEvent`` streams via :func:`bucket_events`, compose a
+:class:`ScoreSpec` from the builders (:func:`flag_frustration`,
+:func:`clamp_positive`, :func:`demote_mild_irritation`, :func:`clamp_resume`),
+and run it via :class:`FilteredEngine`. The lexicon-backed stages score token
+surfaces against a bundled AFINN snapshot plus coding-domain overrides — a
+deterministic, dependency-free lookup shared with the Rust fast path.
+"""
+
+from __future__ import annotations
+
+from cc_transcript.sentiment.buckets import (
+    BUCKET_MINUTES,
+    MIN_USER_CHARS,
+    MIN_USER_TURNS_PER_SESSION,
+    BucketIndex,
+    BucketKey,
+    ConversationBucket,
+    ConversationBucketer,
+    ConversationEvent,
+    SentimentScore,
+    extract_bucket_keys,
+)
+from cc_transcript.sentiment.engine import NOOP_PROGRESS, FilteredEngine, InferenceEngine
+from cc_transcript.sentiment.lexicon import Lexicon
+from cc_transcript.sentiment.scorespec import (
+    FrustrationShortCircuit,
+    MildIrritationDemote,
+    PositiveClamp,
+    ResumeClamp,
+    ScoreSpec,
+    ScoreStage,
+    build_score_spec,
+    clamp_positive,
+    clamp_resume,
+    demote_mild_irritation,
+    flag_frustration,
+)
+
+bucket_events = ConversationBucketer.bucket_events

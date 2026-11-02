@@ -301,7 +301,9 @@ class Run(
         server row this handle last read. Not proof the server stored it --
         under async writes that PATCH may still be queued, or may yet fail;
         `probe run check` reads the server's answer. None when nothing is
-        pinned.
+        pinned -- including right after `probe.init()` under async writes,
+        until the open's record answers on its own thread (at most ~7.5 s;
+        `_wait_for_open_record` waits for it).
 
         The hardware rail reads it to never mint an inventory record over a
         real snapshot's: its env_ref PATCH would queue FIFO behind the
@@ -354,10 +356,10 @@ class Run(
         --relation consumes`` (or ``evaluates_on`` / ``derived_from``).
 
         The child inherits this run's attachment, which is why it branches: a
-        project-direct parent begets a project-direct child, and a FLOATING
-        parent (no project yet, daemon v2) a floating child. Passing
+        project-direct parent begets a project-direct child. Passing
         ``self.experiment_id`` unconditionally is what used to POST to
-        ``/v1/experiments/None/runs`` for every project-direct run.
+        ``/v1/experiments/None/runs`` for every project-direct run. An unfiled
+        parent (an older CLI made it) has no home to inherit: ``ProjectRequired``.
         """
         if self.experiment_id is not None:
             return self._client.create_run(
@@ -377,15 +379,8 @@ class Run(
                 **kw,
             )
         if "project_id" in self._data:
-            # FLOATING parent (daemon v2): the key is there and null, which a
-            # pre-0054 row never is (it has no key at all). The child floats
-            # too, carrying its parentage, and is filed with the family later.
-            return self._client.create_floating_run(
-                name,
-                parent_run_id=self.id,
-                parent_relation=relation,
-                **kw,
-            )
+            # Unfiled: the key is there and null, which a pre-0054 row never is.
+            raise errors.build_unfiled_parent_error(self.id)
         raise errors.ValidationError(
             f"run {self.id} reports neither an experiment nor a project — this "
             "research-os backend predates project-direct runs (0054). Upgrade the "

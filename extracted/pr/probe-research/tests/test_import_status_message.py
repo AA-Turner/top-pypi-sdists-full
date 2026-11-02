@@ -6,7 +6,8 @@ screen that moves. The worker test in test_backfill_transcripts_upload.py drives
 the real walk; these pin the states that test cannot reach cheaply.
 """
 
-from probe.cli import import_jobs as jobs, import_jobs_ui as ui
+from probe.cli.imports import jobs as jobs
+from probe.cli.imports.jobs import ui as ui
 
 
 def _walking(**progress):

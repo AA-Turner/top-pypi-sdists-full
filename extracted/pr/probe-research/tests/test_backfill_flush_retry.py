@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import backfill_import as imp
+from probe.cli.imports.folder import flow as imp
 from probe.sdk.delivery.outbox.drain.report import DrainReport
 
 

@@ -1,0 +1,525 @@
+#!/usr/bin/env python3
+"""Unit tests for the synchronous Render REST API client functionality."""
+
+import datetime
+import json
+from typing import Any
+
+import pytest
+
+from render.client import Client, ListFlowRunsParams, ListTaskRunsParams
+from render.client.errors import ClientError, ServerError
+from render.client.workflows_sync import SyncWorkflowsService
+from render.public_api.models.error import Error
+from render.public_api.models.flow_run import FlowRun
+from render.public_api.models.flow_run_details import FlowRunDetails
+from render.public_api.models.flow_run_status import FlowRunStatus
+from render.public_api.models.flow_run_with_cursor import FlowRunWithCursor
+from render.public_api.models.task_run import TaskRun
+from render.public_api.models.task_run_details import TaskRunDetails
+from render.public_api.models.task_run_status import TaskRunStatus
+from render.public_api.types import UNSET, Response
+
+
+# Fixtures
+@pytest.fixture
+def mock_task_run(mocker):
+    return TaskRun(
+        id="trn-test123",
+        status=TaskRunStatus.RUNNING,
+        completed_at=None,
+        parent_task_run_id=None,
+        root_task_run_id=None,
+        retries=0,
+        attempts=[],
+        started_at=None,
+        task_id=None,
+    )
+
+
+@pytest.fixture
+def mock_task_run_details(mocker):
+    return TaskRunDetails(
+        id="trn-test123",
+        status=TaskRunStatus.COMPLETED,
+        error=None,
+        completed_at=datetime.datetime.now(),
+        results=[42],
+        input_=[42],
+        parent_task_run_id=None,
+        root_task_run_id=None,
+        retries=0,
+        attempts=[],
+        started_at=None,
+        task_id=None,
+    )
+
+
+@pytest.fixture
+def mock_authenticated_client(mocker):
+    """Create a mock authenticated client."""
+    client = mocker.Mock()
+    client._base_url = "https://api.test.com/v1"
+    return client
+
+
+@pytest.fixture
+def client(mocker, mock_authenticated_client):
+    """Create a Client instance with mocked dependencies."""
+    mocker.patch(
+        "render.client.client.AuthenticatedClient",
+        return_value=mock_authenticated_client,
+    )
+    return Client("test-token", base_url="https://api.test.com")
+
+
+@pytest.fixture
+def sync_workflows_service(client):
+    """Create a SyncWorkflowsService instance."""
+    return SyncWorkflowsService(client)
+
+
+@pytest.fixture
+def mock_cancel_task_run_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_tasks.cancel_task_run.sync_detailed"
+    )
+
+
+@pytest.fixture
+def mock_list_task_runs_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_tasks.list_task_runs.sync_detailed"
+    )
+
+
+@pytest.fixture
+def mock_create_task_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_tasks.create_task.sync_detailed"
+    )
+
+
+@pytest.fixture
+def mock_get_task_run_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_tasks.get_task_run.sync_detailed"
+    )
+
+
+def test_start_task_success(
+    mock_create_task_sync, sync_workflows_service, mock_task_run
+):
+    """Test successful task start."""
+    mock_create_task_sync.return_value = Response(
+        status_code=202, content=b"", headers={}, parsed=mock_task_run
+    )
+
+    result = sync_workflows_service.start_task("test-task", {"input": "data"})
+
+    assert isinstance(result, TaskRun)
+    assert result.id == "trn-test123"
+    mock_create_task_sync.assert_called_once()
+
+
+def test_start_task_omits_idempotency_key_when_not_given(
+    mock_create_task_sync, sync_workflows_service, mock_task_run
+):
+    mock_create_task_sync.return_value = Response(
+        status_code=202, content=b"", headers={}, parsed=mock_task_run
+    )
+
+    sync_workflows_service.start_task("test-task", {"input": "data"})
+
+    body = mock_create_task_sync.call_args.kwargs["body"]
+    assert "idempotencyKey" not in body.to_dict()
+
+
+def test_start_task_sends_idempotency_key(
+    mock_create_task_sync, sync_workflows_service, mock_task_run
+):
+    mock_create_task_sync.return_value = Response(
+        status_code=202, content=b"", headers={}, parsed=mock_task_run
+    )
+
+    sync_workflows_service.start_task(
+        "test-task", {"input": "data"}, idempotency_key="order-42"
+    )
+
+    body = mock_create_task_sync.call_args.kwargs["body"]
+    assert body.to_dict()["idempotencyKey"] == "order-42"
+
+
+def test_run_task_sends_idempotency_key(
+    mocker,
+    mock_create_task_sync,
+    sync_workflows_service,
+    mock_task_run,
+    mock_task_run_details,
+):
+    mock_create_task_sync.return_value = Response(
+        status_code=202, content=b"", headers={}, parsed=mock_task_run
+    )
+    mocker.patch.object(
+        sync_workflows_service,
+        "_task_run_completed_with_sse",
+        return_value=mock_task_run_details,
+    )
+
+    sync_workflows_service.run_task(
+        "test-task", {"input": "data"}, idempotency_key="order-42"
+    )
+
+    body = mock_create_task_sync.call_args.kwargs["body"]
+    assert body.idempotency_key == "order-42"
+
+
+def test_start_task_failure(mock_create_task_sync, sync_workflows_service):
+    """Test task start failure."""
+
+    error = Error(message="Task creation failed")
+    mock_create_task_sync.return_value = Response(
+        status_code=400, content=b"", headers={}, parsed=error
+    )
+
+    with pytest.raises(ClientError, match="create task failed: Task creation failed"):
+        sync_workflows_service.start_task("test-task", {"input": "data"})
+
+
+def test_run_task_returns_task_run_details(
+    mocker,
+    mock_create_task_sync,
+    sync_workflows_service,
+    mock_task_run,
+    mock_task_run_details,
+):
+    """Test that run_task starts a task and waits for completion."""
+    mock_create_task_sync.return_value = Response(
+        status_code=202, content=b"", headers={}, parsed=mock_task_run
+    )
+    mocker.patch.object(
+        sync_workflows_service,
+        "_task_run_completed_with_sse",
+        return_value=mock_task_run_details,
+    )
+
+    result = sync_workflows_service.run_task("test-task", {"input": "data"})
+
+    assert isinstance(result, TaskRunDetails)
+    assert result.id == "trn-test123"
+    assert result.status.value == TaskRunStatus.COMPLETED
+
+
+def test_run_task_failure(mock_create_task_sync, sync_workflows_service):
+    """Test that run_task propagates errors from start_task."""
+    error = Error(message="Task creation failed")
+    mock_create_task_sync.return_value = Response(
+        status_code=400, content=b"", headers={}, parsed=error
+    )
+
+    with pytest.raises(ClientError, match="create task failed: Task creation failed"):
+        sync_workflows_service.run_task("test-task", {"input": "data"})
+
+
+def test_get_task_run_success(
+    mock_get_task_run_sync, sync_workflows_service, mock_task_run_details
+):
+    """Test successful task run retrieval."""
+    mock_get_task_run_sync.return_value = Response(
+        status_code=200, content=b"", headers={}, parsed=mock_task_run_details
+    )
+
+    result = sync_workflows_service.get_task_run("trn-test123")
+
+    assert result.id == "trn-test123"
+    assert result.status.value == TaskRunStatus.COMPLETED
+    mock_get_task_run_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal, task_run_id="trn-test123"
+    )
+
+
+def test_get_task_run_failure(mock_get_task_run_sync, sync_workflows_service):
+    """Test task run retrieval failure."""
+    error = Error(message="Task not found")
+    mock_get_task_run_sync.return_value = Response(
+        status_code=400, content=b"", headers={}, parsed=error
+    )
+
+    with pytest.raises(ClientError, match="get task run failed: Task not found"):
+        sync_workflows_service.get_task_run("trn-test123")
+
+
+def test_cancel_task_run_success(mock_cancel_task_run_sync, sync_workflows_service):
+    """Test successful task run cancellation."""
+    mock_cancel_task_run_sync.return_value = Response(
+        status_code=204, content=b"", headers={}, parsed=None
+    )
+
+    sync_workflows_service.cancel_task_run("trn-test123")
+
+    mock_cancel_task_run_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal, task_run_id="trn-test123"
+    )
+
+
+def test_cancel_task_run_failure(mock_cancel_task_run_sync, sync_workflows_service):
+    """Test task run cancellation failure."""
+    error = Error(message="Cannot cancel task")
+    mock_cancel_task_run_sync.return_value = Response(
+        status_code=400, content=b"", headers={}, parsed=error
+    )
+
+    with pytest.raises(ClientError, match="cancel task run failed: Cannot cancel task"):
+        sync_workflows_service.cancel_task_run("trn-test123")
+
+
+def test_list_task_runs_success(
+    mocker, mock_list_task_runs_sync, sync_workflows_service, mock_task_run
+):
+    """Test successful task runs listing."""
+    task_runs = [mock_task_run]
+    mock_list_task_runs_sync.return_value = Response(
+        status_code=200, content=b"", headers={}, parsed=task_runs
+    )
+
+    params = ListTaskRunsParams(limit=5, owner_id="test-owner")
+    result = sync_workflows_service.list_task_runs(params)
+
+    assert len(result) == 1
+    assert result[0].id == "trn-test123"
+    mock_list_task_runs_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal,
+        limit=5,
+        cursor=mocker.ANY,
+        owner_id="test-owner",
+    )
+
+
+@pytest.fixture
+def mock_httpx_stream(mocker):
+    """Mock httpx.Client to return a controllable SSE stream.
+
+    Returns a list that tests populate with bytes chunks before calling
+    task_run_events(). The mock wires up the nested context managers
+    (Client → stream → response.iter_bytes).
+    """
+    chunks: list[bytes] = []
+
+    def iter_bytes():
+        yield from chunks
+
+    mock_response = mocker.Mock()
+    mock_response.status_code = 200
+    mock_response.iter_bytes = iter_bytes
+
+    stream_cm = mocker.MagicMock()
+    stream_cm.__enter__ = mocker.Mock(return_value=mock_response)
+    stream_cm.__exit__ = mocker.Mock(return_value=False)
+
+    mock_http_client = mocker.Mock()
+    mock_http_client.stream.return_value = stream_cm
+
+    client_cm = mocker.MagicMock()
+    client_cm.__enter__ = mocker.Mock(return_value=mock_http_client)
+    client_cm.__exit__ = mocker.Mock(return_value=False)
+
+    mocker.patch("render.client.workflows_sync.httpx.Client", return_value=client_cm)
+
+    return chunks, mock_response
+
+
+def test_task_run_events_yields_events(sync_workflows_service, mock_httpx_stream):
+    """Test that task_run_events streams and yields TaskRunDetails."""
+    chunks, _ = mock_httpx_stream
+
+    details = TaskRunDetails(
+        id="trn-test123",
+        task_id="tsk-test123",
+        status=TaskRunStatus.COMPLETED,
+        results=[42],
+        input_=[],
+        parent_task_run_id=None,
+        root_task_run_id=None,
+        retries=0,
+        attempts=[],
+    )
+    sse_payload = json.dumps(details.to_dict()).encode()
+    chunks.append(b"event: task.completed\ndata: " + sse_payload + b"\n\n")
+
+    events = []
+    for event in sync_workflows_service.task_run_events(["trn-test123"]):
+        events.append(event)
+
+    assert len(events) == 1
+    assert events[0].id == "trn-test123"
+    assert events[0].status.value == TaskRunStatus.COMPLETED
+
+
+def test_task_run_events_raises_on_http_error(
+    sync_workflows_service, mock_httpx_stream
+):
+    """Test that task_run_events raises on HTTP errors."""
+    _, mock_response = mock_httpx_stream
+
+    mock_response.status_code = 500
+    mock_response.text = "Internal Server Error"
+    mock_response.json.return_value = {"message": "Internal Server Error"}
+
+    with pytest.raises(ServerError):
+        for _ in sync_workflows_service.task_run_events(["trn-test123"]):
+            pass
+
+
+# Flow runs
+
+
+def new_flow_run(**overrides) -> FlowRun:
+    """Build a FlowRun, overriding only the fields a test cares about."""
+    fields: dict[str, Any] = {
+        "id": "frn-test123",
+        "flow_id": "flw-test123",
+        "status": FlowRunStatus.PENDING,
+    }
+    fields.update(overrides)
+    return FlowRun(**fields)
+
+
+def new_flow_run_details(**overrides) -> FlowRunDetails:
+    """Build a FlowRunDetails, overriding only the fields a test cares about."""
+    fields: dict[str, Any] = {
+        "id": "frn-test123",
+        "flow_id": "flw-test123",
+        "status": FlowRunStatus.SUCCEEDED,
+        "input_": [42],
+        "results": [84],
+        "attempts": [],
+    }
+    fields.update(overrides)
+    return FlowRunDetails(**fields)
+
+
+def ok(parsed, status_code=200) -> Response:
+    return Response(status_code=status_code, content=b"", headers={}, parsed=parsed)
+
+
+@pytest.fixture
+def mock_start_flow_run_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_flows.start_flow_run.sync_detailed",
+        return_value=ok(new_flow_run(), status_code=202),
+    )
+
+
+@pytest.fixture
+def mock_get_flow_run_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_flows.get_flow_run.sync_detailed"
+    )
+
+
+@pytest.fixture
+def mock_cancel_flow_run_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_flows.cancel_flow_run.sync_detailed"
+    )
+
+
+@pytest.fixture
+def mock_list_flow_runs_sync(mocker):
+    return mocker.patch(
+        "render.public_api.api.workflow_flows.list_flow_runs.sync_detailed"
+    )
+
+
+def test_start_flow_success(mock_start_flow_run_sync, sync_workflows_service):
+    result = sync_workflows_service.start_flow(
+        "wf/flow", {"a": 1}, idempotency_key="order-42"
+    )
+
+    assert isinstance(result, FlowRun)
+    assert result.id == "frn-test123"
+    body = mock_start_flow_run_sync.call_args.kwargs["body"]
+    assert body.to_dict() == {
+        "flow": "wf/flow",
+        "input": {"a": 1},
+        "idempotencyKey": "order-42",
+    }
+
+
+def test_get_flow_run_success(mock_get_flow_run_sync, sync_workflows_service):
+    mock_get_flow_run_sync.return_value = ok(new_flow_run_details())
+
+    result = sync_workflows_service.get_flow_run("frn-test123")
+
+    assert result.id == "frn-test123"
+    mock_get_flow_run_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal, flow_run_id="frn-test123"
+    )
+
+
+def test_cancel_flow_run_success(mock_cancel_flow_run_sync, sync_workflows_service):
+    mock_cancel_flow_run_sync.return_value = ok(None, status_code=204)
+
+    sync_workflows_service.cancel_flow_run("frn-test123")
+
+    mock_cancel_flow_run_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal, flow_run_id="frn-test123"
+    )
+
+
+def test_list_flow_runs_success(mock_list_flow_runs_sync, sync_workflows_service):
+    mock_list_flow_runs_sync.return_value = ok(
+        [FlowRunWithCursor(flow_run=new_flow_run(), cursor="c1")]
+    )
+
+    result = sync_workflows_service.list_flow_runs(
+        ListFlowRunsParams(flow_slug=["wf/flow"])
+    )
+
+    assert [r.flow_run.id for r in result] == ["frn-test123"]
+    mock_list_flow_runs_sync.assert_called_once_with(
+        client=sync_workflows_service.client.internal,
+        limit=UNSET,
+        cursor=UNSET,
+        flow_slug=["wf/flow"],
+        flow_id=UNSET,
+        status=UNSET,
+        owner_id=UNSET,
+        workflow_version_id=UNSET,
+        workflow_id=UNSET,
+    )
+
+
+@pytest.mark.parametrize(
+    "endpoint,call,message",
+    [
+        (
+            "start_flow_run",
+            lambda svc: svc.start_flow("wf/flow", [42]),
+            "start flow run failed: nope",
+        ),
+        (
+            "get_flow_run",
+            lambda svc: svc.get_flow_run("frn-test123"),
+            "get flow run failed: nope",
+        ),
+        (
+            "cancel_flow_run",
+            lambda svc: svc.cancel_flow_run("frn-test123"),
+            "cancel flow run failed: nope",
+        ),
+        (
+            "list_flow_runs",
+            lambda svc: svc.list_flow_runs(),
+            "list flow runs failed: nope",
+        ),
+    ],
+)
+def test_flow_run_api_errors(mocker, sync_workflows_service, endpoint, call, message):
+    mocker.patch(
+        f"render.public_api.api.workflow_flows.{endpoint}.sync_detailed",
+        return_value=ok(Error(message="nope"), status_code=400),
+    )
+
+    with pytest.raises(ClientError, match=message):
+        call(sync_workflows_service)

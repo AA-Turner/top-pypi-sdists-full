@@ -1,0 +1,128 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "privata"
+dynamic = ["version"]
+description = "A Python module privacy checker for keeping public interfaces intentional."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Bas Nijholt" }]
+keywords = [
+  "architecture",
+  "code-quality",
+  "imports",
+  "module-boundaries",
+  "python",
+  "static-analysis",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Utilities",
+]
+dependencies = ["tomli>=1.2.0; python_version < '3.11'"]
+
+[project.urls]
+Documentation = "http://privata.nijho.lt/"
+Issues = "https://github.com/basnijholt/privata/issues"
+Repository = "https://github.com/basnijholt/privata"
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.14",
+  "pre-commit>=4",
+  "pytest>=8.4",
+  "pytest-cov>=7.1",
+  "ruff>=0.13",
+  "tomli>=1.2.0",
+  "ty",
+]
+
+[dependency-groups]
+docs = [
+  "markdown-code-runner>=2.7.0",
+  "markdown-gfm-admonition",
+  "zensical",
+]
+
+[project.scripts]
+privata = "privata.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/privata/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/privata"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+  "--cov=privata",
+  "--cov-report=term-missing",
+  "--cov-fail-under=100",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D",       # pydocstyle
+  "ANN",     # annotations
+  "COM812",  # trailing comma
+  "CPY001",  # copyright notice in every file; the LICENSE file covers this
+  "ISC001",  # implicit string concat
+  "T20",     # print statements are acceptable for CLI output
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "S101",    # assert usage is fine in tests
+  "PLR2004", # magic values are fine in tests
+  "S105",    # test tokens
+  "S106",    # test tokens
+]
+"scripts/*" = [
+  "INP001",  # standalone maintenance scripts, not an importable package
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+packages = ["privata"]
+
+[tool.ty.rules]
+unused-ignore-comment = "ignore"
+
+[tool.ty.environment]
+# Analyze against 3.12 so conditionally-defined stdlib symbols such as
+# ast.TypeAlias resolve; older interpreters are covered by runtime guards.
+python-version = "3.12"

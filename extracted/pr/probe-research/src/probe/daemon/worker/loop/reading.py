@@ -186,36 +186,36 @@ class ReadingMixin:
                 return 0
             if self.store.fact(f"skipping_line:{stream}") == offset:
                 return self._skip_line(stream, path, handle, offset, end, notice=False, inode=inode)
-            buf = handle.read(min(READ_CHUNK_BYTES, end - offset))
-            if b"\n" not in buf and len(buf) == READ_CHUNK_BYTES:
+            buffer = handle.read(min(READ_CHUNK_BYTES, end - offset))
+            if b"\n" not in buffer and len(buffer) == READ_CHUNK_BYTES:
                 # One line longer than a chunk: read on for its end, up to MAX_LINE_BYTES.
-                more = min(MAX_LINE_BYTES + 1, end - offset) - len(buf)
+                more = min(MAX_LINE_BYTES + 1, end - offset) - len(buffer)
                 if more > 0:
-                    buf += handle.read(more)
-                if b"\n" not in buf and len(buf) > MAX_LINE_BYTES:
+                    buffer += handle.read(more)
+                if b"\n" not in buffer and len(buffer) > MAX_LINE_BYTES:
                     return self._skip_line(stream, path, handle, offset, end, notice=True, inode=inode)
         lines: list[tuple[int, list[Event]]] = []
         pos = 0
         while True:
-            nl = buf.find(b"\n", pos)
+            nl = buffer.find(b"\n", pos)
             if nl < 0:
                 break
-            line = buf[pos:nl]
+            line = buffer[pos:nl]
             pos = nl + 1
             if not line.strip() or len(line) > MAX_LINE_BYTES:
                 continue
             end = offset + pos
             try:
-                obj = json.loads(line)
+                target = json.loads(line)
             except ValueError:
                 continue
-            if not isinstance(obj, dict):
+            if not isinstance(target, dict):
                 continue
             try:
-                lines.append((end, self._parse(obj, stream, end)))
+                lines.append((end, self._parse(target, stream, end)))
             except Exception as exc:  # noqa: BLE001 -- one line the adapter cannot read is skipped, never a crash loop
                 log.warning("skipped the line ending at %s:%s: %s: %s", stream, end, type(exc).__name__, exc)
-        tail = _tail_hash((before + buf[:pos])[-GUARD_BYTES:])
+        tail = _tail_hash((before + buffer[:pos])[-GUARD_BYTES:])
         return self._store_lines(stream, str(path), offset + pos, lines, inode=inode, tail_hash=tail)
 
     def _suspect(self, stream: str, offset: int, why: str) -> int:
@@ -259,7 +259,7 @@ class ReadingMixin:
         with a notice the first time. Never a crash, never the whole chunk after it."""
         pos = offset
         handle.seek(offset)
-        found = False
+        is_found = False
         while pos < end:
             chunk = handle.read(min(READ_CHUNK_BYTES, end - pos))
             if not chunk:
@@ -267,7 +267,7 @@ class ReadingMixin:
             nl = chunk.find(b"\n")
             if nl >= 0:
                 pos += nl + 1
-                found = True
+                is_found = True
                 break
             pos += len(chunk)
         handle.seek(max(0, pos - GUARD_BYTES))
@@ -281,7 +281,7 @@ class ReadingMixin:
                 added = self.store.add([_notice_event(
                     self.store, f"a transcript line over {cap} was skipped ({stream}, byte {offset:,}) - it isn't "
                                 "in the session store")])
-            self.store.set_fact(f"skipping_line:{stream}", None if found else pos)
+            self.store.set_fact(f"skipping_line:{stream}", None if is_found else pos)
             self.store.set_cursor(stream, str(path), pos, inode=inode, tail_hash=tail)
         return added
 

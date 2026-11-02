@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+from collections.abc import (
+    AsyncIterator,
+)
+from typing import TYPE_CHECKING
+
+from .._errors import (
+    PyreqwestNotInstalledError,
+)
+from .._models import (
+    AsyncClosableStream,
+    Request,
+    Response,
+)
+from ._async_base import (
+    AsyncBaseHandler,
+)
+from ._exc_map import map_connect_exceptions, map_pyreqwest_client_exceptions, map_read_exceptions
+
+if TYPE_CHECKING:
+    import sys
+    from contextlib import AbstractAsyncContextManager
+
+    if sys.version_info >= (3, 11):
+        from pyreqwest.client import (
+            ClientBuilder,
+        )
+        from pyreqwest.response import (
+            Response as PyreqwestResponse,
+        )
+    else:
+        if not TYPE_CHECKING:
+            ClientBuilder = None
+            PyreqwestResponse = None
+else:
+    try:
+        from pyreqwest.client import (
+            ClientBuilder,
+        )
+        from pyreqwest.response import (
+            Response as PyreqwestResponse,
+        )
+    except ImportError:
+        if not TYPE_CHECKING:
+            ClientBuilder = None
+            PyreqwestResponse = None
+
+
+class AsyncPyreqwestStream(AsyncClosableStream):
+    def __init__(
+        self,
+        response: PyreqwestResponse,
+        stream_request: AbstractAsyncContextManager[PyreqwestResponse],
+    ) -> None:
+        self._response = response
+        self._stream_request = stream_request
+
+    async def __anext__(self) -> bytes:
+        with map_read_exceptions():
+            chunk = await self._response.body_reader.read_chunk()
+            if chunk is None:
+                raise StopAsyncIteration
+            return chunk.to_bytes()
+
+    async def aclose(self) -> None:
+        await self._stream_request.__aexit__(None, None, None)
+
+
+class AsyncPyreqwestHandler(AsyncBaseHandler):
+    def __init__(
+        self,
+        client: ClientBuilder | None = None,
+    ) -> None:
+        if ClientBuilder is None:  # type: ignore[reportPossiblyUnboundVariable]
+            raise PyreqwestNotInstalledError
+        builder = ClientBuilder() if client is None else client
+        builder = builder.gzip(False).deflate(False).brotli(False).zstd(False)
+        self._client = builder.build()
+
+    async def ahandle(self, request: Request) -> Response:
+        req_builder = self._client.request(
+            request.method,
+            str(request.url),
+        ).headers(request.headers.list())
+
+        if isinstance(request.body, bytes):
+            req_builder = req_builder.body_bytes(request.body)
+        elif isinstance(
+            request.body,
+            AsyncIterator,
+        ):
+            req_builder = req_builder.body_stream(request.body)
+
+        stream_request = req_builder.build_streamed()
+
+        with map_pyreqwest_client_exceptions(), map_connect_exceptions():
+            pyreqwest_response = await stream_request.__aenter__()
+
+        return Response(
+            status=pyreqwest_response.status,
+            headers=pyreqwest_response.headers,
+            content=AsyncPyreqwestStream(pyreqwest_response, stream_request),
+            context={
+                "network": {
+                    "http_protocol": "HTTP/1.1" if pyreqwest_response.version == "HTTP/1.1" else "HTTP/2",
+                }
+            },
+            request=request,
+        )
+
+    async def aclose(self) -> None:
+        await self._client.close()

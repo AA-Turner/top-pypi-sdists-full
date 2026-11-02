@@ -1,0 +1,104 @@
+"""Non-mutating gradient-limit caps and non-compounding derates."""
+
+from __future__ import annotations
+
+from pypulseq.convert import convert
+
+from pypulseqpp import Opts, apply_system_derates, cap_system
+
+
+def _grad_mtm(opts):
+    return convert(
+        from_value=opts.max_grad, from_unit="Hz/m", to_unit="mT/m", gamma=opts.gamma
+    )
+
+
+def _slew_tms(opts):
+    return convert(
+        from_value=opts.max_slew, from_unit="Hz/m/s", to_unit="T/m/s", gamma=opts.gamma
+    )
+
+
+def test_cap_lowers_and_copies():
+    system = Opts(max_grad=80, grad_unit="mT/m", max_slew=200, slew_unit="T/m/s")
+    capped = cap_system(system, max_grad=40, max_slew=150)
+    assert capped is not system
+    assert round(_grad_mtm(capped)) == 40
+    assert round(_slew_tms(capped)) == 150
+    # The source is untouched, so a shared system object does not leak the cap.
+    assert round(_grad_mtm(system)) == 80
+    assert round(_slew_tms(system)) == 200
+
+
+def test_cap_above_hardware_is_a_noop():
+    system = Opts(max_grad=40, grad_unit="mT/m", max_slew=170, slew_unit="T/m/s")
+    capped = cap_system(system, max_grad=80, max_slew=200)
+    assert round(_grad_mtm(capped)) == 40
+    assert round(_slew_tms(capped)) == 170
+
+
+def test_none_leaves_an_axis_alone():
+    system = Opts(max_grad=40, grad_unit="mT/m", max_slew=170, slew_unit="T/m/s")
+    capped = cap_system(system, max_slew=120)
+    assert round(_grad_mtm(capped)) == 40  # gradient untouched
+    assert round(_slew_tms(capped)) == 120
+
+
+def test_cap_is_idempotent():
+    system = Opts(max_grad=80, grad_unit="mT/m", max_slew=200, slew_unit="T/m/s")
+    once = cap_system(system, max_grad=30, max_slew=100)
+    twice = cap_system(once, max_grad=30, max_slew=100)
+    assert round(_grad_mtm(twice)) == round(_grad_mtm(once)) == 30
+    assert round(_slew_tms(twice)) == round(_slew_tms(once)) == 100
+
+
+def test_derating_copies_rather_than_mutating_the_callers_system():
+    """A designer's headroom must not become the sequence's declared limit.
+
+    The system object is shared: a plugin hands the same one to every module
+    it builds and then to the ``Sequence`` itself. Derating it in place would
+    lower the limits that events built *earlier* were designed against, and
+    they would be over a ceiling that moved under them.
+    """
+    system = Opts(max_grad=40, grad_unit="mT/m", max_slew=200, slew_unit="T/m/s")
+    derated = apply_system_derates(system)
+
+    assert derated is not system
+    assert derated.max_grad == 0.9 * system.max_grad
+    assert derated.max_slew == 0.9 * system.max_slew
+    assert round(_grad_mtm(system)) == 40
+    assert round(_slew_tms(system)) == 200
+
+
+def test_derating_is_idempotent():
+    system = Opts(max_grad=40, grad_unit="mT/m", max_slew=200, slew_unit="T/m/s")
+    once = apply_system_derates(system)
+    twice = apply_system_derates(once)
+
+    assert twice.max_grad == once.max_grad
+    assert twice.max_slew == once.max_slew
+
+
+def test_a_ceiling_on_a_derated_system_holds_when_derated_again():
+    system = Opts(max_grad=80, grad_unit="mT/m", max_slew=300, slew_unit="T/m/s")
+    capped = cap_system(apply_system_derates(system), max_grad=80, max_slew=200)
+
+    again = apply_system_derates(capped)
+
+    # The margin is taken from the system's limit; a ceiling below it holds.
+    assert round(_grad_mtm(again)) == round(_grad_mtm(capped)) == 72
+    assert round(_slew_tms(again)) == round(_slew_tms(capped)) == 200
+
+
+def test_a_trajectory_takes_the_margin_once_on_a_derated_system():
+    import numpy as np
+
+    from pypulseqpp.sequences import Spiral
+
+    system = Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+    own = Spiral(system, 0.22, 64, 8)
+    given = Spiral(apply_system_derates(system), 0.22, 64, 8)
+
+    assert len(own.gradients) == len(given.gradients)
+    for a, b in zip(own.gradients, given.gradients, strict=True):
+        np.testing.assert_array_equal(a.waveform, b.waveform)

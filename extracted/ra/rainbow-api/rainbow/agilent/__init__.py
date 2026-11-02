@@ -1,0 +1,384 @@
+import os
+
+from rainbow._arguments import (reject_removed_arguments, validate_bin_width,
+                                validate_display_precision)
+from rainbow.agilent import chemstation
+from rainbow.datadirectory import DataDirectory
+from rainbow.datasequence import DataSequence
+
+
+def read(path, display_precision='auto', hrms=False, requested_files=None,
+         telemetry=False, centroid=False, bin_width=None, peaks=False,
+         _labels_only=False, **removed):
+    """
+    Reads an Agilent .D directory or .dx archive.
+
+    Args:
+        path (str): Path of the directory or .dx file.
+        display_precision (int or 'auto', optional): Decimals for the displayed
+            m/z labels (cosmetic). ``'auto'`` picks per file: 4 for the
+            high-resolution MassHunter profile and TOF centroids, and 0 (whole
+            numbers) for unit-resolution data.
+        hrms (bool, optional): Flag for parsing the MassHunter profile
+            spectrum (MSProfile.bin).
+        requested_files (list, optional): List of filenames to parse.
+        telemetry (bool, optional): Flag for parsing instrument telemetry
+            traces, in a .dx archive or alongside a MassHunter DAD's signals.
+        centroid (bool, optional): Flag for parsing the MassHunter centroid
+            spectrum (MSPeak.bin).
+        bin_width (float, optional): m/z bin width in daltons, the lossy binning
+            control. For regular MS the default is nominal mass (1 Da); for the
+            HRMS profile, omit it (the default) to keep the per-scan
+            representation (one
+            :class:`~rainbow.agilent.masshunter.ProfileDataFile` per flight-time
+            grid), or pass a width to project onto the shared m/z grid.
+        peaks (bool, optional): Flag for reading the run's integrated peaks
+            into ``DataDirectory.peaks`` (see :func:`injection_peaks`).
+
+    Returns:
+        DataDirectory representing the Agilent data.
+
+    """
+    if removed:
+        reject_removed_arguments("agilent.read", removed)
+    # Held to the same rules as rb.read: this is a documented entry point, and
+    # an unchecked m/z argument does not raise further down, it returns a grid
+    # whose labels no longer name its columns one to one.
+    validate_display_precision(display_precision)
+    validate_bin_width(bin_width)
+    if os.path.splitext(path)[1].lower() == '.dx':
+        from rainbow.agilent import openlab
+        datadir = openlab.read(
+            path, display_precision, requested_files, telemetry, bin_width)
+        if peaks and datadir is not None:
+            # An archive's results are not read. The run gets an empty list,
+            # which alone would read as a run nobody integrated, so the read
+            # says why it is empty.
+            import warnings
+            warnings.warn(
+                "rainbow does not read integrated peaks from an OpenLab .dx "
+                "archive; {} is read without them.".format(
+                    os.path.basename(path)))
+            datadir.peaks = []
+        return datadir
+
+    datafiles = []
+    datafiles.extend(chemstation.parse_allfiles(
+        path, display_precision, bin_width, requested_files, _labels_only))
+    # MassHunter is always consulted, not only under the MS flags: a .d may also
+    # hold DAD data, which is parsed unconditionally the way the Chemstation UV
+    # formats are. The MS parsing inside stays gated on hrms/centroid.
+    from rainbow.agilent import masshunter
+    datafiles.extend(masshunter.parse_allfiles(
+        path, display_precision, hrms, centroid, bin_width, telemetry,
+        requested_files, _labels_only))
+
+    metadata = chemstation.parse_metadata(path, datafiles)
+
+    # Enrich with the per-injection method and sample sidecars (acq.macaml,
+    # SAMPLE.XML), filling gaps without overriding the values above.
+    from rainbow.agilent import method
+    for key, value in method.parse_injection_metadata(path).items():
+        metadata.setdefault(key, value)
+
+    # Tag each MS channel SIM or Scan from the acquisition method, so a SIM run
+    # (its monitored ions) is distinguishable from a full scan.
+    method.tag_acquisition_modes(path, datafiles)
+
+    # Record the separation technique the method declares (gas vs liquid
+    # chromatography), so an export routes by what the instrument says rather
+    # than guessing from the detectors.
+    technique = method.acquisition_technique(path)
+    if technique:
+        metadata.setdefault('technique', technique)
+
+    # Surface unread MassHunter profile/centroid data so the hrms and centroid
+    # flags are discoverable: a .D with MSProfile.bin holds a profile spectrum
+    # parsed only when hrms=True, and MSPeak.bin a centroid spectrum parsed only
+    # when centroid=True. Otherwise read() returns an empty DataDirectory with
+    # no hint that the flag is what's missing.
+    if not hrms and os.path.isfile(
+            os.path.join(path, "AcqData", "MSProfile.bin")):
+        metadata['hrms_available'] = True
+
+    if not centroid and os.path.isfile(
+            os.path.join(path, "AcqData", "MSPeak.bin")):
+        metadata['centroid_available'] = True
+
+    datadir = DataDirectory(path, datafiles, metadata)
+    if peaks:
+        datadir.peaks = _with_channels(datadir, injection_peaks(path))
+    return datadir
+
+
+def injection_peaks(path):
+    """
+    Reads the integrated peaks of one injection .D directory.
+
+    The same peaks :func:`read_sequence` attaches to the injection, found the
+    same way: from the ``sequence.acaml`` of the sequence directory the .D
+    sits in, matched by the .D's folder name, or failing that from the .D's
+    own ``sequence.acam_``.
+
+    Each call parses the whole result document, which for a sequence holds
+    every injection's results. To read the peaks of many injections of one
+    sequence, ``read_sequence(path, peaks=True)`` parses it once for all of
+    them and is the efficient path.
+
+    Args:
+        path (str): Path of the .D directory.
+
+    Returns:
+        list: The injection's signal groups (see
+        :func:`rainbow.agilent.sequence.parse_peaks`), or ``[]`` when no
+        result document covers it.
+
+    """
+    from rainbow.agilent import sequence
+    # Absolute, so a relative path such as "run.D" still has a parent
+    # directory to look for the sequence.acaml in.
+    path = os.path.abspath(path)
+    name = os.path.basename(path)
+    sequence_acaml = sequence.find(os.path.dirname(path) or os.curdir)
+    groups = None
+    if sequence_acaml is not None:
+        groups = {injection.lower(): found for injection, found
+                  in sequence.parse_peaks(sequence_acaml).items()
+                  }.get(name.lower())
+    if not groups:
+        groups = _own_peaks(name, path)
+    return groups or []
+
+
+def injection_dirs(path):
+    """
+    Returns the injection .D subdirectories of a sequence directory, sorted.
+
+    A ChemStation/OpenLab sequence directory holds one .D subdirectory per
+    injection (the sequence-level method and acaml live alongside them). The
+    .D names are sorted, which is acquisition order for the names ChemStation
+    writes by default, since it prefixes each with the sequence line number.
+
+    It is name order, though, not a timestamp: nothing here reads one. Names
+    that do not zero-pad that number sort 1, 10, 2, and a directory renamed by
+    hand sorts wherever its new name falls.
+
+    Args:
+        path (str): Path of the sequence directory.
+
+    Returns:
+        list: Absolute paths of the injection .D subdirectories.
+
+    """
+    if not isinstance(path, str) or not os.path.isdir(path):
+        return []
+    return [
+        os.path.join(path, name)
+        for name in sorted(os.listdir(path))
+        if name.lower().endswith('.d')
+        and os.path.isdir(os.path.join(path, name))
+    ]
+
+
+def read_sequence(path, display_precision='auto', hrms=False,
+                  requested_files=None, telemetry=False, centroid=False,
+                  peaks=False, bin_width=None, **removed):
+    """
+    Reads an Agilent ChemStation/OpenLab sequence directory.
+
+    Each injection .D subdirectory is read with :func:`read`, so the per-
+    injection result is exactly what a single read returns. The injections are
+    returned in sorted-name order, which is acquisition order for ChemStation's
+    default naming (see :func:`injection_dirs`).
+
+    Args:
+        path (str): Path of the sequence directory.
+        display_precision (int or 'auto', optional): Decimals for displayed m/z
+            labels (cosmetic).
+        hrms (bool, optional): Flag for parsing the MassHunter profile
+            spectrum (MSProfile.bin).
+        requested_files (list, optional): List of filenames to parse.
+        telemetry (bool, optional): Flag for parsing .dx telemetry traces.
+        centroid (bool, optional): Flag for parsing the MassHunter centroid
+            spectrum (MSPeak.bin).
+        peaks (bool, optional): Flag for reading the integrated peaks from
+            sequence.acaml and attaching them to each injection.
+
+    Returns:
+        DataSequence representing the sequence, or None if no injections.
+
+    """
+    if removed:
+        reject_removed_arguments("agilent.read_sequence", removed)
+    injection_paths = injection_dirs(path)
+    if not injection_paths:
+        return None
+
+    injections = [
+        read(p, display_precision, hrms, requested_files, telemetry, centroid,
+             bin_width)
+        for p in injection_paths
+    ]
+    metadata = {'injection_count': len(injections)}
+
+    # Merge the sequence-level document (instrument, operator), and let its
+    # sequence-wide operator fill any injection that lacked one.
+    from rainbow.agilent import sequence
+    sequence_acaml = sequence.find(path)
+    if sequence_acaml is not None:
+        header = sequence.parse_header(sequence_acaml)
+        metadata.update(header)
+        operator = header.get('operator')
+        if operator is not None:
+            for injection in injections:
+                injection.metadata.setdefault('operator', operator)
+
+    # With no sequence-level operator, adopt the injections' operator when they
+    # agree, so the sequence carries it too.
+    if 'operator' not in metadata:
+        operators = {inj.metadata.get('operator') for inj in injections}
+        operators.discard(None)
+        if len(operators) == 1:
+            metadata['operator'] = operators.pop()
+
+    if peaks:
+        _attach_peaks(injections, injection_paths, sequence_acaml)
+        metadata['peaks_read'] = True
+
+    return DataSequence(path, injections, metadata)
+
+
+def _attach_peaks(injections, injection_paths, sequence_acaml):
+    """
+    Attaches integrated peaks to each injection.
+
+    Peaks come from the sequence-level sequence.acaml when present, matched to
+    each injection by its .D folder name. Any injection not covered there (for
+    example a sequence that has no top-level document) falls back to the
+    per-injection sequence.acam_ inside its own .D.
+    """
+    from rainbow.agilent import sequence
+    if sequence_acaml is not None:
+        by_injection = sequence.parse_peaks(sequence_acaml)
+        folded = {name.lower(): groups
+                  for name, groups in by_injection.items()}
+    else:
+        folded = {}
+
+    for injection, injection_path in zip(injections, injection_paths):
+        groups = folded.get(injection.name.lower())
+        if not groups:
+            groups = _own_peaks(injection.name, injection_path)
+        injection.peaks = _with_channels(injection, groups or [])
+
+
+def _with_channels(datadir, groups):
+    """``groups`` with each one's detector and metadata from its DataFile.
+
+    A result document names the channel a signal was integrated on but not
+    its detector, which the run's own file for that channel does say. A
+    group whose channel the run did not read keeps None.
+    """
+    by_key = {os.path.splitext(datafile.name)[0].upper(): datafile
+              for datafile in datadir.datafiles + datadir.analog}
+    for group in groups:
+        channel = group.get("channel_file") or group.get("signal") or ""
+        datafile = by_key.get(
+            os.path.splitext(channel)[0].replace(" ", "").upper())
+        if datafile is not None:
+            group["detector"] = datafile.detector
+            group["metadata"] = dict(datafile.metadata)
+            _fill_units(group, datafile.metadata.get("unit"))
+    return groups
+
+
+def _fill_units(group, unit):
+    """Gives a group's peaks the channel's unit where they state none.
+
+    ChemStation's peak table is in the channel's unit, a height in it and an
+    area in it per second, but does not say so.
+    """
+    if not unit:
+        return
+    lists = [group["peaks"]] + [alternate["peaks"] for alternate
+                                in group.get("alternates") or []]
+    for peaks in lists:
+        for peak in peaks:
+            if peak.get("height_unit") is None:
+                peak["height_unit"] = unit
+            if peak.get("area_unit") is None:
+                peak["area_unit"] = unit + ".s"
+
+
+def _own_peaks(injection_name, injection_path):
+    """Peaks from an injection's own result document (sequence.acam_)."""
+    from rainbow.agilent import sequence
+    document = sequence.find_result_document(injection_path)
+    if document is None:
+        return None
+    by_injection = sequence.parse_peaks(document)
+    if not by_injection:
+        return None
+    folded = {name.lower(): groups for name, groups in by_injection.items()}
+    groups = folded.get(injection_name.lower())
+    if groups is None and len(by_injection) == 1:
+        # A per-injection document holds exactly this injection's peaks.
+        groups = next(iter(by_injection.values()))
+    return groups
+
+
+def read_metadata(path):
+    """
+    Reads metadata from an Agilent .D directory.
+
+    Args:
+        path (str): Path of the directory.
+
+    Returns:
+        Dictionary containing a list of datafiles and the metadata.
+
+    """
+    if os.path.splitext(path)[1].lower() == '.dx':
+        from rainbow.agilent import openlab
+        return openlab.read_metadata(path)
+
+    datafiles = []
+    metadata = chemstation.parse_metadata(path, datafiles)
+
+    # MassHunter acquisitions (a .D with an AcqData subfolder) keep their data
+    # in MSProfile.bin (profile/HRMS) and/or MSPeak.bin (centroid), which the
+    # Chemstation .uv/.ch/.ms scan below never finds - so they used to come
+    # back with an empty datafile list. Mirror masshunter.parse_allfiles'
+    # detection to surface the datafile names and the flags needed to read
+    # them (hrms / centroid), without parsing the binaries.
+    acqdata_path = os.path.join(path, "AcqData")
+    if os.path.isdir(acqdata_path):
+        from rainbow.agilent import masshunter
+        acqdata_files = set(os.listdir(acqdata_path))
+        mh_datafiles = []
+        # A diode-array detector writes its chromatograms and spectra here too,
+        # and read() returns those with no flag needed - so a run holding them
+        # must not be reported as MS-only.
+        for name in sorted(acqdata_files):
+            stem, ext = os.path.splitext(name)
+            if (ext.lower() in ('.cg', '.sp')
+                    and stem[:3].upper() in masshunter._DAD_DEVICES):
+                mh_datafiles.append(name)
+        if {"MSScan.xsd", "MSScan.bin"} <= acqdata_files:
+            if "MSProfile.bin" in acqdata_files:
+                mh_datafiles.append("MSProfile.bin")
+                metadata['hrms_available'] = True
+            if "MSPeak.bin" in acqdata_files:
+                mh_datafiles.append("MSPeak.bin")
+                metadata['centroid_available'] = True
+        if mh_datafiles:
+            return {'datafiles': mh_datafiles, 'metadata': metadata}
+
+    if len(metadata) == 1:
+        datadir = read(path)
+        if datadir:
+            return {'datafiles': datadir.datafiles + datadir.analog, 'metadata': datadir.metadata}
+        return None
+    # Masshunter datafiles are not located.
+    datafiles = [fn for fn in os.listdir(path) if fn[-3:].lower() in ('.uv', '.ch', '.ms')]
+    return {'datafiles': datafiles, 'metadata': metadata}

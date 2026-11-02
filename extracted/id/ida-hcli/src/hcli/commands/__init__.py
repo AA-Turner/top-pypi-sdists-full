@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+import rich_click as click
+
+
+def register_commands(cli: click.Group) -> None:
+    """Register all commands to the CLI group."""
+    from .commands import commands
+    from .download import download
+    from .login import login
+    from .logout import logout
+    from .mcp import mcp
+    from .plugin import extension, plugin
+    from .update import update
+    from .whoami import whoami
+
+    cli.add_command(login)
+    cli.add_command(logout)
+    cli.add_command(whoami)
+    cli.add_command(update)
+    cli.add_command(download)
+    cli.add_command(commands)
+    cli.add_command(plugin)
+    cli.add_command(extension)
+    cli.add_command(mcp)
+
+    # groups
+    from .asset import asset
+    from .auth import auth
+    from .hcli_extensions import hcli_extensions
+    from .ida import ida
+    from .license import license
+    from .share import share
+
+    cli.add_command(auth)
+    cli.add_command(ida)
+    cli.add_command(share)
+    cli.add_command(license)
+    cli.add_command(hcli_extensions)
+    cli.add_command(asset)

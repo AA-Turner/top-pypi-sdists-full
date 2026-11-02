@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+import io
+import os
+from pathlib import Path
+from setuptools import find_packages
+from setuptools import setup
+from Cython.Build import cythonize
+
+
+def read(*names, **kwargs):
+    with io.open(
+        Path(__file__).parent.joinpath(*names), encoding=kwargs.get("encoding", "utf8")
+    ) as fh:
+        return fh.read()
+
+
+def read_long_description():
+    this_directory = Path(__file__).resolve().parent
+    with open(this_directory / "README.md", encoding="utf-8") as f:
+        long_description = f.read()
+    return long_description
+
+
+requirements = [
+    "python-rapidjson",
+    "setuptools>=18.0",
+    "geopandas>=0.12.0",
+    "shapely>=2.1",
+    "protobuf>=6.33.5",
+    "certifi",
+    "tqdm>=4.66",
+    "pyarrow>=19.0.1",
+]
+
+# Optional line-trace build for measuring Cython (.pyx) test coverage. Enabled
+# only when PYROSM_LINETRACE=1 so normal/production builds keep full speed
+# (linetrace adds significant per-line overhead). Requires both the Cython
+# 'linetrace' directive AND the CYTHON_TRACE / CYTHON_TRACE_NOGIL C macros; the Cython.Coverage
+# plugin (see .coveragerc) then reports per-line .pyx coverage. force=_linetrace
+# forces regeneration of the C sources whenever tracing is toggled, so a stale
+# .c compiled without the macro can never silently leave the .pyx untraced.
+_linetrace = os.environ.get("PYROSM_LINETRACE") == "1"
+_directives = {"language_level": "3"}
+if _linetrace:
+    _directives["linetrace"] = True
+    _directives["profile"] = True
+_ext_modules = cythonize(
+    str(Path("pyrosm") / "*.pyx"),
+    annotate=False,
+    compiler_directives=_directives,
+    force=_linetrace,
+)
+# Vendored C libraries (see vendor/README.md): every extension can include their headers,
+# and the one that wraps libdeflate compiles its sources.
+_VENDOR = Path("vendor")
+_LIBDEFLATE_SOURCES = [
+    str(_VENDOR / "libdeflate" / "lib" / name)
+    for name in (
+        "adler32.c", "deflate_compress.c", "deflate_decompress.c", "utils.c",
+        "zlib_compress.c", "zlib_decompress.c", "arm/cpu_features.c", "x86/cpu_features.c",
+    )
+]
+for _ext in _ext_modules:
+    _ext.include_dirs += [str(_VENDOR / "khash"), str(_VENDOR / "libdeflate")]
+    if _ext.name == "pyrosm.zlib_blob":
+        _ext.sources += _LIBDEFLATE_SOURCES
+
+if _linetrace:
+    for _ext in _ext_modules:
+        # CYTHON_TRACE enables per-line trace hooks; CYTHON_TRACE_NOGIL extends
+        # them into nogil sections. Set both explicitly (the latter implies the
+        # former in recent Cython, but being explicit is version-robust).
+        _ext.define_macros.append(("CYTHON_TRACE", "1"))
+        _ext.define_macros.append(("CYTHON_TRACE_NOGIL", "1"))
+
+setup(
+    name="pyrosm",
+    version="0.28.0",
+    license_expression="BSD-3-Clause AND MIT",
+    license_files=["LICENSE", "vendor/khash/LICENSE", "vendor/libdeflate/COPYING"],
+    description="A Python tool to parse OSM data from Protobuf format into GeoDataFrame.",
+    long_description=read_long_description(),
+    long_description_content_type="text/markdown",
+    author="Henrikki Tenkanen",
+    author_email="henrikki.tenkanen@aalto.fi",
+    url="https://pyrosm.readthedocs.io/",
+    packages=find_packages(),
+    include_package_data=True,
+    # The Cython-generated C sources sit next to the .pyx files and are picked up
+    # by include_package_data, which shipped 14 MB of them inside every binary
+    # wheel. They are only needed to build, so keep them out of the installation
+    # (the sdist keeps them, so a source build needs no Cython).
+    exclude_package_data={"pyrosm": ["*.c"]},
+    zip_safe=False,
+    classifiers=[
+        # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Operating System :: Unix",
+        "Operating System :: POSIX",
+        "Operating System :: Microsoft :: Windows",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
+        "Topic :: Utilities",
+    ],
+    project_urls={
+        "Documentation": "https://pyrosm.readthedocs.org/",
+        "Issue Tracker": "https://github.com/pyrosm/pyrosm/issues",
+    },
+    keywords=[
+        "OpenStreetMap",
+        "Geopandas",
+        "GeoDataFrame",
+        "parser",
+        "protobuf",
+        "PBF",
+    ],
+    python_requires=">=3.11",
+    install_requires=requirements,
+    extras_require={"notebook": ["ipywidgets>=8"], "recipes": ["pyyaml"]},
+    entry_points={"console_scripts": ["pyrosm = pyrosm.cli:main"]},
+    ext_modules=_ext_modules,
+)

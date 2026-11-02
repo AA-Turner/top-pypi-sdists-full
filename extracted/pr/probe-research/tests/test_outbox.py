@@ -384,7 +384,7 @@ def test_the_transient_budget_restarts_on_retry(tmp_path, monkeypatch):
     from probe.sdk.delivery import journal as journal_module
 
     monkeypatch.setenv("PROBE_OUTBOX_TRANSIENT_BUDGET_SEC", "0")
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.MIN_TRANSIENT_ATTEMPTS", 1)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.MIN_TRANSIENT_ATTEMPTS", 1)
     journal = journal_at(tmp_path)
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
 
@@ -1444,7 +1444,6 @@ def test_a_refusal_rereads_the_queue_before_dropping(tmp_path, monkeypatch):
     from probe.sdk.delivery.journal.headroom import OutboxFull
 
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 5)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 5)
     writer = journal_at(tmp_path)
     for _ in range(5):
         writer.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
@@ -1508,7 +1507,6 @@ def test_a_writer_is_not_refused_in_the_middle_of_a_long_drain_pass(tmp_path, mo
 
     cap = 60
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", cap)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", cap)
     writer = journal_at(tmp_path)
     for _ in range(cap):
         writer.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
@@ -1554,7 +1552,6 @@ def test_each_drop_is_one_gap_and_the_record_stays_small(app, tmp_path, monkeypa
     from probe.sdk.delivery import journal as journal_module
 
     monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 3)
-    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 3)
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, auto_drain=False)
     for i in range(3 + 200):
         client.write("POST", "/v1/runs/r-1/metrics", {"points": [{"i": i}]})
@@ -1598,7 +1595,16 @@ def _count_reads_under_the_append_lock(monkeypatch, journal):
             state["reads"].append(self.name)
         return real_read(self, *a, **k)
 
-    monkeypatch.setattr(journal_module.journal, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.append, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.failures.discards, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.failures.failures, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.failures.pause, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.headroom, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.producers, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.receipts.receipts, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.status_file, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.uploads, "file_lock", tracking_lock)
+    monkeypatch.setattr(journal_module.waiting_room, "file_lock", tracking_lock)
     monkeypatch.setattr(journal_module.paths, "file_lock", tracking_lock)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.file_lock", tracking_lock)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.file_lock", tracking_lock)
@@ -1835,7 +1841,9 @@ def test_a_logged_write_fsyncs_once(app, tmp_path, monkeypatch):
     """Plan 1.3: each `log()` did 8 fsyncs -- the op file, `.seq`, status.json
     and the producer record, each file AND directory. Now only the op file is
     fsynced (before its rename), and the bookkeeping beside it is rebuilt by
-    the drain (status) or recovered from the op names (`.seq`)."""
+    the drain (status) or recovered from the op names (`.seq`). Counted in the
+    per-op mode: by default that one fsync is the flusher's (test_journal_flusher.py)."""
+    monkeypatch.setenv("PROBE_OUTBOX_FSYNC", "each")
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     client.write("POST", "/v1/runs/r-1/metrics", _metrics_body(0))  # layout, producer file
     fsyncs = _count_fsyncs(monkeypatch)
@@ -1992,7 +2000,6 @@ def test_the_other_namespace_is_not_read_on_every_append(tmp_path, monkeypatch):
 
     # The cached count said the sibling was full; it has since drained.
     monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 150)
-    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 150)
     journal._sibling_pending = 1_000
     journal.append_http("POST", "/v1/runs/r-1/metrics", _metrics_body(100))
     assert len(journal.pending()) == 101, "re-read before refusing, then admitted"
@@ -2281,7 +2288,6 @@ def test_the_pass_cache_keeps_a_bounded_number_of_bytes(tmp_path, monkeypatch):
     files = sorted(journal.ops_dir.glob("*.json"))
     cap = sum(path.stat().st_size for path in files[:10])
     monkeypatch.setattr(journal_mod.failures.failures, "SCAN_CACHE_MAX_BYTES", cap)
-    monkeypatch.setattr(journal_mod.journal, "SCAN_CACHE_MAX_BYTES", cap)
     server = _PerRunServer()
 
     drain(journal, client_factory=lambda ctx: server, skip_runs={"run-c"})
@@ -2581,7 +2587,16 @@ def test_the_refusal_recount_lists_the_queue_outside_the_append_lock(tmp_path, m
             listed_under_lock.append(held["now"])
         return real_listdir(path)
 
-    monkeypatch.setattr(journal_mod.journal, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.append, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.failures.discards, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.failures.failures, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.failures.pause, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.headroom, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.producers, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.receipts.receipts, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.status_file, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.uploads, "file_lock", watched)
+    monkeypatch.setattr(journal_mod.waiting_room, "file_lock", watched)
     monkeypatch.setattr(journal_mod.paths, "file_lock", watched)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.file_lock", watched)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.file_lock", watched)
@@ -2938,10 +2953,17 @@ def test_a_failure_while_settling_a_batch_holds_the_run(tmp_path, monkeypatch):
             raise OSError(28, "No space left on device")
         return real(path, text, **kw)
 
-    monkeypatch.setattr(journal_mod.journal, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.append, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.failures.discards, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.failures.failures, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.failures.pause, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.producers, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.receipts.receipts, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.status_file, "write_text_atomic", flaky)
+    monkeypatch.setattr(journal_mod.waiting_room, "write_text_atomic", flaky)
     monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", flaky)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", flaky)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", flaky)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.write_text_atomic", flaky)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", flaky)
     patched = []
     real_request = server.transport.request

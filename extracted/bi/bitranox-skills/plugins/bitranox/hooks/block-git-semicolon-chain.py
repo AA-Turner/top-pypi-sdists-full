@@ -1,0 +1,689 @@
+#!/usr/bin/env python3
+"""PreToolUse(Bash|PowerShell) guard: two or more state-changing git verbs joined by `;` instead of `&&`.
+
+`;` means "run the next one regardless". Chain `git commit ; git merge ; git push` and a commit
+that refused still lets the merge and the push run - and those two answer a no-op with git's
+calmest output, `Already up to date` and `Everything up-to-date`, both exit 0. The failure is
+loud at step one and invisible everywhere after it, so the transcript reads like a completed
+ship while the working tree never moved.
+
+`&&` stops the chain where it broke. That is the whole fix, and it costs one character.
+
+A SECOND RULE shares this walk and its exemptions: a heredoc fed to a script runner
+(`python3 - <<'EOF'`), then `;` or a line break, then a git verb that records a result. The script
+is usually an edit with an assertion in it, so a failed edit gets its unedited files staged and
+committed. See `git_after_script` for its scope and the replay that priced it. When both rules
+apply, the pair rule's message is the one shown.
+
+WHAT THIS GUARD REFUSES TO JUDGE
+--------------------------------
+A hook runs on a bare interpreter with no third-party packages, so there is no bash parser
+available and this reads statement structure with shell_text's quote-aware walk. That instrument
+cannot model a construct whose branches are alternatives or whose separators are required syntax:
+an `if`/`else` runs exactly one branch, and a `for ... ; do ... ; done` needs its semicolons. A
+guess there blocks correct work, so a command carrying a shell KEYWORD is left alone entirely.
+
+A subshell or brace group is different: its statements are walked like any others, because the
+footgun is the same inside one - `(git commit -m x ; git push)` is the incident in parens. What a
+group changes is REACHABILITY, and that is modelled: a failed step stops at `&&` and skips the
+whole next element, so `git commit && (git push ; echo x)` never reaches the push, and a `||`
+written after a group is the failure path of the step that ended inside it. Masking groups whole
+instead hid every chain inside one, and an error handler on its own line
+(`pytest ... || { tail -10 log; exit 1; }`) never silenced the pair below it either way.
+
+A brace is a reserved word only at COMMAND position. `echo {` prints a brace, so a brace argument
+is a plain word and never a reason to stop judging; only an unbalanced command-position brace,
+a stray paren or backtick (bash refuses those: `echo )` is a syntax error), or a `name()`
+function definition (its body is not run here) makes the command unjudgeable.
+
+That is still a deliberate accuracy-for-coverage trade. It gives up some real hits, and in
+exchange every verdict it does give is one a statement list can actually support. The regions it
+cannot see at all, and knowingly ignores: anything inside `eval`, `bash -c "..."`,
+`ssh host '...'`, or a command substitution - it scans the LOCAL statement structure only.
+
+THE TEST A FINDING HAS TO PASS
+------------------------------
+Would `&&` be correct advice here? If not, the guard must not fire, because its message says to
+use `&&`. That is what rules out a REPEATED verb: `git push origin main ; git push origin topic`,
+or a push to each of three repos, is parallel work over independent targets, and `&&` there is
+actively wrong - you want the second attempted even when the first fails. A genuine dependency
+chain moves through DIFFERENT verbs, which is the shape the incident had.
+
+A repeat separated by a `cd` or a differing `git -C` is the same argument from the other side -
+the same operation done in two places. That reading is limited to a REPEAT on purpose: a directory
+change is not a repository change (a worktree and its main checkout are one repo), so applying it
+to different verbs went silent on `cd ~/wt && git commit -m x ; cd "$MAIN" && git push`, which is
+the incident itself.
+
+Two further shapes are exempt because they already say "continue deliberately":
+
+- errexit active at that point in the command (`set -e`, `-euo pipefail`, `-o errexit`), which
+  makes the shell itself abort on the first failure. Tracked by POSITION and revocably: a
+  `set -e` AFTER the chain protects nothing, and a later `set +e` turns it back off. Position is
+  not reachability, and this does not try to be: a `set -e` in a branch that never runs
+  (`false && set -e ; ...`) still exempts. Deciding that needs evaluation, not parsing, and the
+  safe direction for a BLOCKING guard is to miss rather than to refuse `cd /repo && set -e ; ...`,
+  where the command really is protected;
+- any `||` handler immediately after the state-changing statement - `|| true`, `|| exit 1`,
+  `|| die "..."`. The author wrote the failure path, so the `;` after it is intentional.
+
+Pure standard library. Reads the PreToolUse event JSON on stdin. Exit 2 blocks the call and shows
+stderr to the model; every other path (including any error) exits 0 so a broken guard never wedges
+a turn.
+"""
+import json
+import re
+import sys
+
+import shell_text
+
+# Shared with the other command-scanning guards. `mask_data_regions` replaces quoted strings,
+# command substitutions and comments INCLUDING their delimiters, so each becomes a single token -
+# without that, `git -C "$MAIN" commit` splits into two bare `"` tokens and the verb is lost.
+from shell_text import iter_segments, mask_data_regions, strip_heredoc_bodies
+
+# Verbs whose failure invalidates whatever the author wrote next. Read-only verbs (status, log,
+# diff, rev-parse) are deliberately absent: a failed `git log` does not make the following step
+# wrong, so chaining those with `;` is ordinary and must not be blocked.
+#
+# `fetch` earns its place for the same reason as the rest: a failed fetch leaves `origin/main`
+# stale, and the `git merge --ff-only origin/main` after it then prints the very string this
+# guard exists to distrust. `pull` and `add` are deliberately NOT here - both usually make the
+# next step fail loudly too, so the premise (loud at step one, invisible after) does not hold,
+# and both are common enough that the false-positive volume would swamp the signal.
+STATE_CHANGING = frozenset(
+    {
+        "commit",
+        "merge",
+        "push",
+        "tag",
+        "reset",
+        "rebase",
+        "revert",
+        "cherry-pick",
+        "checkout",
+        "switch",
+        "fetch",
+        "apply",
+        "am",
+        "restore",
+        "update-index",
+        "update-ref",
+    }
+)
+
+# A verb in the set above is still read-only in these forms, and blocking them is a pure false
+# positive: `git checkout -- Makefile` restores a path and moves no branch, `git merge --abort`
+# is the cleanup you run precisely when the merge failed, and `git tag -l` only lists.
+PATH_SCOPED = frozenset({"checkout", "switch"})           # a `--` makes it a path restore
+# Flags that make ANY verb a no-op, so its failure cannot invalidate a later step.
+INERT_FLAGS = frozenset({"--help", "-h", "--dry-run"})
+ABORTABLE = frozenset({"merge", "rebase", "cherry-pick", "revert", "am"})
+TAG_READ_ONLY_FLAGS = ("-l", "--list", "-n", "-v", "--verify", "--contains", "--points-at",
+                       "--sort", "--merged", "--no-merged", "--format")
+
+# git global options that consume a SEPARATE following token, so the subcommand search does not
+# mistake their value for the subcommand (`git -C /repo commit` must read as `commit`).
+GIT_VALUE_OPTS = frozenset(
+    {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
+)
+
+# Transparent command prefixes: they exec or fork the real program, so `sudo git push` IS a push.
+WRAPPERS = frozenset(
+    {"sudo", "env", "command", "time", "nice", "ionice", "nohup", "stdbuf", "timeout", "doas"}
+)
+# Which of a wrapper's OWN options consume a following value. Keyed per wrapper, because the same
+# letter means opposite things: `sudo -u <user>` takes one and `sudo -n` does not, `env -u <name>`
+# takes one and `env -i` does not. A single shared set gets one of every pair wrong and then skips
+# past the real command.
+WRAPPER_VALUE_OPTS = {
+    "sudo": frozenset({"-u", "-g", "-U", "-p", "-C", "-h", "-r", "-t", "--user", "--group"}),
+    "doas": frozenset({"-u", "-C"}),
+    "env": frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"}),
+    "timeout": frozenset({"-s", "-k", "--signal", "--kill-after"}),
+    "nice": frozenset({"-n", "--adjustment"}),
+    "ionice": frozenset({"-c", "-n", "-p", "-P"}),
+    "stdbuf": frozenset({"-i", "-o", "-e", "--input", "--output", "--error"}),
+    "command": frozenset(),
+    "time": frozenset({"-f", "--format", "-o", "--output"}),
+    "nohup": frozenset(),
+}
+
+# Block structure this guard will not judge, because a statement list cannot model a construct
+# whose branches are alternatives or whose separators are required syntax. Keywords are matched as
+# whole TOKENS. A subshell or brace group is NOT here - see `_parts` - and only an unbalanced or
+# stray bracket reaches the bail, which means the command is something bash itself would refuse.
+BLOCK_KEYWORDS = frozenset(
+    {"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done",
+     "case", "esac", "select", "function"}
+)
+# `name()` defines a function: its body is not run by this command, so its verbs are not a chain.
+FUNCTION_DEFINITION = re.compile(r"[\w.-]\s*\(\s*\)")
+# An escaped character is data to the shell, a bracket included.
+ESCAPED = re.compile(r"\\.", re.DOTALL)
+
+# Group delimiters as they appear among the separators `_parts` yields. The walk reports a subshell
+# and a substitution by their own spellings; a brace group is recognised by `_parts` from its
+# reserved word at command position.
+OPENERS = frozenset({"(", "$(", "<(", ">(", "{"})
+CLOSERS = frozenset({")", "}"})
+
+# Repetition of these verbs is parallel work over independent targets - branches, remotes, repos,
+# tags - so `&&` between them is wrong advice. Repetition of any OTHER verb can be a real chain:
+# `git checkout master ; git checkout -b feature` branches off the wrong base when the first fails.
+PER_TARGET_VERBS = frozenset({"push", "fetch", "tag"})
+
+# A statement that moves the working directory, and the git options that name a tree explicitly.
+# The trailing `(?:\s|$)` is what stops `cdrecord` and `cd-hook` reading as a directory change; a
+# bare `\b` accepts both. The optional group captures the destination, because PRESENCE of a `cd`
+# is not evidence of a MOVE - see `_directory_moves_between`.
+CD_COMMAND = re.compile(r"^\s*(?:\w+=\S+\s+)*(?:cd|pushd|popd)(?:\s+(\S+))?(?:\s|$)")
+DASHC_TARGET = re.compile(r"\bgit\s+(?:-c\s+\S+\s+)*(?:-C|--git-dir|--work-tree)\s+(\S+)")
+
+# Destinations that do not move anywhere. `cd` with no argument goes HOME, which IS a move, but
+# only from somewhere else - and a command that relied on that would not then run git in the repo
+# it just left. Treating it as no-op keeps the pair blocked, which is the safe direction.
+NON_MOVING_TARGETS = frozenset({None, "", ".", "./", "-", "$PWD", "${PWD}", "$(pwd)", "`pwd`"})
+
+# `fetch` earns its place as the FIRST half of a pair (a failed fetch leaves origin stale and the
+# `merge --ff-only` after it prints the very string this guard distrusts). As the SECOND half it is
+# almost always post-push verification - `git push ... ; git fetch -q origin ; git rev-parse
+# origin/main` - where `&&` is wrong advice and the fetch is the confirmation this guard's own
+# message asks for.
+NEVER_THE_SECOND_HALF = frozenset({"fetch"})
+
+# The second rule's two ends (see `git_after_script`). Runners are the ones the replay that priced
+# the rule saw carrying a heredoc before git; the verbs are the ones that RECORD what the script
+# left behind. `add` belongs here although the pair rule leaves it out: after a failed edit, the
+# stage is exactly where the damage is recorded, and nothing after it fails loudly.
+SCRIPT_RUNNERS = frozenset({"python", "python3", "bash", "perl", "node", "uv"})
+RECORDING_VERBS = frozenset({"add", "commit", "push", "merge", "rebase", "cherry-pick", "apply"})
+# Only these continue past a failure. `&&` stops, `||` runs only ON failure, `|` is a pipeline.
+CONTINUES_AFTER_FAILURE = frozenset({";", "\n", "&"})
+JOINS_ON_SUCCESS = frozenset({"&&", "||", "|", "|&"})       # `|&` is a pipe, as `|` is
+
+
+def _skip_wrappers(tokens: list[str], index: int) -> int:
+    """Advance past leading `VAR=value` assignments and transparent wrapper commands."""
+    while index < len(tokens):
+        token = tokens[index]
+        if "=" in token and not token.startswith("-"):
+            index += 1
+            continue
+        name = token.rsplit("/", 1)[-1]
+        if name in WRAPPERS:
+            index += 1
+            takes_value = WRAPPER_VALUE_OPTS.get(name, frozenset())
+            # A wrapper's own options, and the value of only the ones that take one.
+            while index < len(tokens) and tokens[index].startswith("-"):
+                if tokens[index] in takes_value:
+                    index += 1
+                index += 1
+            # `timeout 60 git push` - a bare duration before the wrapped command.
+            if name == "timeout" and index < len(tokens) and re.fullmatch(r"[0-9.]+[smhd]?", tokens[index]):
+                index += 1
+            continue
+        return index
+    return index
+
+
+def _is_read_only_form(verb: str, args: list[str]) -> bool:
+    """True when this verb, with THESE arguments, changes nothing."""
+    if INERT_FLAGS.intersection(args):
+        return True
+    if verb == "push" and "-n" in args:                        # push's short --dry-run
+        return True
+    if verb in PATH_SCOPED:
+        return "--" in args
+    if verb in ABORTABLE and ("--abort" in args or "--quit" in args):
+        return True
+    if verb == "tag":
+        if not args:
+            return True                                    # bare `git tag` lists tags
+        return any(a.startswith(TAG_READ_ONLY_FLAGS) for a in args)
+    return False
+
+
+def _normalise_path(value: str | None) -> str | None:
+    """Strip one layer of matching quotes and any trailing slash, so spellings of one path agree.
+
+    `"/repo"`, `/repo` and `/repo/` all name the same directory, and comparing them as raw strings
+    calls a repository two repositories. A SUBDIRECTORY (`/repo` vs `/repo/sub`) is deliberately
+    left alone: it may be inside the same repo or inside another one, nothing in the text says
+    which, and the guard does not block what it cannot determine.
+    """
+    if value and len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    if value and len(value) > 1:
+        value = value.rstrip("/") or "/"
+    return value
+
+
+def _directory_moves_between(raw: list[str], masked: list[str], start: int, stop: int) -> bool:
+    """True when a `cd` strictly between the two statements actually CHANGES directory.
+
+    Presence of a `cd` is not a move. Tracking the destination from the START of the command is
+    what separates them: `cd /repo && git commit ; cd /repo && git commit --amend` re-enters the
+    same directory, so the second commit amends the first one's repository - and amending a commit
+    that never happened rewrites the PREVIOUS commit and exits 0, which is this guard's whole
+    subject. A no-op `cd` on each step was overriding two shapes the tests declare must block.
+
+    Structure is read from the MASKED text (a `cd` inside a quoted string is not a command) and the
+    destination from the RAW text at the same offset, so `"$MAIN"` compares by name.
+    """
+    current: str | None = None
+    moved = False
+    for index in range(0, stop, 2):
+        if not CD_COMMAND.match(masked[index]):
+            continue
+        found = CD_COMMAND.match(raw[index])
+        target = _normalise_path(found.group(1)) if found else None
+        if target in NON_MOVING_TARGETS or target == current:
+            continue
+        current = target
+        if index > start:
+            moved = True
+    return moved
+
+
+def _tree_may_have_changed(raw: list[str], parts: list[str], start: int, stop: int) -> bool:
+    """True when the two statements might not be acting on the same repository.
+
+    A `cd` between them, or a differing `git -C <path>`, means the second statement works in
+    another directory. Committing to `provmm_planning` and then to `provmm_proxmox` is two pieces
+    of work, not a chain, so `&&` is wrong advice: you want the second attempted when the first
+    fails.
+
+    ONLY consulted for a REPEATED verb, and that limit is load-bearing. A directory change is not
+    a repository change: a worktree and its main checkout are different directories of the SAME
+    repo, and nothing in the text distinguishes those two cases. Applied to every pair, this
+    exempted the very command the guard was built for - `cd ~/wt && git commit -m x ;
+    cd "$MAIN" && git push` went silent, which is the incident in two steps. A repeated verb has
+    no such reading: doing the same operation in two places is parallel work either way.
+
+    Measured on real command history: it clears 24 `commit`-then-`commit` blocks across a
+    super-repo's separate sub-repos, and leaves every different-verb chain firing.
+    """
+    # EVEN indices are statements and odd ones are separators, so step from start + 2. Walking the
+    # odd indices instead matches nothing at all, and the rule silently does half its job.
+    first, second = DASHC_TARGET.search(raw[start]), DASHC_TARGET.search(raw[stop])
+    target_a, target_b = _normalise_path(first.group(1) if first else None), _normalise_path(
+        second.group(1) if second else None
+    )
+    # An identical ABSOLUTE `-C` on both is positive proof of one repository, and it outranks any
+    # `cd` between them. Relative only resolves against the cwd, so it proves nothing. Reading this
+    # AFTER the cd scan let weak evidence beat strong evidence purely by statement order.
+    if target_a is not None and target_a == target_b and target_a.startswith(("/", "~")):
+        return False
+    if target_a != target_b:
+        return True
+    return _directory_moves_between(raw, parts, start, stop)
+
+
+def _git_subcommand(segment: str) -> tuple[str, list[str]] | None:
+    """The git subcommand this statement runs and its arguments, or None when it runs no git."""
+    tokens = segment.split()
+    index = _skip_wrappers(tokens, 0)
+    if index >= len(tokens) or tokens[index].rsplit("/", 1)[-1] != "git":
+        return None
+    index += 1
+    while index < len(tokens) and tokens[index].startswith("-"):
+        if tokens[index] in GIT_VALUE_OPTS:
+            index += 1
+        index += 1
+    if index >= len(tokens):
+        return None
+    return tokens[index], tokens[index + 1 :]
+
+
+def _git_verb(segment: str) -> str | None:
+    """The state-changing git subcommand this statement runs, or None.
+
+    None covers everything that is not one: another program, a read-only git verb, a
+    read-only FORM of a state-changing verb, and a `git` appearing only inside data (masking
+    has already removed those regions, so what reaches here is a real statement).
+    """
+    found = _git_subcommand(segment)
+    if not found:
+        return None
+    verb, args = found
+    if verb not in STATE_CHANGING or _is_read_only_form(verb, args):
+        return None
+    return verb
+
+
+def _errexit_delta(segment: str) -> int:
+    """+1 when this statement enables errexit, -1 when it disables it, 0 when it leaves it alone.
+
+    The caller treats the sign as the new flag value, never as an increment.
+
+    Positional and revocable on purpose: errexit is shell STATE, not a property of the string, so
+    a `set -e` after the chain protects nothing and a later `set +e` takes it away again.
+    """
+    tokens = segment.split()
+    if not tokens or tokens[0] != "set":
+        return 0
+    delta, index = 0, 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in ("-o", "+o") and index + 1 < len(tokens):
+            if tokens[index + 1] == "errexit":
+                delta = 1 if token == "-o" else -1
+            index += 2
+            continue
+        if token.startswith("-") and not token.startswith("--") and "e" in token[1:]:
+            delta = 1
+        elif token.startswith("+") and "e" in token[1:]:
+            delta = -1
+        index += 1
+    return delta
+
+
+# A brace group's delimiter: a `{` or `}` standing as the FIRST word of a statement. Anywhere else
+# a brace is an ordinary word (`echo {`, `@{u}`, `find -exec rm {} +`).
+_BRACE_WORD = re.compile(r"\s*([{}])(?=\s|$)")
+
+
+def _append_statement(parts, raw_parts, masked, raw, start, end):
+    """Append the statement `masked[start:end]`, splitting off any leading brace-group words.
+
+    To the walk a brace is a word, not a separator, so `{ git commit -m x` arrives as one
+    statement whose program is `{`. Splitting the reserved word off as a separator of its own
+    lets the git verb be read and lets the reachability walk treat the group like a subshell.
+    """
+    while True:
+        word = _BRACE_WORD.match(masked, start, end)
+        if not word:
+            break
+        parts += [masked[start:word.start(1)], word.group(1)]
+        raw_parts += [raw[start:word.start(1)], word.group(1)]
+        start = word.end(1)
+    parts.append(masked[start:end])
+    raw_parts.append(raw[start:end])
+
+
+def _parts(masked: str, raw: str, tool_name: str) -> tuple[list[str], list[str]]:
+    """Statements and the separators between them, alternating: [stmt, sep, stmt, ..., stmt].
+
+    Found by shell_text's quote-aware walk on the MASKED text, where quoted text, substitutions
+    and comments are already filler, so a `(` inside `echo "(must PASS)"` is not a subshell - the
+    shape a raw-text paren split cut in a corpus replay. Every mask preserves length, so the same
+    offsets cut the raw text into `raw_parts`, which is what a `-C` path is compared on.
+    """
+    parts: list[str] = []
+    raw_parts: list[str] = []
+    segments = list(iter_segments(masked, tool_name))
+    for number, (start, segment) in enumerate(segments):
+        end = start + len(segment)
+        _append_statement(parts, raw_parts, masked, raw, start, end)
+        if number + 1 < len(segments):
+            following = segments[number + 1][0]
+            parts.append(masked[end:following])
+            raw_parts.append(raw[end:following])
+    return parts, raw_parts
+
+
+def _unjudgeable(masked: str, parts: list[str]) -> bool:
+    """True when the command carries structure a statement list cannot honestly model.
+
+    A stray paren or backtick is a command bash itself refuses (`echo )` is a syntax error), and an
+    unbalanced command-position brace never closes its group, so judging either would be guessing.
+    A brace ARGUMENT is not on this list: it is a plain word, and bailing on it allowed
+    `git commit -m x ; git push ; echo {`.
+    """
+    plain = ESCAPED.sub("  ", masked)
+    if "`" in plain or plain.count("(") != plain.count(")"):
+        return True
+    if FUNCTION_DEFINITION.search(plain):
+        return True                                        # a body that this command does not run
+    separators = parts[1::2]
+    if separators.count("{") != separators.count("}"):
+        return True
+    return any(token in BLOCK_KEYWORDS for token in masked.split())
+
+
+def _skipped_group_end(parts: list[str], index: int) -> int | None:
+    """Where the group right after the separator at `index` closes, or None when no group follows.
+
+    After a FAILED step, `&&` skips the next element whole - and when that element is a group, the
+    `;` inside it is never reached: `git commit -m x && (git push ; echo x)` cannot push after a
+    failed commit. A group that never closes swallows the rest of the command.
+    """
+    probe = index + 2
+    while probe < len(parts) and not parts[probe - 1].strip() and parts[probe] == "\n":
+        probe += 2                                         # `&&` then a line break, then the group
+    if probe >= len(parts) or parts[probe - 1].strip() or parts[probe] not in OPENERS:
+        return None
+    depth = 0
+    for at in range(probe, len(parts), 2):
+        if parts[at] in OPENERS:
+            depth += 1
+        elif parts[at] in CLOSERS:
+            depth -= 1
+            if depth == 0:
+                return at
+    return len(parts)
+
+
+def _closes_a_group(parts: list[str], index: int) -> bool:
+    """True when the separator at `index` is only the terminator before a group's closer.
+
+    `{ git commit -m x; } && git push` needs that `;` - bash requires it before `}` - and nothing
+    runs after it inside the group, so a failed commit still reaches the `&&` and stops there.
+    """
+    return (index + 2 < len(parts) and not parts[index + 1].strip()
+            and parts[index + 2] in CLOSERS)
+
+
+def _failure_handled_after(parts: list[str], index: int) -> bool:
+    """True when the statement at `index` is followed by a `||` handler, past any group it ends.
+
+    `(git commit -m x) || true` and `{ git commit -m x; } || exit 1` hand the group's status - the
+    commit's - to the handler exactly as `git commit -m x || true` does.
+    """
+    at = index + 1
+    while at + 1 < len(parts) and not parts[at + 1].strip():
+        if parts[at] in CLOSERS or (parts[at] in (";", "\n") and _closes_a_group(parts, at)):
+            at += 2
+            continue
+        break
+    return at < len(parts) and parts[at] == "||"
+
+
+def _gap_continues_after_failure(parts: list[str], start: int, stop: int) -> bool:
+    """True when reaching `stop` from `start` crosses a separator that runs regardless.
+
+    A newline directly after `&&`, `||` or `|` is a LINE CONTINUATION, not a separator - the
+    author already wrote the correct form and split it over lines. Treating it as `;` blocks a
+    correct command with a message telling the author to do what they just did.
+
+    A group after a success-join is skipped whole on failure (`_skipped_group_end`), and the
+    terminator a group's closer requires continues to nothing (`_closes_a_group`).
+    """
+    joined_on_success = False
+    index = start
+    while index < stop:
+        separator = parts[index]
+        if separator in JOINS_ON_SUCCESS:
+            joined_on_success = True
+            group_end = _skipped_group_end(parts, index)
+            if group_end is not None:
+                if group_end >= stop:
+                    return False                           # the second verb is inside the skip
+                index = group_end + 2
+                continue
+        elif separator == "\n" and joined_on_success and not parts[index - 1].strip():
+            pass                                           # continuation line, still guarded
+        elif separator in CONTINUES_AFTER_FAILURE and not (
+                separator != "&" and _closes_a_group(parts, index)):
+            return True
+        index += 2
+    return False
+
+
+def _walk(command: str, tool_name: str) -> tuple[list[str], list[str], dict[int, bool]] | None:
+    """Masked statements, raw statements and errexit-before-each, or None when unjudgeable."""
+    stripped = strip_heredoc_bodies(command or "")
+    masked = mask_data_regions(stripped, tool_name=tool_name)
+    # The masking preserves LENGTH, so the same offsets index the pre-mask text exactly. The `-C`
+    # comparison needs the real path: masked, two different quoted paths of equal length become
+    # the same run of filler, so the verdict turned on how many characters a variable name had -
+    # `"$PLAN"` vs `"$PROX"` blocked while `"$PLANNING"` vs `"$PROX"` did not.
+    parts, raw_parts = _parts(masked, stripped, tool_name)
+    if _unjudgeable(masked, parts):
+        return None
+    # errexit is a FLAG, so the last `set -e` / `set +e` wins: `set -e; set -e; set +e` leaves it
+    # off and `set +e; set -e` leaves it on. A running sum got both of those wrong.
+    errexit, active_before = False, {}
+    for index in range(0, len(parts), 2):
+        active_before[index] = errexit
+        delta = _errexit_delta(parts[index])
+        if delta:
+            errexit = delta > 0
+    return parts, raw_parts, active_before
+
+
+def _script_runner(segment: str) -> str | None:
+    """The runner's name when this masked statement feeds a heredoc to a script runner, else None.
+
+    Read from the MASKED text, so a `<<` inside a quoted string is not a heredoc, and a runner
+    named through a quoted variable (`"$PY"`) is masked to filler and not recognised.
+    """
+    if "<<" not in segment:
+        return None
+    tokens = segment.split()
+    index = _skip_wrappers(tokens, 0)
+    if index >= len(tokens):
+        return None
+    name = tokens[index].rsplit("/", 1)[-1]
+    return name if name in SCRIPT_RUNNERS else None
+
+
+def _recording_verb(segment: str) -> str | None:
+    """The git verb this statement runs when it is one that RECORDS a result, else None."""
+    found = _git_subcommand(segment)
+    if not found:
+        return None
+    verb, args = found
+    if verb not in RECORDING_VERBS:
+        return None
+    if verb == "add":
+        return None if INERT_FLAGS.intersection(args) or "-n" in args else verb
+    return None if _is_read_only_form(verb, args) else verb
+
+
+def git_after_script(command: str, tool_name: str = "Bash") -> tuple[str, str] | None:
+    """(runner, git verb) when a heredoc script reaches a recording git verb across `;`, or None.
+
+    The second rule (OPEN-WORK [500]). The script is usually an EDIT with an assertion in it, and
+    the git step after it records whatever the edit left behind. Joined by a line break, a failed
+    assertion still stages and commits the unedited files, exit 0: on 2026-10-08 that committed
+    conflict markers through `git add f && git rebase --continue`.
+
+    Deliberately narrow, and priced by replaying THIS function over 171,854 recorded Bash commands
+    (30 days, 2026-09-22 to 2026-10-22, minus what the pair rule above already refuses): 211
+    firings, about 7 a day. Any statement at all before the git step fired 2,020 times, and adding
+    `cd`, `cat >`, `printf >` and `sed` as earlier steps at least 1,172, with no further confirmed
+    catch. A scan of each firing's own output for failure text found 2 calls where the script
+    really failed and git ran anyway, both inside this rule; the scan's recall is unmeasured.
+    Requiring an `assert`/`raise`/exit in the script body was measured too and kept 187 of the
+    211, so it buys nothing. Every firing gets advice that is correct for it, so the cost is one
+    rewrite, not a wrong instruction.
+    """
+    walked = _walk(command, tool_name)
+    if walked is None:
+        return None
+    parts, _raw_parts, active_before = walked
+    statements = list(range(0, len(parts), 2))
+    for index_a in statements:
+        runner = _script_runner(parts[index_a])
+        if not runner or active_before[index_a] or _failure_handled_after(parts, index_a):
+            continue
+        for index_b in statements:
+            if index_b <= index_a:
+                continue
+            verb = _recording_verb(parts[index_b])
+            if verb and _gap_continues_after_failure(parts, index_a + 1, index_b):
+                return runner, verb
+    return None
+
+
+def chained_state_changes(command: str, tool_name: str = "Bash") -> list[str] | None:
+    """The first pair of state-changing git verbs joined across an unguarded `;`, or None.
+
+    EVERY pair is examined, not just consecutive ones. Consecutive-only looked equivalent and is
+    not: an exemption skips the PAIR, so an exempted middle verb hid the gap behind it.
+    `git merge --ff-only origin/main ; git merge topic && git push` reported nothing, because
+    (merge, merge) was exempt and (merge, push) is `&&`-joined - while the `;` that lets a failed
+    ff-merge run the second merge on a stale base and push it sat right there.
+    """
+    walked = _walk(command, tool_name)
+    if walked is None:
+        return None
+    parts, raw_parts, active_before = walked
+    statements = list(range(0, len(parts), 2))
+
+    found = [(index, _git_verb(parts[index])) for index in statements]
+    found = [(index, verb) for index, verb in found if verb]
+
+    for position, (index_a, verb_a) in enumerate(found):
+        if active_before[index_a]:
+            continue                                       # the shell aborts on failure anyway
+        if _failure_handled_after(parts, index_a):
+            continue                                       # the author wrote the failure path
+        for index_b, verb_b in found[position + 1 :]:
+            if verb_b in NEVER_THE_SECOND_HALF:
+                continue
+            if verb_a == verb_b and (
+                verb_a in PER_TARGET_VERBS
+                or _tree_may_have_changed(raw_parts, parts, index_a, index_b)
+            ):
+                continue                                   # parallel work, not a pipeline
+            if _gap_continues_after_failure(parts, index_a + 1, index_b):
+                return [verb_a, verb_b]
+    return None
+
+
+def main() -> int:
+    try:
+        event = json.load(sys.stdin)
+    except Exception:
+        return 0
+    command = (event.get("tool_input") or {}).get("command") or ""
+    tool_name = event.get("tool_name") or "Bash"
+    verbs = chained_state_changes(command, tool_name)
+    if not verbs:
+        after_script = git_after_script(command, tool_name)
+        if not after_script:
+            return 0
+        runner, verb = after_script
+        return shell_text.refuse(
+            f"A `{runner}` heredoc script reaches `git {verb}` across a line break or `;`, so the "
+            f"git step runs even when the script FAILED.\n"
+            "A failed edit or assertion then gets its unedited files staged and committed, exit 0 "
+            "- the transcript shows the traceback, then a clean git line.\n"
+            "Fix, either shape passes: (1) split it - make the edit with the Edit tool (or run the "
+            "script alone), read its result, then run the git step in a separate Bash call; or "
+            "(2) put `&&` on the heredoc's opener line (`python3 - <<'EOF' && git add ...`, "
+            "body and terminator below it). If the script is allowed to fail, give it a failure "
+            "path (`<<'EOF' || exit 1`); `set -e` first also works.\n"
+        )
+    return shell_text.refuse(
+        f"`git {verbs[0]}` and `git {verbs[1]}` are joined by `;`, so the second runs even when "
+        f"the first FAILED.\n"
+        "The steps after it then report their no-op as success - `Already up to date`, "
+        "`Everything up-to-date`, exit 0 - and the transcript reads like a completed ship while "
+        "nothing landed.\n"
+        "Fix: join them with `&&` so the chain stops where it broke. If a step is genuinely "
+        "allowed to fail, write its failure path (`|| true`, `|| exit 1`); if the whole command "
+        "should abort on any failure, start it with `set -e`.\n"
+        "Then confirm the END STATE (`git rev-parse --verify -q origin/master`, "
+        "`git show --name-only`), not the messages.\n"
+    )
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:
+        sys.exit(0)

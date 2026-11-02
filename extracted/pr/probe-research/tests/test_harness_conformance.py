@@ -85,7 +85,7 @@ def test_the_daemon_adapter_capabilities_agree(harness_id):
 
 @pytest.mark.parametrize("harness_id", CAPTURED)
 def test_the_cli_capture_tables_agree(harness_id):
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     harness = REG.get(harness_id)
     assert capabilities.tap_token_env(harness_id) == harness.capture.token_env
@@ -94,7 +94,7 @@ def test_the_cli_capture_tables_agree(harness_id):
 
 @pytest.mark.parametrize("harness_id", CAPTURED)
 def test_the_cli_tap_dir_agrees(harness_id, monkeypatch, tmp_path):
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     harness = REG.get(harness_id)
     monkeypatch.delenv(harness.capture.plugin_dir_env, raising=False)
@@ -106,13 +106,13 @@ def test_the_cli_tap_dir_agrees(harness_id, monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("harness_id", [h.id for h in REG.installable()])
 def test_the_wizard_labels_agree(harness_id):
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     assert setup.AGENT_LABELS[harness_id] == REG.get(harness_id).label
 
 
 def test_the_wizard_installs_exactly_the_installable_harnesses():
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     assert sorted(setup.INSTALLABLE_AGENT_SOURCES) == sorted(h.id for h in REG.installable())
 

@@ -1,0 +1,165 @@
+"""Tracker issue ``/comments`` client on the httpx2 core."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ycli.yandex.core.resource import Resource
+from ycli.yandex.tracker.comments import endpoints
+
+if TYPE_CHECKING:
+    from ycli.yandex.core.listing import Listing
+    from ycli.yandex.tracker.comments.models import Comment, CommentUpdate, ImportComment
+    from ycli.yandex.tracker.models import CommentCreate
+
+
+class CommentsClient(Resource):
+    """List (relative-paginated), get, add, update, delete and react to an issue's comments."""
+
+    def list(
+        self,
+        issue_key: str,
+        *,
+        limit: int | None = None,
+        next: str | None = None,
+        expand: str | None = None,
+    ) -> Listing[Comment]:
+        """All comments on an issue, draining the ``id=<last comment id>`` relative cursor.
+
+        ``GET /issues/{key}/comments`` returns one page at a time; each next page repeats with
+        ``id=<id of the last comment seen>`` until a page comes back empty. Capped at ``limit``
+        (``None`` = every comment); a small cap narrows the page to ``limit`` rows.
+
+        Args:
+            issue_key: The issue key.
+            limit: The most comments to return; ``None`` returns every comment.
+            next: What an earlier call returned as ``next``. The token carries its listing;
+                give what is required again, and nothing else but the limit.
+            expand: The extra blocks to include: ``attachments``, ``html`` or ``all``.
+
+        Returns:
+            The issue's comments.
+
+        Examples:
+            >>> [comment.text for comment in tracker.comments.list("DE-11", limit=500)]
+            ['first', 'second', 'third']
+        """
+        page_size = min(endpoints.PAGE_SIZE, limit) if limit else endpoints.PAGE_SIZE
+        paged = endpoints.list_(issue_key, page_size=page_size, expand=expand)
+        return self._session.iterate(paged, limit=limit, next=next)
+
+    def get(self, issue_key: str, comment_id: int | str, *, expand: str | None = None) -> Comment:
+        """``GET /issues/{key}/comments/{comment_id}`` — one comment. Returns it.
+
+        ``comment_id`` is the numeric ``id`` or the string ``longId``. ``expand`` adds
+        ``attachments``, ``html`` or ``all`` extra fields.
+
+        Args:
+            issue_key: The issue key.
+            comment_id: The comment's numeric ``id`` or string ``longId``.
+            expand: The extra fields to include (``attachments``, ``html`` or ``all``).
+
+        Returns:
+            The comment.
+
+        Examples:
+            >>> tracker.comments.get("DE-5", 9001, expand="attachments,html").text_html
+            '<p>My <strong>first</strong> comment</p>'
+        """
+        return self._session.send(endpoints.get(issue_key, comment_id, expand=expand))
+
+    def create(self, issue_key: str, body: CommentCreate) -> Comment:
+        """``POST /issues/{key}/comments/`` — add a comment. Returns it.
+
+        Args:
+            issue_key: The issue key.
+            body: The new comment: its text and optional summonees and attachment ids.
+
+        Returns:
+            The created comment.
+
+        Examples:
+            >>> from ycli.yandex.tracker.models import CommentCreate
+            >>> tracker.comments.create(
+            ...     "DE-14", CommentCreate.model_validate({"text": "Готово ✅"})
+            ... ).id
+            141
+        """
+        return self._session.send(endpoints.create(issue_key, body))
+
+    def update(self, issue_key: str, comment_id: int | str, body: CommentUpdate) -> Comment:
+        """``PATCH /issues/{key}/comments/{comment_id}`` — edit a comment. Returns it.
+
+        Args:
+            issue_key: The issue key.
+            comment_id: The comment's numeric ``id`` or string ``longId``.
+            body: The comment fields to change.
+
+        Returns:
+            The updated comment.
+
+        Examples:
+            >>> from ycli.yandex.tracker.comments.models import CommentUpdate
+            >>> tracker.comments.update(
+            ...     "DE-16", "161", CommentUpdate.model_validate({"text": "fixed typo"})
+            ... ).text
+            'fixed typo'
+        """
+        return self._session.send(endpoints.update(issue_key, comment_id, body))
+
+    def delete(self, issue_key: str, comment_id: int | str) -> None:
+        """Delete a comment (``DELETE …/comments/{id}`` → 204). Raises on non-2xx.
+
+        Args:
+            issue_key: The issue key.
+            comment_id: The comment's id.
+
+        Examples:
+            >>> tracker.comments.delete("DE-17", "171")
+        """
+        self._session.send(endpoints.delete(issue_key, comment_id))
+
+    def reactions_create(self, issue_key: str, comment_id: int | str, name: str) -> Comment:
+        """``POST …/comments/{comment_id}/reactions/{name}`` — add a reaction. Returns the comment.
+
+        ``name`` is an uppercase reaction key (LIKE, DISLIKE, HEART, ROCKET, FIRE, …).
+
+        Args:
+            issue_key: The issue key.
+            comment_id: The comment's numeric ``id`` or string ``longId``.
+            name: The reaction key.
+
+        Returns:
+            The comment the reaction was added to.
+
+        Examples:
+            >>> tracker.comments.reactions_create("DE-18", "181", "HEART").id
+            181
+        """
+        return self._session.send(endpoints.reactions_create(issue_key, comment_id, name))
+
+    def import_(self, issue_key: str, body: ImportComment) -> Comment:
+        """``POST /issues/{issue_key}/comments/_import`` — import a comment; returns ``Comment``.
+
+        Args:
+            issue_key: The issue's key.
+            body: The comment fields, including the source ``createdAt`` and ``createdBy``.
+
+        Returns:
+            The imported comment.
+
+        Examples:
+            >>> from ycli.yandex.tracker.comments.models import ImportComment
+            >>> tracker.comments.import_(
+            ...     "TEST-2",
+            ...     ImportComment.model_validate(
+            ...         {
+            ...             "text": "Old comment",
+            ...             "createdAt": "2019-02-03T04:05:06.000+0000",
+            ...             "createdBy": "13",
+            ...         }
+            ...     ),
+            ... ).text
+            'Old comment'
+        """
+        return self._session.send(endpoints.import_(issue_key, body))

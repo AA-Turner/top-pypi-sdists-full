@@ -29,8 +29,11 @@ from probe.shared.mailbox import approvals as appr
 from probe.shared import mailbox
 from probe.shared.mailbox.mailbox import Kind
 from probe.daemon.store.store import store_path
-from probe.service import alertpoll, client, mailwatch
-from probe.service.protocol import ErrorCode, MailboxPart, Method, Mode, RpcError, Topic
+from probe.service.watch import alertpoll
+from probe.foundation import service_api as client
+from probe.service.mail import watch as mailwatch
+from probe.foundation.service_api.wire import ErrorCode, Method, RpcError
+from probe.foundation.service_api.vocabularies import MailboxPart, Mode, Topic
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -308,14 +311,14 @@ def test_the_watch_runs_on_a_thread_the_exit_never_waits_for():
 
 def _bare_service(tmp_path, monkeypatch):
     from probe.service import server, updater
-    from probe.service.registry import Registry
+    from probe.service.sessions.sessions import Registry
 
     monkeypatch.setattr(updater, "_hosted_live", updater._hosted_live)  # noqa: SLF001 -- Service sets it
     return server, server.Service(registry=Registry(tmp_path / "sessions.json"))
 
 
 def test_a_caller_in_a_sandbox_watches_only_registered_sessions_where_they_live(tmp_path, monkeypatch):
-    from probe.service import caller
+    from probe.service.actions import caller
 
     server, service = _bare_service(tmp_path, monkeypatch)
     monkeypatch.setattr(caller, "sandboxed", lambda pid: True)
@@ -809,8 +812,9 @@ def test_the_fetcher_keeps_one_connection_and_reads_each_answer(probe_api):
 def test_a_session_registered_from_a_sandbox_is_never_polled_for(tmp_path, monkeypatch, confined):
     """The registrant names the state folder the answers go to: the service
     polls with the user's own key only for one outside any sandbox."""
-    from probe.service import caller, server, updater
-    from probe.service.registry import Registry
+    from probe.service.actions import caller
+    from probe.service import server, updater
+    from probe.service.sessions.sessions import Registry
 
     monkeypatch.setattr(updater, "_hosted_live", updater._hosted_live)  # noqa: SLF001 -- Service sets it
     monkeypatch.setattr(caller, "sandboxed", lambda pid: confined)
@@ -1016,7 +1020,7 @@ def test_a_stalled_service_never_costs_a_claim_it_made(home):
     its token what was claimed for it, and delivers that, once."""
     import socket as socketlib
 
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     answer_ask = mailbox.write_ask(SID, "any OOM on 8xA100?")
     answer = _answer(answer_ask, "no OOM in the last 30 runs")
@@ -1084,7 +1088,7 @@ def test_a_post_past_its_deadline_writes_nothing_and_a_bad_one_is_refused(home):
 
 
 def test_a_caller_in_a_sandbox_writes_and_claims_its_mailbox_itself(tmp_path, monkeypatch):
-    from probe.service import caller
+    from probe.service.actions import caller
 
     server, service = _bare_service(tmp_path, monkeypatch)
     monkeypatch.setattr(caller, "sandboxed", lambda pid: True)
@@ -1126,7 +1130,7 @@ def _ask_the_question(rid: str, choice: str) -> None:
 
 
 def _claim_request(path: Path, budget: float, token: str = "tok1") -> dict:
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     request = protocol.need_mailbox_claim({"sid": SID, "state_dir": str(_state_dir()), "names": [path.name],
                                            "by": "PostToolUse", "token": token, "budget": budget})
@@ -1139,7 +1143,7 @@ def test_a_step_that_started_is_waited_for_and_never_answered_late(tmp_path, mon
     are not when the wait runs out. The answer waits for the step and carries
     the claim (review: `late` used to drop it, and the hook's own claim then
     found the file gone)."""
-    from probe.service.mailhost import MailHost
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     path = mailbox.publish_here(_alert([21]))
@@ -1167,8 +1171,8 @@ def test_a_step_that_started_is_waited_for_and_never_answered_late(tmp_path, mon
 
 def test_a_step_never_started_by_its_deadline_is_taken_back_and_one_stuck_turns_the_rest_away(tmp_path,
                                                                                               monkeypatch):
-    from probe.service import mailhost
-    from probe.service.mailhost import MailHost
+    from probe.service.mail import mail as mailhost
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setattr(mailhost, "STUCK_S", 0.3)
@@ -1212,7 +1216,7 @@ def test_a_service_that_does_not_answer_is_left_alone_for_a_while(home, monkeypa
     """The worker's loop pays a stalled service's wait once, not on every message."""
     import socket as socketlib
 
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     monkeypatch.setattr(mailbox.posters.service, "POST_WAIT_S", 0.2)
     monkeypatch.setattr(mailbox.posters.service, "POST_GRACE_S", 0.1)
@@ -1257,7 +1261,7 @@ def test_a_board_outside_its_state_folder_is_filed_where_it_is(home, tmp_path):
 
 
 def test_the_sooner_of_the_deadline_and_the_budget_holds(monkeypatch):
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     base = {"sid": SID, "names": ["1-a.json"], "by": "x", "token": "t"}
     soon = protocol.need_mailbox_claim({**base, "deadline": time.time() + 30, "budget": 0.5})["deadline_mono"]
@@ -1273,7 +1277,7 @@ def _hook_against(host, loop, state: str):
     `host` (a MailHost on `loop`) that keeps the hook's own timeouts."""
     import importlib.util
 
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     spec = importlib.util.spec_from_file_location("_reads_hook_q2", HOOK)
     hook = importlib.util.module_from_spec(spec)
@@ -1290,7 +1294,7 @@ def _hook_against(host, loop, state: str):
             return cls()
 
         def call(self, method, params, *, timeout):
-            from probe.service.mailhost import MailHost
+            from probe.service.mail.mail import MailHost
 
             request = protocol.need_mailbox_claim(params)
             request["state"] = state
@@ -1312,7 +1316,7 @@ def test_a_claim_still_running_when_the_hook_gives_up_is_still_delivered_once(tm
     yet) and the hook's own wait (1.2 s) runs out: the service logged its token
     right after the rename, so the hook finds the claim and delivers it, once
     (review: the hook used to come back empty and the message sat in claimed/)."""
-    from probe.service.mailhost import MailHost
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     path = mailbox.publish_here(_alert([31]))
@@ -1349,7 +1353,7 @@ def test_a_service_killed_between_its_claim_and_its_log_line_still_delivers_once
     """(a) The service dies right after its rename, before the claim-log line:
     the file's name says whom it was claimed for, and the hook that lost the
     answer takes it by that name, shows it once, and writes the ledger line."""
-    from probe.service.mailhost import MailHost
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     path = mailbox.publish_here(_alert([41]))
@@ -1505,7 +1509,7 @@ def test_a_receipt_between_a_publish_retrys_looks_never_brings_a_message_back(tm
 
 
 def test_a_claim_token_never_carries_a_dot_or_a_path(tmp_path, monkeypatch):
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     path = mailbox.publish_here(_alert([45]))
@@ -1522,8 +1526,8 @@ def test_a_post_that_runs_past_its_deadline_writes_nothing(tmp_path, monkeypatch
     (review: it could, and a hook claiming in between saw it twice)."""
     from dataclasses import asdict
 
-    from probe.service import protocol
-    from probe.service.mailhost import MailHost
+    from probe.foundation import service_api as protocol
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     alert = _alert([32])
@@ -1543,8 +1547,8 @@ def test_a_post_past_its_deadline_deletes_nothing_either(tmp_path, monkeypatch):
     newer U3 itself: the step must not delete U3 as U2's replacement (review)."""
     from dataclasses import asdict
 
-    from probe.service import protocol
-    from probe.service.mailhost import MailHost
+    from probe.foundation import service_api as protocol
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
 
@@ -1570,8 +1574,8 @@ def test_a_post_past_its_deadline_deletes_nothing_either(tmp_path, monkeypatch):
 
 
 def test_a_held_question_already_on_the_board_is_never_written_over(tmp_path, monkeypatch):
-    from probe.service import protocol
-    from probe.service.mailhost import MailHost
+    from probe.foundation import service_api as protocol
+    from probe.service.mail.mail import MailHost
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     board = appr.Board()

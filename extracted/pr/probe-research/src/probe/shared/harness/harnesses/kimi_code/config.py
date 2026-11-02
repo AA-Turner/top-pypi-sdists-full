@@ -315,7 +315,7 @@ def _held_mcp_token() -> str | None:
     """The read token the CONFIG holds (what the wizard minted), never one that
     only lives in this shell's PROBE_MCP_TOKEN: a manifest is a file on disk,
     and Codex's copy is synced from the same place (`setup.current_mcp_token`)."""
-    from probe.cli.setup import current_mcp_token
+    from probe.shared.harness.mcp_token import current_mcp_token
 
     return current_mcp_token()
 
@@ -339,7 +339,8 @@ def _same_deployment(url: object) -> bool:
     """The manifest's MCP and this device's API belong to one deployment (the
     Codex guard, `setup._same_deployment`): a self-hosted device's token must
     never be sent to the hosted MCP, or the other way round."""
-    from probe.cli.setup import _context_base_url, _same_deployment as same
+    from probe.shared.harness.mcp_token import _context_base_url
+    from probe.shared.harness.harnesses.codex.mcp_auth import _same_deployment as same
 
     return isinstance(url, str) and bool(url) and same(url, _context_base_url())
 

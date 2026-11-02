@@ -1,0 +1,334 @@
+#
+# License: See LICENSE.md file
+# GitHub: https://github.com/Baekalfen/PyBoy
+#
+"""
+This class gives access to the frame buffer and other screen parameters of PyBoy.
+"""
+
+import numpy as np
+
+from pyboy import utils
+from pyboy.logging import get_logger
+
+from .constants import COLS, ROWS
+
+logger = get_logger(__name__)
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+
+class Screen:
+    """
+    As part of the emulation, we generate a screen buffer in 32-bit RGBA format. This class has several helper methods
+    to make it possible to read this buffer out.
+
+    If you're making an AI or bot, it's highly recommended to _not_ use this class for detecting objects on the screen.
+    It's much more efficient to use `pyboy.PyBoy.tilemap_background`, `pyboy.PyBoy.tilemap_window`, and `pyboy.PyBoy.get_sprite` instead.
+    """
+
+    def __init__(self, mb):
+        self.mb = mb
+        self._torch_renderer = None
+        self._gpu_async_enabled = False
+        self._gpu_render_generation = 0
+
+        self.raw_buffer = self.mb.lcd.renderer._screenbuffer
+        """
+        Provides a raw, unfiltered `bytes` object with the data from the screen. Check
+        `Screen.raw_buffer_format` to see which dataformat is used. **The returned type and dataformat are
+        subject to change.** The screen buffer is row-major.
+
+        Use this, only if you need to bypass the overhead of `Screen.image` or `Screen.ndarray`.
+
+        Example:
+        ```python
+        >>> import numpy as np
+        >>> rows, cols = pyboy.screen.raw_buffer_dims
+        >>> ndarray = np.frombuffer(
+        ...     pyboy.screen.raw_buffer,
+        ...     dtype=np.uint8,
+        ... ).reshape(rows, cols, 4) # Just an example, use pyboy.screen.ndarray instead
+
+        ```
+
+        Returns
+        -------
+        memoryview:
+            92160 bytes memoryview of screen data.
+        """
+        self.raw_buffer_dims = self.mb.lcd.renderer.buffer_dims
+        """
+        Returns the dimensions of the raw screen buffer. The screen buffer is row-major.
+
+        Example:
+        ```python
+        >>> pyboy.screen.raw_buffer_dims
+        (144, 160)
+
+        ```
+
+        Returns
+        -------
+        tuple:
+            A two-tuple of the buffer dimensions. E.g. (144, 160).
+        """
+        self.raw_buffer_format = self.mb.lcd.renderer.color_format
+        """
+        Returns the color format of the raw screen buffer. **This format is subject to change.**
+
+        Example:
+        ```python
+        >>> from PIL import Image
+        >>> pyboy.screen.raw_buffer_format
+        'RGBA'
+        >>> image = Image.frombuffer(
+        ...    pyboy.screen.raw_buffer_format,
+        ...    pyboy.screen.raw_buffer_dims[::-1],
+        ...    pyboy.screen.raw_buffer,
+        ... ) # Just an example, use pyboy.screen.image instead
+        >>> image.save('frame.png')
+
+        ```
+
+        Returns
+        -------
+        str:
+            Color format of the raw screen buffer. E.g. 'RGBA'.
+        """
+        self.image = None
+        """
+        Reference to a PIL Image from the screen buffer. **Remember to copy, resize or convert this object** if you
+        intend to store it. The backing buffer will update, but it will be the same `PIL.Image` object.
+        Accessing this property requires Pillow; if Pillow is unavailable, access raises `PyBoyDependencyError`.
+
+        Convenient for screen captures, but might be a bottleneck, if you use it to train a neural network. In which
+        case, read up on the `pyboy.api` features, [Pan Docs](https://gbdev.io/pandocs/) on tiles/sprites,
+        and join our Discord channel for more help.
+
+        Example:
+        ```python
+        >>> image = pyboy.screen.image
+        >>> type(image)
+        <class 'PIL.Image.Image'>
+        >>> image.save('frame.png')
+
+        ```
+
+        Returns
+        -------
+        PIL.Image.Image:
+            RGBA image of (160, 144) pixels. Access requires Pillow to be installed.
+        """
+        if not Image:
+            logger.warning('Cannot generate screen image. Missing dependency "Pillow".')
+            self.image = utils.PillowImportError()
+        else:
+            self._set_image()
+
+        self.ndarray = np.frombuffer(
+            self.mb.lcd.renderer._screenbuffer_raw,
+            dtype=np.uint8,
+        ).reshape(ROWS, COLS, 4)
+        """
+        References the screen data in NumPy format. **Remember to copy this object** if you intend to store it.
+        The backing buffer will update, but it will be the same `ndarray` object.
+
+        The format is given by `pyboy.api.screen.Screen.raw_buffer_format`. The screen buffer is row-major.
+
+        Example:
+        ```python
+        >>> pyboy.screen.ndarray.shape
+        (144, 160, 4)
+        >>> # Display "P" on screen from the PyBoy bootrom
+        >>> pyboy.screen.ndarray[66:80,64:72,0]
+        array([[255, 255, 255, 255, 255, 255, 255, 255],
+               [255,   0,   0,   0,   0,   0, 255, 255],
+               [255,   0,   0,   0,   0,   0,   0, 255],
+               [255,   0,   0, 255, 255,   0,   0, 255],
+               [255,   0,   0, 255, 255,   0,   0, 255],
+               [255,   0,   0, 255, 255,   0,   0, 255],
+               [255,   0,   0,   0,   0,   0,   0, 255],
+               [255,   0,   0,   0,   0,   0, 255, 255],
+               [255,   0,   0, 255, 255, 255, 255, 255],
+               [255,   0,   0, 255, 255, 255, 255, 255],
+               [255,   0,   0, 255, 255, 255, 255, 255],
+               [255,   0,   0, 255, 255, 255, 255, 255],
+               [255,   0,   0, 255, 255, 255, 255, 255],
+               [255, 255, 255, 255, 255, 255, 255, 255]], dtype=uint8)
+
+        ```
+
+        Returns
+        -------
+        numpy.ndarray:
+            Screendata in `ndarray` of bytes with shape (144, 160, 4)
+        """
+
+    def _set_image(self):
+        self.image = Image.frombuffer(
+            self.mb.lcd.renderer.color_format,
+            self.mb.lcd.renderer.buffer_dims[::-1],
+            self.mb.lcd.renderer._screenbuffer_raw,
+        )
+
+    @property
+    def tilemap_position_list(self):
+        """
+        This property provides the screen (SCX, SCY) and window (WX - 7, WY) position for each horizontal line in the
+        screen buffer. These parameters are often used for visual effects, and some games will reset the registers at
+        the end of each call to `pyboy.PyBoy.tick()`.
+
+        See `Screen.get_tilemap_position` for more information.
+
+        Example:
+        ```python
+        >>> pyboy.tick(25)
+        True
+        >>> swoosh = pyboy.screen.tilemap_position_list[66:77]
+        >>> print(*swoosh, sep=newline) # Just to pretty-print it
+        [0, 0, -7, 0]
+        [1, 0, -7, 0]
+        [2, 0, -7, 0]
+        [2, 0, -7, 0]
+        [3, 0, -7, 0]
+        [3, 0, -7, 0]
+        [3, 0, -7, 0]
+        [2, 0, -7, 0]
+        [1, 0, -7, 0]
+        [1, 0, -7, 0]
+        [0, 0, -7, 0]
+
+        ```
+
+        Returns
+        -------
+        list:
+            A list of 144 `[SCX, SCY, WX - 7, WY]` lists. Returns `[0, 0, 0, 0]` for each line when the LCD is off.
+        """
+
+        if self.mb.lcd._LCDC.lcd_enable:
+            return [[line[0], line[1], line[2] - 7, line[3]] for line in self.mb.lcd._scanlineparameters]
+        else:
+            return [[0, 0, 0, 0] for line in range(144)]
+
+    def gpu_tensor(self, device):
+        """
+        Render a fast-mode frame from VRAM and OAM into a PyTorch tensor on `device`.
+
+        `device` must be an accelerator: `"mps"` or `"cuda"`. The GPU decodes tile
+        data, applies DMG/CGB palettes, renders the window, and composites sprites.
+        VRAM and OAM are synchronized incrementally. The result is a `torch.uint8`
+        tensor with shape `(144, 160, 4)`.
+
+        This fast-mode rendering path uses VRAM, OAM, LCDC, and palette state captured
+        at VBlank, together with captured per-scanline viewport/window parameters. It
+        intentionally does not reproduce mid-frame changes or exact PPU priority
+        timing, and it does not replace `screen.ndarray`.
+
+        The GPU render is submitted at VBlank, and the regular CPU renderer is
+        skipped on subsequent frames, so `screen.ndarray` is not updated while an
+        accelerator is selected. CUDA VRAM/OAM updates are prefetched at the start
+        of the LY 143 HBlank when their generations change. The returned tensor is
+        reused and overwritten by subsequent frames; clone it to retain a frame.
+
+        Install `torch>=2.6` to use this feature.
+
+        Example:
+        ```python
+        >>> pyboy = PyBoy("game.gb", window="null", fast_mode=True) # doctest: +SKIP
+        >>> pyboy.tick(1) # doctest: +SKIP
+        True
+        >>> frame = pyboy.screen.gpu_tensor("mps") # doctest: +SKIP
+        >>> frame.shape # doctest: +SKIP
+        torch.Size([144, 160, 4])
+
+        ```
+        """
+        renderer = self.mb.lcd.renderer
+        get_gpu_render_state = getattr(renderer, "get_gpu_render_state", None)
+        if get_gpu_render_state is None:
+            raise RuntimeError("gpu_tensor() requires PyBoy fast mode")
+
+        error = renderer.take_gpu_render_error()
+        if error is not None:
+            raise error
+
+        # Init torch renderer. The import is deferred, so PyTorch is only loaded
+        # when this feature is used.
+        if self._torch_renderer is None or self._torch_renderer.device_spec != str(device):
+            from pyboy.api.torch_renderer import TorchFrameRenderer
+
+            torch_renderer = TorchFrameRenderer(device)
+            self._disable_gpu_async(renderer)
+            self._torch_renderer = torch_renderer
+
+        if not self.mb.lcd._LCDC.lcd_enable:
+            frame = self._torch_renderer.render(renderer.get_gpu_blank_render_state())
+            if self._gpu_async_enabled:
+                # Align with the renderer's generation, so the frame rendered while
+                # the LCD was off is not mistaken for one dispatched at VBlank.
+                self._gpu_render_generation = renderer.get_gpu_render_generation()
+            return frame
+
+        device_type = self._torch_renderer.device.type
+
+        # Metal
+        if device_type == "mps":
+            renderer.set_gpu_render_enabled(True)
+            if not self._gpu_async_enabled:
+                return self._enable_gpu_async(renderer, get_gpu_render_state)
+            if renderer.get_gpu_render_generation() != self._gpu_render_generation:
+                self._gpu_render_generation = renderer.get_gpu_render_generation()
+                return self._torch_renderer.get_frame()
+            # Nothing was rendered at VBlank since the last call; render now
+            return self._torch_renderer.render(get_gpu_render_state())
+
+        # CUDA
+        if not self._gpu_async_enabled:
+            self._enable_gpu_async(renderer, get_gpu_render_state)
+        return self._torch_renderer.get_frame()
+
+    def _disable_gpu_async(self, renderer):
+        if self._gpu_async_enabled:
+            renderer.set_gpu_frame_renderer(None)
+            self._gpu_async_enabled = False
+
+    def _enable_gpu_async(self, renderer, get_gpu_render_state):
+        frame = self._torch_renderer.render(get_gpu_render_state())
+        renderer.set_gpu_frame_renderer(self._torch_renderer)
+        renderer.set_gpu_render_enabled(True)
+        self._gpu_async_enabled = True
+        self._gpu_render_generation = renderer.get_gpu_render_generation()
+        return frame
+
+    def _present_gpu_frame_metal(self, layer_address):
+        frame = self.gpu_tensor("mps")
+        if self._torch_renderer is None:
+            raise RuntimeError("Metal presentation requires an initialized MPS renderer")
+        self._torch_renderer.present_metal(frame, layer_address)
+
+    def get_tilemap_position(self):
+        """
+        These coordinates define the tile-map offsets for the top-left corner of the screen and window. The tile map is
+        256x256 pixels, while the screen shows 160x144 pixels; scrolling past an edge wraps around to the other side.
+
+        For more details, see "7.4 Viewport" in the [report](https://github.com/Baekalfen/PyBoy/raw/master/extras/PyBoy.pdf),
+        or the Pan Docs under [LCD Position and Scrolling](https://gbdev.io/pandocs/Scrolling.html).
+
+        Example:
+        ```python
+        >>> pyboy.screen.get_tilemap_position()
+        ((0, 0), (-7, 0))
+
+        ```
+
+        Returns
+        -------
+        tuple:
+            `((SCX, SCY), (WX - 7, WY))`.
+        """
+        return (self.mb.lcd.getviewport(), self.mb.lcd.getwindowpos())

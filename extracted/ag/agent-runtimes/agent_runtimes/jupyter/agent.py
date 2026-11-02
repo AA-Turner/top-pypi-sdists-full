@@ -1,0 +1,81 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""AI agent for chat."""
+
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPToolset
+
+from agent_runtimes.models.models import create_model_with_provider
+
+
+def create_jupyter_chat_agent(
+    model: str | None = None,
+    timeout: float = 60.0,
+    mcp_server: MCPToolset | None = None,
+) -> Agent | None:
+    """
+    Create the main chat agent for JupyterLab.
+
+    Args:
+        model: Full model string (e.g., "openai:gpt-4o", "azure-bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0").
+        timeout: HTTP timeout in seconds for API requests (default: 60.0)
+        mcp_server: Optional MCP server connection for Jupyter tools
+
+    Returns:
+        Configured Pydantic AI agent, or None if creation fails (e.g., missing API keys)
+
+    Note:
+        For Azure OpenAI, requires these environment variables:
+        - AZURE_OPENAI_API_KEY
+        - AZURE_OPENAI_ENDPOINT (base URL only, e.g., https://your-resource.openai.azure.com)
+        - AZURE_OPENAI_API_VERSION (optional, defaults to latest)
+    """
+    try:
+        if not model:
+            return None
+
+        # User provided full model string
+        if model.startswith("azure-openai:"):
+            # Special handling for Azure OpenAI format
+            deployment_name = model.split(":", 1)[1]
+            model_obj = create_model_with_provider(
+                "azure-openai", deployment_name, timeout
+            )
+        else:
+            model_obj = model
+    except Exception:
+        # Failed to create model (likely missing API keys)
+        return None
+
+    try:
+        # Create toolsets list
+        toolsets = []
+        if mcp_server:
+            toolsets.append(mcp_server)
+
+        agent = Agent(
+            model_obj,
+            toolsets=toolsets,
+            instructions="""You are a helpful AI assistant integrated into JupyterLab.
+
+You can help users with:
+- Writing and debugging Python code
+- Data analysis and visualization
+- Understanding Jupyter notebooks
+- General programming questions
+- Scientific computing tasks
+
+You have access to various tools to interact with the Jupyter environment.
+When users ask you to execute code or work with notebooks, use the available tools.
+
+Always be clear, concise, and provide working code examples when appropriate.""",
+        )
+
+        # Note: Built-in Jupyter tools are now provided via MCP server
+        # No need to register them manually
+
+        return agent
+    except Exception:
+        # Failed to create agent (likely missing API keys or other configuration issues)
+        return None

@@ -1,0 +1,1269 @@
+//! Support for Python buffer protocol
+
+use std::fmt::Write;
+use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
+use std::ops::Range;
+use std::os::raw::c_int;
+use std::sync::atomic::{AtomicIsize, Ordering};
+
+use bytes::{Bytes, BytesMut};
+use pyo3::buffer::PyUntypedBuffer;
+use pyo3::exceptions::{PyBufferError, PyIndexError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedBytes;
+use pyo3::types::slice::PySliceIndices;
+use pyo3::types::{PyDict, PySlice, PyString, PyTuple};
+use pyo3::{IntoPyObjectExt, ffi};
+
+use crate::alloc::{AllocError, try_with_capacity};
+use crate::python_bytes_methods::{
+    BufferOrByte, PyFindResult, PyHexSep, PyIndexResult, PythonBytesMethods, PythonBytesStrip,
+};
+use crate::replace::{ReplaceBytes, replace_bytes};
+use crate::{ReadableBuffer, search};
+
+const PY_HASH_NONE: isize = -1;
+/// A wrapper around a [`bytes::Bytes`][].
+///
+/// This implements both import and export via the Python buffer protocol.
+///
+/// ### Buffer protocol import
+///
+/// This can be very useful as a general way to support ingest of a Python buffer protocol object.
+///
+/// The underlying [Bytes] manages the external memory, automatically calling the Python
+/// buffer's release callback when the internal reference count reaches 0.
+///
+/// Note that converting this [`Bytes`] into a [BytesMut][::bytes::BytesMut] will always create a
+/// deep copy of the buffer into newly allocated memory, since this `Bytes` is constructed from an
+/// owner.
+///
+/// ### Buffer protocol export
+///
+/// `PyBytes` implements the Python buffer protocol to enable Python to access the underlying `Bytes`
+/// data view without copies. In Python, this `PyBytes` object can be passed to Python `bytes` or
+/// `memoryview` constructors, `numpy.frombuffer`, or any other function that supports buffer
+/// protocol input.
+#[pyclass(name = "Bytes", subclass, frozen, immutable_type, sequence, weakref)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
+pub struct RyBytes(Bytes, AtomicIsize);
+
+impl Clone for RyBytes {
+    fn clone(&self) -> Self {
+        Self(
+            self.0.clone(),
+            AtomicIsize::new(self.1.load(Ordering::Relaxed)),
+        )
+    }
+}
+
+impl Hash for RyBytes {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl PartialEq for RyBytes {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for RyBytes {}
+
+impl PartialOrd for RyBytes {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RyBytes {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl PythonBytesMethods for RyBytes {}
+
+impl AsRef<Bytes> for RyBytes {
+    fn as_ref(&self) -> &Bytes {
+        self.inner()
+    }
+}
+
+impl AsRef<[u8]> for RyBytes {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl RyBytes {
+    /// Construct a new [`PyBytes`]
+    pub const fn new(buffer: Bytes) -> Self {
+        Self(buffer, AtomicIsize::new(PY_HASH_NONE))
+    }
+
+    /// Consume and return the [Bytes]
+    #[inline]
+    pub fn into_inner(self) -> Bytes {
+        self.0
+    }
+
+    /// Return a reference to the inner [Bytes]
+    #[inline]
+    pub fn inner(&self) -> &Bytes {
+        &self.0
+    }
+
+    /// Access the underlying buffer as a byte slice
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        self.as_ref()
+    }
+
+    /// Return the length of the buffer
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// is the buffer empty?
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Return the range of the buffer
+    pub fn range(&self) -> Range<usize> {
+        0..self.len()
+    }
+
+    /// Slice the underlying buffer using a Python slice object
+    ///
+    /// This should behave the same as Python's byte slicing:
+    ///     - `ValueError` if step is zero
+    ///     - Negative indices a-ok
+    ///     - If start/stop are out of bounds, they are clipped to the bounds of the buffer
+    ///     - If start > stop, the slice is empty
+    ///
+    /// This is NOT exposed to Python under the `#[pymethods]` impl
+    fn slice(&self, slice: &Bound<'_, PySlice>) -> PyResult<Self> {
+        let len = isize::try_from(self.len())
+            .map_err(|_| pyo3::exceptions::PyOverflowError::new_err("bytes object too large"))?;
+        let PySliceIndices {
+            start,
+            step,
+            slicelength,
+            ..
+        } = slice.indices(len)?;
+        if slicelength == 0 {
+            return Ok(Self::new(Bytes::new()));
+        }
+        let start = start.unsigned_abs();
+        let step_size = step.unsigned_abs();
+        let bytes = self.as_slice();
+        if step == 0 {
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "slice step cannot be zero",
+            ))
+        } else if step == 1 {
+            Ok(Self::new(self.0.slice(start..start + slicelength)))
+        } else if step > 0 {
+            Ok(Self::new(
+                bytes[start..]
+                    .iter()
+                    .step_by(step_size)
+                    .take(slicelength)
+                    .copied()
+                    .collect(),
+            ))
+        } else {
+            Ok(Self::new(
+                bytes[..=start]
+                    .iter()
+                    .rev()
+                    .step_by(step_size)
+                    .take(slicelength)
+                    .copied()
+                    .collect(),
+            ))
+        }
+    }
+}
+
+impl From<RyBytes> for Bytes {
+    #[inline]
+    fn from(value: RyBytes) -> Self {
+        value.0
+    }
+}
+
+impl From<Vec<u8>> for RyBytes {
+    #[inline]
+    fn from(value: Vec<u8>) -> Self {
+        Self::new(value.into())
+    }
+}
+
+impl From<Bytes> for RyBytes {
+    #[inline]
+    fn from(value: Bytes) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<BytesMut> for RyBytes {
+    #[inline]
+    fn from(value: BytesMut) -> Self {
+        Self::new(value.into())
+    }
+}
+
+#[pymethods]
+impl RyBytes {
+    // By setting the argument to PyBytes, this means that any buffer-protocol object is supported
+    // here, since it will use the FromPyObject impl.
+    #[new]
+    #[pyo3(
+        signature = (buf = None),
+        text_signature = "(buf = b'')"
+    )]
+    fn py_new<'py>(
+        py: Python<'py>,
+        buf: Option<ReadableBuffer<'py, 'py>>,
+    ) -> PyResult<Bound<'py, Self>> {
+        match buf {
+            None => Self::new(Bytes::new()).into_pyobject(py),
+            Some(ReadableBuffer::RyBytes(rb)) => rb.to_owned().unbind().into_pyobject_or_pyerr(py),
+            Some(buf) => buf.into_rybytes().into_pyobject(py),
+        }
+    }
+
+    // #[classattr]
+    // fn EMPTY() -> Self {
+    //     Self(Bytes::new())
+    // }
+
+    #[staticmethod]
+    fn copy_from(buf: ReadableBuffer) -> Self {
+        Self::from(::bytes::Bytes::copy_from_slice(buf.as_ref()))
+    }
+
+    #[pyo3(name = "clone")]
+    fn py_clone(&self) -> Self {
+        Self::from(self.0.clone())
+    }
+
+    fn __getnewargs_ex__<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let py_bytes = self.to_bytes(py);
+        let args = PyTuple::new(py, vec![py_bytes])?.into_bound_py_any(py)?;
+        let kwargs = PyDict::new(py).into_bound_py_any(py)?;
+        PyTuple::new(py, [args, kwargs])
+    }
+
+    /// The number of bytes in this Bytes
+    fn __len__(&self) -> usize {
+        self.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+
+    fn __add__<'py>(
+        slf: PyRef<'py, Self>,
+        py: Python<'py>,
+        other: ReadableBuffer,
+    ) -> PyResult<Bound<'py, Self>> {
+        if other.is_empty() {
+            return slf.into_pyobject_or_pyerr(py);
+        }
+        if slf.is_empty() {
+            return other.into_rybytes().into_pyobject(py);
+        }
+        let total_length = slf.len() + other.len();
+        let mut vec = try_with_capacity(total_length)?;
+        vec.extend_from_slice(slf.as_slice());
+        vec.extend_from_slice(other.as_ref());
+        Self::from(vec).into_pyobject(py)
+    }
+
+    fn __contains__(&self, item: ReadableBuffer) -> bool {
+        search::find_subslice(self.as_slice(), item.as_ref()).is_some()
+    }
+
+    fn __eq__(&self, other: ReadableBuffer) -> bool {
+        self.0.as_ref() == other.as_ref()
+    }
+
+    fn __getitem__(&self, key: BytesGetItemKey<'_>) -> PyResult<BytesGetItemResult> {
+        match key {
+            BytesGetItemKey::Int(signed_index) => {
+                let index = if signed_index < 0 {
+                    let offset = signed_index.unsigned_abs();
+                    self.len()
+                        .checked_sub(offset)
+                        .ok_or_else(|| PyIndexError::new_err("Index out of range"))?
+                } else {
+                    usize::try_from(signed_index).expect("wenodis: positive isize aint gonna fail")
+                };
+                self.0
+                    .get(index)
+                    .map(|b| BytesGetItemResult::Byte(*b))
+                    .ok_or_else(|| PyIndexError::new_err("Index out of range"))
+            }
+            BytesGetItemKey::Slice(slice) => {
+                let s = self.slice(&slice)?;
+                Ok(BytesGetItemResult::Slice(s))
+            }
+        }
+    }
+
+    fn __mul__(slf: PyRef<'_, Self>, n: isize) -> PyResult<Bound<'_, Self>> {
+        let py = slf.py();
+        // python: n <= 0 -> empty
+        let n = usize::try_from(n).unwrap_or(0);
+        if n == 1 {
+            return slf.into_pyobject_or_pyerr(py);
+        }
+        if n == 0 || slf.is_empty() {
+            return Self::new(Bytes::new()).into_pyobject(py);
+        }
+        let total = slf.len().checked_mul(n).ok_or(AllocError::Overflow)?;
+        let mut out = try_with_capacity(total)?;
+        (0..n).for_each(|_| out.extend_from_slice(slf.as_slice()));
+        Self::from(out).into_pyobject(py)
+    }
+
+    fn __rmul__(slf: PyRef<'_, Self>, n: isize) -> PyResult<Bound<'_, Self>> {
+        Self::__mul__(slf, n)
+    }
+
+    /// This is taken from opendal:
+    /// <https://github.com/apache/opendal/blob/d001321b0f9834bc1e2e7d463bcfdc3683e968c9/bindings/python/src/utils.rs#L51-L72>
+    #[expect(unsafe_code)]
+    unsafe fn __getbuffer__(
+        slf: PyRef<Self>,
+        view: *mut ffi::Py_buffer,
+        flags: c_int,
+    ) -> PyResult<()> {
+        unsafe {
+            let bytes = slf.0.as_ref();
+            let ret = ffi::PyBuffer_FillInfo(
+                view,
+                slf.as_ptr() as *mut _,
+                bytes.as_ptr() as *mut _,
+                bytes.len().try_into()?,
+                1, // read only
+                flags,
+            );
+            if ret == -1 {
+                return Err(PyErr::fetch(slf.py()));
+            }
+            Ok(())
+        }
+    }
+
+    // Comment from david hewitt on discord:
+    // > I think normally `__getbuffer__` takes a pointer to the owning Python object, so you
+    // > don't need to treat the allocation as owned separately. It should be good enough to keep
+    // > the allocation owned by the object.
+    // https://discord.com/channels/1209263839632424990/1324816949464666194/1328299411427557397
+    #[expect(unsafe_code)]
+    #[expect(clippy::unused_self, reason = "buffer protocol")]
+    unsafe fn __releasebuffer__(&self, _view: *mut ffi::Py_buffer) {}
+
+    /// If the binary data starts with the prefix string, return bytes[len(prefix):]. Otherwise,
+    /// return a copy of the original binary data:
+    #[pyo3(signature = (prefix, /))]
+    fn removeprefix<'py>(
+        slf: PyRef<'py, Self>,
+        prefix: ReadableBuffer,
+    ) -> PyResult<Bound<'py, Self>> {
+        if slf.0.starts_with(prefix.as_ref()) {
+            Self::new(slf.0.slice(prefix.len()..)).into_pyobject(slf.py())
+        } else {
+            let py = slf.py();
+            slf.into_pyobject_or_pyerr(py)
+        }
+    }
+
+    /// If the binary data ends with the suffix string and that suffix is not empty, return
+    /// `bytes[:-len(suffix)]`. Otherwise, return the original binary data.
+    #[pyo3(signature = (suffix, /))]
+    fn removesuffix<'py>(
+        slf: PyRef<'py, Self>,
+        suffix: ReadableBuffer,
+    ) -> PyResult<Bound<'py, Self>> {
+        if slf.0.ends_with(suffix.as_ref()) {
+            Self::new(slf.0.slice(0..slf.0.len() - suffix.len())).into_pyobject(slf.py())
+        } else {
+            let py = slf.py();
+            slf.into_pyobject_or_pyerr(py)
+        }
+    }
+
+    #[pyo3(
+        signature = (old, new, count = -1, /),
+        text_signature = "(self, old, new, count=-1, /)"
+    )]
+    fn replace<'py>(
+        slf: PyRef<'py, Self>,
+        old: ReadableBuffer,
+        new: ReadableBuffer,
+        count: isize,
+    ) -> PyResult<Bound<'py, Self>> {
+        match replace_bytes(slf.as_slice(), old.as_slice(), new.as_slice(), count)? {
+            ReplaceBytes::Unchanged => {
+                let py = slf.py();
+                slf.into_pyobject_or_pyerr(py)
+            }
+            ReplaceBytes::Replaced(bytes) => Self::from(bytes).into_pyobject(slf.py()),
+        }
+    }
+
+    /// Return True if all bytes in the sequence are alphabetical ASCII characters or ASCII decimal
+    /// digits and the sequence is not empty, False otherwise. Alphabetic ASCII characters are
+    /// those byte values in the sequence b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+    /// ASCII decimal digits are those byte values in the sequence b'0123456789'.
+    fn isalnum(&self) -> bool {
+        (!self.0.is_empty()) && self.0.as_ref().iter().all(u8::is_ascii_alphanumeric)
+    }
+
+    /// Return True if all bytes in the sequence are alphabetic ASCII characters and the sequence
+    /// is not empty, False otherwise. Alphabetic ASCII characters are those byte values in the
+    /// sequence b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+    fn isalpha(&self) -> bool {
+        (!self.0.is_empty()) && self.0.as_ref().iter().all(u8::is_ascii_alphabetic)
+    }
+
+    /// Return True if the sequence is empty or all bytes in the sequence are ASCII, False
+    /// otherwise. ASCII bytes are in the range 0-0x7F.
+    fn isascii(&self) -> bool {
+        self.0.as_ref().iter().all(u8::is_ascii)
+    }
+
+    /// Return True if all bytes in the sequence are ASCII decimal digits and the sequence is not
+    /// empty, False otherwise. ASCII decimal digits are those byte values in the sequence
+    /// b'0123456789'.
+    fn isdigit(&self) -> bool {
+        (!self.0.is_empty()) && self.0.as_ref().iter().all(u8::is_ascii_digit)
+    }
+
+    /// Return True if there is at least one lowercase ASCII character in the sequence and no
+    /// uppercase ASCII characters, False otherwise.
+    fn islower(&self) -> bool {
+        let mut has_lower = false;
+        for &c in self.0.as_ref() {
+            if c.is_ascii_uppercase() {
+                return false;
+            }
+            has_lower |= c.is_ascii_lowercase();
+        }
+        has_lower
+    }
+
+    /// Return True if all bytes in the sequence are ASCII whitespace and the sequence is not
+    /// empty, False otherwise. ASCII whitespace characters are those byte values in the sequence
+    /// b' \t\n\r\x0b\f' (space, tab, newline, carriage return, vertical tab, form feed).
+    fn isspace(&self) -> bool {
+        !self.0.is_empty()
+            && self.0.as_ref().iter().all(|c| {
+                c.is_ascii_whitespace() || *c == b'\x0b' // Also check for vertical tab
+            })
+    }
+
+    /// Return True if there is at least one uppercase alphabetic ASCII character in the sequence
+    /// and no lowercase ASCII characters, False otherwise.
+    fn isupper(&self) -> bool {
+        let mut has_upper = false;
+        for &c in self.0.as_ref() {
+            if c.is_ascii_lowercase() {
+                return false;
+            }
+            has_upper |= c.is_ascii_uppercase();
+        }
+        has_upper
+    }
+
+    /// Return a copy of the sequence with all the uppercase ASCII characters converted to their
+    /// corresponding lowercase counterpart.
+    fn lower(&self) -> Self {
+        self.0.to_ascii_lowercase().into()
+    }
+
+    /// Return a copy of the sequence with all the lowercase ASCII characters converted to their
+    /// corresponding uppercase counterpart.
+    fn upper(&self) -> Self {
+        self.0.to_ascii_uppercase().into()
+    }
+
+    /// Copy this buffer's contents to a Python `bytes` object
+    fn __bytes__<'py>(&'py self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
+        pyo3::types::PyBytes::new(py, &self.0)
+    }
+
+    /// Copy this buffer's contents to a Python `bytes` object
+    fn to_bytes<'py>(&'py self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
+        self.__bytes__(py)
+    }
+
+    // <python-bytes-methods>
+    /// Return python-hash of bytes
+    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        let hash = self.1.load(Ordering::Relaxed);
+        if hash != PY_HASH_NONE {
+            return Ok(hash);
+        }
+        let hash = self.py_hashbuffer(py)?;
+        self.1.store(hash, Ordering::Relaxed);
+        Ok(hash)
+    }
+
+    /// Hash bytes with Python's buffer hash for benchmarking.
+    fn py_hashbuffer(&self, py: Python<'_>) -> PyResult<isize> {
+        PythonBytesMethods::py_hashbuffer(self, py)
+    }
+
+    fn __iter__(&self) -> PyBytesIter {
+        self.into()
+    }
+
+    /// Iterate over overlapping byte slices of length `size`.
+    #[pyo3(signature = (size, /, *, reverse = false))]
+    fn windows(&self, size: std::num::NonZeroUsize, reverse: bool) -> PyBytesSliceIter {
+        if reverse {
+            PyBytesSliceIter::windows_rev(self.0.clone(), size)
+        } else {
+            PyBytesSliceIter::windows_fwd(self.0.clone(), size)
+        }
+    }
+
+    /// Decode the bytes using the codec registered for encoding.
+    ///
+    ///   encoding
+    ///     The encoding with which to decode the bytes.
+    ///   errors
+    ///     The error handling scheme to use for the handling of decoding errors.
+    ///     The default is 'strict' meaning that decoding errors raise a
+    ///     `UnicodeDecodeError`. Other possible values are 'ignore' and 'replace'
+    ///     as well as any other name registered with `codecs.register_error` that
+    ///     can handle `UnicodeDecodeErrors`.
+    ///
+    /// ## python-signature
+    /// ```python
+    /// (encoding='utf-8', errors='strict')
+    /// ```
+    #[pyo3(signature = (encoding = "utf-8", errors = "strict"))]
+    fn decode<'py>(
+        slf: PyRef<'py, Self>,
+        py: Python<'py>,
+        encoding: &str,
+        errors: &str,
+    ) -> PyResult<Bound<'py, PyString>> {
+        PythonBytesMethods::py_decode(slf, py, encoding, errors)
+    }
+
+    /// Create a string of hexadecimal numbers from a bytes object.
+    ///
+    ///   sep
+    ///     An optional single character or byte to separate hex bytes.
+    ///   `bytes_per_sep`
+    ///     How many bytes between separators.  Positive values count from the
+    ///     right, negative values count from the left.
+    ///
+    /// Example:
+    /// >>> value = b'\xb9\x01\xef'
+    /// >>> value.hex()
+    /// 'b901ef'
+    /// >>> value.hex(':')
+    /// 'b9:01:ef'
+    /// >>> value.hex(':', 2)
+    /// 'b9:01ef'
+    /// >>> value.hex(':', -2)
+    /// 'b901:ef'
+    #[pyo3(signature = (sep = None, *, bytes_per_sep = 1))]
+    fn hex(&self, sep: Option<PyHexSep>, bytes_per_sep: usize) -> String {
+        self.py_hex(sep.map(char::from), bytes_per_sep)
+    }
+
+    /// Create a bytes object from a string of hexadecimal numbers.
+    ///
+    /// Spaces between two numbers are accepted.
+    /// Example: bytes.fromhex('B9 01EF') -> b'\\xb9\\x01\\xef'.
+    ///
+    /// ## python-signature
+    /// ```python
+    /// (string, /)
+    /// ```
+    #[staticmethod]
+    fn fromhex(string: &str) -> PyResult<Self> {
+        Self::py_fromhex(string)
+    }
+
+    /// Return True if B is a titlecased string and there is at least one
+    /// character in B, i.e. uppercase characters may only follow uncased
+    /// characters and lowercase characters only cased ones. Return False
+    /// otherwise.
+    ///
+    /// Impl based on cpython's implementation ([permalink](https://github.com/python/cpython/blob/main/Objects/bytes_methods.c#L201) / [maybe-outdated](https://github.com/python/cpython/blob/main/Objects/bytes_methods.c#L201))
+    ///
+    /// ```c
+    /// PyObject*
+    /// _Py_bytes_istitle(const char *cptr, Py_ssize_t len)
+    /// {
+    ///     const unsigned char *p
+    ///         = (const unsigned char *) cptr;
+    ///     const unsigned char *e;
+    ///     int cased, previous_is_cased;
+    ///
+    ///     if (len == 1) {
+    ///         if (Py_ISUPPER(*p)) {
+    ///             Py_RETURN_TRUE;
+    ///         }
+    ///         Py_RETURN_FALSE;
+    ///     }
+    ///
+    ///     /* Special case for empty strings */
+    ///     if (len == 0)
+    ///         Py_RETURN_FALSE;
+    ///
+    ///     e = p + len;
+    ///     cased = 0;
+    ///     previous_is_cased = 0;
+    ///     for (; p < e; p++) {
+    ///         const unsigned char ch = *p;
+    ///
+    ///         if (Py_ISUPPER(ch)) {
+    ///             if (previous_is_cased)
+    ///                 Py_RETURN_FALSE;
+    ///             previous_is_cased = 1;
+    ///             cased = 1;
+    ///         }
+    ///         else if (Py_ISLOWER(ch)) {
+    ///             if (!previous_is_cased)
+    ///                 Py_RETURN_FALSE;
+    ///             previous_is_cased = 1;
+    ///             cased = 1;
+    ///         }
+    ///         else
+    ///             previous_is_cased = 0;
+    ///     }
+    ///     return PyBool_FromLong(cased);
+    /// }
+    /// ```
+    fn istitle(&self) -> bool {
+        self.py_istitle()
+    }
+
+    fn title(&self) -> Self {
+        self.py_title()
+    }
+
+    #[pyo3(signature = (prefix, /))]
+    fn startswith(&self, prefix: ReadableBuffer) -> bool {
+        self.as_slice().starts_with(prefix.as_ref())
+    }
+
+    #[pyo3(signature = (suffix, /))]
+    fn endswith(&self, suffix: ReadableBuffer) -> bool {
+        self.as_slice().ends_with(suffix.as_ref())
+    }
+
+    fn capitalize(&self) -> Self {
+        self.py_capitalize()
+    }
+
+    fn swapcase(&self) -> Self {
+        self.py_swapcase()
+    }
+
+    #[pyo3(signature = (tabsize = 8))]
+    fn expandtabs(&self, tabsize: usize) -> Result<Self, AllocError> {
+        self.py_expandtabs(tabsize)
+    }
+
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)")
+    ]
+    fn strip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Bound<'_, Self>> {
+        let py = slf.py();
+        let bytes = &slf.0;
+        let range = chars.strip_range(slf.as_slice());
+        if range.start == 0 && range.end == bytes.len() {
+            slf.into_pyobject_or_pyerr(py)
+        } else {
+            Self::new(bytes.slice(range)).into_pyobject(py)
+        }
+    }
+
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)"
+    )]
+    fn lstrip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Bound<'_, Self>> {
+        let bytes = &slf.0;
+        let ix = chars.lstrip_range(slf.as_slice());
+        if ix == 0 {
+            let py = slf.py();
+            slf.into_pyobject_or_pyerr(py)
+        } else {
+            Self::new(bytes.slice(ix..)).into_pyobject(slf.py())
+        }
+    }
+
+    #[pyo3(
+        signature = (chars = PythonBytesStrip::AsciiWhitespace, /),
+        text_signature = "(self, chars=None, /)"
+    )]
+    fn rstrip(slf: PyRef<'_, Self>, chars: PythonBytesStrip) -> PyResult<Bound<'_, Self>> {
+        let bytes = &slf.0;
+        let ix = chars.rstrip_range(slf.as_slice());
+        if ix == bytes.len() {
+            let py = slf.py();
+            slf.into_pyobject_or_pyerr(py)
+        } else {
+            Self::new(bytes.slice(0..ix)).into_pyobject(slf.py())
+        }
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn find(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyFindResult {
+        self.py_find(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn rfind(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyFindResult {
+        self.py_rfind(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn index(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyIndexResult {
+        self.py_index(sub, start, end)
+    }
+
+    #[pyo3(signature = (sub, start = None, end = None, /))]
+    fn rindex(&self, sub: BufferOrByte, start: Option<isize>, end: Option<isize>) -> PyIndexResult {
+        self.py_rindex(sub, start, end)
+    }
+
+    #[pyo3(signature = (sep, /))]
+    fn partition<'py>(
+        slf: PyRef<'py, Self>,
+        py: Python<'py>,
+        sep: ReadableBuffer,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let sep = sep.as_slice();
+        if sep.is_empty() {
+            return Err(PyValueError::new_err("empty separator"));
+        }
+
+        if let Some(ix) = search::find_subslice(slf.as_slice(), sep) {
+            let sep_end = ix + sep.len();
+            PyTuple::new(
+                py,
+                [
+                    Self::new(slf.0.slice(..ix)).into_bound_py_any(py)?,
+                    Self::new(slf.0.slice(ix..sep_end)).into_bound_py_any(py)?,
+                    Self::new(slf.0.slice(sep_end..)).into_bound_py_any(py)?,
+                ],
+            )
+        } else {
+            let empty = Self::new(Bytes::new()).into_bound_py_any(py)?;
+            PyTuple::new(
+                py,
+                [
+                    slf.into_pyobject_or_pyerr(py)?.into_any(),
+                    empty.clone(),
+                    empty,
+                ],
+            )
+        }
+    }
+
+    #[pyo3(signature = (sep, /))]
+    fn rpartition<'py>(
+        slf: PyRef<'py, Self>,
+        py: Python<'py>,
+        sep: ReadableBuffer,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let sep = sep.as_slice();
+        if sep.is_empty() {
+            return Err(PyValueError::new_err("empty separator"));
+        }
+
+        if let Some(ix) = search::rfind_subslice(slf.as_slice(), sep) {
+            let sep_end = ix + sep.len();
+            PyTuple::new(
+                py,
+                [
+                    Self::new(slf.0.slice(..ix)).into_bound_py_any(py)?,
+                    Self::new(slf.0.slice(ix..sep_end)).into_bound_py_any(py)?,
+                    Self::new(slf.0.slice(sep_end..)).into_bound_py_any(py)?,
+                ],
+            )
+        } else {
+            let empty = Self::new(Bytes::new()).into_bound_py_any(py)?;
+            PyTuple::new(
+                py,
+                [
+                    empty.clone(),
+                    empty,
+                    slf.into_pyobject_or_pyerr(py)?.into_any(),
+                ],
+            )
+        }
+    }
+
+    #[pyo3(
+        signature = (sep = None, maxsplit = PyMaxSplit::default()),
+        text_signature = "(self, sep=None, maxsplit=-1, /)"
+    )]
+    fn split(&self, sep: Option<ReadableBuffer>, maxsplit: PyMaxSplit) -> PyResult<Vec<Self>> {
+        let maxsplit = maxsplit.0;
+        self.py_split(sep, maxsplit)
+    }
+
+    #[pyo3(
+        signature = (sep = None, maxsplit = PyMaxSplit::default()),
+        text_signature = "(self, sep=None, maxsplit=-1, /)"
+    )]
+    fn rsplit(&self, sep: Option<ReadableBuffer>, maxsplit: PyMaxSplit) -> PyResult<Vec<Self>> {
+        let maxsplit = maxsplit.0;
+        self.py_rsplit(sep, maxsplit)
+    }
+    // </python-bytes-methods>
+
+    // <::bytes::Bytes methods>
+    /// Return true if the buffer has a length of zero, false otherwise.
+    #[pyo3(name = "is_empty")]
+    fn pydef_is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Return true if this is the only reference to the underlying buffer, false otherwise.
+    fn is_unique(&self) -> bool {
+        self.0.is_unique()
+    }
+    // </::bytes::Bytes methods>
+}
+
+impl<'py> FromPyObject<'_, 'py> for RyBytes {
+    type Error = pyo3::PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if ob.is_exact_instance_of::<pyo3::types::PyBytes>() {
+            let pbb = ob.extract::<PyBackedBytes>()?;
+            Ok(Bytes::from_owner(pbb).into())
+        } else if ob.is_exact_instance_of::<Self>() {
+            #[expect(unsafe_code)]
+            let pb = unsafe {
+                // SAFETY: wenodis (see line above)
+                ob.cast_unchecked::<Self>()
+            };
+            Ok(Self::new(pb.get().0.clone())) // supa fast clone the inner bytes::Bytes
+        } else {
+            let buffer = ob.extract::<RyBuffer>()?;
+            let bytes = Bytes::from_owner(buffer);
+            Ok(Self::new(bytes))
+        }
+    }
+}
+
+/// Read-only, C-contiguous byte view of any buffer-protocol object
+///
+/// Wraps pyo3's [`PyUntypedBuffer`] (no item-format check) so any C-contiguous exporter is read as
+/// raw bytes (same as `hashlib`/`bytes(...)`).
+///
+/// This also implements `AsRef`<[u8]> because that is required for `Bytes::from_owner`
+#[derive(Debug)]
+pub struct RyBuffer(PyUntypedBuffer);
+
+impl AsRef<[u8]> for RyBuffer {
+    #[expect(unsafe_code)]
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        let len = self.0.len_bytes();
+        if len == 0 {
+            // `buf` may be NULL for empty exports
+            return &[];
+        }
+        // Safety:
+        //
+        // This requires that the data will not be mutated from Python. Sadly, the buffer protocol
+        // does not uphold this invariant always for us, and the Python user must take care not to
+        // mutate the provided buffer.
+        unsafe { std::slice::from_raw_parts(self.0.buf_ptr().cast::<u8>(), len) }
+    }
+}
+
+impl From<RyBuffer> for RyBytes {
+    #[inline]
+    fn from(value: RyBuffer) -> Self {
+        let bytes = Bytes::from_owner(value);
+        Self::new(bytes)
+    }
+}
+
+impl<'py> FromPyObject<'_, 'py> for RyBuffer {
+    type Error = pyo3::PyErr;
+    #[inline]
+    fn extract(ob: pyo3::Borrowed<'_, 'py, pyo3::PyAny>) -> PyResult<Self> {
+        let buffer = PyUntypedBuffer::get(&ob)?;
+        if !buffer.is_c_contiguous() {
+            return Err(PyBufferError::new_err("buffer is not C-contiguous"));
+        }
+        Ok(Self(buffer))
+    }
+}
+
+/// This is _mostly_ the same as the upstream [`bytes::Bytes` Debug
+/// impl](https://github.com/tokio-rs/bytes/blob/71824b095c4150b3af0776ac158795c00ff9d53f/src/fmt/debug.rs#L6-L37),
+/// however we don't use it because that impl doesn't look how the python bytes repr looks; this
+/// isn't exactly the same either, as the python repr will switch between `'` and `"` based on the
+/// presence of the other in the string, but it's close enough AND we don't have to do a full scan
+/// of the bytes to check for that.
+impl std::fmt::Display for RyBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Bytes(b\"")?;
+        for &byte in self.0.as_ref() {
+            match byte {
+                // https://doc.rust-lang.org/reference/tokens.html#byte-escapes
+                b'\\' => f.write_str(r"\\")?,
+                b'"' => f.write_str("\\\"")?,
+                b'\n' => f.write_str(r"\n")?,
+                b'\r' => f.write_str(r"\r")?,
+                b'\t' => f.write_str(r"\t")?,
+                // printable ASCII
+                0x20..=0x7E => f.write_char(byte as char)?,
+                _ => write!(f, "\\x{byte:02x}")?,
+            }
+        }
+        f.write_str("\")")?;
+        Ok(())
+    }
+}
+
+// Forward to debug - possibly fix?
+impl std::fmt::Debug for RyBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+/// A key for the `__getitem__` method of `PyBytes` - int/slice
+#[derive(FromPyObject)]
+enum BytesGetItemKey<'py> {
+    /// An integer index
+    Int(isize),
+    /// A python slice
+    Slice(Bound<'py, PySlice>),
+}
+
+enum BytesGetItemResult {
+    /// A single byte as an integer
+    Byte(u8),
+    /// A slice of bytes as a new `PyBytes`
+    Slice(RyBytes),
+}
+
+impl<'py> IntoPyObject<'py> for BytesGetItemResult {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self {
+            Self::Byte(b) => b.into_bound_py_any(py),
+            Self::Slice(s) => s.into_bound_py_any(py),
+        }
+    }
+}
+
+/// optimized bytes-iterator...
+#[pyclass(name = "ByteIter", immutable_type)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
+pub(crate) struct PyBytesIter(::bytes::buf::IntoIter<Bytes>);
+
+impl From<Bytes> for PyBytesIter {
+    fn from(value: Bytes) -> Self {
+        Self(value.into_iter())
+    }
+}
+
+impl From<&RyBytes> for PyBytesIter {
+    fn from(value: &RyBytes) -> Self {
+        value.0.clone().into()
+    }
+}
+
+#[pymethods]
+impl PyBytesIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> Option<u8> {
+        self.0.next()
+    }
+
+    fn __len__(&self) -> usize {
+        self.0.len()
+    }
+}
+
+// ============================================================================
+// SLICE ITERATORS
+// ============================================================================
+
+/// Iterator over overlapping byte slices.
+#[pyclass(name = "BytesSliceIter", immutable_type)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
+pub struct PyBytesSliceIter {
+    bytes: Bytes,
+    ranges: BytesSliceIterRanges,
+}
+
+impl PyBytesSliceIter {
+    /// Create a new windows iterator (forward)
+    pub(crate) fn windows_fwd(bytes: Bytes, size: NonZeroUsize) -> Self {
+        let ranges =
+            BytesSliceIterRanges::WindowsForward(BytesWindowRanges::new(bytes.len(), size.get()));
+        Self { bytes, ranges }
+    }
+
+    /// Create a new windows iterator (reverse)
+    pub(crate) fn windows_rev(bytes: Bytes, size: NonZeroUsize) -> Self {
+        let ranges =
+            BytesSliceIterRanges::WindowsReverse(BytesWindowRanges::new(bytes.len(), size.get()));
+        Self { bytes, ranges }
+    }
+
+    fn remaining(&self) -> usize {
+        self.ranges.len()
+    }
+}
+
+/// PYIMPL
+#[pymethods]
+impl PyBytesSliceIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> Option<RyBytes> {
+        self.ranges
+            .next()
+            .map(|range| RyBytes::from(self.bytes.slice(range)))
+    }
+
+    fn __len__(&self) -> usize {
+        self.remaining()
+    }
+
+    fn next(&mut self) -> Option<RyBytes> {
+        self.__next__()
+    }
+
+    #[pyo3(signature = (n = 1, /) )]
+    fn take(&mut self, n: usize) -> Vec<RyBytes> {
+        self.ranges
+            .by_ref()
+            .take(n)
+            .map(|range| RyBytes::from(self.bytes.slice(range)))
+            .collect()
+    }
+
+    fn collect(&mut self) -> Vec<RyBytes> {
+        self.ranges
+            .by_ref()
+            .map(|range| RyBytes::from(self.bytes.slice(range)))
+            .collect()
+    }
+
+    #[pyo3(signature = (n , /) )]
+    fn nth(&mut self, n: usize) -> Option<RyBytes> {
+        self.ranges
+            .by_ref()
+            .nth(n)
+            .map(|range| RyBytes::from(self.bytes.slice(range)))
+    }
+
+    fn last(&mut self) -> Option<RyBytes> {
+        self.ranges
+            .by_ref()
+            .last()
+            .map(|range| RyBytes::from(self.bytes.slice(range)))
+    }
+
+    fn count(&mut self) -> usize {
+        self.ranges.by_ref().count()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.ranges.size_hint()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+
+    #[getter]
+    fn kind(&self) -> BytesSliceIterRangesKind {
+        self.ranges.kind()
+    }
+}
+
+impl std::fmt::Display for PyBytesSliceIter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = self.ranges.kind().name();
+        write!(
+            f,
+            "BytesSlicesIter<{}; len={}; remaining={}>",
+            name,
+            self.bytes.len(),
+            self.remaining()
+        )
+    }
+}
+
+/// Internal iterator of the window ranges either fwd or reverse
+#[derive(Clone, Debug)]
+enum BytesSliceIterRanges {
+    WindowsForward(BytesWindowRanges<false>),
+    WindowsReverse(BytesWindowRanges<true>),
+}
+
+enum BytesSliceIterRangesKind {
+    WindowsForward,
+    WindowsReverse,
+}
+
+impl BytesSliceIterRangesKind {
+    const fn name(&self) -> &'static str {
+        match self {
+            Self::WindowsForward => "windows",
+            Self::WindowsReverse => "windows-reverse",
+        }
+    }
+}
+
+impl<'py> IntoPyObject<'py> for BytesSliceIterRangesKind {
+    type Target = PyString;
+    type Output = Borrowed<'py, 'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(match self {
+            Self::WindowsForward => pyo3::intern!(py, "windows"),
+            Self::WindowsReverse => pyo3::intern!(py, "windows-reverse"),
+        }
+        .as_borrowed())
+    }
+}
+
+impl BytesSliceIterRanges {
+    const fn kind(&self) -> BytesSliceIterRangesKind {
+        match self {
+            Self::WindowsForward(_) => BytesSliceIterRangesKind::WindowsForward,
+            Self::WindowsReverse(_) => BytesSliceIterRangesKind::WindowsReverse,
+        }
+    }
+}
+
+impl Iterator for BytesSliceIterRanges {
+    type Item = Range<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::WindowsForward(ranges) => ranges.next(),
+            Self::WindowsReverse(ranges) => ranges.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::WindowsForward(ranges) => ranges.size_hint(),
+            Self::WindowsReverse(ranges) => ranges.size_hint(),
+        }
+    }
+}
+
+impl ExactSizeIterator for BytesSliceIterRanges {
+    fn len(&self) -> usize {
+        match self {
+            Self::WindowsForward(ranges) => ranges.len(),
+            Self::WindowsReverse(ranges) => ranges.len(),
+        }
+    }
+}
+
+/// Iterator of bytes ranges to slice with [`PyBytesSliceIter`].
+#[derive(Clone, Debug)]
+struct BytesWindowRanges<const REVERSE: bool> {
+    len: usize,
+    size: usize,
+    pos: usize,
+}
+
+impl<const REVERSE: bool> BytesWindowRanges<REVERSE> {
+    fn new(len: usize, size: usize) -> Self {
+        Self { len, size, pos: 0 }
+    }
+}
+
+impl<const REVERSE: bool> Iterator for BytesWindowRanges<REVERSE> {
+    type Item = Range<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let remaining = self.len();
+        if remaining == 0 {
+            return None;
+        }
+        let start = if REVERSE {
+            self.len - self.size - self.pos
+        } else {
+            self.pos
+        };
+        self.pos += 1;
+        Some(start..start + self.size)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
+}
+
+impl<const REVERSE: bool> ExactSizeIterator for BytesWindowRanges<REVERSE> {
+    fn len(&self) -> usize {
+        if self.size > self.len {
+            0
+        } else {
+            (self.len - self.size + 1).saturating_sub(self.pos)
+        }
+    }
+}
+
+struct PyMaxSplit(usize);
+
+impl Default for PyMaxSplit {
+    fn default() -> Self {
+        Self(usize::MAX)
+    }
+}
+
+impl<'py> FromPyObject<'_, 'py> for PyMaxSplit {
+    type Error = pyo3::PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let value = ob.extract::<isize>()?;
+        if value < 0 {
+            Ok(Self(usize::MAX))
+        } else {
+            Ok(Self(value.try_into().expect("wenodis")))
+        }
+    }
+}

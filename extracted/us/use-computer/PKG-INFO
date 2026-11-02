@@ -1,0 +1,108 @@
+Metadata-Version: 2.5
+Name: use-computer
+Version: 0.0.46
+Summary: Python SDK for use.computer macOS sandboxes
+Project-URL: Homepage, https://use.computer
+Project-URL: Documentation, https://api.use.computer/docs
+Project-URL: Repository, https://github.com/josancamon19/use-computer-sdk
+Author: use.computer
+Keywords: automation,computer-use,macos,sandbox,vnc
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27
+Provides-Extra: agents
+Requires-Dist: anthropic>=0.86; extra == 'agents'
+Requires-Dist: google-genai>=1; extra == 'agents'
+Requires-Dist: litellm>=1; extra == 'agents'
+Requires-Dist: openai>=1; extra == 'agents'
+Requires-Dist: pillow>=10; extra == 'agents'
+Requires-Dist: tinker-cookbook>=0.1.0; (python_full_version >= '3.11') and extra == 'agents'
+Requires-Dist: tinker>=0.14.0; (python_full_version >= '3.11') and extra == 'agents'
+Description-Content-Type: text/markdown
+
+# use-computer Python SDK
+
+use.computer gives you macOS sandboxes: VMs on dedicated Apple M4 Mac minis that you reserve for 24 hours or more, up to 2 VMs at a time per Mac.
+
+```bash
+pip install use-computer
+export USE_COMPUTER_API_KEY=uc_live_...
+```
+
+Optional agent integrations are installed explicitly:
+
+```bash
+pip install "use-computer[agents]"        # computer-use agents and provider SDKs
+```
+
+Base installs only the SDK client and `httpx`. The `agents` extra installs the agent runtime plus model-provider dependencies (Anthropic, OpenAI, Gemini, LiteLLM).
+
+## Quickstart
+
+Flow: sign up → $100 starter credit → reserve a Mac mini (dashboard, or `client.reserve(hours=24)` in the SDK) → `create()` a macOS sandbox → drive it (mouse, keyboard, screenshot, exec, files, recording, UI tree, VNC) → `delete()`. Reservations cost $1.91/hour per Mac; the starter credit pays for them.
+
+```python
+from use_computer import Computer
+
+client = Computer()
+
+# 1. Reserve one Mac Mini for 24 hours
+reservation = client.reserve(hours=24)
+
+# 2. Launch a macOS sandbox on the reserved Mac
+with client.create(reservation_id=reservation.id) as mac:
+    # 3. Drive the macOS sandbox
+    mac.exec("open -a Safari")
+    mac.keyboard.type("hello from use.computer")
+    mac.mouse.click(500, 500)
+    png = mac.screenshot.take_full_screen()
+    print("VNC URL:", mac.vnc_url)
+```
+
+Each reserved Mac Mini supports up to 2 parallel macOS VMs. Check `Computer().platforms(reservation_id=...)["macos"]["capacity"]` for the selected reservation's `max` and `used` counts.
+
+Sandboxes default to `ephemeral=True`, deleting automatically after the idle timeout (roughly 2 minutes without activity). Use `ephemeral=False` when a sandbox should persist until manual deletion, or call `sandbox.start_keepalive(interval=30)` during long model-think periods.
+
+## Runtime Snapshots
+
+macOS snapshots let you seed a VM once, snapshot it, then create new sandboxes from that snapshot version. macOS snapshots preserve disk state, so installed apps, accounts, and seeded files are available immediately:
+
+```python
+from use_computer import Computer
+
+client = Computer()
+
+# Configure the macOS desktop by hand over VNC, then snapshot it.
+with client.create(type="macos") as mac:
+    print("Set up the macOS desktop here:", mac.vnc_url)
+    input("Press Enter once the desktop is ready to snapshot...")
+    snapshot = mac.snapshot("chrome-seeded-macos")
+
+# New sandboxes boot from that saved disk state, no setup needed.
+with client.create(type="macos", snapshot=snapshot.version) as seeded:
+    print("Seeded sandbox ready:", seeded.vnc_url)
+```
+
+Use `client.snapshots()` to list saved snapshot versions.
+
+## Examples
+
+| File | What it shows |
+| --- | --- |
+| [`examples/_1_hello_macos.py`](../examples/python/_1_hello_macos.py) | reserve → create → exec → keyboard → screenshot |
+| [`examples/_2_recording.py`](../examples/python/_2_recording.py) | start / stop / download a screen recording |
+| [`examples/_3_file_transfer.py`](../examples/python/_3_file_transfer.py) | upload bytes, download a file back |
+| [`examples/_4_keepalive.py`](../examples/python/_4_keepalive.py) | heartbeat for ephemeral sessions idle > 2 min |
+| [`examples/_5_snapshots.py`](../examples/python/_5_snapshots.py) | snapshot seeded macOS state |
+
+## HTTP API
+
+Every SDK method wraps `https://api.use.computer/v1/...` with `Authorization: Bearer uc_live_...`. Swagger: [api.use.computer/docs](https://api.use.computer/docs). OpenAPI spec: [api.use.computer/openapi.yaml](https://api.use.computer/openapi.yaml).

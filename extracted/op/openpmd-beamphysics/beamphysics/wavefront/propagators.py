@@ -1,0 +1,181 @@
+from dataclasses import replace
+from math import pi
+
+import numpy as np
+
+
+def drift_wavefront(w, z, backend=np, device="cpu", curvature=0):
+    """
+    Propagate a wavefront `w` by distance `z` in real space,
+    modifying each slice along the z-dimension.
+    """
+
+    if curvature == 0:
+        w2 = drift_wavefront_basic(w, z, backend=backend, device=device)
+    else:
+        w2 = drift_wavefront_advanced(
+            w, z, backend=backend, device=device, curvature=curvature
+        )
+
+    return w2
+
+
+def drift_wavefront_basic(w, z, backend=np, device="cpu"):
+    """
+    Propagate a wavefront `w` by distance `z` in real space,
+    modifying each slice along the z-dimension.
+
+    Paraxial approximation
+
+    In k-space:
+    Ehat -> Ehat * exp( -i z (kx^2 + ky^2)/ (2 k0))
+
+    Experimental: works with torch and device='mps'
+
+    Nonzero propagation clears stored curvature radii and their uncertainties.
+    Other attributes are preserved in an independent copy.
+
+    """
+
+    attrs = w.attrs.copy()
+    if z != 0:
+        attrs.radius_of_curvature_x = None
+        attrs.radius_of_curvature_y = None
+        attrs.delta_radius_of_curvature_x = None
+        attrs.delta_radius_of_curvature_y = None
+
+    fft2 = backend.fft.fft2
+    ifft2 = backend.fft.ifft2
+
+    # Handle torch's 'mps'
+    def fftfreq(*args, **kwargs):
+        if device == "cpu":
+            x = backend.fft.fftfreq(*args, **kwargs)
+        else:
+            x = backend.fft.fftfreq(*args, **kwargs, device=device)
+        return x
+
+    if w.in_kspace:
+        # The fields only need the phase factor here
+        kx, ky, _ = backend.meshgrid(w.kxvec, w.kyvec, w.kzvec, indexing="ij")
+        kernel = backend.exp(-1j * z * w.wavelength * (kx**2 + ky**2) / (4 * np.pi))
+        new_fields = []
+        for field in (w.Ex, w.Ey):
+            if field is None:
+                new_fields.append(None)
+                continue
+            new_fields.append(kernel * field)
+        Ex_drifted, Ey_drifted = new_fields
+        return replace(
+            w,
+            Ex=Ex_drifted,
+            Ey=Ey_drifted,
+            attrs=attrs,
+            s_position=w.s_position + z,
+        )
+
+    # r-space calculation
+
+    # Make simple kx vecs here.
+    # No need for fftshift, we will fft and ifft all within this function
+    kx_vec = fftfreq(w.nx, d=w.dx) * 2 * pi
+    ky_vec = fftfreq(w.ny, d=w.dy) * 2 * pi
+    kx, ky = backend.meshgrid(kx_vec, ky_vec, indexing="ij")
+
+    # Compute the phase kernel for propagation
+    kernel = backend.exp(-1j * z * w.wavelength * (kx**2 + ky**2) / (4 * backend.pi))
+
+    # Propagate Ex and Ey
+    new_fields = []
+    for field in (w.Ex, w.Ey):
+        if field is None:
+            new_fields.append(None)
+            continue
+
+        # Allocate an output array of the same shape/dtype
+        # Handle dtype (TODO: more general)
+        if (
+            device == "mps"
+            or field.dtype == backend.complex64
+            or field.dtype == backend.float32
+        ):
+            dtype = backend.complex64
+        elif field.dtype == backend.float64:
+            dtype = backend.complex128
+        else:
+            dtype = backend.complex128
+
+        field_out = backend.empty_like(field, dtype=dtype)
+
+        # Apply to each slice
+        for iz in range(field.shape[2]):
+            kmesh2 = fft2(field[:, :, iz])
+            field_out[:, :, iz] = ifft2(kernel * kmesh2)
+
+        new_fields.append(field_out)
+
+    Ex_drifted, Ey_drifted = new_fields
+
+    # The mesh is co-moving, so `s_position` is the only place a record of the
+    # propagation can go. `attrs` is copied because it is mutable and shared
+    # otherwise: `replace` rebinds the same object onto the new wavefront.
+    return replace(
+        w,
+        Ex=Ex_drifted,
+        Ey=Ey_drifted,
+        attrs=attrs,
+        s_position=w.s_position + z,
+    )
+
+
+def drift_wavefront_advanced(w, z, backend=np, device="cpu", curvature=1.0):
+    """
+    This adds a curvature correction to the basic drift propagator,
+    and resizes the grid spacing.
+    """
+    if z == 0:
+        return w.copy()
+
+    s_final = w.s_position + z
+
+    x_mesh, y_mesh, _ = backend.meshgrid(w.xvec, w.yvec, w.zvec, indexing="ij")
+
+    curv = np.exp(-1j * backend.pi * (x_mesh**2 + y_mesh**2) / w.wavelength * curvature)
+
+    w = replace(w, attrs=w.attrs.copy())
+    w.Ex = w.Ex * curv if w.Ex is not None else None
+    w.Ey = w.Ey * curv if w.Ey is not None else None
+
+    z_eff = z / (1 + curvature * z)  # float
+    M = z_eff / z  # float
+
+    w = drift_wavefront_basic(w, z_eff, backend=backend, device=device)
+
+    # print("effective propagation distance: ", z_eff, "scaling factor: ", M)
+    Fr = (1 / M) * backend.exp(
+        -1j
+        * np.pi
+        / z
+        / w.wavelength
+        * (1 - M)
+        * ((x_mesh / M) ** 2 + (y_mesh / M) ** 2)
+    )
+
+    w.Ex = w.Ex / Fr if w.Ex is not None else None
+    w.Ey = w.Ey / Fr if w.Ey is not None else None
+    w.dx = w.dx / M
+    w.dy = w.dy / M
+
+    # Both quadratic phases above are referenced to x = y = 0, so this is a
+    # magnification about the optical axis: the map is x -> x/M. The grid midpoint
+    # has to scale with the spacing, or an off-axis feature would keep its
+    # coordinate while the grid around it expanded.
+    w.xmid = w.xmid / M
+    w.ymid = w.ymid / M
+
+    # The beamline advances by the requested distance. `drift_wavefront_basic` above
+    # was handed `z_eff`, which is a scaled-frame device rather than a distance
+    # anything travels, so its increment has to be overwritten rather than kept.
+    w.s_position = s_final
+
+    return w

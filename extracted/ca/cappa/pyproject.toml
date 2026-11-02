@@ -1,0 +1,102 @@
+[project]
+name = "cappa"
+version = "0.33.0"
+description = "Declarative CLI argument parser."
+
+urls = { repository = "https://github.com/dancardin/cappa" }
+authors = [{ name = "Dan Cardin", email = "ddcardin@gmail.com" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+keywords = ["CLI", "parser", "argparse", "click", "typer"]
+classifiers = ["Topic :: Software Development :: Libraries :: Python Modules"]
+
+requires-python = ">=3.8,<4"
+
+dependencies = [
+    "rich >= 12.1.0",
+    "typing-extensions >= 4.8.0",
+    "typing-extensions >= 4.12.0; python_version >= '3.13'",
+    "type-lens >= 0.2.5",
+]
+
+[project.optional-dependencies]
+docstring = ["docstring-parser >= 0.15", "docstring-parser >= 0.17; python_version >= '3.14'"]
+
+[dependency-groups]
+dev = [
+    "pytest >=8.1.1,<9",
+    "coverage >= 7.3.0",
+    "mypy >= 1.0.0",
+    "pyright >= 1.1.398",
+    "ruff >= 0.9.0",
+    "docutils >= 0.20.0",
+    "sphinx >= 7.1.0",
+    "types-docutils >= 0.20.0",
+
+    "attrs >= 18.0",
+    "pydantic >= 1.8.0; python_version < '3.14'",
+    "msgspec >= 0.19.0; python_version >= '3.9'",
+]
+
+[tool.ruff]
+target-version = "py38"
+exclude = ["tests/py312"]
+
+[tool.ruff.lint]
+select = ["C", "D", "E", "F", "I", "N", "Q", "RET", "RUF", "S", "T", "UP", "YTT"]
+ignore = ["C901", "E501", "S101", "D1", "D203", "D213", "D406", "D407", "D408", "D409", "D413"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T201"]
+"src/cappa/parser.py" = ["N818"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "assert_never",
+    "@overload",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+include = ["src/*"]
+
+[tool.mypy]
+strict_optional = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+incremental = true
+check_untyped_defs = true
+exclude = ["tests/py312"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.typos.default]
+extend-ignore-re = [".*#.*typos: ignore[^\\n]*\\n"]
+
+[tool.typos.default.extend-identifiers]
+typ = "typ"
+
+[tool.pytest.ini_options]
+doctest_optionflags = "NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL ELLIPSIS"
+addopts = "--doctest-modules -vv --ff --strict-markers"
+norecursedirs = ".* build dist *.egg bin"
+pytester_example_dir = "examples"
+markers = ["help", "argparse"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,3060 @@
+# Also see test_SprintDataset.py.
+
+from __future__ import annotations
+
+from typing import Any, Iterator, TYPE_CHECKING, List, Tuple, Dict, Optional
+import functools
+import multiprocessing
+import os
+import sys
+import threading
+import _setup_test_env  # noqa
+import unittest
+import numpy
+import tempfile
+import contextlib
+from returnn.datasets.generating import Task12AXDataset, DummyDataset, DummyDatasetMultipleSequenceLength
+from returnn.engine.batch import Batch
+from returnn.datasets.basic import Dataset, DatasetSeq, init_dataset, _get_seq_len_as_array
+from returnn.util.basic import NumbersDict
+from returnn.util import better_exchook
+
+if TYPE_CHECKING:
+    from returnn.tensor import TensorDict
+
+
+def dummy_iter_dataset(dataset: Dataset, *, epoch: int = 1) -> List[DatasetSeq]:
+    """
+    :param dataset:
+    :param epoch:
+    :return: seqs
+    """
+    dataset.init_seq_order(epoch=epoch)
+    data_keys = dataset.get_data_keys()
+    seq_idx = 0
+    seqs = []
+    while dataset.is_less_than_num_seqs(seq_idx):
+        dataset.load_seqs(seq_idx, seq_idx + 1)
+        data = {}
+        for key in data_keys:
+            data[key] = dataset.get_data(seq_idx=seq_idx, key=key)
+        tag = dataset.get_tag(seq_idx)
+        seq = DatasetSeq(seq_idx=seq_idx, seq_tag=tag, features=data)
+        seqs.append(seq)
+        seq_idx += 1
+    print("Iterated through %r, num seqs %i" % (dataset, seq_idx))
+    return seqs
+
+
+def compare_dataset_seqs(seqs1: List[DatasetSeq], seqs2: List[DatasetSeq]):
+    """
+    :param list[DatasetSeq] seqs1:
+    :param list[DatasetSeq] seqs2:
+    """
+    assert len(seqs1) == len(seqs2)
+    for i, (seq1, seq2) in enumerate(zip(seqs1, seqs2)):
+        assert seq1.seq_idx == seq2.seq_idx == i
+        assert seq1.seq_tag == seq2.seq_tag, f"seq1 tag {seq1.seq_tag!r} != seq2 tag {seq2.seq_tag!r} for seq idx {i}"
+        assert set(seq1.features.keys()) == set(seq2.features.keys())
+        for key in seq1.features.keys():
+            assert seq1.features[key].shape == seq2.features[key].shape
+            assert seq1.features[key].dtype == seq2.features[key].dtype
+            assert (seq1.features[key] == seq2.features[key]).all()
+
+
+def test_Task12AXDataset_deepcopy():
+    from copy import deepcopy
+
+    dataset = Task12AXDataset(num_seqs=10)
+    dataset = deepcopy(dataset)
+    dataset.init_seq_order(1)
+    n = dataset.num_seqs
+    for i in range(n):
+        dataset.load_seqs(i, i + 1)
+        targets = dataset.get_data(i, "classes")
+        print(targets)
+    assert not dataset.is_less_than_num_seqs(n)
+
+
+def test_Task12AXDataset_inf():
+    dataset = Task12AXDataset(num_seqs=float("inf"))
+    dataset.init_seq_order(1)
+    n = 10
+    for i in range(n):
+        dataset.load_seqs(i, i + 1)
+        targets = dataset.get_data(i, "classes")
+        print(targets)
+    assert dataset.is_less_than_num_seqs(n)
+
+
+def test_Task12AXDataset_random():
+    dataset = Task12AXDataset(num_seqs=10, seq_ordering="random")
+    dataset.init_seq_order(1)
+    n = dataset.num_seqs
+    for i in range(n):
+        dataset.load_seqs(i, i + 1)
+        targets = dataset.get_data(i, "classes")
+        print(targets)
+    assert not dataset.is_less_than_num_seqs(n)
+
+
+def test_generate_batches():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=20)
+    dataset.init_seq_order(1)
+    batch_gen = dataset.generate_batches(recurrent_net=False, max_seqs=2, batch_size=5)
+    while batch_gen.has_more():
+        batch_gen.peek_next_n(1)
+        batch_gen.advance(1)
+
+
+def test_generate_batches_recurrent():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=20)
+    dataset.init_seq_order(1)
+    batch_gen = dataset.generate_batches(recurrent_net=True, max_seqs=2, batch_size=5)
+    while batch_gen.has_more():
+        batch_gen.peek_next_n(1)
+        batch_gen.advance(1)
+
+
+def test_iterate_seqs_no_chunking_1():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=2, seq_len=11)
+    dataset.chunk_step = 0
+    dataset.chunk_size = 0
+    dataset.init_seq_order(1)
+    seqs = list(dataset.iterate_seqs())
+    assert len(seqs) == 2
+    assert seqs[0] == (0, 0, 11)  # seq-idx, start-frame, end-frame
+    assert seqs[1] == (1, 0, 11)
+
+
+def test_iterate_seqs_chunking_1():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=2, seq_len=11)
+    dataset.chunk_step = 5
+    dataset.chunk_size = 10
+    dataset.init_seq_order(1)
+    seqs = list(dataset.iterate_seqs())
+    for s in seqs:
+        print(s)
+    assert len(seqs) == 6
+    assert seqs[0] == (0, 0, 10)  # seq-idx, start-frame, end-frame
+    assert seqs[1] == (0, 5, 11)
+    assert seqs[2] == (0, 10, 11)
+    assert seqs[3] == (1, 0, 10)
+    assert seqs[4] == (1, 5, 11)
+    assert seqs[5] == (1, 10, 11)
+
+
+def test_iterate_seqs_chunking_varying_sequence_length():
+    dataset = DummyDatasetMultipleSequenceLength(
+        input_dim=2, output_dim=3, num_seqs=2, seq_len={"data": 24, "classes": 12}
+    )
+    dataset.chunk_size = {"data": 12, "classes": 6}
+    dataset.chunk_step = {"data": 6, "classes": 3}
+    dataset.init_seq_order(1)
+    seqs = list(dataset.iterate_seqs())
+    for s in seqs:
+        print(s)
+    assert len(seqs) == 8
+    assert seqs[0] == (0, NumbersDict({"data": 0, "classes": 0}), NumbersDict({"data": 12, "classes": 6}))
+    assert seqs[1] == (0, NumbersDict({"data": 6, "classes": 3}), NumbersDict({"data": 18, "classes": 9}))
+    assert seqs[2] == (0, NumbersDict({"data": 12, "classes": 6}), NumbersDict({"data": 24, "classes": 12}))
+    assert seqs[3] == (0, NumbersDict({"data": 18, "classes": 9}), NumbersDict({"data": 24, "classes": 12}))
+    assert seqs[4] == (1, NumbersDict({"data": 0, "classes": 0}), NumbersDict({"data": 12, "classes": 6}))
+    assert seqs[5] == (1, NumbersDict({"data": 6, "classes": 3}), NumbersDict({"data": 18, "classes": 9}))
+    assert seqs[6] == (1, NumbersDict({"data": 12, "classes": 6}), NumbersDict({"data": 24, "classes": 12}))
+    assert seqs[7] == (1, NumbersDict({"data": 18, "classes": 9}), NumbersDict({"data": 24, "classes": 12}))
+
+
+def test_iterate_seqs_custom_chunking():
+    default_key = "data"
+    chunk_step = 5
+    chunk_size = 10
+
+    def _custom_chunking_func(dataset, seq_idx_start, **_kwargs):
+        assert isinstance(dataset, Dataset)
+        seq_idx = seq_idx_start
+        while dataset.is_less_than_num_seqs(seq_idx):
+            length = dataset.get_seq_length(seq_idx)
+            t = NumbersDict.constant_like(0, numbers_dict=length)
+            while length[default_key] > t[default_key]:
+                chunk_start = NumbersDict(t)
+                chunk_end = NumbersDict.min([t + chunk_size, length])
+                yield seq_idx, chunk_start, chunk_end
+                t += chunk_step
+            seq_idx += 1
+
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=2, seq_len=11)
+    dataset.custom_chunking_func = _custom_chunking_func
+    dataset.init_seq_order(1)
+    seqs = list(dataset.iterate_seqs())
+    for s in seqs:
+        print(s)
+    assert len(seqs) == 6
+    assert seqs[0] == (0, 0, 10)  # seq-idx, start-frame, end-frame
+    assert seqs[1] == (0, 5, 11)
+    assert seqs[2] == (0, 10, 11)
+    assert seqs[3] == (1, 0, 10)
+    assert seqs[4] == (1, 5, 11)
+    assert seqs[5] == (1, 10, 11)
+
+
+def test_batches_recurrent_1():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=2, seq_len=11)
+    dataset.init_seq_order(1)
+    dataset.chunk_size = 10
+    dataset.chunk_step = 5
+    batch_gen = dataset.generate_batches(recurrent_net=True, max_seqs=1, batch_size=20)
+    all_batches = []
+    " :type: list[Batch] "
+    while batch_gen.has_more():
+        (batch,) = batch_gen.peek_next_n(1)
+        assert isinstance(batch, Batch)
+        print("batch:", batch)
+        print("batch seqs:", batch.seqs)
+        all_batches.append(batch)
+        batch_gen.advance(1)
+
+    # Each batch will have 1 batch-slice (max_seqs) and up to 10 frames (chunk_size).
+    # For each seq, we get 3 chunks (chunk_step 5 for 11 frames).
+    # Thus, 6 batches.
+    assert len(all_batches) == 6
+
+    assert all_batches[0].start_seq == 0
+    assert all_batches[0].end_seq == 1  # exclusive
+    assert len(all_batches[0].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[0].seqs[0].seq_idx == 0
+    assert all_batches[0].seqs[0].seq_start_frame == 0
+    assert all_batches[0].seqs[0].seq_end_frame == 10
+    assert all_batches[0].seqs[0].frame_length == 10
+    assert all_batches[0].seqs[0].batch_slice == 0
+    assert all_batches[0].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[1].start_seq == 0
+    assert all_batches[1].end_seq == 1  # exclusive
+    assert len(all_batches[1].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[1].seqs[0].seq_idx == 0
+    assert all_batches[1].seqs[0].seq_start_frame == 5
+    assert all_batches[1].seqs[0].seq_end_frame == 11
+    assert all_batches[1].seqs[0].frame_length == 6
+    assert all_batches[1].seqs[0].batch_slice == 0
+    assert all_batches[1].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[2].start_seq == 0
+    assert all_batches[2].end_seq == 1  # exclusive
+    assert len(all_batches[2].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[2].seqs[0].seq_idx == 0
+    assert all_batches[2].seqs[0].seq_start_frame == 10
+    assert all_batches[2].seqs[0].seq_end_frame == 11
+    assert all_batches[2].seqs[0].frame_length == 1
+    assert all_batches[2].seqs[0].batch_slice == 0
+    assert all_batches[2].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[3].start_seq == 1
+    assert all_batches[3].end_seq == 2  # exclusive
+    assert len(all_batches[3].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[3].seqs[0].seq_idx == 1
+    assert all_batches[3].seqs[0].seq_start_frame == 0
+    assert all_batches[3].seqs[0].seq_end_frame == 10
+    assert all_batches[3].seqs[0].frame_length == 10
+    assert all_batches[3].seqs[0].batch_slice == 0
+    assert all_batches[3].seqs[0].batch_frame_offset == 0
+
+    # ...
+
+
+def test_batches_non_recurrent_1():
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=2, seq_len=11)
+    dataset.init_seq_order(1)
+    batch_gen = dataset.generate_batches(recurrent_net=False, max_seqs=2, batch_size=5)
+    all_batches = []  # type: list[Batch]
+    while batch_gen.has_more():
+        (batch,) = batch_gen.peek_next_n(1)
+        assert isinstance(batch, Batch)
+        print("batch:", batch)
+        print("batch seqs:", batch.seqs)
+        all_batches.append(batch)
+        batch_gen.advance(1)
+
+    # Each batch will have 5 frames (batch_size), not more, i.e. a single seq.
+    # There are 2 * 11 frames in total, so 5 batches, because we concat the 2 seqs, in the non-recurrent case.
+    assert len(all_batches) == 5
+
+    assert all_batches[0].start_seq == 0
+    assert all_batches[0].end_seq == 1  # exclusive
+    assert len(all_batches[0].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[0].seqs[0].seq_idx == 0
+    assert all_batches[0].seqs[0].seq_start_frame == 0
+    assert all_batches[0].seqs[0].seq_end_frame == 5
+    assert all_batches[0].seqs[0].frame_length == 5
+    assert all_batches[0].seqs[0].batch_slice == 0
+    assert all_batches[0].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[1].start_seq == 0
+    assert all_batches[1].end_seq == 1  # exclusive
+    assert len(all_batches[1].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[1].seqs[0].seq_idx == 0
+    assert all_batches[1].seqs[0].seq_start_frame == 5
+    assert all_batches[1].seqs[0].seq_end_frame == 10
+    assert all_batches[1].seqs[0].frame_length == 5
+    assert all_batches[1].seqs[0].batch_slice == 0
+    assert all_batches[1].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[2].start_seq == 0
+    assert all_batches[2].end_seq == 2  # exclusive. now both seq 0 and 1
+    assert len(all_batches[2].seqs) == 2  # two copies, BatchSeqCopyPart
+    assert all_batches[2].seqs[0].seq_idx == 0
+    assert all_batches[2].seqs[0].seq_start_frame == 10
+    assert all_batches[2].seqs[0].seq_end_frame == 11
+    assert all_batches[2].seqs[0].frame_length == 1
+    assert all_batches[2].seqs[0].batch_slice == 0
+    assert all_batches[2].seqs[0].batch_frame_offset == 0
+    assert all_batches[2].seqs[1].seq_idx == 1
+    assert all_batches[2].seqs[1].seq_start_frame == 0
+    assert all_batches[2].seqs[1].seq_end_frame == 4
+    assert all_batches[2].seqs[1].frame_length == 4
+    assert all_batches[2].seqs[1].batch_slice == 0
+    assert all_batches[2].seqs[1].batch_frame_offset == 1
+
+    assert all_batches[3].start_seq == 1
+    assert all_batches[3].end_seq == 2  # exclusive
+    assert len(all_batches[3].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[3].seqs[0].seq_idx == 1
+    assert all_batches[3].seqs[0].seq_start_frame == 4
+    assert all_batches[3].seqs[0].seq_end_frame == 9
+    assert all_batches[3].seqs[0].frame_length == 5
+    assert all_batches[3].seqs[0].batch_slice == 0
+    assert all_batches[3].seqs[0].batch_frame_offset == 0
+
+    assert all_batches[4].start_seq == 1
+    assert all_batches[4].end_seq == 2  # exclusive
+    assert len(all_batches[4].seqs) == 1  # 1 BatchSeqCopyPart
+    assert all_batches[4].seqs[0].seq_idx == 1
+    assert all_batches[4].seqs[0].seq_start_frame == 9
+    assert all_batches[4].seqs[0].seq_end_frame == 11
+    assert all_batches[4].seqs[0].frame_length == 2
+    assert all_batches[4].seqs[0].batch_slice == 0
+    assert all_batches[4].seqs[0].batch_frame_offset == 0
+
+
+def test_batches_context_window():
+    context_window = 2
+    ctx_lr = context_window - 1
+    ctx_left = ctx_lr // 2
+    ctx_right = ctx_lr - ctx_left
+
+    dataset = DummyDataset(input_dim=2, output_dim=3, num_seqs=1, seq_len=11, context_window=context_window)
+    dataset.init_seq_order(1)
+    dataset.chunk_size = 5
+    dataset.chunk_step = 5
+    batch_gen = dataset.generate_batches(recurrent_net=True, max_seqs=1, batch_size=20)
+    all_batches = []  # type: list[Batch]
+    while batch_gen.has_more():
+        (batch,) = batch_gen.peek_next_n(1)
+        assert isinstance(batch, Batch)
+        print("batch:", batch)
+        print("batch seqs:", batch.seqs)
+        all_batches.append(batch)
+        batch_gen.advance(1)
+
+    # Each batch will have 1 batch-slice (max_seqs) and up to 10 frames (chunk_size).
+    # For each seq, we get 3 chunks (chunk_step 5 for 11 frames).
+    # Thus, 3 batches.
+    assert len(all_batches) == 3
+    b0, b1, b2 = all_batches
+    assert isinstance(b0, Batch)
+    assert isinstance(b1, Batch)
+    assert isinstance(b2, Batch)
+
+    assert b0.start_seq == 0
+    assert b0.end_seq == 1  # exclusive
+    assert len(b0.seqs) == 1  # 1 BatchSeqCopyPart
+    assert b0.seqs[0].seq_idx == 0
+    assert b0.seqs[0].seq_start_frame["classes"] == 0
+    assert b0.seqs[0].seq_end_frame["classes"] == 5
+    assert b0.seqs[0].frame_length["classes"] == 5
+    assert b0.seqs[0].seq_start_frame["data"] == 0 - ctx_left
+    assert b0.seqs[0].seq_end_frame["data"] == 5 + ctx_right
+    assert b0.seqs[0].frame_length["data"] == 5 + ctx_lr
+    assert b0.seqs[0].batch_slice == 0
+    assert b0.seqs[0].batch_frame_offset == 0
+
+    assert b1.start_seq == 0
+    assert b1.end_seq == 1  # exclusive
+    assert len(b1.seqs) == 1  # 1 BatchSeqCopyPart
+    assert b1.seqs[0].seq_idx == 0
+    assert b1.seqs[0].seq_start_frame["classes"] == 5
+    assert b1.seqs[0].seq_end_frame["classes"] == 10
+    assert b1.seqs[0].frame_length["classes"] == 5
+    assert b1.seqs[0].seq_start_frame["data"] == 5 - ctx_left
+    assert b1.seqs[0].seq_end_frame["data"] == 10 + ctx_right
+    assert b1.seqs[0].frame_length["data"] == 5 + ctx_lr
+    assert b1.seqs[0].batch_slice == 0
+    assert b1.seqs[0].batch_frame_offset == 0
+
+    assert b2.start_seq == 0
+    assert b2.end_seq == 1  # exclusive
+    assert len(b2.seqs) == 1  # 1 BatchSeqCopyPart
+    assert b2.seqs[0].seq_idx == 0
+    assert b2.seqs[0].seq_start_frame["classes"] == 10
+    assert b2.seqs[0].seq_end_frame["classes"] == 11
+    assert b2.seqs[0].frame_length["classes"] == 1
+    assert b2.seqs[0].seq_start_frame["data"] == 10 - ctx_left
+    assert b2.seqs[0].seq_end_frame["data"] == 11 + ctx_right
+    assert b2.seqs[0].frame_length["data"] == 1 + ctx_lr
+    assert b2.seqs[0].batch_slice == 0
+    assert b2.seqs[0].batch_frame_offset == 0
+
+
+def test_batch_get_total_num_frames():
+    def _check(batch: Batch):
+        total = batch.get_total_num_frames()
+        expected = sum([s.frame_length for s in batch.seqs])
+        assert (total.dict, total.value) == (expected.dict, expected.value)
+        total["data"] = -1
+        assert batch.get_total_num_frames()["data"] == expected["data"]
+
+    batch = Batch()
+    batch.add_sequence_as_slice(seq_idx=0, seq_start_frame=0, length=NumbersDict({"data": 7, "classes": 3}))
+    _check(batch)
+    batch.add_sequence_as_slice(seq_idx=1, seq_start_frame=NumbersDict(2), length=NumbersDict({"data": 11}))
+    _check(batch)
+    batch.add_sequence_as_slice(seq_idx=2, seq_start_frame=0, length=NumbersDict(5))
+    _check(batch)
+
+    batch = Batch()
+    batch.add_frames(seq_idx=0, seq_start_frame=0, length=NumbersDict({"data": 13, "classes": 4}))
+    _check(batch)
+    batch.add_frames(seq_idx=1, seq_start_frame=3, length=NumbersDict({"data": 2, "classes": 1}))
+    _check(batch)
+    batch.add_frames(seq_idx=1, seq_start_frame=5, length=NumbersDict(3), frame_dim_corresponds=False)
+    _check(batch)
+
+
+def test_task12ax_window():
+    from returnn.datasets.generating import Task12AXDataset
+
+    window = 3
+    dataset_kwargs = dict(num_seqs=10)
+    dataset1 = Task12AXDataset(**dataset_kwargs)
+    dataset2 = Task12AXDataset(window=window, **dataset_kwargs)
+    input_dim = dataset1.num_inputs
+    dataset1.initialize()
+    dataset2.initialize()
+    dataset1.init_seq_order(epoch=1)
+    dataset2.init_seq_order(epoch=1)
+    dataset1.load_seqs(0, 1)
+    dataset2.load_seqs(0, 1)
+    assert dataset1.get_data_dim("data") == input_dim
+    assert dataset2.get_data_dim("data") == input_dim * window
+    data1 = dataset1.get_data(0, "data")
+    data2 = dataset2.get_data(0, "data")
+    seq_len = data1.shape[0]
+    assert data1.shape == (seq_len, input_dim)
+    assert data2.shape == (seq_len, window * input_dim)
+    data2a = data2.reshape(seq_len, window, input_dim)
+    print("data1:")
+    print(data1)
+    print("data2:")
+    print(data2)
+    print("data1[0]:")
+    print(data1[0])
+    print("data2[0]:")
+    print(data2[0])
+    print("data2a[0,0]:")
+    print(data2a[0, 0])
+    assert list(data2a[0, 0]) == [0] * input_dim  # zero-padded left
+    assert list(data2a[0, 1]) == list(data1[0])
+    assert list(data2a[0, 2]) == list(data1[1])
+    assert list(data2a[1, 0]) == list(data1[0])
+    assert list(data2a[1, 1]) == list(data1[1])
+    assert list(data2a[1, 2]) == list(data1[2])
+    assert list(data2a[-1, 2]) == [0] * input_dim  # zero-padded right
+
+
+def test_get_seq_order():
+    dataset = Dataset()
+    num_seqs = 30
+
+    def get_seq_len(i):
+        return i**2 % 17  # some dummy lengths
+
+    for seq_ordering in [
+        "default",
+        "default_every_n:5",
+        "sorted",
+        "sorted_reverse",
+        "random:3",
+        "laplace:3",
+        "laplace:.10",
+        "sort_bin_shuffle:3",
+        "sort_bin_shuffle_x2:.10",
+    ]:
+        dataset.seq_ordering = seq_ordering
+
+        # test full epoch
+        dataset.partition_epoch = 1
+        epoch = 3
+        seq_index = dataset.get_seq_order_for_epoch(epoch, num_seqs, get_seq_len)
+
+        assert isinstance(seq_index, (list, range, numpy.ndarray))
+        assert len(set(seq_index)) == num_seqs  # right number of sequences, no duplicates
+
+        # test partitioned epoch
+        partition_epoch = 4
+        dataset.partition_epoch = partition_epoch
+        all_partitions_seq_index = []
+        for epoch in range(1, partition_epoch + 1):
+            partition_seq_index = dataset.get_seq_order_for_epoch(epoch, num_seqs, get_seq_len)
+            all_partitions_seq_index += list(partition_seq_index)
+
+        # Make sure partitions combined result in full epoch. This tests the random seed of Dataset which should be
+        # fixed across partitions.
+        assert set(all_partitions_seq_index) == set(seq_index)
+
+
+def test_get_seq_order_laplace_reference():
+    num_seqs = 3023
+    rnd = numpy.random.RandomState(42)
+    seq_lens = rnd.randint(1, 23, size=[num_seqs])
+    get_seq_len = seq_lens.__getitem__
+
+    dataset = Dataset()
+    dataset.epoch = 1
+    dataset.seq_ordering = "laplace:.100"
+
+    seq_index_ = dataset.get_seq_order_for_epoch(epoch=1, num_seqs=num_seqs, get_seq_len=get_seq_len)
+    assert isinstance(seq_index_, (list, range, numpy.ndarray))
+    assert len(set(seq_index_)) == num_seqs  # right number of sequences, no duplicates
+    print("current implementation returns seq_lens[seq_index]:", list(seq_lens[seq_index_]))
+
+    tmp = dataset.seq_ordering.split(":")[1:]
+    if len(tmp) == 0:
+        bins = 2
+    else:
+        if tmp[0].startswith("."):  # starting with "." -> approx chunk size (num of seqs in one bin)
+            bins = max(num_seqs // int(tmp[0][1:]), 2)
+        else:  # the number of bins
+            bins = int(tmp[0])
+    assert len(tmp) <= 1
+    rnd_seed = dataset.epoch
+    random_generator = numpy.random.RandomState(rnd_seed)
+    seq_index = random_generator.permutation(num_seqs)
+    out_index = []
+    for i in range(bins):
+        if i == bins - 1:
+            part = seq_index[i * len(seq_index) // bins :].tolist()
+        else:
+            part = seq_index[i * len(seq_index) // bins : (i + 1) * len(seq_index) // bins].tolist()
+        part.sort(key=get_seq_len, reverse=(i % 2 == 1))
+        out_index += part
+    seq_index = out_index
+    print("reference seq_lens[seq_index]:", list(seq_lens[seq_index]))
+
+    assert len(seq_index) == num_seqs == len(seq_index_)
+    assert seq_index == list(seq_index_)
+
+
+def test_get_seq_len_as_array():
+    with tempfile.NamedTemporaryFile(mode="wt", suffix=".npy", encoding="utf8") as tmp_seq_lens_file:
+        num_seqs = 3023
+        rnd = numpy.random.RandomState(42)
+        seq_lens = rnd.randint(1, 23, size=[num_seqs])
+
+        tmp_seq_lens_file.write(repr({f"seq-{i}": int(seq_lens[i]) for i in range(num_seqs)}))
+        tmp_seq_lens_file.write("\n")
+        tmp_seq_lens_file.flush()
+
+        dataset = Dataset()
+        dataset.epoch = 1
+        dataset.seq_ordering = "laplace:.100"
+        dataset._seq_order_seq_lens_file = tmp_seq_lens_file.name
+        dataset.get_all_tags = lambda: [f"seq-{i}" for i in range(num_seqs)]
+
+        seq_lens_ = _get_seq_len_as_array(dataset._get_seq_order_seq_lens_by_idx, num_seqs)
+        assert seq_lens_ is dataset._seq_order_seq_lens_by_idx
+
+
+@contextlib.contextmanager
+def create_ogg_zip_txt_only_dataset_opts(*, text: str = "hello world", seq_tag: str = "sequence0.wav"):
+    """create OggZipDataset dict using temp data, consisting of a single sequence with text only"""
+    import zipfile
+
+    with tempfile.NamedTemporaryFile(suffix=".zip") as tmp_zip_file, tempfile.NamedTemporaryFile(
+        suffix=".txt"
+    ) as tmp_vocab_file:
+        with zipfile.ZipFile(tmp_zip_file.name, "w") as zip_file:
+            zip_file.writestr(
+                os.path.basename(tmp_zip_file.name)[:-4] + ".txt",
+                repr([{"text": text, "duration": 2.3, "file": seq_tag}]),
+            )
+        vocab = {"@": 2, " ": 1, ".": 0}
+        vocab.update({chr(i): i - ord("a") + 3 for i in range(ord("a"), ord("z") + 1)})
+        tmp_vocab_file.write(repr(vocab).encode("utf8"))
+        tmp_vocab_file.flush()
+
+        yield {
+            "class": "OggZipDataset",
+            "path": tmp_zip_file.name,
+            "audio": None,
+            "targets": {"class": "CharacterTargets", "vocab_file": tmp_vocab_file.name, "seq_postfix": [0]},
+        }
+
+
+@contextlib.contextmanager
+def create_ogg_zip_txt_only_dataset(*, text: str = "hello world", seq_tag: str = "sequence0.wav"):
+    """create OggZipDataset via :func:`create_ogg_zip_txt_only_dataset_opts`"""
+    from returnn.datasets.audio import OggZipDataset
+
+    with create_ogg_zip_txt_only_dataset_opts(text=text, seq_tag=seq_tag) as opts:
+        dataset = init_dataset(opts)
+        assert isinstance(dataset, OggZipDataset)
+        yield dataset
+
+
+@contextlib.contextmanager
+def create_ogg_zip_txt_only_dataset_mult_seqs(*, seed: int = 1, num_seqs: int = 100, max_seq_len: int = 100):
+    """create OggZipDataset"""
+    import zipfile
+    from returnn.datasets.audio import OggZipDataset
+
+    rnd = numpy.random.RandomState(seed)
+
+    with tempfile.NamedTemporaryFile(suffix=".zip") as tmp_zip_file, tempfile.NamedTemporaryFile(
+        suffix=".txt"
+    ) as tmp_vocab_file:
+        vocab = {"@": 2, " ": 1, ".": 0}
+        vocab.update({chr(i): i - ord("a") + 3 for i in range(ord("a"), ord("z") + 1)})
+        tmp_vocab_file.write(repr(vocab).encode("utf8"))
+        tmp_vocab_file.flush()
+
+        seqs = []
+        for i in range(num_seqs):
+            text = "".join(rnd.choice(list(vocab.keys())) for _ in range(rnd.randint(1, max_seq_len + 1)))
+            seqs.append({"text": text, "duration": rnd.uniform(1.0, 5.0), "file": f"seq{i}.wav"})
+
+        with zipfile.ZipFile(tmp_zip_file.name, "w") as zip_file:
+            zip_file.writestr(
+                os.path.basename(tmp_zip_file.name)[:-4] + ".txt",
+                repr(seqs),
+            )
+
+        opts = {
+            "class": "OggZipDataset",
+            "path": tmp_zip_file.name,
+            "audio": None,
+            "targets": {"class": "CharacterTargets", "vocab_file": tmp_vocab_file.name, "seq_postfix": []},
+        }
+        dataset = init_dataset(opts)
+        assert isinstance(dataset, OggZipDataset)
+        yield dataset
+
+
+def test_OggZipDataset():
+    from returnn.datasets.audio import OggZipDataset
+
+    _demo_txt = "some utterance text"
+
+    with create_ogg_zip_txt_only_dataset(text=_demo_txt) as dataset:
+        assert isinstance(dataset, OggZipDataset)
+        assert dataset.have_seqs()
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 1)
+        raw = dataset.get_data(0, "raw")
+        orth = dataset.get_data(0, "orth")
+        classes = dataset.get_data(0, "classes")
+        print("raw:", raw)
+        print("orth:", orth)
+        print("classes:", classes)
+        assert isinstance(raw, numpy.ndarray) and raw.dtype.name.startswith("str") and raw.shape == ()
+        raw_ = raw.item()
+        assert isinstance(raw_, str) and raw_ == _demo_txt
+        assert isinstance(orth, numpy.ndarray) and orth.dtype == numpy.uint8 and orth.ndim == 1
+        orth_ = orth.tobytes()
+        assert orth_.decode("utf8") == _demo_txt
+        assert isinstance(classes, numpy.ndarray) and classes.dtype == numpy.int32 and classes.ndim == 1
+        classes_ = "".join([dataset.targets.id_to_label(c) for c in classes])
+        assert classes_ == _demo_txt + "."
+
+
+def test_LmDataset_char_based():
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file, tempfile.NamedTemporaryFile(
+        "wt", suffix=".syms"
+    ) as orth_syms_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.flush()
+        orth_syms_file.write("[END]\n")
+        covered = set()
+        for c in open(txt_file.name, "r").read():
+            if c not in covered and c != "\n":
+                orth_syms_file.write(c + "\n")
+                covered.add(c)
+        orth_syms_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": txt_file.name,
+                "orth_symbols_file": orth_syms_file.name,
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 2)
+        orth = dataset.get_data(0, "data")
+        assert orth.tolist() == [1, 2, 3, 3, 4, 5, 6, 4, 7, 3, 8, 0]
+        orth = dataset.get_data(1, "data")
+        assert orth.tolist() == [9, 2, 10, 11, 5, 3, 12, 13, 2, 0]
+        assert not dataset.is_less_than_num_seqs(2)
+
+
+def test_LmDataset_word_based():
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file, tempfile.NamedTemporaryFile(
+        "wt", suffix=".syms"
+    ) as orth_syms_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.flush()
+        orth_syms_file.write("[END]\n")
+        orth_syms_file.write("Hello\n")
+        orth_syms_file.write("world\n")
+        orth_syms_file.write("Next\n")
+        orth_syms_file.write("line\n")
+        orth_syms_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": txt_file.name,
+                "word_based": True,
+                "orth_symbols_file": orth_syms_file.name,
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 2)
+        orth = dataset.get_data(0, "data")
+        assert orth.tolist() == [1, 2, 0]
+        orth = dataset.get_data(1, "data")
+        assert orth.tolist() == [3, 4, 0]
+        assert not dataset.is_less_than_num_seqs(2)
+
+
+def test_LmDataset_vocab_based():
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file, tempfile.NamedTemporaryFile(
+        "wt", suffix=".syms"
+    ) as orth_syms_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.flush()
+        orth_syms_file.write(
+            repr(
+                {
+                    "[END]": 0,
+                    "Hello": 1,
+                    "world": 2,
+                    "Next": 3,
+                    "line": 4,
+                }
+            )
+        )
+        orth_syms_file.write("\n")
+        orth_syms_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": txt_file.name,
+                "orth_vocab": {
+                    "class": "SamplingBytePairEncoding",  # just as an example
+                    "vocab_file": orth_syms_file.name,
+                    "breadth_prob": 0.0,
+                    "unknown_label": None,
+                },
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 2)
+        orth = dataset.get_data(0, "data")
+        assert orth.tolist() == [1, 2]
+        orth = dataset.get_data(1, "data")
+        assert orth.tolist() == [3, 4]
+        assert not dataset.is_less_than_num_seqs(2)
+
+
+def test_LmDataset_pickle():
+    import pickle
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file, tempfile.NamedTemporaryFile(
+        "wt", suffix=".syms"
+    ) as orth_syms_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.flush()
+        orth_syms_file.write(repr({"[END]": 0, "Hello": 1, "world": 2, "Next": 3, "line": 4}))
+        orth_syms_file.write("\n")
+        orth_syms_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": txt_file.name,
+                "orth_vocab": {
+                    "vocab_file": orth_syms_file.name,
+                    "unknown_label": None,
+                },
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        assert dataset._orths_offsets_and_lens is None  # not yet loaded, will be lazily loaded
+
+        s = pickle.dumps(dataset)
+        dataset = pickle.loads(s)
+        assert isinstance(dataset, LmDataset)
+        assert dataset._orths_offsets_and_lens is None  # not yet loaded, will be lazily loaded
+
+        dataset.init_seq_order(epoch=1)
+        assert dataset._orths_offsets_and_lens is not None  # loaded now
+        dataset.load_seqs(0, 2)
+        orth = dataset.get_data(0, "data")
+        assert orth.tolist() == [1, 2]
+        orth = dataset.get_data(1, "data")
+        assert orth.tolist() == [3, 4]
+        assert not dataset.is_less_than_num_seqs(2)
+
+
+def test_LmDataset_multiple_and_gzipped():
+    import pickle
+    import gzip
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".txt.gz") as gz_txt_file, tempfile.NamedTemporaryFile(
+        "wb", suffix=".txt.gz"
+    ) as gz_txt_file2, tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file3, tempfile.NamedTemporaryFile(
+        "wt", suffix=".syms"
+    ) as orth_syms_file:
+        with gzip.GzipFile(gz_txt_file.name, "wb") as txt_file:
+            txt_file.write(b"Hello world\n")
+            txt_file.write(b"Next line\n")
+        with gzip.GzipFile(gz_txt_file2.name, "wb") as txt_file2:
+            txt_file2.write(b"Next world\n")
+        txt_file3.write("Hello line\n")
+        txt_file3.flush()
+        orth_syms_file.write("[END]\n")
+        covered = set()
+        for c in gzip.open(gz_txt_file.name, "rt").read():
+            if c not in covered and c != "\n":
+                orth_syms_file.write(c + "\n")
+                covered.add(c)
+        orth_syms_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": [gz_txt_file.name, gz_txt_file2.name, txt_file3.name],
+                "orth_symbols_file": orth_syms_file.name,
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        s = pickle.dumps(dataset)
+        dataset = pickle.loads(s)
+        assert isinstance(dataset, LmDataset)
+
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 4)
+        orth = dataset.get_data(0, "data")
+        assert orth.tolist() == [1, 2, 3, 3, 4, 5, 6, 4, 7, 3, 8, 0]
+        orth = dataset.get_data(1, "data")
+        assert orth.tolist() == [9, 2, 10, 11, 5, 3, 12, 13, 2, 0]
+        orth = dataset.get_data(2, "data")
+        assert orth.tolist() == [9, 2, 10, 11, 5, 6, 4, 7, 3, 8, 0]
+        orth = dataset.get_data(3, "data")
+        assert orth.tolist() == [1, 2, 3, 3, 4, 5, 3, 12, 13, 2, 0]
+        assert not dataset.is_less_than_num_seqs(4)
+
+
+def test_LmDataset_sorted():
+    # https://github.com/rwth-i6/returnn/commit/660b07e8b766de3f2148169e15818a8ea001b4bb
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.write("Shorty\n")
+        txt_file.write("Longer than all the others\n")
+        txt_file.flush()
+
+        dataset = init_dataset(
+            {
+                "class": "LmDataset",
+                "corpus_file": txt_file.name,
+                "orth_vocab": {"class": "Utf8ByteTargets"},
+                "seq_ordering": "sorted",
+            }
+        )
+        assert isinstance(dataset, LmDataset)
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 4)
+        orth = dataset.get_data(0, "data")
+        assert (orth == numpy.array(list("Shorty".encode("utf8")))).all()
+        orth = dataset.get_data(1, "data")
+        assert (orth == numpy.array(list("Next line".encode("utf8")))).all()
+        orth = dataset.get_data(2, "data")
+        assert (orth == numpy.array(list("Hello world".encode("utf8")))).all()
+        orth = dataset.get_data(3, "data")
+        assert (orth == numpy.array(list("Longer than all the others".encode("utf8")))).all()
+        assert not dataset.is_less_than_num_seqs(4)
+
+
+def test_LmDataset_seq_order_seq_lens():
+    from returnn.datasets.lm import LmDataset
+
+    num_seqs = 1013
+    rnd = numpy.random.RandomState(42)
+    lines = ["x" * rnd.randint(1, 50) for _ in range(num_seqs)]
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file:
+        txt_file.write("".join(line + "\n" for line in lines))
+        txt_file.flush()
+
+        for seq_ordering in ["sorted", "sorted_reverse", "laplace:.17", "sort_bin_shuffle:.17", "random"]:
+            for shard_index in range(2):
+                dataset = init_dataset(
+                    {
+                        "class": "LmDataset",
+                        "corpus_file": txt_file.name,
+                        "orth_vocab": {"class": "Utf8ByteTargets"},
+                        "seq_ordering": seq_ordering,
+                        "partition_epoch": 3,
+                        "_num_shards": 2,
+                        "_shard_index": shard_index,
+                    }
+                )
+                assert isinstance(dataset, LmDataset)
+                for epoch in [1, 2, 4, 1]:
+                    dataset.init_seq_order(epoch=epoch)
+                    ref_seq_order = Dataset.get_seq_order_for_epoch(
+                        dataset, epoch=epoch, num_seqs=num_seqs, get_seq_len=lambda i: len(lines[i])
+                    )
+                    assert list(dataset.get_current_seq_order()) == list(ref_seq_order)
+                    if epoch == 2:
+                        dataset.finish_epoch(free_resources=True)
+                        assert dataset._orths_lens is None
+
+
+def test_MetaDataset():
+    _demo_txt = "some utterance text"
+
+    with create_ogg_zip_txt_only_dataset_opts(text=_demo_txt) as sub_ds_opts:
+        meta_ds_opts = {
+            "class": "MetaDataset",
+            "datasets": {"sub": sub_ds_opts},
+            "data_map": {"classes": ("sub", "classes")},
+            "seq_order_control_dataset": "sub",
+        }
+        dataset = init_dataset(meta_ds_opts)
+        assert dataset.have_seqs()
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 1)
+        classes = dataset.get_data(0, "classes")
+        print("classes:", classes)
+        assert isinstance(classes, numpy.ndarray) and classes.dtype == numpy.int32 and classes.ndim == 1
+        assert len(classes) == len(_demo_txt) + 1
+
+
+def test_MetaDataset_LmDataset_lazy_init():
+    # https://github.com/rwth-i6/returnn/issues/1793
+    from returnn.datasets.lm import LmDataset
+
+    with tempfile.NamedTemporaryFile("wt", suffix=".txt") as txt_file:
+        txt_file.write("Hello world\n")
+        txt_file.write("Next line\n")
+        txt_file.flush()
+
+        orig_lazy_init = LmDataset._lazy_init
+
+        try:
+
+            def _wrapped_lazy_init(self):
+                print(f"{self} lazy init...")
+                raise Exception("we want to test that lazy init is not called")
+
+            LmDataset._lazy_init = _wrapped_lazy_init
+
+            dataset = init_dataset(
+                {
+                    "class": "MetaDataset",
+                    "datasets": {
+                        "base": {
+                            "class": "LmDataset",
+                            "corpus_file": txt_file.name,
+                            "use_cache_manager": True,
+                            "skip_empty_lines": False,
+                            "orth_vocab": {"class": "Utf8ByteTargets"},
+                            "seq_end_symbol": None,
+                            "unknown_symbol": None,
+                            "partition_epoch": 2,
+                            "seq_ordering": "laplace:.10",
+                        }
+                    },
+                    "data_map": {"data": ("base", "data")},
+                    "seq_order_control_dataset": "base",
+                }
+            )
+            print("Dataset:", dataset)
+            print("len info:", dataset.len_info(fast=True))
+
+        finally:
+            LmDataset._lazy_init = orig_lazy_init
+
+
+def test_CombinedDataset():
+    seq_len = 11
+    num_seqs = [10, 5]
+    num_sub_ds = len(num_seqs)
+    max_idx = num_sub_ds * max(num_seqs) * seq_len
+    keys = [f"data{ds_idx}" for ds_idx in range(num_sub_ds)]
+    data = [
+        [
+            numpy.array(
+                [ds_idx * max(num_seqs) * seq_len + seq_idx * seq_len + t for t in range(seq_len)],
+                dtype="int32",
+            )
+            for seq_idx in range(num_seqs[ds_idx])
+        ]
+        for ds_idx in range(num_sub_ds)
+    ]
+    data_flat = sum(data, [])
+    assert len(data_flat) == sum(num_seqs)
+    assert len(set(int(v[0]) for v in data_flat)) == sum(num_seqs)  # unique
+    n_tgt_dim = max_idx
+    sub_ds_dicts = [
+        {
+            "class": "StaticDataset",
+            "data": [{keys[ds_idx]: values} for values in data[ds_idx]],
+            "output_dim": {keys[ds_idx]: (n_tgt_dim, 1)},
+        }
+        for ds_idx in range(num_sub_ds)
+    ]
+
+    combined_ds_opts = {
+        "class": "CombinedDataset",
+        "datasets": {str(ds_idx): sub_ds_dicts[ds_idx] for ds_idx in range(num_sub_ds)},
+        "data_map": {(str(ds_idx), keys[ds_idx]): keys[ds_idx] for ds_idx in range(num_sub_ds)},
+    }
+    dataset = init_dataset(combined_ds_opts)
+    print("CombinedDataset:", dataset)
+
+    print("Testing default seq ordering...")
+    assert dataset.seq_ordering == "default"
+    seqs = dummy_iter_dataset(dataset)
+    assert len(seqs) == sum(num_seqs)
+    cur_ds_idx = 0
+    cur_sub_seq_idx = 0
+    for i, seq in enumerate(seqs):
+        assert all(seq.features[keys[cur_ds_idx]] == data[cur_ds_idx][cur_sub_seq_idx])
+        assert set(seq.features.keys()) == set(keys)
+        assert all(seq.features[other_key].shape == (0,) for other_key in keys if other_key != keys[cur_ds_idx])
+        cur_sub_seq_idx += 1
+        if cur_sub_seq_idx >= num_seqs[cur_ds_idx]:
+            cur_ds_idx += 1
+            cur_sub_seq_idx = 0
+    assert cur_ds_idx == num_sub_ds and cur_sub_seq_idx == 0
+
+    print("Testing random_dataset seq ordering...")
+    dataset.seq_ordering = "random_dataset"
+    seqs = dummy_iter_dataset(dataset)
+    assert len(seqs) == sum(num_seqs)
+    beginnings = []
+    for i, seq in enumerate(seqs):
+        relevant_keys = [k for k in keys if seq.features[k].shape[0] > 0]
+        assert len(relevant_keys) == 1
+        k = relevant_keys[0]
+        beginnings.append(int(seq.features[k][0]))
+    assert len(set(beginnings)) == sum(num_seqs)  # unique, see above
+
+    print("Testing interleave seq ordering...")
+    dataset.seq_ordering = "interleave"
+    seqs = dummy_iter_dataset(dataset)
+    assert len(seqs) == sum(num_seqs)
+    beginnings = []
+    ds_indices = []
+    for i, seq in enumerate(seqs):
+        relevant_ds_idx = [i for i, k in enumerate(keys) if seq.features[k].shape[0] > 0]
+        assert len(relevant_ds_idx) == 1
+        ds_idx = relevant_ds_idx[0]
+        ds_indices.append(ds_idx)
+        beginnings.append(int(seq.features[keys[ds_idx]][0]))
+    assert len(set(beginnings)) == sum(num_seqs)  # unique, see above
+    assert len(ds_indices) == sum(num_seqs)
+    assert ds_indices == [0, 0, 1] * 5
+
+
+def test_MapDatasetWrapper():
+    from returnn.datasets.map import MapDatasetBase
+
+    class _MyCustomMapDataset(MapDatasetBase):
+        def __init__(self):
+            super().__init__(data_types={"data": {"shape": (None, 3)}})
+
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, item):
+            return {"data": numpy.zeros((5, 3))}
+
+    ds = init_dataset({"class": "MapDatasetWrapper", "map_dataset": _MyCustomMapDataset})
+    (res,) = dummy_iter_dataset(ds)
+    assert isinstance(res, DatasetSeq)
+    assert res.features["data"].shape == (5, 3)
+
+
+def test_DistributeFilesDataset_distribute_evenly_by_size():
+    from returnn.datasets.distrib_files import DistributeFilesDataset
+
+    def _test(
+        sizes: List[int], partition_epoch: int, expected: List[List[int]], files_order: Optional[List[str]] = None
+    ):
+        files = files_order
+        if files is None:
+            files = [f"file-{i}" for i in range(len(sizes))]
+        file_sizes = {f: s for f, s in zip(files, sizes)}
+        res = DistributeFilesDataset._distribute_evenly_by_size(
+            num_bins=partition_epoch, file_sizes=file_sizes, files_order=files
+        )
+        assert all(res) and len(res) == partition_epoch
+        assert set(sum(res, [])) == set(files)
+        res_ = [[file_sizes[fn] for fn in sub_epoch] for sub_epoch in res]
+        assert res_ == expected
+
+    _test([1, 10, 1, 1], 3, [[1], [10], [1, 1]])
+    _test([1, 1, 78, 120], 4, [[1], [1], [78], [120]])
+    _test([1, 1, 1, 56, 141], 5, [[1], [1], [1], [56], [141]])
+    _test([1, 1, 1, 56, 141], 4, [[1, 1], [1], [56], [141]])
+    _test([5, 5] + [10] * 7, 5, [[5, 5, 10], [10, 10], [10], [10], [10, 10]])
+    _test(
+        [1] * 29,
+        8,
+        [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]],
+    )
+    _test([1], 5, [[1, 1]] * 5, files_order=["file"] * 10)  # test duplicate files
+
+    def _test_stddev(sizes: List[int], partition_epoch: int, max_stddev_percent: float):
+        avg_per_bin = sum(sizes) / partition_epoch
+        files = [f"file-{i}" for i in range(len(sizes))]
+        file_sizes = {f: s for f, s in zip(files, sizes)}
+        res = DistributeFilesDataset._distribute_evenly_by_size(
+            num_bins=partition_epoch, file_sizes=file_sizes, files_order=files
+        )
+        sizes = [sum([file_sizes[s] for s in v]) for v in res]
+        assert numpy.std(sizes) <= max_stddev_percent * avg_per_bin
+
+    # This test verifies the algorithm distributes evenly in easy cases
+    rng = numpy.random.RandomState(42)
+    _test_stddev(rng.uniform(low=97, high=103, size=(100,)), 20, 0.03)
+
+
+def iter_identity(x, **kwargs):
+    yield from x
+
+
+def map_identity(x, **kwargs):
+    return x
+
+
+def _dfd_get_sub_epoch_dataset_with_multi_proc_postprocessing(_files_subepoch: List[str]) -> Dict[str, Any]:
+    return {
+        "class": "PostprocessingDataset",
+        "dataset": {
+            "class": "PostprocessingDataset",
+            "dataset": {
+                "class": "PostprocessingDataset",
+                "dataset": {
+                    "class": "DummyDataset",
+                    "input_dim": 2,
+                    "output_dim": 3,
+                    # Keep the feeder thread active while the DFD worker is replaced for the next subepoch.
+                    "num_seqs": 1000,
+                    "seq_len": 5,
+                },
+                "map_seq_stream": iter_identity,
+                "num_workers": 2,
+                "buf_size": 1,
+            },
+            "map_seq_stream": iter_identity,
+            "num_workers": 0,
+        },
+        "map_seq": map_identity,
+        "num_workers": 0,
+    }
+
+
+def _run_dfd_with_multi_proc_postprocessing_epoch_transition(files: List[str], use_worker_proc: bool = True):
+    dataset = init_dataset(
+        {
+            "class": "DistributeFilesDataset",
+            "files": files,
+            "get_sub_epoch_dataset": _dfd_get_sub_epoch_dataset_with_multi_proc_postprocessing,
+            "partition_epoch": 2,
+            "use_worker_proc": use_worker_proc,
+            "preload_next_n_sub_epochs": 1,
+        }
+    )
+    for epoch in (1, 2):
+        dataset.init_seq_order(epoch=epoch)
+        dataset.load_seqs(0, 1)
+    dataset.finish_epoch(free_resources=True)
+
+
+def test_nested_PostprocessingDataset_finish_epoch_propagates():
+    dataset = init_dataset(_dfd_get_sub_epoch_dataset_with_multi_proc_postprocessing([]))
+    worker_dataset = dataset._dataset._dataset
+    try:
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 1)
+        assert worker_dataset._worker_procs
+        dataset.finish_epoch(free_resources=True)
+        assert worker_dataset._worker_procs is None
+        assert worker_dataset._multi_proc_data_iter is None
+    finally:
+        worker_dataset.finish_epoch(free_resources=True)
+
+
+def _make_slow_init_seq_order_hdf_dataset_class():
+    from returnn.datasets.hdf import HDFDataset
+
+    class _SlowInitSeqOrderHDFDataset(HDFDataset):
+        """init_seq_order takes a while, to expose races with threads calling it"""
+
+        def init_seq_order(self, epoch=None, seq_list=None, seq_order=None):
+            """init seq order"""
+            import time
+
+            time.sleep(0.5)
+            return super().init_seq_order(epoch=epoch, seq_list=seq_list, seq_order=seq_order)
+
+    return _SlowInitSeqOrderHDFDataset
+
+
+def test_PostprocessingDataset_multi_proc_num_seqs_after_init_seq_order():
+    # The feeder thread calls init_seq_order on the wrapped dataset,
+    # and num_seqs (0 for a fresh HDFDataset before init_seq_order) must only be read after that.
+    files = _dfd_make_hdf_files(num_hdf_files=2)
+    dataset = init_dataset(
+        {
+            "class": "PostprocessingDataset",
+            "dataset": {"class": _make_slow_init_seq_order_hdf_dataset_class(), "files": files},
+            "map_seq": map_identity,
+            "num_workers": 2,
+        }
+    )
+    try:
+        dataset.init_seq_order(epoch=1)
+        assert dataset.num_seqs == 10
+        seq_idx = 0
+        while dataset.is_less_than_num_seqs(seq_idx):
+            dataset.load_seqs(seq_idx, seq_idx + 1)
+            seq_idx += 1
+        assert seq_idx == 10
+    finally:
+        dataset.finish_epoch(free_resources=True)
+
+
+def test_DistributeFilesDataset_with_multi_proc_postprocessing_cleanup():
+    # This matches the production nesting where workerless postprocessing wrappers surround the multiprocessing one.
+    # Keep the timeout outside the actual test process so a lifecycle regression fails instead of hanging the test run.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        files = [os.path.join(temp_dir, f"part-{i}") for i in range(2)]
+        for filename in files:
+            with open(filename, "wb") as f:
+                f.write(b"x")
+
+        for use_worker_proc in (True, False):
+            proc = multiprocessing.get_context("spawn").Process(
+                target=_run_dfd_with_multi_proc_postprocessing_epoch_transition, args=(files, use_worker_proc)
+            )
+            proc.start()
+            proc.join(timeout=30)
+            if proc.is_alive():
+                proc.kill()
+                proc.join()
+                raise AssertionError(
+                    f"DistributeFilesDataset (use_worker_proc={use_worker_proc})"
+                    " did not release the wrapped PostprocessingDataset"
+                )
+            assert proc.exitcode == 0
+
+
+def test_DistributeFilesDataset():
+    from returnn.datasets.distrib_files import DistributeFilesDataset
+    from test_HDFDataset import generate_hdf_from_other, get_test_tmp_file
+
+    # Create a few HDF files such that we can easily verify the data later.
+    hdf_files = []
+    num_hdf_files = 20
+    seq_len = 5
+    num_seqs = 5
+    max_idx = num_hdf_files * num_seqs * seq_len
+    n_tgt_dim = max_idx
+    for hdf_idx in range(num_hdf_files):
+        hdf_files.append(
+            generate_hdf_from_other(
+                {
+                    "class": "StaticDataset",
+                    "data": [
+                        {
+                            "classes": numpy.array(
+                                [hdf_idx * num_seqs * seq_len + seq_idx * seq_len + t for t in range(seq_len)],
+                                dtype="int32",
+                            ),
+                        }
+                        for seq_idx in range(num_seqs)
+                    ],
+                    "output_dim": {"classes": [n_tgt_dim, 1]},
+                },
+                suffix=f"-{hdf_idx}.hdf",
+                use_cache=False,
+            )
+        )
+
+    # Test to load all together.
+    single_hdf_dataset = init_dataset({"class": "HDFDataset", "files": hdf_files})
+    total_num_seqs = 0
+    for seq in dummy_iter_dataset(single_hdf_dataset):
+        assert seq.seq_idx == total_num_seqs
+        data = seq.features["classes"]
+        assert data.shape == (seq_len,)
+        assert data.tolist() == list(range(seq.seq_idx * seq_len, (seq.seq_idx + 1) * seq_len))
+        total_num_seqs += 1
+    assert total_num_seqs == num_hdf_files * num_seqs
+
+    # Test to load via DistributeFilesDataset.
+
+    def _get_sub_epoch_dataset(files_subepoch: List[str]) -> Dict[str, Any]:
+        return {"class": "HDFDataset", "files": files_subepoch, "seq_ordering": "default"}
+
+    partition_epoch = 5
+    assert num_hdf_files % partition_epoch == 0  # just for easier testing here
+    concat_dataset = init_dataset(
+        {
+            "class": "DistributeFilesDataset",
+            "files": hdf_files,
+            "get_sub_epoch_dataset": _get_sub_epoch_dataset,
+            "partition_epoch": partition_epoch,
+        }
+    )
+    assert isinstance(concat_dataset, DistributeFilesDataset)
+    assert concat_dataset.get_data_keys() == ["classes"]
+    num_hdfs_per_part = num_hdf_files // partition_epoch
+    global_seq_idx = 0
+    for sub_epoch in range(1, partition_epoch + 1):
+        print(f"Sub-epoch {sub_epoch}...")
+        concat_dataset.init_seq_order(sub_epoch)
+        if sub_epoch == 1:
+            assert concat_dataset._files_order_cache == {
+                0: [hdf_files[ep * num_hdfs_per_part : (ep + 1) * num_hdfs_per_part] for ep in range(partition_epoch)]
+            }
+        assert (
+            concat_dataset._workers[sub_epoch].dataset_dict["files"]
+            == hdf_files[(sub_epoch - 1) * num_hdfs_per_part : sub_epoch * num_hdfs_per_part]
+        )
+        # We preload one sub-epoch.
+        assert set(concat_dataset._workers.keys()) == {sub_epoch, sub_epoch + 1}  # cur sub-epoch + next sub-epoch
+        for ep, worker in concat_dataset._workers.items():
+            assert worker.worker_proc.is_alive()
+        next_part_idx = sub_epoch % partition_epoch  # wrap around at the end
+        assert (
+            concat_dataset._workers[sub_epoch + 1].dataset_dict["files"]
+            == hdf_files[next_part_idx * num_hdfs_per_part : (next_part_idx + 1) * num_hdfs_per_part]
+        )
+        local_seq_idx = 0
+        while concat_dataset.is_less_than_num_seqs(local_seq_idx):
+            print(f"Sub-epoch {sub_epoch}, seq {local_seq_idx} (global seq {global_seq_idx})...")
+            concat_dataset.load_seqs(local_seq_idx, local_seq_idx + 1)
+            data = concat_dataset.get_data(local_seq_idx, "classes")
+            assert data.shape == (seq_len,)
+            assert data.tolist() == list(range(global_seq_idx * seq_len, (global_seq_idx + 1) * seq_len))
+            local_seq_idx += 1
+            global_seq_idx += 1
+    assert global_seq_idx == num_hdf_files * num_seqs
+
+    # Test DistributeFilesDataset in conjunction w/ a dataset, that does not have a
+    # defined num_seqs:
+
+    def _get_subepoch_dset_w_unknown_num_seqs(files_subepoch: List[str]) -> Dict[str, Any]:
+        hdf_dset = {"class": "HDFDataset", "files": files_subepoch, "seq_ordering": "default"}
+        return {"class": "PostprocessingDataset", "dataset": hdf_dset, "map_seq_stream": iter_identity}
+
+    concat_dataset = init_dataset(
+        {
+            "class": "DistributeFilesDataset",
+            "files": hdf_files,
+            "get_sub_epoch_dataset": _get_subepoch_dset_w_unknown_num_seqs,
+            "partition_epoch": partition_epoch,
+        }
+    )
+    assert isinstance(concat_dataset, DistributeFilesDataset)
+    for sub_epoch in range(1, partition_epoch + 1):
+        print(f"Sub-epoch {sub_epoch}...")
+        concat_dataset.init_seq_order(epoch=sub_epoch)
+        concat_dataset.load_seqs(0, 1)
+
+    # Test DFD loading data from a text file
+
+    files_name = get_test_tmp_file(suffix=".txt")
+    with open(files_name, "wt") as f:
+        for hdf_file in hdf_files:
+            f.write(hdf_file + "\n")
+    with open(files_name, "rt") as f:
+        print(f.read())
+    concat_dataset = init_dataset(
+        {
+            "class": "DistributeFilesDataset",
+            "files": files_name,
+            "get_sub_epoch_dataset": _get_sub_epoch_dataset,
+            "partition_epoch": partition_epoch,
+        }
+    )
+    assert isinstance(concat_dataset, DistributeFilesDataset)
+    assert concat_dataset.get_data_keys() == ["classes"]
+    num_hdfs_per_part = num_hdf_files // partition_epoch
+    global_seq_idx = 0
+    for sub_epoch in range(1, partition_epoch + 1):
+        print(f"Sub-epoch {sub_epoch}...")
+        concat_dataset.init_seq_order(sub_epoch)
+        if sub_epoch == 1:
+            assert concat_dataset._files_order_cache == {
+                0: [hdf_files[ep * num_hdfs_per_part : (ep + 1) * num_hdfs_per_part] for ep in range(partition_epoch)]
+            }
+        assert (
+            concat_dataset._workers[sub_epoch].dataset_dict["files"]
+            == hdf_files[(sub_epoch - 1) * num_hdfs_per_part : sub_epoch * num_hdfs_per_part]
+        )
+        # We preload one sub-epoch.
+        assert set(concat_dataset._workers.keys()) == {sub_epoch, sub_epoch + 1}  # cur sub-epoch + next sub-epoch
+        for ep, worker in concat_dataset._workers.items():
+            assert worker.worker_proc.is_alive()
+        next_part_idx = sub_epoch % partition_epoch  # wrap around at the end
+        assert (
+            concat_dataset._workers[sub_epoch + 1].dataset_dict["files"]
+            == hdf_files[next_part_idx * num_hdfs_per_part : (next_part_idx + 1) * num_hdfs_per_part]
+        )
+        local_seq_idx = 0
+        while concat_dataset.is_less_than_num_seqs(local_seq_idx):
+            print(f"Sub-epoch {sub_epoch}, seq {local_seq_idx} (global seq {global_seq_idx})...")
+            concat_dataset.load_seqs(local_seq_idx, local_seq_idx + 1)
+            data = concat_dataset.get_data(local_seq_idx, "classes")
+            assert data.shape == (seq_len,)
+            assert data.tolist() == list(range(global_seq_idx * seq_len, (global_seq_idx + 1) * seq_len))
+            local_seq_idx += 1
+            global_seq_idx += 1
+    assert global_seq_idx == num_hdf_files * num_seqs
+
+
+def _dfd_get_sub_epoch_dataset(files_subepoch: List[str]) -> Dict[str, Any]:
+    return {"class": "HDFDataset", "files": files_subepoch, "seq_ordering": "default"}
+
+
+def test_DistributeFilesDataset_sharding():
+    # https://github.com/rwth-i6/returnn/issues/1678
+    import pickle
+    from returnn.datasets.distrib_files import DistributeFilesDataset
+    from test_HDFDataset import generate_hdf_from_dummy
+    from returnn.config import global_config_ctx, Config
+
+    # Create a few HDF files such that we can easily verify the data later.
+    hdf_files = []
+    num_seqs = 23
+    for hdf_idx in range(20):
+        hdf_files.append(generate_hdf_from_dummy())
+
+    # Test to load via DistributeFilesDataset.
+
+    # Setup some torch.distributed dummy environment.
+    distrib_size = 2
+    with global_config_ctx(Config({"__debug_dummy_distributed_rank_and_size": (1, distrib_size)})):
+        partition_epoch = 5
+        assert len(hdf_files) % partition_epoch == 0  # just for easier testing here
+        dataset = init_dataset(
+            {
+                "class": "DistributeFilesDataset",
+                "files": hdf_files,
+                "buffer_size": 100,
+                "distrib_shard_files": True,
+                "get_sub_epoch_dataset": _dfd_get_sub_epoch_dataset,
+                "partition_epoch": partition_epoch,
+                "seq_ordering": "random",
+            }
+        )
+        assert isinstance(dataset, DistributeFilesDataset)
+        assert dataset._num_shards == distrib_size and dataset._shard_index == 1
+        s = pickle.dumps(dataset)
+        dataset = pickle.loads(s)
+        assert isinstance(dataset, DistributeFilesDataset)
+        assert dataset._num_shards == distrib_size and dataset._shard_index == 1
+        global_seq_idx = 0
+        for sub_epoch in range(1, partition_epoch + 1):
+            print(f"Sub-epoch {sub_epoch}...")
+            dataset.init_seq_order(sub_epoch)
+            local_seq_idx = 0
+            while dataset.is_less_than_num_seqs(local_seq_idx):
+                print(f"Sub-epoch {sub_epoch}, seq {local_seq_idx} (global seq {global_seq_idx})...")
+                dataset.load_seqs(local_seq_idx, local_seq_idx + 1)
+                data = dataset.get_data(local_seq_idx, "classes")
+                assert data.ndim == 1 and data.shape[0] > 1
+                local_seq_idx += 1
+                global_seq_idx += 1
+        assert global_seq_idx == len(hdf_files) * num_seqs // distrib_size
+
+
+def _dfd_make_hdf_files(*, num_hdf_files: int, num_seqs: int = 5) -> List[str]:
+    """:return: HDF files, where every seq has unique data"""
+    from test_HDFDataset import generate_hdf_from_other
+
+    hdf_files = []
+    for hdf_idx in range(num_hdf_files):
+        hdf_files.append(
+            generate_hdf_from_other(
+                {
+                    "class": "StaticDataset",
+                    "data": [
+                        {"classes": numpy.arange(seq_idx + 1, dtype="int32") + (hdf_idx * num_seqs + seq_idx) * 10}
+                        for seq_idx in range(num_seqs)
+                    ],
+                    "output_dim": {"classes": [num_hdf_files * num_seqs * 10, 1]},
+                },
+                suffix=f"-{hdf_idx}.hdf",
+                use_cache=False,
+            )
+        )
+    return hdf_files
+
+
+_dfd_test_random_seed_offset = 42
+
+
+def _dfd_map_seq_check_random_seed_offset_env(tdict: TensorDict, **_kwargs) -> TensorDict:
+    from returnn.datasets.basic import RANDOM_SEED_OFFSET_ENV_VAR
+
+    # This runs in a sub proc of the sub epoch dataset, which must see the same env as with the DFD worker proc.
+    assert os.environ.get(RANDOM_SEED_OFFSET_ENV_VAR) == str(_dfd_test_random_seed_offset)
+    return tdict
+
+
+def _dfd_get_sub_epoch_dataset_multi_proc_random(files_subepoch: List[str]) -> Dict[str, Any]:
+    # The sub epoch dataset loads in parallel on its own, which is the use case for use_worker_proc=False.
+    return {
+        "class": "PostprocessingDataset",
+        "dataset": {"class": "HDFDataset", "files": files_subepoch, "seq_ordering": "random"},
+        "map_seq": _dfd_map_seq_check_random_seed_offset_env,
+        "num_workers": 2,
+    }
+
+
+def _dfd_collect_sub_epochs(
+    *, files: List[str], num_sub_epochs: int, partition_epoch: int, **kwargs
+) -> List[List[Tuple[str, List[int], float]]]:
+    """
+    Runs DistributeFilesDataset over num_sub_epochs, checks the worker lifecycle along the way.
+
+    :return: per sub epoch: list of (seq tag, data, complete frac)
+    """
+    import pickle
+    from returnn.datasets.distrib_files import DistributeFilesDataset, _WorkerProcParent, _WorkerInProc
+
+    dataset = init_dataset(
+        {
+            "class": "DistributeFilesDataset",
+            "files": files,
+            "get_sub_epoch_dataset": _dfd_get_sub_epoch_dataset_multi_proc_random,
+            "distrib_shard_files": True,
+            "partition_epoch": partition_epoch,
+            "seq_ordering": "random",
+            "random_seed_offset": _dfd_test_random_seed_offset,
+            **kwargs,
+        }
+    )
+    assert isinstance(dataset, DistributeFilesDataset)
+    dataset = pickle.loads(pickle.dumps(dataset))  # like for the PT DataLoader worker
+    assert isinstance(dataset, DistributeFilesDataset)
+    use_worker_proc = kwargs.get("use_worker_proc", True)
+    assert dataset.use_worker_proc == use_worker_proc
+    preload = kwargs.get("preload_next_n_sub_epochs", 1 if use_worker_proc else 0)
+    assert dataset.preload_next_n_sub_epochs == preload
+    res = []
+    for sub_epoch in range(1, num_sub_epochs + 1):
+        prev_workers = dict(dataset._workers)
+        dataset.init_seq_order(epoch=sub_epoch)
+        assert set(dataset._workers.keys()) == set(range(sub_epoch, sub_epoch + preload + 1))
+        for worker in dataset._workers.values():
+            assert isinstance(worker, _WorkerProcParent if use_worker_proc else _WorkerInProc)
+        for ep, worker in prev_workers.items():
+            if ep < sub_epoch:  # must be released
+                assert ep not in dataset._workers
+                if not use_worker_proc:
+                    assert worker.dataset is None
+            else:  # preloaded before, must be reused
+                assert dataset._workers[ep] is worker
+        seqs = []
+        seq_idx = 0
+        while dataset.is_less_than_num_seqs(seq_idx):
+            dataset.load_seqs(seq_idx, seq_idx + 1)
+            seqs.append(
+                (
+                    dataset.get_tag(seq_idx),
+                    dataset.get_data(seq_idx, "classes").tolist(),
+                    dataset.get_complete_frac(seq_idx),
+                )
+            )
+            seq_idx += 1
+        assert seqs
+        res.append(seqs)
+    workers = list(dataset._workers.values())
+    dataset.finish_epoch(free_resources=True)
+    assert not dataset._workers
+    for worker in workers:
+        if not use_worker_proc:
+            assert worker.dataset is None
+        else:
+            assert not worker.worker_proc.is_alive()
+    return res
+
+
+def test_DistributeFilesDataset_no_worker_proc():
+    from returnn.config import global_config_ctx, Config
+
+    num_hdf_files = 12
+    num_seqs = 5
+    files = _dfd_make_hdf_files(num_hdf_files=num_hdf_files, num_seqs=num_seqs)
+    partition_epoch = 3
+    opts = dict(files=files, partition_epoch=partition_epoch, num_sub_epochs=partition_epoch + 2)  # 2nd full epoch
+
+    distrib_size = 2
+    data_per_rank = []
+    for rank in range(distrib_size):
+        with global_config_ctx(Config({"__debug_dummy_distributed_rank_and_size": (rank, distrib_size)})):
+            ref = _dfd_collect_sub_epochs(**opts)
+            res = _dfd_collect_sub_epochs(use_worker_proc=False, **opts)
+            assert res == ref
+            res = _dfd_collect_sub_epochs(use_worker_proc=False, preload_next_n_sub_epochs=1, **opts)
+            assert res == ref
+        data_per_rank.append([data for seqs in res[:partition_epoch] for _, data, _ in seqs])
+
+    # The ranks together see every seq exactly once per full epoch.
+    all_data = sorted(data for rank_data in data_per_rank for data in rank_data)
+    assert all_data == sorted(
+        (numpy.arange(seq_idx + 1) + (hdf_idx * num_seqs + seq_idx) * 10).tolist()
+        for hdf_idx in range(num_hdf_files)
+        for seq_idx in range(num_seqs)
+    )
+
+
+def test_DistributeFilesDataset_no_worker_proc_meta_data():
+    files = _dfd_make_hdf_files(num_hdf_files=3)
+    res = []
+    for use_worker_proc in (True, False):
+        dataset = init_dataset(
+            {
+                "class": "DistributeFilesDataset",
+                "files": files,
+                "get_sub_epoch_dataset": _dfd_get_sub_epoch_dataset,
+                "use_worker_proc": use_worker_proc,
+            }
+        )
+        res.append(
+            (
+                dataset.get_data_keys(),
+                dataset.num_inputs,
+                dataset.num_outputs,
+                dataset.get_all_tags(),
+                dataset.get_total_num_seqs(),
+                dataset.get_total_num_seqs(fast=True),
+                dataset.num_seqs,
+            )
+        )
+        dataset.finish_epoch(free_resources=True)
+    assert res[1] == res[0]
+    assert res[0][4] == 3 * 5
+
+
+def _dfd_get_sub_epoch_blocking_map_dataset(
+    _files_subepoch: List[str], *, started_fn: str, release_fn: str
+) -> Dict[str, Any]:
+    from test_MultiProcDataset import _MyCustomBlockingMapDataset
+
+    map_dataset = functools.partial(
+        _MyCustomBlockingMapDataset, started_fn=started_fn, release_fn=release_fn, block_at=2
+    )
+    return {"class": "MapDatasetWrapper", "map_dataset": map_dataset, "seq_ordering": "default"}
+
+
+def test_DistributeFilesDataset_serves_cached_while_loading():
+    # The worker serves a cached seq while it loads a later seq.
+    from test_MultiProcDataset import timeout, _wait_for_file
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        started_fn, release_fn = f"{tmp_dir}/started", f"{tmp_dir}/release"
+        files = [f"{tmp_dir}/part-{i}" for i in range(2)]
+        for filename in files:
+            with open(filename, "wb") as f:
+                f.write(b"x")
+        dataset = init_dataset(
+            {
+                "class": "DistributeFilesDataset",
+                "files": files,
+                "get_sub_epoch_dataset": functools.partial(
+                    _dfd_get_sub_epoch_blocking_map_dataset, started_fn=started_fn, release_fn=release_fn
+                ),
+                "buffer_size": 3,
+                "preload_next_n_sub_epochs": 0,
+            }
+        )
+        try:
+            with timeout(30):
+                dataset.init_seq_order(epoch=1)
+                dataset.load_seqs(0, 1)
+                _wait_for_file(started_fn)  # item 1 is cached, item 2 is loading
+                thread = threading.Thread(target=dataset.load_seqs, args=(1, 2))
+                thread.start()
+                thread.join(timeout=10)
+                assert not thread.is_alive(), "seq 1 not served while the worker loads seq 2"
+                open(release_fn, "w").close()
+                for seq_idx in range(1, 5):
+                    dataset.load_seqs(seq_idx, seq_idx + 1)
+                    numpy.testing.assert_array_equal(
+                        dataset.get_data(seq_idx, "data"), numpy.full((seq_idx * 2 + 5, 3), seq_idx)
+                    )
+                assert not dataset.is_less_than_num_seqs(5)
+        finally:
+            open(release_fn, "w").close()
+            dataset.finish_epoch(free_resources=True)
+
+
+def test_PostprocessingDataset():
+    _demo_txt = "some utterance text that has a few words"
+
+    def _add_1337_to_classes(tdict: TensorDict, **kwargs) -> TensorDict:
+        tdict.data["classes"] += 1337
+        return tdict
+
+    with create_ogg_zip_txt_only_dataset_opts(text=_demo_txt) as sub_ds_opts:
+        ds_opts = {
+            "class": "PostprocessingDataset",
+            "dataset": sub_ds_opts,
+            "map_seq": _add_1337_to_classes,
+        }
+        dataset = init_dataset(ds_opts)
+        dataset.get_data_keys()
+        dataset.init_seq_order(epoch=1)
+        assert dataset.have_seqs()
+        dataset.load_seqs(0, 1)
+
+        classes = dataset.get_data(0, "classes")
+        assert all(c - 1337 >= 0 for c in classes)
+
+        # assert that default seq tags have been replaced w/ ones from oggzip dset
+        assert not dataset.get_tag(0).startswith("seq-")
+
+    count = 0
+
+    def _repeat2_and_count(input_iter: Iterator[TensorDict], **kwargs) -> Iterator[TensorDict]:
+        nonlocal count
+
+        for tdict in input_iter:
+            count += 1
+
+            yield tdict
+            yield tdict
+
+    with create_ogg_zip_txt_only_dataset_opts(text=_demo_txt) as sub_ds_opts:
+        ds_opts = {
+            "class": "PostprocessingDataset",
+            "dataset": sub_ds_opts,
+            "map_seq_stream": _repeat2_and_count,
+        }
+        dataset = init_dataset(ds_opts)
+        dataset.init_seq_order(epoch=1)
+        assert dataset.have_seqs()
+
+        dataset.load_seqs(0, 2)
+        for i in range(2):
+            classes = dataset.get_data(i, "classes")
+            assert len(classes) > 0
+        assert count == 1
+
+    # test laplace ordering
+    with create_ogg_zip_txt_only_dataset_mult_seqs(num_seqs=6) as sub_ds_opts:
+        from returnn.datasets.postprocessing import LaplaceOrdering
+
+        ds_opts = {
+            "class": "PostprocessingDataset",
+            "dataset": sub_ds_opts,
+            "map_seq_stream": LaplaceOrdering(3, "classes"),
+        }
+        dataset = init_dataset(ds_opts)
+        dataset.init_seq_order(epoch=1)
+        assert dataset.have_seqs()
+        dataset.load_seqs(0, 6)
+
+        prev_len = None
+        prev_complete_frac = None
+        for i in range(3):
+            classes = dataset.get_data(i, "classes")
+            complete_frac = dataset.get_complete_frac(i, allow_only_lr_suitable=True)
+            assert prev_len is None or classes.shape[0] >= prev_len
+            assert prev_complete_frac is None or complete_frac >= prev_complete_frac
+            prev_len = classes.shape[0]
+            prev_complete_frac = complete_frac
+        for i in range(3, 6):
+            classes = dataset.get_data(i, "classes")
+            complete_frac = dataset.get_complete_frac(i, allow_only_lr_suitable=True)
+            assert classes.shape[0] <= prev_len or i == 3
+            assert complete_frac >= prev_complete_frac
+            prev_len = classes.shape[0]
+            prev_complete_frac = complete_frac
+        assert prev_complete_frac == 1
+
+    # test composition
+    from returnn.datasets.postprocessing import Sequential
+
+    func = Sequential(lambda x: x * 10, lambda y: y + 1)
+    assert func(2) == 21
+
+
+def test_PostprocessingDataset_unknown_sparse_dim():
+    from returnn.tensor import Dim
+
+    def _identity(tdict: TensorDict, **_kwargs) -> TensorDict:
+        return tdict
+
+    dataset = init_dataset(
+        {
+            "class": "PostprocessingDataset",
+            "dataset": {"class": "DummyDataset", "input_dim": 13, "output_dim": 7, "num_seqs": 1},
+            "map_seq": _identity,
+            "map_outputs": {
+                "data": {"dims": [Dim(None, name="time"), Dim(13, name="feature")], "dtype": "float32"},
+                "classes": {"dims": [Dim(None, name="classes_time")], "dtype": "uint8"},
+            },
+        }
+    )
+    assert "classes" not in dataset.labels
+
+
+def _repeat2(input_iter: Iterator[TensorDict], **kwargs) -> Iterator[TensorDict]:
+    for tdict in input_iter:
+        yield tdict
+        yield tdict
+
+
+def test_MultiProcPostprocessingDataset():
+    total_num_seqs = 500
+    total_num_seqs_pp = 2 * total_num_seqs
+
+    ds_opts = {
+        "class": "PostprocessingDataset",
+        "dataset": {
+            "class": "DummyDataset",
+            "input_dim": 13,
+            "output_dim": 7,
+            "num_seqs": total_num_seqs,
+            "seq_len": 17,
+        },
+        "map_seq_stream": _repeat2,
+        "buf_size": 1,
+        "num_workers": 2,
+    }
+    dataset = init_dataset(ds_opts)
+
+    for ep in range(1, 5 + 1):
+        dataset.init_seq_order(epoch=ep)
+        assert dataset.have_seqs()
+        for i in range(total_num_seqs_pp):
+            assert dataset.is_less_than_num_seqs(i)
+            dataset.load_seqs(i, i + 1)
+            classes = dataset.get_data(i, "classes")
+            assert len(classes) > 0
+        assert not dataset.is_less_than_num_seqs(total_num_seqs_pp + 1)
+
+
+def _post_process_map_seq_no_op(tdict: TensorDict, **_other) -> TensorDict:
+    return tdict
+
+
+def test_PostprocessingDataset_pickle():
+    from returnn.datasets.postprocessing import PostprocessingDataset
+    import pickle
+
+    ds0_opts = {"class": "DummyDataset", "input_dim": 2, "output_dim": 3, "num_seqs": 20}
+    ds0 = init_dataset(ds0_opts)
+    ds0_seqs = dummy_iter_dataset(ds0)
+
+    ds_opts = {
+        "class": "PostprocessingDataset",
+        "dataset": ds0_opts,
+        "map_seq": _post_process_map_seq_no_op,
+    }
+    ds = init_dataset(ds_opts)
+    assert isinstance(ds, PostprocessingDataset)
+    ds_seqs = dummy_iter_dataset(ds)
+    compare_dataset_seqs(ds0_seqs, ds_seqs)
+
+    s = pickle.dumps(ds)
+    ds2 = pickle.loads(s)
+    assert isinstance(ds2, PostprocessingDataset)
+    assert ds2 is not ds
+    ds2_seqs = dummy_iter_dataset(ds2)
+    compare_dataset_seqs(ds0_seqs, ds2_seqs)
+
+
+def test_Dataset_get_current_seq_order():
+    # Where the current seq order is known, get_current_seq_order reports it.
+    # Where it is not, it reads as OptionalNotImplementedError, so that callers can fall back.
+    from returnn.util.basic import OptionalNotImplementedError
+
+    static_opts = {
+        "class": "StaticDataset",
+        "data": [{"data": numpy.zeros((n, 3), dtype="float32")} for n in range(2, 7)],
+        "output_dim": {"data": (3, 2)},
+        "seq_ordering": "sorted_reverse",
+    }
+    static = init_dataset(static_opts)
+    static.init_seq_order(epoch=1)
+    assert list(static.get_current_seq_order()) == [4, 3, 2, 1, 0]
+
+    post = init_dataset({"class": "PostprocessingDataset", "dataset": static_opts, "map_seq_stream": _repeat2})
+    post.init_seq_order(epoch=1)
+    try:
+        post.get_current_seq_order()
+    except OptionalNotImplementedError:
+        pass
+    else:
+        raise AssertionError("expected OptionalNotImplementedError")
+
+
+def _sharded_seq_tags(opts: Dict[str, Any], *, num_shards: int, via_set_sharding: bool) -> List[List[str]]:
+    tags = []
+    for shard_index in range(num_shards):
+        if via_set_sharding:
+            dataset = init_dataset(opts)
+            dataset.set_sharding(num_shards=num_shards, shard_index=shard_index)
+        else:
+            dataset = init_dataset({**opts, "_num_shards": num_shards, "_shard_index": shard_index})
+        tags.append([seq.seq_tag for seq in dummy_iter_dataset(dataset)])
+    return tags
+
+
+def test_Dataset_sharding():
+    # The shards together cover every seq once, with the sharding given at construction or via set_sharding,
+    # also through PostprocessingDataset and MetaDataset, which shard via the wrapped dataset.
+    from test_HDFDataset import generate_hdf_from_other
+
+    hdf_fn = generate_hdf_from_other({"class": "Task12AXDataset", "num_seqs": 11})
+    hdf_opts = {"class": "HDFDataset", "files": [hdf_fn], "seq_ordering": "random"}
+    all_tags = sorted(seq.seq_tag for seq in dummy_iter_dataset(init_dataset(hdf_opts)))
+    assert len(all_tags) == 11
+    for opts in [
+        hdf_opts,
+        {"class": "PostprocessingDataset", "dataset": hdf_opts, "map_seq": _post_process_map_seq_no_op},
+        {
+            "class": "MetaDataset",
+            "datasets": {"hdf": hdf_opts},
+            "data_map": {"data": ("hdf", "data"), "classes": ("hdf", "classes")},
+            "seq_order_control_dataset": "hdf",
+        },
+    ]:
+        for via_set_sharding in [False, True]:
+            tags = _sharded_seq_tags(opts, num_shards=2, via_set_sharding=via_set_sharding)
+            assert [len(t) for t in tags] == [6, 5], (opts["class"], via_set_sharding, tags)
+            assert sorted(tags[0] + tags[1]) == all_tags, (opts["class"], via_set_sharding, tags)
+
+
+def test_DistributeFilesDataset_sharding_with_distrib_shard_files():
+    # distrib_shard_files shards the files by the rank, so the same sharding via _num_shards/_shard_index
+    # (e.g. from dataset_distribution "shard") is fine, another one is an error.
+    from returnn.config import global_config_ctx, Config
+
+    files = _dfd_make_hdf_files(num_hdf_files=4)
+    opts = {
+        "class": "DistributeFilesDataset",
+        "files": files,
+        "get_sub_epoch_dataset": _dfd_get_sub_epoch_dataset,
+        "partition_epoch": 2,
+        "distrib_shard_files": True,
+    }
+    with global_config_ctx(Config({"__debug_dummy_distributed_rank_and_size": (1, 2)})):
+        dataset = init_dataset({**opts, "_num_shards": 2, "_shard_index": 1})
+        assert dataset._num_shards == 2 and dataset._shard_index == 1
+        try:
+            init_dataset({**opts, "_num_shards": 3, "_shard_index": 1})
+        except ValueError as exc:
+            assert "clashes" in str(exc)
+        else:
+            raise AssertionError("expected ValueError")
+
+
+def test_MultiEpochDataset():
+    from returnn.datasets.meta import MultiEpochDataset
+    from returnn.datasets.cached2 import CachedDataset2
+
+    in_dim, out_dim = 11, 7
+    seq_len = 5
+    inner_num_seqs = 10
+
+    class _MyDataset(CachedDataset2):
+        def __init__(self):
+            super().__init__()
+            self.num_inputs = in_dim
+            self.num_outputs = {"classes": out_dim}
+
+        # noinspection PyShadowingNames
+        def init_seq_order(self, epoch=None, seq_list=None, seq_order=None):
+            """init seq order"""
+            super().init_seq_order(epoch=epoch, seq_list=seq_list, seq_order=seq_order)
+            self._num_seqs = inner_num_seqs
+
+        def _collect_single_seq(self, seq_idx: int) -> Optional[DatasetSeq]:
+            if seq_idx >= self._num_seqs:
+                return None
+            return DatasetSeq(
+                seq_idx=seq_idx,
+                seq_tag=repr({"epoch": self.epoch, "seq_idx": seq_idx}),
+                features=numpy.zeros((seq_len, in_dim)),
+                targets={"classes": numpy.zeros((seq_len,), dtype=numpy.int32)},
+            )
+
+    inner_dataset = _MyDataset()
+    inner_dataset.initialize()
+
+    multi_epoch = 3
+    dataset = MultiEpochDataset(dataset=inner_dataset, multi_epoch=multi_epoch)
+    for outer_epoch in [1, 7]:
+        seqs = dummy_iter_dataset(dataset, epoch=outer_epoch)
+        assert len(seqs) == inner_num_seqs * multi_epoch
+        outer_seq_idx = 0
+        sub_ep = (outer_epoch - 1) * multi_epoch + 1  # 1-based
+        sub_seq_idx = 0
+        for seq in seqs:
+            assert outer_seq_idx == seq.seq_idx
+            assert seq.features["data"].shape == (seq_len, in_dim)
+            assert seq.features["classes"].shape == (seq_len,)
+            print("seq:", seq.seq_tag)
+            d = eval(seq.seq_tag)  # seq tag is dict repr
+            assert isinstance(d, dict)
+            assert d["epoch"] == sub_ep
+            assert d["seq_idx"] == sub_seq_idx
+            # Calc next expected values.
+            if sub_seq_idx >= inner_num_seqs - 1:
+                sub_seq_idx = 0
+                sub_ep += 1
+            else:
+                sub_seq_idx += 1
+            outer_seq_idx += 1
+        assert outer_seq_idx == len(seqs)
+        assert sub_ep == outer_epoch * multi_epoch + 1 and sub_seq_idx == 0
+
+
+def test_NemoSpeechDataset_draw_planner():
+    from returnn.datasets.nemo_speech import _DrawPlanner
+
+    weights, lens = [3.0, 1.0, 0.5, 2.0], [7, 3, 0, 11]
+    opts = dict(weights=weights, partition_lens=lens, draws_per_epoch=13, seed=1, shuffle_window=4, chunk_size=5)
+    planner = _DrawPlanner(**opts)
+    probs = numpy.array([3.0, 1.0, 0.0, 2.0]) / 6.0
+    positions = {i: [] for i in range(len(weights))}
+    for epoch0 in range(30):
+        plan = planner.get_epoch_plan(epoch0)
+        for draw_idx in range(plan.num_draws):
+            source_idx, pos = plan.get_draw(draw_idx)
+            positions[source_idx].append(pos)
+        # Source weights hold at every epoch boundary.
+        counts = numpy.array([len(positions[i]) for i in range(len(weights))])
+        assert numpy.abs(counts - probs * (epoch0 + 1) * 13).max() < 2
+    assert not positions[2]  # no records in this shard
+    for pos in positions.values():
+        # Every position of the source stream exactly once, i.e. complete passes across epochs.
+        assert sorted(pos) == list(range(len(pos)))
+    # Direct init of some epoch gives the same plan.
+    plan, plan_ = planner.get_epoch_plan(17), _DrawPlanner(**opts).get_epoch_plan(17)
+    assert [plan.get_draw(i) for i in range(13)] == [plan_.get_draw(i) for i in range(13)]
+    # Memory is independent of the epoch size: all retained plan state is O(chunk size + num sources).
+    num_sources, chunk_size = 128, 2**16
+    planner = _DrawPlanner(
+        weights=[1.0] * num_sources,
+        partition_lens=[10**7] * num_sources,
+        draws_per_epoch=10**8,
+        seed=1,
+        shuffle_window=1,
+        chunk_size=chunk_size,
+    )
+    plan = planner.get_epoch_plan(3)
+    plan.get_draw(10**8 - 1)
+    arrays = [v for v in vars(plan).values() if isinstance(v, numpy.ndarray)]
+    arrays += [a for v in vars(plan).values() if isinstance(v, tuple) for a in v if isinstance(a, numpy.ndarray)]
+    assert sum(a.nbytes for a in arrays) <= chunk_size * (4 + 8) + num_sources * 8 * 3
+
+
+_nemo_speech_data: Dict[str, Any] = {}
+_NemoSampleRate = 16_000
+
+
+def _get_nemo_speech_data() -> Dict[str, Any]:
+    """
+    Three NeMo tarred sources (with .idx sidecars),
+    one with skipped (``_skipme``) and too long records, and a SentencePiece model.
+    Skips the test if NeMo Speech with indexed data access is not available.
+    """
+    try:
+        # noinspection PyUnresolvedReferences,PyPackageRequirements
+        import lhotse.index_pack  # noqa
+
+        # noinspection PyUnresolvedReferences,PyPackageRequirements
+        import nemo.collections.common.data.lhotse.cutset  # noqa
+    except ImportError as exc:
+        raise unittest.SkipTest(f"NeMo Speech / Lhotse with indexed data access not available: {exc}")
+    if _nemo_speech_data:
+        return _nemo_speech_data
+    import io
+    import json
+    import tarfile
+    import soundfile
+    import sentencepiece
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from lhotse.indexing import create_jsonl_index
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.data.lhotse.indexed_adapters import create_tar_index
+
+    root = tempfile.mkdtemp()
+    words = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu".split()
+    rnd = numpy.random.RandomState(1)
+    texts = []
+    for name, num_shards, utts_per_shard, skip, too_long, corrupt in [
+        ("srcA", 3, 10, [5], [3, 17], []),
+        ("srcB", 2, 7, [0], [], []),
+        ("srcC", 1, 5, [], [], []),
+        ("srcD", 1, 10, list(range(9)), [], []),  # only one valid record
+        ("srcE", 1, 10, [], [], []),
+        ("srcF", 1, 10, [], [], [9]),  # corrupt audio at the end
+        ("srcG", 1, 10, [], [], [7, 8, 9]),
+        ("srcH", 1, 3, [], [], [0, 1, 2]),
+    ]:
+        os.makedirs(f"{root}/{name}")
+        utt_idx = 0
+        for shard in range(num_shards):
+            rows = []
+            tar_path = f"{root}/{name}/audio_{shard}.tar"
+            with tarfile.open(tar_path, "w") as tar:
+                for _ in range(utts_per_shard):
+                    num_samples = int((2.5 if utt_idx in too_long else rnd.uniform(0.2, 1.5)) * _NemoSampleRate)
+                    buf = io.BytesIO()
+                    audio = rnd.uniform(-0.5, 0.5, num_samples).astype("float32")
+                    soundfile.write(buf, audio, _NemoSampleRate, format="WAV", subtype="PCM_16")
+                    payload = buf.getvalue()  # not buf.tell(), the writer seeks back to finalize the header
+                    if utt_idx in corrupt:
+                        payload = b"not audio" * 10
+                    info = tarfile.TarInfo(f"{name}-{utt_idx}.wav")
+                    info.size = len(payload)
+                    tar.addfile(info, io.BytesIO(payload))
+                    text = " ".join(rnd.choice(words, size=rnd.randint(1, 6)))
+                    texts.append(text)
+                    row = {
+                        "audio_filepath": info.name,
+                        "duration": num_samples / _NemoSampleRate,
+                        "text": text,
+                        "sampling_rate": _NemoSampleRate,
+                        "shard_id": shard,
+                        "lang": "en",
+                    }
+                    if utt_idx in skip:
+                        row["_skipme"] = True
+                    if name == "srcE" and utt_idx % 3 < 2:  # quality flag: true, false, missing
+                        row["high_quality"] = utt_idx % 3 == 0
+                    rows.append(row)
+                    utt_idx += 1
+            with open(f"{root}/{name}/manifest_{shard}.jsonl", "w") as f:
+                f.write("".join(json.dumps(row) + "\n" for row in rows))
+            create_jsonl_index(f"{root}/{name}/manifest_{shard}.jsonl")
+            create_tar_index(tar_path, tar_path + ".idx")
+        _nemo_speech_data[name] = {
+            "type": "nemo_tarred",
+            "manifest_filepath": f"{root}/{name}/manifest__OP_0..{num_shards - 1}_CL_.jsonl",
+            "tarred_audio_filepaths": f"{root}/{name}/audio__OP_0..{num_shards - 1}_CL_.tar",
+        }
+    with open(f"{root}/spm.txt", "w") as f:
+        f.write("\n".join(texts * 10) + "\n")
+    sentencepiece.SentencePieceTrainer.train(
+        input=f"{root}/spm.txt", model_prefix=f"{root}/spm", vocab_size=30, model_type="unigram", minloglevel=2
+    )
+    # Sampling BPE vocab: full words, or split into chars.
+    chars = sorted(set("".join(words)))
+    labels = words + [c + "@@" for c in chars] + chars
+    with open(f"{root}/bpe.vocab", "w") as f:
+        f.write(repr({label: i for i, label in enumerate(labels)}) + "\n")
+    _nemo_speech_data["bpe_vocab"] = f"{root}/bpe.vocab"
+    _nemo_speech_data["root"] = root
+    _nemo_speech_data["spm"] = f"{root}/spm.model"
+    _nemo_speech_data["sizes"] = {"srcA": 30, "srcB": 14, "srcC": 5, "srcD": 10, "srcE": 10, "srcF": 10}
+    _nemo_speech_data["sizes"].update({"srcG": 10, "srcH": 3})
+    _nemo_speech_data["valid_sizes"] = {"srcA": 29, "srcB": 13, "srcC": 5, "srcD": 1, "srcE": 10}
+    return _nemo_speech_data
+
+
+def _get_nemo_speech_config(*, weights, **kwargs) -> Dict[str, Any]:
+    data = _get_nemo_speech_data()
+    return {
+        "input_cfg": [{**data[name], "weight": weight} for name, weight in zip(["srcA", "srcB", "srcC"], weights)],
+        "indexed": True,
+        "shard_seed": 5,
+        "seed": 3,
+        "num_workers": 1,
+        "sample_rate": _NemoSampleRate,
+        "max_duration": 2.0,
+        **kwargs,
+    }
+
+
+def test_NemoSpeechDataset_vs_nemo():
+    # One pass over all data, compared to the NeMo dataloader: same seqs, audio, tokens, text.
+    data = _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    import torch
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.data.lhotse import get_lhotse_dataloader_from_config
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.asr.data.audio_to_text_lhotse import LhotseSpeechToTextBpeDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.tokenizers.sentencepiece_tokenizer import SentencePieceTokenizer
+
+    sizes = [data["valid_sizes"][name] for name in ["srcA", "srcB", "srcC"]]
+    # Weights = valid sizes, one epoch = all valid records: one pass over every source, as NeMo with force_finite.
+    config = _get_nemo_speech_config(weights=sizes)
+    tokenizer = SentencePieceTokenizer(data["spm"])
+
+    env_backup = {k: os.environ.get(k) for k in ["RANK", "WORLD_SIZE", "LHOTSE_USE_WORKER_PARTITION"]}
+    try:
+        nemo_seqs = {}
+        for audio, audio_lens, tokens, token_lens, cuts in get_lhotse_dataloader_from_config(
+            {**config, "force_finite": True, "batch_size": 3},
+            global_rank=0,
+            world_size=1,
+            dataset=LhotseSpeechToTextBpeDataset(tokenizer, return_cuts=True),
+            tokenizer=tokenizer,
+        ):
+            for b, cut in enumerate(cuts):
+                # The full audio of the manifest duration. (The returned cut is padded to the batch.)
+                assert audio_lens[b] == round(cut.supervisions[0].duration * _NemoSampleRate) > 0
+                nemo_seqs[cut.id] = (audio[b, : audio_lens[b]].numpy(), tokens[b, : token_lens[b]].numpy())
+    finally:
+        for k, v in env_backup.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        torch.manual_seed(0)
+
+    for opts in [{"targets": {"class": "SentencePieces", "model_file": data["spm"]}}, {"tokenizer": tokenizer}]:
+        dataset = NemoSpeechDataset(nemo_config=config, draws_per_epoch=sum(sizes), use_worker_procs=False, **opts)
+        seqs = {seq.seq_tag: seq for seq in dummy_iter_dataset(dataset, epoch=1)}
+        # 2 filtered (max_duration). The skipped (_skipme) are not drawn.
+        assert len(seqs) == sum(sizes) - 2
+        assert set(seqs) == set(nemo_seqs)
+        for tag, (audio, tokens) in nemo_seqs.items():
+            numpy.testing.assert_array_equal(seqs[tag].features["data"][:, 0], audio)
+            numpy.testing.assert_array_equal(seqs[tag].features["classes"], tokens)
+
+
+def test_NemoSpeechDataset_epochs():
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    data = _get_nemo_speech_data()
+
+    # Weights and coverage over epochs, in draws over the valid (not skipped) records.
+    config = _get_nemo_speech_config(weights=[1.0, 2.0, 0.5], max_duration=None)
+    dataset = NemoSpeechDataset(nemo_config=config, draws_per_epoch=20, use_worker_procs=False)
+    counts = {name: {} for name in data["sizes"]}
+    num_epochs = 10
+    for epoch in range(1, num_epochs + 1):
+        for seq in dummy_iter_dataset(dataset, epoch=epoch):
+            name = seq.seq_tag.split("-")[0]
+            counts[name][seq.seq_tag] = counts[name].get(seq.seq_tag, 0) + 1
+    for name, weight in [("srcA", 1.0), ("srcB", 2.0), ("srcC", 0.5)]:
+        occurrences = list(counts[name].values())
+        assert len(occurrences) == data["valid_sizes"][name], f"{name}: not all records covered"
+        assert max(occurrences) - min(occurrences) <= 1  # complete passes
+        assert abs(sum(occurrences) - weight / 3.5 * num_epochs * 20) < 2, f"{name}: {sum(occurrences)}"
+
+    # Uninterrupted (worker procs, prefetch into the next epoch) vs direct epoch init,
+    # with random transformations (sampled targets, random audio gain).
+    config = _get_nemo_speech_config(weights=[1.0, 2.0, 0.5], num_workers=2, shuffle=True, shuffle_buffer_size=4)
+    opts = dict(
+        nemo_config=config,
+        draws_per_epoch=16,
+        targets={
+            "class": "SamplingBytePairEncoding",
+            "vocab_file": data["bpe_vocab"],
+            "breadth_prob": 0.5,
+            "unknown_label": None,
+        },
+        audio={"features": "raw", "peak_normalization": False, "pre_process": _nemo_speech_random_gain},
+    )
+    dataset = NemoSpeechDataset(**opts, buffer_size=5)
+    uninterrupted = [dummy_iter_dataset(dataset, epoch=epoch) for epoch in [1, 2, 3]][-1]
+    dataset.finish_epoch(free_resources=True)
+    direct = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=3)
+    _nemo_speech_assert_same_seqs(direct, uninterrupted)
+    # The transformations are really random: targets differ from the plain (full word) encoding, the gains vary.
+    assert any(len(seq.features["classes"]) != len(seq.features["raw"].item().split()) for seq in direct)
+    plain_opts = {k: v for k, v in opts.items() if k not in ("targets", "audio")}
+    plain = dummy_iter_dataset(NemoSpeechDataset(**plain_opts, use_worker_procs=False), epoch=3)
+    assert [s.seq_tag for s in plain] == [s.seq_tag for s in direct]
+    gains = {
+        round(float(numpy.abs(s.features["data"]).max() / numpy.abs(p.features["data"]).max()), 3)
+        for s, p in zip(direct, plain)
+    }
+    assert len(gains) > 1, f"gains {gains}"
+
+
+def test_NemoSpeechDataset_skipped_records():
+    # Skipped records (_skipme) are not drawn, as in NeMo, where the source iterator skips them before the mux.
+    data = _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.data.lhotse.cutset import read_cutset_from_config
+
+    config = _get_nemo_speech_config(weights=[], max_duration=None)
+    config["input_cfg"] = [{**data["srcD"], "weight": 1.0}, {**data["srcE"], "weight": 1.0}]  # srcD: 9/10 skipped
+    # The NeMo source iterators, i.e. the valid records in NeMo traversal order.
+    nemo_order = {}
+    for entry in config["input_cfg"]:
+        cuts, _ = read_cutset_from_config({**config, "input_cfg": [entry], "force_finite": True})
+        tags = [cut.id for cut in cuts]
+        nemo_order[tags[0].split("-")[0]] = tags
+    assert len(nemo_order["srcD"]) == 1 and len(nemo_order["srcE"]) == 10
+
+    opts = dict(nemo_config=config, draws_per_epoch=20, use_worker_procs=False)
+    dataset = NemoSpeechDataset(**opts)
+    per_source = {"srcD": [], "srcE": []}
+    epochs = {}
+    for epoch in range(1, 7):
+        epochs[epoch] = dummy_iter_dataset(dataset, epoch=epoch)
+        tags = [seq.seq_tag for seq in epochs[epoch]]
+        for name in per_source:
+            src_tags = [tag for tag in tags if tag.startswith(name + "-")]
+            assert len(src_tags) == 10, f"epoch {epoch}: {name}: {len(src_tags)} of 20, equal weights expected"
+            per_source[name].extend(src_tags)
+    for name, tags in per_source.items():
+        # Complete passes over the valid records, in NeMo traversal order, continued across epochs.
+        order = nemo_order[name]
+        assert tags == [order[i % len(order)] for i in range(len(tags))], name
+    direct = dummy_iter_dataset(NemoSpeechDataset(**opts), epoch=4)
+    assert [s.seq_tag for s in direct] == [s.seq_tag for s in epochs[4]]
+
+
+def test_NemoSpeechDataset_failed_audio():
+    # Records whose audio fails to load (fault_tolerant_audio_loading) are dropped,
+    # and the bounds check agrees with the loading, also at the end of the epoch.
+    data = _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    for name, num_ok, worker_procs_opts in [("srcF", 9, [False]), ("srcG", 7, [False, True]), ("srcH", 0, [True])]:
+        config = _get_nemo_speech_config(weights=[], max_duration=None, fault_tolerant_audio_loading=True)
+        config["input_cfg"] = [{**data[name], "weight": 1.0}]
+        size = data["sizes"][name]  # one epoch = one pass, in record order
+        for use_worker_procs in worker_procs_opts:
+            dataset = NemoSpeechDataset(nemo_config=config, draws_per_epoch=size, use_worker_procs=use_worker_procs)
+            # Look ahead: merges the seqs for metadata only, their audio is loaded on demand.
+            # In-process, nothing is loaded yet, so the failing records are only noticed when loading.
+            # Or a bounds check beyond the end first, which gives a count from metadata only.
+            lookahead = (size - 1) if not use_worker_procs else (num_ok - 1)
+            for epoch, lookahead_ in [(1, None), (2, lookahead), (3, "end")]:
+                dataset.init_seq_order(epoch=epoch)
+                if lookahead_ == "end":
+                    assert not dataset.is_less_than_num_seqs(size)
+                elif lookahead_ is not None and lookahead_ >= 0:
+                    dataset.get_tag(lookahead_)
+                tags, seq_idx = [], 0
+                while dataset.is_less_than_num_seqs(seq_idx):  # as ReturnnDatasetIterDataPipe
+                    dataset.load_seqs(seq_idx, seq_idx + 1)
+                    assert dataset.get_data(seq_idx, "data").shape[0] > 0
+                    tags.append(dataset.get_tag(seq_idx))
+                    seq_idx += 1
+                assert tags == [f"{name}-{i}.wav" for i in range(num_ok)], (name, use_worker_procs, epoch)
+                assert dataset.num_seqs == num_ok
+            dataset.finish_epoch(free_resources=True)
+
+
+def _nemo_speech_random_gain(*, audio, sample_rate, random_state):
+    return audio * random_state.uniform(0.5, 1.5)
+
+
+def _nemo_speech_assert_same_seqs(seqs1: List[DatasetSeq], seqs2: List[DatasetSeq]):
+    assert [s.seq_tag for s in seqs1] == [s.seq_tag for s in seqs2]
+    for seq1, seq2 in zip(seqs1, seqs2):
+        assert seq1.features.keys() == seq2.features.keys()
+        for key in seq1.features.keys():
+            numpy.testing.assert_array_equal(seq1.features[key], seq2.features[key], err_msg=f"{seq1.seq_tag} {key}")
+
+
+def test_NemoSpeechDataset_metadata_no_audio():
+    _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from lhotse.cut import MonoCut
+
+    config = _get_nemo_speech_config(weights=[1.0, 2.0, 0.5])
+    opts = dict(nemo_config=config, draws_per_epoch=20, use_worker_procs=False)
+    ref = dummy_iter_dataset(NemoSpeechDataset(**opts), epoch=2)
+    num_loads = 0
+    orig_load_audio = MonoCut.load_audio
+
+    def _load_audio(*args, **kwargs):
+        nonlocal num_loads
+        num_loads += 1
+        return orig_load_audio(*args, **kwargs)
+
+    MonoCut.load_audio = _load_audio
+    try:
+        dataset = NemoSpeechDataset(**opts)
+        dataset.init_seq_order(epoch=2)
+        for seq_idx in [0, 3, 1]:
+            assert dataset.get_tag(seq_idx) == ref[seq_idx].seq_tag
+            assert dataset.get_seq_length(seq_idx).dict == ref[seq_idx].num_frames.dict
+        assert num_loads == 0
+        seqs = dummy_iter_dataset(dataset, epoch=2)  # re-inits the epoch
+        assert num_loads == len(seqs)
+        dataset.init_seq_order(epoch=2)
+        assert dataset.get_tag(3) == ref[3].seq_tag
+        dataset.load_seqs(0, 5)  # the seq only accessed for metadata gets its audio later
+        _nemo_speech_assert_same_seqs(dataset.added_data, ref[:5])
+
+        # Start at seq 7: no audio decoding for the seqs before, also not in the bounds checks.
+        dataset = NemoSpeechDataset(**opts)
+        dataset.init_seq_order(epoch=2)
+        num_loads = 0
+        assert dataset.is_less_than_num_seqs(7)
+        dataset.load_seqs(7, 8)
+        assert num_loads == 1
+        _nemo_speech_assert_same_seqs([dataset.added_data[-1]], [ref[7]])
+        assert dataset.is_less_than_num_seqs(len(ref) - 1) and not dataset.is_less_than_num_seqs(len(ref))
+        assert dataset.num_seqs == len(ref) and num_loads == 2  # bounds check loads only the checked seq
+    finally:
+        MonoCut.load_audio = orig_load_audio
+
+
+def _nemo_speech_blocking_worker_loop(shard_opts, conn, *, started, release, block_at: int, fail_at: int):
+    # The worker proc loop, where audio load number block_at waits for release, and load number fail_at raises.
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from lhotse.cut import MonoCut
+    from returnn.datasets import nemo_speech
+
+    orig_load_audio = MonoCut.load_audio
+    num_loads = 0
+
+    def _load_audio(*args, **kwargs):
+        nonlocal num_loads
+        num_loads += 1
+        if num_loads == block_at:
+            started.set()
+            assert release.wait(timeout=60)
+        if num_loads == fail_at:
+            raise ValueError("test: audio load failed")
+        return orig_load_audio(*args, **kwargs)
+
+    MonoCut.load_audio = _load_audio
+    nemo_speech._shard_worker_proc_loop(shard_opts, conn)
+
+
+def test_NemoSpeechDataset_worker_serves_buffered():
+    # The worker proc serves a buffered seq while it loads the audio of a later seq,
+    # and an error in that load reaches the parent.
+    _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets import nemo_speech
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    config = _get_nemo_speech_config(weights=[1.0, 2.0, 0.5])
+    opts = dict(nemo_config=config, draws_per_epoch=20)
+    ref = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=1)
+    started, release = nemo_speech._mp.Event(), nemo_speech._mp.Event()
+    orig_loop = nemo_speech._shard_worker_proc_loop
+    # Audio loads in the worker: seq 0 (requested), seq 1 (prefetch), seq 2 (prefetch, blocked), seq 3 (fails).
+    nemo_speech._shard_worker_proc_loop = functools.partial(
+        _nemo_speech_blocking_worker_loop, started=started, release=release, block_at=3, fail_at=4
+    )
+    dataset = None
+    try:
+        dataset = NemoSpeechDataset(**opts)
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 1)
+        _nemo_speech_assert_same_seqs(dataset.added_data, ref[:1])
+        assert started.wait(timeout=60)
+        thread = threading.Thread(target=dataset.load_seqs, args=(1, 2))
+        thread.start()
+        thread.join(timeout=30)
+        assert not thread.is_alive(), "seq 1 not served while the worker loads seq 2"
+        _nemo_speech_assert_same_seqs(dataset.added_data, ref[1:2])
+        release.set()
+        try:
+            dataset.load_seqs(2, 4)
+        except EOFError:
+            pass  # worker proc died
+        else:
+            raise AssertionError("worker error not propagated")
+    finally:
+        nemo_speech._shard_worker_proc_loop = orig_loop
+        release.set()
+        if dataset is not None:
+            dataset.finish_epoch(free_resources=True)
+
+
+def _nemo_speech_high_quality(cut, **_kwargs) -> bool:
+    return cut.custom.get("high_quality", True)  # missing: kept
+
+
+def test_NemoSpeechDataset_cut_filter():
+    # Rejected records count as draws, like the NeMo filters: the accepted seqs are the same as without the filter.
+    data = _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from lhotse.cut import MonoCut
+
+    # One shard: with several, the round-robin merge over the shards depends on the accepted counts.
+    config = _get_nemo_speech_config(weights=[], max_duration=None, shuffle=True, shuffle_buffer_size=4)
+    config["input_cfg"] = [{**data["srcE"], "weight": 1.0}, {**data["srcC"], "weight": 1.0}]
+    opts = dict(
+        nemo_config=config,
+        draws_per_epoch=30,
+        targets={
+            "class": "SamplingBytePairEncoding",
+            "vocab_file": data["bpe_vocab"],
+            "breadth_prob": 0.5,
+            "unknown_label": None,
+        },
+    )
+    unfiltered = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=3)
+    assert {s.seq_tag for s in unfiltered if s.seq_tag.startswith("srcE-")} == {f"srcE-{i}.wav" for i in range(10)}
+    rejected = {f"srcE-{i}.wav" for i in range(1, 10, 3)}  # high_quality false
+    expected = [s for s in unfiltered if s.seq_tag not in rejected]
+    assert len(expected) < len(unfiltered)
+
+    opts["cut_filter"] = _nemo_speech_high_quality
+    num_loads = 0
+    orig_load_audio = MonoCut.load_audio
+
+    def _load_audio(*args, **kwargs):
+        nonlocal num_loads
+        num_loads += 1
+        return orig_load_audio(*args, **kwargs)
+
+    MonoCut.load_audio = _load_audio
+    try:
+        direct = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=3)
+    finally:
+        MonoCut.load_audio = orig_load_audio
+    assert num_loads == len(direct)  # no audio for the rejected records
+    _nemo_speech_assert_same_seqs(direct, expected)
+
+    dataset = NemoSpeechDataset(**opts, use_worker_procs=False)
+    uninterrupted = [dummy_iter_dataset(dataset, epoch=epoch) for epoch in [1, 2, 3]][-1]
+    _nemo_speech_assert_same_seqs(uninterrupted, direct)
+
+    # Several shards: the same seqs, only the merge order differs.
+    opts["nemo_config"] = {**config, "num_workers": 2}
+    filtered = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=3)
+    opts["cut_filter"] = None
+    unfiltered = dummy_iter_dataset(NemoSpeechDataset(**opts, use_worker_procs=False), epoch=3)
+    assert any(s.seq_tag in rejected for s in unfiltered)
+    assert sorted(s.seq_tag for s in filtered) == sorted(s.seq_tag for s in unfiltered if s.seq_tag not in rejected)
+
+
+def test_NemoSpeechDataset_index_pack():
+    data = _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    import json
+    import struct
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from lhotse.index_pack import IndexPackArraySpec, IndexPackCollectionSpec, write_index_pack
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.data.lhotse import nemo_tar_routing
+
+    # Pack for srcB (2 shards, with a skipped record), like Speech scripts/dataloading/convert_indexes_to_idxpack.py.
+    root, entry = data["root"], data["srcB"]
+    manifests = [f"{root}/srcB/manifest_{k}.jsonl" for k in range(2)]
+    tars = [f"{root}/srcB/audio_{k}.tar" for k in range(2)]
+    route_paths = []
+    for k, manifest in enumerate(manifests):
+        with open(manifest) as f:
+            rows = [json.loads(line) for line in f]
+        ordinals = [nemo_tar_routing.NEMO_TAR_SKIP_ORDINAL if row.get("_skipme") else i for i, row in enumerate(rows)]
+        route_paths.append(f"{root}/srcB/route_{k}.u32")
+        with open(route_paths[-1], "wb") as f:
+            f.write(struct.pack(f"<{len(ordinals)}I", *ordinals))
+    specs = [
+        IndexPackCollectionSpec(
+            role="manifest", kind="jsonl", source_spec=entry["manifest_filepath"], paths=tuple(manifests)
+        ),
+        IndexPackCollectionSpec(
+            role="tar", kind="nemo_tar", source_spec=entry["tarred_audio_filepaths"], paths=tuple(tars)
+        ),
+        IndexPackArraySpec(
+            role=nemo_tar_routing.NEMO_TAR_ORDINAL_MAP_ROLE,
+            kind=nemo_tar_routing.NEMO_TAR_ORDINAL_MAP_KIND,
+            source_spec=nemo_tar_routing.nemo_tar_ordinal_map_source_spec(
+                entry["manifest_filepath"], entry["tarred_audio_filepaths"]
+            ),
+            shard_paths=tuple(route_paths),
+        ),
+    ]
+    write_index_pack(f"{root}/srcB.idxpack", specs)
+
+    config = _get_nemo_speech_config(weights=[0.0, 1.0, 0.0])
+    config["input_cfg"] = [config["input_cfg"][1]]
+    config_packed = {**config, "index_pack_root": root}
+    config_packed["input_cfg"] = [{**config["input_cfg"][0], "index_pack": "srcB.idxpack"}]
+    dataset = NemoSpeechDataset(nemo_config=config_packed, draws_per_epoch=20, use_worker_procs=False)
+    for epoch in [1, 2]:
+        seqs = dummy_iter_dataset(dataset, epoch=epoch)
+        # noinspection PyProtectedMember
+        assert dataset._shards[0].sources.sources[0].node._packed_indexed
+        ref = dummy_iter_dataset(
+            NemoSpeechDataset(nemo_config=config, draws_per_epoch=20, use_worker_procs=False), epoch=epoch
+        )
+        assert len(seqs) > 0
+        _nemo_speech_assert_same_seqs(seqs, ref)
+
+
+def test_NemoSpeechDataset_nemo_sharding():
+    _get_nemo_speech_data()  # first, skips if NeMo Speech is not available
+    from returnn.datasets.nemo_speech import NemoSpeechDataset
+
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from nemo.collections.common.data.lhotse.cutset import read_cutset_from_config
+
+    world_size, num_workers = 2, 2
+    config = _get_nemo_speech_config(weights=[1.0, 1.0, 1.0], num_workers=num_workers, max_duration=None)
+    seen_all = []
+    for rank in range(world_size):
+        dataset = NemoSpeechDataset(
+            nemo_config=config, draws_per_epoch=400, _rank_and_size=(rank, world_size), use_worker_procs=False
+        )
+        dataset.init_seq_order(epoch=1)
+        # noinspection PyProtectedMember
+        dataset._lazy_init_shards()
+        # noinspection PyProtectedMember
+        for worker_id, shard in enumerate(dataset._shards):
+            shard.init_epoch(1)
+            seen, local_idx = set(), 0
+            while True:  # the epoch covers all records of the shard, in several passes
+                item = shard.get(1, local_idx, load=False)
+                if item.seq_tag is None:
+                    break
+                seen.add(item.seq_tag)
+                local_idx += 1
+            # NeMo in dataloader worker w of rank r uses the partition (r * W + w, world_size * W).
+            env_backup = {k: os.environ.get(k) for k in ["RANK", "WORLD_SIZE", "LHOTSE_USE_WORKER_PARTITION"]}
+            os.environ.update(
+                {
+                    "RANK": str(rank * num_workers + worker_id),
+                    "WORLD_SIZE": str(world_size * num_workers),
+                    "LHOTSE_USE_WORKER_PARTITION": "1",
+                }
+            )
+            try:
+                cuts, _ = read_cutset_from_config({**config, "force_finite": True})
+                expected = {cut.id for cut in cuts}
+            finally:
+                for k, v in env_backup.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+            assert seen == expected
+            seen_all.extend(seen)
+    assert len(seen_all) == len(set(seen_all)), "shards not disjoint"
+
+    # The same sharding via the properties (dataset_distribution "shard") is fine, another one is an error.
+    NemoSpeechDataset(nemo_config=config, draws_per_epoch=400, _rank_and_size=(1, 2), _num_shards=2, _shard_index=1)
+    try:
+        NemoSpeechDataset(nemo_config=config, draws_per_epoch=400, _rank_and_size=(1, 2), _num_shards=3, _shard_index=1)
+    except ValueError as exc:
+        assert "clashes" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+    # NeMo map-style mode shards by sampler batches, not by records: not supported.
+    dataset = NemoSpeechDataset(
+        nemo_config={**config, "force_map_dataset": True}, draws_per_epoch=400, use_worker_procs=False
+    )
+    dataset.init_seq_order(epoch=1)
+    try:
+        dataset.load_seqs(0, 1)
+    except NotImplementedError as exc:
+        print("Expected exception:", exc)
+    else:
+        raise AssertionError("map-style mode should not be supported")
+
+
+def _megatron_index_bytes(
+    *,
+    seq_lens: List[int],
+    seq_pointers: List[int],
+    document_indices: List[int],
+    dtype_code: int,
+    magic: bytes = b"MMIDIDX\x00\x00",
+    version: int = 1,
+) -> bytes:
+    """:return: index file content, as written by Megatron's ``_IndexWriter``"""
+    import struct
+
+    return b"".join(
+        [
+            magic,
+            struct.pack("<QBQQ", version, dtype_code, len(seq_lens), len(document_indices)),
+            numpy.array(seq_lens, dtype="<i4").tobytes(),
+            numpy.array(seq_pointers, dtype="<i8").tobytes(),
+            numpy.array(document_indices, dtype="<i8").tobytes(),
+        ]
+    )
+
+
+_megatron_dtype_codes = {"uint8": 1, "int8": 2, "int16": 3, "int32": 4, "int64": 5, "uint16": 8}
+
+
+def _megatron_write(out_prefix: str, docs: List[List[List[int]]], *, dtype: str) -> Dict[str, str]:
+    """
+    Like Megatron's ``IndexedDatasetBuilder.add_document`` per doc, then ``finalize``.
+
+    :return: data_file and index_file
+    """
+    seq_lens = [len(seq) for doc in docs for seq in doc]
+    document_indices = numpy.cumsum([0] + [len(doc) for doc in docs]).tolist()
+    seq_pointers = (numpy.cumsum([0] + seq_lens[:-1]) * numpy.dtype(dtype).itemsize).tolist()[: len(seq_lens)]
+    data_file, index_file = f"{out_prefix}.bin", f"{out_prefix}.idx"
+    with open(data_file, "wb") as f:
+        f.write(numpy.array([t for doc in docs for seq in doc for t in seq], dtype=dtype).tobytes())
+    with open(index_file, "wb") as f:
+        f.write(
+            _megatron_index_bytes(
+                seq_lens=seq_lens,
+                seq_pointers=seq_pointers,
+                document_indices=document_indices,
+                dtype_code=_megatron_dtype_codes[dtype],
+            )
+        )
+    return {"data_file": data_file, "index_file": index_file}
+
+
+def test_MegatronDataset():
+    import pickle
+
+    # With an empty document and an empty seq. 65535 needs uint16 (or wider).
+    docs = [[[5, 65535, 2], [3]], [], [[0], []], [[7, 6, 5, 4]]]
+    doc_tags = ["doc-0/seq-0", "doc-0/seq-1", "doc-2/seq-0", "doc-2/seq-1", "doc-3/seq-0"]
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for dtype in ["uint16", "int32"]:
+            files = _megatron_write(f"{tmp_dir}/{dtype}", docs, dtype=dtype)
+            dataset = init_dataset({"class": "MegatronDataset", **files, "vocab_size": 2**16})
+            dataset = pickle.loads(pickle.dumps(dataset))
+            seqs = dummy_iter_dataset(dataset)
+            tags = [f"{dtype}/{tag}" for tag in doc_tags]
+            assert [seq.seq_tag for seq in seqs] == tags == dataset.get_all_tags()
+            assert [seq.features["data"].tolist() for seq in seqs] == [seq for doc in docs for seq in doc]
+            assert all(seq.features["data"].dtype == numpy.int32 for seq in seqs)
+            assert dataset.get_data_keys() == ["data"]
+            assert dataset.get_data_dim("data") == 2**16 and dataset.is_data_sparse("data")
+            # Pickled after the files were mapped.
+            compare_dataset_seqs(dummy_iter_dataset(pickle.loads(pickle.dumps(dataset))), seqs)
+            dataset.init_seq_order(seq_list=[tags[4], tags[0], tags[3]])
+            assert dataset.get_current_seq_order() == [4, 0, 3]
+            for tag in ["doc-1/seq-0", "doc-0/seq-2", "doc-4/seq-0", "doc-00/seq-0"]:
+                for tag_ in [f"{dtype}/{tag}", f"other/{tag}", tag]:
+                    try:
+                        dataset.init_seq_order(seq_list=[tag_])
+                    except ValueError as exc:
+                        assert "not in dataset" in str(exc)
+                    else:
+                        raise AssertionError(f"expected ValueError for tag {tag_!r}")
+
+        # Several files: a seq has the same tag with any other files and in any order, e.g. via DistributeFilesDataset.
+        files = {"a": _megatron_write(f"{tmp_dir}/a", [[[1], [2]], [[3]]], dtype="uint16")}
+        files["b"] = {"data_file": f"{tmp_dir}/int32.bin", "index_file": f"{tmp_dir}/int32.idx"}
+        files["c"] = {"data_file": f"{tmp_dir}/uint16.bin", "index_file": f"{tmp_dir}/uint16.idx"}
+        tag_to_data = {}
+        for names in ["abc", "cb", "ca", "b"]:
+            dataset = init_dataset(
+                {
+                    "class": "MegatronDataset",
+                    "data_file": [files[name]["data_file"] for name in names],
+                    "index_file": [files[name]["index_file"] for name in names],
+                    "vocab_size": 2**16,
+                }
+            )
+            seqs = dummy_iter_dataset(dataset)
+            assert [seq.seq_tag for seq in seqs] == dataset.get_all_tags()
+            for seq in seqs:
+                assert (
+                    tag_to_data.setdefault(seq.seq_tag, seq.features["data"].tolist()) == seq.features["data"].tolist()
+                )
+            dataset.init_seq_order(seq_list=[seqs[-1].seq_tag, seqs[0].seq_tag])
+            dataset.load_seqs(0, 2)
+            assert [dataset.get_tag(i) for i in range(2)] == [seqs[-1].seq_tag, seqs[0].seq_tag]
+            assert [dataset.get_data(i, "data").tolist() for i in range(2)] == [
+                tag_to_data[seqs[-1].seq_tag],
+                tag_to_data[seqs[0].seq_tag],
+            ]
+        assert len(tag_to_data) == 3 + 5 + 5
+        assert tag_to_data["a/doc-1/seq-0"] == [3] and tag_to_data["uint16/doc-3/seq-0"] == [7, 6, 5, 4]
+
+        # Same base name in different dirs.
+        os.mkdir(f"{tmp_dir}/sub")
+        same_name = _megatron_write(f"{tmp_dir}/sub/a", [[[1]]], dtype="uint16")
+        try:
+            init_dataset(
+                {
+                    "class": "MegatronDataset",
+                    "data_file": [files["a"]["data_file"], same_name["data_file"]],
+                    "index_file": [files["a"]["index_file"], same_name["index_file"]],
+                    "vocab_size": 8,
+                }
+            )
+        except ValueError as exc:
+            assert "not unique" in str(exc)
+        else:
+            raise AssertionError("expected ValueError")
+
+        # A separately written index which splits every seq, over the unchanged data file.
+        orig_lens = [len(seq) for doc in docs for seq in doc]
+        offsets = numpy.cumsum([0] + orig_lens).tolist()
+        split_lens, split_pointers, split_doc_indices = [], [], [0]
+        for doc_idx, doc in enumerate(docs):
+            for seq_idx in range(sum(len(d) for d in docs[:doc_idx]), sum(len(d) for d in docs[: doc_idx + 1])):
+                half = orig_lens[seq_idx] // 2
+                split_lens += [half, orig_lens[seq_idx] - half]
+                split_pointers += [offsets[seq_idx] * 4, (offsets[seq_idx] + half) * 4]
+            split_doc_indices.append(len(split_lens))
+        split_index_file = f"{tmp_dir}/int32-split.idx"
+        with open(split_index_file, "wb") as f:
+            f.write(
+                _megatron_index_bytes(
+                    seq_lens=split_lens,
+                    seq_pointers=split_pointers,
+                    document_indices=split_doc_indices,
+                    dtype_code=_megatron_dtype_codes["int32"],
+                )
+            )
+        dataset = init_dataset(
+            {
+                "class": "MegatronDataset",
+                "data_file": f"{tmp_dir}/int32.bin",
+                "index_file": split_index_file,
+                "vocab_size": 2**16,
+                "seq_ordering": "sorted",
+            }
+        )
+        seqs = dummy_iter_dataset(dataset)
+        assert len(seqs) == 10
+        assert [len(seq.features["data"]) for seq in seqs] == sorted(split_lens)
+        doc_tokens = [[] for _ in docs]
+        for seq in sorted(seqs, key=lambda seq_: dataset.get_all_tags().index(seq_.seq_tag)):
+            doc_tokens[int(seq.seq_tag.split("/")[1][len("doc-") :])] += seq.features["data"].tolist()
+        assert doc_tokens == [[t for seq in doc for t in seq] for doc in docs]
+
+
+def test_MegatronDataset_invalid():
+    def _check(index: Optional[bytes] = None, *, error: str, vocab_size: int = 8, **opts):
+        if index is not None:
+            with open(files["index_file"], "wb") as f_:
+                f_.write(index)
+        dataset = init_dataset({"class": "MegatronDataset", **files, "vocab_size": vocab_size, **opts})
+        try:
+            dummy_iter_dataset(dataset)
+        except ValueError as exc:
+            print("Expected exception:", exc)
+            assert error in str(exc), f"expected {error!r} in {exc}"
+        else:
+            raise AssertionError(f"expected ValueError with {error!r}")
+
+    vocab = {"vocab_file": None, "labels": ["a", "b", "c"], "unknown_label": None}
+    try:
+        init_dataset({"class": "MegatronDataset", "data_file": "", "index_file": "", "vocab_size": 8, "vocab": vocab})
+    except ValueError as exc:
+        assert "vocab has 3 labels" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+    try:
+        init_dataset({"class": "MegatronDataset", "data_file": ["a", "b"], "index_file": ["a"], "vocab_size": 8})
+    except ValueError as exc:
+        assert "2 data files but 1 index files" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        files = _megatron_write(f"{tmp_dir}/data", [[[1, 2], [3]], [[4, 5, 6]]], dtype="int32")
+        with open(files["index_file"], "rb") as f:
+            valid = f.read()
+        valid_opts = dict(seq_lens=[2, 1, 3], seq_pointers=[0, 8, 12], document_indices=[0, 2, 3], dtype_code=4)
+        assert _megatron_index_bytes(**valid_opts) == valid
+        _check(error="not within vocab_size 5", vocab_size=5)
+        _check(_megatron_index_bytes(**{**valid_opts, "magic": b"MMIDIDX\x00\x01"}), error="not in the Megatron")
+        _check(_megatron_index_bytes(**{**valid_opts, "version": 2}), error="not in the Megatron")
+        _check(_megatron_index_bytes(**{**valid_opts, "dtype_code": 7}), error="dtype code 7 not supported")
+        _check(_megatron_index_bytes(**{**valid_opts, "dtype_code": 9}), error="dtype code 9 not supported")
+        _check(valid[:20], error="truncated")
+        _check(valid[:-1], error="has size")
+        _check(valid + bytes(3), error="multimodal")  # with seq modes, one byte per seq
+        _check(_megatron_index_bytes(**{**valid_opts, "seq_pointers": [0, 8, 16]}), error="seq 2 with length 3")
+        _check(_megatron_index_bytes(**{**valid_opts, "seq_pointers": [0, -4, 12]}), error="seq 1 with length 1")
+        _check(_megatron_index_bytes(**{**valid_opts, "seq_lens": [2, -1, 3]}), error="seq 1 with length -1")
+        _check(_megatron_index_bytes(**{**valid_opts, "document_indices": [0, 2]}), error="from 0 to num seqs")
+        _check(_megatron_index_bytes(**{**valid_opts, "document_indices": [1, 2, 3]}), error="from 0 to num seqs")
+        _check(_megatron_index_bytes(**{**valid_opts, "document_indices": [0, 2, 1, 3]}), error="not monotonic")
+
+
+def test_MegatronDataset_load_seqs_end():
+    # CachedDataset2.load_seqs allows an end beyond num_seqs.
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        files = _megatron_write(f"{tmp_dir}/data", [[[1, 2], [3]], [[4, 5, 6]]], dtype="int32")
+        dataset = init_dataset({"class": "MegatronDataset", **files, "vocab_size": 8})
+        dataset.init_seq_order(epoch=1)
+        dataset.load_seqs(0, 5)
+        assert [dataset.get_data(i, "data").tolist() for i in range(3)] == [[1, 2], [3], [4, 5, 6]]
+        assert [dataset.get_seq_length(i)["data"] for i in range(3)] == [2, 1, 3]
+        assert [dataset.get_tag(i) for i in range(3)] == ["data/doc-0/seq-0", "data/doc-0/seq-1", "data/doc-1/seq-0"]
+        assert not dataset.is_less_than_num_seqs(3)
+        dataset.init_seq_order(seq_order=[])
+        dataset.load_seqs(0, 1)
+        assert not dataset.is_less_than_num_seqs(0)
+
+
+def test_MegatronDataset_partition_epoch_sharding():
+    # Over the sub epochs of one full epoch, the shards together cover every seq exactly once.
+    num_seqs, partition_epoch, num_shards = 23, 3, 2
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        files = _megatron_write(f"{tmp_dir}/data", [[[i]] for i in range(num_seqs)], dtype="uint16")
+        opts = {"class": "MegatronDataset", **files, "vocab_size": num_seqs}
+        opts.update({"seq_ordering": "random", "partition_epoch": partition_epoch})
+
+        def _get_tags(*, full_epoch: int) -> List[List[str]]:
+            res = []
+            for sub_epoch in range(1, partition_epoch + 1):
+                for shard_index in range(num_shards):
+                    dataset = init_dataset({**opts, "_num_shards": num_shards, "_shard_index": shard_index})
+                    seqs = dummy_iter_dataset(dataset, epoch=(full_epoch - 1) * partition_epoch + sub_epoch)
+                    res.append([seq.seq_tag for seq in seqs])
+            return res
+
+        tags = _get_tags(full_epoch=1)
+        assert sorted(sum(tags, [])) == sorted(f"data/doc-{i}/seq-0" for i in range(num_seqs))
+        assert all(3 <= len(t) <= 4 for t in tags), tags
+        assert _get_tags(full_epoch=1) == tags  # deterministic
+        assert _get_tags(full_epoch=2) != tags  # new random order
+
+
+def _megatron_dfd_get_sub_epoch_dataset(files_subepoch: List[Dict[str, str]]) -> Dict[str, Any]:
+    return {
+        "class": "MegatronDataset",
+        "data_file": [files["data_file"] for files in files_subepoch],
+        "index_file": [files["index_file"] for files in files_subepoch],
+        "vocab_size": 100,
+        "seq_ordering": "random",
+    }
+
+
+def test_MegatronDataset_DistributeFilesDataset():
+    num_files, num_seqs, partition_epoch = 6, 5, 3
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        files = [
+            _megatron_write(f"{tmp_dir}/data-{i}", [[[i * 10 + j]] for j in range(num_seqs)], dtype="uint16")
+            for i in range(num_files)
+        ]
+        dataset = init_dataset(
+            {
+                "class": "DistributeFilesDataset",
+                "files": files,
+                "get_sub_epoch_dataset": _megatron_dfd_get_sub_epoch_dataset,
+                "partition_epoch": partition_epoch,
+                "use_worker_proc": False,
+            }
+        )
+        tokens = []
+        for sub_epoch in range(1, partition_epoch + 1):
+            seqs = dummy_iter_dataset(dataset, epoch=sub_epoch)
+            assert len(seqs) == num_seqs * num_files // partition_epoch
+            tokens += [seq.features["data"].tolist() for seq in seqs]
+        assert sorted(tokens) == [[i * 10 + j] for i in range(num_files) for j in range(num_seqs)]
+
+
+def check_del_after_init_error(create, exc_type):
+    """
+    ``create()`` must raise ``exc_type`` in ``__init__``.
+    Checks that ``__del__`` of the partially initialized object does not raise then.
+    Python only prints such exceptions (via ``sys.unraisablehook``), so we collect them via the hook.
+    """
+    import gc
+
+    unraisable = []
+    old_hook = sys.unraisablehook
+    sys.unraisablehook = unraisable.append
+    try:
+        try:
+            create()
+        except exc_type:
+            pass
+        else:
+            raise Exception(f"{create} did not raise {exc_type.__name__}")
+        gc.collect()
+    finally:
+        sys.unraisablehook = old_hook
+    assert not unraisable, [f"{u.exc_type.__name__}: {u.exc_value}" for u in unraisable]
+
+
+def test_PostprocessingDataset_del_after_init_error():
+    from returnn.datasets.postprocessing import PostprocessingDataset
+
+    check_del_after_init_error(
+        lambda: PostprocessingDataset(
+            dataset={"class": "Task12AXDataset", "num_seqs": 3},
+            map_seq=lambda data, **_kwargs: data,
+            seq_ordering="random",
+        ),
+        ValueError,
+    )
+
+
+if __name__ == "__main__":
+    better_exchook.install()
+    if len(sys.argv) <= 1:
+        for k, v in sorted(globals().items()):
+            if k.startswith("test_"):
+                print("-" * 40)
+                print("Executing: %s" % k)
+                try:
+                    v()
+                except unittest.SkipTest as exc:
+                    print("SkipTest:", exc)
+                print("-" * 40)
+        print("Finished all tests.")
+    else:
+        assert len(sys.argv) >= 2
+        for arg in sys.argv[1:]:
+            print("Executing: %s" % arg)
+            if arg in globals():
+                globals()[arg]()  # assume function and execute
+            else:
+                eval(arg)  # assume Python code and execute

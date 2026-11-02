@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.12.3"
+      - name: Check Python sources
+        run: uvx --from ruff==0.16.5 ruff check python tests study/agent-edit
+
+  test-python:
+    name: test-python
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.12.3"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+      - name: Install hash-checked test dependencies
+        run: |
+          uv export --locked --no-dev --extra test --group ci-build --no-emit-project --format requirements.txt --output-file "$RUNNER_TEMP/test-requirements.txt"
+          uv pip install --system --require-hashes -r "$RUNNER_TEMP/test-requirements.txt"
+      - name: Build and install the extension
+        run: |
+          maturin build --release --locked --out dist
+          python .github/scripts/hashed_artifact_requirements.py --output "$RUNNER_TEMP/wheel-requirements.txt" "dist/*.whl"
+          uv pip install --system --require-hashes --no-deps --no-index -r "$RUNNER_TEMP/wheel-requirements.txt"
+      - name: Run offline workbook editing study tests
+        run: python -m unittest discover -s study/agent-edit -p 'test_*.py' -v
+      - name: Run Python tests
+        # The Community mirror intentionally omits private audit scripts and
+        # evidence docs while retaining their source-level regression tests.
+        # Run the distributable product suite and skip those private-only
+        # test families until the public cut stops carrying them.
+        run: |
+          pytest tests -q -n auto --dist worksteal \
+            --ignore=tests/vendored_openpyxl \
+            --ignore-glob='tests/test_ooxml_*.py' \
+            --ignore-glob='tests/test_*audit*.py' \
+            --ignore-glob='tests/test_*benchmark*.py' \
+            --ignore-glob='tests/test_release_*.py' \
+            --ignore-glob='tests/test_*sota*.py' \
+            --ignore=tests/test_compatibility_matrix_render.py \
+            --ignore=tests/test_external_oracle_preservation.py \
+            --ignore=tests/test_import_release_artifact_proof_reports.py \
+            --ignore=tests/test_openpyxl_compat_oracle.py \
+            --ignore=tests/test_openpyxl_corpus_runner_summary.py \
+            --deselect=tests/test_calc_functions.py::TestWhitelist::test_public_formula_counts_match_whitelist
+
+  test-rust:
+    name: test-rust
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+      - name: Verify Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Run Rust workspace tests
+        run: cargo test --workspace --all-targets --locked

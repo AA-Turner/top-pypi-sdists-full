@@ -1,0 +1,926 @@
+//! Callback values and Python handle wrappers used by the loop engine.
+
+use std::sync::{
+    Arc, Mutex, Weak,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+};
+
+use pyo3::{prelude::*, types::PyTuple};
+
+use crate::{
+    context::{enter_context, exit_context, is_nested_context_error},
+    fd_ops::RawFd,
+};
+
+// A callback that leaves its private context empty and unreferenced can
+// return it to this thread. Take it out while entered to support reentrancy.
+#[cfg(not(Py_GIL_DISABLED))]
+thread_local! {
+    static EMPTY_CALLBACK_CONTEXT: std::cell::RefCell<Option<Py<PyAny>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+fn empty_callback_context(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    #[cfg(not(Py_GIL_DISABLED))]
+    if let Some(context) = EMPTY_CALLBACK_CONTEXT.with(|slot| slot.borrow_mut().take()) {
+        return Ok(context);
+    }
+    // SAFETY: Python is attached and this returns a new owned reference.
+    unsafe { Ok(Bound::from_owned_ptr_or_err(py, pyo3::ffi::PyContext_New())?.unbind()) }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+fn recycle_callback_context(py: Python<'_>, context: Py<PyAny>) {
+    #[cfg(not(Py_GIL_DISABLED))]
+    {
+        // SAFETY: The GIL makes this exclusive-reference check reliable.
+        // Retained tokens and context mutations require a fresh context later.
+        if unsafe { pyo3::ffi::Py_REFCNT(context.as_ptr()) } == 1
+            && context.bind(py).len().is_ok_and(|len| len == 0)
+        {
+            EMPTY_CALLBACK_CONTEXT.with(|slot| *slot.borrow_mut() = Some(context));
+        }
+    }
+    #[cfg(Py_GIL_DISABLED)]
+    let _ = (py, context);
+}
+
+/// An owned FFI result whose destructor runs after context exit, matching the
+/// observable finalizer timing of the ordinary Py-object return path.
+struct CallbackResult<'py> {
+    pointer: *mut pyo3::ffi::PyObject,
+    _python: std::marker::PhantomData<Python<'py>>,
+}
+impl Drop for CallbackResult<'_> {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<CallbackResult as Drop>")
+    )]
+    fn drop(&mut self) {
+        // SAFETY: this owns a nonnull result reference; the Python lifetime
+        // prevents moving its destruction outside the attached invocation.
+        unsafe {
+            pyo3::ffi::Py_DECREF(self.pointer);
+        }
+    }
+}
+
+pub type CallbackId = u64;
+
+#[inline]
+#[cfg_attr(feature = "profile", hotpath::measure)]
+fn call_callback_noargs(py: Python<'_>, callback: &Py<PyAny>) -> PyResult<Py<PyAny>> {
+    Ok(callback.bind(py).call0()?.unbind())
+}
+
+#[inline]
+#[cfg_attr(feature = "profile", hotpath::measure)]
+fn call_callback_onearg(
+    py: Python<'_>,
+    callback: &Py<PyAny>,
+    arg: &Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    Ok(callback.bind(py).call1((arg.bind(py),))?.unbind())
+}
+
+pub(crate) enum CallbackArgs {
+    None,
+    One(Py<PyAny>),
+    Many(Py<PyTuple>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum CallbackKind {
+    Soon,
+    Threadsafe,
+    Timer,
+    Signal(i32),
+    Reader(RawFd),
+    Writer(RawFd),
+}
+
+// Store the tag separately from its payload so ReadyCallback's booleans can
+// share the tag's padding. Keeping CallbackKind inline costs another word on
+// 64-bit targets. The payload retains the full cross-platform RawFd range.
+#[derive(Clone, Copy)]
+enum CallbackSource {
+    Soon,
+    Threadsafe,
+    Timer,
+    Signal,
+    Reader,
+    Writer,
+}
+
+/// A Python callback, its positional arguments, and captured execution context.
+///
+/// The value is safe to enqueue across rsloop's worker threads. Invocation must
+/// still happen while attached to Python, normally on the event-loop thread.
+pub struct ReadyCallback<const SOURCE_WORDS: usize = 1> {
+    id: CallbackId,
+    source: CallbackSource,
+    source_value: [RawFd; SOURCE_WORDS],
+    callback: Py<PyAny>,
+    // The None/One/Many tag shares the flags' padding instead of adding a
+    // word to every callback through CallbackArgs' enum discriminant.
+    args: Option<Py<PyAny>>,
+    args_are_tuple: bool,
+    context: Py<PyAny>,
+    context_needs_run: bool,
+    cancelled: AtomicBool,
+}
+
+impl ReadyCallback {
+    #[inline]
+    /// Builds a ready callback and selects a zero-, one-, or many-argument fast
+    /// path.
+    ///
+    /// `context_needs_run` records whether invocation must enter `context`.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn new(
+        py: Python<'_>,
+        id: CallbackId,
+        kind: CallbackKind,
+        callback: Py<PyAny>,
+        args_tuple: Py<PyTuple>,
+        context: Py<PyAny>,
+        context_needs_run: bool,
+    ) -> Self {
+        let args = match args_tuple.bind(py).len() {
+            0 => CallbackArgs::None,
+            1 => CallbackArgs::One(
+                args_tuple
+                    .bind(py)
+                    .get_item(0)
+                    .expect("single callback arg")
+                    .unbind(),
+            ),
+            _ => CallbackArgs::Many(args_tuple),
+        };
+
+        Self::from_args(id, kind, callback, args, context, context_needs_run)
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub(crate) fn from_args(
+        id: CallbackId,
+        kind: CallbackKind,
+        callback: Py<PyAny>,
+        args: CallbackArgs,
+        context: Py<PyAny>,
+        context_needs_run: bool,
+    ) -> Self {
+        let (source, source_value) = match kind {
+            CallbackKind::Soon => (CallbackSource::Soon, 0),
+            CallbackKind::Threadsafe => (CallbackSource::Threadsafe, 0),
+            CallbackKind::Timer => (CallbackSource::Timer, 0),
+            CallbackKind::Signal(signal) => (CallbackSource::Signal, RawFd::from(signal)),
+            CallbackKind::Reader(fd) => (CallbackSource::Reader, fd),
+            CallbackKind::Writer(fd) => (CallbackSource::Writer, fd),
+        };
+        let (args, args_are_tuple) = match args {
+            CallbackArgs::None => (None, false),
+            CallbackArgs::One(arg) => (Some(arg), false),
+            CallbackArgs::Many(args) => (Some(args.into_any()), true),
+        };
+        Self {
+            id,
+            source,
+            source_value: [source_value],
+            callback,
+            args,
+            args_are_tuple,
+            context,
+            context_needs_run,
+            cancelled: AtomicBool::new(false),
+        }
+    }
+}
+
+impl<const SOURCE_WORDS: usize> ReadyCallback<SOURCE_WORDS> {
+    #[inline]
+    /// Returns the loop-unique identifier assigned to this callback.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn id(&self) -> CallbackId {
+        self.id
+    }
+
+    #[inline]
+    /// Returns the scheduling source used for diagnostics and re-arming I/O.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn kind(&self) -> CallbackKind {
+        match self.source {
+            CallbackSource::Soon => CallbackKind::Soon,
+            CallbackSource::Threadsafe => CallbackKind::Threadsafe,
+            CallbackSource::Timer => CallbackKind::Timer,
+            // Only an i32 signal number can initialize this source variant.
+            CallbackSource::Signal => CallbackKind::Signal(self.source_value[0] as i32),
+            CallbackSource::Reader => CallbackKind::Reader(self.source_value[0]),
+            CallbackSource::Writer => CallbackKind::Writer(self.source_value[0]),
+        }
+    }
+
+    #[inline]
+    /// Borrows the underlying Python callable.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn callback(&self) -> &Py<PyAny> {
+        &self.callback
+    }
+
+    #[inline]
+    /// Borrows the captured Context, or the implicit-empty marker for a
+    /// one-shot callback whose private Context is created on invocation.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn context(&self) -> &Py<PyAny> {
+        &self.context
+    }
+
+    #[inline]
+    /// Reports whether invocation needs to enter the captured context.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn context_needs_run(&self) -> bool {
+        self.context_needs_run
+    }
+
+    /// Invokes the callback with its stored arguments and execution context.
+    ///
+    /// A nested-context error falls back to direct invocation because that
+    /// means the desired context is already active on this thread.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn invoke(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.invoke_with(py, |ready| ready.invoke_direct(py))
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    /// Invoke a scheduled callback and release its result after context exit.
+    pub fn invoke_discard(&self, py: Python<'_>) -> PyResult<()> {
+        let result = self.invoke_with(py, |ready| ready.invoke_direct_raw(py))?;
+        drop(result);
+        Ok(())
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    fn invoke_with<R>(&self, py: Python<'_>, call: impl Fn(&Self) -> PyResult<R>) -> PyResult<R> {
+        if !self.context_needs_run {
+            return call(self);
+        }
+
+        // Only implicitly empty, one-shot callback contexts use the marker.
+        // Materialize a private context so mutations and retained ContextVar
+        // tokens cannot leak into siblings, the caller, or later callbacks.
+        let empty_context = if self.context.is_none(py) {
+            Some(empty_callback_context(py)?)
+        } else {
+            None
+        };
+        let context = empty_context.as_ref().unwrap_or(&self.context);
+        if let Err(err) = enter_context(py, context) {
+            return if is_nested_context_error(py, &err) {
+                call(self)
+            } else {
+                Err(err)
+            };
+        }
+
+        let callback_result = call(self);
+        let exit_result = exit_context(py, context);
+        if exit_result.is_ok()
+            && let Some(context) = empty_context
+        {
+            recycle_callback_context(py, context);
+        }
+
+        match (callback_result, exit_result) {
+            (Ok(result), Ok(())) => Ok(result),
+            (Err(err), _) | (Ok(_), Err(err)) => Err(err),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    fn invoke_direct_raw<'py>(&self, py: Python<'py>) -> PyResult<CallbackResult<'py>> {
+        // SAFETY: the callback and stored arguments remain owned by self. The
+        // inline arrays and tuple are valid for the synchronous call, which
+        // returns one owned reference or sets a Python exception on null.
+        let pointer = unsafe {
+            match &self.args {
+                None => pyo3::ffi::PyObject_Vectorcall(
+                    self.callback.as_ptr(),
+                    std::ptr::null(),
+                    0,
+                    std::ptr::null_mut(),
+                ),
+                Some(arg) if !self.args_are_tuple => {
+                    let args = [arg.as_ptr()];
+                    pyo3::ffi::PyObject_Vectorcall(
+                        self.callback.as_ptr(),
+                        args.as_ptr(),
+                        1,
+                        std::ptr::null_mut(),
+                    )
+                }
+                Some(args) => pyo3::ffi::PyObject_Call(
+                    self.callback.as_ptr(),
+                    args.as_ptr(),
+                    std::ptr::null_mut(),
+                ),
+            }
+        };
+        if pointer.is_null() {
+            Err(PyErr::fetch(py))
+        } else {
+            Ok(CallbackResult {
+                pointer,
+                _python: std::marker::PhantomData,
+            })
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    fn invoke_direct(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        match &self.args {
+            None => call_callback_noargs(py, &self.callback),
+            Some(arg) if !self.args_are_tuple => call_callback_onearg(py, &self.callback, arg),
+            Some(args) => {
+                // SAFETY: from_args sets args_are_tuple only for an owned
+                // PyTuple; these fields are immutable after construction.
+                let args = unsafe { args.bind(py).cast_unchecked::<PyTuple>() };
+                Ok(self.callback.bind(py).call1(args)?.unbind())
+            }
+        }
+    }
+
+    #[inline]
+    /// Reports whether this callback has been cancelled.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+
+    #[inline]
+    /// Marks the callback as cancelled.
+    ///
+    /// Cancellation is idempotent and does not remove an already queued value;
+    /// the loop skips it when draining the ready queue.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "ReadyCallback"))]
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Python's cancellable `asyncio.Handle` equivalent.
+///
+/// The handle owns its callback inline and the ready queue holds `Py<PyHandle>`
+/// clones, requiring one allocation per `call_soon`. The class is frozen so
+/// the event loop can read the callback without dynamic borrow checking.
+/// A PyO3 freelist slowed large callback bursts: their handles remain live
+/// until the ready batch drains, so allocation usually finds the list empty.
+#[pyclass(name = "Handle", module = "rsloop._loop", weakref, frozen)]
+pub struct PyHandle {
+    // call_soon handles have no signal/fd payload. Omitting that word keeps
+    // their Python allocation in a smaller size class on 64-bit CPython.
+    callback: ReadyCallback<0>,
+}
+
+impl PyHandle {
+    #[inline]
+    /// Wraps a callback in a Python-visible handle.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyHandle"))]
+    pub fn new(callback: ReadyCallback) -> Self {
+        assert!(matches!(
+            callback.source,
+            CallbackSource::Soon | CallbackSource::Threadsafe
+        ));
+        let ReadyCallback {
+            id,
+            source,
+            source_value: _,
+            callback,
+            args,
+            args_are_tuple,
+            context,
+            context_needs_run,
+            cancelled,
+        } = callback;
+        Self {
+            callback: ReadyCallback {
+                id,
+                source,
+                source_value: [],
+                callback,
+                args,
+                args_are_tuple,
+                context,
+                context_needs_run,
+                cancelled,
+            },
+        }
+    }
+
+    #[inline]
+    /// Borrows the callback controlled by this handle.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyHandle"))]
+    pub fn ready(&self) -> &ReadyCallback<0> {
+        &self.callback
+    }
+}
+
+#[pymethods]
+impl PyHandle {
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyHandle"))]
+    fn cancel(&self) -> PyResult<()> {
+        self.callback.cancel();
+        Ok(())
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyHandle"))]
+    fn cancelled(&self) -> bool {
+        self.callback.cancelled()
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyHandle"))]
+    fn __repr__(&self) -> String {
+        format!(
+            "<Handle id={} cancelled={}>",
+            self.callback.id(),
+            self.cancelled()
+        )
+    }
+}
+
+/// Mutable ownership exists only for timers: ordinary ready callbacks keep
+/// their allocation size and lock-free invocation path.
+pub struct TimerCallback {
+    id: CallbackId,
+    state: Mutex<TimerState>,
+    cancelled: AtomicBool,
+    cancelled_timers: Arc<AtomicUsize>,
+    // The public Rust API historically returns an immutable Arc<ReadyCallback>.
+    // Preserve that explicit shared ownership for Rust embedders; Python timers
+    // use the detachable payload above instead.
+    legacy: Option<Arc<ReadyCallback>>,
+}
+
+struct TimerState {
+    ready: Option<ReadyCallback>,
+    queued: bool,
+}
+
+impl TimerCallback {
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub fn new(ready: ReadyCallback, cancelled_timers: Arc<AtomicUsize>) -> Self {
+        Self {
+            id: ready.id(),
+            state: Mutex::new(TimerState {
+                ready: Some(ready),
+                queued: true,
+            }),
+            cancelled: AtomicBool::new(false),
+            cancelled_timers,
+            legacy: None,
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub(super) fn from_shared(
+        ready: Arc<ReadyCallback>,
+        cancelled_timers: Arc<AtomicUsize>,
+    ) -> Self {
+        Self {
+            id: ready.id(),
+            state: Mutex::new(TimerState {
+                ready: None,
+                queued: true,
+            }),
+            cancelled: AtomicBool::new(false),
+            cancelled_timers,
+            legacy: Some(ready),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub(super) fn shared_ready(&self) -> Option<&ReadyCallback> {
+        self.legacy.as_deref()
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub fn id(&self) -> CallbackId {
+        self.id
+    }
+
+    #[inline]
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub fn cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+            || self.legacy.as_ref().is_some_and(|ready| ready.cancelled())
+    }
+
+    /// Linearize cancellation and detach Python ownership under the same lock
+    /// as invocation. Drop outside it: DECREF can run reentrant finalizers.
+    /// The Python handle calls this while attached; Rust callers can also use
+    /// PyO3's deferred decref when detached.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub fn cancel(&self) {
+        let ready = {
+            let mut state = self.state.lock().expect("poisoned timer state");
+            if self.cancelled.swap(true, Ordering::Relaxed) {
+                return;
+            }
+            if state.queued {
+                self.cancelled_timers.fetch_add(1, Ordering::Relaxed);
+            }
+            state.ready.take()
+        };
+        drop(ready);
+        if let Some(ready) = &self.legacy {
+            ready.cancel();
+        }
+    }
+
+    /// Queue removal and cancellation share the lock so repeated cancellation,
+    /// cross-thread removal and loop shutdown count each tombstone once.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub(super) fn dequeue(&self) {
+        let mut state = self.state.lock().expect("poisoned timer state");
+        if state.queued && self.cancelled.load(Ordering::Relaxed) {
+            self.cancelled_timers.fetch_sub(1, Ordering::Relaxed);
+        }
+        state.queued = false;
+    }
+
+    /// The invocation owns its payload until completion. A concurrent cancel
+    /// can prevent a not-yet-claimed invocation, but cannot invalidate a
+    /// running callback's arguments/context. No lock crosses Python
+    /// execution.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TimerCallback"))]
+    pub(super) fn take_ready(&self) -> Option<ReadyCallback> {
+        self.state
+            .lock()
+            .expect("poisoned timer state")
+            .ready
+            .take()
+    }
+}
+
+impl Drop for TimerCallback {
+    #[cfg_attr(
+        feature = "profile",
+        hotpath::measure(impl_type = "<TimerCallback as Drop>")
+    )]
+    fn drop(&mut self) {
+        let state = self.state.get_mut().expect("poisoned timer state");
+        if state.queued && *self.cancelled.get_mut() {
+            self.cancelled_timers.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Python's cancellable `asyncio.TimerHandle` equivalent.
+///
+/// The weak callback reference lets cancellation update a live scheduled
+/// callback without keeping it alive after the timer queue releases it.
+#[pyclass(
+    name = "TimerHandle",
+    module = "rsloop._loop",
+    weakref,
+    frozen,
+    freelist = 1024
+)]
+pub struct PyTimerHandle {
+    callback_id: CallbackId,
+    when: f64,
+    callback: TimerHandleCallback,
+    cancelled: AtomicBool,
+}
+
+enum TimerHandleCallback {
+    Owned(Weak<TimerCallback>),
+    Shared(Weak<ReadyCallback>),
+}
+
+impl PyTimerHandle {
+    #[inline]
+    /// Creates a timer handle for a callback scheduled at loop time `when`.
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    pub fn new(callback_id: CallbackId, when: f64, callback: &Arc<ReadyCallback>) -> Self {
+        Self {
+            callback_id,
+            when,
+            callback: TimerHandleCallback::Shared(Arc::downgrade(callback)),
+            cancelled: AtomicBool::new(false),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    pub(crate) fn new_timer(
+        callback_id: CallbackId,
+        when: f64,
+        callback: &Arc<TimerCallback>,
+    ) -> Self {
+        Self {
+            callback_id,
+            when,
+            callback: TimerHandleCallback::Owned(Arc::downgrade(callback)),
+            cancelled: AtomicBool::new(false),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pyo3::{ffi::c_str, types::PyTuple};
+
+    use super::*;
+    use crate::context::capture_context;
+
+    fn callback_with_args(py: Python<'_>, id: CallbackId, args: Py<PyTuple>) -> ReadyCallback {
+        let callback = py
+            .eval(c_str!("lambda *args: args"), None, None)
+            .expect("build callback")
+            .unbind();
+        let (context, needs_run) = capture_context(py, None).expect("capture context");
+        ReadyCallback::new(
+            py,
+            id,
+            CallbackKind::Soon,
+            callback,
+            args,
+            context,
+            needs_run,
+        )
+    }
+
+    #[test]
+    fn callback_source_preserves_signal_and_descriptor_ranges() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            for kind in [
+                CallbackKind::Soon,
+                CallbackKind::Threadsafe,
+                CallbackKind::Timer,
+                CallbackKind::Signal(i32::MIN),
+                CallbackKind::Signal(i32::MAX),
+                CallbackKind::Reader(RawFd::MIN),
+                CallbackKind::Reader(RawFd::MAX),
+                CallbackKind::Writer(RawFd::MIN),
+                CallbackKind::Writer(RawFd::MAX),
+            ] {
+                let ready = ReadyCallback::from_args(
+                    1,
+                    kind,
+                    py.None(),
+                    CallbackArgs::None,
+                    py.None(),
+                    false,
+                );
+                match (kind, ready.kind()) {
+                    (CallbackKind::Soon, CallbackKind::Soon)
+                    | (CallbackKind::Threadsafe, CallbackKind::Threadsafe)
+                    | (CallbackKind::Timer, CallbackKind::Timer) => {}
+                    (CallbackKind::Signal(expected), CallbackKind::Signal(actual)) => {
+                        assert_eq!(actual, expected);
+                    }
+                    (CallbackKind::Reader(expected), CallbackKind::Reader(actual))
+                    | (CallbackKind::Writer(expected), CallbackKind::Writer(actual)) => {
+                        assert_eq!(actual, expected);
+                    }
+                    (expected, actual) => panic!("source changed: {expected:?} -> {actual:?}"),
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn ready_callback_invokes_zero_one_and_many_argument_fast_paths() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            for (id, values) in [(1, Vec::<i32>::new()), (2, vec![10]), (3, vec![10, 20, 30])] {
+                let args = PyTuple::new(py, &values).expect("callback args").unbind();
+                let ready = callback_with_args(py, id, args);
+                let result = ready.invoke(py).expect("invoke callback");
+                assert_eq!(
+                    result.extract::<Vec<i32>>(py).expect("tuple result"),
+                    values
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn ready_callback_runs_in_its_captured_context() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let contextvars = py.import("contextvars").expect("import contextvars");
+            let var = contextvars
+                .getattr("ContextVar")
+                .expect("ContextVar")
+                .call1(("ready_value",))
+                .expect("create ContextVar");
+            var.call_method1("set", ("captured",))
+                .expect("set captured value");
+            let callback = var.getattr("get").expect("ContextVar.get").unbind();
+            let (context, needs_run) = capture_context(py, None).expect("capture context");
+            var.call_method1("set", ("ambient",))
+                .expect("set ambient value");
+            let ready = ReadyCallback::new(
+                py,
+                7,
+                CallbackKind::Timer,
+                callback,
+                PyTuple::empty(py).unbind(),
+                context,
+                needs_run,
+            );
+
+            assert_eq!(
+                ready
+                    .invoke(py)
+                    .expect("invoke callback")
+                    .extract::<String>(py)
+                    .expect("callback string"),
+                "captured"
+            );
+            assert_eq!(
+                var.call_method0("get")
+                    .expect("read ambient value")
+                    .extract::<String>()
+                    .expect("ambient string"),
+                "ambient"
+            );
+        });
+    }
+
+    #[test]
+    fn handle_cancellation_and_metadata_are_consistent() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let ready = callback_with_args(py, 99, PyTuple::empty(py).unbind());
+            assert_eq!(ready.id(), 99);
+            assert!(matches!(ready.kind(), CallbackKind::Soon));
+            assert!(!ready.cancelled());
+            assert!(!ready.callback().bind(py).is_none());
+            assert!(!ready.context().bind(py).is_none());
+            assert!(ready.context_needs_run());
+
+            let handle = PyHandle::new(ready);
+            assert!(!handle.cancelled());
+            handle.cancel().expect("cancel handle");
+            assert!(handle.cancelled());
+            assert!(handle.ready().cancelled());
+            assert_eq!(handle.__repr__(), "<Handle id=99 cancelled=true>");
+        });
+    }
+
+    #[test]
+    fn timer_cancellation_racing_queue_removal_counts_once() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let count = Arc::new(AtomicUsize::new(0));
+            for id in 0..128 {
+                let timer = TimerCallback::new(
+                    callback_with_args(py, id, PyTuple::empty(py).unbind()),
+                    Arc::clone(&count),
+                );
+                std::thread::scope(|scope| {
+                    scope.spawn(|| {
+                        timer.cancel();
+                        timer.cancel();
+                    });
+                    scope.spawn(|| {
+                        timer.dequeue();
+                        timer.dequeue();
+                    });
+                });
+                assert!(timer.cancelled());
+                assert!(timer.take_ready().is_none());
+                assert_eq!(count.load(Ordering::Relaxed), 0);
+            }
+        });
+    }
+
+    #[test]
+    fn timer_claim_racing_cancel_never_invokes_twice_or_loses_ownership() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            for id in 0..128 {
+                let count = Arc::new(AtomicUsize::new(0));
+                let timer = TimerCallback::new(
+                    callback_with_args(py, id, PyTuple::empty(py).unbind()),
+                    Arc::clone(&count),
+                );
+                timer.dequeue();
+                let claimed = std::thread::scope(|scope| {
+                    scope.spawn(|| timer.cancel());
+                    scope
+                        .spawn(|| timer.take_ready())
+                        .join()
+                        .expect("claim thread")
+                });
+                if let Some(callback) = claimed {
+                    assert_eq!(
+                        callback
+                            .invoke(py)
+                            .expect("claimed invocation")
+                            .extract::<Vec<i32>>(py)
+                            .expect("result"),
+                        Vec::<i32>::new()
+                    );
+                }
+                assert!(timer.take_ready().is_none());
+                assert_eq!(count.load(Ordering::Relaxed), 0);
+            }
+        });
+    }
+
+    #[test]
+    fn dropping_queued_cancelled_timer_restores_count() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let count = Arc::new(AtomicUsize::new(0));
+            let timer = TimerCallback::new(
+                callback_with_args(py, 1, PyTuple::empty(py).unbind()),
+                Arc::clone(&count),
+            );
+            timer.cancel();
+            timer.cancel();
+            assert_eq!(count.load(Ordering::Relaxed), 1);
+            drop(timer);
+            assert_eq!(count.load(Ordering::Relaxed), 0);
+        });
+    }
+
+    #[test]
+    fn timer_handle_cancels_live_callback_and_tolerates_a_dropped_one() {
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let ready = Arc::new(TimerCallback::new(
+                callback_with_args(py, 12, PyTuple::empty(py).unbind()),
+                Arc::new(AtomicUsize::new(0)),
+            ));
+            let timer = PyTimerHandle::new_timer(12, 1.25, &ready);
+            assert!((timer.when() - 1.25).abs() < f64::EPSILON);
+            assert!(!timer.cancelled());
+
+            timer.cancel().expect("cancel timer");
+            assert!(timer.cancelled());
+            assert!(ready.cancelled());
+            assert_eq!(
+                timer.__repr__(),
+                "<TimerHandle id=12 when=1.250000 cancelled=true>"
+            );
+
+            let dropped = Arc::new(TimerCallback::new(
+                callback_with_args(py, 13, PyTuple::empty(py).unbind()),
+                Arc::new(AtomicUsize::new(0)),
+            ));
+            let dropped_timer = PyTimerHandle::new_timer(13, 2.0, &dropped);
+            drop(dropped);
+            dropped_timer
+                .cancel()
+                .expect("cancelling expired weak callback is harmless");
+            assert!(dropped_timer.cancelled());
+        });
+    }
+}
+
+#[pymethods]
+impl PyTimerHandle {
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    fn cancel(&self) -> PyResult<()> {
+        self.cancelled.store(true, Ordering::Relaxed);
+        match &self.callback {
+            TimerHandleCallback::Owned(callback) => {
+                if let Some(callback) = callback.upgrade() {
+                    callback.cancel();
+                }
+            }
+            TimerHandleCallback::Shared(callback) => {
+                if let Some(callback) = callback.upgrade() {
+                    callback.cancel();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    fn cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    fn when(&self) -> f64 {
+        self.when
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "PyTimerHandle"))]
+    fn __repr__(&self) -> String {
+        format!(
+            "<TimerHandle id={} when={:.6} cancelled={}>",
+            self.callback_id,
+            self.when,
+            self.cancelled()
+        )
+    }
+}

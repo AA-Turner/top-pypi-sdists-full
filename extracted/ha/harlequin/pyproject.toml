@@ -1,0 +1,424 @@
+[project]
+
+name = "harlequin"
+version = "2.17.0"
+requires-python = ">=3.10"
+description = "The SQL IDE for Your Terminal."
+authors = [
+    { name = "Ted Conbeer", email = "tconbeer@users.noreply.github.com" }
+]
+license = "MIT"
+readme = "README.md"
+keywords = ["sql", "tui", "ide", "textual", "harlequin"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    # textual and component libraries
+    "textual==8.2.8",
+    "textual-fastdatatable==0.19.3",
+    "textual-textarea==0.18.5",
+
+    # click
+    "click==8.5.0",
+    "rich-click==1.9.9",
+
+    # statement splitting. 
+    "tree-sitter>=0.25,<0.27",
+    "tree-sitter-sql>=0.3.11,<0.4",
+
+    # measuring text for the headless layouts
+    "wcwidth>=0.9.1,<0.10",
+
+    # ensure we install from wheels
+    "duckdb>=1.1.1; python_version < '3.14'",
+    "duckdb>=1.4.2; python_version >= '3.14'",
+
+    # buffer formatting
+    "shandy-sqlfmt>=0.28.2",
+    # imported directly by components/error_modal.py; also a textual-textarea dep
+    "pyperclip>=1.9,<2",
+
+    # locations for config and cache files
+    "platformdirs>=3.10,<5.0",
+
+    # read and write config files
+    "tomli>=2.0.1; python_version < '3.11'",
+    "tomlkit>=0.15.1,<0.16.0",
+
+    # config typing and validation
+    "msgspec>=0.19,<1",
+    # harlequin --config wizard
+    "questionary==2.1.1",
+]
+
+
+[project.optional-dependencies]
+
+s3 = ["boto3==1.43.118"]
+postgres = ["harlequin-postgres"]
+mysql = ["harlequin-mysql"]
+odbc = ["harlequin-odbc"]
+bigquery = ["harlequin-bigquery"]
+trino = ["harlequin-trino"]
+databricks = ["harlequin-databricks"]
+adbc = ["harlequin-adbc"]
+cassandra = ["harlequin-cassandra"]
+nebulagraph = ["harlequin-nebulagraph"]
+chdb = ["harlequin-chdb"]
+
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5,<5",
+    "textual-dev==1.8.0",
+    "harlequin-postgres>=1.1.1,<2",
+    "harlequin-mysql>=1,<2",
+    "pyinstrument>=5,<6",
+]
+static = [
+    "ruff>=0.14.1",
+    "mypy==2.4.0,<3",
+    "boto3-stubs>=1.34.23,<2",
+    "import-linter>=2.5",
+    # jsonschema ships no py.typed, and the config-schema tests call it
+    "types-jsonschema>=4.26.0.20260518",
+    # nor does pyyaml, which the skill's frontmatter tests call
+    "types-pyyaml>=6",
+]
+test = [
+    "pytest>=9.1.1,<9.2.0",
+    "pytest-asyncio==1.4.1",
+    "pytest-xdist>=3.6",
+    "pytest-textual-snapshot @ git+https://github.com/tconbeer/pytest-textual-snapshot.git@a2c6763b45283f76757a123342900accefcf04e8",
+    "boto3==1.43.118",
+    # extension tests require consistent version of duckdb. duckdb 2 requires 3.11.
+    "duckdb==1.5.6; python_version < '3.11'",
+    "duckdb==2.0.0; python_version >= '3.11'",
+    "flaky>=3.8.1",
+    # runs the schema `hsql --config schema` generates against real config
+    # files, so a schema that is not a schema fails here rather than in an
+    # editor. Not a runtime dependency: nothing in the package reads one.
+    "jsonschema>=4.20",
+    # parses the skill's frontmatter the way a harness loading it would. Not a
+    # runtime dependency either: `--skill` prints the file and reads nothing.
+    "pyyaml>=6",
+]
+
+
+# For development of related libraries
+# [tool.uv.sources]
+
+# textual-fastdatatable = { path = "../textual-fastdatatable" }
+# textual-textarea = { path = "../textual-textarea" }
+
+
+[project.urls]
+
+Homepage = "https://harlequin.sh"
+Documentation = "https://harlequin.sh/docs/getting-started/index"
+Repository = "https://github.com/tconbeer/harlequin"
+"Bug Tracker" = "https://github.com/tconbeer/harlequin/issues"
+Changelog = "https://github.com/tconbeer/harlequin/blob/main/CHANGELOG.md"
+
+
+[project.scripts]
+
+harlequin = "harlequin.cli:harlequin"
+hsql = "harlequin.hsql:main"
+
+
+[project.entry-points."harlequin.adapter"]
+
+duckdb = "harlequin_duckdb:DuckDbAdapter"
+sqlite = "harlequin_sqlite:HarlequinSqliteAdapter"
+
+
+[project.entry-points."harlequin.keymap"]
+
+vscode = "harlequin_vscode:VSCODE"
+
+
+[build-system]
+
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch.build.targets.wheel]
+
+# The plugin manifest that makes the skill directory a plugin. hatchling skips
+# dot-directories, and `.claude-plugin/` is where the plugin tooling looks.
+force-include = { "src/harlequin/hsql/skill/.claude-plugin/plugin.json" = "harlequin/hsql/skill/.claude-plugin/plugin.json" }
+
+packages = [
+    "src/harlequin",
+    "src/harlequin_duckdb",
+    "src/harlequin_sqlite",
+    "src/harlequin_vscode",
+]
+
+[tool.hatch.build.targets.sdist]
+
+force-include = { "src/harlequin/hsql/skill/.claude-plugin/plugin.json" = "src/harlequin/hsql/skill/.claude-plugin/plugin.json" }
+
+only-include = [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml"
+]
+
+
+[tool.ruff]
+
+target-version = "py310"
+
+
+[tool.ruff.lint]
+
+select = ["A", "B", "E", "F", "I"]
+
+
+[tool.mypy]
+
+python_version = "3.10"
+files = [
+    "src/**/*.py",
+    "tests/**/*.py",
+]
+mypy_path = "stubs,src"
+
+show_column_numbers = true
+
+# show error messages from unrelated files
+follow_imports = "normal"
+
+# be strict
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+strict_optional = true
+
+warn_return_any = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+
+no_implicit_reexport = true
+strict_equality = true
+
+
+[tool.pytest.ini_options]
+
+# Tests run in parallel, one worker per CPU. Pass -n0 to run them in a single
+# process, e.g. when using a debugger or -s.
+addopts = ["-n", "auto"]
+
+markers = [
+    "online: requeries internet connection (deselect with '-m \"not online\"')",
+    "use_cache: override the autouse fixture the disables the buffer cache",
+    "py12: Only run on Python 3.12 or higher",
+    "session_divergent: asserts state a warm session keeps between invocations that a cold run does not",
+]
+
+
+[tool.importlinter]
+
+root_packages = ["harlequin", "harlequin_duckdb", "harlequin_sqlite"]
+include_external_packages = true
+exclude_type_checking_imports = true
+
+
+[[tool.importlinter.contracts]]
+
+name = "The adapter API is reachable without the TUI"
+type = "forbidden"
+source_modules = [
+    "harlequin.adapter",
+    "harlequin.autocomplete",
+    "harlequin.catalog",
+    "harlequin.config",
+    "harlequin.crash",
+    "harlequin.environment",
+    "harlequin.exception",
+    "harlequin.keymap",
+    "harlequin.navigate",
+    "harlequin.options",
+    "harlequin.plugins",
+    "harlequin.redact",
+    "harlequin.ssh",
+    "harlequin.transaction_mode",
+    "harlequin_duckdb",
+    "harlequin_sqlite",
+]
+forbidden_modules = [
+    "questionary",
+    "textual",
+    "textual_fastdatatable",
+    "textual_textarea",
+    "harlequin.app",
+    "harlequin.colors",
+    "harlequin.components",
+    "harlequin.copy_widgets",
+    "harlequin.keys_app",
+    "harlequin.messages",
+]
+# import-linter reads the static graph, so it cannot see that these four are
+# deferred into the function that needs them -- but a reader of this list can,
+# and every one of them is a deliberate deferral with a comment at the import
+# site. Any *new* route to Textual fails the contract instead of joining them.
+# `tests/unit_tests/test_import_hygiene.py` is what proves the deferrals hold at
+# run time.
+ignore_imports = [
+    "harlequin.exception -> harlequin.colors",       # pretty_print_warning()
+    "harlequin.options -> harlequin.copy_widgets",   # to_widgets()
+    "harlequin.options -> harlequin.colors",         # to_questionary()
+    "harlequin.options -> questionary",              # to_questionary()
+]
+
+
+[[tool.importlinter.contracts]]
+
+# The headless execution core, and the two modules that write its results out.
+# It may reach `textual_fastdatatable.backend` -- that is where result
+# normalization lives, and as of 0.16.1 it costs no Textual -- but nothing here
+# may reach Textual itself or any part of the app. `harlequin.export` is in the
+# list from both directions: it is what a headless caller writes a file with,
+# and it is what the app's export dialog calls, so the dependency has to point
+# that way and not back.
+name = "The execution core is reachable without the TUI"
+type = "forbidden"
+source_modules = [
+    "harlequin.export",
+    "harlequin.layout",
+    "harlequin.query",
+    "harlequin.query_log",
+    "harlequin.statements",
+]
+forbidden_modules = [
+    "questionary",
+    "textual",
+    "textual_textarea",
+    "harlequin.app",
+    "harlequin.colors",
+    "harlequin.components",
+    "harlequin.copy_widgets",
+    "harlequin.keys_app",
+    "harlequin.messages",
+]
+# the same deliberate deferrals the adapter-API contract lists, each with a
+# comment at its import site; `harlequin.query_log` reaches the second three
+# through `harlequin.redact`, which reads a profile's option declarations.
+# tests/unit_tests/test_import_hygiene.py is what proves they defer.
+ignore_imports = [
+    "harlequin.exception -> harlequin.colors",       # pretty_print_warning()
+    "harlequin.options -> harlequin.copy_widgets",   # to_widgets()
+    "harlequin.options -> harlequin.colors",         # to_questionary()
+    "harlequin.options -> questionary",              # to_questionary()
+]
+unmatched_ignore_imports_alerting = "error"
+
+
+[[tool.importlinter.contracts]]
+
+# The whole point of shipping hsql as a second console script rather than a flag
+# on `harlequin` is that this becomes a rule CI can check, instead of a
+# discipline every contributor has to remember.
+name = "hsql does not reach the TUI"
+type = "forbidden"
+source_modules = ["harlequin.hsql"]
+# `locale_manager` is not a TUI module, but it is the one trap on this path:
+# the IDE calls set_locale() so a human sees grouped digits, and output that
+# varied with LC_ALL is output a caller cannot predict. hsql casts through
+# duckdb instead, and must never reach the other thing.
+forbidden_modules = [
+    "questionary",
+    "sqlfmt",
+    "textual",
+    "textual_textarea",
+    "harlequin.app",
+    "harlequin.cli",
+    "harlequin.colors",
+    "harlequin.components",
+    "harlequin.config_wizard",
+    "harlequin.copy_widgets",
+    "harlequin.keys_app",
+    "harlequin.locale_manager",
+    "harlequin.messages",
+]
+# deferred into pretty_print_warning(), which nothing here calls; the run-time
+# test in tests/unit_tests/test_import_hygiene.py is what proves it defers.
+# the same deliberate deferrals the adapter-API contract lists, each with a
+# comment at its import site. tests/unit_tests/test_import_hygiene.py is what
+# proves they defer; a *new* route to Textual fails this contract instead.
+ignore_imports = [
+    "harlequin.exception -> harlequin.colors",       # pretty_print_warning()
+    "harlequin.options -> harlequin.copy_widgets",   # to_widgets()
+    "harlequin.options -> harlequin.colors",         # to_questionary()
+    "harlequin.options -> questionary",              # to_questionary()
+]
+unmatched_ignore_imports_alerting = "error"
+
+
+[[tool.importlinter.contracts]]
+
+# A warm session answers in about 20ms, almost all of which is the interpreter
+# starting, so the client's import graph is the feature. `click` alone costs
+# more than the round trip and `harlequin.config` more again -- so the three
+# modules a session client loads reach for stdlib and each other, and nothing
+# else. The run-time guards in tests/unit_tests/test_import_hygiene.py are what
+# hold the stdlib half of the same rule, by counting modules.
+name = "The warm-session client imports nothing it cannot afford"
+type = "forbidden"
+source_modules = [
+    "harlequin.hsql.client",
+    "harlequin.hsql.protocol",
+    "harlequin.hsql.session",
+]
+# `harlequin` covers its every submodule, so a stdlib-only one added later is
+# on this list without anyone remembering to add it. The two exceptions are the
+# other members of this contract's own source set.
+forbidden_modules = [
+    "click",
+    "msgspec",
+    "platformdirs",
+    "pyarrow",
+    "questionary",
+    "textual",
+    "textual_fastdatatable",
+    "textual_textarea",
+    "tomlkit",
+    "wcwidth",
+    "harlequin",
+]
+ignore_imports = [
+    "harlequin.hsql.client -> harlequin.hsql.protocol",
+    "harlequin.hsql.client -> harlequin.hsql.session",
+]
+unmatched_ignore_imports_alerting = "error"
+
+
+[[tool.importlinter.contracts]]
+
+# Importing any harlequin.* submodule executes this package's __init__, so a
+# single eager import there puts the whole TUI behind every consumer. The
+# public names are resolved by a PEP 562 __getattr__ instead.
+name = "The package root does not import either app"
+type = "forbidden"
+source_modules = ["harlequin"]
+forbidden_modules = ["harlequin.app", "harlequin.keys_app"]
+unmatched_ignore_imports_alerting = "error"

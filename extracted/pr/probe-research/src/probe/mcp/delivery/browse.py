@@ -376,26 +376,6 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
     if not isinstance(rows, list) or not isinstance(descriptor, dict):
         fail()
 
-    # Runs filed nowhere yet (daemon v2) ride the lab root's FIRST page only,
-    # outside the traversal: they are no level of the tree and have no cursor.
-    unfiled_rows = (
-        [
-            {
-                **_compact(row),
-                **{key: row[key] for key in ("created_at", "tags") if row.get(key)},
-            }
-            for row in data.get("unfiled") or []
-            if isinstance(row, dict)
-        ]
-        if root_ref is None and parent is None and "browse" not in state
-        else []
-    )
-
-    # A fixed cost on the first page, decided ONCE: carried if it fits beside
-    # the first row, else dropped for the whole page with a marker. Deciding per
-    # candidate would let the rows squeeze it out one by one.
-    unfiled_state = {"dropped": False}
-
     def positions(desc: dict, values: list):
         after = desc.get("after")
         if not isinstance(after, list) or len(after) != len(values):
@@ -446,12 +426,9 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             "depth": fetch_args["depth"],
             target_level: values,
         }
-        carried = unfiled_rows if not unfiled_state["dropped"] else []
-        if carried:
-            output_data["unfiled"] = carried
         available = data.get("available_views")
         if isinstance(available, dict):
-            kinds = {row.get("entity_type") for row in [*values, *carried]}
+            kinds = {row.get("entity_type") for row in values}
             for row in values:
                 for field in ("experiments", "runs"):
                     kinds.update(child.get("entity_type") for child in row.get(field) or [])
@@ -466,9 +443,6 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
         ]
         if continuation is not None:
             missing.append("truncated_by_token_budget")
-        if unfiled_state["dropped"]:
-            # Said to be missing, never silently absent (absent means "none").
-            missing.append("unfiled_runs")
         output = omit_defaults(
             {
                 "data": output_data,
@@ -484,11 +458,6 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
         if not budget.fits(output):
             output["data"].pop("available_views", None)
         return output
-
-    if unfiled_rows:
-        opening = [_compact(rows[0])] if rows else []
-        if not budget.fits(result(opening, None)):
-            unfiled_state["dropped"] = True
 
     # Keep the ordinary small-tree response (including all project side lists)
     # in one call. A partially fetched tree takes the ordered traversal below;
@@ -512,7 +481,6 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             return row
 
         whole = result([], None)
-        kept_unfiled = whole["data"].get("unfiled")
         whole["data"] = {
             "scope": target_ref,
             "depth": fetch_args["depth"],
@@ -523,8 +491,6 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
                 for name in ("projects", "experiments", "runs", "subprojects")
             },
         }
-        if kept_unfiled:
-            whole["data"]["unfiled"] = kept_unfiled
         if data.get("available_views"):
             whole["data"]["available_views"] = data["available_views"]
         if budget.fits(whole):

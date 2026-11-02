@@ -1,0 +1,687 @@
+//! `RoutingFold` — folded routing-table surface.
+//!
+//! Each destination ([`NodeId`]) carries one entry whose payload
+//! is the best known route to it. Multiple publishers can
+//! announce routes to the same destination; merge keeps the
+//! lowest-metric entry, breaking ties on freshness (the incoming
+//! announcement displaces an equal-metric existing entry so a
+//! stale route doesn't pin the slot forever). Generation is
+//! consulted only for SAME-publisher updates as the anti-reorder
+//! mechanism; cross-publisher routes compete strictly on metric.
+//!
+//! Coexists with the legacy
+//! [`RoutingTable`](super::super::super::route::RoutingTable);
+//! the cutover is tracked separately.
+//!
+//! `DEFAULT_TTL = 300s` is generous enough to absorb pingwave
+//! jitter, tight enough that a node that genuinely drops off the
+//! mesh times out of the routing table within five minutes. The
+//! fold runtime's background sweeper enforces this.
+
+use std::net::SocketAddr;
+use std::time::Duration;
+
+use serde::{Deserialize, Serialize};
+
+use super::state::{FoldEntry, FoldState, MergeAction, NoIndex, NodeId};
+use super::{FoldKind, SignedAnnouncement};
+
+/// Wire payload for one route announcement.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct RouteAnnouncement {
+    /// Destination this route reaches.
+    pub destination: NodeId,
+    /// Next-hop socket address on the wire. Receivers send
+    /// packets here to reach `destination`.
+    pub next_hop: SocketAddr,
+    /// Route quality metric — lower is better. The pingwave
+    /// path uses `hop_count + base_offset` to encode "direct=1,
+    /// 1-hop=2, etc.", but the fold layer is agnostic — any
+    /// monotonic comparator works.
+    pub metric: u32,
+    /// Publisher of this route (the router that observed the
+    /// path). May differ from `node_id` on the
+    /// [`SignedAnnouncement`]: a relay can publish a route
+    /// it learned via pingwaves; the signature commits to
+    /// the relay's identity, `via` carries the observation
+    /// attribution.
+    pub via: NodeId,
+}
+
+/// Query shapes the [`RoutingFold`] answers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoutingQuery {
+    /// Best route to a single destination. Returns at most
+    /// one row.
+    Lookup(NodeId),
+    /// Every destination known to be reachable via this fold.
+    AllDestinations,
+    /// Every destination reachable through a specific
+    /// next-hop address. Used by the reroute path when a
+    /// next-hop fails: callers need the list of destinations
+    /// that route through the failed hop so they can solicit
+    /// alternates.
+    ViaNextHop(SocketAddr),
+}
+
+/// One row in a [`RoutingQuery`] result: the destination plus
+/// the chosen route. Always returns the entry the fold's merge
+/// rule picked as the winner.
+pub type RouteRow = (NodeId, RouteAnnouncement);
+
+/// Marker type for the [`FoldKind`] impl.
+#[derive(Debug)]
+pub struct RoutingFold;
+
+impl FoldKind for RoutingFold {
+    /// Reserved built-in fold id `2` per the plan's
+    /// "Reserved range" note in [`FoldKind::KIND_ID`].
+    const KIND_ID: u16 = 2;
+    const CHANNEL_PREFIX: &'static str = "fold:route:";
+    /// 5-minute TTL matches the plan; the background sweeper
+    /// removes routes that haven't been refreshed by a
+    /// pingwave / re-announcement within the window.
+    const DEFAULT_TTL: Duration = Duration::from_secs(300);
+
+    type Key = NodeId;
+    type Payload = RouteAnnouncement;
+    type Query = RoutingQuery;
+    type Result = Vec<RouteRow>;
+    type Index = NoIndex;
+    type KeyHasher = std::collections::hash_map::RandomState;
+
+    fn key_for(_publisher: NodeId, payload: &Self::Payload) -> Self::Key {
+        payload.destination
+    }
+
+    fn build_index() -> NoIndex {
+        NoIndex
+    }
+
+    /// Lower-metric wins. Ties accept the incoming announcement
+    /// so a fresher heartbeat at the same metric refreshes
+    /// `expires_at` and prevents the route from timing out
+    /// while a same-quality alternate is reachable. Same-
+    /// publisher updates additionally require generation
+    /// strictly monotonic (anti-reorder).
+    fn merge(
+        existing: Option<&FoldEntry<Self>>,
+        incoming: &SignedAnnouncement<Self::Payload>,
+    ) -> MergeAction {
+        let Some(entry) = existing else {
+            return MergeAction::Insert;
+        };
+
+        // Same-publisher path: this is the route OWNER re-announcing
+        // its own route. Generation is the anti-reorder mechanism.
+        if entry.node_id == incoming.node_id {
+            // Stale/replayed generation: reject before touching the
+            // metric so an old (possibly lower-metric) replay from
+            // the same publisher can't resurrect a stale route.
+            if incoming.generation <= entry.generation {
+                return MergeAction::Reject;
+            }
+            // Strictly-newer generation from the SAME publisher
+            // always wins, regardless of metric direction. The owner
+            // observed genuine link degradation (a worse metric) and
+            // its fresher observation must replace its own older one;
+            // otherwise the table keeps advertising the stale lower
+            // metric / old next-hop until TTL (~300s), delaying
+            // convergence on degradation (#27). Cross-publisher
+            // competition (below) still uses lowest-metric-wins.
+            return MergeAction::Replace;
+        }
+
+        // Cross-publisher competition: lower metric wins, equal
+        // accepts (refreshes `expires_at` and lets a same-quality
+        // alternate keep the slot warm). Strictly higher loses.
+        if incoming.payload.metric <= entry.payload.metric {
+            MergeAction::Replace
+        } else {
+            MergeAction::Reject
+        }
+    }
+
+    fn query(state: &FoldState<Self>, _index: &NoIndex, query: RoutingQuery) -> Vec<RouteRow> {
+        match query {
+            RoutingQuery::Lookup(dest) => state
+                .entries
+                .get(&dest)
+                .map(|e| vec![(dest, e.payload.clone())])
+                .unwrap_or_default(),
+            RoutingQuery::AllDestinations => state
+                .entries
+                .iter()
+                .map(|(k, e)| (*k, e.payload.clone()))
+                .collect(),
+            RoutingQuery::ViaNextHop(addr) => state
+                .entries
+                .iter()
+                .filter(|(_, e)| e.payload.next_hop == addr)
+                .map(|(k, e)| (*k, e.payload.clone()))
+                .collect(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use super::*;
+    use crate::adapter::net::behavior::fold::{
+        ApplyOutcome, EnvelopeMeta, Fold, FoldRegistry, FoldSnapshotEntry, SignedAnnouncement,
+    };
+    use crate::adapter::net::identity::EntityKeypair;
+
+    fn addr(port: u16) -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port)
+    }
+
+    fn sign_route(
+        keypair: &EntityKeypair,
+        publisher_node: NodeId,
+        generation: u64,
+        dest: NodeId,
+        next_hop: SocketAddr,
+        metric: u32,
+        via: NodeId,
+    ) -> SignedAnnouncement<RouteAnnouncement> {
+        SignedAnnouncement::sign(
+            keypair,
+            RoutingFold::KIND_ID,
+            0,
+            publisher_node,
+            generation,
+            EnvelopeMeta::default(),
+            RouteAnnouncement {
+                destination: dest,
+                next_hop,
+                metric,
+                via,
+            },
+        )
+        .expect("sign succeeds")
+    }
+
+    fn new_fold() -> Fold<RoutingFold> {
+        Fold::with_sweep_interval(Duration::ZERO)
+    }
+
+    /// A cross-publisher replace (lower metric wins) moves the key between
+    /// publishers' reverse-index records. Pins the transfer the fold's
+    /// generic Replace arm performs (CAPABILITY_FOLD_SCALE_PLAN.md,
+    /// Slice 3 review): the old owner keeps only its surviving siblings
+    /// or drops to absent on its last key, the new owner gains the key,
+    /// both revisions move, and evicting the old owner cannot remove the
+    /// entry it lost.
+    #[test]
+    fn cross_publisher_replace_transfers_the_reverse_index_key() {
+        let fold = new_fold();
+        let (kp_a, kp_b, kp_c) = (
+            EntityKeypair::generate(),
+            EntityKeypair::generate(),
+            EntityKeypair::generate(),
+        );
+        let (a, b, c) = (0xA, 0xB, 0xC);
+        let (dest_d, dest_e, dest_f) = (0xD, 0xE, 0xF);
+        let keys = |fold: &Fold<RoutingFold>, node| {
+            fold.with_state(|s| {
+                let mut k = s.keys_for(node).map(<[_]>::to_vec).unwrap_or_default();
+                k.sort_unstable();
+                (k, s.publisher_rev(node))
+            })
+        };
+        let owner = |fold: &Fold<RoutingFold>, dest| {
+            fold.with_state(|s| s.entries.get(&dest).map(|e| e.node_id))
+        };
+
+        // A owns D and E; C owns only F.
+        fold.apply(sign_route(&kp_a, a, 1, dest_d, addr(1), 5, a))
+            .expect("A->D");
+        fold.apply(sign_route(&kp_a, a, 2, dest_e, addr(1), 5, a))
+            .expect("A->E");
+        fold.apply(sign_route(&kp_c, c, 1, dest_f, addr(3), 5, c))
+            .expect("C->F");
+        let (a_keys, a_rev) = keys(&fold, a);
+        assert_eq!(a_keys, vec![dest_d, dest_e]);
+
+        // B takes D from A with a better metric: A keeps its sibling E.
+        let out = fold
+            .apply(sign_route(&kp_b, b, 1, dest_d, addr(2), 3, b))
+            .expect("B->D");
+        assert_eq!(out, ApplyOutcome::Replaced);
+        assert_eq!(owner(&fold, dest_d), Some(b));
+        let (a_keys2, a_rev2) = keys(&fold, a);
+        assert_eq!(a_keys2, vec![dest_e], "A keeps only its surviving sibling");
+        assert!(a_rev2 > a_rev, "losing a key advances A's revision");
+        let (b_keys, b_rev) = keys(&fold, b);
+        assert_eq!(b_keys, vec![dest_d]);
+        assert!(b_rev > 0);
+
+        // B takes F, C's last key: C drops to absent.
+        fold.apply(sign_route(&kp_b, b, 2, dest_f, addr(2), 1, b))
+            .expect("B->F");
+        assert_eq!(owner(&fold, dest_f), Some(b));
+        assert_eq!(
+            keys(&fold, c),
+            (Vec::new(), 0),
+            "C's last key moved: C is absent"
+        );
+        let (b_keys2, b_rev2) = keys(&fold, b);
+        assert_eq!(b_keys2, vec![dest_d, dest_f]);
+        assert!(b_rev2 > b_rev);
+
+        // Evicting the old owners removes only what they still own.
+        fold.evict_node(a, "test");
+        fold.evict_node(c, "test");
+        assert_eq!(owner(&fold, dest_e), None, "A's own entry goes");
+        assert_eq!(
+            owner(&fold, dest_d),
+            Some(b),
+            "the entry A lost survives A's eviction"
+        );
+        assert_eq!(
+            owner(&fold, dest_f),
+            Some(b),
+            "the entry C lost survives C's eviction"
+        );
+
+        fold.evict_node(b, "test");
+        assert_eq!(fold.with_state(|s| s.entries.len()), 0);
+        assert_eq!(fold.with_state(|s| s.by_node.len()), 0);
+    }
+
+    /// A snapshot that lists one destination under two publishers
+    /// restores to ONE owner: the later row wins, and the earlier owner's
+    /// record no longer lists the key. Left listed, evicting the earlier
+    /// owner would remove the later owner's live route.
+    #[test]
+    fn restore_with_a_key_under_two_publishers_leaves_one_owner() {
+        let source = new_fold();
+        let (kp_a, kp_b) = (EntityKeypair::generate(), EntityKeypair::generate());
+        let (a, b) = (0xA, 0xB);
+        let (dest_d, dest_e) = (0xD, 0xE);
+        source
+            .apply(sign_route(&kp_a, a, 1, dest_d, addr(1), 5, a))
+            .expect("A->D");
+        source
+            .apply(sign_route(&kp_b, b, 1, dest_e, addr(2), 5, b))
+            .expect("B->E");
+        let mut snap = source.snapshot();
+        // Append a second row for D, owned by B.
+        let d_row = snap
+            .entries
+            .iter()
+            .find(|e| e.key == dest_d)
+            .expect("D row");
+        let dup = FoldSnapshotEntry::<RoutingFold> {
+            key: d_row.key,
+            payload: RouteAnnouncement {
+                via: b,
+                ..d_row.payload.clone()
+            },
+            node_id: b,
+            generation: d_row.generation,
+            received_offset_ns: d_row.received_offset_ns,
+            expires_offset_ns: d_row.expires_offset_ns,
+        };
+        snap.entries.push(dup);
+
+        let fold = new_fold();
+        fold.restore(snap, false).expect("restore");
+        fold.with_state(|s| {
+            assert_eq!(s.entries.len(), 2);
+            assert_eq!(s.entries.get(&dest_d).map(|e| e.node_id), Some(b));
+            assert_eq!(s.keys_for(a), None, "A's only row was superseded");
+            assert_eq!(s.publisher_rev(a), 0);
+            let mut b_keys = s.keys_for(b).map(<[_]>::to_vec).unwrap_or_default();
+            b_keys.sort_unstable();
+            assert_eq!(b_keys, vec![dest_d, dest_e]);
+        });
+        assert_eq!(fold.metrics().entries(), 2);
+
+        fold.evict_node(a, "test");
+        assert_eq!(
+            fold.with_state(|s| s.entries.get(&dest_d).map(|e| e.node_id)),
+            Some(b),
+            "evicting A cannot remove B's route"
+        );
+    }
+
+    /// One gateway owning thousands of routes: the reverse-index record
+    /// past the indexed threshold stays exact through cross-publisher
+    /// transfers of half its keys and the eviction of the rest.
+    #[test]
+    fn a_gateway_owning_thousands_of_routes_keeps_an_exact_reverse_index() {
+        let fold = new_fold();
+        let (kp_a, kp_b) = (EntityKeypair::generate(), EntityKeypair::generate());
+        let (a, b) = (0xA, 0xB);
+        const ROUTES: u64 = 3000;
+        for (generation, dest) in (1..=ROUTES).enumerate() {
+            fold.apply(sign_route(
+                &kp_a,
+                a,
+                generation as u64 + 1,
+                0x1_0000 + dest,
+                addr(1),
+                5,
+                a,
+            ))
+            .expect("A route");
+        }
+        assert_eq!(
+            fold.with_state(|s| s.keys_for(a).map(<[_]>::len)),
+            Some(ROUTES as usize)
+        );
+
+        // B takes every even destination with a better metric.
+        for (generation, dest) in (2..=ROUTES).step_by(2).enumerate() {
+            let out = fold
+                .apply(sign_route(
+                    &kp_b,
+                    b,
+                    generation as u64 + 1,
+                    0x1_0000 + dest,
+                    addr(2),
+                    1,
+                    b,
+                ))
+                .expect("B route");
+            assert_eq!(out, ApplyOutcome::Replaced);
+        }
+        fold.with_state(|s| {
+            let mut a_keys = s.keys_for(a).map(<[_]>::to_vec).unwrap_or_default();
+            a_keys.sort_unstable();
+            let odd: Vec<_> = (1..=ROUTES).step_by(2).map(|d| 0x1_0000 + d).collect();
+            assert_eq!(a_keys, odd, "A keeps exactly the odd destinations");
+            assert_eq!(s.keys_for(b).map(<[_]>::len), Some((ROUTES / 2) as usize));
+        });
+
+        fold.evict_node(a, "test");
+        fold.with_state(|s| {
+            assert_eq!(s.entries.len(), (ROUTES / 2) as usize);
+            assert!(s.entries.values().all(|e| e.node_id == b));
+        });
+    }
+
+    #[test]
+    fn first_announcement_installs_the_route() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let outcome = fold
+            .apply(sign_route(&kp, 0xAA, 1, 0x42, addr(7000), 1, 0xAA))
+            .expect("apply");
+        assert_eq!(outcome, ApplyOutcome::Inserted);
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        assert_eq!(q.len(), 1);
+        assert_eq!(q[0].1.next_hop, addr(7000));
+        assert_eq!(q[0].1.metric, 1);
+    }
+
+    #[test]
+    fn lower_metric_replaces_existing_route_regardless_of_publisher() {
+        let fold = new_fold();
+        let kp_a = EntityKeypair::generate();
+        let kp_b = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp_a, 0xAA, 1, 0x42, addr(7000), 5, 0xAA))
+            .expect("first");
+        let outcome = fold
+            .apply(sign_route(&kp_b, 0xBB, 1, 0x42, addr(8000), 2, 0xBB))
+            .expect("better");
+        assert_eq!(outcome, ApplyOutcome::Replaced);
+
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        assert_eq!(q[0].1.metric, 2);
+        assert_eq!(q[0].1.next_hop, addr(8000));
+    }
+
+    #[test]
+    fn equal_metric_replaces_to_refresh_expires_at() {
+        // The fold runtime stamps a fresh `expires_at` on every
+        // accepted apply. Accepting equal-metric refreshes keep
+        // a still-reachable destination from timing out when
+        // its primary heartbeat happens less often than the
+        // pingwave cadence — matches the legacy `RoutingTable`'s
+        // `updated_at` refresh on same-metric arrivals.
+        let fold = new_fold();
+        let kp_a = EntityKeypair::generate();
+        let kp_b = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp_a, 0xAA, 1, 0x42, addr(7000), 3, 0xAA))
+            .expect("first");
+        let outcome = fold
+            .apply(sign_route(&kp_b, 0xBB, 1, 0x42, addr(8000), 3, 0xBB))
+            .expect("equal");
+        assert_eq!(outcome, ApplyOutcome::Replaced);
+
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        // The incoming announcement wins on equal metric — the
+        // legacy `RoutingTable::add_route_with_metric` kept the
+        // existing entry's next_hop on equal metric and just
+        // refreshed `updated_at`. The fold lets the new entry
+        // win because the runtime-level expiry semantics are
+        // tied to `expires_at` on the ENTRY, not the metric, so
+        // either entry's "freshness wins" semantics is correct
+        // — we pick "incoming wins" for symmetry with the
+        // strict-monotonic merge path.
+        assert_eq!(q[0].1.next_hop, addr(8000));
+    }
+
+    #[test]
+    fn higher_metric_does_not_overwrite_existing_route() {
+        let fold = new_fold();
+        let kp_a = EntityKeypair::generate();
+        let kp_b = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp_a, 0xAA, 1, 0x42, addr(7000), 1, 0xAA))
+            .expect("direct");
+        let outcome = fold
+            .apply(sign_route(&kp_b, 0xBB, 1, 0x42, addr(8000), 5, 0xBB))
+            .expect("indirect");
+        assert_eq!(outcome, ApplyOutcome::Rejected);
+
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        assert_eq!(q[0].1.metric, 1);
+        assert_eq!(q[0].1.next_hop, addr(7000));
+    }
+
+    #[test]
+    fn same_publisher_stale_generation_is_rejected_even_with_lower_metric() {
+        // A replayed announcement (lower generation) from the
+        // SAME publisher must lose to the current installed
+        // entry, even if its metric is artificially lower.
+        // This is the anti-reorder gate; a relay that replays
+        // an old metric=1 announcement after the publisher
+        // moved to metric=3 would otherwise re-pin the stale
+        // route.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp, 0xAA, 5, 0x42, addr(7000), 3, 0xAA))
+            .expect("gen=5");
+        let outcome = fold
+            .apply(sign_route(&kp, 0xAA, 3, 0x42, addr(7000), 1, 0xAA))
+            .expect("stale gen=3");
+        assert_eq!(outcome, ApplyOutcome::Rejected);
+
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        assert_eq!(q[0].1.metric, 3);
+    }
+
+    #[test]
+    fn same_publisher_higher_generation_lower_metric_replaces() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x42, addr(7000), 5, 0xAA))
+            .expect("first");
+        let outcome = fold
+            .apply(sign_route(&kp, 0xAA, 2, 0x42, addr(7000), 1, 0xAA))
+            .expect("better");
+        assert_eq!(outcome, ApplyOutcome::Replaced);
+        assert_eq!(fold.query(RoutingQuery::Lookup(0x42))[0].1.metric, 1);
+    }
+
+    #[test]
+    fn same_publisher_higher_generation_worse_metric_replaces() {
+        // Regression for #27: the route OWNER re-announcing its
+        // OWN route at a strictly-higher generation must win even
+        // when the new metric is WORSE — it observed genuine link
+        // degradation and the table must converge on it, not keep
+        // advertising the stale lower metric until TTL (~300s).
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+
+        // Owner 0xAA installs a direct route at metric=1, gen=1.
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x42, addr(7000), 1, 0xAA))
+            .expect("first");
+        // Same owner re-announces at gen=2 with a worse metric=4
+        // (link degraded) and a new next-hop.
+        let outcome = fold
+            .apply(sign_route(&kp, 0xAA, 2, 0x42, addr(8000), 4, 0xAA))
+            .expect("degraded re-announce");
+        assert_eq!(
+            outcome,
+            ApplyOutcome::Replaced,
+            "owner's strictly-newer announcement must replace its own older one"
+        );
+
+        let q = fold.query(RoutingQuery::Lookup(0x42));
+        assert_eq!(q[0].1.metric, 4, "table converges on the degraded metric");
+        assert_eq!(q[0].1.next_hop, addr(8000), "and the owner's new next-hop");
+    }
+
+    #[test]
+    fn cross_publisher_worse_metric_still_loses() {
+        // Guard the OTHER half of #27's fix: the same-publisher
+        // exemption must NOT leak into cross-publisher
+        // competition. A DIFFERENT publisher announcing a worse
+        // metric at a higher generation still loses — cross-
+        // publisher routes compete strictly on lowest-metric-wins.
+        let fold = new_fold();
+        let kp_a = EntityKeypair::generate();
+        let kp_b = EntityKeypair::generate();
+
+        fold.apply(sign_route(&kp_a, 0xAA, 1, 0x42, addr(7000), 1, 0xAA))
+            .expect("owner A, metric=1");
+        // Publisher B, higher generation but worse metric=9.
+        let outcome = fold
+            .apply(sign_route(&kp_b, 0xBB, 99, 0x42, addr(8000), 9, 0xBB))
+            .expect("B worse metric");
+        assert_eq!(
+            outcome,
+            ApplyOutcome::Rejected,
+            "cross-publisher worse metric must lose regardless of generation"
+        );
+        assert_eq!(fold.query(RoutingQuery::Lookup(0x42))[0].1.metric, 1);
+    }
+
+    #[test]
+    fn query_all_destinations_returns_every_installed_route() {
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        for (dest, port) in [(0x10, 7001), (0x11, 7002), (0x12, 7003)] {
+            fold.apply(sign_route(&kp, 0xAA, 1, dest, addr(port), 1, 0xAA))
+                .unwrap();
+        }
+        let mut dests: Vec<_> = fold
+            .query(RoutingQuery::AllDestinations)
+            .into_iter()
+            .map(|(d, _)| d)
+            .collect();
+        dests.sort();
+        assert_eq!(dests, vec![0x10, 0x11, 0x12]);
+    }
+
+    #[test]
+    fn query_via_next_hop_finds_routes_through_a_specific_address() {
+        // The reroute path uses this query: when next_hop=X
+        // fails, which destinations route through it? Solicit
+        // alternates for all of them.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+
+        // 3 destinations through `addr(7000)`, 1 through `addr(8000)`.
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x10, addr(7000), 1, 0xAA))
+            .unwrap();
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x11, addr(7000), 1, 0xAA))
+            .unwrap();
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x12, addr(7000), 1, 0xAA))
+            .unwrap();
+        fold.apply(sign_route(&kp, 0xAA, 1, 0x13, addr(8000), 1, 0xAA))
+            .unwrap();
+
+        let via_7000: std::collections::HashSet<_> = fold
+            .query(RoutingQuery::ViaNextHop(addr(7000)))
+            .into_iter()
+            .map(|(d, _)| d)
+            .collect();
+        assert_eq!(via_7000, [0x10, 0x11, 0x12].into_iter().collect());
+
+        let via_8000: Vec<_> = fold
+            .query(RoutingQuery::ViaNextHop(addr(8000)))
+            .into_iter()
+            .map(|(d, _)| d)
+            .collect();
+        assert_eq!(via_8000, vec![0x13]);
+
+        let via_unknown = fold.query(RoutingQuery::ViaNextHop(addr(9999)));
+        assert!(via_unknown.is_empty());
+    }
+
+    #[test]
+    fn runtime_ttl_sweeps_stale_routes() {
+        // Match the reservation-fold test shape: ttl_secs=0
+        // entry, sweep, observe the eviction. Routing's
+        // DEFAULT_TTL=300s would be tedious; the ttl override
+        // makes the test deterministic.
+        let fold = new_fold();
+        let kp = EntityKeypair::generate();
+        let ann = SignedAnnouncement::sign(
+            &kp,
+            RoutingFold::KIND_ID,
+            0,
+            0xAA,
+            1,
+            EnvelopeMeta {
+                ttl_secs: Some(0),
+                ..Default::default()
+            },
+            RouteAnnouncement {
+                destination: 0x42,
+                next_hop: addr(7000),
+                metric: 1,
+                via: 0xAA,
+            },
+        )
+        .unwrap();
+        fold.apply(ann).unwrap();
+        assert_eq!(fold.metrics().entries(), 1);
+
+        std::thread::sleep(Duration::from_millis(10));
+        let n = fold.sweep_expired_now();
+        assert_eq!(n, 1);
+        assert_eq!(fold.metrics().expiries(), 1);
+        assert!(fold.query(RoutingQuery::Lookup(0x42)).is_empty());
+    }
+
+    #[test]
+    fn routing_fold_plugs_into_registry_and_dispatches_signed_envelopes() {
+        let registry = FoldRegistry::new();
+        let fold: Arc<Fold<RoutingFold>> = Arc::new(new_fold());
+        registry.register(fold.clone());
+
+        let kp = EntityKeypair::generate();
+        // Dispatch verifies the publisher-binding, so an honest
+        // envelope must carry the signer's own node_id.
+        let nid = kp.entity_id().node_id();
+        let ann = sign_route(&kp, nid, 1, 0x42, addr(7000), 1, nid);
+        let bytes = ann.encode().expect("encode");
+        let outcome = registry.dispatch(&bytes, kp.entity_id()).expect("dispatch");
+        assert_eq!(outcome, ApplyOutcome::Inserted);
+    }
+}

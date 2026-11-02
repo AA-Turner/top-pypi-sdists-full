@@ -5174,11 +5174,15 @@
         - 'pylink-square'
         - 'pyusb'
 
-- module-name: 'pyodbc' # checksum: 893567d5
+- module-name: 'pyodbc' # checksum: df8d2f1c
   implicit-imports:
     - depends:
         - 'hashlib'
         - 'decimal'
+
+  import-hacks:
+    - package-system-dlls: 'yes'
+      when: 'macos'
 
 - module-name: 'pyparsing' # checksum: cf2c5e7f
   anti-bloat:
@@ -9625,6 +9629,16 @@
         - 'urllib.parse'
         - 'urllib.request'
         - 'urllib.response'
+
+- module-name: 'urllib3.contrib.resolver._async.factories' # checksum: b423bd1
+  implicit-imports:
+    - depends:
+        - 'urllib3.contrib.resolver._async.*'
+
+- module-name: 'urllib3.contrib.resolver.factories' # checksum: ae0c8302
+  implicit-imports:
+    - depends:
+        - 'urllib3.contrib.resolver.*'
 
 - module-name: 'urllib3.packages.six' # checksum: e62bccb7
   implicit-imports:

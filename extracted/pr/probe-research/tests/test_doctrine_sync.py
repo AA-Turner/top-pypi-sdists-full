@@ -81,7 +81,7 @@ SURFACES = {
     "track-work": lambda: _skill_text("track-work"),
 }
 def POINTER() -> str:
-    return _rendered("POINTER_BODY", "src/probe/cli/agent_rules.py")
+    return _rendered("POINTER_BODY", "src/probe/cli/wizard/apply/agent_rules.py")
 
 
 def test_every_surface_names_every_core_destination() -> None:
@@ -360,7 +360,7 @@ def test_kind_vocabulary_is_identical_across_the_agent_tree() -> None:
     every browse node), so the always-loaded copy is the pointer block.
     """
     from probe.generated.models import ProjectKind as GeneratedProjectKind
-    from probe.cli.main import ProjectKind as CliProjectKind
+    from probe.cli.commands.projects.projects import ProjectKind as CliProjectKind
 
     assert {k.value for k in CliProjectKind} == _KIND_VOCABULARY
     assert {k.value for k in GeneratedProjectKind} == _KIND_VOCABULARY

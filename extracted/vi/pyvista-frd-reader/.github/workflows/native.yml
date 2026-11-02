@@ -1,0 +1,636 @@
+name: Native Core
+
+# The C++ core, the platforms it has to build on, and the wheels that carry it.
+#
+# Each job proves something the others cannot:
+#
+#   cmake      the library builds and its own tests pass on every desktop
+#              platform and architecture we ship a wheel for
+#   sanitizer  the same tests under AddressSanitizer and UndefinedBehaviorSanitizer,
+#              which is where a parser reading untrusted text earns its keep
+#   static     the core links as a static library, for callers vendoring it
+#   wasm       the same sources build *and run* under WebAssembly, checked by
+#              diffing a full dump against the native build rather than by the
+#              build exiting zero
+#   wheels     the shared object we ship actually loads on the target platform
+#   sdist      a source install can still build the core
+#
+# The Python conformance sweep lives in ci_cd.yml, not here: it needs PyVista,
+# and a job that installs a rendering stack on every exotic platform tag is a
+# job that gets skipped somewhere and proves nothing there.
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SHELLOPTS: "errexit:pipefail"
+
+jobs:
+  cmake:
+    name: CMake + gtest (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both architectures on both Unix platforms: the parser indexes the
+        # file by byte offset and packs a struct across the ABI, and neither
+        # of those is something an x86-only matrix can speak for.
+        #
+        # macos-15-intel, not macos-13, for the Intel half. macos-13 was
+        # retired in December 2025, and a job asking for it does not fail --
+        # it queues forever. That is worse than failing: this row sat queued
+        # through every run of this workflow, never once reporting, and
+        # `release` needs this job, so a tagged release would have hung rather
+        # than said why. macos-15-intel is the last x86_64 image Actions
+        # offers and is scheduled to go the same way in August 2027.
+        os:
+          [
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            macos-latest,
+            macos-15-intel,
+            windows-latest,
+          ]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S cpp -B cpp/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVFRD_BUILD_SHARED=ON \
+            -DPVFRD_BUILD_TOOLS=ON \
+            -DPVFRD_BUILD_TESTS=ON
+
+      - name: Build
+        shell: bash
+        run: cmake --build cpp/build --config Release --parallel
+
+      - name: Test
+        shell: bash
+        working-directory: cpp/build
+        run: ctest --output-on-failure --build-config Release
+
+      - name: The dump tool must run
+        shell: bash
+        run: |
+          # A tool that builds but cannot open a file is a tool nobody finds
+          # broken until they need it. This is also the artefact the WASM job
+          # compares against.
+          # Named exactly, not by a glob: a multi-config generator leaves
+          # intermediate files alongside the binary whose names also start
+          # with the target's.
+          exe=$(find cpp/build \( -name 'frd_dump' -o -name 'frd_dump.exe' \) -type f | head -n 1)
+          if [ -z "$exe" ]; then echo "::error::frd_dump was not built"; exit 1; fi
+          "$exe" tests/fixtures/mesh.frd | head -n 5
+
+  sanitizer:
+    name: ASan + UBSan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure with sanitizers
+        # Green from the first commit and visible on every pull request. A
+        # sanitizer lane that is allowed to stay red is a lane nobody reads,
+        # and this is a parser handed files it did not write.
+        run: |
+          cmake -S cpp -B cpp/build-asan \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DPVFRD_BUILD_TESTS=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build cpp/build-asan --parallel
+
+      - name: Test
+        working-directory: cpp/build-asan
+        env:
+          # halt_on_error so a report is a failure rather than a line in a log
+          # that scrolls past.
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --output-on-failure
+
+  fuzz:
+    name: Fuzz the parser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the fuzzer
+        run: |
+          cmake -S cpp -B cpp/build-fuzz \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DPVFRD_BUILD_FUZZERS=ON \
+            -DPVFRD_BUILD_SHARED=OFF \
+            -DPVFRD_BUILD_TOOLS=OFF \
+            -DCMAKE_CXX_COMPILER=clang++
+          cmake --build cpp/build-fuzz --parallel
+
+      - name: Run a short campaign seeded with the corpus
+        # Bounded, because this runs on every pull request. It is a smoke
+        # test for crashes on mutated real input, not a search: a long
+        # campaign belongs on a schedule, and the seeds are what make even a
+        # minute of it reach past the header of a file.
+        run: |
+          mkdir -p /tmp/fuzz-corpus
+          find tests/fixtures -name '*.frd' -exec cp {} /tmp/fuzz-corpus/ \;
+          ./cpp/build-fuzz/fuzz_parse /tmp/fuzz-corpus \
+            -max_total_time=60 -max_len=65536 -print_final_stats=1
+
+  static:
+    name: Static library
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and test as a static library
+        # The header's export macros differ between the shared and static
+        # builds, so a shared-only matrix cannot say whether a caller
+        # vendoring this as a submodule gets a working header.
+        run: |
+          cmake -S cpp -B cpp/build-static \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVFRD_BUILD_SHARED=OFF \
+            -DPVFRD_BUILD_TESTS=ON
+          cmake --build cpp/build-static --parallel
+          cd cpp/build-static && ctest --output-on-failure
+
+      - name: The README's C example must build
+        # The README teaches the C API by showing it. A rename would redden
+        # the gtest tier and leave the example quietly wrong, which is worse
+        # than having no example: someone would copy it. Linked, not just
+        # compiled, so a symbol the header declares and the library never
+        # defines is caught here rather than by the first person to vendor it.
+        run: |
+          python3 tools/check_readme_c.py cpp/include \
+            "$(find cpp/build-static -name 'libpvfrd.a' | head -n1)"
+
+      - name: The example check must be able to fail
+        # Mutate a call that appears in the current example. If the example
+        # changes, fail here instead of silently testing an unmodified file.
+        run: |
+          cp README.rst README.rst.bak
+          if ! grep -q 'pvfrd_points(' README.rst; then
+            echo "::error::the control could not find the C call it edits"
+            exit 1
+          fi
+          sed -i 's/pvfrd_points(/pvfrd_no_such_call(/' README.rst
+          if python3 tools/check_readme_c.py cpp/include \
+               "$(find cpp/build-static -name 'libpvfrd.a' | head -n1)" \
+               > /dev/null 2>&1; then
+            mv README.rst.bak README.rst
+            echo "::error::check_readme_c.py accepted a call that does not exist"
+            exit 1
+          fi
+          mv README.rst.bak README.rst
+          echo "the example check rejects an unknown symbol, as it must"
+
+  wasm:
+    name: WebAssembly
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          # Not 3.1.64, which this started on. Under 3.1.64 -- an August
+          # 2024 toolchain, run against the Node 24 the runners now carry --
+          # the generated loader threw before main produced a byte, on the
+          # first fixture and so presumably on all of them. The exact
+          # incompatibility was never established, because the log truncated
+          # the message: the step below now prints it, so if this upgrade is
+          # not the cure the next run will say what is.
+          #
+          # Not the newest release either. 6.0.8 landed the same day this was
+          # pinned, and a build toolchain is not the place to be first.
+          version: 6.0.6
+
+      - name: Build natively, for something to compare against
+        run: |
+          cmake -S cpp -B cpp/build-host -DCMAKE_BUILD_TYPE=Release -DPVFRD_BUILD_TOOLS=ON
+          cmake --build cpp/build-host --parallel
+
+      - name: Build under emcc
+        run: |
+          # Note what is deliberately absent: -sSTACK_SIZE. Emscripten's
+          # default stack is 64 KiB, and that small stack is not an obstacle
+          # to work around -- it is the only detector in this repository for
+          # an oversized stack frame. It earned its keep immediately: the
+          # first time this job ran to completion it found a `char chunk[1 <<
+          # 16]` in the open path, which every other platform tolerated
+          # because it had megabytes to spare. Raising STACK_SIZE would have
+          # made the symptom go away and left the defect.
+          emcmake cmake -S cpp -B cpp/build-wasm \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVFRD_BUILD_SHARED=OFF \
+            -DPVFRD_BUILD_TOOLS=ON \
+            -DCMAKE_EXE_LINKER_FLAGS="-sALLOW_MEMORY_GROWTH=1 -sNODERAWFS=1 -sEXIT_RUNTIME=1"
+          cmake --build cpp/build-wasm --parallel
+
+      - name: The WASM build must run at all
+        # Separate from the comparison below, and deliberately not inside a
+        # pipeline. An empty wasm output and a differing one are different
+        # failures with different causes, and the comparison step cannot tell
+        # them apart -- it reports "differs" either way. This one prints the
+        # interpreter's own stderr whether or not it fails, which is the
+        # evidence the comparison step kept swallowing.
+        run: |
+          set +e
+          node cpp/build-wasm/frd_dump.js tests/fixtures/mesh.frd > smoke.out 2> smoke.err
+          code=$?
+          set -e
+          echo "exit status: $code"
+          echo "--- stdout, first 5 lines ---"
+          cut -c1-200 smoke.out 2>/dev/null | head -n 5 || true
+          # Node prints the entire minified loader as context ahead of the
+          # message that matters, and the log truncates the line at 64KB,
+          # taking the message with it. cut is what keeps it readable.
+          echo "--- stderr, first 30 lines, long lines cut ---"
+          cut -c1-400 smoke.err 2>/dev/null | head -n 30 || true
+          if [ ! -s smoke.out ]; then
+            echo "::error::the WASM build produced no output at all; see stderr above"
+            exit 1
+          fi
+
+      - name: The WASM build must agree with the native one, byte for byte
+        run: |
+          # frd_dump prints every value with %.17g, which round-trips a double
+          # exactly, so an identical dump means the arithmetic agreed and not
+          # merely that the file parsed.
+          for fixture in tests/fixtures/*.frd tests/fixtures/elements/*.frd; do
+            ./cpp/build-host/frd_dump "$fixture" > native.txt 2> native.err || true
+            node cpp/build-wasm/frd_dump.js "$fixture" > wasm.txt 2> wasm.err || true
+            if ! diff -q native.txt wasm.txt > /dev/null; then
+              echo "::error::WebAssembly output differs for $fixture"
+              # `|| true` on every pipeline here, and it is not decoration.
+              # The runner sets errexit and pipefail, diff exits 1 when files
+              # differ, and head swallows nothing -- so without it the step
+              # dies on this very line and prints none of the diagnosis
+              # below. That is exactly what happened the first two times.
+              diff native.txt wasm.txt | head -n 20 || true
+              echo "--- wasm stderr ---"
+              cut -c1-400 wasm.err 2>/dev/null | head -n 25 || true
+              echo "--- native stderr ---"
+              cut -c1-400 native.err 2>/dev/null | head -n 10 || true
+              exit 1
+            fi
+          done
+          echo "WebAssembly agrees with native on every fixture"
+
+      - name: The writer must produce the same bytes on every platform
+        run: |
+          # frd_dump compares what the reader *computed*; this compares what
+          # the writer *wrote*, which is a different failure surface. Number
+          # formatting is where C libraries disagree, and one of the
+          # disagreements is not hypothetical: CalculiX spells a NaN `NaN`,
+          # glibc's printf spells it `NAN` and Microsoft's spells it `nan`, so
+          # the emitter fixes the spelling itself rather than leaving it to
+          # whichever libc it was built against. Emscripten's is musl. This is
+          # the step that would notice if that ever stopped being handled.
+          for fixture in tests/fixtures/*.frd tests/fixtures/elements/*.frd \
+                         tests/fixtures/generated/*.frd tests/fixtures/generated/binary/*.frd; do
+            ./cpp/build-host/frd_rewrite "$fixture" native.frd > /dev/null 2> native.err || true
+            node cpp/build-wasm/frd_rewrite.js "$fixture" wasm.frd > /dev/null 2> wasm.err || true
+            if ! cmp -s native.frd wasm.frd; then
+              echo "::error::the writer disagrees between WebAssembly and native for $fixture"
+              cmp native.frd wasm.frd | head -n 5 || true
+              echo "--- wasm stderr ---"
+              cut -c1-400 wasm.err 2>/dev/null | head -n 25 || true
+              exit 1
+            fi
+          done
+          echo "the writer agrees with itself across platforms on every fixture"
+
+  wheels:
+    name: Wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # One runner per architecture, including both macOS architectures,
+        # rather than cross-compiling x86_64 on the arm64 runner. cibuildwheel
+        # cannot run a wheel's tests when it cross-compiles, so a
+        # cross-compiled wheel ships having only been built -- and the wheel
+        # job's test is the only one that touches the artefact users install.
+        include:
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+          - os: macos-15-intel # the last x86_64 image Actions offers
+            macos_archs: x86_64
+            macos_env: MACOSX_DEPLOYMENT_TARGET=10.15
+          - os: macos-latest # Apple silicon
+            macos_archs: arm64
+            # 11.0 is the first macOS that runs on Apple silicon, so it is the
+            # floor whether or not it is stated. Forcing the Intel floor of
+            # 10.15 here would be asking for a target that cannot exist.
+            macos_env: MACOSX_DEPLOYMENT_TARGET=11.0
+          - os: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # setuptools-scm needs the tags to derive a version.
+          fetch-depth: 0
+
+      - name: Build wheels
+        # v4, not the v2 this started on. cibuildwheel ships a constraints
+        # file for the build environment, and 2.21.3's pinned
+        # `packaging==24.1` -- which setuptools 77 cannot use to read a PEP 639
+        # license expression, and which no amount of pinning in
+        # build-system.requires can override, because a constraint outranks a
+        # requirement. The wheel jobs failed with ResolutionImpossible until
+        # this moved. 2.23.3 onward pin packaging 25.
+        uses: pypa/cibuildwheel@v4.2.0
+        env:
+          # One wheel per platform, not one per interpreter: the bundled
+          # library is loaded through ctypes and carries no CPython ABI, and
+          # setup.py tags the wheel py3-none-<platform> to say so.
+          CIBW_BUILD: "cp312-*"
+          # No musl wheels. VTK publishes none, so a musllinux wheel of this
+          # package could not be installed alongside its own dependency --
+          # cibuildwheel's install test proves it by failing to resolve them.
+          CIBW_SKIP: "*-musllinux_*"
+          # manylinux_2_28 on both architectures, not cibuildwheel's older
+          # default. This library itself needs only C++17 and the standard
+          # library and would target glibc 2.17 happily -- but NumPy publishes
+          # nothing below manylinux_2_27 for either architecture, and VTK
+          # publishes nothing below 2_28 for aarch64. A 2014-tagged wheel
+          # would therefore advertise an installability that does not exist:
+          # cibuildwheel's own install test proved it, on both architectures,
+          # by falling back to a NumPy source build and hitting "NumPy
+          # requires GCC >= 10.3" against the image's GCC 9.
+          #
+          # Do not lower either of these on the reasoning that the core is
+          # portable enough for an older glibc. It is; the dependencies are
+          # not, and only the dependency wheel matrix can say which floor
+          # binds today. Check that before moving the floor, not the source.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          CIBW_ARCHS_MACOS: ${{ matrix.macos_archs || 'auto' }}
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ENVIRONMENT_MACOS: ${{ matrix.macos_env }}
+          # Checks the properties only a wheel can have: that the library
+          # inside it loads on the machine the wheel targets, that it is the
+          # bundled one rather than something else on the loader path, and
+          # that it can read a real file through the public entry point.
+          #
+          # The last of those matters more than it looks. The gtest tier
+          # builds its own library with its own flags; this is the only job
+          # that exercises the artefact users will actually install, and
+          # "the .so loaded" and "the .so works" are different claims. It runs
+          # for every wheel because every wheel is built on its own
+          # architecture -- see the matrix above.
+          CIBW_TEST_REQUIRES: ""
+          CIBW_TEST_COMMAND: >
+            python {project}/tools/check_wheel.py {project}/tests/fixtures/mesh.frd
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Build the sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --sdist
+
+      - name: PyPI must be willing to render the README
+        # This is `twine check`, which is what gh-action-pypi-publish runs
+        # immediately before uploading -- so without it here, a README that
+        # PyPI refuses is discovered by the release and nowhere else.
+        #
+        # That is not hypothetical. v0.1.0's first attempt failed exactly here:
+        # the speed table's second column was bordered ten characters wide and
+        # its header `pyvista_frd` is eleven, so the text ran into the column
+        # margin and docutils rejected the table. The table had been wrong
+        # since the day it was written and nothing had ever looked, because the
+        # only thing that looks is a step that only runs on a tag.
+        #
+        # A malformed README is not a small failure at that point: the wheels
+        # are built, the bundle is complete, the version is right, and the
+        # release stops one step from the upload.
+        run: |
+          python -m pip install --upgrade twine
+          twine check --strict dist/*.tar.gz
+
+      - name: The README check must be able to fail
+        # Append a self-contained malformed table. This proves the renderer can
+        # reject invalid RST without depending on a particular README table.
+        run: |
+          python - <<'PYEOF'
+          import io
+          import sys
+          from readme_renderer.rst import render
+
+          # A fresh StringIO per render, never sys.stderr: readme_renderer
+          # calls stream.tell() on it, and on a CI runner stderr is a pipe.
+          # Passing stderr works on a terminal and raises
+          # io.UnsupportedOperation in Actions -- which is how the first
+          # version of this control passed locally and died on the runner.
+          def renders(text):
+              return render(text, stream=io.StringIO()) is not None
+
+          good = open('README.rst').read()
+          bad = good + (
+              '\n\nMalformed table control\n'
+              '-----------------------\n\n'
+              '=====  =====\n'
+              'one    two\n'
+              '=====  ====\n'
+          )
+
+          if not renders(good):
+              sys.exit('::error::the real README does not render')
+          if renders(bad):
+              sys.exit('::error::the renderer accepted a malformed table')
+          print('the README gate rejects markup PyPI would refuse, as it must')
+          PYEOF
+
+      - name: A source install must build the core
+        # The sdist has to carry cpp/. If it does not, this install fails --
+        # which is the point of having no fallback to degrade to.
+        run: |
+          pip install dist/*.tar.gz
+          cd "$(mktemp -d)"
+          python -c "
+          import pyvista_frd
+          print('built from sdist:', pyvista_frd.library_path())"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  bundle:
+    name: Release bundle is complete
+    # The completeness check below is the release job's precondition, but it
+    # runs here, on every push, rather than only on a tag. A gate that fires
+    # for the first time during a release is a gate nobody has ever seen pass:
+    # its first run would be the one that matters, and a typo in it would
+    # surface as a failed release rather than a failed commit.
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Collect the distributions
+        run: |
+          mkdir -p dist
+          find artifacts -name '*.whl' -exec cp {} dist/ \;
+          find artifacts -name '*.tar.gz' -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: The completeness check must be able to fail
+        # Runs the gate against directories it should reject, before trusting
+        # the run where it accepts. Otherwise "the gate passed" has the two
+        # usual explanations, and only one of them is that the bundle is
+        # complete -- the other is that the gate cannot say no any more.
+        #
+        # Both of its arms are checked, because they fail differently. The
+        # empty directory exercises the requirements; the second fixture is
+        # this run's own bundle with one unrepaired wheel added, so the only
+        # thing that can reject it is the arm that rejects bare linux_* tags.
+        run: |
+          mkdir -p /tmp/empty-dist
+          if tools/check_dist.sh /tmp/empty-dist; then
+            echo "::error::check_dist.sh accepted an empty directory"
+            exit 1
+          fi
+
+          rm -rf /tmp/unrepaired-dist
+          cp -r dist /tmp/unrepaired-dist
+          touch /tmp/unrepaired-dist/pyvista_frd_reader-0-py3-none-linux_x86_64.whl
+          if tools/check_dist.sh /tmp/unrepaired-dist; then
+            echo "::error::check_dist.sh accepted a wheel PyPI would refuse"
+            exit 1
+          fi
+          echo "the gate rejects an incomplete bundle and an unrepaired one, as it must"
+
+      - name: Every platform must be represented
+        run: tools/check_dist.sh dist
+
+      - name: The version check must be able to fail
+        # Same reasoning as the arm above. This one has two ways to say no and
+        # both are checked, because the two failures it exists to catch are
+        # not the same failure: a bundle at the wrong version, and a bundle
+        # with nothing in it to have a version at all.
+        run: |
+          mkdir -p /tmp/empty-dist
+          if python3 tools/check_version.py dist --expected 0.0.0-not-a-real-version; then
+            echo "::error::check_version.py accepted a version the artefacts do not carry"
+            exit 1
+          fi
+          if python3 tools/check_version.py /tmp/empty-dist; then
+            echo "::error::check_version.py accepted a directory holding no artefacts"
+            exit 1
+          fi
+          echo "the version gate rejects a wrong version and an empty bundle, as it must"
+
+      - name: Every artefact must carry one version
+        # setuptools-scm falls back to 0.0.0.dev0 rather than failing when it
+        # cannot see the repository, so a container that loses the checkout
+        # produces wheels that look fine and disagree with the sdist built on
+        # the runner. That split is visible on any push; the tag comparison in
+        # the release job is not, so it is worth having the half that is.
+        #
+        # The second command is the positive half of the --expected control:
+        # the step above proves the comparison can reject, and this proves it
+        # can still accept. A comparison only ever watched failing could have
+        # become one that always fails, which on a tag reads as a blocked
+        # release with no cause anyone can find.
+        run: |
+          python3 tools/check_version.py dist
+          sdist=$(ls dist/*.tar.gz)
+          sdist=${sdist##*/}
+          version=${sdist#pyvista_frd_reader-}
+          version=${version%.tar.gz}
+          echo "the sdist says $version"
+          python3 tools/check_version.py dist --expected "$version"
+
+  release:
+    name: Release
+    # Publishes the artefacts the jobs above built and tested, rather than a
+    # fresh build made on this runner. A release job that rebuilds is
+    # publishing something no test ever ran against.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [cmake, sanitizer, fuzz, static, wasm, wheels, sdist, bundle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyvista-frd-reader
+    permissions:
+      id-token: write # mandatory for trusted publishing
+      contents: write # required to create GitHub releases
+    steps:
+      # Before the download, not after: checkout cleans the workspace, and
+      # would take the artefacts with it.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Collect the distributions
+        run: |
+          mkdir -p dist
+          find artifacts -name '*.whl' -exec cp {} dist/ \;
+          find artifacts -name '*.tar.gz' -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: The artefacts must carry the version being released
+        # The last point at which a wrong version is still recoverable. After
+        # the next step it is on PyPI, which does not allow a version to be
+        # replaced -- and skip-existing means a wrong upload succeeds quietly.
+        run: python3 tools/check_version.py dist --expected "${GITHUB_REF_NAME#v}"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*

@@ -1,0 +1,545 @@
+"""The FIX-mode detector: mine Claude's own hook-misfire complaints into fix candidates.
+
+The first detector over ASSISTANT turns. Three deterministic gates, all required:
+a dismissal **marker** near hook vocabulary (strong dismissals score
+:data:`~cc_transcript.mining.VERY_HIGH`, hedged ones
+:data:`~cc_transcript.mining.MEDIUM`), a **de-noise** drop of
+pure compliance, and **proximity** — a hook-fire fingerprint within
+:data:`PROXIMITY_TURNS` preceding conversational turns. The fingerprint shapes are
+enumerated from the real captured transcripts in ``tests/fixtures/hook_fires/``
+(the harness's rendering of hook output), never derived from captain-hook source:
+
+- ``attachment:hook_additional_context`` — a nudge's message, verbatim, in ``content``,
+  with the firing tool call's ``toolUseID``.
+- ``attachment:hook_blocking_error`` — a Stop block's message under ``blockingError``.
+- a synthetic ``isMeta`` user turn starting ``"Stop hook feedback:\\n"``.
+- a synthetic ``is_error`` tool_result whose content is a PreToolUse deny's
+  ``permissionDecisionReason`` verbatim (a deny leaves NO attachment — it is
+  joinable only via the decision ledger).
+
+A surviving complaint attributes through the
+:class:`~cc_transcript.decisions.DecisionLog`: tool-shaped fingerprints join by
+the tool call's content digest via
+:meth:`~cc_transcript.decisions.DecisionLog.attribute_tool`, and digestless
+shapes (Stop feedback, blocking errors) fall back to
+:meth:`~cc_transcript.decisions.DecisionLog.attribute_nearest` with the
+decision's recorded message as the tiebreak — the only place message-substring
+matching survives. When no fingerprint lands within :data:`PROXIMITY_TURNS` — the
+harness rendered no trace the ledger can join — a complaint that names a hook
+(``"the X hook"``) falls back to :func:`named_hook_target`, attributing to a
+ledger row whose ``kind`` stem uniquely matches the named hook within
+:data:`NAMED_HOOK_WINDOW_MS`, failing closed on zero or ambiguous matches.
+
+USER turns are scanned too, under a different marker: the user naming capt-hook
+(``"capt hook"``, ``"capt-hook"``, ``"captain hook"``) beside a defect verb (fix,
+broken, misfiring, wrong, stale, out of date, forcing, should be) —
+:func:`classify_user_marker`, tolerant of the typos a human types. A user complaint
+never attributes by proximity alone — a hook that happened to fire two turns earlier
+is not the one being complained about — but by its own words: a binding hook name
+(``"the X hook"``, or a hyphenated/underscored name) must match a fired hook's stem
+or the complaint is dropped, and otherwise :func:`fire_message_target` picks the one
+ledger row within :data:`NAMED_HOOK_WINDOW_MS` whose fire message shares at least
+:data:`FIRE_MESSAGE_OVERLAP` content words with the complaint, failing closed on zero
+or ambiguous matches. A preceding fingerprint of that same hook then supplies the
+trigger and the proximity bump. A user complaint about a hook that never fired in
+that session has no ledger row to join and is dropped.
+The PR target resolves by source location into a :class:`~captain_hook.review.routing.Target`
+naming the file, the hook, and the repo the fix belongs to: a watched-repo hook file is the
+target verbatim (``repo`` ``None`` — fixed in place), but an installed-wheel or plugin-pack
+``source_file`` carries no repo path, so the real hook comes from the decision ``kind``'s
+module prefix routed through the scan's :class:`~captain_hook.review.routing.PackIndex`. A
+hook bundled in a pack records the wheel or plugin file, so it routes through the ``kind``: a
+``<pack>.<module>`` prefix naming a module a builtin pack ships targets the pack source inside
+captain-hook itself (``captain_hook/builtin_packs/<pack>/hooks/<module>.py``, repo captain-hook);
+a prefix naming a pack an enabled Claude Code plugin ships targets that plugin's ``plugin.json``
+repository at the file's path within the plugin — by its ``kind`` prefix, or, for a bare ``@on``
+name that carries none, by its source dir (a plugin declaring no repository is dropped) — and any
+other module prefix — including a packaged user hook whose package merely shares a builtin pack's
+name — targets the repo-local ``.claude/hooks/<module>.py``.
+Unattributable or unresolvable complaints (including legacy kinds whose prefix is
+not a module path, e.g. ``<frozen importlib``) are dropped — precision over recall.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
+
+from cc_transcript.filterspec import STOP_HOOK_GROUPS, compile_groups, tool_uses
+from cc_transcript.mining.confidence import MEDIUM, VERY_HIGH, CandidateSignal
+from cc_transcript.mining.signals import MiningSignal
+from cc_transcript.mining.sourcekind import SourceKind
+from cc_transcript.mining.spec import CONFIDENCE_STEP, bump
+from cc_transcript.models import (
+    AssistantEvent,
+    AttachmentEvent,
+    HookAdditionalContext,
+    HookBlockingError,
+    ToolResultBlock,
+    UserEvent,
+)
+from loguru import logger
+
+from captain_hook.review.routing import CAPTAIN_HOOK_REPO, Target
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Mapping, Sequence
+
+    from cc_transcript.decisions import Decision, DecisionLog
+    from cc_transcript.ids import SessionId, ToolUseId
+    from cc_transcript.models import ToolUseBlock, TranscriptEvent
+
+    from captain_hook.review.routing import PackIndex, PluginRoute
+
+HOOK_COMPLAINT = SourceKind("hook_complaint")
+"""The source kind for an assistant turn dismissing a hook fire as a misfire."""
+
+PROXIMITY_TURNS = 3
+STOP_FEEDBACK_RE = compile_groups(STOP_HOOK_GROUPS, True)
+CAPTAIN_HOOK_ROOT = "captain_hook"
+NAMED_HOOK_WINDOW_MS = 1_800_000
+NAMED_HOOK_RE = re.compile(r"\b(?:the\s+)?([a-z][\w-]*(?:[\s-][a-z][\w-]*)?)\s+hooks?\b", re.IGNORECASE)
+
+STRONG_MARKERS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (misfire_class, re.compile(pattern, re.IGNORECASE))
+    for misfire_class, pattern in (
+        ("refire", r"\bre-?fired?\b"),
+        ("misfire", r"\bmisfir(?:e[ds]?|ing)\b"),
+        ("false_positive", r"\bfalse[ -]positives?\b"),
+        ("false_alarm", r"\bfalse alarms?\b"),
+        ("ignored_repeat", r"\bignoring (?:it|the repeats?)\b"),
+        ("already_addressed", r"\balready (?:fixed|resolved|addressed)\b"),
+        ("should_not_have_fired", r"\bshouldn'?t have fired\b"),
+        (
+            "incorrect_fire",
+            r"\b(?:(?:incorrect|mistaken|erroneous)ly\b(?:\W+\w+){0,3}?\W+(?:fired|triggered|flagged)\b"
+            r"|(?:fired|triggered|flagged)\b(?:\W+\w+){0,3}?\W+(?:incorrect|mistaken|erroneous)ly\b)",
+        ),
+        ("spurious", r"\bspurious\b"),
+        ("unnecessary", r"\bunnecessar(?:y|ily)\b"),
+    )
+)
+
+COMPLIANCE_RE = re.compile(
+    r"(?:\bI'?ll\b|\blet me\b|\bgoing to\b|\bgood (?:point|catch)\b|\bnoted\b)"
+    r"[\s\S]{0,40}?(?:hook|reminder|gate|nudge)",
+    re.IGNORECASE,
+)
+CAPT_HOOK_RE = re.compile(r"\bcapt(?:ain)?[\s_-]*hooks?\b", re.IGNORECASE)
+USER_DEFECT_RE = re.compile(
+    r"\b(?:fix\w*|broken|misfir\w*|wrong\w*|stale|outdated|out\s+of\s+da\w+|forc(?:e[sd]?|ing)"
+    r"|sho\w{1,3}ld(?:n'?t|\s+not)?\s+(?:be|fire|block)|disabl\w+|remov\w+|stop\w*)\b",
+    re.IGNORECASE,
+)
+FIRE_MESSAGE_OVERLAP = 2
+CONTENT_WORD_RE = re.compile(r"[a-z]{5,}")
+CONTENT_STOPWORDS = frozenset(
+    {
+        "about",
+        "after",
+        "again",
+        "always",
+        "before",
+        "being",
+        "captain",
+        "could",
+        "every",
+        "hooks",
+        "instead",
+        "never",
+        "other",
+        "please",
+        "should",
+        "still",
+        "their",
+        "there",
+        "these",
+        "thing",
+        "think",
+        "those",
+        "where",
+        "which",
+        "while",
+        "would",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Marker:
+    """One dismissal marker matched in an assistant turn.
+
+    Attributes:
+        strength: Whether the dismissal is outright or hedged.
+        misfire_class: The misfire taxonomy label the marker implies.
+        matched: The matched marker text, verbatim.
+    """
+
+    strength: Literal["strong", "hedged"]
+    misfire_class: str
+    matched: str
+
+
+@dataclass(frozen=True, slots=True)
+class Fingerprint:
+    """One hook-fire trace the harness rendered into the transcript.
+
+    Attributes:
+        message: The hook's fire message, verbatim.
+        tool_use_id: The firing tool call's id, when the trace carries one —
+            the handle to the tool digest the ledger joins on.
+        event: The hook event name for digestless traces, e.g. ``Stop``.
+    """
+
+    message: str
+    tool_use_id: ToolUseId | None = None
+    event: str | None = None
+
+
+def classify_marker(text: str) -> Marker | None:
+    if not re.search(r"\b(?:hook|reminder|nudge|gate|guard|warning)s?\b", text, re.IGNORECASE):
+        return None
+    hedged = re.search(
+        r"(?:\bi think\b|\bseems?\b|\bmay\b|\bmight\b|\blooks like\b)"
+        r"[\s\S]{0,80}?(?:false[ -]positive|false[ -]alarm|misfir|re-?fir|shouldn'?t have fired"
+        r"|spurious|unnecessar|wrong(?:ly)?|incorrect(?:ly)?|mistaken(?:ly)?|erroneous(?:ly)?)",
+        text,
+        re.IGNORECASE,
+    )
+    strong = next(((cls, m) for cls, rx in STRONG_MARKERS if (m := rx.search(text))), None)
+    if strong is not None and hedged is None:
+        return Marker("strong", strong[0], strong[1].group(0))
+    if COMPLIANCE_RE.search(text):
+        return None
+    if hedged is not None:
+        return Marker("hedged", strong[0] if strong is not None else "suspected", hedged.group(0))
+    return None
+
+
+def classify_user_marker(text: str) -> Marker | None:
+    if CAPT_HOOK_RE.search(text) is None or (defect := USER_DEFECT_RE.search(text)) is None:
+        return None
+    return Marker("strong", "user_reported", defect.group(0))
+
+
+def prose_marker(role: Literal["user", "assistant"], text: str, *, is_sidechain: bool, is_meta: bool) -> Marker | None:
+    if is_sidechain or not text.strip():
+        return None
+    if role == "assistant":
+        return classify_marker(text)
+    return None if is_meta else classify_user_marker(text)
+
+
+def turn_marker(event: TranscriptEvent) -> Marker | None:
+    match event:
+        case AssistantEvent(meta=meta, text=text):
+            return prose_marker("assistant", text, is_sidechain=meta.is_sidechain, is_meta=meta.is_meta)
+        case UserEvent(meta=meta, text=text):
+            return prose_marker("user", text, is_sidechain=meta.is_sidechain, is_meta=meta.is_meta)
+        case _:
+            return None
+
+
+def content_words(text: str) -> frozenset[str]:
+    return frozenset(CONTENT_WORD_RE.findall(text.lower())) - CONTENT_STOPWORDS
+
+
+def fingerprint_of(event: TranscriptEvent) -> Fingerprint | None:
+    match event:
+        case AttachmentEvent(
+            detail=HookAdditionalContext(content=content, tool_use_id=tool_use_id, hook_event=hook_event)
+        ):
+            return Fingerprint(message="\n".join(content), tool_use_id=tool_use_id, event=hook_event)
+        case AttachmentEvent(
+            detail=HookBlockingError(blocking_error={"blockingError": blocking_error}, hook_event=hook_event)
+        ):
+            return Fingerprint(message=str(blocking_error), event=str(hook_event or "Stop"))
+        case UserEvent(meta=meta, text=text) if meta.is_meta and (marker := STOP_FEEDBACK_RE.match(text)):
+            return Fingerprint(message=text[marker.end() :].removeprefix("\n"), event="Stop")
+        case UserEvent(blocks=blocks):
+            return next(
+                (
+                    Fingerprint(message=b.content, tool_use_id=b.tool_use_id)
+                    for b in blocks
+                    if isinstance(b, ToolResultBlock) and b.is_error
+                ),
+                None,
+            )
+        case _:
+            return None
+
+
+def preceding_fingerprints(events: Sequence[TranscriptEvent], index: int) -> list[tuple[int, int, Fingerprint]]:
+    fingerprints: list[tuple[int, int, Fingerprint]] = []
+    turns = 0
+    for i in range(index - 1, -1, -1):
+        if (fingerprint := fingerprint_of(events[i])) is not None:
+            fingerprints.append((i, turns, fingerprint))
+        if isinstance(events[i], UserEvent | AssistantEvent):
+            turns += 1
+            if turns >= PROXIMITY_TURNS:
+                break
+    return fingerprints
+
+
+async def attribute_fingerprint(
+    decisions: DecisionLog,
+    uses: Mapping[ToolUseId, ToolUseBlock],
+    session_id: SessionId,
+    near_ts_ms: int,
+    fingerprint: Fingerprint,
+) -> Decision | None:
+    if fingerprint.tool_use_id is not None and (block := uses.get(fingerprint.tool_use_id)) is not None:
+        found = await decisions.attribute_tool(session_id, tool_digest=block.digest, near_ts_ms=near_ts_ms)
+        return found if found is not None and found.source_file else None
+    if fingerprint.event is None:
+        return None
+    found = await decisions.attribute_nearest(session_id, event=fingerprint.event, near_ts_ms=near_ts_ms)
+    if found is None or not found.source_file or not found.message or found.message not in fingerprint.message:
+        return None
+    return found
+
+
+async def attribute_from_fingerprints(
+    decisions: DecisionLog,
+    uses: Mapping[ToolUseId, ToolUseBlock],
+    session_id: SessionId,
+    near_ts_ms: int,
+    fingerprints: Sequence[tuple[int, int, Fingerprint]],
+) -> tuple[int, int, Decision] | None:
+    attributed: list[tuple[int, int, Decision]] = []
+    for index, turns_back, fingerprint in fingerprints:
+        if (found := await attribute_fingerprint(decisions, uses, session_id, near_ts_ms, fingerprint)) is not None:
+            attributed.append((index, turns_back, found))
+    if not attributed or len({(found.source_file, found.kind) for _, _, found in attributed}) > 1:
+        return None
+    return attributed[0]
+
+
+def hook_stem(kind: str) -> str | None:
+    module, sep, _ = kind.partition(":")
+    if not sep or not module:
+        return None
+    parts = module.split(".")
+    return parts[-1] if all(part.isidentifier() for part in parts) else None
+
+
+def name_slug(name: str) -> str:
+    return re.sub(r"[-_\s]+", "", name.lower())
+
+
+def binding_hook_names(text: str) -> set[str]:
+    return {
+        name_slug(match.group(1))
+        for match in NAMED_HOOK_RE.finditer(CAPT_HOOK_RE.sub(" ", text))
+        if match.group(0).lower().startswith("the ") or re.search(r"[-_]", match.group(1))
+    }
+
+
+async def named_hook_target(
+    text: str, decisions: DecisionLog, session_id: SessionId, near_ts_ms: int
+) -> Decision | None:
+    names = {name_slug(match.group(1)) for match in NAMED_HOOK_RE.finditer(text)}
+    if not names:
+        return None
+    return await decision_named(names, decisions, session_id, near_ts_ms)
+
+
+async def decision_named(
+    names: set[str], decisions: DecisionLog, session_id: SessionId, near_ts_ms: int
+) -> Decision | None:
+    matched = [
+        decision
+        for decision in await decisions.for_session_between(
+            session_id, near_ts_ms - NAMED_HOOK_WINDOW_MS, near_ts_ms + NAMED_HOOK_WINDOW_MS
+        )
+        if decision.source_file
+        and (stem := hook_stem(decision.kind)) is not None
+        and name_slug(stem) in names
+    ]
+    if len({decision.kind for decision in matched}) != 1:
+        return None
+    return min(matched, key=lambda decision: abs(decision.ts_ms - near_ts_ms))
+
+
+async def user_complaint_target(
+    text: str, decisions: DecisionLog, session_id: SessionId, near_ts_ms: int
+) -> tuple[Decision, str] | None:
+    if names := binding_hook_names(text):
+        named = await decision_named(names, decisions, session_id, near_ts_ms)
+        return None if named is None else (named, "hook_name")
+    matched = await fire_message_target(text, decisions, session_id, near_ts_ms)
+    return None if matched is None else (matched, "fire_message")
+
+
+async def fire_message_target(
+    text: str, decisions: DecisionLog, session_id: SessionId, near_ts_ms: int
+) -> Decision | None:
+    words = content_words(text)
+    matched = [
+        decision
+        for decision in await decisions.for_session_between(
+            session_id, near_ts_ms - NAMED_HOOK_WINDOW_MS, near_ts_ms + NAMED_HOOK_WINDOW_MS
+        )
+        if decision.source_file
+        and decision.message
+        and len(words & content_words(decision.message)) >= FIRE_MESSAGE_OVERLAP
+    ]
+    if len({decision.kind for decision in matched}) != 1:
+        return None
+    return min(matched, key=lambda decision: abs(decision.ts_ms - near_ts_ms))
+
+
+def user_repo_source(source_file: str) -> bool:
+    """A hook file living in the watched repo, not the installed wheel.
+
+    Installed-wheel source (a hook bundled in a builtin pack) carries ``captain_hook/`` in its path,
+    so it resolves through the decision ``kind``'s module prefix instead of being returned verbatim.
+    Plugin-pack source is routed earlier.
+    """
+    return f"{CAPTAIN_HOOK_ROOT}/" not in source_file
+
+
+def root_rel_path(source_file: str, root: str) -> str | None:
+    """A ``source_file``'s path relative to a plugin install root or the watched repo root, or ``None``.
+
+    Best effort: a plugin rooted below its repo root (a ``plugin/`` subdir) carries that offset in the
+    result, which the fix PR resolves against the plugin's repo.
+    """
+    if not source_file:
+        return None
+    source, base = Path(source_file).resolve(), Path(root).resolve()
+    return str(source.relative_to(base)) if source.is_relative_to(base) else None
+
+
+def plugin_route_for(decision: Decision, module: str, sep: str, index: PackIndex) -> PluginRoute | None:
+    """The route for a plugin-pack misfire, or ``None`` when the misfire is not a plugin pack's.
+
+    A ``<pack>.<mod>:`` kind (a primitive, always two-plus segments) matches by its module prefix; a
+    bare ``@on`` name matches by its source dir. The returned route's ``repo`` is ``None`` when the
+    owning plugin declares no repository.
+    """
+    if sep and module and len(parts := module.split(".")) >= 2 and (route := index.plugin_prefixes.get(parts[0])):
+        return route
+    if decision.source_file:
+        source = Path(decision.source_file).resolve()
+        for d, route in index.plugin_dirs.items():
+            if source.is_relative_to(Path(d).resolve()):
+                return route
+    return None
+
+
+def resolve_target(decision: Decision, index: PackIndex) -> Target | None:
+    module, sep, _ = decision.kind.partition(":")
+    # A plugin-pack misfire routes to the plugin's repo, or drops when it declares none — never falling
+    # through to the `.claude/hooks` fallback, which would misfile it repo-local.
+    if (route := plugin_route_for(decision, module, sep, index)) is not None:
+        if route.repo is None:
+            logger.bind(hook=decision.kind).debug("dropped plugin-pack misfire; plugin declares no repository")
+            return None
+        rel = root_rel_path(decision.source_file, route.root)
+        return Target(rel or decision.source_file, decision.kind, route.repo, module.split(".")[0] if sep else None)
+    if user_repo_source(decision.source_file):
+        rel = root_rel_path(decision.source_file, str(index.root)) if index.root else None
+        return Target(rel or decision.source_file, decision.kind, repo=None, pack=None)
+    if not sep or not module:
+        return None
+    match module.split("."):
+        case [pack, mod] if (pack_dir := index.builtins.get(pack)) and (pack_dir / f"{mod}.py").is_file():
+            return Target(
+                f"{CAPTAIN_HOOK_ROOT}/builtin_packs/{pack}/hooks/{mod}.py", decision.kind, CAPTAIN_HOOK_REPO, pack
+            )
+        case parts if all(part.isidentifier() for part in parts):
+            return Target(f".claude/hooks/{parts[-1]}.py", decision.kind, repo=None, pack=None)
+        case _:
+            return None
+
+
+def complaint_signal(marker: Marker, turns_back: int | None) -> CandidateSignal:
+    base = CandidateSignal(
+        VERY_HIGH if marker.strength == "strong" else MEDIUM,
+        (f"{marker.strength}_marker", marker.misfire_class),
+    )
+    tight = turns_back is not None and turns_back <= 1
+    return bump(base, CONFIDENCE_STEP, "tight_proximity") if tight else base
+
+
+async def iter_hook_complaint_signals(
+    events: Sequence[TranscriptEvent], *, decisions: DecisionLog, index: PackIndex
+) -> AsyncIterator[MiningSignal]:
+    """Yields one :class:`~cc_transcript.mining.MiningSignal` per attributed misfire complaint.
+
+    Fires are joined by the events' own session UUID — the only session key —
+    plus the tool call's content digest when the fingerprint carries a tool-use
+    id, or by event name and timestamp proximity when it does not. Assistant turns
+    carry Claude's own dismissals (:func:`classify_marker`); user turns carry the
+    developer's plain-words complaints about capt-hook (:func:`classify_user_marker`),
+    which attribute by their own words (:func:`user_complaint_target`).
+
+    Args:
+        events: The transcript's full ordered event stream.
+        decisions: The decision ledger joining fingerprint traces to the firing hook.
+        index: The project's pack-to-repo map, routing a pack hook's fix to the
+            pack's repo (see :class:`~captain_hook.review.routing.PackIndex`).
+
+    Returns:
+        Signals of kind :data:`HOOK_COMPLAINT` whose ``evidence`` stashes the
+        attribution (``hook_name``, ``source_file``, ``event``, ``action``,
+        ``fire_ts_ms``, ``fire_message``, ``marker``, ``attribution`` — ``fingerprint``,
+        ``hook_name``, or ``fire_message``) plus the resolved
+        ``target_source_file``/``target_hook_name``/``target_repo``/``pack_name``/``misfire_class``.
+    """
+    uses = tool_uses(events)
+    for event_index, event in enumerate(events):
+        if (marker := turn_marker(event)) is None:
+            continue
+        near_ts_ms = int(event.meta.timestamp.timestamp() * 1000)
+        session_id = event.meta.session_id
+        fingerprints = preceding_fingerprints(events, event_index)
+        primary = await attribute_from_fingerprints(decisions, uses, session_id, near_ts_ms, fingerprints)
+        if isinstance(event, UserEvent):
+            if (target := await user_complaint_target(event.text, decisions, session_id, near_ts_ms)) is None:
+                continue
+            fire, attribution = target
+            trigger_index, turns_back = (
+                (primary[0], primary[1]) if primary is not None and primary[2].kind == fire.kind else (None, None)
+            )
+            attribution = "fingerprint" if trigger_index is not None else attribution
+        elif primary is not None:
+            trigger_index, turns_back, fire = primary
+            attribution = "fingerprint"
+        elif (fire := await named_hook_target(event.text, decisions, session_id, near_ts_ms)) is not None:
+            trigger_index, turns_back, attribution = None, None, "hook_name"
+        else:
+            continue
+        if (target := resolve_target(fire, index)) is None:
+            continue
+        yield MiningSignal(
+            kind=HOOK_COMPLAINT,
+            detector="hook_complaint",
+            session_id=session_id,
+            event_index=event_index,
+            event_uuid=event.meta.uuid,
+            occurred_at=event.meta.timestamp,
+            text=event.text,
+            cc_version=event.meta.cc_version,
+            trigger_index=trigger_index,
+            evidence={
+                "hook_name": fire.kind,
+                "source_file": fire.source_file,
+                "event": fire.event,
+                "action": fire.action,
+                "fire_ts_ms": fire.ts_ms,
+                "fire_message": fire.message,
+                "marker": marker.matched,
+                "attribution": attribution,
+                "misfire_class": marker.misfire_class,
+                "target_source_file": target.source_file,
+                "target_hook_name": target.hook_name,
+                "target_repo": target.repo,
+                "pack_name": target.pack,
+            },
+            signal=complaint_signal(marker, turns_back),
+        )

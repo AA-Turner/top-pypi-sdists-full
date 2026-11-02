@@ -32,7 +32,7 @@ its own step. `step.agent` and `result.agents[].agent`
 are null for what belongs to the device rather than one coding agent (the
 sign-in). `result.reason` is there only when the action set one
 (`set_reason`): `probe uninstall`'s machine-readable why of an exit 2 or 1,
-`{code, resumed, ...}` (`probe.cli.uninstall.Reason`). Change this only by
+`{code, resumed, ...}` (`probe.cli.install.uninstall.state.Reason`). Change this only by
 adding fields; anything else bumps `SCHEMA_VERSION`.
 
 Signals (`session`, main thread only). SIGINT stops a run only while it waits
@@ -154,7 +154,7 @@ class Step(StrEnum):
     SERVICE = "service"
     IDENTITY = "identity"
     REPAIR_INTEGRATIONS = "repair_integrations"
-    #: `probe uninstall`'s phases (`probe.cli.uninstall`), in order. The last,
+    #: `probe uninstall`'s phases (`probe.cli.install.uninstall`), in order. The last,
     #: `uninstall_finish`, is written by the finisher the CLI becomes
     #: (`probe/shared/updates/finisher.py`), which also writes `result` and `done`.
     UNINSTALL_SCOPE = "uninstall_scope"

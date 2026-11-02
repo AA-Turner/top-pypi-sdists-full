@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: dagster-iceberg
+Version: 0.3.14
+Summary: Package for PyIceberg-specific Dagster framework op and resource components.
+Author-email: Jasper Ginn <jasperginn@gmail.com>
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Requires-Dist: dagster>=1.8.2
+Requires-Dist: pendulum>=3.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyiceberg[pyarrow]<0.12,>=0.8
+Requires-Dist: tenacity>=8.5.0
+Provides-Extra: daft
+Requires-Dist: getdaft>=0.3.0; extra == 'daft'
+Provides-Extra: pandas
+Requires-Dist: pandas>=2.0.0; extra == 'pandas'
+Provides-Extra: polars
+Requires-Dist: polars>=1.0.0; extra == 'polars'
+Provides-Extra: spark
+Requires-Dist: pyspark[connect]~=3.4; extra == 'spark'
+Description-Content-Type: text/markdown
+
+![dagster-iceberg](docs/assets/dagster-iceberg-main.png)
+
+> ⚠️ This project has [preview status](https://docs.dagster.io/api/api-lifecycle)
+
+[Dagster](https://dagster.io/) IO manager for managing [Iceberg](https://iceberg.apache.org/) tables with [PyIceberg](https://github.com/apache/iceberg-python).
+
+## Examples
+
+See:
+
+- [example with postgresql catalog](https://github.com/JasperHG90/dagster-pyiceberg-example-postgres)
+- [example with Polaris catalog](https://github.com/JasperHG90/dagster-pyiceberg-example-polaris)
+
+## Installation
+
+See [Installing dagster-iceberg](https://jasperhg90.github.io/community-integrations/installation/).
+
+## Documentation
+
+Documentation can be built locally by cloning this repository, navigating to the 'dagster-iceberg' folder, and running `make docs`. It is also available on [here](https://jasperhg90.github.io/community-integrations/).
+
+## Features
+
+Available features can be found [here](https://jasperhg90.github.io/community-integrations/features/).
+
+## Status
+
+This library is currently in development and has [preview status](https://docs.dagster.io/api/api-lifecycle).

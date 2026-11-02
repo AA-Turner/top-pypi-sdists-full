@@ -137,9 +137,10 @@ def _apply() -> int:
     so no wait).
     """
     from probe.shared.updates import version_policy
-    from probe.cli import autoupdate, wizard_lock
+    from probe.cli import autoupdate
+    from probe.cli.wizard.session import lock as wizard_lock
     from probe.shared.updates import update_report
-    from probe.cli.upgrading import perform_update
+    from probe.cli.install.upgrade.upgrade import perform_update
 
     # Single-writer across concurrent sessions. Without it, several Claude Code
     # windows starting at once each run `uv tool upgrade` against one install.
@@ -177,9 +178,12 @@ def _apply_if_newer() -> int:
     """
     from probe import __version__
     from probe.shared.updates import version_policy
-    from probe.cli import autoupdate, updater, wizard_lock
+    from probe.cli import autoupdate
+    from probe.cli.install import updater
+    from probe.cli.wizard.session import lock as wizard_lock
     from probe.shared.updates import update_report
-    from probe.cli.upgrading import perform_update, update_owed_pi_package
+    from probe.cli.install.upgrade.upgrade import perform_update
+    from probe.cli.install.upgrade.package_step import update_owed_pi_package
 
     base = version_policy.base_url()
 

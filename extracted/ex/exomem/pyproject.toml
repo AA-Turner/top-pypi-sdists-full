@@ -1,0 +1,340 @@
+[project]
+name = "exomem"
+version = "0.156.0" # x-release-please-version
+description = "Local knowledge substrate for owned markdown/Obsidian vaults, exposed through MCP, REST, and CLI with multimodal OCR/ASR/CLIP search"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Hugo Ander", email = "founder@substratesystems.io" }]
+keywords = [
+    "mcp",
+    "mcp-server",
+    "ai-agents",
+    "agent-memory",
+    "knowledge-base",
+    "obsidian",
+    "markdown",
+    "rag",
+    "semantic-search",
+    "hybrid-search",
+    "claude",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    # Not OS Independent: every governed write acquires a reserved-path root
+    # through the held-filesystem substrate, which has a Linux backend and a
+    # Windows backend and no darwin implementation. Claiming independence
+    # advertised a platform where the write path refuses.
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+]
+
+dependencies = [
+    "fastmcp==4.0.3",
+    "uvicorn>=0.47",            # reset_contextvars: each HTTP request starts from an empty context
+    "httpx>=0.27",
+    "fsspec[http]==2026.4.0", # bounded Range reads for canonical verification of completed Cloud exports
+    "httpx2>=2.12,<3",         # FastMCP provider clients use a distinct exception family
+    "jsonschema>=4.23,<5",     # cloud package manifests and canary response expectations
+    "referencing>=0.37,<0.38", # JSON Schema traversal and offline reference resolution
+    "ijson>=3.5.1,<4",        # bounded, lossless selection from stored JSON streams
+    "markdown-it-py==4.2.0",   # shared CommonMark syntax and exact original-region adapter
+    "pyyaml>=6.0",
+    "python-slugify>=8.0",
+    "python-dotenv>=1.0",
+    "python-multipart>=0.0.9",  # Starlette multipart parsing for the /upload route
+    "pyjwt[crypto]>=2.8",       # Cloudflare Access JWT verification for /upload (optional path)
+    "rank-bm25>=0.2.2",
+    "numpy>=1.26",
+    "snowballstemmer>=2.2",
+    "watchdog>=4.0",            # live file-watcher: re-embed out-of-band .md edits (lazy import; soft-fails if absent)
+    "filelock>=3.29,<4",
+    "SQLAlchemy>=2.1.4,<3",
+    "alembic>=1.20,<2",
+    "tzdata>=2026.2",           # import time zones: the same IANA rules on every platform, versioned per job
+    "pathspec>=1.1.1,<2",       # gitignore rules of a folder selected for import (exomem import, exomem cloud import)
+    "charset-normalizer>=3.4,<4", # encoding of a text artifact that is not UTF-8 (extract.decode_plain_text)
+]
+
+# Rendered by PyPI as the "Project links" sidebar block. Without this table the
+# project page offers no route anywhere — not to the docs, not to the source, not
+# to the issue tracker — which is both a usability gap for anyone landing on the
+# package and a missed link from pypi.org to the project's own surfaces.
+# Key order is preserved by PyPI, and "Homepage" gets special treatment.
+[project.urls]
+Homepage = "https://substratesystems.io/exomem"
+Documentation = "https://github.com/Artexis10/exomem/blob/main/QUICKSTART.md"
+Source = "https://github.com/Artexis10/exomem"
+Changelog = "https://github.com/Artexis10/exomem/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Artexis10/exomem/issues"
+
+# Hybrid semantic search (local vector embeddings). Optional so a lean install
+# — `uv sync` — works in keyword/BM25 mode (KB_MCP_DISABLE_EMBEDDINGS=1) without
+# the ~1-2 GB torch/CUDA download. The code soft-falls back to BM25 when these
+# aren't importable. Full hybrid:
+#   uv sync --extra embeddings
+[project.optional-dependencies]
+image-codecs = [
+    "pillow>=11.1.0",
+    "pillow-heif==1.8.1",
+]
+embeddings = [
+    "sentence-transformers>=2.7",
+    "torch>=2.12",
+    "exomem[image-codecs]",  # OCR and CLIP share the same pixel decoders
+    # SQL-native vector KNN (vec0 virtual tables inside the .embeddings/.clip sidecars).
+    # Pure C extension, plain PyPI wheel. Search soft-falls back to the in-memory numpy
+    # scan when absent or when this Python's sqlite3 can't load extensions.
+    "sqlite-vec>=0.1.6",
+    # The served multilingual model (bge-m3) runs as an int8 ONNX artefact that the
+    # host builds once from the pinned export: onnxruntime runs and quantises it,
+    # and its quantiser reads and writes the graph through onnx.
+    "onnxruntime>=1.20",
+    "onnx>=1.17",
+]
+# Same bi-encoder, served by ONNX Runtime instead of PyTorch. Imports ~40 MiB against
+# torch's ~400 and holds a smaller peak, which is what decides how many hosted cells fit
+# a node. Vectors are interchangeable with the torch lane (see tests/test_embedding_backend.py),
+# so this is a runtime substitution and never a re-index.
+#
+# It cannot simply replace `embeddings`: the reranker and CLIP are sentence-transformers
+# models, so only a lane that withholds both — the hosted image does — can drop torch.
+# Select with EXOMEM_EMBED_BACKEND=onnx; `auto` picks torch whenever it is importable.
+embeddings-onnx = [
+    "onnxruntime>=1.20",
+    "tokenizers>=0.20",       # fast tokenizer, no torch and no transformers
+    "huggingface-hub>=0.24",  # resolves the published ONNX export from the hub cache
+    "sqlite-vec>=0.1.6",
+]
+# ONNX Runtime for the CrossEncoder reranker. This is separate from the
+# torch-free `embeddings-onnx` bi-encoder profile.
+reranker-onnx = [
+    "sentence-transformers[onnx]>=5.5.1",
+]
+# The frozen stance verifier's cross-encoder (claims.VERIFIER_PINS). Optional and
+# default-off twice over: it is in no profile's extra set, so no install path pulls
+# it in, and it still does nothing until EXOMEM_CLAIM_POLARITY_NLI is set AND a
+# repository pin's digest matches the resident weights. Absent, the verifier tier
+# refuses to ABSENCE — review-queue entries carry no model polarity label, and every
+# other surface is byte-identical to a build with no verifier tier at all. Install
+# with `uv sync --extra nli`.
+nli = [
+    "sentence-transformers>=3.0",
+    "torch>=2.12",
+]
+# The CPU-only document and OCR engines: what the Exomem Cloud image ships, with no
+# CUDA wheel. System dep NOT pip-installable: the Tesseract binary and its models.
+media-cpu = [
+    "exomem[image-codecs]",  # images are decoded and normalised for Tesseract
+    "onnx-asr[cpu]==0.12.0",  # pinned Whisper adapter and CPU execution provider
+    "av>=11,<19",  # bounded audio/video decoding; also compatible with faster-whisper
+    "pymupdf>=1.24",
+    # docx/xlsx/pptx/html/epub → markdown (Microsoft MarkItDown, MIT). The per-format extras
+    # pull the office libs (mammoth/openpyxl/python-pptx); runs fully local. PDF stays on
+    # PyMuPDF (markitdown's PDF path is its weakest). txt/eml/ics use stdlib, no dep.
+    "markitdown[docx,xlsx,pptx]>=0.1.1",
+    "odfdo>=3.26",       # OpenDocument text, spreadsheet and presentation (Apache-2.0)
+    "striprtf>=0.0.33",  # RTF (BSD-3-Clause)
+]
+# Server-side media extraction (transduction, not a brain): ASR for audio/video,
+# OCR for images, text for PDFs, MarkItDown for office/html docs. Optional so a lean box
+# runs without it — the code
+# soft-falls back (server extraction skipped; the model-driven /upload `text` path
+# still works). Full install: `uv sync --extra embeddings --extra media`.
+# System deps NOT pip-installable: Tesseract (image OCR) — `winget install UB-Mannheim.TesseractOCR`.
+# The media extra owns CTranslate2's CUDA 12 wheel runtime; PyAV (pulled by
+# faster-whisper) bundles ffmpeg for audio/video decode. See README for sm_120.
+media = [
+    "exomem[media-cpu]",
+    "faster-whisper>=1.1",  # 1.1.0 added BatchedInferencePipeline and the multilingual option
+    # faster-whisper 1.2.1 decodes with av.open(metadata_errors=...), which PyAV 19
+    # removed, so every transcription fails. When a faster-whisper release carries
+    # its upstream fix (SYSTRAN/faster-whisper#1495), raise the faster-whisper floor
+    # to that release, then drop this bound.
+    "av>=11,<19",
+    "ctranslate2>=4.6.3,<5",
+    # CUDA-12 runtime owned by CTranslate2 on Linux and Windows. torch's cuBLAS
+    # major is independent; the media parent discovers these wheel directories
+    # and prepends them before the disposable child interpreter starts.
+    "nvidia-cublas-cu12>=12.8.4.1,<13; sys_platform == 'linux' or sys_platform == 'win32'",
+    "nvidia-cudnn-cu12>=9.5.0.50,<10; sys_platform == 'linux' or sys_platform == 'win32'",
+    "nvidia-cuda-runtime-cu12>=12.8.90,<13; sys_platform == 'linux' or sys_platform == 'win32'",
+]
+# Apple-Silicon (Metal) ASR backend: mlx-whisper runs Whisper on the Mac GPU via MLX,
+# which faster-whisper/CTranslate2 cannot (no Metal). extract.get_transcriber() auto-selects
+# it on macOS arm64 when installed; EXOMEM_ASR_BACKEND=mlx|faster-whisper forces the choice,
+# EXOMEM_MLX_WHISPER_MODEL picks the HF repo (default mlx-community/whisper-large-v3-mlx). The
+# marker makes the extra a no-op off Apple Silicon, so `--extra media-mlx` is harmless on any
+# host. Pair with `--extra media` (PyAV decode + OCR/PDF). Full Mac install:
+# `uv sync --extra embeddings --extra media --extra media-mlx`.
+media-mlx = [
+  "mlx-whisper>=0.4; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+# Opt-in ASR speaker diarization (KB_MCP_DIARIZE). The pyannote who-spoke-when pipeline does NOT
+# live here: it runs in an ISOLATED sidecar venv (src/exomem/_sidecars/diarizer/, built via
+# python -m exomem.diarizer_sidecar) as a subprocess, because pyannote/torchaudio are fundamentally
+# incompatible with this venv's custom torch-2.12+cu132 build (torchcodec, torchaudio API
+# removals, speechbrain 1.x LazyModule, hf_hub use_auth_token — all VERSION walls, not GPU walls).
+# This `diarization` extra now installs ONLY the named-attribution side that runs in THIS venv:
+# a frozen speechbrain ECAPA voiceprint (`speechbrain/spkrec-ecapa-voxceleb`, override
+# KB_MCP_VOICE_EMBED_MODEL) resolves the sidecar's anonymous clusters to enrolled names
+# (`[Alice]: …`) by deterministic cosine — measurement, not a brain. Default-OFF + soft-fail, so
+# it's an extra, never a core dep — the base install and test suite never require it. The ECAPA
+# checkpoint gates its weights behind a HF token (HUGGINGFACE_TOKEN); the pyannote checkpoints are
+# the sidecar's concern. Full install: `uv sync --extra media --extra diarization` THEN
+# `pwsh scripts/setup-diarizer.ps1`. (Removing pyannote from this venv also retires the old
+# `uv pip uninstall torchcodec` dance — pyannote was the only thing that pulled torchcodec, which
+# used to break sentence-transformers on the next restart.)
+diarization = [
+    "speechbrain>=1.0",  # ECAPA-TDNN speaker embeddings for named-speaker attribution
+]
+# Opt-in vision captioning (KB_MCP_VISION_CAPTION). A FROZEN image-caption model
+# (BLIP/Florence-2 class, run via transformers) prepends a one-line description to an
+# image's OCR text. Default-OFF (it generates text — see extract.py's pure-substrate
+# note) + soft-fail, so it's an extra, never a core dep. transformers/torch come from
+# the `embeddings` extra on a GPU box. Full install:
+# `uv sync --extra media --extra embeddings --extra vision`.
+vision = [
+    "transformers>=4.40",
+]
+# Interactive terminal UI (`exomem tui`). Optional so lean/server installs never
+# carry a UI stack; the subcommand degrades to a clear install hint when the
+# extra is absent. Textual builds on rich (already an indirect dependency),
+# stays pure-Python, and renders on Windows Terminal, WSL, macOS, and Linux.
+tui = [
+    "textual>=5.0",
+]
+
+[dependency-groups]
+# Full-CI latency statistics and the served CPU encoder; lean PR jobs omit these.
+recall-benchmark = [
+    "scipy>=1.17,<2",
+    "exomem[embeddings-onnx]",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-split>=0.11,<1",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.6",
+    # Exact paired-binary decision bounds in the tool-selection evaluation.
+    "scipy>=1.17.1,<2",
+    "tiktoken>=0.7",
+    "tokenizers>=0.20",
+]
+# TUI snapshot/interaction testing. Separate group: the lean dev matrix must
+# not require the TUI stack; CI opts in explicitly alongside `--extra tui`.
+tui-dev = [
+    "pytest-textual-snapshot>=1.0",
+]
+
+[project.scripts]
+# exomem is the public CLI; kb is the short daily-driver alias.
+# python -m exomem (and the legacy python -m kb_mcp) remain available for
+# source checkouts. Entry points MUST target exomem.__main__ — routing them
+# through the kb_mcp alias made every official CLI invocation print the
+# shim's DeprecationWarning.
+kb = "exomem.__main__:main"
+exomem = "exomem.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# The bundled sample vault ships authored Markdown and schema content, never
+# rebuildable indexes, local worker locks, coordination state, or voice profiles
+# that happen to exist in a dirty source tree.
+exclude = [
+    "/src/exomem/_sample_vault/Knowledge Base/.*.sqlite*",
+    "/src/exomem/_sample_vault/Knowledge Base/.*.lock",
+    "/src/exomem/_sample_vault/Knowledge Base/.graph-coordination/**",
+    "/src/exomem/_sample_vault/Knowledge Base/.voice_profiles.json",
+]
+
+[tool.hatch.build.targets.wheel]
+# exomem is the real package; kb_mcp is the permanent import-compat shim.
+packages = ["src/exomem", "src/kb_mcp"]
+
+[tool.hatch.build.targets.sdist]
+# Fail closed: Hatch's broad default sdist selection can sweep untracked agent
+# scratch, local databases, and maintainer files from a dirty checkout into a
+# public source archive.  The published sdist needs only the package sources and
+# standard package metadata; tests, docs, OpenSpec, plugin, and other public
+# inputs are validated separately by the explicit privacy inventory.
+include = [
+    "/src",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+timeout = 60
+timeout_method = "thread"
+markers = [
+    # Heavy tests that load the real bge/reranker models (needs `--extra embeddings`
+    # and the HF model cache). Excluded from the lean matrix; run in the dedicated
+    # `retrieval-eval` CI job via `pytest -m embeddings`.
+    "embeddings: loads live vector models; run only in the retrieval-eval job",
+    "nli: loads the exact frozen stance-verifier model; run only in its dedicated job",
+    "governance_timing_release: exact-capacity actual-wire governance timing characterization",
+    "query_deadline: keeps the shipped interactive query deadline instead of the test-wide relaxed one",
+    # tests/repository_docs_reads.py fails a test that reads these paths unmarked.
+    "reads_repository_docs: reads docs/, openspec/ or root Markdown; also runs on docs-only pull requests",
+]
+
+# Blackwell (RTX 50-series, sm_120 / compute capability 12.0) needs CUDA wheels.
+# Default PyPI torch on Windows is STILL CPU-only (verified 2026-05 against uv's
+# PyTorch integration guide), so an explicit CUDA index is required to get a GPU
+# build on Windows. The cu132 (CUDA 13.2) wheel ships sm_120 —
+# `torch.cuda.get_arch_list()` includes it, so any RTX 50-series GPU works.
+#
+# The platform marker scopes the CUDA index to win32/linux; other platforms (e.g.
+# macOS) fall back to default PyPI. We deliberately do NOT use
+# `UV_TORCH_BACKEND=auto`: it resolves per-machine at install time, which would
+# break lockfile reproducibility across the desktop + laptop hosts — the explicit
+# pinned index keeps both boxes on the same wheel. `explicit = true` keeps this
+# index out of general resolution. Multi-host GPU bring-up is documented in README.
+[tool.uv]
+# A single writer version prevents harmless-but-noisy marker normalization
+# differences between Windows, WSL, Docker, and CI. Deliberately `==`, and one
+# leg of a four-surface invariant enforced by
+# tests/test_uv_lock_policy.py::test_uv_writer_version_is_pinned_across_repository_surfaces
+# alongside the Dockerfile, infra/tool-versions.env and the hosted-infrastructure
+# workflow — this is the leg that makes the other three bind, so loosening it
+# would leave them declaring a version nothing enforces.
+#
+# The cost lands on contributors: uv is usually one shared installation managing
+# many unrelated tools, and uv's own error suggests `uv self update 0.11.28`, a
+# global downgrade to satisfy one repo. Do not do that — CONTRIBUTING.md
+# documents a project-local install instead.
+required-version = "==0.11.28"
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu132", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Pragmatic starter set; advisory in CI until the baseline is curated.
+select = ["E", "F", "I", "B", "UP", "BLE"]
+# The @mcp.tool docstrings ARE the LLM-facing tool schema and are intentionally
+# long; line-wrapping elsewhere is the formatter's job, not a lint gate.
+ignore = ["E501"]

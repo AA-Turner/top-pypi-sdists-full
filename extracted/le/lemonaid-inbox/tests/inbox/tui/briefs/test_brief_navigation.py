@@ -1,0 +1,308 @@
+"""Arrows in the sidebar brief redraw at once and move the main pane behind them."""
+
+import asyncio
+
+from textual.widgets import ContentSwitcher, DataTable, Input
+
+from lemonaid.inbox import db
+from lemonaid.inbox.tui.app import LemonaidApp
+from lemonaid.inbox.tui.briefs.brief_view import BriefView
+from lemonaid.inbox.tui.tables.table import ClickToActTable
+
+from ..shared import lemons, until
+
+
+def test_the_brief_is_drawn_before_the_main_pane_switches(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 2)
+    state["gate"].clear()
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.action_brief()
+            await pilot.press("down")
+            await until(pilot, lambda: state["switched"])
+            assert app._brief_target == state["targets"][1]
+            assert "Step 1." in app.query_one(BriefView)._rendered_markdown
+            assert app._get_current_row_key() == str(rows[1].id)
+            assert state["shown"] == state["targets"][0]  # the main pane has not moved yet
+
+            state["gate"].set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert state["switched"] == [rows[1].channel]
+            assert state["shown"] == app._brief_target == state["targets"][1]
+
+    asyncio.run(check())
+
+
+def test_repeated_arrows_switch_only_to_the_newest_row(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 4)
+    state["gate"].clear()
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.action_brief()
+            await pilot.press("down")
+            await until(pilot, lambda: state["switched"])
+            await pilot.press("down", "down")
+            await pilot.pause()
+            assert app._brief_target == state["targets"][3]
+
+            state["gate"].set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert state["switched"] == [rows[1].channel, rows[3].channel]
+            assert app._get_current_row_key() == str(rows[3].id)
+            assert app._brief_target == state["targets"][3]
+
+    asyncio.run(check())
+
+
+def test_a_wake_during_a_switch_keeps_the_new_brief(monkeypatch, tmp_path):
+    """The follow hook clears the sidebar brief and wakes the pane mid-switch."""
+    _, state = lemons(monkeypatch, tmp_path, 2)
+    state["gate"].clear()
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.action_brief()
+            await pilot.press("down")
+            await until(pilot, lambda: state["switched"])
+            state["shown"] = None
+            await pilot.press("f12")
+            await pilot.pause()
+            assert app.query_one(ContentSwitcher).current == "brief_view"
+            assert app._brief_target == state["targets"][1]
+
+            state["gate"].set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app._brief_target == state["targets"][1]
+
+    asyncio.run(check())
+
+
+def test_a_failed_switch_keeps_the_selected_brief_visible(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 2)
+    state["result"] = False
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.action_brief()
+            await pilot.press("down")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app._get_current_row_key() == str(rows[1].id)
+            assert app._brief_target == state["targets"][1]
+            assert app.query_one(".brief-terminal-notice")
+            await pilot.press("f12")
+            assert app._brief_target == state["targets"][1]
+            await pilot.press("up")
+            await app.workers.wait_for_complete()
+            assert app._brief_target == state["targets"][0]
+
+    asyncio.run(check())
+
+
+def test_closing_during_a_switch_leaves_no_brief_beside_the_lemon(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 2)
+    state["gate"].clear()
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.action_brief()
+            await pilot.press("down")
+            await until(pilot, lambda: state["switched"])
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.query_one(ContentSwitcher).current == "inbox_content"
+
+            state["gate"].set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert state["shown"] is None
+            assert app.query_one(ContentSwitcher).current == "inbox_content"
+            assert app._get_current_row_key() == str(rows[1].id)
+
+    asyncio.run(check())
+
+
+def test_m_and_M_mark_the_row_whose_brief_is_shown(monkeypatch, tmp_path):
+    rows, _ = lemons(monkeypatch, tmp_path, 2)
+
+    def dots(app) -> list[bool]:
+        return ["●" in card.render().plain for card in app.query_one(BriefView).query("_Card")]
+
+    def unread(row) -> bool:
+        with db.connect() as conn:
+            return db.get(conn, row.id).is_unread
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.query_one("#main_table", DataTable).move_cursor(row=1)
+            app.action_brief()
+            await pilot.pause()
+            assert dots(app) == [False]
+
+            await pilot.press("alt+m")
+            await pilot.pause()
+            assert unread(rows[1]) and not unread(rows[0])
+            assert dots(app) == [True]
+            assert app._get_current_row_key() == str(rows[1].id)
+
+            await pilot.press("M")
+            await pilot.pause()
+            assert not unread(rows[1])
+            assert dots(app) == [False]
+
+            await pilot.press("Z")
+            await pilot.pause()
+            assert unread(rows[1])
+            assert dots(app) == [True]
+
+    asyncio.run(check())
+
+
+def test_r_renames_the_row_whose_brief_is_shown(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 2)
+
+    def headlines(app) -> list[str]:
+        return [
+            card.render().plain.splitlines()[1] for card in app.query_one(BriefView).query("_Card")
+        ]
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app.query_one("#main_table", DataTable).move_cursor(row=1)
+            app.action_brief()
+            await pilot.pause()
+            assert "lemon-1" in headlines(app)[0]
+
+            await pilot.press("r")
+            await pilot.pause()
+            app.screen.query_one(Input).value = "renamed"
+            await pilot.press("enter")
+            await pilot.pause()
+            with db.connect() as conn:
+                assert db.get(conn, rows[1].id).name == "renamed"
+                assert db.get(conn, rows[0].id).name == "lemon-0"
+            assert "renamed" in headlines(app)[0]
+            assert state["shown"].lemon.name == "renamed"
+
+            await pilot.press("Z")
+            await pilot.pause()
+            assert "lemon-1" in headlines(app)[0]
+
+    asyncio.run(check())
+
+
+def test_clicking_the_selected_row_in_a_focused_scratch_pane_stays_put(monkeypatch, tmp_path):
+    rows, _ = lemons(monkeypatch, tmp_path, 2)
+    monkeypatch.setattr(
+        "lemonaid.inbox.tui.app.focus.behind_scratch", lambda *args: rows[0].metadata["tty"]
+    )
+    switched: list[int] = []
+    monkeypatch.setattr(
+        LemonaidApp,
+        "_switch_to_notification",
+        lambda self, row: switched.append(row.id) or True,
+    )
+
+    async def check() -> None:
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            table = app.query_one("#main_table", ClickToActTable)
+            key = table.coordinate_to_cell_key(table.cursor_coordinate)[0]
+
+            app.set_class(True, "-input-active")
+            table.post_message(ClickToActTable.SelectedRowClicked(table, key))
+            await pilot.pause()
+            assert switched == []
+
+            await pilot.press("enter")
+            await pilot.pause()
+            assert switched == [rows[0].id]
+
+            app.set_class(False, "-input-active")
+            table.post_message(ClickToActTable.SelectedRowClicked(table, key))
+            await pilot.pause()
+            assert switched == [rows[0].id, rows[0].id]
+
+    asyncio.run(check())
+
+
+def test_detached_briefs_are_reachable_in_both_directions(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 3)
+
+    async def check():
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app._set_detached_channels({rows[1].channel})
+            app.action_brief()
+            await pilot.press("down")
+            await pilot.pause()
+            assert app._get_current_row_key() == str(rows[1].id)
+            assert app._brief_target == state["targets"][1]
+            assert not state["switched"]
+            assert app.query_one(".brief-terminal-notice")
+            await pilot.press("down")
+            await app.workers.wait_for_complete()
+            assert app._brief_target == state["targets"][2]
+            await pilot.press("up")
+            assert app._brief_target == state["targets"][1]
+            await pilot.press("up")
+            await app.workers.wait_for_complete()
+            assert app._brief_target == state["targets"][0]
+
+    asyncio.run(check())
+
+
+def test_clicking_a_detached_row_attempts_resume(monkeypatch, tmp_path):
+    rows, _ = lemons(monkeypatch, tmp_path, 2)
+    switched = []
+    monkeypatch.setattr(
+        LemonaidApp, "_switch_to_notification", lambda self, row: switched.append(row.id) or True
+    )
+
+    async def check():
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app._set_detached_channels({rows[1].channel})
+            table = app.query_one("#main_table", ClickToActTable)
+            table.move_cursor(row=1)
+            key = table.coordinate_to_cell_key(table.cursor_coordinate)[0]
+            table.post_message(ClickToActTable.SelectedRowClicked(table, key))
+            await pilot.pause()
+            assert switched == [rows[1].id]
+            await pilot.press("enter")
+            assert switched == [rows[1].id, rows[1].id]
+
+    asyncio.run(check())
+
+
+def test_enter_resumes_the_detached_row_whose_brief_has_focus(monkeypatch, tmp_path):
+    rows, state = lemons(monkeypatch, tmp_path, 3)
+    resumed = []
+    monkeypatch.setattr(
+        LemonaidApp, "_switch_to_notification", lambda self, row: resumed.append(row.id) or True
+    )
+
+    async def check():
+        app = LemonaidApp(scratch_mode=True)
+        async with app.run_test(size=(50, 30)) as pilot:
+            app._set_detached_channels({rows[1].channel})
+            app.action_brief()
+            await pilot.press("down")
+            assert app.focused is app.query_one(BriefView)
+            assert app._brief_target == state["targets"][1]
+            await pilot.press("enter")
+            assert resumed == [rows[1].id]
+
+    asyncio.run(check())

@@ -13,21 +13,15 @@ class UpdateRoleRequest(DaraModel):
         new_max_session_duration: int = None,
         role_name: str = None,
     ):
-        # Specifies whether the RAM role is allowed to log on to the console.
+        # Specifies whether to allow the RAM role to log on to the console.
         self.new_allow_console_login = new_allow_console_login
         # The trust policy of the RAM role.
         self.new_assume_role_policy_document = new_assume_role_policy_document
-        # The description of the RAM role.
-        # 
-        # The description must be 1 to 1024 characters in length.
+        # The description of the RAM role. The description must be 1 to 1,024 characters in length.
         self.new_description = new_description
-        # The maximum session duration of the RAM role.
-        # 
-        # Valid values: 3600 to 43200. Unit: seconds. Default value: 3600.
+        # The maximum session duration of the RAM role. Valid values: 3600 to 43200. Unit: seconds. Default value: 3600.
         self.new_max_session_duration = new_max_session_duration
-        # The name of the RAM role.
-        # 
-        # The name must be 1 to 64 characters in length and can contain letters, digits, periods (.), and hyphens (-).
+        # The name of the RAM role. The name must be 1 to 64 characters in length and can contain letters, digits, periods (.), and hyphens (-).
         self.role_name = role_name
 
     def validate(self):

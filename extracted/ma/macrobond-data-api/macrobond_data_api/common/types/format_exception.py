@@ -1,2 +1,0 @@
-class FormatException(Exception):
-    pass

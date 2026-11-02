@@ -49,6 +49,7 @@ class TestOTELAgentCreationSourceOutput(unittest.TestCase):
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 
                     version = '', 
+                    previous_version = '', 
                     host_name = '', 
                     host_group = '', 
                     os_version = '', 
@@ -73,6 +74,7 @@ class TestOTELAgentCreationSourceOutput(unittest.TestCase):
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 
                     version = '', 
+                    previous_version = '', 
                     host_name = '', 
                     host_group = '', 
                     os_version = '', 

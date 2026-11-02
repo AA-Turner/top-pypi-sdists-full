@@ -1,0 +1,112 @@
+"""Tracker issue ``/checklistItems`` client on the httpx2 core.
+
+The ``get`` read returns a bare array of items (``ItemList[ChecklistItem]``); every write
+(create/update/delete-item/clear) returns the issue wrapper with the updated
+``checklistItems`` embedded (``Issue``) — including the delete calls, which the API
+answers with ``200 OK`` and a body (not ``204``).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ycli.yandex.core.resource import Resource
+from ycli.yandex.tracker.checklists import endpoints
+
+if TYPE_CHECKING:
+    from ycli.yandex.models import ItemList
+    from ycli.yandex.tracker.checklists.models import (
+        ChecklistItem,
+        ChecklistItemCreate,
+        ChecklistItemUpdate,
+    )
+    from ycli.yandex.tracker.models import Issue
+
+
+class ChecklistsClient(Resource):
+    """Get, add, update and delete an issue's checklist items, or clear the whole checklist."""
+
+    def list(self, issue_key: str) -> ItemList[ChecklistItem]:
+        """``GET /issues/{key}/checklistItems`` → the issue's checklist items.
+
+        Args:
+            issue_key: The issue key.
+
+        Returns:
+            The issue's checklist items.
+
+        Examples:
+            >>> tracker.checklists.list("DE-31").root[0].text
+            'Review the PR'
+        """
+        return self._session.send(endpoints.list_(issue_key))
+
+    def create(self, issue_key: str, body: ChecklistItemCreate) -> Issue:
+        """``POST /issues/{key}/checklistItems`` — add an item. Returns the issue wrapper.
+
+        Args:
+            issue_key: The issue key.
+            body: The new item: its text and optional checked flag, assignee and deadline.
+
+        Returns:
+            The issue wrapper with the updated checklist.
+
+        Examples:
+            >>> from ycli.yandex.tracker.checklists.models import ChecklistItemCreate
+            >>> tracker.checklists.create(
+            ...     "DE-32", ChecklistItemCreate.model_validate({"text": "step 1"})
+            ... ).key
+            'DE-32'
+        """
+        return self._session.send(endpoints.create(issue_key, body))
+
+    def update(self, issue_key: str, item_id: str, body: ChecklistItemUpdate) -> Issue:
+        """``PATCH /issues/{key}/checklistItems/{item_id}`` — edit an item. Returns the wrapper.
+
+        Args:
+            issue_key: The issue key.
+            item_id: The checklist item's id.
+            body: The item fields to change.
+
+        Returns:
+            The issue wrapper with the updated checklist.
+
+        Examples:
+            >>> from ycli.yandex.tracker.checklists.models import ChecklistItemUpdate
+            >>> tracker.checklists.update(
+            ...     "DE-34", "5f4", ChecklistItemUpdate.model_validate({"text": "step 2"})
+            ... ).key
+            'DE-34'
+        """
+        return self._session.send(endpoints.update(issue_key, item_id, body))
+
+    def delete(self, issue_key: str, item_id: str) -> Issue:
+        """``DELETE /issues/{key}/checklistItems/{item_id}`` — remove one item (200 + wrapper).
+
+        Args:
+            issue_key: The issue key.
+            item_id: The checklist item's id.
+
+        Returns:
+            The issue wrapper with the remaining checklist.
+
+        Examples:
+            >>> tracker.checklists.delete("DE-36", "5f6").checklist_items[0].text
+            'left'
+        """
+        return self._session.send(endpoints.delete(issue_key, item_id))
+
+    def clear(self, issue_key: str) -> Issue:
+        """``DELETE /issues/{key}/checklistItems`` — remove the whole checklist (200 + wrapper).
+
+        Args:
+            issue_key: The issue key.
+
+        Returns:
+            The issue wrapper with an empty checklist.
+
+        Examples:
+            >>> tracker.checklists.clear("DE-37").checklist_items
+            []
+        """
+        return self._session.send(endpoints.clear(issue_key))

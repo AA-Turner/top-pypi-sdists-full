@@ -2,8 +2,10 @@
 
 from contextlib import nullcontext
 
-from probe.cli import backfill as bf, backfill_import as imp, import_jobs as jobs
-from probe.cli import import_jobs_ui, tui
+from probe.cli.imports import folder as bf, jobs as jobs
+from probe.cli.imports.folder import flow as imp
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
 from tests import test_backfill_auto_import as fixtures
 
 automatic = fixtures.automatic
@@ -91,15 +93,19 @@ def test_legacy_completed_approval_does_not_block_another_request(automatic):
 
 
 def test_public_folder_picker_flow_reimports_unchanged_completed_folder(automatic, monkeypatch):
-    monkeypatch.setattr(bf, "choose_folder_wandb", lambda *a, **k: (None, False))
+    monkeypatch.setattr(bf.flow.choices, "choose_folder_wandb", lambda *a, **k: (None, False))
+    monkeypatch.setattr(bf.folder, "choose_folder_wandb", lambda *a, **k: (None, False))
     h = automatic
     h.run(background=True)
     first = jobs.list_jobs()[0]
     _run(first)
-    monkeypatch.setattr(bf, "choose_directory", lambda start: h.folder)
-    monkeypatch.setattr(bf, "resolve_agent", lambda *a, **kw: (bf.Agent.CLAUDE, None))
-    monkeypatch.setattr(bf, "choose_import_mode", lambda *a: bf.FolderImportMode.REVIEW_FIRST)
-    monkeypatch.setattr(tui, "review", lambda title, lines, choices: choices[0][1])
+    monkeypatch.setattr(bf.flow.choices, "choose_directory", lambda start: h.folder)
+    monkeypatch.setattr(bf.folder, "choose_directory", lambda start: h.folder)
+    monkeypatch.setattr(bf.flow.choices, "resolve_agent", lambda *a, **kw: (bf.Agent.CLAUDE, None))
+    monkeypatch.setattr(bf.folder, "resolve_agent", lambda *a, **kw: (bf.Agent.CLAUDE, None))
+    monkeypatch.setattr(bf.flow.choices, "choose_import_mode", lambda *a: bf.FolderImportMode.REVIEW_FIRST)
+    monkeypatch.setattr(bf.folder, "choose_import_mode", lambda *a: bf.FolderImportMode.REVIEW_FIRST)
+    monkeypatch.setattr(tui.forms, "review", lambda title, lines, choices: choices[0][1])
     watching = []
 
     def show_started(job):

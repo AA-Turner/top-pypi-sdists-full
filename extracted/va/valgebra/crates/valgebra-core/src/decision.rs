@@ -1,0 +1,1459 @@
+//! The structural rules: subtyping, equivalence and disjointness, decided by
+//! matching constructors against each other.
+//!
+//! One module per surface beside this one: the emptiness every relation
+//! reduces to, the readings a pair no rule decides is given, and four
+//! constructor surfaces -- a refinement's bounds, sequences split across a
+//! union, keyed maps and attribute records, and tables of constants. What only
+//! a binding can answer is asked of the oracle at the crate root. What stays
+//! here is the coinductive procedure that ties them together: the trail,
+//! the hypothesis a recursive pair is proved under, the shape match, and the
+//! hand-off to the set representation where the rules decline.
+
+mod constraints;
+mod emptiness;
+mod literals;
+mod products;
+mod readings;
+mod records;
+
+use std::cell::Cell;
+
+use crate::descr::budget;
+use crate::descr::lower::{
+    Constants, WORK, an_empty_reading_stands, lower_unfolded, lower_widened,
+};
+use crate::ir::{Constraint, DefIx, Polarity, Schema, SeqShape};
+use crate::kind::{Region, Regions};
+use crate::unordered_pairs;
+use crate::verdict::{Relation, Verdict};
+
+use crate::oracle::has_complementary_pair;
+use constraints::constraint_entailed;
+use emptiness::{class_with_attributes, the_rules_find_a_value};
+use literals::{
+    finite_meet_below, finite_set, finite_set_below, the_constant_speaks_for_the_literal,
+};
+use products::{linear_subtype, seq_splits_across_union};
+use readings::outside_every_kind;
+use records::{
+    attr_record_subtype, keyed_map_splits_across_union, keyed_map_subtype, keyed_meet_below,
+};
+
+pub use crate::oracle::{LeafRelations, NoLeafRelations};
+
+/// The most decision steps one top-level query may take before it stops and
+/// returns the conservative answer. Subtyping distributes over unions and
+/// intersections and emptiness recurses the structural fragment, so a deeply
+/// nested Boolean combination can demand work exponential in its depth.
+///
+/// **The bound is on cost; termination does not rest on it.** Every goal a
+/// query asks is a pair drawn from a finite closure of its subterms -- the
+/// subterms, their complements, meets of those, and unions of some members of
+/// a union among them -- because the four rules that build a term build it
+/// out of the subterms: [`seq_splits_across_union`] meets a component with the
+/// complements of branch components, [`keyed_map_splits_across_union`] a field
+/// with the complements of member fields, the union rule narrows a union to
+/// the branches the subject can meet, and a meet or a complement folds to a
+/// bound.
+/// Every other step asks a smaller pair or unfolds a reference onto the trail,
+/// where a pair that comes back is answered by hypothesis, so every path is
+/// finite. `docs/dev/02-decision.md` writes the argument out, and
+/// `decision::goal_tests` holds its premise. The closure is exponential in the
+/// subterms, a meet per subset, so a query that terminates can still outlast
+/// any caller, and that is what this ceiling is for.
+///
+/// One budget is threaded through a whole top-level query — subtyping, the
+/// emptiness checks it calls into and the two split rules share it, and the two
+/// directions of an equivalence share it — so no rule spends a second one. A
+/// lowering is the one cost it does not count: where the rules can neither prove
+/// nor refute `A <= ~B`, the `Complement` arm of `subtype_by_shape` asks the
+/// set representation whether `B` is empty, and that question is bounded by the
+/// lowering's own `Bounds` -- nodes read, nesting descended, multiplying work
+/// -- once for each goal that reaches it.
+///
+/// **A memo is mostly not what would lower it.** Counted by
+/// `decision::goal_tests` over the other workloads' shapes and over a record of
+/// thirty-two fields sharing one inner schema, the goals a query *repeats*
+/// number zero: the trail absorbs recursion, and the field and position caches
+/// absorb the shape where one goal is asked once per field.
+///
+/// The relation matrix is where that stops holding. A meet against a union
+/// repeats **four** goals per query, twice in that corpus and eight over it:
+/// the union distribution asks the meet of each branch, and the meet rule asks
+/// the class atom against the same thing once per member with no cache between
+/// the two rules. What a table over goals would collect is a saving on that one
+/// shape, measured rather than assumed.
+///
+/// The ceiling is for a schema built to blow up the decision -- the
+/// distributed tower `subtyping_terminates_on_a_distributed_tower` drives to
+/// it -- and there the query answers undecided, which the conservative
+/// contract allows. A relation the rules have no rule for is undecided well
+/// below it, and that is the procedure's incompleteness rather than this
+/// bound's. A memo over goals that would share the work is not built: the
+/// paragraphs above measure what it would save.
+pub(crate) const DECISION_BUDGET: u32 = 1_000_000;
+
+/// The most levels of its own recursion one decision query holds open.
+///
+/// The step budget bounds what a query costs and never how deep it goes: two
+/// recursive schemas whose bodies nest 100 and 99 lists around the back edge
+/// meet the coinductive hypothesis only after `lcm(100, 99)` levels of goals,
+/// each a chain of native frames, a few steps apiece. A goal level costs about
+/// 1 KiB of native stack on the profiled wheel and an emptiness level less,
+/// measured, so 512 of them fit in half of the 1 MiB that is the least stack
+/// any thread `CPython` creates has. Past the bound the query answers undecided,
+/// which the conservative contract always allows: a schema a caller writes
+/// unfolds a handful of levels, and only one built to nest coprime cycles or a
+/// long chain of definitions reaches it.
+pub(crate) const MAX_DECISION_DEPTH: u32 = 512;
+
+/// What one top-level query may spend: steps of work, and levels of its own
+/// recursion held open on the stack.
+///
+/// One value for the two because every recursive call is handed the budget
+/// already, so the depth travels with it. Counting a level on every goal that
+/// reaches the rules and on every emptiness question costs the decision
+/// workloads 2.5% to 3.1%; a count kept per thread read 6% to 11%, a
+/// thread-local in a shared library being a call to find on every level, and
+/// one taken only through `verdict_rec` read less and left a union's members
+/// uncounted.
+pub(crate) struct Budget {
+    steps: Cell<u32>,
+    depth: Cell<u32>,
+}
+
+impl Budget {
+    /// A query's budget of `steps`, with no level open.
+    pub(crate) const fn new(steps: u32) -> Self {
+        Self {
+            steps: Cell::new(steps),
+            depth: Cell::new(0),
+        }
+    }
+
+    /// The steps not yet spent, which the tests that pin a cost read.
+    #[cfg(test)]
+    pub(crate) fn left(&self) -> u32 {
+        self.steps.get()
+    }
+}
+
+/// Run `descent` one level below the budget's current depth, or answer
+/// `refused` where the level would pass [`MAX_DECISION_DEPTH`].
+///
+/// The goal recursion and the emptiness recursion each descend through this
+/// once a level, and the product and record rules once for each branch they
+/// narrow by; all of them share the count, since an emptiness question asked
+/// deep inside a goal, and a goal asked at the bottom of a split, run on the
+/// same stack. No guard closes the level:
+/// a query that unwinds drops its budget with it, so the count is restored on
+/// the return alone -- a guard's drop put an unwinding path on every goal and
+/// read dearer than the count itself.
+pub(super) fn descending<T>(budget: &Budget, refused: T, descent: impl FnOnce() -> T) -> T {
+    let depth = budget.depth.get();
+    if depth >= MAX_DECISION_DEPTH {
+        return refused;
+    }
+    budget.depth.set(depth + 1);
+    let answer = descent();
+    budget.depth.set(depth);
+    answer
+}
+
+/// Spend one unit of `budget`; returns `false` when it is already exhausted, the
+/// signal a budgeted decision uses to stop and report the conservative answer.
+pub(super) fn spend(budget: &Budget) -> bool {
+    match budget.steps.get().checked_sub(1) {
+        Some(remaining) => {
+            budget.steps.set(remaining);
+            true
+        }
+        None => false,
+    }
+}
+
+impl SeqShape {
+    /// Whether every sequence this shape admits is also admitted by `other`.
+    ///
+    /// The whole rule is [`linear_subtype`]; this is where the elements are
+    /// borrowed out of the two shapes. There is no alternation to distribute
+    /// over and no shape to first prove linear, because a shape is the linear
+    /// form.
+    ///
+    /// **Two equal shapes never arrive here.** The arm that calls this matches
+    /// on the two containers being equal, and the caller above it answers
+    /// `Holds` for two equal schemas -- so an equal container and an equal
+    /// shape is a pair that returned one frame earlier. A reflexivity check
+    /// here would be a second answer to a question already answered, and no
+    /// input reaches it.
+    fn shape_subtype(&self, other: &SeqShape, cx: &mut Cx<'_>) -> Relation {
+        linear_subtype(
+            &self.prefix,
+            self.tail.as_deref(),
+            &other.prefix,
+            other.tail.as_deref(),
+            cx,
+        )
+    }
+}
+
+impl Schema {
+    /// Whether the descriptor proves every value of this schema is one of
+    /// `other`, by proving the difference empty.
+    ///
+    /// `a ≤ b` is `a ∧ ¬b = ∅` [FCB08, §4.1], which is the whole of the test. A
+    /// **widening and nothing else**, asked where
+    /// [`denotes_no_value`](Self::denotes_no_value) is asked and for the same
+    /// reasons.
+    ///
+    /// An empty left side is below every set, and it says so without lowering
+    /// the right one at all -- otherwise a schema the descriptor proves empty
+    /// would be below nothing whose descriptor it could not build, which is a
+    /// pair of answers that contradict each other.
+    pub(crate) fn descriptor_contained_in(
+        &self,
+        other: &Schema,
+        pool: &dyn Constants,
+        defs: &[Schema],
+    ) -> Relation {
+        // The two sides are unfolded in opposite directions, which is what makes
+        // a difference over a recursive schema sound *in one direction*: the
+        // left grows and the right shrinks, so a difference proved empty here
+        // was empty before.
+        //
+        // **The other direction does not carry.** `self⁺ ∧ ¬other⁻` contains
+        // the real difference and is not contained by it, so a value found in
+        // the widened reading need be no value of `self ∧ ¬other` at all, and
+        // the inhabited answer refutes nothing. Where a reference was cut, as a
+        // finite approximation cuts a recursive type [AC93, §3.4], an empty
+        // difference proves the inclusion and an inhabited one is a decline.
+        //
+        // A side this reading cannot lower, and a difference it cannot build,
+        // are declines rather than refutations: nothing about the inclusion is
+        // known from a set that was never constructed.
+        //
+        // **The difference is a build of its own**, under the allowance the two
+        // lowerings each ran under. It is the dearest of the three: the sides
+        // are built from a schema the node bound has already measured, and the
+        // difference multiplies a complement against a meet, which is where the
+        // lattices spend. Nothing else bounds it -- each lattice's width bound
+        // refuses a wide *answer*, not a long search for a narrow one -- so
+        // without this the cheapest thing a caller can ask for is bounded and
+        // the dearest is not.
+        //
+        // **A literal key read as a label is the same kind of widening**, and
+        // what it costs is the same half: an empty difference over a label on
+        // the narrowed side may prove nothing ([`an_empty_reading_stands`]),
+        // and is a decline where it does not. Asked only of an empty answer,
+        // which is the one it can overturn.
+        //
+        // **A conjunct the subject's lowering refuses is left out**, as
+        // [`lower_widened`] reads it, which is a widening of the same kind:
+        // the subject reads as a superset, and the label check reads the
+        // members kept. A thinned subject that can only be inhabited answers
+        // nothing against a supertype the lowering refuses, so where the
+        // reading would be one, the supertype is lowered first, and once.
+        //
+        // `¬other` is what the difference meets, and a complement's is its
+        // inner set, read on the widened side: `self ⊆ ¬inner` asks `self ∧
+        // inner = ∅`, a double complement being the set [FCB08, Def. 4.1].
+        // Complementing the lowered `¬inner` would rebuild that set
+        // from a double negation, and where the negation expands -- a record
+        // whose field spans two kinds expands into more atoms than it began
+        // with -- the meet with the rebuilt form spends past the allowance a
+        // meet with the inner set fits in: `{"t": int} ⊆ ¬({"t": str} ∪
+        // {"t": bytes})` declines that way, while three field kinds, whose
+        // complement stays negated, decide.
+        let (read, side) = match other {
+            Schema::Complement(inner) => (&**inner, Polarity::Widen),
+            _ => (other, Polarity::Narrow),
+        };
+        let mut theirs = None;
+        let mut kept = None;
+        let Some(mine) = lower_widened(self, defs, pool, &mut kept, |kept| {
+            !the_rules_find_a_value(kept)
+                || theirs
+                    .insert(lower_unfolded(read, defs, side, pool))
+                    .is_some()
+        }) else {
+            return Relation::Unknown;
+        };
+        let cut =
+            kept.is_some() || (!defs.is_empty() && (self.has_reference() || other.has_reference()));
+        // The schemas the subject's side reads as widened are itself, or the
+        // conjuncts a thinned reading kept, collected only where read.
+        if mine.emptiness() == Verdict::Empty {
+            let stands = match &kept {
+                None => an_empty_reading_stands(&[self], &[], defs, pool),
+                Some(kept) => {
+                    an_empty_reading_stands(&kept.iter().collect::<Vec<_>>(), &[], defs, pool)
+                }
+            };
+            return Relation::proven(stands);
+        }
+        let negate = side == Polarity::Narrow;
+        let Some(theirs) = theirs.unwrap_or_else(|| lower_unfolded(read, defs, side, pool)) else {
+            return Relation::Unknown;
+        };
+        budget::under(WORK, || {
+            let outside = if negate { theirs.complement() } else { theirs };
+            mine.intersect(&outside)
+                .map(|difference| difference.emptiness())
+        })
+        .map_or(Relation::Unknown, |emptiness| {
+            let stands = || match (&kept, negate) {
+                (None, true) => an_empty_reading_stands(&[self], &[read], defs, pool),
+                (None, false) => an_empty_reading_stands(&[self, read], &[], defs, pool),
+                (Some(kept), true) => {
+                    an_empty_reading_stands(&kept.iter().collect::<Vec<_>>(), &[read], defs, pool)
+                }
+                (Some(kept), false) => {
+                    let widened: Vec<&Schema> = kept.iter().chain([read]).collect();
+                    an_empty_reading_stands(&widened, &[], defs, pool)
+                }
+            };
+            if emptiness == Verdict::Empty && !stands() {
+                Relation::Unknown
+            } else if cut {
+                Relation::proven(emptiness == Verdict::Empty)
+            } else {
+                Relation::of_difference(emptiness)
+            }
+        })
+    }
+
+    /// The decision steps [`is_subtype_of`](Self::is_subtype_of) spends, by the
+    /// same argument as [`empty_steps`](Self::empty_steps).
+    #[cfg(test)]
+    pub(crate) fn subtype_steps(&self, other: &Schema) -> u32 {
+        self.subtype_steps_under(other, &NoLeafRelations)
+    }
+
+    /// The same count where the rules can look a constant or a class up, for a
+    /// rule whose work depends on what the oracle answers.
+    #[cfg(test)]
+    pub(crate) fn subtype_steps_under(&self, other: &Schema, oracle: &dyn LeafRelations) -> u32 {
+        let budget = Budget::new(DECISION_BUDGET);
+        self.is_subtype_rec(other, &mut Cx::new(oracle, &[], &budget));
+        DECISION_BUDGET - budget.left()
+    }
+
+    /// Whether every value of `self` is also a value of `other` — set inclusion,
+    /// the semantic-subtyping relation. Complete on the scalar fragment via
+    /// `self ∧ ¬other = ∅`, and decided structurally past it by recursion on
+    /// matching constructors (the lattice rules, set/frozenset element
+    /// inclusion, and sequence inclusion on the prefix-and-tail form). Every
+    /// rule is **sound** — it never reports a subtype it cannot justify — and
+    /// conservative where it cannot decide: there it returns `false` rather than
+    /// guess. A `false` is then asked again of the two *sets*, under a bound on
+    /// what building them may cost, which decides
+    /// what no rule about shapes reaches: a container meet, a complement nested
+    /// inside another, one regular language inside another, a kind against its own
+    /// literals, one step dividing another.
+    ///
+    /// A complement *directly* under a complement is not on that list and cannot
+    /// be: [`Schema::complement`] folds `¬¬X` to `X` whichever schema it is
+    /// given, so the shape reaches a comparison only from a term built without
+    /// the constructors -- which the fuzz target does, and which is what the
+    /// bound on a universal subject is for.
+    ///
+    /// The decision is bounded twice over: an adversarial schema that would take
+    /// more than a fixed number of steps stops, and a descriptor too costly to
+    /// build refuses. A `false` can therefore mean "not proven a subtype within
+    /// the work bound". A real schema decides far inside both.
+    #[must_use]
+    pub fn is_subtype_of(&self, other: &Schema) -> bool {
+        self.is_subtype_of_under(other, &NoLeafRelations, &[])
+    }
+
+    /// [`is_subtype_of`](Self::is_subtype_of) with a [`LeafRelations`] oracle deciding
+    /// the leaf relations the structural rules cannot (an `Instance` class or a
+    /// `Literal` value), and the `defs` that resolve recursive references so
+    /// subtyping is decided between recursive schemas too. The oracle's `None`
+    /// and an unresolved reference both keep the conservative `false`.
+    #[must_use]
+    pub fn is_subtype_of_under(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+    ) -> bool {
+        self.subtype_relation_under(other, oracle, defs).holds()
+    }
+
+    /// The inclusion in three values: proven, refuted, or neither.
+    ///
+    /// [`is_subtype_of_under`](Self::is_subtype_of_under) is this reduced to the
+    /// two a boundary reports, and the reduction loses the distinction a caller
+    /// most often wants: whether a `false` is a value outside the supertype or
+    /// a question no rule here answers. Both deciders are asked, the second
+    /// only where the first declines, and a refutation from either stands on a
+    /// value of the subject -- which the rules' answer is read against, and
+    /// which the set reading proves by finding the difference inhabited.
+    #[must_use]
+    pub fn subtype_relation_under(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+    ) -> Relation {
+        let budget = Budget::new(DECISION_BUDGET);
+        self.subtype_relation(other, oracle, defs, &budget)
+            .or_else(|| self.descriptor_contained_in(other, oracle, defs))
+    }
+
+    /// The three-valued subtyping answer under an oracle, the definitions, and a
+    /// work budget the caller owns.
+    ///
+    /// The structural procedure alone: the descriptor's own reading is a second
+    /// decider the public relation asks after this one. Held here so a test can
+    /// count what the rules decline rather than reading `false` for both halves
+    /// of the conservative contract.
+    pub(crate) fn subtype_relation(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+        budget: &Budget,
+    ) -> Relation {
+        self.is_subtype_rec(other, &mut Cx::new(oracle, defs, budget))
+    }
+
+    /// Whether this schema has a value by its own shape, read without descent.
+    ///
+    /// The witness guard runs on every refutation and at every level of one, so
+    /// the shapes whose inhabitance is their own form answer here rather than
+    /// through the general fold: a scalar atom is a value, a container that
+    /// admits an empty one has that value whatever its elements say -- a map
+    /// with no required field holds the empty dict [Cas23, fn. 11] -- and a
+    /// union has one where a member does. `false` is "not seen from here" and
+    /// costs the descent, never an answer -- and `laws.rs` holds this to the
+    /// fold in the direction it claims.
+    pub(crate) fn holds_a_value_shallowly(&self) -> bool {
+        match self {
+            Schema::Anything(_)
+            | Schema::Bool
+            | Schema::Int
+            | Schema::Float
+            | Schema::Str
+            | Schema::Bytes
+            | Schema::NoneType
+            | Schema::Coll { .. } => true,
+            Schema::Seq { shape, .. } => shape.prefix.is_empty(),
+            // A map atom with no label required is empty only where its
+            // default meets a wanted constraint in nothing, and an atom built
+            // from a schema wants none [Cas23, (11)].
+            Schema::KeyedMap { fields, .. } => fields.iter().all(|f| !f.required),
+            Schema::Union(members) => members.iter().any(Schema::holds_a_value_shallowly),
+            _ => false,
+        }
+    }
+
+    /// One rule's answer about this subject, with a refutation believed only
+    /// where the subject has a value to stand on.
+    ///
+    /// Every refutation the rules reach is a mismatch of shapes: a value of the
+    /// subject the other schema rejects. A subject with no value is below every
+    /// schema [BBC+26, (uninhabited)] and has no such value, so the reading is
+    /// what turns a mismatch into a claim -- and it is taken about the subject
+    /// of *this* comparison, at every level, because a composition carries a
+    /// part's refutation up and the part is a subject of its own. A list of an
+    /// empty element is the empty list and is below a list of anything; the
+    /// mismatch its element reports is about no value.
+    ///
+    /// It costs the *proving* half of the decision surface 1.4%, measured by
+    /// disabling it: sixteen instructions per query that never refutes, which
+    /// is the price of reading a refutation honestly on the queries that do. An
+    /// `#[inline]` recovers none of it -- the compiler is already free to,
+    /// within the crate -- so the reading stands as the cost.
+    fn witnessed(&self, answer: Relation, cx: &mut Cx<'_>) -> Relation {
+        if answer == Relation::Fails {
+            if self.holds_a_value_shallowly() {
+                return answer;
+            }
+            return Relation::of_mismatch(self.verdict_rec(cx));
+        }
+        answer
+    }
+
+    /// The rules' answer about this pair, with every refutation read against
+    /// the subject it is about. See [`witnessed`](Self::witnessed).
+    fn is_subtype_rec(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        // Every goal the recursion is asked reaches this, and reaches it after
+        // the caches that answer a repeat without asking -- which is what makes
+        // the count below a count of goals the procedure really re-derives.
+        #[cfg(test)]
+        goal_tests::goals::record(self, other);
+        let answer = self.subtype_by_rules(other, cx);
+        self.witnessed(answer, cx)
+    }
+
+    /// The rules' answer before the witness reads it: reflexivity, the scalar
+    /// fragment, a goal already on the trail assumed to hold [AC93, §1.5], and
+    /// the rules below for the rest.
+    fn subtype_by_rules(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        // Reflexivity, by identity. The checks below are ordered by what they
+        // cost, and each answers the whole query on its own, so a cheaper one
+        // never hides a verdict a later one would reach.
+        if core::ptr::eq(self, other) {
+            return Relation::Holds;
+        }
+        // Bound the total work: the distribution rules below can demand effort
+        // exponential in the schema depth, so once the shared budget is spent the
+        // decision answers `Unknown` rather than running unbounded. A real
+        // annotation decides in a few steps; only an adversarial schema reaches
+        // the ceiling.
+        if !spend(cx.budget) {
+            // The work bound stopping a descent proves nothing about the pair.
+            return Relation::Unknown;
+        }
+        // Scalar fragment: exact via the region partition. Subtyping there is
+        // set inclusion between the two region sets, and nothing else. A
+        // non-scalar node yields `Unknown` from its own discriminant, so this
+        // costs one match off the fragment.
+        //
+        // The subtype's own regions are read only once the supertype's are
+        // known. Reading a region set is one match on an atom and a fold over
+        // every member of a union, so on a Boolean schema it walks the subtree;
+        // asking for a set that a mismatched partner has already made unusable
+        // walks it for nothing. Both are pure, so which is asked first is free
+        // to choose, and the answer is the same either way.
+        let supertype_regions = other.region_set();
+        if let Regions::Known(b) = supertype_regions
+            && let Regions::Known(a) = self.region_set()
+        {
+            // Exact in both directions: on the scalar fragment the region sets
+            // *are* the schemas, unions and complements of disjoint regions
+            // read as the sets [FCB08, Def. 4.1], so a region outside the
+            // supertype's set is a value outside it.
+            return Relation::decided(a.subset_of(b));
+        }
+        // Reflexivity for two equal spellings that are not the same node.
+        if self == other {
+            return Relation::Holds;
+        }
+        // Coinductive hypothesis: a goal already being proven on this path is
+        // assumed to hold, so two recursive types are compared at their greatest
+        // fixpoint rather than unfolded forever. The scan is empty for a
+        // non-recursive query; under recursion the stack holds one entry per
+        // reference goal still being unfolded. Every recorded goal has a `Ref` on
+        // one side, so the structural compare rejects a mismatched goal on the
+        // discriminant before walking either subtree.
+        if cx.trail.iter().any(|(a, b)| a == self && b == other) {
+            return Relation::Holds;
+        }
+        // A level of the recursion, held while the rules descend: a pair
+        // answered above opens none, and one past the depth bound proves
+        // nothing, as one past the work bound does not.
+        descending(cx.budget, Relation::Unknown, || {
+            self.subtype_decide(other, supertype_regions, cx)
+        })
+    }
+
+    /// Whether one of the lattice bounds settles `self ⊆ other`: `self` denotes
+    /// the empty set [BBC+26, (uninhabited)], or `other` denotes the whole
+    /// universe.
+    ///
+    /// Decided by emptiness rather than by matching the `Nothing` or `Anything`
+    /// atom, so a record with an uninhabited required field and a union covering
+    /// the universe are both recognized. Asking the atom alone is a rule that
+    /// confirms itself: the pattern matches only the shape it is written for.
+    ///
+    /// The universe side asks whether the complement is empty, which is the
+    /// same question one De Morgan step away [FCB08, §4.1] and needs no
+    /// separate procedure.
+    ///
+    /// **Only the walk is here.** The cheap half of the universe bound -- the
+    /// supertype's region set being the whole partition -- is a comparison the
+    /// caller already holds, and [`subtype_decide`](Self::subtype_decide)
+    /// answers on it before the rules run. A pair that reaches this one has
+    /// been past that comparison, so repeating it reads a value known to be
+    /// something else. What is left is the reading the comparison cannot do:
+    /// the subject's own emptiness, and the complete walk over a union whose
+    /// members cover the universe between them.
+    fn bounds_the_pair(&self, other: &Schema, cx: &mut Cx<'_>) -> bool {
+        if self.is_empty_rec(cx) {
+            return true;
+        }
+        // The regions again, read without the stop the fast fold takes at the
+        // first opaque member. `~bool | bool` covers the universe and so does
+        // the same union with a set beside it, which the fast reading declines
+        // because it stops on the set and a member behind it cannot reopen the
+        // answer -- so the same three members read as the universe in one order
+        // and as unknown in another.
+        //
+        // Reading on is what the fast fold cannot afford: it is asked of every
+        // pair, and a union of a thousand literals is a thousand opaque members
+        // to walk rather than one to stop at. Here the pair has had every rule
+        // and none of them answered, so the walk is spent on a query that was
+        // going to be declined, and a query that decides never reaches it.
+        other.covers_the_universe() || other.union_complement_is_empty(cx)
+    }
+
+    /// Whether a union's complement holds no value, read one De Morgan step
+    /// in: `¬(X₁ ∪ … ∪ Xₙ)` is `¬X₁ ∩ … ∩ ¬Xₙ`, the normal form of a negated
+    /// union [FCB08, Lem. 6.2], and a meet is what emptiness decides by its
+    /// members.
+    ///
+    /// The region walk above passes over a member the partition cannot read,
+    /// and that member may be the one covering what the others leave out.
+    /// `~None | ~set[Any]` is the universe -- no value is both `None` and a
+    /// set -- yet `~set[Any]` has no region, so the walk sees every region but
+    /// `None` and declines. Pushed through the complement, the same union is
+    /// `None ∩ set[Any]`, a meet of two kinds that share no value, and the
+    /// rules settle it without lowering anything.
+    ///
+    /// **A member that is itself a union is read as its members**, at any
+    /// depth. `X ∪ (Y ∪ Z)` is `X ∪ Y ∪ Z`, so the two meets of complements are
+    /// one set, and only the flat one shows the meet's own fold the pair it
+    /// reads. `¬c ∪ (c)`, with `(c)` a union of one member, is the universe;
+    /// taken whole, its complements are `c ∩ ¬(c)`, and the fold compares
+    /// `¬(c)` with `c` and finds two spellings. Grouping holds of every set, a
+    /// class with a hook among them, so which pairs cancel is the fold's own
+    /// guard to say. The constructors flatten what they build, so the nesting
+    /// arrives in a term built raw, which the fuzz target draws, and the walk
+    /// above reads such a member as one region or as none.
+    ///
+    /// Asked only of a union, only where every rule and the walk have
+    /// declined, and only where the walk passed a member over, so a query
+    /// that decides never builds the meet. Building it for every declined
+    /// union cost the relation matrix a fifth of its instructions.
+    fn union_complement_is_empty(&self, cx: &mut Cx<'_>) -> bool {
+        let Schema::Union(members) = self else {
+            return false;
+        };
+        // A walk that skipped no member read every one exactly, so its `false`
+        // is the answer and the meet would only say it again.
+        if members.iter().all(|m| m.region_set() != Regions::Unknown) {
+            return false;
+        }
+        // A worklist rather than a recursion: each node is taken once and the
+        // term is a finite tree, so the walk ends within its node count. The
+        // list allocates only once a nested union is met, so a flat union
+        // feeds the meet's buffer as directly as its members do.
+        let mut nested: Vec<&Schema> = Vec::new();
+        let mut top = members.iter();
+        let complements = core::iter::from_fn(|| {
+            loop {
+                let member = nested.pop().or_else(|| top.next())?;
+                match member {
+                    Schema::Union(inner) => nested.extend(inner.iter()),
+                    _ => return Some(member.clone().complement()),
+                }
+            }
+        });
+        Schema::meet_within(complements, cx.defs).is_empty_rec(cx)
+    }
+
+    /// Whether `self` and `other` share no value, which is what decides `self ⊆
+    /// ¬other`.
+    ///
+    /// This is the semantic subtyping reduction `[[s ∧ ¬t]] = ∅` [FCB08, §4.1]
+    /// applied where the structural arms have nothing to say: a complement
+    /// offers no shape on the right to recurse into, so the question goes to
+    /// emptiness, which already decides kind disjointness and the scalar
+    /// regions. Without it a container is never seen below the complement of a
+    /// scalar.
+    fn shares_no_value_with(&self, other: &Schema, cx: &mut Cx<'_>) -> bool {
+        // Kind disjointness reads two discriminants and settles most pairs: a
+        // list never shares a value with an int, positives of two kinds meeting
+        // in nothing [FCB08, (5)]. The general question below owns the rest,
+        // and has to build the meet to ask it.
+        if self.disjoint_with(other, cx.oracle) {
+            return true;
+        }
+        // Built through the meet constructor rather than as a raw node: the
+        // emptiness rule that decides most pairs compares the *members* of one
+        // intersection pairwise, and a member that is itself an intersection
+        // hides its own members from it. Asked of `tuple[int, str]` against
+        // `dict[str, int] & ~{"a": int}` as a raw node, the tuple and the dict
+        // would never meet, so `A <= ~B` would decline for a pair whose meet
+        // `is_empty` decides, and the two relations would disagree about one
+        // question asked two ways.
+        Schema::meet_within([self.clone(), other.clone()], cx.defs).is_empty_rec(cx)
+    }
+
+    /// Whether `self` reduces to something below `other` by a rule that reads
+    /// only the left side: a reference unfolds to its definition, and a
+    /// refinement drops to its base.
+    ///
+    /// Both rules are sound alone, and the `A ⊆ (Y ∪ Z)` rule beside them is
+    /// *lossy* -- it commits to a single branch, so a subject that lands in the
+    /// union only once it has been reduced gets no answer from it. A match picks
+    /// one arm, but the relation is the disjunction of every sound rule that
+    /// applies, so where both do, both are asked. That is what decides a
+    /// recursive schema against its own body, and a refinement of a union
+    /// against that union.
+    ///
+    /// The reference case records its goal before descending, the trail
+    /// algorithm's step for a recursive type on the left [AC93, §1.5], so a
+    /// cycle back to it meets the coinductive hypothesis rather than unfolding
+    /// forever.
+    fn left_reduces_below(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        match self {
+            Schema::Ref(id) => match cx.defs.get(id.get()) {
+                Some(def) => cx.assuming((self.clone(), other.clone()), |cx| {
+                    def.is_subtype_rec(other, cx)
+                }),
+                // A reference into a table that does not hold it: the schema
+                // names a set this query cannot read, which is not a refutation.
+                None => Relation::Unknown,
+            },
+            // A refinement carries its base's *proof* and not its refutation:
+            // the constraints can exclude every value that would stand against
+            // the inclusion, which is how a bounded-length list lands inside a
+            // fixed-length one whose base it is nowhere near.
+            Schema::Refine { base, .. } => base.is_subtype_rec(other, cx).proof_only(),
+            // Nothing on the left reduces, so this rule has nothing to say --
+            // which is not the same as the relation failing.
+            _ => Relation::Unknown,
+        }
+    }
+
+    /// `A ⊆ R` for a reference `R`: assume the goal and ask the definition.
+    ///
+    /// The coinductive rule [AC93, §1.5]. The pair goes on the trail so a goal
+    /// that comes back is answered by the assumption, and the definition is
+    /// what `R` denotes, so the answer about it is the answer about `R`.
+    /// `Unknown` for a supertype that is no reference, or a reference the table
+    /// does not resolve, which names a set this query cannot read.
+    fn below_a_reference(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        let Schema::Ref(id) = other else {
+            return Relation::Unknown;
+        };
+        let Some(def) = cx.defs.get(id.get()) else {
+            return Relation::Unknown;
+        };
+        cx.assuming((self.clone(), other.clone()), |cx| {
+            self.is_subtype_rec(def, cx)
+        })
+    }
+
+    /// `A ⊆ (Y ∪ Z)`: every rule that can place a subject inside a union.
+    ///
+    /// A branch equal to the subject settles it, which is set containment and
+    /// is linear in the branches. Failing that, the subject may land in one
+    /// branch [BBC+26, (anyOf-r)], or -- for a fixed-arity sequence -- split
+    /// across them, which no single-branch rule sees, or be one a left-side
+    /// rule reduces to something the union contains.
+    ///
+    /// Every rule here proves inclusion when it fires, so a union none of them
+    /// places the subject in is a pair this procedure declines -- with one
+    /// exception, which is the reduction below. A reference denotes exactly its
+    /// definition, so a definition that holds a value outside the union names a
+    /// value of the reference outside it, and that is a refutation rather than
+    /// a decline. The arm for a non-union supertype already reads it that way;
+    /// this reads it the same, which is the only difference a union makes.
+    fn below_a_union(&self, other: &Schema, members: &[Schema], cx: &mut Cx<'_>) -> Relation {
+        if members.contains(self) {
+            return Relation::Holds;
+        }
+        // Each branch is asked once and the answer read for two things: a
+        // branch that contains the subject settles the union, and a branch that
+        // *refutes* is the answer the union inherits once the branches beside
+        // it are gone. The second is what the narrowing below is for, and it is
+        // why each answer is read in its three values rather than as `holds`
+        // alone: whether any branch refuted is what decides to narrow.
+        let mut refuted = false;
+        for member in members {
+            let answer = self.is_subtype_rec(member, cx);
+            if answer.holds() {
+                return Relation::Holds;
+            }
+            refuted |= answer == Relation::Fails;
+        }
+        // The kind tested here and the rules out of line: a split is the rare
+        // answer, and the union rule is inlined into the goal recursion, so
+        // every union this path reaches would otherwise carry both rules.
+        if matches!(self, Schema::Seq { .. } | Schema::KeyedMap { .. }) {
+            let split = self.splits_across_union(members, cx);
+            if split != Relation::Unknown {
+                return split;
+            }
+        }
+        // A branch the subject shares no value with decides nothing about the
+        // inclusion: `A ⊆ X ∪ Y` with `A ∩ X = ∅` is `A ⊆ Y`. Dropping such a
+        // branch is what lets a *refutation* out -- the rules refute against a
+        // single supertype and have no arm that refutes against a union, so
+        // without it a chain of records beside a `None` branch is undecided
+        // where the record branch alone refutes.
+        //
+        // Sound in both directions, by two facts: the narrowed union is a subset
+        // of the original, so a `Holds` against it holds against the original,
+        // and a `Fails` stands on a value of the subject outside every remaining
+        // branch -- a value the dropped branches do not admit either, since they
+        // share none with the subject.
+        //
+        // Asked with the cheap reading of disjointness first -- two
+        // discriminants, which settles a `None` branch beside a record -- and
+        // with the full one only where that left the question open. The full
+        // reading builds a meet per branch, and the path it is asked on is the
+        // one already headed for the set representation, which costs about
+        // three orders of magnitude more.
+        //
+        // And asked at all only where a branch refutes, which is the answer
+        // the narrowing carries back from the branch it leaves: a union every
+        // branch of which *declines* narrows to a smaller union of declines.
+        // One reading could answer there and does not -- every branch dropped,
+        // which refutes on a value of the subject however its branches
+        // answered -- and reaching for it costs a meet per branch on every
+        // union in the language. Measured on the relation matrix: 36% of the
+        // decision path asked of every union against 0.14% asked of the unions
+        // a branch refutes. Where it leaves a pair undecided the set
+        // representation is asked next, which is the route that pair takes
+        // where no branch is dropped.
+        if refuted {
+            for full in [false, true] {
+                let answer = self.below_the_branches_it_can_meet(members, full, cx);
+                if answer != Relation::Unknown {
+                    return answer;
+                }
+            }
+        }
+        // Asked once, and read twice: for the proof it may carry, and -- where
+        // it carries none -- for the refutation, which only a reference's
+        // reduction can give. A refinement's reduction drops its refutation
+        // before this sees it, since the constraints may exclude the very value
+        // that stood against the inclusion.
+        let reduced = self.left_reduces_below(other, cx);
+        if reduced.holds()
+            // Last, and only for the one subject the oracle can answer about
+            // here: an `Instance` whose *values* the bindings can enumerate
+            // is below a union when each of them is, which is what makes an
+            // enumeration and the union of its members one set. Asked here
+            // because a union on the right never reaches the leaf arm, and
+            // asked for nothing else because every other subject would pay a
+            // call that always declines -- ten percent of the decision
+            // workload, measured.
+            || (matches!(self, Schema::Instance(_))
+                && cx.oracle.leaf_subtype(self, other).unwrap_or(false))
+        {
+            return Relation::Holds;
+        }
+        reduced.refutation_only()
+    }
+
+    /// `A ⊆ (Y ∪ Z)` where `A` lands in no single branch and splits across
+    /// several: a fixed-length sequence across sequences of its arity
+    /// ([`seq_splits_across_union`]), a keyed map across keyed maps
+    /// ([`keyed_map_splits_across_union`]). `Unknown` for any other subject.
+    #[inline(never)]
+    fn splits_across_union(&self, members: &[Schema], cx: &mut Cx<'_>) -> Relation {
+        match self {
+            Schema::Seq { .. } => seq_splits_across_union(self, members, cx),
+            Schema::KeyedMap { .. } => keyed_map_splits_across_union(self, members, cx),
+            _ => Relation::Unknown,
+        }
+    }
+
+    /// `A ⊆ X ∪ Y` where `A ∩ X = ∅`, which is `A ⊆ Y`.
+    ///
+    /// Answers `Unknown` where no branch is dropped, so a caller can ask twice
+    /// -- once cheaply and once fully -- without the first answer standing in
+    /// for the second.
+    ///
+    /// Sound in both directions, by two facts. The narrowed union is a subset
+    /// of the original, so a `Holds` against it holds against the original.
+    /// And a `Fails` stands on a value of the subject outside every remaining
+    /// branch, which the dropped branches do not admit either -- they share no
+    /// value with the subject at all.
+    fn below_the_branches_it_can_meet(
+        &self,
+        members: &[Schema],
+        full: bool,
+        cx: &mut Cx<'_>,
+    ) -> Relation {
+        let mut meets = |member: &Schema| {
+            if full {
+                !self.shares_no_value_with(member, cx)
+            } else {
+                !self.disjoint_with(member, cx.oracle)
+            }
+        };
+        // Asked before the branches are collected, because the common answer is
+        // that none of them goes: a union that narrows to itself is every union
+        // the subject meets at every branch, and building the list to discover
+        // that is an allocation and a clone per branch on a path that returns
+        // without reading either.
+        if members.iter().all(&mut meets) {
+            return Relation::Unknown;
+        }
+        let narrowed: Vec<Schema> = members.iter().filter(|m| meets(m)).cloned().collect();
+        match &narrowed[..] {
+            // Every branch dropped: the subject shares no value with the union
+            // at all. That is a *refutation* where the subject holds a value --
+            // the value is outside every branch, so it is outside the union --
+            // and a proof where it holds none, since the empty set is below
+            // everything. Reading it as "proved, or not proven" loses the
+            // refutation, which a caller acts on as much as the proof:
+            // `dict[str, int]` shares no value with either of `int` and `str`,
+            // and the empty dict is the value that says so.
+            //
+            // Which of the two it is, is read where the goal returns
+            // ([`witnessed`](Self::witnessed)), as every refutation is: the
+            // subject is the goal's, and that reading answers a subject with a
+            // value by its shape before it walks one. Read here as well, the
+            // subject's emptiness would be walked twice, the second time on a
+            // budget the first has spent.
+            [] => Relation::Fails,
+            [only] => self.is_subtype_rec(only, cx),
+            _ => self.is_subtype_rec(&Schema::Union(narrowed.into()), cx),
+        }
+    }
+
+    /// `(A ∩ B) ⊆ C`: a meet is below whatever one of its conjuncts is below.
+    ///
+    /// When `C` is a union the meet may instead land in one branch
+    /// [BBC+26, (anyOf-r)], so that sound rule is tried here too -- ahead of
+    /// the plain `_ ⊆ (Y ∪ Z)` rule, so a meet that contains its own supertype
+    /// (a reference beside that union) decides, which is what lets such a meet
+    /// be recognized as a subtype of itself.
+    ///
+    /// Both halves are sound and incomplete: a conjunct that does not contain
+    /// the supertype says nothing about the meet, so a disjunction of them that
+    /// finds no proof is unproven rather than refuted. One shape refutes past
+    /// them: a class met with the attributes its instances carry, against a
+    /// class the oracle places it outside or a supertype outside every kind it
+    /// has.
+    fn meet_below(&self, other: &Schema, members: &[Schema], cx: &mut Cx<'_>) -> Relation {
+        // Every placement here proves and none refutes: a member that is *not*
+        // below the supertype says nothing about the meet, which is a smaller
+        // set than that member. So a pair none of them places is handed to the
+        // reading every pair with no rule gets, rather than ending the match.
+        let placed = Relation::proven(
+            Relation::any(members.iter().map(|m| m.is_subtype_rec(other, cx))).holds()
+                || matches!(other, Schema::Union(branches)
+                    if Relation::any(
+                        branches
+                            .iter()
+                            .map(|b| self.is_subtype_rec(b, cx)),
+                    )
+                    .holds()),
+        );
+        if placed.holds() {
+            return placed;
+        }
+        // One shape does refute, and it is the meet a dataclass lowers to. A
+        // class together with the attributes its instances carry is below
+        // another class exactly as its class is: the value the meet holds is a
+        // *direct* instance of `C` carrying those attributes, so `type(v) is C`
+        // settles `isinstance(v, D)` through the order alone, and a class
+        // deriving from both changes nothing about that value. The guard around
+        // this rule reads whether the meet has it.
+        let Some((class, _)) = class_with_attributes(members) else {
+            return placed;
+        };
+        if matches!(other, Schema::Instance(_))
+            && cx.oracle.leaf_subtype(&Schema::Instance(class), other) == Some(false)
+        {
+            return Relation::Fails;
+        }
+        // And against a supertype every value of which has one kind: the same
+        // direct instance either has that kind or does not, and the oracle
+        // reads `type(v) is C` rather than the subtree beneath `C`, which is
+        // what makes the answer a value rather than an open-world guess.
+        if outside_every_kind(other, class, cx) {
+            return Relation::Fails;
+        }
+        placed
+    }
+
+    /// The structural subtyping decision: the lattice, recursion, and
+    /// constructor-matching rules.
+    ///
+    /// Reached from [`subtype_by_rules`](Self::subtype_by_rules) after the
+    /// coinductive, scalar and identity fast paths, which are the three that
+    /// answer without reading a shape.
+    fn subtype_decide(
+        &self,
+        other: &Schema,
+        supertype_regions: Regions,
+        cx: &mut Cx<'_>,
+    ) -> Relation {
+        // Two finite sets of constants, before the lattice rules distribute
+        // them: inclusion between them is membership, and membership is a
+        // lookup. What the distribution below would make of the same pair is a
+        // decision step per pair of members, which is the product the budget
+        // binds; this is a walk of the two lists, which is a sum.
+        if let Some(supertype) = finite_set(other)
+            && let Some(subject) = finite_set(self)
+        {
+            let answer = finite_set_below(subject, supertype, other, cx.oracle);
+            if answer != Relation::Unknown {
+                return answer;
+            }
+        }
+        // `A ⊆ U`, read off the supertype's regions alone: the caller already
+        // holds them for the scalar rule, so this is a comparison rather than a
+        // walk, and it belongs ahead of the rules because a universe on the
+        // right answers every pair. The other lattice bound is a walk and is
+        // asked in `or_bounded`, after the rules have had the pair.
+        if supertype_regions == Regions::Known(Region::ALL) {
+            return Relation::Holds;
+        }
+        let answer = self.subtype_by_shape(other, cx);
+        self.or_bounded(answer, other, cx)
+    }
+
+    /// The arms that match a pair by the shapes on its two sides.
+    ///
+    /// They are rules of the kind a rule-based inclusion states: a union is
+    /// below a schema where each member is [BBC+26, (anyOf-l)], a set below a
+    /// set where its element is [FCB08, Lem. 6.30], and a schema below a
+    /// complement where the two share no value [FCB08, §4.1].
+    ///
+    /// Split from its caller because the two lattice bounds around it are asked
+    /// at different points and the whole read past what one function may be.
+    /// No `#[inline]`: it moves no workload, since the compiler is already free
+    /// to inline within the crate.
+    fn subtype_by_shape(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        match (self, other) {
+            // (X ∪ Y) ⊆ Z iff X ⊆ Z and Y ⊆ Z [BBC+26, (anyOf-l)]; A ⊆ (Y ∩ Z)
+            // iff A ⊆ Y and A ⊆ Z.
+            (Schema::Union(members), _) => {
+                Relation::all(members.iter().map(|m| m.is_subtype_rec(other, cx)))
+            }
+            (_, Schema::Intersection(members)) => {
+                Relation::all(members.iter().map(|m| self.is_subtype_rec(m, cx)))
+            }
+            // A meet is placed by the member rule where a member is below the
+            // supertype, and where none is -- the meet is a branch of a
+            // definition, say -- the reference it may be asked against is
+            // unfolded, as it is for any other subject: a reference denotes
+            // exactly its definition, and the decomposition that runs first is
+            // the cheap route rather than the only one.
+            //
+            // A meet of tables and complements of tables is a table, which is
+            // what a record's tag narrows to, and is asked as one once the
+            // member rule has not placed it. A meet of keyed maps is one record,
+            // their pointwise meet, asked below a map or a union of maps; and a
+            // meet below a complement is a meet sharing no value with its inner,
+            // asked as the arm below asks it of any other subject.
+            (Schema::Intersection(members), _) => self
+                .meet_below(other, members, cx)
+                .or_else(|| finite_meet_below(members, other, cx.oracle))
+                .or_else(|| match other {
+                    Schema::KeyedMap { .. } | Schema::Union(_) => {
+                        keyed_meet_below(members, other, cx)
+                    }
+                    Schema::Complement(inner) => {
+                        Relation::proven(self.shares_no_value_with(inner, cx))
+                    }
+                    _ => Relation::Unknown,
+                })
+                .or_else(|| self.unstructured(other, cx))
+                .or_else(|| self.below_a_reference(other, cx)),
+            (_, Schema::Union(members)) => self
+                .below_a_union(other, members, cx)
+                .or_else(|| self.unstructured(other, cx)),
+            // A refinement carrying no constraint denotes exactly its base, so
+            // it is decided as its base on whichever side it sits.
+            //
+            // The constructors fold this away and the frontend never builds
+            // one, so the node arrives only from a term built by hand -- which
+            // the fuzz target does. Without these two arms the two spellings
+            // would be decided differently: `Literal[1]` is below the
+            // complement of an empty sequence, and would not be below the same
+            // complement wrapped in a constraint-free refinement, although the
+            // wrapper narrows nothing. A rule that reads the wrapper and not
+            // what it says is a rule about the spelling.
+            (Schema::Refine { base, constraints }, _) if constraints.is_empty() => {
+                base.is_subtype_rec(other, cx)
+            }
+            (_, Schema::Refine { base, constraints }) if constraints.is_empty() => {
+                self.is_subtype_rec(base, cx)
+            }
+            // Unfold a recursive reference -- after the lattice rules, so an
+            // intersection or union meeting a reference decomposes first, which
+            // lets a recursive member be compared against the reference rather
+            // than the reference being unfolded past it. A union member reaches
+            // this arm on its own; a meet the member rule does not place reaches
+            // the same reading from its arm above.
+            //
+            // A reference the table does not hold names a set this query cannot
+            // read, so no rule about the subject has anything to say -- and the
+            // supertype's rule still does. A reference on the right denotes
+            // exactly its definition, so a subject below the definition is below
+            // the reference whatever the subject is: every set is below the
+            // universe, one nobody can read included. A reference that resolves
+            // reaches that rule through its definition's own descent, so it is
+            // asked here only where the unfolding has no definition to descend
+            // into, and a pair of declines is not decided twice.
+            (Schema::Ref(id), _) if cx.defs.get(id.get()).is_none() => {
+                self.below_a_reference(other, cx)
+            }
+            (Schema::Ref(_), _) => self.left_reduces_below(other, cx),
+            (_, Schema::Ref(_)) => self.below_a_reference(other, cx),
+            // Set and frozenset inclusion reduces to element inclusion: a
+            // powerset of finite sets is inside another exactly where its
+            // element is [FCB08, Lem. 6.30].
+            (
+                Schema::Coll {
+                    container: a_kind,
+                    element: a,
+                },
+                Schema::Coll {
+                    container: b_kind,
+                    element: b,
+                },
+            ) if a_kind == b_kind => a.is_subtype_rec(b, cx),
+            // Same-kind sequence inclusion is language inclusion on the shapes.
+            (
+                Schema::Seq {
+                    container: ka,
+                    shape: sa,
+                },
+                Schema::Seq {
+                    container: kb,
+                    shape: sb,
+                },
+            ) if ka == kb => sa.shape_subtype(sb, cx),
+            // Record and mapping inclusion.
+            (
+                Schema::KeyedMap {
+                    fields: fa,
+                    defaults: da,
+                },
+                Schema::KeyedMap {
+                    fields: fb,
+                    defaults: db,
+                },
+            ) => keyed_map_subtype(fa, da, fb, db, cx),
+            // Record inclusion on attributes: width and depth, no class in it.
+            // The nominal half of a dataclass is a separate conjunct, and the
+            // lattice rules below relate the meet to the meet.
+            (Schema::AttrRecord { fields: fa }, Schema::AttrRecord { fields: fb }) => {
+                attr_record_subtype(fa, fb, cx)
+            }
+            // Complement is contravariant: ¬A ⊆ ¬B exactly when B ⊆ A. That
+            // puts `B` in the subject, where only the rules read its emptiness,
+            // so where they decline an empty `B` settles the pair as it does in
+            // the arm below, read by the set representation alone: the
+            // descriptor route lowers `¬A` first, and a predicate or a class in
+            // `A` leaves it nothing to lower.
+            (Schema::Complement(a), Schema::Complement(b)) => b
+                .is_subtype_rec(a, cx)
+                .or_else(|| Relation::proven(b.denotes_no_value(cx.oracle, cx.defs))),
+            // `A ⊆ ¬B` is disjointness, which the rules prove or fail to
+            // prove -- they are sound and incomplete, so not proving it is not
+            // refuting it. There is one shape where the pair *is* refuted, and
+            // it is the opposite proof: `A ⊆ B` holding means every value of
+            // `A` is in `B`, so a value of `A` is a value outside `¬B`. That
+            // needs `A` to have one, which the reading around this settles.
+            //
+            // Where both decline, an empty `B` still settles it: `¬B` is the
+            // universe. The rules cannot empty a pattern beside a length, and
+            // the set representation can, reading `B` alone -- where the
+            // subject may have no descriptor at all, as a literal the oracle
+            // cannot place has none.
+            (_, Schema::Complement(inner)) => {
+                if self.shares_no_value_with(inner, cx) {
+                    return Relation::Holds;
+                }
+                if self.is_subtype_rec(inner, cx).holds() {
+                    Relation::of_mismatch(self.verdict_rec(cx))
+                } else {
+                    Relation::proven(inner.denotes_no_value(cx.oracle, cx.defs))
+                }
+            }
+            (
+                Schema::Refine {
+                    base: narrow_base,
+                    constraints: narrow_cons,
+                },
+                Schema::Refine {
+                    base: wide_base,
+                    constraints: wide_cons,
+                },
+            ) => refinement_subtype(narrow_base, narrow_cons, wide_base, wide_cons, cx)
+                // The constraint rule only proves, so a pair it leaves unproven is
+                // handed to the reading every pair with no rule gets, rather than
+                // ending the match here. A refinement against a *non*-refinement
+                // already reaches that reading, and it is written for a refinement
+                // supertype -- so without this a refinement on both sides would be
+                // the one pair kept from it, and a list refinement against an
+                // integer one would walk the sets to learn that a list is not an
+                // integer.
+                .or_else(|| self.unstructured(other, cx)),
+            // Against a non-refinement, a refinement inherits its base's
+            // supertypes -- and inherits nothing else, so a pair this leaves
+            // unproven is a pair with no rule of its own.
+            (Schema::Refine { .. }, _) => self
+                .left_reduces_below(other, cx)
+                .or_else(|| self.unstructured(other, cx)),
+            _ => self.unstructured(other, cx),
+        }
+    }
+
+    /// `∅ ⊆ B`, asked where the rules declined.
+    ///
+    /// The remaining lattice bound, and the one that costs a walk: whether the
+    /// *subject* is empty. It is asked last rather than first because a proof
+    /// stands without it and a refutation is read against that same emptiness
+    /// by [`witnessed`](Self::witnessed) on the way out -- so asking first
+    /// would walk the subject on every pair the rules are about to decide
+    /// anyway, which is a sixth of the repeating workload.
+    ///
+    /// The answer is identical either way. Both readings are sound, and an
+    /// empty subject is below everything whichever of them says so.
+    fn or_bounded(&self, answer: Relation, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        match answer {
+            Relation::Unknown if self.bounds_the_pair(other, cx) => Relation::Holds,
+            answer => answer,
+        }
+    }
+
+    /// What a pair no structural rule decided is worth, asked in one place.
+    ///
+    /// Three readings, in this order. Four **refutations**, each naming a
+    /// value of the subject outside the supertype: the empty sequence below a
+    /// length bound (`shorter_than`), a region the subject reaches past the
+    /// supertype's (`spills_past`), a kind whose builtin the supertype's class
+    /// does not derive from (`outside_the_class`), and two schemas that share
+    /// no value (`disjoint_with`) -- the cheap disjointness, two discriminants
+    /// that cannot overlap, a list beside a tuple, a set beside a mapping. Then
+    /// the **oracle**, the only reader of a class or a constant, whose `None`
+    /// is the decline it says it is. Then the supertype's own shape: a
+    /// **refinement** is a subset of its base, so a subject outside the base is
+    /// outside the refinement -- the value that refutes the one refutes the
+    /// other, and it is the same value. Its proof does not carry, since being
+    /// inside the base says nothing about the constraints, so only the
+    /// refutation is taken.
+    ///
+    /// The oracle is asked before the refinement because it *proves* where the
+    /// refinement reading only refutes: a literal below a predicate refinement
+    /// is settled by running the predicate on the constant, and a reading that
+    /// answered first would take that proof away.
+    ///
+    /// Every arm above that answers for a shape and then *declines* ends here
+    /// rather than ending the match, because a decline is not an answer: such a
+    /// pair has had no rule, and this is what a pair with no rule is worth.
+    ///
+    /// **The four refutations are ordered by cost, which is free to choose.**
+    /// Each answers `Fails` on its own and none of them proves, so a pair any
+    /// two of them refute is refuted whichever ran first -- the order decides
+    /// which reading names the value, never whether one is named. What it does
+    /// decide is what an *unrefuted* pair pays, and that pair pays all four.
+    /// Three of them are a discriminant test and an oracle call;
+    /// `disjoint_with` walks both subtrees and reads the kind tags, so it is
+    /// asked last and the pairs the cheap three refute never reach it.
+    fn unstructured(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        if self.shorter_than(other) {
+            return Relation::Fails;
+        }
+        if self.spills_past(other, cx.oracle) {
+            return Relation::Fails;
+        }
+        if self.outside_the_class(other, cx.oracle) {
+            return Relation::Fails;
+        }
+        if self.disjoint_with(other, cx.oracle) {
+            return Relation::Fails;
+        }
+        // A proof walks a literal's constant, which speaks for the literal only
+        // where nothing the supertype asks tells two equal values apart; a
+        // proof it cannot speak for is no answer, and the pair reads as one
+        // the oracle declined.
+        let leaf = cx
+            .oracle
+            .leaf_subtype(self, other)
+            .filter(|&holds| match self {
+                Schema::Literal(constant) if holds => {
+                    the_constant_speaks_for_the_literal(*constant, other, cx.oracle, cx.defs)
+                }
+                _ => true,
+            });
+        match leaf {
+            Some(true) => Relation::Holds,
+            Some(false) => Relation::Fails,
+            None => match other {
+                Schema::Refine { base, .. } => self.is_subtype_rec(base, cx).refutation_only(),
+                _ => Relation::Unknown,
+            },
+        }
+    }
+
+    /// Whether `self` and `other` denote the same set — mutual inclusion.
+    ///
+    /// Like the relations it composes, the decision is bounded; a `false` can mean
+    /// "not proven equivalent within the work bound" for an adversarial schema.
+    #[must_use]
+    pub fn is_equivalent(&self, other: &Schema) -> bool {
+        self.is_equivalent_under(other, &NoLeafRelations, &[])
+    }
+
+    /// [`is_equivalent`](Self::is_equivalent) under a [`LeafRelations`] oracle and
+    /// the recursive definitions.
+    #[must_use]
+    pub fn is_equivalent_under(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+    ) -> bool {
+        // Both inclusion directions share one budget, so equivalence cannot spend
+        // twice the ceiling, and its verdict does not depend on which direction
+        // happened to allocate a fresh allowance first.
+        self.equivalence_relation(other, oracle, defs, &Budget::new(DECISION_BUDGET))
+            .holds()
+    }
+
+    /// The three-valued form of
+    /// [`is_equivalent_under`](Self::is_equivalent_under), on the caller's
+    /// budget.
+    ///
+    /// Equivalence is the meet of two inclusions [Cas24, Def. 4], taken in the
+    /// vocabulary both of them answer in: mutual inclusion, and the
+    /// conjunction's own short circuit, rather than two booleans that have each
+    /// forgotten whether they were refuted or merely unproven. The public form
+    /// is `holds()` of this, which reads a decline as "not proven" -- the
+    /// conservative answer.
+    ///
+    /// The budget is a parameter for the reason it is one on
+    /// [`subtype_relation`](Self::subtype_relation): a cell the function
+    /// allocates for itself is a path no test can drive at the one value that
+    /// matters, and "the budget declines, it never refutes" is a claim about
+    /// this path too.
+    pub(crate) fn equivalence_relation(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+        budget: &Budget,
+    ) -> Relation {
+        let mut cx = Cx::new(oracle, defs, budget);
+        let mut within = |sub: &Schema, sup: &Schema| {
+            sub.is_subtype_rec(sup, &mut cx)
+                .or_else(|| sub.descriptor_contained_in(sup, oracle, defs))
+        };
+        within(self, other).and(|| within(other, self))
+    }
+}
+
+/// What one decision query threads through both of its recursions: the
+/// leaf-relation oracle, the definitions that resolve references, the budget,
+/// and the two stacks of hypotheses the recursions hold open.
+///
+/// One per query, built where the query starts and handed down by `&mut`, so
+/// every rule takes one parameter for all of it and a call passes a pointer.
+/// The two directions of an equivalence share one, as they share the budget.
+/// The meets the emptiness recursion unfolds a reference into are a third
+/// stack, kept off it on a list `emptiness.rs` keys by the budget, for the
+/// cost that list's comment gives.
+///
+/// **Each stack is a path's, and is given back as it was.** A frame that
+/// pushes pops before it returns, so a stack holds exactly the hypotheses open
+/// above the frame reading it. The goal recursion pushes the trail and nothing
+/// else, and the emptiness recursion pushes `visiting`.
+///
+/// **A goal asked under `visiting` reads it at positive positions only.** The
+/// emptiness recursion asks goals where it subtracts records from a record
+/// (`a_difference_of_sets` in `emptiness.rs`), so a goal can meet a reference
+/// being resolved. The hypothesis is read in one place, the reference arm of
+/// the emptiness recursion, and never under a complement, whose arm reads its
+/// inner's region alone; every verdict a goal reads is of its subject or of a
+/// meet with its supertype's complement, positive in `S ∧ ¬T`. So an answer
+/// under the hypothesis is an answer about the schema with that reference's
+/// positive occurrences read as empty: a proof of the smaller set, and a
+/// refutation standing on one of its values, which is a value of the real one.
+/// The definition's emptiness is that smaller schema's, since a value of least
+/// height needs no value of the definition at a positive position below it, and
+/// nothing decided under the hypothesis outlives the frame that pushed it.
+pub(super) struct Cx<'a> {
+    oracle: &'a dyn LeafRelations,
+    defs: &'a [Schema],
+    budget: &'a Budget,
+    /// The `(subject, supertype)` goals the goal recursion is unfolding a
+    /// reference under, innermost last: a goal that comes back is answered by
+    /// hypothesis, which is the greatest fixpoint read coinductively.
+    trail: Vec<(Schema, Schema)>,
+    /// The definitions the emptiness recursion is resolving, innermost last: a
+    /// reference reached again is read as empty, the least fixpoint read
+    /// inductively.
+    visiting: Vec<DefIx>,
+}
+
+impl<'a> Cx<'a> {
+    /// The context a query starts with: nothing assumed and nothing resolved.
+    pub(super) fn new(
+        oracle: &'a dyn LeafRelations,
+        defs: &'a [Schema],
+        budget: &'a Budget,
+    ) -> Self {
+        Self {
+            oracle,
+            defs,
+            budget,
+            trail: Vec::new(),
+            visiting: Vec::new(),
+        }
+    }
+
+    /// Decide `goal` with the goal itself on the trail, and take it off after.
+    ///
+    /// The trail is Amadio & Cardelli's, a set of pairs assumed while they are
+    /// decided [AC93, §1.5], held as a stack of terms rather than of addresses
+    /// [AC93, §4.4] and popped rather than kept.
+    ///
+    /// The two places a reference is unfolded assume here, and the test-side
+    /// recorder is told how deep the trail stands, so the longest trail a query
+    /// builds is a number a test reads rather than a sentence a page keeps.
+    fn assuming(
+        &mut self,
+        goal: (Schema, Schema),
+        decide: impl FnOnce(&mut Self) -> Relation,
+    ) -> Relation {
+        self.trail.push(goal);
+        #[cfg(test)]
+        goal_tests::goals::trail(self.trail.len());
+        let answer = decide(self);
+        self.trail.pop();
+        answer
+    }
+}
+
+/// Whether some two members are provably disjoint (distinct concrete kinds,
+/// `bool ⊆ int` aside), so their intersection is empty: positives of two kinds
+/// meet in nothing [FCB08, (5)]. This decides the structural-kind disjointness
+/// (a list is never a set) the scalar region bitset cannot see.
+fn has_disjoint_pair(members: &[Schema], oracle: &dyn LeafRelations) -> bool {
+    unordered_pairs(members).any(|(a, b)| a.disjoint_with(b, oracle))
+}
+
+/// A refinement below another: the base narrows and every constraint holds.
+///
+/// A refinement is a subset of its base. Against another refinement the base
+/// must subtype and every constraint of the supertype must hold of every
+/// subtype value, Sub-Base's entailment [JV20, Fig. 3.4] without a solver:
+/// either it appears verbatim, or it is entailed by the subtype's bounds (a
+/// tighter lower, upper or length bound entails a looser one, decided through
+/// the ordering oracle). A bound the oracle cannot compare and a non-order
+/// constraint stay on the verbatim path, so a constraint neither written nor
+/// entailed leaves the pair unproven rather than refuted.
+fn refinement_subtype(
+    narrow_base: &Schema,
+    narrow_cons: &[Constraint],
+    wide_base: &Schema,
+    wide_cons: &[Constraint],
+    cx: &mut Cx<'_>,
+) -> Relation {
+    narrow_base
+        .is_subtype_rec(wide_base, cx)
+        .proof_only()
+        .and(|| {
+            Relation::proven(wide_cons.iter().all(|constraint| {
+                narrow_cons.contains(constraint)
+                    || constraint_entailed(constraint, narrow_base, narrow_cons, cx.oracle)
+            }))
+        })
+}
+
+#[cfg(test)]
+mod budget_tests;
+
+#[cfg(test)]
+mod goal_tests;
+
+#[cfg(test)]
+mod tests;

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import logging
 import os
@@ -25,6 +26,7 @@ import re
 import subprocess
 import sys
 import threading
+import tomllib
 import unittest.mock
 from dataclasses import dataclass, field
 from functools import partial
@@ -34,8 +36,6 @@ from textwrap import dedent
 import click
 import cloup
 import pytest
-from boltons.iterutils import flatten, unique
-from boltons.pathutils import shrinkuser
 from extra_platforms import (
     is_macos,
     is_unix_not_macos,
@@ -46,7 +46,6 @@ from wcmatch import fnmatch, glob
 
 from click_extra import (
     NO_CONFIG,
-    VCS,
     ConfigFormat,
     ConfigOption,
     Group,
@@ -65,11 +64,19 @@ from click_extra import (
     search_params,
     validate_config_option,
 )
+from click_extra._utils import flatten, shrinkuser
 from click_extra.config import SQLITE_CONFIG_TABLE
-from click_extra.config.formats import SQLITE_SUPPORT, disabled_format_message
+from click_extra.config.formats import (
+    _serialize_toml_with_unset,
+    disabled_format_message,
+    parse_jsonc,
+    parse_xml,
+    serialize_xml,
+)
 from click_extra.config.schema import (
     _expand_dotted_keys,
 )
+from click_extra.config.subcommands import _group_parse_args
 from click_extra.pytest import (
     default_debug_uncolored_log_end,
     default_debug_uncolored_log_start,
@@ -578,7 +585,7 @@ def test_conf_default_path(invoke, simple_config_cli):
 
     # An inherited format set is collapsed away, so the folder is the whole default.
     # See ConfigOption.collapse_default().
-    fp = ",".join(unique(flatten(f.patterns for f in ConfigFormat if f.enabled)))
+    fp = ",".join(dict.fromkeys(flatten(f.patterns for f in ConfigFormat if f.enabled)))
     assert f"{{{fp}}}" not in help_screen
 
     assert not result.stderr
@@ -787,8 +794,8 @@ def test_conf_parses_to_nothing(
 @pytest.mark.parametrize("explicit", [True, False], ids=["explicit", "autodiscovery"])
 def test_conf_blank_file_never_shadows_a_configuration(invoke, tmp_path, explicit):
     """A blank file loses to a configuration the same pattern matches after it."""
-    (tmp_path / "a.toml").write_text("", encoding="utf-8")
-    (tmp_path / "b.toml").write_text("[orchard]\napples = 42\n", encoding="utf-8")
+    (tmp_path / "a.toml").write_text("", encoding="UTF-8")
+    (tmp_path / "b.toml").write_text("[orchard]\napples = 42\n", encoding="UTF-8")
     pattern = str(tmp_path / "*.toml")
 
     @click.command
@@ -1027,6 +1034,19 @@ def test_command_forwards_config_strict(invoke, create_config):
     )
 
 
+@pytest.mark.parametrize("cascade", (True, False))
+def test_command_forwards_config_cascade(cascade):
+    """@command(config_cascade=...) sets the cascade of the default option."""
+
+    @command(config_cascade=cascade)
+    def cascade_forward_cli():
+        pass
+
+    config_opt = search_params(cascade_forward_cli.params, ConfigOption)
+    assert isinstance(config_opt, ConfigOption)
+    assert config_opt.cascade is cascade
+
+
 def test_command_excluded_params_additive(invoke, create_config):
     """@command(excluded_params=...) extends the default blocklist.
 
@@ -1110,6 +1130,55 @@ def test_export_config_includes_unset_params(invoke):
     assert "regexp" not in result.stdout
 
 
+@pytest.mark.parametrize(
+    ("tree", "expected"),
+    (
+        pytest.param(
+            {"weather": {"city": None, "days": 3, "unit": None}},
+            "[weather]\n# city =\ndays = 3\n# unit =\n",
+            id="around-a-key",
+        ),
+        pytest.param(
+            {"weather": {"days": 3, "unit": None, "radar": {"zoom": None}}},
+            "[weather]\ndays = 3\n# unit =\n\n[weather.radar]\n# zoom =\n",
+            id="before-a-sub-table",
+        ),
+        pytest.param(
+            {"weather": {"unit": None, "radar": {"zoom": 4}}},
+            "[weather]\n# unit =\n\n[weather.radar]\nzoom = 4\n",
+            id="table-with-no-key",
+        ),
+        pytest.param(
+            {"weather": {"radar": {"zoom": 4}, "city": None, "days": (1, 2)}},
+            "[weather]\n# city =\ndays = [1, 2]\n\n[weather.radar]\nzoom = 4\n",
+            id="keys-before-sub-tables",
+        ),
+    ),
+)
+def test_serialize_toml_with_unset_layout(tree, expected):
+    """A commented-out key sits under the header of its own table.
+
+    A table with no key of its own keeps its header, else its commented-out keys
+    read as keys of the table above.
+    """
+    result = _serialize_toml_with_unset(tree)
+    assert result == expected
+    assert tomllib.loads(result) == _strip_unset(tree)
+
+
+def _strip_unset(tree):
+    """Drop the `None` leaves of *tree*, and turn its tuples into lists."""
+    return {
+        key: _strip_unset(value)
+        if isinstance(value, dict)
+        else list(value)
+        if isinstance(value, tuple)
+        else value
+        for key, value in tree.items()
+        if value is not None
+    }
+
+
 def test_export_config_reads_a_repeatable_flag_as_a_toggle(invoke):
     """A repeatable boolean flag exports as the boolean a configuration spells.
 
@@ -1184,7 +1253,7 @@ def test_export_config_kebab_case_keys(invoke, tmp_path):
     assert "int_param" not in result.stdout
 
     conf_path = tmp_path / "kebab_dump.toml"
-    conf_path.write_text(result.stdout, encoding="utf-8")
+    conf_path.write_text(result.stdout, encoding="UTF-8")
     reloaded = invoke(kebab_dump_cli, "--config", str(conf_path), color=False)
     assert reloaded.exit_code == 0
     assert "int_param = 10" in reloaded.stdout
@@ -1544,7 +1613,7 @@ def test_jwcc_conf(invoke, simple_config_cli, tmp_path):
             }
             """,
         ),
-        encoding="utf-8",
+        encoding="UTF-8",
     )
 
     result = invoke(
@@ -1668,7 +1737,7 @@ def test_docs_media_types_table_matches_formats():
     A format gaining or losing a media type otherwise leaves the table stale,
     and that table is the only place a user reads the mapping from.
     """
-    page = DOCS_CONFIG_PAGE.read_text(encoding="utf-8")
+    page = DOCS_CONFIG_PAGE.read_text(encoding="UTF-8")
     table = page.split("### Typing a download", 1)[1].split("```{warning}", 1)[0]
 
     # Each row links its format to the section documenting it, on a sibling
@@ -1837,6 +1906,38 @@ def test_unparsable_conf_message_enumerates_formats(
     assert f"Error parsing file as {expected}." in caplog.text
 
 
+def test_ini_subcommand_section_is_typed(invoke, create_config):
+    """An INI section addressing a subcommand reads its values as the options' types.
+
+    A list is JSON-encoded in the file, like in the root section.
+    """
+
+    @click.group
+    @config_option
+    def orchard():
+        pass
+
+    @orchard.command
+    @option("--fruits", multiple=True)
+    @option("--ratio", type=float, default=1.0)
+    @option("--ripe/--unripe")
+    def harvest(fruits, ratio, ripe):
+        echo(f"fruits={fruits!r} ratio={ratio!r} ripe={ripe!r}")
+
+    conf_path = create_config(
+        "orchard.ini",
+        dedent("""\
+            [orchard.harvest]
+            fruits = ["apple", "pear"]
+            ratio = 0.5
+            ripe = yes
+            """),
+    )
+    result = invoke(orchard, "--config", str(conf_path), "harvest", color=False)
+    assert result.stdout == "fruits=('apple', 'pear') ratio=0.5 ripe=True\n"
+    assert result.exit_code == 0
+
+
 def test_argfile_conf_file_overrides_defaults(
     invoke,
     simple_config_cli,
@@ -1941,6 +2042,44 @@ def test_argfile_secondary_flag_and_inline_value(invoke, create_config):
     result = invoke(argfile_cli, "--config", str(conf_path), color=False)
     assert result.stdout == ("dummy_flag = False\nname = 'John #1 Doe'\nratio = 0.5\n")
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize("preparation", ("peeled", "sliced"))
+def test_argfile_switches_sharing_a_destination(invoke, create_config, preparation):
+    """Each feature switch of one destination is read from an argfile.
+
+    The two options share a name, so the parameter structure lists both under
+    one leaf. Keeping only the last one there leaves `--peeled` unmatched.
+    """
+
+    @click.command
+    @config_option
+    @option("--peeled", "preparation", flag_value="peeled")
+    @option("--sliced", "preparation", flag_value="sliced")
+    def fruit(preparation):
+        echo(f"preparation = {preparation!r}")
+
+    conf_path = create_config("switches.conf", f"--{preparation}\n")
+    result = invoke(fruit, "--config", str(conf_path), color=False)
+    assert result.stdout == f"preparation = {preparation!r}\n"
+    assert result.exit_code == 0
+
+
+def test_ini_name_shared_by_two_types_rejected(invoke, create_config):
+    """An INI item a name of two option types addresses is refused, not guessed."""
+
+    @click.command
+    @config_option
+    @option("--weight", "amount", type=int)
+    @option("--label", "amount", type=str)
+    def basket(amount):
+        echo(f"amount = {amount!r}")
+
+    conf_path = create_config("basket.ini", "[basket]\namount = 12\n")
+    result = invoke(basket, "--config", str(conf_path), color=False)
+    assert not result.stdout
+    assert "critical: Error parsing file as" in result.stderr
+    assert result.exit_code == 2
 
 
 @pytest.mark.parametrize(
@@ -2188,11 +2327,43 @@ def test_no_splittable_stdlib_module_imported_at_load_time():
     package_root = Path(__file__).parent.parent / "click_extra"
     offenders = {}
     for module_path in sorted(package_root.rglob("*.py")):
-        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        tree = ast.parse(module_path.read_text(encoding="UTF-8"))
         culprits = eager_imports(tree) & SPLITTABLE_STDLIB_MODULES
         if culprits:
             offenders[str(module_path.relative_to(package_root))] = sorted(culprits)
     assert not offenders
+
+
+@pytest.mark.once
+def test_parser_probes_stay_off_the_import():
+    """Importing the package probes no parser: building a `ConfigOption` does."""
+    probe = dedent("""\
+        import importlib.util
+
+        probed = []
+        find_spec = importlib.util.find_spec
+
+        def spy(name, *args, **kwargs):
+            probed.append(name)
+            return find_spec(name, *args, **kwargs)
+
+        importlib.util.find_spec = spy
+        import click_extra
+        print(sorted({"_sqlite3", "hjson", "json5", "yaml"}.intersection(probed)))
+        click_extra.ConfigOption()
+        print(sorted({"_sqlite3", "hjson", "json5", "yaml"}.intersection(probed)))
+        """)
+    result = subprocess.run(
+        (sys.executable, "-c", probe),
+        capture_output=True,
+        text=True,
+        encoding="UTF-8",
+        check=True,
+    )
+    assert result.stdout.splitlines() == [
+        "[]",
+        "['_sqlite3', 'hjson', 'json5', 'yaml']",
+    ]
 
 
 @pytest.mark.once
@@ -2211,7 +2382,7 @@ def test_sqlite3_not_imported_by_the_package():
         ),
         capture_output=True,
         text=True,
-        encoding="utf-8",
+        encoding="UTF-8",
         check=True,
     )
     assert result.stdout.strip() == "False"
@@ -2219,7 +2390,8 @@ def test_sqlite3_not_imported_by_the_package():
 
 def test_sqlite_support_gates_the_format():
     """`SQLITE` is enabled exactly when the standard library ships its bindings."""
-    assert ConfigFormat.SQLITE.enabled is SQLITE_SUPPORT
+    bindings = importlib.util.find_spec("_sqlite3") is not None
+    assert ConfigFormat.SQLITE.enabled is bindings
 
     message = disabled_format_message(ConfigFormat.SQLITE)
     # There is no `click-extra[sqlite]` to install: the bindings ship with Python.
@@ -2796,7 +2968,7 @@ def orchard_modules(tmp_path):
                 def {fruit}_cli(ripeness):
                     click.echo(f"ripeness={{ripeness!r}}")
                 """),
-            encoding="utf-8",
+            encoding="UTF-8",
         )
     module_names = ("orchard_apple", "orchard_banana")
     for name in module_names:
@@ -2950,7 +3122,9 @@ def test_lazy_group_included_params_introspection(
         pytest.param(
             None,
             ",".join(
-                unique(flatten(fmt.patterns for fmt in ConfigFormat if fmt.enabled))
+                dict.fromkeys(
+                    flatten(fmt.patterns for fmt in ConfigFormat if fmt.enabled)
+                )
             ),
             id="default_all_formats",
         ),
@@ -3055,364 +3229,6 @@ def test_default_pattern_xdg_config_home(force_posix, tmp_path, monkeypatch):
             assert pattern.startswith(str(custom_config.resolve() / "test-cli"))
 
 
-@pytest.mark.parametrize(
-    ("search_parents", "subdirs", "create_file", "expected_start"),
-    [
-        pytest.param(
-            False,
-            ("subdir",),
-            True,
-            lambda p: [(str(p / "subdir"), "config.toml")],
-            id="no-search",
-        ),
-        pytest.param(
-            True,
-            ("level1", "level2", "level3"),
-            True,
-            lambda p: [
-                (str(p / "level1" / "level2" / "level3"), "config.toml"),
-                (str(p / "level1" / "level2"), "config.toml"),
-                (str(p / "level1"), "config.toml"),
-                (str(p), "config.toml"),
-            ],
-            id="file-path",
-        ),
-        pytest.param(
-            True,
-            ("level1", "level2", "level3"),
-            False,
-            lambda p: [
-                (str(p / "level1" / "level2" / "level3"), ""),
-                (str(p / "level1" / "level2"), ""),
-                (str(p / "level1"), ""),
-                (str(p), ""),
-            ],
-            id="directory-path",
-        ),
-        pytest.param(
-            True,
-            (),
-            True,
-            lambda p: [(str(p), "config.toml")],
-            id="shallow-reaches-root",
-        ),
-        pytest.param(
-            True,
-            ("a", "b", "c"),
-            True,
-            lambda p: [
-                (str(p / "a" / "b" / "c"), "config.toml"),
-                (str(p / "a" / "b"), "config.toml"),
-                (str(p / "a"), "config.toml"),
-                (str(p), "config.toml"),
-            ],
-            id="deep-order",
-        ),
-    ],
-)
-def test_parent_patterns(
-    tmp_path, search_parents, subdirs, create_file, expected_start
-):
-    deep_path = tmp_path
-    for subdir in subdirs:
-        deep_path = deep_path / subdir
-    deep_path.mkdir(parents=True, exist_ok=True)
-
-    if create_file:
-        config_file = deep_path / "config.toml"
-        config_file.write_text("[test]\nvalue = 1")
-        input_path = str(config_file)
-    else:
-        input_path = str(deep_path)
-
-    @click.command
-    @config_option(search_parents=search_parents)
-    def test_cli():
-        pass
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        patterns = list(config_opt.parent_patterns(input_path))
-
-    expected = expected_start(tmp_path)
-    for i, exp in enumerate(expected):
-        assert patterns[i] == exp, f"Pattern {i} mismatch"
-
-    assert all(isinstance(p, tuple) and len(p) == 2 for p in patterns)
-
-    if search_parents:
-        assert all(
-            root_dir is not None and Path(root_dir).is_absolute()
-            for root_dir, _ in patterns
-        )
-        root_path = Path("/") if not is_windows() else Path(tmp_path.drive + "\\")
-        last_root = patterns[-1][0]
-        assert last_root is not None
-        assert Path(last_root) == root_path
-
-
-@pytest.mark.parametrize(
-    ("pattern_factory", "expected_factory"),
-    [
-        pytest.param(
-            lambda p: str(p / "a" / "b" / "*.toml"),
-            lambda p: [
-                (str(p / "a" / "b"), "*.toml"),
-                (str(p / "a"), "*.toml"),
-                (str(p), "*.toml"),
-                *((str(parent), "*.toml") for parent in p.parents),
-            ],
-            id="file-glob-at-leaf",
-        ),
-        pytest.param(
-            lambda p: "*.toml",
-            lambda p: [(None, "*.toml")],
-            id="entirely-magic",
-        ),
-        pytest.param(
-            lambda p: str(p / "proj*" / "config.toml"),
-            lambda p: [
-                (str(p), str(Path("proj*") / "config.toml")),
-                *(
-                    (str(parent), str(Path("proj*") / "config.toml"))
-                    for parent in p.parents
-                ),
-            ],
-            id="magic-in-directory",
-        ),
-        pytest.param(
-            lambda p: str(p / "a" / "*.toml|*.yaml|*.yml"),
-            lambda p: [
-                (str(p / "a"), "*.toml|*.yaml|*.yml"),
-                (str(p), "*.toml|*.yaml|*.yml"),
-                *((str(parent), "*.toml|*.yaml|*.yml") for parent in p.parents),
-            ],
-            id="pipe-separated-multi-glob",
-        ),
-        pytest.param(
-            lambda p: str(p / "proj*" / "*.toml"),
-            lambda p: [
-                (str(p), str(Path("proj*", "*.toml"))),
-                *((str(parent), str(Path("proj*", "*.toml"))) for parent in p.parents),
-            ],
-            id="multiple-magic-parts-in-suffix",
-        ),
-        pytest.param(
-            lambda p: str(p / "*.toml"),
-            lambda p: [
-                (str(p), "*.toml"),
-                *((str(parent), "*.toml") for parent in p.parents),
-            ],
-            id="single-depth-magic",
-        ),
-        pytest.param(
-            lambda p: "~/a/b/*.toml",
-            lambda p: [(None, "~/a/b/*.toml")],
-            id="tilde-is-magic",
-        ),
-        pytest.param(
-            lambda p: str(Path("**", "config.toml")),
-            lambda p: [(None, str(Path("**", "config.toml")))],
-            id="globstar-entirely-magic",
-        ),
-    ],
-)
-def test_parent_patterns_with_magic_pattern(
-    tmp_path, pattern_factory, expected_factory
-):
-    """Test parent_patterns with glob patterns containing magic characters."""
-
-    @click.command
-    @config_option(search_parents=True)
-    def test_cli():
-        pass
-
-    pattern = pattern_factory(tmp_path)
-    expected = expected_factory(tmp_path)
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        patterns = list(config_opt.parent_patterns(pattern))
-
-    assert patterns == expected
-
-
-def test_parent_patterns_magic_no_search(tmp_path):
-    """Magic pattern with search_parents=False yields only the original."""
-
-    @click.command
-    @config_option(search_parents=False)
-    def test_cli():
-        pass
-
-    pattern = str(tmp_path / "a" / "*.toml|*.yaml")
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        patterns = list(config_opt.parent_patterns(pattern))
-
-    assert patterns == [(str(tmp_path / "a"), "*.toml|*.yaml")]
-
-
-def test_parent_patterns_relative_path(tmp_path):
-    """Test parent_patterns resolves relative paths to absolute."""
-    deep_path = tmp_path / "level1" / "level2"
-    deep_path.mkdir(parents=True)
-    config_file = deep_path / "config.toml"
-    config_file.write_text("[test]\nvalue = 1")
-
-    @click.command
-    @config_option(search_parents=True)
-    def test_cli():
-        pass
-
-    # Change to the parent directory to create a relative path.
-    import os
-
-    old_cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path / "level1")
-        relative_path = "level2/config.toml"
-
-        with click.Context(test_cli, info_name="test-cli"):
-            config_opt = search_params(test_cli.params, ConfigOption)
-            assert isinstance(config_opt, ConfigOption)
-
-            patterns = list(config_opt.parent_patterns(relative_path))
-
-            # All root_dirs should be absolute.
-            assert all(
-                root_dir is not None and Path(root_dir).is_absolute()
-                for root_dir, _ in patterns
-            )
-
-            # First pattern should resolve to the config file's parent.
-            root_dir, file_pattern = patterns[0]
-            assert root_dir is not None
-            assert Path(root_dir) == config_file.parent
-            assert file_pattern == config_file.name
-    finally:
-        os.chdir(old_cwd)
-
-
-def test_parent_patterns_stop_at_path(tmp_path):
-    """stop_at as a path limits the parent directory walk."""
-    deep_path = tmp_path / "a" / "b" / "c"
-    deep_path.mkdir(parents=True)
-    config_file = deep_path / "config.toml"
-    config_file.write_text("[test]\nvalue = 1")
-
-    boundary = tmp_path / "a"
-
-    @click.command
-    @config_option(search_parents=True, stop_at=boundary)
-    def test_cli():
-        pass
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        patterns = list(config_opt.parent_patterns(str(config_file)))
-
-    # First yield should be (parent_of_file, filename).
-    root_dir, file_pattern = patterns[0]
-    assert root_dir is not None
-    assert Path(root_dir) == config_file.parent
-    assert file_pattern == config_file.name
-    # Every root_dir should be inside or equal to the boundary.
-    for root_dir, _ in patterns:
-        assert root_dir is not None
-        assert Path(root_dir).is_relative_to(boundary), (
-            f"{root_dir} is outside boundary {boundary}"
-        )
-
-
-@pytest.mark.parametrize(
-    ("has_vcs", "expected_bounded"),
-    [
-        pytest.param(True, True, id="with-vcs-root"),
-        pytest.param(False, False, id="no-vcs-root"),
-    ],
-)
-def test_parent_patterns_stop_at_vcs(tmp_path, has_vcs, expected_bounded):
-    """stop_at=VCS stops at VCS root, or walks to filesystem root if none."""
-    vcs_root = tmp_path / "repo"
-    vcs_root.mkdir()
-    if has_vcs:
-        (vcs_root / ".git").mkdir()
-
-    deep_path = vcs_root / "src" / "pkg"
-    deep_path.mkdir(parents=True)
-
-    @click.command
-    @config_option(search_parents=True, stop_at=VCS)
-    def test_cli():
-        pass
-
-    pattern = str(deep_path / "*.toml")
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        patterns = list(config_opt.parent_patterns(pattern))
-
-    assert patterns[0] == (str(deep_path), "*.toml")
-
-    if expected_bounded:
-        for root_dir, _ in patterns:
-            assert root_dir is not None
-            assert Path(root_dir).is_relative_to(vcs_root), (
-                f"{root_dir} is outside VCS root {vcs_root}"
-            )
-    else:
-        root_path = Path("/") if not is_windows() else Path(tmp_path.drive + "\\")
-        last_root = patterns[-1][0]
-        assert last_root is not None
-        assert Path(last_root) == root_path
-
-
-def test_parent_patterns_inaccessible_directory(tmp_path):
-    """Walk stops at an inaccessible directory."""
-    deep_path = tmp_path / "a" / "b" / "c"
-    deep_path.mkdir(parents=True)
-    config_file = deep_path / "config.toml"
-    config_file.write_text("[test]\nvalue = 1")
-
-    @click.command
-    @config_option(search_parents=True)
-    def test_cli():
-        pass
-
-    original_access = os.access
-
-    def fake_access(path, mode, **kwargs):
-        if Path(path).resolve() == (tmp_path / "a").resolve():
-            return False
-        return original_access(path, mode, **kwargs)
-
-    with click.Context(test_cli, info_name="test-cli"):
-        config_opt = search_params(test_cli.params, ConfigOption)
-        assert isinstance(config_opt, ConfigOption)
-        with unittest.mock.patch(
-            "click_extra.config.option.os.access", side_effect=fake_access
-        ):
-            patterns = list(config_opt.parent_patterns(str(config_file)))
-
-    # First yield: (parent_of_file, filename).
-    root_dir, file_pattern = patterns[0]
-    assert root_dir is not None
-    assert Path(root_dir) == config_file.parent
-    assert file_pattern == config_file.name
-    # Should stop before tmp_path/a (inaccessible).
-    for root_dir, _ in patterns:
-        assert root_dir is not None
-        assert Path(root_dir) != tmp_path / "a"
-        assert Path(root_dir) != tmp_path
-
-
 # --- Cascading configuration files --------------------------------------------
 
 
@@ -3471,8 +3287,8 @@ def _cascade_cli_factory(stop_at, cascade):
 def test_cascade_merges_files_local_wins(invoke, cascade_tree):
     """With cascade=True, local values win and parent values fill the gaps."""
     tmp_path, app_dir = cascade_tree
-    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
-    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="UTF-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="UTF-8")
 
     result = invoke(_cascade_cli_factory(tmp_path, cascade=True), color=False)
     assert result.stdout == (
@@ -3481,11 +3297,32 @@ def test_cascade_merges_files_local_wins(invoke, cascade_tree):
     assert result.exit_code == 0
 
 
+def test_cascade_list_local_wins(invoke, cascade_tree):
+    """A list two layers both set resolves to the most local one, like any value."""
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(
+        '[cascade-cli]\ntags = ["local"]\n', encoding="UTF-8"
+    )
+    (tmp_path / "config.toml").write_text(
+        '[cascade-cli]\ntags = ["parent", "root"]\n', encoding="UTF-8"
+    )
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path, cascade=True)
+    @click.option("--tags", multiple=True)
+    def cascade_cli(tags):
+        echo(f"tags = {tags!r}")
+
+    result = invoke(cascade_cli, color=False)
+    assert result.stdout == "tags = ('local',)\n"
+    assert result.exit_code == 0
+
+
 def test_no_cascade_first_file_wins(invoke, cascade_tree):
     """Without cascade, the first parseable file wins entirely."""
     tmp_path, app_dir = cascade_tree
-    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
-    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="UTF-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="UTF-8")
 
     result = invoke(_cascade_cli_factory(tmp_path, cascade=False), color=False)
     assert result.stdout == ("int_param = 1\ndummy_flag = True\nother_param = 'none'\n")
@@ -3495,7 +3332,7 @@ def test_no_cascade_first_file_wins(invoke, cascade_tree):
 def test_cascade_single_layer_from_parent(invoke, cascade_tree):
     """A lone file found up the walk is applied as-is."""
     tmp_path, _app_dir = cascade_tree
-    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="UTF-8")
 
     result = invoke(_cascade_cli_factory(tmp_path, cascade=True), color=False)
     assert result.stdout == (
@@ -3507,9 +3344,9 @@ def test_cascade_single_layer_from_parent(invoke, cascade_tree):
 def test_cascade_explicit_config_does_not_cascade(invoke, cascade_tree):
     """An explicit --config pins a single source, even with cascade=True."""
     tmp_path, app_dir = cascade_tree
-    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="UTF-8")
     parent_conf = tmp_path / "config.toml"
-    parent_conf.write_text(PARENT_CONF, encoding="utf-8")
+    parent_conf.write_text(PARENT_CONF, encoding="UTF-8")
 
     result = invoke(
         _cascade_cli_factory(tmp_path, cascade=True),
@@ -3529,9 +3366,9 @@ def test_cascade_conf_sources_metadata(invoke, cascade_tree):
 
     tmp_path, app_dir = cascade_tree
     local_conf = app_dir / "config.toml"
-    local_conf.write_text(LOCAL_CONF, encoding="utf-8")
+    local_conf.write_text(LOCAL_CONF, encoding="UTF-8")
     parent_conf = tmp_path / "config.toml"
-    parent_conf.write_text(PARENT_CONF, encoding="utf-8")
+    parent_conf.write_text(PARENT_CONF, encoding="UTF-8")
 
     @click.command
     @config_option(search_parents=True, stop_at=tmp_path, cascade=True)
@@ -3557,8 +3394,8 @@ def test_cascade_conf_full_is_merged_view(invoke, cascade_tree):
     from click_extra import context
 
     tmp_path, app_dir = cascade_tree
-    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
-    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="UTF-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="UTF-8")
 
     @click.command
     @config_option(search_parents=True, stop_at=tmp_path, cascade=True)
@@ -3578,7 +3415,7 @@ def test_cascade_conf_full_is_merged_view(invoke, cascade_tree):
 def test_cascade_validation_error_names_file(invoke, cascade_tree, caplog):
     """A strict-check failure in one layer names that file and exits 1."""
     tmp_path, app_dir = cascade_tree
-    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="UTF-8")
     bad_parent = tmp_path / "config.toml"
     bad_parent.write_text(
         dedent(
@@ -3587,7 +3424,7 @@ def test_cascade_validation_error_names_file(invoke, cascade_tree, caplog):
             unknown_key = "boom"
             """,
         ),
-        encoding="utf-8",
+        encoding="UTF-8",
     )
 
     @click.command
@@ -3605,15 +3442,46 @@ def test_cascade_validation_error_names_file(invoke, cascade_tree, caplog):
     assert result.exit_code == 1
 
 
+def test_cascade_strict_check_skips_extension_points(invoke, cascade_tree):
+    """Each file of a cascade passes the strict check with an extension point in it.
+
+    The built-in `themes` table is one: its keys name themes, not parameters.
+    """
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(
+        dedent("""\
+            [cascade-cli]
+            int_param = 1
+
+            [cascade-cli.themes.dusk]
+            option = { fg = "bright_cyan" }
+            """),
+        encoding="UTF-8",
+    )
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="UTF-8")
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path, cascade=True, strict=True)
+    @click.option("--int-param", type=int, default=10)
+    @click.option("--other-param", default="none")
+    def cascade_cli(int_param, other_param):
+        echo(f"int_param = {int_param!r}")
+        echo(f"other_param = {other_param!r}")
+
+    result = invoke(cascade_cli, color=False)
+    assert result.stdout == "int_param = 1\nother_param = 'from_parent'\n"
+    assert result.exit_code == 0
+
+
 def test_read_and_parse_all_conf_orders_local_first(tmp_path):
     """All parseable files are yielded, deepest first; unparsable ones skip."""
     (tmp_path / "a" / "b").mkdir(parents=True)
     deep = tmp_path / "a" / "b" / "config.toml"
-    deep.write_text("[test-cli]\nk = 2", encoding="utf-8")
+    deep.write_text("[test-cli]\nk = 2", encoding="UTF-8")
     middle = tmp_path / "a" / "config.toml"
-    middle.write_text("[test-cli]\nk = 1", encoding="utf-8")
+    middle.write_text("[test-cli]\nk = 1", encoding="UTF-8")
     # Unparsable content: found, but not yielded.
-    (tmp_path / "config.toml").write_text("not toml {{{", encoding="utf-8")
+    (tmp_path / "config.toml").write_text("not toml {{{", encoding="UTF-8")
 
     @click.command
     @config_option(search_parents=True, stop_at=tmp_path)
@@ -3638,8 +3506,8 @@ def test_read_and_parse_conf_returns_first(tmp_path):
     """read_and_parse_conf keeps its first-match contract on top of the generator."""
     (tmp_path / "a" / "b").mkdir(parents=True)
     deep = tmp_path / "a" / "b" / "config.toml"
-    deep.write_text("[test-cli]\nk = 2", encoding="utf-8")
-    (tmp_path / "a" / "config.toml").write_text("[test-cli]\nk = 1", encoding="utf-8")
+    deep.write_text("[test-cli]\nk = 2", encoding="UTF-8")
+    (tmp_path / "a" / "config.toml").write_text("[test-cli]\nk = 1", encoding="UTF-8")
 
     @click.command
     @config_option(search_parents=True, stop_at=tmp_path)
@@ -3655,31 +3523,6 @@ def test_read_and_parse_conf_returns_first(tmp_path):
 
     assert location == deep.resolve()
     assert conf == {"test-cli": {"k": 2}}
-
-
-@pytest.mark.parametrize(
-    ("vcs_dir", "expected"),
-    [
-        pytest.param(".git", "found", id="git"),
-        pytest.param(".hg", "found", id="hg"),
-        pytest.param(None, None, id="no-vcs"),
-    ],
-)
-def test_find_vcs_root(tmp_path, vcs_dir, expected):
-    """Test _find_vcs_root with .git, .hg, and no VCS markers."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    if vcs_dir:
-        (repo / vcs_dir).mkdir()
-
-    deep = repo / "a" / "b"
-    deep.mkdir(parents=True)
-
-    result = ConfigOption._find_vcs_root(deep)
-    if expected:
-        assert result == repo
-    else:
-        assert result is None
 
 
 def test_config_option_default_no_config(invoke, create_config):
@@ -4432,7 +4275,7 @@ def test_export_config_round_trip(invoke, tmp_path, fmt):
     assert result.exit_code == 0
 
     conf_path = tmp_path / f"dumped.{fmt}"
-    conf_path.write_text(result.stdout, encoding="utf-8")
+    conf_path.write_text(result.stdout, encoding="UTF-8")
 
     reloaded = invoke(dump_cli, "--config", str(conf_path), color=False)
     assert reloaded.exit_code == 0
@@ -4449,6 +4292,23 @@ def test_export_config_invalid_format(invoke):
     result = invoke(dump_cli, "--export-config", "ini", color=False)
     assert result.exit_code == 2
     assert "'ini' is not one of" in result.stderr
+
+
+def test_export_config_without_its_writer(invoke, monkeypatch):
+    """A format whose writer is not installed fails with the install command."""
+    monkeypatch.setitem(sys.modules, "tomlrt", None)
+
+    @command
+    def dump_cli():
+        echo("ran")
+
+    result = invoke(dump_cli, "--export-config", "toml", color=False)
+    assert result.exit_code == 1
+    assert not result.stdout
+    assert result.stderr == (
+        "Error: TOML export requires an optional dependency. "
+        "Install it with: uv pip install 'click-extra[toml]'\n"
+    )
 
 
 def test_export_config_requires_config_option(invoke):
@@ -4646,7 +4506,7 @@ def app_dir_conf(tmp_path, monkeypatch):
     )
 
     def _write(content):
-        (app_dir / "conf.toml").write_text(content, encoding="utf-8")
+        (app_dir / "conf.toml").write_text(content, encoding="UTF-8")
 
     return _write
 
@@ -4757,7 +4617,7 @@ def test_group_parse_args_is_wrapped_once():
     """Each new `ConfigOption` leaves the wrapper of `click.Group` as it found it."""
     ConfigOption()
     wrapped = click.Group.parse_args
-    assert wrapped.__module__ == ConfigOption.__module__
+    assert wrapped is _group_parse_args
 
     ConfigOption()
     assert click.Group.parse_args is wrapped
@@ -5824,12 +5684,17 @@ def test_expand_dotted_keys_strict_empty_segments(input_conf):
         _expand_dotted_keys(input_conf, strict=True)
 
 
-def test_strict_conf_dotted_key_conflict(invoke, create_config):
-    """Strict mode rejects configs with dotted-key type conflicts."""
+@pytest.mark.parametrize("flag", ["--config", "--validate-config"])
+def test_strict_conf_dotted_key_conflict(invoke, create_config, flag):
+    """Strict mode rejects a dotted-key type conflict with a validation error.
+
+    The error is reported like an unknown key, not raised as a traceback.
+    """
 
     @click.group
     @option("--dummy-flag/--no-flag")
     @config_option(strict=True)
+    @validate_config_option
     def strict_cli(dummy_flag):
         echo(f"dummy_flag is {dummy_flag!r}")
 
@@ -5850,8 +5715,178 @@ def test_strict_conf_dotted_key_conflict(invoke, create_config):
             """),
     )
 
-    result = invoke(strict_cli, "--config", str(conf_path), "subcommand", color=False)
-    assert result.exception
-    assert type(result.exception) is ValueError
-    assert "conflicts" in str(result.exception)
+    result = invoke(strict_cli, flag, str(conf_path), "subcommand", color=False)
+    assert not result.stdout
+    assert (
+        "Configuration validation error: Configuration key 'subcommand.int_param' "
+        "conflicts with 'subcommand': mixing scalar and nested values."
+    ) in result.stderr
+    assert type(result.exception) is SystemExit
     assert result.exit_code == 1
+
+
+def test_expand_dotted_keys_keeps_a_key_that_is_not_a_string():
+    """YAML reads `1:` as a number: such a key holds no dot to expand."""
+    assert _expand_dotted_keys({1: "x", "a.b": {2: "y"}}) == {
+        1: "x",
+        "a": {"b": {2: "y"}},
+    }
+
+
+@pytest.mark.parametrize(
+    ("strict", "flag", "exit_code", "message"),
+    (
+        pytest.param(
+            False,
+            "--config",
+            0,
+            "warning: Configuration key 1 is not a string. Ignoring it.",
+            id="lax",
+        ),
+        pytest.param(
+            True,
+            "--config",
+            1,
+            "critical: Configuration validation error: "
+            "Configuration key 1 is not a string.",
+            id="strict",
+        ),
+        pytest.param(
+            False,
+            "--validate-config",
+            1,
+            "Configuration validation error: Configuration key 1 is not a string.",
+            id="validate-config",
+        ),
+    ),
+)
+def test_conf_key_that_is_not_a_string(
+    invoke, create_config, strict, flag, exit_code, message
+):
+    """A YAML key that reads as a number is a configuration error, not a traceback.
+
+    Strict mode and `--validate-config` reject it, and lax mode skips it.
+    """
+
+    @dataclass
+    class OrchardConfig:
+        rows: int = 0
+
+    @command(config_schema=OrchardConfig, config_strict=strict)
+    @option("--fruit", default="apple")
+    def orchard(fruit):
+        echo(f"fruit={fruit}")
+
+    conf_path = create_config("orchard.yaml", "orchard:\n  fruit: plum\n  1: pear\n")
+    result = invoke(orchard, flag, str(conf_path), color=False)
+    assert result.exit_code == exit_code
+    assert message in result.stderr
+    assert not isinstance(result.exception, TypeError)
+    if exit_code == 0:
+        assert result.stdout == "fruit=plum\n"
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    (
+        pytest.param('{"a": 1}', {"a": 1}, id="plain_json"),
+        pytest.param(
+            '// head\n{"a": 1, // tail\n "b": [1, /* in */ 2], /* multi\nline */ "c": 3}',
+            {"a": 1, "b": [1, 2], "c": 3},
+            id="comments",
+        ),
+        pytest.param(
+            '{"a": [1, 2,], "b": {"c": 1,},}',
+            {"a": [1, 2], "b": {"c": 1}},
+            id="trailing_commas",
+        ),
+        pytest.param("[1, // last\n]", [1], id="comment_before_closing"),
+        pytest.param(
+            '{"s": "quote \\" and // slashes /* kept */, trailing,", "u": "http://x/*y*/z"}',
+            {
+                "s": 'quote " and // slashes /* kept */, trailing,',
+                "u": "http://x/*y*/z",
+            },
+            id="syntax_inside_strings",
+        ),
+        pytest.param(
+            '{"a": 1} // no newline at the end', {"a": 1}, id="comment_at_eof"
+        ),
+        pytest.param("[]", [], id="empty_array"),
+    ),
+)
+def test_parse_jsonc(content, expected):
+    assert parse_jsonc(content) == expected
+
+
+def test_parse_jsonc_reports_the_line_of_an_error():
+    """A blanked block comment keeps its newlines, so the line numbers hold."""
+    with pytest.raises(json.JSONDecodeError) as error:
+        parse_jsonc('{\n/* a\nlong\ncomment */\n"a": 1 2\n}')
+    assert error.value.lineno == 5
+
+
+def test_parse_xml_conventions():
+    """Attributes, text, repeated tags and empty elements read as `xmltodict` read them."""
+    document = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<root a="1"><!-- skipped -->'
+        "<item>first</item><item>second</item><blank></blank><spaces>   </spaces>"
+        '<mixed k="v">  text  </mixed><n:tag xmlns:n="urn:x">1</n:tag>'
+        "<![CDATA[a < b]]></root>"
+    )
+    assert parse_xml(document) == {
+        "root": {
+            "@a": "1",
+            "item": ["first", "second"],
+            "blank": None,
+            "spaces": None,
+            "mixed": {"@k": "v", "#text": "text"},
+            "n:tag": {"@xmlns:n": "urn:x", "#text": "1"},
+            "#text": "a < b",
+        }
+    }
+
+
+def test_parse_xml_rejects_a_malformed_document():
+    from xml.parsers.expat import ExpatError
+
+    with pytest.raises(ExpatError):
+        parse_xml("<root><open></root>")
+
+
+def test_serialize_xml_conventions():
+    data = {
+        "root": {
+            "@a": "1",
+            "item": ["x", "y"],
+            "blank": None,
+            "empty": "",
+            "none_in_list": [],
+            "flag": True,
+            "count": 3,
+            "escaped": "a<b&c",
+            "nested": {"@k": 'q"uote', "#text": "t"},
+        }
+    }
+    assert serialize_xml(data) == (
+        '<root a="1">\n'
+        "\t<item>x</item>\n"
+        "\t<item>y</item>\n"
+        "\t<blank></blank>\n"
+        "\t<empty></empty>\n"
+        "\t<flag>true</flag>\n"
+        "\t<count>3</count>\n"
+        "\t<escaped>a&lt;b&amp;c</escaped>\n"
+        "\t<nested k='q\"uote'>t</nested>\n"
+        "</root>"
+    )
+    assert serialize_xml({"a": {"b": []}}) == "<a></a>"
+    assert serialize_xml({"a": "1", "b": {"c": "2"}}, indent="  ") == (
+        "<a>1</a>\n<b>\n  <c>2</c>\n</b>"
+    )
+
+
+def test_xml_round_trip():
+    data = {"cli": {"verbosity": "DEBUG", "items": ["pip", "npm"], "sub": {"n": "3"}}}
+    assert parse_xml(serialize_xml(data)) == data

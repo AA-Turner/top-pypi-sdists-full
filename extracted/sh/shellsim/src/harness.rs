@@ -1,0 +1,2087 @@
+//! Persistent, replayable host-side sessions for agent harnesses.
+//!
+//! This module is a trusted adapter around [`Environment`], not a simulated capability. It
+//! accepts explicit bytes, exposes only typed VFS operations and shell actions, and reports
+//! stable workspace changes and telemetry. Host tools are an explicit, bounded request/reply
+//! capability; no method grants ambient host files, processes, network, environment, or clocks.
+
+use std::collections::BTreeSet;
+
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+use serde::{Deserialize, Serialize};
+
+use crate::exec::process_belongs_to_action;
+use crate::net::{HttpResponse, NetworkRequest, MAX_HOST_MESSAGE_BYTES};
+use crate::process::{ProcessRecord, ProcessStatus};
+use crate::scheduler::{TaskState, WaitReason};
+use crate::telemetry::{CommandTrust, InvocationEvent};
+use crate::vfs::{Node, NodeKind, Vfs};
+use crate::{Environment, Limits, RunOutcome};
+
+const MAX_TRANSFER_RAW_BYTES: usize = 64 * 1024 * 1024;
+const MAX_WORKSPACE_CLONE_BYTES: u64 = 6 * 1024 * 1024;
+const MAX_SESSION_FORK_BYTES: u64 = 96 * 1024 * 1024;
+const MAX_RETAINED_ACTIONS: usize = 64;
+const MAX_POLL_QUANTA: usize = 100_000;
+const MAX_PACKAGE_SNAPSHOT_BYTES: usize = 128 * 1024 * 1024;
+const MAX_PACKAGE_SNAPSHOT_ENTRIES: usize = crate::host_ingest::MAX_HOST_FILES;
+
+/// One protocol request. `id` is echoed verbatim so clients can correlate responses.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct HarnessRequest {
+    #[serde(default)]
+    pub id: Option<serde_json::Value>,
+    /// Manager-owned session route. Omitted requests target compatibility session zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<u64>,
+    #[serde(flatten)]
+    pub operation: HarnessOperation,
+}
+
+/// Closed set of persistent harness operations.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum HarnessOperation {
+    Execute {
+        source: String,
+        #[serde(default)]
+        stdin_base64: String,
+    },
+    StartExecute {
+        source: String,
+        #[serde(default)]
+        stdin_base64: String,
+        #[serde(default = "default_true")]
+        stdin_closed: bool,
+    },
+    PollAction {
+        action_id: u64,
+        #[serde(default = "default_poll_quanta")]
+        work_quanta: usize,
+        #[serde(default)]
+        advance_time: bool,
+    },
+    /// Supply one result or error to a tool call returned by `poll_action`.
+    RespondToolCall {
+        request_id: u64,
+        #[serde(default)]
+        result: Option<serde_json::Value>,
+        #[serde(default)]
+        error: Option<String>,
+    },
+    WriteStdin {
+        action_id: u64,
+        data_base64: String,
+    },
+    CloseStdin {
+        action_id: u64,
+    },
+    ReadActionOutput {
+        action_id: u64,
+    },
+    SignalProcess {
+        pid: u32,
+        signal: String,
+        #[serde(default)]
+        process_group: bool,
+    },
+    SignalForeground {
+        signal: String,
+    },
+    SetForegroundProcessGroup {
+        process_group: u32,
+    },
+    CancelAction {
+        action_id: u64,
+    },
+    DropAction {
+        action_id: u64,
+    },
+    ForkSession {
+        source: u64,
+    },
+    DropSession {
+        target: u64,
+    },
+    ReadFile {
+        path: String,
+    },
+    WriteFile {
+        path: String,
+        data_base64: String,
+        #[serde(default = "default_file_mode")]
+        mode: u32,
+    },
+    StatPath {
+        path: String,
+        #[serde(default = "default_true")]
+        follow_symlinks: bool,
+    },
+    MakeDirectory {
+        path: String,
+        #[serde(default = "default_directory_mode")]
+        mode: u32,
+        #[serde(default)]
+        parents: bool,
+    },
+    CreateSymlink {
+        path: String,
+        target: String,
+    },
+    ApplyPatch {
+        patch: String,
+        #[serde(default = "default_patch_strip")]
+        strip: usize,
+    },
+    RemovePath {
+        path: String,
+    },
+    ListPaths {
+        #[serde(default = "default_root")]
+        root: String,
+    },
+    Checkpoint,
+    WorkspaceDiff,
+    ResetWorkspace,
+    Inspect,
+}
+
+/// One response emitted for exactly one request.
+#[derive(Debug, Serialize)]
+pub struct HarnessResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<serde_json::Value>,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<HarnessResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Typed successful response payloads.
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HarnessResult {
+    Execute(ExecuteResult),
+    Action(ActionView),
+    ActionOutput(ActionOutput),
+    Session { session_id: u64 },
+    File(FileResult),
+    PathMetadata(PathMetadata),
+    Paths { paths: Vec<String> },
+    WorkspaceDiff { changes: Vec<WorkspaceChange> },
+    Inspect(InspectResult),
+    Acknowledged,
+}
+
+/// Stable lifecycle and telemetry for one retained foreground action.
+#[derive(Debug, Serialize)]
+pub struct ActionView {
+    pub action_id: u64,
+    pub root_pid: u32,
+    pub display_generation: u64,
+    pub state: ActionState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<RunOutcome>,
+    pub invocations: Vec<InvocationEvent>,
+    pub dropped_invocations: u64,
+    pub commands: Vec<String>,
+    pub dropped_commands: u64,
+    pub unsupported: Vec<String>,
+    pub dropped_unsupported: u64,
+    pub network_requests: Vec<NetworkRequest>,
+    pub dropped_network_requests: u64,
+    /// Newly issued calls, delivered once by a poll of this action.
+    pub tool_calls: Vec<ToolCallView>,
+}
+
+/// Retained action lifecycle. A blocked action can be resumed by input, a modeled event, or a
+/// later poll that permits virtual-time advancement.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum ActionState {
+    Running,
+    Blocked { reason: Option<WaitReasonView> },
+    Stopped { signal: String },
+    Complete { status: i32 },
+}
+
+/// Newly available action stream bytes. Reads advance action-local delivery cursors.
+#[derive(Debug, Serialize)]
+pub struct ActionOutput {
+    pub action_id: u64,
+    pub stdout_base64: String,
+    pub stderr_base64: String,
+    pub stdout_closed: bool,
+    pub stderr_closed: bool,
+}
+
+/// One generic tool invocation decoded from the guest's virtual HTTP request.
+#[derive(Debug, Serialize)]
+pub struct ToolCallView {
+    pub request_id: u64,
+    pub tool: String,
+    pub arguments: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Action output and telemetry. Stream bytes use explicit base64 without UTF-8 loss.
+#[derive(Debug, Serialize)]
+pub struct ExecuteResult {
+    pub outcome: RunOutcome,
+    pub stdout_base64: String,
+    pub stderr_base64: String,
+    pub commands: Vec<String>,
+    pub dropped_commands: u64,
+    pub unsupported: Vec<String>,
+    pub dropped_unsupported: u64,
+    pub unsupported_commands: Vec<String>,
+    pub partial_commands: Vec<String>,
+    pub invocations: Vec<InvocationEvent>,
+    pub dropped_invocations: u64,
+    pub network_requests: Vec<NetworkRequest>,
+    pub dropped_network_requests: u64,
+}
+
+/// Exact VFS file bytes and metadata.
+#[derive(Debug, Serialize)]
+pub struct FileResult {
+    pub path: String,
+    pub data_base64: String,
+    pub mode: u32,
+}
+
+/// Exact VFS metadata for one workspace path.
+#[derive(Debug, Serialize)]
+pub struct PathMetadata {
+    pub path: String,
+    pub node_type: PathType,
+    pub mode: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub mtime_ms: u64,
+    pub size: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symlink_target: Option<String>,
+}
+
+/// One regular file or directory captured from a quiescent session's `/work` tree.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WorkspaceSnapshotEntry {
+    File {
+        path: String,
+        mode: u32,
+        data_base64: String,
+    },
+    Directory {
+        path: String,
+        mode: u32,
+    },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PathType {
+    File,
+    Directory,
+    Symlink,
+    NativeExecutable,
+}
+
+/// Stable process/resource inspection for an active session.
+#[derive(Debug, Serialize)]
+pub struct InspectResult {
+    pub cwd: String,
+    pub outcome: RunOutcome,
+    pub actions: Vec<ActionView>,
+    pub processes: Vec<ProcessView>,
+    pub current_pid: Option<u32>,
+    pub terminal: TerminalView,
+    pub monotonic_ns: u64,
+    pub wall_time_ns: i128,
+    pub pending_events: usize,
+    pub ready_events: usize,
+    pub invocations: Vec<InvocationEvent>,
+    pub dropped_invocations: u64,
+    pub commands: Vec<String>,
+    pub dropped_commands: u64,
+    pub unsupported: Vec<String>,
+    pub dropped_unsupported: u64,
+    pub network_requests: Vec<NetworkRequest>,
+    pub dropped_network_requests: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProcessView {
+    pub pid: u32,
+    pub ppid: u32,
+    pub process_group: u32,
+    pub session_id: u32,
+    pub command: String,
+    pub cwd: String,
+    pub status: ProcessViewStatus,
+}
+
+/// Controlling terminal identity and current foreground ownership.
+#[derive(Debug, Serialize)]
+pub struct TerminalView {
+    pub session_id: u32,
+    pub foreground_process_group: u32,
+}
+
+/// Typed lifecycle state in an inspection response.
+#[derive(Debug, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum ProcessViewStatus {
+    Runnable,
+    Running,
+    Blocked { reason: WaitReasonView },
+    Stopped { signal: String },
+    Exited { status: i32 },
+}
+
+/// Serializable scheduler wait reason without exposing implementation strings.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum WaitReasonView {
+    ShellSession { pid: u32 },
+    Timer { deadline_ns: u64 },
+    InputReadable { description: u32 },
+    PipeReadable { pipe: u32 },
+    PipeWritable { pipe: u32 },
+    FileLock { inode: u64 },
+    HostHttp { request_id: u64 },
+    Child { pid: u32 },
+    ChildActivity { pid: u32 },
+    ChildDeadline { pid: u32, deadline_ns: u64 },
+    ChildActivityDeadline { pid: u32, deadline_ns: u64 },
+    Any { reasons: Vec<WaitReasonView> },
+}
+
+/// One stable path-level difference from the last checkpoint.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct WorkspaceChange {
+    pub path: String,
+    pub change: ChangeKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before: Option<WorkspaceNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after: Option<WorkspaceNode>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeKind {
+    Added,
+    Modified,
+    Deleted,
+}
+
+/// Serializable content identity used by workspace diffs.
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WorkspaceNode {
+    File { mode: u32, data_base64: String },
+    Directory { mode: u32 },
+    Symlink { mode: u32, target: String },
+    NativeExecutable { mode: u32, program: String },
+}
+
+/// One persistent simulated environment and its VFS checkpoint.
+pub struct HarnessSession {
+    pub environment: Environment,
+    baseline: Vfs,
+    actions: std::collections::BTreeMap<u64, RetainedAction>,
+    active_action: Option<u64>,
+    next_action_id: u64,
+}
+
+#[derive(Clone)]
+struct RetainedAction {
+    id: u64,
+    root_pid: u32,
+    /// Children created before this action cannot use its host-tool grant.
+    first_new_pid: u32,
+    execution: Option<crate::exec::ShellExecution>,
+    state: ActionState,
+    outcome: Option<RunOutcome>,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    stdout_cursor: usize,
+    stderr_cursor: usize,
+    invocation_start: u64,
+    dropped_invocations_start: u64,
+    dropped_invocations: u64,
+    invocations: Vec<InvocationEvent>,
+    commands: Vec<String>,
+    dropped_commands: u64,
+    unsupported: Vec<String>,
+    dropped_unsupported: u64,
+    network_requests: Vec<NetworkRequest>,
+    dropped_network_requests: u64,
+    command_start: usize,
+    dropped_commands_start: u64,
+    unsupported_start: usize,
+    dropped_unsupported_start: u64,
+    network_start: usize,
+    dropped_network_start: u64,
+}
+
+impl RetainedAction {
+    fn new(id: u64, environment: &Environment) -> Self {
+        Self {
+            id,
+            root_pid: environment.process.pid,
+            first_new_pid: environment
+                .processes
+                .iter()
+                .map(|record| record.pid)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1),
+            execution: None,
+            state: ActionState::Running,
+            outcome: None,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+            stdout_cursor: 0,
+            stderr_cursor: 0,
+            invocation_start: environment.invocations.next_sequence(),
+            dropped_invocations_start: environment.invocations.dropped(),
+            dropped_invocations: 0,
+            invocations: Vec::new(),
+            commands: Vec::new(),
+            dropped_commands: 0,
+            unsupported: Vec::new(),
+            dropped_unsupported: 0,
+            network_requests: Vec::new(),
+            dropped_network_requests: 0,
+            command_start: environment.cmd_trace.len(),
+            dropped_commands_start: environment.cmd_trace.dropped(),
+            unsupported_start: environment.unsupported.len(),
+            dropped_unsupported_start: environment.unsupported.dropped(),
+            network_start: environment.net.log.len(),
+            dropped_network_start: environment.net.dropped_requests,
+        }
+    }
+
+    fn complete(&mut self, environment: &Environment, status: i32) {
+        let status = environment.termination_status().unwrap_or(status);
+        self.state = ActionState::Complete { status };
+        self.outcome = Some(environment.outcome(status));
+        self.invocations = environment.invocations.events_since(self.invocation_start);
+        self.dropped_invocations = environment
+            .invocations
+            .dropped()
+            .saturating_sub(self.dropped_invocations_start);
+        self.commands = environment.cmd_trace.values_since(self.command_start);
+        self.dropped_commands = environment
+            .cmd_trace
+            .dropped()
+            .saturating_sub(self.dropped_commands_start);
+        self.unsupported = environment.unsupported.values_since(self.unsupported_start);
+        self.dropped_unsupported = environment
+            .unsupported
+            .dropped()
+            .saturating_sub(self.dropped_unsupported_start);
+        self.network_requests = environment.net.log[self.network_start..].to_vec();
+        self.dropped_network_requests = environment
+            .net
+            .dropped_requests
+            .saturating_sub(self.dropped_network_start);
+    }
+
+    fn view(&self, environment: &Environment) -> ActionView {
+        ActionView {
+            action_id: self.id,
+            root_pid: self.root_pid,
+            display_generation: environment.display.generation(),
+            state: self.state.clone(),
+            outcome: self.outcome.clone(),
+            invocations: if self.execution.is_some() {
+                environment.invocations.events_since(self.invocation_start)
+            } else {
+                self.invocations.clone()
+            },
+            dropped_invocations: if self.execution.is_some() {
+                environment
+                    .invocations
+                    .dropped()
+                    .saturating_sub(self.dropped_invocations_start)
+            } else {
+                self.dropped_invocations
+            },
+            commands: if self.execution.is_some() {
+                environment.cmd_trace.values_since(self.command_start)
+            } else {
+                self.commands.clone()
+            },
+            dropped_commands: if self.execution.is_some() {
+                environment
+                    .cmd_trace
+                    .dropped()
+                    .saturating_sub(self.dropped_commands_start)
+            } else {
+                self.dropped_commands
+            },
+            unsupported: if self.execution.is_some() {
+                environment.unsupported.values_since(self.unsupported_start)
+            } else {
+                self.unsupported.clone()
+            },
+            dropped_unsupported: if self.execution.is_some() {
+                environment
+                    .unsupported
+                    .dropped()
+                    .saturating_sub(self.dropped_unsupported_start)
+            } else {
+                self.dropped_unsupported
+            },
+            network_requests: if self.execution.is_some() {
+                environment.net.log[self.network_start..].to_vec()
+            } else {
+                self.network_requests.clone()
+            },
+            dropped_network_requests: if self.execution.is_some() {
+                environment
+                    .net
+                    .dropped_requests
+                    .saturating_sub(self.dropped_network_start)
+            } else {
+                self.dropped_network_requests
+            },
+            tool_calls: Vec::new(),
+        }
+    }
+}
+
+impl HarnessSession {
+    /// Copy the latest complete frame associated with a retained action.
+    pub fn display_frame(
+        &self,
+        action_id: u64,
+    ) -> Result<Option<(u64, crate::display::DisplayFrame)>, String> {
+        if !self.actions.contains_key(&action_id) {
+            return Err(format!("action {action_id} does not exist"));
+        }
+        Ok(self
+            .environment
+            .display
+            .frame()
+            .cloned()
+            .map(|frame| (self.environment.display.generation(), frame)))
+    }
+
+    /// Queue one bounded host key transition for the current foreground action.
+    pub fn inject_action_key(
+        &mut self,
+        action_id: u64,
+        event: crate::display::KeyEvent,
+    ) -> Result<(), String> {
+        if self.active_action != Some(action_id) {
+            return Err(format!("action {action_id} is not active"));
+        }
+        self.environment
+            .inject_key(event)
+            .map_err(|error| format!("{error:?}"))
+    }
+
+    /// Create an empty `/work` session and checkpoint its initial filesystem.
+    pub fn new(limits: Limits) -> Self {
+        Self::with_clock(limits, crate::realtime::ClockMode::Virtual)
+    }
+
+    /// Like [`HarnessSession::new`], booting the machine with the given clock mode.
+    pub fn with_clock(limits: Limits, clock: crate::realtime::ClockMode) -> Self {
+        let mut environment = Environment::with_limits_and_clock(limits, clock);
+        let _ = environment.vfs.put_dir("/work", 0o755);
+        environment.cwd = "/work".to_string();
+        environment.set_var("PWD", "/work");
+        Self::from_environment(environment)
+    }
+
+    /// Start host-driven actions from an installed environment, retaining its budgets and VFS.
+    pub fn from_environment(environment: Environment) -> Self {
+        let baseline = environment.vfs.clone();
+        Self {
+            environment,
+            baseline,
+            actions: std::collections::BTreeMap::new(),
+            active_action: None,
+            next_action_id: 0,
+        }
+    }
+
+    /// Construct a machine with the single host-backed tool route granted at boot.
+    /// The caller owns dispatch and must complete calls returned by `poll_action`.
+    pub fn with_clock_and_host_tools(limits: Limits, clock: crate::realtime::ClockMode) -> Self {
+        let mut session = Self::with_clock(limits, clock);
+        session.environment.net.enable_host_tools();
+        session
+    }
+
+    /// Apply one request without broadening simulated capabilities.
+    pub fn handle(&mut self, request: HarnessRequest) -> HarnessResponse {
+        let id = request.id;
+        match self.apply(request.operation) {
+            Ok(result) => HarnessResponse {
+                id,
+                ok: true,
+                result: Some(result),
+                error: None,
+            },
+            Err(error) => HarnessResponse {
+                id,
+                ok: false,
+                result: None,
+                error: Some(error),
+            },
+        }
+    }
+
+    /// Replace the diff/reset baseline with the current bounded VFS state.
+    pub fn checkpoint_workspace(&mut self) -> Result<(), String> {
+        if self.environment.vfs.disk_used() > MAX_WORKSPACE_CLONE_BYTES {
+            return Err(format!(
+                "workspace exceeds the {MAX_WORKSPACE_CLONE_BYTES}-byte checkpoint limit"
+            ));
+        }
+        self.baseline = self.environment.vfs.clone();
+        Ok(())
+    }
+
+    /// Capture only `/work` file data and modes, never process state or host tool handlers.
+    ///
+    /// Export is refused while an action or background process can mutate the tree. The returned
+    /// snapshot is bounded before its base64 representation is allocated.
+    pub fn snapshot_workspace(&self) -> Result<Vec<WorkspaceSnapshotEntry>, String> {
+        if self.active_action.is_some()
+            || self.environment.net.has_unanswered_host_requests()
+            || self.environment.processes.iter().any(|record| {
+                record.pid != self.environment.process.pid
+                    && !matches!(record.status, ProcessStatus::Exited(_))
+            })
+        {
+            return Err("workspace snapshot requires a quiescent container".into());
+        }
+        let mut entries = Vec::new();
+        let mut total_bytes = 0usize;
+        for (path, node) in self.environment.vfs.all_paths() {
+            let Some(relative) = path.strip_prefix("/work/") else {
+                continue;
+            };
+            if entries.len() >= MAX_PACKAGE_SNAPSHOT_ENTRIES {
+                return Err("workspace snapshot has too many entries".into());
+            }
+            let entry = match &node.kind {
+                NodeKind::Dir => WorkspaceSnapshotEntry::Directory {
+                    path: relative.to_string(),
+                    mode: node.mode,
+                },
+                NodeKind::File(data) => {
+                    if data.len() > MAX_TRANSFER_RAW_BYTES {
+                        return Err("workspace snapshot file exceeds transfer limit".into());
+                    }
+                    total_bytes = total_bytes
+                        .checked_add(data.len())
+                        .ok_or("workspace snapshot is too large")?;
+                    if total_bytes > MAX_PACKAGE_SNAPSHOT_BYTES {
+                        return Err("workspace snapshot is too large".into());
+                    }
+                    WorkspaceSnapshotEntry::File {
+                        path: relative.to_string(),
+                        mode: node.mode,
+                        data_base64: STANDARD.encode(data.as_slice()),
+                    }
+                }
+                NodeKind::Symlink(_) | NodeKind::NativeExecutable(_) => {
+                    return Err(format!("unsupported workspace package entry: {path}"));
+                }
+            };
+            entries.push(entry);
+        }
+        Ok(entries)
+    }
+
+    /// Clone the complete deterministic machine state for a branching evaluation.
+    ///
+    /// Unlike a workspace checkpoint, a fork includes process state, descriptors and
+    /// pipe contents, logical processes, scheduler queues, timers, virtual-network fixtures,
+    /// telemetry, and resource counters. The estimate is checked before the host allocation;
+    /// each returned session subsequently owns and enforces an independent copy of its limits.
+    pub fn fork(&self) -> Result<Self, String> {
+        if self.environment.net.host_tools_enabled() {
+            return Err("sessions with host tools cannot be forked".into());
+        }
+        let current_disk = self.environment.vfs.disk_used();
+        let baseline_disk = self.baseline.disk_used();
+        if current_disk > MAX_WORKSPACE_CLONE_BYTES || baseline_disk > MAX_WORKSPACE_CLONE_BYTES {
+            return Err(format!(
+                "workspace exceeds the {MAX_WORKSPACE_CLONE_BYTES}-byte session fork limit"
+            ));
+        }
+        let usage = self
+            .environment
+            .resources
+            .outcome(0, current_disk, self.environment.vfs.disk_peak())
+            .usage;
+        let estimate = current_disk
+            .saturating_add(baseline_disk)
+            .saturating_add(usage.memory_current)
+            .saturating_add(self.environment.pending_stdout.len() as u64)
+            .saturating_add(self.environment.pending_stderr.len() as u64)
+            .saturating_add(self.environment.invocations.modeled_bytes())
+            .saturating_add(self.environment.cmd_trace.modeled_bytes())
+            .saturating_add(self.environment.unsupported.modeled_bytes())
+            .saturating_add(self.actions.values().fold(0_u64, |bytes, action| {
+                bytes
+                    .saturating_add(action.stdout.len() as u64)
+                    .saturating_add(action.stderr.len() as u64)
+                    .saturating_add(512)
+            }))
+            .saturating_add(1024 * 1024);
+        if estimate > MAX_SESSION_FORK_BYTES {
+            return Err(format!(
+                "session exceeds the {MAX_SESSION_FORK_BYTES}-byte fork limit"
+            ));
+        }
+        Ok(Self {
+            environment: self.environment.clone(),
+            baseline: self.baseline.clone(),
+            actions: self.actions.clone(),
+            active_action: self.active_action,
+            next_action_id: self.next_action_id,
+        })
+    }
+
+    fn apply(&mut self, operation: HarnessOperation) -> Result<HarnessResult, String> {
+        match operation {
+            HarnessOperation::Execute {
+                source,
+                stdin_base64,
+            } => {
+                let (stdin, reserved) = self.decode_bytes(&stdin_base64)?;
+                let result = self.execute(&source, &stdin);
+                self.environment.resources.release_memory(reserved);
+                result
+            }
+            HarnessOperation::StartExecute {
+                source,
+                stdin_base64,
+                stdin_closed,
+            } => {
+                let (stdin, reserved) = self.decode_bytes(&stdin_base64)?;
+                let result = self.start_action(&source, &stdin, stdin_closed);
+                self.environment.resources.release_memory(reserved);
+                result.map(HarnessResult::Action)
+            }
+            HarnessOperation::PollAction {
+                action_id,
+                work_quanta,
+                advance_time,
+            } => self
+                .poll_action(action_id, work_quanta, advance_time)
+                .map(HarnessResult::Action),
+            HarnessOperation::RespondToolCall {
+                request_id,
+                result,
+                error,
+            } => {
+                let (status, reply) = match (result, error) {
+                    (Some(value), None) if value.is_object() => {
+                        (200, serde_json::json!({"result": value}))
+                    }
+                    (None, Some(message)) => (200, serde_json::json!({"error": message})),
+                    _ => return Err("supply one object result or one error".into()),
+                };
+                let mut body = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
+                if body.len() > MAX_HOST_MESSAGE_BYTES {
+                    body = br#"{"error":"tool response too large"}"#.to_vec();
+                }
+                let pid = self.environment.net.complete_host_request(
+                    request_id,
+                    HttpResponse {
+                        status,
+                        headers: vec![("Content-Type".into(), "application/json".into())],
+                        body,
+                    },
+                )?;
+                self.environment
+                    .scheduler
+                    .wake_waiters(WaitReason::HostHttp(request_id));
+                debug_assert!(self.environment.processes.get(pid).is_some());
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::WriteStdin {
+                action_id,
+                data_base64,
+            } => {
+                let (bytes, reserved) = self.decode_bytes(&data_base64)?;
+                let result = self.write_action_stdin(action_id, &bytes);
+                self.environment.resources.release_memory(reserved);
+                result?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::CloseStdin { action_id } => {
+                self.close_action_stdin(action_id)?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::ReadActionOutput { action_id } => self
+                .read_action_output(action_id)
+                .map(HarnessResult::ActionOutput),
+            HarnessOperation::SignalProcess {
+                pid,
+                signal,
+                process_group,
+            } => {
+                let signal = crate::process::Signal::parse(&signal)
+                    .ok_or_else(|| format!("unsupported signal '{signal}'"))?;
+                if process_group {
+                    self.environment.send_signal_group(pid, signal)?;
+                } else {
+                    self.environment.send_signal(pid, signal)?;
+                }
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::SignalForeground { signal } => {
+                let signal = crate::process::Signal::parse(&signal)
+                    .ok_or_else(|| format!("unsupported signal '{signal}'"))?;
+                self.environment.send_terminal_signal(signal)?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::SetForegroundProcessGroup { process_group } => {
+                self.environment.set_terminal_foreground(process_group)?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::CancelAction { action_id } => {
+                self.cancel_action(action_id).map(HarnessResult::Action)
+            }
+            HarnessOperation::DropAction { action_id } => {
+                self.drop_action(action_id)?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::ForkSession { .. } | HarnessOperation::DropSession { .. } => {
+                Err("session lifecycle operations require a HarnessManager".to_string())
+            }
+            HarnessOperation::ReadFile { path } => self.read_file(&path),
+            HarnessOperation::WriteFile {
+                path,
+                data_base64,
+                mode,
+            } => {
+                validate_mode(mode)?;
+                let path = absolute_workspace_path(&path)?;
+                let (data, reserved) = self.decode_bytes(&data_base64)?;
+                let result = self
+                    .environment
+                    .vfs
+                    .put_file(&path, data, mode)
+                    .map_err(|error| error.to_string());
+                self.environment.resources.release_memory(reserved);
+                result?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::StatPath {
+                path,
+                follow_symlinks,
+            } => self.stat_path(&path, follow_symlinks),
+            HarnessOperation::MakeDirectory {
+                path,
+                mode,
+                parents,
+            } => {
+                validate_mode(mode)?;
+                let path = absolute_workspace_path(&path)?;
+                self.environment.sync_vfs_time();
+                if parents {
+                    self.environment
+                        .vfs
+                        .put_dir(&path, mode)
+                        .map_err(|error| error.to_string())?;
+                } else {
+                    self.environment
+                        .vfs
+                        .mkdir("/", &path)
+                        .and_then(|_| self.environment.vfs.chmod("/", &path, mode))
+                        .map_err(|error| error.to_string())?;
+                }
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::CreateSymlink { path, target } => {
+                if target.contains('\0') {
+                    return Err("symlink target contains NUL".to_string());
+                }
+                if target.len() > MAX_TRANSFER_RAW_BYTES {
+                    return Err("symlink target exceeds the transfer limit".to_string());
+                }
+                let path = absolute_workspace_path(&path)?;
+                self.environment.sync_vfs_time();
+                self.environment
+                    .vfs
+                    .symlink("/", &target, &path)
+                    .map_err(|error| error.to_string())?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::ApplyPatch { patch, strip } => {
+                crate::commands::patch::apply_harness_patch(&mut self.environment, &patch, strip)?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::RemovePath { path } => {
+                let path = absolute_workspace_path(&path)?;
+                self.environment
+                    .vfs
+                    .remove_all("/", &path)
+                    .map_err(|error| error.to_string())?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::ListPaths { root } => {
+                let root = absolute_workspace_path(&root)?;
+                if !self.environment.vfs.is_dir("/", &root) {
+                    return Err(format!("not a directory: {root}"));
+                }
+                Ok(HarnessResult::Paths {
+                    paths: self.environment.vfs.walk(&root),
+                })
+            }
+            HarnessOperation::Checkpoint => {
+                self.checkpoint_workspace()?;
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::WorkspaceDiff => Ok(HarnessResult::WorkspaceDiff {
+                changes: workspace_diff(&self.baseline, &self.environment.vfs)?,
+            }),
+            HarnessOperation::ResetWorkspace => {
+                self.environment.vfs = self.baseline.clone();
+                if !self.environment.vfs.is_dir("/", &self.environment.cwd) {
+                    self.environment.cwd = "/work".to_string();
+                    self.environment.set_var("PWD", "/work");
+                }
+                Ok(HarnessResult::Acknowledged)
+            }
+            HarnessOperation::Inspect => Ok(HarnessResult::Inspect(self.inspect())),
+        }
+    }
+
+    fn execute(&mut self, source: &str, stdin: &[u8]) -> Result<HarnessResult, String> {
+        if self.environment.net.host_tools_enabled() {
+            return Err("use start_execute and poll_action with host tools".into());
+        }
+        let action_id = self.start_action(source, stdin, true)?.action_id;
+        while self.active_action == Some(action_id) {
+            self.poll_action(action_id, MAX_POLL_QUANTA, true)?;
+        }
+        let action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} disappeared before completion"))?;
+        let outcome = action
+            .outcome
+            .clone()
+            .ok_or_else(|| format!("action {action_id} completed without an outcome"))?;
+        let unsupported_commands = invocation_names(&action.invocations, CommandTrust::Unsupported);
+        let partial_commands = invocation_names(&action.invocations, CommandTrust::Partial);
+        Ok(HarnessResult::Execute(ExecuteResult {
+            outcome,
+            stdout_base64: STANDARD.encode(action.stdout),
+            stderr_base64: STANDARD.encode(action.stderr),
+            commands: action.commands,
+            dropped_commands: action.dropped_commands,
+            unsupported: action.unsupported,
+            dropped_unsupported: action.dropped_unsupported,
+            unsupported_commands,
+            partial_commands,
+            invocations: action.invocations,
+            dropped_invocations: action.dropped_invocations,
+            network_requests: action.network_requests,
+            dropped_network_requests: action.dropped_network_requests,
+        }))
+    }
+
+    fn start_action(
+        &mut self,
+        source: &str,
+        stdin: &[u8],
+        stdin_closed: bool,
+    ) -> Result<ActionView, String> {
+        if self.active_action.is_some() {
+            return Err("session already has an active foreground action".to_string());
+        }
+        if self.actions.len() >= MAX_RETAINED_ACTIONS {
+            return Err(format!(
+                "session retained-action limit exceeded ({MAX_RETAINED_ACTIONS})"
+            ));
+        }
+        let action_id = self.next_action_id;
+        self.next_action_id = self
+            .next_action_id
+            .checked_add(1)
+            .ok_or_else(|| "action identifier space exhausted".to_string())?;
+        let mut action = RetainedAction::new(action_id, &self.environment);
+
+        if let Some(status) = self.environment.termination_status() {
+            action.complete(&self.environment, status);
+        } else {
+            match self.environment.parse_shell_action(source) {
+                Ok(node) => {
+                    let execution = crate::exec::ShellExecution::start(
+                        &mut self.environment,
+                        &node,
+                        stdin,
+                        stdin_closed,
+                    )?;
+                    action.root_pid = execution.target_pid();
+                    action.execution = Some(execution);
+                    self.active_action = Some(action_id);
+                }
+                Err((status, diagnostic)) => {
+                    action.stderr = diagnostic;
+                    action.complete(&self.environment, status);
+                }
+            }
+        }
+        let view = action.view(&self.environment);
+        self.actions.insert(action_id, action);
+        Ok(view)
+    }
+
+    fn poll_action(
+        &mut self,
+        action_id: u64,
+        work_quanta: usize,
+        advance_time: bool,
+    ) -> Result<ActionView, String> {
+        if work_quanta == 0 || work_quanta > MAX_POLL_QUANTA {
+            return Err(format!(
+                "work_quanta must be between 1 and {MAX_POLL_QUANTA}"
+            ));
+        }
+        let mut action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        let result = (|| {
+            let Some(mut execution) = action.execution.take() else {
+                return Ok(action.view(&self.environment));
+            };
+            action.state = ActionState::Running;
+            let mut completed = None;
+            let frame_at_start = self.environment.display.generation();
+            for _ in 0..work_quanta {
+                let poll = match execution.poll(&mut self.environment, advance_time) {
+                    Ok(poll) => poll,
+                    Err(error) => {
+                        action.execution = Some(execution);
+                        return Err(error);
+                    }
+                };
+                let had_unanswered = self.environment.net.has_unanswered_host_requests();
+                self.reap_host_requests_for_action(&action);
+                if matches!(poll, crate::exec::MachinePoll::Blocked)
+                    && had_unanswered
+                    && !self.environment.net.has_unanswered_host_requests()
+                {
+                    continue;
+                }
+                match poll {
+                    crate::exec::MachinePoll::Progress => {}
+                    crate::exec::MachinePoll::Blocked => {
+                        action.state = match self.environment.scheduler.state(action.root_pid) {
+                            Some(TaskState::Stopped(_)) => {
+                                let signal = match self
+                                    .environment
+                                    .processes
+                                    .get(action.root_pid)
+                                    .map(|record| record.status)
+                                {
+                                    Some(ProcessStatus::Stopped(signal)) => signal.name(),
+                                    _ => "STOP",
+                                };
+                                ActionState::Stopped {
+                                    signal: signal.to_string(),
+                                }
+                            }
+                            Some(TaskState::Blocked(reason)) => ActionState::Blocked {
+                                reason: Some(action_wait_reason_view(&self.environment, reason)),
+                            },
+                            _ => ActionState::Blocked { reason: None },
+                        };
+                        break;
+                    }
+                    crate::exec::MachinePoll::Ready(status) => {
+                        completed = Some(status);
+                        break;
+                    }
+                }
+                if self.environment.display.generation() != frame_at_start {
+                    break;
+                }
+            }
+            execution.drain_output(
+                &mut self.environment,
+                &mut action.stdout,
+                &mut action.stderr,
+            );
+            if let Some(status) = completed {
+                execution.restore(&mut self.environment);
+                action.complete(&self.environment, status);
+                self.active_action = None;
+                self.environment.net.discard_host_requests();
+            } else {
+                action.execution = Some(execution);
+            }
+            let mut view = action.view(&self.environment);
+            view.tool_calls = self
+                .environment
+                .net
+                .take_host_requests()
+                .into_iter()
+                .map(|pending| ToolCallView {
+                    request_id: pending.id,
+                    tool: pending.call.tool,
+                    arguments: pending.call.arguments,
+                })
+                .collect();
+            Ok(view)
+        })();
+        self.actions.insert(action_id, action);
+        result
+    }
+
+    fn write_action_stdin(&mut self, action_id: u64, bytes: &[u8]) -> Result<(), String> {
+        let mut action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        let result = match action.execution.as_mut() {
+            Some(execution) => execution.write_stdin(&mut self.environment, bytes),
+            None => Err(format!("action {action_id} is complete")),
+        };
+        if result.is_ok() {
+            action.state = ActionState::Running;
+        }
+        self.actions.insert(action_id, action);
+        result
+    }
+
+    fn close_action_stdin(&mut self, action_id: u64) -> Result<(), String> {
+        let mut action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        let result = match action.execution.as_mut() {
+            Some(execution) => execution.close_stdin(&mut self.environment),
+            None => Err(format!("action {action_id} is complete")),
+        };
+        if result.is_ok() {
+            action.state = ActionState::Running;
+        }
+        self.actions.insert(action_id, action);
+        result
+    }
+
+    fn cancel_action(&mut self, action_id: u64) -> Result<ActionView, String> {
+        let mut action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        let Some(mut execution) = action.execution.take() else {
+            self.actions.insert(action_id, action);
+            return Err(format!("action {action_id} is complete"));
+        };
+        let result = execution.cancel(&mut self.environment, 137);
+        let result = match result {
+            Ok(status) => {
+                execution.drain_output(
+                    &mut self.environment,
+                    &mut action.stdout,
+                    &mut action.stderr,
+                );
+                execution.restore(&mut self.environment);
+                if self.environment.exiting == Some(status) {
+                    self.environment.exiting = None;
+                }
+                self.environment.last_status = status;
+                action.complete(&self.environment, status);
+                action
+                    .outcome
+                    .as_mut()
+                    .expect("completed action")
+                    .interrupted = true;
+                self.active_action = None;
+                self.environment.net.discard_host_requests();
+                Ok(action.view(&self.environment))
+            }
+            Err(error) => {
+                action.execution = Some(execution);
+                Err(error)
+            }
+        };
+        self.actions.insert(action_id, action);
+        result
+    }
+
+    /// Keep only live callers from this foreground action, not older background jobs.
+    fn reap_host_requests_for_action(&mut self, action: &RetainedAction) {
+        let processes = &self.environment.processes;
+        self.environment.net.retain_host_requests(|pid| {
+            processes
+                .get(pid)
+                .is_some_and(|record| !matches!(record.status, ProcessStatus::Exited(_)))
+                && process_belongs_to_action(processes, pid, action.root_pid, action.first_new_pid)
+        });
+    }
+
+    fn read_action_output(&mut self, action_id: u64) -> Result<ActionOutput, String> {
+        let mut action = self
+            .actions
+            .remove(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        if let Some(execution) = action.execution.as_mut() {
+            execution.drain_output(
+                &mut self.environment,
+                &mut action.stdout,
+                &mut action.stderr,
+            );
+        }
+        let stdout = action.stdout[action.stdout_cursor..].to_vec();
+        let stderr = action.stderr[action.stderr_cursor..].to_vec();
+        action.stdout_cursor = action.stdout.len();
+        action.stderr_cursor = action.stderr.len();
+        let closed = action.execution.is_none();
+        self.actions.insert(action_id, action);
+        Ok(ActionOutput {
+            action_id,
+            stdout_base64: STANDARD.encode(stdout),
+            stderr_base64: STANDARD.encode(stderr),
+            stdout_closed: closed,
+            stderr_closed: closed,
+        })
+    }
+
+    fn drop_action(&mut self, action_id: u64) -> Result<(), String> {
+        let action = self
+            .actions
+            .get(&action_id)
+            .ok_or_else(|| format!("action {action_id} does not exist"))?;
+        if action.execution.is_some() {
+            return Err(format!("action {action_id} is still active"));
+        }
+        self.actions.remove(&action_id);
+        Ok(())
+    }
+
+    fn read_file(&self, path: &str) -> Result<HarnessResult, String> {
+        let path = absolute_workspace_path(path)?;
+        let length = self
+            .environment
+            .vfs
+            .file_len("/", &path)
+            .map_err(|error| error.to_string())?;
+        if length > MAX_TRANSFER_RAW_BYTES {
+            return Err(format!(
+                "file exceeds the {MAX_TRANSFER_RAW_BYTES}-byte transfer limit"
+            ));
+        }
+        let node = self
+            .environment
+            .vfs
+            .metadata("/", &path, true)
+            .map_err(|error| error.to_string())?;
+        let NodeKind::File(data) = node.kind else {
+            return Err(format!("not a regular file: {path}"));
+        };
+        Ok(HarnessResult::File(FileResult {
+            path,
+            data_base64: STANDARD.encode(data.as_slice()),
+            mode: node.mode,
+        }))
+    }
+
+    fn stat_path(&self, path: &str, follow_symlinks: bool) -> Result<HarnessResult, String> {
+        let path = absolute_workspace_path(path)?;
+        let node = self
+            .environment
+            .vfs
+            .metadata("/", &path, follow_symlinks)
+            .map_err(|error| error.to_string())?;
+        let (node_type, size, symlink_target) = match node.kind {
+            NodeKind::File(data) => (PathType::File, data.len() as u64, None),
+            NodeKind::Dir => (PathType::Directory, 0, None),
+            NodeKind::Symlink(target) => {
+                let size = target.len() as u64;
+                (PathType::Symlink, size, Some(target))
+            }
+            NodeKind::NativeExecutable(_) => (PathType::NativeExecutable, 0, None),
+        };
+        Ok(HarnessResult::PathMetadata(PathMetadata {
+            path,
+            node_type,
+            mode: node.mode,
+            uid: node.uid,
+            gid: node.gid,
+            mtime_ms: node.mtime,
+            size,
+            symlink_target,
+        }))
+    }
+
+    fn inspect(&self) -> InspectResult {
+        let wall_time_ns = self
+            .environment
+            .clock
+            .wall_time_ns()
+            .unwrap_or(crate::clock::DEFAULT_EPOCH_UTC_NS);
+        InspectResult {
+            cwd: self.environment.cwd.clone(),
+            outcome: self.environment.resources.outcome(
+                self.environment.last_status,
+                self.environment.vfs.disk_used(),
+                self.environment.vfs.disk_peak(),
+            ),
+            actions: self
+                .actions
+                .values()
+                .map(|action| action.view(&self.environment))
+                .collect(),
+            processes: self
+                .environment
+                .processes
+                .iter()
+                .map(|record| process_view(record, self.environment.scheduler.state(record.pid)))
+                .collect(),
+            current_pid: self.environment.scheduler.current(),
+            terminal: TerminalView {
+                session_id: self.environment.terminal.session_id,
+                foreground_process_group: self.environment.terminal.foreground_group,
+            },
+            monotonic_ns: self.environment.clock.monotonic_ns(),
+            wall_time_ns,
+            pending_events: self.environment.clock.pending_len(),
+            ready_events: self.environment.clock.ready_len(),
+            invocations: self.environment.invocations.events(),
+            dropped_invocations: self.environment.invocations.dropped(),
+            commands: self.environment.cmd_trace.values(),
+            dropped_commands: self.environment.cmd_trace.dropped(),
+            unsupported: self.environment.unsupported.values(),
+            dropped_unsupported: self.environment.unsupported.dropped(),
+            network_requests: self.environment.net.log.clone(),
+            dropped_network_requests: self.environment.net.dropped_requests,
+        }
+    }
+
+    fn decode_bytes(&mut self, value: &str) -> Result<(Vec<u8>, u64), String> {
+        let bound = value
+            .len()
+            .checked_div(4)
+            .and_then(|groups| groups.checked_mul(3))
+            .and_then(|bytes| bytes.checked_add(3))
+            .ok_or_else(|| "base64 payload is too large".to_string())?;
+        if bound > MAX_TRANSFER_RAW_BYTES {
+            return Err(format!(
+                "payload exceeds the {MAX_TRANSFER_RAW_BYTES}-byte transfer limit"
+            ));
+        }
+        let reserved = u64::try_from(bound).map_err(|_| "payload is too large".to_string())?;
+        if !self.environment.resources.reserve_memory(reserved) {
+            return Err("memory limit exceeded while decoding request bytes".to_string());
+        }
+        match STANDARD.decode(value) {
+            Ok(bytes) => Ok((bytes, reserved)),
+            Err(error) => {
+                self.environment.resources.release_memory(reserved);
+                Err(format!("invalid base64 data: {error}"))
+            }
+        }
+    }
+}
+
+fn process_view(record: &ProcessRecord, task_state: Option<TaskState>) -> ProcessView {
+    ProcessView {
+        pid: record.pid,
+        ppid: record.ppid,
+        process_group: record.process_group,
+        session_id: record.session_id,
+        command: record.command.clone(),
+        cwd: record.cwd.clone(),
+        status: match (record.status, task_state) {
+            (ProcessStatus::Exited(status), _) | (_, Some(TaskState::Exited(status))) => {
+                ProcessViewStatus::Exited { status }
+            }
+            (ProcessStatus::Stopped(signal), _) => ProcessViewStatus::Stopped {
+                signal: signal.name().to_string(),
+            },
+            (_, Some(TaskState::Stopped(_))) => ProcessViewStatus::Stopped {
+                signal: "STOP".to_string(),
+            },
+            (_, Some(TaskState::Runnable)) => ProcessViewStatus::Runnable,
+            (_, Some(TaskState::Running)) => ProcessViewStatus::Running,
+            (_, Some(TaskState::Blocked(reason))) => ProcessViewStatus::Blocked {
+                reason: wait_reason_view(reason),
+            },
+            (ProcessStatus::Running, None) => ProcessViewStatus::Running,
+        },
+    }
+}
+
+fn wait_reason_view(reason: WaitReason) -> WaitReasonView {
+    match reason {
+        WaitReason::ShellSession(pid) => WaitReasonView::ShellSession { pid },
+        WaitReason::Timer(deadline_ns) => WaitReasonView::Timer { deadline_ns },
+        WaitReason::InputReadable(description) => WaitReasonView::InputReadable { description },
+        WaitReason::PipeReadable(pipe) => WaitReasonView::PipeReadable { pipe },
+        WaitReason::PipeWritable(pipe) => WaitReasonView::PipeWritable { pipe },
+        WaitReason::FileLock(inode) => WaitReasonView::FileLock { inode },
+        WaitReason::HostHttp(request_id) => WaitReasonView::HostHttp { request_id },
+        WaitReason::Child(pid) => WaitReasonView::Child { pid },
+        WaitReason::ChildActivity(pid) => WaitReasonView::ChildActivity { pid },
+        WaitReason::ChildDeadline(pid, deadline_ns) => {
+            WaitReasonView::ChildDeadline { pid, deadline_ns }
+        }
+        WaitReason::ChildActivityDeadline(pid, deadline_ns) => {
+            WaitReasonView::ChildActivityDeadline { pid, deadline_ns }
+        }
+        WaitReason::Any(reasons) => WaitReasonView::Any {
+            reasons: reasons.into_iter().map(wait_reason_view).collect(),
+        },
+    }
+}
+
+/// Surface the resource that can unblock an action, even when its shell awaits a child.
+fn action_wait_reason_view(environment: &Environment, mut reason: WaitReason) -> WaitReasonView {
+    for _ in 0..8 {
+        let WaitReason::Child(pid) = reason else {
+            break;
+        };
+        let Some(TaskState::Blocked(child_reason)) = environment.scheduler.state(pid) else {
+            break;
+        };
+        reason = child_reason;
+    }
+    wait_reason_view(reason)
+}
+
+fn invocation_names(events: &[InvocationEvent], trust: CommandTrust) -> Vec<String> {
+    events
+        .iter()
+        .filter(|event| event.trust == trust)
+        .filter_map(|event| event.argv.first().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Return a bounded, stable description of changes under `/work` between two VFS snapshots.
+pub fn workspace_diff(before: &Vfs, after: &Vfs) -> Result<Vec<WorkspaceChange>, String> {
+    let paths = before
+        .all_paths()
+        .map(|(path, _)| path)
+        .chain(after.all_paths().map(|(path, _)| path))
+        .filter(|path| path.as_str() == "/work" || path.starts_with("/work/"))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let mut transfer = 0usize;
+    let mut changes = Vec::new();
+    for path in paths {
+        let old = before.raw_get(&path);
+        let new = after.raw_get(&path);
+        if nodes_equal(old, new) {
+            continue;
+        }
+        transfer = transfer
+            .checked_add(old.map_or(0, node_transfer_bytes))
+            .and_then(|size| size.checked_add(new.map_or(0, node_transfer_bytes)))
+            .ok_or_else(|| "workspace diff is too large".to_string())?;
+        if transfer > MAX_TRANSFER_RAW_BYTES {
+            return Err(format!(
+                "workspace diff exceeds the {MAX_TRANSFER_RAW_BYTES}-byte transfer limit"
+            ));
+        }
+        let change = match (old, new) {
+            (None, Some(_)) => ChangeKind::Added,
+            (Some(_), None) => ChangeKind::Deleted,
+            (Some(_), Some(_)) => ChangeKind::Modified,
+            (None, None) => continue,
+        };
+        changes.push(WorkspaceChange {
+            path,
+            change,
+            before: old.map(workspace_node),
+            after: new.map(workspace_node),
+        });
+    }
+    Ok(changes)
+}
+
+fn nodes_equal(left: Option<&Node>, right: Option<&Node>) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(left), Some(right)) if left.mode == right.mode => match (&left.kind, &right.kind) {
+            (NodeKind::File(left), NodeKind::File(right)) => left == right,
+            (NodeKind::Dir, NodeKind::Dir) => true,
+            (NodeKind::Symlink(left), NodeKind::Symlink(right)) => left == right,
+            (NodeKind::NativeExecutable(left), NodeKind::NativeExecutable(right)) => left == right,
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn node_transfer_bytes(node: &Node) -> usize {
+    match &node.kind {
+        NodeKind::File(data) => data.len(),
+        NodeKind::Dir => 0,
+        NodeKind::Symlink(target) => target.len(),
+        NodeKind::NativeExecutable(_) => 0,
+    }
+}
+
+fn workspace_node(node: &Node) -> WorkspaceNode {
+    match &node.kind {
+        NodeKind::File(data) => WorkspaceNode::File {
+            mode: node.mode,
+            data_base64: STANDARD.encode(data.as_slice()),
+        },
+        NodeKind::Dir => WorkspaceNode::Directory { mode: node.mode },
+        NodeKind::Symlink(target) => WorkspaceNode::Symlink {
+            mode: node.mode,
+            target: target.clone(),
+        },
+        NodeKind::NativeExecutable(program) => WorkspaceNode::NativeExecutable {
+            mode: node.mode,
+            program: program.name().to_string(),
+        },
+    }
+}
+
+fn absolute_workspace_path(path: &str) -> Result<String, String> {
+    if path.contains('\0') {
+        return Err("workspace path contains NUL".to_string());
+    }
+    let path = if path.starts_with('/') {
+        crate::vfs::normalize(path)
+    } else {
+        crate::vfs::resolve_against("/work", path)
+    };
+    if path == "/work" || path.starts_with("/work/") {
+        Ok(path)
+    } else {
+        Err("harness file operations are confined to /work".to_string())
+    }
+}
+
+fn default_file_mode() -> u32 {
+    0o644
+}
+
+fn default_root() -> String {
+    "/work".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_poll_quanta() -> usize {
+    1_024
+}
+
+fn default_directory_mode() -> u32 {
+    0o755
+}
+
+fn default_patch_strip() -> usize {
+    1
+}
+
+fn validate_mode(mode: u32) -> Result<(), String> {
+    if mode & !0o7777 == 0 {
+        Ok(())
+    } else {
+        Err(format!("invalid file mode {mode:#o}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_snapshot_captures_workspace_only_and_rejects_links() {
+        let mut session = HarnessSession::with_clock_and_host_tools(
+            Limits::default(),
+            crate::realtime::ClockMode::Virtual,
+        );
+        session
+            .environment
+            .vfs
+            .put_file("/work/data", b"value".to_vec(), 0o640)
+            .unwrap();
+        let entries = session.snapshot_workspace().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(
+            &entries[0],
+            WorkspaceSnapshotEntry::File { path, mode, data_base64 }
+                if path == "data" && *mode == 0o640 && data_base64 == "dmFsdWU="
+        ));
+        session
+            .environment
+            .vfs
+            .symlink("/", "data", "/work/link")
+            .unwrap();
+        assert!(session.snapshot_workspace().is_err());
+    }
+
+    #[test]
+    fn host_calls_are_scoped_to_current_action_descendants() {
+        let mut processes =
+            crate::process::ProcessTable::new(1_000, "/work".into(), Default::default());
+        let old = processes
+            .spawn(
+                1_000,
+                crate::process::ChildPlacement::Inherit,
+                "old",
+                "/work",
+                Default::default(),
+            )
+            .unwrap();
+        let first_new_pid = old + 1;
+        let current = processes
+            .spawn(
+                1_000,
+                crate::process::ChildPlacement::Inherit,
+                "current",
+                "/work",
+                Default::default(),
+            )
+            .unwrap();
+        let old_descendant = processes
+            .spawn(
+                old,
+                crate::process::ChildPlacement::Inherit,
+                "old-descendant",
+                "/work",
+                Default::default(),
+            )
+            .unwrap();
+        let current_descendant = processes
+            .spawn(
+                current,
+                crate::process::ChildPlacement::Inherit,
+                "current-descendant",
+                "/work",
+                Default::default(),
+            )
+            .unwrap();
+
+        assert!(process_belongs_to_action(
+            &processes,
+            1_000,
+            1_000,
+            first_new_pid
+        ));
+        assert!(process_belongs_to_action(
+            &processes,
+            current,
+            1_000,
+            first_new_pid
+        ));
+        assert!(process_belongs_to_action(
+            &processes,
+            current_descendant,
+            1_000,
+            first_new_pid
+        ));
+        assert!(!process_belongs_to_action(
+            &processes,
+            old,
+            1_000,
+            first_new_pid
+        ));
+        assert!(!process_belongs_to_action(
+            &processes,
+            old_descendant,
+            1_000,
+            first_new_pid
+        ));
+    }
+
+    #[test]
+    fn session_forks_preserve_and_isolate_complete_machine_state() {
+        let mut original = HarnessSession::new(Limits::default());
+        original
+            .environment
+            .run_script_capture("X=parent; printf base > /work/value; sleep 2 &");
+        original.checkpoint_workspace().unwrap();
+        let mut branch = original.fork().unwrap();
+
+        let (_, original_out, original_err) = original
+            .environment
+            .run_script_capture("wait; printf '%s:' \"$X\"; cat /work/value; date +%s");
+        let (_, branch_out, branch_err) = branch.environment.run_script_capture(
+            "X=branch; printf child > /work/value; wait; printf '%s:' \"$X\"; cat /work/value; date +%s",
+        );
+        assert!(
+            original_err.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&original_err)
+        );
+        assert!(
+            branch_err.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&branch_err)
+        );
+        let original_out = String::from_utf8_lossy(&original_out);
+        let branch_out = String::from_utf8_lossy(&branch_out);
+        assert!(original_out.starts_with("parent:base"), "{original_out}");
+        assert!(branch_out.starts_with("branch:child"), "{branch_out}");
+        assert_eq!(
+            original.environment.clock.monotonic_ns(),
+            branch.environment.clock.monotonic_ns()
+        );
+        assert!(
+            workspace_diff(&original.baseline, &original.environment.vfs)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            workspace_diff(&branch.baseline, &branch.environment.vfs)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn session_forks_reject_large_workspaces() {
+        let mut oversized = HarnessSession::new(Limits::default());
+        oversized
+            .environment
+            .vfs
+            .put_file(
+                "/work/large",
+                vec![0; MAX_WORKSPACE_CLONE_BYTES as usize + 1],
+                0o644,
+            )
+            .unwrap();
+        let error = match oversized.fork() {
+            Ok(_) => panic!("oversized session fork unexpectedly succeeded"),
+            Err(error) => error,
+        };
+        assert!(error.contains("session fork limit"), "{error}");
+    }
+
+    #[test]
+    fn execute_reports_each_partial_command_in_its_own_action() {
+        let mut session = HarnessSession::new(Limits::default());
+        for _ in 0..2 {
+            let HarnessResult::Execute(result) = session
+                .execute("sed 's/a/b/' /missing", &[])
+                .expect("execute action")
+            else {
+                panic!("execute returned the wrong result kind");
+            };
+            assert_eq!(result.partial_commands, ["sed"]);
+            assert_eq!(result.invocations.len(), 1);
+            assert_eq!(result.invocations[0].trust, CommandTrust::Partial);
+            assert!(result.invocations[0].status.is_some());
+        }
+    }
+
+    #[test]
+    fn inspect_uses_scheduler_state_and_typed_wait_reasons() {
+        let mut session = HarnessSession::new(Limits::default());
+        session.environment.run_script_capture("sleep 10 &");
+        session.environment.run_script_capture("true");
+
+        let inspect = session.inspect();
+        assert_eq!(inspect.current_pid, Some(1_234));
+        assert_eq!(inspect.pending_events, 1);
+        assert!(inspect.processes.iter().any(|process| matches!(
+            process.status,
+            ProcessViewStatus::Blocked {
+                reason: WaitReasonView::Timer {
+                    deadline_ns: 10_000_000_000
+                }
+            }
+        )));
+        assert!(inspect
+            .invocations
+            .iter()
+            .any(|event| event.argv == ["sleep", "10"] && event.status.is_none()));
+    }
+
+    #[test]
+    fn retained_action_polls_time_and_output_incrementally() {
+        let mut session = HarnessSession::new(Limits::default());
+        let started = session
+            .start_action("printf one; sleep 2; printf two", &[], true)
+            .unwrap();
+        let action_id = started.action_id;
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert_eq!(
+            blocked.state,
+            ActionState::Blocked {
+                reason: Some(WaitReasonView::Timer {
+                    deadline_ns: 2_000_000_000
+                })
+            }
+        );
+        assert_eq!(session.environment.clock.monotonic_ns(), 0);
+        let first = session.read_action_output(action_id).unwrap();
+        assert_eq!(STANDARD.decode(first.stdout_base64).unwrap(), b"one");
+        assert!(!first.stdout_closed);
+
+        let mut branch = session.fork().unwrap();
+        for machine in [&mut session, &mut branch] {
+            let complete = machine.poll_action(action_id, 100, true).unwrap();
+            assert_eq!(complete.state, ActionState::Complete { status: 0 });
+            assert!(!complete.outcome.as_ref().unwrap().interrupted);
+            assert_eq!(machine.environment.clock.monotonic_ns(), 2_000_000_000);
+            let final_output = machine.read_action_output(action_id).unwrap();
+            assert_eq!(STANDARD.decode(final_output.stdout_base64).unwrap(), b"two");
+            assert!(final_output.stdout_closed);
+        }
+    }
+
+    #[test]
+    fn wasm_guest_answers_streaming_stdin_and_snapshots_fail_explicitly() {
+        // Echoes each read back to stdout until EOF.
+        let guest = wat::parse_str(
+            r#"(module
+                (import "wasi_snapshot_preview1" "fd_read" (func $read (param i32 i32 i32 i32) (result i32)))
+                (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    (loop $echo
+                        (i32.store (i32.const 0) (i32.const 64))
+                        (i32.store (i32.const 4) (i32.const 64))
+                        (drop (call $read (i32.const 0) (i32.const 0) (i32.const 1) (i32.const 8)))
+                        (if (i32.eqz (i32.load (i32.const 8))) (then return))
+                        (i32.store (i32.const 4) (i32.load (i32.const 8)))
+                        (drop (call $write (i32.const 1) (i32.const 0) (i32.const 1) (i32.const 12)))
+                        (br $echo))))"#,
+        )
+        .unwrap();
+        let mut session = HarnessSession::new(Limits::default());
+        session
+            .environment
+            .vfs
+            .write("/", "/work/echo", &guest, 0o755)
+            .unwrap();
+        let action_id = session
+            .start_action("./echo", &[], false)
+            .unwrap()
+            .action_id;
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert!(matches!(
+            blocked.state,
+            ActionState::Blocked {
+                reason: Some(WaitReasonView::InputReadable { .. })
+            }
+        ));
+        session.write_action_stdin(action_id, b"hello\n").unwrap();
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert!(matches!(blocked.state, ActionState::Blocked { .. }));
+        let reply = session.read_action_output(action_id).unwrap();
+        assert_eq!(STANDARD.decode(reply.stdout_base64).unwrap(), b"hello\n");
+
+        // A snapshot cannot carry the live Wasmtime stack; its copy of the guest fails when
+        // it is next scheduled.
+        let mut branch = session.fork().unwrap();
+        branch.close_action_stdin(action_id).unwrap();
+        let failed = branch.poll_action(action_id, 100, false).unwrap();
+        assert_eq!(failed.state, ActionState::Complete { status: 126 });
+        let diagnostic = branch.read_action_output(action_id).unwrap();
+        assert!(
+            String::from_utf8(STANDARD.decode(diagnostic.stderr_base64).unwrap())
+                .unwrap()
+                .contains("cannot snapshot a running wasm process")
+        );
+
+        session.write_action_stdin(action_id, b"again\n").unwrap();
+        session.close_action_stdin(action_id).unwrap();
+        let complete = session.poll_action(action_id, 100, false).unwrap();
+        assert_eq!(complete.state, ActionState::Complete { status: 0 });
+        let output = session.read_action_output(action_id).unwrap();
+        assert_eq!(STANDARD.decode(output.stdout_base64).unwrap(), b"again\n");
+        assert_eq!(
+            session.environment.resources.memory_mark(),
+            branch.environment.resources.memory_mark()
+        );
+    }
+
+    #[test]
+    fn retained_action_accepts_bounded_streaming_stdin() {
+        let mut session = HarnessSession::new(Limits::default());
+        let action_id = session.start_action("cat", &[], false).unwrap().action_id;
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert!(matches!(
+            blocked.state,
+            ActionState::Blocked {
+                reason: Some(WaitReasonView::InputReadable { .. })
+            }
+        ));
+        session.write_action_stdin(action_id, b"hello").unwrap();
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert!(matches!(blocked.state, ActionState::Blocked { .. }));
+        session.close_action_stdin(action_id).unwrap();
+        let complete = session.poll_action(action_id, 100, false).unwrap();
+        assert_eq!(complete.state, ActionState::Complete { status: 0 });
+        let output = session.read_action_output(action_id).unwrap();
+        assert_eq!(STANDARD.decode(output.stdout_base64).unwrap(), b"hello");
+        assert!(session.write_action_stdin(action_id, b"late").is_err());
+        session.drop_action(action_id).unwrap();
+    }
+
+    #[test]
+    fn typed_workspace_operations_share_atomic_vfs_foundations() {
+        let mut session = HarnessSession::new(Limits::default());
+        assert!(session
+            .apply(HarnessOperation::MakeDirectory {
+                path: "nested/leaf".into(),
+                mode: 0o750,
+                parents: false,
+            })
+            .is_err());
+        session
+            .apply(HarnessOperation::MakeDirectory {
+                path: "nested/leaf".into(),
+                mode: 0o750,
+                parents: true,
+            })
+            .unwrap();
+        session
+            .apply(HarnessOperation::WriteFile {
+                path: "nested/leaf/note".into(),
+                data_base64: STANDARD.encode(b"old\n"),
+                mode: 0o640,
+            })
+            .unwrap();
+        session
+            .apply(HarnessOperation::CreateSymlink {
+                path: "link".into(),
+                target: "nested/leaf/note".into(),
+            })
+            .unwrap();
+        let HarnessResult::PathMetadata(link) = session
+            .stat_path("link", false)
+            .expect("lstat workspace link")
+        else {
+            panic!("stat returned the wrong result kind");
+        };
+        assert!(matches!(link.node_type, PathType::Symlink));
+        assert_eq!(link.symlink_target.as_deref(), Some("nested/leaf/note"));
+        let HarnessResult::PathMetadata(file) = session
+            .stat_path("link", true)
+            .expect("follow workspace link")
+        else {
+            panic!("stat returned the wrong result kind");
+        };
+        assert!(matches!(file.node_type, PathType::File));
+        assert_eq!(file.mode, 0o640);
+        assert_eq!(file.size, 4);
+
+        session.environment.run_script_capture("cd /");
+        session
+            .apply(HarnessOperation::ApplyPatch {
+                patch: "*** Begin Patch\n*** Update File: nested/leaf/note\n@@\n-old\n+new\n*** End Patch\n".into(),
+                strip: 1,
+            })
+            .unwrap();
+        assert_eq!(
+            session
+                .environment
+                .vfs
+                .read("/", "/work/nested/leaf/note")
+                .unwrap(),
+            b"new\n"
+        );
+        assert!(!session.environment.vfs.exists("/", "/nested/leaf/note"));
+    }
+
+    #[test]
+    fn harness_patch_failure_is_atomic_and_bounded() {
+        let mut session = HarnessSession::new(Limits::default());
+        session
+            .environment
+            .vfs
+            .put_file("/work/note", b"keep\n".to_vec(), 0o644)
+            .unwrap();
+        let invalid = HarnessOperation::ApplyPatch {
+            patch:
+                "*** Begin Patch\n*** Update File: note\n@@\n-missing\n+changed\n*** End Patch\n"
+                    .into(),
+            strip: 1,
+        };
+        assert!(session.apply(invalid).is_err());
+        assert_eq!(
+            session.environment.vfs.read("/", "/work/note").unwrap(),
+            b"keep\n"
+        );
+        let oversized = HarnessOperation::ApplyPatch {
+            patch: "x".repeat(8 * 1024 * 1024 + 1),
+            strip: 1,
+        };
+        assert!(session.apply(oversized).unwrap_err().contains("8 MiB"));
+    }
+
+    #[test]
+    fn cancel_action_terminates_foreground_group_and_reuses_session() {
+        let mut session = HarnessSession::new(Limits::default());
+        let action_id = session
+            .start_action("sleep 10 | cat", &[], true)
+            .unwrap()
+            .action_id;
+        let blocked = session.poll_action(action_id, 100, false).unwrap();
+        assert!(matches!(blocked.state, ActionState::Blocked { .. }));
+        assert!(session.environment.clock.pending_len() > 0);
+
+        let cancelled = session.cancel_action(action_id).unwrap();
+        assert!(matches!(
+            cancelled.state,
+            ActionState::Complete { status: 137 }
+        ));
+        assert_eq!(cancelled.outcome.unwrap().exit_status, 137);
+        assert_eq!(session.environment.clock.pending_len(), 0);
+        assert!(session.active_action.is_none());
+        assert!(session
+            .environment
+            .processes
+            .running_group(cancelled.root_pid)
+            .iter()
+            .all(|pid| *pid == cancelled.root_pid));
+
+        let HarnessResult::Execute(reused) = session.execute("printf reused", &[]).unwrap() else {
+            panic!("reused session returned the wrong result kind");
+        };
+        assert_eq!(reused.outcome.exit_status, 0);
+        assert_eq!(STANDARD.decode(reused.stdout_base64).unwrap(), b"reused");
+        assert!(session.cancel_action(action_id).is_err());
+    }
+
+    #[test]
+    fn cancel_action_terminates_a_stopped_foreground_group() {
+        let mut session = HarnessSession::new(Limits::default());
+        let action_id = session
+            .start_action("sleep 10", &[], true)
+            .unwrap()
+            .action_id;
+        session.poll_action(action_id, 100, false).unwrap();
+        session
+            .environment
+            .send_terminal_signal(crate::process::Signal::Stop)
+            .unwrap();
+        let stopped = session.poll_action(action_id, 100, false).unwrap();
+        assert_eq!(
+            stopped.state,
+            ActionState::Stopped {
+                signal: "STOP".to_string()
+            }
+        );
+
+        let cancelled = session.cancel_action(action_id).unwrap();
+        assert_eq!(cancelled.state, ActionState::Complete { status: 137 });
+        assert_eq!(session.environment.clock.pending_len(), 0);
+    }
+}

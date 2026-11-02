@@ -1,0 +1,134 @@
+"""Move a brief's manual inbox state and reclaim it on backend resume."""
+
+import json
+import sqlite3
+import time
+
+from ...inbox import db
+from . import state as handoff_state
+
+
+def _move_manual_state(conn: sqlite3.Connection, source: str, target: str) -> None:
+    old = db.get_by_channel(conn, source, unread_only=False)
+    new = db.get_by_channel(conn, target, unread_only=False)
+    if old is None or new is None:
+        raise ValueError("Both backend channels need inbox rows")
+
+    if "auto_name" in old.metadata:
+        metadata = dict(new.metadata)
+        metadata["auto_name"] = new.name or ""
+        conn.execute(
+            "UPDATE notifications SET name = ?, metadata = ? WHERE channel = ?",
+            (old.name, json.dumps(metadata), target),
+        )
+    elif db.is_backend_name(old.metadata.get("name_source")) and not db.is_backend_name(
+        new.metadata.get("name_source")
+    ):
+        metadata = dict(new.metadata)
+        metadata["name_source"] = old.metadata["name_source"]
+        conn.execute(
+            "UPDATE notifications SET name = ?, metadata = ? WHERE channel = ?",
+            (old.name, json.dumps(metadata), target),
+        )
+    conn.execute("DELETE FROM pins WHERE channel = ?", (target,))
+    conn.execute("UPDATE pins SET channel = ? WHERE channel = ?", (target, source))
+    conn.execute("DELETE FROM session_emoji WHERE channel = ?", (target,))
+    conn.execute("UPDATE session_emoji SET channel = ? WHERE channel = ?", (target, source))
+    if (
+        old.status in ("snoozed", "archived")
+        and old.snooze_until
+        and old.snooze_until > time.time()
+    ):
+        conn.execute(
+            """UPDATE notifications SET status = 'snoozed', snooze_until = ?,
+               snooze_prev_status = ?, snooze_through_turns = ? WHERE channel = ?""",
+            (old.snooze_until, old.snooze_prev_status, old.snooze_through_turns, target),
+        )
+
+
+def move(conn: sqlite3.Connection, path: str, source: str, target: str, reason: str) -> None:
+    """Give *target* the brief at *path* and *source*'s manual inbox state, then archive *source*.
+
+    Runs in the caller's transaction. Both channels stay linked to the brief, so a later
+    resume of either one reclaims it.
+    """
+    _move_manual_state(conn, source, target)
+    conn.execute("DELETE FROM session_briefs WHERE channel = ?", (target,))
+    conn.execute(
+        "UPDATE session_briefs SET channel = ?, attached_at = ? WHERE path = ?",
+        (target, time.time(), path),
+    )
+    db.archive_channel(conn, source, reason, commit=False)
+    generation = conn.execute(
+        "SELECT COALESCE(MAX(generation), 0) FROM brief_handoff_sessions WHERE path = ?",
+        (path,),
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT OR IGNORE INTO brief_handoff_sessions VALUES (?, ?, ?)",
+        (path, source, generation),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO brief_handoff_sessions VALUES (?, ?, ?)",
+        (path, target, generation + 1),
+    )
+
+
+def transfer(conn: sqlite3.Connection, token: str) -> None:
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = handoff_state.get(conn, token)
+        if row["phase"] in ("transferred", "complete"):
+            conn.commit()
+            return
+
+        if not row["ready"] or not row["accepted"] or not handoff_state.ready(conn, row)[0]:
+            raise ValueError("Both readiness checks are required")
+
+        holder = conn.execute(
+            "SELECT channel FROM session_briefs WHERE path = ?", (row["path"],)
+        ).fetchone()
+        if holder is None or holder["channel"] != row["source"]:
+            raise ValueError("The outgoing channel no longer holds this brief")
+
+        move(conn, row["path"], row["source"], row["target"], "brief-handoff-transfer")
+        conn.execute("UPDATE brief_handoffs SET phase = 'transferred' WHERE token = ?", (token,))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+
+
+def reclaim(conn: sqlite3.Connection, channel: str) -> bool:
+    known = conn.execute(
+        "SELECT path FROM brief_handoff_sessions WHERE channel = ?", (channel,)
+    ).fetchone()
+    if known is None:
+        return False
+
+    holder = conn.execute(
+        "SELECT channel FROM session_briefs WHERE path = ?", (known["path"],)
+    ).fetchone()
+    if holder is None or holder["channel"] == channel:
+        return False
+
+    linked = conn.execute(
+        "SELECT 1 FROM brief_handoff_sessions WHERE path = ? AND channel = ?",
+        (known["path"], holder["channel"]),
+    ).fetchone()
+    if linked is None:
+        return False
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        _move_manual_state(conn, holder["channel"], channel)
+        conn.execute("DELETE FROM session_briefs WHERE channel = ?", (channel,))
+        conn.execute(
+            "UPDATE session_briefs SET channel = ?, attached_at = ? WHERE path = ?",
+            (channel, time.time(), known["path"]),
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+
+    return True

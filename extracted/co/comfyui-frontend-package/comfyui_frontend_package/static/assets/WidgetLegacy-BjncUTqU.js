@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-BVjVIj2m.js";export{e as default};

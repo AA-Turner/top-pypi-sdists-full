@@ -1,0 +1,246 @@
+name: Tests PR
+
+on:
+  merge_group:
+  pull_request:
+    paths: ["src/**", "!src/truthound/mcp/**", "!src/truthound/validators/streaming/**", "tests/**", "!tests/test_mcp*.py", "!tests/test_openai_plugin.py", "!tests/test_docs*.py", "!tests/test_ci*.py", "!tests/test_streaming_sources.py", "!tests/test_tenant_postgresql_isolation.py", "!tests/test_tenant_mysql_isolation.py", "!tests/test_tenant_oracle_isolation.py", "!tests/test_tenant_sqlserver_isolation.py", "!tests/mcp_sql_client.py", "!tests/validators/test_streaming_validators.py", "pyproject.toml", "uv.lock", "conftest.py", "pytest.ini"]
+  push:
+    branches: [main]
+    paths: ["src/**", "!src/truthound/mcp/**", "!src/truthound/validators/streaming/**", "tests/**", "!tests/test_mcp*.py", "!tests/test_openai_plugin.py", "!tests/test_docs*.py", "!tests/test_ci*.py", "!tests/test_streaming_sources.py", "!tests/test_tenant_postgresql_isolation.py", "!tests/test_tenant_mysql_isolation.py", "!tests/test_tenant_oracle_isolation.py", "!tests/test_tenant_sqlserver_isolation.py", "!tests/mcp_sql_client.py", "!tests/validators/test_streaming_validators.py", "pyproject.toml", "uv.lock", "conftest.py", "pytest.ini"]
+
+concurrency:
+  group: tests-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Hosted runners have small thread/memory ceilings; keep native ML/Polars
+  # workloads deterministic so contract shards fail only on real regressions.
+  PYTHONUNBUFFERED: "1"
+  POLARS_MAX_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  LOKY_MAX_CPU_COUNT: "1"
+  TRUTHOUND_ML_N_JOBS: "1"
+
+jobs:
+  quality-collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Sync locked dev environment
+        run: uv sync --frozen --extra dev
+
+      - name: Prepare quality shard artifacts
+        run: mkdir -p test-artifacts/quality-shards
+
+      - name: Collect contract nodes
+        run: uv run --frozen --extra dev python -m pytest --collect-only -q tests -m "contract" -p no:cacheprovider > test-artifacts/quality-contract-collect.txt
+
+      - name: Collect fault and e2e nodes
+        run: uv run --frozen --extra dev python -m pytest --collect-only -q tests -m "fault or e2e" -p no:cacheprovider > test-artifacts/quality-fault-e2e-collect.txt
+
+      - name: Collect e2e nodes
+        run: |
+          set +e
+          uv run --frozen --extra dev python -m pytest --collect-only -q tests -m "e2e" -p no:cacheprovider > test-artifacts/quality-e2e-collect.txt
+          status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 5 ]; then
+            exit "$status"
+          fi
+
+      - name: Build quality shard manifests
+        run: |
+          uv run --frozen --extra dev python verification/ci/build_quality_shards.py \
+            --contract-nodeids test-artifacts/quality-contract-collect.txt \
+            --fault-nodeids test-artifacts/quality-fault-e2e-collect.txt \
+            --e2e-nodeids test-artifacts/quality-e2e-collect.txt \
+            --output-dir test-artifacts/quality-shards \
+            --summary-out test-artifacts/quality-summary.json \
+            --contract-shards 4
+
+      - name: Log quality summary
+        run: |
+          uv run --frozen --extra dev python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(Path("test-artifacts/quality-summary.json").read_text(encoding="utf-8"))
+          print("Quality gate selection summary")
+          print(f"  total selected: {summary['total_selected']}")
+          print(f"  contract selected: {summary['contract_selected']}")
+          print(f"  fault/e2e selected: {summary['fault_e2e_selected']}")
+          print(f"  e2e selected: {summary['e2e_selected']}")
+          print(f"  overlap selected: {summary['overlap_selected']}")
+          for shard in summary["contract_shards"]:
+              print(
+                  f"  contract shard {shard['shard_id']}: "
+                  f"{shard['node_count']} tests across {shard['file_count']} files"
+              )
+          if summary["e2e_selected"] == 0:
+              print("  info: e2e selected count is 0 (non-blocking)")
+          PY
+
+      - name: Upload quality collection artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: truthound-quality-collect
+          path: |
+            test-artifacts/quality-shards
+            test-artifacts/quality-summary.json
+            test-artifacts/quality-contract-collect.txt
+            test-artifacts/quality-fault-e2e-collect.txt
+            test-artifacts/quality-e2e-collect.txt
+
+  quality-contract:
+    name: quality-contract / shard ${{ matrix.shard_id }}
+    needs: quality-collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard_id: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install native PDF provider prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpango-1.0-0 libpangoft2-1.0-0 poppler-utils fonts-noto-cjk
+
+      - name: Sync locked dev environment
+        run: uv sync --frozen --extra dev
+
+      - name: Download quality shard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: truthound-quality-collect
+          path: test-artifacts
+
+      - name: Run contract shard
+        run: |
+          uv run --frozen --extra dev python verification/ci/run_pytest_manifest.py \
+            --manifest test-artifacts/quality-shards/contract-${{ matrix.shard_id }}.txt \
+            --junitxml test-artifacts/junit-contract-${{ matrix.shard_id }}.xml \
+            --pytest-arg=--tb=line \
+            --pytest-arg=-m \
+            '--pytest-arg=contract and not (fault or e2e)'
+
+      - name: Upload contract shard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: truthound-quality-contract-${{ matrix.shard_id }}
+          path: |
+            test-artifacts/quality-shards/contract-${{ matrix.shard_id }}.txt
+            test-artifacts/quality-summary.json
+            test-artifacts/junit-contract-${{ matrix.shard_id }}.xml
+
+  quality-fault-e2e:
+    needs: quality-collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Sync locked dev environment
+        run: uv sync --frozen --extra dev
+
+      - name: Download quality shard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: truthound-quality-collect
+          path: test-artifacts
+
+      - name: Run fault and e2e manifest
+        run: |
+          uv run --frozen --extra dev python verification/ci/run_pytest_manifest.py \
+            --manifest test-artifacts/quality-shards/fault-e2e.txt \
+            --junitxml test-artifacts/junit-fault-e2e.xml \
+            --pytest-arg=--tb=line \
+            --pytest-arg=-m \
+            '--pytest-arg=fault or e2e'
+
+      - name: Upload fault and e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: truthound-quality-fault-e2e
+          path: |
+            test-artifacts/quality-shards/fault-e2e.txt
+            test-artifacts/quality-summary.json
+            test-artifacts/junit-fault-e2e.xml
+
+  quality-ruff-ratchet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Sync locked dev environment
+        run: uv sync --frozen --extra dev
+
+      - name: Run ruff ratchet target
+        run: |
+          for target in reporters checkpoint-top-level datasets-private; do
+            uv run --frozen --extra dev python verification/ci/run_ruff_ratchet.py --target "$target"
+          done
+
+  quality-gate:
+    if: ${{ always() }}
+    needs: [quality-contract, quality-fault-e2e, quality-ruff-ratchet]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate quality gate status
+        env:
+          CONTRACT_RESULT: ${{ needs.quality-contract.result }}
+          FAULT_E2E_RESULT: ${{ needs.quality-fault-e2e.result }}
+          RUFF_RATCHET_RESULT: ${{ needs.quality-ruff-ratchet.result }}
+        run: |
+          echo "quality-contract result: ${CONTRACT_RESULT}"
+          echo "quality-fault-e2e result: ${FAULT_E2E_RESULT}"
+          echo "quality-ruff-ratchet result: ${RUFF_RATCHET_RESULT}"
+          if [ "${CONTRACT_RESULT}" != "success" ] || [ "${FAULT_E2E_RESULT}" != "success" ] || [ "${RUFF_RATCHET_RESULT}" != "success" ]; then
+            echo "quality-gate failed because one or more shard jobs failed"
+            exit 1
+          fi
+          echo "quality-gate passed"

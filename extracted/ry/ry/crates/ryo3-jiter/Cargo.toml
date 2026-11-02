@@ -1,0 +1,27 @@
+[package]
+name = "ryo3-jiter"
+version.workspace = true
+authors.workspace = true
+categories.workspace = true
+documentation.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ry + pydantic-jiter (https://github.com/pydantic/jiter)"
+readme = "README.md"
+
+[features]
+default = []
+ry = []
+
+[dependencies]
+jiter = { workspace = true, features = ["python", "num-bigint"] }
+pyo3 = { workspace = true, features = [] }
+ryo3-bytes.workspace = true
+ryo3-core.workspace = true
+
+[lints]
+workspace = true

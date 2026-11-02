@@ -1,0 +1,177 @@
+from typing import Union, Dict, Any, List, Optional
+import datetime
+import os
+
+from ..constants import MAX_ITEMS_BY_ID_PER_REQUEST
+from ..graphql_handler import MondayGraphQL
+from ..types import FileInput
+from ..query_templates import create_item_query, get_item_query, change_column_value_query, get_item_by_id_query, update_multiple_column_values_query, create_subitem_query, delete_item_query, archive_item_query, move_item_to_group_query, change_simple_column_value_query
+from ..types import Item
+
+
+class ItemModule:
+    def __init__(self, graphql_client: MondayGraphQL):
+        self.client = graphql_client
+    """ "
+    todo: add types for this module
+    """
+
+    def change_custom_column_value(
+        self, board_id: Union[str, int], item_id: Union[str, int], column_id: str, value: Dict[str, Any]
+    ):
+        """
+        for text columns, use change_simple_column_value
+        for status columns, use change_status_column_value
+        for date columns, use change_date_column_value
+        for other columns, use this method, for example, for checkbox columns pass {'checked': True}
+        """
+        query = change_column_value_query(board_id, item_id, column_id, value)
+        return self.client.execute(query)
+
+    def change_simple_column_value(
+        self, board_id: Union[str, int], item_id: Union[str, int], column_id: str, value: str
+    ):
+        query = change_simple_column_value_query(board_id, item_id, column_id, value)
+        return self.client.execute(query)
+
+    def change_status_column_value(
+        self, board_id: Union[str, int], item_id: Union[str, int], column_id: str, value: str
+    ):
+        dict_value = {"label": value}
+        return self.change_custom_column_value(board_id, item_id, column_id, dict_value)
+
+    def change_date_column_value(
+        self, board_id: Union[str, int], item_id: Union[str, int], column_id: str, timestamp: datetime
+    ):
+        dict_value = {"date": timestamp.strftime("%Y-%m-%d"), "time": timestamp.strftime("%H:%M:%S")}
+        return self.change_custom_column_value(board_id, item_id, column_id, dict_value)
+
+    def create_item(
+        self,
+        board_id: Union[str, int],
+        group_id: Union[str, int],
+        item_name: str,
+        column_values: Dict[str, Any] = None,
+        create_labels_if_missing=False,
+    ):
+        query = create_item_query(board_id, group_id, item_name, column_values, create_labels_if_missing)
+        return self.client.execute(query)
+
+    def create_subitem(
+        self,
+        parent_item_id: Union[str, int],
+        subitem_name: str,
+        column_values: Dict[str, Any] = None,
+        create_labels_if_missing=False,
+    ):
+        query = create_subitem_query(parent_item_id, subitem_name, column_values, create_labels_if_missing)
+        return self.client.execute(query)
+
+    def fetch_items_by_column_value(
+        self, board_id: Union[str, int], column_id: str, value: str, limit: int = None, cursor: str = None
+    ):
+        query = get_item_query(board_id, column_id, value, limit, cursor)
+        return self.client.execute(query)
+
+    def fetch_items_by_id(self, ids: Union[str, int, List[Union[str, int]]]) -> List[Item]:
+        """
+        Fetches items by id in a single request.
+
+        The `items(ids: ...)` query paginates its result and the API defaults the page
+        size to 25, so the page size is derived from the number of ids requested. Without
+        it, asking for more than 25 ids returns only the 25 lowest ones - with no error
+        and no way for the caller to tell that anything was dropped.
+
+        The API accepts at most MAX_ITEMS_BY_ID_PER_REQUEST ids per request, which is also
+        the largest page it will return, so one request is always enough to cover the ids
+        asked for and there is nothing left to paginate through. Chunk larger id sets
+        caller-side.
+        """
+        if isinstance(ids, (list, set)):
+            if len(ids) > MAX_ITEMS_BY_ID_PER_REQUEST:
+                raise ValueError(
+                    f"fetch_items_by_id accepts at most {MAX_ITEMS_BY_ID_PER_REQUEST} ids per request, got {len(ids)}"
+                )
+            if not ids:
+                return []
+            limit = len(ids)
+            ids_str = ", ".join(map(str, ids))
+            ids_str = f"[{ids_str}]"
+        else:
+            # A bare id, or an id list the caller already formatted - we cannot count it,
+            # so ask for the largest page the API will give us.
+            limit = MAX_ITEMS_BY_ID_PER_REQUEST
+            ids_str = str(ids)
+        query = get_item_by_id_query(ids_str, limit=limit)
+        response = self.client.execute(query)
+        return response.data.items
+
+    def change_multiple_column_values(
+        self,
+        board_id: Union[str, int],
+        item_id: Union[str, int],
+        column_values: Dict[str, Any],
+        create_labels_if_missing: bool = False,
+    ):
+        query = update_multiple_column_values_query(board_id, item_id, column_values, create_labels_if_missing)
+        return self.client.execute(query)
+
+    def move_item_to_group(self, item_id: Union[str, int], group_id: Union[str, int]):
+        query = move_item_to_group_query(item_id, group_id)
+        return self.client.execute(query)
+
+    def archive_item_by_id(self, item_id: Union[str, int]):
+        query = archive_item_query(item_id)
+        return self.client.execute(query)
+
+    def delete_item_by_id(self, item_id: Union[str, int]):
+        query = delete_item_query(item_id)
+        return self.client.execute(query)
+
+    def upload_file_to_column(
+        self,
+        item_id: Union[str, int],
+        column_id: str,
+        file_path: str,
+        mimetype: Optional[str] = None,
+    ) -> dict:
+        """
+        Upload a file to a file column on an item.
+
+        Note: Unlike other column methods, this uses a different API endpoint
+        (https://api.monday.com/v2/file) and does not require board_id.
+
+        Args:
+            item_id: The ID of the item to add the file to
+            column_id: The ID of the file column
+            file_path: Path to the file to upload
+            mimetype: Optional MIME type (e.g., 'audio/mpeg', 'video/mp4').
+                      If not provided, will be auto-detected from the file extension.
+
+        Returns:
+            The API response containing the uploaded asset info
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            requests.HTTPError: If the API request fails
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        mutation = '''mutation ($file: File!) {
+            add_file_to_column(item_id: %s, column_id: "%s", file: $file) {
+                id
+                name
+                url
+                file_extension
+                file_size
+            }
+        }''' % (item_id, column_id)
+
+        file_input = FileInput(
+            name="file",
+            file_path=file_path,
+            mimetype=mimetype,
+        )
+
+        return self.client.execute_multipart(mutation, file_input)

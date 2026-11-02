@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: bourbaki.introspection
+Version: 0.5.13
+Summary: Introspection utilities for Python: types, signatures, objects, docstrings, and more
+Author-email: Matthew Hawthorn <hawthorn.matthew@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/bourbaki-py/
+Project-URL: repository, https://github.com/bourbaki-py/introspection.git
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: multipledispatch>=0.4.9
+Requires-Dist: typing-inspect>=0.5
+Provides-Extra: viz
+Requires-Dist: graphviz; extra == "viz"
+Requires-Dist: networkx; extra == "viz"
+Dynamic: license-file
+
+[![Build Status](https://travis-ci.org/bourbaki-py/introspection.svg?branch=master)](https://travis-ci.org/bourbaki-py/introspection)
+[![Coverage Status](https://coveralls.io/repos/github/bourbaki-py/introspection/badge.svg?branch=master)](https://coveralls.io/github/bourbaki-py/introspection?branch=master)

@@ -1,0 +1,147 @@
+r"""cachekit - Caching decorator for Python applications.
+
+Backend-agnostic caching with intent-based decorators — circuit breaker,
+distributed locking, Prometheus metrics, and optional zero-knowledge
+AES-256-GCM encryption, on a Rust-powered core.
+
+Zero-config L1 in-memory by default; pluggable backends: Redis, Memcached,
+File, CachekitIO SaaS, and custom via the BaseBackend protocol.
+
+Key Features:
+- **@cache decorator** with intent-based presets
+- **Circuit breaker protection** against cascading failures
+- **Backpressure control** to prevent backend overload
+- **Connection pooling** for optimized performance
+- **Health check methods** for comprehensive monitoring
+- **Structured logging** with per-operation fields
+- **Statistics collection** for Prometheus metrics integration
+
+Architecture Overview:
+cachekit provides a modular decorator architecture with intent-based presets:
+
+- FeatureOrchestrator: Manages enterprise-grade reliability and monitoring features
+- Flexible configuration interface with intent-based presets
+- Enhanced error handling with comprehensive safety checks
+- Pluggable backend abstraction (Redis, Memcached, File, CachekitIO, custom)
+
+Born from production debugging of caching failures:
+- UTF-8 corruption prevention with intelligent binary data handling
+- Binary data magic byte detection and validation
+- Chunked storage for large objects with atomic operations
+- Comprehensive checksum validation and recovery
+
+Example Usage:
+    ```python
+    from cachekit import cache
+    from cachekit.config.nested import CircuitBreakerConfig
+
+    # Intelligent cache with zero configuration (90% of use cases)
+    @cache
+    def expensive_function():
+        return compute_result()
+
+    # Intent-based optimization (9% of use cases)
+    @cache.minimal      # Speed-critical functions
+    def get_price(symbol: str):
+        return fetch_price(symbol)
+
+    @cache.production      # Reliability-critical functions
+    def process_payment(amount: Decimal):
+        return payment_gateway.charge(amount)
+
+    @cache.secure(master_key=secret_key)    # Security-critical; key from your secret store
+    def get_user_data(user_id: int) -> UserProfile:
+        return db.fetch_user(user_id)
+
+    @cache.io()      # Managed SaaS backend (cachekit.io, closed beta)
+    def get_remote_data(key: str):
+        return fetch_remote(key)
+
+    # Manual configuration when needed (1% of use cases)
+    @cache(ttl=3600, namespace="custom", circuit_breaker=CircuitBreakerConfig(failure_threshold=10))
+    def custom_function():
+        return special_computation()
+
+    # Health monitoring
+    health = custom_function.get_health_status()
+    full_health = custom_function.check_health()
+    ```
+
+Names in the examples:
+The examples in cachekit's docstrings carry no literal keys. They use these names, which you bind
+from your own secret store before running one:
+
+- ``secret_key``: a master key as ``@cache.secure`` takes it, 64 hex characters (32 bytes), for example
+  ``secret_key = os.environ["CACHEKIT_MASTER_KEY"]``. Generate one once with ``openssl rand -hex 32``.
+- ``old_secret_key``: a retired master key, kept decrypt-only during key rotation.
+- ``secret_key_bytes`` and ``old_secret_key_bytes``: the same keys as raw bytes, as ``EncryptionWrapper``
+  takes them, for example ``secret_key_bytes = bytes.fromhex(secret_key)``.
+- ``api_key``: a cachekit.io API key, for example ``api_key = os.environ["CACHEKIT_API_KEY"]``.
+"""
+
+__version__ = "0.25.1"
+
+from collections.abc import Callable
+from typing import Any, TypeVar
+
+from . import (
+    _fork,  # noqa: F401 - first: whether this process inherited a threaded parent's dead threads (cachekit._fork)
+    # Must run BEFORE any redis import: CACHEKIT_DISABLE_HIREDIS=true keeps hiredis out from here on.
+    # The free-threaded default runs later, when cachekit.backends.redis loads (see cachekit.hiredis_compat).
+    hiredis_compat,  # noqa: F401
+)
+
+# Import the configuration classes
+# Redis client is automatically fast - no special import needed
+from .config import DecoratorConfig
+
+# Import the intelligent cache decorator and CacheInfo
+from .decorators import cache
+from .decorators.wrapper import CacheInfo, InvalidationOutcome
+
+# Import health check functionality
+from .health import (
+    HealthCheckResult,
+    HealthLevel,
+    HealthStatus,
+    async_health_check_handler,
+    get_health_checker,
+    health_check_handler,
+)
+
+# Interop mode (interop/v1): cross-SDK key generation and value codec.
+# The decorator API is @cache(interop="op", namespace="users"); these helpers are
+# for manual key/value handling (debugging, out-of-band writers, migrations).
+from .interop import (
+    InteropError,
+    decode_interop_value,
+    encode_interop_value,
+    generate_interop_key,
+)
+
+# L1/L2 architecture integrated into standard cache interface
+# No separate imports needed - cache.minimal/.production/.secure handle L1+L2 transparently
+# Import reliability configuration
+from .reliability import CircuitBreakerConfig
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+__all__ = [
+    "__version__",
+    "async_health_check_handler",
+    "cache",
+    "CacheInfo",
+    "CircuitBreakerConfig",
+    "DecoratorConfig",
+    "decode_interop_value",
+    "encode_interop_value",
+    "generate_interop_key",
+    "get_health_checker",
+    "health_check_handler",
+    "HealthCheckResult",
+    "HealthLevel",
+    "HealthStatus",
+    "InteropError",
+    "InvalidationOutcome",
+]

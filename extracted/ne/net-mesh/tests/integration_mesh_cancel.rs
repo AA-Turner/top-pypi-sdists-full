@@ -1,0 +1,868 @@
+//! SDK-level cancel-contract integration tests (C-S2 of
+//! NRPC_V3_OBSERVER_MPSC_AND_CANCELLATION.md).
+//!
+//! Pins the `Mesh::reserve_cancel_token` + `Mesh::cancel(token)`
+//! API behavior across every call shape that honors
+//! `CallOptions::cancel_token`:
+//!
+//! - Unary `call`
+//! - `call_service`
+//! - `call_streaming` (response side)
+//! - `call_client_stream` (request side)
+//! - `call_duplex` (both sides)
+//!
+//! Plus the contract invariants that bindings depend on when they
+//! migrate their local cancel registries to delegate through the
+//! SDK primitive (Wave 3 of the v3 plan):
+//!
+//! - `cancel_before_construction_aborts_cleanly` — pre-cancel
+//!   race; the call returns Cancelled without ever publishing the
+//!   REQUEST.
+//! - `cancel_after_resolution_is_noop` — late cancel on a resolved
+//!   call doesn't double-emit anything or panic.
+//! - `cancel_zero_token_is_noop` — the "no token" sentinel.
+//!
+//! # Test mesh setup
+//!
+//! Two `MeshNode`s connected via handshake. Caller (`a`) issues
+//! calls against responder (`b`) for services `b` serves with
+//! [`Silent`] handlers, which never answer. That gets the REQUEST onto
+//! the wire and into a running handler (so the call is genuinely
+//! mid-flight) but ensures no response ever arrives, so the call
+//! hangs until cancel fires.
+//!
+//! Not a service nobody serves: that is answered `NotFound` at once,
+//! so a call to one resolves before a cancel can reach it.
+
+#![cfg(feature = "cortex")]
+
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
+
+use bytes::Bytes;
+use net::adapter::net::cortex::{
+    RequestStream, RpcClientStreamingHandler, RpcContext, RpcDuplexHandler, RpcHandler,
+    RpcHandlerError, RpcResponsePayload, RpcResponseSink, RpcStatus, RpcStreamingContext,
+    RpcStreamingHandler,
+};
+use net::adapter::net::mesh_rpc::{CallOptions, RpcError, ServeHandle};
+use net::adapter::net::{EntityKeypair, MeshNode, MeshNodeConfig, SocketBufferConfig};
+
+const TEST_BUFFER_SIZE: usize = 256 * 1024;
+const PSK: [u8; 32] = [0x42u8; 32];
+
+fn test_config() -> MeshNodeConfig {
+    let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let mut cfg = MeshNodeConfig::new(addr, PSK)
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5))
+        .with_handshake(3, Duration::from_secs(2));
+    cfg.socket_buffers = SocketBufferConfig {
+        send_buffer_size: TEST_BUFFER_SIZE,
+        recv_buffer_size: TEST_BUFFER_SIZE,
+    };
+    cfg
+}
+
+/// Poll until `mesh` has at least `expected` cancel-registry
+/// entries, or panic if the budget expires. Replaces the
+/// hand-tuned `sleep(50..100ms)` that gated mid-flight cancel
+/// fires on "the call has reached `register_notify`".
+async fn wait_for_cancel_entries(mesh: &Arc<MeshNode>, expected: usize) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(1);
+    loop {
+        if mesh.cancel_registry_len() >= expected {
+            return;
+        }
+        if std::time::Instant::now() >= deadline {
+            panic!(
+                "cancel registry never reached {expected} entries within 1s (saw {})",
+                mesh.cancel_registry_len()
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+async fn build_node() -> Arc<MeshNode> {
+    let keypair = EntityKeypair::generate();
+    let node = MeshNode::new(keypair, test_config())
+        .await
+        .expect("MeshNode::new");
+    Arc::new(node)
+}
+
+/// A provider that takes the call and never answers it: every shape
+/// parks on the call's cancellation token, which only a wire CANCEL
+/// flips. What keeps a call mid-flight for the cancel to land on.
+struct Silent;
+
+#[async_trait::async_trait]
+impl RpcHandler for Silent {
+    async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+        ctx.cancellation.cancelled().await;
+        Err(RpcHandlerError::Internal("cancelled by caller".into()))
+    }
+}
+
+#[async_trait::async_trait]
+impl RpcStreamingHandler for Silent {
+    async fn call(&self, ctx: RpcContext, _sink: RpcResponseSink) -> Result<(), RpcHandlerError> {
+        ctx.cancellation.cancelled().await;
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl RpcClientStreamingHandler for Silent {
+    async fn call(
+        &self,
+        ctx: RpcStreamingContext,
+        _requests: RequestStream,
+    ) -> Result<RpcResponsePayload, RpcHandlerError> {
+        ctx.cancellation.cancelled().await;
+        Err(RpcHandlerError::Internal("cancelled by caller".into()))
+    }
+}
+
+#[async_trait::async_trait]
+impl RpcDuplexHandler for Silent {
+    async fn call(
+        &self,
+        ctx: RpcStreamingContext,
+        _requests: RequestStream,
+        _responses: RpcResponseSink,
+    ) -> Result<(), RpcHandlerError> {
+        ctx.cancellation.cancelled().await;
+        Ok(())
+    }
+}
+
+/// Two nodes with a handshake so caller-side cancel tests have a
+/// real peer to publish to. The responder serves `silent.svc`,
+/// `silent.stream`, `silent.cs` and `silent.dx` with [`Silent`], so
+/// calls hang on the response receiver until the caller-side cancel
+/// fires. The handles keep those registrations alive for the test.
+async fn build_pair() -> (Arc<MeshNode>, Arc<MeshNode>, Vec<ServeHandle>) {
+    let a = build_node().await;
+    let b = build_node().await;
+    let silent = Arc::new(Silent);
+    let serving = vec![
+        b.serve_rpc("silent.svc", silent.clone())
+            .expect("serve silent.svc"),
+        b.serve_rpc_streaming("silent.stream", silent.clone())
+            .expect("serve silent.stream"),
+        b.serve_rpc_client_stream("silent.cs", silent.clone())
+            .expect("serve silent.cs"),
+        b.serve_rpc_duplex("silent.dx", silent)
+            .expect("serve silent.dx"),
+    ];
+    let a_id = a.node_id();
+    let b_pub = *b.public_key();
+    let b_addr = b.local_addr();
+    let b_id = b.node_id();
+    let b_clone = b.clone();
+    let accept = tokio::spawn(async move { b_clone.accept(a_id).await });
+    a.connect(b_addr, &b_pub, b_id)
+        .await
+        .expect("connect failed");
+    accept
+        .await
+        .expect("accept task panicked")
+        .expect("accept failed");
+    a.start();
+    b.start();
+    (a, b, serving)
+}
+
+// =====================================================================
+// Token + API surface invariants (no mesh needed).
+// =====================================================================
+
+#[tokio::test]
+async fn reserve_cancel_token_is_monotonic_and_nonzero() {
+    let a = build_node().await;
+    let t1 = a.reserve_cancel_token();
+    let t2 = a.reserve_cancel_token();
+    let t3 = a.reserve_cancel_token();
+    assert!(t1 >= 1, "tokens start at 1, not 0");
+    assert!(t2 > t1);
+    assert!(t3 > t2);
+}
+
+#[tokio::test]
+async fn cancel_zero_token_is_noop() {
+    // The "no token" sentinel — calling cancel on it shouldn't
+    // create registry entries or affect any other state.
+    let a = build_node().await;
+    a.cancel(0);
+    // No assertion needed; just verify no panic.
+}
+
+#[tokio::test]
+async fn cancel_unknown_token_is_noop() {
+    let a = build_node().await;
+    // A token never reserved + never issued in a call is harmless
+    // to cancel. Registry latches a pre_cancelled flag on the
+    // orphan entry; orphan-TTL GC eventually evicts.
+    a.cancel(0xDEAD_BEEF);
+}
+
+// =====================================================================
+// Unary call mid-flight cancel.
+// =====================================================================
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_unary_mid_flight_surfaces_cancelled_error() {
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    // Spawn the call. The publish lands on `b`, whose `silent.svc`
+    // handler never answers, so the caller's rx hangs on the
+    // response oneshot indefinitely until we cancel.
+    let a_clone = a.clone();
+    let call_task = tokio::spawn(async move {
+        a_clone
+            .call(target, "silent.svc", Bytes::from_static(b"req"), opts)
+            .await
+    });
+
+    // Wait for the call's register_notify to land in the registry
+    // — that's the deterministic signal the rx.await is in flight.
+    wait_for_cancel_entries(&a, 1).await;
+    a.cancel(token);
+
+    let result = tokio::time::timeout(Duration::from_secs(2), call_task)
+        .await
+        .expect("call should resolve within 2s after cancel")
+        .expect("spawn task panicked");
+
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_before_call_aborts_immediately() {
+    // CR-13 race: cancel arrives BEFORE the call's rx.await reaches
+    // the select! arm. The registry latches pre_cancelled = true;
+    // when the call registers, the returned Notify is pre-armed so
+    // notified().await fires immediately.
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    a.cancel(token); // Cancel BEFORE the call.
+
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+    let result = tokio::time::timeout(
+        Duration::from_secs(2),
+        a.call(target, "silent.svc", Bytes::from_static(b"req"), opts),
+    )
+    .await
+    .expect("pre-cancelled call should resolve within 2s");
+
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_after_unary_resolution_is_noop() {
+    // After a call resolves naturally, late cancels on its token
+    // are harmless — no panic, no double-emit. The registry entry
+    // was already released on resolution.
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+
+    // Issue and cancel the in-flight call so it resolves to
+    // Cancelled — that exercises the release path.
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+    let a_clone = a.clone();
+    let call_task = tokio::spawn(async move {
+        a_clone
+            .call(target, "silent.svc", Bytes::from_static(b"req"), opts)
+            .await
+    });
+    wait_for_cancel_entries(&a, 1).await;
+    a.cancel(token);
+    let _ = call_task.await.unwrap();
+
+    // Now cancel again on the same (already-resolved) token. Must
+    // not panic; must not affect any other state.
+    a.cancel(token);
+    a.cancel(token);
+}
+
+// =====================================================================
+// call_service mid-flight cancel.
+//
+// `call_service` delegates to `call` with the same opts, so cancel
+// propagates for free. Verify the delegation works end-to-end.
+// =====================================================================
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_unary_call_service_mid_flight_surfaces_cancelled() {
+    let (a, _b, _serving) = build_pair().await;
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    // call_service fails NoRoute when no node advertises the
+    // service. To get into the cancel-aware path, the call must
+    // first pass find_service_nodes. We don't have a real
+    // capability-advertising peer here; verify the cancel-zero
+    // contract holds via call_service even when it returns
+    // NoRoute (the cancel arm shouldn't interfere with the
+    // NoRoute early-return).
+    let result = tokio::time::timeout(
+        Duration::from_secs(2),
+        a.call_service("advertised.by.nobody", Bytes::from_static(b"req"), opts),
+    )
+    .await
+    .expect("call_service should resolve within 2s");
+
+    // No nodes advertise the service → NoRoute is expected; cancel
+    // doesn't interfere because the call never reached the cancel
+    // arm. Releases the registry entry on early-return.
+    match result {
+        Err(RpcError::NoRoute { .. }) => {}
+        other => panic!("expected NoRoute (no advertised service), got {other:?}"),
+    }
+    // Late cancel is still safe.
+    a.cancel(token);
+}
+
+// =====================================================================
+// Streaming-response (call_streaming) mid-drain cancel.
+// =====================================================================
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_streaming_mid_drain_terminates_stream() {
+    use futures::StreamExt;
+
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    let stream = a
+        .call_streaming(target, "silent.stream", Bytes::from_static(b"req"), opts)
+        .await
+        .expect("call_streaming should at least open against a reachable peer");
+
+    // Wait for the cancel-watcher task to register against the
+    // registry entry. Without this, a very fast cancel can arrive
+    // before the watcher's select! is parked.
+    wait_for_cancel_entries(&a, 1).await;
+    a.cancel(token);
+
+    // The watcher's local cancel delivers the typed cancellation
+    // terminal (RpcStatus::Cancelled) before the entry's senders
+    // drop, so the stream ends with Err(RpcError::Cancelled): a
+    // cancelled transfer is never a clean EOF (SDK-2).
+    let mut stream = stream;
+    let first = tokio::time::timeout(Duration::from_secs(2), stream.next())
+        .await
+        .expect("stream should terminate within 2s after cancel");
+    match first {
+        Some(Err(RpcError::Cancelled)) => {}
+        other => panic!("expected the typed cancellation terminal after cancel, got {other:?}"),
+    }
+}
+
+// =====================================================================
+// Client-streaming (call_client_stream) mid-flight cancel.
+// =====================================================================
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_client_stream_mid_finish_surfaces_terminal() {
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    let mut call = a
+        .call_client_stream(target, "silent.cs", opts)
+        .await
+        .expect("call_client_stream should open against a reachable peer");
+
+    // Send one chunk so the initial REQUEST flies.
+    call.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("first send should publish the initial REQUEST");
+
+    // Spawn the finish() in a task so we can cancel it mid-flight.
+    let finish_task = tokio::spawn(async move { call.finish().await });
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    a.cancel(token);
+
+    // The local cancel delivers the typed cancellation terminal;
+    // finish() classifies it as RpcError::Cancelled (SDK-2: never
+    // the Transport "terminal sender dropped" misfile). finish()
+    // must also resolve (not hang) within bounded time.
+    let result = tokio::time::timeout(Duration::from_secs(2), finish_task)
+        .await
+        .expect("client-stream finish should resolve within 2s after cancel")
+        .expect("spawn task panicked");
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled after cancel, got {other:?}"),
+    }
+}
+
+/// cubic review of PR #1228: a streaming constructor's setup (the
+/// reply-channel subscription and the opening publish) ignored the cancel
+/// token — its watcher is armed only once the stream exists — so against a
+/// silent peer a cancel could not end the wait; the constructor blocked for
+/// the whole setup budget (seconds) and returned an already-cancelled
+/// stream.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_ends_a_streaming_constructor_waiting_on_a_silent_peer() {
+    use net::adapter::Adapter;
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    b.shutdown().await.expect("silence the peer");
+
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+    let a2 = a.clone();
+    let open = tokio::spawn(async move {
+        a2.call_streaming(
+            target,
+            "never.subscribed.stream",
+            Bytes::from_static(b"x"),
+            opts,
+        )
+        .await
+        .map(|_| ())
+    });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let started = std::time::Instant::now();
+    a.cancel(token);
+    let result = tokio::time::timeout(Duration::from_secs(2), open)
+        .await
+        .expect("the constructor must return promptly after cancel")
+        .expect("spawn task panicked");
+    assert!(
+        started.elapsed() < Duration::from_secs(1),
+        "took {:?}",
+        started.elapsed()
+    );
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled, got {other:?}"),
+    }
+}
+
+/// Code review 2026-10-11 GO-2: a `send` parked on request-side
+/// flow-control credit waits on the credit semaphore, which the cancel
+/// watcher never touched — `pending.cancel` only signals the response
+/// side. A cancel (the Go binding's `Close()` / ctx-cancel wake) left the
+/// send parked for good, and with it the borrowed handle. The silent
+/// handler never reads, so it never grants credit back: with a window of
+/// one, the second send parks until the cancel.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_wakes_a_client_stream_send_parked_on_credit() {
+    let (a, b, _serving) = build_pair().await;
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        request_window_initial: Some(1),
+        ..CallOptions::default()
+    };
+    let mut call = a
+        .call_client_stream(b.node_id(), "silent.cs", opts)
+        .await
+        .expect("call_client_stream should open against a reachable peer");
+    call.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("the first send spends the one credit");
+
+    let send_task = tokio::spawn(async move { call.send(Bytes::from_static(b"chunk2")).await });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(
+        !send_task.is_finished(),
+        "the second send should be parked on credit"
+    );
+    a.cancel(token);
+
+    let result = tokio::time::timeout(Duration::from_secs(2), send_task)
+        .await
+        .expect("a send parked on credit must resolve after cancel")
+        .expect("spawn task panicked");
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled after cancel, got {other:?}"),
+    }
+}
+
+/// GO-2, duplex shape: same parked-on-credit send, on the duplex sink.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_wakes_a_duplex_send_parked_on_credit() {
+    let (a, b, _serving) = build_pair().await;
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        request_window_initial: Some(1),
+        ..CallOptions::default()
+    };
+    let call = a
+        .call_duplex(b.node_id(), "silent.dx", opts)
+        .await
+        .expect("call_duplex should open against a reachable peer");
+    let (mut sink, _stream) = call.into_split();
+    sink.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("the first send spends the one credit");
+
+    let send_task = tokio::spawn(async move { sink.send(Bytes::from_static(b"chunk2")).await });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(
+        !send_task.is_finished(),
+        "the second send should be parked on credit"
+    );
+    a.cancel(token);
+
+    let result = tokio::time::timeout(Duration::from_secs(2), send_task)
+        .await
+        .expect("a send parked on credit must resolve after cancel")
+        .expect("spawn task panicked");
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled after cancel, got {other:?}"),
+    }
+}
+
+// =====================================================================
+// Duplex (call_duplex) mid-flight cancel.
+// =====================================================================
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_duplex_mid_recv_terminates_stream() {
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    let mut call = a
+        .call_duplex(target, "silent.dx", opts)
+        .await
+        .expect("call_duplex should open against a reachable peer");
+
+    // Send one chunk so the initial REQUEST flies and the call is
+    // genuinely mid-flight.
+    call.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("first send should publish the initial REQUEST");
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    a.cancel(token);
+
+    // The local cancel delivers the typed cancellation terminal to
+    // the receive half (never clean EOF, SDK-2). The shared
+    // Arc<DuplexInner> drops once both halves are released, firing
+    // CANCEL on the wire via the existing Drop impl.
+    let next = tokio::time::timeout(Duration::from_secs(2), call.next())
+        .await
+        .expect("duplex next should resolve within 2s after cancel");
+    match next {
+        Some(Err(RpcError::Cancelled)) => {}
+        other => panic!("expected the typed cancellation terminal after cancel, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_duplex_after_split_terminates_both_halves() {
+    use futures::StreamExt;
+
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+
+    let call = a
+        .call_duplex(target, "silent.dx", opts)
+        .await
+        .expect("call_duplex should open against a reachable peer");
+
+    let (mut sink, mut stream) = call.into_split();
+
+    // Publish the initial REQUEST.
+    sink.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("first send should publish the initial REQUEST");
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    a.cancel(token);
+
+    // The receive half observes the typed cancellation terminal.
+    let next = tokio::time::timeout(Duration::from_secs(2), stream.next())
+        .await
+        .expect("duplex stream should resolve within 2s after cancel");
+    match next {
+        Some(Err(RpcError::Cancelled)) => {}
+        other => panic!("expected the typed cancellation terminal after cancel, got {other:?}"),
+    }
+    // Subsequent sends after cancel surface stream-closed-shaped
+    // errors. Don't pin the exact message; just that the sink
+    // refuses further sends or surfaces a terminal error within
+    // bounded time.
+    let _ = tokio::time::timeout(
+        Duration::from_secs(2),
+        sink.send(Bytes::from_static(b"chunk2")),
+    )
+    .await
+    .expect("duplex sink send after cancel must not hang");
+}
+
+// =====================================================================
+// SDK-2 follow-up — consuming the locally-synthesized cancellation
+// terminal must NOT suppress the handle's Drop-based wire CANCEL.
+//
+// The provider's §2.2 request-input fence rides that CANCEL. The
+// cancel-watcher's synthetic `Err(Cancelled)` terminal (SDK-2) used to
+// latch "the server's call is done" at the caller-side terminal seams
+// (`DuplexStream`'s `clean_close` / CS `finish`'s `Done` state), so a
+// handle dropped AFTER consuming the typed terminal never published
+// the wire CANCEL — the provider's handler then drained a request
+// stream that never EOFed. These witnesses pin the triangulated repro:
+// cancel → the drain/finish consumes the typed `Err(RpcError::Cancelled)`
+// → the call is dropped/consumed → the provider's request input must
+// fence to EOF exactly as on a plain close(). Pre-fix both time out on
+// the fence assert.
+// =====================================================================
+
+use parking_lot::Mutex;
+
+/// A provider handler that drains its request stream until EOF and
+/// then signals — the §2.2 retirement observable ("request input
+/// fencing to EOF") reduced to one oneshot.
+struct FenceProbe {
+    eof_tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+}
+
+impl FenceProbe {
+    fn new() -> (Self, tokio::sync::oneshot::Receiver<()>) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        (
+            Self {
+                eof_tx: Mutex::new(Some(tx)),
+            },
+            rx,
+        )
+    }
+
+    fn signal_eof(&self) {
+        if let Some(tx) = self.eof_tx.lock().take() {
+            let _ = tx.send(());
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl RpcDuplexHandler for FenceProbe {
+    async fn call(
+        &self,
+        _ctx: RpcStreamingContext,
+        mut requests: RequestStream,
+        _responses: RpcResponseSink,
+    ) -> Result<(), RpcHandlerError> {
+        use futures::StreamExt;
+        while requests.next().await.is_some() {}
+        self.signal_eof();
+        Ok(())
+    }
+}
+
+/// A CS provider handler that parks on the call's CANCELLATION TOKEN —
+/// flipped only by a wire CANCEL reaching the fold's cancel arm (the
+/// natural REQUEST_END `finish` emits never flips it). Signals when the
+/// token fires: the observable of "the wire CANCEL reached the provider".
+struct CsCancelProbe {
+    cancel_tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+}
+
+#[async_trait::async_trait]
+impl RpcClientStreamingHandler for CsCancelProbe {
+    async fn call(
+        &self,
+        ctx: RpcStreamingContext,
+        mut requests: RequestStream,
+    ) -> Result<RpcResponsePayload, RpcHandlerError> {
+        use futures::StreamExt;
+        while requests.next().await.is_some() {}
+        ctx.cancellation.cancelled().await;
+        if let Some(tx) = self.cancel_tx.lock().take() {
+            let _ = tx.send(());
+        }
+        Ok(RpcResponsePayload {
+            status: RpcStatus::Ok,
+            headers: vec![],
+            body: Bytes::new(),
+        })
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_duplex_consume_terminal_still_fences_provider_input() {
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let (handler, eof_rx) = FenceProbe::new();
+    let _serve = b
+        .serve_rpc_duplex("dx.fence", Arc::new(handler))
+        .expect("serve_rpc_duplex");
+
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+    let mut call = a
+        .call_duplex(target, "dx.fence", opts)
+        .await
+        .expect("call_duplex should open against a reachable peer");
+    call.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("first send should publish the initial REQUEST");
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // The local cancel delivers the typed cancellation terminal — the
+    // DRAIN CONSUMES it here (the triangulated repro).
+    wait_for_cancel_entries(&a, 1).await;
+    a.cancel(token);
+    let next = tokio::time::timeout(Duration::from_secs(2), call.next())
+        .await
+        .expect("duplex next should resolve within 2s after cancel");
+    match next {
+        Some(Err(RpcError::Cancelled)) => {}
+        other => panic!("expected the typed cancellation terminal after cancel, got {other:?}"),
+    }
+
+    // The terminal was consumed; dropping the handle is the "close" and
+    // must STILL publish the wire CANCEL (the §2.2 retirement trigger).
+    drop(call);
+
+    tokio::time::timeout(Duration::from_secs(5), eof_rx)
+        .await
+        .expect(
+            "the provider's request input never fenced to EOF — the consumed \
+             local-cancellation terminal suppressed the Drop's wire CANCEL",
+        )
+        .expect("the provider handler task dropped without signalling EOF");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_client_stream_consume_terminal_still_fires_the_wire_cancel() {
+    let (a, b, _serving) = build_pair().await;
+    let target = b.node_id();
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    let handler = CsCancelProbe {
+        cancel_tx: Mutex::new(Some(cancel_tx)),
+    };
+    let _serve = b
+        .serve_rpc_client_stream("cs.fence", Arc::new(handler))
+        .expect("serve_rpc_client_stream");
+
+    let token = a.reserve_cancel_token();
+    let opts = CallOptions {
+        cancel_token: Some(token),
+        ..CallOptions::default()
+    };
+    let mut call = a
+        .call_client_stream(target, "cs.fence", opts)
+        .await
+        .expect("call_client_stream should open against a reachable peer");
+    call.send(Bytes::from_static(b"chunk1"))
+        .await
+        .expect("first send should publish the initial REQUEST");
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // `finish` CONSUMES the call and resolves with the typed terminal
+    // (the CS shape's consume path — it also emits the natural
+    // REQUEST_END, which is why the input fence cannot discriminate
+    // here); its Drop runs inside `finish` and must STILL publish the
+    // wire CANCEL, which the provider observes as its cancellation
+    // token firing.
+    wait_for_cancel_entries(&a, 1).await;
+    a.cancel(token);
+    let result = tokio::time::timeout(Duration::from_secs(2), call.finish())
+        .await
+        .expect("client-stream finish should resolve within 2s after cancel");
+    match result {
+        Err(RpcError::Cancelled) => {}
+        other => panic!("expected RpcError::Cancelled after cancel, got {other:?}"),
+    }
+
+    tokio::time::timeout(Duration::from_secs(5), cancel_rx)
+        .await
+        .expect(
+            "the provider never observed the wire CANCEL — the consumed \
+             local-cancellation terminal suppressed the Drop's wire CANCEL",
+        )
+        .expect("the provider handler task dropped without signalling");
+}
+
+/// cubic review of PR #1228: `accept` sat out its whole handshake budget
+/// (~15 s by default) after the node shut down, so a binding thread parked
+/// in it outlived the node. It now races the handshake against shutdown.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_wakes_a_parked_accept() {
+    use net::adapter::Adapter;
+    let node = build_node().await;
+    let accepting = {
+        let node = node.clone();
+        tokio::spawn(async move { node.accept(0xDEAD_BEEF).await })
+    };
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        !accepting.is_finished(),
+        "nobody handshakes: accept must be parked"
+    );
+    let started = std::time::Instant::now();
+    node.shutdown().await.expect("shutdown");
+    let result = tokio::time::timeout(Duration::from_secs(3), accepting)
+        .await
+        .expect("accept must return promptly once the node shuts down")
+        .expect("spawn task panicked");
+    assert!(result.is_err(), "a shut-down accept cannot succeed");
+    assert!(started.elapsed() < Duration::from_secs(3));
+
+    // An accept started after shutdown fails at once.
+    let late = tokio::time::timeout(Duration::from_secs(1), node.accept(0xDEAD_BEEF))
+        .await
+        .expect("an accept on a shut-down node returns at once");
+    assert!(late.is_err());
+}

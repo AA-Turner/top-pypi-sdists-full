@@ -1,0 +1,1838 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+FastAPI application factory for agent-runtimes server.
+
+Provides a configurable FastAPI application with:
+- ACP protocol endpoints
+- Health check endpoints
+- CORS configuration
+- OpenAPI documentation
+- Demo agent for testing
+"""
+
+import asyncio
+import contextlib
+import json
+import logging
+import multiprocessing as mp
+import os
+import re
+import sys
+import tempfile
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, AsyncGenerator
+
+from code_sandboxes import CodeSandboxClient
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from starlette.routing import Mount
+
+from ._version import __version__
+from .mcp import (
+    ensure_config_mcp_toolsets_event,
+    get_mcp_lifecycle_manager,
+    get_mcp_manager,
+    initialize_config_mcp_servers,
+    initialize_config_mcp_toolsets,
+    shutdown_config_mcp_toolsets,
+)
+from .mcp.catalog_mcp_servers import get_catalog_server
+from .models.models import resolve_model_for_inference_provider
+from .node_mode import is_node_enabled
+from .nodes.agent_node_sync import run_agent_node_sync
+from .nodes.agent_node_tunnel import run_agent_node_tunnel
+from .routes import (
+    a2a_protocol_router,
+    a2ui_router,
+    acp_router,
+    agent_node_router,
+    agents_router,
+    agui_router,
+    app_plugins_router,
+    apps_router,
+    checkpoints_router,
+    configure_router,
+    evals_adapters_router,
+    evals_router,
+    get_a2a_mounts,
+    get_agui_mounts,
+    harnesses_router,
+    health_router,
+    history_router,
+    identity_router,
+    loop_router,
+    mcp_auth_router,
+    mcp_proxy_router,
+    mcp_router,
+    mcp_ui_router,
+    notifications_router,
+    protocols_router,
+    sandbox_router,
+    set_a2a_app,
+    start_a2a_task_managers,
+    stop_a2a_task_managers,
+    tool_approvals_legacy_router,
+    tool_approvals_router,
+    tool_approvals_ws_router,
+    triggers_webhook_router,
+    vercel_ai_router,
+)
+from .routes.agents import set_api_prefix
+from .routes.computer import router as computer_router
+from .specs.agents import get_agent_spec
+
+# Load environment variables from .env file
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Reduce noise from verbose libraries
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("botocore.parsers").setLevel(logging.WARNING)
+logging.getLogger("botocore.hooks").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def _resolve_generated_code_path(explicit_path: str | None) -> str:
+    """Return a writable generated-code directory path.
+
+    Preference order:
+    1. Explicit env/CLI path (when writable)
+    2. Repo-local generated/ folder
+    3. Shared volume /mnt/shared-agent/generated
+    4. System temp dir fallback
+    """
+
+    repo_root = Path(__file__).resolve().parents[1]
+    default_path = (repo_root / "generated").resolve()
+
+    candidates: list[Path] = []
+    if explicit_path:
+        candidates.append(Path(explicit_path).resolve())
+    candidates.append(default_path)
+    candidates.append(Path("/mnt/shared-agent/generated"))
+    candidates.append(Path(tempfile.gettempdir()) / "agent-runtimes-generated")
+
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+
+            if explicit_path and str(candidate) != str(Path(explicit_path).resolve()):
+                logger.warning(
+                    "Generated code folder '%s' not writable; falling back to '%s'",
+                    explicit_path,
+                    str(candidate),
+                )
+            return str(candidate)
+        except Exception:
+            pass
+
+    raise PermissionError(
+        "No writable generated code folder found (checked env path, repo generated/, "
+        "/mnt/shared-agent/generated, system temp dir)"
+    )
+
+
+def _is_reload_parent_process() -> bool:
+    """Return True when running inside the reload supervisor parent."""
+    return "--reload" in sys.argv and mp.current_process().name == "MainProcess"
+
+
+async def _create_and_register_cli_agent(
+    app: FastAPI,
+    agent_id: str,
+    agent_spec: Any,
+    enable_codemode: bool,
+    skills: list[str],
+    all_mcp_servers: list[Any],
+    api_prefix: str,
+    protocol: str = "vercel-ai",
+    sandbox_variant: str | None = None,
+) -> dict[str, Any]:
+    """
+    Create and register an agent from CLI options.
+
+    This is called when --agent-id is provided to actually create an agent
+    with the specified codemode and skills settings.
+
+    Args:
+        app: The FastAPI app instance
+        agent_id: The agent ID/name to register
+        agent_spec: The Agentspec from the library
+        enable_codemode: Whether codemode is enabled (--codemode flag)
+        skills: List of skill names to enable (--skills flag)
+        all_mcp_servers: All MCP servers (agent spec + CLI servers)
+        api_prefix: API prefix for routes
+        protocol: Transport protocol (ag-ui, vercel-ai, vercel-ai-jupyter, a2a)
+        sandbox_variant: Code sandbox variant. 'eval' runs the code in this
+            process, 'jupyter-server' starts a per-agent Jupyter server via
+            code_sandboxes, and the name of a provider — 'docker',
+            'datalayer', 'google-colab', 'kaggle', 'monty', 'modal',
+            'daytona', 'cloudflare', 'coreweave', 'e2b' — runs it at that
+            provider, under the credentials this process holds for it.
+
+    Returns:
+        A dictionary with startup information about the registered agent and
+        its sandbox (variant, jupyter host/port when applicable).
+    """
+
+    from pydantic_ai import Agent as PydanticAgent
+    from pydantic_ai import DeferredToolRequests
+
+    from .adapters.pydantic_ai_adapter import PydanticAIAdapter
+    from .context.session import register_agent as register_agent_for_context
+    from .routes.acp import AgentCapabilities, AgentInfo, register_agent
+    from .routes.agui import get_agui_app, register_agui_agent
+    from .routes.configure import _codemode_state
+    from .routes.mcp_ui import register_mcp_ui_agent
+    from .services import (
+        create_codemode_toolset,
+        create_shared_sandbox,
+        create_skills_toolset,
+        initialize_codemode_toolset,
+        register_agent_tools,
+        tools_requiring_approval_ids,
+        wire_skills_into_codemode,
+    )
+    from .transports import AGUITransport, MCPUITransport
+
+    logger.info(
+        f"Creating agent '{agent_id}' with codemode={enable_codemode}, "
+        f"skills={skills}, sandbox_variant={sandbox_variant}"
+    )
+
+    # Update the global codemode state so AgentDetails shows correct status
+    _codemode_state["enabled"] = enable_codemode
+    _codemode_state["skills"] = list(skills) if skills else []
+
+    # Build list of non-MCP toolsets (codemode, skills)
+    non_mcp_toolsets = []
+
+    # Get Jupyter sandbox URL from environment if configured
+    jupyter_sandbox_url = os.getenv("AGENT_RUNTIMES_JUPYTER_SANDBOX")
+
+    # Determine effective sandbox variant
+    # Priority: CLI/env var > agent spec > environment-based default
+    effective_variant = (
+        sandbox_variant
+        or agent_spec.sandbox_variant
+        or ("jupyter-server" if jupyter_sandbox_url else "eval")
+    )
+
+    # In K8s sidecar mode (DATALAYER_RUNTIME_JUPYTER_SIDECAR=true), a Jupyter
+    # container already runs in the same pod. Keep the effective variant as
+    # "jupyter-server" and defer sandbox creation until companion provides URL.
+    jupyter_sidecar = (
+        os.getenv("DATALAYER_RUNTIME_JUPYTER_SIDECAR", "").lower() == "true"
+    )
+    if jupyter_sidecar:
+        if effective_variant == "jupyter-server":
+            logger.info(
+                "Jupyter sidecar detected (DATALAYER_RUNTIME_JUPYTER_SIDECAR=true), "
+                "using jupyter variant with deferred URL configuration"
+            )
+        elif effective_variant == "eval":
+            effective_variant = "jupyter-server"
+            logger.info(
+                "Jupyter sidecar detected, overriding eval → jupyter "
+                "(companion will provide jupyter URL)"
+            )
+
+    # Create shared sandbox if both codemode and skills are enabled,
+    # or when the jupyter variant is used with codemode.
+    skills_enabled = len(skills) > 0
+    shared_sandbox = None
+    need_shared_sandbox = (
+        (enable_codemode and skills_enabled)
+        or (enable_codemode and jupyter_sandbox_url)
+        or (enable_codemode and effective_variant == "jupyter-server")
+    )
+    if need_shared_sandbox:
+        if (
+            effective_variant == "jupyter-server"
+            and jupyter_sidecar
+            and not jupyter_sandbox_url
+        ):
+            # Sidecar/companion mode (Phase 1): URL not available yet.
+            from .services.code_sandbox_manager import get_code_sandbox_manager
+
+            sandbox_manager = get_code_sandbox_manager()
+            sandbox_manager.configure(variant="jupyter-server")
+            shared_sandbox = sandbox_manager.get_managed_sandbox()
+            logger.info(
+                f"Deferred sandbox for agent '{agent_id}': variant=jupyter-server, "
+                f"waiting for companion to provide jupyter URL"
+            )
+        elif effective_variant == "jupyter-server":
+            # Delegate to code_sandboxes: create a per-agent sandbox.
+            # When jupyter_sandbox_url is set (e.g. sidecar with env var),
+            # pass it to configure() so _create_sandbox() can connect to the
+            # existing Jupyter server instead of trying to start a new one.
+            try:
+                from .services.code_sandbox_manager import get_code_sandbox_manager
+
+                sandbox_manager = get_code_sandbox_manager()
+                sandbox_manager.configure(
+                    variant="jupyter-server",
+                    jupyter_url=jupyter_sandbox_url,
+                )
+                shared_sandbox = sandbox_manager.create_agent_sandbox(
+                    agent_id=agent_id,
+                    variant="jupyter-server",
+                )
+                logger.info(
+                    f"Created per-agent Jupyter sandbox for CLI agent '{agent_id}'"
+                )
+            except ImportError as e:
+                raise RuntimeError(
+                    "Cannot create Jupyter sandbox: code_sandboxes package is not installed. "
+                    "Install it with: pip install code-sandboxes"
+                ) from e
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to create Jupyter sandbox for agent '{agent_id}': {e}"
+                ) from e
+        else:
+            shared_sandbox = create_shared_sandbox(
+                jupyter_sandbox_url, effective_variant
+            )
+
+    # Add skills toolset if enabled
+    if skills_enabled:
+        # Use AGENT_RUNTIMES_SKILLS_FOLDER if set, otherwise use repo-local skills/
+        skills_folder_env = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+        if skills_folder_env:
+            skills_path = str(Path(skills_folder_env).resolve())
+        else:
+            repo_root = Path(__file__).resolve().parents[1]
+            skills_path = str((repo_root / "skills").resolve())
+
+        skills_toolset = create_skills_toolset(
+            skills=list(skills),
+            skills_path=skills_path,
+            shared_sandbox=shared_sandbox,
+        )
+        if skills_toolset:
+            non_mcp_toolsets.append(skills_toolset)
+            logger.info(f"Added AgentSkillsToolset for agent {agent_id}")
+
+        # Initialize per-agent skills state in stream layer as the single
+        # source of truth for skill enable/disable lifecycle.
+        from .streams.loop import (
+            get_agent_enabled_skill_ids,
+            get_agent_skills_snapshot,
+            set_agent_enabled_skills,
+        )
+
+        set_agent_enabled_skills(agent_id, list(skills))
+        logger.info(
+            "Agent skills state initialized for '%s': %d tracked, %d enabled",
+            agent_id,
+            len(get_agent_skills_snapshot(agent_id)),
+            len(get_agent_enabled_skill_ids(agent_id)),
+        )
+
+    # Add codemode toolset if enabled
+    codemode_toolset = None
+    if enable_codemode:
+        # Use AGENT_RUNTIMES_WORKSPACE_ROOT if set, otherwise default to repo root
+        workspace_env = os.getenv("AGENT_RUNTIMES_WORKSPACE_ROOT")
+        if workspace_env:
+            workspace_path = str(Path(workspace_env).resolve())
+        else:
+            repo_root = Path(__file__).resolve().parents[1]
+            workspace_path = str((repo_root / "workspace").resolve())
+
+        # Resolve a writable generated folder.
+        generated_env = os.getenv("AGENT_RUNTIMES_GENERATED_CODE_FOLDER")
+        generated_path = _resolve_generated_code_path(generated_env)
+
+        # Use AGENT_RUNTIMES_SKILLS_FOLDER if set, otherwise repo-local skills/
+        skills_folder_env = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+        if skills_folder_env:
+            skills_path = str(Path(skills_folder_env).resolve())
+        else:
+            repo_root = Path(__file__).resolve().parents[1]
+            skills_path = str((repo_root / "skills").resolve())
+
+        # Get MCP proxy URL from environment or sandbox manager
+        mcp_proxy_url = os.getenv("AGENT_RUNTIMES_MCP_PROXY_URL")
+        if not mcp_proxy_url and shared_sandbox is not None:
+            # If sandbox manager has a proxy URL configured, use it
+            try:
+                from .services.code_sandbox_manager import get_code_sandbox_manager
+
+                manager_status = get_code_sandbox_manager().get_status()
+                mcp_proxy_url = manager_status.get("mcp_proxy_url")
+            except Exception:
+                pass
+
+        # For Jupyter sandboxes, always use HTTP proxy if not already set
+        if not mcp_proxy_url and shared_sandbox is not None:
+            if hasattr(shared_sandbox, "_server_url"):
+                mcp_proxy_url = os.getenv(
+                    "AGENT_RUNTIMES_MCP_PROXY_URL",
+                    "http://localhost:8765/api/v1/mcp/proxy",
+                )
+                logger.info(
+                    f"Using default MCP proxy URL for Jupyter sandbox: {mcp_proxy_url}"
+                )
+
+        codemode_toolset = create_codemode_toolset(
+            mcp_servers=all_mcp_servers,
+            workspace_path=workspace_path,
+            generated_path=generated_path,
+            skills_path=skills_path,
+            allow_direct_tool_calls=False,
+            shared_sandbox=shared_sandbox,
+            mcp_proxy_url=mcp_proxy_url,
+            enable_discovery_tools=True,
+            sandbox_variant=effective_variant,
+        )
+
+        if codemode_toolset:
+            # In sidecar Phase 1 (jupyter, no URL yet) skip eager
+            # start — the sandbox proxy would fail because the companion
+            # hasn't provided the jupyter URL yet.  The toolset will
+            # initialise lazily on first tool invocation or after
+            # rebuild_codemode is called by configure-from-spec.
+            sidecar_deferred = (
+                jupyter_sidecar
+                and effective_variant == "jupyter-server"
+                and not jupyter_sandbox_url
+            )
+            if sidecar_deferred:
+                logger.info(
+                    f"Sidecar Phase 1: deferring codemode toolset start for agent {agent_id} "
+                    f"(waiting for companion to provide jupyter URL)"
+                )
+            else:
+                await initialize_codemode_toolset(codemode_toolset)
+                logger.info(f"Initialized CodemodeToolset for agent {agent_id}")
+            non_mcp_toolsets.append(codemode_toolset)
+            logger.info(f"Added CodemodeToolset for agent {agent_id}")
+
+    # Wire skill bindings into codemode so execute_code can import
+    # from generated.skills and compose skills programmatically
+    skills_prompt_section = ""
+    if codemode_toolset and skills_enabled:
+        skills_ts = next(
+            (t for t in non_mcp_toolsets if type(t).__name__ == "AgentSkillsToolset"),
+            None,
+        )
+        if skills_ts:
+            skills_prompt_section = wire_skills_into_codemode(
+                codemode_toolset, skills_ts
+            )
+
+    # Build selected MCP servers list for the adapter
+    # When codemode is enabled, MCP servers are accessed via CodemodeToolset registry
+    # If all_mcp_servers is empty but we have pending servers in app state, use those for selection
+    from .routes.agents import McpServerSelection
+
+    # Check for pending MCP servers (stored when --no-catalog-mcp-servers is used)
+    pending_servers = getattr(app.state, "pending_mcp_servers", []) if app else []
+    servers_for_selection = all_mcp_servers if all_mcp_servers else pending_servers
+
+    selected_mcp_servers = [
+        McpServerSelection(id=s.id, origin="catalog") for s in servers_for_selection
+    ]
+    logger.info(
+        f"Agent '{agent_id}' selected MCP servers: {[s.id for s in selected_mcp_servers]}"
+    )
+
+    # Create the underlying Pydantic AI Agent
+    # Use model from agent spec, environment variable override, or global default
+    from agent_runtimes.specs.models import DEFAULT_MODEL
+
+    from .capabilities import (
+        ToolApprovalConfig,
+        ToolsGuardrailCapability,
+        apply_model_output_tokens_limit,
+        build_capabilities_from_agent_spec,
+        build_usage_limits_from_agent_spec,
+    )
+
+    env_model = os.environ.get("AGENT_RUNTIMES_MODEL")
+    model = env_model or agent_spec.model or DEFAULT_MODEL.value
+    inference_provider = (
+        os.environ.get("AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE")
+        or getattr(agent_spec, "inference_provider", None)
+        or "local"
+    )
+
+    # Build the system prompt
+    # Goal/system_prompt consolidation:
+    # 1. system_prompt (explicit technical prompt) takes highest priority
+    # 2. goal (user-facing objective) is used as the system prompt if no explicit prompt
+    # 3. description is the fallback
+    # When codemode is enabled and a codemode-specific prompt exists, it is appended.
+    base_prompt = (
+        agent_spec.system_prompt
+        or agent_spec.goal
+        or agent_spec.description
+        or "You are a helpful AI assistant."
+    )
+    if enable_codemode and agent_spec.system_prompt_codemode_addons:
+        system_prompt = base_prompt + "\n\n" + agent_spec.system_prompt_codemode_addons
+    else:
+        system_prompt = base_prompt
+    # Append dynamic skills section so the LLM has visibility into
+    # installed skills, their scripts, parameters, and usage.
+    if skills_prompt_section:
+        system_prompt = system_prompt + "\n\n" + skills_prompt_section
+
+    tool_ids = list(agent_spec.backend_tools or [])
+    capabilities = build_capabilities_from_agent_spec(
+        agent_spec, agent_id=agent_id, model=model
+    )
+    usage_limits = build_usage_limits_from_agent_spec(agent_spec)
+    usage_limits = apply_model_output_tokens_limit(usage_limits, model)
+    tool_approvals_disabled = (
+        os.environ.get("AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS", "").lower() == "true"
+    )
+    if tool_approvals_disabled and capabilities:
+        approval_capability_names = {
+            "ToolsGuardrailCapability",
+            "MCPToolsGuardrailCapability",
+            "SkillsGuardrailCapability",
+        }
+        capabilities = [
+            cap
+            for cap in capabilities
+            if (
+                not isinstance(cap, ToolsGuardrailCapability)
+                and cap.__class__.__name__ not in approval_capability_names
+            )
+        ]
+    agent_kwargs: dict[str, Any] = {
+        "instructions": system_prompt,
+    }
+    if capabilities:
+        agent_kwargs["capabilities"] = capabilities
+    if usage_limits is not None:
+        agent_kwargs["usage_limits"] = usage_limits
+    approval_tool_ids: list[str] = []
+    if not tool_approvals_disabled:
+        approval_tool_ids = tools_requiring_approval_ids(tool_ids)
+    if approval_tool_ids:
+        approval_patterns = [tool_id.split(":", 1)[0] for tool_id in approval_tool_ids]
+        # Keep DeferredToolRequests in output_type for our websocket-driven
+        # stop-the-world approval flow (UI/SaaS can approve per tool and
+        # continue the run with DeferredToolResults).
+        agent_kwargs["output_type"] = [str, DeferredToolRequests]
+        has_tool_approval_capability = any(
+            isinstance(cap, ToolsGuardrailCapability) for cap in (capabilities or [])
+        )
+        if not has_tool_approval_capability:
+            approval_config = ToolApprovalConfig.from_env()
+            approval_config.agent_id = agent_id
+            approval_config.tools_requiring_approval = approval_patterns
+            if capabilities is None:
+                capabilities = []
+            capabilities.append(ToolsGuardrailCapability(config=approval_config))
+            agent_kwargs["capabilities"] = capabilities
+            logger.info(
+                "Auto-enabled ToolsGuardrailCapability for agent '%s' with approval tools: %s",
+                agent_id,
+                approval_patterns,
+            )
+    elif tool_approvals_disabled:
+        logger.info(
+            "Tool approvals disabled for CLI agent '%s'; skipping approval capability wiring",
+            agent_id,
+        )
+
+    # Credentials are never shown to the model (R-19): last, so it
+    # wraps every tool call innermost and reads every request last.
+    from .guardrails.credentials import credentials_withheld
+
+    agent_kwargs["capabilities"] = credentials_withheld(
+        list(agent_kwargs.get("capabilities") or [])
+    )
+    try:
+        resolved_model = resolve_model_for_inference_provider(
+            model,
+            inference_provider,
+        )
+        pydantic_agent = PydanticAgent(resolved_model, **agent_kwargs)
+    except Exception as exc:
+        # Keep compatibility across pydantic-ai versions where Agent()
+        # may not accept `usage_limits` as a constructor kwarg.
+        if "usage_limits" in agent_kwargs and "usage_limits" in str(exc):
+            logger.warning(
+                "PydanticAgent constructor rejected usage_limits for agent '%s'; retrying without usage_limits.",
+                agent_id,
+            )
+            agent_kwargs.pop("usage_limits", None)
+            resolved_model = resolve_model_for_inference_provider(
+                model,
+                inference_provider,
+            )
+            pydantic_agent = PydanticAgent(resolved_model, **agent_kwargs)
+        else:
+            raise
+
+    # Register runtime tools declared in Agentspec.
+    registered_tools = register_agent_tools(
+        pydantic_agent,
+        tool_ids,
+        agent_id=agent_id,
+        disable_tool_approvals=tool_approvals_disabled,
+    )
+
+    # Wrap with DBOS durable execution if enabled (globally or per-spec)
+    durable_lifecycle = getattr(app.state, "durable_lifecycle", None) if app else None
+    if durable_lifecycle and durable_lifecycle.is_healthy():
+        try:
+            from .durable import DurableConfig, wrap_agent_durable
+
+            spec_config = DurableConfig.from_agent_spec(
+                getattr(agent_spec, "advanced", None)
+            )
+            if spec_config.enabled:
+                pydantic_agent = wrap_agent_durable(pydantic_agent, agent_id=agent_id)
+                logger.info(f"Agent '{agent_id}' wrapped with DBOS durable execution")
+        except Exception as exc:
+            logger.warning(
+                f"Failed to wrap agent '{agent_id}' with DBOS — continuing without durability: {exc}"
+            )
+
+    # Create codemode builder for dynamic rebuilding
+    codemode_builder = None
+    if enable_codemode:
+
+        def rebuild_codemode(new_servers: list[str | dict[str, str]]) -> Any:
+            """Rebuild codemode toolset with new MCP server selection.
+
+            This function properly rebuilds the codemode toolset by:
+            1. Creating a new ToolRegistry with the specified servers
+            2. Adding MCPServerConfig for each server from mcp_manager
+            3. Creating a new CodemodeToolset with the new registry
+            """
+            nonlocal codemode_toolset
+            logger.info(f"Rebuild codemode requested with servers: {new_servers}")
+
+            try:
+                from agent_codemode import (
+                    CodeModeConfig,
+                    CodemodeToolset,
+                    MCPServerConfig,
+                    ToolRegistry,
+                )
+
+                # Get the running MCP servers from mcp_manager
+                mcp_manager = get_mcp_manager()
+                available_servers = mcp_manager.get_servers()
+                logger.info(
+                    f"rebuild_codemode: Found {len(available_servers)} servers in mcp_manager"
+                )
+
+                # Create new registry with the available servers
+                new_registry = ToolRegistry()
+
+                # Extract server IDs from new_servers (may be McpServerSelection objects or dicts)
+                server_ids = set()
+                for s in new_servers:
+                    if hasattr(s, "id"):
+                        server_ids.add(s.id)
+                    elif isinstance(s, dict) and "id" in s:
+                        server_ids.add(s["id"])
+                    elif isinstance(s, str):
+                        server_ids.add(s)
+
+                logger.info(f"rebuild_codemode: Target server IDs: {server_ids}")
+
+                # Add servers to the registry
+                servers_added = []
+                for server in available_servers:
+                    if not server.enabled:
+                        continue
+                    if server_ids and server.id not in server_ids:
+                        continue
+
+                    # Normalize server name to valid Python identifier
+                    normalized_name = "".join(
+                        c if c.isalnum() or c == "_" else "_" for c in server.id
+                    )
+
+                    # Get env vars from environment
+                    server_env: dict[str, str] = {}
+                    for env_key in server.required_env_vars:
+                        env_val = os.getenv(env_key)
+                        if env_val:
+                            server_env[env_key] = env_val
+
+                    new_registry.add_server(
+                        MCPServerConfig(
+                            name=normalized_name,
+                            url=server.url if server.transport == "http" else "",
+                            command=server.command or "",
+                            args=server.args or [],
+                            env=server_env,
+                            enabled=server.enabled,
+                        )
+                    )
+                    servers_added.append(normalized_name)
+
+                logger.info(
+                    f"rebuild_codemode: Added {len(servers_added)} servers to registry: {servers_added}"
+                )
+
+                # Create new config - use CLI/env configured folders if provided
+                generated_folder = os.getenv("AGENT_RUNTIMES_GENERATED_CODE_FOLDER")
+                skills_folder_path = os.getenv("AGENT_RUNTIMES_SKILLS_FOLDER")
+
+                # Get MCP proxy URL from sandbox manager or environment
+                # This enables the two-container architecture where Jupyter kernel
+                # calls tools via HTTP to the agent-runtimes container
+                mcp_proxy_url = os.getenv("AGENT_RUNTIMES_MCP_PROXY_URL")
+                if not mcp_proxy_url:
+                    try:
+                        from .services.code_sandbox_manager import (
+                            get_code_sandbox_manager,
+                        )
+
+                        manager_status = get_code_sandbox_manager().get_status()
+                        mcp_proxy_url = manager_status.get("mcp_proxy_url")
+                    except Exception:
+                        pass
+
+                repo_root = Path(__file__).resolve().parents[1]
+
+                # Get sandbox variant from manager config
+                rebuild_variant = None
+                try:
+                    from .services.code_sandbox_manager import (
+                        get_code_sandbox_manager as _get_mgr,
+                    )
+
+                    rebuild_variant = _get_mgr().config.variant
+                except Exception:
+                    pass
+
+                new_config = CodeModeConfig(
+                    workspace_path=str((repo_root / "workspace").resolve()),
+                    generated_path=_resolve_generated_code_path(generated_folder),
+                    skills_path=skills_folder_path
+                    or str((repo_root / "skills").resolve()),
+                    allow_direct_tool_calls=False,
+                    **(
+                        {}
+                        if os.getenv("AGENT_RUNTIMES_SANDBOX_GPU") is None
+                        else {"sandbox_gpu": os.getenv("AGENT_RUNTIMES_SANDBOX_GPU")}
+                    ),
+                    **(
+                        {}
+                        if mcp_proxy_url is None
+                        else {"mcp_proxy_url": mcp_proxy_url}
+                    ),
+                    **(
+                        {}
+                        if rebuild_variant is None
+                        else {"sandbox_variant": rebuild_variant}
+                    ),
+                )
+
+                logger.info(
+                    f"rebuild_codemode: Using generated_path={new_config.generated_path}, skills_path={new_config.skills_path}, mcp_proxy_url={getattr(new_config, 'mcp_proxy_url', None)}"
+                )
+
+                # Use a ManagedSandbox proxy so the rebuilt toolset
+                # always delegates to the manager's current sandbox.
+                # No need to fetch a "fresh" concrete sandbox — the proxy
+                # handles reconfiguration transparently.
+                fresh_sandbox = None
+                try:
+                    from .services.code_sandbox_manager import get_code_sandbox_manager
+
+                    sandbox_manager = get_code_sandbox_manager()
+                    fresh_sandbox = sandbox_manager.get_managed_sandbox()
+                    logger.info(
+                        f"rebuild_codemode: Using managed sandbox proxy "
+                        f"(variant={sandbox_manager.variant}, url={sandbox_manager.config.jupyter_url})"
+                    )
+                except ImportError as e:
+                    logger.warning(
+                        f"rebuild_codemode: code_sandboxes not available, using None: {e}"
+                    )
+
+                # Create new toolset with the new registry and fresh sandbox
+                new_codemode = CodemodeToolset(
+                    registry=new_registry,
+                    config=new_config,
+                    sandbox_client=(
+                        CodeSandboxClient(fresh_sandbox)
+                        if fresh_sandbox is not None
+                        else None
+                    ),
+                    allow_discovery_tools=True,
+                )
+
+                # Register post-init callback to re-wire skill bindings.
+                # The callback runs after the executor is created during
+                # lazy initialisation, so codegen + skill caller are ready.
+                if skills_enabled:
+                    _skills_ts = next(
+                        (
+                            t
+                            for t in non_mcp_toolsets
+                            if type(t).__name__ == "AgentSkillsToolset"
+                        ),
+                        None,
+                    )
+                    if _skills_ts is not None:
+                        new_codemode.add_post_init_callback(
+                            lambda ts, st=_skills_ts: wire_skills_into_codemode(ts, st)
+                        )
+
+                # Update the reference
+                codemode_toolset = new_codemode
+                logger.info(
+                    "rebuild_codemode: Successfully created new CodemodeToolset"
+                )
+                return new_codemode
+
+            except Exception as e:
+                logger.error(
+                    f"rebuild_codemode: Failed to rebuild codemode toolset: {e}",
+                    exc_info=True,
+                )
+                # Return the old toolset on failure
+                return codemode_toolset
+
+        codemode_builder = rebuild_codemode
+
+    # Wrap with our adapter
+    agent = PydanticAIAdapter(
+        agent=pydantic_agent,
+        name=agent_spec.name,
+        description=agent_spec.description,
+        agent_id=agent_id,
+        selected_mcp_servers=selected_mcp_servers,
+        non_mcp_toolsets=non_mcp_toolsets,
+        codemode_builder=codemode_builder,
+    )
+
+    # Create agent info with protocol
+    info = AgentInfo(
+        id=agent_id,
+        name=agent_spec.name,
+        description=agent_spec.description,
+        capabilities=AgentCapabilities(
+            streaming=True,
+            tool_calling=True,
+            code_execution=enable_codemode,
+        ),
+        protocol=protocol,
+    )
+
+    # Register with ACP (base registration)
+    register_agent(agent, info)
+    logger.info(f"Registered CLI agent '{agent_id}' with ACP (protocol: {protocol})")
+
+    # Store the original agent spec for the /configure/agents/{id}/spec endpoint
+    from .routes.agents import _agentspecs
+
+    _agentspecs[agent_id] = {
+        "id": getattr(agent_spec, "id", agent_id),
+        # The library spec it was created from: its model_additionals are
+        # the models it may be switched to (offered_model_ids).
+        "agent_spec_id": agent_spec.id,
+        "version": getattr(agent_spec, "version", "0.0.1"),
+        "name": agent_spec.name,
+        "description": agent_spec.description,
+        "tags": list(getattr(agent_spec, "tags", []) or []),
+        "enabled": bool(getattr(agent_spec, "enabled", True)),
+        "agent_library": "pydantic-ai",
+        "transport": protocol,
+        "model": model,
+        "inference_provider": inference_provider,
+        "mcp_servers": [s.id for s in all_mcp_servers] if all_mcp_servers else [],
+        "system_prompt": agent_spec.system_prompt
+        or agent_spec.description
+        or "You are a helpful AI assistant.",
+        "system_prompt_codemode_addons": agent_spec.system_prompt_codemode_addons,
+        "enable_codemode": enable_codemode,
+        "enable_skills": len(skills) > 0,
+        "skills": list(skills) if skills else [],
+        "backend_tools": list(agent_spec.backend_tools)
+        if agent_spec.backend_tools
+        else [],
+        "frontend_tools": list(getattr(agent_spec, "frontend_tools", []) or []),
+        "icon": getattr(agent_spec, "icon", None),
+        "emoji": getattr(agent_spec, "emoji", None),
+        "color": getattr(agent_spec, "color", None),
+        "suggestions": [item.model_dump() for item in agent_spec.suggestions],
+        "welcome_message": getattr(agent_spec, "welcome_message", None),
+        "welcome_notebook": getattr(agent_spec, "welcome_notebook", None),
+        "welcome_document": getattr(agent_spec, "welcome_document", None),
+        "sandbox_variant": effective_variant,
+        "jupyter_sandbox": jupyter_sandbox_url,
+    }
+    logger.info(f"Stored creation spec for CLI agent '{agent_id}'")
+
+    # Register with context session for snapshot lookups
+    register_agent_for_context(
+        agent_id,
+        agent,
+        {"name": agent_spec.name, "description": agent_spec.description},
+    )
+    logger.info(f"Registered agent '{agent_id}' for context snapshots")
+
+    # Register with the selected protocol transport
+    if protocol == "ag-ui":
+        # Register with AG-UI
+        try:
+            agui_adapter = AGUITransport(
+                agent,
+                agent_id=agent_id,
+                approval_tool_ids=approval_tool_ids or [],
+            )
+            register_agui_agent(agent_id, agui_adapter)
+            logger.info(f"Registered agent with AG-UI: {agent_id}")
+
+            # Dynamically mount AG-UI route
+            agui_app = get_agui_app(agent_id)
+            if agui_app and app:
+                from .routes.agui import AGUIDispatch, is_agui_mounted
+
+                mount_path = f"{api_prefix}/ag-ui/{agent_id}"
+                if not is_agui_mounted(app.routes, mount_path):
+                    app.mount(
+                        mount_path, AGUIDispatch(agent_id), name=f"agui-{agent_id}"
+                    )
+                logger.info(f"Dynamically mounted AG-UI route: {mount_path}")
+        except Exception as e:
+            logger.warning(f"Could not register with AG-UI: {e}")
+    elif protocol == "vercel-ai":
+        # Register with Vercel AI
+        try:
+            from .routes.vercel_ai import register_vercel_agent
+            from .transports import VercelAITransport
+
+            vercel_adapter = VercelAITransport(
+                agent,
+                usage_limits=usage_limits,
+                agent_id=agent_id,
+                has_spec_frontend_tools=bool(agent_spec.frontend_tools),
+                approval_tool_ids=approval_tool_ids or [],
+                is_triggered=bool(getattr(agent_spec, "trigger", None)),
+            )
+            register_vercel_agent(agent_id, vercel_adapter)
+            logger.info(f"Registered agent with Vercel AI: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not register with Vercel AI: {e}")
+    elif protocol == "vercel-ai-jupyter":
+        # Register with Vercel AI Jupyter (same as vercel-ai but with jupyter execution context)
+        try:
+            from .routes.vercel_ai import register_vercel_agent
+            from .transports import VercelAITransport
+
+            vercel_adapter = VercelAITransport(
+                agent,
+                usage_limits=usage_limits,
+                agent_id=agent_id,
+                has_spec_frontend_tools=bool(agent_spec.frontend_tools),
+                approval_tool_ids=approval_tool_ids or [],
+                is_triggered=bool(getattr(agent_spec, "trigger", None)),
+            )
+            register_vercel_agent(agent_id, vercel_adapter)
+            logger.info(f"Registered agent with Vercel AI Jupyter: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not register with Vercel AI Jupyter: {e}")
+    elif protocol == "a2a":
+        # Register with A2A
+        try:
+            from .routes.a2a import A2AAgentCard, register_a2a_agent
+
+            # Create A2A agent card from agent info
+            a2a_card = A2AAgentCard(
+                id=agent_id,
+                name=info.name,
+                description=info.description,
+                url=f"{api_prefix}/a2a/agents/{agent_id}",
+            )
+            register_a2a_agent(agent, a2a_card)
+            logger.info(f"Registered agent with A2A: {agent_id}")
+        except Exception as e:
+            logger.warning(f"Could not register with A2A: {e}")
+
+    # Register with MCP-UI for tools (always, regardless of protocol)
+    try:
+        mcp_ui_adapter = MCPUITransport(agent)
+        register_mcp_ui_agent(agent_id, mcp_ui_adapter)
+        logger.info(f"Registered agent with MCP-UI: {agent_id}")
+    except Exception as e:
+        logger.warning(f"Could not register with MCP-UI: {e}")
+
+    logger.info(
+        f"✓ Successfully created and registered CLI agent: {agent_id} (protocol: {protocol})"
+    )
+
+    # Build startup info dict with agent and sandbox details
+    from agent_runtimes.specs.models import DEFAULT_MODEL
+
+    env_model = os.environ.get("AGENT_RUNTIMES_MODEL")
+    startup_model = env_model or agent_spec.model or DEFAULT_MODEL.value
+
+    startup_info: dict[str, Any] = {
+        "agent": {
+            "id": agent_id,
+            "name": agent_spec.name,
+            "protocol": protocol,
+            "model": startup_model,
+            "inference_provider": inference_provider,
+            "codemode": enable_codemode,
+            "tool_approvals_disabled": tool_approvals_disabled,
+            "skills": list(skills) if skills else [],
+            "tools": registered_tools,
+            "mcp_servers": [s.id for s in all_mcp_servers] if all_mcp_servers else [],
+        },
+        "sandbox": {
+            "variant": effective_variant,
+        },
+    }
+
+    # Add Jupyter sandbox details when using the jupyter variant
+    if effective_variant == "jupyter-server" and shared_sandbox is not None:
+        jupyter_host = getattr(shared_sandbox, "_host", None)
+        jupyter_port = getattr(shared_sandbox, "_port", None)
+        jupyter_server_url = getattr(shared_sandbox, "_server_url", None)
+        jupyter_token = getattr(shared_sandbox, "_token", None)
+        kernel_id = getattr(shared_sandbox, "kernel_id", None) or getattr(
+            shared_sandbox, "_kernel_id", None
+        )
+        if not kernel_id:
+            kernel_model = getattr(shared_sandbox, "kernel", None)
+            if isinstance(kernel_model, dict):
+                kernel_id = kernel_model.get("id")
+        startup_info["sandbox"]["jupyter_host"] = jupyter_host
+        startup_info["sandbox"]["jupyter_port"] = jupyter_port
+        startup_info["sandbox"]["jupyter_url"] = jupyter_server_url
+        startup_info["sandbox"]["jupyter_token"] = jupyter_token
+        startup_info["sandbox"]["kernel_id"] = kernel_id
+    elif effective_variant == "jupyter-server" and jupyter_sandbox_url:
+        startup_info["sandbox"]["jupyter_url"] = jupyter_sandbox_url
+
+    return startup_info
+
+
+class ServerConfig(BaseModel):
+    """Configuration for the agent-runtimes server."""
+
+    title: str = "Agent Runtimes Server"
+    description: str = "FastAPI server for agent-runtimes with ACP protocol support"
+    #: What ``/api/v1/runtime/status`` says it runs: the package's version.
+    version: str = __version__
+
+    # CORS settings
+    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    cors_allow_credentials: bool = True
+    cors_allow_methods: list[str] = Field(default_factory=lambda: ["*"])
+    cors_allow_headers: list[str] = Field(default_factory=lambda: ["*"])
+
+    # Server settings
+    debug: bool = False
+    docs_url: str | None = "/docs"
+    redoc_url: str | None = "/redoc"
+    openapi_url: str | None = "/openapi.json"
+
+    # API prefix
+    api_prefix: str = "/api/v1"
+
+
+async def _create_harness_agent(app: FastAPI, harness_id: str, api_prefix: str) -> None:
+    """Make the agent of a catalogue harness through the runtime's own create
+    route, in process (as `apps/mounting.create_agent` mounts an
+    application); what refuses it is raised, so the runtime does not start
+    without the agent it was started for.
+    """
+    from starlette.requests import Request
+
+    from agent_runtimes.routes.agents import CreateAgentRequest, create_agent
+
+    agent_name = os.environ.get("AGENT_RUNTIMES_AGENT_NAME", "default")
+    scope = {
+        "type": "http",
+        "app": app,
+        "method": "POST",
+        "path": f"{api_prefix}/agents",
+        "headers": [],
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("127.0.0.1", int(os.environ.get("AGENT_RUNTIMES_PORT") or 0)),
+    }
+    request = CreateAgentRequest(
+        name=agent_name,
+        agent_spec={"id": harness_id, "name": harness_id, "harness": harness_id},
+        transport="ag-ui",
+    )
+    made = await create_agent(request, Request(scope))
+    logger.info("The harness %s is served as agent '%s'", harness_id, made.id)
+
+
+def create_app(config: ServerConfig | None = None) -> FastAPI:
+    """
+    Create and configure the FastAPI application.
+
+    Args:
+        config: Server configuration. If None, uses defaults.
+
+    Returns:
+        Configured FastAPI application.
+    """
+    if config is None:
+        config = ServerConfig()
+
+    # Set the API prefix for dynamic agent creation
+    set_api_prefix(config.api_prefix)
+
+    # Store reference to background task to prevent garbage collection
+    _mcp_toolsets_task: asyncio.Task[Any] | None = None
+    _mcp_servers_task: asyncio.Task[Any] | None = None
+    _agent_node_sync_task: asyncio.Task[Any] | None = None
+    _agent_node_tunnel_task: asyncio.Task[Any] | None = None
+    _agent_node_stop_event = asyncio.Event()
+    _node_enabled = is_node_enabled()
+    _durable_lifecycle: Any = None  # DurableLifecycle instance (when enabled)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        """
+        Application lifespan handler.
+
+        Yields
+        ------
+        None
+            Control is yielded to FastAPI during the application runtime.
+        """
+        nonlocal _mcp_toolsets_task, _mcp_servers_task, _durable_lifecycle
+        logger.info("Starting agent-runtimes server...")
+
+        # One session store, chosen by configuration (MH-F03): two named, or
+        # one nothing contributes, refuse the host before it serves a session.
+        from .apps.session_store import active_store
+
+        logger.info("Sessions are kept in the %s store", active_store().name)
+
+        # ---- DBOS Durable Execution ----
+        from .durable import DurableConfig, DurableLifecycle
+
+        durable_config = DurableConfig.from_env()
+        if durable_config.enabled:
+            _durable_lifecycle = DurableLifecycle(durable_config)
+            try:
+                await _durable_lifecycle.launch()
+                app.state.durable_lifecycle = _durable_lifecycle
+                logger.info("DBOS durable execution launched")
+            except Exception as exc:
+                logger.error(
+                    "DBOS launch failed — continuing without durability: %s", exc
+                )
+                _durable_lifecycle = None
+
+        is_reload_parent = _is_reload_parent_process()
+        logger.info(f"Reload parent check: {is_reload_parent}")
+
+        # ---- The models ai-inference serves, asked once ----
+        # Before any agent is created: a model it does not serve is refused,
+        # and the config the chat and the CLI read offers only those it does.
+        if not is_reload_parent:
+            from .models.offered import load_inference_models
+
+            await load_inference_models()
+
+        # Check if config MCP servers should be skipped (--no-config-mcp-servers CLI flag)
+        no_config_mcp_servers = (
+            os.environ.get("AGENT_RUNTIMES_NO_CONFIG_MCP_SERVERS", "").lower() == "true"
+        )
+
+        if is_reload_parent:
+            logger.info(
+                "Reload parent detected; deferring MCP startup to worker process"
+            )
+        elif no_config_mcp_servers:
+            logger.info(
+                "Skipping config MCP server startup (--no-config-mcp-servers flag)"
+            )
+        else:
+            # Initialize Pydantic AI MCP toolsets in a background task
+            # This allows FastAPI to start immediately while MCP servers start async
+            logger.info("Initializing Pydantic AI MCP toolsets (background startup)...")
+            ensure_config_mcp_toolsets_event()
+
+            async def initialize_toolsets_with_logging() -> None:
+                """Wrapper to catch and log any exceptions from toolset initialization."""
+                try:
+                    await initialize_config_mcp_toolsets()
+                    logger.info(
+                        "✓ MCP toolset background initialization completed successfully"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"✗ MCP toolset background initialization failed: {e}",
+                        exc_info=True,
+                    )
+
+            _mcp_toolsets_task = asyncio.create_task(initialize_toolsets_with_logging())
+            logger.info(
+                "MCP toolset initialization started (servers starting in background)"
+            )
+
+            # Initialize MCP servers (check availability and discover tools) - for the frontend/config API
+            # This also runs async but we need to wait for it before loading into manager
+            logger.info("Initializing MCP servers for configuration API...")
+
+            async def load_mcp_servers_background() -> None:
+                mcp_servers = await initialize_config_mcp_servers(discover_tools=True)
+                mcp_manager = get_mcp_manager()
+                mcp_manager.load_servers(mcp_servers)
+                logger.info(f"Loaded {len(mcp_servers)} MCP servers into manager")
+
+            _mcp_servers_task = asyncio.create_task(load_mcp_servers_background())
+
+        # Set app reference for dynamic A2A route mounting
+        set_a2a_app(app, config.api_prefix)
+
+        # A harness named by `loop --harness`: its agent made
+        # at startup through the create route, as any agent is, so the
+        # Shield decides its actions and a refusal is the route's sentence.
+        harness_id = os.environ.get("AGENT_RUNTIMES_HARNESS")
+        if harness_id:
+            await _create_harness_agent(app, harness_id, config.api_prefix)
+
+        # Register default agent if specified via CLI (--agent-id flag)
+        default_agent_id = os.environ.get("AGENT_RUNTIMES_DEFAULT_AGENT")
+        if default_agent_id:
+            agent_spec = get_agent_spec(default_agent_id)
+            if agent_spec:
+                agent_name = os.environ.get("AGENT_RUNTIMES_AGENT_NAME", "default")
+
+                # Read CLI flags for codemode, skills, and additional MCP servers
+                enable_codemode = (
+                    os.environ.get("AGENT_RUNTIMES_CODEMODE", "").lower() == "true"
+                )
+                skills_str = os.environ.get("AGENT_RUNTIMES_SKILLS", "")
+                skills_list = (
+                    [s.strip() for s in skills_str.split(",") if s.strip()]
+                    if skills_str
+                    else list(
+                        agent_spec.skills
+                    )  # Use agent spec skills if no CLI override
+                )
+                cli_mcp_servers_str = os.environ.get("AGENT_RUNTIMES_MCP_SERVERS", "")
+                cli_mcp_servers = (
+                    [s.strip() for s in cli_mcp_servers_str.split(",") if s.strip()]
+                    if cli_mcp_servers_str
+                    else []
+                )
+                protocol = os.environ.get(
+                    "AGENT_RUNTIMES_PROTOCOL",
+                    agent_spec.protocol or "vercel-ai",
+                )
+                no_catalog_mcp_servers = (
+                    os.environ.get("AGENT_RUNTIMES_NO_CATALOG_MCP_SERVERS", "").lower()
+                    == "true"
+                )
+
+                logger.info(
+                    f"Registering default agent from catalog: {agent_spec.name} (as '{agent_name}')"
+                )
+                logger.info(f"  Protocol: {protocol}")
+                logger.info(f"  Codemode: {enable_codemode}")
+                logger.info(f"  Skills: {skills_list}")
+                logger.info(f"  CLI MCP servers: {cli_mcp_servers}")
+                logger.info(
+                    f"  Agent spec MCP servers: {[s.id for s in agent_spec.mcp_servers]}"
+                )
+                logger.info(f"  No catalog MCP servers: {no_catalog_mcp_servers}")
+
+                # Determine which MCP servers to use:
+                # - If --no-catalog-mcp-servers is specified, skip agent spec MCP servers entirely
+                # - If --mcp-servers is specified, use ONLY those (overrides agent spec servers)
+                # - Otherwise, use the agent spec servers
+                mcp_manager = get_mcp_manager()
+                lifecycle_manager = get_mcp_lifecycle_manager()
+
+                if no_catalog_mcp_servers:
+                    # Skip all catalog MCP servers (both from agent spec and CLI --mcp-servers)
+                    # But still store the agent spec servers so they can be started later via API
+                    logger.info(
+                        "Catalog MCP servers disabled (--no-catalog-mcp-servers flag)"
+                    )
+                    all_mcp_servers: list[Any] = []
+
+                    # Store agent spec servers in app state for later API startup
+                    # This enables the /api/v1/agents/mcp-servers/start endpoint to start them
+                    app.state.pending_mcp_servers = list(agent_spec.mcp_servers)
+                    logger.info(
+                        f"Stored {len(agent_spec.mcp_servers)} pending MCP servers for later API startup: {[s.id for s in agent_spec.mcp_servers]}"
+                    )
+                elif cli_mcp_servers:
+                    # CLI MCP servers OVERRIDE agent spec servers
+                    logger.info(
+                        f"CLI --mcp-servers specified: using ONLY {cli_mcp_servers} (overriding agent spec servers)"
+                    )
+                    all_mcp_servers = []
+                    for server_id in cli_mcp_servers:
+                        catalog_server = get_catalog_server(server_id)
+                        if catalog_server:
+                            mcp_manager.add_server(catalog_server)
+                            all_mcp_servers.append(catalog_server)
+                            logger.info(
+                                f"Loaded CLI MCP server from catalog: {server_id}"
+                            )
+                        else:
+                            logger.warning(
+                                f"CLI MCP server '{server_id}' not found in catalog"
+                            )
+                else:
+                    # No CLI MCP servers, use agent spec servers
+                    logger.info(
+                        "No CLI --mcp-servers specified: using agent spec servers"
+                    )
+                    for mcp_server in agent_spec.mcp_servers:
+                        mcp_manager.add_server(mcp_server)
+                    all_mcp_servers = list(agent_spec.mcp_servers)
+                    logger.info(
+                        f"Loaded {len(agent_spec.mcp_servers)} MCP servers from agent spec"
+                    )
+
+                async def start_all_mcp_servers() -> None:
+                    """Start all MCP servers for the default agent."""
+                    for mcp_server in all_mcp_servers:
+                        try:
+                            instance = await lifecycle_manager.start_server(
+                                mcp_server.id, mcp_server
+                            )
+                            if instance:
+                                logger.info(f"✓ Started MCP server: {mcp_server.id}")
+                            else:
+                                logger.warning(
+                                    f"✗ Failed to start MCP server: {mcp_server.id}"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"✗ Error starting MCP server '{mcp_server.id}': {e}"
+                            )
+
+                # Start MCP servers in background (only if codemode is disabled)
+                # When codemode is enabled, it will start its own MCP server instances
+                if all_mcp_servers and not enable_codemode:
+                    logger.info(
+                        f"Starting {len(all_mcp_servers)} MCP servers for agent '{agent_name}'..."
+                    )
+                    await start_all_mcp_servers()
+                elif all_mcp_servers and enable_codemode:
+                    logger.info(
+                        "Codemode enabled: skipping lifecycle manager MCP server startup (codemode will manage servers)"
+                    )
+
+                # Read sandbox variant from environment
+                sandbox_variant = os.environ.get("AGENT_RUNTIMES_SANDBOX_VARIANT")
+
+                # Create and register the agent with codemode and skills if enabled
+                startup_info = await _create_and_register_cli_agent(
+                    app=app,
+                    agent_id=agent_name,
+                    agent_spec=agent_spec,
+                    enable_codemode=enable_codemode,
+                    skills=skills_list,
+                    all_mcp_servers=all_mcp_servers,
+                    api_prefix=config.api_prefix,
+                    protocol=protocol,
+                    sandbox_variant=sandbox_variant,
+                )
+                # Store startup info on app.state so the /health/startup
+                # endpoint can expose it to CLI consumers (e.g. loop).
+                app.state.startup_info = startup_info
+            else:
+                logger.warning(
+                    f"Default agent '{default_agent_id}' not found in library"
+                )
+
+        # The orchestrator as one ACP agent, with a tree of executions behind it
+        # (--orchestrator-root, O2-08).
+        orchestrator_root = os.environ.get("AGENT_RUNTIMES_ORCHESTRATOR_ROOT")
+        if orchestrator_root:
+            from .orchestration.orchestrator import (
+                ORCHESTRATOR_AGENT_ID,
+                OrchestratorAgent,
+                root_binding,
+            )
+            from .routes.acp import AgentCapabilities, AgentInfo
+            from .routes.acp import register_agent as register_acp_agent
+
+            orchestrator = OrchestratorAgent(root_binding(orchestrator_root))
+            register_acp_agent(
+                orchestrator,
+                AgentInfo(
+                    id=ORCHESTRATOR_AGENT_ID,
+                    name=orchestrator.name,
+                    description=orchestrator.description,
+                    capabilities=AgentCapabilities(
+                        tool_calling=False, code_execution=False
+                    ),
+                    protocol="acp",
+                ),
+            )
+            logger.info(
+                f"Registered the orchestrator with ACP, delegating each turn to '{orchestrator_root}'"
+            )
+
+        # Demo agent auto-registration disabled - use the UI to create agents dynamically
+        # To manually register the demo agent, run: python -m agent_runtimes.examples.demo.demo_agent
+
+        # Add AG-UI mounts after agents are registered
+        from .routes.agui import is_agui_mounted
+
+        for mount in get_agui_mounts():
+            # Mount under /api/v1/ag-ui/{agent_id}
+            full_path = f"{config.api_prefix}/ag-ui{mount.path}"
+            if is_agui_mounted(app.routes, full_path):
+                continue
+            full_mount = Mount(full_path, app=mount.app)
+            app.routes.append(full_mount)
+            logger.info(f"Mounted AG-UI route: {config.api_prefix}/ag-ui{mount.path}")
+
+        # Add A2A mounts (FastA2A apps) after agents are registered
+        for mount in get_a2a_mounts():
+            # Mount under /api/v1/a2a/agents/{agent_id}
+            full_mount = Mount(
+                f"{config.api_prefix}/a2a/agents{mount.path}", app=mount.app
+            )
+            app.routes.append(full_mount)
+            logger.info(
+                f"Mounted A2A route: {config.api_prefix}/a2a/agents{mount.path}"
+            )
+
+        # Start A2A TaskManagers (required for FastA2A apps to handle requests)
+        await start_a2a_task_managers()
+
+        if _node_enabled:
+            _agent_node_stop_event.clear()
+            _agent_node_sync_task = asyncio.create_task(
+                run_agent_node_sync(_agent_node_stop_event),
+                name="agent-node-sync",
+            )
+            _agent_node_tunnel_task = asyncio.create_task(
+                run_agent_node_tunnel(_agent_node_stop_event),
+                name="agent-node-tunnel",
+            )
+        else:
+            logger.info("Agent Node mode disabled (use --node to enable)")
+
+        # The visitors' runtime (R-30): the examples it keeps warm, their
+        # agents made through its own API once it listens.
+        from .apps.visitors import loopback_url, visitors_runtime, warm
+
+        _visitors_task = (
+            asyncio.create_task(warm(loopback_url()), name="runtime-visitors-warm")
+            if visitors_runtime()
+            else None
+        )
+
+        yield
+
+        # The sessions this runtime holds are paused in their record before
+        # it goes (MH-01): a listing from the record then says the truth.
+        try:
+            from .apps.sessions import pause_held
+
+            paused = await pause_held()
+            if paused:
+                logger.info("Paused %d session(s) as the runtime stops", len(paused))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("The held sessions were not paused: %s", exc)
+
+        if _visitors_task is not None and not _visitors_task.done():
+            _visitors_task.cancel()
+
+        if _node_enabled:
+            _agent_node_stop_event.set()
+            if _agent_node_sync_task is not None and not _agent_node_sync_task.done():
+                try:
+                    await asyncio.wait_for(_agent_node_sync_task, timeout=3.0)
+                except asyncio.TimeoutError:
+                    _agent_node_sync_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await _agent_node_sync_task
+
+            if (
+                _agent_node_tunnel_task is not None
+                and not _agent_node_tunnel_task.done()
+            ):
+                try:
+                    await asyncio.wait_for(_agent_node_tunnel_task, timeout=3.0)
+                except asyncio.TimeoutError:
+                    _agent_node_tunnel_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await _agent_node_tunnel_task
+
+        # Stop A2A TaskManagers on shutdown
+        await stop_a2a_task_managers()
+
+        # Wait for MCP toolsets task to complete (or cancel if still running)
+        if _mcp_toolsets_task is not None and not _mcp_toolsets_task.done():
+            logger.info("Waiting for MCP toolsets initialization to complete...")
+            try:
+                await asyncio.wait_for(_mcp_toolsets_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("MCP toolsets initialization timed out, cancelling...")
+                _mcp_toolsets_task.cancel()
+                try:
+                    await _mcp_toolsets_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Wait for MCP server loading to complete (if still running)
+        if _mcp_servers_task is not None and not _mcp_servers_task.done():
+            logger.info("Waiting for MCP server manager load to complete...")
+            try:
+                await asyncio.wait_for(_mcp_servers_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("MCP server manager load timed out, cancelling...")
+                _mcp_servers_task.cancel()
+                try:
+                    await _mcp_servers_task
+                except asyncio.CancelledError:
+                    pass
+
+        # Shutdown MCP toolsets (stop all MCP server subprocesses)
+        if not _is_reload_parent_process():
+            await shutdown_config_mcp_toolsets()
+
+        # Shutdown DBOS durable execution
+        if _durable_lifecycle is not None:
+            try:
+                await _durable_lifecycle.shutdown()
+                logger.info("DBOS durable execution shut down")
+            except Exception as exc:
+                logger.warning("DBOS shutdown error: %s", exc)
+
+        # Stop all per-agent sandboxes (terminates any Jupyter servers
+        # that code_sandboxes started on behalf of agents).
+        try:
+            from .services.code_sandbox_manager import get_code_sandbox_manager
+
+            sandbox_manager = get_code_sandbox_manager()
+            sandbox_manager.stop_all_agent_sandboxes()
+            sandbox_manager.stop()
+            logger.info("All sandboxes stopped during shutdown")
+        except Exception as e:
+            logger.warning(f"Error stopping sandboxes during shutdown: {e}")
+
+        # Stop the browsers of applications' computers (R-23).
+        from .apps.browser import close_browsers
+
+        await close_browsers()
+
+        logger.info("Shutting down agent-runtimes server...")
+
+    app = FastAPI(
+        title=config.title,
+        description=config.description,
+        version=config.version,
+        debug=config.debug,
+        docs_url=config.docs_url,
+        redoc_url=config.redoc_url,
+        openapi_url=config.openapi_url,
+        lifespan=lifespan,
+    )
+
+    # One gate (the release gates, decided 14 October 2026): the
+    # visitors' runtime (R-30), and a runtime that serves a deployment —
+    # kept always on, or launched by a hosted page — answer anybody but the
+    # pod itself only on the application's own routes, websockets and the
+    # dynamic AG-UI and A2A mounts included. Inside CORS, so that a page reads
+    # the refusal's sentence.
+    from .apps.visitors import OwnRoutesOnly
+
+    app.add_middleware(OwnRoutesOnly)
+
+    # A caller's trace continued into the request (SH-51):
+    # inside OwnRoutesOnly, so a refused request opens no span.
+    from .monitoring.otel import TraceContextMiddleware
+
+    app.add_middleware(TraceContextMiddleware)
+
+    # Add CORS middleware - outermost
+    # Allow all origins for development and cross-origin agent runtimes
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins
+        allow_credentials=True,
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
+        expose_headers=["*"],  # Expose all headers to the client
+    )
+
+    # Include routers
+    app.include_router(health_router)
+    app.include_router(identity_router)  # No prefix - uses /api/v1/identity internally
+    if _node_enabled:
+        app.include_router(agent_node_router, prefix=config.api_prefix)
+    # Before the agents router: its catch-all `/agents/{agent_id:path}` would
+    # otherwise take `/agents/{id}/checkpoints` for an agent named so.
+    app.include_router(checkpoints_router, prefix=config.api_prefix)
+    app.include_router(notifications_router, prefix=config.api_prefix)
+    app.include_router(agents_router, prefix=config.api_prefix)
+    if acp_router is not None:
+        app.include_router(acp_router, prefix=config.api_prefix)
+    app.include_router(configure_router, prefix=config.api_prefix)
+    # The conversation as the server saw it. The companion reads it to
+    # rehydrate a restored checkpoint, and the terminal to catch up on what
+    # the other end of a shared session did — both were getting a 404, since
+    # the router existed and nothing mounted it.
+    app.include_router(history_router, prefix=config.api_prefix)
+    app.include_router(loop_router, prefix=config.api_prefix)
+    # Which of an application's plugins this runtime holds, followed by the
+    # page's plugin of the same name (F-15).
+    app.include_router(app_plugins_router, prefix=config.api_prefix)
+    app.include_router(apps_router, prefix=config.api_prefix)
+    # The harness catalogue, as `loop harnesses` prints it (VS-03).
+    app.include_router(harnesses_router, prefix=config.api_prefix)
+    # An application's computer, shown where the person is (R-23).
+    app.include_router(computer_router, prefix=config.api_prefix)
+    app.include_router(mcp_router, prefix=config.api_prefix)
+    app.include_router(mcp_auth_router, prefix=config.api_prefix)
+    app.include_router(mcp_proxy_router, prefix=config.api_prefix)
+    app.include_router(sandbox_router, prefix=config.api_prefix)
+    app.include_router(tool_approvals_router, prefix=config.api_prefix)
+    app.include_router(tool_approvals_legacy_router)
+    app.include_router(tool_approvals_ws_router)
+    app.include_router(evals_router, prefix=config.api_prefix)
+    app.include_router(evals_adapters_router, prefix=config.api_prefix)
+    app.include_router(vercel_ai_router, prefix=config.api_prefix)
+    app.include_router(agui_router, prefix=config.api_prefix)
+    app.include_router(mcp_ui_router, prefix=config.api_prefix)
+    app.include_router(a2a_protocol_router, prefix=config.api_prefix)
+    app.include_router(protocols_router, prefix=config.api_prefix)
+    app.include_router(a2ui_router, prefix=config.api_prefix)
+    if triggers_webhook_router is not None:
+        app.include_router(triggers_webhook_router, prefix=config.api_prefix)
+
+    # Note: AG-UI mounts and example mounts are added dynamically during lifespan startup
+
+    # Root endpoint
+    @app.get("/")
+    async def root() -> Any:
+        """Root endpoint with service information."""
+        if _node_enabled:
+            return RedirectResponse(url="/html/agent-node.html")
+        return {
+            "service": config.title,
+            "version": config.version,
+            "docs": config.docs_url,
+            "endpoints": {
+                "health": "/health",
+                "agents": f"{config.api_prefix}/agents",
+                "acp": f"{config.api_prefix}/acp",
+                "configure": f"{config.api_prefix}/configure",
+                "mcp_servers": f"{config.api_prefix}/mcp/servers",
+                "vercel_ai": f"{config.api_prefix}/vercel-ai/chat",
+                "ag_ui": f"{config.api_prefix}/ag-ui/",
+                "mcp_ui": f"{config.api_prefix}/mcp-ui/",
+                "a2a": f"{config.api_prefix}/a2a/",
+                "a2ui": f"{config.api_prefix}/a2ui/",
+            },
+        }
+
+    @app.get(f"{config.api_prefix}/runtime/status")
+    async def runtime_status() -> dict[str, Any]:
+        """Runtime status endpoint for overlays and quick diagnostics."""
+        startup_info = dict(getattr(app.state, "startup_info", None) or {})
+
+        sandbox_status: dict[str, Any]
+        try:
+            from .services.code_sandbox_manager import get_code_sandbox_manager
+
+            sandbox_status = get_code_sandbox_manager().get_status()
+        except Exception as exc:  # pragma: no cover - best effort
+            sandbox_status = {"error": str(exc)}
+
+        return {
+            "status": "ok",
+            "service": config.title,
+            "version": config.version,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "api_prefix": config.api_prefix,
+            "startup": startup_info,
+            "sandbox": sandbox_status,
+        }
+
+    # Serve the built frontend assets (agent.html, JS/CSS bundles, etc.)
+    # at /static so that /static/agent.html works.
+    # Look for the dist/ directory in two locations:
+    #   1. Repo root (development: ../dist relative to this file)
+    #   2. Package data (PyPI: bundled inside the installed package)
+    _dist_dir = Path(__file__).resolve().parent.parent / "dist"
+    if not _dist_dir.is_dir():
+        # Fallback: check for a dist/ directory packaged inside the module
+        _dist_dir = Path(__file__).resolve().parent / "static" / "dist"
+    if _dist_dir.is_dir():
+        # Inject a `datalayer-config-data` script tag into the built agent HTML
+        # pages before serving them. Vite bakes no runtime config into these
+        # pages, so without this the frontend cannot discover the IAM URL and
+        # login falls back to the server origin (e.g. http://localhost:8765)
+        # instead of the configured IAM server (e.g. `plane local` on :9700).
+        #
+        # This mirrors how the `ui` project seeds `datalayer-config-data`
+        # (iamUrl, runtimesUrl, ...) in its served HTML for `make ai` vs
+        # `make ai-local`. Here the URLs are resolved at serve time from the
+        # DATALAYER_*_URL environment variables via DatalayerURLs.
+        _config_tag_re = re.compile(
+            r'<script id="datalayer-config-data"[^>]*>.*?</script>',
+            re.DOTALL,
+        )
+        _head_open_re = re.compile(r"<head[^>]*>")
+
+        def _build_datalayer_config() -> dict[str, Any]:
+            from datalayer_core.utils.urls import DatalayerURLs
+
+            urls = DatalayerURLs.from_environment()
+            return {
+                "iamUrl": urls.iam_url,
+                "runtimesUrl": urls.runtimes_url,
+                "spacerUrl": urls.spacer_url,
+                "libraryUrl": urls.library_url,
+                "aiAgentsUrl": urls.ai_agents_url,
+                "aiInferenceUrl": urls.ai_inference_url,
+                "datalayerMcpServerUrl": urls.datalayer_mcp_server_url,
+                "otelUrl": urls.otel_url,
+                "growthUrl": urls.growth_url,
+                "successUrl": urls.success_url,
+                "supportUrl": urls.support_url,
+                "loadConfigurationFromServer": False,
+            }
+
+        def _render_page_with_config(page_path: Path) -> str:
+            html = page_path.read_text(encoding="utf-8")
+            config_json = json.dumps(_build_datalayer_config(), indent=2)
+            script_tag = (
+                '<script id="datalayer-config-data" type="application/json">\n'
+                f"{config_json}\n"
+                "    </script>"
+            )
+            if _config_tag_re.search(html):
+                return _config_tag_re.sub(script_tag, html, count=1)
+            head_match = _head_open_re.search(html)
+            if head_match:
+                idx = head_match.end()
+                return f"{html[:idx]}\n    {script_tag}{html[idx:]}"
+            return f"{script_tag}\n{html}"
+
+        def _make_page_handler(page_name: str) -> Any:
+            async def _handler() -> HTMLResponse:
+                page_path = _dist_dir / page_name
+                if not page_path.is_file():
+                    return HTMLResponse(status_code=404, content="Not found")
+                return HTMLResponse(_render_page_with_config(page_path))
+
+            return _handler
+
+        # Explicit routes for the built agent HTML entry pages. Registered
+        # BEFORE the StaticFiles mounts so they take precedence for these
+        # specific files while the mounts keep serving JS/CSS/asset bundles.
+        for _page in (
+            "agent-node.html",
+            "agent.html",
+            "agent-notebook.html",
+            "agent-document.html",
+            "loop.html",
+            "loop-example.html",
+            "index.html",
+        ):
+            _page_handler = _make_page_handler(_page)
+            app.add_api_route(
+                f"/html/{_page}",
+                _page_handler,
+                methods=["GET"],
+                include_in_schema=False,
+            )
+            app.add_api_route(
+                f"/static/{_page}",
+                _page_handler,
+                methods=["GET"],
+                include_in_schema=False,
+            )
+
+        # `/loop` is the workspace's own address: `/browser` hands a session
+        # over by opening `/loop?handoff=<code>`, and that URL should read like
+        # a place rather than a file.
+        app.add_api_route(
+            "/loop",
+            _make_page_handler("loop.html"),
+            methods=["GET"],
+            include_in_schema=False,
+        )
+
+        # Mount AFTER all API routes so it never shadows them.
+        # html=True enables serving index.html for directory requests.
+        app.mount(
+            "/static",
+            StaticFiles(directory=str(_dist_dir), html=True),
+            name="frontend-static",
+        )
+        # Backward-compatible alias used by some clients/tools.
+        # Keep serving the same built artifacts at /html as well.
+        app.mount(
+            "/html",
+            StaticFiles(directory=str(_dist_dir), html=True),
+            name="frontend-html",
+        )
+        logger.info(f"Serving frontend static files from {_dist_dir}")
+
+    return app
+
+
+def create_dev_app() -> FastAPI:
+    """
+    Create a development application with debug settings.
+
+    Returns:
+        FastAPI application configured for development.
+    """
+    config = ServerConfig(
+        debug=True,
+        cors_origins=["*"],
+    )
+    return create_app(config)
+
+
+def create_production_app(
+    cors_origins: list[str] | None = None,
+) -> FastAPI:
+    """
+    Create a production application with stricter settings.
+
+    Args:
+        cors_origins: Allowed CORS origins. Defaults to empty list.
+
+    Returns:
+        FastAPI application configured for production.
+    """
+    config = ServerConfig(
+        debug=False,
+        cors_origins=cors_origins or [],
+        cors_allow_credentials=False,
+    )
+    return create_app(config)
+
+
+# Default app instance for uvicorn
+app = create_app()

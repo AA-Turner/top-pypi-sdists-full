@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 
 #: The agent tree, for the prose surfaces the block now routes to.
 _AGENT_TREE = Path(__file__).resolve().parents[1]
@@ -135,7 +135,7 @@ def test_pi_does_not_disturb_the_existing_codex_and_claude_branches(
 def test_codex_wizard_writes_agents_md_not_claude_md(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     monkeypatch.setenv("PROBE_AGENT", "codex")
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
@@ -287,7 +287,7 @@ def test_a_file_we_cannot_decode_is_reported_not_raised(memory: Path) -> None:
     """One latin-1 character in a researcher's own CLAUDE.md used to take the
     whole wizard down with a traceback, mid-install: UnicodeDecodeError is a
     ValueError, so the `except OSError` around the call never saw it."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     memory.parent.mkdir(parents=True, exist_ok=True)
     memory.write_bytes("# Caf\xe9 rules\n".encode("latin-1"))
@@ -303,7 +303,7 @@ def test_a_file_we_cannot_decode_is_reported_not_raised(memory: Path) -> None:
 def test_removal_reports_a_file_it_could_not_read(memory: Path) -> None:
     """Swallowing the read error rendered as silence: the researcher unticked
     the row, saw nothing printed, and the rule kept firing every session."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     memory.parent.mkdir(parents=True, exist_ok=True)
     memory.write_bytes("caf\xe9\n".encode("latin-1"))
@@ -316,7 +316,7 @@ def test_opting_out_drops_the_team_note_block_too(memory: Path, monkeypatch) -> 
     """Unticking the rules removed the pointer and left the team note, which
     the next sync then kept current: Probe's text stayed in a global file
     whose owner had said no."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     memory.parent.mkdir(parents=True, exist_ok=True)
     memory.write_text("mine\n", encoding="utf-8")
@@ -332,7 +332,7 @@ def test_opting_out_drops_the_team_note_block_too(memory: Path, monkeypatch) -> 
 
 
 def test_a_damaged_pointer_stops_the_opt_out_before_any_write(memory: Path) -> None:
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     memory.parent.mkdir(parents=True, exist_ok=True)
     damaged = f"{agent_rules.BEGIN_MARKER}\norphan\n"
@@ -351,7 +351,7 @@ def test_the_wizard_writes_under_the_syncs_file_lock(memory: Path, monkeypatch) 
     wizard write outside it could be undone by a sync that read the old file."""
     import contextlib
 
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
     from probe.shared.notes import team_note as team_note_file
     from probe.foundation.durable import durable
 
@@ -364,8 +364,8 @@ def test_the_wizard_writes_under_the_syncs_file_lock(memory: Path, monkeypatch) 
         held.append("released")
 
     monkeypatch.setattr(durable, "file_lock", lock)
-    monkeypatch.setattr(wizard, "apply_statusline", lambda: [])
-    monkeypatch.setattr(wizard, "seed_team_note_block", lambda: [])
+    monkeypatch.setattr(wizard.apply.agent_files, "apply_statusline", lambda: [])
+    monkeypatch.setattr(wizard.apply.agent_files, "seed_team_note_block", lambda: [])
     wizard.apply_agent_rules(True)
     wizard.apply_recorder_rules("claude_code", "daemon", False)
     assert held == [team_note_file.instruction_lock_path(memory), "released"] * 2
@@ -402,11 +402,11 @@ def test_remove_all_cuts_both_blocks_wherever_the_file_starts(memory: Path, pref
 def test_the_install_seeds_the_note_after_the_pointer(memory: Path, monkeypatch) -> None:
     """The note renders only beside the pointer, so seeding it first rendered
     nothing on a fresh machine."""
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     seen: list[bool] = []
-    monkeypatch.setattr(wizard, "apply_statusline", lambda: [])
-    monkeypatch.setattr(wizard, "seed_team_note_block", lambda: seen.append(agent_rules.is_installed(memory)) or [])
+    monkeypatch.setattr(wizard.apply.agent_files, "apply_statusline", lambda: [])
+    monkeypatch.setattr(wizard.apply.agent_files, "seed_team_note_block", lambda: seen.append(agent_rules.is_installed(memory)) or [])
     wizard.apply_agent_rules(True)
     assert seen == [True]
 
@@ -935,7 +935,7 @@ def test_a_note_render_leaves_the_pointer_block_intact(tmp_path) -> None:
     operational instructions. Rendering the note there deletes them, silently,
     on every machine. Two blocks, two marker pairs, one file.
     """
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     path.write_text("# my own rules\n\nkeep me\n", encoding="utf-8")
@@ -960,7 +960,7 @@ def test_a_note_render_leaves_the_pointer_block_intact(tmp_path) -> None:
 
 
 def test_removing_one_block_leaves_the_other(tmp_path) -> None:
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     path.write_text("mine\n", encoding="utf-8")
@@ -982,7 +982,7 @@ def test_the_note_stamp_moves_with_content_not_just_version(tmp_path) -> None:
     """`POINTER_VERSION` cannot notice that prose changed -- a constant does not
     move when somebody edits a note. The stamp carries a source hash so drift is
     detectable at all."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     doc = str(tmp_path / "probe-team-note.md")
     first = agent_rules.note_source_hash("## a\n\nbody", doc)
@@ -995,7 +995,7 @@ def test_the_note_stamp_moves_with_content_not_just_version(tmp_path) -> None:
 def test_note_block_is_current_short_circuits_only_on_identical_content(tmp_path) -> None:
     """The `Stop`-every-turn short circuit. Without it, 13 sessions on one box
     rewrite two files per turn for content that changes a few times a day."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     doc = str(tmp_path / "probe-team-note.md")
@@ -1014,7 +1014,7 @@ def test_note_block_is_current_short_circuits_only_on_identical_content(tmp_path
 def test_the_pointer_only_form_carries_no_note_content(tmp_path) -> None:
     """Over budget writes a pointer, never a truncated note: partial content
     under a header saying "a copy of the team note" reads as complete."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     doc = str(tmp_path / "probe-team-note.md")
     secret = "SENTINEL-NOTE-BODY"
@@ -1026,7 +1026,7 @@ def test_the_pointer_only_form_carries_no_note_content(tmp_path) -> None:
 
 def _stale_block(path, version: int) -> None:
     """Install a pointer block stamped with an OLD version."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path.write_text(
         agent_rules.render_block(version=version) + "\n# my own rules\n",
@@ -1035,7 +1035,7 @@ def _stale_block(path, version: int) -> None:
 
 
 def test_refresh_rewrites_a_stale_block_and_leaves_a_current_one(tmp_path) -> None:
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     _stale_block(path, agent_rules.POINTER_VERSION - 1)
@@ -1057,7 +1057,7 @@ def test_refresh_never_installs_into_a_file_that_opted_out(tmp_path) -> None:
     instructions to somebody's memory file uninvited is a different act from
     keeping an existing one current.
     """
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     path.write_text("# just my rules\n", encoding="utf-8")
@@ -1068,7 +1068,7 @@ def test_refresh_never_installs_into_a_file_that_opted_out(tmp_path) -> None:
 
 def test_refresh_leaves_a_block_from_a_newer_cli_alone(tmp_path) -> None:
     """Two CLIs on one machine must not rewrite each other every turn."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     _stale_block(path, agent_rules.POINTER_VERSION + 5)
@@ -1078,7 +1078,7 @@ def test_refresh_leaves_a_block_from_a_newer_cli_alone(tmp_path) -> None:
 
 
 def test_refresh_refuses_a_damaged_block(tmp_path) -> None:
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     path = tmp_path / "CLAUDE.md"
     path.write_text(f"{agent_rules.BEGIN_MARKER}\n<!-- v1 -->\norphan, no end\n", encoding="utf-8")

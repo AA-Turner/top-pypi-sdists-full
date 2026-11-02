@@ -1,0 +1,49 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "backend"
+reviewers = ["$backend"]
+request = 1
+require = 1
+labels = ["backend"]
+ownership = "append"
+paths = [
+  "**/*",
+  "!Dockerfile",
+  "!Dockerfile.dev",
+  "!docker-compose.yml",
+  "!pipeline.yml",
+  "!deployment.yml",
+]
+
+[[scopes]]
+name = "backend-interested"
+reviewers = ["$backend-interested"]
+request = 1
+require = 0
+paths = [
+  "**/*",
+  "!Dockerfile",
+  "!Dockerfile.dev",
+  "!docker-compose.yml",
+  "!pipeline.yml",
+  "!deployment.yml",
+]
+
+[[scopes]]
+name = "dev-ops"
+reviewers = ["$dev-ops"]
+request = 1
+require = 1
+labels = ["dev-ops"]
+ownership = "append"
+paths = ["Dockerfile", "Dockerfile.dev", "docker-compose.yml", "pipeline.yml", "deployment.yml"]
+
+[[scopes]]
+name = "dev-ops-interested"
+reviewers = ["$dev-ops-interested"]
+request = 1
+require = 0
+paths = ["Dockerfile", "Dockerfile.dev", "docker-compose.yml", "pipeline.yml", "deployment.yml"]

@@ -1,0 +1,19 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "test-automation"
+reviewers = ["$test-automation"]
+request = 1
+require = 0
+labels = ["test-automation"]
+ownership = "append"
+paths = ["**/*"]
+
+[[scopes]]
+name = "test-automation-interested"
+reviewers = ["$test-automation-interested"]
+request = 1
+require = 0
+paths = ["**/*"]

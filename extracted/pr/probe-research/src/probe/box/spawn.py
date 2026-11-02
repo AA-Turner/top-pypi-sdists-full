@@ -97,7 +97,7 @@ def maybe_spawn(directory: Path | str | None = None) -> bool:
             # child (plan Q5): the same module on this interpreter, in a
             # session of its own; the lease is still what keeps it one.
             # STARTED: one starts now; RUNNING: one holds the lease.
-            from probe.service.protocol import BackgroundState
+            from probe.foundation.service_api.vocabularies import BackgroundState
 
             return handed == BackgroundState.STARTED
         env = dict(os.environ)

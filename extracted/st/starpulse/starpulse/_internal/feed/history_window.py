@@ -1,0 +1,78 @@
+"""The settings StarPulse Admin writes to the server: a declared default, an override kept in the history store, and Reset."""
+
+from __future__ import annotations
+
+import threading
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
+
+from starpulse._internal.eventlog import operator_settings
+
+if TYPE_CHECKING:  # annotation only: the event log opens the database stack
+    from starpulse._internal.eventlog.event_log import EventLog
+
+#: The history window Admin may set, in hours.
+MIN_HOURS, MAX_HOURS = 1, 72
+#: The override's file before it moved into the store; a file by this name beside the config is imported once.
+SETTINGS_FILE = "starpulse-settings.json"
+KEY = "history.hours"
+
+
+def _valid(hours: object) -> TypeGuard[float]:
+    return isinstance(hours, int | float) and not isinstance(hours, bool) and MIN_HOURS <= hours <= MAX_HOURS
+
+
+class _Feed(Protocol):
+    """What the window drives: the feed that draws the Board, by the seconds back a task's latest move counts."""
+
+    def set_window(self, window_s: float | None) -> None: ...
+
+
+class HistoryWindow:
+    """How far back a task's latest move counts: the declared `--hours`, or the override Admin wrote over it.
+
+    The override is read from the store at construction, so it survives a restart; one that is missing, unreadable or
+    outside the range leaves the declared hours. `path` is the old settings file, imported when the store holds no
+    row. Every change reaches `feed` at once.
+    """
+
+    def __init__(self, feed: _Feed, declared_hours: float, log: EventLog, path: Path) -> None:
+        self._feed = feed
+        self._declared = declared_hours
+        self._log = log
+        self._path = path
+        self._lock = threading.Lock()
+        self._override = self._read()
+        self._apply()
+
+    def _read(self) -> float | None:
+        hours = operator_settings.read(self._log, KEY, self._path, "history_hours")
+        return hours if _valid(hours) else None
+
+    def _apply(self) -> None:
+        self._feed.set_window(self.hours * 3600)
+
+    @property
+    def hours(self) -> float:
+        override = self._override
+        return self._declared if override is None else override
+
+    def state(self) -> dict[str, Any]:
+        """The effective window, the declared default, and whether Admin's override is what is in effect."""
+        return {"hours": self.hours, "default": self._declared, "overridden": self._override is not None}
+
+    def set(self, hours: object) -> None:
+        """Keep `hours` as the override and draw with it; a value outside 1-72 raises ValueError and changes nothing."""
+        if not _valid(hours):
+            raise ValueError(f"history window must be between {MIN_HOURS} and {MAX_HOURS} hours; got {hours}")
+        with self._lock:
+            operator_settings.write(self._log, KEY, hours, self._path)
+            self._override = hours
+            self._apply()
+
+    def reset(self) -> None:
+        """Delete the override: the window returns to the declared hours."""
+        with self._lock:
+            operator_settings.clear(self._log, KEY, self._path)
+            self._override = None
+            self._apply()

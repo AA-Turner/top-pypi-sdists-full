@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Spotless. See CONTRIBUTING.md for details.
+# Handwritten public exports; Spotless does not generate this file. See CONTRIBUTING.md for details.
 
 from trajectory._base_client import SyncPage
 from trajectory._client import Client
@@ -12,10 +12,13 @@ from trajectory._exceptions import (
   BadGatewayError,
   BadRequestError,
   ConflictError,
+  GatewayTimeoutError,
   InternalServerError,
   NotFoundError,
+  PaymentRequiredError,
   PermissionDeniedError,
   RateLimitError,
+  RequestEntityTooLargeError,
   ServiceUnavailableError,
   TrajectoryError,
   UnprocessableEntityError,
@@ -73,14 +76,17 @@ __all__ = [
   "omit",
   "BadRequestError",
   "AuthenticationError",
+  "PaymentRequiredError",
   "PermissionDeniedError",
   "NotFoundError",
   "ConflictError",
+  "RequestEntityTooLargeError",
   "UnprocessableEntityError",
   "RateLimitError",
   "InternalServerError",
   "BadGatewayError",
   "ServiceUnavailableError",
+  "GatewayTimeoutError",
   "Agent",
   "Artifact",
   "ArtifactDownload",

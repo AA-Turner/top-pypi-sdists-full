@@ -1,0 +1,24 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-checkout-plugin"
+version = "0.1.0"
+license = { text = "BSD-3-Clause" }
+description = "Checkout backend plugin for the Reactor music example"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "music-catalog-plugin",
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+[tool.setuptools]
+packages = ["checkout_plugin"]

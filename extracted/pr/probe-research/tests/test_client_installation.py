@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from probe.cli import client_installation
-from probe.cli.capabilities import Capabilities
+from probe.cli.wizard.apply import client_installation
+from probe.cli.wizard.state.state import Capabilities
 from probe.sdk import errors
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings
@@ -434,7 +434,7 @@ def test_snapshot_reports_capture_as_what_actually_runs() -> None:
     the machine -- and this is the field the consent story rests on, so
     overstating it is the one direction that must never happen.
     """
-    from probe.cli.capabilities import TokenSource
+    from probe.cli.wizard.state.state import TokenSource
 
     killswitched = Capabilities(
         tracking_plugin_installed=True,
@@ -487,7 +487,7 @@ def test_an_unfinished_run_says_unknown_for_capture_too() -> None:
 
 
 def _agent(source: str, *, tracking: bool = True, capture: bool = True, auto_update: bool = True):
-    from probe.cli.capabilities import TokenSource
+    from probe.cli.wizard.state.state import TokenSource
 
     return Capabilities(
         agent_source=source,
@@ -627,7 +627,8 @@ def test_settings_registers_the_machine_once(monkeypatch) -> None:
     import importlib
     import os
 
-    from probe.cli import doctor, setup
+    from probe.cli.wizard import doctor
+    from probe.cli import wizard as setup
 
     cli_main = importlib.import_module("probe.cli.main")
     bodies = _recording_client(monkeypatch)
@@ -635,7 +636,7 @@ def test_settings_registers_the_machine_once(monkeypatch) -> None:
         "codex": _agent("codex", capture=False),
         "claude_code": _agent("claude_code"),
     }
-    monkeypatch.setattr(doctor, "collect", lambda: agents[os.environ["PROBE_AGENT"]])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: agents[os.environ["PROBE_AGENT"]])
 
     def _configure(action, *, caps, **kwargs):
         return cli_main._register_local_capabilities(caps, settings=SETTINGS)
@@ -682,15 +683,17 @@ def test_the_update_action_registers_without_removals(monkeypatch) -> None:
     above is dead code."""
     import importlib
 
-    from probe.cli import actions, doctor, upgrading
+    from probe.cli.wizard.actions import onboarding as actions
+    from probe.cli.wizard import doctor
+    from probe.cli.install import upgrade as upgrading
 
     cli_main = importlib.import_module("probe.cli.main")
     bodies = _recording_client(monkeypatch)
     after = _agent("claude_code", capture=False)
-    monkeypatch.setattr(doctor, "collect", lambda: after)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: after)
     monkeypatch.setattr(cli_main, "resolve", lambda **_kwargs: SETTINGS)
     monkeypatch.setattr(
-        upgrading,
+        upgrading.upgrade,
         "perform_update",
         lambda **_kwargs: type("Outcome", (), {"lines": [], "restart_needed": False})(),
     )

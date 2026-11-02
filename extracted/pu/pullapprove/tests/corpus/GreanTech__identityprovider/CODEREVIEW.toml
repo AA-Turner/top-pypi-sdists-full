@@ -1,0 +1,75 @@
+[aliases]
+verify-team = ["kasperhj", "Xephyz", "HaayanchandravatSr"]
+extra-tech-reviewers = ["fkj", "mickhansen", "sgryt"]
+compliance-team = ["sgryt", "melindaczirjak-hub"]
+
+[[scopes]]
+name = "Compliance procedures"
+description = "Files that impact compliance procedures."
+paths = ["**/CODEREVIEW.toml", "pull_request_template.md"]
+request = 2
+require = 1
+reviewers = ["$compliance-team"]
+ownership = "append"
+labels = ["review/compliance"]
+checklist.items = [
+  { label = "This PR does not require a change in compliance procedures", required = false, notes = "required_if_unchecked", help = "If not checked, add a ticket to the compliance tracker and link it here." },
+]
+
+[[scopes]]
+name = "Compliance checklist"
+description = "Files that require specific review questions for compliance."
+paths = ["**"]
+reviewers = ["$verify-team"]
+alternates = ["$extra-tech-reviewers"]
+ownership = "append"
+require = 1
+checklist.items = [
+  { label = "The change conforms to the Secure Coding Guidelines", required = true },
+  { label = "This PR does not change code interacting with the local Windows certificate storage", required = false, notes = "required_if_unchecked", help = "Execute tests after deleting local certificates and restarting the local server and note the results here." },
+  { label = "I have performed manual exploratory testing", required = false, notes = "required_if_checked", help = "This could be browser tests, manual requests or anything else. Explain how you tested." },
+  { label = "There are no new FxCop suppressions", required = false, notes = "required_if_unchecked", help = "Check that suppressions have justifications and explain why you approve of them." },
+  { label = "The dependency check succeeded", required = "false", notes = "required_if_unchecked", help = "If the dependency check failed, explain why that is acceptable." },
+  { label = "There are no new dependency suppressions", required = false, notes = "required_if_unchecked", help = "If there are new suppressions, check the justifications and explain why you approve of them." },
+]
+
+[[scopes]]
+name = "Update Detectify"
+description = "Detectify needs to be updated if there are any endpoint changes."
+paths = ["UnitTests/actionMethods.txt"]
+reviewers = ["*"]
+ownership = "append"
+require = 1
+checklist.items = [
+  { label = "I have updated the Detectify scan settings to reflect the endpoint changes", required = true },
+]
+
+[[scopes]]
+name = "CIBA"
+description = "Changes to CIBA require review by kasperhj."
+paths = ["Ciba/**", "TokenIssuerApi/CibaAdapters/**", "TokenIssuerApi/CibaController.fs"]
+authors = ["!kasperhj"]
+reviewers = ["kasperhj"]
+ownership = "append"
+require = 1
+
+[[scopes]]
+name = "Not Verify Team"
+paths = ["**"]
+authors = ["!kasperhj", "!Xephyz", "!HaayanchandravatSr"]
+description = "All PRs opened by someone outside of the Verify team."
+reviewers = ["$verify-team"]
+ownership = "append"
+request = 3
+require = 1
+
+[[scopes]]
+name = "Regular PR"
+paths = ["**"]
+authors = ["$verify-team"]
+description = "Regular PR opened by someone in the Verify team."
+reviewers = ["$verify-team"]
+alternates = ["$extra-tech-reviewers"]
+ownership = "append"
+request = 3
+require = 1

@@ -1,0 +1,54 @@
+Metadata-Version: 1.1
+Name: markdown-it-reporter
+Version: 0.0.2
+Summary: Galaxy Workflow Format 2 Descriptions
+Home-page: https://github.com/galaxyproject/markdown-it-reporter
+Author: Galaxy Project and Community
+Author-email: jmchilton@gmail.com
+License: AFL
+Description: 
+        # markdown-it-reporter
+        
+        Build Markdown based HTML reports from Github flavored Markdown using the markdown-it library.
+        
+        .. _Galaxy: http://galaxyproject.org/
+        .. _GitHub: https://github.com/
+        
+        
+        
+        
+        
+        History
+        -------
+        
+        .. to_doc
+        
+        ---------------------
+        0.0.2 (2020-08-21)
+        ---------------------
+        
+        * Implement customizable masthead links.
+        
+        ---------------------
+        0.0.1 (2020-08-18)
+        ---------------------
+        
+        * Initial version - still testing it.
+        
+        
+Keywords: galaxy
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: Academic Free License (AFL)
+Classifier: Operating System :: POSIX
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Testing
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8

@@ -1,0 +1,405 @@
+from django.urls import path
+from django.views.generic.base import RedirectView
+
+from nautobot.core.views.routers import NautobotUIViewSetRouter
+from nautobot.extras.views import ImageAttachmentEditView
+
+from . import views
+from .models import (
+    ConsolePort,
+    ConsoleServerPort,
+    Device,
+    FrontPort,
+    Interface,
+    Location,
+    PowerFeed,
+    PowerOutlet,
+    PowerPort,
+    Rack,
+    RearPort,
+)
+
+app_name = "dcim"
+
+router = NautobotUIViewSetRouter()
+router.register("cables", views.CableUIViewSet)
+router.register("cable-types", views.CableTypeUIViewSet)
+router.register("console-ports", views.ConsolePortUIViewSet)
+router.register("console-port-templates", views.ConsolePortTemplateUIViewSet)
+router.register("console-server-ports", views.ConsoleServerPortUIViewSet)
+router.register("console-server-port-templates", views.ConsoleServerPortTemplateUIViewSet)
+router.register("controller-managed-device-groups", views.ControllerManagedDeviceGroupUIViewSet)
+router.register("controllers", views.ControllerUIViewSet)
+router.register("device-bays", views.DeviceBayUIViewSet)
+router.register("device-bay-templates", views.DeviceBayTemplateUIViewSet)
+router.register("device-families", views.DeviceFamilyUIViewSet)
+router.register("device-redundancy-groups", views.DeviceRedundancyGroupUIViewSet)
+router.register("device-types", views.DeviceTypeUIViewSet)
+router.register("devices", views.DeviceUIViewSet)
+router.register("front-ports", views.FrontPortUIViewSet)
+router.register("front-port-templates", views.FrontPortTemplateUIViewSet)
+router.register("interfaces", views.InterfaceUIViewSet)
+router.register("interface-redundancy-groups", views.InterfaceRedundancyGroupUIViewSet)
+router.register("interface-redundancy-groups-associations", views.InterfaceRedundancyGroupAssociationUIViewSet)
+router.register("inventory-items", views.InventoryItemUIViewSet)
+router.register("interface-templates", views.InterfaceTemplateUIViewSet)
+router.register("locations", views.LocationUIViewSet)
+router.register("location-types", views.LocationTypeUIViewSet)
+router.register("manufacturers", views.ManufacturerUIViewSet)
+router.register("module-bay-templates", views.ModuleBayTemplateUIViewSet)
+router.register("module-bays", views.ModuleBayUIViewSet)
+router.register("module-families", views.ModuleFamilyUIViewSet)
+router.register("module-types", views.ModuleTypeUIViewSet)
+router.register("modules", views.ModuleUIViewSet)
+router.register("platforms", views.PlatformUIViewSet)
+router.register("power-feeds", views.PowerFeedUIViewSet)
+router.register("power-outlets", views.PowerOutletUIViewSet)
+router.register("power-outlet-templates", views.PowerOutletTemplateUIViewSet)
+router.register("power-panels", views.PowerPanelUIViewSet)
+router.register("power-ports", views.PowerPortUIViewSet)
+router.register("power-port-templates", views.PowerPortTemplateUIViewSet)
+router.register("racks", views.RackUIViewSet)
+router.register("rack-groups", views.RackGroupUIViewSet)
+router.register("rack-reservations", views.RackReservationUIViewSet)
+router.register("rear-ports", views.RearPortUIViewSet)
+router.register("rear-port-templates", views.RearPortTemplateUIViewSet)
+router.register("software-image-files", views.SoftwareImageFileUIViewSet)
+router.register("software-versions", views.SoftwareVersionUIViewSet)
+router.register("virtual-chassis", views.VirtualChassisUIViewSet)
+router.register("virtual-device-contexts", views.VirtualDeviceContextUIViewSet)
+
+urlpatterns = [
+    # Locations
+    path(
+        "locations/<uuid:pk>/migrate-data-to-contact/",
+        views.MigrateLocationDataToContactView.as_view(),
+        name="location_migrate_data_to_contact",
+    ),
+    path(
+        "locations/<uuid:object_id>/images/add/",
+        ImageAttachmentEditView.as_view(),
+        name="location_add_image",
+        kwargs={"model": Location},
+    ),
+    # Racks
+    path(
+        "rack-elevations/",
+        views.RackElevationListView.as_view(),
+        name="rack_elevation_list",
+    ),
+    path(
+        "racks/<uuid:object_id>/images/add/",
+        ImageAttachmentEditView.as_view(),
+        name="rack_add_image",
+        kwargs={"model": Rack},
+    ),
+    # Device types
+    path(
+        "device-types/import/",
+        views.DeviceTypeImportView.as_view(),
+        name="devicetype_import",
+    ),
+    path(
+        "device-types/<uuid:pk>/console-port-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/console-port-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/console-ports/"
+        ),
+        name="devicetype_consoleporttemplate_add",
+    ),
+    path(
+        "devices-types/<uuid:pk>/console-server-port-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/console-server-port-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/console-server-ports/"
+        ),
+        name="devicetype_consoleserverporttemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/power-port-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/power-port-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/power-ports/"
+        ),
+        name="devicetype_powerporttemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/power-outlet-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/power-outlet-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/power-outlets/"
+        ),
+        name="devicetype_poweroutlettemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/interface-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/interface-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/interfaces/"
+        ),
+        name="devicetype_interfacetemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/front-port-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/front-port-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/front-ports/"
+        ),
+        name="devicetype_frontporttemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/rear-port-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/rear-port-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/rear-ports/"
+        ),
+        name="devicetype_rearporttemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/device-bay-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/device-bay-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/device-bays/"
+        ),
+        name="devicetype_devicebaytemplate_add",
+    ),
+    path(
+        "device-types/<uuid:pk>/module-bay-templates/add/",
+        RedirectView.as_view(
+            url="/dcim/module-bay-templates/add/?device_type=%(pk)s&return_url=/dcim/device-types/%(pk)s/module-bays/"
+        ),
+        name="devicetype_modulebaytemplate_add",
+    ),
+    # Devices
+    path(
+        "devices/<uuid:pk>/console-ports/add/",
+        RedirectView.as_view(
+            url="/dcim/console-ports/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/console-ports/"
+        ),
+        name="device_consoleports_add",
+    ),
+    path(
+        "devices/<uuid:pk>/console-server-ports/add/",
+        RedirectView.as_view(
+            url="/dcim/console-server-ports/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/console-server-ports/"
+        ),
+        name="device_consoleserverports_add",
+    ),
+    path(
+        "devices/<uuid:pk>/power-ports/add/",
+        RedirectView.as_view(url="/dcim/power-ports/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/power-ports/"),
+        name="device_powerports_add",
+    ),
+    path(
+        "devices/<uuid:pk>/power-outlets/add/",
+        RedirectView.as_view(
+            url="/dcim/power-outlets/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/power-outlets/"
+        ),
+        name="device_poweroutlets_add",
+    ),
+    path(
+        "devices/<uuid:pk>/interfaces/add/",
+        RedirectView.as_view(url="/dcim/interfaces/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/interfaces/"),
+        name="device_interfaces_add",
+    ),
+    path(
+        "devices/<uuid:pk>/front-ports/add/",
+        RedirectView.as_view(url="/dcim/front-ports/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/front-ports/"),
+        name="device_frontports_add",
+    ),
+    path(
+        "devices/<uuid:pk>/rear-ports/add/",
+        RedirectView.as_view(url="/dcim/rear-ports/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/rear-ports/"),
+        name="device_rearports_add",
+    ),
+    path(
+        "devices/<uuid:pk>/device-bays/add/",
+        RedirectView.as_view(url="/dcim/device-bays/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/device-bays/"),
+        name="device_devicebays_add",
+    ),
+    path(
+        "devices/<uuid:pk>/module-bays/add/",
+        RedirectView.as_view(
+            url="/dcim/module-bays/add/?parent_device=%(pk)s&return_url=/dcim/devices/%(pk)s/module-bays/"
+        ),
+        name="device_modulebays_add",
+    ),
+    path(
+        "devices/<uuid:object_id>/images/add/",
+        ImageAttachmentEditView.as_view(),
+        name="device_add_image",
+        kwargs={"model": Device},
+    ),
+    # Console ports
+    path(
+        "console-ports/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="consoleport_trace",
+        kwargs={"model": ConsolePort},
+    ),
+    path(
+        "console-ports/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="consoleport_connect",
+        kwargs={"termination_a_type": ConsolePort},
+    ),
+    path(
+        "devices/console-ports/add/",
+        views.DeviceBulkAddConsolePortView.as_view(),
+        name="device_bulk_add_consoleport",
+    ),
+    # Console server ports
+    path(
+        "console-server-ports/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="consoleserverport_trace",
+        kwargs={"model": ConsoleServerPort},
+    ),
+    path(
+        "console-server-ports/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="consoleserverport_connect",
+        kwargs={"termination_a_type": ConsoleServerPort},
+    ),
+    path(
+        "devices/console-server-ports/add/",
+        views.DeviceBulkAddConsoleServerPortView.as_view(),
+        name="device_bulk_add_consoleserverport",
+    ),
+    # Power ports
+    path(
+        "power-ports/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="powerport_trace",
+        kwargs={"model": PowerPort},
+    ),
+    path(
+        "power-ports/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="powerport_connect",
+        kwargs={"termination_a_type": PowerPort},
+    ),
+    path(
+        "devices/power-ports/add/",
+        views.DeviceBulkAddPowerPortView.as_view(),
+        name="device_bulk_add_powerport",
+    ),
+    # Power outlets
+    path(
+        "power-outlets/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="poweroutlet_trace",
+        kwargs={"model": PowerOutlet},
+    ),
+    path(
+        "power-outlets/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="poweroutlet_connect",
+        kwargs={"termination_a_type": PowerOutlet},
+    ),
+    path(
+        "devices/power-outlets/add/",
+        views.DeviceBulkAddPowerOutletView.as_view(),
+        name="device_bulk_add_poweroutlet",
+    ),
+    # Interfaces
+    path(
+        "interfaces/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="interface_trace",
+        kwargs={"model": Interface},
+    ),
+    path(
+        "interfaces/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="interface_connect",
+        kwargs={"termination_a_type": Interface},
+    ),
+    path(
+        "devices/interfaces/add/",
+        views.DeviceBulkAddInterfaceView.as_view(),
+        name="device_bulk_add_interface",
+    ),
+    path(
+        "front-ports/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="frontport_trace",
+        kwargs={"model": FrontPort},
+    ),
+    path(
+        "front-ports/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="frontport_connect",
+        kwargs={"termination_a_type": FrontPort},
+    ),
+    # path('devices/front-ports/add/', views.DeviceBulkAddFrontPortView.as_view(), name='device_bulk_add_frontport'),
+    # Rear ports
+    path(
+        "rear-ports/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="rearport_trace",
+        kwargs={"model": RearPort},
+    ),
+    path(
+        "rear-ports/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="rearport_connect",
+        kwargs={"termination_a_type": RearPort},
+    ),
+    path(
+        "devices/rear-ports/add/",
+        views.DeviceBulkAddRearPortView.as_view(),
+        name="device_bulk_add_rearport",
+    ),
+    # Device bays
+    path(
+        "devices/device-bays/add/",
+        views.DeviceBulkAddDeviceBayView.as_view(),
+        name="device_bulk_add_devicebay",
+    ),
+    # Module bays (legacy views)
+    path(
+        "devices/module-bays/add/",
+        views.DeviceBulkAddModuleBayView.as_view(),
+        name="device_bulk_add_modulebay",
+    ),
+    # Inventory items
+    path(
+        "devices/inventory-items/add/",
+        views.DeviceBulkAddInventoryItemView.as_view(),
+        name="device_bulk_add_inventoryitem",
+    ),
+    path(
+        "devices/<uuid:pk>/inventory-items/add/",
+        RedirectView.as_view(url="/dcim/inventory-items/add/?device=%(pk)s&return_url=/dcim/devices/%(pk)s/inventory/"),
+        name="device_inventoryitems_add",
+    ),
+    # Console/power/interface connections (read-only)
+    path(
+        "console-connections/",
+        views.ConsoleConnectionsListView.as_view(),
+        name="console_connections_list",
+    ),
+    path(
+        "power-connections/",
+        views.PowerConnectionsListView.as_view(),
+        name="power_connections_list",
+    ),
+    path(
+        "interface-connections/",
+        views.InterfaceConnectionsListView.as_view(),
+        name="interface_connections_list",
+    ),
+    # Virtual chassis
+    path(
+        "virtual-chassis-members/<uuid:pk>/delete/",
+        views.VirtualChassisRemoveMemberView.as_view(),
+        name="virtualchassis_remove_member",
+    ),
+    # Power feeds
+    path(
+        "power-feeds/<uuid:pk>/trace/",
+        views.PathTraceView.as_view(),
+        name="powerfeed_trace",
+        kwargs={"model": PowerFeed},
+    ),
+    path(
+        "power-feeds/<uuid:termination_a_id>/connect/<str:termination_b_type>/",
+        views.CableCreateView.as_view(),
+        name="powerfeed_connect",
+        kwargs={"termination_a_type": PowerFeed},
+    ),
+]
+urlpatterns += router.urls

@@ -1,4 +1,4 @@
-"""RunCreateMixin, Client's methods: create a run: its body, idempotent create, floating and
+"""RunCreateMixin, Client's methods: create a run: its body, idempotent create, experiment and
 project-direct runs (twin: app/runs)."""
 
 from __future__ import annotations
@@ -275,91 +275,6 @@ class RunCreateMixin:
                 raise
             replay = supported
         return attempt(replay)
-
-    def create_floating_run(
-        self,
-        name: str | None,
-        *,
-        description: str | None = None,
-        notes: str | None = None,
-        source: str = "api",
-        external_id: str | None = None,
-        parent_run_id: str | None = None,
-        parent_relation: str | None = None,
-        config: dict | None = None,
-        tags: list[str] | None = None,
-        metadata: dict | None = None,
-        heartbeat: bool = True,
-        awaiting_attach: bool = False,
-        launcher: bool = False,
-        labeled_point_budget: int | None = None,
-        slug: str | None = None,
-        authored_by: str | None = None,
-    ) -> Run:
-        """POST /v1/runs — open a FLOATING run: no project, no experiment (daemon v2, D1).
-
-        The run is its own record from its first second (metrics, spans, files,
-        parentage), and is filed afterwards -- by the Probe daemon, or a person
-        with `probe run move` -- which moves everything it holds with it. Same
-        body as a project-direct run, and like one it cannot join a group.
-        """
-        body = self._run_create_body(
-            name,
-            slug=slug,
-            description=description,
-            notes=notes,
-            source=source,
-            external_id=external_id,
-            parent_run_id=parent_run_id,
-            parent_relation=parent_relation,
-            group_id=None,
-            config=config,
-            tags=tags,
-            metadata=metadata,
-            labeled_point_budget=labeled_point_budget,
-            heartbeat=heartbeat,
-            awaiting_attach=awaiting_attach,
-            launcher=launcher,
-            authored_by=authored_by,
-        )
-        session_id, lease = self._lease_for_create(
-            body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
-        )
-        try:
-            data = self._create_idempotently(
-                # Literal call site: the tests/test_parity.py AST scan must see the route.
-                lambda replay: self.transport.post("/v1/runs", body, idempotent=replay),
-                path="/v1/runs",
-                body=body,
-            )
-        except errors.RosError as exc:
-            # A backend that predates floating runs has GET /v1/runs only, so a
-            # POST there is FastAPI's 405 (or a route-level "Not Found" behind a
-            # proxy; a handler's own 404, like a missing parent run, says more
-            # and passes through). Name the way out instead of "Method Not Allowed".
-            if exc.status == 405 or (exc.status == 404 and str(exc).strip().lower() == "not found"):
-                raise errors.CapabilityUnavailable(
-                    "floating_runs",
-                    "this research-os backend predates floating runs (POST /v1/runs). "
-                    "Upgrade the backend, or open the run in a project: pass "
-                    "project= / experiment= (CLI: --project / --experiment, or "
-                    "`probe project use`).",
-                ) from exc
-            raise
-        self._verify_slug_written(slug, data)
-        self._warn_if_notes_dropped(notes, data, "runs")
-        return self._opened(
-            self._wrap_run(
-                data,
-                heartbeat=heartbeat,
-                session_id=session_id,
-                lease=lease,
-                # The create's own transaction wrote it.
-                lease_registered=lease is not None,
-                # The create carried the lease: the run is on leases.
-                lease_protocol="leases" if lease is not None else None,
-            )
-        )
 
     @staticmethod
     def _verify_slug_written(slug: str | None, row: dict) -> None:

@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SpiffWorkflow"
+description = "A workflow framework and BPMN/DMN Processor"
+authors = [
+    {name = "Sartography", email = "dan@sartography.com"},
+]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["spiff", "workflow", "bpmn", "engine"]
+license = {"text" = "lGPLv3"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Other/Nonlisted Topic",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "lxml",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage =  "https://github.com/sartography/SpiffWorkflow"
+Documentation = "https://spiff.works/docs/spiffworkflow/"
+
+[project.optional-dependencies]
+doc = [
+    "sphinx",
+    "sphinx_rtd_theme",
+]
+dev = [
+    "build",
+    "coverage",
+    "unittest-parallel",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["SpiffWorkflow*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "SpiffWorkflow.version.__version__"}
+
+[tool.setuptools.package-data]
+"*" = ["schema/*.xsd"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"

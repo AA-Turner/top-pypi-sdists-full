@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import yarl
+
+from ...const import WEB_BASE_HOST
+from ...exception import TiebaServerError
+from ...helper import parse_json
+from ._classdef import SelfFollowForums
+
+if TYPE_CHECKING:
+    from ...core import HttpCore
+
+
+def parse_body(body: bytes) -> SelfFollowForums:
+    res_json = parse_json(body)
+    if code := res_json["error_code"]:
+        raise TiebaServerError(code, res_json["error_msg"])
+
+    self_follow_forums = SelfFollowForums.from_json(res_json)
+
+    return self_follow_forums
+
+
+async def request(http_core: HttpCore) -> SelfFollowForums:
+    data = [
+        ("sort_type", 3),
+        ("call_from", 3),
+    ]
+
+    request = http_core.pack_web_form_request(
+        yarl.URL.build(scheme="https", host=WEB_BASE_HOST, path="/c/f/forum/forumGuide"),
+        data,
+        extra_headers={"Subapp-Type": "hybrid"},
+    )
+
+    body = await http_core.net_core.send(request)
+    return parse_body(body)

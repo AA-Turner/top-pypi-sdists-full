@@ -13,7 +13,9 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from schemathesis.core.result import Ok, Result
+from schemathesis.core import SpecificationFeature
+from schemathesis.core.errors import is_read_timeout
+from schemathesis.core.result import Ok
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT, USER_AGENT
 from schemathesis.engine import Status, events
 from schemathesis.engine.errors import never_reached_server
@@ -38,22 +40,19 @@ class ProbePayload:
 def execute(ctx: EngineContext, phase: Phase) -> EventGenerator:
     """Discover capabilities of the tested app."""
     probes = run(ctx)
-    status = Status.SUCCESS
-    payload: Result[ProbePayload, Exception] | None = None
     for result in probes:
         if isinstance(result.probe, NullByteInHeader) and result.is_failure:
             ctx.schema.adapt_to_null_byte_in_header_failure()
         elif isinstance(result.probe, UnsafePathDecoder) and result.is_failure:
             ctx.schema.adapt_to_path_decoder_rejection()
-        payload = Ok(ProbePayload(probes=probes))
-    cache_report = ctx.cache.run()
-    if cache_report is not None:
-        payload = Ok(ProbePayload(probes=probes, cache=cache_report))
-    yield events.PhaseFinished(phase=phase, status=status, payload=payload)
+    payload = Ok(ProbePayload(probes=probes, cache=ctx.cache.run()))
+    yield events.PhaseFinished(phase=phase, status=Status.SUCCESS, payload=payload)
 
 
 def run(ctx: EngineContext) -> list[ProbeRun]:
     """Run all probes against the given schema."""
+    if not ctx.schema.specification.supports_feature(SpecificationFeature.HTTP_PROBES):
+        return []
     return [send(probe(), ctx) for probe in PROBES]
 
 
@@ -178,7 +177,7 @@ PROBES = (NullByteInHeader, UnsafePathDecoder)
 
 def send(probe: Probe, ctx: EngineContext) -> ProbeRun:
     """Send the probe to the application."""
-    from requests import PreparedRequest, ReadTimeout, Request, RequestException
+    from requests import PreparedRequest, Request, RequestException
     from requests.exceptions import MissingSchema
     from urllib3.exceptions import InsecureRequestWarning
 
@@ -201,7 +200,7 @@ def send(probe: Probe, ctx: EngineContext) -> ProbeRun:
     except RequestException as exc:
         req = exc.request if isinstance(exc.request, PreparedRequest) else None
         # A slow or unreachable server says nothing about the capability; other network errors mean it was rejected
-        inconclusive = isinstance(exc, ReadTimeout) or never_reached_server(exc)
+        inconclusive = is_read_timeout(exc) or never_reached_server(exc)
         outcome = ProbeOutcome.SKIP if inconclusive else ProbeOutcome.FAILURE
         return ProbeRun(probe, outcome, req, None, exc)
     finally:

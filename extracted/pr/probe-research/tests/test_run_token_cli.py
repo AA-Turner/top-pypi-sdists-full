@@ -3,7 +3,7 @@ remote job, `probe run token`, how `probe.init()` joins the run a token records,
 and that every scrubber hides one.
 
 The server half (minting, the route list, the expiry alert) is research-os's
-tests/integration/test_run_token_isolation.py and test_run_token_sdk_e2e.py.
+tests/integration/runs/test_run_token_isolation.py and test_run_token_sdk_e2e.py.
 """
 
 from __future__ import annotations
@@ -18,7 +18,8 @@ import pytest
 import typer
 
 from probe import cli
-from probe.cli.main import _forwarding_hint, _parse_duration
+from probe.cli.commands.runs.exec_launchers import _forwarding_hint
+from probe.cli.commands.runs.tokens import _parse_duration
 from probe.sdk import errors, fluent
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import env_run_id, run_token_run_id

@@ -1,0 +1,59 @@
+# Copilot Coding Agent — Firewall Egress Allowlist
+#
+# This file DOCUMENTS the additional hosts the Copilot coding agent needs to
+# reach at task time. The sandbox firewall denies egress by default after the
+# setup phase, so these hosts must ALSO be enabled in:
+#
+#   Settings → Copilot → Coding agent → Custom allowlist
+#
+# (This committed file records intent and is version-controlled; the Settings
+# allowlist is what the platform actually enforces.)
+#
+# Background: a prior agent session (task 179e2637) was blocked because
+# api.github.com and github.com were absent from the allowlist, preventing
+# the agent from reading PR review comments via gh api / curl.
+
+allow:
+  # --- GitHub API / web ---
+  # Required for: gh CLI, reading PR review comments, resolving threads,
+  # pushing commits, interacting with GitHub REST/GraphQL APIs at task time.
+  - domain: api.github.com
+  - domain: github.com
+  - domain: uploads.github.com
+
+  # --- Python packaging ---
+  # Required for: pip/uv installs if a package is not pre-installed during
+  # setup, twine publishing (upload.pypi.org).
+  - domain: pypi.org
+  - domain: files.pythonhosted.org
+  - domain: upload.pypi.org
+
+  # --- npm ---
+  # Required for: markdownlint-cli2 and other Node tooling.
+  - domain: registry.npmjs.org
+
+  # --- Azure DevOps ---
+  # Required for: agentic_devtools/cli/azure_devops/ adapters that call the
+  # Azure DevOps REST API (PR threads, pipelines, work items, etc.).
+  - domain: dev.azure.com
+  - domain: "*.visualstudio.com"
+  - domain: vssps.dev.azure.com
+  - domain: ssh.dev.azure.com
+
+  # --- Azure identity / monitor ---
+  # Required for: azure-identity (token acquisition) and azure-monitor-query
+  # (Log Analytics / Application Insights queries).
+  - domain: login.microsoftonline.com
+  - domain: login.microsoft.com
+  - domain: management.azure.com
+  - domain: "*.monitor.azure.com"
+  - domain: api.loganalytics.io
+
+  # --- Jira / Atlassian ---
+  # Required for: atlassian-python-api calls to Jira (issues, comments, epics).
+  - domain: "*.atlassian.net"
+  - domain: api.atlassian.com
+
+  # --- OpenAI ---
+  # Required for: the openai Python package used by agent tasks.
+  - domain: api.openai.com

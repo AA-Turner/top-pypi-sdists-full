@@ -1,0 +1,678 @@
+#pragma once
+
+#include <cstdint>
+#include <limits>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <vector>
+#include <arch_emulator.hpp>
+#include <serialization.hpp>
+
+#include "emulator_utils.hpp"
+#include "handles.hpp"
+
+namespace sogen
+{
+    inline constexpr uint16_t lpc_continuation_required = 0x2000;
+
+    class windows_emulator;
+    struct process_context;
+    class emulator_thread;
+
+    namespace utils
+    {
+        class aligned_binary_writer;
+    }
+
+    struct lpc_port_message
+    {
+        PORT_MESSAGE64 native{};
+        bool is_wow64{};
+
+        [[nodiscard]] ULONG data_length() const
+        {
+            return static_cast<ULONG>(native.u1.s1.DataLength);
+        }
+
+        [[nodiscard]] ULONG total_length() const
+        {
+            return static_cast<ULONG>(native.u1.s1.TotalLength);
+        }
+
+        [[nodiscard]] ULONG header_size() const
+        {
+            return total_length() - data_length();
+        }
+
+        [[nodiscard]] ULONG wire_size() const
+        {
+            return wire_size(this->is_wow64);
+        }
+
+        [[nodiscard]] static ULONG wire_size(const bool is_32_bit)
+        {
+            return is_32_bit ? static_cast<ULONG>(sizeof(PORT_MESSAGE32)) : static_cast<ULONG>(sizeof(PORT_MESSAGE64));
+        }
+
+        void write(const emulator_object<PORT_MESSAGE64>& message) const
+        {
+            if (this->is_wow64)
+            {
+                const auto wow64_message = narrow(native);
+                message.get_memory_interface()->write_memory(message.value(), &wow64_message, sizeof(wow64_message));
+                return;
+            }
+
+            message.write(native);
+        }
+
+        static lpc_port_message read(const emulator_object<PORT_MESSAGE64>& message)
+        {
+            lpc_port_message result{};
+
+            const auto prefix = emulator_object<port_message_prefix>{*message.get_memory_interface(), message.value()}.read();
+            const auto data_length = static_cast<ULONG>(prefix.DataLength);
+            const auto total_length = static_cast<ULONG>(prefix.TotalLength);
+            const auto header_size = total_length >= data_length ? total_length - data_length : 0;
+
+            if (header_size == wire_size(true))
+            {
+                const emulator_object<PORT_MESSAGE32> wow64_message{*message.get_memory_interface(), message.value()};
+                result.native = widen(wow64_message.read());
+                result.is_wow64 = true;
+            }
+            else if (header_size == wire_size(false))
+            {
+                result.native = message.read();
+            }
+            else
+            {
+                throw std::runtime_error("Unexpected LPC header size");
+            }
+
+            return result;
+        }
+
+      private:
+        struct port_message_prefix
+        {
+            CSHORT DataLength;
+            CSHORT TotalLength;
+            CSHORT Type;
+            CSHORT DataInfoOffset;
+        };
+
+        template <typename T, typename U>
+        static T narrow(const U value, const char* field_name)
+        {
+            if constexpr (sizeof(T) < sizeof(U))
+            {
+                if (value > static_cast<U>(std::numeric_limits<T>::max()))
+                {
+                    throw std::runtime_error(std::string(field_name) + " does not fit in WOW64 LPC header");
+                }
+            }
+
+            return static_cast<T>(value);
+        }
+
+        static PORT_MESSAGE32 narrow(const PORT_MESSAGE64& message)
+        {
+            PORT_MESSAGE32 result{};
+
+            result.u1.s1.DataLength = message.u1.s1.DataLength;
+            result.u1.s1.TotalLength = message.u1.s1.TotalLength;
+            result.u2.s2.Type = message.u2.s2.Type;
+            result.u2.s2.DataInfoOffset = message.u2.s2.DataInfoOffset;
+            result.ClientId.UniqueProcess =
+                narrow<EmulatorTraits<Emu32>::HANDLE>(message.ClientId.UniqueProcess, "LPC ClientId.UniqueProcess");
+            result.ClientId.UniqueThread =
+                narrow<EmulatorTraits<Emu32>::HANDLE>(message.ClientId.UniqueThread, "LPC ClientId.UniqueThread");
+            result.MessageId = message.MessageId;
+            result.ClientViewSize = narrow<EmulatorTraits<Emu32>::SIZE_T>(message.ClientViewSize, "LPC ClientViewSize");
+
+            return result;
+        }
+
+        static PORT_MESSAGE64 widen(const PORT_MESSAGE32& message)
+        {
+            PORT_MESSAGE64 result{};
+
+            result.u1.s1.DataLength = message.u1.s1.DataLength;
+            result.u1.s1.TotalLength = message.u1.s1.TotalLength;
+            result.u2.s2.Type = message.u2.s2.Type;
+            result.u2.s2.DataInfoOffset = message.u2.s2.DataInfoOffset;
+            result.ClientId.UniqueProcess = message.ClientId.UniqueProcess;
+            result.ClientId.UniqueThread = message.ClientId.UniqueThread;
+            result.MessageId = message.MessageId;
+            result.ClientViewSize = message.ClientViewSize;
+
+            return result;
+        }
+    };
+
+    struct lpc_message_context
+    {
+        emulator_object<PORT_MESSAGE64> send_message;
+        emulator_object<PORT_MESSAGE64> receive_message;
+        EmulatorTraits<Emu64>::SIZE_T receive_buffer_length{};
+        uint64_t send_handle{}; // handle delivered by a client->server ALPC HANDLE attribute (0 = none)
+        uint64_t send_view_base{};
+        uint64_t send_view_size{};
+        uint64_t send_message_context{};
+
+        lpc_message_context(memory_interface& emu)
+            : send_message(emu),
+              receive_message(emu)
+        {
+        }
+
+        lpc_message_context(utils::buffer_deserializer& buffer)
+            : lpc_message_context(buffer.read<guest_machine_wrapper>().get())
+        {
+        }
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(send_message);
+            buffer.write(receive_message);
+            buffer.write(receive_buffer_length);
+            buffer.write(send_handle);
+            buffer.write(send_view_base);
+            buffer.write(send_view_size);
+            buffer.write(send_message_context);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(send_message);
+            buffer.read(receive_message);
+            buffer.read(receive_buffer_length);
+            buffer.read(send_handle);
+            buffer.read(send_view_base);
+            buffer.read(send_view_size);
+            buffer.read(send_message_context);
+        }
+    };
+
+    struct lpc_request_context
+    {
+        emulator_pointer send_buffer{};
+        ULONG send_buffer_length{};
+        emulator_pointer recv_buffer{};
+        ULONG recv_buffer_length{};
+        uint64_t send_handle{}; // handle delivered by a client->server ALPC HANDLE attribute (0 = none)
+        uint64_t send_view_base{};
+        uint64_t send_view_size{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(send_buffer);
+            buffer.write(send_buffer_length);
+            buffer.write(recv_buffer);
+            buffer.write(recv_buffer_length);
+            buffer.write(send_handle);
+            buffer.write(send_view_base);
+            buffer.write(send_view_size);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(send_buffer);
+            buffer.read(send_buffer_length);
+            buffer.read(recv_buffer);
+            buffer.read(recv_buffer_length);
+            buffer.read(send_handle);
+            buffer.read(send_view_base);
+            buffer.read(send_view_size);
+        }
+    };
+
+    // A kernel handle to hand to the receiver of an LRPC reply via an ALPC HANDLE message attribute. NDR
+    // [system_handle] members (e.g. the shared render section in SYSTEM_AUDIO_STREAM) are transferred this
+    // way: the wire carries a handle index, the real handle rides in the message attributes.
+    struct alpc_reply_handle
+    {
+        uint64_t handle{};
+        uint32_t object_type{};
+        uint32_t desired_access{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(handle);
+            buffer.write(object_type);
+            buffer.write(desired_access);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(handle);
+            buffer.read(object_type);
+            buffer.read(desired_access);
+        }
+    };
+
+    struct lpc_request_result
+    {
+        struct reply_in_place_t
+        {
+        };
+
+        static constexpr reply_in_place_t reply_in_place{};
+
+        NTSTATUS status{};
+        std::optional<std::vector<uint8_t>> payload{};
+        std::vector<alpc_reply_handle> handles{};
+        std::vector<uint8_t> view_payload{};
+
+        lpc_request_result() = default;
+
+        lpc_request_result(NTSTATUS s)
+            : status{s},
+              payload{std::vector<uint8_t>{}}
+        {
+        }
+
+        lpc_request_result(NTSTATUS s, std::vector<uint8_t>&& p)
+            : status{s},
+              payload{std::move(p)}
+        {
+        }
+
+        lpc_request_result(NTSTATUS s, reply_in_place_t)
+            : status{s}
+        {
+        }
+    };
+
+    struct lpc_message_result
+    {
+        NTSTATUS status{};
+        lpc_port_message message{};
+        std::vector<uint8_t> payload{};
+        std::vector<alpc_reply_handle> handles{};
+        std::vector<uint8_t> view_payload{};
+        uint64_t message_context{};
+
+        [[nodiscard]] ULONG total_length() const
+        {
+            if (message.native.u1.s1.TotalLength != 0)
+            {
+                return message.total_length();
+            }
+
+            return static_cast<ULONG>(message.wire_size() + payload.size());
+        }
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(status);
+            buffer.write(message);
+            buffer.write_vector(payload);
+            buffer.write_vector(handles);
+            buffer.write_vector(view_payload);
+            buffer.write(message_context);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(status);
+            buffer.read(message);
+            buffer.read_vector(payload);
+            buffer.read_vector(handles);
+            buffer.read_vector(view_payload);
+            buffer.read(message_context);
+        }
+    };
+
+    struct port_creation_data
+    {
+        uint64_t view_base{};
+        int64_t view_size{};
+        ULONG flags{ALPC_PORFLG_ALLOW_LPC_REQUESTS};
+        ULONG sequence_number{};
+    };
+
+    struct alpc_section_view
+    {
+        uint64_t base{};
+        uint64_t size{};
+        uint64_t reserved_size{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->base);
+            buffer.write(this->size);
+            buffer.write(this->reserved_size);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->base);
+            buffer.read(this->size);
+            buffer.read(this->reserved_size);
+        }
+    };
+
+    struct alpc_port_section
+    {
+        uint64_t size{};
+        bool closed{};
+        std::map<uint64_t, alpc_section_view> views{};
+        std::map<uint64_t, std::array<uint8_t, 0x1000>> saved_pages{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->size);
+            buffer.write(this->closed);
+            buffer.write_map(this->views);
+            buffer.write_map(this->saved_pages);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->size);
+            buffer.read(this->closed);
+            buffer.read_map(this->views);
+            buffer.read_map(this->saved_pages);
+        }
+    };
+
+    struct port : ref_counted_object
+    {
+        uint64_t view_base{};
+        int64_t view_size{};
+        ULONG flags{};
+        ULONG sequence_number{};
+        bool disconnected{};
+        uint64_t next_security_context_handle{4};
+        std::vector<uint64_t> security_context_handles{};
+        uint64_t next_section_handle{0x10};
+        std::map<uint64_t, alpc_port_section> sections{};
+
+        port() = default;
+        ~port() override = default;
+
+        // MSVC's std::map move constructor allocates a replacement sentinel and can throw.
+        port(port&&) noexcept(false) = default;
+        port& operator=(port&&) = default;
+
+        port(const port&) = delete;
+        port& operator=(const port&) = delete;
+
+        void serialize_object(utils::buffer_serializer& buffer) const override
+        {
+            buffer.write(this->view_base);
+            buffer.write(this->view_size);
+            buffer.write(this->flags);
+            buffer.write(this->sequence_number);
+            buffer.write(this->disconnected);
+            buffer.write(this->next_security_context_handle);
+            buffer.write_vector(this->security_context_handles);
+            buffer.write(this->next_section_handle);
+            buffer.write_map(this->sections);
+        }
+
+        void deserialize_object(utils::buffer_deserializer& buffer) override
+        {
+            buffer.read(this->view_base);
+            buffer.read(this->view_size);
+            buffer.read(this->flags);
+            buffer.read(this->sequence_number);
+            buffer.read(this->disconnected);
+            buffer.read(this->next_security_context_handle);
+            buffer.read_vector(this->security_context_handles);
+            buffer.read(this->next_section_handle);
+            buffer.read_map(this->sections);
+        }
+
+        virtual void create(windows_emulator& win_emu, const port_creation_data& data)
+        {
+            (void)win_emu;
+            view_base = data.view_base;
+            view_size = data.view_size;
+            flags = data.flags;
+            sequence_number = data.sequence_number;
+        }
+
+        virtual void prepare_for_state_restore(windows_emulator& win_emu)
+        {
+            (void)win_emu;
+        }
+
+        virtual void restore_after_state_restore(windows_emulator& win_emu)
+        {
+            (void)win_emu;
+        }
+
+        bool disconnect()
+        {
+            if (this->disconnected)
+            {
+                return false;
+            }
+
+            this->disconnected = true;
+            return true;
+        }
+
+        uint64_t create_security_context()
+        {
+            const auto context_handle = this->next_security_context_handle;
+            this->next_security_context_handle += 4;
+            this->security_context_handles.push_back(context_handle);
+            return context_handle;
+        }
+
+        bool delete_security_context(const uint64_t context_handle)
+        {
+            const auto context = std::ranges::find(this->security_context_handles, context_handle);
+            if (context == this->security_context_handles.end())
+            {
+                return false;
+            }
+
+            this->security_context_handles.erase(context);
+            return true;
+        }
+
+        NTSTATUS create_section(uint64_t size, uint64_t& section_handle, uint64_t& actual_size);
+        NTSTATUS delete_section(uint64_t section_handle);
+        NTSTATUS create_section_view(windows_emulator& win_emu, uint64_t section_handle, uint64_t requested_size, uint64_t& result_base,
+                                     uint64_t& actual_size);
+        NTSTATUS delete_section_view(windows_emulator& win_emu, uint64_t address);
+        bool owns_section_view(uint64_t section_handle, uint64_t address, uint64_t size) const;
+        void release_sections(windows_emulator& win_emu);
+
+        virtual lpc_message_result handle_message(windows_emulator& win_emu, const lpc_message_context& c);
+
+        virtual bool accepts_send_only_messages() const
+        {
+            return false;
+        }
+
+        virtual lpc_request_result handle_request(windows_emulator& win_emu, const lpc_request_context& c) = 0;
+    };
+
+    struct rpc_port : port
+    {
+        lpc_request_result handle_request(windows_emulator& win_emu, const lpc_request_context& c) override;
+
+        bool accepts_send_only_messages() const override
+        {
+            return true;
+        }
+
+        void serialize_object(utils::buffer_serializer& buffer) const override
+        {
+            port::serialize_object(buffer);
+            buffer.write(this->bound_interface_);
+            buffer.write_map(this->bindings_);
+        }
+
+        void deserialize_object(utils::buffer_deserializer& buffer) override
+        {
+            port::deserialize_object(buffer);
+            buffer.read(this->bound_interface_);
+            buffer.read_map(this->bindings_);
+        }
+
+        virtual NTSTATUS handle_rpc(windows_emulator& win_emu, uint32_t procedure_id, const lpc_request_context& c,
+                                    utils::aligned_binary_writer& writer, std::vector<alpc_reply_handle>& reply_handles) = 0;
+
+        // The interface UUID the client bound to (captured from the LRPC bind). A single ALPC port can host
+        // several RPC interfaces whose opnums overlap, so handlers dispatch by (interface, opnum).
+        const std::array<uint8_t, 16>& bound_interface() const
+        {
+            return bound_interface_;
+        }
+
+      protected:
+        std::array<uint8_t, 16> bound_interface_{};
+
+      private:
+        struct rpc_binding
+        {
+            std::array<uint8_t, 16> interface_id{};
+            bool ndr64{};
+
+            void serialize(utils::buffer_serializer& buffer) const
+            {
+                buffer.write(this->interface_id);
+                buffer.write(this->ndr64);
+            }
+
+            void deserialize(utils::buffer_deserializer& buffer)
+            {
+                buffer.read(this->interface_id);
+                buffer.read(this->ndr64);
+            }
+        };
+
+        std::map<uint16_t, rpc_binding> bindings_{};
+
+        lpc_request_result handle_handshake(windows_emulator& win_emu, const lpc_request_context& c);
+        lpc_request_result handle_rpc_call(windows_emulator& win_emu, const lpc_request_context& c);
+    };
+
+    std::unique_ptr<port> create_port(std::u16string_view port);
+
+    class port_container : public port
+    {
+      public:
+        port_container() = default;
+
+        port_container(std::u16string port, windows_emulator& win_emu, const port_creation_data& data)
+            : port_name_(std::move(port))
+        {
+            this->setup();
+            this->port_->create(win_emu, data);
+        }
+
+        lpc_request_result handle_request(windows_emulator& win_emu, const lpc_request_context& c) override
+        {
+            this->assert_validity();
+            return this->port_->handle_request(win_emu, c);
+        }
+
+        lpc_message_result handle_message(windows_emulator& win_emu, const lpc_message_context& c) override;
+
+        void prepare_for_state_restore(windows_emulator& win_emu) override
+        {
+            this->assert_validity();
+            this->port_->prepare_for_state_restore(win_emu);
+        }
+
+        void restore_after_state_restore(windows_emulator& win_emu) override
+        {
+            this->assert_validity();
+            this->port_->restore_after_state_restore(win_emu);
+        }
+
+        void serialize_object(utils::buffer_serializer& buffer) const override
+        {
+            this->assert_validity();
+
+            buffer.write_string(this->port_name_);
+            buffer.write_vector(this->reply_queue_);
+            buffer.write(this->completion_key_);
+            buffer.write(this->completion_port_);
+            buffer.write(this->last_message_id_);
+            this->port_->serialize(buffer);
+        }
+
+        void deserialize_object(utils::buffer_deserializer& buffer) override
+        {
+            buffer.read_string(this->port_name_);
+            buffer.read_vector(this->reply_queue_);
+            buffer.read(this->completion_key_);
+            buffer.read(this->completion_port_);
+            buffer.read(this->last_message_id_);
+            this->setup();
+            this->port_->deserialize(buffer);
+        }
+
+        template <typename T = port>
+            requires(std::is_base_of_v<port, T> || std::is_same_v<port, T>)
+        T* get_internal_port() const
+        {
+            this->assert_validity();
+            auto* value = this->port_.get();
+            return dynamic_cast<T*>(value);
+        }
+
+        std::u16string_view get_port_name() const
+        {
+            this->assert_validity();
+            return this->port_name_;
+        }
+
+        bool has_pending_reply() const
+        {
+            return !reply_queue_.empty();
+        }
+
+        NTSTATUS associate_completion_port(windows_emulator& win_emu, const emulator_thread* active_thread, uint64_t completion_key,
+                                           handle completion_port);
+        void release_completion_port(process_context& process);
+
+        [[nodiscard]] handle completion_port() const
+        {
+            return this->completion_port_;
+        }
+
+        void queue_connection_reply(windows_emulator& win_emu, bool is_wow64);
+
+        ULONG allocate_message_id()
+        {
+            return ++this->last_message_id_;
+        }
+
+      private:
+        std::u16string port_name_{};
+        std::unique_ptr<port> port_{};
+        std::vector<lpc_message_result> reply_queue_;
+        uint64_t completion_key_{};
+        handle completion_port_{};
+        ULONG last_message_id_{};
+
+        void post_completion(windows_emulator& win_emu) const;
+
+        void setup()
+        {
+            this->port_ = create_port(this->port_name_);
+        }
+
+        void assert_validity() const
+        {
+            if (!this->port_)
+            {
+                throw std::runtime_error("Port not created!");
+            }
+        }
+    };
+
+} // namespace sogen

@@ -396,11 +396,6 @@ def testdir(testdir):
 
     testdir.run_and_assert = run_and_assert
 
-    def make_graphql_schema_file(schema: str, extension=".gql"):
-        return testdir.makefile(extension, schema=schema)
-
-    testdir.make_graphql_schema_file = make_graphql_schema_file
-
     return testdir
 
 
@@ -490,6 +485,8 @@ def response_factory():
         verify: bool = False,
         message: str = "",
         encoding: str | None = None,
+        render_content: Callable[[bytes], str] | None = None,
+        status_line: str | None = None,
     ) -> Response:
         headers = dict(headers or {})
         if content_type:
@@ -503,6 +500,8 @@ def response_factory():
             verify=verify,
             message=message,
             encoding=encoding,
+            render_content=render_content,
+            status_line=status_line,
         )
 
     return ResponseFactory(
@@ -535,7 +534,6 @@ def clean_constants_registry():
 @pytest.fixture
 def make_operation(ctx):
     def factory(method: str = "post", path: str = "/api/users"):
-        sthesis_schema = ctx.openapi.load_schema({path: {method: {"responses": {"200": {"description": "OK"}}}}})
-        return sthesis_schema[path][method.upper()]
+        return ctx.openapi.load_operation(f"{method.upper()} {path}", {"responses": {"200": {"description": "OK"}}})
 
     return factory

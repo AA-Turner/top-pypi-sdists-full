@@ -5,6 +5,7 @@ from urllib.parse import unquote, urlsplit
 
 import pytest
 import requests
+from flask import request
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -31,6 +32,7 @@ from schemathesis.specs.openapi.serialization import (
     matrix_primitive,
     nested_object,
     serialize_openapi3_parameters,
+    serialize_swagger2_parameters,
     simple_object,
 )
 from schemathesis.transport.prepare import get_default_headers
@@ -122,9 +124,9 @@ class DelimitedObject(Prefixed):
         return dict(item.split("=") for item in items)
 
 
-def make_openapi_schema(*parameters):
+def make_openapi_schema(*parameters, version="3.0.2"):
     return {
-        "openapi": "3.0.2",
+        "openapi": version,
         "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
         "paths": {
             "/teapot": {
@@ -230,19 +232,78 @@ def test_header_serialization_styles_openapi3(ctx, schema, explode, expected):
 
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(
-    ("schema", "explode", "expected"),
+    ("schema", "style", "explode", "expected"),
     [
-        (ARRAY_SCHEMA, True, {"SessionID": "blue,black,brown"}),
-        (ARRAY_SCHEMA, False, {"SessionID": "blue,black,brown"}),
-        (OBJECT_SCHEMA, True, {"SessionID": DelimitedObject("r=100,g=200,b=150")}),
-        (OBJECT_SCHEMA, False, {"SessionID": CommaDelimitedObject("r,100,g,200,b,150")}),
+        (ARRAY_SCHEMA, None, True, {"SessionID": "blue,black,brown"}),
+        (ARRAY_SCHEMA, None, False, {"SessionID": "blue,black,brown"}),
+        (OBJECT_SCHEMA, None, True, {"SessionID": DelimitedObject("r=100,g=200,b=150")}),
+        (OBJECT_SCHEMA, None, False, {"SessionID": CommaDelimitedObject("r,100,g,200,b,150")}),
+        (ARRAY_SCHEMA, "cookie", True, {"SessionID": "blue; SessionID=black; SessionID=brown"}),
+        (ARRAY_SCHEMA, "cookie", False, {"SessionID": "blue,black,brown"}),
+        (OBJECT_SCHEMA, "cookie", True, {"r": "100", "g": "200", "b": "150"}),
+        (OBJECT_SCHEMA, "cookie", False, {"SessionID": CommaDelimitedObject("r,100,g,200,b,150")}),
+        (OBJECT_SCHEMA, "cookie", None, {"r": "100", "g": "200", "b": "150"}),
+    ],
+    ids=[
+        "form-array-explode",
+        "form-array-no-explode",
+        "form-object-explode",
+        "form-object-no-explode",
+        "cookie-array-explode",
+        "cookie-array-no-explode",
+        "cookie-object-explode",
+        "cookie-object-no-explode",
+        "cookie-object-default-explode",
     ],
 )
-def test_cookie_serialization_styles_openapi3(ctx, schema, explode, expected):
-    raw_schema = make_openapi_schema(
-        {"name": "SessionID", "in": "cookie", "required": True, "schema": schema, "explode": explode}
-    )
+def test_cookie_serialization_styles_openapi3(ctx, schema, style, explode, expected):
+    parameter = {"name": "SessionID", "in": "cookie", "required": True, "schema": schema}
+    if style is not None:
+        parameter["style"] = style
+    if explode is not None:
+        parameter["explode"] = explode
+    raw_schema = make_openapi_schema(parameter, version="3.2.0")
     assert_generates(ctx, raw_schema, (expected,), "cookies")
+
+
+def test_cookie_style_exploded_object_reaches_wire(ctx, case_factory, app_runner):
+    app, raw_schema = ctx.openapi.make_flask_app(
+        {
+            "/teapot": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "prefs",
+                            "in": "cookie",
+                            "required": True,
+                            "style": "cookie",
+                            "explode": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
+                                "required": ["a", "b"],
+                            },
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.2.0",
+    )
+    received = []
+
+    @app.route("/teapot")
+    def teapot():
+        received.append(request.headers.get("Cookie"))
+        return ""
+
+    operation = ctx.openapi.from_full_schema(raw_schema)["/teapot"]["GET"]
+    case_factory(operation=operation, cookies={"prefs": {"a": "x", "b": 1}}).call(
+        base_url=app_runner.openapi_url(app, path="")
+    )
+
+    assert received == ["a=x; b=1"]
 
 
 @pytest.mark.hypothesis_nested
@@ -404,6 +465,42 @@ def test_swagger2_nested_collection_format_converter(outer, inner, expected):
     assert converter(item) == {"connections": expected}
 
 
+@pytest.mark.parametrize(
+    ("definitions", "item", "expected"),
+    [
+        (
+            [{"name": "X", "in": "header", "type": "array", "items": {"type": "string"}}],
+            {"X": ["a", "b"]},
+            {"X": "a,b"},
+        ),
+        (
+            [
+                {"name": "a", "in": "query", "type": "array", "collectionFormat": "multi"},
+                {"name": "b", "in": "query", "type": "array"},
+            ],
+            {"a": [1, 2], "b": [1, 2]},
+            {"a": [1, 2], "b": "1,2"},
+        ),
+        (
+            [
+                {
+                    "name": "c",
+                    "in": "query",
+                    "type": "array",
+                    "collectionFormat": "pipes",
+                    "items": {"type": "array", "collectionFormat": "multi"},
+                }
+            ],
+            {"c": [[1, 2], [3]]},
+            {"c": "1,2|3"},
+        ),
+    ],
+    ids=["header-array", "after-multi-parameter", "unknown-inner-format-defaults-to-csv"],
+)
+def test_swagger2_parameter_serialization(definitions, item, expected):
+    assert serialize_swagger2_parameters(definitions)(dict(item)) == expected
+
+
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(
     ("outer_format", "inner_format", "expected"),
@@ -511,9 +608,19 @@ def test_querystring_urlencoded_default_serialization(ctx, data):
 
 
 @pytest.mark.hypothesis_nested
-@given(st.data())
+@pytest.mark.parametrize(
+    ("encoding", "expected"),
+    [
+        ({"style": "pipeDelimited", "explode": False}, "1.1|1.1|1.1|1.1"),
+        ({"explode": False}, "1.1,1.1,1.1,1.1"),
+        ({"style": "spaceDelimited"}, "1.1 1.1 1.1 1.1"),
+        ({"style": "form"}, [1.1, 1.1, 1.1, 1.1]),
+    ],
+    ids=["pipe-delimited", "default-style", "default-explode-non-form", "default-explode-form"],
+)
+@given(data=st.data())
 @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
-def test_querystring_urlencoded_uses_encoding_styles(ctx, data):
+def test_querystring_urlencoded_uses_encoding_styles(ctx, data, encoding, expected):
     operation = ctx.openapi.load_operation(
         "GET /teapot",
         {
@@ -537,7 +644,7 @@ def test_querystring_urlencoded_uses_encoding_styles(ctx, data):
                                 "required": ["bbox"],
                                 "additionalProperties": False,
                             },
-                            "encoding": {"bbox": {"style": "pipeDelimited", "explode": False}},
+                            "encoding": {"bbox": encoding},
                         }
                     },
                 }
@@ -547,7 +654,7 @@ def test_querystring_urlencoded_uses_encoding_styles(ctx, data):
         version="3.2.0",
     )
     case = data.draw(operation.as_strategy())
-    assert case.query == {"bbox": "1.1|1.1|1.1|1.1"}
+    assert case.query == {"bbox": expected}
 
 
 @pytest.mark.parametrize(
@@ -740,8 +847,29 @@ DELIMITED_ARRAY_SCHEMA = {"type": "array", "minItems": 2, "maxItems": 2, "items"
             "/teapot",
             "http://127.0.0.1:1/teapot?tags=a%2Cb,a%2Cb",
         ),
+        (
+            {
+                "/teapot/{tags}": {
+                    "get": {
+                        "parameters": [
+                            {
+                                "name": "tags",
+                                "in": "path",
+                                "required": True,
+                                "collectionFormat": "csv",
+                                **DELIMITED_ARRAY_SCHEMA,
+                            }
+                        ],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+            "2.0",
+            "/teapot/{tags}",
+            "http://127.0.0.1:1/teapot/a%2Cb,a%2Cb",
+        ),
     ],
-    ids=["openapi-form", "openapi-simple-path", "swagger-csv"],
+    ids=["openapi-form", "openapi-simple-path", "swagger-csv", "swagger-csv-path"],
 )
 def test_array_parameter_keeps_delimiter_literal(ctx, paths, version, operation_path, expected_url):
     # Items are percent-encoded but the separator stays literal, so a server can split the array back.
@@ -784,6 +912,7 @@ def prepared_path(case):
         ("label", True, STYLED_OBJECT_SCHEMA, "/teapot/.k=x%2Cy"),
         ("simple", False, STYLED_OBJECT_SCHEMA, "/teapot/k,x%2Cy"),
         ("simple", True, STYLED_OBJECT_SCHEMA, "/teapot/k=x%2Cy"),
+        ("label", False, {"type": "string", "enum": ["a/b"]}, "/teapot/.a%2Fb"),
     ],
     ids=[
         "matrix-primitive",
@@ -798,6 +927,7 @@ def prepared_path(case):
         "label-object-explode",
         "simple-object",
         "simple-object-explode",
+        "label-slash",
     ],
 )
 def test_path_style_delimiters_stay_literal(ctx, style, explode, schema, expected):
@@ -918,13 +1048,12 @@ def test_delimited_query_items_use_json_wire_form(ctx, parameter, version, expec
         pytest.param([True, False], "true|false", id="booleans"),
         pytest.param([1, -2, 1.5], "1|-2|1.5", id="numbers"),
         pytest.param(["true", "null"], "true|null", id="strings-already-spelled"),
-        pytest.param([{"a": True}], "{'a': True}", id="object-item-keeps-text-form"),
-        pytest.param([[None]], "[None]", id="array-item-keeps-text-form"),
+        pytest.param([{"a": True}], '{"a": true}', id="object-item-as-json"),
+        pytest.param([[None]], "[null]", id="array-item-as-json"),
         pytest.param(None, "", id="whole-value-null"),
     ],
 )
 def test_delimited_encoded_item_rendering(value, expected):
-    # Only JSON scalars have a Python spelling to correct; container items keep their existing text form.
     assert delimited_encoded("color", delimiter="|")({"color": value})["color"] == expected
 
 
@@ -999,6 +1128,8 @@ def wire_value(case, location):
         ("cookie", {"type": ["array", "null"], "enum": [["x", "y"]]}, {}, "x,y"),
         ("path", {"type": ["object", "null"], "enum": [{"a": "x"}]}, {}, "/teapot/a,x"),
         ("path", {"type": ["array", "null"], "enum": [["x", "y"]]}, {}, "/teapot/x,y"),
+        ("query", {"type": ["array", "null"], "enum": [["x", "y"]]}, {}, "p=x&p=y"),
+        ("query", {"type": ["array", "null"], "enum": [None]}, {}, "p=null"),
     ],
     ids=[
         "query-object",
@@ -1010,6 +1141,8 @@ def wire_value(case, location):
         "cookie-array",
         "path-object",
         "path-array",
+        "query-array-form-explode",
+        "query-array-null",
     ],
 )
 def test_type_list_parameters_use_declared_style(ctx, location, schema, extra, expected):
@@ -1038,6 +1171,46 @@ def test_type_list_parameters_use_declared_style(ctx, location, schema, extra, e
 def test_header_serialization_follows_value_shape(schema, value, expected):
     serializer = serialize_openapi3_parameters([{"name": "p", "in": "header", "explode": True, "schema": schema}])
     assert serializer({"p": value}) == {"p": expected}
+
+
+OBJECT_ITEMS = {"type": "array", "items": {"type": "object"}}
+
+
+@pytest.mark.parametrize(
+    ("serializer", "definition", "value", "expected"),
+    [
+        pytest.param(
+            serialize_openapi3_parameters,
+            {"name": "p", "in": "header", "schema": OBJECT_ITEMS},
+            [{"a": 1, "b": None}, True],
+            '{"a": 1, "b": null},true',
+            id="header-array",
+        ),
+        pytest.param(
+            serialize_openapi3_parameters,
+            {"name": "p", "in": "query", "explode": False, "schema": OBJECT_ITEMS},
+            [{"a": 1, "b": None}, True],
+            '{"a": 1, "b": null},true',
+            id="query-array",
+        ),
+        pytest.param(
+            serialize_openapi3_parameters,
+            {"name": "p", "in": "header", "schema": {"type": "object"}},
+            {"a": [1, False]},
+            "a,[1, false]",
+            id="header-object",
+        ),
+        pytest.param(
+            serialize_swagger2_parameters,
+            {"name": "p", "in": "query", "type": "object"},
+            {"a": [1, True]},
+            '{"a": [1, true]}',
+            id="swagger2-query-object",
+        ),
+    ],
+)
+def test_nested_containers_use_json_wire_form(serializer, definition, value, expected):
+    assert serializer([definition])({"p": value}) == {"p": expected}
 
 
 def make_array_schema(location, style):
@@ -1357,6 +1530,12 @@ _NESTED_EXPECTED = {"request[pagination][pageNumber]": 1, "request[pagination][p
             id="flat-object-extracted",
         ),
         pytest.param(
+            {"name": "id", "in": "query", "required": True, "schema": {"type": "object"}},
+            {"id": {"tags": ["a", "b"], "meta": {}}},
+            {"tags": ["a", "b"], "meta": {}},
+            id="flat-object-extracted-container-values",
+        ),
+        pytest.param(
             {
                 "name": "q",
                 "in": "query",
@@ -1396,6 +1575,46 @@ _NESTED_EXPECTED = {"request[pagination][pageNumber]": 1, "request[pagination][p
             {"page": 2},
             {"page": 2},
             id="branching-scalar-passthrough",
+        ),
+        pytest.param(
+            {"name": "page", "in": "query", "style": "deepObject", "schema": _BRANCHING_SCHEMA},
+            {"page": {"number": 1}},
+            {"page[number]": 1},
+            id="branching-object-deep-object",
+        ),
+        pytest.param(
+            {"name": "page", "in": "query", "schema": {"allOf": [{"type": "object"}]}},
+            {"page": {"a": 1}},
+            {"a": 1},
+            id="all-of-object-branch-extracted",
+        ),
+        pytest.param(
+            {"name": "page", "in": "query", "schema": {"anyOf": [True, {"type": "object"}]}},
+            {"page": {"a": 1}},
+            {"a": 1},
+            id="boolean-branch-skipped",
+        ),
+        pytest.param(
+            {"name": "page", "in": "query", "schema": {"oneOf": [{"type": "integer"}, {"type": ["object", "null"]}]}},
+            {"page": {"a": 1}},
+            {"a": 1},
+            id="type-list-object-branch-extracted",
+        ),
+        pytest.param(
+            {
+                "name": "page",
+                "in": "query",
+                "schema": {"oneOf": [{"$ref": "#/x-bundled/Page"}], "x-bundled": {"Page": {"type": "object"}}},
+            },
+            {"page": {"a": 1}},
+            {"a": 1},
+            id="bundled-ref-object-branch-extracted",
+        ),
+        pytest.param(
+            {"name": "page", "in": "query", "schema": {"anyOf": [{"type": "integer"}, {"type": "string"}]}},
+            {"page": {"a": 1}},
+            {"page": {"a": 1}},
+            id="no-object-branch-passthrough",
         ),
     ],
 )
@@ -1464,6 +1683,15 @@ def test_nested_object_corner_cases(input_value, expected):
             True,
             id="implicit-object-via-properties",
         ),
+        pytest.param({"type": "object", "properties": {"x": {"type": "object"}}}, True, id="object-type"),
+        pytest.param(
+            {"type": "object", "properties": {"x": True, "y": {"type": ["object", "null"]}}},
+            True,
+            id="type-list-object-after-boolean-property",
+        ),
+        pytest.param(
+            {"type": "object", "properties": {"x": {"type": ["string", "null"]}}}, False, id="type-list-without-object"
+        ),
         pytest.param(
             {
                 "type": "object",
@@ -1503,6 +1731,16 @@ def querystring_operation(ctx, content, *, required):
             {"text/plain": {"schema": {"type": "string", "enum": ["hello world"]}}},
             {"", "hello%20world"},
             id="text-plain",
+        ),
+        pytest.param(
+            {"application/x-www-form-urlencoded": {"schema": {"type": "string", "enum": ["?X=1?"]}}},
+            {"", "X=1?"},
+            id="urlencoded-scalar-leading-question-mark",
+        ),
+        pytest.param(
+            {"text/plain": {"schema": {"type": "string", "enum": ["a/b"]}}},
+            {"", "a%2Fb"},
+            id="text-plain-slash",
         ),
     ],
 )

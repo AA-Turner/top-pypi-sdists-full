@@ -112,7 +112,7 @@ async def _blank_git_drivers(env: dict[str, str], dirs: set[str]) -> None:
     keys: set[str] = set()
     for folder in sorted(dirs):
         try:
-            proc = await asyncio.create_subprocess_exec(
+            process = await asyncio.create_subprocess_exec(
                 "git", "config", "-z", "--get-regexp", _GIT_DRIVER_KEYS,
                 cwd=folder, env=env, stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
@@ -120,10 +120,10 @@ async def _blank_git_drivers(env: dict[str, str], dirs: set[str]) -> None:
         except OSError:
             return  # no git: nothing to protect
         try:
-            out, _ = await asyncio.wait_for(proc.communicate(), 10)
+            out, _ = await asyncio.wait_for(process.communicate(), 10)
         except TimeoutError:
-            proc.kill()
-            await proc.wait()
+            process.kill()
+            await process.wait()
             continue
         for entry in out.decode("utf-8", "replace").split("\0"):
             key = entry.split("\n", 1)[0]
@@ -192,12 +192,12 @@ async def stop_group(proc: asyncio.subprocess.Process, reader: asyncio.Future | 
     else is happening: also on the way out of a cancelled task, so a bite cut
     short at the session's end leaves nothing running behind it."""
     _kill_group(proc)
-    cancelled = False  # a cancellation that arrives meanwhile is passed on once the group is reaped
+    is_cancelled = False  # a cancellation that arrives meanwhile is passed on once the group is reaped
     if reader is not None:
         try:
             await asyncio.wait({reader}, timeout=REAP_S)
         except asyncio.CancelledError:
-            cancelled = True
+            is_cancelled = True
         if not reader.done():
             reader.cancel()
         elif not reader.cancelled():
@@ -205,10 +205,10 @@ async def stop_group(proc: asyncio.subprocess.Process, reader: asyncio.Future | 
     try:
         await asyncio.wait_for(proc.wait(), REAP_S)
     except asyncio.CancelledError:
-        cancelled = True
+        is_cancelled = True
     except (TimeoutError, OSError):
         pass  # a group that will not die in time: it was killed, and the loop reaps it later
-    if cancelled:
+    if is_cancelled:
         raise asyncio.CancelledError
 
 

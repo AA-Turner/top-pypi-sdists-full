@@ -143,7 +143,7 @@ def _bind(sid: str, key: str = DAEMON_KEY, url: str | None = None) -> None:
 
 
 def _service_dir() -> Path:
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     folder = paths.service_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ def test_the_report_reads_params_are_the_contracts():
     # PR 2b sends these six fields and no others.
     assert set(requests._FIELDS[ActionName.REPORT]) == {"auto", "family", "reason", "sid", "env", "facts"}
     # A report is a read: never one of the service's actions.
-    from probe.service.protocol import ACTIONS
+    from probe.foundation.service_api.vocabularies import ACTIONS
 
     assert ActionName.REPORT.value not in {str(a) for a in ACTIONS}
 
@@ -568,7 +568,7 @@ def test_the_doctor_row_says_on_off_and_the_last_report(machine, monkeypatch):
     report.send(auto=False, family="worker", reason="x")
     assert report.doctor_row().startswith("on · last sent ") and report.doctor_row().endswith(f"({report_id})")
 
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     assert any("Diagnostic reports" in row and report_id in row for row in doctor._daemon_rows())
 

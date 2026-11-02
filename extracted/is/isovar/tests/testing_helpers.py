@@ -1,0 +1,64 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from os.path import join, dirname
+
+from .common import eq_ 
+
+from pysam import AlignmentFile
+import varcode
+
+
+def assert_equal_fields(result, expected):
+    """
+    Assert that fields of two namedtuple objects have same field values.
+    """
+    eq_(result.__class__, expected.__class__)
+    for field in result.__class__._fields:
+        result_value = getattr(result, field)
+        expected_value = getattr(expected, field)
+        assert result_value == expected_value, \
+            "Wrong value for '%s', expected %s but got %s" % (
+                field,
+                expected_value,
+                result_value)
+
+
+def data_path(path):
+    """
+    Return the absolute path to a file in the test directory.
+    The name specified should be relative to test.
+    """
+    return join(dirname(__file__), path)
+
+
+def load_bam(bam_path):
+    return AlignmentFile(data_path(bam_path))
+
+
+def load_vcf(vcf_path, genome=None):
+    return varcode.load_vcf(data_path(vcf_path), genome=genome)
+
+
+def fusion_input(fixture):
+    """The isovar fusion input keys of a fixture that also carries audit fields."""
+    from isovar.fusion import FUSION_INPUT_KEYS
+    return {key: value for key, value in fixture.items() if key in FUSION_INPUT_KEYS}
+
+
+def complete_umis(support):
+    """A support record's UMI count when it is exact (every read labelled), else None."""
+    return support["umis"] if support["umis_complete"] else None
+
+
+# The keys of a read lineage summary, which carries no read identities.
+LINEAGE_SUMMARY = {"reads", "signal_groups", "unresolved_reads", "all_reads_resolved", "statuses"}

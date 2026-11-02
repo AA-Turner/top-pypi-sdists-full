@@ -1,0 +1,553 @@
+"""Fast spin-echo readouts: one CPMG echo train per repetition."""
+
+from __future__ import annotations
+
+__all__ = ["FseReadout2D", "FseReadout3D"]
+
+from typing import Any
+
+import numpy as np
+
+import pypulseqpp as pp
+
+from .._module import SequenceModule
+from ._common import (
+    as_tuple,
+    left_align_rephaser,
+    present,
+    solve_delay,
+    wave_channels,
+)
+
+#: Fraction of ``max_grad`` the readout plateau may reach.
+_READOUT_GRAD_MARGIN = 0.8
+
+
+class _FseReadout(SequenceModule):
+    """One excitation and a CPMG echo train, to the end of the TR.
+
+    Each refocusing pulse is centred midway between the preceding RF centre
+    or echo and the following echo, and echoes are ``esp`` apart from the
+    excitation on: the excitation is half a spacing before the first
+    refocusing pulse, and the pulses are a spacing apart. The spin echoes and
+    the stimulated echoes of a refocusing angle below 180 degrees then
+    coincide. The phase encodes and the
+    refocusing amplitude are templates that the caller may scale per echo; the
+    sampling order sets the effective TE.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    rf : RfEvent
+        The excitation that opens the repetition.
+    gz : GradEvent, default=None
+        Selection gradient played with ``rf``.
+    gz_reph : GradEvent, default=None
+        Rephaser of ``gz``. ``None`` for a slab excitation (``is_slab=True``),
+        which carries it in ``gz``.
+    rf_ref : RfEvent
+        Refocusing pulse, built with ``use="refocusing"``: the ``rf_ref`` of a
+        :class:`~pypulseqpp.sequences.SpatialSelectiveRefocusing` for a
+        selective train, or of a
+        :class:`~pypulseqpp.sequences.NonSelectiveRefocusing` for a hard-pulse
+        train.
+    gz_ref : GradEvent, default=None
+        Selection gradient of ``rf_ref`` with its crushers, as one event
+        played in the pulse's block: the ``gz`` of a
+        :class:`~pypulseqpp.sequences.SpatialSelectiveRefocusing`. ``None`` for
+        a non-selective train, which is crushed on the read axis by
+        ``spoiling_cycles``.
+    fov : float or sequence of float
+        Field of view per encoded axis, readout first (m).
+    matrix : int or sequence of int
+        Matrix size per encoded axis, readout first. The caller sets the
+        number and order of acquired lines.
+    etl : int, default=8
+        Echo train length: refocusing pulses and encoded lines per repetition.
+    esp : float, default=None
+        Echo spacing (s). ``None`` is as short as possible, including the
+        excitation, its rephaser and the read prephaser in the first half
+        spacing.
+    tr : float, default=None
+        Repetition time (s), over the whole module. ``None`` is as short as
+        possible.
+    partial_echo : float, default=1.0
+        Fraction of the full echo acquired, in (0.5, 1]. The samples before
+        the echo are omitted.
+    oversampling : float, default=1.0
+        Readout oversampling: the sample spacing in k-space is
+        ``1 / (oversampling * fov)``.
+    readout_bandwidth_hz : float, default=250000.0
+        Requested ADC sampling rate (Hz); ``bandwidth_hz`` is the rate achieved
+        on the ADC and gradient rasters.
+    spoiling_cycles : float, default=0.0
+        Cycles of read-axis crushing across ``voxel_size_m`` on each side of
+        every acquisition.
+    voxel_size_m : float, default=None
+        Length the crushing is counted over (m); ``None`` is the readout
+        resolution.
+    labels : sequence of str, default=None
+        Labels set to 0 on the acquisition block, to be changed per shot by the
+        caller.
+    trigger : TriggerEvent or DigitalOutputEvent, default=None
+        Event armed on the prephaser block.
+    wave : {'phase', 'partition', 'both'}, default=None
+        Wave-CAIPI encoding under every readout plateau: a sine on y, a cosine
+        on z, or both. 3D only, unless ``wave_cycles`` or ``wave_amplitude`` is
+        zero, which builds no wave gradients.
+    wave_cycles : int, default=8
+        Wave periods across the sampling window.
+    wave_amplitude : float, default=0.008
+        Upper bound of the wave gradient amplitude (T/m, not Hz/m); the slew
+        rate may lower it. The module's ``wave_amplitude`` attribute is the
+        amplitude built.
+
+
+    Attributes
+    ----------
+    rf : RfEvent
+        The excitation.
+    gz : GradEvent
+        Its selection gradient, if one was given.
+    gz_reph : GradEvent
+        Its rephaser, if one was given, left-aligned in the prephaser block so
+        that it starts at the end of the selection lobe.
+    rf_ref : RfEvent
+        The refocusing pulse, one event for the whole train.
+    gz_ref : GradEvent
+        Its selection gradient and crushers, if one was given.
+    gx_pre : TrapEvent
+        Read prephaser, played once before the train and right-aligned in its
+        block.
+    gx_bridge_pre, gx_bridge_post : GradEvent
+        Read-axis lobes, including the crushers, that ramp onto and off the
+        readout plateau, one on each side of every acquisition. Each spans its
+        whole block, so the echo timing is unchanged when the loop omits an
+        encode.
+    gx : GradEvent
+        The readout plateau, flat from end to end.
+    gy_pre, gz_pre : TrapEvent
+        Phase encodes at their largest step, to be scaled per echo. ``gz_pre``
+        is 3D only.
+    gy_rew, gz_rew : TrapEvent
+        The encodes negated, unwinding each line before the next refocusing
+        pulse.
+    gy_wave, gz_wave : GradEvent
+        Wave gradients under the readout plateau, each self-balanced so that
+        scaling one to zero changes nothing else. Only the channels driven by
+        ``wave``.
+    adc : AdcEvent
+        The acquisition window, shared by every echo.
+    adc_labels : LabelSetEvent or list of LabelSetEvent
+        One per name in ``labels``.
+    wait_tr : DelayEvent
+        Present only when ``tr`` exceeds the minimum.
+    esp : float
+        Echo spacing (s), and the time from the RF centre to the first echo.
+    echo_times : numpy.ndarray
+        Echo time of each echo (s) from the RF centre.
+    bandwidth_hz : float
+        Achieved ADC sampling rate ``1 / dwell`` (Hz).
+    n_samples : int
+        ADC samples per echo.
+    center_sample : int
+        Index of the sample at the echo; ``partial_echo`` moves it toward the
+        start.
+    delta_kx : float
+        K-space sample spacing along the readout (1/m).
+    readout_duration : float
+        Duration of the sampling window (s).
+    wave_amplitude : float
+        Peak wave gradient amplitude built (T/m), below the requested one where
+        the slew rate binds; zero without ``wave``.
+
+    Raises
+    ------
+    ValueError
+        If a count or fraction is out of range, ``wave`` is not a wave mode or
+        would build wave gradients on a 2D train, ``gz_reph`` is on the read
+        channel, ``rf_ref`` is not a refocusing pulse, or ``esp`` or ``tr`` is
+        shorter than the train can achieve.
+    """
+
+    #: 2 or 3. The only thing that separates the two shipped FSE readouts.
+    _ndim = 2
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        rf: Any,
+        gz: Any = None,
+        gz_reph: Any = None,
+        *,
+        rf_ref: Any,
+        gz_ref: Any = None,
+        fov: Any,
+        matrix: Any,
+        etl: int = 8,
+        esp: float | None = None,
+        tr: float | None = None,
+        partial_echo: float = 1.0,
+        oversampling: float = 1.0,
+        readout_bandwidth_hz: float = 250e3,
+        spoiling_cycles: float = 0.0,
+        voxel_size_m: float | None = None,
+        labels: tuple[str, ...] | None = None,
+        trigger: Any = None,
+        wave: str | None = None,
+        wave_cycles: int = 8,
+        wave_amplitude: float = 8e-3,
+    ) -> None:
+        ndim = self._ndim
+        if wave is not None:
+            wave_channels(wave)
+        if wave_cycles < 0 or wave_amplitude < 0:
+            raise ValueError("wave_cycles and wave_amplitude must be >= 0")
+        # Zero cycles or zero amplitude is no wave at all, whatever the mode.
+        waving = wave is not None and wave_cycles > 0 and wave_amplitude > 0
+        if waving and ndim != 3:
+            raise ValueError(
+                "wave encoding spreads a voxel along the two encoded axes "
+                "transverse to the readout, and a 2D readout has only one of "
+                "them: the other is the slice"
+            )
+        etl = int(etl)
+        if etl < 1:
+            raise ValueError("etl must be >= 1")
+        if spoiling_cycles < 0:
+            raise ValueError("spoiling_cycles must be >= 0")
+        if oversampling < 1.0:
+            raise ValueError("oversampling must be >= 1")
+        if not 0.5 < partial_echo <= 1.0:
+            raise ValueError("partial_echo must be in (0.5, 1]")
+        if readout_bandwidth_hz <= 0:
+            raise ValueError("readout_bandwidth_hz must be positive")
+        if rf_ref.use != "refocusing":
+            raise ValueError(
+                f"rf_ref must be built with use='refocusing', got {rf_ref.use!r}: the "
+                f"trajectory core negates the accumulated moment at a refocusing pulse, "
+                f"and a train whose pulses are not marked as such analyses as a "
+                f"trajectory that is not the one played"
+            )
+
+        fov = as_tuple(fov, ndim, "fov")
+        n = as_tuple(matrix, ndim, "matrix", int)
+        if min(n) < 2 or min(fov) <= 0:
+            raise ValueError("every matrix size must be >= 2 and every fov positive")
+
+        raster = system.block_duration_raster
+
+        # Sampling. Partial echo drops samples from before the echo, so the
+        # full count sets where k starts and the acquired count sets the ADC.
+        delta_kx = 1.0 / (oversampling * fov[0])
+        n_full = round(oversampling * n[0])
+        n_post = n_full // 2
+        n_samples = max(n_post + 1, round(partial_echo * n_full))
+        n_pre = n_samples - n_post
+        readout_area = n_samples * delta_kx
+        dwell, readout_duration = pp.calc_adc_timing(
+            n_samples,
+            1.0 / readout_bandwidth_hz,
+            grad_raster_time=system.grad_raster_time,
+            adc_raster_time=system.adc_raster_time,
+            min_readout_duration=readout_area
+            / (_READOUT_GRAD_MARGIN * system.max_grad),
+        )
+
+        if voxel_size_m is None:
+            voxel_size_m = fov[0] / n[0]
+        if voxel_size_m <= 0:
+            raise ValueError("voxel_size_m must be positive")
+        spoil_area = spoiling_cycles / voxel_size_m
+
+        # The readout plateau has no ramps of its own: both are carried by the
+        # lobes that bridge it across the refocusing pulse.
+        shape = pp.make_trapezoid(
+            channel="x",
+            flat_area=readout_area,
+            flat_time=readout_duration,
+            system=system,
+        )
+        amplitude = float(shape.amplitude)
+        ramp_area = 0.5 * float(shape.rise_time) * amplitude
+        adc = pp.make_adc(num_samples=n_samples, dwell=dwell, system=system)
+
+        # The wave-encoding gradients play under the plateau the samples are
+        # taken on. Both encoded axes are free there -- the encodes are spent
+        # in the lobes either side -- and each event is self-balanced, so an
+        # echo that scales one to zero changes nothing else about the readout.
+        gy_wave = gz_wave = None
+        wave_peak = 0.0
+        if waving:
+            sine, cosine = wave_channels(wave)
+            gy_wave, gz_wave, wave_peak = pp.make_wave_gradients(
+                readout_duration,
+                wave_cycles,
+                wave_amplitude,
+                sine_channel=sine,
+                cosine_channel=cosine,
+                delay=float(adc.delay),
+                return_amplitude=True,
+                system=system,
+            )
+        echo_offset = float(adc.delay) + n_pre * dwell
+        flat_span = pp.ceil_to_raster(float(adc.delay) + readout_duration, raster)
+        gx = pp.make_extended_trapezoid(
+            channel="x",
+            times=np.array([0.0, flat_span]),
+            amplitudes=np.array([amplitude, amplitude]),
+            system=system,
+        )
+
+        # k has to reach the same place before every acquisition, and the
+        # refocusing pulse negates it in between, so the two lobes differ only
+        # by how far the echo sits from the middle of the plateau.
+        rebalance = amplitude * (0.5 * flat_span - echo_offset)
+        gx_pre = pp.make_trapezoid(
+            channel="x",
+            area=ramp_area + spoil_area + 0.5 * amplitude * flat_span,
+            system=system,
+        )
+        gx_bridge_pre = pp.make_extended_trapezoid_area(
+            area=ramp_area + spoil_area + rebalance,
+            channel="x",
+            grad_start=0.0,
+            grad_end=amplitude,
+            system=system,
+        )[0]
+        _, post_times, post_amplitudes = pp.make_extended_trapezoid_area(
+            area=ramp_area + spoil_area - rebalance,
+            channel="x",
+            grad_start=amplitude,
+            grad_end=0.0,
+            system=system,
+        )
+
+        gz_reph = left_align_rephaser(gz_reph, ("x",), type(self).__name__)
+
+        # Timing. Every interval between an RF centre and the echo it belongs
+        # to is half a spacing, which is what CPMG means.
+        exc_span = _span(system, rf, gz)
+        ref_span = _span(system, rf_ref, gz_ref)
+        rf_center = float(rf.delay) + float(rf.center)
+        ref_center = float(rf_ref.delay) + float(rf_ref.center)
+        lead_fixed = exc_span - rf_center + ref_center
+        pre_fixed = ref_span - ref_center + echo_offset
+        post_fixed = ref_center + flat_span - echo_offset
+
+        encode_resolution = [fov[axis] / n[axis] for axis in range(1, ndim)]
+        lead_floor = _span(system, gx_pre, gz_reph, trigger)
+        pre_floor = _span(
+            system, gx_bridge_pre, *_encodes(system, encode_resolution, 1.0, None)
+        )
+        post_floor = pp.ceil_to_raster(
+            max(
+                float(post_times[-1]),
+                *(
+                    pp.calc_duration(encode)
+                    for encode in _encodes(system, encode_resolution, -1.0, None)
+                    if encode is not None
+                ),
+            ),
+            raster,
+        )
+
+        # Twice a raster-rounded half, so that each half lands on the raster.
+        esp_min = 2.0 * pp.ceil_to_raster(
+            max(
+                lead_fixed + lead_floor,
+                pre_fixed + pre_floor,
+                post_fixed + post_floor,
+            ),
+            raster,
+        )
+        if esp is None:
+            esp = esp_min
+        else:
+            esp = pp.round_to_raster(float(esp), raster)
+            if esp < esp_min - 1e-12:
+                raise ValueError(
+                    f"the requested echo spacing of {esp * 1e3:.3f} ms is shorter than the "
+                    f"{esp_min * 1e3:.3f} ms this train can achieve"
+                )
+
+        lead_span = max(lead_floor, pp.round_to_raster(0.5 * esp - lead_fixed, raster))
+        pre_span = pp.round_to_raster(0.5 * esp - pre_fixed, raster)
+        pre_span = min(
+            max(pre_span, pre_floor), esp - ref_span - flat_span - post_floor
+        )
+        post_span = esp - ref_span - flat_span - pre_span
+
+        # Solved spans in hand, the encodes are rebuilt to fill their windows:
+        # the same area over a longer time is a lower amplitude and a gentler
+        # slew, and it costs nothing, the window being fixed by the spacing.
+        gy_pre, gz_pre = _encodes(system, encode_resolution, 1.0, pre_span)
+        gy_rew, gz_rew = _encodes(system, encode_resolution, -1.0, post_span)
+        gx_pre.delay = lead_span - pp.calc_duration(gx_pre)
+        gx_bridge_pre.delay = pre_span - pp.calc_duration(gx_bridge_pre)
+        # Both read lobes span their whole block, the entry one by starting
+        # late and the exit one by running on at zero. That is what keeps the
+        # echo spacing a property of the read axis alone: a loop that leaves an
+        # encode out -- a multi-echo spin echo does -- still gets this timing.
+        if post_span > post_times[-1] + 1e-12:
+            post_times = np.append(post_times, post_span)
+            post_amplitudes = np.append(post_amplitudes, 0.0)
+        gx_bridge_post = pp.make_extended_trapezoid(
+            channel="x", times=post_times, amplitudes=post_amplitudes, system=system
+        )
+
+        adc_labels = [
+            pp.make_label(type="SET", label=name, value=0) for name in labels or ()
+        ]
+
+        self.seq = pp.Sequence(system)
+        self.seq.add_block(rf, *present(gz))
+        self.seq.add_block(gx_pre, *present(gz_reph), *present(trigger))
+        for _ in range(etl):
+            self.seq.add_block(rf_ref, *present(gz_ref))
+            self.seq.add_block(gx_bridge_pre, gy_pre, *present(gz_pre))
+            self.seq.add_block(
+                gx, adc, *present(gy_wave), *present(gz_wave), *adc_labels
+            )
+            self.seq.add_block(gx_bridge_post, gy_rew, *present(gz_rew))
+
+        tr_min = self.seq.duration()[0]
+        tr_delay = solve_delay(tr, tr_min, "TR", system)
+        if tr_delay:
+            wait_tr = pp.make_delay(tr_delay)
+            self.seq.add_block(wait_tr)
+
+        first_echo = exc_span + lead_span + ref_span + pre_span + echo_offset
+        self.center = first_echo
+        self.echo_times = first_echo - rf_center + esp * np.arange(etl)
+        self.esp = esp
+        self.etl = etl
+        self.bandwidth_hz = 1.0 / dwell
+        self.n_samples = n_samples
+        self.center_sample = n_pre
+        self.delta_kx = delta_kx
+        self.readout_duration = readout_duration
+        # The wave amplitude actually built, which is the requested one only
+        # where the slew rate left room for it.
+        self.wave_amplitude = wave_peak
+
+
+def _span(system: pp.Opts, *events: Any) -> float:
+    events = [event for event in events if event is not None]
+    if not events:
+        return 0.0
+    return pp.ceil_to_raster(pp.calc_duration(*events), system.block_duration_raster)
+
+
+def _encodes(
+    system: pp.Opts, resolutions, sign: float, duration: float | None
+) -> tuple:
+    """Return the y and z phase encodes multiplied by ``sign``.
+
+    Always a pair; the z entry is ``None`` for a 2D train. A ``duration``
+    longer than the shortest encode lengthens it to ``duration``.
+    """
+    encodes = []
+    for axis, resolution in zip("yz", resolutions, strict=False):
+        encode = pp.make_phase_encoding(axis, resolution, system=system)
+        if duration is not None and duration > pp.calc_duration(encode) + 1e-12:
+            encode = pp.make_phase_encoding(
+                axis, resolution, system=system, duration=duration
+            )
+        encodes.append(pp.scale_grad(encode, sign))
+    encodes.append(None)
+    return tuple(encodes[:2])
+
+
+class FseReadout2D(_FseReadout):
+    """A slice-selective CPMG train, frequency-encoded along x.
+
+    ``fov`` and ``matrix`` take two values, readout first.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts()
+    >>> excitation = design.SpatialSelectiveExcitation(system, 90.0, 5e-3)
+    >>> refocusing = design.SpatialSelectiveRefocusing(system, 5e-3)
+    >>> fse = design.FseReadout2D(
+    ...     system, excitation.rf, excitation.gz, excitation.gz_reph,
+    ...     rf_ref=refocusing.rf_ref, gz_ref=refocusing.gz,
+    ...     fov=0.22, matrix=192, etl=8,
+    ... )
+    >>> fse.etl, int(fse.adc.num_samples)
+    (8, 192)
+
+    >>> fse.blocks[-3] == (fse.gx_bridge_pre, fse.gy_pre)
+    True
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp import sequences
+
+       system = pp.Opts()
+       excitation = sequences.SpatialSelectiveExcitation(system, 90.0, 5e-3)
+       refocusing = sequences.SpatialSelectiveRefocusing(system, 5e-3)
+       readout = sequences.FseReadout2D(
+           system, excitation.rf, excitation.gz, excitation.gz_reph,
+           rf_ref=refocusing.rf_ref, gz_ref=refocusing.gz,
+           fov=0.22, matrix=64, etl=6,
+       )
+       readout.seq.paper_plot()
+       pp.plot.plot_kspace(readout.seq, plane="xy", show_trajectory=True)
+       plt.show()
+    """
+
+    _ndim = 2
+
+
+class FseReadout3D(_FseReadout):
+    """Single-slab CPMG train, phase-encoded along y and partition-encoded along z.
+
+    ``fov`` and ``matrix`` take three values, readout first. Refocusing may be
+    selective or non-selective; a non-selective train is crushed only by
+    ``spoiling_cycles``, on the read axis.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts()
+    >>> slab = design.SpatialSelectiveExcitation(system, 90.0, 0.12, is_slab=True)
+    >>> refocusing = design.SpatialSelectiveRefocusing(system, 0.12)
+    >>> readout = design.FseReadout3D(
+    ...     system, slab.rf, slab.gz,
+    ...     rf_ref=refocusing.rf_ref, gz_ref=refocusing.gz,
+    ...     fov=(0.22, 0.22, 0.12), matrix=(64, 64, 32), etl=6,
+    ... )
+    >>> readout.gy_pre.channel, readout.gz_pre.channel
+    ('y', 'z')
+
+    One CPMG train through the slab, and the readout line each echo takes:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp import sequences
+
+       system = pp.Opts()
+       slab = sequences.SpatialSelectiveExcitation(system, 90.0, 0.12, is_slab=True)
+       refocusing = sequences.SpatialSelectiveRefocusing(system, 0.12)
+       readout = sequences.FseReadout3D(
+           system, slab.rf, slab.gz,
+           rf_ref=refocusing.rf_ref, gz_ref=refocusing.gz,
+           fov=(0.22, 0.22, 0.12), matrix=(64, 64, 32), etl=6,
+       )
+       readout.seq.paper_plot()
+       pp.plot.plot_kspace(readout.seq, plane="xy", show_trajectory=True)
+       plt.show()
+    """
+
+    _ndim = 3

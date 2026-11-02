@@ -1,0 +1,925 @@
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+
+#include <optional>
+#include <vector>
+#include <unordered_map>
+
+#include "crackle.hpp"
+#include "operations.hpp"
+#include "cc3d.hpp"
+#include "pins.hpp"
+#include "robin_hood.hpp"
+
+namespace py = pybind11;
+
+template <typename LABEL>
+py::array to_numpy(
+	LABEL* output,
+	const uint64_t sx, const uint64_t sy, const uint64_t sz
+) {
+	py::capsule capsule(output, [](void* ptr) {
+		if (ptr) {
+			delete[] static_cast<LABEL*>(ptr);
+		}
+	});
+
+	uint64_t width = sizeof(LABEL);
+
+	return py::array_t<LABEL>(
+		{sx,sy,sz},
+		{width, sx * width, sx * sy * width},
+		output,
+		capsule
+	);
+}
+
+template <typename LABEL>
+py::array decompress_helper(
+	const crackle::CrackleHeader& head, 
+	const uint8_t* buffer,
+	const uint64_t num_bytes,
+	int64_t z_start, int64_t z_end,
+	size_t parallel,
+	const std::optional<uint64_t> label = std::nullopt
+) {
+	int64_t voxels = head.sx * head.sy;
+	z_start = std::max(z_start, static_cast<int64_t>(0));
+	if (z_end == -1) {
+		z_end = head.sz;
+	}
+	z_end = std::min(
+		std::max(z_end, static_cast<int64_t>(0)), 
+		static_cast<int64_t>(head.sz)
+	);
+
+	voxels *= z_end - z_start;
+
+	py::array arr;
+	if (label.has_value()) {
+		arr = py::array_t<uint8_t>(voxels);
+		uint8_t* data = reinterpret_cast<uint8_t*>(const_cast<void*>(arr.data()));
+
+		{
+			py::gil_scoped_release release;
+			crackle::decompress<LABEL, uint8_t>(
+				buffer, num_bytes,
+				data,
+				z_start, z_end, 
+				parallel, label
+			);
+		}
+	}
+	else {
+		arr = py::array_t<LABEL>(voxels);
+		LABEL* data = reinterpret_cast<LABEL*>(const_cast<void*>(arr.data()));
+		
+		{
+			py::gil_scoped_release release;
+			crackle::decompress<LABEL, LABEL>(
+				buffer, num_bytes,
+				data,
+				z_start, z_end, 
+				parallel, label
+			);
+		}
+	}
+
+	return arr;
+}
+
+py::array decompress(
+	const py::buffer buffer, 
+	const int64_t z_start = 0, const int64_t z_end = -1,
+	const size_t parallel = 1,
+	const std::optional<uint64_t> label = std::nullopt
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+
+	crackle::CrackleHeader head(data);
+
+	py::array labels;
+
+	if (head.data_width == 1) {
+		labels = decompress_helper<uint8_t>(
+			head, data, info.size, z_start, z_end, 
+			parallel, label
+		);
+	}
+	else if (head.data_width == 2) {
+		labels = decompress_helper<uint16_t>(
+			head, data, info.size, z_start, z_end,
+			parallel, label
+		);
+	}
+	else if (head.data_width == 4) {
+		labels = decompress_helper<uint32_t>(
+			head, data, info.size, z_start, z_end,
+			parallel, label
+		);	
+	}
+	else {
+		labels = decompress_helper<uint64_t>(
+			head, data, info.size, z_start, z_end,
+			parallel, label
+		);
+	}
+	
+	return labels;
+}
+
+template <typename LABEL>
+py::bytes compress_helper(
+	const py::array &labels, 
+	const bool allow_pins = false,
+	const bool fortran_order = true,
+	const uint64_t markov_model_order = 0,
+	const bool optimize_pins = false,
+	const bool auto_bgcolor = true,
+	const int64_t manual_bgcolor = 0,
+	const size_t parallel = 1
+) {
+	const uint64_t sx = labels.shape()[0];
+	const uint64_t sy = labels.ndim() < 2
+		? 1 
+		: labels.shape()[1];
+	const uint64_t sz = labels.ndim() < 3 
+		? 1 
+		: labels.shape()[2];
+
+	LABEL* data = reinterpret_cast<LABEL*>(const_cast<void*>(labels.data()));
+	std::vector<unsigned char> buf;
+
+	{
+		py::gil_scoped_release release;
+		buf = crackle::compress<LABEL>(
+			data,
+			sx, sy, sz,
+			allow_pins,
+			fortran_order,
+			markov_model_order,
+			optimize_pins,
+			auto_bgcolor,
+			manual_bgcolor,
+			parallel
+		);
+	}
+
+	return py::bytes(reinterpret_cast<char*>(buf.data()), buf.size());
+}
+
+py::bytes compress(
+	const py::array &labels, 
+	const bool allow_pins = false,
+	const bool fortran_order = true,
+	const uint64_t markov_model_order = 0,
+	const bool optimize_pins = false,
+	const bool auto_bgcolor = true,
+	const int64_t manual_bgcolor = 0,
+	const size_t parallel = 1
+) {
+	int width = labels.dtype().itemsize();
+	bool is_signed = labels.dtype().kind() == 'i';
+
+#define CALL_COMPRESS_HELPER(LABELS_T) compress_helper<LABELS_T>(\
+		labels, allow_pins, fortran_order, markov_model_order,\
+		optimize_pins, auto_bgcolor, manual_bgcolor, parallel\
+	)
+
+	if (is_signed) {
+		if (width == 1) {
+			return CALL_COMPRESS_HELPER(int8_t);
+		}
+		else if (width == 2) {
+			return CALL_COMPRESS_HELPER(int16_t);
+		}
+		else if (width == 4) {
+			return CALL_COMPRESS_HELPER(int32_t);
+		}
+		else {
+			return CALL_COMPRESS_HELPER(int64_t);
+		}
+	}
+	else {
+		if (width == 1) {
+			return CALL_COMPRESS_HELPER(uint8_t);
+		}
+		else if (width == 2) {
+			return CALL_COMPRESS_HELPER(uint16_t);
+		}
+		else if (width == 4) {
+			return CALL_COMPRESS_HELPER(uint32_t);
+		}
+		else {
+			return CALL_COMPRESS_HELPER(uint64_t);
+		}
+	}
+#undef CALL_COMPRESS_HELPER
+}
+
+py::bytes reencode_markov(
+	const py::buffer buffer, const int markov_model_order,
+	size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto buf = crackle::reencode_with_markov_order(
+		data, info.size, markov_model_order, parallel
+	);
+	return py::bytes(reinterpret_cast<char*>(buf.data()), buf.size());
+}
+
+py::tuple connected_components(const py::array &labels) {
+	int width = labels.dtype().itemsize();
+
+	const uint64_t sx = labels.shape()[0];
+	const uint64_t sy = labels.shape()[1];
+	const uint64_t sz = labels.shape()[2];
+
+	std::vector<uint64_t> num_components_per_slice(sz);
+	py::array cc_labels = py::array_t<uint32_t>(sx * sy * sz);
+	uint64_t N = 0;
+
+	if (width == 1) {
+		crackle::cc3d::connected_components<uint8_t, uint32_t>(
+			reinterpret_cast<uint8_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, 
+			num_components_per_slice,
+			reinterpret_cast<uint32_t*>(const_cast<void*>(cc_labels.data())), 
+			N 
+		);
+	}
+	else if (width == 2) {
+		crackle::cc3d::connected_components<uint16_t, uint32_t>(
+			reinterpret_cast<uint16_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, 
+			num_components_per_slice,
+			reinterpret_cast<uint32_t*>(const_cast<void*>(cc_labels.data())), 
+			N 
+		);
+	}
+	else if (width == 4) {
+		crackle::cc3d::connected_components<uint32_t, uint32_t>(
+			reinterpret_cast<uint32_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, 
+			num_components_per_slice,
+			reinterpret_cast<uint32_t*>(const_cast<void*>(cc_labels.data())), 
+			N 
+		);
+	}
+	else {
+		crackle::cc3d::connected_components<uint64_t, uint32_t>(
+			reinterpret_cast<uint64_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, 
+			num_components_per_slice,
+			reinterpret_cast<uint32_t*>(const_cast<void*>(cc_labels.data())), 
+			N 
+		);
+	}
+
+	return py::make_tuple(cc_labels, num_components_per_slice, N);
+}
+
+auto compute_pins(const py::array &labels) {
+	int width = labels.dtype().itemsize();
+
+	const uint64_t sx = labels.shape()[0];
+	const uint64_t sy = labels.shape()[1];
+	const uint64_t sz = labels.shape()[2];
+
+	py::dict results;
+
+	if (width == 1) {
+		return crackle::pins::compute<uint8_t>(
+			reinterpret_cast<uint8_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, false
+		);
+	}
+	else if (width == 2) {
+		return crackle::pins::compute<uint16_t>(
+			reinterpret_cast<uint16_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, false
+		);
+	}
+	else if (width == 4) {
+		return crackle::pins::compute<uint32_t>(
+			reinterpret_cast<uint32_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, false
+		);
+	}
+	else {
+		return crackle::pins::compute<uint64_t>(
+			reinterpret_cast<uint64_t*>(const_cast<void*>(labels.data())),
+			sx, sy, sz, false
+		);
+	}
+}
+
+py::dict point_cloud(	
+	const py::buffer buffer, 
+	const int64_t z_start = 0, 
+	const int64_t z_end = -1,
+	const std::optional<std::vector<uint64_t>> labels = std::nullopt,
+	const bool skip_background = false,
+	const size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto ptc = crackle::operations::point_cloud(
+		data, info.size, 
+		z_start, z_end, 
+		labels, skip_background, parallel
+	);
+
+	py::dict py_ptc;
+	for (const auto& [key, vec] : ptc) {
+		py::array array = py::array_t<uint16_t>(vec.size());
+		std::memcpy(array.mutable_data(), vec.data(), vec.size() * sizeof(uint16_t));
+		py_ptc[py::int_(key)] = array;
+	}
+
+	return py_ptc;
+}
+
+py::dict voxel_counts(
+	const py::buffer &buffer,
+	const int64_t z_start = 0, 
+	const int64_t z_end = -1,
+	size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto cts = crackle::operations::voxel_counts(data, info.size, z_start, z_end, parallel);
+
+	py::dict pycts;
+	for (const auto& [label, ct] : cts) {
+		pycts[py::int_(label)] = py::int_(ct);
+	}
+
+	return pycts;
+}
+
+py::dict centroids(
+	const py::buffer &buffer,
+	const int64_t z_start = 0, 
+	const int64_t z_end = -1,
+	size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto centroid_data = crackle::operations::centroids(data, info.size, z_start, z_end, parallel);
+
+	py::dict pycentroids;
+	for (const auto& [label, xyz] : centroid_data) {
+    	py::array_t<double> np_xyz({3}, {sizeof(double)});
+    	auto buf = np_xyz.mutable_unchecked<1>();
+        buf(0) = xyz[0];
+        buf(1) = xyz[1];
+        buf(2) = xyz[2];
+		pycentroids[py::int_(label)] = np_xyz;
+	}
+
+	return pycentroids;
+}
+
+py::dict bounding_boxes(
+	const py::buffer &buffer,
+	const int64_t z_start = 0, 
+	const int64_t z_end = -1, 
+	size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto bbxes = crackle::operations::bounding_boxes(data, info.size, z_start, z_end, parallel);
+	
+	py::dict pybbxes;
+	for (const auto& [label, bbx] : bbxes) {
+		py::array_t<uint32_t> np_xyz({6}, {sizeof(uint32_t)});
+		auto buf = np_xyz.mutable_unchecked<1>();
+		buf(0) = bbx[0];
+		buf(1) = bbx[1];
+		buf(2) = bbx[2];
+		buf(3) = bbx[3];
+		buf(4) = bbx[4];
+		buf(5) = bbx[5];
+		pybbxes[py::int_(label)] = np_xyz;
+	}
+
+	return pybbxes;
+}
+
+py::array get_slice_vcg(
+	const py::bytes &buffer, 
+	const int64_t z
+) {
+	std::vector<uint8_t> vcg = crackle::decode_slice_vcg(buffer, z);
+	py::array array = py::array_t<uint8_t>(vcg.size());
+	std::memcpy(array.mutable_data(), vcg.data(), vcg.size() * sizeof(uint8_t));
+	return array;
+}
+
+// in place operation
+void remap(
+	py::buffer &buffer,
+	const py::dict& pymapping,
+	const bool preserve_missing_labels = false,
+	size_t parallel = 0
+) {
+	// TODO: tbh the most expensive part of this operation... if we use the python dict
+	// directly, this would probably be a lot faster.
+	robin_hood::unordered_flat_map<uint64_t,uint64_t> mapping;
+	mapping.reserve(pymapping.size());
+	for (auto& item : pymapping) {
+		uint64_t key = static_cast<uint64_t>(item.first.cast<py::int_>());
+		uint64_t val = static_cast<uint64_t>(item.second.cast<py::int_>());
+		mapping[key] = val;
+	}
+
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+
+	uint64_t num_bytes = info.size * info.itemsize;
+
+	if (num_bytes < crackle::CrackleHeader::header_size) {
+		throw std::runtime_error("binary too small");
+	}
+
+	crackle::CrackleHeader header(data);
+
+	if (header.stored_data_width == 1) {
+		py::gil_scoped_release release;
+		crackle::remap<uint8_t>(data, num_bytes, mapping, preserve_missing_labels, parallel);
+	}
+	else if (header.stored_data_width == 2) {
+		py::gil_scoped_release release;
+		crackle::remap<uint16_t>(data, num_bytes, mapping, preserve_missing_labels, parallel);
+	}
+	else if (header.stored_data_width == 4) {
+		py::gil_scoped_release release;
+		crackle::remap<uint32_t>(data, num_bytes, mapping, preserve_missing_labels, parallel);
+	}
+	else {
+		py::gil_scoped_release release;
+		crackle::remap<uint64_t>(data, num_bytes, mapping, preserve_missing_labels, parallel);
+	}
+}
+
+template <typename T>
+py::array _index_range_helper(T* arr, int64_t N, const T value) {
+	std::vector<int64_t> all_indices;
+
+	int64_t i = 0;
+	for (; i < N; i++) {
+		if (arr[i] == value) {
+			all_indices.push_back(i);
+			break;
+		}
+	}
+
+	for (int64_t j = N - 1; j > i; j--) {
+		if (arr[j] == value) {
+			all_indices.push_back(j);
+			break;
+		}			
+	}
+
+	int64_t size = all_indices.size();
+
+	py::array_t<uint64_t> result(size);
+	auto buf = result.template mutable_unchecked<1>();
+	for (int64_t i = 0; i < size; i++) {
+		buf(i) = all_indices[i];
+	}
+	return result;
+}
+
+py::array index_range(
+	const py::buffer &buffer,
+	const uint64_t value
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	if (info.itemsize == 1) {
+		return _index_range_helper<uint8_t>(reinterpret_cast<uint8_t*>(info.ptr), info.size, value);
+	}
+	else if (info.itemsize == 2) {
+		return _index_range_helper<uint16_t>(reinterpret_cast<uint16_t*>(info.ptr), info.size, value);
+	}
+	else if (info.itemsize == 4) {
+		return _index_range_helper<uint32_t>(reinterpret_cast<uint32_t*>(info.ptr), info.size, value);
+	}
+	else {
+		return _index_range_helper<uint64_t>(reinterpret_cast<uint64_t*>(info.ptr), info.size, value);
+	}
+}
+
+py::array voxel_connectivity_graph(
+	const py::buffer buffer, 
+	const int64_t z_start = 0, int64_t z_end = -1,
+	const size_t parallel = 1,
+	const int connectivity = 4
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	uint8_t* vcg = crackle::operations::voxel_connectivity_graph(
+		data, 
+		info.size, 
+		z_start, z_end, 
+		parallel, connectivity
+	);
+
+	crackle::CrackleHeader head(data);
+
+	if (z_end < 0 || z_end >= head.sz) {
+		z_end = head.sz;
+	}
+
+	return to_numpy<uint8_t>(vcg, head.sx, head.sy, z_end - z_start);
+}
+
+py::dict contacts(
+	const py::buffer buffer, 
+	const int64_t z_start = 0, int64_t z_end = -1,
+	const float wx = 1.0, const float wy = 1.0, const float wz = 1.0
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	auto surface_contacts = crackle::operations::contacts(
+		data, info.size, 
+		z_start, z_end, 
+		wx, wy, wz
+	);
+	
+	py::dict pyareas;
+	for (const auto& [pear, area] : surface_contacts) {
+		py::tuple key = py::make_tuple(py::int_(pear.first), py::int_(pear.second));
+		pyareas[key] = py::float_(area);
+	}
+
+	return pyareas;
+}
+
+bool array_equal(
+	const py::buffer buffer1, 
+	const py::buffer buffer2,
+	const size_t parallel = 1
+) {
+	py::buffer_info info1 = buffer1.request();
+	py::buffer_info info2 = buffer2.request();
+
+	if (info1.ndim != 1 || info2.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data1 = static_cast<uint8_t*>(info1.ptr);
+	uint8_t* data2 = static_cast<uint8_t*>(info2.ptr);
+
+	if (data1 == data2) {
+		return true;
+	}
+
+	return crackle::operations::array_equal(
+		data1, info1.size,
+		data2, info2.size,
+		parallel
+	);
+}
+
+py::list mode_pooling_2x2x1(
+	const py::buffer buffer,
+	const int64_t z_start = 0, int64_t z_end = -1,
+	const bool sparse = false,
+	const size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+
+	std::vector<std::vector<unsigned char>> ds_binaries = crackle::operations::mode_pooling_2x2x1(
+		data, 
+		info.size, 
+		z_start, z_end,
+		sparse,
+		parallel
+	);
+	py::list result;
+	for (const auto& bin : ds_binaries) {
+		result.append(py::bytes(reinterpret_cast<const char*>(bin.data()), bin.size()));
+	}
+	return result;
+}
+
+py::dict component_map(
+	const py::buffer buffer1, 
+	const py::buffer buffer2,
+	const size_t parallel = 1
+) {
+	py::buffer_info info1 = buffer1.request();
+	py::buffer_info info2 = buffer2.request();
+
+	if (info1.ndim != 1 || info2.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data1 = static_cast<uint8_t*>(info1.ptr);
+	uint8_t* data2 = static_cast<uint8_t*>(info2.ptr);
+
+	auto cpp_mapping = crackle::operations::component_map(
+		data1, info1.size,
+		data2, info2.size,
+		parallel
+	);
+
+	py::dict py_dict;
+	for (const auto& [key, val] : cpp_mapping) {
+		py_dict[py::int_(key)] = py::int_(val);
+	}
+
+	return py_dict;
+}
+
+py::set edge_labels(
+	const py::buffer buffer,
+	const size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+
+	auto cpp_set = crackle::operations::edge_labels(
+		data, info.size,
+		parallel
+	);
+
+	py::set py_set;
+	for (const uint64_t val : cpp_set) {
+		py_set.add(py::int_(val));
+	}
+
+	return py_set;
+}
+
+py::list apply_binary_mask(
+	const py::buffer buffer,
+	const py::buffer mask_buffer,
+	const size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+	py::buffer_info mask_info = mask_buffer.request();
+
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+	if (mask_info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	uint8_t* mask_data = static_cast<uint8_t*>(mask_info.ptr);
+
+	const size_t data_size = info.size;
+	const size_t mask_data_size = mask_info.size;
+
+	std::vector<std::vector<unsigned char>> binaries;
+
+	{
+		py::gil_scoped_release release;
+		binaries = crackle::operations::apply_binary_mask(
+			data, data_size,
+			mask_data, mask_data_size,
+			parallel
+		);
+	}
+
+	py::list result;
+	for (const auto& bin : binaries) {
+		result.append(py::bytes(reinterpret_cast<const char*>(bin.data()), bin.size()));
+	}
+	return result;
+}
+
+// This is useful for reducing the size of remapped images
+// e.g. say you extract 1 label from a huge volume
+// In one case, I had a 6 GB file of L2 pychunkgraph labels from which 
+// I needed ~1MB of data. Performing a full decompression would have 
+// (in that case) required 120 GB on disk.
+py::list recompress(
+	const py::buffer buffer,
+	const int64_t z_start = 0, int64_t z_end = -1,
+	const size_t parallel = 1
+) {
+	py::buffer_info info = buffer.request();
+	if (info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+	uint8_t* data = static_cast<uint8_t*>(info.ptr);
+	const size_t num_bytes = info.size;
+
+	std::vector<std::vector<unsigned char>> binaries;
+
+	{
+		py::gil_scoped_release release;
+		binaries = crackle::operations::recompress(
+			data, 
+			num_bytes, 
+			z_start, z_end,
+			parallel
+		);
+	}
+
+	py::list result;
+	for (const auto& bin : binaries) {
+		result.append(py::bytes(reinterpret_cast<const char*>(bin.data()), bin.size()));
+	}
+	return result;
+}
+
+py::list binary_operator(
+	const py::buffer lvalue_buffer,
+	const py::buffer rvalue_buffer,
+	const char oper,
+	const size_t parallel = 1
+) {
+	py::buffer_info lval_info = lvalue_buffer.request();
+	py::buffer_info rval_info = rvalue_buffer.request();
+
+	if (lval_info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+	if (rval_info.ndim != 1) {
+		throw std::invalid_argument("Expected a 1D buffer");
+	}
+	if (lval_info.itemsize != 1 || rval_info.itemsize != 1) {
+		throw std::invalid_argument("Expected itemsize == 1 (byte buffers)");
+	}
+
+	uint8_t* lval_ptr = static_cast<uint8_t*>(lval_info.ptr);
+	uint8_t* rval_ptr = static_cast<uint8_t*>(rval_info.ptr);
+
+	std::vector<std::vector<unsigned char>> binaries;
+
+	auto fn = [&](crackle::operations::BinaryOperator operatr) {
+		py::gil_scoped_release release;
+		return crackle::operations::binary_operator(
+			lval_ptr, lval_info.size,
+			rval_ptr, rval_info.size,
+			operatr,
+			parallel
+		);
+	};
+
+	if (oper == 'e') {
+		binaries = fn(crackle::operations::BinaryOperator::EQ);
+	}
+	else if (oper == 'n') {
+		binaries = fn(crackle::operations::BinaryOperator::NEQ);
+	}
+	else if (oper == 'g') {
+		binaries = fn(crackle::operations::BinaryOperator::GT);
+	}
+	else if (oper == 'G') {
+		binaries = fn(crackle::operations::BinaryOperator::GTE);
+	}
+	else if (oper == 'l') {
+		binaries = fn(crackle::operations::BinaryOperator::LT);
+	}
+	else if (oper == 'L') {
+		binaries = fn(crackle::operations::BinaryOperator::LTE);
+	}
+	else if (oper == '+') {
+		binaries = fn(crackle::operations::BinaryOperator::ADD);
+	}
+	else if (oper == '-') {
+		binaries = fn(crackle::operations::BinaryOperator::SUB);
+	}
+	else if (oper == '*') {
+		binaries = fn(crackle::operations::BinaryOperator::MUL);
+	}
+	else if (oper == '/') {
+		binaries = fn(crackle::operations::BinaryOperator::DIV);
+	}
+	else if (oper == '%') {
+		binaries = fn(crackle::operations::BinaryOperator::MOD);
+	}
+	else if (oper == 's') {
+		binaries = fn(crackle::operations::BinaryOperator::LSHIFT);
+	}
+	else if (oper == 'S') {
+		binaries = fn(crackle::operations::BinaryOperator::RSHIFT);
+	}
+	else if (oper == '|') {
+		binaries = fn(crackle::operations::BinaryOperator::BITWISE_OR);
+	}
+	else if (oper == '&') {
+		binaries = fn(crackle::operations::BinaryOperator::BITWISE_AND);
+	}
+	else if (oper == '^') {
+		binaries = fn(crackle::operations::BinaryOperator::XOR);
+	}
+	else {
+		throw std::invalid_argument(
+			"oper must be one of e, n, g, G, l, L, +, -, *, /, %, s, S, |, &, ^ "
+			"meaning =, !=, >, >=, <, <=, +, -, *, /, %, <<, >>, |, &, ^ respectively."
+		);
+	}
+
+	py::list result;
+	for (const auto& bin : binaries) {
+		result.append(py::bytes(reinterpret_cast<const char*>(bin.data()), bin.size()));
+	}
+	return result;
+}
+
+PYBIND11_MODULE(fastcrackle, m) {
+	m.doc() = "Accelerated crackle functions."; 
+	m.def("decompress", &decompress, "Decompress a crackle file into a numpy array.");
+	m.def("compress", &compress, "Compress a numpy array into a binary crackle file returned as bytes.");
+	m.def("reencode_markov", &reencode_markov, "Change the markov order of an existing crackle binary.");
+	m.def("remap", &remap, "Remap a buffer's unique labels in place.");
+	m.def("index_range", &index_range, "Find the min and max indices of an array where the value matches.");
+	m.def(
+		"connected_components", 
+		&connected_components,
+		"Perform 4-connected components in layers on a 3D array."
+	);
+	m.def("compute_pins", &compute_pins, "Compute a pinset.");
+	m.def("point_cloud", &point_cloud, "Extract one or more point clouds without decompressing.");
+	m.def("voxel_counts", &voxel_counts, "Compute the voxel counts for each label in the dataset.");
+	m.def("centroids", &centroids, "Compute the centroid for each label in the dataset.");
+	m.def("bounding_boxes", &bounding_boxes, "Compute the bounding box for each label in the dataset.");
+	m.def("get_slice_vcg", &get_slice_vcg, "Debugging tool for examining the voxel connectivity graph of a slice.");
+	m.def("voxel_connectivity_graph", &voxel_connectivity_graph, "Extract the voxel connectivity graph from the image.");
+	m.def("contacts", &contacts, "Find the contact area between pairs of regions.");
+	m.def("array_equal", &array_equal, "Check if two crackle arrays are equal regardless of encoding.");
+	m.def("mode_pooling_2x2x1", &mode_pooling_2x2x1, "Return an array of downsampled crackle binaries in z order.");
+	m.def("component_map", &component_map, "Map child components to parent components (analogue of fastremap.component_map).");
+	m.def("edge_labels", &edge_labels, "Get the unique labels on the border of this volume.");
+	m.def("apply_binary_mask", &apply_binary_mask, "Apply a mask using logical AND from a binary image of the same size.");
+	m.def("recompress", &recompress, "Perform a complete decompress and compress cycle.");
+	m.def("binary_operator", &binary_operator, "Perform a voxelwise comparison like =, !=, <, <=, >, >=, +, -, *, /, %, |, &, ^.");
+
+	py::class_<crackle::pins::Pin<uint64_t, uint64_t, uint64_t>>(m, "CppPin")
+		.def(py::init<>())
+		.def_readwrite("index", &crackle::pins::Pin<uint64_t, uint64_t, uint64_t>::index)
+		.def_readwrite("depth", &crackle::pins::Pin<uint64_t, uint64_t, uint64_t>::depth)
+		.def_readwrite("label", &crackle::pins::Pin<uint64_t, uint64_t, uint64_t>::label);
+}

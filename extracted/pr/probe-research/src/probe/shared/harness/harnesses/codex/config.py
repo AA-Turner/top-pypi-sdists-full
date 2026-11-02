@@ -124,7 +124,7 @@ def installed_plugin_versions(marketplace: str) -> dict[str, str] | None:
     Mac's `codex plugin list --json` timed out after 20 s right after the
     update had reinstalled both plugins, and the update read that as both
     missing."""
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     try:
         parsed = tomllib.loads(config_path().read_text(encoding="utf-8"))

@@ -3,7 +3,10 @@
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import backfill, backfill_transcripts, import_jobs, onboarding_complete, setup, tui
+from probe.cli.imports import folder as backfill, transcripts as backfill_transcripts, jobs as import_jobs
+from probe.cli.wizard.account import onboarding_complete
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
 from tests import test_wizard_install_completion as install_tests
 from tests.test_tui_review import _run
 
@@ -24,8 +27,9 @@ def test_back_reopens_import_choices_without_reinstalling(
     answers = iter([{session, folder}, {folder}])
     monkeypatch.setattr(main, "_run_selected_imports", run_selected_imports)
     monkeypatch.setattr(main, "_backfill_client", lambda: object())
-    monkeypatch.setattr(import_jobs, "_launch", import_jobs._read)
-    monkeypatch.setattr(setup, "run_action_menu", lambda *a: pytest.fail("Back escaped import setup"))
+    monkeypatch.setattr(import_jobs.workers, "_launch", import_jobs._read)
+    monkeypatch.setattr(import_jobs.jobs, "_launch", import_jobs._read)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda *a: pytest.fail("Back escaped import setup"))
     monkeypatch.setattr(onboarding_complete, "show", lambda base: calls.append("dashboard") or True)
 
     def offer(sources, **kwargs):
@@ -52,9 +56,9 @@ def test_back_reopens_import_choices_without_reinstalling(
             return tui.BACK
         return []
 
-    monkeypatch.setattr(setup, "run_backfill_offer", offer)
-    monkeypatch.setattr(backfill_transcripts, "run_lane", sessions)
-    monkeypatch.setattr(backfill, "run", files)
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", offer)
+    monkeypatch.setattr(backfill_transcripts.lane, "run_lane", sessions)
+    monkeypatch.setattr(backfill.folder, "run", files)
     result = CliRunner().invoke(main.app, ["install", "--agent", agent])
     assert result.exit_code == 0, result.output
     assert defaults == [None, {session, folder} if back_from == "sessions" else {folder}]
@@ -70,21 +74,21 @@ def test_back_reopens_import_choices_without_reinstalling(
 def test_deselecting_both_after_back_still_finishes_onboarding(installation, monkeypatch):
     choices = [set(setup.BackfillChoice), set()]
     monkeypatch.setattr(main, "_run_selected_imports", run_selected_imports)
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *a, **k: choices.pop(0))
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *a, **k: choices.pop(0))
     monkeypatch.setattr(main, "_import_past_sessions", lambda **k: tui.BACK)
     monkeypatch.setattr(onboarding_complete, "show", lambda base: True)
-    monkeypatch.setattr(setup, "run_action_menu", lambda *a: pytest.fail("must finish onboarding"))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda *a: pytest.fail("must finish onboarding"))
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
     assert result.exit_code == 0, result.output
     assert len(installation.registrations) == 1 and not choices
 
 
 def test_import_selector_main_menu_action_leaves_install_complete(installation, monkeypatch):
-    from probe.cli.actions import Action
+    from probe.cli.wizard.actions.onboarding import Action
 
     menu = []
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *a, **k: tui.BACK)
-    monkeypatch.setattr(setup, "run_action_menu", lambda *a: menu.append(True) or Action.EXIT)
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *a, **k: tui.BACK)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda *a: menu.append(True) or Action.EXIT)
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
     assert result.exit_code == 0, result.output
     assert menu == [True]

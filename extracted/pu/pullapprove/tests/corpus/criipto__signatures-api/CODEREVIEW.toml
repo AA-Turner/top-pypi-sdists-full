@@ -1,0 +1,63 @@
+[aliases]
+signatures-team = ["haysch", "mickhansen", "Nyrox"]
+extra-tech-reviewers = ["fkj", "sgryt"]
+compliance-team = ["sgryt", "melindaczirjak-hub"]
+
+[[scopes]]
+name = "compliance"
+description = "Files that impact compliance."
+paths = ["**/CODEREVIEW.toml", "pull_request_template.md"]
+request = 2
+require = 1
+reviewers = ["$compliance-team"]
+ownership = "append"
+labels = ["review/compliance"]
+checklist.items = [
+  { label = "This PR does not require a change in compliance procedures", required = false, notes = "required_if_unchecked", help = "If not checked, add a ticket to the compliance tracker and link it here." },
+]
+
+[[scopes]]
+name = "Not Signatures Team"
+paths = ["**"]
+authors = ["!$signatures-team"]
+description = "All PRs opened by someone outside of the Signatures team."
+reviewers = ["$signatures-team"]
+ownership = "append"
+request = 3
+require = 1
+checklist.items = [
+  { label = "The dependency check succeeded", required = false, notes = "required_if_unchecked", help = "If the dependency check failed, explain why that is acceptable." },
+  { label = "There are no new dependency suppressions", required = false, notes = "required_if_unchecked", help = "If there are new suppressions, check the justifications and explain why you approve of them." },
+]
+
+[[scopes]]
+name = "Regular PR"
+paths = ["**"]
+authors = ["$signatures-team"]
+description = "Regular PR opened by someone in the Signatures team."
+reviewers = ["$signatures-team"]
+alternates = ["$extra-tech-reviewers"]
+ownership = "append"
+request = 2
+require = 1
+checklist.items = [
+  { label = "The dependency check succeeded", required = false, notes = "required_if_unchecked", help = "If the dependency check failed, explain why that is acceptable." },
+  { label = "There are no new dependency suppressions", required = false, notes = "required_if_unchecked", help = "If there are new suppressions, check the justifications and explain why you approve of them." },
+]
+
+[[scopes]]
+name = "PDF seal visual appearance"
+paths = ["Core/Pdf*"]
+description = "Changes that interact with PDF seal visual appearance."
+ownership = "append"
+reviewers = ["$signatures-team"]
+alternates = ["$extra-tech-reviewers"]
+require = 1
+checklist.items = [
+  { label = "I have visually inspected the PDF artifact output and confirmed that it looks correct.", required = true, notes = "optional", help = "Describe what you checked and saw." },
+]
+
+[large_scale_change]
+reviewers = ["$signatures-team"]
+require = 1
+labels = ["large-change"]

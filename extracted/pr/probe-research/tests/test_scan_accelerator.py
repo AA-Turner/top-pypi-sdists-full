@@ -6,7 +6,7 @@ tests drive the SAME windowed code with a pure-Python accelerator that keeps
 the `Windows` contract exactly (a window around every match Python finds), and
 with a noisy one that adds random extra windows, and require the gate's answer
 to equal the unaccelerated one. Hyperscan-specific tests live server-side
-(`tests/unit/test_fast_scan.py`).
+(`tests/unit/external/test_fast_scan.py`).
 """
 
 from __future__ import annotations

@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: protoc-gen-connectrpc
+Version: 0.13.0
+Summary: Code generator for Connect RPC
+Keywords: code-generation,compiler,connect,connect-protocol,connect-py,connect-rpc,connectrpc,plugin,protobuf,protoc,protocol-buffers,rpc
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Go
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: System :: Networking
+Requires-Dist: protobuf-py>=0.6.0
+Maintainer: Anuraag Agrawal, Spencer Nelson, Stefan VanBuren, Yasushi Itoh
+Maintainer-email: Anuraag Agrawal <anuraaga@gmail.com>, Spencer Nelson <spencer@firetiger.com>, Stefan VanBuren <stefan@vanburen.xyz>, Yasushi Itoh <i2y.may.roku@gmail.com>
+Requires-Python: >=3.11
+Project-URL: Homepage, https://github.com/connectrpc/connect-py
+Project-URL: Issues, https://github.com/connectrpc/connect-py/issues
+Project-URL: Repository, https://github.com/connectrpc/connect-py
+Description-Content-Type: text/markdown
+
+# protoc-gen-connectrpc
+
+Protobuf plugin for generating stubs for use with [`connectrpc`](https://github.com/connectrpc/connect-py).
+See it for more details on usage.

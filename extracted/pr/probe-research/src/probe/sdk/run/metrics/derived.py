@@ -7,6 +7,7 @@ from ....models import (
     DerivedProvenance,
     MetricBatch,
     MetricPointIn)
+from probe.sdk.routes import WriteOp, path_for
 
 
 def _metric_batch_body(
@@ -129,7 +130,7 @@ class DerivedMetricsMixin:
             ),
         )
         return self._client.write(
-            "POST", f"/v1/runs/{self.id}/metrics", self._stamp_writer(body), strict=strict
+            "POST", path_for(WriteOp.METRICS, self.id), self._stamp_writer(body), strict=strict
         )
 
     def log_derived_series(
@@ -176,7 +177,7 @@ class DerivedMetricsMixin:
             ),
         )
         return self._client.write(
-            "POST", f"/v1/runs/{self.id}/metrics", self._stamp_writer(body), strict=strict
+            "POST", path_for(WriteOp.METRICS, self.id), self._stamp_writer(body), strict=strict
         )
 
     # -- expression views (read-time computed panels, research-os 0088) -----

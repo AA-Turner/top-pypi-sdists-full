@@ -15,6 +15,24 @@ exc = JsonSchemaValueException('data must be date-time', value='{data}', name='d
     ('2018-02-05T14:17:10.00Z', '2018-02-05T14:17:10.00Z'),
     ('2018-02-05T14:17:10Z', '2018-02-05T14:17:10Z'),
     ('2020-09-09T01:01:01+0100', '2020-09-09T01:01:01+0100'),
+    ('1998-12-31T23:59:60Z', '1998-12-31T23:59:60Z'),
+    ('1990-12-31T15:59:60-08:00', '1990-12-31T15:59:60-08:00'),
+    ('2020-00-10T01:01:01Z', exc),
+    ('2020-13-10T01:01:01Z', exc),
+    ('2020-19-10T01:01:01Z', exc),
+    ('2020-01-00T01:01:01Z', exc),
+    ('2020-01-32T01:01:01Z', exc),
+    ('2020-01-39T01:01:01Z', exc),
+    ('2020-01-01T24:00:00Z', exc),
+    ('2020-01-01T29:00:00Z', exc),
+    ('2020-01-01T01:01:61Z', exc),
+    ('2020-01-01T01:01:01+24:00', exc),
+    ('2020-01-01T01:01:01+01:60', exc),
+    ('2020-02-30T01:01:01Z', exc),
+    ('2021-02-29T01:01:01Z', exc),
+    ('2021-04-31T01:01:01Z', exc),
+    ('2020-02-29T01:01:01Z', '2020-02-29T01:01:01Z'),
+    ('2021-04-30T01:01:01Z', '2021-04-30T01:01:01Z'),
 ])
 def test_datetime(asserter, value, expected):
     asserter({'type': 'string', 'format': 'date-time'}, value, expected)
@@ -37,6 +55,30 @@ def test_hostname(asserter, value, expected):
     asserter({'type': 'string', 'format': 'hostname'}, value, expected)
 
 
+exc = JsonSchemaValueException('data must be time', value='{data}', name='data', definition='{definition}', rule='format')
+@pytest.mark.parametrize('value, expected', [
+    ('', exc),
+    ('bla', exc),
+    ('12:00:00', '12:00:00'),
+    ('12:00:00Z', '12:00:00Z'),
+    ('00:00:00.5+01:30', '00:00:00.5+01:30'),
+    ('23:59:59-23:59', '23:59:59-23:59'),
+    ('23:59:60Z', '23:59:60Z'),
+    ('24:00:00Z', exc),
+    ('29:00:00Z', exc),
+    ('99:99:99', exc),
+    ('12:60:00Z', exc),
+    ('12:00:61Z', exc),
+    ('12:00:00+24:00', exc),
+    ('12:00:00+00:60', exc),
+])
+def test_time(asserter, value, expected):
+    asserter({
+        '$schema': 'http://json-schema.org/draft-07/schema',
+        'format': 'time',
+    }, value, expected)
+
+
 exc = JsonSchemaValueException('data must be date', value='{data}', name='data', definition='{definition}', rule='format')
 @pytest.mark.parametrize('value, expected', [
     ('', exc),
@@ -44,6 +86,20 @@ exc = JsonSchemaValueException('data must be date', value='{data}', name='data',
     ('2018-2-5', exc),
     ('2018-02-05', '2018-02-05'),
     ('2018-10-31', '2018-10-31'),
+    ('2018-02-29', exc),
+    ('2018-02-30', exc),
+    ('2018-04-31', exc),
+    ('2018-06-31', exc),
+    ('2018-09-31', exc),
+    ('2018-11-31', exc),
+    ('1900-02-29', exc),
+    ('2100-02-29', exc),
+    ('2020-02-29', '2020-02-29'),
+    ('2000-02-29', '2000-02-29'),
+    ('2400-02-29', '2400-02-29'),
+    ('2018-02-28', '2018-02-28'),
+    ('2018-04-30', '2018-04-30'),
+    ('2018-12-31', '2018-12-31'),
 ])
 def test_date(asserter, value, expected):
     asserter({
@@ -77,6 +133,10 @@ exc = JsonSchemaValueException('data must be ipv6', value='{data}', name='data',
     ('1.1.1.1', exc),
     ('2001:db8::1:1', '2001:db8::1:1'),
     ('::ffff:1.1.1.1', '::ffff:1.1.1.1'),
+    # One group before '::', the rest after it.
+    ('1::2:3:4:5:6', '1::2:3:4:5:6'),
+    ('1::2:3:4:1.2.3.4', '1::2:3:4:1.2.3.4'),
+    ('1::2:3:4:5:6:7:8', exc),
 ])
 def test_ipv6(asserter, value, expected):
     asserter({'type': 'string', 'format': 'ipv6'}, value, expected)

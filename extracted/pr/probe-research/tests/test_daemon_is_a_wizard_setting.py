@@ -293,7 +293,7 @@ def test_session_default_daemon_is_refused(capsys, tmp_path):
 
 
 def test_the_new_session_default_row_is_on_read_off():
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     assert wizard.cycling_settings()[wizard.Setting.TRACKING_DEFAULT] == ("full", "read-only", "off")
     assert set(wizard.SETTINGS_STATE_COPY[wizard.Setting.TRACKING_DEFAULT]) == {"full", "read-only", "off"}
@@ -301,7 +301,7 @@ def test_the_new_session_default_row_is_on_read_off():
 
 
 def test_a_stored_daemon_default_reads_as_on_on_the_row():
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     session_marker.write_default_state(session_marker.STATE_DAEMON)
     assert wizard.setting_state(session_marker.default_session_state()) == session_marker.STATE_FULL

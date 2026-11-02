@@ -1,0 +1,125 @@
+"""Backend storage abstraction for cachekit.
+
+This module provides protocol-based abstraction for L2 backend storage with
+dependency injection pattern. Backends can be Redis, HTTP, DynamoDB, Memcached,
+or any key-value store.
+
+Public API:
+    - BaseBackend: Core protocol (5 methods: get, set, delete, exists, health_check)
+    - TTLInspectableBackend: Optional protocol for TTL inspection/refresh
+    - LockableBackend: Optional protocol for distributed locking
+    - KeyTrackableBackend: Optional protocol for server-side key tracking (whole-function invalidation)
+    - TimeoutConfigurableBackend: Optional protocol for per-operation timeouts
+    - BackendProvider: Dependency injection protocol
+    - BackendError: Exception raised by backend operations
+    - BackendErrorType: Error classification enum
+    - CapabilityNotAvailableError: Exception for missing optional capabilities
+    - RedisBackend: Redis implementation
+    - MemcachedBackend: Memcached implementation (requires pymemcache)
+
+Usage:
+    >>> from cachekit.backends import BaseBackend, RedisBackend, BackendError
+    >>> # RedisBackend usage requires Redis connection
+    >>> # See RedisBackend documentation for connection details
+
+Dependency injection pattern:
+    >>> from cachekit.backends import BackendProvider
+    >>> # Implement BackendProvider protocol in your application
+    >>> # See BackendProvider documentation for implementation examples
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
+
+from cachekit.backends.base import (
+    BaseBackend,
+    KeyTrackableBackend,
+    LockableBackend,
+    TimeoutConfigurableBackend,
+    TTLInspectableBackend,
+)
+from cachekit.backends.base_config import BaseBackendConfig, inherit_config
+from cachekit.backends.errors import (
+    BackendError,
+    BackendErrorType,
+    CapabilityNotAvailableError,
+)
+
+if TYPE_CHECKING:
+    from cachekit.backends.memcached import MemcachedBackend
+    from cachekit.backends.redis import RedisBackend
+
+__all__ = [
+    "BaseBackend",
+    "BaseBackendConfig",
+    "inherit_config",
+    "TTLInspectableBackend",
+    "LockableBackend",
+    "KeyTrackableBackend",
+    "TimeoutConfigurableBackend",
+    "BackendProvider",
+    "BackendError",
+    "BackendErrorType",
+    "CapabilityNotAvailableError",
+    "RedisBackend",
+    "MemcachedBackend",
+]
+
+
+class BackendProvider(Protocol):
+    """Protocol for dependency injection of backend instances.
+
+    Enables testability and pluggable backends without hardcoding concrete
+    implementations. The provider manages backend lifecycle (singleton,
+    pooling, etc.). A decorator calls ``get_backend()`` once and keeps the
+    result for the life of the process, so the backend returned must be safe to
+    share across requests — anything request-scoped (e.g. the tenant) has to be
+    resolved per operation, not captured when the backend is built.
+
+    Example:
+        >>> from cachekit.backends import BackendProvider, BaseBackend
+        >>> # Implement BackendProvider protocol:
+        >>> # class MyProvider:
+        >>> #     def get_backend(self) -> BaseBackend:
+        >>> #         return RedisBackend()
+        >>> # provider = MyProvider()
+        >>> # backend = provider.get_backend()
+
+    Note:
+        This is a structural protocol (PEP 544) - any class with a get_backend()
+        method satisfies this protocol without explicit inheritance.
+    """
+
+    def get_backend(self) -> BaseBackend:
+        """Return a BaseBackend instance.
+
+        Implementation can manage singleton or pooling depending on backend
+        requirements; the result must be safe to share across requests.
+
+        Returns:
+            BaseBackend instance ready for cache operations
+
+        Example:
+            >>> provider = MyProvider()  # doctest: +SKIP
+            >>> backend = provider.get_backend()  # doctest: +SKIP
+            >>> backend.set("key", b"value", ttl=60)  # doctest: +SKIP
+        """
+        ...
+
+
+def __getattr__(name: str):
+    """Lazy imports: pymemcache may not be installed, and redis-py loads only for a program that uses Redis.
+
+    Loading redis-py loads hiredis, which re-enables the GIL on a free-threaded build, so
+    ``import cachekit`` must not load it (see cachekit.hiredis_compat).
+    """
+    if name == "RedisBackend":
+        from cachekit.backends.redis import RedisBackend
+
+        return RedisBackend
+    if name == "MemcachedBackend":
+        from cachekit.backends.memcached import MemcachedBackend
+
+        return MemcachedBackend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

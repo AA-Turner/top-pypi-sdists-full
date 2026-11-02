@@ -1,0 +1,443 @@
+"""FastAPI transport for boring-semantic-layer semantic models."""
+
+from __future__ import annotations
+
+import inspect
+import json
+import logging
+import os
+import re
+import secrets
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from contextlib import asynccontextmanager
+from typing import Any
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, model_validator
+
+from boring_semantic_layer.query import find_time_dimension
+
+from .loader import load_models
+
+logger = logging.getLogger(__name__)
+
+AuthHook = Callable[[Request], bool | None | Awaitable[bool | None]]
+
+
+class QueryRequest(BaseModel):
+    """HTTP request body for the query endpoint."""
+
+    model_name: str
+    dimensions: list[str] | None = None
+    measures: list[str] | None = None
+    filters: list[dict[str, Any]] | None = None
+    order_by: list[tuple[str, str]] | None = None
+    limit: int | None = Field(default=None, ge=1, le=100_000)
+    time_grain: str | None = None
+    time_grains: dict[str, str] | None = None
+    time_range: dict[str, str] | None = None
+    get_records: bool = True
+    records_limit: int | None = Field(default=None, ge=1)
+    get_chart: bool = True
+    chart_backend: str | None = None
+    chart_format: str | None = None
+    chart_spec: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _check_grain_fields(self) -> QueryRequest:
+        if self.time_grain is not None and self.time_grains is not None:
+            raise ValueError(
+                "Cannot specify both 'time_grain' and 'time_grains'. "
+                "Use 'time_grain' to apply a single grain to all time dimensions, "
+                "or 'time_grains' to specify per-dimension grains."
+            )
+        return self
+
+
+class ComparePeriodsRequest(BaseModel):
+    """HTTP request body for the compare-periods endpoint."""
+
+    model_name: str
+    dimensions: list[str] | None = None
+    measures: list[str]
+    current_time_range: dict[str, str]
+    previous_time_range: dict[str, str]
+    filters: list[dict[str, Any]] | None = None
+    time_dimension: str | None = None
+    time_grain: str | None = None
+    time_grains: dict[str, str] | None = None
+    order_by: list[tuple[str, str]] | None = None
+    limit: int | None = Field(default=None, ge=1, le=100_000)
+    get_records: bool = True
+    records_limit: int | None = Field(default=None, ge=1)
+    get_chart: bool = True
+    chart_backend: str | None = None
+    chart_format: str | None = None
+    chart_spec: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _check_grain_fields(self) -> ComparePeriodsRequest:
+        if self.time_grain is not None and self.time_grains is not None:
+            raise ValueError(
+                "Cannot specify both 'time_grain' and 'time_grains'. "
+                "Use 'time_grain' to apply a single grain to all time dimensions, "
+                "or 'time_grains' to specify per-dimension grains."
+            )
+        return self
+
+
+def _generate_chart_with_data():
+    """Resolve the chart generator from the agents extra at call time.
+
+    The server extra does not depend on the agents extra; only the chart
+    endpoints need it, and they say so clearly when it is missing.
+    """
+    try:
+        from boring_semantic_layer.agents.utils.chart_handler import (
+            generate_chart_with_data,
+        )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=501,
+            detail="Chart generation requires the agents extra: "
+            "pip install 'boring-semantic-layer[agent]'",
+        ) from exc
+    return generate_chart_with_data
+
+
+def _default_cors_origins() -> list[str]:
+    raw = os.environ.get("BSL_CORS_ORIGINS")
+    if not raw:
+        return []
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return origins
+
+
+def _api_key_auth_hook(api_key: str) -> AuthHook:
+    """Build a constant-time API-key hook for simple deployments."""
+
+    def authenticate(request: Request) -> bool:
+        authorization = request.headers.get("authorization", "")
+        bearer = authorization[7:] if authorization.lower().startswith("bearer ") else ""
+        supplied = request.headers.get("x-bsl-api-key") or bearer
+        return bool(supplied) and secrets.compare_digest(supplied, api_key)
+
+    return authenticate
+
+
+def _get_models(request: Request) -> Mapping[str, Any]:
+    return request.app.state.models
+
+
+def _get_model_or_404(models: Mapping[str, Any], model_name: str) -> Any:
+    model = models.get(model_name)
+    if model is None:
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+    return model
+
+
+def _build_model_response(model: Any) -> dict[str, Any]:
+    dimensions = {}
+    for name, dim in model.get_dimensions().items():
+        dimensions[name] = {
+            "description": dim.description,
+            "is_time_dimension": dim.is_time_dimension,
+            "smallest_time_grain": dim.smallest_time_grain,
+        }
+
+    measures = {}
+    for name, measure in model.get_measures().items():
+        measures[name] = {"description": measure.description}
+
+    response = {
+        "name": model.name or "unnamed",
+        "dimensions": dimensions,
+        "measures": measures,
+        "calculated_measures": list(model.get_calculated_measures().keys()),
+    }
+    if model.description:
+        response["description"] = model.description
+    return response
+
+
+def _get_time_range_response(model: Any, model_name: str) -> dict[str, str]:
+    dimensions = model.get_dimensions()
+    time_dim_name = find_time_dimension(model, list(dimensions))
+    if not time_dim_name:
+        raise HTTPException(status_code=400, detail=f"Model '{model_name}' has no time dimension")
+
+    tbl = model.table
+    time_col = dimensions[time_dim_name](tbl)
+    result = tbl.aggregate(start=time_col.min(), end=time_col.max()).execute()
+
+    def to_iso(value: Any) -> str:
+        # Some backends materialize an Ibis date aggregate as a midnight
+        # pandas Timestamp. Preserve the semantic datatype in the HTTP value.
+        if time_col.type().is_date() and callable(as_date := getattr(value, "date", None)):
+            value = as_date()
+        return value.isoformat()
+
+    return {
+        "start": to_iso(result["start"].iloc[0]),
+        "end": to_iso(result["end"].iloc[0]),
+    }
+
+
+def _search_dimension_values_response(
+    model: Any,
+    model_name: str,
+    dimension_name: str,
+    search_term: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    dims = model.get_dimensions()
+    if dimension_name not in dims:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Dimension '{dimension_name}' not found in model '{model_name}'. "
+                f"Available dimensions: {list(dims.keys())}"
+            ),
+        )
+
+    from boring_semantic_layer.nested_compile import get_ibis_module as _get_ibis_module
+
+    dim = dims[dimension_name]
+    tbl = model.table
+    # Match the ibis module of the underlying table so sort keys etc. don't
+    # mix plain ibis with xorq-vendored types.
+    ibis_module = _get_ibis_module(tbl)
+    col_expr = dim(tbl)
+    agg = (
+        tbl.select(col_expr.name("_value"))
+        .filter(lambda t: t["_value"].notnull())
+        .group_by("_value")
+        .aggregate(frequency=lambda t: t.count())
+    )
+    total_distinct = int(agg.count().execute())
+
+    def to_value_list(df) -> list[dict[str, Any]]:
+        return [
+            {"value": str(row["_value"]), "count": int(row["frequency"])}
+            for _, row in df.iterrows()
+        ]
+
+    def fetch(base_agg, n: int) -> tuple[list[dict[str, Any]], bool]:
+        df = base_agg.order_by(ibis_module.desc("frequency")).limit(n + 1).execute()
+        return to_value_list(df.head(n)), len(df) <= n
+
+    separator_pattern = r"[\s\-_.,]+"
+
+    if search_term:
+        search_normalized = re.sub(separator_pattern, " ", search_term.lower()).strip()
+        filtered_agg = agg.filter(
+            lambda t: (
+                t["_value"]
+                .cast("string")
+                .lower()
+                .re_replace(separator_pattern, " ")
+                .strip()
+                .contains(search_normalized)
+            )
+        )
+        values, is_complete = fetch(filtered_agg, limit)
+        if not values:
+            fallback_values, fallback_complete = fetch(agg, limit)
+            return {
+                "total_distinct": total_distinct,
+                "is_complete": fallback_complete,
+                "values": [],
+                "fallback_top_values": fallback_values,
+                "note": (
+                    f"No matches found for '{search_term}'. "
+                    "Showing top values for reference; use one of these exact spellings."
+                ),
+            }
+    else:
+        values, is_complete = fetch(agg, limit)
+
+    return {
+        "total_distinct": total_distinct,
+        "is_complete": is_complete,
+        "values": values,
+    }
+
+
+def create_app(
+    *,
+    models: Mapping[str, Any] | None = None,
+    config_path: str | None = None,
+    cors_origins: Sequence[str] | None = None,
+    auth_hook: AuthHook | None = None,
+    api_key: str | None = None,
+) -> FastAPI:
+    """Create the FastAPI app for the BSL HTTP server.
+
+    ``auth_hook`` is called before every endpoint except health checks and CORS
+    preflight requests. It may raise ``HTTPException`` or return ``False`` to
+    reject a request. For simple deployments, ``api_key`` (or ``BSL_API_KEY``)
+    enables Bearer and ``X-BSL-API-Key`` authentication.
+    """
+
+    if auth_hook is not None and api_key:
+        raise ValueError("Specify either auth_hook or api_key, not both")
+    configured_api_key = api_key or (os.environ.get("BSL_API_KEY") if auth_hook is None else None)
+    effective_auth_hook = auth_hook or (
+        _api_key_auth_hook(configured_api_key) if configured_api_key else None
+    )
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.models = models if models is not None else load_models(config_path)
+        yield
+
+    app = FastAPI(title="Boring Semantic Layer HTTP API", version="0.1.0", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def authenticate_request(request: Request, call_next):
+        if (
+            effective_auth_hook is None
+            or request.url.path == "/health"
+            or request.method == "OPTIONS"
+        ):
+            return await call_next(request)
+        try:
+            authorized = effective_auth_hook(request)
+            if inspect.isawaitable(authorized):
+                authorized = await authorized
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+        except Exception:
+            logger.exception("HTTP authentication hook failed")
+            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        if authorized is False:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return await call_next(request)
+
+    allowed_origins = list(_default_cors_origins() if cors_origins is None else cors_origins)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type", "X-BSL-API-Key"],
+    )
+
+    @app.exception_handler(ValueError)
+    async def value_error_handler(_request: Request, exc: ValueError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled HTTP API error")
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/models")
+    def list_models(request: Request) -> dict[str, str]:
+        return {
+            name: model.description or f"Semantic model: {name}"
+            for name, model in _get_models(request).items()
+        }
+
+    @app.get("/models/{model_name}/schema")
+    def get_model(model_name: str, request: Request) -> dict[str, Any]:
+        model = _get_model_or_404(_get_models(request), model_name)
+        return _build_model_response(model)
+
+    @app.get("/models/{model_name}/time-range")
+    def get_time_range(model_name: str, request: Request) -> dict[str, str]:
+        model = _get_model_or_404(_get_models(request), model_name)
+        return _get_time_range_response(model, model_name)
+
+    @app.get("/models/{model_name}/dimensions/{dimension_name}/values")
+    def search_dimension_values(
+        model_name: str,
+        dimension_name: str,
+        request: Request,
+        search_term: str | None = None,
+        limit: int = Query(default=20, ge=1, le=1_000),
+    ) -> dict[str, Any]:
+        model = _get_model_or_404(_get_models(request), model_name)
+        return _search_dimension_values_response(
+            model, model_name, dimension_name, search_term, limit
+        )
+
+    @app.post("/query")
+    def query_model(payload: QueryRequest, request: Request) -> dict[str, Any]:
+        model = _get_model_or_404(_get_models(request), payload.model_name)
+
+        query_result = model.query(
+            dimensions=payload.dimensions,
+            measures=payload.measures,
+            filters=payload.filters or [],
+            order_by=payload.order_by,
+            limit=payload.limit,
+            time_grain=payload.time_grain,
+            time_grains=payload.time_grains,
+            time_range=payload.time_range,
+        )
+        response = json.loads(
+            _generate_chart_with_data()(
+                query_result,
+                get_records=payload.get_records,
+                records_limit=payload.records_limit,
+                get_chart=payload.get_chart,
+                chart_backend=payload.chart_backend,
+                chart_format=payload.chart_format,
+                chart_spec=payload.chart_spec,
+                default_backend="altair",
+            )
+        )
+        if "error" in response:
+            raise HTTPException(status_code=400, detail=response["error"])
+        return response
+
+    @app.post("/compare-periods")
+    def compare_periods(payload: ComparePeriodsRequest, request: Request) -> dict[str, Any]:
+        model = _get_model_or_404(_get_models(request), payload.model_name)
+
+        query_result = model.compare_periods(
+            dimensions=payload.dimensions,
+            measures=payload.measures,
+            current_time_range=payload.current_time_range,
+            previous_time_range=payload.previous_time_range,
+            filters=payload.filters or [],
+            time_dimension=payload.time_dimension,
+            time_grain=payload.time_grain,
+            time_grains=payload.time_grains,
+            order_by=payload.order_by,
+            limit=payload.limit,
+        )
+        response = json.loads(
+            _generate_chart_with_data()(
+                query_result,
+                get_records=payload.get_records,
+                records_limit=payload.records_limit,
+                get_chart=payload.get_chart,
+                chart_backend=payload.chart_backend,
+                chart_format=payload.chart_format,
+                chart_spec=payload.chart_spec,
+                default_backend="altair",
+            )
+        )
+        if "error" in response:
+            raise HTTPException(status_code=400, detail=response["error"])
+        return response
+
+    return app
+
+
+app = create_app()

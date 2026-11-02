@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
-import tomllib  # type: ignore[import-not-found]  # stdlib >=3.11; docs require >=3.14.
 from docutils.nodes import container
 from sphinxcontrib.mermaid import MermaidClassDiagram
 
@@ -10,7 +10,7 @@ project_path = Path(__file__).parent.parent.resolve()
 
 # Fetch general information about the project from pyproject.toml.
 toml_path = project_path / "pyproject.toml"
-toml_config = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+toml_config = tomllib.loads(toml_path.read_text(encoding="UTF-8"))
 
 # Redistribute pyproject.toml config to Sphinx.
 project_id = toml_config["project"]["name"]
@@ -144,7 +144,7 @@ myst_enable_extensions = [
 # Substitutions exposed to MyST documents as ``{{ name }}``. Built from
 # Python data so single-source-of-truth content (like the --params column
 # registry) stays in sync between code and docs automatically.
-from click_extra.parameters import ShowParamsOption
+from click_extra import ShowParamsOption
 
 myst_substitutions = {
     "show_params_columns_table": ShowParamsOption.render_doc_table(),
@@ -232,7 +232,7 @@ nitpick_ignore_regex = [
     # fetcher cannot retrieve its objects.inv, so the docs cannot link there.
     (
         r"py:.*",
-        r"(boltons|cloup|docutils|extra_platforms|mkdocs|pygments|sphinx|_pytest)\..*",
+        r"(cloup|docutils|extra_platforms|mkdocs|pygments|sphinx|_pytest)\..*",
     ),
     (r"py:.*", r"click\.(testing|types|_\w+)\..*"),
     # Private (underscore-prefixed) symbols, in click-extra or upstream.
@@ -258,8 +258,6 @@ nitpick_ignore = [
     ("py:class", "click.MultiCommand"),
     # pygments' inherited ``aliases`` attribute docstring.
     ("py:func", "get_formatter_by_name"),
-    # sphinx exception raised by the (deprecated) GitHub-alerts converter.
-    ("py:exc", "ConfigError"),
     # click ParameterSource enum members are absent from click's inventory.
     ("py:attr", "click.ParameterSource.DEFAULT_MAP"),
     # click-extra's own classes that live in a submodule but are re-exported at the
@@ -449,13 +447,14 @@ def setup(app):
     example is computed live by replaying the templates in
     ``_PALETTE_EXAMPLES`` through the active dark theme's slot styling, so
     the rendered output cannot drift from the actual Theme code path —
-    tweak ``themes.toml`` and the next build picks up the new colors.
+    tweak a built-in theme in ``click_extra/theme.py`` and the next build
+    picks up the new colors.
 
     Also swaps sphinxcontrib-mermaid's ``autoclasstree`` directive for
     :class:`NoZoomClassDiagram`: conf.py is loaded as the last extension,
     so this registration wins.
     """
-    from click_extra.theme_docs import inject_slot_example_docstring
+    from click_extra.sphinx.theme_docs import inject_slot_example_docstring
 
     app.connect("autodoc-process-docstring", inject_slot_example_docstring)
 

@@ -1,0 +1,14 @@
+[project]
+name = "textcharts-project-scripts"
+version = "0.1.0"
+description = "Isolated textcharts project tracker tooling"
+requires-python = ">=3.10"
+dependencies = [
+    "todo-db[legacy]==0.3.2",
+]
+
+[tool.uv]
+managed = true
+
+[tool.uv.sources]
+todo-db = { path = "vendor/todo_db-0.3.2-py3-none-any.whl" }

@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: pytest
+        run: >-
+          uv run pytest --cov=forge_dashboard --cov-report=xml
+          --junitxml=junit.xml -o junit_family=legacy
+      - name: Upload coverage/test-result reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports
+          path: |
+            coverage.xml
+            junit.xml
+
+  # Codecov's upload needs CODECOV_TOKEN to exist to succeed at all on this
+  # account's protected default branch, and that secret is a known-pending
+  # manual step (same shape as every other Codecov-gated repo here) -- kept
+  # out of the required `test` job so a missing token can't block every
+  # future merge, including release-please's own release PR. Bundling this
+  # into a required check has done exactly that on sibling repos before.
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: reports
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit.xml
+          fail_ci_if_error: true
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: ruff check
+        run: uv run ruff check .
+      - name: mypy
+        run: uv run mypy .
+      - name: pyproject-fmt
+        # --keep-full-version: Dependabot writes a bumped dependency's exact
+        # upstream version string (e.g. "1.32.0") -- without this,
+        # pyproject-fmt's own PEP 440 trailing-zero canonicalization ("1.32")
+        # fights every such bump and turns an unrelated merge into a
+        # permanently red lint job -- confirmed live on a sibling SDK repo.
+        run: uvx pyproject-fmt==2.29.4 --check --keep-full-version pyproject.toml
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: bandit
+        run: uv run bandit -r src/forge_dashboard -x src/forge_dashboard/_generated
+
+  # Fails only on advisories this change adds over its base (rules/dependencies.md). What is
+  # already on main is the scan's to track, in advisory-scan.yml. Runs the audit only when a
+  # manifest or lockfile changed, and always on a push to main; the job still reports either way.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: changed
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "deps=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD | grep -Eq '^(package\.json|bun\.lock|pyproject\.toml|uv\.lock)$'; then
+            echo "deps=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deps=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.deps == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - if: steps.changed.outputs.deps == 'true'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - if: steps.changed.outputs.deps == 'true'
+        uses: alrayyes/advisory-scan@c9f794de4354b870e159510f036779baf20f4a2f # v0.3.1
+        with:
+          mode: gate
+          command: |
+            rc=0
+            bun audit || rc=1
+            uv run pip-audit || rc=1
+            exit $rc
+          setup: uv sync --locked --all-groups
+
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: mutmut
+        run: |
+          uv run mutmut run || true
+          survivors="$(uv run mutmut results)"
+          if [ -n "$survivors" ]; then
+            echo "$survivors"
+            echo "Mutation testing found surviving mutants - write the missing test case(s) above." >&2
+            exit 1
+          fi
+
+  generated-code-is-fresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - name: Regenerating from the pinned spec reproduces the committed client
+        run: |
+          ./hack/fetch-spec.sh
+          uv run openapi-python-client generate --path openapi/openapi.yaml \
+            --meta none --output-path src/forge_dashboard/_generated --overwrite
+          git diff --exit-code openapi/openapi.yaml src/forge_dashboard/_generated
+
+  # Contract-test the client against a mock server built from the same pinned
+  # spec, per rules/sdk-generation.md's "testing against the spec, not a
+  # hand-written stub".
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.15"
+      - run: uv sync --locked --all-groups
+      - run: ./hack/fetch-spec.sh
+      - name: Start Prism mock from the pinned spec
+        run: |
+          docker run -d --name prism -p 4010:4010 \
+            -v "$(pwd)/openapi:/spec:ro" \
+            stoplight/prism:5 mock -h 0.0.0.0 -m false /spec/openapi.yaml
+          # -m false: Prism's default multiprocess (Node cluster) mode
+          # crashes on startup in this image — see hush-hush-go's CLAUDE.md
+          # for the reproduction.
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:4010 >/dev/null 2>&1 && break
+            sleep 1
+          done
+      - name: Run contract tests against the mock
+        run: uv run pytest tests/contract -m contract
+        env:
+          FORGE_DASHBOARD_BASE_URL: http://localhost:4010
+      - name: Prism logs
+        if: failure()
+        run: docker logs prism

@@ -12,8 +12,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from probe.cli import backfill_wandb as wb
-from probe.cli.backfill_coverage import Coverage, CoverageError, Scope
+from probe.cli.imports.folder.sources import wandb as wb
+from probe.cli.imports.folder.coverage.coverage import Coverage, CoverageError
+from probe.cli.imports.folder.coverage.scope import Scope
 from probe.sdk.client.client import Client
 from probe.sdk.settings.settings import Settings
 from probe.sdk.delivery.transport.transport import Transport

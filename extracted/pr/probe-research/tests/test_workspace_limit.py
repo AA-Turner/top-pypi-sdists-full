@@ -482,7 +482,7 @@ def test_mcp_headers_fail_closed_when_a_slug_cannot_be_looked_up(capsys, monkeyp
 @pytest.fixture
 def instruction(monkeypatch, tmp_path):
     """Claude Code's CLAUDE.md with Probe's pointer block, and the note's paths here."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     claude = tmp_path / "claude"
     claude.mkdir()
@@ -493,13 +493,13 @@ def instruction(monkeypatch, tmp_path):
 
 
 def _note_block(path: Path) -> bool:
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     return agent_rules.has_block(path, agent_rules.NOTE_BLOCK)
 
 
 def test_hidden_team_items_take_the_note_block_out_and_keep_the_pointer(instruction):
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
     from probe.shared.notes import team_note as team_note_file
 
     save_context({"base_url": "http://test", "token": "probe_pat_test"})
@@ -541,13 +541,15 @@ def test_codex_follows_a_limit_change(monkeypatch, tmp_path):
     from probe.foundation.compat.compat import tomllib
     from probe.shared.harness.harnesses.codex import config as codex_config
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     save_context({"base_url": "https://api.research.prbe.ai", "mcp_token": "probe_pat_read"})
     url = "https://mcp.research.prbe.ai/mcp"
     codex_config.write_mcp_bearer(setup.CODEX_MCP_NAME, url=url, token="probe_pat_read")
-    monkeypatch.setattr(setup, "daemon_records", lambda _source: False)
+    monkeypatch.setattr(setup.apply.apply, "daemon_records", lambda _source: False)
+    monkeypatch.setattr(setup.apply.plugins, "daemon_records", lambda _source: False)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.daemon_records", lambda _source: False)
     monkeypatch.setattr(codex_config, "plugin_mcp_url", lambda *_a, **_k: url)
     monkeypatch.setattr(plugin_cli, "codex_mcp_auth_status", lambda _name: codex_config.BEARER_STATUS)
     assert setup.codex_mcp_token_drifted() is False
@@ -564,7 +566,7 @@ def test_codex_follows_a_limit_change(monkeypatch, tmp_path):
     assert table()["Authorization"] == "Bearer probe_pat_read"
     assert setup.sync_codex_mcp_token() == []
 
-    from probe.cli import workspace_limit_cmd
+    from probe.cli.commands.account import workspace_limit as workspace_limit_cmd
 
     workspace_limit_cmd.apply(None, team=True)  # `probe workspace limit --team` re-renders it
     assert wl.limit_headers_of(table()) == {}
@@ -642,7 +644,7 @@ def test_a_tool_error_under_the_callers_limit_says_so_whatever_wraps_it():
 
 
 def test_the_desktop_workspaces_op_lists_every_workspace_without_the_limit(limited_cli, monkeypatch):
-    from probe.cli import desktop
+    from probe.cli.imports import desktop
 
     _limit_this_computer(team_items="hide")
     monkeypatch.setattr(desktop, "_client", lambda: cli.Client())
@@ -665,7 +667,7 @@ def test_the_desktop_profile_is_read_without_the_limit(limited_cli, monkeypatch)
     """The app's shell opens on `profile`; a limit naming a deleted workspace makes
     the API refuse every limited request, and Settings -- where the limit is fixed --
     sits behind that shell. The account read carries no limit."""
-    from probe.cli import desktop
+    from probe.cli.imports import desktop
 
     _limit_this_computer(team_items="hide")
     monkeypatch.setattr(desktop, "_client", lambda: cli.Client())
@@ -724,7 +726,7 @@ def test_the_service_action_checks_its_params(params, ok):
 
 def test_the_service_runs_it_as_a_mutating_action():
     from probe.core.requests import ActionName
-    from probe.service.protocol import ACTIONS, DESKTOP_READS, Action, DesktopOp
+    from probe.foundation.service_api.vocabularies import ACTIONS, DESKTOP_READS, Action, DesktopOp
 
     assert Action.WORKSPACE_LIMIT == ActionName.WORKSPACE_LIMIT.value and Action.WORKSPACE_LIMIT in ACTIONS
     assert DesktopOp.WORKSPACES in DESKTOP_READS
@@ -762,11 +764,13 @@ def codex_copy(monkeypatch, tmp_path):
     from probe.foundation.compat.compat import tomllib
     from probe.shared.harness.harnesses.codex import config as codex_config
     from probe.shared.harness import plugins as plugin_cli
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     url = "http://test/mcp"
-    monkeypatch.setattr(setup, "daemon_records", lambda _source: False)
+    monkeypatch.setattr(setup.apply.apply, "daemon_records", lambda _source: False)
+    monkeypatch.setattr(setup.apply.plugins, "daemon_records", lambda _source: False)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.daemon_records", lambda _source: False)
     monkeypatch.setattr(codex_config, "plugin_mcp_url", lambda *_a, **_k: url)
     status = {"now": codex_config.BEARER_STATUS}
     monkeypatch.setattr(plugin_cli, "codex_mcp_auth_status", lambda _name: status["now"])
@@ -803,7 +807,7 @@ def test_deleting_the_limited_workspace_re_renders_the_static_copies(limited_cli
 
 
 def test_the_wizard_lifting_a_stale_limit_re_renders_the_static_copies(app, monkeypatch, codex_copy, real_computer_workspace):
-    from probe.cli import computer_workspace as cw
+    from probe.cli.wizard.account import computer_workspace as cw
 
     monkeypatch.setenv("PROBE_TOKEN", "ros_pat_deadbeef")
     monkeypatch.setattr("probe.sdk.client.client.Client", lambda **kw: make_client(app, workspace=kw["settings"].workspace))
@@ -832,7 +836,7 @@ def test_team_repairs_a_stale_copy_even_with_nothing_stored(limited_cli, capsys,
 
 def test_an_oauth_codex_install_gets_the_limit_headers_alone(limited_cli, codex_copy):
     """`codex mcp login` leaves no static bearer: the limit must still ride along."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     save_context({"mcp_token": "probe_pat_read"})
     codex_copy.write({}, bearer=None)
@@ -845,7 +849,7 @@ def test_an_oauth_codex_install_gets_the_limit_headers_alone(limited_cli, codex_
     assert headers == {wl.LIMIT_HEADER: _WS_MINE, wl.TEAM_ITEMS_HEADER: "hide"}  # no Authorization written
     assert setup.codex_mcp_token_drifted() is False
 
-    from probe.cli import workspace_limit_cmd
+    from probe.cli.commands.account import workspace_limit as workspace_limit_cmd
 
     workspace_limit_cmd.apply(None, team=True)
     assert wl.limit_headers_of(codex_copy.headers()) == {}
@@ -854,7 +858,8 @@ def test_an_oauth_codex_install_gets_the_limit_headers_alone(limited_cli, codex_
 def test_each_session_polls_with_its_own_configs_limit(monkeypatch, tmp_path):
     """The service polls for many sessions, each with its own CLI config: the limit
     is the session config's, never the service's own."""
-    from probe.service import alertpoll, hints
+    from probe.service.watch import alertpoll
+    from probe.service import hints
 
     _limit_this_computer(_WS_OTHER)  # the SERVICE's own config
     session = tmp_path / "session-config.json"
@@ -888,7 +893,7 @@ def test_a_limit_refusal_never_expires_into_a_dead_letter(tmp_path, monkeypatch)
     from probe.sdk.delivery.outbox.drain.drain import drain
 
     monkeypatch.setenv("PROBE_OUTBOX_TRANSIENT_BUDGET_SEC", "0")
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.MIN_TRANSIENT_ATTEMPTS", 1)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.MIN_TRANSIENT_ATTEMPTS", 1)
     journal = Journal(tmp_path / "outbox", context={"name": None, "base_url": "http://test"})
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
 
@@ -930,7 +935,7 @@ def test_a_plugin_only_oauth_codex_is_said_to_be_unlimited_and_left_working(limi
     A user-level table OVERRIDES the plugin's entry (codex_config), so writing one
     would drop its OAuth sign-in: leave it connected, and say it is not limited."""
     from probe.shared.harness.harnesses.codex import config as codex_config
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     assert not codex_config.config_path().exists()
     save_context({"mcp_token": "probe_pat_read"})

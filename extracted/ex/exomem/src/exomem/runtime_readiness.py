@@ -1,0 +1,816 @@
+"""Content-free runtime admission metadata for HA and hosted orchestration."""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import threading
+import time
+from collections.abc import Callable, Mapping
+from importlib.metadata import version
+from pathlib import Path
+from typing import Any
+
+RUNTIME_CONTRACT = 1
+HTTP_TRANSPORT = "streamable-http-stateless"
+#: The `retrieval.state` of a proven process whose catalogue trails a live
+#: projection that recall still serves. It exists only in this payload, never in
+#: `readiness.retrieval_admission`, whose states `find` routes on.
+RETRIEVAL_STATE_LAGGING = "lagging"
+
+log = logging.getLogger(__name__)
+
+# The incident behind #581 lasted roughly three days, and its stale poller hit
+# readiness every few seconds.  A full day avoids treating an ordinary quiet
+# night on a personal KB as an outage; 288 probes prove a sustained average
+# cadence of at least one probe per five minutes rather than one late burst.
+SILENT_TRAFFIC_WINDOW_SECONDS = 24 * 60 * 60
+SILENT_TRAFFIC_MINIMUM_HEALTH_PROBES = 288
+# A 2.4k-note Windows vault needs about 0.27 seconds to read its mutation
+# boundary plus graph epoch under memory pressure.  The former 0.25-second
+# ceiling therefore rejected ordinary work and made successive readiness
+# probes alternate 503/200 as the second probe reused the first one's late
+# result.  Keep a hard sub-second bound, with enough headroom for the measured
+# steady state; genuinely blocked graph publication still fails closed.
+COORDINATION_STATUS_TIMEOUT_SECONDS = 0.75
+
+_COORDINATION_PROBES_LOCK = threading.Lock()
+_COORDINATION_PROBES: dict[str, tuple[threading.Event, dict[str, object]]] = {}
+
+# Bumped at every transition after which a cached ready answer must not be
+# served again; see `invalidate_cached_readiness`.
+_CACHED_READY_LOCK = threading.Lock()
+_cached_ready_epoch = 0
+
+
+def invalidate_cached_readiness() -> None:
+    """Retire every ready answer proved before this call.
+
+    For a state change whose consumer reads `/health/ready` as soon as it has
+    caused it. Standby promotion is the one: the supervisor promotes, then waits
+    for the promoted worker to report ready.
+    """
+    global _cached_ready_epoch
+    with _CACHED_READY_LOCK:
+        _cached_ready_epoch += 1
+
+
+def cached_readiness_token() -> tuple[int, int]:
+    """What a cached ready answer must still match to be served again.
+
+    The invalidation epoch, and the retrieval-admission generation. That
+    generation moves on every admission change this process makes: a warm,
+    a revocation by a request or the lexical store, a re-admission.
+    """
+    from . import readiness
+
+    with _CACHED_READY_LOCK:
+        epoch = _cached_ready_epoch
+    return epoch, readiness.retrieval_proof_generation()
+
+
+class SilentTrafficMonitor:
+    """Process-local relationship between health probes and successful tools."""
+
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        window_seconds: float = SILENT_TRAFFIC_WINDOW_SECONDS,
+        minimum_health_probes: int = SILENT_TRAFFIC_MINIMUM_HEALTH_PROBES,
+    ) -> None:
+        self.clock = clock
+        self.window_seconds = float(window_seconds)
+        self.minimum_health_probes = int(minimum_health_probes)
+        self.process_started_at = float(clock())
+        self.last_successful_tool_call_at: float | None = None
+        self.last_health_probe_at: float | None = None
+        self.successful_tool_call_count = 0
+        self.health_probe_count = 0
+        self._health_probe_count_at_last_tool_call = 0
+        self._first_health_probe_after_tool_call_at: float | None = None
+        self._suspected_silent_outage = False
+        self._lock = threading.Lock()
+
+    def record_health_probe(self) -> dict[str, Any]:
+        with self._lock:
+            now = float(self.clock())
+            self.last_health_probe_at = now
+            self.health_probe_count += 1
+            if self._first_health_probe_after_tool_call_at is None:
+                self._first_health_probe_after_tool_call_at = now
+            self._enter_suspicious_state_if_due(now)
+            return self._snapshot(now)
+
+    def record_successful_tool_call(self) -> dict[str, Any]:
+        with self._lock:
+            now = float(self.clock())
+            self.last_successful_tool_call_at = now
+            self.successful_tool_call_count += 1
+            self._health_probe_count_at_last_tool_call = self.health_probe_count
+            self._first_health_probe_after_tool_call_at = None
+            if self._suspected_silent_outage:
+                self._suspected_silent_outage = False
+                log.info(
+                    "event=silent_traffic_outage_cleared successful MCP tool "
+                    "traffic reached the origin; the edge, tunnel, and route are "
+                    "delivering calls again"
+                )
+            return self._snapshot(now)
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return self._snapshot(float(self.clock()))
+
+    def _enter_suspicious_state_if_due(self, now: float) -> None:
+        first_probe = self._first_health_probe_after_tool_call_at
+        probes = self.health_probe_count - self._health_probe_count_at_last_tool_call
+        if (
+            self._suspected_silent_outage
+            or first_probe is None
+            or probes < self.minimum_health_probes
+            or now - first_probe < self.window_seconds
+        ):
+            return
+        self._suspected_silent_outage = True
+        log.warning(
+            "event=silent_traffic_outage_suspected health probes have continued "
+            "for %.0fs (%d probes) without a successful MCP tool call; check the "
+            "edge, tunnel, and route",
+            max(0.0, now - first_probe),
+            probes,
+        )
+
+    def _snapshot(self, now: float) -> dict[str, Any]:
+        first_probe = self._first_health_probe_after_tool_call_at
+        last_tool = self.last_successful_tool_call_at
+        last_probe = self.last_health_probe_at
+        return {
+            "suspected_silent_outage": self._suspected_silent_outage,
+            "successful_tool_call_count": self.successful_tool_call_count,
+            "health_probe_count": self.health_probe_count,
+            "health_probes_since_last_tool_call": (
+                self.health_probe_count - self._health_probe_count_at_last_tool_call
+            ),
+            "seconds_without_successful_tool_call": round(
+                max(
+                    0.0,
+                    now
+                    - (
+                        last_tool
+                        if last_tool is not None
+                        else self.process_started_at
+                    ),
+                ),
+                3,
+            ),
+            "probe_window_seconds": round(
+                max(0.0, now - first_probe) if first_probe is not None else 0.0,
+                3,
+            ),
+            "last_successful_tool_call_age_seconds": (
+                round(max(0.0, now - last_tool), 3) if last_tool is not None else None
+            ),
+            "last_health_probe_age_seconds": (
+                round(max(0.0, now - last_probe), 3) if last_probe is not None else None
+            ),
+            "window_seconds": self.window_seconds,
+            "minimum_health_probes": self.minimum_health_probes,
+        }
+
+
+_SILENT_TRAFFIC_MONITOR = SilentTrafficMonitor()
+
+
+def get_silent_traffic_monitor() -> SilentTrafficMonitor:
+    return _SILENT_TRAFFIC_MONITOR
+
+
+def _instance_id() -> str | None:
+    value = os.environ.get("EXOMEM_INSTANCE_ID", "").strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", value):
+        return value
+    return None
+
+
+_SAFE_READINESS_LABEL = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+
+
+def _safe_readiness_label(value: object, *, fallback: str) -> str:
+    candidate = str(value or "").strip()
+    return candidate if _SAFE_READINESS_LABEL.fullmatch(candidate) else fallback
+
+
+def _non_negative_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return 0
+    return value
+
+
+def _public_last_holder(value: object) -> dict[str, Any] | None:
+    """Project the last-known holder into content-free, allowlisted fields.
+
+    `pid` is deliberately NOT projected here.  `/health/ready` is an
+    unauthenticated surface documented as content-free and identity-free, and a
+    process id is host process metadata.  It stays in the MUTATION_BUSY error
+    payload, where it is attribution handed to an authenticated caller who just
+    lost the boundary.
+    """
+    if not isinstance(value, Mapping):
+        return None
+    observed_at = value.get("observed_at")
+    source = value.get("source")
+    return {
+        "request_id": _safe_readiness_label(
+            value.get("request_id"), fallback="untracked"
+        ),
+        "operation": _safe_readiness_label(value.get("operation"), fallback="unknown"),
+        "holder_kind": _safe_readiness_label(
+            value.get("holder_kind"), fallback="unknown"
+        ),
+        "observed_at": float(observed_at)
+        if isinstance(observed_at, int | float) and not isinstance(observed_at, bool)
+        else 0.0,
+        "source": source if source in {"refusal", "release"} else "unknown",
+    }
+
+
+def _public_contention(value: object) -> dict[str, Any] | None:
+    """Project the boundary's contention counters, dropping anything unmodelled.
+
+    The flag alone cannot show a bounded waiter starving against a stream of
+    short holds — every one-shot probe lands in a gap.  These counters can, so
+    they ride along with every boundary state.
+    """
+    if not isinstance(value, Mapping):
+        return None
+    window = value.get("recent_window_seconds")
+    return {
+        "acquire_attempts": _non_negative_int(value.get("acquire_attempts")),
+        "busy_refusals": _non_negative_int(value.get("busy_refusals")),
+        "busy_refusals_recent": _non_negative_int(value.get("busy_refusals_recent")),
+        "recent_window_seconds": float(window)
+        if isinstance(window, int | float) and not isinstance(window, bool)
+        else 0.0,
+        # Stated, not implied: the counters describe this process only, so a
+        # zero refusal count is not evidence that the boundary is uncontended.
+        "scope": "process_local",
+        "last_holder": _public_last_holder(value.get("last_holder")),
+    }
+
+
+def _public_mutation_boundary(value: object) -> dict[str, Any]:
+    """Project the coordination boundary into three honest public states.
+
+    - `free`: a probe ran and verified the boundary is not held.
+    - `held`: a probe found a holder; the bounded, content-free holder block
+      rides along (`verified` distinguishes a confirmed holder from one read
+      without the metadata mutex).
+    - `unknown`: this process could not determine the boundary's state, with a
+      `reason` naming why (`process_local_only` when no vault identity was
+      configured so only this process's own holds were visible,
+      `status_error` when the coordination probe itself failed,
+      `status_timeout` when it did not complete inside the readiness budget,
+      `unavailable` when no boundary block was reported at all).
+
+    A missing or unrecognised block is `unknown`, never `free`.  "We did not
+    measure" and "we measured free" are different claims, and publishing the
+    first as the second is what let `/health/ready` report a free boundary
+    while live writes were being refused MUTATION_BUSY by a real concurrent
+    holder in another process.
+    """
+    if not isinstance(value, Mapping):
+        return {"state": "unknown", "reason": "unavailable"}
+    state = value.get("state")
+    if state == "held":
+        public: dict[str, Any] = {
+            "state": "held",
+            "request_id": str(value.get("request_id") or "untracked"),
+            "operation": str(value.get("operation") or "unknown"),
+            "holder_kind": str(value.get("holder_kind") or "unknown"),
+            "age_seconds": float(value.get("age_seconds") or 0.0),
+            "overdue": bool(value.get("overdue")),
+            "verified": bool(value.get("verified")),
+        }
+    elif state == "free":
+        public = {"state": "free"}
+    else:
+        public = {
+            "state": "unknown",
+            "reason": _safe_readiness_label(
+                value.get("reason"), fallback="unspecified"
+            ),
+        }
+    contention = _public_contention(value.get("contention"))
+    if contention is not None:
+        public["contention"] = contention
+    return public
+
+
+def _public_graph_sync(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    state = value.get("state")
+    generation = value.get("generation")
+    if state not in {"current", "recovery_required", "unavailable", "unproven"}:
+        return None
+    if isinstance(generation, bool) or not isinstance(generation, int) or generation < 0:
+        return None
+    return {"state": state, "generation": generation}
+
+
+_package_release: str | None = None
+
+
+def package_release() -> str:
+    """Return the installed distribution release without making readiness fragile.
+
+    Read once per process: the release of the running code cannot change, and
+    an in-place upgrade that rewrites the metadata does not change what runs.
+    A failed read is not kept, so the next probe reads again.
+    """
+    global _package_release
+    if _package_release is None:
+        try:
+            _package_release = version("exomem")
+        except Exception:  # noqa: BLE001 - metadata failure must become diagnostic state
+            return "0+unknown"
+    return _package_release
+
+
+_DEFAULT_OBSERVABILITY: dict[str, Any] = {
+    "log_dir_writable": None,
+    "metrics_snapshot_age_seconds": None,
+    "journal_ok": None,
+}
+
+_LEXICAL_REPAIR_PHASES = frozenset(
+    {"queued", "targeted", "building", "publishing", "promoting", "idle"}
+)
+_LEXICAL_REPAIR_RESULTS = frozenset(
+    {
+        "published",
+        "targeted",
+        "advanced",
+        "delta_unavailable",
+        "identity_changed",
+        "source_changed",
+        "publish_conflict",
+        "wal_busy",
+        "fold_failed",
+        "transient_failure",
+        "error",
+    }
+)
+
+
+def _public_lexical_repair(value: object) -> dict[str, object] | None:
+    """Project fixed, content-free repair progress into public readiness."""
+    if not isinstance(value, Mapping):
+        return None
+    raw_phase = value.get("phase")
+    phase = raw_phase if raw_phase in _LEXICAL_REPAIR_PHASES else "idle"
+    raw_result = value.get("last_result")
+    result = raw_result if raw_result in _LEXICAL_REPAIR_RESULTS else None
+
+    def duration(name: str) -> float | None:
+        raw = value.get(name)
+        if isinstance(raw, bool) or not isinstance(raw, int | float):
+            return None
+        return round(min(max(float(raw), 0.0), 604800.0), 3)
+
+    return {
+        "phase": phase,
+        "age_seconds": duration("age_seconds"),
+        "last_duration_seconds": duration("last_duration_seconds"),
+        "last_result": result,
+    }
+
+
+def _public_catalogue_lag(retrieval: Mapping[str, Any]) -> dict[str, object]:
+    """Project a served catalogue lag into fixed, content-free fields."""
+    raw_scopes = retrieval.get("lagging_scopes")
+    scopes = (
+        [
+            scope
+            for scope in raw_scopes
+            if isinstance(scope, str) and _SAFE_READINESS_LABEL.fullmatch(scope)
+        ]
+        if isinstance(raw_scopes, list | tuple)
+        else []
+    )
+    raw_age = retrieval.get("catalogue_unchanged_seconds")
+    # Unlike a repair duration this has no ceiling: a catalogue stuck for a week
+    # must read as a week, and a missing measurement as null, never as zero.
+    age = (
+        round(float(raw_age), 3)
+        if isinstance(raw_age, int | float) and not isinstance(raw_age, bool) and raw_age >= 0
+        else None
+    )
+    return {"lagging_scopes": scopes, "catalogue_unchanged_seconds": age}
+
+
+def build_runtime_readiness(
+    *,
+    coordination: Mapping[str, Any],
+    release: str,
+    mcp_tool_surface_sha256: str | None,
+    session_store: Mapping[str, Any] | None = None,
+    observability: Mapping[str, Any] | None = None,
+    traffic: Mapping[str, Any] | None = None,
+    retrieval: Mapping[str, Any] | None = None,
+    cutover: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the public readiness payload from already-measured coordination state.
+
+    ``cutover`` is the standby/promotion component set (`seamless-managed-worker-handoff`
+    D9).  It never gates the serving ``status``: a standby answers its own probe
+    while it warms, and only the supervisor reads ``cutover_ready``.
+    """
+    enabled = bool(coordination.get("enabled"))
+    healthy = bool(coordination.get("coordinator_healthy"))
+    role = str(coordination.get("role") or "unknown")
+    replica_raw = coordination.get("replica_id")
+    replica_id = replica_raw if isinstance(replica_raw, str) and replica_raw else None
+
+    reasons: list[str] = []
+    if mcp_tool_surface_sha256 is None:
+        reasons.append("mcp_tool_surface_unavailable")
+    if enabled:
+        # A blocked status probe leaves the lease state unmeasured, and an
+        # unmeasured lease is exactly what takeover must not be attempted on.
+        # It says nothing about a standalone cell: with no coordinator there is
+        # no lease to confirm, and the contract is that standalone stays ready
+        # without multi-host coordination.  `enabled` is safe to trust in the
+        # timed-out payload because it is read from the environment rather than
+        # from the probe that failed.
+        if coordination.get("status_timed_out") is True:
+            reasons.append("coordination_status_timeout")
+        if not healthy:
+            reasons.append("coordinator_unavailable")
+        if role not in {"writer", "follower"}:
+            reasons.append("coordination_role_unknown")
+        if replica_id is None:
+            reasons.append("replica_identity_missing")
+
+    retrieval_payload: dict[str, object] | None = None
+    retrieval_admitted = True
+    retrieval_serving = True
+    if retrieval is not None:
+        state = str(retrieval.get("state") or "unverified")
+        known = {"ready", RETRIEVAL_STATE_LAGGING, "warming", "unavailable", "unverified"}
+        if state not in known:
+            state = "unverified"
+        # `admitted` keeps meaning strict equality; a lag recall can still
+        # serve leaves it false while the process stays routable.
+        retrieval_admitted = bool(retrieval.get("admitted")) and state == "ready"
+        retrieval_serving = retrieval_admitted or state == RETRIEVAL_STATE_LAGGING
+        retrieval_payload = {"state": state, "admitted": retrieval_admitted}
+        if state == RETRIEVAL_STATE_LAGGING:
+            retrieval_payload.update(_public_catalogue_lag(retrieval))
+        repair = _public_lexical_repair(retrieval.get("repair"))
+        if repair is not None:
+            retrieval_payload["repair"] = repair
+        if not retrieval_serving:
+            # A served lag adds no reason: `reasons` says why this process is
+            # not ready, and takeover eligibility follows it.
+            reasons.append(f"retrieval_{state}")
+
+    takeover_eligible = not reasons
+    session_store_state = (
+        "degraded"
+        if session_store and session_store.get("state") == "degraded"
+        else "ok"
+    )
+    raw_stale_count = session_store.get("stale_served_count", 0) if session_store else 0
+    stale_served_count = (
+        raw_stale_count
+        if isinstance(raw_stale_count, int) and raw_stale_count >= 0
+        else 0
+    )
+    coordination_payload = {
+        "enabled": enabled,
+        "role": role,
+        "coordinator_healthy": healthy,
+        "mutation_boundary": _public_mutation_boundary(
+            coordination.get("mutation_boundary")
+        ),
+    }
+    graph_sync = _public_graph_sync(coordination.get("graph_sync"))
+    if graph_sync is not None:
+        coordination_payload["graph_sync"] = graph_sync
+    payload = {
+        "status": "ready" if takeover_eligible and retrieval_serving else "not_ready",
+        "service": "exomem",
+        "release": release,
+        "mcp_tool_surface_sha256": mcp_tool_surface_sha256,
+        "runtime_contract": RUNTIME_CONTRACT,
+        "transport": HTTP_TRANSPORT,
+        "instance_id": _instance_id(),
+        "replica_id": replica_id,
+        "coordination": coordination_payload,
+        "session_store": {
+            "state": session_store_state,
+            "stale_served_count": stale_served_count,
+        },
+        "observability": dict(observability) if observability is not None else dict(_DEFAULT_OBSERVABILITY),
+        "takeover_eligible": takeover_eligible,
+        "reasons": reasons,
+    }
+    if retrieval_payload is not None:
+        payload["retrieval"] = retrieval_payload
+    if cutover is not None:
+        payload["cutover"] = dict(cutover)
+    if traffic is not None:
+        payload["traffic"] = dict(traffic)
+    return payload
+
+
+# The published catalogue checkpoint pair this process first saw while it was
+# lagging, and when. A catalogue that is merely busy publishes a new pair each
+# time and restarts the clock; only a stuck one keeps ageing. Only a changed
+# pair restarts it: a probe that is not lagging says nothing about the pair, and
+# a strictly ready answer already implies a newer one.
+_LAG_LOCK = threading.Lock()
+_lag_first_seen: tuple[object, float] | None = None
+
+
+def _catalogue_unchanged_seconds(published: object) -> float:
+    """Seconds this process has seen the `published` checkpoint pair unchanged."""
+    global _lag_first_seen
+    with _LAG_LOCK:
+        now = time.monotonic()
+        if _lag_first_seen is None or _lag_first_seen[0] != published:
+            _lag_first_seen = (published, now)
+        return round(max(0.0, now - _lag_first_seen[1]), 3)
+
+
+def _served_catalogue_lag(
+    vault_root: Path | None, retrieval: Mapping[str, Any]
+) -> dict[str, object] | None:
+    """The lag fields when a proven process is routable while its catalogue trails.
+
+    Strict admission is the only thing that reports `ready`. This reports a
+    lag only for a managed process that proved the catalogue exactly since its
+    warm began, and only while recall serves the published catalogue: `find`
+    does that in the strict state `unavailable`, which begins when the whole warm
+    has finished, and refuses with `warming` until then. Health follows that
+    state, and requires both live projections present with a published
+    catalogue for each, under an unchanged identity. Anything else keeps the
+    strict answer, so a fresh process or a lost projection stays not ready.
+    """
+    from . import freshness, lexstore, readiness
+
+    if (
+        vault_root is None
+        or retrieval.get("state") != "unavailable"
+        or not readiness.retrieval_proven()
+        or not freshness.event_indexes_enabled()
+    ):
+        return None
+    try:
+        lag = lexstore.served_catalog_lag(vault_root)
+    except Exception:  # noqa: BLE001 - readiness uncertainty fails closed
+        return None
+    if lag is None:
+        return None
+    return {
+        "lagging_scopes": list(lag.lagging_scopes),
+        "catalogue_unchanged_seconds": _catalogue_unchanged_seconds(
+            tuple(lag.checkpoints[scope] for scope in freshness.SCOPES)
+        ),
+    }
+
+
+_TAIL_BLOCK_BYTES = 8192
+_TAIL_LINE_MAX_BYTES = 1024 * 1024
+
+
+def _last_line(path: Path) -> str:
+    """The file's last line, read from the end so a probe costs one block, not
+    the whole (up to rotation-size) journal. A single trailing newline ends the
+    last line rather than starting an empty one. A line over the cap raises
+    ValueError: a torn file must not stall the probe."""
+    with path.open("rb") as handle:
+        end = handle.seek(0, os.SEEK_END)
+        if end:
+            handle.seek(end - 1)
+            if handle.read(1) == b"\n":
+                end -= 1
+        parts: list[bytes] = []
+        length = 0
+        while end > 0:
+            step = min(_TAIL_BLOCK_BYTES, end)
+            end -= step
+            handle.seek(end)
+            block = handle.read(step)
+            newline = block.rfind(b"\n")
+            if newline >= 0:
+                block = block[newline + 1:]
+            parts.append(block)
+            length += len(block)
+            if length > _TAIL_LINE_MAX_BYTES:
+                raise ValueError("journal last line exceeds the probe cap")
+            if newline >= 0:
+                break
+    return b"".join(reversed(parts)).decode("utf-8")
+
+
+def _measure_observability() -> dict[str, Any]:
+    """Measure log-dir writability, metrics-snapshot freshness, and journal
+    health, without ever raising into readiness."""
+    log_dir_writable: bool | None = None
+    metrics_snapshot_age_seconds: float | None = None
+    journal_ok: bool | None = None
+    try:
+        from .logging_config import resolve_log_dir
+
+        log_dir = resolve_log_dir()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        probe = log_dir / f".exomem-writable-probe-{os.getpid()}"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        log_dir_writable = True
+    except Exception:  # noqa: BLE001 - readiness must stay structured
+        log_dir_writable = False
+    try:
+        from . import metrics
+        from .writer_lease import get_manager
+
+        snapshot_path = metrics.snapshot_path(get_manager().config.state_dir)
+        if snapshot_path.exists():
+            metrics_snapshot_age_seconds = round(
+                time.time() - snapshot_path.stat().st_mtime, 3
+            )
+    except Exception:  # noqa: BLE001 - readiness must stay structured
+        metrics_snapshot_age_seconds = None
+    try:
+        from .mutation_journal import journal_path
+
+        path = journal_path()
+        if not path.exists():
+            journal_ok = True
+        else:
+            import json as _json
+
+            last_line = _last_line(path)
+            _json.loads(last_line) if last_line.strip() else None
+            journal_ok = True
+    except Exception:  # noqa: BLE001 - readiness must stay structured
+        journal_ok = False
+    return {
+        "log_dir_writable": log_dir_writable,
+        "metrics_snapshot_age_seconds": metrics_snapshot_age_seconds,
+        "journal_ok": journal_ok,
+    }
+
+
+def _unmeasured_coordination(reason: str) -> dict[str, Any]:
+    """Coordination state for a probe that did not answer.
+
+    `role` and `coordinator_healthy` derive from `enabled` the same way
+    `LeaseManager.status()` derives them, so an unmeasured standalone cell
+    describes itself the way a measured one does. The parity is exact only for
+    the standalone branch: for an enabled cell `LeaseManager.status()` treats
+    `enabled` as an initial default and then overwrites it with a real
+    measurement, which this helper has no way to take — so `enabled=True` here
+    is a deliberate fail-closed approximation, not the same derivation.
+
+    Every read is stripped, matching `LeaseConfig.from_env()`. An unstripped
+    replica id would publish whitespace as an identity and suppress
+    `replica_identity_missing` on a config that `from_env()` rejects outright. Hardcoding `unknown`/`False`
+    here made a standalone cell contradict its own successful payload — which
+    was invisible while the response was a 503, and is not once it is a 200.
+    """
+    enabled = bool(os.environ.get("EXOMEM_WRITER_LEASE_URL", "").strip())
+    return {
+        "enabled": enabled,
+        "role": "unknown" if enabled else "standalone",
+        "replica_id": (
+            os.environ.get("EXOMEM_WRITER_LEASE_REPLICA_ID", "").strip() or None
+        ),
+        "coordinator_healthy": not enabled,
+        "mutation_boundary": {"state": "unknown", "reason": reason},
+    }
+
+
+def _bounded_coordination_status(
+    vault_root: Path | None,
+    probe: Callable[[Path | None], Mapping[str, Any]],
+    *,
+    timeout_seconds: float = COORDINATION_STATUS_TIMEOUT_SECONDS,
+) -> Mapping[str, Any] | None:
+    """Run at most one status probe per vault and fail closed on its deadline.
+
+    The underlying diagnostic traverses graph state and can encounter a live
+    publication hold.  Readiness cannot inherit that unbounded wait: the public
+    endpoint must answer within the edge budget, and repeated health polls must
+    not create an unbounded thread pile while the first probe is still blocked.
+    """
+    key = (
+        "<process-local>"
+        if vault_root is None
+        else os.path.normcase(str(vault_root.resolve(strict=False)))
+    )
+    with _COORDINATION_PROBES_LOCK:
+        current = _COORDINATION_PROBES.get(key)
+        if current is None:
+            completed = threading.Event()
+            result: dict[str, object] = {}
+            current = (completed, result)
+            _COORDINATION_PROBES[key] = current
+
+            def run_probe() -> None:
+                try:
+                    result["value"] = probe(vault_root)
+                except Exception as error:  # noqa: BLE001 - re-raised on request thread
+                    result["error"] = error
+                finally:
+                    completed.set()
+
+            threading.Thread(
+                target=run_probe,
+                name="exomem-readiness-coordination",
+                daemon=True,
+            ).start()
+
+    completed, result = current
+    if not completed.wait(timeout_seconds):
+        return None
+    with _COORDINATION_PROBES_LOCK:
+        if _COORDINATION_PROBES.get(key) is current:
+            _COORDINATION_PROBES.pop(key, None)
+    error = result.get("error")
+    if isinstance(error, Exception):
+        raise error
+    value = result.get("value")
+    if not isinstance(value, Mapping):
+        raise RuntimeError("coordination status returned an invalid payload")
+    return value
+
+
+def runtime_readiness(
+    *,
+    mcp_tool_surface_sha256: str | None,
+    traffic: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Measure this process's eligibility without exposing vault or credential state."""
+    from . import readiness, service_standby
+    from .session_validation_cache import session_store_readiness
+    from .writer_lease import coordination_status
+
+    coordination: Mapping[str, Any]
+    configured_vault: Path | None = None
+    try:
+        configured_raw = os.environ.get("EXOMEM_VAULT_PATH", "").strip()
+        # Only an absolute path names a boundary this process can probe. A
+        # relative one resolves against whatever the service's cwd happens to
+        # be, so it would measure some other boundary and publish that as this
+        # vault's state; that is a blind "free", which is the failure being
+        # fixed here. Fall through to the process-local `unknown` instead.
+        configured_vault = (
+            Path(configured_raw)
+            if configured_raw and Path(configured_raw).is_absolute()
+            else None
+        )
+        measured = _bounded_coordination_status(
+            configured_vault,
+            coordination_status,
+        )
+        if measured is None:
+            coordination = _unmeasured_coordination("status_timeout")
+            coordination["status_timed_out"] = True
+        else:
+            coordination = measured
+    except Exception:  # noqa: BLE001 - readiness must return structured 503 state
+        # The probe failed; the boundary was not measured. Saying "free"
+        # here is what made MUTATION_LOCK_UNAVAILABLE read as healthy.
+        coordination = _unmeasured_coordination("status_error")
+    retrieval = readiness.retrieval_admission(configured_vault)
+    lag = _served_catalogue_lag(configured_vault, retrieval)
+    if lag is not None:
+        retrieval = {**retrieval, "state": RETRIEVAL_STATE_LAGGING, **lag}
+    if configured_vault is not None:
+        try:
+            from . import lexstore
+
+            progress = lexstore.repair_progress(configured_vault)
+        except Exception:  # noqa: BLE001 - diagnostics must not break readiness
+            progress = None
+        if progress is not None:
+            retrieval = {**retrieval, "repair": progress}
+    return build_runtime_readiness(
+        coordination=coordination,
+        release=package_release(),
+        mcp_tool_surface_sha256=mcp_tool_surface_sha256,
+        session_store=session_store_readiness(),
+        observability=_measure_observability(),
+        traffic=(
+            traffic
+            if traffic is not None
+            else get_silent_traffic_monitor().snapshot()
+        ),
+        retrieval=retrieval,
+        cutover=service_standby.readiness_payload(),
+    )

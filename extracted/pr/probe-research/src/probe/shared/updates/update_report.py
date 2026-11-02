@@ -17,9 +17,10 @@ from probe.shared.updates import version_policy
 from probe.foundation.compat.compat import StrEnum
 from probe.foundation.remote_settings import remote_settings as device_mark
 from probe._shared import scrub
-from probe.cli import autoupdate, updater
+from probe.cli import autoupdate
+from probe.cli.install import updater
 from probe.shared.updates import updates as versions
-from probe.cli.capabilities import tracking_plugin_name
+from probe.cli.wizard.state.agent_identity import tracking_plugin_name
 from probe.foundation.request_identity.request_identity import client_version_headers, device_headers
 from probe.sdk.settings.settings import resolve
 from probe.sdk.settings.device_identity import device_instance_id
@@ -485,7 +486,7 @@ _STOP_SIGNALS = ("SIGTERM", "SIGHUP")
 
 def _stopped_pass(exc: SystemExit, started: float) -> None:
     """A run SIGTERM or SIGHUP ended (the Probe service stops an update past
-    its time limit, `probe.service.updater.UPDATE_TIMEOUT_S`) fails, and its
+    its time limit, `probe.service.updater.settings.UPDATE_TIMEOUT_S`) fails, and its
     report and local record say so: one more failed pass, its CLI half the
     stop. The passes it finished keep their own results; without this a run
     stopped in its first pass sent nothing, and one stopped later sent what

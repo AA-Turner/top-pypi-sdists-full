@@ -15,13 +15,13 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 
 
 @pytest.fixture
 def isolated_launcher(monkeypatch):
     previous = bf._BACKFILL_CLI_BIN
-    monkeypatch.setattr(bf, "_BACKFILL_CLI_BIN", None)
+    monkeypatch.setattr(bf.agents.shell_tools, "_BACKFILL_CLI_BIN", None)
     yield
     if bf._BACKFILL_CLI_BIN is not None:
         bf._BACKFILL_CLI_BIN.cleanup()
@@ -78,8 +78,13 @@ def test_agent_shell_uses_current_cli_despite_older_path(tmp_path, monkeypatch, 
         "'whoami_returncode': q.returncode, 'principal': q.stdout.strip(), "
         "'attribution': os.environ.get('PROBE_ATTRIBUTION')})}), flush=True)\n"
     )
-    monkeypatch.setattr(bf, "which_agent", lambda _: sys.executable)
-    monkeypatch.setattr(bf, "agent_argv", lambda *a, **kw: [sys.executable, str(fake_agent)])
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda _: sys.executable)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda _: sys.executable)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda _: sys.executable)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda _: sys.executable)
+    monkeypatch.setattr(bf.agents.argv, "agent_argv", lambda *a, **kw: [sys.executable, str(fake_agent)])
+    monkeypatch.setattr(bf.agents.digest, "agent_argv", lambda *a, **kw: [sys.executable, str(fake_agent)])
+    monkeypatch.setattr(bf.agents.launch_once, "agent_argv", lambda *a, **kw: [sys.executable, str(fake_agent)])
     try:
         ok, tail = bf.launch_agent(
             tmp_path, "Read the supplied source", agent=agent, workdir=tmp_path,
@@ -120,7 +125,7 @@ def test_launcher_quotes_interpreter_and_pins_package_and_attribution(tmp_path, 
         "'attribution': os.environ['PROBE_ATTRIBUTION']}))\n"
         " return 0\n"
     )
-    monkeypatch.setattr(bf, "__file__", str(package / "cli/backfill.py"))
+    monkeypatch.setattr(bf.agents.shell_tools, "__file__", str(package / "cli/imports/folder/agents/shell_tools.py"))
     shadow = tmp_path / "shadow"
     (shadow / "probe").mkdir(parents=True)
     (shadow / "probe/__init__.py").write_text("raise RuntimeError('wrong package')\n")

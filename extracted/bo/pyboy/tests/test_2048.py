@@ -1,0 +1,96 @@
+#
+# License: See LICENSE.md file
+# GitHub: https://github.com/Baekalfen/PyBoy
+#
+
+from pyboy import PyBoy
+
+
+def test_2048_basics(gb2048_file):
+    pyboy = PyBoy(gb2048_file, window="null")
+    pyboy.set_emulation_speed(0)
+
+    wrapper = pyboy.game_wrapper
+    wrapper.start_game()
+
+    assert wrapper.score == 0
+    assert wrapper.winner == False
+    assert wrapper.game_over() == False
+
+    non_zero = sum(1 for row in wrapper.board for tile in row if tile != 0)
+    assert non_zero == 2
+
+    pyboy.stop(save=False)
+
+
+def test_2048_winner(gb2048_file):
+    pyboy = PyBoy(gb2048_file, window="null")
+    pyboy.set_emulation_speed(0)
+
+    wrapper = pyboy.game_wrapper
+    wrapper.start_game()
+
+    assert wrapper.winner == False
+
+    # force two 1024s next to each other so "right" merges them into 2048
+    ADDR_BOARD_START = 0xC0B3
+
+    def set_cell(i, value):
+        addr = ADDR_BOARD_START + i * 2
+        pyboy.memory[addr] = value & 0xFF
+        pyboy.memory[addr + 1] = (value >> 8) & 0xFF
+
+    for i in range(25):
+        set_cell(i, 0)
+    set_cell(0, 1024)
+    set_cell(1, 1024)
+
+    pyboy.button("right")
+    for _ in range(30):
+        pyboy.tick(1, False)
+
+    assert wrapper.winner == True
+
+
+def test_2048_score_increases(gb2048_file):
+    pyboy = PyBoy(gb2048_file, window="null")
+    pyboy.set_emulation_speed(0)
+
+    wrapper = pyboy.game_wrapper
+    wrapper.start_game()
+
+    for _ in range(10):
+        pyboy.button("right")
+        pyboy.tick(30, False)
+        pyboy.button("up")
+        pyboy.tick(30, False)
+
+    assert wrapper.score >= 0
+
+    pyboy.stop(save=False)
+
+
+def test_2048_game_over(gb2048_file):
+    pyboy = PyBoy(gb2048_file, window="null")
+    pyboy.set_emulation_speed(0)
+
+    wrapper = pyboy.game_wrapper
+    wrapper.start_game()
+
+    for i in range(5000):
+        pyboy.button_press("right")
+        pyboy.tick(10, False)
+        pyboy.button_release("right")
+        pyboy.tick(5, False)
+
+        pyboy.button_press("down")
+        pyboy.tick(10, False)
+        pyboy.button_release("down")
+        pyboy.tick(5, False)
+
+        if wrapper.game_over():
+            break
+
+    assert wrapper.game_over() == True
+
+    pyboy.stop(save=False)

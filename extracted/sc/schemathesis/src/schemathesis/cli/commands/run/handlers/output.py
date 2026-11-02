@@ -33,13 +33,14 @@ from schemathesis.cli.output import (
     make_console,
     make_progress_bar,
     print_lines,
+    reauth_summary_lines,
     style,
     unmatched_filter_block,
     warning_items,
 )
 from schemathesis.config import ProjectConfig
 from schemathesis.core import SpecificationFeature
-from schemathesis.core.failures import case_header
+from schemathesis.core.failures import case_header, reason_phrase
 from schemathesis.core.output import format_response_payload, pluralize
 from schemathesis.core.output.sanitization import sanitized
 from schemathesis.core.result import Ok
@@ -162,6 +163,16 @@ def _unvalidated_responses(by_media_type: dict[str, dict[str, set[str]]]) -> str
     return f"responses in {len(by_media_type)} media types"
 
 
+def _status_name(ctx: ExecutionContext, status_code: int) -> str:
+    name = ctx.status_name(status_code)
+    return f"{status_code} {reason_phrase(status_code)}" if name is None else name
+
+
+def _short_status(ctx: ExecutionContext, status_code: int) -> str:
+    name = ctx.status_name(status_code)
+    return str(status_code) if name is None else name
+
+
 def _status_codes_are_uninformative(ctx: ExecutionContext) -> bool:
     return ctx.specification is not None and not ctx.specification.supports_feature(
         SpecificationFeature.STATUS_CODE_ANALYSIS
@@ -264,8 +275,7 @@ def _missing_auth_block(ctx: ExecutionContext) -> WarningBlock:
     missing_auth = ctx.warnings.missing_auth
     groups = [
         WarningGroup(
-            heading=f"{status_code} {'Unauthorized' if status_code == 401 else 'Forbidden'} "
-            f"({pluralize(len(labels), 'operation')})",
+            heading=f"{_status_name(ctx, status_code)} ({pluralize(len(labels), 'operation')})",
             items=warning_items(labels),
         )
         for status_code, labels in missing_auth.items()
@@ -273,12 +283,13 @@ def _missing_auth_block(ctx: ExecutionContext) -> WarningBlock:
     groups[-1].tips = [
         ctx.warnings.auth_flow_suggestion or "Ensure valid authentication credentials are set via `--auth` or `-H`"
     ]
+    statuses = f"{_short_status(ctx, 401)}/{_short_status(ctx, 403)}"
     return WarningBlock(
         title="Authentication failed",
         count=sum(len(labels) for labels in missing_auth.values()),
         entity="operation",
-        suffix=" returned only 401/403 responses",
-        short_suffix="returned only 401/403 responses",
+        suffix=f" returned only {statuses} responses",
+        short_suffix=f"returned only {statuses} responses",
         groups=groups,
         affects_verdict=True,
     )
@@ -349,8 +360,8 @@ def _missing_test_data_block(ctx: ExecutionContext) -> WarningBlock:
         title="Missing test data",
         count=len(missing),
         entity="operation",
-        suffix=" repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
-        short_suffix="repeatedly returned 404 responses",
+        suffix=f" repeatedly returned {_status_name(ctx, 404)}, preventing tests from reaching your API's core logic",
+        short_suffix=f"repeatedly returned {_short_status(ctx, 404)} responses",
         groups=groups,
         affects_verdict=True,
     )
@@ -415,6 +426,17 @@ def warning_blocks(ctx: ExecutionContext) -> list[WarningBlock]:
                 " mostly returned 429 Too Many Requests, leaving the logic behind them untested",
                 ["Send requests no faster than the API allows with `--rate-limit`, e.g. `--rate-limit=100/m`"],
                 short_suffix="mostly returned 429 responses",
+                affects_verdict=True,
+            )
+        )
+    if warnings.not_served:
+        blocks.append(
+            list_block(
+                "Not served",
+                warnings.not_served,
+                " returned only statuses saying the server does not serve them, leaving them untested",
+                ["Point `--url` at the server that serves these operations, or exclude them from the run"],
+                short_suffix="returned only not-served statuses",
                 affects_verdict=True,
             )
         )
@@ -502,6 +524,16 @@ def warning_blocks(ctx: ExecutionContext) -> list[WarningBlock]:
                 short_suffix="had parts of the schema skipped",
             )
         )
+    if warnings.unsupported_field:
+        blocks.append(
+            _detailed_block(
+                "Unsupported fields",
+                warnings.unsupported_field,
+                " sent requests without some fields",
+                "Fill these fields with a `map_body` hook, or `before_call` for coverage cases",
+                short_suffix="had fields left out",
+            )
+        )
     if warnings.constants_extraction:
         blocks.append(
             list_block(
@@ -535,7 +567,10 @@ def extraction_failure_reason(failure: ExtractionFailure) -> list[str]:
 def extraction_failure_steps(failure: ExtractionFailure) -> list[tuple[int, str]]:
     """Requests that led to the response, oldest first, as (status code, curl command)."""
     return [
-        (response.status_code, case.as_curl_command(headers=dict(response.request.headers), verify=response.verify))
+        (
+            response.status_code,
+            case.as_reproduction_command(headers=dict(response.request.headers), verify=response.verify),
+        )
         for case, response in reversed(failure.history)
     ]
 
@@ -787,7 +822,7 @@ class UnitTestProgressManager:
             self.live.stop()
 
     def _get_status_icon(self) -> str:
-        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default="🕛")
+        return get_status_icon(self.stats, is_interrupted=self.is_interrupted)
 
     def get_completion_message(self, icon: str | None = None, *, without_checks: bool = False) -> str:
         """Complete the phase and return status message."""
@@ -940,7 +975,7 @@ class StatefulProgressManager:
         self.stats_progress.update(self.stats_task_id, description=self._get_stats_message())
 
     def _get_status_icon(self) -> str:
-        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default="🕛")
+        return get_status_icon(self.stats, is_interrupted=self.is_interrupted)
 
     def interrupt(self) -> None:
         """Handle interruption."""
@@ -1255,45 +1290,47 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             if event.status == Status.SUCCESS:
                 assert isinstance(event.payload, Ok)
                 payload = event.payload.ok()
-                unreachable = _server_unreachable(payload.probes)
-                if unreachable:
-                    header = Text.assemble(
-                        ("⚠️  ", Style(color="yellow")),
-                        ("API capabilities: unknown, server unreachable", Style(color="bright_white")),
-                    )
-                else:
-                    header = Text.assemble(
-                        ("✅  ", Style(color="green")),
-                        ("API capabilities:", Style(color="bright_white")),
-                    )
-                self.console.print(Indent(header))
-                self.console.print()
-
-                table = Table(
-                    show_header=False,
-                    box=None,
-                    padding=(0, 4),
-                    collapse_padding=True,
-                )
-                table.add_column("Capability", style=Style(color="bright_white", bold=True), no_wrap=True)
-                table.add_column("Status", style="cyan")
-                # Without a response, a probe measured nothing about the API.
-                for probe_run in [] if unreachable else payload.probes:
-                    icon, style = {
-                        ProbeOutcome.SUCCESS: ("✓", Style(color="green")),
-                        ProbeOutcome.FAILURE: ("✘", Style(color="red")),
-                        ProbeOutcome.SKIP: ("⊘", Style(color="yellow")),
-                    }[probe_run.outcome]
-
-                    table.add_row(f"{probe_run.probe.name}:", Text(icon, style=style))
-
                 cache_row = _format_cache_row(payload.cache)
-                if cache_row is not None:
-                    table.add_row("Cache:", cache_row)
-
-                if table.row_count:
-                    self.console.print(Indent(table))
+                # Specifications without HTTP probes have nothing to report unless the cache does.
+                if payload.probes or cache_row is not None:
+                    unreachable = _server_unreachable(payload.probes)
+                    if unreachable:
+                        header = Text.assemble(
+                            ("⚠️  ", Style(color="yellow")),
+                            ("API capabilities: unknown, server unreachable", Style(color="bright_white")),
+                        )
+                    else:
+                        header = Text.assemble(
+                            ("✅  ", Style(color="green")),
+                            ("API capabilities:", Style(color="bright_white")),
+                        )
+                    self.console.print(Indent(header))
                     self.console.print()
+
+                    table = Table(
+                        show_header=False,
+                        box=None,
+                        padding=(0, 4),
+                        collapse_padding=True,
+                    )
+                    table.add_column("Capability", style=Style(color="bright_white", bold=True), no_wrap=True)
+                    table.add_column("Status", style="cyan")
+                    # Without a response, a probe measured nothing about the API.
+                    for probe_run in [] if unreachable else payload.probes:
+                        icon, style = {
+                            ProbeOutcome.SUCCESS: ("✓", Style(color="green")),
+                            ProbeOutcome.FAILURE: ("✘", Style(color="red")),
+                            ProbeOutcome.SKIP: ("⊘", Style(color="yellow")),
+                        }[probe_run.outcome]
+
+                        table.add_row(f"{probe_run.probe.name}:", Text(icon, style=style))
+
+                    if cache_row is not None:
+                        table.add_row("Cache:", cache_row)
+
+                    if table.row_count:
+                        self.console.print(Indent(table))
+                        self.console.print()
         elif (
             isinstance(event.payload, AuthBootstrapPayload)
             and event.payload.spec is not None
@@ -1563,16 +1600,6 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         if not ctx.warnings.is_empty:
             self.display_warnings_summary(ctx)
 
-        if event.payload is not None:
-            if event.payload.reauth_count > 0:
-                ctx.add_summary_line(f"  Re-authenticated {pluralize(event.payload.reauth_count, 'time')}")
-            if event.payload.reauth_broke:
-                ctx.add_summary_line(
-                    style(
-                        "  ⚠️ Authentication stopped working mid-run - credentials likely invalidated",
-                        fg="yellow",
-                    )
-                )
-
+        ctx.summary_lines.extend(reauth_summary_lines(event.payload))
         display_summary_footer(ctx, summary)
         self.display_final_line(ctx, event)

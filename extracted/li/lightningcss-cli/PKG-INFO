@@ -1,0 +1,52 @@
+Metadata-Version: 2.4
+Name: lightningcss-cli
+Version: 1.30.2
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Utilities
+License-File: LICENSE
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Repository, https://github.com/joshuadavidthomas/lightningcss
+Project-URL: Homepage, https://lightningcss.dev
+Project-URL: Documentation, https://lightningcss.dev/docs.html
+Project-URL: Source, https://github.com/parcel-bundler/lightningcss
+
+# lightningcss-cli
+
+A Python package for installing the [Lightning CSS](https://lightningcss.dev) CLI tool.
+
+## Installation
+
+### Using pip
+
+```bash
+pip install lightningcss-cli
+```
+
+### Using uv
+
+Project install:
+
+```bash
+uv add --dev lightningcss-cli
+```
+
+Global tool install:
+
+```bash
+uv tool install lightningcss-cli
+```
+
+## Documentation and Usage
+
+For documentation and usage instructions, please visit the [Lightning CSS documentation](https://lightningcss.dev/docs.html).
+

@@ -1,0 +1,28 @@
+"""Wiki ``/operations`` status reads, declared once (sans-IO).
+
+Examples:
+    >>> clone_get("task-1").path
+    'operations/clone/task-1'
+"""
+
+from http import HTTPMethod
+
+from ycli.yandex.core.endpoint import Endpoint, segment
+from ycli.yandex.wiki.operations.models import (
+    CloneOperationStatus,
+    GridCloneOperationStatus,
+    MoveOperationStatus,
+)
+
+
+def clone_get(task_id: str) -> Endpoint[CloneOperationStatus]:
+    return Endpoint(HTTPMethod.GET, f"operations/clone/{segment(task_id)}", CloneOperationStatus)
+
+
+def clone_inline_grid_get(task_id: str) -> Endpoint[GridCloneOperationStatus]:
+    path = f"operations/clone_inline_grid/{segment(task_id)}"
+    return Endpoint(HTTPMethod.GET, path, GridCloneOperationStatus)
+
+
+def move_get(task_id: str) -> Endpoint[MoveOperationStatus]:
+    return Endpoint(HTTPMethod.GET, f"operations/move/{segment(task_id)}", MoveOperationStatus)

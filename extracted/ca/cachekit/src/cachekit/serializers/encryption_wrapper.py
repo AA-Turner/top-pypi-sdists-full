@@ -1,0 +1,1033 @@
+"""Encryption Wrapper for Zero-Knowledge Encryption
+
+Provides client-side encryption on top of a SerializerProtocol implementation that decodes one fixed format.
+Uses AES-256-GCM for authenticated encryption with per-tenant key derivation.
+
+Architectural Note:
+    EncryptionWrapper is a Decorator pattern implementation, not a serialization format.
+    It wraps a fixed-format serializer (StandardSerializer, OrjsonSerializer, ArrowSerializer)
+    and adds an encryption layer. This enables zero-knowledge caching where the backend
+    never sees plaintext values, regardless of data type (JSON, DataFrames, MessagePack, etc.).
+"""
+
+import logging
+from typing import Any, Optional
+
+from pydantic import SecretBytes
+
+# Import zero-knowledge encryption from Rust
+from cachekit._rust_serializer import (
+    Keyring,
+    KeyringConfigurationError,
+    ZeroKnowledgeEncryptor,
+    derive_tenant_keys,
+)
+from cachekit.config import ConfigurationError, get_settings
+
+from .base import SerializationError, SerializationMetadata, SerializerProtocol
+
+
+def _hide_key(key: object) -> SecretBytes:
+    """Wrap a key so no frame on an error's traceback holds it raw in a local (CWE-532); see
+    cachekit.config.validation.hide_secret. Unwrapped only inline, where the Rust bindings take them.
+
+    Never raises, whatever the type: every key must be wrapped before any is checked, or a bad one would
+    raise while its raw neighbours are still bound. _require_bytes checks the wrapped value afterwards.
+    """
+    if isinstance(key, SecretBytes):
+        return key
+    return SecretBytes(bytes(key) if isinstance(key, (bytearray, memoryview)) else key)  # type: ignore[arg-type]
+
+
+def _require_bytes(key: SecretBytes) -> None:
+    if not isinstance(key.get_secret_value(), bytes):
+        raise TypeError(f"master keys must be bytes, got {type(key.get_secret_value()).__name__}")
+
+
+logger = logging.getLogger(__name__)
+
+
+def require_cross_sdk_serializer(serializer: object) -> None:
+    """Refuse a serializer that may not run under encryption.
+
+    The protocol (spec/encryption.md, ENC-2) requires the step after decryption to be chosen by the
+    reader's configured serializer, never by sniffing the plaintext. Only a serializer whose type declares
+    ``cross_sdk_compatible = True`` meets that; AutoSerializer and unmarked custom serializers do not.
+    """
+    if not getattr(type(serializer), "cross_sdk_compatible", False):
+        raise ConfigurationError(
+            f"Encryption requires a serializer that decodes one fixed format after decryption (protocol ENC-2). "
+            f"The serializer instance '{type(serializer).__name__}' does not declare "
+            f"cross_sdk_compatible=True. Use StandardSerializer (the default), OrjsonSerializer or "
+            f"ArrowSerializer. Set the cross_sdk_compatible ClassVar to True only on a custom serializer "
+            f"that keeps this rule: after decryption (metadata.encrypted is true), deserialize decodes the one "
+            f"container its configuration fixes and raises when the bytes do not parse as it, never returning a "
+            f"default or the input; inspecting the bytes may only refuse, never select another decoder."
+        )
+
+
+class EncryptionError(SerializationError):
+    """Exception raised when encryption operations fail."""
+
+    pass
+
+
+class DecryptionAuthenticationError(EncryptionError):
+    """Tamper-class decrypt failure: cryptographic authentication did not hold.
+
+    Raised when the AES-GCM tag fails to verify (tampered ciphertext, wrong
+    key, or AAD/cache_key mismatch), when the entry's tenant does not match the
+    handler's tenant, or — in fail-closed mode — when the stored key fingerprint
+    matches no keyring entry (neither the current key nor any decrypt-only
+    previous key). Distinct from plain :class:`EncryptionError`
+    / :class:`SerializationError`, which cover corruption and format problems.
+    Classification and the fail-open/fail-closed policy live in
+    ``cachekit.cache_handler.handle_decrypt_failure``, except on L1 reads, where the decorator
+    treats an L1 keying collision (another tenant's entry, or behind a prefixing backend one
+    bound to another prefix) as a plain miss.
+    """
+
+    pass
+
+
+class TenantMismatchError(DecryptionAuthenticationError):
+    """The entry is encrypted for a different tenant than the one this read decrypts as.
+
+    Tamper-class wherever the entry came from the backend. The decorator's L1 guards
+    alone treat it as a miss: L1 is keyed by the bare cache key and holds only this
+    process's own authenticated writes and backfills, so another tenant's envelope
+    there is a keying collision, not tamper evidence.
+    """
+
+    pass
+
+
+class EncryptionWrapper:
+    """Encryption wrapper that composes a fixed-format serializer with an AES-256-GCM encryption layer.
+
+    Architectural Note:
+        This is a wrapper using the Decorator pattern, NOT a serialization format.
+        It delegates serialization to a fixed-format SerializerProtocol implementation and adds
+        an encryption layer on top. This design allows clean separation of concerns
+        (serialization vs encryption) and enables zero-knowledge caching for any data type.
+
+    Features:
+    - Client-side AES-256-GCM encryption (zero-knowledge)
+    - Hardware-accelerated via ring library
+    - Per-tenant key derivation (not a tenancy boundary)
+    - Domain separation for security
+    - Works with any serializer whose type declares ``cross_sdk_compatible = True``
+      (StandardSerializer, OrjsonSerializer, ArrowSerializer, or a custom one)
+
+    Security Model:
+    - Storage backend never sees plaintext values
+    - Each tenant gets different derived keys
+    - Domain separation prevents key confusion attacks
+    - Authentication tags prevent tampering
+
+    Design Pattern:
+        Uses Decorator pattern to add encryption behavior without modifying the base serializer.
+        Can wrap any fixed-format SerializerProtocol (MessagePack, JSON, Arrow) for zero-knowledge caching.
+
+    Examples:
+        Basic encryption/decryption roundtrip with cache_key binding (AAD v0x03):
+
+        >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="test-tenant")
+        >>> data = {"user_id": 123, "secret": "password"}
+        >>> cache_key = "users:123:profile"
+        >>> encrypted, metadata = wrapper.serialize(data, cache_key=cache_key)
+        >>> isinstance(encrypted, bytes)
+        True
+        >>> metadata.encrypted
+        True
+        >>> metadata.encryption_algorithm
+        'AES-256-GCM'
+
+        Decryption with same cache_key succeeds:
+
+        >>> decrypted = wrapper.deserialize(encrypted, metadata, cache_key=cache_key)
+        >>> decrypted == data
+        True
+
+        Decryption with WRONG cache_key fails (ciphertext substitution attack detected):
+
+        >>> wrong_key = "users:456:profile"
+        >>> wrapper.deserialize(encrypted, metadata, cache_key=wrong_key)  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        DecryptionAuthenticationError: Decryption failed: ...
+
+        A serializer that picks its format by sniffing the bytes is refused:
+
+        >>> from cachekit.serializers import AutoSerializer
+        >>> EncryptionWrapper(serializer=AutoSerializer(), master_key=secret_key_bytes)  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        ConfigurationError: Encryption requires a serializer that decodes one fixed format after decryption ...
+
+        Encryption is always enabled (no opt-out):
+
+        >>> EncryptionWrapper(master_key=secret_key_bytes).is_encryption_enabled
+        True
+
+        Key rotation: an entry written under a retired master key stays readable
+        while that key is kept decrypt-only (max 3, env
+        CACHEKIT_PREVIOUS_MASTER_KEYS). Selection is by exact fingerprint match
+        of the HKDF-derived per-tenant encryption key — never trial decryption:
+
+        >>> writer = EncryptionWrapper(master_key=old_secret_key_bytes, tenant_id="test-tenant", previous_master_keys=[])
+        >>> enc, meta = writer.serialize({"pin": 1234}, cache_key="users:1:pin")
+        >>> rotated = EncryptionWrapper(
+        ...     master_key=secret_key_bytes, tenant_id="test-tenant", previous_master_keys=[old_secret_key_bytes]
+        ... )
+        >>> rotated.deserialize(enc, meta, cache_key="users:1:pin")
+        {'pin': 1234}
+
+        Rotation is forward-only — the current key re-appearing in the
+        decrypt-only list is a rejected configuration. It raises
+        KeyringConfigurationError (a ValueError subclass; config-class,
+        fail-loud), deliberately NOT EncryptionError, so the read path can
+        never classify a misconfigured keyring as corruption or a miss:
+
+        >>> EncryptionWrapper(
+        ...     master_key=secret_key_bytes, tenant_id="test-tenant", previous_master_keys=[secret_key_bytes]
+        ... )  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        KeyringConfigurationError: Keyring configuration invalid: ...
+    """
+
+    __slots__ = (
+        "tenant_id",
+        "serializer",
+        "encryptor",
+        "tenant_keys",
+        "encryption_key_fingerprint",
+        "fail_closed",
+        "_keyring",
+        "_keyring_fingerprints",
+        "_aad_prefix",
+    )
+
+    def __init__(
+        self,
+        serializer: Optional[SerializerProtocol] = None,
+        master_key: bytes | SecretBytes | None = None,
+        tenant_id: str = "default",
+        fail_closed: bool = False,
+        previous_master_keys: list[bytes] | list[SecretBytes] | None = None,
+        *,
+        _master_key_from_hex: bool = False,
+    ):
+        """Initialize encryption wrapper.
+
+        Args:
+            serializer: SerializerProtocol implementation to wrap with encryption. Its type must
+                declare ``cross_sdk_compatible = True``. Defaults to StandardSerializer
+                (MessagePack).
+            master_key: The raw 256-bit master key: exactly 32 bytes, else EncryptionError. Not the hex
+                string the decorators' master_key= takes; decode one with bytes.fromhex(). If None, reads
+                CACHEKIT_MASTER_KEY (hex) from the environment.
+            tenant_id: Tenant identifier for per-tenant key derivation
+            fail_closed: Treat key-fingerprint mismatch as a hard authentication
+                failure (raise DecryptionAuthenticationError before attempting
+                decryption) instead of warn-and-attempt. This flag gates ONLY the
+                fingerprint pre-check on this wrapper; the read-path policy of
+                raising vs recomputing lives on the handler
+                (CacheSerializationHandler.encryption_fail_closed), which passes
+                the same resolved value here. Default False = warn-and-attempt.
+            previous_master_keys: Decrypt-only previous master keys for key
+                rotation (max 3). If None, reads CACHEKIT_PREVIOUS_MASTER_KEYS
+                from settings — deliberately ALSO when master_key was passed
+                explicitly: the env var is the fleet-wide rotation surface, so
+                a programmatic master_key still combines with env previous
+                keys. Pass [] to opt out. Entries written under a listed key
+                stay readable — selected by exact derived-key fingerprint
+                match, never by trial decryption. Writes always use master_key.
+                Each key passed is raw bytes, exactly 32 of them, as master_key.
+            _master_key_from_hex: Internal, for CacheSerializationHandler: master_key holds the bytes of a
+                hex key the caller gave a decorator, which the hex rule lets run past 32 bytes. Passing it
+                yourself bypasses the exactly-32-byte check.
+
+        Raises:
+            ConfigurationError: serializer's type does not declare ``cross_sdk_compatible = True``.
+        """
+        master_key = None if master_key is None else _hide_key(master_key)
+        if previous_master_keys is not None:
+            previous_master_keys = [_hide_key(key) for key in previous_master_keys]
+        for key in [master_key, *(previous_master_keys or ())]:
+            if key is not None:
+                _require_bytes(key)
+        # A raw key is exactly 32 bytes: the 64 ASCII bytes of a hex key pass a length floor and derive a key
+        # no other SDK derives (protocol intent-presets.md, Master Key Input rule 4). A key decoded from hex,
+        # the handler's or CACHEKIT_MASTER_KEY's, keeps the hex rule, at least 32 bytes (rule 3), which
+        # _setup_encryption checks.
+        if master_key is not None and not _master_key_from_hex and len(master_key) != 32:
+            raise EncryptionError(
+                f"master_key must be exactly 32 bytes (256 bits), got {len(master_key)}. It takes the raw key: "
+                "decode a hex key with bytes.fromhex()."
+            )
+        for position, previous_key in enumerate(previous_master_keys or ()):
+            if len(previous_key) != 32:
+                raise KeyringConfigurationError(
+                    f"Previous master key at position {position} must be exactly 32 bytes (256 bits), "
+                    f"got {len(previous_key)} — per-key requirements are identical to master_key."
+                )
+        self.tenant_id = tenant_id
+        self.fail_closed = fail_closed
+
+        # Initialize base serializer — StandardSerializer (MessagePack), the decorators' default.
+        # The default goes through the ENC-2 guard like any other serializer.
+        if serializer is None:
+            from cachekit.serializers.standard_serializer import StandardSerializer
+
+            serializer = StandardSerializer()
+        require_cross_sdk_serializer(serializer)
+        self.serializer = serializer
+
+        # Setup encryption — mandatory. EncryptionWrapper without encryption
+        # is a security misconfiguration, not a valid operating mode.
+        # _setup_encryption sets: self.encryptor, self.tenant_keys,
+        # self.encryption_key_fingerprint, self._keyring, self._keyring_fingerprints
+        self._setup_encryption(master_key, previous_master_keys)
+
+        # The AAD's head, 0x03 ‖ len(tenant_id) ‖ tenant_id, is the same on every call, so _create_aad
+        # takes it from here. tenant_id is bound at construction, like tenant_keys and _keyring. Built
+        # after _setup_encryption: its derive_tenant_keys has accepted tenant_id (a str of 1 to 1024
+        # UTF-8 bytes), so this encode cannot raise, and a bad tenant_id still fails as EncryptionError there.
+        tenant_id_bytes = self.tenant_id.encode("utf-8")
+        self._aad_prefix = b"\x03" + len(tenant_id_bytes).to_bytes(4, "big") + tenant_id_bytes
+
+    def _setup_encryption(self, master_key: SecretBytes | None, previous_master_keys: list[SecretBytes] | None) -> None:
+        """Setup encryption components with key derivation. Keys arrive wrapped and are unwrapped only inline."""
+        # Get master key from settings if not provided
+        if master_key is None:
+            settings = get_settings()
+            if not settings.master_key:
+                raise EncryptionError(
+                    "Master key required. Set CACHEKIT_MASTER_KEY environment variable or pass master_key parameter."
+                )
+            try:
+                master_key = SecretBytes(bytes.fromhex(settings.master_key.get_secret_value()))
+            except ValueError as e:
+                raise EncryptionError(f"Invalid master key format in configuration: {e}") from e
+
+        # The hex rule; __init__ held a raw key to exactly 32 bytes already.
+        if len(master_key) < 32:
+            raise EncryptionError("Master key must be at least 32 bytes (256 bits)")
+
+        # Decrypt-only previous keys from settings if not provided (key rotation,
+        # spec/encryption.md → "Key Rotation (Keyring)"). Settings enforce the cap
+        # of 3, per-key hex/length validation, and the forward-only subset check
+        # at load and on every assignment, and CacheSerializationHandler repeats the
+        # subset check for an encrypting cache's master_key= when it is built; the
+        # Rust Keyring re-validates all three behind the FFI boundary. This wrapper
+        # keeps the keyring it builds: a later change to the settings reaches only
+        # wrappers built after it.
+        # Keyring config errors below raise KeyringConfigurationError, NEVER
+        # EncryptionError: EncryptionError is a SerializationError, which the
+        # read-path policy (handle_decrypt_failure) classifies as corruption →
+        # fail-open miss + evict — a misconfigured keyring would silently erode
+        # the cache and mask itself as misses (the
+        # config-vs-crypto error class). Nor plain ValueError: the handler
+        # re-raises it, but the read sites (CacheOperationHandler.get_cached_value*
+        # and the decorator L1 guards) re-raise only KeyringConfigurationError
+        # and turn anything else into a warning plus a miss. This wrapper is
+        # built lazily on the first read for a tenant (the caller's with a
+        # tenant_extractor, else the entry header's), so these faults surface
+        # at a read site as often as at a write.
+        if previous_master_keys is None:
+            settings = get_settings()
+            previous_master_keys = [SecretBytes(bytes.fromhex(key.get_secret_value())) for key in settings.previous_master_keys]
+
+        # The hex rule again, for keys read from settings: settings validate them at load and on assignment, and
+        # this stays as defence in depth because the Rust Keyring below checks only 16 bytes.
+        for position, previous_key in enumerate(previous_master_keys):
+            if len(previous_key) < 32:
+                raise KeyringConfigurationError(
+                    f"Previous master key at position {position} of CACHEKIT_PREVIOUS_MASTER_KEYS must be at least "
+                    f"32 bytes (256 bits) decoded, got {len(previous_key)} — per-key requirements are identical to "
+                    "master_key."
+                )
+
+        # Initialize encryptor
+        self.encryptor = ZeroKnowledgeEncryptor()
+
+        # Keyring for rotation-window reads: master keys live behind the FFI
+        # boundary (zeroized on drop in Rust). Re-validates cap/subset/length
+        # behind the FFI for wrappers constructed with explicit parameters;
+        # violations raise KeyringConfigurationError from the binding and
+        # propagate as-is (see the config-error taxonomy note above). Built
+        # before derive_tenant_keys so a keyring config fault fails loud
+        # whatever the tenant; it is bound to the tenant below.
+        keyring = Keyring(master_key.get_secret_value(), [key.get_secret_value() for key in previous_master_keys])
+
+        # Derive tenant-specific keys with domain separation
+        try:
+            self.tenant_keys = derive_tenant_keys(master_key.get_secret_value(), self.tenant_id)
+
+            # Get key fingerprints for metadata (fingerprints are safe to expose)
+            self.encryption_key_fingerprint = self.tenant_keys.encryption_fingerprint().hex()
+        except Exception as e:
+            raise EncryptionError(f"Failed to derive tenant keys: {e}") from e
+
+        # Deliberately OUTSIDE the try above. The binding raises
+        # KeyringConfigurationError ("Keyring tenant key derivation failed: ...")
+        # here, and the handler above would relabel it EncryptionError — a
+        # SerializationError, which handle_decrypt_failure classifies as
+        # corruption and fails open. A keyring that cannot derive its per-tenant
+        # keys would then present as silent misses plus entry-by-entry eviction (the
+        # config-vs-crypto failure class). Let it propagate (taxonomy note above).
+        #
+        # On a read by a handler without a tenant_extractor, tenant_id comes from
+        # the unauthenticated frame header (with one, from the caller), so a
+        # fault here must not be one a writer can choose. It is not: both calls
+        # validate tenant_id through the same HKDF input checks, and
+        # derive_tenant_keys above has already accepted this tenant_id (a tenant
+        # it rejects is header rot → EncryptionError → miss + evict). What
+        # reaches this line is a keyring/derivation disagreement in our own
+        # build, never bad input.
+        #
+        # for_tenant derives every entry's per-tenant key here, once, and drops
+        # the master keys; the bound ring's decrypts and fingerprints run no
+        # HKDF, so a rotation-window read costs one AES-GCM open, not a
+        # derivation as well.
+        self._keyring = keyring.for_tenant(self.tenant_id)
+
+        # Python only ever holds the per-entry fingerprints of the HKDF-derived
+        # per-tenant encryption keys, current key first — the exact values
+        # compared against the frame's key_fingerprint metadata on decrypt
+        # (never the master-key fingerprints).
+        self._keyring_fingerprints = [fp.hex() for fp in self._keyring.encryption_fingerprints()]
+
+        logger.info(
+            f"Encryption initialized for tenant '{self.tenant_id}' "
+            f"(key fingerprint: {self.encryption_key_fingerprint[:12]}..., "
+            f"decrypt-only previous keys: {len(previous_master_keys)}, "
+            f"hardware acceleration: {self.encryptor.hardware_acceleration_enabled()})"
+        )
+
+        # Setup-time drift guard: keyring entry 0 must be byte-identical to the
+        # cached tenant-keys fingerprint written into frame metadata. The two
+        # values come from independent FFI paths; if a cachekit-core skew ever
+        # diverged them, every read would silently route to the no-match path
+        # (fail-closed: total read outage; fail-open: warning storm). Fail loud
+        # at construction instead — KeyringConfigurationError, for the same
+        # taxonomy reason as the keyring config errors above.
+        if self._keyring_fingerprints[0] != self.encryption_key_fingerprint:
+            raise KeyringConfigurationError(
+                "cachekit-core invariant violation: keyring entry 0 fingerprint does not match "
+                "derive_tenant_keys' encryption fingerprint for the same master key and tenant. "
+                "This indicates a version skew between the keyring and key-derivation paths."
+            )
+
+    def serialize(self, obj: Any, cache_key: str = "") -> tuple[bytes, SerializationMetadata]:
+        """Serialize and encrypt an object with cache_key binding.
+
+        Args:
+            obj: Object to serialize and encrypt
+            cache_key: Cache key for AAD binding (SECURITY CRITICAL).
+                      Prevents ciphertext substitution attacks (Protocol v1.0.1, Section 5.6).
+                      Must be a non-empty string; raises ValueError if empty.
+
+        Returns:
+            Tuple of (encrypted_data, metadata_with_encryption_info)
+
+        Raises:
+            ValueError: If cache_key is empty when encryption is enabled
+            TypeError: If cache_key is not a string
+            EncryptionError: If encryption fails
+
+        Examples:
+            Serialize with encryption enabled:
+
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="acme-corp")
+            >>> encrypted, meta = wrapper.serialize({"api_key": "secret"}, cache_key="config:api")
+            >>> meta.encrypted
+            True
+            >>> meta.tenant_id
+            'acme-corp'
+
+            Empty cache_key raises ValueError (SECURITY: prevents AAD bypass):
+
+            >>> wrapper.serialize({"data": 1}, cache_key="")  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            ValueError: cache_key is required when encryption is enabled...
+
+            Non-string cache_key raises TypeError (SECURITY: type safety):
+
+            >>> wrapper.serialize({"data": 1}, cache_key=123)  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            TypeError: cache_key must be a string...
+        """
+        # SECURITY: Validate cache_key type and value before any work
+        if not isinstance(cache_key, str):
+            raise TypeError(
+                f"cache_key must be a string, got {type(cache_key).__name__}. "
+                "AAD v0x03 requires a string cache_key for ciphertext binding."
+            )
+        if not cache_key:
+            raise ValueError(
+                "cache_key is required when encryption is enabled. "
+                "AAD v0x03 requires cache_key binding to prevent ciphertext substitution attacks."
+            )
+
+        # Serialize with base serializer
+        try:
+            raw_data, raw_metadata = self.serializer.serialize(obj)
+        except ValueError:
+            # Interop/v1 data-model rejections (InteropError, a ValueError) must
+            # reach the caller unlaundered — wrapping them as SerializationError
+            # would route them into the silent "caching failed" fallbacks and
+            # violate the spec's fail-loud contract on the encrypted path.
+            raise
+        except Exception as e:
+            raise SerializationError(f"Serialization failed: {e}") from e
+
+        # The AAD's compressed component is a frozen token: exactly True or False
+        # (spec/encryption.md). str() of anything else, such as a truthy 1 from a directly
+        # built serializer, would seal the entry under a token no other SDK's reader builds.
+        # Write side only: reads keep accepting what is stored. getattr, because a custom
+        # serializer may return no metadata at all; that is refused here too, not an AttributeError.
+        compressed = getattr(raw_metadata, "compressed", None)
+        if not isinstance(compressed, bool):
+            raise EncryptionError(
+                f"Refusing to seal: serializer metadata compressed must be a bool, got {type(compressed).__name__}"
+            )
+
+        # Encrypt the serialized data
+        try:
+            # Create Additional Authenticated Data (AAD) v0x03 with cache_key binding
+            aad = self._create_aad(raw_metadata, cache_key)
+
+            # Encrypt using tenant keys (keys remain in Rust memory, never copied to Python)
+            encrypted_data = self.encryptor.encrypt_with_keys(raw_data, aad, self.tenant_keys)
+
+            # Create enhanced metadata with encryption information
+            # Note: format preserved from base serializer (could be MSGPACK, ORJSON, ARROW, etc.)
+            encrypted_metadata = SerializationMetadata(
+                serialization_format=raw_metadata.format,  # Preserve underlying wire format
+                encoding=raw_metadata.encoding,
+                compressed=raw_metadata.compressed,
+                original_type=raw_metadata.original_type,
+                encrypted=True,  # Security layer indicator (orthogonal to format)
+                tenant_id=self.tenant_id,
+                encryption_algorithm="AES-256-GCM",
+                key_fingerprint=self.encryption_key_fingerprint,
+            )
+
+            return encrypted_data, encrypted_metadata
+
+        except Exception as e:
+            raise EncryptionError(f"Encryption failed: {e}") from e
+
+    def deserialize(self, data: bytes | memoryview, metadata: SerializationMetadata, cache_key: str = "") -> Any:
+        """Decrypt and deserialize data with cache_key verification.
+
+        Args:
+            data: Encrypted data to deserialize
+            metadata: Serialization metadata with encryption info
+            cache_key: Cache key for AAD verification (SECURITY CRITICAL).
+                      Must match the cache_key used during encryption.
+
+        Returns:
+            Deserialized object
+
+        Raises:
+            ValueError: If cache_key is empty when data is encrypted
+            TypeError: If cache_key is not a string
+            DecryptionAuthenticationError: If the entry claims plaintext
+                (``metadata.encrypted=False`` — this wrapper never returns
+                unauthenticated bytes), the tenant mismatches, or AES-GCM
+                authentication fails
+            SerializationError: Corrupt plaintext header (non-string or non-encodable
+                original_type, or non-encodable compressed) — corruption-class
+                (evict + recompute), not tamper
+            EncryptionError: If deserialization fails after authenticated decryption
+
+        Examples:
+            Successful roundtrip with matching cache_key:
+
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="tenant-1")
+            >>> original = {"items": [1, 2, 3], "total": 6}
+            >>> enc_data, enc_meta = wrapper.serialize(original, cache_key="cart:user:42")
+            >>> wrapper.deserialize(enc_data, enc_meta, cache_key="cart:user:42")
+            {'items': [1, 2, 3], 'total': 6}
+
+            Wrong cache_key causes AES-GCM authentication failure (ciphertext substitution detected):
+
+            >>> wrapper.deserialize(enc_data, enc_meta, cache_key="cart:user:99")  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            DecryptionAuthenticationError: Decryption failed: ...
+
+            Tenant mismatch raises TenantMismatchError, a DecryptionAuthenticationError
+            (tamper-class) whose message names neither tenant:
+
+            >>> other_wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="tenant-2")
+            >>> other_wrapper.deserialize(enc_data, enc_meta, cache_key="cart:user:42")
+            Traceback (most recent call last):
+                ...
+            cachekit.serializers.encryption_wrapper.TenantMismatchError: Tenant mismatch: entry encrypted for a different tenant
+
+            An entry claiming plaintext is refused outright — the wrapper is
+            encryption-mandatory and fails closed on its own (defense-in-depth
+            behind the handler-level guard):
+
+            >>> from cachekit.serializers.base import SerializationFormat
+            >>> plain_meta = SerializationMetadata(serialization_format=SerializationFormat.MSGPACK)
+            >>> plain_meta.encrypted
+            False
+            >>> wrapper.deserialize(b"attacker-controlled bytes", plain_meta, cache_key="cart:user:42")  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            DecryptionAuthenticationError: EncryptionWrapper.deserialize received an entry claiming plaintext ...
+        """
+        # SECURITY (defense-in-depth behind the handler guard):
+        # this wrapper is encryption-mandatory, so an entry claiming plaintext can
+        # never be legitimate input here. The frame header carrying this flag is
+        # NOT covered by the AES-GCM tag and may be forged; benign migration reads
+        # are converted to miss+evict by CacheSerializationHandler.deserialize_data
+        # before this wrapper is ever invoked. Reaching this branch means a caller
+        # bypassed that guard — fail closed rather than return unauthenticated bytes.
+        if not metadata.encrypted:
+            raise DecryptionAuthenticationError(
+                "EncryptionWrapper.deserialize received an entry claiming plaintext "
+                "(metadata.encrypted=False). This wrapper is encryption-mandatory and "
+                "never returns unauthenticated bytes: the plaintext flag lives in the "
+                "unauthenticated frame header and may be forged. Route legitimate "
+                "plaintext reads through CacheSerializationHandler, not this wrapper."
+            )
+
+        # SECURITY: Validate cache_key type and value for encrypted data
+        if not isinstance(cache_key, str):
+            raise TypeError(
+                f"cache_key must be a string, got {type(cache_key).__name__}. "
+                "AAD v0x03 verification requires a string cache_key."
+            )
+        if not cache_key:
+            raise ValueError(
+                "cache_key is required to decrypt data. "
+                "AAD v0x03 verification requires cache_key to prevent ciphertext substitution attacks."
+            )
+
+        # Verify tenant match for security. Tamper-class (DecryptionAuthenticationError):
+        # an entry claiming another tenant at this cache key is another tenant's entry
+        # at a shared key, cross-tenant substitution, or config drift — it must count as
+        # auth_tamper telemetry and be honored by the fail-closed policy, not vanish into
+        # the corruption bucket. The message names neither tenant: under fail-closed it
+        # reaches the caller, who must not learn another tenant's id (CWE-209). The ids
+        # go to the debug log only.
+        if metadata.tenant_id != self.tenant_id:
+            logger.debug(
+                "Tenant mismatch: entry encrypted for tenant %r, reader is tenant %r", metadata.tenant_id, self.tenant_id
+            )
+            raise TenantMismatchError("Tenant mismatch: entry encrypted for a different tenant")
+
+        # Keyring selection by exact fingerprint match (spec/encryption.md →
+        # "Key Rotation (Keyring)"): the frame's key_fingerprint is compared
+        # against each keyring entry's HKDF-derived per-tenant encryption-key
+        # fingerprint, current key first — never trial-decrypted across the
+        # keyring. Index 0 is the current key; higher indices are decrypt-only
+        # previous keys retained for the rotation window. A match is binding:
+        # the matched entry is the only key used, and its authentication
+        # failure is terminal (no further keyring entries — see decrypt below).
+        try:
+            keyring_index = self._keyring_fingerprints.index(metadata.key_fingerprint)
+        except ValueError:
+            keyring_index = None
+
+        # No keyring entry matches: pre-keyring mismatch semantics, unchanged —
+        # fail-closed raises before attempting decryption; fail-open warns and
+        # attempts the current key only.
+        if keyring_index is None:
+            metadata_fp = metadata.key_fingerprint[:12] if metadata.key_fingerprint else "unknown"
+            current_fp = self.encryption_key_fingerprint[:12] if self.encryption_key_fingerprint else "unknown"
+            if self.fail_closed:
+                raise DecryptionAuthenticationError(
+                    f"Key fingerprint mismatch: data encrypted with key {metadata_fp}..., "
+                    f"current key is {current_fp}... Refusing to attempt decryption "
+                    f"(encryption.fail_closed=True). Possible key rotation, misconfiguration, "
+                    f"or tampering with the stored entry."
+                )
+            logger.warning(
+                f"Key fingerprint mismatch: data encrypted with key "
+                f"{metadata_fp}..., current key is {current_fp}... (key rotation?). "
+                f"Attempting decryption anyway; it will fail AES-GCM authentication if the "
+                f"key genuinely differs. Set encryption.fail_closed=True to raise instead."
+            )
+
+        # Create the same AAD used during encryption (with cache_key binding). `encrypted` is not
+        # an AAD input; it tells the base serializer it is reading decrypted plaintext, whose
+        # container the reader's configuration fixes (no legacy sniffing, spec/encryption.md).
+        raw_metadata = SerializationMetadata(
+            serialization_format=metadata.format,  # Preserve original wire format from base serializer
+            encoding=metadata.encoding,
+            compressed=metadata.compressed,
+            original_type=metadata.original_type,
+            encrypted=True,
+        )
+
+        # AAD build sits OUTSIDE the tag-verification try: an original_type or compressed that
+        # cannot be built into the AAD is corruption, not tamper (see _create_aad).
+        aad = self._create_aad(raw_metadata, cache_key)
+
+        try:
+            # Decrypt using tenant keys (keys remain in Rust memory, never copied to Python)
+            # NOTE: If cache_key doesn't match the one used during encryption,
+            # the AAD will be different and AES-GCM authentication will fail.
+            # This is the SECURITY mechanism that detects ciphertext substitution.
+            # Pass `data` as-is: for a v3 frame held as `bytes`, `unwrap` hands us a read-only
+            # memoryview of it, which the decrypt bindings borrow without a copy (a bytes(data)
+            # here would copy the whole ciphertext before the cipher makes its own working
+            # copy). A legacy frame arrives as `bytes`; a frame held in a mutable buffer, such
+            # as a bytearray, is copied inside the binding.
+            if keyring_index is not None and keyring_index > 0:
+                # Decrypt-only keyring entry (rotation-window read): decrypt with
+                # exactly the matched entry. Binding match — decrypt_at never
+                # falls back across entries, and any failure raises out of this
+                # block straight into the fail-open/fail-closed policy.
+                decrypted_data = self._keyring.decrypt_at(keyring_index, self.encryptor, data, aad)
+            else:
+                # Current key (keyring index 0) or fail-open no-match attempt:
+                # the cached tenant keys, the same key as keyring entry 0 (the
+                # construction drift guard holds them equal).
+                decrypted_data = self.encryptor.decrypt_with_keys(data, aad, self.tenant_keys)
+
+        except KeyringConfigurationError:
+            # Same taxonomy split as the sequential path below: decrypt_at raises
+            # this for a keyring index out of range, which is not tamper.
+            # Propagates as a ValueError (fail-loud) instead of being recorded
+            # as `auth_tamper`.
+            raise
+        except Exception as e:
+            # AES-GCM tag verification failed: tampered ciphertext, wrong key, or
+            # AAD/cache_key mismatch. Tamper-class failure — distinct from the
+            # post-decrypt deserialize errors below, which occur on AUTHENTICATED
+            # plaintext and therefore indicate corruption/bugs, not tampering.
+            raise DecryptionAuthenticationError(f"Decryption failed: {e}") from e
+
+        try:
+            # Deserialize the decrypted (authenticated) data using base serializer
+            return self.serializer.deserialize(decrypted_data, raw_metadata)
+        except Exception as e:
+            raise EncryptionError(f"Deserialization failed after successful decryption: {e}") from e
+
+    def deserialize_without_key_identity(self, data: bytes | memoryview, metadata: SerializationMetadata, cache_key: str) -> Any:
+        """Decrypt and deserialize an entry that carries NO per-entry key identity.
+
+        Interop/v1 entries store no CK frame and therefore no key_fingerprint,
+        so fingerprint-based keyring selection is impossible. Per the spec's
+        "Decrypt — without per-entry key identity" row, keyring entries are
+        attempted sequentially — current key first, then each decrypt-only key
+        in order, rebuilding the identical AAD for every attempt (the no-retry
+        rule binds AAD inputs, not key count). Only an AES-GCM authentication
+        failure advances to the next key; exhaustion surfaces as a plain
+        authentication failure into the existing fail-open/fail-closed policy.
+
+        Entries WITH a stored fingerprint must go through :meth:`deserialize`
+        (fingerprint selection is mandatory for them — never trial decryption).
+
+        Args:
+            data: nonce||ciphertext||tag bytes as stored by any SDK
+            metadata: Caller-synthesized metadata fixing the AAD inputs
+                (interop pins format=msgpack, compressed=False, no
+                original_type) and the post-decrypt deserialize format
+            cache_key: Cache key for AAD binding (SECURITY CRITICAL)
+
+        Raises:
+            TypeError: If cache_key is not a string
+            ValueError: If cache_key is empty
+            SerializationError: Corrupt plaintext header (non-string or
+                non-encodable original_type, or non-encodable compressed) —
+                corruption-class, not tamper
+            DecryptionAuthenticationError: When no keyring entry authenticates
+                the ciphertext
+            EncryptionError: If deserialization fails after authenticated
+                decryption
+
+        Examples:
+            A value encrypted under a retired key remains readable without any
+            stored key identity, as long as the key is retained decrypt-only:
+
+            >>> writer = EncryptionWrapper(master_key=old_secret_key_bytes, tenant_id="t-interop", previous_master_keys=[])
+            >>> enc, meta = writer.serialize({"v": 7}, cache_key="ns:interop:k")
+            >>> meta.key_fingerprint = None  # interop entries store no frame metadata
+            >>> rotated = EncryptionWrapper(
+            ...     master_key=secret_key_bytes, tenant_id="t-interop", previous_master_keys=[old_secret_key_bytes]
+            ... )
+            >>> rotated.deserialize_without_key_identity(enc, meta, cache_key="ns:interop:k")
+            {'v': 7}
+        """
+        if not isinstance(cache_key, str):
+            raise TypeError(
+                f"cache_key must be a string, got {type(cache_key).__name__}. "
+                "AAD v0x03 verification requires a string cache_key."
+            )
+        if not cache_key:
+            raise ValueError(
+                "cache_key is required to decrypt data. "
+                "AAD v0x03 verification requires cache_key to prevent ciphertext substitution attacks."
+            )
+
+        raw_metadata = SerializationMetadata(
+            serialization_format=metadata.format,
+            encoding=metadata.encoding,
+            compressed=metadata.compressed,
+            original_type=metadata.original_type,
+            encrypted=True,  # Not an AAD input: marks decrypted plaintext (see deserialize)
+        )
+
+        # AAD build sits OUTSIDE the tag-verification try: an original_type or compressed that
+        # cannot be built into the AAD is corruption, not tamper (see _create_aad).
+        aad = self._create_aad(raw_metadata, cache_key)
+
+        try:
+            decrypted_data = self._keyring.decrypt(self.encryptor, data, aad)
+        except KeyringConfigurationError:
+            # Config failure, NOT tamper. The tenant-bound ring raises none today
+            # (it takes no tenant and no index), but any it ever raises must take
+            # the fail-loud path: converting it below would record `auth_tamper`
+            # and page an operator for an attack that never happened. (Short or
+            # garbled ciphertext is NOT this class: the binding keeps it tamper-class.)
+            raise
+        except Exception as e:
+            # Exhaustion of all keyring entries is an AES-GCM authentication
+            # failure — tamper-class, same taxonomy as the fingerprint path.
+            raise DecryptionAuthenticationError(f"Decryption failed: {e}") from e
+
+        try:
+            return self.serializer.deserialize(decrypted_data, raw_metadata)
+        except Exception as e:
+            raise EncryptionError(f"Deserialization failed after successful decryption: {e}") from e
+
+    def _create_aad(self, metadata: SerializationMetadata, cache_key: str) -> bytes:
+        """Create length-prefixed AAD v0x03 with cache_key binding.
+
+        Format: [version_byte(0x03)][len1(4)][tenant_id][len2(4)][cache_key][len3(4)][format][len4(4)][compressed][len5(4)][original_type]
+        - Version byte: 0x03 (includes cache_key binding)
+        - Each length is 4-byte big-endian integer
+        - The 5th component (original_type) is appended only when metadata.original_type is set —
+          a conformant reader MUST include it for serializers that set it (e.g. AutoSerializer)
+        - Mathematically impossible to collide (unambiguous parsing)
+
+        SECURITY CRITICAL (Protocol v1.0.1, Section 5.6):
+            cache_key binding prevents ciphertext substitution attacks (CVSS 8.5).
+            Without this, an attacker within the same tenant can swap ciphertext
+            between cache keys - the ciphertext would decrypt successfully because
+            same tenant = same derived key.
+
+        Args:
+            metadata: Serialization metadata (format, compressed, etc.)
+            cache_key: Full cache key - binds ciphertext to this specific key
+
+        Returns:
+            AAD bytes for AES-256-GCM authentication
+
+        Examples:
+            AAD starts with version byte 0x03:
+
+            >>> from cachekit.serializers.base import SerializationFormat, SerializationMetadata
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="demo")
+            >>> meta = SerializationMetadata(serialization_format=SerializationFormat.MSGPACK, compressed=True)
+            >>> aad = wrapper._create_aad(meta, cache_key="session:abc123")
+            >>> aad[0] == 0x03  # Version byte
+            True
+
+            AAD can be parsed back to original components:
+
+            >>> parsed = wrapper._parse_aad(aad)
+            >>> parsed["tenant_id"]
+            'demo'
+            >>> parsed["cache_key"]
+            'session:abc123'
+            >>> parsed["format"]
+            'msgpack'
+            >>> parsed["compressed"]
+            'True'
+
+            Different cache_keys produce different AAD (prevents ciphertext swapping):
+
+            >>> aad1 = wrapper._create_aad(meta, "key:user:1")
+            >>> aad2 = wrapper._create_aad(meta, "key:user:2")
+            >>> aad1 != aad2
+            True
+        """
+        # The version byte and tenant_id come prebuilt in self._aad_prefix (see __init__). Each per-call
+        # component is encoded and checked in the order it always was, so a bad header raises what it always
+        # raised, and the AAD is assembled with one join at the end. No memo: `compressed` is str()-ed from
+        # the header, and True, 1 and 1.0 hash alike but encode differently, so a value-keyed memo would let
+        # a tampered header reuse another value's AAD bytes.
+        cache_key_bytes = cache_key.encode("utf-8")  # SECURITY: prevents ciphertext substitution attacks
+        format_bytes = metadata.format.value.encode("utf-8")
+        # `compressed` arrives untyped from the header too: str() never raises, but a lone
+        # surrogate cannot be UTF-8 encoded — corruption-class, like original_type below.
+        try:
+            compressed_bytes = str(metadata.compressed).encode("utf-8")
+        except UnicodeEncodeError as e:
+            raise SerializationError("Corrupt frame header: compressed is not UTF-8 encodable") from e
+        parts = [
+            self._aad_prefix,
+            len(cache_key_bytes).to_bytes(4, "big"),
+            cache_key_bytes,
+            len(format_bytes).to_bytes(4, "big"),
+            format_bytes,
+            len(compressed_bytes).to_bytes(4, "big"),
+            compressed_bytes,
+        ]
+
+        # `original_type` arrives untyped from the plaintext CK header (json.loads →
+        # SerializationMetadata.from_dict passes it straight through). The AAD built from the
+        # header is authenticated by the GCM tag (the header's JSON bytes are not): a string
+        # that encodes into different AAD bytes fails tag verification as tamper. A non-string or
+        # non-encodable value cannot be built into the AAD at all, so no tag check runs —
+        # it is corruption-class, evicted by the read path. Gate on presence, not
+        # truthiness: 0 / False / [] / {} cannot be built into the AAD either.
+        original_type = metadata.original_type
+        if original_type is not None and not isinstance(original_type, str):
+            raise SerializationError(f"Corrupt frame header: original_type must be a string, got {type(original_type).__name__}")
+        if original_type:
+            try:
+                original_type_bytes = original_type.encode("utf-8")
+            except UnicodeEncodeError as e:
+                raise SerializationError("Corrupt frame header: original_type is not UTF-8 encodable") from e
+            parts += (len(original_type_bytes).to_bytes(4, "big"), original_type_bytes)
+
+        return b"".join(parts)
+
+    def _parse_aad(self, aad: bytes) -> dict[str, Optional[str]]:
+        """Parse length-prefixed AAD for validation and debugging.
+
+        Args:
+            aad: Length-prefixed AAD bytes (with version byte)
+
+        Returns:
+            Dictionary with parsed components. For v0x03:
+            tenant_id, cache_key, format, compressed, [original_type]
+
+        Raises:
+            ValueError: If AAD format is invalid
+
+        Examples:
+            Parse valid AAD v0x03:
+
+            >>> from cachekit.serializers.base import SerializationFormat, SerializationMetadata
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="acme")
+            >>> meta = SerializationMetadata(serialization_format=SerializationFormat.MSGPACK, compressed=False)
+            >>> aad = wrapper._create_aad(meta, "orders:12345")
+            >>> result = wrapper._parse_aad(aad)
+            >>> result["tenant_id"]
+            'acme'
+            >>> result["cache_key"]
+            'orders:12345'
+            >>> result["compressed"]
+            'False'
+
+            Reject old AAD versions (no backward compatibility - greenfield):
+
+            >>> old_aad = bytes([0x02]) + b"\\x00\\x00\\x00\\x04test"  # Version 0x02
+            >>> wrapper._parse_aad(old_aad)  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            ValueError: Unsupported AAD version: 0x2 (expected 0x03)
+
+            Reject empty AAD:
+
+            >>> wrapper._parse_aad(b"")  # doctest: +IGNORE_EXCEPTION_DETAIL
+            Traceback (most recent call last):
+                ...
+            ValueError: Empty AAD
+        """
+        if len(aad) == 0:
+            raise ValueError("Empty AAD")
+
+        # Check version byte
+        version = aad[0]
+        if version != 0x03:
+            raise ValueError(f"Unsupported AAD version: {version:#x} (expected 0x03)")
+
+        # Parse length-prefixed components
+        components = []
+        offset = 1  # Skip version byte
+
+        while offset < len(aad):
+            # Read 4-byte length
+            if offset + 4 > len(aad):
+                raise ValueError("Invalid AAD: truncated length field")
+
+            length = int.from_bytes(aad[offset : offset + 4], "big")
+            offset += 4
+
+            # Read component
+            if offset + length > len(aad):
+                raise ValueError("Invalid AAD: truncated component")
+
+            component = aad[offset : offset + length].decode("utf-8")
+            components.append(component)
+            offset += length
+
+        # Return parsed components for v0x03:
+        # [tenant_id, cache_key, format, compressed, [original_type]]
+        return {
+            "tenant_id": components[0] if len(components) > 0 else "",
+            "cache_key": components[1] if len(components) > 1 else "",
+            "format": components[2] if len(components) > 2 else "",
+            "compressed": components[3] if len(components) > 3 else "",
+            "original_type": components[4] if len(components) > 4 else None,
+        }
+
+    @property
+    def is_encryption_enabled(self) -> bool:
+        """Always True — EncryptionWrapper requires encryption.
+
+        Examples:
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes)
+            >>> wrapper.is_encryption_enabled
+            True
+        """
+        return True
+
+    @property
+    def hardware_acceleration_enabled(self) -> bool:
+        """Check if hardware acceleration is enabled.
+
+        Returns True if AES-NI or equivalent CPU instructions are available.
+
+        Examples:
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes)
+            >>> isinstance(wrapper.hardware_acceleration_enabled, bool)
+            True
+        """
+        return self.encryptor.hardware_acceleration_enabled()
+
+    def get_encryption_info(self) -> dict[str, Any]:
+        """Get information about encryption status and configuration.
+
+        Returns a dictionary with encryption details for debugging and logging.
+
+        Examples:
+            Encryption enabled - full info:
+
+            >>> wrapper = EncryptionWrapper(master_key=secret_key_bytes, tenant_id="prod-tenant")
+            >>> info = wrapper.get_encryption_info()
+            >>> info["enabled"]
+            True
+            >>> info["algorithm"]
+            'AES-256-GCM'
+            >>> info["tenant_id"]
+            'prod-tenant'
+            >>> info["library"]
+            'ring (Rust)'
+            >>> "key_fingerprint" in info  # Fingerprint included (safe to log)
+            True
+        """
+        return {
+            "enabled": True,
+            "tenant_id": self.tenant_id,
+            "algorithm": "AES-256-GCM",
+            "key_fingerprint": self.encryption_key_fingerprint,
+            "hardware_acceleration": self.hardware_acceleration_enabled,
+            "library": "ring (Rust)",
+        }

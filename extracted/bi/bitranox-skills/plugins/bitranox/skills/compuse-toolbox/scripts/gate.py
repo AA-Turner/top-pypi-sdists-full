@@ -1,0 +1,947 @@
+# /// script
+# requires-python = ">=3.14"
+# ///
+"""Run quality gates, keep their REAL exit status, and only then run a follow-up action.
+
+Why: the recurring footgun is `<gate> 2>&1 | grep summary && git push`. A pipeline exits with
+its LAST element's status, so grep/head/tail succeed even when the gate failed - the `&&`
+fires and a red state gets pushed. Writing `echo "RC=$?"` after a pipe records the same wrong
+status. Hit three times in one session (twice unnoticed, once caught by the PreToolUse guard),
+which is why this exists: the guard blocks the wrong form but does not supply the right one.
+
+Each gate runs via subprocess with NO shell and NO pipe, so `returncode` is the gate's own.
+Output goes to a log; summary lines are grepped from that log AFTERWARDS, never from a pipe
+that could mask the status.
+
+A gate is given either as one quoted string (`--gate "<cmd ...>"`, or a lone positional), which
+is split into argv by the platform's own rules, or after `--`, where the tokens are ALREADY real
+argv and are taken verbatim - a `name=` prefix is only read on the quoted form.
+
+Quote that string with DOUBLE quotes, on every platform. Splitting is shlex on POSIX and
+CommandLineToArgvW on Windows, and a Windows command line has no single-quoting at all: a single
+quote arrives as an ordinary character glued to the argument, which then splits at its spaces
+anyway. So `--gate 'pytest -q'` is ONE gate on POSIX and two broken arguments on Windows.
+
+A gate is labeled by the `--name` written AFTER it (or a single-word `name=command` prefix);
+written order is the pairing, so a name can never land on a gate the user did not name. A
+lone positional gate (`-- <cmd ...>`) may be labeled by a single `--name` too, since there is
+then only one gate to label. Any other placement, and an empty label, is a usage error (exit 2),
+never a gate result. An unnamed gate is labeled by its whole command, never by argv[0].
+
+Two ways a correct exit status still proves nothing, both closed here:
+
+  * A SHARED log. The default used to be one fixed `<tempdir>/gate.log`. Gates APPEND, so two
+    runs at once (parallel agents, two worktrees, a CI matrix cell) wrote into one file and each
+    read the other's lines back - measured 2026-07-29, a PASS was read beside a different
+    worktree's log. The default is now a fresh per-invocation file; `--log` still pins an
+    explicit path, which is what a caller who wants to read the log afterwards should use.
+  * A filter that matched NOTHING. `pytest -k <typo>` and `cargo test <prefix no test starts
+    with>` run zero tests and exit 0, so the status says green about work that never happened.
+    Each gate's output is now read for the count the runner itself reports, that count is
+    printed, and a recognised count of ZERO fails the gate whatever it exited. Recognised:
+    pytest, cargo/libtest, unittest (`Ran 0 tests`) and go test (every package line
+    `[no tests to run]`). A gate that is not one of those reports no count and is judged on its
+    status alone - so a zero run of any OTHER runner still passes.
+
+A malformed invocation - an empty gate (`--gate ""` or `-- ""`), an unclosed quote, a bad
+--summary regex, or a --name whose nearest preceding gate is the positional one beside a --gate
+(which gate it labels is ambiguous) - is a usage error, exit 2, never a traceback. On Windows a bare `npm`/`yarn`/`pnpm` (a `.cmd` shim) that
+CreateProcess cannot find is retried through PATHEXT instead of reading as rc=127.
+
+Gates run WITHOUT a shell, so `cd sub && pytest` or `FOO=1 pytest` is not a gate. Say it with
+options instead: `--cwd DIR` and `--env K=V` (repeatable) apply to every gate and to `--then`;
+`--gate-cwd DIR` and `--gate-env K=V` written AFTER a --gate apply to that gate only and override
+the global ones. An env value is ADDED to the inherited environment, never a replacement for it.
+A missing directory or a malformed K=V is a usage error, exit 2. `--gate-env K=@path` reads the
+value from that file (trailing newlines dropped, as `$(cat path)` would; `K=@@x` is the literal
+`@x`), which is how a commit message reaches `make push` with no shell anywhere.
+
+For the same reason a quoted gate string holding a command substitution (`$(...)` or a backtick)
+is a usage error, exit 2, naming the token: no shell would expand it, so the program would get the
+characters - measured, `make push MSG="$(cat msgfile)"` as a gate pushed a commit titled with the
+unexpanded text. Tokens after a word naming a shell (`bash -c '...'`) are that shell's script and
+are allowed; tokens after `--` are real argv and are taken verbatim, as always.
+
+A bare shell operator as its own word (`&&`, `||`, `|`, `;`) in a quoted gate is refused the same
+way: one command per --gate, repeated in run order. A quoted or escaped one (`";"`, or the `\\;`
+that `find -exec` ends with) is an ordinary argument and passes. And a positional written WITHOUT
+`--` beside a --gate is accepted only when it is one token holding a space (a quoted command):
+`--gate make test` reaches argparse as `--gate make` plus a stray `test`, and running both as gates
+turned a missing quote into a green that never ran the suite.
+
+The report on stdout prints each gate's line INDENTED by two spaces (`  [PASS] <cmd> (rc=0)`), so a
+caller must match it unanchored; the closing `ALL GATES PASSED` / `GATE RED - follow-up NOT run`
+line is not indented.
+
+Exit codes: 0 every gate passed (or, with --then, the follow-up's own code); a red run exits the
+single failing gate's OWN code where that is unambiguous (a taxonomy code such as 2 survives),
+else 1; 2 when the runner itself could not do its job - a gate that could not be STARTED (not
+found, not executable; a gate that ran and exited 127 keeps its 127), a log it cannot write, a
+usage error, or a crash. Note the overlap: a gate's own 2 passes through as 2 too, and the report
+lines say which it was.
+
+Run (plain python3, NOT uv run: this jig declares no dependencies, and uv run puts its own
+ephemeral interpreter on the environment the CHILD gates inherit - measured, a gate shelling
+out to `python3 -m pytest` then died with `No module named pytest` and reported a false RED):
+  python3 scripts/gate.py --log /tmp/g.log -- pytest -q
+  python3 scripts/gate.py --log /tmp/g.log --summary "passed" \\
+      --gate "pytest -q" --name "unit tests" \\
+      --gate "ruff check src" \\
+      --then "git push origin HEAD"
+  python3 scripts/gate.py --cwd sub/project --env PYTHONUTF8=1 --gate "python3 -m pytest -q"
+"""
+
+# Run with plain python3, never `uv run`: the command this jig runs inherits the launcher's
+# environment, and under uv run a child `python3` resolves to uv's throwaway build env, where
+# pytest and the project's packages are missing - a false RED. toolbox-nudge reads this.
+LAUNCH_WITH = "python3"
+
+import argparse
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from _cli_envelope import run_guarded
+
+
+_NAME_WIDTH = 56                                                # keeps one report line readable
+
+# NOT "/tmp": on Windows that string is DRIVE-RELATIVE, not absolute - Path turns it into
+# `\tmp`, so the log silently lands on whichever drive happens to be current and the
+# "log: ..." line printed at the end names a path the user cannot open.
+def default_log_path() -> str:
+    """A FRESH log file for THIS invocation - deliberately never a shared, fixed name.
+
+    The old default was the one constant path `<tempdir>/gate.log`. Gates append to it, so two
+    runs at the same time interleave into a single file and each one greps the other's output
+    back out: measured 2026-07-29, a PASS was read beside another worktree's log. Nothing in the
+    report shows it, because the `log:` line names the same path either way - the wrong answer
+    is indistinguishable from the right one, which is the exact failure this tool exists to
+    prevent, arriving through the log instead of through a pipe.
+
+    mkstemp rather than an f-string on the pid: it creates the file ATOMICALLY under a name
+    nothing else holds, so two runs cannot be handed the same path even when they share a pid
+    namespace (containers) or a pid has been recycled. The pid stays in the PREFIX because it is
+    what a human greps for when several of these are lying around in the temp dir.
+
+    No `dir=`, so mkstemp resolves the temp dir through tempfile.gettempdir() at CALL time and
+    TMPDIR set by the caller is honoured. A module constant computed at import would freeze
+    whatever was set when the module was first loaded, which is the same "decided once, shared
+    by everyone after" shape as the fixed log name being removed here.
+    """
+    fd, path = tempfile.mkstemp(prefix=f"gate-{os.getpid()}-", suffix=".log")
+    os.close(fd)                                    # only the NAME is wanted; run_gates reopens it
+    return path
+
+
+# What a test runner says it RAN. Kept as module constants so the shapes are readable together
+# and a new runner is one line rather than a rewrite of the matcher.
+_CARGO_RUNNING = re.compile(r"^\s*running (\d+) tests?\b", re.MULTILINE)
+_PYTEST_SELECTED = re.compile(r"^.*?\b(\d+) selected\b", re.MULTILINE)
+_PYTEST_COLLECTED = re.compile(r"^.*?\bcollected (\d+) items?\b", re.MULTILINE)
+_PYTEST_NO_TESTS = re.compile(r"^.*\bno tests ran\b", re.MULTILINE)
+_UNITTEST_RAN = re.compile(r"^Ran (\d+) tests? in\b", re.MULTILINE)
+_GO_OK_LINE = re.compile(r"^ok\s+\S+.*$", re.MULTILINE)
+_GO_NOTHING_RUN = "[no tests to run]"
+_GO_WARNING = re.compile(r"^testing: warning: no tests to run\b", re.MULTILINE)
+
+
+def observed_test_count(text: str) -> int | None:
+    r"""How many tests the gate's OWN output says it ran, or None if it is not a test run.
+
+    None and 0 are DIFFERENT answers and must stay so. None means "this gate is not a test
+    runner" - `ruff check`, `git status`, a build - and it goes on being judged by its exit
+    status alone. 0 means "a test runner ran and nothing was there to run", which is the state
+    this function exists to catch. Defaulting an unrecognised gate to 0 would fail every lint
+    gate in every caller's pipeline, so the recogniser has to be able to say "not applicable".
+
+    That is also why the shapes below are narrow rather than a generic "(\d+) (passed|errors)"
+    sweep: a linter printing `Found 0 errors.` is a GREEN run, and a matcher loose enough to
+    read a count out of it turns the tool's own success line into a red gate.
+
+    cargo/libtest prints one `running N tests` line per test BINARY, so those SUM - a workspace
+    whose lib tests ran and whose integration binary matched nothing has still run tests.
+
+    pytest is read in the order that survives DESELECTION, because deselection is precisely the
+    zero-match case: `collected 300 items / 300 deselected / 0 selected` is a filter that hit
+    nothing, and its `collected` number is 300, so reading `collected` alone reports the empty
+    run as a 300-test pass. The SELECTED count wins wherever pytest prints one. `no tests ran`
+    is pytest's own wording for the same state under `-q`, where it prints no counts at all.
+
+    Known limit, deliberately left: a `-q` run that DID run tests prints only `5 passed`, which
+    is not matched here, so it reports None and is judged on its status. That is the safe
+    direction - the dangerous state (zero) is still caught by `no tests ran`, and widening the
+    match to the summary line is what would produce the false red described above.
+
+    unittest (and Django's runner) print `Ran N tests in ...`, which SUMS like cargo; before
+    Python 3.12 a zero run exited 0, so `Ran 0 tests` is the only evidence of it.
+
+    `go test` prints no count at all in its default mode, only one `ok <pkg> <time>` line per
+    package, suffixed `[no tests to run]` when the -run filter matched nothing THERE. So it is a
+    zero only when EVERY package line carries that suffix: one package that ran tests beside one
+    that matched nothing has still run tests, and its count is simply unknown (None). A bare test
+    binary prints just `testing: warning: no tests to run`, which is a zero.
+    """
+    cargo = [int(n) for n in _CARGO_RUNNING.findall(text)]
+    if cargo:
+        return sum(cargo)
+    selected = _PYTEST_SELECTED.findall(text)
+    if selected:
+        return int(selected[-1])
+    collected = _PYTEST_COLLECTED.findall(text)
+    if collected:
+        return sum(int(n) for n in collected)
+    if _PYTEST_NO_TESTS.search(text):
+        return 0
+    ran = _UNITTEST_RAN.findall(text)
+    if ran:
+        return sum(int(n) for n in ran)
+    return _go_count(text)
+
+
+def _go_count(text: str) -> int | None:
+    """0 when go test demonstrably ran nothing anywhere, else None (see observed_test_count)."""
+    packages = _GO_OK_LINE.findall(text)
+    if packages:
+        return 0 if all(_GO_NOTHING_RUN in line for line in packages) else None
+    return 0 if _GO_WARNING.search(text) else None
+
+
+def _windows_argv(command):
+    r"""Windows argv via CommandLineToArgvW - the C runtime's OWN command-line parser.
+
+    This is the function every Windows program uses to read its own command line, so a command
+    string is split here exactly as the program it names would split it. ctypes is stdlib, which
+    matters: a hook runs on a bare interpreter with no venv and no third-party import available.
+
+    `ctypes.wintypes` does not import on POSIX at all, so the import has to be function-local.
+    """
+    if not command.strip():
+        # CommandLineToArgvW("") does NOT return an empty list - it returns the path of the
+        # CURRENT executable, so an empty spec would silently become a gate on python itself.
+        return []
+    import ctypes                       # noqa: PLC0415 - Windows-only; wintypes cannot import on POSIX
+    from ctypes import wintypes         # noqa: PLC0415 - same
+
+    shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    shell32.CommandLineToArgvW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+    shell32.CommandLineToArgvW.restype = ctypes.POINTER(wintypes.LPWSTR)
+    kernel32.LocalFree.argtypes = [wintypes.HLOCAL]
+    kernel32.LocalFree.restype = wintypes.HLOCAL
+
+    count = ctypes.c_int(0)
+    argv = shell32.CommandLineToArgvW(command, ctypes.byref(count))
+    if not argv:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return [argv[i] for i in range(count.value)]
+    finally:
+        kernel32.LocalFree(argv)
+
+
+def split_command(spec: str) -> list[str]:
+    r"""Split one quoted command string into argv, by the platform's own rules.
+
+    POSIX: shlex. Windows: CommandLineToArgvW, so the string is split exactly as the program it
+    names would split it.
+
+    shlex's POSIX mode was the bug. It treats a backslash as an ESCAPE, so on Windows it
+    destroyed every path in a command: `C:\Program Files\Py\python.exe` became `C:Program` +
+    `FilesPypython.exe`, and the caller then ran a binary that does not exist. Approximating the
+    rules with shlex-minus-escape-processing fixed the common shapes but still mis-read the C
+    runtime's own `"a\"b"` quoting, so the real parser is called instead: it removes the class of
+    problem rather than the instances of it.
+
+    Kept identical in gate.py, diffbehave.py and hooks/harness_checks.py; ci_triage.py imports
+    this one.
+    """
+    if os.name != "nt":
+        return shlex.split(spec)
+    return _windows_argv(spec)
+
+
+def derived_name(argv: list[str]) -> str:
+    """The label for a gate nobody named: the COMMAND ITSELF, truncated.
+
+    Deliberately not argv[0] - see gate_spec for why that produced reports like "[PASS] env".
+    Both routes into a gate (a single --gate/positional string and `-- <cmd ...>`) derive their
+    name here, so the same command cannot be labeled two different ways depending on how it was
+    written. The two routes differ only in SPLITTING: a quoted string goes through
+    split_command (shlex on POSIX, CommandLineToArgvW on Windows), while
+    tokens after `--` are taken verbatim (the shell already split them, and re-splitting a lone
+    one tore a path with a space in half - see main).
+    """
+    return " ".join(argv)[:_NAME_WIDTH]
+
+
+def gate_spec(spec: str):
+    """Turn one --gate string into (display name, argv).
+
+    `name=command` sets the name explicitly, but only when the head reads like an actual
+    label: a single word, no leading '-', no '/'. A real invocation was `env -u VIRTUAL_ENV
+    BMK_PYTHON_CMD=/path/.venv/bin/python make test` - that command carries a genuine
+    assignment (`BMK_PYTHON_CMD=...`) of its own, and partitioning on that first '=' gives a
+    head of "env -u VIRTUAL_ENV BMK_PYTHON_CMD": non-empty, no leading '-', no '/', so an
+    earlier version of this guard accepted it as the label and ran "/path/.venv/bin/python
+    make test" as the gate - the interpreter tried to open a file literally named "make" and
+    died, reported as a genuine-looking FAIL for what was really a parsing mistake (exactly
+    the misattribution this tool exists to prevent). A real label is one word ("unit",
+    "lint"); a multi-word head is the START of a command, never a name, so any whitespace in
+    the head disqualifies it and the whole spec is kept as the command.
+
+    Otherwise the name is the COMMAND ITSELF, truncated - deliberately not argv[0], which is a
+    wrapper (env/uv/timeout/sudo) far more often than it is the thing under test and produced
+    reports like "[PASS] env". Skipping wrappers cleverly was tried and misfired (`env -u X uv
+    run pytest` came out as "run --extra dev"), so this shows the command verbatim: longer,
+    but it never lies.
+    """
+    name = ""
+    if "=" in spec:
+        head, _, tail = spec.partition("=")
+        head = head.strip()
+        # a label is a single word - never split `--flag=value`, a path, or a multi-word
+        # command prefix that merely happens to contain its own '=' assignment further along
+        if head and not head.startswith("-") and "/" not in head and not any(c.isspace() for c in head):
+            name, spec = head, tail
+    argv = split_command(spec)
+    if not argv:
+        raise ValueError(f"empty gate: {spec!r}")
+    token = shell_syntax_token(argv)
+    if token is not None:
+        raise ValueError(
+            f"gate {spec!r} holds shell syntax in {token!r}, but a gate runs without a shell, so "
+            "the program would receive it literally (a `make push MSG=\"$(cat f)\"` gate once "
+            "pushed a commit titled with the unexpanded text). Put the value in a file and pass "
+            "it as --gate-env K=@file, or put the command in a script; for real shell expansion "
+            "name the shell: --gate \"bash -c '...'\"; to pass the characters literally, give "
+            "the gate after --")
+    operator = shell_operator_token(argv, written=written_words(spec))
+    if operator is not None:
+        raise ValueError(
+            f"gate {spec!r} holds the shell operator {operator!r}, but a gate runs without a "
+            "shell, so the operator and everything after it would reach the first program as "
+            "ARGUMENTS (`--gate \"true && false\"` passed; a chained cargo gate failed on its "
+            "own option parsing). Give one command per --gate, repeated in the order to run; "
+            "for a real pipeline name the shell: --gate \"bash -c '...'\"")
+    return (name[:_NAME_WIDTH] if name else derived_name(argv)), argv
+
+
+_SHELL_SUBSTITUTIONS = ("$(", "`")
+"""What a shell would have EXPANDED in a quoted gate string. A bare `$VAR` is left alone: it is
+far commoner as literal text (a regex, a make variable) than as a forgotten expansion."""
+
+_SHELLS = frozenset({"sh", "bash", "dash", "zsh", "ksh", "mksh", "fish", "busybox",
+                     "pwsh", "powershell", "cmd"})
+
+
+def shell_syntax_token(argv: list[str]) -> str | None:
+    """The first argv token holding a command substitution no shell will expand, else None.
+
+    A gate runs with NO shell, so `$(cat msgfile)` or a backticked command in it reaches the
+    program as those characters. That passes silently whenever the program accepts any text,
+    which is exactly the dangerous case: measured, `make push MSG="$(cat msgfile)"` given as a
+    --gate went green and pushed a public commit whose subject was the literal `$(cat ...)`.
+
+    Tokens after a word naming a shell (`bash -c '...'`, `env -u X sh -c '...'`) are that
+    shell's own script and ARE expanded - by it - so they are not reported: that form is the
+    documented way to ask for shell syntax in a gate.
+
+    Examples:
+        >>> shell_syntax_token(["make", "push", "MSG=$(cat f)"])
+        'MSG=$(cat f)'
+        >>> shell_syntax_token(["bash", "-c", "echo $(date)"]) is None
+        True
+    """
+    for token in argv:
+        word = os.path.basename(token).lower()
+        if word.endswith(".exe"):
+            word = word[:-4]
+        if word in _SHELLS:
+            return None
+        if any(marker in token for marker in _SHELL_SUBSTITUTIONS):
+            return token
+    return None
+
+
+_SHELL_OPERATORS = frozenset({"&&", "||", "|", ";"})
+"""Whole argv tokens that only a shell gives meaning to. Only WHOLE tokens: `a|b` inside a regex
+argument and `x;y` inside a value are ordinary text."""
+
+
+def written_words(spec: str) -> frozenset[str] | None:
+    r"""Each word of ``spec`` exactly as WRITTEN, quotes and escapes included; None if unsplittable.
+
+    Splitting erases the one fact the operator check needs: `\;` (what `find -exec` takes), `";"`
+    and a bare `;` all become the argv token `;`, and only the bare one is a chain. So the words
+    are read again with the same quoting rules as :func:`split_command`, each kept as the slice of
+    ``spec`` it came from. A word equal to an operator therefore had no quote or escape around it.
+    On Windows only `"` quotes and a backslash is not an escape, as for CommandLineToArgvW.
+
+    Examples:
+        >>> sorted(written_words('rm {} \\; "&&"'))
+        ['"&&"', '\\;', 'rm', '{}']
+    """
+    lexer = shlex.shlex(spec, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    if os.name == "nt":
+        lexer.quotes, lexer.escape = '"', ""
+    words: set[str] = set()
+    try:
+        while True:
+            start = lexer.instream.tell()
+            if lexer.get_token() is None:
+                return frozenset(words)
+            words.add(spec[start:lexer.instream.tell()].strip())
+    except ValueError:
+        # Only reachable where these rules approximate the real splitter (a Windows `\"`): no
+        # word can be vouched for, so every operator token counts as bare, as before.
+        return None
+
+
+def shell_operator_token(argv: list[str], *, written: frozenset[str] | None = None) -> str | None:
+    r"""The first argv token that is a bare shell operator no shell will act on, else None.
+
+    Tokens after a word naming a shell are that shell's script, as in :func:`shell_syntax_token`.
+    ``written`` is :func:`written_words` of the string ``argv`` was split from: an operator token
+    that is not among them was quoted or escaped there, so it is an argument, not a chain. None
+    (argv given verbatim, or not re-readable) counts every operator token.
+
+    Examples:
+        >>> shell_operator_token(["cargo", "fmt", "--check", "&&", "cargo", "clippy"])
+        '&&'
+        >>> shell_operator_token(["grep", "-E", "a|b"]) is None
+        True
+        >>> shell_operator_token(["rm", "{}", ";"], written=frozenset({"\\;"})) is None
+        True
+    """
+    for token in argv:
+        word = os.path.basename(token).lower()
+        if word.endswith(".exe"):
+            word = word[:-4]
+        if word in _SHELLS:
+            return None
+        if token in _SHELL_OPERATORS and (written is None or token in written):
+            return token
+    return None
+
+
+class _WrittenOrder(argparse.Action):
+    """Append (option, value) to ONE list shared by --gate and --name, in written order.
+
+    argparse's own `action="append"` fills a separate list per option, which discards the order
+    the two were interleaved in. Pairing those lists by index made `--gate A --gate B --name x`
+    label gate A - a label on a gate the user never named, and the exact mislabeling this tool
+    exists to prevent. The written order IS the pairing, so it has to survive parsing.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        written = getattr(namespace, "written", None)
+        if written is None:
+            written = []
+            setattr(namespace, "written", written)              # per-parse list; the default stays None
+        written.append((self.dest, values))
+
+
+def pair_names_with_gates(written, has_positional_gate: bool):
+    """Turn the written (option, value) sequence into [(explicit name or None, gate spec)].
+
+    A --name labels the ONE --gate written before it. Consequences, all deliberate:
+      * fewer names than gates is normal - an unnamed gate keeps the name derived from its
+        command, and nothing shifts;
+      * a second --name for the same gate is 'more names than gates' - the only way to write
+        it is to intend a pairing that does not exist;
+      * a --name before any --gate has nothing to label. It is accepted in exactly one
+        unambiguous case, returned as `leading`: a lone positional gate (`--name x -- true`),
+        which cannot be preceded by anything because it is always written last;
+      * an EMPTY (or blank) --name is refused outright. It cannot label anything, yet it still
+        consumed its gate's one pairing slot, so `--gate g --name "" --name real` failed with
+        "more --name than --gate" although one usable name was given - a message describing a
+        mistake the user did not make.
+
+    Returns (pairs, leading_names). Raises ValueError with a message describing THIS mistake -
+    never a name/gate count, which would misdescribe a misplaced --name.
+    """
+    pairs: list[tuple[str | None, str]] = []
+    leading: list[str] = []
+    for option, value in written:
+        if option == "gate":
+            pairs.append((None, value))
+            continue
+        if not value.strip():
+            raise ValueError("--name must not be empty: an empty label cannot name a gate, and "
+                             "silently dropping it would consume that gate's pairing slot")
+        if not pairs:
+            leading.append(value)
+        elif pairs[-1][0] is not None:
+            raise ValueError(
+                f"more --name than --gate: each --name labels the one --gate written before it, "
+                f"and that gate already has the name {pairs[-1][0]!r}"
+            )
+        else:
+            pairs[-1] = (value, pairs[-1][1])
+    if leading and (pairs or not has_positional_gate):
+        raise ValueError("--name must be written AFTER the --gate it labels")
+    if len(leading) > 1:
+        raise ValueError(f"more --name than --gate: {len(leading)} names for the one gate given")
+    return pairs, leading
+
+
+@dataclass
+class GateResult:
+    name: str
+    argv: list[str]
+    returncode: int
+    summary_lines: list[str] = field(default_factory=list)
+    test_count: int | None = None
+    started: bool = True
+    """False when the gate could not be spawned at all: the RUNNER failed, not the gate."""
+
+    @property
+    def ok(self) -> bool:
+        """Green only if it exited 0 AND, where it is a test run, actually ran a test.
+
+        `test_count != 0` is True for None too, and that is the point: a gate that is not a test
+        runner has no count to refuse and keeps being judged on its status alone.
+        """
+        return self.returncode == 0 and self.test_count != 0
+
+
+@dataclass
+class GateReport:
+    results: list[GateResult]
+
+    @property
+    def ok(self) -> bool:
+        """True only when EVERY gate passed. A missing binary counts as failed, and so does a
+        test gate that ran zero tests however it exited - see GateResult.ok."""
+        return all(r.ok for r in self.results)
+
+
+def resolve_argv0(argv: list[str], *, windows: bool = os.name == "nt", which=shutil.which) -> list[str]:
+    """On Windows, argv[0] resolved through PATH and PATHEXT; elsewhere argv unchanged.
+
+    CreateProcess appends only `.exe` and never consults PATHEXT, so a bare `npm`, `yarn` or
+    `pnpm` - each a `.cmd` shim - cannot start without a shell and reads as a false red rc=127.
+    A name that does not resolve is left as written, so the missing-binary 127 still happens.
+    `windows` and `which` are parameters so both platforms' behaviour is testable on either.
+    Used only as the retry in _run_one.
+    """
+    if not windows or not argv:
+        return list(argv)
+    found = which(argv[0])
+    return [found, *argv[1:]] if found else list(argv)
+
+
+@dataclass(frozen=True)
+class GateSettings:
+    """Where a gate runs and what it adds to the environment it inherits.
+
+    `env` holds only the ADDED variables: a subprocess `env=` replaces the whole environment, and
+    on Windows a lost SystemRoot kills the child with empty output, so the merge with os.environ
+    happens at the spawn and nowhere else.
+    """
+
+    cwd: str | None = None
+    env: tuple[tuple[str, str], ...] = ()
+
+    def over(self, base: GateSettings) -> GateSettings:
+        """These settings on top of `base`: a cwd replaces, env entries merge (these win)."""
+        return GateSettings(self.cwd or base.cwd, (*base.env, *self.env))
+
+    def child_env(self) -> dict[str, str] | None:
+        return {**os.environ, **dict(self.env)} if self.env else None
+
+
+def _run_one(argv: list[str], settings: GateSettings = GateSettings()) -> tuple[str, int]:
+    """Run one gate; (combined output, exit status). Raises OSError when it cannot start.
+
+    The PATHEXT lookup is a RETRY after CreateProcess could not find the name, never the first
+    attempt: CreateProcess searches the parent's own directory and the system directories BEFORE
+    PATH, so resolving every name up front could pick a different `python` than it would.
+    """
+    try:
+        proc = _spawn(argv, settings)
+    except FileNotFoundError:
+        resolved = resolve_argv0(argv)
+        if resolved == list(argv):
+            raise
+        proc = _spawn(resolved, settings)
+    return (proc.stdout or "") + (proc.stderr or ""), proc.returncode
+
+
+def _spawn(argv: list[str], settings: GateSettings = GateSettings()
+           ) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", check=False, cwd=settings.cwd,
+                          env=settings.child_env())
+
+
+def run_gates(gates, log_path, summary: str = "") -> GateReport:
+    """Run `gates` in order, appending all output to `log_path`; return the real statuses.
+
+    `gates` is [(name, argv_list)] or [(name, argv_list, GateSettings)]. argv is a LIST, never a
+    shell string, so no quoting or globbing surprises and no shell to swallow the status.
+    `summary` is an optional regex; matching lines from that gate's own output are kept for a
+    compact report.
+    """
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    pattern = re.compile(summary) if summary else None
+    results: list[GateResult] = []
+
+    with log_path.open("a", encoding="utf-8") as log:
+        for name, argv, *rest in gates:
+            settings = rest[0] if rest else GateSettings()
+            log.write(f"\n=== gate: {name} :: {' '.join(argv)} ===\n")
+            log.flush()
+            started = True
+            try:
+                out, rc = _run_one(argv, settings)
+            except OSError as e:
+                # A missing/unrunnable binary is a FAILED gate, not a crash of the runner:
+                # the caller's follow-up must still be blocked. 127 is what a shell reports for
+                # it, kept for the report line; the RUN exits 2, since the gate never ran.
+                out, rc, started = f"could not run {argv!r}: {e}\n", 127, False
+            log.write(out)
+            log.flush()
+            # "\n" only: splitlines() also breaks on a form feed or U+2028 inside one output line
+            lines = ([ln.rstrip("\r") for ln in out.split("\n") if pattern.search(ln)]
+                     if pattern else [])
+            # Counted from the gate's OWN combined output, not from the log file: the log is
+            # opened in append mode and may already hold earlier gates, so reading it back
+            # would attribute a previous gate's tests to this one.
+            results.append(GateResult(name=name, argv=list(argv), returncode=rc,
+                                      summary_lines=lines, test_count=observed_test_count(out),
+                                      started=started))
+
+    return GateReport(results=results)
+
+
+def format_report(report: GateReport, log_path) -> str:
+    out = []
+    for r in report.results:
+        mark = "PASS" if r.ok else "FAIL"
+        # The count is printed for EVERY recognised test run, not only the zero one: a reader
+        # who never sees the number cannot notice it halving between two runs either.
+        counted = "" if r.test_count is None else f" [{r.test_count} tests]"
+        unstarted = "" if r.started else ", could not start"
+        out.append(f"  [{mark}] {r.name} (rc={r.returncode}{unstarted}){counted}")
+        if r.test_count == 0:
+            out.append("         REFUSED: ran 0 tests. A filter matching nothing exits 0, so "
+                       "this gate's status is not evidence that anything was checked.")
+        out.extend(f"         {ln.strip()}" for ln in r.summary_lines[:3])
+    out.append("")
+    out.append("ALL GATES PASSED" if report.ok else "GATE RED - follow-up NOT run")
+    out.append(f"log: {log_path}")
+    return "\n".join(out)
+
+
+def red_status(report: GateReport) -> int:
+    """The exit code for a red report: the failing gate's OWN code where that is unambiguous.
+
+    Collapsing every failure to 1 would re-create, one layer out, the masking this tool exists to
+    prevent - a pipe masks with its last element's status, a runner with its own. It costs most on
+    a gate whose codes are a TAXONOMY rather than pass/fail (the provmm Leg 3 perf gate: 0 clean,
+    2 a metric regressed, 1 no metrics measured), where a reported 1 reads as "the measurement
+    crashed" instead of "it returned a verdict". Not hypothetical: a background task's completion
+    notification carries THIS process's code, not the gate's, so the collapse is what a caller
+    actually sees.
+
+    Ambiguity falls back to 1, and one case must never propagate: a gate that EXITED 0 and is red
+    anyway (it ran zero tests). Handing back its 0 would report success for the single failure
+    mode an exit code cannot express, which is the reason that refusal exists.
+
+    A gate that could not be STARTED makes the run 2 whatever else failed: the runner could not
+    do its job, and its 127 is a shell convention, not the gate's verdict.
+
+    Note the overlap with argparse's usage exit of 2: a usage error prints argparse's message and
+    no report at all, so the two stay distinguishable in the output though the code is shared.
+    """
+    if any(not r.started for r in report.results):
+        return 2
+    codes = {r.returncode for r in report.results if not r.ok}
+    if len(codes) == 1 and 0 not in codes:
+        return codes.pop()
+    return 1
+
+
+def _usage_checked(parser: argparse.ArgumentParser, parse, value):
+    """`parse(value)`, with a malformed value turned into a usage error (exit 2) instead of a
+    traceback and exit 1 - which a background caller reading only the status takes for a gate
+    that ran and failed. Covers an empty gate, an unclosed quote and a bad --summary regex."""
+    try:
+        return parse(value)
+    except (ValueError, re.error) as exc:
+        text = str(exc)
+        parser.error(text if repr(value) in text else f"{text}: {value!r}")
+        raise                                                   # unreachable: error() exits
+
+
+_VALUED_OPTIONS = ("--gate", "--name", "--log", "--summary", "--then", "--cwd", "--env",
+                   "--gate-cwd", "--gate-env")
+"""Every option main() declares that takes a value - _name_follows_positional must skip it."""
+
+
+def _name_follows_positional(raw: list[str]) -> bool:
+    """Whether a --name (or an abbreviation argparse would accept) has the POSITIONAL gate as
+    the nearest gate written before it. `<A> --gate B --name x` is unambiguous - x follows B
+    directly - so only a --name with no --gate between it and the positional counts. Walks `raw`
+    the way argparse did: an option taking a value skips the next token unless it carries
+    `=value`, and everything after `--` is the positional's own argv."""
+    valued = _VALUED_OPTIONS
+    positional_is_nearest = False
+    skip = False
+    for token in raw:
+        if skip:
+            skip = False
+            continue
+        if token == "--":
+            return False
+        if token.startswith("--"):
+            flag = token.split("=", 1)[0]
+            # An exact name wins over the prefixes it is itself a prefix of, as in argparse:
+            # `--gate` would otherwise also match `--gate-cwd` and read as ambiguous.
+            matches = [flag] if flag in valued else [opt for opt in valued if opt.startswith(flag)]
+            if positional_is_nearest and matches == ["--name"]:
+                return True
+            if matches == ["--gate"]:
+                positional_is_nearest = False
+            skip = "=" not in token and len(matches) == 1
+            continue
+        positional_is_nearest = True
+    return False
+
+
+def _one_quoted_command(rest: list[str]) -> bool:
+    """A lone positional token holding whitespace: one quoted command string, not a split word."""
+    return len(rest) == 1 and any(c.isspace() for c in rest[0].strip())
+
+
+def _tolerate_unencodable_stdout() -> None:
+    """`plain python3` on Windows leaves a piped stdout at cp1252, so a summary line holding a
+    character outside it crashed the report - and with it the --then the gates had earned."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(errors="replace")
+    except (ValueError, OSError):
+        pass
+
+
+def _env_pair(parser: argparse.ArgumentParser, option: str, text: str) -> tuple[str, str]:
+    key, sep, value = text.partition("=")
+    if not sep or not key or any(c.isspace() for c in key):
+        parser.error(f"{option} wants KEY=VALUE with a non-empty KEY, got {text!r}")
+    return key, value
+
+
+def _directory(parser: argparse.ArgumentParser, option: str, text: str) -> str:
+    if not os.path.isdir(text):
+        parser.error(f"{option} {text!r} is not an existing directory")
+    return text
+
+
+def gate_settings(parser: argparse.ArgumentParser, written) -> list[GateSettings]:
+    """One GateSettings per --gate, from the --gate-cwd / --gate-env written AFTER it.
+
+    Written order pairs them, as with --name: a setting written before any --gate has nothing to
+    apply to and is a usage error rather than a guess.
+    """
+    per_gate: list[GateSettings] = []
+    for option, value in written:
+        if option == "gate":
+            per_gate.append(GateSettings())
+            continue
+        if option not in ("gate_cwd", "gate_env"):
+            continue
+        flag = "--" + option.replace("_", "-")
+        if not per_gate:
+            parser.error(f"{flag} must be written after the --gate it applies to")
+        last = per_gate[-1]
+        if option == "gate_cwd":
+            per_gate[-1] = GateSettings(_directory(parser, flag, value), last.env)
+        else:
+            key, raw = _env_pair(parser, flag, value)
+            per_gate[-1] = GateSettings(last.cwd, (*last.env, (key, _env_value(parser, flag, raw))))
+    return per_gate
+
+
+def _env_value(parser: argparse.ArgumentParser, option: str, raw: str) -> str:
+    """A --gate-env value: `@path` is read from that file, `@@...` is a literal leading '@'.
+
+    The file form exists because a gate has no shell: `MSG="$(cat msgfile)"` in a gate string is
+    never expanded, so a commit message had no shell-free way in. Trailing newlines are dropped,
+    as `$(cat f)` drops them, so an editor's final newline does not end up in a commit subject.
+    The path is relative to where gate.py runs, not to --gate-cwd. `@@` keeps a real value that
+    starts with '@' (an npm scope such as `@scope/pkg`) writable.
+    """
+    if raw.startswith("@@"):
+        return raw[1:]
+    if not raw.startswith("@"):
+        return raw
+    path = raw[1:]
+    try:
+        return Path(path).read_text(encoding="utf-8").rstrip("\r\n")
+    except (OSError, UnicodeDecodeError) as exc:
+        parser.error(f"{option} cannot read the value file {path!r}: {exc}")
+        raise                                                   # unreachable: error() exits
+
+
+def main(argv=None) -> int:
+    """The CLI. A crash exits 2 (the runner could not run), never a traceback exiting 1."""
+    return run_guarded(_main, argv, command="gate", json_flags=())
+
+
+def _main(argv=None) -> int:
+    _tolerate_unencodable_stdout()
+    raw = list(sys.argv[1:] if argv is None else argv)
+    p = argparse.ArgumentParser(
+        description="run gates, keep their real exit status",
+        epilog="The report goes to stdout: one line per gate, each INDENTED by two spaces "
+               "before '[PASS] <cmd> (rc=0)' or '[FAIL] <cmd> (rc=N)', so match it unanchored "
+               "(grep -E '\\[(PASS|FAIL)\\]'), then the unindented closing line 'ALL GATES PASSED' "
+               "or 'GATE RED - follow-up NOT run'. One command per --gate: a gate has no shell, so "
+               "'&&', '||', '|' and ';' as bare words are refused.")
+    p.add_argument("--gate", action=_WrittenOrder, default=None,
+                   help="a gate as one DOUBLE-quoted string (repeatable), split into argv by "
+                        "the platform's rules (shlex on POSIX, CommandLineToArgvW on Windows, "
+                        "which has no single-quoting at all) and run "
+                        "without a shell. Optionally prefix it 'name=command' to label it, but "
+                        "only when name is a SINGLE WORD (no space, no leading '-', no '/') - "
+                        "anything else is left as part of the command untouched. For a label "
+                        "with spaces, use --name instead")
+    p.add_argument("--name", action=_WrittenOrder, default=None,
+                   help="an explicit label for the --gate WRITTEN BEFORE IT (repeatable; "
+                        "overrides any 'name=' prefix on that gate and is the only way to give "
+                        "a label with spaces). A lone positional gate may be labeled too. An "
+                        "empty or blank label is a usage error, not a silently ignored one")
+    p.add_argument("--log", default=None,
+                   help="append all gate output here [default: a FRESH per-invocation file "
+                        f"under {tempfile.gettempdir()}; the old fixed default was one shared "
+                        "path, so two concurrent runs appended into a single file and a reader "
+                        "could not tell whose output was whose]")
+    p.add_argument("--summary", default="", help="regex; matching output lines are shown per gate")
+    p.add_argument("--then", default="", help="run ONLY if every gate passed")
+    p.add_argument("--cwd", default=None,
+                   help="run every gate (and --then) in this directory; gates have no shell, so "
+                        "this is how to say `cd DIR && ...`")
+    p.add_argument("--env", action="append", default=[], metavar="K=V",
+                   help="add K=V to every gate's (and --then's) environment (repeatable); added "
+                        "to the inherited environment, never a replacement for it")
+    p.add_argument("--gate-cwd", action=_WrittenOrder, default=None, metavar="DIR",
+                   help="the working directory of the --gate written BEFORE it (overrides --cwd)")
+    p.add_argument("--gate-env", action=_WrittenOrder, default=None, metavar="K=V",
+                   help="add K=V for the --gate written BEFORE it only (repeatable; wins over "
+                        "--env). K=@FILE reads the value from FILE (trailing newlines dropped), "
+                        "K=@@x is the literal '@x'")
+    # NOT argparse.REMAINDER: it swallows every option that follows the first positional, so
+    # `gate.py "pytest -q" --then "git push"` collapsed into ONE nonsense gate and failed
+    # rc=127 naming the whole command line - a usage error wearing a broken-gate costume.
+    # With nargs="*" argparse parses the options normally and strips the first `--`.
+    p.add_argument("rest", nargs="*", help='<cmd> as one quoted string, or -- <cmd ...>')
+    args = p.parse_args(raw)
+
+    # `--` means the calling shell has ALREADY split the command, so what follows are real argv
+    # tokens; argparse strips that first `--`, so the raw arguments are the only place it is
+    # still visible. Deciding by COUNT instead re-split a lone token through shlex, and a path
+    # with a space in it (`-- '/path/my gate.sh'`) came apart into '/path/my' + 'gate.sh', ran
+    # '/path' and reported "[FAIL] /path (rc=127)" - a false red for a script that exits 0,
+    # which flipped to PASS as soon as any second token followed. A verdict must never turn on
+    # an argument the gate ignores.
+    positional = None
+    if args.rest:
+        if "--" in raw or len(args.rest) > 1:
+            if not args.rest[0].strip():
+                # `-- ""` names no program. Running it would report a gate result (rc=127) for
+                # what is a malformed invocation, and the quoted route already refuses the same.
+                p.error(f"empty gate: {args.rest!r}")
+            # Real argv already. The NAME still comes from the whole command, never argv[0]:
+            # `-- env -u VIRTUAL_ENV make --version` reported "[FAIL] env (rc=2)", naming the
+            # wrapper instead of the thing under test, while the single-string gate named it
+            # correctly - both routes derive the name through derived_name for that reason.
+            positional = (derived_name(args.rest), list(args.rest))
+        else:
+            # A lone positional written WITHOUT `--` is the whole gate as one quoted
+            # string, so it goes through split_command and can carry a name= prefix, exactly
+            # like --gate.
+            positional = _usage_checked(p, gate_spec, args.rest[0])
+
+    written = getattr(args, "written", None) or []
+    has_gate_option = any(option == "gate" for option, _ in written)
+    if has_gate_option and args.rest and "--" not in raw and not _one_quoted_command(args.rest):
+        # `--gate make test` reaches here as `--gate make` plus a stray positional `test`, and
+        # running the two as gates turns a missing quote into a green that never ran the suite.
+        # A positional beside --gate is kept only when it is plainly one quoted command.
+        p.error(f"stray argument(s) {args.rest!r} beside --gate: quote the WHOLE command, "
+                f"--gate \"make test\", or write each gate as its own --gate (a command already "
+                f"split into words goes after --)")
+    if not has_gate_option and positional is None:
+        p.error('no gate given: use --gate "<cmd>" or -- <cmd ...>')
+    if positional is not None and any(option == "gate" for option, _ in written) \
+            and _name_follows_positional(raw):
+        # Written order pairs a --name with the --gate before it, but a reader of
+        # `--gate A <B> --name x` means B. Neither reading is safe to guess.
+        p.error("a --name written after the positional gate is ambiguous beside --gate: write "
+                "that gate as --gate too, or put its --name before the positional")
+    if args.cwd is not None:
+        _directory(p, "--cwd", args.cwd)
+    shared = GateSettings(args.cwd, tuple(_env_pair(p, "--env", e) for e in args.env))
+    per_gate = gate_settings(p, written)
+    naming = [(option, value) for option, value in written if option in ("gate", "name")]
+    try:
+        pairs, leading = pair_names_with_gates(naming, positional is not None)
+    except ValueError as exc:
+        # A mispaired name is a USAGE error (exit 2), never a gate result: reporting it as a
+        # red gate would be the misattribution this tool exists to prevent.
+        p.error(str(exc))
+        raise                                                   # unreachable: p.error exits
+    _usage_checked(p, re.compile, args.summary)
+
+    gates = []
+    for (explicit, spec), own in zip(pairs, per_gate):
+        derived, gate_argv = _usage_checked(p, gate_spec, spec)
+        gates.append((explicit or derived, gate_argv, own.over(shared)))
+    if positional is not None:
+        name, gate_argv = positional
+        gates.append((leading[0] if leading else name, gate_argv, shared))
+
+    # Resolved HERE, not as an argparse default: an argparse default is evaluated once at
+    # parser-construction time, which would hand every gate run in one process the same file
+    # and reintroduce the sharing this fixes one scope further in.
+    try:
+        log_path = args.log or default_log_path()
+        report = run_gates(gates, log_path, args.summary)
+    except OSError as exc:
+        # The LOG, not a gate: run_gates turns a gate that cannot start into a red result, so an
+        # OSError reaching here is the runner unable to write where it was told to.
+        print(f"gate: cannot write the log {args.log or '(temp dir)'}: {exc}", file=sys.stderr)
+        return 2
+    print(format_report(report, log_path))
+    if not report.ok:
+        return red_status(report)
+    if args.then:
+        # The follow-up runs through a SHELL, unlike the gates. That is deliberate: a
+        # follow-up is routinely compound ("git add X && git commit"), and shlex-splitting
+        # it handed git a literal "&&" as a pathspec so the commit silently never ran. The
+        # tool's guarantee is that a GATE's status is never masked by a pipe - it was never
+        # that the follow-up avoids a shell. By here every gate has already passed.
+        print(f"\ngates green -> running: {args.then}")
+        # The child writes straight to the shared descriptor while print() sits in Python's
+        # buffer, which is block-sized on a pipe - unflushed, the follow-up's output came FIRST.
+        sys.stdout.flush()
+        return subprocess.run(args.then, shell=True, check=False, cwd=shared.cwd,
+                              env=shared.child_env()).returncode
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

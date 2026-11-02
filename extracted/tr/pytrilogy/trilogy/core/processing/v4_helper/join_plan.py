@@ -23,7 +23,7 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 
-from .concept_graph import _statement_scoped_relation_members
+from .concept_graph import _scope_and_phase, _statement_scoped_relation_members
 from .constants import FINAL_NODE_ID, GROUPING_DERIVATIONS
 from .functional_dependency import build_fd_closure, build_fd_determines_all
 from .models import GroupAttrs
@@ -307,7 +307,26 @@ def row_identity(
             if parent in attrs
         )
     )
+    # a WHERE gate over a row expression with no grain of its own
+    # (`upper(species) != 'X'`) is its own row stream, identified by the keys
+    # the expression is a function of
+    if (
+        not keys
+        and group.derivation == Derivation.BASIC
+        and not group.grain_components
+        and _scope_and_phase(group.label)[1] == "condition"
+    ):
+        keys |= _member_keys(group.primary_members, environment) & available
     return frozenset(keys) | (held & available)
+
+
+def _member_keys(members: Iterable[str], environment: BuildEnvironment) -> set[str]:
+    out: set[str] = set()
+    for address in members:
+        concept = environment.concepts.get(address)
+        if concept is not None and concept.keys:
+            out |= set(concept.keys)
+    return out
 
 
 def _fd_determined(
@@ -385,11 +404,14 @@ def root_carry_demand(
     sibling_keys = frozenset().union(
         *(attrs[other].emitted_grain for other in cover if other != gid)
     )
+    candidates = base & (merge_grain | sibling_keys)
+    members = frozenset(group.members)
     demand = _relevant_carry_keys(
         environment,
         concepts,
-        base & (merge_grain | sibling_keys),
-        frozenset(group.members),
+        candidates,
+        members
+        | _renderable(members, candidates, environment, frozenset({Derivation.BASIC})),
     )
     own = demand & ({c.address for c in concepts} | set(group.output_concepts))
     if own and all(
@@ -484,7 +506,7 @@ def _held(
 ) -> frozenset[str]:
     return (
         _from_row_parents(group_graph, attrs, gid, environment)
-        | _carries(
+        | carries(
             attrs[gid],
             identity,
             sibling_keys,
@@ -531,7 +553,7 @@ def _joined_on(group: GroupAttrs) -> frozenset[str]:
     )
 
 
-def _carries(
+def carries(
     group: GroupAttrs,
     identity: frozenset[str],
     sibling_keys: frozenset[str],
@@ -730,6 +752,17 @@ def _pair(
     return Pairing(left, right, frozenset(keys), kind, frozenset(implied))
 
 
+def _delivered_keys(
+    group: GroupAttrs, concepts: Sequence[BuildConcept]
+) -> frozenset[str]:
+    """The keys a ROOT contributor delivers: the FINAL wraps it to their grain,
+    so its rows are unique on them, and a row expansion of it (an unnest
+    carrying them) pairs with it there."""
+    if group.derivation != Derivation.ROOT:
+        return frozenset()
+    return frozenset(c.address for c in concepts if c.purpose == Purpose.KEY)
+
+
 def plan_final_join(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
@@ -761,6 +794,7 @@ def plan_final_join(
         | attrs[gid].emitted_grain
         | attrs[gid].anchor_keys
         | attrs[gid].extent_spans
+        | _delivered_keys(attrs[gid], cover[gid])
         for gid in contributors
     }
     carry_demands = {

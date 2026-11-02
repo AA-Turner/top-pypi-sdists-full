@@ -67,19 +67,19 @@ def create_session(status: davey.SessionStatus = davey.SessionStatus.inactive):
         return session
 
     # awaiting_response
-    session.process_proposals(davey.ProposalsOperationType.append, APPENDING_PROPOSALS)
+    cw = session.process_proposals(
+        davey.ProposalsOperationType.append, APPENDING_PROPOSALS
+    )
     if status == davey.SessionStatus.awaiting_response:
         return session
 
     # active
-    cw = session.process_proposals(
-        davey.ProposalsOperationType.append, APPENDING_PROPOSALS
-    )
     if cw is None:
         pytest.skip(
             "Could not obtain commit from proposals; skipping active session setup."
         )
     session.process_commit(cw.commit)
+    session.prepare_transition(0, session.protocol_version)
     return session
 
 
@@ -104,9 +104,6 @@ def test_set_external_sender_runs_successfully_on_valid_data():
     assert session.status == davey.SessionStatus.pending
 
 
-@pytest.mark.skipif(
-    davey.DEBUG_BUILD, reason="tls-codec panics on invalid data in debug builds"
-)
 def test_set_external_sender_throws_on_invalid_data():
     invalid_external_sender = bytes([0x40, 0x41])
     session = create_session()
@@ -171,9 +168,6 @@ def test_process_proposals_throws_on_inactive_sessions():
         )
 
 
-@pytest.mark.skipif(
-    davey.DEBUG_BUILD, reason="tls-codec panics on invalid data in debug builds"
-)
 def test_process_proposals_throws_on_invalid_proposals():
     session = create_session(davey.SessionStatus.pending)
     with pytest.raises(Exception):
@@ -193,26 +187,31 @@ def test_process_commit_runs_successfully_can_process_own_commit():
         davey.ProposalsOperationType.append, APPENDING_PROPOSALS
     )
     assert cw is not None
-    # should not raise
-    session.process_commit(cw.commit)
+    assert session.process_commit(cw.commit)
     assert session.status == davey.SessionStatus.active
+    session.prepare_transition(0, session.protocol_version)
     assert session.ready
 
 
-def test_process_commit_throws_on_non_awaiting_session():
-    with pytest.raises(Exception):
-        create_session(davey.SessionStatus.inactive).process_commit(EMPTY_BUFFER)
-    with pytest.raises(Exception):
-        create_session(davey.SessionStatus.pending).process_commit(EMPTY_BUFFER)
+def test_process_commit_ignores_commits_on_non_awaiting_session():
+    assert not create_session(davey.SessionStatus.inactive).process_commit(EMPTY_BUFFER)
+    assert not create_session(davey.SessionStatus.pending).process_commit(EMPTY_BUFFER)
 
 
-@pytest.mark.skipif(
-    davey.DEBUG_BUILD, reason="tls-codec panics on invalid data in debug builds"
-)
 def test_process_commit_throws_on_invalid_commit():
     session = create_session(davey.SessionStatus.awaiting_response)
     with pytest.raises(Exception):
         session.process_commit(EMPTY_BUFFER)
+
+
+def test_prepare_transition_clears_key_on_reinitialized_session_without_group():
+    session = create_session(davey.SessionStatus.active)
+    assert session.can_encrypt
+
+    session.reinit(1, MY_USER_ID, CHANNEL_ID)
+    # should not raise
+    session.prepare_transition(0, 1)
+    assert not session.can_encrypt
 
 
 def test_voice_privacy_code_empty_on_non_established_groups():
@@ -245,15 +244,13 @@ def test_own_leaf_index_behavior():
 
 def test_get_user_ids():
     assert create_session(davey.SessionStatus.inactive).get_user_ids() == []
-    assert create_session(davey.SessionStatus.pending).get_user_ids() == [
-        str(MY_USER_ID)
-    ]
+    assert create_session(davey.SessionStatus.pending).get_user_ids() == [MY_USER_ID]
     assert create_session(davey.SessionStatus.awaiting_response).get_user_ids() == [
-        str(MY_USER_ID)
+        MY_USER_ID
     ]
     assert create_session(davey.SessionStatus.active).get_user_ids() == [
-        str(MY_USER_ID),
-        str(OTHER_USER_ID),
+        MY_USER_ID,
+        OTHER_USER_ID,
     ]
 
 
@@ -264,6 +261,9 @@ def test_encrypt_decrypt_silence_frame_passthrough():
         session.decrypt(OTHER_USER_ID, davey.MediaType.audio, SILENCE_FRAME)
         == SILENCE_FRAME
     )
+    stats = session.get_decryption_stats(OTHER_USER_ID)
+    assert stats is not None
+    assert stats.passthroughs == 0
 
 
 def test_get_encryption_and_decryption_stats():
@@ -274,11 +274,14 @@ def test_get_encryption_and_decryption_stats():
     assert enc_stats.duration == 0
     assert enc_stats.attempts == 0
     assert enc_stats.max_attempts == 0
+    assert enc_stats.missing_keys == 0
 
     dec_stats = session.get_decryption_stats(OTHER_USER_ID)
     assert dec_stats is not None
     assert dec_stats.successes == 0
     assert dec_stats.failures == 0
     assert dec_stats.duration == 0
-    assert dec_stats.passthroughs == 0
     assert dec_stats.attempts == 0
+    assert dec_stats.missing_keys == 0
+    assert dec_stats.invalid_nonces == 0
+    assert dec_stats.passthroughs == 0

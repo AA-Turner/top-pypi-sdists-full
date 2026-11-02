@@ -209,9 +209,8 @@ SeamEngine::Built BSplineSeamEngine::build(Prepared &p) const {
             const auto &cj = fr->basis.crossing;
             if (cj.empty()) {
                 // wires on both sides with no crossing node: the transmitted
-                // blocks (step 4c)
-                for (uint8_t v : fr->basis.below_wire)
-                    if (!v) return decline("bspline-buried-mixed");
+                // blocks (step 4c), filled over the below->above grid
+                // (`_somm_transmitted_core`, momwire#1718 S12)
             } else {
                 // a two-radius node (antennaknobs plan U5) and a node gap on
                 // a crossing node keep the junction's KCL row (`build_basis`'
@@ -221,7 +220,11 @@ SeamEngine::Built BSplineSeamEngine::build(Prepared &p) const {
         }
         fr->B = bspline::port_columns(fr->args, fr->geom, fr->basis);
     } catch (const bspline::FrontNotPorted &e) {
-        return decline(std::string("bspline-") + e.what());
+        // a NotImplementedError in Python's words stays a decline on this
+        // route; the NEC-4.2 slot's engine prints it as the slot's refusal
+        Built d = decline(std::string("bspline-") + e.what());
+        if (e.python) d.error_kind = "NotImplementedError";
+        return d;
     } catch (const bspline::FrontValueError &e) {
         // Python's ValueError, which escapes to the INTERNAL ERROR frame
         b.kind = Built::raised;

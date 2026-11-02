@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: mastercard_places
+Version: 1.0.6
+Summary: MasterCard API Python SDK
+Home-page: https://www.developer.mastercard.com
+Author: MasterCard Worldwide
+Author-email: APISupport@mastercard.com
+License: BSD
+Description: MasterCard API Python SDK
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

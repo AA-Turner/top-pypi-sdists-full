@@ -53,19 +53,14 @@ def get_all_tests(
     for result in schema.get_all_operations():
         if isinstance(result, Ok):
             operation = result.ok()
-            try:
-                test = build_operation_test(
-                    config=schema.config,
-                    operation=operation,
-                    test_func=test_func,
-                    explicit_settings=settings,
-                    given_kwargs=given_kwargs or {},
-                    feedback=feedback,
-                )
-            except InvalidSchema as exc:
-                # Coverage cases are built with the test, so a malformed definition surfaces here.
-                yield Err(exc)
-                continue
+            test = build_operation_test(
+                config=schema.config,
+                operation=operation,
+                test_func=test_func,
+                explicit_settings=settings,
+                given_kwargs=given_kwargs or {},
+                feedback=feedback,
+            )
             yield Ok((operation, test))
             for schema_error in operation.schema_errors:
                 yield Err(schema_error)
@@ -231,7 +226,7 @@ class LazySchema:
                 for result in tests:
                     if isinstance(result, Ok):
                         operation, sub_test = result.ok()
-                        _set_node_id(request.node, f"{node_id}[{operation.method.upper()} {operation.path}]")
+                        _set_node_id(request.node, f"{node_id}[{operation.label}]")
                         with report_subtest(request.node, schema, operation.label, operation.tags):
                             run_subtest(operation, fixtures, sub_test, subtests)
                     else:
@@ -305,13 +300,9 @@ def _set_node_id(node: pytest.Function, node_id: str) -> None:
 def _schema_error(subtests: pytest.Subtests, error: InvalidSchema, node_id: str, node: pytest.Function) -> None:
     """Run a failing test, that will show the underlying problem."""
     sub_test = error.as_failing_test_function()
-    kwargs: dict[str, Any] = {}
-    if error.method:
-        kwargs["method"] = error.method.upper()
-    kwargs["path"] = error.path
     _set_node_id(node, f"{node_id}{schema_error_suffix(error)}")
     __tracebackhide__ = True
-    with subtests.test(**kwargs):
+    with subtests.test(label=error.label):
         sub_test()
 
 

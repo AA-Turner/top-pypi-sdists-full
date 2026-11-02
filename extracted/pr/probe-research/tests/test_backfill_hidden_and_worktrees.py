@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
 from probe.cli import backfill_run as runner
 from probe.cli import telemetry as tm
 
@@ -275,7 +275,7 @@ def test_credential_stores_stay_refused_whatever_the_allowlist_says(tmp_path, st
     }
     assert bf.CREDENTIAL_DIRS <= bf.SKIP_DIRS
     assert bf.CREDENTIAL_DIRS.isdisjoint(bf.RESEARCH_DOT_DIRS)
-    monkeypatch.setattr(bf, "RESEARCH_DOT_DIRS", bf.RESEARCH_DOT_DIRS | bf.CREDENTIAL_DIRS)
+    monkeypatch.setattr(bf.walk.skip_rules, "RESEARCH_DOT_DIRS", bf.RESEARCH_DOT_DIRS | bf.CREDENTIAL_DIRS)
     for name in bf.CREDENTIAL_DIRS:
         assert not bf.hidden_admitted(name, include=(name,)), name
         _write(tmp_path, f"{name}/secret", "SECRET")
@@ -334,7 +334,7 @@ def test_skipped_json_is_bounded_and_carries_every_count(tmp_path):
 
 
 def test_the_desktop_job_record_carries_the_skips(tmp_path, monkeypatch):
-    from probe.cli import desktop, import_jobs
+    from probe.cli.imports import desktop, jobs as import_jobs
 
     census = bf.Census(files=1, bytes=1, skipped_hidden=((".claude", 4),),
                        skipped_worktrees=((".claude/worktrees/agent-x", 9),))
@@ -349,7 +349,7 @@ def test_the_desktop_job_record_carries_the_skips(tmp_path, monkeypatch):
     del job["skipped"]
     assert "skipped" not in desktop._public_job(job), "additive: absent when not recorded"
     # No active worker: a foreground import records nothing anywhere.
-    monkeypatch.setattr(import_jobs, "_active_job", None)
+    monkeypatch.setattr(import_jobs.runner, "_active_job", None)
     import_jobs.remember_skipped(census.skipped_json())
 
 
@@ -400,8 +400,8 @@ def test_probe_backfill_hands_include_hidden_to_the_import(monkeypatch, tmp_path
 
     main_mod = sys.modules["probe.cli.main"]
     seen = {}
-    monkeypatch.setattr(bf, "run", lambda **kwargs: seen.update(kwargs) or [])
-    monkeypatch.setattr("probe.cli.bootstrap.ensure_persistent_install",
+    monkeypatch.setattr(bf.folder, "run", lambda **kwargs: seen.update(kwargs) or [])
+    monkeypatch.setattr("probe.cli.install.bootstrap.ensure_persistent_install",
                         lambda: type("Boot", (), {"message": ""})())
     monkeypatch.setattr(tm.TelemetryContext, "emit", lambda self, *a, **kw: None)
     main_mod.backfill(
@@ -414,7 +414,7 @@ def test_probe_backfill_hands_include_hidden_to_the_import(monkeypatch, tmp_path
 
 
 def test_scanned_counts_are_numbers_only():
-    from probe.cli import backfill_import
+    from probe.cli.imports.folder import flow as backfill_import
 
     counts = backfill_import._skip_counts(
         bf.Census(files=0, bytes=0, skipped_hidden=((".claude", 2),),

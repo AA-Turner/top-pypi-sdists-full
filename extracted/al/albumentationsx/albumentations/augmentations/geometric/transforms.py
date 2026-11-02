@@ -1,0 +1,1550 @@
+"""Geometric transformation classes for image augmentation.
+This module provides a collection of transforms that modify the geometric properties
+of images and associated data (masks, bounding boxes, keypoints). Includes implementations
+for flipping, transposing, affine transformations, distortions, padding, and more complex
+transformations like grid shuffling and thin plate splines.
+"""
+
+import random
+from typing import Annotated, Any, ClassVar, Literal, Self, TypeVar, cast
+from warnings import warn
+
+import cv2
+import numpy as np
+from albucore import is_grayscale_image, is_rgb_image, warp_affine
+from pydantic import (
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+from pydantic.functional_validators import AfterValidator
+
+from albumentations.augmentations.utils import check_range
+from albumentations.core.bbox_utils import (
+    BboxProcessor,
+    denormalize_bboxes,
+    normalize_bboxes,
+)
+from albumentations.core.invocation import SamplingContext
+from albumentations.core.pydantic import (
+    check_range_bounds,
+    nondecreasing,
+)
+from albumentations.core.transform_params import SampledParams, TargetSet
+from albumentations.core.transforms_interface import (
+    BaseTransformInitSchema,
+    DualTransform,
+)
+from albumentations.core.type_definitions import (
+    ALL_TARGETS,
+    CV2_BORDER_CONSTANT,
+    CV2_INTER_LINEAR,
+    CV2_INTER_NEAREST,
+    BorderModeType,
+    ImageType,
+    InterpolationType,
+    StackedMasks4D,
+)
+
+from . import functional as fgeometric
+
+__all__ = [
+    "Affine",
+    "GridElasticDeform",
+    "Morphological",
+    "Perspective",
+    "RandomGridShuffle",
+    "ShiftScaleRotate",
+]
+
+NUM_PADS_XY = 2
+NUM_PADS_ALL_SIDES = 4
+RangeValueT = TypeVar("RangeValueT", int, float)
+
+
+class Perspective(DualTransform):
+    """Apply random four-point perspective transformation. Params: scale, keep_size, border_mode,
+    fill, interpolation. Supports image, mask, bboxes, keypoints.
+
+    Args:
+        scale (tuple of float): Standard deviation range `(low, high)` for the normal distribution
+            used to sample random corner displacements (as a fraction of image size).
+            Must be a non-decreasing 2-tuple of non-negative floats. Default: (0.05, 0.1).
+        keep_size (bool): Whether to resize image back to its original size after applying the perspective transform.
+            If set to False, the resulting images may end up having different shapes.
+            Default: True.
+        border_mode (OpenCV flag): OpenCV border mode used for padding.
+            Default: cv2.BORDER_CONSTANT.
+        fill (tuple[float, ...] | float): Padding value if border_mode is cv2.BORDER_CONSTANT.
+            Default: 0.
+        fill_mask (tuple[float, ...] | float): Padding value for mask if border_mode is
+            cv2.BORDER_CONSTANT. Default: 0.
+        fit_output (bool): If True, the image plane size and position will be adjusted to still capture
+            the whole image after perspective transformation. This is followed by image resizing if keep_size is set
+            to True. If False, parts of the transformed image may be outside of the image plane.
+            This setting should not be set to True when using large scale values as it could lead to very large images.
+            Default: False.
+        interpolation (int): Interpolation method to be used for image transformation. Should be one
+            of the OpenCV interpolation types. Default: cv2.INTER_LINEAR
+        mask_interpolation (int): Flag that is used to specify the interpolation algorithm for mask.
+            Should be one of: cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_NEAREST.
+        p (float): Probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Note:
+        This transformation creates a perspective effect by randomly moving the four corners of the image.
+        The amount of movement is controlled by the 'scale' parameter.
+
+        When 'keep_size' is True, the output image will have the same size as the input image,
+        which may cause some parts of the transformed image to be cut off or padded.
+
+        When 'fit_output' is True, the transformation ensures that the entire transformed image is visible,
+        which may result in a larger output image if keep_size is False.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> import cv2
+        >>>
+        >>> # Prepare sample data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]
+        >>>
+        >>> # Define transform with parameters as tuples when possible
+        >>> transform = A.Compose([
+        ...     A.Perspective(
+        ...         scale=(0.05, 0.1),
+        ...         keep_size=True,
+        ...         fit_output=False,
+        ...         border_mode=cv2.BORDER_CONSTANT,
+        ...         p=1.0
+        ...     ),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>>
+        >>> # Get the transformed data
+        >>> transformed_image = transformed['image']      # Perspective-transformed image
+        >>> transformed_mask = transformed['mask']        # Perspective-transformed mask
+        >>> transformed_bboxes = transformed['bboxes']    # Perspective-transformed bounding boxes
+        >>> transformed_bbox_labels = transformed['bbox_labels']  # Labels for transformed bboxes
+        >>> transformed_keypoints = transformed['keypoints']  # Perspective-transformed keypoints
+        >>> transformed_keypoint_labels = transformed['keypoint_labels']  # Labels for transformed keypoints
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    class InitSchema(BaseTransformInitSchema):
+        scale: Annotated[
+            tuple[float, float],
+            AfterValidator(check_range_bounds(0, None)),
+            AfterValidator(nondecreasing),
+        ]
+        keep_size: bool
+        fit_output: bool
+        interpolation: InterpolationType
+        mask_interpolation: InterpolationType
+        fill: tuple[float, ...] | float
+        fill_mask: tuple[float, ...] | float
+        border_mode: BorderModeType
+
+    def __init__(
+        self,
+        scale: tuple[float, float] = (0.05, 0.1),
+        keep_size: bool = True,
+        fit_output: bool = False,
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        border_mode: BorderModeType = CV2_BORDER_CONSTANT,
+        fill: tuple[float, ...] | float = 0,
+        fill_mask: tuple[float, ...] | float = 0,
+        p: float = 0.5,
+    ):
+        super().__init__(p)
+        self.scale = scale
+        self.keep_size = keep_size
+        self.border_mode = border_mode
+        self.fill = fill
+        self.fill_mask = fill_mask
+        self.fit_output = fit_output
+        self.interpolation = interpolation
+        self.mask_interpolation = mask_interpolation
+
+    def apply(
+        self,
+        img: ImageType,
+        matrix: np.ndarray,
+        max_height: int,
+        max_width: int,
+        **params: Any,
+    ) -> ImageType:
+        result = fgeometric.perspective(
+            img,
+            matrix,
+            max_width,
+            max_height,
+            self.fill,
+            self.border_mode,
+            self.keep_size,
+            self.interpolation,
+        )
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+
+    def apply_to_images(
+        self,
+        images: ImageType,
+        matrix: np.ndarray,
+        max_height: int,
+        max_width: int,
+        **params: Any,
+    ) -> ImageType:
+        result = fgeometric.perspective_images(
+            images,
+            matrix,
+            max_width,
+            max_height,
+            self.fill,
+            self.border_mode,
+            self.keep_size,
+            self.interpolation,
+        )
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+
+    def apply_to_mask(
+        self,
+        mask: ImageType,
+        matrix: np.ndarray,
+        max_height: int,
+        max_width: int,
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.perspective(
+            mask,
+            matrix,
+            max_width,
+            max_height,
+            self.fill_mask,
+            self.border_mode,
+            self.keep_size,
+            self.mask_interpolation,
+        )
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        matrix_bbox: np.ndarray,
+        max_height: int,
+        max_width: int,
+        shape: tuple[int, int],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.perspective_bboxes(
+            bboxes,
+            shape,
+            matrix_bbox,
+            max_width,
+            max_height,
+            self.keep_size,
+            bbox_type=bbox_type,
+        )
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        matrix: np.ndarray,
+        max_height: int,
+        max_width: int,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.perspective_keypoints(
+            keypoints,
+            shape,
+            matrix,
+            max_width,
+            max_height,
+            self.keep_size,
+        )
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+        scale = sampling.py_random.uniform(*self.scale)
+
+        points = fgeometric.generate_perspective_points(
+            image_shape,
+            scale,
+            sampling.random_generator,
+        )
+        points = fgeometric.order_points(points)
+
+        matrix, max_width, max_height = fgeometric.compute_perspective_params(
+            points,
+            image_shape,
+        )
+
+        if self.fit_output:
+            matrix, max_width, max_height = fgeometric.expand_transform(
+                matrix,
+                image_shape,
+            )
+
+        sampling.applied_overrides["scale"] = scale
+
+        return SampledParams(
+            params={
+                "matrix": matrix,
+                "max_height": max_height,
+                "max_width": max_width,
+                "matrix_bbox": matrix,
+            }
+        )
+
+
+class _AffineInitSchema(BaseTransformInitSchema):
+    scale: tuple[float, float] | dict[str, tuple[float, float]]
+    translate_percent: tuple[float, float] | dict[str, tuple[float, float]] | None
+    translate_px: tuple[int, int] | dict[str, tuple[int, int]] | None
+    rotate: tuple[float, float]
+    shear: tuple[float, float] | dict[str, tuple[float, float]]
+    interpolation: InterpolationType
+    mask_interpolation: InterpolationType
+
+    fill: tuple[float, ...] | float
+    fill_mask: tuple[float, ...] | float | None
+    border_mode: BorderModeType
+
+    fit_output: bool
+    keep_ratio: bool
+    rotate_method: Literal["largest_box", "ellipse"]
+    balanced_scale: bool
+
+    @field_validator("shear", "scale")
+    @classmethod
+    def _expand_shear_scale(
+        cls,
+        value: tuple[float, float] | dict[str, tuple[float, float]],
+        info: ValidationInfo,
+    ) -> dict[str, tuple[float, float]]:
+        return cls._handle_dict_arg(value, info.field_name)
+
+    @model_validator(mode="after")
+    def _handle_translate(self) -> Self:
+        if self.translate_percent is None and self.translate_px is None:
+            self.translate_px = (0, 0)
+
+        if self.translate_percent is not None and self.translate_px is not None:
+            msg = "Expected either translate_percent or translate_px to be provided, but both were provided."
+            raise ValueError(msg)
+
+        if self.translate_percent is not None:
+            self.translate_percent = self._handle_dict_arg(
+                self.translate_percent,
+                "translate_percent",
+            )
+
+        if self.translate_px is not None:
+            self.translate_px = self._handle_dict_arg(
+                self.translate_px,
+                "translate_px",
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def _validate_keep_ratio_scale_compatibility(self) -> Self:
+        """Validate that when keep_ratio is True, x and y scale ranges are identical. Prevents
+        inconsistent Affine scale config; raises ValueError if scale x and y differ.
+        """
+        if self.keep_ratio and isinstance(self.scale, dict) and self.scale["x"] != self.scale["y"]:
+            raise ValueError(
+                f"When keep_ratio is True, the x and y scale range should be identical. got {self.scale}",
+            )
+        return self
+
+    @staticmethod
+    def _handle_dict_arg(
+        val: tuple[RangeValueT, RangeValueT] | dict[str, tuple[RangeValueT, RangeValueT]],
+        name: str | None,
+    ) -> dict[str, tuple[RangeValueT, RangeValueT]]:
+        if isinstance(val, dict):
+            if "x" not in val and "y" not in val:
+                raise ValueError(
+                    f'Expected {name} dictionary to contain at least key "x" or key "y". Found neither of them.',
+                )
+            default = val["x"] if "x" in val else val["y"]
+            x = val.get("x", default)
+            y = val.get("y", default)
+            return {"x": x, "y": y}
+        return {"x": val, "y": val}
+
+
+class Affine(DualTransform):
+    """Apply affine transformations: translation, rotation, scale, shear. Params: scale, translate,
+    rotate, shear, interpolation, fill.
+
+    Affine transformations involve:
+
+    - Translation ("move" image on the x-/y-axis)
+    - Rotation
+    - Scaling ("zoom" in/out)
+    - Shear (move one side of the image, turning a square into a trapezoid)
+
+    All such transformations can create "new" pixels in the image without a defined content, e.g.
+    if the image is translated to the left, pixels are created on the right.
+    A method has to be defined to deal with these pixel values.
+    The parameters `fill` and `fill_mask` of this class deal with this.
+
+    Some transformations involve interpolations between several pixels
+    of the input image to generate output pixel values. The parameters `interpolation` and
+    `mask_interpolation` deals with the method of interpolation used for this.
+
+    Args:
+        scale (tuple of number or dict): Scaling factor, where `1.0` denotes "no change".
+                * If a tuple `(a, b)`, then a value will be uniformly sampled per image from `[a, b]`
+                  and used identically for x- and y-axis.
+                * If a dict with keys `"x"` and/or `"y"`, each entry must itself be a `(a, b)` tuple.
+                  When `keep_ratio=True`, x and y ranges must be identical.
+        translate_percent (tuple of number or dict, optional): Translation as a fraction of image
+            size, where `0` denotes "no change" and `0.5` denotes "half the axis size".
+                * If `None`, equivalent to `0.0` unless `translate_px` is set.
+                * If a tuple `(a, b)`, sampled value applies to both x- and y-axis.
+                * If a dict with keys `"x"` and/or `"y"`, each entry must be a `(a, b)` tuple.
+                  Sampling happens independently per axis.
+        translate_px (tuple of int or dict, optional): Translation in pixels. Same shape rules
+            as `translate_percent`. If `None`, equivalent to `0` unless `translate_percent` is set.
+        rotate (tuple of number): Rotation in degrees (**NOT** radians) around image center.
+            A `(a, b)` tuple from which the rotation angle is uniformly sampled.
+        shear (tuple of number or dict): Shear in degrees (**NOT** radians).
+                * If a tuple `(a, b)`, used as `[a, b]` for both x- and y-shear.
+                * If a dict with keys `"x"` and/or `"y"`, each entry must be a `(a, b)` tuple.
+                  Sampling happens independently per axis.
+        interpolation (int): OpenCV interpolation flag.
+        mask_interpolation (int): OpenCV interpolation flag.
+        fill (tuple[float, ...] | float): The constant value to use when filling in newly created pixels.
+            (E.g. translating by 1px to the right will create a new 1px-wide column of pixels
+            on the left of the image).
+            The value is only used when `mode=constant`. The expected value range is `[0, 255]` for `uint8` images.
+        fill_mask (tuple[float, ...] | float): Same as fill but only for masks.
+        border_mode (int): OpenCV border flag.
+        fit_output (bool): If True, the image plane size and position will be adjusted to tightly capture
+            the whole image after affine transformation (`translate_percent` and `translate_px` are ignored).
+            Otherwise (`False`),  parts of the transformed image may end up outside the image plane.
+            Fitting the output shape can be useful to avoid corners of the image being outside the image plane
+            after applying rotations. Default: False
+        keep_ratio (bool): When True, the original aspect ratio will be kept when the random scale is applied.
+            Default: True.
+        rotate_method (Literal['largest_box', 'ellipse']): rotation method used for the bounding boxes.
+            Should be one of "largest_box" or "ellipse"[1]. Default: "largest_box"
+        balanced_scale (bool): When True, scaling factors are chosen to be either entirely below or above 1,
+            ensuring balanced scaling. Default: False.
+
+            This is important because without it, scaling tends to lean towards upscaling. For example, if we want
+            the image to zoom in and out by 2x, we may pick an interval [0.5, 2]. Since the interval [0.5, 1] is
+            three times smaller than [1, 2], values above 1 are picked three times more often if sampled directly
+            from [0.5, 2]. With `balanced_scale`, the  function ensures that half the time, the scaling
+            factor is picked from below 1 (zooming out), and the other half from above 1 (zooming in).
+            This makes the zooming in and out process more balanced.
+        p (float): probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    References:
+        Towards Rotation Invariance in Object Detection: https://arxiv.org/abs/2109.13488
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> import cv2
+        >>>
+        >>> # Prepare sample data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]
+        >>>
+        >>> # Define transform with different parameter types
+        >>> transform = A.Compose([
+        ...     A.Affine(
+        ...         # Tuple for scale (will be used for both x and y)
+        ...         scale=(0.8, 1.2),
+        ...         # Dictionary with tuples for different x/y translations
+        ...         translate_percent={"x": (-0.2, 0.2), "y": (-0.1, 0.1)},
+        ...         # Tuple for rotation range
+        ...         rotate=(-30, 30),
+        ...         # Dictionary with tuples for different x/y shearing
+        ...         shear={"x": (-10, 10), "y": (-5, 5)},
+        ...         # Interpolation methods
+        ...         interpolation=cv2.INTER_LINEAR,
+        ...         mask_interpolation=cv2.INTER_NEAREST,
+        ...         # Other parameters
+        ...         fit_output=False,
+        ...         keep_ratio=True,
+        ...         rotate_method="largest_box",
+        ...         balanced_scale=True,
+        ...         border_mode=cv2.BORDER_CONSTANT,
+        ...         fill=0,
+        ...         fill_mask=0,
+        ...         p=1.0
+        ...     ),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>>
+        >>> # Get the transformed data
+        >>> transformed_image = transformed['image']      # Image with affine transforms applied
+        >>> transformed_mask = transformed['mask']        # Mask with affine transforms applied
+        >>> transformed_bboxes = transformed['bboxes']    # Bounding boxes with affine transforms applied
+        >>> transformed_bbox_labels = transformed['bbox_labels']  # Labels for transformed bboxes
+        >>> transformed_keypoints = transformed['keypoints']  # Keypoints with affine transforms applied
+        >>> transformed_keypoint_labels = transformed['keypoint_labels']  # Labels for transformed keypoints
+        >>>
+        >>> # Simpler example with only essential parameters
+        >>> simple_transform = A.Compose([
+        ...     A.Affine(
+        ...         scale=(1.1, 1.1),
+        ...         rotate=(15, 15),
+        ...         translate_px=(30, 30),
+        ...         p=1.0
+        ...     ),
+        ... ])
+        >>> simple_result = simple_transform(image=image)
+        >>> simple_transformed = simple_result['image']
+
+    """
+
+    _targets = ALL_TARGETS
+    _supported_bbox_types: frozenset[str] = frozenset({"hbb", "obb"})
+
+    InitSchema: ClassVar[type[BaseTransformInitSchema]] = _AffineInitSchema
+
+    def __init__(
+        self,
+        scale: tuple[float, float] | dict[str, tuple[float, float]] = (1.0, 1.0),
+        translate_percent: tuple[float, float] | dict[str, tuple[float, float]] | None = None,
+        translate_px: tuple[int, int] | dict[str, tuple[int, int]] | None = None,
+        rotate: tuple[float, float] = (0.0, 0.0),
+        shear: tuple[float, float] | dict[str, tuple[float, float]] = (0.0, 0.0),
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        fit_output: bool = False,
+        keep_ratio: bool = True,
+        rotate_method: Literal["largest_box", "ellipse"] = "largest_box",
+        balanced_scale: bool = False,
+        border_mode: BorderModeType = CV2_BORDER_CONSTANT,
+        fill: tuple[float, ...] | float = 0,
+        fill_mask: tuple[float, ...] | float | None = None,
+        p: float = 0.5,
+    ):
+        super().__init__(p=p)
+
+        self.interpolation = interpolation
+        self.mask_interpolation = mask_interpolation
+        self.fill = fill
+        self.fill_mask = fill_mask
+        self.border_mode = border_mode
+        self.scale = cast("dict[str, tuple[float, float]]", scale)
+        self.translate_percent = cast("dict[str, tuple[float, float]] | None", translate_percent)
+        self.translate_px = cast("dict[str, tuple[int, int]] | None", translate_px)
+        self.rotate = rotate
+        self.fit_output = fit_output
+        self.shear = cast("dict[str, tuple[float, float]]", shear)
+        self.keep_ratio = keep_ratio
+        self.rotate_method = rotate_method
+        self.balanced_scale = balanced_scale
+
+    def apply(
+        self,
+        img: ImageType,
+        matrix: np.ndarray,
+        output_shape: tuple[int, int],
+        **params: Any,
+    ) -> ImageType:
+        height, width = output_shape
+
+        result = warp_affine(
+            img,
+            matrix,
+            dsize=(width, height),
+            flags=self.interpolation,
+            border_mode=self.border_mode,
+            border_value=self.fill,
+        )
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+
+    def apply_to_images(
+        self,
+        images: ImageType,
+        matrix: np.ndarray,
+        output_shape: tuple[int, int],
+        **params: Any,
+    ) -> ImageType:
+        height, width = output_shape
+        result = np.empty((len(images), height, width, images.shape[3]), dtype=images.dtype)
+        for i, image in enumerate(images):
+            result[i] = warp_affine(
+                image,
+                matrix,
+                dsize=(width, height),
+                flags=self.interpolation,
+                border_mode=self.border_mode,
+                border_value=self.fill,
+            )
+        return fgeometric.clip_if_interpolation_can_overshoot(cast("ImageType", result), self.interpolation)
+
+    def apply_to_mask(
+        self,
+        mask: ImageType,
+        matrix: np.ndarray,
+        output_shape: tuple[int, int],
+        **params: Any,
+    ) -> ImageType:
+        height, width = output_shape
+        return warp_affine(
+            mask,
+            matrix,
+            flags=self.mask_interpolation,
+            border_mode=self.border_mode,
+            border_value=self.fill_mask,
+            dsize=(width, height),
+        )
+
+    def apply_to_masks(
+        self,
+        masks: StackedMasks4D,
+        matrix: np.ndarray,
+        output_shape: tuple[int, int],
+        **params: Any,
+    ) -> StackedMasks4D:
+        height, width = output_shape
+        result = np.empty((len(masks), height, width, masks.shape[3]), dtype=masks.dtype)
+        for i, mask in enumerate(masks):
+            result[i] = warp_affine(
+                mask,
+                matrix,
+                flags=self.mask_interpolation,
+                border_mode=self.border_mode,
+                border_value=self.fill_mask,
+                dsize=(width, height),
+            )
+        return StackedMasks4D(result)
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        bbox_matrix: np.ndarray,
+        output_shape: tuple[int, int],
+        shape: tuple[int, int],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.bboxes_affine(
+            bboxes,
+            bbox_matrix,
+            self.rotate_method,
+            shape[:2],
+            self.border_mode,
+            output_shape,
+            bbox_type=bbox_type,
+        )
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        matrix: np.ndarray,
+        scale: dict[str, float],
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.keypoints_affine(
+            keypoints,
+            matrix,
+            shape,
+            scale,
+            self.border_mode,
+        )
+
+    @staticmethod
+    def _get_scale(
+        scale: dict[str, tuple[float, float]],
+        keep_ratio: bool,
+        balanced_scale: bool,
+        random_state: random.Random,
+    ) -> dict[str, float]:
+        result_scale = {}
+        for key, value in scale.items():
+            if isinstance(value, (int, float)):
+                result_scale[key] = float(value)
+            elif isinstance(value, tuple):
+                if balanced_scale:
+                    lower_interval = (value[0], min(value[1], 1.0)) if value[0] < 1 else None
+                    upper_interval = (max(value[0], 1.0), value[1]) if value[1] > 1 else None
+
+                    if lower_interval is not None and upper_interval is not None:
+                        selected_interval = random_state.choice(
+                            [lower_interval, upper_interval],
+                        )
+                    elif lower_interval is not None:
+                        selected_interval = lower_interval
+                    elif upper_interval is not None:
+                        selected_interval = upper_interval
+                    else:
+                        result_scale[key] = 1.0
+                        continue
+
+                    result_scale[key] = random_state.uniform(*selected_interval)
+                else:
+                    result_scale[key] = random_state.uniform(*value)
+            else:
+                raise TypeError(
+                    f"Invalid scale value for key {key}: {value}. Expected a float or a tuple of two floats.",
+                )
+
+        if keep_ratio:
+            result_scale["y"] = result_scale["x"]
+
+        return result_scale
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+
+        translate = self._get_translate_params(image_shape, sampling)
+        shear = self._get_shear_params(sampling)
+        scale = self._get_scale(
+            self.scale,
+            self.keep_ratio,
+            self.balanced_scale,
+            sampling.py_random,
+        )
+        rotate = sampling.py_random.uniform(*self.rotate)
+
+        sampling.applied_overrides.update({"rotate": rotate, "scale": scale, "shear": shear})
+        if self.translate_percent is not None:
+            sampling.applied_overrides["translate_percent"] = translate
+        elif self.translate_px is not None:
+            sampling.applied_overrides["translate_px"] = translate
+
+        image_shift = fgeometric.center(image_shape)
+        bbox_shift = fgeometric.center_bbox(image_shape)
+
+        matrix = fgeometric.create_affine_transformation_matrix(
+            translate,
+            shear,
+            scale,
+            rotate,
+            image_shift,
+        )
+        bbox_matrix = fgeometric.create_affine_transformation_matrix(
+            translate,
+            shear,
+            scale,
+            rotate,
+            bbox_shift,
+        )
+
+        if self.fit_output:
+            matrix, output_shape = fgeometric.compute_affine_warp_output_shape(
+                matrix,
+                image_shape,
+            )
+            bbox_matrix, _ = fgeometric.compute_affine_warp_output_shape(
+                bbox_matrix,
+                image_shape,
+            )
+        else:
+            output_shape = image_shape
+
+        return SampledParams(
+            params={
+                "rotate": rotate,
+                "scale": scale,
+                "matrix": matrix,
+                "bbox_matrix": bbox_matrix,
+                "output_shape": output_shape,
+            }
+        )
+
+    def _get_translate_params(self, image_shape: tuple[int, int], sampling: SamplingContext) -> dict[str, int]:
+        height, width = image_shape[:2]
+        if self.translate_px is not None:
+            return {
+                "x": sampling.py_random.randint(self.translate_px["x"][0], self.translate_px["x"][1]),
+                "y": sampling.py_random.randint(self.translate_px["y"][0], self.translate_px["y"][1]),
+            }
+        if self.translate_percent is not None:
+            translate = {key: sampling.py_random.uniform(*value) for key, value in self.translate_percent.items()}
+            return cast(
+                "dict[str, int]",
+                {"x": int(translate["x"] * width), "y": int(translate["y"] * height)},
+            )
+        return cast("dict[str, int]", {"x": 0, "y": 0})
+
+    def _get_shear_params(self, sampling: SamplingContext) -> dict[str, float]:
+        return {
+            "x": -sampling.py_random.uniform(*self.shear["x"]),
+            "y": -sampling.py_random.uniform(*self.shear["y"]),
+        }
+
+
+class ShiftScaleRotate(Affine):
+    """One-step affine: random shift, scale, and rotation. Limits sampled per call; good
+    for pose or scale augmentation without separate transforms.
+
+    Args:
+        shift_range (tuple of float): shift factor range `(low, high)` for both height and width.
+            Absolute values must lie in [-1, 1]. Default: (-0.0625, 0.0625).
+        scale_range (tuple of float): scaling factor range `(low, high)`. Note that this range
+            is biased by 1, so sampling happens from `(1 + low, 1 + high)`. Default: (-0.1, 0.1).
+        rotate_range (tuple of int): rotation range `(low, high)`. Default: (-45, 45).
+        interpolation (OpenCV flag): flag that is used to specify the interpolation algorithm. Should be one of:
+            cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_LINEAR.
+        border_mode (OpenCV flag): flag that is used to specify the pixel extrapolation method. Should be one of:
+            cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE, cv2.BORDER_REFLECT, cv2.BORDER_WRAP, cv2.BORDER_REFLECT_101.
+            Default: cv2.BORDER_CONSTANT
+        fill (tuple[float, ...] | float): padding value if border_mode is cv2.BORDER_CONSTANT.
+        fill_mask (tuple[float, ...] | float): padding value if border_mode is cv2.BORDER_CONSTANT applied for masks.
+        shift_range_x (tuple of float, optional): shift factor range `(low, high)` for width. If set,
+            overrides `shift_range` along the x-axis. Absolute values must lie in [-1, 1].
+        shift_range_y (tuple of float, optional): shift factor range `(low, high)` for height. If set,
+            overrides `shift_range` along the y-axis. Absolute values must lie in [-1, 1].
+        rotate_method (str): rotation method used for the bounding boxes. Should be one of "largest_box" or "ellipse".
+            Default: "largest_box"
+        mask_interpolation (OpenCV flag): Flag that is used to specify the interpolation algorithm for mask.
+            Should be one of: cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4.
+            Default: cv2.INTER_NEAREST.
+        p (float): probability of applying the transform. Default: 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb, obb
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> import cv2
+        >>>
+        >>> # Prepare sample data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]
+        >>>
+        >>> # Define transform with parameters as tuples when possible
+        >>> transform = A.Compose([
+        ...     A.ShiftScaleRotate(
+        ...         shift_range=(-0.0625, 0.0625),
+        ...         scale_range=(-0.1, 0.1),
+        ...         rotate_range=(-45, 45),
+        ...         interpolation=cv2.INTER_LINEAR,
+        ...         border_mode=cv2.BORDER_CONSTANT,
+        ...         rotate_method="largest_box",
+        ...         p=1.0
+        ...     ),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>>
+        >>> # Get the transformed data
+        >>> transformed_image = transformed['image']      # Shifted, scaled and rotated image
+        >>> transformed_mask = transformed['mask']        # Shifted, scaled and rotated mask
+        >>> transformed_bboxes = transformed['bboxes']    # Shifted, scaled and rotated bounding boxes
+        >>> transformed_bbox_labels = transformed['bbox_labels']  # Labels for transformed bboxes
+        >>> transformed_keypoints = transformed['keypoints']  # Shifted, scaled and rotated keypoints
+        >>> transformed_keypoint_labels = transformed['keypoint_labels']  # Labels for transformed keypoints
+
+    """
+
+    _targets = ALL_TARGETS
+    _applied_replay_class = Affine
+
+    class InitSchema(BaseTransformInitSchema):
+        shift_range: tuple[float, float]
+        scale_range: tuple[float, float]
+        rotate_range: tuple[float, float]
+        interpolation: InterpolationType
+
+        border_mode: BorderModeType
+
+        fill: tuple[float, ...] | float
+        fill_mask: tuple[float, ...] | float
+
+        shift_range_x: tuple[float, float] | None
+        shift_range_y: tuple[float, float] | None
+        rotate_method: Literal["largest_box", "ellipse"]
+        mask_interpolation: InterpolationType
+
+        @model_validator(mode="after")
+        def _check_shift_range(self) -> Self:
+            bounds = -1, 1
+            if self.shift_range_x is None:
+                self.shift_range_x = self.shift_range
+            check_range(self.shift_range_x, *bounds, "shift_range_x")
+            if self.shift_range_y is None:
+                self.shift_range_y = self.shift_range
+            check_range(self.shift_range_y, *bounds, "shift_range_y")
+
+            return self
+
+        @field_validator("scale_range")
+        @classmethod
+        def _check_scale_range(
+            cls,
+            value: tuple[float, float],
+            info: ValidationInfo,
+        ) -> tuple[float, float]:
+            bounds = 0, float("inf")
+            result = (1.0 + value[0], 1.0 + value[1])
+            check_range(result, *bounds, str(info.field_name))
+            return result
+
+    def __init__(
+        self,
+        shift_range: tuple[float, float] = (-0.0625, 0.0625),
+        scale_range: tuple[float, float] = (-0.1, 0.1),
+        rotate_range: tuple[float, float] = (-45, 45),
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        border_mode: BorderModeType = CV2_BORDER_CONSTANT,
+        shift_range_x: tuple[float, float] | None = None,
+        shift_range_y: tuple[float, float] | None = None,
+        rotate_method: Literal["largest_box", "ellipse"] = "largest_box",
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        fill: tuple[float, ...] | float = 0,
+        fill_mask: tuple[float, ...] | float = 0,
+        p: float = 0.5,
+    ):
+        translate_percent = {
+            "x": shift_range if shift_range_x is None else shift_range_x,
+            "y": shift_range if shift_range_y is None else shift_range_y,
+        }
+        super().__init__(
+            scale=scale_range,
+            translate_percent=translate_percent,
+            rotate=rotate_range,
+            shear=(0, 0),
+            interpolation=interpolation,
+            mask_interpolation=mask_interpolation,
+            fill=fill,
+            fill_mask=fill_mask,
+            border_mode=border_mode,
+            fit_output=False,
+            keep_ratio=True,
+            rotate_method=rotate_method,
+            p=p,
+        )
+        warn(
+            "ShiftScaleRotate is a special case of Affine transform. Please use Affine transform instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        self.shift_range_x = shift_range_x
+        self.shift_range_y = shift_range_y
+
+        self.scale_range = scale_range
+        self.rotate_range = rotate_range
+        self.border_mode = border_mode
+        self.fill = fill
+        self.fill_mask = fill_mask
+
+    def get_transform_init_args(self) -> dict[str, Any]:
+        return {
+            "shift_range_x": self.shift_range_x,
+            "shift_range_y": self.shift_range_y,
+            "scale_range": (self.scale_range[0] - 1.0, self.scale_range[1] - 1.0),
+            "rotate_range": self.rotate_range,
+            "interpolation": self.interpolation,
+            "border_mode": self.border_mode,
+            "fill": self.fill,
+            "fill_mask": self.fill_mask,
+            "rotate_method": self.rotate_method,
+            "mask_interpolation": self.mask_interpolation,
+        }
+
+
+class GridElasticDeform(DualTransform):
+    """Elastic deformations via a grid: displace control points and interpolate. num_grid_xy
+    and magnitude control density and strength. Good for local stretching.
+
+    This transformation overlays a grid on the input and applies random displacements to the grid points,
+    resulting in local elastic distortions. The granularity and intensity of the distortions can be
+    controlled using the dimensions of the overlaying distortion grid and the magnitude parameter.
+
+
+    Args:
+        num_grid_xy (tuple[int, int]): Number of grid cells along the width and height.
+            Specified as (grid_width, grid_height). Each value must be greater than 1.
+        magnitude (int): Maximum pixel-wise displacement for distortion. Must be greater than 0.
+        interpolation (int): Interpolation method to be used for the image transformation.
+            Default: cv2.INTER_LINEAR
+        mask_interpolation (int): Interpolation method to be used for mask transformation.
+            Default: cv2.INTER_NEAREST
+        p (float): Probability of applying the transform. Default: 1.0.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb
+    Number of channels:
+        1, 3
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> import cv2
+        >>>
+        >>> # Prepare sample data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]
+        >>>
+        >>> # Define transform with parameters as tuples when possible
+        >>> transform = A.Compose([
+        ...     A.GridElasticDeform(
+        ...         num_grid_xy=(4, 4),
+        ...         magnitude=10,
+        ...         interpolation=cv2.INTER_LINEAR,
+        ...         mask_interpolation=cv2.INTER_NEAREST,
+        ...         p=1.0
+        ...     ),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>>
+        >>> # Get the transformed data
+        >>> transformed_image = transformed['image']      # Elastically deformed image
+        >>> transformed_mask = transformed['mask']        # Elastically deformed mask
+        >>> transformed_bboxes = transformed['bboxes']    # Elastically deformed bounding boxes
+        >>> transformed_bbox_labels = transformed['bbox_labels']  # Labels for transformed bboxes
+        >>> transformed_keypoints = transformed['keypoints']  # Elastically deformed keypoints
+        >>> transformed_keypoint_labels = transformed['keypoint_labels']  # Labels for transformed keypoints
+
+    Note:
+        This transformation is particularly useful for data augmentation in medical imaging
+        and other domains where elastic deformations can simulate realistic variations.
+
+    """
+
+    _targets = ALL_TARGETS
+
+    _supported_channel_counts: frozenset[int] = frozenset({1, 3})
+
+    class InitSchema(BaseTransformInitSchema):
+        num_grid_xy: Annotated[tuple[int, int], AfterValidator(check_range_bounds(1, None))]
+        magnitude: int = Field(gt=0)
+        interpolation: InterpolationType
+        mask_interpolation: InterpolationType
+
+    def __init__(
+        self,
+        num_grid_xy: tuple[int, int],
+        magnitude: int,
+        interpolation: InterpolationType = CV2_INTER_LINEAR,
+        mask_interpolation: InterpolationType = CV2_INTER_NEAREST,
+        p: float = 1.0,
+    ):
+        super().__init__(p=p)
+        self.num_grid_xy = num_grid_xy
+        self.magnitude = magnitude
+        self.interpolation = interpolation
+        self.mask_interpolation = mask_interpolation
+
+    @staticmethod
+    def _generate_mesh(polygons: np.ndarray, dimensions: np.ndarray) -> np.ndarray:
+        return np.hstack((dimensions.reshape(-1, 4), polygons))
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+
+        # Replace calculate_grid_dimensions with split_uniform_grid
+        tiles = fgeometric.split_uniform_grid(
+            image_shape,
+            self.num_grid_xy,
+            sampling.random_generator,
+        )
+
+        dimensions = np.array(
+            [
+                [
+                    tile[1],
+                    tile[0],
+                    tile[3],
+                    tile[2],
+                ]  # Reorder to [x_min, y_min, x_max, y_max]
+                for tile in tiles
+            ],
+        ).reshape(
+            (*self.num_grid_xy[::-1], 4),
+        )  # Reshape to (grid_height, grid_width, 4)
+
+        polygons = fgeometric.generate_distorted_grid_polygons(
+            dimensions,
+            self.magnitude,
+            sampling.random_generator,
+        )
+
+        generated_mesh = self._generate_mesh(polygons, dimensions)
+
+        return SampledParams(params={"generated_mesh": generated_mesh})
+
+    def apply(
+        self,
+        img: ImageType,
+        generated_mesh: np.ndarray,
+        **params: Any,
+    ) -> ImageType:
+        if not is_rgb_image(img) and not is_grayscale_image(img):
+            raise ValueError("GridElasticDeform transform is only supported for RGB and grayscale images.")
+        result = fgeometric.distort_image(img, generated_mesh, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+
+    def apply_to_mask(
+        self,
+        mask: ImageType,
+        generated_mesh: np.ndarray,
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.distort_image(mask, generated_mesh, self.mask_interpolation)
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        generated_mesh: np.ndarray,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        bboxes_denorm = denormalize_bboxes(bboxes, shape[:2])
+        return normalize_bboxes(
+            fgeometric.bbox_distort_image(
+                bboxes_denorm,
+                generated_mesh,
+                shape[:2],
+            ),
+            shape[:2],
+        )
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        generated_mesh: np.ndarray,
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.distort_image_keypoints(
+            keypoints,
+            generated_mesh,
+            shape[:2],
+        )
+
+
+class RandomGridShuffle(DualTransform):
+    """Split image into a grid and randomly permute cells; same shuffle for all targets.
+    Grid size from grid (e.g. (3, 3)). Breaks global layout, keeps local content.
+
+    Args:
+        grid (tuple[int, int]): Size of the grid for splitting the image into cells. Each cell is shuffled randomly.
+            For example, (3, 3) will divide the image into a 3x3 grid, resulting in 9 cells to be shuffled.
+            Default: (3, 3)
+        p (float): Probability that the transform will be applied. Should be in the range [0, 1].
+            Default: 0.5
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb
+    Note:
+        - This transform maintains consistency across all targets. If applied to an image and its corresponding
+          mask or keypoints, the same shuffling will be applied to all.
+        - The number of cells in the grid should be at least 2 (i.e., grid should be at least (1, 2), (2, 1), or (2, 2))
+          for the transform to have any effect.
+        - Keypoints are moved along with their corresponding grid cell.
+        - This transform could be useful when only micro features are important for the model, and memorizing
+          the global structure could be harmful. For example:
+          - Identifying the type of cell phone used to take a picture based on micro artifacts generated by
+            phone post-processing algorithms, rather than the semantic features of the photo.
+            See more at https://ieeexplore.ieee.org/abstract/document/8622031
+          - Identifying stress, glucose, hydration levels based on skin images.
+
+    Mathematical Formulation:
+        1. The image is divided into a grid of size (m, n) as specified by the 'grid' parameter.
+        2. A random permutation P of integers from 0 to (m*n - 1) is generated.
+        3. Each cell in the grid is assigned a number from 0 to (m*n - 1) in row-major order.
+        4. The cells are then rearranged according to the permutation P.
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> # Prepare sample data
+        >>> image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        >>> mask = np.random.randint(0, 2, (100, 100), dtype=np.uint8)
+        >>> bboxes = np.array([[10, 10, 50, 50], [40, 40, 80, 80]], dtype=np.float32)
+        >>> bbox_labels = [1, 2]
+        >>> keypoints = np.array([[20, 30], [60, 70]], dtype=np.float32)
+        >>> keypoint_labels = [0, 1]
+        >>>
+        >>> # Define transform with grid as a tuple
+        >>> transform = A.Compose([
+        ...     A.RandomGridShuffle(grid=(3, 3), p=1.0),
+        ... ], bbox_params=A.BboxParams(coord_format='pascal_voc', label_fields=['bbox_labels']),
+        ...    keypoint_params=A.KeypointParams(coord_format='xy', label_fields=['keypoint_labels']))
+        >>>
+        >>> # Apply the transform
+        >>> transformed = transform(
+        ...     image=image,
+        ...     mask=mask,
+        ...     bboxes=bboxes,
+        ...     bbox_labels=bbox_labels,
+        ...     keypoints=keypoints,
+        ...     keypoint_labels=keypoint_labels
+        ... )
+        >>>
+        >>> # Get the transformed data
+        >>> transformed_image = transformed['image']     # Grid-shuffled image
+        >>> transformed_mask = transformed['mask']       # Grid-shuffled mask
+        >>> transformed_bboxes = transformed['bboxes']   # Grid-shuffled bounding boxes
+        >>> transformed_keypoints = transformed['keypoints']  # Grid-shuffled keypoints
+        >>>
+        >>> # Visualization example with a simpler grid
+        >>> simple_image = np.array([
+        ...     [1, 1, 1, 2, 2, 2],
+        ...     [1, 1, 1, 2, 2, 2],
+        ...     [1, 1, 1, 2, 2, 2],
+        ...     [3, 3, 3, 4, 4, 4],
+        ...     [3, 3, 3, 4, 4, 4],
+        ...     [3, 3, 3, 4, 4, 4]
+        ... ])
+        >>> simple_transform = A.RandomGridShuffle(grid=(2, 2), p=1.0)
+        >>> simple_result = simple_transform(image=simple_image)
+        >>> simple_transformed = simple_result['image']
+        >>> # The result could look like:
+        >>> # array([[4, 4, 4, 2, 2, 2],
+        >>> #        [4, 4, 4, 2, 2, 2],
+        >>> #        [4, 4, 4, 2, 2, 2],
+        >>> #        [3, 3, 3, 1, 1, 1],
+        >>> #        [3, 3, 3, 1, 1, 1],
+        >>> #        [3, 3, 3, 1, 1, 1]])
+
+    """
+
+    class InitSchema(BaseTransformInitSchema):
+        grid: Annotated[tuple[int, int], AfterValidator(check_range_bounds(1, None))]
+
+    _targets = ALL_TARGETS
+
+    def __init__(
+        self,
+        grid: tuple[int, int] = (3, 3),
+        p: float = 0.5,
+    ):
+        super().__init__(p=p)
+        self.grid = grid
+
+    def apply(
+        self,
+        img: ImageType,
+        tiles: np.ndarray,
+        mapping: list[int],
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.swap_tiles_on_image(img, tiles, mapping)
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        tiles: np.ndarray,
+        mapping: list[int],
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        image_shape = shape[:2]
+        bboxes_denorm = denormalize_bboxes(bboxes, image_shape)
+        processor = cast("BboxProcessor", self.get_processor("bboxes"))
+        if processor is None:
+            return bboxes
+        bbox_type = processor.params.bbox_type
+        bboxes_returned = fgeometric.bboxes_grid_shuffle(
+            bboxes_denorm,
+            tiles,
+            mapping,
+            image_shape,
+            min_area=processor.params.min_area,
+            min_visibility=processor.params.min_visibility,
+            bbox_type=bbox_type,
+        )
+        return normalize_bboxes(bboxes_returned, image_shape)
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        tiles: np.ndarray,
+        mapping: list[int],
+        **params: Any,
+    ) -> np.ndarray:
+        return fgeometric.swap_tiles_on_keypoints(keypoints, tiles, mapping)
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        image_shape = targets.require_aligned_spatial_shape(2)
+
+        original_tiles = fgeometric.split_uniform_grid(
+            image_shape,
+            self.grid,
+            sampling.random_generator,
+        )
+        shape_groups = fgeometric.create_shape_groups(original_tiles)
+        mapping = fgeometric.shuffle_tiles_within_shape_groups(
+            shape_groups,
+            sampling.random_generator,
+        )
+
+        return SampledParams(params={"tiles": original_tiles, "mapping": mapping})
+
+
+class Morphological(DualTransform):
+    """Dilation or erosion with a structuring element (scale). For document scans: dilation
+    fills gaps in text; erosion removes noise. Operation and scale per call.
+
+    Morphological operations modify the structure of the image.
+    Dilation expands the white (foreground) regions in a binary or grayscale image, while erosion shrinks them.
+    These operations are beneficial in document processing, for example:
+    - Dilation helps in closing up gaps within text or making thin lines thicker,
+        enhancing legibility for OCR (Optical Character Recognition).
+    - Erosion can remove small white noise and detach connected objects,
+        making the structure of larger objects more pronounced.
+
+    Args:
+        scale (int or tuple/list of int): Specifies the size of the structuring element (kernel) used for the operation.
+            - If an integer is provided, a square kernel of that size will be used.
+            - If a tuple or list is provided, it should contain two integers representing the minimum
+                and maximum sizes for the dilation kernel.
+        operation (Literal['erosion', 'dilation']): The morphological operation to apply.
+            Default is 'dilation'.
+        p (float, optional): The probability of applying this transformation. Default is 0.5.
+
+    Targets:
+        image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
+
+    Image types:
+        uint8, float32
+
+
+    Supported bboxes:
+        hbb
+    References:
+        Nougat: https://github.com/facebookresearch/nougat
+
+    Examples:
+        >>> import numpy as np
+        >>> import albumentations as A
+        >>> import cv2
+        >>>
+        >>> # Create a document-like binary image with text
+        >>> image = np.ones((200, 500), dtype=np.uint8) * 255  # White background
+        >>> # Add some "text" (black pixels)
+        >>> cv2.putText(image, "Document Text", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, 0, 2)
+        >>> # Add some "noise" (small black dots)
+        >>> for _ in range(50):
+        ...     x, y = np.random.randint(0, image.shape[1]), np.random.randint(0, image.shape[0])
+        ...     cv2.circle(image, (x, y), 1, 0, -1)
+        >>>
+        >>> # Create a mask representing text regions
+        >>> mask = np.zeros_like(image)
+        >>> mask[image < 128] = 1  # Binary mask where text exists
+        >>>
+        >>> # Example 1: Apply dilation to thicken text and fill gaps
+        >>> dilation_transform = A.Morphological(
+        ...     scale=(3, 3),          # Width and height of the structuring element
+        ...     operation="dilation",  # Expand white regions (or black if inverted)
+        ...     p=1.0                  # Always apply
+        ... )
+        >>> result = dilation_transform(image=image, mask=mask)
+        >>> dilated_image = result['image']    # Text is thicker, gaps are filled
+        >>> dilated_mask = result['mask']      # Mask is expanded around text regions
+        >>>
+        >>> # Example 2: Apply erosion to thin text or remove noise
+        >>> erosion_transform = A.Morphological(
+        ...     scale=(2, 3),          # Width and height of the structuring element
+        ...     operation="erosion",   # Shrink white regions (or expand black if inverted)
+        ...     p=1.0                  # Always apply
+        ... )
+        >>> result = erosion_transform(image=image, mask=mask)
+        >>> eroded_image = result['image']     # Text is thinner, small noise may be removed
+        >>> eroded_mask = result['mask']       # Mask is contracted around text regions
+        >>>
+        >>> # Note: For document processing, dilation often helps enhance readability for OCR
+        >>> # while erosion can help remove noise or separate connected components
+
+    """
+
+    _targets = ALL_TARGETS
+
+    class InitSchema(BaseTransformInitSchema):
+        scale: Annotated[
+            tuple[int, int],
+            AfterValidator(check_range_bounds(1)),
+            AfterValidator(check_range_bounds(1, None)),
+        ]
+        operation: Literal["erosion", "dilation"]
+
+    def __init__(
+        self,
+        scale: tuple[int, int] = (2, 3),
+        operation: Literal["erosion", "dilation"] = "dilation",
+        p: float = 0.5,
+    ):
+        super().__init__(p=p)
+        self.scale = scale
+        self.operation = operation
+
+    def apply(
+        self,
+        img: ImageType,
+        kernel: np.ndarray,
+        **params: Any,
+    ) -> ImageType:
+        return fgeometric.morphology(img, kernel, self.operation)
+
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        kernel: np.ndarray,
+        shape: tuple[int, int],
+        bbox_type: Literal["hbb", "obb"],
+        **params: Any,
+    ) -> np.ndarray:
+        image_shape = shape
+
+        denormalized_boxes = denormalize_bboxes(bboxes, image_shape)
+
+        result = fgeometric.bboxes_morphology(
+            denormalized_boxes,
+            kernel,
+            self.operation,
+            image_shape,
+            bbox_type=bbox_type,
+        )
+
+        return normalize_bboxes(result, image_shape)
+
+    def apply_to_keypoints(
+        self,
+        keypoints: np.ndarray,
+        **params: Any,
+    ) -> np.ndarray:
+        return keypoints
+
+    def sample_parameters(
+        self,
+        params: dict[str, Any],
+        data: dict[str, Any],
+        targets: TargetSet,
+        sampling: SamplingContext,
+    ) -> SampledParams:
+        return SampledParams(
+            params={
+                "kernel": cv2.getStructuringElement(cv2.MORPH_ELLIPSE, self.scale),
+            }
+        )

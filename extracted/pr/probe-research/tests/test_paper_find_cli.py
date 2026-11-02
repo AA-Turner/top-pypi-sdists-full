@@ -277,7 +277,7 @@ def test_the_shell_never_asks_who_it_is(monkeypatch, tmp_path, state):
 def test_the_managed_blocks_read_form_runs_as_written(monkeypatch, tmp_path, state):
     """The daemon block (agent_rules.DAEMON_POINTER_BODY) and plan-research-review
     tell agents to pass `--query`; that exact form must parse."""
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     assert '--mode read --paper-id arxiv:<id> --query "<question>"' in agent_rules.DAEMON_POINTER_BODY
     answer = httpx.Response(200, json={"mode": "read", "state": "ok", "results": [_paper(1)]})
@@ -380,7 +380,7 @@ def test_the_bounds_are_the_hosted_tools(monkeypatch):
 def test_off_refuses_it_at_the_cli_gate_too(monkeypatch, tmp_path, state):
     """The guard refuses it under `off`; the CLI's own gate does too, for a shell
     no guard sees (pi's guard reads no state)."""
-    from probe.cli import write_gate
+    from probe.cli.lifecycle import write_gate
 
     assert session_marker.set_session_state(SID, session_marker.STATE_OFF)
     env = {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": SID}

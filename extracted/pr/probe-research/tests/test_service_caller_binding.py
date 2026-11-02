@@ -43,10 +43,11 @@ import pytest
 
 from probe.shared import mailbox
 from probe.shared.mailbox.mailbox import Kind
-from probe.service import client
-from probe.service.caller import Bound
-from probe.service.protocol import ErrorCode, Method, Mode, RpcError
-from probe.service.registry import SERVICE, Outcome, Registry
+from probe.foundation import service_api as client
+from probe.service.actions.caller import Bound
+from probe.foundation.service_api.wire import ErrorCode, Method, RpcError
+from probe.foundation.service_api.vocabularies import Mode
+from probe.service.sessions.sessions import SERVICE, Outcome, Registry
 from tests.service_fakes import FakeCore
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401 -- a fixture
 
@@ -92,14 +93,21 @@ def _registry(tmp_path, *running: dict) -> tuple[Registry, Procs]:
     return reg, procs
 
 
-def _named_agent(tmp_path: Path, *args: str, program: str = "/bin/sleep", name: str = "claude") -> subprocess.Popen:
-    """A process the kernel names `claude` (a link of that name to `program`):
-    what a coding agent looks like to the service (`caller.agent_like`)."""
+#: What a stand-in agent runs by default: a sleep, in this interpreter. Never a
+#: link to `sleep`: Ubuntu 26.04's (GitHub's ubuntu-latest from 2026-11-01) is
+#: uutils' multi-call binary, which exits 1 run under any name but its own.
+_SLEEP_ARGS = ("-c", "import time; time.sleep(120)")
+
+
+def _named_agent(tmp_path: Path, *args: str, program: str | None = None, name: str = "claude") -> subprocess.Popen:
+    """A process the kernel names `claude` (a link of that name to `program`,
+    by default this interpreter sleeping): what a coding agent looks like to
+    the service (`caller.agent_like`)."""
     folder = tmp_path / f"agent-{time.monotonic_ns()}"
     folder.mkdir()
-    (folder / name).symlink_to(program)
-    return subprocess.Popen([str(folder / name), *(args or ("120",))], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True)
+    (folder / name).symlink_to(program or _interpreter_binary())
+    return subprocess.Popen([str(folder / name), *(args or _SLEEP_ARGS)], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 
 def _owner(proc: subprocess.Popen) -> dict:
@@ -232,7 +240,7 @@ def test_the_registrant_and_the_remembered_agents_survive_a_restart(tmp_path):
 
 
 def _old_registry_module():
-    """`probe.service.registry` as it was before #3360 (what an older service runs)."""
+    """`probe.service.sessions.sessions` as it was before #3360 (what an older service runs)."""
     spec = importlib.util.spec_from_file_location("probe.service._registry_before_3360", OLD_REGISTRY)
     module = importlib.util.module_from_spec(spec)
     module.__package__ = "probe.service"
@@ -360,7 +368,7 @@ class _Agent:
 
     def __init__(self, tmp_path: Path) -> None:
         self.proc = _named_agent(tmp_path, "-c", _AGENT_DRIVER, sys.executable, program=_interpreter_binary())
-        from probe.service import caller
+        from probe.service.actions import caller
 
         assert caller.agent_like(self.proc.pid), "the stand-in must look like an agent, or nothing here is tested"
         assert self.proc.stdout.readline().strip() == "ready", self.proc.stderr.read()
@@ -482,7 +490,7 @@ def _agent_named(sh, sid: str, env: dict) -> bool:
 def test_the_action_child_is_told_who_asked(service_home, monkeypatch):
     """As `desktop.request`'s: the child resolves the caller's own session from
     its process, registered or not (`probe.core.run._caller_session_refusal`)."""
-    from probe.service.management import CALLER_PID_ENV, CALLER_START_ENV
+    from probe.service.actions.management import CALLER_PID_ENV, CALLER_START_ENV
 
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     core = FakeCore(service_home.home)
@@ -514,7 +522,7 @@ def test_the_child_refuses_for_the_callers_daemon_session_registered_or_not(tmp_
     daemon records, and the child refuses `session_default` for it, exactly as
     `probe session default` refuses it in that shell."""
     from probe.sdk import session_marker
-    from probe.service.management import CALLER_PID_ENV, CALLER_START_ENV
+    from probe.service.actions.management import CALLER_PID_ENV, CALLER_START_ENV
 
     home = tmp_path / "h"
     home.mkdir()
@@ -548,7 +556,7 @@ def test_the_child_refuses_for_the_callers_daemon_session_registered_or_not(tmp_
 def test_a_read_action_never_looks_the_caller_up(monkeypatch):
     from probe.core import run
     from probe.core.requests import ActionName
-    from probe.service.management import CALLER_PID_ENV, CALLER_START_ENV
+    from probe.service.actions.management import CALLER_PID_ENV, CALLER_START_ENV
 
     monkeypatch.setenv(CALLER_PID_ENV, "1")
     monkeypatch.setenv(CALLER_START_ENV, "never")
@@ -559,7 +567,7 @@ def test_a_read_action_never_looks_the_caller_up(monkeypatch):
 def test_a_session_the_request_names_is_kept(monkeypatch):
     from probe.core import run
     from probe.core.requests import ActionName
-    from probe.service.management import CALLER_PID_ENV
+    from probe.service.actions.management import CALLER_PID_ENV
 
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "named-by-the-context-0001")
     monkeypatch.setenv(CALLER_PID_ENV, str(os.getpid()))
@@ -719,7 +727,7 @@ def _bare_service(tmp_path, monkeypatch):
 def test_events_forked_from_a_hook_host_may_claim(tmp_path, monkeypatch):
     """A warm host's events run as its children; the host is this service's
     child. Nothing above this service counts: an owner there names nothing."""
-    from probe.service import caller
+    from probe.service.actions import caller
 
     server, service = _bare_service(tmp_path, monkeypatch)
     me = service.pid
@@ -748,7 +756,7 @@ def test_events_forked_from_a_hook_host_may_claim(tmp_path, monkeypatch):
 
 
 def test_a_worker_this_service_started_may_post_and_its_siblings_may_not(tmp_path, monkeypatch):
-    from probe.service import caller
+    from probe.service.actions import caller
 
     server, service = _bare_service(tmp_path, monkeypatch)
     me = service.pid
@@ -793,7 +801,7 @@ def test_a_full_list_never_drops_a_running_agent(tmp_path, monkeypatch):
     real agent out of the list; one same-owner `inline` register then let an
     action through. The list grows past its bound before it forgets a running
     agent, drops the exited ones first, and the `inline` register is refused."""
-    from probe.service import registry as registry_mod
+    from probe.service.sessions import sessions as registry_mod
 
     monkeypatch.setattr(registry_mod, "MAX_DAEMON_OWNERS", 3)
     flood = [{"pid": 7000 + n, "start_time": f"f{n}"} for n in range(5)]
@@ -835,7 +843,21 @@ def test_a_refusal_is_logged_once_per_session_and_process_a_while(tmp_path, monk
     process) every 10 minutes, not at every retry."""
     server, service = _bare_service(tmp_path, monkeypatch)
     lines: list = []
-    monkeypatch.setattr(server, "log", lines.append)
+    monkeypatch.setattr(server.policy, "log", lines.append)
+    monkeypatch.setattr(server.connections.connections, "log", lines.append)
+    monkeypatch.setattr(server.connections.pid_waiter, "log", lines.append)
+    monkeypatch.setattr(server.handlers.jobs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.callers, "log", lines.append)
+    monkeypatch.setattr(server.handlers.hooks, "log", lines.append)
+    monkeypatch.setattr(server.handlers.runs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.session, "log", lines.append)
+    monkeypatch.setattr(server.legacy_door, "log", lines.append)
+    monkeypatch.setattr(server.lifecycle, "log", lines.append)
+    monkeypatch.setattr(server.main, "log", lines.append)
+    monkeypatch.setattr(server.outbox, "log", lines.append)
+    monkeypatch.setattr(server.server, "log", lines.append)
+    monkeypatch.setattr(server.tracking, "log", lines.append)
+    monkeypatch.setattr(server.update_followup, "log", lines.append)
     refusal = RpcError(ErrorCode.REFUSED, "refused", {"reason": Bound.NOT_REGISTRANT})
     newer, other = {"pid": 11, "start_time": "a"}, {"pid": 12, "start_time": "b"}
     for n in range(5):
@@ -871,7 +893,7 @@ def test_two_live_agents_on_one_session_keep_the_older_and_log_one_line(service_
     """`claude --continue` in a second tab while the first runs: the older
     registrant keeps the session until it exits; the newer tap's retries (every
     0.05 s here) leave one line in the service log, not one per retry."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)
     service_home.start()
@@ -967,7 +989,7 @@ def test_only_a_coding_agent_process_is_remembered(tmp_path):
 
 
 def test_agent_like_reads_the_names_agents_run_under(tmp_path):
-    from probe.service import caller
+    from probe.service.actions import caller
 
     procs = [_named_agent(tmp_path, name=name) for name in ("claude", "codex", "kimi-code", "pi")]
     plain = subprocess.Popen(["sleep", "60"])

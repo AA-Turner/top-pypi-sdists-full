@@ -114,7 +114,7 @@ def fake_machine(tmp_path, monkeypatch, stub):
 def live_agent(fake_machine):
     """A running "agent" with a credential in its environment and in its
     command line, registered with the service as a live session's owner."""
-    from probe.service import paths, procid
+    from probe.foundation.service_api import paths, procid
 
     env = {**os.environ, "PROBE_TOKEN": "probe_pat_" + SECRETS[14], "CLAUDE_CODE_SESSION_ID": SID}
     child = subprocess.Popen(
@@ -777,7 +777,7 @@ def test_a_settings_folder_gone_after_its_check_costs_only_its_files(fake_machin
 
 def test_an_action_record_gone_after_its_date_is_read_gives_its_slot_up(fake_machine, monkeypatch):
     """Not written into the log as an empty file: the next newest record takes its place."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     actions = paths.service_dir() / paths.ACTIONS_DIRNAME
     actions.mkdir(parents=True)

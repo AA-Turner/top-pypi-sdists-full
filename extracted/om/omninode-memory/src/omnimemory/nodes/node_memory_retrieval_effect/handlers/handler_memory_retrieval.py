@@ -51,25 +51,36 @@ from typing import TYPE_CHECKING, assert_never
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from .handler_db_mock import HandlerDbMock
+    from .handler_decay import HandlerActivationDecay
+    from .handler_graph_mock import HandlerGraphMock
+    from .handler_qdrant_mock import HandlerQdrantMock
+
 from omnibase_core.models.omnimemory import (
     ModelMemorySnapshot,
 )
 
+from ..container.registry_memory_retrieval import (
+    bind_activation_decay,
+    bind_db_mock,
+    bind_graph_mock,
+    bind_qdrant_mock,
+    bind_rank_fusion,
+)
 from ..models import (
+    ModelActivationDecayRequest,
     ModelHandlerMemoryRetrievalConfig,
     ModelMemoryRetrievalRequest,
     ModelMemoryRetrievalResponse,
+    ModelRankedEntry,
+    ModelRankedLeg,
+    ModelRankFusionRequest,
 )
-from .handler_db_mock import HandlerDbMock
-from .handler_decay import activation_decay
 from .handler_fusion import (
     MIN_LEXICAL_TS_RANK,
     MIN_VECTOR_COSINE,
-    fuse_rrf_scores,
-    select_relevant,
+    HandlerRankFusion,
 )
-from .handler_graph_mock import HandlerGraphMock
-from .handler_qdrant_mock import HandlerQdrantMock
 
 logger = logging.getLogger(__name__)
 
@@ -113,12 +124,21 @@ class HandlerMemoryRetrieval:
             print(f"{result.snapshot.snapshot_id}: {result.score:.2f}")
     """
 
-    def __init__(self, config: ModelHandlerMemoryRetrievalConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: ModelHandlerMemoryRetrievalConfig | None = None,
+        fusion: HandlerRankFusion | None = None,
+        decay: HandlerActivationDecay | None = None,
+    ) -> None:
         """Initialize the handler with configuration.
 
         Args:
             config: The handler configuration. If None, defaults are used.
+            fusion: Stateless rank fusion collaborator, constructed when None.
+            decay: Stateless activation decay collaborator, constructed when None.
         """
+        self._fusion = bind_rank_fusion() if fusion is None else fusion
+        self._decay = bind_activation_decay() if decay is None else decay
         self._config = config or ModelHandlerMemoryRetrievalConfig()
         self._qdrant_handler: HandlerQdrantMock | None = None
         self._db_handler: HandlerDbMock | None = None
@@ -150,11 +170,9 @@ class HandlerMemoryRetrieval:
 
             if self._config.use_stub_handlers:
                 # Initialize stub (mock) handlers
-                self._qdrant_handler = HandlerQdrantMock(
-                    self._config.qdrant_mock_config
-                )
-                self._db_handler = HandlerDbMock(self._config.db_config)
-                self._graph_handler = HandlerGraphMock(self._config.graph_config)
+                self._qdrant_handler = bind_qdrant_mock(self._config.qdrant_mock_config)
+                self._db_handler = bind_db_mock(self._config.db_config)
+                self._graph_handler = bind_graph_mock(self._config.graph_config)
 
                 await asyncio.gather(
                     self._qdrant_handler.initialize(),
@@ -227,8 +245,8 @@ class HandlerMemoryRetrieval:
             source_id, target_id, relationship_type, weight
         )
 
-    def clear(self) -> None:
-        """Clear all data from all handlers.
+    def reset(self) -> None:
+        """Drop all data from all handlers.
 
         Raises:
             RuntimeError: If the handler is not initialized.
@@ -237,11 +255,11 @@ class HandlerMemoryRetrieval:
             raise RuntimeError("Handler not initialized. Call initialize() first.")
 
         if self._qdrant_handler:
-            self._qdrant_handler.clear()
+            self._qdrant_handler.reset()
         if self._db_handler:
-            self._db_handler.clear()
+            self._db_handler.reset()
         if self._graph_handler:
-            self._graph_handler.clear()
+            self._graph_handler.reset()
 
     async def handle(
         self, request: ModelMemoryRetrievalRequest
@@ -357,7 +375,7 @@ class HandlerMemoryRetrieval:
         each leg is first filtered against its own relevance floor, then the
         survivors are fused by rank. Fusing first would let a leg that matched
         nothing useful contribute its best-of-a-bad-set at full rank-1 weight
-        and displace a leg that answered correctly. See ``handler_fusion``.
+        and displace a leg that answered correctly. See ``HandlerRankFusion``.
 
         Args:
             request: The originating ``search_hybrid`` request.
@@ -388,16 +406,27 @@ class HandlerMemoryRetrieval:
             for result in (*lexical_response.results, *vector_response.results)
         }
 
-        vector_leg = select_relevant(
-            [(str(r.snapshot.snapshot_id), r.score) for r in vector_response.results],
-            MIN_VECTOR_COSINE,
+        fusion_response = self._fusion.handle(
+            ModelRankFusionRequest(
+                legs=tuple(
+                    ModelRankedLeg(
+                        entries=tuple(
+                            ModelRankedEntry(
+                                document_id=str(result.snapshot.snapshot_id),
+                                score=result.score,
+                            )
+                            for result in response.results
+                        ),
+                        min_score=min_score,
+                    )
+                    for response, min_score in (
+                        (vector_response, MIN_VECTOR_COSINE),
+                        (lexical_response, MIN_LEXICAL_TS_RANK),
+                    )
+                )
+            )
         )
-        lexical_leg = select_relevant(
-            [(str(r.snapshot.snapshot_id), r.score) for r in lexical_response.results],
-            MIN_LEXICAL_TS_RANK,
-        )
-
-        fused_scores = fuse_rrf_scores(vector_leg, lexical_leg)
+        fused_scores = fusion_response.scores
 
         # Activation decay, applied AFTER fusion as a multiplicative modulation
         # on the fused score -- not as a third ranked list inside the fusion.
@@ -418,12 +447,16 @@ class HandlerMemoryRetrieval:
         #
         # ModelMemorySnapshot carries created_at and no last_accessed_at, so on
         # this path the decay degrades to created_at alone -- the ruled shape
-        # (OMN-16765). handler_decay takes the freshest timestamp available
+        # (OMN-16765). HandlerActivationDecay takes the freshest timestamp available
         # rather than assuming which fields exist.
         now = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
         ranked_scores = {
             doc_id: score
-            * activation_decay(by_id[doc_id].snapshot.created_at, None, now=now)
+            * self._decay.handle(
+                ModelActivationDecayRequest(
+                    created_at=by_id[doc_id].snapshot.created_at, now=now
+                )
+            ).activation
             for doc_id, score in fused_scores.items()
         }
         ranked_ids = sorted(ranked_scores, key=lambda d: (-ranked_scores[d], d))

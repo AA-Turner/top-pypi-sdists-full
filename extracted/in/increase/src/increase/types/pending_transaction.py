@@ -1,0 +1,1760 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "PendingTransaction",
+    "Source",
+    "SourceAccountTransferInstruction",
+    "SourceACHTransferInstruction",
+    "SourceBlockchainOfframpTransfer",
+    "SourceBlockchainOnrampTransferInstruction",
+    "SourceCardAuthorization",
+    "SourceCardAuthorizationAdditionalAmounts",
+    "SourceCardAuthorizationAdditionalAmountsClinic",
+    "SourceCardAuthorizationAdditionalAmountsDental",
+    "SourceCardAuthorizationAdditionalAmountsOriginal",
+    "SourceCardAuthorizationAdditionalAmountsPrescription",
+    "SourceCardAuthorizationAdditionalAmountsSurcharge",
+    "SourceCardAuthorizationAdditionalAmountsTotalCumulative",
+    "SourceCardAuthorizationAdditionalAmountsTotalHealthcare",
+    "SourceCardAuthorizationAdditionalAmountsTransit",
+    "SourceCardAuthorizationAdditionalAmountsUnknown",
+    "SourceCardAuthorizationAdditionalAmountsVision",
+    "SourceCardAuthorizationHealthcare",
+    "SourceCardAuthorizationNetworkDetails",
+    "SourceCardAuthorizationNetworkDetailsPulse",
+    "SourceCardAuthorizationNetworkDetailsVisa",
+    "SourceCardAuthorizationNetworkIdentifiers",
+    "SourceCardAuthorizationSchemeFee",
+    "SourceCardAuthorizationVerification",
+    "SourceCardAuthorizationVerificationCardVerificationCode",
+    "SourceCardAuthorizationVerificationCardholderAddress",
+    "SourceCardAuthorizationVerificationCardholderName",
+    "SourceCardPushTransferInstruction",
+    "SourceCheckDepositInstruction",
+    "SourceCheckTransferInstruction",
+    "SourceFednowTransferInstruction",
+    "SourceInboundFundsHold",
+    "SourceInboundWireTransferReversal",
+    "SourceOther",
+    "SourceRealTimePaymentsTransferInstruction",
+    "SourceSepaInstantTransferInstruction",
+    "SourceSwiftTransferInstruction",
+    "SourceUkFasterPaymentSystemTransferInstruction",
+    "SourceWireTransferInstruction",
+]
+
+
+class SourceAccountTransferInstruction(BaseModel):
+    """An Account Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `account_transfer_instruction`.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the destination
+    account currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    transfer_id: str
+    """The identifier of the Account Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceACHTransferInstruction(BaseModel):
+    """An ACH Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `ach_transfer_instruction`.
+    """
+
+    amount: int
+    """The pending amount in USD cents."""
+
+    transfer_id: str
+    """The identifier of the ACH Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceBlockchainOfframpTransfer(BaseModel):
+    """A Blockchain Off-Ramp Transfer object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `blockchain_offramp_transfer`. Blockchain Off-Ramp Transfers move funds from a Blockchain Address to an Account. They're automatically created when funds land in a Blockchain Address.
+    """
+
+    id: str
+    """The Blockchain Off-Ramp Transfer's identifier."""
+
+    token: Literal["usdc"]
+    """The token that was received.
+
+    - `usdc` - A USD stablecoin issued by Circle.
+    """
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    destination_account_id: str
+    """The Account the funds were transferred into."""
+
+    initiating_transaction_hash: str
+    """
+    The transaction hash of the blockchain transaction that initiated this transfer.
+    """
+
+    source_blockchain_address_id: str
+    """The Blockchain Address from which the transfer originated."""
+
+    status: Literal["pending_settlement", "settled"]
+    """The lifecycle status of the transfer.
+
+    - `pending_settlement` - The transfer is pending settlement at Increase.
+    - `settled` - The transfer has been settled and funds have been credited.
+    """
+
+    transaction_id: Optional[str] = None
+    """The Transaction crediting the Account once the transfer is settled."""
+
+    type: Literal["blockchain_offramp_transfer"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `blockchain_offramp_transfer`.
+    """
+
+
+class SourceBlockchainOnrampTransferInstruction(BaseModel):
+    """A Blockchain On-Ramp Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `blockchain_onramp_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    destination_blockchain_address: str
+    """The blockchain address the funds are being sent to."""
+
+    transfer_id: str
+    """
+    The identifier of the Blockchain On-Ramp Transfer that led to this Pending
+    Transaction.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsClinic(BaseModel):
+    """The part of this transaction amount that was for clinic-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsDental(BaseModel):
+    """The part of this transaction amount that was for dental-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsOriginal(BaseModel):
+    """The original pre-authorized amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsPrescription(BaseModel):
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsSurcharge(BaseModel):
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsTotalCumulative(BaseModel):
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsTotalHealthcare(BaseModel):
+    """The total amount of healthcare-related additional amounts."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsTransit(BaseModel):
+    """The part of this transaction amount that was for transit-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsUnknown(BaseModel):
+    """An unknown additional amount."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmountsVision(BaseModel):
+    """The part of this transaction amount that was for vision-related services."""
+
+    amount: int
+    """The amount in minor units of the `currency` field.
+
+    The amount is positive if it is added to the amount (such as an ATM surcharge
+    fee) and negative if it is subtracted from the amount (such as a discount).
+    """
+
+    currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the additional
+    amount's currency.
+    """
+
+
+class SourceCardAuthorizationAdditionalAmounts(BaseModel):
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge fees. These are usually a subset of the `amount` field and are used to provide more detailed information about the transaction.
+    """
+
+    clinic: Optional[SourceCardAuthorizationAdditionalAmountsClinic] = None
+    """The part of this transaction amount that was for clinic-related services."""
+
+    dental: Optional[SourceCardAuthorizationAdditionalAmountsDental] = None
+    """The part of this transaction amount that was for dental-related services."""
+
+    original: Optional[SourceCardAuthorizationAdditionalAmountsOriginal] = None
+    """The original pre-authorized amount."""
+
+    prescription: Optional[SourceCardAuthorizationAdditionalAmountsPrescription] = None
+    """The part of this transaction amount that was for healthcare prescriptions."""
+
+    surcharge: Optional[SourceCardAuthorizationAdditionalAmountsSurcharge] = None
+    """The surcharge amount charged for this transaction by the merchant."""
+
+    total_cumulative: Optional[SourceCardAuthorizationAdditionalAmountsTotalCumulative] = None
+    """
+    The total amount of a series of incremental authorizations, optionally provided.
+    """
+
+    total_healthcare: Optional[SourceCardAuthorizationAdditionalAmountsTotalHealthcare] = None
+    """The total amount of healthcare-related additional amounts."""
+
+    transit: Optional[SourceCardAuthorizationAdditionalAmountsTransit] = None
+    """The part of this transaction amount that was for transit-related services."""
+
+    unknown: Optional[SourceCardAuthorizationAdditionalAmountsUnknown] = None
+    """An unknown additional amount."""
+
+    vision: Optional[SourceCardAuthorizationAdditionalAmountsVision] = None
+    """The part of this transaction amount that was for vision-related services."""
+
+
+class SourceCardAuthorizationHealthcare(BaseModel):
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_ninety_percent_eligibility: Literal["eligible", "not_eligible"]
+    """
+    The merchant's eligibility under the Internal Revenue Service's 90% Rule for
+    Flexible Spending Account (FSA) and Health Savings Account (HSA) eligible
+    products. The eligibility is determined based on the list of merchants
+    maintained by the Special Interest Group for IIAS Standards (SIGIS).
+
+    - `eligible` - The merchant is eligible for treatment under the 90% rule.
+    - `not_eligible` - The merchant is not eligible for treatment under the 90%
+      rule.
+    """
+
+
+class SourceCardAuthorizationNetworkDetailsPulse(BaseModel):
+    """Fields specific to the `pulse` network."""
+
+    pass
+
+
+class SourceCardAuthorizationNetworkDetailsVisa(BaseModel):
+    """Fields specific to the `visa` network."""
+
+    electronic_commerce_indicator: Optional[
+        Literal[
+            "mail_phone_order",
+            "recurring",
+            "installment",
+            "unknown_mail_phone_order",
+            "secure_electronic_commerce",
+            "non_authenticated_security_transaction_at_3ds_capable_merchant",
+            "non_authenticated_security_transaction",
+            "non_secure_transaction",
+        ]
+    ] = None
+    """
+    For electronic commerce transactions, this identifies the level of security used
+    in obtaining the customer's payment credential. For mail or telephone order
+    transactions, identifies the type of mail or telephone order.
+
+    - `mail_phone_order` - Single transaction of a mail/phone order: Use to indicate
+      that the transaction is a mail/phone order purchase, not a recurring
+      transaction or installment payment. For domestic transactions in the US
+      region, this value may also indicate one bill payment transaction in the
+      card-present or card-absent environments.
+    - `recurring` - Recurring transaction: Payment indicator used to indicate a
+      recurring transaction that originates from an acquirer in the US region.
+    - `installment` - Installment payment: Payment indicator used to indicate one
+      purchase of goods or services that is billed to the account in multiple
+      charges over a period of time agreed upon by the cardholder and merchant from
+      transactions that originate from an acquirer in the US region.
+    - `unknown_mail_phone_order` - Unknown classification: other mail order: Use to
+      indicate that the type of mail/telephone order is unknown.
+    - `secure_electronic_commerce` - Secure electronic commerce transaction: Use to
+      indicate that the electronic commerce transaction has been authenticated using
+      e.g., 3-D Secure
+    - `non_authenticated_security_transaction_at_3ds_capable_merchant` -
+      Non-authenticated security transaction at a 3-D Secure-capable merchant, and
+      merchant attempted to authenticate the cardholder using 3-D Secure: Use to
+      identify an electronic commerce transaction where the merchant attempted to
+      authenticate the cardholder using 3-D Secure, but was unable to complete the
+      authentication because the issuer or cardholder does not participate in the
+      3-D Secure program.
+    - `non_authenticated_security_transaction` - Non-authenticated security
+      transaction: Use to identify an electronic commerce transaction that uses data
+      encryption for security however, cardholder authentication is not performed
+      using 3-D Secure.
+    - `non_secure_transaction` - Non-secure transaction: Use to identify an
+      electronic commerce transaction that has no data protection.
+    """
+
+    point_of_service_entry_mode: Optional[
+        Literal[
+            "unknown",
+            "manual",
+            "magnetic_stripe_no_cvv",
+            "optical_code",
+            "integrated_circuit_card",
+            "contactless",
+            "credential_on_file",
+            "magnetic_stripe",
+            "contactless_magnetic_stripe",
+            "integrated_circuit_card_no_cvv",
+        ]
+    ] = None
+    """
+    The method used to enter the cardholder's primary account number and card
+    expiration date.
+
+    - `unknown` - Unknown
+    - `manual` - Manual key entry
+    - `magnetic_stripe_no_cvv` - Magnetic stripe read, without card verification
+      value
+    - `optical_code` - Optical code
+    - `integrated_circuit_card` - Contact chip card
+    - `contactless` - Contactless read of chip card
+    - `credential_on_file` - Transaction initiated using a credential that has
+      previously been stored on file
+    - `magnetic_stripe` - Magnetic stripe read
+    - `contactless_magnetic_stripe` - Contactless read of magnetic stripe data
+    - `integrated_circuit_card_no_cvv` - Contact chip card, without card
+      verification value
+    """
+
+    stand_in_processing_reason: Optional[
+        Literal[
+            "issuer_error",
+            "invalid_physical_card",
+            "invalid_cryptogram",
+            "invalid_cardholder_authentication_verification_value",
+            "internal_visa_error",
+            "merchant_transaction_advisory_service_authentication_required",
+            "payment_fraud_disruption_acquirer_block",
+            "other",
+        ]
+    ] = None
+    """Only present when `actioner: network`.
+
+    Describes why a card authorization was approved or declined by Visa through
+    stand-in processing.
+
+    - `issuer_error` - Increase failed to process the authorization in a timely
+      manner.
+    - `invalid_physical_card` - The physical card read had an invalid CVV or dCVV.
+    - `invalid_cryptogram` - The card's authorization request cryptogram was
+      invalid. The cryptogram can be from a physical card or a Digital Wallet Token
+      purchase.
+    - `invalid_cardholder_authentication_verification_value` - The 3DS cardholder
+      authentication verification value was invalid.
+    - `internal_visa_error` - An internal Visa error occurred. Visa uses this reason
+      code for certain expected occurrences as well, such as Application Transaction
+      Counter (ATC) replays.
+    - `merchant_transaction_advisory_service_authentication_required` - The merchant
+      has enabled Visa's Transaction Advisory Service and requires further
+      authentication to perform the transaction. In practice this is often utilized
+      at fuel pumps to tell the cardholder to see the cashier.
+    - `payment_fraud_disruption_acquirer_block` - The transaction was blocked by
+      Visa's Payment Fraud Disruption service due to fraudulent Acquirer behavior,
+      such as card testing.
+    - `other` - An unspecific reason for stand-in processing.
+    """
+
+    terminal_entry_capability: Optional[
+        Literal[
+            "unknown",
+            "terminal_not_used",
+            "magnetic_stripe",
+            "barcode",
+            "optical_character_recognition",
+            "chip_or_contactless",
+            "contactless_only",
+            "no_capability",
+        ]
+    ] = None
+    """The capability of the terminal being used to read the card.
+
+    Shows whether a terminal can e.g., accept chip cards or if it only supports
+    magnetic stripe reads. This reflects the highest capability of the terminal —
+    for example, a terminal that supports both chip and magnetic stripe will be
+    identified as chip-capable.
+
+    - `unknown` - Unknown
+    - `terminal_not_used` - No terminal was used for this transaction.
+    - `magnetic_stripe` - The terminal can only read magnetic stripes and does not
+      have chip or contactless reading capability.
+    - `barcode` - The terminal can only read barcodes.
+    - `optical_character_recognition` - The terminal can only read cards via Optical
+      Character Recognition.
+    - `chip_or_contactless` - The terminal supports contact chip cards and can also
+      read the magnetic stripe. If contact chip is supported, this value is used
+      regardless of whether contactless is also supported.
+    - `contactless_only` - The terminal supports contactless reads but does not
+      support contact chip. Only used when the terminal lacks contact chip
+      capability.
+    - `no_capability` - The terminal has no card reading capability.
+    """
+
+
+class SourceCardAuthorizationNetworkDetails(BaseModel):
+    """Fields specific to the `network`."""
+
+    category: Literal["visa", "pulse"]
+    """The payment network used to process this card authorization.
+
+    - `visa` - Visa
+    - `pulse` - Pulse
+    """
+
+    pulse: Optional[SourceCardAuthorizationNetworkDetailsPulse] = None
+    """Fields specific to the `pulse` network."""
+
+    visa: Optional[SourceCardAuthorizationNetworkDetailsVisa] = None
+    """Fields specific to the `visa` network."""
+
+
+class SourceCardAuthorizationNetworkIdentifiers(BaseModel):
+    """Network-specific identifiers for a specific request or transaction."""
+
+    authorization_identification_response: Optional[str] = None
+    """
+    The randomly generated 6-character Authorization Identification Response code
+    sent back to the acquirer in an approved response.
+    """
+
+    retrieval_reference_number: Optional[str] = None
+    """A life-cycle identifier used across e.g., an authorization and a reversal.
+
+    Expected to be unique per acquirer within a window of time. For some card
+    networks the retrieval reference number includes the trace counter.
+    """
+
+    trace_number: Optional[str] = None
+    """A counter used to verify an individual authorization.
+
+    Expected to be unique per acquirer within a window of time.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    A globally unique transaction identifier provided by the card network, used
+    across multiple life-cycle requests.
+    """
+
+
+class SourceCardAuthorizationSchemeFee(BaseModel):
+    amount: str
+    """The fee amount given as a string containing a decimal number."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the fee was
+    created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the fee
+    reimbursement.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fee_type: Literal[
+        "visa_international_service_assessment_single_currency",
+        "visa_international_service_assessment_cross_currency",
+        "visa_authorization_domestic_point_of_sale",
+        "visa_authorization_international_point_of_sale",
+        "visa_authorization_canada_point_of_sale",
+        "visa_authorization_reversal_point_of_sale",
+        "visa_authorization_reversal_international_point_of_sale",
+        "visa_authorization_address_verification_service",
+        "visa_advanced_authorization",
+        "visa_message_transmission",
+        "visa_account_verification_domestic",
+        "visa_account_verification_international",
+        "visa_account_verification_canada",
+        "visa_corporate_acceptance_fee",
+        "visa_consumer_debit_acceptance_fee",
+        "visa_business_debit_acceptance_fee",
+        "visa_purchasing_acceptance_fee",
+        "visa_purchase_domestic",
+        "visa_purchase_international",
+        "visa_credit_purchase_token",
+        "visa_debit_purchase_token",
+        "visa_clearing_transmission",
+        "visa_direct_authorization",
+        "visa_direct_transaction_domestic",
+        "visa_service_commercial_credit",
+        "visa_advertising_service_commercial_credit",
+        "visa_community_growth_acceleration_program",
+        "visa_processing_guarantee_commercial_credit",
+        "pulse_switch_fee",
+        "pulse_tokenization_fee",
+    ]
+    """The type of fee being assessed.
+
+    - `visa_international_service_assessment_single_currency` - International
+      Service Assessment (ISA) single-currency is a fee assessed by the card network
+      for cross-border transactions presented and settled in the same currency.
+    - `visa_international_service_assessment_cross_currency` - International Service
+      Assessment (ISA) cross-currency is a fee assessed by the card network for
+      cross-border transactions presented and settled in different currencies.
+    - `visa_authorization_domestic_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for POS (Point-Of-Sale) authorization
+      transactions. Authorization is the process of approving or declining the
+      transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_international_point_of_sale` - Activity and charges for
+      Visa Settlement System processing for POS (Point-Of-Sale) International
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified. The fee is assessed to the Issuer.
+    - `visa_authorization_canada_point_of_sale` - Activity and charges for Visa
+      Settlement System processing for Canada Region POS (Point-of-Sale)
+      authorization transactions. Authorization is the process of approving or
+      declining the transaction amount specified.
+    - `visa_authorization_reversal_point_of_sale` - Activity only for Visa
+      Settlement System authorization processing of POS (Point-Of-Sale) reversal
+      transactions. Authorization reversal represents a VSS message that undoes the
+      complete or partial actions of a previous authorization request.
+    - `visa_authorization_reversal_international_point_of_sale` - Activity only for
+      Visa Settlement System authorization processing of POS (Point-Of-Sale)
+      International reversal transactions. Authorization reversal represents a VSS
+      message that undoes the complete or partial actions of a previous
+      authorization request.
+    - `visa_authorization_address_verification_service` - A per Address Verification
+      Service (AVS) result fee. Applies to all usable AVS result codes.
+    - `visa_advanced_authorization` - Advanced Authorization is a fraud detection
+      tool that monitors and risk evaluates 100 percent of US VisaNet authorizations
+      in real-time. Activity related to Purchase (includes Signature Authenticated
+      Visa and PIN Authenticated Visa Debit (PAVD) transactions).
+    - `visa_message_transmission` - Issuer Transactions Visa represents a charge
+      based on total actual monthly processing (Visa transactions only) through a
+      VisaNet Access Point (VAP). Charges are assessed to the processor for each
+      VisaNet Access Point.
+    - `visa_account_verification_domestic` - Activity, per inquiry, related to the
+      domestic Issuer for Account Number Verification.
+    - `visa_account_verification_international` - Activity, per inquiry, related to
+      the international Issuer for Account Number Verification.
+    - `visa_account_verification_canada` - Activity, per inquiry, related to the
+      US-Canada Issuer for Account Number Verification.
+    - `visa_corporate_acceptance_fee` - The Corporate Acceptance Fee is charged to
+      issuers and is based on the monthly sales volume on Commercial and Government
+      Debit, Prepaid, Credit, Charge, or Deferred Debit card transactions.
+    - `visa_consumer_debit_acceptance_fee` - The Consumer Debit Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume of Consumer Debit
+      or Prepaid card transactions. The cashback portion of a Debit and Prepaid card
+      transaction is excluded from the sales volume calculation.
+    - `visa_business_debit_acceptance_fee` - The Business Acceptance Fee is charged
+      to issuers and is based on the monthly sales volume on Business Debit,
+      Prepaid, Credit, Charge, or Deferred Debit card transactions. The cashback
+      portion is included in the sales volume calculation with the exception of a
+      Debit and Prepaid card transactions.
+    - `visa_purchasing_acceptance_fee` - The Purchasing Card Acceptance Fee is
+      charged to issuers and is based on the monthly sales volume on Commercial and
+      Government Debit, Prepaid, Credit, Charge, or Deferred Debit card
+      transactions.
+    - `visa_purchase_domestic` - Activity and fees for the processing of a sales
+      draft original for a purchase transaction.
+    - `visa_purchase_international` - Activity and fees for the processing of an
+      international sales draft original for a purchase transaction.
+    - `visa_credit_purchase_token` - Apple Pay Credit Product Token Purchase
+      Original Transactions. This fee is billed by Visa on behalf of Apple Inc. for
+      Apple Pay transactions.
+    - `visa_debit_purchase_token` - Apple Pay Debit Product Token Purchase Original
+      Transactions. This fee is billed by Visa on behalf of Apple Inc. for Apple Pay
+      transactions.
+    - `visa_clearing_transmission` - A per transaction fee assessed for Base II
+      financial draft - Issuer.
+    - `visa_direct_authorization` - Issuer charge for Non-Financial OCT/AFT
+      Authorization 0100 and Declined Financial OCT/AFT 0200 transactions.
+    - `visa_direct_transaction_domestic` - Data processing charge for Visa Direct
+      OCTs for all business application identifiers (BAIs) other than money
+      transfer-bank initiated (BI). BASE II transactions.
+    - `visa_service_commercial_credit` - Issuer card service fee for Commercial
+      Credit cards.
+    - `visa_advertising_service_commercial_credit` - Issuer Advertising Service Fee
+      for Commercial Credit cards.
+    - `visa_community_growth_acceleration_program` - Issuer Community Growth
+      Acceleration Program Fee.
+    - `visa_processing_guarantee_commercial_credit` - Issuer Processing Guarantee
+      for Commercial Credit cards.
+    - `pulse_switch_fee` - Pulse Switch Fee is a fee charged by the Pulse network
+      for processing transactions on its network.
+    - `pulse_tokenization_fee` - Pulse Tokenization Fee is a fee charged by the
+      Pulse network for processing tokenized transactions on its network.
+    """
+
+    fixed_component: Optional[str] = None
+    """
+    The fixed component of the fee, if applicable, given in major units of the fee
+    amount.
+    """
+
+    variable_rate: Optional[str] = None
+    """
+    The variable rate component of the fee, if applicable, given as a decimal (e.g.,
+    0.015 for 1.5%).
+    """
+
+
+class SourceCardAuthorizationVerificationCardVerificationCode(BaseModel):
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on the back of the card.
+    """
+
+    result: Literal["not_checked", "match", "no_match"]
+    """The result of verifying the Card Verification Code.
+
+    - `not_checked` - No card verification code was provided in the authorization
+      request.
+    - `match` - The card verification code matched the one on file.
+    - `no_match` - The card verification code did not match the one on file.
+    """
+
+
+class SourceCardAuthorizationVerificationCardholderAddress(BaseModel):
+    """
+    Cardholder address provided in the authorization request and the address on file we verified it against.
+    """
+
+    actual_line1: Optional[str] = None
+    """Line 1 of the address on file for the cardholder."""
+
+    actual_postal_code: Optional[str] = None
+    """The postal code of the address on file for the cardholder."""
+
+    provided_line1: Optional[str] = None
+    """
+    The cardholder address line 1 provided for verification in the authorization
+    request.
+    """
+
+    provided_postal_code: Optional[str] = None
+    """The postal code provided for verification in the authorization request."""
+
+    result: Literal[
+        "not_checked",
+        "postal_code_match_address_no_match",
+        "postal_code_no_match_address_match",
+        "match",
+        "no_match",
+        "postal_code_match_address_not_checked",
+    ]
+    """The address verification result returned to the card network.
+
+    - `not_checked` - No address information was provided in the authorization
+      request.
+    - `postal_code_match_address_no_match` - Postal code matches, but the street
+      address does not match or was not provided.
+    - `postal_code_no_match_address_match` - Postal code does not match, but the
+      street address matches or was not provided.
+    - `match` - Postal code and street address match.
+    - `no_match` - Postal code and street address do not match.
+    - `postal_code_match_address_not_checked` - Postal code matches, but the street
+      address was not verified. (deprecated)
+    """
+
+
+class SourceCardAuthorizationVerificationCardholderName(BaseModel):
+    """Cardholder name provided in the authorization request."""
+
+    provided_first_name: Optional[str] = None
+    """The first name provided for verification in the authorization request."""
+
+    provided_last_name: Optional[str] = None
+    """The last name provided for verification in the authorization request."""
+
+    provided_middle_name: Optional[str] = None
+    """The middle name provided for verification in the authorization request."""
+
+
+class SourceCardAuthorizationVerification(BaseModel):
+    """Fields related to verification of cardholder-provided values."""
+
+    card_verification_code: SourceCardAuthorizationVerificationCardVerificationCode
+    """
+    Fields related to verification of the Card Verification Code, a 3-digit code on
+    the back of the card.
+    """
+
+    cardholder_address: SourceCardAuthorizationVerificationCardholderAddress
+    """
+    Cardholder address provided in the authorization request and the address on file
+    we verified it against.
+    """
+
+    cardholder_name: Optional[SourceCardAuthorizationVerificationCardholderName] = None
+    """Cardholder name provided in the authorization request."""
+
+
+class SourceCardAuthorization(BaseModel):
+    """A Card Authorization object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_authorization`. Card Authorizations are temporary holds placed on a customer's funds with the intent to later clear a transaction.
+    """
+
+    id: str
+    """The Card Authorization identifier."""
+
+    actioner: Literal["user", "increase", "network"]
+    """
+    Whether this authorization was approved by Increase, the card network through
+    stand-in processing, or the user through a real-time decision.
+
+    - `user` - This object was actioned by the user through a real-time decision.
+    - `increase` - This object was actioned by Increase without user intervention.
+    - `network` - This object was actioned by the network, through stand-in
+      processing.
+    """
+
+    additional_amounts: SourceCardAuthorizationAdditionalAmounts
+    """
+    Additional amounts associated with the card authorization, such as ATM surcharge
+    fees. These are usually a subset of the `amount` field and are used to provide
+    more detailed information about the transaction.
+    """
+
+    amount: int
+    """The pending amount in the minor unit of the transaction's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    card_payment_id: str
+    """The ID of the Card Payment this transaction belongs to."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    digital_wallet_token_id: Optional[str] = None
+    """
+    If the authorization was made via a Digital Wallet Token (such as an Apple Pay
+    purchase), the identifier of the token that was used.
+    """
+
+    direction: Literal["settlement", "refund"]
+    """
+    The direction describes the direction the funds will move, either from the
+    cardholder to the merchant or from the merchant to the cardholder.
+
+    - `settlement` - A regular card authorization where funds are debited from the
+      cardholder.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    """
+
+    expires_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which this
+    authorization will expire and the pending transaction will be released.
+    """
+
+    healthcare: Optional[SourceCardAuthorizationHealthcare] = None
+    """The healthcare-related fields for this authorization.
+
+    Only present for specific programs.
+    """
+
+    merchant_acceptor_id: str
+    """
+    The merchant identifier (commonly abbreviated as MID) of the merchant the card
+    is transacting with.
+    """
+
+    merchant_category_code: str
+    """
+    The Merchant Category Code (commonly abbreviated as MCC) of the merchant the
+    card is transacting with.
+    """
+
+    merchant_city: Optional[str] = None
+    """The city the merchant resides in."""
+
+    merchant_country: str
+    """The country the merchant resides in."""
+
+    merchant_descriptor: str
+    """The merchant descriptor of the merchant the card is transacting with."""
+
+    merchant_postal_code: Optional[str] = None
+    """The merchant's postal code.
+
+    For US merchants this is either a 5-digit or 9-digit ZIP code, where the first 5
+    and last 4 are separated by a dash.
+    """
+
+    merchant_state: Optional[str] = None
+    """The state the merchant resides in."""
+
+    network_details: SourceCardAuthorizationNetworkDetails
+    """Fields specific to the `network`."""
+
+    network_identifiers: SourceCardAuthorizationNetworkIdentifiers
+    """Network-specific identifiers for a specific request or transaction."""
+
+    network_risk_score: Optional[int] = None
+    """The risk score generated by the card network.
+
+    For Visa this is the Visa Advanced Authorization risk score, from 0 to 99, where
+    99 is the riskiest. For Pulse the score is from 0 to 999, where 999 is the
+    riskiest.
+    """
+
+    original_card_payment_id: Optional[str] = None
+    """
+    The ID of the Card Payment containing the original authorization or card
+    validation this transaction references. For a merchant-initiated transaction,
+    this is the Card Payment from when the card was first stored, which is typically
+    where the CVV2 was verified. The reference this is derived from is supplied by
+    the merchant or their acquirer, so it is not guaranteed to be present.
+    """
+
+    pending_transaction_id: Optional[str] = None
+    """The identifier of the Pending Transaction associated with this Transaction."""
+
+    physical_card_id: Optional[str] = None
+    """
+    If the authorization was made in-person with a physical card, the Physical Card
+    that was used.
+    """
+
+    presentment_amount: int
+    """The pending amount in the minor unit of the transaction's presentment currency."""
+
+    presentment_currency: str
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's presentment currency.
+    """
+
+    processing_category: Literal[
+        "account_funding",
+        "automatic_fuel_dispenser",
+        "bill_payment",
+        "original_credit",
+        "purchase",
+        "quasi_cash",
+        "refund",
+        "cash_disbursement",
+        "cash_deposit",
+        "balance_inquiry",
+        "unknown",
+    ]
+    """
+    The processing category describes the intent behind the authorization, such as
+    whether it was used for bill payments or an automatic fuel dispenser.
+
+    - `account_funding` - Account funding transactions are transactions used to
+      e.g., fund an account or transfer funds between accounts.
+    - `automatic_fuel_dispenser` - Automatic fuel dispenser authorizations occur
+      when a card is used at a gas pump, prior to the actual transaction amount
+      being known. They are followed by an advice message that updates the amount of
+      the pending transaction.
+    - `bill_payment` - A transaction used to pay a bill.
+    - `original_credit` - Original credit transactions are used to send money to a
+      cardholder.
+    - `purchase` - A regular purchase.
+    - `quasi_cash` - Quasi-cash transactions represent purchases of items which may
+      be convertible to cash.
+    - `refund` - A refund card authorization, sometimes referred to as a credit
+      voucher authorization, where funds are credited to the cardholder.
+    - `cash_disbursement` - Cash disbursement transactions are used to withdraw cash
+      from an ATM or a point of sale.
+    - `cash_deposit` - Cash deposit transactions are used to deposit cash at an ATM
+      or a point of sale.
+    - `balance_inquiry` - A balance inquiry transaction is used to check the balance
+      of an account associated with a card.
+    - `unknown` - The processing category is unknown.
+    """
+
+    real_time_decision_id: Optional[str] = None
+    """
+    The identifier of the Real-Time Decision sent to approve or decline this
+    transaction.
+    """
+
+    scheme_fees: List[SourceCardAuthorizationSchemeFee]
+    """The scheme fees associated with this card authorization."""
+
+    terminal_id: Optional[str] = None
+    """
+    The terminal identifier (commonly abbreviated as TID) of the terminal the card
+    is transacting with.
+    """
+
+    type: Literal["card_authorization"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card_authorization`.
+    """
+
+    verification: SourceCardAuthorizationVerification
+    """Fields related to verification of cardholder-provided values."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCardPushTransferInstruction(BaseModel):
+    """A Card Push Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `card_push_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    transfer_id: str
+    """The identifier of the Card Push Transfer that led to this Pending Transaction."""
+
+
+class SourceCheckDepositInstruction(BaseModel):
+    """A Check Deposit Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `check_deposit_instruction`.
+    """
+
+    amount: int
+    """The pending amount in USD cents."""
+
+    back_image_file_id: Optional[str] = None
+    """
+    The identifier of the File containing the image of the back of the check that
+    was deposited.
+    """
+
+    check_deposit_id: Optional[str] = None
+    """The identifier of the Check Deposit."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the
+    transaction's currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    front_image_file_id: str
+    """
+    The identifier of the File containing the image of the front of the check that
+    was deposited.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceCheckTransferInstruction(BaseModel):
+    """A Check Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `check_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the check's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    transfer_id: str
+    """The identifier of the Check Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceFednowTransferInstruction(BaseModel):
+    """A FedNow Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `fednow_transfer_instruction`.
+    """
+
+    transfer_id: str
+    """The identifier of the FedNow Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundFundsHold(BaseModel):
+    """An Inbound Funds Hold object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_funds_hold`. We hold funds for certain transaction types to account for return windows where funds might still be clawed back by the sending institution.
+    """
+
+    amount: int
+    """The held amount in the minor unit of the account's currency.
+
+    For dollars, for example, this is cents.
+    """
+
+    automatically_releases_at: datetime
+    """When the hold will be released automatically.
+
+    Certain conditions may cause it to be released before this time.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) time at which the hold
+    was created.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the hold's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    held_transaction_id: Optional[str] = None
+    """The ID of the Transaction for which funds were held."""
+
+    pending_transaction_id: Optional[str] = None
+    """The ID of the Pending Transaction representing the held funds."""
+
+    released_at: Optional[datetime] = None
+    """When the hold was released (if it has been released)."""
+
+    status: Literal["held", "complete"]
+    """The status of the hold.
+
+    - `held` - Funds are still being held.
+    - `complete` - Funds have been released.
+    """
+
+    type: Literal["inbound_funds_hold"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `inbound_funds_hold`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceInboundWireTransferReversal(BaseModel):
+    """An Inbound Wire Transfer Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `inbound_wire_transfer_reversal`. An Inbound Wire Transfer Reversal is created when Increase has received a wire and the User requests that it be reversed.
+    """
+
+    inbound_wire_transfer_id: str
+    """The ID of the Inbound Wire Transfer that is being reversed."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceOther(BaseModel):
+    """
+    If the category of this Transaction source is equal to `other`, this field will contain an empty object, otherwise it will contain null.
+    """
+
+    pass
+
+
+class SourceRealTimePaymentsTransferInstruction(BaseModel):
+    """A Real-Time Payments Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `real_time_payments_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    transfer_id: str
+    """
+    The identifier of the Real-Time Payments Transfer that led to this Pending
+    Transaction.
+    """
+
+
+class SourceSepaInstantTransferInstruction(BaseModel):
+    """A SEPA Instant Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `sepa_instant_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in EUR cents."""
+
+    currency: Literal["EUR"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) currency code for the
+    transfer's currency. This is always `EUR`.
+
+    - `EUR` - EUR
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceSwiftTransferInstruction(BaseModel):
+    """A Swift Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `swift_transfer_instruction`.
+    """
+
+    transfer_id: str
+    """The identifier of the Swift Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceUkFasterPaymentSystemTransferInstruction(BaseModel):
+    """An UK Faster Payment System Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `uk_faster_payment_system_transfer_instruction`.
+    """
+
+    amount: int
+    """The transfer amount in GBP pence."""
+
+    currency: Literal["GBP"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) currency code for the
+    transfer's currency. This is always `GBP`.
+
+    - `GBP` - GBP
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SourceWireTransferInstruction(BaseModel):
+    """A Wire Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is equal to `wire_transfer_instruction`.
+    """
+
+    account_number: str
+    """The account number for the destination account."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    message_to_recipient: str
+    """The message that will show on the recipient's bank statement."""
+
+    routing_number: str
+    """
+    The American Bankers' Association (ABA) Routing Transit Number (RTN) for the
+    destination account.
+    """
+
+    transfer_id: str
+    """The identifier of the Wire Transfer that led to this Pending Transaction."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class Source(BaseModel):
+    """
+    This is an object giving more details on the network-level event that caused the Pending Transaction. For example, for a card transaction this lists the merchant's industry and location.
+    """
+
+    category: Literal[
+        "account_transfer_instruction",
+        "ach_transfer_instruction",
+        "card_authorization",
+        "check_deposit_instruction",
+        "check_transfer_instruction",
+        "fednow_transfer_instruction",
+        "inbound_funds_hold",
+        "user_initiated_hold",
+        "real_time_payments_transfer_instruction",
+        "wire_transfer_instruction",
+        "inbound_wire_transfer_reversal",
+        "swift_transfer_instruction",
+        "card_push_transfer_instruction",
+        "blockchain_onramp_transfer_instruction",
+        "blockchain_offramp_transfer",
+        "uk_faster_payment_system_transfer_instruction",
+        "sepa_instant_transfer_instruction",
+        "other",
+    ]
+    """The type of the resource.
+
+    We may add additional possible values for this enum over time; your application
+    should be able to handle such additions gracefully.
+
+    - `account_transfer_instruction` - Account Transfer Instruction: details will be
+      under the `account_transfer_instruction` object.
+    - `ach_transfer_instruction` - ACH Transfer Instruction: details will be under
+      the `ach_transfer_instruction` object.
+    - `card_authorization` - Card Authorization: details will be under the
+      `card_authorization` object.
+    - `check_deposit_instruction` - Check Deposit Instruction: details will be under
+      the `check_deposit_instruction` object.
+    - `check_transfer_instruction` - Check Transfer Instruction: details will be
+      under the `check_transfer_instruction` object.
+    - `fednow_transfer_instruction` - FedNow Transfer Instruction: details will be
+      under the `fednow_transfer_instruction` object.
+    - `inbound_funds_hold` - Inbound Funds Hold: details will be under the
+      `inbound_funds_hold` object.
+    - `user_initiated_hold` - User Initiated Hold: details will be under the
+      `user_initiated_hold` object.
+    - `real_time_payments_transfer_instruction` - Real-Time Payments Transfer
+      Instruction: details will be under the
+      `real_time_payments_transfer_instruction` object.
+    - `wire_transfer_instruction` - Wire Transfer Instruction: details will be under
+      the `wire_transfer_instruction` object.
+    - `inbound_wire_transfer_reversal` - Inbound Wire Transfer Reversal: details
+      will be under the `inbound_wire_transfer_reversal` object.
+    - `swift_transfer_instruction` - Swift Transfer Instruction: details will be
+      under the `swift_transfer_instruction` object.
+    - `card_push_transfer_instruction` - Card Push Transfer Instruction: details
+      will be under the `card_push_transfer_instruction` object.
+    - `blockchain_onramp_transfer_instruction` - Blockchain On-Ramp Transfer
+      Instruction: details will be under the
+      `blockchain_onramp_transfer_instruction` object.
+    - `blockchain_offramp_transfer` - Blockchain Off-Ramp Transfer: details will be
+      under the `blockchain_offramp_transfer` object.
+    - `uk_faster_payment_system_transfer_instruction` - UK Faster Payment System
+      Transfer Instruction: details will be under the
+      `uk_faster_payment_system_transfer_instruction` object.
+    - `sepa_instant_transfer_instruction` - SEPA Instant Transfer Instruction:
+      details will be under the `sepa_instant_transfer_instruction` object.
+    - `other` - The Pending Transaction was made for an undocumented or deprecated
+      reason.
+    """
+
+    account_transfer_instruction: Optional[SourceAccountTransferInstruction] = None
+    """An Account Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `account_transfer_instruction`.
+    """
+
+    ach_transfer_instruction: Optional[SourceACHTransferInstruction] = None
+    """An ACH Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `ach_transfer_instruction`.
+    """
+
+    blockchain_offramp_transfer: Optional[SourceBlockchainOfframpTransfer] = None
+    """A Blockchain Off-Ramp Transfer object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `blockchain_offramp_transfer`. Blockchain Off-Ramp Transfers move funds
+    from a Blockchain Address to an Account. They're automatically created when
+    funds land in a Blockchain Address.
+    """
+
+    blockchain_onramp_transfer_instruction: Optional[SourceBlockchainOnrampTransferInstruction] = None
+    """A Blockchain On-Ramp Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `blockchain_onramp_transfer_instruction`.
+    """
+
+    card_authorization: Optional[SourceCardAuthorization] = None
+    """A Card Authorization object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_authorization`. Card Authorizations are temporary holds placed on
+    a customer's funds with the intent to later clear a transaction.
+    """
+
+    card_push_transfer_instruction: Optional[SourceCardPushTransferInstruction] = None
+    """A Card Push Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `card_push_transfer_instruction`.
+    """
+
+    check_deposit_instruction: Optional[SourceCheckDepositInstruction] = None
+    """A Check Deposit Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `check_deposit_instruction`.
+    """
+
+    check_transfer_instruction: Optional[SourceCheckTransferInstruction] = None
+    """A Check Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `check_transfer_instruction`.
+    """
+
+    fednow_transfer_instruction: Optional[SourceFednowTransferInstruction] = None
+    """A FedNow Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `fednow_transfer_instruction`.
+    """
+
+    inbound_funds_hold: Optional[SourceInboundFundsHold] = None
+    """An Inbound Funds Hold object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_funds_hold`. We hold funds for certain transaction types to
+    account for return windows where funds might still be clawed back by the sending
+    institution.
+    """
+
+    inbound_wire_transfer_reversal: Optional[SourceInboundWireTransferReversal] = None
+    """An Inbound Wire Transfer Reversal object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `inbound_wire_transfer_reversal`. An Inbound Wire Transfer Reversal is
+    created when Increase has received a wire and the User requests that it be
+    reversed.
+    """
+
+    other: Optional[SourceOther] = None
+    """
+    If the category of this Transaction source is equal to `other`, this field will
+    contain an empty object, otherwise it will contain null.
+    """
+
+    real_time_payments_transfer_instruction: Optional[SourceRealTimePaymentsTransferInstruction] = None
+    """A Real-Time Payments Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `real_time_payments_transfer_instruction`.
+    """
+
+    sepa_instant_transfer_instruction: Optional[SourceSepaInstantTransferInstruction] = None
+    """A SEPA Instant Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `sepa_instant_transfer_instruction`.
+    """
+
+    swift_transfer_instruction: Optional[SourceSwiftTransferInstruction] = None
+    """A Swift Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `swift_transfer_instruction`.
+    """
+
+    uk_faster_payment_system_transfer_instruction: Optional[SourceUkFasterPaymentSystemTransferInstruction] = None
+    """An UK Faster Payment System Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `uk_faster_payment_system_transfer_instruction`.
+    """
+
+    user_initiated_hold: Optional[Dict[str, object]] = None
+    """An User Initiated Hold object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `user_initiated_hold`. Created when a user initiates a hold on funds in
+    their account.
+    """
+
+    wire_transfer_instruction: Optional[SourceWireTransferInstruction] = None
+    """A Wire Transfer Instruction object.
+
+    This field will be present in the JSON response if and only if `category` is
+    equal to `wire_transfer_instruction`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class PendingTransaction(BaseModel):
+    """
+    Pending Transactions are potential future additions and removals of money from your bank account. They impact your available balance, but not your current balance. To learn more, see [Transactions and Transfers](/documentation/transactions-transfers).
+    """
+
+    id: str
+    """The Pending Transaction identifier."""
+
+    account_id: str
+    """The identifier for the account this Pending Transaction belongs to."""
+
+    amount: int
+    """The Pending Transaction amount in the minor unit of its currency.
+
+    For dollars, for example, this is cents. For a card authorization this is the
+    amount still held: it decreases when the merchant reverses or partially settles
+    the authorization. The amount that settled is available on the resulting
+    Transaction and on the Card Payment's `state.settled_amount`.
+    """
+
+    completed_at: Optional[datetime] = None
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date on which the Pending
+    Transaction was completed.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date on which the Pending
+    Transaction occurred.
+    """
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the Pending
+    Transaction's currency. This will match the currency on the Pending
+    Transaction's Account.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    description: str
+    """
+    For a Pending Transaction related to a transfer, this is the description you
+    provide. For a Pending Transaction related to a payment, this is the description
+    the vendor provides.
+    """
+
+    held_amount: int
+    """
+    The amount that this Pending Transaction decrements the available balance of its
+    Account. This is usually the same as `amount`, but will differ if the amount is
+    positive.
+    """
+
+    route_id: Optional[str] = None
+    """The identifier for the route this Pending Transaction came through.
+
+    Routes are things like cards and ACH details.
+    """
+
+    route_type: Optional[Literal["account_number", "card", "lockbox"]] = None
+    """The type of the route this Pending Transaction came through.
+
+    - `account_number` - An Account Number.
+    - `card` - A Card.
+    - `lockbox` - A Lockbox.
+    """
+
+    source: Source
+    """
+    This is an object giving more details on the network-level event that caused the
+    Pending Transaction. For example, for a card transaction this lists the
+    merchant's industry and location.
+    """
+
+    status: Literal["pending", "complete"]
+    """
+    Whether the Pending Transaction has been confirmed and has an associated
+    Transaction.
+
+    - `pending` - The Pending Transaction is still awaiting confirmation.
+    - `complete` - The Pending Transaction is confirmed. An associated Transaction
+      exists for this object. The Pending Transaction will no longer count against
+      your balance and can generally be hidden from UIs, etc. The Pending
+      Transaction's `amount` is the amount that was still held when it completed,
+      which can differ from the amount of the associated Transaction.
+    """
+
+    type: Literal["pending_transaction"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `pending_transaction`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

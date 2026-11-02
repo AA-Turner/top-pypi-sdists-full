@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_prompts as bp
+from probe.cli.imports.folder.agents import prompts as bp
 
 ROOT = "/workspace/research"
 WORK = "/state/probe/backfill-manifests"
@@ -409,7 +409,7 @@ def test_every_probe_command_named_in_a_prompt_actually_exists(text):
 def test_every_plan_tool_flag_a_prompt_names_is_one_the_tool_takes():
     """`probe-backfill-plan` is ours; a flag it does not take is a refusal the
     agent burns turns on."""
-    from probe.cli import backfill_plan_tool as tool
+    from probe.cli.imports.folder.classify import plan_tool as tool
 
     parser = tool._parser()
     subs = next(a for a in parser._actions if a.dest == "cmd").choices
@@ -432,7 +432,7 @@ def test_every_jsonl_example_a_prompt_teaches_is_accepted_by_the_tool(which, mod
     key would pass every flag check while each line is refused."""
     import json
 
-    from probe.cli import backfill_plan_tool as tool
+    from probe.cli.imports.folder.classify import plan_tool as tool
 
     text = {"classify": _classify, "assign": _assign, "revise": _revise, "import": _import}[which]()
     examples = [json.loads(line.strip()) for line in text.splitlines()

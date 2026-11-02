@@ -32,7 +32,7 @@ costs nothing but delay.
 ONE POLL FOR THE MACHINE (plan Q2). The lane offers the Probe service to ask for
 it (`mailbox.offer_run_alerts`: its marker names the CLI config whose daemon key
 the service polls with), and the service leaves the server's answer in
-`mailbox.alerts_handoff_path` every RUN_ALERT_POLL_S (`probe.service.alertpoll`).
+`mailbox.alerts_handoff_path` every RUN_ALERT_POLL_S (`probe.service.watch.alertpoll`).
 While a hand-off younger than HANDOFF_FRESH_S is there the lane asks no more
 itself: it takes each new hand-off within HANDOFF_CHECK_S (a stat, no network)
 and does with it exactly what it does with its own poll's answer. No fresh
@@ -225,7 +225,7 @@ class RunAlertLane:
             await asyncio.sleep(RUN_ALERT_POLL_S)
             return
         deadline = time.monotonic() + RUN_ALERT_POLL_S
-        stamp = self._handoff_stamp()
+        stamp = self._get_handoff_stamp()
         handoff = self.from_service()
         if handoff is not None:
             # The service's next round is due one interval after its last:
@@ -237,11 +237,11 @@ class RunAlertLane:
             if due > 0:
                 await asyncio.sleep(min(due, max(0.0, deadline - time.monotonic())))
         while (left := deadline - time.monotonic()) > 0:
-            if self._handoff_stamp() != stamp:
+            if self._get_handoff_stamp() != stamp:
                 return
             await asyncio.sleep(min(HANDOFF_CHECK_S, left))
 
-    def _handoff_stamp(self) -> tuple | None:
+    def _get_handoff_stamp(self) -> tuple | None:
         try:
             st = mailbox.alerts_handoff_path(self.sid).stat()
         except OSError:
@@ -306,12 +306,12 @@ class RunAlertLane:
         """Publish the alerts the mailbox has not had as ONE message, then record
         them. Returns the message, or None when nothing was new."""
         batch = usable(alerts)
-        fresh = self._unrecorded(batch)
+        fresh = self._get_unrecorded(batch)
         if fresh:
             # Unrecorded ids are also what a worker that died after its publish
             # leaves behind: its file says which, so they are not sent again.
             self.recover()
-            fresh = self._unrecorded(fresh)
+            fresh = self._get_unrecorded(fresh)
         if not fresh:
             return None
         msg = alert_message(self.sid, fresh, made_at=self.clock(), origin_turn=self.store.current_turn())
@@ -340,7 +340,7 @@ class RunAlertLane:
             log.info("run alerts: recorded message %s, published before a restart", msg.id)
         return recovered
 
-    def _unrecorded(self, batch: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    def _get_unrecorded(self, batch: list[tuple[int, str]]) -> list[tuple[int, str]]:
         done = self.store.delivered_run_alerts([alert_id for alert_id, _ in batch])
         return [(alert_id, text) for alert_id, text in batch if alert_id not in done]
 

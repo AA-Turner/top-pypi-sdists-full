@@ -21,9 +21,24 @@
 #   evidence-source: caller is the only accepted value, and the default. Any
 #                   other value fails dod-verify; callers still pass it
 #                   explicitly.
-#   verifier-version: pinned omnimarket PyPI release (default: 0.4.305; must be
+#   verifier-tag:   the omnimarket dev-merge tag the verifier is installed from
+#                   (dev-<UTC YYYYMMDDHHMMSS>-<sha12>; OMN-21676, operator
+#                   ruling 2026-10-31: the gate iterates with tags, not with
+#                   releases). The tag is resolved with git ls-remote to its
+#                   commit, its sha12 suffix must prefix that commit (a tag
+#                   moved to another commit is refused), the commit must be
+#                   reachable from the omnimarket dev branch and must descend
+#                   from the floor commit VERIFIER_FLOOR_SHA (ancestry, not a
+#                   version number), and the verifier is installed from that
+#                   commit's own uv.lock. The tag and the resolved commit are
+#                   recorded in the job summary and in the verifier step's
+#                   outputs. When set, verifier-version is ignored.
+#   verifier-version: MIGRATION FALLBACK ONLY, used when verifier-tag is empty:
+#                   pinned omnimarket PyPI release (default: 0.4.305; must be
 #                   numeric MAJOR.MINOR.PATCH and at or above the install
-#                   step's VERIFIER_FLOOR, OMN-20032).
+#                   step's VERIFIER_FLOOR, OMN-20032). Callers move to
+#                   verifier-tag; the dev_tag_lineage validator flags a caller
+#                   that still passes verifier-version.
 #   compare-with-occ: must be "false" (the default). Kept so existing callers
 #                   that pass it stay valid; "true" fails dod-verify.
 #   shadow:         "true" while a repository counts this gate's verdict
@@ -31,6 +46,15 @@
 #                   (default: "false"). With "true", dod-verify records its
 #                   verdict (the first refused step) as one `Shadow verdict:`
 #                   job-summary line and one notice annotation, then passes.
+#   factory-task-tickets: the factory task tickets (OMN ids; a Linear ticket
+#                   whose parent is listed in the dod_verify overlay's
+#                   parent_tickets), resolved by the caller because the gate has
+#                   no Linear reader (OMN-21504). The dependency-bot author step
+#                   and the writer app's pin-only step refuse to apply to a pull
+#                   request whose title cites one, which then runs the evidence
+#                   steps like any other. Empty lists none. The docs-only zone
+#                   filter decides which CI jobs run and is not read here, so it
+#                   exempts nothing.
 #   check-timeout-seconds: how long each dod_verify check may run, a whole
 #                   number of seconds from 1 to 900 (OMN-21166). Empty, the
 #                   default, keeps the verifier's own 30 s. Browser checks
@@ -49,8 +73,13 @@ on:
         type: string
         required: false
         default: caller
+      verifier-tag:
+        description: "omnimarket dev-merge tag (dev-YYYYMMDDHHMMSS-sha12) the verifier is installed from; wins over verifier-version when set (OMN-21676)."
+        type: string
+        required: false
+        default: ""
       verifier-version:
-        description: Pinned omnimarket PyPI release for caller evidence verification.
+        description: "Migration fallback, used only when verifier-tag is empty: pinned omnimarket PyPI release for caller evidence verification."
         type: string
         required: false
         default: "0.4.305"
@@ -64,6 +93,16 @@ on:
         type: string
         required: false
         default: "false"
+      dod-verify-overlay:
+        description: "The dod_verify overlay document as JSON (OMN-21504): parent_tickets lists the tickets refused as a PR's only cited ticket; empty lists none."
+        type: string
+        required: false
+        default: ""
+      factory-task-tickets:
+        description: "The factory task tickets as OMN ids separated by commas, spaces or newlines, or a JSON array (OMN-21504): tickets whose parent is listed in the dod_verify overlay's parent_tickets, resolved by the caller. A pull request citing one is never exempt as a dependency-bot or writer-app change; empty lists none."
+        type: string
+        required: false
+        default: ""
       check-timeout-seconds:
         description: "Seconds each dod_verify check may run, 1 to 900; empty keeps the verifier default of 30 (OMN-21166)."
         type: string
@@ -159,6 +198,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_EVENT_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          FACTORY_TASK_TICKETS: ${{ inputs.factory-task-tickets }}
           MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
         run: |
           set -euo pipefail
@@ -201,6 +242,33 @@ jobs:
               writer_app="true"
               ;;
           esac
+
+          # OMN-21504: neither exemption applies to a pull request that cites a
+          # factory task ticket; it is judged on its own contract. The title is
+          # GitHub-verified metadata (the event payload, or the API on a
+          # merge_group event); with a factory list set and no readable title
+          # the exemption is withheld.
+          if { [ "$exempt" = "true" ] || [ "$writer_app" = "true" ]; } && [ -n "$(printf '%s' "${FACTORY_TASK_TICKETS:-}" | tr -d '[:space:]')" ]; then
+            title="${PR_TITLE:-}"
+            if [ -z "$title" ] && [ -n "$resolved_pr_num" ]; then
+              title="$(gh pr view "$resolved_pr_num" --repo "$GH_REPO" --json title --jq '.title' 2>/dev/null || true)"
+            fi
+            factory_cited=""
+            while IFS= read -r cited; do
+              if printf '%s\n' "$FACTORY_TASK_TICKETS" | grep -oE 'OMN-[0-9]+' | grep -qxF "$cited"; then
+                factory_cited="${factory_cited:+$factory_cited, }$cited"
+              fi
+            done < <(printf '%s\n' "$title" | grep -oE 'OMN-[0-9]+' | sort -u || true)
+            if [ -z "$title" ]; then
+              echo "::notice::No exemption (OMN-21504): the pull request title is unreadable, so a factory task ticket cannot be ruled out; the evidence gate continues."
+              exempt="false"
+              writer_app="false"
+            elif [ -n "$factory_cited" ]; then
+              echo "::notice::No exemption (OMN-21504): the pull request cites factory task ticket(s) ${factory_cited}; it is judged on its own contract, author '${author_login}' notwithstanding."
+              exempt="false"
+              writer_app="false"
+            fi
+          fi
 
           if [ "$exempt" = "true" ]; then
             echo "::notice::Receipt-gate exemption (OMN-13762): PR authored by trusted dependency bot '${author_login}'. Dependency-bump PRs carry no Linear ticket or OCC receipt; the evidence gate is not applicable. Receipt-evidence steps are skipped; the job still reports success."
@@ -262,10 +330,48 @@ jobs:
             fi
           done < "$RUNNER_TEMP/dod/tickets.txt"
 
+      # OMN-21504: a parent ticket groups task tickets and carries no contract
+      # of its own, so a PR that cites only parent tickets has no task whose
+      # definition of done it could be verified against. The list is the
+      # dod_verify overlay's parent_tickets, passed by the caller (a
+      # pull_request_target caller reads it from the base branch, never from
+      # the PR head). Mirrors omnibase_core.validation.validator_receipt_gate.
+      # find_parent_only_citation. A PR that cites at least one other ticket is
+      # judged as before.
+      - name: Refuse a pull request that cites only a parent ticket (OMN-21504)
+        id: parent_only
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
+        env:
+          DOD_VERIFY_OVERLAY: ${{ inputs.dod-verify-overlay }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DOD_VERIFY_OVERLAY:-}" ]; then
+            echo "::notice::no dod_verify overlay configured; no parent ticket is listed"
+            exit 0
+          fi
+          parents="$(jq -c -e 'select(.schema_version == "dod_verify.v1" and ((.parent_tickets // []) | type == "array" and all(.[]; type == "string" and test("^OMN-[0-9]+$")))) | (.parent_tickets // [])' <<< "$DOD_VERIFY_OVERLAY")" || {
+            echo "::error::the dod_verify overlay is not a valid dod_verify.v1 document"
+            exit 1
+          }
+          task_cited=0
+          cited_parents=""
+          while IFS= read -r ticket; do
+            if jq -e --arg t "$ticket" 'index($t) != null' <<< "$parents" > /dev/null; then
+              cited_parents="${cited_parents:+$cited_parents, }$ticket"
+            else
+              task_cited=1
+            fi
+          done < "$RUNNER_TEMP/dod/tickets.txt"
+          if [ "$task_cited" = 0 ] && [ -n "$cited_parents" ]; then
+            echo "::error::pull request cites only parent ticket(s) $cited_parents; cite the task ticket this change belongs to (OMN-21504)"
+            exit 1
+          fi
+
       - name: Check out the pull request head
         id: head_checkout
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
@@ -277,7 +383,7 @@ jobs:
       - name: Set up Python 3.13
         id: setup_python
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.13"
@@ -285,7 +391,7 @@ jobs:
       - name: Install uv
         id: install_uv
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure'
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
 
       # OMN-21166: a browser check outlives the verifier's 30 s default, so the
@@ -294,7 +400,7 @@ jobs:
       - name: Resolve the per-check timeout
         id: check_timeout
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure'
         env:
           CHECK_TIMEOUT_SECONDS: ${{ inputs.check-timeout-seconds }}
         run: |
@@ -314,31 +420,115 @@ jobs:
           exit 1
 
       # OMN-20032: refuse a verifier older than the floor before installing it.
-      # VERIFIER_FLOOR is the one place the floor lives: 0.4.303 is the first
-      # omnimarket release carrying omnimarket#3511, which makes node_dod_verify
-      # refuse a contract that leaves an acceptance criterion unbound. A later
-      # release that tightens verification raises this one value.
+      # VERIFIER_FLOOR is the one place the version floor lives: 0.4.303 is the
+      # first omnimarket release carrying omnimarket#3511, which makes
+      # node_dod_verify refuse a contract that leaves an acceptance criterion
+      # unbound. A later release that tightens verification raises this one
+      # value.
+      #
+      # OMN-21676: the gate iterates with tags, not with releases (operator
+      # ruling 2026-10-31, extending the ruling of 2026-10-29T01:50:26Z). With
+      # verifier-tag set, the verifier is the omnimarket commit that dev-merge
+      # tag names, and the version path above is not run. The tag is resolved
+      # to its commit once, with git ls-remote (a peeled line wins over the tag
+      # line); the tag's sha12 suffix must prefix that commit, so a tag that was
+      # moved to another commit is refused. The floor is an ancestry fact,
+      # VERIFIER_FLOOR_SHA (omnimarket#3511's squash commit) must be an
+      # ancestor of the commit, and the commit must be reachable from the
+      # omnimarket dev branch, so a version number never decides it. The source
+      # is fetched by the tag, its commit is read back, and the verifier is
+      # installed from that commit's own uv.lock (a plain pip install of the git
+      # commit cannot resolve the unreleased first-party tags the lock pins).
+      # The tag and the resolved commit are the receipt: they go to
+      # $RUNNER_TEMP/dod/verifier-commit.txt, to this step's outputs and to the
+      # job summary.
       - name: Install the pinned verifier
         id: verifier
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.check_timeout.outcome != 'failure'
         env:
+          VERIFIER_TAG: ${{ inputs.verifier-tag }}
           VERIFIER_VERSION: ${{ inputs.verifier-version }}
           VERIFIER_FLOOR: "0.4.303"
+          VERIFIER_FLOOR_SHA: "e565ba5ba00c5a9201c9eb66c0259840960f4ea4"
+          VERIFIER_REPO_URL: "${{ github.server_url }}/OmniNode-ai/omnimarket.git"
+          VERIFIER_BRANCH: "dev"
         run: |
           set -euo pipefail
-          if [[ ! "$VERIFIER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::verifier-version must match numeric MAJOR.MINOR.PATCH"
-            exit 1
+          if [ -n "${VERIFIER_TAG:-}" ]; then
+            if [[ ! "$VERIFIER_TAG" =~ ^dev-[0-9]{14}-[0-9a-f]{12}$ ]]; then
+              echo "::error::verifier-tag must be an omnimarket dev-merge tag, dev-YYYYMMDDHHMMSS-<sha12>"
+              exit 1
+            fi
+            export GIT_TERMINAL_PROMPT=0
+            tag_suffix="${VERIFIER_TAG##*-}"
+            refs="$(git ls-remote --tags "$VERIFIER_REPO_URL" "refs/tags/$VERIFIER_TAG" "refs/tags/$VERIFIER_TAG^{}")" || {
+              echo "::error::could not read the tag $VERIFIER_TAG from $VERIFIER_REPO_URL"
+              exit 1
+            }
+            tag_sha="$(awk -v ref="refs/tags/$VERIFIER_TAG^{}" '$2 == ref { print $1 }' <<< "$refs")"
+            if [ -z "$tag_sha" ]; then
+              tag_sha="$(awk -v ref="refs/tags/$VERIFIER_TAG" '$2 == ref { print $1 }' <<< "$refs")"
+            fi
+            if [[ ! "$tag_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::verifier-tag $VERIFIER_TAG is absent from $VERIFIER_REPO_URL"
+              exit 1
+            fi
+            if [ "${tag_sha:0:12}" != "$tag_suffix" ]; then
+              echo "::error::verifier-tag $VERIFIER_TAG names commit $tag_sha, whose first 12 characters differ from the tag's own suffix $tag_suffix; the tag was moved, refusing it"
+              exit 1
+            fi
+            lineage="$RUNNER_TEMP/dod/verifier-lineage"
+            mkdir -p "$RUNNER_TEMP/dod"
+            rm -rf "$lineage"
+            git init --quiet --bare "$lineage"
+            git -C "$lineage" fetch --quiet --filter=tree:0 --no-tags "$VERIFIER_REPO_URL" "+refs/heads/$VERIFIER_BRANCH:refs/remotes/origin/$VERIFIER_BRANCH" "refs/tags/$VERIFIER_TAG:refs/tags/$VERIFIER_TAG" || {
+              echo "::error::could not fetch the history of $VERIFIER_BRANCH and $VERIFIER_TAG; lineage is unresolved, so the tag is refused"
+              exit 1
+            }
+            if ! git -C "$lineage" merge-base --is-ancestor "$tag_sha" "refs/remotes/origin/$VERIFIER_BRANCH"; then
+              echo "::error::verifier-tag $VERIFIER_TAG (commit $tag_sha) is not reachable from the omnimarket $VERIFIER_BRANCH branch"
+              exit 1
+            fi
+            if ! git -C "$lineage" cat-file -e "$VERIFIER_FLOOR_SHA^{commit}" 2>/dev/null || ! git -C "$lineage" merge-base --is-ancestor "$VERIFIER_FLOOR_SHA" "$tag_sha"; then
+              echo "::error::verifier-tag $VERIFIER_TAG (commit $tag_sha) does not descend from the floor commit $VERIFIER_FLOOR_SHA; commits before it admit a contract that leaves an acceptance criterion unbound. Use a newer omnimarket dev-merge tag."
+              exit 1
+            fi
+            src="$GITHUB_WORKSPACE/.dod-verify/verifier-src"
+            rm -rf "$src"
+            git init --quiet "$src"
+            git -C "$src" fetch --quiet --depth 1 --no-tags "$VERIFIER_REPO_URL" "refs/tags/$VERIFIER_TAG"
+            fetched="$(git -C "$src" rev-parse --verify "FETCH_HEAD^{commit}")"
+            if [ "$fetched" != "$tag_sha" ]; then
+              echo "::error::verifier-tag $VERIFIER_TAG resolved to $tag_sha and then fetched as $fetched; the tag moved during the install, refusing it"
+              exit 1
+            fi
+            git -C "$src" checkout --quiet --detach "$fetched"
+            if [ -n "${VERIFIER_VERSION:-}" ]; then
+              echo "::notice::verifier-tag is set, so verifier-version $VERIFIER_VERSION is ignored (OMN-21676)"
+            fi
+            uv venv --clear --python 3.13 "$GITHUB_WORKSPACE/.dod-verify/venv"
+            UV_PROJECT_ENVIRONMENT="$GITHUB_WORKSPACE/.dod-verify/venv" uv sync --project "$src" --frozen --no-dev --no-editable --no-config --python 3.13
+            printf 'tag=%s commit=%s floor_commit=%s\n' "$VERIFIER_TAG" "$tag_sha" "$VERIFIER_FLOOR_SHA" > "$RUNNER_TEMP/dod/verifier-commit.txt"
+            if [ -n "${GITHUB_OUTPUT:-}" ]; then
+              printf 'verifier_tag=%s\nverifier_commit=%s\n' "$VERIFIER_TAG" "$tag_sha" >> "$GITHUB_OUTPUT"
+            fi
+            echo "::notice::verifier installed from omnimarket tag $VERIFIER_TAG, commit $tag_sha"
+          else
+            echo "::warning::verifier-version is the migration fallback; pass verifier-tag, an omnimarket dev-merge tag (OMN-21676)"
+            if [[ ! "$VERIFIER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::verifier-version must match numeric MAJOR.MINOR.PATCH"
+              exit 1
+            fi
+            IFS=. read -r v_major v_minor v_patch <<< "$VERIFIER_VERSION"
+            IFS=. read -r f_major f_minor f_patch <<< "$VERIFIER_FLOOR"
+            if (( 10#$v_major < 10#$f_major || (10#$v_major == 10#$f_major && (10#$v_minor < 10#$f_minor || (10#$v_minor == 10#$f_minor && 10#$v_patch < 10#$f_patch))) )); then
+              echo "::error::verifier-version $VERIFIER_VERSION is below the floor $VERIFIER_FLOOR; releases before it admit a contract that leaves an acceptance criterion unbound. Re-pin the caller's verifier-version to $VERIFIER_FLOOR or newer."
+              exit 1
+            fi
+            uv venv --clear --python 3.13 "$GITHUB_WORKSPACE/.dod-verify/venv"
+            uv pip install --python "$GITHUB_WORKSPACE/.dod-verify/venv/bin/python" --no-config "omnimarket==${VERIFIER_VERSION}"
           fi
-          IFS=. read -r v_major v_minor v_patch <<< "$VERIFIER_VERSION"
-          IFS=. read -r f_major f_minor f_patch <<< "$VERIFIER_FLOOR"
-          if (( 10#$v_major < 10#$f_major || (10#$v_major == 10#$f_major && (10#$v_minor < 10#$f_minor || (10#$v_minor == 10#$f_minor && 10#$v_patch < 10#$f_patch))) )); then
-            echo "::error::verifier-version $VERIFIER_VERSION is below the floor $VERIFIER_FLOOR; releases before it admit a contract that leaves an acceptance criterion unbound. Re-pin the caller's verifier-version to $VERIFIER_FLOOR or newer."
-            exit 1
-          fi
-          uv venv --clear --python 3.13 "$GITHUB_WORKSPACE/.dod-verify/venv"
-          uv pip install --python "$GITHUB_WORKSPACE/.dod-verify/venv/bin/python" --no-config "omnimarket==${VERIFIER_VERSION}"
           DOD_VERIFY_PY="$GITHUB_WORKSPACE/.dod-verify/venv/bin/python"
           echo "DOD_VERIFY_PY=$DOD_VERIFY_PY" >> "$GITHUB_ENV"
           "$DOD_VERIFY_PY" -c "import omnimarket.nodes.node_dod_verify"
@@ -363,15 +553,37 @@ jobs:
       - name: Derive the OCC writer app's dependency-pin-only or release-cut verdict at the head (OMN-17427, OMN-20074)
         id: writer_pin_only
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.bot_exempt.outputs.writer_app == 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.bot_exempt.outputs.writer_app == 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          FACTORY_TASK_TICKETS: ${{ inputs.factory-task-tickets }}
         run: |
           set -euo pipefail
           exempt=false
           reason="could not derive the dependency-pin-only or release-cut verdict"
+          # OMN-21504: a pull request that cites a factory task ticket is never
+          # exempt as a writer-app change; with a factory list set and no
+          # readable title the exemption is withheld.
+          if [ -n "$(printf '%s' "${FACTORY_TASK_TICKETS:-}" | tr -d '[:space:]')" ]; then
+            factory_cited=""
+            while IFS= read -r cited; do
+              if printf '%s\n' "$FACTORY_TASK_TICKETS" | grep -oE 'OMN-[0-9]+' | grep -qxF "$cited"; then
+                factory_cited="${factory_cited:+$factory_cited, }$cited"
+              fi
+            done < <(printf '%s\n' "${PR_TITLE:-}" | grep -oE 'OMN-[0-9]+' | sort -u || true)
+            if [ -z "${PR_TITLE:-}" ]; then
+              echo "::notice::OCC writer app is not exempt: the pull request title is unreadable, so a factory task ticket cannot be ruled out (OMN-21504); the evidence gate continues."
+              echo "exempt=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ -n "$factory_cited" ]; then
+              echo "::notice::OCC writer app is not exempt: the pull request cites factory task ticket(s) ${factory_cited} (OMN-21504); the evidence gate continues."
+              echo "exempt=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           derive_pin_only() {
             head_tree="$GITHUB_WORKSPACE/.dod-verify/head_home/$REPO_SHORT"
             reason="merge base is unresolvable"
@@ -399,8 +611,10 @@ jobs:
               case "$path" in
                 .github/workflows/*.yml | .github/workflows/*.yaml | .github/sibling-pins.yaml | .github/omnimarket-contract-pin.yaml) ;;
                 *)
+                  # OMN-21875: any YAML file is read too, for the uv.lock
+                  # digest refresh the pin-swap classifier derives below.
                   case "${path##*/}" in
-                    pyproject.toml | uv.lock) ;;
+                    pyproject.toml | uv.lock | *.yaml | *.yml) ;;
                     *) pin_swap_paths=false ;;
                   esac
                   ;;
@@ -476,6 +690,7 @@ jobs:
             reason="the pinned classifier failed"
             (cd "$RUNNER_TEMP" && "$DOD_VERIFY_PY" -I - "$probe_dir/paths" "$probe_dir/pyproject-head" "$probe_dir/pyproject-base" "$probe_dir/changelog-head" "$probe_dir/changelog-base" "$probe_dir/release-project-head" "$probe_dir/blobs" <<'PY'
           import difflib
+          import hashlib
           import json
           import re
           import sys
@@ -572,12 +787,18 @@ jobs:
               pin_files = {".github/sibling-pins.yaml", ".github/omnimarket-contract-pin.yaml"}
               manifests = []
               pin_paths = []
+              digest_paths = []
+              locks = []
               for index, path in enumerate(paths):
                   workflow = path.startswith(".github/workflows/") and path.endswith((".yml", ".yaml"))
                   if workflow or path in pin_files:
                       pin_paths.append((index, path, workflow))
                   elif Path(path).name in {"pyproject.toml", "uv.lock"}:
                       manifests.append(path)
+                      if Path(path).name == "uv.lock":
+                          locks.append(index)
+                  elif path.endswith((".yaml", ".yml")):
+                      digest_paths.append((index, path))
                   else:
                       return False, f"path is not allowed for a pin swap: {path}"
               manifest_reason = None
@@ -587,7 +808,51 @@ jobs:
                   )
                   if not pin_only:
                       return False, f"pin swap manifests are not dependency-pin-only: {manifest_reason}"
-              if not pin_paths:
+              # OMN-21875: a YAML file outside the declared pin files may only
+              # refresh a recorded uv.lock digest. Every changed line swaps one
+              # 64-hex value from sha256 of the merge base's changed uv.lock to
+              # sha256 of the head's (omnimarket work contracts, omnimarket#4654).
+              digest_swapped = 0
+              if digest_paths:
+                  first = digest_paths[0][1]
+                  if len(locks) != 1:
+                      return False, f"{first}: a uv.lock digest refresh requires exactly one changed uv.lock"
+                  lock_head = blobs_dir / f"{locks[0]}.head"
+                  lock_base = blobs_dir / f"{locks[0]}.base"
+                  if not lock_head.exists() or not lock_base.exists():
+                      return False, f"{first}: a uv.lock digest refresh requires uv.lock at both refs"
+                  old_digest = hashlib.sha256(lock_base.read_bytes()).hexdigest()
+                  new_digest = hashlib.sha256(lock_head.read_bytes()).hexdigest()
+                  digest_pattern = re.compile(r"^(?P<lead>[ ]*(?:-[ ]+)?[A-Za-z0-9_.-]+:[ ]+)(?P<value>[0-9a-f]{64})(?P<tail>(?:[ ]+#.*)?)$")
+                  for index, path in digest_paths:
+                      head_file, base_file = blobs_dir / f"{index}.head", blobs_dir / f"{index}.base"
+                      if not head_file.exists() or not base_file.exists():
+                          return False, f"pin swap file is added or deleted: {path}"
+                      head = head_file.read_bytes().decode("utf-8").splitlines(keepends=True)
+                      base = base_file.read_bytes().decode("utf-8").splitlines(keepends=True)
+                      file_swapped = 0
+                      for tag, base_start, base_end, head_start, head_end in difflib.SequenceMatcher(
+                          None, base, head, autojunk=False,
+                      ).get_opcodes():
+                          if tag == "equal":
+                              continue
+                          if tag != "replace" or base_end - base_start != head_end - head_start:
+                              return False, f"{path} adds or removes a line"
+                          for offset, (base_line, head_line) in enumerate(zip(
+                              base[base_start:base_end], head[head_start:head_end],
+                          )):
+                              base_body, head_body = base_line.rstrip("\r\n"), head_line.rstrip("\r\n")
+                              old, new = digest_pattern.fullmatch(base_body), digest_pattern.fullmatch(head_body)
+                              if not (base_line[len(base_body):] == head_line[len(head_body):]
+                                      and old is not None and new is not None
+                                      and old["lead"] == new["lead"] and old["tail"] == new["tail"]
+                                      and old["value"] == old_digest and new["value"] == new_digest):
+                                  return False, f"{path} line {head_start + offset + 1} is not solely a uv.lock digest refresh"
+                              file_swapped += 1
+                      if not file_swapped:
+                          return False, f"{path} has no refreshed uv.lock digest"
+                      digest_swapped += 1
+              if not pin_paths and not digest_paths:
                   return False, "pin swap requires a workflow or declared pin file"
               workflow_patterns = [
                   re.compile(r"^(?P<lead>[ ]*(?:-[ ]+)?ref:[ ]+)(?P<value>[0-9a-f]{40})(?P<tail>(?:[ ]+#.*)?)$"),
@@ -633,7 +898,12 @@ jobs:
                   if not file_swapped:
                       return False, f"{path} has no swapped pin line"
                   swapped += file_swapped
-              reason = f"pin swap only: {swapped} pin value(s) in {len(pin_paths)} file(s)"
+              parts = []
+              if pin_paths:
+                  parts.append(f"{swapped} pin value(s) in {len(pin_paths)} file(s)")
+              if digest_swapped:
+                  parts.append(f"uv.lock digest refreshed in {digest_swapped} file(s)")
+              reason = "pin swap only: " + "; ".join(parts)
               if manifests:
                   reason += f"; manifests: {manifest_reason}"
               return True, reason
@@ -730,7 +1000,7 @@ jobs:
       - name: Provide the PostgreSQL 16 server tools
         id: pg_tools
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         run: |
           set -euo pipefail
           pg16_bin=/usr/lib/postgresql/16/bin
@@ -787,7 +1057,7 @@ jobs:
       - name: Export the Postgres service to the bound tests
         id: pg_env
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
@@ -847,7 +1117,7 @@ jobs:
       - name: Provision the contracts' declared sibling checkouts
         id: sibling_checkouts
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           GH_TOKEN: ${{ github.token }}
@@ -1083,7 +1353,7 @@ jobs:
       - name: Scope each cited contract to what this pull request adds or changes
         id: scope
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -1321,7 +1591,7 @@ jobs:
       - name: Verify the contract at the PR head
         id: head_verify
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           GH_TOKEN: ${{ github.token }}
@@ -1369,7 +1639,7 @@ jobs:
       - name: Prepare the merge base with the pull request's test side laid over it
         id: merge_base
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -1572,7 +1842,7 @@ jobs:
       - name: Must-fail control at the merge base
         id: base_control
         continue-on-error: ${{ inputs.shadow == 'true' }}
-        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.parent_only.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true' && steps.check_timeout.outcome != 'failure'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -1758,13 +2028,18 @@ jobs:
         if: always()
         env:
           VERIFIER_VERSION: ${{ inputs.verifier-version }}
+          VERIFIER_TAG: ${{ inputs.verifier-tag }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SHADOW: ${{ inputs.shadow }}
           STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           # Best-effort summary, including when an earlier step failed.
           {
-            printf 'Verifier version: %s\n\nHead SHA: %s\n\n' "$VERIFIER_VERSION" "$HEAD_SHA"
+            if [ -n "${VERIFIER_TAG:-}" ]; then
+              printf 'Verifier tag: %s\n\nVerifier source: %s\n\nHead SHA: %s\n\n' "$VERIFIER_TAG" "$(cat "$RUNNER_TEMP/dod/verifier-commit.txt" 2>/dev/null || printf '%s' 'unavailable')" "$HEAD_SHA"
+            else
+              printf 'Verifier version: %s\n\nHead SHA: %s\n\n' "$VERIFIER_VERSION" "$HEAD_SHA"
+            fi
             printf 'Merge base SHA: %s\n\n' "$(cat "$RUNNER_TEMP/dod/merge-base.txt" 2>/dev/null || printf '%s' 'unavailable')"
             if [ -f "$RUNNER_TEMP/dod/tickets.txt" ]; then
               while IFS= read -r ticket; do
@@ -1781,7 +2056,7 @@ jobs:
             {
               new_path=verified
               refused_step=none
-              for step_id in bot_exempt same_repo tickets head_checkout setup_python install_uv check_timeout verifier writer_pin_only pg_tools pg_env sibling_checkouts scope head_verify merge_base base_control; do
+              for step_id in bot_exempt same_repo tickets parent_only head_checkout setup_python install_uv check_timeout verifier writer_pin_only pg_tools pg_env sibling_checkouts scope head_verify merge_base base_control; do
                 if [ "$(jq -r --arg id "$step_id" '.[$id].outcome // empty' <<< "$STEPS_JSON")" = failure ]; then
                   new_path=refused
                   refused_step="$step_id"

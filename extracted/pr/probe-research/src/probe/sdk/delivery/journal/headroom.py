@@ -1,9 +1,13 @@
 """Headroom: backpressure -- the queue ceiling, the free-space floor and the staging budget an append must leave."""
 
 from __future__ import annotations
+
 import os
-import shutil
 from pathlib import Path
+import shutil
+import time
+
+from probe.foundation.durable.durable import file_lock
 
 
 def _inline_hash_max() -> int:
@@ -70,18 +74,8 @@ def free_floor(directory: str | Path) -> int:
     return min(_FLOOR_CEILING, max(_FLOOR_MINIMUM, int(total * _FLOOR_FRACTION)), total // 4)
 
 
-#: Headroom the blob store must LEAVE on its filesystem. Staging is a real byte copy whenever
-#: the source is on another filesystem (`try_clone` is copy-on-write and cannot span mounts),
-#: so importing a research folder off a network share copies every file under the reference
-#: threshold onto local disk. Enqueue is fire-and-forget and the drainer a single worker, so a
-#: producer outrunning delivery grows the queue without bound: a full disk is the STEADY STATE
-#: of that shape.
-#:
-#: Deliberately blind to whether the copy would consume space: a same-filesystem clone costs
-#: nothing, but so does declining to make one (the drainer reads the source in place), so the
-#: conservative answer is never worse and costs one statvfs.
-#:
-#: Zero disables the guard, for a caller who has measured their own ceiling.
+#: Free space the blob store must leave on its filesystem (0 disables the guard): a producer
+#: outrunning delivery otherwise fills the disk. DESIGN.md: why it ignores copy-on-write clones.
 MIN_FREE_BYTES = _min_free_bytes()
 
 
@@ -125,3 +119,174 @@ class OutboxFull(OSError):
     purpose: `Client._enqueue` already treats a failure to journal as "drop the datapoint,
     record the gap, keep training", and a full outbox is that same disk-shaped refusal.
     """
+
+
+class HeadroomMixin:
+    """Part of Journal: its methods run with `self` the Journal; fold_parts() copies them into Journal."""
+
+    def _refresh_pending_estimate(self) -> int:
+        """Re-seed `_pending_estimate` from status.json. One small file read."""
+        status = self.read_status(self.dir, include_receipts=False) or {}
+        try:
+            pending = int(status.get("pending") or 0)
+        except (TypeError, ValueError):
+            pending = 0
+        self._pending_estimate = pending
+        return pending
+
+    def _recount_pending(self) -> int | None:
+        """The REAL queue length from a directory listing, at most once per
+        `_RECOUNT_EVERY_SECONDS` (None when too soon). Only the refusal path calls it, so the
+        common append never lists the queue."""
+        now = time.monotonic()
+        if now - self._recounted_at < _RECOUNT_EVERY_SECONDS:
+            return None
+        self._recounted_at = now
+        # Counted OUTSIDE the append lock, names only and unsorted: a sorted listing of a queue at
+        # the cap (500k names) held every other writer's `log()` for its whole length. Each append
+        # landing during the listing is missing from the stored count (at the cap, a few per
+        # second), so the estimate can read low until the next drain pass recounts: it can admit a
+        # few writes over the cap, never refuse one under it.
+        try:
+            count = sum(1 for name in os.listdir(self.ops_dir) if name.endswith(".json"))
+        except FileNotFoundError:
+            count = 0
+        with file_lock(self.append_lock):
+            # Store it, or the next append's delta would rebuild the stale number from status.json
+            # and refuse again.
+            self._write_status_locked(recount=False, set_pending=count)
+        self._pending_estimate = count
+        return count
+
+    def _append_headroom(self, *, check_free: bool = True, extra: int = 0) -> str | None:
+        """None when there is room for one more op, else why not: the sampled free-space floor and the op
+        ceiling, for every append (they once guarded upload staging only)."""
+        ceiling = MAX_PENDING_OPS if self.op_ceiling is None else self.op_ceiling
+        pending = self._pending_estimate
+        other = self._sibling_pending_count()
+        if pending is None and extra:
+            pending = self._refresh_pending_estimate()
+        if pending is not None:
+            pending += other + extra
+        if pending is not None and ceiling > 0 and pending >= ceiling:
+            # Re-read before refusing: a refusal is a dropped datapoint, and another process's
+            # drain may have lowered the count since.
+            other = self._sibling_pending_count(fresh=True)
+            pending = self._refresh_pending_estimate() + other + extra
+        if pending is not None and ceiling > 0 and pending >= ceiling:
+            # status.json can still say "full" mid-drain-pass after most of the queue was
+            # delivered: count it for real.
+            real = self._recount_pending()
+            if real is not None:
+                pending = real + other + extra
+        if pending is not None and ceiling > 0 and pending >= ceiling:
+            return (
+                f"outbox full: {pending} ops queued, at the {ceiling} "
+                "ceiling (PROBE_OUTBOX_MAX_PENDING). Delivery is not keeping up "
+                "— see `probe outbox status`"
+            )
+        if not check_free:
+            # The caller already made its own headroom decision. `append_upload` asks
+            # `_staging_headroom` first and DEGRADES to an unstaged op (a small reference, not a
+            # byte copy): the path that must keep working when the disk is tight. Blocking it here
+            # would refuse the write the degrade exists to preserve. The op-count ceiling above
+            # still applies.
+            return None
+        return self.below_floor()
+
+    def below_floor(self) -> str | None:
+        """Why the queue's volume is under its free-space floor, or None. Sampled, not per call
+        (disk pressure builds over thousands of writes): the statvfs runs every
+        `_STATVFS_EVERY` calls, and on every call while the last sample was low, so recovery is
+        seen at once. `Client` asks before it queues (plan 1.5: below the floor it may send
+        directly) and every append asks again."""
+        floor = self._free_floor()
+        if floor <= 0:
+            return None
+        self._appends_since_statvfs += 1
+        if self._appends_since_statvfs < _STATVFS_EVERY and self._last_free_ok:
+            return None
+        self._appends_since_statvfs = 0
+        free = self._measure_free_bytes()
+        self._last_free_ok = free is None or free >= floor  # unmeasurable is not a breach
+        if free is None:
+            return None
+        if self._last_free_ok:
+            return None
+        return (
+            f"low disk: {free} bytes free on {self.ops_dir}, under the "
+            f"{floor}-byte floor (PROBE_OUTBOX_MIN_FREE_BYTES). Queued writes "
+            "are sent directly while nothing is queued, else dropped rather "
+            "than filling the filesystem"
+        )
+
+    def is_below_floor_now(self) -> bool:
+        """Whether the queue's volume is under its free-space floor right now: one statvfs, never
+        sampled (a drainer's collect window, review of #3785, C6). Unmeasurable is not below."""
+        floor = self._free_floor()
+        if floor <= 0:
+            return False
+        free = self._measure_free_bytes()
+        return free is not None and free < floor
+
+    def _measure_free_bytes(self) -> int | None:
+        """Free bytes on the queue's volume, or None when unmeasurable."""
+        try:
+            return shutil.disk_usage(self.ops_dir if self.ops_dir.exists() else self.dir).free
+        except OSError:
+            return None
+
+    def _free_floor(self) -> int:
+        """`free_floor` for this journal's volume, measured once (a volume's size does not
+        change under a running process; an override needs no measuring)."""
+        if MIN_FREE_BYTES is not None:
+            return MIN_FREE_BYTES
+        floor = getattr(self, "_floor_cached", None)
+        if floor is None:
+            where = self.dir if self.dir.exists() else self.dir.parent
+            floor = self._floor_cached = free_floor(where)
+        return floor
+
+    def _sibling_pending_count(self, *, fresh: bool = False) -> int:
+        """The other namespace's (`delivery-v1` <-> the root) pending count, which the op ceiling
+        counts too. Re-read every `_STATVFS_EVERY` appends and before any refusal (``fresh``), not
+        each append: it was a status.json open per `log()` for a namespace nearly always empty
+        for a training loop (plan 1.3)."""
+        self._appends_since_sibling += 1
+        if (
+            fresh
+            or self._sibling_pending is None
+            or self._appends_since_sibling >= _STATVFS_EVERY
+        ):
+            self._appends_since_sibling = 0
+            sibling = self.dir.parent if self.receipt_enabled else self.dir / DELIVERY_NAMESPACE
+            other = self.read_status(sibling, include_receipts=False) or {}
+            try:
+                self._sibling_pending = int(other.get("pending") or 0)
+            except (TypeError, ValueError):
+                self._sibling_pending = 0
+        return self._sibling_pending
+
+    def _staging_headroom(self, src_path: str | Path, *, copies: int = 1) -> str | None:
+        """``None`` when there is room to stage ``src_path``, else WHY not. Two stat-class
+        syscalls, no read of the file: this runs on every upload enqueue beside a training loop
+        and must not scale with the bytes queued. Unmeasurable is NOT a breach (no evidence to
+        degrade on; enqueue is fail-open).
+        """
+        floor = self._free_floor()
+        if floor <= 0:
+            return None
+        try:
+            size = os.path.getsize(src_path)
+            free = shutil.disk_usage(self.blobs_dir).free
+        except OSError:
+            return None
+        if free - copies * size >= floor:
+            return None
+        return (
+            f"low disk: staging {size} bytes would leave {free - copies * size} bytes "
+            f"free on {self.blobs_dir}, under the {floor}-byte floor "
+            "(PROBE_OUTBOX_MIN_FREE_BYTES); the op references the source "
+            "instead and the drainer reads its original bytes"
+        )
+from probe.sdk.delivery.ops.ops import DELIVERY_NAMESPACE  # noqa: E402 -- pieces need each other; the front door loads this one first

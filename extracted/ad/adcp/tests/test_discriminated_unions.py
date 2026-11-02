@@ -1,0 +1,890 @@
+"""Tests for discriminated union types with AdCP v2.4.0 schemas."""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+# Use semantic aliases for response types
+from adcp import (
+    ActivateSignalErrorResponse,
+    ActivateSignalSuccessResponse,
+    BothPreviewRender,
+    CreateMediaBuyErrorResponse,
+    CreateMediaBuySuccessResponse,
+    HtmlPreviewRender,
+    InlineDaastAsset,
+    InlineVastAsset,
+    UrlDaastAsset,
+    UrlPreviewRender,
+    UrlVastAsset,
+)
+
+# Keep using generated names for authorization variants
+# Deployment and Destination now have semantic aliases
+from adcp.types._generated import (
+    AuthorizedAgents,  # property_ids variant
+    AuthorizedAgents1,  # property_tags variant
+    AuthorizedAgents2,  # inline_properties variant
+    AuthorizedAgents3,  # publisher_properties variant
+    Deployment1,  # Platform
+    Deployment2,  # Agent
+    Destination1,  # Platform
+    Destination2,  # Agent
+    PublisherPropertySelector2,  # selection_type='by_id' (shared schema)
+    PublisherPropertySelector3,  # selection_type='by_tag' (shared schema)
+)
+
+# Use shorter names for local aliases in this test
+PublisherProperties4 = PublisherPropertySelector2
+PublisherProperties5 = PublisherPropertySelector3
+
+
+class TestAuthorizationDiscriminatedUnions:
+    """Test authorization_type discriminated unions in adagents.json.
+
+    Note: AuthorizedAgents variants are separate discriminated union types.
+    Pydantic automatically enforces correct field usage based on Literal types.
+    No model_validator needed because discrimination happens at type level.
+    """
+
+    def test_property_ids_authorization(self):
+        """AuthorizedAgents (property_ids variant) requires property_ids and authorization_type."""
+        agent = AuthorizedAgents(
+            url="https://agent.example.com",
+            authorized_for="All properties",
+            authorization_type="property_ids",
+            property_ids=["site1", "site2"],
+        )
+        assert agent.authorization_type == "property_ids"
+        assert [p.root for p in agent.property_ids] == ["site1", "site2"]
+        assert not hasattr(agent, "property_tags")
+        assert not hasattr(agent, "properties")
+
+    def test_property_ids_authorization_from_json(self):
+        """AuthorizedAgents (property_ids) validates from JSON dict."""
+        data = {
+            "url": "https://agent.example.com",
+            "authorized_for": "All properties",
+            "authorization_type": "property_ids",
+            "property_ids": ["site1", "site2"],
+        }
+        agent = AuthorizedAgents.model_validate(data)
+        assert agent.authorization_type == "property_ids"
+        assert [p.root for p in agent.property_ids] == ["site1", "site2"]
+
+    def test_property_ids_authorization_wrong_type_fails(self):
+        """AuthorizedAgents (property_ids) rejects wrong authorization_type value."""
+        with pytest.raises(ValidationError) as exc_info:
+            AuthorizedAgents(
+                url="https://agent.example.com",
+                authorized_for="All properties",
+                authorization_type="property_tags",  # Wrong value for this variant
+                property_ids=["site1"],
+            )
+        error_msg = str(exc_info.value)
+        assert "authorization_type" in error_msg.lower()
+
+    def test_property_tags_authorization(self):
+        """AuthorizedAgents1 requires property_tags and authorization_type."""
+        agent = AuthorizedAgents1(
+            url="https://agent.example.com",
+            authorized_for="All properties",
+            authorization_type="property_tags",
+            property_tags=["news", "sports"],
+        )
+        assert agent.authorization_type == "property_tags"
+        assert [p.root for p in agent.property_tags] == ["news", "sports"]
+        assert not hasattr(agent, "property_ids")
+
+    def test_inline_properties_authorization(self):
+        """AuthorizedAgents2 requires properties and authorization_type."""
+        agent = AuthorizedAgents2(
+            url="https://agent.example.com",
+            authorized_for="All properties",
+            authorization_type="inline_properties",
+            properties=[
+                {
+                    "property_id": "site1",
+                    "property_type": "website",
+                    "name": "Example Site",
+                    "identifiers": [{"type": "domain", "value": "example.com"}],
+                }
+            ],
+        )
+        assert agent.authorization_type == "inline_properties"
+        assert len(agent.properties) == 1
+        assert not hasattr(agent, "property_ids")
+
+    def test_inline_properties_authorization_from_json(self):
+        """AuthorizedAgents2 (inline_properties) validates from JSON dict."""
+        data = {
+            "url": "https://agent.example.com",
+            "authorized_for": "All properties",
+            "authorization_type": "inline_properties",
+            "properties": [
+                {
+                    "property_id": "site1",
+                    "property_type": "website",
+                    "name": "Example Site",
+                    "identifiers": [{"type": "domain", "value": "example.com"}],
+                }
+            ],
+        }
+        agent = AuthorizedAgents2.model_validate(data)
+        assert agent.authorization_type == "inline_properties"
+        assert len(agent.properties) == 1
+
+    def test_publisher_properties_authorization(self):
+        """AuthorizedAgents3 requires publisher_properties and type."""
+        agent = AuthorizedAgents3(
+            url="https://agent.example.com",
+            authorized_for="All properties",
+            authorization_type="publisher_properties",
+            publisher_properties=[
+                {
+                    "publisher_domain": "example.com",
+                    "selection_type": "by_id",
+                    "property_ids": ["site1"],
+                }
+            ],
+        )
+        assert agent.authorization_type == "publisher_properties"
+        assert len(agent.publisher_properties) == 1
+        assert not hasattr(agent, "property_ids")
+
+
+class TestResponseUnions:
+    """Test discriminated union response types."""
+
+    def test_create_media_buy_success_variant(self):
+        """CreateMediaBuySuccessResponse should validate with required fields."""
+        success = CreateMediaBuySuccessResponse(
+            media_buy_id="mb_123",
+            buyer_ref="ref_456",
+            packages=[],
+            confirmed_at="2026-05-27T12:00:00Z",
+            revision=1,
+        )
+        assert success.media_buy_id == "mb_123"
+        assert success.buyer_ref == "ref_456"
+        assert not hasattr(success, "errors")
+
+    def test_create_media_buy_error_variant(self):
+        """CreateMediaBuyErrorResponse should validate with errors field."""
+        error = CreateMediaBuyErrorResponse(
+            errors=[{"code": "invalid_budget", "message": "Budget too low"}],
+        )
+        assert len(error.errors) == 1
+        assert error.errors[0].code == "invalid_budget"
+        assert not hasattr(error, "media_buy_id")
+
+    def test_activate_signal_success_variant(self):
+        """ActivateSignalSuccessResponse should validate with required fields."""
+        success = ActivateSignalSuccessResponse(
+            deployments=[],
+        )
+        assert success.deployments == []
+        assert not hasattr(success, "errors")
+
+    def test_activate_signal_error_variant(self):
+        """ActivateSignalErrorResponse should validate with errors field."""
+        error = ActivateSignalErrorResponse(
+            errors=[{"code": "unauthorized", "message": "Not authorized"}],
+        )
+        assert len(error.errors) == 1
+        assert not hasattr(error, "deployments")
+
+
+class TestDestinationDiscriminators:
+    """Test destination discriminator fields."""
+
+    def test_platform_destination_requires_platform(self):
+        """Destination1 (platform) requires platform field."""
+        dest = Destination1(
+            type="platform",
+            platform="google_ads",
+            account="123",
+        )
+        assert dest.type == "platform"
+        assert dest.platform == "google_ads"
+        assert not hasattr(dest, "agent_url")
+
+    def test_platform_destination_missing_platform_fails(self):
+        """Destination1 without platform should fail."""
+        with pytest.raises(ValidationError) as exc_info:
+            Destination1(
+                type="platform",
+                account="123",
+            )
+        assert "platform" in str(exc_info.value)
+
+    def test_agent_destination_requires_agent_url(self):
+        """Destination2 (agent) requires agent_url field."""
+        dest = Destination2(
+            type="agent",
+            agent_url="https://agent.example.com",
+            account="123",
+        )
+        assert dest.type == "agent"
+        assert str(dest.agent_url).rstrip("/") == "https://agent.example.com"
+        assert not hasattr(dest, "platform")
+
+    def test_agent_destination_missing_agent_url_fails(self):
+        """Destination2 without agent_url should fail."""
+        with pytest.raises(ValidationError) as exc_info:
+            Destination2(
+                type="agent",
+                account="123",
+            )
+        assert "agent_url" in str(exc_info.value)
+
+
+class TestDeploymentDiscriminators:
+    """Test deployment discriminator fields."""
+
+    def test_platform_deployment_requires_platform(self):
+        """Deployment1 (platform) requires platform field."""
+        deployment = Deployment1(
+            type="platform",
+            platform="google_ads",
+            account="123",
+            is_live=True,
+        )
+        assert deployment.type == "platform"
+        assert deployment.platform == "google_ads"
+        assert deployment.is_live is True
+        assert not hasattr(deployment, "agent_url")
+
+    def test_agent_deployment_requires_agent_url(self):
+        """Deployment2 (agent) requires agent_url field."""
+        deployment = Deployment2(
+            type="agent",
+            agent_url="https://agent.example.com",
+            account="123",
+            is_live=True,
+        )
+        assert deployment.type == "agent"
+        assert str(deployment.agent_url).rstrip("/") == "https://agent.example.com"
+        assert deployment.is_live is True
+        assert not hasattr(deployment, "platform")
+
+
+class TestUnionTypeValidation:
+    """Test union type validation and deserialization."""
+
+    def test_success_response_from_dict(self):
+        """CreateMediaBuySuccessResponse should validate success from dict."""
+        data = {
+            "media_buy_id": "mb_123",
+            "buyer_ref": "ref_456",
+            "packages": [],
+            "confirmed_at": "2026-05-27T12:00:00Z",
+            "revision": 1,
+        }
+        response = CreateMediaBuySuccessResponse.model_validate(data)
+        assert isinstance(response, CreateMediaBuySuccessResponse)
+        assert response.media_buy_id == "mb_123"
+
+    def test_error_response_from_dict(self):
+        """CreateMediaBuyErrorResponse should validate error from dict."""
+        data = {
+            "errors": [{"code": "invalid", "message": "Invalid request"}],
+        }
+        response = CreateMediaBuyErrorResponse.model_validate(data)
+        assert isinstance(response, CreateMediaBuyErrorResponse)
+        assert len(response.errors) == 1
+
+    def test_platform_destination_from_dict(self):
+        """Destination1 should validate platform variant from dict."""
+        data = {"type": "platform", "platform": "google_ads", "account": "123"}
+        dest = Destination1.model_validate(data)
+        assert isinstance(dest, Destination1)
+        assert dest.type == "platform"
+
+    def test_agent_destination_from_dict(self):
+        """Destination2 should validate agent variant from dict."""
+        data = {
+            "type": "agent",
+            "agent_url": "https://agent.example.com",
+            "account": "123",
+        }
+        dest = Destination2.model_validate(data)
+        assert isinstance(dest, Destination2)
+        assert dest.type == "agent"
+
+
+class TestSerializationRoundtrips:
+    """Test that discriminated unions serialize and deserialize correctly."""
+
+    def test_success_response_roundtrip(self):
+        """CreateMediaBuySuccessResponse should roundtrip through JSON."""
+        original = CreateMediaBuySuccessResponse(
+            media_buy_id="mb_123",
+            buyer_ref="ref_456",
+            packages=[],
+            confirmed_at="2026-05-27T12:00:00Z",
+            revision=1,
+        )
+        json_str = original.model_dump_json()
+        parsed = CreateMediaBuySuccessResponse.model_validate_json(json_str)
+        assert parsed.media_buy_id == original.media_buy_id
+        assert parsed.buyer_ref == original.buyer_ref
+
+    def test_error_response_roundtrip(self):
+        """CreateMediaBuyErrorResponse should roundtrip through JSON."""
+        original = CreateMediaBuyErrorResponse(
+            errors=[{"code": "invalid", "message": "Invalid"}],
+        )
+        json_str = original.model_dump_json()
+        parsed = CreateMediaBuyErrorResponse.model_validate_json(json_str)
+        assert len(parsed.errors) == len(original.errors)
+        assert parsed.errors[0].code == original.errors[0].code
+
+    def test_platform_destination_roundtrip(self):
+        """Destination1 should roundtrip through JSON."""
+        original = Destination1(type="platform", platform="google_ads", account="123")
+        json_str = original.model_dump_json()
+        parsed = Destination1.model_validate_json(json_str)
+        assert parsed.type == original.type
+        assert parsed.platform == original.platform
+
+    def test_agent_destination_roundtrip(self):
+        """Destination2 should roundtrip through JSON."""
+        original = Destination2(type="agent", agent_url="https://agent.example.com", account="123")
+        json_str = original.model_dump_json()
+        parsed = Destination2.model_validate_json(json_str)
+        assert parsed.type == original.type
+        assert parsed.agent_url == original.agent_url
+
+
+class TestInvalidDiscriminatorValues:
+    """Test that invalid discriminator values are rejected."""
+
+    def test_invalid_destination_type_rejected(self):
+        """Destination1 with wrong type should fail."""
+        with pytest.raises(ValidationError):
+            Destination1(
+                type="agent",  # Invalid for Destination1
+                platform="google_ads",
+                account="123",
+            )
+
+    def test_invalid_deployment_type_rejected(self):
+        """Deployment2 with wrong type should fail."""
+        with pytest.raises(ValidationError):
+            Deployment2(
+                type="platform",  # Invalid for Deployment2
+                agent_url="https://agent.example.com",
+                account="123",
+                is_live=True,
+            )
+
+    def test_invalid_authorization_type_rejected(self):
+        """AuthorizedAgents with wrong authorization_type should fail."""
+        with pytest.raises(ValidationError):
+            AuthorizedAgents(
+                url="https://agent.example.com",
+                authorized_for="All properties",
+                authorization_type="invalid_type",  # Invalid
+                property_ids=["site1"],
+            )
+
+
+class TestPublisherPropertyValidation:
+    """Test publisher_properties discriminated union validation.
+
+    Note: Schema v1.0.0+ uses discriminated unions for publisher_properties:
+    - PublisherProperties (selection_type='all') - all properties from publisher
+    - PublisherProperties4 (selection_type='by_id') with property_ids
+    - PublisherProperties5 (selection_type='by_tag') with property_tags
+
+    Pydantic automatically enforces discriminated union constraints, so we test
+    that the correct variants can be constructed and invalid variants fail.
+    """
+
+    def test_publisher_property_with_property_ids(self):
+        """PublisherProperties4 with selection_type='by_id' requires property_ids."""
+        prop = PublisherProperties4(
+            publisher_domain="cnn.com",
+            property_ids=["site1", "site2"],
+            selection_type="by_id",
+        )
+        assert prop.publisher_domain == "cnn.com"
+        assert len(prop.property_ids) == 2
+        assert prop.selection_type == "by_id"
+
+    def test_publisher_property_with_property_ids_from_json(self):
+        """PublisherProperties4 validates from JSON dict."""
+        data = {
+            "publisher_domain": "cnn.com",
+            "property_ids": ["site1", "site2"],
+            "selection_type": "by_id",
+        }
+        prop = PublisherProperties4.model_validate(data)
+        assert prop.publisher_domain == "cnn.com"
+        assert len(prop.property_ids) == 2
+        assert prop.selection_type == "by_id"
+
+    def test_publisher_property_with_property_tags(self):
+        """PublisherProperties5 with selection_type='by_tag' requires property_tags."""
+        prop = PublisherProperties5(
+            publisher_domain="cnn.com",
+            property_tags=["premium", "news"],
+            selection_type="by_tag",
+        )
+        assert prop.publisher_domain == "cnn.com"
+        assert len(prop.property_tags) == 2
+        assert prop.selection_type == "by_tag"
+
+    def test_publisher_property_with_property_tags_from_json(self):
+        """PublisherProperties5 validates from JSON dict."""
+        data = {
+            "publisher_domain": "cnn.com",
+            "property_tags": ["premium", "news"],
+            "selection_type": "by_tag",
+        }
+        prop = PublisherProperties5.model_validate(data)
+        assert prop.publisher_domain == "cnn.com"
+        assert len(prop.property_tags) == 2
+        assert prop.selection_type == "by_tag"
+
+    def test_publisher_property_by_id_without_property_ids_fails(self):
+        """PublisherProperties4 requires property_ids field."""
+        with pytest.raises(ValidationError) as exc_info:
+            PublisherProperties4(
+                publisher_domain="cnn.com",
+                selection_type="by_id",
+                # Missing property_ids - should fail
+            )
+        error_msg = str(exc_info.value)
+        assert "property_ids" in error_msg.lower()
+
+    def test_publisher_property_by_tag_without_property_tags_fails(self):
+        """PublisherProperties5 requires property_tags field."""
+        with pytest.raises(ValidationError) as exc_info:
+            PublisherProperties5(
+                publisher_domain="cnn.com",
+                selection_type="by_tag",
+                # Missing property_tags - should fail
+            )
+        error_msg = str(exc_info.value)
+        assert "property_tags" in error_msg.lower()
+
+
+class TestProductValidation:
+    """Test Product model validation including publisher_properties.
+
+    Note: Product uses discriminated union types for publisher_properties.
+    These tests verify that the union types work correctly in Product context.
+    """
+
+    def test_product_accepts_valid_publisher_properties_by_id(self):
+        """Product accepts valid PublisherProperties4 with selection_type='by_id'."""
+        valid_props = [
+            PublisherProperties4(
+                publisher_domain="cnn.com",
+                property_ids=["site1", "site2"],
+                selection_type="by_id",
+            )
+        ]
+        assert len(valid_props) == 1
+        assert valid_props[0].property_ids is not None
+        assert valid_props[0].selection_type == "by_id"
+
+    def test_product_accepts_valid_publisher_properties_by_tag(self):
+        """Product accepts valid PublisherProperties5 with selection_type='by_tag'."""
+        valid_props = [
+            PublisherProperties5(
+                publisher_domain="cnn.com",
+                property_tags=["premium", "news"],
+                selection_type="by_tag",
+            )
+        ]
+        assert len(valid_props) == 1
+        assert valid_props[0].property_tags is not None
+        assert valid_props[0].selection_type == "by_tag"
+
+    def test_product_accepts_mixed_publisher_properties(self):
+        """Product accepts a mix of by_id and by_tag publisher_properties."""
+        mixed_props = [
+            PublisherProperties4(
+                publisher_domain="cnn.com",
+                property_ids=["site1"],
+                selection_type="by_id",
+            ),
+            PublisherProperties5(
+                publisher_domain="nytimes.com",
+                property_tags=["premium"],
+                selection_type="by_tag",
+            ),
+        ]
+        assert len(mixed_props) == 2
+        assert mixed_props[0].selection_type == "by_id"
+        assert mixed_props[1].selection_type == "by_tag"
+
+
+class TestPreviewRenderDiscriminatedUnion:
+    """Test PreviewRender discriminated union by output_format.
+
+    The schema has three variants discriminated by output_format:
+    - PreviewRender1/UrlPreviewRender (output_format='url') - requires preview_url
+    - PreviewRender2/HtmlPreviewRender (output_format='html') - requires preview_html
+    - PreviewRender3/BothPreviewRender (output_format='both') - requires both
+    """
+
+    def test_url_preview_render_requires_preview_url(self):
+        """UrlPreviewRender requires output_format='url' and preview_url."""
+        render = UrlPreviewRender(
+            render_id="render_1",
+            output_format="url",
+            preview_url="https://preview.example.com/creative",
+            role="primary",
+        )
+        assert render.output_format == "url"
+        assert str(render.preview_url) == "https://preview.example.com/creative"
+        assert render.role == "primary"
+
+    def test_html_preview_render_requires_preview_html(self):
+        """HtmlPreviewRender requires output_format='html' and preview_html."""
+        render = HtmlPreviewRender(
+            render_id="render_2",
+            output_format="html",
+            preview_html="<div>Preview content</div>",
+            role="primary",
+        )
+        assert render.output_format == "html"
+        assert render.preview_html == "<div>Preview content</div>"
+        assert render.role == "primary"
+
+    def test_both_preview_render_requires_both_fields(self):
+        """BothPreviewRender requires output_format='both' and both preview_url and preview_html."""
+        render = BothPreviewRender(
+            render_id="render_3",
+            output_format="both",
+            preview_url="https://preview.example.com/creative",
+            preview_html="<div>Preview content</div>",
+            role="primary",
+        )
+        assert render.output_format == "both"
+        assert str(render.preview_url) == "https://preview.example.com/creative"
+        assert render.preview_html == "<div>Preview content</div>"
+
+    def test_preview_render_aliases_are_distinct_types(self):
+        """Each preview render alias points to a distinct variant type."""
+        assert UrlPreviewRender is not HtmlPreviewRender
+        assert HtmlPreviewRender is not BothPreviewRender
+        assert UrlPreviewRender is not BothPreviewRender
+
+
+class TestVastAssetDiscriminators:
+    """Test VastAsset discriminator field values match semantic aliases."""
+
+    def test_url_vast_asset_has_url_discriminator(self):
+        """UrlVastAsset has delivery_type='url'."""
+        asset = UrlVastAsset(
+            delivery_type="url",
+            url="https://vast.example.com/ad.xml",
+        )
+        assert asset.delivery_type == "url"
+        assert hasattr(asset, "url")
+        assert not hasattr(asset, "vast_xml")
+
+    def test_inline_vast_asset_has_inline_discriminator(self):
+        """InlineVastAsset has delivery_type='inline'."""
+        asset = InlineVastAsset(
+            delivery_type="inline",
+            content="<VAST>...</VAST>",
+        )
+        assert asset.delivery_type == "inline"
+        assert hasattr(asset, "content")
+        assert not hasattr(asset, "url")
+
+    def test_url_vast_asset_rejects_wrong_discriminator(self):
+        """UrlVastAsset rejects delivery_type='inline'."""
+        with pytest.raises(ValidationError) as exc_info:
+            UrlVastAsset(
+                delivery_type="inline",  # Wrong discriminator value
+                url="https://vast.example.com/ad.xml",
+            )
+        assert "delivery_type" in str(exc_info.value).lower()
+
+    def test_inline_vast_asset_rejects_wrong_discriminator(self):
+        """InlineVastAsset rejects delivery_type='url'."""
+        with pytest.raises(ValidationError) as exc_info:
+            InlineVastAsset(
+                delivery_type="url",  # Wrong discriminator value
+                content="<VAST>...</VAST>",
+            )
+        assert "delivery_type" in str(exc_info.value).lower()
+
+
+class TestDaastAssetDiscriminators:
+    """Test DaastAsset discriminator field values match semantic aliases."""
+
+    def test_url_daast_asset_has_url_discriminator(self):
+        """UrlDaastAsset has delivery_type='url'."""
+        asset = UrlDaastAsset(
+            delivery_type="url",
+            url="https://daast.example.com/ad.xml",
+        )
+        assert asset.delivery_type == "url"
+        assert hasattr(asset, "url")
+        assert not hasattr(asset, "content")
+
+    def test_inline_daast_asset_has_inline_discriminator(self):
+        """InlineDaastAsset has delivery_type='inline'."""
+        asset = InlineDaastAsset(
+            delivery_type="inline",
+            content="<DAAST>...</DAAST>",
+        )
+        assert asset.delivery_type == "inline"
+        assert hasattr(asset, "content")
+        assert not hasattr(asset, "url")
+
+    def test_url_daast_asset_rejects_wrong_discriminator(self):
+        """UrlDaastAsset rejects delivery_type='inline'."""
+        with pytest.raises(ValidationError) as exc_info:
+            UrlDaastAsset(
+                delivery_type="inline",  # Wrong discriminator value
+                url="https://daast.example.com/ad.xml",
+            )
+        assert "delivery_type" in str(exc_info.value).lower()
+
+    def test_inline_daast_asset_rejects_wrong_discriminator(self):
+        """InlineDaastAsset rejects delivery_type='url'."""
+        with pytest.raises(ValidationError) as exc_info:
+            InlineDaastAsset(
+                delivery_type="url",  # Wrong discriminator value
+                content="<DAAST>...</DAAST>",
+            )
+        assert "delivery_type" in str(exc_info.value).lower()
+
+
+class TestSemanticAliasDiscriminatorRoundtrips:
+    """Test that semantic aliases serialize/deserialize with correct discriminators."""
+
+    def test_url_preview_render_roundtrip(self):
+        """UrlPreviewRender roundtrips with output_format='url'."""
+        original = UrlPreviewRender(
+            render_id="render_1",
+            role="primary",
+            output_format="url",
+            preview_url="https://preview.example.com/creative",
+        )
+        json_str = original.model_dump_json()
+        parsed = UrlPreviewRender.model_validate_json(json_str)
+        assert parsed.output_format == "url"
+        assert parsed.preview_url == original.preview_url
+
+    def test_url_vast_asset_roundtrip(self):
+        """UrlVastAsset roundtrips with delivery_type='url'."""
+        original = UrlVastAsset(
+            delivery_type="url",
+            url="https://vast.example.com/ad.xml",
+        )
+        json_str = original.model_dump_json()
+        parsed = UrlVastAsset.model_validate_json(json_str)
+        assert parsed.delivery_type == "url"
+        assert parsed.url == original.url
+
+
+class TestPropertyTagSharedSchema:
+    """Test that PropertyTag uses shared schema definition.
+
+    As of AdCP v1.0.0, PropertyTag and PropertyId are defined in separate shared
+    schema files (property-tag.json and property-id.json) that are referenced by
+    both adagents.json and publisher-property-selector.json.
+
+    This eliminates the previous name collision where both files defined their own
+    identical PropertyTag types.
+    """
+
+    def test_public_property_tag_is_from_shared_schema(self):
+        """Public PropertyTag should be from the shared property_tag schema."""
+        from adcp import PropertyTag
+
+        # Should come from the shared schema in core/, not embedded in another schema
+        assert PropertyTag.__module__ == "adcp.types.domains.core.property_tag"
+
+    def test_property_id_is_from_shared_schema(self):
+        """Public PropertyId should be from the shared property_id schema."""
+        from adcp import PropertyId
+
+        # Should come from the shared schema in core/
+        assert PropertyId.__module__ == "adcp.types.domains.core.property_id"
+
+    def test_property_tag_works_with_publisher_properties_by_tag(self):
+        """PropertyTag should work correctly with PublisherPropertiesByTag."""
+        from adcp import PropertyTag, PublisherPropertiesByTag
+
+        props = PublisherPropertiesByTag(
+            publisher_domain="example.com",
+            selection_type="by_tag",
+            property_tags=[PropertyTag("premium"), PropertyTag("video")],
+        )
+
+        assert props.selection_type == "by_tag"
+        assert len(props.property_tags) == 2
+        assert str(props.property_tags[0].root) == "premium"
+        assert str(props.property_tags[1].root) == "video"
+
+    def test_shared_schema_prevents_collision(self):
+        """Verify that both adagents and publisher_property_selector import from shared schema."""
+        from adcp import PropertyTag
+        from adcp.types.domains.core import property_tag
+
+        # The shared schema is the canonical definition in core/
+        assert PropertyTag is property_tag.PropertyTag
+
+        # Both adagents.py and publisher_property_selector.py should import from
+        # core.property_tag module (not define their own)
+        import inspect
+
+        import adcp.types.domains.adagents as adagents_module
+        import adcp.types.domains.core.publisher_property_selector as selector_module
+
+        # Check that they import from property_tag, not define their own
+        adagents_source = inspect.getsource(adagents_module)
+        selector_source = inspect.getsource(selector_module)
+
+        # May be on same line as other imports or separate line
+        # Both should import property_tag (from .core or from .) rather than defining their own
+        assert "property_tag" in adagents_source and (
+            "from .core import" in adagents_source or "from . import" in adagents_source
+        )
+        assert "property_tag" in selector_source and "from . import" in selector_source
+
+    def test_property_tag_validation(self):
+        """PropertyTag should validate according to shared schema rules."""
+        from adcp import PropertyTag
+
+        # Valid tags: lowercase alphanumeric + underscores
+        valid = PropertyTag("premium_video")
+        assert str(valid.root) == "premium_video"
+
+        # Pattern validation should work
+        with pytest.raises(ValidationError):
+            PropertyTag("Invalid-Tag")  # Hyphens not allowed in property tags
+
+
+class TestRootModelUnwrapForSubclassing:
+    """Test that unwrapped RootModel unions support consumer subclassing.
+
+    See: https://github.com/adcontextprotocol/adcp-client-python/issues/155
+
+    Pydantic 2 forbids model_config overrides on RootModel subclasses.
+    By unwrapping select RootModel unions to plain Union type aliases,
+    consumers can subclass the individual variants with custom model_config.
+    """
+
+    def test_get_signals_request_is_base_model_class(self):
+        """GetSignalsRequest should be a regular BaseModel class (single flattened schema)."""
+        from pydantic import BaseModel
+
+        from adcp.types import GetSignalsRequest
+
+        assert isinstance(GetSignalsRequest, type)
+        assert issubclass(GetSignalsRequest, BaseModel)
+
+    def test_create_media_buy_response_is_union_alias(self):
+        """CreateMediaBuyResponse should be a Union type alias, not a RootModel class."""
+        import types
+
+        from adcp.types import CreateMediaBuyResponse
+
+        assert isinstance(CreateMediaBuyResponse, types.UnionType)
+
+    @pytest.mark.parametrize("name", ["AccountReference", "PostalArea", "SignalRef"])
+    def test_public_object_unions_are_not_rootmodel_wrappers(self, name: str):
+        """Composable object unions are exposed as aliases, not RootModel classes."""
+        import adcp.types
+
+        public_alias = getattr(adcp.types, name)
+        assert not isinstance(public_alias, type)
+
+    def test_account_reference_union_validates_and_arms_remain_subclassable(self):
+        """Consumers can validate the union and customize a concrete arm."""
+        from pydantic import ConfigDict, TypeAdapter
+
+        from adcp.types import AccountReference, AccountReferenceById
+
+        parsed = TypeAdapter(AccountReference).validate_python({"account_id": "acct-1"})
+        assert isinstance(parsed, AccountReferenceById)
+
+        class StrictAccountReference(AccountReferenceById):
+            model_config = ConfigDict(extra="forbid")
+
+        with pytest.raises(ValidationError):
+            StrictAccountReference(account_id="acct-1", legacy_id="old")
+
+    def test_signal_reference_alias_preserves_required_discriminator(self):
+        """Removing the wrapper must not weaken SignalRef's wire validation."""
+        from pydantic import TypeAdapter
+
+        from adcp.types import SignalRef
+
+        with pytest.raises(ValidationError, match="union_tag_not_found"):
+            TypeAdapter(SignalRef).validate_python(
+                {"signal_source_url": "https://signals.example", "signal_id": "sig-1"}
+            )
+
+    def test_subclass_get_signals_request_with_extra_forbid(self):
+        """Consumer can subclass GetSignalsRequest directly with extra='forbid'."""
+        from pydantic import ConfigDict
+
+        from adcp.types import GetSignalsRequest
+
+        class MyGetSignalsRequest(GetSignalsRequest):
+            model_config = ConfigDict(extra="forbid")
+
+        req = MyGetSignalsRequest(signal_spec="test signals")
+        assert req.signal_spec == "test signals"
+
+        # extra='forbid' should reject unknown fields
+        with pytest.raises(ValidationError):
+            MyGetSignalsRequest(
+                signal_spec="test",
+                unknown_field="should fail",
+            )
+
+    def test_subclass_create_media_buy_response_variant_with_extra_forbid(self):
+        """Consumer can subclass CreateMediaBuyResponse variant with extra='forbid'."""
+        from pydantic import ConfigDict
+
+        class MySuccessResponse(CreateMediaBuySuccessResponse):
+            model_config = ConfigDict(extra="forbid")
+
+        resp = MySuccessResponse(
+            media_buy_id="mb_123",
+            packages=[],
+            confirmed_at="2026-05-27T12:00:00Z",
+            revision=1,
+        )
+        assert resp.media_buy_id == "mb_123"
+
+        # extra='forbid' should reject unknown fields
+        with pytest.raises(ValidationError):
+            MySuccessResponse(
+                media_buy_id="mb_123",
+                packages=[],
+                unknown_field="should fail",
+            )
+
+    def test_get_signals_request_accepts_signal_spec_and_signal_ids(self):
+        """GetSignalsRequest can be instantiated with signal_spec or signal_ids."""
+        from adcp.types import GetSignalsRequest
+
+        # With signal_spec (discovery-style)
+        req1 = GetSignalsRequest(signal_spec="test signals")
+        assert req1.signal_spec == "test signals"
+
+        # With signal_ids (lookup-style)
+        req2 = GetSignalsRequest(
+            signal_ids=[{"source": "catalog", "data_provider_domain": "example.com", "id": "sig1"}]
+        )
+        assert len(req2.signal_ids) == 1
+
+        # Both are instances of the same class
+        assert isinstance(req1, GetSignalsRequest)
+        assert isinstance(req2, GetSignalsRequest)

@@ -1,0 +1,23 @@
+- name: Renting, single, 30, employed
+  period: 2021
+  absolute_error_margin: 35
+  input:
+    people:
+      person:
+        age: 30
+        employment_income: 30_000
+        personal_pension_contributions: 1_000
+        weekly_hours: 20
+    benunits:
+      benunit:
+        members: person
+        would_claim_uc: true
+    households:
+      household:
+        members: person
+        tenure_type: RENT_PRIVATELY
+        rent: 10000
+  output:
+    universal_credit: 0
+    income_tax: (30000 - 1000 - 12570) * 0.2
+    national_insurance: 2_451.83

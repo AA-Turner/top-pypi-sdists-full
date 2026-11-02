@@ -1,0 +1,154 @@
+"""`lemonaid lemon start`: start a lemon in a window of an existing session, from config."""
+
+import argparse
+import json
+import sys
+
+from ..config import load_config
+from ..watch import children_waiter
+from . import command, handoff, options, window
+
+
+def _start(args: argparse.Namespace) -> tuple[dict, str]:
+    """(JSON result, error)."""
+    session, colon, index = args.target.partition(":")
+    if not colon or not index.isdigit():
+        return {}, f"Name a window by its index: :WINDOW or SESSION:WINDOW, not {args.target!r}"
+
+    if not session:
+        session = window.own_session()
+        if not session:
+            return (
+                {},
+                f"{args.target} means a window of your own tmux session, and this isn't in tmux",
+            )
+
+    config = load_config()
+    try:
+        resolved = options.selected(config.tmux_session, args)
+        if options.preview(args, config.tmux_session):
+            return {"preview": True}, ""
+    except ValueError as error:
+        return {}, str(error)
+
+    line = resolved.line
+    if not line.strip():
+        return {}, f"Lemon {resolved.lemon!r} has no harness command"
+
+    directory = window.session_dir(session)
+    if directory is None:
+        return {}, f"No tmux session {session!r}"
+
+    given, error = handoff.prepare(args.brief, args.parent, args.name, tuple(args.group))
+    if error:
+        return {}, error
+
+    if given.brief and (error := command.unclaimable(line)):
+        return {}, error
+
+    typed, environment = command.harness_line(
+        line,
+        directory,
+        handoff.first_prompt(given, args.prompt),
+        command.codex_writable_roots(config.tmux_session),
+        handoff.session_title(given),
+    )
+    pane, error = window.open_window(session, index, directory, environment)
+    if pane is None:
+        return {}, error
+
+    result = {
+        "session": session,
+        "window": index,
+        "window_id": pane.window_id,
+        "dir": str(directory),
+        "harness": resolved.lemon,
+        "brief": str(given.brief) if given.brief else None,
+        "lemon_id": given.link[0] if given.link else None,
+        "parent": given.link[1] if given.link else None,
+        "groups": list(given.groups),
+        "name": given.name or None,
+    }
+    if warning := handoff.complete(given, session, index, pane.window_id):
+        print(f"Warning: {warning}", file=sys.stderr)
+    if given.link:
+        print(children_waiter.reminder(), file=sys.stderr)
+    if error := window.run(pane, typed):
+        return result, error
+
+    if not args.no_check and (dialog := window.startup_dialog(pane.pane_id)):
+        return result, f"The lemon in {session}:{index} is waiting at {dialog}"
+
+    return result, ""
+
+
+def _cmd_start(args: argparse.Namespace) -> None:
+    result, error = _start(args)
+    if result.get("preview"):
+        return
+
+    if args.json:
+        print(json.dumps({**result, "error": error or None}))
+    elif error:
+        print(error, file=sys.stderr)
+    else:
+        print(f"started {result['harness']} in {result['session']}:{result['window']}")
+
+    if error:
+        sys.exit(1)
+
+
+def add_parser(lemon_subparsers: argparse._SubParsersAction) -> None:
+    start = lemon_subparsers.add_parser(
+        "start",
+        help="Start a lemon in a window of an existing tmux session",
+        description="Runs a preset, harness executable, or legacy template's lemon line - the same one "
+        "`place open` starts in its harness window - in window WINDOW of your own tmux "
+        "session (:WINDOW) or of SESSION, in the session's directory. :WINDOW follows your "
+        "session through renames, so a lemon starting a helper beside itself never needs its "
+        "session's name. The window is made if it doesn't exist and respawned "
+        "if its panes are dead; anything running there is refused. Codex is started "
+        "with its folder-trust and update prompts turned off, so the prompt reaches it.",
+    )
+    start.add_argument(
+        "target",
+        metavar="[SESSION]:WINDOW",
+        help="Where to start it: :4 is window 4 of your own session; WINDOW is an index",
+    )
+    options.add_arguments(start)
+    start.add_argument(
+        "--prompt",
+        default="",
+        help="The lemon's first prompt (with --brief, the default is to read the brief "
+        "and do the work)",
+    )
+    start.add_argument(
+        "--brief",
+        default="",
+        metavar="FILE",
+        help="Attach this brief (a path, or a name in ~/.lemons/brief/) to the lemon once it starts",
+    )
+    start.add_argument(
+        "--parent",
+        default="",
+        metavar="LEMON",
+        help="Record LEMON (`self`, `parent` for your own parent, a Lemon-ID, channel, or brief) as the --brief lemon's parent",
+    )
+    start.add_argument(
+        "--group",
+        action="append",
+        default=[],
+        metavar="GROUP",
+        help="Put the --brief lemon in this existing group (repeatable); default: its parent's",
+    )
+    start.add_argument(
+        "--name", default="", help="Name the lemon's session once it starts (needs --brief)"
+    )
+    start.add_argument(
+        "--no-check",
+        action="store_true",
+        help="Don't wait to check the pane for a startup dialog",
+    )
+    start.add_argument("--json", action="store_true", help="Print the result as JSON")
+    start.set_defaults(func=_cmd_start)
+    options.add_presets_parser(lemon_subparsers)

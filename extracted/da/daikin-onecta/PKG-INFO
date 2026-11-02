@@ -1,0 +1,79 @@
+Metadata-Version: 2.4
+Name: daikin-onecta
+Version: 0.6.2
+Summary: Async Python client for the Daikin Onecta cloud API
+Author: Johnny Willemsen
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/jwillemsen/daikin-onecta
+Project-URL: Repository, https://github.com/jwillemsen/daikin-onecta
+Project-URL: Issues, https://github.com/jwillemsen/daikin-onecta/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.14
+Description-Content-Type: text/markdown
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: mashumaro>=3.17.0
+Provides-Extra: test
+Requires-Dist: aiohttp<3.14; extra == "test"
+Requires-Dist: aioresponses>=0.7.8; extra == "test"
+Requires-Dist: pytest>=8.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.24; extra == "test"
+Requires-Dist: pytest-cov>=5.0; extra == "test"
+Requires-Dist: syrupy>=6.0; extra == "test"
+Provides-Extra: dev
+Requires-Dist: daikin-onecta[test]; extra == "dev"
+Requires-Dist: mypy>=1.18; extra == "dev"
+Requires-Dist: ruff>=0.13; extra == "dev"
+
+# daikin-onecta
+
+[![CI](https://github.com/jwillemsen/daikin-onecta/actions/workflows/ci.yml/badge.svg)](https://github.com/jwillemsen/daikin-onecta/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/jwillemsen/daikin-onecta/graph/badge.svg)](https://codecov.io/gh/jwillemsen/daikin-onecta)
+[![PyPI version](https://img.shields.io/pypi/v/daikin-onecta.svg)](https://pypi.org/project/daikin-onecta/)
+[![Python versions](https://img.shields.io/pypi/pyversions/daikin-onecta.svg)](https://pypi.org/project/daikin-onecta/)
+[![License](https://img.shields.io/pypi/l/daikin-onecta.svg)](https://github.com/jwillemsen/daikin-onecta/blob/main/LICENSE)
+
+Async Python client for the Daikin Onecta cloud API.
+
+This library contains the Daikin-specific API layer used by the Home Assistant
+Daikin Onecta integration. It deliberately has no dependency on Home Assistant.
+
+## Usage
+
+```python
+import aiohttp
+
+from daikin_onecta import OnectaClient
+
+
+async def token_provider() -> str:
+    return "access-token"
+
+
+async with aiohttp.ClientSession() as session:
+    client = OnectaClient(session, token_provider)
+    devices = await client.get_gateway_devices()
+```
+
+Authentication is supplied by an asynchronous token callback so applications
+remain responsible for their own OAuth flow and token refresh.
+
+## Errors
+
+Requests raise typed exceptions instead of returning error sentinel values:
+
+- `OnectaAuthenticationError` for HTTP 401 and 403 responses;
+- `OnectaRateLimitError` for HTTP 429 responses;
+- `OnectaApiError` for other unsuccessful HTTP responses;
+- `OnectaResponseError` when a successful response has an invalid body;
+- `OnectaConnectionError` for transport failures.
+
+All request errors provide their HTTP `method` and relative API `path`.
+`OnectaRateLimitError.rate_limit` contains the immutable rate-limit snapshot
+returned with the rejected response, including `retry_after`.
+
+## Status
+
+The API is currently alpha. The first release intentionally exposes gateway
+devices as raw dictionaries while the stable typed device model is developed.

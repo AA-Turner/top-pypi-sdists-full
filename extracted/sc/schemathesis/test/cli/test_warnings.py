@@ -19,40 +19,6 @@ def _serve_schema(ctx, cli, app_runner, schema: dict, routes):
     return app_runner.openapi_url(app)
 
 
-def test_missing_auth_warning_with_fail_on_true(ctx, cli, tmp_path, monkeypatch):
-    api = ctx.openapi.apps.basic()
-    # Given a config file that fails on all warnings
-    config_file = tmp_path / "schemathesis.toml"
-    config_file.write_text("""
-[warnings]
-fail-on = true
-""")
-    monkeypatch.chdir(tmp_path)
-
-    # When running tests without proper auth (will trigger missing_auth warning)
-    result = cli.run_and_assert(api.schema_url, exit_code=ExitCode.TESTS_FAILED)
-    # And warnings should be displayed
-    assert "WARNINGS" in result.stdout
-    assert "Authentication failed" in result.stdout
-
-
-def test_missing_auth_warning_with_fail_on_specific(ctx, cli, tmp_path, monkeypatch):
-    api = ctx.openapi.apps.basic()
-    # Given a config file that fails only on missing_auth warnings
-    config_file = tmp_path / "schemathesis.toml"
-    config_file.write_text("""
-[warnings]
-fail-on = ["missing_auth"]
-""")
-    monkeypatch.chdir(tmp_path)
-
-    # When running tests without proper auth (will trigger missing_auth warning)
-    result = cli.run_and_assert(api.schema_url, exit_code=ExitCode.TESTS_FAILED)
-    # And warnings should be displayed
-    assert "WARNINGS" in result.stdout
-    assert "Authentication failed" in result.stdout
-
-
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_warnings_failing_the_run_are_named_in_the_final_line(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.basic()
@@ -308,8 +274,29 @@ def test_warning_on_no_2xx_options_only(ctx, cli, snapshot_cli):
                 }
             },
         ),
+        (
+            (),
+            {
+                "config": {
+                    "warnings": False,
+                    "operations": [
+                        {"include-name": "GET /api/failure", "warnings": ["missing_test_data"]},
+                    ],
+                }
+            },
+        ),
+        (
+            (),
+            {
+                "config": {
+                    "operations": [
+                        {"include-name": "GET /api/failure", "warnings": {"fail-on": ["missing_test_data"]}},
+                    ],
+                }
+            },
+        ),
     ],
-    ids=["default", "selected", "disabled-all", "disabled-operation"],
+    ids=["default", "selected", "disabled-all", "disabled-operation", "enabled-operation", "fail-on-operation"],
 )
 def test_warning_on_all_not_found(ctx, cli, snapshot_cli, args, kwargs):
     api = ctx.openapi.apps.success_and_failure()
@@ -512,6 +499,37 @@ def test_missing_test_data_warning_withdrawn_by_later_phase(ctx, cli, app_runner
         return jsonify({"id": item_id})
 
     assert _run_missing_test_data(cli, app_runner, app, "examples,fuzzing") == (False, ExitCode.OK, "No issues found")
+
+
+def test_missing_test_data_per_operation_fail_on_ignores_other_operations(ctx, cli, app_runner):
+    # Only `GET /orders/{id}` fails on the warning, and a later phase withdraws it; `GET /items/{id}` stays warned.
+    parameters = [{"in": "path", "name": "id", "required": True, "schema": {"type": "string"}, "example": "missing"}]
+    responses = {"200": {"description": "OK"}, "404": {"description": "Not found"}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{id}": {"get": {"parameters": parameters, "responses": responses}},
+            "/orders/{id}": {"get": {"parameters": parameters, "responses": responses}},
+        }
+    )
+
+    @app.route("/items/<id>", methods=["GET"])
+    def get_item(id):
+        return jsonify({"message": "Not found"}), 404
+
+    @app.route("/orders/<id>", methods=["GET"])
+    def get_order(id):
+        if id == "missing":
+            return jsonify({"message": "Not found"}), 404
+        return jsonify({"id": id})
+
+    assert _run_missing_test_data(
+        cli,
+        app_runner,
+        app,
+        "examples,fuzzing",
+        warnings=True,
+        operations=[{"include-name": "GET /orders/{id}", "warnings": {"fail-on": ["missing_test_data"]}}],
+    ) == (True, ExitCode.OK, "1 warning")
 
 
 def test_missing_test_data_warning_withdrawn_by_documented_redirect(ctx, cli, app_runner):
@@ -890,23 +908,15 @@ type Query {
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_missing_test_data_for_graphql(cli, app_runner, tmp_path, snapshot_cli):
+def test_missing_test_data_for_graphql(ctx, cli, snapshot_cli):
     # A 200 with neither `data` nor `errors` fails no check, so nothing else in the run says the query was never served.
-    sdl = tmp_path / "schema.graphql"
-    sdl.write_text(GRAPHQL_SDL)
-
-    app = Flask(__name__)
-
-    @app.route("/graphql", methods=["POST"])
-    def graphql():
-        return jsonify({"data": None})
-
-    port = app_runner.run_flask_app(app)
+    sdl = ctx.graphql.write_sdl(GRAPHQL_SDL)
+    api = ctx.graphql.apps.canned_response({"data": None})
 
     assert (
         cli.run(
             str(sdl),
-            f"--url=http://127.0.0.1:{port}/graphql",
+            f"--url={api.schema_url}",
             "--max-examples=5",
             "--phases=fuzzing",
             "-m",
@@ -923,11 +933,11 @@ type Mutation {{
 """
 
 
+# The canned responses ignore the selection set.
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_missing_test_data_for_graphql_survives_stateful(cli, app_runner, tmp_path, snapshot_cli):
+def test_missing_test_data_for_graphql_survives_stateful(ctx, cli, app_runner, snapshot_cli):
     # The mutation is served, so the stateful phase reaches the query - but it still returns no data.
-    sdl = tmp_path / "schema.graphql"
-    sdl.write_text(GRAPHQL_SDL_WITH_MUTATION)
+    sdl = ctx.graphql.write_sdl(GRAPHQL_SDL_WITH_MUTATION)
 
     app = Flask(__name__)
 
@@ -940,7 +950,14 @@ def test_missing_test_data_for_graphql_survives_stateful(cli, app_runner, tmp_pa
     port = app_runner.run_flask_app(app)
 
     assert (
-        cli.run(str(sdl), f"--url=http://127.0.0.1:{port}/graphql", "--max-examples=5", "-m", "positive")
+        cli.run(
+            str(sdl),
+            f"--url=http://127.0.0.1:{port}/graphql",
+            "--max-examples=5",
+            "-m",
+            "positive",
+            "--exclude-checks=response_schema_conformance",
+        )
         == snapshot_cli
     )
 

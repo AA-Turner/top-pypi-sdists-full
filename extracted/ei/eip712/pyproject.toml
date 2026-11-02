@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=75.6.0", "setuptools_scm[toml]>=5.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eip712"
+dynamic = ["version"]
+description = "eip712: Message classes for typed structured data hashing and signing in Ethereum"
+readme = "README.md"
+authors = [{ name = "ApeWorX Ltd.", email = "admin@apeworx.io" }]
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.10,<4"
+dependencies = [
+    "pydantic>=2,<3",  # NOTE: Peer of `eth-pydantic-types`
+    "eth-account>=0.11.3,<0.14",
+    "eth-pydantic-types>=0.2.4,<0.3",
+    "eth-utils>=2.3.1,<6",
+]
+
+[project.urls]
+Homepage = "https://github.com/ApeWorX/eip712"
+
+[dependency-groups]
+test = [
+    "eth-abi",
+    "hexbytes",
+    "pytest",
+    "pytest-xdist",
+    "pytest-cov",
+    "hypothesis",
+]
+lint = [
+    "ruff",
+    "mypy",
+    "types-setuptools",
+    "mdformat",
+    "mdformat-gfm",
+    "mdformat-frontmatter",
+    "mdformat-pyproject",
+]
+docs = [
+    "sphinx-ape",
+]
+dev = [
+    "commitlint",
+    "pre-commit",
+    "pytest-watch",
+    "IPython",
+    "ipdb",
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "docs" },
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = ["eip712"]
+
+[tool.setuptools.package-data]
+eip712 = ["py.typed"]
+
+[tool.setuptools_scm]
+write_to = "eip712/version.py"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312', 'py313', 'py314']
+include = '\.pyi?$'
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov-branch
+    --cov-report term
+    --cov-report html
+    --cov-report xml
+    --cov=eip712
+"""
+python_files = "test_*.py"
+testpaths = "tests"
+markers = "fuzzing: Run Hypothesis fuzz test suite"
+
+[tool.coverage.run]
+omit = ["eip712/version.py"]
+
+[tool.isort]
+line_length = 100
+force_grid_wrap = 0
+include_trailing_comma = true
+multi_line_output = 3
+use_parentheses = true
+skip = ["version.py"]
+
+[tool.mdformat]
+number = true
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["docs", "build", ".eggs", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
+per-file-ignores = { "tests/conftest.py" = ["F821"] }
+
+[tool.mypy]
+exclude = ["build/", "dist/", "docs/"]

@@ -1,15 +1,19 @@
 """RetryPolicy: deadline and patience scopes, Retry-After, and the pause between attempts."""
 
 from __future__ import annotations
+
+from contextlib import contextmanager
+from contextvars import ContextVar
 import os
 import random
 import sys
 import time
-from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import Any
 
 import httpx
+
+from probe.foundation.durable import durable
+
 from ... import errors
 
 #: The transport's own in-request retries, on the one backoff ladder every durable retry
@@ -29,18 +33,10 @@ _request_deadline: ContextVar[float | None] = ContextVar("probe_request_deadline
 
 @contextmanager
 def deadline_scope(deadline: float | None):
-    """Bound every request this thread makes to ``deadline`` (``time.monotonic()``).
-
-    `Run.finish()` has ONE budget (plan 0.6). It was checked only after a whole flush
-    returned, so one stalled request or a slow backlog held a close far past it (live:
-    170 s for ``flush_timeout=10``). In this scope each attempt's timeout is
-    ``min(remaining, transport timeout)``, a retry pause never outlives the deadline, and
-    a request that would START after it raises :class:`errors.DeadlineExceeded` unsent.
-
-    A ContextVar: it follows the call through the outbox drain, the upload path and any
-    client the drain builds, and stops at the thread (the heartbeat and other threads keep
-    their own timeouts). Nested scopes keep the EARLIER deadline.
-    """
+    """Bound every request this thread makes to ``deadline`` (``time.monotonic()``), `Run.finish`'s one
+    budget (plan 0.6): attempts get at most what is left, pauses never outlive it, and a request
+    that would start after it raises `errors.DeadlineExceeded` unsent. Nested scopes keep the
+    earlier deadline; a ContextVar, so it stops at the thread."""
     if deadline is None:
         yield
         return
@@ -95,25 +91,10 @@ def _patient() -> bool:
 
 @contextmanager
 def patience(seconds: float | None):
-    """Retry for up to ``seconds`` of wall clock instead of ``max_retries`` quick tries.
-
-    For when a process cannot go on without an answer (``probe.init()`` opening its run,
-    plan 2.5): one refused connection raised into the script after 1.9 s and a blackholed
-    API after 122 s (measured).
-
-    Built on :func:`deadline_scope` (attempt timeout capped at time left; nothing sent
-    once spent). Added, for :meth:`Transport.request` only:
-
-    * retries are bounded by the deadline, not by ``max_retries``;
-    * waits come from `_PATIENCE_BACKOFF`, jittered; a ``Retry-After`` is waited out
-      whenever the budget has room;
-    * WHAT is retried is unchanged: connect-class failures always, anything else only
-      when idempotent, never an answer outside `_RETRYABLE` (401/403/404/409/422 return
-      at once). A write that may have landed is never re-sent blind.
-
-    ``seconds`` None or <= 0 = no scope. Best-effort work inside opts out with
-    :func:`without_patience`.
-    """
+    """Retry for up to ``seconds`` of wall clock instead of ``max_retries`` quick tries, for a process
+    that cannot go on without an answer (`probe.init()` opening its run, plan 2.5). What is retried
+    is unchanged; waits are jittered and honour `Retry-After` when the budget has room. ``seconds``
+    None or <= 0: no scope."""
     if seconds is None or seconds <= 0:
         yield
         return
@@ -129,21 +110,9 @@ def patience(seconds: float | None):
 
 @contextmanager
 def without_patience():
-    """Suspend an enclosing :func:`patience` scope (`probe.init()`'s budget) for a block:
-    requests get the transport's own timeouts and quick retries again, and the deadline in
-    force OUTSIDE patience (e.g. a close's) comes back.
-
-    For any init step that may outlast the init budget or must not spend it:
-
-    * best-effort capture after the run is open (code snapshot, hardware rail, output
-      capture -- `Client.run`);
-    * threads started during init (the heartbeat): one inheriting its creator's context
-      (free-threaded 3.14) would carry the init deadline for the run's life;
-    * a deliberate long wait, e.g. a requeue takeover waiting for a dead incumbent
-      (plan 2.3; bound `PROBE_TAKEOVER_WAIT_SEC`).
-
-    A no-op outside patience. ``tests/test_init_resilience.py`` pins that a step wrapped
-    in it survives a wait longer than the whole budget."""
+    """Suspend an enclosing `patience` scope for a block: quick retries again, and the deadline in
+    force outside patience (a close's) comes back. For best-effort capture, threads started during
+    init, and deliberate long waits; a no-op outside patience."""
     outer = _patience_outer.get()
     if outer is _NOT_PATIENT:
         yield
@@ -210,16 +179,8 @@ def _announce_patience(status: int | None) -> None:
 
 
 def wait_out_retry_after(exc: BaseException, *, minimum: float = 0.0) -> bool:
-    """Wait the ``Retry-After`` a failure carried (``RosError.retry_after``), at least
-    ``minimum``, before the caller re-sends. False, without waiting, when it does not fit:
-    the caller raises at once rather than sleep an hour (``Retry-After: 3600``) or its
-    whole budget only to raise anyway.
-
-    "Fits" is the transport's own rule (`Transport._retry_pause`), so a create and a read
-    wait alike. Inside :func:`patience` the ONE bound is the budget left, less room for
-    the next attempt (`_patient_pause`): ``Retry-After: 30`` 10 s into a 90 s budget is
-    waited out. Outside, anything over `_INLINE_RETRY_AFTER_MAX`, or this thread's
-    deadline, is not."""
+    """Wait the ``Retry-After`` a failure carried, at least ``minimum``, before the caller re-sends;
+    False, without waiting, when it does not fit the transport's own rule (`_retry_pause`)."""
     asked = getattr(exc, "retry_after", None)
     wait = max(float(minimum), float(asked or 0.0))
     deadline = _request_deadline.get()
@@ -244,3 +205,110 @@ def _with_retry_after(error: errors.RosError, resp: httpx.Response) -> errors.Ro
     if wait is not None:
         error.retry_after = wait
     return error
+
+
+class RetryPolicyMixin:
+    """Part of Transport: its methods run with `self` the Transport; fold_parts() copies them into Transport."""
+
+    # -- deadline -------------------------------------------------------------
+    def _attempt_timeout(self, requested: float | None, what: str) -> tuple[Any, bool]:
+        """``(timeout kwarg value, clamped)`` for one attempt. Outside a
+        :func:`deadline_scope`: ``requested`` untouched (None keeps the client-wide budget),
+        ``clamped`` False. Inside: ``min(requested or self.timeout, remaining)``, with
+        ``clamped`` saying the deadline set the bound. Raises
+        :class:`errors.DeadlineExceeded` when nothing is left: the request is never sent."""
+        deadline = _request_deadline.get()
+        if deadline is None:
+            return requested, False
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise errors.DeadlineExceeded(f"{what}: deadline passed before it was sent")
+        base = float(self.timeout if requested is None else requested)
+        bound = min(base, left)
+        return httpx.Timeout(bound, connect=min(bound, _DEFAULT_CONNECT_TIMEOUT)), bound < base
+
+    @staticmethod
+    def _retry_pause(attempt: int, resp: httpx.Response | None = None) -> bool:
+        """Sleep before retry ``attempt + 1`` (0.2 s doubling to 2 s, lengthened to a `Retry-After`);
+        False, without sleeping, when the retry must not happen here: a `Retry-After` over
+        `_INLINE_RETRY_AFTER_MAX`, or no room before the deadline."""
+        deadline = _request_deadline.get()
+        retry_after = _retry_after_seconds(resp) if resp is not None else None
+        if _patient() and deadline is not None:
+            return Transport._patient_pause(
+                attempt, retry_after, deadline, status=resp.status_code if resp is not None else None
+            )
+        (*_, delay) = durable.backoff_delays(attempt + 1, _TRANSPORT_BACKOFF)
+        if retry_after is not None and retry_after > _INLINE_RETRY_AFTER_MAX:
+            return False
+        pause = durable.honor_retry_after(delay, retry_after, ceiling=_INLINE_RETRY_AFTER_MAX)
+        if deadline is not None and deadline - time.monotonic() <= pause:
+            return False
+        time.sleep(pause)
+        return True
+
+    @staticmethod
+    def _patient_pause(
+        attempt: int, retry_after: float | None, deadline: float, *, status: int | None = None
+    ) -> bool:
+        """`_retry_pause` inside :func:`patience`: the jittered `_PATIENCE_BACKOFF` step,
+        lengthened to any ``Retry-After`` the budget can hold, shortened so a last attempt
+        fits before the deadline. False when no room. The scope's FIRST retry says so, once,
+        on stderr."""
+        room = deadline - time.monotonic() - _PATIENCE_LAST_ATTEMPT
+        if room <= 0 or (retry_after is not None and retry_after > room):
+            return False
+        _announce_patience(status)
+        (*_, step) = durable.backoff_delays(attempt + 1, _PATIENCE_BACKOFF)
+        jittered = step / 2 + _JITTER.uniform(0, step / 2)
+        time.sleep(min(durable.honor_retry_after(jittered, retry_after, ceiling=room), room))
+        return True
+
+    def _may_retry(self, attempt: int) -> bool:
+        """The COUNT half of the retry decision: ``max_retries`` quick tries, or,
+        inside :func:`patience`, as many as the deadline allows."""
+        return attempt <= self.max_retries or _patient()
+
+    @staticmethod
+    def _deadline_error(what: str, exc: BaseException) -> errors.DeadlineExceeded:
+        """The deadline cut an attempt: ``sent`` when only the response was lost
+        (a read timeout), so the server may have applied the request."""
+        return errors.DeadlineExceeded(f"{what}: {exc}", sent=isinstance(exc, httpx.ReadTimeout))
+
+    def _send_within_deadline(self, deadline: float, method: str, path: str, **kwargs) -> httpx.Response:
+        """Send, then read the body chunk by chunk, checking ``deadline`` between chunks.
+        httpx timeouts bound each socket operation, not the request: a response trickling a
+        byte at a time never trips one (live: a close with ``flush_timeout=2`` took 9.8 s).
+        Returns an ordinary, fully read response."""
+        with self._client.stream(method, path, **kwargs) as resp:
+            if resp.is_stream_consumed:  # an in-memory transport already read it
+                resp.read()
+                return resp
+            chunks: list[bytes] = []
+            for chunk in resp.iter_raw():
+                chunks.append(chunk)
+                if time.monotonic() >= deadline:
+                    raise errors.DeadlineExceeded(
+                        f"{method} {path}: deadline passed while reading the response", sent=True
+                    )
+        return httpx.Response(
+            resp.status_code,
+            headers=resp.headers,
+            content=b"".join(chunks),
+            request=resp.request,
+            extensions=resp.extensions,
+        )
+
+    @staticmethod
+    def _cut_by_deadline(exc: BaseException, clamped: bool) -> bool:
+        """A timeout that fired only because the deadline shortened the attempt: our clock
+        ran out, not the server's patience."""
+        deadline = _request_deadline.get()
+        return (
+            clamped
+            and deadline is not None
+            and isinstance(exc, httpx.TimeoutException)
+            and time.monotonic() >= deadline
+        )
+from probe.sdk.delivery.transport.transport import Transport  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.transport import _DEFAULT_CONNECT_TIMEOUT  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import shutil
+import time
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from pathlib import Path
+from typing import ClassVar, Generic, TypeVar, overload
+
+from cc_transcript.ids import SessionId
+from filelock import FileLock
+from loguru import logger
+from pydantic import BaseModel
+
+from captain_hook.dispatch_metrics import compare_state_writes, measured_call, note_write
+from captain_hook.util.fs import atomic_write
+
+M = TypeVar("M", bound=BaseModel)
+
+STALE_AGE_SECONDS = 30 * 24 * 60 * 60
+
+
+def state_root() -> Path:
+    from captain_hook.util.paths import resolve_state_dir
+
+    return resolve_state_dir()
+
+
+def ensure_session(session_id: SessionId) -> Path:
+    sd = state_root() / "hooks" / "sessions" / session_id
+    sd.mkdir(parents=True, exist_ok=True)
+    return sd
+
+
+def cleanup_stale(exclude: SessionId | None = None) -> None:
+    """Reap session dirs untouched for STALE_AGE_SECONDS whose transcript is gone.
+
+    A stale dir whose transcript still exists is touched, so each one costs one
+    transcript search per STALE_AGE_SECONDS rather than one on every SessionStart.
+
+    ``exclude`` skips the current session unconditionally — the caller's own dir is live
+    even if a clock skew or a transcript-discovery miss would otherwise mark it stale.
+    """
+    from cc_transcript.codex import sessions_root
+    from cc_transcript.discovery import CLAUDE_PROJECTS_DIR
+
+    from captain_hook.snapshots.client import client_scope
+    from captain_hook.transcripts import resolved_transcript_paths
+
+    sessions = state_root() / "hooks" / "sessions"
+    if not sessions.exists():
+        return
+    cutoff = time.time() - STALE_AGE_SECONDS
+    stale = [(sd, sd.stat()) for sd in sessions.iterdir() if sd.name != exclude and sd.is_dir()]
+    stale = [(sd, initial) for sd, initial in stale if initial.st_mtime < cutoff]
+    if not stale:
+        return
+    with client_scope() as client:
+        resolved = resolved_transcript_paths(
+            client, [SessionId(sd.name) for sd, _ in stale], roots=[CLAUDE_PROJECTS_DIR, sessions_root()]
+        )
+    for sd, initial in stale:
+        if sd.name == exclude:
+            continue
+        if resolved[SessionId(sd.name)] is not None:
+            os.utime(sd)
+            continue
+        try:
+            current = sd.stat()
+        except FileNotFoundError:
+            continue
+        if (current.st_dev, current.st_ino) == (initial.st_dev, initial.st_ino) and current.st_mtime < cutoff:
+            shutil.rmtree(sd, ignore_errors=True)
+
+
+class SessionSlot(Generic[M]):  # noqa: UP046
+    """A typed slot for reading/writing a single Pydantic model in a session directory."""
+
+    def __init__(self, session_dir: Path | None, model: type[M]) -> None:
+        self._model = model
+        self._path = (session_dir / f"{self.model_key(model)}.json") if session_dir else None
+        self._read_digest: bytes | None = None
+
+    @staticmethod
+    def model_key(model: type[BaseModel]) -> str:
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", model.__name__).lower()
+
+    @property
+    def path(self) -> Path | None:
+        return self._path
+
+    @overload
+    def get(self) -> M | None: ...
+    @overload
+    def get(self, default: M) -> M: ...
+    def get(self, default: M | None = None) -> M | None:
+        self._read_digest = None
+        if not self._path or not self._path.exists():
+            return default
+        try:
+            text = self._path.read_text()
+            self._read_digest = hashlib.sha256(text.encode()).digest() if compare_state_writes() else None
+            return self._model.model_validate_json(text)
+        except Exception:
+            logger.bind(model=self._model.__name__, path=str(self._path)).opt(exception=True).warning(
+                "failed to read session state",
+            )
+            return default
+
+    def set(self, obj: M) -> None:
+        if not self._path:
+            return
+        try:
+            text = obj.model_dump_json()
+            digest = hashlib.sha256(text.encode()).digest() if compare_state_writes() else None
+            measured_call("state_write", self._model.__name__, atomic_write, self._path, text)
+            if digest is not None:
+                note_write(
+                    "uncompared"
+                    if self._read_digest is None
+                    else "same"
+                    if digest == self._read_digest
+                    else "different"
+                )
+            self._read_digest = digest
+        except OSError:
+            logger.bind(path=str(self._path)).opt(exception=True).warning("failed to persist session state")
+
+    def delete(self) -> None:
+        if self._path:
+            self._path.unlink(missing_ok=True)
+
+    @contextmanager
+    def mutate(self, *, timeout: float = -1) -> Iterator[M]:
+        """Yield the loaded model under an exclusive file lock; persist it on clean exit.
+
+        The lock is held for the whole ``with`` block, so concurrent writers — separate
+        ``capt-hook run`` processes racing one session's state, or threads within a process —
+        serialize rather than clobber. The body must be short: no slow work under the lock.
+        A null slot (no session directory) yields an in-memory model and persists nothing.
+        ``timeout`` is the lock-acquire budget in seconds (``-1`` waits indefinitely); pass
+        ``timeout=0`` for a non-blocking acquire that raises ``filelock.Timeout`` on contention.
+        """
+        if self._path is None:
+            yield self.get(self._model())
+            return
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        lock = self._path.with_name(self._path.name + ".lock")
+        with FileLock(str(lock), timeout=timeout):
+            obj = self.get(self._model())
+            yield obj
+            self.set(obj)
+
+    @contextmanager
+    def strict_mutate(self) -> Iterator[M]:
+        """Yield the loaded model under the slot's file lock like :meth:`mutate`, but never fall back.
+
+        For state that grants authority once: an absent file loads a fresh model, while a read,
+        parse, or validation failure raises, and so does a failed persist. The model is written back
+        only when the ``with`` block changed it. A null slot (no session directory) yields a fresh
+        in-memory model and persists nothing.
+        """
+        if self._path is None:
+            yield self._model()
+            return
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        lock = self._path.with_name(self._path.name + ".lock")
+        with FileLock(str(lock)):
+            try:
+                text = self._path.read_text()
+            except FileNotFoundError:
+                obj = self._model()
+            else:
+                obj = self._model.model_validate_json(text)
+            loaded = obj.model_copy(deep=True)
+            yield obj
+            if obj != loaded:
+                atomic_write(self._path, obj.model_dump_json())
+
+
+class SessionStore:
+    """Class-keyed store providing typed ``SessionSlot`` access via ``store[ModelClass]``."""
+
+    TRACKED: ClassVar[list[type[BaseModel]]] = []
+
+    def __init__(self, session_dir: Path | None) -> None:
+        self._dir = session_dir
+
+    def __getitem__(self, model: type[M]) -> SessionSlot[M]:
+        return SessionSlot(self._dir, model)
+
+    def load(self, model: type[M]) -> M:
+        """Read ``model`` from its session slot, defaulting to a fresh ``model()``.
+
+        Args:
+            model: The Pydantic model class to read.
+
+        Returns:
+            The persisted instance, or a newly constructed ``model()`` when no
+            stored state exists for this session.
+        """
+        return self[model].get(model())
+
+    def once(self, key: str, *, scope: str | None = None) -> bool:
+        """Return ``True`` the first time ``(scope, key)`` is seen this session, ``False`` thereafter.
+
+        Keyed, scoped dedup for hook authors — the single-key case of :meth:`unseen`.
+        """
+        return bool(self.unseen([key], scope=scope))
+
+    def unseen(self, keys: Iterable[str], *, scope: str | None = None) -> list[str]:
+        """Return the first-sight ``keys`` under ``scope``, recording the whole fresh subset in one write.
+
+        De-duplicates within the batch (order-preserving) and marks every returned key before any
+        downstream filtering, so a batch is never partially recorded; no write when nothing is fresh.
+        ``scope`` namespaces independent call sites on the shared session store.
+        """
+        from captain_hook.state import SeenKeys
+
+        deduped = list(dict.fromkeys(keys))
+        prior = self.load(SeenKeys).seen.get(scope or "", [])
+        if not [key for key in deduped if key not in prior]:
+            return []
+        with self[SeenKeys].mutate() as blob:
+            seen = blob.seen.setdefault(scope or "", [])
+            if not (fresh := [key for key in deduped if key not in seen]):
+                return []
+            seen.extend(fresh)
+            return fresh
+
+    @classmethod
+    def track(cls, model: type[BaseModel]) -> None:
+        """Register ``model`` so it appears in ``tracked_models()`` and ``tracked_paths()``."""
+        identity = (model.__module__, model.__qualname__)
+        if identity not in {(m.__module__, m.__qualname__) for m in cls.TRACKED}:
+            cls.TRACKED.append(model)
+
+    @classmethod
+    def tracked_models(cls) -> Sequence[type[BaseModel]]:
+        """Return the registered tracked-state models as an immutable tuple."""
+        return tuple(cls.TRACKED)
+
+    def tracked_paths(self) -> dict[str, Path]:
+        """Return ``{ModelClass.__name__: Path}`` for every tracked model whose slot has a path."""
+        return {m.__name__: p for m in type(self).TRACKED if (p := self[m].path)}
+
+
+def session_state[T: BaseModel](cls: type[T]) -> type[T]:
+    """Decorator that registers a Pydantic model for collective ``SessionStore`` introspection.
+
+    Example:
+        >>> @session_state
+        ... class Snapshot(BaseModel):
+        ...     op_id: str
+    """
+    SessionStore.track(cls)
+    return cls

@@ -1,0 +1,1074 @@
+//! Sequences as an automaton whose transitions are guarded by value sets.
+//!
+//! A sequence type is a regular language over its *elements*. Regular
+//! expression types correspond to tree automata [HVP05, §1], whose languages
+//! are closed under union, intersection and complement, so the closure a
+//! descriptor component needs comes for free.
+//! `str` already uses that (see [`regular`](super::regular)); this is the same
+//! construction one alphabet up, where a letter is a *set of values* rather than
+//! a byte.
+//!
+//! An alphabet of value sets cannot be enumerated, so the transitions carry
+//! **guards**: each edge is labeled by a set, and the edges leaving a state
+//! partition the universe -- pairwise disjoint, and covering. That is what keeps
+//! the machine deterministic and complete without listing an alphabet, and it is
+//! what makes a complement a flip of the accepting states rather than a
+//! construction. The technique is a symbolic automaton [DV14, §2]; the only
+//! thing it asks of a letter is that value sets form a Boolean algebra, which
+//! is what [`Guard`] says.
+//!
+//! **The recursion lives in the states, not in the guards.** `list[T]` is one
+//! accepting state with a self-loop guarded by `T` -- the cycle is an edge, so
+//! the guard is an ordinary finite descriptor and nothing has to be interned to
+//! break a cycle. `tuple[A, B]` is a chain of three, and
+//! `tuple[A, *tuple[B, ...], C]` is a chain with a loop in the middle, which is
+//! why the three spellings need one constructor rather than three nodes.
+
+use super::automaton::{Reached, canonical_order, chain_fits, reaches, refine};
+use super::budget;
+use crate::verdict::Verdict;
+use rustc_hash::FxHashMap;
+use std::collections::VecDeque;
+
+pub(crate) use super::automaton::MAX_STATES;
+
+/// The most transitions one state may have.
+///
+/// The other dimension a product multiplies. [`MAX_STATES`] bounds how many
+/// positions a shape distinguishes; this bounds how many *alternatives* one
+/// position holds, and neither implies the other -- a product's row is the
+/// pairwise meets of the two sides' rows, so a table well inside the state bound
+/// can still have rows too wide to hold.
+///
+/// The same figure as the state bound: as many alternatives at one position as
+/// there are positions in a shape. Both are far past what an annotation writes
+/// -- `list[int | str]` branches three ways -- and both are limits of the
+/// representation rather than approximations, so a shape past either refuses.
+pub(crate) const MAX_ROW: usize = MAX_STATES;
+
+/// The most edges a product's whole table may hold.
+///
+/// [`MAX_STATES`] and [`MAX_ROW`] bound the two dimensions *separately*, and a
+/// table can sit inside both while being far too large to hold: four thousand
+/// states each carrying a four-thousand-wide row is sixteen million edges, which
+/// is gigabytes. Neither bound sees that, because neither is exceeded, and a
+/// subtype question is not allowed to allocate that much.
+///
+/// This bounds the product of the two, which is where the memory is. Sixty-four
+/// thousand edges is a table of a few megabytes, past anything an annotation
+/// writes -- a pattern in a contract distinguishes tens of positions, not
+/// thousands -- and reaching it refuses, which every caller of a descriptor
+/// operation already handles.
+pub(crate) const MAX_EDGES: usize = 1 << 16;
+
+/// A Boolean algebra of value sets, which is what an automaton's guards must
+/// form: an effective Boolean algebra [DV14, §2] short of a name for the
+/// universe.
+///
+/// The three operations plus emptiness are all the machine asks of a letter.
+/// `meet` and `join` may refuse -- a component of the descriptor is bounded, and
+/// past that bound there is no sound set to return -- so a construction that
+/// needs one carries the refusal up rather than substituting a set that is wrong
+/// in one direction and, complemented, wrong in the other.
+///
+/// **There is deliberately no way to name the whole universe.** A letter here
+/// may be a whole descriptor, and a descriptor's universe holds every sequence,
+/// whose guard would be that universe again -- so `any()` cannot be written for
+/// the letter this machine exists to serve. The edge lists carry an *else* edge
+/// instead, which is what a total transition is without a total guard.
+///
+/// The total order is not part of the algebra; it is what makes the automaton's
+/// form *canonical*. Edges leaving a state are held in guard order, so two
+/// states with the same transition function have the same edge list, and the
+/// minimal automaton has one table rather than one per edge permutation.
+///
+/// Being *total* is what the machine needs of it, and agreeing with `Eq` is not
+/// required: a letter whose representation is not canonical -- the integer set
+/// is one, where a period a set does not need is a second spelling -- has to
+/// choose, because an order read off a pair of spellings is not an order at
+/// all. A letter that orders two equal sets apart keeps an edge a merge would
+/// have folded, which is a larger table and never a different language.
+pub(crate) trait Guard: Clone + Eq + Ord + core::fmt::Debug {
+    /// A value a guard is asked about.
+    #[cfg(test)]
+    type Value;
+
+    /// The set holding no value.
+    fn none() -> Self;
+    /// The values in both sets.
+    fn meet(&self, other: &Self) -> Option<Self>;
+    /// The values in either set.
+    fn join(&self, other: &Self) -> Option<Self>;
+    /// The values in neither.
+    #[must_use]
+    fn complement(&self) -> Self;
+    /// Whether the set holds no value.
+    ///
+    /// A *proof*, not a guess: a letter that cannot decide answers `false`, and
+    /// [`emptiness`](Guard::emptiness) is what tells the two apart.
+    fn is_empty(&self) -> bool;
+
+    /// What is known about the set holding a value.
+    ///
+    /// Exact for a letter whose emptiness is a computation over a finite
+    /// structure, which is why the default answers from
+    /// [`is_empty`](Guard::is_empty) alone. A letter that carries an open-world
+    /// constraint -- a class the core cannot enumerate the subclasses of -- has
+    /// a third answer and overrides this.
+    fn emptiness(&self) -> Verdict {
+        if self.is_empty() {
+            Verdict::Empty
+        } else {
+            Verdict::Inhabited
+        }
+    }
+    /// Whether the set holds `value`.
+    #[cfg(test)]
+    fn holds(&self, value: &Self::Value) -> bool;
+}
+
+/// One outgoing edge: the values that take it, and where they go.
+///
+/// A guard of `None` is the *else* edge, taking every value the state's other
+/// edges do not. Every state has exactly one, last in the list, which is how a
+/// transition is total without a guard that names the universe -- and it is why
+/// a letter needs no `any()`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Edge<G> {
+    pub(crate) guard: Option<G>,
+    pub(crate) target: u32,
+}
+
+impl<G: Guard> Edge<G> {
+    /// Whether this edge takes `value`, which for the else edge is decided by
+    /// the caller having tried the others first.
+    #[cfg(test)]
+    fn takes(&self, value: &G::Value) -> bool {
+        self.guard.as_ref().is_none_or(|guard| guard.holds(value))
+    }
+
+    /// Whether no value takes this edge. The else edge's own set is what the
+    /// others leave, which only [`rest_of`] can say.
+    fn is_dead(&self) -> bool {
+        self.guard.as_ref().is_some_and(Guard::is_empty)
+    }
+}
+
+/// Which edges a reachability walk follows.
+///
+/// The two walks [`SymbolicDfa::emptiness`] runs, named so the condition each
+/// applies is read off the call rather than out of a boolean.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    /// Every edge whose guard is not proved dead, so failing to reach an
+    /// accepting state proves the language empty.
+    Generous,
+    /// Only edges whose guard is proved to hold a value, so reaching an
+    /// accepting state names a sequence.
+    Certain,
+}
+
+impl Reach {
+    /// Whether an edge whose guard has this verdict is followed.
+    fn follows(self, verdict: Verdict) -> bool {
+        match self {
+            Reach::Generous => verdict != Verdict::Empty,
+            Reach::Certain => verdict == Verdict::Inhabited,
+        }
+    }
+}
+
+/// What distinguishes one state from another during minimization: whether it
+/// accepts, and the values it sends to each block it can reach.
+type Signature<G> = (bool, Vec<(u32, Option<G>)>);
+
+/// A deterministic, complete automaton over guarded transitions.
+///
+/// State zero is the start. The edges leaving each state partition the value
+/// universe and are held in guard order, so equal tables are equal languages.
+/// The converse holds of minimal tables up to equivalence of their guards
+/// [DV14, Thm. 1] in the reading [DV14, §2] gives the theorem, and the
+/// canonical numbering removes the renaming, and a guard is compared as a
+/// descriptor, whose equality is finer than its set, so two tables of one
+/// language may still differ.
+///
+/// A lookup below answers a miss with state zero or with no edges rather than
+/// refusing, for the reason the byte automaton in `regular.rs` gives: a
+/// well-formed table has none, and `minimal`, which every table here passes
+/// through, asserts each one it reads and builds.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct SymbolicDfa<G: Guard> {
+    edges: Vec<Vec<Edge<G>>>,
+    accepting: Vec<bool>,
+}
+
+impl<G: Guard> SymbolicDfa<G> {
+    /// The language holding no sequence.
+    #[must_use]
+    pub(crate) fn empty() -> SymbolicDfa<G> {
+        SymbolicDfa::single(false)
+    }
+
+    /// The language holding every sequence.
+    #[must_use]
+    pub(crate) fn all() -> SymbolicDfa<G> {
+        SymbolicDfa::single(true)
+    }
+
+    /// One state looping to itself on every value, through its else edge.
+    fn single(accepting: bool) -> SymbolicDfa<G> {
+        SymbolicDfa {
+            edges: vec![vec![Edge {
+                guard: None,
+                target: 0,
+            }]],
+            accepting: vec![accepting],
+        }
+    }
+
+    /// The sequences whose first elements match `prefix` positionally and whose
+    /// remaining elements all match `tail`, or `None` past [`MAX_STATES`].
+    ///
+    /// The one constructor the three spellings need. An empty prefix with a tail
+    /// is `list[T]`; a prefix with no tail is `tuple[A, B]`; both together are
+    /// `tuple[A, *tuple[B, ...]]`. A sequence longer than the prefix with no
+    /// tail, or holding an element the guard rejects, reaches the sink and is
+    /// not accepted.
+    ///
+    /// **A chain whose every prefix letter holds a value is minimal as built**,
+    /// so it is put in canonical form without the merge. Position `i` accepts
+    /// no sequence shorter than the `last - i` letters ahead of it and one of
+    /// exactly that length, so no two positions accept the same sequences; the
+    /// accepting state is the only one taking the empty sequence, and the sink
+    /// the only one taking none. The merge would find nothing, at more cost than
+    /// ordering and renumbering the chain. A letter that is empty, or that
+    /// cannot say, leaves the table to the merge.
+    /// `a_chain_of_inhabited_letters_is_minimal_as_built` holds the two
+    /// readings to one table.
+    ///
+    /// The bound counts the chain as built, its sink included. A chain whose
+    /// letters all take every value, which is what a length bound builds,
+    /// never reaches its sink, and the numbering walk leaves it out, so that
+    /// table holds one state fewer than the bound counts.
+    #[must_use]
+    pub(crate) fn shape(prefix: &[G], tail: Option<&G>) -> Option<SymbolicDfa<G>> {
+        if !chain_fits(prefix.len()) {
+            return None;
+        }
+        let (table, minimal) = SymbolicDfa::chain(prefix, tail);
+        if !minimal {
+            return Some(table.minimal());
+        }
+        debug_assert!(table.well_formed(), "a table is minimized as it was built");
+        let canonical = table.sorted().renumber();
+        debug_assert!(canonical.well_formed(), "renumbering the states kept it");
+        Some(canonical)
+    }
+
+    /// The table a shape spells, complete by an else edge on every state
+    /// [DV14, §2], and whether every prefix letter is proved to hold a value,
+    /// which is what makes it minimal as built.
+    fn chain(prefix: &[G], tail: Option<&G>) -> (SymbolicDfa<G>, bool) {
+        let last = prefix.len();
+        // The sink sits past the prefix states and the tail state.
+        let sink = u32::try_from(last + 1).unwrap_or(0);
+        let mut edges: Vec<Vec<Edge<G>>> = Vec::with_capacity(last + 2);
+        // Whether a letter takes every value, and whether it is proved to take
+        // one: asked here rather than in [`SymbolicDfa::sorted`] because they
+        // are questions *about the guard*, and a letter may be a descriptor
+        // whose own complement rebuilds automata -- asking during minimization
+        // would run the minimization again, without end. The answers are kept
+        // for the next position, so a run of one letter -- a length bound is
+        // one letter per element -- asks them once rather than once a position.
+        let mut before: Option<(G, bool, bool)> = None;
+        let mut ask = |guard: &G| -> (bool, bool) {
+            if let Some((seen, covers, holds)) = &before
+                && seen == guard
+            {
+                return (*covers, *holds);
+            }
+            let covers = guard.complement().is_empty();
+            let holds = guard.emptiness() == Verdict::Inhabited;
+            before = Some((guard.clone(), covers, holds));
+            (covers, holds)
+        };
+        let mut inhabited = true;
+        for (position, guard) in prefix.iter().enumerate() {
+            let next = u32::try_from(position + 1).unwrap_or(sink);
+            let (covers, holds) = ask(guard);
+            inhabited &= holds;
+            edges.push(partition(guard, covers, next, sink));
+        }
+        match tail {
+            // The tail state loops on itself, which is the cycle that makes the
+            // language infinite without anything recursive in the guard.
+            Some(guard) => {
+                let (covers, _) = ask(guard);
+                edges.push(partition(
+                    guard,
+                    covers,
+                    u32::try_from(last).unwrap_or(0),
+                    sink,
+                ));
+            }
+            None => edges.push(vec![Edge {
+                guard: None,
+                target: sink,
+            }]),
+        }
+        edges.push(vec![Edge {
+            guard: None,
+            target: sink,
+        }]);
+        let mut accepting = vec![false; last + 2];
+        if let Some(flag) = accepting.get_mut(last) {
+            *flag = true;
+        }
+        (SymbolicDfa { edges, accepting }, inhabited)
+    }
+
+    pub(crate) fn state_count(&self) -> usize {
+        self.accepting.len()
+    }
+
+    /// Whether every lookup on this table lands inside it: a row of edges per
+    /// state, none of them empty, each edge to a state of the table, and a
+    /// state to start from.
+    fn well_formed(&self) -> bool {
+        let states = self.state_count();
+        states > 0
+            && self.edges.len() == states
+            && self.edges.iter().all(|row| {
+                !row.is_empty() && row.iter().all(|edge| (edge.target as usize) < states)
+            })
+    }
+
+    fn accepts(&self, state: u32) -> bool {
+        self.accepting.get(state as usize).copied().unwrap_or(false)
+    }
+
+    pub(crate) fn outgoing(&self, state: u32) -> &[Edge<G>] {
+        self.edges.get(state as usize).map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether this language holds no sequence.
+    ///
+    /// A *proof*: [`emptiness`](Self::emptiness) is what tells an unproved
+    /// language from an empty one.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.emptiness() == Verdict::Empty
+    }
+
+    /// What is known about this language holding a sequence, by the classical
+    /// emptiness test, a walk to an accepting state [HVP05, §4.1].
+    ///
+    /// Two walks rather than one. The generous walk follows every edge whose
+    /// guard is not *proved* dead: reaching no accepting state there proves the
+    /// language empty, since even the letters that might hold a value lead
+    /// nowhere. The certain walk follows only edges whose guard is proved to
+    /// hold a value: reaching an accepting state there names a sequence. An
+    /// accepting state the first walk reaches and the second does not is one
+    /// behind a guard whose own emptiness is open -- a class the core cannot
+    /// enumerate the subclasses of -- and the answer is neither.
+    ///
+    /// Reading the generous walk alone reports a sequence of such a guard
+    /// inhabited, which is a refutation standing on a value nobody has.
+    #[must_use]
+    pub(crate) fn emptiness(&self) -> Verdict {
+        if self.accepts_under(Reach::Certain) {
+            return Verdict::Inhabited;
+        }
+        if self.accepts_under(Reach::Generous) {
+            Verdict::Unknown
+        } else {
+            Verdict::Empty
+        }
+    }
+
+    /// Whether an accepting state is reachable, following the edges `reach`
+    /// admits, an edge taken where its guard is satisfiable [DV14, §2].
+    fn accepts_under(&self, reach: Reach) -> bool {
+        reaches(
+            |state| self.accepts(state),
+            |state, pending| {
+                let row = self.outgoing(state);
+                let rest = rest_of(row);
+                let rest_verdict = rest.as_ref().map_or(Verdict::Unknown, Guard::emptiness);
+                for edge in row {
+                    let verdict = match &edge.guard {
+                        Some(guard) => guard.emptiness(),
+                        // The else edge's own set is what the guarded edges
+                        // leave, and a join this cannot build says nothing
+                        // about it.
+                        None => rest_verdict,
+                    };
+                    if reach.follows(verdict) {
+                        pending.push_back(edge.target);
+                    }
+                }
+            },
+        )
+    }
+
+    /// Whether this language holds the sequence `values`.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn holds(&self, values: &[G::Value]) -> bool {
+        let mut state = 0;
+        for value in values {
+            // The guarded edges are disjoint, so at most one takes the value;
+            // the else edge takes it when none does, which is why the order of
+            // this scan is the invariant rather than an accident.
+            let Some(edge) = self
+                .outgoing(state)
+                .iter()
+                .find(|edge| edge.guard.is_some() && edge.takes(value))
+                .or_else(|| {
+                    self.outgoing(state)
+                        .iter()
+                        .find(|edge| edge.guard.is_none())
+                })
+            else {
+                // The guards cover the universe, so this cannot happen; folding
+                // to a non-member keeps a broken table from being read as an
+                // accept.
+                debug_assert!(false, "the guards leaving state {state} do not cover");
+                return false;
+            };
+            state = edge.target;
+        }
+        self.accepts(state)
+    }
+
+    /// Every sequence this language does not hold.
+    ///
+    /// A flip of the accepting states [HVP05, §4.1], which is sound only
+    /// because the edges leaving each state *cover* the universe [DV14, §2],
+    /// since a machine that could fall off the table rejects by falling, and
+    /// flipping its flags would accept those sequences instead of the ones it
+    /// meant.
+    #[must_use]
+    pub(crate) fn complement(&self) -> SymbolicDfa<G> {
+        // The flip of a minimal machine is minimal: a sequence separates two
+        // states in one language exactly when it separates them in the other,
+        // and the edges it walks are untouched, so neither the partition nor the
+        // numbering a walk over them gives can move. Every constructor here
+        // returns a minimal machine, which is the precondition, and
+        // `a_complement_of_a_sequence_language_is_already_minimal` holds both.
+        SymbolicDfa {
+            edges: self.edges.clone(),
+            accepting: self.accepting.iter().map(|a| !a).collect(),
+        }
+    }
+
+    /// The sequences in either language, or `None` past [`MAX_STATES`],
+    /// [`MAX_ROW`] or [`MAX_EDGES`], or where a guard operation refuses.
+    ///
+    /// The empty language is the identity and the whole one absorbs, so a side
+    /// that is either answers without a product -- whose table would be the
+    /// other side's again, rebuilt pair by pair and minimized.
+    #[must_use]
+    pub(crate) fn union(&self, other: &SymbolicDfa<G>) -> Option<SymbolicDfa<G>> {
+        match (self.constant(), other.constant()) {
+            (Some(true), _) | (_, Some(true)) => Some(SymbolicDfa::all()),
+            (Some(false), _) => Some(other.clone()),
+            (_, Some(false)) => Some(self.clone()),
+            (None, None) => self.product(other, |a, b| a || b),
+        }
+    }
+
+    /// The sequences in both languages, the classical product [HVP05, §4.1],
+    /// where the whole language is the identity and the empty one absorbs, as
+    /// [`union`](Self::union) reads them.
+    #[must_use]
+    pub(crate) fn intersect(&self, other: &SymbolicDfa<G>) -> Option<SymbolicDfa<G>> {
+        match (self.constant(), other.constant()) {
+            (Some(false), _) | (_, Some(false)) => Some(SymbolicDfa::empty()),
+            (Some(true), _) => Some(other.clone()),
+            (_, Some(true)) => Some(self.clone()),
+            (None, None) => self.product(other, |a, b| a && b),
+        }
+    }
+
+    /// Whether this is the whole language (`Some(true)`) or the empty one
+    /// (`Some(false)`), read off the canonical form: one state, taking every
+    /// value back to itself.
+    fn constant(&self) -> Option<bool> {
+        match (self.edges.as_slice(), self.accepting.as_slice()) {
+            ([row], [accepts]) if matches!(row.as_slice(), [Edge { guard: None, .. }]) => {
+                Some(*accepts)
+            }
+            _ => None,
+        }
+    }
+
+    /// The product, accepting where `accept` says so, the construction of
+    /// [HVP05, §4.1] over guards.
+    ///
+    /// One walk over reachable state *pairs* ([`Reached`]), each new one
+    /// charging the build's allowance. The guards of a pair are the pairwise
+    /// meets of the two sides' guards, an empty meet dropped [DV14, §1]. Each
+    /// side's edges are disjoint and covering, so the meets are too, and the
+    /// product needs no minterm search -- which is what a set of guards with no
+    /// such invariant would.
+    ///
+    /// That disjointness is a *precondition*, not something asserted here, and
+    /// the reason is in this module's own tests: the two that drive the size
+    /// bounds build tables by hand whose guards deliberately overlap, so every
+    /// pair meets and a row is the two rows multiplied. A `debug_assert` on the
+    /// row cannot tell a fixture reaching for a bound from a machine that lost
+    /// the invariant, and no placement avoids them, since they call the public
+    /// operations. What holds it instead is
+    /// `the_complement_laws_hold_of_the_sequences`: a complement flips accepting
+    /// states, so two guards sharing a value flip it twice and the law fails.
+    fn product(
+        &self,
+        other: &SymbolicDfa<G>,
+        accept: impl Fn(bool, bool) -> bool,
+    ) -> Option<SymbolicDfa<G>> {
+        let mut reached = Reached::from((0, 0));
+        let mut edges: Vec<Vec<Edge<G>>> = Vec::new();
+        let mut accepting: Vec<bool> = Vec::new();
+        let mut held = 0usize;
+        // What each side's else edge takes, which is what its guarded edges
+        // leave: needed to meet an else edge with a guarded one, and the one
+        // place the letters are asked to complement. The rests and the meets
+        // the pairs of edges ask are kept for the pairs to come, since a chain
+        // -- which a length bound is -- repeats its rows state after state.
+        let mut our_rests = Rests::of(self.state_count());
+        let mut your_rests = Rests::of(other.state_count());
+        let mut met = Met::default();
+        while let Some((mine, theirs)) = reached.next() {
+            accepting.push(accept(self.accepts(mine), other.accepts(theirs)));
+            let (ours, yours) = (self.outgoing(mine), other.outgoing(theirs));
+            let our_rest = our_rests.at(mine, ours)?;
+            let your_rest = your_rests.at(theirs, yours)?;
+            let mut row: Vec<Edge<G>> = Vec::new();
+            for (at_ours, ours) in ours.iter().enumerate() {
+                for (at_yours, yours) in yours.iter().enumerate() {
+                    // A pair of edges meets on the values both take. The else
+                    // edge's set is the rest, so each of the four combinations
+                    // is one meet -- and the else-with-else pair is the
+                    // product's own else edge, which needs no guard at all.
+                    let at = (at_ours, at_yours);
+                    let guard = match (&ours.guard, &yours.guard, &our_rest, &your_rest) {
+                        (Some(a), Some(b), _, _) => Some(met.meet(at, a, b)?),
+                        (Some(a), None, _, Rest::Everything) => Some(a.clone()),
+                        (Some(a), None, _, Rest::Left(rest)) => Some(met.meet(at, a, rest)?),
+                        (None, Some(b), Rest::Everything, _) => Some(b.clone()),
+                        (None, Some(b), Rest::Left(rest), _) => Some(met.meet(at, rest, b)?),
+                        (None, None, _, _) => None,
+                    };
+                    // The product's own else edge is the pair of else edges, and
+                    // it is kept where it takes nothing: a row whose guarded
+                    // edges cover every value carries such an edge on its own
+                    // side already, and a product with the whole language
+                    // rebuilds that side's rows as they stand, which is what
+                    // `intersect` and `union` answer such a product with.
+                    if guard.as_ref().is_some_and(Guard::is_empty) {
+                        continue;
+                    }
+                    let target = reached.id((ours.target, yours.target), budget::spend)?;
+                    if row.len() >= MAX_ROW {
+                        return None;
+                    }
+                    row.push(Edge { guard, target });
+                }
+            }
+            // The two dimensions are bounded above; this bounds their product,
+            // which is the quantity that is actually allocated.
+            held += row.len();
+            if held > MAX_EDGES {
+                return None;
+            }
+            edges.push(row);
+        }
+        // `minimal` merges each state's targets before anything else, so the
+        // table goes to it as built.
+        Some(SymbolicDfa { edges, accepting }.minimal())
+    }
+
+    /// Join the guards of edges that share a target, so a state's edge list has
+    /// one entry per target, the normalized form of [DV14, §2].
+    ///
+    /// Two edges to one state are two ways to say one transition, and a form
+    /// that kept them apart would make two equal languages unequal. A guard
+    /// operation that refuses leaves them apart, which costs canonicity and
+    /// nothing else -- so this returns the table either way rather than the
+    /// whole construction failing.
+    fn merge_targets(self) -> SymbolicDfa<G> {
+        let edges = self
+            .edges
+            .into_iter()
+            .map(|row| {
+                let mut merged: Vec<Edge<G>> = Vec::with_capacity(row.len());
+                for edge in row {
+                    match merged.iter_mut().find(|kept| kept.target == edge.target) {
+                        // Either side being the else edge makes the pair one:
+                        // the values the other edge took are values the rest
+                        // now takes, since removing a guarded edge is exactly
+                        // what widens the else edge.
+                        Some(kept) if kept.guard.is_none() || edge.guard.is_none() => {
+                            kept.guard = None;
+                        }
+                        Some(kept) => {
+                            match (kept.guard.as_ref(), edge.guard.as_ref()) {
+                                (Some(a), Some(b)) => match a.join(b) {
+                                    Some(joined) => kept.guard = Some(joined),
+                                    // Keep both rather than lose one: the
+                                    // language is the same, only the form is
+                                    // coarser.
+                                    None => merged.push(edge),
+                                },
+                                _ => merged.push(edge),
+                            }
+                        }
+                        None => merged.push(edge),
+                    }
+                }
+                merged
+            })
+            .collect();
+        SymbolicDfa {
+            edges,
+            accepting: self.accepting,
+        }
+    }
+
+    /// The same language with the states no signature tells apart merged,
+    /// canonically numbered.
+    ///
+    /// The same three passes [`regular`](super::regular) uses, with the middle
+    /// one replaced: there is no alphabet to coarsen, so the edges of a state
+    /// are put in guard order instead. Merge the states no signature tells
+    /// apart -- the quotient of [DV14, Thm. 2] wherever two rows sending the
+    /// same values to the same states are spelled alike (`merge_equivalent`)
+    /// -- order every edge list, and renumber by a walk that takes edges in
+    /// that order.
+    ///
+    /// Total, and deliberately. The passes ask the guards to *join*, and a
+    /// guard past its own bound refuses; a refusal there leaves two edges where
+    /// one would do, which is a coarser form for the same language rather than
+    /// a wrong one. A complement never needs to fail, so it does not.
+    #[must_use]
+    fn minimal(self) -> SymbolicDfa<G> {
+        debug_assert!(self.well_formed(), "a table is minimized as it was built");
+        let merged = self.merge_equivalent();
+        debug_assert!(merged.well_formed(), "merging the states kept the table");
+        let sorted = merged.sorted();
+        debug_assert!(sorted.well_formed(), "sorting the edges kept it");
+        let minimal = sorted.renumber();
+        debug_assert!(minimal.well_formed(), "renumbering the states kept it");
+        minimal
+    }
+
+    /// Merge the states no sequence distinguishes.
+    ///
+    /// A state's *signature* is its accepting flag together with, for each
+    /// block it can reach, the values that reach it. Two states with one
+    /// signature have one transition function, so they merge; refining until
+    /// the signatures stop changing is Moore's algorithm, which D'Antoni &
+    /// Veanes lift to guards [DV14, §3] by asking whether a conjunction of two
+    /// is satisfiable; a signature compares the joined guards by equality
+    /// instead, which is finer than their sets, so two states no sequence tells
+    /// apart may stay apart -- a larger table, never a wrong one.
+    ///
+    /// **The refinement starts from three distances a state has along the
+    /// table's edges**: to an accepting state, to a rejecting one, and the
+    /// longest walk it can take while acceptance stays reachable. Two states the
+    /// merge puts together share all three: their signatures agree, so they
+    /// accept alike and reach the same blocks, and by induction on the distance
+    /// what one of them reaches in so many steps the other reaches in as many.
+    /// So the seed never parts two states the rounds would join, and refining
+    /// from a partition the answer already refines ends at that answer. What
+    /// the seed buys is the rounds: from one block, the rounds separate a
+    /// chain's states one per round, which is a round per element of a length
+    /// bound, and from the distances every one of them is apart before the
+    /// first -- a lower bound's chain by how far it is from accepting, an upper
+    /// bound's by how far it can go. A state the seed leaves alone in its block
+    /// is never signed, so the rounds a table needs read only the states the
+    /// distances do not part.
+    /// `the_rounds_from_the_distances_end_where_the_rounds_from_one_block_do`
+    /// holds the two starts to one answer.
+    ///
+    /// The signature is only a faithful reading of the transition function
+    /// because the edges are normalized first: one edge per target, guards in
+    /// order. Without that, two states could send the same values to the same
+    /// places through differently-split guards and read as different.
+    fn merge_equivalent(self) -> SymbolicDfa<G> {
+        let normalized = self.merge_targets().sorted();
+        let count = normalized.state_count();
+        let block = refine(count, normalized.seed(), |state, block| {
+            normalized.signature(state, block)
+        });
+        let blocks = block.iter().copied().max().map_or(1, |m| m as usize + 1);
+        let mut edges: Vec<Vec<Edge<G>>> = vec![Vec::new(); blocks];
+        let mut accepting = vec![false; blocks];
+        for state in 0..count {
+            let Some(id) = block.get(state).copied() else {
+                continue;
+            };
+            if let Some(flag) = accepting.get_mut(id as usize) {
+                *flag = normalized.accepts(u32::try_from(state).unwrap_or(0));
+            }
+            if let Some(slot) = edges.get_mut(id as usize) {
+                *slot = normalized
+                    .outgoing(u32::try_from(state).unwrap_or(0))
+                    .iter()
+                    .map(|edge| Edge {
+                        guard: edge.guard.clone(),
+                        target: block.get(edge.target as usize).copied().unwrap_or(0),
+                    })
+                    .collect();
+            }
+        }
+        SymbolicDfa { edges, accepting }.merge_targets()
+    }
+
+    /// The blocks this state reaches, with the values that reach each, plus
+    /// whether it accepts: what one round of Moore's refinement compares
+    /// [DV14, §3].
+    fn signature(&self, state: usize, block: &[u32]) -> Signature<G> {
+        let state = u32::try_from(state).unwrap_or(0);
+        let mut reached: Vec<(u32, Option<G>)> = Vec::new();
+        for edge in self.outgoing(state) {
+            let target = block.get(edge.target as usize).copied().unwrap_or(0);
+            let Some((_, kept)) = reached.iter_mut().find(|(seen, _)| *seen == target) else {
+                reached.push((target, edge.guard.clone()));
+                continue;
+            };
+            // Two edges to one block are one transition, so their guards join
+            // [DV14, §2].
+            // Either being the else edge makes the pair one, since the rest
+            // absorbs what the other took.
+            match (kept.as_ref(), edge.guard.as_ref()) {
+                (Some(a), Some(b)) => match a.join(b) {
+                    Some(joined) => *kept = Some(joined),
+                    // A refusal keeps the two apart rather than collapsing them
+                    // into the else. Collapsing would make this state's
+                    // signature *coarser*, which merges states that send
+                    // different values to the block -- a wrong merge, where
+                    // keeping them apart only forgoes a right one.
+                    None => reached.push((target, edge.guard.clone())),
+                },
+                _ => *kept = None,
+            }
+        }
+        reached.sort();
+        (self.accepts(state), reached)
+    }
+
+    /// Each state's block before the first round: one block for each triple of
+    /// a distance to an accepting state, a distance to a rejecting one and the
+    /// longest walk that keeps acceptance in reach.
+    fn seed(&self) -> Vec<u32> {
+        let to_accepting = self.distances(true);
+        let to_rejecting = self.distances(false);
+        let live: Vec<bool> = to_accepting.iter().map(|d| *d != u32::MAX).collect();
+        let longest = self.longest_live_walks(&live);
+        let mut ids: FxHashMap<(u32, u32, u32), u32> = FxHashMap::default();
+        to_accepting
+            .into_iter()
+            .zip(to_rejecting)
+            .zip(longest)
+            .map(|((accepting, rejecting), walk)| {
+                let fresh = u32::try_from(ids.len()).unwrap_or(0);
+                *ids.entry((accepting, rejecting, walk)).or_insert(fresh)
+            })
+            .collect()
+    }
+
+    /// Each live state's longest walk through live states -- a state is live
+    /// when an accepting state is in reach -- or `u32::MAX` for one that can
+    /// walk without end, being on or before a cycle of them, and for a state
+    /// that is not live.
+    ///
+    /// A state's walk is one more than its longest successor's, so the walks
+    /// are settled from the states with no live successor backwards, each
+    /// once its successors all are; what is never settled is on or before a
+    /// cycle. A state is queued once, when it settles, so the queue drains
+    /// within one pop per state, and the loop is bounded by that for the
+    /// reason [`distances`](Self::distances) gives.
+    fn longest_live_walks(&self, live: &[bool]) -> Vec<u32> {
+        let count = self.state_count();
+        let is_live = |state: usize| live.get(state).copied().unwrap_or(false);
+        let mut into: Vec<Vec<u32>> = vec![Vec::new(); count];
+        let mut unsettled = vec![0u32; count];
+        for (state, row) in self.edges.iter().enumerate() {
+            if !is_live(state) {
+                continue;
+            }
+            for edge in row {
+                if is_live(edge.target as usize)
+                    && let (Some(sources), Some(waiting)) =
+                        (into.get_mut(edge.target as usize), unsettled.get_mut(state))
+                {
+                    sources.push(u32::try_from(state).unwrap_or(0));
+                    *waiting += 1;
+                }
+            }
+        }
+        let mut walk = vec![u32::MAX; count];
+        let mut pending: VecDeque<usize> = VecDeque::new();
+        for state in 0..count {
+            if is_live(state)
+                && unsettled.get(state) == Some(&0)
+                && let Some(slot) = walk.get_mut(state)
+            {
+                *slot = 0;
+                pending.push_back(state);
+            }
+        }
+        let mut longest = vec![0u32; count];
+        for _ in 0..count {
+            let Some(state) = pending.pop_front() else {
+                break;
+            };
+            let through = walk.get(state).copied().unwrap_or(0).saturating_add(1);
+            for source in into.get(state).map_or(&[][..], Vec::as_slice) {
+                let source = *source as usize;
+                if let (Some(best), Some(waiting)) =
+                    (longest.get_mut(source), unsettled.get_mut(source))
+                {
+                    *best = (*best).max(through);
+                    *waiting -= 1;
+                    if *waiting == 0
+                        && let Some(slot) = walk.get_mut(source)
+                    {
+                        *slot = *best;
+                        pending.push_back(source);
+                    }
+                }
+            }
+        }
+        walk
+    }
+
+    /// Each state's distance to a state whose accepting flag is `accepting`,
+    /// along the table's edges -- every edge, whatever its guard is known to
+    /// hold -- or `u32::MAX` for a state from which none is reached.
+    ///
+    /// A state is queued once, when its distance is found, so the queue drains
+    /// within one pop per state. Bounding the loop by that is what makes a
+    /// broken test leave a wrong distance, which the merge's tests read,
+    /// rather than run without end.
+    fn distances(&self, accepting: bool) -> Vec<u32> {
+        let count = self.state_count();
+        let mut into: Vec<Vec<u32>> = vec![Vec::new(); count];
+        for (state, row) in self.edges.iter().enumerate() {
+            for edge in row {
+                if let Some(sources) = into.get_mut(edge.target as usize) {
+                    sources.push(u32::try_from(state).unwrap_or(0));
+                }
+            }
+        }
+        let mut distance = vec![u32::MAX; count];
+        let mut pending: VecDeque<usize> = VecDeque::new();
+        for (state, accepts) in self.accepting.iter().enumerate() {
+            if *accepts == accepting
+                && let Some(slot) = distance.get_mut(state)
+            {
+                *slot = 0;
+                pending.push_back(state);
+            }
+        }
+        for _ in 0..count {
+            let Some(state) = pending.pop_front() else {
+                break;
+            };
+            let next = distance.get(state).copied().unwrap_or(0).saturating_add(1);
+            for source in into.get(state).map_or(&[][..], Vec::as_slice) {
+                if let Some(slot) = distance.get_mut(*source as usize)
+                    && *slot == u32::MAX
+                {
+                    *slot = next;
+                    pending.push_back(*source as usize);
+                }
+            }
+        }
+        distance
+    }
+
+    /// Put every edge list in guard order and drop the edges no value can take,
+    /// so the table is clean of moves no sequence uses [DV14, §2].
+    ///
+    /// Both halves are canonicity. A guarded edge whose guard is empty is a
+    /// transition no sequence uses -- `shape` makes one for a guard that admits
+    /// nothing -- and keeping it would give two equal languages two tables.
+    /// Dropping it leaves the cover intact, since the else edge takes whatever
+    /// the guarded ones do not. The else edge itself is never dropped and sorts
+    /// last, because `None` orders before `Some` and the list is reversed into
+    /// place.
+    fn sorted(mut self) -> SymbolicDfa<G> {
+        for row in &mut self.edges {
+            row.retain(|edge| !edge.is_dead());
+            row.sort_by(|a, b| match (&a.guard, &b.guard) {
+                // The else edge last, so a state's list reads as "these values
+                // go here, and the rest go there".
+                (None, Some(_)) => core::cmp::Ordering::Greater,
+                (Some(_), None) => core::cmp::Ordering::Less,
+                (a_guard, b_guard) => a_guard.cmp(b_guard).then(a.target.cmp(&b.target)),
+            });
+        }
+        self
+    }
+
+    /// Renumber by a walk that takes edges in order, dropping unreachable
+    /// states ([`canonical_order`]), which removes the renaming a minimal table
+    /// is unique up to [DV14, Thm. 1].
+    fn renumber(&self) -> SymbolicDfa<G> {
+        let (order, ids) =
+            canonical_order(|state| self.outgoing(state).iter().map(|edge| edge.target));
+        let edges = order
+            .iter()
+            .map(|state| {
+                self.outgoing(*state)
+                    .iter()
+                    .map(|edge| Edge {
+                        guard: edge.guard.clone(),
+                        target: ids.get(&edge.target).copied().unwrap_or(0),
+                    })
+                    .collect()
+            })
+            .collect();
+        let accepting = order.iter().map(|state| self.accepts(*state)).collect();
+        SymbolicDfa { edges, accepting }
+    }
+}
+
+/// The two edges a single guard induces: the values it holds go one way, and
+/// the else edge takes the rest. Together they cover the universe, which is
+/// what keeps the table complete [DV14, §2], which is the invariant every
+/// state's edge list carries -- and the else edge is why the guard's complement
+/// is not needed to state it.
+///
+/// `covers` says whether the guard takes every value, which the caller asks.
+fn partition<G: Guard>(guard: &G, covers: bool, taken: u32, sink: u32) -> Vec<Edge<G>> {
+    // A guard that leaves nothing leaves the else edge dead, and a row with a
+    // dead else edge is the same transition table as one whose only edge *is*
+    // the else edge. Spelling it the second way here is what keeps a loop
+    // guarded by every value equal to a state that accepts everything --
+    // otherwise one language carries two tables.
+    if covers {
+        return vec![Edge {
+            guard: None,
+            target: taken,
+        }];
+    }
+    vec![
+        Edge {
+            guard: Some(guard.clone()),
+            target: taken,
+        },
+        Edge {
+            guard: None,
+            target: sink,
+        },
+    ]
+}
+
+/// What a state's else edge takes, as a product reads it.
+#[derive(Clone)]
+enum Rest<G> {
+    /// Every value: the row has no guarded edge, so a guard met with its else
+    /// edge is the guard, and nothing needs complementing to say so.
+    Everything,
+    /// What the row's guarded edges leave.
+    Left(G),
+}
+
+/// The rests one side's states leave, as one product asks them.
+struct Rests<G> {
+    /// Each state's rest, where a pair has asked it: a state is part of a
+    /// pair with each state of the other side it is reached beside.
+    by_state: Vec<Option<Rest<G>>>,
+    /// The guards of the last row whose rest was taken, with the rest: the
+    /// states of a chain carry one row each, and the rows repeat their guards.
+    last: Option<(Vec<Option<G>>, Rest<G>)>,
+}
+
+impl<G: Guard> Rests<G> {
+    fn of(states: usize) -> Rests<G> {
+        Rests {
+            by_state: vec![None; states],
+            last: None,
+        }
+    }
+
+    /// The rest of `row`, the row of `state`, or `None` where a guard
+    /// refuses, as [`rest_of`] does.
+    fn at(&mut self, state: u32, row: &[Edge<G>]) -> Option<Rest<G>> {
+        if let Some(Some(rest)) = self.by_state.get(state as usize) {
+            return Some(rest.clone());
+        }
+        let guards = || row.iter().map(|edge| &edge.guard);
+        let rest = if guards().all(Option::is_none) {
+            Rest::Everything
+        } else if let Some((seen, rest)) = &self.last
+            && seen.iter().eq(guards())
+        {
+            rest.clone()
+        } else {
+            let rest = Rest::Left(rest_of(row)?);
+            self.last = Some((guards().cloned().collect(), rest.clone()));
+            rest
+        };
+        if let Some(slot) = self.by_state.get_mut(state as usize) {
+            *slot = Some(rest.clone());
+        }
+        Some(rest)
+    }
+}
+
+/// The meets one product has asked, by the places of the two edges in their
+/// rows: a chain's rows repeat, so the pair at one place meets the same two
+/// guards state after state, and meets them once. Compared by equality, which
+/// a shared handle answers by pointer.
+struct Met<G> {
+    asked: FxHashMap<(usize, usize), (G, G, G)>,
+}
+
+impl<G> Default for Met<G> {
+    fn default() -> Met<G> {
+        Met {
+            asked: FxHashMap::default(),
+        }
+    }
+}
+
+impl<G: Guard> Met<G> {
+    /// `left` met with `right`, the guards of the edges at `at`.
+    fn meet(&mut self, at: (usize, usize), left: &G, right: &G) -> Option<G> {
+        if let Some((seen_left, seen_right, met)) = self.asked.get(&at)
+            && seen_left == left
+            && seen_right == right
+        {
+            return Some(met.clone());
+        }
+        let met = left.meet(right)?;
+        self.asked
+            .insert(at, (left.clone(), right.clone(), met.clone()));
+        Some(met)
+    }
+}
+
+/// The values a state's else edge takes: everything its guarded edges do not,
+/// the edge completion adds [DV14, §2].
+///
+/// `None` where a guard refuses to join or complement, which is the bounded
+/// case: the answer is then unknown rather than empty, and a caller that was
+/// asking whether the edge is dead has to assume it is not.
+fn rest_of<G: Guard>(row: &[Edge<G>]) -> Option<G> {
+    let mut taken = G::none();
+    for edge in row {
+        if let Some(guard) = &edge.guard {
+            taken = taken.join(guard)?;
+        }
+    }
+    Some(taken.complement())
+}
+
+#[cfg(test)]
+mod tests;

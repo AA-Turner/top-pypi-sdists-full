@@ -1,0 +1,1355 @@
+"""Governance for open categories and extensible semantic kinds.
+
+The registry never assigns semantics to an unknown category. It preserves
+portable rich-block kinds while allowing explicitly reviewed, vault-owned
+category aliases and custom rich headings.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+import unicodedata
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, Protocol
+
+import yaml
+
+from . import semantic_blocks
+from .kbdir import kb_dirname
+from .vocabulary import registry as vocabulary_registry
+
+SCHEMA_VERSION = 1
+_STATUSES = frozenset({"active", "deprecated"})
+_SEPARATORS_RE = re.compile(r"[\s_-]+")
+_DEFINITION_FIELDS = frozenset(
+    {"description", "aliases", "status", "replaced_by", "scope"}
+)
+_KIND_DEFINITION_FIELDS = _DEFINITION_FIELDS | {"heading_aliases"}
+
+
+@dataclass(frozen=True, slots=True)
+class RegistryFinding(Mapping[str, str]):
+    """Deeply immutable, mapping-compatible registry validation finding."""
+
+    code: str
+    path: str
+    span: str
+    severity: str
+    detail: str
+
+    def __getitem__(self, key: str) -> str:
+        if key not in {"code", "path", "span", "severity", "detail"}:
+            raise KeyError(key)
+        return getattr(self, key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(("code", "path", "span", "severity", "detail"))
+
+    def __len__(self) -> int:
+        return 5
+
+    def as_dict(self) -> dict[str, str]:
+        return {key: self[key] for key in self}
+
+
+@dataclass(frozen=True, slots=True)
+class CategoryDefinition:
+    key: str
+    description: str
+    aliases: tuple[str, ...] = ()
+    projects: frozenset[str] = frozenset()
+    page_types: frozenset[str] = frozenset()
+    status: str = "active"
+    replaced_by: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return _definition_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class KindDefinition:
+    key: str
+    description: str
+    aliases: tuple[str, ...] = ()
+    heading_aliases: tuple[str, ...] = ()
+    projects: frozenset[str] = frozenset()
+    page_types: frozenset[str] = frozenset()
+    status: str = "active"
+    replaced_by: str | None = None
+    core: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        out = _definition_dict(self)
+        if self.heading_aliases:
+            out["heading_aliases"] = sorted(self.heading_aliases)
+        if self.core:
+            out["core"] = True
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class LabelResolution:
+    raw: str
+    key: str
+    resolved: str | None
+    status: str
+    definition: CategoryDefinition | KindDefinition | None
+    replacement: str | None = None
+    findings: tuple[RegistryFinding, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "raw": self.raw,
+            "key": self.key,
+            "resolved": self.resolved,
+            "status": self.status,
+            "definition": self.definition.as_dict() if self.definition else None,
+            "replacement": self.replacement,
+            "findings": [item.as_dict() for item in self.findings],
+        }
+
+
+class LanguageRegistryView(Protocol):
+    """Resolution surface accepted by the semantic-unit parser."""
+
+    @property
+    def findings(self) -> Iterable[Mapping[str, str]]: ...
+
+    def resolve_heading(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution: ...
+
+    def resolve_category(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution: ...
+
+
+@dataclass(frozen=True, slots=True)
+class UnitQueryPlan:
+    """Resolved unit axes with shared core and instance-qualified extension identity.
+
+    The label sets are the finite raw labels, in this adapter's normalization
+    domain, that could interpret to a requested value in some admitted
+    instance: authored categories, headings whose kind a category falls back
+    to, and headings for requested kinds. They only propose candidates;
+    `matches` decides each one against the authoring page's own meaning.
+    """
+
+    categories: frozenset[str] | None
+    kinds: frozenset[str] | None
+    instance_id: str
+    core_categories: frozenset[str]
+    core_kinds: frozenset[str]
+    category_labels: frozenset[str] = frozenset()
+    category_kind_labels: frozenset[str] = frozenset()
+    kind_labels: frozenset[str] = frozenset()
+
+    def matches(self, category: str, kind: str, instance_id: str | None) -> bool:
+        return (
+            (self.categories is None or category in self.categories
+             and (category in self.core_categories or instance_id == self.instance_id))
+            and (self.kinds is None or kind in self.kinds
+                 and (kind in self.core_kinds or instance_id == self.instance_id))
+        )
+
+    def predicate(self, category: str, kind: str) -> tuple[str, list[str]]:
+        """SQL proposing candidates over stored raw-label columns `category` and `kind`."""
+        parts: list[str] = []
+        params: list[str] = []
+        if self.categories is not None:
+            labels, fallback = sorted(self.category_labels), sorted(self.category_kind_labels)
+            # A rich block without a recognized category falls back to its kind.
+            parts.append(
+                f"({category} IN ({','.join('?' for _ in labels)}) "
+                f"OR {kind} IN ({','.join('?' for _ in fallback)}))"
+            )
+            params.extend((*labels, *fallback))
+        if self.kinds is not None:
+            labels = sorted(self.kind_labels)
+            parts.append(f"{kind} IN ({','.join('?' for _ in labels)})")
+            params.extend(labels)
+        return ("(" + " AND ".join(parts) + ")" if parts else "1"), params
+
+
+def _heading_labels(registry: SemanticLanguageRegistry, kinds: frozenset[str]) -> set[str]:
+    """Raw heading labels this adapter can recognize as one of `kinds`.
+
+    Scope is ignored on purpose: applicability belongs to each page's own
+    interpretation, so discovery stays a superset.
+    """
+    core_aliases = _core_heading_aliases()
+    labels = set(kinds)
+    for label in (*registry.core_kinds, *core_aliases):
+        if core_aliases.get(label, label) in kinds and core_aliases.get(label, label) in registry.core_kinds:
+            labels.add(label)
+    for label in (*registry.kinds, *registry.heading_aliases):
+        if registry.heading_aliases.get(label, label) in kinds:
+            labels.add(label)
+    return labels
+
+
+def _category_labels(registry: SemanticLanguageRegistry, categories: frozenset[str]) -> set[str]:
+    labels = set(categories)
+    for aliases in (registry.core_category_aliases, registry.category_aliases):
+        labels.update(label for label, canonical in aliases.items() if canonical in categories)
+    return labels
+
+
+def unit_query_plan(
+    registry: SemanticLanguageRegistry, *, categories=None, kinds=None,
+    instance_id: str = "public", admitted: tuple[SemanticLanguageRegistry, ...] = (),
+) -> UnitQueryPlan:
+    """Use the typed adapter's aliases and canonical keys for every unit query owner.
+
+    `admitted` holds the other instances this caller may interpret: a shared
+    core value can be authored through their aliases too.
+    """
+    def resolve(values, resolver):
+        if values is None:
+            return None
+        return frozenset((result.resolved or result.key) for value in values
+                         for result in (resolver(value),))
+
+    resolved_categories = resolve(categories, registry.resolve_category)
+    resolved_kinds = resolve(kinds, registry.resolve_kind)
+    core_categories = frozenset(registry.core_categories)
+    core_kinds = frozenset(registry.core_kinds)
+    category_labels: set[str] = set()
+    category_kind_labels: set[str] = set()
+    kind_labels: set[str] = set()
+    for adapter in (registry, *admitted):
+        own = adapter is registry
+        if resolved_categories is not None:
+            wanted = resolved_categories if own else resolved_categories & core_categories
+            category_labels |= _category_labels(adapter, wanted)
+            # A rich block without a recognized category falls back to its kind.
+            category_kind_labels |= _heading_labels(
+                adapter, resolved_categories if own else resolved_categories & core_kinds,
+            )
+        if resolved_kinds is not None:
+            kind_labels |= _heading_labels(adapter, resolved_kinds if own else resolved_kinds & core_kinds)
+    return UnitQueryPlan(
+        resolved_categories, resolved_kinds, instance_id, core_categories, core_kinds,
+        frozenset(category_labels), frozenset(category_kind_labels), frozenset(kind_labels),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticLanguageRegistry:
+    schema_version: int
+    content_hash: str
+    core_kinds: Mapping[str, KindDefinition]
+    categories: Mapping[str, CategoryDefinition] = field(default_factory=dict)
+    kinds: Mapping[str, KindDefinition] = field(default_factory=dict)
+    category_aliases: Mapping[str, str] = field(default_factory=dict)
+    kind_aliases: Mapping[str, str] = field(default_factory=dict)
+    heading_aliases: Mapping[str, str] = field(default_factory=dict)
+    findings: tuple[RegistryFinding, ...] = ()
+    core_categories: Mapping[str, CategoryDefinition] = field(default_factory=dict)
+    core_category_aliases: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in (
+            "core_kinds",
+            "categories",
+            "kinds",
+            "category_aliases",
+            "kind_aliases",
+            "heading_aliases",
+            "core_categories",
+            "core_category_aliases",
+        ):
+            object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))
+        object.__setattr__(self, "findings", tuple(self.findings))
+
+    def _has_error_findings(self) -> bool:
+        return any(finding["severity"] == "error" for finding in self.findings)
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return deterministic semantic content (the byte hash is transport metadata)."""
+        return {
+            "schema_version": self.schema_version,
+            "core_kinds": {
+                key: self.core_kinds[key].as_dict() for key in sorted(self.core_kinds)
+            },
+            "core_categories": {
+                key: self.core_categories[key].as_dict()
+                for key in sorted(self.core_categories)
+            },
+            "categories": {
+                key: self.categories[key].as_dict() for key in sorted(self.categories)
+            },
+            "kinds": {key: self.kinds[key].as_dict() for key in sorted(self.kinds)},
+            "category_aliases": dict(sorted(self.category_aliases.items())),
+            "kind_aliases": dict(sorted(self.kind_aliases.items())),
+            "heading_aliases": dict(sorted(self.heading_aliases.items())),
+            "findings": [item.as_dict() for item in self.findings],
+        }
+
+    def resolve_category(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        key = normalize_label(raw)
+        if self._has_error_findings():
+            return LabelResolution(
+                raw=str(raw),
+                key=key,
+                resolved=key,
+                status="registry_invalid",
+                definition=None,
+                findings=self.findings,
+            )
+        core_canonical = self.core_category_aliases.get(key, key)
+        core_definition = self.core_categories.get(core_canonical)
+        if core_definition is not None:
+            status = "alias" if core_canonical != key else "core"
+            return LabelResolution(
+                str(raw), key, core_canonical, status, core_definition
+            )
+        canonical = self.category_aliases.get(key, key)
+        definition = self.categories.get(canonical)
+        if definition is None:
+            return LabelResolution(str(raw), key, key, "unregistered", None)
+        scope_findings = _scope_findings(
+            "categories", canonical, definition, project=project, page_type=page_type
+        )
+        if scope_findings:
+            return LabelResolution(
+                str(raw),
+                key,
+                key,
+                "scope_violation",
+                definition,
+                definition.replaced_by,
+                scope_findings,
+            )
+        status = _resolution_status(key, canonical, definition.status)
+        return LabelResolution(
+            str(raw), canonical if key == canonical else key, canonical, status, definition,
+            definition.replaced_by,
+        )
+
+    def resolve_kind(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        key = normalize_label(raw)
+        core_canonical = _core_heading_aliases().get(key, key)
+        core_definition = self.core_kinds.get(core_canonical)
+        if core_definition is not None:
+            status = "alias" if core_canonical != key else "core"
+            return LabelResolution(
+                str(raw), key, core_canonical, status, core_definition
+            )
+        if self._has_error_findings():
+            return LabelResolution(
+                str(raw), key, None, "registry_invalid", None, findings=self.findings
+            )
+        canonical = self.kind_aliases.get(key, key)
+        return self._resolve_custom_kind(
+            raw, key, canonical, project=project, page_type=page_type
+        )
+
+    def resolve_heading(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        """Resolve rich headings; the compact-only ``observation`` stays inert."""
+        key = normalize_label(raw)
+        core_canonical = _core_heading_aliases().get(key, key)
+        core_definition = self.core_kinds.get(core_canonical)
+        if core_definition is not None and core_canonical != "observation":
+            status = "alias" if core_canonical != key else "core"
+            return LabelResolution(
+                str(raw), key, core_canonical, status, core_definition
+            )
+        if self._has_error_findings():
+            return LabelResolution(
+                str(raw), key, None, "registry_invalid", None, findings=self.findings
+            )
+        canonical = self.heading_aliases.get(key, key)
+        return self._resolve_custom_kind(
+            raw, key, canonical, project=project, page_type=page_type
+        )
+
+    def _resolve_custom_kind(
+        self,
+        raw: str,
+        key: str,
+        canonical: str,
+        *,
+        project: str | None,
+        page_type: str | None,
+    ) -> LabelResolution:
+        definition = self.kinds.get(canonical)
+        if definition is None:
+            return LabelResolution(str(raw), key, None, "unregistered", None)
+        scope_findings = _scope_findings(
+            "kinds", canonical, definition, project=project, page_type=page_type
+        )
+        if scope_findings:
+            return LabelResolution(
+                str(raw),
+                key,
+                None,
+                "scope_violation",
+                definition,
+                definition.replaced_by,
+                scope_findings,
+            )
+        status = _resolution_status(key, canonical, definition.status)
+        return LabelResolution(
+            str(raw), key, canonical, status, definition, definition.replaced_by
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AttachedProjectsLanguageRegistry:
+    """Resolve a page label against every project attached to that page."""
+
+    registry: SemanticLanguageRegistry
+    projects: tuple[str, ...]
+
+    @property
+    def findings(self) -> tuple[RegistryFinding, ...]:
+        return self.registry.findings
+
+    def resolve_heading(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        return self._resolve(self.registry.resolve_heading, raw, page_type=page_type)
+
+    def resolve_kind(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        return self._resolve(self.registry.resolve_kind, raw, page_type=page_type)
+
+    def resolve_category(
+        self,
+        raw: str,
+        *,
+        project: str | None = None,
+        page_type: str | None = None,
+    ) -> LabelResolution:
+        return self._resolve(self.registry.resolve_category, raw, page_type=page_type)
+
+    def _resolve(
+        self,
+        resolver: Callable[..., LabelResolution],
+        raw: str,
+        *,
+        page_type: str | None,
+    ) -> LabelResolution:
+        resolutions = tuple(
+            resolver(raw, project=project, page_type=page_type)
+            for project in self.projects or (None,)
+        )
+        return next(
+            (
+                resolution
+                for resolution in resolutions
+                if resolution.status != "scope_violation"
+            ),
+            resolutions[0],
+        )
+
+
+def for_attached_projects(
+    registry: SemanticLanguageRegistry,
+    projects: tuple[str, ...],
+) -> AttachedProjectsLanguageRegistry:
+    """Return the shared language view used by writes and derived indexes."""
+    return AttachedProjectsLanguageRegistry(registry, tuple(sorted(set(projects))))
+
+
+def normalize_label(raw: str) -> str:
+    # semantic_blocks.normalize_label is the older lower()-only form that stored
+    # keys use; see the note there before unifying the two.
+    label = str(raw or "").strip().rstrip(":").strip()
+    normalized = unicodedata.normalize("NFKC", label).casefold()
+    return _SEPARATORS_RE.sub("_", normalized).strip("_")
+
+
+def registry_path(vault_root: Path) -> Path:
+    return Path(vault_root) / kb_dirname() / "_Schema" / "semantic-language-registry.yaml"
+
+
+@lru_cache(maxsize=1)
+def core_registry() -> SemanticLanguageRegistry:
+    core_kinds: dict[str, KindDefinition] = {
+        key: KindDefinition(
+            key=key,
+            description=(
+                "Compact semantic observation"
+                if key == "observation"
+                else f"Portable {key.replace('_', ' ')} semantic block"
+            ),
+            core=True,
+        )
+        for key in sorted((*semantic_blocks.BLOCK_TYPES, "observation"))
+    }
+    return SemanticLanguageRegistry(
+        SCHEMA_VERSION,
+        "none",
+        core_kinds,
+        core_categories=_core_categories(),
+        core_category_aliases=_core_category_aliases(),
+    )
+
+
+def load_registry(
+    vault_root: Path | None = None,
+    *,
+    proposal: Any | None = None,
+    registry_scope: str | None = None,
+) -> SemanticLanguageRegistry:
+    core = core_registry()
+    if proposal is not None:
+        raw = yaml.safe_dump(proposal, allow_unicode=True, sort_keys=True)
+        return _parse_registry_data(proposal, _content_hash(raw), core)
+    if vault_root is None:
+        return core
+    from .vocabulary import instances
+
+    return vocabulary_registry.load(instances.select(Path(vault_root), CATEGORY_SPEC, registry_scope), Path(vault_root)).typed
+
+
+def clear_cache() -> None:
+    """Drop every vault's cached semantic-language snapshot."""
+    vocabulary_registry.invalidate_registry(CATEGORY_SPEC.name)
+
+
+def _parse_overlay_text(raw: str | None, digest: str) -> SemanticLanguageRegistry:
+    core = core_registry()
+    if raw is None:
+        return core
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        return SemanticLanguageRegistry(
+            SCHEMA_VERSION,
+            digest,
+            core.core_kinds,
+            findings=(_finding("invalid_yaml", "registry", str(exc)),),
+            core_categories=core.core_categories,
+            core_category_aliases=core.core_category_aliases,
+        )
+    return _parse_registry_data(data, digest, core)
+
+
+def validate_proposal(proposal: Any) -> list[dict[str, str]]:
+    raw = yaml.safe_dump(proposal, allow_unicode=True, sort_keys=True)
+    registry = _parse_registry_data(proposal, _content_hash(raw), core_registry())
+    return [finding.as_dict() for finding in registry.findings]
+
+
+def empty_proposal() -> dict[str, Any]:
+    return {"schema_version": SCHEMA_VERSION, "categories": {}, "kinds": {}}
+
+
+def registry_proposal(registry: SemanticLanguageRegistry) -> dict[str, Any]:
+    """Serialize the complete reviewed document without derived core metadata."""
+    return {
+        "schema_version": registry.schema_version,
+        "categories": {
+            key: _definition_proposal(registry.categories[key])
+            for key in sorted(registry.categories)
+        },
+        "kinds": {
+            key: _definition_proposal(registry.kinds[key])
+            for key in sorted(registry.kinds)
+        },
+    }
+
+
+def save_registry(
+    vault_root: Path,
+    proposal: dict[str, Any],
+    *,
+    expected_hash: str | None = None,
+    why: str | None = None,
+    operation: str = "infer",
+) -> dict[str, Any]:
+    """Atomically save one reviewed, complete semantic-language document, keeping history."""
+    if not isinstance(proposal, dict) or not {"categories", "kinds"} <= set(proposal):
+        raise ValueError(
+            "INCOMPLETE_SEMANTIC_LANGUAGE_PROPOSAL: "
+            "save requires categories and kinds in one reviewed document"
+        )
+    registry = load_registry(proposal=proposal)
+    errors = [item for item in registry.findings if item["severity"] == "error"]
+    if errors:
+        raise ValueError(
+            "INVALID_SEMANTIC_LANGUAGE_REGISTRY: "
+            f"{[item.as_dict() for item in errors]!r}"
+        )
+
+    from .vocabulary import instances
+
+    spec = instances.select(Path(vault_root), CATEGORY_SPEC, authoring=True)
+    path = spec.overlay(Path(vault_root))
+    inspected = vocabulary_registry.load(spec, Path(vault_root))
+    current_hash: str | None = None
+    if inspected.overlay_text is not None:
+        current_hash = inspected.content_hash
+        if expected_hash is None:
+            raise ValueError(
+                "SEMANTIC_LANGUAGE_REGISTRY_EXISTS: provide current expected_hash"
+            )
+        if expected_hash != current_hash:
+            raise ValueError(
+                "STALE_SEMANTIC_LANGUAGE_REGISTRY: "
+                "expected_hash does not match current hash"
+            )
+    elif expected_hash is not None:
+        raise ValueError(
+            "SEMANTIC_LANGUAGE_REGISTRY_MISSING: "
+            "expected_hash was provided but the registry does not exist"
+        )
+
+    rendered = yaml.safe_dump(
+        registry_proposal(registry),
+        allow_unicode=True,
+        sort_keys=True,
+    )
+    history = vocabulary_registry.commit(
+        spec,
+        Path(vault_root),
+        rendered,
+        operation=operation,
+        why=why,
+        before_hash=current_hash or vocabulary_registry.NO_OVERLAY_HASH,
+        previous=inspected.overlay_text,
+        added=vocabulary_registry.added_keys(
+            inspected.entries,
+            spec.adapter.entries(registry),
+        ),
+    )
+    return {
+        "path": path.relative_to(vault_root).as_posix(),
+        "content_hash": _content_hash(rendered),
+        "previous_hash": current_hash,
+        "created": current_hash is None,
+        "history": history,
+    }
+
+
+def _parse_registry_data(
+    data: Any,
+    digest: str,
+    core: SemanticLanguageRegistry,
+) -> SemanticLanguageRegistry:
+    findings: list[RegistryFinding] = []
+    if not isinstance(data, dict):
+        return SemanticLanguageRegistry(
+            SCHEMA_VERSION,
+            digest,
+            core.core_kinds,
+            findings=(_finding("invalid_registry", "registry", "must be an object"),),
+            core_categories=core.core_categories,
+            core_category_aliases=core.core_category_aliases,
+        )
+    unknown_root_fields = set(data) - {"schema_version", "categories", "kinds"}
+    for key in sorted(unknown_root_fields, key=str):
+        findings.append(_finding("unknown_field", str(key), "unknown registry field"))
+    schema_version = data.get("schema_version")
+    if type(schema_version) is not int or schema_version != SCHEMA_VERSION:
+        findings.append(
+            _finding("invalid_version", "schema_version", f"must be {SCHEMA_VERSION}")
+        )
+
+    raw_categories = data.get("categories", {})
+    if not isinstance(raw_categories, dict):
+        findings.append(_finding("invalid_categories", "categories", "must be an object"))
+        raw_categories = {}
+    raw_kinds = data.get("kinds", {})
+    if not isinstance(raw_kinds, dict):
+        findings.append(_finding("invalid_kinds", "kinds", "must be an object"))
+        raw_kinds = {}
+
+    categories = _parse_definitions(
+        raw_categories, "categories", CategoryDefinition, _DEFINITION_FIELDS, findings
+    )
+    kinds = _parse_definitions(
+        raw_kinds, "kinds", KindDefinition, _KIND_DEFINITION_FIELDS, findings
+    )
+
+    category_aliases = _build_aliases(
+        categories, "categories", core_labels={}, findings=findings
+    )
+    core_labels = {key: key for key in core.core_kinds}
+    core_labels.update(_core_heading_aliases())
+    kind_aliases = _build_aliases(
+        kinds, "kinds", core_labels=core_labels, findings=findings
+    )
+    heading_aliases = _build_heading_aliases(
+        kinds, core_labels=core_labels, kind_aliases=kind_aliases, findings=findings
+    )
+
+    _validate_replacements(
+        categories,
+        "categories",
+        findings,
+        external_active=frozenset(core.core_categories),
+    )
+    _validate_replacements(kinds, "kinds", findings)
+    findings.extend(_replacement_cycle_findings(categories, "categories"))
+    findings.extend(_replacement_cycle_findings(kinds, "kinds"))
+    _core_category_shadow_findings(categories, findings)
+    sorted_findings = tuple(
+        sorted(findings, key=lambda item: (item["path"], item["code"], item["detail"]))
+    )
+    return SemanticLanguageRegistry(
+        SCHEMA_VERSION,
+        digest,
+        core.core_kinds,
+        categories,
+        kinds,
+        category_aliases,
+        kind_aliases,
+        heading_aliases,
+        sorted_findings,
+        core_categories=core.core_categories,
+        core_category_aliases=core.core_category_aliases,
+    )
+
+
+def _parse_definitions(
+    raw_definitions: dict[Any, Any],
+    namespace: str,
+    definition_type: type[CategoryDefinition] | type[KindDefinition],
+    allowed_fields: frozenset[str],
+    findings: list[RegistryFinding],
+) -> dict[str, CategoryDefinition] | dict[str, KindDefinition]:
+    definitions: dict[str, CategoryDefinition] | dict[str, KindDefinition] = {}
+    canonical_sources: dict[str, str] = {}
+    for raw_key, value in raw_definitions.items():
+        source_key = str(raw_key)
+        key = normalize_label(source_key)
+        span = f"{namespace}.{source_key}"
+        if source_key != key or not _valid_label(key):
+            findings.append(
+                _finding(
+                    "invalid_key",
+                    span,
+                    "must be a canonical NFKC/casefold semantic label",
+                )
+            )
+        prior_source = canonical_sources.get(key)
+        if prior_source is not None and prior_source != source_key:
+            findings.append(
+                _finding(
+                    "canonical_collision",
+                    span,
+                    f"normalizes to existing canonical key {key!r}",
+                )
+            )
+        canonical_sources[key] = source_key
+        if namespace == "kinds" and key in _all_core_kind_labels():
+            findings.append(
+                _finding(
+                    "canonical_collision", span, "collides with a portable built-in kind"
+                )
+            )
+        if not isinstance(value, dict):
+            findings.append(_finding("invalid_definition", span, "must be an object"))
+            continue
+        for unknown in sorted(set(value) - allowed_fields, key=str):
+            findings.append(
+                _finding("unknown_field", f"{span}.{unknown}", "unknown definition field")
+            )
+        raw_description = value.get("description")
+        if raw_description is None:
+            findings.append(
+                _finding("missing_description", f"{span}.description", "is required")
+            )
+            description = ""
+        elif not isinstance(raw_description, str):
+            findings.append(
+                _finding(
+                    "invalid_type", f"{span}.description", "must be a string"
+                )
+            )
+            description = ""
+        else:
+            description = raw_description.strip()
+        if isinstance(raw_description, str) and not description:
+            findings.append(
+                _finding("missing_description", f"{span}.description", "is required")
+            )
+        raw_status = value.get("status", "active")
+        if not isinstance(raw_status, str):
+            findings.append(
+                _finding("invalid_type", f"{span}.status", "must be a string")
+            )
+            status = "active"
+        else:
+            status = raw_status
+        if isinstance(raw_status, str) and status not in _STATUSES:
+            findings.append(
+                _finding(
+                    "invalid_status",
+                    f"{span}.status",
+                    f"must be one of {sorted(_STATUSES)}",
+                )
+            )
+        scope = value.get("scope", {})
+        if not isinstance(scope, dict):
+            findings.append(
+                _finding("invalid_scope", f"{span}.scope", "must be an object")
+            )
+            scope = {}
+        elif set(scope) - {"projects", "page_types"}:
+            findings.append(
+                _finding(
+                    "invalid_scope",
+                    f"{span}.scope",
+                    "only projects and page_types are allowed",
+                )
+            )
+        aliases = tuple(
+            normalize_label(item)
+            for item in _strings(value.get("aliases", []), f"{span}.aliases", findings)
+        )
+        projects = frozenset(
+            _strings(scope.get("projects", []), f"{span}.scope.projects", findings)
+        )
+        page_types = frozenset(
+            _strings(scope.get("page_types", []), f"{span}.scope.page_types", findings)
+        )
+        raw_replaced_by = value.get("replaced_by")
+        if raw_replaced_by not in (None, "") and not isinstance(
+            raw_replaced_by, str
+        ):
+            findings.append(
+                _finding(
+                    "invalid_type", f"{span}.replaced_by", "must be a string or null"
+                )
+            )
+            replaced_by = None
+        else:
+            replaced_by = _optional(raw_replaced_by)
+        common: dict[str, Any] = {
+            "key": key,
+            "description": description,
+            "aliases": aliases,
+            "projects": projects,
+            "page_types": page_types,
+            "status": status,
+            "replaced_by": replaced_by,
+        }
+        if definition_type is KindDefinition:
+            common["heading_aliases"] = tuple(
+                normalize_label(item)
+                for item in _strings(
+                    value.get("heading_aliases", []),
+                    f"{span}.heading_aliases",
+                    findings,
+                )
+            )
+        definitions[key] = definition_type(**common)
+    return definitions
+
+
+def _build_aliases(
+    definitions: Mapping[str, CategoryDefinition | KindDefinition],
+    namespace: str,
+    *,
+    core_labels: Mapping[str, str],
+    findings: list[RegistryFinding],
+) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    canonical = set(definitions)
+    for key in sorted(definitions):
+        for alias in definitions[key].aliases:
+            span = f"{namespace}.{key}.aliases"
+            if not _valid_label(alias):
+                findings.append(_finding("invalid_alias", span, f"invalid alias {alias!r}"))
+            if alias in core_labels or alias in canonical:
+                findings.append(
+                    _finding("alias_collision", span, f"alias {alias!r} collides")
+                )
+                continue
+            prior = aliases.get(alias)
+            if prior is not None and prior != key:
+                findings.append(
+                    _finding(
+                        "alias_conflict",
+                        span,
+                        f"alias {alias!r} maps to both {prior!r} and {key!r}",
+                    )
+                )
+                continue
+            aliases[alias] = key
+    return aliases
+
+
+def _build_heading_aliases(
+    kinds: Mapping[str, KindDefinition],
+    *,
+    core_labels: Mapping[str, str],
+    kind_aliases: Mapping[str, str],
+    findings: list[RegistryFinding],
+) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    canonical = set(kinds)
+    for key in sorted(kinds):
+        aliases[key] = key
+        for alias in kinds[key].heading_aliases:
+            span = f"kinds.{key}.heading_aliases"
+            if not _valid_label(alias):
+                findings.append(_finding("invalid_alias", span, f"invalid alias {alias!r}"))
+            if alias in core_labels or alias in canonical:
+                findings.append(
+                    _finding("alias_collision", span, f"alias {alias!r} collides")
+                )
+                continue
+            prior = aliases.get(alias) or kind_aliases.get(alias)
+            if prior is not None and prior != key:
+                findings.append(
+                    _finding(
+                        "alias_conflict",
+                        span,
+                        f"alias {alias!r} maps to both {prior!r} and {key!r}",
+                    )
+                )
+                continue
+            aliases[alias] = key
+    return aliases
+
+
+def _validate_replacements(
+    definitions: Mapping[str, CategoryDefinition | KindDefinition],
+    namespace: str,
+    findings: list[RegistryFinding],
+    *,
+    external_active: frozenset[str] = frozenset(),
+) -> None:
+    for key in sorted(definitions):
+        definition = definitions[key]
+        span = f"{namespace}.{key}.replaced_by"
+        replacement = definition.replaced_by
+        if definition.status == "deprecated" and not replacement:
+            findings.append(
+                _finding(
+                    "missing_replacement", span, "deprecated definitions require a replacement"
+                )
+            )
+            continue
+        if definition.status != "deprecated" and replacement:
+            findings.append(
+                _finding(
+                    "invalid_replacement",
+                    span,
+                    "only deprecated definitions may declare a replacement",
+                )
+            )
+        if not replacement:
+            continue
+        if replacement != normalize_label(replacement):
+            findings.append(
+                _finding(
+                    "invalid_replacement",
+                    span,
+                    "must name an active canonical key in the same namespace",
+                )
+            )
+            continue
+        if replacement in external_active:
+            continue
+        if replacement not in definitions:
+            findings.append(
+                _finding(
+                    "invalid_replacement",
+                    span,
+                    "must name an active canonical key in the same namespace",
+                )
+            )
+            continue
+        target = definitions[replacement]
+        if target.status == "deprecated":
+            findings.append(
+                _finding("invalid_replacement", span, "replacement must be active")
+            )
+
+
+def _replacement_cycle_findings(
+    definitions: Mapping[str, CategoryDefinition | KindDefinition], namespace: str
+) -> list[RegistryFinding]:
+    findings: list[RegistryFinding] = []
+    reported: set[frozenset[str]] = set()
+    for start in sorted(definitions):
+        order: list[str] = []
+        positions: dict[str, int] = {}
+        current: str | None = start
+        while current in definitions and current not in positions:
+            positions[current] = len(order)
+            order.append(current)
+            current = definitions[current].replaced_by
+        if current is None or current not in positions:
+            continue
+        cycle = order[positions[current] :]
+        cycle_key = frozenset(cycle)
+        if cycle_key in reported:
+            continue
+        reported.add(cycle_key)
+        findings.append(
+            _finding(
+                "replacement_cycle",
+                f"{namespace}.{start}.replaced_by",
+                f"replacement cycle is not allowed: {' -> '.join(cycle + [cycle[0]])}",
+            )
+        )
+    return findings
+
+
+def _scope_findings(
+    namespace: str,
+    canonical: str,
+    definition: CategoryDefinition | KindDefinition,
+    *,
+    project: str | None,
+    page_type: str | None,
+) -> tuple[RegistryFinding, ...]:
+    findings: list[RegistryFinding] = []
+    for field_name, allowed, actual in (
+        ("project", definition.projects, project),
+        ("page_type", definition.page_types, page_type),
+    ):
+        if allowed and actual not in allowed:
+            findings.append(
+                _finding(
+                    "scope_violation",
+                    f"{namespace}.{canonical}.{field_name}",
+                    f"{actual!r} is outside {sorted(allowed)!r}",
+                    severity="warning",
+                )
+            )
+    return tuple(
+        sorted(findings, key=lambda item: (item["path"], item["code"], item["detail"]))
+    )
+
+
+def _resolution_status(key: str, canonical: str, status: str) -> str:
+    if status == "deprecated":
+        return "deprecated"
+    return "alias" if key != canonical else "extension"
+
+
+def _definition_dict(definition: CategoryDefinition | KindDefinition) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "key": definition.key,
+        "description": definition.description,
+        "status": definition.status,
+    }
+    if definition.aliases:
+        out["aliases"] = sorted(definition.aliases)
+    if definition.projects:
+        out["projects"] = sorted(definition.projects)
+    if definition.page_types:
+        out["page_types"] = sorted(definition.page_types)
+    if definition.replaced_by:
+        out["replaced_by"] = definition.replaced_by
+    return out
+
+
+def _definition_proposal(
+    definition: CategoryDefinition | KindDefinition,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {"description": definition.description}
+    if definition.aliases:
+        out["aliases"] = sorted(definition.aliases)
+    if isinstance(definition, KindDefinition) and definition.heading_aliases:
+        out["heading_aliases"] = sorted(definition.heading_aliases)
+    if definition.status != "active":
+        out["status"] = definition.status
+    if definition.replaced_by is not None:
+        out["replaced_by"] = definition.replaced_by
+    scope: dict[str, list[str]] = {}
+    if definition.projects:
+        scope["projects"] = sorted(definition.projects)
+    if definition.page_types:
+        scope["page_types"] = sorted(definition.page_types)
+    if scope:
+        out["scope"] = scope
+    return out
+
+
+def _strings(value: Any, path: str, findings: list[RegistryFinding]) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        findings.append(_finding("invalid_list", path, "must be a list of strings"))
+        return []
+    return list(dict.fromkeys(item.strip() for item in value if item.strip()))
+
+
+def _optional(value: Any) -> str | None:
+    return str(value).strip() if value not in (None, "") else None
+
+
+def _valid_label(label: str) -> bool:
+    if not label or len(label) > 64 or not label[0].isalpha():
+        return False
+    return all(char.isalpha() or char.isdigit() or char == "_" for char in label)
+
+
+# The sixteen code-owned core categories and their exact built-in alias table.
+# Descriptions are deliberately generic and public-safe; no vault identifiers.
+_CORE_CATEGORY_DEFINITIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("decision", "A choice that was made together with its rationale.", ("decisions",)),
+    ("fact", "A verified statement taken to be true.", ("facts",)),
+    ("finding", "Something learned from investigation or observation.", ("findings",)),
+    ("insight", "A non-obvious realization or interpretation.", ("insights",)),
+    ("constraint", "A limit or boundary that must be respected.", ("constraints",)),
+    ("requirement", "Something that must be satisfied.", ("requirements",)),
+    ("assumption", "Something taken as given without proof.", ("assumptions",)),
+    ("risk", "A possible future problem and its potential impact.", ("risks",)),
+    ("problem", "A described issue that needs resolution.", ("problems",)),
+    (
+        "question",
+        "An open question awaiting an answer.",
+        ("questions", "open_question", "open_questions"),
+    ),
+    ("action", "A task or next step to carry out.", ("actions",)),
+    ("technique", "A reusable method or approach.", ("techniques",)),
+    ("preference", "A stated inclination or choice of style.", ("preferences",)),
+    ("code", "A code snippet or code-level detail.", ()),
+    ("design", "A design description, plan, or approach.", ("designs",)),
+    (
+        "config",
+        "A configuration value or setting.",
+        ("configs", "configuration", "configurations"),
+    ),
+)
+
+
+@lru_cache(maxsize=1)
+def _core_categories() -> dict[str, CategoryDefinition]:
+    return {
+        key: CategoryDefinition(key=key, description=description, aliases=aliases)
+        for key, description, aliases in _CORE_CATEGORY_DEFINITIONS
+    }
+
+
+@lru_cache(maxsize=1)
+def _core_category_aliases() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for key, definition in _core_categories().items():
+        for alias in definition.aliases:
+            aliases[alias] = key
+    return aliases
+
+
+@lru_cache(maxsize=1)
+def _all_core_category_labels() -> frozenset[str]:
+    return frozenset((*_core_categories(), *_core_category_aliases()))
+
+
+def _core_category_shadow_findings(
+    categories: Mapping[str, CategoryDefinition],
+    findings: list[RegistryFinding],
+) -> None:
+    """Warn (never error) when an extension category shadows a core key/alias.
+
+    The colliding entry is byte-preserved in ``categories`` for serialization but
+    core resolution wins, so the extension entry is inert. The advisory warning
+    guides migration without invalidating the registry.
+    """
+    core_labels = _all_core_category_labels()
+    for key in sorted(categories):
+        definition = categories[key]
+        if key in core_labels:
+            findings.append(
+                _finding(
+                    "core_category_shadowed",
+                    f"categories.{key}",
+                    f"category {key!r} shadows a built-in core category and is ignored",
+                    severity="warning",
+                )
+            )
+        for alias in sorted(set(definition.aliases)):
+            if alias in core_labels:
+                findings.append(
+                    _finding(
+                        "core_category_shadowed",
+                        f"categories.{key}.aliases",
+                        f"alias {alias!r} shadows a built-in core category and is ignored",
+                        severity="warning",
+                    )
+                )
+
+
+@lru_cache(maxsize=1)
+def _core_heading_aliases() -> dict[str, str]:
+    return {
+        normalize_label(alias): canonical
+        for alias, canonical in semantic_blocks._BLOCK_TYPE_ALIASES.items()
+    }
+
+
+@lru_cache(maxsize=1)
+def _all_core_kind_labels() -> frozenset[str]:
+    return frozenset((*core_registry().core_kinds, *_core_heading_aliases()))
+
+
+def _finding(
+    code: str, path: str, detail: str, *, severity: str = "error"
+) -> RegistryFinding:
+    return RegistryFinding(
+        code=code,
+        path=path,
+        span=path,
+        severity=severity,
+        detail=detail,
+    )
+
+
+def _content_hash(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# The registry adapter (`add-vocabulary-registries`)
+#
+# The semantic categories are one registry over the `categories` section of
+# `_Schema/semantic-language-registry.yaml`; its custom kinds share the file
+# and its history but are not a vocabulary registry in this slice.
+# --------------------------------------------------------------------------- #
+
+
+class _CategoryAdapter:
+    def parse(self, text: str | None, digest: str) -> SemanticLanguageRegistry:
+        return _parse_overlay_text(text, digest)
+
+    def parse_document(self, document: Mapping[str, Any]) -> SemanticLanguageRegistry:
+        return load_registry(proposal=dict(document))
+
+    def entries(self, typed: SemanticLanguageRegistry) -> dict[str, vocabulary_registry.Entry]:
+        out: dict[str, vocabulary_registry.Entry] = {}
+        for origin, definitions in (("pack", typed.core_categories), ("vault", typed.categories)):
+            for key, definition in definitions.items():
+                scope = {
+                    name: sorted(getattr(definition, name))
+                    for name in ("projects", "page_types")
+                    if getattr(definition, name)
+                }
+                out[key] = vocabulary_registry.Entry(
+                    key=key,
+                    description=definition.description,
+                    aliases=definition.aliases,
+                    status=definition.status,
+                    replaced_by=definition.replaced_by,
+                    attributes=MappingProxyType({"scope": scope} if scope else {}),
+                    origin=origin,
+                )
+        return out
+
+    def findings(self, typed: SemanticLanguageRegistry) -> tuple[dict[str, str], ...]:
+        return tuple(item.as_dict() for item in typed.findings)
+
+    def document(self, text: str | None) -> dict[str, Any]:
+        if text is None:
+            return empty_proposal()
+        try:
+            data = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise vocabulary_registry.RegistryError(
+                "INVALID_REGISTRY_OVERLAY: semantic-language-registry.yaml does not parse; fix "
+                f"it or restore a kept version ({exc})"
+            ) from exc
+        if not isinstance(data, dict):
+            raise vocabulary_registry.RegistryError(
+                "INVALID_REGISTRY_OVERLAY: semantic-language-registry.yaml is not a mapping; "
+                "fix it or restore a kept version"
+            )
+        data.setdefault("schema_version", SCHEMA_VERSION)
+        for section in ("categories", "kinds"):
+            value = data.get(section)
+            data[section] = dict(value) if isinstance(value, dict) else {}
+        return data
+
+    def put(
+        self,
+        document: dict[str, Any],
+        key: str,
+        entry: vocabulary_registry.Entry,
+        *,
+        existing: bool,
+    ) -> None:
+        if key in _core_categories():
+            raise vocabulary_registry.RegistryError(
+                f"PACK_ENTRY_FIXED: {key!r} is a core semantic category"
+            )
+        row: dict[str, Any] = {"description": entry.description}
+        if entry.aliases:
+            row["aliases"] = sorted(normalize_label(alias) for alias in entry.aliases)
+        if entry.status != "active":
+            row["status"] = entry.status
+        if entry.replaced_by:
+            row["replaced_by"] = entry.replaced_by
+        scope = entry.attributes.get("scope")
+        if scope:
+            row["scope"] = {name: sorted(values) for name, values in dict(scope).items()}
+        document["categories"][key] = row
+
+    def remove(self, document: dict[str, Any], key: str) -> None:
+        document["categories"].pop(key, None)
+
+    def render(self, document: Mapping[str, Any]) -> str:
+        return yaml.safe_dump(dict(document), allow_unicode=True, sort_keys=True)
+
+    def normalize_key(self, raw: str) -> str:
+        key = normalize_label(raw)
+        if not _valid_label(key):
+            raise vocabulary_registry.RegistryError(
+                f"INVALID_REGISTRY_KEY: {raw!r} is not a semantic category label"
+            )
+        return key
+
+
+def _category_usage(vault_root: Path, snapshot: vocabulary_registry.Snapshot) -> Any:
+    from .vocabulary import usage
+
+    return usage.categories(vault_root, snapshot)
+
+
+CATEGORY_SPEC = vocabulary_registry.RegistrySpec(
+    name="categories",
+    stem="semantic-language-registry",
+    overlay=registry_path,
+    adapter=_CategoryAdapter(),
+    fields=frozenset({"description", "aliases", "status", "replaced_by", "attributes"}),
+    attributes=frozenset({"scope"}),
+    cap=512,
+    usage=_category_usage,
+)

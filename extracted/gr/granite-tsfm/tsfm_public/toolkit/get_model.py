@@ -1,0 +1,758 @@
+# Copyright contributors to the TSFM project
+#
+"""Utilities to support model loading"""
+
+import enum
+import logging
+import os
+from importlib import resources
+from pathlib import Path
+from typing import Optional, Union
+
+import numpy as np
+import yaml
+from transformers import PreTrainedModel
+
+from tsfm_public.models.tinytimemixer import (
+    TinyTimeMixerConfig,
+    TinyTimeMixerForDecomposedPrediction,
+    TinyTimeMixerForPrediction,
+)
+from tsfm_public.toolkit.time_series_preprocessor import DEFAULT_FREQUENCY_MAPPING
+
+
+LOGGER = logging.getLogger(__file__)
+LOGGER.setLevel(logging.INFO)
+
+TTM_LOW_RESOLUTION_MODELS_MAX_CONTEXT = 512
+
+
+class ForceReturn(enum.Enum):
+    """`Enum` for the `force_return` parameter in the `get_model` function.
+
+    "zeropad" = Returns a pre-trained TTM that has a context length higher than the input context length, hence,
+        the user must apply zero-padding to use the returned model.
+    "rolling" = Returns a pre-trained TTM that has a prediction length lower than the requested prediction length,
+        hence, the user must apply rolling technique to use the returned model to forecast to the desired length.
+        The `RecursivePredictor` class can be utilized in this scenario.
+    "random_init_small" = Returns a randomly initialized small TTM which must be trained before performing inference.
+    "random_init_medium" = Returns a randomly initialized medium TTM which must be trained before performing inference.
+    "random_init_large" = Returns a randomly initialized large TTM which must be trained before performing inference.
+
+    """
+
+    ZEROPAD = "zeropad"
+    ROLLING = "rolling"
+    RANDOM_INIT_SMALL = "random_init_small"
+    RANDOM_INIT_MEDIUM = "random_init_medium"
+    RANDOM_INIT_LARGE = "random_init_large"
+
+
+class ModelSize(enum.Enum):
+    """`Enum` for the `size` parameter in the `get_random_ttm` function."""
+
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
+def check_ttm_model_path(model_path):
+    if (
+        model_path.startswith("ibm/TTM")
+        or model_path.startswith("ibm-granite/granite-timeseries-ttm-r1")
+        or model_path.startswith("ibm-granite/granite-timeseries-ttm-v1")
+        or model_path.startswith("ibm-granite/granite-timeseries-ttm-1m")
+    ):
+        return 1
+    elif model_path.startswith("ibm-granite/granite-timeseries-ttm-r2"):
+        return 2
+    elif model_path.startswith("ibm-research/ttm-research-r2"):
+        return 3
+    elif model_path.startswith("ibm-research/ttm-r3") or model_path.startswith(
+        "ibm-granite/granite-timeseries-ttm-r3"
+    ):
+        return 4
+    else:
+        return 0
+
+
+# def check_ttm_model_path(model_path):
+#     if (
+#         "ibm/TTM" in model_path
+#         or "ibm-granite/granite-timeseries-ttm-r1" in model_path
+#         or "ibm-granite/granite-timeseries-ttm-v1" in model_path
+#         or "ibm-granite/granite-timeseries-ttm-1m" in model_path
+#     ):
+#         return 1
+#     elif "ibm-granite/granite-timeseries-ttm-r2" in model_path:
+#         return 2
+#     elif "ibm-research/ttm-research-r2" in model_path:
+#         return 3
+#     else:
+#         return 0
+
+
+def get_random_ttm(
+    context_length: int,
+    prediction_length: int,
+    size: str = ModelSize.SMALL.value,
+    **kwargs,
+) -> PreTrainedModel:
+    """Get a TTM with random weights.
+
+    Args:
+        context_length (int): Context length or history.
+        prediction_length (int): Prediction length or forecast horizon.
+        size (str, optional): Size of the desired TTM (small/medium/large). Defaults to "small".
+
+    Raises:
+        ValueError: If wrong size is provided.
+        ValueError: Context length should be at least 4 if `size=small`,
+            or at least 16 if `size=medium`,
+            or at least 32 if `size=large`.
+
+    Returns:
+        PreTrainedModel: TTM model with randomly initialized weights.
+    """
+    if ModelSize.SMALL.value in size.lower():
+        cl_lower_bound = 4
+        apl = 0
+    elif ModelSize.MEDIUM.value in size.lower():
+        cl_lower_bound = 16
+        apl = 3
+    elif ModelSize.LARGE.value in size.lower():
+        cl_lower_bound = 32
+        apl = 5
+    else:
+        raise ValueError("Wrong size. Should be either of these [small/medium/large].")
+    if context_length < cl_lower_bound:
+        raise ValueError(f"Context length should be at least {cl_lower_bound} if `size={size}`.")
+
+    cl = context_length if context_length % 2 == 0 else context_length - 1
+
+    pl = 2
+    while cl % pl == 0 and cl / pl >= 8:
+        pl = pl * 2
+
+    if ModelSize.SMALL.value in size.lower():
+        d_model = 2 * pl
+        num_layers = 3
+    elif ModelSize.MEDIUM.value in size.lower():
+        d_model = 16 * 2**apl
+        num_layers = 3
+    elif ModelSize.LARGE.value in size.lower():
+        d_model = 16 * 2**apl
+        num_layers = 5
+    else:
+        raise ValueError("Wrong size. Should be either of these [small/medium/large].")
+
+    ttm_config = TinyTimeMixerConfig(
+        context_length=cl,
+        prediction_length=prediction_length,
+        patch_length=pl,
+        patch_stride=pl,
+        d_model=d_model,
+        num_layers=num_layers,
+        decoder_num_layers=2,
+        decoder_d_model=d_model,
+        adaptive_patching_levels=apl,
+        dropout=0.2,
+        **kwargs,
+    )
+    model = TinyTimeMixerForPrediction(config=ttm_config)
+
+    return model
+
+
+def get_model(
+    model_path: str,
+    model_name: str = "ttm",
+    context_length: Optional[int] = None,
+    prediction_length: Optional[int] = None,
+    freq_prefix_tuning: bool = False,
+    freq: Optional[str] = None,
+    prefer_l1_loss: bool = False,
+    prefer_longer_context: bool = True,
+    force_return: Optional[str] = None,
+    return_model_key: bool = False,
+    use_lite: bool = False,
+    model_revision: str = None,
+    prefer_known_mappings: bool = True,
+    **kwargs,
+) -> Union[str, PreTrainedModel, None]:
+    """TTM Model card offers a suite of models with varying `context_length` and `prediction_length` combinations.
+    This wrapper automatically selects the right model based on the given input `context_length` and
+    `prediction_length` abstracting away the internal complexity.
+
+    Args:
+        model_path (str): HuggingFace model card path or local model path (Ex. ibm-granite/granite-timeseries-ttm-r2)
+        model_name (str, optional): Model name to use. Current allowed values: [ttm]. Defaults to "ttm".
+        context_length (int, optional): Input Context length or history. Defaults to None.
+        prediction_length (int, optional): Length of the forecast horizon. Defaults to None.
+        freq_prefix_tuning (bool, optional): If true, it will prefer TTM models that are trained with frequency prefix
+            tuning configuration. Defaults to None.
+        freq (str, optional): Resolution or frequency of the data. Defaults to None. Allowed values are as per the
+            `tsfm_public.toolkit.time_series_preprocessor.DEFAULT_FREQUENCY_MAPPING`.
+            See this for details: https://github.com/ibm-granite/granite-tsfm/blob/main/tsfm_public/toolkit/time_series_preprocessor.py.
+        prefer_l1_loss (bool, optional): If True, it will prefer choosing models that were trained with L1 loss or
+            mean absolute error loss. Defaults to False.
+        prefer_longer_context (bool, optional): If True, it will prefer selecting model with longer context/history
+            Defaults to True.
+        force_return (str, optional): This is used to force the get_model() to return a TTM model even when the provided
+            configurations don't match with the existing TTMs. It gets the closest TTM possible. Allowed values are
+            ["zeropad"/"rolling"/"random_init_small"/"random_init_medium"/"random_init_large"/`None`].
+            "zeropad" = Returns a pre-trained TTM that has a context length higher than the input context length, hence,
+            the user must apply zero-padding to use the returned model.
+            "rolling" = Returns a pre-trained TTM that has a prediction length lower than the requested prediction length,
+            hence, the user must apply rolling technique to use the returned model to forecast to the desired length.
+            The `RecursivePredictor` class can be utilized in this scenario.
+            "random_init_small" = Returns a randomly initialized small TTM which must be trained before performing inference.
+            "random_init_medium" = Returns a randomly initialized medium TTM which must be trained before performing inference.
+            "random_init_large" = Returns a randomly initialized large TTM which must be trained before performing inference.
+            `None` = `force_return` is disable. Raises an error if no suitable model is found.
+            Defaults to None.
+        return_model_key (bool, optional): If True, only the TTM model name will be returned, instead of the actual model.
+            This does not downlaod the model, and only returns the name of the suitable model. Defaults to False.
+
+    Returns:
+        Union[str, PreTrainedModel]: Returns the Model, or the model name.
+    """
+    LOGGER.info(f"Loading model from: {model_path}")
+
+    model_key = None  # fix unbound local issue
+
+    if model_name.lower() == "ttm":
+        model_path_type = check_ttm_model_path(model_path)
+        LOGGER.info(f"Model path type is {model_path_type}")
+        prediction_filter_length = None
+        ttm_model_revision = None
+        if model_revision is None:
+            if model_path_type in [1, 2, 3]:
+                if context_length is None or prediction_length is None:
+                    raise ValueError(
+                        "Provide `context_length` and `prediction_length` when `model_path` is a hugginface model path."
+                    )
+
+                # Get freq
+                R = DEFAULT_FREQUENCY_MAPPING.get(freq, 0)
+
+                # Get list of all TTM models
+                config_dir = resources.files("tsfm_public.resources.model_paths_config")
+                with open(os.path.join(config_dir, "ttm.yaml"), "r") as file:
+                    model_revisions = yaml.safe_load(file)
+
+                if model_path_type == 1 or model_path_type == 2:
+                    available_models = model_revisions["ibm-granite-models"]
+                    filtered_models = {}
+                    if model_path_type == 1:
+                        for k in available_models.keys():
+                            if available_models[k]["release"].startswith("r1"):
+                                filtered_models[k] = available_models[k]
+                    if model_path_type == 2:
+                        for k in available_models.keys():
+                            if available_models[k]["release"].startswith("r2"):
+                                filtered_models[k] = available_models[k]
+                    available_models = filtered_models
+                else:
+                    available_models = model_revisions["research-use-models"]
+                    filtered_models = {}
+                    if model_path_type == 3:
+                        for k in available_models.keys():
+                            if available_models[k]["release"].startswith("r2"):
+                                filtered_models[k] = available_models[k]
+                    if model_path_type == 4:
+                        for k in available_models.keys():
+                            if available_models[k]["release"].startswith("r3"):
+                                filtered_models[k] = available_models[k]
+
+                    available_models = filtered_models
+
+                # Calculate shortest TTM context length, will be needed later
+                available_model_keys = list(available_models.keys())
+                available_ttm_context_lengths = [available_models[m]["context_length"] for m in available_model_keys]
+                shortest_ttm_context_length = min(available_ttm_context_lengths)
+
+                # Step 1: Filter models based on freq (R)
+                if model_path_type == 1 or model_path_type == 2:
+                    # Only, r2.1 models are suitable for Daily or longer freq
+                    if R >= 8:
+                        models = [m for m in available_models.keys() if "r2.1" in available_models[m]["release"]]
+                    else:
+                        models = list(available_models.keys())
+                else:
+                    models = list(available_models.keys())
+
+                # Step 2: Filter models by context length constraint
+                # Choose all models which have lower context length than
+                # the input available length
+                selected_models_ = []
+                if context_length < shortest_ttm_context_length:
+                    if force_return is None:
+                        raise ValueError(
+                            "Requested context length is less than the "
+                            f"shortest context length for TTMs: {shortest_ttm_context_length}. "
+                            "Set `force_return=zeropad` to get a TTM with longer context."
+                        )
+                    elif force_return == ForceReturn.ZEROPAD.value:  # force_return.startswith("zero"):
+                        # Keep all models. Zero-padding must be done outside.
+                        selected_models_ = models
+                        LOGGER.warning(
+                            "Requested `context_length` is shorter than the "
+                            "shortest TTM available, hence, zero-padding must "
+                            "be done outside."
+                        )
+                else:
+                    lowest_context_length = np.inf
+                    shortest_context_models = []
+                    for m in models:
+                        if available_models[m]["context_length"] <= context_length:
+                            selected_models_.append(m)
+                        if available_models[m]["context_length"] <= lowest_context_length:
+                            lowest_context_length = available_models[m]["context_length"]
+                            shortest_context_models.append(m)
+
+                if len(selected_models_) == 0:
+                    if force_return is None:
+                        raise ValueError(
+                            "Could not find a TTM with `context_length` shorter "
+                            f"than the requested context length = {context_length}. "
+                            "Set `force_return=zeropad` to get a TTM with longer context."
+                        )
+                    elif force_return == ForceReturn.ZEROPAD.value:  # force_return.startswith("zero"):
+                        selected_models_ = shortest_context_models
+                        LOGGER.warning(
+                            "Could not find a TTM with `context_length` shorter "
+                            f"than the requested context length = {context_length}. "
+                            f"Hence, selecting TTMs with shortest context available = {lowest_context_length}."
+                        )
+                models = selected_models_
+
+                # Step 3: Apply L1 and FT preferences only when context_length <= 512
+                if len(models) > 0:
+                    if prefer_longer_context:
+                        reference_context = min(
+                            context_length,
+                            max([available_models[m]["context_length"] for m in models]),
+                        )
+                    else:
+                        reference_context = min([available_models[m]["context_length"] for m in models])
+                    if reference_context <= TTM_LOW_RESOLUTION_MODELS_MAX_CONTEXT:
+                        # Step 3a: Filter based on L1 preference
+                        if prefer_l1_loss:
+                            l1_models = [m for m in models if "-l1-" in m]
+                            if l1_models:
+                                models = l1_models
+
+                        # Step 3b: Filter based on frequency tuning indicator preference
+                        if freq_prefix_tuning:
+                            ft_models = [m for m in models if "-ft-" in m]
+                            if ft_models:
+                                models = ft_models
+
+                # Step 4: Sort models by context length (descending if prefer_longer_context else ascending)
+                # Step 5: Sub-sort for each context length by forecast length in ascending order
+                if len(models) > 0:
+                    sign = -1 if prefer_longer_context else 1
+                    models = sorted(
+                        models,
+                        key=lambda m: (
+                            sign * int(available_models[m]["context_length"]),
+                            int(available_models[m]["prediction_length"]),
+                        ),
+                    )
+
+                # Step 6: Remove models whose forecast length is less than input forecast length
+                # Because, this needs recursion which has to be handled outside this get_model() utility
+                if len(models) > 0:
+                    selected_models_ = []
+                    highest_prediction_length = -np.inf
+                    highest_prediction_model = None
+                    for m in models:
+                        if int(available_models[m]["prediction_length"]) >= prediction_length:
+                            selected_models_.append(m)
+                        if available_models[m]["prediction_length"] > highest_prediction_length:
+                            highest_prediction_length = available_models[m]["prediction_length"]
+                            highest_prediction_model = m
+                    if len(selected_models_) == 0:
+                        if force_return is None:
+                            raise ValueError(
+                                "Could not find a TTM with `prediction_length` higher "
+                                f"than the requested prediction length = {prediction_length}. "
+                                "Set `force_return=rolling` to get a TTM with shorted prediction "
+                                "length. Rolling must be done outside."
+                            )
+                        elif force_return == ForceReturn.ROLLING.value:  # force_return.startswith("roll"):
+                            selected_models_.append(highest_prediction_model)
+                            LOGGER.warning(
+                                "Could not find a TTM with `prediction_length` higher "
+                                f"than the request prediction length = {prediction_length}. "
+                                f"Hence, returning the TTM with highest prediction length {highest_prediction_length} "
+                                f"satisfying the requested context length. Rolling must be done outside."
+                            )
+                    models = selected_models_
+
+                # Step 7: Do not allow unknow frequency
+                if freq_prefix_tuning and (freq is not None) and (freq not in DEFAULT_FREQUENCY_MAPPING.keys()):
+                    LOGGER.warning(
+                        f"The specified frequency ({freq}) is not in the set of "
+                        f"allowed resolutions: {list(DEFAULT_FREQUENCY_MAPPING.keys())}."
+                    )
+                    models = []
+
+                # Step 8: Return the first available model or a dummy model if none found
+                if len(models) == 0:
+                    if force_return is None:
+                        raise ValueError(
+                            "No suitable pre-trained TTM was found! Set `force_return` to "
+                            "random_init_small/random_init_medium/random_init_large "
+                            "to get a randomly initialized TTM of size small/medium/large "
+                            "respectively."
+                        )
+                    elif (
+                        force_return
+                        in [
+                            ForceReturn.RANDOM_INIT_SMALL.value,
+                            ForceReturn.RANDOM_INIT_MEDIUM.value,
+                            ForceReturn.RANDOM_INIT_LARGE.value,
+                        ]
+                    ):  # "sma" in force_return.lower() or "med" in force_return.lower() or "lar" in force_return.lower():
+                        LOGGER.info(
+                            "Trying to build a TTM with random weights since no "
+                            "suitable pre-trained TTM could be found. You must "
+                            "train this TTM before using it for inference."
+                        )
+                        model = get_random_ttm(context_length, prediction_length, size=force_return)
+                        LOGGER.info(
+                            "Returning a randomly initialized TTM with context length "
+                            f"= {model.config.context_length}, prediction length "
+                            f"= {model.config.prediction_length}."
+                        )
+                        if return_model_key:
+                            model_key = force_return.split("_")[-1]
+                            return f"TTM({model_key})"
+                        else:
+                            return model
+                    else:
+                        raise ValueError(
+                            "Could not find a suitable TTM for the given "
+                            f"context_length = {context_length}, and "
+                            f"prediction_length = {prediction_length}. "
+                            "Check the model card for more information. "
+                            "set `force_return` properly (see the docstrings) "
+                            "if you want to get a randomly initialized TTM."
+                        )
+                else:
+                    model_key = models[0]
+
+                # selected_context_length = available_models[model_key]["context_length"]
+                selected_prediction_length = available_models[model_key]["prediction_length"]
+                if selected_prediction_length > prediction_length:
+                    prediction_filter_length = prediction_length
+                    LOGGER.warning(
+                        f"Requested `prediction_length` ({prediction_length}) is not exactly "
+                        "equal to any of the available TTM prediction lengths. "
+                        "Hence, TTM will forecast using the `prediction_filter_length` "
+                        "argument to provide the requested prediction length. "
+                        "Check the model card to know more about the supported context lengths "
+                        "and forecast/prediction lengths."
+                    )
+
+                if selected_prediction_length < prediction_length:
+                    LOGGER.warning(
+                        "Selected `prediction_length` is shorter than the requested "
+                        "length since no suitable model could be found. You can use "
+                        " `RecursivePredictor` for forecast to the desired length."
+                    )
+
+                ttm_model_revision = available_models[model_key]["revision"]
+
+            elif model_path_type == 4:
+                # ttm-r3 research selection
+                config_dir = resources.files("tsfm_public.resources.model_paths_config")
+                with open(os.path.join(config_dir, "ttm.yaml"), "r") as file:
+                    model_revisions = yaml.safe_load(file)
+
+                available_models = model_revisions["research-use-models"]
+
+                if prefer_known_mappings:
+                    try:
+                        base_revision = get_model(
+                            model_path="ibm-granite/granite-timeseries-ttm-r2",
+                            model_name=model_name,
+                            context_length=context_length,
+                            prediction_length=prediction_length,
+                            freq_prefix_tuning=freq_prefix_tuning,
+                            freq=freq,
+                            prefer_l1_loss=prefer_l1_loss,
+                            prefer_longer_context=prefer_longer_context,
+                            force_return=force_return,
+                            return_model_key=True,
+                        )
+
+                        protected_revision = _select_ttm_r3_revision_known_mapping(
+                            base_revision=base_revision,
+                            context_length=context_length,
+                            prediction_length=prediction_length,
+                            freq=freq,
+                            use_lite=use_lite,
+                        )
+
+                        if protected_revision is not None:
+                            ttm_model_revision = protected_revision
+                        else:
+                            ttm_model_revision = _select_ttm_r3_revision_direct(
+                                available_models=available_models,
+                                context_length=context_length,
+                                prediction_length=prediction_length,
+                                prefer_longer_context=prefer_longer_context,
+                                use_lite=use_lite,
+                                force_return=force_return,
+                            )
+                    except Exception as e:
+                        LOGGER.warning(
+                            "Known-mapping path for r3 failed; falling back to direct r3 selection. "
+                            f"Reason: {type(e).__name__}: {e}"
+                        )
+                        ttm_model_revision = _select_ttm_r3_revision_direct(
+                            available_models=available_models,
+                            context_length=context_length,
+                            prediction_length=prediction_length,
+                            prefer_longer_context=prefer_longer_context,
+                            use_lite=use_lite,
+                            force_return=force_return,
+                        )
+                else:
+                    ttm_model_revision = _select_ttm_r3_revision_direct(
+                        available_models=available_models,
+                        context_length=context_length,
+                        prediction_length=prediction_length,
+                        prefer_longer_context=prefer_longer_context,
+                        use_lite=use_lite,
+                        force_return=force_return,
+                    )
+
+                prediction_filter_length = prediction_length
+                model_key = ttm_model_revision
+
+            else:
+                prediction_filter_length = prediction_length
+        else:
+            ttm_model_revision = model_revision
+            prediction_filter_length = prediction_length
+            model_key = model_revision
+
+        if return_model_key:
+            LOGGER.info(f"Would load from {model_path}, revision = {ttm_model_revision}.")
+            return model_key
+
+        LOGGER.info(f"Attempting model load from {model_path}, revision = {ttm_model_revision}.")
+
+        if model_path_type == 0 and not Path(model_path).is_dir():
+            raise ValueError(
+                f"Model path {model_path} is not a valid local path, loading of arbitrary remote models is not permitted."
+            )
+
+        # if (model_path_type == 0 and Path(model_path).is_dir()) or model_path_type != 0:
+        # Load model
+        if "-dec-" in ttm_model_revision and model_path_type in [0, 4]:
+            model = TinyTimeMixerForDecomposedPrediction.from_pretrained(
+                model_path,
+                revision=ttm_model_revision,
+                prediction_filter_length=prediction_filter_length,
+                **kwargs,
+            )
+        else:
+            model = TinyTimeMixerForPrediction.from_pretrained(
+                model_path,
+                revision=ttm_model_revision,
+                prediction_filter_length=prediction_filter_length,
+                **kwargs,
+            )
+
+        LOGGER.info(f"Model loaded successfully from {model_path}, revision = {ttm_model_revision}.")
+        LOGGER.info(
+            f"[TTM] context_length = {model.config.context_length}, prediction_length = {model.config.prediction_length}"
+        )
+    else:
+        raise ValueError("Currently supported values for `model_name` = 'ttm'.")
+
+    return model
+
+
+def _select_ttm_r3_revision_known_mapping(
+    base_revision: str,
+    context_length: int,
+    prediction_length: int,
+    freq: Optional[str] = None,
+    use_lite: bool = False,
+) -> Optional[str]:
+    def _maybe_lite(key: str) -> str:
+        return key.replace("-r3", "-lite-r3") if use_lite else key
+
+    if context_length > 2500:
+        base = "2048-96-r3" if prediction_length <= 96 else "2048-720-r3"
+        return _maybe_lite(base)
+
+    if (
+        base_revision in ["52-16-ft-r2.1", "52-16-ft-l1-r2.1"]
+        or base_revision.startswith("TTM(")
+        or (freq is not None and freq.startswith("A"))
+    ):
+        if context_length <= 512:
+            return _maybe_lite("156-16-dec-52-r3")
+        elif context_length < 756:
+            return _maybe_lite("768-48-dec-512-r3")
+        else:
+            return _maybe_lite("1024-48-dec-512-r3")
+
+    if base_revision in ["90-30-ft-r2.1", "90-30-ft-l1-r2.1"]:
+        if context_length <= 512:
+            return _maybe_lite("512-30-dec-90-r3")
+        elif context_length < 756:
+            return _maybe_lite("768-48-dec-512-r3")
+        else:
+            return _maybe_lite("1024-48-dec-512-r3")
+
+    if base_revision in ["512-48-ft-r2.1", "512-48-ft-l1-r2.1"]:
+        if context_length < 756:
+            return _maybe_lite("768-48-dec-512-r3")
+        else:
+            return _maybe_lite("1024-48-dec-512-r3")
+
+    if base_revision == "1536-96-r2":
+        return _maybe_lite("2048-96-r3")
+
+    if base_revision == "1536-720-r2":
+        return _maybe_lite("2048-720-r3")
+
+    return None
+    # raise ValueError(f"Invalid base revision for r3 mapping: {base_revision}")
+
+
+def _select_ttm_r3_revision_direct(
+    available_models: dict,
+    context_length: int,
+    prediction_length: int,
+    prefer_longer_context: bool = True,
+    use_lite: bool = False,
+    force_return: Optional[str] = None,
+) -> str:
+    def _is_lite_key(key: str) -> bool:
+        return "-lite-r3" in key
+
+    r3_models = {k: v for k, v in available_models.items() if str(v.get("release", "")).startswith("r3")}
+
+    if use_lite:
+        r3_models = {k: v for k, v in r3_models.items() if _is_lite_key(k)}
+    else:
+        r3_models = {k: v for k, v in r3_models.items() if not _is_lite_key(k)}
+
+    if len(r3_models) == 0:
+        raise ValueError("No r3 models found for the requested lite/non-lite mode.")
+
+    candidates = []
+    for key, meta in r3_models.items():
+        candidates.append(
+            {
+                "key": key,
+                "context_length": int(meta["context_length"]),
+                "prediction_length": int(meta["prediction_length"]),
+                "is_decomposed": "-dec-" in key,
+            }
+        )
+
+    all_candidates = candidates
+
+    # Normal path:
+    # Use only models whose native context_length fits within the provided input context.
+    feasible_context = [m for m in all_candidates if m["context_length"] <= context_length]
+
+    # Models that satisfy both normal constraints.
+    feasible_context_and_horizon = [m for m in feasible_context if m["prediction_length"] >= prediction_length]
+
+    if len(feasible_context_and_horizon) > 0:
+        candidates = feasible_context_and_horizon
+
+    elif force_return == ForceReturn.ZEROPAD.value:
+        # Zero-pad path:
+        # Relax context constraint, but DO NOT relax forecast horizon.
+        # This allows CL=123, FL=45 to select 180-60-dec-180-r3,
+        # because context can be padded from 123 -> 180 and FL 60 >= 45.
+        candidates = [m for m in all_candidates if m["prediction_length"] >= prediction_length]
+
+        if len(candidates) == 0:
+            raise ValueError(
+                "Could not find an r3 TTM with `prediction_length` higher than or equal "
+                f"to requested prediction_length = {prediction_length}, even with zeropad."
+            )
+
+        LOGGER.warning(
+            "Could not find an r3 TTM satisfying both "
+            f"context_length <= {context_length} and "
+            f"prediction_length >= {prediction_length}. "
+            "Returning a longer-context model because force_return='zeropad'. "
+            "Zero-padding must be done outside."
+        )
+
+    elif force_return == ForceReturn.ROLLING.value:
+        # Rolling path:
+        # Keep context-safe models, but allow shorter forecast horizon.
+        if len(feasible_context) == 0:
+            raise ValueError(
+                "Could not find an r3 TTM with `context_length` shorter than or equal "
+                f"to requested context_length = {context_length}. "
+                "Set `force_return=zeropad` to get a TTM with longer context."
+            )
+
+        candidates = feasible_context
+
+        LOGGER.warning(
+            "Could not find an r3 TTM satisfying both "
+            f"context_length <= {context_length} and "
+            f"prediction_length >= {prediction_length}. "
+            "Returning a shorter-horizon model because force_return='rolling'. "
+            "Rolling must be done outside."
+        )
+
+    else:
+        raise ValueError(
+            "Could not find an r3 TTM satisfying both "
+            f"context_length <= {context_length} and "
+            f"prediction_length >= {prediction_length}. "
+            "Set `force_return=zeropad` to get a longer-context model, or "
+            "set `force_return=rolling` to get a shorter-horizon model. "
+            "Rolling must be done outside."
+        )
+
+    def _score(m):
+        c = m["context_length"]
+        p = m["prediction_length"]
+        is_dec = m["is_decomposed"]
+
+        horizon_shortfall = max(0, prediction_length - p)
+        exact_horizon_penalty = 0 if p == prediction_length else 1
+        horizon_over = max(0, p - prediction_length)
+        context_over = max(0, c - context_length)
+
+        if prefer_longer_context:
+            context_fit_penalty = max(0, context_length - c)
+            context_tiebreak = -c
+        else:
+            context_fit_penalty = abs(context_length - c)
+            context_tiebreak = c
+
+        decomposed_penalty = 0 if (prediction_length <= 336 and is_dec) else 1
+
+        return (
+            horizon_shortfall,
+            exact_horizon_penalty,
+            horizon_over,
+            context_over,
+            context_fit_penalty,
+            decomposed_penalty,
+            context_tiebreak,
+            p,
+        )
+
+    best = min(candidates, key=_score)
+    return best["key"]

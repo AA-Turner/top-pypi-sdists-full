@@ -1,0 +1,394 @@
+"""
+ImageAgent - A specialized agent class for generating images using AI models.
+This class extends the base Agent class to provide specific functionality for image generation,
+including support for different image models, sizes, and quality settings.
+"""
+import asyncio
+from typing import Optional, Any, Dict, Union, List
+from ..agent.agent import Agent
+from pydantic import BaseModel, Field
+import logging
+from praisonaiagents._logging import get_logger
+import warnings
+# Filter out Pydantic warning about fields
+warnings.filterwarnings("ignore", "Valid config keys have changed in V2", UserWarning)
+class ImageGenerationConfig(BaseModel):
+    """Configuration for image generation settings."""
+    style: Optional[str] = Field(default=None, description="Style of the generated image (only sent when set)")
+    response_format: str = Field(default="url", description="Format of the response (url or b64_json)")
+    timeout: int = Field(default=600, description="Timeout in seconds for the API call")
+    api_base: Optional[str] = Field(default=None, description="Optional API base URL")
+    api_key: Optional[str] = Field(default=None, description="Optional API key")
+    api_version: Optional[str] = Field(default=None, description="Optional API version (required for Azure dall-e-3)")
+class ImageAgent(Agent):
+    """
+    A specialized agent for generating images using AI models.
+    
+    This agent extends the base Agent class with specific functionality for image generation,
+    including support for different models, sizes, and quality settings.
+    """
+    
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        role: Optional[str] = None,
+        goal: Optional[str] = None,
+        backstory: Optional[str] = None,
+        instructions: Optional[str] = None,
+        llm: Optional[Union[str, Any]] = None,
+        style: Optional[str] = None,
+        response_format: str = "url",
+        timeout: int = 600,
+        api_base: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_version: Optional[str] = None,
+        verbose: Union[bool, int] = True,
+        **kwargs
+    ):
+        """Initialize ImageAgent with parameters."""
+        # Set default role and goal if not provided
+        role = role or "Image Generation Assistant"
+        goal = goal or "Generate high-quality images based on text descriptions"
+        backstory = backstory or "I am an AI assistant specialized in generating images from textual descriptions"
+        # Initialize the base agent
+        super().__init__(
+            name=name,
+            role=role,
+            goal=goal,
+            backstory=backstory,
+            instructions=instructions,
+            llm=llm,
+            **kwargs
+        )
+        # Store image generation configuration
+        self.image_config = ImageGenerationConfig(
+            style=style,
+            response_format=response_format,
+            timeout=timeout,
+            api_base=api_base,
+            api_key=api_key,
+            api_version=api_version
+        )
+        
+        # Only an explicit llm=/model= names an image model; the base Agent's chat default must not leak into image calls
+        self._image_llm_set = llm is not None or kwargs.get("model") is not None
+
+        # Lazy load litellm
+        self._litellm = None
+        # Configure logging based on verbose level
+        self._configure_logging(verbose)
+    def _configure_logging(self, verbose: Union[bool, int]) -> None:
+        """Configure logging levels based on verbose setting."""
+        # Only suppress logs if not in debug mode
+        if not isinstance(verbose, bool) and verbose >= 10:
+            # Enable detailed debug logging
+            get_logger("asyncio").setLevel(logging.DEBUG)
+            get_logger("selector_events").setLevel(logging.DEBUG)
+            get_logger("litellm.utils").setLevel(logging.DEBUG)
+            get_logger("litellm.main").setLevel(logging.DEBUG)
+            if hasattr(self, 'litellm'):
+                self.litellm.suppress_debug_messages = False
+                self.litellm.set_verbose = True
+            # Don't filter warnings in debug mode
+            warnings.resetwarnings()
+        else:
+            # Suppress debug logging for normal operation
+            get_logger("asyncio").setLevel(logging.WARNING)
+            get_logger("selector_events").setLevel(logging.WARNING)
+            get_logger("litellm.utils").setLevel(logging.WARNING)
+            get_logger("litellm.main").setLevel(logging.WARNING)
+            get_logger("httpx").setLevel(logging.WARNING)
+            get_logger("httpcore").setLevel(logging.WARNING)
+            if hasattr(self, 'litellm'):
+                self.litellm.suppress_debug_messages = True
+                self.litellm._logging._disable_debugging()
+            # Suppress all warnings including Pydantic's
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            warnings.filterwarnings("ignore", category=UserWarning)
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+    @property
+    def litellm(self):
+        """Lazy load litellm module when needed."""
+        if self._litellm is None:
+            try:
+                import litellm
+                from litellm import image_generation
+                
+                # Configure litellm to disable success handler logs
+                litellm.success_callback = []
+                litellm._logging._disable_debugging()
+                
+                self._litellm = image_generation
+                # Configure logging after litellm is loaded
+                self._configure_logging(self.verbose)
+            except ImportError:
+                raise ImportError(
+                    "litellm is required for image generation. "
+                    "Please install it with: pip install litellm"
+                )
+        return self._litellm
+
+    def _image_model(self, default: str) -> str:
+        """Return the explicit ``llm=`` model name, else an image-capable ``default``."""
+        if not self._image_llm_set:
+            return default
+        model_info = self.llm_model
+        return model_info.model if hasattr(model_info, 'model') else str(model_info)
+
+    def generate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Generate an image based on the provided prompt."""
+        # Merge default config with any provided kwargs
+        config = self.image_config.dict(exclude_none=True)
+        config.update(kwargs)
+        
+        model_name = self._image_model("dall-e-3")
+        
+        # Use the model name in config
+        config['model'] = model_name
+        # Filter parameters based on the provider to avoid unsupported parameter errors
+        custom_llm_provider = None
+        try:
+            import litellm
+            _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model_name)
+        except (ImportError, AttributeError, ValueError, TypeError, Exception) as e:
+            # Log the specific error for debugging but continue with string-based fallback
+            # Include generic Exception to catch provider-specific errors like BadRequestError
+            logging.debug(f"Provider detection failed for model '{model_name}': {e}")
+        
+        if custom_llm_provider == "vertex_ai":
+            # Vertex AI only supports 'n' and 'size' parameters for image generation
+            supported_params = ['n', 'size', 'model']
+            config = {k: v for k, v in config.items() if k in supported_params}
+        elif custom_llm_provider == "gemini" or (custom_llm_provider is None and 'gemini' in model_name.lower()):
+            # Gemini provider doesn't support response_format parameter
+            # Apply this filter if provider is explicitly 'gemini' or as fallback for gemini models
+            config.pop('response_format', None)
+        elif custom_llm_provider == "openai":
+            if config.get('response_format') == "url":
+                # "url" is OpenAI's default for DALL-E and is rejected by models that
+                # don't accept response_format (e.g. gpt-image), so don't send it
+                config.pop('response_format', None)
+            if 'dall-e-3' not in model_name.lower():
+                # Only dall-e-3 accepts 'style'; other OpenAI image models reject it
+                config.pop('style', None)
+        from rich.progress import Progress, SpinnerColumn, TextColumn
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True
+        ) as progress:
+            try:
+                # Add a task for image generation
+                task = progress.add_task(f"[cyan]Generating image with {model_name}...", total=None)
+                
+                # Use litellm's image generation with parameter dropping enabled as safety net
+                response = self.litellm(
+                    prompt=prompt,
+                    drop_params=True,
+                    **config
+                )
+                
+                # Mark task as complete
+                progress.update(task, completed=True)
+                return response
+            except Exception as e:
+                error_msg = f"Error generating image: {str(e)}"
+                if self.verbose:
+                    self.console.print(f"[red]{error_msg}[/red]")
+                logging.error(error_msg)
+                raise
+    async def agenerate_image(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Offload the synchronous generation path to keep the event loop responsive."""
+        return await asyncio.to_thread(self.generate_image, prompt, **kwargs)
+    
+    # Aliases for consistency with other agents
+    def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Alias for generate_image() - for consistency with VideoAgent/AudioAgent."""
+        return self.generate_image(prompt, **kwargs)
+    
+    async def agenerate(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Async alias for generate_image()."""
+        return await self.agenerate_image(prompt, **kwargs)
+
+    def chat(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Generate an image from the prompt."""
+        try:
+            result = self.generate_image(prompt, **kwargs)
+            if self.verbose:
+                self.console.print(f"[green]Successfully generated image from prompt[/green]")
+            return result
+        except Exception as e:
+            error_msg = f"Failed to generate image: {str(e)}"
+            if self.verbose:
+                self.console.print(f"[red]{error_msg}[/red]")
+            return {"error": str(e)}
+    async def achat(
+        self,
+        prompt: str,
+        temperature: float = 0.2,
+        tools: Optional[List[Any]] = None,
+        output_json: Optional[str] = None,
+        output_pydantic: Optional[Any] = None,
+        reasoning_steps: bool = False,
+        **kwargs
+    ) -> Union[str, Dict[str, Any]]:
+        """Async chat method for image generation."""
+        try:
+            image_result = await self.agenerate_image(prompt, **kwargs)
+            if self.verbose:
+                self.console.print(f"[green]Successfully generated image from prompt[/green]")
+            return image_result
+        except Exception as e:
+            error_msg = f"Failed to generate image: {str(e)}"
+            if self.verbose:
+                self.console.print(f"[red]{error_msg}[/red]")
+            return {"error": str(e)}
+
+    def edit(
+        self,
+        image: str,
+        prompt: str,
+        mask: Optional[str] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Edit an existing image with a prompt.
+        
+        Args:
+            image: Path or URL to the image to edit
+            prompt: Description of the desired edits
+            mask: Optional mask image (transparent areas will be edited)
+            n: Number of images to generate
+            size: Output image size
+            **kwargs: Additional provider-specific parameters
+            
+        Returns:
+            ImageResponse with edited image(s)
+            
+        Example:
+            ```python
+            agent = ImageAgent(llm="openai/dall-e-2")
+            result = agent.edit("photo.png", "Add a sunset in the background")
+            ```
+        """
+        try:
+            import litellm
+            litellm.telemetry = False
+            
+            model_name = self._image_model("dall-e-2")
+            
+            config = {
+                "model": model_name,
+                "image": image,
+                "prompt": prompt,
+                "n": n,
+            }
+            if mask:
+                config["mask"] = mask
+            if size:
+                config["size"] = size
+            if self.image_config.api_key:
+                config["api_key"] = self.image_config.api_key
+            if self.image_config.api_base:
+                config["api_base"] = self.image_config.api_base
+            
+            config.update(kwargs)
+            
+            if self.verbose:
+                self.console.print(f"[cyan]Editing image with {model_name}...[/cyan]")
+            
+            response = litellm.image_edit(**config)
+            
+            if self.verbose:
+                self.console.print(f"[green]✓ Image edited successfully[/green]")
+            
+            return response
+        except Exception as e:
+            error_msg = f"Error editing image: {str(e)}"
+            if self.verbose:
+                self.console.print(f"[red]{error_msg}[/red]")
+            raise
+
+    async def aedit(
+        self,
+        image: str,
+        prompt: str,
+        mask: Optional[str] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Offload the synchronous editing path to keep the event loop responsive."""
+        return await asyncio.to_thread(self.edit, image, prompt, mask, n, size, **kwargs)
+
+    def variation(
+        self,
+        image: str,
+        n: int = 1,
+        size: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Generate variations of an existing image.
+        
+        Args:
+            image: Path or URL to the source image
+            n: Number of variations to generate
+            size: Output image size
+            **kwargs: Additional provider-specific parameters
+            
+        Returns:
+            ImageResponse with image variations
+            
+        Example:
+            ```python
+            agent = ImageAgent(llm="openai/dall-e-2")
+            result = agent.variation("original.png", n=3)
+            ```
+        """
+        try:
+            import litellm
+            litellm.telemetry = False
+            
+            model_name = self._image_model("dall-e-2")
+            
+            config = {
+                "model": model_name,
+                "image": image,
+                "n": n,
+            }
+            if size:
+                config["size"] = size
+            if self.image_config.api_key:
+                config["api_key"] = self.image_config.api_key
+            if self.image_config.api_base:
+                config["api_base"] = self.image_config.api_base
+            
+            config.update(kwargs)
+            
+            if self.verbose:
+                self.console.print(f"[cyan]Generating variations with {model_name}...[/cyan]")
+            
+            response = litellm.image_variation(**config)
+            
+            if self.verbose:
+                self.console.print(f"[green]✓ Variations generated successfully[/green]")
+            
+            return response
+        except Exception as e:
+            error_msg = f"Error generating variations: {str(e)}"
+            if self.verbose:
+                self.console.print(f"[red]{error_msg}[/red]")
+            raise
+
+    async def avariation(
+        self,
+        image: str,
+        n: int = 1,
+        size: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Offload the synchronous variation path to keep the event loop responsive."""
+        return await asyncio.to_thread(self.variation, image, n, size, **kwargs)

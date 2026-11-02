@@ -1,0 +1,31 @@
+name: test
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  # required
+  - cython
+  - pip
+  - setuptools>=77
+  - geopandas
+  - protobuf>=6.33.5
+  - python-rapidjson
+  - tqdm>=4.66
+  - pyyaml
+  # optional
+  - networkx
+  - pandana
+  - pandarm
+  - python-igraph
+  - pyarrow
+  # testing
+  - osmnx
+  - pyosmium
+  - black
+  - codecov
+  - pytest
+  - pytest-cov
+  - requests
+

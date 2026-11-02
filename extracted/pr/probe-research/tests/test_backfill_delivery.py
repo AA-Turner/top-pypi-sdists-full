@@ -26,7 +26,6 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 @pytest.fixture
@@ -154,10 +153,17 @@ def test_crash_after_intent_before_operation_preserves_snapshot(queue, tmp_path,
         return real(path, *args, **kwargs)
 
     with monkeypatch.context() as m:
-        m.setattr(jm.journal, "write_text_atomic", crash_on_op)
+        m.setattr(jm.append, "write_text_atomic", crash_on_op)
+        m.setattr(jm.failures.discards, "write_text_atomic", crash_on_op)
+        m.setattr(jm.failures.failures, "write_text_atomic", crash_on_op)
+        m.setattr(jm.failures.pause, "write_text_atomic", crash_on_op)
+        m.setattr(jm.producers, "write_text_atomic", crash_on_op)
+        m.setattr(jm.receipts.receipts, "write_text_atomic", crash_on_op)
+        m.setattr(jm.status_file, "write_text_atomic", crash_on_op)
+        m.setattr(jm.waiting_room, "write_text_atomic", crash_on_op)
         m.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", crash_on_op)
         m.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", crash_on_op)
-        m.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", crash_on_op)
+        m.setattr("probe.sdk.delivery.outbox.drain.settle.write_text_atomic", crash_on_op)
         m.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", crash_on_op)
         with pytest.raises(Crash):
             enqueue(queue, tmp_path)
@@ -250,7 +256,8 @@ def test_failed_staging_never_queues_future_source_bytes(queue, tmp_path, monkey
             real(src, dst)
             Path(src).write_bytes(b"concurrent mutation")
 
-        monkeypatch.setattr(jm.journal, "snapshot_file", mutate)
+        monkeypatch.setattr(jm.receipts.receipts, "snapshot_file", mutate)
+        monkeypatch.setattr(jm.uploads, "snapshot_file", mutate)
     kwargs = {"expected_content_hash": "0" * 64} if scenario == "hash" else {}
     with pytest.raises((ValueError, jm.OutboxFull)):
         enqueue(queue, tmp_path, **kwargs)
@@ -274,7 +281,6 @@ def test_old_worker_cannot_enumerate_receipt_namespace_and_new_status_counts_it(
 
 def test_pending_ceiling_includes_both_namespaces(queue, tmp_path, monkeypatch):
     monkeypatch.setattr(jm.headroom, "MAX_PENDING_OPS", 1)
-    monkeypatch.setattr(jm.journal, "MAX_PENDING_OPS", 1)
     old = Journal(queue.dir.parent)
     old.append_http("POST", "/v1/runs", {"name": "live"})
     with pytest.raises(jm.OutboxFull):
@@ -478,7 +484,6 @@ def test_admitted_intent_recovery_can_drain_below_new_enqueue_disk_floor(queue, 
     queue.pending()[0][0].unlink()
     (tmp_path / "source.py").unlink()
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 1 << 100)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 1 << 100)
     report = drain(Journal(queue.dir.parent), client_factory=lambda _: Store())
     assert report.delivered == 1
     assert queue.receipt("scope:file:v1")["op_id"] == queued["op_id"]

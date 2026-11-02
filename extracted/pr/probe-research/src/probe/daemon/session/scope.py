@@ -42,12 +42,12 @@ def _artifact_move(parsed: precheck.Parsed) -> str | None:
     return _param(parsed, "target")
 
 
-def _tagging(param: str) -> Callable[[precheck.Parsed], str | None]:
+def _get_tagging(parameter: str) -> Callable[[precheck.Parsed], str | None]:
     """`project|experiment tag X` with nothing to add, remove or set lists the tags."""
     def ref(parsed: precheck.Parsed) -> str | None:
         if not any(precheck._strings(parsed.params.get(k)) for k in ("add", "remove", "replace")):
             return None
-        return _param(parsed, param)
+        return _param(parsed, parameter)
     return ref
 
 
@@ -74,7 +74,7 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
     "project create": ("slug",),
     "project set": ("project_id",),
     "project patch": ("project_id",),
-    "project tag": _tagging("project"),
+    "project tag": _get_tagging("project"),
     "project move": ("project_id",),
     "project reference add": ("project_id",),
     "project code attach": ("project_id",),
@@ -84,7 +84,7 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
     # places it either way.
     "experiment create": ("project", "slug"),
     "experiment set": ("experiment_id",),
-    "experiment tag": _tagging("experiment_id"),
+    "experiment tag": _get_tagging("experiment_id"),
     "experiment freeze": ("experiment_id",),
     "experiment move": ("to",),
     "experiment fork": ("source",),
@@ -152,7 +152,7 @@ def scope_ref(parsed: precheck.Parsed) -> str | None:
     return None
 
 
-def _live_writer(deps: Any) -> bool:
+def _is_live_writer(deps: Any) -> bool:
     """Not the bench's recorded Probe, the audit or the reader."""
     return deps.replay is None and not deps.audit and not deps.reader
 
@@ -164,14 +164,14 @@ def _stamps(deps: Any) -> bool:
     installed): nobody else reads the label."""
     from probe.sdk import session_marker
 
-    return (_live_writer(deps) and bool(deps.probe_env.get("PROBE_TOKEN"))
+    return (_is_live_writer(deps) and bool(deps.probe_env.get("PROBE_TOKEN"))
             and session_marker.marker_path(deps.session_id).is_file())
 
 
 def forget(deps: Any, parsed: precheck.Parsed) -> None:
     """After a `project delete` RAN: clear the label when it names the deleted
     project. Synchronous (a file), so it fits the doors that may not await."""
-    if not _live_writer(deps):
+    if not _is_live_writer(deps):
         return
     _clear_deleted(deps.session_id, parsed)
 

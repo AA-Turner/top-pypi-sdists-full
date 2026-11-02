@@ -1,0 +1,243 @@
+import argparse
+import logging
+import os
+import sys
+from pathlib import Path
+
+from rock.cli.command.command import Command
+from rock.sdk.model.client import ModelClient
+from rock.sdk.model.service import ModelService
+
+logger = logging.getLogger(__name__)
+
+
+class ModelServiceCommand(Command):
+    """
+    Command for managing the model service.
+
+    This command provides a complete set of subcommands to manage the model service,
+    which can run in 'local' mode (using a sandboxed local LLM) or 'proxy' mode
+    (forwarding requests to an external endpoint). The service acts as an API server
+    that handles LLM requests and agent process monitoring.
+
+    Subcommands:
+        start   - Start the model service (local or proxy mode)
+        stop    - Stop the running model service
+        watch-agent - Monitor an agent process and send SESSION_END on exit
+        anti-call-llm - Process LLM responses to prevent recursive calls
+
+    Common Usage Examples:
+
+        # Start local model service with default settings (127.0.0.1:8080)
+        rock model-service start --type local
+
+        # Start with custom host and port
+        rock model-service start --type local --host 0.0.0.0 --port 9000
+
+        # Start with a configuration file
+        rock model-service start --type local --config-file config.yaml
+
+        # Start proxy mode forwarding to external endpoint
+        rock model-service start --type proxy --proxy-base-url https://api.openai.com/v1
+
+        # Start proxy with custom retry behavior
+        rock model-service start --type proxy \\
+            --proxy-base-url https://your-endpoint.com/v1 \\
+            --retryable-status-codes 429,500,502 \\
+            --request-timeout 30
+
+        # Monitor an agent process (sends SESSION_END when process exits)
+        rock model-service watch-agent --pid 12345 --host 127.0.0.1 --port 8080
+
+        # Stop the running service
+        rock model-service stop
+
+    Note:
+        - The local mode requires a sandboxed environment with model files
+        - PID file is stored at: data/cli/model/pid.txt
+        - Service health check available at: http://host:port/health
+    """
+
+    name = "model-service"
+
+    DEFAULT_MODEL_SERVICE_DIR = "data/cli/model"
+    DEFAULT_MODEL_SERVICE_PID_FILE = DEFAULT_MODEL_SERVICE_DIR + "/pid.txt"
+
+    async def arun(self, args: argparse.Namespace):
+        if not Path(self.DEFAULT_MODEL_SERVICE_DIR).exists():
+            Path(self.DEFAULT_MODEL_SERVICE_DIR).mkdir(parents=True, exist_ok=True)
+
+        sub_command = args.model_service_command
+        if "start" == sub_command:
+            if await self._model_service_exist():
+                logger.error("model service already exist, please run 'rock model-service stop' first")
+                sys.exit(1)
+                return
+            logger.info("start model service")
+            model_service = ModelService()
+            pid = await model_service.start(
+                model_service_type=args.type,
+                config_file=args.config_file,
+                host=args.host,
+                port=args.port,
+                proxy_base_url=args.proxy_base_url,
+                retryable_status_codes=args.retryable_status_codes,
+                request_timeout=args.request_timeout,
+                recording_file=args.recording_file,
+                replay_file=args.replay_file,
+            )
+            logger.info(f"model service started, pid: {pid}")
+            with open(self.DEFAULT_MODEL_SERVICE_PID_FILE, "w") as f:
+                f.write(pid)
+            return
+        if "watch-agent" == sub_command:
+            agent_pid = args.pid
+            logger.info(f"start to watch agent process, pid: {agent_pid}")
+            model_service = ModelService()
+            await model_service.start_watch_agent(agent_pid, host=args.host, port=args.port)
+            return
+        if "stop" == sub_command:
+            if not await self._model_service_exist():
+                logger.info("model service not exist, skip")
+                return
+            logger.info("start to stop model service")
+            with open(self.DEFAULT_MODEL_SERVICE_PID_FILE) as f:
+                pid = f.read()
+                model_service = ModelService()
+                await model_service.stop(pid)
+            Path(self.DEFAULT_MODEL_SERVICE_PID_FILE).unlink()
+            logger.info("model service stopped")
+            return
+        if "anti-call-llm" == sub_command:
+            logger.debug("start to anti call llm")
+            response = args.response
+            if args.response_file:
+                with open(args.response_file) as f:
+                    response = f.read()
+                os.unlink(args.response_file)
+            model_client = ModelClient()
+            next_request = await model_client.anti_call_llm(index=args.index, last_response=response)
+            # necessary: print next_request to stdout, and do NOT print anything else
+            print(next_request)
+
+    async def _model_service_exist(self) -> bool:
+        exist = Path(self.DEFAULT_MODEL_SERVICE_PID_FILE).exists()
+        if exist:
+            with open(self.DEFAULT_MODEL_SERVICE_PID_FILE) as f:
+                pid = f.read()
+                logger.info(f"model service exist, pid: {pid}.")
+        return exist
+
+    @staticmethod
+    async def add_parser_to(subparsers: argparse._SubParsersAction):
+        model_service_parser = subparsers.add_parser(
+            "model-service",
+            description="model-service command",
+        )
+        model_service_subparsers = model_service_parser.add_subparsers(
+            dest="model_service_command",
+        )
+
+        # rock model-service start
+        start_parser = model_service_subparsers.add_parser(
+            "start",
+            help="start model service",
+        )
+        start_parser.add_argument(
+            "--type",
+            type=str,
+            choices=["local", "proxy"],
+            default="local",
+            help="Type of model service (local/proxy)",
+        )
+        start_parser.add_argument(
+            "--config-file",
+            type=str,
+            default=None,
+            help="Path to the configuration YAML file",
+        )
+        start_parser.add_argument(
+            "--host",
+            type=str,
+            default=None,
+            help="Server host address. Overrides config file.",
+        )
+        start_parser.add_argument(
+            "--port",
+            type=int,
+            default=None,
+            help="Server port. Overrides config file.",
+        )
+        start_parser.add_argument(
+            "--proxy-base-url",
+            type=str,
+            default=None,
+            help="Direct proxy base URL (e.g., https://your-endpoint.com/v1). Takes precedence over config file.",
+        )
+        start_parser.add_argument(
+            "--retryable-status-codes",
+            type=str,
+            default=None,
+            help="Retryable status codes, comma-separated (e.g., '429,500,502'). Overrides config file.",
+        )
+        start_parser.add_argument(
+            "--request-timeout",
+            type=int,
+            default=None,
+            help="Request timeout in seconds. Overrides config file.",
+        )
+        start_parser.add_argument(
+            "--recording-file",
+            type=str,
+            default=None,
+            help="Proxy mode only: where to write the trajectory JSONL. Defaults to LOG_DIR/LLMTraj.jsonl.",
+        )
+        start_parser.add_argument(
+            "--replay-file",
+            type=str,
+            default=None,
+            help="Proxy mode only: replay from a recorded .jsonl traj file. Mutually exclusive with --recording-file.",
+        )
+
+        watch_agent_parser = model_service_subparsers.add_parser(
+            "watch-agent",
+            help="watch agent status, if stopped, send SESSION_END",
+        )
+        watch_agent_parser.add_argument(
+            "--pid",
+            required=True,
+            type=int,
+            help="pid of agent process to watch",
+        )
+        watch_agent_parser.add_argument(
+            "--host",
+            type=str,
+            default="127.0.0.1",
+            help="Server host",
+        )
+        watch_agent_parser.add_argument(
+            "--port",
+            type=int,
+            default=8080,
+            help="Server port",
+        )
+
+        # rock model-service stop
+        model_service_subparsers.add_parser(
+            "stop",
+            help="stop model service",
+        )
+
+        # rock model-service anti-call-llm --index N [--response RESPONSE]
+        anti_call_llm_parser = model_service_subparsers.add_parser(
+            "anti-call-llm",
+            help="anti call llm, input is response of llm, output is the next request to llm",
+        )
+        anti_call_llm_parser.add_argument(
+            "--index", required=True, type=int, help="index of last llm call, start from 0"
+        )
+        response_group = anti_call_llm_parser.add_mutually_exclusive_group()
+        response_group.add_argument("--response", required=False, help="response of last llm call")
+        response_group.add_argument(
+            "--response-file", required=False, help="path to file containing response of last llm call"
+        )

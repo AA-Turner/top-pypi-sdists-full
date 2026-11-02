@@ -162,8 +162,7 @@
   #undef CYTHON_OPAQUE_OBJECTS
   #define CYTHON_OPAQUE_OBJECTS 0
   #elif !defined(CYTHON_OPAQUE_OBJECTS)
-  // From 3.15 it starts being needed for freethreading compatibility
-  #define CYTHON_OPAQUE_OBJECTS (__PYX_LIMITED_VERSION_HEX >= 0x030F0000)
+  #define CYTHON_OPAQUE_OBJECTS 0
   #endif
 
 #elif defined(GRAALVM_PYTHON)
@@ -257,7 +256,7 @@
   #undef CYTHON_USE_TYPE_SLOTS
   #define CYTHON_USE_TYPE_SLOTS 1
   #ifndef CYTHON_USE_TYPE_SPECS
-    #define CYTHON_USE_TYPE_SPECS 0
+    #define CYTHON_USE_TYPE_SPECS 1
   #endif
   #undef CYTHON_USE_PYTYPE_LOOKUP
   #define CYTHON_USE_PYTYPE_LOOKUP 0
@@ -902,7 +901,7 @@ static CYTHON_INLINE int __Pyx__IsSameCFunction(PyObject *func, void (*cfunc)(vo
   #define METH_METHOD 0x200
 #endif
 
-#if CYTHON_COMPILING_IN_PYPY && !defined(PyObject_Malloc)
+#if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX < 0x030C0000 && !defined(PyObject_Malloc)
   #define PyObject_Malloc(s)   PyMem_Malloc(s)
   #define PyObject_Free(p)     PyMem_Free(p)
   #define PyObject_Realloc(p)  PyMem_Realloc(p)
@@ -1121,13 +1120,13 @@ static CYTHON_INLINE PyObject * __Pyx_PyDict_GetItemStrWithError(PyObject *dict,
   #if !defined(PyUnicode_DecodeUnicodeEscape)
     #define PyUnicode_DecodeUnicodeEscape(s, size, errors)  PyUnicode_Decode(s, size, "unicode_escape", errors)
   #endif
-  #if !defined(PyUnicode_Contains)
+  #if PY_VERSION_HEX < 0x030C0000 && !defined(PyUnicode_Contains)
     #define PyUnicode_Contains(u, s)  PySequence_Contains(u, s)
   #endif
   #if !defined(PyByteArray_Check)
     #define PyByteArray_Check(obj)  PyObject_TypeCheck(obj, &PyByteArray_Type)
   #endif
-  #if !defined(PyObject_Format)
+  #if PY_VERSION_HEX < 0x030C0000 && !defined(PyObject_Format)
     #define PyObject_Format(obj, fmt)  PyObject_CallMethod(obj, "__format__", "O", fmt)
   #endif
 #endif
@@ -1278,7 +1277,7 @@ static CYTHON_INLINE int __Pyx_PyDict_GetItemRef(PyObject *dict, PyObject *key, 
   #define __Pyx_PyUnicode_GET_LENGTH(o) PyUnicode_GetLength(o)
 #endif
 
-#if CYTHON_COMPILING_IN_PYPY && !defined(PyUnicode_InternFromString)
+#if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX < 0x030C0000 && !defined(PyUnicode_InternFromString)
   #define PyUnicode_InternFromString(s) PyUnicode_FromString(s)
 #endif
 
@@ -1478,12 +1477,33 @@ static int __Pyx_init_tpflags_variables(void) {
     // The limited API makes some significant changes to data structures, so we don't
     // want to share the implementations compiled with and without the limited API.
     #if CYTHON_VECTORCALL
-        #define __PYX_VECTORCALL_ABI_SUFFIX  "_vectorcall"
+        #define __PYX_VECTORCALL_ABI_SUFFIX  "vectorcall"
     #else
         #define __PYX_VECTORCALL_ABI_SUFFIX
     #endif
 
-    #define __PYX_LIMITED_ABI_SUFFIX "limited" __PYX_VECTORCALL_ABI_SUFFIX __PYX_AM_SEND_ABI_SUFFIX
+    #if __PYX_LIMITED_VERSION_HEX >= 0x03100000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "16"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030F0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "15"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030E0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "14"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030d0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "13"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030C0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "12"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030B0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "11"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x030A0000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "10"
+    #elif __PYX_LIMITED_VERSION_HEX >= 0x03090000
+        #define __PYX_LIMITED_ABI_V_SUFFIX "9"
+    #else
+        // 8 and below are unsupported anyway
+        #define __PYX_LIMITED_ABI_V_SUFFIX "8"
+    #endif
+
+    #define __PYX_LIMITED_ABI_SUFFIX "limited" __PYX_LIMITED_ABI_V_SUFFIX "_" __PYX_VECTORCALL_ABI_SUFFIX __PYX_AM_SEND_ABI_SUFFIX
 #else
     #define __PYX_LIMITED_ABI_SUFFIX
 #endif
@@ -1643,6 +1663,16 @@ static CYTHON_INLINE int __Pyx_IsAnySubtype2(PyTypeObject *cls, PyTypeObject *a,
 #define __Pyx_truncl truncl
 #endif
 
+#if defined(__cplusplus)
+  // <cmath> in NetBSD undefines the declaration in <math.h>.
+  // See https://github.com/cython/cython/issues/7915
+  #include <cmath>
+  #define __Pyx_isfinite(x)  std::isfinite(x)
+#else
+  #define __Pyx_isfinite(x)  isfinite(x)
+#endif
+
+
 /////////////// ForceInitThreads.proto ///////////////
 //@proto_block: utility_code_proto_before_types
 
@@ -1748,8 +1778,18 @@ static CYTHON_SMALL_CODE PyObject* ${pymodule_create_func_cname}(PyObject *spec,
     if (__Pyx_check_single_interpreter())
         return NULL;
     #endif
-    if (${module_cname})
+    if (${module_cname}) {
+    #if CYTHON_USE_MODULE_STATE
+        // CPython resets md_state of the module that Py_mod_create returns,
+        // so handing back the live module would wipe its state.
+        PyErr_Format(PyExc_ImportError,
+            "Module '%s' has already been imported into this interpreter. Re-importing it is not supported.",
+            def->m_name);
+        return NULL;
+    #else
         return __Pyx_NewRef(${module_cname});
+    #endif
+    }
 
     modname = PyObject_GetAttrString(spec, "name");
     if (unlikely(!modname)) goto bad;
@@ -1852,7 +1892,7 @@ static __Pyx_CachedCodeObjectType *__pyx__find_code_object(struct __Pyx_CodeObje
 
 static __Pyx_CachedCodeObjectType *__pyx_find_code_object(int code_line) {
 #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING && !CYTHON_ATOMICS
-    (void)__pyx__find_code_object;
+    (void)&__pyx__find_code_object;
     return NULL; // Most implementation should have atomics. But otherwise, don't make it thread-safe, just miss.
 #else
     struct __Pyx_CodeObjectCache *code_cache = &CGLOBAL(__pyx_code_cache);
@@ -1921,7 +1961,7 @@ static void __pyx__insert_code_object(struct __Pyx_CodeObjectCache *code_cache, 
 
 static void __pyx_insert_code_object(int code_line, __Pyx_CachedCodeObjectType* code_object) {
 #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING && !CYTHON_ATOMICS
-    (void)__pyx__insert_code_object;
+    (void)&__pyx__insert_code_object;
     return; // Most implementation should have atomics. But otherwise, don't make it thread-safe, just fail.
 #else
     struct __Pyx_CodeObjectCache *code_cache = &CGLOBAL(__pyx_code_cache);
@@ -2437,7 +2477,7 @@ static void __Pyx_FastGilFuncInit(void) {
 
 #endif
 
-///////////////////// PretendToInitialize ////////////////////////
+///////////////////// PretendToInitialize.proto ////////////////////////
 
 #ifdef __cplusplus
 // In C++ a variable must actually be initialized to make returning
@@ -2844,13 +2884,14 @@ typedef struct {
 // is the size of the array.
 
 #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE
-static __pyx_atomic_int_type __Pyx_ModuleStateLookup_read_counter = 0;
+// explicit initialization isn't needed for static globals, and fails on c++11/14.
+static __pyx_atomic_int_type __Pyx_ModuleStateLookup_read_counter /*= 0*/;
 #endif
 
 // A sorted list of (sub)interpreter IDs and the module that was imported into that interpreter.
 // For now look this up via binary search.
 #if CYTHON_MODULE_STATE_LOOKUP_THREAD_SAFE
-static __pyx_atomic_ptr_type __Pyx_ModuleStateLookup_data = 0;
+static __pyx_atomic_ptr_type __Pyx_ModuleStateLookup_data /*= 0*/;
 #else
 static __Pyx_ModuleStateLookupData* __Pyx_ModuleStateLookup_data = NULL;
 #endif

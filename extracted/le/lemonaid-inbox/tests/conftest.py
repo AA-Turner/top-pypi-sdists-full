@@ -1,0 +1,203 @@
+import os
+import tempfile
+import types
+from pathlib import Path
+
+# Set before lemonaid is imported, since its log handler opens the file at import.
+_LAST_RESORT = Path(tempfile.mkdtemp(prefix="lemonaid-tests-"))
+os.environ["LEMONAID_LOG"] = str(_LAST_RESORT / "lemonaid.log")
+
+import pytest  # noqa: E402
+
+from lemonaid.claude import notify, print_mode, session_socket  # noqa: E402
+from lemonaid.codex import processes as codex_processes  # noqa: E402
+from lemonaid.inbox import db, presence  # noqa: E402
+from lemonaid.inbox.tui import app as tui_app  # noqa: E402
+from lemonaid.lemon_watchers import watcher  # noqa: E402
+from lemonaid.messages import service  # noqa: E402
+from lemonaid.watch import restart, scout_start  # noqa: E402
+
+# The per-test fixtures below are monkeypatches, and `monkeypatch.undo()` in a test
+# reverts them all, which once pointed a test's migration at the live database and
+# the real homes. These process-wide defaults are what an undone test falls back to.
+for _name, _path in (
+    ("LEMONAID_DB", "lemonaid.db"),
+    ("LEMONAID_CONFIG", "config.toml"),
+    ("LEMONAID_STATE_DIR", "state"),
+    ("LEMONAID_BRIEFS_DIR", "briefs"),
+    ("LEMONAID_LEMONS_DIR", "lemons"),
+    ("LEMONAID_LEGACY_BRIEFS_DIR", "brief-lemons"),
+    ("LEMONAID_CLAUDE_SKILLS_DIR", "claude/skills"),
+    ("LEMONAID_CODEX_SKILLS_DIR", "codex/skills"),
+):
+    os.environ[_name] = str(_LAST_RESORT / _path)
+os.environ["TMUX"] = "/nonexistent/lemonaid-tests,0,0"
+
+
+@pytest.fixture(autouse=True)
+def _not_a_print_session(monkeypatch):
+    """Hooks under test must register whatever `claude -p` is running the suite."""
+    monkeypatch.setattr(
+        notify,
+        "print_mode",
+        types.SimpleNamespace(is_print_session=lambda: False, PrintSession=print_mode.PrintSession),
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _private_tmux_directory():
+    # kill-server leaves its socket behind. Keep named test servers out of the
+    # user's socket directory, with a short path for Unix socket length limits.
+    previous = os.environ.get("TMUX_TMPDIR")
+    with tempfile.TemporaryDirectory(prefix="lma-tmux-", dir="/tmp") as directory:
+        os.environ["TMUX_TMPDIR"] = directory
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop("TMUX_TMPDIR", None)
+            else:
+                os.environ["TMUX_TMPDIR"] = previous
+
+
+@pytest.fixture(autouse=True)
+def _no_real_tmux(monkeypatch):
+    """Point every un-stubbed `tmux` call at a socket that does not exist.
+
+    Setters in tmux/scratch.py mirror state into tmux options, so a test that
+    only meant to exercise a file write would otherwise set options on the
+    developer's own server. Tests that want a server start their own and
+    override this.
+    """
+    monkeypatch.setenv("TMUX", "/nonexistent/lemonaid-tests,0,0")
+
+
+@pytest.fixture(autouse=True)
+def _no_live_codex_threads(monkeypatch):
+    monkeypatch.setattr(codex_processes, "thread_ttys", lambda: None)
+    monkeypatch.setattr(codex_processes, "open_threads", lambda max_age=0.0: None)
+
+
+class _NoLoopWatchdog:
+    def __init__(self, threshold: float) -> None: ...
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+    def worst(self, now: float) -> float:
+        return 0.0
+
+
+@pytest.fixture(autouse=True)
+def _no_loop_watchdog(monkeypatch):
+    """The watchdog's thread walks the loop thread's frames, which segfaulted CPython 3.11 under load.
+
+    tests/inbox/tui/test_loop_watchdog.py builds the real `Watchdog` itself.
+    """
+    monkeypatch.setattr(tui_app, "loop_watchdog", types.SimpleNamespace(Watchdog=_NoLoopWatchdog))
+
+
+@pytest.fixture(autouse=True)
+def _no_presence_marks(monkeypatch):
+    """No card is marked `deaf` or `dead` from the host's processes and waiter locks.
+
+    tests/test_presence.py keeps the real `Probe.marks` from import time.
+    """
+    monkeypatch.setattr(presence.Probe, "marks", lambda self, rows, lemon_ids, now: {})
+
+
+@pytest.fixture(autouse=True)
+def _no_harness_identity(monkeypatch):
+    """`--self` reads these first, and a test run from inside a lemon inherits its own."""
+    for name in ("LEMONAID_CHANNEL", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "TMUX_PANE"):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _own_database(monkeypatch, tmp_path):
+    """Every test gets an empty inbox of its own.
+
+    Constructing a LemonaidApp starts its watcher, and a watcher reading the
+    real inbox archived four live sessions the moment the tmux it could see was
+    a test server with none of their ttys. It also made layout tests depend on
+    whatever happened to be in the inbox at the time.
+    """
+    monkeypatch.setattr(db, "get_db_path", lambda: tmp_path / "lemonaid.db")
+
+
+@pytest.fixture(autouse=True)
+def _own_state_and_config(monkeypatch, tmp_path):
+    """Scratch-pane and back-location state, the config, and briefs stay out of $HOME."""
+    monkeypatch.setenv("LEMONAID_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("LEMONAID_BRIEFS_DIR", str(tmp_path / "briefs"))
+    monkeypatch.delenv("LEMONAID_MESSAGES_DIR", raising=False)
+    monkeypatch.setenv("LEMONAID_CONFIG", str(tmp_path / "config.toml"))
+
+
+@pytest.fixture(autouse=True)
+def _own_skill_dirs(monkeypatch, tmp_path):
+    """`skills install` links into each harness's skills directory, never the real ones."""
+    monkeypatch.setenv("LEMONAID_CLAUDE_SKILLS_DIR", str(tmp_path / "claude" / "skills"))
+    monkeypatch.setenv("LEMONAID_CODEX_SKILLS_DIR", str(tmp_path / "codex" / "skills"))
+
+
+@pytest.fixture(autouse=True)
+def _own_watch_state(monkeypatch, tmp_path_factory):
+    """Doc waiters' locks, reported threads, and watch lists are shared with live waiters.
+
+    Deleting a live waiter's lock breaks its duplicate detection until it restarts, so
+    `$TMPDIR/watch-doc` and the OpenClaw watch lists both move to the test's own
+    directories, outside `tmp_path` so tests that list it see only their own files.
+    """
+    monkeypatch.setenv("TMPDIR", str(tmp_path_factory.mktemp("tmpdir")))
+    monkeypatch.setattr(tempfile, "tempdir", None)
+    monkeypatch.setenv("LEMONAID_WATCH_LISTS_DIR", str(tmp_path_factory.mktemp("watch-lists")))
+
+
+@pytest.fixture(autouse=True)
+def _no_detached_delivery_service(monkeypatch):
+    """A spawned service outlives the test, and its database is the real one.
+
+    The database override above patches a function, which a child process
+    never sees. Tests of starting the service stub `subprocess.Popen` instead.
+    """
+    monkeypatch.setattr(service, "ensure_running", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _no_reexec(monkeypatch):
+    """A scout host under test must never replace the test process with a new lemonaid.
+
+    A restart request that an earlier test's signal left behind would otherwise end the
+    next host at once and re-exec the pytest worker.
+    """
+
+    def refuse() -> None:
+        raise AssertionError("a test tried to re-exec its process into lemonaid")
+
+    monkeypatch.setattr(restart, "restart", refuse)
+    monkeypatch.setattr(restart, "_requested", False)
+
+
+@pytest.fixture(autouse=True)
+def _no_detached_push_scout(monkeypatch, tmp_path):
+    """A spawned scout host outlives the test and reads the real database, as the service would.
+
+    Claude's own session list and settings move to the test's directory too.
+    """
+    monkeypatch.setattr(session_socket, "claude_dir", lambda: tmp_path / "claude-home")
+    monkeypatch.setattr(scout_start, "_spawn", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _watchers_must_not_outlive_tests(_no_real_tmux, _own_database):
+    """Fail safely if a test leaves the DB-mutating watcher behind.
+
+    The cleanup runs before the database and TMUX monkeypatches are undone. A
+    leaked watcher must never get a chance to observe the developer's real
+    inbox while it still carries a test's fake view of tmux.
+    """
+    yield
+
+    thread = watcher._watcher_thread
+    if thread is not None and thread.is_alive():
+        watcher.stop_unified_watcher()
+        pytest.fail("test leaked the unified watcher thread")

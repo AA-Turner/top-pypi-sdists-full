@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+
+from sqlalchemy.engine import Connection
+
+from sqlalchemy_declarative_extensions.dialects.mysql.function import (
+    Function,
+    FunctionDataAccess,
+    FunctionSecurity,
+)
+from sqlalchemy_declarative_extensions.dialects.mysql.procedure import (
+    Procedure,
+    ProcedureSecurity,
+)
+from sqlalchemy_declarative_extensions.dialects.mysql.schema import (
+    functions_query,
+    procedures_query,
+    schema_exists_query,
+    triggers_query,
+    views_query,
+)
+from sqlalchemy_declarative_extensions.dialects.mysql.trigger import (
+    Trigger,
+    TriggerEvents,
+    TriggerTimes,
+)
+from sqlalchemy_declarative_extensions.function import Function as BaseFunction
+from sqlalchemy_declarative_extensions.procedure import Procedure as BaseProcedure
+from sqlalchemy_declarative_extensions.sql import filter_ignored
+from sqlalchemy_declarative_extensions.view.base import View
+
+
+def get_views_mysql(
+    connection: Connection,
+    ignore: Iterable[str] = (),
+    include: Iterable[str] | None = None,
+):
+    current_database = connection.engine.url.database
+    views = [
+        View(
+            v.name,
+            v.definition,
+            schema=v.schema if v.schema != current_database else None,
+        )
+        for v in connection.execute(views_query).fetchall()
+    ]
+    return filter_ignored(views, ignore, include=include)
+
+
+def get_triggers_mysql(connection: Connection) -> list[Trigger]:
+    assert connection.engine.url.database
+    database: str = connection.engine.url.database
+
+    triggers = []
+    for t in connection.execute(triggers_query, {"schema": database}).fetchall():
+        triggers.append(
+            Trigger(
+                name=t.name,
+                time=TriggerTimes(t.time),
+                event=TriggerEvents(t.event),
+                on=t.on_name,
+                execute=t.statement,
+            )
+        )
+    return triggers
+
+
+def check_schema_exists_mysql(connection: Connection, name: str) -> bool:
+    row = connection.execute(schema_exists_query, {"schema": name}).scalar()
+    return not bool(row)
+
+
+def get_procedures_mysql(connection: Connection) -> Sequence[BaseProcedure]:
+    assert connection.engine.url.database
+    database: str = connection.engine.url.database
+
+    procedures = []
+    for p in connection.execute(procedures_query, {"schema": database}).fetchall():
+        procedures.append(
+            Procedure(
+                name=p.name,
+                definition=p.definition,
+                security=(
+                    ProcedureSecurity.definer
+                    if p.security == "DEFINER"
+                    else ProcedureSecurity.invoker
+                ),
+            )
+        )
+    return procedures
+
+
+def get_functions_mysql(connection: Connection) -> Sequence[BaseFunction]:
+    assert connection.engine.url.database
+    database: str = connection.engine.url.database
+
+    functions = []
+    for f in connection.execute(functions_query, {"schema": database}).fetchall():
+        parameters = None
+        if f.parameters:  # Parameter string might be None if no parameters
+            parameters = [p.strip() for p in f.parameters.split(",")]
+
+        functions.append(
+            Function(
+                name=f.name,
+                definition=f.definition,
+                parameters=parameters,
+                security=(
+                    FunctionSecurity.definer
+                    if f.security == "DEFINER"
+                    else FunctionSecurity.invoker
+                ),
+                returns=f.return_type,
+                deterministic=f.deterministic == "YES",
+                data_access=FunctionDataAccess(f.data_access),
+            )
+        )
+    return functions

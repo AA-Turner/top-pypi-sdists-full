@@ -1,5 +1,5 @@
 """ExperimentLocatorMixin, Client's methods: find which project an experiment lives in -- scopes,
-the home cache, one shared tenant-wide walk (twins: app/projects, app/experiments)."""
+the home cache, one shared tenant-wide walk (twins: app/projects, app/projects/experiments)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .....models import ScopeKind as _ScopeKind
 
 from .... import errors
 from ....errors import CapabilityUnavailable
-from ....delivery.ops.ops import UNPLACED_PROJECT
+from ....routes import UNPLACED_PROJECT
 
 #: The experiment API's page sizes (`app/experiments/store.py`,
 #: `read_router.py`): at most 500 per page, 100 when unasked.
@@ -154,8 +154,7 @@ class ExperimentLocatorMixin:
         ``{id, kind: project|experiment|run, project_id, experiment_id, run_id}``.
 
         ``GET /v1/scopes/{id}``. 404 for an id the caller cannot see, 410 with the
-        trash notice for one in the trash. ``project_id`` is null only for an
-        unfiled run."""
+        trash notice for one in the trash."""
         return self.transport.get(f"/v1/scopes/{scope_id}")
 
     def get_scope_by_slug(self, slug: str) -> dict:
@@ -357,8 +356,10 @@ class ExperimentLocatorMixin:
         rather than send it. The one place that decision is spelled, so a
         caller that addresses the write differently when queued
         (:meth:`_on_experiment` ``journaled=``) cannot drift from it."""
-        strict = (not self.fail_open) if strict is None else strict
-        return self._delivery.sink.queues(strict=strict, sync=sync)
+        from ....delivery.sender import resolve_policy
+
+        policy = resolve_policy(self, strict=strict, sync=sync, durable=True, raise_permanent=None)
+        return self._delivery.sink.queues(strict=policy.strict, sync=policy.sync)
 
     def _tenant_experiments(self, *, stop_at: str | None = None) -> list[dict]:
         """Every experiment the caller can see, project by project.

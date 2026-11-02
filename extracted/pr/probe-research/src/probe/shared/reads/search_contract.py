@@ -416,9 +416,6 @@ class MissingMarker(StrEnum):
     # research_browse: the backend predates GET /v1/browse. Emitted INSTEAD of an empty tree ("nothing
     # exists" vs "this server cannot tell you" are opposite claims; the first stops an agent looking).
     STRUCTURED_BROWSE = "structured_browse"
-    # browse at the lab root could not list runs filed nowhere yet (daemon v2 floating runs): the backend
-    # predates them or the read failed. Emitted INSTEAD of omitting `unfiled`, whose absence means "none".
-    UNFILED_RUNS = "unfiled_runs"
     # research_search
     EXACT_SEARCH = "exact_search"
     SEMANTIC_SEARCH = "semantic_search"

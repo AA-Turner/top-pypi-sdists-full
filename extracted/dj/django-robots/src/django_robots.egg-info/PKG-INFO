@@ -1,47 +1,48 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-robots
-Version: 6.1
+Version: 7.0
 Summary: Robots exclusion application for Django, complementing Sitemaps.
-Home-page: https://github.com/jazzband/django-robots/
+Home-page: https://github.com/django-commons/django-robots/
 Author: Jannis Leidel
-Author-email: jannis@leidel.info
+Author-email: "Matt Seymour (Maintainer)" <mattaseymour@gmail.com>, "Jannis Leidel (Original author)" <jannis@leidel.info>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/django-commons/django-robots/
+Project-URL: Documentation, https://django-robots.readthedocs.io/en/latest/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.1
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
-Classifier: Framework :: Django :: 4.2
-Requires-Python: >=3.7
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: django>=5.2
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 =============
 Django Robots
 =============
 
-.. image:: https://jazzband.co/static/img/badge.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
-.. image:: https://github.com/jazzband/django-robots/workflows/Test/badge.svg
-   :target: https://github.com/jazzband/django-robots/actions
-.. image:: https://codecov.io/gh/jazzband/django-robots/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/jazzband/django-robots
+.. image:: https://github.com/django-commons/django-robots/workflows/Test/badge.svg
+   :target: https://github.com/django-commons/django-robots/actions
+.. image:: https://codecov.io/gh/django-commons/django-robots/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/django-commons/django-robots
 .. image:: https://img.shields.io/pypi/v/django-robots.svg
    :target: https://pypi.python.org/pypi/django-robots
 
@@ -56,10 +57,7 @@ directory or on ReadTheDocs: https://django-robots.readthedocs.io/
 Supported Django versions
 -------------------------
 
-* Django 4.0
-* Django 3.2
-* Django 3.1
-* Django 2.2
+* Django 5.2+
 
 For older Django versions (1.6-1.10) use ``django-robots==3.0``.
 for Django 2 and above, use ``django-robots>=4.0.0``.
@@ -67,7 +65,7 @@ for Django 2 and above, use ``django-robots>=4.0.0``.
 Supported Python version
 ------------------------
 
-* Python 3.7, 3.8, 3.9, 3.10
+* Python 3.11+
 
 .. _install section: https://django-robots.readthedocs.io/en/latest/#installation
 .. _robots exclusion protocol: http://en.wikipedia.org/wiki/Robots_exclusion_standard

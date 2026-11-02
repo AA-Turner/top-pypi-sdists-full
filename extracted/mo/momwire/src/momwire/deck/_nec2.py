@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 
-from ._cards import Card, DeckError, parse_card
+from ._cards import Card, DeckError, gw_field_refusal, parse_card
 from ._nec2_geometry import _SMIN, Nec2Structure, build_geometry
 from .model import (
     DeckModel,
@@ -170,6 +170,13 @@ def _directive(text: str, keyword: str) -> int | None:
                 return int(float(parts[i + 1]))
             except ValueError:
                 return None
+            except OverflowError:
+                # an infinity: no directive anything can read (a NaN reads as
+                # no directive at all, as an unreadable number does)
+                raise DeckError(
+                    f"the {keyword} directive in a comment reads {parts[i + 1]}, "
+                    f"which is not a finite number"
+                ) from None
     return None
 
 
@@ -992,9 +999,12 @@ class _Nec2Parser:
         is PRINTED and changes nothing about the solve, so the deck model
         records nothing: the portal reads the card itself, the way it reads
         ``PT`` (see ``momwire.portal._portal.ChargePrintControl``, which
-        carries the measured form-by-form semantics).
+        carries the measured form-by-form semantics). Its four integers are
+        read here all the same, so a NaN or an infinity among them refuses by
+        card and field (`Card.i`) rather than fail in the printout.
         """
-        return None
+        for k in range(4):
+            card.i(k)
 
     def _multiprocessing_card(self, card: Card) -> tuple[int, int]:
         """``MP`` — advisory, and read strictly: NEC's integer-field reader
@@ -1141,6 +1151,10 @@ class _Nec2Parser:
             # name (spec ``#network-contiguity``).
             if self._network_destroyer is None:
                 self._network_destroyer = card.mnemonic
+        if card.mnemonic == "GW" and (why := gw_field_refusal(card)) is not None:
+            # On the card, as the nec5 reader asks it, rather than when the
+            # geometry is built: the C++ reader asks it in the same place.
+            raise DeckError(why)
         if card.mnemonic in self._geometry_mnemonics:
             self._geometry(card)
             return

@@ -1,0 +1,403 @@
+from collections.abc import Iterable
+from dataclasses import dataclass
+
+from django.core.exceptions import ValidationError
+from django.utils.html import format_html, format_html_join
+import netaddr
+
+from nautobot.core.forms.utils import compress_range
+from nautobot.core.templatetags.helpers import add_html_id, HTML_NONE, hyperlinked_object
+from nautobot.dcim.models import Interface
+from nautobot.extras.models import RelationshipAssociation
+from nautobot.ipam.choices import PrefixTypeChoices
+from nautobot.ipam.models import IPAddress, IPAddressRange, Namespace, Prefix, VLAN, VLANGroup
+from nautobot.virtualization.models import VMInterface
+
+
+def add_available_prefixes(parent: netaddr.IPNetwork, namespace: Namespace, prefix_list: Iterable[Prefix]):
+    """
+    Create fake Prefix objects for all unallocated space within a prefix.
+    """
+
+    # Find all unallocated space
+    available_prefixes = netaddr.IPSet(parent) ^ netaddr.IPSet(
+        [p.prefix for p in prefix_list if p.type != PrefixTypeChoices.TYPE_CONTAINER or not p.descendants().exists()]
+    )
+    available_prefixes = [
+        Prefix(prefix=p, namespace=namespace, type=None, status=None) for p in available_prefixes.iter_cidrs()
+    ]
+
+    # Concatenate and sort complete list of children
+    prefix_list = list(prefix_list) + available_prefixes
+    prefix_list.sort(key=lambda p: p.prefix)
+
+    return prefix_list
+
+
+def get_add_available_prefixes_callback(show_available: bool, parent: Prefix):
+    """Conditionally provide a callback for add_available_prefixes()."""
+    if show_available:
+        return lambda prefixes: add_available_prefixes(parent.prefix, parent.namespace, prefixes)
+    return lambda prefixes: prefixes
+
+
+@dataclass(frozen=True)
+class _Entry:
+    """A positioned entry, used only while ordering the rows.
+
+    `position` is the host value setting the vertical order; `rank` breaks
+    ties at the same position (see RANGE_ROW/ADDRESS/GAP). `item` is what the
+    table renders; don't change the tuple shapes.
+    """
+
+    position: int
+    rank: int
+    item: IPAddress | IPAddressRange | tuple[int, str] | tuple[int, str, IPAddressRange]
+
+
+def add_available_ipaddresses(prefix, ipaddress_list, is_pool=False, ip_ranges=None, show_available=True):
+    """
+    Interleave available-IP gaps and IPRange rows within a prefix.
+
+    Non-exclusive ranges: row + nested interior (available space inside the span stays in the
+        pool, rendered as a nested "X available" block; real addresses inside are nested too).
+    Exclusive ranges: row only; the span is removed from the pool (only before/after gaps remain).
+    show_available=False: ranges and addresses are still shown; only the available-gap rows are suppressed.
+    """
+    # Tie-breaker for entries sharing a start position: a range row renders before the
+    # addresses/gaps nested inside it, which render before a trailing gap.
+    RANGE_ROW, ADDRESS, GAP = 0, 1, 2
+
+    ip_ranges = list(ip_ranges or [])
+    addresses = list(ipaddress_list) if ipaddress_list is not None else []
+    version, prefixlen = prefix.version, prefix.prefixlen
+
+    # Hosts to enumerate, excluding network/broadcast for normal IPv4 prefixes.
+    if version == 4 and prefixlen < 31 and not is_pool:
+        first_value, last_value = prefix.first + 1, prefix.last - 1
+    else:
+        first_value, last_value = prefix.first, prefix.last
+
+    # Precompute integer bounds once. start_address/end_address are properties that rebuild a
+    # netaddr.IPAddress on every read, so reading them inside range_containing() was O(addresses
+    # x ranges) constructions.
+    range_bounds = [(int(r.start_address), int(r.end_address), r) for r in ip_ranges]
+
+    def host_value(address):
+        return address.address.ip.value
+
+    def format_ip(value):
+        return f"{netaddr.IPAddress(value, version=version)}/{prefixlen}"
+
+    def available_block(count, first_host, nested_range):
+        """Legacy tuple the table expects: (count, first_ip) or (count, first_ip, range)."""
+        if nested_range is None:
+            return (count, format_ip(first_host))
+        return (count, format_ip(first_host), nested_range)
+
+    def range_containing(host):
+        """Range whose span includes `host`, or None (first match wins; overlaps are a validation error)."""
+        for start_val, end_val, ip_range in range_bounds:
+            if start_val <= host <= end_val:
+                return ip_range
+        return None
+
+    def range_of_item(item):
+        """The range an item belongs to, for tree-line detection; None if it isn't a range child."""
+        if isinstance(item, IPAddress):
+            return getattr(item, "containing_ip_range", None)
+        if isinstance(item, tuple) and len(item) >= 3:  # nested available block: (count, ip, range)
+            return item[2]
+        return None
+
+    def span_entries(lo, hi, addrs_inside, nested_range=None):
+        """Gaps + address rows for the closed interval [lo, hi]; gaps tagged with `nested_range`."""
+        entries = []
+        cursor = lo
+        for address in sorted(addrs_inside, key=host_value):
+            host = host_value(address)
+            if host > cursor and show_available:
+                entries.append(_Entry(cursor, GAP, available_block(host - cursor, cursor, nested_range)))
+            entries.append(_Entry(host, ADDRESS, address))
+            cursor = host + 1
+        if cursor <= hi and show_available:
+            entries.append(_Entry(cursor, GAP, available_block(hi - cursor + 1, cursor, nested_range)))
+        return entries
+
+    # Tag every address with the range that contains it (if any). Addresses inside a range are
+    # rendered as that range's interior; the rest are top-level occupiers.
+    for address in addresses:
+        address.containing_ip_range = range_containing(host_value(address))
+
+    # Top-level occupiers consume space: free addresses + every range by its full span.
+    occupiers = [(host_value(a), host_value(a), a) for a in addresses if a.containing_ip_range is None]
+    occupiers += [(r.start_address.value, r.end_address.value, r) for r in ip_ranges]
+    occupiers.sort(key=lambda o: o[0])
+
+    # Walk the occupiers, emitting outer gaps, rows and (for non-exclusive ranges) interiors.
+    entries = []
+    prev_end = first_value - 1
+    for start, end, occupier in occupiers:
+        if start > prev_end + 1 and show_available:  # outer gap before this occupier
+            entries.append(_Entry(prev_end + 1, GAP, available_block(start - prev_end - 1, prev_end + 1, None)))
+
+        if isinstance(occupier, IPAddress):
+            entries.append(_Entry(start, ADDRESS, occupier))
+        else:  # IPRange
+            entries.append(_Entry(start, RANGE_ROW, occupier))
+            if not occupier.is_exclusive:  # exclusive ranges expose no interior
+                inside = [a for a in addresses if a.containing_ip_range is occupier]
+                entries += span_entries(start, end, inside, nested_range=occupier)
+
+        prev_end = max(prev_end, end)
+
+    if prev_end < last_value and show_available:  # trailing outer gap
+        entries.append(_Entry(prev_end + 1, GAP, available_block(last_value - prev_end, prev_end + 1, None)))
+
+    # Order by (position, rank), then keep only the rendered items.
+    entries.sort(key=lambda e: (e.position, e.rank))
+    result = [entry.item for entry in entries]
+
+    # Tree-line siblings: an address draws |- if the next entry belongs to the same range, else |_.
+    # Nested available-blocks count as range children too, hence working off the final ordered list.
+    for idx, item in enumerate(result):
+        if not isinstance(item, IPAddress):
+            continue
+        parent_range = range_of_item(item)
+        if parent_range is None:
+            continue
+        next_item = result[idx + 1] if idx + 1 < len(result) else None
+        item.range_has_next_sibling = next_item is not None and range_of_item(next_item) is parent_range
+
+    return result
+
+
+def get_add_available_ipaddresses_callback(show_available, parent):
+    """Always inject IP ranges; `show_available` only toggles the available-IP gap rows."""
+    ip_ranges = parent.get_all_ip_address_ranges()
+    return lambda ip_addresses: add_available_ipaddresses(
+        parent.prefix,
+        ip_addresses,
+        is_pool=(parent.type == PrefixTypeChoices.TYPE_POOL),
+        ip_ranges=ip_ranges,
+        show_available=show_available,
+    )
+
+
+def add_available_vlans(vlan_group: VLANGroup, vlans: list[VLAN]):
+    """
+    Create fake records for all gaps between used VLANs
+    """
+    fake_vlans = [
+        {
+            "vid": t[0],
+            "available": t[1] - t[0] + 1,
+            "range": f"{t[0]}" if t[0] == t[1] else f"{t[0]}-{t[1]}",
+        }
+        for t in compress_range(vlan_group.available_vids)
+    ]
+
+    vlans = list(vlans) + fake_vlans
+    vlans.sort(key=lambda v: v.vid if isinstance(v, VLAN) else v["vid"])
+    return vlans
+
+
+def get_add_available_vlans_callback(show_available: bool, vlan_group: VLANGroup):
+    """Conditionally provide a callback for add_available_vlans()."""
+    if show_available:
+        return lambda vlans: add_available_vlans(vlan_group=vlan_group, vlans=vlans)
+    return lambda vlans: vlans
+
+
+def handle_relationship_changes_when_merging_ips(merged_ip, merged_attributes, collapsed_ips):
+    """
+    Update/Delete RelationshipAssociation instances after we collapsed the IPs.
+    """
+    for side, relationships in merged_ip.get_relationships_data().items():
+        for relationship, value in relationships.items():
+            # could be a pk or a list of pks
+            # When it is a list of pks, the opposite side of ip has_many=True and the list of pks returned are relationship association pks
+            # When it is a single pk, it is the opposite side id of the relationship association
+            new_rel_values = merged_attributes.get("cr_" + relationship.key)
+            if new_rel_values:
+                if side == "source":
+                    # handle when `IPAddress`` is on the source side and the opposite side has many objects.
+                    if value.get("has_many"):
+                        pk_list = new_rel_values.split(",")
+                        # no-op if RelationshipAssociations already exist
+                        if set(
+                            RelationshipAssociation.objects.filter(relationship=relationship, source_id=merged_ip.pk)
+                        ) == set(RelationshipAssociation.objects.filter(pk__in=pk_list)):
+                            continue
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship,
+                            source_id=merged_ip.pk,
+                        ).delete()
+                        updated_associations = RelationshipAssociation.objects.filter(pk__in=pk_list)
+                        updated_associations.update(source_id=merged_ip.pk)
+                    # handle when `IPAddress`` is on the source side and the opposite side has a single object.
+                    else:
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship,
+                            destination_id=new_rel_values,
+                        ).delete()
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship, source_id=merged_ip.pk
+                        ).delete()
+                        new_rel = RelationshipAssociation(
+                            relationship=relationship,
+                            source_type=relationship.source_type,
+                            source_id=merged_ip.pk,
+                            destination_type=relationship.destination_type,
+                            destination_id=new_rel_values,
+                        )
+                        new_rel.validated_save()
+                elif side == "destination":
+                    # handle when `IPAddress`` is on the destination side and the opposite side has many objects.
+                    if value.get("has_many"):
+                        pk_list = new_rel_values.split(",")
+                        # no-op if RelationshipAssociations already exist
+                        if set(
+                            RelationshipAssociation.objects.filter(
+                                relationship=relationship, destination_id=merged_ip.pk
+                            )
+                        ) == set(RelationshipAssociation.objects.filter(pk__in=pk_list)):
+                            continue
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship,
+                            destination_id=merged_ip.pk,
+                        ).delete()
+                        updated_associations.update(destination_id=merged_ip.pk)
+                    # handle when `IPAddress`` is on the destination side and the opposite side has a single object.
+                    else:
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship,
+                            source_id=new_rel_values,
+                        ).delete()
+                        RelationshipAssociation.objects.filter(
+                            relationship=relationship, destination_id=merged_ip.pk
+                        ).delete()
+                        new_rel = RelationshipAssociation(
+                            relationship=relationship,
+                            source_type=relationship.source_type,
+                            source_id=new_rel_values,
+                            destination_type=relationship.destination_type,
+                            destination_id=merged_ip.pk,
+                        )
+                        new_rel.validated_save()
+                else:
+                    # Peer side is very tricky
+                    # We delete all RelationshipAssociations with merged_ip on either side
+                    # and save them destination_id and source_id in a dictionary lookup
+                    # to avoid redundant RelationshipAssociations
+                    lookup = {}
+                    peer_source_associations = RelationshipAssociation.objects.filter(
+                        relationship=relationship, destination_id=merged_ip.pk
+                    )
+                    for association in peer_source_associations:
+                        lookup[str(association.pk)] = association.source_id
+                    peer_source_associations.delete()
+                    peer_destination_associations = RelationshipAssociation.objects.filter(
+                        relationship=relationship, source_id=merged_ip.pk
+                    )
+                    for association in peer_destination_associations:
+                        lookup[str(association.pk)] = association.destination_id
+                    peer_destination_associations.delete()
+                    if value.get("has_many"):
+                        pk_list = new_rel_values.split(",")
+                        for pk in pk_list:
+                            # rebuild the RelationshipAssociation if it is deleted.
+                            if pk in lookup:
+                                new_rel = RelationshipAssociation(
+                                    relationship=relationship,
+                                    source_type=relationship.source_type,
+                                    source_id=merged_ip.pk,
+                                    destination_type=relationship.destination_type,
+                                    destination_id=lookup.get(pk),
+                                )
+                                new_rel.validated_save()
+                            else:
+                                # update the RelationshipAssociation if it still exists.
+                                rel = RelationshipAssociation.objects.get(pk=pk)
+                                if rel.source in collapsed_ips and rel.destination in collapsed_ips:
+                                    continue
+                                if rel.source in collapsed_ips:
+                                    rel.source_id = merged_ip.pk
+                                else:
+                                    rel.destination_id = merged_ip.pk
+                                rel.validated_save()
+                    else:
+                        # handle peer one to one relationship
+                        pk = new_rel_values
+                        # If the relationship is peer one to one then, only one of the below statements will execute
+                        # and the other one should be a no-op and only one RelationshipAssociation will be deleted.
+                        RelationshipAssociation.objects.filter(relationship=relationship, destination_id=pk).delete()
+                        RelationshipAssociation.objects.filter(relationship=relationship, source_id=pk).delete()
+                        new_rel = RelationshipAssociation(
+                            relationship=relationship,
+                            source_type=relationship.source_type,
+                            source_id=merged_ip.pk,
+                            destination_type=relationship.destination_type,
+                            destination_id=pk,
+                        )
+                        new_rel.validated_save()
+            else:
+                # if new_rel_values returned here are empty, that means the user decided to discard any RelationshipAssociations of that Relationship.
+                # we make sure that we delete any relationship associations that are related to the surviving IP
+                # The rest of the associations will be automatically deleted when we delete the collapsed IPs.
+                if side == "source":
+                    RelationshipAssociation.objects.filter(relationship=relationship, source_id=merged_ip.pk).delete()
+                elif side == "destination":
+                    RelationshipAssociation.objects.filter(
+                        relationship=relationship, destination_id=merged_ip.pk
+                    ).delete()
+                else:
+                    RelationshipAssociation.objects.filter(relationship=relationship, source_id=merged_ip.pk).delete()
+                    RelationshipAssociation.objects.filter(
+                        relationship=relationship, destination_id=merged_ip.pk
+                    ).delete()
+
+
+def retrieve_interface_or_vminterface_from_request(request):
+    """
+    Retrieve either an Interface or VMInterface based on the provided request's GET parameters.
+
+    Parameters:
+        - request (HttpRequest): The HTTP request object.
+
+    Returns:
+        tuple:
+            - Interface/VMInterface or None: The found interface object, or None if not found.
+            - str or None: An error message if the interface is not found, otherwise None.
+    """
+    interface_model = Interface if "interface" in request.GET else VMInterface
+    interface_id = request.GET.get("interface") or request.GET.get("vminterface")
+    try:
+        obj = interface_model.objects.restrict(request.user, "change").get(id=interface_id)
+        return obj, None
+    except (interface_model.DoesNotExist, ValidationError):
+        return None, f'{interface_model.__name__} with id "{interface_id}" not found.'
+
+
+def render_ip_with_nat(ip):
+    """Render an IP address plus its NAT inside/outside information if any."""
+    if ip is None:
+        return HTML_NONE
+
+    if ip.nat_inside is not None:
+        nat = format_html("(NAT for {})", hyperlinked_object(ip.nat_inside))
+    elif ip.nat_outside_list.exists():
+        nat = format_html(
+            "<br>NAT:<ul>{}</ul>",
+            format_html_join("\n", "<li>{}</li>", [[hyperlinked_object(nato)] for nato in ip.nat_outside_list.all()]),
+        )
+    else:
+        nat = ""
+
+    # TODO: replace auto-added "copy" button for this entire string with a button that just copies the host address
+    return format_html(
+        "{display} ({namespace}) {nat}",
+        display=add_html_id(hyperlinked_object(ip), f"ipv{ip.ip_version}"),
+        namespace=hyperlinked_object(ip.parent.namespace if ip.parent else None),
+        nat=nat,
+    )

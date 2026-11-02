@@ -211,7 +211,7 @@ def test_probe_update_actually_issues_the_tap_update(monkeypatch) -> None:
     names the constant. It certified nothing.
     """
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     issued: list[list[str]] = []
 
@@ -221,7 +221,7 @@ def test_probe_update_actually_issues_the_tap_update(monkeypatch) -> None:
 
     monkeypatch.setattr(updater.claude_cli, "run", _fake_run)
     monkeypatch.setattr(updater.shutil, "which", lambda _: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "9.9.9")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "9.9.9")
 
     updater.update_plugin("9.9.9")
 
@@ -243,7 +243,7 @@ def test_a_missing_tap_does_not_mark_the_update_incomplete(monkeypatch) -> None:
     survived its own mutant.
     """
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     def _fake_run(args, *, timeout):
         ok = updater.TAP_PLUGIN_ID not in args  # the tap is "not installed"
@@ -251,7 +251,7 @@ def test_a_missing_tap_does_not_mark_the_update_incomplete(monkeypatch) -> None:
 
     monkeypatch.setattr(updater.claude_cli, "run", _fake_run)
     monkeypatch.setattr(updater.shutil, "which", lambda _: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "1.0.0")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "1.0.0")
 
     result = updater.update_plugin("9.9.9")
     assert "did not complete" not in result.message, (
@@ -261,7 +261,7 @@ def test_a_missing_tap_does_not_mark_the_update_incomplete(monkeypatch) -> None:
 
 
 def test_manual_commands_mention_the_tap() -> None:
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     assert updater.TAP_PLUGIN_ID == "probe-research-tap@research-os-agent"
     assert updater.TAP_PLUGIN_ID in updater.manual_plugin_commands()

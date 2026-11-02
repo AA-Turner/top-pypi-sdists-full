@@ -1,0 +1,698 @@
+"""Lock strategies for filesystem concurrency control.
+
+This module implements the Strategy pattern for file locking, allowing
+different locking mechanisms to be used interchangeably based on platform
+and requirements.
+
+Supported strategies:
+- FcntlLockStrategy: POSIX fcntl-based locking (Unix/Linux/macOS)
+- PortalockerStrategy: Cross-platform locking via portalocker library
+- FileLockStrategy: Cross-platform locking via filelock library
+- NoOpLockStrategy: No-op for single-threaded scenarios
+
+The module auto-detects the best available strategy for the current platform.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import threading
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Iterator  # noqa: TC003 - public annotation introspection
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from pathlib import Path  # noqa: TC003 - public annotation introspection
+from typing import Any
+
+# Thread-local storage for lock tracking
+_thread_local = threading.local()
+_process_lock_states: dict[str, _ProcessLocalLockState] = {}
+_process_lock_states_guard = threading.RLock()
+
+
+class LockMode(Enum):
+    """Lock acquisition modes."""
+
+    SHARED = auto()  # Read lock - multiple readers allowed
+    EXCLUSIVE = auto()  # Write lock - exclusive access
+
+
+@dataclass(frozen=True)
+class LockHandle:
+    """Handle representing an acquired lock.
+
+    This is an opaque handle that must be passed to release the lock.
+    It contains information about the lock for debugging and management.
+
+    Attributes:
+        path: Path to the locked file.
+        mode: Lock mode (shared or exclusive).
+        fd: File descriptor (if applicable).
+        timestamp: When the lock was acquired.
+        thread_id: ID of the thread that acquired the lock.
+        process_id: ID of the process that acquired the lock.
+    """
+
+    path: Path
+    mode: LockMode
+    fd: int | None = None
+    timestamp: float = field(default_factory=time.time)
+    thread_id: int = field(default_factory=threading.get_ident)
+    process_id: int = field(default_factory=os.getpid)
+
+    def __str__(self) -> str:
+        mode_str = "SHARED" if self.mode == LockMode.SHARED else "EXCLUSIVE"
+        return f"LockHandle({self.path}, {mode_str}, pid={self.process_id})"
+
+
+@dataclass
+class _ProcessLocalLockState:
+    """Process-local coordination for thread-level lock semantics."""
+
+    condition: threading.Condition = field(
+        default_factory=lambda: threading.Condition(threading.RLock())
+    )
+    readers: int = 0
+    writer: bool = False
+    waiting_writers: int = 0
+
+
+def _lock_timeout(path: Path, timeout: float) -> Exception:
+    from truthound.stores.concurrency.manager import LockTimeout
+
+    return LockTimeout(path, timeout)
+
+
+def _get_process_local_state(path: Path) -> _ProcessLocalLockState:
+    key = str(path)
+    with _process_lock_states_guard:
+        state = _process_lock_states.get(key)
+        if state is None:
+            state = _ProcessLocalLockState()
+            _process_lock_states[key] = state
+        return state
+
+
+def _cleanup_process_local_state(path: Path, state: _ProcessLocalLockState) -> None:
+    if state.readers or state.writer or state.waiting_writers:
+        return
+    key = str(path)
+    with _process_lock_states_guard:
+        if _process_lock_states.get(key) is state and not (
+            state.readers or state.writer or state.waiting_writers
+        ):
+            _process_lock_states.pop(key, None)
+
+
+def _acquire_process_local_lock(
+    path: Path,
+    mode: LockMode,
+    timeout: float | None,
+    blocking: bool,
+) -> _ProcessLocalLockState:
+    state = _get_process_local_state(path)
+    deadline = None if timeout is None else time.monotonic() + timeout
+
+    with state.condition:
+        if mode == LockMode.SHARED:
+            while state.writer or state.waiting_writers > 0:
+                if not blocking:
+                    raise _lock_timeout(path, 0)
+                if deadline is None:
+                    state.condition.wait()
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _lock_timeout(path, timeout or 0)
+                state.condition.wait(timeout=remaining)
+            state.readers += 1
+            return state
+
+        state.waiting_writers += 1
+        try:
+            while state.writer or state.readers > 0:
+                if not blocking:
+                    raise _lock_timeout(path, 0)
+                if deadline is None:
+                    state.condition.wait()
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _lock_timeout(path, timeout or 0)
+                state.condition.wait(timeout=remaining)
+            state.writer = True
+            return state
+        finally:
+            state.waiting_writers -= 1
+
+
+def _release_process_local_lock(path: Path, mode: LockMode) -> None:
+    state = _get_process_local_state(path)
+    with state.condition:
+        if mode == LockMode.SHARED:
+            if state.readers > 0:
+                state.readers -= 1
+        else:
+            state.writer = False
+        state.condition.notify_all()
+    _cleanup_process_local_state(path, state)
+
+
+def _is_process_local_locked(path: Path) -> bool:
+    with _process_lock_states_guard:
+        state = _process_lock_states.get(str(path))
+        if state is None:
+            return False
+    with state.condition:
+        return state.writer or state.readers > 0
+
+
+class LockStrategy(ABC):
+    """Abstract base class for lock strategies.
+
+    Implementations must be thread-safe and handle process-level locking.
+    The strategy pattern allows swapping locking mechanisms without changing
+    the client code.
+    """
+
+    @abstractmethod
+    def acquire(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+        blocking: bool = True,
+    ) -> LockHandle:
+        """Acquire a lock on the specified path.
+
+        Args:
+            path: Path to the file to lock.
+            mode: Lock mode (shared or exclusive).
+            timeout: Maximum time to wait for lock (None = infinite).
+            blocking: If False, raise immediately if lock unavailable.
+
+        Returns:
+            LockHandle for the acquired lock.
+
+        Raises:
+            LockTimeout: If timeout expires before lock is acquired.
+            OSError: If locking fails due to system error.
+        """
+        pass
+
+    @abstractmethod
+    def release(self, handle: LockHandle) -> None:
+        """Release a previously acquired lock.
+
+        Args:
+            handle: The lock handle returned by acquire().
+
+        Raises:
+            ValueError: If the handle is invalid or already released.
+        """
+        pass
+
+    @abstractmethod
+    def try_acquire(self, path: Path, mode: LockMode) -> LockHandle | None:
+        """Try to acquire a lock without blocking.
+
+        Args:
+            path: Path to the file to lock.
+            mode: Lock mode (shared or exclusive).
+
+        Returns:
+            LockHandle if lock acquired, None otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def is_locked(self, path: Path) -> bool:
+        """Check if a path is currently locked by any process.
+
+        Args:
+            path: Path to check.
+
+        Returns:
+            True if the path is locked.
+        """
+        pass
+
+    @contextmanager
+    def lock(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+    ) -> Iterator[LockHandle]:
+        """Context manager for lock acquisition.
+
+        Args:
+            path: Path to the file to lock.
+            mode: Lock mode (shared or exclusive).
+            timeout: Maximum time to wait for lock.
+
+        Yields:
+            LockHandle for the acquired lock.
+
+        Example:
+            >>> with strategy.lock(path, LockMode.EXCLUSIVE) as handle:
+            ...     # Exclusive access to file
+            ...     pass
+        """
+        handle = self.acquire(path, mode, timeout)
+        try:
+            yield handle
+        finally:
+            self.release(handle)
+
+
+class FcntlLockStrategy(LockStrategy):
+    """POSIX fcntl-based file locking strategy.
+
+    This strategy uses the fcntl.flock() system call for file locking.
+    It's available on Unix-like systems (Linux, macOS, BSD).
+
+    Features:
+    - Advisory locking (cooperative)
+    - Automatic release on file descriptor close
+    - Works across processes
+    - Supports shared and exclusive modes
+    """
+
+    def __init__(self) -> None:
+        """Initialize the fcntl lock strategy."""
+        if sys.platform == "win32":
+            raise RuntimeError("FcntlLockStrategy is not available on Windows")
+
+        import fcntl
+
+        self._fcntl = fcntl
+        self._locks: dict[int, LockHandle] = {}
+        self._lock = threading.RLock()
+
+    def acquire(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+        blocking: bool = True,
+    ) -> LockHandle:
+        """Acquire a lock using fcntl.flock()."""
+        lock_path = self._get_lock_path(path)
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Determine lock operation
+        operation = self._fcntl.LOCK_SH if mode == LockMode.SHARED else self._fcntl.LOCK_EX
+
+        if not blocking:
+            operation |= self._fcntl.LOCK_NB
+
+        started = time.monotonic()
+        _acquire_process_local_lock(path, mode, timeout, blocking)
+        fd = None
+        try:
+            fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o666)
+            if timeout is not None and blocking:
+                # Implement timeout with polling
+                while True:
+                    try:
+                        self._fcntl.flock(fd, operation | self._fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError as error:
+                        if time.monotonic() - started >= timeout:
+                            from truthound.stores.concurrency.manager import LockTimeout
+
+                            raise LockTimeout(path, timeout) from error
+                        time.sleep(0.01)  # 10ms sleep between retries
+            else:
+                self._fcntl.flock(fd, operation)
+
+            handle = LockHandle(path=path, mode=mode, fd=fd)
+            with self._lock:
+                self._locks[fd] = handle
+            return handle
+
+        except BaseException as error:
+            if fd is not None:
+                with suppress(OSError):
+                    os.close(fd)
+            _release_process_local_lock(path, mode)
+            if not blocking and isinstance(error, BlockingIOError):
+                from truthound.stores.concurrency.manager import LockTimeout
+
+                raise LockTimeout(path, 0) from error
+            raise
+
+    def release(self, handle: LockHandle) -> None:
+        """Release the fcntl lock."""
+        with self._lock:
+            fd = handle.fd
+            if fd is None or self._locks.get(fd) is not handle:
+                raise ValueError(f"Lock not held: {handle.path}")
+            self._locks.pop(fd)
+
+        try:
+            self._fcntl.flock(fd, self._fcntl.LOCK_UN)
+        finally:
+            try:
+                os.close(fd)
+            finally:
+                _release_process_local_lock(handle.path, handle.mode)
+
+        # Keep this stable inode: existing waiters may already hold descriptors
+        # for it. Unlinking would admit new owners through a different inode.
+
+    def try_acquire(self, path: Path, mode: LockMode) -> LockHandle | None:
+        """Try to acquire without blocking."""
+        try:
+            return self.acquire(path, mode, blocking=False)
+        except Exception:
+            return None
+
+    def is_locked(self, path: Path) -> bool:
+        """Check if path is locked."""
+        if _is_process_local_locked(path):
+            return True
+
+        lock_path = self._get_lock_path(path)
+        if not lock_path.exists():
+            return False
+
+        try:
+            fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o666)
+            try:
+                self._fcntl.flock(fd, self._fcntl.LOCK_EX | self._fcntl.LOCK_NB)
+                self._fcntl.flock(fd, self._fcntl.LOCK_UN)
+                return False
+            except BlockingIOError:
+                return True
+            finally:
+                os.close(fd)
+        except OSError:
+            return False
+
+    def _get_lock_path(self, path: Path) -> Path:
+        """Get the lock file path for a given path."""
+        return path.parent / f".{path.name}.lock"
+
+
+class PortalockerStrategy(LockStrategy):
+    """Cross-platform locking using portalocker library.
+
+    This strategy provides cross-platform file locking using the portalocker
+    library. It works on Windows, Linux, and macOS.
+
+    Requires: pip install portalocker
+    """
+
+    def __init__(self) -> None:
+        """Initialize the portalocker strategy."""
+        try:
+            import portalocker
+
+            self._portalocker = portalocker
+        except ImportError as e:
+            raise ImportError(
+                "portalocker is required for PortalockerStrategy. "
+                "Install it with: pip install portalocker"
+            ) from e
+
+        self._locks: dict[int, Any] = {}
+        self._lock = threading.RLock()
+
+    def acquire(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+        blocking: bool = True,
+    ) -> LockHandle:
+        """Acquire a lock using portalocker."""
+        lock_path = self._get_lock_path(path)
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        flags = self._portalocker.LOCK_SH if mode == LockMode.SHARED else self._portalocker.LOCK_EX
+        started = time.monotonic()
+        _acquire_process_local_lock(path, mode, timeout, blocking)
+        lock_file = None
+        try:
+            # Ownership intentionally crosses acquire/release calls.
+            lock_file = open(lock_path, "a+b")  # noqa: SIM115 - released by release
+            while True:
+                try:
+                    wanted = flags | self._portalocker.LOCK_NB if timeout is not None or not blocking else flags
+                    self._portalocker.lock(lock_file, wanted)
+                    break
+                except self._portalocker.AlreadyLocked as error:
+                    elapsed = time.monotonic() - started
+                    if not blocking or (timeout is not None and elapsed >= timeout):
+                        from truthound.stores.concurrency.manager import LockTimeout
+
+                        raise LockTimeout(path, timeout or 0) from error
+                    time.sleep(min(0.01, max(0, timeout - elapsed)) if timeout is not None else 0.01)
+            descriptor = lock_file.fileno()
+            handle = LockHandle(path=path, mode=mode, fd=descriptor)
+            with self._lock:
+                self._locks[descriptor] = (handle, lock_file)
+            return handle
+        except BaseException:
+            try:
+                if lock_file is not None:
+                    lock_file.close()
+            finally:
+                _release_process_local_lock(path, mode)
+            raise
+
+    def release(self, handle: LockHandle) -> None:
+        """Release this reader/writer's unique descriptor, then local ownership."""
+        with self._lock:
+            entry = self._locks.get(handle.fd)
+            if entry is None or entry[0] is not handle:
+                raise ValueError(f"Lock not held: {handle.path}")
+            _, lock_file = self._locks.pop(handle.fd)
+        try:
+            self._portalocker.unlock(lock_file)
+        finally:
+            try:
+                lock_file.close()
+            finally:
+                _release_process_local_lock(handle.path, handle.mode)
+
+    def try_acquire(self, path: Path, mode: LockMode) -> LockHandle | None:
+        """Try to acquire without blocking."""
+        try:
+            return self.acquire(path, mode, timeout=0, blocking=False)
+        except Exception:
+            return None
+
+    def is_locked(self, path: Path) -> bool:
+        """Check if path is locked."""
+        if _is_process_local_locked(path):
+            return True
+
+        lock_path = self._get_lock_path(path)
+        if not lock_path.exists():
+            return False
+
+        try:
+            lock_file = open(lock_path, "a+b")  # noqa: SIM115 - probe closes in finally
+            try:
+                self._portalocker.lock(
+                    lock_file,
+                    self._portalocker.LOCK_EX | self._portalocker.LOCK_NB,
+                )
+                self._portalocker.unlock(lock_file)
+                return False
+            except self._portalocker.LockException:
+                return True
+            finally:
+                lock_file.close()
+        except OSError:
+            return False
+
+    def _get_lock_path(self, path: Path) -> Path:
+        """Get the lock file path for a given path."""
+        return path.parent / f".{path.name}.lock"
+
+
+class FileLockStrategy(LockStrategy):
+    """Cross-platform locking using filelock library.
+
+    This strategy provides cross-platform file locking using the filelock
+    library. It's a simpler alternative to portalocker.
+
+    Requires: pip install filelock
+    """
+
+    def __init__(self) -> None:
+        """Initialize the filelock strategy."""
+        try:
+            import filelock
+
+            self._filelock = filelock
+        except ImportError as e:
+            raise ImportError(
+                "filelock is required for FileLockStrategy. "
+                "Install it with: pip install filelock"
+            ) from e
+
+        self._locks: dict[str, Any] = {}
+        self._lock = threading.RLock()
+
+    def acquire(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+        blocking: bool = True,
+    ) -> LockHandle:
+        """Acquire a lock using filelock."""
+        lock_path = self._get_lock_path(path)
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # filelock only supports exclusive locks
+        lock = self._filelock.FileLock(lock_path, thread_local=False)
+        started = time.monotonic()
+        _acquire_process_local_lock(path, mode, timeout, blocking)
+
+        try:
+            effective_timeout = None if timeout is None else max(0, timeout - (time.monotonic() - started))
+            if not blocking:
+                effective_timeout = 0
+            lock.acquire(timeout=-1 if effective_timeout is None else effective_timeout)
+
+            handle = LockHandle(path=path, mode=mode)
+            with self._lock:
+                self._locks[str(path)] = (handle, lock)
+            return handle
+
+        except self._filelock.Timeout as e:
+            _release_process_local_lock(path, mode)
+            from truthound.stores.concurrency.manager import LockTimeout
+
+            raise LockTimeout(path, timeout or 0) from e
+        except Exception:
+            _release_process_local_lock(path, mode)
+            raise
+
+    def release(self, handle: LockHandle) -> None:
+        """Release the filelock lock."""
+        with self._lock:
+            key = str(handle.path)
+            entry = self._locks.get(key)
+            if entry is None or entry[0] is not handle:
+                raise ValueError(f"Lock not held: {handle.path}")
+            lock = entry[1]
+            # Keep ownership if the SDK fails to unlock, so cleanup can retry
+            # the same owned resource instead of acknowledging a false release.
+            lock.release(force=True)
+            if lock.is_locked:
+                raise RuntimeError("Native filelock did not release its owned lock")
+            del self._locks[key]
+        _release_process_local_lock(handle.path, handle.mode)
+
+    def try_acquire(self, path: Path, mode: LockMode) -> LockHandle | None:
+        """Try to acquire without blocking."""
+        try:
+            return self.acquire(path, mode, timeout=0, blocking=False)
+        except Exception:
+            return None
+
+    def is_locked(self, path: Path) -> bool:
+        """Check if path is locked."""
+        if _is_process_local_locked(path):
+            return True
+
+        lock_path = self._get_lock_path(path)
+        if not lock_path.exists():
+            return False
+
+        lock = self._filelock.FileLock(lock_path)
+        try:
+            lock.acquire(timeout=0)
+            lock.release()
+            return False
+        except self._filelock.Timeout:
+            return True
+
+    def _get_lock_path(self, path: Path) -> Path:
+        """Get the lock file path for a given path."""
+        return path.parent / f".{path.name}.lock"
+
+
+class NoOpLockStrategy(LockStrategy):
+    """No-op lock strategy for single-threaded scenarios.
+
+    This strategy provides no actual locking, useful for:
+    - Single-threaded applications
+    - Testing
+    - When external locking is already in place
+    """
+
+    def acquire(
+        self,
+        path: Path,
+        mode: LockMode,
+        timeout: float | None = None,
+        blocking: bool = True,
+    ) -> LockHandle:
+        """Return a lock handle without actual locking."""
+        return LockHandle(path=path, mode=mode)
+
+    def release(self, handle: LockHandle) -> None:
+        """No-op release."""
+        pass
+
+    def try_acquire(self, path: Path, mode: LockMode) -> LockHandle | None:
+        """Always succeeds."""
+        return LockHandle(path=path, mode=mode)
+
+    def is_locked(self, path: Path) -> bool:
+        """Always returns False."""
+        return False
+
+
+def get_default_lock_strategy() -> LockStrategy:
+    """Get the best available lock strategy for the current platform.
+
+    Returns:
+        The most appropriate LockStrategy for the current environment.
+
+    Priority order:
+    1. FcntlLockStrategy (Unix-like systems)
+    2. FileLockStrategy (if filelock is installed)
+    3. PortalockerStrategy (if portalocker is installed)
+    4. NoOpLockStrategy (fallback)
+    """
+    # Try fcntl first on Unix-like systems
+    if sys.platform != "win32":
+        try:
+            return FcntlLockStrategy()
+        except Exception:
+            pass
+
+    # Try filelock (simpler API)
+    try:
+        return FileLockStrategy()
+    except ImportError:
+        pass
+
+    # Try portalocker
+    try:
+        return PortalockerStrategy()
+    except ImportError:
+        pass
+
+    # Fallback to no-op
+    import warnings
+
+    warnings.warn(
+        "No file locking library available. Using NoOpLockStrategy. "
+        "Install 'filelock' or 'portalocker' for proper concurrency control.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return NoOpLockStrategy()

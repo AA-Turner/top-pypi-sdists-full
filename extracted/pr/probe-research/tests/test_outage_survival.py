@@ -85,7 +85,6 @@ def test_the_queue_has_a_ceiling(tmp_path, monkeypatch):
     limit, no backpressure. The upload path's own comment says it best: a
     producer that outruns delivery makes filling the disk the STEADY STATE."""
     monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 5)
-    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 5)
     journal = Journal(tmp_path / "outbox")
     for _ in range(5):
         journal.append_http("POST", "/v1/x", {})
@@ -96,7 +95,6 @@ def test_the_queue_has_a_ceiling(tmp_path, monkeypatch):
 
 def test_a_refused_write_is_recorded_as_a_gap_not_silence(tmp_path, monkeypatch):
     monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 3)
-    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 3)
     journal = Journal(tmp_path / "outbox")
     journal.register_producer("sdk:test", role="sdk")
     for _ in range(3):

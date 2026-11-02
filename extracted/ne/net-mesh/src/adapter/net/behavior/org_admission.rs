@@ -1,0 +1,2187 @@
+//! OA-2 §2.4 of `docs/internal/plans/ORG_CAPABILITY_AUTH_PLAN.md` — the
+//! provider-local admission engine.
+//!
+//! Admission is provider-local, per-service, bound at registration,
+//! and ALWAYS the last authority consulted (Locked #6). This module
+//! is the ordered verification of one [`OrgCallProof`] against the
+//! provider's own knowledge — its identity, its PROVEN owner org
+//! (from its installed authority scaffold, never fold state), the
+//! service being invoked, and the call it actually received.
+//!
+//! # The three modes
+//!
+//! - [`OrgAdmission::PublicAuthenticated`] — v0.4 behavior; NOT
+//!   handled here (the §2.4a seam routes it through `may_execute`).
+//! - [`OrgAdmission::OwnerDelegated`] — the caller acts for the
+//!   provider's OWN owner org; membership + dispatcher grant, and
+//!   NO cross-org capability grant (an unexpected one is malformed).
+//! - [`OrgAdmission::CrossOrgGranted`] — the caller's org holds a
+//!   capability grant the provider's owner issued; the grant's
+//!   issuer must be my owner, its grantee the caller's org, its
+//!   rights ⊇ INVOKE, its capability the invoked one, and its
+//!   target must cover exactly me.
+//!
+//! # The ordered checks
+//!
+//! ```text
+//! 1. mode is org-protected            (Public routes elsewhere)
+//! 2. exactly one admission header     (0 or >1 → deny)
+//! 3. proof decodes                    (malformed → deny)
+//! 4. call is unary                    (streaming → distinct deny)
+//! 5. TOFU member binding              (proof caller == channel peer)
+//! 6. mode checks                      (owner/cross-org shape)
+//! 7. dispatcher grant checks          (acts-for org, capability)
+//! 8. credentials: signatures, windows, floors, proof freshness
+//! 9. call binding                     (caller signed THIS call)
+//! 10. replay guard                    (atomic insert-or-deny)
+//! 11. provider-local policy           (LAST — application veto)
+//! ```
+//!
+//! Every failure is a typed [`AdmissionDenied`] with a
+//! distinguishable reason. Fold state, decrypted announcements, and
+//! discovery responses are never admission evidence — the engine
+//! reads only the proof and the provider's own facts. `may_execute`
+//! is never touched.
+//!
+//! # Layering
+//!
+//! Behavior-layer, like [`org_call`](super::org_call): the "whole
+//! canonical request minus the proof header" arrives as a
+//! `request_digest`, and the admission header value(s) arrive
+//! pre-extracted, so this module never imports the cortex RPC
+//! types. The cortex/mesh gate (§2.4a, a later step) wires it in
+//! and maps [`AdmissionDenied`] to `RpcStatus::AdmissionDenied`
+//! (0x0009).
+
+use super::admission_clock::ClockSample;
+use super::org::OrgId;
+use super::org_admission_replay::{AdmissionReplayGuard, ReplayOutcome, ReplayPrincipal};
+use super::org_call::{OrgCallProof, OrgStreamCallProof, RpcCallShape, MAX_ORG_CALL_PROOF_BYTES};
+use super::org_grant::CapabilityAuthorityId;
+use super::org_grant_revocation::RevokedGrantKind;
+use super::org_revocation::OrgRevocationState;
+use crate::adapter::net::identity::{EntityId, MAX_TOKEN_CLOCK_SKEW_SECS};
+
+/// The admission mode a provider registered for one capability
+/// (Locked #6; the model's `OrgAdmission`). Bound at registration
+/// (§2.4a); resolved BEFORE gate selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrgAdmission {
+    /// v0.4 behavior — allow-list axes + transport auth only. NOT
+    /// verified by this engine; the §2.4a seam routes it through
+    /// `may_execute`.
+    PublicAuthenticated,
+    /// The caller acts for the provider's own owner org.
+    OwnerDelegated,
+    /// The caller's org holds a cross-org capability grant issued
+    /// by the provider's owner org.
+    CrossOrgGranted,
+}
+
+/// A distinguishable admission-denial reason (§2.4). The cortex
+/// gate maps every variant to `RpcStatus::AdmissionDenied`
+/// (0x0009) while preserving the reason for audit — a caller bug
+/// (e.g. [`Self::CallIdCollision`]) must read differently from an
+/// attack (e.g. [`Self::Replay`] or [`Self::BindingInvalid`]).
+///
+/// `#[non_exhaustive]` (C4/Q7): new variants are a named source
+/// break for downstream exhaustive `match`es, never a silent
+/// reclassification. The [`Self::coarse`] mapping stays exhaustive
+/// IN-CRATE (compile-forced), so a new variant can never escape the
+/// caller-facing `{Denied, NotSupported, Unavailable}` byte set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum AdmissionDenied {
+    /// The engine was invoked for a non-org-protected mode
+    /// ([`OrgAdmission::PublicAuthenticated`]) — a caller logic
+    /// error; the seam should have routed it elsewhere.
+    NotOrgProtected,
+    /// No `net-org-admission` header was present.
+    MissingHeader,
+    /// More than one `net-org-admission` header — exactly one or
+    /// deny (§2.3 header discipline).
+    MultipleHeaders,
+    /// The proof header value did not decode (bad bytes, over cap).
+    MalformedProof,
+    /// A streaming (non-unary) call — org admission covers unary
+    /// only in v1 (Locked #9); rejected with THIS distinct reason
+    /// rather than admitted under a binding that covers only the
+    /// initial payload. Preserved as the UNARY-REGISTRATION refusal
+    /// (§1.5 step 4): a unary registration never admits streaming
+    /// flags.
+    StreamingUnsupported,
+    /// The call's shape is incoherent with its proof or its
+    /// registration (§1.5 step 4): streaming flags on a streaming
+    /// registration of a DIFFERENT shape, or `proof.kind` naming a
+    /// different shape than the flags (C4, coarse `Denied`).
+    ShapeMismatch,
+    /// The opening proof's `session_binding` does not equal the Noise
+    /// handshake hash of the RECEIVING session (§1.3) — a replayed or
+    /// transplanted opening, or a session carrying no binding at all
+    /// (hand-built test sessions can never admit a protected stream).
+    SessionBindingMismatch,
+    /// The explicitly requested deadline exceeds the provider's
+    /// maximum protected lifetime (§2.1 bound 2: refused, never
+    /// clamped; C4, coarse `Denied`).
+    DeadlineExceedsPolicy,
+    /// The `(caller, call_id)` key is already live in the protected
+    /// call registry (§3 `reserve`): one admitted handler owns the
+    /// stream (C4, coarse `Denied`).
+    ActiveCallOwned,
+    /// The node/caller/org active-stream budget is exhausted at
+    /// `reserve` (§3; C4, coarse `Unavailable` — a later retry may
+    /// succeed).
+    ActiveStreamCapacity,
+    /// The call's credentials were revoked mid-call (§2.3/§2.4
+    /// retirement terminal; C4, coarse `Denied`).
+    Revoked,
+    /// A per-call/per-caller/per-node byte budget refused an item and
+    /// retired the call (§2.7; C4, coarse `Unavailable`).
+    ResourceExhausted,
+    /// The proof's caller does not match the TOFU-authenticated
+    /// channel peer — a relayed or transplanted proof.
+    MemberBindingMismatch,
+    /// The membership certificate's org and the dispatcher grant's
+    /// org disagree — the proof does not name one coherent acting
+    /// org.
+    ActingOrgMismatch,
+    /// `OwnerDelegated` carried a capability grant (malformed — the
+    /// same-org mode confers no cross-org grant).
+    UnexpectedCapabilityGrant,
+    /// `CrossOrgGranted` carried no capability grant.
+    MissingCapabilityGrant,
+    /// The capability grant's issuer is not the provider's owner
+    /// org (a signed receipt from a foreign org is not authority
+    /// here).
+    ForeignIssuer,
+    /// The capability grant's grantee is not the caller's acting
+    /// org.
+    GranteeMismatch,
+    /// The capability grant does not carry INVOKE.
+    InsufficientRights,
+    /// The capability grant is for a different capability than the
+    /// one invoked.
+    CapabilityMismatch,
+    /// The grant's target scope does not cover this exact provider.
+    TargetNotCovered,
+    /// The dispatcher grant does not empower this caller to act for
+    /// the acting org (wrong org, wrong subject, or capability out
+    /// of scope).
+    DispatcherGrantScope,
+    /// The dispatcher grant failed signature/structure/window
+    /// verification.
+    DispatcherGrantInvalid,
+    /// The membership certificate failed signature/structure/window
+    /// verification.
+    MembershipInvalid,
+    /// A revocation floor for `(acting org, caller)` has risen ABOVE
+    /// the membership certificate's generation — the cert is dead.
+    ///
+    /// The boundary is `generation < floor`, so a cert issued AT the
+    /// floor is still alive; the floor names the lowest generation that
+    /// remains valid, not the first one revoked. (An earlier revision of
+    /// this doc said "to or above", which would have led an operator to
+    /// issue a floor EQUAL to the generation they meant to retire and
+    /// get no error — the credential stays live. `org.rs` and
+    /// `org_authority.rs` state the rule correctly; §D3.)
+    MembershipRevoked,
+    /// The capability grant failed signature/structure/window
+    /// verification.
+    CapabilityGrantInvalid,
+    /// The capability grant is valid but its issuer (this provider's
+    /// owner org) has revoked it before its `not_after`.
+    CapabilityGrantRevoked,
+    /// The dispatcher grant is valid but its issuing org has revoked it
+    /// before its `not_after`.
+    DispatcherGrantRevoked,
+    /// This provider requires recent revocation material from the
+    /// caller's acting org, and the newest it holds is older than allowed
+    /// (or there is none). Without it the acting org's floors and
+    /// dispatcher-grant revocations may not have arrived here, so the
+    /// provider refuses rather than admit on a view it cannot vouch for.
+    RevocationsStale,
+    /// The proof's finite expiry has passed, or exceeds the TTL
+    /// ceiling.
+    ProofExpired,
+    /// The call-binding signature does not verify against the
+    /// caller over THIS exact call (call_id, callee, capability,
+    /// provider org, request digest, credential digests).
+    BindingInvalid,
+    /// The provider cannot admit an org-protected call right now: no
+    /// node authority / revocation store is installed, the store is
+    /// poisoned, or the provider's own owner certificate fails its
+    /// call-time self-verification (expired, or its generation fell
+    /// below a floor). Registration-time authority is NOT usable
+    /// authority — an expired/revoked/unhealthy provider stays dark
+    /// (E1.3, verdict §5).
+    ProviderAuthorityUnavailable,
+    /// The provider's security view changed BETWEEN verification and
+    /// the replay insert (E1.4 §9.5) — a revocation floor rose, the
+    /// installed authority was replaced, or the active store was
+    /// poisoned mid-admission. The stale decision is denied WITHOUT
+    /// consuming a replay slot; the gate may retry from a fresh view.
+    AuthorityChanged,
+    /// The same `(caller, call_id)` proof was already admitted —
+    /// a replay.
+    Replay,
+    /// The same `(caller, call_id)` reused with a different binding
+    /// — a correlation-id collision.
+    CallIdCollision,
+    /// The GLOBAL replay guard is at capacity — denied fail-closed.
+    ReplayCapacity,
+    /// THIS caller has filled its per-caller replay allocation
+    /// (E1.5) — denied fail-closed, but only for this caller; other
+    /// callers are unaffected.
+    PerCallerReplayCapacity,
+    /// THIS external acting ORG has filled its aggregate replay allocation
+    /// across all of its member identities (§5).
+    ///
+    /// Distinct from [`Self::PerCallerReplayCapacity`] because a coalition is
+    /// the point of the attack: identities are free to mint, so a per-caller
+    /// denial names the wrong subject and reads to an operator as a single
+    /// misconfigured client. This names the org, which is the thing an
+    /// operator can actually act on (revoke the grant).
+    PerOrganizationReplayCapacity,
+    /// The EXTERNAL pool is full with no single org over quota (§5) — many
+    /// distinct external orgs active at once. Notably NOT a state in which the
+    /// provider's own org is affected: the reserve is untouched by
+    /// construction.
+    ExternalPoolReplayCapacity,
+    /// The provider-local policy (application veto, run LAST)
+    /// rejected the call.
+    ProviderPolicyRejected,
+}
+
+impl std::fmt::Display for AdmissionDenied {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "admission denied: {self:?}")
+    }
+}
+
+impl std::error::Error for AdmissionDenied {}
+
+/// The COARSE, wire-stable admission-denial reason (E2.2). The DETAILED
+/// [`AdmissionDenied`] variant stays PROVIDER-SIDE audit only — surfacing it on
+/// the wire would make denial a credential oracle (which check failed) and could
+/// leak the provider's authority / replay state. A caller sees only one of three
+/// buckets, enough to decide retry behavior without learning why.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoarseAdmissionReason {
+    /// Rejected on the merits — a credential, binding, replay, or provider-
+    /// policy failure. Retrying the SAME proof will not succeed.
+    Denied,
+    /// The provider does not support this call shape (a streaming frame on a
+    /// protected unary service). Not retryable as-is.
+    NotSupported,
+    /// The provider cannot admit right now — its own authority is unavailable,
+    /// its security view changed mid-admission, or a replay allocation is full.
+    /// A transient state; a later retry may succeed.
+    Unavailable,
+}
+
+impl CoarseAdmissionReason {
+    /// The stable wire byte for this coarse reason.
+    pub fn to_wire(self) -> u8 {
+        match self {
+            Self::Denied => 0,
+            Self::NotSupported => 1,
+            Self::Unavailable => 2,
+        }
+    }
+
+    /// Decode a coarse reason from its wire byte (`None` on an unknown byte).
+    pub fn from_wire(v: u8) -> Option<Self> {
+        match v {
+            0 => Some(Self::Denied),
+            1 => Some(Self::NotSupported),
+            2 => Some(Self::Unavailable),
+            _ => None,
+        }
+    }
+}
+
+impl AdmissionDenied {
+    /// Map this detailed reason to the COARSE wire reason (E2.2). The match is
+    /// EXHAUSTIVE (no wildcard) BY DESIGN: a newly added [`AdmissionDenied`]
+    /// variant forces a compile error here, so it can never silently fall into a
+    /// default bucket and escape the caller-facing classification.
+    pub fn coarse(self) -> CoarseAdmissionReason {
+        use AdmissionDenied as D;
+        use CoarseAdmissionReason as C;
+        match self {
+            // The provider cannot admit right now — transient / retryable.
+            D::ProviderAuthorityUnavailable
+            | D::AuthorityChanged
+            | D::ReplayCapacity
+            | D::PerCallerReplayCapacity
+            | D::PerOrganizationReplayCapacity
+            | D::ExternalPoolReplayCapacity
+            | D::ActiveStreamCapacity
+            | D::ResourceExhausted => C::Unavailable,
+            // The call shape is unsupported on a protected unary service.
+            D::StreamingUnsupported => C::NotSupported,
+            // Everything else is a denial on the merits.
+            D::NotOrgProtected
+            | D::MissingHeader
+            | D::MultipleHeaders
+            | D::MalformedProof
+            | D::ShapeMismatch
+            | D::SessionBindingMismatch
+            | D::DeadlineExceedsPolicy
+            | D::ActiveCallOwned
+            | D::Revoked
+            | D::MemberBindingMismatch
+            | D::ActingOrgMismatch
+            | D::UnexpectedCapabilityGrant
+            | D::MissingCapabilityGrant
+            | D::ForeignIssuer
+            | D::GranteeMismatch
+            | D::InsufficientRights
+            | D::CapabilityMismatch
+            | D::TargetNotCovered
+            | D::DispatcherGrantScope
+            | D::DispatcherGrantInvalid
+            | D::MembershipInvalid
+            | D::MembershipRevoked
+            | D::CapabilityGrantInvalid
+            | D::CapabilityGrantRevoked
+            | D::DispatcherGrantRevoked
+            | D::RevocationsStale
+            | D::ProofExpired
+            | D::BindingInvalid
+            | D::Replay
+            | D::CallIdCollision
+            | D::ProviderPolicyRejected => C::Denied,
+        }
+    }
+}
+
+/// The full four-party attribution of an admitted call (audit
+/// identity, Locked #11): actor S, acting for org A, under a grant
+/// from provider org B, invoking capability C on exact provider P.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Admitted {
+    /// The acting entity S (the caller).
+    pub caller: EntityId,
+    /// The org A the caller acted for.
+    pub acting_org: OrgId,
+    /// The provider org B (this node's owner).
+    pub provider_org: OrgId,
+    /// The exact provider P (this node).
+    pub provider: EntityId,
+    /// The invoked capability C.
+    pub capability: CapabilityAuthorityId,
+}
+
+/// The provider's own facts for one admission decision. Everything
+/// here is the provider's knowledge — never the caller's claims and
+/// never fold state.
+///
+/// `#[non_exhaustive]` + [`Self::new`] (C3/Q7): the `is_unary →
+/// shape` replacement is a named source break, and external literal
+/// construction goes with it — the stable constructor is the
+/// migration path. There is deliberately NO second derivable
+/// `is_unary`-style field beside [`Self::shape`].
+pub struct AdmissionContext<'a> {
+    /// The registered admission mode for the invoked capability.
+    pub mode: OrgAdmission,
+    /// The TOFU-authenticated identity of the channel peer — who is
+    /// ACTUALLY on the wire (from `peer_entity_ids`), independent
+    /// of what the proof claims.
+    pub authenticated_caller: &'a EntityId,
+    /// This provider's entity (P).
+    pub provider: &'a EntityId,
+    /// This provider's PROVEN owner org (from its installed
+    /// authority scaffold — never fold state).
+    pub provider_owner_org: OrgId,
+    /// The authority id of the invoked service — the provider
+    /// computes this from the service tag it is about to dispatch.
+    pub invoked_capability: CapabilityAuthorityId,
+    /// The nRPC correlation id of this call.
+    pub call_id: u64,
+    /// blake3 of the canonical request with the admission header
+    /// removed (computed at the cortex layer).
+    pub request_digest: [u8; 32],
+    /// The SHAPE TERM (C3): the call's shape as derived from
+    /// (registration shape, payload flags) at the gate — the exact
+    /// replacement for the old flags-derived `is_unary`.
+    pub shape: RpcCallShape,
+    /// The shape the invoked REGISTRATION serves (§1.5 step 4's
+    /// "registration shape"): [`RpcCallShape::Unary`] for a unary
+    /// serve seam, the matching streaming shape for a streaming one.
+    pub registered_shape: RpcCallShape,
+    /// The Noise handshake hash of the RECEIVING session (§1.3),
+    /// resolved from `RpcInboundEvent.session_id`; `None` for a
+    /// hand-built/test session, which can never admit a protected
+    /// STREAM (unary wire semantics are unchanged and do not read
+    /// this).
+    pub session_binding: Option<[u8; 32]>,
+    /// The provider's current revocation floor view.
+    pub floors: &'a OrgRevocationState,
+    /// Clock-skew tolerance for every wall-clock check.
+    pub skew_secs: u64,
+    /// The provider's revocation-freshness policy, when it has one: called
+    /// with the verified acting org and the admission's wall-clock seconds,
+    /// it answers whether this provider holds recent enough revocation
+    /// material from that org. `None` (the default) checks nothing.
+    pub revocation_freshness: Option<&'a RevocationFreshness<'a>>,
+}
+
+/// See [`AdmissionContext::revocation_freshness`].
+pub type RevocationFreshness<'a> = dyn Fn(&OrgId, u64) -> bool + Sync + 'a;
+
+impl<'a> AdmissionContext<'a> {
+    /// Attach the provider's revocation-freshness policy.
+    pub fn with_revocation_freshness(mut self, policy: &'a RevocationFreshness<'a>) -> Self {
+        self.revocation_freshness = Some(policy);
+        self
+    }
+
+    /// The stable external constructor (C3). `client_streaming` /
+    /// `streaming_response` are the two nRPC streaming-flag bits of the
+    /// REQUEST payload, resolved to plain bools at the cortex layer;
+    /// [`Self::shape`] is derived from (the registration shape, those
+    /// payload flags) here, and [`Self::registered_shape`] is carried
+    /// for the §1.5 step-4 coherence checks.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        mode: OrgAdmission,
+        authenticated_caller: &'a EntityId,
+        provider: &'a EntityId,
+        provider_owner_org: OrgId,
+        invoked_capability: CapabilityAuthorityId,
+        call_id: u64,
+        request_digest: [u8; 32],
+        registered_shape: RpcCallShape,
+        client_streaming: bool,
+        streaming_response: bool,
+        session_binding: Option<[u8; 32]>,
+        floors: &'a OrgRevocationState,
+        skew_secs: u64,
+    ) -> Self {
+        Self {
+            mode,
+            authenticated_caller,
+            provider,
+            provider_owner_org,
+            invoked_capability,
+            call_id,
+            request_digest,
+            shape: RpcCallShape::from_streaming_flags(client_streaming, streaming_response),
+            registered_shape,
+            session_binding,
+            floors,
+            skew_secs,
+            revocation_freshness: None,
+        }
+    }
+}
+
+/// Verify one admission proof against `ctx` in the §2.4 order.
+/// `admission_headers` is every value carried under
+/// [`ORG_ADMISSION_HEADER`](super::org_call::ORG_ADMISSION_HEADER)
+/// (exactly one is required). `replay` is the provider's replay
+/// guard. `clock` is ONE paired wall+monotonic sample for the whole
+/// admission (Kyra E1 audit): every credential/proof freshness check
+/// reads `clock.wall_ns` and the replay retention derives from the
+/// SAME sample's monotonic instant, so no `current_timestamp()` is
+/// read inside a single admission and a wall-clock jump cannot make
+/// checks disagree.
+///
+/// `stability_recheck` is the §9.5 linearization hook (E1.4): it runs
+/// AFTER all credential/binding verification but BEFORE the replay
+/// insert, and returns `true` iff the provider's security view (the
+/// floor snapshot + installed authority + store health captured by
+/// the gate before verification) is STILL current. A `false` return
+/// — a floor raised, the authority was swapped, or the store was
+/// poisoned mid-admission — denies [`AdmissionDenied::AuthorityChanged`]
+/// WITHOUT consuming a `(caller, call_id)` replay slot, so a stale
+/// decision can neither run the handler nor burn the correlation id;
+/// the gate is free to retry from a fresh view.
+///
+/// `provider_policy` is the application veto, run LAST — it sees the
+/// verified proof and returns `true` to admit.
+///
+/// Returns the four-party [`Admitted`] attribution on success, or a
+/// distinguishable [`AdmissionDenied`] reason.
+pub fn verify_org_admission(
+    ctx: &AdmissionContext,
+    admission_headers: &[&[u8]],
+    replay: &AdmissionReplayGuard,
+    clock: ClockSample,
+    stability_recheck: impl FnOnce() -> bool,
+    provider_policy: impl FnOnce(&OrgCallProof) -> bool,
+) -> Result<Admitted, AdmissionDenied> {
+    // 1. Only org-protected modes reach the engine.
+    match ctx.mode {
+        OrgAdmission::OwnerDelegated | OrgAdmission::CrossOrgGranted => {}
+        OrgAdmission::PublicAuthenticated => return Err(AdmissionDenied::NotOrgProtected),
+    }
+
+    // 2. Exactly one admission header, or deny.
+    let header = match admission_headers {
+        [] => return Err(AdmissionDenied::MissingHeader),
+        [one] => *one,
+        _ => return Err(AdmissionDenied::MultipleHeaders),
+    };
+    if header.len() > MAX_ORG_CALL_PROOF_BYTES {
+        return Err(AdmissionDenied::MalformedProof);
+    }
+
+    // 3. Decode the proof — under the REGISTERED shape's decoder (§1.4).
+    //    A unary registration keeps the frozen prefix-tolerant decode
+    //    (unary wire semantics byte-for-byte unchanged); a streaming
+    //    registration requires the FULL streaming value — strict
+    //    full-consumption, so unknown kinds, truncated suffixes and
+    //    trailing bytes all refuse `MalformedProof`.
+    enum DecodedProof {
+        Unary(OrgCallProof),
+        Stream(OrgStreamCallProof),
+    }
+    let proof = match ctx.registered_shape {
+        RpcCallShape::Unary => DecodedProof::Unary(
+            OrgCallProof::decode(header).map_err(|_| AdmissionDenied::MalformedProof)?,
+        ),
+        RpcCallShape::ServerStreaming | RpcCallShape::ClientStreaming | RpcCallShape::Duplex => {
+            DecodedProof::Stream(
+                OrgStreamCallProof::decode(header).map_err(|_| AdmissionDenied::MalformedProof)?,
+            )
+        }
+    };
+    let (membership, dispatcher, cap_grant, expires_ns, call_binding_sig) = match &proof {
+        DecodedProof::Unary(p) => (
+            &p.caller_membership,
+            &p.dispatcher_grant,
+            &p.capability_grant,
+            p.proof_expires_at_unix_ns,
+            &p.call_binding_sig,
+        ),
+        DecodedProof::Stream(p) => (
+            &p.caller_membership,
+            &p.dispatcher_grant,
+            &p.capability_grant,
+            p.proof_expires_at_unix_ns,
+            &p.call_binding_sig,
+        ),
+    };
+
+    // 4. Shape coherence (§1.5, replacing the old unary-only check).
+    //    (a) unary registration + streaming flags ⇒ `StreamingUnsupported`
+    //        (the preserved, typed "not supported" refusal);
+    //    (b) streaming registration + flags ≠ registered shape ⇒
+    //        `ShapeMismatch` (new, `Denied`);
+    //    (c) streaming registration + `proof.kind ≠ shape` ⇒
+    //        `ShapeMismatch`.
+    match ctx.registered_shape {
+        RpcCallShape::Unary => {
+            if ctx.shape != RpcCallShape::Unary {
+                return Err(AdmissionDenied::StreamingUnsupported);
+            }
+        }
+        RpcCallShape::ServerStreaming | RpcCallShape::ClientStreaming | RpcCallShape::Duplex => {
+            if ctx.shape != ctx.registered_shape {
+                return Err(AdmissionDenied::ShapeMismatch);
+            }
+            match &proof {
+                DecodedProof::Stream(p)
+                    if RpcCallShape::from_stream_kind(p.kind) == Some(ctx.shape) => {}
+                DecodedProof::Stream(_) => return Err(AdmissionDenied::ShapeMismatch),
+                DecodedProof::Unary(_) => {
+                    unreachable!("streaming registrations decode the streaming proof")
+                }
+            }
+        }
+    }
+
+    // 5. TOFU member binding: the proof's caller must be who is
+    //    actually on the channel — a captured proof replayed by a
+    //    different peer fails here before any signature work.
+    if &membership.member != ctx.authenticated_caller {
+        return Err(AdmissionDenied::MemberBindingMismatch);
+    }
+
+    // The acting org is named by the membership; the dispatcher
+    // grant must agree.
+    let acting_org = membership.org_id;
+    if dispatcher.org_id != acting_org {
+        return Err(AdmissionDenied::ActingOrgMismatch);
+    }
+
+    // 6. Mode checks.
+    match ctx.mode {
+        OrgAdmission::OwnerDelegated => {
+            // Same-org: the caller acts for MY owner, and there is
+            // no cross-org capability grant.
+            if acting_org != ctx.provider_owner_org {
+                return Err(AdmissionDenied::GranteeMismatch);
+            }
+            if cap_grant.is_some() {
+                return Err(AdmissionDenied::UnexpectedCapabilityGrant);
+            }
+        }
+        OrgAdmission::CrossOrgGranted => {
+            let grant = cap_grant
+                .as_ref()
+                .ok_or(AdmissionDenied::MissingCapabilityGrant)?;
+            // The grant is authority ONLY if my owner issued it…
+            if grant.issuer_org != ctx.provider_owner_org {
+                return Err(AdmissionDenied::ForeignIssuer);
+            }
+            // …to the caller's acting org…
+            if grant.grantee_org != acting_org {
+                return Err(AdmissionDenied::GranteeMismatch);
+            }
+            // …carrying INVOKE…
+            if !grant.permits_invoke() {
+                return Err(AdmissionDenied::InsufficientRights);
+            }
+            // …for the invoked capability…
+            if grant.capability != ctx.invoked_capability {
+                return Err(AdmissionDenied::CapabilityMismatch);
+            }
+            // …covering exactly me (owned by my owner org).
+            if !grant
+                .target_scope
+                .covers(ctx.provider, Some(&ctx.provider_owner_org))
+            {
+                return Err(AdmissionDenied::TargetNotCovered);
+            }
+        }
+        OrgAdmission::PublicAuthenticated => unreachable!("filtered in step 1"),
+    }
+
+    // 7. Dispatcher grant scope: it must empower THIS caller to act
+    //    for the acting org over the invoked capability.
+    if dispatcher.dispatcher != *ctx.authenticated_caller
+        || !dispatcher.covers_capability(&ctx.invoked_capability)
+    {
+        return Err(AdmissionDenied::DispatcherGrantScope);
+    }
+
+    // 8. Credentials: signatures + windows + floors + freshness.
+    //    Membership first (belonging), then revocation floor, then
+    //    the grants, then proof expiry. EVERY wall-clock check reads
+    //    the ONE captured `clock` sample (E1.4/E0.4, Kyra E1 audit) —
+    //    never a freshly-sampled `current_timestamp()` — so a
+    //    wall-clock jump mid-admission cannot make one check disagree
+    //    with another or with the replay retention below.
+    let now_secs = clock.wall_secs();
+    membership
+        .is_valid_at_with_skew(now_secs, ctx.skew_secs)
+        .map_err(|_| AdmissionDenied::MembershipInvalid)?;
+    // §14 — BOUNDARY, stated because it is invisible at this call site.
+    //
+    // `floor_for` returns 0 for an org this node holds no floors for, and
+    // `generation < 0` is unsatisfiable for a `u32`. For an OwnerDelegated
+    // call `acting_org` is this provider's own org, whose bundles it imports
+    // by definition, so the check bites. For CrossOrgGranted, `acting_org` is
+    // a FOREIGN org A — and floors arrive only via operator-distributed,
+    // A-signed bundle files that B has chosen to merge. If B never imports
+    // A's bundles (the default), this check silently evaluates to "permit"
+    // for every cross-org caller.
+    //
+    // So a compromised A member keeps invoking B's protected capability for
+    // the life of its membership certificate — up to `MAX_ORG_CERT_TTL_SECS`
+    // (2 years) — unless B withdraws the capability grant it issued. That is
+    // what grant revocation (below, `org_grant_revocation.rs`) is for: B's
+    // own operator revokes the grant at B's own providers, cutting off EVERY
+    // A member at once, with no help from A. The finer cut (one A member)
+    // still needs A's floors here.
+    //
+    // Deliberately not "fixed" here: making an absent foreign floor set DENY
+    // would break every cross-org deployment that has not built bundle
+    // distribution, and there is no signal at this layer to distinguish "no
+    // floors because none were ever needed" from "no floors because
+    // distribution is broken". Closing it properly needs a cross-org bundle
+    // channel plus an explicit per-issuer "floors expected" assertion — an
+    // operational surface, not a check. Until then `provider_policy` is the
+    // documented mechanism, and this is the §D1 limitation made concrete at
+    // the exact line where a reader would otherwise assume coverage.
+    let floor = ctx.floors.floor_for(&acting_org, &membership.member);
+    if membership.generation < floor {
+        return Err(AdmissionDenied::MembershipRevoked);
+    }
+    // Revocation freshness (opt-in, per acting org): the floor check above
+    // is only as good as the floors that reached this provider. A provider
+    // that requires it refuses an acting org whose newest signed revocation
+    // material here is too old, turning "nothing arrived" from a silent
+    // pass into a refusal.
+    if let Some(fresh) = ctx.revocation_freshness {
+        if !fresh(&acting_org, now_secs) {
+            return Err(AdmissionDenied::RevocationsStale);
+        }
+    }
+    dispatcher
+        .is_valid_at_with_skew(now_secs, ctx.skew_secs)
+        .map_err(|_| AdmissionDenied::DispatcherGrantInvalid)?;
+    if let Some(grant) = &cap_grant {
+        grant
+            .is_valid_at_with_skew(now_secs, ctx.skew_secs)
+            .map_err(|_| AdmissionDenied::CapabilityGrantInvalid)?;
+    }
+    // Grant revocation: a grant its issuer has withdrawn early. Each
+    // grant is looked up under its OWN issuer, so only that org's
+    // bundles can revoke it: the capability grant under `issuer_org`
+    // (checked above to be this provider's owner), the dispatcher grant
+    // under `org_id` (the acting org). For a cross-org caller the
+    // dispatcher half sees the acting org's revocations only once this
+    // provider holds them, the same reach as membership floors above.
+    if ctx.floors.is_grant_revoked(
+        &dispatcher.org_id,
+        RevokedGrantKind::Dispatcher,
+        &dispatcher.revocation_id(),
+    ) {
+        return Err(AdmissionDenied::DispatcherGrantRevoked);
+    }
+    if let Some(grant) = &cap_grant {
+        if ctx.floors.is_grant_revoked(
+            &grant.issuer_org,
+            RevokedGrantKind::Capability,
+            &grant.grant_id,
+        ) {
+            return Err(AdmissionDenied::CapabilityGrantRevoked);
+        }
+    }
+    match &proof {
+        DecodedProof::Unary(p) => p.check_expiry_at(clock.wall_ns, ctx.skew_secs),
+        DecodedProof::Stream(p) => p.check_expiry_at(clock.wall_ns, ctx.skew_secs),
+    }
+    .map_err(|_| AdmissionDenied::ProofExpired)?;
+
+    // 9. Call binding: the caller ENTITY signed THIS exact call.
+    //    The provider supplies its own owner org, identity,
+    //    call_id, the invoked capability, and the request digest —
+    //    a proof minted for another call/callee/capability fails.
+    //    Unary verifies the 11-field `"net-org-call-v1"` transcript
+    //    (byte-for-byte unchanged); streaming verifies the 13-field
+    //    `"net-org-stream-call-v1"` transcript (§1.2), so a
+    //    unary-domain signature can never authorize a streaming
+    //    opening and vice versa.
+    match &proof {
+        DecodedProof::Unary(p) => {
+            let binding = p.binding_for_verify(
+                ctx.provider_owner_org,
+                ctx.provider.clone(),
+                ctx.call_id,
+                ctx.invoked_capability,
+                ctx.request_digest,
+            );
+            binding
+                .verify(call_binding_sig)
+                .map_err(|_| AdmissionDenied::BindingInvalid)?;
+        }
+        DecodedProof::Stream(p) => {
+            let binding = p.binding_for_stream_verify(
+                ctx.provider_owner_org,
+                ctx.provider.clone(),
+                ctx.call_id,
+                ctx.invoked_capability,
+                ctx.request_digest,
+            );
+            binding
+                .verify(call_binding_sig)
+                .map_err(|_| AdmissionDenied::BindingInvalid)?;
+            // 9b. Session binding (§1.3): the opening is admitted only
+            //     on the ONE session its proof binds — the RECEIVING
+            //     session's full Noise handshake hash must equal
+            //     `proof.session_binding`. A hand-built session (`None`)
+            //     can never admit a protected stream; a captured opening
+            //     replayed on any later session fails here, BEFORE the
+            //     replay insert (so the typed reason is
+            //     `SessionBindingMismatch`, not `Replay`).
+            match ctx.session_binding {
+                Some(resolved) if resolved == p.session_binding => {}
+                _ => return Err(AdmissionDenied::SessionBindingMismatch),
+            }
+        }
+    }
+
+    // 9.5. Stability linearization (E1.4, verdict §6). Steps 1–9
+    //      verified the proof against a floor snapshot + authority
+    //      captured by the gate BEFORE this call. A floor raise, an
+    //      authority swap, or a store poison DURING verification
+    //      would make that view stale. Recheck it HERE — before the
+    //      replay insert — so a stale decision neither runs the
+    //      handler nor consumes the `(caller, call_id)` slot. On a
+    //      changed view the gate retries from a fresh snapshot; a
+    //      persistent change denies `AuthorityChanged`.
+    if !stability_recheck() {
+        return Err(AdmissionDenied::AuthorityChanged);
+    }
+
+    // 10. Replay guard: atomic insert-or-deny BEFORE the handler.
+    //     Keyed on (caller, call_id); the binding signature
+    //     distinguishes replay from call-id collision.
+    //
+    //     Retention derives from the SAME `clock` sample (Kyra E1
+    //     audit): the wall deadline is the proof's expiry PLUS a skew
+    //     allowance (a proof admitted within skew is still live, so it
+    //     must be retained that far), translated onto the sample's
+    //     monotonic instant. Using `clock.monotonic` as `now` keeps
+    //     insertion and expiry on one monotonic timeline — a wall-clock
+    //     jump cannot evict a just-admitted proof.
+    //
+    //     §5 — that allowance is the HARD CEILING, not `ctx.skew_secs`.
+    //     Retention must dominate every acceptance window the freshness
+    //     check could ever apply, and freshness re-reads the LIVE skew
+    //     on every call (`facts.skew_secs`, resolved from the installed
+    //     authority in `verify_provider_authority`). Retaining to
+    //     `expiry + ctx.skew_secs` ties the two to the same mutable
+    //     value read at different TIMES, which is not the same thing as
+    //     tying them together:
+    //
+    //       P runs at skew 0 (the serde default). Caller S issues a
+    //       protected call at T, proof expiry T+30; the guard entry is
+    //       retained to monotonic M+30. S keeps the frame and re-sends
+    //       it periodically — all denied ProofExpired. An operator then
+    //       runs `net node adopt --skew-secs 300` after a clock-drift
+    //       incident and calls install_node_authority: a supported
+    //       same-org renewal, runtime-installable, no restart, guard not
+    //       cleared. S's next resend at T+200 finds an EXPIRED guard
+    //       entry (so `admit` takes the reusable-key branch and returns
+    //       Admitted), passes freshness (T+200 < T+30+300), passes the
+    //       TTL ceiling, and passes every credential check — the grants
+    //       run days-to-weeks and nothing else changed. The handler runs
+    //       a SECOND time on one signed proof. The fold's duplicate
+    //       -REQUEST guard covers only in-flight calls, so the first
+    //       call having COMPLETED is the enabling condition.
+    //
+    //     The same shape has a second, non-attacker-controlled trigger:
+    //     retention is anchored on `Instant` while freshness reads wall
+    //     time, so a backward wall step (NTP correcting a fast clock)
+    //     makes monotonic elapse more than wall and expires the entry
+    //     while the proof is still fresh. `admission_clock` closes the
+    //     INTRA-admission case; this closes the inter-admission one.
+    //
+    //     `MAX_TOKEN_CLOCK_SKEW_SECS` is the ceiling `check_expiry_at`
+    //     enforces on `skew_secs` (org_call.rs), so no future skew can
+    //     produce an acceptance window wider than this retention. The
+    //     cost is bounded: entries live at most 5 minutes past expiry
+    //     rather than `ctx.skew_secs`, and the per-caller ceiling
+    //     already bounds how many a caller can hold.
+    let binding_digest: [u8; 32] = blake3::hash(call_binding_sig).into();
+    let skew_ns = MAX_TOKEN_CLOCK_SKEW_SECS.saturating_mul(1_000_000_000);
+    let retain_until_wall_ns = expires_ns.saturating_add(skew_ns);
+    let expires_at = clock.monotonic_deadline_for(retain_until_wall_ns);
+    // §5 — the quota principal. `acting_org` here is the VERIFIED one: it was
+    // taken from the org-signed membership certificate at step 5 and
+    // cross-checked against the dispatcher grant, so it is not a wire claim
+    // and not the (attacker-choosable) certificate issuer. That is what makes
+    // the aggregate quota meaningful — identities are free to mint, a trusted
+    // acting org is not.
+    let principal = ReplayPrincipal {
+        caller: ctx.authenticated_caller,
+        acting_org: &acting_org,
+        provider_owner_org: &ctx.provider_owner_org,
+    };
+    match replay.admit(
+        principal,
+        ctx.call_id,
+        binding_digest,
+        expires_at,
+        clock.monotonic,
+    ) {
+        ReplayOutcome::Admitted => {}
+        ReplayOutcome::Replay => return Err(AdmissionDenied::Replay),
+        ReplayOutcome::CallIdCollision => return Err(AdmissionDenied::CallIdCollision),
+        ReplayOutcome::CapacityExhausted => return Err(AdmissionDenied::ReplayCapacity),
+        ReplayOutcome::PerCallerCapacityExhausted => {
+            return Err(AdmissionDenied::PerCallerReplayCapacity)
+        }
+        ReplayOutcome::PerOrganizationCapacityExhausted => {
+            return Err(AdmissionDenied::PerOrganizationReplayCapacity)
+        }
+        ReplayOutcome::ExternalPoolCapacityExhausted => {
+            return Err(AdmissionDenied::ExternalPoolReplayCapacity)
+        }
+    }
+
+    // 11. Provider-local policy LAST (Locked #6): the application
+    //     veto. Fold state / decrypted announcements are never
+    //     consulted here — the closure gets only the verified proof
+    //     (for a streaming call, its five unary prefix fields as an
+    //     `OrgCallProof` view: `OrgProviderPolicy` keeps its unary
+    //     signature; `kind`/`session_binding` are shape/session
+    //     facts, not credentials).
+    let policy_view;
+    let policy_proof: &OrgCallProof = match &proof {
+        DecodedProof::Unary(p) => p,
+        DecodedProof::Stream(p) => {
+            policy_view = p.unary_prefix();
+            &policy_view
+        }
+    };
+    if !provider_policy(policy_proof) {
+        return Err(AdmissionDenied::ProviderPolicyRejected);
+    }
+
+    Ok(Admitted {
+        caller: membership.member.clone(),
+        acting_org,
+        provider_org: ctx.provider_owner_org,
+        provider: ctx.provider.clone(),
+        capability: ctx.invoked_capability,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::net::behavior::org::{OrgKeypair, OrgMembershipCert, OrgRevocationBundle};
+    use crate::adapter::net::behavior::org_grant::{
+        DispatcherScope, GrantRights, GrantTargetScope, OrgCapabilityGrant, OrgDispatcherGrant,
+    };
+    use crate::adapter::net::identity::EntityKeypair;
+    use std::collections::BTreeMap;
+    use std::time::Duration;
+
+    fn org_b() -> OrgKeypair {
+        // Provider's owner org.
+        OrgKeypair::from_bytes([0x42u8; 32])
+    }
+
+    fn org_a() -> OrgKeypair {
+        // Caller's org (cross-org grantee).
+        OrgKeypair::from_bytes([0x77u8; 32])
+    }
+
+    fn caller() -> EntityKeypair {
+        EntityKeypair::from_bytes([0x24u8; 32])
+    }
+
+    fn provider() -> EntityId {
+        EntityId::from_bytes([0x99u8; 32])
+    }
+
+    fn cap() -> CapabilityAuthorityId {
+        CapabilityAuthorityId::for_tag("nrpc:oa2-echo")
+    }
+
+    fn empty_floors() -> OrgRevocationState {
+        OrgRevocationState::empty()
+    }
+
+    const REQ: [u8; 32] = [0x11u8; 32];
+    const CALL_ID: u64 = 42;
+
+    /// Build a valid cross-org proof (caller ∈ A, dispatcher A→caller,
+    /// capability grant B→A INVOKE covering the exact provider).
+    fn cross_org_proof() -> OrgCallProof {
+        cross_org_proof_for_call(CALL_ID)
+    }
+
+    /// [`cross_org_proof`] bound to an explicit `call_id`, so a test can put
+    /// two independent calls on one replay guard.
+    fn cross_org_proof_for_call(call_id: u64) -> OrgCallProof {
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_a(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_a(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let (grant, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_a().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        let expiry = (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000;
+        OrgCallProof::sign_for_call(
+            &caller,
+            membership,
+            dispatcher,
+            Some(grant),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            call_id,
+            cap(),
+            expiry,
+            REQ,
+        )
+    }
+
+    /// [`cross_org_proof_for_call`]'s streaming twin: a FULL
+    /// `OrgStreamCallProof` — the streaming decoder's exact value, kind +
+    /// session binding included — for the same cross-org shape and `REQ`
+    /// digest (the 1.6 split/rework builders).
+    fn cross_org_stream_proof_at(
+        call_id: u64,
+        session_binding: [u8; 32],
+        expiry_ns: u64,
+        kind: u8,
+    ) -> OrgStreamCallProof {
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_a(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_a(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let (grant, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_a().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        OrgStreamCallProof::sign_for_stream_call(
+            &caller,
+            membership,
+            dispatcher,
+            Some(grant),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            call_id,
+            cap(),
+            expiry_ns,
+            REQ,
+            kind,
+            session_binding,
+        )
+    }
+
+    /// A live [`cross_org_stream_proof_at`] (expiry 20 s out), signed for
+    /// the server-streaming kind.
+    fn cross_org_stream_proof(call_id: u64, session_binding: [u8; 32]) -> OrgStreamCallProof {
+        let expiry = (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000;
+        cross_org_stream_proof_at(
+            call_id,
+            session_binding,
+            expiry,
+            crate::adapter::net::behavior::org_call::STREAM_CALL_KIND_SERVER_STREAMING,
+        )
+    }
+
+    /// The streaming-registered twin of [`cross_org_ctx`] (§1.5 step 4's
+    /// COHERENT shape): registered and flags-derived shape both
+    /// server-streaming, the receiving session carrying `session_binding`.
+    /// The identity references are BORROWED from the caller's locals (the
+    /// surrounding `cross_org_ctx` helpers' `Box::leak` idiom is pre-existing
+    /// and deliberately not extended).
+    fn cross_org_stream_ctx<'a>(
+        floors: &'a OrgRevocationState,
+        authenticated_caller: &'a crate::adapter::net::identity::EntityId,
+        provider: &'a crate::adapter::net::identity::EntityId,
+        session_binding: [u8; 32],
+    ) -> AdmissionContext<'a> {
+        AdmissionContext {
+            mode: OrgAdmission::CrossOrgGranted,
+            authenticated_caller,
+            provider,
+            provider_owner_org: org_b().org_id(),
+            invoked_capability: cap(),
+            call_id: CALL_ID,
+            request_digest: REQ,
+            shape: RpcCallShape::ServerStreaming,
+            registered_shape: RpcCallShape::ServerStreaming,
+            session_binding: Some(session_binding),
+            floors,
+            skew_secs: 0,
+            revocation_freshness: None,
+        }
+    }
+
+    /// Build a valid owner-delegated proof (caller ∈ B = my owner,
+    /// dispatcher B→caller, NO capability grant).
+    fn owner_delegated_proof() -> OrgCallProof {
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_b(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_b(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let expiry = (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000;
+        OrgCallProof::sign_for_call(
+            &caller,
+            membership,
+            dispatcher,
+            None,
+            org_b().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            expiry,
+            REQ,
+        )
+    }
+
+    fn cross_org_ctx(floors: &OrgRevocationState) -> AdmissionContext<'_> {
+        AdmissionContext {
+            mode: OrgAdmission::CrossOrgGranted,
+            authenticated_caller: Box::leak(Box::new(caller().entity_id().clone())),
+            provider: Box::leak(Box::new(provider())),
+            provider_owner_org: org_b().org_id(),
+            invoked_capability: cap(),
+            call_id: CALL_ID,
+            request_digest: REQ,
+            shape: RpcCallShape::Unary,
+            registered_shape: RpcCallShape::Unary,
+            session_binding: None,
+            floors,
+            skew_secs: 0,
+            revocation_freshness: None,
+        }
+    }
+
+    fn owner_ctx(floors: &OrgRevocationState) -> AdmissionContext<'_> {
+        AdmissionContext {
+            mode: OrgAdmission::OwnerDelegated,
+            authenticated_caller: Box::leak(Box::new(caller().entity_id().clone())),
+            provider: Box::leak(Box::new(provider())),
+            provider_owner_org: org_b().org_id(),
+            invoked_capability: cap(),
+            call_id: CALL_ID,
+            request_digest: REQ,
+            shape: RpcCallShape::Unary,
+            registered_shape: RpcCallShape::Unary,
+            session_binding: None,
+            floors,
+            skew_secs: 0,
+            revocation_freshness: None,
+        }
+    }
+
+    fn admit(
+        ctx: &AdmissionContext,
+        proof: &OrgCallProof,
+        replay: &AdmissionReplayGuard,
+    ) -> Result<Admitted, AdmissionDenied> {
+        let bytes = proof.encode().expect("encode");
+        verify_org_admission(
+            ctx,
+            &[&bytes],
+            replay,
+            ClockSample::now(),
+            || true,
+            |_| true,
+        )
+    }
+
+    #[test]
+    fn cross_org_happy_path_admits_with_four_party_attribution() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let admitted = admit(&ctx, &cross_org_proof(), &replay).expect("admit");
+        assert_eq!(admitted.caller, *caller().entity_id());
+        assert_eq!(admitted.acting_org, org_a().org_id());
+        assert_eq!(admitted.provider_org, org_b().org_id());
+        assert_eq!(admitted.provider, provider());
+        assert_eq!(admitted.capability, cap());
+    }
+
+    /// Floors with `entries` revoked by `issuer`, through the real merge.
+    fn floors_revoking(
+        issuer: &OrgKeypair,
+        entries: impl IntoIterator<
+            Item = crate::adapter::net::behavior::org_grant_revocation::RevokedGrant,
+        >,
+    ) -> OrgRevocationState {
+        use crate::adapter::net::behavior::org_grant_revocation::OrgGrantRevocationBundle;
+        let now = crate::adapter::net::behavior::org::current_timestamp();
+        let bundle = OrgGrantRevocationBundle::try_issue(issuer, entries).expect("bundle");
+        bundle.verify().expect("verifies");
+        let mut floors = OrgRevocationState::empty();
+        floors.merge_grant_revocations(&bundle, now);
+        floors
+    }
+
+    /// The provider org revokes the capability grant it issued: the
+    /// cross-org call is refused with its own reason, before the replay
+    /// insert (the same proof admits once the revocation is gone).
+    #[test]
+    fn a_revoked_capability_grant_is_denied_without_consuming_the_replay_slot() {
+        use crate::adapter::net::behavior::org_grant_revocation::RevokedGrant;
+        let proof = cross_org_proof();
+        let grant = proof.capability_grant.clone().expect("cross-org grant");
+        let floors = floors_revoking(&org_b(), [RevokedGrant::capability(&grant)]);
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &proof, &replay),
+            Err(AdmissionDenied::CapabilityGrantRevoked)
+        );
+        let clean = empty_floors();
+        admit(&cross_org_ctx(&clean), &proof, &replay).expect("the denial consumed no replay slot");
+    }
+
+    /// The caller's org revokes the dispatcher grant it issued; once the
+    /// provider holds that revocation the call is refused.
+    #[test]
+    fn a_revoked_dispatcher_grant_is_denied() {
+        use crate::adapter::net::behavior::org_grant_revocation::RevokedGrant;
+        let proof = cross_org_proof();
+        let floors = floors_revoking(
+            &org_a(),
+            [RevokedGrant::dispatcher(&proof.dispatcher_grant)],
+        );
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &proof, &replay),
+            Err(AdmissionDenied::DispatcherGrantRevoked)
+        );
+
+        let owner = owner_delegated_proof();
+        let floors = floors_revoking(
+            &org_b(),
+            [RevokedGrant::dispatcher(&owner.dispatcher_grant)],
+        );
+        assert_eq!(
+            admit(&owner_ctx(&floors), &owner, &replay),
+            Err(AdmissionDenied::DispatcherGrantRevoked),
+            "same-org dispatcher revocation bites the same way"
+        );
+    }
+
+    /// Only the issuer can revoke a grant: a revocation of B's capability
+    /// grant signed by A (or of A's dispatcher grant signed by B) is keyed
+    /// under the wrong org and changes nothing. Revoking an unrelated
+    /// grant id changes nothing either.
+    #[test]
+    fn a_revocation_by_anyone_but_the_issuer_or_of_another_grant_is_inert() {
+        use crate::adapter::net::behavior::org_grant_revocation::{RevokedGrant, RevokedGrantKind};
+        let proof = cross_org_proof();
+        let grant = proof.capability_grant.clone().expect("cross-org grant");
+        let replay = AdmissionReplayGuard::with_defaults();
+
+        let wrong_issuers = {
+            use crate::adapter::net::behavior::org_grant_revocation::OrgGrantRevocationBundle;
+            let now = crate::adapter::net::behavior::org::current_timestamp();
+            let mut floors = OrgRevocationState::empty();
+            for (issuer, entry) in [
+                (org_a(), RevokedGrant::capability(&grant)),
+                (org_b(), RevokedGrant::dispatcher(&proof.dispatcher_grant)),
+                (
+                    org_b(),
+                    RevokedGrant {
+                        kind: RevokedGrantKind::Capability,
+                        grant_id: [0xeeu8; 32],
+                        not_after: grant.not_after,
+                    },
+                ),
+            ] {
+                let bundle = OrgGrantRevocationBundle::try_issue(&issuer, [entry]).expect("bundle");
+                floors.merge_grant_revocations(&bundle, now);
+            }
+            floors
+        };
+        assert_eq!(wrong_issuers.revoked_grant_count(), 3);
+        admit(&cross_org_ctx(&wrong_issuers), &proof, &replay)
+            .expect("none of those revocations names this call's grants under their issuers");
+    }
+
+    #[test]
+    fn owner_delegated_happy_path_admits() {
+        let floors = empty_floors();
+        let ctx = owner_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let admitted = admit(&ctx, &owner_delegated_proof(), &replay).expect("admit");
+        assert_eq!(admitted.acting_org, org_b().org_id());
+        assert!(admitted.provider_org == admitted.acting_org, "same-org");
+    }
+
+    #[test]
+    fn public_mode_is_not_handled_here() {
+        let floors = empty_floors();
+        let mut ctx = cross_org_ctx(&floors);
+        ctx.mode = OrgAdmission::PublicAuthenticated;
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::NotOrgProtected)
+        );
+    }
+
+    #[test]
+    fn header_discipline_exactly_one() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let bytes = cross_org_proof().encode().expect("encode");
+        assert_eq!(
+            verify_org_admission(&ctx, &[], &replay, ClockSample::now(), || true, |_| true),
+            Err(AdmissionDenied::MissingHeader)
+        );
+        assert_eq!(
+            verify_org_admission(
+                &ctx,
+                &[&bytes, &bytes],
+                &replay,
+                ClockSample::now(),
+                || true,
+                |_| true
+            ),
+            Err(AdmissionDenied::MultipleHeaders)
+        );
+    }
+
+    /// Malformed proof bytes refuse `MalformedProof` and are never mistaken
+    /// for a shape refusal (the 1.6 split of
+    /// `malformed_and_streaming_are_distinct` — the malformed-proof refusal).
+    #[test]
+    fn malformed_proof_is_refused() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            verify_org_admission(
+                &ctx,
+                &[b"garbage"],
+                &replay,
+                ClockSample::now(),
+                || true,
+                |_| true
+            ),
+            Err(AdmissionDenied::MalformedProof)
+        );
+    }
+
+    /// The SURVIVING unary denial invariant (§1.5 step 4a — the typed
+    /// old-provider refusal, preserved; the 1.6 split's second part): a
+    /// unary registration receiving streaming flags is
+    /// `StreamingUnsupported`, never a generic denial and never an
+    /// admission.
+    #[test]
+    fn unary_registration_streaming_flags_are_streaming_unsupported() {
+        let floors = empty_floors();
+        let mut streaming = cross_org_ctx(&floors);
+        streaming.shape = RpcCallShape::ServerStreaming;
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&streaming, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::StreamingUnsupported)
+        );
+    }
+
+    /// The new supported-shape positive (§1.5 — the 1.6 split's third part):
+    /// a streaming registration with coherent flags ADMITS a full streaming
+    /// proof whose `kind` matches the shape and whose `session_binding`
+    /// matches the receiving session — the exact shape step 4 refuses
+    /// everything else for.
+    #[test]
+    fn streaming_registration_admits_the_supported_shape() {
+        let floors = empty_floors();
+        let binding = [0x5Au8; 32];
+        let caller_entity = caller().entity_id().clone();
+        let provider_entity = provider();
+        let ctx = cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let bytes = cross_org_stream_proof(CALL_ID, binding)
+            .encode()
+            .expect("encode");
+        let out = verify_org_admission(
+            &ctx,
+            &[&bytes],
+            &replay,
+            ClockSample::now(),
+            || true,
+            |_| true,
+        );
+        let admitted = out.expect("the coherent streaming shape admits");
+        assert_eq!(admitted.caller, caller_entity);
+        assert_eq!(admitted.acting_org, org_a().org_id());
+        assert_eq!(admitted.provider_org, org_b().org_id());
+        assert_eq!(admitted.provider, provider_entity);
+        assert_eq!(admitted.capability, cap());
+    }
+
+    /// Step 4(c), at its own step (CORE-6): a streaming registration with
+    /// COHERENT flags whose streaming proof names a DIFFERENT shape in
+    /// `proof.kind` is `ShapeMismatch` — the kind arm, not the flags arm
+    /// (step 4(b)), and not an earlier decode refusal (the proof decodes
+    /// cleanly; only its kind disagrees).
+    #[test]
+    fn step_4c_a_proof_kind_naming_another_shape_is_shape_mismatch() {
+        let floors = empty_floors();
+        let binding = [0x5Au8; 32];
+        let caller_entity = caller().entity_id().clone();
+        let provider_entity = provider();
+        let ctx = cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        let replay = AdmissionReplayGuard::with_defaults();
+        // Flags and registration both say server-streaming; the proof
+        // says duplex.
+        let bytes = cross_org_stream_proof_at(
+            CALL_ID,
+            binding,
+            (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000,
+            crate::adapter::net::behavior::org_call::STREAM_CALL_KIND_DUPLEX,
+        )
+        .encode()
+        .expect("encode");
+        assert_eq!(
+            verify_org_admission(
+                &ctx,
+                &[&bytes],
+                &replay,
+                ClockSample::now(),
+                || true,
+                |_| true
+            ),
+            Err(AdmissionDenied::ShapeMismatch),
+            "step 4(c): a kind naming another shape is ShapeMismatch",
+        );
+    }
+
+    /// Step 9b, at its own step (CORE-6): the session fence refuses
+    /// `SessionBindingMismatch` — never `Replay`, never `BindingInvalid` —
+    /// both when the receiving session carries a DIFFERENT binding and
+    /// when it is hand-built (`None`), and the refusal runs BEFORE the
+    /// replay insert: the same opening still admits on the session its
+    /// proof binds.
+    #[test]
+    fn step_9b_session_binding_mismatch_is_refused_before_the_replay_insert() {
+        let floors = empty_floors();
+        let binding = [0x5Au8; 32];
+        let other_binding = [0xA5u8; 32];
+        let caller_entity = caller().entity_id().clone();
+        let provider_entity = provider();
+        let replay = AdmissionReplayGuard::with_defaults();
+        let bytes = cross_org_stream_proof(CALL_ID, binding)
+            .encode()
+            .expect("encode");
+
+        // (a) a REPLACED session: the receiving binding differs from the
+        //     one the proof names.
+        let ctx_other =
+            cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, other_binding);
+        assert_eq!(
+            verify_org_admission(
+                &ctx_other,
+                &[&bytes],
+                &replay,
+                ClockSample::now(),
+                || true,
+                |_| true
+            ),
+            Err(AdmissionDenied::SessionBindingMismatch),
+            "step 9b(a): a foreign session binding is SessionBindingMismatch",
+        );
+
+        // (b) a hand-built session: no Noise handshake hash at all can
+        //     never admit a protected stream.
+        let mut ctx_hand_built =
+            cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        ctx_hand_built.session_binding = None;
+        assert_eq!(
+            verify_org_admission(
+                &ctx_hand_built,
+                &[&bytes],
+                &replay,
+                ClockSample::now(),
+                || true,
+                |_| true
+            ),
+            Err(AdmissionDenied::SessionBindingMismatch),
+            "step 9b(b): a hand-built session is SessionBindingMismatch",
+        );
+
+        // (c) both refusals landed BEFORE the replay insert: the opening
+        //     still admits on the session its proof binds — a consumed
+        //     replay slot would refuse it `Replay` instead.
+        let ctx_bound = cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        let admitted = verify_org_admission(
+            &ctx_bound,
+            &[&bytes],
+            &replay,
+            ClockSample::now(),
+            || true,
+            |_| true,
+        );
+        assert!(
+            admitted.is_ok(),
+            "step 9b runs before the replay insert: {admitted:?}",
+        );
+    }
+
+    #[test]
+    fn tofu_member_binding_rejects_a_relayed_proof() {
+        let floors = empty_floors();
+        let mut ctx = cross_org_ctx(&floors);
+        // A different peer on the channel than the proof's member.
+        let other = EntityId::from_bytes([0xEEu8; 32]);
+        ctx.authenticated_caller = &other;
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::MemberBindingMismatch)
+        );
+    }
+
+    #[test]
+    fn owner_delegated_rejects_an_unexpected_capability_grant() {
+        // A proof shaped for cross-org (carries a grant) presented
+        // under OwnerDelegated: the caller is in B, so build a B
+        // membership but attach a capability grant.
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_b(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_b(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let (grant, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_b().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        let expiry = (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000;
+        let proof = OrgCallProof::sign_for_call(
+            &caller,
+            membership,
+            dispatcher,
+            Some(grant),
+            org_b().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            expiry,
+            REQ,
+        );
+        let floors = empty_floors();
+        let ctx = owner_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&ctx, &proof, &replay),
+            Err(AdmissionDenied::UnexpectedCapabilityGrant)
+        );
+    }
+
+    #[test]
+    fn cross_org_mode_check_matrix() {
+        let floors = empty_floors();
+        let replay = AdmissionReplayGuard::with_defaults();
+
+        // Missing capability grant.
+        let owner_proof = owner_delegated_proof();
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &owner_proof, &replay),
+            Err(AdmissionDenied::MissingCapabilityGrant)
+        );
+
+        // Foreign issuer: grant issued by A (not my owner B).
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_a(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_a(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let (foreign_grant, _) = OrgCapabilityGrant::try_issue(
+            &org_a(), // WRONG issuer
+            org_a().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        let expiry = (crate::adapter::net::behavior::org::current_timestamp() + 20) * 1_000_000_000;
+        let foreign = OrgCallProof::sign_for_call(
+            &caller,
+            membership.clone(),
+            dispatcher.clone(),
+            Some(foreign_grant),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            expiry,
+            REQ,
+        );
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &foreign, &replay),
+            Err(AdmissionDenied::ForeignIssuer)
+        );
+
+        // Wrong target: grant covers a DIFFERENT provider.
+        let (wrong_target, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_a().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(EntityId::from_bytes([0x55u8; 32])),
+            3600,
+        )
+        .expect("grant");
+        let mistargeted = OrgCallProof::sign_for_call(
+            &caller,
+            membership.clone(),
+            dispatcher.clone(),
+            Some(wrong_target),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            expiry,
+            REQ,
+        );
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &mistargeted, &replay),
+            Err(AdmissionDenied::TargetNotCovered)
+        );
+
+        // DISCOVER-only grant: no INVOKE.
+        let (discover_only, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_a().org_id(),
+            cap(),
+            GrantRights::DISCOVER,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        let no_invoke = OrgCallProof::sign_for_call(
+            &caller,
+            membership,
+            dispatcher,
+            Some(discover_only),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            expiry,
+            REQ,
+        );
+        assert_eq!(
+            admit(&cross_org_ctx(&floors), &no_invoke, &replay),
+            Err(AdmissionDenied::InsufficientRights)
+        );
+    }
+
+    #[test]
+    fn capability_mismatch_when_invoked_tag_differs() {
+        let floors = empty_floors();
+        // The proof is bound to cap(); the provider is dispatching a
+        // DIFFERENT service.
+        let mut ctx = cross_org_ctx(&floors);
+        ctx.invoked_capability = CapabilityAuthorityId::for_tag("nrpc:other");
+        let replay = AdmissionReplayGuard::with_defaults();
+        // The grant's capability no longer matches the invoked one.
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::CapabilityMismatch)
+        );
+    }
+
+    #[test]
+    fn revocation_floor_kills_the_membership() {
+        // Floor for (A, caller) rises to 2; the cert is generation 1.
+        let mut floors = OrgRevocationState::empty();
+        let mut map = BTreeMap::new();
+        map.insert(caller().entity_id().clone(), 2u32);
+        floors.merge_bundle(&OrgRevocationBundle::try_issue(&org_a(), &map).expect("bundle"));
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::MembershipRevoked)
+        );
+    }
+
+    #[test]
+    fn binding_rejects_a_transplanted_call() {
+        let floors = empty_floors();
+        let replay = AdmissionReplayGuard::with_defaults();
+        // The provider received the proof under a DIFFERENT call_id
+        // than the caller signed.
+        let mut ctx = cross_org_ctx(&floors);
+        ctx.call_id = CALL_ID + 1;
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::BindingInvalid)
+        );
+        // …or a different request body (digest).
+        let mut ctx = cross_org_ctx(&floors);
+        ctx.request_digest = [0x22u8; 32];
+        assert_eq!(
+            admit(&ctx, &cross_org_proof(), &replay),
+            Err(AdmissionDenied::BindingInvalid)
+        );
+    }
+
+    #[test]
+    fn replay_then_collision_are_distinguished() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let proof = cross_org_proof();
+        admit(&ctx, &proof, &replay).expect("first admit");
+        // Same proof again → replay.
+        assert_eq!(admit(&ctx, &proof, &replay), Err(AdmissionDenied::Replay));
+        // Same (caller, call_id), different binding (new proof, fresh
+        // nonce in the grant/cert → different sig) → collision.
+        let other = cross_org_proof();
+        assert_eq!(
+            admit(&ctx, &other, &replay),
+            Err(AdmissionDenied::CallIdCollision)
+        );
+    }
+
+    #[test]
+    fn provider_policy_runs_last_and_can_veto() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let bytes = cross_org_proof().encode().expect("encode");
+        // Everything verifies, but the application vetoes.
+        let out = verify_org_admission(
+            &ctx,
+            &[&bytes],
+            &replay,
+            ClockSample::now(),
+            || true,
+            |_| false,
+        );
+        assert_eq!(out, Err(AdmissionDenied::ProviderPolicyRejected));
+    }
+
+    /// KC2 (Kyra E1 audit) — the whole admission derives from ONE
+    /// `ClockSample`: proof freshness reads the sample's `wall_ns`
+    /// (never a fresh `current_timestamp()`), and the replay retention
+    /// derives from the SAME sample's monotonic instant.
+    #[test]
+    fn admission_uses_one_clock_sample_for_freshness_and_retention() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let proof = cross_org_proof();
+        let bytes = proof.encode().expect("encode");
+        let expiry_ns = proof.proof_expires_at_unix_ns;
+        // A fixed monotonic base for the retention timeline. (The
+        // certs were issued against the REAL clock and stay valid at
+        // every `wall_ns` used below — only the proof's own freshness
+        // moves with the sample.)
+        let base = ClockSample::now().monotonic;
+
+        // Freshness reads the SAMPLE's wall: a sample whose wall is
+        // PAST the proof expiry denies ProofExpired even though the
+        // real wall clock is well before it (no internal clock read).
+        let stale_guard = AdmissionReplayGuard::with_defaults();
+        let stale = ClockSample {
+            wall_ns: expiry_ns + 1_000_000_000,
+            monotonic: base,
+        };
+        assert_eq!(
+            verify_org_admission(&ctx, &[&bytes], &stale_guard, stale, || true, |_| true),
+            Err(AdmissionDenied::ProofExpired),
+        );
+        assert_eq!(stale_guard.len(), 0, "an expired proof consumes no slot");
+
+        // A sample 10 s before expiry admits. Retention runs to the
+        // proof's expiry PLUS the hard skew ceiling — NOT plus this
+        // context's `skew_secs` (§5) — so on the sample's monotonic
+        // timeline the horizon is `base + 10s + MAX_TOKEN_CLOCK_SKEW_SECS`.
+        let replay = AdmissionReplayGuard::with_defaults();
+        let fresh = ClockSample {
+            wall_ns: expiry_ns - 10_000_000_000,
+            monotonic: base,
+        };
+        assert!(verify_org_admission(&ctx, &[&bytes], &replay, fresh, || true, |_| true).is_ok());
+        let horizon = Duration::from_secs(10 + MAX_TOKEN_CLOCK_SKEW_SECS);
+
+        // Same proof, monotonic still INSIDE retention → Replay.
+        let inside = ClockSample {
+            wall_ns: expiry_ns - 10_000_000_000,
+            monotonic: base + Duration::from_secs(5),
+        };
+        assert_eq!(
+            verify_org_admission(&ctx, &[&bytes], &replay, inside, || true, |_| true),
+            Err(AdmissionDenied::Replay),
+        );
+
+        // Still inside at the point the PRE-§5 horizon would have ended
+        // (`base + 10s`, i.e. expiry + this context's skew of 0). This is
+        // the exact instant the old retention reopened the slot.
+        let old_horizon = ClockSample {
+            wall_ns: expiry_ns - 10_000_000_000,
+            monotonic: base + Duration::from_secs(11),
+        };
+        assert_eq!(
+            verify_org_admission(&ctx, &[&bytes], &replay, old_horizon, || true, |_| true),
+            Err(AdmissionDenied::Replay),
+            "retention must outlast expiry + ctx.skew_secs (§5)",
+        );
+
+        // Monotonic PAST the real retention horizon → the slot reopened,
+        // so the same still-fresh proof admits again.
+        let past = ClockSample {
+            wall_ns: expiry_ns - 10_000_000_000,
+            monotonic: base + horizon + Duration::from_secs(1),
+        };
+        assert!(verify_org_admission(&ctx, &[&bytes], &replay, past, || true, |_| true).is_ok());
+    }
+
+    /// §5 — widening `verification_skew_secs` at runtime must not re-admit a
+    /// proof that was already used.
+    ///
+    /// Retention used to be `expiry + ctx.skew_secs` while freshness re-reads
+    /// the LIVE skew on every call, so the two were the same mutable value
+    /// read at different times. Between an admission at skew 0 and a later
+    /// one at skew 300 there was a window where the guard entry had lapsed
+    /// but the proof was still accepted as fresh — and `admit`'s
+    /// expired-key branch returns `Admitted`, so the handler ran a second
+    /// time on one signed proof.
+    ///
+    /// The trigger is a supported operator action, not an attack: `net node
+    /// adopt --skew-secs 300` after a clock-drift incident, then
+    /// `install_node_authority` — a runtime same-org renewal that does not
+    /// clear the guard.
+    ///
+    /// Red-witness: restoring `ctx.skew_secs` in the retention computation
+    /// makes the final assertion admit instead of denying Replay.
+    #[test]
+    fn widening_skew_does_not_reopen_an_already_used_proof() {
+        let floors = empty_floors();
+        let proof = cross_org_proof();
+        let bytes = proof.encode().expect("encode");
+        let expiry_ns = proof.proof_expires_at_unix_ns;
+        let base = ClockSample::now().monotonic;
+        let replay = AdmissionReplayGuard::with_defaults();
+
+        // 1. Admit under the DEFAULT skew of 0, 10 s before expiry.
+        let narrow = cross_org_ctx(&floors);
+        assert_eq!(
+            narrow.skew_secs, 0,
+            "fixture must start at the serde default"
+        );
+        let admit_at = ClockSample {
+            wall_ns: expiry_ns - 10_000_000_000,
+            monotonic: base,
+        };
+        assert!(
+            verify_org_admission(&narrow, &[&bytes], &replay, admit_at, || true, |_| true).is_ok(),
+            "first use admits",
+        );
+
+        // 2. The operator widens skew to the ceiling and reinstalls the
+        //    authority. The guard is NOT cleared by that path.
+        let mut wide = cross_org_ctx(&floors);
+        wide.skew_secs = MAX_TOKEN_CLOCK_SKEW_SECS;
+
+        // 3. Replay the SAME frame 200 s later. Under the widened skew the
+        //    proof is still "fresh" (200 < 30 + 300), and it clears the TTL
+        //    ceiling — so nothing else in the admission order stops it. Only
+        //    the replay guard can, and only if its retention outlasted the
+        //    old, narrower skew.
+        let resend = ClockSample {
+            wall_ns: expiry_ns + 200_000_000_000,
+            monotonic: base + Duration::from_secs(210),
+        };
+        assert_eq!(
+            verify_org_admission(&wide, &[&bytes], &replay, resend, || true, |_| true),
+            Err(AdmissionDenied::Replay),
+            "a used proof must stay denied across a runtime skew widening",
+        );
+
+        // Positive control: the freshness/TTL checks really did pass under
+        // the widened skew, so the denial above is the REPLAY GUARD's doing
+        // and not an incidental ProofExpired. A distinct call_id on the same
+        // timeline admits.
+        let mut other = cross_org_ctx(&floors);
+        other.skew_secs = MAX_TOKEN_CLOCK_SKEW_SECS;
+        other.call_id = CALL_ID ^ 0xFFFF;
+        let fresh_proof = cross_org_proof_for_call(other.call_id);
+        let fresh_bytes = fresh_proof.encode().expect("encode");
+        assert!(
+            verify_org_admission(&other, &[&fresh_bytes], &replay, resend, || true, |_| true)
+                .is_ok(),
+            "an unused proof at the same instant admits — so §5's denial is \
+             the replay guard, not expiry",
+        );
+    }
+
+    /// E1.4 §9.5 — a security-view change detected AFTER binding
+    /// verification but BEFORE the replay insert denies
+    /// `AuthorityChanged` and, crucially, leaves NO replay record:
+    /// the stale attempt neither runs the handler nor burns the
+    /// `(caller, call_id)` slot, so a legitimate retry from a fresh
+    /// view can still admit.
+    #[test]
+    fn stability_recheck_denies_without_consuming_a_replay_slot() {
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        let bytes = cross_org_proof().encode().expect("encode");
+
+        // The view changed mid-admission → recheck returns false.
+        let out = verify_org_admission(
+            &ctx,
+            &[&bytes],
+            &replay,
+            ClockSample::now(),
+            || false,
+            |_| true,
+        );
+        assert_eq!(out, Err(AdmissionDenied::AuthorityChanged));
+        assert_eq!(replay.len(), 0, "the stale attempt consumed no replay slot");
+
+        // A retry from a now-stable view admits the SAME call — proof
+        // the earlier denial didn't burn the correlation id.
+        let out = verify_org_admission(
+            &ctx,
+            &[&bytes],
+            &replay,
+            ClockSample::now(),
+            || true,
+            |_| true,
+        );
+        assert!(out.is_ok(), "retry under a stable view admits");
+        assert_eq!(replay.len(), 1);
+    }
+
+    /// §9.5's ordering (the 1.6 rewrite for the new step-4 shape check; the
+    /// ordering property is KEPT): the shape and credential checks run
+    /// BEFORE the stability recheck (`AuthorityChanged` never masks a more
+    /// specific denial), and the recheck runs BEFORE the replay insert (a
+    /// stale view consumes no `(caller, call_id)` slot).
+    #[test]
+    fn stability_recheck_runs_after_credential_checks() {
+        let floors = empty_floors();
+        let binding = [0x5Au8; 32];
+        let caller_entity = caller().entity_id().clone();
+        let provider_entity = provider();
+        let bytes = cross_org_stream_proof(CALL_ID, binding)
+            .encode()
+            .expect("encode");
+
+        // (i) A step-4 shape refusal preempts the recheck entirely: the
+        //     flags-derived shape disagrees with the registered shape even
+        //     though the view is unstable.
+        let mut incoherent =
+            cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        incoherent.shape = RpcCallShape::Duplex;
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            verify_org_admission(
+                &incoherent,
+                &[&bytes],
+                &replay,
+                ClockSample::now(),
+                || false,
+                |_| true
+            ),
+            Err(AdmissionDenied::ShapeMismatch),
+            "step 4 runs BEFORE the recheck — a shape refusal wins over an unstable view",
+        );
+
+        // (ii) A credential failure preempts the recheck too: an expired
+        //      proof is refused as `ProofExpired` (the credential checks
+        //      run BEFORE the recheck), not `AuthorityChanged`.
+        let ctx = cross_org_stream_ctx(&floors, &caller_entity, &provider_entity, binding);
+        let expired = cross_org_stream_proof_at(
+            CALL_ID,
+            binding,
+            1,
+            crate::adapter::net::behavior::org_call::STREAM_CALL_KIND_SERVER_STREAMING,
+        );
+        let expired_bytes = expired.encode().expect("encode");
+        assert_eq!(
+            verify_org_admission(
+                &ctx,
+                &[&expired_bytes],
+                &replay,
+                ClockSample::now(),
+                || false,
+                |_| true
+            ),
+            Err(AdmissionDenied::ProofExpired),
+            "the credential checks run before the recheck",
+        );
+
+        // (iii) With everything valid the recheck fires at its exact place
+        //       (after credentials, before the replay insert) and consumes
+        //       NO slot.
+        assert_eq!(
+            verify_org_admission(
+                &ctx,
+                &[&bytes],
+                &replay,
+                ClockSample::now(),
+                || false,
+                |_| true
+            ),
+            Err(AdmissionDenied::AuthorityChanged),
+            "an unstable view denies at the recheck once every check before it passed",
+        );
+        assert_eq!(
+            replay.len(),
+            0,
+            "a stale decision consumes no (caller, call_id) replay slot",
+        );
+    }
+
+    #[test]
+    fn expired_proof_is_refused() {
+        let caller = caller();
+        let membership =
+            OrgMembershipCert::try_issue(&org_a(), caller.entity_id().clone(), 1, 3600)
+                .expect("cert");
+        let dispatcher = OrgDispatcherGrant::try_issue(
+            &org_a(),
+            caller.entity_id().clone(),
+            DispatcherScope::Exact(cap()),
+            3600,
+        )
+        .expect("dispatcher");
+        let (grant, _) = OrgCapabilityGrant::try_issue(
+            &org_b(),
+            org_a().org_id(),
+            cap(),
+            GrantRights::INVOKE,
+            GrantTargetScope::ExactNode(provider()),
+            3600,
+        )
+        .expect("grant");
+        // Expiry already in the past.
+        let past = (crate::adapter::net::behavior::org::current_timestamp().saturating_sub(10))
+            * 1_000_000_000;
+        let proof = OrgCallProof::sign_for_call(
+            &caller,
+            membership,
+            dispatcher,
+            Some(grant),
+            org_a().org_id(),
+            org_b().org_id(),
+            provider(),
+            CALL_ID,
+            cap(),
+            past,
+            REQ,
+        );
+        let floors = empty_floors();
+        let ctx = cross_org_ctx(&floors);
+        let replay = AdmissionReplayGuard::with_defaults();
+        assert_eq!(
+            admit(&ctx, &proof, &replay),
+            Err(AdmissionDenied::ProofExpired)
+        );
+    }
+
+    /// E2.2: EVERY `AdmissionDenied` variant maps to a defined coarse reason
+    /// that round-trips through its wire byte, so a denial never leaks the
+    /// detailed reason yet is always classified. The `coarse()` match is
+    /// exhaustive (no wildcard), so a new variant forces classification; this
+    /// list enumerates them for the runtime round-trip and pins the anchors of
+    /// each bucket.
+    #[test]
+    fn every_denial_maps_to_a_defined_coarse_reason() {
+        const ALL: &[AdmissionDenied] = &[
+            AdmissionDenied::NotOrgProtected,
+            AdmissionDenied::MissingHeader,
+            AdmissionDenied::MultipleHeaders,
+            AdmissionDenied::MalformedProof,
+            AdmissionDenied::StreamingUnsupported,
+            AdmissionDenied::ShapeMismatch,
+            AdmissionDenied::SessionBindingMismatch,
+            AdmissionDenied::DeadlineExceedsPolicy,
+            AdmissionDenied::ActiveCallOwned,
+            AdmissionDenied::ActiveStreamCapacity,
+            AdmissionDenied::Revoked,
+            AdmissionDenied::ResourceExhausted,
+            AdmissionDenied::MemberBindingMismatch,
+            AdmissionDenied::ActingOrgMismatch,
+            AdmissionDenied::UnexpectedCapabilityGrant,
+            AdmissionDenied::MissingCapabilityGrant,
+            AdmissionDenied::ForeignIssuer,
+            AdmissionDenied::GranteeMismatch,
+            AdmissionDenied::InsufficientRights,
+            AdmissionDenied::CapabilityMismatch,
+            AdmissionDenied::TargetNotCovered,
+            AdmissionDenied::DispatcherGrantScope,
+            AdmissionDenied::DispatcherGrantInvalid,
+            AdmissionDenied::MembershipInvalid,
+            AdmissionDenied::MembershipRevoked,
+            AdmissionDenied::CapabilityGrantInvalid,
+            AdmissionDenied::ProofExpired,
+            AdmissionDenied::BindingInvalid,
+            AdmissionDenied::ProviderAuthorityUnavailable,
+            AdmissionDenied::AuthorityChanged,
+            AdmissionDenied::Replay,
+            AdmissionDenied::CallIdCollision,
+            AdmissionDenied::ReplayCapacity,
+            AdmissionDenied::PerCallerReplayCapacity,
+            AdmissionDenied::PerOrganizationReplayCapacity,
+            AdmissionDenied::ExternalPoolReplayCapacity,
+            AdmissionDenied::ProviderPolicyRejected,
+        ];
+        for &d in ALL {
+            let c = d.coarse();
+            assert_eq!(
+                CoarseAdmissionReason::from_wire(c.to_wire()),
+                Some(c),
+                "coarse reason for {d:?} must round-trip through its wire byte",
+            );
+        }
+        // Bucket anchors (extended to the C4 variants in the1.6 pass).
+        assert_eq!(
+            AdmissionDenied::StreamingUnsupported.coarse(),
+            CoarseAdmissionReason::NotSupported,
+        );
+        for unavailable in [
+            AdmissionDenied::ProviderAuthorityUnavailable,
+            AdmissionDenied::AuthorityChanged,
+            AdmissionDenied::ReplayCapacity,
+            AdmissionDenied::PerCallerReplayCapacity,
+            AdmissionDenied::PerOrganizationReplayCapacity,
+            AdmissionDenied::ExternalPoolReplayCapacity,
+            AdmissionDenied::ActiveStreamCapacity,
+            AdmissionDenied::ResourceExhausted,
+        ] {
+            assert_eq!(unavailable.coarse(), CoarseAdmissionReason::Unavailable);
+        }
+        for denied in [
+            AdmissionDenied::BindingInvalid,
+            AdmissionDenied::Replay,
+            AdmissionDenied::ProviderPolicyRejected,
+            AdmissionDenied::MembershipRevoked,
+            AdmissionDenied::ShapeMismatch,
+            AdmissionDenied::SessionBindingMismatch,
+            AdmissionDenied::DeadlineExceedsPolicy,
+            AdmissionDenied::ActiveCallOwned,
+            // Main's ruling (plan §4.3, `cddb063a3`): a revocation refusal
+            // shares the frozen `Denied` coarse byte — midstream retirement
+            // arrives as `Err(AdmissionDenied(Denied))`.
+            AdmissionDenied::Revoked,
+        ] {
+            assert_eq!(denied.coarse(), CoarseAdmissionReason::Denied);
+        }
+        // Every coarse byte decodes; an unknown byte does not.
+        assert_eq!(CoarseAdmissionReason::from_wire(3), None);
+    }
+}

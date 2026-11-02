@@ -95,13 +95,13 @@ def _cut(text: str, keep_bytes: int) -> str:
     return f"{head}… [cut: {len(data) - len(head.encode('utf-8')):,} more bytes]"
 
 
-def _largest_string(value: Any, path: tuple = ()) -> tuple[tuple, int] | None:
+def _get_largest_string(value: Any, path: tuple = ()) -> tuple[tuple, int] | None:
     if isinstance(value, str):
         return path, len(value.encode("utf-8"))
     best: tuple[tuple, int] | None = None
     items = value.items() if isinstance(value, dict) else enumerate(value) if isinstance(value, list) else ()
     for key, child in items:
-        found = _largest_string(child, (*path, key))
+        found = _get_largest_string(child, (*path, key))
         if found is not None and (best is None or found[1] > best[1]):
             best = found
     return best
@@ -127,7 +127,7 @@ def fit_line(line: dict[str, Any], limit: int | None = None) -> dict[str, Any]:
             if isinstance(line[key], str):
                 line[key] = _cut(line[key], len(line[key].encode("utf-8")) - over - 64)
                 continue
-            found = _largest_string(line[key])
+            found = _get_largest_string(line[key])
             if found is None or found[1] <= 64:
                 break
             path, own = found
@@ -199,13 +199,13 @@ def read_cursor(trace_file: Path) -> int:
 
 def write_cursor(trace_file: Path, offset: int) -> None:
     path = cursor_path(trace_file)
-    tmp = path.with_suffix(".cursor.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    temp = path.with_suffix(".cursor.tmp")
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         os.write(fd, str(offset).encode())
     finally:
         os.close(fd)
-    os.replace(tmp, path)
+    os.replace(temp, path)
 
 
 def _key_id(key: str) -> str:
@@ -227,9 +227,9 @@ def bind_to(folder: Path, base_url: str, key_id: str) -> bool:
             return True
         # Resumed under another account, server or key: from now on its lines
         # mix two owners, so the folder ships under NOBODY's (it stays local).
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"base_url": MIXED, "key": MIXED}))
-        os.replace(tmp, path)
+        temp = path.with_suffix(".tmp")
+        temp.write_text(json.dumps({"base_url": MIXED, "key": MIXED}))
+        os.replace(temp, path)
         log.warning("this session's trace folder was recorded under another account or key: it stays on this "
                     "machine and is no longer uploaded")
         return False

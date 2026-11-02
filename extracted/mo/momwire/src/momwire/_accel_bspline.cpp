@@ -193,6 +193,22 @@ seg_seg_full_moments_bspline_cplx_tiered(
             ndb::in(tier_w), ndb::in(tier_n_qp), ndb::in(tier_ratio), reference));
 }
 
+static py::array_t<int64_t> bspline_pair_tiers(
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_i,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> seg_r_j,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_t,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_w,
+    py::array_t<int64_t, py::array::c_style | py::array::forcecast> tier_n_qp,
+    py::array_t<double, py::array::c_style | py::array::forcecast> tier_ratio) {
+    ndb::NumpyHost host;
+    mw::nd::HostScope scope(host);
+    return ndb::out(mw::bspline::bspline_pair_tiers(ndb::in(seg_l_i), ndb::in(seg_r_i), ndb::in(seg_l_j),
+                                                    ndb::in(seg_r_j), ndb::in(tier_t), ndb::in(tier_w),
+                                                    ndb::in(tier_n_qp), ndb::in(tier_ratio)));
+}
+
 static py::array_t<std::complex<double>>
 seg_seg_full_moments_sinusoidal_tiered(
     py::array_t<double, py::array::c_style | py::array::forcecast> seg_l_i,
@@ -470,6 +486,16 @@ reg_distance_table(
     mw::nd::HostScope scope(host);
     return ndb::out(
         mw::bspline::reg_distance_table(ndb::in(s_row), ndb::in(s_col), a2));
+}
+
+static py::array_t<std::complex<double>>
+seg_seg_reg_moments_bspline_cplx(
+    py::array_t<double, py::array::c_style | py::array::forcecast> R,
+    py::array_t<double, py::array::c_style | py::array::forcecast> wu_pow,
+    std::complex<double> k) {
+    ndb::NumpyHost host;
+    mw::nd::HostScope scope(host);
+    return ndb::out(mw::bspline::seg_seg_reg_moments_bspline_cplx(ndb::in(R), ndb::in(wu_pow), k));
 }
 
 static py::array_t<std::complex<double>>
@@ -1077,6 +1103,12 @@ void register_bspline(py::module_ &m) {
           py::arg("tier_t"), py::arg("tier_w"),
           py::arg("tier_n_qp"), py::arg("tier_ratio"),
           py::arg("reference") = false);
+    m.def("bspline_pair_tiers", &bspline_pair_tiers,
+          "The pair-order ladder's tier of every pair (i, j) of a block, "
+          "(N_i, N_j) int64 (momwire#1772): the table the tiered off-edge "
+          "kernels route by, for the tests.",
+          py::arg("seg_l_i"), py::arg("seg_r_i"), py::arg("seg_l_j"), py::arg("seg_r_j"),
+          py::arg("tier_t"), py::arg("tier_w"), py::arg("tier_n_qp"), py::arg("tier_ratio"));
     m.def("seg_seg_full_moments_bspline_cplx_tiered",
           &seg_seg_full_moments_bspline_cplx_tiered,
           "In-medium (complex-k) twin of seg_seg_full_moments_bspline_tiered "
@@ -1256,6 +1288,11 @@ void register_bspline(py::module_ &m) {
           py::arg("s_row"), py::arg("s_col"), py::arg("a2"),
           "sqrt((s_row[:, None] - s_col[None, :])**2 + a2), numpy's in-place "
           "order, in parallel; bit-identical (momwire#1441).");
+    m.def("seg_seg_reg_moments_bspline_cplx", &seg_seg_reg_moments_bspline_cplx,
+          py::arg("R"), py::arg("wu_pow"), py::arg("k"),
+          "_seg_seg_reg_moments_from_geometry at a complex k on the square "
+          "geometry: numpy's expm1_neg_jkR / (4 pi R) and its einsum, bit for "
+          "bit, in parallel (momwire#1752).");
     m.def("same_edge_corr_combine", &same_edge_corr_combine,
           py::arg("A_st"), py::arg("A_reg"), py::arg("J"),
           "(A_st + A_reg) - J with numpy's float-to-complex promotion, in "

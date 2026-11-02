@@ -1,0 +1,251 @@
+"""Format Asset Utilities.
+
+Provides utilities for working with format assets from the `assets` field.
+
+Example:
+    ```python
+    from adcp import Format
+    from adcp.utils.format_assets import get_format_assets, get_required_assets
+
+    # Get all assets from a format
+    all_assets = get_format_assets(format)
+
+    # Get only required assets
+    required = get_required_assets(format)
+    ```
+"""
+
+from __future__ import annotations
+
+import warnings
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol
+
+from adcp.types.domains.core.format import Assets as AssetsModel
+
+
+class LegacyFormatAssetsInput(Protocol):
+    """Raw catalog view accepted by identity-free asset-slot helpers."""
+
+    assets: Sequence[Any] | None
+
+
+class CanonicalFormatAssetsInput(Protocol):
+    """Canonical declaration view whose slots live under ``params``."""
+
+    params: Mapping[str, Any]
+
+
+FormatAssetsInput = LegacyFormatAssetsInput | CanonicalFormatAssetsInput
+
+
+# Type alias for any format asset (individual or repeatable group).
+# Uses Any because the schema generates many numbered discriminated union
+# variants (Assets, Assets5, ..., Assets17) that all share the same
+# base interface (asset_id, required, item_type, asset_type).
+FormatAsset = Any
+
+
+def get_format_assets(format: FormatAssetsInput | Mapping[str, Any]) -> list[FormatAsset]:
+    """Get assets from a Format.
+
+    Returns the list of assets from the format's `assets` field.
+    Returns empty list if no assets are defined (flexible format with no assets).
+
+    Args:
+        format: Any canonical declaration or raw catalog object exposing ``assets``
+
+    Returns:
+        List of assets
+
+    Example:
+        ```python
+        for declaration in product.format_options:
+            assets = get_format_assets(declaration)
+            print(f"{declaration.format_kind} has {len(assets)} assets")
+        ```
+    """
+    if isinstance(format, Mapping):
+        assets = format.get("assets")
+        if assets is None and isinstance(format.get("params"), Mapping):
+            assets = format["params"].get("slots")
+    else:
+        assets = getattr(format, "assets", None)
+        if assets is None:
+            params = getattr(format, "params", None)
+            assets = params.get("slots") if isinstance(params, Mapping) else None
+    if assets:
+        return list(assets)
+
+    return []
+
+
+def normalize_assets_required(assets_required: list[Any]) -> list[FormatAsset]:
+    """Convert deprecated assets_required to new assets format.
+
+    .. deprecated:: 3.2.0
+        The ``assets_required`` field was removed in ADCP 3.0.0-beta.2.
+        This function will be removed in a future version.
+
+    All assets in assets_required are required by definition (that's why they were in
+    that array). The new `assets` field has an explicit `required: boolean` to allow
+    both required AND optional assets.
+
+    Args:
+        assets_required: The deprecated assets_required array
+
+    Returns:
+        Normalized assets as Pydantic models with explicit required=True
+    """
+    warnings.warn(
+        "normalize_assets_required() is deprecated. "
+        "The assets_required field was removed in ADCP 3.0.0-beta.2. "
+        "This function will be removed in a future version.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    normalized: list[FormatAsset] = []
+    for asset in assets_required:
+        # Get asset data as dict
+        if isinstance(asset, dict):
+            asset_dict = asset
+        else:
+            asset_dict = asset.model_dump() if hasattr(asset, "model_dump") else dict(asset)
+
+        # Map old fields to new schema format
+        mapped = {**asset_dict, "required": True}
+        # Ensure asset_id is present (map from asset_group_id if needed)
+        if "asset_group_id" in mapped and "asset_id" not in mapped:
+            mapped["asset_id"] = mapped.pop("asset_group_id")
+        # Remove fields that don't exist in the new schema
+        for old_field in ("min_count", "max_count", "assets"):
+            mapped.pop(old_field, None)
+        # Use AssetsModel (individual asset type)
+        normalized.append(AssetsModel(**mapped))
+
+    return normalized
+
+
+def get_required_assets(format: FormatAssetsInput | Mapping[str, Any]) -> list[FormatAsset]:
+    """Get only required assets from a Format.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        List of required assets only
+
+    Example:
+        ```python
+        required_assets = get_required_assets(format)
+        print(f"Must provide {len(required_assets)} assets")
+        ```
+    """
+    return [asset for asset in get_format_assets(format) if _is_required(asset)]
+
+
+def get_optional_assets(format: FormatAssetsInput | Mapping[str, Any]) -> list[FormatAsset]:
+    """Get only optional assets from a Format.
+
+    Note: When using deprecated `assets_required`, this will always return empty
+    since assets_required only contained required assets.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        List of optional assets only
+
+    Example:
+        ```python
+        optional_assets = get_optional_assets(format)
+        print(f"Can optionally provide {len(optional_assets)} additional assets")
+        ```
+    """
+    return [asset for asset in get_format_assets(format) if not _is_required(asset)]
+
+
+def get_individual_assets(format: FormatAssetsInput | Mapping[str, Any]) -> list[FormatAsset]:
+    """Get individual assets (not repeatable groups) from a Format.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        List of individual assets (item_type='individual')
+    """
+    return [asset for asset in get_format_assets(format) if _get_item_type(asset) == "individual"]
+
+
+def get_repeatable_groups(format: FormatAssetsInput | Mapping[str, Any]) -> list[FormatAsset]:
+    """Get repeatable asset groups from a Format.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        List of repeatable asset groups (item_type='repeatable_group')
+    """
+    return [
+        asset for asset in get_format_assets(format) if _get_item_type(asset) == "repeatable_group"
+    ]
+
+
+def uses_deprecated_assets_field(format: FormatAssetsInput | Mapping[str, Any]) -> bool:
+    """Check if format uses deprecated assets_required field.
+
+    .. deprecated:: 3.2.0
+        The ``assets_required`` field was removed in ADCP 3.0.0-beta.2.
+        This function always returns False and will be removed in a future version.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        Always False (deprecated field no longer exists)
+    """
+    warnings.warn(
+        "uses_deprecated_assets_field() is deprecated and always returns False. "
+        "The assets_required field was removed in ADCP 3.0.0-beta.2. "
+        "This function will be removed in a future version.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return False
+
+
+def get_asset_count(format: FormatAssetsInput | Mapping[str, Any]) -> int:
+    """Get the count of assets in a format (for display purposes).
+
+    Args:
+        format: The Format object
+
+    Returns:
+        Number of assets, or 0 if none defined
+    """
+    return len(get_format_assets(format))
+
+
+def has_assets(format: FormatAssetsInput | Mapping[str, Any]) -> bool:
+    """Check if a format has any assets defined.
+
+    Args:
+        format: The Format object
+
+    Returns:
+        True if format has assets, False otherwise
+    """
+    return get_asset_count(format) > 0
+
+
+# Internal helpers
+
+
+def _is_required(asset: FormatAsset) -> bool:
+    """Check if an asset is required."""
+    return getattr(asset, "required", False) is True
+
+
+def _get_item_type(asset: FormatAsset) -> str:
+    """Get the item_type of an asset."""
+    return getattr(asset, "item_type", "individual")

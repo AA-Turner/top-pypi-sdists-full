@@ -13,8 +13,8 @@ import time
 
 import pytest
 
-from probe.cli import backfill
-from probe.cli import backfill_evidence as ev
+from probe.cli.imports import folder as backfill
+from probe.cli.imports.folder import evidence as ev
 
 
 def _write(root, rel, text="x", *, mtime=None):
@@ -86,7 +86,7 @@ def test_a_file_that_cannot_be_stat_ed_still_counts(tmp_path, monkeypatch):
     # Patched at `_raw_stat`, not `Path.stat`: the walk reads the dirent now,
     # and `os.DirEntry` is a C type that cannot be monkeypatched. This still
     # exercises the real `except OSError` branch in `_entry_stat`.
-    monkeypatch.setattr(ev, "_raw_stat", boom)
+    monkeypatch.setattr("probe.cli.imports.folder.walk.walk._raw_stat", boom)
     files = list(ev.walk(tmp_path))
     assert len(files) == 1
     assert files[0].size == 0 and files[0].mtime == 0.0

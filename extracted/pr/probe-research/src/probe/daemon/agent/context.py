@@ -205,7 +205,7 @@ def _rewrite_summaries(messages: list, rewrite: Callable[[str], str]) -> list:
     """`messages` with each compaction summary's text rewritten; the same list
     when none changed."""
     out = list(messages)
-    changed = False
+    is_changed = False
     for m, message in enumerate(messages):
         for i in _summary_parts(message):
             part = message.parts[i]
@@ -214,8 +214,8 @@ def _rewrite_summaries(messages: list, rewrite: Callable[[str], str]) -> list:
                 parts = list(out[m].parts)
                 parts[i] = replace(part, content=text)
                 out[m] = replace(out[m], parts=parts)
-                changed = True
-    return out if changed else messages
+                is_changed = True
+    return out if is_changed else messages
 
 
 def _logbook_block(state: RunState) -> str | None:
@@ -343,8 +343,8 @@ def counted_compaction(state: RunState):
                 # Too many messages for the model route, whatever their size (or the
                 # cheap tier was enough for the size): the summarizing tier, by count.
                 # It calls the model this request goes to, as the tiers above do.
-                tier_ctx = ctx if request_context.model is ctx.model else replace(ctx, model=request_context.model)
-                out.messages = await summarizer.compact(list(out.messages), tier_ctx)
+                tier_context = ctx if request_context.model is ctx.model else replace(ctx, model=request_context.model)
+                out.messages = await summarizer.compact(list(out.messages), tier_context)
             after = out.messages
             if after is not before and (len(after) != n or any(a is not b for a, b in zip(after, before))):
                 log.info("compacted the conversation (%s): %s messages (%s on the wire) -> %s (%s)",

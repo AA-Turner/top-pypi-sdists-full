@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import requests
 
-from schemathesis.auths import reauth_and_replay
 from schemathesis.core.error_feedback.collector import parse_observations
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.failures import Failure
@@ -107,7 +106,9 @@ def _call_and_validate_once(
     *, case: Case, ctx: EngineContext, scenario: Scenario, pending_events: list[events.EngineEvent]
 ) -> None:
     """Send an input only the first time it is seen; later copies repeat the first outcome."""
-    cached = ctx.get_cached_outcome(case)
+    # Hooks may change the case before it is sent; it is identified by what was generated.
+    key = hash(case)
+    cached = ctx.get_cached_outcome(key)
     if isinstance(cached, BaseException):
         raise cached
     if cached is None:
@@ -115,10 +116,10 @@ def _call_and_validate_once(
     try:
         _do_call_and_validate(case=case, ctx=ctx, scenario=scenario, pending_events=pending_events)
     except BaseException as exc:
-        ctx.cache_outcome(case, exc)
+        ctx.cache_outcome(key, exc)
         raise
     else:
-        ctx.cache_outcome(case, None)
+        ctx.cache_outcome(key, None)
 
 
 def _raise_case_error(
@@ -199,24 +200,15 @@ def _call_with_reauth(
 
     Returns (rate_limited_responses, final_response).
     """
-    rate_limited: list[Response] = []
-
-    def _perform_call() -> Response:
-        try:
-            retried, response = send_tracked(ctx, case, transport_kwargs=transport_kwargs, emit=pending_events.append)
-        except TRANSPORT_ERRORS as error:
-            recorder.record_network_error(case_id=case.id, error=error)
-            raise
-        except BudgetExpired:
-            # Cut off by the time limit, the request says nothing about the operation.
-            recorder.forget_case(case_id=case.id)
-            raise
-        rate_limited.extend(retried)
-        return response
-
-    response = _perform_call()
-    # Replay through `_perform_call` so it keeps rate-limit and network-error handling.
-    return rate_limited, reauth_and_replay(case, response, ctx.reauth, _perform_call)
+    try:
+        return send_tracked(ctx, case, transport_kwargs=transport_kwargs, emit=pending_events.append)
+    except TRANSPORT_ERRORS as error:
+        recorder.record_network_error(case_id=case.id, error=error)
+        raise
+    except BudgetExpired:
+        # Cut off by the time limit, the request says nothing about the operation.
+        recorder.forget_case(case_id=case.id)
+        raise
 
 
 def _record_response_signals(
@@ -238,7 +230,7 @@ def _record_response_signals(
         )
     if _is_ordinary_request(case):
         record_auth_outcome(case, response.status_code)
-        ctx.supervisor.observe(case, response.status_code, cache_writer=ctx.cache.writer)
+        ctx.supervisor.observe(case, response, cache_writer=ctx.cache.writer)
     # Record DELETE attempts immediately to influence subsequent strategy draws.
     if ctx.extra_data_source is not None:
         record_delete_attempt(ctx.extra_data_source, case, response.status_code)

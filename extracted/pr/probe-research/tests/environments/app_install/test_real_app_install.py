@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import appinstall
+from probe.service.updater import app as appinstall
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "darwin" or os.environ.get("PROBE_APP_INSTALL_REAL") != "1",

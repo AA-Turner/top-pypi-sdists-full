@@ -1,0 +1,439 @@
+"""Transform observation variables by specified groups.
+
+References
+----------
+.. [1] Kessy et al. 2016 "Optimal Whitening and Decorrelation" arXiv: https://arxiv.org/abs/1512.00809
+"""
+
+from typing import Optional, TypeVar
+
+import numpy as np
+import pandas as pd
+from scipy.stats import median_abs_deviation
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import QuantileTransformer, StandardScaler
+
+Spherize_type = TypeVar("Spherize_type", bound="Spherize")
+RobustMAD_type = TypeVar("RobustMAD_type", bound="RobustMAD")
+
+
+class Spherize(BaseEstimator, TransformerMixin):
+    """Class to apply a sphering transform (aka whitening) data in the base sklearn
+    transform API. Note, this implementation is modified/inspired from the following
+    sources:
+    1) A custom function written by Juan C. Caicedo
+    2) A custom ZCA function at https://github.com/mwv/zca
+    3) Notes from Niranj Chandrasekaran (https://github.com/cytomining/pycytominer/issues/90)
+    4) The R package "whitening" written by Strimmer et al (http://strimmerlab.org/software/whitening/)
+    5) Kessy et al. 2016 "Optimal Whitening and Decorrelation" [1]_
+
+    Attributes
+    ----------
+    epsilon : float
+        fudge factor parameter
+    center : bool
+        option to center the input X matrix
+    method : str
+        a string indicating which class of sphering to perform
+    """
+
+    def __init__(
+        self,
+        epsilon: float = 1e-6,
+        center: bool = True,
+        method: str = "ZCA",
+        return_numpy: bool = False,
+    ):
+        """
+        Parameters
+        ----------
+        epsilon : float, default 1e-6
+            fudge factor parameter
+        center : bool, default True
+            option to center the input X matrix
+        method : str, default "ZCA"
+            a string indicating which class of sphering to perform
+        return_numpy: bool, default False
+            option to return ndarray, instead of dataframe
+        """
+        avail_methods = ["PCA", "ZCA", "PCA-cor", "ZCA-cor"]
+
+        self.epsilon = epsilon
+        self.center = center
+        self.return_numpy = return_numpy
+
+        if method not in avail_methods:
+            raise ValueError(
+                f"Error {method} not supported. Select one of {avail_methods}"
+            )
+        self.method = method
+
+        # PCA-cor and ZCA-cor require center=True because we assumed we are
+        # only ever interested in computing centered Pearson correlation
+        # https://stackoverflow.com/questions/23891391/uncentered-pearson-correlation
+
+        if self.method in ["PCA-cor", "ZCA-cor"] and not self.center:
+            raise ValueError("PCA-cor and ZCA-cor require center=True")
+
+    def fit(
+        self: Spherize_type, X: pd.DataFrame, y: Optional[np.typing.ArrayLike] = None
+    ) -> Spherize_type:
+        """Identify the sphering transform given self.X
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            dataframe to fit sphering transform
+        y : None
+            Has no effect; only used for consistency in sklearn transform API
+
+        Returns
+        -------
+        self
+            With computed weights attribute
+        """
+        # Get Numpy representation of the DataFrame
+        X_vals = X.values
+
+        if self.method in ["PCA-cor", "ZCA-cor"]:
+            # The projection matrix for PCA-cor and ZCA-cor is the same as the
+            # projection matrix for PCA and ZCA, respectively, on the standardized
+            # data. So, we first standardize the data, then compute the projection
+
+            self.standard_scaler = StandardScaler().fit(X_vals)
+            variances = self.standard_scaler.var_
+            if np.any(variances == 0):
+                raise ValueError(
+                    "Divide by zero error, make sure low variance columns are removed"
+                )
+
+            X_transformed = self.standard_scaler.transform(X_vals)
+        else:
+            if self.center:
+                self.mean_centerer = StandardScaler(with_mean=True, with_std=False).fit(
+                    X_vals
+                )
+                X_transformed = self.mean_centerer.transform(X_vals)
+            else:
+                X_transformed = X_vals
+
+        # Get the number of observations and variables
+        n, d = X_transformed.shape
+
+        # Checking the rank of matrix X considering the number of samples (n) and features (d).
+        r = np.linalg.matrix_rank(X_transformed)
+
+        # Case 1: More features than samples (n < d).
+        # If centered (mean of each feature subtracted), one dimension becomes dependent, reducing rank to n - 1.
+        # If not centered, the max rank is limited by n, as there can't be more independent vectors than samples.
+        # Case 2: More samples than features or equal (n >= d).
+        # Here, the max rank is limited by d (number of features), assuming each provides unique information.
+
+        if not ((r == d) | (self.center & (r == n - 1)) | (not self.center & (r == n))):
+            raise ValueError(
+                "The data matrix X is not full rank: n = {n}, d = {d}, r = {r}."
+                "Perfect linear dependencies are unusual in data matrices so something seems amiss."
+                "Check for linear dependencies in the data and remove them."
+            )
+
+        # Get the eigenvalues and eigenvectors of the covariance matrix
+        # by computing the SVD on the data matrix
+        # https://stats.stackexchange.com/q/134282/8494
+        #
+        # This must be the SVD of X_transformed (the centered/standardized
+        # matrix computed above), not of the raw input X: the derivation
+        # below explicitly assumes "X is mean-centered (zero mean for each
+        # feature)", and for PCA-cor/ZCA-cor X_transformed is additionally
+        # scaled to unit variance. Computing the SVD of the untransformed X
+        # silently breaks that precondition -- the resulting W still runs
+        # without error, but the transformed output is not actually
+        # whitened (cov(XW) != I) whenever X isn't already centered (and,
+        # for the -cor variants, scaled) on its own.
+        _, Sigma, Vt = np.linalg.svd(X_transformed, full_matrices=True)
+
+        # if n <= d then Sigma has shape (n,) so it will need to be expanded to
+        # d filled with the value r'th element of Sigma
+        if n <= d:
+            # Do some error checking
+            if Sigma.shape[0] != n:
+                error_detail = f"When n <= d, Sigma should have shape (n,) i.e. ({n}, ) but it is {Sigma.shape}"
+                context = (
+                    "the call to `np.linalg.svd` in `pycytominer.transform.Spherize`"
+                )
+                raise ValueError(f"{error_detail}. This is likely a bug in {context}.")
+
+            if (r != n - 1) & (r != n):
+                error_detail = f"When n <= d, the rank should be n - 1 or n i.e. {n - 1} or {n} but it is {r}"
+                context = (
+                    "the call to `np.linalg.svd` in `pycytominer.transform.Spherize`"
+                )
+                raise ValueError(f"{error_detail}. This is likely a bug in {context}.")
+
+            Sigma = np.concatenate((Sigma[0:r], np.repeat(Sigma[r - 1], d - r)))
+
+        Sigma = Sigma + self.epsilon
+
+        # From https://arxiv.org/abs/1512.00809, the PCA whitening matrix is
+        #
+        # W = Lambda^(-1/2) E^T
+        #
+        # where
+        # - E is the eigenvector matrix
+        # - Lambda is the (diagonal) eigenvalue matrix
+        # of cov(X), where X is the data matrix
+        # (i.e., cov(X) = E Lambda E^T)
+        #
+        # However, W can also be computed using the Singular Value Decomposition
+        # (SVD) of X. Assuming X is mean-centered (zero mean for each feature),
+        # the SVD of X is given by:
+        #
+        # X = U S V^T
+        #
+        # The covariance matrix of X can be expressed using its SVD:
+        #
+        # cov(X) = (X^T X) / (n - 1)
+        #        = (V S^2 V^T) / (n - 1)
+        #
+        # By comparing cov(X) = E * Lambda * E^T with the SVD form, we identify:
+        #
+        #   E = V (eigenvectors)
+        #   Lambda = S^2 / (n - 1) (eigenvalues)
+        #
+        # Thus, Lambda^(-1/2) can be expressed as:
+        #
+        #   Lambda^(-1/2) = inv(S) * sqrt(n - 1)
+        #
+        # Therefore, the PCA Whitening matrix W becomes:
+        #
+        # W = Lambda^(-1/2) * E^T
+        #   = (inv(S) * sqrt(n - 1)) * V^T
+        #   = (inv(S) * V^T) * sqrt(n - 1)
+        #
+        # In NumPy, this is implemented as:
+        #
+        #   W = (np.linalg.inv(S) @ Vt) * np.sqrt(n - 1)
+        #
+        # But computing `np.linalg.inv(S)` is memory-intensive.
+        #
+        # A more memory-efficient alternative is:
+        #
+        #   W = (Vt / Sigma[:, np.newaxis]) * np.sqrt(n - 1)
+        #
+        # where Sigma contains the diagonal elements of S (singular values).
+
+        self.W = (Vt / Sigma[:, np.newaxis]).transpose() * np.sqrt(n - 1)
+
+        # If ZCA, perform additional rotation
+        if self.method in ["ZCA", "ZCA-cor"]:
+            # Note: There was previously a requirement r==d otherwise the
+            # ZCA transform would not be well defined. However, it later appeared
+            # that this requirement was not necessary.
+
+            self.W = self.W @ Vt
+
+        # number of columns of self.W should be equal to that of X
+        if not (self.W.shape[1] == X_transformed.shape[1]):
+            raise ValueError(
+                f"Error: W has {self.W.shape[1]} columns, X has {X_transformed.shape[1]} columns"
+            )
+
+        if self.W.shape[1] != X_transformed.shape[1]:
+            error_detail = (
+                f"The number of columns of W should be equal to that of X."
+                f"However, W has {self.W.shape[1]} columns, X has {X_transformed.shape[1]} columns"
+            )
+            context = "the call to `np.linalg.svd` in `pycytominer.transform.Spherize`"
+            raise ValueError(f"{error_detail}. This is likely a bug in {context}.")
+
+        return self
+
+    def transform(
+        self, X: pd.DataFrame, y: Optional[np.typing.ArrayLike] = None
+    ) -> pd.DataFrame:
+        """Perform the sphering transform
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Profile dataframe to be transformed using the precompiled weights
+        y : None
+            Has no effect; only used for consistency in sklearn transform API
+
+        Returns
+        -------
+        pd.DataFrame
+            Spherized dataframe
+        """
+
+        columns = X.columns
+
+        # Get Numpy representation of the DataFrame
+        X_vals = X.values
+
+        if self.method in ["PCA-cor", "ZCA-cor"]:
+            X_transformed = self.standard_scaler.transform(X_vals)
+        else:
+            if self.center:
+                X_transformed = self.mean_centerer.transform(X_vals)
+            else:
+                X_transformed = X_vals
+
+        if self.method in ["PCA", "PCA-cor"]:
+            columns = pd.Index([
+                "PC" + str(i) for i in range(1, X_transformed.shape[1] + 1)
+            ])
+
+        self.columns = columns
+
+        XW = X_transformed @ self.W
+
+        if self.return_numpy:
+            return XW
+        else:
+            return pd.DataFrame(XW, columns=columns)
+
+
+class RobustMAD(BaseEstimator, TransformerMixin):
+    """Class to perform a "Robust" normalization with respect to median and mad
+
+        scaled = (x - median) / mad
+
+    Attributes
+    ----------
+    epsilon : float
+        fudge factor parameter
+    """
+
+    def __init__(self, epsilon: float = 1e-18):
+        self.epsilon = epsilon
+
+    def fit(
+        self: RobustMAD_type, X: pd.DataFrame, y: Optional[np.typing.ArrayLike] = None
+    ) -> RobustMAD_type:
+        """Compute the median and mad to be used for later scaling.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            dataframe to fit RobustMAD transform
+        y : None
+            Has no effect; only used for consistency in sklearn transform API
+
+        Returns
+        -------
+        self
+            With computed median and mad attributes
+        """
+        # Get the mean of the features (columns) and center if specified
+        self.median = X.median()
+        # The scale param is required to preserve previous behavior. More info at:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.median_absolute_deviation.html#scipy.stats.median_absolute_deviation
+        self.mad = pd.Series(
+            median_abs_deviation(X, nan_policy="omit", scale=1 / 1.4826),
+            index=self.median.index,
+        )
+        return self
+
+    def transform(self, X: pd.DataFrame, copy: Optional[bool] = None) -> pd.DataFrame:
+        """Apply the RobustMAD calculation
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            dataframe to fit RobustMAD transform
+
+        Returns
+        -------
+        pd.DataFrame
+            RobustMAD transformed dataframe
+        """
+        return (X - self.median) / (self.mad + self.epsilon)
+
+
+class InverseNormalTransform(BaseEstimator, TransformerMixin):
+    """Inverse normal transform.
+
+    Apply a rank-based quantile transformation to each feature independently
+    and map the resulting values to a normal distribution.
+
+    1) Rank the values of each feature independently.
+    2) Map the ranks to quantiles of a normal distribution.
+    3) Return the transformed values.
+
+    This class wraps sklearn.preprocessing.QuantileTransformer with
+    output_distribution="normal".
+
+    Parameters
+    ----------
+    n_quantiles : int, default=1000
+        Number of quantiles to be computed. It corresponds to the number of landmarks
+        used to discretize the cumulative distribution function. If ``n_quantiles`` is
+        larger than the number of samples, it is set to the number of samples because
+        a larger number of quantiles does not improve the cumulative distribution
+        function estimate. The actual number used after fitting is available as
+        ``n_quantiles_``. See sklearn.preprocessing.QuantileTransformer for more details.
+    random_state : int, RandomState instance or None, default=None
+        Determines random number generation for smoothing noise. Pass an int for
+        reproducible results across multiple calls.
+
+    Notes
+    -----
+    This transform is rank-based: values are first converted to quantile ranks,
+    then mapped to a normal distribution. The transformed values are therefore
+    normal scores, not the original raw measurements, and distances between raw
+    values are not preserved.
+    """
+
+    def __init__(
+        self,
+        n_quantiles=1000,
+        random_state=None,
+    ):
+        self.n_quantiles = n_quantiles
+        self.random_state = random_state
+
+    def fit(self, x, y=None):
+        """Fit inverse normal transform.
+
+        Parameters
+        ----------
+        x : pandas.DataFrame or numpy.ndarray
+            Data to fit.
+        y : None
+            Has no effect; only used for consistency in sklearn transform API
+
+        Returns
+        -------
+        self
+            Fitted inverse normal transform.
+        """
+        # Set number of quantiles, if n_quantiles is greater than the number of samples\
+        # set it to the number of samples.
+        self.n_quantiles_ = min(self.n_quantiles, x.shape[0])
+
+        # Initialize transformer and set output distribution to normal.
+        # We set it to normal because we want to map the ranks to a normal distribution.
+        self.transformer_ = QuantileTransformer(
+            n_quantiles=self.n_quantiles_,
+            output_distribution="normal",
+            random_state=self.random_state,
+        )
+
+        self.transformer_.fit(x)
+
+        return self
+
+    def transform(self, x):
+        """Apply inverse normal transform.
+
+        Parameters
+        ----------
+        x : pandas.DataFrame or numpy.ndarray
+            Data to transform.
+
+        Returns
+        -------
+        numpy.ndarray
+            Transformed data.
+        """
+        return self.transformer_.transform(x)

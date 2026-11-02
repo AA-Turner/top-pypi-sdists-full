@@ -3942,8 +3942,9 @@ class Expression(google.protobuf.message.Message):
         eliminate the 98 fields that are not relevant to the rest of the operation
         pipeline.
 
-        Note that this does not fundamentally alter the structure of data beyond
-        the elimination of unnecessary elements.
+        The selected fields are output in the order the mask lists them, which
+        need not be their order in the input. In some cases a mask also unwraps a
+        single selected child from its container (see maintain_singular_struct).
         """
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor

@@ -3,8 +3,8 @@
 The server answers a device with an open settings request with
 `X-Probe-Settings-Requested`; the client that got it leaves a mark
 (`probe.foundation.remote_settings.preferences`), and a later `probe` command, a Probe service
-child included, applies it once (`probe.cli.remote_settings.apply_pending`, run
-by `probe.cli.main._settings_request_notice`). What each test pins would fail
+child included, applies it once (`probe.cli.lifecycle.remote_settings.apply_pending`, run
+by `probe.cli.lifecycle.notices.settings_request._settings_request_notice`). What each test pins would fail
 silently: a request no command on a service machine ever applies, one applied
 twice over a change the person made since, a value that turns recording ON, a
 running session left recording, or a mark that keeps the CLI asking after the
@@ -24,7 +24,7 @@ import pytest
 
 from probe.shared.updates import version_policy
 from probe.foundation.remote_settings import remote_settings as device_mark, preferences as settings_request
-from probe.cli import remote_settings
+from probe.cli.lifecycle import remote_settings
 from probe.cli import telemetry as tm
 from probe.sdk import session_marker
 from probe.sdk.settings.settings import save_context
@@ -49,7 +49,7 @@ def fresh_process(monkeypatch):
                  "PROBE_SESSION_TRACKING", "PROBE_SERVICE_CHILD"):
         monkeypatch.delenv(name, raising=False)
     # No Probe service here: `capture_switched` would look for one.
-    monkeypatch.setattr("probe.cli.service_calls._reachable", lambda: False)
+    monkeypatch.setattr("probe.cli.lifecycle.service_calls._reachable", lambda: False)
     yield
     settings_request._reset_for_tests()
 
@@ -307,7 +307,7 @@ def _age(sid: str, at: float) -> None:
 def test_the_probe_service_is_told_about_the_newest_sessions_switched_off(server, monkeypatch):
     told: list[tuple[str, bool]] = []
     monkeypatch.setattr(
-        "probe.cli.service_calls.capture_switched",
+        "probe.cli.lifecycle.service_calls.capture_switched",
         lambda sid, *, off: told.append((sid, off)) or True,
     )
     monkeypatch.setattr(remote_settings, "MAX_SWITCH_CALLS", 2)
@@ -323,7 +323,7 @@ def test_read_tells_the_service_nothing(server, monkeypatch):
     _calls, answers = server
     answers[FETCH] = (200, {"requested_at": ASKED, "setting": "session_default", "value": "read"})
     told: list[str] = []
-    monkeypatch.setattr("probe.cli.service_calls.capture_switched", lambda sid, *, off: told.append(sid))
+    monkeypatch.setattr("probe.cli.lifecycle.service_calls.capture_switched", lambda sid, *, off: told.append(sid))
     _session(FULL)
     _mark()
     _apply()
@@ -338,7 +338,7 @@ def test_read_tells_the_service_nothing(server, monkeypatch):
 def test_a_probe_service_child_applies_it(server, monkeypatch):
     """On a machine with the Probe service every hook-run `probe` is a service
     child (the team note's sync): if those skipped it, nothing would apply it."""
-    from probe.service.paths import SERVICE_CHILD_ENV
+    from probe.foundation.service_api.paths import SERVICE_CHILD_ENV
 
     calls, _answers = server
     monkeypatch.setenv(SERVICE_CHILD_ENV, "1")
@@ -458,7 +458,7 @@ def test_every_command_runs_it_after_the_capture_repair(monkeypatch):
 def test_session_default_and_doctor_say_staff_set_it_until_a_local_change(server):
     from typer.testing import CliRunner
 
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     _mark()
     _apply()
@@ -605,7 +605,7 @@ def test_a_session_that_never_takes_the_switch_is_reported_after_the_last_attemp
 
 
 def test_staff_are_never_credited_with_a_value_they_did_not_set(server, monkeypatch):
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     _mark()
     _apply()

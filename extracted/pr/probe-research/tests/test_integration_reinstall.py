@@ -18,7 +18,7 @@ import pytest
 from typer.testing import CliRunner
 
 import probe.core
-from probe.cli import integration_reinstall as repair
+from probe.cli.install.integrations import reinstall as repair
 from probe.core import actions, requests
 from probe.core.requests import Agent, ConfigureRequest, RequestError
 from probe.sdk import session_marker

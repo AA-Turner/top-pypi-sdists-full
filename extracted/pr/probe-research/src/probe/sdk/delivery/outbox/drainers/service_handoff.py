@@ -1,39 +1,5 @@
-"""Hand a training process's background work to the Probe service (plan Q5).
-
-Beside a training loop the SDK forks detached processes (the outbox drainer
-`outbox_worker.maybe_spawn`, the box watcher `probe.box.spawn`) and its telemetry sender
-POSTs from a thread. When a Probe service runs on this machine (an agent session or the
-desktop app started it), each goes to the service: one supervisor, and a training process
-that exits without waiting on PostHog. When it cannot, the SDK does what it did before, at once:
-
-    no service, Windows, a frozen interpreter     fork / POST as before
-    an older service (no such method or client)   as before; not asked again for 10 min
-    a refusal (busy, failing, sandboxed, ...)      as before
-    no answer within the budget                    as before; not asked again for 60 s
-
-NEVER BLOCKS A TRAINING LOOP. ONE deadline, `client.HANDOFF_BUDGET_S` (0.25 s) from the start
-of a hand-off, covers everything: this machine's key (names the socket: a file read on Linux,
-a system call on macOS that may wait), the socket folder's checks, the connect (a path lookup
-a stalled home mount can hang), the request and its answer. All of it runs on a thread of its
-own; the caller waits until the deadline and no longer, and while one such thread is still out
-(hung on a mount) no second starts: the caller does it itself. The service is never started
-from here: only one that already runs is asked.
-
-NEVER A CREDENTIAL. A process whose environment holds one (`PROBE_TOKEN` etc.,
-`protocol.secret_env`) keeps forking its own drainer and watcher: they need it, and it never
-crosses the socket. The service's children deliver with the stored login the queued ops
-already name (`journal.py`: ops pin a context and endpoint, never a token), as the detached
-worker this process would have forked does with the same environment and folder.
-
-TELEMETRY ONCE. Each batch carries an id and each entry a `uuid` (PostHog collapses events
-sharing one). A batch counts as handed off only on an explicit `accepted`; when the request
-went out and no answer came (a timeout, a closed connection) it is re-sent under the same id,
-which the service takes once and acknowledges again. A refusal, or no answer after
-TELEMETRY_TRIES, and this process POSTs it itself: the uuids make a copy the service also sent
-collapse into one.
-
-Stdlib only; `probe.service` is not imported until a hand-off is tried.
-"""
+"""Hand a training process's drainer, box watcher and telemetry to a Probe service already running
+here (plan Q5) within 0.25 s, else do what the SDK did before; never a credential (DESIGN.md)."""
 
 from __future__ import annotations
 
@@ -138,7 +104,7 @@ def _platform_ok() -> bool:
 
 def env_credential() -> bool:
     """Whether this process's environment holds a Probe credential."""
-    from probe.service.protocol import secret_env
+    from probe.foundation.service_api.env import secret_env
 
     return any(value and secret_env(name) for name, value in os.environ.items())
 
@@ -147,7 +113,7 @@ def runtime_env() -> dict | None:
     """This process's environment as the service's child gets it (`protocol.runtime_env_name`),
     or None when it does not fit the request. An empty PROBE_BASE_URL is unset, as
     `config.resolve` reads it."""
-    from probe.service.protocol import MAX_HOOK_ENV, MAX_HOOK_ENV_VALUE, runtime_env_name
+    from probe.foundation.service_api.env import MAX_HOOK_ENV, MAX_HOOK_ENV_VALUE, runtime_env_name
 
     env = {}
     for name, value in os.environ.items():
@@ -181,7 +147,8 @@ def _call(send, deadline: float) -> tuple[str, object]:
     that thread (machine key, socket folder checks, the connect). A thread still out from an
     earlier call (a hung home mount) means no second one: NOT_SENT."""
     global _inflight
-    from probe.service import client, paths
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api import paths
 
     box: dict = {}
     sent = threading.Event()
@@ -234,8 +201,8 @@ def _ask(method: str, send, *, budget: float | None = None, resend: bool = False
     if not resend and _quieted(method):
         return Outcome.NOT_SENT, None
     try:
-        from probe.service import client
-        from probe.service.protocol import BackgroundRefusal
+        from probe.foundation import service_api as client
+        from probe.foundation.service_api.vocabularies import BackgroundRefusal
     except Exception:  # noqa: BLE001 -- an install without it forks as before
         _quiet(_ALL, UNSUPPORTED_QUIET_S)
         return Outcome.NOT_SENT, None
@@ -284,7 +251,7 @@ def drain(directory: str) -> str | None:
         if env is None:
             return None
         from probe.sdk.agent_session import EVENT_AT_ENV, RUN_PROCESS_ENV
-        from probe.service.protocol import Method
+        from probe.foundation.service_api.wire import Method
 
         # A drainer sends every writer's ops, each with its own date and origin
         # (`journal._delivery_scope`), so it inherits neither from this process
@@ -310,7 +277,7 @@ def box_watch(directory: str | None = None) -> str | None:
         from probe.box import registry
 
         env["PROBE_BOX_DIR"] = os.path.abspath(str(directory if directory is not None else registry.default_dir()))
-        from probe.service.protocol import Method
+        from probe.foundation.service_api.wire import Method
 
         cwd = _cwd()
         _, answer = _ask(Method.BOX_WATCH, lambda c, deadline, sent: c.watch_box(
@@ -336,7 +303,8 @@ def telemetry(entries: list) -> bool:
     try:
         if not entries or not _platform_ok() or any(os.environ.get(name) for name in NETWORK_ENV):
             return False
-        from probe.service.protocol import MAX_TELEMETRY_ENTRIES, Method
+        from probe.foundation.service_api.env import MAX_TELEMETRY_ENTRIES
+        from probe.foundation.service_api.wire import Method
 
         if len(entries) > MAX_TELEMETRY_ENTRIES:
             return False

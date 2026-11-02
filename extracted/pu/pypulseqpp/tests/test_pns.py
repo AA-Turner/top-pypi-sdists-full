@@ -1,0 +1,436 @@
+"""PNS check: SAFE and chronaxie responses to the physical-axis slew."""
+
+import copy
+import math
+
+import numpy as np
+import pypulseq as upstream
+import pytest
+from pypulseq.utils.safe_pns_prediction import safe_example_hw
+
+import pypulseqpp as pp
+from pypulseqpp import safety
+from pypulseqpp.safety import ChronaxieModel
+from pypulseqpp.safety._pns import _pns
+
+CHRONAXIE = ChronaxieModel(chronaxie=360e-6, rheobase=20.0, alpha=0.333)
+
+
+def opts(raster=10e-6, library=pp):
+    return library.Opts(
+        max_grad=40,
+        grad_unit="mT/m",
+        max_slew=200,
+        slew_unit="T/m/s",
+        grad_raster_time=raster,
+    )
+
+
+@pytest.fixture
+def system():
+    return opts()
+
+
+def played(system, *blocks):
+    sequence = pp.Sequence(system)
+    for block in blocks:
+        sequence.add_block(*block)
+    return sequence
+
+
+def encoded(system):
+    """Phase-encoded readouts with a sinusoidal gradient: trapezoids and a shape."""
+    return played(system, *encoded_blocks(system))
+
+
+def encoded_blocks(system):
+    readout = pp.make_trapezoid("x", area=2000, system=system)
+    n = 300
+    wave = 1e5 * np.sin(np.pi * (np.arange(n) + 0.5) / n) ** 2
+    shaped = pp.make_arbitrary_grad("z", wave, first=0.0, last=0.0, system=system)
+    encode = pp.make_trapezoid("y", area=1000, duration=1e-3, system=system)
+    blocks = []
+    for index in range(6):
+        blocks.append([pp.scale_grad(encode, (-1000 + 400 * index) / 1000)])
+        blocks.append([readout])
+        blocks.append([shaped])
+        blocks.append([pp.make_delay(2e-3)])
+    return blocks
+
+
+def trace(sequence, model, rotation=None):
+    _, found = _pns(sequence, model, rotation, None, keep_trace=True)
+    return found
+
+
+def ramp(system, amplitude, rise, channel="x"):
+    """One trapezoid whose rise is a rectangular slew of amplitude / rise."""
+    return pp.make_trapezoid(
+        channel,
+        amplitude=amplitude * 1e-3 * system.gamma,
+        rise_time=rise,
+        fall_time=rise,
+        flat_time=2e-3,
+        system=system,
+    )
+
+
+# -- the two models ------------------------------------------------------------
+
+
+def test_the_safe_response_is_upstreams(system, tmp_path):
+    path = tmp_path / "encoded.seq"
+    encoded(system).write(path)
+    ours = pp.Sequence(system)
+    ours.read(path)
+    mirror = upstream.Sequence(system=opts(library=upstream))
+    mirror.read(str(path))
+
+    ok, norm, components, _ = mirror.calculate_pns(safe_example_hw(), do_plots=False)
+    found = trace(ours, safe_example_hw())
+
+    count = norm.size
+    assert found["samples"] >= count
+    for axis in range(3):
+        np.testing.assert_allclose(
+            found["trace_axes"][axis][:count],
+            components[:, axis],
+            rtol=1e-9,
+            atol=1e-12 * components.max(),
+        )
+    assert found["norm"]["value"] == pytest.approx(norm.max(), rel=1e-9)
+    assert (found["norm"]["value"] < 1.0) == ok
+
+
+def test_the_chronaxie_response_is_the_whole_convolution_at_every_interval_end(
+    system,
+):
+    """Within 1e-5 of the largest slew's response, the kernel's quadrature error."""
+    sequence = encoded(system)
+    dt = system.grad_raster_time
+    total = round(sequence.duration()[0] / dt)
+    ends = np.arange(total + 1) * dt
+    c, s_min = CHRONAXIE.chronaxie, CHRONAXIE.rheobase / CHRONAXIE.alpha
+    lags = np.arange(total) * dt
+    kernel = c * dt / (s_min * (c + lags) * (c + lags + dt))
+
+    found = trace(sequence, CHRONAXIE)
+    _, report = safety.check_pns(sequence, CHRONAXIE, trace=True)
+
+    np.testing.assert_allclose(report.time, ends[1:], rtol=0, atol=1e-12)
+    for axis, channel in enumerate(sequence.waveforms()):
+        g = np.interp(ends, channel[0], channel[1], left=0.0, right=0.0)
+        slew = np.diff(g) / dt / system.gamma
+        expected = np.abs(np.convolve(slew, kernel)[:total])
+        bound = 1e-5 * np.abs(slew).max() / s_min
+        assert np.abs(found["trace_axes"][axis] - expected).max() <= bound
+
+
+def test_skipping_and_repeated_blocks_find_the_peak_the_full_trace_holds(system):
+    """Held gradients and silences around the loudest ramp, then blocks that repeat."""
+    blocks = []
+    for amplitude, rise, rest in [
+        (5, 400e-6, 3e-3),
+        (20, 200e-6, 20e-3),
+        (8, 300e-6, 1e-3),
+    ]:
+        blocks.append([ramp(system, amplitude, rise, "x")])
+        blocks.append([ramp(system, -amplitude, rise, "y")])
+        blocks.append([pp.make_delay(rest)])
+    sequence = played(system, *blocks, *blocks, *encoded_blocks(system), *blocks)
+    rotation = [[0.36, 0.48, -0.8], [-0.8, 0.6, 0.0], [0.48, 0.64, 0.6]]
+
+    _, skipped = _pns(sequence, CHRONAXIE, rotation, None, keep_trace=False)
+    _, traced = _pns(sequence, CHRONAXIE, rotation, None, keep_trace=True)
+
+    assert skipped["samples"] == traced["samples"]
+    for peak, full in zip(
+        [skipped["norm"], *skipped["axes"]],
+        [traced["norm"], *traced["axes"]],
+        strict=True,
+    ):
+        assert peak["value"] == pytest.approx(full["value"], rel=1e-9)
+        assert (peak["time"], peak["block"]) == (full["time"], full["block"])
+
+
+@pytest.mark.parametrize("raster", [10e-6, 4e-6])
+def test_a_block_after_200000_delays_responds_as_it_does_alone(raster):
+    """The delays, 1.23 ms each, are durations no double holds exactly."""
+    system = pp.Opts(
+        max_grad=40,
+        grad_unit="mT/m",
+        max_slew=200,
+        slew_unit="T/m/s",
+        grad_raster_time=raster,
+        block_duration_raster=10e-6,
+    )
+    block = [ramp(system, 20.0, 240e-6)]
+    delays = 200_000
+    deep = pp.Sequence(system)
+    delay = pp.make_delay(1.23e-3)
+    for _ in range(delays):
+        deep.add_block(delay)
+    deep.add_block(*block)
+
+    _, alone = safety.check_pns(played(system, block), CHRONAXIE)
+    _, after = safety.check_pns(deep, CHRONAXIE)
+
+    assert after.peak.block == delays + 1
+    assert after.peak.value == alone.peak.value
+    assert [axis.value for axis in after.axes] == [axis.value for axis in alone.axes]
+
+
+def test_a_rectangular_slew_follows_the_strength_duration_curve(system):
+    amplitude, rise = 20.0, 200e-6
+    sequence = played(system, [ramp(system, amplitude, rise)])
+
+    _, report = safety.check_pns(sequence, CHRONAXIE)
+
+    slew = amplitude * 1e-3 / rise
+    c = CHRONAXIE.chronaxie
+    expected = slew * CHRONAXIE.alpha * rise / (CHRONAXIE.rheobase * (c + rise))
+    assert report.peak.value == pytest.approx(expected, rel=1e-5)
+    assert report.peak.time == pytest.approx(rise, abs=1e-12)
+
+
+def test_the_chronaxie_response_does_not_move_when_the_raster_is_halved(system):
+    fine = opts(5e-6)
+
+    _, coarse = safety.check_pns(
+        played(system, [ramp(system, 20.0, 200e-6)]), CHRONAXIE
+    )
+    _, halved = safety.check_pns(played(fine, [ramp(fine, 20.0, 200e-6)]), CHRONAXIE)
+
+    assert halved.peak.value == pytest.approx(coarse.peak.value, rel=0.01)
+
+
+def test_the_two_models_are_not_the_same_calculation(system):
+    sequence = encoded(system)
+
+    _, safe = safety.check_pns(sequence, safe_example_hw())
+    _, chronaxie = safety.check_pns(sequence, CHRONAXIE)
+
+    assert (safe.model, chronaxie.model) == ("safe", "chronaxie")
+    assert safe.peak.value != pytest.approx(chronaxie.peak.value, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "model", [safe_example_hw(), CHRONAXIE], ids=["safe", "chronaxie"]
+)
+def test_the_norm_is_the_root_sum_square_of_the_axes(system, model):
+    found = trace(encoded(system), model)
+
+    axes = np.stack(found["trace_axes"])
+    np.testing.assert_allclose(found["trace_norm"], np.sqrt((axes**2).sum(axis=0)))
+
+
+# -- the verdict ----------------------------------------------------------------
+
+
+def test_a_response_over_threshold_is_refused(system):
+    sequence = played(system, [ramp(system, 20.0, 200e-6)])
+
+    within, report = safety.check_pns(sequence, CHRONAXIE)
+    over, _ = safety.check_pns(
+        sequence,
+        CHRONAXIE._replace(rheobase=0.5 * report.peak.value * CHRONAXIE.rheobase),
+    )
+
+    assert within
+    assert not over
+
+
+def test_the_peak_names_the_block_that_plays_it(system):
+    sequence = played(
+        system,
+        [ramp(system, 5.0, 400e-6)],
+        [pp.make_delay(5e-3)],
+        [ramp(system, 20.0, 100e-6, channel="y")],
+        [pp.make_delay(5e-3)],
+    )
+
+    _, report = safety.check_pns(sequence, CHRONAXIE)
+
+    starts = 2 * 400e-6 + 2e-3 + 5e-3
+    assert report.peak.block == 3
+    assert report.axes[1].block == 3
+    assert report.axes[0].block == 1
+    assert starts < report.peak.time < starts + 2 * 100e-6 + 2e-3
+
+
+# -- axes and orientation --------------------------------------------------------
+
+
+def test_a_turned_block_stimulates_the_axis_it_plays_on(system):
+    on_x = ramp(system, 20.0, 200e-6, channel="x")
+    on_y = ramp(system, 20.0, 200e-6, channel="y")
+
+    _, turned = safety.check_pns(
+        played(system, [on_x, pp.make_rotation(math.pi / 2)]), safe_example_hw()
+    )
+    _, plain = safety.check_pns(played(system, [on_y]), safe_example_hw())
+
+    assert turned.axes[1].value == pytest.approx(plain.axes[1].value, rel=1e-9)
+    assert turned.axes[0].value < 1e-9 * plain.axes[1].value
+
+
+def test_the_prescription_is_turned_after_the_blocks_own_rotation(system):
+    # The block turns x onto y; the prescription turns y onto z.
+    on_x = ramp(system, 20.0, 200e-6, channel="x")
+    on_z = ramp(system, 20.0, 200e-6, channel="z")
+    prescription = [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
+
+    _, turned = safety.check_pns(
+        played(system, [on_x, pp.make_rotation(math.pi / 2)]),
+        safe_example_hw(),
+        rotation=prescription,
+    )
+    _, plain = safety.check_pns(played(system, [on_z]), safe_example_hw())
+
+    assert turned.axes[2].value == pytest.approx(plain.axes[2].value, rel=1e-9)
+
+
+# -- models from values and from files ----------------------------------------------
+
+
+def test_a_mapping_stands_for_a_chronaxie_model(system):
+    sequence = played(system, [ramp(system, 20.0, 200e-6)])
+
+    _, named = safety.check_pns(sequence, CHRONAXIE)
+    _, mapped = safety.check_pns(sequence, CHRONAXIE._asdict())
+
+    assert mapped == named
+
+
+def test_a_safe_model_reads_from_an_asc_file(system, tmp_path):
+    hardware = safe_example_hw()
+    lines = []
+    for name in "xyz":
+        axis = getattr(hardware, name)
+        tag = name.upper()
+        for i in range(3):
+            lines.append(f"flGSWDTau{tag}[{i}] = {getattr(axis, f'tau{i + 1}')}")
+            lines.append(f"flGSWDA{tag}[{i}] = {getattr(axis, f'a{i + 1}')}")
+        lines.append(f"flGSWDStimulationLimit{tag} = {axis.stim_limit}")
+        lines.append(f"flGSWDStimulationThreshold{tag} = {axis.stim_thresh}")
+        lines.append(
+            f"asGPAParameters[0].sGCParameters.flGScaleFactor{tag} = {axis.g_scale}"
+        )
+    path = tmp_path / "gradient.asc"
+    path.write_text("\n".join(lines) + "\n")
+    sequence = encoded(system)
+
+    read = safety.read_safe_model(path)
+    _, from_file = safety.check_pns(sequence, path)
+    _, from_values = safety.check_pns(sequence, hardware)
+
+    assert read.y.tau2 == hardware.y.tau2
+    assert read.z.g_scale == hardware.z.g_scale
+    assert from_file == from_values
+
+
+def test_an_inconsistent_safe_model_is_refused(system):
+    hardware = copy.deepcopy(safe_example_hw())
+    hardware.y.a1 += 0.1
+
+    with pytest.raises(ValueError, match=r"a1 \+ a2 \+ a3"):
+        safety.check_pns(pp.Sequence(system), hardware)
+
+
+def test_a_chronaxie_model_needs_positive_coefficients(system):
+    with pytest.raises(ValueError, match="positive"):
+        safety.check_pns(pp.Sequence(system), ChronaxieModel(0.0, 20.0))
+
+
+def test_what_is_no_nerve_model_is_refused(system):
+    with pytest.raises(TypeError, match="ChronaxieModel"):
+        safety.check_pns(pp.Sequence(system), system)
+
+
+def test_nothing_played_stimulates_nothing(system):
+    ok, report = safety.check_pns(pp.Sequence(system), CHRONAXIE)
+
+    assert ok
+    assert report.samples == 0
+    assert report.peak.value == 0.0
+
+
+# -- the response a diagram draws -------------------------------------------
+
+
+def test_the_trace_is_the_response_the_peak_is_taken_from(system):
+    sequence = pp.Sequence(system)
+    sequence.add_block(pp.make_trapezoid("x", area=2000, system=system))
+    sequence.add_block(pp.make_trapezoid("y", area=-2000, system=system))
+
+    ok, report = safety.check_pns(sequence, CHRONAXIE, trace=True)
+
+    assert report.response.size == report.samples
+    assert report.time.size == report.samples
+    assert report.response.max() == pytest.approx(report.peak.value)
+    assert report.time[report.response.argmax()] == pytest.approx(report.peak.time)
+    assert ok == (report.peak.value < 1.0)
+
+
+def test_each_axis_carries_its_own_response(system):
+    sequence = pp.Sequence(system)
+    sequence.add_block(pp.make_trapezoid("x", area=2000, system=system))
+
+    _, report = safety.check_pns(sequence, CHRONAXIE, trace=True)
+
+    for axis in report.axes:
+        assert axis.response.size == report.samples
+        assert axis.response.max() == pytest.approx(axis.value)
+    combined = np.sqrt(sum(axis.response**2 for axis in report.axes))
+    assert np.allclose(combined, report.response)
+
+
+def test_the_response_is_not_carried_unless_it_is_asked_for(system):
+    sequence = pp.Sequence(system)
+    sequence.add_block(pp.make_trapezoid("x", area=2000, system=system))
+
+    _, report = safety.check_pns(sequence, CHRONAXIE)
+
+    assert not hasattr(report, "response")
+    assert not hasattr(report.axes[0], "response")
+
+
+def test_one_rheobase_written_out_per_axis_is_the_same_model(system):
+    """Naming every axis changes nothing when they agree."""
+    sequence = encoded(system)
+
+    _, shared = safety.check_pns(sequence, CHRONAXIE)
+    _, written = safety.check_pns(
+        sequence, CHRONAXIE._replace(rheobase=(CHRONAXIE.rheobase,) * 3)
+    )
+
+    for one, other in zip(shared.axes, written.axes, strict=True):
+        assert one.value == pytest.approx(other.value, rel=0, abs=1e-12)
+
+
+def test_an_axis_that_stimulates_less_is_costed_less(system):
+    """What an axis brings of its own is its rheobase.
+
+    A gradient coil whose axes differ is otherwise costed on every axis as if
+    it were the one that stimulates most, which is what collapsing the three
+    to their worst does.
+    """
+    sequence = encoded(system)
+
+    _, shared = safety.check_pns(sequence, CHRONAXIE)
+    _, uneven = safety.check_pns(
+        sequence,
+        CHRONAXIE._replace(
+            rheobase=(CHRONAXIE.rheobase, CHRONAXIE.rheobase, 2 * CHRONAXIE.rheobase)
+        ),
+    )
+
+    assert uneven.axes[0].value == pytest.approx(shared.axes[0].value, abs=1e-12)
+    assert uneven.axes[1].value == pytest.approx(shared.axes[1].value, abs=1e-12)
+    assert uneven.axes[2].value == pytest.approx(shared.axes[2].value / 2, rel=1e-9)
+
+
+@pytest.mark.parametrize("field", ["rheobase", "alpha"])
+def test_a_coefficient_that_is_neither_one_nor_three_is_refused(system, field):
+    with pytest.raises(ValueError, match="one value or one per physical axis"):
+        safety.check_pns(encoded(system), CHRONAXIE._replace(**{field: (1.0, 2.0)}))

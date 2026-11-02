@@ -1,0 +1,580 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/config/versions.yaml
+# Purpose:   Single source of truth for tool, runtime and npm versions
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Python reads this file at runtime through hyperi_ci.versions. The `--check`
+# gate in CI (scripts/update-versions.py) holds every copy in the workflows
+# and composite actions to it.
+#
+# GitHub Actions `uses:` refs are not listed here: Renovate pins them by
+# digest with a 7-day cooldown. Policy + the Renovate split:
+# docs/dependencies/deps-pinning.md.
+#
+# Update script: uv run scripts/update-versions.py
+#   --check         current vs SSOT (dry run, default)
+#   --apply         rewrite workflows + composites to match this file
+#   --stable        dry run of --auto-update: newest release >= 7 days old
+#   --auto-update   bump to those, validate LOCALLY, revert on failure. It
+#                   does not commit and does not trigger remote CI - the
+#                   ci-test-* fleet validates on the PR.
+
+# External CLI tools hyperi-ci installs at CI time.
+#
+# A 7-day cooldown, and every major is eligible. There is no compatibility
+# clamp: holding a major back meant the estate sat on an old one until
+# somebody made the manual edit, and nobody did.
+#
+# What that trades away is real, so know it. gitleaks v8 -> v9 can now
+# auto-land, and a breaking CLI change is exactly what produced #64 (`detect`
+# removed). For the 0.x tools - cargo-deny (0.20.2), cargo-audit (v0.22.2) -
+# semver 4 makes the MINOR the breaking axis, so 0.20 -> 0.21 auto-lands too.
+#
+# The safety net is CI, not the clamp: every bump goes through a PR and the
+# ci-test-* fleet exercises these tools for real. A tool whose flags moved
+# shows up as a red quality stage there.
+#
+# `major:` is the one exception. It holds a tool on a major only where a known
+# incompatibility pins it AND no PR run would catch the break, and a `watch:`
+# entry names what lifts it.
+#
+# `pin:` names a file that carries a copy of the version. It exists only for
+# files GitHub parses before our code runs - a composite action's `default:`.
+# Python reads this file directly via hyperi_ci.versions, so a Python-only tool
+# has no `pin:` and no copy to drift. Anchor a copied line with
+# `# hyperi-ci:pin tools.<name>`.
+#
+# `sha256:` pins the digest of the raw download per asset, keyed as that tool's
+# asset names spell the arch. A release asset can be deleted and re-uploaded
+# under the same tag, so the tag alone is not integrity. Refresh the digest in
+# the same commit as the version; a stale one fails the install closed.
+# `--auto-update` does that from the `digest` GitHub records per release asset.
+# A tool whose new release lacks one, or whose assets live off GitHub (helm),
+# is reported for a hand bump instead.
+tools:
+  # First pin of this tool. v0.14.0 was 4 days old at pin time - inside the
+  # 7-day cooldown - taken deliberately: 0.13.0's repeatable `-c` silently
+  # honours only the first config file, contradicting its own help text
+  # (0.14.0 rejects multiple `-c` and fixes the contract).
+  alint:
+    version: "v0.17.0"
+    repo: asamarts/alint
+    sha256:
+      x86_64: aae46539226955795bc7c51adf4832d2503bf7419f87ad0ac15185092d42708a
+      aarch64: 3f8acc1c30cb8959bce53d4a23d77906935cc679ef13c855297c3e39bd464504
+  gitleaks:
+    version: v8.30.1
+    repo: gitleaks/gitleaks
+    sha256:
+      x64: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      arm64: e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080
+  hadolint:
+    version: v2.15.1
+    repo: hadolint/hadolint
+    sha256:
+      x86_64: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+      arm64: f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
+  kubeconform:
+    version: v0.8.0
+    repo: yannh/kubeconform
+    sha256:
+      amd64: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+      arm64: 1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87
+  # Tagged `lychee-vX.Y.Z`, so the tag is not the version with a v on it.
+  # Without tag_prefix the release scan finds only the pre-0.16 `vX.Y.Z` tags
+  # and reads this pin as current forever.
+  # musl, because the binary is dropped onto whatever runner the job landed on.
+  lychee:
+    version: 0.24.2
+    repo: lycheeverse/lychee
+    tag_prefix: lychee-v
+    sha256:
+      amd64: 73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5
+      arm64: 5d0b0e3aeab240f41920c633a6eaf97599be6eedda034b36e858ede7dba5e535
+  # npm packages behind the docs checks: markdownlint-cli2 for markdown syntax,
+  # mermaid + linkedom for the mermaid grammar check. quality/node_tools.py
+  # renders a package.json from these three and runs `npm ci` against the
+  # shipped lockfile, whose sha512 `integrity` fields pin every tarball in the
+  # tree. A bump here needs the lock regenerated in the same commit
+  # (`uv run scripts/relock-node-tools.py`), or `npm ci` refuses the mismatch.
+  # `relock-node-tools.py --auto-update` makes the bump and the relock together.
+  linkedom:
+    version: 0.18.13
+    npm: linkedom
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  # Risk accepted: braces 3.0.3 (GHSA-vfj7-8cjw-p6xm, no fixed release) reaches
+  # here through micromatch. It expands only the globs the linted repo supplies,
+  # and that repo's `.markdownlint-cli2.cjs` already runs code in the same job.
+  markdownlint-cli2:
+    version: 0.23.3
+    npm: markdownlint-cli2
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  mermaid:
+    version: "12.1.0"
+    npm: mermaid
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  # Not a tool: a floor under mermaid's tree, rendered as an npm `overrides`
+  # entry. chevrotain 11.x pins lodash-es 4.17.23 exactly, which carries
+  # GHSA-f23m-r3pf-42rh and GHSA-r5fr-rjxr-66jc (fixed in 4.18.0).
+  lodash-es:
+    version: 4.18.1
+    npm: lodash-es
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  # markdownlint-cli2 pins smol-toml 1.8.0 exactly (quadratic parse, fixed in 1.9.0).
+  smol-toml:
+    version: 1.9.0
+    npm: smol-toml
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  # markdownlint-cli2 0.23.3 pins markdown-it 15.0.1 exactly (GHSA-gfr2-rv44-r23c,
+  # GHSA-r7fv-28h4-cvq7, GHSA-vfgh-jcmw-g37q, fixed in 15.0.3). Drop this entry
+  # once a markdownlint-cli2 past the 7-day cooldown pins markdown-it 15.0.3 or later.
+  markdown-it:
+    version: 15.0.3
+    npm: markdown-it
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  # mermaid takes katex ^0.16, which carries the prototype-pollution trust bypass
+  # fixed in 0.18.2. The mermaid check parses grammar and never renders maths.
+  katex:
+    version: "0.19.0"
+    npm: katex
+    lockfile: src/hyperi_ci/config/node-tools/package-lock.json
+  kube-linter:
+    version: v0.8.3
+    repo: stackrox/kube-linter
+    sha256:
+      amd64: 618d299a3e2839c8ca9d86fce0db617be0fba41f0fecbbbfb7fbf1c04299fae1
+      arm64: 9c39d35252e0dcafb16b26197b9e93ba578e44eb402c3c6660fc94e08f94094f
+  # The five tools below are fetched by a COMPOSITE ACTION rather than by our
+  # Python, because the quality job needs them before hyperi-ci is installed.
+  # That is why their digests are mirrored into the action's `default:` inputs
+  # as well as living here: GitHub parses a composite action before any of our
+  # code runs, so it cannot read this file. update-versions.py writes those
+  # mirrors; never hand-edit a marked line.
+  osv-scanner:
+    version: v2.6.0
+    repo: google/osv-scanner
+    pin: .github/actions/setup-osv-scanner/action.yml
+    sha256:
+      amd64: ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+      arm64: 2c71403eb443d05891c4f268c3ad771cf4f16e5443463fd7851ef8f454d3c7e4
+  golangci-lint:
+    version: "v2.14.0"
+    repo: golangci/golangci-lint
+    pin: .github/actions/setup-go-tools/action.yml
+    sha256:
+      amd64: ab90aeb7b066f92a33415b638a50fe5344bbb75a0d32ad30cc248d88f81032ab
+      arm64: ee7ec5f3453d15ddf106fae5a4d6c71737712348a979d1fe9cd52ec7ea299bae
+  gosec:
+    version: v2.29.0
+    repo: securego/gosec
+    pin: .github/actions/setup-go-tools/action.yml
+    sha256:
+      amd64: 6431b119741c1f4a50fdfcf94e782e16b9e642afc8c7fa9b5d39d48bf3003095
+      arm64: c71244ec8d37488fd479d0d26990968fee03ece48b305d8224ac0c1ebd66e87c
+  # No prebuilt binaries upstream (golang/vuln releases carry no assets), so
+  # this one is still `go install` - but pinned, not @latest. Small pure-Go
+  # module, so the compile costs seconds.
+  #
+  # `release_source: tags` because golang/vuln stopped cutting GitHub Releases
+  # in 2025-01. The releases API answers v1.1.4 forever, so --stable reported
+  # this pin current across four minors. The tags carry the truth; each one's
+  # date comes from the commit it points at.
+  govulncheck:
+    version: v1.8.0
+    repo: golang/vuln
+    release_source: tags
+    pin: .github/actions/setup-go-tools/action.yml
+  # rustsec is a MONOREPO: every crate tags as `<crate>/vX.Y.Z`, so without
+  # tag_prefix the release scan sees `platforms/v4.0.0` et al and either picks
+  # the wrong crate or (because the tag is not bare semver) silently finds
+  # nothing at all.
+  #
+  # cargo-audit is the ONE tool here whose release publishes no checksum file,
+  # so its digests rest on our own download alone. The other four were each
+  # cross-checked against upstream's published sums at pin time.
+  cargo-audit:
+    version: v0.22.2
+    repo: rustsec/rustsec
+    tag_prefix: cargo-audit/
+    pin: .github/actions/setup-rust-tools/action.yml
+    sha256:
+      # amd64 is the musl build; arm64 is gnu, since no aarch64 musl is published.
+      amd64: 7fb9497f8594b389e5fce5ef9b92db08432996895b2e0c5a0167a69ed445c428
+      arm64: c6603814ddaa45e51263dafd31c0ac98808f688d26f7395804f9670b0fd599dd
+  # Upstream tags have NO leading `v` - keep it that way, the download URL is
+  # built from this string verbatim.
+  cargo-deny:
+    version: 0.20.2
+    repo: EmbarkStudios/cargo-deny
+    pin: .github/actions/setup-rust-tools/action.yml
+    sha256:
+      amd64: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+      arm64: 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
+  # Fetched by a composite action like the tools above, but for the TEST job
+  # rather than quality. Nothing else puts a pinned nextest on the Test
+  # runner's PATH, so without this the runner the job resolves depends on what
+  # it happens to find - and nextest and cargo test are not interchangeable
+  # (see `test.rust.nextest` in defaults.yaml).
+  #
+  # MONOREPO like rustsec: nextest-runner and nextest-filtering tag from the
+  # same repo, so tag_prefix is what stops the release scan picking one of them.
+  # Tags carry no leading `v`; the asset spells the version in the MIDDLE.
+  #
+  # Upstream publishes a `.sha256` per asset - these were cross-checked against
+  # it at pin time.
+  cargo-nextest:
+    version: 0.9.146
+    repo: nextest-rs/nextest
+    tag_prefix: cargo-nextest-
+    pin: .github/actions/setup-nextest/action.yml
+    sha256:
+      # Linux is musl (static) on both arches; macOS ships one universal build,
+      # so `macos` is a platform key here rather than an arch.
+      amd64: b64617e8640624e8f9ba99819e37d7971154e97836d7ae4774fed4715501a6aa
+      arm64: 62ae8b4ad034704f67417f8ed8b897566d82359ab44952729b925fb37eeb7622
+      macos: 39785160b3c2f6ed9a765049cf4fa79f3b39aa02eb7598a5a0e2a1a0b9ffb9a8
+  # Coverage for the TEST job, not quality -- `test.coverage` was honoured up
+  # to the point a tool would run and then found none, so coverage had never
+  # run on any repo (issue #140). Chosen over cargo-tarpaulin because
+  # `cargo llvm-cov nextest` composes: a repo that resolved to nextest keeps
+  # it, where tarpaulin drives cargo's own harness and swaps nextest out.
+  #
+  # Publishes no checksum file, so these digests rest on our own download.
+  # Binary sits at the tarball root, so the install strips no component.
+  cargo-llvm-cov:
+    version: v0.9.1
+    repo: taiki-e/cargo-llvm-cov
+    pin: .github/actions/setup-nextest/action.yml
+    sha256:
+      # musl on both arches, static, same as cargo-nextest alongside it.
+      amd64: 3fca950394a3c49457657c158b1619cec8dfd2647ae5b48746734c0ab969a522
+      arm64: 49c0085628392a8d727c4464d91ec417c613c5015f5197cd16d5c05aa3fb5ad1
+  # Public-API break detector for library crates (issue #186). Prebuilt gnu
+  # binaries, so no `cargo install` on the release path. Unlike the other three
+  # cargo tools here the tarball has no directory nesting - the binary is at
+  # the root, so the install does not strip a component.
+  #
+  # Publishes no checksum file, so like cargo-audit these digests rest on our
+  # own download.
+  cargo-semver-checks:
+    version: "v0.51.0"
+    repo: obi1kenobi/cargo-semver-checks
+    pin: .github/actions/setup-rust-tools/action.yml
+    sha256:
+      # gnu on both arches; musl is also published but nothing here needs it.
+      amd64: cacadafaa5cd27ae6d05a74a103266917ebab4c5e43c898360e177d4fbf06a65
+      arm64: 58531fa492d237c71b97d113a6d2a36209d96105956569cd0406aa66226ac928
+  # Source-built on the release runner by `cargo install --locked` and then run
+  # over the binary we ship, so it is pinned like any other release tool.
+  cargo-pgo:
+    version: 0.3.0
+    repo: Kobzol/cargo-pgo
+    tag_prefix: v
+  # The quality stage's feature matrix (`cargo hack --each-feature`). Source-
+  # built by `cargo install --locked --version` on first use, and reinstalled
+  # when the copy found differs. Same spelling as cargo-pgo: the bare version
+  # `cargo install` takes, with `tag_prefix` stripping the `v` off the tags.
+  cargo-hack:
+    version: 0.6.45
+    repo: taiki-e/cargo-hack
+    tag_prefix: v
+  # Baked into the ARC runner image by bootstrap.py, because the image sets
+  # RUSTC_WRAPPER=sccache and no CI step installs it. musl on both arches.
+  # Digests cross-checked against upstream's `.sha256` files at pin time.
+  sccache:
+    version: v0.18.0
+    repo: mozilla/sccache
+    sha256:
+      x86_64: 45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89
+      aarch64: 2b3284d5da3b46a47dc4229e75bb7b88ac4aa99c8d754fb7d2f84997e5a4354a
+  # The bake runs this rustup-init from static.rust-lang.org/rustup/archive/
+  # rather than the sh.rustup.rs script. The toolchains it then installs still
+  # track the channels in bootstrap.yaml. Bare-semver tags and no GitHub
+  # Releases, so `--stable` reads the tags and reports a bump for a hand edit:
+  # take each digest from that archive's `<target>/rustup-init.sha256`.
+  rustup:
+    version: 1.29.1
+    repo: rust-lang/rustup
+    release_source: tags
+    sha256:
+      x86_64: dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
+      aarch64: 15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433
+  # The bake runs nvm's install.sh from this tag, which installs that same tag.
+  # The digest covers the script, arch-independent. The release carries no
+  # assets, so `--stable` reports a bump for a hand edit: sha256 the tag's
+  # raw.githubusercontent.com/nvm-sh/nvm/<tag>/install.sh, and cross-check
+  # `git hash-object` of it against the contents API's blob sha at that ref.
+  nvm:
+    version: v0.40.8
+    repo: nvm-sh/nvm
+    sha256:
+      script: 48a0eee9a60e07422dce0eb5774754c83889570ca1ee2566c516acbe8af03a9e
+  # hyperi-developer's pinned install mirrors this entry; nothing in hyperi-ci reads it.
+  cargo-chef:
+    version: v0.1.78
+    repo: LukeMathWalker/cargo-chef
+    sha256:
+      x86_64: aca691abfbfbbe00d482e0ed2249eec3091b65e96a0ce92947fb5b254d48b16d
+      aarch64: cd59b90fce5fa84c4189648fec33404ec5491791eebdb812df5e7fca8336408d
+  # native_tools.py fetches Helm from get.helm.sh for a project's tests
+  # (`test.native_tools`) and for lint-iac, and checks these digests. They were cross-checked
+  # against upstream's `.sha256sum` files and the release notes at pin time.
+  helm:
+    version: v4.3.0
+    repo: helm/helm
+    sha256:
+      amd64: 86584a54def73570558f66f5111cc53dfed56689637ae32c1201205d494f54fb
+      arm64: 31c5794dd55c66a51e6b7d2e2ac7a114ae8b1de41ff1d9ba51748ac973b06a08
+  # native_deps.ensure_aws_cli installs the versioned zip for the R2 upload. The
+  # detached signature (not a digest here) is the integrity anchor. Tags are
+  # bare semver on the v2 branch and the repo cuts no GitHub Releases, so
+  # `--stable` reads the tags.
+  aws-cli:
+    version: 2.37.10
+    repo: aws/aws-cli
+    release_source: tags
+  # lint-iac fetches these two through native_tools.py on Linux CI when the
+  # runner has none. Digests cross-checked against upstream's SHA256SUMS and
+  # checksums.txt at pin time.
+  tofu:
+    version: "v1.13.1"
+    repo: opentofu/opentofu
+    sha256:
+      amd64: 378ada19d4bc70c43732004e8159be771b23b9a5afdf059e5f8a2b3fa2c70a69
+      arm64: 9c1ef375aa1852db0b2888aa921b640c71f8140d4682aa4fec99378a64fa7dc3
+  # MONOREPO like rustsec: api/, kyaml/ and cmd/config/ tag from the same repo.
+  kustomize:
+    version: "v5.8.2"
+    repo: kubernetes-sigs/kustomize
+    tag_prefix: kustomize/
+    sha256:
+      amd64: 06af0a202c2b831207d0173f9c9cdb1b30abceca0747cb3fbb72792d26055c95
+      arm64: 0991957191951cb7dddd142403b5bb98a1fcd6378ba0079dddc1e2c309080a7f
+  # native_tools.py streams clickhouse-common-static-<numeric version>-<arch>.tgz
+  # (about 265 MB) and installs its one `clickhouse` binary, plus the
+  # `clickhouse-local` symlink the multi-call binary dispatches on. The digests
+  # are of the .tgz, matched against GitHub's recorded asset digest and a
+  # sha256sum of a full download. Tags read `vYY.M.P.B-stable`, which
+  # `--stable` cannot order, so a bump is by hand: new version plus both digests.
+  clickhouse:
+    version: "v26.10.2.103-stable"
+    repo: ClickHouse/ClickHouse
+    sha256:
+      amd64: ec811478449184dea496ba17c3f76fdd3aeb2013dd5041676bd00041fed98d17
+      arm64: bd59e072630c8884037575c59dad664330fd69c4247da334c9cf1b3f79a1a4c4
+
+  # Quality tools resolved at JOB TIME through uvx / `uv run --with`. Unpinned,
+  # each job took whatever PyPI served that morning, so a bad release could
+  # break the gate in every repo at once with nothing in any diff to show for
+  # it. `pypi:` names the package in place of a GitHub repo - the release scan
+  # reads PyPI's own upload times and applies the same 7-day cooldown. Python
+  # reads these through hyperi_ci.versions, so there is no `pin:` and no copy.
+  semgrep:
+    version: "1.179.0"
+    pypi: semgrep
+  pip-audit:
+    version: 2.10.1
+    pypi: pip-audit
+  # Quoted: bare 2.16 reads as a YAML float, and a later 2.20 would come back
+  # as "2.2". Mirrored into ci.yml's Test job: the real-binary vulture test
+  # needs it on PATH directly, not through the uvx-wrapped invocation the
+  # quality stage uses.
+  vulture:
+    version: "2.16"
+    pypi: vulture
+    pin: .github/workflows/ci.yml
+  ty:
+    version: "0.0.84"
+    pypi: ty
+  checkov:
+    version: "3.3.23"
+    pypi: checkov
+  # lint-iac's ansible dimension. ansible-galaxy runs from the ansible-lint
+  # environment, so the ansible-core it installs with matches the linter's.
+  ansible-lint:
+    version: 26.9.0
+    pypi: ansible-lint
+  yamllint:
+    version: 1.38.0
+    pypi: yamllint
+  # The predict-version helpers read .hyperi-ci.yaml under `uv run --with
+  # pyyaml==<this>`, since a runner's own python3 may have no YAML parser.
+  # Mirrored into that composite's `default:`, which GitHub parses before our
+  # code runs. uv fetches it from PyPI, so there is no release asset to digest.
+  pyyaml:
+    version: 6.0.3
+    pypi: pyyaml
+    pin: .github/actions/predict-version/action.yml
+
+  # The release tagger. setup-semantic-release runs `npm install -g` before
+  # hyperi-ci exists, so each version is mirrored into that composite. npm
+  # checks every tarball against the registry's sha512, so there is no digest
+  # here. npm dedupes a global install, so core resolves commit-analyzer,
+  # release-notes-generator and github to these top-level copies. github is
+  # never loaded as a plugin - the composite refuses a config naming it - and
+  # is pinned only so core's `^12` range does not float it.
+  #
+  # A composite change cannot be rehearsed on a fixture (it runs @main), so a
+  # bump here reaches every repo's release tagging at merge.
+  semantic-release:
+    version: 25.0.9
+    npm: semantic-release
+    pin: .github/actions/setup-semantic-release/action.yml
+  semantic-release-commit-analyzer:
+    version: 13.0.1
+    npm: "@semantic-release/commit-analyzer"
+    pin: .github/actions/setup-semantic-release/action.yml
+  semantic-release-release-notes-generator:
+    version: 14.1.1
+    npm: "@semantic-release/release-notes-generator"
+    pin: .github/actions/setup-semantic-release/action.yml
+  semantic-release-changelog:
+    version: 7.0.0
+    npm: "@semantic-release/changelog"
+    pin: .github/actions/setup-semantic-release/action.yml
+  semantic-release-exec:
+    version: 7.1.0
+    npm: "@semantic-release/exec"
+    pin: .github/actions/setup-semantic-release/action.yml
+  semantic-release-github:
+    version: 12.0.10
+    npm: "@semantic-release/github"
+    pin: .github/actions/setup-semantic-release/action.yml
+  # v10 broke the dry-run in every repo at once: release-notes-generator 14 and
+  # commit-analyzer 13 drive conventional-changelog-writer ^8. See `watch:`.
+  conventional-changelog-conventionalcommits:
+    version: 9.3.1
+    major: 9
+    npm: conventional-changelog-conventionalcommits
+    pin: .github/actions/setup-semantic-release/action.yml
+
+# C libraries `hyperi-ci static-libs build` compiles into one static-only
+# prefix, which a Rust app links through rdkafka-sys's pkg-config path. Built in
+# this order, each against the ones before it.
+#
+# No release-age cooldown here: each takes the newest upstream release.
+# OpenSSL stays on its current LTS line. `sha256` is the source archive's, from
+# the project's own checksum file or GitHub's asset digest. librdkafka publishes
+# neither, so its digest is of the tag archive, with `commit` pinning the tag.
+static_libs:
+  openssl:
+    version: "3.5.9"
+    lts: "3.5"
+    repo: openssl/openssl
+    tag_prefix: openssl-
+    url: https://github.com/openssl/openssl/releases/download/openssl-{version}/openssl-{version}.tar.gz
+    sha256: 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+  zlib:
+    version: "1.3.2"
+    repo: madler/zlib
+    url: https://github.com/madler/zlib/releases/download/v{version}/zlib-{version}.tar.gz
+    sha256: bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+  zstd:
+    version: "1.5.7"
+    repo: facebook/zstd
+    url: https://github.com/facebook/zstd/releases/download/v{version}/zstd-{version}.tar.gz
+    sha256: eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+  librdkafka:
+    version: "2.16.0"
+    repo: confluentinc/librdkafka
+    url: https://github.com/confluentinc/librdkafka/archive/refs/tags/v{version}.tar.gz
+    commit: c6c9973cf1b25394c58e0cade13a36f386856f77
+    sha256: e6b61de61d3282879a88e4ee3d9f634a8b05bf78a9198dfc25c4820c0c9ed231
+
+# The Static libs release a Rust build with `build.rust.static_libs` links, and
+# each archive's sha256, matched against the release's .sha256 files and
+# GitHub's asset digests. Moves when the pins above publish a new release.
+static_libs_release:
+  tag: static-libs-rdkafka2.16.0-openssl3.5.9-f87f317c3a39
+  sha256:
+    x86_64-unknown-linux-gnu: e00ca47ad334607e4ce4231506bc5ec3c16cd33293c60946ebb5b31d65a6236d
+    aarch64-unknown-linux-gnu: bb0724afe40bb2d2b983f647c62bf62d73bc6b219227f336fcf5014c9c320f0e
+
+# Upstream capabilities we WANT but that are not ready yet.
+#
+# `--stable` prints these on every run, so the decision resurfaces at each
+# dependency update instead of living in someone's memory. Each entry names the
+# gate that would let it land - something checkable, not a vibe.
+watch:
+  uv-audit:
+    what: replace pip-audit with `uv audit` (astral stack consolidation)
+    blocked_by: >-
+      experimental as of uv 0.12.6 (re-checked 2026-09-23) - the command warns
+      "may change without warning" and is gated behind
+      `--preview-features audit-command`. pip-audit is a BLOCKING gate in 14
+      repos; it does not ride on a preview command.
+    gate: "`uv audit` runs with no experimental warning and no --preview-features"
+    issue: 68
+  aws-cli-signing-key:
+    what: rotate the AWS CLI signing key shipped at config/aws-cli-team.asc
+    blocked_by: >-
+      nothing upstream - the key is current. It expires 2027-07-01, and after
+      that every signature check in native_deps.ensure_aws_cli fails closed, so
+      no release can upload binaries to R2.
+    gate: "AWS publishes a successor key - replace the .asc and _AWS_CLI_KEY_FPR"
+    issue: 155
+  conventionalcommits-v10:
+    what: "lift conventional-changelog-conventionalcommits past its `major: 9` hold"
+    blocked_by: >-
+      @semantic-release/release-notes-generator 14.1.1 and commit-analyzer
+      13.0.1 drive conventional-changelog-writer ^8, and preset v10 broke the
+      dry-run in every repo. The composite runs @main, so no PR run catches it.
+    gate: "release-notes-generator and commit-analyzer both take preset 10 - then drop `major:`"
+
+# Language runtimes (default versions in workflow inputs)
+#
+# python and node carry a `pin:` list because their value is spelled as a
+# literal in files GitHub parses before our code runs - a workflow input's
+# `default:`, a `with:` value. Those literals matched this file only by
+# coincidence until the markers went in: nothing read them, so nothing could
+# report drift. rust and llvm have no such copy, so they stay bare values.
+#
+# None of them auto-bump (scripts/update-versions.py resolves `tools:` only):
+# a runtime major is a decision, not a dependency refresh.
+runtimes:
+  # 3.14 is the baseline -- the fleet moved 3.12 -> 3.14 and skipped 3.13.
+  # 3.12 went security-only on 2025-04-02, so it kept taking CVE fixes but no
+  # compatibility work for newer libraries.
+  #
+  # This is the DEFAULT for a project that declares nothing, not a version every
+  # project is held to. A repo declaring `requires-python = ">=3.12"` is built
+  # and tested on 3.12 -- a wheel whose own advertised floor never ran would
+  # otherwise publish green (issue #150). hyperi_ci.python_version resolves it.
+  python:
+    version: "3.14"
+    pin:
+      - .github/workflows/python-ci.yml
+      - .github/workflows/_release-tail.yml
+      - .github/workflows/ci.yml
+    # Every workflow also carries a `uvx --python` that pins the CLI's own
+    # interpreter (issue #157). That one takes no marker: it sits inside a
+    # `${{ }}` expression, and pin_pattern needs a `:` or `=` immediately
+    # before the version. test_workflow_consistency enforces it instead.
+      - .github/actions/setup-runtime/action.yml
+      - .github/actions/predict-version/action.yml
+  # 24 is Active LTS. 22 dropped to Maintenance on 2025-10-21, and 26 does not
+  # reach LTS until 2026-10-28 (nodejs/Release schedule.json). The runner image
+  # bakes this major alone (bootstrap.py), through the `tools.nvm` pin.
+  node:
+    version: "24"
+    pin:
+      - .github/workflows/ts-ci.yml
+      - .github/workflows/_release-tail.yml
+      - .github/actions/setup-semantic-release/action.yml
+  rust: stable
+  # The Go the runner image bakes into /usr/local/go (bootstrap.py). CI jobs
+  # take theirs from setup-go and the project's go.mod, so this is the image's
+  # copy alone. Digests from go.dev/dl/?mode=json, cross-checked against
+  # dl.google.com's `.sha256` files at pin time. `--stable` warns when go.dev's
+  # current stable has moved past it.
+  go:
+    version: "1.27.1"
+    sha256:
+      amd64: 63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445
+      arm64: 3450b45a3f9ee8568792736a5c5e70a1f2e9b36c35a8f74958c03e51d7d92bec
+  # LLVM major every Rust job installs bolt-NN, lld-NN and clang-NN from, and the
+  # only one the runner image bakes (toolchains/llvm.yaml). HYPERCI_LLVM_VERSION,
+  # then `build.rust.llvm_version` in .hyperi-ci.yaml, override it per job.
+  llvm: "23"

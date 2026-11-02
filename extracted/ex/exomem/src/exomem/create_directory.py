@@ -1,0 +1,193 @@
+"""The `create_directory` Tier 2 op: mkdir at a vault path.
+
+Refuses subtrees marked `readonly`/`excluded` in `Knowledge Base/_access.yaml`
+(curated, read-only material) — a hard refusal with no override.
+Append-only trees (Sources/, Evidence/) are not refused at the directory
+level since those subfolders auto-materialize on add/preserve writes
+anyway.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+
+from . import access, held_fs, reserved_paths
+from .vault import (
+    VaultPathError,
+    folder_split_warnings,
+    in_curated_tree,
+    resolve_under_vault,
+    respell_new_path,
+    write_log_entry,
+)
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class CreateDirectoryResult:
+    path: str
+    created: bool  # False if it already existed
+    warnings: list[str]
+
+    def as_dict(self) -> dict:
+        return {"path": self.path, "created": self.created, "warnings": self.warnings}
+
+
+@dataclass
+class CreateDirectoryError(Exception):
+    code: str
+    reason: str
+
+    def as_dict(self) -> dict:
+        return {"code": self.code, "reason": self.reason}
+
+
+def create_directory(
+    vault_root: Path,
+    *,
+    path: str,
+    parents: bool = True,
+    allow_curated: bool = False,
+    today: dt.date | None = None,
+) -> CreateDirectoryResult:
+    if (
+        reserved_paths.classify_logical(path).disposition
+        is reserved_paths.PathDisposition.RESERVED
+    ):
+        raise CreateDirectoryError(
+            code="RESERVED_PATH",
+            reason="path is reserved for its owning subsystem",
+        )
+    try:
+        _abs_path, rel_path = resolve_under_vault(vault_root, path)
+    except VaultPathError as e:
+        raise CreateDirectoryError(code=e.code, reason=e.reason) from e
+    rel_path = respell_new_path(vault_root, rel_path)
+
+    # Read-only protection: a subtree marked `readonly`/`excluded` in
+    # _access.yaml is a hard refusal (no override). create_directory does a
+    # raw mkdir (no batch_atomic_write), so this is its only access guard —
+    # it replaces the old hardcoded curated-tree list (now empty).
+    access_reason = access.writable_reason(vault_root, rel_path)
+    if access_reason is not None:
+        raise CreateDirectoryError(code="READONLY_PROTECTED", reason=access_reason)
+
+    curated = in_curated_tree(rel_path)
+    if curated and not allow_curated:
+        raise CreateDirectoryError(
+            code="CURATED_PROTECTED",
+            reason=(
+                f"{rel_path} is in curated tree {curated!r} (desk-managed). "
+                f"Pass `allow_curated=true` only if you are genuinely "
+                f"building infrastructure inside this tree."
+            ),
+        )
+
+    # A raw mkdir mutates the vault tree, so this leaf takes the mutation
+    # boundary itself (a reentrant no-op for callers that still hold the
+    # full-leaf guard); the existence check runs under the boundary so
+    # concurrent creates stay idempotent instead of racing.
+    from .writer_lease import active_manager, active_mutation_request_id
+
+    with active_manager().mutation_guard(
+        vault_root,
+        request_id=active_mutation_request_id(),
+        operation="directory_create_commit",
+        holder_kind="command",
+    ):
+        with reserved_paths._generic_identity_catalogue_scope(
+            vault_root,
+            rel_path,
+        ) as identities:
+            acquired = held_fs.acquire(Path(vault_root))
+            if not acquired.ok:
+                raise CreateDirectoryError(
+                    code="RESERVED_PATH",
+                    reason="directory route is unavailable on this filesystem",
+                )
+            with acquired.require() as filesystem:
+                components = tuple(rel_path.split("/"))
+                already_existed = False
+                for index in range(len(components)):
+                    current_rel = "/".join(components[: index + 1])
+                    final = index == len(components) - 1
+                    current = filesystem.parent(
+                        current_rel,
+                        access="mutate" if final else "read",
+                    )
+                    if current.ok:
+                        with current.require() as directory:
+                            if identities.descriptor_for(directory.identity) is not None:
+                                raise CreateDirectoryError(
+                                    code="RESERVED_PATH",
+                                    reason="directory target belongs to private state",
+                                )
+                        if final:
+                            already_existed = True
+                        continue
+                    if current.error is None or current.error.code != "MISSING":
+                        code = "NOT_A_DIR" if final else "RESERVED_PATH"
+                        raise CreateDirectoryError(
+                            code=code,
+                            reason="directory target could not be acquired safely",
+                        )
+                    if not final and not parents:
+                        raise CreateDirectoryError(
+                            code="MISSING_PARENT",
+                            reason=(
+                                f"intermediate folders missing for {rel_path}; "
+                                "call with parents=true or create them first"
+                            ),
+                        )
+                    created = filesystem.parent(
+                        current_rel,
+                        create=True,
+                        exclusive=True,
+                        access="mutate" if final else "read",
+                    )
+                    if not created.ok:
+                        if created.error is not None and created.error.code == "PATH_VARIANT_EXISTS":
+                            raise CreateDirectoryError(
+                                code="PATH_VARIANT_EXISTS",
+                                reason=(
+                                    f"folder already exists as '{created.error.existing_leaf}'; "
+                                    "use that spelling"
+                                ),
+                            )
+                        raise CreateDirectoryError(
+                            code=(
+                                "MISSING_PARENT"
+                                if created.error is not None
+                                and created.error.code == "MISSING"
+                                else "RESERVED_PATH"
+                            ),
+                            reason="directory creation was refused safely",
+                        )
+                    created.require().close()
+
+        # The log.md entry is governed shared state — written under the same
+        # boundary hold as the mkdir it records.
+        warnings: list[str] = folder_split_warnings(vault_root, Path(vault_root) / rel_path)
+        if not already_existed:
+            today = today or dt.date.today()
+            date_iso = today.isoformat()
+            log_body = "Created directory via exomem Tier 2."
+            if curated and allow_curated:
+                log_body += f" allow_curated=true (target tree: {curated})."
+            log_warning = write_log_entry(
+                vault_root,
+                date_iso=date_iso,
+                op="create_directory",
+                rel_path_no_ext=rel_path,
+                body=log_body,
+            )
+            if log_warning:
+                warnings.append(log_warning)
+
+    return CreateDirectoryResult(
+        path=rel_path, created=not already_existed, warnings=warnings
+    )

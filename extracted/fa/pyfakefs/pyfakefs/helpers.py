@@ -29,14 +29,21 @@ from copy import copy
 from dataclasses import dataclass
 from enum import Enum
 from stat import S_IFLNK
-from typing import Union, Any, AnyStr, overload, cast
+from typing import Any, AnyStr, Union, cast, overload
 
-AnyString = Union[str, bytes]
-AnyPath = Union[AnyStr, os.PathLike]
+AnyString = str | bytes
+AnyPath = Union[AnyStr, os.PathLike]  # noqa: UP007
 
 IS_PYPY = platform.python_implementation() == "PyPy"
 IS_WIN = sys.platform == "win32"
 IN_DOCKER = os.path.exists("/.dockerenv")
+# under Windows, `os.path.realpath` resolves a path relative to another drive
+# against the root of that drive (changed in Python 3.13.16, 3.14.8 and 3.15.1)
+REALPATH_RESOLVES_DRIVE_RELATIVE = (
+    sys.version_info >= (3, 15, 1)
+    or (3, 14, 8) <= sys.version_info < (3, 15)
+    or (3, 13, 16) <= sys.version_info < (3, 14)
+)
 
 PERM_READ = 0o400  # Read permission bit.
 PERM_WRITE = 0o200  # Write permission bit.
@@ -147,6 +154,10 @@ def make_string_path(dir_name: os.PathLike) -> str: ...
 
 
 def make_string_path(dir_name: AnyPath) -> AnyStr:  # type: ignore[type-var]
+    from pyfakefs.fake_pathlib import FakePath
+
+    if isinstance(dir_name, FakePath):
+        return cast(AnyStr, str(dir_name))  # pytype: disable=invalid-annotation
     return cast(AnyStr, os.fspath(dir_name))  # pytype: disable=invalid-annotation
 
 
@@ -286,7 +297,7 @@ class FakeStatResult:
         self._st_mtime_ns: int = self._st_atime_ns
         self._st_ctime_ns: int = self._st_atime_ns
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, FakeStatResult)
             and self._st_atime_ns == other._st_atime_ns
@@ -301,7 +312,7 @@ class FakeStatResult:
             and self.st_mode == other.st_mode
         )
 
-    def __ne__(self, other: Any) -> bool:
+    def __ne__(self, other: object) -> bool:
         return not self == other
 
     def copy(self) -> "FakeStatResult":
@@ -330,7 +341,7 @@ class FakeStatResult:
         return self._st_ctime_ns / 1e9
 
     @st_ctime.setter
-    def st_ctime(self, val: int | float) -> None:
+    def st_ctime(self, val: float) -> None:
         """Set the creation time in seconds."""
         self._st_ctime_ns = int(val * 1e9)
 
@@ -340,7 +351,7 @@ class FakeStatResult:
         return self._st_atime_ns / 1e9
 
     @st_atime.setter
-    def st_atime(self, val: int | float) -> None:
+    def st_atime(self, val: float) -> None:
         """Set the access time in seconds."""
         self._st_atime_ns = int(val * 1e9)
 
@@ -350,7 +361,7 @@ class FakeStatResult:
         return self._st_mtime_ns / 1e9
 
     @st_mtime.setter
-    def st_mtime(self, val: int | float) -> None:
+    def st_mtime(self, val: float) -> None:
         """Set the modification time in seconds."""
         self._st_mtime_ns = int(val * 1e9)
 
@@ -511,7 +522,7 @@ def is_called_from_skipped_module(
     if not skip_names and not check_open_code:
         return False
 
-    stack = traceback.extract_stack()
+    stack = traceback.extract_stack(limit=6)
 
     # handle the case that we try to call the original `open_code`
     # (since Python 3.12)
@@ -552,10 +563,8 @@ def is_called_from_skipped_module(
         caller_module_name = caller_module_name.replace(os.sep, ".")
 
         if any(
-            [
-                caller_module_name == sn or caller_module_name.endswith("." + sn)
-                for sn in skip_names
-            ]
+            caller_module_name == sn or caller_module_name.endswith("." + sn)
+            for sn in skip_names
         ):
             return True
     return False

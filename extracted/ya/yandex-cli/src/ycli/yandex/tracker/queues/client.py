@@ -1,0 +1,324 @@
+"""Tracker ``/queues`` client on the httpx2 core.
+
+Every method sends one declaration from :mod:`ycli.yandex.tracker.queues.endpoints`.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ycli.yandex.core.resource import Resource
+from ycli.yandex.tracker.queues import endpoints
+
+if TYPE_CHECKING:
+    from ycli.yandex.core.listing import Listing
+    from ycli.yandex.models import ItemList
+    from ycli.yandex.tracker.queues.models import (
+        Queue,
+        QueueCreate,
+        QueueField,
+        QueueGroupAccess,
+        QueuePermissions,
+        QueuePermissionsUpdate,
+        QueueTagRemove,
+        QueueUserAccess,
+        QueueVersionCreate,
+        QueueVersionInfo,
+        QueueVersionUpdate,
+    )
+
+
+class QueuesClient(Resource):
+    """List (page-paginated), get, create, delete and restore queues; tags, versions, access."""
+
+    def list(
+        self,
+        *,
+        limit: int | None = None,
+        next: str | None = None,
+        expand: str | None = None,
+    ) -> Listing[Queue]:
+        """``GET /queues/`` → flat ``ItemList[Queue]``, draining ``page``/``perPage`` internally.
+
+        Capped at ``limit`` (``None`` = every queue). The API returns 50 queues per page; this
+        advances the page number up to ``X-Total-Pages``, or until a short page comes back.
+
+        Args:
+            limit: The most queues to return; ``None`` returns every queue.
+            next: What an earlier call returned as ``next``. The token carries its listing;
+                give what is required again, and nothing else but the limit.
+            expand: The extra blocks to include in each queue, as in :meth:`get`.
+
+        Returns:
+            The queues, across all pages.
+
+        Examples:
+            >>> tracker.queues.list(limit=500).collect().items[-1].key
+            'TAIL'
+        """
+        return self._session.iterate(endpoints.list_(expand=expand), limit=limit, next=next)
+
+    def get(self, queue_id: str, expand: str | None = None) -> Queue:
+        """``GET /queues/{queue_id}`` → a single :class:`Queue`.
+
+        ``queue_id`` is the queue key (case-sensitive) or numeric id. Pass ``expand`` to include
+        extra blocks, e.g. ``expand="all"`` (or ``projects,components,versions,types,team,
+        workflows,fields,issueTypesConfig``).
+
+        Args:
+            queue_id: The queue's key or numeric id.
+            expand: Extra blocks to include; ``None`` includes none.
+
+        Returns:
+            The queue.
+
+        Examples:
+            >>> tracker.queues.get("TEST", expand="all").key
+            'TEST'
+        """
+        return self._session.send(endpoints.get(queue_id, expand=expand))
+
+    def tags_list(self, queue_id: str) -> ItemList[str]:
+        """``GET /queues/{queue_id}/tags`` → the queue's tag names as a flat string array.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+
+        Returns:
+            The queue's tag names.
+
+        Examples:
+            >>> tracker.queues.tags_list("TAGQ").root
+            ['tag1', 'tag2']
+        """
+        return self._session.send(endpoints.tags_list(queue_id))
+
+    def versions_list(self, queue_id: str) -> ItemList[QueueVersionInfo]:
+        """``GET /queues/{queue_id}/versions`` → the queue's versions.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+
+        Returns:
+            The queue's versions.
+
+        Examples:
+            >>> tracker.queues.versions_list("VERQ").root[0].name
+            'v0.1'
+        """
+        return self._session.send(endpoints.versions_list(queue_id))
+
+    def fields_list(self, queue_id: str) -> ItemList[QueueField]:
+        """``GET /queues/{queue_id}/fields`` → the queue's required/local fields.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+
+        Returns:
+            The queue's fields.
+
+        Examples:
+            >>> tracker.queues.fields_list("FLDQ").root[0].id
+            'myfield'
+        """
+        return self._session.send(endpoints.fields_list(queue_id))
+
+    def create(self, body: QueueCreate) -> Queue:
+        """Create a queue from a typed ``QueueCreate`` body. Returns the created ``Queue``.
+
+        Args:
+            body: The new queue's key, name, lead and defaults.
+
+        Returns:
+            The created queue.
+
+        Examples:
+            >>> from ycli.yandex.tracker.queues.models import QueueCreate
+            >>> new_queue = QueueCreate(
+            ...     key="DESIGN",
+            ...     name="Design",
+            ...     lead="lead-login",
+            ...     default_type="task",
+            ...     default_priority="normal",
+            ...     issue_types_config=[
+            ...         {
+            ...             "issueType": "bug",
+            ...             "workflow": "oicn",
+            ...             "resolutions": ["wontFix", "fixed"],
+            ...         }
+            ...     ],
+            ... )
+            >>> tracker.queues.create(new_queue).key
+            'DESIGN'
+        """
+        return self._session.send(endpoints.create(body))
+
+    def delete(self, queue_id: str) -> None:
+        """``DELETE /queues/{queue_id}`` — delete a queue (``204``, empty body).
+
+        Args:
+            queue_id: The queue's key or numeric id.
+
+        Examples:
+            >>> tracker.queues.delete("GONE")
+        """
+        self._session.send(endpoints.delete(queue_id))
+
+    def restore(self, queue_id: str) -> Queue:
+        """``POST /queues/{queue_id}/_restore`` — restore a deleted queue (admin only).
+
+        Returns the restored ``Queue``.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+
+        Returns:
+            The restored queue.
+
+        Examples:
+            >>> tracker.queues.restore("BACK").key
+            'BACK'
+        """
+        return self._session.send(endpoints.restore(queue_id))
+
+    def permissions_update(self, queue_id: str, body: QueuePermissionsUpdate) -> QueuePermissions:
+        """Manage queue access from a typed ``QueuePermissionsUpdate`` body.
+
+        Returns the queue's effective ``QueuePermissions`` after the change. A removal is not
+        always the inverse of an addition: taking a user out of ``read`` took it out of
+        ``write`` too (seen once, 2026-10-06). Adding a member that is there already changes
+        nothing.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+            body: The permission changes, per category.
+
+        Returns:
+            The queue's permissions after the change.
+
+        Examples:
+            >>> from ycli.yandex.tracker.queues.models import (
+            ...     QueuePermissionScope,
+            ...     QueuePermissionsUpdate,
+            ... )
+            >>> change = QueuePermissionsUpdate(create=QueuePermissionScope(roles=["author"]))
+            >>> tracker.queues.permissions_update("PERM", change).version
+            11
+        """
+        return self._session.send(endpoints.permissions_update(queue_id, body))
+
+    def tags_delete(self, queue_id: str, body: QueueTagRemove) -> None:
+        """Remove a tag from a queue (admin only; ``204``, empty body).
+
+        Args:
+            queue_id: The queue's key or numeric id.
+            body: The tag to remove.
+
+        Examples:
+            >>> from ycli.yandex.tracker.queues.models import QueueTagRemove
+            >>> tracker.queues.tags_delete("TAGGED", QueueTagRemove(tag="obsolete"))
+        """
+        self._session.send(endpoints.tags_delete(queue_id, body))
+
+    def versions_create(self, body: QueueVersionCreate) -> QueueVersionInfo:
+        """Create a queue version from a typed ``QueueVersionCreate`` body.
+
+        Returns the created ``QueueVersionInfo``.
+
+        Args:
+            body: The new version's queue and name.
+
+        Returns:
+            The created version.
+
+        Examples:
+            >>> from ycli.yandex.tracker.queues.models import QueueVersionCreate
+            >>> tracker.queues.versions_create(QueueVersionCreate(queue="RELQ", name="v2.0")).name
+            'v2.0'
+        """
+        return self._session.send(endpoints.versions_create(body))
+
+    def versions_get(self, version_id: int, *, fields: str | None = None) -> QueueVersionInfo:
+        """``GET /versions/{version_id}`` → one queue version.
+
+        ``fields_list`` is a comma list of the fields to return (``name,dueDate,released``, …).
+
+        Args:
+            version_id: The version's id.
+            fields: A comma list of the fields to return; ``None`` returns the defaults.
+
+        Returns:
+            The version.
+
+        Examples:
+            >>> tracker.queues.versions_get(901, fields="name,dueDate,released").name
+            'Release 1.0'
+        """
+        return self._session.send(endpoints.versions_get(version_id, fields=fields))
+
+    def versions_update(
+        self, version_id: int, body: QueueVersionUpdate, *, fields: str | None = None
+    ) -> QueueVersionInfo:
+        """``PATCH /versions/{version_id}`` → change the set fields of a version.
+
+        Args:
+            version_id: The version's id.
+            body: The fields to change.
+            fields: A comma list of the fields to return; ``None`` returns the defaults.
+
+        Returns:
+            The updated version.
+
+        Examples:
+            >>> from ycli.yandex.tracker.queues.models import QueueVersionUpdate
+            >>> tracker.queues.versions_update(
+            ...     903, QueueVersionUpdate(name="Release 1.1"), fields="name,description"
+            ... ).version
+            2
+        """
+        return self._session.send(endpoints.versions_update(version_id, body, fields=fields))
+
+    def versions_delete(self, version_id: int) -> None:
+        """``DELETE /versions/{version_id}`` → 204; raises on non-2xx.
+
+        Args:
+            version_id: The version's id.
+
+        Examples:
+            >>> tracker.queues.versions_delete(905)
+        """
+        self._session.send(endpoints.versions_delete(version_id))
+
+    def user_permissions_get(self, queue_id: str, user_id: str) -> QueueUserAccess:
+        """``GET /queues/{queue_id}/permissions/users/{user_id}`` → what a user may do in a queue.
+
+        ``user_id`` is a login or a numeric uid.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+            user_id: The user's login or numeric uid.
+
+        Returns:
+            The user's rights in the queue.
+
+        Examples:
+            >>> tracker.queues.user_permissions_get("PERMQ", "carol").user.display
+            'Carol'
+        """
+        return self._session.send(endpoints.user_permissions_get(queue_id, user_id))
+
+    def group_permissions_get(self, queue_id: str, group_id: int) -> QueueGroupAccess:
+        """``GET /queues/{queue_id}/permissions/groups/{group_id}`` → what a group may do.
+
+        Args:
+            queue_id: The queue's key or numeric id.
+            group_id: The group's id.
+
+        Returns:
+            The group's rights in the queue.
+
+        Examples:
+            >>> tracker.queues.group_permissions_get("PERMG", 77).group.display
+            'Editors'
+        """
+        return self._session.send(endpoints.group_permissions_get(queue_id, group_id))

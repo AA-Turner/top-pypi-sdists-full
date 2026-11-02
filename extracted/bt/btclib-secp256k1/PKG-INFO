@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: btclib-secp256k1
-Version: 0.8.0.13
+Version: 0.8.0.14
 Summary: Simple python bindings to libsecp256k1
 Project-URL: homepage, https://btclib-secp256k1.readthedocs.io
 Project-URL: documentation, https://btclib-secp256k1.readthedocs.io
@@ -62,8 +62,8 @@ A badge that reports no state -- "we use ruff", "we use uv" -- reports a
 choice instead, and those are in CONTRIBUTING.md, beside the prose that
 says how the choice is enforced.
 -->
-[![PyPI version](https://img.shields.io/pypi/v/btclib-secp256k1.svg?logo=pypi)](https://pypi.python.org/pypi/btclib-secp256k1/)
-[![GitHub release](https://img.shields.io/github/v/release/btclib-org/btclib-secp256k1.svg)](https://github.com/btclib-org/btclib-secp256k1/releases)
+[![PyPI version](https://img.shields.io/pypi/v/btclib-secp256k1.svg?logo=pypi&color=blue)](https://pypi.python.org/pypi/btclib-secp256k1/)
+[![GitHub release](https://img.shields.io/github/v/release/btclib-org/btclib-secp256k1.svg?color=blue)](https://github.com/btclib-org/btclib-secp256k1/releases)
 [![development status](https://img.shields.io/pypi/status/btclib-secp256k1.svg)](https://pypi.python.org/pypi/btclib-secp256k1/)
 [![license](https://img.shields.io/github/license/btclib-org/btclib-secp256k1.svg)](https://github.com/btclib-org/btclib-secp256k1/blob/main/LICENSE)
 [![downloads](https://static.pepy.tech/badge/btclib-secp256k1)](https://pepy.tech/projects/btclib-secp256k1)
@@ -317,7 +317,8 @@ names the commit the fork is pinned at, and Build below the flag.
 
 Every wrapper validates its arguments before calling, and what it
 validates is deliberately narrow: the boundary checks what C cannot see,
-and decides nothing else.
+and decides nothing else, but for the one check the validity bullet
+names.
 
 - **sizes are checked here, because nothing else can.** libsecp256k1
   takes bare pointers whose length is in the parameter name — `msg32`,
@@ -348,14 +349,20 @@ and decides nothing else.
   a `session` that is not a `Session` and `labels` that is not a mapping
   raise `TypeError`, not the
   `AttributeError` of the first attribute looked up on them
-- **validity is libsecp256k1's to decide, and it does.** Whether 32 bytes
-  are a scalar in `[1, n-1]` is answered by
+- **validity is libsecp256k1's to decide, but for one check.** Whether
+  32 bytes are a scalar in `[1, n-1]` is answered by
   `secp256k1_ec_seckey_verify`, and `keys.prvkey_verify` is that call, not
   a reimplementation of it. A public key becomes one by passing
   `secp256k1_ec_pubkey_parse`, a signature by
   `secp256k1_ecdsa_signature_parse_der`, a tweak by the return value of
   the function applying it; the `ValueError` names what the library
-  refused. No wrapper here knows the curve order
+  refused. No wrapper here knows the curve order.
+  One check is this package's own: `dsa` and `recovery` refuse an ECDSA
+  signature whose r or s is zero. libsecp256k1 parses a zero in both
+  forms, and its DER parse reads a negative r or s, or one not below n,
+  as zero (bitcoin-core/secp256k1#1981). A signature scalar is in
+  `[1, n-1]`, and the refusal keeps `parse_der` from returning a
+  signature other than the one it was given
 - **and a caller validating its own input gets a verdict, not an
   exception.** `keys.prvkey_verify`, `keys.pubkey_verify`,
   `xonly.pubkey_verify` and `dsa.signature_verify` are the four: the same
@@ -526,8 +533,10 @@ equation, a MuSig2 aggregate key and BIP352's tweak data, and where the
 crossing is per term — every product serialized as 65 octets only for
 the sum to parse them again. Handed over whole it is about a seventh of
 the call from three terms up and stays there, 64 terms 459.3 µs against
-536.5; the CHANGELOG entry that added it has the count-by-count table
-and the conditions. It is the naive form and not a batched algorithm:
+536.5;
+[changelog/v0.8.0.3.md](https://github.com/btclib-org/btclib-secp256k1/blob/main/changelog/v0.8.0.3.md)
+has the count-by-count table and the conditions. It is the naive form
+and not a batched algorithm:
 `secp256k1_ecmult_multi_var` is internal to libsecp256k1 and not
 declared in its public header, so what is saved here is the crossing,
 which is flat in the number of terms.
@@ -1420,17 +1429,6 @@ has that variable beside the ones choosing among the paths above, and
 says what `BTCLIB_LIBSECP256K1_ZKP=true` alongside one of them does:
 the build declines, this extension having no dynamic form.
 
-How to get the submodule, set up the development environment, run the
-suite, reproduce each CI job locally, and what a change is expected to
-satisfy are in
-[CONTRIBUTING.md](https://github.com/btclib-org/btclib-secp256k1/blob/main/CONTRIBUTING.md);
-what a pull request is answered against is in
-[REVIEWING.md](https://github.com/btclib-org/btclib-secp256k1/blob/main/REVIEWING.md).
-How the organization decides, and who holds which role, is its
-[GOVERNANCE.md](https://github.com/btclib-org/.github/blob/main/GOVERNANCE.md);
-what it intends to do, and what it deliberately does not, is its
-[ROADMAP.md](https://github.com/btclib-org/.github/blob/main/ROADMAP.md).
-
 ## Release process
 
 Releases are published to PyPI by the `release` GitHub workflow using
@@ -1463,6 +1461,24 @@ for, and
 is where this project's own boundary is timed against the others', one
 run kept whole rather than reduced to a single figure — an order of
 magnitude to read there, never a number to quote here.
+
+## Contributing
+
+Development is LLM-based: humans are welcome, as long as they are
+comfortable with agentic development ;-). A contribution must have been
+read and understood by the person who submits it.
+[`CONTRIBUTING.md`](./CONTRIBUTING.md#working-with-an-llm) has the rules.
+
+How to get the submodule, set up the development environment, run the
+suite, reproduce each CI job locally, and what a change is expected to
+satisfy are in
+[CONTRIBUTING.md](https://github.com/btclib-org/btclib-secp256k1/blob/main/CONTRIBUTING.md);
+what a pull request is answered against is in
+[REVIEWING.md](https://github.com/btclib-org/btclib-secp256k1/blob/main/REVIEWING.md).
+How the organization decides, and who holds which role, is its
+[GOVERNANCE.md](https://github.com/btclib-org/.github/blob/main/GOVERNANCE.md);
+what it intends to do, and what it deliberately does not, is its
+[ROADMAP.md](https://github.com/btclib-org/.github/blob/main/ROADMAP.md).
 
 ---
 

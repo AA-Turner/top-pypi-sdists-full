@@ -1,0 +1,171 @@
+"""The shared checkpoint write-transaction.
+
+Both checkpoint entry points apply a batch of updates and compute the
+delta of operations the handler has not yet seen. :class:`CheckpointCore`
+holds that common logic so the two callers differ only in their gate,
+locking, and response type.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, NamedTuple
+
+from aws_durable_execution_sdk_python_testing.checkpoint.validators.checkpoint import (
+    CheckpointValidator,
+)
+from aws_durable_execution_sdk_python_testing.execution import (
+    CheckpointIdempotencyRecord,
+    OperationPaginatorState,
+)
+from aws_durable_execution_sdk_python_testing.token import CheckpointToken
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from aws_durable_execution_sdk_python.lambda_service import (
+        Operation,
+        OperationUpdate,
+    )
+
+    from aws_durable_execution_sdk_python_testing.checkpoint.effects import (
+        CheckpointEffect,
+    )
+    from aws_durable_execution_sdk_python_testing.checkpoint.transformer import (
+        CheckpointRequestDispatcher,
+    )
+    from aws_durable_execution_sdk_python_testing.execution import Execution
+
+
+class CheckpointResult(NamedTuple):
+    """Outcome of applying a checkpoint: the new token, the operations to
+    return to the handler this round, and the lifecycle effects raised.
+
+    ``checkpoint_token`` is None when the execution is paused and the token
+    is withheld, telling the SDK this invocation may checkpoint no further.
+    """
+
+    checkpoint_token: str | None
+    operations: list[Operation]
+    effects: list[CheckpointEffect]
+
+
+class CheckpointCore:
+    """The checkpoint write-transaction shared by both entry points."""
+
+    @staticmethod
+    def match_cached(
+        execution: Execution,
+        checkpoint_token: str,
+        client_token: str | None,
+    ) -> CheckpointIdempotencyRecord | None:
+        """Return the cached idempotency record when the incoming
+        ``(client_token, checkpoint_token)`` matches the last checkpoint,
+        else ``None``.
+
+        A missing ``client_token`` cannot replay: idempotency requires an
+        explicit client identifier. The caller builds its own response
+        type from the returned record.
+        """
+        if not client_token:
+            return None
+        cached: CheckpointIdempotencyRecord | None = execution.last_checkpoint
+        if cached is None:
+            return None
+        if (
+            cached.client_token != client_token
+            or cached.inbound_checkpoint_token != checkpoint_token
+        ):
+            return None
+        return cached
+
+    @staticmethod
+    def apply(
+        execution: Execution,
+        checkpoint_token: str,
+        updates: list[OperationUpdate],
+        client_token: str | None,
+        dispatcher: CheckpointRequestDispatcher,
+        now: datetime,
+    ) -> CheckpointResult:
+        """Apply ``updates`` to ``execution`` and compute the response delta.
+
+        Advances ``token_sequence`` exactly once, returns the full set of
+        operations the handler has not yet seen unless paused, advances
+        ``handler_seen_seq`` only for returned operations, and records an
+        idempotency entry for a byte-identical replay of a retried call
+        only when returning a checkpoint token.
+
+        The caller is responsible for the invocation gate, locking,
+        persistence, and applying the returned effects.
+
+        ``now`` is the checkpoint's single source of "now", resolved from
+        the execution's clock, so all timestamps stamped by this apply
+        advance with modeled time under a skip clock.
+
+        Before computing the delta, completes every wait and step retry
+        whose scheduled moment has passed, so those transitions are
+        delivered in this response and a suspended branch resumes within
+        the running invocation instead of waiting for the next one.
+        """
+        effects: list[CheckpointEffect] = []
+        if updates:
+            CheckpointValidator.validate_input(updates, execution)
+            effects = dispatcher.apply_updates(
+                execution=execution,
+                updates=updates,
+                client_token=client_token,
+                touch=execution.touch_operation,
+                now=now,
+            )
+
+        new_token_sequence: int = execution.advance_token_sequence()
+
+        # Pick up scheduler-due completions before pinning the paginator:
+        # each transition touches its operation, so it lands in this
+        # response's unseen delta and the handler sees it immediately.
+        execution.complete_due_operations(now)
+
+        paginator: OperationPaginatorState = OperationPaginatorState.pin(execution)
+        # The checkpoint response returns the full unseen delta in a single
+        # response. Advance handler_seen_seq to cover every returned op so
+        # the next delta carries only operations touched after this response.
+        # Paused checkpoints persist updates without delivering any state.
+        response_ops: list[Operation] = (
+            [] if execution.is_paused else paginator.unseen_operations()
+        )
+        if response_ops:
+            highest_delivered_seq: int = max(
+                execution.operation_last_touched_seq[op.operation_id]
+                for op in response_ops
+            )
+            paginator.advance_handler_seen(highest_delivered_seq)
+
+        new_token: str = CheckpointToken(
+            execution_arn=execution.durable_execution_arn,
+            token_sequence=new_token_sequence,
+            invocation_id=execution.current_invocation_id,
+        ).to_str()
+
+        # A paused execution registers this checkpoint's updates but withholds
+        # the token: a response without one tells the SDK this invocation may
+        # checkpoint no further, so it reports PENDING at its next checkpoint
+        # rather than continuing, and owes a re-invoke once resumed.
+        #
+        # Checkpoints that were interrupted by a pause are not added to the
+        # idempotency record. A retry of this checkpoint will fail rather than be
+        # answered again.
+
+        outbound_token: str | None = new_token
+        if execution.is_paused:
+            outbound_token = None
+            execution.defer_invocation()
+        else:
+            execution.last_checkpoint = CheckpointIdempotencyRecord(
+                client_token=client_token or "",
+                inbound_checkpoint_token=checkpoint_token,
+                outbound_checkpoint_token=outbound_token,
+                operations=list(response_ops),
+                next_marker=None,
+            )
+
+        return CheckpointResult(outbound_token, response_ops, effects)

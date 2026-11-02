@@ -1,0 +1,1471 @@
+//! Standard library patterns.
+
+use std::cmp::Ordering;
+
+use anyhow::Result;
+use kcmc::ModelingCmd;
+use kcmc::each_cmd as mcmd;
+use kcmc::length_unit::LengthUnit;
+use kcmc::ok_response::OkModelingCmdResponse;
+use kcmc::shared::Transform;
+use kcmc::websocket::OkWebSocketResponseData;
+use kittycad_modeling_cmds::shared::Angle;
+use kittycad_modeling_cmds::shared::OriginType;
+use kittycad_modeling_cmds::shared::Rotation;
+use kittycad_modeling_cmds::{self as kcmc};
+use serde::Serialize;
+use uuid::Uuid;
+
+use super::axis_or_reference::Axis3dOrPoint3d;
+use crate::CompilationIssue;
+use crate::ExecutorContext;
+use crate::KclVersion;
+use crate::NodePath;
+use crate::SourceRange;
+use crate::errors::KclError;
+use crate::errors::KclErrorDetails;
+use crate::errors::Severity;
+use crate::errors::Tag;
+use crate::execution::ArtifactId;
+use crate::execution::EarlyReturn;
+use crate::execution::ExecState;
+use crate::execution::Geometries;
+use crate::execution::Geometry;
+use crate::execution::ImportedGeometry;
+use crate::execution::KclObjectFields;
+use crate::execution::KclValue;
+use crate::execution::KclValueControlFlow;
+use crate::execution::ModelingCmdMeta;
+use crate::execution::Sketch;
+use crate::execution::Solid;
+use crate::execution::SolidOrImportedGeometry;
+use crate::execution::annotations;
+use crate::execution::early_return;
+use crate::execution::fn_call::Arg;
+use crate::execution::fn_call::Args;
+use crate::execution::kcl_value::FunctionSource;
+use crate::execution::types::CoercionMode;
+use crate::execution::types::NumericType;
+use crate::execution::types::NumericTypeExt;
+use crate::execution::types::PrimitiveType;
+use crate::execution::types::RuntimeType;
+use crate::std::args::TyF64;
+use crate::std::axis_or_reference::Axis2dOrPoint2d;
+use crate::std::shapes::POINT_ZERO_ZERO;
+use crate::std::utils::point_3d_to_mm;
+use crate::std::utils::point_to_mm;
+pub const POINT_ZERO_ZERO_ZERO: [TyF64; 3] = [
+    TyF64::new(
+        0.0,
+        crate::exec::NumericType::Known(crate::exec::UnitType::Length(crate::exec::UnitLength::Millimeters)),
+    ),
+    TyF64::new(
+        0.0,
+        crate::exec::NumericType::Known(crate::exec::UnitType::Length(crate::exec::UnitLength::Millimeters)),
+    ),
+    TyF64::new(
+        0.0,
+        crate::exec::NumericType::Known(crate::exec::UnitType::Length(crate::exec::UnitLength::Millimeters)),
+    ),
+];
+
+const MUST_HAVE_ONE_INSTANCE: &str = "There must be at least 1 instance of your geometry";
+const PATTERN_LINEAR_2D_REGIONS_ONLY: &str = "patternLinear2d should only be used with regions";
+
+/// Something that can be 3D patterned, e.g. a 3D body.
+#[derive(Debug)]
+pub(crate) enum Patternable3d {
+    Solids(Vec<Solid>),
+    ImportedGeometry(ImportedGeometry),
+}
+
+/// Runtime type of [`Patternable3d`], i.e. something that can be replicated
+/// in a 3D pattern.
+fn pattern_geometry_3d_type() -> RuntimeType {
+    RuntimeType::Union(vec![RuntimeType::solids(), RuntimeType::imported()])
+}
+
+/// Repeat some 3D geometry, changing each repetition slightly.
+pub async fn pattern_transform(exec_state: &mut ExecState, args: Args) -> Result<KclValueControlFlow, KclError> {
+    let (geometry, instances, transform, use_original) = pattern_transform_parse_args(&args, exec_state)?;
+
+    match inner_pattern_transform(geometry, instances, transform, use_original, exec_state, &args).await {
+        Ok(geometry) => Ok(KclValue::normal(geometry)),
+        // The callback exited, e.g. by calling exit(). Propagate the exit so
+        // that it terminates the enclosing module.
+        Err(EarlyReturn::Value(cf)) => Ok(cf),
+        Err(EarlyReturn::Error(err)) => Err(err),
+    }
+}
+
+/// Repeat some 2D sketch, changing each repetition slightly.
+pub async fn pattern_transform_2d(exec_state: &mut ExecState, args: Args) -> Result<KclValueControlFlow, KclError> {
+    let (sketches, instances, transform, use_original) = pattern_transform_2d_parse_args(&args, exec_state)?;
+
+    match inner_pattern_transform_2d(sketches, instances, transform, use_original, exec_state, &args).await {
+        Ok(sketches) => Ok(KclValue::normal(sketches.into())),
+        // The callback exited, e.g. by calling exit(). Propagate the exit so
+        // that it terminates the enclosing module.
+        Err(EarlyReturn::Value(cf)) => Ok(cf),
+        Err(EarlyReturn::Error(err)) => Err(err),
+    }
+}
+
+/// Parse patternTransform's arguments.
+pub(crate) fn pattern_transform_parse_args(
+    args: &Args,
+    exec_state: &mut ExecState,
+) -> Result<(Patternable3d, u32, FunctionSource, Option<bool>), KclError> {
+    let geometry: SolidOrImportedGeometry =
+        args.get_unlabeled_kw_arg("solids", &pattern_geometry_3d_type(), exec_state)?;
+    let geometry = match geometry {
+        SolidOrImportedGeometry::SolidSet(solids) => Patternable3d::Solids(solids),
+        SolidOrImportedGeometry::ImportedGeometry(geometry) => Patternable3d::ImportedGeometry(*geometry),
+    };
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    let transform: FunctionSource = args.get_kw_arg("transform", &RuntimeType::function(), exec_state)?;
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+    Ok((geometry, instances, transform, use_original))
+}
+
+/// Parse patternTransform2d's arguments.
+pub(crate) fn pattern_transform_2d_parse_args(
+    args: &Args,
+    exec_state: &mut ExecState,
+) -> Result<(Vec<Sketch>, u32, FunctionSource, Option<bool>), KclError> {
+    let sketches = args.get_unlabeled_kw_arg("sketches", &RuntimeType::sketches(), exec_state)?;
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    let transform: FunctionSource = args.get_kw_arg("transform", &RuntimeType::function(), exec_state)?;
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+    Ok((sketches, instances, transform, use_original))
+}
+
+/// Check for at least one instance before the callback loop.
+pub(crate) fn pattern_check_instances(instances: u32, source_range: SourceRange) -> Result<(), KclError> {
+    if instances < 1 {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            MUST_HAVE_ONE_INSTANCE.to_owned(),
+            vec![source_range],
+        )));
+    }
+    Ok(())
+}
+
+/// Build the per-repetition callback arguments for patternTransform.
+pub(crate) fn transform_callback_args(
+    i: u32,
+    source_range: SourceRange,
+    node_path: Option<NodePath>,
+    exec_state: &mut ExecState,
+    ctxt: &ExecutorContext,
+) -> Args<crate::execution::fn_call::Sugary> {
+    let repetition_num = KclValue::Number {
+        value: i.into(),
+        ty: NumericType::count(),
+        meta: vec![source_range.into()],
+    };
+    Args::new(
+        Default::default(),
+        vec![(None, Arg::new(repetition_num, source_range))],
+        source_range,
+        node_path,
+        exec_state,
+        ctxt.clone(),
+        Some("transform closure".to_owned()),
+    )
+}
+
+/// Error when a transform callback produces no value.
+pub(crate) fn transform_missing_value_error(source_range: SourceRange) -> KclError {
+    KclError::new_semantic(KclErrorDetails::new(
+        "Transform function must return a value".to_string(),
+        vec![source_range],
+    ))
+}
+
+/// Unpack a transform callback's returned value into engine transforms: the
+/// evaluation-free tail of make_transform.
+pub(crate) fn transforms_from_callback_value<T: GeometryTrait>(
+    transform_fn_return: KclValue,
+    source_range: SourceRange,
+    exec_state: &mut ExecState,
+) -> Result<Vec<Transform>, KclError> {
+    let source_ranges = vec![source_range];
+    let transforms = match transform_fn_return {
+        KclValue::Object { value, .. } => vec![value],
+        KclValue::Tuple { value, .. } | KclValue::HomArray { value, .. } => {
+            let transforms: Vec<_> = value
+                .into_iter()
+                .map(|val| {
+                    val.into_object().ok_or(KclError::new_semantic(KclErrorDetails::new(
+                        "Transform function must return a transform object".to_string(),
+                        source_ranges.clone(),
+                    )))
+                })
+                .collect::<Result<_, KclError>>()?;
+            transforms
+        }
+        _ => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Transform function must return a transform object".to_string(),
+                source_ranges,
+            )));
+        }
+    };
+
+    let transforms = transforms
+        .into_iter()
+        .map(|obj| transform_from_obj_fields::<T>(obj, source_ranges.clone(), exec_state))
+        .collect::<Result<_, KclError>>()?;
+    Ok(transforms)
+}
+
+async fn inner_pattern_transform(
+    geometry: Patternable3d,
+    instances: u32,
+    transform: FunctionSource,
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: &Args,
+) -> Result<KclValue, EarlyReturn> {
+    // Build the vec of transforms, one for each repetition.
+    let mut transform_vec = Vec::with_capacity(usize::try_from(instances).unwrap());
+    pattern_check_instances(instances, args.source_range)?;
+    for i in 1..instances {
+        let t = match &geometry {
+            Patternable3d::Solids(_) => {
+                make_transform::<Solid>(
+                    i,
+                    &transform,
+                    args.source_range,
+                    args.node_path.clone(),
+                    exec_state,
+                    &args.ctx,
+                )
+                .await?
+            }
+            Patternable3d::ImportedGeometry(_) => {
+                make_transform::<ImportedGeometry>(
+                    i,
+                    &transform,
+                    args.source_range,
+                    args.node_path.clone(),
+                    exec_state,
+                    &args.ctx,
+                )
+                .await?
+            }
+        };
+        transform_vec.push(t);
+    }
+    match geometry {
+        Patternable3d::Solids(solids) => Ok(execute_pattern_transform::<Solid>(
+            transform_vec,
+            solids,
+            use_original.unwrap_or_default(),
+            exec_state,
+            args,
+        )
+        .await?
+        .into()),
+        Patternable3d::ImportedGeometry(geometry) => Ok(KclValue::from_imported_geometries(
+            execute_pattern_transform(
+                transform_vec,
+                vec![geometry],
+                use_original.unwrap_or_default(),
+                exec_state,
+                args,
+            )
+            .await?,
+        )),
+    }
+}
+
+async fn inner_pattern_transform_2d(
+    sketches: Vec<Sketch>,
+    instances: u32,
+    transform: FunctionSource,
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: &Args,
+) -> Result<Vec<Sketch>, EarlyReturn> {
+    // Build the vec of transforms, one for each repetition.
+    let mut transform_vec = Vec::with_capacity(usize::try_from(instances).unwrap());
+    pattern_check_instances(instances, args.source_range)?;
+    for i in 1..instances {
+        let t = make_transform::<Sketch>(
+            i,
+            &transform,
+            args.source_range,
+            args.node_path.clone(),
+            exec_state,
+            &args.ctx,
+        )
+        .await?;
+        transform_vec.push(t);
+    }
+    Ok(execute_pattern_transform(
+        transform_vec,
+        sketches,
+        use_original.unwrap_or_default(),
+        exec_state,
+        args,
+    )
+    .await?)
+}
+
+pub(crate) async fn execute_pattern_transform<T: GeometryTrait>(
+    transforms: Vec<Vec<Transform>>,
+    geo_set: T::Set,
+    use_original: bool,
+    exec_state: &mut ExecState,
+    args: &Args,
+) -> Result<Vec<T>, KclError> {
+    // Flush the batch for our fillets/chamfers if there are any.
+    // If we do not flush these, then you won't be able to pattern something with fillets.
+    // Flush just the fillets/chamfers that apply to these solids.
+    T::flush_batch(args, exec_state, &geo_set).await?;
+    let starting: Vec<T> = geo_set.into();
+
+    let mut output = Vec::new();
+    for mut geo in starting {
+        let new = send_pattern_transform(transforms.clone(), &mut geo, use_original, exec_state, args).await?;
+        output.extend(new)
+    }
+    Ok(output)
+}
+
+async fn send_pattern_transform<T: GeometryTrait>(
+    // This should be passed via reference, see
+    // https://github.com/KittyCAD/modeling-app/issues/2821
+    transforms: Vec<Vec<Transform>>,
+    geometry: &mut T,
+    use_original: bool,
+    exec_state: &mut ExecState,
+    args: &Args,
+) -> Result<Vec<T>, KclError> {
+    let extra_instances = transforms.len();
+    let geometry_id = geometry.id(&args.ctx).await?;
+    let entity_id = if use_original {
+        geometry.topology_id()
+    } else {
+        geometry_id
+    };
+
+    let resp = exec_state
+        .send_modeling_cmd(
+            ModelingCmdMeta::from_args(exec_state, args),
+            ModelingCmd::from(
+                mcmd::EntityLinearPatternTransform::builder()
+                    .entity_id(entity_id)
+                    .transform(Default::default())
+                    .transforms(transforms)
+                    .build(),
+            ),
+        )
+        .await?;
+
+    let mut mock_ids = Vec::new();
+    let entity_ids = if let OkWebSocketResponseData::Modeling {
+        modeling_response: OkModelingCmdResponse::EntityLinearPatternTransform(pattern_info),
+    } = &resp
+    {
+        &pattern_info.entity_face_edge_ids.iter().map(|x| x.object_id).collect()
+    } else if args.ctx.no_engine_commands().await {
+        mock_ids.reserve(extra_instances);
+        for _ in 0..extra_instances {
+            mock_ids.push(exec_state.next_uuid());
+        }
+        &mock_ids
+    } else {
+        return Err(KclError::new_engine(KclErrorDetails::new(
+            format!("EntityLinearPattern response was not as expected: {resp:?}"),
+            vec![args.source_range],
+        )));
+    };
+
+    let mut geometries = vec![geometry.clone()];
+    for id in entity_ids.iter().copied() {
+        let mut new_geometry = geometry.clone();
+        new_geometry.set_id(id);
+        new_geometry.set_artifact_id(id);
+        geometries.push(new_geometry);
+    }
+    Ok(geometries)
+}
+
+async fn make_transform<T: GeometryTrait>(
+    i: u32,
+    transform: &FunctionSource,
+    source_range: SourceRange,
+    node_path: Option<NodePath>,
+    exec_state: &mut ExecState,
+    ctxt: &ExecutorContext,
+) -> Result<Vec<Transform>, EarlyReturn> {
+    // Call the transform fn for this repetition.
+    let transform_fn_args = transform_callback_args(i, source_range, node_path, exec_state, ctxt);
+    let transform_fn_return = transform
+        .call_kw(None, exec_state, ctxt, transform_fn_args, source_range)
+        .await?;
+
+    // Unpack the returned transform object.
+    let transform_fn_return = transform_fn_return.ok_or_else(|| transform_missing_value_error(source_range))?;
+
+    // If the callback exited, e.g. by calling exit(), skip building the
+    // pattern, and propagate the exit so that it terminates the enclosing
+    // module.
+    let transform_fn_return = early_return!(transform_fn_return);
+
+    Ok(transforms_from_callback_value::<T>(
+        transform_fn_return,
+        source_range,
+        exec_state,
+    )?)
+}
+
+fn transform_from_obj_fields<T: GeometryTrait>(
+    transform: KclObjectFields,
+    source_ranges: Vec<SourceRange>,
+    exec_state: &mut ExecState,
+) -> Result<Transform, KclError> {
+    // Apply defaults to the transform.
+    let replicate = match transform.get("replicate") {
+        Some(KclValue::Bool { value: true, .. }) => true,
+        Some(KclValue::Bool { value: false, .. }) => false,
+        Some(_) => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "The 'replicate' key must be a bool".to_string(),
+                source_ranges,
+            )));
+        }
+        None => true,
+    };
+
+    let scale = match transform.get("scale") {
+        Some(x) => point_3d_to_mm(T::array_to_point3d(x, source_ranges.clone(), exec_state)?).into(),
+        None => kcmc::shared::Point3d { x: 1.0, y: 1.0, z: 1.0 },
+    };
+
+    for (dim, name) in [(scale.x, "x"), (scale.y, "y"), (scale.z, "z")] {
+        if dim == 0.0 {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                format!("cannot set {name} = 0, scale factor must be nonzero"),
+                source_ranges,
+            )));
+        }
+    }
+    let translate = match transform.get("translate") {
+        Some(x) => {
+            let arr = point_3d_to_mm(T::array_to_point3d(x, source_ranges.clone(), exec_state)?);
+            kcmc::shared::Point3d::<LengthUnit> {
+                x: LengthUnit(arr[0]),
+                y: LengthUnit(arr[1]),
+                z: LengthUnit(arr[2]),
+            }
+        }
+        None => kcmc::shared::Point3d::<LengthUnit> {
+            x: LengthUnit(0.0),
+            y: LengthUnit(0.0),
+            z: LengthUnit(0.0),
+        },
+    };
+
+    let mut rotation = Rotation::default();
+    if let Some(rot) = transform.get("rotation") {
+        let KclValue::Object { value: rot, .. } = rot else {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "The 'rotation' key must be an object (with optional fields 'angle', 'axis' and 'origin')".to_owned(),
+                source_ranges,
+            )));
+        };
+        if let Some(axis) = rot.get("axis") {
+            rotation.axis = point_3d_to_mm(T::array_to_point3d(axis, source_ranges.clone(), exec_state)?).into();
+        }
+        if let Some(angle) = rot.get("angle") {
+            match angle {
+                KclValue::Number { value: number, .. } => {
+                    rotation.angle = Angle::from_degrees(*number);
+                }
+                _ => {
+                    return Err(KclError::new_semantic(KclErrorDetails::new(
+                        "The 'rotation.angle' key must be a number (of degrees)".to_owned(),
+                        source_ranges,
+                    )));
+                }
+            }
+        }
+        if let Some(origin) = rot.get("origin") {
+            rotation.origin = match origin {
+                KclValue::String { value: s, meta: _ } if s == "local" => OriginType::Local,
+                KclValue::String { value: s, meta: _ } if s == "global" => OriginType::Global,
+                other => {
+                    let origin = point_3d_to_mm(T::array_to_point3d(other, source_ranges, exec_state)?).into();
+                    OriginType::Custom { origin }
+                }
+            };
+        }
+    }
+
+    let transform = Transform::builder()
+        .replicate(replicate)
+        .scale(scale)
+        .translate(translate)
+        .rotation(rotation)
+        .build();
+    Ok(transform)
+}
+
+fn array_to_point3d(
+    val: &KclValue,
+    source_ranges: Vec<SourceRange>,
+    exec_state: &mut ExecState,
+) -> Result<[TyF64; 3], KclError> {
+    val.coerce(&RuntimeType::point3d(), CoercionMode::implicit(), exec_state)
+        .map_err(|e| {
+            KclError::new_semantic(KclErrorDetails::new(
+                format!(
+                    "Expected an array of 3 numbers (i.e., a 3D point), found {}",
+                    e.found
+                        .map(|t| t.human_friendly_type())
+                        .unwrap_or_else(|| val.human_friendly_type())
+                ),
+                source_ranges,
+            ))
+        })
+        .map(|val| val.as_point3d().unwrap())
+}
+
+fn array_to_point2d(
+    val: &KclValue,
+    source_ranges: Vec<SourceRange>,
+    exec_state: &mut ExecState,
+) -> Result<[TyF64; 2], KclError> {
+    val.coerce(&RuntimeType::point2d(), CoercionMode::implicit(), exec_state)
+        .map_err(|e| {
+            KclError::new_semantic(KclErrorDetails::new(
+                format!(
+                    "Expected an array of 2 numbers (i.e., a 2D point), found {}",
+                    e.found
+                        .map(|t| t.human_friendly_type())
+                        .unwrap_or_else(|| val.human_friendly_type())
+                ),
+                source_ranges,
+            ))
+        })
+        .map(|val| val.as_point2d().unwrap())
+}
+
+pub trait GeometryTrait: Clone {
+    type Set: Into<Vec<Self>> + Clone;
+    #[allow(async_fn_in_trait)]
+    async fn id(&mut self, ctx: &ExecutorContext) -> Result<Uuid, KclError>;
+    fn topology_id(&self) -> Uuid;
+    fn set_id(&mut self, id: Uuid);
+    fn set_artifact_id(&mut self, id: Uuid);
+    fn array_to_point3d(
+        val: &KclValue,
+        source_ranges: Vec<SourceRange>,
+        exec_state: &mut ExecState,
+    ) -> Result<[TyF64; 3], KclError>;
+    #[allow(async_fn_in_trait)]
+    async fn flush_batch(args: &Args, exec_state: &mut ExecState, set: &Self::Set) -> Result<(), KclError>;
+}
+
+impl GeometryTrait for Sketch {
+    type Set = Vec<Sketch>;
+    fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+    }
+    fn set_artifact_id(&mut self, id: Uuid) {
+        self.artifact_id = ArtifactId::new(id);
+    }
+    async fn id(&mut self, _: &ExecutorContext) -> Result<Uuid, KclError> {
+        Ok(self.id)
+    }
+    fn topology_id(&self) -> Uuid {
+        self.original_id
+    }
+    fn array_to_point3d(
+        val: &KclValue,
+        source_ranges: Vec<SourceRange>,
+        exec_state: &mut ExecState,
+    ) -> Result<[TyF64; 3], KclError> {
+        let [x, y] = array_to_point2d(val, source_ranges, exec_state)?;
+        let ty = x.ty;
+        Ok([x, y, TyF64::new(0.0, ty)])
+    }
+
+    async fn flush_batch(_: &Args, _: &mut ExecState, _: &Self::Set) -> Result<(), KclError> {
+        Ok(())
+    }
+}
+
+impl GeometryTrait for Solid {
+    type Set = Vec<Solid>;
+    fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+        self.value_id = id;
+        // We need this for in extrude.rs when you sketch on face.
+        if let Some(sketch) = self.sketch_mut() {
+            sketch.id = id;
+        }
+    }
+
+    fn set_artifact_id(&mut self, id: Uuid) {
+        self.become_pattern_copy(id);
+    }
+
+    async fn id(&mut self, _: &ExecutorContext) -> Result<Uuid, KclError> {
+        Ok(self.id)
+    }
+
+    fn topology_id(&self) -> Uuid {
+        Solid::topology_id(self)
+    }
+
+    fn array_to_point3d(
+        val: &KclValue,
+        source_ranges: Vec<SourceRange>,
+        exec_state: &mut ExecState,
+    ) -> Result<[TyF64; 3], KclError> {
+        array_to_point3d(val, source_ranges, exec_state)
+    }
+
+    async fn flush_batch(args: &Args, exec_state: &mut ExecState, solid_set: &Self::Set) -> Result<(), KclError> {
+        exec_state
+            .flush_batch_for_solids(ModelingCmdMeta::from_args(exec_state, args), solid_set)
+            .await
+    }
+}
+
+impl GeometryTrait for ImportedGeometry {
+    type Set = Vec<ImportedGeometry>;
+
+    async fn id(&mut self, ctx: &ExecutorContext) -> Result<Uuid, KclError> {
+        ImportedGeometry::id(self, ctx).await
+    }
+
+    fn topology_id(&self) -> Uuid {
+        self.id
+    }
+
+    fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+    }
+
+    fn set_artifact_id(&mut self, _: Uuid) {}
+
+    fn array_to_point3d(
+        val: &KclValue,
+        source_ranges: Vec<SourceRange>,
+        exec_state: &mut ExecState,
+    ) -> Result<[TyF64; 3], KclError> {
+        array_to_point3d(val, source_ranges, exec_state)
+    }
+
+    async fn flush_batch(_: &Args, _: &mut ExecState, _: &Self::Set) -> Result<(), KclError> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::execution::KclValueView;
+    use crate::execution::types::NumericType;
+    use crate::execution::types::PrimitiveType;
+
+    async fn assert_imported_pattern_executes(code: &str) {
+        let current_file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("inputs")
+            .join("main.kcl");
+        let program = crate::Program::parse_no_errs(code).unwrap();
+        let ctx = crate::test_server::new_context(true, Some(current_file), true, program.language_version().unwrap())
+            .await
+            .unwrap();
+        let result = ctx.run_with_caching(program).await.unwrap();
+
+        let KclValueView::HomArray { value } = result.variables.get("patterned").unwrap() else {
+            panic!("Expected the imported geometry pattern to return an array");
+        };
+        assert_eq!(value.len(), 3);
+        assert!(
+            value
+                .iter()
+                .all(|value| matches!(value, KclValueView::ImportedGeometry(_)))
+        );
+        let ids = value
+            .iter()
+            .map(|value| match value {
+                KclValueView::ImportedGeometry(geometry) => geometry.id,
+                _ => unreachable!(),
+            })
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(ids.len(), 3);
+
+        ctx.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn imported_geometry_pattern_linear_3d() {
+        assert_imported_pattern_executes(
+            r#"import "cube.step" as cube
+
+patterned = patternLinear3d(cube, instances = 3, distance = 20, axis = X)
+"#,
+        )
+        .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn imported_geometry_pattern_circular_3d() {
+        assert_imported_pattern_executes(
+            r#"import "cube.step" as cube
+
+patterned = patternCircular3d(cube, instances = 3, axis = Z, center = [20, 0, 0])
+"#,
+        )
+        .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn imported_geometry_pattern_transform() {
+        assert_imported_pattern_executes(
+            r#"import "cube.step" as cube
+
+fn shift(@i) {
+  return { translate = [20 * i, 0, 0] }
+}
+
+patterned = patternTransform(cube, instances = 3, transform = shift)
+"#,
+        )
+        .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_array_to_point3d() {
+        let ctx = ExecutorContext::new_mock(None).await;
+        let mut exec_state = ExecState::new(&ctx);
+        let input = KclValue::HomArray {
+            value: vec![
+                KclValue::Number {
+                    value: 1.1,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+                KclValue::Number {
+                    value: 2.2,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+                KclValue::Number {
+                    value: 3.3,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+            ],
+            ty: RuntimeType::Primitive(PrimitiveType::Number(NumericType::mm())),
+        };
+        let expected = [
+            TyF64::new(1.1, NumericType::mm()),
+            TyF64::new(2.2, NumericType::mm()),
+            TyF64::new(3.3, NumericType::mm()),
+        ];
+        let actual = array_to_point3d(&input, Vec::new(), &mut exec_state);
+        assert_eq!(actual.unwrap(), expected);
+        ctx.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_tuple_to_point3d() {
+        let ctx = ExecutorContext::new_mock(None).await;
+        let mut exec_state = ExecState::new(&ctx);
+        let input = KclValue::Tuple {
+            value: vec![
+                KclValue::Number {
+                    value: 1.1,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+                KclValue::Number {
+                    value: 2.2,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+                KclValue::Number {
+                    value: 3.3,
+                    meta: Default::default(),
+                    ty: NumericType::mm(),
+                },
+            ],
+            meta: Default::default(),
+        };
+        let expected = [
+            TyF64::new(1.1, NumericType::mm()),
+            TyF64::new(2.2, NumericType::mm()),
+            TyF64::new(3.3, NumericType::mm()),
+        ];
+        let actual = array_to_point3d(&input, Vec::new(), &mut exec_state);
+        assert_eq!(actual.unwrap(), expected);
+        ctx.close().await;
+    }
+
+    fn pattern_linear_2d_code(kcl_version: &str, input: &str) -> String {
+        format!(
+            r#"@settings(kclVersion = {kcl_version}, defaultLengthUnit = mm, experimentalFeatures = allow)
+
+profile = sketch(on = XY) {{
+  circle1 = circle(start = [var 10mm, var 0mm], center = [var 0mm, var 0mm])
+}}
+patterned = patternLinear2d({input}, instances = 2, distance = 20mm, axis = X)
+"#
+        )
+    }
+
+    async fn run_mock(code: &str) -> Result<crate::ExecOutcome, crate::KclErrorWithOutputs> {
+        let program = crate::Program::parse_no_errs(code).unwrap();
+        let ctx = ExecutorContext::new_mock(None).await;
+        let result = ctx.run_mock(&program, &crate::execution::MockConfig::default()).await;
+        ctx.close().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pattern_linear_2d_with_sketch_warns_before_v3() {
+        for version in ["1.0", "2.0"] {
+            let code = pattern_linear_2d_code(version, "profile");
+            let outcome = run_mock(&code).await.unwrap();
+            let warnings = outcome
+                .issues
+                .iter()
+                .filter(|issue| issue.message == PATTERN_LINEAR_2D_REGIONS_ONLY)
+                .collect::<Vec<_>>();
+
+            assert_eq!(
+                warnings.len(),
+                1,
+                "unexpected issues for KCL {version}: {:#?}",
+                outcome.issues
+            );
+            assert_eq!(warnings[0].severity, Severity::Warning);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pattern_linear_2d_with_sketch_is_an_error_in_v3() {
+        let code = pattern_linear_2d_code(r#""3.0-preview""#, "profile");
+        let error = run_mock(&code).await.unwrap_err();
+
+        assert!(matches!(error.error, KclError::Semantic { .. }));
+        assert_eq!(error.error.message(), PATTERN_LINEAR_2D_REGIONS_ONLY);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pattern_linear_2d_with_region_is_allowed_in_v3() {
+        let code = pattern_linear_2d_code(r#""3.0-preview""#, "region(segments = [profile.circle1])");
+        let outcome = run_mock(&code).await.unwrap();
+
+        assert!(
+            outcome
+                .issues
+                .iter()
+                .all(|issue| issue.message != PATTERN_LINEAR_2D_REGIONS_ONLY),
+            "unexpected regions-only issue: {:#?}",
+            outcome.issues
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pattern_linear_2d_with_sketch_v1_profile_is_allowed() {
+        let code = r#"@settings(kclVersion = 2.0, defaultLengthUnit = mm, experimentalFeatures = allow)
+
+patterned = startSketchOn(XY)
+  |> rectangle(width = 4mm, height = 3mm, center = [0mm, 0mm])
+  |> patternLinear2d(instances = 10, distance = 10mm, axis = [1, 0])
+"#;
+        let outcome = run_mock(code).await.unwrap();
+
+        assert!(
+            outcome
+                .issues
+                .iter()
+                .all(|issue| issue.message != PATTERN_LINEAR_2D_REGIONS_ONLY),
+            "unexpected regions-only issue: {:#?}",
+            outcome.issues
+        );
+    }
+}
+
+/// A linear pattern on a 2D sketch.
+pub async fn pattern_linear_2d(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let sketches_source_range = args
+        .unlabeled_kw_arg_unconverted()
+        .map_or(args.source_range, |arg| arg.source_range);
+    let sketches: Vec<Sketch> = args.get_unlabeled_kw_arg("sketches", &RuntimeType::sketches(), exec_state)?;
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    let distance: TyF64 = args.get_kw_arg("distance", &RuntimeType::length(), exec_state)?;
+    let axis: Axis2dOrPoint2d = args.get_kw_arg(
+        "axis",
+        &RuntimeType::Union(vec![
+            RuntimeType::Primitive(PrimitiveType::Axis2d),
+            RuntimeType::point2d(),
+        ]),
+        exec_state,
+    )?;
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+
+    let has_sketch_solver_block = sketches.iter().any(|sketch| {
+        sketch.origin_sketch_id.is_none()
+            && (exec_state.is_sketch_block_path(sketch.artifact_id)
+                || exec_state.is_sketch_block_path(sketch.original_id.into()))
+    });
+    if has_sketch_solver_block {
+        if exec_state.kcl_version() >= KclVersion::V3Preview {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                PATTERN_LINEAR_2D_REGIONS_ONLY.to_owned(),
+                vec![sketches_source_range],
+            )));
+        }
+
+        exec_state.warn(
+            CompilationIssue {
+                source_range: sketches_source_range,
+                message: PATTERN_LINEAR_2D_REGIONS_ONLY.to_owned(),
+                suggestion: None,
+                severity: Severity::Warning,
+                tag: Tag::Deprecated,
+            },
+            annotations::WARN_DEPRECATED,
+        );
+    }
+
+    let axis = axis.to_point2d();
+    if axis[0].n == 0.0 && axis[1].n == 0.0 {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "The axis of the linear pattern cannot be the zero vector. Otherwise they will just duplicate in place."
+                .to_owned(),
+            vec![args.source_range],
+        )));
+    }
+
+    let sketches = inner_pattern_linear_2d(sketches, instances, distance, axis, use_original, exec_state, args).await?;
+    Ok(sketches.into())
+}
+
+async fn inner_pattern_linear_2d(
+    sketches: Vec<Sketch>,
+    instances: u32,
+    distance: TyF64,
+    axis: [TyF64; 2],
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<Sketch>, KclError> {
+    let [x, y] = point_to_mm(axis);
+    let axis_len = f64::sqrt(x * x + y * y);
+    let normalized_axis = kcmc::shared::Point2d::from([x / axis_len, y / axis_len]);
+    let transforms: Vec<_> = (1..instances)
+        .map(|i| {
+            let d = distance.unwrap_to_mm() * (i as f64);
+            let translate = (normalized_axis * d).with_z(0.0).map(LengthUnit);
+            vec![Transform::builder().translate(translate).build()]
+        })
+        .collect();
+    execute_pattern_transform(
+        transforms,
+        sketches,
+        use_original.unwrap_or_default(),
+        exec_state,
+        &args,
+    )
+    .await
+}
+
+/// A linear pattern on a 3D model.
+pub async fn pattern_linear_3d(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let geometry: SolidOrImportedGeometry =
+        args.get_unlabeled_kw_arg("solids", &pattern_geometry_3d_type(), exec_state)?;
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    let distance: TyF64 = args.get_kw_arg("distance", &RuntimeType::length(), exec_state)?;
+    let axis: Axis3dOrPoint3d = args.get_kw_arg(
+        "axis",
+        &RuntimeType::Union(vec![
+            RuntimeType::Primitive(PrimitiveType::Axis3d),
+            RuntimeType::point3d(),
+        ]),
+        exec_state,
+    )?;
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+
+    let axis = axis.to_point3d();
+    if axis[0].n == 0.0 && axis[1].n == 0.0 && axis[2].n == 0.0 {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            "The axis of the linear pattern cannot be the zero vector. Otherwise they will just duplicate in place."
+                .to_owned(),
+            vec![args.source_range],
+        )));
+    }
+
+    match geometry {
+        SolidOrImportedGeometry::SolidSet(solids) => {
+            Ok(
+                inner_pattern_linear_3d(solids, instances, distance, axis, use_original, exec_state, args)
+                    .await?
+                    .into(),
+            )
+        }
+        SolidOrImportedGeometry::ImportedGeometry(geometry) => Ok(KclValue::from_imported_geometries(
+            inner_pattern_linear_3d(
+                vec![*geometry],
+                instances,
+                distance,
+                axis,
+                use_original,
+                exec_state,
+                args,
+            )
+            .await?,
+        )),
+    }
+}
+
+async fn inner_pattern_linear_3d<T: GeometryTrait<Set = Vec<T>>>(
+    geometry: Vec<T>,
+    instances: u32,
+    distance: TyF64,
+    axis: [TyF64; 3],
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<T>, KclError> {
+    let [x, y, z] = point_3d_to_mm(axis);
+    let axis_len = f64::sqrt(x * x + y * y + z * z);
+    let normalized_axis = kcmc::shared::Point3d::from([x / axis_len, y / axis_len, z / axis_len]);
+    let transforms: Vec<_> = (1..instances)
+        .map(|i| {
+            let d = distance.unwrap_to_mm() * (i as f64);
+            let translate = (normalized_axis * d).map(LengthUnit);
+            vec![Transform::builder().translate(translate).build()]
+        })
+        .collect();
+    execute_pattern_transform(
+        transforms,
+        geometry,
+        use_original.unwrap_or_default(),
+        exec_state,
+        &args,
+    )
+    .await
+}
+
+/// Data for a circular pattern on a 2D sketch.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct CircularPattern2dData {
+    /// The number of total instances. Must be greater than or equal to 1.
+    /// This includes the original entity. For example, if instances is 2,
+    /// there will be two copies -- the original, and one new copy.
+    /// If instances is 1, this has no effect.
+    pub instances: u32,
+    /// The center about which to make the pattern. This is a 2D vector.
+    pub center: [TyF64; 2],
+    /// The arc angle (in degrees) to place the repetitions. Must be greater than 0.
+    pub arc_degrees: Option<f64>,
+    /// Whether or not to rotate the duplicates as they are copied.
+    pub rotate_duplicates: Option<bool>,
+    /// If the target being patterned is itself a pattern, then, should you use the original solid,
+    /// or the pattern?
+    #[serde(default)]
+    pub use_original: Option<bool>,
+}
+
+/// Data for a circular pattern on a 3D model.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct CircularPattern3dData {
+    /// The number of total instances. Must be greater than or equal to 1.
+    /// This includes the original entity. For example, if instances is 2,
+    /// there will be two copies -- the original, and one new copy.
+    /// If instances is 1, this has no effect.
+    pub instances: u32,
+    /// The axis around which to make the pattern. This is a 3D vector.
+    // Only the direction should matter, not the magnitude so don't adjust units to avoid normalisation issues.
+    pub axis: [f64; 3],
+    /// The center about which to make the pattern. This is a 3D vector.
+    pub center: [TyF64; 3],
+    /// The arc angle (in degrees) to place the repetitions. Must be greater than 0.
+    pub arc_degrees: Option<f64>,
+    /// Whether or not to rotate the duplicates as they are copied.
+    pub rotate_duplicates: Option<bool>,
+    /// If the target being patterned is itself a pattern, then, should you use the original solid,
+    /// or the pattern?
+    #[serde(default)]
+    pub use_original: Option<bool>,
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Clone)]
+enum CircularPattern {
+    ThreeD(CircularPattern3dData),
+    TwoD(CircularPattern2dData),
+}
+
+enum RepetitionsNeeded {
+    /// Add this number of repetitions
+    More(u32),
+    /// No repetitions needed
+    None,
+    /// Invalid number of total instances.
+    Invalid,
+}
+
+impl From<u32> for RepetitionsNeeded {
+    fn from(n: u32) -> Self {
+        match n.cmp(&1) {
+            Ordering::Less => Self::Invalid,
+            Ordering::Equal => Self::None,
+            Ordering::Greater => Self::More(n - 1),
+        }
+    }
+}
+
+impl CircularPattern {
+    pub fn axis(&self) -> [f64; 3] {
+        match self {
+            CircularPattern::TwoD(_lp) => [0.0, 0.0, 0.0],
+            CircularPattern::ThreeD(lp) => [lp.axis[0], lp.axis[1], lp.axis[2]],
+        }
+    }
+
+    pub fn center_mm(&self) -> [f64; 3] {
+        match self {
+            CircularPattern::TwoD(lp) => [lp.center[0].unwrap_to_mm(), lp.center[1].unwrap_to_mm(), 0.0],
+            CircularPattern::ThreeD(lp) => [
+                lp.center[0].unwrap_to_mm(),
+                lp.center[1].unwrap_to_mm(),
+                lp.center[2].unwrap_to_mm(),
+            ],
+        }
+    }
+
+    fn repetitions(&self) -> RepetitionsNeeded {
+        let n = match self {
+            CircularPattern::TwoD(lp) => lp.instances,
+            CircularPattern::ThreeD(lp) => lp.instances,
+        };
+        RepetitionsNeeded::from(n)
+    }
+
+    pub fn arc_degrees(&self) -> Option<f64> {
+        match self {
+            CircularPattern::TwoD(lp) => lp.arc_degrees,
+            CircularPattern::ThreeD(lp) => lp.arc_degrees,
+        }
+    }
+
+    pub fn rotate_duplicates(&self) -> Option<bool> {
+        match self {
+            CircularPattern::TwoD(lp) => lp.rotate_duplicates,
+            CircularPattern::ThreeD(lp) => lp.rotate_duplicates,
+        }
+    }
+
+    pub fn use_original(&self) -> bool {
+        match self {
+            CircularPattern::TwoD(lp) => lp.use_original.unwrap_or_default(),
+            CircularPattern::ThreeD(lp) => lp.use_original.unwrap_or_default(),
+        }
+    }
+}
+
+/// A circular pattern on a 2D sketch.
+pub async fn pattern_circular_2d(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let sketches = args.get_unlabeled_kw_arg("sketches", &RuntimeType::sketches(), exec_state)?;
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    let center: Option<[TyF64; 2]> = args.get_kw_arg_opt("center", &RuntimeType::point2d(), exec_state)?;
+    let arc_degrees: Option<TyF64> = args.get_kw_arg_opt("arcDegrees", &RuntimeType::degrees(), exec_state)?;
+    let rotate_duplicates = args.get_kw_arg_opt("rotateDuplicates", &RuntimeType::bool(), exec_state)?;
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+
+    let sketches = inner_pattern_circular_2d(
+        sketches,
+        instances,
+        center,
+        arc_degrees.map(|x| x.n),
+        rotate_duplicates,
+        use_original,
+        exec_state,
+        args,
+    )
+    .await?;
+    Ok(sketches.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn inner_pattern_circular_2d(
+    sketch_set: Vec<Sketch>,
+    instances: u32,
+    center: Option<[TyF64; 2]>,
+    arc_degrees: Option<f64>,
+    rotate_duplicates: Option<bool>,
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<Sketch>, KclError> {
+    let starting_sketches = sketch_set;
+
+    if args.ctx.context_type == crate::execution::ContextType::Mock {
+        return Ok(starting_sketches);
+    }
+    let center = center.unwrap_or(POINT_ZERO_ZERO);
+    let data = CircularPattern2dData {
+        instances,
+        center,
+        arc_degrees,
+        rotate_duplicates,
+        use_original,
+    };
+
+    let mut sketches = Vec::new();
+    for sketch in starting_sketches.iter() {
+        let geometries =
+            pattern_circular_sketch(data.clone(), Geometry::Sketch(sketch.clone()), exec_state, args.clone()).await?;
+
+        let Geometries::Sketches(new_sketches) = geometries else {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                "Expected a vec of sketches".to_string(),
+                vec![args.source_range],
+            )));
+        };
+
+        sketches.extend(new_sketches);
+    }
+
+    Ok(sketches)
+}
+
+async fn pattern_circular_sketch(
+    data: CircularPattern2dData,
+    geometry: Geometry,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Geometries, KclError> {
+    let Geometry::Sketch(mut sketch) = geometry else {
+        return Err(KclError::new_internal(KclErrorDetails::new(
+            "A 2D circular pattern requires a sketch".to_owned(),
+            vec![args.source_range],
+        )));
+    };
+    let geometries = pattern_circular(&CircularPattern::TwoD(data), &mut sketch, exec_state, &args).await?;
+    Ok(Geometries::Sketches(geometries))
+}
+
+/// A circular pattern on a 3D model.
+pub async fn pattern_circular_3d(exec_state: &mut ExecState, args: Args) -> Result<KclValue, KclError> {
+    let geometry: SolidOrImportedGeometry =
+        args.get_unlabeled_kw_arg("solids", &pattern_geometry_3d_type(), exec_state)?;
+    // The number of total instances. Must be greater than or equal to 1.
+    // This includes the original entity. For example, if instances is 2,
+    // there will be two copies -- the original, and one new copy.
+    // If instances is 1, this has no effect.
+    let instances: u32 = args.get_kw_arg("instances", &RuntimeType::count(), exec_state)?;
+    // The axis around which to make the pattern. This is a 3D vector.
+    let axis: Axis3dOrPoint3d = args.get_kw_arg(
+        "axis",
+        &RuntimeType::Union(vec![
+            RuntimeType::Primitive(PrimitiveType::Axis3d),
+            RuntimeType::point3d(),
+        ]),
+        exec_state,
+    )?;
+    let axis = axis.to_point3d();
+
+    // The center about which to make the pattern. This is a 3D vector.
+    let center: Option<[TyF64; 3]> = args.get_kw_arg_opt("center", &RuntimeType::point3d(), exec_state)?;
+    // The arc angle (in degrees) to place the repetitions. Must be greater than 0.
+    let arc_degrees: Option<TyF64> = args.get_kw_arg_opt("arcDegrees", &RuntimeType::degrees(), exec_state)?;
+    // Whether or not to rotate the duplicates as they are copied.
+    let rotate_duplicates = args.get_kw_arg_opt("rotateDuplicates", &RuntimeType::bool(), exec_state)?;
+    // If the target being patterned is itself a pattern, then, should you use the original solid,
+    // or the pattern?
+    let use_original = args.get_kw_arg_opt("useOriginal", &RuntimeType::bool(), exec_state)?;
+
+    match geometry {
+        SolidOrImportedGeometry::SolidSet(solids) => Ok(inner_pattern_circular_3d(
+            solids,
+            instances,
+            [axis[0].n, axis[1].n, axis[2].n],
+            center,
+            arc_degrees.map(|x| x.n),
+            rotate_duplicates,
+            use_original,
+            exec_state,
+            args,
+        )
+        .await?
+        .into()),
+        SolidOrImportedGeometry::ImportedGeometry(geometry) => Ok(KclValue::from_imported_geometries(
+            inner_pattern_circular_3d(
+                vec![*geometry],
+                instances,
+                [axis[0].n, axis[1].n, axis[2].n],
+                center,
+                arc_degrees.map(|x| x.n),
+                rotate_duplicates,
+                use_original,
+                exec_state,
+                args,
+            )
+            .await?,
+        )),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn inner_pattern_circular_3d<T: GeometryTrait<Set = Vec<T>>>(
+    geometry: Vec<T>,
+    instances: u32,
+    axis: [f64; 3],
+    center: Option<[TyF64; 3]>,
+    arc_degrees: Option<f64>,
+    rotate_duplicates: Option<bool>,
+    use_original: Option<bool>,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<T>, KclError> {
+    let center = center.unwrap_or(POINT_ZERO_ZERO_ZERO);
+    let data = CircularPattern3dData {
+        instances,
+        axis,
+        center,
+        arc_degrees,
+        rotate_duplicates,
+        use_original,
+    };
+    execute_pattern_circular(CircularPattern::ThreeD(data), geometry, exec_state, args).await
+}
+
+async fn execute_pattern_circular<T: GeometryTrait>(
+    data: CircularPattern,
+    geometry_set: T::Set,
+    exec_state: &mut ExecState,
+    args: Args,
+) -> Result<Vec<T>, KclError> {
+    T::flush_batch(&args, exec_state, &geometry_set).await?;
+    let starting: Vec<T> = geometry_set.into();
+    if args.ctx.context_type == crate::execution::ContextType::Mock {
+        let seed = starting
+            .first()
+            .cloned()
+            .ok_or(KclError::new_internal(KclErrorDetails::new(
+                "Unexpected empty set".to_owned(),
+                vec![args.source_range],
+            )))?;
+        let mut mock_responses = starting;
+        let num_repetitions = match data.repetitions() {
+            RepetitionsNeeded::More(n) => n,
+            RepetitionsNeeded::None => {
+                return Ok(mock_responses);
+            }
+            RepetitionsNeeded::Invalid => {
+                return Err(KclError::new_semantic(KclErrorDetails::new(
+                    MUST_HAVE_ONE_INSTANCE.to_owned(),
+                    vec![args.source_range],
+                )));
+            }
+        };
+        for _ in 0..num_repetitions {
+            let new_id = exec_state.next_uuid();
+            let mut new_geometry = seed.clone();
+            new_geometry.set_id(new_id);
+            new_geometry.set_artifact_id(new_id);
+            mock_responses.push(new_geometry);
+        }
+
+        return Ok(mock_responses);
+    }
+
+    let mut output = Vec::new();
+    for mut geometry in starting {
+        output.extend(pattern_circular(&data, &mut geometry, exec_state, &args).await?);
+    }
+    Ok(output)
+}
+
+async fn pattern_circular<T: GeometryTrait>(
+    data: &CircularPattern,
+    geometry: &mut T,
+    exec_state: &mut ExecState,
+    args: &Args,
+) -> Result<Vec<T>, KclError> {
+    let num_repetitions = match data.repetitions() {
+        RepetitionsNeeded::More(n) => n,
+        RepetitionsNeeded::None => {
+            return Ok(vec![geometry.clone()]);
+        }
+        RepetitionsNeeded::Invalid => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                MUST_HAVE_ONE_INSTANCE.to_owned(),
+                vec![args.source_range],
+            )));
+        }
+    };
+
+    let geometry_id = geometry.id(&args.ctx).await?;
+    let center = data.center_mm();
+    let resp = exec_state
+        .send_modeling_cmd(
+            ModelingCmdMeta::from_args(exec_state, args),
+            ModelingCmd::from(
+                mcmd::EntityCircularPattern::builder()
+                    .axis(kcmc::shared::Point3d::from(data.axis()))
+                    .entity_id(if data.use_original() {
+                        geometry.topology_id()
+                    } else {
+                        geometry_id
+                    })
+                    .center(kcmc::shared::Point3d {
+                        x: LengthUnit(center[0]),
+                        y: LengthUnit(center[1]),
+                        z: LengthUnit(center[2]),
+                    })
+                    .num_repetitions(num_repetitions)
+                    .arc_degrees(data.arc_degrees().unwrap_or(360.0))
+                    .rotate_duplicates(data.rotate_duplicates().unwrap_or(true))
+                    .build(),
+            ),
+        )
+        .await?;
+
+    // The common case is borrowing from the response.  Instead of cloning,
+    // create a Vec to borrow from in mock mode.
+    let mut mock_ids = Vec::new();
+    let entity_ids = if let OkWebSocketResponseData::Modeling {
+        modeling_response: OkModelingCmdResponse::EntityCircularPattern(pattern_info),
+    } = &resp
+    {
+        &pattern_info.entity_face_edge_ids.iter().map(|e| e.object_id).collect()
+    } else if args.ctx.no_engine_commands().await {
+        mock_ids.reserve(num_repetitions as usize);
+        for _ in 0..num_repetitions {
+            mock_ids.push(exec_state.next_uuid());
+        }
+        &mock_ids
+    } else {
+        return Err(KclError::new_engine(KclErrorDetails::new(
+            format!("EntityCircularPattern response was not as expected: {resp:?}"),
+            vec![args.source_range],
+        )));
+    };
+
+    let mut geometries = vec![geometry.clone()];
+    for id in entity_ids.iter().copied() {
+        let mut new_geometry = geometry.clone();
+        new_geometry.set_id(id);
+        new_geometry.set_artifact_id(id);
+        geometries.push(new_geometry);
+    }
+    Ok(geometries)
+}

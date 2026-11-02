@@ -87,7 +87,7 @@ QUIET_CHECKS = 2
 CHECKS = "folder_checks"
 #: The commands that only read: a folder the agent `cd`'d into to run only these
 #: (`_reads_only`) is not a working folder. Not when one rewrites a file it
-#: names (`_in_place`: `sed -i`, `yq -i`, `sort -o`, ...), nor `find` with an
+#: names (`_get_in_place`: `sed -i`, `yq -i`, `sort -o`, ...), nor `find` with an
 #: action that writes or runs; `git` with a verb that leaves the files alone.
 READ_COMMANDS = frozenset({
     "ag", "awk", "basename", "bat", "cat", "cmp", "column", "cut", "date", "df", "diff", "dirname", "du", "echo",
@@ -141,7 +141,7 @@ def protected_paths() -> list[Path]:
     own setup actions (logout, uninstall, an update) with their config, which
     a command of the daemon's must reach only through `probe`, under its
     precheck."""
-    from probe.service import paths as service_paths
+    from probe.foundation.service_api import paths as service_paths
 
     cfg = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
     root = service_paths.root_dir()
@@ -155,7 +155,7 @@ def protected_paths() -> list[Path]:
     return out
 
 
-def _broad(path: Path, home: Path) -> bool:
+def _is_broad(path: Path, home: Path) -> bool:
     """`$HOME`, a folder above it, or a system folder (all resolved)."""
     return path == home or path in home.parents or path in _SYSTEM_DIRS
 
@@ -189,10 +189,10 @@ def _ok_folder(path: Path, home: Path, cwd: Path | None = None) -> bool:
         cwd_r = cwd.resolve() if cwd is not None else None
     except (OSError, ValueError, RuntimeError):
         return False
-    if not _is_dir(resolved) or _broad(resolved, home_r):
+    if not _is_dir(resolved) or _is_broad(resolved, home_r):
         return False
     roots = [home_r]
-    if cwd_r is not None and not _broad(cwd_r, home_r):
+    if cwd_r is not None and not _is_broad(cwd_r, home_r):
         roots.append(cwd_r)
     for root in roots:
         try:
@@ -208,18 +208,18 @@ def _ok_folder(path: Path, home: Path, cwd: Path | None = None) -> bool:
 _REDIRECTS = {">", ">>", ">|", "&>", "&>>", "1>", "2>", "1>>", "2>>"}
 
 
-def _short_flag(words: list[str], letter: str) -> bool:
+def _is_short_flag(words: list[str], letter: str) -> bool:
     """Whether one of `words` is a short flag group holding `letter` (`-i`, `-Ei`, `-i.bak`)."""
     return any(w.startswith("-") and not w.startswith("--") and letter in w[1:] for w in words)
 
 
-def _in_place(head: str, words: list[str]) -> bool:
+def _is_in_place(head: str, words: list[str]) -> bool:
     """Whether `head words...` rewrites a file it names (`sed -i`/`-Ei`, `yq -i`,
     `sort -o`, `awk -i inplace`, `uniq IN OUT`), though `head` mostly reads."""
     if head in ("sed", "yq"):
-        return _short_flag(words, "i") or any(w.startswith(("--in-place", "--inplace")) for w in words)
+        return _is_short_flag(words, "i") or any(w.startswith(("--in-place", "--inplace")) for w in words)
     if head == "sort":
-        return _short_flag(words, "o") or any(w.startswith("--output") for w in words)
+        return _is_short_flag(words, "o") or any(w.startswith("--output") for w in words)
     if head in ("awk", "gawk"):
         return "inplace" in words or any(w.startswith("--include=inplace") for w in words)
     if head == "uniq":
@@ -250,7 +250,7 @@ def written_paths(command: str) -> list[str]:
         args = [w for w in words[1:] if not w.startswith("-")]
         if head == "tee":
             out.extend(args)
-        elif head == "sed" and _in_place(head, words[1:]):
+        elif head == "sed" and _is_in_place(head, words[1:]):
             out.extend(args[1:] if args else [])
         elif head in ("cp", "mv", "install", "rsync") and len(args) >= 2:
             out.append(args[-1])
@@ -331,13 +331,13 @@ def _reads_only(command: str, folder: Path) -> bool:
         else:
             segments[-1].append(tok)
         i += 1
-    words_seen = False
+    is_words_seen = False
     for words in segments:
         while words and (re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]) or words[0] in _SHELL_WORDS):
             words = words[1:]
         if not words or words[0] in _SHELL_HEADERS:
             continue
-        words_seen = True
+        is_words_seen = True
         head = words[0].rsplit("/", 1)[-1]
         if head == "git":
             rest = words[1:]
@@ -348,14 +348,14 @@ def _reads_only(command: str, folder: Path) -> bool:
         elif head == "kubectl":
             if not KUBECTL_READ_VERBS.intersection(words[1:]) or _KUBECTL_OTHER_VERBS.intersection(words[1:]):
                 return False
-        elif _in_place(head, words[1:]):
+        elif _is_in_place(head, words[1:]):
             return False
         elif head == "find":
             if any(w in _FIND_ACTIONS for w in words[1:]):
                 return False
         elif head not in READ_COMMANDS:
             return False
-    return words_seen
+    return is_words_seen
 
 
 def _row_folders(row, cwd: Path, home: Path, found: list[Path]) -> None:
@@ -391,7 +391,7 @@ def _row_folders(row, cwd: Path, home: Path, found: list[Path]) -> None:
                 found.append(folder.resolve())
 
 
-def _package_tree(dirs: list[str], files: list[str]) -> bool:
+def _is_package_tree(dirs: list[str], files: list[str]) -> bool:
     """A folder that is a cache or a package tree (CACHE_TAG, PACKAGE_INFO, EGG_INFO)."""
     return (CACHE_TAG in files or any(d.endswith(PACKAGE_INFO) for d in dirs)
             or sum(d.endswith(EGG_INFO) for d in dirs) >= 2)
@@ -401,7 +401,7 @@ def _walk(folder: Path):
     count = 0
     base_depth = len(folder.parts)
     for root, dirs, files in os.walk(folder):
-        if _package_tree(dirs, files):
+        if _is_package_tree(dirs, files):
             dirs[:] = []
             continue
         depth = len(Path(root).parts) - base_depth

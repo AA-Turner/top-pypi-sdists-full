@@ -1,0 +1,1395 @@
+"""Canonical AgentEnv A2A extension definitions and handler decorators.
+
+Extension contracts live here once.  Agent classes bind runtime behavior to a
+known operation or request variant; they never repeat URIs, routes, or schemas.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
+from enum import Enum
+from types import MappingProxyType
+from typing import Annotated, Any, Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveInt,
+    StrictInt,
+    ValidationError,
+    model_validator,
+)
+
+from ._triggers import MAX_SOLVER_MESSAGE_LENGTH
+from .tasks.v1 import AgentConfig
+from ..transfers import (
+    ReadObject,
+    RelativePath,
+    Uploaded,
+    WriteNamespaceGrant,
+    WriteObject,
+)
+
+
+class ImplementationOwner(str, Enum):
+    SDK = "sdk"
+    RUNTIME = "runtime"
+
+
+class ExtensionRequest(BaseModel):
+    """Base class for validated extension request bodies."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ExtensionResponse(BaseModel):
+    """Base class for validated extension response bodies."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+_SkillName = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")]
+
+
+class McpAddRequest(ExtensionRequest):
+    url: str
+    headers: dict[str, str] | None = None
+    name: str | None = None
+
+
+class InlineSkillRequest(ExtensionRequest):
+    name: _SkillName
+    description: str
+    skill_md: str
+
+
+class SkillBundleFile(ExtensionRequest):
+    path: RelativePath
+    object: ReadObject
+
+
+class SkillBundle(ExtensionRequest):
+    max_total_bytes: PositiveInt
+    files: list[SkillBundleFile]
+
+    @model_validator(mode="after")
+    def _valid_bundle(self) -> SkillBundle:
+        paths = [item.path for item in self.files]
+        if len(paths) != len(set(paths)):
+            raise ValueError("skill bundle paths must be unique")
+        if "SKILL.md" not in paths:
+            raise ValueError("skill bundle must contain root SKILL.md")
+        maximum_size = sum(item.object.max_bytes for item in self.files)
+        if maximum_size > self.max_total_bytes:
+            raise ValueError("skill bundle file limits exceed max_total_bytes")
+        return self
+
+
+class BundleSkillRequest(ExtensionRequest):
+    name: _SkillName
+    description: str
+    skill_bundle: SkillBundle
+
+
+class SkillAddResponse(ExtensionResponse):
+    name: str
+
+
+class TaskTrajectoryRequest(ExtensionRequest):
+    task_id: str
+
+
+class ContextTrajectoryRequest(ExtensionRequest):
+    context_id: str
+
+
+class TrajectoryWriteObjects(ExtensionRequest):
+    trajectory: WriteObject
+
+    @model_validator(mode="after")
+    def _json_trajectory(self) -> TrajectoryWriteObjects:
+        if self.trajectory.media_type != "application/json":
+            raise ValueError("trajectory object media_type must be application/json")
+        return self
+
+
+class TaskObjectTrajectoryRequest(ExtensionRequest):
+    task_id: str
+    objects: TrajectoryWriteObjects
+
+
+class ContextObjectTrajectoryRequest(ExtensionRequest):
+    context_id: str
+    objects: TrajectoryWriteObjects
+
+
+class TrajectoryUploadedObjects(ExtensionResponse):
+    trajectory: Uploaded
+
+
+class TrajectoryObjectsResponse(ExtensionResponse):
+    objects: TrajectoryUploadedObjects
+
+
+class TrajectoryState(str, Enum):
+    """Where a trajectory stands: ``pending`` has no events yet, ``running`` is still
+    gaining them, and the terminal states gain no more."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELED = "canceled"
+
+
+MAX_TRAJECTORY_READ_EVENTS = 1_000
+
+
+class TaskEventsTrajectoryRequest(ExtensionRequest):
+    task_id: str
+    after: StrictInt = Field(ge=0)
+    limit: StrictInt | None = Field(default=None, ge=1, le=MAX_TRAJECTORY_READ_EVENTS)
+
+
+class ContextEventsTrajectoryRequest(ExtensionRequest):
+    context_id: str
+    after: StrictInt = Field(ge=0)
+    limit: StrictInt | None = Field(default=None, ge=1, le=MAX_TRAJECTORY_READ_EVENTS)
+
+
+class TrajectoryEventsResponse(ExtensionResponse):
+    """Events from position ``after`` on; ``next`` is the position to read from next, and
+    ``has_more`` says more events are already readable past this page."""
+
+    context_id: str
+    task_id: str
+    state: TrajectoryState
+    format: str | None = None
+    events: list[Any]
+    next: int
+    has_more: bool
+
+
+def _opaque_snapshot_objects(
+    objects: SnapshotWriteObjects | SnapshotReadObjects,
+) -> SnapshotWriteObjects | SnapshotReadObjects:
+    for name in ("trajectory", "workspace"):
+        descriptor = getattr(objects, name)
+        if descriptor is not None and descriptor.media_type != "application/octet-stream":
+            raise ValueError(f"snapshot {name} media_type must be application/octet-stream")
+    return objects
+
+
+class SnapshotWriteObjects(ExtensionRequest):
+    trajectory: WriteObject
+    workspace: WriteObject | None = None
+
+    _opaque_media_types = model_validator(mode="after")(_opaque_snapshot_objects)
+
+
+class ObjectSnapshotSaveRequest(ExtensionRequest):
+    context_id: str
+    objects: SnapshotWriteObjects
+
+
+class SnapshotReadObjects(ExtensionRequest):
+    trajectory: ReadObject
+    workspace: ReadObject | None = None
+
+    _opaque_media_types = model_validator(mode="after")(_opaque_snapshot_objects)
+
+
+class ObjectSnapshotLoadRequest(ExtensionRequest):
+    objects: SnapshotReadObjects
+    target_context_id: str | None = None
+
+
+class SnapshotUploadedObjects(ExtensionResponse):
+    trajectory: Uploaded
+    workspace: Uploaded | None = None
+
+
+class ObjectSnapshotSaveResponse(ExtensionResponse):
+    context_id: str
+    objects: SnapshotUploadedObjects
+
+
+class ObjectSnapshotLoadResponse(ExtensionResponse):
+    context_id: str
+
+
+class NamespaceChangelogEnableRequest(ExtensionRequest):
+    write_namespace: WriteNamespaceGrant
+    roots: list[str] | None = None
+
+
+class NamespaceChangelogEnableResponse(ExtensionResponse):
+    roots: list[str]
+
+
+class ChangelogIncrement(ExtensionRequest):
+    sequence: int = Field(ge=0)
+    object: ReadObject
+
+    @model_validator(mode="after")
+    def _opaque_media_type(self) -> ChangelogIncrement:
+        if self.object.media_type != "application/octet-stream":
+            raise ValueError(
+                "changelog increment media_type must be application/octet-stream"
+            )
+        return self
+
+
+class ObjectChangelogApplyRequest(ExtensionRequest):
+    increments: list[ChangelogIncrement]
+    resume_conversation: bool = False
+    target_context_id: str | None = None
+
+    @model_validator(mode="after")
+    def _ordered_unique_sequences(self) -> ObjectChangelogApplyRequest:
+        sequences = [increment.sequence for increment in self.increments]
+        if sequences != sorted(set(sequences)):
+            raise ValueError("changelog increment sequences must be strictly increasing")
+        return self
+
+
+class ObjectChangelogApplyResponse(ExtensionResponse):
+    count: int = Field(ge=0)
+    context_id: str | None = None
+
+
+class PeerAgent(ExtensionRequest):
+    name: str
+    url: str
+    card: dict[str, Any] = Field(default_factory=dict)
+    description: str | None = None
+
+
+class PeerAgentsSetRequest(ExtensionRequest):
+    peers: list[PeerAgent]
+
+
+class AttributionProbeResponse(ExtensionResponse):
+    last_seen_attribution: dict[str, str]
+    last_seen_at_utc: str | None = None
+
+
+class TriggerRegisterRequest(ExtensionRequest):
+    triggers: list[dict[str, Any]]
+
+
+class TriggerDecideRequest(ExtensionRequest):
+    turn: int
+    solver_message: str = Field(default="", max_length=MAX_SOLVER_MESSAGE_LENGTH)
+    context_id: str = "default"
+    env_triggers: dict[str, dict[str, Any]] | None = None
+    record_unfired: bool = True  # False: a decision where nothing fires changes no state, so it can be repeated
+
+
+PROXY_TOKEN_MIN_LENGTH = 22
+
+
+class ProxyClaimRequest(ExtensionRequest):
+    token: str = Field(min_length=PROXY_TOKEN_MIN_LENGTH)
+
+
+class ProxyNextRequest(ExtensionRequest):
+    token: str
+    after: int = Field(default=0, ge=0)
+
+
+class ProxyTextPart(ExtensionRequest):
+    kind: Literal["text"] = "text"
+    text: str
+
+
+class ProxySkill(ExtensionResponse):
+    name: str
+    description: str
+    path: str
+
+
+class ProxyTurn(ExtensionResponse):
+    task_id: str
+    context_id: str
+    parts: list[ProxyTextPart]
+    system_prompt: str | None = None
+    skills: list[ProxySkill] = Field(default_factory=list)
+
+
+class ProxyNextResponse(ExtensionResponse):
+    version: int
+    turns: list[ProxyTurn]
+
+
+class ProxyToolsRequest(ExtensionRequest):
+    token: str
+    task_id: str
+
+
+class ProxyTool(ExtensionResponse):
+    name: str
+    description: str | None = None
+    input_schema: dict[str, Any] | None = None
+    server: str | None = None  # the env server that offers it; none for bash
+
+
+class ProxyToolsResponse(ExtensionResponse):
+    tools: list[ProxyTool]
+
+
+class ProxyToolAction(ExtensionRequest):
+    kind: Literal["tool"]
+    server: str
+    name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    timeout_seconds: float | None = Field(default=None, gt=0)
+
+
+class ProxyBashAction(ExtensionRequest):
+    kind: Literal["bash"]
+    command: str
+    timeout_seconds: float | None = Field(default=None, gt=0)
+
+
+class ProxyActRequest(ExtensionRequest):
+    token: str
+    task_id: str
+    action_id: str = Field(min_length=1, max_length=128)
+    action: Annotated[ProxyToolAction | ProxyBashAction, Field(discriminator="kind")]
+
+
+class ProxyResultRequest(ExtensionRequest):
+    token: str
+    action_id: str
+
+
+class ProxyBashResult(ExtensionResponse):
+    kind: Literal["bash"] = "bash"
+    exit_code: int | None = None  # none when the command was stopped
+    stdout: str
+    stderr: str
+    timed_out: bool
+
+
+class ProxyToolResult(ExtensionResponse):
+    kind: Literal["tool"] = "tool"
+    content: list[dict[str, Any]]
+    is_error: bool
+
+
+class ProxyActionState(ExtensionResponse):
+    done: bool
+    result: Annotated[ProxyBashResult | ProxyToolResult, Field(discriminator="kind")] | None = None
+
+
+class ProxyRecordRequest(ExtensionRequest):
+    token: str
+    task_id: str
+    message: str | dict[str, Any]
+    model: str | None = None
+    usage: dict[str, Any] | None = None
+
+
+class ProxyReplyRequest(ExtensionRequest):
+    token: str
+    task_id: str
+    parts: list[ProxyTextPart] | None = Field(default=None, min_length=1)
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def _parts_or_error(self) -> ProxyReplyRequest:
+        if (self.parts is None) == (self.error is None):
+            raise ValueError("a reply carries exactly one of parts and error")
+        return self
+
+
+def _tuple(values: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
+
+
+@dataclass(frozen=True, slots=True)
+class FieldSchema:
+    required: tuple[str, ...] = ()
+    optional: tuple[str, ...] = ()
+    extra: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "required", _tuple(self.required))
+        object.__setattr__(self, "optional", _tuple(self.optional))
+        overlap = set(self.required) & set(self.optional)
+        if overlap:
+            raise ValueError(
+                f"fields cannot be both required and optional: {sorted(overlap)}"
+            )
+        object.__setattr__(self, "extra", MappingProxyType(dict(self.extra)))
+
+    def to_card(self) -> dict[str, Any]:
+        result = dict(self.extra)
+        if self.required:
+            result["required"] = list(self.required)
+        if self.optional:
+            result["optional"] = list(self.optional)
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class RequestVariant:
+    name: str
+    model: type[BaseModel]
+    support_required: bool = True
+    implementation: ImplementationOwner | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.model, type) or not issubclass(self.model, BaseModel):
+            raise TypeError(
+                "request variant model must be a Pydantic BaseModel subclass"
+            )
+        if self.model.model_config.get("extra") != "forbid":
+            raise TypeError(
+                f"request model {self.model.__name__} must set extra='forbid'"
+            )
+
+    @property
+    def fields(self) -> FieldSchema:
+        return request_fields(self.model)
+
+
+@dataclass(frozen=True, slots=True)
+class RequestDefinition:
+    """Typed request shape with optional mutually-exclusive alternatives.
+
+    Variants marked ``support_required`` are part of the extension's core
+    contract; the others appear only when an agent binds or explicitly enables
+    them.
+    """
+
+    model: type[BaseModel] | None = None
+    variants: tuple[RequestVariant, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "variants", tuple(self.variants))
+        if (self.model is None) == (not self.variants):
+            raise ValueError(
+                "request definition requires exactly one model or one or more variants"
+            )
+        if self.model is not None and (
+            not isinstance(self.model, type) or not issubclass(self.model, BaseModel)
+        ):
+            raise TypeError("request model must be a Pydantic BaseModel subclass")
+        if self.model is not None and self.model.model_config.get("extra") != "forbid":
+            raise TypeError(
+                f"request model {self.model.__name__} must set extra='forbid'"
+            )
+        names = [variant.name for variant in self.variants]
+        if len(names) != len(set(names)):
+            raise ValueError(f"duplicate request variant: {names}")
+
+    @property
+    def common(self) -> FieldSchema:
+        if self.model is not None:
+            return request_fields(self.model)
+        return self._common(self.variants)
+
+    @staticmethod
+    def _common(variants: Iterable[RequestVariant]) -> FieldSchema:
+        schemas = [variant.fields for variant in variants]
+        if not schemas:
+            return FieldSchema()
+        first = schemas[0]
+        required = tuple(
+            name
+            for name in first.required
+            if all(name in schema.required for schema in schemas[1:])
+        )
+        optional = tuple(
+            name
+            for name in first.optional
+            if all(name in schema.optional for schema in schemas[1:])
+        )
+        return FieldSchema(required=required, optional=optional)
+
+    @property
+    def core_variants(self) -> frozenset[str]:
+        return frozenset(
+            variant.name for variant in self.variants if variant.support_required
+        )
+
+    @property
+    def optional_variants(self) -> frozenset[str]:
+        return frozenset(
+            variant.name for variant in self.variants if not variant.support_required
+        )
+
+    def variant(self, name: str) -> RequestVariant:
+        for variant in self.variants:
+            if variant.name == name:
+                return variant
+        raise KeyError(name)
+
+    def enabled_variants(
+        self, optional: Iterable[str] = ()
+    ) -> tuple[RequestVariant, ...]:
+        requested = frozenset(optional)
+        unknown = requested - self.optional_variants
+        if unknown:
+            raise ValueError(f"unknown optional request variants: {sorted(unknown)}")
+        return tuple(
+            variant
+            for variant in self.variants
+            if variant.support_required or variant.name in requested
+        )
+
+    def to_card(self, optional: Iterable[str] = ()) -> dict[str, Any]:
+        variants = self.enabled_variants(optional)
+        common = self._common(variants) if self.model is None else self.common
+        result = common.to_card()
+        if not variants:
+            return result
+
+        common_names = set(common.required) | set(common.optional)
+
+        if len(variants) == 1:
+            only = variants[0].fields
+            required = only.required
+            optional_fields = only.optional
+            if required:
+                result["required"] = list(required)
+            if optional_fields:
+                result["optional"] = list(optional_fields)
+            return result
+
+        result["oneOf"] = [
+            FieldSchema(
+                required=tuple(
+                    name for name in variant.fields.required if name not in common_names
+                ),
+                optional=tuple(
+                    name for name in variant.fields.optional if name not in common_names
+                ),
+            ).to_card()
+            for variant in variants
+        ]
+        return result
+
+    def model_for_variant(self, variant: str | None) -> type[BaseModel]:
+        if variant is None:
+            if self.model is None:
+                raise ValueError("request variant was not selected")
+            return self.model
+        return self.variant(variant).model
+
+    def select_variant(
+        self, payload: Mapping[str, Any], optional: Iterable[str] = ()
+    ) -> str | None:
+        variants = self.enabled_variants(optional)
+        if not variants:
+            missing = set(self.common.required) - set(payload)
+            if missing:
+                raise ValueError(f"missing required fields: {sorted(missing)}")
+            return None
+
+        common = self._common(variants) if self.model is None else self.common
+        enabled_names = {
+            field_name
+            for variant in variants
+            for field_name in (*variant.fields.required, *variant.fields.optional)
+        }
+        disabled = {
+            field_name
+            for variant in self.variants
+            if variant not in variants
+            for field_name in (*variant.fields.required, *variant.fields.optional)
+            if field_name not in enabled_names
+        }
+        supplied_disabled = disabled & set(payload)
+        if supplied_disabled:
+            raise ValueError(
+                f"unsupported request variant fields: {sorted(supplied_disabled)}"
+            )
+
+        missing_common = set(common.required) - set(payload)
+        if missing_common:
+            raise ValueError(f"missing required fields: {sorted(missing_common)}")
+
+        matches = []
+        failures: dict[str, str] = {}
+        for variant in variants:
+            try:
+                variant.model.model_validate(payload)
+            except ValidationError as exc:
+                failures[variant.name] = "; ".join(
+                    f"{'.'.join(str(item) for item in error['loc'])}: {error['msg']}"
+                    for error in exc.errors(include_input=False, include_url=False)
+                )
+                continue
+            matches.append(variant.name)
+        if len(matches) != 1:
+            names = [variant.name for variant in variants]
+            detail = "; ".join(
+                f"{name} ({failures[name]})" for name in names if name in failures
+            )
+            suffix = f"; validation errors: {detail}" if detail else ""
+            raise ValueError(
+                f"request must match exactly one of variants: {names}{suffix}"
+            )
+        return matches[0]
+
+
+def request_fields(model: type[BaseModel]) -> FieldSchema:
+    """The wire fields of a request model, as an Agent Card declares them."""
+    required: list[str] = []
+    optional: list[str] = []
+    for name, field_info in model.model_fields.items():
+        alias = field_info.validation_alias
+        if alias is not None and not isinstance(alias, str):
+            raise TypeError(
+                f"request model {model.__name__}.{name} must use a string validation alias"
+            )
+        wire_name = alias or name
+        (required if field_info.is_required() else optional).append(wire_name)
+    return FieldSchema(required=tuple(required), optional=tuple(optional))
+
+
+def card_request_accepts(request: Mapping[str, Any], fields: Iterable[str]) -> bool:
+    """Whether an Agent Card's request contract (as ``RequestDefinition.to_card`` renders it, or
+    a hand-written card with ``supported`` lists) takes a body of exactly ``fields``: one of its
+    branches requires none of the others and declares all of them."""
+    sent = set(fields)
+    required, declared = _card_fields(request)
+    for branch in request.get("oneOf") or [{}]:
+        branch_required, branch_declared = _card_fields(branch)
+        if required | branch_required <= sent <= declared | branch_declared:
+            return True
+    return False
+
+
+def _card_fields(schema: Mapping[str, Any]) -> tuple[set[str], set[str]]:
+    required = set(schema.get("required") or ())
+    return required, required.union(schema.get("optional") or (), schema.get("supported") or ())
+
+
+def _response_model_field_schema(model: type[BaseModel]) -> FieldSchema:
+    required: list[str] = []
+    optional: list[str] = []
+    for name, field_info in model.model_fields.items():
+        wire_name = field_info.serialization_alias or field_info.alias or name
+        (required if field_info.is_required() else optional).append(wire_name)
+    return FieldSchema(required=tuple(required), optional=tuple(optional))
+
+
+@dataclass(frozen=True, slots=True)
+class OperationDefinition:
+    name: str
+    method: str
+    path: str
+    implementation: ImplementationOwner
+    request: RequestDefinition | type[BaseModel] | None = None
+    response: FieldSchema | type[BaseModel] | None = None
+    response_model: type[BaseModel] | None = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "method", self.method.upper())
+        if isinstance(self.request, type) and issubclass(self.request, BaseModel):
+            object.__setattr__(self, "request", RequestDefinition(model=self.request))
+        elif self.request is not None and not isinstance(
+            self.request, RequestDefinition
+        ):
+            raise TypeError(
+                "operation request must be a Pydantic BaseModel subclass or "
+                "RequestDefinition"
+            )
+        if isinstance(self.response, type) and issubclass(self.response, BaseModel):
+            if self.response.model_config.get("extra") != "forbid":
+                raise TypeError(
+                    f"response model {self.response.__name__} must set extra='forbid'"
+                )
+            object.__setattr__(self, "response_model", self.response)
+            object.__setattr__(
+                self, "response", _response_model_field_schema(self.response)
+            )
+        if not self.path.startswith("/"):
+            raise ValueError(
+                f"extension operation path must be absolute: {self.path!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class OperationGroup:
+    operations: Mapping[str, OperationDefinition]
+    required_together: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "operations", MappingProxyType(dict(self.operations)))
+
+
+@dataclass(frozen=True, slots=True)
+class ExtensionConfiguration:
+    """Validated configuration contributed by an extension definition."""
+
+    wire_params: Mapping[str, Any] = field(default_factory=dict)
+    options: Mapping[str, Any] = field(default_factory=dict)
+    features: frozenset[str] = frozenset()
+    variants: Mapping[str, frozenset[str]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "wire_params", MappingProxyType(dict(self.wire_params))
+        )
+        object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
+        object.__setattr__(self, "features", frozenset(self.features))
+        object.__setattr__(
+            self,
+            "variants",
+            MappingProxyType(
+                {operation: frozenset(names) for operation, names in self.variants.items()}
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ExtensionDefinition:
+    uri: str
+    description: str
+    endpoint: str | None
+    core_operations: Mapping[str, OperationDefinition] = field(default_factory=dict)
+    optional_features: Mapping[str, OperationGroup] = field(default_factory=dict)
+    configuration_validator: Callable[..., ExtensionConfiguration] | None = None
+
+    def __post_init__(self) -> None:
+        if self.endpoint is not None and not self.endpoint.startswith("/"):
+            raise ValueError(f"extension endpoint must be absolute: {self.endpoint!r}")
+        core = dict(self.core_operations)
+        optional = {name: group for name, group in self.optional_features.items()}
+        all_names = [operation.name for operation in core.values()]
+        for group in optional.values():
+            all_names.extend(operation.name for operation in group.operations.values())
+        if len(all_names) != len(set(all_names)):
+            raise ValueError(f"duplicate operation in {self.uri}")
+        if self.configuration_validator is not None and not callable(
+            self.configuration_validator
+        ):
+            raise TypeError("configuration_validator must be callable")
+        object.__setattr__(self, "core_operations", MappingProxyType(core))
+        object.__setattr__(self, "optional_features", MappingProxyType(optional))
+
+    @property
+    def operations(self) -> Mapping[str, OperationDefinition]:
+        result = dict(self.core_operations)
+        for group in self.optional_features.values():
+            result.update(group.operations)
+        return MappingProxyType(result)
+
+    def operation(self, name: str) -> OperationDefinition:
+        try:
+            return self.operations[name]
+        except KeyError as exc:
+            raise ValueError(f"{self.uri} has no operation {name!r}") from exc
+
+    def __getattr__(self, name: str) -> "OperationReference | _FeatureOperations":
+        if name in self.optional_features:
+            return _FeatureOperations(self, name)
+        try:
+            self.operation(name)
+        except ValueError as exc:
+            raise AttributeError(name) from exc
+        return OperationReference(self, name)
+
+
+@dataclass(frozen=True, slots=True)
+class ExtensionActivation:
+    definition: ExtensionDefinition
+    description: str | None = None
+    features: frozenset[str] = frozenset()
+    variants: Mapping[str, frozenset[str]] = field(default_factory=dict)
+    wire_params: Mapping[str, Any] = field(default_factory=dict)
+    options: Mapping[str, Any] = field(default_factory=dict)
+    required: bool | None = None
+
+    def __post_init__(self) -> None:
+        if self.description is not None:
+            if not isinstance(self.description, str):
+                raise TypeError("description must be a string")
+            if not self.description.strip():
+                raise ValueError("extension description must not be empty")
+        object.__setattr__(self, "features", frozenset(self.features))
+        unknown_features = set(self.features) - set(self.definition.optional_features)
+        if unknown_features:
+            raise ValueError(
+                f"unknown features for {self.definition.uri}: "
+                f"{sorted(unknown_features)}"
+            )
+        variants = {name: frozenset(values) for name, values in self.variants.items()}
+        unknown_operations = set(variants) - set(self.definition.operations)
+        if unknown_operations:
+            raise ValueError(
+                f"unknown variant operations for {self.definition.uri}: "
+                f"{sorted(unknown_operations)}"
+            )
+        for operation_name, enabled in variants.items():
+            request = self.definition.operation(operation_name).request
+            if request is None:
+                raise ValueError(
+                    f"{self.definition.uri}.{operation_name} has no request variants"
+                )
+            unknown_variants = set(enabled) - request.optional_variants
+            if unknown_variants:
+                raise ValueError(
+                    f"unknown optional request variants for "
+                    f"{self.definition.uri}.{operation_name}: {sorted(unknown_variants)}"
+                )
+        object.__setattr__(self, "variants", MappingProxyType(variants))
+        object.__setattr__(
+            self, "wire_params", MappingProxyType(dict(self.wire_params))
+        )
+        object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
+
+
+@dataclass(frozen=True, slots=True)
+class HandlerBinding:
+    extension: ExtensionDefinition
+    operation: str
+    variant: str | None = None
+
+
+_HANDLER_BINDING = "_agentenv_a2a_handler_binding"
+
+
+def _bind(fn: Callable, binding: HandlerBinding) -> Callable:
+    if getattr(fn, _HANDLER_BINDING, None) is not None:
+        raise TypeError(f"{fn.__name__} already has an A2A extension binding")
+    setattr(fn, _HANDLER_BINDING, binding)
+    return fn
+
+
+@dataclass(frozen=True, slots=True)
+class OperationReference:
+    """Typed reference passed to the generic :func:`extension` decorator."""
+
+    extension_definition: ExtensionDefinition
+    operation: str
+    request_variant: str | None = None
+
+    def variant(self, name: str) -> "OperationReference":
+        operation = self.extension_definition.operation(self.operation)
+        if operation.request is None:
+            raise ValueError(f"{operation.name} has no request variants")
+        try:
+            operation.request.variant(name)
+        except KeyError as exc:
+            raise ValueError(
+                f"{operation.name} has no request variant {name!r}"
+            ) from exc
+        return OperationReference(self.extension_definition, self.operation, name)
+
+    def __getattr__(self, name: str) -> "OperationReference":
+        try:
+            return self.variant(name)
+        except ValueError as exc:
+            raise AttributeError(name) from exc
+
+
+class _FeatureOperations:
+    def __init__(self, extension: ExtensionDefinition, feature: str) -> None:
+        self._extension = extension
+        self._feature = feature
+
+    def __getattr__(self, operation: str) -> OperationReference:
+        group = self._extension.optional_features[self._feature]
+        if operation not in group.operations:
+            raise AttributeError(operation)
+        return OperationReference(self._extension, operation)
+
+
+def extension(operation: OperationReference) -> Callable[[Callable], Callable]:
+    """Bind a method to an operation or request variant.
+
+    Binding any operation activates its containing extension. A shared
+    non-AgentEnv ``ExtensionDefinition`` is the canonical way to bind multiple
+    custom operations under one URI.
+    """
+    if not isinstance(operation, OperationReference):
+        raise TypeError("@extension expects an OperationReference")
+    _validate_reserved_definition(operation.extension_definition)
+
+    def decorator(fn: Callable) -> Callable:
+        return _bind(
+            fn,
+            HandlerBinding(
+                operation.extension_definition,
+                operation.operation,
+                variant=operation.request_variant,
+            ),
+        )
+
+    return decorator
+
+
+def custom_extension(
+    *,
+    uri: str,
+    operation: str,
+    method: str,
+    path: str,
+    request: type[BaseModel] | None = None,
+    response: FieldSchema | None = None,
+    description: str = "",
+) -> Callable[[Callable], Callable]:
+    """Single-operation sugar for a non-AgentEnv extension."""
+    if uri.startswith("urn:agentenv:"):
+        raise ValueError(
+            "custom_extension cannot redefine urn:agentenv:*; use a canonical hook "
+            "or scoped override"
+        )
+    definition = ExtensionDefinition(
+        uri=uri,
+        description=description,
+        endpoint=path,
+        core_operations={
+            operation: OperationDefinition(
+                name=operation,
+                method=method,
+                path=path,
+                implementation=ImplementationOwner.RUNTIME,
+                request=request,
+                response=response,
+            )
+        },
+    )
+
+    def decorator(fn: Callable) -> Callable:
+        return extension(OperationReference(definition, operation))(fn)
+
+    return decorator
+
+
+def _op(
+    name: str,
+    method: str,
+    path: str,
+    owner: ImplementationOwner,
+    *,
+    request_model: type[BaseModel] | None = None,
+    response_model: type[BaseModel] | None = None,
+    response_required: Iterable[str] = (),
+    response_optional: Iterable[str] = (),
+    variants: Iterable[RequestVariant] = (),
+) -> OperationDefinition:
+    response_required = _tuple(response_required)
+    response_optional = _tuple(response_optional)
+    variants = tuple(variants)
+    if request_model is not None and variants:
+        raise TypeError("an operation cannot declare both a request model and variants")
+    request: RequestDefinition | type[BaseModel] | None = request_model
+    if variants:
+        request = RequestDefinition(variants=variants)
+    response: FieldSchema | type[BaseModel] | None = response_model
+    if response_required or response_optional:
+        response = FieldSchema(required=response_required, optional=response_optional)
+    return OperationDefinition(
+        name=name,
+        method=method,
+        path=path,
+        implementation=owner,
+        request=request,
+        response=response,
+    )
+
+
+def _configure_agent_config(
+    *,
+    fields: Iterable[str],
+    defaults: Mapping[str, Any] | None = None,
+    schema: Mapping[str, Any] | None = None,
+    readback: bool = False,
+) -> ExtensionConfiguration:
+    if isinstance(fields, str):
+        raise TypeError("fields must be an iterable of field names, not a string")
+    fields = tuple(fields)
+    if not all(isinstance(name, str) and name for name in fields):
+        raise TypeError("fields must contain non-empty strings")
+    supported_fields = frozenset(fields)
+    if defaults is None:
+        defaults = {}
+    if not isinstance(defaults, Mapping):
+        raise TypeError("defaults must be a mapping")
+    unsupported_defaults = set(defaults) - supported_fields
+    if unsupported_defaults:
+        raise ValueError(
+            "agent config defaults contain unsupported fields: "
+            f"{sorted(unsupported_defaults)}"
+        )
+    if not isinstance(readback, bool):
+        raise TypeError("readback must be a boolean")
+    if schema is not None and not isinstance(schema, Mapping):
+        raise TypeError("schema must be a mapping")
+    request: dict[str, Any] = {"supported": sorted(supported_fields)}
+    if schema is not None:
+        request["schema"] = dict(schema)
+    return ExtensionConfiguration(
+        wire_params={"methods": {"set": {"request": request}}},
+        options={"defaults": dict(defaults)},
+        features=frozenset({"readback"}) if readback else frozenset(),
+    )
+
+
+def _configure_install(**declaration: Any) -> ExtensionConfiguration:
+    return ExtensionConfiguration(wire_params=declaration)
+
+
+def _configure_trajectory(*, live: bool = False) -> ExtensionConfiguration:
+    """``live=True`` advertises the cursor reads, which serve the framework's log while a
+    task runs, and the context reads the framework answers when the agent binds none."""
+    if not isinstance(live, bool):
+        raise TypeError("live must be a boolean")
+    if not live:
+        return ExtensionConfiguration()
+    return ExtensionConfiguration(
+        variants={"get": {"task_events", "context_events", "context", "context_objects"}}
+    )
+
+
+SDK = ImplementationOwner.SDK
+RUNTIME = ImplementationOwner.RUNTIME
+
+AGENT_CONFIG_V1 = ExtensionDefinition(
+    uri="urn:agentenv:agent-config/v1",
+    description="Set or read agent configuration.",
+    endpoint="/ext/agent-config",
+    core_operations={
+        "set": _op(
+            "set",
+            "POST",
+            "/ext/agent-config",
+            SDK,
+            request_model=AgentConfig,
+        )
+    },
+    optional_features={
+        "readback": OperationGroup(
+            {
+                "get": _op(
+                    "get",
+                    "GET",
+                    "/ext/agent-config",
+                    SDK,
+                    response_required=("config",),
+                )
+            }
+        )
+    },
+    configuration_validator=_configure_agent_config,
+)
+
+MCP_CONFIG_V1 = ExtensionDefinition(
+    uri="urn:agentenv:mcp-config/v1",
+    description="Register MCP servers the agent should use.",
+    endpoint="/ext/mcp-config",
+    core_operations={
+        "add": _op(
+            "add",
+            "POST",
+            "/ext/mcp-config",
+            SDK,
+            request_model=McpAddRequest,
+        ),
+        "list": _op(
+            "list", "GET", "/ext/mcp-config", SDK, response_required=("mcp_servers",)
+        ),
+    },
+)
+
+SKILL_CONFIG_V1 = ExtensionDefinition(
+    uri="urn:agentenv:skill-config/v1",
+    description="Register skills made available to the agent.",
+    endpoint="/ext/skill-config",
+    core_operations={
+        "add": OperationDefinition(
+            name="add",
+            method="POST",
+            path="/ext/skill-config",
+            implementation=RUNTIME,
+            request=RequestDefinition(
+                variants=(
+                    RequestVariant("inline", InlineSkillRequest),
+                    RequestVariant("bundle", BundleSkillRequest),
+                ),
+            ),
+            response=SkillAddResponse,
+        ),
+        "list": _op(
+            "list", "GET", "/ext/skill-config", SDK, response_required=("skills",)
+        ),
+    },
+)
+
+TRAJECTORY_V1 = ExtensionDefinition(
+    uri="urn:agentenv:trajectory/v1",
+    description="Retrieve an agent trajectory.",
+    endpoint="/ext/trajectory",
+    core_operations={
+        "get": OperationDefinition(
+            name="get",
+            method="POST",
+            path="/ext/trajectory",
+            implementation=SDK,
+            request=RequestDefinition(
+                variants=(
+                    RequestVariant("task", TaskTrajectoryRequest),
+                    RequestVariant("task_objects", TaskObjectTrajectoryRequest),
+                    RequestVariant(
+                        "context",
+                        ContextTrajectoryRequest,
+                        support_required=False,
+                        implementation=RUNTIME,
+                    ),
+                    RequestVariant(
+                        "context_objects",
+                        ContextObjectTrajectoryRequest,
+                        support_required=False,
+                        implementation=RUNTIME,
+                    ),
+                    RequestVariant(
+                        "task_events",
+                        TaskEventsTrajectoryRequest,
+                        support_required=False,
+                        implementation=SDK,
+                    ),
+                    RequestVariant(
+                        "context_events",
+                        ContextEventsTrajectoryRequest,
+                        support_required=False,
+                        implementation=SDK,
+                    ),
+                ),
+            ),
+        )
+    },
+    configuration_validator=_configure_trajectory,
+)
+
+SNAPSHOT_V1 = ExtensionDefinition(
+    uri="urn:agentenv:snapshot/v1",
+    description="Save and restore agent-native state.",
+    endpoint="/ext/snapshot",
+    core_operations={
+        "save": _op(
+            "save",
+            "POST",
+            "/ext/snapshot",
+            RUNTIME,
+            request_model=ObjectSnapshotSaveRequest,
+            response_model=ObjectSnapshotSaveResponse,
+        ),
+        "load": _op(
+            "load",
+            "PUT",
+            "/ext/snapshot",
+            RUNTIME,
+            request_model=ObjectSnapshotLoadRequest,
+            response_model=ObjectSnapshotLoadResponse,
+        ),
+    },
+    optional_features={
+        "changelog": OperationGroup(
+            operations={
+                "enable": _op(
+                    "enable-changelog",
+                    "POST",
+                    "/ext/snapshot/changelog",
+                    RUNTIME,
+                    request_model=NamespaceChangelogEnableRequest,
+                    response_model=NamespaceChangelogEnableResponse,
+                ),
+                "apply": _op(
+                    "apply-changelog",
+                    "PUT",
+                    "/ext/snapshot/changelog",
+                    RUNTIME,
+                    request_model=ObjectChangelogApplyRequest,
+                    response_model=ObjectChangelogApplyResponse,
+                ),
+            }
+        )
+    },
+)
+
+PEER_AGENTS_V1 = ExtensionDefinition(
+    uri="urn:agentenv:peer-agents/v1",
+    description="Configure peer A2A agents available for delegation.",
+    endpoint="/ext/peer-agents",
+    core_operations={
+        "set": _op(
+            "set",
+            "POST",
+            "/ext/peer-agents",
+            SDK,
+            request_model=PeerAgentsSetRequest,
+        ),
+        "list": _op(
+            "list", "GET", "/ext/peer-agents", SDK, response_required=("peers",)
+        ),
+    },
+)
+
+ATTRIBUTION_PROBE_V1 = ExtensionDefinition(
+    uri="urn:agentenv:attribution-probe/v1",
+    description="Report the attribution dimensions last sent with a model request.",
+    endpoint="/ext/attribution-probe",
+    core_operations={
+        "probe": _op(
+            "probe",
+            "POST",
+            "/ext/attribution-probe",
+            RUNTIME,
+            response_model=AttributionProbeResponse,
+        ),
+    },
+)
+
+TRIGGERS_V1 = ExtensionDefinition(
+    uri="urn:agentenv:triggers/v1",
+    description="Register triggers and decide deterministic responses.",
+    endpoint="/ext/triggers",
+    core_operations={
+        "register": _op(
+            "register",
+            "POST",
+            "/ext/triggers",
+            SDK,
+            request_model=TriggerRegisterRequest,
+        ),
+        "decide": _op(
+            "decide",
+            "POST",
+            "/ext/triggers/decide",
+            SDK,
+            request_model=TriggerDecideRequest,
+            response_required=("parts", "done", "fired"),
+        ),
+        "state": _op(
+            "state",
+            "GET",
+            "/ext/triggers",
+            SDK,
+            response_required=("firing_log",),
+        ),
+    },
+)
+
+INSTALL_V1 = ExtensionDefinition(
+    uri="urn:agentenv:install/v1",
+    description="Declare commands for installing the agent into an existing target.",
+    endpoint=None,
+    configuration_validator=_configure_install,
+)
+
+PROXY_V1 = ExtensionDefinition(
+    uri="urn:agentenv:proxy/v1",
+    description="Hand the agent's turns to a driver outside its sandbox, and run the driver's actions where the agent works.",
+    endpoint="/ext/proxy",
+    core_operations={
+        "claim": _op("claim", "POST", "/ext/proxy/claim", RUNTIME, request_model=ProxyClaimRequest),
+        "next": _op(
+            "next", "POST", "/ext/proxy/next", RUNTIME,
+            request_model=ProxyNextRequest, response_model=ProxyNextResponse,
+        ),
+        "tools": _op(
+            "tools", "POST", "/ext/proxy/tools", RUNTIME,
+            request_model=ProxyToolsRequest, response_model=ProxyToolsResponse,
+        ),
+        "act": _op(
+            "act", "POST", "/ext/proxy/act", RUNTIME,
+            request_model=ProxyActRequest, response_model=ProxyActionState,
+        ),
+        "result": _op(
+            "result", "POST", "/ext/proxy/result", RUNTIME,
+            request_model=ProxyResultRequest, response_model=ProxyActionState,
+        ),
+        "record": _op("record", "POST", "/ext/proxy/record", RUNTIME, request_model=ProxyRecordRequest),
+        "reply": _op("reply", "POST", "/ext/proxy/reply", RUNTIME, request_model=ProxyReplyRequest),
+    },
+)
+
+STANDARD_EXTENSIONS: Mapping[str, ExtensionDefinition] = MappingProxyType(
+    {
+        extension.uri: extension
+        for extension in (
+            AGENT_CONFIG_V1,
+            MCP_CONFIG_V1,
+            SKILL_CONFIG_V1,
+            TRAJECTORY_V1,
+            SNAPSHOT_V1,
+            PEER_AGENTS_V1,
+            ATTRIBUTION_PROBE_V1,
+            TRIGGERS_V1,
+            INSTALL_V1,
+            PROXY_V1,
+        )
+    }
+)
+
+
+def _validate_reserved_definition(definition: ExtensionDefinition) -> None:
+    """Require reserved AgentEnv URIs to use their canonical SDK object."""
+    if not definition.uri.startswith("urn:agentenv:"):
+        return
+    canonical = STANDARD_EXTENSIONS.get(definition.uri)
+    if canonical is None or definition is not canonical:
+        raise ValueError(
+            f"reserved extension URI {definition.uri!r} must use its canonical "
+            "SDK definition"
+        )
+
+
+def enable(
+    definition: ExtensionDefinition,
+    *,
+    description: str | None = None,
+    features: Iterable[str] = (),
+    variants: Mapping[str, Iterable[str]] | None = None,
+    required: bool | None = None,
+    **configuration: Any,
+) -> ExtensionActivation:
+    """Enable a versioned extension definition with semantic configuration."""
+    if not isinstance(definition, ExtensionDefinition):
+        raise TypeError("enable expects an ExtensionDefinition")
+    _validate_reserved_definition(definition)
+    if description is not None and not isinstance(description, str):
+        raise TypeError("description must be a string")
+
+    validator = definition.configuration_validator
+    if validator is None:
+        validated = ExtensionConfiguration()
+    else:
+        validated = validator(**configuration)
+        if not isinstance(validated, ExtensionConfiguration):
+            raise TypeError(
+                f"configuration validator for {definition.uri} must return "
+                "ExtensionConfiguration"
+            )
+
+    if validator is None and configuration:
+        raise TypeError(
+            f"unsupported configuration for {definition.uri}: {sorted(configuration)}"
+        )
+
+    selected_features = set(features)
+    selected_features.update(validated.features)
+    selected_variants = dict(validated.variants)
+    for operation, names in (variants or {}).items():
+        selected_variants[operation] = selected_variants.get(
+            operation, frozenset()
+        ) | frozenset(names)
+
+    return ExtensionActivation(
+        definition=definition,
+        description=description,
+        features=frozenset(selected_features),
+        variants=selected_variants,
+        wire_params=validated.wire_params,
+        options=validated.options,
+        required=required,
+    )

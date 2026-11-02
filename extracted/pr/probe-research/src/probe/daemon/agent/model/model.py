@@ -220,7 +220,7 @@ async def _name_watched_session(request) -> None:
             request.headers[name] = value
 
 
-def _marker_fresh(path_of, now: float | None) -> bool:
+def _is_marker_fresh(path_of, now: float | None) -> bool:
     """This process's session's marker `path_of(sid)` touched within HINTS_LIVE_TTL_S."""
     sid = _hints_sid.get()
     if not sid:
@@ -237,7 +237,7 @@ def hints_live(now: float | None = None) -> bool:
     marker (`mailbox.hints_live_path`) touched within HINTS_LIVE_TTL_S?"""
     from probe.shared import mailbox
 
-    return _marker_fresh(mailbox.hints_live_path, now)
+    return _is_marker_fresh(mailbox.hints_live_path, now)
 
 
 def window_hints_live(now: float | None = None) -> bool:
@@ -246,7 +246,7 @@ def window_hints_live(now: float | None = None) -> bool:
     they cover the reader's 30-minute check-ins (plan hints-window-trigger W4)."""
     from probe.shared import mailbox
 
-    return _marker_fresh(mailbox.hints_window_path, now)
+    return _is_marker_fresh(mailbox.hints_window_path, now)
 
 
 async def _prefer_served_model(request) -> None:
@@ -289,7 +289,7 @@ def remember_pushed_settings(headers: Any) -> None:
             _pushed.get()[header] = kind(value)
     for header, cap in ((WRITER_COLD_FRESH_HEADER, MAX_WRITER_COLD_FRESH_S),
                         (WRITER_FILE_BURST_HEADER, MAX_WRITER_FILE_BURST)):
-        number = _whole(headers.get(header))
+        number = _get_whole(headers.get(header))
         if number is not None:
             _pushed.get()[header] = min(number, cap)
 
@@ -332,7 +332,7 @@ def _confirm_restored(headers: Any) -> None:
     _restored.get().clear()
 
 
-def _whole(raw: Any) -> int | None:
+def _get_whole(raw: Any) -> int | None:
     """`raw` as a whole number >= 0, else None (missing or malformed)."""
     try:
         number = int(str(raw).strip()) if raw is not None else None
@@ -344,7 +344,7 @@ def _whole(raw: Any) -> int | None:
 def _setting(env: str, header: str, cap: int) -> int:
     """A whole-number writer setting: the environment variable, else the server's,
     else 0 (off)."""
-    number = _whole(os.environ.get(env))
+    number = _get_whole(os.environ.get(env))
     if number is None:
         number = int(_pushed.get().get(header, 0))  # type: ignore[call-overload]
     return min(number, cap)

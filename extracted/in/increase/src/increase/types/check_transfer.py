@@ -1,0 +1,637 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import date, datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "CheckTransfer",
+    "Approval",
+    "Cancellation",
+    "CreatedBy",
+    "CreatedByAPIKey",
+    "CreatedByOAuthApplication",
+    "CreatedByUser",
+    "Mailing",
+    "PhysicalCheck",
+    "PhysicalCheckMailingAddress",
+    "PhysicalCheckPayer",
+    "PhysicalCheckReturnAddress",
+    "PhysicalCheckSignature",
+    "PhysicalCheckTrackingUpdate",
+    "StopPaymentRequest",
+    "Submission",
+    "SubmissionSubmittedAddress",
+    "ThirdParty",
+]
+
+
+class Approval(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was approved, this will contain details of the approval.
+    """
+
+    approved_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was approved.
+    """
+
+    approved_by: Optional[str] = None
+    """
+    If the Transfer was approved by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class Cancellation(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was not approved, this will contain details of the cancellation.
+    """
+
+    canceled_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Transfer was canceled.
+    """
+
+    canceled_by: Optional[str] = None
+    """
+    If the Transfer was canceled by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class CreatedByAPIKey(BaseModel):
+    """If present, details about the API key that created the transfer."""
+
+    description: Optional[str] = None
+    """The description set for the API key when it was created."""
+
+
+class CreatedByOAuthApplication(BaseModel):
+    """If present, details about the OAuth Application that created the transfer."""
+
+    name: str
+    """The name of the OAuth Application."""
+
+
+class CreatedByUser(BaseModel):
+    """If present, details about the User that created the transfer."""
+
+    email: str
+    """The email address of the User."""
+
+
+class CreatedBy(BaseModel):
+    """What object created the transfer, either via the API or the dashboard."""
+
+    category: Literal["api_key", "oauth_application", "user"]
+    """The type of object that created this transfer.
+
+    - `api_key` - An API key. Details will be under the `api_key` object.
+    - `oauth_application` - An OAuth application you connected to Increase. Details
+      will be under the `oauth_application` object.
+    - `user` - A User in the Increase dashboard. Details will be under the `user`
+      object.
+    """
+
+    api_key: Optional[CreatedByAPIKey] = None
+    """If present, details about the API key that created the transfer."""
+
+    oauth_application: Optional[CreatedByOAuthApplication] = None
+    """If present, details about the OAuth Application that created the transfer."""
+
+    user: Optional[CreatedByUser] = None
+    """If present, details about the User that created the transfer."""
+
+
+class Mailing(BaseModel):
+    """Once the check has been mailed, this will contain details about the shipment.
+
+    Only available when `fulfillment_method` is equal to `physical_check`.
+    """
+
+    mailed_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the check was mailed.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class PhysicalCheckMailingAddress(BaseModel):
+    """Details for where Increase will mail the check."""
+
+    city: Optional[str] = None
+    """The city of the check's destination."""
+
+    line1: Optional[str] = None
+    """The street address of the check's destination."""
+
+    line2: Optional[str] = None
+    """The second line of the address of the check's destination."""
+
+    name: Optional[str] = None
+    """The name component of the check's mailing address."""
+
+    phone: Optional[str] = None
+    """
+    The phone number to be used in case of delivery issues at the check's mailing
+    address. Only used for FedEx overnight shipping.
+    """
+
+    postal_code: Optional[str] = None
+    """The postal code of the check's destination."""
+
+    state: Optional[str] = None
+    """The state of the check's destination."""
+
+
+class PhysicalCheckPayer(BaseModel):
+    contents: str
+    """The contents of the line."""
+
+
+class PhysicalCheckReturnAddress(BaseModel):
+    """The return address to be printed on the check."""
+
+    city: Optional[str] = None
+    """The city of the check's destination."""
+
+    line1: Optional[str] = None
+    """The street address of the check's destination."""
+
+    line2: Optional[str] = None
+    """The second line of the address of the check's destination."""
+
+    name: Optional[str] = None
+    """The name component of the check's return address."""
+
+    phone: Optional[str] = None
+    """The shipper's phone number to be used in case of delivery issues.
+
+    Only used for FedEx overnight shipping.
+    """
+
+    postal_code: Optional[str] = None
+    """The postal code of the check's destination."""
+
+    state: Optional[str] = None
+    """The state of the check's destination."""
+
+
+class PhysicalCheckSignature(BaseModel):
+    """The signature that will appear on the check."""
+
+    image_file_id: Optional[str] = None
+    """The ID of a File containing a PNG of the signature."""
+
+    text: Optional[str] = None
+    """The text that will appear as the signature on the check in cursive font."""
+
+
+class PhysicalCheckTrackingUpdate(BaseModel):
+    carrier_estimated_delivery_at: Optional[datetime] = None
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time when the
+    carrier expects the check to be delivered.
+    """
+
+    category: Literal[
+        "in_transit",
+        "processed_for_delivery",
+        "delivered",
+        "delivery_issue",
+        "returning_to_sender",
+        "returned_to_sender",
+    ]
+    """The type of tracking event.
+
+    - `in_transit` - The check is in transit.
+    - `processed_for_delivery` - The check has been processed for delivery.
+    - `delivered` - The check has been delivered. Note that some couriers track
+      delivery status based on driver location data rather than an explicit scan.
+      While uncommon, a single check may have more than one delivered event.
+    - `delivery_issue` - There is an issue preventing delivery. The delivery will be
+      attempted again if possible. If the issue cannot be resolved, the check will
+      be rerouted to the return address.
+    - `returning_to_sender` - The check has been rerouted to the return address.
+    - `returned_to_sender` - The check has been delivered to the return address.
+    """
+
+    country: str
+    """The ISO 3166-1 alpha-2 country code for the country where the event took place."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the tracking event took place.
+    """
+
+    postal_code: str
+    """The postal code where the event took place."""
+
+
+class PhysicalCheck(BaseModel):
+    """Details relating to the physical check that Increase will print and mail.
+
+    Will be present if and only if `fulfillment_method` is equal to `physical_check`.
+    """
+
+    attachment_file_id: Optional[str] = None
+    """The ID of the file for the check attachment."""
+
+    check_voucher_image_file_id: Optional[str] = None
+    """The ID of the file for the check voucher image."""
+
+    mailing_address: PhysicalCheckMailingAddress
+    """Details for where Increase will mail the check."""
+
+    memo: Optional[str] = None
+    """The descriptor that will be printed on the memo field on the check."""
+
+    note: Optional[str] = None
+    """The descriptor that will be printed on the letter included with the check."""
+
+    payer: List[PhysicalCheckPayer]
+    """The payer of the check.
+
+    This will be printed on the top-left portion of the check and defaults to the
+    return address if unspecified.
+    """
+
+    physical_check_batch_id: Optional[str] = None
+    """The identifier of the Physical Check Batch that this check is a part of."""
+
+    recipient_name: str
+    """The name that will be printed on the check."""
+
+    return_address: Optional[PhysicalCheckReturnAddress] = None
+    """The return address to be printed on the check."""
+
+    return_address_name: Optional[str] = None
+    """A custom name printed above the Increase-managed return address."""
+
+    shipping_method: Literal["usps_first_class", "fedex_overnight"]
+    """The shipping method for the check.
+
+    - `usps_first_class` - USPS First Class
+    - `fedex_overnight` - FedEx Overnight
+    """
+
+    signature: PhysicalCheckSignature
+    """The signature that will appear on the check."""
+
+    tracking_updates: List[PhysicalCheckTrackingUpdate]
+    """Tracking updates relating to the physical check's delivery.
+
+    Sorted by `created_at` in ascending order.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class StopPaymentRequest(BaseModel):
+    """
+    After a stop-payment is requested on the check, this will contain supplemental details.
+    """
+
+    reason: Literal[
+        "mail_delivery_failed", "rejected_by_increase", "not_authorized", "valid_until_date_passed", "unknown"
+    ]
+    """The reason why this transfer was stopped.
+
+    - `mail_delivery_failed` - The check could not be delivered.
+    - `rejected_by_increase` - The check was canceled by an Increase operator who
+      will provide details out-of-band.
+    - `not_authorized` - The check was not authorized.
+    - `valid_until_date_passed` - The check was stopped for `valid_until_date` being
+      in the past.
+    - `unknown` - The check was stopped for another reason.
+    """
+
+    requested_at: datetime
+    """The time the stop-payment was requested."""
+
+    transfer_id: str
+    """The ID of the check transfer that was stopped."""
+
+    type: Literal["check_transfer_stop_payment_request"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `check_transfer_stop_payment_request`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class SubmissionSubmittedAddress(BaseModel):
+    """The address we submitted to the printer.
+
+    This is what is physically printed on the check.
+    """
+
+    city: str
+    """The submitted address city."""
+
+    line1: str
+    """The submitted address line 1."""
+
+    line2: Optional[str] = None
+    """The submitted address line 2."""
+
+    recipient_name: str
+    """The submitted recipient name."""
+
+    state: str
+    """The submitted address state."""
+
+    zip: str
+    """The submitted address zip."""
+
+
+class Submission(BaseModel):
+    """
+    Once the check has been submitted to our printer, this will contain details about the submission. Only available when `fulfillment_method` is equal to `physical_check`.
+    """
+
+    preview_file_id: Optional[str] = None
+    """
+    The ID of the file corresponding to an image of the check that was mailed, if
+    available.
+    """
+
+    submitted_address: SubmissionSubmittedAddress
+    """The address we submitted to the printer.
+
+    This is what is physically printed on the check.
+    """
+
+    submitted_at: datetime
+    """When this check was submitted to our check printer."""
+
+    tracking_number: Optional[str] = None
+    """The tracking number for the check shipment."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class ThirdParty(BaseModel):
+    """Details relating to the custom fulfillment you will perform.
+
+    Will be present if and only if `fulfillment_method` is equal to `third_party`.
+    """
+
+    recipient_name: Optional[str] = None
+    """The name that you will print on the check."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class CheckTransfer(BaseModel):
+    """
+    Check Transfers move funds from your Increase account by mailing a physical check.
+    """
+
+    id: str
+    """The Check transfer's identifier."""
+
+    account_id: str
+    """The identifier of the Account from which funds will be transferred."""
+
+    account_number: str
+    """The account number printed on the check."""
+
+    amount: int
+    """The transfer amount in USD cents."""
+
+    approval: Optional[Approval] = None
+    """
+    If your account requires approvals for transfers and the transfer was approved,
+    this will contain details of the approval.
+    """
+
+    approved_inbound_check_deposit_id: Optional[str] = None
+    """
+    If the Check Transfer was successfully deposited, this will contain the
+    identifier of the Inbound Check Deposit object with details of the deposit. The
+    Inbound Check Deposit object will have information about any associated
+    Transactions for this Check Transfer.
+    """
+
+    balance_check: Optional[Literal["full", "none"]] = None
+    """How the account's available balance should be checked.
+
+    - `full` - The available balance of the account must be at least the amount of
+      the check, and a Pending Transaction will be created for the full amount. This
+      is the default behavior if `balance_check` is omitted.
+    - `none` - No balance check will performed when the check transfer is initiated.
+      A zero-dollar Pending Transaction will be created. The balance will still be
+      checked when the Inbound Check Deposit is created.
+    """
+
+    cancellation: Optional[Cancellation] = None
+    """
+    If your account requires approvals for transfers and the transfer was not
+    approved, this will contain details of the cancellation.
+    """
+
+    check_number: str
+    """The check number printed on the check."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    created_by: Optional[CreatedBy] = None
+    """What object created the transfer, either via the API or the dashboard."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the check's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    fulfillment_method: Literal["physical_check", "third_party"]
+    """Whether Increase will print and mail the check or if you will do it yourself.
+
+    - `physical_check` - Increase will print and mail a physical check.
+    - `third_party` - Increase will not print a check; you are responsible for
+      printing and mailing a check with the provided account number, routing number,
+      check number, and amount.
+    """
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    mailing: Optional[Mailing] = None
+    """Once the check has been mailed, this will contain details about the shipment.
+
+    Only available when `fulfillment_method` is equal to `physical_check`.
+    """
+
+    pending_transaction_id: Optional[str] = None
+    """The ID for the pending transaction representing the transfer.
+
+    A pending transaction is created when the transfer
+    [requires approval](https://increase.com/documentation/transfer-approvals#transfer-approvals)
+    by someone else in your organization.
+    """
+
+    physical_check: Optional[PhysicalCheck] = None
+    """Details relating to the physical check that Increase will print and mail.
+
+    Will be present if and only if `fulfillment_method` is equal to
+    `physical_check`.
+    """
+
+    routing_number: str
+    """The routing number printed on the check."""
+
+    source_account_number_id: Optional[str] = None
+    """
+    The identifier of the Account Number from which to send the transfer and print
+    on the check.
+    """
+
+    status: Literal[
+        "pending_approval",
+        "canceled",
+        "pending_batch_completing",
+        "pending_submission",
+        "pending_reviewing",
+        "requires_attention",
+        "rejected",
+        "pending_mailing",
+        "mailed",
+        "deposited",
+        "stopped",
+        "returned",
+    ]
+    """The lifecycle status of the transfer.
+
+    - `pending_approval` - The transfer is awaiting approval.
+    - `canceled` - The transfer has been canceled.
+    - `pending_batch_completing` - The transfer is waiting for its Physical Check
+      Batch to be completed.
+    - `pending_submission` - The transfer is pending submission.
+    - `pending_reviewing` - The transfer is pending review by Increase.
+    - `requires_attention` - The transfer requires attention from an Increase
+      operator.
+    - `rejected` - The transfer has been rejected.
+    - `pending_mailing` - The check is queued for mailing.
+    - `mailed` - The check has been mailed.
+    - `deposited` - The check has been deposited.
+    - `stopped` - A stop-payment was requested for this check.
+    - `returned` - The transfer has been returned.
+    """
+
+    stop_payment_request: Optional[StopPaymentRequest] = None
+    """
+    After a stop-payment is requested on the check, this will contain supplemental
+    details.
+    """
+
+    submission: Optional[Submission] = None
+    """
+    Once the check has been submitted to our printer, this will contain details
+    about the submission. Only available when `fulfillment_method` is equal to
+    `physical_check`.
+    """
+
+    third_party: Optional[ThirdParty] = None
+    """Details relating to the custom fulfillment you will perform.
+
+    Will be present if and only if `fulfillment_method` is equal to `third_party`.
+    """
+
+    type: Literal["check_transfer"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `check_transfer`.
+    """
+
+    valid_until_date: Optional[date] = None
+    """If set, the check will be valid on or before this date.
+
+    After this date, the check transfer will be automatically stopped and deposits
+    will not be accepted. For checks printed by Increase, this date is included on
+    the check as its expiration.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

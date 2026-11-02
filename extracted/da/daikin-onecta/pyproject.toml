@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daikin-onecta"
+version = "0.6.2"
+description = "Async Python client for the Daikin Onecta cloud API"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+authors = [
+  { name = "Johnny Willemsen" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "aiohttp>=3.9.0",
+  "mashumaro>=3.17.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jwillemsen/daikin-onecta"
+Repository = "https://github.com/jwillemsen/daikin-onecta"
+Issues = "https://github.com/jwillemsen/daikin-onecta/issues"
+
+[project.optional-dependencies]
+test = [
+  "aiohttp<3.14",
+  "aioresponses>=0.7.8",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=5.0",
+  "syrupy>=6.0",
+]
+dev = [
+  "daikin-onecta[test]",
+  "mypy>=1.18",
+  "ruff>=0.13",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--cov=daikin_onecta --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+files = ["src/daikin_onecta"]
+strict = true
+
+[tool.setuptools.package-data]
+daikin_onecta = ["py.typed"]

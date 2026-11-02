@@ -1,0 +1,1935 @@
+use std::collections::HashMap;
+use std::mem::size_of;
+use std::ops::Range;
+use std::sync::Arc;
+
+use crate::activity::{lift_session_index_tail, lower_edit, Hunk, LiftedSession, ToolUse, Turn};
+use crate::parse::pushed_capacity;
+#[cfg(test)]
+use crate::snapshot::NativeStore;
+#[cfg(test)]
+use crate::snapshot_ledger::arc_mirror;
+use crate::snapshot_ledger::{arc_bytes, arc_control_bytes};
+use crate::snapshot_memory::{block_charge, value_charge, MemoryCharge};
+use crate::toolcall::{parse_tool_call, ToolCall};
+#[cfg(test)]
+use crate::toolcall::{
+    ApplyPatchCall, BashCall, CodeModeCall, EditCall, EditSpan, ExitPlanModeCall, GlobCall,
+    GrepCall, MultiEditCall, NotebookEditCall, OtherCall, PatchEdit, ReadCall, SkillCall,
+    SpanEditCall, TaskCall, TaskCreateCall, TaskUpdateCall, UpdatePlanCall, WorkflowCall,
+    WriteCall, WriteStdinCall,
+};
+use crate::types::{ContentBlock, Entry};
+
+#[cfg(test)]
+std::thread_local! {
+    static CALL_LOOKUP_STEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn take_call_lookup_steps() -> usize {
+    CALL_LOOKUP_STEPS.with(|steps| steps.replace(0))
+}
+
+#[cfg(test)]
+thread_local! {
+    static INSTRUCTION_CALL_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_instruction_call_work() {
+    INSTRUCTION_CALL_WORK.with(|work| work.set((0, 0)));
+}
+
+#[cfg(test)]
+pub(crate) fn instruction_call_work() -> (usize, usize) {
+    INSTRUCTION_CALL_WORK.with(std::cell::Cell::get)
+}
+
+fn instruction_call_before(call: &CachedCall, event: usize) -> bool {
+    #[cfg(test)]
+    INSTRUCTION_CALL_WORK.with(|work| {
+        let (comparisons, visits) = work.get();
+        work.set((comparisons + 1, visits));
+    });
+    call.event < event
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ActivityWork {
+    pub indexed_entries: usize,
+    pub parsed_tool_calls: usize,
+    pub copied_index_entries: usize,
+}
+
+#[derive(Debug)]
+pub(crate) struct CachedCall {
+    event: usize,
+    ordinal: usize,
+    id: String,
+    call: ToolCall,
+    edits: Vec<(String, Vec<Hunk>)>,
+    accounted_bytes: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CachedTurn {
+    prompt: String,
+    prompt_count: usize,
+    bounds: Range<usize>,
+    started: Option<usize>,
+    ended: Option<usize>,
+    calls: Vec<Arc<CachedCall>>,
+    prefix_turn_bytes: usize,
+    prefix_call_bytes: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ResultPosition {
+    event: usize,
+    ordinal: usize,
+    charge: MemoryCharge,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct ActivityShape {
+    pub calls: usize,
+    pub call_name_bytes: usize,
+    pub paths: usize,
+    pub path_bytes: usize,
+    pub edits: usize,
+    pub edit_path_bytes: usize,
+    pub commands: usize,
+    pub command_bytes: usize,
+    pub skills: usize,
+    pub skill_bytes: usize,
+    pub prose_bytes: usize,
+    pub tool_name_slots: usize,
+    pub tool_name_bytes: usize,
+}
+
+impl ActivityShape {
+    fn include_entry(&mut self, entry: &Entry) {
+        match entry {
+            Entry::User(user) => {
+                self.prose_bytes += user.content.text_len()
+                    + user
+                        .tool_results()
+                        .map(|result| result.content.len())
+                        .sum::<usize>();
+            }
+            Entry::Assistant(assistant) => {
+                self.prose_bytes += crate::types::joined_text_len(&assistant.blocks);
+                self.tool_name_slots += pushed_capacity(entry.tool_uses().count());
+                self.tool_name_bytes +=
+                    entry.tool_uses().map(|tool| tool.name.len()).sum::<usize>();
+            }
+            Entry::System(system) => {
+                self.prose_bytes += system.content.as_ref().map_or(0, String::len);
+            }
+            _ => {}
+        }
+    }
+
+    fn include_call(&mut self, call: &ToolCall, edits: &[(String, Vec<Hunk>)]) {
+        let paths = call.file_paths();
+        self.calls += 1;
+        self.call_name_bytes += call.name().len();
+        self.paths += paths.len();
+        self.path_bytes += paths.iter().map(|path| path.len()).sum::<usize>();
+        self.edits += edits.len();
+        self.edit_path_bytes += edits.iter().map(|(path, _)| path.len()).sum::<usize>();
+        match call {
+            ToolCall::Bash(bash) => {
+                self.commands += 1;
+                self.command_bytes += bash.command.len();
+            }
+            ToolCall::Skill(skill) => {
+                self.skills += 1;
+                self.skill_bytes += skill.skill.len();
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ActivityIndex {
+    entries: usize,
+    turns: Arc<Vec<Arc<CachedTurn>>>,
+    uuids: Arc<HashMap<String, usize>>,
+    uuid_key_bytes: usize,
+    uuid_key_lens: usize,
+    results: Arc<HashMap<String, ResultPosition>>,
+    result_key_bytes: usize,
+    result_key_lens: usize,
+    shape: ActivityShape,
+    started_unix_ms: Option<i64>,
+    last_model_event: Option<usize>,
+    work: ActivityWork,
+}
+
+impl ActivityIndex {
+    pub(crate) const EMPTY_ALLOCATION_BYTES: usize = arc_bytes::<Vec<Arc<CachedTurn>>>()
+        + arc_bytes::<HashMap<String, usize>>()
+        + arc_bytes::<HashMap<String, ResultPosition>>();
+
+    pub fn new(entries: &[&Entry], openers: Option<&[bool]>) -> Self {
+        Self::default().append_tail(entries, openers)
+    }
+
+    pub fn append(
+        &self,
+        all_entries: &[&Entry],
+        first_new_index: usize,
+        openers: Option<&[bool]>,
+    ) -> Self {
+        assert_eq!(first_new_index, self.entries);
+        assert!(first_new_index <= all_entries.len());
+        if let Some(flags) = openers {
+            assert_eq!(flags.len(), all_entries.len());
+        }
+        self.clone().append_tail(
+            &all_entries[first_new_index..],
+            openers.map(|flags| &flags[first_new_index..]),
+        )
+    }
+
+    pub fn append_tail(self, entries: &[&Entry], openers: Option<&[bool]>) -> Self {
+        if let Some(flags) = openers {
+            assert_eq!(flags.len(), entries.len());
+        }
+        let first_new_index = self.entries;
+        let tail = lift_session_index_tail(entries, openers, !self.turns.is_empty());
+        let mut next = self;
+        next.entries += entries.len();
+        next.work = ActivityWork {
+            indexed_entries: entries.len(),
+            ..ActivityWork::default()
+        };
+        for (local, entry) in entries.iter().enumerate() {
+            next.shape.include_entry(entry);
+            let event = first_new_index + local;
+            if let Some(meta) = entry.meta() {
+                if next.started_unix_ms.is_none() {
+                    next.started_unix_ms = Some(meta.timestamp.timestamp_millis());
+                }
+                if !next.uuids.contains_key(&meta.uuid) {
+                    if Arc::strong_count(&next.uuids) > 1 {
+                        next.work.copied_index_entries += next.uuids.len();
+                        next.uuid_key_bytes = next.uuid_key_lens;
+                    }
+                    let key = meta.uuid.clone();
+                    next.uuid_key_bytes += key.capacity();
+                    next.uuid_key_lens += key.len();
+                    Arc::make_mut(&mut next.uuids).insert(key, event);
+                }
+            }
+            if matches!(entry, Entry::Assistant(assistant) if assistant.model != crate::types::SYNTHETIC_MODEL)
+            {
+                next.last_model_event = Some(event);
+            }
+            if let Entry::User(user) = entry {
+                for (ordinal, block) in user.blocks().iter().enumerate() {
+                    let ContentBlock::ToolResult(result) = block else {
+                        continue;
+                    };
+                    if Arc::strong_count(&next.results) > 1 {
+                        next.work.copied_index_entries += next.results.len();
+                        next.result_key_bytes = next.result_key_lens;
+                    }
+                    let key = result.tool_use_id.clone();
+                    if !next.results.contains_key(&key) {
+                        next.result_key_bytes += key.capacity();
+                        next.result_key_lens += key.len();
+                    }
+                    Arc::make_mut(&mut next.results).insert(
+                        key,
+                        ResultPosition {
+                            event,
+                            ordinal,
+                            charge: block_charge(block),
+                        },
+                    );
+                }
+            }
+        }
+        if !tail.turns.is_empty() && Arc::strong_count(&next.turns) > 1 {
+            next.work.copied_index_entries += next.turns.len();
+        }
+        for (position, indexed) in tail.turns.into_iter().enumerate() {
+            let mut calls = Vec::new();
+            let mut fresh_call_bytes = 0;
+            for (local, entry) in entries
+                .iter()
+                .enumerate()
+                .take(indexed.end)
+                .skip(indexed.start)
+            {
+                let Entry::Assistant(assistant) = entry else {
+                    continue;
+                };
+                for (ordinal, block) in assistant.blocks.iter().enumerate() {
+                    let ContentBlock::ToolUse(tool) = block else {
+                        continue;
+                    };
+                    let call = parse_tool_call(&tool.name, &tool.input);
+                    let edits = lower_edit(&call);
+                    next.shape.include_call(&call, &edits);
+                    let id = tool.id.clone();
+                    let accounted_bytes = size_of::<CachedCall>()
+                        + id.capacity()
+                        + call_bytes(&call, value_charge(&tool.input).opaque_dom_accounted_bytes)
+                        + edits.capacity() * size_of::<(String, Vec<Hunk>)>()
+                        + edits
+                            .iter()
+                            .map(|(path, hunks)| {
+                                path.capacity()
+                                    + hunks.capacity() * size_of::<Hunk>()
+                                    + hunks
+                                        .iter()
+                                        .map(|hunk| hunk.old.capacity() + hunk.new.capacity())
+                                        .sum::<usize>()
+                            })
+                            .sum::<usize>();
+                    fresh_call_bytes += arc_control_bytes::<CachedCall>() + accounted_bytes;
+                    calls.push(Arc::new(CachedCall {
+                        event: first_new_index + local,
+                        ordinal,
+                        id,
+                        call,
+                        edits,
+                        accounted_bytes,
+                    }));
+                    next.work.parsed_tool_calls += 1;
+                }
+            }
+            let prefix_turn_bytes = next.turns.last().map_or(0, |turn| turn.prefix_turn_bytes);
+            let prefix_call_bytes = next.turns.last().map_or(0, |turn| turn.prefix_call_bytes);
+            let mut turn = CachedTurn {
+                prompt_count: next.prompt_count_before(next.turn_count())
+                    + usize::from(!indexed.prompt.is_empty()),
+                prompt: indexed.prompt,
+                bounds: first_new_index + indexed.start..first_new_index + indexed.end,
+                started: indexed.started_idx.map(|i| first_new_index + i),
+                ended: indexed.ended_idx.map(|i| first_new_index + i),
+                calls,
+                prefix_turn_bytes,
+                prefix_call_bytes: prefix_call_bytes + fresh_call_bytes,
+            };
+            if position == 0 && tail.continued {
+                let stable_turn_bytes = next
+                    .turns
+                    .len()
+                    .checked_sub(2)
+                    .map_or(0, |at| next.turns[at].prefix_turn_bytes);
+                let prior = Arc::make_mut(&mut next.turns).last_mut().unwrap();
+                if Arc::strong_count(prior) > 1 {
+                    next.work.copied_index_entries += prior.calls.len();
+                }
+                let prior = Arc::make_mut(prior);
+                prior.bounds.end = turn.bounds.end;
+                prior.started = prior.started.or(turn.started);
+                prior.ended = turn.ended.or(prior.ended);
+                prior.calls.extend(turn.calls);
+                prior.prefix_turn_bytes = stable_turn_bytes
+                    + arc_bytes::<CachedTurn>()
+                    + prior.prompt.capacity()
+                    + prior.calls.capacity() * size_of::<Arc<CachedCall>>();
+                prior.prefix_call_bytes = prefix_call_bytes + fresh_call_bytes;
+            } else {
+                turn.prefix_turn_bytes += arc_bytes::<CachedTurn>()
+                    + turn.prompt.capacity()
+                    + turn.calls.capacity() * size_of::<Arc<CachedCall>>();
+                Arc::make_mut(&mut next.turns).push(Arc::new(turn));
+            }
+        }
+        next
+    }
+
+    pub(crate) fn heap_bytes_since(&self, previous: Option<&Self>) -> usize {
+        let shared_turns = previous.map_or(0, |prior| {
+            assert!(self.entries >= prior.entries);
+            prior.turns.len().checked_sub(1).map_or(0, |last| {
+                if Arc::ptr_eq(&self.turns[last], &prior.turns[last]) {
+                    prior.turns[last].prefix_turn_bytes
+                } else {
+                    last.checked_sub(1)
+                        .map_or(0, |at| prior.turns[at].prefix_turn_bytes)
+                }
+            })
+        });
+        let shared_calls = previous
+            .and_then(|prior| prior.turns.last())
+            .map_or(0, |turn| turn.prefix_call_bytes);
+        let turns = if previous.is_some_and(|prior| Arc::ptr_eq(&self.turns, &prior.turns)) {
+            0
+        } else {
+            arc_bytes::<Vec<Arc<CachedTurn>>>()
+                + self.turns.capacity() * size_of::<Arc<CachedTurn>>()
+        };
+        let uuids = if previous.is_some_and(|prior| Arc::ptr_eq(&self.uuids, &prior.uuids)) {
+            0
+        } else {
+            arc_bytes::<HashMap<String, usize>>()
+                + self.uuids.capacity() * size_of::<(String, usize)>()
+                + self.uuid_key_bytes
+        };
+        let results = if previous.is_some_and(|prior| Arc::ptr_eq(&self.results, &prior.results)) {
+            0
+        } else {
+            arc_bytes::<HashMap<String, ResultPosition>>()
+                + self.results.capacity() * size_of::<(String, ResultPosition)>()
+                + self.result_key_bytes
+        };
+        let payload = self.turns.last().map_or(0, |turn| {
+            turn.prefix_turn_bytes - shared_turns + turn.prefix_call_bytes - shared_calls
+        });
+        turns + uuids + results + payload
+    }
+
+    pub fn entry_count(&self) -> usize {
+        self.entries
+    }
+
+    pub(crate) fn shape(&self) -> ActivityShape {
+        self.shape
+    }
+
+    pub(crate) fn started_unix_ms(&self) -> Option<i64> {
+        self.started_unix_ms
+    }
+
+    pub(crate) fn last_model_event(&self) -> Option<usize> {
+        self.last_model_event
+    }
+
+    pub fn turn_count(&self) -> usize {
+        self.turns.len()
+    }
+
+    pub fn prompt(&self, index: usize) -> Option<&str> {
+        self.turns.get(index).map(|turn| turn.prompt.as_str())
+    }
+
+    pub(crate) fn prompt_count_before(&self, turn: usize) -> usize {
+        if turn == 0 {
+            0
+        } else {
+            self.turns[turn - 1].prompt_count
+        }
+    }
+
+    pub(crate) fn prompt_turn(&self, ordinal: usize) -> usize {
+        self.turns
+            .partition_point(|turn| turn.prompt_count <= ordinal)
+    }
+
+    pub(crate) fn turn_started(&self, index: usize) -> Option<usize> {
+        self.turns.get(index).and_then(|turn| turn.started)
+    }
+
+    pub fn turn_bounds(&self, index: usize) -> Option<Range<usize>> {
+        self.turns.get(index).map(|turn| turn.bounds.clone())
+    }
+
+    pub fn turn_of_event(&self, index: usize) -> Option<usize> {
+        (index < self.entries).then(|| self.turns.partition_point(|turn| turn.bounds.end <= index))
+    }
+
+    pub fn turn_of_uuid(&self, uuid: &str) -> Option<usize> {
+        self.uuids
+            .get(uuid)
+            .and_then(|&index| self.turn_of_event(index))
+    }
+
+    pub fn event_of_uuid(&self, uuid: &str) -> Option<usize> {
+        self.uuids.get(uuid).copied()
+    }
+
+    pub(crate) fn call_positions(&self) -> impl Iterator<Item = (usize, usize, &str, &str)> {
+        self.turns
+            .iter()
+            .flat_map(|turn| turn.calls.iter())
+            .map(|call| (call.event, call.ordinal, call.id.as_str(), call.call.name()))
+    }
+
+    pub fn call_at(&self, event: usize, block_ordinal: usize) -> Option<&ToolCall> {
+        let calls = &self.turns.get(self.turn_of_event(event)?)?.calls;
+        let index = calls
+            .binary_search_by(|call| {
+                #[cfg(test)]
+                CALL_LOOKUP_STEPS.with(|steps| steps.set(steps.get() + 1));
+                (call.event, call.ordinal).cmp(&(event, block_ordinal))
+            })
+            .ok()?;
+        Some(&calls[index].call)
+    }
+
+    pub(crate) fn call_name_at(&self, event: usize, ordinal: usize) -> Option<&str> {
+        let calls = &self.turns.get(self.turn_of_event(event)?)?.calls;
+        let index = calls
+            .binary_search_by_key(&(event, ordinal), |call| (call.event, call.ordinal))
+            .ok()?;
+        Some(calls[index].call.name())
+    }
+
+    pub(crate) fn projected_call_at_bytes(&self, event: usize, ordinal: usize) -> Option<usize> {
+        let calls = &self.turns.get(self.turn_of_event(event)?)?.calls;
+        let index = calls
+            .binary_search_by_key(&(event, ordinal), |call| (call.event, call.ordinal))
+            .ok()?;
+        let call = &calls[index];
+        let result = self.results.get(&call.id).map_or(0, |result| {
+            result.charge.owned_capacity_bytes + result.charge.opaque_dom_accounted_bytes
+        });
+        Some(size_of::<ToolUse<'_>>() + call.accounted_bytes + result)
+    }
+
+    pub(crate) fn project_call_at<'a>(
+        &self,
+        event: usize,
+        ordinal: usize,
+        entry: impl Fn(usize) -> &'a Entry,
+    ) -> Option<ToolUse<'a>> {
+        let turn_index = self.turn_of_event(event)?;
+        let calls = &self.turns.get(turn_index)?.calls;
+        let index = calls
+            .binary_search_by_key(&(event, ordinal), |call| (call.event, call.ordinal))
+            .ok()?;
+        let cached = &calls[index];
+        let Entry::Assistant(assistant) = entry(event) else {
+            unreachable!()
+        };
+        let ContentBlock::ToolUse(tool) = &assistant.blocks[ordinal] else {
+            unreachable!()
+        };
+        let result = self.results.get(&cached.id).map(|position| {
+            let Entry::User(user) = entry(position.event) else {
+                unreachable!()
+            };
+            let ContentBlock::ToolResult(result) = &user.blocks()[position.ordinal] else {
+                unreachable!()
+            };
+            (result, user.meta.timestamp)
+        });
+        Some(ToolUse {
+            event_uuid: &assistant.meta.uuid,
+            tool_use_id: &tool.id,
+            name: &tool.name,
+            ts: assistant.meta.timestamp,
+            cwd: assistant.meta.cwd.as_deref(),
+            result: result.map(|(block, _)| block),
+            result_ts: result.map(|(_, ts)| ts),
+            turn_index,
+            call: cached.call.clone(),
+            edits: cached.edits.clone(),
+        })
+    }
+
+    pub fn calls(&self) -> impl Iterator<Item = (&ToolCall, &[(String, Vec<Hunk>)])> + '_ {
+        self.turns
+            .iter()
+            .flat_map(|turn| turn.calls.iter())
+            .map(|cached| (&cached.call, cached.edits.as_slice()))
+    }
+
+    pub fn work(&self) -> ActivityWork {
+        self.work
+    }
+
+    pub fn project_turn<'a>(&self, entries: &[&'a Entry], index: usize) -> Option<Turn<'a>> {
+        assert_eq!(entries.len(), self.entries);
+        self.project_turn_with(index, |position| entries[position])
+    }
+
+    pub fn projected_bytes(&self, index: usize) -> Option<usize> {
+        self.projected_call_bytes(index, |_| true)
+    }
+
+    pub(crate) fn projected_call_bytes(
+        &self,
+        index: usize,
+        include: impl Fn(&ToolCall) -> bool,
+    ) -> Option<usize> {
+        let turn = self.turns.get(index)?;
+        Some(
+            size_of::<Turn<'_>>()
+                + turn.prompt.capacity()
+                + turn.bounds.len() * size_of::<&Entry>()
+                + turn
+                    .calls
+                    .iter()
+                    .filter(|call| include(&call.call))
+                    .map(|call| size_of::<ToolUse<'_>>() + call.accounted_bytes)
+                    .sum::<usize>(),
+        )
+    }
+
+    pub fn repeated_result_bytes(&self, index: usize) -> usize {
+        self.turns
+            .get(index)
+            .into_iter()
+            .flat_map(|turn| turn.calls.iter())
+            .filter_map(|call| self.results.get(&call.id))
+            .fold(0usize, |total, result| {
+                total
+                    .saturating_add(result.charge.owned_capacity_bytes)
+                    .saturating_add(result.charge.opaque_dom_accounted_bytes)
+            })
+    }
+
+    pub fn result_events(&self, index: usize) -> impl Iterator<Item = usize> + '_ {
+        self.turns
+            .get(index)
+            .into_iter()
+            .flat_map(|turn| turn.calls.iter())
+            .filter_map(|call| self.results.get(&call.id).map(|position| position.event))
+    }
+
+    pub fn call_events(
+        &self,
+        index: usize,
+    ) -> impl Iterator<Item = (&str, usize, Option<usize>)> + '_ {
+        self.turns
+            .get(index)
+            .into_iter()
+            .flat_map(|turn| turn.calls.iter())
+            .map(|call| {
+                (
+                    call.call.name(),
+                    call.event,
+                    self.results.get(&call.id).map(|position| position.event),
+                )
+            })
+    }
+
+    pub(crate) fn call_results(
+        &self,
+        index: usize,
+        range: Range<usize>,
+    ) -> impl DoubleEndedIterator<Item = (&str, usize, Option<(usize, usize)>)> + ExactSizeIterator + '_
+    {
+        let calls = self.turns.get(index).map_or(&[][..], |turn| {
+            let start = turn
+                .calls
+                .partition_point(|call| instruction_call_before(call, range.start));
+            let stop = turn
+                .calls
+                .partition_point(|call| instruction_call_before(call, range.end));
+            &turn.calls[start..stop]
+        });
+        calls.iter().map(|call| {
+            #[cfg(test)]
+            INSTRUCTION_CALL_WORK.with(|work| {
+                let (comparisons, visits) = work.get();
+                work.set((comparisons, visits + 1));
+            });
+            (
+                call.call.name(),
+                call.event,
+                self.results
+                    .get(&call.id)
+                    .map(|position| (position.event, position.ordinal)),
+            )
+        })
+    }
+
+    pub fn project_turn_with<'a>(
+        &self,
+        index: usize,
+        entry: impl Fn(usize) -> &'a Entry,
+    ) -> Option<Turn<'a>> {
+        self.project_call_turn_with(index, entry, |_| true)
+    }
+
+    pub(crate) fn project_call_turn_with<'a>(
+        &self,
+        index: usize,
+        entry: impl Fn(usize) -> &'a Entry,
+        include: impl Fn(&ToolCall) -> bool,
+    ) -> Option<Turn<'a>> {
+        let turn = self.turns.get(index)?;
+        Some(Turn {
+            index,
+            prompt: turn.prompt.clone(),
+            started_at: turn.started.map(|i| entry(i).meta().unwrap().timestamp),
+            ended_at: turn.ended.map(|i| entry(i).meta().unwrap().timestamp),
+            events: turn.bounds.clone().map(&entry).collect(),
+            tool_uses: {
+                let count = turn
+                    .calls
+                    .iter()
+                    .filter(|cached| include(&cached.call))
+                    .count();
+                let mut uses = Vec::with_capacity(count);
+                uses.extend(
+                    turn.calls
+                        .iter()
+                        .filter(|cached| include(&cached.call))
+                        .map(|cached| {
+                            let Entry::Assistant(assistant) = entry(cached.event) else {
+                                unreachable!()
+                            };
+                            let ContentBlock::ToolUse(tool) = &assistant.blocks[cached.ordinal]
+                            else {
+                                unreachable!()
+                            };
+                            let result = self.results.get(&cached.id).map(|position| {
+                                let Entry::User(user) = entry(position.event) else {
+                                    unreachable!()
+                                };
+                                let ContentBlock::ToolResult(result) =
+                                    &user.blocks()[position.ordinal]
+                                else {
+                                    unreachable!()
+                                };
+                                (result, user.meta.timestamp)
+                            });
+                            ToolUse {
+                                event_uuid: &assistant.meta.uuid,
+                                tool_use_id: &tool.id,
+                                name: &tool.name,
+                                ts: assistant.meta.timestamp,
+                                cwd: assistant.meta.cwd.as_deref(),
+                                result: result.map(|(block, _)| block),
+                                result_ts: result.map(|(_, ts)| ts),
+                                turn_index: index,
+                                call: cached.call.clone(),
+                                edits: cached.edits.clone(),
+                            }
+                        }),
+                );
+                uses
+            },
+        })
+    }
+
+    pub fn project<'a>(
+        &self,
+        session_id: &'a str,
+        entries: &[&'a Entry],
+        turn_indices: &[usize],
+    ) -> LiftedSession<'a> {
+        LiftedSession {
+            session_id,
+            turns: turn_indices
+                .iter()
+                .map(|&index| self.project_turn(entries, index).expect("valid turn index"))
+                .collect(),
+        }
+    }
+
+    pub fn accounted_allocations(&self) -> Vec<(usize, usize)> {
+        std::iter::once((self as *const Self as usize, size_of::<Self>()))
+            .chain(self.heap_allocations())
+            .collect()
+    }
+
+    pub fn heap_allocations(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        [
+            (
+                Arc::as_ptr(&self.turns) as usize,
+                arc_bytes::<Vec<Arc<CachedTurn>>>()
+                    + self.turns.capacity() * size_of::<Arc<CachedTurn>>(),
+            ),
+            (
+                Arc::as_ptr(&self.uuids) as usize,
+                arc_bytes::<HashMap<String, usize>>()
+                    + self.uuids.capacity() * size_of::<(String, usize)>()
+                    + self.uuid_key_bytes,
+            ),
+            (
+                Arc::as_ptr(&self.results) as usize,
+                arc_bytes::<HashMap<String, ResultPosition>>()
+                    + self.results.capacity() * size_of::<(String, ResultPosition)>()
+                    + self.result_key_bytes,
+            ),
+        ]
+        .into_iter()
+        .chain(self.turns.iter().flat_map(|turn| {
+            std::iter::once((
+                Arc::as_ptr(turn) as usize,
+                arc_bytes::<CachedTurn>()
+                    + turn.prompt.capacity()
+                    + turn.calls.capacity() * size_of::<Arc<CachedCall>>(),
+            ))
+            .chain(turn.calls.iter().map(|call| {
+                (
+                    Arc::as_ptr(call) as usize,
+                    arc_control_bytes::<CachedCall>() + call.accounted_bytes,
+                )
+            }))
+        }))
+    }
+
+    pub fn shared_allocations(self: &Arc<Self>) -> Vec<(usize, usize)> {
+        let mut allocations = self.accounted_allocations();
+        allocations[0].1 = arc_bytes::<Self>();
+        allocations
+    }
+
+    #[cfg(test)]
+    pub(crate) fn audited_heap_allocations(&self) -> Vec<(usize, usize)> {
+        self.audited_allocations(false)
+            .into_iter()
+            .skip(1)
+            .collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn audited_allocations(&self, shared: bool) -> Vec<(usize, usize)> {
+        let Self {
+            entries: _,
+            turns,
+            uuids,
+            uuid_key_bytes: _,
+            uuid_key_lens: _,
+            results,
+            result_key_bytes: _,
+            result_key_lens: _,
+            shape: _,
+            started_unix_ms: _,
+            last_model_event: _,
+            work: _,
+        } = self;
+        let mut allocations = vec![
+            (
+                self as *const Self as usize,
+                if shared {
+                    arc_mirror::<Self>()
+                } else {
+                    size_of::<Self>()
+                },
+            ),
+            (
+                Arc::as_ptr(turns) as usize,
+                arc_mirror::<Vec<Arc<CachedTurn>>>()
+                    + turns.capacity() * size_of::<Arc<CachedTurn>>(),
+            ),
+            (
+                Arc::as_ptr(uuids) as usize,
+                arc_mirror::<HashMap<String, usize>>()
+                    + uuids.capacity() * size_of::<(String, usize)>()
+                    + uuids.keys().map(String::capacity).sum::<usize>(),
+            ),
+            (
+                Arc::as_ptr(results) as usize,
+                arc_mirror::<HashMap<String, ResultPosition>>()
+                    + results.capacity() * size_of::<(String, ResultPosition)>()
+                    + results.keys().map(String::capacity).sum::<usize>(),
+            ),
+        ];
+        for turn in turns.iter() {
+            let CachedTurn {
+                prompt,
+                prompt_count: _,
+                bounds: _,
+                started: _,
+                ended: _,
+                calls,
+                prefix_turn_bytes: _,
+                prefix_call_bytes: _,
+            } = &**turn;
+            allocations.push((
+                Arc::as_ptr(turn) as usize,
+                arc_mirror::<CachedTurn>()
+                    + prompt.capacity()
+                    + calls.capacity() * size_of::<Arc<CachedCall>>(),
+            ));
+            allocations.extend(calls.iter().map(|call| {
+                let audited = audited_call(call);
+                assert!(
+                    call.accounted_bytes >= audited.total(),
+                    "{audited:?} exceeds the {} byte call charge",
+                    call.accounted_bytes
+                );
+                if audited.dom == 0 {
+                    assert_eq!(call.accounted_bytes, audited.exact);
+                }
+                (
+                    Arc::as_ptr(call) as usize,
+                    arc_mirror::<CachedCall>() - size_of::<CachedCall>() + call.accounted_bytes,
+                )
+            }));
+        }
+        allocations
+    }
+
+    pub fn accounted_bytes(&self) -> usize {
+        size_of::<Self>() + self.heap_bytes_since(None)
+    }
+
+    pub fn append_container_reservation_bytes(
+        &self,
+        entries: usize,
+        calls: usize,
+        results: usize,
+    ) -> usize {
+        let growth = |capacity: usize, needed: usize, width: usize| {
+            if needed > capacity {
+                needed
+                    .max(capacity)
+                    .saturating_mul(2)
+                    .max(8)
+                    .saturating_mul(width)
+            } else {
+                0
+            }
+        };
+        let uuid_copy = if Arc::strong_count(&self.uuids) > 1 {
+            arc_bytes::<HashMap<String, usize>>()
+                + self.uuids.capacity() * size_of::<(String, usize)>()
+                + self.uuid_key_bytes
+        } else {
+            0
+        };
+        let result_copy = if Arc::strong_count(&self.results) > 1 {
+            arc_bytes::<HashMap<String, ResultPosition>>()
+                + self.results.capacity() * size_of::<(String, ResultPosition)>()
+                + self.result_key_bytes
+        } else {
+            0
+        };
+        let turn_copy = if Arc::strong_count(&self.turns) > 1 {
+            arc_bytes::<Vec<Arc<CachedTurn>>>()
+                + self.turns.capacity() * size_of::<Arc<CachedTurn>>()
+        } else {
+            0
+        };
+        let open_turn = self.turns.last().map_or(0, |turn| {
+            growth(
+                turn.calls.capacity(),
+                turn.calls.len().saturating_add(calls),
+                size_of::<Arc<CachedCall>>(),
+            ) + if Arc::strong_count(turn) > 1 || Arc::strong_count(&self.turns) > 1 {
+                arc_bytes::<CachedTurn>()
+                    + turn.prompt.capacity()
+                    + turn.calls.capacity() * size_of::<Arc<CachedCall>>()
+            } else {
+                0
+            }
+        });
+        uuid_copy
+            .saturating_add(result_copy)
+            .saturating_add(turn_copy)
+            .saturating_add(open_turn)
+            .saturating_add(growth(
+                self.uuids.capacity(),
+                self.uuids.len().saturating_add(entries),
+                size_of::<(String, usize)>(),
+            ))
+            .saturating_add(growth(
+                self.results.capacity(),
+                self.results.len().saturating_add(results),
+                size_of::<(String, ResultPosition)>(),
+            ))
+            .saturating_add(growth(
+                self.turns.capacity(),
+                self.turns.len().saturating_add(entries),
+                size_of::<Arc<CachedTurn>>(),
+            ))
+            .saturating_add(entries.saturating_mul(arc_bytes::<CachedTurn>()))
+            .saturating_add(
+                calls.saturating_mul(arc_bytes::<CachedCall>() + 4 * size_of::<Arc<CachedCall>>()),
+            )
+    }
+}
+
+fn call_bytes(call: &ToolCall, opaque_dom_accounted_bytes: usize) -> usize {
+    let fields = match call {
+        ToolCall::Bash(c) => c.name.capacity() + c.command.capacity(),
+        ToolCall::Edit(c) => {
+            c.name.capacity() + c.file_path.capacity() + c.old.capacity() + c.new.capacity()
+        }
+        ToolCall::MultiEdit(c) => {
+            c.name.capacity()
+                + c.file_path.capacity()
+                + c.edits.capacity() * size_of::<crate::toolcall::EditSpan>()
+                + c.edits
+                    .iter()
+                    .map(|e| e.old.capacity() + e.new.capacity())
+                    .sum::<usize>()
+        }
+        ToolCall::Write(c) => c.name.capacity() + c.file_path.capacity() + c.content.capacity(),
+        ToolCall::Read(c) => c.name.capacity() + c.file_path.capacity(),
+        ToolCall::NotebookEdit(c) => {
+            c.name.capacity() + c.notebook_path.capacity() + c.new_source.capacity()
+        }
+        ToolCall::Grep(c) => c.name.capacity() + c.pattern.capacity(),
+        ToolCall::Glob(c) => c.name.capacity() + c.pattern.capacity(),
+        ToolCall::Task(c) => c.name.capacity() + c.prompt.capacity(),
+        ToolCall::Workflow(c) => c.name.capacity(),
+        ToolCall::Skill(c) => c.name.capacity() + c.skill.capacity(),
+        ToolCall::TaskCreate(c) => c.name.capacity() + c.subject.capacity(),
+        ToolCall::TaskUpdate(c) => c.name.capacity() + c.task_id.capacity(),
+        ToolCall::ExitPlanMode(c) => c.name.capacity() + c.plan.capacity(),
+        ToolCall::CodeMode(c) => c.name.capacity() + c.source.capacity(),
+        ToolCall::ApplyPatch(c) => {
+            c.name.capacity()
+                + c.edits.capacity() * size_of::<crate::toolcall::PatchEdit>()
+                + c.edits
+                    .iter()
+                    .map(|e| {
+                        e.file_path.capacity()
+                            + e.move_path.as_ref().map_or(0, String::capacity)
+                            + e.hunks.capacity() * size_of::<crate::toolcall::Hunk>()
+                            + e.hunks
+                                .iter()
+                                .map(|h| h.old.capacity() + h.new.capacity())
+                                .sum::<usize>()
+                    })
+                    .sum::<usize>()
+        }
+        ToolCall::UpdatePlan(c) => {
+            c.name.capacity()
+                + c.explanation.as_ref().map_or(0, String::capacity)
+                + c.plan
+                    .as_ref()
+                    .map_or(0, |plan| value_charge(plan).opaque_dom_accounted_bytes)
+        }
+        ToolCall::WriteStdin(c) => {
+            c.name.capacity()
+                + c.chars
+                    .as_ref()
+                    .map_or(0, |chars| value_charge(chars).opaque_dom_accounted_bytes)
+        }
+        ToolCall::SpanEdit(c) => {
+            c.name.capacity() + c.file_path.capacity() + c.new.as_ref().map_or(0, String::capacity)
+        }
+        ToolCall::Other(c) => c.name.capacity() + c.error.as_ref().map_or(0, String::capacity),
+    };
+    fields + opaque_dom_accounted_bytes
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy)]
+struct AuditedCall {
+    exact: usize,
+    dom: usize,
+}
+
+#[cfg(test)]
+impl AuditedCall {
+    fn total(self) -> usize {
+        self.exact + self.dom
+    }
+}
+
+#[cfg(test)]
+fn audited_call(cached: &CachedCall) -> AuditedCall {
+    let CachedCall {
+        event: _,
+        ordinal: _,
+        id,
+        call,
+        edits,
+        accounted_bytes: _,
+    } = cached;
+    let text = |value: &Option<String>| value.as_ref().map_or(0, String::capacity);
+    let (fields, raw, views, decoded) = match call {
+        ToolCall::Bash(BashCall {
+            name,
+            raw,
+            command,
+            timeout,
+            description,
+            run_in_background,
+        }) => (
+            name.capacity() + command.capacity(),
+            raw,
+            vec![
+                timeout.as_ref(),
+                description.as_ref(),
+                run_in_background.as_ref(),
+            ],
+            0,
+        ),
+        ToolCall::Edit(EditCall {
+            name,
+            raw,
+            file_path,
+            old,
+            new,
+            replace_all,
+        }) => (
+            name.capacity() + file_path.capacity() + old.capacity() + new.capacity(),
+            raw,
+            vec![Some(replace_all)],
+            0,
+        ),
+        ToolCall::MultiEdit(MultiEditCall {
+            name,
+            raw,
+            file_path,
+            edits,
+        }) => (
+            name.capacity()
+                + file_path.capacity()
+                + edits.capacity() * size_of::<EditSpan>()
+                + edits
+                    .iter()
+                    .map(
+                        |EditSpan {
+                             old,
+                             new,
+                             replace_all: _,
+                         }| old.capacity() + new.capacity(),
+                    )
+                    .sum::<usize>(),
+            raw,
+            Vec::new(),
+            0,
+        ),
+        ToolCall::Write(WriteCall {
+            name,
+            raw,
+            file_path,
+            content,
+        }) => (
+            name.capacity() + file_path.capacity() + content.capacity(),
+            raw,
+            Vec::new(),
+            0,
+        ),
+        ToolCall::Read(ReadCall {
+            name,
+            raw,
+            file_path,
+            offset,
+            limit,
+        }) => (
+            name.capacity() + file_path.capacity(),
+            raw,
+            vec![offset.as_ref(), limit.as_ref()],
+            0,
+        ),
+        ToolCall::NotebookEdit(NotebookEditCall {
+            name,
+            raw,
+            notebook_path,
+            new_source,
+            cell_id,
+            edit_mode,
+        }) => (
+            name.capacity() + notebook_path.capacity() + new_source.capacity(),
+            raw,
+            vec![cell_id.as_ref(), edit_mode.as_ref()],
+            0,
+        ),
+        ToolCall::Grep(GrepCall {
+            name,
+            raw,
+            pattern,
+            path,
+            glob,
+            file_type,
+            output_mode,
+        }) => (
+            name.capacity() + pattern.capacity(),
+            raw,
+            vec![
+                path.as_ref(),
+                glob.as_ref(),
+                file_type.as_ref(),
+                output_mode.as_ref(),
+            ],
+            0,
+        ),
+        ToolCall::Glob(GlobCall {
+            name,
+            raw,
+            pattern,
+            path,
+        }) => (
+            name.capacity() + pattern.capacity(),
+            raw,
+            vec![path.as_ref()],
+            0,
+        ),
+        ToolCall::Task(TaskCall {
+            name,
+            raw,
+            prompt,
+            agent_type,
+            model,
+            agent_name,
+            run_in_background,
+        }) => (
+            name.capacity() + prompt.capacity(),
+            raw,
+            vec![
+                agent_type.as_ref(),
+                model.as_ref(),
+                agent_name.as_ref(),
+                run_in_background.as_ref(),
+            ],
+            0,
+        ),
+        ToolCall::Workflow(WorkflowCall {
+            name,
+            raw,
+            script,
+            script_path,
+            workflow_name,
+            args,
+            resume_from_run_id,
+        }) => (
+            name.capacity(),
+            raw,
+            vec![
+                script.as_ref(),
+                script_path.as_ref(),
+                workflow_name.as_ref(),
+                args.as_ref(),
+                resume_from_run_id.as_ref(),
+            ],
+            0,
+        ),
+        ToolCall::Skill(SkillCall {
+            name,
+            raw,
+            skill,
+            args,
+        }) => (
+            name.capacity() + skill.capacity(),
+            raw,
+            vec![args.as_ref()],
+            0,
+        ),
+        ToolCall::TaskCreate(TaskCreateCall {
+            name,
+            raw,
+            subject,
+            description,
+        }) => (
+            name.capacity() + subject.capacity(),
+            raw,
+            vec![description.as_ref()],
+            0,
+        ),
+        ToolCall::TaskUpdate(TaskUpdateCall {
+            name,
+            raw,
+            task_id,
+            status,
+            subject,
+            description,
+        }) => (
+            name.capacity() + task_id.capacity(),
+            raw,
+            vec![status.as_ref(), subject.as_ref(), description.as_ref()],
+            0,
+        ),
+        ToolCall::ExitPlanMode(ExitPlanModeCall { name, raw, plan }) => {
+            (name.capacity() + plan.capacity(), raw, Vec::new(), 0)
+        }
+        ToolCall::CodeMode(CodeModeCall { name, raw, source }) => {
+            (name.capacity() + source.capacity(), raw, Vec::new(), 0)
+        }
+        ToolCall::ApplyPatch(ApplyPatchCall { name, raw, edits }) => (
+            name.capacity()
+                + edits.capacity() * size_of::<PatchEdit>()
+                + edits
+                    .iter()
+                    .map(
+                        |PatchEdit {
+                             file_path,
+                             kind: _,
+                             move_path,
+                             hunks,
+                         }| {
+                            file_path.capacity()
+                                + text(move_path)
+                                + hunks.capacity() * size_of::<crate::toolcall::Hunk>()
+                                + hunks
+                                    .iter()
+                                    .map(|crate::toolcall::Hunk { old, new }| {
+                                        old.capacity() + new.capacity()
+                                    })
+                                    .sum::<usize>()
+                        },
+                    )
+                    .sum::<usize>(),
+            raw,
+            Vec::new(),
+            0,
+        ),
+        ToolCall::UpdatePlan(UpdatePlanCall {
+            name,
+            raw,
+            plan,
+            explanation,
+        }) => (
+            name.capacity() + text(explanation),
+            raw,
+            Vec::new(),
+            plan.as_ref().map_or(0, NativeStore::audit_value_bytes),
+        ),
+        ToolCall::WriteStdin(WriteStdinCall {
+            name,
+            raw,
+            chars,
+            session_id: _,
+            yield_time_ms: _,
+            max_output_tokens: _,
+        }) => (
+            name.capacity(),
+            raw,
+            Vec::new(),
+            chars.as_ref().map_or(0, NativeStore::audit_value_bytes),
+        ),
+        ToolCall::SpanEdit(SpanEditCall {
+            name,
+            raw,
+            file_path,
+            new,
+        }) => (
+            name.capacity() + file_path.capacity() + text(new),
+            raw,
+            Vec::new(),
+            0,
+        ),
+        ToolCall::Other(OtherCall { name, raw, error }) => {
+            (name.capacity() + text(error), raw, Vec::new(), 0)
+        }
+    };
+    let shared = NativeStore::audit_value_bytes(raw);
+    for view in views.into_iter().flatten() {
+        assert!(
+            NativeStore::audit_value_bytes(view) <= shared,
+            "{view:?} is not a view into {raw:?}"
+        );
+    }
+    AuditedCall {
+        exact: size_of::<CachedCall>()
+            + id.capacity()
+            + fields
+            + edits.capacity() * size_of::<(String, Vec<Hunk>)>()
+            + edits
+                .iter()
+                .map(|(path, hunks)| {
+                    path.capacity()
+                        + hunks.capacity() * size_of::<Hunk>()
+                        + hunks
+                            .iter()
+                            .map(|Hunk { old, new }| old.capacity() + new.capacity())
+                            .sum::<usize>()
+                })
+                .sum::<usize>(),
+        dom: shared + decoded,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::activity::lift_session_refs;
+    use crate::parse::parse_entry;
+    use crate::toolcall::{with_registry, McpToolSpec, SpanEditMap, ToolRegistrySnapshot};
+
+    fn entry(raw: &str) -> Entry {
+        parse_entry(sonic_rs::from_str(raw).unwrap()).unwrap()
+    }
+
+    fn user(uuid: &str, text: &str) -> Entry {
+        entry(&format!(
+            r#"{{"type":"user","uuid":"{uuid}","sessionId":"s","timestamp":"2026-01-02T03:04:05Z","message":{{"content":"{text}"}}}}"#
+        ))
+    }
+
+    fn tools() -> Entry {
+        entry(
+            r#"{"type":"assistant","uuid":"a","sessionId":"s","timestamp":"2026-01-02T03:04:06Z","message":{"model":"m","content":[{"type":"tool_use","id":"edit","name":"Edit","input":{"file_path":"a.rs","old_string":"old","new_string":"new"}},{"type":"tool_use","id":"read","name":"Read","input":{"file_path":"a.rs"}}]}}"#,
+        )
+    }
+
+    fn results() -> Entry {
+        entry(
+            r#"{"type":"user","uuid":"r","sessionId":"s","timestamp":"2026-01-02T03:04:07Z","message":{"content":[{"type":"tool_result","tool_use_id":"edit","content":"first"},{"type":"tool_result","tool_use_id":"edit","content":"last","is_error":true},{"type":"tool_result","tool_use_id":"read","content":"read"}]}}"#,
+        )
+    }
+
+    fn tool_use(id: &str, name: &str, input: &str) -> String {
+        format!(r#"{{"type":"tool_use","id":"{id}","name":"{name}","input":{input}}}"#)
+    }
+
+    fn parity(index: &ActivityIndex, entries: &[&Entry], flags: Option<&[bool]>) {
+        let projected = index.project("s", entries, &(0..index.turn_count()).collect::<Vec<_>>());
+        let expected = lift_session_refs("s", entries, flags);
+        assert_eq!(format!("{projected:?}"), format!("{expected:?}"));
+    }
+
+    #[test]
+    fn load_charge_activity_summaries_match_independent_allocations() {
+        let entries = [
+            user("u", "first"),
+            tools(),
+            results(),
+            user("v", "second"),
+            tools(),
+            results(),
+        ];
+        let refs: Vec<_> = entries.iter().collect();
+        let mut previous = ActivityIndex::default();
+        for end in 1..=entries.len() {
+            let prior: std::collections::HashSet<_> = previous
+                .audited_heap_allocations()
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
+            let old = previous.audited_heap_allocations();
+            let next = previous.append(&refs[..end], end - 1, None);
+            let actual: usize = next
+                .audited_heap_allocations()
+                .into_iter()
+                .filter(|(id, _)| !prior.contains(id))
+                .map(|(_, bytes)| bytes)
+                .sum();
+            assert_eq!(next.heap_bytes_since(Some(&previous)), actual);
+            assert_eq!(
+                next.heap_bytes_since(None),
+                next.audited_heap_allocations()
+                    .into_iter()
+                    .map(|(_, bytes)| bytes)
+                    .sum::<usize>()
+            );
+            assert_eq!(previous.audited_heap_allocations(), old);
+            parity(&next, &refs[..end], None);
+            previous = next;
+        }
+    }
+
+    #[test]
+    fn repeated_result_charge_counts_each_owned_result_copy() {
+        let mut calls = tools();
+        let Entry::Assistant(assistant) = &mut calls else {
+            panic!()
+        };
+        let ContentBlock::ToolUse(second) = &mut assistant.blocks[1] else {
+            panic!()
+        };
+        second.id = "edit".into();
+        let mut response = results();
+        let Entry::User(user) = &mut response else {
+            panic!()
+        };
+        let crate::types::UserContent::Blocks(blocks) = &mut user.content else {
+            panic!()
+        };
+        let ContentBlock::ToolResult(result) = &mut blocks[1] else {
+            panic!()
+        };
+        result.tool_use_result = Some(sonic_rs::json!(vec![0; 4096]));
+        let entries = [calls, response];
+        let refs: Vec<_> = entries.iter().collect();
+        let index = ActivityIndex::new(&refs, None);
+        assert!(index.repeated_result_bytes(0) >= 2 * 4096 * size_of::<sonic_rs::Value>());
+    }
+
+    #[test]
+    fn append_reuses_calls_and_repairs_late_results_without_changing_prior() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let prior = ActivityIndex::new(&refs[..3], None);
+        let next = prior.append(&refs, 3, None);
+        parity(&prior, &refs[..3], None);
+        parity(&next, &refs, None);
+        assert_eq!(next.work().indexed_entries, 1);
+        assert_eq!(next.work().parsed_tool_calls, 0);
+        assert!(Arc::ptr_eq(&prior.turns[0], &next.turns[0]));
+        assert!(!Arc::ptr_eq(&prior.turns[1], &next.turns[1]));
+        assert!(prior.project_turn(&refs[..3], 0).unwrap().tool_uses[0]
+            .result
+            .is_none());
+        assert!(
+            next.project_turn(&refs, 0).unwrap().tool_uses[0]
+                .result
+                .unwrap()
+                .is_error
+        );
+    }
+
+    #[test]
+    fn continuation_shares_cached_calls_and_keeps_first_uuid() {
+        let entries = [
+            user("same", "first"),
+            tools(),
+            results(),
+            user("same", "second"),
+        ];
+        let refs: Vec<_> = entries.iter().collect();
+        let prior = ActivityIndex::new(&refs[..2], None);
+        let next = prior.append(&refs, 2, None);
+        parity(&next, &refs, None);
+        assert_eq!(prior.turn_bounds(0), Some(0..2));
+        assert_eq!(next.turn_bounds(0), Some(0..3));
+        assert_eq!(next.turn_bounds(1), Some(3..4));
+        assert_eq!(next.turn_of_uuid("same"), Some(0));
+        assert_eq!(next.event_of_uuid("same"), Some(0));
+        assert_eq!(next.turn_of_event(3), Some(1));
+        assert_eq!(next.turn_of_event(4), None);
+        assert_eq!(next.turn_of_uuid("absent"), None);
+        assert!(Arc::ptr_eq(
+            &prior.turns[0].calls[0],
+            &next.turns[0].calls[0]
+        ));
+    }
+
+    #[test]
+    fn every_append_boundary_matches_full_lift() {
+        let entries = [
+            entry(r#"{"type":"mode","sessionId":"s","mode":"plan"}"#),
+            tools(),
+            user("u", "first"),
+            tools(),
+            user("v", "second"),
+            results(),
+            entry(&sonic_rs::json!({"type":"assistant","uuid":"synthetic","sessionId":"s","timestamp":"2026-01-02T03:04:08Z","message":{"model":crate::types::SYNTHETIC_MODEL,"content":[{"type":"text","text":"synthetic"}]}}).to_string()),
+            user("tail", "trailing prose"),
+        ];
+        let refs: Vec<_> = entries.iter().collect();
+        for boundary in 0..=refs.len() {
+            let prior = ActivityIndex::new(&refs[..boundary], None);
+            let next = prior.append(&refs, boundary, None);
+            parity(&next, &refs, None);
+            parity(&prior, &refs[..boundary], None);
+            assert_eq!(next.shape(), ActivityIndex::new(&refs, None).shape());
+            assert_eq!(
+                next.started_unix_ms(),
+                refs.iter()
+                    .find_map(|entry| entry.meta())
+                    .map(|meta| meta.timestamp.timestamp_millis())
+            );
+            assert_eq!(
+                next.last_model_event(),
+                refs.iter().rposition(|entry| matches!(entry, Entry::Assistant(assistant) if assistant.model != crate::types::SYNTHETIC_MODEL))
+            );
+            assert_eq!(
+                prior.started_unix_ms(),
+                refs[..boundary]
+                    .iter()
+                    .find_map(|entry| entry.meta())
+                    .map(|meta| meta.timestamp.timestamp_millis())
+            );
+            assert_eq!(
+                prior.last_model_event(),
+                refs[..boundary].iter().rposition(|entry| matches!(entry, Entry::Assistant(assistant) if assistant.model != crate::types::SYNTHETIC_MODEL))
+            );
+            assert_eq!(
+                prior.shape(),
+                ActivityIndex::new(&refs[..boundary], None).shape()
+            );
+        }
+    }
+
+    #[test]
+    fn metadata_is_local_to_each_window_and_immutable_prefix() {
+        let entries = [
+            sonic_rs::json!({"type":"user","uuid":"outside","sessionId":"s","timestamp":"2026-01-02T03:04:01Z","message":{"content":"outside"}}),
+            sonic_rs::json!({"type":"assistant","uuid":"before","sessionId":"s","timestamp":"2026-01-02T03:04:02Z","message":{"model":"before","content":[]}}),
+            sonic_rs::json!({"type":"mode","sessionId":"s","mode":"plan"}),
+            sonic_rs::json!({"type":"user","uuid":"inside","sessionId":"s","timestamp":"2026-01-02T03:04:08Z","message":{"content":"inside"}}),
+            sonic_rs::json!({"type":"assistant","uuid":"model","sessionId":"s","timestamp":"2026-01-02T03:04:09Z","message":{"model":"inside","content":[]}}),
+            sonic_rs::json!({"type":"user","uuid":"tail","sessionId":"s","timestamp":"2026-01-02T03:04:10Z","message":{"content":"tail"}}),
+            sonic_rs::json!({"type":"assistant","uuid":"after","sessionId":"s","timestamp":"2026-01-02T03:04:11Z","message":{"model":"after","content":[]}}),
+        ].map(|value| entry(&value.to_string()));
+        let refs: Vec<_> = entries.iter().collect();
+        let global = ActivityIndex::new(&refs, None);
+        for range in [0..5, 2..6, 3..6, 2..4] {
+            let window = &refs[range.clone()];
+            let first = window
+                .iter()
+                .find_map(|entry| entry.meta())
+                .map(|meta| meta.timestamp.timestamp_millis());
+            let model = window.iter().rposition(|entry| matches!(entry, Entry::Assistant(assistant) if assistant.model != crate::types::SYNTHETIC_MODEL));
+            for boundary in 0..=window.len() {
+                let prior = ActivityIndex::new(&window[..boundary], None);
+                let next = prior.append(window, boundary, None);
+                assert_eq!(next.started_unix_ms(), first, "{range:?} {boundary}");
+                assert_eq!(next.last_model_event(), model, "{range:?} {boundary}");
+                assert_eq!(prior.last_model_event(), window[..boundary].iter().rposition(|entry| matches!(entry, Entry::Assistant(assistant) if assistant.model != crate::types::SYNTHETIC_MODEL)));
+            }
+        }
+        let window = ActivityIndex::new(&refs[2..6], None);
+        assert_ne!(window.started_unix_ms(), global.started_unix_ms());
+        assert_eq!(window.last_model_event(), Some(2));
+        assert_eq!(global.last_model_event(), Some(6));
+    }
+
+    #[test]
+    fn custom_classifier_and_empty_append_preserve_semantics() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let flags = [false, false, true, false];
+        let prior = ActivityIndex::new(&refs[..2], Some(&flags[..2]));
+        let next = prior.append(&refs, 2, Some(&flags));
+        parity(&next, &refs, Some(&flags));
+        let unchanged = next.append(&refs, refs.len(), Some(&flags));
+        assert_eq!(unchanged.work(), ActivityWork::default());
+        assert_eq!(unchanged.shape(), next.shape());
+        assert_eq!(unchanged.started_unix_ms(), next.started_unix_ms());
+        assert_eq!(unchanged.last_model_event(), next.last_model_event());
+        assert_eq!(
+            next.shape(),
+            ActivityIndex::new(&refs, Some(&flags)).shape()
+        );
+        assert!(Arc::ptr_eq(&next.turns[0], &unchanged.turns[0]));
+        assert!(Arc::ptr_eq(&next.uuids, &unchanged.uuids));
+        assert!(Arc::ptr_eq(&next.results, &unchanged.results));
+    }
+
+    #[test]
+    fn accounting_identifies_shared_payload_once_across_generations() {
+        let entries = [user("u", "first"), tools(), user("v", "second")];
+        let refs: Vec<_> = entries.iter().collect();
+        let prior = ActivityIndex::new(&refs[..2], None);
+        let next = prior.append(&refs, 2, None);
+        let mut allocations = HashMap::new();
+        for (identity, bytes) in prior
+            .accounted_allocations()
+            .into_iter()
+            .chain(next.accounted_allocations())
+        {
+            if let Some(previous) = allocations.insert(identity, bytes) {
+                assert_eq!(previous, bytes);
+            }
+        }
+        let unique: usize = allocations.values().sum();
+        assert!(unique < prior.accounted_bytes() + next.accounted_bytes());
+        assert!(next.accounted_bytes() > prior.accounted_bytes());
+    }
+
+    #[test]
+    fn call_lookup_matches_linear_oracle_across_append_boundaries() {
+        let owned = [user("u", "first"), tools(), user("v", "second"), tools()];
+        let entries = owned.iter().collect::<Vec<_>>();
+        for split in 0..=entries.len() {
+            let before = ActivityIndex::new(&entries[..split], None);
+            let index = before.append(&entries, split, None);
+            for event in 0..=entries.len() {
+                for ordinal in 0..=3 {
+                    let expected = index
+                        .turn_of_event(event)
+                        .and_then(|turn| index.turns.get(turn))
+                        .and_then(|turn| {
+                            turn.calls
+                                .iter()
+                                .find(|call| call.event == event && call.ordinal == ordinal)
+                        })
+                        .map(|call| format!("{:?}", call.call));
+                    assert_eq!(
+                        index
+                            .call_at(event, ordinal)
+                            .map(|call| format!("{call:?}")),
+                        expected
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn projection_accessor_reads_only_selected_turn_and_its_results() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let index = ActivityIndex::new(&refs, None);
+        let visited = std::cell::RefCell::new(std::collections::HashSet::new());
+        let projected = index
+            .project_turn_with(0, |position| {
+                assert_ne!(position, 2);
+                visited.borrow_mut().insert(position);
+                &entries[position]
+            })
+            .unwrap();
+        let expected = index.project_turn(&refs, 0).unwrap();
+        assert_eq!(format!("{projected:?}"), format!("{expected:?}"));
+        assert_eq!(
+            *visited.borrow(),
+            std::collections::HashSet::from([0, 1, 3])
+        );
+        assert!(index
+            .project_turn_with(2, |_| panic!("out-of-range turn reads no entries"))
+            .is_none());
+    }
+
+    #[test]
+    fn projection_preflight_includes_cloned_payloads_and_vector_storage() {
+        let entries = [user("u", "first"), tools(), user("v", "second")];
+        let refs: Vec<_> = entries.iter().collect();
+        let index = ActivityIndex::new(&refs, None);
+        let turn = &index.turns[0];
+        let expected = size_of::<Turn<'_>>()
+            + turn.prompt.capacity()
+            + 2 * size_of::<&Entry>()
+            + 2 * size_of::<ToolUse<'_>>()
+            + turn
+                .calls
+                .iter()
+                .map(|call| call.accounted_bytes)
+                .sum::<usize>();
+        assert_eq!(index.projected_bytes(0), Some(expected));
+        assert!(index.projected_bytes(0).unwrap() > index.projected_bytes(1).unwrap());
+        assert_eq!(index.projected_bytes(2), None);
+    }
+
+    #[test]
+    fn selective_call_projection_allocates_only_selected_call_slots() {
+        for count in [32, 4096] {
+            let mut owned = vec![user("u", "question")];
+            owned.extend((0..count).map(|i| entry(&format!(
+                r#"{{"type":"assistant","uuid":"a{i}","sessionId":"s","timestamp":"2026-01-02T03:04:06Z","message":{{"model":"test","content":[{{"type":"tool_use","id":"b{i}","name":"Bash","input":{{"command":"{}"}}}}]}}}}"#,
+                "x".repeat(512),
+            ))));
+            owned.push(tools());
+            let refs = owned.iter().collect::<Vec<_>>();
+            let index = ActivityIndex::new(&refs, None);
+            let all = index.project_turn_with(0, |i| &owned[i]).unwrap();
+            let selected = index
+                .project_call_turn_with(0, |i| &owned[i], |call| call.name() == "Read")
+                .unwrap();
+            assert_eq!(selected.tool_uses.len(), 1);
+            assert_eq!(selected.tool_uses.capacity(), 1);
+            assert_eq!(selected.events.len(), all.events.len());
+            assert_eq!(selected.prompt, all.prompt);
+            let expected = all
+                .tool_uses
+                .iter()
+                .filter(|use_| use_.call.name() == "Read")
+                .collect::<Vec<_>>();
+            assert_eq!(format!("{:?}", selected.tool_uses), format!("{expected:?}"));
+            assert!(
+                index
+                    .projected_call_bytes(0, |call| call.name() == "Read")
+                    .unwrap()
+                    < index.projected_bytes(0).unwrap()
+            );
+            eprintln!("selective_call_slots unrelated={count} full={} selective_len={} selective_capacity={}", all.tool_uses.capacity(), selected.tool_uses.len(), selected.tool_uses.capacity());
+        }
+    }
+
+    #[test]
+    fn result_event_iterator_exposes_external_results_without_entry_reads() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let index = ActivityIndex::new(&refs, None);
+        assert_eq!(index.result_events(0).collect::<Vec<_>>(), vec![3, 3]);
+        assert_eq!(index.result_events(1).count(), 0);
+        assert_eq!(index.result_events(2).count(), 0);
+    }
+
+    #[test]
+    fn numeric_plan_charge_includes_separately_decoded_dom() {
+        let arguments = format!("{{\"plan\":[{}]}}", vec!["0"; 4096].join(","));
+        let raw = sonic_rs::Value::from(arguments.as_str());
+        let call = parse_tool_call("update_plan", &raw);
+        assert!(matches!(call, ToolCall::UpdatePlan(_)));
+        let raw_charge = value_charge(&raw).opaque_dom_accounted_bytes;
+        let total = call_bytes(&call, raw_charge);
+        assert!(total >= raw_charge + 4096 * size_of::<sonic_rs::Value>());
+        assert!(total > arguments.len() * 4);
+    }
+
+    #[test]
+    fn write_stdin_charge_includes_separately_decoded_chars() {
+        let arguments = format!("{{\"session_id\":1,\"chars\":\"{}\"}}", "x".repeat(8192));
+        let raw = sonic_rs::Value::from(arguments.as_str());
+        let call = parse_tool_call("write_stdin", &raw);
+        assert!(matches!(call, ToolCall::WriteStdin(_)));
+        let raw_charge = value_charge(&raw).opaque_dom_accounted_bytes;
+        assert!(call_bytes(&call, raw_charge) >= raw_charge + 8192);
+    }
+
+    #[test]
+    fn ordinary_object_fields_do_not_double_charge_shared_dom() {
+        let raw: sonic_rs::Value =
+            sonic_rs::from_str(r#"{"command":"true","description":{"deep":[1,2,3]}}"#).unwrap();
+        let call = parse_tool_call("Bash", &raw);
+        let ToolCall::Bash(bash) = &call else {
+            panic!()
+        };
+        let raw_charge = value_charge(&raw).opaque_dom_accounted_bytes;
+        assert_eq!(
+            call_bytes(&call, raw_charge),
+            raw_charge + bash.name.capacity() + bash.command.capacity()
+        );
+    }
+
+    #[test]
+    fn independent_walk_pins_every_call_variant_charge() {
+        let cases = [
+            (
+                "Bash",
+                r#"{"command":"ls","description":{"why":["list"]},"timeout":5,"run_in_background":true}"#,
+            ),
+            ("exec_command", r#""{\"cmd\":\"ls\",\"workdir\":\"/tmp\"}""#),
+            (
+                "Edit",
+                r#"{"file_path":"a.rs","old_string":"old","new_string":"new","replace_all":true}"#,
+            ),
+            (
+                "MultiEdit",
+                r#"{"file_path":"a.rs","edits":[{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d","replace_all":true}]}"#,
+            ),
+            ("Write", r#"{"file_path":"w.rs","content":"body"}"#),
+            ("Read", r#"{"file_path":"r.rs","offset":1,"limit":2}"#),
+            (
+                "NotebookEdit",
+                r#"{"notebook_path":"n.ipynb","new_source":"x = 1","cell_id":"c1","edit_mode":"replace"}"#,
+            ),
+            (
+                "Grep",
+                r#"{"pattern":"p","path":"src","glob":"*.rs","type":"rust","output_mode":"content"}"#,
+            ),
+            ("Glob", r#"{"pattern":"**/*.rs","path":"src"}"#),
+            (
+                "Agent",
+                r#"{"prompt":"do","subagent_type":"x","model":"m","name":"n","run_in_background":false}"#,
+            ),
+            (
+                "Workflow",
+                r#"{"script":"s","scriptPath":"p","name":"w","args":{"k":[1,2]},"resumeFromRunId":"r"}"#,
+            ),
+            ("Skill", r#"{"skill":"s","args":"a"}"#),
+            ("TaskCreate", r#"{"subject":"s","description":"d"}"#),
+            (
+                "TaskUpdate",
+                r#"{"taskId":"1","status":"done","subject":"s","description":"d"}"#,
+            ),
+            ("ExitPlanMode", r#"{"plan":"p"}"#),
+            ("exec", r#""print(1)""#),
+            (
+                "apply_patch",
+                r#""*** Begin Patch\n*** Update File: a.rs\n*** Move to: b.rs\n@@\n-old\n+new\n*** Add File: c.rs\n+hello\n*** Delete File: d.rs\n*** End Patch""#,
+            ),
+            ("update_plan", r#""{\"explanation\":\"why\"}""#),
+            (
+                "update_plan",
+                r#""{\"plan\":[{\"step\":\"a\",\"status\":\"pending\"}],\"explanation\":\"why\"}""#,
+            ),
+            ("write_stdin", r#""{\"session_id\":1}""#),
+            (
+                "write_stdin",
+                r#""{\"session_id\":1,\"chars\":\"yes\",\"yield_time_ms\":5}""#,
+            ),
+            (
+                "mcp__srv__syn_walk_edit",
+                r#"{"path":"s.rs","content":"span"}"#,
+            ),
+            ("Edit", r#"{"file_path":"a.rs"}"#),
+        ];
+        let blocks = std::iter::once(tool_use("zero", "Unregistered", "true"))
+            .chain(
+                cases
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(position, (name, input))| {
+                        [
+                            tool_use(&format!("x{position}"), name, input),
+                            tool_use(&format!("t{position}"), "Unregistered", input),
+                        ]
+                    }),
+            )
+            .collect::<Vec<_>>()
+            .join(",");
+        let entries = [
+            user("u", "first"),
+            entry(&format!(
+                r#"{{"type":"assistant","uuid":"a","sessionId":"s","timestamp":"2026-01-02T03:04:06Z","message":{{"model":"m","content":[{blocks}]}}}}"#
+            )),
+        ];
+        let refs: Vec<_> = entries.iter().collect();
+        let registry = ToolRegistrySnapshot::from_specs(HashMap::from([(
+            "syn_walk_edit".to_string(),
+            McpToolSpec {
+                behaves_like: "Edit".to_string(),
+                span_edit: Some(SpanEditMap {
+                    path: "path".to_string(),
+                    content: "content".to_string(),
+                    delete: None,
+                }),
+            },
+        )]));
+        let index = with_registry(registry, || ActivityIndex::new(&refs, None));
+        let (zero, pairs) = index.turns[0].calls.split_first().unwrap();
+        let walked = audited_call(zero);
+        assert!(matches!(
+            zero.call,
+            ToolCall::Other(OtherCall { error: Some(_), .. })
+        ));
+        assert_eq!(walked.dom, 0);
+        assert_eq!(zero.accounted_bytes, walked.exact);
+        assert_eq!(pairs.len(), 2 * cases.len());
+        let variants: std::collections::BTreeSet<_> = pairs
+            .chunks_exact(2)
+            .map(|pair| {
+                let [call, twin] = pair else { unreachable!() };
+                let (walked, twinned) = (audited_call(call), audited_call(twin));
+                assert!(matches!(
+                    twin.call,
+                    ToolCall::Other(OtherCall { error: None, .. })
+                ));
+                assert!(call.accounted_bytes >= walked.total());
+                assert!(twin.accounted_bytes >= twinned.total());
+                match &call.call {
+                    ToolCall::UpdatePlan(UpdatePlanCall { plan: Some(_), .. })
+                    | ToolCall::WriteStdin(WriteStdinCall { chars: Some(_), .. }) => {
+                        assert!(walked.dom > twinned.dom);
+                        assert!(
+                            call.accounted_bytes + twinned.exact
+                                >= twin.accounted_bytes + walked.exact + walked.dom - twinned.dom
+                        );
+                    }
+                    _ => {
+                        assert_eq!(walked.dom, twinned.dom);
+                        assert_eq!(
+                            call.accounted_bytes + twinned.exact,
+                            twin.accounted_bytes + walked.exact
+                        );
+                    }
+                }
+                call.call.type_name()
+            })
+            .collect();
+        assert_eq!(variants.len(), 20);
+    }
+
+    #[test]
+    fn consuming_tail_append_reuses_unique_metadata_and_global_positions() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let mut index = ActivityIndex::default();
+        let turns = Arc::as_ptr(&index.turns);
+        let uuids = Arc::as_ptr(&index.uuids);
+        let results = Arc::as_ptr(&index.results);
+        for position in 0..refs.len() {
+            index = std::mem::take(&mut index).append_tail(&refs[position..position + 1], None);
+            assert_eq!(index.work().indexed_entries, 1);
+            assert_eq!(index.work().copied_index_entries, 0);
+            assert_eq!(Arc::as_ptr(&index.turns), turns);
+            assert_eq!(Arc::as_ptr(&index.uuids), uuids);
+            assert_eq!(Arc::as_ptr(&index.results), results);
+            parity(&index, &refs[..position + 1], None);
+        }
+        assert_eq!(index.event_of_uuid("v"), Some(2));
+        assert_eq!(index.result_events(0).collect::<Vec<_>>(), vec![3, 3]);
+    }
+
+    #[test]
+    fn consuming_tail_append_preserves_shared_generation_and_local_classifier_flags() {
+        let entries = [user("u", "first"), tools(), user("v", "second"), results()];
+        let refs: Vec<_> = entries.iter().collect();
+        let flags = [true, false, false, false];
+        let prior = ActivityIndex::new(&refs[..2], Some(&flags[..2]));
+        let next = prior.clone().append_tail(&refs[2..], Some(&flags[2..]));
+        parity(&prior, &refs[..2], Some(&flags[..2]));
+        parity(&next, &refs, Some(&flags));
+        assert_eq!(prior.turn_bounds(0), Some(0..2));
+        assert_eq!(next.turn_bounds(0), Some(0..4));
+        assert!(next.work().copied_index_entries > 0);
+        assert!(Arc::ptr_eq(
+            &prior.turns[0].calls[0],
+            &next.turns[0].calls[0]
+        ));
+    }
+}

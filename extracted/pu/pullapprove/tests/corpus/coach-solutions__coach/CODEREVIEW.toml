@@ -1,0 +1,40 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "frontend-interested"
+reviewers = ["$frontend-interested"]
+paths = ["Coach.Online.Web/voyop-react/**/*"]
+request = 1
+require = 0
+ownership = "append"
+
+[[scopes]]
+name = "frontend"
+reviewers = ["$frontend"]
+paths = ["Coach.Online.Web/voyop-react/**/*"]
+request = 1
+require = 1
+labels = ["frontend"]
+
+[[scopes]]
+name = "backend-interested"
+reviewers = ["$backend-interested"]
+paths = ["**/*", "!Coach.Online.Web/voyop-react/**/*"]
+request = 1
+require = 0
+ownership = "append"
+
+[[scopes]]
+name = "backend"
+reviewers = ["$backend"]
+paths = ["**/*", "!Coach.Online.Web/voyop-react/**/*"]
+request = 1
+require = 1
+labels = ["backend"]
+
+[large_scale_change]
+reviewers = ["$backend"]
+require = 1
+labels = ["large-change"]

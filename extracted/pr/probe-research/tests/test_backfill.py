@@ -11,13 +11,14 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
+import importlib
 import pytest
 
 from backfill_plan_agent import filing
 from backfill_test_client import ScopedClient
 
-from probe.cli import backfill
-from probe.cli import backfill_evidence as ev
+from probe.cli.imports import folder as backfill
+from probe.cli.imports.folder import evidence as ev
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +31,10 @@ def _agents_installed(monkeypatch):
     folders must not depend on what the machine happens to have installed.
     Tests that care about availability override this themselves.
     """
-    monkeypatch.setattr(backfill, "which_agent", lambda a: f"/usr/bin/{a.value}")
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: f"/usr/bin/{a.value}")
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: f"/usr/bin/{a.value}")
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: f"/usr/bin/{a.value}")
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: f"/usr/bin/{a.value}")
 
 
 def _tree(root: Path) -> Path:
@@ -85,7 +89,7 @@ def test_the_census_survives_a_file_that_vanishes_mid_walk(tmp_path, monkeypatch
             raise OSError("vanished")
         return real(entry)
 
-    monkeypatch.setattr(ev, "_raw_stat", flaky)
+    monkeypatch.setattr("probe.cli.imports.folder.walk.walk._raw_stat", flaky)
     census = _census(tmp_path)
     # Still COUNTED: a denominator that quietly drops it hides the mismatch.
     assert census.files == 1
@@ -359,7 +363,7 @@ def test_a_classification_that_does_not_parse_uploads_nothing(tmp_path, monkeypa
     the projects do not exist yet, so a failed classify has nothing to clean up.
     """
     _tree(tmp_path)
-    monkeypatch.setattr(backfill, "launch_agent", lambda *a, **kw: (True, "no json at all"))
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", lambda *a, **kw: (True, "no json at all"))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert any("did not produce a usable plan" in ln for ln in lines)
     assert any("no files were queued from this classification" in ln for ln in lines)
@@ -391,8 +395,8 @@ def test_a_pinned_project_overrides_every_assignment(tmp_path, monkeypatch):
 
     def fake_launch(folder, prompt, **kw):
         if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
-            from probe.cli import backfill_evidence as _ev
-            from probe.cli import backfill_plan as _bp
+            from probe.cli.imports.folder import evidence as _ev
+            from probe.cli.imports.folder.classify import plan as _bp
 
             names = _bp.relative_paths(_ev.gather(tmp_path))
             # The classifier says two projects; neither is the pinned one.
@@ -407,7 +411,7 @@ def test_a_pinned_project_overrides_every_assignment(tmp_path, monkeypatch):
             )
         return True, '{"rows": 0}'
 
-    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", filing(fake_launch))
     client = _FakeClient(existing={"id": FAKE_ID, "slug": "pinned"})
     lines = backfill.run(
         client_factory=lambda: client, folder=tmp_path, interactive=False, project="pinned"
@@ -554,13 +558,25 @@ def test_codex_is_told_its_working_root_explicitly():
 
 def test_a_single_installed_agent_is_used_without_asking(monkeypatch):
     monkeypatch.setattr(
-        backfill, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+        backfill.agents.agents, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.agents.flags, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.agents.launch_once, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.flow.choices, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
     )
     assert backfill.resolve_agent(None, interactive=True) == (backfill.Agent.CLAUDE, None)
 
 
 def test_no_agent_at_all_says_what_is_missing(monkeypatch):
-    monkeypatch.setattr(backfill, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: None)
     chosen, error = backfill.resolve_agent(None, interactive=True)
     assert chosen is None
     assert "Claude Code or Codex" in error
@@ -570,7 +586,16 @@ def test_an_explicit_agent_is_never_silently_swapped(monkeypatch):
     """Someone who passed --agent codex wants CODEX. Quietly running the other
     one over their filesystem is the wrong kind of helpful."""
     monkeypatch.setattr(
-        backfill, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+        backfill.agents.agents, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.agents.flags, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.agents.launch_once, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
+    )
+    monkeypatch.setattr(
+        backfill.flow.choices, "which_agent", lambda a: "/bin/claude" if a is backfill.Agent.CLAUDE else None
     )
     chosen, error = backfill.resolve_agent(backfill.Agent.CODEX, interactive=True)
     assert chosen is None
@@ -578,7 +603,10 @@ def test_an_explicit_agent_is_never_silently_swapped(monkeypatch):
 
 
 def test_two_agents_and_no_tty_takes_the_first_rather_than_prompting(monkeypatch):
-    monkeypatch.setattr(backfill, "which_agent", lambda a: "/bin/" + a.value)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: "/bin/" + a.value)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: "/bin/" + a.value)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: "/bin/" + a.value)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: "/bin/" + a.value)
     assert backfill.resolve_agent(None, interactive=False) == (backfill.Agent.CLAUDE, None)
 
 
@@ -593,9 +621,10 @@ def test_every_agent_has_menu_copy():
 def test_the_agent_binary_is_resolved_off_path_not_a_shell(monkeypatch):
     """`codex` is commonly shadowed by a shell alias. A PATH lookup with no
     shell cannot see one; `shell=True` would have swallowed our arguments."""
-    # Read the MODULE FILE, not the attribute: the autouse fixture replaces
-    # `which_agent` with a stub, and getsource would inspect that instead.
-    source = Path(backfill.__file__).read_text()
+    # Read the MODULE FILES, not the attribute: the autouse fixture replaces
+    # `which_agent` with a stub, and getsource would inspect that instead. Every
+    # piece the old backfill.py was split into (its door lists them).
+    source = "".join(Path(importlib.import_module(piece).__file__).read_text() for piece in backfill._PIECES)
     assert "def which_agent" in source and "shutil.which" in source
     assert "shell=True" not in source
 
@@ -651,7 +680,10 @@ def test_a_folder_that_cannot_be_expressed_as_a_rule_is_refused(tmp_path, monkey
 
 def test_missing_claude_is_a_message_not_a_traceback(tmp_path, monkeypatch):
     # Overrides the autouse "both installed" fixture on purpose.
-    monkeypatch.setattr(backfill, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: None)
     ok, msg = backfill.launch_agent(tmp_path, "prompt")
     assert ok is False
     assert "not on PATH" in msg
@@ -732,7 +764,10 @@ def test_a_file_is_not_a_folder(tmp_path):
 def test_a_bad_path_is_reported_before_a_missing_agent(tmp_path, monkeypatch):
     """Telling someone to install an agent when they mistyped a path is a wrong
     answer to the question they actually asked."""
-    monkeypatch.setattr(backfill, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: None)
     target = tmp_path / "a.txt"
     target.write_text("x")
     lines = backfill.run(client_factory=_FakeClient, folder=target, interactive=False)
@@ -743,7 +778,10 @@ def test_a_missing_agent_creates_no_project(tmp_path, monkeypatch):
     """Agent availability is a free local check and project creation is a
     network write. Getting that order wrong leaves an empty project behind on
     every machine that cannot run the import at all."""
-    monkeypatch.setattr(backfill, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.agents, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.flags, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.agents.launch_once, "which_agent", lambda a: None)
+    monkeypatch.setattr(backfill.flow.choices, "which_agent", lambda a: None)
     _tree(tmp_path)
     client = _FakeClient()
     lines = backfill.run(client_factory=lambda: client, folder=tmp_path, interactive=False)
@@ -753,7 +791,7 @@ def test_a_missing_agent_creates_no_project(tmp_path, monkeypatch):
 
 def test_an_empty_folder_launches_no_agent(tmp_path, monkeypatch):
     launched = []
-    monkeypatch.setattr(backfill, "launch_agent", lambda *a, **kw: launched.append(a))
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", lambda *a, **kw: launched.append(a))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert "no files to import" in lines[0]
     assert launched == []
@@ -791,8 +829,8 @@ def test_the_happy_path_reports_the_denominator(tmp_path, monkeypatch):
         if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             import json as _json
 
-            from probe.cli import backfill_evidence as _ev
-            from probe.cli import backfill_plan as _bp
+            from probe.cli.imports.folder import evidence as _ev
+            from probe.cli.imports.folder.classify import plan as _bp
 
             names = _bp.relative_paths(_ev.gather(tmp_path))
             return True, _json.dumps(
@@ -806,7 +844,7 @@ def test_the_happy_path_reports_the_denominator(tmp_path, monkeypatch):
             )
         return True, '{"manifest": "m", "rows": 0}'
 
-    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", filing(fake_launch))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert seen["folders"][0] == tmp_path.resolve(), "the agent runs INSIDE the folder"
     assert any("files found on disk" in ln for ln in lines)
@@ -849,7 +887,7 @@ def test_the_command_installs_a_persistent_probe_first():
 
 def _stub_bootstrap(monkeypatch):
     monkeypatch.setattr(
-        "probe.cli.bootstrap.ensure_persistent_install",
+        "probe.cli.install.bootstrap.ensure_persistent_install",
         lambda **_: type("B", (), {"message": None})(),
     )
 
@@ -858,7 +896,7 @@ def test_the_command_passes_its_folder_through(monkeypatch, tmp_path):
     cli_main = _cli_main()
     seen = {}
     _stub_bootstrap(monkeypatch)
-    monkeypatch.setattr("probe.cli.backfill.run", lambda **kw: seen.update(kw) or ["done"])
+    monkeypatch.setattr("probe.cli.imports.folder.folder.run", lambda **kw: seen.update(kw) or ["done"])
     cli_main.backfill(folder=str(tmp_path), agent=None)
     assert seen["folder"] == Path(str(tmp_path))
     assert seen["client_factory"] is cli_main._backfill_client
@@ -868,7 +906,7 @@ def test_the_command_with_no_folder_leaves_the_picker_to_decide(monkeypatch):
     cli_main = _cli_main()
     seen = {}
     _stub_bootstrap(monkeypatch)
-    monkeypatch.setattr("probe.cli.backfill.run", lambda **kw: seen.update(kw) or [])
+    monkeypatch.setattr("probe.cli.imports.folder.folder.run", lambda **kw: seen.update(kw) or [])
     cli_main.backfill(folder=None, agent=None)
     assert seen["folder"] is None
 
@@ -881,8 +919,8 @@ def test_a_failed_unit_says_rerunning_is_safe(tmp_path, monkeypatch):
 
     def fake_launch(folder, prompt, **kw):
         if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
-            from probe.cli import backfill_evidence as _ev
-            from probe.cli import backfill_plan as _bp
+            from probe.cli.imports.folder import evidence as _ev
+            from probe.cli.imports.folder.classify import plan as _bp
 
             names = _bp.relative_paths(_ev.gather(tmp_path))
             return True, _json.dumps(
@@ -893,7 +931,7 @@ def test_a_failed_unit_says_rerunning_is_safe(tmp_path, monkeypatch):
             )
         return False, "boom"
 
-    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", filing(fake_launch))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert any("Re-running resumes saved work" in ln for ln in lines)
     assert any("did not finish" in ln for ln in lines)

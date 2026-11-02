@@ -41,18 +41,16 @@ jsonschema = pytest.importorskip("jsonschema")
 import click_extra
 from click_extra.carapace import (
     CARAPACE_DOCS_URL,
-    CARAPACE_SPECS_DIR,
     CarapaceComplete,
     _flag_key,
     _flag_name,
     dump_carapace_spec,
-    extract_carapace_command,
+    get_cache_dir,
     install_carapace_spec,
     to_carapace_spec,
     xdg_dir,
 )
 from click_extra.cli import demo
-from click_extra.parameters import make_resilient_context
 from click_extra.testing import CliRunner
 
 from .conftest import fetch_or_skip
@@ -62,7 +60,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 CARAPACE_SCHEMA = json.loads(
-    (Path(__file__).parent / "carapace-spec.schema.json").read_text(encoding="utf-8")
+    (Path(__file__).parent / "carapace-spec.schema.json").read_text(encoding="UTF-8")
 )
 
 
@@ -349,8 +347,7 @@ def test_option_computing_its_help_still_describes_itself():
     """An option leaving `help` at `None` still reaches the spec described.
 
     Click Extra's own `-v` and `-q` build their text from the resolved base
-    verbosity, so reading the attribute hands back nothing and the spec used to
-    ship them blank.
+    verbosity, so reading the attribute hands back nothing.
     """
 
     @click_extra.command
@@ -517,24 +514,6 @@ def test_spec_agrees_with_click_on_flag_scope(invoke):
     assert "No such option '--version'" in result.stderr
 
 
-@pytest.mark.parametrize(
-    ("argument", "value"),
-    (("is_root", True), ("default_opts", frozenset()), ("inherited_opts", frozenset())),
-)
-def test_extract_carapace_command_routing_arguments_are_deprecated(argument, value):
-    """The arguments that routed default options into `persistentflags` still parse,
-    have no effect, and warn at the caller."""
-    ctx = make_resilient_context(xtool, "xtool")
-    with pytest.warns(
-        DeprecationWarning, match=rf"extract_carapace_command\({argument}="
-    ) as record:
-        node = extract_carapace_command(
-            xtool, ctx, command_path=("xtool",), **{argument: value}
-        )
-    assert not node.persistentflags
-    assert record[0].filename == __file__
-
-
 def test_plain_cli_keeps_own_lookalike_option():
     # weather is a plain cloup group: its only default is --help, so forecast's
     # own -v/--verbose must survive rather than being mistaken for the default.
@@ -579,6 +558,23 @@ def test_dump_requires_pyyaml(monkeypatch):
     monkeypatch.setitem(sys.modules, "yaml", None)
     with pytest.raises(ImportError, match=r"click-extra\[carapace\]"):
         dump_carapace_spec(weather, prog_name="weather")
+
+
+def test_help_format_carapace_without_pyyaml(monkeypatch):
+    """`--help-format carapace` names the extra to install, with no traceback."""
+    monkeypatch.setitem(sys.modules, "yaml", None)
+
+    @click_extra.command
+    def orchard():
+        """Pick apples."""
+
+    result = CliRunner().invoke(orchard, ["--help-format", "carapace"], color=False)
+    assert result.exit_code == 1
+    assert not result.stdout
+    assert result.stderr == (
+        "Error: Carapace spec serialization requires an optional dependency. "
+        "Install it with: uv pip install 'click-extra[carapace]'\n"
+    )
 
 
 # -- Dynamic completion backend (CarapaceComplete) ----------------------------
@@ -626,9 +622,9 @@ def test_subcommand_dynamic_completion_resolves_end_to_end(monkeypatch):
     being completed in its own state rather than passing it through. So the macro
     bakes both the command path and the flag spelling, and ``$*`` expands to
     nothing. This reconstructs the resulting COMP_WORDS from the generated macro
-    and confirms the backend resolves the forecast callback. The original
-    root-only, flag-less macro would have reconstructed bare ``weather`` and
-    completed the subcommand list instead.
+    and confirms the backend resolves the forecast callback. A root-only,
+    flag-less macro would reconstruct bare ``weather`` and complete the
+    subcommand list instead.
     """
     macro = FORECAST["completion"]["flag"]["city"][0]
     # The macro's COMP_WORDS template, with $* expanded to the empty word list
@@ -668,7 +664,7 @@ def runner():
 @pytest.fixture
 def greet_script(tmp_path):
     script = tmp_path / "greet.py"
-    script.write_text(GREET_SCRIPT)
+    script.write_text(GREET_SCRIPT, encoding="UTF-8")
     return str(script)
 
 
@@ -726,15 +722,69 @@ def test_xdg_dir_resolves_at_call_time(tmp_path, monkeypatch, environ, expected)
     assert resolved == Path(expected.format(tmp=tmp_path))
 
 
-def test_carapace_specs_dir_is_expanded():
-    """The public default is an absolute path, as `9.4.1` shipped it.
+@pytest.mark.parametrize(
+    ("platform_id", "environ", "expected"),
+    (
+        pytest.param("macos", {}, "/home/fig/Library/Caches/plum", id="macos"),
+        pytest.param(
+            "macos",
+            {"XDG_CACHE_HOME": "/orchard/cache"},
+            "/orchard/cache/plum",
+            id="macos-xdg",
+        ),
+        pytest.param("linux", {}, "/home/fig/.cache/plum", id="linux"),
+        pytest.param(
+            "linux",
+            {"XDG_CACHE_HOME": "  /orchard/cache/  "},
+            "/orchard/cache/plum",
+            id="linux-xdg-padded",
+        ),
+        # The XDG specification says to ignore a relative path.
+        pytest.param(
+            "macos",
+            {"XDG_CACHE_HOME": "orchard/cache"},
+            "/home/fig/Library/Caches/plum",
+            id="macos-xdg-relative",
+        ),
+        pytest.param(
+            "linux",
+            {"XDG_CACHE_HOME": "~/cache"},
+            "/home/fig/.cache/plum",
+            id="linux-xdg-tilde",
+        ),
+        pytest.param(
+            "linux",
+            {"XDG_CACHE_HOME": "   "},
+            "/home/fig/.cache/plum",
+            id="linux-xdg-blank",
+        ),
+        pytest.param(
+            "windows",
+            {"LOCALAPPDATA": "/orchard/local", "XDG_CACHE_HOME": "/orchard/cache"},
+            "/orchard/local/plum/Cache",
+            id="windows",
+        ),
+        pytest.param(
+            "windows",
+            {},
+            "/home/fig/AppData/Local/plum/Cache",
+            id="windows-no-localappdata",
+        ),
+    ),
+)
+def test_get_cache_dir(monkeypatch, platform_id, environ, expected):
+    """An absolute `XDG_CACHE_HOME` comes first, except on Windows."""
+    monkeypatch.setattr("extra_platforms.is_macos", lambda: platform_id == "macos")
+    monkeypatch.setattr("extra_platforms.is_windows", lambda: platform_id == "windows")
+    for name in ("LOCALAPPDATA", "XDG_CACHE_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    # Path.home() reads HOME on POSIX and USERPROFILE on Windows.
+    monkeypatch.setenv("HOME", "/home/fig")
+    monkeypatch.setenv("USERPROFILE", "/home/fig")
+    for name, value in environ.items():
+        monkeypatch.setenv(name, value)
 
-    A consumer joining a file name onto it gets a usable path, where a `~` left
-    for a later expansion would give a relative one.
-    """
-    assert CARAPACE_SPECS_DIR.is_absolute()
-    assert "~" not in CARAPACE_SPECS_DIR.parts
-    assert CARAPACE_SPECS_DIR.parts[-3:] == (".config", "carapace", "specs")
+    assert get_cache_dir("plum") == Path(expected)
 
 
 def test_install_resolves_home_at_call_time(tmp_path, monkeypatch):
@@ -853,10 +903,11 @@ def test_spec_drives_real_carapace_engine(tmp_path):
     parent command names from the words it forwards, and withholds the flag being
     completed entirely, so the macros must bake both back in.
 
-    .. attention::
-        Downloads the carapace-spec binary from GitHub and executes it, hence the
-        ``network`` mark (and ``once``, to run on a single CI runner). The dynamic
-        macro shells out, so the test only runs on POSIX platforms.
+    ```{attention}
+    Downloads the carapace-spec binary from GitHub and executes it, hence the
+    `network` mark (and `once`, to run on a single CI runner). The dynamic macro
+    shells out, so the test only runs on POSIX platforms.
+    ```
     """
     system = platform.system().lower()
     arch = CARAPACE_ARCH.get(platform.machine().lower())
@@ -898,22 +949,25 @@ def test_spec_drives_real_carapace_engine(tmp_path):
 
     # Write the CLI and generate its spec through the script's own dump mode.
     script = tmp_path / "weather_cli.py"
-    script.write_text(CARAPACE_RUNNER)
+    script.write_text(CARAPACE_RUNNER, encoding="UTF-8")
     spec = subprocess.run(
         [sys.executable, str(script), "--dump-carapace-spec"],
         capture_output=True,
         text=True,
+        encoding="UTF-8",
         check=True,
     ).stdout
     spec_file = tmp_path / "weather.yaml"
-    spec_file.write_text(spec)
+    spec_file.write_text(spec, encoding="UTF-8")
 
     # The dynamic macro execs the program by bare name, so a `weather` shim that
     # runs the script under this interpreter must be discoverable on PATH.
     bindir = tmp_path / "bin"
     bindir.mkdir()
     shim = bindir / "weather"
-    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{script}" "$@"\n')
+    shim.write_text(
+        f'#!/bin/sh\nexec "{sys.executable}" "{script}" "$@"\n', encoding="UTF-8"
+    )
     shim.chmod(0o755)
     env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
 
@@ -923,6 +977,7 @@ def test_spec_drives_real_carapace_engine(tmp_path):
             [str(binary), str(spec_file), "export", "weather", *words],
             capture_output=True,
             text=True,
+            encoding="UTF-8",
             check=False,
             env=env,
         )

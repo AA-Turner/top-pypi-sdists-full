@@ -351,7 +351,7 @@ def test_a_run_still_live_after_the_day_keeps_its_hold_while_the_update_is_turne
 def test_a_choice_that_cannot_be_saved_is_said_not_swallowed(isolate, monkeypatch):
     """`save` used to drop a failed write: the wizard said "off" while the
     Probe service, reading the default folder, read on."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     blocker = version_policy.default_state_dir()
     blocker.parent.mkdir(parents=True, exist_ok=True)
@@ -653,7 +653,7 @@ def test_the_hook_path_also_respects_the_run_lock(isolate, monkeypatch):
     live inside the wait-for-parent branch, so that path — the OLDEST caller —
     upgraded straight through a live training run."""
     from probe.cli import run_lock
-    from probe.cli.upgrading import perform_update
+    from probe.cli.install.upgrade.upgrade import perform_update
 
     monkeypatch.delenv(autoupdate.WAIT_FOR_PID_ENV, raising=False)
     lock = run_lock.acquire("training-run")
@@ -919,17 +919,17 @@ def test_run_end_wires_the_deferred_apply_on_the_terminal_path_only():
 @pytest.fixture
 def applied(monkeypatch):
     """Record perform_update calls instead of upgrading anything."""
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
 
     calls: list[dict] = []
-    monkeypatch.setattr(upgrading, "perform_update", lambda **kwargs: calls.append(kwargs) or None)
+    monkeypatch.setattr(upgrading.upgrade, "perform_update", lambda **kwargs: calls.append(kwargs) or None)
     return calls
 
 
 def _stub_manifest(monkeypatch, latest: str):
-    from probe.cli import updater
+    from probe.cli.install import updater
 
-    monkeypatch.setattr(updater, "fetch_latest", lambda _base: {"cli": {"latest": latest}})
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda _base: {"cli": {"latest": latest}})
 
 
 def test_apply_if_newer_does_nothing_when_already_current(applied, monkeypatch, isolate):
@@ -966,12 +966,13 @@ def test_apply_if_newer_upgrades_nothing_when_the_fetch_fails(applied, monkeypat
     """Inverts perform_update's own posture on purpose: it upgrades anyway on a
     failed fetch because a human asked for it. Here nobody asked, and the next
     run end will try again."""
-    from probe.cli import updater, version_refresh
+    from probe.cli.install import updater
+    from probe.cli import version_refresh
 
     def _boom(_base):
         raise OSError("network down")
 
-    monkeypatch.setattr(updater, "fetch_latest", _boom)
+    monkeypatch.setattr(updater.updater, "fetch_latest", _boom)
     version_refresh._apply_if_newer()
     assert applied == []
 
@@ -995,7 +996,8 @@ def test_a_locked_out_child_does_not_even_fetch(monkeypatch, isolate):
     them pointless, since only one child can hold the lock. Taking the lock
     BEFORE the fetch is what collapses N requests into one; if the fetch ever
     moves back above `acquire_lock`, this goes red."""
-    from probe.cli import autoupdate, updater, version_refresh
+    from probe.cli import autoupdate, version_refresh
+    from probe.cli.install import updater
 
     fetches: list[str] = []
 
@@ -1003,7 +1005,7 @@ def test_a_locked_out_child_does_not_even_fetch(monkeypatch, isolate):
         fetches.append(base)
         return {"cli": {"latest": "99.9.9"}}
 
-    monkeypatch.setattr(updater, "fetch_latest", _counting_fetch)
+    monkeypatch.setattr(updater.updater, "fetch_latest", _counting_fetch)
     assert autoupdate.acquire_lock(), "somebody else is already upgrading"
     try:
         version_refresh._apply_if_newer()
@@ -1015,12 +1017,13 @@ def test_a_locked_out_child_does_not_even_fetch(monkeypatch, isolate):
 def test_a_failed_fetch_still_releases_the_lock(monkeypatch, isolate):
     """The fetch now happens INSIDE the lock, so its early return has to unwind
     it. Leaking the lock here would wedge auto-update for STALE_LOCK_SECONDS."""
-    from probe.cli import autoupdate, updater, version_refresh
+    from probe.cli import autoupdate, version_refresh
+    from probe.cli.install import updater
 
     def _boom(_base):
         raise OSError("network down")
 
-    monkeypatch.setattr(updater, "fetch_latest", _boom)
+    monkeypatch.setattr(updater.updater, "fetch_latest", _boom)
     version_refresh._apply_if_newer()
     assert autoupdate.acquire_lock(), "the lock must be free after a failed fetch"
     autoupdate.release_lock()
@@ -1149,10 +1152,11 @@ def test_only_pis_session_start_retries_an_owed_pi_update(spawns, no_network, mo
 
 
 def test_apply_if_newer_runs_only_the_owed_pi_step_when_the_cli_is_current(applied, monkeypatch, isolate):
-    from probe.cli import upgrading, version_refresh
+    from probe.cli.install import upgrade as upgrading
+    from probe.cli import version_refresh
 
     owed = []
-    monkeypatch.setattr(upgrading, "update_owed_pi_package", lambda: owed.append(1))
+    monkeypatch.setattr(upgrading.package_step, "update_owed_pi_package", lambda: owed.append(1))
     _stub_manifest(monkeypatch, "0.0.1")
 
     version_refresh._apply_if_newer()
@@ -1413,7 +1417,7 @@ def test_with_the_service_a_command_it_runs_itself_never_asks(service_asks, no_n
     `notes sync`, then `feedback flush` (`notesync.py`, marked
     `SERVICE_CHILD_ENV`): an ask from the first would land while the rest
     still run from the CLI's files, which its quiet check does not see."""
-    from probe.service.paths import SERVICE_CHILD_ENV
+    from probe.foundation.service_api.paths import SERVICE_CHILD_ENV
 
     _enable()
     _cache("99.9.9")

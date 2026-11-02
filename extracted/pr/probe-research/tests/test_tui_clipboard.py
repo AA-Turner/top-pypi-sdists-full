@@ -6,7 +6,7 @@ import subprocess
 import pytest
 from prompt_toolkit.output import DummyOutput
 
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 
 # Every test here drives a prompt_toolkit app session and asserts on the frames
 # it rendered. That is a finished-render measurement, so it belongs in the serial
@@ -27,7 +27,12 @@ def isolated_clipboard(monkeypatch):
     for name in ("SSH_CONNECTION", "SSH_TTY", "WAYLAND_DISPLAY", "DISPLAY"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("TERM", "xterm-256color")
-    monkeypatch.setattr(tui, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
     monkeypatch.setattr(tui.shutil, "which", lambda _name: None)
 
 
@@ -88,8 +93,13 @@ def test_failed_clipboard_command_falls_back_to_terminal(monkeypatch, failure):
 
 
 def test_copyable_page_is_plain_text_when_piped(monkeypatch, capsys):
-    monkeypatch.setattr(tui, "interactive", lambda: False)
-    monkeypatch.setattr(tui, "_copy_prompt", lambda *_: pytest.fail("interactive prompt in pipe"))
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "_copy_prompt", lambda *_: pytest.fail("interactive prompt in pipe"))
     text = "Probe doctor\n" + "long path " * 100
     assert tui.page([text], prompt="Enter to return", copyable=True) == ""
     assert capsys.readouterr().out == text + "\n"

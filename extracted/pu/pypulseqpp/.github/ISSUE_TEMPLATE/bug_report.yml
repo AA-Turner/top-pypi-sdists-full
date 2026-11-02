@@ -1,0 +1,33 @@
+name: Bug report
+description: Report reproducible incorrect behaviour or a documentation defect.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Affected area
+      options: ["Sequence or event API", "File I/O", "Sequence design", "Plotting or analysis", "Safety checks", "Documentation", "Other"]
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed and expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Smallest reproducer
+      description: Self-contained Python code or a minimal `.seq` file.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: pypulseqpp, Python and PyPulseq versions, plus OS and architecture.
+      placeholder: "pypulseqpp 0.x; Python 3.12; PyPulseq 1.x; Ubuntu 24.04 x86-64"
+    validations:
+      required: true

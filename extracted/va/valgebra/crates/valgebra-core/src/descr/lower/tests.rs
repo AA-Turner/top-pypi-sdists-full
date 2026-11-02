@@ -1,0 +1,2731 @@
+use std::cell::Cell;
+use std::sync::{Arc, LazyLock};
+
+use proptest::prelude::*;
+
+use super::{
+    BUDGET, Bounds, Constants, DEPTH, Operand, Room, WORK, descend, lower, lower_widened,
+    lower_within, nests_past_the_depth,
+};
+use crate::descr::budget;
+use crate::descr::classes::Class;
+use crate::descr::{Descr, Value};
+use crate::ir::{
+    ClassIx, ConstIx, Constraint, Field, MapClause, Openness, OperandIx, Schema, SeqKind, SeqShape,
+};
+use crate::kind::Kind;
+use crate::verdict::{Relation, Verdict};
+
+/// A pool that answers from a list, which is what the bindings do from the
+/// validator's object table.
+struct Pool(Vec<Operand>);
+
+impl Constants for Pool {
+    fn operand(&self, index: OperandIx) -> Option<Operand> {
+        self.0.get(index.get()).cloned()
+    }
+
+    fn constant(&self, index: ConstIx) -> Option<Operand> {
+        self.0.get(index.get()).cloned()
+    }
+
+    /// A class reaches the core through the bindings, and these tests have
+    /// none: a pooled `Instance` reads as one this pool cannot see.
+    fn class(&self, index: ClassIx) -> Option<Class> {
+        match self.0.get(index.get()) {
+            Some(Operand::Instance(class)) => Some(class.clone()),
+            _ => None,
+        }
+    }
+}
+
+fn empty_pool() -> Pool {
+    Pool(Vec::new())
+}
+
+/// The kinds and the two ends map straight across.
+#[test]
+fn the_leaves_lower_to_the_sets_they_denote() {
+    let pool = empty_pool();
+    let leaf = |schema| lower(&schema, &pool).expect("a leaf lowers");
+
+    assert_eq!(leaf(Schema::ANYTHING), Descr::anything());
+    assert_eq!(leaf(Schema::Nothing), Descr::nothing());
+    assert_eq!(leaf(Schema::Float), Descr::of_kind(Kind::Float));
+    assert_eq!(leaf(Schema::Str), Descr::of_kind(Kind::Str));
+}
+
+/// `bool` subclasses `int`, so the schema that denotes every integer
+/// denotes both kinds.
+///
+/// The one leaf that is not one kind. Keeping `Bool` its own kind is what
+/// makes the two components independent, and the price is that `int` says
+/// so here rather than being read off the name.
+#[test]
+fn the_integers_include_the_booleans() {
+    let pool = empty_pool();
+    let ints = lower(&Schema::Int, &pool).expect("int lowers");
+
+    assert!(ints.admits(Value::integer(1)));
+    assert!(ints.admits(Value::boolean(true)));
+    assert!(!ints.admits(Value::float(1.0)));
+    assert!(
+        !lower(&Schema::Bool, &pool)
+            .expect("bool lowers")
+            .admits(Value::integer(1))
+    );
+}
+
+/// The three operations lower to the three operations, which is the whole
+/// point of the map.
+#[test]
+fn the_operations_lower_to_the_operations() {
+    let pool = empty_pool();
+    let joined = lower(
+        &Schema::Union(vec![Schema::Str, Schema::Float].into()),
+        &pool,
+    )
+    .expect("a small union");
+    let expected = Descr::of_kind(Kind::Str)
+        .union(&Descr::of_kind(Kind::Float))
+        .expect("a small union");
+    assert_eq!(joined, expected);
+
+    let barred =
+        lower(&Schema::Complement(Arc::new(Schema::Str)), &pool).expect("a small complement");
+    assert_eq!(barred, Descr::of_kind(Kind::Str).complement());
+}
+
+/// A refinement is a *meet of sets*, so the order the constraints are
+/// written in carries no meaning and an impossible pair decides.
+#[test]
+fn a_bound_pair_that_cannot_hold_lowers_to_the_empty_set() {
+    let pool = Pool(vec![Operand::Integer(0)]);
+    let refined = |constraints: Vec<Constraint>| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: constraints.into(),
+            },
+            &pool,
+        )
+        .expect("a small refinement")
+    };
+
+    let ge_then_lt = refined(vec![
+        Constraint::Ge(OperandIx::new(0)),
+        Constraint::Lt(OperandIx::new(0)),
+    ]);
+    let lt_then_ge = refined(vec![
+        Constraint::Lt(OperandIx::new(0)),
+        Constraint::Ge(OperandIx::new(0)),
+    ]);
+    assert_eq!(ge_then_lt.emptiness(), Verdict::Empty);
+    assert_eq!(ge_then_lt, lt_then_ge, "the order says nothing");
+
+    let non_negative = refined(vec![Constraint::Ge(OperandIx::new(0))]);
+    assert!(non_negative.admits(Value::integer(0)));
+    assert!(!non_negative.admits(Value::integer(-1)));
+}
+
+/// The relations a decision procedure cannot reach, decided on the sets.
+///
+/// Each is a *value* fact the term layer has no rule for: a step divides
+/// another, a literal misses a kind, a kind is exhausted by its literals, a
+/// set is its own hole plus what fills it. Lowering them puts each in the
+/// kind set it denotes, where the answer is `a ∧ ¬b = ∅` and nothing else.
+#[test]
+fn the_value_relations_decide_on_the_sets() {
+    let pool = Pool(vec![
+        Operand::Integer(4),
+        Operand::Integer(2),
+        Operand::Integer(1),
+        Operand::Boolean(true),
+        Operand::Boolean(false),
+    ]);
+    let set = |schema| lower(&schema, &pool).expect("a small schema");
+    let step = |at| {
+        set(Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![Constraint::MultipleOf(OperandIx::new(at))].into(),
+        })
+    };
+    let literal = |at| set(Schema::Literal(ConstIx::new(at)));
+    let within = |a: &Descr, b: &Descr| {
+        a.intersect(&b.complement())
+            .expect("two small sets")
+            .emptiness()
+    };
+
+    // A step is a subset of the steps it is a multiple of, and of no other.
+    assert_eq!(within(&step(0), &step(1)), Verdict::Empty);
+    assert_eq!(within(&step(1), &step(0)), Verdict::Inhabited);
+
+    // `bool` is its own kind, so an integer literal is never a boolean.
+    let no_bool = set(Schema::Complement(Arc::new(Schema::Bool)));
+    assert_eq!(within(&literal(2), &no_bool), Verdict::Empty);
+
+    // A kind with finitely many values is exhausted by naming them all.
+    let both = set(Schema::Union(
+        vec![
+            Schema::Literal(ConstIx::new(3)),
+            Schema::Literal(ConstIx::new(4)),
+        ]
+        .into(),
+    ));
+    assert_eq!(within(&set(Schema::Bool), &both), Verdict::Empty);
+    assert_eq!(within(&both, &set(Schema::Bool)), Verdict::Empty);
+
+    // A set is the hole punched in it, put back: `a = (a ∧ ¬v) ∨ v` for a
+    // value `a` holds.
+    let split = set(Schema::Union(
+        vec![
+            Schema::meet(vec![
+                Schema::Int,
+                Schema::Complement(Arc::new(Schema::Literal(ConstIx::new(2)))),
+            ]),
+            Schema::Literal(ConstIx::new(2)),
+        ]
+        .into(),
+    ));
+    assert_eq!(within(&set(Schema::Int), &split), Verdict::Empty);
+    assert_eq!(within(&split, &set(Schema::Int)), Verdict::Empty);
+}
+
+/// A bound orders the booleans as well as the integers.
+///
+/// `bool` is a kind of its own here, and `int` denotes both -- so a bound
+/// over `int` that spoke only for the integer component would give a
+/// *smaller* set than the schema denotes, and a smaller set has a larger
+/// complement. `True` is `1` to every comparison Python makes, so a bound
+/// admitting `1` admits it.
+#[test]
+fn a_bound_over_the_integers_orders_the_booleans_too() {
+    let pool = Pool(vec![Operand::Integer(1)]);
+    let bounded = |constraint| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: vec![constraint].into(),
+            },
+            &pool,
+        )
+        .expect("a small refinement")
+    };
+
+    let at_least_one = bounded(Constraint::Ge(OperandIx::new(0)));
+    assert!(at_least_one.admits(Value::boolean(true)));
+    assert!(!at_least_one.admits(Value::boolean(false)));
+    assert!(at_least_one.admits(Value::integer(1)));
+
+    let below_one = bounded(Constraint::Lt(OperandIx::new(0)));
+    assert!(below_one.admits(Value::boolean(false)));
+    assert!(!below_one.admits(Value::boolean(true)));
+
+    // A bound over a **float** base lands in the float component instead,
+    // with the operand read as a number: `Annotated[float, Ge(0)]` carries
+    // the integer zero and orders the floats all the same. Narrowing a float
+    // base to a set of *integers* is what would be unsound, and that is not
+    // what happens.
+    // The pool's only operand is the integer 1, so this is "float >= 1".
+    let floats_at_least_one = lower(
+        &Schema::Refine {
+            base: Arc::new(Schema::Float),
+            constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+        },
+        &pool,
+    )
+    .expect("a bound over floats lowers");
+    assert!(floats_at_least_one.admits(Value::float(1.0)));
+    assert!(floats_at_least_one.admits(Value::float(1.5)));
+    assert!(!floats_at_least_one.admits(Value::float(0.5)));
+    assert!(!floats_at_least_one.admits(Value::float(-1.0)));
+    // `nan` is outside every interval, which is the comparison Python makes.
+    assert!(!floats_at_least_one.admits(Value::float(f64::NAN)));
+    // And it is floats and nothing else: the integer 1 is not in it.
+    assert!(!floats_at_least_one.admits(Value::integer(1)));
+
+    // A base that is neither whole numbers nor floats alone still refuses,
+    // for the reason both sides refuse: narrowing it to one component gives
+    // a smaller set than the schema denotes, and a smaller set has a larger
+    // complement.
+    assert!(
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::ANYTHING),
+                constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+            },
+            &pool,
+        )
+        .is_none()
+    );
+}
+
+/// A bound over floats reads a float operand, and reads both directions.
+///
+/// The test above writes the bound as `Annotated[float, Ge(1)]`, whose
+/// operand is the *integer* one; this writes the one a caller reaches for
+/// more often, `Ge(1.5)`, whose fractional part is the whole difference --
+/// read as an integer it would round, and `1.25` would land inside a set
+/// that excludes it. The upper direction is a separate arm from the lower,
+/// and a reading that carried only one of them refuses the other, leaving
+/// the relation undecided where the schema is perfectly ordinary.
+#[test]
+fn a_float_bound_is_read_as_a_float_in_both_directions() {
+    let pool = Pool(vec![Operand::Float(1.5)]);
+    let bounded = |constraint| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Float),
+                constraints: vec![constraint].into(),
+            },
+            &pool,
+        )
+        .expect("a bound over floats lowers")
+    };
+
+    let at_least = bounded(Constraint::Ge(OperandIx::new(0)));
+    assert!(at_least.admits(Value::float(1.5)));
+    assert!(!at_least.admits(Value::float(1.25)), "1.5 is not 1");
+    let above = bounded(Constraint::Gt(OperandIx::new(0)));
+    assert!(above.admits(Value::float(1.75)) && !above.admits(Value::float(1.5)));
+
+    let at_most = bounded(Constraint::Le(OperandIx::new(0)));
+    assert!(at_most.admits(Value::float(1.5)) && at_most.admits(Value::float(0.0)));
+    assert!(!at_most.admits(Value::float(1.75)));
+    // `nan` is outside every interval, on this side as on the other.
+    assert!(!at_most.admits(Value::float(f64::NAN)));
+    let below = bounded(Constraint::Lt(OperandIx::new(0)));
+    assert!(below.admits(Value::float(1.25)) && !below.admits(Value::float(1.5)));
+}
+
+/// A step is the constraint no union of intervals can spell, and it meets
+/// the bounds rather than being checked beside them.
+#[test]
+fn a_step_meets_the_bounds() {
+    let pool = Pool(vec![Operand::Integer(2), Operand::Integer(1)]);
+    let evens = lower(
+        &Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![
+                Constraint::MultipleOf(OperandIx::new(0)),
+                Constraint::Ge(OperandIx::new(1)),
+            ]
+            .into(),
+        },
+        &pool,
+    )
+    .expect("a small refinement");
+
+    assert!(evens.admits(Value::integer(2)) && evens.admits(Value::integer(4)));
+    assert!(!evens.admits(Value::integer(0)), "the bound excludes it");
+    assert!(!evens.admits(Value::integer(3)), "the step excludes it");
+}
+
+/// A sequence lowers through the one constructor its three spellings share.
+#[test]
+fn a_sequence_lowers_to_its_shape() {
+    const ONE: &[Value] = &[Value::integer(1)];
+    const TWO: &[Value] = &[Value::integer(1), Value::integer(1)];
+
+    let pool = empty_pool();
+    let of_ints = lower(
+        &Schema::Seq {
+            container: SeqKind::List,
+            shape: SeqShape {
+                prefix: Vec::new().into(),
+                tail: Some(Arc::new(Schema::Int)),
+            },
+        },
+        &pool,
+    )
+    .expect("a small sequence");
+
+    assert!(of_ints.admits(Value::sequence(ONE, Kind::List)));
+    assert!(of_ints.admits(Value::sequence(TWO, Kind::List)));
+    assert!(
+        !of_ints.admits(Value::sequence(ONE, Kind::Tuple)),
+        "a tuple is not a list"
+    );
+}
+
+/// A set lowers to the powerset of what it holds, hashability included.
+#[test]
+fn a_set_lowers_to_a_powerset() {
+    const NOTHING: &[Value] = &[];
+
+    let pool = empty_pool();
+    let of_lists = lower(
+        &Schema::set(Schema::Seq {
+            container: SeqKind::List,
+            shape: SeqShape {
+                prefix: Vec::new().into(),
+                tail: Some(Arc::new(Schema::Int)),
+            },
+        }),
+        &pool,
+    )
+    .expect("a small set");
+
+    // The members are the element schema as written: a `list` subclass that
+    // defines `__hash__` is a list and a legal member, so the set of lists is
+    // not the set of nothing.
+    assert!(of_lists.admits(Value::sequence(NOTHING, Kind::Set)));
+    assert_ne!(
+        of_lists,
+        Descr::set(&Descr::nothing(), Kind::Set).expect("a set kind")
+    );
+}
+
+/// The schemas both the procedure and the descriptor understand, as a
+/// corpus to compare them over.
+fn leaves() -> Vec<Schema> {
+    let seq = |tail| Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape {
+            prefix: Vec::new().into(),
+            tail: Some(Arc::new(tail)),
+        },
+    };
+    vec![
+        Schema::ANYTHING,
+        Schema::Nothing,
+        Schema::NoneType,
+        Schema::Bool,
+        Schema::Int,
+        Schema::Float,
+        Schema::Str,
+        Schema::Bytes,
+        seq(Schema::Int),
+        seq(Schema::Str),
+        Schema::set(Schema::Int),
+    ]
+}
+
+/// The leaves, their complements, and every pair joined and met.
+///
+/// Quadratic in the leaves, so the *containment* check below takes the
+/// leaves alone: it is quadratic again over whatever it is given, and a
+/// descriptor meet builds automata.
+fn corpus() -> Vec<Schema> {
+    let leaves = leaves();
+    let mut corpus = leaves.clone();
+    for left in &leaves {
+        for right in &leaves {
+            corpus.push(Schema::Union(vec![left.clone(), right.clone()].into()));
+            corpus.push(Schema::Intersection(
+                vec![left.clone(), right.clone()].into(),
+            ));
+        }
+        corpus.push(Schema::Complement(Arc::new(left.clone())));
+    }
+    corpus
+}
+
+// THEORY: the-descriptor
+/// The descriptor and the procedure agree about emptiness wherever both
+/// decide it.
+///
+/// The check the descriptor is built for: two representations of one meaning,
+/// asked the same question. Neither is taken as the oracle -- each has
+/// answers the other lacks, so the claim is only that they never *contradict*
+/// each other, and a proof from one is never met by the opposite proof from
+/// the other.
+#[test]
+fn the_descriptor_and_the_procedure_never_contradict_each_other() {
+    let pool = empty_pool();
+    for schema in corpus() {
+        let Some(descr) = lower(&schema, &pool) else {
+            continue;
+        };
+        if descr.emptiness() == Verdict::Empty {
+            assert!(
+                schema.is_empty(),
+                "the descriptor proved {schema:?} empty and the procedure did not"
+            );
+        }
+        if schema.is_empty() {
+            assert_ne!(
+                descr.emptiness(),
+                Verdict::Inhabited,
+                "the procedure proved {schema:?} empty and the descriptor denied it"
+            );
+        }
+    }
+}
+
+/// And about containment, which is the relation emptiness is asked for.
+#[test]
+fn the_two_agree_about_containment_where_both_decide() {
+    let pool = empty_pool();
+    let corpus: Vec<Schema> = leaves()
+        .iter()
+        .flat_map(|leaf| [leaf.clone(), Schema::Complement(Arc::new(leaf.clone()))])
+        .collect();
+    for left in &corpus {
+        for right in &corpus {
+            let (Some(a), Some(b)) = (lower(left, &pool), lower(right, &pool)) else {
+                continue;
+            };
+            let Some(difference) = a.intersect(&b.complement()) else {
+                continue;
+            };
+            if difference.emptiness() == Verdict::Empty {
+                assert!(
+                    left.is_subtype_of(right),
+                    "the descriptor made {left:?} a subtype of {right:?} and the \
+                     procedure did not"
+                );
+            }
+        }
+    }
+}
+
+/// The exact builtins, as values carry them: a plain `1` is an instance of
+/// exactly `int`.
+static EXACT_INT: LazyLock<Class> = LazyLock::new(|| Class::exact(Kind::Int));
+static EXACT_STR: LazyLock<Class> = LazyLock::new(|| Class::exact(Kind::Str));
+static EXACT_FLOAT: LazyLock<Class> = LazyLock::new(|| Class::exact(Kind::Float));
+
+/// An `int` subclass and a `str` one, snapshot as the bindings take one: the
+/// builtin among the bases, and its layout carried.
+static MY_INT: LazyLock<Class> =
+    LazyLock::new(|| Class::new(11, Some(10), &[Class::plain(10)]).of_kind(Kind::Int));
+static MY_STR: LazyLock<Class> =
+    LazyLock::new(|| Class::new(13, Some(12), &[Class::plain(12)]).of_kind(Kind::Str));
+
+/// A literal lowers to the singleton its pooled value names, under the kind
+/// that reads that value, at the value's exact type.
+///
+/// The typing spec keeps `Literal[1]`, `Literal[True]` and `Literal["1"]`
+/// apart, and so does this: each lands in its own kind's component, so no
+/// two of them meet. And it keeps `Literal[1]` from an `int` subclass's `1`,
+/// which is the same kind's value and not the literal's.
+#[test]
+fn a_literal_lowers_to_the_singleton_its_kind_reads() {
+    let pool = Pool(vec![
+        Operand::Integer(1),
+        Operand::Boolean(true),
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::NoneType,
+        Operand::Float(1.5),
+    ]);
+    let literal =
+        |slot| lower(&Schema::Literal(ConstIx::new(slot)), &pool).expect("a pooled constant");
+    let exactly = |value: Value, class: &'static Class| value.of_class(class, &[]);
+
+    assert!(literal(0).admits(exactly(Value::integer(1), &EXACT_INT)));
+    assert!(!literal(0).admits(exactly(Value::integer(2), &EXACT_INT)));
+    assert!(!literal(0).admits(exactly(Value::integer(1), &MY_INT)));
+    assert!(literal(1).admits(Value::boolean(true)) && !literal(1).admits(Value::boolean(false)));
+    assert!(literal(2).admits(exactly(Value::word(b"a", Kind::Str), &EXACT_STR)));
+    assert!(!literal(2).admits(exactly(Value::word(b"a", Kind::Str), &MY_STR)));
+    assert!(literal(3).admits(Value::of_kind(Kind::NoneType)));
+    assert!(literal(4).admits(exactly(Value::float(1.5), &EXACT_FLOAT)));
+
+    // The three the spec keeps apart stay apart, because each is a
+    // different kind's component.
+    for (left, right) in [(0, 1), (0, 2), (1, 2)] {
+        assert_eq!(
+            literal(left)
+                .intersect(&literal(right))
+                .expect("two singletons")
+                .emptiness(),
+            Verdict::Empty,
+            "{left} and {right}"
+        );
+    }
+}
+
+/// A class the pool can see lowers to the set of its instances, carrying the
+/// order it was given: the subclass is a subtype, and the two ends are not.
+#[test]
+fn a_class_the_pool_knows_lowers_to_its_instances() {
+    let animal = Class::new(0, None, &[]);
+    let dog = Class::new(1, None, std::slice::from_ref(&animal));
+    let pool = Pool(vec![
+        Operand::Instance(animal),
+        Operand::Instance(dog),
+        Operand::Instance(Class::new(2, None, &[])),
+    ]);
+    let instances = |at| lower(&Schema::Instance(ClassIx::new(at)), &pool).expect("a class");
+    let (animals, dogs, others) = (instances(0), instances(1), instances(2));
+
+    // `a ≤ b` is `a ∧ ¬b = ∅`, which is the whole of the subtyping test.
+    let within = |a: &Descr, b: &Descr| {
+        a.intersect(&b.complement())
+            .expect("two classes")
+            .emptiness()
+    };
+    assert_eq!(within(&dogs, &animals), Verdict::Empty);
+    // The converse is not merely undecided: an animal that is not a dog is
+    // a value the descriptor can name.
+    assert_eq!(within(&animals, &dogs), Verdict::Inhabited);
+    // Two unrelated classes share `object`, so nothing here proves them
+    // disjoint -- only that neither contains the other.
+    assert_eq!(
+        animals.intersect(&others).expect("two classes").emptiness(),
+        Verdict::Unknown
+    );
+    // A class is a set of objects and nothing else: no scalar is one.
+    assert!(!animals.admits(Value::integer(0)));
+}
+
+/// A literal naming a class instance refuses: a class is a set of objects,
+/// and the literal pins *which* instance, which the descriptor cannot say.
+#[test]
+fn a_literal_naming_an_instance_refuses() {
+    let pool = Pool(vec![Operand::Instance(Class::laid_out(1, 1))]);
+    assert!(lower(&Schema::Literal(ConstIx::new(0)), &pool).is_none());
+}
+
+/// A length bound and a pattern are sets of *words*: a length bound lowers
+/// under whichever word kind the base admits, and a pattern under `str`.
+#[test]
+fn the_word_constraints_lower_to_languages() {
+    let pool = empty_pool();
+    let refined = |base, constraints| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(base),
+                constraints,
+            },
+            &pool,
+        )
+    };
+
+    let non_empty =
+        refined(Schema::Str, vec![Constraint::MinLen(1)].into()).expect("a length bound");
+    assert!(non_empty.admits(Value::word(b"a", Kind::Str)));
+    assert!(!non_empty.admits(Value::word(b"", Kind::Str)));
+
+    let short = refined(Schema::Str, vec![Constraint::MaxLen(1)].into()).expect("a length bound");
+    assert!(
+        short.admits(Value::word(b"", Kind::Str)) && short.admits(Value::word(b"a", Kind::Str))
+    );
+    assert!(!short.admits(Value::word(b"ab", Kind::Str)));
+
+    let matching =
+        refined(Schema::Str, vec![Constraint::Regex("a+".to_owned())].into()).expect("a pattern");
+    assert!(matching.admits(Value::word(b"a", Kind::Str)));
+    assert!(!matching.admits(Value::word(b"b", Kind::Str)));
+
+    // Two of them meet rather than being checked one after the other, which
+    // is what makes an impossible pair decide.
+    let impossible = refined(
+        Schema::Str,
+        vec![Constraint::MinLen(2), Constraint::MaxLen(1)].into(),
+    )
+    .expect("two length bounds");
+    assert_eq!(impossible.emptiness(), Verdict::Empty);
+}
+
+/// A pattern lowers to strings whatever else its base admits.
+///
+/// A pattern matches the text of a `str`, and the walk refuses every other
+/// value, `bytes` among them. Read over `bytes` as well, a `str | bytes` base
+/// would hold `b""`, which no member of the schema is, and that set on the
+/// supertype side proves `Annotated[bytes, MaxLen(0)]` below it. So the
+/// lowering over any base is the language over `str`, met with the base, and
+/// a base holding no string meets it in nothing: an answer, given even for a
+/// pattern whose automaton does not build. A pattern no string matches is the
+/// empty set too, decided rather than declined.
+#[test]
+fn a_pattern_lowers_to_strings_whatever_the_base() {
+    let pool = empty_pool();
+    let matched = |base, pattern: &str| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(base),
+                constraints: vec![Constraint::Regex(pattern.to_owned())].into(),
+            },
+            &pool,
+        )
+    };
+    let text = matched(Schema::Str, "a*").expect("a pattern over str");
+    for base in [
+        Schema::Union(vec![Schema::Str, Schema::Bytes].into()),
+        Schema::Union(vec![Schema::Str, Schema::Int].into()),
+        Schema::ANYTHING,
+    ] {
+        let lowered = matched(base.clone(), "a*").expect("a pattern over a wider base");
+        assert_eq!(lowered, text, "{base:?} read the pattern past `str`");
+        assert!(!lowered.admits(Value::word(b"", Kind::Bytes)));
+        assert!(lowered.admits(Value::word(b"", Kind::Str)));
+    }
+    for base in [Schema::Bytes, Schema::Int] {
+        assert_eq!(
+            matched(base.clone(), "a*"),
+            Some(Descr::nothing()),
+            "{base:?}"
+        );
+        assert_eq!(matched(base, "("), Some(Descr::nothing()));
+    }
+    // Over a string, a pattern that does not build is a refusal, and one that
+    // builds an empty language is the empty set.
+    assert!(matched(Schema::Str, "(").is_none());
+    let unmatched = matched(Schema::Str, r"[^\s\S]").expect("a pattern that builds");
+    assert_eq!(unmatched.emptiness(), Verdict::Empty);
+}
+
+/// A word constraint on a base that is *more* than words refuses too.
+///
+/// A length is not a word's alone -- a list, a set and a dict all have one --
+/// so a bound over `anything` constrains values the word component cannot
+/// speak about. Lowering it as if it only spoke about words would give a
+/// smaller set than the schema denotes, and a smaller set has a *larger*
+/// complement: `set[anything] <= ~Annotated[anything, MinLen(0)]` would be
+/// proved, with the empty set standing against it.
+#[test]
+fn a_length_bound_over_more_than_words_refuses() {
+    let pool = empty_pool();
+    assert!(
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::ANYTHING),
+                constraints: vec![Constraint::MinLen(0)].into(),
+            },
+            &pool,
+        )
+        .is_none()
+    );
+
+    // Narrowed to the words first, the same bound lowers.
+    assert!(
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Str),
+                constraints: vec![Constraint::MinLen(0)].into(),
+            },
+            &pool,
+        )
+        .is_some()
+    );
+}
+
+/// A word constraint on a base with no words refuses.
+///
+/// The bound has no component to land in: an integer has no length, so
+/// there is no language to meet the base with. Refusing says that; lowering
+/// to the empty set would claim the schema *denotes* nothing, which is a
+/// stronger statement than this map is entitled to make.
+#[test]
+fn a_length_bound_on_a_base_with_no_words_refuses() {
+    let pool = empty_pool();
+    assert!(
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: vec![Constraint::MinLen(1)].into(),
+            },
+            &pool,
+        )
+        .is_none()
+    );
+}
+
+/// A schema past a bound refuses rather than spending without end.
+///
+/// Lowering builds at every node, so a wide schema is a lot of work and a
+/// deep one is that work raised to a power. There are two bounds because
+/// there are two quantities: [`BUDGET`] counts the nodes and [`DEPTH`] the
+/// nesting, and each is asserted in both directions -- a bound that only
+/// ever refuses would pass half of this.
+///
+/// Refusing is safe, because the caller then decides by the rules.
+#[test]
+fn a_schema_past_a_bound_refuses() {
+    let pool = empty_pool();
+    let wide = |members: usize| {
+        Schema::Union(
+            core::iter::repeat_n(Schema::Str, members)
+                .collect::<Vec<_>>()
+                .into(),
+        )
+    };
+    assert!(
+        lower(&wide(BUDGET as usize), &pool).is_none(),
+        "too many nodes"
+    );
+    assert!(lower(&wide(BUDGET as usize / 2), &pool).is_some());
+
+    let nested =
+        |levels: u32| (0..levels).fold(Schema::Str, |inner, _| Schema::Complement(Arc::new(inner)));
+    assert!(lower(&nested(DEPTH + 1), &pool).is_none(), "too deep");
+    assert!(lower(&nested(DEPTH - 1), &pool).is_some());
+}
+
+/// A build that would cost too much refuses, and the same schema lowers
+/// under an allowance that covers it.
+///
+/// The refusal is about the *work*, not about the schema: nothing here is a
+/// form the descriptor cannot hold. Which is why it is asserted in both
+/// directions -- an allowance that only ever refuses would pass half of it.
+#[test]
+fn a_build_past_its_allowance_refuses() {
+    let pool = empty_pool();
+    let meet = Schema::Intersection(
+        vec![
+            Schema::list(SeqShape::homogeneous(Schema::Int)),
+            Schema::list(SeqShape::homogeneous(Schema::Str)),
+        ]
+        .into(),
+    );
+
+    assert!(
+        lower_within(
+            Bounds {
+                work: 0,
+                ..Bounds::DEFAULT
+            },
+            &meet,
+            &pool
+        )
+        .is_none(),
+        "nothing to spend"
+    );
+    assert!(lower_within(Bounds::DEFAULT, &meet, &pool).is_some());
+    // A leaf takes no product, so it costs nothing and lowers on an empty
+    // allowance: the budget bounds what multiplies, not what is read. `int`
+    // is not one of those -- it is the union of two kinds -- which is why
+    // this says `str`.
+    assert!(
+        lower_within(
+            Bounds {
+                work: 0,
+                ..Bounds::DEFAULT
+            },
+            &Schema::Str,
+            &pool
+        )
+        .is_some()
+    );
+    assert!(
+        lower_within(
+            Bounds {
+                work: 0,
+                ..Bounds::DEFAULT
+            },
+            &Schema::Int,
+            &pool
+        )
+        .is_none(),
+        "a union"
+    );
+}
+
+/// The allowance a lowering is given is its own: an expensive one does not
+/// leave the next one poorer.
+#[test]
+fn a_build_does_not_spend_the_next_one_s_allowance() {
+    let pool = empty_pool();
+    let deep = (0..6).fold(
+        Schema::record(
+            vec![Field {
+                name: "leaf".into(),
+                schema: Schema::Int,
+                required: true,
+            }],
+            Openness::Closed,
+        ),
+        |inner, _| {
+            Schema::record(
+                vec![Field {
+                    name: "child".into(),
+                    schema: Schema::list(SeqShape::homogeneous(inner)),
+                    required: true,
+                }],
+                Openness::Closed,
+            )
+        },
+    );
+
+    for _ in 0..3 {
+        let _ = lower(&deep, &pool);
+        assert!(
+            lower(&Schema::set(Schema::Int), &pool).is_some(),
+            "the allowance came back"
+        );
+    }
+}
+
+/// The map is partial, and it refuses rather than approximating.
+///
+/// Each of these has no component to land in, or none that would mean what
+/// the schema does: a dict has no map component, an attribute record beside
+/// a builtin kind wants a descriptor that is a union of lines, and a
+/// reference is a cycle.
+#[test]
+fn the_forms_with_nowhere_to_land_refuse() {
+    let pool = empty_pool();
+    for schema in [
+        // A class needs the object pool to say what it derives from, and the
+        // core has none.
+        Schema::Instance(crate::ir::ClassIx::new(0)),
+        Schema::Ref(crate::ir::DefIx::new(0)),
+        // A key schema that is neither a kind nor a constant covers part of
+        // a part, and the default is a function on the parts.
+        Schema::KeyedMap {
+            fields: Vec::new().into(),
+            defaults: vec![MapClause {
+                key: Schema::Refine {
+                    base: Arc::new(Schema::Str),
+                    constraints: vec![Constraint::MinLen(1)].into(),
+                },
+                value: Schema::Int,
+            }]
+            .into(),
+        },
+    ] {
+        assert!(lower(&schema, &pool).is_none(), "{schema:?}");
+    }
+    // A refusal inside a form refuses the whole form rather than dropping
+    // the part it could not read.
+    assert!(
+        lower(
+            &Schema::Union(vec![Schema::Str, Schema::Ref(crate::ir::DefIx::new(0))].into()),
+            &pool
+        )
+        .is_none()
+    );
+    // `Any` is the top, spelled, so it lowers to the top rather than
+    // refusing: the spelling is not a set and the descriptor holds sets.
+    assert_eq!(lower(&Schema::ANY, &pool), Some(Descr::anything()));
+}
+
+/// An attribute record lowers without the pool, because a field's name and
+/// its type are the whole of it.
+///
+/// It is the half of an object schema the core can read: the class beside it
+/// needs the pool, and the two meet once the pool is in reach. The record
+/// narrows a value of *any* kind, so what lowers here is not scoped to the
+/// values that have no kind.
+#[test]
+fn an_attribute_record_lowers_to_the_values_carrying_it() {
+    const CARRIED: &[(&str, Value)] = &[("a", Value::integer(1))];
+    let pool = empty_pool();
+    let attribute = |name: &str, schema| crate::ir::Attribute {
+        name: name.into(),
+        schema,
+    };
+    let record = Schema::AttrRecord {
+        fields: vec![attribute("a", Schema::Int)].into(),
+    };
+    let lowered = lower(&record, &pool).expect("an attribute record lowers");
+    assert!(lowered.admits(Value::object(CARRIED)));
+    // And it narrows a value that also has a kind, which is the whole point
+    // of holding the record on a line rather than beside the kinds.
+    assert!(lowered.admits(Value::integer(7).carrying(CARRIED)));
+    assert!(!lowered.admits(Value::integer(7)));
+    // An attribute whose type admits nothing empties the record.
+    let empty = Schema::AttrRecord {
+        fields: vec![attribute("a", Schema::Nothing)].into(),
+    };
+    assert!(lower(&empty, &pool).expect("it lowers").is_empty());
+}
+
+/// A map lowers to the atom its keys spell, and three spellings of one empty
+/// map fall out of the semantic `dom`.
+///
+/// A label whose type its part's default already gives it says nothing, and
+/// the atom drops it -- so a key that must be absent from a closed record
+/// leaves the empty map, whichever of the three ways it was written.
+#[test]
+fn the_maps_that_name_nothing_are_the_empty_map() {
+    let pool = empty_pool();
+    let closed =
+        |fields: Vec<crate::ir::Field>, defaults: Vec<crate::ir::MapClause>| Schema::KeyedMap {
+            fields: fields.into(),
+            defaults: defaults.into(),
+        };
+    let field = |name: &str, schema, required| crate::ir::Field {
+        name: name.into(),
+        schema,
+        required,
+    };
+    let empty = lower(&closed(Vec::new(), Vec::new()), &pool).expect("`{}` lowers");
+
+    // `{"a?": nothing}`: the key may be absent and holds nothing, which is
+    // what the closed default already says, so the label is absorbed.
+    let optional_nothing = closed(vec![field("a", Schema::Nothing, false)], Vec::new());
+    assert_eq!(lower(&optional_nothing, &pool), Some(empty.clone()));
+
+    // `dict[str, nothing]`: every `str` key maps into nothing, so there are
+    // none, and no other part was opened.
+    let no_str_values = closed(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::Str,
+            value: Schema::Nothing,
+        }],
+    );
+    assert_eq!(lower(&no_str_values, &pool), Some(empty.clone()));
+
+    // `dict[nothing, int]`: no key at all is governed, so none is admitted.
+    let no_keys = closed(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::Nothing,
+            value: Schema::Int,
+        }],
+    );
+    assert_eq!(lower(&no_keys, &pool), Some(empty.clone()));
+
+    // And the empty map is not the empty *set*: it holds one dict.
+    assert!(!empty.is_empty());
+    assert!(empty.admits(Value::dict(&[])));
+}
+
+/// A required field is required, and an open record admits the keys it does
+/// not name.
+#[test]
+fn a_record_lowers_closed_and_a_catch_all_opens_it() {
+    const A_IS_INT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const A_AND_B: &[(Value, Value)] = &[
+        (Value::word(b"a", Kind::Str), Value::integer(1)),
+        (Value::word(b"b", Kind::Str), Value::integer(2)),
+    ];
+    let pool = empty_pool();
+    let field = crate::ir::Field {
+        name: "a".into(),
+        schema: Schema::Int,
+        required: true,
+    };
+    let shut = lower(
+        &Schema::KeyedMap {
+            fields: vec![field.clone()].into(),
+            defaults: Vec::new().into(),
+        },
+        &pool,
+    )
+    .expect("a closed record lowers");
+    assert!(shut.admits(Value::dict(A_IS_INT)));
+    assert!(!shut.admits(Value::dict(&[])), "the field is required");
+    assert!(!shut.admits(Value::dict(A_AND_B)), "and nothing else is");
+
+    let open = lower(
+        &Schema::KeyedMap {
+            fields: vec![field].into(),
+            defaults: vec![MapClause::top()].into(),
+        },
+        &pool,
+    )
+    .expect("an open record lowers");
+    assert!(open.admits(Value::dict(A_IS_INT)));
+    assert!(open.admits(Value::dict(A_AND_B)), "a catch-all opens it");
+    assert!(
+        !open.admits(Value::dict(&[])),
+        "the field is still required"
+    );
+}
+
+/// Each key kind is its own part, and a clause opens the one its key names.
+///
+/// The default is a function on the partition, so `dict[int, V]` says what an
+/// integer key maps to and leaves a string key forbidden -- the map was
+/// closed, and only the part the clause named was opened.
+#[test]
+fn a_clause_opens_the_part_its_key_names() {
+    /// One key of each part, beside the schema that names that part.
+    const KEYS: [(Kind, &[(Value, Value)]); 6] = [
+        (
+            Kind::NoneType,
+            &[(Value::of_kind(Kind::NoneType), Value::integer(1))],
+        ),
+        (Kind::Bool, &[(Value::boolean(true), Value::integer(1))]),
+        (Kind::Int, &[(Value::integer(7), Value::integer(1))]),
+        (Kind::Float, &[(Value::float(1.5), Value::integer(1))]),
+        (
+            Kind::Str,
+            &[(Value::word(b"a", Kind::Str), Value::integer(1))],
+        ),
+        (
+            Kind::Bytes,
+            &[(Value::word(b"a", Kind::Bytes), Value::integer(1))],
+        ),
+    ];
+    let atom = |kind| match kind {
+        Kind::NoneType => Schema::NoneType,
+        Kind::Bool => Schema::Bool,
+        Kind::Int => Schema::Int,
+        Kind::Float => Schema::Float,
+        Kind::Bytes => Schema::Bytes,
+        _ => Schema::Str,
+    };
+    let pool = empty_pool();
+    for (kind, _) in KEYS {
+        let opened = lower(
+            &Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key: atom(kind),
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            &pool,
+        )
+        .expect("a mapping lowers");
+        for (other, entry) in KEYS {
+            // A `bool` key is an `int` key: the walk reads `{True: 1}` as a
+            // dict whose key is an integer, so an `int`-keyed clause covers it.
+            let covered = other == kind || (kind == Kind::Int && other == Kind::Bool);
+            assert_eq!(
+                opened.admits(Value::dict(entry)),
+                covered,
+                "a {kind:?}-keyed map against a {other:?} key"
+            );
+        }
+    }
+}
+
+/// A union of key schemas opens each part it names, and a `Literal` names a
+/// key rather than a part.
+#[test]
+fn a_union_opens_each_part_and_a_literal_names_one_key() {
+    const A: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const B: &[(Value, Value)] = &[(Value::word(b"b", Kind::Str), Value::integer(1))];
+    const ONE: &[(Value, Value)] = &[(Value::integer(1), Value::integer(1))];
+    let pool = empty_pool();
+    let either = lower(
+        &Schema::KeyedMap {
+            fields: Vec::new().into(),
+            defaults: vec![MapClause {
+                key: Schema::Union(vec![Schema::Str, Schema::Int].into()),
+                value: Schema::Int,
+            }]
+            .into(),
+        },
+        &pool,
+    )
+    .expect("a union of key kinds lowers");
+    assert!(either.admits(Value::dict(A)));
+    assert!(either.admits(Value::dict(ONE)));
+
+    // A literal key is a label: the key it names is governed, and every
+    // other key of that part is not.
+    let named = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let one_key = lower(
+        &Schema::KeyedMap {
+            fields: Vec::new().into(),
+            defaults: vec![MapClause {
+                key: Schema::Literal(ConstIx::new(0)),
+                value: Schema::Int,
+            }]
+            .into(),
+        },
+        &named,
+    )
+    .expect("a literal key lowers");
+    assert!(one_key.admits(Value::dict(A)));
+    assert!(
+        one_key.admits(Value::dict(&[])),
+        "a clause does not require it"
+    );
+    assert!(!one_key.admits(Value::dict(B)), "and names no other key");
+}
+
+/// A literal key of any constant kind is a label, not only a `str` one.
+///
+/// The descriptor names the key by the constant it is, so reading a *value's*
+/// key has to answer with the same constant -- and a key it cannot name is
+/// read through its part's default instead, which a closed map shuts. Each
+/// kind of constant is its own arm on both sides, and a missing one turns a
+/// named key into an anonymous one that the map then rejects.
+#[test]
+fn a_literal_key_of_every_constant_kind_names_its_key() {
+    const NONE_KEY: &[(Value, Value)] = &[(Value::of_kind(Kind::NoneType), Value::integer(1))];
+    const TRUE_KEY: &[(Value, Value)] = &[(Value::boolean(true), Value::integer(1))];
+    const FALSE_KEY: &[(Value, Value)] = &[(Value::boolean(false), Value::integer(1))];
+    const ONE_KEY: &[(Value, Value)] = &[(Value::integer(1), Value::integer(1))];
+    const TWO_KEY: &[(Value, Value)] = &[(Value::integer(2), Value::integer(1))];
+    const RAW_KEY: &[(Value, Value)] = &[(Value::word(b"a", Kind::Bytes), Value::integer(1))];
+
+    /// One constant, a dict whose key it names, and one of the same part it
+    /// does not.
+    type Case = (
+        Operand,
+        &'static [(Value, Value)],
+        &'static [(Value, Value)],
+    );
+
+    let cases: [Case; 4] = [
+        (Operand::NoneType, NONE_KEY, ONE_KEY),
+        (Operand::Boolean(true), TRUE_KEY, FALSE_KEY),
+        (Operand::Integer(1), ONE_KEY, TWO_KEY),
+        (Operand::Word(b"a".to_vec(), Kind::Bytes), RAW_KEY, ONE_KEY),
+    ];
+    for (constant, named, other) in cases {
+        let pool = Pool(vec![constant.clone()]);
+        let map = lower(
+            &Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key: Schema::Literal(ConstIx::new(0)),
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            &pool,
+        )
+        .expect("a literal key lowers");
+        assert!(map.admits(Value::dict(named)), "{constant:?} names its key");
+        assert!(
+            !map.admits(Value::dict(other)),
+            "{constant:?} names no other"
+        );
+    }
+}
+
+/// An operand the pool cannot read refuses the constraint that names it.
+#[test]
+fn an_operand_the_pool_cannot_read_refuses() {
+    let pool = Pool(vec![Operand::Float(0.5)]);
+    assert!(
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+            },
+            &pool,
+        )
+        .is_none(),
+        "a float bound is not an integer set"
+    );
+}
+
+/// A length bound lands in the kinds the base has and in no other: the bound
+/// over a word admits no sequence, and the bound over a sequence no word.
+#[test]
+fn a_length_bound_stays_within_the_kinds_of_its_base() {
+    const ONE: &[Value] = &[Value::integer(1)];
+    let pool = empty_pool();
+    let over_words = lower(
+        &Schema::Refine {
+            base: Arc::new(Schema::Str),
+            constraints: vec![Constraint::MinLen(1)].into(),
+        },
+        &pool,
+    )
+    .expect("a bound over words lowers");
+    assert!(over_words.admits(Value::word(b"a", Kind::Str)));
+    assert!(!over_words.admits(Value::sequence(ONE, Kind::List)));
+
+    let over_lists = lower(
+        &Schema::Refine {
+            base: Arc::new(Schema::list(SeqShape::homogeneous(Schema::ANYTHING))),
+            constraints: vec![Constraint::MinLen(1)].into(),
+        },
+        &pool,
+    )
+    .expect("a bound over sequences lowers");
+    assert!(over_lists.admits(Value::sequence(ONE, Kind::List)));
+    assert!(!over_lists.admits(Value::word(b"a", Kind::Str)));
+    assert!(!over_lists.admits(Value::sequence(ONE, Kind::Tuple)));
+}
+
+/// A length bound over a base of two counted kinds bounds each: the words and
+/// the sequences are two parts of one union, and each part counts its own kind.
+#[test]
+fn a_length_bound_over_words_and_lists_bounds_both() {
+    let pool = empty_pool();
+    let both = Schema::refine(
+        Schema::union([
+            Schema::Str,
+            Schema::list(SeqShape::homogeneous(Schema::Int)),
+        ]),
+        vec![Constraint::MinLen(2)],
+    );
+    let lowered = lower(&both, &pool).expect("a bound over words and lists lowers");
+    assert!(lowered.admits(Value::word(b"ab", Kind::Str)));
+    assert!(!lowered.admits(Value::word(b"a", Kind::Str)));
+    assert!(lowered.admits(integers(2)));
+    assert!(!lowered.admits(integers(1)));
+}
+
+/// A list of `n` integers.
+fn integers(n: usize) -> Value {
+    Value::sequence(Vec::leak(vec![Value::integer(1); n]), Kind::List)
+}
+
+/// A list of integers bounded by `constraint`.
+fn bounded_list(constraint: Constraint) -> Schema {
+    Schema::refine(
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+        vec![constraint],
+    )
+}
+
+/// A length bound over a list lowers two hundred elements deep under the bounds
+/// every relation lowers under, either way round, and admits the lengths it
+/// says and no others.
+#[test]
+fn a_length_bound_over_a_list_lowers_two_hundred_elements_deep() {
+    let pool = empty_pool();
+    let lowered = |constraint| {
+        lower_within(Bounds::DEFAULT, &bounded_list(constraint), &pool)
+            .expect("a bound of two hundred lowers")
+    };
+    let at_least = lowered(Constraint::MinLen(200));
+    assert!(at_least.admits(integers(200)) && !at_least.admits(integers(199)));
+    let at_most = lowered(Constraint::MaxLen(200));
+    assert!(at_most.admits(integers(200)) && !at_most.admits(integers(201)));
+}
+
+/// What a length bound over a list costs: three units of the build's allowance
+/// an element, for a lower bound and an upper one, and 134 at twenty elements
+/// for a lower one. So the longest lower bound the default allowance of 4,096
+/// lowers is 1,340 elements. Asking every position its own letter and every
+/// pair its own rest costs 83 an element, which stops a bound near 48.
+#[test]
+fn a_length_bound_costs_three_units_an_element() {
+    let pool = empty_pool();
+    let cost = |constraint: Constraint| {
+        let schema = bounded_list(constraint);
+        let lowers = |work| {
+            lower_within(
+                Bounds {
+                    work,
+                    ..Bounds::DEFAULT
+                },
+                &schema,
+                &pool,
+            )
+            .is_some()
+        };
+        let (mut refused, mut lowered) = (0, WORK);
+        assert!(
+            lowers(lowered),
+            "the bound lowers under the default allowance"
+        );
+        while refused + 1 < lowered {
+            let middle = u64::midpoint(refused, lowered);
+            if lowers(middle) {
+                lowered = middle;
+            } else {
+                refused = middle;
+            }
+        }
+        lowered
+    };
+    for bound in [Constraint::MinLen, Constraint::MaxLen] {
+        let (twenty, forty) = (cost(bound(20)), cost(bound(40)));
+        assert_eq!(forty - twenty, 60, "{:?}", bound(0));
+    }
+    assert_eq!(cost(Constraint::MinLen(20)), 134);
+}
+
+/// An integer bound no float equals is read against the neighbor on the
+/// bound's own side, and which side that is decides which neighbor.
+///
+/// Past 2^53 the floats are two apart, so an odd integer there lies between two
+/// of them and a bound written over it cuts at one or the other. A lower bound
+/// cuts at the float *above*, an upper bound at the float *below*; reading the
+/// nearest one instead moves the boundary by one representable step, and
+/// reading the wrong side of it turns a lower bound into an upper one.
+#[test]
+fn a_float_bound_over_an_inexact_integer_cuts_at_the_right_neighbor() {
+    // Two integers with no float of their own, one either side of the rounding:
+    // the nearest float is *below* the first and *above* the second, so between
+    // them they reach both directions the neighbor is picked in. Which side the
+    // bound is on decides which neighbor, and the rounding decides nothing.
+    const ROUNDS_DOWN: (i64, f64, f64) = (
+        9_007_199_254_740_993,
+        9_007_199_254_740_992.0,
+        9_007_199_254_740_994.0,
+    );
+    const ROUNDS_UP: (i64, f64, f64) = (
+        9_007_199_254_740_995,
+        9_007_199_254_740_994.0,
+        9_007_199_254_740_996.0,
+    );
+
+    for (between, below, above) in [ROUNDS_DOWN, ROUNDS_UP] {
+        let pool = Pool(vec![Operand::Integer(between)]);
+        let refined = |constraints: Vec<Constraint>| {
+            lower(
+                &Schema::Refine {
+                    base: Arc::new(Schema::Float),
+                    constraints: constraints.into(),
+                },
+                &pool,
+            )
+            .expect("a small refinement")
+        };
+
+        for lower_bound in [Constraint::Ge, Constraint::Gt] {
+            let set = refined(vec![lower_bound(OperandIx::new(0))]);
+            assert!(
+                set.admits(Value::float(above)),
+                "a lower bound over {between} admits the float above it"
+            );
+            assert!(
+                !set.admits(Value::float(below)),
+                "a lower bound over {between} refuses the float below it"
+            );
+        }
+        for upper_bound in [Constraint::Le, Constraint::Lt] {
+            let set = refined(vec![upper_bound(OperandIx::new(0))]);
+            assert!(
+                set.admits(Value::float(below)),
+                "an upper bound over {between} admits the float below it"
+            );
+            assert!(
+                !set.admits(Value::float(above)),
+                "an upper bound over {between} refuses the float above it"
+            );
+        }
+
+        // No float is on both sides, so the two together admit none -- which is
+        // the answer only where each cut at its own neighbor.
+        assert!(
+            refined(vec![
+                Constraint::Ge(OperandIx::new(0)),
+                Constraint::Le(OperandIx::new(0)),
+            ])
+            .is_empty(),
+            "no float lies between two adjacent ones ({between})"
+        );
+    }
+}
+
+/// A clause over a key kind with finitely many keys is exhausted by naming them.
+///
+/// `bool` has two keys and `None` has one, so a constraint that excludes every
+/// key of such a part leaves its default governing nothing. Reading the default
+/// as a witness anyway reports a map inhabited that holds no dict -- which is a
+/// refutation standing on a value nobody has, since the difference below is the
+/// dicts a `bool`-keyed map holds and a map keyed by both booleans does not.
+#[test]
+fn a_clause_over_a_finite_key_part_is_exhausted_by_its_keys() {
+    let pool = Pool(vec![Operand::Boolean(true), Operand::Boolean(false)]);
+    let keyed = |key: Schema| {
+        lower(
+            &Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key,
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            &pool,
+        )
+        .expect("a small mapping")
+    };
+
+    let literal = |slot| Schema::Literal(ConstIx::new(slot));
+    let both = Schema::Union(vec![literal(0), literal(1)].into());
+
+    let apart = |a: &Descr, b: &Descr| a.intersect(&b.complement()).expect("a small difference");
+
+    // Both booleans named: the kind has no key left, so neither side holds a
+    // dict the other misses.
+    assert!(
+        apart(&keyed(Schema::Bool), &keyed(both.clone())).is_empty(),
+        "every bool key is one of the two the names list"
+    );
+    assert!(
+        apart(&keyed(both), &keyed(Schema::Bool)).is_empty(),
+        "and every named key is a bool"
+    );
+
+    // One of the two named: the other is a key the clause still governs, so the
+    // difference holds a dict. Reading the part as exhausted by *either* name
+    // reports it empty.
+    assert!(
+        !apart(&keyed(Schema::Bool), &keyed(literal(0))).is_empty(),
+        "one boolean named leaves the other"
+    );
+    assert!(
+        !apart(&keyed(Schema::Bool), &keyed(literal(1))).is_empty(),
+        "whichever of the two it is"
+    );
+
+    // `None` is the other finite part, and it has one key rather than two.
+    let none_pool = Pool(vec![Operand::NoneType]);
+    let none_keyed = |key: Schema| {
+        lower(
+            &Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key,
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            &none_pool,
+        )
+        .expect("a small mapping")
+    };
+    assert!(
+        apart(&none_keyed(Schema::NoneType), &none_keyed(literal(0))).is_empty(),
+        "the one key of the None part is exhausted by naming it"
+    );
+    assert!(
+        !apart(&none_keyed(Schema::NoneType), &none_keyed(Schema::Nothing)).is_empty(),
+        "and naming nothing leaves it"
+    );
+}
+
+// THEORY: clauses-may-overlap
+/// A literal-keyed clause is a clause, and the key it names is read by every
+/// clause that covers it.
+///
+/// `{Literal["a"]: str, str: int}` admits `{"a": 1}`: the `str` clause reads
+/// the key `a` as it reads any string key, and clauses are a disjunction, so
+/// the literal clause widens what `a` may hold rather than overriding the
+/// part's default. The lowering once read the literal clause as a field,
+/// which takes precedence, and refuted an inclusion the walk holds on that
+/// dict. A field of the same name *does* take precedence, and the second
+/// half holds that apart.
+#[test]
+fn a_literal_keyed_clause_is_read_beside_the_clauses_that_cover_its_key() {
+    const A_INT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const A_STR: &[(Value, Value)] =
+        &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str))];
+    const A_FLOAT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::float(1.5))];
+    const B_STR: &[(Value, Value)] =
+        &[(Value::word(b"b", Kind::Str), Value::word(b"x", Kind::Str))];
+    const A_BYTES: &[(Value, Value)] =
+        &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Bytes))];
+    let pool = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let clause = |key: Schema, value: Schema| MapClause { key, value };
+    let two_clauses = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![
+            clause(Schema::Literal(ConstIx::new(0)), Schema::Str),
+            clause(Schema::Str, Schema::Int),
+        ]
+        .into(),
+    };
+    let descr = lower(&two_clauses, &pool).expect("two clauses lower");
+    assert!(
+        descr.admits(Value::dict(A_STR)),
+        "the literal clause reads `a`"
+    );
+    assert!(
+        descr.admits(Value::dict(A_INT)),
+        "and the str clause reads `a` too"
+    );
+    assert!(
+        !descr.admits(Value::dict(A_FLOAT)),
+        "neither clause reads a float"
+    );
+    assert!(
+        !descr.admits(Value::dict(B_STR)),
+        "only the str clause reads `b`"
+    );
+    // The spelling with an optional field taking either type is one set.
+    let spelled = Schema::KeyedMap {
+        fields: vec![Field {
+            name: "a".into(),
+            schema: Schema::union([Schema::Str, Schema::Int]),
+            required: false,
+        }]
+        .into(),
+        defaults: vec![clause(Schema::Str, Schema::Int)].into(),
+    };
+    let spelled = lower(&spelled, &pool).expect("the spelling lowers");
+    assert_eq!(
+        descr
+            .intersect(&spelled.complement())
+            .map(|d| d.emptiness()),
+        Some(Verdict::Empty)
+    );
+    assert_eq!(
+        spelled
+            .intersect(&descr.complement())
+            .map(|d| d.emptiness()),
+        Some(Verdict::Empty)
+    );
+
+    // A field takes precedence over a clause that covers its key.
+    let field_wins = Schema::KeyedMap {
+        fields: vec![Field {
+            name: "a".into(),
+            schema: Schema::Str,
+            required: true,
+        }]
+        .into(),
+        defaults: vec![clause(Schema::Str, Schema::Int)].into(),
+    };
+    let field_wins = lower(&field_wins, &pool).expect("a field and a clause lower");
+    assert!(field_wins.admits(Value::dict(A_STR)));
+    assert!(
+        !field_wins.admits(Value::dict(A_INT)),
+        "the field is read, not the clause"
+    );
+
+    // A clause that does not cover the label contributes nothing to it. An
+    // `int` key opens the integer part and names no string, so the key `a`
+    // maps into the literal clause's type alone -- reading every *other*
+    // clause into it, rather than every covering one, would admit a dict the
+    // schema refuses.
+    let apart = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![
+            clause(Schema::Literal(ConstIx::new(0)), Schema::Str),
+            clause(Schema::Int, Schema::Bytes),
+        ]
+        .into(),
+    };
+    let apart = lower(&apart, &pool).expect("two clauses over two parts lower");
+    assert!(
+        apart.admits(Value::dict(A_STR)),
+        "the literal clause reads `a`"
+    );
+    assert!(
+        !apart.admits(Value::dict(A_BYTES)),
+        "a clause keyed by another part does not widen `a`"
+    );
+}
+
+// THEORY: clauses-may-overlap
+/// A field is read instead of a clause that names its key, and a clause
+/// naming another key is read all the same.
+///
+/// Named fields take precedence over the clauses, which is the one place the
+/// disjunction does not run: a field and a literal-keyed clause naming one
+/// key are not two readings of it, they are the field. The clause beside it
+/// keeps its own key, so the precedence is about the key rather than about
+/// the term. The pair is what separates "the field wins" from "a field
+/// anywhere silences the clauses".
+#[test]
+fn a_field_is_read_instead_of_a_clause_that_names_its_key() {
+    const A_STR: &[(Value, Value)] =
+        &[(Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str))];
+    const A_INT: &[(Value, Value)] = &[(Value::word(b"a", Kind::Str), Value::integer(1))];
+    const B_INT_A_STR: &[(Value, Value)] = &[
+        (Value::word(b"b", Kind::Str), Value::integer(1)),
+        (Value::word(b"a", Kind::Str), Value::word(b"x", Kind::Str)),
+    ];
+    let pool = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let clause = |key: Schema, value: Schema| MapClause { key, value };
+    let field = |name: &str, schema: Schema| Field {
+        name: name.into(),
+        schema,
+        required: false,
+    };
+
+    // One key, a field and a clause: the field is what governs it.
+    let same_key = Schema::KeyedMap {
+        fields: vec![field("a", Schema::Str)].into(),
+        defaults: vec![clause(Schema::Literal(ConstIx::new(0)), Schema::Int)].into(),
+    };
+    let same_key = lower(&same_key, &pool).expect("a field beside its clause lowers");
+    assert!(same_key.admits(Value::dict(A_STR)), "the field reads `a`");
+    assert!(
+        !same_key.admits(Value::dict(A_INT)),
+        "the clause naming the field's key is not read beside it"
+    );
+
+    // A field of another name leaves the clause's key to the clause.
+    let other_key = Schema::KeyedMap {
+        fields: vec![field("b", Schema::Int)].into(),
+        defaults: vec![clause(Schema::Literal(ConstIx::new(0)), Schema::Str)].into(),
+    };
+    let other_key = lower(&other_key, &pool).expect("a field beside another key lowers");
+    assert!(
+        other_key.admits(Value::dict(B_INT_A_STR)),
+        "a field elsewhere does not silence the clause"
+    );
+    assert!(
+        !other_key.admits(Value::dict(A_INT)),
+        "and the clause is what governs its own key"
+    );
+}
+
+// THEORY: one-descriptor-one-type
+/// The gradual spelling lowers to the descriptor the top lowers to.
+///
+/// A gradual type is usually two static types, and the representation that
+/// follows is two descriptors carried together: the lattice rules then each
+/// have to remember a gradual case to exclude. valgebra has no gradual type to
+/// carry -- `typing.Any` builds the top with a spelling beside it, and a
+/// spelling is what `repr` reads and nothing else does -- so there is one
+/// descriptor because there is one type, and no rule has a case to exclude.
+///
+/// Asserted where the two would first differ. A pair representation reaching
+/// the descriptor makes the two spellings lower to different things, whatever
+/// it does afterwards to make them behave alike.
+#[test]
+fn the_two_spellings_of_the_top_lower_to_one_descriptor() {
+    let pool = empty_pool();
+    let lowered = |schema| lower(&schema, &pool).expect("the top lowers");
+
+    assert_eq!(lowered(Schema::ANY), lowered(Schema::ANYTHING));
+    assert_eq!(lowered(Schema::ANY), Descr::anything());
+
+    // And under a complement, which is where a pair's two halves are read
+    // apart: the bottom of one and the top of the other.
+    let negated = |schema| lowered(Schema::Complement(Arc::new(schema)));
+    assert_eq!(negated(Schema::ANY), negated(Schema::ANYTHING));
+    assert_eq!(negated(Schema::ANY), Descr::nothing());
+}
+
+/// Which class a builtin scalar of the universe below is an instance of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Typed {
+    /// The builtin itself, which is what a literal names.
+    Exact,
+    /// The subclass a schema below can name ([`MY_INT`], [`MY_STR`]).
+    Named,
+    /// A subclass no schema names, which the open world holds a value of.
+    Other,
+}
+
+/// A value of the scalar universe, as Python holds it.
+#[derive(Debug, Clone, Copy)]
+enum Scalar {
+    /// `None`, which no schema here names: the value outside every kind they
+    /// do.
+    None,
+    Bool(bool),
+    Int(i64, Typed),
+    Str(&'static str, Typed),
+}
+
+/// Every scalar the drawn schemas put a boundary at, at each of the three
+/// types: the literals and bounds sit at 0, 1 and 5 and at `""` and `"a"`.
+fn scalars() -> Vec<Scalar> {
+    let typed = [Typed::Exact, Typed::Named, Typed::Other];
+    let mut values = vec![Scalar::None, Scalar::Bool(false), Scalar::Bool(true)];
+    for at in typed {
+        values.extend([-1, 0, 1, 5, 6].map(|value| Scalar::Int(value, at)));
+        values.extend(["", "a", "b"].map(|word| Scalar::Str(word, at)));
+    }
+    values
+}
+
+/// The pool the scalar schemas index: three integers, two words, a boolean
+/// and the two subclasses.
+fn scalar_pool() -> Pool {
+    Pool(vec![
+        Operand::Integer(0),
+        Operand::Integer(1),
+        Operand::Integer(5),
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Word(Vec::new(), Kind::Str),
+        Operand::Boolean(true),
+        Operand::Instance(MY_INT.clone()),
+        Operand::Instance(MY_STR.clone()),
+    ])
+}
+
+/// The scalar schemas: the kinds, every literal, the two subclasses, a bound
+/// of each sort, and what union, meet and complement make of them.
+fn scalar_schema() -> impl Strategy<Value = Schema> {
+    let operand = OperandIx::new;
+    let leaf = prop_oneof![
+        Just(Schema::Int),
+        Just(Schema::Str),
+        Just(Schema::Bool),
+        (0usize..6).prop_map(|slot| Schema::Literal(ConstIx::new(slot))),
+        (6usize..8).prop_map(|slot| Schema::Instance(ClassIx::new(slot))),
+        Just(Schema::refine(
+            Schema::Int,
+            vec![Constraint::Ge(operand(1)), Constraint::Le(operand(2))]
+        )),
+        Just(Schema::refine(
+            Schema::Int,
+            vec![Constraint::Gt(operand(0))]
+        )),
+        Just(Schema::refine(Schema::Str, vec![Constraint::MaxLen(0)])),
+        Just(Schema::refine(Schema::Str, vec![Constraint::MinLen(1)])),
+    ];
+    leaf.prop_recursive(3, 12, 3, |inner| {
+        prop_oneof![
+            prop::collection::vec(inner.clone(), 2..=3).prop_map(Schema::union),
+            prop::collection::vec(inner.clone(), 2..=3).prop_map(Schema::meet),
+            inner.prop_map(Schema::complement),
+        ]
+    })
+}
+
+/// Whether `value` is a member of `schema`, read off `ir.rs`: a literal is its
+/// constant at the constant's exact type, a kind holds its subclasses, and a
+/// bound compares the number a `bool` or an `int` is.
+fn scalar_member(schema: &Schema, value: Scalar, pool: &Pool) -> bool {
+    let number = match value {
+        Scalar::Bool(flag) => Some(i64::from(flag)),
+        Scalar::Int(number, _) => Some(number),
+        Scalar::None | Scalar::Str(..) => None,
+    };
+    let operand = |index: &OperandIx| match pool.0.get(index.get()) {
+        Some(Operand::Integer(bound)) => *bound,
+        _ => unreachable!("every bound here is an integer"),
+    };
+    match schema {
+        Schema::Int => matches!(value, Scalar::Bool(_) | Scalar::Int(..)),
+        Schema::Str => matches!(value, Scalar::Str(..)),
+        Schema::Bool => matches!(value, Scalar::Bool(_)),
+        Schema::Literal(index) => match (pool.0.get(index.get()), value) {
+            (Some(Operand::Integer(constant)), Scalar::Int(number, Typed::Exact)) => {
+                *constant == number
+            }
+            (Some(Operand::Word(constant, _)), Scalar::Str(word, Typed::Exact)) => {
+                constant.as_slice() == word.as_bytes()
+            }
+            (Some(Operand::Boolean(constant)), Scalar::Bool(flag)) => *constant == flag,
+            _ => false,
+        },
+        Schema::Instance(index) => matches!(
+            (index.get(), value),
+            (6, Scalar::Int(_, Typed::Named)) | (7, Scalar::Str(_, Typed::Named))
+        ),
+        Schema::Refine { base, constraints } => {
+            scalar_member(base, value, pool)
+                && constraints
+                    .iter()
+                    .all(|constraint| match (constraint, value) {
+                        (Constraint::Ge(index), _) => number.is_some_and(|n| n >= operand(index)),
+                        (Constraint::Le(index), _) => number.is_some_and(|n| n <= operand(index)),
+                        (Constraint::Gt(index), _) => number.is_some_and(|n| n > operand(index)),
+                        (Constraint::MaxLen(most), Scalar::Str(word, _)) => word.len() <= *most,
+                        (Constraint::MinLen(least), Scalar::Str(word, _)) => word.len() >= *least,
+                        _ => false,
+                    })
+        }
+        Schema::Union(members) => members
+            .iter()
+            .any(|member| scalar_member(member, value, pool)),
+        Schema::Intersection(members) => members
+            .iter()
+            .all(|member| scalar_member(member, value, pool)),
+        Schema::Complement(inner) => !scalar_member(inner, value, pool),
+        Schema::Anything(_) => true,
+        _ => false,
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    /// What the sets answer about two scalar schemas holds of Python's values,
+    /// subclass instances among them.
+    ///
+    /// A literal is its constant at the constant's exact type, and a kind, a
+    /// bound or a pattern also holds the builtin's subclasses -- an `int`
+    /// subclass a schema names, and one none does. A proof admits no value of
+    /// the subject outside the supertype, and a refutation has one. Read with
+    /// the literal as the kind's value, a bound at 5 and 5 would be proved equal
+    /// to `Literal[5]`, and the subclass's 5 is outside the one and inside the
+    /// other.
+    #[test]
+    fn a_literal_is_read_at_its_exact_type(a in scalar_schema(), b in scalar_schema()) {
+        let pool = scalar_pool();
+        let outside: Vec<Scalar> = scalars()
+            .into_iter()
+            .filter(|value| scalar_member(&a, *value, &pool) && !scalar_member(&b, *value, &pool))
+            .collect();
+        match a.descriptor_contained_in(&b, &pool, &[]) {
+            Relation::Holds => prop_assert!(outside.is_empty(), "proved, and {outside:?} refute it"),
+            Relation::Fails => prop_assert!(!outside.is_empty(), "refuted, and no value is outside"),
+            Relation::Unknown => {}
+        }
+    }
+}
+
+/// A key of the map universe: a name, held by the exact `str` or a subclass.
+type Key = (&'static str, bool);
+
+/// What a key maps to: an `int` or a `str`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Held {
+    Int,
+    Str,
+}
+
+/// Every dict over the names `a` and `b`, each name absent or held by an
+/// exact `str` key or a subclass's, mapping to an `int` or a `str`.
+///
+/// A dict holds one of the two keys a name can be held by, never both: they
+/// compare equal.
+fn dicts() -> Vec<Vec<(Key, Held)>> {
+    let options = |name: &'static str| {
+        let mut held: Vec<Option<(Key, Held)>> = vec![None];
+        for exact in [true, false] {
+            for value in [Held::Int, Held::Str] {
+                held.push(Some(((name, exact), value)));
+            }
+        }
+        held
+    };
+    let mut dicts = Vec::new();
+    for a in options("a") {
+        for b in options("b") {
+            dicts.push(a.into_iter().chain(b).collect());
+        }
+    }
+    dicts
+}
+
+/// Whether a value schema of the maps below admits what a key maps to.
+fn holds_value(schema: &Schema, held: Held) -> bool {
+    match schema {
+        Schema::Int => held == Held::Int,
+        Schema::Str => held == Held::Str,
+        _ => true,
+    }
+}
+
+/// Whether a clause's key admits `key`: a literal the exact `str` it names, a
+/// `str` every string.
+fn admits_key(key: &Schema, (name, exact): Key, pool: &Pool) -> bool {
+    match key {
+        Schema::Str | Schema::Anything(_) => true,
+        Schema::Literal(index) => {
+            exact
+                && matches!(
+                    pool.0.get(index.get()),
+                    Some(Operand::Word(word, Kind::Str)) if word.as_slice() == name.as_bytes()
+                )
+        }
+        Schema::Union(members) => members
+            .iter()
+            .any(|member| admits_key(member, (name, exact), pool)),
+        _ => false,
+    }
+}
+
+/// Whether `dict` is a member of `schema`, read as the walk reads a keyed map:
+/// a field is looked up by name, so either key holding it is the field's, and
+/// every other key is admitted by some clause whose key admits it and whose
+/// value admits what it maps to.
+fn map_member(schema: &Schema, dict: &[(Key, Held)], pool: &Pool) -> bool {
+    match schema {
+        Schema::KeyedMap { fields, defaults } => {
+            fields.iter().all(|field| {
+                match dict.iter().find(|((name, _), _)| *name == &*field.name) {
+                    Some((_, held)) => holds_value(&field.schema, *held),
+                    None => !field.required,
+                }
+            }) && dict.iter().all(|(key, held)| {
+                fields.iter().any(|field| &*field.name == key.0)
+                    || defaults.iter().any(|clause| {
+                        admits_key(&clause.key, *key, pool) && holds_value(&clause.value, *held)
+                    })
+            })
+        }
+        Schema::Union(members) => members.iter().any(|member| map_member(member, dict, pool)),
+        Schema::Intersection(members) => {
+            members.iter().all(|member| map_member(member, dict, pool))
+        }
+        Schema::Complement(inner) => !map_member(inner, dict, pool),
+        Schema::Anything(_) => true,
+        _ => false,
+    }
+}
+
+/// The maps: a record with `a` required or optional, closed or open over
+/// `str`, a mapping over `str`, and the mappings over `Literal["a"]`,
+/// `Literal["a", "b"]` and `Literal["b"]`, with what union, meet and
+/// complement make of them.
+fn map_schema() -> impl Strategy<Value = Schema> {
+    let a = || Schema::Literal(ConstIx::new(0));
+    let b = || Schema::Literal(ConstIx::new(1));
+    let clause = |key, value| MapClause { key, value };
+    let field = |required| Field {
+        name: "a".into(),
+        schema: Schema::Int,
+        required,
+    };
+    let leaf = prop_oneof![
+        Just(Schema::keyed_map(vec![field(true)], Vec::new())),
+        Just(Schema::keyed_map(
+            vec![field(false)],
+            vec![clause(Schema::Str, Schema::Int)]
+        )),
+        Just(Schema::keyed_map(
+            Vec::new(),
+            vec![clause(Schema::Str, Schema::Int)]
+        )),
+        Just(Schema::keyed_map(
+            Vec::new(),
+            vec![clause(a(), Schema::Int)]
+        )),
+        Just(Schema::keyed_map(
+            Vec::new(),
+            vec![clause(Schema::union([a(), b()]), Schema::Int)]
+        )),
+        Just(Schema::keyed_map(
+            Vec::new(),
+            vec![clause(a(), Schema::Int), clause(Schema::Str, Schema::Str)]
+        )),
+        Just(Schema::keyed_map(
+            Vec::new(),
+            vec![clause(b(), Schema::Str)]
+        )),
+    ];
+    leaf.prop_recursive(2, 8, 2, |inner| {
+        prop_oneof![
+            prop::collection::vec(inner.clone(), 2).prop_map(Schema::union),
+            prop::collection::vec(inner.clone(), 2).prop_map(Schema::meet),
+            inner.prop_map(Schema::complement),
+        ]
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    /// A literal key read as a label refutes wherever it is and proves only
+    /// on the widened side.
+    ///
+    /// The label `"a"` holds a `str` subclass's key equal to `"a"`, which a
+    /// record's field admits and `Literal["a"]` does not, so a proof over the
+    /// label on the side a difference narrows would stand on nothing:
+    /// `{"a": int}` would be proved below `dict[Literal["a"], int]`, and
+    /// `{MyStr("a"): 1}` is in the one and not the other. The universe holds
+    /// each name at either key, and every answer the sets give is held to it,
+    /// emptiness included.
+    #[test]
+    fn a_literal_key_proves_only_where_its_label_widens(a in map_schema(), b in map_schema()) {
+        let pool = Pool(vec![
+            Operand::Word(b"a".to_vec(), Kind::Str),
+            Operand::Word(b"b".to_vec(), Kind::Str),
+        ]);
+        let dicts = dicts();
+        let outside = dicts
+            .iter()
+            .filter(|dict| map_member(&a, dict, &pool) && !map_member(&b, dict, &pool))
+            .count();
+        match a.descriptor_contained_in(&b, &pool, &[]) {
+            Relation::Holds => prop_assert_eq!(outside, 0, "proved, and a dict refutes it"),
+            Relation::Fails => prop_assert!(outside > 0, "refuted, and no dict is outside"),
+            Relation::Unknown => {}
+        }
+        if a.descriptor_contained_in(&Schema::Nothing, &pool, &[]) == Relation::Holds {
+            prop_assert!(
+                !dicts.iter().any(|dict| map_member(&a, dict, &pool)),
+                "proved empty, and a dict is a member"
+            );
+        }
+    }
+}
+
+/// A complement reads a label on the side it flips to. `{"a": int}` is not
+/// proved below `dict[Literal["a"], int]`: the label stands on the narrowed
+/// side, where it subtracts the dict keyed by a `str` subclass's `"a"`, which
+/// the record holds. Read through two complements, `~dict[Literal["a"], int]`
+/// below `~{"a": int}` is the same question, and the complement on the widened
+/// side puts the label on the narrowed one again, so it is not proved either.
+#[test]
+fn a_complement_reads_a_label_on_the_side_it_flips_to() {
+    let pool = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let record = Schema::keyed_map(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Int,
+            required: true,
+        }],
+        Vec::new(),
+    );
+    let mapping = Schema::keyed_map(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::Literal(ConstIx::new(0)),
+            value: Schema::Int,
+        }],
+    );
+    assert_ne!(
+        record.descriptor_contained_in(&mapping, &pool, &[]),
+        Relation::Holds
+    );
+    assert_ne!(
+        mapping
+            .complement()
+            .descriptor_contained_in(&record.complement(), &pool, &[]),
+        Relation::Holds
+    );
+}
+
+/// Where every key of the subject is a literal's, the narrowed side's labels
+/// read only exact keys, and an empty difference proves the inclusion.
+///
+/// `dict[Literal["a"], int]` below `dict[Literal["a", "b"], int]`, and the
+/// meet that asks whether `{1: "x", True: "y"}` is two entries: it is one,
+/// `{1: "y"}`, so no dict of `dict[Literal[1, True], str]` is outside both
+/// `dict[Literal[1], str]` and `dict[Literal[True], str]`.
+#[test]
+fn a_subject_keyed_by_literals_alone_proves_through_the_labels() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Word(b"b".to_vec(), Kind::Str),
+        Operand::Integer(1),
+        Operand::Boolean(true),
+    ]);
+    let literal = |slot| Schema::Literal(ConstIx::new(slot));
+    let mapping = |key, value| Schema::keyed_map(Vec::new(), vec![MapClause { key, value }]);
+    let narrower = mapping(literal(0), Schema::Int);
+    let wider = mapping(Schema::union([literal(0), literal(1)]), Schema::Int);
+    assert_eq!(
+        narrower.descriptor_contained_in(&wider, &pool, &[]),
+        Relation::Holds
+    );
+
+    let collided = Schema::meet([
+        mapping(literal(2), Schema::Str).complement(),
+        mapping(literal(3), Schema::Str).complement(),
+        mapping(Schema::union([literal(2), literal(3)]), Schema::Str),
+    ]);
+    assert_eq!(
+        collided.descriptor_contained_in(&Schema::Nothing, &pool, &[]),
+        Relation::Holds
+    );
+}
+
+/// A union of literal keys is read as its labels, as each literal alone is: a
+/// record is not proved below `dict[Literal["a", "b"], int]`, because
+/// `{MyStr("a"): 1}` is in the record and its key is no literal's.
+///
+/// The property above draws such a key among others; this holds the union arm
+/// of the reading on its own, since a draw can miss it.
+#[test]
+fn a_union_of_literal_keys_proves_nothing_on_the_narrowed_side() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Word(b"b".to_vec(), Kind::Str),
+    ]);
+    let literal = |slot| Schema::Literal(ConstIx::new(slot));
+    let record = Schema::keyed_map(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Int,
+            required: true,
+        }],
+        Vec::new(),
+    );
+    let either = Schema::keyed_map(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::union([literal(0), literal(1)]),
+            value: Schema::Int,
+        }],
+    );
+    assert_ne!(
+        record.descriptor_contained_in(&either, &pool, &[]),
+        Relation::Holds
+    );
+}
+
+/// A literal key nested in a value proves nothing on the narrowed side, even
+/// under a subject keyed by literals: the subject's top keys are exact, and
+/// the dict below them is a record's, which holds a subclass key.
+///
+/// `dict[Literal["a"], {"b": int}]` is not below
+/// `dict[Literal["a"], dict[Literal["b"], int]]`: `{"a": {MyStr("b"): 1}}` is
+/// in the one and not the other, and the labels read the two as one set.
+#[test]
+fn a_literal_key_nested_in_a_value_proves_nothing_on_the_narrowed_side() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Word(b"b".to_vec(), Kind::Str),
+    ]);
+    let literal = |slot| Schema::Literal(ConstIx::new(slot));
+    let mapping = |key, value| Schema::keyed_map(Vec::new(), vec![MapClause { key, value }]);
+    let record = Schema::keyed_map(
+        vec![Field {
+            name: "b".into(),
+            schema: Schema::Int,
+            required: true,
+        }],
+        Vec::new(),
+    );
+    let subject = mapping(literal(0), record);
+    let supertype = mapping(literal(0), mapping(literal(1), Schema::Int));
+    assert_ne!(
+        subject.descriptor_contained_in(&supertype, &pool, &[]),
+        Relation::Holds
+    );
+    // Nor the other way: `{"a": {}}` is in the supertype, and the record
+    // requires `b`.
+    assert_ne!(
+        supertype.descriptor_contained_in(&subject, &pool, &[]),
+        Relation::Holds
+    );
+}
+
+/// A literal key behind a reference is read where the reference unfolds: the
+/// supertype `μt. dict[Literal["a"], int] | list[t]` subtracts the label `"a"`
+/// from a record's dicts as the mapping alone does, and `{MyStr("a"): 1}`
+/// keeps the record out of it.
+#[test]
+fn a_literal_key_behind_a_reference_is_read_where_it_unfolds() {
+    let pool = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let mapping = Schema::keyed_map(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::Literal(ConstIx::new(0)),
+            value: Schema::Int,
+        }],
+    );
+    let reference = Schema::Ref(crate::ir::DefIx::new(0));
+    let definitions = vec![Schema::union([
+        mapping,
+        Schema::list(SeqShape::homogeneous(reference.clone())),
+    ])];
+    let record = Schema::keyed_map(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Int,
+            required: true,
+        }],
+        Vec::new(),
+    );
+    assert_ne!(
+        record.descriptor_contained_in(&reference, &pool, &definitions),
+        Relation::Holds
+    );
+}
+
+/// A `bool` or a `None` key has no subclass, so its literal is every key of
+/// its value and a proof over its label stands: `dict[bool, int]` is below
+/// `dict[Literal[True, False], int]`, and `dict[None, int]` below
+/// `dict[Literal[None], int]`.
+#[test]
+fn a_literal_key_with_no_subclass_proves_wherever_it_is() {
+    let pool = Pool(vec![
+        Operand::Boolean(true),
+        Operand::Boolean(false),
+        Operand::NoneType,
+    ]);
+    let literal = |slot| Schema::Literal(ConstIx::new(slot));
+    let mapping = |key| {
+        Schema::keyed_map(
+            Vec::new(),
+            vec![MapClause {
+                key,
+                value: Schema::Int,
+            }],
+        )
+    };
+    assert_eq!(
+        mapping(Schema::Bool).descriptor_contained_in(
+            &mapping(Schema::union([literal(0), literal(1)])),
+            &pool,
+            &[]
+        ),
+        Relation::Holds
+    );
+    assert_eq!(
+        mapping(Schema::NoneType).descriptor_contained_in(&mapping(literal(2)), &pool, &[]),
+        Relation::Holds
+    );
+}
+
+/// One key of each part of the key partition, each in a dict mapping it to
+/// `1`: `None`, `True`, `7`, `0.5`, `"a"`, `b"a"`, `()`, `frozenset()`, and a
+/// value of no listed kind last.
+const ONE_KEY_OF_EACH_PART: [&[(Value, Value)]; 9] = [
+    &[(Value::of_kind(Kind::NoneType), Value::integer(1))],
+    &[(Value::boolean(true), Value::integer(1))],
+    &[(Value::integer(7), Value::integer(1))],
+    &[(Value::float(0.5), Value::integer(1))],
+    &[(Value::word(b"a", Kind::Str), Value::integer(1))],
+    &[(Value::word(b"a", Kind::Bytes), Value::integer(1))],
+    &[(Value::sequence(&[], Kind::Tuple), Value::integer(1))],
+    &[(Value::sequence(&[], Kind::FrozenSet), Value::integer(1))],
+    &[(Value::other(), Value::integer(1))],
+];
+
+/// A key schema built from whole kinds: each hashable kind, a tuple and a
+/// frozenset of anything, both ends, and unions and complements of those,
+/// written as the constructors leave them rather than folded.
+fn whole_kind_key() -> impl Strategy<Value = Schema> {
+    let atom = prop_oneof![
+        Just(Schema::NoneType),
+        Just(Schema::Bool),
+        Just(Schema::Int),
+        Just(Schema::Float),
+        Just(Schema::Str),
+        Just(Schema::Bytes),
+        Just(Schema::tuple(SeqShape::homogeneous(Schema::ANYTHING))),
+        Just(Schema::frozen_set(Schema::ANYTHING)),
+        Just(Schema::ANYTHING),
+        Just(Schema::Nothing),
+    ];
+    atom.prop_recursive(3, 8, 2, |inner| {
+        prop_oneof![
+            inner
+                .clone()
+                .prop_map(|key| Schema::Complement(Arc::new(key))),
+            prop::collection::vec(inner, 2).prop_map(|members| Schema::Union(members.into())),
+        ]
+    })
+}
+
+/// Whether a key schema of [`whole_kind_key`] holds `key`, read off what each
+/// form denotes rather than off the partition.
+fn holds_key(schema: &Schema, key: &Value) -> bool {
+    match schema {
+        Schema::Anything(_) => true,
+        Schema::Nothing => false,
+        Schema::NoneType => key.kind == Some(Kind::NoneType),
+        Schema::Bool => key.kind == Some(Kind::Bool),
+        // Every boolean is an integer.
+        Schema::Int => matches!(key.kind, Some(Kind::Int | Kind::Bool)),
+        Schema::Float => key.kind == Some(Kind::Float),
+        Schema::Str => key.kind == Some(Kind::Str),
+        Schema::Bytes => key.kind == Some(Kind::Bytes),
+        Schema::Seq { .. } => key.kind == Some(Kind::Tuple),
+        Schema::Coll { .. } => key.kind == Some(Kind::FrozenSet),
+        Schema::Union(members) => members.iter().any(|member| holds_key(member, key)),
+        Schema::Complement(inner) => !holds_key(inner, key),
+        other => unreachable!("not a key of whole kinds: {other:?}"),
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    // THEORY: records-maps-and-structs
+    /// A key of whole kinds lowers, and admits a key of each part exactly
+    /// where its schema holds that key.
+    ///
+    /// A map's domain may be a union of key types [Cas23, fn. 15], and a
+    /// complement of whole kinds is the union of the other parts -- the
+    /// part for a key of no listed kind among them, which no key schema
+    /// names. The answer is held to what each form denotes rather than to the
+    /// partition, so a complement subtracting the wrong parts, or leaving the
+    /// classes out, admits a dict its schema refuses or refuses one it admits.
+    #[test]
+    fn a_key_of_whole_kinds_opens_the_parts_it_holds(key in whole_kind_key()) {
+        let map = Schema::mapping(MapClause {
+            key: key.clone(),
+            value: Schema::Int,
+        });
+        let lowered = lower(&map, &empty_pool());
+        prop_assert!(lowered.is_some(), "{:?} does not lower", key);
+        let lowered = lowered.expect("held above");
+        for entry in ONE_KEY_OF_EACH_PART {
+            let (held, _) = entry[0];
+            prop_assert_eq!(
+                lowered.admits(Value::dict(entry)),
+                holds_key(&key, &held),
+                "{:?} keyed by {:?}",
+                key,
+                held
+            );
+        }
+    }
+}
+
+/// A key holding part of a kind refuses, under a complement too.
+///
+/// The default is a function on the parts, so a key that splits one has
+/// nowhere to land: a tuple of narrower elements, the empty tuple alone, a
+/// tuple with a pinned first element, a frozenset of narrower members, a
+/// class, and the complement of a literal -- which holds a `str` subclass's
+/// key equal to `"a"` and not the exact one, where the label holds both.
+#[test]
+fn a_key_holding_part_of_a_kind_refuses() {
+    let pool = Pool(vec![Operand::Word(b"a".to_vec(), Kind::Str)]);
+    let not = |key| Schema::Complement(Arc::new(key));
+    let ints = || Schema::tuple(SeqShape::homogeneous(Schema::Int));
+    for key in [
+        ints(),
+        Schema::tuple(SeqShape::fixed([])),
+        Schema::tuple(SeqShape::prefix_tail([Schema::Int], Schema::ANYTHING)),
+        Schema::frozen_set(Schema::Int),
+        Schema::Instance(ClassIx::new(0)),
+        not(Schema::Literal(ConstIx::new(0))),
+        not(ints()),
+        not(Schema::Union(
+            vec![Schema::Str, Schema::Literal(ConstIx::new(0))].into(),
+        )),
+    ] {
+        let map = Schema::mapping(MapClause {
+            key: key.clone(),
+            value: Schema::Int,
+        });
+        assert!(lower(&map, &pool).is_none(), "{key:?}");
+    }
+}
+
+/// A complement beside a finite part leaves the part's keys finite.
+///
+/// The paper's map containment reads every key type as infinite
+/// [Cas23, Lem. 4.7], so a constraint the default
+/// cannot meet is met by a key no label names. `None`'s part holds one key
+/// and `bool`'s two, and the complement `open` writes beside either leaves
+/// them so: `{None: int | str}` opened is below the union of `{None: int}`
+/// and `{None: str}` opened, since its one key holds one of the two, and the
+/// same over `bool` is not, on `{True: 1, False: "x"}`.
+#[test]
+fn a_complement_beside_a_finite_part_leaves_its_keys_finite() {
+    let pool = empty_pool();
+    let opened = |part: &Schema, value| {
+        Schema::keyed_map(
+            Vec::new(),
+            vec![
+                MapClause {
+                    key: part.clone(),
+                    value,
+                },
+                MapClause {
+                    key: Schema::Complement(Arc::new(part.clone())),
+                    value: Schema::ANYTHING,
+                },
+            ],
+        )
+    };
+    for (part, answer) in [
+        (Schema::NoneType, Relation::Holds),
+        (Schema::Bool, Relation::Fails),
+    ] {
+        let both = opened(&part, Schema::union([Schema::Int, Schema::Str]));
+        let either = Schema::union([opened(&part, Schema::Int), opened(&part, Schema::Str)]);
+        assert_eq!(
+            both.descriptor_contained_in(&either, &pool, &[]),
+            answer,
+            "{part:?}"
+        );
+    }
+}
+
+/// A complement opens the part for a key of no listed kind, and a class
+/// subject is read against the map it lowers to.
+///
+/// `complement(str)` holds every key that is not a string, a class
+/// instance's included, so `{~str: int}` is outside the map keyed by every
+/// listed kind but `str` -- on `{object(): 1}` -- and the other way is an
+/// inclusion. A class whose instances are no dict is outside every map, and
+/// `Plain` against `{~str: int}` is refuted on `Plain()`.
+#[test]
+fn a_complement_key_opens_the_part_for_a_key_of_no_listed_kind() {
+    let pool = Pool(vec![Operand::Instance(Class::new(0, None, &[]))]);
+    let keyed = |key| {
+        Schema::mapping(MapClause {
+            key,
+            value: Schema::Int,
+        })
+    };
+    let not_str = keyed(Schema::Complement(Arc::new(Schema::Str)));
+    let listed = keyed(Schema::union([
+        Schema::NoneType,
+        Schema::Bool,
+        Schema::Int,
+        Schema::Float,
+        Schema::Bytes,
+        Schema::tuple(SeqShape::homogeneous(Schema::ANYTHING)),
+        Schema::frozen_set(Schema::ANYTHING),
+    ]));
+    assert_eq!(
+        not_str.descriptor_contained_in(&listed, &pool, &[]),
+        Relation::Fails
+    );
+    assert_eq!(
+        listed.descriptor_contained_in(&not_str, &pool, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        Schema::Instance(ClassIx::new(0)).descriptor_contained_in(&not_str, &pool, &[]),
+        Relation::Fails
+    );
+}
+
+/// A pool that counts what a build asks of it, over [`Pool`]'s answers: a
+/// refusal made before the build asks nothing.
+struct Counted {
+    pool: Pool,
+    asked: Cell<usize>,
+}
+
+impl Counted {
+    fn new(operands: Vec<Operand>) -> Self {
+        Self {
+            pool: Pool(operands),
+            asked: Cell::new(0),
+        }
+    }
+
+    fn ask(&self) {
+        self.asked.set(self.asked.get() + 1);
+    }
+}
+
+impl Constants for Counted {
+    fn operand(&self, index: OperandIx) -> Option<Operand> {
+        self.ask();
+        self.pool.operand(index)
+    }
+
+    fn constant(&self, index: ConstIx) -> Option<Operand> {
+        self.ask();
+        self.pool.constant(index)
+    }
+
+    fn class(&self, index: ClassIx) -> Option<Class> {
+        self.ask();
+        self.pool.class(index)
+    }
+}
+
+/// A list of lists, `levels` deep around `int`: past the depth bound from
+/// `levels == DEPTH` on, a meet around it from one level less.
+fn nested_lists(levels: u32) -> Schema {
+    (0..levels).fold(Schema::Int, |inner, _| {
+        Schema::list(SeqShape::homogeneous(inner))
+    })
+}
+
+fn meet(members: Vec<Schema>) -> Schema {
+    Schema::Intersection(members.into())
+}
+
+fn words(pattern: &str) -> Schema {
+    Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex(pattern.into())].into(),
+    }
+}
+
+/// A closed record whose one field, `k`, may be absent: it holds the empty
+/// dict, so it holds a value by its shape whatever the field's type is.
+fn optional_k(schema: Schema) -> Schema {
+    Schema::KeyedMap {
+        fields: vec![Field {
+            name: "k".into(),
+            schema,
+            required: false,
+        }]
+        .into(),
+        defaults: Vec::new().into(),
+    }
+}
+
+/// The emptiness question's word on a thinned reading: build it unless it is
+/// one conjunct that holds a value by its shape, an inhabited set that proves
+/// nothing empty. The rules' fuller reading is the decision's to give.
+fn for_emptiness(read: &[Schema]) -> bool {
+    !matches!(read, [only] if only.holds_a_value_shallowly())
+}
+
+/// A schema nesting past the depth bound is refused before anything in it is
+/// built, whatever sits ahead of the deep node.
+///
+/// The literal ahead of it is the build's first read, and the pool is asked
+/// nothing: the refusal is read off the schema. On the widened side the same
+/// schema spelled as a union has no conjunct to leave out, so it is refused
+/// there too, and reads nothing either. Within the bound the literal is read.
+#[test]
+fn a_schema_past_the_depth_is_refused_before_it_is_built() {
+    let pool = Counted::new(vec![Operand::Integer(1)]);
+    let literal = || Schema::Literal(ConstIx::new(0));
+    let deep = nested_lists(DEPTH);
+
+    assert!(lower(&meet(vec![literal(), deep.clone()]), &pool).is_none());
+    assert_eq!(pool.asked.get(), 0, "the literal ahead is never read");
+    let union = Schema::Union(vec![literal(), deep].into());
+    assert!(lower_widened(&union, &[], &pool, &mut None, |_| true).is_none());
+    assert_eq!(pool.asked.get(), 0, "nor on the widened side");
+
+    assert!(lower(&meet(vec![literal(), Schema::Int]), &pool).is_some());
+    assert_eq!(pool.asked.get(), 1, "a schema within the bound is read");
+}
+
+// THEORY: a-cut-reference-proves
+/// A meet holding a member past the depth bound is read without it whatever
+/// else that member holds.
+///
+/// The member's first node is a literal the pool cannot read, ahead of its
+/// deep node, so a build refuses there, for the literal, and a reading that
+/// thinned only a build refused for depth left the meet unread. The depth is
+/// read off the schema, so the two disjoint patterns beside the member are
+/// read alone, and their meet is empty.
+#[test]
+fn a_member_past_the_depth_is_left_out_whatever_it_holds() {
+    let pool = empty_pool();
+    let unread = Schema::Union(vec![Schema::Literal(ConstIx::new(0)), nested_lists(DEPTH)].into());
+    let three = meet(vec![words("^a+$"), words("^b+$"), unread]);
+    let mut kept = None;
+    let set = lower_widened(&three, &[], &pool, &mut kept, for_emptiness).expect("read thinned");
+    assert_eq!(set.emptiness(), Verdict::Empty);
+    assert_eq!(kept, Some(vec![words("^a+$"), words("^b+$")]));
+}
+
+// THEORY: a-cut-reference-proves
+/// A conjunct whose deepest node is a clause's key is kept by a thinned
+/// reading where the build reads it.
+///
+/// A key is read for the labels and parts it covers, never descended, so the
+/// depth the build spends on a map is its values'. A meet leaves its members
+/// one level less, and the complement of a union holding a map whose key
+/// union is one level deeper than its value fits that room by its value.
+#[test]
+fn a_member_whose_key_is_its_deepest_node_is_kept() {
+    let pool = empty_pool();
+    let keyed = Schema::Complement(Arc::new(Schema::Union(
+        vec![
+            Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key: Schema::Union(vec![Schema::Str, Schema::Bytes].into()),
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            Schema::NoneType,
+        ]
+        .into(),
+    )));
+    assert!(lower(&meet(vec![keyed.clone()]), &pool).is_some());
+    let mut kept = None;
+    assert!(
+        lower_widened(
+            &meet(vec![keyed.clone(), nested_lists(DEPTH)]),
+            &[],
+            &pool,
+            &mut kept,
+            |_| true
+        )
+        .is_some()
+    );
+    assert_eq!(kept, Some(vec![keyed]));
+}
+
+// THEORY: a-cut-reference-proves
+/// A thinned reading that can only be inhabited is built for a caller that
+/// reads an inhabited set, and for no other.
+///
+/// A record whose one field may be absent holds the empty dict, so read alone
+/// beside a member past the depth bound it is an inhabited superset: it
+/// proves no emptiness, and the reading is refused without reading the
+/// literal in it. A relation's subject below a supertype that lowers is the
+/// caller that reads it -- `{"k"?: str}` is below `{"k"?: str | int}` -- and
+/// below a supertype past the depth bound nothing is built at all, the
+/// supertype's refusal read first.
+#[test]
+fn a_thinned_reading_that_can_only_be_inhabited_is_built_where_it_answers() {
+    let pool = Counted::new(vec![Operand::Integer(1)]);
+    let literal = optional_k(Schema::Literal(ConstIx::new(0)));
+    let beside = meet(vec![literal, nested_lists(DEPTH)]);
+
+    assert!(lower_widened(&beside, &[], &pool, &mut None, for_emptiness).is_none());
+    assert_eq!(pool.asked.get(), 0, "an emptiness question builds nothing");
+    assert!(lower_widened(&beside, &[], &pool, &mut None, |_| true).is_some());
+    assert_eq!(pool.asked.get(), 1, "a caller that reads it is given it");
+
+    let pool = Counted::new(vec![Operand::Integer(1)]);
+    assert_eq!(
+        beside.descriptor_contained_in(&nested_lists(DEPTH + 1), &pool, &[]),
+        Relation::Unknown
+    );
+    assert_eq!(pool.asked.get(), 0, "below a refused supertype, nothing");
+
+    let strings = meet(vec![optional_k(Schema::Str), nested_lists(DEPTH)]);
+    let wider = optional_k(Schema::Union(vec![Schema::Str, Schema::Int].into()));
+    assert_eq!(
+        strings.descriptor_contained_in(&wider, &empty_pool(), &[]),
+        Relation::Holds
+    );
+}
+
+/// A member whose deep node lies past the node bound is refused for its nodes,
+/// as the build refuses it, and is not read thinned.
+///
+/// The walk spends the build's nodes, which is what bounds it: a table of a
+/// thousand constants is refused after the build's sixty-four nodes, and a
+/// walk to its end would cost a thousand on every relation asked of it. So a
+/// meet holding such a member declines as the build does, though leaving the
+/// member out would leave two patterns that do not meet.
+#[test]
+fn a_member_deep_only_past_the_node_bound_is_refused_for_its_nodes() {
+    let pool = empty_pool();
+    let wide = core::iter::repeat_n(Schema::Str, BUDGET as usize)
+        .chain([nested_lists(DEPTH)])
+        .collect::<Vec<_>>();
+    let three = meet(vec![
+        words("^a+$"),
+        words("^b+$"),
+        Schema::Union(wide.into()),
+    ]);
+    assert!(!nests_past_the_depth(&three, Bounds::DEFAULT));
+    assert!(lower_widened(&three, &[], &pool, &mut None, for_emptiness).is_none());
+}
+
+/// Schemas nested to either side of the depth bound, a clause's key among
+/// their nodes and wide enough at times to spend the node bound first. No
+/// complement: its products are what a work allowance refuses, and the law
+/// below compares builds that refuse for depth or nodes alone.
+fn nested_schema() -> impl Strategy<Value = Schema> {
+    let leaf = prop_oneof![
+        Just(Schema::Int),
+        Just(Schema::Str),
+        Just(Schema::Bytes),
+        Just(Schema::NoneType),
+        Just(Schema::Float),
+    ];
+    // Narrow and deep, a node holding two children at most, so the depth the
+    // draw reaches straddles the bound; width comes from a table of leaves.
+    let leaf = prop_oneof![
+        4 => leaf.clone(),
+        1 => prop::collection::vec(leaf, 1..80).prop_map(|members| Schema::Union(members.into())),
+    ];
+    leaf.prop_recursive(10, 64, 2, |inner| {
+        prop_oneof![
+            prop::collection::vec(inner.clone(), 1..3)
+                .prop_map(|members| Schema::Union(members.into())),
+            prop::collection::vec(inner.clone(), 1..3).prop_map(meet),
+            inner.clone().prop_map(Schema::set),
+            inner
+                .clone()
+                .prop_map(|inner| Schema::list(SeqShape::homogeneous(inner))),
+            (inner.clone(), inner.clone(), inner).prop_map(|(field, key, value)| {
+                Schema::KeyedMap {
+                    fields: vec![Field {
+                        name: "a".into(),
+                        schema: field,
+                        required: true,
+                    }]
+                    .into(),
+                    defaults: vec![MapClause { key, value }].into(),
+                }
+            }),
+        ]
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    /// The depth read off a schema is the depth its build refuses at.
+    ///
+    /// A schema the walk finds past the bound is one the build refuses, and
+    /// one it clears is one the build reads as it would with no depth bound
+    /// at all: the same set, or the same refusal for its nodes. The walk
+    /// spends the build's nodes in the build's order, so a schema whose deep
+    /// node lies past the node bound clears it, as the build refuses it for
+    /// nodes first. Both builds run with no work allowance, so neither
+    /// refuses for a reason the walk does not read.
+    #[test]
+    fn the_depth_read_off_a_schema_is_the_build_s(schema in nested_schema()) {
+        let pool = empty_pool();
+        let built =
+            budget::under(u64::MAX, || descend(&schema, &pool, &Room::new(BUDGET), DEPTH));
+        if nests_past_the_depth(&schema, Bounds::DEFAULT) {
+            prop_assert!(built.is_none(), "{schema:?} is read past the depth and built");
+        } else {
+            let unbounded = Bounds {
+                depth: u32::MAX,
+                work: u64::MAX,
+                ..Bounds::DEFAULT
+            };
+            prop_assert_eq!(built, lower_within(unbounded, &schema, &pool), "{:?}", schema);
+        }
+    }
+}

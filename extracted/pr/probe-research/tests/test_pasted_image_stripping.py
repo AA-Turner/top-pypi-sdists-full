@@ -176,7 +176,7 @@ def test_the_solo_allowance_matches_what_the_route_accepts() -> None:
 
 def _one_event_transcript(tmp_path, size: int):
     """A claude_code transcript whose single event is `size` bytes of text."""
-    from probe.cli import backfill_transcripts as bt
+    from probe.cli.imports import transcripts as bt
 
     sid = "11111111-2222-3333-4444-555555555555"
     path = tmp_path / f"{sid}.jsonl"
@@ -238,7 +238,7 @@ def test_an_event_beyond_what_the_route_accepts_is_still_refused(tmp_path, monke
 def test_packed_batches_still_respect_the_smaller_target(tmp_path, monkeypatch) -> None:
     """The solo allowance must not become the packing size — batching to the
     route's ceiling leaves no room for the envelope and earns a 413."""
-    from probe.cli import backfill_transcripts as bt
+    from probe.cli.imports import transcripts as bt
 
     sid = "66666666-7777-8888-9999-000000000000"
     path = tmp_path / f"{sid}.jsonl"

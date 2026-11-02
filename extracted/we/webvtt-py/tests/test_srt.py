@@ -25,7 +25,8 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        # a cue without an index
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             00:00:00,500 --> 00:00:07,000
             Caption #1
             ''').strip().split('\n'))
@@ -55,7 +56,7 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             00:00:00,500 --> 00:00:07,000
             ''').strip().split('\n'))
             )
@@ -65,10 +66,34 @@ class TestSRTCueBlock(unittest.TestCase):
             ['1 ', '00:00:00,500 --> 00:00:07,000', 'Caption #1']
             ))
 
+    def test_is_valid_non_ascii_digits(self):
+        for index, timings in (
+                ('\u0661', '00:00:00,500 --> 00:00:07,000'),
+                ('\u00b2', '00:00:00,500 --> 00:00:07,000'),
+                ('1', '00:00:00,\u0665\u0660\u0660 --> 00:00:07,000'),
+                ):
+            with self.subTest(index=index, timings=timings):
+                self.assertFalse(srt.SRTCueBlock.is_valid(
+                    [index, timings, 'Caption #1']
+                    ))
+
     def test_is_valid_text_after_end_timestamp(self):
         self.assertTrue(srt.SRTCueBlock.is_valid(
             ['1', '00:00:00,500 --> 00:00:07,000 X1:100 X2:200', 'Caption #1']
             ))
+
+    def test_from_lines_without_index(self):
+        cue_block = srt.SRTCueBlock.from_lines(
+            ['00:00:00,500 --> 00:00:07,000', 'Caption #1 line 1',
+             'Caption #1 line 2']
+            )
+        self.assertIsNone(cue_block.index)
+        self.assertEqual(cue_block.start, '00:00:00,500')
+        self.assertEqual(cue_block.end, '00:00:07,000')
+        self.assertEqual(
+            cue_block.payload,
+            ['Caption #1 line 1', 'Caption #1 line 2']
+            )
 
     def test_from_lines(self):
         cue_block = srt.SRTCueBlock.from_lines(textwrap.dedent('''
@@ -120,6 +145,55 @@ class TestSRTModule(unittest.TestCase):
                 00:00:07,000 --> 00:00:11,890
                 Caption text #2
                 ''').strip().split('\n')
+            )
+
+    def test_parse_invalid_format_first_line_not_an_index(self):
+        self.assertRaises(
+            MalformedFileError,
+            srt.parse,
+            ['Caption #1', '00:00:00,500 --> 00:00:07,000', 'Caption #2']
+            )
+
+    def test_parse_invalid_format_only_blank_lines(self):
+        for lines in ([], [''], ['', ' ', '']):
+            with self.subTest(lines=lines):
+                with self.assertRaises(MalformedFileError):
+                    srt.parse(lines)
+
+    def test_parse_leading_blank_lines(self):
+        for blank_lines in ([''], ['', ''], [' ', '\t']):
+            with self.subTest(blank_lines=blank_lines):
+                captions = srt.parse(
+                    blank_lines +
+                    ['1', '00:00:01,000 --> 00:00:02,000', 'Caption #1']
+                    )
+
+                self.assertEqual(
+                    [(c.start, c.text) for c in captions],
+                    [('00:00:01.000', 'Caption #1')]
+                    )
+
+    def test_parse_cue_without_text(self):
+        self.assertEqual(
+            srt.parse(['1', '00:00:01,000 --> 00:00:02,000']),
+            []
+            )
+
+    def test_parse_first_cue_without_text(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:01,000 --> 00:00:02,000
+
+            2
+            00:00:03,000 --> 00:00:04,000
+            Caption #2
+            ''').strip().split('\n')
+            )
+
+        self.assertEqual(
+            [(c.start, c.text) for c in captions],
+            [('00:00:03.000', 'Caption #2')]
             )
 
     def test_parse_captions(self):
@@ -385,7 +459,22 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(captions[0].lines, ['Caption #1'])
         self.assertEqual(captions[1].lines, ['Caption #2'])
 
-    def test_parse_skips_cue_without_index(self):
+    def test_parse_captions_with_whitespace_around_first_index(self):
+        captions = srt.parse(
+            [' 1 ',
+             '00:00:00,500 --> 00:00:07,000',
+             'Caption #1',
+             '',
+             '2',
+             '00:00:07,000 --> 00:00:11,890',
+             'Caption #2'
+             ]
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines, ['Caption #1'])
+        self.assertEqual(captions[1].lines, ['Caption #2'])
+
+    def test_parse_cue_without_index(self):
         captions = srt.parse(
             textwrap.dedent('''
             1
@@ -400,9 +489,11 @@ class TestSRTModule(unittest.TestCase):
             Caption #3
             ''').strip().split('\n')
             )
-        self.assertEqual(len(captions), 2)
-        self.assertEqual(captions[0].lines, ['Caption #1'])
-        self.assertEqual(captions[1].lines, ['Caption #3'])
+        self.assertEqual(
+            [caption.lines for caption in captions],
+            [['Caption #1'], ['Caption #2'], ['Caption #3']]
+            )
+        self.assertEqual(captions[1].start, '00:00:07.000')
 
     def test_parse_ignores_text_attached_to_end_timestamp(self):
         captions = srt.parse(
@@ -508,7 +599,29 @@ class TestSRTModule(unittest.TestCase):
                 00:00:07,000 --> 00:00:11,890
                 Caption #2 line 1
                 Caption #2 line 2
-            ''').strip()
+            ''').strip() + '\n'
+            )
+
+    def test_write_no_captions(self):
+        out = io.StringIO()
+
+        srt.write(out, [])
+
+        self.assertEqual(out.getvalue(), '')
+
+    def test_write_keeps_trailing_spaces_of_the_last_caption(self):
+        out = io.StringIO()
+        captions = [
+            Caption(start='00:00:01.000', end='00:00:02.000', text='a  '),
+            Caption(start='00:00:02.000', end='00:00:03.000', text='b  ')
+            ]
+
+        srt.write(out, captions)
+
+        self.assertEqual(
+            out.getvalue(),
+            '1\n00:00:01,000 --> 00:00:02,000\na  \n\n'
+            '2\n00:00:02,000 --> 00:00:03,000\nb  \n'
             )
 
     def test_write_skips_whitespace_lines(self):
@@ -538,8 +651,39 @@ class TestSRTModule(unittest.TestCase):
                 2
                 00:00:05,660 --> 00:00:05,670
                 Caption #1
-            ''').strip()
+            ''').strip() + '\n'
             )
+
+    def test_write_leaves_out_captions_without_text(self):
+        captions = [
+            Caption('00:00:00.000', '00:00:01.000', ' '),
+            Caption('00:00:01.000', '00:00:02.000', 'b'),
+            Caption('00:00:02.000', '00:00:03.000', ''),
+            Caption('00:00:03.000', '00:00:04.000', ['', '  ']),
+            Caption('00:00:04.000', '00:00:05.000', 'c'),
+            Caption('00:00:05.000', '00:00:06.000', '<v Bob></v>'),
+            Caption('00:00:06.000', '00:00:07.000', ['<i> </i>', '<b></b>']),
+            Caption('00:00:07.000', '00:00:08.000', '<c.red> </c>'),
+            ]
+
+        for styles in (None, [], [Style('::cue(.red) { color: red; }')]):
+            with self.subTest(styles=styles):
+                out = io.StringIO()
+
+                srt.write(out, captions, styles)
+
+                self.assertEqual(
+                    out.getvalue(),
+                    '1\n00:00:01,000 --> 00:00:02,000\nb\n\n'
+                    '2\n00:00:04,000 --> 00:00:05,000\nc\n'
+                    )
+
+    def test_write_only_captions_without_text(self):
+        out = io.StringIO()
+
+        srt.write(out, [Caption('00:00:00.000', '00:00:01.000', ' ')])
+
+        self.assertEqual(out.getvalue(), '')
 
     def test_write_without_styles_removes_cue_tags(self):
         out = io.StringIO()
@@ -554,7 +698,7 @@ class TestSRTModule(unittest.TestCase):
 
         self.assertEqual(
             out.getvalue(),
-            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1'
+            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1\n'
             )
 
     def test_write_with_styles_keeps_formatting(self):
@@ -586,7 +730,7 @@ class TestSRTModule(unittest.TestCase):
                 2
                 00:00:07,000 --> 00:00:11,890
                 Caption #2
-            ''').strip()
+            ''').strip() + '\n'
             )
 
     def test_write_with_empty_styles_keeps_bold_italic_underline(self):
@@ -603,7 +747,7 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(
             out.getvalue(),
             '1\n00:00:00,500 --> 00:00:07,000\n'
-            '<b>bold</b> <i>italic</i> <u>underline</u>'
+            '<b>bold</b> <i>italic</i> <u>underline</u>\n'
             )
 
 

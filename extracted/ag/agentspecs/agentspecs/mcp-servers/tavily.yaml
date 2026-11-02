@@ -1,0 +1,44 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: tavily
+version: 0.0.1
+name: Tavily Search
+description: Web search and research capabilities via Tavily API
+
+command: npx
+args:
+  - "-y"
+  - "tavily-mcp"
+
+transport: stdio
+
+env:
+  TAVILY_API_KEY: ${TAVILY_API_KEY}
+
+envvars:
+  - TAVILY_API_KEY:0.0.1
+
+# Not offered on the platform yet: the integrations page lists it as not available.
+enabled: true
+
+tags:
+  - search
+  - research
+  - web
+
+icon: "@primer/octicons-react:search"
+emoji: 🔍
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: "2026-10-02"
+  note: >-
+    Every tool searches or reads the web; none changes anything.
+  tools:
+    tavily_search: read
+    tavily_extract: read
+    tavily_crawl: read
+    tavily_map: read
+    tavily_research: read

@@ -1,0 +1,1118 @@
+import time
+import unittest
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
+from typing import Any, cast
+from unittest.mock import patch
+from uuid import UUID
+import sys
+import types
+import builtins
+
+import shutil
+import numpy as np
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.exceptions import NotFittedError
+
+from tabpfn_client import init, reset
+from tabpfn_client.estimator import TabPFNRegressor
+from tabpfn_client.service_wrapper import UserAuthenticationClient, InferenceClient
+from tests.mock_tabpfn_server import with_mock_server
+from tabpfn_client.constants import CACHE_DIR
+from tabpfn_client import config
+import json
+from tabpfn_client.client import (
+    GetSettingsResponse,
+    PredictionResult,
+    ServiceClient,
+)
+from tabpfn_client.api_models import (
+    FitResponse,
+    FitStatus,
+    ModelVersion,
+    RegressorTabPFNConfig,
+)
+
+_DUMMY_FIT = FitResponse(fitted_train_set_id=UUID(int=0), status=FitStatus.COMPLETED)
+
+
+def _api_settings_payload(
+    max_cells=100_000_000,
+    max_cols=2_000,
+    max_size_bytes=100_000_000,
+    max_classes=10,
+    max_rows=None,
+    test_max_cells=None,
+) -> dict[str, Any]:
+    max_rows = max_cells if max_rows is None else max_rows
+    test_max_cells = max_cells if test_max_cells is None else test_max_cells
+    model_limit = {
+        "train_set_max_rows": max_rows,
+        "train_set_max_cells": max_cells,
+        "train_set_max_upload_cells": max_cells,
+        "test_set_max_rows": max_rows,
+        "test_set_max_cells": test_max_cells,
+        "test_set_max_rows_w_full_regression_output": max_rows,
+        "max_cols": max_cols,
+        "max_classes": max_classes,
+        "predict_row_pairs_budget": 250_000 * 1_000_000,
+    }
+    return {
+        "default_model_version": "v2.5",
+        "max_model_limit": model_limit,
+        "model_limits": {"v2.5": model_limit},
+        "dataset_max_size_bytes": max_size_bytes,
+        "async_settings": {
+            "use_above_trainset_size_bytes": 50 * 1024 * 1024,
+            "poll_timeout_secs": 7200.0,
+            "predict_use_above": {"train_rows": 50_000, "test_rows": 100_000},
+            "thinking_predict_use_above": {"train_rows": 25_000, "test_rows": 10_000},
+        },
+    }
+
+
+class TestTabPFNRegressorInit(unittest.TestCase):
+    dummy_token = "dummy_token"
+
+    def setUp(self):
+        # set up dummy data
+        reset()
+        ServiceClient.reset_authorization()
+        ServiceClient._api_settings = None
+        X, y = load_diabetes(return_X_y=True)
+        self.X_train, self.X_test, self.y_train, self.y_test = cast(
+            "tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]",
+            train_test_split(X, y, test_size=0.33),
+        )
+
+    def tearDown(self):
+        ServiceClient._api_settings = None
+        # remove cache dir
+        shutil.rmtree(CACHE_DIR, ignore_errors=True)
+
+    @with_mock_server()
+    def test_init_remote_regressor(
+        self,
+        mock_server,
+    ):
+        # init() authenticates from a token only; there is no prompt to hook.
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(self.dummy_token)
+
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+        mock_server.router.post("/tabpfn/prepare_train_set_upload").respond(
+            409,
+            json={
+                "message": "duplicate",
+                "error_code": "DUPLICATE_TRAIN_SET",
+                "train_set_upload_id": "00000000-0000-0000-0000-000000000001",
+            },
+        )
+        mock_server.router.post(mock_server.endpoints.fit.path).respond(
+            200,
+            json={
+                "fitted_train_set_id": "00000000-0000-0000-0000-000000000002",
+                "status": "completed",
+            },
+        )
+        mock_server.router.post("/tabpfn/prepare_test_set_upload").respond(
+            409,
+            json={
+                "message": "duplicate",
+                "error_code": "DUPLICATE_TEST_SET",
+                "test_set_upload_id": "00000000-0000-0000-0000-000000000003",
+            },
+        )
+        mock_server.router.get(
+            mock_server.endpoints.retrieve_greeting_messages.path
+        ).respond(200, json={"messages": []})
+        mock_server.router.get("/tabpfn/get_settings").respond(
+            200,
+            json=_api_settings_payload(),
+        )
+
+        metric = "mean"
+        response = [100, 200, 300]
+        predict_route = mock_server.router.post(mock_server.endpoints.predict.path)
+        predict_route.respond(
+            200,
+            json={
+                "prediction": response,
+                "metadata": {
+                    "task": "regression",
+                    "package_version": "0.3.0rc1",
+                    "tabpfn_config": {},
+                    "test_set_num_rows": len(self.X_test),
+                    "test_set_num_cols": self.X_test.shape[1],
+                },
+            },
+        )
+
+        init(use_server=True)
+
+        tabpfn = TabPFNRegressor(n_estimators=10)
+        self.assertRaises(NotFittedError, tabpfn.predict, self.X_test)
+        tabpfn.fit(self.X_train, self.y_train)
+
+        y_pred = tabpfn.predict(self.X_test, output_type=metric)
+        self.assertTrue(np.all(np.array(response) == y_pred))
+        predict_request = json.loads(predict_route.calls.last.request.content)
+        self.assertEqual(
+            predict_request["task_config"]["tabpfn_config"]["n_estimators"],
+            10,
+            "check that n_estimators is passed to the server",
+        )
+
+    @with_mock_server()
+    def test_reuse_saved_access_token(self, mock_server):
+        # mock connection and authentication
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+        mock_server.router.get(
+            mock_server.endpoints.retrieve_greeting_messages.path
+        ).respond(200, json={"messages": []})
+        mock_server.router.get("/tabpfn/get_settings").respond(
+            200,
+            json=_api_settings_payload(),
+        )
+
+        # create dummy token file
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(self.dummy_token)
+
+        # init is called without error
+        init(use_server=True)
+
+        # check if access token still exists
+        self.assertTrue(UserAuthenticationClient.CACHED_TOKEN_FILE.exists())
+
+    @with_mock_server()
+    def test_invalid_saved_access_token(self, mock_server):
+
+        # mock connection and invalid authentication
+        mock_server.router.get(mock_server.endpoints.root.path).respond(200)
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(401)
+
+        # create dummy token file
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text("invalid_token")
+
+        self.assertRaises(RuntimeError, init, use_server=True)
+
+    @with_mock_server()
+    def test_reset_on_remote_regressor(self, mock_server):
+        # create dummy token file
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(self.dummy_token)
+
+        # init classifier as usual
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+        mock_server.router.get(
+            mock_server.endpoints.retrieve_greeting_messages.path
+        ).respond(200, json={"messages": []})
+        mock_server.router.get("/tabpfn/get_settings").respond(
+            200,
+            json=_api_settings_payload(),
+        )
+        init(use_server=True)
+
+        # check if access token is saved
+        self.assertTrue(UserAuthenticationClient.CACHED_TOKEN_FILE.exists())
+
+        # reset
+        reset()
+
+        # check if access token is deleted
+        self.assertFalse(UserAuthenticationClient.CACHED_TOKEN_FILE.exists())
+
+        # check if config is reset
+        self.assertFalse(config.Config.is_initialized)
+
+    @with_mock_server()
+    def test_cache_based_on_paper_version(self, mock_server):
+        # init() authenticates from a token only; there is no prompt to hook.
+        token_file = UserAuthenticationClient.CACHED_TOKEN_FILE
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(self.dummy_token)
+
+        mock_server.router.get(mock_server.endpoints.protected_root.path).respond(200)
+        mock_server.router.post("/tabpfn/prepare_train_set_upload").respond(
+            409,
+            json={
+                "message": "duplicate",
+                "error_code": "DUPLICATE_TRAIN_SET",
+                "train_set_upload_id": "00000000-0000-0000-0000-000000000001",
+            },
+        )
+        fit_route = mock_server.router.post(mock_server.endpoints.fit.path)
+        fit_route.respond(
+            200,
+            json={
+                "fitted_train_set_id": "00000000-0000-0000-0000-000000000002",
+                "status": "completed",
+            },
+        )
+        mock_server.router.post("/tabpfn/prepare_test_set_upload").respond(
+            409,
+            json={
+                "message": "duplicate",
+                "error_code": "DUPLICATE_TEST_SET",
+                "test_set_upload_id": "00000000-0000-0000-0000-000000000003",
+            },
+        )
+
+        mock_server.router.get(
+            mock_server.endpoints.retrieve_greeting_messages.path
+        ).respond(200, json={"messages": []})
+        mock_server.router.get("/tabpfn/get_settings").respond(
+            200,
+            json=_api_settings_payload(),
+        )
+
+        predict_route = mock_server.router.post(mock_server.endpoints.predict.path)
+        predict_route.respond(
+            200,
+            json={
+                "prediction": [100, 200, 300, 400, 500],
+                "metadata": {
+                    "task": "regression",
+                    "package_version": "0.3.0rc1",
+                    "tabpfn_config": {},
+                    "test_set_num_rows": 5,
+                    "test_set_num_cols": 5,
+                },
+            },
+        )
+
+        init(use_server=True)
+
+        X = np.random.rand(10, 5)
+        y = np.random.rand(10)
+        test_X = np.random.rand(5, 5)
+
+        # Initialize with paper_version=True
+        tabpfn_true = TabPFNRegressor(paper_version=True)
+
+        tabpfn_true.fit(X, y)
+        tabpfn_true.predict(test_X)
+
+        # Call fit and predict again with the same paper_version
+        tabpfn_true.fit(X, y)
+        tabpfn_true.predict(test_X)
+
+        # Fit endpoint is called every time (no client-side caching),
+        # but prepare_train_set_upload returns 409 to avoid re-uploading.
+        self.assertEqual(
+            fit_route.call_count,
+            2,
+            "Fit endpoint should be called each time",
+        )
+
+        # Initialize with paper_version=False
+        tabpfn_false = TabPFNRegressor(paper_version=False)
+
+        tabpfn_false.fit(X, y)
+        tabpfn_false.predict(test_X)
+
+        self.assertEqual(
+            fit_route.call_count,
+            3,
+            "Fit endpoint should be called again with a different paper_version",
+        )
+
+        # Call fit and predict again with the same paper_version
+        tabpfn_false.fit(X, y)
+        tabpfn_false.predict(test_X)
+
+        self.assertEqual(
+            fit_route.call_count,
+            4,
+            "Fit endpoint should be called each time",
+        )
+
+        # self.assertNotEqual(
+        #     hash_true_train,
+        #     hash_false_train,
+        #     "Cache hash should differ based on paper_version for training set",
+        # )
+
+        # # Check that different cache entries are created for test set
+        # test_X_serialized = common_utils.serialize_to_csv_formatted_bytes(test_X)
+        # uid_true_test, hash_true_test = cache_manager.get_dataset_uid(
+        #     test_X_serialized, uid_true_train, self.dummy_token, "_".join([])
+        # )
+        # uid_false_test, hash_false_test = cache_manager.get_dataset_uid(
+        #     test_X_serialized,
+        #     uid_false_train,
+        #     self.dummy_token,
+        #     "_".join(["preprocessing", "text"]),
+        # )
+
+        # self.assertNotEqual(
+        #     hash_true_test,
+        #     hash_false_test,
+        #     "Cache hash should differ based on paper_version for test set",
+        # )
+
+        # # Verify that the cache entries are used correctly
+        # self.assertIsNotNone(
+        #     uid_true_train, "Training set cache should be used for paper_version=True"
+        # )
+        # self.assertIsNotNone(
+        #     uid_false_train, "Training set cache should be used for paper_version=False"
+        # )
+        # self.assertIsNotNone(
+        #     uid_true_test, "Test set cache should be used for paper_version=True"
+        # )
+        # self.assertIsNotNone(
+        #     uid_false_test, "Test set cache should be used for paper_version=False"
+        # )
+
+
+class TestTabPFNRegressorInference(unittest.TestCase):
+    def setUp(self):
+        # skip init
+        config.Config.is_initialized = True
+        ServiceClient._api_settings = GetSettingsResponse(
+            **_api_settings_payload(max_cells=100_000)
+        )
+        ServiceClient._api_settings_ts = time.monotonic()
+
+    def tearDown(self):
+        ServiceClient._api_settings = None
+        ServiceClient._api_settings_ts = 0.0
+        # undo setUp
+        config.reset()
+
+    def test_data_size_check_on_train_with_inconsistent_number_of_samples_raise_error(
+        self,
+    ):
+        X = np.random.rand(10, 5)
+        y = np.random.rand(11)
+        tabpfn = TabPFNRegressor()
+
+        with self.assertRaises(ValueError):
+            tabpfn.fit(X, y)
+
+    def test_data_size_check_on_train_with_oversized_data_raise_error(self):
+        # max_cols=2000, max_cells=100_000
+        tabpfn = TabPFNRegressor()
+
+        # test oversized columns: 10 * 2001 = 20_010 cells (under limit) but 2001 > max_cols
+        X_wide = np.random.randn(10, 2001)
+        y_wide = np.random.randn(10)
+        with self.assertRaises(ValueError):
+            tabpfn.fit(X_wide, y_wide)
+
+        # test oversized cells: 1000 * 101 = 101_000 > max_cells=100_000
+        X_big = np.random.randn(1000, 101)
+        y_big = np.random.randn(1000)
+        with self.assertRaises(ValueError):
+            tabpfn.fit(X_big, y_big)
+
+    def test_data_size_check_on_predict_with_oversized_data_raise_error(self):
+        # 1000 * 101 = 101_000 > max_cells=100_000
+        test_X = np.random.randn(1000, 101)
+        tabpfn = TabPFNRegressor()
+
+        # skip fitting
+        tabpfn.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+
+        # test oversized cells
+        with self.assertRaises(ValueError):
+            tabpfn.predict(test_X)
+
+    def test_data_check_on_predict_with_valid_data_pass(self):
+        test_X = np.random.randn(10, 5)
+        tabpfn = TabPFNRegressor()
+
+        # skip fitting
+        tabpfn.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+
+        # mock prediction
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred={"mean": np.random.randn(10)}, metadata={}
+            )
+            tabpfn.predict(test_X)
+
+    def test_only_allowed_parameters_passed_to_config(self):
+        """Test that only allowed parameters are passed to the config."""
+        # The server-side tabpfn_config is a typed RegressorTabPFNConfig, so the
+        # set of allowed parameters is exactly its model fields. Client-only knobs
+        # such as paper_version and the thinking_* params are forwarded as separate
+        # top-level fit arguments and must not leak into tabpfn_config.
+        ALLOWED_PARAMS = set(RegressorTabPFNConfig.model_fields)
+        LEAKED_PARAMS = {
+            "paper_version",
+            "thinking_mode",
+            "thinking_effort",
+            "thinking_timeout_s",
+            "thinking_metric",
+        }
+
+        # Create regressor with various parameters
+        regressor = TabPFNRegressor(
+            n_estimators=8,
+            softmax_temperature=0.9,
+            paper_version=True,
+            random_state=42,
+        )
+
+        # Skip fitting
+        regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+
+        test_X = np.random.randn(10, 5)
+
+        # Mock predict and capture config
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred={"mean": np.random.randn(10)}, metadata={}
+            )
+            regressor.predict(test_X)
+
+            # Get the config that was passed to predict
+            task_config = mock_predict.call_args[1]["task_config"]
+            actual_config = task_config.tabpfn_config.model_dump()
+
+            # Check that exactly the allowed parameters are present
+            config_params = set(actual_config.keys())
+            unexpected_params = config_params - ALLOWED_PARAMS
+            missing_required_params = ALLOWED_PARAMS - config_params
+
+            self.assertEqual(
+                unexpected_params,
+                set(),
+                f"Found unexpected parameters in config: {unexpected_params}",
+            )
+            self.assertEqual(
+                missing_required_params,
+                set(),
+                f"Missing required parameters in config: {missing_required_params}",
+            )
+            self.assertEqual(
+                config_params & LEAKED_PARAMS,
+                set(),
+                "Client-only params leaked into the server-side tabpfn_config",
+            )
+
+    def test_predict_params_output_type(self):
+        """Test that predict_params contains correct output_type and quantiles."""
+        regressor = TabPFNRegressor()
+        regressor.model_id_ = UUID(
+            "00000000-0000-0000-0000-000000000000"
+        )  # Skip fitting
+        test_X = np.random.randn(10, 5)
+
+        # Test default predict() sets output_type to "mean"
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred={"mean": np.random.randn(10)}, metadata={}
+            )
+            regressor.predict(test_X)
+
+            predict_params = mock_predict.call_args[1]["task_config"].predict_params
+            self.assertEqual(predict_params.output_type, "mean")
+            self.assertIsNone(predict_params.quantiles)
+
+        # Test predict() with quantiles
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred={"quantiles": np.random.randn(10, 3)}, metadata={}
+            )
+            quantiles = [0.1, 0.5, 0.9]
+            regressor.predict(test_X, output_type="quantiles", quantiles=quantiles)
+
+            predict_params = mock_predict.call_args[1]["task_config"].predict_params
+            self.assertEqual(predict_params.output_type, "quantiles")
+            self.assertEqual(predict_params.quantiles, quantiles)
+
+    def test_predict_quantiles_returns_list_matching_local_tabpfn(self):
+        """Server returns a stacked (n_quantiles, n_samples) array; predict()
+        normalizes it to a list of per-quantile arrays, matching local tabpfn."""
+        regressor = TabPFNRegressor()
+        regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+        test_X = np.random.randn(20, 5)
+        quantiles = [0.1, 0.5, 0.9]
+
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred=np.random.randn(len(quantiles), 20), metadata={}
+            )
+            output = regressor.predict(
+                test_X, output_type="quantiles", quantiles=quantiles
+            )
+
+        assert isinstance(output, list)
+        self.assertEqual(len(output), len(quantiles))
+        for arr in output:
+            self.assertIsInstance(arr, np.ndarray)
+            self.assertEqual(arr.shape, (20,))
+
+    def test_predict_single_quantile_returns_list_of_one_array(self):
+        """A single quantile may arrive squeezed to 1D; it must still become a
+        list of one (n_samples,) array, matching local tabpfn."""
+        regressor = TabPFNRegressor()
+        regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+        test_X = np.random.randn(20, 5)
+
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred=np.random.randn(20), metadata={}
+            )
+            output = regressor.predict(test_X, output_type="quantiles", quantiles=[0.5])
+
+        assert isinstance(output, list)
+        self.assertEqual(len(output), 1)
+        self.assertIsInstance(output[0], np.ndarray)
+        self.assertEqual(output[0].shape, (20,))
+
+    def test_predict_full_adds_criterion_with_optional_dependencies(self):
+        regressor = TabPFNRegressor()
+        regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+        regressor._n_train_rows = 5
+
+        test_X = np.random.randn(3, 2)
+        dummy_output = {"borders": [0.0, 1.0], "mean": np.random.randn(3)}
+
+        class DummyFullSupportBarDistribution:
+            def __init__(self, borders):
+                self.borders = borders
+
+        module_tabpfn = types.ModuleType("tabpfn")
+        module_regressor = types.ModuleType("tabpfn.regressor")
+        setattr(
+            module_regressor,
+            "FullSupportBarDistribution",
+            DummyFullSupportBarDistribution,
+        )
+        setattr(module_tabpfn, "regressor", module_regressor)
+
+        module_torch = types.ModuleType("torch")
+        setattr(module_torch, "tensor", lambda borders: borders)
+
+        with patch.dict(
+            sys.modules,
+            {
+                "tabpfn": module_tabpfn,
+                "tabpfn.regressor": module_regressor,
+                "torch": module_torch,
+            },
+        ):
+            with patch.object(InferenceClient, "predict") as mock_predict:
+                mock_predict.return_value = PredictionResult(
+                    y_pred=cast(Any, dummy_output.copy()), metadata={}
+                )
+                output = cast(
+                    "dict[str, Any]",
+                    regressor.predict(test_X, output_type="full"),
+                )
+
+        self.assertIn("criterion", output)
+        self.assertIsInstance(output["criterion"], DummyFullSupportBarDistribution)
+        self.assertEqual(output["criterion"].borders, dummy_output["borders"])
+
+    def test_predict_full_missing_optional_dependencies_warns(self):
+        regressor = TabPFNRegressor()
+        regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+        regressor._n_train_rows = 5
+
+        test_X = np.random.randn(3, 2)
+        dummy_output = {"borders": [0.0, 1.0], "mean": np.random.randn(3)}
+
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred=cast(Any, dummy_output.copy()), metadata={}
+            )
+
+            original_import = builtins.__import__
+
+            def import_side_effect(name, *args, **kwargs):
+                if name in {"tabpfn", "tabpfn.regressor", "torch"}:
+                    raise ImportError(f"No module named {name}")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=import_side_effect):
+                with self.assertWarnsRegex(UserWarning, "Optional dependencies"):
+                    output = regressor.predict(test_X, output_type="full")
+
+        self.assertNotIn("criterion", output)
+
+    def test_predict_with_long_and_comma_text(self):
+        """Test predictions with long text (>2500 chars) and text containing commas."""
+        # Skip initialization
+        tabpfn = TabPFNRegressor()
+        tabpfn.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+
+        # Create test data with a mix of numeric and text features
+        n_samples = 5
+        n_features = 3
+
+        # Create base numeric data
+        X_numeric = np.random.randn(n_samples, n_features)
+
+        # Convert to list for easier manipulation
+        X = X_numeric.tolist()
+
+        # Add text variations to test
+        base_text = "very " * 500  # 2500 characters
+        long_text = base_text + " extra text that should be truncated"
+        text_with_commas = "very, " * 500  # Same length but with commas
+        text_with_spaces = (
+            "text\n\n with\t\tweird    spaces\r\nand\n\n\nlinebreaks" * 100
+        )  # Text with various whitespace
+
+        # Create variations of the same data with different text
+        X_normal = [row + [base_text] for row in X]
+        X_long = [row + [long_text] for row in X]
+        X_commas = [row + [text_with_commas] for row in X]
+        X_spaces = [row + [text_with_spaces] for row in X]
+
+        # Convert to numpy arrays and make copies for comparison
+        X_normal_array = np.array(X_normal)
+        X_long_array = np.array(X_long)
+        X_commas_array = np.array(X_commas)
+        X_spaces_array = np.array(X_spaces)
+
+        X_normal_copy = X_normal_array.copy()
+        X_long_copy = X_long_array.copy()
+        X_commas_copy = X_commas_array.copy()
+        X_spaces_copy = X_spaces_array.copy()
+
+        # Mock predictions
+        expected_predictions = np.random.randn(n_samples)
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred=expected_predictions, metadata={}
+            )
+
+            # Test predictions for each variation
+            pred_normal = tabpfn.predict(X_normal_array)
+            pred_long = tabpfn.predict(X_long_array)
+            pred_commas = tabpfn.predict(X_commas_array)
+            pred_spaces = tabpfn.predict(X_spaces_array)
+
+            # Verify input arrays were not modified
+            np.testing.assert_array_equal(
+                X_normal_array,
+                X_normal_copy,
+                "Input array with normal text was modified during prediction",
+            )
+            np.testing.assert_array_equal(
+                X_long_array,
+                X_long_copy,
+                "Input array with long text was modified during prediction",
+            )
+            np.testing.assert_array_equal(
+                X_commas_array,
+                X_commas_copy,
+                "Input array with comma text was modified during prediction",
+            )
+            np.testing.assert_array_equal(
+                X_spaces_array,
+                X_spaces_copy,
+                "Input array with special spaces was modified during prediction",
+            )
+
+            # Verify predictions are returned as expected
+            np.testing.assert_array_equal(pred_normal, expected_predictions)
+            np.testing.assert_array_equal(pred_long, expected_predictions)
+            np.testing.assert_array_equal(pred_commas, expected_predictions)
+            np.testing.assert_array_equal(pred_spaces, expected_predictions)
+
+            # Verify predict was called the same way for all variations
+            self.assertEqual(mock_predict.call_count, 4)
+
+    def test_predict_with_pandas_dataframe(self):
+        """Test predictions with pandas DataFrame input, including text columns."""
+        import pandas as pd
+
+        # Skip initialization
+        tabpfn = TabPFNRegressor()
+        tabpfn.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+
+        # Create test data
+        n_samples = 5
+
+        # Create DataFrame with various column types
+        df = pd.DataFrame(
+            {
+                "numeric1": np.random.randn(n_samples),
+                "numeric2": np.random.randint(0, 100, n_samples),
+                "text_normal": ["Sample text " * 10] * n_samples,
+                "text_long": ["Very long " * 500] * n_samples,  # >2500 chars
+                "text_commas": ["Text, with, commas, " * 100] * n_samples,
+            }
+        )
+
+        # Create a copy for comparison
+        df_copy = df.copy()
+
+        # Mock predictions
+        expected_predictions = np.random.randn(n_samples)
+
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            # Test predict()
+            mock_predict.return_value = PredictionResult(
+                y_pred=expected_predictions, metadata={}
+            )
+            pred = tabpfn.predict(df)
+
+            # Verify DataFrame wasn't modified
+            pd.testing.assert_frame_equal(
+                df, df_copy, obj="Input DataFrame was modified during prediction"
+            )
+
+            # Verify predictions are returned as expected
+            np.testing.assert_array_equal(pred, expected_predictions)
+
+            # Test that column order doesn't matter
+            shuffled_columns = list(df.columns)
+            np.random.shuffle(shuffled_columns)
+            df_shuffled = cast(pd.DataFrame, df[shuffled_columns])
+            df_shuffled_copy = df_shuffled.copy()
+
+            # Test predict with shuffled columns
+            mock_predict.return_value = PredictionResult(
+                y_pred=expected_predictions, metadata={}
+            )
+            pred_shuffled = tabpfn.predict(df_shuffled)
+
+            # Verify shuffled DataFrame wasn't modified
+            pd.testing.assert_frame_equal(
+                df_shuffled,
+                df_shuffled_copy,
+                obj="Shuffled DataFrame was modified during prediction",
+            )
+
+            # Verify predictions match regardless of column order
+            np.testing.assert_array_equal(pred, pred_shuffled)
+
+            # Verify predict was called twice
+            self.assertEqual(mock_predict.call_count, 2)
+
+    def test_missing_values_in_y_raise_error(self):
+        """Test that missing values in y raise a ValueError."""
+        import pandas as pd
+
+        X = np.random.rand(10, 5)
+
+        # Test with None values
+        y_none = np.array([1.0, 2.0, None, 3.0, 4.0, 5.0, None, 6.0, 7.0, 8.0])
+        tabpfn = TabPFNRegressor()
+        with self.assertRaises(ValueError) as cm:
+            tabpfn.fit(X, y_none)
+        self.assertIn("contains NaN.", str(cm.exception))
+
+        # Test with np.nan values
+        y_nan = np.array([1.0, 2.0, np.nan, 3.0, 4.0, 5.0, np.nan, 6.0, 7.0, 8.0])
+        with self.assertRaises(ValueError) as cm:
+            tabpfn.fit(X, y_nan)
+        self.assertIn("contains NaN.", str(cm.exception))
+
+        # Test with pd.NA values
+        y_pd_na = pd.Series([1.0, 2.0, pd.NA, 3.0, 4.0, 5.0, pd.NA, 6.0, 7.0, 8.0])
+        with self.assertRaises(ValueError) as cm:
+            tabpfn.fit(X, y_pd_na)
+        self.assertIn("contains NaN.", str(cm.exception))
+
+    @patch.object(
+        InferenceClient,
+        "predict",
+        return_value=PredictionResult(y_pred=np.random.rand(20), metadata={}),
+    )
+    @patch.object(InferenceClient, "fit_with_result", return_value=_DUMMY_FIT)
+    def test_cross_validation(self, mock_fit, mock_predict):
+        """Test that TabPFNRegressor works with sklearn's cross_val_score."""
+
+        # Create synthetic dataset
+        X = np.random.rand(100, 10)
+        y = np.random.rand(100)
+
+        # Initialize regressor
+        reg = TabPFNRegressor()
+
+        # Compute cross validation scores using R² score
+        scores = cross_val_score(reg, X, y, cv=5, scoring="r2")
+
+        # Basic validation checks
+        self.assertEqual(len(scores), 5)  # 5-fold CV should return 5 scores
+        # R² scores are typically <= 1, but can be negative for poor models
+        self.assertTrue(all(score <= 1 for score in scores))
+
+        # Verify fit and predict were called appropriate number of times
+        # For 5-fold CV, fit should be called 5 times (once per fold)
+        self.assertEqual(mock_fit.call_count, 5)
+
+        # predict should be called 5 times (once per fold)
+        self.assertEqual(mock_predict.call_count, 5)
+
+
+class TestTabPFNModelSelection(unittest.TestCase):
+    def setUp(self):
+        # skip init
+        config.Config.is_initialized = True
+        config.Config.use_server = True
+
+    def tearDown(self):
+        # undo setUp
+        config.reset()
+
+    def test_list_available_models_returns_expected_models(self):
+        expected_models = [
+            "v3.5-fast_default",
+            "v3.5_default",
+            "v3_default",
+            "v2.6_default",
+            "v2.5_default",
+            "v2_default",
+            "v2.5_low-skew",
+            "v2.5_quantiles",
+            "v2.5_real-variant",
+            "v2.5_real",
+            "v2.5_small-samples",
+            "v2.5_variant",
+            "auto",
+            "default",
+            "2noar4o2",
+            "5wof9ojf",
+            "09gpqh39",
+            "wyl4o83o",
+        ]
+        self.assertEqual(TabPFNRegressor.list_available_models(), expected_models)
+
+    def test_model_names_that_are_substrings_come_later(self):
+        # Mitigation to ensure that model "parsing" in the tabpfn-time-series
+        # package continues to work. Long-term we should fix that package as
+        # that "parsing" is quite brittle.
+        # https://github.com/PriorLabs/tabpfn-time-series/blob/71c22aed9d3f8ec280ffb753d0e87086be3cb7a4/tabpfn_time_series/worker/model_adapters/tabpfn_adapter.py#L18
+
+        model_names = TabPFNRegressor.list_available_models()
+
+        for i in range(len(model_names)):
+            possible_substring = model_names[i]
+            for j in range(i + 1, len(model_names)):
+                model_name = model_names[j]
+                self.assertNotIn(possible_substring, model_name)
+
+    def test_create_default_for_version_v3_5_selects_the_alias(self):
+        estimator = TabPFNRegressor.create_default_for_version(ModelVersion.V3_5)
+        self.assertEqual(estimator.model_path, "v3.5_default")
+
+    def test_auto_aliases_pass_through_on_the_wire(self):
+        # `None`, "auto" and "default" all mean "let the server pick". The server
+        # owns alias resolution, so the strings go out as given; only `None` is
+        # an absent field.
+        self.assertIsNone(
+            TabPFNRegressor(model_path=None)._get_tabpfn_config().model_path
+        )
+        for alias in ("auto", "default"):
+            with self.subTest(model_path=alias):
+                cfg = TabPFNRegressor(model_path=alias)._get_tabpfn_config()
+                self.assertEqual(cfg.model_path, alias)
+        # Concrete names pass through unchanged as well.
+        cfg = TabPFNRegressor(model_path="v3.5_default")._get_tabpfn_config()
+        self.assertEqual(cfg.model_path, "v3.5_default")
+
+    def test_predict_uses_correct_model_path(self):
+        # Setup
+        X = np.random.rand(10, 5)
+        y = np.random.rand(10)
+
+        tabpfn = TabPFNRegressor(model_path="2noar4o2")
+
+        # Mock the inference client
+        with patch.object(InferenceClient, "predict") as mock_predict:
+            mock_predict.return_value = PredictionResult(
+                y_pred={"mean": np.random.rand(10)}, metadata={}
+            )
+            with patch.object(InferenceClient, "fit_with_result") as mock_fit:
+                mock_fit.return_value = _DUMMY_FIT
+
+                # Fit and predict
+                tabpfn.fit(X, y)
+                tabpfn.predict(X)
+
+                # The name is passed through unchanged; the server resolves it.
+                predict_kwargs = mock_predict.call_args[1]
+                expected_model_path = "2noar4o2"
+
+                self.assertEqual(
+                    predict_kwargs["task_config"].tabpfn_config.model_path,
+                    expected_model_path,
+                )
+
+    @patch.object(InferenceClient, "fit_with_result", return_value=_DUMMY_FIT)
+    @patch.object(
+        InferenceClient,
+        "predict",
+        return_value=PredictionResult(y_pred={"mean": np.random.rand(10)}, metadata={}),
+    )
+    def test_paper_version_behavior(self, mock_predict, mock_fit):
+        # this just tests that it doesn't break,
+        # but the actual behavior is easier to test
+        # on the server side
+        X = np.random.rand(10, 5)
+        y = np.random.rand(10)
+        test_X = np.random.rand(5, 5)
+
+        # Test with paper_version=True
+        tabpfn_true = TabPFNRegressor(paper_version=True)
+        tabpfn_true.fit(X, y)
+        y_pred_true = tabpfn_true.predict(test_X)
+        self.assertIsNotNone(y_pred_true)
+
+        # Test with paper_version=False
+        tabpfn_false = TabPFNRegressor(paper_version=False)
+        tabpfn_false.fit(X, y)
+        y_pred_false = tabpfn_false.predict(test_X)
+        self.assertIsNotNone(y_pred_false)
+
+
+@contextmanager
+def _serving(fake_predict: Callable[..., PredictionResult]) -> Generator[None]:
+    """Answer each predict request, split or not, with `fake_predict(X)`."""
+    with (
+        patch.object(InferenceClient, "predict", side_effect=fake_predict),
+        # Split requests go through `predict_chunks`, as single requests here.
+        patch.object(
+            ServiceClient,
+            "_start_predict",
+            autospec=True,
+            side_effect=lambda fitted_train_set_id, X, *args, **kwargs: fake_predict(X),
+        ),
+    ):
+        yield
+
+
+class TestFullOutputChunking(unittest.TestCase):
+    """`output_type="full"` splits into per-chunk calls above the server cap."""
+
+    FULL_OUTPUT_MAX_ROWS = 4
+    N_BARS = 6
+    N_QUANTILES = 9
+
+    def setUp(self):
+        # skip init
+        config.Config.is_initialized = True
+        payload = _api_settings_payload()
+        for limit in [payload["max_model_limit"], *payload["model_limits"].values()]:
+            limit["test_set_max_rows_w_full_regression_output"] = (
+                self.FULL_OUTPUT_MAX_ROWS
+            )
+        ServiceClient._api_settings = GetSettingsResponse(**payload)
+        ServiceClient._api_settings_ts = time.monotonic()
+
+        self.borders = np.linspace(0.0, 1.0, self.N_BARS + 1)
+        self.regressor = TabPFNRegressor(model_path="v2.5_default")
+        self.regressor.model_id_ = UUID("00000000-0000-0000-0000-000000000000")
+        self.regressor._n_train_rows = 5
+
+    def tearDown(self):
+        ServiceClient._api_settings = None
+        ServiceClient._api_settings_ts = 0.0
+        # undo setUp
+        config.reset()
+
+    def _full_output(self, n_rows: int, offset: int) -> dict[str, np.ndarray]:
+        """A full-output payload whose values encode each row's global index."""
+        rows = np.arange(offset, offset + n_rows, dtype=float)
+        return {
+            "mean": rows,
+            "median": rows + 0.1,
+            "mode": rows + 0.2,
+            "quantiles": rows + np.arange(self.N_QUANTILES)[:, None],
+            "logits": rows[:, None] + np.arange(self.N_BARS)[None, :],
+            "borders": self.borders,
+        }
+
+    def _predict(self, n_test_rows: int):
+        """Predict `n_test_rows` rows, serving each request from its own chunk."""
+        served = []
+
+        def fake_predict(X, **kwargs):
+            offset = sum(len(x) for x in served)
+            served.append(X)
+            return PredictionResult(
+                y_pred=cast(Any, self._full_output(len(X), offset)), metadata={}
+            )
+
+        with _serving(fake_predict):
+            output = cast(
+                "dict[str, Any]",
+                self.regressor.predict(
+                    np.random.randn(n_test_rows, 2), output_type="full"
+                ),
+            )
+        return output, served
+
+    def test_stays_a_single_call_at_the_limit(self):
+        _, served = self._predict(self.FULL_OUTPUT_MAX_ROWS)
+        self.assertEqual([len(x) for x in served], [self.FULL_OUTPUT_MAX_ROWS])
+
+    def test_splits_into_chunks_of_at_most_the_limit(self):
+        _, served = self._predict(self.FULL_OUTPUT_MAX_ROWS * 2 + 1)
+        self.assertEqual(
+            [len(x) for x in served],
+            [self.FULL_OUTPUT_MAX_ROWS, self.FULL_OUTPUT_MAX_ROWS, 1],
+        )
+
+    def test_merged_output_matches_a_single_unsplit_call(self):
+        n_rows = self.FULL_OUTPUT_MAX_ROWS * 2 + 1
+        output, _ = self._predict(n_rows)
+        expected = self._full_output(n_rows, 0)
+        for key, value in expected.items():
+            np.testing.assert_allclose(output[key], value, err_msg=key)
+
+    def test_rejects_output_it_cannot_merge(self):
+        def fake_predict(X, **kwargs):
+            payload = self._full_output(len(X), 0)
+            payload["surprise"] = np.zeros(len(X))
+            return PredictionResult(y_pred=cast(Any, payload), metadata={})
+
+        with _serving(fake_predict):
+            with self.assertRaisesRegex(RuntimeError, "surprise"):
+                self.regressor.predict(
+                    np.random.randn(self.FULL_OUTPUT_MAX_ROWS + 1, 2),
+                    output_type="full",
+                )
+
+    def test_masked_bars_come_back_as_negative_infinity(self):
+        """Null logits mark bars outside a row's support, i.e. -inf."""
+
+        def fake_predict(X, **kwargs):
+            payload = self._full_output(len(X), 0)
+            payload["logits"] = payload["logits"].copy()
+            payload["logits"][:, -2:] = np.nan
+            return PredictionResult(y_pred=cast(Any, payload), metadata={})
+
+        with _serving(fake_predict):
+            output = cast(
+                "dict[str, Any]",
+                self.regressor.predict(
+                    np.random.randn(self.FULL_OUTPUT_MAX_ROWS + 1, 2),
+                    output_type="full",
+                ),
+            )
+
+        logits = output["logits"]
+        self.assertFalse(np.isnan(logits).any())
+        self.assertTrue(np.isneginf(logits[:, -2:]).all())
+        self.assertTrue(np.isfinite(logits[:, :-2]).all())
+
+    def test_other_output_types_keep_the_row_limit(self):
+        """The cap only applies to `full`, so `mean` is never split."""
+        served = []
+
+        def fake_predict(X, **kwargs):
+            served.append(X)
+            return PredictionResult(y_pred=np.zeros(len(X)), metadata={})
+
+        n_rows = self.FULL_OUTPUT_MAX_ROWS * 3
+        with patch.object(InferenceClient, "predict", side_effect=fake_predict):
+            self.regressor.predict(np.random.randn(n_rows, 2), output_type="mean")
+        self.assertEqual([len(x) for x in served], [n_rows])

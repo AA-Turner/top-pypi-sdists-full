@@ -1,0 +1,23 @@
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.16.2
+  hooks:
+  - id: ruff-check
+#    args:
+#      - "--unsafe-fixes"
+  - id: ruff-format
+    exclude: examples
+- repo: https://github.com/seddonym/import-linter
+  rev: v2.13
+  hooks:
+  - id: import-linter
+    stages: [manual]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-merge-conflict
+    exclude: .*\.py
+  - id: end-of-file-fixer
+    exclude: .*\.py
+  - id: mixed-line-ending
+    exclude: .*\.py

@@ -323,7 +323,6 @@ class _Usage:
 
 def _disk(monkeypatch, *, free: int, floor: int) -> None:
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", floor)
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", floor)
     monkeypatch.setattr(journal_mod.shutil, "disk_usage", lambda _path: _Usage(free))
 
 
@@ -398,7 +397,6 @@ def test_a_malformed_floor_override_warns_and_falls_back(monkeypatch):
     # None = the floor that scales with the volume (plan 1.5), never "off".
     assert fallback is None, "a typo in an env var must not silently disable a disk guard"
     monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", fallback)
-    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", fallback)
     assert journal_mod.free_floor("/") >= 256 * 1024 * 1024
     monkeypatch.setenv("PROBE_OUTBOX_MIN_FREE_BYTES", "4096")
     assert journal_mod._min_free_bytes() == 4096

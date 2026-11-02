@@ -1,0 +1,339 @@
+"""Concrete :class:`AutowareBridge` that hosts the gRPC server.
+
+Splatsim-consistent topology: the scenario library **hosts** this
+``AutowareBridge`` gRPC server and ``autoware_carla_interface`` is the **client**
+that dials it (see the topology note in
+``proto/autoware_bridge/v0/autoware_bridge.proto``).  Because only the client
+initiates, the two RPCs are direction-inverted from a "framework pushes" model:
+
+* ``GetMission`` - the client pulls the scenario's mission (initial pose, goal,
+  waypoints).  It returns ``available=False`` until :meth:`configure` has been
+  called, so the interface node can start polling before the scenario hands over
+  the mission.  Each :meth:`configure` and :meth:`reroute` bumps the response's
+  ``mission_version``, which is how the client, still polling once Autoware is
+  driving, tells a re-route from the route it already set.
+* ``ReportReadiness`` - the client pushes its readiness once Autoware is
+  initialized, routed, engaged, and driving.  The value is latched so
+  :meth:`is_ready` can be polled once per world tick by
+  :class:`~autoware_carla_scenario.entity.autoware_entity.AutowareEgoEntity`.
+* ``ReportTurnIndicators`` - the client pushes Autoware's turn-indicator command
+  when it changes; :meth:`take_turn_indicators` hands the newest to the entity,
+  which lights the ego's indicators.
+
+The framework never imports ROS 2 / rclpy: all ROS 2 / Autoware AD API I/O lives
+on the client, inside the interface node.  This class only serves the mission and
+latches the reported readiness behind a lock, since the RPCs are handled on the
+server's thread pool while the entity drives :meth:`configure` / :meth:`is_ready`
+from the tick loop.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+from concurrent import futures
+from collections.abc import Sequence
+from typing import Optional, Tuple
+
+import grpc
+
+from ._proto import autoware_bridge_pb2 as pb2
+from ._proto import autoware_bridge_pb2_grpc as pb2_grpc
+from .base import AutowareBridge, AutowareBridgeConfig, BridgePose
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["GrpcAutowareBridgeServer", "server_options"]
+
+#: Maximum gRPC message size.  The readiness contract is tiny (a couple of poses
+#: and a bool), but the limits are set explicitly for parity with the egodriver
+#: client's channel options.
+MAX_MESSAGE_BYTES: int = 1 * 1024 * 1024
+
+
+def server_options() -> list[tuple[str, int]]:
+    """Return the gRPC server options used for the bridge server."""
+    return [
+        ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+        ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+    ]
+
+
+def _pose_to_proto(pose: BridgePose) -> pb2.Pose:
+    """Convert a :class:`BridgePose` to the wire ``Pose`` (both ``wxyz``)."""
+    return pb2.Pose(
+        position=pb2.Vector3(x=pose.position.x, y=pose.position.y, z=pose.position.z),
+        rotation=pb2.Quaternion(
+            w=pose.rotation.w,
+            x=pose.rotation.x,
+            y=pose.rotation.y,
+            z=pose.rotation.z,
+        ),
+    )
+
+
+class _AutowareBridgeServicer(pb2_grpc.AutowareBridgeServicer):
+    """Serves the two RPCs by delegating to the owning bridge (thread-safe)."""
+
+    def __init__(self, bridge: "GrpcAutowareBridgeServer") -> None:
+        self._bridge = bridge
+
+    def GetMission(self, request, context):  # noqa: N802, ANN001 - gRPC signature
+        return self._bridge._mission_response()
+
+    def ReportReadiness(self, request, context):  # noqa: N802, ANN001 - gRPC signature
+        self._bridge._record_readiness(bool(request.ready))
+        return pb2.ReportReadinessResponse()
+
+    def ReportTurnIndicators(self, request, context):  # noqa: N802, ANN001 - gRPC signature
+        self._bridge._record_turn_indicators(int(request.command))
+        return pb2.ReportTurnIndicatorsResponse()
+
+
+class GrpcAutowareBridgeServer(AutowareBridge):
+    """Hosts the ``AutowareBridge`` gRPC server for the interface-node client.
+
+    The server starts listening as soon as the instance is constructed, so the
+    interface node can begin polling ``GetMission`` before the scenario hands over
+    a mission (it just gets ``available=False`` until :meth:`configure`).
+
+    ``autostart=False`` defers the bind to :meth:`start`, which is what a batch
+    of scenarios needs: they are all built before the first one runs, and two
+    servers cannot hold the same address at once.
+
+    Args:
+        config: Connection settings.  ``None`` uses
+            :class:`~autoware_carla_scenario.autoware_bridge.base.AutowareBridgeConfig`
+            defaults.  Use ``address="localhost:0"`` (or ``host:0``) to bind an
+            ephemeral port and read the chosen port from :attr:`port` - handy for
+            in-process tests.
+        max_workers: Size of the server's RPC thread pool.
+
+    Raises:
+        RuntimeError: If the configured address cannot be bound.
+    """
+
+    def __init__(
+        self,
+        config: Optional[AutowareBridgeConfig] = None,
+        *,
+        # Only one client (the interface node) ever connects, so a small pool is plenty.
+        max_workers: int = 4,
+        autostart: bool = True,
+    ) -> None:
+        self._config = config or AutowareBridgeConfig()
+        self._lock = threading.Lock()
+        self._mission: Optional[
+            Tuple[BridgePose, BridgePose, Tuple[BridgePose, ...]]
+        ] = None
+        #: Bumped by every configure() and reroute(); never reset, so a version
+        #: is never handed out twice by one bridge, even across a restart.
+        self._mission_version: int = 0
+        self._ready: bool = False
+        self._contacted: bool = False
+        #: The newest turn-indicator command not yet taken.
+        self._turn_indicators: Optional[int] = None
+        self._closed: bool = False
+        self._max_workers = max_workers
+        self._server: Optional[grpc.Server] = None
+        self._port: Optional[int] = None
+        if autostart:
+            self.start()
+
+    def _new_server(self) -> grpc.Server:
+        server = grpc.server(
+            futures.ThreadPoolExecutor(max_workers=self._max_workers),
+            # so_reuseport=0 disables gRPC's default SO_REUSEPORT so that binding
+            # an already-used port fails (returns 0) instead of silently sharing
+            # the port with another server and splitting RPCs between them.
+            options=[*server_options(), ("grpc.so_reuseport", 0)],
+        )
+        pb2_grpc.add_AutowareBridgeServicer_to_server(
+            _AutowareBridgeServicer(self), server
+        )
+        return server
+
+    def start(self) -> None:
+        """Bind the configured address and start serving.  A no-op while serving.
+
+        A bridge that was closed starts afresh -- no mission, not ready, no
+        client yet -- which is what a retried scenario, whose entity and bridge
+        are the attempt before's, needs from it: a gRPC server cannot be
+        restarted, so a new one is made.
+        """
+        if self._port is not None and not self._closed:
+            return
+        with self._lock:
+            self._mission = None
+            self._ready = False
+            self._contacted = False
+            self._turn_indicators = None
+        self._closed = False
+        self._port = None
+        self._server = self._new_server()
+        port = self._server.add_insecure_port(self._config.address)
+        # add_insecure_port returns 0 both when it binds an ephemeral port (the
+        # caller asked for ":0") and when the bind fails.  Only the latter is an
+        # error, so branch on the requested port rather than the returned one.
+        requested_port = self._config.address.rsplit(":", 1)[-1]
+        if port == 0 and requested_port != "0":
+            raise RuntimeError(
+                f"Failed to bind the AutowareBridge server to "
+                f"{self._config.address!r} (port already in use?)."
+            )
+        self._port = port
+        self._server.start()
+        logger.info("AutowareBridge server listening on port %d", self._port)
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def config(self) -> AutowareBridgeConfig:
+        """Return the bridge connection settings."""
+        return self._config
+
+    @property
+    def port(self) -> Optional[int]:
+        """The port the server is listening on, or ``None`` before :meth:`start`."""
+        return self._port
+
+    @property
+    def client_connected(self) -> bool:
+        """Whether the interface node has called either RPC yet."""
+        with self._lock:
+            return self._contacted
+
+    @property
+    def client_address(self) -> Optional[str]:
+        """The address the client dials: the bound port, on this host.
+
+        A server bound to every interface (``0.0.0.0``, ``[::]``) is dialed on
+        ``localhost``, which is where a stack on this host's network finds it.
+        """
+        if self._port is None:
+            return None
+        host = self._config.address.rsplit(":", 1)[0]
+        if host in ("", "0.0.0.0", "[::]", "::"):  # noqa: S104 - a bind address, not a bind
+            host = "localhost"
+        return f"{host}:{self._port}"
+
+    # ------------------------------------------------------------------
+    # Servicer callbacks (run on the server thread pool)
+    # ------------------------------------------------------------------
+
+    def _mission_response(self) -> pb2.GetMissionResponse:
+        """Build the ``GetMission`` response from the current mission state."""
+        with self._lock:
+            mission = self._mission
+            version = self._mission_version
+            self._contacted = True
+        if mission is None:
+            return pb2.GetMissionResponse(available=False)
+        initial, goal, waypoints = mission
+        return pb2.GetMissionResponse(
+            available=True,
+            initial_pose=_pose_to_proto(initial),
+            goal=_pose_to_proto(goal),
+            waypoints=[_pose_to_proto(pose) for pose in waypoints],
+            mission_version=version,
+        )
+
+    def _record_readiness(self, ready: bool) -> None:
+        """Latch the readiness the client reported: once ready, stay ready.
+
+        Reporting is order-tolerant: a transient ``ready=False`` arriving after a
+        ``True`` (e.g. the Autoware readiness aggregator briefly regressing) must
+        not clear a readiness the tick loop may not have observed yet.  The entity
+        already treats ``is_ready()`` as sticky, so latching here keeps the two
+        sides consistent and robust to report ordering.
+        """
+        with self._lock:
+            self._contacted = True
+            if self._ready:
+                return
+            self._ready = ready
+        if ready:
+            logger.info("Autoware reported ready via ReportReadiness")
+
+    def _record_turn_indicators(self, command: int) -> None:
+        """Keep the newest turn-indicator command for the tick loop to take."""
+        with self._lock:
+            self._contacted = True
+            self._turn_indicators = command
+
+    # ------------------------------------------------------------------
+    # AutowareBridge contract (driven by the entity / tick loop)
+    # ------------------------------------------------------------------
+
+    def configure(
+        self,
+        initial_pose: BridgePose,
+        goal: BridgePose,
+        waypoints: Optional[Sequence[BridgePose]] = None,
+    ) -> None:
+        with self._lock:
+            self._mission = (
+                initial_pose,
+                goal,
+                tuple(waypoints) if waypoints is not None else (),
+            )
+            self._mission_version += 1
+            count, version = len(self._mission[2]), self._mission_version
+        logger.info(
+            "AutowareBridge mission %d configured (%d waypoint(s)); "
+            "awaiting Autoware readiness",
+            version,
+            count,
+        )
+
+    def reroute(
+        self,
+        goal: BridgePose,
+        waypoints: Optional[Sequence[BridgePose]] = None,
+    ) -> None:
+        """Serve a new goal and waypoints as the next mission version.
+
+        The initial pose stays the one :meth:`configure` was given.
+
+        Raises:
+            RuntimeError: If no mission was configured to re-route.
+        """
+        with self._lock:
+            if self._mission is None:
+                raise RuntimeError(
+                    "AutowareBridge.reroute() before configure(): there is no "
+                    "mission to re-route"
+                )
+            self._mission = (
+                self._mission[0],
+                goal,
+                tuple(waypoints) if waypoints is not None else (),
+            )
+            self._mission_version += 1
+            count, version = len(self._mission[2]), self._mission_version
+        logger.info(
+            "AutowareBridge mission %d: re-routed (%d waypoint(s))", version, count
+        )
+
+    def is_ready(self) -> bool:
+        with self._lock:
+            return self._ready
+
+    def take_turn_indicators(self) -> Optional[int]:
+        with self._lock:
+            command = self._turn_indicators
+            self._turn_indicators = None
+        return command
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if self._port is None or self._server is None:
+            # Never bound: there is nothing listening to stop.
+            return
+        # grace=None stops immediately; only one short-lived client ever connects.
+        self._server.stop(grace=None)
+        logger.info("AutowareBridge server on port %d stopped", self._port)

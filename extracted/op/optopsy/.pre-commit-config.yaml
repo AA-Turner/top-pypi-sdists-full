@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.2
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty
+        entry: uv run ty check optopsy/
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest tests/ -q
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
+
+      - id: branch-name
+        name: branch name check
+        entry: bash scripts/check-branch-name.sh
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

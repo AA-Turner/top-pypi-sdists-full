@@ -16,8 +16,10 @@
 # Per-PR concurrency cancels superseded runs so the latest event gets a verdict.
 # Read-only contents and pull-requests permissions are all this caller needs;
 # checkout and verification belong to the reusable, with no caller secrets.
-# The full-SHA pin makes the reusable immutable; verifier-version pins the
-# released verifier used to read the caller's contracts.
+# The dev-merge tag of omnibase_core makes the reusable a fixed ref (the repo's
+# ruling is tags, never full commit shas); verifier-tag names the omnimarket
+# dev-merge tag the verifier that reads the caller's contracts is installed from
+# (OMN-21676: a verifier fix reaches the gate once merged and tagged, no release).
 #
 # The job id is the context prefix: repo-evidence / dod-verify carries the
 # verdict, so do not add a job name. The reusable also reports a
@@ -35,17 +37,17 @@
 # Rollback is setting shadow back to "true", which makes every repo-evidence
 # job conclude success again while the cause is found.
 #
-# The reusable is pinned by full SHA to the squash commit of omnibase_core#1932
-# on dev, a descendant of #1914; it carries the `shadow` input. omnimemory does
-# not host receipt-gate.yml.
+# The reusable is pinned to a dev-merge tag of omnibase_core, a descendant of
+# #1932 (the `shadow` input and the VERIFIER_FLOOR refusal) that also carries
+# the fix-parent control fallback (control_uses_fix_parent). omnimemory does not
+# host receipt-gate.yml. The pin is advanced by omnimarket's
+# node_receipt_gate_pin_advance_compute (OMN-20134), which edits this line and
+# RECEIPT_GATE_PIN_TAG in tests/ci/receipt_gate_pin.py.
 #
-# The pinned reusable refuses a verifier-version below 0.4.303 before installing
-# it (VERIFIER_FLOOR, omnibase_core#1932; OMN-20032), the first release that
-# refuses a contract leaving a criterion unbound. With shadow "false" that
-# install step blocks. verifier-version 0.4.310 is the first omnimarket release
-# that ships the writer-app and plugin-manifest diff classifiers
-# (omnimarket#3694) and refuses a contract that repeats a mapping key
-# (omnimarket#3751), the version omniclaude and omnidash run.
+# The reusable resolves verifier-tag to a commit and refuses a tag that was moved,
+# is not on omnimarket dev, or does not descend from its floor commit e565ba5ba00c
+# (omnibase_core#2203). verifier-version is only its warned migration fallback, so
+# this caller does not pass it.
 
 name: Repo Evidence Gate
 
@@ -64,9 +66,9 @@ permissions:
 
 jobs:
   repo-evidence:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa # OMN-20032: immutable full-SHA pin, the squash commit of omnibase_core#1932 on that repo's dev branch; descends from #1914 (carries the shadow input) and adds the VERIFIER_FLOOR 0.4.303 refusal to the verifier install step
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@dev-20261101005012-ac2f26e3e5bf # omnibase_core dev-merge tag; carries verifier-tag (OMN-21676)
     with:
       evidence-source: caller
-      verifier-version: 0.4.310
+      verifier-tag: dev-20261101000200-949993edf3b7
       compare-with-occ: "false"
       shadow: "false"

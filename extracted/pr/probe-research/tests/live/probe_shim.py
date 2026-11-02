@@ -10,11 +10,11 @@ Bash tool or the driver runs goes through here. Each call appends one line to
 
 `barrier_at_start`: the Probe service's update barrier existed when the call
 began, so the call had to wait for the update (at most
-`probe.service.barrier.WAIT_S`): this machine's
+`probe.service.updater.quiet.barrier.WAIT_S`): this machine's
 (`~/.local/state/probe/service/<machine key>/update.barrier`, where today's
 service raises it) or the one a service from before the machine key raises
 (`service/update.barrier`), both from the checkout's copy of
-`probe.service.paths` (the tap's `tap/service/paths.py`).
+`probe.foundation.service_api.paths` (the tap's `tap/service/paths.py`).
 
 `probe daemon worker` is exec'd in place (its start is logged, nothing else):
 the worker's lock, signals and parent are then exactly the real ones. On

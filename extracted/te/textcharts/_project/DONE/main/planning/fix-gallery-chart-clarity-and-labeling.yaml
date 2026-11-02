@@ -1,0 +1,202 @@
+id: "fix-gallery-chart-clarity-and-labeling"
+title: "Fix gallery chart clarity, labeling, and legend issues"
+worktree: "main"
+priority: "High"
+status: "Completed"
+description: |
+  Correct the remaining chart-gallery defects identified during docs review so
+  the generated screenshots communicate chart semantics clearly in color,
+  greyscale, and monochrome modes. The current gallery still exposes a mix of
+  renderer and screenshot-pipeline problems:
+
+  - Heatmap renders an incorrect X-axis label (`Platform`) for the classroom
+    scores example.
+  - LineChart does not show the X-axis label, leaving the signup example
+    under-labeled.
+  - BarChart and Histogram lose too much series distinction in greyscale
+    screenshots because the current greyscale mode is just a desaturated copy
+    of the color PNG.
+  - BarChart uses multiple colors without a legend in the screenshot output.
+  - ScatterPlot uses two stacked axis-label lines that waste vertical space in
+    the gallery; the X and Y labels should be compacted onto one line with a
+    visible divider.
+  - SparklineTable does not colorize its legend, so the footer does not match
+    the row-level color semantics.
+
+  The fix must improve the library, not just the screenshots. Where the issue
+  is renderer behavior, update the relevant chart implementation and add tests.
+  Where the issue is the documentation capture pipeline, change the screenshot
+  generator so greyscale captures preserve meaningful distinction between
+  series or states instead of flattening them into nearly identical tones.
+category: "Documentation"
+work:
+  - id: w1
+    summary: "Audit the affected renderers and screenshot pipeline to pin each issue to either source rendering logic or capture-mode behavior"
+    status: done
+    notes: |
+      Confirm the exact implementation points for Heatmap axis labeling,
+      LineChart axis labeling, ScatterPlot axis-label compaction, BarChart
+      legend support, SparklineTable legend colorization, and greyscale
+      screenshot generation before editing. Audit result:
+      - ASCIIHeatmap hardcodes the footer X-axis label to "Platform"
+      - ASCIILineChart renders only the Y-axis label
+      - ASCIIScatterPlot renders Y and X axis labels on separate lines
+      - ASCIIBarChart only emits a legend when grouped data is present
+      - ASCIISparklineTable prints an uncolored best/worst footer legend
+      - The gallery's greyscale mode is a direct image desaturation pass
+
+  - id: w2
+    summary: "Fix renderer-level labeling and legend defects in Heatmap, LineChart, ScatterPlot, BarChart, and SparklineTable"
+    needs: [w1]
+    status: done
+    notes: |
+      Replace the hardcoded Heatmap X-axis label with context-appropriate text,
+      render the missing LineChart X-axis label, compact ScatterPlot axis
+      labels onto one line with a divider, add a BarChart legend for
+      multi-series/color examples, and colorize the SparklineTable footer
+      legend so it matches best/worst highlighting.
+
+  - id: w3
+    summary: "Add or update regression tests that lock in the renderer fixes and prevent the reviewed screenshot issues from returning"
+    needs: [w2]
+    status: done
+    notes: |
+      Tests should assert observable output, including corrected axis labels,
+      legend presence, single-line ScatterPlot axis labels, and colored/footer
+      semantics where applicable.
+
+  - id: w4
+    summary: "Redesign greyscale screenshot generation so BarChart and Histogram remain distinguishable without relying on hue"
+    needs: [w1]
+    status: done
+    notes: |
+      Do not keep simple desaturation as the only greyscale mechanism. Reuse
+      renderer capabilities where possible or add a dedicated greyscale capture
+      mode so the affected charts preserve contrast and series distinction.
+
+  - id: w5
+    summary: "Regenerate gallery screenshots and verify the reviewed charts now communicate clearly in all three modes"
+    needs: [w2, w3, w4]
+    status: done
+    notes: |
+      Regenerate the assets, visually inspect the six reviewed chart types,
+      and confirm the gallery still includes color, greyscale, and monochrome
+      screenshots for all 15 chart types.
+
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "docs"
+    - "gallery"
+    - "screenshots"
+    - "renderers"
+    - "usability"
+  estimated_effort: "Medium"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T13:12:00"
+completed_date: "2026-03-06"
+
+impact:
+  business_value: |
+    Improves the credibility of the public documentation by ensuring the chart
+    gallery demonstrates the library at a high level of polish rather than
+    exposing ambiguous or misleading output.
+  user_impact: |
+    Readers evaluating the library from the docs can understand axis meaning,
+    legend semantics, and series distinctions without guessing or inspecting
+    source code.
+  technical_debt: |
+    Converts screenshot-review findings into renderer and capture-pipeline
+    regressions with explicit coverage, reducing the chance that future docs
+    refreshes silently reintroduce unclear output.
+
+files_affected:
+  modified:
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/line_chart.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/sparkline_table.py"
+    - "scripts/generate_doc_screenshots.py"
+    - "docs/guides/chart-gallery.rst"
+    - "docs/_static/screenshots/"
+    - "tests/"
+  added: []
+  removed: []
+
+must_preserve:
+  - "The gallery continues to provide three screenshots per chart type: color, greyscale, and monochrome"
+  - "Greyscale output remains deterministic and reproducible from scripts/generate_doc_screenshots.py"
+  - "Existing chart renderers continue to support plain monochrome output when color is disabled"
+  - "ScatterPlot continues to show both axis meanings even after the labels are compacted onto one line"
+  - "The docs build remains warning-free with uv run --group dev sphinx-build -W -b html docs docs/_build/html"
+
+approach: |
+  Start by fixing renderer defects first, because mislabeled axes and missing
+  legends should be corrected in the library rather than papered over in the
+  docs. Reuse existing legend and axis-label patterns already present in
+  ComparisonBar, ScatterPlot, Histogram, and other renderers instead of
+  inventing new one-off formatting. Once renderer output is corrected, redesign
+  the greyscale screenshot mode so it renders intentionally distinguishable
+  output rather than simply desaturating the color PNG. Regenerate the assets
+  only after the underlying renderers and capture mode are stable, then add
+  visual and test verification for the exact failure cases from the review.
+
+anti_patterns:
+  - "DO NOT hardcode another domain-specific X-axis label into Heatmap — because that recreates the same mismatch in a different example — derive or parameterize the label so the renderer can match the data context"
+  - "DO NOT fix greyscale by editing PNGs manually — because the screenshots must stay reproducible from source — change the renderer or capture pipeline and regenerate the assets"
+  - "DO NOT add a BarChart legend that only works for the gallery example — because the ambiguity is a renderer concern — implement legend behavior that follows existing chart-option conventions"
+  - "DO NOT satisfy the review with screenshot-only hacks for axis labels — because the same defects will remain in library output — fix the chart renderers and then regenerate docs"
+  - "DO NOT remove one of ScatterPlot's axis labels to save space — because that hides chart meaning — render both labels on one compact line with a clear separator"
+
+verification:
+  - description: "Focused renderer regression tests pass for the affected chart types"
+    command: "uv run --group dev python -m pytest -q tests"
+    expected_output: "all affected renderer tests pass with no failures"
+  - description: "Screenshot generator reproduces the gallery assets after renderer and greyscale changes"
+    command: "uv run --group dev python scripts/generate_doc_screenshots.py"
+    expected_output: "all chart screenshot sets regenerate without failures"
+  - description: "The checked-in screenshot directory still contains 45 generated images"
+    command: "find docs/_static/screenshots -type f | wc -l"
+    expected_output: "45"
+  - description: "Docs build remains warning-free after gallery updates"
+    command: "uv run --group dev sphinx-build -W -b html docs docs/_build/html"
+    expected_output: "build succeeded"
+  - description: "Manual review confirms the reviewed gallery defects are resolved"
+    expected_output: "Heatmap no longer shows Platform for classroom scores, LineChart shows both axis labels, ScatterPlot uses one compact axis-label line with a divider, BarChart and Histogram greyscale outputs remain distinguishable, BarChart shows a legend, SparklineTable legend uses matching colors"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/"
+    - "scripts/generate_doc_screenshots.py"
+    - "docs/"
+    - "tests/"
+  do_not_modify:
+    - "_project/DONE/"
+
+success_metrics:
+  - "The reviewed gallery screenshots communicate their axes and legend semantics without ambiguity"
+  - "Greyscale screenshots preserve meaningful visual distinction for the affected charts instead of collapsing series into near-identical tones"
+  - "The renderer-level fixes are covered by tests, not only by regenerated screenshots"
+
+context_sections:
+  "Research Findings": |
+    The current defects split across two layers. Heatmap hardcodes its X-axis
+    label to Platform, LineChart only renders the Y-axis label, and ScatterPlot
+    spends two full lines on axis labels where one compact combined label would
+    read better in the gallery. Sparkline Table prints an uncolored best/worst
+    footer legend, while BarChart lacks a legend despite using multiple
+    semantic colors in the gallery example. Separately, the screenshot
+    generator creates greyscale images by
+    desaturating the color PNG, which flattens distinctions that depend on hue.
+    That is why BarChart and Histogram greyscale images are less legible even
+    though other charts still read acceptably.
+    The code audit confirms those are real source-level causes, not just
+    screenshot artifacts: Heatmap, LineChart, ScatterPlot, BarChart, and
+    SparklineTable each have renderer behavior that contributes directly to the
+    reviewed gallery defects, while greyscale ambiguity comes from the
+    screenshot generator's desaturation step.
+
+open_questions:
+  - "None. The requested direction is explicit: improve greyscale distinction and retain BarChart color with an added legend."

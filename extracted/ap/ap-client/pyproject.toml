@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ap-client"
+version = "0.7.0"
+description = "Agent Platform API Client & CLI"
+readme = { text = "A lightweight Python SDK and command line interface for Agent Platform. It provides helpers for configuring API access and managing templates, datasets, jobs, and groups.", content-type = "text/markdown" }
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.9.0",
+    "requests>=2.28.0",
+    "rich>=13.0.0",
+    "PyYAML>=6.0",
+    "websockets>=13.0",
+    "irepo-artifact==0.2.4",
+]
+
+[project.optional-dependencies]
+dataset = [
+    "instance-repo[oss]>=1.4.0,<2.0.0",
+]
+all = [
+    "instance-repo[oss]>=1.4.0,<2.0.0",
+]
+
+[project.scripts]
+ap = "ap_client.cli:main"
+
+[dependency-groups]
+dev = [
+    "build>=1.2.0",
+    "hatchling>=1.25.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.14.0",
+    "twine>=5.0.0",
+]
+
+[tool.uv]
+required-version = "==0.11.13"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["/ap_client", "/pyproject.toml"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["ap_client"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["e2e: end-to-end tests that require external services"]

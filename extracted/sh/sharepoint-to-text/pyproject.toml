@@ -1,0 +1,152 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sharepoint-to-text"
+version = "2.0.1"
+description = "Text extraction library for typical file formats found in SharePoint repositories"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Tobias Horsmann", email = "tobias.horsmann@gmail.com" },
+]
+maintainers = [
+    { name = "Tobias Horsmann", email = "tobias.horsmann@gmail.com" },
+]
+keywords = [
+    "sharepoint",
+    "text-extraction",
+    "document-extraction",
+    "docx",
+    "doc",
+    "xlsx",
+    "xls",
+    "pptx",
+    "ppt",
+    "odp",
+    "ods",
+    "pdf",
+    "eml",
+    "msg",
+    "mbox",
+    "email",
+    "rtf",
+    "md",
+    "csv",
+    "tsv",
+    "json",
+    "office",
+    "microsoft-office",
+    "document-processing",
+    "pure-python",
+    "rag",
+    "llm",
+    "nlp",
+    "serverless",
+    "aws-lambda",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: Email",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Office/Business",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "charset-normalizer>=3.5.1,<4",
+    "defusedxml>=0.7.1, <1",
+    "mail-parser>=4.1.4,<5",
+    "msg-parser>=1.2.0",
+    "olefile>=0.47",
+    "openpyxl>=3.1.5,<4",
+    "pypdf>=6.16.1,<7",
+    "pycryptodome>=3.23.0",
+    "pyxlsb>=1.0.10,<2",
+    "xlrd>=2.0.2,<3",
+]
+
+[project.urls]
+Homepage = "https://github.com/Horsmann/sharepoint-to-text"
+Documentation = "https://github.com/Horsmann/sharepoint-to-text#readme"
+Repository = "https://github.com/Horsmann/sharepoint-to-text.git"
+Issues = "https://github.com/Horsmann/sharepoint-to-text/issues"
+Changelog = "https://github.com/Horsmann/sharepoint-to-text/blob/main/CHANGELOG.md"
+
+[project.scripts]
+sharepoint2text = "sharepoint2text.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-mypy>=0.10.3",
+    "pre-commit>=4.3.0",
+    "black>=25.12.0",
+    "python-dotenv>=1.0.0",
+    "mypy>=1.14.0",
+    "bandit>=1.9.4",
+    "semgrep>=1.157.0",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/sharepoint2text",
+    "/sharepoint2text/py.typed",
+    "/LICENSE",
+    "/README.md",
+    "/CHANGELOG.md",
+]
+
+[tool.hatch.build]
+exclude = [
+    "/sharepoint2text/tests",
+    "/sharepoint2text/tests/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sharepoint2text"]
+include = ["sharepoint2text/py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+
+[tool.pytest.ini_options]
+testpaths = ["sharepoint2text/tests"]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_no_return = true
+strict_optional = true
+strict_equality = true
+exclude = ["sharepoint2text/tests/", ".venv"]
+
+[[tool.mypy.overrides]]
+module = "defusedxml.*"
+ignore_missing_imports = true

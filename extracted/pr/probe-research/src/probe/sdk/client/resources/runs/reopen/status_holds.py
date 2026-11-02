@@ -7,6 +7,7 @@ import os
 import socket
 import time
 from pathlib import Path
+from probe.sdk.routes import WriteOp, path_for
 #: A wait budget that allows any wait covers at least one threshold plus this,
 #: so a relaunch seconds after the death is not refused at its first 409.
 _TAKEOVER_BUDGET_SLACK_SECONDS = 30
@@ -210,11 +211,10 @@ class StatusHoldsMixin:
         if not isinstance(tags, list) or "draining" not in tags:
             return
         try:
-            self.write(
+            self.send(
                 "PATCH",
-                f"/v1/runs/{old['id']}",
+                path_for(WriteOp.RUN_PATCH, old['id']),
                 {"tags": [t for t in tags if t != "draining"]},
-                sync=True,
             )
         except Exception:  # noqa: BLE001 -- a stale hint, never a reason to fail init
             pass

@@ -1,0 +1,865 @@
+"""A local cache of HD map repositories, filled by ``git``.
+
+The cache is the point of the feature, not an optimisation: a map is edited,
+previewed and swept over and over, and none of that should touch the network.
+:meth:`GitMapCache.checkout` answers from disk whenever the files it was asked
+for are already there; ``refresh=True`` is the one way to make it look again.
+
+The one thing that *is* asked over the network before anything is fetched is
+what a branch points at -- :meth:`GitMapCache.at_tip`, one ``ls-remote``.  That
+turns every entry into a commit's, which is what makes an entry immutable:
+without it a branch names a directory whose bytes change under a path that does
+not, and everything downstream keyed on that path goes on believing the map it
+read before.
+
+Two details make this workable against a real HD map repository. **LFS is
+skipped** (``GIT_LFS_SKIP_SMUDGE=1``) so a checkout materialises pointer files,
+and only the patterns asked for are pulled -- the repository this was written
+against keeps a 22 MB point cloud and a 466 MB ``.usdz`` beside a 2 MB ``.osm``.
+And **blobs are fetched lazily** (``--filter=blob:none``) into a **sparse**
+checkout, which is also what makes :meth:`GitMapCache.list_files` cheap enough
+to browse a repository with.
+
+The root is ``~/autoware_data/maps``, where Autoware's own ``demo_artifacts``
+role downloads map datasets to, unpacked at their repository-relative paths.
+That is not a coincidence to be tidied away: a machine that has run the Autoware
+setup already has the map, and :meth:`GitMapCache.provisioned` finds it there.
+A map this cache cloned itself lands under ``.repos/`` in the same root.
+
+One entry -- one repository at one commit -- serves every directory in it, and
+the sparse checkout only ever **grows**: a directory, once checked out, stays on
+disk for the life of the entry, so a :class:`CachedRepo` handed out for one map
+of a repository keeps pointing at real files while another map of the same
+repository is resolved.  The repository root (``path == ""``) is the pattern
+``/*``, which checks the whole tree out.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import threading
+import time
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Optional, Sequence
+
+from .source import MapSource
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "AUTOWARE_DATA_DIR_ENV",
+    "CACHE_ROOT_ENV",
+    "CachedRepo",
+    "GitMapCache",
+    "MapCacheError",
+    "is_lfs_pointer",
+    "map_root",
+    "TIP_SUFFIX",
+]
+
+#: Environment variable overriding where maps are kept, cloned or downloaded.
+CACHE_ROOT_ENV = "AUTOWARE_CARLA_SCENARIO_MAP_CACHE"
+
+#: Environment variable naming Autoware's data directory, whose ``maps``
+#: subdirectory is where its ``demo_artifacts`` role downloads map datasets.
+AUTOWARE_DATA_DIR_ENV = "AUTOWARE_DATA_DIR"
+
+#: Autoware's own default for that directory.
+DEFAULT_AUTOWARE_DATA_DIR = "~/autoware_data"
+
+#: Repositories this cache cloned, kept apart from the downloaded map trees
+#: that share the root.  Dot-prefixed so it does not read as a map.
+REPOS_SUBDIR = ".repos"
+
+#: Artefacts generated from a map -- an OpenDRIVE fetched from CARLA -- kept
+#: out of both the downloaded trees and the git checkouts.
+DERIVED_SUBDIR = ".derived"
+
+#: Suffix of the note recording which commit a branch last resolved to.  It sits
+#: *beside* that ref's cache entry rather than inside it, because a resolve made
+#: while the remote was unreachable clones under the branch's own name and
+#: replaces that directory wholesale.
+TIP_SUFFIX = ".tip.json"
+
+#: How many times a sparse checkout is attempted while another git process
+#: holds the entry's index or sparse-checkout file (``*.lock``), and the pause
+#: before the first retry (doubled each time).
+_LOCKED_ATTEMPTS = 5
+_LOCKED_BACKOFF_SECONDS = 0.2
+
+#: One lock per cache entry (by its path), held while that entry's sparse
+#: checkout is changed, so that two threads of one process (the editor serves
+#: requests on several) neither race git's lock files nor drop each other's
+#: directory from ``meta.json``.  Per entry, so that a long LFS pull of one
+#: repository does not hold up a resolve from another.  Another process is
+#: kept apart by git's own lock files, and :meth:`GitMapCache._materialise`
+#: retries while one is held.
+_ENTRY_LOCKS: dict[str, threading.Lock] = {}
+_ENTRY_LOCKS_GUARD = threading.Lock()
+
+#: The sparse-checkout pattern of the repository root: every path.
+_WHOLE_TREE = "/*"
+
+#: How long a git call may take before it is abandoned.  A clone of a map
+#: repository is seconds; anything approaching this is a hung transport.
+_GIT_TIMEOUT_SECONDS = 600.0
+#: Variables that point git at a repository (``git rev-parse --local-env-vars``).
+#: git exports them to its hooks, so a scenario run started from one would
+#: otherwise have the cache's clone/fetch/checkout act on the hook's repository.
+_GIT_REPO_ENV_VARS = frozenset(
+    {
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_DIR",
+        "GIT_GRAFT_FILE",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_INTERNAL_SUPER_PREFIX",
+        "GIT_NO_REPLACE_OBJECTS",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PREFIX",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_SHALLOW_FILE",
+        "GIT_WORK_TREE",
+    }
+)
+
+_SLUG_UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+class MapCacheError(RuntimeError):
+    """A repository could not be cloned, updated or read."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+def map_root() -> Path:
+    """Return the directory HD maps are kept in.
+
+    ``$AUTOWARE_DATA_DIR/maps``, defaulting to ``~/autoware_data/maps`` exactly
+    as Autoware's ``demo_artifacts`` role does, so that a map its setup already
+    downloaded is a map this framework already has.
+    :data:`CACHE_ROOT_ENV` overrides the whole path for a project that keeps its
+    maps somewhere else.
+    """
+    configured = os.environ.get(CACHE_ROOT_ENV, "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    data_dir = (
+        os.environ.get(AUTOWARE_DATA_DIR_ENV, "").strip() or DEFAULT_AUTOWARE_DATA_DIR
+    )
+    return (Path(data_dir).expanduser() / "maps").resolve()
+
+
+@dataclass(frozen=True)
+class _EntryMeta:
+    """What an entry's ``meta.json`` records; ``None`` where it holds no value.
+
+    The file is a JSON object of these five keys, which is all this module ever
+    wrote to it: ``repo_url``, ``ref`` and ``commit`` strings, ``fetched_at`` a
+    Unix time, and ``materialised`` the list of checked-out directories (``""``
+    for the whole repository), or ``null`` when there are none.  An entry
+    written before the checkout grew records a single directory as a string,
+    which reads as a list of that one.
+    """
+
+    repo_url: Optional[str] = None
+    ref: Optional[str] = None
+    commit: Optional[str] = None
+    fetched_at: Optional[float] = None
+    materialised: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CachedRepo:
+    """One cloned repository in the cache.
+
+    Attributes:
+        source: What was asked for.  Its ``path`` is not part of the identity:
+            one clone serves every map directory in the repository.
+        root: The cache entry holding the checkout.
+        worktree: The sparse checkout itself.
+        commit: The commit the checkout is at, or ``""`` when not recorded.
+        materialised: Every repository-relative directory checked out in the
+            entry, sorted; ``""`` stands for the whole repository, and the
+            tuple is empty when nothing has been.  The checkout only grows, so
+            each of them stays on disk.
+    """
+
+    source: MapSource
+    root: Path
+    worktree: Path
+    commit: str = ""
+    materialised: tuple[str, ...] = ()
+
+
+class GitMapCache:
+    """Clones map repositories into a local directory, and reuses them."""
+
+    root: Path
+
+    def __init__(self, root: Optional[Path] = None) -> None:
+        """Store maps under *root*, defaulting to :func:`map_root`."""
+        self.root = Path(root) if root is not None else map_root()
+
+    # -- addressing -----------------------------------------------------
+
+    def entry_dir(self, source: MapSource) -> Path:
+        """Return the cache entry for *source*'s repository and ref.
+
+        The slug is readable so that a person can find a map in the cache by
+        eye; the digest after it is what actually keeps two repositories apart,
+        since sanitising a URL is not injective.
+        """
+        identity = f"{source.repo_url}\n{source.ref}"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:10]
+        slug = _SLUG_UNSAFE.sub("-", f"{source.repo_name}-{source.ref or 'HEAD'}")
+        return self.root / REPOS_SUBDIR / f"{slug.strip('-').lower()}-{digest}"
+
+    def derived_dir(self, source: MapSource) -> Path:
+        """Return where artefacts generated from *source*'s map are kept.
+
+        Keyed on the repository as well as the map's path inside it, the way
+        :meth:`entry_dir` is: two repositories that both keep their map at
+        ``map/`` must not share an OpenDRIVE, or the second is handed the
+        first one's town.  The slug is for a person; the digest of the URL is
+        what keeps repositories apart.
+
+        The ref is deliberately *not* part of the key.  What lands here is read
+        back out of CARLA (:func:`~...maps.opendrive.ensure_xodr`,
+        ``ScenarioQueue._capture_opendrive``), so it is a function of the CARLA
+        town the map was recorded on, not of the repository's revision.  Keying
+        it on the commit would capture the town again every time a branch
+        moves, and would split a map Autoware's setup unpacked (no commit) from
+        the same map cloned here.  A stale file is replaced the way it always
+        was, by fetching again with ``refresh``.
+        """
+        digest = hashlib.sha256(source.repo_url.encode("utf-8")).hexdigest()[:10]
+        slug = _SLUG_UNSAFE.sub("-", source.repo_name).strip("-").lower() or "repo"
+        return self.root / DERIVED_SUBDIR / f"{slug}-{digest}" / (source.path or "root")
+
+    def provisioned(self, source: MapSource) -> Optional[Path]:
+        """Return *source*'s map directory if it is already on disk, unpacked.
+
+        A downloader that keeps repository-relative paths -- ``hf download
+        --local-dir``, which is what Autoware's setup runs -- leaves a map at
+        exactly ``<root>/<path>``.  Finding one there means no git command runs
+        and the ref is not consulted: what the machine has is what gets used.
+        """
+        if not source.path:
+            return None
+        directory = self.root / source.path
+        if directory.is_file():
+            directory = directory.parent
+        if not directory.is_dir():
+            return None
+        return directory if any(True for _ in directory.glob("*.osm")) else None
+
+    def tip_file(self, source: MapSource) -> Path:
+        """Return where *source*'s ref-to-commit note is kept."""
+        entry = self.entry_dir(source)
+        return entry.parent / f"{entry.name}{TIP_SUFFIX}"
+
+    def at_tip(self, source: MapSource) -> MapSource:
+        """Return *source* pinned to the commit its ref names on the remote now.
+
+        A branch is not a revision, and a cache entry named after one is a
+        directory whose contents change under it.  Asking the remote what the
+        branch points at *before* anything is fetched turns the rest of the
+        resolve into the pinned case: the entry is named after a commit, so it
+        is immutable, and anything downstream keyed on the file paths inside it
+        -- the editor's parsed-map cache, most of all -- sees a new path when
+        the branch moves rather than the same path with different bytes.
+
+        This is the one place the resolver touches the network without being
+        asked to fetch, so it fails soft: a machine with no route to the remote
+        gets the source back unchanged and carries on with whatever it cached,
+        which is what it would have done before.
+        """
+        if source.pinned:
+            return source
+        ref = source.ref or "HEAD"
+        try:
+            # `<ref>^{}` as well: ls-remote lists an annotated tag's peeled
+            # line only when a pattern names it.
+            listing = self._git(
+                None, "ls-remote", source.repo_url, ref, ref + "^{}", capture=True
+            )
+        except MapCacheError:
+            # Falling back to the *note* rather than to the branch: the entry
+            # this cache holds is named after the commit the ref last resolved
+            # to, so handing the branch back would look under a name nothing
+            # was ever filed under and re-clone from a remote that is not
+            # answering.
+            remembered = self.last_tip(source)
+            logger.warning(
+                "Could not ask %s which commit %s is at; using %s.",
+                source.repo_url,
+                ref,
+                f"the cached {remembered[:10]}" if remembered else "what is cached",
+            )
+            return source.at(remembered) if remembered else source
+        commit = _exact_tip(listing, ref)
+        at_commit = source.at(commit) if commit else source
+        if not at_commit.pinned:
+            logger.warning("%s names no ref in %s.", ref, source.repo_url)
+            return source
+        self.remember_tip(source, at_commit.ref)
+        return at_commit
+
+    def remember_tip(self, source: MapSource, commit: str) -> None:
+        """Record which commit *source*'s ref resolved to.
+
+        What lets :func:`~...maps.resolver.cached_map` answer for a branch
+        without a network call: the checkout is filed under the commit, so
+        looking under the branch's own name would report nothing.
+        """
+        path = self.tip_file(source)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            _json_object(
+                [
+                    ("repo_url", json.dumps(source.repo_url)),
+                    ("ref", json.dumps(source.ref)),
+                    ("commit", json.dumps(commit)),
+                    ("resolved_at", json.dumps(time.time())),
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    def last_tip(self, source: MapSource) -> str:
+        """Return the commit *source*'s ref last resolved to, or ``""``.
+
+        Empty for a pinned source, which is already the commit, and for a ref
+        this cache has never resolved.
+        """
+        if source.pinned:
+            return ""
+        try:
+            raw = self.tip_file(source).read_text(encoding="utf-8")
+        except OSError:
+            return ""
+        commit = _json_field(raw, "commit") or ""
+        return commit if source.at(commit).pinned else ""
+
+    # -- reading --------------------------------------------------------
+
+    def peek(self, source: MapSource) -> Optional[CachedRepo]:
+        """Return the cache entry for *source* if it has been cloned."""
+        entry = self.entry_dir(source)
+        worktree = entry / "repo"
+        if not (worktree / ".git").exists():
+            return None
+        meta = self._read_meta(entry)
+        return CachedRepo(
+            source=source,
+            root=entry,
+            worktree=worktree,
+            commit=meta.commit or "",
+            materialised=meta.materialised,
+        )
+
+    def list_files(self, source: MapSource, *, refresh: bool = False) -> list[str]:
+        """Return every file path in *source*'s repository, at its ref.
+
+        Reads the tree rather than the working directory, so it sees the whole
+        repository without materialising any of it -- which is what makes
+        browsing a repository cost one clone of its commit and tree objects.
+        """
+        repo = self.checkout(source, materialise=False, refresh=refresh)
+        out = self._git(
+            repo.worktree, "ls-tree", "-r", "--name-only", "HEAD", capture=True
+        )
+        return [line for line in out.splitlines() if line]
+
+    # -- writing --------------------------------------------------------
+
+    def checkout(
+        self,
+        source: MapSource,
+        *,
+        include: Optional[Sequence[str]] = None,
+        materialise: bool = True,
+        refresh: bool = False,
+    ) -> CachedRepo:
+        """Return *source*'s repository on disk, cloning it if needed.
+
+        Args:
+            source: The repository and ref to have locally.
+            include: Gitignore-style patterns, relative to the repository root,
+                whose LFS content is needed.  Everything else stays a pointer.
+                ``None`` (the default) and an empty sequence both mean none.
+            materialise: Check the files out.  Left off, only the commit and
+                tree objects are needed, which is enough to list what it holds.
+            refresh: Fetch the ref again even when the cache already has it.
+
+        Raises:
+            MapCacheError: If git is unavailable, or the clone or fetch failed.
+        """
+        cached = self.peek(source)
+        if cached is None:
+            cached = self._clone(source)
+        elif refresh:
+            self._fetch(cached)
+            # Re-read: the fetch moved the checkout, and `cached` still
+            # describes the commit it was at before.
+            cached = self.peek(source) or cached
+
+        if materialise:
+            cached = self._materialise(cached, include=include, refresh=refresh)
+        return cached
+
+    # -- git ------------------------------------------------------------
+
+    def _clone(self, source: MapSource) -> CachedRepo:
+        """Clone *source* into a staging directory and move it into place."""
+        entry = self.entry_dir(source)
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{entry.name}.", dir=str(entry.parent))
+        )
+        worktree = staging / "repo"
+        try:
+            if source.ref:
+                self._fetch_ref(worktree, source.repo_url, source.ref)
+            else:
+                self._git(
+                    None,
+                    "clone",
+                    "--filter=blob:none",
+                    "--no-checkout",
+                    "--depth",
+                    "1",
+                    source.repo_url,
+                    str(worktree),
+                )
+
+            commit = self._git(worktree, "rev-parse", "HEAD", capture=True).strip()
+            self._write_meta(staging, source, commit)
+            try:
+                staging.replace(entry)
+            except OSError:
+                # Another process cloned the same repository while we did; its
+                # copy is as good as ours, so keep whichever landed first.
+                if not (entry / "repo" / ".git").exists():
+                    raise
+                logger.debug("Discarding a concurrent clone of %s", source.repo_url)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+
+        cached = self.peek(source)
+        if cached is None:
+            raise MapCacheError(f"Could not clone {source.repo_url}.")
+        logger.info(
+            "Cloned %s@%s into %s", source.repo_url, source.ref or "HEAD", cached.root
+        )
+        return cached
+
+    def _fetch_ref(self, worktree: Path, repo_url: str, ref: str) -> None:
+        """Create a repository at *worktree* holding exactly *ref*.
+
+        Fetching a named ref into an empty repository, rather than cloning with
+        ``--branch``, is what lets a map be pinned: ``--branch`` takes a branch
+        or a tag and refuses a commit hash, and a commit hash is the only ref
+        that fixes what a scenario runs against.  One fetch of one ref also
+        transfers less than a clone does, so the pinned path is the cheap one.
+        """
+        worktree.mkdir(parents=True, exist_ok=True)
+        self._git(worktree, "init", "--quiet", ".")
+        self._git(worktree, "remote", "add", "origin", repo_url)
+        # What `clone --filter` would have configured for us.  Without it git
+        # does not know the missing blobs can be fetched on demand.
+        self._git(worktree, "config", "remote.origin.promisor", "true")
+        self._git(worktree, "config", "remote.origin.partialclonefilter", "blob:none")
+        self._git(
+            worktree, "fetch", "--depth", "1", "--filter=blob:none", "origin", ref
+        )
+        self._git(worktree, "checkout", "--detach", "FETCH_HEAD")
+
+    def _fetch(self, cached: CachedRepo) -> None:
+        """Update an existing checkout to the tip of its ref.
+
+        A pinned source has no tip to move to, so refreshing one re-checks that
+        the checkout is the commit it claims rather than fetching again.
+
+        The sparse checkout carries over to the new commit, so the directories
+        it holds are still recorded as checked out.
+        """
+        source = cached.source
+        if source.pinned and cached.commit == source.ref:
+            return
+        ref = source.ref or "HEAD"
+        self._git(cached.worktree, "fetch", "--depth", "1", "origin", ref)
+        self._git(cached.worktree, "checkout", "--detach", "FETCH_HEAD")
+        commit = self._git(cached.worktree, "rev-parse", "HEAD", capture=True).strip()
+        self._write_meta(cached.root, source, commit)
+        if cached.materialised:
+            self._write_entry_meta(
+                cached.root,
+                replace(self._read_meta(cached.root), materialised=cached.materialised),
+            )
+        logger.info("Refreshed %s@%s to %s", source.repo_url, ref, commit[:10])
+
+    def _materialise(
+        self, cached: CachedRepo, *, include: Optional[Sequence[str]], refresh: bool
+    ) -> CachedRepo:
+        """Check out *source*'s directory and pull the LFS content asked for.
+
+        The sparse checkout only grows: the first directory is ``set``, every
+        later one ``add``-ed, and the root (``""``) is the pattern ``/*``, which
+        checks the whole tree out.  A directory checked out for one map
+        therefore stays on disk while another map of the same repository is
+        resolved, and the entry's ``meta.json`` records all of them.
+
+        Whether to ``set`` or ``add`` is read from git, not from ``meta.json``:
+        sparse checkout is never turned off again once on, so ``set`` -- the
+        one command that drops directories -- runs only on a checkout no
+        directory has been checked out in yet, even when another process's
+        record of one was lost.  The record only decides whether anything has
+        to run at all.
+
+        Nothing runs when the directory is already checked out and its content
+        is real rather than pointers.  That matters because this is on the
+        path of every resolve -- every Download click, every sweep, every run
+        -- and ``git checkout`` re-stats the whole index each time it is
+        called, for a working tree that has not moved.
+
+        Returns:
+            *cached*, with what is now checked out.
+        """
+        source = cached.source
+        path = source.path
+        worktree = cached.worktree
+        wanted: list[str] = []
+        if include is not None:
+            wanted = [pattern for pattern in include if pattern]
+
+        with _entry_lock(cached.root):
+            # Re-read rather than trust *cached*: another thread may have
+            # checked a directory out since it was peeked.
+            done = self._read_meta(cached.root).materialised
+            whole = "" in done
+            present = (whole or path in done) and (worktree / path).exists()
+            if not refresh and present:
+                if not wanted or self._content_present(worktree, wanted):
+                    return replace(cached, materialised=done)
+
+            pattern = path or _WHOLE_TREE
+            if self._is_sparse(worktree):
+                self._git_waiting(worktree, "sparse-checkout", "add", pattern)
+            else:
+                self._git_waiting(
+                    worktree, "sparse-checkout", "set", "--no-cone", pattern
+                )
+            self._git_waiting(worktree, "checkout")
+
+            if wanted and (refresh or not self._content_present(worktree, wanted)):
+                self._git(worktree, "lfs", "pull", f"--include={','.join(wanted)}")
+            # Re-read again: what was recorded is still checked out, whoever
+            # recorded it, since nothing here takes a directory away.
+            recorded = self._read_meta(cached.root)
+            materialised = _sorted_paths(list(recorded.materialised) + [path])
+            self._write_entry_meta(
+                cached.root, replace(recorded, materialised=materialised)
+            )
+        return replace(cached, materialised=materialised)
+
+    def _is_sparse(self, worktree: Path) -> bool:
+        """Whether the checkout at *worktree* has sparse checkout turned on."""
+        try:
+            value = self._git(
+                worktree, "config", "--bool", "core.sparseCheckout", capture=True
+            )
+        except MapCacheError:
+            # `git config` exits 1 for a key that is not set.
+            return False
+        return value.strip() == "true"
+
+    def _git_waiting(self, worktree: Path, *args: str) -> None:
+        """Run one git command in *worktree*, waiting out another git process.
+
+        A second process resolving a map of the same entry holds its index or
+        sparse-checkout file while it runs, and git refuses to touch either
+        then; the checkout it makes only grows, so going after it is safe.
+        """
+        delay = _LOCKED_BACKOFF_SECONDS
+        for attempt in range(_LOCKED_ATTEMPTS):
+            try:
+                self._git(worktree, *args)
+                return
+            except MapCacheError as exc:
+                if attempt + 1 >= _LOCKED_ATTEMPTS or not _git_locked(
+                    worktree, str(exc)
+                ):
+                    raise
+            time.sleep(delay)
+            delay *= 2
+
+    @staticmethod
+    def _content_present(worktree: Path, wanted: Sequence[str]) -> bool:
+        """Whether every matched file holds real content rather than a pointer."""
+        return all(
+            not is_lfs_pointer(path)
+            for pattern in wanted
+            for path in worktree.glob(pattern)
+        )
+
+    def _git(self, cwd: Optional[Path], *args: str, capture: bool = False) -> str:
+        """Run one git command, with LFS smudging off.
+
+        Raises:
+            MapCacheError: If git is missing, timed out, or exited non-zero.
+        """
+        env = {k: v for k, v in os.environ.items() if k not in _GIT_REPO_ENV_VARS}
+        # Every checkout in this cache is deliberately pointer-only; the content
+        # that is actually wanted is pulled by pattern afterwards.
+        env["GIT_LFS_SKIP_SMUDGE"] = "1"
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        try:
+            completed = subprocess.run(  # noqa: S603 -- fixed program, argv list
+                ["git", *args],
+                cwd=str(cwd) if cwd is not None else None,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=_GIT_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise MapCacheError(
+                "git is not installed, so a map repository cannot be cloned."
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise MapCacheError(f"git {args[0]} timed out.") from exc
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()
+            lines = detail.splitlines()
+            raise MapCacheError(
+                f"git {args[0]} failed: {lines[-1] if lines else 'no output'}"
+            )
+        return completed.stdout if capture else ""
+
+    # -- metadata -------------------------------------------------------
+
+    @staticmethod
+    def _read_meta(entry: Path) -> _EntryMeta:
+        """Return the entry's recorded metadata, empty where there is none."""
+        try:
+            raw = (entry / "meta.json").read_text(encoding="utf-8")
+        except OSError:
+            return _EntryMeta()
+        return _EntryMeta(
+            repo_url=_json_field(raw, "repo_url"),
+            ref=_json_field(raw, "ref"),
+            commit=_json_field(raw, "commit"),
+            fetched_at=_json_number(raw, "fetched_at"),
+            materialised=_json_paths(raw, "materialised"),
+        )
+
+    @classmethod
+    def _write_meta(cls, entry: Path, source: MapSource, commit: str) -> None:
+        """Record what the entry holds, so a cache hit can describe itself."""
+        cls._write_entry_meta(
+            entry,
+            _EntryMeta(
+                repo_url=source.repo_url,
+                ref=source.ref,
+                commit=commit,
+                fetched_at=time.time(),
+                materialised=(),
+            ),
+        )
+
+    @staticmethod
+    def _write_entry_meta(entry: Path, meta: _EntryMeta) -> None:
+        """Write *meta* as the entry's ``meta.json``.
+
+        A field that was never recorded is left out, as it was when the file
+        was a dict that only held the keys it had been given;
+        ``materialised`` is always written, a list of the checked-out
+        directories or ``null`` when nothing is checked out.
+        """
+        fields: list[tuple[str, str]] = []
+        if meta.repo_url is not None:
+            fields.append(("repo_url", json.dumps(meta.repo_url)))
+        if meta.ref is not None:
+            fields.append(("ref", json.dumps(meta.ref)))
+        if meta.commit is not None:
+            fields.append(("commit", json.dumps(meta.commit)))
+        if meta.fetched_at is not None:
+            fields.append(("fetched_at", json.dumps(meta.fetched_at)))
+        materialised = "null"
+        if meta.materialised:
+            # Laid out as `json.dumps(..., indent=2)` lays out a list nested
+            # one level down, so the whole file still reads as that.
+            items = ",\n".join(
+                f"    {json.dumps(path)}"
+                for path in _sorted_paths(list(meta.materialised))
+            )
+            materialised = "[\n" + items + "\n  ]"
+        fields.append(("materialised", materialised))
+        (entry / "meta.json").write_text(_json_object(fields), encoding="utf-8")
+
+
+#: The full ref names a short ref can stand for, in the order git tries them
+#: (``ref_rev_parse_rules`` in git's refs.c, used by ``git rev-parse`` and by
+#: the ``git fetch origin <ref>`` the checkout runs): an exact name first, then
+#: a tag, then a branch.  ``%s`` is the ref as written.
+_REF_RULES = (
+    "%s",
+    "refs/%s",
+    "refs/tags/%s",
+    "refs/heads/%s",
+    "refs/remotes/%s",
+    "refs/remotes/%s/HEAD",
+)
+
+
+def _exact_tip(listing: str, ref: str) -> str:
+    """Return the commit *ref* names in a ``git ls-remote`` *listing*.
+
+    ``ls-remote <url> <ref>`` matches every ref whose name *ends* in
+    ``/<ref>``, so its first line can be ``refs/heads/archive/main`` for
+    ``main``, or an annotated tag's own object rather than the commit it tags.
+    The ref is resolved the way git itself resolves it, so that the commit
+    named here is the one the checkout's ``git fetch origin <ref>`` gets: the
+    first of :data:`_REF_RULES` the remote has wins -- a tag before a branch of
+    the same name, as ``git rev-parse`` would choose -- and a tag is peeled to
+    its commit (``<name>^{}``) when the listing carries the peeled line.
+
+    Returns ``""`` when no ref in the listing is *ref* exactly.
+    """
+    shas: dict[str, str] = {}
+    for line in listing.splitlines():
+        fields = line.split()
+        if len(fields) == 2:
+            shas[fields[1]] = fields[0]
+    for rule in _REF_RULES:
+        name = rule.replace("%s", ref)
+        peeled = shas.get(name + "^{}", "")
+        if peeled:
+            return peeled
+        direct = shas.get(name, "")
+        if direct:
+            return direct
+    return ""
+
+
+def _json_field(raw: str, key: str) -> Optional[str]:
+    """Return ``str(value)`` of *key* in the JSON object *raw*, else ``None``.
+
+    ``None`` for text that is not JSON, JSON that is not an object, a missing
+    key and a ``null`` value alike: a file this module did not write reads as
+    one that records nothing.
+    """
+    try:
+        document = json.loads(raw)
+        if key in document and document[key] is not None:
+            return str(document[key])
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _json_paths(raw: str, key: str) -> tuple[str, ...]:
+    """Return the directories listed at *key* in the JSON object *raw*, sorted.
+
+    A list of strings is what this module writes; a single string is what it
+    wrote before an entry could hold more than one directory, and reads as a
+    list of that one.  Anything else -- ``null``, a missing key, a file that
+    is not JSON -- reads as no directory at all, so the next resolve checks
+    its directory out again rather than trusting a record it cannot read.
+    """
+    found: list[str] = []
+    try:
+        document = json.loads(raw)
+        if key in document and document[key] is not None:
+            value = document[key]
+            if isinstance(value, str):
+                found.append(str(value))
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        found.append(str(item))
+    except (TypeError, ValueError):
+        pass
+    return _sorted_paths(found)
+
+
+def _sorted_paths(paths: list[str]) -> tuple[str, ...]:
+    """Return *paths* without repeats, sorted."""
+    return tuple(sorted(set(paths)))
+
+
+def _entry_lock(entry: Path) -> threading.Lock:
+    """Return the lock that serialises changes to *entry*'s sparse checkout."""
+    key = str(entry)
+    with _ENTRY_LOCKS_GUARD:
+        if key not in _ENTRY_LOCKS:
+            _ENTRY_LOCKS[key] = threading.Lock()
+        return _ENTRY_LOCKS[key]
+
+
+def _git_locked(worktree: Path, message: str) -> bool:
+    """Whether a git command failed because another held a lock in *worktree*.
+
+    Read from git's message (``Unable to create '.../index.lock': File
+    exists``, whose last line is ``remove the file manually to continue``) or,
+    when the message says neither, from a lock file still being there.
+    """
+    if ".lock" in message or "remove the file manually" in message:
+        return True
+    git_dir = worktree / ".git"
+    return (git_dir / "index.lock").exists() or (
+        git_dir / "info" / "sparse-checkout.lock"
+    ).exists()
+
+
+def _json_number(raw: str, key: str) -> Optional[float]:
+    """Return the number at *key* in the JSON object *raw*, else ``None``."""
+    try:
+        document = json.loads(raw)
+        if key in document and document[key] is not None:
+            return float(document[key])
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _json_object(fields: list[tuple[str, str]]) -> str:
+    """Return a JSON object of the *fields* (key, JSON text of the value).
+
+    Laid out as ``json.dumps(..., indent=2)`` lays out a flat object, which is
+    how both files of this module were written when they were dicts.
+    """
+    if not fields:
+        return "{}"
+    body = ",\n".join(f"  {json.dumps(key)}: {value}" for key, value in fields)
+    return "{\n" + body + "\n}"
+
+
+#: The first bytes of a git-lfs pointer file, which is what a checkout made with
+#: ``GIT_LFS_SKIP_SMUDGE=1`` leaves in place of tracked content.
+_LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
+
+
+def is_lfs_pointer(path: Path) -> bool:
+    """Whether *path* holds an LFS pointer rather than the real content."""
+    try:
+        with path.open("rb") as handle:
+            return handle.read(len(_LFS_POINTER_PREFIX)) == _LFS_POINTER_PREFIX
+    except OSError:
+        return False

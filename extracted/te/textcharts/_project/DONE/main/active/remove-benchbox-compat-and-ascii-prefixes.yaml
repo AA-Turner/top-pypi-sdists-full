@@ -1,0 +1,313 @@
+id: "remove-benchbox-compat-and-ascii-prefixes"
+title: "Remove all BenchBox backward compatibility stubs and ASCII* class prefixes"
+worktree: "main"
+priority: "High"
+status: "Completed"
+completed_date: "2026-03-10"
+description: |
+  The de-BenchBox initiative completed 5 TODOs (neutralize defaults, add subject,
+  lower_is_better, rename factories, add outlier_cap). What remains are backward
+  compatibility stubs and the ASCII* prefix on all class definitions:
+
+  1. 17 class definitions use ASCII* prefix (ASCIIBarChart, ASCIIChartOptions, etc.)
+  2. 13 deprecated factory function wrappers (from_query_latency_data, etc.)
+  3. 18 ASCII* alias re-exports in __init__.py
+  4. Migration language in 5+ doc files
+  5. Dead BenchBox CSS in custom.css
+
+  Rename all class definitions to clean names, remove deprecated factory stubs,
+  and clean up docs. Keep the README Provenance section and BenchBox GitHub link.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Rename 17 ASCII* class definitions to clean names in source modules"
+    status: done
+    notes: |
+      Rename class definitions and add temporary backward-compat aliases at module
+      level so consumers can be updated incrementally:
+
+      base.py:
+        ASCIIChartOptions -> ChartOptions (line 354)
+        ASCIIChartBase -> ChartBase (line 448)
+
+      15 chart modules:
+        ASCIIBarChart -> BarChart (bar_chart.py:29)
+        ASCIIBoxPlot -> BoxPlot (box_plot.py:93)
+        ASCIICDFChart -> CDFChart (cdf_chart.py:35)
+        ASCIIComparisonBar -> ComparisonBar (comparison_bar.py:35)
+        ASCIIDivergingBar -> DivergingBar (diverging_bar.py:25)
+        ASCIIHeatmap -> Heatmap (heatmap.py:19)
+        ASCIIQueryHistogram -> Histogram (histogram.py:38)
+        ASCIILineChart -> LineChart (line_chart.py:35)
+        ASCIINormalizedSpeedup -> NormalizedSpeedup (normalized_speedup.py:27)
+        ASCIIPercentileLadder -> PercentileLadder (percentile_ladder.py:75)
+        ASCIIRankTable -> RankTable (rank_table.py:27)
+        ASCIIScatterPlot -> ScatterPlot (scatter_plot.py:27)
+        ASCIISparklineTable -> SparklineTable (sparkline_table.py:35)
+        ASCIIStackedBar -> StackedBar (stacked_bar.py:52)
+        ASCIISummaryBox -> SummaryBox (summary_box.py:66)
+
+      Within each module, also update all internal references to the base class
+      (e.g., class BarChart(ChartBase) instead of class ASCIIBarChart(ASCIIChartBase)).
+      Import ChartBase/ChartOptions from base using the new names.
+
+      Add backward-compat aliases at the bottom of each module:
+        ASCIIBarChart = BarChart  # backward compat — remove in w7
+
+      Also remove: histogram.py line 787 ASCIIHistogram = ASCIIQueryHistogram alias.
+
+  - id: w2
+    summary: "Update commands/registry.py chart_class strings to clean names"
+    needs: [w1]
+    status: done
+    notes: |
+      Update all 15 chart_class string references in _build_registry():
+        "ASCIIBarChart" -> "BarChart"
+        "ASCIIQueryHistogram" -> "Histogram"
+        "ASCIIHeatmap" -> "Heatmap"
+        "ASCIIBoxPlot" -> "BoxPlot"
+        "ASCIILineChart" -> "LineChart"
+        "ASCIIScatterPlot" -> "ScatterPlot"
+        "ASCIIComparisonBar" -> "ComparisonBar"
+        "ASCIIDivergingBar" -> "DivergingBar"
+        "ASCIISummaryBox" -> "SummaryBox"
+        "ASCIIPercentileLadder" -> "PercentileLadder"
+        "ASCIINormalizedSpeedup" -> "NormalizedSpeedup"
+        "ASCIIStackedBar" -> "StackedBar"
+        "ASCIISparklineTable" -> "SparklineTable"
+        "ASCIICDFChart" -> "CDFChart"
+        "ASCIIRankTable" -> "RankTable"
+
+      These strings are resolved via getattr(module, chart_class) in executor.py:86.
+
+  - id: w3
+    summary: "Rewrite __init__.py — import clean names directly, remove all compat exports"
+    needs: [w1]
+    status: done
+    notes: |
+      1. Rewrite module docstring — remove "Compatibility API" section
+      2. Change imports to use clean names directly:
+         from textcharts.bar_chart import BarChart, BarData
+         from textcharts.base import ChartBase, ChartOptions, ColorMode, ...
+      3. Remove all 13 deprecated factory import lines (# deprecated compat)
+      4. Remove the standalone alias block (lines 93-111)
+      5. Remove ASCII* entries from __all__ (lines 133-151)
+      6. Remove deprecated factory entries from __all__ (lines 193-206)
+      7. Keep: clean chart names, data models, utilities, new generic factories
+
+  - id: w4
+    summary: "Remove 13 deprecated factory wrappers from chart modules"
+    needs: [w3]
+    status: done
+    notes: |
+      Delete the deprecated wrapper functions from each module:
+        bar_chart.py: from_bar_data
+        histogram.py: from_query_latency_data
+        box_plot.py: from_distribution_series
+        comparison_bar.py: from_comparison_data
+        diverging_bar.py: from_regression_data
+        line_chart.py: from_time_series_points
+        percentile_ladder.py: from_query_results
+        scatter_plot.py: from_cost_performance_points
+        sparkline_table.py: from_metrics
+        normalized_speedup.py: from_normalized_results
+        stacked_bar.py: from_phase_data
+        rank_table.py: from_heatmap_data
+        cdf_chart.py: from_query_results
+
+  - id: w5
+    summary: "Update all test files to use clean names and remove deprecation tests"
+    needs: [w1, w3, w4]
+    status: done
+    notes: |
+      Two categories of test imports:
+
+      A) 9 files importing from textcharts (top-level) — change ASCII* to clean:
+         test_percentile_ladder_behavior.py, test_comparison_bar_behavior.py,
+         test_summary_box.py, test_diverging_bar_behavior.py,
+         test_line_chart_behavior.py, test_stacked_bar_behavior.py,
+         test_rank_table_behavior.py, test_sparkline_table_behavior.py,
+         test_histogram_behavior.py
+         Also update deprecated factory calls in these files.
+
+      B) 4 files importing from individual modules — change ASCII* class names:
+         test_chart_rendering.py (+ remove deprecated factory imports/calls,
+           update docstring removing "migrated from BenchBox")
+         test_additional_charts.py (+ switch deprecated factory calls)
+         test_edge_cases_and_features.py (+ switch deprecated factory calls)
+         test_outlier_regression.py
+
+      C) test_factory_functions.py:
+         Delete deprecation warning tests (lines 233-269).
+         Update happy-path tests to use new factory names.
+
+      D) Other test files (test_golden_output.py, test_gallery_renderer_clarity.py,
+         test_edge_cases.py, test_rendering_modes.py) — update any ASCII* imports.
+
+  - id: w6
+    summary: "Update scripts/generate_doc_screenshots.py to use clean names"
+    needs: [w1, w3]
+    status: done
+    notes: |
+      Replace all 16 ASCII* imports and ~34 ASCII* usages with clean names.
+      The script imports from textcharts (top-level).
+
+  - id: w7
+    summary: "Remove temporary ASCII* aliases from modules, update docs, remove dead CSS"
+    needs: [w2, w5, w6]
+    status: done
+    notes: |
+      A) Remove backward-compat aliases added in w1 from all 16 modules.
+
+      B) Update docs:
+         - docs/reference/charts.rst: update all :members: directives to clean names
+         - docs/conf.py: update _MARKDOWN_CLASS_DOCS to clean names (9 entries)
+         - docs/reference/factories.rst: remove BenchBox intro text, remove entire
+           "BenchBox-derived" section (lines 34-59), rewrite "Generic convenience
+           helpers" section to document NEW factory names only
+         - docs/concepts/public-api.rst: remove "Compatibility API" section (lines
+           22-33), remove BenchBox docs link (lines 18-20), simplify to single API
+         - docs/reference/api.rst: remove "Compatibility aliases" row, update
+           "Factory helpers" row
+         - docs/guides/chart-selection.rst: remove ASCII* alias paragraph (lines
+           68-69), remove "compatibility helpers inherited from BenchBox" (line 78)
+         - docs/tutorials/first-chart.rst: rewrite lines 75-77 to remove migration
+
+      C) Remove dead BenchBox CSS from docs/_static/custom.css (lines 1-69):
+         .benchbox-site-nav* rules and "Imported from BenchBox" comment.
+
+      D) Keep: README.md Provenance section, pyproject.toml benchbox.dev URLs.
+
+deferred:
+  - summary: "Rename ASCIIQueryHistogram to just Histogram (non-standard naming)"
+    reason: "Covered in w1 — ASCIIQueryHistogram -> Histogram. No deferral needed."
+
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "cleanup"
+  estimated_effort: "Large"
+  created_date: "2026-03-09"
+  last_updated: "2026-03-09T00:00:00"
+
+deps:
+  needs:
+    - "rename-benchmark-specific-identifiers"
+    - "configurable-outlier-cap"
+
+impact:
+  business_value: |
+    Completes the de-BenchBox initiative. The public API uses clean, intuitive names
+    throughout. No backward compatibility layer to maintain or explain to new users.
+  user_impact: |
+    Breaking change for anyone importing ASCII* names or calling deprecated factories.
+    All imports must use clean names (BarChart, ChartOptions, etc.).
+  technical_debt: |
+    Eliminates the dual-naming layer (ASCII* internal + clean aliases), deprecated
+    factory wrappers, migration docs, and dead CSS. Simplifies __init__.py from
+    207 lines of exports to ~80.
+
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/box_plot.py"
+    - "src/textcharts/cdf_chart.py"
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/line_chart.py"
+    - "src/textcharts/normalized_speedup.py"
+    - "src/textcharts/percentile_ladder.py"
+    - "src/textcharts/rank_table.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/sparkline_table.py"
+    - "src/textcharts/stacked_bar.py"
+    - "src/textcharts/summary_box.py"
+    - "src/textcharts/__init__.py"
+    - "src/textcharts/commands/registry.py"
+    - "scripts/generate_doc_screenshots.py"
+    - "tests/test_factory_functions.py"
+    - "tests/test_chart_rendering.py"
+    - "tests/test_additional_charts.py"
+    - "tests/test_edge_cases_and_features.py"
+    - "tests/test_outlier_regression.py"
+    - "tests/test_percentile_ladder_behavior.py"
+    - "tests/test_comparison_bar_behavior.py"
+    - "tests/test_summary_box.py"
+    - "tests/test_diverging_bar_behavior.py"
+    - "tests/test_line_chart_behavior.py"
+    - "tests/test_stacked_bar_behavior.py"
+    - "tests/test_rank_table_behavior.py"
+    - "tests/test_sparkline_table_behavior.py"
+    - "tests/test_histogram_behavior.py"
+    - "docs/reference/charts.rst"
+    - "docs/reference/factories.rst"
+    - "docs/reference/api.rst"
+    - "docs/concepts/public-api.rst"
+    - "docs/guides/chart-selection.rst"
+    - "docs/tutorials/first-chart.rst"
+    - "docs/conf.py"
+    - "docs/_static/custom.css"
+
+must_preserve:
+  - "All chart rendering output is byte-identical before and after rename"
+  - "MCP server and CLI continue to work (registry resolution via getattr)"
+  - "README.md Provenance section and BenchBox GitHub link are untouched"
+  - "pyproject.toml benchbox.dev email and URLs are untouched"
+  - "All new generic factory functions (from_data, from_series, etc.) continue to work"
+
+approach: |
+  Use a phased approach with temporary backward-compat aliases:
+
+  Phase 1 (w1): Rename class defs, add ASCIIFoo = Foo aliases at module bottom.
+  This keeps all existing consumers working while the rename propagates.
+
+  Phase 2 (w2-w6): Update all consumers (registry, __init__, tests, scripts,
+  deprecated factory removal). Each work unit can be verified independently
+  because the temp aliases keep old names working.
+
+  Phase 3 (w7): Remove temp aliases and update docs. At this point no consumer
+  references the old names, so removal is safe.
+
+anti_patterns:
+  - "DO NOT remove temp aliases before all consumers are updated — because tests
+    and scripts will break — update consumers first in w2-w6, then remove in w7"
+  - "DO NOT modify README.md Provenance section — because user explicitly wants
+    to keep it — leave it untouched"
+  - "DO NOT rename data models (BarData, LinePoint, etc.) — because they already
+    have clean names — only rename ASCII*-prefixed classes"
+
+verification:
+  - description: "Full test suite passes after each work unit"
+    command: "uv run python -m pytest tests/ -x -q"
+    expected_output: "all tests pass"
+  - description: "Linter passes"
+    command: "uv run ruff check src/ tests/"
+    expected_output: "no errors"
+  - description: "Docs build without warnings"
+    command: "uv run --group dev sphinx-build -W -b html docs docs/_build/html"
+    expected_output: "build succeeds"
+  - description: "No ASCII* names remain in __init__.py exports"
+    command: "grep 'ASCII' src/textcharts/__init__.py"
+    expected_output: "no output"
+  - description: "No deprecated factory names remain in source"
+    command: "grep -r 'from_bar_data\\|from_query_latency_data\\|from_distribution_series\\|from_comparison_data\\|from_regression_data\\|from_time_series_points\\|from_cost_performance_points\\|from_normalized_results\\|from_phase_data\\|from_metrics\\|from_heatmap_data' src/"
+    expected_output: "no output"
+  - description: "MCP server loads correctly"
+    command: "uv run python -c 'from textcharts.commands.registry import REGISTRY; print(len(REGISTRY))'"
+    expected_output: "15"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/"
+    - "tests/"
+    - "scripts/generate_doc_screenshots.py"
+    - "docs/"
+  do_not_modify:
+    - "README.md"
+    - "pyproject.toml"

@@ -1,0 +1,452 @@
+"""The migration's backup covers everything the migration WRITES, and restores it byte for byte.
+ASCII only.
+
+The backup used to copy the native store (which the migration only reads) and the retired
+`.claude-bx-selflearning` dir (which it never touches), and nothing it actually mutates: the
+anchor's central store, the level's CLAUDE.local.md, the CLAUDE.md a legacy scope block is moved
+out of, and the repo's .git/info/exclude. A backup that misses what the migration mutates is not a
+backup.
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+import migrate_memory as M
+import self_improve_signals as sig
+
+HAVE_GIT = shutil.which("git") is not None
+
+
+@pytest.fixture
+def env(short_root, monkeypatch):
+    """(root for project dirs, fake home); project dirs go under the conftest's `short_root` so a
+    long TMPDIR cannot push their slug past the 200-character cap. The home goes there too: the
+    backup nests a copy of the whole store five levels under it, and under tmp_path that can pass
+    Windows' 260-char MAX_PATH."""
+    home = short_root / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(M, "_EXCLUDE_PREFIXES", ())   # both roots sit under the temp dir
+    return short_root, home
+
+
+def _slug(path):
+    return re.sub(r"[^a-zA-Z0-9]", "-", str(path))
+
+
+def _native(home, slug, topics):
+    d = home / ".claude" / "projects" / slug / "memory"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "MEMORY.md").write_text("# Memory index\n", encoding="utf-8")
+    for name, body in topics.items():
+        (d / (name + ".md")).write_text(
+            "---\nname: %s\ndescription: the %s fact\nmetadata:\n  type: project\n---\n%s\n"
+            % (name, name, body), encoding="utf-8")
+    return d
+
+
+def _tree(tmp_path, git=True):
+    """A knowledge tree that already holds state the migration will touch: a tree-top store with
+    another level's fact, a level whose CLAUDE.md still carries a legacy scope block, a hand-written
+    CLAUDE.local.md, and (optionally) a git repo with its own .gitignore."""
+    top = tmp_path / "tree"
+    proj = top / "sub"
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("# tree top\n", encoding="utf-8")
+    facts = top / sig.MEMORY_DIRNAME / "facts"
+    facts.mkdir(parents=True)
+    (facts / "other-fact.md").write_text("---\nname: other-fact\n---\nkept\n", encoding="utf-8")
+    (proj / "CLAUDE.md").write_bytes(
+        b"# sub\r\n\r\n<!-- bitranox:self-learning -->\r\nWHAT: the sub project\r\n"
+        b"<!-- /bitranox:self-learning -->\r\n\r\nmore text\r\n")
+    (proj / "CLAUDE.local.md").write_text("my own notes\n", encoding="utf-8")
+    if git and HAVE_GIT:
+        subprocess.run(["git", "init", "-q", str(top)], check=True, capture_output=True)
+        (top / ".gitignore").write_bytes(b"*.pyc\n")     # bytes: text mode writes CRLF on Windows
+    return top, proj
+
+
+def _snapshot(root):
+    """{relative path: bytes or None for a dir} of everything under `root` except git's own dir."""
+    out = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        rel = os.path.relpath(dirpath, root)
+        out[rel] = None
+        for name in filenames:
+            out[os.path.join(rel, name)] = (Path(dirpath) / name).read_bytes()
+    return out
+
+
+def _changed(before, after):
+    return sorted(k for k in set(before) | set(after) if before.get(k, 0) != after.get(k, 0))
+
+
+# ---- the backup holds the pre-migration bytes of every path the migration changed --------------
+
+def test_every_path_the_migration_changes_is_in_the_backup(env):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body.", "project-beta": "Beta body."})
+    before = _snapshot(top)
+    rep = M.migrate_store(slug, dry_run=False)
+    assert rep["error"] is None and rep["placed"] == 2
+    after = _snapshot(top)
+    changed = _changed(before, after)
+    assert changed, "control: the migration must change something for this test to mean anything"
+    backup_bytes = {p.read_bytes() for p in M._backups_dir().rglob("*") if p.is_file()}
+    lost = [k for k in changed if before.get(k) is not None and before[k] not in backup_bytes]
+    assert lost == [], "pre-migration bytes missing from the backup: %s" % lost
+
+
+def test_a_restore_puts_the_tree_back_byte_for_byte(env):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body.", "project-beta": "Beta body."})
+    before = _snapshot(top)
+    rep = M.migrate_store(slug, dry_run=False)
+    assert _snapshot(top) != before
+    problems = M.restore_backup(rep["backup"])
+    assert problems == []
+    assert _snapshot(top) == before
+
+
+def test_a_restore_removes_what_the_migration_created(env):
+    # nothing existed yet: no store, no CLAUDE.local.md, no .gitignore - all must go again
+    tmp_path, home = env
+    proj = tmp_path / "bare"
+    proj.mkdir()
+    (proj / "CLAUDE.md").write_text("# bare\n", encoding="utf-8")
+    slug = _slug(proj)
+    _native(home, slug, {"project-a": "Body A."})
+    before = _snapshot(proj)
+    rep = M.migrate_store(slug, dry_run=False)
+    assert (proj / "CLAUDE.local.md").exists() and (proj / sig.MEMORY_DIRNAME).is_dir()
+    assert M.restore_backup(rep["backup"]) == []
+    assert _snapshot(proj) == before
+
+
+def test_one_run_backs_up_a_shared_store_once_and_restores_every_level(env, capsys):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path)
+    proj2 = top / "sub2"
+    proj2.mkdir()
+    (proj2 / "CLAUDE.md").write_text("# sub2\n", encoding="utf-8")
+    s1, s2 = _slug(proj), _slug(proj2)
+    _native(home, s1, {"project-alpha": "Alpha body."})
+    _native(home, s2, {"project-gamma": "Gamma body."})
+    before = _snapshot(top)
+    assert M.main(["--apply", "--slug=" + s1, "--slug=" + s2]) == 0
+    runs = [p for p in M._backups_dir().iterdir() if p.is_dir()]
+    assert len(runs) == 1, runs
+    manifest = json.loads((runs[0] / "manifest.json").read_text(encoding="utf-8"))
+    stores = [i for i in manifest["items"] if i["path"] == str(top / sig.MEMORY_DIRNAME)]
+    assert len(stores) == 1                                   # copied once, not once per level
+    assert "--restore" in capsys.readouterr().out
+    assert M.main(["--restore", str(runs[0])]) == 0
+    assert _snapshot(top) == before
+
+
+# ---- the restore CLI refuses what it cannot trust ----------------------------------------------
+
+def test_restore_of_a_dir_without_a_manifest_is_a_usage_error(env, capsys):
+    tmp_path, _home = env
+    bogus = tmp_path / "not-a-backup"
+    bogus.mkdir()
+    assert M.main(["--restore", str(bogus)]) == 2
+    assert "manifest" in capsys.readouterr().err
+
+
+def test_restore_cannot_be_combined_with_apply(env, capsys):
+    tmp_path, _home = env
+    with pytest.raises(SystemExit) as exc:
+        M.main(["--apply", "--restore", str(tmp_path)])
+    assert exc.value.code == 2
+
+
+def test_a_failed_backup_names_the_length_of_the_path_it_failed_on(env):
+    # Windows without LongPathsEnabled fails a deep backup with a bare [WinError 3] that never says
+    # the path was too long. A 300-char component is refused on every platform, so this is a real
+    # path-length failure, not a stub.
+    tmp_path, home = env
+    _top, proj = _tree(tmp_path, git=False)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    too_long = tmp_path / ("b" * 300)
+    rep = M.migrate_store(slug, dry_run=False, backup_run=M.BackupRun(root=too_long))
+    assert rep["error"].startswith("backup failed, nothing written: ")
+    assert "longest path involved: %d chars" % len(str(too_long)) in rep["error"]
+    assert "LongPathsEnabled" in rep["error"]
+    assert rep["placed"] == 0
+
+
+def test_a_copytree_failure_names_its_longest_path():
+    # copytree gathers every failed copy into one shutil.Error whose paths sit in its args, not in
+    # filename, so the length must be read from there too.
+    src, dst = "/s/" + "x" * 20, "/d/" + "y" * 290
+    exc = shutil.Error([(src, dst, "[WinError 3] The system cannot find the path specified")])
+    message = M.backup_failure_message(exc)
+    assert "longest path involved: %d chars" % len(dst) in message
+
+
+def test_a_short_failing_path_gets_no_long_path_hint():
+    exc = FileNotFoundError(2, "No such file or directory", "/tmp/short")
+    message = M.backup_failure_message(exc)
+    assert "longest path involved: 10 chars" in message
+    assert "LongPathsEnabled" not in message
+
+
+def test_a_dry_run_writes_no_backup(env):
+    tmp_path, home = env
+    _top, proj = _tree(tmp_path, git=False)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    M.migrate_store(slug, dry_run=True)
+    assert not M._backups_dir().exists()
+
+
+# ---- a store file the engine cannot read fails the store, and the backup is still named ---------
+# The engine raises TreeWalkError (a RuntimeError) for a level file or body that is not UTF-8. It
+# escaped the per-entry handler, so the run died with a traceback AFTER the backup was taken and the
+# "BACKUP ... undo with --restore" line - the only place the user learns where it is - never printed.
+
+NOT_UTF8_LEVEL = [b"my own notes, caf\xe9\n",
+                  b"\xff\xfe" + "my own notes\n".encode("utf-16-le")]
+
+
+@pytest.mark.parametrize("raw", NOT_UTF8_LEVEL)
+def test_an_unreadable_level_file_fails_its_store_and_the_backup_is_still_named(env, capsys, raw):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path, git=False)
+    (proj / "CLAUDE.local.md").write_bytes(raw)
+    proj2 = top / "sub2"                                     # a healthy level in the same run
+    proj2.mkdir()
+    (proj2 / "CLAUDE.md").write_text("# sub2\n", encoding="utf-8")
+    s1, s2 = _slug(proj), _slug(proj2)
+    _native(home, s1, {"project-alpha": "Alpha body."})
+    _native(home, s2, {"project-gamma": "Gamma body."})
+    before = _snapshot(top)
+
+    assert M.main(["--apply", "--slug=" + s1, "--slug=" + s2]) == 2   # I/O beats "no"
+    out = capsys.readouterr().out
+    assert "FAILED" in out and "CLAUDE.local.md" in out
+    runs = [p for p in M._backups_dir().iterdir() if p.is_dir()]
+    assert len(runs) == 1, runs
+    assert "BACKUP of everything written: %s" % runs[0] in out
+    assert (proj / "CLAUDE.local.md").read_bytes() == raw          # never rewritten
+    assert "project-gamma" in (proj2 / "CLAUDE.local.md").read_text(encoding="utf-8")
+    assert M.main(["--restore", str(runs[0])]) == 0                # and the named backup undoes it
+    assert _snapshot(top) == before
+
+
+def test_migrate_store_reports_an_unreadable_level_file_as_its_error(env):
+    tmp_path, home = env
+    _top, proj = _tree(tmp_path, git=False)
+    (proj / "CLAUDE.local.md").write_bytes(NOT_UTF8_LEVEL[0])
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body.", "project-beta": "Beta body."})
+    rep = M.migrate_store(slug, dry_run=False)
+    assert rep["error"] and "CLAUDE.local.md" in rep["error"]
+    assert rep["backup"] and rep["placed"] == 0
+
+
+# ---- the memory wiring never touches tracked git: ignore lines go to .git/info/exclude ------------
+# 7.35.1 moved the engine's ignore step to the repo's exclude file; the migration kept appending to
+# the TRACKED .gitignore, which a public repo then publishes (user decision W-D3, 2026-10-05).
+
+IGNORED = ("CLAUDE.local.md", sig.MEMORY_DIRNAME + "/", sig.CURATED_DIRNAME + "/")
+
+
+def _exclude(top):
+    return top / ".git" / "info" / "exclude"
+
+
+def _own_exclude(top, raw=b"# own rules\n*.tmp\n"):
+    """Give the repo an exclude file with known bytes: whether `git init` creates one depends on
+    the installed templates."""
+    _exclude(top).parent.mkdir(parents=True, exist_ok=True)
+    _exclude(top).write_bytes(raw)
+    return raw
+
+
+def _git_ignores(where, pattern):
+    r = subprocess.run(["git", "-C", str(where), "check-ignore", "-q", "--no-index", pattern],
+                       capture_output=True, encoding="utf-8", errors="replace")
+    return r.returncode == 0
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_a_migration_leaves_the_tracked_gitignore_byte_identical(env):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path, git=True)
+    raw = b"*.pyc\r\nbuild/\r\n"
+    (top / ".gitignore").write_bytes(raw)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    assert M.main(["--apply", "--slug=" + slug]) == 0
+    assert (top / ".gitignore").read_bytes() == raw
+    lines = _exclude(top).read_bytes().decode("utf-8").splitlines()
+    for pattern in IGNORED:
+        assert pattern in lines, (pattern, lines)
+        assert _git_ignores(proj, pattern), pattern
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_the_backup_covers_the_exclude_file_not_the_gitignore(env):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path, git=True)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    excl_before = _own_exclude(top, b"# own rules\r\n*.tmp\r\n")
+    gi_before = (top / ".gitignore").read_bytes()
+    rep = M.migrate_store(slug, dry_run=False)
+    assert rep["error"] is None and rep["placed"] == 1
+    assert _exclude(top).read_bytes() != excl_before      # control: the run did write it
+    items = json.loads((Path(rep["backup"]) / "manifest.json").read_text(encoding="utf-8"))["items"]
+    paths = [os.path.realpath(i["path"]) for i in items]
+    want = os.path.realpath(str(_exclude(top)))
+    assert paths.count(want) == 1, paths                  # level and anchor share ONE repo
+    assert os.path.realpath(str(top / ".gitignore")) not in paths
+    assert M.restore_backup(rep["backup"]) == []
+    assert _exclude(top).read_bytes() == excl_before
+    assert (top / ".gitignore").read_bytes() == gi_before
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_a_repo_without_git_info_still_migrates_and_restores(env):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path, git=True)
+    shutil.rmtree(top / ".git" / "info")
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    before = _snapshot(top)
+    assert M.main(["--apply", "--slug=" + slug]) == 0
+    assert (top / ".gitignore").read_bytes() == b"*.pyc\n"
+    assert sig.MEMORY_DIRNAME + "/" in _exclude(top).read_bytes().decode("utf-8").splitlines()
+    run = [p for p in M._backups_dir().iterdir() if p.is_dir()][0]
+    items = json.loads((run / "manifest.json").read_text(encoding="utf-8"))["items"]
+    want = os.path.realpath(str(_exclude(top)))
+    excl = [i for i in items if os.path.realpath(i["path"]) == want]
+    assert len(excl) == 1 and excl[0]["existed"] is False
+    assert M.main(["--restore", str(run)]) == 0
+    assert not _exclude(top).exists()                     # the run created it, the undo removes it
+    assert _snapshot(top) == before
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_a_non_utf8_gitignore_neither_crashes_the_run_nor_is_rewritten(env, capsys):
+    tmp_path, home = env
+    top, proj = _tree(tmp_path, git=True)
+    raw = b"# caf\xe9\n*.pyc\n"
+    (top / ".gitignore").write_bytes(raw)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    rc = M.main(["--apply", "--slug=" + slug])
+    out = capsys.readouterr().out
+    assert "BACKUP of everything written" in out
+    assert (top / ".gitignore").read_bytes() == raw
+    assert rc == 0
+    assert M.ensure_gitignore(str(proj)) == "gitignored"
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_a_non_utf8_exclude_file_keeps_its_bytes(env):
+    """The exclude file is rewritten, so a byte in another encoding must survive the round trip."""
+    tmp_path, _home = env
+    top, proj = _tree(tmp_path, git=True)
+    raw = _own_exclude(top, b"# caf\xe9\n*.log\n")
+    assert M.ensure_gitignore(str(proj)) == "gitignored"
+    assert _exclude(top).read_bytes().startswith(raw)
+    assert (top / ".gitignore").read_bytes() == b"*.pyc\n"
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_an_exclude_file_that_cannot_be_written_is_named(env):
+    """A directory where the exclude file belongs cannot be read or written on any platform; the
+    status names what git could not be made to ignore instead of claiming success."""
+    tmp_path, _home = env
+    top, proj = _tree(tmp_path, git=True)
+    _own_exclude(top)
+    _exclude(top).unlink()
+    _exclude(top).mkdir()
+    status = M.ensure_gitignore(str(proj))
+    assert status not in M._GITIGNORE_FINE
+    assert "CLAUDE.local.md" in status
+    assert (top / ".gitignore").read_bytes() == b"*.pyc\n"
+
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git to track the store")
+def test_a_tracked_store_warning_reaches_the_output(env, capsys):
+    """ensure_gitignore's answer was stored in the report and never printed, so a store already
+    COMMITTED to the repo - a possible leak of private memory - went unmentioned."""
+    root, home = env
+    top, proj = _tree(root, git=True)
+    git = ["git", "-C", str(top), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(git + ["add", "-f", sig.MEMORY_DIRNAME], check=True, capture_output=True)
+    subprocess.run(git + ["commit", "-q", "-m", "x"], check=True, capture_output=True)
+    slug = _slug(proj)
+    _native(home, slug, {"project-alpha": "Alpha body."})
+    assert M.main(["--apply", "--slug=" + slug]) == 0
+    out = capsys.readouterr().out
+    assert "TRACKED" in out and slug in out.split("TRACKED")[0].splitlines()[-1]
+
+
+# ---- git output is decoded as UTF-8, whatever the locale -----------------------------------------
+
+@pytest.mark.skipif(not HAVE_GIT, reason="needs git for the exclude file")
+def test_a_non_ascii_repo_path_under_an_ascii_locale_is_still_gitignored(env):
+    """git prints the repo path in UTF-8. Decoded with the LOCALE codec, an ASCII locale raised
+    UnicodeDecodeError out of the git helper - past its OSError guard - for any repo whose path
+    holds a non-ASCII character, so the ignore step died with a traceback."""
+    import sys
+    root, home = env
+    top = root / "M\u00fcller"
+    top.mkdir()
+    subprocess.run(["git", "init", "-q", str(top)], check=True, capture_output=True)
+    probe = ("import sys; sys.path.insert(0, %r); import migrate_memory as M; "
+             "print(M.ensure_gitignore(sys.argv[1]))" % str(Path(M.__file__).parent))
+    child = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "LC_ALL": "C",
+             "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+             "PYTHONIOENCODING": "utf-8"}
+    r = subprocess.run([sys.executable, "-c", probe, str(top)], env=child, capture_output=True,
+                       encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "gitignored", (r.stdout, r.stderr)
+    assert sig.MEMORY_DIRNAME + "/" in _exclude(top).read_bytes().decode("utf-8").splitlines()
+    assert not (top / ".gitignore").exists()
+
+
+def test_a_restore_that_cannot_put_an_item_back_exits_2(env, capsys):
+    """A put-back that fails is an I/O failure (2), not a "no" (1). The backup copy of one file is
+    removed, so copying it back raises on every platform."""
+    tmp_path, home = env
+    top, proj = _tree(tmp_path)
+    s1 = _slug(proj)
+    _native(home, s1, {"project-alpha": "Alpha body."})
+    assert M.main(["--apply", "--slug=" + s1]) == 0
+    run = [p for p in M._backups_dir().iterdir() if p.is_dir()][0]
+    items = json.loads((run / "manifest.json").read_text(encoding="utf-8"))["items"]
+    victim = next(i for i in items if i["existed"] and i["kind"] == "file" and i["restore"])
+    (run / victim["copy"]).unlink()
+    capsys.readouterr()
+    assert M.main(["--restore", str(run)]) == 2
+    assert "NOT restored" in capsys.readouterr().out
+
+
+def test_control_a_parked_store_alone_still_exits_1(env):
+    """R-d: a run that acted and could not place some entries (a parked store) is a partial
+    outcome, 1 - only an I/O failure moves it to 2."""
+    _tmp, home = env
+    slug = "-media-does-not-exist-anywhere-either"
+    _native(home, slug, {"project-a": "Body A."})
+    assert M.main(["--apply", "--slug=" + slug]) == 1

@@ -1,0 +1,82 @@
+[build-system]
+requires      = ["setuptools>=63.0.0", "wheel", "Cython>=0.29.30"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rainbow-api"
+version = "1.5.5"
+description = "Read chromatography and mass spectrometry binary files"
+readme = "README.md"
+license = {text = "LGPL-3.0-or-later"}
+authors = [
+    {name = "Evan Shi and Eugene Kwan"},
+    {email = "evanyshi@cmu.edu"}
+]
+classifiers = [
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)"
+]
+# The oldest interpreter rainbow supports, so pip on anything older resolves an
+# older rainbow instead of installing this and failing at import. No upper
+# bound: a newer interpreter than [tool.cibuildwheel] builds wheels for still
+# installs, just from the sdist.
+requires-python = ">=3.8"
+# What every install needs to read a file, and nothing more. lxml is here for
+# speed, not correctness: the parsers fall back to the standard library and
+# reach the same answer, but rb.read_metadata is about 2.5x slower that way, so
+# a default install should have it. matplotlib (plotting) and pandas (the
+# Waters transition table) are neither, and are extras below.
+dependencies = [
+    "numpy",
+    "lxml>=4.9"
+]
+
+[project.optional-dependencies]
+# The suite covers the optional paths as well as the core ones, so this brings
+# in what those paths need: matplotlib for plot(), pandas for the Waters
+# transition table, python-lzf for the LZF-compressed MassHunter profile
+# segments. They are here so CI exercises those tests rather than skipping
+# them. The tests still skip rather than fail where one is absent, so the
+# suite also runs against a bare install.
+test = ["pytest", "matplotlib", "pandas", "python-lzf"]
+# Agilent MassHunter profile data (MSProfile.bin) can carry LZF-compressed
+# segments whose decode needs python-lzf. It is only imported when such a
+# segment is actually encountered, so the base install stays pure-Python;
+# install rainbow-api[hrms] to parse those files (read(..., hrms=True)).
+hrms = ["python-lzf"]
+# For the opt-in ASM schema-conformance test (see tests/test_asm_schema.py).
+# The floor is only to get a reasonably modern resolver; each Allotrope schema
+# rainbow validates against is self-contained, so no registry of side files is
+# needed and older jsonschema works too. rfc3339-validator is what makes
+# jsonschema's `date-time` format check real: without it, jsonschema accepts any
+# string in a timestamp field, so the conformance test silently checks nothing.
+validate = ["jsonschema>=4.18", "rfc3339-validator"]
+# DataFile.plot draws with matplotlib. Reading a file never needs it, and it is
+# the single heaviest thing rainbow can import, so it is not installed by
+# default; plot() says so if it is missing.
+plot = ["matplotlib"]
+# The Waters compound transition table is returned as a pandas DataFrame, the
+# only thing in rainbow that uses pandas.
+waters = ["pandas"]
+
+[project.urls]
+Repository = "https://github.com/evanyeyeye/rainbow"
+Documentation = "https://rainbow-api.readthedocs.io"
+
+[tool.setuptools.packages.find]
+# Declare the package explicitly. Without this, setuptools' flat-layout
+# auto-discovery treats sibling directories (e.g. cibuildwheel's wheelhouse/,
+# or tests/, docs/) as top-level packages and fails with "Multiple top-level
+# packages discovered in a flat-layout".
+include = ["rainbow*"]
+
+[tool.cibuildwheel]
+# Build CPython wheels for the optional compiled accelerator. The extension
+# is optional, so any platform that can't compile still yields a working
+# (pure-Python-fallback) wheel, and the sdist covers everything else.
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux* *_i686 *-win32"
+
+[tool.pytest.ini_options]
+# Tests are run from the repo root (fixtures are referenced as tests/inputs/...
+# and the suite imports the `tests` package).
+testpaths = ["tests"]

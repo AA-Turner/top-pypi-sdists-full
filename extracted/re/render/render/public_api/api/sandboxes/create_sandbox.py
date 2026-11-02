@@ -1,0 +1,297 @@
+from http import HTTPStatus
+from typing import Any, Optional, Union
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.error import Error
+from ...models.sandbox import Sandbox
+from ...models.sandbox_post import SandboxPOST
+from ...types import Response
+
+
+def _get_kwargs(
+    *,
+    body: SandboxPOST,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
+    _kwargs: dict[str, Any] = {
+        "method": "post",
+        "url": "/sandboxes",
+    }
+
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
+    return _kwargs
+
+
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[Union[Error, Sandbox]]:
+    if response.status_code == 201:
+        response_201 = Sandbox.from_dict(response.json())
+
+        return response_201
+
+    if response.status_code == 400:
+        response_400 = Error.from_dict(response.json())
+
+        return response_400
+
+    if response.status_code == 401:
+        response_401 = Error.from_dict(response.json())
+
+        return response_401
+
+    if response.status_code == 403:
+        response_403 = Error.from_dict(response.json())
+
+        return response_403
+
+    if response.status_code == 404:
+        response_404 = Error.from_dict(response.json())
+
+        return response_404
+
+    if response.status_code == 409:
+        response_409 = Error.from_dict(response.json())
+
+        return response_409
+
+    if response.status_code == 429:
+        response_429 = Error.from_dict(response.json())
+
+        return response_429
+
+    if response.status_code == 500:
+        response_500 = Error.from_dict(response.json())
+
+        return response_500
+
+    if response.status_code == 503:
+        response_503 = Error.from_dict(response.json())
+
+        return response_503
+
+    if client.raise_on_unexpected_status:
+        raise errors.UnexpectedStatus(response.status_code, response.content)
+    else:
+        return None
+
+
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[Union[Error, Sandbox]]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    *,
+    client: Union[AuthenticatedClient, Client],
+    body: SandboxPOST,
+) -> Response[Union[Error, Sandbox]]:
+    """Create sandbox
+
+     Create a sandbox. Returns the initial sandbox snapshot synchronously.
+
+    With `snapshotId`: 404 with `code: snapshot_not_found` if the snapshot does not
+    exist; 409 with `code: snapshot_not_available` if it is not `available`, or
+    `code: snapshot_plan_mismatch` if a `runtime` snapshot was requested with a
+    different `plan`.
+
+    With `snapshotName`: 400 with `code: invalid_snapshot_name` if the name is
+    malformed, 400 without a code if `snapshotId` is also set, and 404 with
+    `code: snapshot_not_found` if no `available` snapshot in the group has the
+    name. The 409 cases above apply to the resolved snapshot.
+
+    409 with `code: sandbox_group_suspended` if the sandbox group is suspended.
+
+    400 with `code: sandbox_group_limit_reached` if the owner has no default
+    sandbox group and is already at its sandbox group limit.
+
+    400 with `code: invalid_sandbox_plan` if `plan` is not one the API currently
+    accepts. The message lists the accepted plans.
+
+    400 with `code: invalid_timeout_seconds` if `timeoutSeconds` is below 0 or
+    above the plan's maximum: 2592000 (30 days), or 86400 (24 hours) on Hobby
+    workspaces.
+
+    Args:
+        body (SandboxPOST):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Union[Error, Sandbox]]
+    """
+
+    kwargs = _get_kwargs(
+        body=body,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+def sync(
+    *,
+    client: Union[AuthenticatedClient, Client],
+    body: SandboxPOST,
+) -> Optional[Union[Error, Sandbox]]:
+    """Create sandbox
+
+     Create a sandbox. Returns the initial sandbox snapshot synchronously.
+
+    With `snapshotId`: 404 with `code: snapshot_not_found` if the snapshot does not
+    exist; 409 with `code: snapshot_not_available` if it is not `available`, or
+    `code: snapshot_plan_mismatch` if a `runtime` snapshot was requested with a
+    different `plan`.
+
+    With `snapshotName`: 400 with `code: invalid_snapshot_name` if the name is
+    malformed, 400 without a code if `snapshotId` is also set, and 404 with
+    `code: snapshot_not_found` if no `available` snapshot in the group has the
+    name. The 409 cases above apply to the resolved snapshot.
+
+    409 with `code: sandbox_group_suspended` if the sandbox group is suspended.
+
+    400 with `code: sandbox_group_limit_reached` if the owner has no default
+    sandbox group and is already at its sandbox group limit.
+
+    400 with `code: invalid_sandbox_plan` if `plan` is not one the API currently
+    accepts. The message lists the accepted plans.
+
+    400 with `code: invalid_timeout_seconds` if `timeoutSeconds` is below 0 or
+    above the plan's maximum: 2592000 (30 days), or 86400 (24 hours) on Hobby
+    workspaces.
+
+    Args:
+        body (SandboxPOST):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Union[Error, Sandbox]
+    """
+
+    return sync_detailed(
+        client=client,
+        body=body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    *,
+    client: Union[AuthenticatedClient, Client],
+    body: SandboxPOST,
+) -> Response[Union[Error, Sandbox]]:
+    """Create sandbox
+
+     Create a sandbox. Returns the initial sandbox snapshot synchronously.
+
+    With `snapshotId`: 404 with `code: snapshot_not_found` if the snapshot does not
+    exist; 409 with `code: snapshot_not_available` if it is not `available`, or
+    `code: snapshot_plan_mismatch` if a `runtime` snapshot was requested with a
+    different `plan`.
+
+    With `snapshotName`: 400 with `code: invalid_snapshot_name` if the name is
+    malformed, 400 without a code if `snapshotId` is also set, and 404 with
+    `code: snapshot_not_found` if no `available` snapshot in the group has the
+    name. The 409 cases above apply to the resolved snapshot.
+
+    409 with `code: sandbox_group_suspended` if the sandbox group is suspended.
+
+    400 with `code: sandbox_group_limit_reached` if the owner has no default
+    sandbox group and is already at its sandbox group limit.
+
+    400 with `code: invalid_sandbox_plan` if `plan` is not one the API currently
+    accepts. The message lists the accepted plans.
+
+    400 with `code: invalid_timeout_seconds` if `timeoutSeconds` is below 0 or
+    above the plan's maximum: 2592000 (30 days), or 86400 (24 hours) on Hobby
+    workspaces.
+
+    Args:
+        body (SandboxPOST):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Union[Error, Sandbox]]
+    """
+
+    kwargs = _get_kwargs(
+        body=body,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    *,
+    client: Union[AuthenticatedClient, Client],
+    body: SandboxPOST,
+) -> Optional[Union[Error, Sandbox]]:
+    """Create sandbox
+
+     Create a sandbox. Returns the initial sandbox snapshot synchronously.
+
+    With `snapshotId`: 404 with `code: snapshot_not_found` if the snapshot does not
+    exist; 409 with `code: snapshot_not_available` if it is not `available`, or
+    `code: snapshot_plan_mismatch` if a `runtime` snapshot was requested with a
+    different `plan`.
+
+    With `snapshotName`: 400 with `code: invalid_snapshot_name` if the name is
+    malformed, 400 without a code if `snapshotId` is also set, and 404 with
+    `code: snapshot_not_found` if no `available` snapshot in the group has the
+    name. The 409 cases above apply to the resolved snapshot.
+
+    409 with `code: sandbox_group_suspended` if the sandbox group is suspended.
+
+    400 with `code: sandbox_group_limit_reached` if the owner has no default
+    sandbox group and is already at its sandbox group limit.
+
+    400 with `code: invalid_sandbox_plan` if `plan` is not one the API currently
+    accepts. The message lists the accepted plans.
+
+    400 with `code: invalid_timeout_seconds` if `timeoutSeconds` is below 0 or
+    above the plan's maximum: 2592000 (30 days), or 86400 (24 hours) on Hobby
+    workspaces.
+
+    Args:
+        body (SandboxPOST):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Union[Error, Sandbox]
+    """
+
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

@@ -1,0 +1,310 @@
+"""SandboxTable: sandbox-specific CRUD and query operations over DatabaseProvider."""
+
+from __future__ import annotations
+
+import asyncio
+import datetime
+import functools
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy import select
+from sqlalchemy.exc import DisconnectionError, InterfaceError, OperationalError
+
+from rock.admin.core.db_provider import DatabaseProvider
+from rock.admin.core.schema import SandboxRecord
+from rock.admin.metrics.decorator import monitor_metastore_operation
+from rock.admin.metrics.monitor import MetricsMonitor
+from rock.config import RockConfig
+from rock.logger import init_logger
+
+if TYPE_CHECKING:
+    from rock.actions.sandbox.sandbox_info import SandboxInfo
+    from rock.deployments.config import DockerDeploymentConfig
+
+logger = init_logger(__name__)
+
+
+_DISCONNECT_RETRY_ATTEMPTS = 4
+
+# Exceptions retried with exponential back-off across DB outages.
+# - OperationalError / InterfaceError: SQLAlchemy-wrapped runtime connection
+#   problems on the statement-execution path (stale connection, server gone,
+#   socket-level failures observed mid-query).
+# - DisconnectionError: explicit pool-level "connection is invalid" signal.
+# - OSError / ConnectionError / asyncio.TimeoutError: asyncpg's connect path
+#   raises these directly; SQLAlchemy does NOT wrap them into DBAPIError
+#   because they fire before a statement is ever issued. Without catching
+#   them here, retries cannot bridge a multi-second PG restart window.
+# Excluded on purpose: DatabaseError (would swallow IntegrityError,
+# DataError, ProgrammingError — all permanent failures that must fast-fail).
+_RETRY_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    OperationalError,
+    InterfaceError,
+    DisconnectionError,
+    ConnectionError,
+    OSError,
+    asyncio.TimeoutError,
+)
+
+
+def _retry_on_disconnect(func):
+    """Retry up to _DISCONNECT_RETRY_ATTEMPTS times across DB outages."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        last_exc: BaseException | None = None
+        for attempt in range(1, _DISCONNECT_RETRY_ATTEMPTS + 1):
+            try:
+                return await func(*args, **kwargs)
+            except _RETRY_EXCEPTIONS as exc:
+                last_exc = exc
+                logger.warning(
+                    "DB connection lost on %s (attempt %d/%d): %r",
+                    func.__name__,
+                    attempt,
+                    _DISCONNECT_RETRY_ATTEMPTS,
+                    exc,
+                )
+                if attempt < _DISCONNECT_RETRY_ATTEMPTS:
+                    await asyncio.sleep(1.0 * 2 ** (attempt - 1))
+        assert last_exc is not None
+        raise last_exc
+
+    return wrapper
+
+
+class SandboxTable:
+    """Sandbox-specific database access layer backed by DatabaseProvider.
+
+    All methods use plain ``dict`` for both input and output.
+
+    Write path (create / update):
+    - Fields from ``SandboxInfo`` / ``DockerDeploymentConfig`` that match a
+      ``SandboxRecord`` column are written to the corresponding scalar column.
+    - ``status`` column stores the full ``SandboxInfo`` dict.
+    - ``spec`` column stores the full ``DockerDeploymentConfig.model_dump()`` dict.
+
+    Read path (get / list_by / list_by_in):
+    - Returns ``record.to_dict()`` — a plain dict with all non-None column values,
+      including ``spec`` and ``status``.
+    """
+
+    def __init__(self, db_provider: DatabaseProvider, rock_config: RockConfig | None = None) -> None:
+        self._db = db_provider
+        self.metrics_monitor = MetricsMonitor.create(
+            export_interval_millis=20_000,
+            metrics_endpoint=rock_config.runtime.metrics_endpoint if rock_config else "",
+            user_defined_tags=rock_config.runtime.user_defined_tags if rock_config else {},
+            metric_prefix="meta_store.db",
+        )
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def create(
+        self,
+        sandbox_id: str,
+        info: SandboxInfo,
+        config: DockerDeploymentConfig | None = None,
+    ) -> None:
+        """Insert a new sandbox record.
+
+        Scalar columns are populated from the union of *config* and *info*
+        (``info`` takes priority on conflicts).
+        Raises ``IntegrityError`` if ``sandbox_id`` already exists.
+        """
+        return await self._db.run(self._create_sync, sandbox_id, info, config)
+
+    def _create_sync(
+        self,
+        sandbox_id: str,
+        info: SandboxInfo,
+        config: DockerDeploymentConfig | None = None,
+    ) -> None:
+        config_dict = config.model_dump() if config is not None else {}
+        merged = {**config_dict, **info}
+        filtered = _pick_columns(merged)
+
+        for col, default in SandboxRecord._NOT_NULL_DEFAULTS.items():
+            if col not in filtered:
+                filtered[col] = default
+
+        filtered["status"] = dict(info)
+        if config_dict:
+            filtered["spec"] = config_dict
+
+        record = SandboxRecord(sandbox_id=sandbox_id, **filtered)
+        with self._db.session_factory() as session:
+            session.add(record)
+            session.commit()
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def get(self, sandbox_id: str) -> dict | None:
+        """Return a sandbox row as a plain dict, or ``None`` if not found.
+
+        The ``status`` JSONB column holds the full SandboxInfo snapshot at
+        write time.  We merge it into the returned dict so callers see all
+        SandboxInfo fields (e.g. ``state_history``, ``port_mapping``) at the
+        top level — scalar columns take priority over the blob.
+        """
+        return await self._db.run(self._get_sync, sandbox_id)
+
+    def _get_sync(self, sandbox_id: str) -> dict | None:
+        with self._db.session_factory() as session:
+            record = session.get(SandboxRecord, sandbox_id)
+            if record is None:
+                return None
+            return _merge_status_blob(record.to_dict())
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def update(self, sandbox_id: str, info: SandboxInfo) -> None:
+        """Partial update of scalar columns; always overwrites ``status`` with *info*."""
+        return await self._db.run(self._update_sync, sandbox_id, info)
+
+    def _update_sync(self, sandbox_id: str, info: SandboxInfo) -> None:
+        filtered = _pick_columns(info)
+        filtered["status"] = dict(info)
+
+        with self._db.session_factory() as session:
+            record = session.get(SandboxRecord, sandbox_id)
+            if record is None:
+                logger.warning("update: sandbox_id=%s not found", sandbox_id)
+                return
+            for key, value in filtered.items():
+                setattr(record, key, value)
+            session.commit()
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def delete(self, sandbox_id: str) -> None:
+        """Hard-delete a sandbox record."""
+        return await self._db.run(self._delete_sync, sandbox_id)
+
+    def _delete_sync(self, sandbox_id: str) -> None:
+        with self._db.session_factory() as session:
+            record = session.get(SandboxRecord, sandbox_id)
+            if record is not None:
+                session.delete(record)
+                session.commit()
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def list_by(
+        self, column: str, value: str | int | float | bool, order_by: str | None = None, limit: int | None = None
+    ) -> list[dict]:
+        """Equality query on a single column. Only columns in ``SandboxRecord.LIST_BY_ALLOWLIST`` are permitted."""
+        return await self._db.run(self._list_by_sync, column, value, order_by, limit)
+
+    def _list_by_sync(
+        self, column: str, value: str | int | float | bool, order_by: str | None = None, limit: int | None = None
+    ) -> list[dict]:
+        if column not in SandboxRecord.LIST_BY_ALLOWLIST:
+            raise ValueError(f"Querying by column '{column}' is not allowed")
+        col_attr = getattr(SandboxRecord, column)
+        stmt = select(SandboxRecord).where(col_attr == value)
+        if order_by:
+            order_col = getattr(SandboxRecord, order_by)
+            stmt = stmt.order_by(order_col.desc())
+        if limit:
+            stmt = stmt.limit(limit)
+        with self._db.session_factory() as session:
+            result = session.execute(stmt)
+            return [_merge_status_blob(r.to_dict()) for r in result.scalars().all()]
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def list_by_in(
+        self,
+        column: str,
+        values: list[str | int | float | bool],
+        order_by: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """IN query on a single column. Only columns in ``SandboxRecord.LIST_BY_ALLOWLIST`` are permitted."""
+        if not values:
+            return []
+        return await self._db.run(self._list_by_in_sync, column, values, order_by, limit)
+
+    def _list_by_in_sync(
+        self, column: str, values: list[str | int | float | bool], order_by: str | None = None, limit: int | None = None
+    ) -> list[dict]:
+        if column not in SandboxRecord.LIST_BY_ALLOWLIST:
+            raise ValueError(f"Querying by column '{column}' is not allowed")
+        col_attr = getattr(SandboxRecord, column)
+        stmt = select(SandboxRecord).where(col_attr.in_(values))
+        if order_by:
+            order_col = getattr(SandboxRecord, order_by)
+            stmt = stmt.order_by(order_col.desc())
+        if limit:
+            stmt = stmt.limit(limit)
+        with self._db.session_factory() as session:
+            result = session.execute(stmt)
+            return [_merge_status_blob(r.to_dict()) for r in result.scalars().all()]
+
+    @_retry_on_disconnect
+    @monitor_metastore_operation
+    async def list_expired_by(
+        self,
+        state: str,
+        transition_state: str,
+        now: datetime.datetime,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """Query rows whose current state, transition target, and deadline are due."""
+        return await self._db.run(self._list_expired_by_sync, state, transition_state, now, limit)
+
+    def _list_expired_by_sync(
+        self,
+        state: str,
+        transition_state: str,
+        now: datetime.datetime,
+        limit: int | None = None,
+    ) -> list[dict]:
+        stmt = (
+            select(SandboxRecord)
+            .where(SandboxRecord.state == state)
+            .where(SandboxRecord.auto_transition_state == transition_state)
+            .where(SandboxRecord.auto_transition_time.is_not(None))
+            .where(SandboxRecord.auto_transition_time <= now)
+            .order_by(SandboxRecord.auto_transition_time.asc())
+        )
+        if limit:
+            stmt = stmt.limit(limit)
+        with self._db.session_factory() as session:
+            result = session.execute(stmt)
+            return [_merge_status_blob(r.to_dict()) for r in result.scalars().all()]
+
+
+def _pick_columns(data: dict[str, Any]) -> dict[str, Any]:
+    """Return only keys matching a scalar SandboxRecord column, excluding sandbox_id/spec/status."""
+    columns = SandboxRecord.column_names() - {"sandbox_id", "spec", "status"}
+    result = {k: v for k, v in data.items() if k in columns}
+    if "auto_transition_time" in result:
+        result["auto_transition_time"] = _parse_aware_datetime(result["auto_transition_time"])
+    return result
+
+
+def _parse_aware_datetime(value: Any) -> datetime.datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    elif isinstance(value, str):
+        parsed = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        raise TypeError("auto_transition_time must be an ISO 8601 string or datetime")
+    if parsed.tzinfo is None:
+        raise ValueError("auto_transition_time must include a timezone")
+    return parsed
+
+
+def _merge_status_blob(raw: dict[str, Any]) -> dict[str, Any]:
+    """Merge the ``status`` JSONB blob into the top-level dict.
+
+    The ``status`` column stores the full SandboxInfo snapshot.  Fields that
+    only exist in the blob (e.g. ``state_history``) become top-level keys.
+    Scalar columns take priority over blob values.
+    """
+    status_blob = raw.pop("status", None) or {}
+    return {**status_blob, **raw}

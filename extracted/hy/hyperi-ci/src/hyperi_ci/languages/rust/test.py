@@ -1,0 +1,605 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/languages/rust/test.py
+# Purpose:   Rust test runner (cargo nextest with tiered execution)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Rust test handler: cargo nextest or cargo test, with optional coverage.
+
+The test tier is separate from ``test.rust.tier``: ``core`` runs the project's
+default selection, ``full`` adds ``#[ignore]`` tests and, under nextest, what
+the profile's ``default-filter`` leaves out. In a root-package workspace every
+command takes ``--workspace``, or cargo would test the root package alone.
+"""
+
+import os
+import re
+import shutil
+from contextlib import nullcontext
+from dataclasses import dataclass
+from pathlib import Path
+
+from hyperi_ci.common import (
+    announce,
+    echo_chunk,
+    error,
+    info,
+    normalise_tristate,
+    run_cmd,
+    stream_cmd,
+    strip_ansi,
+    success,
+    warn,
+)
+from hyperi_ci.config import CIConfig
+from hyperi_ci.languages.rust._manifest import (
+    is_root_package_workspace,
+    split_feature_sets,
+)
+from hyperi_ci.languages.rust._threads import capped_nextest_threads
+from hyperi_ci.languages.rust.targets import cargo_metadata
+from hyperi_ci.languages.tiering import (
+    KeptLines,
+    SuiteTier,
+    announce_tier,
+    handler_tier,
+)
+from hyperi_ci.versions import tool_version
+
+_RESULTS_DIR = Path("test-results")
+
+# The full tier under nextest: run #[ignore] tests too, and drop the profile's
+# default-filter. `cargo llvm-cov nextest` takes the same switches.
+_NEXTEST_FULL_ARGS = ["--run-ignored", "all", "--ignore-default-filter"]
+
+# The full tier under libtest (cargo test, tarpaulin, plain llvm-cov), after
+# `--`. libtest has no default-filter.
+_LIBTEST_FULL_ARG = "--include-ignored"
+
+# With incremental off (ARC sets it for sccache), llvm-cov reports cross-crate
+# inlined stubs as "mismatched data"; sccache refuses incremental builds, so an
+# empty RUSTC_WRAPPER drops it for this run.
+_LLVM_COV_ENV = {"CARGO_INCREMENTAL": "1", "RUSTC_WRAPPER": ""}
+
+_FULL_FILTER_KEY = "test.full.rust.filter"
+_FULL_SKIP_KEY = "test.full.rust.skip"
+
+
+@dataclass(frozen=True, slots=True)
+class FullSelection:
+    """The tests the full tier leaves out, for a runner that cannot run them.
+
+    Attributes:
+        filterset: nextest filterset from ``test.full.rust.filter``, passed as
+            ``-E``. libtest has no equivalent.
+        skip: Test-name substrings from ``test.full.rust.skip``, passed as
+            ``--skip`` after ``--``, which nextest and libtest both accept.
+
+    """
+
+    filterset: str = ""
+    skip: tuple[str, ...] = ()
+
+    def nextest_args(self) -> list[str]:
+        """Return nextest's own full-tier switches, the filterset included."""
+        args = list(_NEXTEST_FULL_ARGS)
+        if self.filterset:
+            args.extend(["-E", self.filterset])
+        return args
+
+    def harness_args(self, *, include_ignored: bool) -> list[str]:
+        """Return the full-tier arguments that go after ``--``."""
+        args = [_LIBTEST_FULL_ARG] if include_ignored else []
+        for name in self.skip:
+            args.extend(["--skip", name])
+        return args
+
+
+_NO_EXCLUSIONS = FullSelection()
+
+
+def _filterset_unusable(harness: str) -> str:
+    """Explain why a filterset cannot run under a libtest harness."""
+    return (
+        f"{_FULL_FILTER_KEY} is a nextest filterset, and this run uses {harness}, "
+        f"which cannot apply it. The tests it excludes would run. Exclude them "
+        f"with {_FULL_SKIP_KEY}, which both runners take, or run under nextest."
+    )
+
+
+def full_selection(config: CIConfig) -> FullSelection | None:
+    """Read what the full tier leaves out, None when the keys are malformed.
+
+    Args:
+        config: Merged CI configuration.
+
+    Returns:
+        The selection, or None after logging why it is unusable.
+
+    """
+    filterset = config.get(_FULL_FILTER_KEY, "")
+    skip = config.get(_FULL_SKIP_KEY, [])
+    filterset = "" if filterset is None else filterset
+    skip = [] if skip is None else skip
+    if not isinstance(filterset, str):
+        error(
+            f"{_FULL_FILTER_KEY} must be a nextest filterset string, got {filterset!r}"
+        )
+        return None
+    if not isinstance(skip, list) or not all(isinstance(s, str) and s for s in skip):
+        error(f"{_FULL_SKIP_KEY} must be a list of test-name substrings, got {skip!r}")
+        return None
+    return FullSelection(filterset.strip(), tuple(skip))
+
+
+# "Summary [   0.007s] 1 test run: 1 passed, 2 skipped", or "3/10 tests run"
+# when fail-fast cancelled the rest.
+_NEXTEST_SUMMARY = re.compile(r"^\s*Summary \[[^\]]*\]\s*(?P<body>.+)$")
+_NEXTEST_RAN = re.compile(r"(\d+(?:/\d+)?) tests? run")
+_NEXTEST_COUNT = re.compile(r"(\d+) (failed|skipped)\b")
+
+# "test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out"
+_LIBTEST_RESULT = re.compile(r"^test result: \w+\. (?P<body>.+)$")
+_LIBTEST_COUNT = re.compile(r"(\d+) (passed|failed|ignored)\b")
+
+# The lines tier_detail reads, kept while the run streams: libtest prints one
+# result line per test binary, spread through the output.
+_KEEP = re.compile(r"^\s*(Summary \[|test result: )")
+
+# `true` requires nextest, `false` pins cargo test, `auto` takes it if installed.
+_NEXTEST_KEY = "test.rust.nextest"
+
+_DIVERGENCE = (
+    "The two are not interchangeable: nextest isolates each test in its own "
+    "process, cargo test shares one across threads, so process-global state "
+    "(metrics recorders, OnceLock, env vars a test sets) behaves differently - "
+    "and doctests run only under cargo test."
+)
+
+
+def _scope_args(features: str, *, workspace: bool) -> list[str]:
+    """Return the package and feature switches every test command shares."""
+    args = ["--workspace"] if workspace else []
+    if features == "all":
+        args.append("--all-features")
+    elif features != "default":
+        args.extend(["--features", features])
+    return args
+
+
+def _has_nextest() -> bool:
+    """Check whether cargo can run nextest, from PATH or ``$CARGO_HOME/bin``."""
+    if shutil.which("cargo-nextest"):
+        return True
+    cargo_home = Path(os.environ.get("CARGO_HOME") or Path.home() / ".cargo")
+    return (cargo_home / "bin" / "cargo-nextest").is_file()
+
+
+def _announce_degradation() -> None:
+    """Warn of an ``auto`` fall back to cargo test, as a GitHub annotation in CI.
+
+    A logger line would sit unread inside a collapsed log group.
+    """
+    msg = (
+        f"cargo-nextest not found - running `cargo test` instead. {_DIVERGENCE} "
+        f"This run's result does not predict a nextest run's. Set "
+        f"`{_NEXTEST_KEY}: true` to fail here rather than degrade, or `false` "
+        f"to choose cargo test deliberately."
+    )
+    announce(msg, "hyperi-ci test runner degraded")
+
+
+def _resolve_runner(config: CIConfig) -> str | None:
+    """Decide and log the test runner: ``"nextest"`` or ``"cargo"``.
+
+    Returns None when nextest is required and absent, which fails the stage.
+    """
+    gate = normalise_tristate(config.get(_NEXTEST_KEY, "auto"), key=_NEXTEST_KEY)
+
+    if gate == "false":
+        info(f"  Test runner: cargo test ({_NEXTEST_KEY}: false)")
+        return "cargo"
+
+    if _has_nextest():
+        info("  Test runner: cargo nextest")
+        return "nextest"
+
+    if gate == "true":
+        error(
+            f"cargo-nextest not found, and `{_NEXTEST_KEY}: true` requires it. "
+            f"{_DIVERGENCE}"
+        )
+        info(
+            "  The CI Test job installs the pinned cargo-nextest "
+            "(setup-nextest). Locally, install it with `cargo install "
+            f"cargo-nextest --locked --version {tool_version('cargo-nextest')}`, "
+            f"or set `{_NEXTEST_KEY}: auto` to accept the cargo-test fallback."
+        )
+        return None
+
+    _announce_degradation()
+    return "cargo"
+
+
+def _build_test_cmd(
+    features: str,
+    rust_tier: str | None = None,
+    *,
+    runner: str = "cargo",
+    test_tier: SuiteTier = SuiteTier.CORE,
+    selection: FullSelection = _NO_EXCLUSIONS,
+    workspace: bool = False,
+) -> list[str]:
+    """Build the cargo test command for the resolved runner.
+
+    Integration and e2e tests run single-threaded, so parallel tests cannot
+    bind the same ports.
+
+    Args:
+        features: ``all``, ``default`` or a feature list.
+        rust_tier: ``test.rust.tier`` subset (unit, integration, e2e), or None.
+        runner: ``nextest`` or ``cargo``.
+        test_tier: The test tier; ``full`` adds the ignored tests.
+        selection: What full leaves out; ignored under ``core``.
+        workspace: Pass ``--workspace``, for a root-package workspace.
+
+    Returns:
+        The command.
+
+    """
+    use_nextest = runner == "nextest"
+    cmd = ["cargo"]
+    harness_args: list[str] = []
+
+    if use_nextest:
+        cmd.append("nextest")
+        cmd.append("run")
+    else:
+        cmd.append("test")
+
+    cmd.extend(_scope_args(features, workspace=workspace))
+
+    if rust_tier == "unit":
+        cmd.append("--lib")
+    elif rust_tier == "integration":
+        cmd.extend(["--test", "*"])
+    elif rust_tier == "e2e":
+        cmd.extend(["--test", "e2e*"])
+
+    if rust_tier in ("integration", "e2e"):
+        if use_nextest:
+            cmd.extend(["--jobs", "1"])
+        else:
+            harness_args.append("--test-threads=1")
+
+    if test_tier is SuiteTier.FULL:
+        if use_nextest:
+            cmd.extend(selection.nextest_args())
+        harness_args.extend(selection.harness_args(include_ignored=not use_nextest))
+
+    if harness_args:
+        cmd.extend(["--", *harness_args])
+    return cmd
+
+
+def tier_detail(output: str) -> str:
+    """Describe what a Rust test run ran and did not run, for the tier notice.
+
+    Reads nextest's closing ``Summary`` line, else sums libtest's per-binary
+    ``test result:`` lines.
+
+    Args:
+        output: The runner's combined output.
+
+    Returns:
+        E.g. ``"2425 run, 32 skipped"`` or ``"976 passed, 8 ignored"``.
+
+    """
+    lines = strip_ansi(output).splitlines()
+    for line in reversed(lines):
+        summary = _NEXTEST_SUMMARY.match(line)
+        if summary is None:
+            continue
+        body = summary["body"]
+        ran = _NEXTEST_RAN.search(body)
+        counts = {kind: int(n) for n, kind in _NEXTEST_COUNT.findall(body)}
+        parts = [f"{ran[1] if ran else 'unknown'} run"]
+        if counts.get("failed"):
+            parts.append(f"{counts['failed']} failed")
+        parts.append(f"{counts.get('skipped', 0)} skipped")
+        return ", ".join(parts)
+
+    totals = {"passed": 0, "failed": 0, "ignored": 0}
+    results = [m for line in lines if (m := _LIBTEST_RESULT.match(line.strip()))]
+    if not results:
+        return "no test summary in the output, counts unknown"
+    for result in results:
+        for n, kind in _LIBTEST_COUNT.findall(result["body"]):
+            totals[kind] += int(n)
+    parts = [f"{totals['passed']} passed"]
+    if totals["failed"]:
+        parts.append(f"{totals['failed']} failed")
+    parts.append(f"{totals['ignored']} ignored")
+    return ", ".join(parts)
+
+
+def _run_tests(
+    cmd: list[str],
+    test_tier: SuiteTier,
+    what: str = "",
+    env: dict[str, str] | None = None,
+) -> int:
+    """Run one test command, passing its output through, and announce it.
+
+    Args:
+        cmd: The test command.
+        test_tier: The tier it ran under.
+        what: Prefix for the notice, e.g. the feature set.
+        env: Env vars layered over the inherited environment, or None.
+
+    Returns:
+        The command's exit code.
+
+    """
+    kept = KeptLines(_KEEP)
+    rc, _tail = stream_cmd(cmd, on_line=kept, on_chunk=echo_chunk, env=env)
+    prefix = f"{what}: " if what else ""
+    announce_tier(test_tier, f"{prefix}{tier_detail(kept.text())}")
+    return rc
+
+
+def _workspace_report_packages(workspace: bool) -> list[str]:
+    """Return a ``-p <name>`` pair per workspace member, for the HTML report.
+
+    ``cargo llvm-cov report`` has no ``--workspace``, so without these it
+    covers the root package alone. Empty outside a root-package workspace or
+    when cargo metadata fails.
+    """
+    if not workspace:
+        return []
+    metadata = cargo_metadata()
+    if metadata is None:
+        warn(
+            "  cargo metadata failed, so the HTML report may cover the root package only"
+        )
+        return []
+    args: list[str] = []
+    for package in metadata.get("packages", []):
+        if name := package.get("name"):
+            args.extend(["-p", name])
+    return args
+
+
+def _note_coverage_runner(runner: str, tool: str) -> None:
+    """Warn when tarpaulin swaps a resolved nextest for cargo's own harness.
+
+    llvm-cov is exempt: `cargo llvm-cov nextest` keeps the resolved runner.
+    """
+    if runner != "nextest" or tool == "cargo-llvm-cov":
+        return
+    warn(f"  {tool} drives cargo's test harness, not nextest. {_DIVERGENCE}")
+
+
+def _run_coverage(
+    features: str,
+    *,
+    runner: str = "cargo",
+    test_tier: SuiteTier = SuiteTier.CORE,
+    selection: FullSelection = _NO_EXCLUSIONS,
+    what: str = "",
+    workspace: bool = False,
+) -> int:
+    """Run tests with coverage using tarpaulin or llvm-cov.
+
+    Returns exit code (0 = success), or -1 when neither tool is installed.
+    """
+    _RESULTS_DIR.mkdir(exist_ok=True)
+    full = test_tier is SuiteTier.FULL
+
+    if shutil.which("cargo-tarpaulin"):
+        if full and selection.filterset:
+            error(_filterset_unusable("cargo-tarpaulin"))
+            return 1
+        cmd = [
+            "cargo",
+            "tarpaulin",
+            "--out",
+            "Lcov",
+            "--out",
+            "Html",
+            "--output-dir",
+            str(_RESULTS_DIR),
+            *_scope_args(features, workspace=workspace),
+        ]
+        if full:
+            cmd.extend(["--", *selection.harness_args(include_ignored=True)])
+
+        info("  Running tests with cargo-tarpaulin for coverage...")
+        _note_coverage_runner(runner, "cargo-tarpaulin")
+        rc = _run_tests(cmd, test_tier, what)
+        if rc != 0:
+            error("Rust coverage tests failed")
+            return rc
+        info(f"  Coverage report: {_RESULTS_DIR}/tarpaulin-report.html")
+        return 0
+
+    if shutil.which("cargo-llvm-cov"):
+        lcov_path = _RESULTS_DIR / "lcov.info"
+        html_dir = _RESULTS_DIR / "coverage-html"
+        cmd = ["cargo", "llvm-cov"]
+        # Keeps the resolved runner, which tarpaulin cannot (issue #140).
+        if runner == "nextest":
+            cmd.append("nextest")
+        cmd.extend(["--lcov", "--output-path", str(lcov_path)])
+        cmd.extend(_scope_args(features, workspace=workspace))
+        if full and runner == "nextest":
+            cmd.extend(selection.nextest_args())
+            if harness := selection.harness_args(include_ignored=False):
+                cmd.extend(["--", *harness])
+        elif full:
+            cmd.extend(["--", *selection.harness_args(include_ignored=True)])
+
+        info("  Running tests with cargo-llvm-cov for coverage...")
+        _note_coverage_runner(runner, "cargo-llvm-cov")
+        rc = _run_tests(cmd, test_tier, what, env=_LLVM_COV_ENV)
+        if rc != 0:
+            error("Rust coverage tests failed")
+            return rc
+
+        report = run_cmd(
+            [
+                "cargo",
+                "llvm-cov",
+                "report",
+                "--html",
+                "--output-dir",
+                str(html_dir),
+                *_workspace_report_packages(workspace),
+            ],
+            check=False,
+            env=_LLVM_COV_ENV,
+        )
+        if report.returncode == 0:
+            info(f"  Coverage report: {html_dir}")
+        else:
+            warn(f"  cargo llvm-cov report exited {report.returncode}, no HTML report")
+        return 0
+
+    # `test.coverage` defaults to true, so annotate: a repo that never asked
+    # for coverage lands here too (issue #140).
+    missing = (
+        "coverage was requested and did NOT run -- neither cargo-tarpaulin nor "
+        "cargo-llvm-cov is installed, so the tests ran plain and there is no "
+        "report. Install one, or set test.coverage: false to stop asking."
+    )
+    announce(missing, "hyperi-ci coverage skipped")
+    return -1
+
+
+def run(config: CIConfig, extra_env: dict[str, str] | None = None) -> int:
+    """Run Rust tests.
+
+    Args:
+        config: Merged CI configuration.
+        extra_env: ``RUST_FEATURES`` and ``TEST_TIER`` from the stage.
+
+    Returns:
+        Exit code (0 = success).
+
+    """
+    info("Running Rust tests...")
+    runner = _resolve_runner(config)
+    if runner is None:
+        return 1
+    test_tier = handler_tier(extra_env)
+    selection = _NO_EXCLUSIONS
+    if test_tier is SuiteTier.FULL:
+        info("  Full tier: #[ignore] tests run, and nextest's default-filter is off")
+        resolved = full_selection(config)
+        if resolved is None:
+            return 1
+        if resolved.filterset and runner != "nextest":
+            error(_filterset_unusable("cargo test"))
+            return 1
+        selection = resolved
+    workspace = is_root_package_workspace()
+    if workspace:
+        info("  Root package is also a workspace: --workspace, so every member runs")
+    features = (extra_env or {}).get("RUST_FEATURES", "all")
+    rust_tier = config.setting("test.rust.tier")
+    feature_sets = split_feature_sets(features)
+    coverage = config.setting("test.coverage") and rust_tier == "all"
+
+    threads = capped_nextest_threads(config) if runner == "nextest" else nullcontext()
+    with threads:
+        return _run_feature_sets(
+            feature_sets,
+            rust_tier=rust_tier,
+            coverage=bool(coverage),
+            runner=runner,
+            test_tier=test_tier,
+            selection=selection,
+            workspace=workspace,
+        )
+
+
+def _run_feature_sets(
+    feature_sets: list[str],
+    *,
+    rust_tier: str,
+    coverage: bool,
+    runner: str,
+    test_tier: SuiteTier,
+    selection: FullSelection,
+    workspace: bool,
+) -> int:
+    """Run the tests once per feature set, stopping at the first failure.
+
+    Args:
+        feature_sets: The feature sets to test.
+        rust_tier: ``test.rust.tier``.
+        coverage: Run the first set under a coverage tool.
+        runner: ``nextest`` or ``cargo``.
+        test_tier: The test tier.
+        selection: What full leaves out.
+        workspace: Pass ``--workspace``.
+
+    Returns:
+        Exit code (0 = success).
+
+    """
+    for index, feature_set in enumerate(feature_sets):
+        label = f" ({feature_set})" if len(feature_sets) > 1 else ""
+        what = f"features {feature_set}" if len(feature_sets) > 1 else ""
+
+        # First set only: every run writes the same report, so later sets overwrite.
+        if coverage and index == 0:
+            rc = _run_coverage(
+                feature_set,
+                runner=runner,
+                test_tier=test_tier,
+                selection=selection,
+                what=what,
+                workspace=workspace,
+            )
+            if rc >= 0:
+                if rc == 0:
+                    success(f"Rust tests passed{label} (with coverage)")
+                else:
+                    return rc
+                continue
+
+        if rust_tier == "all":
+            cmd = _build_test_cmd(
+                feature_set,
+                runner=runner,
+                test_tier=test_tier,
+                selection=selection,
+                workspace=workspace,
+            )
+            rc = _run_tests(cmd, test_tier, what)
+            if rc != 0:
+                error(f"Rust tests failed{label}")
+                return rc
+            success(f"Rust tests passed{label}")
+            continue
+
+        for kind in ("unit", "integration", "e2e"):
+            if rust_tier != kind:
+                continue
+            cmd = _build_test_cmd(
+                feature_set,
+                rust_tier=kind,
+                runner=runner,
+                test_tier=test_tier,
+                selection=selection,
+                workspace=workspace,
+            )
+            info(f"  Running {kind} tests{label}...")
+            rc = _run_tests(cmd, test_tier, f"{what} {kind}".strip())
+            if rc != 0:
+                error(f"  {kind} tests failed{label}")
+                return rc
+            success(f"  {kind} tests passed{label}")
+
+    return 0

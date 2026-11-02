@@ -1,0 +1,538 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/languages/python/quality.py
+# Purpose:   Python quality checks (ruff, ty, pip-audit, vulture)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Python quality checks handler.
+
+Runs ruff (lint, format, S rules, D rules), ty, pip-audit and vulture, each
+with a blocking/warn/disabled mode from ``quality.python`` in .hyperi-ci.yaml.
+semgrep runs once at dispatch level, not here.
+
+The bandit-class check is ruff's S rules, run as their own pass whatever the
+repo's ruff selects. Docstring coverage uses ruff D rules because interrogate
+is unmaintained and pulls in the vulnerable 'py' package.
+"""
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+
+from packaging.version import InvalidVersion, Version
+
+from hyperi_ci.common import error, get_exclude_dirs, info, run_cmd, warn
+from hyperi_ci.config import CIConfig
+from hyperi_ci.languages.quality_common import (
+    Via,
+    emit_tool_output,
+    get_python_source_paths,
+    get_test_ignore,
+    get_test_paths,
+    resolve_tool_cmd,
+    resolve_tool_mode,
+    run_gate_tool,
+)
+from hyperi_ci.python_version import resolve as resolve_python_version
+from hyperi_ci.quality.ignores import IgnoreEntry, for_tool, load_ignores
+from hyperi_ci.versions import tool_version
+
+# `ruff format` accepts --extend-exclude from 0.15.21, a release earlier than
+# Markdown formatting (0.16).
+_RUFF_FORMAT_EXTEND_EXCLUDE_MIN = Version("0.15.21")
+
+# The log masks credential-shaped text, so a diff of code naming a secret is
+# unreadable here; the raw view stays local.
+_RUFF_FORMAT_MASK_HINT = (
+    "the log masks credential-shaped text; run `uv run ruff format --diff` "
+    "locally for the unmasked diff"
+)
+
+# pip-audit's summary line when it has vulnerabilities to report.
+_PIP_AUDIT_FINDING = re.compile(r"^Found \d+ known vulnerabilit", re.MULTILINE)
+
+# pip-audit 2.10's lines for an unreachable advisory DB, which exits 1 exactly
+# as a finding does.
+_ADVISORY_DB_UNREACHABLE = re.compile(
+    r"^(?:requests\.exceptions\.(?:ConnectionError|ProxyError|ReadTimeout"
+    r"|ChunkedEncodingError)\b"
+    r"|urllib3\.exceptions\.ProtocolError\b"
+    r"|requests\.exceptions\.HTTPError: 5\d\d "
+    r"|ERROR:pip_audit\._cli:Could not connect to "
+    r"|ERROR:pip_audit\._cli:PyPI is not redirecting properly)",
+    re.MULTILINE,
+)
+
+
+def _component_patterns(excludes: list[str]) -> list[str]:
+    """Rewrite each bare name as a glob that matches it as a whole path component.
+
+    vulture matches a pattern without wildcards as a substring of the path, so a
+    bare ``data`` would also drop ``src/pkg/metadata.py``.
+    """
+    return [e if "/" in e else f"*/{e}/*" for e in excludes]
+
+
+def _build_exclude_args(tool: str, excludes: list[str]) -> list[str]:
+    """Build exclusion arguments for a quality tool."""
+    if not excludes:
+        return []
+    if tool == "ruff":
+        # --exclude replaces the repo's own ruff excludes, --extend-exclude adds.
+        return [f"--extend-exclude={','.join(excludes)}"]
+    if tool == "vulture":
+        return [f"--exclude={','.join(_component_patterns(excludes))}"]
+    return []
+
+
+_RUFF_CONFIG_NAMES = (".ruff.toml", "ruff.toml", "pyproject.toml")
+_RUFF_EXTEND_DEPTH = 5
+
+
+def _ruff_config_table(path: Path) -> dict | None:
+    """Return the ruff settings table of a config file, or None when unreadable."""
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    if path.name == "pyproject.toml":
+        table = data.get("tool", {}).get("ruff")
+        return table if isinstance(table, dict) else None
+    return data
+
+
+def _ruff_ignores_in(path: Path, depth: int = 0) -> list[str]:
+    """Collect ``ignore`` and ``extend-ignore`` from a ruff config and its ``extend`` chain."""
+    table = _ruff_config_table(path)
+    if table is None:
+        return []
+    found: list[str] = []
+    parent = table.get("extend")
+    if isinstance(parent, str) and depth < _RUFF_EXTEND_DEPTH:
+        found += _ruff_ignores_in((path.parent / parent).resolve(), depth + 1)
+    # Top-level keys are the pre-`[lint]` spelling, which ruff still reads.
+    for section in (table, table.get("lint", {})):
+        for key in ("ignore", "extend-ignore"):
+            values = section.get(key, [])
+            found += [v for v in values if isinstance(v, str)]
+    return found
+
+
+def _repo_ruff_ignores(root: Path) -> list[str]:
+    """Read the repo's own ruff ignore list, the way ruff finds its config.
+
+    ``--select`` on the command line drops the config's ``ignore`` and
+    ``extend-ignore``, so the S and D passes pass them back in explicitly.
+    ``per-file-ignores`` and excludes survive ``--select`` and need no help.
+    """
+    for name in _RUFF_CONFIG_NAMES:
+        path = root / name
+        if path.is_file() and _ruff_config_table(path) is not None:
+            return _ruff_ignores_in(path)
+    return []
+
+
+def _ruff_ignore_flag(
+    ignores: list[IgnoreEntry], repo_ignores: list[str] | None = None
+) -> list[str]:
+    """Merge ``quality.ignore`` entries for ruff and the repo's own into one ``--extend-ignore``."""
+    ids = list(dict.fromkeys([*(repo_ignores or []), *(e.id for e in ignores)]))
+    if not ids:
+        return []
+    return [f"--extend-ignore={','.join(ids)}"]
+
+
+def _build_ruff_security_cmd(
+    sources: list[str],
+    excludes: list[str],
+    ignores: list[IgnoreEntry],
+    repo_ignores: list[str] | None = None,
+) -> list[str]:
+    """Build the ruff S (flake8-bandit) pass over production code.
+
+    ``--select S`` replaces the repo's rule selection and drops its ruff
+    ``ignore`` list, so ``repo_ignores`` hands that list back. ``per-file-ignores``,
+    ``# noqa`` and ``quality.ignore`` entries for ruff apply as well. Concise
+    output keeps one finding per line, so the warn tier's line cap shows
+    findings rather than one code frame.
+
+    Args:
+        sources: Source directories to scan, from ``get_python_source_paths``.
+        excludes: Handler excludes, added to the repo's own ruff excludes.
+        ignores: ``quality.ignore`` entries for the ``ruff`` slug.
+        repo_ignores: The repo's own ruff ``ignore`` ids, from ``_repo_ruff_ignores``.
+
+    Returns:
+        The command, before resolution.
+
+    """
+    return (
+        ["ruff", "check", "--select", "S", "--output-format=concise", *sources]
+        + _build_exclude_args("ruff", excludes)
+        + _ruff_ignore_flag(ignores, repo_ignores)
+    )
+
+
+def _build_ruff_docstring_cmd(
+    sources: list[str],
+    excludes: list[str],
+    ignores: list[IgnoreEntry],
+    repo_ignores: list[str] | None = None,
+) -> list[str]:
+    """Build the ruff D (docstring) pass, with the same ignore handling as the S pass."""
+    return (
+        ["ruff", "check", "--select", "D", "--output-format=concise", *sources]
+        + _build_exclude_args("ruff", excludes)
+        + _ruff_ignore_flag(ignores, repo_ignores)
+    )
+
+
+# Every extra and group the lock can install, a superset of CI's
+# `uv sync --all-extras`, minus the repo's own code, which pip-audit cannot pin.
+_UV_LOCK_EXPORT = [
+    "uv",
+    "export",
+    "--frozen",
+    "--no-hashes",
+    "--no-header",
+    "--all-extras",
+    "--all-groups",
+    "--no-emit-workspace",
+    "--no-emit-local",
+    "--format",
+    "requirements-txt",
+]
+
+
+def _build_pip_audit_cmd(
+    ignores: list[IgnoreEntry], requirements: Path | None = None
+) -> list[str]:
+    """Build the pip-audit command, one ``--ignore-vuln <id>`` per ignore entry.
+
+    With uv and an exported ``requirements`` file it audits those pins and
+    nothing else: ``uvx`` runs pip-audit in its own environment, so its
+    dependencies (requests, certifi) are never part of the audited set.
+    Without a lock, ``uv run --with`` audits the project's .venv plus
+    pip-audit's own dependencies, which is the best uv can do for it. Without
+    uv it is bare ``pip-audit``.
+
+    Args:
+        ignores: ``quality.ignore`` entries for the ``pip-audit`` slug.
+        requirements: A ``uv export`` of the project's lock, or None.
+
+    Returns:
+        The command, before resolution.
+
+    """
+    base = ["pip-audit"]
+    for entry in ignores:
+        base.extend(["--ignore-vuln", entry.id])
+    if not shutil.which("uv"):
+        return base
+    spec = f"pip-audit=={tool_version('pip-audit')}"
+    if requirements is None:
+        return ["uv", "run", "--with", spec, "--", *base]
+    return [
+        "uvx",
+        "--python",
+        _parse_python(),
+        "--from",
+        spec,
+        *base,
+        "-r",
+        str(requirements),
+        "--disable-pip",
+        "--no-deps",
+    ]
+
+
+def _run_pip_audit(mode: str, ignores: list[IgnoreEntry]) -> bool:
+    """Run the pip-audit gate against the project's lock when it has one.
+
+    A lock is exported to a requirements file and audited as pins, so an
+    advisory against pip-audit's own dependencies cannot fail a project that
+    does not use them.
+
+    Args:
+        mode: ``blocking``, ``warn`` or ``disabled``.
+        ignores: ``quality.ignore`` entries for the ``pip-audit`` slug.
+
+    Returns:
+        True if the pipeline should continue, False on a blocking failure.
+
+    """
+
+    def audit(requirements: Path | None) -> bool:
+        return run_gate_tool(
+            "pip-audit",
+            _build_pip_audit_cmd(ignores, requirements),
+            mode,
+            via="uv",
+            retry_unreachable=_advisory_db_unreachable,
+        )
+
+    if mode == "disabled" or not (shutil.which("uv") and Path("uv.lock").is_file()):
+        return audit(None)
+
+    with tempfile.TemporaryDirectory(prefix="hyperi-ci-pip-audit-") as tmp:
+        requirements = Path(tmp) / "requirements.txt"
+        exported = run_cmd(
+            [*_UV_LOCK_EXPORT, "-o", str(requirements)], check=False, capture=True
+        )
+        if exported.returncode != 0:
+            note = "  pip-audit: could not export uv.lock, so nothing was checked"
+            if mode == "warn":
+                warn(note)
+            else:
+                error(note)
+            emit_tool_output("pip-audit", exported.stderr)
+            return mode == "warn"
+        info("  pip-audit: auditing the pins in uv.lock")
+        return audit(requirements)
+
+
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _parse_python() -> str:
+    """Return the interpreter version for tools that parse source with ``ast``.
+
+    vulture reads only the syntax of the Python it runs on, so it takes the
+    project's declared Python, or the running one when that is newer.
+    """
+    running = f"{sys.version_info.major}.{sys.version_info.minor}"
+    declared, _ = resolve_python_version()
+    if not declared:
+        return running
+    return max(declared, running, key=_version_key)
+
+
+def _advisory_db_unreachable(result: subprocess.CompletedProcess[str]) -> bool:
+    """Whether a pip-audit run failed only because the advisory DB was unreachable.
+
+    A run that reported vulnerabilities never counts.
+
+    Args:
+        result: One finished pip-audit run.
+
+    Returns:
+        True for a failed run whose output names a connection-level failure and
+        no finding.
+
+    """
+    if result.returncode == 0:
+        return False
+    output = f"{result.stdout or ''}\n{result.stderr or ''}"
+    if _PIP_AUDIT_FINDING.search(output):
+        return False
+    return _ADVISORY_DB_UNREACHABLE.search(output) is not None
+
+
+def _run_source_tool(
+    tool_name: str,
+    cmd: list[str],
+    mode: str,
+    sources: list[str],
+    *,
+    via: Via,
+    spec: str | None = None,
+    python: str | None = None,
+) -> bool:
+    """Run a tool that scans the source directories, or say why it cannot.
+
+    Pointed at a directory that does not exist, ruff warns, checks no file and
+    exits 0, which reads as a pass.
+
+    Args:
+        tool_name: Name used in every log line.
+        cmd: Command and arguments, before resolution.
+        mode: ``blocking``, ``warn`` or ``disabled``.
+        sources: Source directories the command scans.
+        via: How the command resolves, as for ``run_gate_tool``.
+        spec: Requirement to install for a ``uvx`` run.
+        python: Interpreter version for a ``uvx`` run.
+
+    Returns:
+        True if the pipeline should continue, False on a blocking failure.
+
+    """
+    if mode != "disabled" and not sources:
+        info(f"  {tool_name}: skipped, no Python source directory found")
+        return True
+    return run_gate_tool(tool_name, cmd, mode, via=via, spec=spec, python=python)
+
+
+def _ruff_format_takes_extend_exclude() -> bool:
+    """Whether the project's ruff accepts --extend-exclude on `format`.
+
+    Asks the resolved ruff, as consumers' ruff is not pinned. An unreadable
+    answer keeps the flag, and `run_gate_tool`'s argument-rejection path then
+    names the mismatch.
+    """
+    try:
+        result = subprocess.run(
+            resolve_tool_cmd(["ruff", "--version"], via="uv"),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError:
+        return True
+    if result.returncode != 0:
+        return True
+
+    parts = result.stdout.split()
+    if len(parts) < 2:
+        return True
+    try:
+        return Version(parts[1]) >= _RUFF_FORMAT_EXTEND_EXCLUDE_MIN
+    except InvalidVersion:
+        return True
+
+
+def _build_ruff_format_cmd(
+    excludes: list[str], *, extend_exclude: bool = True
+) -> list[str]:
+    """Build the ruff format command.
+
+    Markdown is excluded because ruff 0.16 formats it, which would pull every
+    consumer's docs into a Python-only gate.
+
+    `extend_exclude` is False for a ruff below 0.15.21, which rejects the flag
+    and never walks Markdown, so only the project's own excludes are lost.
+    """
+    cmd = ["ruff", "format", "--check", "."]
+    if extend_exclude:
+        cmd.append(f"--extend-exclude={','.join([*excludes, '*.md'])}")
+    return cmd
+
+
+def run(config: CIConfig, extra_env: dict[str, str] | None = None) -> int:
+    """Run Python quality checks.
+
+    Args:
+        config: Merged CI configuration.
+        extra_env: Additional environment variables (unused for Python).
+
+    Returns:
+        Exit code (0 = success).
+
+    """
+    info("Running Python quality checks...")
+    excludes = get_exclude_dirs(config._raw)
+    ignores = load_ignores(config._raw)
+    had_failure = False
+
+    # Ruff lint runs twice: production (strict), then tests (relaxed).
+    mode = resolve_tool_mode("ruff", config, language="python")
+    exclude_args = _build_exclude_args("ruff", excludes)
+    output_fmt = ["--output-format=github"] if os.environ.get("GITHUB_ACTIONS") else []
+
+    test_paths = get_test_paths(config)
+    test_ignore = get_test_ignore("python", config)
+
+    # Production pass: test dirs excluded, full rules.
+    prod_exclude = exclude_args + [f"--exclude={p}" for p in test_paths]
+    ruff_user_ignores = for_tool(ignores, "ruff")
+    if not run_gate_tool(
+        "ruff check (src)",
+        ["ruff", "check", "."]
+        + output_fmt
+        + prod_exclude
+        + _ruff_ignore_flag(ruff_user_ignores),
+        mode,
+        via="uv",
+    ):
+        had_failure = True
+
+    # Test pass: relaxed rules, same mode.
+    if test_paths and test_ignore:
+        combined_ignore = test_ignore + [e.id for e in ruff_user_ignores]
+        ignore_flag = [f"--extend-ignore={','.join(combined_ignore)}"]
+        for tp in test_paths:
+            if not run_gate_tool(
+                f"ruff check ({tp})",
+                ["ruff", "check", tp] + output_fmt + ignore_flag + exclude_args,
+                mode,
+                via="uv",
+            ):
+                had_failure = True
+
+    # Own mode, not ruff check's: sharing the key would force a project to relax
+    # the lint gate to defer adopting the formatter.
+    format_extend_exclude = _ruff_format_takes_extend_exclude()
+    if not format_extend_exclude and excludes:
+        warn(
+            f"  ruff format: this ruff predates {_RUFF_FORMAT_EXTEND_EXCLUDE_MIN} and "
+            f"rejects --extend-exclude, so {', '.join(excludes)} stays in the format "
+            f"check. Raise the project's ruff to honour it."
+        )
+    if not run_gate_tool(
+        "ruff format",
+        _build_ruff_format_cmd(excludes, extend_exclude=format_extend_exclude),
+        resolve_tool_mode("ruff_format", config, language="python"),
+        via="uv",
+        hint=_RUFF_FORMAT_MASK_HINT,
+    ):
+        had_failure = True
+
+    # In the project's environment, so ty resolves the project's imports.
+    ty_spec = f"ty=={tool_version('ty')}"
+    if not run_gate_tool(
+        "ty",
+        ["ty", "check"],
+        resolve_tool_mode("ty", config, language="python"),
+        via="uv-with",
+        spec=ty_spec,
+    ):
+        had_failure = True
+
+    sources = get_python_source_paths(config)
+    repo_ruff_ignores = _repo_ruff_ignores(Path.cwd())
+
+    # Own key, so it can go blocking without touching the lint gate.
+    if not _run_source_tool(
+        "ruff security",
+        _build_ruff_security_cmd(
+            sources, excludes, ruff_user_ignores, repo_ruff_ignores
+        ),
+        resolve_tool_mode("ruff_security", config, language="python"),
+        sources,
+        via="uv",
+    ):
+        had_failure = True
+
+    mode = resolve_tool_mode("pip_audit", config, language="python")
+    if not _run_pip_audit(mode, for_tool(ignores, "pip-audit")):
+        had_failure = True
+
+    # Concise output is one finding per line, so the warn tier's cap counts findings.
+    mode = resolve_tool_mode("ruff_docstrings", config, language="python")
+    ruff_doc_cmd = _build_ruff_docstring_cmd(
+        sources, excludes, ruff_user_ignores, repo_ruff_ignores
+    )
+    if not _run_source_tool("ruff docstrings", ruff_doc_cmd, mode, sources, via="uv"):
+        had_failure = True
+
+    mode = resolve_tool_mode("vulture", config, language="python")
+    vulture_cmd = ["vulture", *sources] + _build_exclude_args("vulture", excludes)
+    vulture_spec = f"vulture=={tool_version('vulture')}"
+    if not _run_source_tool(
+        "vulture",
+        vulture_cmd,
+        mode,
+        sources,
+        via="uvx",
+        spec=vulture_spec,
+        python=_parse_python(),
+    ):
+        had_failure = True
+
+    return 1 if had_failure else 0

@@ -1,0 +1,38 @@
+[[scopes]]
+name = "anybody"
+paths = ["**/*"]
+reviewers = ["*"]
+require = 1
+
+# [[scopes]]
+# name = "lone-author-test"
+# paths = [".procman-issue.yml"]
+# request = 1
+# require = 1
+# reviewers = ["davegaeddert"]
+
+
+[[scopes]]
+name = "dependencies"
+paths = ["package.json", "yarn.lock"]
+# reviewers = ["davegaeddert"]
+
+[[scopes]]
+name = "code-test"
+paths = ["**/*.json"]
+code = ["^.*users_unavailable.*$"]
+# reviewers = ["davegaeddert"]
+# require = 1
+
+[[scopes]]
+name = "gitignore"
+paths = [".gitignore"]
+# reviewers = ["davegaeddert"]
+# require = 1
+checklist.items = [
+  { label = "Code does not introduce security vulnerabilities", help = "notes=optional (default)" },
+  { label = "No secrets or credentials are hardcoded", notes = "disabled", help = "notes=disabled — no notes field" },
+  { label = "Explain the testing approach", notes = "required", help = "notes=required — notes always required" },
+  { label = "I have performed manual exploratory testing", required = false, notes = "required_if_checked", help = "notes=required_if_checked — notes required when checked" },
+  { label = "This PR does not require compliance changes", required = false, notes = "required_if_unchecked", help = "notes=required_if_unchecked — notes required when unchecked" },
+]

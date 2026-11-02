@@ -38,7 +38,7 @@ def _annotate(node: dict, kind: str, *, api_base_url: str | None = None) -> dict
     clickable: a uuid is unguessable, so a link that is not in the payload is a
     link the model has to invent, and an invented one 404s with the same
     confidence as a real one. Omitted entirely when the dashboard origin is
-    unknown (see sdk.links) -- an absent key says "say nothing", which is what
+    unknown (see sdk.reads.links) -- an absent key says "say nothing", which is what
     a caller with no link must do.
 
     THE NODE IS TOKENS AN AGENT PAYS FOR, so three things a node used to carry
@@ -177,20 +177,6 @@ class BrowseMixin:
             # Asked and not echoed: the server ignored the filter, and the
             # session's own projects and runs are in this tree.
             missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
-        if scope is None and cursor is None and workspace_id is None:
-            # Runs opened with no project (daemon v2) sit under no node of the
-            # tree, so the lab's first page names them. Absent = none; a backend
-            # that cannot say is a marker, never an empty list. Not under a
-            # workspace lens: a floating run belongs to no workspace, and naming
-            # it there reads as "this workspace holds these runs" (prod
-            # 2026-10-12: an empty workspace answered as holding four).
-            unfiled = self._unfiled_nodes(hide_session)
-            if unfiled is None:
-                missing.append(MissingMarker.UNFILED_RUNS)
-            elif unfiled:
-                data["unfiled"] = unfiled
-                views.setdefault(str(EntityType.RUN), _supported_views(EntityType.RUN))
-                data["available_views"] = views
         envelope = self._envelope(
             data,
             state=EnvelopeState.PARTIAL if missing else EnvelopeState.COMPLETE,
@@ -202,9 +188,6 @@ class BrowseMixin:
         if "continuation_handles" in payload:
             envelope["_browse_handles"] = payload["continuation_handles"]
         return envelope
-
-    #: Floating runs one browse names at most; `probe run list --unfiled` has the rest.
-    _UNFILED_BROWSE_LIMIT = 10
 
     def _session_created_ids(self, session_id: str) -> tuple[frozenset[str], bool] | None:
         """`(ids, truncated)` of every project, experiment and run `session_id`
@@ -263,44 +246,3 @@ class BrowseMixin:
                 else result.missing
             ),
         )
-
-    def _unfiled_nodes(self, hide_session: str | None = None) -> list[dict] | None:
-        """The caller's floating runs as browse nodes (id, name, created_at, tags),
-        [] when there are none, None when the backend cannot say.
-
-        `hide_session` leaves out the floating runs THAT session created -- the
-        daemon writer opens its runs unfiled, so they are exactly what its
-        reader must not be shown. Filtered SERVER-side, inside the page (so the
-        session's own cannot empty it), then checked against the session's
-        created set; a backend that cannot give that set cannot be trusted to
-        have filtered either, so the list is withheld and marked."""
-        limit = self._UNFILED_BROWSE_LIMIT
-        try:
-            rows = self.source.unfiled_runs(limit=limit, exclude_origin_session=hide_session)
-        except Exception:  # noqa: BLE001 -- an additive list never breaks the tree
-            return None
-        if hide_session is not None:
-            created = self._session_created_ids(hide_session)
-            if created is None:
-                return None
-            rows = [
-                row
-                for row in rows
-                if not (isinstance(row, dict) and str(row.get("id") or "").lower() in created[0])
-            ]
-        return [
-            _annotate(
-                {
-                    "id": row.get("id"),
-                    "slug": row.get("slug"),
-                    "name": row.get("name"),
-                    "status": row.get("status"),
-                    "created_at": row.get("created_at"),
-                    "tags": row.get("tags") or None,
-                },
-                EntityType.RUN,
-                api_base_url=self._api_base_url,
-            )
-            for row in rows
-            if isinstance(row, dict) and row.get("id")
-        ]

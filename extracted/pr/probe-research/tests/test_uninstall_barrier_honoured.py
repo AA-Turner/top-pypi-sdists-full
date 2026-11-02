@@ -19,13 +19,14 @@ from pathlib import Path
 import pytest
 
 from probe.shared.updates import uninstall_barrier
-from probe.service import client, paths
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
 
 TAP_ROOT = Path(__file__).resolve().parent.parent / "plugins" / "probe-research-tap"
 
 
 def _barrier(phase: str = "stopping", *, pid: int | None = None) -> dict:
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     pid = os.getpid() if pid is None else pid
     record = {"v": 1, "pid": pid, "start": procid.start_time(pid) or "1", "at": 0, "phase": phase,
@@ -38,7 +39,7 @@ def _barrier(phase: str = "stopping", *, pid: int | None = None) -> dict:
 def test_the_paths_agree_with_the_one_reader():
     assert paths.uninstall_barrier_path() == uninstall_barrier.path()
     assert paths.uninstall_plan_path().parent == uninstall_barrier.path().parent
-    from probe.cli import uninstall
+    from probe.cli.install import uninstall
 
     assert tuple(str(p) for p in uninstall.PHASES) == uninstall_barrier.PHASES
 
@@ -63,8 +64,8 @@ def test_the_keeper_does_nothing_and_installs_nothing(monkeypatch):
     from probe.service import keeper
 
     _barrier()
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
-    monkeypatch.setattr(keeper, "needed", lambda: pytest.fail("the keeper looked for sessions"))
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "needed", lambda: pytest.fail("the keeper looked for sessions"))
     assert keeper.main() == 0
     assert keeper.install() == "not wanted (uninstalling)"
     assert keeper.install_lifeboat() == "not wanted (uninstalling)"
@@ -87,7 +88,7 @@ def test_runtime_json_is_not_written_again():
 
 def test_a_daemon_worker_comes_back_later():
     from probe import _entry
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     _barrier()
     assert _entry._update_barrier(["daemon", "worker", "--session-id", "x"]) == barrier.WORKER_BUSY_EXIT_CODE

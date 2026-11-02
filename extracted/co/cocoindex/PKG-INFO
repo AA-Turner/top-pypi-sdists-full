@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.26
+Version: 1.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -92,15 +92,15 @@ Requires-Dist: turbopuffer>=0.5.0 ; extra == 'turbopuffer'
 Requires-Dist: valkey-glide>=2.5.2 ; extra == 'valkey'
 Requires-Dist: zvec>=0.5.0 ; extra == 'zvec'
 Provides-Extra: all
-Provides-Extra: amazon_s3
-Provides-Extra: azure_blob
+Provides-Extra: amazon-s3
+Provides-Extra: azure-blob
 Provides-Extra: bigquery
 Provides-Extra: colpali
 Provides-Extra: doris
-Provides-Extra: entity_resolution
-Provides-Extra: entity_resolution_llm
+Provides-Extra: entity-resolution
+Provides-Extra: entity-resolution-llm
 Provides-Extra: falkordb
-Provides-Extra: google_drive
+Provides-Extra: google-drive
 Provides-Extra: iggy
 Provides-Extra: kafka
 Provides-Extra: lancedb
@@ -109,7 +109,7 @@ Provides-Extra: neo4j
 Provides-Extra: oci
 Provides-Extra: postgres
 Provides-Extra: qdrant
-Provides-Extra: sentence_transformers
+Provides-Extra: sentence-transformers
 Provides-Extra: snowflake
 Provides-Extra: sqlite
 Provides-Extra: surrealdb

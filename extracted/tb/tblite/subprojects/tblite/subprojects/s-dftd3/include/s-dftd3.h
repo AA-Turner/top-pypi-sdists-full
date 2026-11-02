@@ -1,0 +1,429 @@
+/* This file is part of s-dftd3.
+ * SPDX-Identifier: LGPL-3.0-or-later
+ *
+ * s-dftd3 is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * s-dftd3 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with s-dftd3.  If not, see <https://www.gnu.org/licenses/>.
+**/
+#pragma once
+
+#ifdef __cplusplus
+#define SDFTD3_API_ENTRY extern "C"
+#else
+#define SDFTD3_API_ENTRY extern
+#ifndef SDFTD3_CFFI
+#include <stdbool.h>
+#endif
+#endif
+#define SDFTD3_API_CALL
+#define SDFTD3_API_SUFFIX__V_0_2
+#define SDFTD3_API_SUFFIX__V_0_3
+#define SDFTD3_API_SUFFIX__V_0_4
+#define SDFTD3_API_SUFFIX__V_0_5
+#define SDFTD3_API_SUFFIX__V_1_3
+#define SDFTD3_API_SUFFIX__V_1_4
+#define SDFTD3_API_SUFFIX__V_1_5
+#define SDFTD3_API_SUFFIX__V_1_6
+
+/// Error handle class
+typedef struct _dftd3_error* dftd3_error;
+
+/// Molecular structure data class
+typedef struct _dftd3_structure* dftd3_structure;
+
+/// Dispersion model class
+typedef struct _dftd3_model* dftd3_model;
+
+/// Counter-poisecorrection parameters class
+typedef struct _dftd3_gcp* dftd3_gcp;
+
+/// Damping parameter class
+typedef struct _dftd3_param* dftd3_param;
+
+/*
+ * Type generic macro for convenience
+**/
+
+#ifndef __cplusplus
+#define dftd3_delete(ptr) _Generic((ptr), \
+                       dftd3_error: dftd3_delete_error, \
+                   dftd3_structure: dftd3_delete_structure, \
+                       dftd3_model: dftd3_delete_model, \
+                       dftd3_param: dftd3_delete_param, \
+                         dftd3_gcp: dftd3_delete_gcp \
+                                  )(&ptr)
+#endif
+
+/*
+ * Global API queries
+**/
+
+/// Obtain library version as major * 10000 + minor * 100 + patch
+SDFTD3_API_ENTRY int SDFTD3_API_CALL
+dftd3_get_version() SDFTD3_API_SUFFIX__V_0_2;
+
+/// Query whether an optional feature is available in this build.
+///
+/// Currently only "mpi" is defined, unknown features are not available.
+SDFTD3_API_ENTRY bool SDFTD3_API_CALL
+dftd3_has_feature(char* /* feature */) SDFTD3_API_SUFFIX__V_1_6;
+
+/*
+ * Error handle class
+**/
+
+/// Create new error handle object
+SDFTD3_API_ENTRY dftd3_error SDFTD3_API_CALL
+dftd3_new_error() SDFTD3_API_SUFFIX__V_0_2;
+
+/// Check error handle status
+SDFTD3_API_ENTRY int SDFTD3_API_CALL
+dftd3_check_error(dftd3_error /* error */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Get error message from error handle
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_error(dftd3_error /* error */,
+                char* /* buffer */,
+                const int* /* buffersize */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Delete error handle object
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_delete_error(dftd3_error* /* error */) SDFTD3_API_SUFFIX__V_0_2;
+
+/*
+ * Molecular structure data class
+**/
+
+/// Create new molecular structure data (quantities in Bohr)
+SDFTD3_API_ENTRY dftd3_structure SDFTD3_API_CALL
+dftd3_new_structure(dftd3_error /* error */,
+                    const int /* natoms */,
+                    const int* /* numbers [natoms] */,
+                    const double* /* positions [natoms][3] */,
+                    const double* /* lattice [3][3] */,
+                    const bool* /* periodic [3] */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Delete molecular structure data
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_delete_structure(dftd3_structure* /* mol */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Update coordinates and lattice parameters (quantities in Bohr)
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_update_structure(dftd3_error /* error */,
+                       dftd3_structure /* mol */,
+                       const double* /* positions [natoms][3] */,
+                       const double* /* lattice [3][3] */) SDFTD3_API_SUFFIX__V_0_2;
+
+/*
+ * Dispersion model class
+**/
+
+/// Create new D3 dispersion model
+SDFTD3_API_ENTRY dftd3_model SDFTD3_API_CALL
+dftd3_new_d3_model(dftd3_error /* error */,
+                   dftd3_structure /* mol */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Set realspace cutoffs (quantities in Bohr)
+///
+/// deprecated: removed with the v2 API, use dftd3_set_model_realspace_cutoff_smooth
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_realspace_cutoff(dftd3_error /* error */,
+                                 dftd3_model /* model */,
+                                 double /* disp2 */,
+                                 double /* disp3 */,
+                                 double /* cn */) SDFTD3_API_SUFFIX__V_0_5;
+
+/// Disable dispersion contributions from selected atoms.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_ghost_index(dftd3_error /* error */,
+                            dftd3_model /* model */,
+                            const int* /* ghost [nidx] */,
+                            int /* nidx */) SDFTD3_API_SUFFIX__V_1_5;
+
+/// Set realspace cutoffs with smoothing widths (quantities in Bohr)
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_realspace_cutoff_smooth(dftd3_error /* error */,
+                                        dftd3_model /* model */,
+                                        double /* disp2 */,
+                                        double /* disp3 */,
+                                        double /* cn */,
+                                        double /* width2 */,
+                                        double /* width3 */) SDFTD3_API_SUFFIX__V_1_4;
+
+/// Evaluate the two-body dispersion energy by Ewald summation.
+///
+/// Requires three-dimensional periodic boundary conditions and a damping
+/// function supporting the reciprocal space summation, currently the rational
+/// and the zero damping function. The real space cutoff for the two-body
+/// interactions is ignored once this is enabled.
+///
+/// Non-positive arguments select the respective default, a vanishing rank
+/// derives the rank of the expansion from the tolerance and a vanishing
+/// reciprocal cutoff derives it from the damping radii.
+///
+/// The mesh selects how the reciprocal space sum is evaluated: zero derives a
+/// particle mesh from the reciprocal cutoff, a positive value interpolates the
+/// structure factors on a mesh of that many points per direction, rounded up to
+/// a power of two, and a negative value sums over the reciprocal lattice
+/// directly, which is exact but scales quadratically with the number of atoms.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_ewald(dftd3_error /* error */,
+                      dftd3_model /* model */,
+                      int /* rank */,
+                      double /* tolerance */,
+                      double /* kcut */,
+                      int /* mesh */) SDFTD3_API_SUFFIX__V_1_6;
+
+/// Assign an externally managed part of the interaction loops to this model.
+///
+/// The part index is zero based and must be smaller than nparts. Summing the
+/// results of all parts reproduces the complete calculation. Structure
+/// dependent quantities are evaluated for the full system on every part, only
+/// the pairwise, three-body and reciprocal space loops are partitioned.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_work_partition(dftd3_error /* error */,
+                               dftd3_model /* model */,
+                               int /* part */,
+                               int /* nparts */) SDFTD3_API_SUFFIX__V_1_6;
+
+/// Distribute the interaction loops of this model over an MPI communicator.
+///
+/// Communicators are passed as Fortran handles, use MPI_Comm_c2f to convert.
+/// Reports an error if the library was built without MPI support.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_model_mpi_comm(dftd3_error /* error */,
+                         dftd3_model /* model */,
+                         int /* comm */) SDFTD3_API_SUFFIX__V_1_6;
+
+/// Delete dispersion model
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_delete_model(dftd3_model* /* disp */) SDFTD3_API_SUFFIX__V_0_2;
+
+/*
+ * Damping parameter class
+**/
+
+/// Create new zero damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_zero_damping(dftd3_error /* error */,
+                       double /* s6 */,
+                       double /* s8 */,
+                       double /* s9 */,
+                       double /* rs6 */,
+                       double /* rs8 */,
+                       double /* alp */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Load zero damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_zero_damping(dftd3_error /* error */,
+                        char* /* method */,
+                        bool /* atm */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Create new rational damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_rational_damping(dftd3_error /* error */,
+                           double /* s6 */,
+                           double /* s8 */,
+                           double /* s9 */,
+                           double /* a1 */,
+                           double /* a2 */,
+                           double /* alp */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Load rational damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_rational_damping(dftd3_error /* error */,
+                            char* /* method */,
+                            bool /* atm */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Create new modified zero damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_mzero_damping(dftd3_error /* error */,
+                        double /* s6 */,
+                        double /* s8 */,
+                        double /* s9 */,
+                        double /* rs6 */,
+                        double /* rs8 */,
+                        double /* alp */,
+                        double /* bet */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Load modified zero damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_mzero_damping(dftd3_error /* error */,
+                         char* /* method */,
+                         bool /* atm */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Create new modified rational damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_mrational_damping(dftd3_error /* error */,
+                            double /* s6 */,
+                            double /* s8 */,
+                            double /* s9 */,
+                            double /* a1 */,
+                            double /* a2 */,
+                            double /* alp */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Load modified rational damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_mrational_damping(dftd3_error /* error */,
+                             char* /* method */,
+                             bool /* atm */) SDFTD3_API_SUFFIX__V_0_4;
+
+/// Create new optimized power damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_optimizedpower_damping(dftd3_error /* error */,
+                                 double /* s6 */,
+                                 double /* s8 */,
+                                 double /* s9 */,
+                                 double /* a1 */,
+                                 double /* a2 */,
+                                 double /* alp */,
+                                 double /* bet */) SDFTD3_API_SUFFIX__V_0_5;
+
+/// Load optimized power damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_optimizedpower_damping(dftd3_error /* error */,
+                                  char* /* method */,
+                                  bool /* atm */) SDFTD3_API_SUFFIX__V_0_5;
+
+/// Create new CSO damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_cso_damping(dftd3_error /* error */,
+                      double /* s6 */,
+                      double /* s9 */,
+                      double /* a1 */,
+                      double /* a2 */,
+                      double /* a3 */,
+                      double /* a4 */,
+                      double /* alp */) SDFTD3_API_SUFFIX__V_1_3;
+
+/// Load CSO damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_cso_damping(dftd3_error /* error */,
+                       char* /* method */,
+                       bool /* atm */) SDFTD3_API_SUFFIX__V_1_3;
+
+/// Create new Z damping parameters
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_new_z_damping(dftd3_error /* error */,
+                    double /* s6 */,
+                    double /* s8 */,
+                    double /* s9 */,
+                    double /* a1 */,
+                    double /* alp */) SDFTD3_API_SUFFIX__V_1_4;
+
+/// Load Z damping parameters from internal storage
+SDFTD3_API_ENTRY dftd3_param SDFTD3_API_CALL
+dftd3_load_z_damping(dftd3_error /* error */,
+                     char* /* method */,
+                     bool /* atm */) SDFTD3_API_SUFFIX__V_1_4;
+
+/// Delete damping parameters
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_delete_param(dftd3_param* /* param */) SDFTD3_API_SUFFIX__V_0_2;
+
+/*
+ * Counter-poise correction parameters
+**/
+
+/// Load geometric counter-poise parameters from internal storage
+SDFTD3_API_ENTRY dftd3_gcp SDFTD3_API_CALL
+dftd3_load_gcp_param(dftd3_error /* error */,
+                     dftd3_structure /* mol */,
+                     char* /* method */,
+                     char* /* basis */) SDFTD3_API_SUFFIX__V_1_3;
+
+/// Set realspace cutoffs (quantities in Bohr)
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_gcp_realspace_cutoff(dftd3_error /* error */,
+                               dftd3_gcp /* gcp */,
+                               double /* bas */,
+                               double /* srb */) SDFTD3_API_SUFFIX__V_1_3;
+
+/// Assign an externally managed part of the interaction loops to these parameters.
+///
+/// The part index is zero based and must be smaller than nparts. Summing the
+/// results of all parts reproduces the complete calculation.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_gcp_work_partition(dftd3_error /* error */,
+                             dftd3_gcp /* gcp */,
+                             int /* part */,
+                             int /* nparts */) SDFTD3_API_SUFFIX__V_1_6;
+
+/// Distribute the counter-poise correction over an MPI communicator.
+///
+/// In contrast to the externally managed work partition the results are reduced
+/// over the communicator, every rank receives the complete result.
+/// Communicators are passed as Fortran handles, use MPI_Comm_c2f to convert.
+/// Reports an error if the library was built without MPI support.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_set_gcp_mpi_comm(dftd3_error /* error */,
+                       dftd3_gcp /* gcp */,
+                       int /* comm */) SDFTD3_API_SUFFIX__V_1_6;
+
+/// Delete counter-poise parameters
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_delete_gcp(dftd3_gcp* /* gcp */) SDFTD3_API_SUFFIX__V_1_3;
+
+/*
+ * Perform dispersion calculations
+**/
+
+/// Evaluate the dispersion energy and its derivatives
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_dispersion(dftd3_error /* error */,
+                     dftd3_structure /* mol */,
+                     dftd3_model /* disp */,
+                     dftd3_param /* param */,
+                     double* /* energy */,
+                     double* /* gradient[n][3] */,
+                     double* /* sigma[3][3] */) SDFTD3_API_SUFFIX__V_0_2;
+
+/// Evaluate the pairwise representation of the dispersion energy
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_pairwise_dispersion(dftd3_error /* error */,
+                              dftd3_structure /* mol */,
+                              dftd3_model /* disp */,
+                              dftd3_param /* param */,
+                              double* /* pair_energy2[n][n] */,
+                              double* /* pair_energy3[n][n] */) SDFTD3_API_SUFFIX__V_0_5;
+
+/// Evaluate the analytical second derivatives of the dispersion energy.
+/// The hessian is symmetric, hence row- and column-major layout are equivalent.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_dispersion_hessian(dftd3_error /* error */,
+                             dftd3_structure /* mol */,
+                             dftd3_model /* disp */,
+                             dftd3_param /* param */,
+                             double* /* energy */,
+                             double* /* hessian[3*n][3*n] */) SDFTD3_API_SUFFIX__V_1_6;
+
+/*
+ * Perform geometric counterpoise calculations
+**/
+
+/// Evaluate the dispersion energy and its derivatives
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_counterpoise(dftd3_error /* error */,
+                       dftd3_structure /* mol */,
+                       dftd3_gcp /* gcp */,
+                       double* /* energy */,
+                       double* /* gradient[n][3] */,
+                       double* /* sigma[3][3] */) SDFTD3_API_SUFFIX__V_1_3;
+
+/// Evaluate the analytical second derivatives of the counter-poise energy.
+/// The hessian is symmetric, hence row- and column-major layout are equivalent.
+SDFTD3_API_ENTRY void SDFTD3_API_CALL
+dftd3_get_counterpoise_hessian(dftd3_error /* error */,
+                               dftd3_structure /* mol */,
+                               dftd3_gcp /* gcp */,
+                               double* /* energy */,
+                               double* /* hessian[3*n][3*n] */) SDFTD3_API_SUFFIX__V_1_6;

@@ -1,0 +1,65 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches:
+      - "*"
+
+  schedule:
+    - cron: "59 23 * * 3"
+
+jobs:
+  Tests:
+    name: ${{ matrix.os }}, ${{ matrix.environment-file }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        environment-file: [ci/313.yaml]
+        include:
+          - environment-file: ci/310.yaml
+            os: ubuntu-latest
+          - environment-file: ci/311.yaml
+            os: ubuntu-latest
+          - environment-file: ci/312.yaml
+            os: ubuntu-latest
+          - environment-file: ci/dev.yaml
+            os: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - name: setup micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: ${{ matrix.environment-file }}
+          micromamba-version: "latest"
+
+      - name: Install xvec
+        run: pip install .
+
+      - name: run tests
+        id: status
+        run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
+
+      - name: run mypy
+        if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
+        run: mypy xvec/ --install-types --ignore-missing-imports --non-interactive
+
+      - uses: codecov/codecov-action@v3
+
+      - name: Generate and publish the report
+        if: |
+          failure()
+          && steps.status.outcome == 'failure'
+          && github.event_name == 'schedule'
+          && github.repository_owner == 'xarray-contrib'
+        uses: xarray-contrib/issue-from-pytest-log@v1
+        with:
+          log-path: pytest-log.jsonl

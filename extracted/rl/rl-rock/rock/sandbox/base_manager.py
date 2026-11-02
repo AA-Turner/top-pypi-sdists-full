@@ -1,0 +1,187 @@
+import asyncio
+import time
+from abc import ABC, abstractmethod
+
+import ray
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+from rock.admin.metrics.constants import MetricsConstants
+from rock.admin.metrics.monitor import MetricsMonitor, aggregate_metrics
+from rock.common.constants import SANDBOX_DISK_OVERCOMMIT_RATIO_KEY
+from rock.config import RockConfig
+from rock.deployments.manager import DeploymentManager
+from rock.logger import init_logger
+from rock.sandbox.sandbox_meta_store import SandboxMetaStore
+from rock.utils import get_executor
+from rock.utils.system import is_primary_pod
+
+logger = init_logger(__name__)
+
+
+class BaseManager(ABC):
+    _auto_transition_task: object = None
+    rock_config: RockConfig = None
+
+    def __init__(
+        self,
+        rock_config: RockConfig,
+        meta_store: SandboxMetaStore,
+        enable_runtime_auto_clear: bool = False,
+    ):
+        self.rock_config = rock_config
+        self._executor = get_executor()
+        self._meta_store = meta_store
+        self.metrics_monitor = MetricsMonitor.create(
+            export_interval_millis=20_000,
+            metrics_endpoint=rock_config.runtime.metrics_endpoint,
+            user_defined_tags=rock_config.runtime.user_defined_tags,
+        )
+        self._report_interval = 10
+        self._auto_transition_interval = rock_config.lifecycle.auto_transition.interval_seconds
+        self._reconcile_interval = rock_config.lifecycle.reconcile_interval_seconds
+        self._setup_scheduler()
+        self.deployment_manager = DeploymentManager(rock_config, enable_runtime_auto_clear)
+
+        logger.info(f"SandboxService initialized with monitoring interval: {self._report_interval}s")
+
+    def _setup_scheduler(self):
+        self._setup_metrics_scheduler()
+        self._setup_job_check_scheduler()
+
+    def _setup_metrics_scheduler(self):
+        """Set up scheduler"""
+        self._metrics_scheduler = AsyncIOScheduler(
+            timezone="UTC", job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 30}
+        )
+
+        self._metrics_scheduler.add_job(
+            func=self._collect_and_report_metrics,
+            trigger=IntervalTrigger(seconds=self._report_interval),
+            id="metrics_collection",
+            name="Sandbox Metrics Collection",
+        )
+        self._metrics_scheduler.start()
+        logger.info("APScheduler started for metrics collection")
+
+    def _setup_job_check_scheduler(self):
+        self.scheduler = AsyncIOScheduler(
+            timezone="UTC", job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 30}
+        )
+        if is_primary_pod():
+            self.scheduler.add_job(
+                func=self._auto_transition,
+                trigger=IntervalTrigger(seconds=self._auto_transition_interval),
+                id="auto_transition",
+                name="Sandbox Auto Transition",
+            )
+            self.scheduler.add_job(
+                func=self._reconcile,
+                trigger=IntervalTrigger(seconds=self._reconcile_interval),
+                id="reconcile",
+                name="Sandbox Reconcile",
+            )
+            logger.info("auto_transition and reconcile jobs registered (primary pod)")
+        else:
+            logger.info("auto_transition and reconcile jobs skipped (non-primary pod)")
+        self.scheduler.start()
+        logger.info("APScheduler started for auto_transition and reconcile")
+
+    async def _collect_and_report_metrics(self):
+        start_time = time.time()
+        total_timeout = self._report_interval - 1
+
+        try:
+            await asyncio.wait_for(self._collect_and_report_metrics_internal(), timeout=total_timeout)
+
+        except asyncio.TimeoutError:
+            duration = time.time() - start_time
+            logger.error(f"Metrics collection timed out after {duration:.2f}s (limit: {total_timeout}s)")
+
+    async def _collect_and_report_metrics_internal(self):
+        """Collect and report metrics for all sandboxes"""
+        overall_start = time.perf_counter()
+        # CPU/memory/disk capacity is currently sourced from Ray. External
+        # orchestrators still report backend-independent sandbox counts below,
+        # but must not touch Ray when admin intentionally started without it.
+        if self.rock_config.runtime.operator_type.lower() == "ray":
+            await self._report_system_resource_metrics()
+
+        sandbox_cnt, sandbox_meta = await self._collect_sandbox_meta()
+        if sandbox_cnt == 0:
+            logger.debug("No sandboxes to monitor")
+            self.metrics_monitor.record_gauge_by_name(MetricsConstants.SANDBOX_TOTAL_COUNT, 0)
+            return
+        aggregated_metrics = aggregate_metrics(sandbox_meta, "image")
+        for image, count in aggregated_metrics.items():
+            self.metrics_monitor.record_gauge_by_name(MetricsConstants.SANDBOX_COUNT_IMAGE, count, {"image": image})
+
+        logger.debug(f"Collecting metrics for {sandbox_cnt} sandboxes")
+
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.SANDBOX_TOTAL_COUNT, sandbox_cnt)
+
+        overall_duration = time.perf_counter() - overall_start
+        logger.debug(f"Metrics overall report rt:{overall_duration:.4f}s")
+
+    async def _report_system_resource_metrics(self):
+        """Report system resource metrics."""
+        (
+            total_cpu,
+            total_mem,
+            available_cpu,
+            available_mem,
+            total_disk,
+            available_disk,
+        ) = await self._collect_system_resource_metrics()
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.TOTAL_CPU_RESOURCE, total_cpu)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.TOTAL_MEM_RESOURCE, total_mem)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.AVAILABLE_CPU_RESOURCE, available_cpu)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.AVAILABLE_MEM_RESOURCE, available_mem)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.TOTAL_DISK_RESOURCE, total_disk)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.AVAILABLE_DISK_RESOURCE, available_disk)
+
+        nacos = self.rock_config.nacos_provider
+        ratio_str = await nacos.get_config_value(SANDBOX_DISK_OVERCOMMIT_RATIO_KEY) if nacos else None
+        ratio = float(ratio_str) if ratio_str else (self.rock_config.runtime.sandbox_disk_overcommit_ratio or 1.0)
+        self.metrics_monitor.record_gauge_by_name(MetricsConstants.DISK_OVERCOMMIT_RATIO, ratio)
+
+    async def _collect_system_resource_metrics(self):
+        """Collect system resource metrics."""
+        cluster_resources = ray.cluster_resources()
+        available_resources = ray.available_resources()
+        total_cpu = cluster_resources.get("CPU", 0)
+        total_mem = cluster_resources.get("memory", 0) / 1024**3
+        available_cpu = available_resources.get("CPU", 0)
+        available_mem = available_resources.get("memory", 0) / 1024**3
+        total_disk = cluster_resources.get("disk", 0) / 1024**3
+        available_disk = available_resources.get("disk", 0) / 1024**3
+        return total_cpu, total_mem, available_cpu, available_mem, total_disk, available_disk
+
+    async def _collect_sandbox_meta(self) -> tuple[int, dict[str, dict[str, str]]]:
+        meta: dict = {}
+        cnt = 0
+        async for sandbox_info in self._meta_store.iter_alive_sandbox_info():
+            cnt += 1
+            image = sandbox_info.get("image", "default")
+            meta[sandbox_info.get("sandbox_id")] = {"image": image}
+        return cnt, meta
+
+    @abstractmethod
+    async def _auto_transition(self): ...
+
+    @abstractmethod
+    async def _reconcile(self): ...
+
+    def stop_monitoring(self):
+        if self.scheduler and self.scheduler.running:
+            logger.info("Stopping APScheduler...")
+            self.scheduler.shutdown(wait=True)
+            logger.info("APScheduler stopped")
+
+    def __del__(self):
+        """Destructor, ensure resource cleanup"""
+        try:
+            self.stop_monitoring()
+        except Exception as e:
+            logger.error(f"Error stopping monitoring: {e}")
+            pass

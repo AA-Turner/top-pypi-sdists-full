@@ -1,0 +1,397 @@
+from __future__ import annotations
+
+import logging
+import os
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
+
+from textual import work
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal
+from textual.widgets import ContentSwitcher, Footer, Header, ListView, Markdown, Tree
+
+from teddy_executor.adapters.inbound.textual_plan_reviewer_logic import (
+    add_message_logic,
+    check_action_logic,
+    edit_action_logic,
+    execute_step_logic,
+    on_mount_logic,
+    on_tree_node_highlighted,
+    refresh_node_logic,
+    revert_logic,
+    toggle_all_logic,
+    toggle_selection_logic,
+    view_details_logic,
+    view_plan_logic,
+)
+from teddy_executor.adapters.inbound.textual_plan_reviewer_widgets import (
+    ActionTree,
+    ParameterDetail,
+    RationaleDetail,
+    TUI_CSS,
+)
+from teddy_executor.core.services.edit_simulator import EditSimulator
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from teddy_executor.core.domain.models.plan import Plan
+    from teddy_executor.core.domain.models.project_context import ProjectContext
+    from teddy_executor.core.ports.outbound.system_environment import ISystemEnvironment
+    from teddy_executor.core.ports.outbound.file_system_manager import (
+        IFileSystemManager,
+    )
+    from teddy_executor.adapters.outbound.console_tooling import ConsoleToolingHelper
+    from teddy_executor.core.services.action_dispatcher import ActionDispatcher
+    from teddy_executor.core.ports.outbound.web_scraper import WebScraper
+
+T = TypeVar("T")
+
+
+class ReviewerApp(App):
+    """
+    The Textual application for reviewing and modifying plans.
+    """
+
+    INSTRUCTION_MARKER = "\n\n<!-- Please enter your response above this line. -->"
+
+    BINDINGS = [
+        ("s", "submit", "Submit"),
+        ("a", "toggle_all", "Toggle All"),
+        Binding("ctrl+down", "jump_next", "Next Section", show=False),
+        Binding("alt+down", "jump_next", "Next Section", show=False),
+        Binding("shift+down", "jump_next", "Next Section", show=False),
+        Binding("ctrl+up", "jump_prev", "Prev Section", show=False),
+        Binding("alt+up", "jump_prev", "Prev Section", show=False),
+        Binding("shift+up", "jump_prev", "Prev Section", show=False),
+        ("e", "edit_details", "Editor"),
+        ("d", "view_details", "Details"),
+        ("r", "revert", "Revert"),
+        ("v", "view_plan", "View Plan"),
+        ("x", "execute_step", "Execute Step"),
+        ("m", "add_message", "Add Message"),
+        ("q", "cancel", "Quit"),
+        ("left", "focus_left", "Focus Left"),
+        ("right", "focus_right", "Focus Right"),
+        Binding("tab", "focus_next", "Focus Next", show=False, priority=True),
+        Binding("shift+tab", "focus_prev", "Focus Prev", show=False, priority=True),
+    ]
+
+    CSS = TUI_CSS
+
+    def __init__(  # noqa: PLR0913
+        self,
+        plan: Plan,
+        system_env: ISystemEnvironment,
+        console_tooling: ConsoleToolingHelper,
+        action_dispatcher: ActionDispatcher,
+        file_system: Optional[IFileSystemManager] = None,
+        project_context: Optional[ProjectContext] = None,
+        web_scraper: Optional[WebScraper] = None,
+    ):
+        super().__init__()
+        self.plan = plan
+        self.project_context = project_context
+        self._system_env = system_env
+        self._console_tooling = console_tooling
+        self._action_dispatcher = action_dispatcher
+        self._file_system = file_system
+        self._web_scraper = web_scraper
+        self._edit_simulator = EditSimulator()
+        self._user_message_cache: Optional[str] = None
+        self._log_preview_files: list[str] = []
+
+        # Restore pending_message_file from plan metadata if present
+        pending_file = self.plan.metadata.get("pending_message_file")
+        if pending_file and os.path.exists(pending_file):
+            self._pending_message_file = pending_file
+
+    def compose(self) -> ComposeResult:
+        """
+        Create child widgets for the app.
+        """
+        yield Header(show_clock=True)
+        with Horizontal(id="main-container"):
+            yield ActionTree("Action Plan", id="left-pane")
+            with ContentSwitcher(id="right-pane", initial="params-view"):
+                yield ParameterDetail(id="params-view")
+                rationale_view = RationaleDetail(id="rationale-view")
+                rationale_view.can_focus = True
+                with rationale_view:
+                    yield Markdown(id="rationale-content")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        """Populate the action tree when the app is mounted."""
+        on_mount_logic(self)
+
+    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+        """Toggle action selection when a node is selected."""
+        toggle_selection_logic(self, event.node)
+
+    def on_tree_node_highlighted(self, event: Tree.NodeHighlighted) -> None:
+        """Refresh footer bindings when a new node is highlighted."""
+        on_tree_node_highlighted(self, event)
+
+    @work
+    async def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle parameter editing when an item is selected in the right pane."""
+        from teddy_executor.adapters.inbound.textual_plan_reviewer_logic import (
+            on_list_view_selected_logic,
+        )
+
+        await on_list_view_selected_logic(self, event.item)
+
+    def on_descendant_focus(self, event: Any) -> None:
+        """Ensure selection state is maintained or initialized when focus moves."""
+        control = getattr(event, "control", None)
+        if control and getattr(control, "id", None) in ("right-pane", "params-view"):
+            list_view = self.query_one(ParameterDetail)
+            # Only reset to 0 if no item is currently selected (e.g. first focus after clear)
+            if list_view.children and list_view.index is None:
+                list_view.index = 0
+
+    def check_action(self, action: str, parameters: tuple[Any, ...]) -> bool:
+        """Gate for enabling/disabling bindings based on state."""
+        _ = parameters
+        return check_action_logic(self, action)
+
+    def action_revert(self) -> None:
+        """Revert manual modifications for the currently highlighted action."""
+        tree = self.query_one(Tree)
+        if tree.cursor_node:
+            revert_logic(self, tree.cursor_node)
+
+    @work(exclusive=True)
+    async def action_execute_step(self) -> None:
+        """Executes the currently highlighted action as a background worker."""
+        tree = self.query_one(Tree)
+        if tree.cursor_node:
+            await execute_step_logic(self, tree.cursor_node)
+
+    def action_submit(self) -> None:
+        """Exit the app and return the modified plan."""
+        # Harvest deferred changes from pending_temp_files
+        for action in self.plan.actions:
+            self._harvest_action_content(action)
+
+        self._finalize_user_message()
+
+        if self.project_context:
+            pruned_paths = [
+                item.path for item in self.project_context.items if not item.selected
+            ]
+            if pruned_paths:
+                self.plan.metadata["pruned_context"] = ",".join(pruned_paths)
+            else:
+                self.plan.metadata.pop("pruned_context", None)
+
+        for f in getattr(self, "_log_preview_files", []):
+            try:
+                self._system_env.delete_file(f)
+            except Exception as e:
+                logger.debug("Failed to delete temporary log preview file %s: %s", f, e)
+
+        self.exit(self.plan)
+
+    def action_cancel(self) -> None:
+        """Exit the app and return None (cancellation)."""
+        # Harvest message even on cancel so it can be propagated to the abort report
+        self._finalize_user_message()
+
+        # Cleanup any pending temp files
+        for action in self.plan.actions:
+            # Type guard for Mocks in tests
+            is_valid_path = isinstance(action.pending_temp_file, (str, os.PathLike))
+            if (
+                action.pending_temp_file
+                and is_valid_path
+                and os.path.exists(action.pending_temp_file)
+            ):
+                try:
+                    os.remove(action.pending_temp_file)
+                    action.pending_temp_file = None
+                except Exception as e:
+                    logger.debug(
+                        "Failed to remove pending temp file %s: %s",
+                        action.pending_temp_file,
+                        e,
+                    )
+
+        for f in getattr(self, "_log_preview_files", []):
+            try:
+                self._system_env.delete_file(f)
+            except Exception as e:
+                logger.debug("Failed to delete temporary log preview file %s: %s", f, e)
+
+        self.exit(None)
+
+    @work
+    async def action_edit_details(self) -> None:
+        """Edit or preview the currently highlighted action or parameter."""
+        tree = self.query_one(Tree)
+        node = tree.cursor_node
+        if not node or not node.data:
+            return
+
+        from teddy_executor.core.domain.models.plan import ActionData
+
+        if isinstance(node.data, ActionData) and node.data.executed:
+            # Edit is disabled for executed actions; redirect to view_details
+            await cast(Any, self.action_view_details())
+            return
+
+        # Check if the right pane or any of its children has focus
+        right_pane = self.query_one(ParameterDetail)
+        is_right_pane_focused = right_pane.has_focus or (
+            self.focused and self.focused in right_pane.query("*")
+        )
+
+        if is_right_pane_focused and right_pane.highlighted_child:
+            from teddy_executor.adapters.inbound.textual_plan_reviewer_logic import (
+                on_list_view_selected_logic,
+            )
+
+            await on_list_view_selected_logic(self, right_pane.highlighted_child)
+            return
+
+        await edit_action_logic(self, node, node.data)
+
+    @work
+    async def action_view_details(self) -> None:
+        """View full execution logs or complex action details in an editor."""
+        await view_details_logic(self)
+
+    @work
+    async def action_view_plan(self) -> None:
+        """Open the full plan.md in an external editor."""
+        await view_plan_logic(self)
+
+    @work
+    async def action_add_message(self) -> None:
+        """Open the external editor to add/edit the user instruction message."""
+        await add_message_logic(self)
+
+    def action_focus_left(self) -> None:
+        """Switch focus to the Action Tree."""
+        self.query_one("#left-pane").focus()
+
+    def action_focus_right(self) -> None:
+        """Switch focus to the active child of the Parameter Detail pane."""
+        switcher = self.query_one(ContentSwitcher)
+        if switcher.current:
+            self.query_one(f"#{switcher.current}").focus()
+
+    def action_focus_next(self) -> None:
+        """Cycle focus between main panes."""
+        # Standard focus cycle
+        if self.focused and self.focused.id == "left-pane":
+            self.action_focus_right()
+        else:
+            self.action_focus_left()
+
+    def action_focus_prev(self) -> None:
+        """Cycle focus between main panes (reverse)."""
+        self.action_focus_next()
+
+    def action_jump_next(self) -> None:
+        """Jump to the next major section root."""
+        tree = self.query_one(ActionTree)
+        sections = [
+            ActionTree.CONTEXT_ROOT,
+            ActionTree.RATIONALE_ROOT,
+            ActionTree.ACTION_PLAN_ROOT,
+        ]
+
+        # Find current section of cursor
+        current_section = None
+        node = tree.cursor_node
+        while node:
+            if node.data in sections:
+                current_section = node.data
+                break
+            node = node.parent
+
+        # Find next section index
+        try:
+            current_idx = sections.index(current_section) if current_section else -1
+            next_idx = (current_idx + 1) % len(sections)
+            tree.jump_to_section(sections[next_idx])
+        except (ValueError, IndexError):
+            tree.jump_to_section(sections[0])
+        tree.focus()
+
+    def action_jump_prev(self) -> None:
+        """Jump to the current section root or the previous one."""
+        tree = self.query_one(ActionTree)
+        sections = [
+            ActionTree.CONTEXT_ROOT,
+            ActionTree.RATIONALE_ROOT,
+            ActionTree.ACTION_PLAN_ROOT,
+        ]
+
+        node = tree.cursor_node
+        if not node:
+            tree.jump_to_section(sections[-1])
+            tree.focus()
+            return
+
+        # If we are ALREADY on a root, jump to the previous one
+        if node.data in sections:
+            current_idx = sections.index(node.data)
+            prev_idx = (current_idx - 1) % len(sections)
+            tree.jump_to_section(sections[prev_idx])
+        else:
+            # If we are on a child, jump to the CURRENT root
+            while node:
+                if node.data in sections:
+                    tree.move_cursor(node)
+                    break
+                node = node.parent
+        tree.focus()
+
+    def action_toggle_all(self) -> None:
+        """Toggle selection for all actions."""
+        toggle_all_logic(self, self.plan)
+
+    def _refresh_node(self, node: Any) -> None:
+        """Refresh the label and state of a single tree node."""
+        refresh_node_logic(self, node)
+
+    def _harvest_action_content(self, action: Any) -> None:
+        """Harvest modified content from a pending temporary file back to the action."""
+        from teddy_executor.adapters.inbound.textual_plan_reviewer_execution import (
+            harvest_action_content,
+        )
+
+        harvest_action_content(action, self.INSTRUCTION_MARKER)
+
+    def _finalize_user_message(self) -> None:
+        """Extracts final message from persistent file or cache, stripping marker.
+
+        If a pending message file exists (set by add_message_handler), reads
+        from it first and updates the cache. Falls back to _user_message_cache.
+        Cleans up the file after harvest.
+        """
+        msg: Optional[str] = None
+        pending_file = getattr(self, "_pending_message_file", None)
+        if pending_file and os.path.exists(pending_file):
+            try:
+                with open(pending_file, "r", encoding="utf-8") as f:
+                    msg = f.read()
+                self._user_message_cache = msg
+                os.remove(pending_file)
+                self._pending_message_file = None
+            except Exception:
+                msg = self._user_message_cache
+
+        if msg is None:
+            msg = self._user_message_cache
+
+        if msg is None:
+            return
+        marker = self.INSTRUCTION_MARKER.strip()
+        self.plan.metadata["user_request"] = msg.split(marker)[0].strip()
+
+        # Remove pending_message_file metadata after harvest
+        self.plan.metadata.pop("pending_message_file", None)

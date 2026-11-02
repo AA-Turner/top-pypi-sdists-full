@@ -1,0 +1,535 @@
+//! Error construction: violation summaries, value labels, and the Python
+//! `ValidationError` raised from a [`valgebra_core::Violation`].
+
+use pyo3::exceptions::{PyException, PyMemoryError, PyRecursionError};
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
+use valgebra_core::{PathSegment, Violation};
+
+use crate::codes::{JSON_INVALID, VALIDATION_ERROR};
+use crate::exception::ValidationError;
+
+/// The class name for an error label, falling back to its repr.
+///
+/// [`summarize`]'s rule for the name as well as the repr: a metaclass may
+/// answer `__name__` by running code, and a fatal signal it raises propagates
+/// rather than reading as a class with no name.
+pub(crate) fn class_label(class: &Bound<'_, PyAny>) -> PyResult<String> {
+    let py = class.py();
+    let name = unless_fatal(class.getattr(intern!(py, "__name__")).map(Some), py, None)?;
+    match name.and_then(|name| name.extract::<String>().ok()) {
+        Some(text) => Ok(text),
+        None => summarize(class),
+    }
+}
+
+/// What a message says of an object whose `__repr__` raises.
+pub(crate) const UNREPRESENTABLE: &str = "<unrepresentable>";
+
+/// The characters of a value a summary keeps.
+pub(crate) const SUMMARY_CHARS: usize = 80;
+
+/// A bounded renderer for containers, built once per interpreter.
+///
+/// `reprlib.Repr` cuts a container off by depth and by width *while* rendering,
+/// which is the whole point: `repr()` builds the string in full and only then is
+/// it cut, so through it a value whose repr is enormous is paid for in full and
+/// thrown away 80 characters later.
+static BOUNDED_REPR: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// The limits are set well above anything a readable message shows, so a value
+/// small enough to print renders exactly as `repr` would and only a value that
+/// was going to be cut anyway takes a different path.
+///
+/// An error building it is the caller's, a signal among them: the cell stays
+/// empty, and the next summary builds it again.
+fn bounded_repr(py: Python<'_>) -> PyResult<&Py<PyAny>> {
+    BOUNDED_REPR.get_or_try_init(py, || {
+        let repr = py
+            .import("reprlib")?
+            .getattr(intern!(py, "Repr"))?
+            .call0()?;
+        for (limit, value) in [
+            ("maxlevel", 12_usize),
+            ("maxtuple", 32),
+            ("maxlist", 32),
+            ("maxarray", 32),
+            ("maxdict", 32),
+            ("maxset", 32),
+            ("maxfrozenset", 32),
+            ("maxdeque", 32),
+            ("maxstring", SUMMARY_CHARS),
+            ("maxlong", SUMMARY_CHARS),
+            ("maxother", SUMMARY_CHARS),
+        ] {
+            repr.setattr(limit, value)?;
+        }
+        Ok::<_, PyErr>(repr.unbind())
+    })
+}
+
+/// Whether a raised error is a *fatal* interpreter signal that must propagate
+/// rather than fold to an answer. Two disjoint cases: a base exception that is
+/// not an ordinary exception (`KeyboardInterrupt`, `SystemExit`,
+/// `GeneratorExit`), and `MemoryError`/`RecursionError` — which *are* ordinary
+/// exceptions, so the `PyException` test alone misses them, yet they mean "the
+/// interpreter cannot continue", not "this value is not a member". Any other
+/// exception is an ordinary failed comparison, and the site that caught it
+/// answers for it.
+pub(crate) fn is_fatal(err: &PyErr, py: Python<'_>) -> bool {
+    !err.is_instance_of::<PyException>(py)
+        || err.is_instance_of::<PyMemoryError>(py)
+        || err.is_instance_of::<PyRecursionError>(py)
+}
+
+/// `result`, reading an ordinary exception as `fallback`, and raising a fatal
+/// signal rather than reading it.
+///
+/// For a question the frontend asks of user code -- a marker's attribute, a
+/// bound's conversion -- where an ordinary exception has a documented reading
+/// and an interrupted one has none.
+pub(crate) fn unless_fatal<T>(result: PyResult<T>, py: Python<'_>, fallback: T) -> PyResult<T> {
+    match result {
+        Err(err) if is_fatal(&err, py) => Err(err),
+        Err(_) => Ok(fallback),
+        answered => answered,
+    }
+}
+
+/// A short repr-style summary of a value for error messages.
+///
+/// A container is rendered under a bound rather than rendered and then cut. The
+/// difference is not cosmetic: rendered and then cut, explaining a 20,000-deep
+/// list would build its 40,000 character repr once per level of the walk -- 128
+/// of them, since that is where the recursion bound stops -- and keep 80
+/// characters of each, a cost that grows with the size of the value rather than
+/// with the number of mistakes in it.
+///
+/// A scalar keeps the direct path: its repr is its size, there is nothing to
+/// bound, and it is the common case in an error message.
+///
+/// A `__repr__` raising an ordinary exception is an object that cannot render,
+/// and the summary says so. A fatal signal propagates: the interpreter is
+/// unwinding, and a message that read it as [`UNREPRESENTABLE`] would carry on
+/// as if it were not.
+pub(crate) fn summarize(value: &Bound<'_, PyAny>) -> PyResult<String> {
+    unless_fatal(try_summarize(value), value.py(), UNREPRESENTABLE.to_owned())
+}
+
+/// [`summarize`], handing back every error a `__repr__` raised.
+///
+/// For the walk, which carries a fatal signal out through its context rather
+/// than its return value, and reads what it does not carry as
+/// [`UNREPRESENTABLE`] itself.
+pub(crate) fn try_summarize(value: &Bound<'_, PyAny>) -> PyResult<String> {
+    if !value.is_instance_of::<PyList>()
+        && !value.is_instance_of::<PyTuple>()
+        && !value.is_instance_of::<PyDict>()
+        && !value.is_instance_of::<PySet>()
+        && !value.is_instance_of::<PyFrozenSet>()
+    {
+        return Ok(shorten(stored(&value.repr()?), SUMMARY_CHARS));
+    }
+    let py = value.py();
+    let rendered = match bounded_repr(py) {
+        Ok(repr) => match repr.bind(py).call_method1(intern!(py, "repr"), (value,)) {
+            Ok(text) => text.extract::<String>().ok(),
+            // `reprlib` catches what an element's `__repr__` raises and prints a
+            // placeholder, so what reaches here is a signal it let through --
+            // `KeyboardInterrupt` among them -- and the plain repr below would
+            // run the element again and read it as a value with a repr.
+            Err(err) if is_fatal(&err, py) => return Err(err),
+            Err(_) => None,
+        },
+        // A signal while the renderer was built is the interpreter unwinding,
+        // and the summary raises it rather than render the value another way.
+        Err(err) if is_fatal(&err, py) => return Err(err),
+        Err(_) => None,
+    };
+    match rendered {
+        Some(text) => Ok(shorten(text, SUMMARY_CHARS)),
+        // `reprlib` is a standard-library module and the call is total, so this
+        // is unreachable in practice; falling back to the plain repr keeps the
+        // message right rather than trading correctness for the bound.
+        None => Ok(shorten(stored(&value.repr()?), SUMMARY_CHARS)),
+    }
+}
+
+/// The text a `str` holds, read from its storage.
+///
+/// `__repr__` may return a `str` subclass, and formatting one calls its own
+/// `__str__`: code of the value's, run a second time, whose raised signal the
+/// formatter hands to `sys.unraisablehook` and replaces with a placeholder.
+/// The storage is the text the repr returned, and reading it runs nothing. A
+/// lone surrogate, which no UTF-8 spells, reads as the replacement character,
+/// as the formatter writes it.
+pub(crate) fn stored(text: &Bound<'_, PyString>) -> String {
+    text.to_string_lossy().into_owned()
+}
+
+/// Truncate a string this code already owns, keeping it where it is short.
+///
+/// The short case is every case in practice, and copying it would be a second
+/// allocation per violation on top of the one the repr already made: a value
+/// summary is built for every failure a wide record reports.
+pub(crate) fn shorten(text: String, max_chars: usize) -> String {
+    // Counting stops at the limit rather than walking a long repr to the end.
+    if text.chars().nth(max_chars).is_none() {
+        return text;
+    }
+    let head: String = text.chars().take(max_chars).collect();
+    format!("{head}...")
+}
+
+/// `text` cut to `max_chars`, for a caller that holds a borrow rather than a
+/// `String`.
+pub(crate) fn truncate(text: &str, max_chars: usize) -> String {
+    shorten(text.to_owned(), max_chars)
+}
+
+/// Build a [`ValidationError`] for input that is not valid JSON.
+///
+/// Malformed JSON never reaches the validation walk, so it is reported through
+/// the same structured model as a membership failure — a single `errors` item
+/// coded `json_invalid` whose message is jiter's parse diagnostic — rather than
+/// a bare `ValueError`. The path is the root and there is no value to summarize.
+pub(crate) fn json_invalid_error(py: Python<'_>, description: &str) -> PyErr {
+    let violation = Violation {
+        code: JSON_INVALID.as_str(),
+        path: Vec::new(),
+        expected: "valid JSON".to_owned(),
+        value_summary: truncate(description, SUMMARY_CHARS),
+    };
+    into_pyerr(py, vec![violation])
+}
+
+/// The failures a raised [`ValidationError`] reports, carried until asked for.
+///
+/// Populating the six documented attributes cost about four microseconds per
+/// raise -- an exception instantiated, six attribute writes, a path tuple and a
+/// dict per violation -- and a caller that logs `str(error)` and moves on paid
+/// every bit of it. `is_valid` on the same value is 214 nanoseconds.
+///
+/// So the walk's own `Violation`s are carried here, in Rust, and the attributes
+/// are built on the first access that asks for one. `ValidationError` has a
+/// `__getattr__` that reads this and caches what it built into the instance, so
+/// the second access is an ordinary attribute lookup and nothing is computed
+/// twice.
+#[pyclass(module = "valgebra", frozen)]
+pub(crate) struct Failures {
+    violations: Vec<Violation>,
+}
+
+impl Failures {
+    /// What the first violation says, which five of the six attributes mirror.
+    fn first(&self) -> &Violation {
+        // The producer never builds one of these without a failure, and every
+        // caller degrades rather than panicking, so the boundary does too.
+        self.violations.first().unwrap_or(&GENERIC)
+    }
+}
+
+/// The stand-in for a walk that reported a non-member with no violation, which
+/// is an invariant break rather than a state a caller can reach.
+static GENERIC: std::sync::LazyLock<Violation> = std::sync::LazyLock::new(|| Violation {
+    code: VALIDATION_ERROR.as_str(),
+    path: Vec::new(),
+    expected: "a member of the schema's set".to_owned(),
+    value_summary: String::new(),
+});
+
+/// The attribute names `__getattr__` answers, and nothing else.
+const LAZY_ATTRIBUTES: [&str; 6] = ["code", "path", "message", "expected", "value", "errors"];
+
+/// Build one of the six documented attributes from the failures behind it.
+///
+/// Assigned to the class rather than each instance, so a raised error carries
+/// **one** attribute -- the failures -- and the rest are built by the first
+/// access that wants them. Python calls this only when ordinary lookup fails,
+/// so the value cached below is what every later access finds.
+#[pyfunction]
+#[pyo3(signature = (instance, name, /))]
+pub(crate) fn validation_error_getattr<'py>(
+    instance: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = instance.py();
+    if !LAZY_ATTRIBUTES.contains(&name) {
+        return Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+            "'{}' object has no attribute '{name}'",
+            instance.get_type().name()?
+        )));
+    }
+    // An error built by hand reports no failures, and the model describes
+    // *failures*: the empty answer is the honest one, and an `AttributeError`
+    // here would describe the object rather than the model.
+    let Ok(carried) = instance.getattr(intern!(py, "_failures")) else {
+        return empty_attribute(py, name);
+    };
+    let Ok(failures) = carried.cast::<Failures>() else {
+        return empty_attribute(py, name);
+    };
+    let failures = failures.get();
+    let first = failures.first();
+    let keys = Keys::get(py);
+    let built = match name {
+        "code" => first.code.into_pyobject(py)?.into_any(),
+        "expected" => first.expected.as_str().into_pyobject(py)?.into_any(),
+        "value" => first.value_summary.as_str().into_pyobject(py)?.into_any(),
+        "message" => first.to_string().into_pyobject(py)?.into_any(),
+        "path" => build_path(py, &first.path)?.into_any(),
+        _ => {
+            let (first_violation, rest) =
+                failures.violations.split_first().unwrap_or((&GENERIC, &[]));
+            let message = first_violation.to_string();
+            let path = build_path(py, &first_violation.path)?;
+            error_items(py, &keys, &message, &path, first_violation, rest)?.into_any()
+        }
+    };
+    // Cached on the instance, so this runs once per attribute per error and the
+    // next lookup never reaches here.
+    instance.setattr(name, &built)?;
+    Ok(built)
+}
+
+/// What each attribute is for an error carrying no failures.
+fn empty_attribute<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyAny>> {
+    Ok(match name {
+        "path" | "errors" => PyTuple::empty(py).into_any(),
+        _ => "".into_pyobject(py)?.into_any(),
+    })
+}
+
+/// Put the two hooks on `ValidationError`, which is what makes the six lazy.
+///
+/// The attributes exist only where `__getattr__` is on the class, so every
+/// entry point that can raise one of these errors installs them: the module
+/// initializer, and a test that reaches [`into_pyerr`] without importing the
+/// module. One installer rather than two keeps the class one shape.
+///
+/// Through a Python `def` rather than the compiled functions directly: a
+/// builtin function assigned to a class is not a descriptor, so it never binds
+/// `self` and the hook is called one argument short. The lines below are the
+/// smallest thing that binds; the work stays in Rust.
+pub(crate) fn install_lazy_attributes(py: Python<'_>) -> PyResult<()> {
+    let shim = PyModule::from_code(
+        py,
+        c"def make(read, reduce):
+    def __getattr__(self, name):
+        return read(self, name)
+
+    def __reduce__(self):
+        return reduce(self)
+
+    return __getattr__, __reduce__
+",
+        // The name a traceback through one of these hooks prints, and a name
+        // that says what it is: there is no such file, and a reader who goes
+        // looking for `valgebra/_error_hooks.py` finds nothing. Angle brackets
+        // are Python's own convention for a code object with no file behind it
+        // -- `<string>`, `<stdin>` -- so a frame from here reads as compiled
+        // rather than as a module somebody deleted.
+        c"<valgebra error hooks>",
+        c"valgebra._error_hooks",
+    )?;
+    let hooks = shim
+        .getattr("make")?
+        .call1((
+            wrap_pyfunction!(validation_error_getattr, py)?,
+            wrap_pyfunction!(validation_error_reduce, py)?,
+        ))?
+        .cast_into::<PyTuple>()?;
+    let failure = py.get_type::<ValidationError>();
+    failure.setattr("__getattr__", hooks.get_item(0)?)?;
+    // Pickling and copying carry the instance dictionary, and the failures live
+    // there as a Rust object that does not travel; this materializes the six
+    // first, so what crosses a process boundary is the plain data the model
+    // documents.
+    failure.setattr("__reduce__", hooks.get_item(1)?)?;
+    Ok(())
+}
+
+/// Materialize every attribute before the error is pickled or copied.
+///
+/// `BaseException.__reduce__` carries the instance dictionary, and the failures
+/// live there as a Rust object that does not travel. Forcing the six turns the
+/// error into the plain data the model documents -- which is what crosses a
+/// process boundary, and what `docs/08-error-model.md` promises pickling gives.
+///
+/// The state handed on is a copy of the dictionary without the failures, and
+/// the error itself keeps them. Deleting them from the error is a write a
+/// second thread reading it can meet half done: an attribute the shim has not
+/// forced yet then reads the failures as gone.
+#[pyfunction]
+#[pyo3(signature = (instance, /))]
+pub(crate) fn validation_error_reduce<'py>(
+    instance: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = instance.py();
+    for name in LAZY_ATTRIBUTES {
+        let _ = instance.getattr(name)?;
+    }
+    let base = py.get_type::<pyo3::exceptions::PyException>();
+    let reduced = base
+        .getattr(intern!(py, "__reduce__"))?
+        .call1((instance,))?
+        .cast_into::<PyTuple>()?;
+    // `(type, args)`, and the dictionary third where it holds anything.
+    let Ok(state) = reduced.get_item(2) else {
+        return Ok(reduced.into_any());
+    };
+    let state = state.cast_into::<PyDict>()?.copy()?;
+    if state.contains(intern!(py, "_failures"))? {
+        state.del_item(intern!(py, "_failures"))?;
+    }
+    Ok(PyTuple::new(
+        py,
+        [reduced.get_item(0)?, reduced.get_item(1)?, state.into_any()],
+    )?
+    .into_any())
+}
+
+/// Build the Python [`ValidationError`] for one or more violations.
+///
+/// The raised instance carries the structured, machine-readable error model:
+/// `errors` is a tuple of per-failure items, each a JSON-serializable dict with
+/// `code`/`path`/`message`/`expected`/`value`, so `json.dumps(err.errors)` is
+/// the JSON output mode. The scalar `message`/`code`/`path`/`expected`/`value`
+/// mirror the first item; `str(exc)` is a summary of every failure.
+pub(crate) fn into_pyerr(py: Python<'_>, violations: Vec<Violation>) -> PyErr {
+    debug_assert!(!violations.is_empty(), "into_pyerr needs a failure");
+    // The caller always reports at least one failure, and the reader below takes
+    // the first one. A walk arm that reports a non-member without a violation is
+    // an internal invariant break, and every producer of that state degrades
+    // rather than panicking, so the boundary does too.
+    let (first, rest) = violations.split_first().unwrap_or((&GENERIC, &[]));
+    // The message is built here because it is the exception's `args`, which is
+    // what `str(error)` reads and what pickling carries. Everything else waits
+    // for an access -- see `Failures`.
+    let message = summary_message(&first.to_string(), first, rest);
+    // If building the instance or attaching the failures fails, surface that
+    // rather than shipping an error whose `.errors` is silently empty while
+    // `str(error)` still summarizes real failures.
+    raised(py, message, violations).unwrap_or_else(|err| err)
+}
+
+/// The exception a failure raises, built as the instance it is.
+///
+/// A lazy `ValidationError::new_err` is normalized by the first read of its
+/// value, and attaching the failures is such a read. `PyO3` normalizes by
+/// detaching from the interpreter and attaching again, which hands the lock to
+/// any thread waiting for it, once per failing call. The instance is made here
+/// instead and handed to `PyO3` as its type's argument, so the raise is
+/// `PyErr_SetObject(ValidationError, instance)` -- which chains the exception
+/// being handled as `__context__`, as normalizing the lazy error would -- and
+/// nothing normalizes it.
+///
+/// The failures are attached with one attribute write, and the violations are
+/// **moved** into it: cloning them copies a string per message and a path per
+/// violation, which is the work `Failures` exists not to do.
+fn raised(py: Python<'_>, message: String, violations: Vec<Violation>) -> PyResult<PyErr> {
+    let ty = py.get_type::<ValidationError>();
+    let instance = ty.call1((message,))?;
+    instance.setattr(
+        intern!(py, "_failures"),
+        Bound::new(py, Failures { violations })?,
+    )?;
+    Ok(PyErr::from_type(ty, instance.unbind()))
+}
+
+/// The five keys of an error item, and the six attributes of the exception.
+///
+/// Interned rather than passed as `&str`. A `set_item("code", ..)` builds a
+/// fresh Python string for the key on every call, and one failing `validate`
+/// writes eleven of them -- five per item plus the six attributes -- which is
+/// most of what raising a failure costs. `intern!` caches one object per call site
+/// for the interpreter's life, so the write is a hash of a string that already
+/// knows its hash.
+struct Keys<'py> {
+    code: &'py Bound<'py, PyString>,
+    path: &'py Bound<'py, PyString>,
+    message: &'py Bound<'py, PyString>,
+    expected: &'py Bound<'py, PyString>,
+    value: &'py Bound<'py, PyString>,
+}
+
+impl<'py> Keys<'py> {
+    fn get(py: Python<'py>) -> Keys<'py> {
+        Keys {
+            code: intern!(py, "code"),
+            path: intern!(py, "path"),
+            message: intern!(py, "message"),
+            expected: intern!(py, "expected"),
+            value: intern!(py, "value"),
+        }
+    }
+}
+
+/// The exception's `str()`: the single message for one failure, or a counted,
+/// newline-joined summary for several.
+fn summary_message(message: &str, first: &Violation, rest: &[Violation]) -> String {
+    if rest.is_empty() {
+        return message.to_owned();
+    }
+    let mut summary = format!("{} validation errors:", rest.len() + 1);
+    for violation in core::iter::once(first).chain(rest) {
+        summary.push('\n');
+        summary.push_str(&violation.to_string());
+    }
+    summary
+}
+
+/// Build the `errors` tuple: one JSON-serializable item per failure, in walk
+/// order.
+fn error_items<'py>(
+    py: Python<'py>,
+    keys: &Keys<'py>,
+    first_message: &str,
+    first_path: &Bound<'py, PyTuple>,
+    first: &Violation,
+    rest: &[Violation],
+) -> PyResult<Bound<'py, PyTuple>> {
+    let mut items = Vec::with_capacity(rest.len() + 1);
+    for (at, violation) in core::iter::once(first).chain(rest).enumerate() {
+        let item = PyDict::new(py);
+        item.set_item(keys.code, violation.code)?;
+        if at == 0 {
+            item.set_item(keys.path, first_path)?;
+            item.set_item(keys.message, first_message)?;
+        } else {
+            item.set_item(keys.path, build_path(py, &violation.path)?)?;
+            item.set_item(keys.message, violation.to_string())?;
+        }
+        item.set_item(keys.expected, violation.expected.as_str())?;
+        item.set_item(keys.value, violation.value_summary.as_str())?;
+        items.push(item);
+    }
+    PyTuple::new(py, items)
+}
+
+fn build_path<'py>(py: Python<'py>, path: &[PathSegment]) -> PyResult<Bound<'py, PyTuple>> {
+    let mut items: Vec<Bound<'py, PyAny>> = Vec::with_capacity(path.len());
+    for segment in path {
+        let item = match segment {
+            PathSegment::Key(key) => (&**key).into_pyobject(py)?.into_any(),
+            PathSegment::IntKey(key) => (*key).into_pyobject(py)?.into_any(),
+            // Back to the `int` it came from: a caller indexes with the key, not
+            // with its digits. Base 0 reads the literal as Python does, so a key
+            // carried in hexadecimal past the digit limit reads back too.
+            PathSegment::BigIntKey(key) => py
+                .get_type::<pyo3::types::PyInt>()
+                .call1((key.as_str(), 0))?
+                .into_any(),
+            PathSegment::Index(index) => (*index).into_pyobject(py)?.into_any(),
+        };
+        items.push(item);
+    }
+    PyTuple::new(py, items)
+}
+
+// Needs a live interpreter; compiled and run only under the `interpreter-tests`
+// feature, which links an embedded Python.
+#[cfg(all(test, feature = "interpreter-tests"))]
+mod tests;

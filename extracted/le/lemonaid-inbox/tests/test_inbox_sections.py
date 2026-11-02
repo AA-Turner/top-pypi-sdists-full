@@ -1,0 +1,229 @@
+import pytest
+
+from lemonaid.groups.store import Group
+from lemonaid.inbox import db, sections
+
+
+def _n(i: int, channel: str, unread: bool = False) -> db.Notification:
+    return db.Notification(i, channel, "", status="unread" if unread else "read")
+
+
+def _group(i: int, name: str, collapsed: bool = False, members: tuple[str, ...] = ()) -> Group:
+    return Group(i, name, float(i), members, collapsed)
+
+
+def _keys(entries) -> list[str]:
+    return [e.key for e in entries]
+
+
+@pytest.mark.parametrize("ungrouped_first", [True, False])
+def test_ungrouped_position_keeps_pins_first_and_groups_in_manual_order(ungrouped_first):
+    pin, loose, a1, b1 = _n(1, "pin"), _n(2, "loose"), _n(3, "a1"), _n(4, "b1")
+
+    entries, folded = sections.layout(
+        [pin, a1, loose, b1],
+        [],
+        {"pin"},
+        {"a1": ("A",), "b1": ("B",)},
+        [_group(1, "A"), _group(2, "B")],
+        {},
+        ungrouped_first=ungrouped_first,
+    )
+
+    grouped = ["group:1", "3@1", "group:2", "4@2"]
+    assert _keys(entries) == (["1", "2", *grouped] if ungrouped_first else ["1", *grouped, "2"])
+    assert folded == []
+
+
+def test_a_pinned_lemon_heads_its_group_and_stays_when_the_group_collapses():
+    lead, worker = _n(1, "lead"), _n(2, "worker")
+    members = {"lead": ("A",), "worker": ("A",)}
+
+    open_, _ = sections.layout(
+        [lead, worker],
+        [],
+        {"lead"},
+        members,
+        [_group(1, "A", members=("lead-id", "worker-id"))],
+        {},
+    )
+    shut, _ = sections.layout(
+        [lead, worker],
+        [],
+        {"lead"},
+        members,
+        [_group(1, "A", collapsed=True, members=("lead-id", "worker-id"))],
+        {},
+    )
+
+    assert _keys(open_) == ["group:1", "1@1", "2@1"]
+    assert _keys(shut) == ["group:1", "1@1"]
+    assert shut[0].count == 2
+    assert shut[0].visible == 1
+    assert open_[0].tally == "2"
+    assert shut[0].tally == "1/2"
+
+
+def test_a_lemon_in_two_groups_is_drawn_in_both():
+    both = _n(5, "both")
+
+    entries, _ = sections.layout(
+        [both], [], set(), {"both": ("A", "B")}, [_group(1, "A"), _group(2, "B")], {}
+    )
+
+    assert _keys(entries) == ["group:1", "5@1", "group:2", "5@2"]
+    assert {sections.notification_id(k) for k in _keys(entries)} == {None, 5}
+
+
+def test_a_collapsed_group_keeps_its_header_and_represented_statuses():
+    calm, urgent = _n(1, "calm"), _n(2, "urgent", unread=True)
+
+    entries, _ = sections.layout(
+        [calm, urgent],
+        [],
+        set(),
+        {"calm": ("A",), "urgent": ("A",)},
+        [_group(1, "A", collapsed=True)],
+        {"calm": "waiting", "urgent": "blocked"},
+    )
+
+    [header] = entries
+    assert isinstance(header, sections.Header)
+    assert (header.count, header.status_counts) == (2, (("blocked", 1),))
+
+
+def test_a_group_with_no_rows_is_not_drawn():
+    entries, _ = sections.layout([_n(1, "a")], [], set(), {}, [_group(1, "Empty")], {})
+
+    assert _keys(entries) == ["1"]
+
+
+def test_a_folded_row_in_a_group_hides_in_place_and_the_rest_stay_in_the_fold():
+    awake, quiet_grouped, quiet_loose = _n(3, "a"), _n(1, "g"), _n(2, "l")
+    args = ([awake], [quiet_grouped, quiet_loose], set(), {"a": ("A",), "g": ("A",)})
+
+    group = _group(1, "A", members=("awake-id", "quiet-id"))
+    closed, folded = sections.layout(*args, [group], {})
+    opened, _ = sections.layout(*args, [group], {}, fold_open=True)
+
+    assert _keys(closed) == ["group:1", "3@1"]
+    assert closed[0].tally == "1/2"
+    assert folded == [quiet_loose]
+    assert _keys(opened) == ["2", "group:1", "3@1", "1@1"]
+    assert opened[1].tally == "2"
+
+
+def test_without_groups_the_order_is_unchanged():
+    rows = [_n(1, "pin"), _n(2, "a"), _n(3, "b")]
+
+    entries, _ = sections.layout(rows, [], {"pin"}, {}, [], {})
+
+    assert _keys(entries) == ["1", "2", "3"]
+
+
+def test_header_keys_name_their_group_and_no_notification():
+    assert sections.group_id("group:7") == 7
+    assert sections.notification_id("group:7") is None
+    assert sections.notification_id("12@7") == 12
+    assert sections.group_id("12@7") is None
+
+
+def test_groups_keep_their_order_after_ungrouped_rows_in_status_order():
+    alarm, blocked, chatty, quiet = (
+        _n(1, "alarm"),
+        _n(2, "blocked"),
+        _n(3, "chatty", unread=True),
+        _n(4, "quiet"),
+    )
+    member, idle = _n(5, "member"), _n(6, "idle")
+    statuses = {"alarm": "alert", "blocked": "blocked", "member": "blocked"}
+
+    entries, _ = sections.layout(
+        [alarm, blocked, member, chatty, quiet, idle],
+        [],
+        set(),
+        {"member": ("Busy",), "idle": ("Calm",)},
+        [_group(1, "Calm"), _group(2, "Busy")],
+        statuses,
+    )
+
+    assert _keys(entries) == ["1", "2", "3", "4", "group:1", "6@1", "group:2", "5@2"]
+
+
+def test_a_group_with_every_row_folded_keeps_its_header_and_opens_with_the_fold():
+    loose, quiet = _n(1, "l"), _n(2, "q")
+    args = ([loose], [quiet], set(), {"q": ("A",)}, [_group(1, "A", members=("q-id",))], {})
+
+    closed, _ = sections.layout(*args)
+    assert _keys(closed) == ["1", "group:1"]
+    assert closed[1].tally == "0/1"
+    assert _keys(sections.layout(*args, fold_open=True)[0]) == ["1", "group:1", "2@1"]
+
+
+def test_a_group_whose_lemons_the_inbox_hid_keeps_its_header_outside_a_search():
+    loose, hidden = _n(1, "l"), _n(2, "h")
+    args = ([loose], [], set(), {"h": ("A",)}, [_group(1, "A", members=("h-id",))], {})
+
+    shown, _ = sections.layout(*args, current=[loose, hidden])
+    searched, _ = sections.layout(*args, current=[loose, hidden], empty_groups=False)
+
+    assert _keys(shown) == ["1", "group:1"]
+    assert shown[1].tally == "0/1"
+    assert _keys(searched) == ["1"]
+
+
+@pytest.mark.parametrize("collapsed", [False, True])
+@pytest.mark.parametrize("fold_open", [False, True])
+@pytest.mark.parametrize("retained", ["", "pinned", "deaf", "kept"])
+def test_header_counts_drawn_rows_against_current_members(collapsed, fold_open, retained):
+    awake, quiet = _n(1, "awake"), _n(2, "quiet")
+    group = _group(1, "A", collapsed, members=("awake-id", "quiet-id", "hidden-id"))
+
+    entries, _ = sections.layout(
+        [awake],
+        [quiet],
+        {"quiet"} if retained == "pinned" else set(),
+        {"awake": ("A",), "quiet": ("A",)},
+        [group],
+        {},
+        kept={"2@1"} if retained == "kept" else set(),
+        fold_open=fold_open,
+        deaf={"quiet"} if retained == "deaf" else set(),
+    )
+
+    header, *rows = entries
+    assert isinstance(header, sections.Header)
+    expected = int(not collapsed) + int(bool(retained) or (not collapsed and fold_open))
+    assert len(rows) == expected
+    assert header.tally == f"{expected}/3"
+
+
+@pytest.mark.parametrize("collapsed", [False, True])
+def test_header_counts_hidden_and_folded_statuses_in_priority_order(collapsed):
+    rows = [_n(i, str(i), unread=i == 8) for i in range(1, 10)]
+    statuses = dict(
+        zip(
+            (n.channel for n in rows),
+            ("done", "blocked", "alert", "done", "review", "approve", "merge", "running", "idle"),
+            strict=False,
+        )
+    )
+    entries, _ = sections.layout(
+        rows[:3],
+        rows[3:5],
+        set(),
+        {n.channel: ("A",) for n in rows},
+        [_group(1, "A", collapsed)],
+        statuses,
+        current=rows,
+    )
+    header = entries[0]
+    assert header.status_counts == (
+        ("alert", 1),
+        ("blocked", 1),
+        ("running", 1),
+        ("merge", 1),
+        ("approve", 1),
+        ("review", 1),
+        ("done", 2),
+    )

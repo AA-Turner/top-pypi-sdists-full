@@ -307,7 +307,7 @@ def _batch_row_on_the_wire(ref: str, envelope: dict) -> dict:
     return row
 
 
-def _compact_unless_verbose(envelope: dict, args: dict) -> dict:
+def _get_compact_unless_verbose(envelope: dict, args: dict) -> dict:
     """`verbose=True` is the debugging shape: it keeps every key the source built."""
     return envelope if args.get("verbose") else omit_defaults(envelope)
 
@@ -358,13 +358,13 @@ def _source_state(payload: dict) -> dict:
     }
 
 
-def _stable_payload(payload: dict) -> dict:
+def _get_stable_payload(payload: dict) -> dict:
     # Only transport bookkeeping is excluded. Scientific values and source
     # completeness remain part of the fingerprint.
     return {k: v for k, v in payload.items() if k not in {"as_of", "scope"}}
 
 
-def _text_document(tool: str, args: dict, payload: dict) -> tuple[list, str] | None:
+def _get_text_document(tool: str, args: dict, payload: dict) -> tuple[list, str] | None:
     """Locate a requested authored document, not an arbitrary long field."""
     data = payload.get("data", payload)
     if not isinstance(data, dict):
@@ -442,16 +442,16 @@ def page(
         whole["next_cursor"] = next_cursor
     # _source_state can turn the service's partial into complete (the atomic
     # overflow marker is not a gap here), so defaults are dropped AFTER it.
-    whole = _compact_unless_verbose(whole, args)
+    whole = _get_compact_unless_verbose(whole, args)
     if "offset" not in state and budget.fits(wrap(whole)):
         return wrap(whole)
 
-    stable = _stable_payload(payload)
+    stable = _get_stable_payload(payload)
     if "completeness" in stable:
         stable["completeness"] = _source_state(payload)
     # The rejoined JSON is the same answer the whole-fit path would have sent.
-    stable = _compact_unless_verbose(stable, args)
-    document = _text_document(tool, args, stable)
+    stable = _get_compact_unless_verbose(stable, args)
+    document = _get_text_document(tool, args, stable)
     path = None
     if document is not None:
         path, text = document
@@ -533,7 +533,7 @@ def page(
             result["data"]["path"] = path
         if context is not None:
             result["data"]["context"] = context
-        return wrap(_compact_unless_verbose(result, args))
+        return wrap(_get_compact_unless_verbose(result, args))
 
     # Optional first-page orientation must not strand the requested document.
     # Reserve its exact wrapped cost once before sizing the text. A giant
@@ -713,8 +713,12 @@ def _batch(
         one = refs[index]
         one_args = {**native_args, "refs": [one]}
         # What this item's row adds around its own page: the ref echo, the row
-        # list and `missing`, and the item index its cursor carries.
-        reserve = count_tokens(serialize({"rows": [{"ref": one}], "missing": [], "i": index})) + 8
+        # list and `missing`, and the batch cursor to the next ref, built the
+        # way `wrap` builds it (its width varies with the encoded request).
+        next_ref = encode({"index": index + 1, "native": None}, request) if index + 1 < len(refs) else None
+        reserve = count_tokens(
+            serialize({"rows": [{"ref": one}], "missing": [], "next_cursor": next_ref})
+        )
         result = _read(call, one_args, state, request, reserve=reserve)
         is_missing = isinstance(result.get("missing"), list) and not result.get("rows")
         item_state = {**state, "index": index}
@@ -728,7 +732,7 @@ def _batch(
             else:
                 cursor = None
             if is_missing and not isinstance(item.get("data"), dict):
-                return _compact_unless_verbose(
+                return _get_compact_unless_verbose(
                     {
                         "rows": rows,
                         "missing": missing + item.get("missing", []),
@@ -736,7 +740,7 @@ def _batch(
                     },
                     args,
                 )
-            return _compact_unless_verbose(
+            return _get_compact_unless_verbose(
                 {
                     "rows": rows + [_batch_row_on_the_wire(one, item)],
                     "missing": missing,
@@ -751,7 +755,7 @@ def _batch(
             whole["completeness"] = _source_state(result)
         if _next(result):
             whole["next_cursor"] = encode(_advance_state(item_state, _next(result)), request)
-        combined = wrap(_compact_unless_verbose(whole, args))
+        combined = wrap(_get_compact_unless_verbose(whole, args))
         if budget.fits(combined) and "offset" not in item_state:
             rows, missing = combined["rows"], combined.get("missing", [])
             fitted = combined

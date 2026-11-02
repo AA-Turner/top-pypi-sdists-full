@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: imgsize
+Version: 4.1.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: maturin ; extra == 'test'
+Provides-Extra: test
+License-File: LICENSE
+Requires-Python: >=3.11

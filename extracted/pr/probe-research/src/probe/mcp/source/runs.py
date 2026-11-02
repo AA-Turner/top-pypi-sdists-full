@@ -28,22 +28,6 @@ class RunReadsMixin:
             limit=limit,
         ).items
 
-    def unfiled_runs(
-        self, *, limit: int = 10, exclude_origin_session: str | None = None
-    ) -> list[dict]:
-        """FLOATING runs, filed nowhere yet (daemon v2): the caller's own, every
-        one for an admin. Raises CapabilityUnavailable on a backend that
-        predates them (it ignores the filter and would list filed runs).
-
-        ``exclude_origin_session`` leaves out, server-side and inside the page,
-        the runs that session created (research-os 0291)."""
-        params = (
-            {"exclude_origin_session": exclude_origin_session}
-            if exclude_origin_session is not None
-            else {}
-        )
-        return self.client.list_runs(unfiled=True, limit=limit, **params).items
-
     def bundle(self, run_id: str) -> dict:
         """The run bundle, read under the coverage contract. A source-backed run
         (a W&B mirror) answers 422 without it -- which made every view built on
@@ -138,13 +122,13 @@ class RunReadsMixin:
 
         Here and not on the SDK client: it is a read only this surface pages,
         and `probe trial` reaches the same bundle through its own files."""
-        params: dict[str, Any] = {"trial": trial, "limit": limit}
+        parameters: dict[str, Any] = {"trial": trial, "limit": limit}
         if path_prefix:
-            params["path_prefix"] = path_prefix
+            parameters["path_prefix"] = path_prefix
         if cursor:
-            params["cursor"] = cursor
+            parameters["cursor"] = cursor
         return self.client.transport.get(
-            f"/v1/runs/{run_id}/sandbox-state/diff", params=params
+            f"/v1/runs/{run_id}/sandbox-state/diff", params=parameters
         )
 
     def run_list(
@@ -162,17 +146,17 @@ class RunReadsMixin:
         """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST, and the
         keyset cursor past it. ``active`` is the server's liveness filter
         (status running AND a heartbeat inside the window), not a status."""
-        params: dict[str, Any] = {"limit": limit}
+        parameters: dict[str, Any] = {"limit": limit}
         if status:
-            params["status"] = status
+            parameters["status"] = status
         if active:
-            params["active"] = "true"
+            parameters["active"] = "true"
         if cursor:
-            params["cursor"] = cursor
+            parameters["cursor"] = cursor
         if exclude_origin_session is not None:
-            params["exclude_origin_session"] = exclude_origin_session
+            parameters["exclude_origin_session"] = exclude_origin_session
         page = self.client.list_runs(
-            project_id=project_id, experiment_id=experiment_id, tags=tags, **params
+            project_id=project_id, experiment_id=experiment_id, tags=tags, **parameters
         )
         return list(page.items), page.next_cursor
 

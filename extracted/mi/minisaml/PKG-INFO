@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: minisaml
+Version: 26.1
+Summary: Minimal SAML2 client
+License: Apache-2.0
+License-File: LICENSE
+Author: Jonas Obrist
+Author-email: jonas.obrist@hennge.com
+Requires-Python: >=3.10,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Typing :: Typed
+Provides-Extra: docs
+Requires-Dist: Sphinx (>=8,<9) ; extra == "docs"
+Requires-Dist: furo (>=2025.12.19,<2026.0.0) ; extra == "docs"
+Requires-Dist: lxml (>=6.0,<7.0)
+Requires-Dist: minisignxml (>=26.1)
+Requires-Dist: sphinxcontrib-mermaid (>=2.0.0,<3.0.0) ; extra == "docs"
+Requires-Dist: yarl (>=1.22.0)
+Project-URL: Documentation, https://minisaml.readthedocs.io
+Project-URL: Homepage, https://github.com/HENNGE/minisaml
+Project-URL: Repository, https://github.com/HENNGE/minisaml
+Description-Content-Type: text/markdown
+
+# MiniSAML
+
+
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![CircleCI](https://circleci.com/gh/HENNGE/minisaml.svg?style=svg)](https://circleci.com/gh/HENNGE/minisaml)
+[![Documentation Status](https://readthedocs.org/projects/minisaml/badge/?version=latest)](https://minisaml.readthedocs.io/en/latest/?badge=latest)
+
+
+
+Absolutely minimalistic SAML 2 client. Does not support the full SAML 2 specification, on purpose.
+It only supports requests via HTTP Redirect and responses via HTTP POST.
+
+
+## Usage
+
+
+### Create a SAML Request
+
+```python
+from minisaml.request import get_request_redirect_url
+
+url = get_request_redirect_url(
+    saml_endpoint="https://your-idp.invalid/sso-endpoint/",
+    expected_audience="Your SAML Issuer",
+    acs_url="https://you.web-site.invalid/saml/acs/"
+)
+
+# This line depends on your web framework/server
+redirect_user_to_url(url)
+```
+
+### Validate and parse the SAML Response
+
+```python
+from minisaml.response import validate_response
+
+# This line depends on your web framework/server
+saml_response = get_SAMLResponse_form_data_as_bytes()
+
+# Load the x509 certificate as a cryptography.x509.Certificate somehow
+certificate = ...
+
+try:
+    response = validate_response(
+        data=saml_response,
+        certificate=certificate,
+        expected_audience="Your SAML Issuer",
+        idp_issuer="https://your-idp.invalid/issuer/"
+    )
+except:
+    handle_invalid_response_somehow()
+
+# response is a minisaml.response.Response object
+```
+

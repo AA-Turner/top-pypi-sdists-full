@@ -1,0 +1,154 @@
+"""Change detection for a set of watched paths, independent of how events are delivered.
+
+A file's fingerprint is its content hash; a directory's is the size and mtime of each
+non-hidden regular file directly in it, so a new, removed, or rewritten file changes it but
+a lock file or a subdirectory does not. What was last reported is kept per paths in the
+lemon's cursor directory (see cursors.py), so a rearmed waiter reports what changed while
+none ran; the first waiter for a set of paths takes the current state as its baseline.
+With `ignore_removed`, a removal is never reported, but the state still advances past it.
+"""
+
+import dataclasses
+import hashlib
+import json
+import pathlib
+import time
+import typing as ty
+from collections import abc
+
+from . import cursors, path_presence
+
+Fingerprint = str | dict[str, str] | None  # file hash, directory listing, or absent
+
+
+def state_stem(state_dir: pathlib.Path, paths: abc.Iterable[pathlib.Path], me: str) -> pathlib.Path:
+    key = "\0".join(sorted(str(p.resolve()) for p in paths)) + f"\0\0{me}"
+    return state_dir / hashlib.sha1(key.encode()).hexdigest()[:16]
+
+
+def _entry(entry: pathlib.Path) -> str:
+    """ "" for anything but a regular file, including one removed since the listing."""
+    try:
+        st = entry.stat()
+    except FileNotFoundError:
+        return ""
+    return f"{st.st_size}:{st.st_mtime_ns}" if entry.is_file() else ""
+
+
+def _fingerprint(path: pathlib.Path) -> Fingerprint:
+    try:
+        if path.is_dir():
+            listing = {e.name: _entry(e) for e in path.iterdir() if not e.name.startswith(".")}
+            return {name: fp for name, fp in listing.items() if fp}
+
+        return hashlib.sha1(path.read_bytes()).hexdigest()
+    except FileNotFoundError:
+        return None
+
+
+def _names(label: str, names: abc.Sequence[str]) -> list[str]:
+    if not names:
+        return []
+
+    more = f" and {len(names) - 3} more" if len(names) > 3 else ""
+    return [f"{label} {', '.join(names[:3])}{more}"]
+
+
+def _describe(path: str, old: Fingerprint, new: Fingerprint, ignore_removed: bool) -> str:
+    """ "" when the only difference is a removal and `ignore_removed` is set."""
+    if new is None:
+        return "" if ignore_removed else f"{path} was removed"
+
+    if old is None:
+        return f"{path} was created"
+
+    if isinstance(old, dict) and isinstance(new, dict):
+        parts = [
+            *_names("added", sorted(set(new) - set(old))),
+            *([] if ignore_removed else _names("removed", sorted(set(old) - set(new)))),
+            *_names("changed", sorted(n for n in set(old) & set(new) if old[n] != new[n])),
+        ]
+        return f"{path}: {'; '.join(parts)}" if parts else ""
+
+    return f"{path} changed"
+
+
+@dataclasses.dataclass
+class FileWatch:
+    paths: list[pathlib.Path]
+    quiet: float
+    reported_path: pathlib.Path
+    reported: dict[str, Fingerprint]
+    pending: dict[str, Fingerprint]
+    pending_since: float
+    presence: dict[str, path_presence.Presence]
+    ignore_removed: bool = False
+
+
+def _load_reported(path: pathlib.Path) -> dict[str, Fingerprint]:
+    try:
+        saved = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return saved if isinstance(saved, dict) else {}
+
+
+def open_watch(
+    state_dir: pathlib.Path,
+    paths: abc.Sequence[pathlib.Path],
+    me: str,
+    quiet: float,
+    ignore_removed: bool = False,
+) -> FileWatch:
+    """A path with no saved fingerprint takes its current state as its baseline."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    resolved = [p.resolve() for p in paths]
+    stem = state_stem(state_dir, resolved, me)
+    reported_path = stem.with_suffix(".reported.json")
+    current = {str(p): _fingerprint(p) for p in resolved}
+    saved = _load_reported(reported_path)
+    reported = {k: saved.get(k, fp) for k, fp in current.items()}
+    if reported != saved:
+        cursors.write_json(reported_path, reported)
+    presence = {
+        str(p): path_presence.open_watch(
+            stem.with_name(f"{stem.name}-{hashlib.sha1(str(p).encode()).hexdigest()[:16]}"),
+            p,
+            seen=reported[str(p)] is not None,
+        )
+        for p in resolved
+    }
+    return FileWatch(
+        resolved, quiet, reported_path, reported, current, time.time(), presence, ignore_removed
+    )
+
+
+def poll(w: FileWatch, deliver: ty.Callable[[str], None]) -> bool:
+    """Read every path once and deliver at most one event; True if one was delivered.
+
+    State advances only after `deliver` returns, so a delivery that raises leaves the
+    change for the next waiter.
+    """
+    current = {str(p): _fingerprint(p) for p in w.paths}
+    for path, fingerprint in current.items():
+        if fingerprint is not None:
+            path_presence.observe(w.presence[path])
+    if current != w.pending:
+        w.pending, w.pending_since = current, time.time()
+        if w.quiet:
+            return False
+
+    if current == w.reported or time.time() - w.pending_since < w.quiet:
+        return False
+
+    message = "; ".join(
+        path_presence.missing_message(w.presence[p], d) if new is None else d
+        for p, new in current.items()
+        if new != w.reported[p] and (d := _describe(p, w.reported[p], new, w.ignore_removed))
+    )
+    if message:
+        deliver(message)
+
+    w.reported = current
+    cursors.write_json(w.reported_path, current)
+    return bool(message)

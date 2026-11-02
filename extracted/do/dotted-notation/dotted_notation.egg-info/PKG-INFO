@@ -1,0 +1,4149 @@
+Metadata-Version: 2.4
+Name: dotted_notation
+Version: 0.52.0
+Summary: Dotted notation for safe nested data traversal with optional chaining, pattern matching, and transforms
+Author-email: Frey Waid <logophage1@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/freywaid/dotted
+Project-URL: Source, https://github.com/freywaid/dotted
+Project-URL: Changelog, https://github.com/freywaid/dotted/blob/master/CHANGELOG.md
+Keywords: dotted,nested,path,pattern-matching,json,jsonb,sql,traversal
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyparsing>=3.0
+Provides-Extra: copium
+Requires-Dist: copium>=0.1.0; extra == "copium"
+Provides-Extra: yaml
+Requires-Dist: PyYAML>=5.0; extra == "yaml"
+Provides-Extra: toml
+Requires-Dist: tomli>=1.0; extra == "toml"
+Requires-Dist: tomli_w>=1.0; extra == "toml"
+Provides-Extra: formats
+Requires-Dist: PyYAML>=5.0; extra == "formats"
+Requires-Dist: tomli>=1.0; extra == "formats"
+Requires-Dist: tomli_w>=1.0; extra == "formats"
+Provides-Extra: all
+Requires-Dist: copium>=0.1.0; extra == "all"
+Requires-Dist: PyYAML>=5.0; extra == "all"
+Requires-Dist: tomli>=1.0; extra == "all"
+Requires-Dist: tomli_w>=1.0; extra == "all"
+Provides-Extra: spark
+Requires-Dist: pyspark>=3.4; extra == "spark"
+Dynamic: license-file
+
+# Dotted
+
+Sometimes you want to fetch data from a deeply nested data structure. Dotted notation
+helps you do that.
+
+## Installation
+
+    pip install dotted-notation
+
+Since this package includes the [**`dq`** command-line tool](#cli-dq), several data formats are supported:
+
+| Format | `-i`/`-o` | Status   |
+|--------|-----------|----------|
+| JSON   | `json`    | included |
+| JSONL  | `jsonl`   | included |
+| Python | `py`      | included |
+| Python lines | `pyl` | included |
+| CSV    | `csv`     | included |
+| YAML   | `yaml`    | optional |
+| TOML   | `toml`    | optional |
+
+To install optional format support:
+
+    pip install dotted-notation[formats]
+
+Or pick only what you need:
+
+    pip install dotted-notation[yaml,toml]
+
+Or everything, formats and copium (below) alike:
+
+    pip install dotted-notation[all]
+
+For faster `mutable=False` updates and removes, install the
+[copium](https://github.com/Bobronium/copium) extra, a C implementation of
+`copy.deepcopy` (CPython 3.10+). Dotted uses it when present and falls back to
+`copy.deepcopy` otherwise:
+
+    pip install dotted-notation[copium]
+
+> **Caveat (copium 0.1.0):** after copium copies a large object, its copies of
+> small objects in the same process become slower than `copy.deepcopy` and stay
+> that way. Copying whole documents is 3-9x faster, but a long-running process
+> that mixes one large copy with many small ones can come out slower overall.
+> Tracked upstream in [copium#54](https://github.com/percolab/copium/issues/54).
+
+## Table of Contents
+
+- [Safe Traversal (Optional Chaining)](#safe-traversal-optional-chaining)
+- [Why Dotted?](#why-dotted)
+- [Breaking Changes](#breaking-changes)
+- [API](#api)
+  - [Get](#get)
+  - [Update](#update)
+  - [Remove](#remove)
+  - [Match](#match)
+  - [Replace](#replace)
+  - [Translate](#translate)
+  - [Expand](#expand)
+  - [Overlaps](#overlaps)
+  - [Has](#has)
+  - [Mutable](#mutable)
+  - [Setdefault](#setdefault)
+  - [Pluck](#pluck)
+  - [Walk](#walk)
+  - [Unpack](#unpack)
+  - [Pack](#pack)
+  - [Keys, Values, Items](#keys-values-items)
+  - [Build](#build)
+  - [Apply](#apply)
+  - [Assemble](#assemble)
+  - [Quote](#quote)
+  - [AUTO](#auto)
+  - [Multi Operations](#multi-operations)
+  - [Strict Mode](#strict-mode)
+- [Paths](#paths)
+  - [Key fields](#key-fields)
+  - [Bracketed fields](#bracketed-fields)
+  - [Attr fields](#attr-fields)
+  - [Slicing](#slicing)
+  - [Dot notation for sequence indexing](#dot-notation-for-sequence-indexing)
+  - [Empty path (root access)](#empty-path-root-access)
+- [Typing & Quoting](#typing--quoting)
+  - [Numeric types](#numeric-types)
+  - [Quoting](#quoting)
+  - [The numericize `#` operator](#the-numericize--operator)
+  - [Container types](#container-types)
+  - [Bytes literals](#bytes-literals)
+- [Patterns](#patterns)
+  - [Wildcards](#wildcards)
+  - [Regular expressions](#regular-expressions)
+  - [The match-first operator](#the-match-first-operator)
+  - [Slicing vs Patterns](#slicing-vs-patterns)
+- [Substitutions and References](#substitutions-and-references)
+  - [Substitution](#substitution)
+    - [Substitution transforms](#substitution-transforms)
+  - [Template bindings](#template-bindings)
+  - [References](#references)
+  - [Relative References](#relative-references)
+  - [References in transforms and guards](#references-in-transforms-and-guards)
+  - [Custom resolvers](#custom-resolvers)
+  - [Escaping](#escaping)
+- [Type Restrictions](#type-restrictions)
+  - [Positive restrictions](#positive-restrictions)
+  - [Negative restrictions](#negative-restrictions)
+  - [Slot and attr restrictions](#slot-and-attr-restrictions)
+  - [Combining with filters](#combining-with-filters)
+  - [Recursive traversal with type restrictions](#recursive-traversal-with-type-restrictions)
+- [Recursive Traversal](#recursive-traversal)
+  - [The recursive operator `*`](#the-recursive-operator-)
+  - [Recursive patterns](#recursive-accessors)
+  - [Depth slicing](#depth-slicing)
+  - [Recursive patterns with value guard](#recursive-with-value-guard)
+  - [Recursive update and remove](#recursive-update-and-remove)
+  - [Recursive pattern matching](#recursive-match)
+- [Grouping](#grouping)
+  - [Path grouping](#path-grouping)
+  - [Precedence](#precedence)
+- [Operators](#operators)
+  - [The concat `+` operator](#the-concat--operator)
+  - [The append `+` operator](#the-append--operator)
+  - [The append-unique `+?` operator](#the-append-unique--operator)
+  - [The invert `-` operator](#the-invert---operator)
+  - [The NOP `~` operator](#the-nop--operator)
+  - [The cut `#` operator](#the-cut--operator)
+  - [The soft cut `##` operator](#the-soft-cut--operator)
+  - [The numericize `#` operator](#the-numericize--operator-1)
+- [Filters](#filters)
+  - [The key-value filter](#the-key-value-filter)
+  - [The key-value first filter](#the-key-value-first-filter)
+  - [Conjunction vs disjunction](#conjunction-vs-disjunction)
+  - [Grouping with parentheses](#grouping-with-parentheses)
+  - [Filter negation and not-equals](#filter-negation-and-not-equals)
+  - [Comparison operators](#comparison-operators)
+  - [Boolean and None filter values](#boolean-and-none-filter-values)
+  - [Value guard](#value-guard)
+  - [Guard transforms](#guard-transforms)
+  - [Container filter values](#container-filter-values)
+  - [Type prefixes](#type-prefixes)
+  - [String glob patterns](#string-glob-patterns)
+  - [Bytes glob patterns](#bytes-glob-patterns)
+  - [Value groups](#value-groups)
+  - [Dotted filter keys](#dotted-filter-keys)
+  - [Slice notation in filter keys](#slice-notation-in-filter-keys)
+- [Transforms](#transforms)
+  - [Built-in Transforms](#built-in-transforms)
+  - [Container transform arguments](#container-transform-arguments)
+  - [Custom Transforms](#custom-transforms)
+- [SQL Translation (`sqlize`)](#sqlize) — *under development*
+- [Spark Translation (`sparkize`)](#sparkize) — *under development*
+- [Constants and Exceptions](#constants-and-exceptions)
+- [CLI (`dq`)](#cli-dq)
+  - [File input](#file-input)
+  - [Format conversion](#format-conversion)
+  - [Path files](#path-files)
+  - [Projection](#projection)
+  - [Unpack](#unpack)
+  - [Pack](#pack)
+- [Recipes](#recipes)
+- [FAQ](#faq)
+  - [Why do I get a tuple for my get?](#why-do-i-get-a-tuple-for-my-get)
+  - [How do I craft an efficient path?](#how-do-i-craft-an-efficient-path)
+  - [Why do I get a RuntimeError when updating with a slice filter?](#why-do-i-get-a-runtimeerror-when-updating-with-a-slice-filter)
+  - [Why can't I use patterns to discover keys/attrs on my Stripe object?](#why-cant-i-use-patterns-on-stripe-objects)
+
+<a id="safe-traversal-optional-chaining"></a>
+## Safe Traversal (Optional Chaining)
+
+Like JavaScript's optional chaining operator (`?.`), dotted safely handles missing paths.
+If any part of the path doesn't exist, `get` returns `None` (or a specified default)
+instead of raising an exception:
+
+    >>> import dotted
+    >>> d = {'a': {'b': 1}}
+    >>> dotted.get(d, 'a.b.c.d.e') is None  # path doesn't exist
+    True
+    >>> dotted.get(d, 'a.b.c.d.e', 'default')  # with default
+    'default'
+    >>> dotted.get(d, 'x.y.z', 42)  # missing from the start
+    42
+
+This makes dotted ideal for safely navigating deeply nested or uncertain data structures
+without defensive coding or try/except blocks.
+
+<a id="why-dotted"></a>
+## Why Dotted?
+
+Several Python libraries handle nested data access. Here's how dotted compares:
+
+| Feature | dotted | glom | jmespath | pydash |
+|---------|--------|------|----------|--------|
+| Safe traversal (no exceptions) | ✅ | ✅ | ✅ | ✅ |
+| Familiar dot notation | ✅ | ❌ (custom spec) | ❌ (JSON syntax) | ✅ |
+| Pattern matching (wildcards) | ✅ | ✅ | ❌ | ❌ |
+| Regex patterns | ✅ | ❌ | ❌ | ❌ |
+| In-place mutation | ✅ | ✅ | ❌ (read-only) | ✅ |
+| Attribute access (`@attr`) | ✅ | ✅ | ❌ | ✅ |
+| Transforms/coercion | ✅ | ✅ | ✅ | ❌ |
+| Slicing | ✅ | ❌ | ✅ | ❌ |
+| Filters | ✅ | ❌ | ✅ | ❌ |
+| Comparison operators (`<`, `>`, `<=`, `>=`) | ✅ | ❌ | ❌ | ❌ |
+| AND/OR/NOT filters | ✅ | ❌ | ✅ | ❌ |
+| Grouping `(a,b)`, `(.a,.b)` | ✅ | ❌ | ❌ | ❌ |
+| Recursive patterns (`**`, `*key`, `*([*])`, `*(@*)`) | ✅ | ✅ | ❌ | ❌ |
+| Depth slicing (`**:-1`, `**:2`) | ✅ | ❌ | ❌ | ❌ |
+| NOP (~) match but don't update | ✅ | ❌ | ❌ | ❌ |
+| Cut (#) and soft cut (##) in disjunction | ✅ | ❌ | ❌ | ❌ |
+| Container filter values (`[1, ...]`, `{k: v}`) | ✅ | ❌ | ❌ | ❌ |
+| String/bytes glob patterns (`"pre"..."suf"`) | ✅ | ❌ | ❌ | ❌ |
+| Value groups (`(val1, val2)`) | ✅ | ❌ | ❌ | ❌ |
+| Bytes literal support (`b"..."`) | ✅ | ❌ | ❌ | ❌ |
+| Zero dependencies | ❌ (pyparsing) | ❌ | ✅ | ❌ |
+
+**Choose dotted if you want:**
+- Intuitive `a.b[0].c` syntax that looks like Python
+- Pattern matching with wildcards (`*`) and regex (`/pattern/`)
+- Both read and write operations on nested structures
+- Transforms to coerce types inline (`path|int`, `path|str:fmt`)
+- Recursive patterns with `*key` (dict keys), `*([*])` (slots), `*(@*)` (attrs), and `*(expr)` (mixed), with depth slicing
+- Path grouping `(a,b).c` / `prefix(.a,.b)` for multi-access
+- **Cut (`#`) in disjunction**—first matching branch wins; e.g. `(a#, b)` or `emails[(*&email="x"#, +)]` for "update if exists, else append"
+- **Soft cut (`##`) in disjunction**—suppress later branches only for overlapping paths; e.g. `(*(*#, [*]:!(str, bytes)):-2(.*, [])##, (*, []))` for "recurse into containers, fall back for the rest"
+- NOP (`~`) to match without updating—e.g. `(name.~first#, name.first)` for conditional updates
+- **String/bytes glob patterns**—match by prefix, suffix, or substring: `*="user_"...`, `*=b"header"...b"footer"`
+- **Value groups**—disjunction over filter values: `*=(1, 2, 3)`, `[*&status=("active", "pending")]`
+- **Strict mode**—enforce type separation: `[0]` only matches lists, `.key` only matches dicts
+
+<a id="breaking-changes"></a>
+## Breaking Changes
+
+### v0.50.0
+- **Nothing is read through `[+]` or `[+?]`.** They are the slot past the
+  end, so `get(d, 'a[+]')` is the default, not the last item; use `a[-1]`.
+  `has` is `False`, `remove`, `pluck` and `expand` through them find
+  nothing, a guard on them never passes, and `setdefault` always appends
+  (`[+?]` only when the value is absent). See
+  [The append `+` operator](#the-append--operator).
+- **An append branch in a group always applies in an update.**
+  `(a, b[+])` appends to `b` whether or not it is empty; it used to append
+  only when `b` already had items. With a cut, `[(*&k=1#, +)]`, the append
+  is still the fallback.
+
+### v0.49.0
+- **`;` is now a reserved character**: it packs a group, `(a,b;)` (see
+  [Packing](#packing)). If you have keys containing a literal `;`, quote
+  them: `"a;b"`.
+
+### v0.47.0
+- **`!` binds tighter than guards, filters and transforms.** `!a=5` is now
+  `(!a)=5`, the values other than `a`'s that equal 5; the old meaning,
+  everything but an `a` equal to 5, is written `!(a=5)`. Likewise `!a&k=v`
+  filters what `!a` yields and `!a|int` transforms it. See
+  [Precedence](#precedence).
+- **A guard, filter or transform after a group distributes to every branch.**
+  `(a,b)=5` is `(a=5,b=5)`, `(first&last)>5` is `(first>5&last>5)`,
+  `(a,b)|int` is `(a|int,b|int)`, and `assemble` writes the distributed form.
+  These used to fail to parse.
+- **`a,b|int` transforms only `b`.** A transform binds to the expression on
+  its left before `,` and `&`; `(a,b)|int` transforms both.
+- **`:type` tests the value a path yields, not the node it is applied to.**
+  `x:int` on `{'x': 3}` is `3`; it was `None`. Restrict a container one
+  segment earlier: `a.b:dict` → `a:dict.b`, and
+  `*[*]:!(str, bytes)` → `*:!(str, bytes)[*]`. `**:!(str, bytes)` and
+  `*(*, [*]):!(str, bytes)` now drop string values themselves, not only
+  their decomposition.
+- **`!a.b` continues into `b`.** It yielded the complement of `a` and
+  ignored `.b`; it now yields `.b` of every key other than `a`, as
+  `match` always read it.
+- **Ops own their transforms.** `Dotted.transforms` is read-only and
+  reflects the trailing op; `parse('a.b|int')` reprs as
+  `Dotted([a, b|int])`. A guard's or filter's match-only transforms,
+  `a|int=5`, are `guard_transforms`, not `transforms`.
+
+### v0.44.0
+- **Parameter renamed from `key` to `path`** across the public API to align with
+  the terminology used throughout the docs (a _path_ is the whole dotted
+  expression; a _path segment_ or _field_ is one component). Positional calls
+  are unaffected; keyword callers must update:
+  - `get(obj, key=...)` → `get(obj, path=...)`
+  - `update(obj, key=...)`, `update_if(obj, key=...)` → `update(obj, path=...)`, etc.
+  - `remove(obj, key=...)`, `remove_if(obj, key=...)` → `remove(obj, path=...)`, etc.
+  - `has`, `setdefault`, `build`, `mutable`, `match` — same rename
+  - `is_pattern(key=...)`, `is_template(key=...)`, `is_reference(key=...)`,
+    `is_indeterminate(key=...)`, `is_simple(key=...)`, `is_inverted(key=...)` —
+    all take `path=` now.
+  - `parse(key=...)` → `parse(path=...)`
+  - `build_multi(obj, keys=...)` → `build_multi(obj, paths=...)`
+  - `setdefault_multi(obj, keyvalues=...)`, `update_multi(obj, keyvalues=...)` →
+    `setdefault_multi(obj, pathvalues=...)`, `update_multi(obj, pathvalues=...)`
+  - `pack(keyvalues=...)` → `pack(pathvalues=...)`
+  - `remove_multi(..., keys_only=...)`, `remove_if_multi(..., keys_only=...)` →
+    `remove_multi(..., paths_only=...)`, `remove_if_multi(..., paths_only=...)`
+  - `assemble(keys)` / `assemble_multi(keys_list)` → `assemble(segments)` /
+    `assemble_multi(segments_list)`
+  - `remove_if` default pred signature: `lambda key: key is not None` →
+    `lambda path: path is not None`
+- **`is_mutable` added as the preferred name for `mutable`** — parallels the
+  other `is_*` predicates. `mutable` remains as an alias.
+- **`expand_multi`, `pluck_multi`, `assemble_multi` now return a generator**
+  instead of a tuple, aligning with the other read-side `_multi` APIs
+  (`get_multi`, `match_multi`, `walk_multi`, `translate_multi`,
+  `setdefault_multi`). Callers that consumed the return as a tuple (indexing
+  `r[0]`, `len(r)`, equality `r == (...)`) must now materialize:
+  `tuple(pluck_multi(...))`. The singular forms (`expand`, `pluck`, `assemble`)
+  are unchanged.
+
+### v0.43.4
+- **`is_pattern` no longer returns `True` for substitutions**. `Subst` previously
+  inherited from `Pattern` in the class hierarchy, so any path containing a
+  substitution in an access position (e.g. `a.$(x)`, `a.$0`) reported as a
+  pattern. Substitutions resolve to a single key, not a set — that was a
+  misclassification. Use `is_template(path)` to check "contains a
+  substitution."
+
+### v0.40.0
+- **`unpack()` now returns a `dict`**: Previously returned a tuple of
+  `(path, value)` pairs. Now returns `{path: value, ...}` directly.
+  Replace `dict(dotted.unpack(d))` with `dotted.unpack(d)`.
+
+### v0.39.0
+- **`normalize()` removed**: Use `quote()` instead, which is now idempotent.
+- **`match` module renamed to `matchers`**: Update imports from
+  `from dotted.match import ...` to `from dotted.matchers import ...`.
+- **`$`-prefixed keys now canonicalize to single-quoted form**: `quote('$0')`
+  returns `'$0'` instead of `\$0`. The `\$` form is still accepted as input.
+
+### v0.38.0
+- **`<` and `>` are now reserved characters**: These are used for
+  [comparison operators](#comparison-operators) in filters and value guards
+  (`<`, `>`, `<=`, `>=`). If you have keys containing literal `<` or `>`,
+  quote them: `"my<key>"`.
+
+### v0.35.0
+- **Recursive traversal now walks into `str` and `bytes`**: Previously, recursive
+  patterns like `*(*#, [*])` hardcoded a skip for strings and bytes. This is now
+  controlled by [type restrictions](#type-restrictions) instead. If you use custom
+  recursive accessor groups with `[*]`, add `:!(str, bytes)` to prevent character
+  decomposition: `*(*#, [*]:!(str, bytes))`. The default `**` (key-only recursion)
+  is unaffected — it never entered strings because strings have no dict keys.
+
+### v0.31.0
+- **`{` and `}` are now reserved characters**: Curly braces are used for container
+  filter values (dict and set patterns). If you have keys containing literal `{` or `}`,
+  quote them: `"my{key}"`.
+
+### v0.30.0
+- **`update_if` pred now gates on incoming value, not current value**: Previously,
+  `update_if(obj, key, val)` checked `pred(current_value_at_path)`. Now it checks
+  `pred(val)`. Default pred changed from `lambda val: val is None` to
+  `lambda val: val is not None` — meaning None values are skipped.
+  Use path expressions with NOP (`~`) and cut (`#`) for conditional updates based on
+  existing values.
+- **`remove_if` pred now gates on key, not current value**: Previously,
+  `remove_if(obj, key)` checked `pred(current_value_at_path)`. Now it checks
+  `pred(key)`. Default pred is `lambda key: key is not None` — meaning None keys
+  are skipped.
+- **`update_if_multi` / `remove_if_multi`**: Same pred changes as their single
+  counterparts.
+
+### v0.28.0
+- **`[*=value]` on primitive lists no longer works** — use `[*]=value` (value guard) instead.
+  `[*=value]` is a SliceFilter that tests *keys* of dict-like items; primitives have no keys,
+  so it now correctly returns `[]`.
+- **`[!*=value]` on primitive lists no longer works** — use `[*]!=value` instead.
+- **`*&*=value` no longer matches primitives** — use `*=value` (value guard) instead.
+- Existing `[*=value]` on dicts/objects is unchanged.
+- Existing `&` filter behavior on dict-like nodes is unchanged.
+
+### v0.13.0
+- **Filter conjunction operator changed from `.` to `&`**: The conjunction operator for
+  chaining multiple filters has changed. Previously, `*.id=1.name="alice"` was used for
+  conjunctive (AND) filtering. Now use `*&id=1&name="alice"`. This change enables support
+  for dotted paths within filter keys (e.g., `items[user.id=1]` to filter on nested fields).
+
+<a id="api"></a>
+## API
+
+Probably the easiest thing to do is pydoc the api layer.
+
+    $ pydoc dotted
+
+Parsed dotted paths are LRU-cached (after the first parse of a given path string), so repeated use of the same path string is cheap.
+
+<a id="get"></a>
+### Get
+
+Get the value at a dotted path. See the Paths, Patterns, and Operators sections below for the full notation.
+
+    >>> import dotted
+    >>> dotted.get({'a': {'b': {'c': {'d': 'nested'}}}}, 'a.b.c.d')
+    'nested'
+
+A path read many times can be made into a **getter** once: a callable
+`obj -> value` that returns what `get` would, with the parse, the resolver's
+hooks and the fast-path decision settled when it is made, against the
+resolver in force then. It takes `get`'s arguments, the object aside.
+
+    >>> d_of = dotted.getter('a.b.c.d', default='none')
+    >>> d_of({'a': {'b': {'c': {'d': 'nested'}}}})
+    'nested'
+    >>> d_of({})
+    'none'
+
+<a id="update"></a>
+### Update
+
+Update mutates the object when possible and always returns the result. For immutable
+objects, use the return value.
+
+    >>> import dotted
+    >>> l = []
+    >>> t = ()
+    >>> dotted.update(l, '[0]', 'hello')
+    ['hello']
+    >>> l
+    ['hello']
+    >>> dotted.update(t, '[0]', 'hello')
+    ('hello',)
+    >>> t
+    ()
+
+#### Update via pattern
+
+You can update all fields that match pattern given by either a wildcard OR regex.
+
+    >>> import dotted
+    >>> d = {'a': 'hello', 'b': 'bye'}
+    >>> dotted.update(d, '*', 'me')
+    {'a': 'me', 'b': 'me'}
+
+#### Immutable updates
+
+Use `mutable=False` to prevent mutation of the original object:
+
+    >>> import dotted
+    >>> data = {'a': 1, 'b': 2}
+    >>> result = dotted.update(data, 'a', 99, mutable=False)
+    >>> data
+    {'a': 1, 'b': 2}
+    >>> result
+    {'a': 99, 'b': 2}
+
+This works for `remove` as well:
+
+    >>> data = {'a': 1, 'b': 2}
+    >>> result = dotted.remove(data, 'a', mutable=False)
+    >>> data
+    {'a': 1, 'b': 2}
+    >>> result
+    {'b': 2}
+
+When `mutable=False` is specified and the root object is mutable, `copy.deepcopy()`
+is called first. This ensures no mutation occurs even when updating through nested
+immutable containers (e.g., a tuple inside a dict).
+
+#### Update if
+
+`update_if` updates only when `pred(val)` is true. Default pred is
+`lambda val: val is not None`, so None values are skipped. Use `pred=None`
+for unconditional update (same as `update`):
+
+    >>> import dotted
+    >>> dotted.update_if({}, 'a', 1)
+    {'a': 1}
+    >>> dotted.update_if({}, 'a', None)
+    {}
+    >>> dotted.update_if({}, 'a', '', pred=bool)
+    {}
+
+Use `update_if_multi` for batch updates with per-item `(key, val)` or `(key, val, pred)`.
+
+#### Update with NOP (~)
+
+The NOP operator `~` means "match but don't update." Use it when some matches should
+be left unchanged. Combine with cut (`#`) for conditional updates:
+
+    >>> import dotted
+    >>> data = {'name': {'first': 'hello'}}
+    >>> dotted.update(data, '(name.~first#, name.first)', 'world')  # first exists, NOP + cut
+    {'name': {'first': 'hello'}}
+    >>> data = {'name': {}}
+    >>> dotted.update(data, '(name.~first#, name.first)', 'world')  # first missing, update
+    {'name': {'first': 'world'}}
+
+<a id="remove"></a>
+### Remove
+
+You can remove a field or do so only if it matches value.  For example,
+
+    >>> import dotted
+    >>> d = {'a': 'hello', 'b': 'bye'}
+    >>> dotted.remove(d, 'b')
+    {'a': 'hello'}
+    >>> dotted.remove(d, 'a', 'bye')
+    {'a': 'hello'}
+
+#### Remove via pattern
+
+Similar to update, all patterns that match will be removed.  If you provide a value as
+well, only the matched patterns that also match the value will be removed.
+
+#### Remove if
+
+`remove_if` removes only when `pred(key)` is true. Default pred is
+`lambda key: key is not None`, so None keys are skipped. Use `pred=None`
+for unconditional remove (same as `remove`):
+
+    >>> import dotted
+    >>> dotted.remove_if({'a': 1, 'b': 2}, 'a')
+    {'b': 2}
+    >>> dotted.remove_if({'a': 1}, None)
+    {'a': 1}
+
+Use `remove_if_multi` for batch removal with per-item `(key, val, pred)`.
+
+<a id="match"></a>
+### Match
+
+Match a dotted-style pattern to a path. Partial matching is on by default. You
+can match via wildcard OR via regex. Here's a regex example:
+
+    >>> import dotted
+    >>> dotted.match('/a.+/', 'abced.b')
+    'abced.b'
+    >>> dotted.match('/a.+/', 'abced.b', partial=False)
+
+With the `groups=True` parameter, you'll see how it was matched:
+
+    >>> import dotted
+    >>> dotted.match('hello.*', 'hello.there.bye', groups=True)
+    ('hello.there.bye', ('hello', 'there.bye'))
+
+In the above example, `hello` matched to `hello` and `*` matched to `there.bye` (partial
+matching is enabled by default).
+
+Use `groups=GroupMode.patterns` to capture only pattern segments (wildcards, regex, etc.),
+excluding literals:
+
+    >>> from dotted import GroupMode
+    >>> dotted.match('a.*.b', 'a.hello.b', groups=GroupMode.patterns, partial=False)
+    ('a.hello.b', ('hello',))
+    >>> dotted.match('hello.*', 'hello.there.bye', groups=GroupMode.patterns)
+    ('hello.there.bye', ('there.bye',))
+
+Op groups match like regex alternation, and parentheses act as a capture
+group: a group captures the segments its matching branch consumed as a
+single group, and counts as one pattern position:
+
+    >>> dotted.match('a.(x,y).*', 'a.x.z', groups=GroupMode.patterns, partial=False)
+    ('a.x.z', ('x', 'z'))
+    >>> dotted.match('x.(a.b,c)', 'x.a.b', groups=True)
+    ('x.a.b', ('x', 'a.b'))
+    >>> dotted.match('x.(a.b)', 'x.a.b', groups=True)
+    ('x.a.b', ('x', 'a.b'))
+
+The path may itself be a pattern, in which case `match` asks whether the
+pattern *subsumes* it — covers everything the path denotes:
+
+    >>> dotted.match('*', '*.*')
+    '*.*'
+    >>> dotted.match('*.*', '*')
+
+A group on the path side denotes all of its expansions, so every branch
+must be covered. It captures as a single segment: itself.
+
+    >>> dotted.match('references.*', 'references.(a,b)')
+    'references.(a,b)'
+    >>> dotted.match('references.*', 'references.(a,b)', groups=True)
+    ('references.(a,b)', ('references', '(a,b)'))
+
+A branch that outruns the pattern is only covered when partial matching
+is on, and never when the pattern needs more segments than the branch
+has:
+
+    >>> dotted.match('*', '(a.b,c)')
+    '(a.b,c)'
+    >>> dotted.match('*', '(a.b,c)', partial=False)
+    >>> dotted.match('*.*', '(a.b,c)')
+
+Groups on both sides compose the two rules — the pattern matches if
+*some* branch of it covers *every* branch of the path:
+
+    >>> dotted.match('(a,b)', '(a.b,b)')
+    '(a.b,b)'
+    >>> dotted.match('(a,b)', '(a.b,b)', partial=False)
+    >>> dotted.match('(a,b)', '(a.b,c)')
+
+A recursive op on the path side denotes unboundedly many expansions, so
+only a recursive pattern that subsumes it will match:
+
+    >>> dotted.match('**', 'a.**')
+    'a.**'
+    >>> dotted.match('**', '*b')
+    '*b'
+    >>> dotted.match('*', '**')
+
+<a id="replace"></a>
+### Replace
+
+Substitute placeholders in a template path with bound values. Template paths
+are validated at parse time — structural errors are caught immediately, not at runtime.
+
+Positional (`$N`) placeholders resolve against a list or tuple:
+
+    >>> import dotted
+    >>> dotted.replace('people.$1.$2', ('users', 'alice', 'age'))
+    'people.alice.age'
+
+Named (`$(name)`) placeholders resolve against a dict:
+
+    >>> dotted.replace('$(table).$(key)', {'table': 'users', 'key': 'alice'})
+    'users.alice'
+
+Placeholders support transforms inside the parenthesized form:
+
+    >>> dotted.replace('$(0|uppercase)', ['hello'])
+    'HELLO'
+
+Combine with `match` to remap paths — capture groups from one pattern and substitute
+into another:
+
+    >>> key, groups = dotted.match('users.*.*', 'users.alice.age', groups=True)
+    >>> dotted.replace('people.$0.$1', groups[1:])
+    'people.alice.age'
+
+Placeholders work in key, slot, and attr positions:
+
+    >>> dotted.replace('items[$0]', ('3',))
+    'items[3]'
+    >>> dotted.replace('$0@$1', ('obj', 'name'))
+    'obj@name'
+
+By default, missing bindings raise an error. Pass `partial=True` to leave
+unresolved placeholders as-is — the output is still a valid template:
+
+    >>> dotted.replace('$0.$1.$2', ('a', 'b'), partial=True)
+    'a.b.$2'
+    >>> dotted.replace('$(a).$(b)', {'a': 'x'}, partial=True)
+    'x.$(b)'
+
+See [Substitution](#substitution) for `is_template`, escaping, and more.
+
+<a id="translate"></a>
+### Translate
+
+Translate a path using a pattern map (first exact match wins). Each key in the map
+is a match pattern; the value is a template with `$N` placeholders that refer to
+captured pattern segments only (wildcards, regex — not literals):
+
+    >>> from dotted.api import translate
+    >>> translate('a.hello.b', {'a.*.b': '$0.there'})
+    'hello.there'
+
+Here `*` captures `hello` as `$0`. Literal segments `a` and `b` are not numbered.
+With multiple wildcards, `$N` indices follow wildcard order:
+
+    >>> translate('a.X.b.Y.c', {'a.*.b.*.c': '$1.$0'})
+    'Y.X'
+
+The pattern map can be a dict or an iterable of `(pattern, template)` tuples.
+Returns `None` if no pattern matches:
+
+    >>> translate('no.match', {'a.*': '$0'}) is None
+    True
+
+`translate_multi` applies the pattern map to multiple paths, yielding
+`(original, translated)` tuples (`translated` is `None` when no pattern matches):
+
+    >>> from dotted.api import translate_multi
+    >>> list(translate_multi(['a.hello.b', 'x.y'], {'a.*.b': '$0.there'}))
+    [('a.hello.b', 'hello.there'), ('x.y', None)]
+
+<a id="expand"></a>
+### Expand
+
+Expand a pattern into all matching paths in an object.
+
+    >>> import dotted
+    >>> d = {'hello': {'there': [1, 2, 3]}, 'bye': 7}
+    >>> dotted.expand(d, '*')
+    ('hello', 'bye')
+    >>> dotted.expand(d, '*.*')
+    ('hello.there',)
+    >>> dotted.expand(d, '*.*[*]')
+    ('hello.there[0]', 'hello.there[1]', 'hello.there[2]')
+    >>> dotted.expand(d, '*.*[1:]')
+    ('hello.there[1:]',)
+
+<a id="overlaps"></a>
+### Overlaps
+
+Test whether two dotted paths overlap—i.e. one is a prefix of the other, or they
+are identical. Used internally by [soft cut (`##`)](#the-soft-cut--operator) to
+decide which later-branch results to suppress.
+
+    >>> import dotted
+    >>> dotted.overlaps('a', 'a.b.c')
+    True
+    >>> dotted.overlaps('a.b.c', 'a')
+    True
+    >>> dotted.overlaps('a.b', 'a.b')
+    True
+    >>> dotted.overlaps('a.b', 'a.c')
+    False
+
+<a id="has"></a>
+### Has
+
+Check if a path or pattern exists in an object.
+
+    >>> import dotted
+    >>> d = {'a': {'b': 1}}
+    >>> dotted.has(d, 'a.b')
+    True
+    >>> dotted.has(d, 'a.c')
+    False
+    >>> dotted.has(d, 'a.*')
+    True
+
+<a id="mutable"></a>
+### Mutable
+
+Check if `update(obj, key, val)` would mutate `obj` in place. Returns `False` for
+empty paths (root replacement) or when the object or any container in the path
+is immutable.
+
+    >>> import dotted
+    >>> dotted.mutable({'a': 1}, 'a')
+    True
+    >>> dotted.mutable({'a': 1}, '')           # empty path
+    False
+    >>> dotted.mutable((1, 2), '[0]')          # tuple is immutable
+    False
+    >>> dotted.mutable({'a': (1, 2)}, 'a[0]')  # nested tuple (dict is mutable)
+    True
+
+This is useful when you need to know whether to use the return value:
+
+    >>> data = {'a': 1}
+    >>> if dotted.mutable(data, 'a'):
+    ...     _ = dotted.update(data, 'a', 2)  # mutates in place
+    ... else:
+    ...     data = dotted.update(data, 'a', 2)  # use return value
+
+<a id="setdefault"></a>
+### Setdefault
+
+Set a value only if the path doesn't already exist. Creates nested structures as needed.
+
+    >>> import dotted
+    >>> d = {'a': 1}
+    >>> dotted.setdefault(d, 'a', 999)  # path exists, no change; returns value
+    1
+    >>> dotted.setdefault(d, 'b', 2)    # path missing, sets value; returns it
+    2
+    >>> dotted.setdefault({}, 'a.b.c', 7)  # creates nested structure; returns value
+    7
+
+<a id="pluck"></a>
+### Pluck
+
+Extract (path, value) pairs from an object matching a pattern.
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2, 'nested': {'x': 10}}
+    >>> dotted.pluck(d, 'a')
+    ('a', 1)
+    >>> dotted.pluck(d, '*')
+    (('a', 1), ('b', 2), ('nested', {'x': 10}))
+    >>> dotted.pluck(d, 'nested.*')
+    (('nested.x', 10),)
+
+<a id="walk"></a>
+### Walk
+
+Like `pluck` but as a lazy generator — yields `(path, value)` pairs without
+materializing the full result. Useful for streaming or large structures.
+
+    >>> import dotted
+    >>> d = {'a': {'b': 1, 'c': 2}, 'x': 3}
+    >>> list(dotted.walk(d, 'a.*'))
+    [('a.b', 1), ('a.c', 2)]
+    >>> for path, val in dotted.walk(d, '*'):
+    ...     print(f'{path} = {val}')
+    a = {'b': 1, 'c': 2}
+    x = 3
+
+<a id="unpack"></a>
+### Unpack
+
+Recursively unpack a nested structure into a flat dict mapping dotted paths to
+leaf values — its dotted normal form. The result can be replayed with `pack` to
+reconstruct the original object.
+
+    >>> import dotted
+    >>> d = {'a': {'b': [1, 2, 3]}, 'x': {'y': {'z': [4, 5]}}, 'extra': 'stuff'}
+    >>> dotted.unpack(d)
+    {'a.b': [1, 2, 3], 'x.y.z': [4, 5], 'extra': 'stuff'}
+    >>> dotted.pack(dotted.unpack(d)) == d
+    True
+
+Pass `attrs=` to also descend into object attributes. The `Attrs` enum controls
+which attributes are included:
+
+- `Attrs.standard` — non-dunder attributes
+- `Attrs.special` — dunder attributes (`__name__`, etc.)
+
+For example:
+
+    >>> class Pt:
+    ...     def __init__(self, x, y):
+    ...         self.x = x
+    ...         self.y = y
+    >>> dotted.unpack({'point': Pt(3, 4)}, attrs=[dotted.Attrs.standard])
+    {'point@x': 3, 'point@y': 4}
+
+Pass both to include all attributes: `attrs=[Attrs.standard, Attrs.special]`.
+
+Pass `project=` to keep only the leaf paths selected by one or more dotted
+patterns. Selection is *directional* — a leaf survives if it `match`es a
+projection pattern — so projecting `a.b` never drags in a shallower scalar leaf
+`a`:
+
+    >>> o = {'a': {'b': 1, 'c': 2}, 'x': {'y': {'z': 3}}, 'extra': 9}
+    >>> dotted.unpack(o, project='a')
+    {'a.b': 1, 'a.c': 2}
+    >>> dotted.unpack(o, project=['a', 'x.y.z'])
+    {'a.b': 1, 'a.c': 2, 'x.y.z': 3}
+
+Matching uses `match`'s `partial=True` by default, so a trailing segment is
+greedy (`a.*` also keeps `a.b.c`). Set `partial=False` for exact-depth matching,
+where `a.*`, `a.*.*`, and `a.**` are all distinct:
+
+    >>> deep = {'a': {'b': {'c': 1}}, 'd': 9}
+    >>> dotted.unpack(deep, project='a.*', partial=False)
+    {}
+    >>> dotted.unpack(deep, project='a.**', partial=False)
+    {'a.b.c': 1}
+
+Override `partial` per field with a `(pattern, partial)` tuple — bare patterns
+inherit the global setting. This matters for mid-pattern matches that `**`
+cannot express (e.g. `a.*.c` keeping both `a.x.c` and `a.x.c.d`):
+
+    >>> dotted.unpack(deep, project=[('a.*', True), 'd'], partial=False)
+    {'a.b.c': 1, 'd': 9}
+
+`project=` and `partial=` also flow through `keys()`, `values()`, and `items()`.
+
+<a id="pack"></a>
+### Pack
+
+Build a new object from path-value pairs. The inverse of `unpack` — infers the root
+container type automatically.
+
+    >>> import dotted
+    >>> dotted.pack([('a.b', 1), ('a.c', 2)])
+    {'a': {'b': 1, 'c': 2}}
+    >>> dotted.pack([('[0]', 'a'), ('[1]', 'b')])
+    ['a', 'b']
+
+Accepts dicts as well as lists of pairs:
+
+    >>> dotted.pack({'x.y': 10, 'x.z': 20})
+    {'x': {'y': 10, 'z': 20}}
+
+Roundtrips with `unpack`:
+
+    >>> d = {'a': {'b': [1, 2, 3]}, 'x': 'hello'}
+    >>> dotted.pack(dotted.unpack(d)) == d
+    True
+
+<a id="keys-values-items"></a>
+### Keys, Values, Items
+
+`keys()`, `values()`, and `items()` mirror the `dict` interface over dotted
+normal form. All three call `unpack()` internally.
+
+    >>> d = {'a': {'b': 1}, 'x': {'y': 2}, 'z': 3}
+    >>> dotted.keys(d)
+    dict_keys(['a.b', 'x.y', 'z'])
+    >>> dotted.values(d)
+    dict_values([1, 2, 3])
+    >>> dotted.items(d)
+    dict_items([('a.b', 1), ('x.y', 2), ('z', 3)])
+
+`keys()` and `items()` support set operations:
+
+    >>> dotted.keys({'a': 1, 'b': 2}) & dotted.keys({'b': 3, 'c': 4})
+    {'b'}
+
+All three accept the same `attrs=`, `project=`, and `partial=` arguments as
+`unpack`:
+
+    >>> dotted.keys({'point': Pt(3, 4)}, attrs=[dotted.Attrs.standard])
+    dict_keys(['point@x', 'point@y'])
+    >>> dotted.items({'a': {'b': 1, 'c': 2}, 'x': 3}, project='a')
+    dict_items([('a.b', 1), ('a.c', 2)])
+
+<a id="build"></a>
+### Build
+
+Create a default nested structure for a dotted path.
+
+    >>> import dotted
+    >>> dotted.build({}, 'a.b.c')
+    {'a': {'b': {'c': None}}}
+    >>> dotted.build({}, 'items[]')
+    {'items': []}
+    >>> dotted.build({}, 'items[0]')
+    {'items': [None]}
+
+<a id="apply"></a>
+### Apply
+
+Apply transforms to values in an object in-place.
+
+    >>> import dotted
+    >>> d = {'price': '99.99', 'quantity': '5'}
+    >>> dotted.apply(d, 'price|float')
+    {'price': 99.99, 'quantity': '5'}
+    >>> dotted.apply(d, '*|int')
+    {'price': 99, 'quantity': 5}
+
+<a id="assemble"></a>
+### Assemble
+
+Build a dotted notation string from a list of path segments.
+
+    >>> import dotted
+    >>> dotted.assemble(['a', 'b', 'c'])
+    'a.b.c'
+    >>> dotted.assemble(['items', '[0]', 'name'])
+    'items[0].name'
+    >>> dotted.assemble([7, 'hello'])
+    '7.hello'
+
+<a id="quote"></a>
+### Quote
+
+Quote a key for use in a dotted path. Idempotent: `quote(quote(x)) == quote(x)`.
+Wraps in single quotes if the key contains reserved characters or whitespace.
+
+    >>> import dotted
+    >>> dotted.quote('hello')
+    'hello'
+    >>> dotted.quote('has.dot')
+    "'has.dot'"
+    >>> dotted.quote('has space')
+    "'has space'"
+    >>> dotted.quote(7)
+    '7'
+    >>> dotted.quote('7')
+    '7'
+
+Dotted normal form paths round-trip correctly:
+
+    >>> d = {'7': 'seven', 'a.b': 'dotted', 'hello': 'world'}
+    >>> flat = dotted.unpack(d)
+    >>> dotted.pack(flat) == d
+    True
+
+<a id="auto"></a>
+### AUTO
+
+All write operations (`update`, `update_multi`, `build`, `setdefault`, etc.) accept
+`AUTO` as the base object. Instead of passing `{}` or `[]`, let dotted infer
+the root container type from the first key — dict keys produce `{}`, slot keys
+produce `[]`.
+
+    >>> import dotted
+    >>> dotted.update(dotted.AUTO, 'a.b', 1)
+    {'a': {'b': 1}}
+    >>> dotted.update(dotted.AUTO, '[0]', 'hello')
+    ['hello']
+    >>> dotted.update_multi(dotted.AUTO, [('a', 1), ('b', 2)])
+    {'a': 1, 'b': 2}
+
+<a id="multi-operations"></a>
+### Multi Operations
+
+Most operations have `*_multi` variants for batch processing:
+
+**Note:** The read-side `_multi` APIs — `get_multi`, `match_multi`, `expand_multi`,
+`pluck_multi`, `walk_multi`, `translate_multi`, `assemble_multi`, and
+`setdefault_multi` — return a **generator**, not a list or tuple. Consume with
+`list()` / `tuple()` / `for`. The write-side `_multi` APIs (`update_multi`,
+`remove_multi`, `build_multi`, `apply_multi`, etc.) return the mutated object.
+The generator shape keeps input and output in the same style when you pass an
+iterator or generator of paths — lazy in, lazy out — and lets callers early-exit
+before a full traversal completes.
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2, 'c': 3}
+    >>> list(dotted.get_multi(d, ['a', 'b']))
+    [1, 2]
+    >>> dotted.update_multi({}, [('a.b', 1), ('c.d', 2)])
+    {'a': {'b': 1}, 'c': {'d': 2}}
+    >>> dotted.remove_multi(d, ['a', 'c'])
+    {'b': 2}
+    >>> d = {'a': 1}; list(dotted.setdefault_multi(d, [('a', 999), ('b', 2)]))
+    [1, 2]
+    >>> d
+    {'a': 1, 'b': 2}
+    >>> dotted.update_if_multi({}, [('a', 1), ('b', None), ('c', 3)])  # skips None vals
+    {'a': 1, 'c': 3}
+    >>> dotted.remove_if_multi({'a': 1, 'b': 2}, ['a', None, 'b'])  # skips None keys
+    {}
+
+Available multi operations: `get_multi`, `update_multi`, `update_if_multi`, `remove_multi`,
+`remove_if_multi`, `setdefault_multi`, `match_multi`, `expand_multi`, `apply_multi`,
+`build_multi`, `pluck_multi`, `walk_multi`, `assemble_multi`.
+
+<a id="strict-mode"></a>
+### Strict Mode
+
+By default, dotted is flexible about accessor types: bracket notation `[0]` falls through
+to dict keys on dicts, and dot notation `.0` coerces numeric keys to list indices on lists.
+This makes casual access forgiving, but sometimes you want type-separated access where
+slots only match lists and keys only match dicts.
+
+Pass `strict=True` to enforce this separation:
+
+    >>> import dotted
+    >>> d = {0: 'by-key', 'a': [10, 20]}
+
+    >>> # Non-strict (default): [0] falls through to dict key 0
+    >>> dotted.get(d, '[0]')
+    'by-key'
+
+    >>> # Strict: [0] only matches lists, returns None on dict
+    >>> dotted.get(d, '[0]', strict=True) is None
+    True
+
+    >>> # Non-strict: .0 coerces to list index
+    >>> dotted.get(d, 'a.0')
+    10
+
+    >>> # Strict: .0 only matches dict keys, returns None on list
+    >>> dotted.get(d, 'a.0', strict=True) is None
+    True
+
+Strict mode applies to all operations — `get`, `update`, `remove`, `has`, `expand`,
+`pluck`, and their `_multi` variants. Mismatches silently return empty results, consistent
+with dotted's safe traversal model:
+
+    >>> dotted.has(d, '[0]', strict=True)
+    False
+
+    >>> dotted.update(d, '[0]', 'new', strict=True)  # no-op on dict
+    {0: 'by-key', 'a': [10, 20]}
+
+    >>> dotted.remove(d, '[0]', strict=True)  # no-op on dict
+    {0: 'by-key', 'a': [10, 20]}
+
+Use strict mode when your data mixes integer dict keys and list indices, and you need
+to distinguish between them.
+
+<a id="paths"></a>
+## Paths
+
+Dotted notation shares similarities with python. A _dot_ `.` field expects to see a
+dictionary-like object (using `keys` and `__getitem__` internally).  A _bracket_ `[]`
+field is biased towards sequences (like lists or strs) but can also act on dicts.  A
+_attr_ `@` field uses `getattr/setattr/delattr`.
+
+<a id="key-fields"></a>
+### Key fields
+
+A key field is expressed as `a` or part of a dotted expression, such as `a.b`.  The
+grammar parser is permissive for what can be in a key field.  Pretty much any non-reserved
+char will match.  Key fields work best with objects that have a `keys` method
+(dictionaries and dictionary-like objects).  For concrete access like `.name`, objects
+with `__getitem__` and `__contains__` but no `keys` method are also supported via direct
+lookup (though pattern access like `.*` requires `keys`).
+
+    >>> import dotted
+    >>> dotted.get({'a': {'b': 'hello'}}, 'a.b')
+    'hello'
+
+If the key field starts with a space or `-`, you should either quote it OR you may use
+a `\` as the first char.
+
+<a id="bracketed-fields"></a>
+### Bracketed fields
+
+You may also use bracket notation, such as `a[0]` which does a `__getitem__` at key 0.
+The parser prefers numeric types over string types (if you wish to look up a non-numeric
+field using brackets be sure to quote it).  Bracketed fields will work with pretty much
+any object that can be looked up via `__getitem__`.
+
+    >>> import dotted
+    >>> dotted.get({'a': ['first', 'second', 'third']}, 'a[0]')
+    'first'
+    >>> dotted.get({'a': {'b': 'hello'}}, 'a["b"]')
+    'hello'
+
+<a id="attr-fields"></a>
+### Attr fields
+
+An attr field is expressed by prefixing with `@`. This will fetch data at that attribute.
+You may wonder why have this when you can just as easily use standard python to access.
+Two important reasons: nested expressions and patterns.
+
+    >>> import dotted, types
+    >>> ns = types.SimpleNamespace()
+    >>> ns.hello = {'me': 'goodbye'}
+    >>> dotted.get(ns, '@hello.me')
+    'goodbye'
+
+**Concrete access** (`@name`) works on any object — dotted tries enumeration first,
+then falls back to `getattr` directly.  This means objects that provide attributes
+via `__getattr__` (such as Stripe API objects and other dynamic-attribute wrappers)
+work out of the box.
+
+**Pattern access** (`@*`, `@/regex/`) requires enumerable attributes.  Dotted discovers
+attribute names from `__dict__` (standard instance attributes), `__slots__` (slot-based
+classes), and `_fields` (namedtuples, which store data in the tuple itself and don't
+expose field names through either `__dict__` or `__slots__`):
+
+    >>> class Point:
+    ...     __slots__ = ('x', 'y')
+    ...     def __init__(self, x, y):
+    ...         self.x = x
+    ...         self.y = y
+    >>> dotted.get(Point(3, 4), '@*')
+    (3, 4)
+
+Objects that rely solely on `__getattr__` without exposing their keys through any of
+these mechanisms will support concrete attr access but not [pattern matching](#patterns).
+
+<a id="slicing"></a>
+### Slicing
+
+Dotted slicing works like python slicing and all that entails.
+
+    >>> import dotted
+    >>> d = {'hi': {'there': [1, 2, 3]}, 'bye': {'there': [4, 5, 6]}}
+    >>> dotted.get(d, 'hi.there[::2]')
+    [1, 3]
+    >>> dotted.get(d, '*.there[1:]')
+    ([2, 3], [5, 6])
+
+A bound may be a reference or a substitution, resolved the way a slot's is:
+
+    >>> d = {'b': [3, 0, 5], 'i': 2}
+    >>> dotted.get(d, 'b[:$$(i)]')
+    [3, 0]
+    >>> dotted.get(d, 'b[$(n):]', bindings={'n': 1})
+    [0, 5]
+
+<a id="dot-notation-for-sequence-indexing"></a>
+### Dot notation for sequence indexing
+
+Numeric path segments work as indices when accessing sequences (lists, tuples, strings):
+
+    >>> import dotted
+    >>> data = {'items': [10, 20, 30]}
+    >>> dotted.get(data, 'items.0')
+    10
+    >>> dotted.get(data, 'items.-1')  # negative index
+    30
+
+This is equivalent to bracket notation for existing sequences:
+
+    >>> dotted.get(data, 'items[0]')  # same result
+    10
+
+Chaining works naturally:
+
+    >>> data = {'users': [{'name': 'alice'}, {'name': 'bob'}]}
+    >>> dotted.get(data, 'users.0.name')
+    'alice'
+
+Updates and removes also work:
+
+    >>> _ = dotted.update(data, 'users.0.name', 'ALICE')
+    >>> dotted.get(data, 'users.0.name')
+    'ALICE'
+
+**Note**: When _creating_ structures, use bracket notation for lists:
+
+    >>> dotted.build({}, 'items.0')     # dot notation creates dict
+    {'items': {0: None}}
+    >>> dotted.build({}, 'items[0]')   # bracket notation creates list
+    {'items': [None]}
+
+<a id="empty-path-root-access"></a>
+### Empty path (root access)
+
+An empty string `''` refers to the root of the data structure itself:
+
+    >>> import dotted
+    >>> data = {'a': 1, 'b': 2}
+    >>> dotted.get(data, '')
+    {'a': 1, 'b': 2}
+
+Unlike normal paths which mutate in place, `update` with an empty path is non-mutating
+since Python cannot rebind the caller's variable:
+
+    >>> data = {'a': 1, 'b': 2}
+    >>> result = dotted.update(data, '', {'replaced': True})
+    >>> result
+    {'replaced': True}
+    >>> data
+    {'a': 1, 'b': 2}
+
+Compare with a normal path which mutates:
+
+    >>> data = {'a': 1, 'b': 2}
+    >>> dotted.update(data, 'a', 99)
+    {'a': 99, 'b': 2}
+    >>> data
+    {'a': 99, 'b': 2}
+
+Other empty path operations:
+
+    >>> data = {'a': 1, 'b': 2}
+    >>> dotted.remove(data, '') is None
+    True
+    >>> dotted.expand(data, '')
+    ('',)
+    >>> dotted.pluck(data, '')
+    ('', {'a': 1, 'b': 2})
+
+<a id="typing--quoting"></a>
+## Typing & Quoting
+
+<a id="numeric-types"></a>
+### Numeric types
+
+The parser will attempt to interpret a field numerically if it can, such as `field.1`
+will interpret the `1` part numerically.
+
+    >>> import dotted
+    >>> dotted.get({'7': 'me', 7: 'you'}, '7')
+    'you'
+
+<a id="quoting"></a>
+### Quoting
+
+Sometimes you need to quote a field which you can do by just putting the field in quotes.
+
+    >>> import dotted
+    >>> dotted.get({'has . in it': 7}, '"has . in it"')
+    7
+
+<a id="the-numericize--operator"></a>
+### The numericize `#` operator
+
+Non-integer numeric fields may be interpreted incorrectly if they have decimal point. To
+solve, use the numerize operator `#` at the front of a quoted field, such as `#'123.45'`.
+This will coerce to a numeric type (e.g. float).
+
+    >>> import dotted
+    >>> d = {'a': {1.2: 'hello', 1: {2: 'fooled you'}}}
+    >>> dotted.get(d, 'a.1.2')
+    'fooled you'
+    >>> dotted.get(d, 'a.#"1.2"')
+    'hello'
+
+<a id="container-types"></a>
+### Container types
+
+Container literals express list, dict, set, tuple, and frozenset values inline. They
+appear in two contexts: as [filter values / value guards](#container-filter-values)
+(with pattern support) and as [transform arguments](#container-transform-arguments)
+(concrete values only).
+
+| Syntax | Type | Notes |
+|--------|------|-------|
+| `[1, 2, 3]` | list or tuple | Unprefixed matches both |
+| `l[1, 2, 3]` | list | Strict: list only |
+| `t[1, 2, 3]` | tuple | Strict: tuple only |
+| `{"a": 1}` | dict | Unprefixed matches dict-like |
+| `d{"a": 1}` | dict | Strict: dict only (isinstance) |
+| `{1, 2, 3}` | set or frozenset | Unprefixed matches both |
+| `s{1, 2, 3}` | set | Strict: set only |
+| `fs{1, 2, 3}` | frozenset | Strict: frozenset only |
+
+Empty containers: `[]` (empty list/tuple), `{}` (empty dict), `s{}` (empty set),
+`fs{}` (empty frozenset), `l[]`, `t[]`, `d{}`.
+
+Without a [type prefix](#type-prefixes), brackets match loosely: `[]` matches any
+list or tuple, `{v, v}` matches any set or frozenset, `{}` matches dict (following
+Python convention where `{}` is a dict literal, not a set).
+
+In filter context, containers support patterns (`*`, `...`, `/regex/`) inside — see
+[Container filter values](#container-filter-values). In transform argument context,
+only concrete scalar values are allowed.
+
+<a id="bytes-literals"></a>
+### Bytes literals
+
+Prefix a quoted string with `b` to create a bytes literal: `b"hello"` or `b'hello'`.
+Bytes literals produce `bytes` values and only match `bytes` — never `str`:
+
+    >>> import dotted
+    >>> d = {'a': b'hello', 'b': b'world', 'c': 'hello'}
+    >>> dotted.get(d, '*=b"hello"')
+    (b'hello',)
+
+Use in filters:
+
+    >>> data = [{'data': b'yes'}, {'data': b'no'}, {'data': 'yes'}]
+    >>> dotted.get(data, '[*&data=b"yes"]')
+    ({'data': b'yes'},)
+
+Note that `b"hello"` does not match the string `'hello'` — types must match exactly.
+
+<a id="patterns"></a>
+## Patterns
+
+You may use dotted for pattern matching. You can match to wildcards or regular
+expressions.  You'll note that patterns always return a tuple of matches.
+
+    >>> import dotted
+    >>> d = {'hi': {'there': [1, 2, 3]}, 'bye': {'there': [4, 5, 6]}}
+    >>> dotted.get(d, '*.there[2]')
+    (3, 6)
+    >>> dotted.get(d, '/h.*/.*')
+    ([1, 2, 3],)
+
+Dotted will return all values that match the pattern(s).  Patterns can only discover
+what is advertised — they work by enumerating keys or attributes, so the object must
+expose them via `keys()` (dicts), `__dict__`, `__slots__`, or `_fields` (namedtuples).
+
+<a id="wildcards"></a>
+### Wildcards
+
+The wildcard pattern is `*`.  It will match anything.
+
+<a id="regular-expressions"></a>
+### Regular expressions
+
+The regex pattern is enclosed in slashes: `/regex/`. Note that if the field is a non-str,
+the regex pattern will internally match to its str representation.
+
+<a id="the-match-first-operator"></a>
+### The match-first operator
+
+You can also postfix any pattern with a `?`.  This will return only
+the first match.
+
+    >>> import dotted
+    >>> d = {'hi': {'there': [1, 2, 3]}, 'bye': {'there': [4, 5, 6]}}
+    >>> dotted.get(d, '*?.there[2]')
+    (3,)
+
+<a id="slicing-vs-patterns"></a>
+### Slicing vs Patterns
+
+Slicing a sequence produces a sequence and a filter on a sequence is a special
+type of slice operation. Whereas, patterns _iterate_ through items:
+
+    >>> import dotted
+    >>> data = [{'name': 'alice'}, {'name': 'bob'}, {'name': 'alice'}]
+    >>> dotted.get(data, '[1:3]')
+    [{'name': 'bob'}, {'name': 'alice'}]
+    >>> dotted.get(data, '[name="alice"]')
+    [{'name': 'alice'}, {'name': 'alice'}]
+    >>> dotted.get(data, '[*]')
+    ({'name': 'alice'}, {'name': 'bob'}, {'name': 'alice'})
+
+Chaining after a slice accesses the result itself, not the items within it:
+
+    >>> dotted.get(data, '[1:3].name') is None           # accessing .name on the list
+    True
+    >>> dotted.get(data, '[name="alice"].name') is None  # also accessing .name on the list
+    True
+    >>> dotted.get(data, '[].name') is None              # .name on a raw list
+    True
+
+To chain through the items, use a pattern instead:
+
+    >>> dotted.get(data, '[*].name')
+    ('alice', 'bob', 'alice')
+    >>> dotted.get(data, '[*&name="alice"]')
+    ({'name': 'alice'}, {'name': 'alice'})
+
+<a id="substitutions-and-references"></a>
+## Substitutions and References
+
+All `$`-prefixed syntax falls into two categories: **substitutions** (resolved
+at replace time) and **references**, inline expressions evaluated during
+traversal.
+
+| Syntax | Type | Resolved against |
+|---|---|---|
+| `$0`, `$1` | Positional substitution | `replace()` bindings (list/tuple) |
+| `$(name)` | Named substitution | `replace()` bindings (dict) |
+| `$(0)`, `$(name)` | Substitution with parens | `replace()` bindings via `__getitem__` |
+| `$(name\|int)` | Substitution with transform | `replace()` bindings, then transform |
+| `$$(path)` | Reference | Root object during traversal |
+| `$$(^path)` | Relative reference | Current node during traversal |
+| `$$(^^path)` | Relative reference | Parent node during traversal |
+| `$$(^path)` in a transform, guard or filter | Relative reference | The value under test; `^^` the node holding it |
+
+<a id="substitution"></a>
+### Substitution
+
+Substitution references turn a path into a **template**. There are two forms:
+
+- **Positional** (`$0`, `$1`, …) — resolved against a list or tuple
+- **Named** (`$(name)`, `$(key)`, …) — resolved against a dict
+
+The `replace` function resolves them:
+
+    >>> dotted.replace('people.$0.$1', ('alice', 'age'))
+    'people.alice.age'
+    >>> dotted.replace('$(table).$(field)', {'table': 'users', 'field': 'email'})
+    'users.email'
+
+The parenthesized form `$(N)` adapts to the binding type — it uses `__getitem__`,
+so `$(0)` works as a positional index against a list or as a numeric key against
+a dict:
+
+    >>> dotted.replace('$(0)', {0: 'zero'})
+    'zero'
+
+Use `is_template` to test whether a path contains substitution references:
+
+    >>> dotted.is_template('a.$0')
+    True
+    >>> dotted.is_template('a.$(name)')
+    True
+    >>> dotted.is_template('a.b')
+    False
+
+#### Substitution transforms
+
+Substitutions support per-substitution transforms using the `|` separator inside
+the parenthesized form. The transform is applied to the resolved value before it
+is spliced into the path:
+
+    >>> dotted.replace('$(name|uppercase)', {'name': 'hello'})
+    'HELLO'
+    >>> dotted.replace('$(0|str)', [42])
+    '42'
+
+Multiple transforms chain left to right:
+
+    >>> dotted.replace('$(name|strip|lowercase)', {'name': '  HELLO  '})
+    'hello'
+
+All [built-in transforms](#built-in-transforms) are available. The bare `$N` form
+does not support transforms — use `$(N|transform)` instead.
+
+See [Replace](#replace) and [Translate](#translate) for full API details.
+
+<a id="template-bindings"></a>
+### Template bindings
+
+All traversal APIs — `get`, `update`, `remove`, `has`, `walk`, `expand`, `pluck`,
+`apply`, `build`, `mutable`, `setdefault`, and their multi variants — accept a
+`bindings=` keyword argument to resolve template paths inline:
+
+    >>> data = {'users': {'alice': 42}}
+    >>> dotted.get(data, 'users.$(name)', bindings={'name': 'alice'})
+    42
+    >>> dotted.update(data, 'users.$(name)', 99, bindings={'name': 'alice'})
+    {'users': {'alice': 99}}
+
+If a template path reaches a traversal API without bindings, a `TypeError` is
+raised — unresolved templates cannot be traversed:
+
+    >>> dotted.get({}, 'a.$(name)')
+    Traceback (most recent call last):
+        ...
+    TypeError: unresolved template path; call replace() first or pass bindings=
+
+The `parse()` function also supports `bindings=` and `partial=`:
+
+    >>> ops = dotted.parse('$0.b', bindings=['x'], partial=False)
+    >>> dotted.is_template(ops)
+    False
+
+When `partial=True` (the default for `parse()`), unresolved substitutions are
+allowed through. When `partial=False` (the default for traversal APIs),
+unresolved templates raise `TypeError`.
+
+`compile()` is an alias for `parse()`. Every API that takes a path also takes
+the parsed result, so a path used many times can be compiled once:
+
+    >>> ops = dotted.compile('a.b')
+    >>> dotted.get({'a': {'b': 1}}, ops)
+    1
+
+<a id="references"></a>
+### References
+
+A **reference**, `$$(expr)`, is an inline evaluation expression. The dotted
+expression inside is evaluated during traversal, as `get` would evaluate it
+against the root, and its value stands where the reference is written. The
+expression is a full dotted path, so it may carry patterns and transforms:
+`$$(config.offset|mul:10)` is the value of `config.offset`, times ten.
+
+Where the reference stands decides what its value does. In a transform
+argument, a guard value or a filter value it is the value itself (see
+[References in transforms and guards](#references-in-transforms-and-guards)).
+In an access position, as a key or slot, it is the key to look up:
+
+    >>> data = {'config': {'field': 'name'}, 'name': 'Alice'}
+    >>> dotted.get(data, '$$(config.field)')
+    'Alice'
+
+Here `$$(config.field)` evaluates to `'name'`, then looks up `data['name']`.
+
+References work with all access types and in any position:
+
+    >>> data = {'meta': {'key': 'users'}, 'users': [{'name': 'Alice'}]}
+    >>> dotted.get(data, '$$(meta.key)[0].name')
+    'Alice'
+
+    >>> data = {'meta': {'idx': 1}, 'items': ['a', 'b', 'c']}
+    >>> dotted.get(data, 'items[$$(meta.idx)]')
+    'b'
+
+References are **not** templates — they resolve during traversal, not via
+`replace`. They also work with `update` and `remove`:
+
+    >>> data = {'config': {'field': 'name'}, 'name': 'Alice'}
+    >>> dotted.update(data, '$$(config.field)', 'Bob')
+    {'config': {'field': 'name'}, 'name': 'Bob'}
+
+References combine naturally with patterns. The reference resolves to a
+concrete key while the rest of the path can still be a pattern:
+
+    >>> data = {
+    ...     'config': {'key': 'name'},
+    ...     'users': [{'name': 'Alice', 'age': 30}, {'name': 'Bob', 'age': 25}],
+    ... }
+    >>> dotted.get(data, 'users[*].$$(config.key)')
+    ('Alice', 'Bob')
+
+Here `$$(config.key)` resolves to `'name'`, making the effective path
+`users[*].name`.
+
+The reference path itself can be a pattern. When it resolves to multiple
+values, each is used as a separate key:
+
+    >>> data = {
+    ...     'config': {'a': {'field': 'name'}, 'b': {'field': 'age'}},
+    ...     'name': 'Alice',
+    ...     'age': 30,
+    ... }
+    >>> dotted.get(data, '$$(config.*.field)')
+    ('Alice', 30)
+
+Here `config.*.field` resolves to `('name', 'age')`, so the reference
+looks up both `data['name']` and `data['age']`.
+
+The resolved value is used as a **literal key** — it is not re-parsed as a
+dotted path. If the reference path is not found, the reference matches nothing
+(same as a missing key):
+
+    >>> dotted.get(data, '$$(missing.path)', default='fallback')
+    'fallback'
+
+<a id="relative-references"></a>
+### Relative References
+
+By default, references resolve against the **root** object. Prefix the path
+with `^` to resolve against the **current node** instead:
+
+    >>> data = {'a': {'field': 'name', 'name': 'Alice'}}
+    >>> dotted.get(data, 'a.$$(^field)')
+    'Alice'
+
+Here `$$(^field)` looks up `field` in the current node (`data['a']`), gets
+`'name'`, then looks up `data['a']['name']`.
+
+Use `^^` for the **parent** node, `^^^` for the grandparent, and so on:
+
+    >>> data = {'field': 'x', 'a': {'x': 1, 'y': 2}}
+    >>> dotted.update(data, 'a.$$(^^field)', 99)
+    {'field': 'x', 'a': {'x': 99, 'y': 2}}
+
+Relative references combine with patterns:
+
+    >>> data = {
+    ...     'a': {
+    ...         'config': {'x': {'field': 'name'}, 'y': {'field': 'age'}},
+    ...         'name': 'Alice',
+    ...         'age': 30,
+    ...     },
+    ... }
+    >>> dotted.get(data, 'a.$$(^config.*.field)')
+    ('Alice', 30)
+
+<a id="references-in-transforms-and-guards"></a>
+### References in transforms and guards
+
+A reference can also stand in for a transform argument, a guard value or a
+filter value. It resolves when the transform or comparison runs, against the
+value under test: `$$(path)` is the root as always, `$$(^path)` is the value
+itself, `$$(^^path)` the node holding it, `$$(^^^path)` that node's parent,
+and so on:
+
+    >>> data = {'config': {'offset': 10}, 'n': 5}
+    >>> dotted.get(data, 'n|add:$$(config.offset)')
+    15
+
+The expression inside may chain transforms of its own; they apply to its value
+before it is passed:
+
+    >>> dotted.get(data, 'n|add:$$(config.offset|mul:10)')
+    105
+
+    >>> data = {'items': [{'price': 100, 'rate': 1.5}, {'price': 20, 'rate': 2}]}
+    >>> dotted.get(data, 'items[*].price|mul:$$(^^rate)')
+    (150.0, 40)
+
+Each `price` is the value being transformed, so `^^rate` is the `rate` beside
+it. Guard and filter values resolve the same way:
+
+    >>> data = {'limit': 10, 'a': 5, 'b': 15}
+    >>> dotted.get(data, '*>$$(limit)')
+    (15,)
+    >>> data = {'selected': 'bob', 'users': [{'name': 'alice'}, {'name': 'bob'}]}
+    >>> dotted.get(data, 'users[*&name=$$(selected)].name')
+    ('bob',)
+
+as do the transforms before a guard:
+
+    >>> data = {'scale': 10, 'a': 1, 'b': 2}
+    >>> dotted.get(data, '*|mul:$$(scale)=20')
+    (2,)
+
+So does a reference inside a container value. One whose path is a pattern
+branches the container, once per value; pack it, `(…;)`, to compare with the
+tuple instead:
+
+    >>> data = {'want': [2, 3], 'items': [[1, 2], [1, 4], [1, (2, 3)]]}
+    >>> dotted.get(data, 'items[*]=[1, $$(want[*])]')
+    ([1, 2],)
+    >>> dotted.get(data, 'items[*]=[1, $$((want[*];))]')
+    ([1, (2, 3)],)
+
+A filter key may hold references too. In each part of the key, `^` is the
+node that part is looked up in, so in the first part it is the item:
+
+    >>> data = {'field': 'name', 'users': [{'name': 'alice'}, {'name': 'bob'}]}
+    >>> dotted.get(data, 'users[*&$$(field)="bob"]')
+    ({'name': 'bob'},)
+
+With `update`, the transforms apply to the value being set, so `^` is that
+value:
+
+    >>> dotted.update({'n': 5, 'inc': 3}, 'n|add:$$(inc)', 10)
+    {'n': 13, 'inc': 3}
+
+A reference that does not resolve matches nothing, as in an access position:
+
+    >>> dotted.get({'a': 1}, 'a|add:$$(missing)', default='fallback')
+    'fallback'
+
+<a id="custom-resolvers"></a>
+### Custom resolvers
+
+What a reference means at run time is decided by a **resolver**. The default
+is dotted's own reading above. A host with its own namespaces subclasses
+`dotted.ReferenceResolver`, passes an instance as `resolver=` to `get`,
+`update`, `remove` and the rest, or installs one for the process with
+`dotted.set_resolver(r)`; `set_resolver()` with no argument restores the
+default.
+
+`resolve(ref, settings, node, parents)` is called for every `$$(...)` the
+traversal meets, in an access position, a transform argument, a guard or a
+filter value. `ref.is_reference()` is true for those, `ref.inner_path` is the
+text inside, and `super().resolve(...)` is dotted's reading, so a host can
+claim some references and leave the rest:
+
+    >>> class Store(dotted.ReferenceResolver):
+    ...     def __init__(self, store):
+    ...         self.store = store
+    ...     def resolve(self, ref, settings, node=None, parents=()):
+    ...         return dotted.get(self.store, ref.inner_path)
+    >>> store = {'lots': {'taken': 3}}
+    >>> dotted.get({'amount': 10}, 'amount|sub:$$(lots.taken)', resolver=Store(store))
+    7
+
+A resolver with `literals = True` is also offered every plain token in
+those positions, so a host sigil such as `$sel` can be a variable. Set it on
+the class, or per instance with `literals=` on the constructor. Return
+`ref.value` to leave a token the literal it is; a key the resolver answers
+is not offered again:
+
+    >>> class Sigils(dotted.ReferenceResolver):
+    ...     literals = True
+    ...     def __init__(self, names, literals=None):
+    ...         super().__init__(literals)
+    ...         self.names = names
+    ...     def resolve(self, ref, settings, node=None, parents=()):
+    ...         if ref.is_reference():
+    ...             return super().resolve(ref, settings, node, parents)
+    ...         if isinstance(ref.value, str) and ref.value.startswith('$'):
+    ...             return self.names[ref.value]
+    ...         return ref.value
+    >>> users = {'users': [{'name': 'alice'}, {'name': 'bob'}]}
+    >>> dotted.get(users, 'users[*&name=$sel].name', resolver=Sigils({'$sel': 'bob'}))
+    ('bob',)
+
+`literals` may instead name the positions it wants, as a list or tuple of
+`'segments'` (key, slot and attr segments), `'transforms'` (transform
+arguments), `'guards'` (guard values) and `'filters'` (filter values). A host
+whose variables only ever stand as arguments leaves `'segments'` out, so the
+keys of a path cost no call:
+
+    >>> r = Sigils({'$inc': 3}, literals=('transforms', 'guards', 'filters'))
+    >>> dotted.get({'n': 5}, 'n|add:$inc', resolver=r)
+    8
+
+An unknown name is a `ValueError`, on the class or the constructor.
+
+A host variable may span several segments, `$amount.value`, which dotted has
+parsed as two. The path-level hook `fold(segments)` is called once with a
+path's segment strings, `('$amount', 'value')`, and returns the runs it
+resolves as `(start, stop, value)` triples; each run becomes one segment
+whose key is the value, keeping the last segment's guard, filter and
+transforms. An inner segment of a run may carry none.
+
+    >>> class Folding(Sigils):
+    ...     def fold(self, segments):
+    ...         name = '.'.join(str(s) for s in segments)
+    ...         if name in self.names:
+    ...             return [(0, len(segments), self.names[name])]
+    ...         return []
+    >>> r = Folding({'$amount.value': 'amt'})
+    >>> dotted.get({'amt': 10}, '$amount.value|sub:3', resolver=r)
+    7
+
+A path handed in already parsed goes through `fold()` again, so a hook must
+be content to see its own output. `Dotted.segments()` gives any parsed
+path's segment values, and a slice of a parsed path, `ops[1:]`, is a path.
+
+A host's own names may stand where dotted has no reading for a bare token:
+a slot, `merged[k]`, a slice bound, `items[:n]`, a filter value,
+`[*&cur=want]`, a guard value, `a=k`, or a transform argument,
+`|sub:taken`. The parse-time hook `lex(text, position)` is offered each such
+token as written, a dotted name whole, with its position, one of `'slots'`,
+`'slices'`, `'filters'`, `'guards'` or `'transforms'`. It answers with dotted
+text to read in the token's place, `None` to leave the `ParseError` (a
+transform argument stays the plain string it was), or raises to fail the
+parse at the token. The answer must be one token dotted reads there, and is
+not offered again.
+
+    >>> class Names(dotted.ReferenceResolver):
+    ...     def lex(self, text, position):
+    ...         return f'$$({text})'
+    >>> d = {'merged': {'x': 1, 'y': 2}, 'k': 'x', 'c': {'account': 'y'}}
+    >>> dotted.get(d, 'merged[k]', resolver=Names())
+    1
+    >>> dotted.get(d, 'merged[c.account]', resolver=Names())
+    2
+
+A token dotted reads, `m[$x]` or `|sub:$taken`, is never offered to `lex()`;
+a host that means something else by one remaps it at run time, through
+`literals`. `parse` takes `resolver=` too, and a path is cached per resolver
+that lexes.
+
+<a id="escaping"></a>
+### Escaping
+
+If your data has keys that start with `$`, prefix with backslash to suppress
+substitution. This works for both positional and named forms:
+
+    >>> dotted.get({'$0': 'hello'}, '\\$0')
+    'hello'
+    >>> dotted.get({'$(name)': 'val'}, '\\$(name)')
+    'val'
+
+Quoting also works — a quoted string is always literal:
+
+    >>> dotted.get({'$0': 'hello'}, "'$0'")
+    'hello'
+
+`quote` and `unpack` emit single-quoted forms for `$`-prefixed keys:
+
+    >>> dotted.quote('$0')
+    "'$0'"
+
+To use a literal `$$` as a key, escape with backslash (`\$$`) or quote it
+(`'$$(…)'`).
+
+A `$` before a word is not a substitution at all: `$str` is the plain string
+`$str`, in a segment, a guard value or a transform argument alike, just as
+`^str` is. Only `$0`, `$(name)` and `$$(path)` have meaning:
+
+    >>> dotted.get({'$amount': {'value': 2}}, '$amount.value')
+    2
+
+In a guard value or transform argument the token may carry dots,
+`|min:$amount.value` or `=^lots.taken`, and is still one string; a
+[custom resolver](#custom-resolvers) reads it whole. In a segment the dot
+separates segments, so there `$amount.value` is two:
+
+    >>> dotted.get({'a': None}, 'a|coalesce:$amount.value')
+    '$amount.value'
+
+<a id="type-restrictions"></a>
+## Type Restrictions
+
+A **type restriction** keeps a value only if it is of a given type. Append
+`:type` to a path: `x:int` is `x`, when its value is an `int`, so it reads
+like a guard, `x=5`, with a type in place of a value:
+
+    >>> import dotted
+    >>> d = {'a': {'b': 1}, 'c': [1, 2], 'd': 'hello'}
+    >>> dotted.get(d, '*:dict')
+    ({'b': 1},)
+    >>> dotted.get(d, '*:dict.*')
+    (1,)
+
+Here `*:dict` keeps the values that are dicts, and `.*` continues into them.
+The list and string are dropped.
+
+Supported types: `str`, `bytes`, `int`, `float`, `dict`, `list`, `tuple`,
+`set`, `frozenset`, `bool`.
+
+<a id="positive-restrictions"></a>
+### Positive restrictions
+
+`:type` allows only that type. `:(type1, type2)` allows any of the listed types:
+
+    >>> d = {'x': {'y': 1}}
+    >>> dotted.get(d, 'x:dict.y')
+    1
+    >>> dotted.get(d, 'x:list', 'missing')
+    'missing'
+
+<a id="negative-restrictions"></a>
+### Negative restrictions
+
+`:!type` excludes a type. `:!(type1, type2)` excludes multiple types:
+
+    >>> d = {'a': 'hello', 'b': {'c': 1}}
+    >>> dotted.get(d, '*:!str.*')
+    (1,)
+
+<a id="slot-and-attr-restrictions"></a>
+### Slot and attr restrictions
+
+Type restrictions work on slot and attr accessors too:
+
+    >>> dotted.get([10, 'x', 20], '[*]:int')
+    (10, 20)
+    >>> dotted.get([10, 20], '[0]:list', 'missing')
+    'missing'
+
+A string or bytes value decomposes under `[*]`; to keep that from happening,
+restrict the value before the slot:
+
+    >>> d = {'s': 'abc', 'b': b'xyz', 'l': [1, 2]}
+    >>> dotted.get(d, '*:!(str, bytes)[*]')
+    (1, 2)
+
+<a id="combining-with-filters"></a>
+### Combining with filters
+
+Type restrictions compose with filters. The restriction goes before the filter:
+
+    >>> d = {'a': {'x': 1, 'y': 2}, 'b': {'x': 3, 'y': 4}}
+    >>> dotted.get(d, '*:dict&x=1.*')
+    (1, 2)
+
+<a id="typing-a-transformed-value"></a>
+### Typing a transformed value
+
+A restriction after a parenthesized group applies to what the group yields,
+transforms included. A `:` directly after a transform name is a parameter,
+`a|int:16`, so the parentheses are what make it a type:
+
+    >>> dotted.get({'a': '5', 'b': 'x'}, '(*|int):int')
+    (5,)
+
+Here `|int` leaves `'x'` as it was, and `:int` drops it.
+
+<a id="recursive-traversal-with-type-restrictions"></a>
+### Recursive traversal with type restrictions
+
+Type restrictions are especially useful in recursive accessor groups to keep
+the traversal to values of certain types:
+
+    >>> d = {'a': {'b': [1, 2]}, 'c': 'hello'}
+    >>> dotted.get(d, '*(*#, [*]:!(str, bytes))')
+    ({'b': [1, 2]}, [1, 2], 1, 2, 'hello')
+
+Without `:!(str, bytes)`, the `[*]` slot accessor would decompose `'hello'`
+into individual characters.
+
+A type restriction can also be applied to an entire group, which distributes it
+to every accessor in the group. Here it drops the string `'hello'` as well,
+since the `*` accessor yields it too:
+
+    >>> d = {'a': {'b': [1, 2]}, 'c': 'hello'}
+    >>> dotted.get(d, '*(*#, [*]):!(str, bytes)')
+    ({'b': [1, 2]}, [1, 2], 1, 2)
+
+The `**` shorthand accepts a type restriction too. It can be combined with a
+depth slice — the type restriction comes first:
+
+    >>> d = {'a': {'b': [1, 2, 3]}, 'x': {'y': {'z': 3}}}
+    >>> dotted.get(d, '**:!(str, bytes):-2')
+    ({'b': [1, 2, 3]}, {'z': 3})
+
+<a id="recursive-traversal"></a>
+## Recursive Traversal
+
+The recursive operator `*` traverses nested data structures by following path
+segments that match a pattern at successive levels.
+
+<a id="the-recursive-operator-"></a>
+### The recursive operator `*`
+
+`*pattern` recurses into values whose path segments match the pattern. It follows
+chains of matching segments — at each level, if a segment matches, its value is
+yielded and the traversal continues into that value:
+
+    >>> import dotted
+    >>> d = {'b': {'b': {'c': 1}}}
+    >>> dotted.get(d, '*b')
+    ({'b': {'c': 1}}, {'c': 1})
+    >>> dotted.get(d, '*b.c')
+    (1,)
+
+The chain stops when the key no longer matches:
+
+    >>> d = {'a': {'b': {'c': 1}}}
+    >>> dotted.get(d, '*b')
+    ()
+
+The inner pattern can be any key pattern — a literal key, a wildcard, or a regex:
+
+    >>> d = {'x1': {'x2': 1}, 'y': 2}
+    >>> dotted.get(d, '*/x.*/')
+    ({'x2': 1}, 1)
+
+<a id="recursive-accessors"></a>
+### Recursive patterns
+
+Recursive pattern matching works across different accessor types:
+`*<pat>` for keys, `*([<pat>])` for slots, and `*(@<pat>)` for attrs.
+The accessor determines which children are followed at each level.
+
+**`*key`** — recursive dict keys. Since bare `*` means `.*` (dict key
+access), `**` recursively matches all dict keys. Any key pattern works —
+`*/regex/` recursively matches keys against a regex, `*literal` follows
+only keys named `literal`:
+
+    >>> d = {'a': {'b': {'c': 1}}, 'x': {'y': 2}}
+    >>> dotted.get(d, '**')
+    ({'b': {'c': 1}}, {'c': 1}, 1, {'y': 2}, 2)
+
+Use `**` with continuation to find a key at any depth:
+
+    >>> dotted.get(d, '**.c')
+    (1,)
+
+Use `**?` to get only the first match:
+
+    >>> dotted.get(d, '**?')
+    ({'b': {'c': 1}},)
+
+**`*([slot])`** — recursive slots. Recurses through lists, dicts, and
+anything with `__getitem__`. Since slots fall through to dict keys, this
+also matches dicts. Any slot pattern works — `*([*])` matches all slots,
+`*([/regex/])` matches slots by regex:
+
+    >>> d = {'a': [{'b': 1}, {'c': 2}]}
+    >>> dotted.get(d, '*([*])')
+    ([{'b': 1}, {'c': 2}], {'b': 1}, 1, {'c': 2}, 2)
+
+**`*(@attr)`** — recursive attrs. Recurses through object attributes. Any
+attr pattern works — `*(@*)` matches all attrs, `*(@/regex/)` matches attrs
+by regex:
+
+    >>> dotted.get(data, '*(@*)')  # doctest: +SKIP
+
+To recurse through multiple accessor types at once, use `*(expr)` with a
+comma-separated list of access ops. Use `#` (cut) after an accessor to
+prevent double-matching — this is needed because `[*]` falls through to
+dict keys:
+
+    >>> d = {'a': [{'b': 1}, {'c': 2}]}
+    >>> dotted.get(d, '*(*#, [*])')
+    ([{'b': 1}, {'c': 2}], {'b': 1}, 1, {'c': 2}, 2)
+
+    >>> dotted.get(data, '*(*#, [*], @*)')  # doctest: +SKIP
+
+<a id="depth-slicing"></a>
+### Depth slicing
+
+Control which depths are visited using slice notation: `**:start`, `**:start:stop`,
+or `**:::step`. Note the leading `:` — depth slicing looks a little different from
+regular Python slicing since it follows the `**` operator. Depth 0 is the values of
+the first-level path segments.
+
+    >>> d = {'a': {'x': 1}, 'b': {'y': {'z': 2}}}
+    >>> dotted.get(d, '**:0')
+    ({'x': 1}, {'y': {'z': 2}})
+    >>> dotted.get(d, '**:1')
+    (1, {'z': 2})
+
+Use negative indices to count from the leaf. `**:-1` returns leaves only,
+`**:-2` returns the penultimate level:
+
+    >>> dotted.get(d, '**:-1')
+    (1, 2)
+
+Range slicing works like Python slices: `**:start:stop` and `**:::step`:
+
+    >>> dotted.get(d, '**:0:1')
+    ({'x': 1}, 1, {'y': {'z': 2}}, {'z': 2})
+
+Depth slicing also works with accessor groups:
+
+    >>> d = {'a': {'b': [1, 2, 3]}, 'extra': 'stuff'}
+    >>> dotted.get(d, '*(*#, [*]:!(str, bytes)):-2')
+    ([1, 2, 3],)
+
+<a id="recursive-with-value-guard"></a>
+### Recursive patterns with value guard
+
+Combine recursive patterns with value guards to find specific values at any depth.
+All comparison operators are supported:
+
+    >>> d = {'a': {'b': 7, 'c': 3}, 'd': {'e': 7}}
+    >>> dotted.get(d, '**=7')
+    (7, 7)
+    >>> dotted.get(d, '**!=7')
+    ({'b': 7, 'c': 3}, 3, {'e': 7})
+    >>> dotted.get(d, '**>5')
+    (7, 7)
+
+<a id="recursive-update-and-remove"></a>
+### Recursive update and remove
+
+Recursive patterns work with `update` and `remove`:
+
+    >>> d = {'a': {'b': 7, 'c': 3}, 'd': 7}
+    >>> dotted.update(d, '**=7', 99)
+    {'a': {'b': 99, 'c': 3}, 'd': 99}
+
+    >>> d = {'a': {'b': 7, 'c': 3}, 'd': 7}
+    >>> dotted.remove(d, '**=7')
+    {'a': {'c': 3}}
+
+<a id="recursive-match"></a>
+### Recursive pattern matching
+
+Recursive patterns work with `match`. `**` matches any key path, `*key` matches
+chains of a specific key:
+
+    >>> dotted.match('**.c', 'a.b.c')
+    'a.b.c'
+    >>> dotted.match('*b', 'b.b.b')
+    'b.b.b'
+    >>> dotted.match('*b', 'a.b.c') is None
+    True
+
+<a id="grouping"></a>
+## Grouping
+
+<a id="path-grouping"></a>
+### Path grouping
+
+Parentheses group operations that branch from a common point. Each branch
+is a full operation chain—keys, slots, attrs, and further groups can all
+appear inside. Branches are combined using `,` (disjunction), `&`
+(conjunction), and `!` (negation).
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2, 'c': 3}
+
+    >>> dotted.get(d, '(a,b)')        # , — get a and b
+    (1, 2)
+    >>> dotted.get(d, '(a&b)')        # & — get a and b only if both exist
+    (1, 2)
+    >>> dotted.get(d, '(!a)')         # ! — get everything except a
+    (2, 3)
+
+The three **access ops**—`.` (key), `@` (attr), `[]` (slot)—are what
+actually look up a child value.  Modifiers like `!` (negation) and `~`
+(nop) wrap or filter but don't access anything themselves.
+
+At top level, bare keys infer `.`, so `(a,b)` is equivalent to `(.a,.b)`:
+
+    >>> dotted.get(d, 'a,b')          # same as (a,b) and (.a,.b)
+    (1, 2)
+    >>> dotted.get(d, '!a')           # same as (!a) and (!.a)
+    (2, 3)
+
+Parentheses are needed to continue after the group (`(a,b).c`) or to
+nest groups inside paths.
+
+#### Mid-path groups
+
+Mid-path groups—groups that follow another operation—come in two forms.
+
+**Prefix shorthand** — the access op sits outside the parentheses and
+distributes to every branch.  Branches are bare keys (no access ops
+inside):
+
+| Shorthand | Equivalent |
+|-----------|------------|
+| `a.(b,c)` | `a(.b,.c)` |
+| `a.(!b)` | `a(!.b)` |
+| `@obj@(x,y)` | `@obj(@x,@y)` |
+| `items[(0,1)]` | `items([0],[1])` |
+
+**Explicit** — no prefix; every branch specifies its own access op.
+Branches can mix different access ops freely:
+
+| Example | Meaning |
+|---------|---------|
+| `a(.b,.c)` | Keys `b` and `c` from `a` |
+| `a(.b,@b)` | Key `b` and attr `b` from `a` |
+| `a(!.secret)` | Everything except key `secret` |
+| `a(.x.y,[0].z)` | Key path `x.y` and slot `0` then key `z` |
+
+The rule is simple: if an access op floats down from a prefix, you
+can't specify one; otherwise, you must.
+
+#### Disjunction (OR)
+
+Comma separates branches. Returns all matches that exist. Disjunction doesn't
+short-circuit—when updating, all matching branches get the update. Using the
+match-first operator (`?`) is probably what you want when updating.
+
+    >>> d = {'a': {'x': 1, 'y': 2}}
+    >>> dotted.get(d, 'a(.x,.y)')
+    (1, 2)
+    >>> dotted.get(d, 'a(.x,.z)')     # z missing, x still returned
+    (1,)
+
+Updates apply to all matching branches. When nothing matches, the first
+concrete path (scanning last to first) is created:
+
+    >>> d = {'a': {'x': 1, 'y': 2}}
+    >>> dotted.update(d, 'a(.x,.y)', 99)
+    {'a': {'x': 99, 'y': 99}}
+    >>> dotted.update({'a': {}}, 'a(.x,.y)', 99)   # nothing matches → creates last (.y)
+    {'a': {'y': 99}}
+
+#### Cut (`#`) in disjunction
+
+Suffix a branch with `#` so that if it matches, only that branch is used
+(get/update/remove); later branches are not tried. Useful for "update if exists,
+else append" in lists. Example with slot grouping:
+
+    >>> data = {'emails': [{'email': 'alice@x.com', 'verified': False}]}
+    >>> dotted.update(data, 'emails[(*&email="alice@x.com"#, +)]', {'email': 'alice@x.com', 'verified': True})
+    {'emails': [{'email': 'alice@x.com', 'verified': True}]}
+    >>> data = {'emails': [{'email': 'other@x.com'}]}
+    >>> dotted.update(data, 'emails[(*&email="alice@x.com"#, +)]', {'email': 'alice@x.com', 'verified': True})
+    {'emails': [{'email': 'other@x.com'}, {'email': 'alice@x.com', 'verified': True}]}
+
+First branch matches items where `email="alice@x.com"` and updates them (then cut);
+if none match, the `+` branch appends the new dict.
+
+#### Soft cut (`##`) in disjunction
+
+Hard cut (`#`) stops all later branches when the cut branch matches. Soft cut (`##`)
+is more selective: later branches still run, but skip any paths that overlap with
+what the soft-cut branch already yielded. Use soft cut when a branch handles some
+keys and you want a fallback branch to handle the rest.
+
+    >>> d = {'a': {'b': [1, 2, 3]}, 'x': {'y': {'z': [4, 5]}}, 'extra': 'stuff'}
+    >>> dotted.pluck(d, '(*(*#, [*]:!(str, bytes)):-2(.*, [])##, (*, []))')
+    (('a.b', [1, 2, 3]), ('x.y.z', [4, 5]), ('extra', 'stuff'))
+
+Here `*(*#, [*]:!(str, bytes)):-2(.*, [])` recurses into containers (dicts and lists)
+and yields their leaf containers. The `##` means: for keys that recursion covered
+(like `a` and `x`), don't try the `(*, [])` fallback. But `extra` was not covered
+by the recursive branch, so the fallback picks it up.
+
+Compare with hard cut (`#`), which would lose `extra` entirely:
+
+    >>> dotted.pluck(d, '(*(*#, [*]:!(str, bytes)):-2(.*, [])#, (*, []))')
+    (('a.b', [1, 2, 3]), ('x.y.z', [4, 5]))
+
+#### Conjunction (AND)
+
+Use `&` for all-or-nothing behavior. Returns values only if ALL branches exist:
+
+    >>> d = {'a': {'x': 1, 'y': 2}}
+    >>> dotted.get(d, 'a(.x&.y)')
+    (1, 2)
+    >>> dotted.get(d, 'a(.x&.z)')     # z missing, fails entirely
+    ()
+
+Updates all branches so the conjunction eval as true—creates missing paths.
+If a filter or NOP prevents a branch, no update:
+
+    >>> dotted.update({'a': {'x': 1, 'y': 2}}, 'a(.x&.y)', 99)
+    {'a': {'x': 99, 'y': 99}}
+    >>> dotted.update({'a': {'x': 1}}, 'a(.x&.y)', 99)    # y missing → creates it
+    {'a': {'x': 99, 'y': 99}}
+
+#### First match
+
+Use `?` suffix to return only the first match. When nothing matches, same
+fallback as disjunction—first concrete path (last to first):
+
+    >>> d = {'a': {'x': 1, 'y': 2}}
+    >>> dotted.get(d, 'a(.z,.x,.y)?')    # first that exists
+    (1,)
+    >>> dotted.update({'a': {}}, 'a(.x,.y)?', 99)    # nothing matches → creates last (.y)
+    {'a': {'y': 99}}
+
+#### Packing
+
+A group yields its matches one by one. A `;` just inside either paren
+**packs** them: the group yields one value, the tuple of what it would
+have yielded. `(a,b;)` and `(;a,b)` are the same pack, and the group
+keeps its own kind—`(a,b;)` packs the branches that match, `(a&b;)` packs
+both or nothing, `(a#,b;)` packs what the cut lets through, `(a,b;)?`
+packs the first match—and `(a.*;)` packs a one-branch group. Nothing
+matched packs to `()`:
+
+    >>> d = {'a': {'x': 1, 'y': 2}, 'b': 3}
+    >>> dotted.get(d, '(a.*;)')
+    (1, 2)
+    >>> dotted.get(d, '(b,zz;)')
+    (3,)
+    >>> dotted.get(d, '(b&zz;)')
+    ()
+    >>> dotted.get(d, '(zz.*;)')
+    ()
+
+The tuple is one value, so a packed path is not a pattern: `get` returns
+the value bare, and a transform after the pack applies to the tuple once.
+This is how an aggregate over a pattern is written—the pack gathers, an
+ordinary [transform](#transforms) reduces:
+
+    >>> dotted.get(d, '(a.*;)|sum')
+    3
+    >>> dotted.get(d, '(a.*;)|mean')
+    1.5
+    >>> dotted.get(d, '(a.*;)|set|len')
+    2
+    >>> dotted.get({'a': 1, 'b': 2}, '(a,b;)|sum')      # not (a|sum,b|sum)
+    3
+
+The group runs from the node the pack sits at, so a pack under a pattern
+gives one tuple per match—a group-by—while a pack around the whole path
+gathers across every level inside it:
+
+    >>> d = {'items': [{'p': [1, 2]}, {'p': [3]}, {'p': []}]}
+    >>> dotted.get(d, 'items[*].(p[*];)|sum')
+    (3, 3, 0)
+    >>> dotted.get(d, '(items[*].p[*];)|sum')
+    6
+
+The path may continue into the tuple, and a guard compares it, with
+[guard transforms](#guard-transforms) before it:
+
+    >>> d = {'a': {'x': 1, 'y': 2}}
+    >>> dotted.get(d, '(a.*;)[0]')
+    1
+    >>> dotted.get(d, '(a.*;)|sum>2')
+    (1, 2)
+
+A packed group may also lead a [filter](#filters) key, where it runs
+from each item and its tuple is the value compared—filter by an
+aggregate over the item:
+
+    >>> d = {'items': [{'p': [1, 2]}, {'p': [3]}, {'p': []}]}
+    >>> dotted.get(d, 'items[(p[*];)|sum>2]')
+    [{'p': [1, 2]}, {'p': [3]}]
+    >>> dotted.get(d, 'items[*&(p[*];)|len=0]')
+    ({'p': []},)
+
+A pack is its own path segment: `walk` and `expand` give it back as
+written, `(a.*;)|sum`. There is nothing under a tuple of matches to write
+to, so `update` and `remove` through a pack raise `ValueError`, and a pack
+cannot be negated. `;` is a reserved character; quote a key that contains
+one, `"a;b"`.
+
+`(a.*;)[*]` yields the matches again: `[*]` is the inverse of packing.
+
+#### Negation (NOT)
+
+Use `!` prefix to exclude keys matching a pattern:
+
+    >>> import dotted
+
+    # Exclude a single key at top level
+    >>> d = {'a': 1, 'b': 2, 'c': 3}
+    >>> dotted.get(d, '!a')
+    (2, 3)
+
+    # Exclude single key — explicit form (access op on every branch)
+    >>> user = {'email': 'a@x.com', 'name': 'alice', 'password': 'secret'}
+    >>> sorted(dotted.get({'user': user}, 'user(!.password)'))
+    ['a@x.com', 'alice']
+
+    # Same thing — shorthand form (access op distributes from prefix)
+    >>> sorted(dotted.get({'user': user}, 'user.(!password)'))
+    ['a@x.com', 'alice']
+
+    # Works with lists too
+    >>> dotted.get({'items': [10, 20, 30]}, 'items(![0])')
+    (20, 30)
+
+Updates and removes apply to all non-matching keys:
+
+    >>> d = {'a': {'x': 1, 'y': 2, 'z': 3}}
+    >>> dotted.update(d, 'a(!.x)', 99)
+    {'a': {'x': 1, 'y': 99, 'z': 99}}
+    >>> dotted.remove(d, 'a(!.x)')
+    {'a': {'x': 1}}
+
+**Note**: For De Morgan's law with filter expressions, see the Filters section below.
+
+<a id="precedence"></a>
+### Precedence
+
+Tightest first:
+
+| Level | Operators | Example |
+|-------|-----------|---------|
+| 1 | access ops `.` `@` `[]`, parentheses | `!a.b` is `!(a.b)` |
+| 2 | `!` negation | `!a=5` is `(!a)=5` |
+| 3 | `:type`, `\|transform`, guard `=value`, filter `&key=value` | `!a\|int=5` tests `int` of each `(!a)` value |
+| 4 | `&` conjunction | `!a=5&b` is `((!a)=5)&b` |
+| 5 | `,` disjunction | `a,b\|int` is `a,(b\|int)` |
+
+A guard, filter or transform applies to the whole expression on its left:
+an access path (on its last segment), a `!` expression (on what it
+yields), or a parenthesized group, where it is shorthand for writing it on
+every branch: `(a,b)=5` is `(a=5,b=5)` and `(a,b)|int` is `(a|int,b|int)`,
+which is also how `assemble` writes them. A [packed](#packing) group
+yields one value, so `(a,b;)|sum` applies to that tuple once.
+
+    >>> d = {'a': 1, 'b': 2, 'c': 3}
+    >>> dotted.get(d, '!a&b,c')       # ((!a)&b), c
+    (2, 3, 2, 3)
+    >>> dotted.get(d, '!a=3')         # (!a)=3: the values other than a's equal to 3
+    (3,)
+    >>> dotted.get(d, '!(a=3)')       # everything but an a equal to 3
+    (1, 2, 3)
+    >>> dotted.get({'a': '1', 'b': '2'}, '(a,b)|int')
+    (1, 2)
+    >>> dotted.get({'a': '1', 'b': '2'}, 'a,b|int')
+    ('1', 2)
+
+Since access ops bind tightest, `!a.b` negates `a` and continues into `b`
+from every other key, and `!a.b&x` conjoins that with `x`:
+
+    >>> d = {'a': {'b': 1}, 'c': {'b': 2}, 'x': 3}
+    >>> dotted.get(d, '!a.b')
+    (2,)
+    >>> dotted.get(d, '!a.b&x')
+    (2, 3)
+
+A `:` after a transform name is always a parameter, `a|int:16`; to type a
+transformed value, parenthesize: `(a|int):int`.
+
+<a id="operators"></a>
+## Operators
+
+<a id="the-concat--operator"></a>
+### The concat `+` operator
+
+Outside of brackets, `+` joins parts of a key segment using Python's native `+`
+operator. Each part can be a literal, substitution, or reference:
+
+    >>> dotted.replace('user_+$(name)', {'name': 'alice'})
+    'user_alice'
+
+    >>> data = {'config': {'key': 'name'}, 'name_v2': 42}
+    >>> dotted.get(data, '$$(config.key)+_v2')
+    42
+
+All-literal concats collapse at parse time — `hello+world` becomes the key
+`helloworld`. When any part is dynamic (substitution or reference), a `Concat`
+node is preserved and resolved at traversal or replace time.
+
+Python's native `+` semantics apply: `str + str` concatenates, `int + int` adds,
+and mixed types raise `TypeError`. Per-part transforms allow type coercion:
+
+    >>> dotted.get({'x': {3: 'found'}}, 'x[1+2]')
+    'found'
+
+Concat works in all three access contexts — key (`.`), slot (`[]`), and attr (`@`):
+
+    >>> dotted.replace('$0+_suffix', ['hello'])
+    'hello_suffix'
+
+Inside brackets, `+` as concat is distinguished from `+` as append by context:
+`[+]` and `[+:]` remain append/slice operators, while `[a+b]` is a concat.
+
+<a id="the-append--operator"></a>
+### The append `+` operator
+
+Both bracketed fields and slices support the '+' operator which refers to the end of
+sequence. You may append an item or slice to the end a sequence.
+
+    >>> import dotted
+    >>> d = {'hi': {'there': [1, 2, 3]}, 'bye': {'there': [4, 5, 6]}}
+    >>> dotted.update(d, '*.there[+]', 8)
+    {'hi': {'there': [1, 2, 3, 8]}, 'bye': {'there': [4, 5, 6, 8]}}
+    >>> dotted.update(d, '*.there[+:]', [999])
+    {'hi': {'there': [1, 2, 3, 8, 999]}, 'bye': {'there': [4, 5, 6, 8, 999]}}
+
+`[+]` is the slot past the end, so nothing is ever there to read: a `get`
+through it is the default, and `[-1]` is the last item. A write to it always
+applies, so in a group an append branch is updated along with any branch
+that matches:
+
+    >>> dotted.get(d, 'hi.there[+]') is None
+    True
+    >>> dotted.update([{'k': 1}, {'k': 2}], '[(*&k=1, +)]', {'k': 9})
+    [{'k': 9}, {'k': 2}, {'k': 9}]
+    >>> dotted.update([{'k': 1}, {'k': 2}], '[(*&k=1#, +)]', {'k': 9})
+    [{'k': 9}, {'k': 2}]
+
+<a id="the-append-unique--operator"></a>
+### The append-unique `+?` operator
+
+If you want to update only _unique_ items to a list, you can use the `?`
+postfix.  This will ensure that it's only added once (see match-first below).
+
+    >>> import dotted
+    >>> items = [1, 2]
+    >>> dotted.update(items, '[+?]', 3)
+    [1, 2, 3]
+    >>> dotted.update(items, '[+?]', 3)
+    [1, 2, 3]
+
+<a id="the-invert---operator"></a>
+### The invert `-` operator
+
+You can invert the meaning of the notation by prefixing a `-`.  For example,
+to remove an item using `update`:
+
+    >>> import dotted
+    >>> d = {'a': 'hello', 'b': 'bye'}
+    >>> dotted.update(d, '-b', dotted.ANY)
+    {'a': 'hello'}
+    >>> dotted.remove(d, '-b', 'bye again')
+    {'a': 'hello', 'b': 'bye again'}
+
+<a id="the-nop--operator"></a>
+### The NOP `~` operator
+
+The NOP operator means "match but don't update." At `update` and `remove` time, paths
+marked with `~` are matched for traversal but the mutation is skipped at that segment.
+NOP applies only to the segment it wraps; child segments are unaffected.
+
+| Syntax | Meaning |
+|--------|---------|
+| `~a.b` | NOP at `a`, then `.b` |
+| `a.~b` | NOP at `b` (dot segment) |
+| `~(name.first)` | NOP on grouped path |
+| `[~*]` or `~[*]` | NOP on slot (canonical: `[~stuff]`) |
+| `@~attr` or `~@attr` | NOP on attr |
+
+    >>> dotted.update({'a': {'b': 1}}, '~a.b', 2)   # NOP at a, update .b
+    {'a': {'b': 2}}
+    >>> dotted.update({'a': {'b': 1}}, 'a.~b', 2)   # NOP at b, no change
+    {'a': {'b': 1}}
+
+Combine NOP with cut (`#`) for "update only if missing" semantics—if the NOP
+branch matches, cut commits to it and skips the remaining branches:
+
+    >>> # first existed — NOP branch matched and cut
+    >>> dotted.update({'name': {'first': 'alice'}}, '(name.~first#, name.first)', 'bob')
+    {'name': {'first': 'alice'}}
+    >>> # first missing — fell through to update branch
+    >>> dotted.update({'name': {}}, '(name.~first#, name.first)', 'bob')
+    {'name': {'first': 'bob'}}
+
+<a id="the-cut--operator"></a>
+### The cut `#` operator
+
+Think of cut as an OR/disjunction short-circuit. Suffix a branch with `#`
+so that if it matches, only that branch is used and later branches are not tried.
+If it doesn't match, evaluation falls through to the next branch.
+
+    >>> import dotted
+    >>> dotted.get({'a': 1, 'b': 2}, '(a#, b)')
+    (1,)
+    >>> dotted.get({'b': 2}, '(a#, b)')
+    (2,)
+
+This is especially useful for "update if exists, else create" patterns:
+
+    >>> data = {'emails': [{'email': 'alice@x.com', 'verified': False}]}
+    >>> dotted.update(data, 'emails[(*&email="alice@x.com"#, +)]', {'email': 'alice@x.com', 'verified': True})
+    {'emails': [{'email': 'alice@x.com', 'verified': True}]}
+    >>> data = {'emails': [{'email': 'other@x.com'}]}
+    >>> dotted.update(data, 'emails[(*&email="alice@x.com"#, +)]', {'email': 'alice@x.com', 'verified': True})
+    {'emails': [{'email': 'other@x.com'}, {'email': 'alice@x.com', 'verified': True}]}
+
+<a id="the-soft-cut--operator"></a>
+### The soft cut `##` operator
+
+Soft cut is a gentler version of cut. Where `#` stops all later branches when the
+cut branch matches, `##` only suppresses later branches for paths that overlap with
+what the soft-cut branch yielded. Later branches still run for non-overlapping paths.
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2}
+    >>> dotted.get(d, '(a##, *)')     # a covers 'a'; * still yields 'b'
+    (1, 2)
+    >>> dotted.get(d, '(a#, *)')      # hard cut: a matches, * never runs
+    (1,)
+
+This is especially useful with recursive patterns where one branch handles nested
+structures and a fallback handles the rest:
+
+    >>> d = {'a': {'b': [1, 2, 3]}, 'x': {'y': {'z': [4, 5]}}, 'extra': 'stuff'}
+    >>> dotted.pluck(d, '(*(*#, [*]:!(str, bytes)):-2(.*, [])##, (*, []))')
+    (('a.b', [1, 2, 3]), ('x.y.z', [4, 5]), ('extra', 'stuff'))
+
+The recursive branch covers `a` and `x`, so `(*, [])` skips those. But `extra` was
+not covered, so the fallback picks it up. With hard cut, `extra` would be lost entirely.
+
+Two paths "overlap" if one is a prefix of the other (e.g. `a` and `a.b.c` overlap,
+but `a.b` and `a.c` do not). You can test this directly:
+
+    >>> dotted.overlaps('a', 'a.b.c')
+    True
+    >>> dotted.overlaps('a.b', 'a.c')
+    False
+
+<a id="the-numericize--operator-1"></a>
+### The numericize `#` operator
+
+The `#` prefix is also used to coerce a quoted field to a numeric type (e.g. float).
+This is needed when a non-integer numeric key contains a decimal point that would
+otherwise be parsed as a path separator. See [Typing & Quoting](#the-numericize--operator)
+for full details.
+
+    >>> import dotted
+    >>> d = {'a': {1.2: 'hello', 1: {2: 'fooled you'}}}
+    >>> dotted.get(d, 'a.1.2')
+    'fooled you'
+    >>> dotted.get(d, 'a.#"1.2"')
+    'hello'
+
+<a id="filters"></a>
+## Filters
+
+<a id="the-key-value-filter"></a>
+### The key-value filter
+
+You may filter by key-value to narrow your result set. All six comparison operators are
+supported: `=`, `!=`, `<`, `>`, `<=`, `>=`. Filter keys can be dotted paths and may
+include slice notation (e.g. `name[:5]="hello"`, `file[-3:]=".py"`).
+You may use with __key__ or __bracketed__ fields. Key-value fields may be disjunctively (OR)
+specified via the `,` delimiter.
+
+A key-value field on __key__ field looks like: `keyfield&key1=value1,key2=value2...`.
+This will return all key-value matches on a subordinate dict-like object.  For example,
+
+    >>> d = {
+    ...    'a': {
+    ...         'id': 1,
+    ...         'hello': 'there',
+    ...     },
+    ...     'b': {
+    ...         'id': 2,
+    ...         'hello': 'there',
+    ...     },
+    ... }
+    >>> dotted.get(d, '*&id=1')
+    ({'id': 1, 'hello': 'there'},)
+    >>> dotted.get(d, '*&id=*')
+    ({'id': 1, 'hello': 'there'}, {'id': 2, 'hello': 'there'})
+
+A key-value field on a __bracketed__ field looks like: `[key1=value1,key2=value2...]`.
+This will return all items in a list that match key-value filter.  For example,
+
+    >>> d = {
+    ...     'a': [{'id': 1, 'hello': 'there'}, {'id': 2, 'hello': 'there'}],
+    ...     'b': [{'id': 3, 'hello': 'there'}, {'id': 4, 'hello': 'bye'}],
+    ... }
+    >>> dotted.get(d, 'a[hello="there"][*].id')
+    (1, 2)
+    >>> dotted.get(d, '*[hello="there"][*].id')
+    (1, 2, 3)
+
+<a id="the-key-value-first-filter"></a>
+### The key-value first filter
+
+You can have it match first by appending a `?` to the end of the filter.
+
+    >>> d = {
+    ...     'a': [{'id': 1, 'hello': 'there'}, {'id': 2, 'hello': 'there'}],
+    ...     'b': [{'id': 3, 'hello': 'there'}, {'id': 4, 'hello': 'bye'}],
+    ... }
+    >>> dotted.get(d, 'a[hello="there"?]')
+    [{'id': 1, 'hello': 'there'}]
+
+<a id="conjunction-vs-disjunction"></a>
+### Conjunction vs disjunction
+
+To _conjunctively_ connect filters use the `&` operator. Filters offer the ability to act
+_disjunctively_ as well by using the `,` operator.
+
+For example, given
+`*&key1=value1,key2=value2&key3=value3`. This will filter
+(`key1=value1` OR `key2=value2`) AND `key3=value3`.
+
+Note that this gives you the ability to have a key filter multiple values, such as:
+`*&key1=value1,key2=value2`.
+
+<a id="grouping-with-parentheses"></a>
+### Grouping with parentheses
+
+Use parentheses to control precedence in complex filter expressions:
+
+    >>> data = [
+    ...     {'id': 1, 'type': 'a', 'active': True},
+    ...     {'id': 2, 'type': 'b', 'active': True},
+    ...     {'id': 3, 'type': 'a', 'active': False},
+    ... ]
+
+    # (id=1 OR id=2) AND active=True
+    >>> dotted.get(data, '[(id=1,id=2)&active=True]')
+    [{'id': 1, 'type': 'a', 'active': True}, {'id': 2, 'type': 'b', 'active': True}]
+
+    # id=1 OR (id=3 AND active=False)
+    >>> dotted.get(data, '[id=1,(id=3&active=False)]')
+    [{'id': 1, 'type': 'a', 'active': True}, {'id': 3, 'type': 'a', 'active': False}]
+
+Groups can be nested for complex logic:
+
+    # ((id=1 OR id=2) AND type='a') OR id=4
+    >>> dotted.get(data, '[((id=1,id=2)&type="a"),id=4]')
+    [{'id': 1, 'type': 'a', 'active': True}]
+
+Precedence: `&` (AND) binds tighter than `,` (OR). Use parentheses when you need
+OR groups inside AND expressions.
+
+To use literal parentheses in keys, quote them: `"(key)"`.
+
+<a id="filter-negation-and-not-equals"></a>
+### Filter negation and not-equals
+
+Use `!` to negate filter conditions, or `!=` as syntactic sugar for not-equals (`key!=value` ≡ `!(key=value)`):
+
+    >>> data = [
+    ...     {'status': 'active', 'role': 'admin'},
+    ...     {'status': 'inactive', 'role': 'user'},
+    ...     {'status': 'active', 'role': 'user'},
+    ... ]
+
+    # Not-equals: items where status != "active"
+    >>> dotted.get(data, '[status!="active"]')
+    [{'status': 'inactive', 'role': 'user'}]
+
+    # Equivalent using negation
+    >>> dotted.get(data, '[!status="active"]')
+    [{'status': 'inactive', 'role': 'user'}]
+
+    # Negate grouped expression - NOT (active AND admin)
+    >>> dotted.get(data, '[!(status="active"&role="admin")]')
+    [{'status': 'inactive', 'role': 'user'}, {'status': 'active', 'role': 'user'}]
+
+    # Combine negation with AND - active non-admins
+    >>> dotted.get(data, '[status="active"&!role="admin"]')
+    [{'status': 'active', 'role': 'user'}]
+
+Precedence: `!` binds tighter than `&` and `,`:
+
+    [!a=1&b=2]    →  [(!a=1) & b=2]
+    [!(a=1&b=2)]  →  negate the whole group
+
+#### Filtering for missing fields
+
+Use `!field=*` to filter for items where a field is missing entirely (vs exists with
+value `None`):
+
+    >>> data = [
+    ...     {'name': 'alice', 'email': 'alice@example.com'},
+    ...     {'name': 'bob'},  # no email field
+    ...     {'name': 'charlie', 'email': None},  # email exists but is None
+    ... ]
+
+    # Field missing (doesn't exist)
+    >>> dotted.get(data, '[!email=*]')
+    [{'name': 'bob'}]
+
+    # Field exists with value None
+    >>> dotted.get(data, '[email=None]')
+    [{'name': 'charlie', 'email': None}]
+
+This works because `email=*` matches any value when the field exists, so `!email=*`
+only passes when the field is missing.
+
+<a id="comparison-operators"></a>
+### Comparison operators
+
+Filters and value guards support `<`, `>`, `<=`, `>=` for range queries:
+
+    >>> items = [
+    ...     {'name': 'alice', 'age': 15},
+    ...     {'name': 'bob', 'age': 20},
+    ...     {'name': 'charlie', 'age': 25},
+    ... ]
+    >>> dotted.get(items, '[age>=18][*].name')
+    ('bob', 'charlie')
+    >>> dotted.get(items, '[age<20][*].name')
+    ('alice',)
+
+Comparison operators work in all the same contexts as `=` and `!=`—value guards,
+recursive guards, and with transforms:
+
+    >>> d = {'a': 5, 'b': 15, 'c': 25}
+    >>> dotted.get(d, '*<10')
+    (5,)
+    >>> dotted.get(d, '*>=15')
+    (15, 25)
+
+    >>> deep = {'x': 1, 'y': {'z': 100, 'w': 3}}
+    >>> dotted.get(deep, '**<10')
+    (1, 3)
+
+    >>> dotted.get({'val': '7'}, 'val|int>5')
+    '7'
+
+Incomparable types silently fail to match (no exception):
+
+    >>> dotted.get({'a': 'hello', 'b': 3}, '*>1')
+    (3,)
+
+<a id="boolean-and-none-filter-values"></a>
+### Boolean and None filter values
+
+Filters support `True`, `False`, and `None` as values:
+
+    >>> data = [
+    ...     {'name': 'alice', 'active': True, 'score': None},
+    ...     {'name': 'bob', 'active': False, 'score': 100},
+    ... ]
+    >>> dotted.get(data, '[active=True]')
+    [{'name': 'alice', 'active': True, 'score': None}]
+    >>> dotted.get(data, '[score=None]')
+    [{'name': 'alice', 'active': True, 'score': None}]
+
+<a id="value-guard"></a>
+### Value guard
+
+A **value guard** tests the value at a path and yields it only if it matches.
+Use `key=value`, `[slot]=value` or `@attr=value` after accessing a field. All
+comparison operators (`=`, `!=`, `<`, `>`, `<=`, `>=`) are supported:
+
+    >>> d = {'first': 7, 'last': 3}
+    >>> dotted.get(d, 'first=7')
+    7
+    >>> dotted.get(d, 'first=3')   # no match
+    >>> dotted.get(d, '*=7')
+    (7,)
+    >>> dotted.pluck(d, '*=7')
+    (('first', 7),)
+
+For lists of primitive values, use `[*]=value`:
+
+    >>> data = [1, 7, 3, 7]
+    >>> dotted.get(data, '[*]=7')
+    (7, 7)
+    >>> dotted.get(data, '[0]=1')
+    1
+
+A guard after a parenthesized group is shorthand for a guard on every
+branch: `(first,last)>5` is `(first>5,last>5)`, and `(first&last)>5` is
+`(first>5&last>5)`, which yields nothing unless both pass. After `!` it
+tests what the negation yields, so `!first=3` is the non-`first` values
+equal to 3; see [Precedence](#precedence).
+
+    >>> dotted.get(d, '(first,last)>5')
+    (7,)
+    >>> dotted.get(d, '(first&last)>5')
+    ()
+    >>> dotted.get(d, '!first=3')
+    (3,)
+
+Guards support all value types: numbers, `None`, `True`/`False`, strings, regex, `*`,
+and [container patterns](#container-filter-values) (`[1, ...]`, `{"a": 1, ...: *}`, `{1, 2, ...}`):
+
+    >>> dotted.get([None, 1, 2], '[*]=None')
+    (None,)
+    >>> dotted.get(['hello', 'world', 'help'], '[*]="hello"')
+    ('hello',)
+    >>> dotted.get(['hello', 'world', 'help'], '[*]=/hel.*/')
+    ('hello', 'help')
+
+Use `!=` for negation, or ordered operators for range checks:
+
+    >>> dotted.get([True, False, None, 1, 2], '[*]!=True')
+    (False, None, 2)
+    >>> dotted.get({'a': 7, 'b': 3}, '*!=7')
+    (3,)
+    >>> dotted.get([10, 20, 30, 40], '[*]>25')
+    (30, 40)
+    >>> dotted.get({'a': 7, 'b': 3}, '*<=5')
+    (3,)
+
+Guards compose with continuation (dot paths):
+
+    >>> dotted.get({'a': {'first': 7}}, 'a.first=7')
+    7
+
+**Note**: `[*=value]` (equals inside brackets) is a SliceFilter — it tests *keys* of each
+dict-like list item. `[*]=value` (equals outside brackets) is a value guard — it tests
+the item values directly. For primitive lists, use `[*]=value`.
+
+**Note**: Python equality applies, so `1 == True` and `0 == False`:
+
+    >>> dotted.get([True, 1, False, 0], '[*]=True')
+    (True, 1)
+
+<a id="guard-transforms"></a>
+### Guard transforms
+
+Guards and filters can apply transforms before comparing. Place transforms
+between the field and the comparison operator:
+
+    >>> d = {'a': '7', 'b': '3'}
+    >>> dotted.get(d, '*|int=7')
+    ('7',)
+    >>> dotted.get(d, '*|int!=7')
+    ('3',)
+
+The transform is used for matching only — the yielded value is the original
+(untransformed) value:
+
+    >>> dotted.get({'val': '7'}, 'val|int=7')
+    '7'
+    >>> dotted.get({'val': '3'}, 'val|int=7')  # no match
+
+Slot guards work the same way:
+
+    >>> dotted.get(['3', '7', '7'], '[*]|int=7')
+    ('7', '7')
+
+Multiple transforms can be chained:
+
+    >>> dotted.get({'val': '7.9'}, 'val|float|int=7')
+    '7.9'
+
+Guard transforms work with filters too. Use `key|transform=value` inside a filter:
+
+    >>> items = [{'val': '7', 'name': 'a'}, {'val': '3', 'name': 'b'}]
+    >>> dotted.get(items, '[val|int=7]')
+    [{'val': '7', 'name': 'a'}]
+    >>> dotted.get(items, '[*&val|int!=7].name')
+    ('b',)
+
+And with recursive patterns:
+
+    >>> deep = {'x': {'val': '10'}, 'y': {'val': '5'}}
+    >>> dotted.get(deep, '**.val|int=10')
+    ('10',)
+
+Guard transforms compose with `update`, `remove`, and `has`:
+
+    >>> dotted.update({'a': '7', 'b': '3'}, '*|int=7', 'X')
+    {'a': 'X', 'b': '3'}
+    >>> dotted.remove({'a': '7', 'b': '3'}, '*|int!=7')
+    {'a': '7'}
+    >>> dotted.has({'val': '7'}, 'val|int=7')
+    True
+
+Both the transform arguments and the value compared with may be
+[references](#references-in-transforms-and-guards).
+
+<a id="container-filter-values"></a>
+### Container filter values
+
+Filter values and value guards can use **container patterns** to match against lists,
+dicts, and sets structurally. Container patterns support wildcards (`*`), globs (`...`),
+regex, and full nesting.
+
+#### List patterns
+
+`[elements]` matches list and tuple values element by element:
+
+    >>> import dotted
+    >>> d = {'items': [1, 2, 3], 'name': 'test', 'pair': (1, 2)}
+
+    # Exact match
+    >>> dotted.get(d, '*=[1, 2, 3]')
+    ([1, 2, 3],)
+
+    # Wildcard: * matches exactly one element
+    >>> dotted.get(d, '*=[1, *, 3]')
+    ([1, 2, 3],)
+
+    # Glob: ... matches zero or more elements ([] matches list and tuple)
+    >>> dotted.get(d, '*=[1, ...]')
+    ([1, 2, 3], (1, 2))
+
+    # Empty list matches any empty list or tuple
+    >>> dotted.get({'a': [], 'b': [1]}, '*=[]')
+    ([],)
+
+Unprefixed `[]` matches both list and tuple. See [Type prefixes](#type-prefixes)
+for strict type matching.
+
+#### Dict patterns
+
+`{key: value}` matches dict values by key-value pairs:
+
+    >>> d = [{'cfg': {'a': 1, 'b': 2}}, {'cfg': {'a': 1}}]
+
+    # Exact match — no extra keys allowed
+    >>> dotted.get(d, '[*&cfg={"a": 1}]')
+    ({'cfg': {'a': 1}},)
+
+    # Partial match — ...: * allows extra entries
+    >>> dotted.get(d, '[*&cfg={"a": 1, ...: *}]')
+    ({'cfg': {'a': 1, 'b': 2}}, {'cfg': {'a': 1}})
+
+    # Any dict: {...: *}
+    >>> dotted.get({'x': {'a': 1}, 'y': 42}, '*={...: *}')
+    ({'a': 1},)
+
+#### Set patterns
+
+`{elements}` (comma-separated, no colons) matches set and frozenset values:
+
+    >>> d = {'tags': {1, 2, 3}, 'name': 'test'}
+
+    # Exact match
+    >>> dotted.get(d, '*={1, 2, 3}')
+    ({1, 2, 3},)
+
+    # Partial match — ... allows extra members
+    >>> dotted.get(d, '*={1, ...}')
+    ({1, 2, 3},)
+
+Unprefixed `{v, v}` matches both set and frozenset. See [Type prefixes](#type-prefixes)
+for strict type matching.
+
+#### The `...` glob element
+
+Inside containers, `...` matches zero or more elements. It supports optional regex
+patterns and count constraints:
+
+| Form | Meaning |
+|------|---------|
+| `...` | 0 or more, anything |
+| `...5` | 0 to 5 |
+| `...2:5` | 2 to 5 |
+| `...2:` | 2 or more |
+| `.../regex/` | 0 or more, each matching regex |
+| `.../regex/2:5` | 2 to 5, each matching regex |
+
+Examples:
+
+    >>> d = {'nums': [1, 2, 3, 4, 5]}
+
+    # Glob with count: at most 3 elements
+    >>> dotted.get(d, '*=[...3]')
+    ()
+    >>> dotted.get({'nums': [1, 2, 3]}, '*=[...3]')
+    ([1, 2, 3],)
+
+    # Glob with regex: all elements must be digits
+    >>> dotted.get(d, '*=[.../\\d+/]')
+    ([1, 2, 3, 4, 5],)
+
+In dicts, `...` appears on the key side:
+
+    >>> d = {'user_a': 1, 'user_b': 2, 'admin': 3}
+    >>> dotted.get({'x': d}, 'x={.../user_.*/: *, ...: *}')
+    {'user_a': 1, 'user_b': 2, 'admin': 3}
+
+#### Nested containers
+
+Patterns nest fully:
+
+    >>> d = {'data': {'a': [1, 2, 3], 'b': {'x': 10}}}
+    >>> dotted.get(d, '*={"a": [1, ...], ...: *}')
+    ({'a': [1, 2, 3], 'b': {'x': 10}},)
+
+#### Filters with container values
+
+Container patterns work in filter expressions too:
+
+    >>> data = [{'tags': [1, 2, 3]}, {'tags': [4, 5]}, {'tags': [1]}]
+    >>> dotted.get(data, '[*&tags=[1, ...]]')
+    ({'tags': [1, 2, 3]}, {'tags': [1]})
+
+<a id="type-prefixes"></a>
+### Type prefixes
+
+Container patterns support type prefixes for strict type matching. Without a prefix,
+matching is loose (e.g., `[]` matches both list and tuple). With a prefix, only the
+specified type matches.
+
+| Prefix | Type | Bracket |
+|--------|------|---------|
+| `l` | list | `l[...]` |
+| `t` | tuple | `t[...]` |
+| `d` | dict | `d{...}` |
+| `s` | set | `s{...}` |
+| `fs` | frozenset | `fs{...}` |
+
+Examples:
+
+    >>> d = {'a': [1, 2], 'b': (1, 2)}
+
+    # Unprefixed: matches both
+    >>> dotted.get(d, '*=[1, 2]')
+    ([1, 2], (1, 2))
+
+    # Prefixed: strict type
+    >>> dotted.get(d, '*=l[1, 2]')
+    ([1, 2],)
+    >>> dotted.get(d, '*=t[1, 2]')
+    ((1, 2),)
+
+Empty containers with prefixes:
+
+    >>> d = {'a': set(), 'b': frozenset(), 'c': []}
+    >>> dotted.get(d, '*=s{}')
+    (set(),)
+    >>> dotted.get(d, '*=fs{}')
+    (frozenset(),)
+
+**Note**: Unprefixed `{}` matches dict (Python convention — `{}` is a dict, not a set).
+Use `s{}` for empty set, `fs{}` for empty frozenset.
+
+<a id="string-glob-patterns"></a>
+### String glob patterns
+
+String globs match string values by prefix, suffix, or substring using `...` between
+quoted fragments. They work in filter values and value guards:
+
+| Form | Matches |
+|------|---------|
+| `"hello"...` | Strings starting with "hello" |
+| `..."world"` | Strings ending with "world" |
+| `"hello"..."world"` | Starts with "hello", ends with "world" |
+| `"a"..."b"..."c"` | Contains substrings in order |
+| `"hello"...5` | Starts with "hello", at most 5 more chars |
+| `"a"...2:5"b"` | 2-5 chars between "a" and "b" |
+
+Examples:
+
+    >>> import dotted
+    >>> d = {'greeting': 'hello world', 'farewell': 'goodbye world', 'name': 'alice'}
+
+    # Prefix match
+    >>> dotted.get(d, '*="hello"...')
+    ('hello world',)
+
+    # Suffix match
+    >>> dotted.get(d, '*=..."world"')
+    ('hello world', 'goodbye world')
+
+    # Prefix + suffix
+    >>> dotted.get(d, '*="hello"..."world"')
+    ('hello world',)
+
+In filters:
+
+    >>> data = [{'name': 'user_alice'}, {'name': 'admin_bob'}, {'name': 'user_carol'}]
+    >>> dotted.get(data, '[*&name="user_"...]')
+    ({'name': 'user_alice'}, {'name': 'user_carol'})
+
+    # Negated
+    >>> dotted.get(data, '[*&name!="user_"...]')
+    ({'name': 'admin_bob'},)
+
+String globs only match `str` values — not `bytes`. For bytes matching, use
+[bytes glob patterns](#bytes-glob-patterns).
+
+<a id="bytes-glob-patterns"></a>
+### Bytes glob patterns
+
+Bytes globs are the `bytes` counterpart to string globs. Use `b"..."` on any
+fragment to produce a bytes glob — all other quoted fragments are automatically
+encoded to bytes:
+
+| Form | Matches |
+|------|---------|
+| `b"hello"...` | Bytes starting with b"hello" |
+| `...b"world"` | Bytes ending with b"world" |
+| `b"hello"...b"world"` | Starts with b"hello", ends with b"world" |
+| `b"hello"..."world"` | Same — naked `"world"` auto-encoded to bytes |
+| `"hello"...b"world"` | Same — naked `"hello"` auto-encoded to bytes |
+| `b"hello"...5` | Starts with b"hello", at most 5 more bytes |
+
+If any fragment uses the `b` prefix, the entire glob becomes a bytes glob and
+naked quoted strings are encoded to bytes automatically.
+
+Examples:
+
+    >>> import dotted
+    >>> d = {'a': b'hello world', 'b': b'goodbye world'}
+    >>> dotted.get(d, '*=b"hello"...')
+    (b'hello world',)
+    >>> dotted.get(d, '*=b"hello"..."world"')
+    (b'hello world',)
+
+In filters:
+
+    >>> data = [{'data': b'user_alice'}, {'data': b'admin_bob'}]
+    >>> dotted.get(data, '[*&data=b"user_"...]')
+    ({'data': b'user_alice'},)
+
+Bytes globs only match `bytes` values — never `str`.
+
+<a id="value-groups"></a>
+### Value groups
+
+Value groups express disjunction (OR) over filter values. Use `(val1, val2, ...)`
+to match any of several alternatives:
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+    >>> dotted.get(d, '*=(1, 3)')
+    (1, 3)
+
+Alternatives can be any value type — strings, numbers, regex, string globs, `*`,
+`None`, `True`/`False`, or containers:
+
+    >>> data = [
+    ...     {'name': 'user_alice'},
+    ...     {'name': 'admin_bob'},
+    ...     {'name': 'guest_carol'},
+    ... ]
+    >>> dotted.get(data, '[*&name=("user_"..., /admin_.*/)]')
+    ({'name': 'user_alice'}, {'name': 'admin_bob'})
+
+Use `!=` for negation — matches values not in the group:
+
+    >>> d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+    >>> dotted.get(d, '*!=(1, 3)')
+    (2, 4)
+
+In filters:
+
+    >>> data = [{'status': 1}, {'status': 2}, {'status': 3}]
+    >>> dotted.get(data, '[*&status=(1, 2)]')
+    ({'status': 1}, {'status': 2})
+    >>> dotted.get(data, '[*&status!=(1, 2)]')
+    ({'status': 3},)
+
+**Note**: Value groups `(val1, val2)` in value position are different from path
+grouping `(a,b)` in path position. Value groups appear after `=` or `!=`.
+
+<a id="dotted-filter-keys"></a>
+### Dotted filter keys
+
+Filter keys can contain dotted paths to filter on nested fields:
+
+    >>> d = {
+    ...     'items': [
+    ...         {'user': {'id': 1, 'name': 'alice'}, 'value': 100},
+    ...         {'user': {'id': 2, 'name': 'bob'}, 'value': 200},
+    ...     ]
+    ... }
+    >>> dotted.get(d, 'items[user.id=1]')
+    [{'user': {'id': 1, 'name': 'alice'}, 'value': 100}]
+    >>> dotted.get(d, 'items[user.name="bob"][0].value')
+    200
+
+<a id="slice-notation-in-filter-keys"></a>
+### Slice notation in filter keys
+
+Filter keys can include slice notation so the comparison applies to a slice of the field value (prefix, suffix, or any slice). Use the same slice syntax as in paths: integers and `+` for start/stop/step.
+
+    >>> data = [
+    ...     {'name': 'hello world', 'file': 'app.py'},
+    ...     {'name': 'hi', 'file': 'readme.md'},
+    ...     {'name': 'hello', 'file': 'x.py'},
+    ... ]
+    >>> dotted.get(data, '[*&name[:5]="hello"]')
+    ({'name': 'hello world', 'file': 'app.py'}, {'name': 'hello', 'file': 'x.py'})
+    >>> dotted.get(data, '[*&file[-3:]=".py"]')
+    ({'name': 'hello world', 'file': 'app.py'}, {'name': 'hello', 'file': 'x.py'})
+
+<a id="transforms"></a>
+## Transforms
+
+You can optionally add transforms to the end of dotted notation. These will
+be applied on `get` and `update`. Transforms are separated by the `|` operator
+and multiple may be chained together. Transforms may be parameterized using
+the `:` operator; a parameter may be a `$$(reference)`, resolved when the
+transform runs (see
+[References in transforms and guards](#references-in-transforms-and-guards)).
+
+    >>> import dotted
+    >>> d = [1, '2', 3]
+    >>> dotted.get(d, '[1]')
+    '2'
+    >>> dotted.get(d, '[1]|int')
+    2
+    >>> dotted.get(d, '[0]|str:number=%d')
+    'number=1'
+
+You may register new transforms via either `register` or the `@transform`
+decorator.
+
+<a id="built-in-transforms"></a>
+### Built-in Transforms
+
+| Transform | Parameters | Description |
+|-----------|------------|-------------|
+| `str` | `fmt`, `raises` | Convert to string. Optional format: `\|str:Hello %s` |
+| `int` | `base`, `raises` | Convert to int. Optional base: `\|int:16` for hex |
+| `float` | `raises` | Convert to float |
+| `decimal` | `raises` | Convert to `Decimal` |
+| `none` | values... | Return `None` if falsy or matches values: `\|none::null:empty` |
+| `coalesce` | fallbacks... | The first of the value and the fallbacks that is not `None`: `\|coalesce:0` |
+| `strip` | `chars`, `raises` | Strip whitespace or specified chars |
+| `len` | `default` | Get length. Optional default if not sized: `\|len:0` |
+| `sum` | `start`, `raises` | Sum a container: `\|sum`, `\|sum:10`; over a pattern, `(a.*;)\|sum` |
+| `mean` | `raises` | Arithmetic mean of a container: `(a.*;)\|mean` |
+| `lowercase` | `raises` | Convert string to lowercase |
+| `uppercase` | `raises` | Convert string to uppercase |
+| `add` | `rhs`, `raises` | Add value: `\|add:10` |
+| `sub` | `rhs`, `raises` | Subtract value: `\|sub:3` |
+| `mul` | `rhs`, `raises` | Multiply: `\|mul:2` |
+| `div` | `rhs`, `raises` | Divide: `\|div:4` |
+| `mod` | `rhs`, `raises` | Modulo: `\|mod:3` |
+| `pow` | `rhs`, `raises` | Power: `\|pow:2` |
+| `neg` | `raises` | Negate: `\|neg` |
+| `abs` | `raises` | Absolute value: `\|abs` |
+| `round` | `ndigits`, `raises` | Round: `\|round` or `\|round:2` |
+| `ceil` | `raises` | Ceiling: `\|ceil` |
+| `floor` | `raises` | Floor: `\|floor` |
+| `min` | `bound`, `raises` | Clamp to upper bound: `\|min:100` |
+| `max` | `bound`, `raises` | Clamp to lower bound: `\|max:0` |
+| `eq` | `rhs`, `raises` | Equal: `\|eq:5` → `True`/`False` |
+| `ne` | `rhs`, `raises` | Not equal: `\|ne:5` → `True`/`False` |
+| `gt` | `rhs`, `raises` | Greater than: `\|gt:5` → `True`/`False` |
+| `ge` | `rhs`, `raises` | Greater or equal: `\|ge:5` → `True`/`False` |
+| `lt` | `rhs`, `raises` | Less than: `\|lt:5` → `True`/`False` |
+| `le` | `rhs`, `raises` | Less or equal: `\|le:5` → `True`/`False` |
+| `in` | `rhs`, `raises` | Membership: `\|in:[1, 2, 3]` → `True`/`False` |
+| `not_in` | `rhs`, `raises` | Negative membership: `\|not_in:[1, 2, 3]` → `True`/`False` |
+| `list` | `raises` | Convert to list |
+| `tuple` | `raises` | Convert to tuple |
+| `set` | `raises` | Convert to set |
+
+By default, transforms return the original value on error. The `raises` parameter
+causes the transform to raise an exception instead:
+
+    >>> import dotted
+    >>> dotted.get({'n': 'hello'}, 'n|int')      # fails silently
+    'hello'
+    >>> dotted.get({'n': 'hello'}, 'n|int::raises')  # raises ValueError
+    Traceback (most recent call last):
+    ...
+    ValueError: invalid literal for int() with base 10: 'hello'
+
+Math transforms can be chained for inline computation:
+
+    >>> dotted.get({'n': -3.14159}, 'n|abs|round:2')
+    3.14
+    >>> dotted.get({'n': 15}, 'n|max:0|min:10')
+    10
+
+Comparison and membership transforms return `True`/`False`:
+
+    >>> dotted.get({'n': 5}, 'n|gt:3')
+    True
+    >>> dotted.get({'n': 2}, 'n|in:[1, 2, 3]')
+    True
+
+`coalesce` stands in a fallback for `None`, as SQL's does; with several
+fallbacks the first that is not `None` wins, which matters when a fallback is
+a [reference](#references-in-transforms-and-guards) that may itself be `None`:
+
+    >>> d = {'n': None, 'defaults': {'n': 7}}
+    >>> dotted.get(d, 'n|coalesce:0')
+    0
+    >>> dotted.get(d, 'n|coalesce:$$(defaults.n):0')
+    7
+
+A transform only runs on a value the path yields, so `coalesce` does not fill
+a missing key; `get(..., default=)` does that.
+
+<a id="container-transform-arguments"></a>
+### Container transform arguments
+
+Transform parameters accept container literals in addition to scalars. These produce
+raw Python values — no patterns (`*`, `...`, `/regex/`) allowed in this context.
+
+    >>> import dotted
+    >>> @dotted.transform('lookup')
+    ... def lookup(val, table):
+    ...     return table.get(val)
+    >>> dotted.get({'code': 'a'}, 'code|lookup:{"a": 1, "b": 2}')
+    1
+
+Container arguments support [type prefixes](#type-prefixes):
+
+| Syntax | Produces |
+|--------|----------|
+| `[1, 2, 3]` | `list` |
+| `t[1, 2, 3]` | `tuple` |
+| `{"a": 1}` | `dict` |
+| `{1, 2, 3}` | `set` |
+| `fs{1, 2}` | `frozenset` |
+| `[]` | `[]` (empty list) |
+| `t[]` | `()` (empty tuple) |
+| `{}` | `{}` (empty dict) |
+| `s{}` | `set()` (empty set) |
+
+Containers nest: `{"a": [1, 2], "b": t[3, 4]}` produces `{'a': [1, 2], 'b': (3, 4)}`.
+
+<a id="custom-transforms"></a>
+### Custom Transforms
+
+Register custom transforms using `register` or the `@transform` decorator:
+
+    >>> import dotted
+    >>> @dotted.transform('double')
+    ... def double(val):
+    ...     return val * 2
+    >>> dotted.get({'n': 5}, 'n|double')
+    10
+
+View all registered transforms with `dotted.registry()`.
+
+<a id="sqlize"></a>
+## SQL Translation (`sqlize`)
+
+> **Under development.** The API shape and supported subset of dotted
+> features may still change. Postgres-only. Pattern paths (`*`, `[*]`,
+> `**`, filter brackets) are supported only as WHERE-side existence
+> checks via `jsonb_path_exists`; pattern paths that yield sets as
+> SELECT (needing `LATERAL jsonb_path_query`) are not supported yet.
+
+`dotted.sqlize(path, driver='<name>')` translates a dotted path into a
+driver-specific `Resolver` instance carrying SQL fragments.
+`r.build(sql, **bindings)` renders a fragment (or any composition of
+fragments) into final SQL + a params dict / args list ready for the
+driver.
+
+Registered drivers:
+
+| driver                  | placeholders      | output shape | notes                                                                                  |
+|-------------------------|-------------------|--------------|----------------------------------------------------------------------------------------|
+| `asyncpg`               | `$1, $2, ...`     | list         | Native Postgres; always server-side PREPARE — emits `::cast` for polymorphic contexts. |
+| `psycopg2`              | `%(name)s` / `%s` | dict         | Client-side parameter substitution. No casts.                                          |
+| `psycopg` / `psycopg3`  | `%(name)s` / `%s` | dict         | psycopg v3 (same class under either name) — server-side binding in binary mode, emits `::cast` for polymorphic contexts. |
+
+Pick the driver you'll actually hand the SQL to; it determines the
+placeholder syntax and whether explicit SQL casts are emitted.
+
+The first segment of the dotted path is the SQL column; further
+segments are JSON navigation inside it (JSONB). Scalar columns and
+JSONB columns share one surface:
+
+    >>> import dotted
+    >>> r = dotted.sqlize("status = 'active'", driver='asyncpg')
+    >>> r.where
+    SQLFragment('status = {_p1}')
+    >>> r.build(r.where)
+    ('status = $1', ['active'])
+
+    >>> r = dotted.sqlize("data.user.age >= 30", driver='asyncpg')
+    >>> r.build(r.where)
+    ("(data #>> '{user,age}')::numeric >= $1", [30])
+
+    >>> r = dotted.sqlize("data.user.name", driver='asyncpg')   # pure traversal, no predicate
+    >>> r.build(r.select)
+    ("data #>> '{user,name}'", [])
+
+Guards encode the predicate:
+
+    >>> r = dotted.sqlize("age >= 30", driver='asyncpg')
+    >>> r.build(r.where)
+    ('age >= $1', [30])
+
+    >>> r = dotted.sqlize("deleted_at = None", driver='asyncpg')
+    >>> r.build(r.where)
+    ('deleted_at IS NULL', [])
+
+    >>> r = dotted.sqlize("name = /^alice/", driver='asyncpg')
+    >>> r.build(r.where)
+    ('name ~ $1', ['^alice'])
+
+Boolean grouping maps directly onto `AND` / `OR` / `NOT`:
+
+    >>> r = dotted.sqlize('(age >= 18 & status = "active")', driver='asyncpg')
+    >>> r.build(r.where)
+    ('(age >= $1) AND (status = $2)', [18, 'active'])
+
+Guard transforms become SQL casts (`int`, `float`, `str`, `bool`):
+
+    >>> r = dotted.sqlize("data.user.age|int >= 30", driver='asyncpg')
+    >>> r.build(r.where)
+    ("(data #>> '{user,age}')::int >= $1", [30])
+
+### SQLFragment and composition
+
+`r.select`, `r.where`, `r.from_` are `SQLFragment` objects. The
+underlying text uses Python format-string syntax with `{name}` markers
+— each marker is resolved to a driver placeholder (`$N` / `%s` / etc.)
+at build time. Literal braces in the SQL (e.g. JSONB path arrays) are
+doubled as `{{`…`}}`.
+
+Fragments concatenate naturally via `+` / `__radd__`; metadata merges:
+
+    >>> r = dotted.sqlize("age >= $(min_age)", driver='asyncpg')
+    >>> combined = "WHERE " + r.where
+    >>> r.build(combined, min_age=30)
+    ('WHERE age >= $1', [30])
+
+### Hoisted params
+
+Every RHS value is hoisted into a params entry keyed by a generated
+name (`_p1`, `_p2`, …). This keeps values out of the SQL string:
+
+    >>> user_input = "'; DROP TABLE users;--"
+    >>> r = dotted.sqlize(f"name = {user_input!r}", driver='asyncpg')
+    >>> str(r.where)
+    'name = {_p1}'
+    >>> r.build(r.where)
+    ('name = $1', ["'; DROP TABLE users;--"])
+
+The user input stays a value — never parsed as SQL.
+
+### Substitutions (late binding)
+
+A substitution is preserved as a deferred bind; supply the value at
+build time:
+
+    >>> r = dotted.sqlize("age >= $(min_age)", driver='asyncpg')
+    >>> r.where.unbound        # bind_name → original_name
+    {'min_age': 'min_age'}
+    >>> r.build(r.where, min_age=30)
+    ('age >= $1', [30])
+
+`unbound` is keyed by the **bind marker name** (what ends up as
+`$N` / `%(name)s`); each value is the **original substitution name**
+(what was inside `$(...)`), kept as provenance. Plain identifiers bind
+by that same name; non-identifier names (dotted paths, quoted keys,
+spaces) hash to a deterministic `_s_<hex>` marker:
+
+    >>> r = dotted.sqlize('age >= $(user.min_age)', driver='asyncpg')
+    >>> list(r.where.unbound.values())
+    ['user.min_age']
+
+Repeated uses of the same name share one entry — back-referenced by
+the placeholder position (or by name under `pyformat`):
+
+    >>> r = dotted.sqlize('(age >= $(x) & weight = $(x))', driver='asyncpg')
+    >>> r.build(r.where, x=42)
+    ('(age >= $1) AND (weight = $1)', [42])
+    >>> r2 = dotted.sqlize('(age >= $(x) & weight = $(x))', driver='psycopg2')
+    >>> r2.build(r2.where, x=42)
+    ('(age >= %(x)s) AND (weight = %(x)s)', {'x': 42})
+
+If you pass `bindings=` at sqlize time, substitutions are resolved
+immediately and hoisted like any other literal — no longer appearing
+in `unbound`:
+
+    >>> r = dotted.sqlize("age >= $(min_age)",
+    ...                   driver='asyncpg', bindings={'min_age': 30})
+    >>> r.build(r.where)
+    ('age >= $1', [30])
+
+### References
+
+Absolute-root references (`$$(path)`) map to dynamic JSON key lookups
+— Postgres's `->` / `#>` accept runtime-computed keys:
+
+    >>> r = dotted.sqlize('data.$$(data.config.field) = "Alice"',
+    ...                   driver='asyncpg')
+    >>> r.build(r.where)
+    ("(data ->> (data #>> '{config,field}')) = $1", ['Alice'])
+
+Relative references (`^`) and parent references (`^^+`) are not
+supported yet.
+
+### Pattern paths
+
+Paths that contain wildcards (`*`, `[*]`), recursive descent (`**`),
+or bracket filters (`[pred]`, `[*&pred]`) translate to a Postgres
+`jsonb_path_exists(…)` WHERE predicate. The dotted path becomes a
+JSONPath expression; guard values embed inline when safely literal
+(numbers, booleans, null) or flow through a `jsonb_build_object` vars
+argument (strings, substitutions).
+
+    >>> r = dotted.sqlize("data.users[*].age >= 30", driver='asyncpg')
+    >>> r.build(r.where)
+    ("jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')", [])
+
+    >>> r = dotted.sqlize("data.**.active = True", driver='asyncpg')
+    >>> r.build(r.where)
+    ("jsonb_path_exists(data, '$.**.active ? (@ == true)')", [])
+
+    >>> r = dotted.sqlize("data.users[age>=30]", driver='asyncpg')
+    >>> r.build(r.where)
+    ("jsonb_path_exists(data, '$.users[*] ? (@.age >= 30)')", [])
+
+    >>> r = dotted.sqlize('data.users[*&age>=30].name = "alice"',
+    ...                   driver='asyncpg')
+    >>> sql, params = r.build(r.where)
+    >>> sql
+    "jsonb_path_exists(data, '$.users[*] ? (@.age >= 30).name ? (@ == $_p1)', jsonb_build_object('_p1', $1::text))"
+    >>> params
+    ['alice']
+
+The `::text` on the placeholder above is driver-dependent. `asyncpg`
+and `psycopg` (v3) emit explicit SQL casts inside `jsonb_build_object`
+because their placeholders get typed server-side at PREPARE time;
+`psycopg2` substitutes client-side and has no such cast.
+
+Pattern predicates compose with scalar ones via dotted's `&` / `,` /
+`!`:
+
+    >>> r = dotted.sqlize('(data.users[*].age >= 30 & status = "active")',
+    ...                   driver='asyncpg')
+    >>> sql, params = r.build(r.where)
+    >>> sql
+    "(jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')) AND (status = $1)"
+
+Pattern paths produce three fragments: the filter-style `r.where`
+(via `jsonb_path_exists`), the extract-style `r.lateral` (via
+`LATERAL jsonb_path_query`), and `r.select` pointing at the lateral's
+output alias. Use whichever matches your row semantics — filter-style
+keeps one row per source row, extract-style produces one row per
+match.
+
+    >>> r = dotted.sqlize('data.users[*].age >= 30', driver='asyncpg')
+    >>> str(r.where)
+    "jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')"
+    >>> str(r.lateral)
+    "LATERAL jsonb_path_query(data, '$.users[*].age ? (@ >= 30)') AS _pat1(value)"
+    >>> str(r.select)
+    '_pat1.value'
+
+Filter-style — "which items have any matching user?":
+
+    SELECT id FROM items WHERE jsonb_path_exists(...)
+    # composed:  "SELECT id FROM items WHERE " + r.where
+
+Extract-style — "each matching age, one row per match":
+
+    SELECT id, _pat1.value FROM items, LATERAL jsonb_path_query(...) AS _pat1(value)
+    # composed:  "SELECT id, " + r.select + " FROM items, " + r.lateral
+
+The lateral fragment has no leading comma or `JOIN` keyword — attach
+it however fits: `, LATERAL ...`, `CROSS JOIN ...`, `LEFT JOIN ... ON
+TRUE` to keep rows without matches, etc.
+
+Lateral aliases (`_pat1`, `_pat2`, …) are allocated from the
+`ParamPool`, so two pattern paths sharing a pool pick distinct
+aliases and compose into one query without collision.
+
+Not yet supported:
+- Regex-in-access like `data./prefix_\d+/.field`
+- Pattern refs
+
+### Composing multiple Resolvers — ParamPool
+
+Each call to `dotted.sqlize()` allocates its own bind-parameter name
+pool, so two independent Resolvers can both emit `_p1` for their first
+hoisted literal. Composing their fragments via `+` (or wrapping them
+in a CTE) would then collide at render time — the second `_p1` would
+silently overwrite the first.
+
+Pass a shared `ParamPool` to every `sqlize()` call that should compose:
+
+    >>> pool = dotted.ParamPool()
+    >>> r1 = dotted.sqlize('status = "active"', driver='asyncpg', pool=pool)
+    >>> r2 = dotted.sqlize('age >= 30',          driver='asyncpg', pool=pool)
+    >>> combined = '(' + r1.where + ') AND (' + r2.where + ')'
+    >>> dotted.Resolver.build(combined, paramstyle='dollar-numeric')
+    ('(status = $1) AND (age >= $2)', ['active', 30])
+
+Substitutions by the same original name dedup across Resolvers sharing
+a pool — one slot, one value, back-referenced in the rendered SQL:
+
+    >>> pool = dotted.ParamPool()
+    >>> r1 = dotted.sqlize('age >= $(threshold)',   driver='asyncpg', pool=pool)
+    >>> r2 = dotted.sqlize('score >= $(threshold)', driver='asyncpg', pool=pool)
+    >>> combined = '(' + r1.where + ') AND (' + r2.where + ')'
+    >>> dotted.Resolver.build(combined, paramstyle='dollar-numeric', threshold=100)
+    ('(age >= $1) AND (score >= $1)', [100])
+
+When a `ParamPool` isn't passed, each Resolver gets a private pool —
+the single-Resolver case continues to work unchanged.
+
+### SQL expressions as substitution values (Raw / Col)
+
+Substitutions normally bind to Python values that hoist into bind
+parameters (`$1`, `%(name)s`, etc.). For the cases where the "value"
+is actually a **SQL expression** — a column reference, a subquery,
+a function call — bind to a `Raw` wrapper instead:
+
+    >>> from dotted.translators import Raw, Col
+    >>> r = dotted.sqlize('customer = $(matched.customer)', driver='asyncpg')
+    >>> r.build(r.where, **{'matched.customer': Raw('matched.customer')})
+    ('customer = matched.customer', [])
+
+The `Raw` contents are emitted verbatim in place of the placeholder.
+No bind parameter allocated, no cast emitted, no args-list entry.
+Behavior is identical across every paramstyle.
+
+**Typical use case:** composing CTEs where a substitution in one
+Resolver resolves to a column from another CTE:
+
+    WITH matched AS (...),
+         joined  AS (
+           SELECT * FROM ledger
+           WHERE <rendered joined-predicate with matched.customer as Raw>
+         )
+    SELECT * FROM joined
+
+The same Resolver works for both orchestration strategies: runtime
+value per matched row (`r.build(..., **{'matched.customer': 'alice'})`)
+or single-SQL CTE composition (`..., **{'matched.customer':
+Raw('matched.customer')})`). The caller picks at build time.
+
+**Safety:** `Raw` is an escape hatch. Never pass untrusted input —
+the string is emitted unescaped. For the common case of qualified
+column references, use `Col` instead, which validates each identifier
+segment before building a `Raw`:
+
+    >>> Col('matched.customer')
+    Col('matched.customer')
+    >>> Col('matched', 'customer')                       # equivalent
+    Col('matched.customer')
+    >>> Col('schema', 'table', 'col')
+    Col('schema.table.col')
+    >>> Col('bad; DROP TABLE')                           # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+      ...
+    dotted.TranslationError: Col part is not a plain identifier: 'bad; DROP TABLE'
+
+`Col` is a subclass of `Raw`, so it behaves identically at render
+time — the only difference is construction-time validation.
+
+### Adding a driver
+
+Drivers are registered via the `@dotted.translators.driver('<name>')`
+decorator on a `Resolver` subclass that mixes in a flavor (today just
+`PostgresMixin` in `dotted.translators.sql_pg`). Each subclass declares its
+paramstyle and whether it needs explicit casts:
+
+    import dotted
+    from dotted.translators.sql_pg import PostgresMixin
+
+    @dotted.translators.driver('my-driver')
+    class MyDriverResolver(PostgresMixin, dotted.Resolver):
+        paramstyle = 'pyformat'    # one of 'named' | 'pyformat' |
+                                   # 'qmark' | 'format' | 'numeric' |
+                                   # 'dollar-numeric'
+        cast       = False         # True if driver uses server-side PREPARE
+                                   # in polymorphic jsonb_build_object contexts
+
+Once registered, `dotted.sqlize(path, driver='my-driver')` dispatches
+to it. `dotted.translators.drivers()` returns the names of all currently
+registered drivers (built-ins + anything third-party code has added).
+
+### Resolver attributes
+
+| Attribute       | Type                         | Meaning                                                             |
+|-----------------|------------------------------|---------------------------------------------------------------------|
+| `.driver`       | `str`                        | Name the resolver was registered under                              |
+| `.paramstyle`   | `str`                        | PEP 249 paramstyle emitted by `.build()`                            |
+| `.cast`         | `bool`                       | Whether `.build()` emits explicit SQL casts in polymorphic contexts |
+| `.select`       | `SQLFragment` \| `None`      | Extraction expression (for pattern paths: ref into `.lateral`)      |
+| `.where`        | `SQLFragment` \| `None`      | Predicate (None for pure traversals)                                |
+| `.from_`        | `SQLFragment` \| `None`      | FROM extension (reserved)                                           |
+| `.lateral`      | `SQLFragment` \| `None`      | `LATERAL jsonb_path_query(...) AS _patN(value)` for pattern paths   |
+| `.unbound`      | `dict`                       | Union of fragments' unbound mappings: `{bind_name: original_name}`  |
+
+The Resolver also implements the `collections.abc.Mapping` protocol
+over its non-None fragment attributes (`select` / `where` / `from_` /
+`lateral`):
+
+    >>> r = dotted.sqlize('data.users[*].age', driver='asyncpg')
+    >>> list(r.keys())
+    ['select', 'where', 'lateral']
+    >>> 'lateral' in r
+    True
+    >>> dict(r)                    # map of present fragments
+    {'select': ..., 'where': ..., 'lateral': ...}
+
+`driver` / `paramstyle` / `cast` / `unbound` are reached as plain
+attributes, not via the Mapping.
+
+A `SQLFragment` carries:
+
+| Attribute   | Type   | Meaning                                                            |
+|-------------|--------|--------------------------------------------------------------------|
+| `.text`     | `str`  | Format-string SQL with `{name}` markers                            |
+| `.params`   | `dict` | Pre-hoisted values: `{marker_name: value}`                         |
+| `.unbound`  | `dict` | Deferred bindings: `{marker_name: original_substitution_name}`     |
+
+### API reference
+
+`dotted.sqlize(path, *, driver, bindings=None)`
+
+- `path` — dotted path string or pre-parsed result.
+- `driver` — **required**. Name of a registered driver
+  (`'asyncpg'`, `'psycopg2'`, `'psycopg'`, or anything registered via
+  `@register`). An unknown driver raises `TranslationError`.
+- `bindings` — resolve substitutions at sqlize time. Path-position
+  substitutions must be resolved here.
+
+`r.build(sql, **bindings)`
+
+- `sql` — a `SQLFragment` (usually `r.where`, `r.select`, or a
+  composition like `r.select + " FROM t WHERE " + r.where`).
+- `**bindings` — values for substitutions, keyed by original
+  substitution name.
+
+The `Resolver.build(sql, paramstyle='...', **bindings)` classmethod is
+retained as a low-level escape hatch that takes an explicit paramstyle
+and bypasses the driver's cast setting. Normal application code uses
+the instance form above.
+
+A `ParamStyle` enum is available for the low-level classmethod and
+for introspection. Members are accepted alongside their `.value`
+strings at `Resolver.build` — enum members normalize internally:
+
+    >>> dotted.ParamStyle.named, dotted.ParamStyle.dollar_numeric
+    (<ParamStyle.named: 'named'>, <ParamStyle.dollar_numeric: 'dollar-numeric'>)
+
+Unsupported features and pattern paths raise `dotted.TranslationError`.
+
+<a id="sparkize"></a>
+## Spark Translation (`sparkize`)
+
+> **Under development.** The API shape and supported subset of dotted
+> features may still change. PySpark only (classic and Spark Connect).
+> Needs `pip install dotted-notation[spark]` (`pyspark>=3.4`).
+
+`dotted.sparkize(path, flavor='pyspark')` translates a dotted path into
+PySpark `Column` expressions for `df.where(...)` / `df.select(...)`. It
+is the Spark counterpart of `sqlize`, on the same translation walk:
+`r.select` and `r.where` are fragments, and `r.build(fragment,
+**bindings)` makes the `Column`.
+
+Columns are native Spark types. The first path segment is the column;
+further segments reach into structs, maps and arrays. A JSON string
+column isn't parsed for you: give the DataFrame real struct columns
+(read them that way, or `from_json` with your own schema) first.
+
+    import dotted
+
+    r = dotted.sparkize('data.user.age >= 30', flavor='pyspark')
+    df.where(r.build(r.where))
+
+    r = dotted.sparkize('data.user.name', flavor='pyspark')
+    df.select(r.build(r.select))
+
+`flavor=` is required, as `driver=` is for `sqlize`; the examples
+below leave it out for brevity.
+
+| dotted | Spark |
+|--------|-------|
+| `col.a.b` | struct field / map key extraction |
+| `col[0]`, `col[-1]` | array index (0-based, negative from the end; out of range is null) |
+| `= != < <= > >=` | the Column comparison against `lit(value)` |
+| `= None`, `!= None` | `isNull()`, `isNotNull()` |
+| `= /re/`, `!= /re/` | `rlike(re)`, `~rlike(re)` |
+| `\|int \|float \|str \|bool` | `cast('int' \| 'double' \| 'string' \| 'boolean')` |
+| `(a & b)`, `(a, b)`, `!(a)` | `&`, `\|`, `~` |
+| `tags.$$(pick)` | map lookup by another column's value |
+| `arr[*].x = v`, `arr[x = v]` | `exists(arr, ...)` in `where`; `transform` / `filter` in `select` |
+| `map.*` | every value of a map (`map_values`) |
+
+### Pattern paths
+
+`[*]`, a map's `*` and bracket filters work on both sides. `where` is
+whether any element matches; `select` is the array of the matches, in
+order:
+
+    r = dotted.sparkize('data.users[*].age >= 30')
+    df.where(r.build(r.where))      # rows with some user aged 30+
+    df.select(r.build(r.select))    # per row, the ages that are 30+
+
+    r = dotted.sparkize('data.users[active = True].age')
+    df.select(r.build(r.select))    # per row, the active users' ages
+
+`**`, and `*` over a struct's fields, need the schema — Spark can't
+iterate struct fields at run time — and raise `TranslationError`.
+
+### Substitutions (late binding)
+
+As with `sqlize`, `$(name)` stays unbound until `build`, or resolves
+up front with `bindings=`:
+
+    r = dotted.sparkize('age >= $(min_age)')
+    r.unbound                        # {'min_age': 'min_age'}
+    df.where(r.build(r.where, min_age=30))
+
+    r = dotted.sparkize('age >= $(min_age)', bindings={'min_age': 30})
+    df.where(r.build(r.where))
+
+A binding may be any value `lit` accepts, a `Column` included, which is
+used as is: `r.build(r.where, min_age=F.col('floor'))`. A binding of
+`None` is a null test, as a literal `None` is.
+
+### Composing fragments
+
+A `Column` can't hold a placeholder, so `r.where` is a
+`ColumnFragment`: a Column not made yet. Fragments compose with `&`,
+`|` and `~` before `build`; their unbound substitutions merge:
+
+    a = dotted.sparkize('age >= $(min_age)')
+    b = dotted.sparkize('status = "active"')
+    df.where(a.build(a.where & b.where, min_age=30))
+
+### API reference
+
+`dotted.sparkize(path, *, flavor, bindings=None)`
+
+- `path` — dotted path string or pre-parsed result.
+- `flavor` — **required**. Name of a registered flavor (`'pyspark'`).
+  An unknown flavor raises `TranslationError`.
+  `dotted.translators.flavors()` lists them.
+- `bindings` — resolve substitutions at sparkize time. Path-position
+  substitutions must be resolved here.
+
+`r.build(fragment, **bindings)`
+
+- `fragment` — a `ColumnFragment` (`r.where`, `r.select`, or a
+  composition of fragments).
+- `**bindings` — values for substitutions, keyed by original
+  substitution name. An unknown or missing binding raises
+  `TranslationError`.
+
+Translation never imports pyspark; only `build` does.
+
+<a id="constants-and-exceptions"></a>
+## Constants and Exceptions
+
+### ANY
+
+The `ANY` constant is used with `remove` and `update` to match any value:
+
+    >>> import dotted
+    >>> d = {'a': 1, 'b': 2}
+    >>> dotted.remove(d, 'a', dotted.ANY)  # remove regardless of value
+    {'b': 2}
+    >>> dotted.update(d, '-b', dotted.ANY)  # inverted update = remove
+    {}
+
+### ParseError
+
+Raised when dotted notation cannot be parsed:
+
+    >>> import dotted
+    >>> dotted.get({}, '[invalid')  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    dotted.api.ParseError: Invalid dotted notation: ...
+
+<a id="cli-dq"></a>
+## CLI (`dq`)
+
+The `dq` command lets you query and transform nested data from the command line,
+similar to `jq` but using dotted notation.
+
+<a id="basic-usage"></a>
+### Basic usage
+
+    echo '{"a": {"b": 1}}' | dq 'a.b'
+    # 1
+
+    echo '{"a": 1, "b": 2, "c": 3}' | dq -p a -p b
+    # {"a": 1, "b": 2}
+
+<a id="operations"></a>
+### Operations
+
+**get** (default) — extract values or project fields:
+
+    echo '{"a": 1, "b": 2}' | dq -p a
+    echo '{"a": 1, "b": 2}' | dq get -p a
+
+**update** — set values (each `-p` takes a path and value):
+
+    echo '{"a": 1, "b": 2}' | dq update -p a 42 -p b 43
+    # {"a": 42, "b": 43}
+
+**remove** — delete paths (optionally conditional on value):
+
+    echo '{"a": 1, "b": 2}' | dq remove -p a
+    # {"b": 2}
+
+    echo '{"a": 1, "b": 2}' | dq remove -p a 1
+    # {"b": 2}  (only removes if value is 1)
+
+<a id="file-input"></a>
+### File input
+
+Read from a file instead of stdin with `-f`:
+
+    dq -f data.json -p name
+    dq -f config.yaml -o json
+
+When `-f` is used, the input format is auto-detected from the file extension
+(`.json`, `.jsonl`, `.ndjson`, `.yaml`, `.yml`, `.toml`, `.csv`).
+Use `-i` to override:
+
+    dq -f data.txt -i json -p name
+
+<a id="format-conversion"></a>
+### Format conversion
+
+Use `-i` and `-o` to specify input/output formats (`json`, `jsonl`, `py`, `pyl`, `yaml`, `toml`, `csv`):
+
+    cat data.yaml | dq -i yaml -o json -p name -p age
+    printf '{"a":1}\n{"a":2}\n' | dq -i jsonl -o csv -p a
+    echo "{'a': None, 'b': True}" | dq -i py -o json
+
+Output format defaults to the input format. Without any paths, `dq` acts as
+a pure format converter:
+
+    cat data.yaml | dq -i yaml -o json
+
+<a id="path-files"></a>
+### Path files
+
+Load paths from a file with `-pf`:
+
+    echo '{"a": 1, "b": 2}' | dq -pf paths.txt
+
+Path file format (one path per line, `#` comments supported):
+
+    # paths.txt
+    a
+    b.c
+
+For update, each line has a path and value:
+
+    # updates.txt
+    a 42
+    b.c "hello"
+
+<a id="projection"></a>
+### Projection
+
+Multiple paths produce a projection preserving nested structure:
+
+    echo '{"a": {"x": 1, "y": 2}, "b": 3}' | dq -p a.x -p b
+    # {"a": {"x": 1}, "b": 3}
+
+<a id="unpack"></a>
+### Unpack
+
+Use `--unpack` to flatten the result to dotted normal form. Lists of dicts
+are fully expanded with indexed paths:
+
+    echo '{"users": [{"name": "alice", "age": 30}, {"name": "bob", "age": 25}]}' | dq --unpack
+    # {"users[0].name": "alice", "users[0].age": 30, "users[1].name": "bob", "users[1].age": 25}
+
+`--unpack` works with any operation:
+
+    echo '{"a": {"x": 1}, "b": {"c": 2}}' | dq --unpack update -p a.x 99
+    # {"a.x": 99, "b.c": 2}
+
+Add `--unpack-attrs standard` to include object attributes (excluding dunders),
+or `--unpack-attrs standard special` for all attributes.
+
+<a id="pack"></a>
+### Pack
+
+Use `--pack` to rebuild nested structure from dotted normal form, including
+indexed lists:
+
+    echo '{"users[0].name": "alice", "users[0].age": 30, "users[1].name": "bob"}' | dq --pack
+    # {"users": [{"name": "alice", "age": 30}, {"name": "bob"}]}
+
+`--pack` and `--unpack` compose — pack rebuilds structure on input, unpack
+flattens on output. This lets you use nested operations on dotted normal form. For
+example, removing an entire group without listing every key:
+
+    echo '{"db.host": "localhost", "db.port": 5432, "app.debug": true}' | dq --pack --unpack remove -p db
+    # {"app.debug": true}
+
+<a id="recipes"></a>
+## Recipes
+
+A grab-bag of one-liners that show off what the notation can do. Every example
+below runs as-is.
+
+**Flatten a nested list** (leaves only, any depth) — recurse through every slot
+with `*([*])`, then keep only the deepest match on each branch with `:-1`:
+
+    >>> import dotted
+    >>> dotted.get([1, 2, 3, [4, 5, [6, 7]]], '*([*]):-1')
+    (1, 2, 3, 4, 5, 6, 7)
+
+Because `:-1` is deepest-*per-branch*, shallow leaves survive alongside deep
+ones — a ragged list still flattens completely.
+
+**Collect every leaf value** of a nested dict — same idea with key recursion:
+
+    >>> dotted.get({'a': {'b': 1}, 'c': 2}, '**:-1')
+    (1, 2)
+
+**Find a key at any depth** — `**` recurses through dict keys, then continue
+with the key you want:
+
+    >>> dotted.get({'a': {'b': {'name': 'x'}}, 'name': 'y'}, '**.name')
+    ('x',)
+
+If the tree mixes lists and dicts, recurse through both with `*(*#, [*])`:
+
+    >>> dotted.get({'kids': [{'name': 'a'}, {'name': 'b'}]}, '*(*#, [*]).name')
+    ('a', 'b')
+
+**Find values matching a condition anywhere** — attach a value guard to the
+recursive walk:
+
+    >>> dotted.get({'a': {'b': 7, 'c': 3}, 'd': {'e': 9}}, '**>5')
+    (7, 9)
+
+**Bulk-update everything that matches** — the same pattern drives `update` and
+`remove`:
+
+    >>> dotted.update({'a': {'b': 7, 'c': 3}, 'd': 7}, '**=7', 99)
+    {'a': {'b': 99, 'c': 3}, 'd': 99}
+
+**Filter a list of dicts, then project a field** — combine a key-value filter
+with a continuation:
+
+    >>> users = [{'name': 'x', 'active': True},
+    ...          {'name': 'y', 'active': False},
+    ...          {'name': 'z', 'active': True}]
+    >>> dotted.get(users, '[*&active=true].name')
+    ('x', 'z')
+
+**Upsert** — update a list entry if it exists, else append, using cut (`#`) in a
+disjunction so the first matching branch wins:
+
+    >>> dotted.update({'emails': [{'email': 'a@x'}]},
+    ...               'emails[(*&email="a@x"#, +)].email', 'NEW')
+    {'emails': [{'email': 'NEW'}]}
+    >>> dotted.update({'emails': [{'email': 'a@x'}]},
+    ...               'emails[(*&email="z@x"#, +)]', {'email': 'z@x'})
+    {'emails': [{'email': 'a@x'}, {'email': 'z@x'}]}
+
+**Coerce on the way out** — pipe a value through transforms:
+
+    >>> dotted.get({'name': 'bob', 'tags': [1, 2, 3]}, 'name|uppercase')
+    'BOB'
+    >>> dotted.get({'name': 'bob', 'tags': [1, 2, 3]}, 'tags|len')
+    3
+
+See [Recursive Traversal](#recursive-traversal), [Filters](#filters), and
+[Transforms](#transforms) for the full story behind each of these.
+
+<a id="faq"></a>
+## FAQ
+
+<a id="why-do-i-get-a-tuple-for-my-get"></a>
+### Why do I get a tuple for my get?
+
+`get()` returns a **single value** for a non-pattern path and a **tuple of values** for a pattern path. A path is a pattern if:
+
+- Any path segment is a pattern (e.g. wildcard `*`, regex), or
+- The path uses path grouping: disjunction `(a,b)`, conjunction `(a&b)`, or negation `(!a)`.
+
+Filters (e.g. `key=value`, `*=None`) can use patterns but do **not** make the path a pattern; only the path segments and path-level operators do. So `name.first&first=None` is non-pattern (single value), while `name.*&first=None` is pattern (tuple), even though both can express "when name.first is None." Value guards (e.g. `name.first=None`) also preserve the pattern/non-pattern status of the underlying path segment.
+
+For `update` and `remove` you usually don't care: the result is the (possibly mutated) object either way. For `get`, the return shape depends on pattern vs non-pattern. Use `dotted.is_pattern(path)` if you need to branch on it. Similarly, `dotted.is_template(path)` tells you whether a path contains substitution references.
+
+<a id="how-do-i-craft-an-efficient-path"></a>
+### How do I craft an efficient path?
+
+Same intent can be expressed in more or less efficient ways. Example: "match when name.first is None"
+
+- **Inefficient:** `name.*&first=None` — pattern path; iterates every key under `name`, then filters. No short-circuit.
+- **Better:** `name.*&first=None?` — same path with first-match `?`; stops after one match.
+- **Even better:** `name.first=None` — value guard; non-pattern path; goes straight to `name.first` and tests the value directly.
+- **Also good:** `name.first&first=None` — non-pattern path with a concrete filter key.
+
+Prefer a concrete path when it expresses what you want; use pattern + `?` when you need multiple candidates but only care about the first match.
+
+<a id="why-do-i-get-a-runtimeerror-when-updating-with-a-slice-filter"></a>
+### Why do I get a RuntimeError when updating with a slice filter?
+
+A slice filter like `[id=1]` returns the **filtered sublist** as a single value — it operates on the list itself, not on individual items. Updating that sublist in place is ambiguous: the matching items may be at non-contiguous indices, so there's no clean way to splice a replacement back into the original.
+
+But you probably don't want to update a slice filter anyway — instead, use a pattern like `[*&id=1]` which walks the items individually and updates each match in place.
+
+<a id="why-cant-i-use-patterns-on-stripe-objects"></a>
+### Why can't I use patterns to discover keys/attrs on my Stripe object?
+
+Pattern access (`@*`, `.*`) works by enumerating an object's known keys or attributes. Dotted checks `__dict__`, `__slots__`, `_fields` (namedtuples), and `keys()` (for key fields). Stripe objects don't use any of these — they store data in an internal `_data` dict and expose it through a custom `__getattr__`. Since Python has no standard protocol for asking "what keys does your `__getattr__` accept?", there's nothing for dotted to enumerate.
+
+**Concrete access works fine.** `@name`, `@email`, `.id` — anything where you specify the exact key will work, because dotted falls back to trying `getattr`/`__getitem__` directly.
+
+**Pattern access can't discover what you don't advertise.** This is a limitation of the object, not dotted. If you need pattern access, convert to a dict first:
+
+    obj_dict = obj.to_dict()        # Stripe objects support this
+    dotted.get(obj_dict, '*')       # now enumerable

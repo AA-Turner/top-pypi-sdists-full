@@ -53,41 +53,46 @@ class RunCheckMixin:
         # ingest path it is run.env_ref; on the interactive path it is metadata.env_ref.
         if not (run.get("env_ref") or metadata.get("env_ref")):
             missing.append("execution_record")
-        if not any(item.get("kind") == "code_snapshot" for item in artifacts):
-            missing.append("code_snapshot_artifact")
-        # A reference recorded because a managed upload FAILED (fold #16 fail-open) is a
-        # real capture gap: its bytes never reached R2. An INTENTIONAL path reference (a
-        # shared-volume checkpoint the agent resolves locally) is NOT -- it names bytes
-        # that exist, just off-platform. Distinguish by meta.upload, not uri presence:
-        # both now carry a file:// uri, so the old `not uri` test would both miss the
-        # failure and false-flag every intentional reference.
-        failed_uploads = [
-            item.get("id") or item.get("name")
-            for item in artifacts
-            if item.get("is_reference") and (item.get("meta") or {}).get("upload") == "failed"
-        ]
+        # The bundle holds the newest `BUNDLE_ARTIFACT_LIMIT` artifacts: the open's code rows are a
+        # run's oldest, so past a cut bundle they are asked for by kind (final review of #3792).
+        is_cut = isinstance(bundle.get("artifact_total"), int) and bundle["artifact_total"] > len(artifacts)
+        snapshot_rows: list[dict] | None = [item for item in artifacts if item.get("kind") == "code_snapshot"]
+        if not snapshot_rows and is_cut:
+            snapshot_rows = self._list_kind(run_id, "code_snapshot")  # None: the read failed
+        # A read that failed proves nothing either way: never missing, never verified complete.
+        is_unread = snapshot_rows is None
+        if snapshot_rows == []:
+            missing.append("code_snapshot_artifact")  # absent, not merely unread
+        failed_uploads = _failed_uploads(artifacts)
+        if verify and is_cut:
+            # `complete` must see every failed upload, not only the bundle's newest
+            # (convergence review of #3804): the whole inventory, or the verdict stays open.
+            inventory = self._list_kind(run_id, None)
+            if inventory is None:
+                is_unread = True
+            else:
+                failed_uploads = _failed_uploads(inventory)
         if failed_uploads:
             missing.append("portable_artifact_bytes")
 
-        # Free: the manifest summary already rode in on the artifact's meta, so
-        # this costs a dict lookup. A file classified as needing upload whose
-        # bytes nobody stored is unrecoverable exactly like a dead reference --
-        # and this is the failure mode per-file capture INTRODUCED, so leaving it
-        # unchecked would repeat the original mistake in a new place.
-        snapshot_meta: dict = next(
-            ((item.get("meta") or {}) for item in artifacts if item.get("kind") == "code_snapshot"),
-            {},
-        )
+        # Free (the manifest summary rides on the meta): bytes nobody stored are as lost as a dead reference.
+        snapshot_meta: dict = next(((item.get("meta") or {}) for item in snapshot_rows or []), {})
         pending = snapshot_meta.get("n_pending_upload")
         if isinstance(pending, int) and pending > 0:
             missing.append("pending_code_bytes")
+        elif _is_archive_still_queued(snapshot_meta, artifacts):
+            # Run open queues its code-bytes archive (non-blocking): until that upload lands as
+            # a `code_bytes` row the bytes exist only in one machine's outbox.
+            landed_rows = self._list_kind(run_id, "code_bytes") if is_cut else artifacts
+            if landed_rows is None:
+                is_unread = True
+            elif _is_archive_still_queued(snapshot_meta, landed_rows):
+                missing.append("pending_code_bytes")
 
         advisories: list[str] = []
         launch = metadata.get("launch") or {}
         if not launch:
-            # Pre-capture-core run: honest advisory, not a verdict flip --
-            # otherwise every historical run reads incomplete and the exit-2
-            # gate becomes noise during migration.
+            # Pre-capture-core run: an advisory, not a verdict flip (else every old run reads incomplete).
             advisories.append("launch_context")
         else:
             for slot in ("process", "runtime", "determinism"):
@@ -100,9 +105,7 @@ class RunCheckMixin:
             advisories.append("no_lockfiles")
         if not any(a.get("kind") == "inputs_decision" for a in artifacts):
             advisories.append("inputs_decision")
-        # A note FILE: `note` is not a kind, so the server stores one as `other`
-        # with the word in `meta.kind_label`; a row the backfill has not reached
-        # yet still says `note` itself.
+        # A note FILE is stored as `other` with `meta.kind_label`; an unbackfilled row still says `note`.
         if not run.get("notes") and not any(
             a.get("kind") == "note" or (a.get("meta") or {}).get(KIND_LABEL_KEY) == "note"
             for a in artifacts
@@ -116,50 +119,28 @@ class RunCheckMixin:
             base_commit = snapshot_meta.get("base_commit")
             remote = snapshot_meta.get("remote")
             n_git_referenced = snapshot_meta.get("n_git_referenced")
-            # Typed like `n_pending_upload` above, and for the same reasons.
-            # `isinstance` rather than `== 0`, because this is server-supplied
-            # JSON and Python's `False == 0` would let a malformed meta collect
-            # `complete`. PRESENT rather than defaulted, because an absent key
-            # is a pre-0.26.3 run that recorded no manifest at all -- unknown,
-            # never zero, or the no-manifest case below collects the verdict on
-            # a missing key. A test pins both.
-            #
-            # An OFFSITE reference (a file over the size threshold) deliberately
-            # does NOT disqualify a run here. Its bytes are off-platform, so
-            # this is not a claim that the run rebuilds from Probe alone -- it
-            # is the same judgment `capture-run-inputs` states to agents: a
-            # deliberate size reference is part of a complete capture, not a gap
-            # in one. A rebuild needs that volume mounted, and `snapshot-restore`
-            # reports it as OFF-PLATFORM rather than as a failure.
+            # Typed and PRESENT, never defaulted: an absent key is a pre-0.26.3 run, unknown, never zero. An
+            # OFFSITE (size) reference does not disqualify a run: it is part of a complete capture (DESIGN.md).
             self_contained = (
                 isinstance(n_git_referenced, int)
                 and not isinstance(n_git_referenced, bool)
                 and n_git_referenced == 0
             )
             if self_contained:
-                # Nothing in this manifest depends on anything but Probe for its
-                # bytes, and `missing` already proved no upload is outstanding.
-                # The code record is self-contained, so it is complete WITHOUT a
-                # network probe -- and a stale `base_commit`, which is now
-                # provenance rather than a retrieval path, must not fail a run
-                # whose bytes are in R2.
+                # Self-contained manifest: complete WITHOUT a network probe; a stale `base_commit` must not fail it.
                 verified = True
             elif base_commit and remote:
-                # A run captured while git referencing was live: some of its
-                # bytes exist only on that remote, so the probe is still the
-                # only thing that can tell a live reference from a dead one.
+                # Captured while git referencing was live: only the probe tells a live reference from a dead one.
                 verified = _snapshot.commit_on_remote(str(remote), str(base_commit))
                 if not verified:
                     missing.append("unresolvable_code_reference")
             else:
-                # Pre-0.26.3 runs recorded no manifest, so there is nothing to
-                # resolve against. Absence of evidence; say so rather than
-                # inventing a pass or a failure.
+                # Pre-0.26.3: no manifest to resolve against; say so rather than invent a pass or a failure.
                 verified = False
 
         if missing:
             state = "incomplete"
-        elif verify and verified:
+        elif verify and verified and not is_unread:
             state = "complete"
         else:
             state = "unverified"
@@ -171,3 +152,56 @@ class RunCheckMixin:
             "verified_code_reference": verified,
             "advisories": advisories,
         }
+
+    def _list_kind(self, run_id: str, kind: str | None) -> list[dict] | None:
+        """This run's own artifacts of ``kind``, asked of the server; for None all of them but the
+        per-file code captures (never a failed upload, and thousands on a converted snapshot).
+        None when the read failed, which says nothing about them (never "missing")."""
+        from ....artifact.listing import read_artifact_rows
+
+        try:
+            if kind is None:
+                rows = read_artifact_rows(
+                    lambda query: self.transport.request(
+                        "GET", f"/v1/runs/{run_id}/artifacts", params=query, idempotent=True
+                    ),
+                    {"include_captured": "false"},
+                )
+            else:
+                rows = self.list_run_artifacts(run_id, kind=kind)
+        except Exception:  # noqa: BLE001 -- unread is not absent
+            return None
+        return [item for item in rows if kind is None or item.get("kind") == kind]
+
+
+def _failed_uploads(artifacts: list[dict]) -> list:
+    """References from a FAILED managed upload: a capture gap (an intentional one is not: meta.upload)."""
+    return [
+        item.get("id") or item.get("name")
+        for item in artifacts
+        if item.get("is_reference") and (item.get("meta") or {}).get("upload") == "failed"
+    ]
+
+
+def _is_archive_still_queued(snapshot_meta: dict, artifacts: list[dict]) -> bool:
+    """The code-snapshot row says its archive was queued (run open), and no landed upload of
+    THAT archive (its hash; a failed upload's reference row does not count) is in ``artifacts``.
+    A row the capture backfill converted to per-file storage holds its bytes elsewhere.
+    Twin: `app/runs/reads/reproduce.py` `_has_code_archive`."""
+    from ....run.files.code_upload import CODE_STORAGE_ARTIFACTS
+
+    code_bytes = snapshot_meta.get("code_bytes")
+    if not isinstance(code_bytes, dict) or not code_bytes.get("queued"):
+        return False
+    if CODE_STORAGE_ARTIFACTS in (snapshot_meta.get("storage"), code_bytes.get("storage")):
+        return False
+    archive_sha256 = code_bytes.get("archive_sha256")
+    if not isinstance(archive_sha256, str):
+        return True  # no usable hash: no landed row can be shown to be it
+    return not any(
+        item.get("kind") == "code_bytes"
+        and not item.get("is_reference")
+        and item.get("status", "complete") == "complete"
+        and item.get("content_hash") == archive_sha256
+        for item in artifacts
+    )

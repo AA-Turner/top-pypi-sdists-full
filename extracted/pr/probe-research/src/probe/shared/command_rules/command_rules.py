@@ -466,7 +466,7 @@ def asks_help(argv: list[str]) -> bool:
     """Does `probe <argv>` only print help? click takes `--help` as the help flag
     of the command or group it names, or of `probe` itself. The one help check:
     `Parsed.help` for the daemon, this for the agent's write gate
-    (`cli/write_gate.py`). Anything click cannot place is not help, so the gate
+    (`cli/lifecycle/write_gate.py`). Anything click cannot place is not help, so the gate
     applies to it."""
     try:
         root_options, path, args, cmd = _walk(argv)

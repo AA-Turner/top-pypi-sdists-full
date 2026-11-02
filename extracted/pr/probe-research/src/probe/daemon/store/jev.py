@@ -82,18 +82,18 @@ def jev_approved(since: float, limit: int, *, session_id: str | None = None) -> 
         if max(touched) < since:
             continue
         try:
-            conn = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2.0)
+            connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2.0)
         except (OSError, sqlite3.Error):
             unreadable += 1
             continue
         try:
-            row = conn.execute("SELECT value FROM meta WHERE key = 'format_version'").fetchone()
+            row = connection.execute("SELECT value FROM meta WHERE key = 'format_version'").fetchone()
             if row is None or row[0] is None or int(row[0]) > FORMAT_VERSION:
                 unreadable += 1
                 continue
             # GLOB, not LIKE: it is case-sensitive, as the reason is. Every match is
             # read (a day's are few), so `total` counts exactly what is left out.
-            found = conn.execute("SELECT at, argv, reason, exit_code, status FROM writes WHERE at >= ? "
+            found = connection.execute("SELECT at, argv, reason, exit_code, status FROM writes WHERE at >= ? "
                                  "AND head = 'shell' AND request IS NULL "
                                  "AND status IN ('ran', 'cancelled', 'failed', 'running') "
                                  "AND reason GLOB ?", (since, f"{AUTO_JEV} p=*")).fetchall()
@@ -101,7 +101,7 @@ def jev_approved(since: float, limit: int, *, session_id: str | None = None) -> 
             unreadable += 1
             continue
         finally:
-            conn.close()
+            connection.close()
         for at, argv, reason, exit_code, status in found:
             try:
                 words = json.loads(argv)

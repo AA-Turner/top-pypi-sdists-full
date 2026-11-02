@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: EbookLib
-Version: 0.20
+Version: 0.21
 Summary: Ebook library which can handle EPUB2/EPUB3 format
-Home-page: https://github.com/aerkalov/ebooklib
-Author: Aleksandar Erkalovic
-Author-email: aerkalov@gmail.com
-License: GNU Affero General Public License
+Author-email: Aleksandar Erkalovic <aerkalov@gmail.com>
+License: GNU Affero General Public License v3 or later (AGPLv3+)
+Project-URL: Homepage, https://github.com/aerkalov/ebooklib
 Project-URL: Documentation, https://ebooklib.readthedocs.io
 Project-URL: Source, https://github.com/aerkalov/ebooklib
 Project-URL: Bug Tracker, https://github.com/aerkalov/ebooklib/issues
@@ -14,52 +13,39 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=2.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.txt
 Requires-Dist: lxml
-Requires-Dist: six
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: ty; extra == "dev"
+Requires-Dist: lxml-stubs; extra == "dev"
+Requires-Dist: types-Pygments; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # About EbookLib
 
 EbookLib is a Python library for managing EPUB2/EPUB3. It's capable of reading and writing EPUB files programmatically.
 
-Heads up! EbookLib 0.20 is the final version supporting Python 2.7. Moving forward, we're leaving legacy code behind and embracing modern Python features to make EbookLib even more awesome.
-
-We are working on [refreshing the project](https://github.com/aerkalov/ebooklib/issues/318) so please check and comment if you have your own ideas what needs to happen with the project.
+Heads up! EbookLib 0.20 was the final version supporting Python 2.7. Since EbookLib 0.21 the library requires Python 3.10+, has no dependency on `six` anymore and ships with type annotations. `write_epub()` now raises exceptions by default; see [CHANGES.txt](CHANGES.txt) for the upgrade notes.
 
 Want to contribute? It's easy! We welcome bug reports, suggestions, and Pull Requests. Before submitting a Pull Request, [please take a quick look at our simple guidelines](https://github.com/aerkalov/ebooklib/wiki/Contributing). Our contribution process is straightforward, with no special procedures
 to worry about.
@@ -166,6 +152,15 @@ book.add_item(epub.EpubNav())
 # Write to the file
 epub.write_epub("the_book_of_the_mysterious.epub", book)
 ```
+
+# Popular Projects using Ebooklib
+1.  [Marker](https://github.com/VikParuchuri/marker)
+2.  [ChatDev](https://github.com/OpenBMB/ChatDev)
+3.  [DocsGPT](https://github.com/arc53/DocsGPT)
+4.  [ebook2audiobook](https://github.com/DrewThomasson/ebook2audiobook)
+5.  [SuperAGI](https://github.com/TransformerOptimus/SuperAGI)
+6.  [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)
+7.  [audiblz](https://github.com/santinic/audiblez)
 
 
 # License

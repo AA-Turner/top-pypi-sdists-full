@@ -1,0 +1,1052 @@
+"""Structured, guarded mutation of first-class semantic units."""
+
+from __future__ import annotations
+
+import datetime as dt
+import hashlib
+import json
+import re
+import unicodedata
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any, Literal
+
+from . import (
+    access,
+    edit,
+    kbdir,
+    note_types,
+    origin_bindings,
+    provenance,
+    semantic_contract,
+    semantic_index,
+    semantic_language_registry,
+    semantic_units,
+    semantic_writes,
+    temporal,
+    vault,
+)
+from .mutation_timings import MutationTimings, write_timings_enabled
+
+ObserveOperation = Literal["add", "update", "remove", "validate"]
+
+_OPERATIONS = frozenset({"add", "update", "remove", "validate"})
+_COMPACT_KIND = "observation"
+_HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
+_FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+_UPDATED_RE = re.compile(r"^updated:.*$", re.MULTILINE)
+_TAG_RE = re.compile(r"^[^\s#]{1,64}$")
+_ANCHOR_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?$")
+
+#: Metadata rows this module renders from its own arguments. Every *other*
+#: authored row is carried through a reconstruction with its value intact.
+#:
+#: "With its value intact" rather than "verbatim": the row is re-emitted under
+#: the parser's normalized key spelling, so `- source-note: x` comes back as
+#: `- source_note: x`. That normalization already happened at parse time and is
+#: what every consumer downstream sees; the authored value itself is untouched.
+#:
+#: This set is the whole reason the update path is safe. `_render_unit` rebuilds
+#: a rich unit from arguments, so before governed metadata existed, any row not
+#: listed here was silently deleted by an unrelated edit. Preserving the
+#: remainder — not just the governed keys — keeps that true for the next
+#: governed key, and for a row an author wrote by hand that the parser simply
+#: does not interpret. Markdown is canonical; a mutation tool does not get to
+#: delete bytes it does not understand.
+_OWNED_METADATA_KEYS: frozenset[str] = frozenset(
+    {"category", "id", "tags", "context", "relations"}
+) | frozenset(semantic_units.GOVERNED_UNIT_METADATA_KEYS)
+
+
+@dataclass(slots=True)
+class ObserveMemoryError(ValueError):
+    code: str
+    reason: str
+    remediation: str | None = None
+    resolution: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        ValueError.__init__(self, f"{self.code}: {self.reason}")
+
+
+def _legacy_routing_remediation(resolution: dict[str, Any]) -> str:
+    """Keep unsupported structural edits with the existing authorized owner."""
+    return (
+        f"Use the existing authorized edit owner for {resolution['path']}; "
+        "read its current content and hash first. If this surface cannot edit it, "
+        "report that limit. Do not create a dated child or migrate the page for this correction."
+    )
+
+
+def observe_memory(
+    vault_root: Path,
+    *,
+    path: str,
+    operation: ObserveOperation = "add",
+    category: str | None = None,
+    content: str | None = None,
+    kind: str | None = None,
+    tags: list[str] | None = None,
+    context: str | None = None,
+    relations: list[dict[str, Any]] | None = None,
+    verdict: str | None = None,
+    check_by: str | None = None,
+    id: str | None = None,
+    unit_ref: str | None = None,
+    expected_fingerprint: str | None = None,
+    expected_hash: str | None = None,
+    transition_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    reason: str | None = None,
+    target_fingerprints: dict[str, str] | None = None,
+    today: dt.date | None = None,
+) -> dict[str, Any]:
+    """Validate or atomically mutate one semantic unit in a compiled page."""
+    op = str(operation or "").strip().lower()
+    if op not in _OPERATIONS:
+        raise ObserveMemoryError(
+            "INVALID_OBSERVE_OPERATION",
+            "operation must be add, update, remove, or validate",
+        )
+    if op in {"update", "remove"} and not unit_ref:
+        raise ObserveMemoryError(
+            "UNIT_REFERENCE_REQUIRED",
+            f"{op} requires the current unit_ref",
+        )
+    if op in {"update", "remove"} and (
+        not expected_hash or not expected_fingerprint
+    ):
+        raise ObserveMemoryError(
+            "DRIFT_GUARDS_REQUIRED",
+            f"{op} requires the current parent hash and unit fingerprint",
+            "Re-read the parent and exact unit, then echo both expected_hash "
+            "and expected_fingerprint.",
+        )
+    if op == "remove" and any(
+        value is not None
+        for value in (
+            category,
+            content,
+            kind,
+            tags,
+            context,
+            relations,
+            verdict,
+            check_by,
+            id,
+        )
+    ):
+        raise ObserveMemoryError(
+            "INVALID_OBSERVE_INPUT",
+            "remove accepts only the parent, unit reference, and drift guards",
+        )
+    proposal_mode = "update" if op == "validate" and unit_ref else op
+    if proposal_mode in {"add", "update"} and (
+        category is None or not str(category).strip() or content is None
+    ):
+        raise ObserveMemoryError(
+            "INVALID_OBSERVE_INPUT",
+            f"{op} requires non-empty category and content fields",
+        )
+
+    origin_block = None
+    if content is not None:
+        try:
+            content, origin_block = origin_bindings.extract_origin_metadata(str(content))
+        except provenance.OriginError as error:
+            raise ObserveMemoryError(error.code, error.reason) from error
+
+    try:
+        editable = edit.load_editable(vault_root, path, expected_hash=expected_hash)
+    except edit.EditError as error:
+        if error.code in {"FRONTMATTER_REQUIRED", "OUTSIDE_GOVERNED_ROOT"}:
+            # `load_editable` raised before resolving a canonical `rel_path`
+            # (frontmatterless: found under Knowledge Base/ but refused before
+            # reading further; outside-governed-root: never found under
+            # Knowledge Base/ at all), so both resolutions below are derived
+            # from the caller's own path text, normalised the same way
+            # `edit._existing_page_outside_kb` normalises it (strip,
+            # backslash to slash, lstrip leading "/", ".md" suffix) — one
+            # shared normalised form for both branches. Casing is left as the
+            # caller spelled it; the true on-disk casing is only known once a
+            # governed read/edit actually succeeds against the page.
+            given = _legacy_page_given_form(path)
+            if error.code == "FRONTMATTER_REQUIRED":
+                # Reachable only for a page `load_editable` already found
+                # under Knowledge Base/, so re-root the given form the same
+                # way `kbdir.kb_page_relative_form` would.
+                rel_path = (
+                    given if given.startswith(kbdir.kb_prefix()) else kbdir.kb_prefix() + given
+                )
+            else:
+                # `_existing_page_outside_kb` never returns a hit for a given
+                # form that already starts with the KB prefix, so this is
+                # exactly the vault-relative path of the real, outside-KB page.
+                rel_path = given
+            resolution = _legacy_edit_resolution(rel_path)
+            raise ObserveMemoryError(
+                error.code,
+                error.reason,
+                _legacy_routing_remediation(resolution),
+                resolution=resolution,
+            ) from error
+        code = "STALE_PARENT_HASH" if error.code == "STALE_EDIT" else error.code
+        raise ObserveMemoryError(code, error.reason) from error
+
+    current = semantic_index.current_parent_index_state(
+        vault_root, editable.rel_path, source=editable.original_text
+    )
+    current_unit = None
+    if unit_ref:
+        resolution = current.document.resolve_unit(
+            unit_ref,
+            expected_fingerprint=expected_fingerprint,
+        )
+        if resolution.status != "found" or resolution.unit is None:
+            code = {
+                "stale": "STALE_UNIT_REFERENCE",
+                "ambiguous": "AMBIGUOUS_UNIT_REFERENCE",
+                "missing": "UNIT_NOT_FOUND",
+            }.get(resolution.status, "UNIT_NOT_FOUND")
+            raise ObserveMemoryError(
+                code,
+                f"unit reference is {resolution.status}; re-read the parent and retry",
+            )
+        current_unit = resolution.unit
+
+    frontmatter, body, _ = vault.parse_frontmatter(editable.original_text)
+    target_anchor: str | None = None
+    removed_unit = None
+    if proposal_mode == "remove":
+        assert current_unit is not None
+        after_body = _remove_unit(
+            body,
+            current_unit.span.start_offset,
+            current_unit.span.end_offset,
+        )
+        removed_unit = current_unit
+    else:
+        assert content is not None
+        selected_kind = _select_kind(
+            vault_root,
+            kind=kind,
+            current_unit=current_unit if proposal_mode == "update" else None,
+            projects=_page_projects(frontmatter),
+            page_type=(
+                str(frontmatter["type"]) if frontmatter.get("type") is not None else None
+            ),
+        )
+        normalized_category = _canonical_category(str(category))
+        normalized_content = str(content).strip()
+        normalized_tags = _canonical_tags(tags or [])
+        normalized_context = _canonical_context(context)
+        normalized_relations = _canonical_relations(relations or [])
+        explicit_rich_kind = bool(
+            kind is not None
+            and semantic_language_registry.normalize_label(kind) != _COMPACT_KIND
+        )
+        if normalized_relations and not explicit_rich_kind:
+            raise ObserveMemoryError(
+                "COMPACT_RELATIONS_REQUIRE_RICH_KIND",
+                "typed unit relations require an explicit governed non-observation kind",
+                "Select an explicit governed non-observation kind for rich form, "
+                "or author a canonical note-level relation.",
+            )
+        base_unit = current_unit if proposal_mode == "update" else None
+        normalized_verdict = _resolve_verdict(verdict, base_unit)
+        normalized_check_by = _resolve_check_by(check_by, base_unit)
+        preserved_metadata = _preserved_metadata(base_unit)
+        if selected_kind == _COMPACT_KIND and (
+            normalized_verdict is not None
+            or normalized_check_by is not None
+            or preserved_metadata
+        ):
+            # Every exit named here has to actually exist. `verdict=""` and
+            # `check_by=""` really do clear those rows, but no argument clears
+            # an unowned row, so converting a unit that carries one means
+            # editing the page to remove it first. Naming a remediation the
+            # caller cannot perform is how a refusal becomes a dead end.
+            raise ObserveMemoryError(
+                "COMPACT_METADATA_REQUIRES_RICH_KIND",
+                "governed unit metadata requires an explicit governed "
+                "non-observation kind",
+                "Compact observations carry no metadata rows. Select an "
+                "explicit governed non-observation kind to keep the rich form; "
+                "or, to convert this unit to compact form, clear `verdict` and "
+                "`check_by` by passing an empty string and remove any remaining "
+                "metadata rows by editing the page, since no argument clears a "
+                "row this tool does not own.",
+            )
+        existing_anchors = {
+            unit.anchor
+            for unit in current.document.units
+            if unit.anchor and unit is not current_unit
+        }
+        requested_anchor = _requested_anchor(id, existing_anchors)
+        target_anchor = requested_anchor or (
+            current_unit.anchor
+            if current_unit is not None and current_unit.anchor
+            else _generated_anchor(
+                selected_kind,
+                normalized_category,
+                normalized_content,
+                normalized_tags,
+                normalized_context,
+                normalized_relations,
+                existing_anchors,
+            )
+        )
+        rendered = _render_unit(
+            kind=selected_kind,
+            category=normalized_category,
+            content=normalized_content,
+            tags=normalized_tags,
+            context=normalized_context,
+            relations=normalized_relations,
+            anchor=target_anchor,
+            verdict=normalized_verdict,
+            check_by=normalized_check_by,
+            preserved=preserved_metadata,
+        )
+        if proposal_mode == "update":
+            assert current_unit is not None
+            after_body = _replace_unit(
+                body,
+                current_unit.span.start_offset,
+                current_unit.span.end_offset,
+                rendered,
+            )
+        else:
+            after_body = (
+                _add_compact(body, rendered)
+                if selected_kind == _COMPACT_KIND
+                else _append_rich(body, rendered)
+            )
+
+    if origin_block is not None:
+        after_body = origin_block + "\n\n" + after_body
+    # Validation and its commit render the same authored day, including across midnight.
+    pinned = temporal.parse(semantic_writes.transition_token_stamp(transition_token))
+    authored_day = today or (pinned.day if pinned is not None else dt.date.today())
+    after_source = _rebuild_source(
+        editable.original_text,
+        editable.fm_text,
+        after_body,
+        today=authored_day,
+    )
+    # One collector spans preflight+commit, so the response accounts for the
+    # whole governed write rather than two unrelated halves. `validate` never
+    # commits, so it stays entirely uninstrumented and byte-identical.
+    timings = MutationTimings() if op != "validate" else None
+    try:
+        with semantic_contract.call_context("write"):
+            preflight = semantic_writes.preflight_existing(
+                vault_root,
+                path=editable.rel_path,
+                after_source=after_source,
+                operation="observe",
+                # The semantic seam is keyed on the newline-normalized logical
+                # source, so hand it that hash instead of forwarding the
+                # caller's `expected_hash`, which is over the file's raw bytes.
+                # `load_editable` has already enforced the caller's guard
+                # against those bytes; forwarding it again made one parameter
+                # carry two conventions, which no single value satisfies on a
+                # CRLF page. Matches what `edit` passes at the same seam.
+                expected_before_hash=editable.raw_hash,
+                transition_token=transition_token,
+                relation_disposition=relation_disposition,
+                relation_review_hash=relation_review_hash,
+                relation_review_reason=relation_review_reason,
+                validate_only=operation == "validate",
+                stamp=temporal.stamp(authored_day),
+                timings=timings,
+            )
+    except semantic_writes.SemanticWriteError as error:
+        raise ObserveMemoryError(error.code, error.reason) from error
+
+    access_tier = access.access_tier(vault_root, editable.rel_path)
+    if access_tier != access.TIER_READ_WRITE:
+        # Same refusal code as an untyped page (compatibility), but a caller
+        # cannot act on this one the way it can act on schema history: the
+        # tier itself forbids the write, whatever the page's compiled type,
+        # so no `resolution` is offered here.
+        raise ObserveMemoryError(
+            "OBSERVE_TARGET_NOT_WRITABLE_COMPILED_PAGE",
+            "observe_memory only mutates writable compiled pages",
+            f"This page's access tier is {access_tier!r}, which is "
+            "policy-protected; observe_memory has no override for it, "
+            "regardless of the page's compiled type.",
+        )
+    # The authored type is looked up as written; a withheld definition refuses.
+    note_type = note_types.Basis(vault_root).resolve(preflight.before.page_type).require()
+    if note_type is None or not note_types.compiled(note_type):
+        resolution = _legacy_edit_resolution(editable.rel_path)
+        raise ObserveMemoryError(
+            "OBSERVE_TARGET_NOT_WRITABLE_COMPILED_PAGE",
+            "observe_memory only mutates writable compiled pages",
+            _legacy_routing_remediation(resolution),
+            resolution=resolution,
+        )
+
+    proposed_unit = _unit_by_anchor(preflight.after.document, target_anchor)
+    if proposal_mode != "remove" and proposed_unit is None:
+        diagnostics = [item.code for item in preflight.after.document.errors]
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_UNIT",
+            "rendered unit did not round-trip through the governed parser"
+            + (f" ({', '.join(diagnostics)})" if diagnostics else ""),
+        )
+    if proposal_mode != "remove":
+        assert proposed_unit is not None
+        _assert_round_trip(
+            proposed_unit,
+            kind=selected_kind,
+            category=normalized_category,
+            content=normalized_content,
+            tags=normalized_tags,
+            context=normalized_context,
+            relations=normalized_relations,
+            anchor=target_anchor,
+            verdict=normalized_verdict,
+            check_by=normalized_check_by,
+            preserved=preserved_metadata,
+        )
+
+    if target_fingerprints is not None:
+        # An episode correction must not change a different claim after target drift.
+        # A refusal costs this leaf a re-read; ordinary page/heading edits keep their route.
+        from .unit_corrections import CORRECTIVE_FAMILIES
+
+        if not isinstance(target_fingerprints, dict):
+            raise ObserveMemoryError(
+                "INVALID_UNIT_TARGETS", "target_fingerprints must be an object"
+            )
+        guards = []
+        targets = {}
+        for fact in semantic_contract.writer_authored_facts(
+            preflight.after, preflight.after_corpus
+        ):
+            if fact.logical_source_ref != getattr(proposed_unit, "unit_ref", None):
+                continue
+            if fact.family not in CORRECTIVE_FAMILIES:
+                continue
+            if fact.target_unit_status != "found" or fact.logical_target_ref is None:
+                raise ObserveMemoryError(
+                    "EXACT_UNIT_TARGET_REQUIRED", "a corrective target must name one current unit"
+                )
+            targets[fact.logical_target_ref] = fact.target_unit_fingerprint
+            state = preflight.after_corpus.pages[fact.logical_target_path]
+            source, guard = vault.read_guarded_text(vault_root, Path(vault_root) / state.path)
+            if vault.content_hash(source) != preflight.before_corpus.pages[state.path].source_hash:
+                raise ObserveMemoryError(
+                    "STALE_UNIT_TARGET", "a corrective target changed; read it again"
+                )
+            if state.path != preflight.path:
+                guards.append(guard)
+        if targets != target_fingerprints:
+            raise ObserveMemoryError(
+                "STALE_UNIT_TARGET", "exact corrective target fingerprints do not match"
+            )
+        preflight = replace(preflight, read_dependency_guards=tuple(guards))
+
+    if op == "validate":
+        return _result(
+            operation=op,
+            path=editable.rel_path,
+            before_hash=editable.raw_hash,
+            after_hash=vault.content_hash(preflight.after_source),
+            mutated=False,
+            unit=proposed_unit,
+            removed_unit=removed_unit,
+            semantic=preflight.as_dict(),
+        )
+
+    try:
+        log_plan = vault.plan_log_writes(
+            vault_root,
+            date_iso=temporal.stamp(today or temporal.now()),
+            op="observe",
+            rel_path_no_ext=editable.rel_path.removesuffix(".md"),
+            body=f"Structured semantic-unit {op} via observe_memory.",
+            operation_token=(
+                "observe:"
+                + hashlib.sha256(
+                    f"{op}\0{editable.rel_path}\0{preflight.before.source_hash}"
+                    f"\0{preflight.after.source_hash}".encode()
+                ).hexdigest()
+            ),
+        )
+    except (OSError, UnicodeError, ValueError) as error:
+        raise ObserveMemoryError(
+            "LOG_PLAN_CONFLICT", "observe log update could not be planned safely"
+        ) from error
+    try:
+        with semantic_contract.call_context("write"):
+            committed = semantic_writes.commit_existing(
+                vault_root,
+                preflight=preflight,
+                history_reason=reason,
+                auxiliary_writes=log_plan.writes,
+                derived_auxiliary_writes=tuple(
+                    ("operation-log", write) for write in log_plan.writes
+                ),
+                timings=timings,
+            )
+    except semantic_writes.SemanticWriteError as error:
+        raise ObserveMemoryError(error.code, error.reason) from error
+
+    final = semantic_index.current_parent_index_state(vault_root, editable.rel_path)
+    final_unit = _unit_by_anchor(final.document, target_anchor)
+    if timings is not None:
+        # The ledger gets the stages whatever the envelope flag says; see
+        # `MutationTimings.emit_call_spans`.
+        timings.emit_call_spans()
+    return _result(
+        operation=op,
+        path=editable.rel_path,
+        # Both hashes are the whole-file `content_hash` the caller is told to
+        # echo back as the next `expected_hash` -- the same convention `get`
+        # emits and `load_editable` compares. `final.parent_source_hash` is the
+        # semantic index's hash of the *normalized* logical source, so reporting
+        # it here handed the caller a value its own guard would then refuse on
+        # any CRLF page. The preflight's authoritative source includes origin
+        # normalization and is written verbatim by `commit_existing`.
+        before_hash=editable.raw_hash,
+        after_hash=vault.content_hash(preflight.after_source),
+        mutated=committed.mutated,
+        unit=final_unit,
+        removed_unit=removed_unit,
+        semantic=committed.as_dict(),
+        timings=(
+            timings.as_dict() if timings is not None and write_timings_enabled() else None
+        ),
+    )
+
+
+def _legacy_page_given_form(path: str) -> str:
+    """The caller's path text, normalised the way `edit._existing_page_outside_kb`
+    normalises it: stripped, backslashes to slashes, leading `/` dropped, a
+    `.md` suffix supplied. Shared by both `load_editable` failure branches
+    that must build a legacy-page `resolution` before a canonical `rel_path`
+    exists (`FRONTMATTER_REQUIRED`, `OUTSIDE_GOVERNED_ROOT`), so an inside-KB
+    and an outside-KB caller path normalise through the exact same form
+    before either branch decides what it means.
+    """
+    given = path.strip().replace("\\", "/").lstrip("/")
+    return given if given.endswith(".md") else given + ".md"
+
+
+def _legacy_edit_resolution(rel_path: str) -> dict[str, Any]:
+    """A legacy correction stays with its existing authorized edit owner."""
+    return {"action": "use-existing-edit-owner", "path": rel_path}
+
+
+def _canonical_category(value: str) -> str:
+    try:
+        from .semantic_units import canonicalize_category
+
+        return canonicalize_category(value)
+    except ValueError as error:
+        raise ObserveMemoryError("INVALID_SEMANTIC_CATEGORY", str(error)) from error
+
+
+def _select_kind(
+    vault_root: Path,
+    *,
+    kind: str | None,
+    current_unit: Any | None,
+    projects: tuple[str, ...],
+    page_type: str | None,
+) -> str:
+    raw = kind
+    if raw is None and current_unit is not None and current_unit.form == "rich":
+        raw = current_unit.kind
+    if raw is None or semantic_language_registry.normalize_label(raw) == _COMPACT_KIND:
+        return _COMPACT_KIND
+    registry = semantic_language_registry.load_registry(vault_root)
+    resolution = semantic_language_registry.for_attached_projects(
+        registry, projects
+    ).resolve_kind(raw, page_type=page_type)
+    if resolution.resolved is None or resolution.status in {
+        "unregistered",
+        "registry_invalid",
+        "scope_violation",
+        "deprecated",
+    }:
+        replacement = f"; use {resolution.replacement!r}" if resolution.replacement else ""
+        raise ObserveMemoryError(
+            "UNSUPPORTED_SEMANTIC_KIND",
+            f"kind {raw!r} is not an active governed rich kind{replacement}",
+        )
+    if resolution.resolved == _COMPACT_KIND:
+        return _COMPACT_KIND
+    return resolution.resolved
+
+
+def _page_projects(frontmatter: dict[Any, Any]) -> tuple[str, ...]:
+    projects: set[str] = set()
+    project = frontmatter.get("project")
+    if project:
+        projects.add(str(project))
+    attached = frontmatter.get("projects")
+    if isinstance(attached, (list, tuple)):
+        projects.update(str(value) for value in attached if str(value))
+    elif attached:
+        projects.add(str(attached))
+    return tuple(sorted(projects))
+
+
+def _canonical_tags(values: list[str]) -> tuple[str, ...]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        tag = unicodedata.normalize("NFKC", str(raw).strip()).casefold()
+        valid = bool(
+            _TAG_RE.fullmatch(tag)
+            and (tag[0].isalpha() or tag[0].isdigit())
+            and not tag.endswith("/")
+            and "//" not in tag
+            and all(char.isalpha() or char.isdigit() or char in "_-/" for char in tag)
+        )
+        if not valid:
+            raise ObserveMemoryError(
+                "INVALID_SEMANTIC_TAG", f"invalid compact observation tag: {raw!r}"
+            )
+        if tag not in seen:
+            seen.add(tag)
+            tags.append(tag)
+    return tuple(tags)
+
+
+def _canonical_context(value: str | None) -> str | None:
+    if value is None:
+        return None
+    context = str(value).strip()
+    if not context or "\n" in context or "\r" in context:
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_CONTEXT", "context must be non-empty single-line text"
+        )
+    return context
+
+
+def _canonical_relations(values: list[dict[str, Any]]) -> tuple[tuple[str, str], ...]:
+    relations: list[tuple[str, str]] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, dict) or set(value) != {"kind", "target"}:
+            raise ObserveMemoryError(
+                "INVALID_SEMANTIC_RELATION",
+                f"relations[{index}] must contain exactly kind and target",
+            )
+        kind = semantic_language_registry.normalize_label(str(value["kind"]))
+        target = str(value["target"]).strip()
+        if not kind or not target or any(char in target for char in "\r\n"):
+            raise ObserveMemoryError(
+                "INVALID_SEMANTIC_RELATION",
+                f"relations[{index}] has an empty or multiline kind/target",
+            )
+        relations.append((kind, target))
+    return tuple(relations)
+
+
+def _resolve_verdict(supplied: str | None, current: Any | None) -> str | None:
+    """Resolve `verdict` preserve-by-default; an explicit empty string clears it."""
+    return _resolve_governed_value(
+        supplied,
+        current,
+        key="verdict",
+        normalize=_canonical_verdict,
+    )
+
+
+def _resolve_check_by(supplied: str | None, current: Any | None) -> str | None:
+    """Resolve `check_by` preserve-by-default; an explicit empty string clears it."""
+    return _resolve_governed_value(
+        supplied,
+        current,
+        key="check_by",
+        normalize=_canonical_check_by,
+    )
+
+
+def _resolve_governed_value(
+    supplied: str | None,
+    current: Any | None,
+    *,
+    key: str,
+    normalize: Any,
+) -> str | None:
+    """Preserve, clear, or replace one governed metadata value.
+
+    Omission preserves, because the common edit is "fix the wording" and that
+    must never cost the author their judgment. An explicit empty string is the
+    one way to clear, so removing a verdict stays a deliberate act rather than
+    something an incomplete argument list does by accident.
+
+    An authored row the parser rejected has no normalized value to carry
+    forward, and dropping it would be exactly the silent deletion this design
+    exists to prevent. So an omitted argument over an invalid existing row is
+    refused rather than resolved either way.
+    """
+    if supplied is None:
+        if current is None:
+            return None
+        projected = getattr(current, key, None)
+        if projected is None and key in dict(getattr(current, "metadata", {})):
+            raise ObserveMemoryError(
+                "INVALID_EXISTING_UNIT_METADATA",
+                f"the current unit's authored {key} row is not valid, so an "
+                "update can neither carry it forward nor drop it silently",
+                f"Supply a valid {key} to replace the row, or an empty string "
+                "to clear it deliberately.",
+            )
+        return projected
+    if not str(supplied).strip():
+        return None
+    return normalize(str(supplied))
+
+
+def _canonical_verdict(value: str) -> str:
+    verdict = unicodedata.normalize("NFKC", value.strip()).casefold()
+    if verdict not in semantic_units.EPISTEMIC_OUTCOMES:
+        accepted = ", ".join(semantic_units.EPISTEMIC_OUTCOMES)
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_VERDICT",
+            f"verdict must be exactly one of {accepted}",
+            "A verdict is categorical lifecycle state, not a confidence score, "
+            "so a number, percentage, or free-text hedge is never valid.",
+        )
+    return verdict
+
+
+def _canonical_check_by(value: str) -> str:
+    candidate = value.strip()
+    try:
+        parsed = dt.date.fromisoformat(candidate)
+    except ValueError as error:
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_CHECK_BY",
+            "check_by must be one exact ISO calendar date spelled YYYY-MM-DD",
+        ) from error
+    if parsed.isoformat() != candidate:
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_CHECK_BY",
+            "check_by must be one exact ISO calendar date spelled YYYY-MM-DD",
+        )
+    return candidate
+
+
+def _preserved_metadata(current: Any | None) -> tuple[tuple[str, str], ...]:
+    """Authored rows this command does not own, in their authored order."""
+    if current is None or getattr(current, "form", None) != "rich":
+        return ()
+    return tuple(
+        (key, value)
+        for key, value in dict(current.metadata).items()
+        if key not in _OWNED_METADATA_KEYS
+    )
+
+
+def _requested_anchor(value: str | None, existing: set[str | None]) -> str | None:
+    if value is None:
+        return None
+    anchor = str(value).strip()
+    if not anchor or _ANCHOR_RE.fullmatch(anchor) is None:
+        raise ObserveMemoryError(
+            "INVALID_SEMANTIC_ANCHOR",
+            f"invalid semantic-unit anchor: {value!r}",
+            "Use 1-64 ASCII letters, digits, or hyphens, beginning and ending "
+            "alphanumeric.",
+        )
+    if anchor in existing:
+        raise ObserveMemoryError(
+            "DUPLICATE_SEMANTIC_ANCHOR",
+            f"another semantic unit on this parent already uses anchor {anchor!r}",
+            "Choose an anchor that is unique within the parent page.",
+        )
+    return anchor
+
+
+def _generated_anchor(
+    kind: str,
+    category: str,
+    content: str,
+    tags: tuple[str, ...],
+    context: str | None,
+    relations: tuple[tuple[str, str], ...],
+    existing: set[str | None],
+) -> str:
+    payload = json.dumps(
+        [kind, category, content, tags, context, relations],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    prefix = "obs" if kind == _COMPACT_KIND else "unit"
+    base = f"{prefix}-{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:12]}"
+    candidate = base
+    occurrence = 2
+    while candidate in existing:
+        candidate = f"{base}-{occurrence}"
+        occurrence += 1
+    return candidate
+
+
+def _render_unit(
+    *,
+    kind: str,
+    category: str,
+    content: str,
+    tags: tuple[str, ...],
+    context: str | None,
+    relations: tuple[tuple[str, str], ...],
+    anchor: str,
+    verdict: str | None = None,
+    check_by: str | None = None,
+    preserved: tuple[tuple[str, str], ...] = (),
+) -> str:
+    clean_content = content.strip()
+    if not clean_content:
+        raise ObserveMemoryError("INVALID_OBSERVE_INPUT", "content must not be empty")
+    if kind == _COMPACT_KIND:
+        if "\n" in clean_content or "\r" in clean_content:
+            raise ObserveMemoryError(
+                "INVALID_COMPACT_CONTENT",
+                "compact observation content must fit on one Markdown line",
+            )
+        suffix = "".join(f" #{tag}" for tag in tags)
+        if context is not None:
+            suffix += f" ({context})"
+        return f"- [{category}] {clean_content}{suffix} ^{anchor}"
+
+    heading = kind.replace("_", " ").title()
+    metadata = [f"- category: {category}", f"- id: {anchor}"]
+    if tags:
+        metadata.append(f"- tags: {', '.join(tags)}")
+    if context is not None:
+        metadata.append(f"- context: {context}")
+    if relations:
+        metadata.append(
+            "- relations: " + ", ".join(f"{rel}: {target}" for rel, target in relations)
+        )
+    if verdict is not None:
+        metadata.append(f"- verdict: {verdict}")
+    if check_by is not None:
+        metadata.append(f"- check_by: {check_by}")
+    # Rows this command does not own, re-emitted in their authored order.
+    metadata.extend(_metadata_row(key, value) for key, value in preserved)
+    return f"## {heading}\n" + "\n".join(metadata) + f"\n\n{clean_content}"
+
+
+def _metadata_row(key: str, value: str) -> str:
+    return f"- {key}: {value}" if value else f"- {key}:"
+
+
+def _replace_unit(body: str, start: int, end: int, rendered: str) -> str:
+    if not 0 <= start <= end <= len(body):
+        raise ObserveMemoryError("INVALID_UNIT_SPAN", "unit source span is outside its parent")
+    original = body[start:end]
+    trailing_newlines = original[len(original.rstrip("\r\n")) :]
+    if trailing_newlines and not rendered.endswith(("\n", "\r")):
+        rendered += trailing_newlines
+    return body[:start] + rendered + body[end:]
+
+
+def _remove_unit(body: str, start: int, end: int) -> str:
+    if not 0 <= start <= end <= len(body):
+        raise ObserveMemoryError("INVALID_UNIT_SPAN", "unit source span is outside its parent")
+    if end < len(body) and body[end] == "\n":
+        end += 1
+    return body[:start] + body[end:]
+
+
+def _add_compact(body: str, rendered: str) -> str:
+    section_ends = _observation_section_ends(body)
+    if len(section_ends) > 1:
+        raise ObserveMemoryError(
+            "AMBIGUOUS_OBSERVATIONS_SECTION",
+            "parent contains multiple canonical ## Observations sections",
+        )
+    if not section_ends:
+        separator = _append_separator(body)
+        return f"{body}{separator}## Observations\n\n{rendered}\n"
+    point = section_ends[0]
+    before, after = body[:point], body[point:]
+    separator = "" if before.endswith("\n\n") else "\n" if before.endswith("\n") else "\n\n"
+    tail = "\n" if not after else "\n\n"
+    return before + separator + rendered + tail + after
+
+
+def _append_rich(body: str, rendered: str) -> str:
+    separator = _append_separator(body)
+    return f"{body}{separator}{rendered}\n"
+
+
+def _append_separator(body: str) -> str:
+    if not body or body.endswith("\n\n"):
+        return ""
+    return "\n" if body.endswith("\n") else "\n\n"
+
+
+def _observation_section_ends(body: str) -> list[int]:
+    lines = body.splitlines(keepends=True)
+    offsets: list[int] = []
+    offset = 0
+    headings: list[tuple[int, int, str]] = []
+    fence_char: str | None = None
+    fence_length = 0
+    for line in lines:
+        text = line.rstrip("\r\n")
+        fence = _FENCE_RE.match(text)
+        if fence_char is not None:
+            if (
+                fence is not None
+                and fence.group("fence")[0] == fence_char
+                and len(fence.group("fence")) >= fence_length
+                and not fence.group("info").strip()
+            ):
+                fence_char = None
+                fence_length = 0
+            offset += len(line)
+            continue
+        if fence is not None:
+            marker = fence.group("fence")
+            fence_char = marker[0]
+            fence_length = len(marker)
+            offset += len(line)
+            continue
+        heading = _HEADING_RE.match(text)
+        if heading is not None:
+            headings.append((offset, len(heading.group(1)), heading.group(2).strip()))
+        offset += len(line)
+    for index, (_start, level, title) in enumerate(headings):
+        if level != 2 or semantic_language_registry.normalize_label(title) != "observations":
+            continue
+        end = len(body)
+        for candidate_start, candidate_level, _ in headings[index + 1 :]:
+            if candidate_level <= level:
+                end = candidate_start
+                break
+        offsets.append(end)
+    return offsets
+
+
+def _rebuild_source(
+    original: str,
+    fm_text: str,
+    body: str,
+    *,
+    today: dt.date,
+) -> str:
+    date = today.isoformat()
+    updated = (
+        _UPDATED_RE.sub(f"updated: {date}", fm_text, count=1)
+        if _UPDATED_RE.search(fm_text)
+        else fm_text.rstrip() + f"\nupdated: {date}"
+    )
+    newline = vault.document_newline(original)
+    blank_line = bool(
+        re.match(r"^---\r?\n.*?\r?\n---\r?\n\r?\n", original, re.DOTALL)
+    )
+    final_body = body if body.endswith(newline) else body + newline
+    return vault.render_frontmatter_document(
+        updated, final_body, newline=newline, blank_line=blank_line
+    )
+
+
+def _unit_by_anchor(document: Any, anchor: str | None) -> Any | None:
+    if anchor is None:
+        return None
+    matches = [unit for unit in document.units if unit.anchor == anchor]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _assert_round_trip(
+    unit: Any,
+    *,
+    kind: str,
+    category: str,
+    content: str,
+    tags: tuple[str, ...],
+    context: str | None,
+    relations: tuple[tuple[str, str], ...],
+    anchor: str | None,
+    verdict: str | None = None,
+    check_by: str | None = None,
+    preserved: tuple[tuple[str, str], ...] = (),
+) -> None:
+    relation_values = tuple((item.kind, item.target) for item in unit.relations)
+    common_matches = bool(
+        unit.kind == kind
+        and unit.category_key == category
+        and unit.content == content
+        and unit.anchor == anchor
+        and relation_values == relations
+    )
+    if kind == _COMPACT_KIND:
+        matches = common_matches and unit.tags == tags and unit.context == context
+    else:
+        # Preserved rows are part of the expectation, so a reconstruction that
+        # drops one fails the write instead of round-tripping its own deletion.
+        expected_metadata = {
+            "category": category,
+            "id": anchor,
+            **({"tags": ", ".join(tags)} if tags else {}),
+            **({"context": context} if context is not None else {}),
+            **(
+                {
+                    "relations": ", ".join(
+                        f"{relation}: {target}" for relation, target in relations
+                    )
+                }
+                if relations
+                else {}
+            ),
+            **({"verdict": verdict} if verdict is not None else {}),
+            **({"check_by": check_by} if check_by is not None else {}),
+            **dict(preserved),
+        }
+        matches = (
+            common_matches
+            and dict(unit.metadata) == expected_metadata
+            and unit.verdict == verdict
+            and unit.check_by == check_by
+        )
+    if not matches:
+        raise ObserveMemoryError(
+            "AMBIGUOUS_SEMANTIC_UNIT_CONTENT",
+            "unit fields collide with Markdown suffix, metadata, or heading syntax",
+            "Move reserved trailing syntax into explicit tags/context/relations fields "
+            "or select content that round-trips without reinterpretation.",
+        )
+
+
+def _result(
+    *,
+    operation: str,
+    path: str,
+    before_hash: str,
+    after_hash: str,
+    mutated: bool,
+    unit: Any | None,
+    removed_unit: Any | None,
+    semantic: dict[str, Any],
+    timings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "operation": operation,
+        "path": path,
+        "mutated": mutated,
+        "before_hash": before_hash,
+        "after_hash": after_hash,
+        "semantic": semantic,
+    }
+    if timings is not None:
+        value["timings"] = timings
+    if unit is not None:
+        value["unit_ref"] = unit.unit_ref
+        value["unit"] = unit.to_dict()
+    if removed_unit is not None:
+        value["removed_unit_ref"] = removed_unit.unit_ref
+        value["removed_unit"] = removed_unit.to_dict()
+    return value

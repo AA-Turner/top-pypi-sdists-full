@@ -1,0 +1,530 @@
+"""
+Stabilizer circuit simulator using Stim backend
+"""
+
+from typing import Any, Dict, List, Optional, Sequence
+import numpy as np
+import stim
+
+from .abstractcircuit import AbstractCircuit
+from .quantum import _resolve_keep_or_subsystem
+
+Tensor = Any
+
+
+class StabilizerCircuit(AbstractCircuit):
+    """
+    Quantum circuit simulator for stabilizer circuits using Stim backend.
+    Supports Clifford operations and measurements.
+    """
+
+    # Add gate sets as class attributes
+    clifford_gates = ["h", "x", "y", "z", "cnot", "cz", "swap", "s", "sd"]
+    gate_map = {
+        "h": "H",
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "cnot": "CNOT",
+        "cz": "CZ",
+        "swap": "SWAP",
+        "s": "S",
+        "sd": "S_DAG",
+    }
+
+    def __init__(
+        self, nqubits: int, inputs: Tensor = None, tableau_inputs: Tensor = None
+    ) -> None:
+        """
+        ``StabilizerCircuit`` class based on stim package
+
+        :param nqubits: Number of qubits
+        :type nqubits: int
+        :param inputs: initial state by stabilizers, defaults to None
+        :type inputs: Tensor, optional
+        :param tableau_inputs: initial state by **inverse** tableau, defaults to None
+        :type tableau_inputs: Tensor, optional
+        """
+        self._nqubits = nqubits
+        self._stim_circuit = stim.Circuit()
+        self._qir: List[Dict[str, Any]] = []
+        self.is_dm = False
+        self.inputs = inputs
+        self.tableau_inputs = tableau_inputs
+        self._extra_qir: List[Dict[str, Any]] = []
+        self._measure_counter = 0
+        self.current_sim = stim.TableauSimulator()
+
+        self.circuit_param = {
+            "nqubits": nqubits,
+            "inputs": inputs,
+            "tableau_inputs": tableau_inputs,
+        }
+
+        if inputs:
+            self.current_sim.set_state_from_stabilizers(inputs)
+        if tableau_inputs:
+            self.current_sim.set_inverse_tableau(tableau_inputs)
+        self._initial_inverse_tableau: Optional[stim.Tableau] = None
+        if inputs or tableau_inputs:
+            self._initial_inverse_tableau = self.current_inverse_tableau()
+
+    def apply_general_gate(
+        self,
+        gate: Any,
+        *index: int,
+        name: Optional[str] = None,
+        **kws: Any,
+    ) -> None:
+        """
+        Apply a Clifford gate to the circuit.
+
+        :param gate: Gate to apply (must be Clifford)
+        :type gate: Any
+        :param index: Qubit indices to apply the gate to
+        :type index: int
+        :param name: Name of the gate operation, defaults to None
+        :type name: Optional[str], optional
+        :raises ValueError: If non-Clifford gate is applied
+        """
+        if name is None:
+            name = ""
+
+        # Record gate in QIR
+        gate_dict = {
+            "gate": gate,
+            "index": index,
+            "name": name,
+            "split": None,
+            "mpo": False,
+        }
+        ir_dict = kws["ir_dict"]
+        if ir_dict is not None:
+            ir_dict.update(gate_dict)
+        else:
+            ir_dict = gate_dict
+        self._qir.append(ir_dict)
+
+        # Map TensorCircuit gates to Stim gates
+
+        if name.lower() in self.gate_map:
+            gn = self.gate_map[name.lower()]
+            instruction = f"{gn} {' '.join(map(str, index))}"
+            self._stim_circuit.append_from_stim_program_text(instruction)
+            getattr(self.current_sim, gn.lower())(*index)
+        else:
+            raise ValueError(f"Gate {name} is not supported in stabilizer simulation")
+
+    apply = apply_general_gate
+
+    def state(self) -> Tensor:
+        """
+        Return the wavefunction of the circuit.
+        Note that the state can have smaller qubit count if no gate is applied on later qubits
+        """
+        tab = self.current_tableau()
+        return tab.to_state_vector(endian="big")
+
+    def random_gate(self, *index: int, recorded: bool = False) -> None:
+        """
+        Apply a random Clifford gate to the circuit.
+        This operation will not record in qir
+
+        :param index: Qubit indices to apply the gate to
+        :type index: int
+        :param recorded: Whether the gate is recorded in ``stim.Circuit``, defaults to False
+        :type recorded: bool, optional
+        """
+        self.tableau_gate(
+            *index, tableau=stim.Tableau.random(len(index)), recorded=recorded
+        )
+
+    def tableau_gate(self, *index: int, tableau: Any, recorded: bool = False) -> None:
+        """
+        Apply a gate indicated by tableau to the circuit.
+        This operation will not record in qir
+
+        :param index: Qubit indices to apply the gate to
+        :type index: int
+        :param tableau: stim.Tableau representation of the gate
+        :type tableau: Any
+        :param recorded: Whether the gate is recorded in ``stim.Circuit``, defaults to False
+        :type recorded: bool, optional
+        """
+        self.current_sim.do_tableau(tableau, index)
+        if recorded:
+            circuit = tableau.to_circuit()
+            if index == tuple(range(len(index))):
+                self._stim_circuit += circuit
+            else:
+                program = [
+                    f"{inst.name} "
+                    + " ".join(str(index[t.value]) for t in inst.targets_copy())
+                    for inst in circuit
+                ]
+                self._stim_circuit.append_from_stim_program_text("\n".join(program))
+
+    def measure(self, *index: int, with_prob: bool = False) -> Tensor:
+        """
+        Measure qubits in the Z basis.
+
+        :param index: Indices of the qubits to measure.
+        :type index: int
+        :param with_prob: If True, returns the theoretical probability of the measurement outcome.
+            defaults to False
+        :type with_prob: bool, optional
+        :return: A tensor containing the measurement results.
+            If `with_prob` is True, a tuple containing the results and the probability is returned.
+        :rtype: Tensor
+        """
+        # Drop negative indices (not supported in stabilizer measurement)
+        index = tuple([i for i in index if i >= 0])
+
+        # Copy the simulator so measurement does not collapse the live state
+        s1 = self.current_simulator().copy()
+
+        if with_prob:
+            # A qubit with peek_z == 0 is 50/50 on its own, but entangled qubits
+            # share randomness: measuring one collapses the others. Count only
+            # *independent* random bits by collapsing sequentially, so correlated
+            # qubits (peek_z becomes +/-1 after a partner is measured) are not
+            # double-counted. (0.5) ** (independent random bits) is the true joint
+            # probability of the observed outcome.
+            num_independent_random = 0
+            for i in index:
+                if s1.peek_z(i) == 0:
+                    num_independent_random += 1
+                s1.measure(i)
+            probability = (0.5) ** num_independent_random
+
+        m = s1.measure_many(*index)
+        if with_prob:
+            return m, probability
+        return m
+
+    def cond_measurement(self, index: int) -> Tensor:
+        """
+        Measure a single qubit in the Z basis and collapse the state.
+
+        :param index: The index of the qubit to measure.
+        :type index: int
+        :return: The measurement result (0 or 1).
+        :rtype: Tensor
+        """
+        self._stim_circuit.append_from_stim_program_text("M " + str(index))
+        m = self.current_simulator().measure(index)
+
+        return m
+
+    cond_measure = cond_measurement
+
+    def cond_measure_many(self, *index: int) -> Tensor:
+        """
+        Measure multiple qubits in the Z basis and collapse the state.
+
+        :param index: The indices of the qubits to measure.
+        :type index: int
+        :return: A tensor containing the measurement results.
+        :rtype: Tensor
+        """
+        self._stim_circuit.append_from_stim_program_text(
+            "M " + " ".join(map(str, index))
+        )
+        m = self.current_simulator().measure_many(*index)
+
+        return m
+
+    def sample(
+        self,
+        batch: Optional[int] = None,
+        **kws: Any,
+    ) -> Tensor:
+        """
+        Sample measurements by replaying the recorded circuit and initial state.
+        Noise and intermediate measurements are sampled independently per shot.
+        Unrecorded gates and post-selection on the live simulator are not replayed.
+
+        :param batch: Number of samples to take, defaults to None (single sample)
+        :type batch: Optional[int], optional
+        :return: Final Z-basis measurements with shape ``(batch, nqubits)``;
+            historical measurement columns are excluded.
+        :rtype: Tensor
+        """
+        if batch is None:
+            batch = 1
+        c = self.current_circuit().copy()
+        measurement_start = c.num_measurements
+        for i in range(self._nqubits):
+            c.append("M", [i])
+        sampler = c.compile_sampler()
+        samples = sampler.sample(batch)
+        return np.array(samples[:, measurement_start:])
+
+    def expectation_ps(  # type: ignore
+        self,
+        x: Optional[Sequence[int]] = None,
+        y: Optional[Sequence[int]] = None,
+        z: Optional[Sequence[int]] = None,
+        **kws: Any,
+    ) -> Any:
+        """
+        Compute exact expectation value of Pauli string using stim's direct calculation.
+
+        :param x: Indices for Pauli X measurements
+        :type x: Optional[Sequence[int]], optional
+        :param y: Indices for Pauli Y measurements
+        :type y: Optional[Sequence[int]], optional
+        :param z: Indices for Pauli Z measurements
+        :type z: Optional[Sequence[int]], optional
+        :return: Expectation value
+        :rtype: float
+        """
+        pauli_str = ["I"] * self._nqubits
+
+        if x:
+            for i in x:
+                pauli_str[i] = "X"
+        if y:
+            for i in y:
+                pauli_str[i] = "Y"
+        if z:
+            for i in z:
+                pauli_str[i] = "Z"
+
+        pauli_string = "".join(pauli_str)
+        expectation = self.current_simulator().peek_observable_expectation(
+            stim.PauliString(pauli_string)
+        )
+        return expectation
+
+    expps = expectation_ps
+
+    def sample_expectation_ps(
+        self,
+        x: Optional[Sequence[int]] = None,
+        y: Optional[Sequence[int]] = None,
+        z: Optional[Sequence[int]] = None,
+        shots: Optional[int] = None,
+        **kws: Any,
+    ) -> float:
+        """
+        Compute a Pauli expectation by replaying the recorded circuit and initial state.
+        Only the appended Pauli measurements contribute to the expectation;
+        earlier measurement records are excluded. Unrecorded gates and live
+        post-selection are not replayed.
+
+        :param x: Indices for Pauli X measurements, defaults to None
+        :type x: Optional[Sequence[int]], optional
+        :param y: Indices for Pauli Y measurements, defaults to None
+        :type y: Optional[Sequence[int]], optional
+        :param z: Indices for Pauli Z measurements, defaults to None
+        :type z: Optional[Sequence[int]], optional
+        :param shots: Number of measurement shots, defaults to None
+        :type shots: Optional[int], optional
+        :return: Expectation value
+        :rtype: float
+        """
+        if shots is None:
+            shots = 1000  # Default number of shots
+
+        circuit = self.current_circuit().copy()
+        measurement_start = circuit.num_measurements
+
+        # Add basis rotations for measurements
+        if x:
+            for i in x:
+                circuit.append("H", [i])
+        if y:
+            for i in y:
+                circuit.append("S_DAG", [i])
+                circuit.append("H", [i])
+
+        measured_qubits: List[int] = []
+        if x:
+            measured_qubits.extend(x)
+        if y:
+            measured_qubits.extend(y)
+        if z:
+            measured_qubits.extend(z)
+
+        for i in measured_qubits:
+            circuit.append("M", [i])
+
+        # Sample and compute expectation using sampler
+        sampler = circuit.compile_sampler()
+        samples = sampler.sample(shots)
+        results = np.array(samples[:, measurement_start:])
+
+        results = 1 - 2 * results
+
+        expectation = np.mean(np.prod(results, axis=1))
+
+        return float(expectation)
+
+    sexpps = sample_expectation_ps
+
+    def mid_measurement(self, index: int, keep: int = 0) -> None:
+        """
+        Perform a mid-measurement operation on a qubit on z direction.
+        The post-selection cannot be recorded in ``stim.Circuit``
+        The method post-selects ``self.current_sim`` in place.
+
+        :param index: Index of the qubit to measure
+        :type index: int
+        :param keep: State of qubits to keep after measurement, defaults to 0 (up)
+        :type keep: int, optional
+        """
+        if keep not in [0, 1]:
+            raise ValueError("keep must be 0 or 1")
+
+        self.current_sim.postselect_z(index, desired_value=keep)
+
+    mid_measure = mid_measurement
+    post_select = mid_measurement
+    post_selection = mid_measurement
+
+    def depolarizing(self, *index: int, p: float) -> None:
+        """
+        Apply depolarizing noise to a qubit.
+
+        :param index: Index of the qubit to apply noise to
+        :type index: int
+        :param p: Noise parameter (probability of depolarizing)
+        :type p: float
+        """
+        self._stim_circuit.append_from_stim_program_text(
+            f"DEPOLARIZE1({p}) {' '.join(map(str, index))}"
+        )
+        self.current_sim.depolarize1(*index, p=p)
+
+    def current_simulator(self) -> stim.TableauSimulator:
+        """
+        Return the current simulator of the circuit.
+        """
+        return self.current_sim
+
+    def current_circuit(self) -> stim.Circuit:
+        """
+        Return the recorded Stim circuit, including the initial-state preparation.
+        The preparation prefix is synthesized only on the first replay access.
+        """
+        if self._initial_inverse_tableau is not None:
+            sim = stim.TableauSimulator()
+            sim.set_inverse_tableau(self._initial_inverse_tableau)
+            circuit = stim.Tableau.from_stabilizers(
+                sim.canonical_stabilizers()
+            ).to_circuit()
+            circuit += self._stim_circuit
+            self._stim_circuit = circuit
+            self._initial_inverse_tableau = None
+        return self._stim_circuit
+
+    def current_tableau(self) -> stim.Tableau:
+        """
+        Return the current tableau of the circuit.
+        """
+        return self.current_simulator().current_inverse_tableau() ** -1
+
+    def current_inverse_tableau(self) -> stim.Tableau:
+        """
+        Return the current inverse tableau of the circuit.
+        """
+        return self.current_simulator().current_inverse_tableau()
+
+    def entanglement_entropy(
+        self,
+        cut: Optional[Sequence[int]] = None,
+        *,
+        subsystem_to_keep: Optional[Sequence[int]] = None,
+        subsystems_to_trace_out: Optional[Sequence[int]] = None,
+    ) -> float:
+        """
+        Calculate the entanglement entropy for a subset of qubits using stabilizer formalism.
+
+        The subsystem can be specified by ``cut`` (legacy, the qubits to **keep**
+        and compute the entropy of), or by exactly one of
+        ``subsystem_to_keep`` / ``subsystems_to_trace_out``. If both ``cut`` and
+        a new argument are given, the new argument wins and ``cut`` is ignored
+        (with a ``UserWarning``).
+
+        .. warning::
+
+            Unlike :func:`tensorcircuit.quantum.entanglement_entropy`, the
+            legacy ``cut`` argument here names the qubits to **keep** (the
+            subsystem whose entropy is computed), not the qubits to trace out.
+            The two functions share a name but use opposite conventions for
+            ``cut``; prefer the explicit ``subsystem_to_keep`` /
+            ``subsystems_to_trace_out`` to avoid ambiguity.
+
+        :param cut: Indices of qubits to calculate entanglement entropy for (kept).
+        :type cut: Optional[Sequence[int]]
+        :param subsystem_to_keep: Indices of qubits to keep (entropy of this subsystem).
+            Mutually exclusive with ``subsystems_to_trace_out``.
+        :type subsystem_to_keep: Optional[Sequence[int]]
+        :param subsystems_to_trace_out: Indices to trace out (complement is kept).
+        :type subsystems_to_trace_out: Optional[Sequence[int]]
+        :return: Entanglement entropy
+        :rtype: float
+        """
+        tableau = self.current_inverse_tableau()
+        N = len(tableau)
+
+        # `cut` is legacy keep semantics (the subsystem whose entropy is computed);
+        # resolve via the dual helper, which also validates ranges/duplicates.
+        keep = _resolve_keep_or_subsystem(
+            N,
+            cut,
+            subsystem_to_keep,
+            subsystems_to_trace_out,
+            name="StabilizerCircuit.entanglement_entropy",
+        )
+
+        if len(keep) > N // 2:
+            keep_set = set(keep)
+            keep = [i for i in range(N) if i not in keep_set]
+        if not keep:
+            return 0.0
+
+        tableau = tableau.inverse(unsigned=True)
+        _, _, z2x, z2z, _, _ = tableau.to_numpy()
+        binary_matrix = np.concatenate([z2x, z2z], axis=1)
+        # Get reduced matrix for the cut using boolean indexing
+        cut_set = set(keep)
+        cut_indices = np.array(
+            [i for i in range(N) if i in cut_set]
+            + [i + N for i in range(N) if i in cut_set]
+        )
+        reduced_matrix = binary_matrix[:, cut_indices]
+
+        # Efficient rank calculation using Gaussian elimination
+        matrix = reduced_matrix.copy()
+        n_rows, n_cols = matrix.shape
+        rank = 0
+        row = 0
+
+        for col in range(n_cols):
+            pivot_rows = np.nonzero(matrix[row:, col])[0]
+            if len(pivot_rows) > 0:
+                pivot_row = pivot_rows[0] + row
+
+                # Swap rows if necessary
+                if pivot_row != row:
+                    matrix[row], matrix[pivot_row] = (
+                        matrix[pivot_row].copy(),
+                        matrix[row].copy(),
+                    )
+
+                eliminate_mask = matrix[row + 1 :, col] == 1
+                matrix[row + 1 :][eliminate_mask] ^= matrix[row]
+
+                rank += 1
+                row += 1
+
+                if row == n_rows:
+                    break
+
+        return float((rank - len(keep)) * np.log(2))
+
+
+# Call _meta_apply at module level to register the gates
+StabilizerCircuit._meta_apply()

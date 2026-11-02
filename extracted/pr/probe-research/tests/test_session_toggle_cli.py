@@ -251,9 +251,9 @@ def test_status_in_the_daemon_state_lists_the_agents_own_writes(isolated, capsys
     daemon = out["daemon"]
     assert daemon["status"] == session_marker.DAEMON_LIVE
     assert daemon["agent_writes"] == sorted(session_marker.DAEMON_AGENT_WRITES)
-    assert {"exec", "run start", "run end", "log"} <= set(daemon["agent_writes"])
-    # Daemon v2: the daemon creates the containers runs are filed in.
-    assert not {"project create", "experiment create", "group create"} & set(daemon["agent_writes"])
+    assert {"exec", "run start", "run end", "log", "project create"} <= set(daemon["agent_writes"])
+    # The agent makes the project its run needs; the experiment and group stay the daemon's.
+    assert not {"experiment create", "group create", "project set", "run move"} & set(daemon["agent_writes"])
     assert daemon["agent_writes_in_run"] == ["artifact add"]
     assert "--directed" in daemon["directed"]
 

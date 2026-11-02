@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from probe.shared.harness.harnesses import pi as pi_config
-from probe.cli import upgrading
+from probe.cli.install import upgrade as upgrading
 from probe.shared.harness.harnesses.claude_code.binary import Result
 
 
@@ -57,14 +57,16 @@ def test_no_pi_package_means_no_pi_step(monkeypatch):
 
 @pytest.mark.parametrize("cli_ok,plugin_ok", [(True, True), (False, True), (True, False)])
 def test_update_stream_reports_real_stage_boundaries(monkeypatch, cli_ok, plugin_ok):
-    from probe.cli import updater
+    from probe.cli.install import updater
     from probe.core import events
 
     emitted = []
     monkeypatch.setenv("PROBE_AGENT", "pi")
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda *a, **k: None)
 
     def cli(install, current, target):
         assert emitted[-1]["name"] == events.Step.UPDATE_CLI
@@ -79,8 +81,9 @@ def test_update_stream_reports_real_stage_boundaries(monkeypatch, cli_ok, plugin
         assert emitted[-1]["status"] == events.Status.STARTED
         return upgrading._PiUpdate([], ok=plugin_ok, detail="" if plugin_ok else "failed")
 
-    monkeypatch.setattr(updater, "upgrade_cli", cli)
-    monkeypatch.setattr(upgrading, "_update_pi_package", plugins)
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", cli)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", plugins)
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", plugins)
     with events.session(True, sink=emitted.append):
         outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -147,7 +150,8 @@ def test_a_second_update_never_runs_pi_update_at_the_same_time(monkeypatch, pi_i
 def test_a_failed_pi_update_is_recorded_as_a_failed_update(monkeypatch):
     """The detached run from pi's session start reports only through the
     attempt record: a failure written only to its lines read as success."""
-    from probe.cli import autoupdate, updater
+    from probe.cli import autoupdate
+    from probe.cli.install import updater
 
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {})
@@ -158,7 +162,10 @@ def test_a_failed_pi_update_is_recorded_as_a_failed_update(monkeypatch):
         lambda i, c, t: updater.CliResult(ran=True, ok=True, changed=False, before=c, after=c, message="latest"),
     )
     monkeypatch.setattr(
-        upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  ! x"], ok=False, detail="pi package not updated: x")
+        "probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  ! x"], ok=False, detail="pi package not updated: x")
+    )
+    monkeypatch.setattr(
+        upgrading.package_step, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  ! x"], ok=False, detail="pi package not updated: x")
     )
     recorded = []
     monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, **_: recorded.append(attempt))

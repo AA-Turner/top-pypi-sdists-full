@@ -1,4 +1,4 @@
-"""Each registered session's delivery receipts (plan D29, `probe.service.receipts`).
+"""Each registered session's delivery receipts (plan D29, `probe.service.sessions.receipts`).
 
 What the server has taken of a session's transcript, and what waits, read from
 the recorder's own transcript journal: a REAL `session_journal.Journal` staging
@@ -18,7 +18,7 @@ import time
 
 import pytest
 
-from probe.service import receipts
+from probe.service.sessions import receipts
 from probe.tap_core.session_journal import Journal
 from tests.test_transcript_protocol3 import CUSTOMER, CWD, DoorWire, _drain, _session, _start, _user, _write
 
@@ -286,7 +286,7 @@ def test_a_journal_whose_destination_is_not_its_own_gives_no_receipts(tmp_path):
 
 @needs_proc_locks
 def test_the_destination_record_is_the_journals_and_the_fields_are_the_contracts(tmp_path):
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
     from probe.tap_core import session_journal
 
     assert receipts.DESTINATION_NAME == session_journal.DESTINATION_NAME

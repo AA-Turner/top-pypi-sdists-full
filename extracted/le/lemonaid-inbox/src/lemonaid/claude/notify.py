@@ -1,0 +1,622 @@
+"""Claude Code notification hook handler.
+
+This module handles notifications from Claude Code hooks, adding them to the
+lemonaid inbox for attention tracking.
+
+Usage in Claude Code settings.json:
+    {
+      "hooks": {
+        "Notification": [
+          {
+            "matcher": "idle_prompt",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "lemonaid claude notify"
+              }
+            ]
+          }
+        ]
+      }
+    }
+"""
+
+import datetime as dt
+import json
+import os
+import sys
+import typing as ty
+from pathlib import Path
+
+from .. import auto_read, daily_date
+from ..brief.handoff import state as handoff_state
+from ..brief.handoff import transfer as handoff_transfer
+from ..config import load_config
+from ..inbox import db
+from ..inbox.channel import UnidentifiedSession, channel_id
+from ..lemon_watchers import (
+    detect_terminal_switch_source,
+    get_cmux_surface,
+    get_git_branch,
+    get_name_from_cwd,
+    get_tmux_session_name,
+    get_tmux_session_order,
+    get_tmux_socket,
+    get_tmux_window_index,
+    get_tty,
+    read_jsonl_tail,
+    shorten_path,
+)
+from ..log import get_logger
+from . import print_mode, watcher
+
+_log = get_logger("claude.notify")
+
+
+_NAME_MAX_LEN = 80
+
+
+def _index_entry(session_id: str, cwd: str) -> dict | None:
+    """Find this session's entry in Claude's sessions-index.json.
+
+    Tries the cwd-derived project dir first, then falls back to the parent-path
+    search, which is what finds worktree sessions filed under the main repo.
+    """
+    from .projects import find_project_path, get_project_path
+
+    for project_dir in (get_project_path(cwd), find_project_path(cwd)):
+        if project_dir is None:
+            continue
+
+        index_path = project_dir / "sessions-index.json"
+        if not index_path.exists():
+            continue
+
+        try:
+            data = json.loads(index_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        for entry in data.get("entries", []):
+            if entry.get("sessionId") == session_id:
+                return entry
+
+    return None
+
+
+RENAME_SOURCE = "claude_rename"  # a /rename; final, nothing supersedes it
+TITLE_SOURCE = "claude_index"  # an AI-generated title; a later /rename can win
+
+
+class SessionName(ty.NamedTuple):
+    name: str
+    source: str
+
+
+def find_transcript(session_id: str, cwd: str, transcript_path: str | None = None) -> Path | None:
+    """The path to a session's JSONL transcript, if it exists.
+
+    *transcript_path* is where Claude says the transcript is, and wins. The
+    project directory derived from *cwd* is a guess: Claude files a transcript
+    under the directory the session started in, and the hook's cwd is wherever
+    the session has since moved to.
+    """
+    if transcript_path and Path(transcript_path).exists():
+        return Path(transcript_path)
+
+    from .projects import find_project_path, get_project_path
+
+    for project_dir in (get_project_path(cwd), find_project_path(cwd)):
+        if project_dir is None:
+            continue
+
+        transcript = project_dir / f"{session_id}.jsonl"
+        if transcript.exists():
+            return transcript
+
+    return None
+
+
+def _transcript_titles(
+    session_id: str, cwd: str, transcript_path: str | None = None
+) -> tuple[str | None, str | None]:
+    """Read the newest (customTitle, aiTitle) out of a session's transcript.
+
+    Current Claude versions record the AI-generated conversation name as
+    `type: "ai-title"` entries (field `aiTitle`) in the JSONL transcript, and a
+    `/rename` as `customTitle`. Both are appended as the session progresses, so
+    the last occurrence of each wins and neither exists at first-prompt time.
+
+    sessions-index.json is not consulted here: Claude stopped maintaining it,
+    so it only covers sessions from before that change.
+    """
+    transcript = find_transcript(session_id, cwd, transcript_path)
+    if transcript is None:
+        return None, None
+
+    ai_title = None
+    custom_title = None
+    try:
+        with open(transcript, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                # Cheap reject before paying for a JSON parse; these fields
+                # appear in a small minority of a large transcript's lines.
+                if "aiTitle" not in line and "customTitle" not in line:
+                    continue
+
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if title := entry.get("aiTitle"):
+                    ai_title = title
+                if title := entry.get("customTitle"):
+                    custom_title = title
+    except OSError:
+        return None, None
+
+    return custom_title, ai_title
+
+
+# Claude Code's rename command, under its current name and its older one.
+_RENAME_COMMANDS = ("/name ", "/rename ")
+
+
+def _history_rename(session_id: str) -> str | None:
+    """Find the most recent rename (`/name` or `/rename`) for a session in history.jsonl."""
+    history_path = Path.home() / ".claude" / "history.jsonl"
+    if not history_path.exists():
+        return None
+
+    rename_name = None
+    try:
+        for line in history_path.read_text().splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            if entry.get("sessionId") == session_id:
+                display = entry.get("display", "")
+                for command in _RENAME_COMMANDS:
+                    if display.startswith(command):
+                        rename_name = display[len(command) :].strip()
+    except OSError:
+        return None
+
+    return rename_name
+
+
+def resolve_session_name(
+    session_id: str, cwd: str, transcript_path: str | None = None
+) -> SessionName | None:
+    """Find the name Claude holds for a session, and say where it came from.
+
+    A `/rename` always wins over the AI-generated title, whenever it happened —
+    including on a session that was already auto-titled. The source is reported
+    so callers can tell a settled name from one an later rename may still
+    supersede.
+    """
+    if not session_id or not cwd:
+        return None
+
+    custom_title, ai_title = _transcript_titles(session_id, cwd, transcript_path)
+    if custom_title:
+        return SessionName(custom_title, RENAME_SOURCE)
+
+    if rename := _history_rename(session_id):
+        return SessionName(rename, RENAME_SOURCE)
+
+    if ai_title:
+        return SessionName(ai_title, TITLE_SOURCE)
+
+    entry = _index_entry(session_id, cwd)
+    if entry:
+        if title := entry.get("customTitle"):
+            return SessionName(title, RENAME_SOURCE)
+
+        if summary := entry.get("summary"):
+            return SessionName(summary, TITLE_SOURCE)
+
+        if prompt := entry.get("firstPrompt"):
+            truncated = prompt[:_NAME_MAX_LEN] + ("..." if len(prompt) > _NAME_MAX_LEN else "")
+            return SessionName(truncated, TITLE_SOURCE)
+
+    return None
+
+
+def get_session_name(session_id: str, cwd: str) -> str | None:
+    """The name Claude holds for a session, or None if it has none yet."""
+    resolved = resolve_session_name(session_id, cwd)
+    return resolved.name if resolved else None
+
+
+def _resolve_session(data: dict, notification_type: str) -> tuple[str, str, str, str | None, dict]:
+    """Resolve the inbox fields shared by the notify and submit hooks.
+
+    Returns (channel, session_id, name, switch_source, metadata).
+    """
+    if print_mode.is_print_session():
+        raise print_mode.PrintSession("claude -p session")
+
+    cwd = data.get("cwd", "unknown")
+    session_id = data.get("session_id", "")
+
+    tmux_session = get_tmux_session_name()
+
+    # Claude's own name for the session beats anything we can derive from the
+    # environment; the tmux/cwd names are placeholders until it exists.
+    resolved = resolve_session_name(session_id, cwd, data.get("transcript_path"))
+    name = resolved.name if resolved else (tmux_session or get_name_from_cwd(cwd))
+    name_source = resolved.source if resolved else "environment"
+
+    # Detect switch-source (which terminal environment this notification came from)
+    switch_source = detect_terminal_switch_source()
+
+    metadata = {
+        "cwd": cwd,
+        "session_id": session_id,
+        "notification_type": notification_type,
+        "name_source": name_source,
+    }
+
+    # Claude tells us where the transcript is. Deriving it from the cwd guesses
+    # at a directory name Claude chose, and the guess is wrong for some paths -
+    # a session whose transcript cannot be found gets no message updates at all.
+    transcript_path = data.get("transcript_path")
+    if transcript_path:
+        metadata["transcript_path"] = transcript_path
+
+    branch = get_git_branch(cwd)
+    if branch:
+        metadata["git_branch"] = branch
+
+    tty = get_tty()  # for pane matching
+    if tty:
+        metadata["tty"] = tty
+        surface = get_cmux_surface()
+        if surface:
+            metadata["cmux_surface"] = surface
+
+    # Where this session sits, so a lost tmux server can be rebuilt from the
+    # inbox. Absent when the hook runs outside tmux, which is why `db.add`
+    # carries a previously recorded location forward rather than dropping it.
+    if tmux_session:
+        metadata["tmux_session"] = tmux_session
+
+    if session_order := get_tmux_session_order():
+        metadata["tmux_session_order"] = list(session_order)
+        if pane := os.environ.get("TMUX_PANE"):
+            metadata["tmux_pane_identity"] = [pane, session_order[1]]
+
+    window = get_tmux_window_index()
+    if window:
+        metadata["tmux_window"] = window
+
+    # Which tmux server, not just where in it: the watcher asking whether this
+    # pane still exists may be attached to a different one, where the honest
+    # answer to "is it there" is "not here, and I cannot see where it is".
+    socket = get_tmux_socket()
+    if socket:
+        metadata["tmux_socket"] = socket
+
+    return channel_id("claude", session_id), session_id, name, switch_source, metadata
+
+
+def _tell_date(channel: str) -> None:
+    """Add the date line to the turn, when it is this session's first turn of the day.
+
+    UserPromptSubmit also fires when a background task's completion wakes the
+    session, so a lemon that only waits on waiters still hears it.
+    """
+    now, seen = dt.datetime.now(), daily_date.seen_path(channel)
+    day_starts = load_config().inbox.day_starts
+    line = daily_date.due(seen, now, day_starts)
+    if not line:
+        return
+
+    print(
+        json.dumps(
+            {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": line}}
+        )
+    )
+    daily_date.mark(seen, now, day_starts)
+
+
+def handle_submit(stdin_data: str | None = None) -> None:
+    """Register a session as working in response to a UserPromptSubmit hook.
+
+    Surfaces the session in the inbox the moment a prompt is submitted, as a
+    read/working entry (not flagged for attention). The Stop and Notification
+    hooks flip it to unread when it actually wants the user.
+    """
+    if stdin_data is None:
+        stdin_data = sys.stdin.read()
+
+    _log.info("submit stdin: %s", stdin_data[:200])
+
+    try:
+        data = json.loads(stdin_data) if stdin_data else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    try:
+        channel, _session_id, name, switch_source, metadata = _resolve_session(data, "working")
+    except UnidentifiedSession as error:
+        _log.warning("dropped a working notification: %s", error)
+        return
+    message = f"Working in {shorten_path(data.get('cwd', 'unknown'))}"
+
+    with db.connect() as conn:
+        db.register_working(
+            conn,
+            channel=channel,
+            message=message,
+            name=name,
+            metadata=metadata,
+            switch_source=switch_source if switch_source != "unknown" else None,
+        )
+        if token := os.environ.get("LEMONAID_HANDOFF_TOKEN"):
+            handoff_state.bind_target(conn, token, channel)
+        handoff_transfer.reclaim(conn, channel)
+        if isinstance(data.get("prompt"), str):
+            handoff_state.typed_message(conn, channel, data["prompt"])
+
+    _log.info("working: channel=%s", channel)
+    _tell_date(channel)
+
+
+def handle_session_start(stdin_data: str | None = None) -> None:
+    """Record a session and where it is running, from a SessionStart hook.
+
+    The other hooks all need a turn: a session that starts, or is resumed after
+    a crash, says nothing until you talk to it, so nothing knew it existed or
+    which pane it was in. This one fires on startup and on resume, which is what
+    makes a restored session findable without waiting for the user.
+
+    Registered as working rather than unread. A session that has not spoken is
+    not asking for anything, and a restore that filled the inbox with every
+    session it started would be its own kind of noise.
+    """
+    if stdin_data is None:
+        stdin_data = sys.stdin.read()
+
+    try:
+        data = json.loads(stdin_data) if stdin_data else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    try:
+        channel, _session_id, name, switch_source, metadata = _resolve_session(data, "started")
+    except UnidentifiedSession as error:
+        _log.warning("dropped a session-start notification: %s", error)
+        return
+    source = data.get("source", "startup")
+    metadata["session_start_source"] = source
+
+    with db.connect() as conn:
+        db.register_working(
+            conn,
+            channel=channel,
+            message=f"Started in {shorten_path(data.get('cwd', 'unknown'))}",
+            name=name,
+            metadata=metadata,
+            switch_source=switch_source if switch_source != "unknown" else None,
+        )
+        if token := os.environ.get("LEMONAID_HANDOFF_TOKEN"):
+            handoff_state.bind_target(conn, token, channel)
+        handoff_transfer.reclaim(conn, channel)
+
+    _log.info(
+        "session start (%s): channel=%s tmux=%s:%s",
+        source,
+        channel,
+        metadata.get("tmux_session"),
+        metadata.get("tmux_window"),
+    )
+
+
+_FINAL_MESSAGE_TAIL_BYTES = 1024 * 1024
+
+# Both say the turn is over: idle_prompt repeats Stop's news a minute later, and
+# must not flag a session that Stop left read.
+_TURN_ENDED = ("Stop", "idle_prompt")
+
+
+def _describe(notification_type: str, short_path: str) -> tuple[str, bool]:
+    """A hook's inbox message, and whether it is worth more than what is there.
+
+    The flag answers a question the message alone cannot: an end-of-turn hook
+    knows a turn finished but not what was said in it, while the watcher holds
+    the assistant's actual last line and only rewrites when the transcript
+    changes. Overwriting on Stop therefore loses that line until the session
+    speaks again. A prompt or a question is news the transcript does not carry,
+    so those do replace it.
+
+    Stop names the same state as idle_prompt and carries no notification type of
+    its own; without a case here it would report its hook's name as the message.
+    """
+    if notification_type in ("idle_prompt", "Stop"):
+        return f"Waiting in {short_path}", False
+
+    if notification_type == "permission_prompt":
+        return f"Permission needed in {short_path}", True
+
+    if notification_type == "PermissionRequest":
+        return f"Question in {short_path}", True
+
+    return f"{notification_type} in {short_path}", True
+
+
+def _question(data: dict) -> str:
+    """The first question an AskUserQuestion permission request puts to you, or ""."""
+    questions = (data.get("tool_input") or {}).get("questions") or [{}]
+    return str(questions[0].get("question", "")) if isinstance(questions[0], dict) else ""
+
+
+def _repeats_a_question(notification_type: str, existing: db.Notification | None) -> bool:
+    """Claude follows a question's PermissionRequest with a generic permission_prompt."""
+    return (
+        notification_type == "permission_prompt"
+        and existing is not None
+        and existing.is_unread
+        and bool(existing.metadata.get("question"))
+    )
+
+
+def _final_message(data: dict) -> str:
+    """What Claude ended the turn with, from the hook payload or the transcript."""
+    if isinstance(said := data.get("last_assistant_message"), str) and said:
+        return said
+
+    transcript = watcher.get_session_path(
+        data.get("session_id", ""), data.get("cwd", ""), data.get("transcript_path", "")
+    )
+    if transcript is None:
+        return ""
+
+    # Wider than the watcher's tail: attachments after the final text can fill 64 KiB.
+    lines = read_jsonl_tail(transcript, max_bytes=_FINAL_MESSAGE_TAIL_BYTES)
+    return watcher.final_message(auto_read.newest_first(lines))
+
+
+def _status_after(notification_type: str, channel: str, data: dict) -> str:
+    """Unread, or read when a finished turn's final message matches `[inbox] auto_read`."""
+    if notification_type not in _TURN_ENDED:
+        return "unread"
+
+    patterns = load_config().inbox.auto_read
+    if not patterns:
+        return "unread"
+
+    return auto_read.status_after_turn(patterns, channel, _final_message(data))
+
+
+def handle_notification(stdin_data: str | None = None) -> None:
+    """
+    Handle a Claude Code notification from stdin.
+
+    Reads JSON from stdin (as provided by Claude Code hooks) and adds
+    a notification to the lemonaid inbox.
+    """
+    if stdin_data is None:
+        stdin_data = sys.stdin.read()
+
+    _log.info("stdin: %s", stdin_data)
+
+    try:
+        data = json.loads(stdin_data) if stdin_data else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    cwd = data.get("cwd", "unknown")
+    notification_type = (
+        data.get("notification_type") or data.get("hook_event_name") or "idle_prompt"
+    )
+
+    message, tells_us_what_was_said = _describe(notification_type, shorten_path(cwd))
+
+    try:
+        channel, _session_id, name, switch_source, metadata = _resolve_session(
+            data, notification_type
+        )
+    except UnidentifiedSession as error:
+        _log.warning("dropped a %s notification: %s", notification_type, error)
+        return
+
+    if question := _question(data):
+        message = metadata["question"] = question
+
+    # Check existing state before upsert for logging
+    with db.connect() as conn:
+        existing = db.get_by_channel(conn, channel, unread_only=False)
+        existing_status = existing.status if existing else None
+        existing_type = existing.metadata.get("notification_type") if existing else None
+
+        if existing:
+            prev_cwd = existing.metadata.get("cwd")
+            if prev_cwd and prev_cwd != cwd:
+                _log.warning(
+                    "cwd changed for %s: %s -> %s",
+                    channel,
+                    prev_cwd,
+                    cwd,
+                )
+
+        db.add(
+            conn,
+            channel=channel,
+            message=message,
+            name=name,
+            metadata=metadata,
+            switch_source=switch_source if switch_source != "unknown" else None,
+            keep_existing_message=not tells_us_what_was_said
+            or _repeats_a_question(notification_type, existing),
+            status=_status_after(notification_type, channel, data),
+            ends_turn=notification_type in _TURN_ENDED,
+        )
+
+    if existing:
+        _log.info(
+            "upsert: channel=%s, type=%s, was=%s/%s",
+            channel,
+            notification_type,
+            existing_status,
+            existing_type,
+        )
+    else:
+        _log.info("new: channel=%s, type=%s", channel, notification_type)
+
+
+def dismiss_session(session_id: str, debug: bool = False) -> int:
+    """
+    Dismiss (mark as read) the notification for a Claude session.
+
+    Args:
+        session_id: The Claude Code session ID
+        debug: Enable debug output
+
+    Returns:
+        Number of notifications marked as read
+    """
+    if not session_id:
+        if debug:
+            print("[dismiss] no session_id provided", file=sys.stderr)
+        return 0
+
+    channel = channel_id("claude", session_id)
+    with db.connect() as conn:
+        count = db.mark_all_read_for_channel(conn, channel)
+        if debug:
+            print(
+                f"[dismiss] marked {count} notification(s) as read for {channel}", file=sys.stderr
+            )
+        return count
+
+
+def handle_dismiss(debug: bool = False) -> None:
+    """
+    Dismiss (mark as read) the notification for this Claude session.
+
+    Reads session_id from stdin and marks any unread notification
+    for that channel as read.
+
+    Set LEMONAID_DEBUG=1 environment variable to enable debug output.
+    Set LEMONAID_LOG_FILE to a path to write debug logs to a file.
+    """
+    debug = debug or os.environ.get("LEMONAID_DEBUG") == "1"
+
+    stdin_raw = sys.stdin.read() or "{}"
+
+    _log.info("dismiss stdin: %s", stdin_raw[:100])
+
+    try:
+        data = json.loads(stdin_raw)
+    except json.JSONDecodeError:
+        data = {}
+
+    session_id = data.get("session_id", "")
+    count = dismiss_session(session_id, debug=debug)
+
+    _log.info("dismiss: session_id=%s, marked=%d", session_id[:8] if session_id else "NONE", count)

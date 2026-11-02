@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+from collections.abc import (
+    Iterator,
+)
+from typing import TYPE_CHECKING
+
+from .._errors import (
+    PyreqwestNotInstalledError,
+)
+from .._models import (
+    ClosableStream,
+    Request,
+    Response,
+)
+from ._sync_base import (
+    BaseHandler,
+)
+from ._exc_map import map_connect_exceptions, map_pyreqwest_client_exceptions, map_read_exceptions
+
+if TYPE_CHECKING:
+    import sys
+    from contextlib import AbstractContextManager
+
+    if sys.version_info >= (3, 11):
+        from pyreqwest.client import (
+            SyncClientBuilder,
+        )
+        from pyreqwest.response import (
+            SyncResponse as PyreqwestResponse,
+        )
+    else:
+        if not TYPE_CHECKING:
+            SyncClientBuilder = None
+            PyreqwestResponse = None
+else:
+    try:
+        from pyreqwest.client import (
+            SyncClientBuilder,
+        )
+        from pyreqwest.response import (
+            SyncResponse as PyreqwestResponse,
+        )
+    except ImportError:
+        if not TYPE_CHECKING:
+            SyncClientBuilder = None
+            PyreqwestResponse = None
+
+
+class PyreqwestStream(ClosableStream):
+    def __init__(
+        self,
+        response: PyreqwestResponse,
+        stream_request: AbstractContextManager[PyreqwestResponse],
+    ) -> None:
+        self._response = response
+        self._stream_request = stream_request
+
+    def __next__(self) -> bytes:
+        with map_read_exceptions():
+            chunk = self._response.body_reader.read_chunk()
+            if chunk is None:
+                raise StopIteration
+            return chunk.to_bytes()
+
+    def close(self) -> None:
+        self._stream_request.__exit__(None, None, None)
+
+
+class PyreqwestHandler(BaseHandler):
+    def __init__(
+        self,
+        client: SyncClientBuilder | None = None,
+    ) -> None:
+        if SyncClientBuilder is None:  # type: ignore[reportPossiblyUnboundVariable]
+            raise PyreqwestNotInstalledError
+        builder = SyncClientBuilder() if client is None else client
+        builder = builder.gzip(False).deflate(False).brotli(False).zstd(False)
+        self._client = builder.build()
+
+    def handle(self, request: Request) -> Response:
+        req_builder = self._client.request(
+            request.method,
+            str(request.url),
+        ).headers(request.headers.list())
+
+        if isinstance(request.body, bytes):
+            req_builder = req_builder.body_bytes(request.body)
+        elif isinstance(
+            request.body,
+            Iterator,
+        ):
+            req_builder = req_builder.body_stream(request.body)
+
+        stream_request = req_builder.build_streamed()
+
+        with map_pyreqwest_client_exceptions(), map_connect_exceptions():
+            pyreqwest_response = stream_request.__enter__()
+
+        return Response(
+            status=pyreqwest_response.status,
+            headers=pyreqwest_response.headers,
+            content=PyreqwestStream(pyreqwest_response, stream_request),
+            context={
+                "network": {
+                    "http_protocol": "HTTP/1.1" if pyreqwest_response.version == "HTTP/1.1" else "HTTP/2",
+                }
+            },
+            request=request,
+        )
+
+    def close(self) -> None:
+        self._client.close()

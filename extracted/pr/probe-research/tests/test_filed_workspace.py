@@ -15,7 +15,8 @@ import uuid
 import pytest
 
 from probe import cli
-from probe.cli import backfill_projects, filed_workspace
+from probe.cli.imports.folder.structure import projects as backfill_projects
+from probe.cli.commands.projects import filed_workspace
 from probe.shared.reads import reads
 from probe.sdk.client.client import Client
 from tests.conftest import make_client

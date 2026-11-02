@@ -60,6 +60,10 @@ class Client:
             raise self.landed
         return self.landed
 
+    def send(self, method, path, body=None, **kwargs):
+        """`Client.send`: a write whose answer is needed now (`sync=True`)."""
+        return self.write(method, path, body, sync=True, **kwargs)
+
 
 def _board() -> appr.Board:
     return appr.Board()
@@ -352,7 +356,7 @@ def test_the_dashboard_assistant_sends_at_once(monkeypatch):
     out = _cli("send", TEXT)
     assert out.exit_code == 0, out.output
     _, path, body, kwargs = client.calls[0]
-    assert path == fb.ROUTE and kwargs == {"durable": False}
+    assert path == fb.ROUTE and kwargs == {"durable": False, "sync": True}
     assert body == {"key": "op-123", "text": TEXT, "source": "assistant", "client_version": __version__}
     assert _board().all() == []
 
@@ -373,7 +377,7 @@ def test_probe_approvals_sends_a_yes_it_records(monkeypatch):
 
     import typer
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     class Terminal(io.StringIO):
         def isatty(self):
@@ -502,7 +506,7 @@ def test_an_answered_question_is_not_asked_again_nor_expired_by_the_terminal_lis
 
 
 def test_a_yes_for_an_account_no_longer_saved_stays_unsent(monkeypatch):
-    from probe.cli import feedback_cli
+    from probe.cli.commands.machine import feedback as feedback_cli
     from probe.sdk.settings import settings as config
 
     monkeypatch.setattr(config, "current_context_name", lambda data=None: "lab-a")
@@ -518,7 +522,7 @@ def test_the_agents_shell_never_answers_probe_approvals(monkeypatch):
 
     import typer
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     class Terminal(io.StringIO):
         def isatty(self):
@@ -618,7 +622,7 @@ def test_an_agent_marker_alone_keeps_probe_approvals_from_answering(monkeypatch)
 
     import typer
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     class Terminal(io.StringIO):
         def isatty(self):
@@ -640,7 +644,7 @@ def test_an_agents_listing_sends_both_answers_to_the_researchers_terminal(monkey
     `probe deny`: "anyone may say no" read as an invitation it could not take."""
     import io
 
-    from probe.cli import daemon_cli
+    from probe.cli.commands.daemon import daemon as daemon_cli
 
     _hold()
     monkeypatch.setenv("CLAUDECODE", "1")

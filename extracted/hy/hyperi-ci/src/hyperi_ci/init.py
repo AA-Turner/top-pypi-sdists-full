@@ -1,0 +1,712 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/init.py
+# Purpose:   Project scaffolding -- generates config, Makefile, and workflow
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Project initialisation for hyperi-ci.
+
+Generates the files a consumer project needs, skipping a Makefile that already
+has CI targets:
+
+  - .hyperi-ci.yaml (CI configuration, language-specific defaults)
+  - Makefile (quality/test/build targets)
+  - .github/workflows/ci.yml (reusable workflow caller)
+
+No .releaserc is generated: CI supplies a central tagger-only semantic-release
+config, and a per-repo one with @semantic-release/git caused the issue #37
+tag-rewrite damage.
+"""
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from hyperi_ci import licenses
+from hyperi_ci.common import error, info, success, warn
+from hyperi_ci.detect import detect_language
+from hyperi_ci.schedule import (
+    ScheduleResult,
+    ensure_schedule,
+    project_cron,
+    schedule_block,
+)
+from hyperi_ci.seed import existing_version_tags
+from hyperi_ci.seed import seed_tag as _seed_tag
+from hyperi_ci.versions import runtime_version
+
+_CI_REPO = "hyperi-io/hyperi-ci"
+_WORKFLOW_REF = "main"
+_DEFAULT_LICENSE = licenses.DEFAULT_LICENSE
+
+_LANGUAGE_WORKFLOW_MAP: dict[str, str] = {
+    "python": "python-ci.yml",
+    "rust": "rust-ci.yml",
+    "typescript": "ts-ci.yml",
+    "golang": "go-ci.yml",
+}
+
+_LICENSE_MARKERS = licenses.LICENSE_MARKERS
+
+# The caller passes exactly the secrets each reusable workflow declares in
+# `workflow_call`. test_init pins these to the workflow files.
+_SHARED_SECRETS = (
+    "GITLEAKS_GH_ACTIONS_KEY",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "DOCKERHUB_USERNAME",
+    "DOCKERHUB_TOKEN",
+    "CONTAINER_MGT_APP_PRIVATE_KEY",
+    "GH_APP_PRIVATE_KEY",
+)
+_LANGUAGE_SECRETS: dict[str, tuple[str, ...]] = {
+    "python-ci.yml": ("PYPI_TOKEN",),
+    "rust-ci.yml": ("CARGO_REGISTRY_TOKEN",),
+    "ts-ci.yml": ("NPM_TOKEN",),
+    "go-ci.yml": (),
+}
+
+# A called workflow is capped by its caller's grant, and the release tail
+# needs all four.
+_CALLER_PERMISSIONS = (
+    "contents: write",
+    "packages: write",
+    "issues: write",
+    "pull-requests: write",
+)
+
+
+def caller_secrets(workflow_file: str) -> tuple[str, ...]:
+    """Return the secrets a caller of ``workflow_file`` passes by name."""
+    return (*_LANGUAGE_SECRETS.get(workflow_file, ()), *_SHARED_SECRETS)
+
+
+def detect_license(project_dir: Path) -> str:
+    """Resolve the project licence: explicit declaration, else scan, else default.
+
+    Order: an explicit ``license:`` in ``.hyperi-ci.yaml``, then the LICENSE
+    file, then source-file headers, then the default (BUSL-1.1).
+
+    Args:
+        project_dir: Project root directory.
+
+    Returns:
+        License identifier string (e.g. "BUSL-1.1").
+
+    """
+    ci_config = project_dir / ".hyperi-ci.yaml"
+    if ci_config.exists():
+        try:
+            data = yaml.safe_load(ci_config.read_text(encoding="utf-8")) or {}
+            declared = data.get("license") if isinstance(data, dict) else None
+            if isinstance(declared, str) and declared.strip():
+                return declared.strip()
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            pass
+
+    license_file = project_dir / "LICENSE"
+    if license_file.exists():
+        try:
+            content = license_file.read_text(encoding="utf-8")[:2000]
+            for license_id, markers in _LICENSE_MARKERS.items():
+                if any(m in content for m in markers):
+                    return license_id
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    scan_globs = ["*.py", "*.rs", "*.go", "*.ts", "*.sh", "Makefile"]
+    for glob_pattern in scan_globs:
+        for f in project_dir.glob(glob_pattern):
+            try:
+                header = f.read_text(encoding="utf-8")[:500]
+            except (OSError, UnicodeDecodeError):
+                continue
+            for license_id, markers in _LICENSE_MARKERS.items():
+                if any(m in header for m in markers):
+                    return license_id
+
+    src_dir = project_dir / "src"
+    if src_dir.is_dir():
+        for f in src_dir.rglob("*.py"):
+            try:
+                header = f.read_text(encoding="utf-8")[:500]
+            except (OSError, UnicodeDecodeError):
+                continue
+            for license_id, markers in _LICENSE_MARKERS.items():
+                if any(m in header for m in markers):
+                    return license_id
+
+    return _DEFAULT_LICENSE
+
+
+def _detect_submodules(project_dir: Path) -> str:
+    """Read the ``submodules`` field from ``.hyperi-ci.yaml`` (else "").
+
+    Space-separated submodule paths the CI test job inits, e.g. ``schemas``.
+    Written to both ci.yml (the ``submodules`` input) and the regenerated
+    ``.hyperi-ci.yaml``, so it survives re-init.
+    """
+    ci_config = project_dir / ".hyperi-ci.yaml"
+    if ci_config.exists():
+        try:
+            data = yaml.safe_load(ci_config.read_text(encoding="utf-8")) or {}
+            declared = data.get("submodules") if isinstance(data, dict) else None
+            if isinstance(declared, str) and declared.strip():
+                return declared.strip()
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            pass
+    return ""
+
+
+def _license_header_text(license_id: str) -> str:
+    """Return the license line for file headers."""
+    if license_id == "BUSL-1.1":
+        return "BUSL-1.1"
+    return f"{license_id} - HYPERI PTY LIMITED"
+
+
+def _render_hyperi_ci_yaml(
+    language: str,
+    project_name: str,
+    license_id: str = _DEFAULT_LICENSE,
+    submodules: str = "",
+    channel: str = "alpha",
+) -> str:
+    """Render .hyperi-ci.yaml with language-specific defaults.
+
+    ``channel`` is the maturity stage written to ``release.channel``. A new
+    project starts at alpha, and one that already has release history starts
+    at release.
+    """
+    config: dict[str, Any] = {
+        "language": language,
+        # Drives generated file headers and is the source `detect_license` trusts.
+        "license": license_id,
+        # Information-only lifecycle stage: experimental | alpha | beta | ga |
+        # legacy | deprecated.
+        "project": {"status": "experimental"},
+        "quality": {"enabled": True},
+        "test": {"enabled": True},
+        "build": {"enabled": True, "strategies": ["native"]},
+        # No `target`: it is inert and removed in December 2026 (#151).
+        "release": {"enabled": True, "channel": channel},
+    }
+
+    # Typed Any because ty narrows config["build"] to dict[str, bool | list[str]]
+    # and rejects the additions below. It is the same dict object.
+    build_section: dict[str, Any] = config["build"]
+    if language == "rust":
+        config["test"]["coverage"] = False
+        build_section["rust"] = {
+            "features": "all",
+            "targets": [],
+        }
+
+    elif language == "golang":
+        config["test"]["coverage"] = True
+        # Under build, where languages/golang/build.py reads them.
+        build_section["golang"] = {
+            "targets": [
+                "linux/amd64",
+                "linux/arm64",
+                "darwin/amd64",
+                "darwin/arm64",
+            ],
+            "cgo": False,
+        }
+
+    elif language == "typescript":
+        config["test"]["coverage"] = True
+        # No package_manager key: detect_package_manager() resolves it.
+
+    if submodules:
+        config["submodules"] = submodules
+
+    header = (
+        f"# Project:   {project_name}\n"
+        "# File:      .hyperi-ci.yaml\n"
+        "# Purpose:   HyperI CI configuration\n"
+        "#\n"
+        f"# License:   {_license_header_text(license_id)}\n"
+        "# Copyright: (c) 2026 HYPERI PTY LIMITED\n"
+        "#\n"
+        "# Override defaults with HYPERCI_* env vars.\n"
+        "# Reference: config/defaults.yaml in hyperi-ci.\n"
+        "\n"
+    )
+    return header + yaml.dump(
+        config,
+        default_flow_style=False,
+        sort_keys=False,
+    )
+
+
+def _render_makefile(project_name: str, license_id: str = _DEFAULT_LICENSE) -> str:
+    """Render Makefile content with CI targets."""
+    return (
+        f"# Project:   {project_name}\n"
+        "# File:      Makefile\n"
+        "# Purpose:   CI targets wrapping hyperi-ci\n"
+        "#\n"
+        f"# License:   {_license_header_text(license_id)}\n"
+        "# Copyright: (c) 2026 HYPERI PTY LIMITED\n"
+        "\n"
+        ".PHONY: quality test build check\n"
+        "\n"
+        "quality:\n"
+        "\thyperi-ci run quality\n"
+        "\n"
+        "test:\n"
+        "\thyperi-ci run test\n"
+        "\n"
+        "build:\n"
+        "\thyperi-ci run build\n"
+        "\n"
+        "check:\n"
+        "\thyperi-ci check\n"
+    )
+
+
+def _render_workflow(
+    project_name: str,
+    workflow_file: str,
+    license_id: str = _DEFAULT_LICENSE,
+    submodules: str = "",
+    cron: str | None = None,
+) -> str:
+    """Render consumer .github/workflows/ci.yml content.
+
+    ``cron`` adds the nightly ``schedule:`` trigger, which the plan job runs
+    at the full test tier.
+    """
+    # BOLT is Rust-only, and a caller forwarding an input its reusable
+    # workflow does not declare fails to start.
+    rust = workflow_file == "rust-ci.yml"
+    base = (
+        f"# Project:   {project_name}\n"
+        "# File:      .github/workflows/ci.yml\n"
+        "# Purpose:   CI pipeline\n"
+        "#\n"
+        f"# License:   {_license_header_text(license_id)}\n"
+        "# Copyright: (c) 2026 HYPERI PTY LIMITED\n"
+        "\n"
+        "name: CI\n"
+        "\n"
+        '"on":\n'
+        "  push:\n"
+        '    branches: ["**", "!gh-readonly-queue/**"]\n'
+        "  pull_request:\n"
+        "    branches: [main]\n"
+        "  merge_group:\n"
+        "    types: [checks_requested]\n"
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      tag:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: ""\n'
+        '        description: "Tag to re-publish (existing tag). Omit + set from-head to release HEAD."\n'
+        "      from-head:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: ""\n'
+        "        description: \"'true' to release/retry the current HEAD -- the CI creates the tag (issue #35).\"\n"
+        "      bump:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: "auto"\n'
+        '        description: "Version resolution for from-head: auto | patch | minor (forced -- release even with no release-worthy commit) | X.Y.Z (exact version)."\n'
+        "      skip-optimize:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: ""\n'
+        "        description: \"'true' to skip the optimisation stage for this run (Rust: no PGO, no BOLT). Empty = optimisation on.\"\n"
+        "      release-unoptimized:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: ""\n'
+        "        description: \"'true' to consent, for this run only, to shipping a skipped-optimisation build under a release tag.\"\n"
+        "      optimize-tier:\n"
+        "        type: string\n"
+        "        required: false\n"
+        '        default: ""\n'
+        "        description: \"'release' to build the release optimisation tier on a run that publishes nothing (Rust: PGO + BOLT).\"\n"
+        "      test-tier:\n"
+        "        type: choice\n"
+        "        required: false\n"
+        '        default: "core"\n'
+        "        options: [core, full]\n"
+        '        description: "full runs the full test tier on this run. core never lowers a tier."\n'
+    )
+    if rust:
+        base += (
+            "      bolt-optimize-args:\n"
+            "        type: string\n"
+            "        required: false\n"
+            '        default: ""\n'
+            '        description: "Debug only: llvm-bolt flags replacing the BOLT optimise defaults, for a bisect. Needs optimize-tier=release; refused on a run that ships."\n'
+        )
+    if cron:
+        base += schedule_block(cron)
+    base += "\npermissions:\n"
+    base += "".join(f"  {grant}\n" for grant in _CALLER_PERMISSIONS)
+    base += (
+        "\n"
+        "jobs:\n"
+        "  ci:\n"
+        f"    uses: {_CI_REPO}/.github/workflows/"
+        f"{workflow_file}@{_WORKFLOW_REF}\n"
+        "    with:\n"
+        "      tag: ${{ inputs.tag || '' }}\n"
+        "      from-head: ${{ inputs.from-head || '' }}\n"
+        "      bump: ${{ inputs.bump || 'auto' }}\n"
+        "      skip-optimize: ${{ inputs.skip-optimize || '' }}\n"
+        "      release-unoptimized: ${{ inputs.release-unoptimized || '' }}\n"
+        "      optimize-tier: ${{ inputs.optimize-tier || '' }}\n"
+        "      test-tier: ${{ inputs.test-tier || 'core' }}\n"
+    )
+    if rust:
+        base += "      bolt-optimize-args: ${{ inputs.bolt-optimize-args || '' }}\n"
+
+    if submodules:
+        base += f"      submodules: {submodules}\n"
+
+    base += "    secrets:\n"
+    base += "".join(
+        f"      {name}: ${{{{ secrets.{name} }}}}\n"
+        for name in caller_secrets(workflow_file)
+    )
+    return base
+
+
+def _render_contributing(project_name: str) -> str:
+    """Render CONTRIBUTING.md, with maintainer and external-contributor paths."""
+    return (
+        f"# Contributing to {project_name}\n"
+        "\n"
+        "Two audiences, two paths.\n"
+        "\n"
+        "## External contributors - the short path\n"
+        "\n"
+        "**You do NOT need to install `hyperi-ci` or activate any\n"
+        "repo-local git hooks.** Standard tooling is enough.\n"
+        "\n"
+        "1. Fork the repository, clone your fork, create a topic branch.\n"
+        "2. Make your change. Run the project's tests with whatever the\n"
+        "   language ecosystem provides (`pytest`, `cargo test`,\n"
+        "   `npm test`, `go test ./...`). Lint via the standard tools\n"
+        "   the project declares in its manifest (`ruff`, `clippy`,\n"
+        "   `eslint`, `golangci-lint`, etc.). The project's pyproject /\n"
+        "   Cargo.toml / package.json carries the lint config; your IDE\n"
+        "   picks it up without further setup.\n"
+        "3. Commit with whatever message format your workflow uses.\n"
+        "   Open a PR against `main`.\n"
+        "\n"
+        "**What happens to your PR's CI checks:**\n"
+        "\n"
+        "PRs from forks intentionally do not auto-trigger this repo's\n"
+        "full CI pipeline. You will see green checks because all jobs\n"
+        "are skipped, not because they ran and passed. A maintainer\n"
+        "will pull your PR locally to validate it against the full\n"
+        "pipeline. This avoids exposing internal CI credentials and\n"
+        "self-hosted runners to fork-originated workflows, which is the\n"
+        "standard GitHub-side security recommendation.\n"
+        "\n"
+        "If a maintainer requests changes, push to the same branch on\n"
+        "your fork. They will re-validate.\n"
+        "\n"
+        "## Maintainers - the strict path\n"
+        "\n"
+        "Maintainers opt in to the project's stricter tooling:\n"
+        "\n"
+        "```bash\n"
+        "# install the CLI\n"
+        "uv tool install hyperi-ci          # or: pipx install hyperi-ci\n"
+        "\n"
+        "# activate the repo-local git hooks (commit-msg validation +\n"
+        "# pre-push enforcement of `hyperi-ci push` over bare `git push`)\n"
+        "git config core.hooksPath .githooks\n"
+        "\n"
+        "# verify\n"
+        "hyperi-ci --version\n"
+        "hyperi-ci check                    # quality + test, pre-push gate\n"
+        "```\n"
+        "\n"
+        "Maintainer workflow:\n"
+        "\n"
+        "1. Land changes on `main` via PR or direct push (your call).\n"
+        "2. `hyperi-ci push` instead of `git push`. The pre-push hook\n"
+        "   enforces this; bypass with `HYPERCI_PUSH=1 git push` if you\n"
+        "   know what you are doing.\n"
+        "3. `hyperi-ci push --release` when you want to ship a release.\n"
+        "   Amends a `Release: true` trailer to HEAD; the CI pipeline\n"
+        "   picks that up, predicts the next version, stamps it, and\n"
+        "   publishes.\n"
+        "\n"
+        "## What happens when you push commits to your fork\n"
+        "\n"
+        "Nothing on this repo's side. Your fork has its own GitHub\n"
+        "Actions context; this repo's workflows are not triggered until\n"
+        "you open a PR. Your fork's own CI (if you enabled it) runs in\n"
+        "your namespace.\n"
+        "\n"
+        "## Commit message conventions\n"
+        "\n"
+        "Maintainers follow Conventional Commits and the hooks enforce\n"
+        "it. External contributors do not need to follow this format --\n"
+        "the maintainer who merges your PR rewrites the merge commit\n"
+        "as needed.\n"
+        "\n"
+        "## Security disclosures\n"
+        "\n"
+        "Do NOT open a public issue or PR for security vulnerabilities.\n"
+        "See the repository's `SECURITY.md` (if present) or the\n"
+        "organisation's security contact for the disclosure process.\n"
+    )
+
+
+def _write_file(path: Path, content: str, *, force: bool) -> bool:
+    """Write a file, respecting the force flag.
+
+    Args:
+        path: Destination file path.
+        content: File content to write.
+        force: Overwrite if file exists.
+
+    Returns:
+        True if the file was written.
+
+    """
+    if path.exists() and not force:
+        warn(f"  Skipped {path.name} (exists, use --force to overwrite)")
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8", newline="\n")
+    success(f"  Created {path.name}")
+    return True
+
+
+def _makefile_has_ci_targets(project_dir: Path) -> bool:
+    """Check if an existing Makefile already has CI targets.
+
+    Args:
+        project_dir: Project root directory.
+
+    Returns:
+        True if Makefile has quality/test/build targets.
+
+    """
+    makefile = project_dir / "Makefile"
+    if not makefile.exists():
+        return False
+
+    content = makefile.read_text(encoding="utf-8")
+    ci_targets = ["quality:", "test:", "build:"]
+    return any(target in content for target in ci_targets)
+
+
+def _has_releaserc(project_dir: Path) -> bool:
+    """Check if semantic-release config already exists."""
+    candidates = [
+        ".releaserc.yaml",
+        ".releaserc.yml",
+        ".releaserc.json",
+        ".releaserc.js",
+        "release.config.js",
+        "release.config.cjs",
+    ]
+    return any((project_dir / name).exists() for name in candidates)
+
+
+def _add_schedule(project_dir: Path) -> int:
+    """Add the nightly schedule to an existing ci.yml, leaving it alone if set."""
+    workflow_path = project_dir / ".github" / "workflows" / "ci.yml"
+    if not workflow_path.is_file():
+        error(f"No {workflow_path.relative_to(project_dir)} to add a schedule to")
+        return 1
+    cron = project_cron(project_dir)
+    match ensure_schedule(workflow_path, cron):
+        case ScheduleResult.ADDED:
+            success(f"  Added schedule cron '{cron}' to ci.yml")
+        case ScheduleResult.PRESENT:
+            info("  Skipped ci.yml (already has a schedule trigger)")
+        case ScheduleResult.UNSUPPORTED:
+            warn("  ci.yml `on:` is not a block mapping: add this by hand")
+            info(f"  schedule:\n    - cron: '{cron}'")
+            return 1
+    return 0
+
+
+def init_project(
+    project_dir: Path,
+    *,
+    language: str | None = None,
+    force: bool = False,
+    seed_tag: bool = True,
+    schedule_only: bool = False,
+) -> int:
+    """Initialise a consumer project for hyperi-ci.
+
+    Args:
+        project_dir: Project root directory.
+        language: Override detected language.
+        force: Overwrite existing files.
+        seed_tag: Create the repo's first v* tag when it has none.
+        schedule_only: Add the nightly schedule to the existing ci.yml and
+            write nothing else.
+
+    Returns:
+        Exit code (0 = success).
+
+    """
+    project_dir = project_dir.resolve()
+    project_name = project_dir.name
+    if schedule_only:
+        return _add_schedule(project_dir)
+
+    detected = language or detect_language(project_dir)
+    if not detected:
+        error("Could not detect project language")
+        info("Use --language: python, rust, typescript, golang")
+        return 1
+
+    license_id = detect_license(project_dir)
+    submodules = _detect_submodules(project_dir)
+    info(f"Initialising {project_name} as {detected} project (license: {license_id})")
+
+    workflow_file = _LANGUAGE_WORKFLOW_MAP.get(detected)
+    if not workflow_file:
+        warn(f"No reusable workflow for {detected}")
+        warn("Generating config only")
+
+    files_written = 0
+
+    # A repo with a v* tag already has release history and keeps shipping GA.
+    channel = "release" if existing_version_tags(project_dir) else "alpha"
+    config_content = _render_hyperi_ci_yaml(
+        detected,
+        project_name,
+        license_id=license_id,
+        submodules=submodules,
+        channel=channel,
+    )
+    config_path = project_dir / ".hyperi-ci.yaml"
+    if _write_file(config_path, config_content, force=force):
+        files_written += 1
+
+    if _makefile_has_ci_targets(project_dir) and not force:
+        info("  Skipped Makefile (already has CI targets)")
+    else:
+        makefile_content = _render_makefile(project_name, license_id=license_id)
+        makefile_path = project_dir / "Makefile"
+        if _write_file(
+            makefile_path,
+            makefile_content,
+            force=force,
+        ):
+            files_written += 1
+
+    if workflow_file:
+        workflow_content = _render_workflow(
+            project_name,
+            workflow_file,
+            license_id=license_id,
+            submodules=submodules,
+            cron=project_cron(project_dir),
+        )
+        workflow_path = project_dir / ".github" / "workflows" / "ci.yml"
+        if _write_file(
+            workflow_path,
+            workflow_content,
+            force=force,
+        ):
+            files_written += 1
+
+    # No .releaserc is scaffolded (issue #37): the setup-semantic-release
+    # composite supplies a central tagger-only config at CI time.
+    if _has_releaserc(project_dir):
+        info("  Existing semantic-release config is ignored at CI time: delete it")
+
+    contributing_path = project_dir / "CONTRIBUTING.md"
+    if not contributing_path.exists() or force:
+        contributing_content = _render_contributing(project_name)
+        if _write_file(
+            contributing_path,
+            contributing_content,
+            force=force,
+        ):
+            files_written += 1
+    else:
+        info("  Skipped CONTRIBUTING.md (already exists)")
+
+    hook_path = project_dir / ".githooks" / "commit-msg"
+    if not hook_path.exists() or force:
+        hook_path.parent.mkdir(parents=True, exist_ok=True)
+        hook_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "# Conventional commit validation hook\n"
+            "# Install: git config core.hooksPath .githooks\n"
+            "\n"
+            "if command -v hyperi-ci >/dev/null 2>&1; then\n"
+            '    hyperi-ci check-commit "$1"\n'
+            "elif command -v uvx >/dev/null 2>&1; then\n"
+            # Unpinned, uv takes the default Python and may resolve a release
+            # old enough to support it.
+            f'    uvx --python {runtime_version("python")} hyperi-ci check-commit "$1"\n'
+            "else\n"
+            '    echo "Warning: hyperi-ci not found -- skipping commit validation" >&2\n'
+            "    exit 0\n"
+            "fi\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        hook_path.chmod(0o755)
+        info(f"  Created: {hook_path}")
+        files_written += 1
+    else:
+        info("  Skipped .githooks/commit-msg (already exists)")
+
+    pre_push_path = project_dir / ".githooks" / "pre-push"
+    if not pre_push_path.exists() or force:
+        pre_push_path.parent.mkdir(parents=True, exist_ok=True)
+        pre_push_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "# Enforce hyperi-ci push instead of bare git push\n"
+            "# hyperi-ci push sets HYPERCI_PUSH=1 before calling git push\n"
+            "\n"
+            'if [ "${HYPERCI_PUSH:-}" = "1" ]; then\n'
+            "    exit 0\n"
+            "fi\n"
+            "\n"
+            "echo ''\n"
+            "echo '  Push blocked. Use hyperi-ci push instead of git push.'\n"
+            "echo ''\n"
+            "echo '    hyperi-ci push            # normal push with pre-checks'\n"
+            "echo '    hyperi-ci push --release  # push + auto-publish if CI passes'\n"
+            "echo '    hyperi-ci push --no-ci    # push, skip CI'\n"
+            "echo ''\n"
+            "echo '  To bypass (emergency): HYPERCI_PUSH=1 git push'\n"
+            "echo ''\n"
+            "exit 1\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        pre_push_path.chmod(0o755)
+        info(f"  Created: {pre_push_path}")
+        files_written += 1
+    else:
+        info("  Skipped .githooks/pre-push (already exists)")
+
+    if files_written == 0:
+        warn("No files written (all already exist)")
+    else:
+        success(f"Initialised {files_written} file(s)")
+
+    if seed_tag:
+        # The version pipeline reads git tags only (issue #85). No-op once any
+        # v* tag exists, and a bare directory declines.
+        _seed_tag(project_dir=project_dir)
+
+    return 0

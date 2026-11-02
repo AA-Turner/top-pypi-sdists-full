@@ -1,0 +1,48 @@
+"""Tests for the CCR review-format facade exports."""
+
+import agentic_devtools.cli.github.ccr_review_format as ccr_review_format
+
+
+def test_parser_helpers_used_by_sibling_modules_are_explicit_exports() -> None:
+    assert {
+        "CCRFinding",
+        "CCRFindingRecovery",
+        "UNKNOWN_FILE",
+        "VERDICT_APPROVE",
+        "VERDICT_NOT_APPROVE",
+        "_FENCE_DELIM_RE",
+        "_CCR_SECTION_DECLARATION_RE",
+        "_ENTRY_HEADER_INLINE_RE",
+        "_ENTRY_HEADER_ONLY_RE",
+        "_EXPLICITLY_RESOLVED_RE",
+        "_FILE_FIELD_START_RE",
+        "_FILE_LOCATION_RE",
+        "_FINDING_START_RE",
+        "_GENERATED_NONE_RE",
+        "_GENERATED_N_RE",
+        "_HEADING_RE",
+        "_INLINE_CODE_COMPARISON_RE",
+        "_LEGACY_SUPPRESSED_BLOCK_RE",
+        "_LINE_LOCATION_RE",
+        "_LOW_CONFIDENCE_COUNT_RE",
+        "_METRICS_GENERATED_RE",
+        "_SEVERITY_PREFIX_RE",
+        "_SEVERITY_RE",
+        "_STANDALONE_FILE_LOCATION_RE",
+        "_SUPPRESSED_ANCHOR_RE",
+        "_SUPPRESSED_BLOCK_END_RE",
+        "_SUPPRESSED_COUNT_RE",
+        "_UNANCHORED_LOW_CONFIDENCE_COUNT_RE",
+        "_UNANCHORED_SUPPRESSED_COUNT_RE",
+        "_find_suppressed_block_with_offset",
+        "_is_inline_code_header",
+        "_mask_fenced_blocks",
+        "_mask_inline_code",
+        "_unescape_markdown_path",
+        "_find_suppressed_block",
+        "_finding_content_key",
+        "_finding_start_matches",
+        "_is_explanatory_standalone_location",
+        "ccr_path_match_key",
+        "extract_suppressed_comment_entries",
+    } <= set(ccr_review_format.__all__)

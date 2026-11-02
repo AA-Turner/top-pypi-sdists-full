@@ -1,0 +1,214 @@
+"""Pydantic models for Tracker queue autoactions (Autoaction + actions + run logs).
+
+An autoaction periodically applies *actions* to every issue matching a *filter* (or a TQL
+``query``). Like triggers, its actions are open ``type``-keyed objects, so
+:class:`AutomationAction` pins the shared ``type`` and allows the rest (``extra="allow"``).
+The two log endpoints return different shapes: ``/logs`` lists run summaries
+(:class:`AutoactionLogEntry`); ``/logs/{run_id}`` lists per-issue outcomes
+(:class:`AutoactionRunEntry`).
+"""
+
+from typing import Annotated, Any
+
+from pydantic import Field
+
+from ycli.yandex.models import APIModel, RequestBody
+from ycli.yandex.sync.marks import Identity
+from ycli.yandex.tracker.models import AutomationAction, KeyedReference
+
+
+class AutoactionCalendar(APIModel):
+    """The working-calendar window an autoaction is active in (``calendar`` object).
+
+    Examples:
+        >>> AutoactionCalendar(id=2).id
+        2
+    """
+
+    id: int = Field(description="Identifier of the working calendar/schedule.")
+
+
+class Autoaction(APIModel):
+    """A queue autoaction (``GET /queues/{id}/autoactions/{action_id}``).
+
+    Examples:
+        >>> Autoaction.model_validate({"id": 9, "name": "auto", "active": True}).name
+        'auto'
+    """
+
+    self_url: str | None = Field(
+        default=None,
+        alias="self",
+        description="API resource URL that returns the autoaction's parameters.",
+    )
+    id: Annotated[int | None, Identity()] = Field(
+        default=None, description="Unique identifier of the autoaction."
+    )
+    queue: KeyedReference | None = Field(
+        default=None, description="Queue the autoaction is configured in."
+    )
+    name: str | None = Field(default=None, description="Human-readable name of the autoaction.")
+    version: int | None = Field(
+        default=None, description="Autoaction version; incremented on every change."
+    )
+    active: bool | None = Field(
+        default=None, description="Whether the autoaction is active (true) or disabled (false)."
+    )
+    created: str | None = Field(
+        default=None, description="Creation timestamp (YYYY-MM-DDThh:mm:ss.sss±hhmm)."
+    )
+    updated: str | None = Field(
+        default=None, description="Last-change timestamp (YYYY-MM-DDThh:mm:ss.sss±hhmm)."
+    )
+    filter: Any = Field(
+        default=None, description="Field-based filter selecting the issues the autoaction runs on."
+    )
+    query: str | None = Field(
+        default=None, description="TQL query selecting the issues the autoaction runs on."
+    )
+    actions: list[AutomationAction] = Field(
+        default_factory=list, description="Actions applied to each matching issue."
+    )
+    enable_notifications: bool | None = Field(
+        default=None,
+        alias="enableNotifications",
+        description="Whether notifications are sent when the autoaction runs.",
+    )
+    last_launch: str | None = Field(
+        default=None,
+        alias="lastLaunch",
+        description="Timestamp of the autoaction's last run (YYYY-MM-DDThh:mm:ss.sss±hhmm).",
+    )
+    total_issues_processed: int | None = Field(
+        default=None,
+        alias="totalIssuesProcessed",
+        description="Number of issues checked on the autoaction's last run.",
+    )
+    interval_millis: int | None = Field(
+        default=None,
+        alias="intervalMillis",
+        description="Run interval in milliseconds (default 3600000 — once an hour).",
+    )
+    calendar: AutoactionCalendar | None = Field(
+        default=None, description="Working-calendar window the autoaction is active in."
+    )
+
+
+class AutoactionCreate(RequestBody):
+    """Typed request body for ``autoactions.create`` (``POST /queues/{id}/autoactions``).
+
+    Supply at least one of ``filter`` or ``query`` to select the issues to act on.
+
+    Examples:
+        >>> AutoactionCreate(
+        ...     name="A", actions=[AutomationAction(type="Transition")], query="Status: Open"
+        ... ).name
+        'A'
+    """
+
+    name: str = Field(description="Name of the new autoaction.")
+    filter: dict[str, Any] | None = Field(
+        default=None, description="Field-based filter selecting the issues to act on."
+    )
+    query: str | None = Field(default=None, description="TQL query selecting the issues to act on.")
+    actions: list[AutomationAction] = Field(description="Actions applied to each matching issue.")
+    active: bool | None = Field(
+        default=None, description="Whether the autoaction starts active (true) or disabled (false)."
+    )
+    enable_notifications: bool | None = Field(
+        default=None,
+        serialization_alias="enableNotifications",
+        description="Whether notifications are sent when the autoaction runs.",
+    )
+    interval_millis: int | None = Field(
+        default=None,
+        serialization_alias="intervalMillis",
+        description="Run interval in milliseconds (default 3600000 — once an hour).",
+    )
+    calendar: AutoactionCalendar | None = Field(
+        default=None, description="Working-calendar window the autoaction is active in."
+    )
+
+
+class AutoactionLogEntry(APIModel):
+    """One run-summary record from ``.../autoactions/{id}/logs``.
+
+    Examples:
+        >>> AutoactionLogEntry.model_validate({"id": "x", "searchHits": 3}).search_hits
+        3
+    """
+
+    id: Annotated[str | None, Identity()] = Field(
+        default=None, description="Identifier of the autoaction run."
+    )
+    launch_time: str | None = Field(
+        default=None,
+        alias="launchTime",
+        description="When the run started (YYYY-MM-DDThh:mm:ss.sss±hhmm).",
+    )
+    search_hits: int | None = Field(
+        default=None, alias="searchHits", description="Number of issues the run processed."
+    )
+    successes: int | None = Field(
+        default=None, description="Number of issues the autoaction fired on."
+    )
+    failures: int | None = Field(
+        default=None, description="Number of issues the autoaction failed on."
+    )
+    search_failed: bool | None = Field(
+        default=None,
+        alias="searchFailed",
+        description="True when no issue was processed at all in the run.",
+    )
+
+
+class AutoactionIssueRef(APIModel):
+    """The issue an autoaction run touched (``issueReference`` object).
+
+    Examples:
+        >>> AutoactionIssueRef.model_validate({"key": "TEST-1"}).key
+        'TEST-1'
+    """
+
+    self_url: str | None = Field(
+        default=None,
+        alias="self",
+        description="API resource URL that returns full information about the issue.",
+    )
+    id: str | None = Field(default=None, description="Identifier of the issue.")
+    version: int | None = Field(default=None, description="Version of the issue.")
+    key: str | None = Field(default=None, description="Key of the issue (e.g. TEST-1).")
+    display: Any = Field(default=None, description="Human-readable name of the issue.")
+
+
+class AutoactionRunStatus(APIModel):
+    """The per-issue outcome of an autoaction run (``status`` object).
+
+    Examples:
+        >>> AutoactionRunStatus.model_validate({"value": "success"}).value
+        'success'
+    """
+
+    value: str | None = Field(default=None, description="Outcome value (e.g. success).")
+    display: Any = Field(default=None, description="Human-readable outcome name.")
+
+
+class AutoactionRunEntry(APIModel):
+    """One per-issue outcome from ``.../autoactions/{id}/logs/{run_id}``.
+
+    Examples:
+        >>> AutoactionRunEntry.model_validate(
+        ...     {"id": 0, "issueReference": {"key": "TEST-1"}, "status": {"value": "success"}}
+        ... ).issue_reference.key
+        'TEST-1'
+    """
+
+    id: Annotated[int | None, Identity()] = Field(
+        default=None, description="Zero-based sequence number of the issue within the run."
+    )
+    issue_reference: AutoactionIssueRef | None = Field(
+        default=None, alias="issueReference", description="The issue this outcome is for."
+    )
+    status: AutoactionRunStatus | None = Field(
+        default=None, description="Outcome of the autoaction on this issue."
+    )

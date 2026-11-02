@@ -1,0 +1,209 @@
+id: "de-benchbox-example-datasets-and-position-chart-specific-apis"
+title: "De-BenchBox example datasets and position chart-specific APIs clearly"
+worktree: "main"
+priority: "High"
+status: "Completed"
+description: |
+  Replace the current documentation example universe, which is still dominated
+  by BenchBox-style benchmark labels and performance-report framing, with a
+  broader set of public-library examples. The current screenshots and narrative
+  docs still revolve around DuckDB/SQLite/Polars, Q1-style query IDs, TPC-H,
+  latency, runtime, baseline/comparison/regression language, and platform
+  rankings. That makes textcharts feel like an extracted internal benchmark
+  renderer instead of a general-purpose terminal visualization library.
+
+  This work should deliberately introduce multiple domains across the README,
+  tutorial, chart-selection guide, screenshot generator, and gallery assets so
+  each chart demonstrates transferability outside BenchBox. Use the following
+  concrete dataset directions as the baseline plan:
+
+  - BarChart: monthly bookstore revenue by category
+  - Histogram: package delivery delays in minutes
+  - Heatmap: classroom subject scores by student group
+  - BoxPlot: apartment rents by neighborhood
+  - LineChart: weekly signups by channel
+  - ScatterPlot: ad spend vs conversions
+  - ComparisonBar: planned vs actual budget by department
+  - DivergingBar: employee sentiment change by team
+  - SummaryBox: event attendance summary
+  - PercentileLadder: exam score percentiles or API response percentiles
+  - NormalizedSpeedup: keep performance-oriented, but document that explicitly
+  - StackedBar: household energy use by source
+  - SparklineTable: store KPIs over time
+  - CDFChart: customer wait time distribution
+  - RankTable: vendor rankings across evaluation criteria
+
+  The implementation must also classify the chart types and factory helpers
+  that are still niche or performance-analysis oriented, so the public docs do
+  not imply that every exported surface is equally generic. In particular,
+  NormalizedSpeedup should be called out as performance-specific, while
+  SummaryBox, RankTable, ComparisonBar, DivergingBar, and PercentileLadder
+  should either be broadened with new examples or documented as especially
+  useful for performance analysis rather than positioned as purely benchmark
+  features.
+category: "Documentation"
+work:
+  - id: w1
+    summary: "Audit every user-facing example and screenshot input that still carries BenchBox-specific labels or benchmark framing"
+    status: done
+    notes: |
+      Cover README.md, docs/tutorials/first-chart.rst, docs/guides/chart-selection.rst,
+      docs/guides/chart-gallery.rst, docs/concepts/public-api.rst, and
+      scripts/generate_doc_screenshots.py. Record each leftover term such as
+      DuckDB, SQLite, Polars, TPC-H, query IDs, latency, runtime, baseline,
+      regression, platform ranking, and benchmark wording.
+
+  - id: w2
+    summary: "Redesign the screenshot generator inputs chart by chart using the approved non-BenchBox dataset map"
+    needs: [w1]
+    status: done
+    notes: |
+      Implement the concrete dataset map from the review:
+      bookstore revenue, delivery delays, classroom scores, apartment rents,
+      weekly signups, ad spend vs conversions, budget variance, employee
+      sentiment change, event attendance summary, exam or API percentiles,
+      household energy use, store KPI sparklines, customer wait-time CDF, and
+      vendor rankings. Keep NormalizedSpeedup as the one explicitly
+      performance-specific chart. Update titles, labels, units, and value
+      ranges so the examples read as native to those domains rather than as
+      renamed benchmark outputs.
+
+  - id: w3
+    summary: "Regenerate all gallery screenshots and review the visual outputs chart by chart for domain variety and color fidelity"
+    needs: [w2]
+    status: done
+    notes: |
+      Regenerate the 45 checked-in screenshots under docs/_static/screenshots/.
+      Verify that each chart now reflects the intended domain, that color and
+      greyscale captures still work, and that no screenshot titles or labels
+      drift back toward query/platform/benchmark phrasing.
+
+  - id: w4
+    summary: "Rewrite the tutorial, README, and chart-selection guide to reflect multiple domains instead of a single benchmark narrative"
+    needs: [w1]
+    status: done
+    notes: |
+      The first-contact examples should stop centering on query latency and
+      platform comparisons. Ensure the Quick Start and tutorial use broad,
+      approachable examples. The chart-selection guide should describe generic
+      use cases first, then mention performance analysis only where genuinely
+      appropriate.
+
+  - id: w5
+    summary: "Document which chart types and factory helpers are performance-oriented or BenchBox-compatibility surfaces"
+    needs: [w1]
+    status: done
+    notes: |
+      Explicitly classify:
+      - NormalizedSpeedup as performance-specific
+      - BenchBox-derived factory helpers such as from_query_latency_data,
+        from_query_results, from_regression_data, and from_normalized_results as
+        compatibility or migration helpers
+      - ComparisonBar, DivergingBar, SummaryBox, RankTable, and PercentileLadder
+        as generic but currently common in performance-analysis workflows
+      Reflect this in docs/concepts/public-api.rst, docs/reference/factories.rst,
+      and any relevant guide copy.
+
+  - id: w6
+    summary: "Rebuild screenshots and run a docs review pass to confirm the site no longer reads like a benchmark-report product"
+    needs: [w3, w4, w5]
+    status: done
+    notes: |
+      Validate that the gallery shows genuinely different domains across chart
+      types, that labels are no longer clustered around queries/platforms, and
+      that the remaining performance-specific charts are framed intentionally
+      rather than by accident.
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "docs"
+    - "examples"
+    - "gallery"
+    - "positioning"
+  estimated_effort: "Medium"
+  created_date: "2026-03-06"
+  last_updated: "2026-03-06T12:05:00"
+completed_date: "2026-03-06"
+impact:
+  business_value: |
+    Makes the library marketable as a standalone public package instead of an
+    extracted BenchBox subsystem, which improves adoption potential and reduces
+    confusion about intended use.
+  user_impact: |
+    New users see examples they can map to their own domains instead of feeling
+    like they need benchmark results or database-engine comparisons to use the
+    library effectively.
+  technical_debt: |
+    Removes lingering product-coupling in documentation and gives future docs
+    work a clearer separation between generic API examples and compatibility
+    surfaces inherited from BenchBox.
+files_affected:
+  modified:
+    - "README.md"
+    - "docs/tutorials/first-chart.rst"
+    - "docs/guides/chart-selection.rst"
+    - "docs/guides/chart-gallery.rst"
+    - "docs/concepts/public-api.rst"
+    - "docs/reference/factories.rst"
+    - "scripts/generate_doc_screenshots.py"
+    - "docs/_static/screenshots/"
+  added: []
+  removed: []
+must_preserve:
+  - "The gallery continues to provide three rendering modes for every chart type: color, greyscale, and monochrome"
+  - "The docs continue to document the compatibility API and factory helpers, but with clearer positioning"
+  - "The Sphinx build remains warning-free with uv run --group dev sphinx-build -W -b html docs docs/_build/html"
+approach: |
+  Start by inventorying every example string and generated screenshot label that
+  still implies a benchmark runner. Replace the screenshot generator first,
+  because the gallery has the highest visual weight and will force concrete
+  chart-by-chart dataset decisions. Then update the tutorial, README, and
+  guides so their prose matches the new screenshots. Finally, tighten the API
+  positioning docs to distinguish broad chart types from performance-specific or
+  BenchBox-compatibility surfaces. Reuse the existing screenshot pipeline and
+  docs structure rather than inventing a second gallery mechanism.
+anti_patterns:
+  - "DO NOT just rename DuckDB and SQLite to other tool names — because that preserves the same benchmark-comparison framing — replace the underlying dataset domains entirely"
+  - "DO NOT make every chart example come from one synthetic business dashboard — because that still narrows perceived applicability — spread examples across several unrelated domains"
+  - "DO NOT hide performance-oriented charts from the docs — because they are still part of the public package — document them explicitly as niche or benchmark-leaning where appropriate"
+verification:
+  - description: "Screenshot generator reproduces the gallery assets successfully after dataset replacement"
+    command: "uv run --group dev python scripts/generate_doc_screenshots.py"
+    expected_output: "all chart screenshot sets regenerate without failures"
+  - description: "The checked-in screenshot directory reflects the regenerated assets for all 15 chart types in three modes"
+    command: "find docs/_static/screenshots -type f | wc -l"
+    expected_output: "45"
+  - description: "Docs build remains warning-free after content and screenshot changes"
+    command: "uv run --group dev sphinx-build -W -b html docs docs/_build/html"
+    expected_output: "build succeeded"
+  - description: "A final inventory of benchmark-heavy strings in first-contact docs is either empty or intentionally limited to compatibility/performance-specific sections"
+    command: "rg -n \"DuckDB|SQLite|Polars|TPC-H|SF 1|query latency|Total Runtime|Platform Rankings|Regression Analysis|Version Comparison|benchmark\" README.md docs/tutorials docs/guides docs/concepts scripts/generate_doc_screenshots.py"
+    expected_output: "only intentional compatibility references or explicitly performance-specific documentation remain"
+  - description: "Manual review confirms every chart type uses its assigned example domain and that the gallery no longer reads like one benchmark product"
+    expected_output: "BarChart/bookstore revenue, Histogram/delivery delays, Heatmap/classroom scores, BoxPlot/apartment rents, LineChart/weekly signups, ScatterPlot/ad spend vs conversions, ComparisonBar/budget variance, DivergingBar/sentiment change, SummaryBox/event attendance, PercentileLadder/exam or API percentiles, NormalizedSpeedup/performance-specific, StackedBar/household energy, SparklineTable/store KPIs, CDFChart/customer wait time, RankTable/vendor rankings"
+scope_limit:
+  only_modify:
+    - "README.md"
+    - "docs/"
+    - "scripts/generate_doc_screenshots.py"
+  do_not_modify:
+    - "src/textcharts/"
+    - "tests/"
+success_metrics:
+  - "The screenshot gallery uses varied example domains instead of one benchmark-centric dataset family"
+  - "The tutorial and README no longer introduce the library through BenchBox-shaped examples"
+  - "NormalizedSpeedup and BenchBox-derived factory helpers are clearly positioned as niche or compatibility-oriented where appropriate"
+context_sections:
+  "Research Findings": |
+    The highest-signal BenchBox carryover is concentrated in
+    scripts/generate_doc_screenshots.py, which currently uses DuckDB/SQLite/Polars,
+    Q1-style labels, Total Runtime, Query Heatmap, TPC-H on DuckDB (SF 1), and
+    benchmark-style units throughout. The tutorial still uses median query
+    latency as the first example, the chart-selection guide still describes
+    several chart types mainly through baseline/regression/speedup language,
+    and the public API/reference pages still mention BenchBox-derived factory
+    helpers without clearly separating compatibility surfaces from generic
+    examples. The implementation should therefore replace the screenshot data
+    first, then align the narrative docs and API-positioning copy to those new
+    domains.

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "lightningcss-cli"
+readme = "README-PYPI.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: POSIX",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Programming Language :: Rust",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Utilities",
+]
+version = "1.30.2"
+
+[project.urls]
+Repository = "https://github.com/joshuadavidthomas/lightningcss"
+Homepage = "https://lightningcss.dev"
+Documentation = "https://lightningcss.dev/docs.html"
+Source = "https://github.com/parcel-bundler/lightningcss"
+
+[tool.maturin]
+bindings = "bin"
+features = ["cli"]
+include = [
+  { path = "rust-toolchain.toml", format = [
+    "sdist",
+    "wheel",
+  ] },
+  { path = "LICENSE", format = "sdist" },
+]
+manifest-path = "Cargo.toml"
+strip = true

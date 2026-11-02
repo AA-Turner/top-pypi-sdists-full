@@ -1,0 +1,683 @@
+"""PostToolUse: after a push that LANDED, say which sha is now building and how to watch it.
+
+Why this exists as a hook rather than as prose: the rule already exists in prose. The tree-top
+`CLAUDE.md` carries "After pushing: watch CI", and its own applicability test - does this repo have
+a `.github/workflows/`? - says it binds. Replaying this project's own transcript corpus priced how
+far that gets:
+
+    160 transcripts, 123 `git push` calls
+     70 followed by a CI check, 53 not      -> 57% watched
+
+So the channel exists and misses roughly two pushes in five. This hook is the deterministic half.
+It cannot block (PostToolUse exit 2 only shows stderr; the tool already ran), so it does the part a
+nudge is good at - arriving with the sha already resolved and the command already written - while
+`ci-watch-gate.py` supplies the part a nudge cannot.
+
+Both directions live here on purpose. The same hook that RECORDS a push also CLEARS the record when
+it sees the CI actually being watched, so the two halves cannot drift into disagreeing about what
+"watched" looks like.
+
+A push is only recorded when it demonstrably LANDED. The test is local and needs no network: after
+a successful push the remote-tracking ref has moved. For a plain `git push` that means `HEAD` and
+`@{u}` agree; for a named branch refspec (`git push origin master`, `src:dst`) it means the pushed
+commit equals `refs/remotes/<remote>/<dst>`. A push that failed leaves the tracking ref behind and
+is not recorded - which matters because the usual shape here is `git push 2>&1 | tail -3`, a
+pipeline that exits 0 whatever git did, so the exit code is not evidence and the output is not
+parsed.
+
+Two limits, stated rather than hidden. A TAG push is recorded unverified: git keeps no
+remote-tracking ref for tags, so nothing local changes when one lands, and a rejected tag push is
+recorded like a landed one. A branch pushed to a URL instead of a named remote updates no tracking
+ref either, so it cannot pass the test and is not recorded.
+
+A push to a BRANCH that no workflow's trigger can build is announced as starting no run, and
+not recorded: "CI is now running" there sent the reader into a wait that ended `no-runs` and read
+as broken CI. That is decided only when it is certain - every workflow file parsed, none with a
+`push` trigger whose branch filters admit the branch, and none with a `pull_request`,
+`workflow_run` or `create` trigger that could still run for it. When only a `pull_request`
+trigger could run it (for an open pull request, which nothing local can see), the push is still
+recorded but the notice says the run depends on that instead of claiming CI is running. Anything that cannot be
+judged keeps the ordinary nudge. The files are read with PyYAML when it is importable; without it
+nothing is decided.
+
+Exits 0 always, and emits nothing when it has no opinion.
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import yaml as _yaml
+except ImportError:                     # a hook provisions no dependencies; without it, decide nothing
+    _yaml = None
+
+import ci_watch_state as state
+from shell_text import (
+    LIST_SEP,
+    blank_heredoc_bodies,
+    commands_only,
+    commands_only_aligned,
+    directory_change,
+    is_shell_tool,
+    iter_segments,
+)
+
+__all__ = ["main", "notice"]
+
+_BYPASS_ENV = "BITRANOX_CI_WATCH"
+
+# `git push`, allowing the option forms that carry their own argument before the subcommand.
+_PUSH = re.compile(r"\bgit\s+(?:(?:-C|-c|--git-dir|--work-tree)[= ]\S+\s+)*push\b")
+# A push that starts no CI run: nothing is uploaded, or a ref is being removed.
+_NOT_A_BUILD = re.compile(r"--dry-run\b|--delete\b|\bpush\s+--delete\b")
+# What looking at CI actually looks like in the record.
+_WATCHING = re.compile(r"ci_wait\.py|ci_triage\.py|\bgh\s+run\s+(?:watch|list|view)\b|\bgh\s+pr\s+checks\b")
+# A wrapper that EXECUTES a quoted command string. The watcher then sits INSIDE the quotes, which
+# the data-region masking erases, so the watch was never counted: measured, `gate.py --gate "uv run
+# ci_wait.py --sha X"` matches the pattern in the raw text and not after masking, and a correctly
+# watched push kept drawing Stop blocks. The `-- <cmd ...>` form was already seen, because those
+# tokens are real argv rather than a quoted string. This is the exception `commands_only` names in
+# its own docstring: for an execute-this-string form, the quoted argument IS a command.
+_WRAPPER = re.compile(r"\bgate\.py\b")
+
+_CI_WAIT = Path(__file__).resolve().parent.parent / "skills" / "compuse-toolbox" / "scripts" / "ci_wait.py"
+
+# Pushing tags in bulk, versus naming refs explicitly. A tag push builds the TAG ref, which is a
+# different run from its branch's - and at release time it is the run that matters most.
+_BULK_TAGS = re.compile(r"--tags\b|--follow-tags\b")
+# Everything after a `git push`, up to the end of its statement, so the remote and refspecs can be
+# read off it. Options are dropped, not guessed at.
+_PUSH_OPERANDS = re.compile(r"[^\n;|&]*")
+
+
+# `git -C <dir> push` is the shape the corpus is full of, and its repo is NOT the call's cwd.
+_DASH_C = re.compile(r"\bgit\b(?:\s+-c[= ]\S+)*\s+-C[= ]\s*(\S+)")
+# A path that came from an expansion cannot be resolved from the text; guessing is how the wrong
+# repository gets asked. These are checked on the RAW token, at the masked token's own offsets.
+_UNRESOLVABLE = ("$", "`", '"', "'")
+
+
+# Only a push BEFORE which a `cd` ran is moved by it, so the walk stops at the first one.
+_GIT_PUSH = re.compile(r"\bgit\b[^\n;|&]*\bpush\b")
+
+
+def _cwd_after_any_cd(command: str, cwd: str, tool_name: str = "Bash") -> str | None:
+    """The directory the push actually runs in, following any `cd` that precedes it.
+
+    A leading `cd` moves every later statement: `cd /other/repo && git push` pushes THAT repo, not
+    the event's cwd. Each statement is read by `shell_text.directory_change`, the cd reader every
+    cd-tracking hook shares; a cd it cannot follow (a variable, `cd -`, a bare `cd`) makes the
+    answer None rather than a guess.
+
+    A `cd` inside a heredoc body is stdin DATA and moves nothing, the same trap the `-C` reader
+    guards. Structure is read from the ALIGNED masked form (bodies blanked in place) and the VALUE
+    from the raw command, bodies blanked the same way, at the same offsets. Heredocs are handled
+    exactly once: masking text that was already heredoc-stripped strips it AGAIN, and on that text
+    the opener has lost its terminator, so the rest of the command - the `cd` and the push - read
+    as one unterminated body and the walk fell through to the event's cwd.
+    """
+    masked = commands_only_aligned(command, tool_name)
+    raw = blank_heredoc_bodies(command)
+    here: str | None = cwd
+    moved = False
+    for at, seg in iter_segments(masked, tool_name):
+        changed, here = directory_change(raw[at:at + len(seg)], here, tool_name)
+        if changed:
+            if here is None:
+                return None
+            moved = True
+            continue
+        if _GIT_PUSH.search(seg):
+            break
+    return _resolved(here) if moved else here
+
+
+def _resolved(path: str | None) -> str | None:
+    """`path` with symlinks resolved, as the `-C` branch records a repository, or None."""
+    if path is None:
+        return None
+    try:
+        return str(Path(path).resolve())
+    except (OSError, ValueError):
+        return None
+
+
+def _repo_dir(command: str, cwd: str, tool_name: str = "Bash") -> str | None:
+    """Which repository this push actually targets, or None when the text cannot say.
+
+    `git -C` names the repo outright. Failing that the push runs wherever the command last
+    `cd`-ed to, which is NOT the event's cwd: measured 2026-09-12, a `cd /other/repo && git push`
+    recorded the session's own repo and armed the gate on a commit it never pushed.
+
+    Structure is read from the ALIGNED masked form (heredoc bodies blanked in place, not removed);
+    the VALUE is then taken from the raw text at the same offsets, because both steps preserve
+    length. Comparing values on the masked form would decide the path by its filler, not by what it
+    says, and finding them on the heredoc-STRIPPED form shifts every offset after a heredoc.
+    """
+    found = _DASH_C.search(commands_only_aligned(command, tool_name))
+    if not found:
+        return _cwd_after_any_cd(command, cwd, tool_name)
+    token = command[found.start(1):found.end(1)]
+    if not token or any(ch in token for ch in _UNRESOLVABLE):
+        return None
+    try:
+        return str((Path(cwd) / token).resolve())
+    except (OSError, ValueError):
+        return None
+
+
+def _git(args: list[str], cwd: str) -> str | None:
+    """Run a read-only git command, returning stripped stdout or None. Never raises."""
+    try:
+        done = subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, encoding="utf-8", errors="replace", timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def _landed_sha(cwd: str) -> str | None:
+    """The pushed commit, but only if the push actually landed.
+
+    `--verify -q` is not decoration: a bare `git rev-parse` hands an unresolvable name straight
+    back and exits 0, so a comparison built on it succeeds against a string that was never a commit.
+    """
+    head = _git(["rev-parse", "--verify", "-q", "HEAD"], cwd)
+    upstream = _git(["rev-parse", "--verify", "-q", "@{u}"], cwd)
+    if not head or not upstream or head != upstream:
+        return None
+    return head if re.fullmatch(r"[0-9a-f]{40}", head) else None
+
+
+def _has_workflows(cwd: str) -> bool:
+    """Does this repo run CI at all? The same test the tree-top rule states for itself."""
+    root = _git(["rev-parse", "--show-toplevel"], cwd)
+    if not root:
+        return False
+    try:
+        workflows = Path(root) / ".github" / "workflows"
+        return workflows.is_dir() and any(workflows.glob("*.y*ml"))
+    except OSError:
+        return False
+
+
+# Triggers that may start a run for a branch push without a `push` filter naming it, so each keeps
+# a push from being called run-less. A pull_request run starts only for an open pull request from
+# the branch, which nothing local can see.
+_PR_EVENTS = frozenset({"pull_request", "pull_request_target"})
+# The ones that cannot be judged at all: workflow_run chains off another workflow, and `create`
+# fires on a new branch's FIRST push, which nothing local tells apart from a later one (and it
+# takes no branch filter).
+_UNJUDGED_EVENTS = frozenset({"workflow_run", "create"})
+#: What a push to one branch does, decided over every workflow file.
+RUNS, PR_ONLY, NO_RUN, UNKNOWN = "runs", "pr-only", "no-run", "unknown"
+
+
+def _branch_filter_matches(patterns, branch: str) -> bool:
+    """Does a GitHub `branches:` list admit ``branch``? Later patterns win, `!` negates.
+
+    `*` matches within one path segment, `**` across them, and `?` / `+` quantify the character
+    before them, as GitHub's filter syntax defines.
+    """
+    matched = False
+    for raw in patterns:
+        pattern = str(raw)
+        negate = pattern.startswith("!")
+        if re.fullmatch(_filter_regex(pattern[1:] if negate else pattern), branch):
+            matched = not negate
+    return matched
+
+
+def _filter_regex(pattern: str) -> str:
+    out, i = [], 0
+    while i < len(pattern):
+        if pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+            continue
+        ch = pattern[i]
+        if ch == "*":
+            out.append("[^/]*")
+        elif ch in "?+":
+            out.append(ch)
+        elif ch == "[":
+            end = pattern.find("]", i)
+            if end == -1:
+                out.append(re.escape(ch))
+            else:
+                out.append(pattern[i:end + 1])
+                i = end
+        else:
+            out.append(re.escape(ch))
+        i += 1
+    return "".join(out)
+
+
+def _workflow_builds_branch(doc, branch: str) -> str:
+    """One workflow's answer for a push to ``branch``: RUNS, PR_ONLY, NO_RUN or UNKNOWN."""
+    if not isinstance(doc, dict):
+        return UNKNOWN
+    on = doc.get("on", doc.get(True))       # PyYAML 1.1 reads a bare `on` key as the boolean True
+    if isinstance(on, str):
+        on = [on]
+    if isinstance(on, list):
+        on = {event: None for event in on if isinstance(event, str)}
+    if not isinstance(on, dict):
+        return UNKNOWN
+    if any(event in on for event in _UNJUDGED_EVENTS):
+        return UNKNOWN
+    pushed = _push_filter_admits(on["push"], branch) if "push" in on else False
+    if pushed is None:
+        return UNKNOWN
+    if pushed:
+        return RUNS
+    return PR_ONLY if any(event in on for event in _PR_EVENTS) else NO_RUN
+
+
+def _push_filter_admits(push, branch: str) -> bool | None:
+    """Does a `push:` trigger body admit a push to ``branch``? None: cannot be told."""
+    if push is None:
+        return True
+    if not isinstance(push, dict):
+        return None
+    branches, ignored = push.get("branches"), push.get("branches-ignore")
+    if branches is None and ignored is None:
+        return "tags" not in push and "tags-ignore" not in push
+    if isinstance(branches, list):
+        return _branch_filter_matches(branches, branch)
+    if isinstance(ignored, list):
+        return not _branch_filter_matches(ignored, branch)
+    return None
+
+
+def push_trigger_state(repo: str, branch: str) -> str:
+    """RUNS when any workflow's push trigger admits ``branch``; PR_ONLY or NO_RUN when every file
+    was read and none does (PR_ONLY: a pull_request trigger could still run for an open pull
+    request); UNKNOWN when any file could not be judged, or PyYAML is missing."""
+    if _yaml is None:
+        return UNKNOWN
+    root = _git(["rev-parse", "--show-toplevel"], repo)
+    if not root:
+        return UNKNOWN
+    try:
+        files = sorted((Path(root) / ".github" / "workflows").glob("*.y*ml"))
+        answers = {_workflow_builds_branch(_yaml.safe_load(path.read_text(encoding="utf-8")),
+                                           branch) for path in files}
+    except (OSError, UnicodeDecodeError, _yaml.YAMLError):
+        return UNKNOWN
+    # One workflow that certainly runs settles it; only then does an unjudged file block a no.
+    for state_name in (RUNS, UNKNOWN, PR_ONLY):
+        if state_name in answers:
+            return state_name
+    return NO_RUN if answers else UNKNOWN
+
+
+_SCP_LIKE = re.compile(r"^[^/]+@([^:/]+):")
+
+
+def _gh_hosts() -> set[str]:
+    """The forges `gh` can actually query: github.com plus any enterprise host it holds auth for.
+
+    Read with a regex rather than a YAML parser because a hook may not provision dependencies.
+    Only the top-level keys are wanted and they are the sole unindented lines in hosts.yml, so
+    the shapes a regex gets wrong are not present in this file.
+    """
+    hosts = {"github.com"}
+    base = os.environ.get("GH_CONFIG_DIR") or str(Path.home() / ".config" / "gh")
+    try:
+        text = (Path(base) / "hosts.yml").read_text(encoding="utf-8", errors="replace")
+    except (OSError, RuntimeError, ValueError):
+        return hosts
+    hosts.update(m.group(1) for m in re.finditer(r"^([A-Za-z0-9._-]+):", text, re.M))
+    return hosts
+
+
+def _url_host(url: str) -> str | None:
+    """The host named by a git remote URL, or None when it names none (a filesystem path)."""
+    scp = _SCP_LIKE.match(url)
+    if scp:
+        return scp.group(1)
+    if "://" not in url:
+        return None
+    authority = url.split("://", 1)[1].split("/", 1)[0]
+    return authority.rsplit("@", 1)[-1].split(":", 1)[0] or None
+
+
+def _ssh_hostname(alias: str) -> str | None:
+    """What ssh resolves an alias to, so a `Host gh` block is not mistaken for a foreign forge.
+
+    Offline: `ssh -G` only reads the config, it opens no connection.
+    """
+    try:
+        done = subprocess.run(["ssh", "-G", alias], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    for line in done.stdout.splitlines():
+        if line.lower().startswith("hostname "):
+            return line.split(None, 1)[1].strip() or None
+    return None
+
+
+def _build_push_words(command: str, tool_name: str = "Bash") -> list[str] | None:
+    """The bare words after the first `git push` that BUILDS: [remote, refspec, ...], or None.
+
+    The first push in the command is not necessarily that one. `git push --dry-run origin && git
+    push origin v9` sends nothing in its first statement, and reading the remote and refspecs off
+    it lost the tag that the second statement really pushed. A push is skipped by the same rule
+    `notice` applies (`_NOT_A_BUILD`, judged on its own statement).
+
+    Found on the offset-preserving `commands_only_aligned` form and sliced from the raw command.
+    """
+    aligned = commands_only_aligned(command, tool_name)
+    for push in _PUSH.finditer(aligned):
+        if _NOT_A_BUILD.search(_statement_around(aligned, push.start())):
+            continue
+        rest = _PUSH_OPERANDS.match(aligned, push.end())
+        return [w for w in command[rest.start():rest.end()].split() if not w.startswith("-")]
+    return None
+
+
+def _push_remote(command: str, repo: str, tool_name: str = "Bash") -> str | None:
+    """The remote this push targets: the first bare word after the building `git push`, else the
+    branch's configured remote, else `origin`, which is git's own fallback."""
+    words = _build_push_words(command, tool_name)
+    if words and not any(ch in words[0] for ch in _UNRESOLVABLE):
+        return words[0]
+    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], repo)
+    if branch and branch != "HEAD":
+        configured = _git(["config", "--get", "branch.%s.remote" % branch], repo)
+        if configured:
+            return configured
+    return "origin"
+
+
+def _targets_a_watchable_forge(command: str, repo: str, tool_name: str = "Bash") -> bool:
+    """Will the forge this push LANDED on actually run the workflows `_has_workflows` found?
+
+    `_has_workflows` asks whether the repo has CI files, which a fork that vendors upstream's
+    `.github/workflows` passes even when its own pushes go to a forge with no Actions at all.
+    The nudge then points at `gh`, which resolves the checkout through its remotes and asks a
+    repository that has never seen the sha, so the watch can never terminate and the gate can
+    never be satisfied. Measured on a fork that vendors upstream's workflows and pushes to a
+    private Gitea, while `gh repo view` answers the UPSTREAM repository: the API returns 422
+    "No commit found for SHA" and `gh run list --commit` returns zero rows.
+
+    Fails toward KEEPING the nudge. Only a host we positively resolved AND that `gh` cannot
+    query counts as a skip, because a lost nudge is silent while a spurious one is only noise.
+    A remote naming no host at all (a filesystem path) keeps the nudge: it is what the tests
+    use to stand in for a real remote, so reading it as "no CI" would decide semantics from a
+    fixture's convenience.
+    """
+    remote = _push_remote(command, repo, tool_name)
+    if not remote:
+        return True
+    looks_like_url = "://" in remote or bool(_SCP_LIKE.match(remote))
+    url = remote if looks_like_url else _git(["remote", "get-url", remote], repo)
+    if not url:
+        return True
+    host = _url_host(url)
+    if host is None:
+        return True
+    known = _gh_hosts()
+    if host in known:
+        return True
+    resolved = _ssh_hostname(host)
+    return bool(resolved) and resolved in known
+
+
+# A push source git refuses outright because it names a tag AND a branch.
+_AMBIGUOUS = ("?", "?")
+
+
+def _resolve_source(repo: str, src: str) -> tuple[str, str] | None:
+    """(sha, kind) for a push SOURCE, kind "tag", "branch" or "HEAD"; None when it does not resolve;
+    `_AMBIGUOUS` when git itself would refuse it.
+
+    A short name that is both a tag and a branch is not "the tag": git refuses the push with
+    "src refspec <name> matches more than one" and sends nothing (measured on a scratch remote,
+    rc 1), so recording either one records a push that never happened. A fully qualified
+    `refs/tags/` or `refs/heads/` name is not ambiguous, and `HEAD` is the checked-out commit.
+    """
+    if src == "HEAD":
+        candidates = [("HEAD", "HEAD")]
+    elif src.startswith(("refs/tags/", "refs/heads/")):
+        candidates = [(src, "tag" if src.startswith("refs/tags/") else "branch")]
+    else:
+        candidates = [("refs/tags/" + src, "tag"), ("refs/heads/" + src, "branch")]
+    hits = []
+    for ref, kind in candidates:
+        sha = _git(["rev-parse", "--verify", "-q", ref + "^{commit}"], repo)
+        if sha and re.fullmatch(r"[0-9a-f]{40}", sha):
+            hits.append((sha, kind))
+    if len(hits) > 1:
+        return _AMBIGUOUS
+    return hits[0] if hits else None
+
+
+def _destination(repo: str, src: str, dst: str, kind: str) -> tuple[str, str] | None:
+    """(kind, short name) of the ref a push WRITES on the remote, or None when it cannot be read.
+
+    That is the ref CI builds, so it is the one to name: `git push origin master:release` starts a
+    run on `release`. With no `:dst` git writes the same name as the source, and a bare `HEAD`
+    writes the checked-out branch's name (detached, git needs an explicit destination).
+    """
+    if dst:
+        if dst.startswith("refs/tags/"):
+            return "tag", _short_ref(dst)
+        if dst.startswith("refs/heads/"):
+            return "branch", _short_ref(dst)
+        return ("tag" if kind == "tag" else "branch"), dst
+    if kind == "HEAD":
+        branch = _git(["symbolic-ref", "--short", "-q", "HEAD"], repo)
+        return ("branch", branch) if branch else None
+    return kind, _short_ref(src)
+
+
+_STATEMENT_SEP = LIST_SEP
+
+# A named ref that was pushed and did NOT land: record nothing, and do not fall back to the
+# current branch's landed test, which can pass for a commit this command never sent.
+_NOT_LANDED = ("", "")
+
+
+def _short_ref(name: str) -> str:
+    return name.replace("refs/tags/", "").replace("refs/heads/", "")
+
+
+def _branch_landed(repo: str, remote: str, dst: str, sha: str) -> bool:
+    """Did `sha` reach `<remote>/<dst>`? A landed push moves that remote-tracking ref onto it."""
+    tracking = _git(["rev-parse", "--verify", "-q", "refs/remotes/%s/%s^{commit}" % (remote, dst)],
+                    repo)
+    return bool(tracking) and tracking == sha
+
+
+def _statement_around(text: str, index: int) -> str:
+    """The single statement containing `index`, so a flag in a NEIGHBOURING statement is not read
+    as belonging to this one. `git push --dry-run x && git push x` is one dry run and one real
+    push, and matching `--dry-run` against the whole command silenced the second."""
+    start = 0
+    for m in _STATEMENT_SEP.finditer(text):
+        if m.start() > index:
+            return text[start:m.start()]
+        start = m.end()
+    return text[start:]
+
+
+def _pushed_ref(command: str, repo: str, tool_name: str = "Bash") -> tuple[str, str] | None:
+    """What this push actually built: (sha, display); None to fall back to the branch test; or
+    `_NOT_LANDED` when a named branch was pushed and its tracking ref shows it did not arrive.
+
+    The refspecs are read from the push that BUILDS (`_build_push_words`); a `src:dst` pair takes
+    its sha from the SOURCE, which is the object being sent, and its name from the DESTINATION,
+    which is the ref CI builds (`_destination`). A branch destination is then required to have
+    landed on `<remote>/<dst>` (see the module docstring for why a tag cannot be checked the same
+    way). A leading `+` (force) is not part of the name. Bulk `--tags` names no ref, so the newest
+    local tag by creation date stands in - the tag just cut is the one whose run is wanted.
+    """
+    words = _build_push_words(command, tool_name)
+    if words is None:
+        return None
+    # The first bare word is the remote; the rest are refspecs.
+    unlanded = False
+    for spec in words[1:]:
+        if any(ch in spec for ch in _UNRESOLVABLE):
+            return None
+        src, _, dst = spec.lstrip("+").partition(":")
+        found = _resolve_source(repo, src) if src else None
+        if found == _AMBIGUOUS:
+            return _NOT_LANDED                       # git refused the whole push
+        target = _destination(repo, src, dst, found[1]) if found else None
+        if not target:
+            continue
+        sha, (kind, name) = found[0], target
+        if kind == "branch" and not _branch_landed(repo, words[0], name, sha):
+            unlanded = True
+            continue
+        return sha, "%s %s" % (kind, name)
+    if unlanded:
+        return _NOT_LANDED
+    if _BULK_TAGS.search(commands_only_aligned(command, tool_name)):
+        # In `for-each-ref` the LAST --sort key is the PRIMARY one (measured, not assumed), so
+        # this reads as: newest by creation date, ties broken by version order. Creation date
+        # alone is not enough - tags cut in the same second tie, and the fallback is plain
+        # alphabetical, where v10.0.0 sorts between v1.0.0 and v2.0.0.
+        newest = _git(["for-each-ref", "--sort=-v:refname", "--sort=-creatordate", "--count=1",
+                       "--format=%(refname:short)", "refs/tags"], repo)
+        found = _resolve_source(repo, "refs/tags/" + newest) if newest else None
+        if found and found != _AMBIGUOUS:
+            return found[0], "tag " + newest
+    return None
+
+
+def _watching(command: str, tool_name: str = "Bash") -> bool:
+    """Did this command RUN a watcher, as opposed to merely naming one?
+
+    The MASKED form is the default, so `echo "ci_wait.py ..."` still clears nothing. A known
+    execute-a-string wrapper is the one exception, and it is checked on the masked form too, so
+    the exception cannot itself be opened by quoting the wrapper's name.
+    """
+    masked = commands_only(command, tool_name)
+    if _WATCHING.search(masked):
+        return True
+    return bool(_WRAPPER.search(masked) and _WATCHING.search(command))
+
+
+def notice(command, cwd: str = "", tool_name: str = "Bash") -> tuple[str, str, str, str, bool] | None:
+    """(text, sha, branch, repo, owed) for this command, or None if it is not a landed push.
+
+    ``owed`` is False when the push certainly starts no run: the text then says so, and nothing
+    is recorded for the Stop gate to ask after.
+
+    Returns the sha it resolved rather than making the caller resolve it again: every lookup here
+    is a subprocess, and recomputing them is how the two halves drift into disagreeing about which
+    commit was pushed.
+    """
+    if not isinstance(command, str) or not command.strip():
+        return None
+    # Read STRUCTURE from the masked form so a command merely quoting "git push" cannot trigger it,
+    # then take VALUES from the real repo rather than from the text.
+    masked = commands_only(command, tool_name)
+    # _NOT_A_BUILD must be judged on the push STATEMENT, not the whole command: a dry run in
+    # one statement silenced the nudge for a genuine push in another.
+    # EVERY push, not the first: scoping the flag correctly but then selecting the first match
+    # still lets `git push --dry-run x && git push x` silence itself, because the first match IS
+    # the dry run. The nudge is owed if ANY statement carries a real build push.
+    if not any(not _NOT_A_BUILD.search(_statement_around(masked, m.start()))
+               for m in _PUSH.finditer(masked)):
+        return None
+    repo = _repo_dir(command, cwd, tool_name) if cwd else None
+    if not repo or not _has_workflows(repo):
+        return None
+    # Having workflow FILES is not the same as pushing somewhere that runs them.
+    if not _targets_a_watchable_forge(command, repo, tool_name):
+        return None
+    pushed = _pushed_ref(command, repo, tool_name)
+    if pushed == _NOT_LANDED:
+        return None
+    if pushed:
+        sha, branch = pushed
+    else:
+        # No ref named, so this is the ordinary `git push`: the branch landed-test applies.
+        sha = _landed_sha(repo)
+        if not sha:
+            return None
+        branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], repo) or "HEAD"
+    name = branch[len("branch "):] if branch.startswith("branch ") else branch
+    triggers = RUNS if branch.startswith("tag ") or name == "HEAD" else push_trigger_state(repo, name)
+    if triggers == NO_RUN:
+        text = ("No workflow in this repo runs for a push to %s: no `on: push` trigger names that "
+                "branch and none could run for it otherwise, so this push (%s) starts no run "
+                "and nothing beyond the local gate has validated it. A merge to, or a pull "
+                "request against, a branch the triggers name would get a verdict."
+                % (name, sha[:12]))
+        return text, sha, branch, repo, False
+    if triggers == PR_ONLY:
+        text = ("No `on: push` trigger in this repo names %s, so this push (%s) starts a run only "
+                "if an open pull request from that branch matches a pull_request trigger. Check "
+                "before moving on:\n    uv run %s --sha %s\n"
+                "`no-runs` (exit 2) then means no pull request runs it and nothing beyond the "
+                "local gate has validated it; 0 passed, 1 failed."
+                % (name, sha[:12], _CI_WAIT, sha))
+        return text, sha, branch, repo, True
+    text = ("CI is now running for the push you just made: %s (%s).\n"
+            "Watch it before moving on - this repo's CI blocks on every cell:\n"
+            "    uv run %s --sha %s\n"
+            "Exit 0 every run passed, 1 something failed, 2 could not tell."
+            % (sha[:12], branch, _CI_WAIT, sha))
+    return text, sha, branch, repo, True
+
+
+def main(raw: str | None = None) -> int:
+    """Record a landed push, or clear the record when CI is being watched. Always exits 0."""
+    try:
+        event = json.loads(raw if raw is not None else sys.stdin.read() or "{}")
+    except (ValueError, TypeError, OSError):
+        return 0
+    if not isinstance(event, dict):
+        return 0
+    if os.environ.get(_BYPASS_ENV):
+        return 0
+
+    tool_input = event.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    cwd = event.get("cwd") or ""
+    key = state.session_key(event)
+    session = event.get("session_id") or ""
+    if not isinstance(command, str):
+        return 0
+
+    try:
+        # Mask by the language the command is in. The clear half also reads non-shell tools
+        # (a Monitor call), whose command text is Bash.
+        shell = event.get("tool_name") if is_shell_tool(event.get("tool_name")) else "Bash"
+        if _watching(command, shell):
+            state.clear_session(key, session)
+            return 0
+        # Only a shell tool can have MADE a push. The clear half above is deliberately wider: a
+        # Monitor call watching CI is the commonest way this record is satisfied, and a hook that
+        # cannot see it leaves a watched push pending until the gate gives up.
+        if not is_shell_tool(event.get("tool_name")):
+            return 0
+        found = notice(command, cwd, shell)
+        if not found:
+            return 0
+        text, sha, branch, repo, owed = found
+        if owed:
+            state.record_push(key, session, sha, repo=repo, branch=branch)
+    except Exception:  # noqa: BLE001 - a nudge must never wedge a turn
+        return 0
+
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse",
+                                             "additionalContext": text}}))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

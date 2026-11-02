@@ -185,7 +185,7 @@ class EventsMixin:
                     # A WebFetch, a Read, an MCP call: its arguments ARE the event (L8).
                     text = scrub(call_summary(redacted))
                     chars += len(text)
-            cur = self.db.execute(
+            current = self.db.execute(
                 "INSERT OR IGNORE INTO events (event_id, stream, offset, idx, kind, turn, ts, noticed, text, tool, "
                 "call_id, command, tool_input, is_error, side_file, parent, cwd, chars, note, source) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -194,8 +194,8 @@ class EventsMixin:
                  ev.ts, now, text, ev.tool, ev.call_id, command, tool_input, int(ev.is_error), ev.side_file,
                  ev.parent, ev.cwd, chars, getattr(ev, "note", None), getattr(ev, "source", None)),
             )
-            added += cur.rowcount
-            if opens and cur.rowcount:
+            added += current.rowcount
+            if opens and current.rowcount:
                 turn = ev_turn
         return added
 

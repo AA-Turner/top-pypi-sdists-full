@@ -1,0 +1,105 @@
+"""`tracker gaps` commands: employee absences (admin-only)."""
+
+import json
+from typing import Annotated
+
+import typer
+
+from ycli.cli.typedefs import AllOption, LimitOption, NextOption, values_option
+from ycli.settings import AppConfig
+from ycli.yandex.core.listing import Listing
+from ycli.yandex.models import Ack
+from ycli.yandex.tracker.client import TrackerClient
+from ycli.yandex.tracker.gaps.models import GapCreated, GapInput, GapsCreate, GapWorkflow, UserGaps
+
+app = typer.Typer(name="gaps", help="Tracker employee absences (admin).", no_args_is_help=True)
+
+
+@app.command()
+def create(
+    user: Annotated[str | None, typer.Option(help="Login or id of the absent user.")] = None,
+    workflow: Annotated[str | None, values_option(GapWorkflow, help="Kind of absence.")] = None,
+    date_from: Annotated[
+        str | None, typer.Option("--date-from", help="Start of the absence (ISO 8601).")
+    ] = None,
+    date_to: Annotated[
+        str | None, typer.Option("--date-to", help="End of the absence (ISO 8601).")
+    ] = None,
+    gap_id: Annotated[
+        str | None, typer.Option("--id", help="Identifier of the absence (generated if omitted).")
+    ] = None,
+    full_day: Annotated[
+        bool | None, typer.Option("--full-day/--part-day", help="Whether it covers whole days.")
+    ] = None,
+    work_in_absence: Annotated[
+        bool | None,
+        typer.Option("--work-in-absence/--no-work-in-absence", help="Whether the user works."),
+    ] = None,
+    gap: Annotated[
+        list[str] | None,
+        typer.Option("--gap", help="More absences as JSON objects of the API docs (repeatable)."),
+    ] = None,
+    *,
+    tracker: TrackerClient,
+) -> GapCreated:
+    """Create absences (POST /gaps): one from --user/--workflow/--from/--to, more from --gap.
+
+    Example: --user ann --workflow trip --from 2026-07-10T00:00Z --to 2026-07-20T00:00Z
+    """
+    gaps = []
+    named = {
+        "id": gap_id,
+        "user": user,
+        "workflow": workflow,
+        "date_from": date_from,
+        "date_to": date_to,
+        "full_day": full_day,
+        "work_in_absence": work_in_absence,
+    }
+    # The flags describe one absence; --full-day and --work-in-absence alone describe none.
+    if any(named[name] is not None for name in ("id", "user", "workflow", "date_from", "date_to")):
+        given = {name: value for name, value in named.items() if value is not None}
+        gaps.append(GapInput.model_validate(given))
+    for raw in gap or []:
+        try:
+            gaps.append(GapInput.model_validate(json.loads(raw)))
+        except json.JSONDecodeError as exc:
+            # violation(arch-9): --gap is JSON; text that does not parse gives no absence to send
+            raise typer.BadParameter(f"--gap must be valid JSON: {exc}") from exc
+    return tracker.gaps.create(GapsCreate(gaps=gaps))
+
+
+@app.command()
+def search(
+    users: Annotated[
+        list[str], typer.Argument(metavar="USER...", help="Logins or ids (up to 100).")
+    ],
+    date_from: Annotated[
+        str | None, typer.Option("--date-from", help="Window start (ISO 8601); default: now.")
+    ] = None,
+    date_to: Annotated[
+        str | None, typer.Option("--date-to", help="Window end (ISO 8601); must be after --from.")
+    ] = None,
+    limit: LimitOption = None,
+    all_: AllOption = False,
+    next_: NextOption = None,
+    *,
+    config: AppConfig,
+    tracker: TrackerClient,
+) -> Listing[UserGaps]:
+    """Find the absences of USER... overlapping a window (POST /gaps/_search; --all for all)."""
+    cap = config.http.cap(limit, all_=all_)
+    return tracker.gaps.search(users, date_from=date_from, date_to=date_to, limit=cap, next=next_)
+
+
+@app.command()
+def delete(
+    gap_ids: Annotated[
+        list[str], typer.Argument(metavar="GAP_ID...", help="Absence ids to delete (up to 100).")
+    ],
+    *,
+    tracker: TrackerClient,
+) -> Ack:
+    """Delete absences by id (DELETE /gaps?gapIds=…); unknown ids are ignored."""
+    tracker.gaps.delete(gap_ids)
+    return Ack.deleted("gaps", ", ".join(gap_ids))

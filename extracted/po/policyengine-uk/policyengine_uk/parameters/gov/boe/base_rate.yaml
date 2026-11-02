@@ -1,0 +1,36 @@
+description: Bank of England base rate.
+metadata:
+  label: BoE base rate
+  unit: /1
+  period: year
+  reference:
+    - title: Bank of England - Bank Rate history
+      href: https://www.bankofengland.co.uk/boeapps/database/Bank-Rate.asp
+    - title: OBR EFO October 2026 (detailed forecast tables, economy, Table 1.9), market-derived Bank Rate, calendar-year averages
+      href: https://obr.uk/efo/economic-and-fiscal-outlook-october-2026/
+  documentation: |
+    The Bank of England base rate (Bank Rate).
+    Used in student loan interest calculations for Plans 1 and 4,
+    which charge the lower of RPI or (BoE base rate + 1%).
+
+    Every value is a calendar-year average of Bank Rate from the OBR October
+    2026 EFO (economy Table 1.9), rounded to 4 decimals: Bank of England
+    outturn (Bankstats IUQABEDR) to 2025, then the OBR's market-derived path,
+    3.78% in 2026 and 4.23% to 4.48% from 2027 to 2031. Later years hold the
+    2031 rate.
+
+# Calendar-year averages, OBR October 2026 EFO Table 1.9: Bank of England
+# outturn to 2025, then the market-derived path.
+values:
+  2020-01-01: 0.0023
+  2021-01-01: 0.0011
+  2022-01-01: 0.0146
+  2023-01-01: 0.0468
+  2024-01-01: 0.0511
+  2025-01-01: 0.0426
+  2026-01-01: 0.0378
+  2027-01-01: 0.0423
+  2028-01-01: 0.0434
+  2029-01-01: 0.0430
+  2030-01-01: 0.0436
+  2031-01-01: 0.0448

@@ -65,7 +65,7 @@ def test_output_with_no_summary_at_all_is_none():
 def test_the_count_reaches_the_report(tmp_path, monkeypatch):
     """End to end through `enqueue_manifests`: the number the run prints is the
     number the command returned."""
-    from probe.cli import backfill_ledger as bl
+    from probe.cli.imports.folder.upload import ledger as bl
 
     manifest = tmp_path / "u-1.jsonl"
     manifest.write_text(json.dumps({"path": "a.py"}) + "\n")
@@ -111,9 +111,13 @@ class _Queue:
 @pytest.fixture
 def journal(monkeypatch):
     def install(queue):
+        monkeypatch.setattr("probe.sdk.delivery.journal.failures.discards.Journal", lambda *a, **k: queue)
         monkeypatch.setattr("probe.sdk.delivery.journal.journal.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.journal.receipts.receipts.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.journal.status_file.Journal", lambda *a, **k: queue)
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials.Journal", lambda *a, **k: queue)
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.lanes.Journal", lambda *a, **k: queue)
 
     return install
 
@@ -155,7 +159,7 @@ def test_watching_uses_one_board_and_closes_it_on_exit(journal, monkeypatch, cap
     import io
     import re
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     class _Screen(io.StringIO):
         def isatty(self):
@@ -165,7 +169,12 @@ def test_watching_uses_one_board_and_closes_it_on_exit(journal, monkeypatch, cap
         raise KeyboardInterrupt
 
     journal(_Queue([5, 3, 0]))
-    monkeypatch.setattr(tui, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
     if interrupted:
         monkeypatch.setattr("time.sleep", stop)
     out = _Screen()

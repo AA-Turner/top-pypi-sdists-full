@@ -41,6 +41,7 @@ EVENT_OUTBOX_DRAINED = Event.OUTBOX_DRAINED.value
 EVENT_OUTBOX_STUCK = Event.OUTBOX_STUCK.value
 EVENT_OUTBOX_RESCUED = Event.OUTBOX_RESCUED.value
 EVENT_OUTBOX_DISCARDED = Event.OUTBOX_DISCARDED.value
+EVENT_OUTBOX_RESTORED = Event.OUTBOX_RESTORED.value
 EVENT_OUTBOX_PAUSE_LIFTED = Event.OUTBOX_PAUSE_LIFTED.value
 EVENT_CAPTURE_REPAIR_APPLIED = Event.CAPTURE_REPAIR_APPLIED.value
 EVENT_SETTINGS_REMOTE_APPLIED = Event.SETTINGS_REMOTE_APPLIED.value
@@ -73,7 +74,7 @@ def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None)
 
 
 def emit_service_event(event: str, props: dict, *, base_url: str | None) -> bool:
-    """One of the Probe service's own events (`probe.service.statepost`:
+    """One of the Probe service's own events (`probe.service.watch.statepost`:
     `service.started`, `service.state`, `service.stopped`), with the
     properties `statepost.snapshot` built: its allow-list is the contract, and
     nothing is added here but the envelope. Gated like every client event: the
@@ -177,6 +178,35 @@ def emit_outbox_discarded(counts, *, reason: str, interactive: bool = False) -> 
             credentials=len(counts.credentials),
             by_enqueue_day=dict(days[: counts.reported_days]) or None,
             oldest_enqueue_day=days[-1][0] if days else None,
+        )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
+def emit_outbox_restored(counts) -> bool:
+    """Report the one-time restore of set-aside writes, from a `journal.RestoreCounts`: how many
+    went back in the queue (and uploads), the enqueue days, what stayed aside by reason
+    (`KeptAside`; ``bytes_gone`` on its own too), how many the login check set aside again and
+    why (`NotAdoptable`), how many still wait and how many could not be moved. Counts only, never a fingerprint, key, body,
+    name or path. Gated like every outbox event on the one server the writes were pinned to
+    (hosted) and the person's switches. True when it was handed to the sender. Never raises."""
+    try:
+        context = detached_context(counts.base_url, via=Via.OUTBOX)
+        if not context.enabled:
+            return False
+        days = sorted(counts.by_enqueue_day.items(), reverse=True)
+        context.emit(
+            EVENT_OUTBOX_RESTORED,
+            writes=int(counts.writes),
+            uploads=int(counts.uploads),
+            bytes_gone=int(counts.bytes_gone),
+            by_enqueue_day=dict(days[: counts.reported_days]) or None,
+            kept={str(k): int(v) for k, v in counts.kept.items()} or None,
+            refused=int(counts.refused),
+            refused_reason=str(counts.refused_reason) if counts.refused_reason else None,
+            deferred=int(counts.deferred),
+            unmoved=int(counts.unmoved),
         )
         return True
     except Exception:

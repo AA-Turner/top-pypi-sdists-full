@@ -1,0 +1,150 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2008 Nicolas Kandel
+# Copyright © 2008 Pascal Halter
+# Copyright © 2008-2017 Guillaume Ayoub
+# Copyright © 2017-2020 Unrud <unrud@outlook.com>
+# Copyright © 2024-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import xml.etree.ElementTree as ET
+from http import client
+from typing import Optional, Union
+from urllib.parse import quote
+
+from radicale import httputils, storage, types, xmlutils
+from radicale.app.base import Access, ApplicationBase
+from radicale.hook import HookNotificationItem, HookNotificationItemTypes
+from radicale.log import logger
+
+
+def xml_delete(base_prefix: str, path: str, collection: storage.BaseCollection,
+               item_href: Optional[str] = None, share: Union[dict, None] = None) -> ET.Element:
+    """Read and answer DELETE requests.
+
+    Read rfc4918-9.6 for info.
+
+    """
+    collection.delete(item_href)
+
+    multistatus = ET.Element(xmlutils.make_clark("D:multistatus"))
+    response = ET.Element(xmlutils.make_clark("D:response"))
+    multistatus.append(response)
+
+    href_element = ET.Element(xmlutils.make_clark("D:href"))
+    href_element.text = xmlutils.make_href(base_prefix, path)
+    if share:
+        # backmap; quote so the encoded href and raw share path compare
+        mapped = quote(share['PathMapped'])
+        token = quote(str(share['PathOrToken']))
+        logger.trace("DELETE/xml_delete: href=%r (orig)", href_element.text)
+        if href_element.text.startswith(base_prefix + mapped):
+            href_element.text = base_prefix + token + href_element.text.removeprefix(base_prefix + mapped)
+            if not mapped.endswith('/') and href_element.text.endswith('/'):
+                href_element.text = href_element.text + mapped.rsplit('/', maxsplit=1)[1]
+        logger.trace("DELETE/xml_delete: href=%r (backmapped)", href_element.text)
+    response.append(href_element)
+
+    status = ET.Element(xmlutils.make_clark("D:status"))
+    status.text = xmlutils.make_response(200)
+    response.append(status)
+
+    return multistatus
+
+
+class ApplicationPartDelete(ApplicationBase):
+
+    def do_DELETE(self, environ: types.WSGIEnviron, base_prefix: str,
+                  path: str, user: str, user_groups: set, request_info: dict) -> types.WSGIResponse:
+        """Manage DELETE request."""
+        actor = user
+        permissions_filter = None
+        share = None
+        if self._sharing._enabled:
+            # Sharing by token or map (if enabled)
+            share = self._sharing.sharing_collection_resolver(path, user, user_groups)
+            if share:
+                if share['PathMapped'].endswith('/'):
+                    logger.notice("delete of a mapped collection is never permitted: %r -> %r", share['PathOrToken'], share['PathMapped'])
+                    return httputils.NOT_ALLOWED
+                # overwrite and run through extended permission check
+                path = share['PathMapped']
+                user = share['Owner']
+                permissions_filter = share['Permissions']
+        access = Access(self._rights, user, user_groups, path, permissions_filter)
+        if not access.check("w"):
+            return httputils.NOT_ALLOWED
+        if self._sharing._enabled:
+            if not share:
+                collections_share_list = self._sharing.database_list_sharing(PathMapped=path)
+                if collections_share_list is not None and len(collections_share_list) > 0:
+                    logger.notice("delete of a mapped collection in use (%d) is not permitted: %r", len(collections_share_list), path)
+                    return httputils.CONFLICT
+        with self._storage.acquire_lock("w", user, path=path, request="DELETE", actor=actor):
+            item = next(iter(self._storage.discover(path)), None)
+            if not item:
+                return httputils.NOT_FOUND
+            if not access.check("w", item):
+                return httputils.NOT_ALLOWED
+            if_match = environ.get("HTTP_IF_MATCH", "*")
+            if if_match not in ("*", item.etag):
+                # ETag precondition not verified, do not delete item
+                return httputils.PRECONDITION_FAILED
+            hook_notification_item_list = []
+            if isinstance(item, storage.BaseCollection):
+                if self._permit_delete_collection:
+                    if access.check("d", item):
+                        logger.info("delete of collection is permitted by config/option [rights] permit_delete_collection but explicit forbidden by permission 'd': %r", path)
+                        return httputils.NOT_ALLOWED
+                else:
+                    if not access.check("D", item):
+                        logger.info("delete of collection is prevented by config/option [rights] permit_delete_collection and not explicit allowed by permission 'D': %r", path)
+                        return httputils.NOT_ALLOWED
+                if self._hook.enabled:
+                    for i in item.get_all():
+                        hook_notification_item_list.append(
+                            HookNotificationItem(
+                                notification_item_type=HookNotificationItemTypes.DELETE,
+                                path=access.path,
+                                content=i.uid,
+                                content_type=i.name,
+                                uid=i.uid,
+                                old_content=i.serialize(),  # type: ignore
+                                new_content=None,
+                                actor=actor,
+                            )
+                        )
+                xml_answer = xml_delete(base_prefix, path, item)
+            else:
+                assert item.collection is not None
+                assert item.href is not None
+                if self._hook.enabled:
+                    hook_notification_item_list.append(
+                        HookNotificationItem(
+                            notification_item_type=HookNotificationItemTypes.DELETE,
+                            path=access.path,
+                            content=item.uid,
+                            content_type=item.name,
+                            uid=item.uid,
+                            old_content=item.serialize(),  # type: ignore
+                            new_content=None,
+                            actor=actor,
+                        )
+                    )
+                xml_answer = xml_delete(
+                    base_prefix, path, item.collection, item.href, share)
+            for notification_item in hook_notification_item_list:  # Will be empty if hook not enabled
+                self._hook.notify(notification_item)
+            headers = {"Content-Type": "text/xml; charset=%s" % self._encoding}
+            return client.OK, headers, self._xml_response(xml_answer, request_info), None

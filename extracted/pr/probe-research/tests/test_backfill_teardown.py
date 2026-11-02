@@ -26,7 +26,7 @@ import time
 
 import pytest
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 
 
 def _alive(pid: int) -> bool:
@@ -132,7 +132,7 @@ def test_worker_interrupt_stops_agent_before_releasing_durable_ownership(
     clean_registry, monkeypatch, tmp_path,
 ):
     """The supervisor's BaseException must not discard a still-running agent."""
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     class WorkerInterrupted(BaseException):
         pass
@@ -153,10 +153,15 @@ def test_worker_interrupt_stops_agent_before_releasing_durable_ownership(
         assert proc.poll() is not None, "a live child lost its durable ownership"
         released.append(pid)
 
-    monkeypatch.setattr(import_jobs, "spawn_child", lambda *a, **k: proc)
-    monkeypatch.setattr(import_jobs, "unregister_child", unregister)
-    monkeypatch.setattr(bf, "which_agent", lambda agent: sys.executable)
-    monkeypatch.setattr(bf, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(import_jobs.workers, "spawn_child", lambda *a, **k: proc)
+    monkeypatch.setattr(import_jobs.workers, "unregister_child", unregister)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: sys.executable)
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: sys.executable)
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: sys.executable)
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: sys.executable)
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *a: None)
     try:
         with pytest.raises(WorkerInterrupted):
             bf.launch_agent(tmp_path, "prompt", progress=False)
@@ -190,8 +195,13 @@ def test_an_agent_runs_in_its_own_process_group(tmp_path, monkeypatch):
         seen.update(kw)
         return _Proc()
 
-    monkeypatch.setattr(bf, "which_agent", lambda a: "/bin/claude")
-    monkeypatch.setattr(bf, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda a: "/bin/claude")
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda *a: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda *a: None)
     monkeypatch.setattr(bf.subprocess, "Popen", fake_popen)
     bf.launch_agent(tmp_path, "prompt", workdir=tmp_path / "w", progress=False)
     assert seen.get("start_new_session") is True
@@ -252,7 +262,7 @@ def test_leaving_says_the_queue_keeps_going(tmp_path, monkeypatch):
     def interrupted(**kw):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(br, "_execute", interrupted)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", interrupted)
     lines = br.execute(client_factory=None, folder=tmp_path, agent=bf.Agent.CLAUDE)
     assert any("keeps uploading" in ln for ln in lines)
     assert any("outbox pause" in ln for ln in lines)
@@ -264,13 +274,15 @@ def test_every_exit_route_stops_the_agents(tmp_path, monkeypatch):
     from probe.cli import backfill_run as br
 
     calls: list[int] = []
-    monkeypatch.setattr(bf, "stop_all", lambda: calls.append(1))
-    monkeypatch.setattr(br, "_execute", lambda **kw: ["done"])
+    monkeypatch.setattr(bf.agents.process, "stop_all", lambda: calls.append(1))
+    monkeypatch.setattr(bf.agents.digest, "stop_all", lambda: calls.append(1))
+    monkeypatch.setattr(bf.agents.launch_once, "stop_all", lambda: calls.append(1))
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", lambda **kw: ["done"])
     assert br.execute(client_factory=None, folder=tmp_path, agent=bf.Agent.CLAUDE) == ["done"]
     assert calls, "a clean return left the agents running"
 
     calls.clear()
-    monkeypatch.setattr(br, "_execute", lambda **kw: (_ for _ in ()).throw(RuntimeError("x")))
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._execute", lambda **kw: (_ for _ in ()).throw(RuntimeError("x")))
     with pytest.raises(RuntimeError):
         br.execute(client_factory=None, folder=tmp_path, agent=bf.Agent.CLAUDE)
     assert calls, "an exception left the agents running"

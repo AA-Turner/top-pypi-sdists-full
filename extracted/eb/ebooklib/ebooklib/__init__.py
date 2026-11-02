@@ -16,7 +16,7 @@
 
 # Version of ebook library
 
-VERSION = (0, 20, 0)
+VERSION: tuple[int, int, int] = (0, 21, 0)
 
 # LIST OF POSSIBLE ITEMS
 ITEM_UNKNOWN = 0
@@ -33,7 +33,7 @@ ITEM_COVER = 10
 ITEM_SMIL = 11
 
 # EXTENSION MAPPER
-EXTENSIONS = {
+EXTENSIONS: dict[int, list[str]] = {
     ITEM_IMAGE: [".jpg", ".jpeg", ".gif", ".tiff", ".tif", ".png"],
     ITEM_STYLE: [".css"],
     ITEM_VECTOR: [".svg"],

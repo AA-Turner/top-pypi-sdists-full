@@ -1,0 +1,105 @@
+"""
+Dotted notation for safe nested data traversal with optional chaining,
+pattern matching, and transforms.
+
+Missing keys and attributes are handled gracefully—no KeyError or AttributeError.
+Use dotted to fetch, update, and remove data from deeply nested structures.
+
+    >>> import dotted
+    >>> d = {'hi': {'there': [1, 2, 3]}}
+    >>> dotted.get(d, 'hi.there[1]')
+    2
+
+Core Operations
+---------------
+get(obj, path)          Get value at dotted path
+update(obj, path, val)  Update value at dotted path
+remove(obj, path)       Remove value at dotted path
+has(obj, path)          Check if path exists
+setdefault(obj, p, v)   Set value only if path missing
+is_mutable(obj, path)   Check if update would mutate in place
+
+Pattern Matching
+----------------
+match(pattern, path)    Match pattern to path
+replace(template, bind) Substitute $N in template path
+expand(obj, pattern)    Expand pattern to concrete paths
+
+Building & Plucking
+-------------------
+build(obj, path)        Build default structure for path
+pack(pathvalues)        Build object from path-value pairs
+pluck(obj, pattern)     Extract (path, value) pairs
+walk(obj, pattern)      Yield (path, value) pairs (lazy)
+unpack(obj)             Extract to dotted normal form
+keys(obj)               Dotted paths of obj
+values(obj)             Leaf values of obj
+items(obj)              (path, value) pairs as dict_items view
+
+Transforms
+----------
+Append transforms with |: 'field|int', 'field|str:fmt'
+
+    >>> dotted.get({'n': '42'}, 'n|int')
+    42
+
+register(name, fn)      Register custom transform
+transform(name)         Decorator for custom transforms
+
+Constants
+---------
+ANY                     Match any value (for remove)
+AUTO                    Auto-infer root container type ({} or []) from first path
+
+For full documentation including all options and flags:
+    $ pydoc dotted.api
+    or see README.md
+"""
+from . import native
+
+# before anything else of dotted's is imported: see dotted.native
+if not native.wanted():
+    native.use_source()
+
+from .api import \
+    parse, compile, is_pattern, is_template, is_reference, is_indeterminate, is_simple, \
+    is_inverted, is_mutable, mutable, quote, ANY, AUTO, Attrs, GroupMode, \
+    set_simple_fastpath, set_parse_cache, \
+    register, transform, set_resolver, get_resolver, \
+    assemble, assemble_multi, \
+    build, build_multi, \
+    expand, expand_multi, \
+    match, match_multi, replace, overlaps, translate, translate_multi, \
+    apply, apply_multi, \
+    get, get_multi, getter, \
+    has, setdefault, setdefault_multi, \
+    update, update_multi, pack, update_if, update_if_multi, \
+    remove, remove_multi, remove_if, remove_if_multi, \
+    pluck, pluck_multi, walk, walk_multi, unpack, keys, values, items
+from .translators import sqlize, sparkize, TranslationError, SQLFragment, Resolver, ParamStyle, ParamPool
+# the run-time reference resolver; sqlize's Resolver, above, has the plain name
+from .base import Resolver as ReferenceResolver, UnresolvedReference
+
+__all__ = [
+    # Core
+    'get', 'getter', 'update', 'remove', 'has', 'setdefault',
+    'ReferenceResolver', 'UnresolvedReference', 'set_resolver', 'get_resolver',
+    # Multi
+    'get_multi', 'update_multi', 'pack', 'update_if', 'update_if_multi', 'remove_multi', 'remove_if', 'remove_if_multi', 'setdefault_multi',
+    # Pattern
+    'match', 'match_multi', 'replace', 'overlaps', 'translate', 'translate_multi', 'expand', 'expand_multi',
+    # Build/Pluck
+    'build', 'build_multi', 'pluck', 'pluck_multi', 'walk', 'walk_multi', 'unpack', 'keys', 'values', 'items',
+    # Transform
+    'apply', 'apply_multi', 'register', 'transform',
+    # Utility
+    'parse', 'compile', 'assemble', 'assemble_multi', 'quote',
+    'is_pattern', 'is_template', 'is_reference',
+    'is_indeterminate', 'is_simple',
+    'is_inverted', 'is_mutable', 'mutable',
+    'set_simple_fastpath', 'set_parse_cache',
+    # Translators
+    'sqlize', 'sparkize', 'Resolver', 'SQLFragment', 'ParamStyle', 'ParamPool', 'TranslationError',
+    # Constants
+    'ANY', 'AUTO', 'Attrs', 'GroupMode',
+]

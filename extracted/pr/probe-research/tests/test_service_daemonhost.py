@@ -21,9 +21,9 @@ from types import SimpleNamespace
 import pytest
 
 from probe.daemon.host import runctx
-from probe.service import daemonhost
+from probe.service.sessions import daemon_host as daemonhost
 from probe.service import updater as updater_mod
-from probe.service import workers as workers_mod
+from probe.service.sessions import workers as workers_mod
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the daemon host is POSIX only")
 
@@ -330,7 +330,7 @@ def test_the_update_counts_an_old_taps_hosted_run_as_live(tmp_path, monkeypatch)
     for that session's life."""
     host = _a_process_named("daemon-host", "--folder", str(tmp_path))
     try:
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         monkeypatch.setattr(procid, "proc", lambda pid: SimpleNamespace(ppid=os.getpid()))
         updater_mod.set_hosted(lambda sid: False, lambda sid: {"old-tap": False, "ended": True}.get(sid))
@@ -390,7 +390,9 @@ def test_a_connection_a_send_failed_on_is_closed_and_its_runs_owner_is_gone():
     woke: list = []
     conn = host_mod.Conn(sock=near, peer_pid=None, role="service", on_broken=lambda: woke.append(1))
     host.conns.add(conn)
-    run = SimpleNamespace(run_id="r1", owner_gone=False)
+    # The real record: a fake without `sid` crashed the control loop's beat (`Host._status`).
+    run = host_mod.HostRun(run_id="r1", sid="s1", transcript="", cwd="/", source="", daemon_dir=host.folder,
+                           env={}, owner=conn)
     host.runs["r1"] = run
     conn.runs.add("r1")
     assert conn.send({"op": "beat", "x": "y" * 300_000}) is False and woke == [1]
@@ -691,7 +693,7 @@ def test_an_update_stops_a_hosted_run_without_calling_it_a_sessions_end():
 def test_a_host_its_service_left_is_live_for_the_update_and_signalled_for_its_hand_over(tmp_path, monkeypatch):
     host = _a_process_named("daemon-host", "--folder", str(tmp_path))
     try:
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         monkeypatch.setattr(procid, "proc", lambda pid: SimpleNamespace(ppid=1))  # its service is gone
         monkeypatch.setattr(daemonhost, "folder", lambda: tmp_path)
@@ -795,7 +797,7 @@ def test_the_copied_constants_match():
     from probe.daemon.host import host as host_mod
     from probe.daemon.host import proxy
     from probe.daemon import worker as worker_mod
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     assert daemonhost.MAX_LINE == host_mod.MAX_LINE
     assert daemonhost.HANDOVER_AHEAD_S == host_mod.HANDOVER_AHEAD_S == recorders.HANDOVER_AHEAD_S

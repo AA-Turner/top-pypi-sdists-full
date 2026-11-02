@@ -1,0 +1,136 @@
+"""The harness line: Codex gets past its startup prompts, and the prompt is one word."""
+
+import shlex
+from pathlib import Path
+
+from lemonaid.config import TmuxSessionConfig, _parse_config
+from lemonaid.inbox import db
+from lemonaid.launch import command
+
+
+def test_codex_trusts_its_directory_and_skips_the_update_check():
+    line, _ = command.harness_line("/opt/bin/codex --no-daemon", Path("/work/it's here"), "go")
+
+    assert line.startswith("env -u LEMONAID_PROMPT /opt/bin/codex -c ")
+    assert """'projects={"/work/it'"'"'s here"={trust_level="trusted"}}'""" in line
+    assert line.endswith('-c check_for_update_on_startup=false --no-daemon "$LEMONAID_PROMPT"')
+
+
+def test_codex_trust_path_keeps_unicode_without_surrogates():
+    directory = Path("/work/openclaw-\U0001f99e")
+
+    line, _ = command.harness_line("codex --no-daemon", directory, "go")
+
+    words = shlex.split(line)
+    assert words[words.index("-c") + 1] == (f'projects={{"{directory}"={{trust_level="trusted"}}}}')
+    assert "\\ud" not in line
+    line.encode("utf-8")
+
+
+def test_other_harnesses_are_left_alone():
+    line = "lemonaid claude patch && claude --remote-control"
+
+    assert command.harness_line(line, Path("/w"), "read it; go") == (
+        f'{line} "$LEMONAID_PROMPT"',
+        {"LEMONAID_PROMPT": "read it; go"},
+    )
+
+
+def test_the_prompt_is_never_spelled_out_in_the_line():
+    """The line is typed into a shell whose quoting rules may not be POSIX's (xonsh's aren't)."""
+    prompt = """Sam's "brief"; $HOME `x` \\ go"""
+
+    line, environment = command.harness_line("claude", Path("/w"), prompt)
+
+    assert line == 'env -u LEMONAID_PROMPT claude "$LEMONAID_PROMPT"'
+    assert environment == {"LEMONAID_PROMPT": prompt}
+
+
+def test_a_line_with_no_prompt_gets_none():
+    line, environment = command.harness_line("codex", Path("/w"))
+
+    assert line.endswith("check_for_update_on_startup=false")
+    assert environment == {}
+
+
+def test_only_a_codex_on_the_shared_daemon_is_unclaimable():
+    assert "--no-daemon" in command.unclaimable("codex -m gpt")
+    assert command.unclaimable("codex --no-daemon") == ""
+    assert command.unclaimable("claude --remote-control") == ""
+
+
+def test_only_a_one_command_line_drops_the_prompt_from_the_harness_environment():
+    """`env -u` in front of `a && b` would wrap only `a`."""
+    compound, _ = command.harness_line("lemonaid claude patch && claude", Path("/w"), "go")
+
+    assert compound == 'lemonaid claude patch && claude "$LEMONAID_PROMPT"'
+    assert (
+        command.harness_line("setup\nclaude", Path("/w"), "go")[0]
+        == 'setup\nclaude "$LEMONAID_PROMPT"'
+    )
+
+
+def test_codex_gets_the_writable_roots_it_is_given():
+    line, _ = command.harness_line(
+        "codex", Path("/w"), writable=[Path("/db"), Path("/docs"), Path("/db")]
+    )
+
+    assert 'sandbox_workspace_write.writable_roots=["/db", "/docs"]' in shlex.split(line)
+
+
+def test_other_harnesses_get_no_writable_roots():
+    line, _ = command.harness_line("claude", Path("/w"), writable=[Path("/db")])
+
+    assert line == "claude"
+
+
+def test_default_roots_are_the_database_and_state_directories_plus_configured(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(db, "get_db_path", lambda: tmp_path / "db" / "inbox.db")
+    monkeypatch.setenv("LEMONAID_STATE_DIR", str(tmp_path / "state"))
+    config = TmuxSessionConfig(codex_writable_roots=(tmp_path / "reviews",))
+
+    assert command.codex_writable_roots(config) == [
+        tmp_path / "db",
+        tmp_path / "state",
+        tmp_path / "reviews",
+    ]
+
+
+def test_configured_roots_expand_the_home_directory():
+    config = _parse_config({"tmux-session": {"codex_writable_roots": ["~/reviews", 3]}})
+
+    assert config.tmux_session.codex_writable_roots == (Path("~/reviews").expanduser(),)
+
+
+def test_a_claude_line_gets_the_title_as_its_session_name():
+    line, _ = command.harness_line("claude --model opus", Path("/w"), title="Fix the cache")
+
+    assert line == "claude --name 'Fix the cache' --model opus"
+
+
+def test_a_claude_line_that_names_its_session_keeps_its_name():
+    assert command.harness_line("claude -n mine", Path("/w"), title="x")[0] == "claude -n mine"
+
+
+def test_a_claude_line_with_name_equals_keeps_its_name():
+    assert (
+        command.harness_line("claude --name=mine", Path("/w"), title="x")[0] == "claude --name=mine"
+    )
+
+
+def test_a_codex_line_has_no_name_flag():
+    line, _ = command.harness_line("codex --no-daemon", Path("/w"), title="x")
+
+    assert "--name" not in line
+
+
+def test_quoted_harness_executable_paths_get_the_same_startup_flags():
+    line, _ = command.harness_line("'/opt/my tools/codex' --no-daemon", Path("/work"))
+    assert shlex.split(line)[0] == "/opt/my tools/codex"
+    assert "check_for_update_on_startup=false" in shlex.split(line)
+    line, _ = command.harness_line(
+        "'/opt/my tools/claude' --model small", Path("/work"), title="Task"
+    )
+    assert shlex.split(line) == ["/opt/my tools/claude", "--name", "Task", "--model", "small"]

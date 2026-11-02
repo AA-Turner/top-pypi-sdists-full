@@ -28,11 +28,12 @@ import logging
 import os
 from argparse import ArgumentParser
 from contextlib import contextmanager
-from typing import List
+from typing import ClassVar
 
 import requests
 import requests_unixsocket
 
+from lexicon.exceptions import LexiconError
 from lexicon.interfaces import Provider as BaseProvider
 
 LOGGER = logging.getLogger(__name__)
@@ -45,8 +46,11 @@ class PowerDNSProviderError(Exception):
 class Provider(BaseProvider):
     """Provider class for PowerDNS"""
 
+    # PowerDNS takes any type of record, as RFC 3597 describes.
+    VALID_TYPES: ClassVar[list[str] | None] = None
+
     @staticmethod
-    def get_nameservers() -> List[str]:
+    def get_nameservers() -> list[str]:
         return []
 
     @staticmethod
@@ -62,7 +66,7 @@ class Provider(BaseProvider):
         )
 
     def __init__(self, config):
-        super(Provider, self).__init__(config)
+        super().__init__(config)
 
         self.api_endpoint = self._get_provider_option("pdns_server")
         if not self.api_endpoint:
@@ -79,8 +83,7 @@ class Provider(BaseProvider):
         else:
             self.unix_socket = False
 
-        if self.api_endpoint.endswith("/"):
-            self.api_endpoint = self.api_endpoint[:-1]
+        self.api_endpoint = self.api_endpoint.removesuffix("/")
 
         if not self.api_endpoint.endswith("/api/v1"):
             self.api_endpoint += "/api/v1"
@@ -132,11 +135,10 @@ class Provider(BaseProvider):
         return f"{rtype}/{name}={content}"
 
     def _parse_identifier(self, identifier):
-        parts = identifier.split("/")
-        rtype = parts[0]
-        parts = parts[1].split("=")
-        name = parts[0]
-        content = "=".join(parts[1:])
+        # Split once at each, because the content can hold either character,
+        # as the base64 of a DKIM key does.  A name holds neither.
+        rtype, rest = identifier.split("/", 1)
+        name, content = rest.split("=", 1)
         return rtype, name, content
 
     def list_records(self, rtype=None, name=None, content=None):
@@ -171,7 +173,8 @@ class Provider(BaseProvider):
                 content = '"' + content
             if content[-1] != '"':
                 content += '"'
-        elif rtype == "CNAME":
+        elif rtype == "CNAME" and not content.endswith("."):
+            # A target with its trailing dot is absolute, and can be outside the zone.
             content = self._fqdn_name(content)
         return content
 
@@ -179,7 +182,8 @@ class Provider(BaseProvider):
         if rtype in ("TXT", "LOC"):
             content = content.strip('"')
         elif rtype == "CNAME":
-            content = self._full_name(content)
+            # PowerDNS answers with the absolute name, which can be outside the zone.
+            content = content.rstrip(".")
         return content
 
     def create_record(self, rtype, name, content):
@@ -224,7 +228,7 @@ class Provider(BaseProvider):
 
         LOGGER.debug("delete %s %s %s", rtype, name, content)
         if rtype is None or name is None:
-            raise Exception("Must specify at least both rtype and name")
+            raise LexiconError("Must specify at least both rtype and name")
 
         update_data = None
         for rrset in self.zone_data()["rrsets"]:

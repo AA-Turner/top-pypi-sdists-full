@@ -33,7 +33,7 @@ import typer
 
 from probe import cli
 from probe.shared.reads import mcp_bridge
-from probe.cli import write_gate
+from probe.cli.lifecycle import write_gate
 from probe.sdk import session_marker
 
 cli_main = importlib.import_module("probe.cli.main")  # `probe.cli.main` the attribute is the entry function

@@ -1035,7 +1035,7 @@ def test_a_wizard_logins_writes_follow_a_same_account_re_login(app, tmp_path):
 
 def test_the_wizard_records_its_new_logins_account(app, tmp_path, monkeypatch, real_wizard_account_lookup):
     """Round 3, MED-3: the wizard's own record (conftest stubs it elsewhere)."""
-    from probe.cli import setup
+    from probe.cli import wizard as setup
     from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
     from probe.sdk.delivery.outbox.drain.accounts import recorded_account
 
@@ -2084,7 +2084,7 @@ def test_writes_for_another_server_are_never_adopted(app, tmp_path, monkeypatch)
         seen: list = []
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
-        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
         with pytest.raises(CredentialNotHere) as held:
             _settings_for_op(_all_ops(root)[0]["context"])
         report = drain(Journal(root))
@@ -2395,10 +2395,10 @@ def test_an_adopted_credentials_refusal_no_longer_reads_as_auth_blocked(tmp_path
 def test_probe_doctor_rescues_and_says_so(app, tmp_path, monkeypatch):
     import importlib
 
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
     from probe.sdk.delivery import outbox as outbox_worker
 
-    doctor = importlib.import_module("probe.cli.doctor")
+    doctor = importlib.import_module("probe.cli.wizard.doctor")
     run_id = seeded_run(app, tmp_path)
     started: list = []
     monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda journal: started.append(journal) or True)
@@ -2548,7 +2548,7 @@ def test_an_adopted_write_waits_when_the_login_changes_server_mid_route(tmp_path
     seen: list = []
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     context = {"name": None, "base_url": "", "principal": {"source": "env", "fingerprint": _fp(ENV_A)}}
     with pytest.raises(CredentialNotHere) as held:
         _settings_for_op(context)
@@ -2574,7 +2574,7 @@ def test_probe_status_never_rescues(app, tmp_path, monkeypatch):
     from probe.sdk.delivery import outbox as outbox_worker
     from probe.sdk.delivery.outbox.drain.adoption import adopted_account
 
-    doctor = importlib.import_module("probe.cli.doctor")
+    doctor = importlib.import_module("probe.cli.wizard.doctor")
     run_id = seeded_run(app, tmp_path)
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
     monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda j: pytest.fail("status spawned a rescuer"))
@@ -2830,7 +2830,7 @@ def test_a_stored_login_write_waits_when_the_login_changes_server_mid_route(tmp_
     seen: list = []
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     context = {
         "name": None,
         "base_url": "",

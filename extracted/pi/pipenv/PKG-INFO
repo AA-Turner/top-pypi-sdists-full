@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipenv
-Version: 2026.10.4
+Version: 2026.10.5
 Summary: Python Development Workflow for Humans.
 Author-email: Pipenv maintainer team <matteius@gmail.com>
 License: MIT License (MIT)
@@ -10,21 +10,22 @@ Project-URL: Source, https://github.com/pypa/pipenv.git
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICES
 Requires-Dist: certifi
+Requires-Dist: filelock>=4.2.1
 Requires-Dist: packaging>=22
-Requires-Dist: setuptools>=67
-Requires-Dist: virtualenv>=21.14.6
+Requires-Dist: setuptools>=84.1.0
+Requires-Dist: virtualenv>=21.14.9
 Provides-Extra: completion
 Requires-Dist: argcomplete>=3.1; extra == "completion"
 Provides-Extra: dev
@@ -119,7 +120,7 @@ Table Of Contents
 Installation
 ------------
 
-**Pipenv can be installed with Python 3.10 and above.**
+**Pipenv can be installed with Python 3.11 and above, including Python 3.15.**
 
 For most users, we recommend installing Pipenv using `pip`:
 

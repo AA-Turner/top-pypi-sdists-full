@@ -23,7 +23,7 @@ import json
 import warnings
 
 from probe import cli
-from probe.cli.main import _restore_captured_tree
+from probe.cli.commands.snapshots.restore import _restore_captured_tree
 from probe.sdk import errors
 from probe.sdk.run.readback import restore as _restore_mod
 from probe.sdk import run as _run_mod

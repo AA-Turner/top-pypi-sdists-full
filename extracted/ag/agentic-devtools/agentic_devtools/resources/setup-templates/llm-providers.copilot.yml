@@ -1,0 +1,13 @@
+# Managed by agdt-setup. This file contains no credentials.
+providers:
+  copilot_pr_review:
+    type: copilot
+    model: gemini-3.7-flash
+    timeout_seconds: 120
+
+workflows:
+  pr_review:
+    default_provider: copilot_pr_review
+    nodes:
+      review_files:
+        provider: copilot_pr_review

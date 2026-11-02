@@ -18,17 +18,15 @@ from urllib3.exceptions import DecodeError, ProtocolError, ReadTimeoutError
 from urllib3.filepost import encode_multipart_formdata
 
 from schemathesis.core import Body, NotSet, media_types
-from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible
+from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible, is_read_timeout, read_timeout_error
 from schemathesis.core.file_samples import MEDIA_TYPE_FILE_SAMPLES
 from schemathesis.core.jsonschema import get_type
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.transforms import merge_at, to_wire_text
 from schemathesis.core.transport import (
-    DEFAULT_RESPONSE_TIMEOUT,
     STREAM_CUT_SHORT_ATTRIBUTE,
     Response,
-    is_event_stream,
     read_event_stream,
 )
 from schemathesis.generation.overrides import Override
@@ -196,28 +194,23 @@ class RequestsTransport(BaseTransport["requests.Session"]):
 
     def _build_request_data(self, case: Case, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Merge the serialized case with transport settings from config and explicit keyword arguments."""
-        config = case.operation.schema.config
+        settings = case.operation.schema.config.request_settings_for(operation=case.operation)
         data = self.serialize_case(case, **kwargs)
 
-        verify = config.tls_verify_for(operation=case.operation)
-        if verify is not None:
-            data.setdefault("verify", verify)
-        timeout = config.request_timeout_for(operation=case.operation)
-        if timeout is not None:
-            data.setdefault("timeout", timeout)
-        cert = config.request_cert_for(operation=case.operation)
-        if cert is not None:
-            data.setdefault("cert", cert)
+        if settings.verify is not None:
+            data.setdefault("verify", settings.verify)
+        data.setdefault("timeout", settings.network_timeout)
+        if settings.cert is not None:
+            data.setdefault("cert", settings.cert)
 
         for key, value in kwargs.items():
             if key == "base_url":
                 continue
             if key not in ("headers", "cookies", "params") or key not in data:
                 data[key] = value
-        data.setdefault("timeout", DEFAULT_RESPONSE_TIMEOUT)
-        proxies = config.proxy_for(operation=case.operation)
+        proxies = settings.proxies
         if proxies is not None:
-            data.setdefault("proxies", {"all": proxies})
+            data.setdefault("proxies", proxies)
         return data
 
     @override
@@ -326,7 +319,7 @@ EVENT_STREAM_CHUNK_SIZE = 64 * 1024
 
 def _request(session: requests.Session, data: dict[str, Any], max_stream_events: int) -> requests.Response:
     response = session.request(**{**data, "stream": True})
-    if is_event_stream(response.headers.get("Content-Type")):
+    if media_types.is_sse(response.headers.get("Content-Type")):
         # An event stream may never end; stop reading once the request timeout passes in total.
         response._content, cut_short = read_event_stream(
             _iter_event_stream(response), data.get("timeout"), max_stream_events
@@ -337,8 +330,18 @@ def _request(session: requests.Session, data: dict[str, Any], max_stream_events:
         response.close()
     else:
         # Read the body here, so network errors while reading it are retried like before.
-        response.content  # noqa: B018
+        _read_body(response, data["timeout"])
     return response
+
+
+def _read_body(response: requests.Response, timeout: float | int) -> None:
+    try:
+        response.content  # noqa: B018
+    except requests.exceptions.ConnectionError as exc:
+        # A body that stops arriving within the timeout is reported like a response that never started.
+        if is_read_timeout(exc):
+            raise read_timeout_error(response.url, timeout, response.request) from exc
+        raise
 
 
 def _iter_event_stream(response: requests.Response) -> Iterator[bytes]:

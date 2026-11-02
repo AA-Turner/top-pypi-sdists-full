@@ -1,0 +1,300 @@
+//! Async file read stream implementation for Tokio runtime, based on the ry
+//! `FileReadStream` in ryo3-std and the `ryo3-reqwest` response stream.
+//!
+//! Kinda a fucking nightmare.
+use std::io;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use bytes::Bytes;
+use pyo3::prelude::*;
+use ryo3_bytes::RyBytes;
+use ryo3_macro_rules::{py_io_error, py_stop_async_iteration_err, py_value_err};
+use ryo3_tokio_rt::{RyCoroutine, pyloop_coro, tokio_coro};
+use tokio::fs::File;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, BufReader, SeekFrom};
+use tokio::sync::Mutex;
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct PyFileReadStreamOptions {
+    pub(crate) strict: bool,
+    pub(crate) path: PathBuf,
+    pub(crate) read_size: usize,
+    pub(crate) offset: u64,
+    pub(crate) buffered: bool,
+}
+
+/// max up-front alloc per chunk; bigger `read_size`s grow w/ the data
+const CHUNK_PREALLOC_CAP: usize = 8 * 1024 * 1024;
+
+struct AsyncFileReadStream<T> {
+    file: T,
+    read_size: usize,
+}
+
+impl<T: AsyncRead + AsyncSeek + Unpin> AsyncFileReadStream<T> {
+    fn new(file: T, read_size: usize) -> Self {
+        Self { file, read_size }
+    }
+
+    async fn seek_to(&mut self, offset: u64) -> io::Result<u64> {
+        self.file.seek(SeekFrom::Start(offset)).await
+    }
+
+    async fn next_chunk(&mut self) -> io::Result<Option<Bytes>> {
+        // read up to `read_size` (or eof); buffer grows w/ the data read
+        let mut buf = Vec::with_capacity(self.read_size.min(CHUNK_PREALLOC_CAP));
+        let limit = u64::try_from(self.read_size).unwrap_or(u64::MAX);
+        let bytes_read = (&mut self.file).take(limit).read_to_end(&mut buf).await?;
+        if bytes_read == 0 {
+            return Ok(None);
+        }
+        Ok(Some(Bytes::from(buf)))
+    }
+}
+
+enum AsyncFileReadStreamWrapper {
+    Unbuffered(AsyncFileReadStream<File>),
+    Buffered(AsyncFileReadStream<BufReader<File>>),
+    // put the options in here so we dont gotta pass them around to ensure open
+    Closed(Arc<PyFileReadStreamOptions>),
+}
+
+impl AsyncFileReadStreamWrapper {
+    async fn ensure_open(&mut self) -> io::Result<()> {
+        match self {
+            Self::Unbuffered(_) | Self::Buffered(_) => Ok(()),
+            Self::Closed(options) => {
+                let file = File::open(&options.path).await?;
+                if options.strict {
+                    let meta = file.metadata().await?;
+                    let len = meta.len();
+                    if options.offset > len {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            format!(
+                                "offset ({}) is beyond end of file (len = {})",
+                                options.offset, len
+                            ),
+                        ));
+                    }
+                }
+
+                let mut stream = if options.buffered {
+                    Self::Buffered(AsyncFileReadStream::new(
+                        BufReader::new(file),
+                        options.read_size,
+                    ))
+                } else {
+                    Self::Unbuffered(AsyncFileReadStream::new(file, options.read_size))
+                };
+
+                if options.offset > 0 {
+                    match &mut stream {
+                        Self::Unbuffered(s) => s.seek_to(options.offset).await?,
+                        Self::Buffered(s) => s.seek_to(options.offset).await?,
+                        Self::Closed(_) => unreachable!(),
+                    };
+                }
+                *self = stream;
+                Ok(())
+            }
+        }
+    }
+
+    async fn next_chunk(&mut self) -> io::Result<Option<Bytes>> {
+        match self {
+            Self::Unbuffered(s) => s.next_chunk().await,
+            Self::Buffered(s) => s.next_chunk().await,
+            Self::Closed(_) => Err(io::Error::other("Stream not opened")),
+        }
+    }
+}
+
+impl AsyncFileReadStreamWrapper {}
+
+#[pyclass(name = "AsyncFileReadStream", frozen, immutable_type)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
+pub struct PyAsyncFileReadStream {
+    options: Arc<PyFileReadStreamOptions>,
+    inner: Arc<Mutex<AsyncFileReadStreamWrapper>>,
+}
+
+fn map_open_error(e: &std::io::Error) -> PyErr {
+    match e.kind() {
+        // not found
+        std::io::ErrorKind::NotFound => {
+            pyo3::exceptions::PyFileNotFoundError::new_err(format!("Failed to open file: {e}"))
+        }
+        // strict
+        std::io::ErrorKind::InvalidInput => {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to open file: {e}"))
+        }
+        _ => {
+            py_io_error!("Failed to open file: {e}")
+        }
+    }
+}
+
+impl PyAsyncFileReadStream {
+    /// opens the file (if not already open) and resolves to the stream itself
+    fn ensure_open_coro<'py>(
+        slf: Py<Self>,
+        py: Python<'py>,
+        qualname: &'static str,
+    ) -> PyResult<Bound<'py, RyCoroutine>> {
+        tokio_coro(py, qualname, async move {
+            let this = slf.get();
+            let mut guard = this.inner.lock().await;
+            guard.ensure_open().await.map_err(|e| map_open_error(&e))?;
+            drop(guard);
+            Ok(slf)
+        })
+    }
+
+    /// back to `Closed`
+    fn close_coro<'py>(
+        &self,
+        py: Python<'py>,
+        qualname: &'static str,
+    ) -> PyResult<Bound<'py, RyCoroutine>> {
+        let inner = Arc::clone(&self.inner);
+        let options = Arc::clone(&self.options);
+        pyloop_coro(py, qualname, async move {
+            *inner.lock().await = AsyncFileReadStreamWrapper::Closed(options);
+            Ok(())
+        })
+    }
+}
+
+#[pymethods]
+impl PyAsyncFileReadStream {
+    #[new]
+    #[pyo3(signature = (path, *, read_size = 65536, offset = 0, buffered = true, strict = true))]
+    pub fn py_new(
+        path: PathBuf,
+        read_size: usize,
+        offset: u64,
+        buffered: bool,
+        strict: bool,
+    ) -> PyResult<Self> {
+        if read_size == 0 {
+            return py_value_err!("read_size must be greater than 0");
+        }
+        let options = PyFileReadStreamOptions {
+            strict,
+            path,
+            read_size,
+            offset,
+            buffered,
+        };
+        let arc_options = Arc::new(options);
+
+        let inner = Arc::new(Mutex::new(AsyncFileReadStreamWrapper::Closed(
+            arc_options.clone(),
+        )));
+        Ok(Self {
+            options: arc_options,
+            inner,
+        })
+    }
+
+    fn __await__(slf: Py<Self>, py: Python<'_>) -> PyResult<Bound<'_, RyCoroutine>> {
+        Self::ensure_open_coro(slf, py, "AsyncFileReadStream.__await__")
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.options == other.options
+    }
+
+    fn __aenter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Bound<'_, RyCoroutine>> {
+        Self::ensure_open_coro(slf, py, "AsyncFileReadStream.__aenter__")
+    }
+
+    fn __aexit__<'py>(
+        &self,
+        py: Python<'py>,
+        _exc_type: &Bound<'py, PyAny>,
+        _exc_value: &Bound<'py, PyAny>,
+        _traceback: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, RyCoroutine>> {
+        self.close_coro(py, "AsyncFileReadStream.__aexit__")
+    }
+
+    fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __anext__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, RyCoroutine>> {
+        let inner = Arc::clone(&self.inner);
+        tokio_coro(py, "AsyncFileReadStream.__anext__", async move {
+            let mut guard = inner.lock().await;
+            guard.ensure_open().await.map_err(|e| map_open_error(&e))?;
+            match guard.next_chunk().await {
+                Ok(Some(bytes)) => Ok(RyBytes::from(bytes)),
+                Ok(None) => py_stop_async_iteration_err!("stream exhausted"),
+                Err(e) => Err(e.into()),
+            }
+        })
+    }
+
+    #[pyo3(signature = (n = 1))]
+    fn take<'py>(&self, py: Python<'py>, n: usize) -> PyResult<Bound<'py, RyCoroutine>> {
+        let inner = Arc::clone(&self.inner);
+        tokio_coro(py, "AsyncFileReadStream.take", async move {
+            let mut guard = inner.lock().await;
+            guard.ensure_open().await.map_err(|e| map_open_error(&e))?;
+            let mut result = Vec::new();
+            for _ in 0..n {
+                match guard.next_chunk().await? {
+                    Some(b) => result.push(RyBytes::from(b)),
+                    None => break,
+                }
+            }
+            Ok(result)
+        })
+    }
+
+    fn collect<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, RyCoroutine>> {
+        let inner = Arc::clone(&self.inner);
+        tokio_coro(py, "AsyncFileReadStream.collect", async move {
+            let mut guard = inner.lock().await;
+            guard.ensure_open().await.map_err(|e| map_open_error(&e))?;
+            let mut result = Vec::new();
+            while let Ok(Some(b)) = guard.next_chunk().await {
+                result.push(RyBytes::from(b));
+            }
+            Ok(result)
+        })
+    }
+
+    fn close<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, RyCoroutine>> {
+        self.close_coro(py, "AsyncFileReadStream.close")
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+}
+
+impl std::fmt::Display for PyAsyncFileReadStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AsyncFileReadStream(")?;
+        write!(f, "path='{}'", self.options.path.display())?;
+        write!(f, ", read_size={}", self.options.read_size)?;
+        if self.options.offset != 0 {
+            write!(f, ", offset={}", self.options.offset)?;
+        }
+        if self.options.buffered {
+            write!(f, ", buffered=True")?;
+        } else {
+            write!(f, ", buffered=False")?;
+        }
+        if self.options.strict {
+            write!(f, ", strict=True")?;
+        } else {
+            write!(f, ", strict=False")?;
+        }
+        write!(f, ")")
+    }
+}

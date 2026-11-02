@@ -1,0 +1,407 @@
+name: PR Windows-Specific Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  selection:
+    name: Select Windows-specific tests
+    runs-on: ubuntu-latest
+    env:
+      WINDOWS_CI_BASE_POLICY: ${{ github.workspace }}/policy/agentic_devtools/cli/ci/windows_specific.py
+      WINDOWS_CI_POLICY_ROOT: ${{ github.workspace }}/policy
+      WINDOWS_CI_HEAD_ROOT: ${{ github.workspace }}/head
+    outputs:
+      selection_json: ${{ steps.select.outputs.selection_json }}
+      select_status: ${{ steps.select.outputs.select_status }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+
+      - name: Checkout exact base policy
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install base package and development dependencies
+        working-directory: policy
+        run: python -m pip install -e ".[dev]"
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          token: ${{ github.token }}
+          base: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          list-files: json
+          filters: |
+            all:
+              - '**'
+
+      - name: Select applicable tests
+        id: select
+        if: always()
+        env:
+          CHANGED_PATHS_JSON: ${{ steps.filter.outputs.all_files }}
+          FILTER_OUTCOME: ${{ steps.filter.outcome }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          import uuid
+          from pathlib import Path
+
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          policy = Path(os.environ["WINDOWS_CI_POLICY_ROOT"])
+          paths_json = os.environ.get("CHANGED_PATHS_JSON", "")
+          outcome = os.environ.get("FILTER_OUTCOME", "")
+          status = 1
+
+          if outcome == "failure":
+              selection_json = '{"ok":false,"error_code":"changed_paths_failed"}'
+          elif outcome != "success" or not paths_json:
+              selection_json = '{"ok":false,"error_code":"selection_failed"}'
+          else:
+              env = os.environ.copy()
+              env.pop("PYTHONPATH", None)
+              verify = (
+                  "from pathlib import Path; "
+                  "import agentic_devtools.cli.ci.windows_specific as selector; "
+                  "import agentic_devtools.cli.ci.windows_specific_cli as dispatcher; "
+                  "policy=Path.cwd().resolve(); "
+                  "modules=(selector, dispatcher); "
+                  "assert all(Path(module.__file__).resolve().is_relative_to(policy) for module in modules), "
+                  "[(module.__name__, module.__file__) for module in modules]"
+              )
+              try:
+                  subprocess.run([sys.executable, "-c", verify], cwd=policy, env=env, check=True)
+                  result = subprocess.run(
+                      [
+                          sys.executable,
+                          "-m",
+                          "agentic_devtools.cli.ci.windows_specific",
+                          "select",
+                          "--changed-paths-json",
+                          paths_json,
+                          "--manifest",
+                          str(workspace / "head" / ".github" / "windows-specific-tests.json"),
+                          "--head-policy",
+                          str(workspace / "head" / "agentic_devtools" / "cli" / "ci" / "windows_specific.py"),
+                      ],
+                      cwd=policy,
+                      env=env,
+                      capture_output=True,
+                      check=False,
+                  )
+                  selection_json = result.stdout.decode("utf-8")
+                  sys.stderr.buffer.write(result.stderr)
+                  status = result.returncode
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  print(exc, file=sys.stderr)
+                  selection_json = '{"ok":false,"error_code":"selection_failed"}'
+
+          delimiter = uuid.uuid4().hex
+          while delimiter in selection_json:
+              delimiter = uuid.uuid4().hex
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"selection_json<<{delimiter}\n")
+              output.write(selection_json)
+              if not selection_json.endswith("\n"):
+                  output.write("\n")
+              output.write(f"{delimiter}\n")
+              output.write(f"select_status={status}\n")
+          raise SystemExit(status)
+          PY
+
+  linux-contract:
+    name: Linux workflow contract
+    needs: [selection]
+    if: ${{ needs.selection.result == 'success' && fromJSON(needs.selection.outputs.selection_json).contract_required }}
+    runs-on: ubuntu-latest
+    env:
+      WINDOWS_CI_BASE_POLICY: ${{ github.workspace }}/policy/agentic_devtools/cli/ci/windows_specific.py
+      WINDOWS_CI_POLICY_ROOT: ${{ github.workspace }}/policy
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+
+      - name: Checkout exact base policy
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install base package and development dependencies
+        working-directory: policy
+        run: python -m pip install -e ".[dev]"
+
+      - name: Verify trusted package origin
+        working-directory: policy
+        run: |
+          python -c "from pathlib import Path; import agentic_devtools.cli.ci.windows_specific as selector; import agentic_devtools.cli.ci.windows_specific_cli as dispatcher; policy=Path.cwd().resolve(); modules=(selector, dispatcher); assert all(Path(module.__file__).resolve().is_relative_to(policy) for module in modules), [(module.__name__, module.__file__) for module in modules]"
+
+      - name: Run workflow contract tests
+        working-directory: policy
+        run: python -m pytest "${{ github.workspace }}/head/tests/workflows/test_windows_specific_ci.py" "${{ github.workspace }}/head/tests/workflows/test_windows_specific_fixture_bytes.py" -v --override-ini="addopts=" --import-mode=importlib
+
+  windows-product:
+    name: Focused native Windows tests
+    needs: [selection]
+    if: ${{ needs.selection.result == 'success' && fromJSON(needs.selection.outputs.selection_json).windows_required }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      WINDOWS_CI_BASE_POLICY: ${{ github.workspace }}/policy/agentic_devtools/cli/ci/windows_specific.py
+      WINDOWS_CI_POLICY_ROOT: ${{ github.workspace }}/policy
+      WINDOWS_CI_HEAD_ROOT: ${{ github.workspace }}/head
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      SELECTION_JSON: ${{ needs.selection.outputs.selection_json }}
+    steps:
+      - name: Checkout exact base policy
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Set global autocrlf
+        run: git config --global core.autocrlf true
+
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+
+      - name: Verify effective autocrlf
+        shell: bash
+        run: |
+          test "$(git -C "$WINDOWS_CI_HEAD_ROOT" config --get core.autocrlf)" = true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install base package and development dependencies
+        working-directory: policy
+        run: python -m pip install -e ".[dev]"
+
+      - name: Verify benchmark fixture bytes
+        if: ${{ contains(fromJSON(needs.selection.outputs.selection_json).product_groups, 'benchmark') }}
+        working-directory: policy
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          policy = Path.cwd().resolve()
+          env = os.environ.copy()
+          env.pop("PYTHONPATH", None)
+          verify = (
+              "from pathlib import Path; "
+              "import agentic_devtools.cli.ci.windows_specific as selector; "
+              "import agentic_devtools.cli.ci.windows_specific_cli as dispatcher; "
+              "policy=Path.cwd().resolve(); "
+              "modules=(selector, dispatcher); "
+              "assert all(Path(module.__file__).resolve().is_relative_to(policy) for module in modules), "
+              "[(module.__name__, module.__file__) for module in modules]"
+          )
+          subprocess.run([sys.executable, "-c", verify], cwd=policy, env=env, check=True)
+          subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "agentic_devtools.cli.ci.windows_specific",
+                  "verify-fixtures",
+                  "--commit",
+                  os.environ["HEAD_SHA"],
+                  "--root",
+                  os.environ["WINDOWS_CI_HEAD_ROOT"],
+              ],
+              cwd=policy,
+              env=env,
+              check=True,
+          )
+          PY
+
+      - name: Run focused Windows tests
+        working-directory: policy
+        shell: bash
+        env:
+          WINDOWS_CI_JUNIT: ${{ runner.temp }}/windows-specific-junit.xml
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          policy = Path.cwd().resolve()
+          env = os.environ.copy()
+          env.pop("PYTHONPATH", None)
+          verify = (
+              "from pathlib import Path; "
+              "import agentic_devtools.cli.ci.windows_specific as selector; "
+              "import agentic_devtools.cli.ci.windows_specific_cli as dispatcher; "
+              "policy=Path.cwd().resolve(); "
+              "modules=(selector, dispatcher); "
+              "assert all(Path(module.__file__).resolve().is_relative_to(policy) for module in modules), "
+              "[(module.__name__, module.__file__) for module in modules]"
+          )
+          subprocess.run([sys.executable, "-c", verify], cwd=policy, env=env, check=True)
+          subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "agentic_devtools.cli.ci.windows_specific",
+                  "run",
+                  "--selection-json",
+                  os.environ["SELECTION_JSON"],
+                  "--manifest",
+                  str(Path(os.environ["WINDOWS_CI_HEAD_ROOT"]) / ".github" / "windows-specific-tests.json"),
+                  "--head-policy",
+                  str(
+                      Path(os.environ["WINDOWS_CI_HEAD_ROOT"])
+                      / "agentic_devtools"
+                      / "cli"
+                      / "ci"
+                      / "windows_specific.py"
+                  ),
+                  "--root",
+                  os.environ["WINDOWS_CI_HEAD_ROOT"],
+                  "--junit",
+                  os.environ["WINDOWS_CI_JUNIT"],
+              ],
+              cwd=policy,
+              env=env,
+              check=True,
+          )
+          PY
+
+      - name: Run candidate-head Windows process-tree tests
+        working-directory: head
+        shell: pwsh
+        run: |
+          python -m pytest -vv --no-cov --override-ini=addopts= `
+              tests/unit/cli/ci/windows_process_tree `
+              tests/unit/cli/ci/windows_process_cleanup `
+              tests/unit/cli/ci/windows_specific/test_run_selected_tests.py
+
+      - name: Measure candidate-head process-tree helper coverage
+        working-directory: head
+        shell: pwsh
+        run: |
+          python -m pytest -vv --override-ini=addopts= `
+              --cov-branch `
+              --cov=agentic_devtools.cli.ci.windows_process_tree `
+              --cov=agentic_devtools.cli.ci.windows_process_cleanup `
+              --cov-report=term-missing --cov-fail-under=100 `
+              tests/unit/cli/ci/windows_process_tree `
+              tests/unit/cli/ci/windows_process_cleanup `
+              tests/unit/cli/ci/windows_specific/test_run_selected_tests.py
+
+  gate:
+    name: Windows-Specific Tests
+    needs: [selection, linux-contract, windows-product]
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      WINDOWS_CI_BASE_POLICY: ${{ github.workspace }}/policy/agentic_devtools/cli/ci/windows_specific.py
+      WINDOWS_CI_POLICY_ROOT: ${{ github.workspace }}/policy
+      SELECTION_JSON: ${{ needs.selection.outputs.selection_json }}
+      LINUX_RESULT: ${{ needs.linux-contract.result }}
+      WINDOWS_RESULT: ${{ needs.windows-product.result }}
+    steps:
+      - name: Checkout exact base policy
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install base package and development dependencies
+        working-directory: policy
+        run: python -m pip install -e ".[dev]"
+
+      - name: Evaluate Windows-specific test gate
+        working-directory: policy
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          policy = Path.cwd().resolve()
+          env = os.environ.copy()
+          env.pop("PYTHONPATH", None)
+          verify = (
+              "from pathlib import Path; "
+              "import agentic_devtools.cli.ci.windows_specific as selector; "
+              "import agentic_devtools.cli.ci.windows_specific_cli as dispatcher; "
+              "policy=Path.cwd().resolve(); "
+              "modules=(selector, dispatcher); "
+              "assert all(Path(module.__file__).resolve().is_relative_to(policy) for module in modules), "
+              "[(module.__name__, module.__file__) for module in modules]"
+          )
+          subprocess.run([sys.executable, "-c", verify], cwd=policy, env=env, check=True)
+          subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "agentic_devtools.cli.ci.windows_specific",
+                  "gate",
+                  "--selection-json",
+                  os.environ["SELECTION_JSON"],
+                  "--linux-result",
+                  os.environ["LINUX_RESULT"],
+                  "--windows-result",
+                  os.environ["WINDOWS_RESULT"],
+              ],
+              cwd=policy,
+              env=env,
+              check=True,
+          )
+          PY

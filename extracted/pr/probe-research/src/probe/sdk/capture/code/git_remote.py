@@ -1,9 +1,12 @@
 """find a commit a remote has (pushed base, commit on remote), recording the remote URL without credentials."""
 
 from __future__ import annotations
+import os
 import re
 import subprocess
 import tempfile
+import threading
+from collections.abc import Callable
 from functools import lru_cache
 
 
@@ -11,6 +14,8 @@ from functools import lru_cache
 # it can block the start of a training run indefinitely -- on an unreachable host,
 # or worse, waiting forever on a credential prompt nobody is there to answer.
 _LS_REMOTE_TIMEOUT = 10.0
+#: The cap at run open, where `ls-remote` runs on its own thread (`start_pushed_base`).
+LS_REMOTE_OPEN_CAP = 2.0
 # A verify fetch pulls one commit at depth 1. Bounded for the same reason as
 # ls-remote: an audit must not wedge on one unreachable remote.
 _VERIFY_TIMEOUT = 20.0
@@ -43,7 +48,39 @@ def _remote_url(cwd: str, remote: str) -> str | None:
     return _scrub_remote(_git(cwd, "remote", "get-url", remote, check=False) or None)
 
 
-def pushed_base(cwd: str) -> tuple[str | None, str | None]:
+def _ls_remote_env() -> dict:
+    """Fail fast and write nothing: BatchMode refuses an unknown host key instead of
+    `accept-new` adding it to known_hosts on a training box. A caller's own
+    `GIT_SSH_COMMAND` still wins."""
+    return {
+        **os.environ,
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_SSH_COMMAND": os.environ.get("GIT_SSH_COMMAND", "ssh -o BatchMode=yes"),
+    }
+
+
+def start_pushed_base(
+    cwd: str,
+    on_answer: Callable[[str | None, str | None], None],
+    *,
+    cap: float = LS_REMOTE_OPEN_CAP,
+) -> threading.Thread:
+    """Run :func:`pushed_base` on a daemon thread, `ls-remote` capped at ``cap`` seconds,
+    then call ``on_answer(commit, remote)`` on that thread; ``(None, None)`` on any failure."""
+
+    def probe() -> None:
+        try:
+            base, remote = pushed_base(cwd, timeout=cap)
+        except Exception:  # noqa: BLE001 -- provenance never fails a run
+            base, remote = None, None
+        on_answer(base, remote)
+
+    thread = threading.Thread(target=probe, name="probe-pushed-base", daemon=True)
+    thread.start()
+    return thread
+
+
+def pushed_base(cwd: str, *, timeout: float = _LS_REMOTE_TIMEOUT) -> tuple[str | None, str | None]:
     """A commit that is an ancestor of HEAD *and* present on a remote.
 
     Returns ``(commit, scrubbed_remote_url)``, or ``(None, None)`` when nothing
@@ -72,7 +109,7 @@ def pushed_base(cwd: str) -> tuple[str | None, str | None]:
 
     listing = _git(
         cwd, "ls-remote", "--heads", remote,
-        check=False, timeout=_LS_REMOTE_TIMEOUT, env=_NONINTERACTIVE_ENV(),
+        check=False, timeout=timeout, env=_ls_remote_env(),
     )
     if not listing:
         return None, None
@@ -156,9 +193,10 @@ def commit_on_remote(remote: str, commit: str, timeout: float = _VERIFY_TIMEOUT)
             proc = subprocess.run(
                 ["git", "fetch", "--depth", "1", "--quiet", "--", remote, commit],
                 cwd=tmp, capture_output=True, text=True,
-                env=_NONINTERACTIVE_ENV(), timeout=timeout,
+                # BatchMode, like `ls-remote`: an audit never adds a host key to known_hosts.
+                env=_ls_remote_env(), timeout=timeout,
             )
         except subprocess.TimeoutExpired:
             return False
         return proc.returncode == 0
-from probe.sdk.capture.code.git import _NONINTERACTIVE_ENV, _git, _read_only  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.capture.code.git import _git, _read_only  # noqa: E402 -- pieces need each other; the front door loads this one first

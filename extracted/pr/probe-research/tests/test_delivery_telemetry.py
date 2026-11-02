@@ -222,7 +222,7 @@ class _FakePostHog:
 
 
 _PRELUDE = """
-from probe.sdk import _telemetry_core as core
+from probe.analytics import core
 assert core.POSTHOG_HOST.startswith("http://127.0.0.1"), core.POSTHOG_HOST  # never real PostHog
 core.hosted_base_url = lambda *_a, **_k: True  # the fake API is not *.prbe.ai
 import probe

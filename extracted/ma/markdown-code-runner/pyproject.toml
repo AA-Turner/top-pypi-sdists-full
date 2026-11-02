@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markdown-code-runner"
+description = "Automatically execute code blocks within a Markdown file and update the output in-place"
+authors = [{ name = "Bas Nijholt", email = "bas@nijho.lt" }]
+dependencies = []
+requires-python = ">=3.9"
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/basnijholt/markdown-code-runner"
+Documentation = "https://markdown-code-runner.nijho.lt"
+
+[project.optional-dependencies]
+test = ["pytest", "pre-commit", "coverage", "pytest-cov"]
+docs = ["zensical", "markdown-gfm-admonition", "pandas", "tabulate", "requests"]
+
+[project.scripts]
+markdown-code-runner = "markdown_code_runner:main"
+
+[tool.setuptools]
+py-modules = ["markdown_code_runner"]
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov=markdown_code_runner
+    --cov-report term
+    --cov-report html
+    --cov-fail-under=100
+"""
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "T20",     # flake8-print
+    "S101",    # Use of assert detected
+    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {name}
+    "D402",    # First line should not be the function's signature
+    "PLW0603", # Using the global statement to update `X` is discouraged
+    "D401",    # First line of docstring should be in imperative mood
+    "COM812",  # Conflicts with ruff formatter
+    "D203",    # Conflicts with D211
+    "D213",    # Conflicts with D212
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SLF001"]
+"ci/*" = ["INP001"]
+"tests/test_examples.py" = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18
+
+[tool.mypy]
+python_version = "3.9"

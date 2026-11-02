@@ -1,0 +1,64 @@
+Metadata-Version: 2.5
+Name: pullapprove
+Version: 5.20.0
+Summary: CLI for PullApprove5
+Project-URL: Homepage, https://www.pullapprove.com?ref=pypi
+Project-URL: Documentation, https://5.pullapprove.com/docs/?ref=pypi
+Author-email: Dropseed <python@dropseed.dev>
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Version Control :: Git
+Requires-Python: >=3.12
+Requires-Dist: click>=8
+Requires-Dist: pydantic>=2
+Requires-Dist: requests>=2
+Requires-Dist: wcmatch>=8.0
+Description-Content-Type: text/markdown
+
+# PullApprove
+
+A CLI for validating and testing [PullApprove](https://www.pullapprove.com?ref=pypi) code review configurations.
+
+## Installation
+
+Run directly with `uvx`:
+
+```bash
+uvx pullapprove check
+```
+
+Or install globally with `uv`:
+
+```bash
+uv tool install pullapprove
+```
+
+## Usage
+
+The CLI is available as `pullapprove` or `pa` for short.
+
+```bash
+# Create a starter CODEREVIEW.toml
+pa init
+
+# Validate configuration files
+pa check
+
+# Show files and their matching scopes
+pa match
+pa match --changed  # only changed files
+pa match --by-scope  # organize by scope
+pa match --json  # machine-readable output
+pa match --base main --author you  # as a pull request into main
+
+# Calculate file coverage for review scopes
+pa coverage
+```
+
+## Documentation
+
+For full documentation, visit [pullapprove.com/docs/cli](https://5.pullapprove.com/docs/cli?ref=pypi).

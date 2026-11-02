@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+import contextlib
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+try:
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+    from logfire.integrations.sqlalchemy import CommenterOptions
+except ImportError:
+    raise RuntimeError(
+        '`logfire.instrument_sqlalchemy()` requires the `opentelemetry-instrumentation-sqlalchemy` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[sqlalchemy]'"
+    )
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+
+def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Engine | None:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    if isinstance(engine, AsyncEngine):
+        return engine.sync_engine
+    return engine
+
+
+def instrument_sqlalchemy(
+    engine: AsyncEngine | Engine | None,
+    engines: Iterable[AsyncEngine | Engine] | None,
+    enable_commenter: bool,
+    commenter_options: CommenterOptions,
+    **kwargs: Any,
+) -> None:
+    """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
+
+    See the `Logfire.instrument_sqlalchemy` method for details.
+    """
+    with contextlib.suppress(ImportError):
+        engine = _convert_to_sync_engine(engine)
+
+        if engines is not None:
+            engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # pyright: ignore[reportAssignmentType]
+
+    instrumentor = SQLAlchemyInstrumentor()
+    # The OpenTelemetry instrumentor logs a dependency conflict and returns without
+    # attaching listeners. Read its own declared range (rather than pinning SQLAlchemy
+    # in the extra) so a newer instrumentor that widens the range keeps working.
+    if not kwargs.get('skip_dep_check'):
+        from opentelemetry.instrumentation.dependencies import get_dependency_conflicts
+
+        conflict = get_dependency_conflicts(instrumentor.instrumentation_dependencies())
+        if conflict is not None:
+            raise RuntimeError(
+                '`logfire.instrument_sqlalchemy()` could not instrument SQLAlchemy.\n'
+                f'{conflict}\n'
+                'Install a SQLAlchemy version in that range, or upgrade '
+                '`opentelemetry-instrumentation-sqlalchemy` if a newer release supports this version.\n'
+                'You can upgrade the instrumentation with:\n'
+                "    pip install -U 'logfire[sqlalchemy]'\n"
+                'Pass `skip_dep_check=True` to bypass this check. '
+                'That may produce no spans or errors if the version really is incompatible.'
+            )
+
+    return instrumentor.instrument(
+        engine=engine, engines=engines, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
+    )

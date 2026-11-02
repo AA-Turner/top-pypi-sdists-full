@@ -1,0 +1,790 @@
+Metadata-Version: 2.1
+Name: cloudsnorkel.cdk-github-runners
+Version: 0.18.1
+Summary: CDK construct to create GitHub Actions self-hosted runners. Creates ephemeral runners on demand. Easy to deploy and highly customizable.
+Home-page: https://github.com/CloudSnorkel/cdk-github-runners.git
+Author: Amir Szekely<amir@cloudsnorkel.com>
+License: Apache-2.0
+Project-URL: Source, https://github.com/CloudSnorkel/cdk-github-runners.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.239.0
+Requires-Dist: constructs<11.0.0,>=10.5.1
+Requires-Dist: jsii<2.0.0,>=1.142.0
+Requires-Dist: publication>=0.0.3
+
+# GitHub Self-Hosted Runners CDK Constructs
+
+[![NPM](https://img.shields.io/npm/v/@cloudsnorkel/cdk-github-runners?label=npm&logo=npm)](https://www.npmjs.com/package/@cloudsnorkel/cdk-github-runners)
+[![PyPI](https://img.shields.io/pypi/v/cloudsnorkel.cdk-github-runners?label=pypi&logo=pypi)](https://pypi.org/project/cloudsnorkel.cdk-github-runners)
+[![Maven Central](https://img.shields.io/maven-central/v/com.cloudsnorkel/cdk.github.runners.svg?label=Maven%20Central&logo=apachemaven)](https://central.sonatype.com/artifact/com.cloudsnorkel/cdk.github.runners/)
+[![Go](https://img.shields.io/github/v/tag/CloudSnorkel/cdk-github-runners?color=red&label=go&logo=go)](https://pkg.go.dev/github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners)
+[![Nuget](https://img.shields.io/nuget/v/CloudSnorkel.Cdk.Github.Runners?color=red&&logo=nuget)](https://www.nuget.org/packages/CloudSnorkel.Cdk.Github.Runners/)
+[![Release](https://github.com/CloudSnorkel/cdk-github-runners/actions/workflows/release.yml/badge.svg)](https://github.com/CloudSnorkel/cdk-github-runners/actions/workflows/release.yml)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/vdrTUTqQKv)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/CloudSnorkel/cdk-github-runners/blob/main/LICENSE)
+[![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
+
+Use this CDK construct to create ephemeral [self-hosted GitHub runners](https://docs.github.com/en/actions/hosting-your-own-runners/about-self-hosted-runners) on-demand inside your AWS account.
+
+* 🧩 Easy to configure GitHub integration with a web-based interface
+* 🧠 Customizable runners with decent defaults
+* 🏃🏻 Multiple runner configurations controlled by labels
+* 🔐 Everything fully hosted in your account
+* 🔃 Automatically updated build environment with latest runner version
+
+Self-hosted runners in AWS are useful when:
+
+* You need easy access to internal resources in your actions
+* You want to pre-install some software for your actions
+* You want to provide some basic AWS API access (but [aws-actions/configure-aws-credentials](https://github.com/marketplace/actions/configure-aws-credentials-action-for-github-actions) has more security controls)
+* You are using GitHub Enterprise Server (3.10 or newer, as runners are registered with [just-in-time configurations](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-just-in-time-runners))
+
+Ephemeral (or on-demand) runners are the [recommended way by GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/autoscaling-with-self-hosted-runners#using-ephemeral-runners-for-autoscaling) for auto-scaling, and they make sure all jobs run with a clean image. Runners are started on-demand. You don't pay unless a job is running.
+
+## Table of Contents
+
+* [API](#api)
+* [Providers](#providers)
+
+  * [Job Isolation](#job-isolation)
+* [Installation](#installation)
+* [Customizing](#customizing)
+
+  * [Composite Providers](#composite-providers)
+  * [Custom Provider Selection](#custom-provider-selection)
+  * [Warm Runners](#warm-runners)
+* [Examples](#examples)
+* [Architecture](#architecture)
+* [Troubleshooting](#troubleshooting)
+
+  * [Rebuilding runner images](#rebuilding-runner-images)
+* [Monitoring](#monitoring)
+* [Getting Help](#getting-help)
+* [Contributing](#contributing)
+* [Sponsors](#sponsors)
+* [Other Options](#other-options)
+
+## API
+
+The best way to browse API documentation is on [Constructs Hub](https://constructs.dev/packages/@cloudsnorkel/cdk-github-runners/). It is available in all supported programming languages.
+
+## Providers
+
+A runner provider creates compute resources on-demand and uses [actions/runner](https://github.com/actions/runner) to start a runner.
+
+|                  | EC2               | CodeBuild                  | Fargate        | ECS            | Lambda        |
+|------------------|-------------------|----------------------------|----------------|----------------|---------------|
+| **Time limit**   | Unlimited         | 36 hours (default 1 hour)  | Unlimited      | Unlimited      | 15 minutes    |
+| **vCPUs**        | Unlimited         | 2, 4, 8, or 72             | 0.25 to 4      | Unlimited      | 1 to 6        |
+| **RAM**          | Unlimited         | 3gb, 7gb, 15gb, or 145gb   | 512mb to 30gb  | Unlimited      | 128mb to 10gb |
+| **Storage**      | Unlimited         | 50gb to 824gb              | 20gb to 200gb  | Unlimited      | Up to 10gb    |
+| **Architecture** | x86_64, ARM64     | x86_64, ARM64              | x86_64, ARM64  | x86_64, ARM64  | x86_64, ARM64 |
+| **GPU**          | ✔                 | ✔                         | ❌              | ✔              | ❌           |
+| **sudo**         | ✔                 | ✔                         | ✔              | ✔              | ❌           |
+| **Docker**       | ✔                 | ✔ (Linux only)            | ❌              | ✔              | ❌           |
+| **Spot pricing** | ✔                 | ❌                         | ✔              | ✔              | ❌           |
+| **OS**           | Linux, Windows    | Linux, Windows             | Linux, Windows | Linux, Windows | Linux         |
+
+The best provider to use mostly depends on your current infrastructure. When in doubt, CodeBuild is always a good choice. Execution history and logs are easy to view, and it has no restrictive limits unless you need to run for more than 8 hours.
+
+* EC2 is useful when you want runners to have complete access to the host
+* ECS is useful when you want to control the infrastructure, like leaving the runner host running for faster startups
+* Lambda is useful for short jobs that can work within time, size and readonly system constraints
+
+### Job Isolation
+
+Every job gets a new runner, but not every provider gives every job its own machine. EC2, CodeBuild, and Fargate run each job on its own instance, build, or task. ECS and Lambda can run different jobs on the same machine, so jobs that can run on the same ECS cluster or Lambda function should be treated as one trust boundary.
+
+* **ECS** runs jobs as containers on a shared cluster of long-lived instances. With `dockerInDocker` enabled, which is the default for Linux, runner containers are privileged. A job running in a privileged container can take over the instance. From there it can access other jobs running on the same instance, and leave processes behind that affect jobs that run on it later. If you bring your own `capacityProvider`, its launch template must also require IMDSv2 with a hop limit of 1, or even unprivileged jobs can take the instance role.
+* **Lambda** reuses execution environments between jobs. A job can leave processes behind that can access or affect later jobs running on the same function. We do clear up `/tmp` between jobs which is the only writable filesystem available.
+
+To keep jobs of different trust levels apart:
+
+* Don't run untrusted code, like pull requests from forks of public repositories, on an ECS or Lambda provider that also runs jobs with access to secrets.
+* Use separate providers for different trust levels. Labels alone don't keep untrusted workflows off a provider, as any workflow can request any label. Use [runner groups](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups) limited to specific repositories or workflows. For ECS, give each provider its own cluster.
+* Disable `dockerInDocker` on ECS if your jobs don't need Docker.
+* If jobs of different trust levels must share a provider, use EC2, CodeBuild, or Fargate. EC2 and CodeBuild also support Docker.
+
+All jobs running on the same provider, regardless of the type, share the provider's IAM role, security groups, network access, and anything granted to `grantPrincipal`, so only grant what every job on the provider may use.
+
+If you are using ECS or Lambda to maximize runner provisioning speed, you could also consider [warm runners](#warm-runners).
+
+## Installation
+
+1. Install and use the appropriate package
+
+   <details><summary>Python</summary>
+
+   ### Install
+
+   Available on [PyPI](https://pypi.org/project/cloudsnorkel.cdk-github-runners).
+
+   ```bash
+   pip install cloudsnorkel.cdk-github-runners
+   ```
+
+   ### Use
+
+   ```python
+   from aws_cdk import App, Stack
+   from cloudsnorkel.cdk_github_runners import GitHubRunners
+
+   app = App()
+   stack = Stack(app, "github-runners")
+   GitHubRunners(stack, "runners")
+
+   app.synth()
+   ```
+
+   </details>
+   <details><summary>TypeScript or JavaScript</summary>
+
+   ### Install
+
+   Available on [npm](https://www.npmjs.com/package/@cloudsnorkel/cdk-github-runners).
+
+   ```bash
+   npm i @cloudsnorkel/cdk-github-runners
+   ```
+
+   ### Use
+
+   ```python
+   import { App, Stack } from 'aws-cdk-lib';
+   import { GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
+
+   const app = new App();
+   const stack = new Stack(app, 'github-runners');
+   new GitHubRunners(stack, 'runners');
+
+   app.synth();
+   ```
+
+   </details>
+   <details><summary>Java</summary>
+
+   ### Install
+
+   Available on [Maven](https://central.sonatype.com/artifact/com.cloudsnorkel/cdk.github.runners/).
+
+   ```xml
+   <dependency>
+      <groupId>com.cloudsnorkel</groupId>
+      <artifactId>cdk.github.runners</artifactId>
+   </dependency>
+   ```
+
+   ### Use
+
+   ```java
+   import software.amazon.awscdk.App;
+   import software.amazon.awscdk.Stack;
+   import com.cloudsnorkel.cdk.github.runners.GitHubRunners;
+
+   public class Example {
+     public static void main(String[] args){
+       App app = new App();
+       Stack stack = new Stack(app, "github-runners");
+       GitHubRunners.Builder.create(stack, "runners").build();
+
+       app.synth();
+     }
+   }
+   ```
+
+   </details>
+   <details><summary>Go</summary>
+
+   ### Install
+
+   Available on [GitHub](https://pkg.go.dev/github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners).
+
+   ```bash
+   go get github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners
+   ```
+
+   ### Use
+
+   ```go
+   package main
+
+   import (
+     "github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners"
+     "github.com/aws/aws-cdk-go/awscdk/v2"
+     "github.com/aws/jsii-runtime-go"
+   )
+
+   func main() {
+     app := awscdk.NewApp(nil)
+     stack := awscdk.NewStack(app, jsii.String("github-runners"), &awscdk.StackProps{})
+     cloudsnorkelcdkgithubrunners.NewGitHubRunners(stack, jsii.String("runners"), &cloudsnorkelcdkgithubrunners.GitHubRunnersProps{})
+
+     app.Synth(nil)
+   }
+   ```
+
+   </details>
+   <details><summary>.NET</summary>
+
+   ### Install
+
+   Available on [Nuget](https://www.nuget.org/packages/CloudSnorkel.Cdk.Github.Runners/).
+
+   ```bash
+   dotnet add package CloudSnorkel.Cdk.Github.Runners
+   ```
+
+   ### Use
+
+   ```csharp
+   using Amazon.CDK;
+   using CloudSnorkel;
+
+   namespace Example
+   {
+     sealed class Program
+     {
+       public static void Main(string[] args)
+       {
+         var app = new App();
+         var stack = new Stack(app, "github-runners");
+         new GitHubRunners(stack, "runners");
+         app.Synth();
+       }
+     }
+   }
+   ```
+
+   </details>
+2. Use `GitHubRunners` construct in your code (starting with default arguments is fine)
+3. Deploy your stack
+4. Look for the status command output similar to `aws --region us-east-1 lambda invoke --function-name status-XYZ123 status.json`
+
+   ```
+    ✅  github-runners-test
+
+   ✨  Deployment time: 260.01s
+
+   Outputs:
+   github-runners-test.runnersstatuscommand4A30F0F5 = aws --region us-east-1 lambda invoke --function-name github-runners-test-runnersstatus1A5771C0-mvttg8oPQnQS status.json
+   ```
+5. Execute the status command (you may need to specify `--profile` too) and open the resulting `status.json` file
+6. Open the URL in `github.setup.url` from `status.json` or [manually setup GitHub](SETUP_GITHUB.md) integration as an app or with personal access token
+7. Run status command again to confirm `github.auth.status` and `github.webhook.status` are OK
+8. Trigger a GitHub action that has a `self-hosted` label with `runs-on: [self-hosted, codebuild]` (or non-default labels you set in step 2)
+9. If the action is not successful, see [troubleshooting](#Troubleshooting)
+
+[![Demo](demo-thumbnail.jpg)](https://youtu.be/wlyv_3V8lIw)
+
+## Customizing
+
+The default providers configured by `GitHubRunners` are useful for testing but probably not too much for actual production work. They run in the default VPC or no VPC and have no added IAM permissions. You would usually want to configure the providers yourself.
+
+For example:
+
+```python
+let vpc: ec2.Vpc;
+let runnerSg: ec2.SecurityGroup;
+let dbSg: ec2.SecurityGroup;
+let bucket: s3.Bucket;
+
+// create a custom CodeBuild provider
+const myProvider = new CodeBuildRunnerProvider(this, 'codebuild runner', {
+   labels: ['my-codebuild'],
+   vpc: vpc,
+   securityGroups: [runnerSg],
+});
+// grant some permissions to the provider
+bucket.grantReadWrite(myProvider);
+dbSg.connections.allowFrom(runnerSg, ec2.Port.tcp(3306), 'allow runners to connect to MySQL database');
+
+// create the runner infrastructure
+new GitHubRunners(this, 'runners', {
+   providers: [myProvider],
+});
+```
+
+Another way to customize runners is by modifying the image used to spin them up. The image contains the [runner](https://github.com/actions/runner), any required dependencies, and integration code with the provider. You may choose to customize this image by adding more packages, for example.
+
+```python
+const myBuilder = FargateRunnerProvider.imageBuilder(this, 'image builder');
+myBuilder.addComponent(
+  RunnerImageComponent.custom({ commands: ['apt install -y nginx xz-utils'] }),
+);
+
+const myProvider = new FargateRunnerProvider(this, 'fargate runner', {
+   labels: ['customized-fargate'],
+   imageBuilder: myBuilder,
+});
+
+// create the runner infrastructure
+new GitHubRunners(this, 'runners', {
+   providers: [myProvider],
+});
+```
+
+Your workflow will then look like:
+
+```yaml
+name: self-hosted example
+on: push
+jobs:
+  self-hosted:
+    runs-on: [self-hosted, customized-fargate]
+    steps:
+      - run: echo hello world
+```
+
+Windows images can also be customized the same way.
+
+```python
+const myWindowsBuilder = FargateRunnerProvider.imageBuilder(this, 'Windows image builder', {
+   architecture: Architecture.X86_64,
+   os: Os.WINDOWS,
+});
+myWindowsBuilder.addComponent(
+   RunnerImageComponent.custom({
+     name: 'Ninja',
+     commands: [
+       'Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip" -OutFile ninja.zip',
+       'Expand-Archive ninja.zip -DestinationPath C:\\actions',
+       'del ninja.zip',
+     ],
+   }),
+);
+
+const myProvider = new FargateRunnerProvider(this, 'fargate runner', {
+   labels: ['customized-windows-fargate'],
+   imageBuilder: myWindowsBuilder,
+});
+
+new GitHubRunners(this, 'runners', {
+   providers: [myProvider],
+});
+```
+
+The runner OS and architecture is determined by the image it is set to use. For example, to create a Fargate runner provider for ARM64 set the `architecture` property for the image builder to `Architecture.ARM64` in the image builder properties.
+
+```python
+new GitHubRunners(this, 'runners', {
+   providers: [
+      new FargateRunnerProvider(this, 'fargate runner', {
+         labels: ['arm64', 'fargate'],
+         imageBuilder: FargateRunnerProvider.imageBuilder(this, 'image builder', {
+            architecture: Architecture.ARM64,
+            os: Os.LINUX_UBUNTU,
+         }),
+      }),
+   ],
+});
+```
+
+### Composite Providers
+
+Composite providers allow you to combine multiple runner providers with different strategies. There are two types:
+
+**Fallback Strategy**: Try providers in order until one succeeds. Useful for trying spot instances first, then falling back to on-demand if spot capacity is unavailable.
+
+```python
+// Try spot instances first, fall back to on-demand if spot is unavailable
+const ecsFallback = CompositeProvider.fallback(this, 'ECS Fallback', [
+  new EcsRunnerProvider(this, 'ECS Spot', {
+    labels: ['ecs', 'linux', 'x64'],
+    spot: true,
+    // ... other config
+  }),
+  new EcsRunnerProvider(this, 'ECS On-Demand', {
+    labels: ['ecs', 'linux', 'x64'],
+    spot: false,
+    // ... other config
+  }),
+]);
+
+new GitHubRunners(this, 'runners', {
+  providers: [ecsFallback],
+});
+```
+
+**Weighted Distribution Strategy**: Randomly select a provider based on weights. Useful for distributing load across multiple availability zones or instance types.
+
+```python
+// Distribute 60% of traffic to AZ-1, 40% to AZ-2
+const distributedProvider = CompositeProvider.distribute(this, 'Fargate Distribution', [
+  {
+    weight: 3, // 3/(3+2) = 60%
+    provider: new FargateRunnerProvider(this, 'Fargate AZ-1', {
+      labels: ['fargate', 'linux', 'x64'],
+      subnetSelection: vpc.selectSubnets({
+        availabilityZones: [vpc.availabilityZones[0]],
+      }),
+      // ... other config
+    }),
+  },
+  {
+    weight: 2, // 2/(3+2) = 40%
+    provider: new FargateRunnerProvider(this, 'Fargate AZ-2', {
+      labels: ['fargate', 'linux', 'x64'],
+      subnetSelection: vpc.selectSubnets({
+        availabilityZones: [vpc.availabilityZones[1]],
+      }),
+      // ... other config
+    }),
+  },
+]);
+
+new GitHubRunners(this, 'runners', {
+  providers: [distributedProvider],
+});
+```
+
+**Important**: All providers in a composite must have the exact same labels. This ensures any provisioned runner can match the labels requested by the GitHub workflow job.
+
+### Custom Provider Selection
+
+By default, providers are selected based on label matching: the first provider that has all the labels requested by the job is selected. You can customize this behavior using a provider selector Lambda function to:
+
+* Filter out certain jobs (prevent runner provisioning)
+* Dynamically select a provider based on job characteristics (repository, branch, time of day, etc.)
+* Customize labels for the runner (add, remove, or modify labels dynamically)
+
+The selector function receives the full GitHub webhook payload, a map of all available providers and their labels, and the default provider/labels that would have been selected. It returns the provider to use (or `undefined` to skip runner creation) and the labels to assign to the runner.
+
+**Example: Route jobs to different providers based on repository**
+
+```python
+import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
+import { Function, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { GitHubRunners, CodeBuildRunnerProvider } from '@cloudsnorkel/cdk-github-runners';
+
+const defaultProvider = new CodeBuildRunnerProvider(this, 'default', {
+  labels: ['custom-runner', 'default'],
+});
+const productionProvider = new CodeBuildRunnerProvider(this, 'production', {
+  labels: ['custom-runner', 'production'],
+  computeType: ComputeType.LARGE,
+});
+
+const providerSelector = new Function(this, 'provider-selector', {
+  runtime: Runtime.NODEJS_LATEST,
+  handler: 'index.handler',
+  code: Code.fromInline(`
+    exports.handler = async (event) => {
+      const { payload, providers, defaultProvider, defaultLabels } = event;
+
+      // Route production repos to dedicated provider
+      if (payload.repository.name.includes('prod')) {
+        return {
+          provider: '${productionProvider.node.path}',
+          labels: ['custom-runner', 'production', 'modified-via-selector'],
+        };
+      }
+
+      // Filter out draft PRs
+      if (payload.workflow_job.head_branch?.startsWith('draft/')) {
+        return { provider: undefined }; // Skip runner provisioning
+      }
+
+      // Use default for everything else
+      return {
+        provider: defaultProvider,
+        labels: defaultLabels,
+      };
+    };
+  `),
+});
+
+new GitHubRunners(this, 'runners', {
+   providers: [defaultProvider, productionProvider],
+   providerSelector: providerSelector,
+});
+```
+
+**Example: Add dynamic labels based on job metadata**
+
+```python
+const providerSelector = new Function(this, 'provider-selector', {
+  runtime: Runtime.NODEJS_LATEST,
+  handler: 'index.handler',
+  code: Code.fromInline(`
+    exports.handler = async (event) => {
+      const { payload, defaultProvider, defaultLabels } = event;
+
+      // Add branch name as a label
+      const branch = payload.workflow_job.head_branch || 'unknown';
+      const labels = [...(defaultLabels || []), 'branch:' + branch];
+
+      return {
+        provider: defaultProvider,
+        labels: labels,
+      };
+    };
+  `),
+});
+```
+
+**Important considerations:**
+
+* ⚠️ **Label matching responsibility**: You are responsible for ensuring the selected provider's labels match what the job requires. If labels don't match, the runner will be provisioned but GitHub Actions won't assign the job to it.
+* ⚠️ **No guarantee of assignment**: Provider selection only determines which provider will provision a runner. GitHub Actions may still route the job to any available runner with matching labels. For reliable provider assignment, consider repo-level runner registration (the default).
+* ⚡ **Performance**: The selector runs synchronously during webhook processing. Keep it fast and efficient—the webhook has a 30-second timeout total.
+
+### Warm Runners
+
+Warm runners are pre-provisioned and stay idle until a job arrives, reducing startup latency. Use `AlwaysOnWarmRunner` for 24/7 pools or `ScheduledWarmRunner` for time-windowed pools. You specify the provider directly.
+
+```python
+import { AlwaysOnWarmRunner, CodeBuildRunnerProvider, GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
+
+const provider = new CodeBuildRunnerProvider(this, 'provider', { labels: ['codebuild', 'linux'] });
+const runners = new GitHubRunners(this, 'runners', { providers: [provider] });
+
+new AlwaysOnWarmRunner(this, 'warm', {
+  runners,
+  provider,
+  count: 2,
+  owner: 'my-org',
+  repo: 'my-repo',
+});
+```
+
+Warm runner pools can be stacked. If you want 2 warm runners always available but 3 during peak work hours, you can create one pool with 2 runners always on and another pool with 1 runner during work hours.
+
+```python
+import { aws_events as events, Duration } from 'aws-cdk-lib';
+import { AlwaysOnWarmRunner, ScheduledWarmRunner, CodeBuildRunnerProvider, GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
+
+const provider = new CodeBuildRunnerProvider(this, 'provider', { labels: ['codebuild', 'linux'] });
+const runners = new GitHubRunners(this, 'runners', { providers: [provider] });
+
+new AlwaysOnWarmRunner(this, 'warm', {
+  runners,
+  provider,
+  count: 2,
+  owner: 'my-org',
+  repo: 'my-repo',
+});
+
+new ScheduledWarmRunner(this, 'work hours warm', {
+  runners,
+  provider,
+  count: 1,
+  owner: 'my-org',
+  repo: 'my-repo',
+  schedule: events.Schedule.cron({ hour: '13', minute: '0', weekDay: 'MON-FRI' }),
+  duration: Duration.hours(2),
+});
+```
+
+See the [warm-runners example](examples/typescript/warm-runners/) for a complete setup.
+
+## Examples
+
+We provide comprehensive examples in the [`examples/`](examples/) folder to help you get started quickly:
+
+### Getting Started
+
+* **[Simple CodeBuild](examples/typescript/simple-codebuild/)** - Basic setup with just a CodeBuild provider (also available in [Python](examples/python/simple-codebuild/))
+* **[Warm Runners](examples/typescript/warm-runners/)** - Pre-provisioned runners for low-latency job starts (also available in [Python](examples/python/warm-runners/))
+
+### Provider Configuration
+
+* **[Composite Provider](examples/typescript/composite-provider/)** - Fallback and weighted distribution strategies (also available in [Python](examples/python/composite-provider/))
+* **[Provider Selector](examples/typescript/provider-selector/)** - Custom provider selection with Lambda function (also available in [Python](examples/python/provider-selector/))
+* **[EC2 Windows Provider](examples/typescript/ec2-windows-provider/)** - EC2 configuration for Windows runners (also available in [Python](examples/python/ec2-windows-provider/))
+* **[Split Stacks](examples/typescript/split-stacks/)** - Split image builders and providers across multiple stacks (also available in [Python](examples/python/split-stacks/))
+
+### Compute & Performance
+
+* **[Compute Options](examples/typescript/compute-options/)** - Configure CPU, memory, and instance types for different providers (also available in [Python](examples/python/compute-options/))
+* **[Spot Instances](examples/typescript/spot-instances/)** - Use spot instances for cost savings across EC2, Fargate, and ECS (also available in [Python](examples/python/spot-instances/))
+* **[Storage Options](examples/typescript/storage-options/)** - Custom EBS storage options for EC2 runners (also available in [Python](examples/python/storage-options/))
+* **[ECS Scaling](examples/typescript/ecs-scaling/)** - Custom autoscaling group scaling policies for ECS providers (also available in [Python](examples/python/ecs-scaling/))
+
+### Security & Access
+
+* **[IAM Permissions](examples/typescript/iam-permissions/)** - Grant AWS IAM permissions to runners (also available in [Python](examples/python/iam-permissions/))
+* **[Network Access](examples/typescript/network-access/)** - Configure network access with VPCs and security groups (also available in [Python](examples/python/network-access/))
+* **[Access Control](examples/typescript/access-control/)** - Configure access control for webhook and setup functions (also available in [Python](examples/python/access-control/))
+
+### Customization
+
+* **[Add Software](examples/typescript/add-software/)** - Add custom software to runner images (also available in [Python](examples/python/add-software/))
+* **[Job Hooks](examples/typescript/job-hooks/)** - Run a script before every job using GitHub Actions runner hooks (also available in [Python](examples/python/job-hooks/))
+* **[GPU](examples/typescript/gpu/)** - GPU support with NVIDIA drivers across EC2, CodeBuild, and ECS (also available in [Python](examples/python/gpu/))
+
+### Enterprise & Monitoring
+
+* **[GHES](examples/typescript/ghes/)** - Configure runners for GitHub Enterprise Server (also available in [Python](examples/python/ghes/))
+* **[Monitoring](examples/typescript/monitoring/)** - Set up CloudWatch alarms and SNS notifications (also available in [Python](examples/python/monitoring/))
+
+Each example is self-contained with its own dependencies and README. Start with the simple examples and work your way up to more advanced configurations.
+
+Another good and very full example is the [integration test](test/default.integ.ts).
+
+If you have more to share, please open a PR adding examples to the `examples` folder.
+
+## Architecture
+
+![Architecture diagram](architecture.svg)
+
+## Troubleshooting
+
+Runners are started in response to a webhook coming in from GitHub. If there are any issues starting the runner like missing capacity or transient API issues, the provider will keep retrying for 24 hours. GitHub itself will cancel the job if it can't find a runner for 24 hours. If your jobs don't start, follow the steps below to examine all parts of this workflow.
+
+Configuration problems that we can detect up-front fail the orchestrator with a `RunnerConfigurationError` before any instance, build, or task is started. The error message says what needs to be fixed. These are still retried like any other error, so a configuration fixed within the 24 hours GitHub keeps the job queued still gets a runner and the job still runs.
+
+1. Always start with the status function, make sure no errors are reported, and confirm all status codes are OK
+2. Make sure `runs-on` in the workflow matches the expected labels set in the runner provider
+3. Diagnose relevant executions of the orchestrator step function by visiting the URL in `troubleshooting.stepFunctionUrl` from `status.json`
+
+   1. If the execution failed, check your runner provider configuration for errors
+   2. If the execution is still running for a long time, check the execution events to see why runner starting is being retried
+   3. If there are no relevant executions, move to the next step
+4. Confirm the webhook Lambda was called by visiting the URL in `troubleshooting.webhookHandlerUrl` from `status.json`
+
+   1. If it's not called or logs errors, confirm the webhook settings on the GitHub side
+   2. If you see too many errors, make sure you're only sending `workflow_job` events
+5. When using GitHub app, make sure there are active installations in `github.auth.app.installations`
+6. If runners start but never pick up a job and get stopped with `IdleRunner`, their runner version may be too old. Runners can't update themselves, and GitHub stops sending jobs to runners that are not updated within 30 days of a new runner release, or right away for a critical security update. [Rebuild your runner images](#rebuilding-runner-images) to fix it
+
+All logs are saved in CloudWatch.
+
+* Log group names can be found in `status.json` for each provider, image builder, and other parts of the system
+* Some useful Logs Insights queries can be enabled with `GitHubRunners.createLogsInsightsQueries()`
+
+To get `status.json`, check out the CloudFormation stack output for a command that generates it. The command looks like:
+
+```
+aws --region us-east-1 lambda invoke --function-name status-XYZ123 status.json
+```
+
+### Rebuilding runner images
+
+Runner images are rebuilt every `rebuildInterval` (7 days by default). To rebuild all of them right now, run this with the name of the every stack your runners are built in. It starts every image builder in the stack and prints the build ids. Runners pick up the new images as soon as the builds finish.
+
+```sh
+STACK=my-runners-stack
+resources() {
+  aws cloudformation list-stack-resources --stack-name "$STACK" --output text \
+    --query "StackResourceSummaries[?ResourceType=='$1'].PhysicalResourceId"
+}
+for project in $(resources AWS::CodeBuild::Project); do
+  # skip runner projects of CodeBuild providers, we only want image builders
+  aws codebuild batch-get-projects --names "$project" --output text --query 'projects[0].description' \
+    | grep -q '^Build docker image for self-hosted GitHub runner' \
+    && aws codebuild start-build --project-name "$project" --output text --query 'build.id'
+done
+for pipeline in $(resources AWS::ImageBuilder::ImagePipeline); do
+  aws imagebuilder start-image-pipeline-execution --image-pipeline-arn "$pipeline" --output text --query 'imageBuildVersionArn'
+done
+```
+
+Make sure you use `failedImageBuildsTopic()` to get notified of any failed builds.
+
+## Monitoring
+
+There are three important ways to monitor your runners:
+
+1. Make sure runners don't fail to start. When that happens, jobs may sit and wait. Use `GitHubRunners.metricFailed()` to get a metric for the number of failed runner starts. You should use this metric to trigger an alarm.
+2. Make sure our management functions don't fail. When that happens, webhooks may be dropped and jobs may never get a runner. Use `GitHubRunners.metricLambdaErrors()` to get a metric for the number of failed invocations across all management Lambda functions. You should use this metric to trigger an alarm.
+3. Make sure runner images don't fail to build. Failed runner image builds mean you will get stuck with out-of-date software on your runners. It may lead to security vulnerabilities, or it may lead to slower runner start-ups as the runner software itself needs to be updated. Use `GitHubRunners.failedImageBuildsTopic()` to get SNS topic that gets notified of failed runner image builds. You should subscribe to this topic.
+
+Other useful metrics to track:
+
+1. Use `GitHubRunners.metricJobCompleted()` to get a metric for the number of completed jobs broken down by labels and job success.
+2. Use `GitHubRunners.metricTime()` to get a metric for the total time a runner is running. This includes the overhead of starting the runner.
+3. Use `GitHubRunners.metricStolenRunners()` to get a metric for number of runners detected as stolen by another job. Anything over zero can indicate a misconfiguration or GitHub webhook issues.
+
+Use `GitHubRunners.createDashboard()` to get a CloudWatch dashboard with all of these metrics in one place. It shows
+completed jobs by status, failed jobs by runner label, runners that failed to start, runner time, webhook activity, and
+recent errors from the logs.
+
+## Known Issues
+
+1. Runner images built during a failed deployment are not rolled back. If your stack fails to deploy after an image was already built, the new image will stay in use. The image will be automatically replaced on the next build interval, but that might take up to 7 days with default settings (`rebuildInterval`). It's recommended to not leave stacks in `UPDATE_ROLLBACK_COMPLETE` state. Deploying again with the configuration you want will rebuild the images and get everything back in sync.
+2. Library downgrades are not well tested. We work hard to keep backwards compatibility, but downgrading to an older version of the library may lead to unexpected issues. For example, downgrading from 0.16.1 may result in runner images being deleted. They will be rebuilt on the next build interval, but that might take up to 7 days with default settings (`rebuildInterval`). It's recommended to not downgrade the library unless you know what you're doing.
+
+## Getting Help
+
+Need help? We're here for you!
+
+* 💬 **GitHub Discussions**: Ask questions, share ideas, or get help from the community by opening a [discussion](https://github.com/CloudSnorkel/cdk-github-runners/discussions)
+* 🐛 **GitHub Issues**: Report bugs or request features by opening an [issue](https://github.com/CloudSnorkel/cdk-github-runners/issues)
+* 💬 **Discord**: Join our [Discord community](https://discord.gg/vdrTUTqQKv) for real-time help and discussions
+
+## Contributing
+
+If you use and love this project, please consider contributing.
+
+1. 🪳 If you see something, say something. [Issues](https://github.com/CloudSnorkel/cdk-github-runners/issues) help improve the quality of the project.
+
+   * Include relevant logs and package versions for bugs.
+   * When possible, describe the use-case behind feature requests.
+2. 🛠️ [Pull requests](https://github.com/CloudSnorkel/cdk-github-runners/pulls) are welcome.
+
+   * Run `npm run build` before submitting to make sure all tests pass.
+   * Allow edits from maintainers so small adjustments can be made easily.
+3. 💵 Consider [sponsoring](https://github.com/sponsors/CloudSnorkel) the project to show your support and optionally get your name listed below.
+
+## Sponsors
+
+Thanks to our generous sponsors who helped make this project possible!
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/threat-down">
+        <img src="https://github.com/threat-down.png?size=100" width="100" height="100" alt="ThreatDown" />
+        <br />
+        <sub><b>ThreatDown</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/magicbell">
+        <img src="https://github.com/magicbell.png?size=100" width="100" height="100" alt="MagicBell" />
+        <br />
+        <sub><b>MagicBell</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/fragment-dev">
+        <img src="https://github.com/fragment-dev.png?size=100" width="100" height="100" alt="Fragment" />
+        <br />
+        <sub><b>Fragment</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/qnicondavid">
+        <img src="https://github.com/qnicondavid.png?size=100" width="100" height="100" alt="Nicon-David Milandru" />
+        <br />
+        <sub><b>Nicon-David Milandru</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/andresionek91">
+        <img src="https://github.com/andresionek91.png?size=100" width="100" height="100" alt="Andre Sionek" />
+        <br />
+        <sub><b>Andre Sionek</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+## Other Options
+
+1. [github-aws-runners/terraform-aws-github-runner](https://github.com/github-aws-runners/terraform-aws-github-runner) if you're using Terraform
+2. [actions/actions-runner-controller](https://github.com/actions/actions-runner-controller) if you're using Kubernetes

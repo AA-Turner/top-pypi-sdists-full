@@ -1,0 +1,10 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python']
+
+[project]
+name = 'register-pkg-config-path'
+version = '1.0.0'
+
+[project.entry-points.pkg_config]
+register-pkg-config-path = 'register_pkg_config_path.pkgconf'

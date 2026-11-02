@@ -1,0 +1,201 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-rust-tools/action.yml
+# Purpose:   Install the pinned Rust audit tools (cargo-audit, cargo-deny,
+#            cargo-semver-checks)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# Upstream ships static binaries, so these are fetched rather than compiled with
+# `cargo install`.
+#
+# NO `command -v` SHORT-CIRCUIT, DELIBERATELY. A "skip if already installed" guard
+# makes the pin inert wherever a copy is already on PATH: hosted runners restore
+# `~/.cargo/bin` from the cargo cache, so a warm pre-migration entry keeps
+# resolving OLD binaries (measured: a cached cargo-audit 0.18.3 satisfying a
+# v0.22.2 pin, exit 0, green), and an older ARC image still bakes unpinned copies.
+# Downloading unconditionally costs seconds, and GITHUB_PATH PREPENDS, so the
+# pinned copy wins.
+#
+# Upstream naming differs, which is why this does not collapse into one loop:
+#   cargo-audit  rustsec/rustsec, MONOREPO - tag `cargo-audit/vX.Y.Z`,
+#                asset `cargo-audit-<target>-vX.Y.Z.tgz`  (version LAST, .tgz)
+#                and aarch64 ships gnu only, no musl.
+#   cargo-deny   tag `X.Y.Z` with NO leading v,
+#                asset `cargo-deny-X.Y.Z-<target>.tar.gz` (version MIDDLE)
+#   cargo-semver-checks
+#                tag `vX.Y.Z`, asset `cargo-semver-checks-<target>.tar.gz`
+#                (NO version in the asset name), gnu build, binary at the
+#                tarball ROOT rather than nested.
+# The first two nest the binary one level down.
+#
+# Versions AND per-arch sha256 digests are pinned in
+# src/hyperi_ci/config/versions.yaml (`tools:`) and mirrored here by
+# scripts/update-versions.py --apply. Do not hand-edit the marked lines.
+#
+# The digest is the pin that matters: a release asset can be deleted and
+# re-uploaded under the same tag, so a tag alone is not integrity (issue #66).
+# A mismatch fails the step rather than installing.
+#
+# cargo-audit and cargo-semver-checks publish no checksum file, so their
+# digests rest on our own download rather than a second source.
+#
+# Referenced from reusable workflows as
+#   hyperi-io/hyperi-ci/.github/actions/setup-rust-tools@main
+
+name: Setup Rust tools
+description: Install the pinned cargo-audit, cargo-deny and cargo-semver-checks (Linux runners)
+
+inputs:
+  cargo-audit-version:
+    description: cargo-audit release tag to pin (upstream tags carry a `v`)
+    required: false
+    # hyperi-ci:pin tools.cargo-audit
+    default: v0.22.2
+  cargo-deny-version:
+    description: cargo-deny release tag to pin (upstream tags have NO `v`)
+    required: false
+    # hyperi-ci:pin tools.cargo-deny
+    default: 0.20.2
+  cargo-audit-sha256-amd64:
+    description: sha256 of the x86_64-musl cargo-audit tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-audit.sha256.amd64
+    default: 7fb9497f8594b389e5fce5ef9b92db08432996895b2e0c5a0167a69ed445c428
+  cargo-audit-sha256-arm64:
+    description: sha256 of the aarch64-gnu cargo-audit tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-audit.sha256.arm64
+    default: c6603814ddaa45e51263dafd31c0ac98808f688d26f7395804f9670b0fd599dd
+  cargo-deny-sha256-amd64:
+    description: sha256 of the x86_64-musl cargo-deny tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-deny.sha256.amd64
+    default: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+  cargo-deny-sha256-arm64:
+    description: sha256 of the aarch64-musl cargo-deny tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-deny.sha256.arm64
+    default: 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
+  cargo-semver-checks-version:
+    description: cargo-semver-checks release tag to pin (upstream tags carry a `v`)
+    required: false
+    # hyperi-ci:pin tools.cargo-semver-checks
+    default: v0.51.0
+  cargo-semver-checks-sha256-amd64:
+    description: sha256 of the x86_64-gnu cargo-semver-checks tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-semver-checks.sha256.amd64
+    default: cacadafaa5cd27ae6d05a74a103266917ebab4c5e43c898360e177d4fbf06a65
+  cargo-semver-checks-sha256-arm64:
+    description: sha256 of the aarch64-gnu cargo-semver-checks tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-semver-checks.sha256.arm64
+    default: 58531fa492d237c71b97d113a6d2a36209d96105956569cd0406aa66226ac928
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust audit tools
+      # No `|| true`: the quality stage runs these and silent absence would mask
+      # supply-chain risks.
+      shell: bash
+      # Inputs travel as env, so a workflow input is never read as shell.
+      env:
+        AUDIT_VERSION: ${{ inputs.cargo-audit-version }}
+        DENY_VERSION: ${{ inputs.cargo-deny-version }}
+        SEMVER_VERSION: ${{ inputs.cargo-semver-checks-version }}
+        AUDIT_SHA_AMD64: ${{ inputs.cargo-audit-sha256-amd64 }}
+        DENY_SHA_AMD64: ${{ inputs.cargo-deny-sha256-amd64 }}
+        SEMVER_SHA_AMD64: ${{ inputs.cargo-semver-checks-sha256-amd64 }}
+        AUDIT_SHA_ARM64: ${{ inputs.cargo-audit-sha256-arm64 }}
+        DENY_SHA_ARM64: ${{ inputs.cargo-deny-sha256-arm64 }}
+        SEMVER_SHA_ARM64: ${{ inputs.cargo-semver-checks-sha256-arm64 }}
+      run: |
+        set -euo pipefail
+        case "$(uname -m)" in
+          x86_64)
+            AUDIT_TARGET=x86_64-unknown-linux-musl
+            DENY_TARGET=x86_64-unknown-linux-musl
+            SEMVER_TARGET=x86_64-unknown-linux-gnu
+            AUDIT_SHA="$AUDIT_SHA_AMD64"
+            DENY_SHA="$DENY_SHA_AMD64"
+            SEMVER_SHA="$SEMVER_SHA_AMD64"
+            ;;
+          aarch64 | arm64)
+            # cargo-audit publishes no aarch64 musl build, only gnu.
+            AUDIT_TARGET=aarch64-unknown-linux-gnu
+            DENY_TARGET=aarch64-unknown-linux-musl
+            SEMVER_TARGET=aarch64-unknown-linux-gnu
+            AUDIT_SHA="$AUDIT_SHA_ARM64"
+            DENY_SHA="$DENY_SHA_ARM64"
+            SEMVER_SHA="$SEMVER_SHA_ARM64"
+            ;;
+          *) echo "::error::unsupported arch $(uname -m) for Rust tools"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+        # A pinned tag is not integrity: a release asset can be deleted and
+        # re-uploaded under the same tag. Verification needs the whole file, so
+        # the download cannot pipe straight into tar.
+        fetch() {  # $1=url  $2=expected sha256  $3=dest file
+          curl -fsSL --connect-timeout 10 --max-time 300 --retry 7 --retry-all-errors --retry-max-time 600 -o "$3" "$1"
+          echo "$2  $3" | sha256sum -c - >/dev/null || {
+            echo "::error::$1 failed its sha256 check - refusing to install"
+            echo "  expected $2"
+            echo "  got      $(sha256sum "$3" | cut -d' ' -f1)"
+            exit 1
+          }
+        }
+
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+
+        AUDIT="$AUDIT_VERSION"
+        # Monorepo tag: the `/` must be percent-encoded in the download URL.
+        fetch \
+          "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2F${AUDIT}/cargo-audit-${AUDIT_TARGET}-${AUDIT}.tgz" \
+          "$AUDIT_SHA" "$TMP/cargo-audit.tgz"
+        tar xz -C "$HOME/.local/bin" --strip-components=1 -f "$TMP/cargo-audit.tgz" \
+          "cargo-audit-${AUDIT_TARGET}-${AUDIT}/cargo-audit"
+
+        DENY="$DENY_VERSION"
+        fetch \
+          "https://github.com/EmbarkStudios/cargo-deny/releases/download/${DENY}/cargo-deny-${DENY}-${DENY_TARGET}.tar.gz" \
+          "$DENY_SHA" "$TMP/cargo-deny.tar.gz"
+        tar xz -C "$HOME/.local/bin" --strip-components=1 -f "$TMP/cargo-deny.tar.gz" \
+          "cargo-deny-${DENY}-${DENY_TARGET}/cargo-deny"
+
+        SEMVER="$SEMVER_VERSION"
+        # No nesting in this one: the binary is the tarball's only entry, so
+        # no --strip-components and no path prefix to name.
+        fetch \
+          "https://github.com/obi1kenobi/cargo-semver-checks/releases/download/${SEMVER}/cargo-semver-checks-${SEMVER_TARGET}.tar.gz" \
+          "$SEMVER_SHA" "$TMP/cargo-semver-checks.tar.gz"
+        tar xz -C "$HOME/.local/bin" -f "$TMP/cargo-semver-checks.tar.gz" cargo-semver-checks
+
+    - name: Verify Rust tools match the pin
+      # ASSERT, don't just print - see the note in setup-go-tools. Separate step
+      # so the install step's GITHUB_PATH prepend is live, which is what makes
+      # the pinned copy shadow a baked or cache-restored one.
+      shell: bash
+      env:
+        AUDIT_WANT: ${{ inputs.cargo-audit-version }}
+        DENY_WANT: ${{ inputs.cargo-deny-version }}
+        SEMVER_WANT: ${{ inputs.cargo-semver-checks-version }}
+      run: |
+        set -uo pipefail
+        fail=0
+        assert() {  # $1=tool  $2=want substring  $3=actual --version output
+          if printf '%s' "$3" | grep -qF -- "$2"; then
+            echo "ok   $1: $2"
+          else
+            echo "::error::$1: expected version $2, got: $3"
+            fail=1
+          fi
+        }
+        assert cargo-audit "${AUDIT_WANT#v}" "$(cargo-audit --version 2>&1)"
+        assert cargo-deny  "${DENY_WANT#v}"  "$(cargo-deny --version 2>&1)"
+        assert cargo-semver-checks "${SEMVER_WANT#v}" "$(cargo-semver-checks --version 2>&1)"
+        exit "$fail"

@@ -1,5 +1,8 @@
+import hypothesis
 import pytest
 import strawberry
+
+import schemathesis
 
 pytestmark = pytest.mark.usefixtures("book_id_scalar")
 
@@ -25,45 +28,17 @@ def test_stateful_finds_non_id_chain_bug(ctx, cli, snapshot_cli):
 
 @pytest.mark.parametrize(
     "make_api",
-    [lambda apps: apps.bare_slug(), lambda apps: apps.relay_connection()],
-    ids=["bare-slug-arg", "relay-connection-producer"],
+    [
+        lambda apps: apps.bare_slug(),
+        lambda apps: apps.relay_connection(),
+        lambda apps: apps.use_after_delete(),
+        lambda apps: apps.double_delete(),
+    ],
+    ids=["bare-slug-arg", "relay-connection-producer", "use-after-delete", "double-delete"],
 )
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_finds_non_id_lookup_bug(ctx, cli, snapshot_cli, make_api):
-    # Bare `slug` resolves via the enclosing return type; the producer may be a Relay connection.
-    api = make_api(ctx.graphql.apps)
-    assert (
-        cli.run(
-            api.schema_url,
-            "--no-shrink",
-            "--max-examples=20",
-            "--seed=1",
-            "--phases=stateful",
-            "-m",
-            "positive",
-            "-c",
-            "not_a_server_error",
-        )
-        == snapshot_cli
-    )
-
-
-def _use_after_delete(apps):
-    return apps.use_after_delete()
-
-
-def _double_delete(apps):
-    return apps.double_delete()
-
-
-@pytest.mark.parametrize(
-    "make_api",
-    [_use_after_delete, _double_delete],
-    ids=["use-after-delete", "double-delete"],
-)
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_finds_tombstone_bugs(ctx, cli, snapshot_cli, make_api):
-    # Tombstones expose use-after-delete and double-delete on a known-deleted resource.
+def test_stateful_finds_captured_value_bug(ctx, cli, snapshot_cli, make_api):
+    # Bare `slug` resolves via the enclosing return type; tombstones expose reads and deletes of a deleted resource.
     api = make_api(ctx.graphql.apps)
     assert (
         cli.run(
@@ -192,3 +167,51 @@ def test_stateful_feeds_ids_captured_through_mutation_payloads(ctx, cli):
         "updateNote": True,
         "deleteNote": True,
     }
+
+
+def test_hooks_apply_once_to_stateful_cases(ctx):
+    @strawberry.type
+    class Book:
+        id: strawberry.ID
+
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def book(self, id: strawberry.ID) -> Book | None:
+            return None
+
+    @strawberry.type
+    class Mutation:
+        @strawberry.mutation
+        def addBook(self, title: str) -> Book:
+            return Book(id=strawberry.ID("1"))
+
+    api = ctx.graphql.apps.from_schema(strawberry.Schema(Query, Mutation))
+    schema = schemathesis.graphql.from_url(api.schema_url)
+    seen = set()
+
+    def increment(name):
+        def hook(context, headers):
+            headers = headers or {}
+            headers[name] = str(int(headers.get(name, "0")) + 1)
+            return headers
+
+        return hook
+
+    def before_call(context, case, kwargs):
+        seen.add((case.headers["X-Global"], case.headers["X-Schema"]))
+
+    with ctx.restore_hooks():
+        schemathesis.hook(before_call)
+        schemathesis.hook("map_headers")(increment("X-Global"))
+        schema.hook("map_headers")(increment("X-Schema"))
+        schema.as_state_machine().run(
+            settings=hypothesis.settings(
+                max_examples=5,
+                deadline=None,
+                database=None,
+                phases=[hypothesis.Phase.generate],
+                suppress_health_check=list(hypothesis.HealthCheck),
+            )
+        )
+    assert seen == {("1", "1")}

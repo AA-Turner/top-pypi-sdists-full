@@ -1,0 +1,696 @@
+from __future__ import annotations
+
+import base64
+from dataclasses import dataclass
+from enum import StrEnum
+import hashlib
+from html.parser import HTMLParser
+from pathlib import Path, PurePosixPath
+import re
+import stat
+import sys
+import tarfile
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Protocol, final
+from urllib.parse import urlsplit
+import zipfile
+
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError  # ruff: ignore[banned-api] -- generic JSON/schema infrastructure validates open typed mappings, rather than a domain object.
+import typer
+
+from repo_standards.core.canonical import canonical_json, canonical_path
+from repo_standards.core.errors import ConfigurationError
+from repo_standards.core.models import JSONValue
+from repo_standards.site import WEBSITE_URL
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+ORGANIZATION_REFERENCE = re.compile(
+    rb"(?:@|github\.com/|uses:\s*)sarj-ai/([a-z0-9._-]+)", re.IGNORECASE
+)
+EMAIL_ADDRESS = re.compile(rb"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}", re.IGNORECASE)
+PERSONAL_HOME_PATH = re.compile(
+    rf"(?:/{'Users'}/|/{'home'}/|[A-Z]:\\\\{'Users'}\\\\)[a-z0-9._-]+".encode(),
+    re.IGNORECASE,
+)
+ALLOWED_REPOSITORIES = frozenset({b"repo-standards", b"code-standards", b"standards"})
+ALLOWED_EMAILS = frozenset({b"api.github.com@evil.example", b"git@github.com", b"token@github.com"})
+SITE_SUFFIXES = frozenset(
+    {
+        ".css",
+        ".html",
+        ".ico",
+        ".js",
+        ".json",
+        ".png",
+        ".svg",
+        ".txt",
+        ".webmanifest",
+        ".webp",
+        ".woff",
+        ".woff2",
+        ".xml",
+    }
+)
+_SITE_PREFIX = PurePosixPath(urlsplit(WEBSITE_URL).path.lstrip("/"))
+REQUIRED_SITE_FILES = frozenset(
+    {
+        "api/catalog.json",
+        "api/catalog.schema.json",
+        "health.json",
+        "git-policies/index.html",
+        "index.html",
+        "rules/index.html",
+    }
+)
+WHEEL_METADATA_FILES = frozenset(
+    {"METADATA", "RECORD", "WHEEL", "entry_points.txt", "licenses/LICENSE"}
+)
+SDIST_ROOT_FILES = frozenset(
+    {"LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "pyproject.toml.orig"}
+)
+
+
+class UnsafeArtifactPathError(RuntimeError):
+    def __init__(self, path: str) -> None:
+        super().__init__(f"unsafe artifact path: {path}")
+
+
+class UnreadableSdistMemberError(RuntimeError):
+    def __init__(self, path: PurePosixPath) -> None:
+        super().__init__(f"unreadable source distribution member: {path}")
+
+
+class WheelMetadataError(RuntimeError):
+    def __init__(self) -> None:
+        super().__init__("wheel must contain exactly one METADATA file")
+
+
+@dataclass(frozen=True)
+class ArtifactMember:
+    path: PurePosixPath
+    content: bytes
+    symbolic_link: bool = False
+
+
+@dataclass(frozen=True)
+class WheelMetadata:
+    values: dict[str, list[str]]
+    dist_info: str
+
+
+class SiteCatalogModel(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", frozen=True)
+
+
+class SiteExample(SiteCatalogModel):
+    id: str
+
+
+class SiteRule(SiteCatalogModel):
+    rule_id: str
+    slug: str
+    title: str
+    examples: tuple[SiteExample, ...]
+
+
+class SiteProvenance(SiteCatalogModel):
+    content_digest: str
+
+
+class SiteSchema(SiteCatalogModel):
+    schema_id: str
+    document: dict[str, JSONValue]
+
+
+class SiteCatalog(SiteCatalogModel):
+    kind: Literal["repo-standards.catalog"]
+    provenance: SiteProvenance
+    rules: tuple[SiteRule, ...]
+    schemas: tuple[SiteSchema, ...]
+
+
+_JSON_OBJECT = TypeAdapter(dict[str, JSONValue])
+
+
+class _SchemaValidator(Protocol):
+    def validate(self, instance: JSONValue) -> None: ...
+
+
+class HTMLTag(StrEnum):
+    A = "a"
+    H1 = "h1"
+    MAIN = "main"
+    META = "meta"
+    NAV = "nav"
+    SCRIPT = "script"
+    TITLE = "title"
+
+
+@final
+class PageSemantics(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.main_count = 0
+        self.h1_count = 0
+        self.h1_text: list[str] = []
+        self.title_text: list[str] = []
+        self.description = False
+        self.breadcrumbs = 0
+        self.current_crumbs = 0
+        self.rule_navigation = 0
+        self.rule_id: str | None = None
+        self.code_comparisons = 0
+        self.example_kinds: list[str] = []
+        self.links: set[str] = set()
+        self.text: list[str] = []
+        self._capture_h1 = False
+        self._capture_title = False
+        self._in_breadcrumb = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == HTMLTag.A and (href := values.get("href")) is not None:
+            self.links.add(href)
+        elif tag == HTMLTag.MAIN:
+            self.main_count += 1
+        elif tag == HTMLTag.H1:
+            self.h1_count += 1
+            self._capture_h1 = True
+        elif tag == HTMLTag.TITLE:
+            self._capture_title = True
+        elif tag == HTMLTag.META and values.get("name") == "description" and values.get("content"):
+            self.description = True
+        elif tag == HTMLTag.NAV and values.get("aria-label") == "Breadcrumb":
+            self.breadcrumbs += 1
+            self._in_breadcrumb = True
+        elif tag == HTMLTag.NAV and values.get("aria-label") == "Rule navigation":
+            self.rule_navigation += 1
+        if self._in_breadcrumb and values.get("aria-current") == "page":
+            self.current_crumbs += 1
+        rule_id = values.get("data-rule-id")
+        if "data-rule-page" in values and rule_id:
+            self.rule_id = rule_id
+        if values.get("data-code-comparison"):
+            self.code_comparisons += 1
+        classes = set((values.get("class") or "").split())
+        if "sarj-code-comparison__side--before" in classes:
+            self.example_kinds.append("before")
+        if "sarj-code-comparison__side--after" in classes:
+            self.example_kinds.append("after")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == HTMLTag.H1:
+            self._capture_h1 = False
+        elif tag == HTMLTag.TITLE:
+            self._capture_title = False
+        elif tag == HTMLTag.NAV and self._in_breadcrumb:
+            self._in_breadcrumb = False
+
+    def handle_data(self, data: str) -> None:
+        self.text.append(data)
+        if self._capture_h1:
+            self.h1_text.append(data)
+        if self._capture_title:
+            self.title_text.append(data)
+
+
+@final
+class InlineScripts(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.scripts: list[str] = []
+        self._chunks: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == HTMLTag.SCRIPT and "src" not in dict(attrs):
+            self._chunks = []
+
+    def handle_data(self, data: str) -> None:
+        if self._chunks is not None:
+            self._chunks.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == HTMLTag.SCRIPT and self._chunks is not None:
+            self.scripts.append("".join(self._chunks))
+            self._chunks = None
+
+
+def _safe_path(raw_path: str) -> PurePosixPath:
+    try:
+        normalized = canonical_path(raw_path)
+    except ConfigurationError as error:
+        raise UnsafeArtifactPathError(raw_path) from error
+    if normalized != raw_path:
+        raise UnsafeArtifactPathError(raw_path)
+    return PurePosixPath(normalized)
+
+
+def _scan_identity(name: str, content: bytes) -> list[str]:
+    violations: list[str] = []
+    violations.extend(
+        f"{name}: non-public organization reference"
+        for match in ORGANIZATION_REFERENCE.finditer(content)
+        if match.group(1).lower() not in ALLOWED_REPOSITORIES
+    )
+    if PERSONAL_HOME_PATH.search(content):
+        violations.append(f"{name}: personal home path")
+    return violations
+
+
+def _scan_emails(name: str, content: bytes) -> list[str]:
+    violations: list[str] = []
+    for match in EMAIL_ADDRESS.finditer(content):
+        candidate = match.group().lower().lstrip(b"/")
+        if candidate.endswith(b"@example.invalid") or candidate in ALLOWED_EMAILS:
+            continue
+        violations.append(f"{name}: non-example email address")
+    return violations
+
+
+def _metadata_values(content: bytes) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    headers = content.split(b"\n\n", maxsplit=1)[0].decode("utf-8")
+    for line in headers.splitlines():
+        name, separator, value = line.partition(":")
+        if separator:
+            values.setdefault(name, []).append(value.strip())
+    return values
+
+
+def verify_distributions(
+    directory: Path,
+) -> list[str]:
+    wheels = tuple(directory.glob("*.whl"))
+    sdists = tuple(directory.glob("*.tar.gz"))
+    if len(wheels) != 1 or len(sdists) != 1:
+        return ["distribution directory must contain exactly one wheel and one source distribution"]
+    return [*_verify_wheel(wheels[0]), *_verify_sdist(sdists[0])]
+
+
+def _verify_wheel(path: Path) -> list[str]:
+    wheel_members = _wheel_members(path)
+    wheel_metadata = _wheel_metadata(wheel_members)
+    wheel_names = {str(member.path) for member in wheel_members}
+    allowed_wheel_names = {
+        name
+        for name in wheel_names
+        if name.startswith("repo_standards/")
+        and (name.endswith(".py") or name == "repo_standards/py.typed")
+    }
+    allowed_wheel_names.update(
+        f"{wheel_metadata.dist_info}/{name}" for name in WHEEL_METADATA_FILES
+    )
+    violations = [
+        f"{path.name}:{name}: unexpected wheel member"
+        for name in sorted(wheel_names - allowed_wheel_names)
+    ]
+    violations.extend(
+        _verify_license(
+            wheel_metadata.values,
+            wheel_names,
+            f"{wheel_metadata.dist_info}/licenses/LICENSE",
+        )
+    )
+    violations.extend(_verify_common(wheel_members, path.name))
+    return violations
+
+
+def _verify_sdist(path: Path) -> list[str]:
+    sdist_members = _sdist_members(path)
+    roots = {member.path.parts[0] for member in sdist_members}
+    if len(roots) != 1:
+        return ["source distribution must contain exactly one root directory"]
+    sdist_root = next(iter(roots))
+    sdist_names = {str(member.path) for member in sdist_members}
+    allowed_sdist_names = {
+        name
+        for name in sdist_names
+        if name.startswith(f"{sdist_root}/src/repo_standards/")
+        and (name.endswith(".py") or name == f"{sdist_root}/src/repo_standards/py.typed")
+    }
+    allowed_sdist_names.update(f"{sdist_root}/{name}" for name in SDIST_ROOT_FILES)
+    violations = [
+        f"{path.name}:{name}: unexpected source distribution member"
+        for name in sorted(sdist_names - allowed_sdist_names)
+    ]
+    package_info = next(
+        (member.content for member in sdist_members if member.path.name == "PKG-INFO"), None
+    )
+    if package_info is None:
+        violations.append("source distribution is missing PKG-INFO")
+    else:
+        sdist_metadata = _metadata_values(package_info)
+        violations.extend(_verify_license(sdist_metadata, sdist_names, f"{sdist_root}/LICENSE"))
+    violations.extend(_verify_common(sdist_members, path.name))
+    return violations
+
+
+def verify_site(directory: Path) -> list[str]:
+    if not directory.is_dir():
+        return [f"site artifact does not exist: {directory}"]
+    project_directory = _site_directory(directory)
+    mounted = project_directory != directory
+    violations: list[str] = []
+    observed: set[str] = set()
+    documents: list[tuple[str, str]] = []
+    headers: str | None = None
+    for path in directory.rglob("*"):
+        if path.is_dir(follow_symlinks=False):
+            continue
+        relative_path = path.relative_to(directory)
+        artifact_path = _safe_path(relative_path.as_posix())
+        if path.is_symlink() or not path.is_file():
+            violations.append(f"site:{artifact_path}: links are not publishable")
+            continue
+        in_project = path.is_relative_to(project_directory)
+        logical_path = (
+            _safe_path(path.relative_to(project_directory).as_posix())
+            if in_project
+            else artifact_path
+        )
+        if in_project:
+            observed.add(str(logical_path))
+        elif str(artifact_path) != "_headers":
+            violations.append(f"site:{artifact_path}: unexpected file outside the project mount")
+        violations.extend(_verify_site_path(artifact_path, logical_path))
+        content = path.read_bytes()
+        if artifact_path.suffix == ".html":
+            document = content.decode("utf-8")
+            documents.append((str(artifact_path), document))
+        elif str(artifact_path) == "_headers":
+            headers = content.decode("utf-8")
+        violations.extend(
+            _scan_site_privacy(artifact_path, logical_path, content, in_project=in_project)
+        )
+    violations.extend(
+        f"site:{name}: required generated file is missing"
+        for name in sorted(REQUIRED_SITE_FILES - observed)
+    )
+    if {"api/catalog.json", "api/catalog.schema.json"}.issubset(observed):
+        violations.extend(verify_site_catalog(project_directory))
+        violations.extend(
+            _verify_site_semantics(
+                project_directory,
+                _project_documents(documents, mounted=mounted),
+                base_path="/" + str(_SITE_PREFIX) if mounted else "",
+            )
+        )
+    violations.extend(_verify_site_csp(headers, documents))
+    return violations
+
+
+def _site_directory(directory: Path) -> Path:
+    candidate = directory
+    for segment in _SITE_PREFIX.parts:
+        candidate /= segment
+        if candidate.is_symlink() or not candidate.is_dir():
+            return directory
+    return candidate
+
+
+def _verify_site_path(artifact_path: PurePosixPath, logical_path: PurePosixPath) -> list[str]:
+    violations: list[str] = []
+    if logical_path.parts[0] == "pagefind":
+        violations.append(f"site:{artifact_path}: search artifacts are not publishable")
+    if (
+        artifact_path.name not in {"_headers", "_redirects"}
+        and artifact_path.suffix.casefold() not in SITE_SUFFIXES
+    ):
+        violations.append(f"site:{artifact_path}: unexpected static-site file type")
+    if artifact_path.name.casefold().endswith(".map"):
+        violations.append(f"site:{artifact_path}: source map is not publishable")
+    return violations
+
+
+def _scan_site_privacy(
+    artifact_path: PurePosixPath,
+    logical_path: PurePosixPath,
+    content: bytes,
+    *,
+    in_project: bool,
+) -> list[str]:
+    display_name = f"site:{artifact_path}"
+    violations = _scan_identity(display_name, content)
+    if not in_project or logical_path.parts[0] != "_astro":
+        violations.extend(_scan_emails(display_name, content))
+    return violations
+
+
+def _project_documents(
+    documents: Iterable[tuple[str, str]], *, mounted: bool
+) -> Iterable[tuple[str, str]]:
+    prefix = _SITE_PREFIX if mounted else PurePosixPath()
+    for relative, document in documents:
+        path = PurePosixPath(relative)
+        if path.is_relative_to(prefix):
+            yield str(path.relative_to(prefix)), document
+
+
+def verify_site_catalog(directory: Path) -> list[str]:
+    violations: list[str] = []
+    catalog_path = directory / "api/catalog.json"
+    schema_path = directory / "api/catalog.schema.json"
+    if not catalog_path.is_file() or not schema_path.is_file():
+        return violations
+    try:
+        catalog_document = _JSON_OBJECT.validate_json(catalog_path.read_bytes(), strict=True)
+        schema_document = _JSON_OBJECT.validate_json(schema_path.read_bytes(), strict=True)
+        catalog = SiteCatalog.model_validate(catalog_document)
+    except ValidationError as error:
+        violations.append(f"site:api/catalog.json: invalid catalog: {error}")
+        return violations
+    try:
+        _validate_schema(Draft202012Validator(schema_document), catalog_document)
+    except JsonSchemaValidationError as error:
+        violations.append(f"site:api/catalog.json: schema validation failed: {error.message}")
+    embedded = next(
+        (
+            descriptor.document
+            for descriptor in catalog.schemas
+            if descriptor.schema_id == "catalog"
+        ),
+        None,
+    )
+    if embedded != schema_document:
+        violations.append("site:api/catalog.schema.json: must equal the embedded catalog schema")
+    schema_id = schema_document.get("$id")
+    if not isinstance(schema_id, str) or not schema_id.endswith("/catalog.schema.json"):
+        violations.append("site:api/catalog.schema.json: must identify catalog.schema.json")
+    unsigned = dict(catalog_document)
+    provenance = dict(_JSON_OBJECT.validate_python(catalog_document["provenance"], strict=True))
+    provenance["content_digest"] = ""
+    unsigned["provenance"] = provenance
+    expected_digest = hashlib.sha256(canonical_json(unsigned).encode()).hexdigest()
+    if catalog.provenance.content_digest != expected_digest:
+        violations.append("site:api/catalog.json: content digest does not match catalog bytes")
+    return violations
+
+
+def _validate_schema(validator: _SchemaValidator, instance: JSONValue) -> None:
+    validator.validate(instance)
+
+
+def _verify_site_csp(headers: str | None, documents: Iterable[tuple[str, str]]) -> list[str]:
+    if headers is None:
+        return ["site:_headers: Cloudflare security headers are required"]
+    violations: list[str] = []
+    for relative, document in documents:
+        if 'http-equiv="content-security-policy"' in document:
+            violations.append(f"site:{relative}: CSP must be delivered by the response header only")
+        parser = InlineScripts()
+        parser.feed(document)
+        parser.close()
+        for script in parser.scripts:
+            digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode("ascii")
+            if f"'sha256-{digest}'" not in headers:
+                violations.append(f"site:{relative}: inline script is missing from the CSP")
+    return violations
+
+
+def _verify_site_semantics(
+    directory: Path, documents: Iterable[tuple[str, str]], *, base_path: str = ""
+) -> list[str]:
+    violations: list[str] = []
+    catalog_path = directory / "api/catalog.json"
+    if not catalog_path.is_file():
+        return violations
+    payload = SiteCatalog.model_validate_json(catalog_path.read_bytes())
+    expected_rules = {item.rule_id: item for item in payload.rules}
+    observed_rules: set[str] = set()
+    for relative, document in documents:
+        parser = PageSemantics()
+        parser.feed(document)
+        if relative == "git-policies/index.html":
+            violations.extend(_verify_git_policy_reference(parser, base_path=base_path))
+        violations.extend(_verify_page_landmarks(relative, parser))
+        if parser.rule_id is None:
+            if relative.startswith("rules/categories/") and (
+                parser.breadcrumbs != 1 or parser.current_crumbs != 1
+            ):
+                violations.append(f"site:{relative}: category breadcrumb is incomplete")
+            continue
+        observed_rules.add(parser.rule_id)
+        violations.extend(verify_rule_page(relative, parser, expected_rules))
+    if observed_rules != set(expected_rules):
+        violations.append("site: rendered rule routes differ from the catalog")
+    return violations
+
+
+def _verify_page_landmarks(relative: str, parser: PageSemantics) -> list[str]:
+    violations: list[str] = []
+    if parser.main_count != 1:
+        violations.append(f"site:{relative}: expected exactly one main landmark")
+    if parser.h1_count != 1 or not "".join(parser.h1_text).strip():
+        violations.append(f"site:{relative}: expected exactly one nonempty h1")
+    if not "".join(parser.title_text).strip() or not parser.description:
+        violations.append(f"site:{relative}: title and description are required")
+    return violations
+
+
+def _verify_git_policy_reference(parser: PageSemantics, *, base_path: str = "") -> list[str]:
+    rendered_text = " ".join("".join(parser.text).split())
+    required_text = (
+        "They are commands and hooks, so they do not appear in the rule count.",
+        "[(i/N) ][TICKET] type(scope)!: description",
+    )
+    required_links = (
+        f"{base_path}/cli/#commit-message",
+        f"{base_path}/cli/#pull-request.commits",
+        f"{base_path}/git-policies/",
+    )
+    violations = [
+        f"site:git-policies/index.html: missing public contract text: {text}"
+        for text in required_text
+        if text not in rendered_text
+    ]
+    violations.extend(
+        f"site:git-policies/index.html: missing public contract link: {link}"
+        for link in required_links
+        if link not in parser.links
+    )
+    return violations
+
+
+def verify_rule_page(
+    relative: str,
+    parser: PageSemantics,
+    expected_rules: dict[str, SiteRule],
+) -> list[str]:
+    if parser.rule_id is None:
+        return []
+    rule = expected_rules.get(parser.rule_id)
+    if rule is None:
+        return [f"site:{relative}: unknown rendered rule id"]
+    violations: list[str] = []
+    if "".join(parser.h1_text).strip() != rule.slug:
+        violations.append(f"site:{relative}: rendered slug differs from catalog")
+    if parser.breadcrumbs != 1:
+        violations.append(f"site:{relative}: rule breadcrumb is incomplete")
+    if parser.rule_navigation != 1:
+        violations.append(f"site:{relative}: rule navigation is missing")
+    expected_examples = len(rule.examples)
+    if (
+        parser.code_comparisons != expected_examples
+        or parser.example_kinds.count("before") != expected_examples
+        or parser.example_kinds.count("after") != expected_examples
+    ):
+        violations.append(f"site:{relative}: example pairs differ from catalog")
+    return violations
+
+
+def _wheel_members(path: Path) -> tuple[ArtifactMember, ...]:
+    with zipfile.ZipFile(path) as archive:
+        return tuple(
+            ArtifactMember(
+                _safe_path(info.filename),
+                archive.read(info),
+                stat.S_ISLNK(info.external_attr >> 16),
+            )
+            for info in archive.infolist()
+            if not info.is_dir()
+        )
+
+
+def _wheel_metadata(members: tuple[ArtifactMember, ...]) -> WheelMetadata:
+    metadata_members = [member for member in members if member.path.name == "METADATA"]
+    if len(metadata_members) != 1:
+        raise WheelMetadataError
+    return WheelMetadata(
+        values=_metadata_values(metadata_members[0].content),
+        dist_info=str(metadata_members[0].path.parent),
+    )
+
+
+def _sdist_members(path: Path) -> tuple[ArtifactMember, ...]:
+    members: list[ArtifactMember] = []
+    with tarfile.open(path, mode="r:gz") as archive:
+        for info in archive.getmembers():
+            if info.isdir():
+                continue
+            artifact_path = _safe_path(info.name)
+            if not info.isfile():
+                members.append(ArtifactMember(artifact_path, b"", symbolic_link=True))
+                continue
+            extracted = archive.extractfile(info)
+            if extracted is None:
+                raise UnreadableSdistMemberError(artifact_path)
+            members.append(ArtifactMember(artifact_path, extracted.read()))
+    return tuple(members)
+
+
+def _verify_common(members: Iterable[ArtifactMember], artifact_name: str) -> list[str]:
+    violations: list[str] = []
+    for member in members:
+        display_name = f"{artifact_name}:{member.path}"
+        if member.symbolic_link:
+            violations.append(f"{display_name}: links are not publishable")
+        if member.path.name.casefold().endswith(".map"):
+            violations.append(f"{display_name}: source map is not publishable")
+        violations.extend(_scan_identity(display_name, member.content))
+        violations.extend(_scan_emails(display_name, member.content))
+    return violations
+
+
+def _verify_license(
+    metadata: dict[str, list[str]], names: set[str], license_path: str
+) -> list[str]:
+    violations: list[str] = []
+    if metadata.get("License-Expression") != ["MIT"]:
+        violations.append("package metadata must declare License-Expression: MIT")
+    license_files = metadata.get("License-File", [])
+    if "LICENSE" not in license_files:
+        violations.append("package metadata must declare License-File: LICENSE")
+    if license_path not in names:
+        violations.append(f"package artifact is missing {license_path}")
+    return violations
+
+
+def main(
+    distributions: Annotated[
+        Path | None,
+        typer.Option(help="Directory containing one wheel and one source distribution."),
+    ] = None,
+    site: Annotated[
+        Path | None,
+        typer.Option(help="Generated static-site directory."),
+    ] = None,
+) -> None:
+    if distributions is None and site is None:
+        typer.echo("at least one artifact path is required", err=True)
+        raise typer.Exit(code=2)
+    violations: list[str] = []
+    if distributions is not None:
+        violations.extend(verify_distributions(distributions))
+    if site is not None:
+        violations.extend(verify_site(site))
+    if violations:
+        sys.stderr.write("\n".join(violations) + "\n")
+        raise typer.Exit(code=1)
+
+
+if __name__ == "__main__":
+    typer.run(main)

@@ -1,0 +1,1168 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+Code Sandbox Manager for Agent Runtimes.
+
+This module provides a centralized manager for code sandbox instances,
+allowing runtime configuration of the sandbox variant.
+
+It also provides :class:`ManagedSandbox`, a transparent proxy that
+delegates every call to the manager's current sandbox.  All consumers
+(CodemodeToolset, SandboxExecutor, …) should receive a ``ManagedSandbox``
+instead of a concrete sandbox so that when the manager is reconfigured
+(e.g. switching from ``eval`` to ``jupyter`` via the
+``/mcp-servers/start`` API), every component automatically uses the
+new sandbox without being rebuilt.
+
+Usage:
+    from agent_runtimes.services.code_sandbox_manager import (
+        get_code_sandbox_manager,
+        CodeSandboxManager,
+    )
+
+    # Get the singleton manager
+    manager = get_code_sandbox_manager()
+
+    # Configure for Jupyter sandbox
+    manager.configure(
+        variant="jupyter-server",
+        jupyter_url="http://localhost:8888",
+        jupyter_token="my-token",
+    )
+
+    # Get a managed proxy — safe to hold long-term
+    sandbox = manager.get_managed_sandbox()
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import AsyncIterator, Iterator
+from dataclasses import dataclass
+from threading import Lock
+from typing import TYPE_CHECKING, Any, Literal, Optional
+from urllib.parse import parse_qs, urlparse
+
+if TYPE_CHECKING:
+    from code_sandboxes import ExecutionResult, Sandbox
+
+logger = logging.getLogger(__name__)
+
+
+# The full set of ``code_sandboxes.models.SandboxVariant``: what the factory
+# can create is what an agent may ask for, and a variant left out of this
+# alias is one the type checker rejects while ``code_sandboxes`` runs it
+# happily — which is how kaggle, daytona, e2b, coreweave and cloudflare came
+# to be unspellable here long after they worked.
+SandboxVariant = Literal[
+    "eval",
+    "jupyter-server",
+    "docker",
+    "datalayer",
+    "google-colab",
+    "kaggle",
+    "monty",
+    "modal",
+    "daytona",
+    "cloudflare",
+    "coreweave",
+    "e2b",
+]
+
+
+@dataclass
+class SandboxConfig:
+    """
+    Configuration for the code sandbox.
+
+    Attributes:
+        variant: The sandbox variant to use.
+        jupyter_url: The Jupyter server URL (only for jupyter variant).
+        jupyter_token: The Jupyter server token (only for jupyter variant).
+        mcp_proxy_url: The MCP tool proxy URL for two-container setups.
+            When set, remote sandboxes will call tools via HTTP to this URL
+            instead of trying to use stdio MCP processes directly.
+
+            Example for local dev: "http://localhost:8765/api/v1/mcp/proxy"
+            Example for K8s: "http://agent-runtimes:8765/api/v1/mcp/proxy"
+    """
+
+    variant: SandboxVariant = "eval"
+    jupyter_url: str | None = None
+    jupyter_token: str | None = None
+    mcp_proxy_url: str | None = None
+    env_vars: dict[str, str] | None = None
+
+
+class ManagedSandbox:
+    """
+    Transparent proxy that always delegates to the manager's current sandbox.
+
+    When the :class:`CodeSandboxManager` is reconfigured (e.g. switching
+    from ``eval`` to ``jupyter``), the proxy automatically
+    picks up the new sandbox.  Consumers that hold a reference to this
+    proxy never need to be rebuilt or notified.
+
+    This class implements the same interface as :class:`code_sandboxes.Sandbox`
+    so it is a drop-in replacement everywhere a ``Sandbox`` is expected
+    (``CodemodeToolset``, ``SandboxExecutor``, etc.).
+    """
+
+    def __init__(
+        self, manager: CodeSandboxManager, agent_id: str | None = None
+    ) -> None:
+        # Use object.__setattr__ to avoid triggering our __setattr__ override
+        # before _manager is available.
+        object.__setattr__(self, "_manager", manager)
+        # Bound to one agent's sandbox rather than the global one: the proxy
+        # then follows that agent's sandbox across a variant switch or a
+        # restart, the way the global proxy follows a reconfiguration.
+        object.__setattr__(self, "_agent_id", agent_id)
+
+    # -- Transparent attribute forwarding --------------------------------
+
+    def __getattr__(self, name: str) -> Any:
+        """
+        Forward any attribute not found on the proxy to the current sandbox.
+
+        This catches attributes like ``_default_context``, ``config``,
+        ``_started``, ``_tool_caller``, ``_tags``, ``_namespaces``,
+        ``_execution_count``, etc. that the concrete sandbox sets in its
+        ``__init__`` / ``start()`` and that consumers access directly.
+
+        ``__getattr__`` is only called when normal lookup fails, so explicit
+        methods and properties defined on this class take precedence.
+        """
+        return getattr(self._sandbox(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        Forward attribute writes to the current sandbox.
+
+        Attributes that belong to the proxy itself (``_manager``) are stored
+        on the proxy; everything else is forwarded.
+        """
+        if name in ("_manager", "_agent_id"):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._sandbox(), name, value)
+
+    # -- helpers ---------------------------------------------------------
+
+    def _sandbox(self) -> Sandbox:
+        """Return the current (started) sandbox: the agent's own, or the global one."""
+        agent_id = self._agent_id
+        if agent_id:
+            sandbox = self._manager.get_agent_sandbox(agent_id)
+            if sandbox is None:
+                # Gone with a restart or a switch: made again on demand, of
+                # the variant the manager is configured for.
+                sandbox = self._manager.create_agent_sandbox(
+                    agent_id=agent_id, variant=self._manager.variant
+                )
+            return sandbox
+        return self._manager.get_sandbox()
+
+    # -- Sandbox interface -----------------------------------------------
+
+    def start(self) -> None:
+        # get_sandbox() already starts the sandbox if needed
+        self._sandbox()
+
+    async def start_async(self) -> None:
+        self._sandbox()
+
+    def stop(self) -> None:
+        # Stopping is managed by the manager — not by individual consumers
+        pass
+
+    async def stop_async(self) -> None:
+        pass
+
+    def run_code(
+        self,
+        code: str,
+        language: str = "python",
+        context: Optional[Any] = None,
+        on_stdout: Any = None,
+        on_stderr: Any = None,
+        on_result: Any = None,
+        on_error: Any = None,
+        envs: Optional[dict[str, str]] = None,
+        timeout: Optional[float] = None,
+    ) -> ExecutionResult:
+        kwargs: dict[str, Any] = {"language": language}
+        if context is not None:
+            kwargs["context"] = context
+        if on_stdout is not None:
+            kwargs["on_stdout"] = on_stdout
+        if on_stderr is not None:
+            kwargs["on_stderr"] = on_stderr
+        if on_result is not None:
+            kwargs["on_result"] = on_result
+        if on_error is not None:
+            kwargs["on_error"] = on_error
+        if envs is not None:
+            kwargs["envs"] = envs
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return self._sandbox().run_code(code, **kwargs)
+
+    async def run_code_async(
+        self,
+        code: str,
+        language: str = "python",
+        context: Optional[Any] = None,
+        on_stdout: Any = None,
+        on_stderr: Any = None,
+        on_result: Any = None,
+        on_error: Any = None,
+        envs: Optional[dict[str, str]] = None,
+        timeout: Optional[float] = None,
+    ) -> ExecutionResult:
+        kwargs: dict[str, Any] = {"language": language}
+        if context is not None:
+            kwargs["context"] = context
+        if on_stdout is not None:
+            kwargs["on_stdout"] = on_stdout
+        if on_stderr is not None:
+            kwargs["on_stderr"] = on_stderr
+        if on_result is not None:
+            kwargs["on_result"] = on_result
+        if on_error is not None:
+            kwargs["on_error"] = on_error
+        if envs is not None:
+            kwargs["envs"] = envs
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return await self._sandbox().run_code_async(code, **kwargs)
+
+    def run_code_streaming(
+        self,
+        code: str,
+        language: str = "python",
+        context: Optional[Any] = None,
+        envs: Optional[dict[str, str]] = None,
+        timeout: Optional[float] = None,
+    ) -> Iterator[Any]:
+        return self._sandbox().run_code_streaming(
+            code, language=language, context=context, envs=envs, timeout=timeout
+        )
+
+    async def run_code_streaming_async(
+        self,
+        code: str,
+        language: str = "python",
+        context: Optional[Any] = None,
+        envs: Optional[dict[str, str]] = None,
+        timeout: Optional[float] = None,
+    ) -> AsyncIterator[Any]:
+        async for item in self._sandbox().run_code_streaming_async(
+            code, language=language, context=context, envs=envs, timeout=timeout
+        ):
+            yield item
+
+    def create_context(self, name: Optional[str] = None) -> Any:
+        return self._sandbox().create_context(name=name)
+
+    def get_variable(self, name: str, context: Optional[Any] = None) -> Any:
+        return self._sandbox().get_variable(name, context=context)
+
+    def set_variable(
+        self, name: str, value: Any, context: Optional[Any] = None
+    ) -> None:
+        self._sandbox().set_variable(name, value, context=context)
+
+    def set_variables(
+        self, variables: dict[str, Any], context: Optional[Any] = None
+    ) -> None:
+        self._sandbox().set_variables(variables, context=context)
+
+    def install_packages(
+        self, packages: list[str], timeout: Optional[float] = None
+    ) -> Any:
+        return self._sandbox().install_packages(packages, timeout=timeout)
+
+    def upload_file(self, local_path: str, remote_path: str) -> None:
+        self._sandbox().upload_file(local_path, remote_path)
+
+    def download_file(self, remote_path: str, local_path: str) -> None:
+        self._sandbox().download_file(remote_path, local_path)
+
+    def register_tool_caller(self, tool_caller: Any) -> None:
+        self._sandbox().register_tool_caller(tool_caller)
+
+    def set_tags(self, tags: dict[str, str]) -> None:
+        self._sandbox().set_tags(tags)
+
+    # -- Properties that consumers might inspect -------------------------
+
+    @property
+    def is_started(self) -> bool:
+        return self._manager._sandbox is not None
+
+    @property
+    def is_executing(self) -> bool:
+        """Check if the sandbox is currently executing code."""
+        if not self.is_started:
+            return False
+        return self._sandbox().is_executing
+
+    def interrupt(self) -> bool:
+        """Interrupt the currently running code."""
+        if not self.is_started:
+            return False
+        return self._sandbox().interrupt()
+
+    @property
+    def info(self) -> Any:
+        return self._sandbox().info if self.is_started else None
+
+    @property
+    def sandbox_id(self) -> Optional[str]:
+        return self._sandbox().sandbox_id if self.is_started else None
+
+    # NOTE: _server_url, _namespaces, _default_context, and other
+    # variant-specific attributes are intentionally NOT defined as
+    # explicit properties here.  They are handled by __getattr__ which
+    # delegates to the underlying sandbox.  This is critical because
+    # consumers (e.g. CodeModeExecutor) use ``hasattr(sandbox, '_namespaces')``
+    # to decide the execution path.  An explicit property would always
+    # make ``hasattr`` return True (even when the underlying sandbox
+    # doesn't have the attribute), causing the wrong code-path to be taken.
+
+    # -- Context-manager support -----------------------------------------
+
+    def __enter__(self) -> ManagedSandbox:
+        self.start()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.stop()
+
+    async def __aenter__(self) -> ManagedSandbox:
+        await self.start_async()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self.stop_async()
+
+    # -- repr / str ------------------------------------------------------
+
+    def __repr__(self) -> str:
+        variant = self._manager.variant
+        has_sandbox = self._manager._sandbox is not None
+        return f"<ManagedSandbox variant={variant} active={has_sandbox}>"
+
+
+class CodeSandboxManager:
+    """
+    Manages the lifecycle of code sandbox instances.
+
+    This manager provides:
+    - Singleton pattern for global access
+    - Runtime configuration of sandbox variant
+    - Thread-safe sandbox creation and access
+    - Automatic sandbox lifecycle management (start/stop)
+    - Per-agent sandbox isolation (each agent gets its own sandbox)
+
+        The manager supports sandbox variants:
+    - eval: Uses Python exec() for code execution (default)
+    - jupyter: Connects to an *existing* Jupyter server (URL required)
+    - jupyter: Delegates to code_sandboxes to start its own Jupyter server
+      on a random free port (no external URL needed)
+        - docker, datalayer, google-colab, kaggle, monty, modal, daytona,
+            cloudflare, coreweave, e2b: Delegated to the code_sandboxes
+            variant factory, which reaches each provider with the credentials
+            that provider needs.
+    """
+
+    _instance: CodeSandboxManager | None = None
+    _lock: Lock = Lock()
+
+    def __init__(self) -> None:
+        """Initialize the manager with default configuration."""
+        self._config = SandboxConfig()
+        self._sandbox: Sandbox | None = None
+        self._sandbox_lock = Lock()
+        # Per-agent sandboxes: each agent can have its own isolated sandbox
+        self._agent_sandboxes: dict[str, Sandbox] = {}
+        self._agent_sandbox_lock = Lock()
+
+    @classmethod
+    def get_instance(cls) -> CodeSandboxManager:
+        """
+        Get the singleton instance of the manager.
+
+        Returns:
+            The CodeSandboxManager singleton instance.
+        """
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """
+        Reset the singleton instance (primarily for testing).
+
+        This stops any running sandbox and clears the instance.
+        """
+        with cls._lock:
+            if cls._instance is not None:
+                cls._instance.stop_all_agent_sandboxes()
+                cls._instance.stop()
+                cls._instance = None
+
+    @property
+    def config(self) -> SandboxConfig:
+        """Get the current sandbox configuration."""
+        return self._config
+
+    @property
+    def variant(self) -> SandboxVariant:
+        """Get the current sandbox variant."""
+        return self._config.variant
+
+    @property
+    def is_jupyter(self) -> bool:
+        """Check if the current variant is Jupyter-based."""
+        return self._config.variant == "jupyter-server"
+
+    def _active_sandbox(self) -> "Sandbox | None":
+        """Return the sandbox that reflects the live execution context.
+
+        In CLI / ``loop`` mode the sandbox is created per agent and stored in
+        ``_agent_sandboxes`` rather than the global ``_sandbox``.  Prefer the
+        global sandbox when present, otherwise fall back to the first per-agent
+        sandbox so that status reporting (kernel id, running state) is accurate.
+        """
+        if self._sandbox is not None:
+            return self._sandbox
+        for sandbox in self._agent_sandboxes.values():
+            if sandbox is not None:
+                return sandbox
+        return None
+
+    @staticmethod
+    def connection_details(
+        sandbox: "Sandbox | None",
+    ) -> dict[str, Any]:
+        """Best-effort extraction of a sandbox's live Jupyter/kernel details.
+
+        Different sandbox implementations expose their kernel id in different
+        ways. ``JupyterSandbox`` keeps its execution backend in ``_client``;
+        its ``id`` is the live kernel id, so we probe several
+        well-known attributes to remain robust across variants.
+
+        Public because the status WebSocket needs it for a *specific* sandbox
+        rather than the active one: it reports the agent's sandbox when there
+        is one, and a URL taken from that sandbox with a token taken from
+        another is worse than reporting neither.
+        """
+        details: dict[str, Any] = {
+            "kernel_id": None,
+            "kernel_name": None,
+            "jupyter_url": None,
+            "jupyter_token": None,
+            "username": None,
+        }
+        if sandbox is None:
+            return details
+
+        client = getattr(sandbox, "_client", None)
+
+        kernel_id = getattr(sandbox, "kernel_id", None) or getattr(
+            sandbox, "_kernel_id", None
+        )
+        if not kernel_id and client is not None:
+            kernel_id = getattr(client, "id", None)
+        if not kernel_id:
+            kernel_model = getattr(sandbox, "kernel", None)
+            if isinstance(kernel_model, dict):
+                kernel_id = kernel_model.get("id")
+        details["kernel_id"] = kernel_id or None
+
+        server_url = getattr(sandbox, "server_url", None) or getattr(
+            sandbox, "_server_url", None
+        )
+        if not server_url and client is not None:
+            server_url = getattr(client, "server_url", None)
+        details["jupyter_url"] = server_url or None
+
+        # `jupyter_token` first, and it is not fussiness: on a Datalayer
+        # sandbox `_token` is the *API key* that authenticates this process to
+        # the platform. Handing that to a browser as a Jupyter token would fail
+        # the connection and leak a credential in the same breath. A sandbox
+        # that mints a token for its server publishes it under its own name.
+        details["jupyter_token"] = (
+            getattr(sandbox, "jupyter_token", None)
+            or getattr(sandbox, "_token", None)
+            or None
+        )
+
+        if client is not None:
+            details["username"] = getattr(client, "username", None) or None
+
+        return details
+
+    def configure(
+        self,
+        variant: SandboxVariant | None = None,
+        jupyter_url: str | None = None,
+        jupyter_token: str | None = None,
+        mcp_proxy_url: str | None = None,
+        env_vars: dict[str, str] | None = None,
+    ) -> None:
+        """
+        Configure the sandbox settings.
+
+        If the sandbox is running and the variant changes, the existing
+        sandbox will be stopped and a new one will be created on next access.
+
+        Args:
+            variant: The sandbox variant to use. If None, keeps current.
+            jupyter_url: The Jupyter server URL. Can include token as query param.
+            jupyter_token: The Jupyter server token. Overrides token in URL.
+            mcp_proxy_url: The MCP tool proxy URL for two-container setups.
+                When set, remote sandboxes will call tools via HTTP to this URL.
+            env_vars: Environment variables to inject into the sandbox.
+                For jupyter, these are set in the Jupyter kernel's
+                os.environ so that executed code can access them (e.g. API keys).
+        """
+        with self._sandbox_lock:
+            old_variant = self._config.variant
+
+            # An empty string means "no server named — use a colocated one".
+            #
+            # `None` means "leave whatever is configured", which is right for a
+            # caller changing only the variant. But it made switching *to* a
+            # colocated sandbox impossible: after any target that named a URL,
+            # asking for `jupyter-server` with no URL kept the old one, so an
+            # agent asked to run beside its own Jupyter server went on driving
+            # somebody else's. The two intentions need two spellings.
+            cleared = jupyter_url == ""
+            if cleared:
+                self._config.jupyter_url = None
+                self._config.jupyter_token = None
+
+            # Parse jupyter_url if it contains a token query parameter
+            if jupyter_url:
+                parsed = urlparse(jupyter_url)
+                query_params = parse_qs(parsed.query)
+
+                # Extract token from URL if present
+                url_token = query_params.get("token", [None])[0]
+
+                # Use explicit token if provided, otherwise use URL token
+                final_token = jupyter_token if jupyter_token else url_token
+
+                # Reconstruct URL without token query param
+                clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                if clean_url.endswith("/"):
+                    clean_url = clean_url[:-1]
+
+                self._config.jupyter_url = clean_url
+                self._config.jupyter_token = final_token
+            elif jupyter_token is not None:
+                self._config.jupyter_token = jupyter_token
+            # The sandbox's token is used by its tools, never shown to the
+            # model (R-19); nor are the secrets given to its kernel.
+            from agent_runtimes.guardrails.credentials import hold, hold_env
+
+            hold(self._config.jupyter_token)
+            if env_vars:
+                hold_env(env_vars)
+
+            if variant is not None:
+                self._config.variant = variant
+
+            # Set MCP proxy URL if provided
+            if mcp_proxy_url is not None:
+                self._config.mcp_proxy_url = mcp_proxy_url
+
+            # Store env vars for injection into the sandbox after start
+            if env_vars is not None:
+                if self._config.env_vars is None:
+                    self._config.env_vars = {}
+                self._config.env_vars.update(env_vars)
+
+            # If variant changed or we're reconfiguring jupyter, stop existing sandbox
+            if self._sandbox is not None:
+                config_changed = old_variant != self._config.variant or (
+                    self._config.variant == "jupyter-server"
+                    # Cleared counts as changed. Without this the running
+                    # sandbox — pointed at the server just disowned — stayed
+                    # up and kept answering.
+                    and (bool(jupyter_url) or cleared)
+                )
+                if config_changed:
+                    logger.info(
+                        f"Sandbox configuration changed, stopping existing {old_variant} sandbox"
+                    )
+                    try:
+                        self._sandbox.stop()
+                    except Exception as e:
+                        logger.warning(f"Error stopping sandbox: {e}")
+                    self._sandbox = None
+
+            logger.info(
+                f"Sandbox configured: variant={self._config.variant}, "
+                f"jupyter_url={self._config.jupyter_url}, "
+                f"mcp_proxy_url={self._config.mcp_proxy_url}"
+            )
+
+    def configure_from_url(
+        self,
+        jupyter_sandbox_url: str,
+        mcp_proxy_url: str | None = None,
+        env_vars: dict[str, str] | None = None,
+    ) -> None:
+        """
+        Configure for Jupyter sandbox from a URL with optional token.
+
+        This is a convenience method for CLI/API usage where the URL format
+        is: <URL>?token=<TOKEN>
+
+        For two-container setups (Kubernetes), the mcp_proxy_url should be
+        set to the agent-runtimes container's MCP proxy endpoint.
+
+        Args:
+            jupyter_sandbox_url: The Jupyter server URL, optionally with token.
+            mcp_proxy_url: The MCP tool proxy URL for two-container setups.
+                If not provided, will default to http://127.0.0.1:8765/api/v1/mcp/proxy
+                for jupyter variant (assumes colocated containers).
+            env_vars: Environment variables to inject into the sandbox kernel
+                (e.g. API keys decoded by the companion service).
+        """
+        # Default to local agent-runtimes URL for Jupyter sandboxes
+        # Use 127.0.0.1 for local development (works for both local process and container)
+        # In K8s, this should be explicitly set to the service name (e.g., http://agent-runtimes:8765)
+        if mcp_proxy_url is None:
+            mcp_proxy_url = os.getenv(
+                "AGENT_RUNTIMES_MCP_PROXY_URL",
+                "http://127.0.0.1:8765/api/v1/mcp/proxy",
+            )
+
+        self.configure(
+            variant="jupyter-server",
+            jupyter_url=jupyter_sandbox_url,
+            mcp_proxy_url=mcp_proxy_url,
+            env_vars=env_vars,
+        )
+
+    def get_sandbox(self) -> Sandbox:
+        """
+        Get the current sandbox instance, creating one if needed.
+
+        The sandbox will be started automatically if not already running.
+
+        Returns:
+            The configured Sandbox instance.
+
+        Raises:
+            ImportError: If required sandbox dependencies are not installed.
+        """
+        with self._sandbox_lock:
+            if self._sandbox is None:
+                logger.info(
+                    f"Creating new {self._config.variant} sandbox "
+                    f"(url={self._config.jupyter_url})"
+                )
+                self._sandbox = self._create_sandbox()
+                self._sandbox.start()
+                logger.info(f"Started {self._config.variant} sandbox")
+                # Inject env vars into the sandbox after start.
+                # For jupyter this sets os.environ inside the
+                # Jupyter kernel (which runs in a separate container).
+                # For eval this sets them in the agent process.
+                self._inject_env_vars(self._sandbox)
+            else:
+                logger.debug(
+                    f"Returning existing {self._config.variant} sandbox "
+                    f"(url={self._config.jupyter_url})"
+                )
+            return self._sandbox
+
+    def get_or_create_sandbox(self, start: bool = True) -> Sandbox:
+        """
+        Get existing sandbox or create a new one.
+
+        This method allows getting an unstarted sandbox if needed,
+        which can be useful when the sandbox will be started later
+        or when passing to components that manage their own lifecycle.
+
+        Args:
+            start: Whether to start the sandbox if creating new one.
+                   Default is True for backward compatibility.
+
+        Returns:
+            The configured Sandbox instance.
+        """
+        with self._sandbox_lock:
+            if self._sandbox is None:
+                logger.info(
+                    f"Creating new {self._config.variant} sandbox "
+                    f"(url={self._config.jupyter_url}, start={start})"
+                )
+                self._sandbox = self._create_sandbox()
+                if start:
+                    self._sandbox.start()
+                    logger.info(f"Started {self._config.variant} sandbox")
+                    self._inject_env_vars(self._sandbox)
+                else:
+                    logger.info(f"Created {self._config.variant} sandbox (not started)")
+            return self._sandbox
+
+    def get_managed_sandbox(self) -> ManagedSandbox:
+        """
+        Return a :class:`ManagedSandbox` proxy bound to this manager.
+
+        The proxy delegates every call to whatever concrete sandbox the
+        manager currently holds.  When the manager is reconfigured
+        (e.g. ``configure_from_url`` switches from ``eval`` to
+        ``jupyter``), the proxy automatically picks up the new
+        sandbox — consumers never need to be rebuilt.
+
+        This is the **recommended** way to obtain a sandbox for long-lived
+        components (``CodemodeToolset``, ``SandboxExecutor``, …).
+
+        Returns:
+            A ``ManagedSandbox`` proxy that is safe to hold indefinitely.
+        """
+        return ManagedSandbox(self)
+
+    def get_agent_managed_sandbox(self, agent_id: str) -> ManagedSandbox:
+        """
+        Return a :class:`ManagedSandbox` proxy bound to *agent_id*'s sandbox.
+
+        What a long-lived consumer of a per-agent sandbox — the agent's
+        codemode toolset — should hold: the raw sandbox handed out at creation
+        went stale the moment the agent's sandbox was switched to another
+        variant or restarted, and the toolset kept executing in the old one.
+        The proxy resolves the agent's current sandbox on every call, and has
+        one made when there is none.
+        """
+        return ManagedSandbox(self, agent_id=agent_id)
+
+    def _inject_env_vars(self, sandbox: Sandbox) -> None:
+        """
+        Inject configured env vars into the sandbox.
+
+        For ``jupyter`` this runs a small code snippet in the Jupyter
+        kernel to set ``os.environ`` — necessary because the kernel runs in
+        a different container and does **not** share the agent-runtimes
+        process environment.
+
+        For ``eval`` this is a no-op because the eval sandbox shares
+        the agent-runtimes process, so env vars already set on
+        ``os.environ`` by the route handler are visible to executed code.
+
+        In all cases the Datalayer sandbox metadata env vars are set:
+        ``DATALAYER_CODE_SANDBOX_VARIANT`` and (for jupyter variants)
+        ``DATALAYER_CODE_SANDBOX_URL``.
+        """
+        env_vars = dict(self._config.env_vars or {})
+
+        # Always inject sandbox metadata env vars
+        env_vars["DATALAYER_CODE_SANDBOX_VARIANT"] = self._config.variant
+        if self._config.variant == "jupyter-server" and self._config.jupyter_url:
+            # Strip query string (token) from the URL
+            clean_url = self._config.jupyter_url.split("?")[0]
+            env_vars["DATALAYER_CODE_SANDBOX_URL"] = clean_url
+
+        if self._config.variant == "jupyter-server":
+            # Build a Python snippet that sets every env var in the kernel.
+            lines = ["import os"]
+            for name, value in env_vars.items():
+                lines.append(f"os.environ[{name!r}] = {value!r}")
+            code = "\n".join(lines)
+            try:
+                result = sandbox.run_code(code)
+                if result.execution_ok:
+                    logger.info(
+                        f"Injected {len(env_vars)} env var(s) into Jupyter kernel: "
+                        f"{list(env_vars.keys())}"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to inject env vars into Jupyter kernel: "
+                        f"{result.execution_error}"
+                    )
+            except Exception as e:
+                logger.warning(f"Error injecting env vars into sandbox: {e}")
+        else:
+            # eval: set sandbox metadata on os.environ
+            import os
+
+            os.environ["DATALAYER_CODE_SANDBOX_VARIANT"] = self._config.variant
+            logger.debug(
+                f"Set DATALAYER_CODE_SANDBOX_VARIANT={self._config.variant} "
+                f"on process env for {self._config.variant} sandbox"
+            )
+
+    def _create_sandbox(self, variant: SandboxVariant | None = None) -> Sandbox:
+        """
+        Create a new sandbox instance based on current configuration.
+
+        Args:
+            variant: Override the configured variant.  When ``None``
+                (the default) the manager's current ``_config.variant``
+                is used.
+
+        Returns:
+            A new Sandbox instance (not yet started).
+
+        Raises:
+            ImportError: If required sandbox dependencies are not installed.
+            ValueError: If configuration is invalid.
+        """
+        effective_variant = variant or self._config.variant
+        # One door, whichever variant: the client is the provider-neutral
+        # surface of `code_sandboxes`, and the sandbox it wraps is the base
+        # `Sandbox` every consumer here is written against. Reaching for an
+        # adapter (`eval_sandbox`, `jupyter_server_sandbox`) when the package
+        # looked incomplete bound this module to the adapters — and a package
+        # that lacks the client lacks the adapters too.
+        from code_sandboxes import CodeSandboxClient
+
+        options: dict[str, Any] = {}
+        if effective_variant == "jupyter-server":
+            # In sidecar mode, companion must provide a concrete Jupyter URL.
+            # Never start a local fallback server in this mode.
+            if (
+                not self._config.jupyter_url
+                and os.getenv("DATALAYER_RUNTIME_JUPYTER_SIDECAR", "").lower() == "true"
+            ):
+                raise ValueError(
+                    "Jupyter sidecar mode requires jupyter_url before sandbox start"
+                )
+            if self._config.jupyter_url:
+                options = {
+                    "server_url": self._config.jupyter_url,
+                    "token": self._config.jupyter_token,
+                }
+            # No external URL configured: `code_sandboxes` starts its own
+            # local Jupyter server on a free port.
+
+        return CodeSandboxClient.create(variant=effective_variant, **options).sandbox
+
+    def stop(self) -> None:
+        """Stop the current sandbox if running."""
+        with self._sandbox_lock:
+            if self._sandbox is not None:
+                try:
+                    self._sandbox.stop()
+                    logger.info(f"Stopped {self._config.variant} sandbox")
+                except Exception as e:
+                    logger.warning(f"Error stopping sandbox: {e}")
+                finally:
+                    self._sandbox = None
+
+    # -- Per-agent sandbox management ------------------------------------
+
+    def create_agent_sandbox(
+        self,
+        agent_id: str,
+        variant: SandboxVariant = "eval",
+        env_vars: dict[str, str] | None = None,
+    ) -> Sandbox:
+        """
+        Create a dedicated sandbox for a specific agent.
+
+        Each agent gets its own isolated sandbox instance.  For the
+        ``"jupyter-server"`` variant, ``code_sandboxes.JupyterSandbox``
+        starts its own Jupyter server on a random free port.
+
+        Args:
+            agent_id: Unique agent identifier.
+            variant: The sandbox variant.
+            env_vars: Environment variables to inject into the sandbox
+                after it starts.
+
+        Returns:
+            The started ``Sandbox`` instance.
+
+        Raises:
+            ValueError: If the agent already has a sandbox.
+        """
+        with self._agent_sandbox_lock:
+            if agent_id in self._agent_sandboxes:
+                raise ValueError(
+                    f"Agent '{agent_id}' already has a sandbox.  "
+                    f"Call stop_agent_sandbox() first."
+                )
+
+            logger.info(f"Creating {variant} sandbox for agent '{agent_id}'")
+            sandbox = self._create_sandbox(variant=variant)
+            sandbox.start()
+            logger.info(f"Started {variant} sandbox for agent '{agent_id}'")
+
+            # Always inject sandbox metadata env vars; include caller's
+            # env_vars when provided.
+            inject_vars = dict(env_vars or {})
+            self._inject_env_vars_into(sandbox, variant, inject_vars)
+
+            self._agent_sandboxes[agent_id] = sandbox
+            return sandbox
+
+    def get_agent_sandbox(self, agent_id: str) -> Sandbox | None:
+        """
+        Get the sandbox for a specific agent.
+
+        Args:
+            agent_id: Unique agent identifier.
+
+        Returns:
+            The agent's ``Sandbox`` or ``None`` if not found.
+        """
+        return self._agent_sandboxes.get(agent_id)
+
+    def stop_agent_sandbox(self, agent_id: str) -> None:
+        """
+        Stop and remove the sandbox for a specific agent.
+
+        For the ``"jupyter-server"`` variant this stops the Jupyter server that
+        ``code_sandboxes`` started.
+
+        Args:
+            agent_id: Unique agent identifier.
+        """
+        with self._agent_sandbox_lock:
+            sandbox = self._agent_sandboxes.pop(agent_id, None)
+            if sandbox is not None:
+                try:
+                    sandbox.stop()
+                    logger.info(f"Stopped sandbox for agent '{agent_id}'")
+                except Exception as e:
+                    logger.warning(
+                        f"Error stopping sandbox for agent '{agent_id}': {e}"
+                    )
+
+    def stop_all_agent_sandboxes(self) -> None:
+        """
+        Stop all per-agent sandboxes.
+
+        This should be called during server shutdown to ensure every
+        Jupyter server that ``code_sandboxes`` spawned is terminated.
+        """
+        with self._agent_sandbox_lock:
+            agent_ids = list(self._agent_sandboxes.keys())
+            for agent_id in agent_ids:
+                sandbox = self._agent_sandboxes.pop(agent_id, None)
+                if sandbox is not None:
+                    try:
+                        sandbox.stop()
+                        logger.info(
+                            f"Stopped sandbox for agent '{agent_id}' (shutdown)"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error stopping sandbox for agent '{agent_id}': {e}"
+                        )
+            logger.info(
+                f"Stopped {len(agent_ids)} per-agent sandbox(es) during shutdown"
+            )
+
+    def withdraw_env_vars(self, names: list[str] | set[str]) -> list[str]:
+        """Take secrets back from the sandbox: a configure no longer gives them (R-19).
+
+        Forgotten from what is injected into a sandbox that starts later, and
+        unset in every live kernel — the shared sandbox's and each agent's —
+        by an ``os.environ.pop`` run there: a kernel keeps what it was given
+        until something unsets it. Names only, never a value. Answers the
+        names withdrawn from the configuration.
+        """
+        wanted = sorted({str(name) for name in names if name})
+        if not wanted:
+            return []
+        with self._sandbox_lock:
+            forgotten = [
+                name for name in wanted if name in (self._config.env_vars or {})
+            ]
+            for name in forgotten:
+                self._config.env_vars.pop(name, None)  # type: ignore[union-attr]
+            live = [self._sandbox] if self._sandbox is not None else []
+        with self._agent_sandbox_lock:
+            live += [s for s in self._agent_sandboxes.values() if s is not None]
+        code = f"import os\nfor _name in {wanted!r}:\n    os.environ.pop(_name, None)\n"
+        for sandbox in live:
+            try:
+                result = sandbox.run_code(code)
+                if result.execution_ok:
+                    logger.info(f"Unset {len(wanted)} env var(s) in a kernel: {wanted}")
+                else:
+                    logger.warning(
+                        f"Failed to unset env vars in a kernel: {result.execution_error}"
+                    )
+            except Exception as e:
+                logger.warning(f"Error unsetting env vars in a sandbox: {e}")
+        return forgotten
+
+    def _inject_env_vars_into(
+        self,
+        sandbox: Sandbox,
+        variant: SandboxVariant,
+        env_vars: dict[str, str],
+    ) -> None:
+        """Inject environment variables into an arbitrary sandbox."""
+        # Add sandbox metadata env vars
+        env_vars = dict(env_vars)
+        env_vars["DATALAYER_CODE_SANDBOX_VARIANT"] = variant
+        if variant == "jupyter-server" and self._config.jupyter_url:
+            clean_url = self._config.jupyter_url.split("?")[0]
+            env_vars["DATALAYER_CODE_SANDBOX_URL"] = clean_url
+
+        if variant == "jupyter-server":
+            lines = ["import os"]
+            for name, value in env_vars.items():
+                lines.append(f"os.environ[{name!r}] = {value!r}")
+            code = "\n".join(lines)
+            try:
+                result = sandbox.run_code(code)
+                if result.execution_ok:
+                    logger.info(
+                        f"Injected {len(env_vars)} env var(s) into sandbox: "
+                        f"{list(env_vars.keys())}"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to inject env vars into sandbox: "
+                        f"{result.execution_error}"
+                    )
+            except Exception as e:
+                logger.warning(f"Error injecting env vars into sandbox: {e}")
+        else:
+            import os
+
+            os.environ["DATALAYER_CODE_SANDBOX_VARIANT"] = variant
+            logger.debug(
+                f"Set DATALAYER_CODE_SANDBOX_VARIANT={variant} "
+                f"on process env for {variant} sandbox"
+            )
+
+    def restart(self) -> Sandbox:
+        """
+        Restart the sandbox with current configuration.
+
+        Every sandbox this manager owns, not only the global one. A per-agent
+        sandbox was created under the *previous* configuration, so after a
+        `configure()` it is stale by definition — and it is the one the status
+        WebSocket reports when a caller asks about an agent. Leaving it running
+        meant switching where code runs replaced the global sandbox while the
+        browser went on being handed the old agent sandbox's address: a port
+        that was either dead or about to be, and an endless run of connection
+        failures against it.
+
+        The per-agent sandboxes are stopped rather than recreated here. They
+        are made on demand for whichever agent needs one, and recreating them
+        eagerly would start Jupyter servers for agents that may never run
+        again.
+
+        Returns:
+            The new global Sandbox instance.
+        """
+        self.stop()
+        self.stop_all_agent_sandboxes()
+        return self.get_sandbox()
+
+    def get_status(self) -> dict[str, Any]:
+        """
+        Get the current status of the sandbox manager.
+
+        Returns:
+            A dictionary with status information including paths.
+        """
+        import os
+        from pathlib import Path
+
+        # Get paths from environment or use defaults
+        repo_root = Path(__file__).resolve().parents[2]
+        generated_path = os.getenv(
+            "AGENT_RUNTIMES_GENERATED_CODE_FOLDER",
+            str((repo_root / "generated").resolve()),
+        )
+        skills_path = os.getenv(
+            "AGENT_RUNTIMES_SKILLS_FOLDER",
+            str((repo_root / "skills").resolve()),
+        )
+
+        # Compute python_path (what gets added to sys.path)
+        # For Jupyter/remote sandboxes, it's /tmp
+        # For eval, it's the parent of generated_path
+        # Both are reached over a Jupyter server, so both run code somewhere
+        # this process cannot see. "datalayer-runtime" was written here and is
+        # not a variant name — `SandboxVariant` calls it "datalayer" — so a
+        # Datalayer sandbox has been getting a local path all along.
+        if self._config.variant in ("jupyter-server", "datalayer"):
+            python_path = "/tmp"  # nosec B108
+        else:
+            python_path = str(Path(generated_path).resolve().parent)
+
+        # Resolve the live execution context.  In CLI / ``loop`` mode the
+        # sandbox lives in ``_agent_sandboxes`` (per-agent) rather than the
+        # global ``_sandbox``, so inspect both to report an accurate kernel id
+        # and running state.  Without this, ``/health/startup`` reports
+        # ``kernel_id: null`` and the notebook/document editors each fall back
+        # to starting their OWN default kernel, diverging from the sandbox
+        # kernel used by the agent.
+        active_sandbox = self._active_sandbox()
+        details = self.connection_details(active_sandbox)
+
+        return {
+            "variant": self._config.variant,
+            "jupyter_url": self._config.jupyter_url or details["jupyter_url"],
+            "jupyter_token": self._config.jupyter_token or details["jupyter_token"],
+            "jupyter_token_set": (
+                self._config.jupyter_token is not None
+                or details["jupyter_token"] is not None
+            ),
+            "kernel_id": details["kernel_id"],
+            "kernel_name": details["kernel_name"],
+            "username": details["username"],
+            "sandbox_running": active_sandbox is not None,
+            "agent_sandboxes": list(self._agent_sandboxes.keys()),
+            "generated_path": generated_path,
+            "skills_path": skills_path,
+            "python_path": python_path,
+            "mcp_proxy_url": self._config.mcp_proxy_url,
+        }
+
+
+# Module-level convenience function
+def get_code_sandbox_manager() -> CodeSandboxManager:
+    """
+    Get the global CodeSandboxManager singleton.
+
+    Returns:
+        The CodeSandboxManager instance.
+    """
+    return CodeSandboxManager.get_instance()
+
+
+def interrupt_sandbox() -> bool:
+    """
+    Interrupt any code currently running in the managed sandbox.
+
+    This is the single entry-point that should be called whenever
+    a user-initiated stop/cancel occurs (stop button, ACP session/cancel,
+    AG-UI terminate, etc.).
+
+    Returns:
+        True if code was executing and was successfully interrupted.
+    """
+    try:
+        manager = get_code_sandbox_manager()
+        sandbox = manager.get_managed_sandbox()
+        if sandbox.is_executing:
+            success = sandbox.interrupt()
+            if success:
+                logger.info("Sandbox code execution interrupted")
+            return success
+    except Exception as exc:
+        logger.debug(f"Sandbox interrupt failed (non-critical): {exc}")
+    return False

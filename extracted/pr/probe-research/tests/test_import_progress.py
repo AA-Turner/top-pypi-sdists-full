@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from probe.cli import import_progress as progress
+from probe.cli.imports import progress as progress
 
 
 def session(ident, items, done=0, state="running", **fields):

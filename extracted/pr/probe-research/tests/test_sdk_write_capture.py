@@ -374,7 +374,7 @@ def test_an_exec_childs_opt_out_drops_what_it_noted_before(tmp_path, argument, s
     assert inputs.prepare_child("run-co", env)
     code = (
         f"open({str(data)!r}, 'rb').read(); open({str(out)!r}, 'wb').write(b'o' * 300)\n"
-        f"from probe.sdk import inputs\nassert inputs.start('run-co', {argument}) is False\n"
+        f"from probe.sdk.capture import lineage as inputs\nassert inputs.start('run-co', {argument}) is False\n"
     )
     subprocess.run([sys.executable, "-c", code], env=env, check=True)
     client = _Client(inputs.FEATURE, inputs.OUTPUTS_FEATURE)

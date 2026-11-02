@@ -6,10 +6,11 @@ use clap::ValueEnum;
 use anyhow::Result;
 use codespan_reporting::files::SimpleFile;
 use serde_sarif::sarif;
+use std::fmt;
 use std::io::{Stdout, Write};
 
 use std::borrow::Cow;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(PartialEq, Eq, Clone, ValueEnum)]
 #[clap(rename_all = "lower")]
@@ -69,12 +70,15 @@ impl<W: Write> Printer for CloudPrinter<W> {
 
   fn after_print(&mut self) -> Result<()> {
     if self.platform == Platform::Sarif {
-      let tool_component = sarif::ToolComponent::builder().name("ast-grep").build();
+      let tool_component = sarif::ToolComponent::builder()
+        .name("ast-grep")
+        .version(env!("CARGO_PKG_VERSION"))
+        .build();
       let tool = sarif::Tool::builder().driver(tool_component).build();
       let mut run = sarif::Run::builder().tool(tool).build();
       run.results = Some(self.sarif_results.clone());
       let sarif_log = sarif::Sarif::builder()
-        .version(serde_json::json!(env!("CARGO_PKG_VERSION")))
+        .version(serde_json::json!(sarif::Version::V2_1_0.to_string()))
         .runs(vec![run])
         .build();
       let json = serde_json::to_string_pretty(&sarif_log)?;
@@ -98,9 +102,9 @@ impl PrintProcessor<CloudOutput> for CloudProcessor {
     match self.platform {
       Platform::GitHub => {
         let mut ret = vec![];
-        let path = PathBuf::from(file.name().to_string());
+        let path = Path::new(file.name().as_ref());
         for m in matches {
-          print_github_rule(&mut ret, m, &path, rule)?;
+          print_github_rule(&mut ret, m, path, rule)?;
         }
         Ok(CloudOutput::GitHub(ret))
       }
@@ -151,6 +155,37 @@ impl PrintProcessor<CloudOutput> for CloudProcessor {
   }
 }
 
+/// Formats GitHub workflow command values without intermediate strings.
+/// See https://github.com/actions/toolkit/blob/main/packages/core/src/command.ts
+enum GithubEscape<'a> {
+  Data(&'a str),
+  Property(&'a str),
+}
+
+impl fmt::Display for GithubEscape<'_> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let value = match self {
+      Self::Data(value) | Self::Property(value) => value,
+    };
+    let is_property = matches!(self, Self::Property(_));
+    let mut start = 0;
+    for (i, byte) in value.bytes().enumerate() {
+      let escaped = match byte {
+        b'%' => "%25",
+        b'\r' => "%0D",
+        b'\n' => "%0A",
+        b':' if is_property => "%3A",
+        b',' if is_property => "%2C",
+        _ => continue,
+      };
+      f.write_str(&value[start..i])?;
+      f.write_str(escaped)?;
+      start = i + 1;
+    }
+    f.write_str(&value[start..])
+  }
+}
+
 fn print_github_rule<W: Write>(
   writer: &mut W,
   m: NodeMatch,
@@ -164,16 +199,54 @@ fn print_github_rule<W: Write>(
     Severity::Hint => return Ok(()),
     Severity::Off => unreachable!("turned-off rule should not have match."),
   };
-  let title = &rule.id;
-  let name = path.display();
   let line = m.start_pos().line() + 1;
   let end_line = m.end_pos().line() + 1;
   let message = rule.get_message(&m);
+  let path = path.to_string_lossy();
+  let title = GithubEscape::Property(&rule.id);
+  let name = GithubEscape::Property(&path);
+  let message = GithubEscape::Data(&message);
   writeln!(
     writer,
     "::{level} file={name},line={line},endLine={end_line},title={title}::{message}"
   )?;
   Ok(())
+}
+
+/// Converts a file path to a SARIF URI reference (RFC 3986), emitting a
+/// `file:///` URI for absolute Windows drive paths and encoding reserved bytes.
+fn path_to_sarif_uri(path: &str) -> String {
+  // SARIF/serde-sarif cannot convert file paths to URI references, so we do it here.
+  path_to_sarif_uri_with_separator(path, std::path::MAIN_SEPARATOR)
+}
+
+/// Encodes a path using the separator for its originating platform.
+/// The separate argument lets tests cover Windows behavior on any host.
+fn path_to_sarif_uri_with_separator(path: &str, separator: char) -> String {
+  let bytes = path.as_bytes();
+  let is_windows_drive_absolute = separator == '\\'
+    && bytes.len() >= 3
+    && bytes[0].is_ascii_alphabetic()
+    && bytes[1] == b':'
+    && matches!(bytes[2], b'\\' | b'/');
+  let prefix = if is_windows_drive_absolute {
+    "file:///"
+  } else {
+    ""
+  };
+  let mut uri = String::with_capacity(prefix.len() + path.len());
+  uri.push_str(prefix);
+  for (index, byte) in path.bytes().enumerate() {
+    match byte {
+      b':' if is_windows_drive_absolute && index == 1 => uri.push(':'),
+      b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+        uri.push(byte as char)
+      }
+      b if char::from(b) == separator => uri.push('/'),
+      b => uri.push_str(&format!("%{b:02X}")),
+    }
+  }
+  uri
 }
 
 fn severity_to_sarif_level(severity: &Severity) -> sarif::ResultLevel {
@@ -212,11 +285,10 @@ fn create_sarif_result(
     )
     .build();
 
-  // TODO: path is not URI, this impl should handle path to uri
   let physical_location = sarif::PhysicalLocation::builder()
     .artifact_location(
       sarif::ArtifactLocation::builder()
-        .uri(path.to_string())
+        .uri(path_to_sarif_uri(path))
         .build(),
     )
     .region(region)
@@ -269,7 +341,7 @@ fn attach_sarif_fix(mut result: sarif::Result, path: &str, diff: Diff<'_>) -> sa
 
   let artifact_change = sarif::ArtifactChange {
     artifact_location: sarif::ArtifactLocation::builder()
-      .uri(path.to_string())
+      .uri(path_to_sarif_uri(path))
       .build(),
     replacements: vec![replacement],
     properties: None,
@@ -390,6 +462,34 @@ severity: warning
   }
 
   #[test]
+  fn test_escape_message_output() {
+    let src = "console.log(123)";
+    let rule_str = r#"
+id: test,a:b%0A
+language: TypeScript
+rule: { pattern: console }
+severity: warning
+message: "100% sure\r\nsecond line %0A, : café 🦀""#;
+    let rule = from_yaml_string::<SgLang>(rule_str, &GlobalRules::default())
+      .unwrap()
+      .pop()
+      .unwrap();
+    let mut printer = make_test_printer();
+    let grep = SgLang::from(SupportLang::Tsx).ast_grep(src);
+    let matches = grep.root().find_all(&rule.matcher).collect();
+    let file = SimpleFile::new(Cow::Borrowed("dir%,a:b\r\né.tsx"), src);
+    let buffer = printer
+      .get_processor()
+      .print_rule(matches, file, &rule)
+      .unwrap();
+    printer.process(buffer).expect("should work");
+    assert_eq!(
+      get_text(&mut printer),
+      "::warning file=dir%25%2Ca%3Ab%0D%0Aé.tsx,line=1,endLine=1,title=test%2Ca%3Ab%250A::100%25 sure%0D%0Asecond line %250A, : café 🦀\n"
+    );
+  }
+
+  #[test]
   fn test_error_output() {
     test_output(
       "console.log(123)",
@@ -420,15 +520,60 @@ severity: error
 
     // Verify it's valid JSON
     let sarif_log: sarif::Sarif = serde_json::from_str(&json_str).expect("should be valid SARIF");
-    assert_eq!(
-      sarif_log.version,
-      serde_json::json!(env!("CARGO_PKG_VERSION"))
-    );
+    assert_eq!(sarif_log.version, serde_json::json!("2.1.0"));
     assert_eq!(sarif_log.runs.len(), 1);
 
     let run = &sarif_log.runs[0];
+    assert_eq!(
+      run.tool.driver.version.as_deref(),
+      Some(env!("CARGO_PKG_VERSION"))
+    );
     let results = run.results.as_ref().unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].rule_id.as_ref().unwrap(), "test");
+  }
+
+  #[test]
+  fn test_sarif_uri_is_percent_encoded() {
+    let mut printer = make_sarif_test_printer();
+    let source = "let a = 123";
+    let grep = SgLang::from(SupportLang::Tsx).ast_grep(source);
+    let rule = make_rule("rule: { pattern: a }\nseverity: error");
+    let matches: Vec<_> = grep.root().find_all(&rule.matcher).collect();
+    printer.before_print().unwrap();
+    let file = SimpleFile::new(Cow::Borrowed("dir one/100%#a?b é.ts"), source);
+    let buffer = printer
+      .get_processor()
+      .print_rule(matches, file, &rule)
+      .unwrap();
+    printer.process(buffer).unwrap();
+    printer.after_print().unwrap();
+    let json_str = get_text(&mut printer);
+    let sarif_log: sarif::Sarif = serde_json::from_str(&json_str).expect("should be valid SARIF");
+    let results = sarif_log.runs[0].results.as_ref().unwrap();
+    let location = results[0].locations.as_ref().unwrap()[0]
+      .physical_location
+      .as_ref()
+      .unwrap();
+    assert_eq!(
+      location.artifact_location.as_ref().unwrap().uri.as_deref(),
+      Some("dir%20one/100%25%23a%3Fb%20%C3%A9.ts")
+    );
+  }
+
+  #[test]
+  fn test_windows_drive_absolute_path_is_file_uri() {
+    assert_eq!(
+      path_to_sarif_uri_with_separator(r"C:\work dir\100%.ts", '\\'),
+      "file:///C:/work%20dir/100%25.ts"
+    );
+    assert_eq!(
+      path_to_sarif_uri_with_separator(r"C:work dir\100%.ts", '\\'),
+      "C%3Awork%20dir/100%25.ts"
+    );
+    assert_eq!(
+      path_to_sarif_uri_with_separator(r"C:\work dir\100%.ts", '/'),
+      "C%3A%5Cwork%20dir%5C100%25.ts"
+    );
   }
 }

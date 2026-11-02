@@ -35,8 +35,8 @@ class CredentialsMixin:
         token, ingest = self.settings.token, self.settings.ingest_token
         if (
             ingest
-            and ingest == os.environ.get("PROBE_INGEST_TOKEN")
-            and not (token and token == os.environ.get("PROBE_TOKEN"))
+            and ingest == os.environ.get(config_module.INGEST_TOKEN_ENV)
+            and not (token and token == os.environ.get(config_module.TOKEN_ENV))
         ):
             return credential_fingerprint(None, ingest) or stamp["fingerprint"]
         return stamp["fingerprint"]
@@ -69,8 +69,8 @@ class CredentialsMixin:
         token, ingest = self.settings.token, self.settings.ingest_token
         if self._is_the_stored_login(context_name):
             for fingerprint, var, value in (
-                (credential_fingerprint(token, None), "PROBE_TOKEN", token),
-                (credential_fingerprint(None, ingest), "PROBE_INGEST_TOKEN", ingest),
+                (credential_fingerprint(token, None), config_module.TOKEN_ENV, token),
+                (credential_fingerprint(None, ingest), config_module.INGEST_TOKEN_ENV, ingest),
             ):
                 if value and os.environ.get(var) == value:
                     outbox_worker.note_copied_login(fingerprint)
@@ -84,7 +84,7 @@ class CredentialsMixin:
                 stored = config_module.load_context(context_name)
             except Exception:  # noqa: BLE001
                 return False
-            base = (stored.get("base_url") or config_module.DEFAULT_BASE_URL).rstrip("/")
+            base = (stored.get(config_module.BASE_URL_KEY) or config_module.DEFAULT_BASE_URL).rstrip("/")
             return base == here
         # Another process of the job, after the re-login: this machine
         # recorded the token as its stored login for this server
@@ -107,7 +107,7 @@ class CredentialsMixin:
         if not (token or ingest):
             return False
         if same_server:
-            base = (stored.get("base_url") or config_module.DEFAULT_BASE_URL).rstrip("/")
+            base = (stored.get(config_module.BASE_URL_KEY) or config_module.DEFAULT_BASE_URL).rstrip("/")
             if base != (self.settings.base_url or "").rstrip("/"):
                 return False
         return (not token or token == stored.get("token")) and (
@@ -131,13 +131,13 @@ class CredentialsMixin:
         fingerprint = credential_fingerprint(token, ingest)
         if fingerprint is None:
             return None
-        env = {k: os.environ.get(k) for k in ("PROBE_TOKEN", "PROBE_INGEST_TOKEN")}
+        env = {k: os.environ.get(k) for k in (config_module.TOKEN_ENV, config_module.INGEST_TOKEN_ENV)}
         try:
             stored = config_module.load_context(context_name)
         except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
             stored = {}
-        from_env = (token and token == env["PROBE_TOKEN"]) or (
-            ingest and ingest == env["PROBE_INGEST_TOKEN"]
+        from_env = (token and token == env[config_module.TOKEN_ENV]) or (
+            ingest and ingest == env[config_module.INGEST_TOKEN_ENV]
         )
         if from_env and not self._is_the_login(context_name):
             source = CredentialSource.ENV
@@ -293,7 +293,7 @@ class CredentialsMixin:
     def _reread_credential(self) -> tuple[str | None, str | None]:
         """(token, None), or (None, why) -- from the token's own source only."""
         if self._credential_source == "env":
-            token = os.environ.get("PROBE_TOKEN") or None
+            token = os.environ.get(config_module.TOKEN_ENV) or None
             if token is None or token == self.settings.token:
                 return None, (
                     "its token comes from PROBE_TOKEN, which cannot change while the "
@@ -307,7 +307,7 @@ class CredentialsMixin:
                 stored = config_module.load_context(name)
             except Exception as exc:  # noqa: BLE001 -- an unreadable config is "nothing new"
                 return None, f"the stored login could not be read ({_failure_kind(exc)})"
-            base = (stored.get("base_url") or config_module.DEFAULT_BASE_URL).rstrip("/")
+            base = (stored.get(config_module.BASE_URL_KEY) or config_module.DEFAULT_BASE_URL).rstrip("/")
             if base != self.settings.base_url.rstrip("/"):
                 return None, f"the stored login is for {base}, not {self.settings.base_url}"
             token = stored.get("token") or None

@@ -1,0 +1,1 @@
+"""GitHub API error tests."""

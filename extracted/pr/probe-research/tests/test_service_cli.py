@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from probe.service import paths
+from probe.foundation.service_api import paths
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -44,7 +44,7 @@ def test_start_records_this_interpreter_when_none_is(service_home):
 
 
 def test_runtime_is_recorded_only_from_the_uv_tool_env(service_home, monkeypatch):
-    from probe.cli import service_cli
+    from probe.cli.commands.machine import service as service_cli
 
     paths.runtime_path().unlink()
     monkeypatch.setattr(sys, "prefix", "/home/x/.venv")
@@ -61,7 +61,7 @@ def test_runtime_is_recorded_only_from_the_uv_tool_env(service_home, monkeypatch
 
 
 def test_status_says_what_the_updater_did(service_home):
-    from probe.cli import service_cli
+    from probe.cli.commands.machine import service as service_cli
 
     _probe("start")
     shown = _probe("status")
@@ -81,7 +81,8 @@ def test_an_update_that_did_not_complete_reads_as_failed():
     step done, but the update child said `complete: false` (live test C). Every
     surface reads it as failed: `probe service status`, `probe doctor`'s row,
     `probe status --json`'s `last_ok`."""
-    from probe.cli import service_calls, service_cli
+    from probe.cli.lifecycle import service_calls
+    from probe.cli.commands.machine import service as service_cli
 
     last = {"ok": True, "steps": {"cli_and_plugins": {"state": "done", "exit_code": 0, "ok": True,
                                                        "complete": False}}}
@@ -101,13 +102,14 @@ def test_start_refuses_while_an_uninstall_stopped_halfway_and_never_finishes_it(
     nothing, and exits 2; it names the finisher copy only once it exists."""
     from typer.testing import CliRunner
 
-    from probe.cli import service_cli, uninstall
-    from probe.service import client
+    from probe.cli.commands.machine import service as service_cli
+    from probe.cli.install import uninstall
+    from probe.foundation import service_api as client
 
     paths.private_dir(paths.uninstall_dir())
     paths.uninstall_barrier_path().write_text(json.dumps(
         {"v": 1, "pid": 999999999, "start": "1", "at": 0, "phase": "integrations", "plan": ""}))
-    monkeypatch.setattr(uninstall, "finish_interrupted", lambda: pytest.fail("only an installer finishes it"))
+    monkeypatch.setattr(uninstall.barrier, "finish_interrupted", lambda: pytest.fail("only an installer finishes it"))
     started = []
     monkeypatch.setattr(client, "ensure", lambda **kw: started.append(kw) or client.Ensured.SPAWNED)
     monkeypatch.setattr(service_cli, "record_runtime", lambda **kw: started.append("runtime"))

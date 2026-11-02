@@ -19,7 +19,7 @@ class JqRuleMixin:
     """Part of _Checker: its methods run with `self` the _Checker; compose() folds them into _Checker."""
 
     def _jq(self, args: list[_Word], cands: list[str]) -> None:
-        program_seen = False
+        is_program_seen = False
         string_args = False  # after --args / --jsonargs, positionals are strings
         names_only = False
         skip = 0
@@ -50,8 +50,8 @@ class JqRuleMixin:
                 elif any(ch not in _JQ_SHORT_FLAGS for ch in v[1:]):
                     raise _Refuse(f"The jq option {v} isn't on the safe list.")
                 continue
-            if not program_seen:
-                program_seen = True
+            if not is_program_seen:
+                is_program_seen = True
                 if _JQ_MODULES.search(v):
                     raise _Refuse("jq import / include load files from jq's library folders.")
                 if _JQ_ENCODERS.search(v):

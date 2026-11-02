@@ -554,7 +554,7 @@ class TestLegacyMigration:
     """Per-harness documents from the old layout: parked, never pushed."""
 
     def _legacy(self, source: str) -> Path:
-        from probe.cli import agent_rules
+        from probe.cli.wizard.apply import agent_rules
 
         path = agent_rules.memory_path(source).parent / team_note_file.DOCUMENT_NAME
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -745,7 +745,7 @@ class TestTheDoctorRow:
     """
 
     def test_parked_copies_are_listed_with_whose_they_are(self, client, app, where, monkeypatch):
-        from probe.cli import doctor
+        from probe.cli.wizard import doctor
 
         app.team_note["body"] = "shared\n"
         app.team_note["version"] = 2
@@ -770,7 +770,7 @@ class TestTheDoctorRow:
         assert any("another team's note" in row for row in parked)
 
     def test_no_parked_copies_means_no_rows(self, client, app, where, monkeypatch):
-        from probe.cli import doctor
+        from probe.cli.wizard import doctor
 
         app.team_note["body"] = "shared\n"
         app.team_note["version"] = 2
@@ -851,7 +851,7 @@ class TestAdoptRefusesLegacyCopies:
     def test_a_legacy_copy_is_never_adopted_even_though_it_is_stamped_ours(
         self, client, app, where
     ):
-        from probe.cli import agent_rules
+        from probe.cli.wizard.apply import agent_rules
 
         app.team_note["body"] = "shared\n\n## kept by the other harness\n"
         app.team_note["version"] = 3

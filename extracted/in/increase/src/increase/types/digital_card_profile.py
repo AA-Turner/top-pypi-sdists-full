@@ -1,0 +1,140 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "DigitalCardProfile",
+    "ApplePay",
+    "ApplePayAssociatedApplicationIdentifier",
+    "ApplePayAssociatedStoreIdentifier",
+    "TextColor",
+]
+
+
+class ApplePayAssociatedApplicationIdentifier(BaseModel):
+    identifier: str
+    """
+    The application identifier, composed of your Apple Developer Team ID and the
+    application's bundle identifier, like `ABCDE12345.com.example.app`.
+    """
+
+
+class ApplePayAssociatedStoreIdentifier(BaseModel):
+    identifier: str
+    """The numeric App Store identifier."""
+
+
+class ApplePay(BaseModel):
+    """Apple Pay specific settings for the Card Profile."""
+
+    associated_application_identifiers: List[ApplePayAssociatedApplicationIdentifier]
+    """The applications associated with cards using this Card Profile."""
+
+    associated_store_identifiers: List[ApplePayAssociatedStoreIdentifier]
+    """
+    The App Store listings of the applications associated with cards using this Card
+    Profile.
+    """
+
+
+class TextColor(BaseModel):
+    """The Card's text color, specified as an RGB triple."""
+
+    blue: int
+    """The value of the blue channel in the RGB color."""
+
+    green: int
+    """The value of the green channel in the RGB color."""
+
+    red: int
+    """The value of the red channel in the RGB color."""
+
+
+class DigitalCardProfile(BaseModel):
+    """
+    This contains artwork and metadata relating to a Card's appearance in digital wallet apps like Apple Pay and Google Pay. For more information, see our guide on [digital card artwork](https://increase.com/documentation/card-art).
+    """
+
+    id: str
+    """The Card Profile identifier."""
+
+    app_icon_file_id: str
+    """The identifier of the File containing the card's icon image."""
+
+    apple_pay: Optional[ApplePay] = None
+    """Apple Pay specific settings for the Card Profile."""
+
+    background_image_file_id: str
+    """The identifier of the File containing the card's front image."""
+
+    card_description: str
+    """A user-facing description for the card itself."""
+
+    contact_email: Optional[str] = None
+    """An email address the user can contact to receive support for their card."""
+
+    contact_name: str
+    """
+    The name of your company or card program, shown to the user as who to contact
+    for support with their card.
+    """
+
+    contact_phone: Optional[str] = None
+    """A phone number the user can contact to receive support for their card."""
+
+    contact_website: Optional[str] = None
+    """A website the user can visit to view and receive support for their card."""
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Digital Card Profile was created.
+    """
+
+    description: str
+    """A description you can use to identify the Card Profile."""
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    status: Literal["pending", "rejected", "active", "archived"]
+    """The status of the Card Profile.
+
+    - `pending` - The Card Profile is awaiting review from Increase and/or
+      processing by card networks.
+    - `rejected` - There is an issue with the Card Profile preventing it from use.
+    - `active` - The Card Profile can be assigned to Cards.
+    - `archived` - The Card Profile is no longer in use.
+    """
+
+    text_color: TextColor
+    """The Card's text color, specified as an RGB triple."""
+
+    type: Literal["digital_card_profile"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `digital_card_profile`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

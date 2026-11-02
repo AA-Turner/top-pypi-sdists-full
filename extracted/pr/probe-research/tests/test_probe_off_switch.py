@@ -1,6 +1,6 @@
 """Whoever moves a session's switch tells the Probe service at once, so Probe
 off means the session is not captured from that moment, and a move back on
-captures from that moment (`probe.service.capture_gate`).
+captures from that moment (`probe.service.sessions.capture_gate`).
 
     the CLI     `probe session state|toggle|track|untrack`
                 (`service_calls.capture_switched`): the service looks now; with
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from probe import cli
-from probe.cli import service_calls
+from probe.cli.lifecycle import service_calls
 from probe.sdk import session_marker
 
 AGENT = Path(__file__).resolve().parents[1]
@@ -46,7 +46,7 @@ def _env(tmp_path, monkeypatch):
 
 class _Client:
     def __init__(self, monkeypatch, *, reachable: bool):
-        from probe.service import client
+        from probe.foundation import service_api as client
 
         self.ensured: list = []
         self.calls: list = []
@@ -58,7 +58,7 @@ class _Client:
 
 def _hold(sid: str) -> None:
     """What a service that held `sid` (off) saves when it goes idle."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     folder = paths.service_dir()
     folder.mkdir(parents=True, exist_ok=True)

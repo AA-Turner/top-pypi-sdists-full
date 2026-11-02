@@ -185,7 +185,7 @@ def parked_copies(where: Paths) -> list[tuple[Path, str | None, str]]:
     it by hand, which is the common case.
     """
     roots = {where.document.parent}
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     for source in LEGACY_SOURCES:
         try:
@@ -311,7 +311,7 @@ def migrate_legacy_documents(where: Paths) -> list[Path]:
     the PARKED copy is exactly as good an answer to "is there anything here the
     server does not already have".
     """
-    from probe.cli import agent_rules
+    from probe.cli.wizard.apply import agent_rules
 
     base = None
     try:

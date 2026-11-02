@@ -1,0 +1,313 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+SHELL := /bin/bash
+
+PYTHON ?= python3
+NPM ?= npm
+UVICORN ?= uvicorn
+PIP ?= $(PYTHON) -m pip
+
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-launch cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app music-install build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music decks deck example-frontend example-frontend-backend example-music clean
+
+help:
+	@echo "Common Reactor operations"
+	@echo ""
+	@echo "  make all             Build and install everything, then say what to run"
+	@echo ""
+	@echo "  make install         Install JS deps and Python package in editable mode"
+	@echo "  make build           Build the reactor (core + react) and every plugin"
+	@echo "  make typecheck       Typecheck the reactor and every plugin"
+	@echo "  make package         Pack the reactor, its plugins, and the Python package"
+	@echo ""
+	@echo "  reactor              A server that runs whatever is installed beside it"
+	@echo ""
+	@echo "  make cms               Build, install and launch the CMS example"
+	@echo "  make cms-pro           Add the CMS paid tier, while the CMS is running"
+	@echo "  make cms-build         Build and install the CMS without launching it"
+	@echo "  make cms-astro         Run the SQLite CMS backend and Astro site"
+	@echo "  make cms-astro-seed    Seed admin/admin, user1/user1 and user2/user2"
+	@echo "  make cms-astro-install Install Core from this monorepo"
+	@echo "  make cms-astro-ai      Run the CMS with the AI authoring extension enabled"
+	@echo "  make cms-astro-ai-build Build the separately packaged AI extension frontend"
+	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
+	@echo "  make cms-astro-x402    Run the CMS with the paid-content x402 extension"
+	@echo "  make cms-astro-x402-build Build the separately packaged x402 extension"
+	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
+	@echo "  make music-app         Build the music store as one installable app"
+	@echo "  make music-install     Install the music example: the TypeScript build, then the Python packages"
+	@echo "  make music             Run the music example with a frontend dev server (run `make music-install` once)"
+	@echo "  make decks             Present the seven-slide Reactor overview"
+	@echo "  make frontend          Run the frontend-only React example"
+	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
+	@echo "  make example-frontend          Alias for frontend example"
+	@echo "  make example-frontend-backend  Alias for frontend-backend example"
+	@echo "  make example-music             Alias for music example"
+	@echo ""
+	@echo "  make clean           Remove build artifacts"
+
+all: build install music-app cms-build ## build and install everything
+	@echo
+	@echo "Everything is built and installed. To run something:"
+	@echo "  reactor                 a server that runs whatever is installed"
+	@echo "  make cms                the CMS example, free tier"
+	@echo "  make cms-pro            ...then add the paid tier, while it runs"
+	@echo "  datalayer-music-example the music store"
+	@echo "  make music              the music store, with a frontend dev server"
+
+install: install-js install-py
+
+install-js:
+	$(NPM) install
+	$(NPM) install --prefix examples/frontend
+	$(NPM) install --prefix examples/frontend-backend
+	$(NPM) install --prefix examples/music
+
+install-py:
+	$(PYTHON) -m pip install -e .
+
+install-py-dev:
+	$(PYTHON) -m pip install -e .[dev]
+	$(PYTHON) -m pip install build
+
+build: build-js
+
+build-js:
+	$(NPM) run build
+
+typecheck:
+	$(NPM) run typecheck
+
+package: package-js package-py
+
+package-js:
+	$(NPM) pack
+	@set -e; for dir in plugins/*/; do \
+		[ -f "$$dir/package.json" ] || continue; \
+		echo "[package] $$dir"; \
+		( cd "$$dir" && $(NPM) pack --pack-destination ../.. ); \
+	done
+
+package-py:
+	$(PYTHON) -m pip install build
+	$(PYTHON) -m build
+
+build-lib: ## build-lib
+	npm run build:lib
+
+publish-pypi: # publish the pypi package
+	git clean -fdx && \
+		python -m build
+	@exec echo
+	@exec echo twine upload ./dist/*-py3-none-any.whl
+	@exec echo
+	@exec echo https://pypi.org/project/datalayer-reactor/#history
+
+.PHONY: bump bump-patch bump-minor bump-major
+
+bump: ## bump the version of every package, asking which part
+	python dev/bump_version.py
+
+bump-patch: ## bump the patch version of every package (1.0.3 -> 1.0.4)
+	python dev/bump_version.py patch
+
+bump-minor: ## bump the minor version of every package (1.0.3 -> 1.1.0)
+	python dev/bump_version.py minor
+
+bump-major: ## bump the major version of every package (1.0.3 -> 2.0.0)
+	python dev/bump_version.py major
+
+publish-npm: clean build ## publish the reactor, and any plugin package not marked private
+	npm publish
+	@set -e; for dir in plugins/*/; do \
+		[ -f "$$dir/package.json" ] || continue; \
+		name=$$(node -p "require('./$$dir/package.json').name"); \
+		private=$$(node -p "require('./$$dir/package.json').private === true"); \
+		if [ "$$private" = "true" ]; then \
+			echo "[publish] $$name is private, skipped"; \
+			continue; \
+		fi; \
+		echo "[publish] $$name"; \
+		( cd "$$dir" && npm publish ); \
+	done
+	@echo open https://www.npmjs.com/package/@datalayer/reactor
+
+frontend:
+	$(NPM) run example:dev
+
+decks: ## serve the Reactor overview deck
+	datalayer decks serve ./decks/about-reactor.yaml
+
+# The target was `deck` first, and `decks` is what the directory, the CLI
+# subcommand and everyone's fingers say. Both work.
+deck: decks
+
+example-frontend: frontend
+
+frontend-backend:
+	@set -e; \
+	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
+	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend reactor_demo:app --reload --port 8788 & \
+	PY_PID=$$!; \
+	$(NPM) run example:dev:frontend-backend
+
+example-frontend-backend: frontend-backend
+
+cms-build: build-js ## build and install the CMS example, without launching it
+	@set -e; \
+	npm --prefix examples/cms/app install; \
+	NODE_ENV=production npm --prefix examples/cms/app run build; \
+	mkdir -p examples/cms/cms/share/datalayer/reactor/apps/cms; \
+	rm -rf examples/cms/cms/share/datalayer/reactor/apps/cms/*; \
+	cp -r examples/cms/app/dist/. examples/cms/cms/share/datalayer/reactor/apps/cms/; \
+	$(PIP) install examples/cms/cms
+
+cms: cms-build ## build, install and launch the CMS example
+	@echo
+	@echo "Serving the CMS on http://localhost:8788"
+	@echo "While it runs, in another terminal:  make cms-pro"
+	@echo
+	datalayer-cms --port 8788
+
+cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
+	$(PIP) install examples/cms/cms-pro
+	@echo
+	@echo "Installed. Refresh the browser — no restart needed."
+	@echo "A regular install, not editable: a .pth file is only read at startup."
+
+cms-astro-install: build-js ## install the Astro CMS Core package from this monorepo
+	@if [ -L ../../../node_modules/@datalayer/jupyter-lexical ]; then \
+		echo "Using the monorepo @datalayer/jupyter-lexical workspace link"; \
+	else \
+		$(NPM) --prefix examples/cms-astro/core/frontend install --workspaces=false; \
+	fi
+	$(PIP) install -e examples/cms-astro/core
+
+cms-astro-seed: ## seed the documented accounts and initial website
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH=examples/cms-astro/core $(PYTHON) -m cms_astro_core.seed
+
+cms-astro-build: cms-astro-install ## typecheck and build the Astro SSR site
+	$(NPM) --prefix examples/cms-astro/core/frontend run build
+	mkdir -p examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro
+	rm -rf examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/*
+	cp -r examples/cms-astro/core/frontend/dist/. examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/
+
+cms-astro: cms-astro-install cms-astro-launch ## install Core, then run the CMS API and Astro SSR site
+
+cms-astro-launch: ## launch the already-installed CMS without building or installing
+	@set -e; \
+	trap 'kill $$CMS_ASTRO_PID 2>/dev/null || true' EXIT INT TERM; \
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH="$(CMS_ASTRO_EXTENSION_PATHS)$${PYTHONPATH:+:$$PYTHONPATH}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
+	CMS_ASTRO_PID=$$!; \
+	echo "CMS API: http://localhost:8791/docs"; \
+	echo "Astro site: http://localhost:4321 (admin at /_cms/admin)"; \
+	CMS_API_URL=http://localhost:8791 $(NPM) --prefix examples/cms-astro/core/frontend run dev
+
+cms-astro-pro: ## install Pro as a separately discoverable wheel
+	$(PIP) install examples/cms-astro/pro
+	@echo "Installed CMS Pro. Refresh the Astro admin page."
+
+cms-astro-ai-build: ## build the AI agent frontend embedded in its Python package
+	@if [ -L ../../../node_modules/@datalayer/agent-runtimes ] || [ -d examples/cms-astro/ai-agents/frontend/node_modules/@datalayer/agent-runtimes ]; then \
+		echo "Using the installed @datalayer/agent-runtimes package"; \
+	else \
+		$(NPM) --prefix examples/cms-astro/ai-agents/frontend install --workspaces=false; \
+	fi
+	$(NPM) --prefix examples/cms-astro/ai-agents/frontend run build
+
+cms-astro-ai: ## launch the already-installed CMS with the AI Agents extension enabled
+	@echo "Starting the CMS with the separately discovered AI Agents extension."
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/ai-agents
+
+cms-astro-x402-build: ## build the separately discoverable x402 wheel
+	$(PYTHON) -m build --wheel examples/cms-astro/x402
+
+cms-astro-x402: ## launch the already-installed CMS with the x402 extension enabled
+	@echo "Starting the CMS with the separately discovered x402 extension."
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/x402
+
+cms-astro-package: cms-astro-build cms-astro-ai-build cms-astro-x402-build ## build locally installable Core, AI Agents, Pro and x402 wheels
+	$(PYTHON) -m build --wheel examples/cms-astro/core
+	$(PYTHON) -m build --wheel examples/cms-astro/ai-agents
+	$(PYTHON) -m build --wheel examples/cms-astro/pro
+
+music-app: build-js ## build the music store as one installable application
+	@set -e; \
+	npm --prefix examples/music/app run build; \
+	mkdir -p examples/music/backend/share/datalayer/reactor/apps/music; \
+	rm -rf examples/music/backend/share/datalayer/reactor/apps/music/*; \
+	cp -r examples/music/app/dist/. examples/music/backend/share/datalayer/reactor/apps/music/; \
+	$(PIP) install -e examples/music/catalog-plugin \
+	                -e examples/music/checkout-plugin \
+	                -e examples/music/playlist-plugin \
+	                -e examples/music/mood-plugin \
+	                -e examples/music/backend; \
+	echo; \
+	echo "Built. Now run: datalayer-music-example"
+
+music-install: build-js ## install the music example: build the TypeScript (lib and plugins), then the Python packages in editable mode
+	$(PIP) install -e examples/music/catalog-plugin \
+	               -e examples/music/checkout-plugin \
+	               -e examples/music/playlist-plugin \
+	               -e examples/music/mood-plugin \
+	               -e examples/music/backend
+
+music: ## run the music example: backend and frontend dev server, from what `make music-install` built
+	@set -e; \
+	kill_port() { \
+		local port="$$1"; \
+		local pids=""; \
+		if command -v lsof >/dev/null 2>&1; then \
+			pids="$$(lsof -ti tcp:$$port 2>/dev/null || true)"; \
+		elif command -v fuser >/dev/null 2>&1; then \
+			pids="$$(fuser -n tcp $$port 2>/dev/null || true)"; \
+		elif command -v ss >/dev/null 2>&1; then \
+			pids="$$(ss -ltnp "sport = :$$port" 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u)"; \
+		fi; \
+		if [ -n "$$pids" ]; then \
+			kill $$pids 2>/dev/null || true; \
+			if command -v lsof >/dev/null 2>&1; then \
+				local remaining; remaining="$$(lsof -ti tcp:$$port 2>/dev/null || true)"; \
+				if [ -n "$$remaining" ]; then kill -9 $$remaining 2>/dev/null || true; fi; \
+			fi; \
+		fi; \
+	}; \
+	cleanup() { \
+		if [ -n "$$PY_PID" ]; then \
+			pkill -P $$PY_PID 2>/dev/null || true; \
+			kill $$PY_PID 2>/dev/null || true; \
+		fi; \
+		kill_port 8799; \
+		kill_port 5179; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	kill_port 8799; \
+	kill_port 5179; \
+	echo "[music] Starting backend on http://localhost:8799 ..."; \
+	$(PYTHON) -m $(UVICORN) datalayer_music_example.app:app --reload --port 8799 & \
+	PY_PID=$$!; \
+	echo "[music] Starting frontend on http://localhost:5179 ..."; \
+	$(NPM) run dev --prefix examples/music
+
+example-music: music
+
+clean:
+	rm -rf dist
+	rm -rf lib
+	rm -rf plugins/*/lib
+	rm -rf plugins/*/node_modules
+	rm -rf build
+	rm -rf *.egg-info
+	rm -rf .pytest_cache
+	rm -rf .mypy_cache
+	rm -rf examples/frontend/node_modules
+	rm -rf examples/frontend-backend/node_modules
+	rm -rf examples/music/node_modules
+	rm -rf examples/music/*/node_modules
+	rm -rf node_modules
+	rm -rf __pycache__
+	rm -rf reactor/__pycache__
+	rm -rf examples/__pycache__
+	rm -rf ./*.tgz
+	rm -rf ./.venv

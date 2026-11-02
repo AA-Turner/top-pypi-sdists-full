@@ -1,0 +1,226 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""The transcript's grammar in Python (A-06, A-14): the twin of
+``sceneTranscript.ts`` gives the fixture's lines — the same fixture the
+TypeScript test reads (``agent_runtimes/tests/fixtures/scene_transcript.json``).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List
+
+import pytest
+
+from agent_runtimes.loop.scenes.transcript import (
+    PERSON,
+    SceneConnection,
+    SceneMember,
+    connection_of_tool,
+    line_json,
+    line_text,
+    lines_of_json,
+    millis,
+    read_transcript_json,
+    time_text,
+    transcript_of_record,
+    transcript_of_spans,
+    transcript_text,
+)
+
+FIXTURE = Path(__file__).parent / "fixtures" / "scene_transcript.json"
+
+
+@pytest.fixture(scope="module")
+def fixture() -> Dict[str, Any]:
+    return json.loads(FIXTURE.read_text())
+
+
+def members_of(data: List[Dict[str, Any]]) -> List[SceneMember]:
+    return [
+        SceneMember(
+            id=member["id"],
+            name=member["name"],
+            connections=tuple(
+                SceneConnection(
+                    id=connection["id"],
+                    name=connection["name"],
+                    label=connection["label"],
+                    tools=tuple(connection.get("tools", [])),
+                    prefix=connection.get("prefix", ""),
+                )
+                for connection in member.get("connections", [])
+            ),
+        )
+        for member in data
+    ]
+
+
+def test_every_case_of_the_fixture_gives_its_lines(fixture: Dict[str, Any]) -> None:
+    members = members_of(fixture["members"])
+    for case in fixture["cases"]:
+        lines = transcript_of_spans(case["spans"], members)
+        assert [line_text(line) for line in lines] == case["lines"], case["name"]
+        if "kinds" in case:
+            assert [line.kind for line in lines] == case["kinds"], case["name"]
+        if "offsets" in case:
+            assert [line.at - lines[0].at for line in lines] == case["offsets"], case[
+                "name"
+            ]
+        if "open" in case:
+            assert [line.open for line in lines] == case["open"], case["name"]
+        if "failed" in case:
+            assert [line.failed for line in lines] == case["failed"], case["name"]
+        for never in case.get("never", []):
+            # The call to the peer (Sales' own tool) is told by the A2A request, once.
+            assert not any(line.text == never for line in lines), case["name"]
+
+
+def test_the_scripted_scene_starts_with_the_person(fixture: Dict[str, Any]) -> None:
+    members = members_of(fixture["members"])
+    lines = transcript_of_spans(fixture["cases"][0]["spans"], members)
+    assert (
+        lines[0].who == PERSON and lines[0].to == "Sales" and lines[0].kind == "asked"
+    )
+    assert lines[2].to == "Odoo" and lines[2].kind == "called"
+
+
+def test_a_finished_run_is_read_the_same_way(fixture: Dict[str, Any]) -> None:
+    record = fixture["record"]
+    member = members_of([record["member"]])[0]
+    lines = transcript_of_record(record["entries"], member)
+    assert [line_text(line) for line in lines] == record["lines"]
+    # The question is placed where the turn began: with its first call.
+    assert lines[0].at == millis(record["first_at"])
+    without = record["without_conversations"]
+    entries = [record["entries"][index] for index in without["entries"]]
+    assert [
+        line_text(line) for line in transcript_of_record(entries, member)
+    ] == without["lines"]
+    # Kept without its outputs either: the run's end says no words (R-01).
+    bare = record["without_outputs"]
+    entries = [record["entries"][index] for index in bare["entries"]]
+    assert [line_text(line) for line in transcript_of_record(entries, member)] == bare[
+        "lines"
+    ]
+
+
+def test_the_transcript_as_text_carries_each_line_s_time(
+    fixture: Dict[str, Any],
+) -> None:
+    members = members_of(fixture["members"])
+    lines = transcript_of_spans(fixture["cases"][0]["spans"], members)
+    rows = transcript_text(lines).split("\n")
+    assert len(rows) == 5
+    assert (
+        rows[2]
+        == f"{time_text(lines[2].at)}  Accounting → Odoo: odoo_accounting_aged_balance"
+    )
+    assert rows[0].endswith(f"You → Sales: {lines[0].text}")
+
+
+def test_a_tool_is_its_connection_s_by_name_then_by_prefix() -> None:
+    odoo = SceneConnection(
+        "odoo-accounting",
+        "Odoo Accounting",
+        "Odoo",
+        ("odoo_accounting_aged_balance",),
+        "odoo_accounting_",
+    )
+    assert connection_of_tool("odoo_accounting_aged_balance", [odoo]) is odoo
+    assert connection_of_tool("gateway.odoo_accounting_aged_balance", [odoo]) is odoo
+    assert connection_of_tool("odoo_accounting_list_journals", [odoo]) is odoo
+    assert connection_of_tool("write_notebook", [odoo]) is None
+
+
+EXPORTED = Path(__file__).parent / "fixtures" / "scene_transcript_export.json"
+
+
+def test_reads_back_the_pages_export(fixture: Dict[str, Any]) -> None:
+    """The Sales & Accounting transcript with one refused call, exported by the
+    page (`transcriptExport.ts`, SCENES S3-03), reads back as the lines the
+    spans gave: the same words, the open call open, the refusal failed."""
+    lines = read_transcript_json(EXPORTED)
+    case = fixture["cases"][1]
+    assert [line_text(line) for line in lines] == case["lines"]
+    assert [line.open for line in lines] == case["open"]
+    assert [line.failed for line in lines] == case["failed"]
+    assert [line.kind for line in lines] == ["asked", "asked", "called", "said"]
+    # The same lines the Python twin reads from the spans, `ended` with them.
+    members = members_of(fixture["members"])
+    assert lines == transcript_of_spans(case["spans"], members)
+    assert lines[1].ended == lines[1].at + 1000
+    assert lines[2].ended is None
+    assert transcript_text(lines) == transcript_text(
+        transcript_of_spans(case["spans"], members)
+    )
+
+
+def test_a_finished_call_and_ask_say_when_they_ended(fixture: Dict[str, Any]) -> None:
+    """Without `ended` a recording plays a finished call as running for ever."""
+    spans: List[Dict[str, Any]] = [
+        {
+            "span_id": "call",
+            "span_name": "execute_tool odoo_read",
+            "service_name": "Accounting",
+            "start_time": "2026-10-30T10:00:00Z",
+            "end_time": "2026-10-30T10:00:02Z",
+            "attributes": {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": "odoo_read",
+            },
+        },
+        {
+            "span_id": "running",
+            "span_name": "execute_tool odoo_write",
+            "service_name": "Accounting",
+            "start_time": "2026-10-30T10:00:03Z",
+            "in_progress": True,
+            "attributes": {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": "odoo_write",
+            },
+        },
+        {
+            "span_id": "ask",
+            "span_name": "a2a message/send",
+            "service_name": "Sales",
+            "start_time": "2026-10-30T10:00:04Z",
+            "end_time": "2026-10-30T10:00:09Z",
+            "attributes": {
+                "rpc.service": "a2a",
+                "peer.service": "Accounting",
+                "a2a.message.text": "Which invoices are open?",
+            },
+        },
+    ]
+    members = members_of(fixture["members"])
+    by_key = {line.key: line for line in transcript_of_spans(spans, members)}
+    assert by_key["call:called"].ended == by_key["call:called"].at + 2000
+    assert by_key["running:called"].ended is None
+    assert by_key["running:called"].open
+    assert by_key["ask:asked"].ended == by_key["ask:asked"].at + 5000
+    # And the file a rehearsal writes says it.
+    assert line_json(by_key["call:called"])["ended"] == by_key["call:called"].ended
+
+
+def test_refuses_what_is_not_an_export() -> None:
+    with pytest.raises(ValueError, match="not JSON"):
+        lines_of_json("nope")
+    with pytest.raises(ValueError, match="not an object"):
+        lines_of_json("[]")
+    with pytest.raises(ValueError, match="version 2; this reads version 1"):
+        lines_of_json({"version": 2, "lines": []})
+    with pytest.raises(ValueError, match="no lines"):
+        lines_of_json({"version": 1})
+    with pytest.raises(ValueError, match="Line 1"):
+        lines_of_json(
+            {
+                "version": 1,
+                "lines": [
+                    {"key": "a", "at": 0, "from": "You", "kind": "sang", "text": "la"}
+                ],
+            }
+        )

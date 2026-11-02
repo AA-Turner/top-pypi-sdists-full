@@ -936,11 +936,14 @@
     no suppression comment. Checks the whole index against the merge base of HEAD and the landing ref
     (HEAD when none resolves), so a branch that already committed the burn-down file is judged as CI judges
     it. CI runs the same hook after `git reset --soft <merge-base>`, so the index holds the pull request's
-    change. Includes the node-home rule group (also available alone as check-node-home).
+    change. Includes the node-home rule group (also available alone as check-node-home). A refusal ends
+    the run (fail_fast, OMN-21648): the check takes seconds and the hook suite behind it takes minutes,
+    so the suite runs only for a change the check admits. List this hook before slower ones.
   language: python
   entry: python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check
   pass_filenames: false
   always_run: true
+  fail_fast: true
 - id: canonical-file-shape-release-trailer
   name: Canonical-file-shape release trailer (OMN-21515)
   description: >
@@ -1415,6 +1418,16 @@
   require_serial: true
   stages: [pre-commit]
 
+- id: check-contract-chain-coverage
+  name: Report contract chain coverage (OMN-21561)
+  description: Reports unbound contract chains and corpus liveness at warning severity.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_contract_chain_coverage:ValidatorContractChainCoverage
+  files: (^|/)[^/]*contract\.yaml$
+  pass_filenames: false
+  require_serial: true
+  stages: [pre-commit]
+
 - id: check-protocol-binding
   name: No protocol bound to its implementation in code (OMN-21533, K5)
   description: >
@@ -1525,6 +1538,19 @@
   require_serial: true
   stages: [pre-commit]
 
+- id: check-invariant-analysis
+  name: Invariant analysis (OMN-21565)
+  description: >
+    Scans globally and ignores passed filenames; registry changes recheck every plan and authority document.
+    Rule syntax and diagnostics come from the contract and repository overlay.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_invariant_analysis:ValidatorInvariantAnalysis
+    .
+  pass_filenames: false
+  always_run: true
+  require_serial: true
+  stages: [pre-commit]
+
 - id: check-plan-invariant
   name: Plan invariant check (OMN-21559)
   description: >
@@ -1533,6 +1559,33 @@
   language: python
   entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_plan_invariant:ValidatorPlanInvariant
   files: beta/plans/[^/]*\.md$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-lab-receipt
+  name: Lab receipt (OMN-21823)
+  description: >
+    A change that runs needs a lab receipt that its exact PR head was installed on the lab and observed
+    running; documentation-only and test-only changes are exempt. The caller passes a facts document named
+    <name>.lab-receipt.json (a phase and the facts of one pull request). The present phase judges what
+    a hosted check can read; the verify phase also judges the receipt against supplied lab reads and refuses
+    to run without them. Every file class, field, installer and diagnostic is contract data.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_lab_receipt:ValidatorLabReceipt
+  files: \.lab-receipt\.json$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-diagram-drift
+  name: Diagram drift (OMN-21510)
+  description: >
+    Refuse a Mermaid diagram that differs from the one generated from the contract fragment its marker
+    names. Every marker syntax, drawing template and diagnostic is contract data.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_diagram_drift:ValidatorDiagramDrift
+  files: \.md$
   pass_filenames: true
   require_serial: true
   stages: [pre-commit]

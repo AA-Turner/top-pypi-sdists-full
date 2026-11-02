@@ -1,7 +1,11 @@
 Metadata-Version: 2.4
 Name: a2ui-core
-Version: 0.4.0
+Version: 0.5.0
 Summary: A2UI Python SDK - Core Library
+Project-URL: Homepage, https://a2ui.org/
+Project-URL: Repository, https://github.com/a2ui-project/a2ui/tree/main/python/a2ui_core
+Project-URL: Changelog, https://github.com/a2ui-project/a2ui/blob/main/python/a2ui_core/CHANGELOG.md
+Project-URL: Issues, https://github.com/a2ui-project/a2ui/issues
 Requires-Python: >=3.10
 Requires-Dist: babel>=2.14.0
 Requires-Dist: jsonschema>=4.26.0
@@ -65,6 +69,7 @@ graph TD
 
 - **`JsonCatalog`**: Loads raw JSON schemas directly, compiling schema-validated references dynamically for prompt injection.
 - **`ModelCatalog`**: Compiles catalog rules based on structured Pydantic or standard object class configurations.
+- **`Catalog.derive`**: Builds a catalog under a new ID from named entries of an existing catalog and new entries. It does not keep the source's `$id`, title, description or instructions, since the basic catalog's instructions, for example, name its ID in their examples.
 
 #### 5. Basic Catalog (`src/a2ui/core/basic_catalog`)
 

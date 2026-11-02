@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm", "setuptools-download"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hadolint-py"
+dynamic = ["version"]
+description = "Python wrapper around invoking hadolint (https://github.com/hadolint/hadolint)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov", "setuptools>=70.1"]
+
+[project.urls]
+Homepage = "https://github.com/shenxianpeng/hadolint-pre-commit"
+
+[tool.setuptools]
+packages = ["hadolint_py"]
+
+[tool.setuptools_scm]
+# Version is derived automatically from the release tag (e.g. tag vX.Y.Z.W → version X.Y.Z.W).
+# No manual version bumping needed — the publish workflow pins the version to
+# the tag via SETUPTOOLS_SCM_PRETEND_VERSION; the tag is the only input.
+#
+# fallback_version: allows building from a source tree without git metadata
+#   (e.g. `pip install .` from a tarball) instead of failing.
+fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["hadolint_py"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true

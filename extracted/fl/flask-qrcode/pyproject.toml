@@ -1,0 +1,67 @@
+[build-system]
+requires = ["uv_build>=0.9.0,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "Flask-QRcode"
+version = "3.2.2"
+description = "A concise Flask extension to render QR codes on Jinja2 templates using python-qrcode"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["COPYING"]
+requires-python = ">=3.7"
+keywords = [
+    "flask",
+    "qrcode",
+    "qr",
+    "jinja2",
+]
+dependencies = [
+    "Flask>=0.12.3",
+    "qrcode>=6.1",
+    "Pillow>=9.1.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[[project.authors]]
+name = "Marco Agner"
+email = "marco@agner.io"
+
+[project.urls]
+Homepage = "https://github.com/marcoagner/Flask-QRcode"
+Documentation = "https://marcoagner.github.io/Flask-QRcode/"
+Source = "https://github.com/marcoagner/Flask-QRcode"
+Issues = "https://github.com/marcoagner/Flask-QRcode/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=4.6.6",
+    "Sphinx>=5.3,<10",
+    "Flask-Sphinx-Themes==1.0.2",
+]
+
+[tool.uv]
+fork-strategy = "requires-python"
+
+[tool.uv.build-backend]
+module-name = "flask_qrcode"
+module-root = ""

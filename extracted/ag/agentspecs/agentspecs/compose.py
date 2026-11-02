@@ -1,0 +1,281 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""Composing and extending specs: `extends` and `includes`.
+
+Four specs that share a sandbox variant, a toolset and a set of conventions
+should not drift apart by hand, so a spec can say what it builds on:
+
+    extends: loop-base:0.0.1        # inheritance — "the same agent, adjusted"
+    includes: [notebook-surfaces]   # composition — "this bundle, wherever needed"
+
+A **fragment** is not a runnable agent: no model, no system prompt, only
+capability. That distinction is what avoids a recursion trap — if the notebook
+specialists inherited from the base agent they would inherit its subagent list,
+and `@NotebookCompactor` could delegate to itself. Shared capability goes in a
+fragment; only the base declares subagents.
+
+Resolution happens when a catalogue is generated, so what is generated stays
+flat, a runtime keeps no inheritance logic, and the result of a merge is
+visible in a diff. The rules are documented under `docs/modularity`.
+
+This is the mechanism a Cog uses to extend an agent (`agentspecs.cogs`). It
+lived only in agent-runtimes' code generation before agentspecs 0.0.12; it is
+here so that the package that documents the rules also applies them.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Iterable, Optional
+
+#: How deep an inheritance chain may go before it stops being readable.
+MAX_EXTENDS_DEPTH = 3
+
+#: Fields merged by appending, deduplicated, rather than replaced.
+LIST_FIELDS = (
+    "tags",
+    "backend_tools",
+    "skills",
+    "mcp_servers",
+    "frontend_tools",
+    "envvars",
+    "suggestions",
+)
+
+#: Keyed collections merged entry by entry.
+KEYED_FIELDS = {
+    "frontend_render_tools": "tool",
+}
+
+#: Markers a child uses to drop something a parent granted.
+REMOVE_PREFIX = "!remove "
+REPLACE_MARKER = "!replace"
+
+
+class CompositionError(ValueError):
+    """A spec graph that cannot be resolved, named plainly."""
+
+
+def _key_of(entry: Any) -> str:
+    """The identity of a list entry, ignoring its version."""
+    text = str(entry)
+    base, _, version = text.rpartition(":")
+    return base if base and "." in version else text
+
+
+def merge_lists(parent: list[Any], child: list[Any]) -> list[Any]:
+    """Append the child's entries to the parent's, honouring the markers.
+
+    Append rather than replace, because the common case is "the parent's tools
+    plus mine". `!replace` starts from nothing; `!remove x` drops one thing the
+    parent granted — which a least-privilege specialist needs to be able to say.
+    """
+    if REPLACE_MARKER in child:
+        remaining = [c for c in child if c != REPLACE_MARKER]
+        return merge_lists([], remaining)
+
+    removals = {
+        _key_of(str(entry)[len(REMOVE_PREFIX) :])
+        for entry in child
+        if isinstance(entry, str) and entry.startswith(REMOVE_PREFIX)
+    }
+    additions = [
+        entry
+        for entry in child
+        if not (isinstance(entry, str) and entry.startswith(REMOVE_PREFIX))
+    ]
+
+    merged: list[Any] = []
+    seen: set[str] = set()
+    for entry in [*parent, *additions]:
+        key = _key_of(entry)
+        if key in removals or key in seen:
+            continue
+        seen.add(key)
+        merged.append(entry)
+    return merged
+
+
+def merge_keyed(parent: list[Any], child: list[Any], key: str) -> list[Any]:
+    """Merge two lists of dicts by a key, child winning."""
+    by_key: dict[str, Any] = {}
+    order: list[str] = []
+    for entry in [*parent, *child]:
+        if not isinstance(entry, dict):
+            continue
+        identity = str(entry.get(key))
+        if identity not in by_key:
+            order.append(identity)
+        by_key[identity] = {**by_key.get(identity, {}), **entry}
+    return [by_key[identity] for identity in order]
+
+
+def merge_spec(parent: dict[str, Any], child: dict[str, Any]) -> dict[str, Any]:
+    """Merge a child spec onto its parent."""
+    merged = dict(parent)
+
+    for field, value in child.items():
+        if field in ("extends", "includes"):
+            continue
+        if field in LIST_FIELDS and isinstance(value, list):
+            merged[field] = merge_lists(list(parent.get(field) or []), value)
+        elif field in KEYED_FIELDS and isinstance(value, list):
+            merged[field] = merge_keyed(
+                list(parent.get(field) or []), value, KEYED_FIELDS[field]
+            )
+        elif field == "system_prompt_prepend":
+            merged["system_prompt"] = (
+                f"{value}\n\n{parent.get('system_prompt', '')}".strip()
+            )
+        elif field == "system_prompt_append":
+            merged["system_prompt"] = (
+                f"{parent.get('system_prompt', '')}\n\n{value}".strip()
+            )
+        else:
+            # Scalars, and anything unlisted: the child wins.
+            merged[field] = value
+
+    return merged
+
+
+def _lookup(
+    ref: str,
+    catalogue: dict[str, dict[str, Any]],
+    kind: str,
+) -> dict[str, Any]:
+    base = _key_of(ref)
+    spec = catalogue.get(base) or catalogue.get(ref)
+    if spec is None:
+        known = ", ".join(sorted(catalogue)[:8]) or "nothing"
+        raise CompositionError(f"{kind} {ref!r} is not defined (known: {known}…)")
+    return spec
+
+
+def resolve_spec(
+    spec: dict[str, Any],
+    specs: dict[str, dict[str, Any]],
+    fragments: dict[str, dict[str, Any]],
+    *,
+    _seen: Optional[tuple[str, ...]] = None,
+) -> dict[str, Any]:
+    """Flatten one spec's `extends` chain and `includes`.
+
+    Fragments are applied first and inheritance second, so a child's own
+    `extends` parent can override capability a fragment brought in.
+    """
+    seen = _seen or ()
+    identity = str(spec.get("id") or "")
+    if "tools" in spec:
+        raise CompositionError(
+            f"{identity!r} says `tools`: the field is `backend_tools` — the tools that run on the "
+            "runtime, as `frontend_tools` are those that run on the page"
+        )
+
+    if identity in seen:
+        chain = " → ".join([*seen, identity])
+        raise CompositionError(f"Circular spec inheritance: {chain}")
+    if len(seen) >= MAX_EXTENDS_DEPTH:
+        raise CompositionError(
+            f"Inheritance deeper than {MAX_EXTENDS_DEPTH} at {identity!r}: "
+            "a spec graph nobody can read is worse than a repeated field"
+        )
+
+    resolved: dict[str, Any] = {}
+
+    for include in spec.get("includes") or []:
+        fragment = _lookup(str(include), fragments, "Fragment")
+        resolved = merge_spec(
+            resolved, {k: v for k, v in fragment.items() if k != "id"}
+        )
+
+    parent_ref = spec.get("extends")
+    if parent_ref:
+        parent = _lookup(str(parent_ref), specs, "Parent spec")
+        parent_resolved = resolve_spec(
+            parent, specs, fragments, _seen=(*seen, identity)
+        )
+        # The parent is applied over this spec's fragments, so what the parent
+        # chain says with `!replace` and `!remove` reaches them too. Resolving
+        # the parent consumed those markers; they are read again from the
+        # chain as it is written.
+        replaced, removed = _list_directives(parent, specs, fragments)
+        for field in LIST_FIELDS:
+            if field not in resolved:
+                continue
+            if field in replaced:
+                del resolved[field]
+            elif removed.get(field):
+                resolved[field] = [
+                    entry
+                    for entry in resolved[field]
+                    if _key_of(entry) not in removed[field]
+                ]
+        resolved = merge_spec(resolved, parent_resolved)
+
+    return merge_spec(resolved, spec)
+
+
+def _list_directives(
+    spec: dict[str, Any],
+    specs: dict[str, dict[str, Any]],
+    fragments: dict[str, dict[str, Any]],
+) -> tuple[set[str], dict[str, set[str]]]:
+    """The `!replace` and `!remove` markers of a spec and of what it extends.
+
+    Read from every spec of the chain as it is written, and from the
+    fragments each of them includes: a marker is the chain's whichever of its
+    parts says it. Returns the list fields the chain replaces, and for each
+    list field the keys it removes — what a spec lower in the order has to
+    give up.
+    """
+    replaced: set[str] = set()
+    removed: dict[str, set[str]] = {}
+
+    def read(source: dict[str, Any]) -> None:
+        for field in LIST_FIELDS:
+            entries = source.get(field)
+            if not isinstance(entries, list):
+                continue
+            if REPLACE_MARKER in entries:
+                replaced.add(field)
+            for entry in entries:
+                if isinstance(entry, str) and entry.startswith(REMOVE_PREFIX):
+                    removed.setdefault(field, set()).add(
+                        _key_of(entry[len(REMOVE_PREFIX) :])
+                    )
+
+    current: Optional[dict[str, Any]] = spec
+    for _ in range(MAX_EXTENDS_DEPTH + 1):
+        if current is None:
+            break
+        read(current)
+        for include in current.get("includes") or []:
+            fragment = fragments.get(_key_of(str(include))) or fragments.get(
+                str(include)
+            )
+            if fragment is not None:
+                read(fragment)
+        parent_ref = current.get("extends")
+        current = (
+            specs.get(_key_of(str(parent_ref))) or specs.get(str(parent_ref))
+            if parent_ref
+            else None
+        )
+    return replaced, removed
+
+
+def resolve_all(
+    specs: Iterable[dict[str, Any]],
+    fragments: Iterable[dict[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    """Flatten a whole catalogue, leaving specs that compose nothing untouched."""
+    by_id = {str(s.get("id")): s for s in specs if s.get("id")}
+    fragments_by_id = {str(f.get("id")): f for f in fragments if f.get("id")}
+
+    return [
+        resolve_spec(spec, by_id, fragments_by_id)
+        if (spec.get("extends") or spec.get("includes"))
+        else spec
+        for spec in by_id.values()
+    ]

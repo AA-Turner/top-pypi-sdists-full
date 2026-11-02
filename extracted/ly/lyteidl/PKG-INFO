@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: lyteidl
+Version: 0.3.1
+Summary: IDL for Flyte Platform
+Home-page: https://www.github.com/flyteorg/flyteidl
+Maintainer: FlyteOrg
+Maintainer-email: admin@flyte.org
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: googleapis-common-protos
+Requires-Dist: protobuf<6,>=3.20.3
+Requires-Dist: typing>=3.6; python_version == "2.7"
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary

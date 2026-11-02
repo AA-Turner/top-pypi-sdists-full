@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matrx-graph"
+version = "0.2.373"
+description = "Channel-based, super-step workflow orchestration engine for the Matrx ecosystem"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+maintainers = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+keywords = [
+    "workflow",
+    "orchestration",
+    "dag",
+    "agentic",
+    "checkpoint",
+    "matrx",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12",
+    "matrx-connect>=0.1.257",
+    # workers/queue.py imports compute_backoff_ms and validation.py imports
+    # format_options/suggestion_line; all were first exported by 1.1.0.
+    "matrx-utils>=2.0.108",
+    # Cron expression parsing for wf_trigger (Phase 5b)
+    "croniter>=2.0",
+    # Async HTTP client for the http.* node pack
+    "httpx>=0.27",
+    # Deep, recursive value-vs-JSON-Schema validation of run-form-seeded
+    # inputs for dynamic-output source nodes (io.user_input strict contract).
+    "jsonschema>=4.20",
+    # data.parse_yaml (safe_load only)
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+postgres = [
+    "matrx-orm>=3.1.275",
+]
+otel = [
+    "opentelemetry-api>=1.25",
+]
+
+[project.urls]
+Homepage = "https://github.com/AI-Matrix-Engine/aidream-current"
+Repository = "https://github.com/AI-Matrix-Engine/aidream-current"
+Issues = "https://github.com/AI-Matrix-Engine/aidream-current/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[tool.uv.sources]
+matrx-connect = { workspace = true }
+matrx-utils = { workspace = true }
+matrx-orm = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_graph"]

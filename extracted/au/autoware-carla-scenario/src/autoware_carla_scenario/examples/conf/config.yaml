@@ -1,0 +1,342 @@
+defaults:
+  - _self_
+  - server: localhost
+  - ego: default
+  - entity: default
+  - driver: default
+  - ros2: default
+  - hils: default
+  - traffic_manager: default
+  - traffic: traffic_manager
+  - scenario: intersection_passing/left_turn
+  - map: nishishinjuku
+  # Who runs a batch's cases: this process, one after another, unless a run
+  # selects a launcher (launcher=slurm: SLURM array jobs, docs/slurm.md).
+  - launcher: null
+
+# The run's seed: the one number every random draw of the run follows
+# (docs/usage.md#one-seed-for-the-whole-run). The cases a sweep draws from the
+# ODD (sweep.odd_sample) and the grip and visibility drawn for each; CARLA's
+# TrafficManager (its random device and each vehicle's parameters) or SUMO
+# (--seed, its own draws); CARLA's pedestrian navigation; the scenario's
+# adversarial actions and background traffic; the driver policy's session seed
+# and its LiDARs' weather noise. Each of those that names a seed of its own
+# keeps it; left null they all follow this one:
+#
+#   uv run scenario ... seed=42
+seed: 0
+
+# The ODD every run is measured against (docs/odd.md): "default", a name
+# registered with register_odd() or an entry point, an OpenODD YAML file
+# (odd=path/to/odd.yaml), or package.module:function.  Its attributes are the
+# ODD coverage in {Scenario}_coverage.json; its modules say which ticks were
+# outside it.
+odd: default
+
+# Compile the scenario with Codon before it runs, and refuse it if it does not
+# type-check (docs/typecheck.md): auto (when Codon is installed), required, off.
+typecheck: auto
+
+# A Rerun recording ({Scenario}.rrd) of each run, made from its
+# {Scenario}.trajectory.jsonl as soon as the run ends, in the background while
+# the next case runs (docs/usage.md#seeing-a-run). Needs the extra:
+#   pip install 'autoware-carla-scenario[rerun]'
+# and is refused before anything runs without it. Open a recording with
+# `rerun {Scenario}.rrd` (the viewer: the `viewer` extra).
+rerun:
+  enabled: false
+  # Fail the conversion of a log with a record type or a field the converter
+  # does not know, rather than skip it with a warning. Either way, a failed
+  # conversion is reported at the end of the run; it does not change a verdict.
+  strict: false
+  # Also record the LiDAR sweeps the ego's driver policy gets, in the world
+  # frame, into {Scenario}.rrd (written to {Scenario}.sensors.rrd during the run
+  # and merged in once the log is converted). Needs the Rerun SDK:
+  #   pip install 'autoware-carla-scenario[rerun-lidar]'
+  lidar: false
+  # At most this many points of a sweep (an even subsample); 0 keeps them all.
+  lidar_max_points: 65536
+  # Also record the frames of the cameras the ego's driver policy gets
+  # (driver.cameras), as JPEG, in their frustums on the ego in the 3D view.
+  cameras: false
+
+# A T4 dataset of each run ({Scenario}.t4/0/), TIER IV's nuScenes-style format
+# that t4-devkit reads (docs/t4_dataset.md). Its sensors are the driver
+# policy's (driver.lidars, driver.cameras) and a key frame is a policy step
+# (driver.policy_timestep_s): the ego's pose, the LiDARs' sweeps as one
+# LIDAR_CONCAT cloud, a frame of every camera, and the box of every vehicle
+# and pedestrian from CARLA's ground truth. An ego driven by a driver policy
+# feeds it what the policy is sent; any other ego gets the same sensors put on
+# it. Needs the extra:
+#   pip install 'autoware-carla-scenario[t4]'
+# and is refused before anything runs without it.
+t4:
+  enabled: false
+  # Annotate the vehicles and pedestrians within this distance of the ego, in
+  # metres; null annotates all of them.
+  max_distance_m: 100.0
+  # Threads writing the files (and encoding the frames of the recorder's own
+  # cameras) while the run goes on.
+  workers: 4
+
+# Write each run's trajectory log as a T4Scene, the scene exchange format of
+# tier4/e2e-devkit, as the run ends: {Scenario}.t4scene.pb, and the Lanelet2
+# map it names as {Scenario}.t4scene.map.pb (docs/t4_scene.md). Needs no extra;
+# `scenario-t4scene <output dir>` does the same after a run. Best effort: a log
+# that cannot be converted is logged, the run's verdict stands.
+t4scene:
+  enabled: false
+  # The scene's time step in seconds, a multiple of the 0.05 s tick.
+  step_s: 0.1
+  # The vehicles and pedestrians within this distance of the ego, in metres;
+  # null takes all of them.
+  max_distance_m: 100.0
+
+# Sensors rendered by carla_canvas instead of the CARLA server
+# (docs/usage.md#rendering-sensors-with-carla_canvas): a carla_canvas
+# configuration naming the renderer and the sensor types it renders, e.g. the
+# LiDARs by LidarVerse. Needs the client:
+#   pip install 'carla-canvas[client]>=0.2'
+canvas:
+  config: null
+
+# Backends a run needs started before it (docs/backends.md): containers the
+# queue starts when a scenario declares it needs them (@need_prepare), after
+# checking the host has the GPU and host memory they take, and stops when the
+# batch ends. Each backend reads its own block; every key is optional.
+backends:
+  # ARDY, the motion generator of SmartPedestrianControllerAction
+  # (docs/pedestrian_motion.md), from ghcr.io/hakuturu583/carla_ardy_backend.
+  ardy:
+    image: ghcr.io/hakuturu583/carla_ardy_backend:0.1.0
+    # The ARDY checkpoint: soma (ARDY-SOMA-RP-30FPS-Horizon60).
+    model: soma
+    # none, compile (torch.compile) or trt.
+    acceleration: none
+    # auto (the GPU the preparer chose for it), all, or device=N.
+    gpus: auto
+    # The host's Hugging Face cache: the token for the gated Llama-3-8B
+    # text encoder, and where the weights are downloaded once.
+    hf_home: ~/.cache/huggingface
+    gpu_memory_mb: 24000
+    memory_mb: 16000
+    startup_timeout_s: 1800
+    timeout_s: 120
+    pull: missing
+    docker_args: []
+
+# Removed in 15.0.0: runs no longer render a video. To see a run, make a Rerun
+# recording of it (rerun.enabled=true, above) and open it in the Rerun viewer;
+# the CARLA recording ({Scenario}.log) is still written, for CARLA's replayer.
+# Declared only so that an old command line or config setting video.* is told
+# so (a warning) rather than refused by Hydra; nothing reads these.
+video:
+  enabled: null
+  width: null
+  height: null
+
+server:
+  host: localhost
+  port: 2000
+
+traffic_manager:
+  port: 8100
+
+map:
+  name: ???
+  # A git repository holding the HD map, e.g.
+  #   map.source=git+https://huggingface.co/datasets/OWNER/NAME@REF#PATH
+  # Declared here so Hydra's struct mode accepts it as an override; see
+  # autoware_carla_scenario.maps for what it resolves to.
+  source: null
+  # A map directory on this machine, read in place instead of a repository:
+  #   map.directory=/path/to/autoware_maps/Town10HD_Opt
+  directory: null
+  xodr_path: null
+  lanelet2_path: null
+  no_3d_model_lanelet_ids: []
+
+# Autoware as the ego (ego.entity=autoware; docs/autoware.md).
+autoware:
+  # The bridge server the scenario_bridge node dials for the mission.
+  address: localhost:50052
+  # Ticks Autoware has to localize, route and engage once it reached the bridge.
+  ready_timeout_ticks: 1200
+  # Wall-clock seconds a launched stack has to reach the bridge.
+  boot_timeout_s: 300.0
+  # Who starts Autoware for each scenario, and removes it after:
+  #   none    - someone else does, by hand, with the scenario_bridge node
+  #             (docs/autoware.md)
+  #   docker  - a local Autoware workspace, built and run in its dev container
+  #   command - `command` below, run on this host
+  # A fresh Autoware per scenario is what lets a batch or a sweep run scenario
+  # after scenario:
+  #   uv run scenario 'scenario=intersection_passing/*' ego.entity=autoware \
+  #     autoware.launcher.type=docker autoware.launcher.workspace=$HOME/autoware \
+  #     'autoware.launcher.launch=[autoware_launch,e2e_simulator.launch.xml,"scenario_mode:=true",...]'
+  launcher:
+    type: none
+    # docker: a clone of autowarefoundation/autoware with its sources in src/.
+    workspace: ~/autoware
+    # The .devcontainer/ variant whose image and workspace mount are used.
+    devcontainer: universe-devel-cuda
+    image: null
+    workspace_mount: null
+    # auto (when install/ is missing) | always | never
+    build: auto
+    # Also install the workspace's rosdep dependencies into the image made once
+    # from the dev container's (rebuilt when a package.xml changes).
+    rosdep: true
+    # ROS parameters of the scenario_bridge node, besides its address:
+    # auto_engage, initialize_localization, require_localization_initialized.
+    bridge_parameters:
+      use_sim_time: true
+    colcon_args: [--symlink-install, --cmake-args, -DCMAKE_BUILD_TYPE=Release]
+    # ros2 launch <package> <file> <name:=value>..., with scenario_mode:=true.
+    # The framework runs its scenario_bridge node beside it.
+    launch: []
+    mounts:
+      ~/autoware_data: /home/aw/autoware_data
+    env: {}
+    ros_domain_ids: []
+    gpus: all
+    user: null
+    docker_args: []
+    # command: the command line, with {bridge_address}, {index}, {name} and
+    # {scenario_bridge} (a shell command running the bridge node; run it beside
+    # the launch: "source ... && ({scenario_bridge} &) && exec ros2 launch ...").
+    command: []
+    stop_timeout_s: 20.0
+
+ego:
+  vehicle_type: vehicle.mini.cooper
+  initial_speed_kmh: 0.0
+  spawn_lanelet_id: 242
+  spawn_s: 25.0
+  # Lateral offset (m, positive to the left) and heading (rad, relative to the
+  # lanelet's direction of travel) of the spawn.
+  spawn_t: 0.0
+  spawn_heading: 0.0
+  # Where the ego is going; each scenario names it, or derives it in setup().
+  goal_lanelet_id: null
+  goal_s: 0.0
+  # autopilot | autoware | carla_driver | ros2
+  entity: autopilot
+
+# Background traffic: vehicles no scenario entity stands for, placed and
+# removed by TrafficSourceAction / TrafficSinkAction through the traffic
+# backend (SUMO's own traffic under traffic=sumo, autopilot cars under
+# traffic=traffic_manager). Off unless a run asks for it:
+#
+#   uv run scenario ... traffic=sumo background_traffic.enabled=true
+#
+# Where vehicles appear and disappear is given as lanelet constraints, the
+# vocabulary a sweep uses, so the same settings fit any map. Only lanelets
+# vehicles drive on are matched: crosswalks, walkways, road shoulders, bicycle
+# lanes and parking lots never are, whatever the constraints say.
+background_traffic:
+  enabled: false
+  # null follows the run's seed (`seed` above).
+  seed: null
+  source:
+    constraints:
+      - type: not
+        constraint:
+          type: is_junction
+      - type: lanelet_length
+        rule: greater_than_or_equal
+        value: 20.0
+    # Placed during initialization, before the run starts.
+    initial_vehicles: 20
+    # Then added while the run lasts; 0 keeps it to the initial ones.
+    vehicles_per_minute: 6.0
+    # Stop adding after this many seconds of the run; null to keep going.
+    stop_after_seconds: null
+    # The most background vehicles on the road at once.
+    max_vehicles: 30
+    # The speed they drive at, at most; finite and at least 1 km/h.
+    speed_kmh: 30.0
+    min_gap_m: 20.0
+    blueprint: null
+  sink:
+    # Where they are removed; null for no sink. Road lanelets with no
+    # successor -- the ends of the map's roads -- by default (a crosswalk has
+    # no successor either, but is not a road lanelet).
+    constraints:
+      - type: not
+        constraint:
+          type: previous_of
+          constraints:
+            - type: lanelet_length
+              rule: greater_than_or_equal
+              value: 0.0
+    stop_after_seconds: null
+
+# What the scenario's parameters set, by scenario measure (measures.py: the
+# framework's fixed keys, which an ODD maps its taxonomy onto). A sweep's
+# odd_sample (docs/odd.md) draws them from the ODD through that mapping. A
+# scenario declares its own; it names no ODD, and the ODD names no scenario.
+# The weather and the sun (`environment` below) are set for every scenario.
+#
+#   controls:
+#     vehicle_ahead_gap_m: {key: scenario.npc_gap_m, target: measure, range: [2, 30]}
+controls: {}
+
+# The weather and the sun every run starts in (EnvironmentAction, during
+# initialization); null leaves the world's own. A sweep's odd_sample draws
+# these from the ODD (docs/odd.md), as can a single run:
+#
+#   uv run scenario ... environment.rain=80 environment.sun_altitude_angle=-10
+#
+# `rain` is rain as a camera sees it: precipitation with the cloudiness,
+# standing water and wetness CARLA's rain presets pair with it. `precipitation`
+# alone sets only the falling drops, which barely show. Cloudiness, standing
+# water or wetness given beside `rain` win over the ones it derives;
+# `precipitation` may not be given with it. rain=0 is a dry, clear day.
+#
+# The road's grip follows its water (EnvironmentAction, docs/odd.md): a run
+# that sets `rain`, `wetness` or `precipitation_deposits` scales every
+# vehicle's tire friction into the range that water leaves -- a wet road
+# about 0.65-0.85 of the dry grip, a flooded one 0.45-0.65 -- at
+# `tire_friction_quantile` (0-1, the median when null; an odd_sample sweep
+# draws it per case). `tire_friction` fixes the share of the dry grip instead.
+#
+# How far drivers see follows the weather too (docs/odd.md): a run that sets
+# `rain`, `precipitation`, `fog_density` or `sun_altitude_angle` records the
+# visibility its weather leaves -- a clear day 250-400 m, night 50-150 m,
+# heavy fog 15-40 m -- at `visibility_quantile` (0-1, the median when null; an
+# odd_sample sweep draws it per case). `visibility_m` fixes it instead. The
+# `sumo` traffic backend holds its traffic to the speed it can stop from
+# within it (traffic.vehicles.follow_visibility, on by default there); the
+# TrafficManager does so with follow_visibility:
+# true, and only logs it otherwise.
+# The grip and the visibility follow conditional distributions
+# (autoware_carla_scenario/weather_rules.yaml, docs/odd.md "Weather rules"):
+# `rules` names a rule file -- a path (relative to where the run starts) or
+# an https:// URL -- merged over the default rules (it names only what it
+# changes, and may `extends` others), or rules that differ by vehicle:
+#   rules: {default: weather/measured.yaml,
+#           vehicles: {ego: weather/ego.yaml, "vehicle.mini.*": weather/mini.yaml}}
+environment:
+  rules: null
+  rain: null
+  cloudiness: null
+  precipitation: null
+  precipitation_deposits: null
+  wetness: null
+  wind_intensity: null
+  fog_density: null
+  fog_distance: null
+  sun_altitude_angle: null
+  sun_azimuth_angle: null
+  tire_friction: null
+  tire_friction_quantile: null
+  visibility_m: null
+  visibility_quantile: null
+
+entity:
+  ground_projection_ray_distance_upper: 5.0
+  ground_projection_ray_distance_lower: 10.0
+  spawn_retry_max_count: 10
+  spawn_retry_t_step: 0.1
+  spawn_retry_z_step: 0.5

@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "pythonmonkey"
+version = "1.4.1" # automatically set by poetry-dynamic-versioning
+description = "Seamless interop between Python and JavaScript."
+authors = ["Distributive Corp. <pm@distributive.network>"]
+license = "MIT"
+homepage = "https://pythonmonkey.io/"
+documentation = "https://docs.pythonmonkey.io/"
+repository = "https://github.com/Distributive-Network/PythonMonkey"
+readme = "README.md"
+packages = [
+  { include = "pythonmonkey", from = "python" },
+]
+include = [
+  # Linux and macOS
+  { path = "python/pythonmonkey/pythonmonkey.so", format = ["sdist", "wheel"] },
+  { path = "python/pythonmonkey/libmozjs*", format = ["sdist", "wheel"] },
+
+  # Windows
+  { path = "python/pythonmonkey/pythonmonkey.pyd", format = ["sdist", "wheel"] },
+  { path = "python/pythonmonkey/mozjs-*.dll", format = ["sdist", "wheel"] },
+
+  # include all files for source distribution
+  { path = "src", format = "sdist" },
+  { path = "include", format = "sdist" },
+  { path = "cmake", format = "sdist" },
+  { path = "tests", format = "sdist" },
+  { path = "CMakeLists.txt", format = "sdist" },
+  { path = "*.sh", format = "sdist" },
+  { path = "mozcentral.version", format = "sdist" },
+
+  # Add marker file for pep561
+  { path = "python/pythonmonkey/py.typed", format = ["sdist", "wheel"] },
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pyreadline3 = { version = "^3.4.1", platform = "win32" }
+aiohttp = { version = "^3.9.5" }
+pminit = { version = ">=0.4.0", allow-prereleases = true }
+
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+style = "pep440"
+bump = true
+
+[tool.poetry-dynamic-versioning.substitution]
+# Set the project version number in CMakeLists.txt
+files = [ "CMakeLists.txt" ]
+patterns = [ '(set\(PYTHONMONKEY_VERSION ")0("\))' ]
+
+
+[tool.poetry.build]
+script = "build.py"
+generate-setup-file = false
+
+[tool.poetry.scripts]
+pmjs = "pythonmonkey.cli.pmjs:main"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+pip = [
+  {version = "^26.2.1", python = ">=3.10"},      # Needed for Python 3.15 support,
+                                                 # otherwise TypeError: Can't instantiate abstract class WheelDistribution...
+  {version = "^23.1.2", python = ">=3.8,<3.10"},
+]
+numpy = [
+  {version = "^2.5.0", python = ">=3.12"},
+  {version = "^2.3.0", python = ">=3.11,<3.12"}, # NumPy 2.5.0  drops support for Python 3.11
+  {version = "^2.1.0", python = ">=3.10,<3.11"}, # NumPy 2.3.0  drops support for Python 3.10
+  {version = "^2.0.1",  python = ">=3.9,<3.10"}, # NumPy 2.1.0  drops support for Python 3.9
+  {version = "^1.24.3", python = ">=3.8,<3.9"},  # NumPy 1.25.0 drops support for Python 3.8
+]
+pminit = { path = "./python/pminit", develop = true }
+
+
+[build-system]
+requires = ["poetry-core>=1.1.1", "poetry-dynamic-versioning==1.10.1"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.autopep8]
+max_line_length=120
+ignore="E111,E114,E121" # allow 2-space indents
+verbose=true
+indent-size=2
+aggressive=3
+exit-code=true

@@ -1,0 +1,1475 @@
+import importlib
+import os
+import unittest
+import numpy as np
+import ansitable.table as _ansitable_table
+from ansitable import ANSITable, Column, Cell, ANSIMatrix, options
+from ansitable.table import _css_color, _color_available, styledict
+
+pandas_available = importlib.util.find_spec("pandas") is not None
+skip_no_pandas = unittest.skipUnless(pandas_available, "pandas not installed")
+skip_no_colored = unittest.skipUnless(
+    _color_available, "colored package not installed"
+)
+
+unittest.TestCase.maxDiff = None
+
+
+class TestANSItable(unittest.TestCase):
+
+    def test_column_headalign_none_falls_back_to_colalign(self):
+        c = Column("col", colalign="<", headalign=None)
+        self.assertEqual(c.headalign, "<")
+
+    def test_addcolumn_sets_column_table(self):
+        table = ANSITable(color=False)
+        table.addcolumn("col1")
+        self.assertIs(table.columns[0].table, table)
+
+    def test_options_updates_existing_and_future_tables(self):
+        try:
+            # start from a known global state
+            options(True, color=False)
+
+            existing = ANSITable(Column("c1"), border="thin", color=False)
+            existing.row("x")
+            self.assertIn("┌", str(existing))
+
+            # Existing tables should follow updated globals.
+            options(False)
+            self.assertIn("+", str(existing))
+
+            # Future tables should also follow updated globals.
+            future = ANSITable(Column("c1"), border="thin", color=False)
+            future.row("x")
+            self.assertIn("+", str(future))
+        finally:
+            # reset global defaults for any subsequent tests
+            options(True, color=False)
+
+    def test_table_1(self):
+
+        ans = r"""          col1   column 2 has a big header   column 3  
+     aaaaaaaaa                         2.2          3  
+ bbbbbbbbbbbbb                        -5.5          6  
+       ccccccc                         8.8         -9  
+"""
+
+        table = ANSITable("col1", "column 2 has a big header", "column 3", color=False)
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_2(self):
+        ans = r"""          col1   column 2 has a big header   column 3  
+     aaaaaaaaa                         2.2          3  
+ bbbbbbbbbbbbb                         5.5          6  
+       ccccccc                         8.8         -9  
+"""
+
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header"),
+            Column("column 3"),
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", 5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_3(self):
+        ans = r"""          col1   column 2 has a big header   column 3  
+     aaaaaaaaa                         2.2          3  
+ bbbbbbbbbbbbb                        -5.5          6  
+       ccccccc                         8.8         -9  
+"""
+
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header"),
+            Column("column 3"),
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_4(self):
+        ans = r"""          col1   column 2 has a big header     column 3  
+     aaaaaaaaa                         2.2       3.0000  
+ bbbbbbbbbbbbb                        -5.5       6.0000  
+       ccccccc                         8.8      -9.0000  
+"""
+
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header", "{:.3g}"),
+            Column("column 3", "{:-10.4f}"),
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_5(self):
+        ans = r"""       col1   column 2 has a big header     column 3  
+  aaaaaaaaa                         2.2       3.0000  
+ bbbbbbbbb…                        -5.5       6.0000  
+    ccccccc                         8.8      -9.0000  
+"""
+
+        table = ANSITable(
+            Column("col1", width=10),
+            Column("column 2 has a big header", "{:.3g}"),
+            Column("column 3", "{:-10.4f}"),
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_ascii(self):
+        ans = r"""+---------------+---------------------------+----------+
+|          col1 | column 2 has a big header | column 3 |
++---------------+---------------------------+----------+
+|     aaaaaaaaa |                       2.2 |        3 |
+| bbbbbbbbbbbbb |                      -5.5 |        6 |
+|       ccccccc |                       8.8 |       -9 |
++---------------+---------------------------+----------+
+"""
+
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header"),
+            Column("column 3"),
+            border="ascii",
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    # table = ANSITable("col1", "column 2 has a big header", "column 3", color=False)
+    # table.row("aaaaaaaaa", 2.2, 3)
+    # table.row("<<red>>bbbbbbbbbbbbb", 5.5, 6)
+    # table.row("<<blue>>ccccccc", 8.8, -9)
+    # table.print()
+
+    def test_table_border_1(self):
+
+        ans = r"""┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃          col1 ┃ column 2 has a big header ┃ column 3 ┃
+┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━┫
+┃     aaaaaaaaa ┃                       2.2 ┃        3 ┃
+┃ bbbbbbbbbbbbb ┃                      -5.5 ┃        6 ┃
+┃       ccccccc ┃                       8.8 ┃       -9 ┃
+┗━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┛
+"""
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header"),
+            Column("column 3"),
+            border="thick",
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_border_2(self):
+
+        ans = r"""┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃          col1 ┃ column 2 has a big header ┃ column 3 ┃
+┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━┫
+┃     aaaaaaaaa ┃            2.2            ┃        3 ┃
+┃ bbbbbbbbbbbbb ┃           -5.5            ┃        6 ┃
+┃       ccccccc ┃            8.8            ┃       -9 ┃
+┗━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┛
+"""
+        table = ANSITable(
+            Column("col1"),
+            Column("column 2 has a big header", colalign="^"),
+            Column("column 3"),
+            border="thick",
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    def test_table_border_3(self):
+
+        ans = r"""┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ col1          ┃ column 2 has a big header ┃ column 3 ┃
+┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━┫
+┃     aaaaaaaaa ┃            2.2            ┃ 3        ┃
+┃ bbbbbbbbbbbbb ┃           -5.5            ┃ 6        ┃
+┃       ccccccc ┃            8.8            ┃ -9       ┃
+┗━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┛
+"""
+        table = ANSITable(
+            Column("col1", headalign="<"),
+            Column("column 2 has a big header", colalign="^"),
+            Column("column 3", colalign="<"),
+            border="thick",
+            color=False,
+        )
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        self.assertEqual(str(table), ans)
+
+    # ----------------------------------------------------------------------- #
+
+    def test_matrix_1(self):
+
+        m = np.arange(16).reshape((4, 4)) / 10 - 0.8
+        m[0, 0] = 1.23456e-14
+
+        ans = r"""┏                                           ┓
+┃ 0         -0.7       -0.6       -0.5      ┃
+┃-0.4       -0.3       -0.2       -0.1      ┃
+┃ 0          0.1        0.2        0.3      ┃
+┃ 0.4        0.5        0.6        0.7      ┃
+┗                                           ┛"""
+        formatter = ANSIMatrix(style="thick")
+        self.assertEqual(formatter.str(m), ans)
+
+        m[0, 0] = -1.23456e-14
+        formatter = ANSIMatrix(style="thick")
+        self.assertEqual(formatter.str(m), ans)
+
+        m[0, 0] = 1.23456e-14
+
+        ans = r"""┏                                           ┓
+┃ 1.23e-14  -0.7       -0.6       -0.5      ┃
+┃-0.4       -0.3       -0.2       -0.1      ┃
+┃ 0          0.1        0.2        0.3      ┃
+┃ 0.4        0.5        0.6        0.7      ┃
+┗                                           ┛"""
+        formatter = ANSIMatrix(style="thick", squish=10)
+        self.assertEqual(formatter.str(m), ans)
+
+    def test_matrix_2(self):
+
+        m = np.arange(16).reshape((4, 4)) / 10 - 0.8
+        m[0, 0] = 1.23456e-14
+
+        ans = r"""┏                                           ┓T
+┃ 0         -0.7       -0.6       -0.5      ┃
+┃-0.4       -0.3       -0.2       -0.1      ┃
+┃ 0          0.1        0.2        0.3      ┃
+┃ 0.4        0.5        0.6        0.7      ┃
+┗                                           ┛3"""
+        formatter = ANSIMatrix(style="thick")
+
+        self.assertEqual(formatter.str(m, suffix_super="T", suffix_sub="3"), ans)
+
+    def test_matrix_3(self):
+
+        m = np.arange(16).reshape((4, 4)) / 10 - 0.8
+        m[0, 0] = 1.23456e-14
+
+        ans = r"""┏                                           ┓T
+┃-0.5       -0.25       0          0.25     ┃
+┗                                           ┛"""
+        formatter = ANSIMatrix(style="thick", squish=True)
+
+        m = np.arange(4) / 4 - 0.5
+        self.assertEqual(formatter.str(m, "T"), ans)
+
+    def test_table_convert(self):
+
+        table = ANSITable("col1", "column 2 has a big header", "column 3")
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+
+        ans = r"""\begin{tabular}{ |r|r|r| }\hline
+\multicolumn{1}{|r|}{col1} & \multicolumn{1}{|r|}{column 2 has a big header} & \multicolumn{1}{|r|}{column 3}\\\hline\hline
+aaaaaaaaa & 2.2 & 3 \\
+bbbbbbbbbbbbb & -5.5 & 6 \\
+ccccccc & 8.8 & -9 \\
+\hline
+\end{tabular}
+"""
+        self.assertEqual(table.latex(), ans)
+
+        ans = r"""|          col1 | column 2 has a big header | column 3 |
+| ------------: | ------------------------: | -------: |
+|     aaaaaaaaa |                       2.2 |        3 |
+| bbbbbbbbbbbbb |                      -5.5 |        6 |
+|       ccccccc |                       8.8 |       -9 |
+"""
+        self.assertEqual(table.markdown(), ans)
+
+        ans = r"""col1,column 2 has a big header,column 3
+aaaaaaaaa,2.2,3
+bbbbbbbbbbbbb,-5.5,6
+ccccccc,8.8,-9
+"""
+        self.assertEqual(table.csv(), ans)
+
+        # df = table.pandas()
+        # print(df)
+
+    @skip_no_pandas
+    def test_table_pandas(self):
+
+        import pandas as pd
+
+        table = ANSITable("col1", "column 2 has a big header", "column 3")
+        table.row("aaaaaaaaa", 2.2, 3)
+        table.row("bbbbbbbbbbbbb", -5.5, 6)
+        table.row("ccccccc", 8.8, -9)
+        table.row("dd", 9.9, -11)
+
+        df = table.pandas()
+        self.assertEqual(len(df), 4)
+        self.assertEqual(len(df.columns), 3)
+        self.assertEqual(df.columns[0], "col1")
+        self.assertEqual(df.columns[1], "column_2_has_a_big_header")
+        self.assertEqual(df.columns[2], "column_3")
+        self.assertEqual(df.iloc[0, 0], "aaaaaaaaa")
+        self.assertEqual(df.iloc[0, 1], "2.2")
+        self.assertEqual(df.iloc[0, 2], "3")
+        self.assertEqual(df.iloc[1, 0], "bbbbbbbbbbbbb")
+        self.assertEqual(df.iloc[1, 1], "-5.5")
+        self.assertEqual(df.iloc[1, 2], "6")
+
+        df = table.pandas(underscores=False)
+        self.assertEqual(len(df), 4)
+        self.assertEqual(len(df.columns), 3)
+        self.assertEqual(df.columns[0], "col1")
+        self.assertEqual(df.columns[1], "column 2 has a big header")
+        self.assertEqual(df.columns[2], "column 3")
+        self.assertEqual(df.iloc[0, 0], "aaaaaaaaa")
+        self.assertEqual(df.iloc[0, 1], "2.2")
+        self.assertEqual(df.iloc[0, 2], "3")
+        self.assertEqual(df.iloc[1, 0], "bbbbbbbbbbbbb")
+        self.assertEqual(df.iloc[1, 1], "-5.5")
+        self.assertEqual(df.iloc[1, 2], "6")
+
+        df = pd.DataFrame({"calories": [420, 380, 390], "duration": [50, 40, 45]})
+        table = ANSITable.Pandas(df, border="thin")
+        self.assertEqual(len(table.columns), 2)
+        self.assertEqual(len(table), 3)
+        self.assertEqual(table.columns[0].name, "calories")
+        self.assertEqual(table.columns[1].name, "duration")
+
+
+# ----------------------------------------------------------------------- #
+
+class TestColumnAlignmentPrefix(unittest.TestCase):
+    """Test the {X}/{XY} alignment shorthand in Column/ANSITable names"""
+
+    def test_single_char_sets_both(self):
+        c = Column("{<}Header")
+        self.assertEqual(c.name, "Header")
+        self.assertEqual(c.headalign, "<")
+        self.assertEqual(c.colalign, "<")
+
+    def test_two_char_sets_head_and_col_respectively(self):
+        c = Column("{<^}Header")
+        self.assertEqual(c.name, "Header")
+        self.assertEqual(c.headalign, "<")
+        self.assertEqual(c.colalign, "^")
+
+    def test_all_three_alignment_chars(self):
+        for ch in ("<", "^", ">"):
+            c = Column(f"{{{ch}}}Header")
+            self.assertEqual(c.name, "Header")
+            self.assertEqual(c.headalign, ch)
+            self.assertEqual(c.colalign, ch)
+
+    def test_explicit_colalign_overrides_marker(self):
+        c = Column("{^}Header", colalign="<")
+        self.assertEqual(c.name, "Header")
+        self.assertEqual(c.colalign, "<")  # explicit kwarg wins
+        self.assertEqual(c.headalign, "^")  # marker still applies to this axis
+
+    def test_explicit_headalign_overrides_marker(self):
+        c = Column("{^}Header", headalign="<")
+        self.assertEqual(c.name, "Header")
+        self.assertEqual(c.headalign, "<")  # explicit kwarg wins
+        self.assertEqual(c.colalign, "^")  # marker still applies to this axis
+
+    def test_no_marker_unaffected(self):
+        c = Column("Header")
+        self.assertEqual(c.name, "Header")
+        self.assertEqual(c.headalign, ">")
+        self.assertEqual(c.colalign, ">")
+
+    def test_escaped_brace_is_literal(self):
+        c = Column("\\{note}Header")
+        self.assertEqual(c.name, "{note}Header")
+        self.assertEqual(c.headalign, ">")
+        self.assertEqual(c.colalign, ">")
+
+    def test_invalid_marker_chars_left_untouched(self):
+        c = Column("{note}Header")
+        self.assertEqual(c.name, "{note}Header")
+        self.assertEqual(c.headalign, ">")
+        self.assertEqual(c.colalign, ">")
+
+    def test_three_char_marker_left_untouched(self):
+        c = Column("{<^>}Header")
+        self.assertEqual(c.name, "{<^>}Header")
+        self.assertEqual(c.headalign, ">")
+        self.assertEqual(c.colalign, ">")
+
+    def test_ansitable_quick_string_constructor(self):
+        table = ANSITable("{<}col1", "{^}col2", "col3", border="ascii")
+        self.assertEqual(table.columns[0].name, "col1")
+        self.assertEqual(table.columns[0].headalign, "<")
+        self.assertEqual(table.columns[0].colalign, "<")
+        self.assertEqual(table.columns[1].name, "col2")
+        self.assertEqual(table.columns[1].headalign, "^")
+        self.assertEqual(table.columns[1].colalign, "^")
+        self.assertEqual(table.columns[2].name, "col3")
+        self.assertEqual(table.columns[2].headalign, ">")
+        self.assertEqual(table.columns[2].colalign, ">")
+
+
+# ----------------------------------------------------------------------- #
+
+class TestANSITableSort(unittest.TestCase):
+
+    def _make_table(self):
+        """Three-row table with string and numeric columns."""
+        table = ANSITable("name", "score", color=False)
+        table.row("charlie", 3)
+        table.row("alice", 1)
+        table.row("bob", 2)
+        return table
+
+    def test_sort_by_column_name_lexicographic(self):
+        table = self._make_table()
+        table.sort("name")
+        self.assertEqual(table.columns[0].formatted, ["alice", "bob", "charlie"])
+
+    def test_sort_by_column_index(self):
+        table = self._make_table()
+        table.sort(0)
+        self.assertEqual(table.columns[0].formatted, ["alice", "bob", "charlie"])
+
+    def test_sort_with_key(self):
+        table = self._make_table()
+        table.sort("score", key=int)
+        self.assertEqual(table.columns[1].formatted, ["1", "2", "3"])
+        # companion column should follow
+        self.assertEqual(table.columns[0].formatted, ["alice", "bob", "charlie"])
+
+    def test_sort_reverse(self):
+        table = self._make_table()
+        table.sort("name", reverse=True)
+        self.assertEqual(table.columns[0].formatted, ["charlie", "bob", "alice"])
+
+    def test_sort_reverse_with_key(self):
+        table = self._make_table()
+        table.sort("score", key=int, reverse=True)
+        self.assertEqual(table.columns[1].formatted, ["3", "2", "1"])
+
+    def test_sort_drops_rule_rows_silently(self):
+        table = ANSITable("name", "score", color=False)
+        table.row("charlie", 3)
+        table.rule()
+        table.row("alice", 1)
+        table.rule()
+        table.row("bob", 2)
+        table.sort("name")
+        self.assertEqual(table.nrows, 3)
+        self.assertEqual(table.columns[0].formatted, ["alice", "bob", "charlie"])
+
+    def test_sort_preserves_row_attributes(self):
+        table = ANSITable("name", "score", color=False)
+        table.row("charlie", 3, fgcolor="red")
+        table.row("alice", 1, fgcolor="blue")
+        table.row("bob", 2, fgcolor="green")
+        table.sort("name")
+        self.assertEqual(table.columns[0].fgcolor, ["blue", "green", "red"])
+        self.assertEqual(table.columns[1].fgcolor, ["blue", "green", "red"])
+
+    def test_sort_returns_self_for_chaining(self):
+        table = self._make_table()
+        result = table.sort("name")
+        self.assertIs(result, table)
+
+    def test_sort_invalid_column_name_raises(self):
+        table = self._make_table()
+        with self.assertRaises(ValueError):
+            table.sort("nonexistent")
+
+    def test_sort_invalid_column_index_raises(self):
+        table = self._make_table()
+        with self.assertRaises(IndexError):
+            table.sort(99)
+
+    def test_sort_stable(self):
+        # equal keys should preserve original relative order (Python sort is stable)
+        table = ANSITable("group", "val", color=False)
+        table.row("b", 10)
+        table.row("a", 20)
+        table.row("a", 30)
+        table.sort("group")
+        self.assertEqual(table.columns[0].formatted, ["a", "a", "b"])
+        self.assertEqual(table.columns[1].formatted, ["20", "30", "10"])
+
+
+class TestHTMLGeneration(unittest.TestCase):
+    """Test HTML table generation with border attributes"""
+
+    def test_html_no_border(self):
+        """Test HTML generation without border"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn("<table>", html)
+        self.assertNotIn('border=', html)
+        self.assertNotIn('bordercolor=', html)
+
+    def test_html_thick_border(self):
+        """Test HTML generation with thick border"""
+        table = ANSITable("col1", "col2", border="thick")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="3"', html)
+
+    def test_html_thin_border(self):
+        """Test HTML generation with thin border"""
+        table = ANSITable("col1", "col2", border="thin")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="1"', html)
+
+    def test_html_double_border(self):
+        """Test HTML generation with double border"""
+        table = ANSITable("col1", "col2", border="double")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="2"', html)
+
+    def test_html_round_border(self):
+        """Test HTML generation with round border"""
+        table = ANSITable("col1", "col2", border="round")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="1"', html)
+
+    def test_html_ascii_border(self):
+        """Test HTML generation with ascii border"""
+        table = ANSITable("col1", "col2", border="ascii")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="1"', html)
+
+    def test_html_bordercolor(self):
+        """Test HTML generation with bordercolor"""
+        table = ANSITable("col1", "col2", border="thick", bordercolor="blue")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('border="3"', html)
+        self.assertIn('bordercolor="blue"', html)
+
+    def test_html_bordercolor_without_border(self):
+        """Test that bordercolor is included even without explicit border"""
+        table = ANSITable("col1", "col2", bordercolor="red")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn('bordercolor="red"', html)
+        self.assertNotIn('border=', html)
+
+    def test_html_with_style_parameter(self):
+        """Test HTML generation with additional style parameter"""
+        table = ANSITable("col1", "col2", border="thick", bordercolor="blue")
+        table.row("a", "b")
+        html = table.html(table='margin: 10px; padding: 5px;')
+        self.assertIn('border="3"', html)
+        self.assertIn('bordercolor="blue"', html)
+        self.assertIn('style="margin: 10px; padding: 5px;"', html)
+
+    def test_html_contains_table_tag(self):
+        """Test that HTML contains proper table tag"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn("<table", html)
+        self.assertIn("</table>", html)
+
+    def test_html_contains_tr_td_tags(self):
+        """Test that HTML contains proper row and cell tags"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        html = table.html()
+        self.assertIn("<tr", html)
+        self.assertIn("</tr>", html)
+        self.assertIn("<th", html)
+        self.assertIn("</th>", html)
+        self.assertIn("<td", html)
+        self.assertIn("</td>", html)
+
+    def test_html_alignment_styles(self):
+        """Test that HTML includes alignment styles"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("center", headalign="^"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b", "c")
+        html = table.html()
+        # Should have text-align styles for each alignment
+        self.assertIn('text-align:left;', html)
+        self.assertIn('text-align:center;', html)
+        self.assertIn('text-align:right;', html)
+
+    def test_html_cell_styling(self):
+        """Test that HTML cell styling parameters are included"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        html = table.html(
+            td='border: 1px solid; padding: 5px;',
+            th='background: #f0f0f0;'
+        )
+        self.assertIn('border: 1px solid; padding: 5px;', html)
+        self.assertIn('background: #f0f0f0;', html)
+
+    def test_html_column_default_colors(self):
+        """Test that Column-level colcolor/colbgcolor are applied to HTML cells,
+        translated from colored's palette names to real CSS hex values"""
+        table = ANSITable(Column("col1", colcolor="red", colbgcolor="green"))
+        table.row("x")
+        html = table.html()
+        self.assertIn(f"color:{_css_color('red')};", html)
+        self.assertIn(f"background-color:{_css_color('green')};", html)
+
+    def test_html_row_and_cell_override_column_defaults(self):
+        """Test that row/Cell colors override Column-level defaults in HTML"""
+        table = ANSITable(Column("col1", colcolor="red", colbgcolor="green"))
+        table.row(Cell("x", fgcolor="blue", bgcolor="yellow"))
+        html = table.html()
+        self.assertIn(f"color:{_css_color('blue')};", html)
+        self.assertIn(f"background-color:{_css_color('yellow')};", html)
+        self.assertNotIn(f"color:{_css_color('red')};", html)
+        self.assertNotIn(f"background-color:{_css_color('green')};", html)
+
+    def test_html_header_colors(self):
+        """Test that Column-level headcolor/headbgcolor are applied to HTML header cells,
+        translated from colored's palette names to real CSS hex values"""
+        table = ANSITable(Column("col1", headcolor="red", headbgcolor="green"))
+        table.row("x")
+        html = table.html()
+        th_line = [line for line in html.splitlines() if "<th" in line][0]
+        self.assertIn(f"color:{_css_color('red')};", th_line)
+        self.assertIn(f"background-color:{_css_color('green')};", th_line)
+
+    def test_html_escape_ellipsis(self):
+        """Test that ellipsis character is escaped in HTML"""
+        table = ANSITable(Column("col", width=3))
+        table.row("this is long")
+        html = table.html()
+        # Ellipsis should be replaced with &hellip; entity
+        self.assertIn("&hellip;", html)
+        self.assertNotIn("…", html)
+
+    def test_html_renders_rule_rows_as_hr(self):
+        """Test that rule() rows are rendered as a colspan <hr>, not crashing"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        html = table.html()
+        self.assertIn('<td colspan="2"><hr></td>', html)
+        self.assertIn(">1</td>", html)
+        self.assertIn(">3</td>", html)
+
+
+class TestHTMLColorStyleTranslation(unittest.TestCase):
+    """Regression tests for html() color/style rendering.
+
+    Previously html() wrote colored's color specifiers straight into the
+    style attribute unmodified, and never referenced style at all -- see
+    _css_color()/_cell_style_css() in table.py for the full explanation.
+    """
+
+    def test_256_palette_name_translated_to_valid_css_hex(self):
+        # "grey_37" is a real colored 256-color name but not a CSS
+        # keyword; writing it through unmodified silently produces
+        # invalid, browser-ignored CSS.
+        table = ANSITable(Column("col1", colbgcolor="grey_37"))
+        table.row("x")
+        html = table.html()
+        self.assertIn(f"background-color:{_css_color('grey_37')};", html)
+        self.assertNotIn("background-color:grey_37;", html)
+        self.assertTrue(_css_color("grey_37").startswith("#"))
+
+    def test_256_palette_number_translated_to_valid_css_hex(self):
+        table = ANSITable(Column("col1", colcolor="196"))
+        table.row("x")
+        html = table.html()
+        self.assertIn(f"color:{_css_color('196')};", html)
+        self.assertNotIn("color:196;", html)
+
+    def test_hex_color_passed_through_unchanged(self):
+        table = ANSITable(Column("col1", colbgcolor="#123456"))
+        table.row("x")
+        html = table.html()
+        self.assertIn("background-color:#123456;", html)
+
+    def test_css_color_passes_through_names_colored_does_not_recognise(self):
+        # _css_color() itself stays permissive for a name colored doesn't
+        # recognise (e.g. a CSS-only keyword): assume it's a literal CSS
+        # value the caller intended. In practice Column/Cell/row now
+        # validate color names eagerly against colored's own palette (see
+        # TestColorValidation), so this path is only reachable by calling
+        # _css_color() directly, or if colored is somehow bypassed.
+        self.assertEqual(_css_color("rebeccapurple"), "rebeccapurple")
+
+    def test_colstyle_bold_rendered_as_font_weight(self):
+        table = ANSITable(Column("col1", colstyle="bold"))
+        table.row("x")
+        html = table.html()
+        self.assertIn("font-weight:bold;", html)
+
+    def test_colstyle_underlined_rendered_as_text_decoration(self):
+        table = ANSITable(Column("col1", colstyle="underlined"))
+        table.row("x")
+        html = table.html()
+        self.assertIn("text-decoration:underline;", html)
+
+    def test_headstyle_bold_rendered_in_header(self):
+        table = ANSITable(Column("col1", headstyle="bold"))
+        table.row("x")
+        html = table.html()
+        th_line = [line for line in html.splitlines() if "<th" in line][0]
+        self.assertIn("font-weight:bold;", th_line)
+
+    def test_row_and_cell_style_override_column_style(self):
+        table = ANSITable(Column("col1", colstyle="bold"))
+        table.row(Cell("x", style="underlined"))
+        html = table.html()
+        td_line = [line for line in html.splitlines() if "<td" in line][0]
+        self.assertIn("text-decoration:underline;", td_line)
+        self.assertNotIn("font-weight:bold;", td_line)
+
+    def test_reverse_style_swaps_fg_and_bg(self):
+        table = ANSITable(Column("col1", colcolor="black", colbgcolor="white", colstyle="reverse"))
+        table.row("x")
+        html = table.html()
+        td_line = [line for line in html.splitlines() if "<td" in line][0]
+        # after the swap, the foreground carries what was the background
+        # color and vice versa
+        self.assertIn(f"color:{_css_color('white')};", td_line)
+        self.assertIn(f"background-color:{_css_color('black')};", td_line)
+
+    def test_th_td_override_last_wins_against_computed_color(self):
+        # documents the documented (see html()'s docstring warning), still
+        # very real footgun: a th=/td= override that itself sets a color
+        # or the background shorthand silently wins over headbgcolor/
+        # colbgcolor, since it's concatenated after them in the same
+        # style attribute and CSS uses last-declaration-wins.
+        table = ANSITable(Column("col1", headbgcolor="white"))
+        table.row("x")
+        html = table.html(th="background: #f0f0f0;")
+        th_line = [line for line in html.splitlines() if "<th" in line][0]
+        self.assertIn(f"background-color:{_css_color('white')};background: #f0f0f0;", th_line)
+
+
+class TestMarkdownExport(unittest.TestCase):
+    """Test Markdown table export format"""
+
+    def test_none_value(self):
+        """None is a missing value: fmt is not applied, na_rep is shown"""
+        table = ANSITable("a", Column("b", "{:.1f}"), Column("c", "{:.1%}", na_rep="-"))
+        table.row("x", None, None)
+        table.row("y", 1.25, 0.5)
+        lines = table.markdown().splitlines()
+        self.assertEqual(lines[2], "|   x |     |     - |")
+        self.assertEqual(lines[3], "|   y | 1.2 | 50.0% |")
+
+        table = ANSITable("a", Column("b", "{:.1f}", na_rep="n/a"), na_rep="?")
+        table.row(None, None)
+        self.assertEqual(table.csv().splitlines()[1], "?,n/a")
+
+        # unformatted columns also show na_rep, not the string "None"
+        table = ANSITable("a", "b", na_rep="–")
+        table.row(1, None)
+        self.assertIn("–", str(table))
+        self.assertNotIn("None", str(table))
+
+    def test_export(self):
+        """export() is a switchyard over the individual exporters"""
+        import io
+        import tempfile
+        from pathlib import Path
+
+        table = ANSITable("a", "b")
+        table.row(1, 2)
+        for fmt in ("markdown", "rest", "html", "latex", "wikitable"):
+            self.assertEqual(table.export(fmt), getattr(table, fmt)())
+        self.assertEqual(table.export("csv", delimiter=";"), table.csv(";"))
+        self.assertEqual(table.export("text"), str(table))
+
+        # stream: written, left open, nothing returned
+        stream = io.StringIO()
+        self.assertIsNone(table.export("csv", stream))
+        self.assertEqual(stream.getvalue(), table.csv())
+        self.assertFalse(stream.closed)
+
+        with tempfile.TemporaryDirectory() as d:
+            # Path and str, format inferred from the extension or given
+            table.export(file=Path(d) / "t.md")
+            self.assertEqual((Path(d) / "t.md").read_text(), table.markdown())
+            table.export(file=str(Path(d) / "t.TEX"))
+            self.assertEqual((Path(d) / "t.TEX").read_text(), table.latex())
+            table.export("csv", str(Path(d) / "t.dat"))
+            self.assertEqual((Path(d) / "t.dat").read_text(), table.csv())
+
+            with self.assertRaises(ValueError):
+                table.export(file=Path(d) / "t.zzz")
+            self.assertFalse((Path(d) / "t.zzz").exists())
+
+        with self.assertRaises(ValueError):
+            table.export()
+        with self.assertRaises(ValueError):
+            table.export("pdf")  # type: ignore[arg-type]
+
+    def test_markdown_tidy(self):
+        """Markdown cells have one space of padding and the separator row matches
+        the width of the header, including for very narrow columns"""
+        table = ANSITable("{<}Name", "N", Column("Mid", headalign="^"))
+        table.row("a", 1, 2)
+        lines = table.markdown().splitlines()
+        self.assertEqual(len(set(len(line) for line in lines)), 1)
+        self.assertEqual(lines[0], "| Name |   N | Mid |")
+        self.assertEqual(lines[1], "| :--- | --: | :-: |")
+        self.assertEqual(lines[2], "| a    |   1 |   2 |")
+
+    def test_markdown_does_not_change_table(self):
+        """Exporting markdown leaves colsep and widths as they were"""
+        table = ANSITable("a", "b", colsep=2)
+        table.row(1, 2)
+        before = str(table)
+        table.markdown()
+        self.assertEqual(table.colsep, 2)
+        self.assertEqual(str(table), before)
+
+    def test_markdown_header_row(self):
+        """Test that markdown output includes header row"""
+        table = ANSITable("col1", "col2", "col3")
+        table.row("a", "b", "c")
+        md = table.markdown()
+        lines = md.strip().split('\n')
+        # First line should be header with pipes
+        self.assertIn('col1', lines[0])
+        self.assertIn('|', lines[0])
+
+    def test_markdown_alignment_row(self):
+        """Test that markdown alignment row is generated correctly"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("center", headalign="^"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b", "c")
+        md = table.markdown()
+        lines = md.strip().split('\n')
+        # Second line should be alignment with colons and dashes
+        self.assertIn(':', lines[1])  # Alignment markers
+        self.assertIn('-', lines[1])  # Dashes
+
+    def test_markdown_data_rows(self):
+        """Test that markdown includes data rows"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        table.row("c", "d")
+        md = table.markdown()
+        # Should have header + alignment + 2 data rows = 4 lines
+        lines = [line for line in md.strip().split('\n') if line.strip()]
+        self.assertEqual(len(lines), 4)
+
+    def test_markdown_proper_pipe_delimiters(self):
+        """Test that all rows use pipe delimiters"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        md = table.markdown()
+        # All non-empty lines should start and end with |
+        for line in md.strip().split('\n'):
+            if line.strip():
+                self.assertTrue(line.strip().startswith('|'))
+                self.assertTrue(line.strip().endswith('|'))
+
+    def test_markdown_escape_characters(self):
+        """Test that markdown handles special characters"""
+        table = ANSITable("col|1", "col2")
+        table.row("a|b", "c")
+        md = table.markdown()
+        # Should still be valid markdown
+        self.assertIn('|', md)
+        self.assertIn('col|1', md)  # Column header contains the pipe
+
+    def test_markdown_numeric_formatting(self):
+        """Test markdown with numeric data"""
+        table = ANSITable("value")
+        table.row(3.14159)
+        md = table.markdown()
+        self.assertIn("3.14159", md)
+
+    def test_markdown_skips_rule_rows(self):
+        """Test that rule() rows are omitted, not rendered as garbage"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        md = table.markdown()
+        lines = [line for line in md.strip().split("\n") if line.strip()]
+        # header + alignment + 2 data rows, no line for the rule
+        self.assertEqual(len(lines), 4)
+
+
+class TestReSTPExport(unittest.TestCase):
+    """Test ReST (reStructuredText) table export format"""
+
+    def test_rest_header_row(self):
+        """Test that ReST output includes header row"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        rest = table.rest()
+        lines = rest.strip().split('\n')
+        # Should have divider, header, divider, data, divider
+        self.assertGreaterEqual(len(lines), 5)
+
+    def test_rest_has_dividers(self):
+        """Test that ReST includes top/middle/bottom dividers"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        rest = table.rest()
+        # Should have lines with equals signs
+        self.assertIn('=', rest)
+        divider_count = rest.count('=')
+        self.assertGreater(divider_count, 3)  # Multiple divider rows
+
+    def test_rest_column_alignment(self):
+        """Test ReST output structure"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b")
+        rest = table.rest()
+        # Should have proper structure
+        lines = rest.strip().split('\n')
+        self.assertGreater(len(lines), 0)
+        # First line should be divider
+        self.assertIn('=', lines[0])
+
+    def test_rest_multiple_rows(self):
+        """Test ReST with multiple data rows"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        table.row("c", "d")
+        table.row("e", "f")
+        rest = table.rest()
+        # Should have all data
+        self.assertIn('a', rest)
+        self.assertIn('c', rest)
+        self.assertIn('e', rest)
+
+    def test_rest_no_column_alignment_info(self):
+        """Test that ReST does not include column alignment classes"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b")
+        rest = table.rest()
+        # ReST simple tables don't support alignment in the output
+        # (per the docstring)
+        self.assertNotIn('class=', rest)
+
+    def test_rest_skips_rule_rows(self):
+        """Test that rule() rows are omitted, not rendered as garbage"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        rest = table.rest()
+        self.assertIn("1", rest)
+        self.assertIn("3", rest)
+        # 3 dividers + header + 2 data rows, no line for the rule
+        lines = [line for line in rest.strip().split("\n") if line.strip()]
+        self.assertEqual(len(lines), 6)
+
+
+class TestWikitableExport(unittest.TestCase):
+    """Test wikitable (Wikipedia) table export format"""
+
+    def test_wikitable_opening_tag(self):
+        """Test that wikitable output starts with proper opening"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        wiki = table.wikitable()
+        self.assertIn('{| class="wikitable"', wiki)
+
+    def test_wikitable_closing_tag(self):
+        """Test that wikitable output has proper closing"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        wiki = table.wikitable()
+        self.assertIn('|}', wiki)
+
+    def test_wikitable_alignment_classes(self):
+        """Test that wikitable includes alignment classes"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("center", headalign="^"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b", "c")
+        wiki = table.wikitable()
+        # Should have alignment classes
+        self.assertIn('col1left', wiki)
+        self.assertIn('col2center', wiki)
+        self.assertIn('col3right', wiki)
+
+    def test_wikitable_header_delimiter(self):
+        """Test that wikitable uses ! for header cells"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        wiki = table.wikitable()
+        self.assertIn('!', wiki)  # Header cell marker
+
+    def test_wikitable_data_delimiter(self):
+        """Test that wikitable uses | for data cells"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        wiki = table.wikitable()
+        self.assertIn('||', wiki)  # Data cell separator
+
+    def test_wikitable_row_separator(self):
+        """Test that wikitable has row separators"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        table.row("c", "d")
+        wiki = table.wikitable()
+        # Should have multiple |- row separators
+        row_sep_count = wiki.count('|-')
+        self.assertGreater(row_sep_count, 1)
+
+    def test_wikitable_header_operator(self):
+        """Test that wikitable header cells use !! separator"""
+        table = ANSITable("col1", "col2", "col3")
+        table.row("a", "b", "c")
+        wiki = table.wikitable()
+        # Multiple header columns should use !! separator
+        self.assertIn('!!', wiki)
+
+    def test_wikitable_skips_rule_rows(self):
+        """Test that rule() rows are omitted, not rendered as garbage"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        wiki = table.wikitable()
+        # header row-separator + 2 data row-separators, no extra for the rule
+        self.assertEqual(wiki.count("|-"), 3)
+
+
+class TestLaTeXExport(unittest.TestCase):
+    """Test LaTeX table export format"""
+
+    def test_latex_begin_tabular(self):
+        """Test that LaTeX output has proper opening"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        latex = table.latex()
+        self.assertIn(r'\begin{tabular}', latex)
+
+    def test_latex_end_tabular(self):
+        """Test that LaTeX output has proper closing"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        latex = table.latex()
+        self.assertIn(r'\end{tabular}', latex)
+
+    def test_latex_alignment_specification(self):
+        """Test that LaTeX includes column alignment spec"""
+        table = ANSITable(
+            Column("left", headalign="<"),
+            Column("right", headalign=">")
+        )
+        table.row("a", "b")
+        latex = table.latex()
+        # Should have alignment spec like {|l|r|}
+        self.assertIn('{', latex)
+        self.assertIn('|', latex)
+
+    def test_latex_hline_markers(self):
+        """Test that LaTeX includes hline markers"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        latex = table.latex()
+        self.assertIn(r'\hline', latex)
+
+    def test_latex_row_separator(self):
+        """Test that LaTeX uses \\ for row separator"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        table.row("c", "d")
+        latex = table.latex()
+        # Multiple rows should have \\ separator
+        self.assertIn(r'\\', latex)
+
+    def test_latex_ampersand_column_separator(self):
+        """Test that LaTeX uses & for column separator"""
+        table = ANSITable("col1", "col2", "col3")
+        table.row("a", "b", "c")
+        latex = table.latex()
+        # Should have & between columns
+        self.assertIn('&', latex)
+
+    def test_latex_multicolumn_header(self):
+        """Test that LaTeX uses multicolumn for headers"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        latex = table.latex()
+        # Headers often use multicolumn
+        self.assertIn(r'\multicolumn', latex)
+
+    def test_latex_escape_special_chars(self):
+        """Test that LaTeX escapes special characters if needed"""
+        table = ANSITable("col_1", "col 2")
+        table.row("a&b", "c")
+        latex = table.latex()
+        # Should have ampersand escaped or handled
+        self.assertIn('col_1', latex)
+
+    def test_latex_renders_rule_rows_as_hline(self):
+        """Test that rule() rows are rendered as \\hline, not crashing"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        latex = table.latex()
+        self.assertIn("1 & 2", latex)
+        self.assertIn("3 & 4", latex)
+        # header hline + rule-row hline + closing hline = 3, plus the
+        # \hline\hline right after the header (counts as 2 more)
+        self.assertEqual(latex.count(r'\hline'), 5)
+
+
+class TestCSVExport(unittest.TestCase):
+    """Test CSV table export format"""
+
+    def test_csv_header_row(self):
+        """Test that CSV includes header row"""
+        table = ANSITable("col1", "col2", "col3")
+        table.row("a", "b", "c")
+        csv = table.csv()
+        lines = csv.strip().split('\n')
+        self.assertGreater(len(lines), 1)
+        # First line should be headers
+        self.assertIn('col1', lines[0])
+        self.assertIn('col2', lines[0])
+
+    def test_csv_data_rows(self):
+        """Test that CSV includes data rows"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        table.row("c", "d")
+        csv = table.csv()
+        # Should have at least header + 2 data rows
+        lines = csv.strip().split('\n')
+        self.assertEqual(len(lines), 3)
+
+    def test_csv_default_comma_delimiter(self):
+        """Test that CSV uses comma delimiter by default"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        csv = table.csv()
+        self.assertIn(',', csv)
+
+    def test_csv_custom_delimiter(self):
+        """Test that CSV respects custom delimiter"""
+        table = ANSITable("col1", "col2")
+        table.row("a", "b")
+        csv = table.csv(delimiter=';')
+        self.assertIn(';', csv)
+        # Default delimiter should still be present in separator, but data separated by ;
+        lines = csv.strip().split('\n')
+        self.assertGreater(len(lines[0].split(';')), 1)
+
+    def test_csv_quoting_if_comma_in_data(self):
+        """Test that CSV handles data containing the delimiter"""
+        table = ANSITable("col1", "col2")
+        table.row("a,b", "c")
+        csv = table.csv()
+        # Should still be parseable (either quoted or escaped)
+        self.assertIn('a', csv)
+        self.assertIn('b', csv)
+        self.assertIn('c', csv)
+
+    def test_csv_numeric_data(self):
+        """Test CSV with numeric values"""
+        table = ANSITable("value")
+        table.row(3.14159)
+        table.row(-5.5)
+        csv = table.csv()
+        self.assertIn('3.14159', csv)
+        self.assertIn('-5.5', csv)
+
+    def test_csv_all_columns_present(self):
+        """Test that all columns appear in each CSV row"""
+        table = ANSITable("A", "B", "C")
+        table.row(1, 2, 3)
+        csv = table.csv()
+        lines = csv.strip().split('\n')
+        # Each line (header and data) should have 2 commas (3 fields)
+        for line in lines:
+            self.assertEqual(line.count(','), 2)
+
+    def test_csv_escape_quotes(self):
+        """Test CSV handling of quoted strings"""
+        table = ANSITable("col1")
+        table.row('value"with"quotes')
+        csv = table.csv()
+        # Should contain the value (possibly escaped or quoted)
+        self.assertIn('value', csv)
+
+    def test_csv_skips_rule_rows(self):
+        """Test that rule() rows are omitted, not crashing CSV export"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        csv = table.csv()
+        lines = [line for line in csv.strip().split("\n") if line.strip()]
+        # header + 2 data rows, no line for the rule
+        self.assertEqual(len(lines), 3)
+
+
+class TestPandasExport(unittest.TestCase):
+    """Test conversion to a Pandas dataframe"""
+
+    def test_pandas_skips_rule_rows(self):
+        """Test that rule() rows are omitted, not turned into a garbage row"""
+        table = ANSITable("a", "b")
+        table.row("1", "2")
+        table.rule()
+        table.row("3", "4")
+        df = table.pandas()
+        self.assertEqual(len(df), 2)
+        self.assertEqual(list(df["a"]), ["1", "3"])
+
+
+class TestCellBackgroundReset(unittest.TestCase):
+    """Regression tests: combining fgcolor with bgcolor/style on a cell must
+    not let an inner ANSI reset clear the background/style before the
+    cell's padding is written. Previously, a cell that set fgcolor together
+    with bgcolor and/or a non-underline style emitted a full reset (\\x1b[0m)
+    right after the text and before the trailing padding, so the padding
+    -- and hence the right/bottom edge of the colored box -- lost its
+    background. Column._formatcolumn wraps fgcolor, bgcolor and style
+    around the whole gap1+text+gap2 string with a single trailing reset to
+    avoid this. colored's ``Colored.enabled()`` suppresses all output when
+    not attached to a TTY, so FORCE_COLOR is set to get real escape codes
+    under pytest.
+    """
+
+    def setUp(self):
+        self._old_force_color = os.environ.get("FORCE_COLOR")
+        os.environ["FORCE_COLOR"] = "1"
+        # other tests (e.g. test_options_updates_existing_and_future_tables)
+        # can leave the module-level color-enabled flag turned off; pin it
+        # on for this class regardless of run order.
+        self._old_unicode = _ansitable_table._unicode
+        self._old_color_enabled = _ansitable_table._color_enabled
+        options(True, color=True)
+
+    def tearDown(self):
+        if self._old_force_color is None:
+            os.environ.pop("FORCE_COLOR", None)
+        else:
+            os.environ["FORCE_COLOR"] = self._old_force_color
+        _ansitable_table._unicode = self._old_unicode
+        _ansitable_table._color_enabled = self._old_color_enabled
+
+    def test_header_cell_has_single_trailing_reset(self):
+        table = ANSITable(
+            Column("Name", headcolor="black", headbgcolor="white", headstyle="bold"),
+        )
+        table.row("Alice")
+        header_line = str(table).split("\n")[0]
+        self.assertEqual(header_line.count("\x1b[0m"), 1)
+        self.assertTrue(header_line.endswith("\x1b[0m "))
+
+    def test_data_cell_has_single_trailing_reset(self):
+        table = ANSITable(
+            Column(
+                "Name", colcolor="black", colbgcolor="grey_37", colstyle="reverse"
+            ),
+        )
+        table.row("Alice")
+        data_line = str(table).split("\n")[1]
+        self.assertEqual(data_line.count("\x1b[0m"), 1)
+        self.assertTrue(data_line.endswith("\x1b[0m "))
+
+    def test_header_background_covers_padding_after_text(self):
+        table = ANSITable(
+            Column("Name", width=10, headcolor="black", headbgcolor="white"),
+        )
+        table.row("Alice")
+        header_line = str(table).split("\n")[0]
+        bg_on = "\x1b[48;5;15m"
+        reset = "\x1b[0m"
+        # everything between the background switching on and the single
+        # trailing reset -- including the padding -- must be uninterrupted
+        self.assertEqual(header_line.count(reset), 1)
+        between = header_line[header_line.index(bg_on) : header_line.index(reset)]
+        self.assertNotIn(reset, between)
+        self.assertIn(" " * 6, between)  # "Name" padded out to width 10
+
+    def test_row_override_combining_fg_and_bg_has_single_trailing_reset(self):
+        table = ANSITable("col1")
+        table.row("x", fgcolor="blue", bgcolor="yellow")
+        data_line = str(table).split("\n")[1]
+        self.assertEqual(data_line.count("\x1b[0m"), 1)
+
+
+class TestStyleValidation(unittest.TestCase):
+    """Style names are checked eagerly against ANSITable's own style set,
+    independent of whether the colored package is installed."""
+
+    def test_all_supported_styles_accepted(self):
+        for name in styledict:
+            with self.subTest(style=name):
+                Cell("x", style=name)
+
+    def test_unsupported_style_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid style"):
+            Cell("x", style="bogus")
+
+    def test_colored_own_style_name_rejected(self):
+        # colored calls this style "underline"; ANSITable's own name is
+        # "underlined", so the raw colored name must not be accepted.
+        with self.assertRaises(ValueError):
+            Cell("x", style="underline")
+
+    def test_none_style_not_validated(self):
+        c = Cell("x", style=None)
+        self.assertIsNone(c.style)
+
+    def test_column_colstyle_and_headstyle_validated(self):
+        Column("c", colstyle="bold", headstyle="dim")
+        with self.assertRaises(ValueError):
+            Column("c", colstyle="bogus")
+        with self.assertRaises(ValueError):
+            Column("c", headstyle="bogus")
+
+    def test_row_style_validated(self):
+        table = ANSITable("a", color=False)
+        table.row("x", style="bold")
+        with self.assertRaises(ValueError):
+            table.row("y", style="bogus")
+
+
+@skip_no_colored
+class TestColorValidation(unittest.TestCase):
+    """Color names/numbers/hex strings are checked eagerly against the same
+    rules the colored package applies when actually rendering the color."""
+
+    def test_valid_named_color_accepted(self):
+        Cell("x", fgcolor="red")
+
+    def test_invalid_named_color_rejected(self):
+        with self.assertRaisesRegex(ValueError, "InvalidColor"):
+            Cell("x", fgcolor="not_a_color")
+
+    def test_color_name_case_insensitive(self):
+        # colored lower-cases names before comparing, so this must match
+        # what actually happens at print time.
+        Cell("x", fgcolor="RED")
+
+    def test_256_color_name_accepted(self):
+        Cell("x", fgcolor="grey_37")
+
+    def test_256_color_number_string_accepted(self):
+        Cell("x", fgcolor="196")
+
+    def test_exact_palette_hex_accepted(self):
+        Cell("x", fgcolor="#ff0000")
+
+    def test_shorthand_hex_accepted(self):
+        Cell("x", fgcolor="#f00")
+
+    def test_arbitrary_hex_snapped_to_nearest_is_accepted(self):
+        # not an exact 256-color palette entry, but colored.fg() snaps any
+        # well-formed hex to the nearest palette color rather than failing
+        Cell("x", fgcolor="#123456")
+
+    def test_malformed_hex_digits_rejected(self):
+        with self.assertRaisesRegex(ValueError, "InvalidHexColor"):
+            Cell("x", fgcolor="#zzzzzz")
+
+    def test_wrong_length_hex_rejected(self):
+        with self.assertRaisesRegex(ValueError, "InvalidHexColor"):
+            Cell("x", fgcolor="#12345")
+
+    def test_none_color_not_validated(self):
+        c = Cell("x", fgcolor=None)
+        self.assertIsNone(c.fgcolor)
+
+    def test_cell_validates_fgcolor_and_bgcolor(self):
+        Cell("x", fgcolor="blue", bgcolor="green")
+        with self.assertRaises(ValueError):
+            Cell("x", fgcolor="bogus")
+        with self.assertRaises(ValueError):
+            Cell("x", bgcolor="bogus")
+
+    def test_column_validates_all_color_fields(self):
+        for field in ("colcolor", "colbgcolor", "headcolor", "headbgcolor"):
+            with self.subTest(field=field):
+                Column("c", **{field: "blue"})
+                with self.assertRaises(ValueError):
+                    Column("c", **{field: "bogus"})
+
+    def test_ansitable_validates_bordercolor(self):
+        ANSITable("a", bordercolor="blue", color=False)
+        with self.assertRaises(ValueError):
+            ANSITable("a", bordercolor="bogus", color=False)
+
+    def test_row_validates_fgcolor_and_bgcolor(self):
+        table = ANSITable("a", color=False)
+        table.row("x", fgcolor="green")
+        with self.assertRaises(ValueError):
+            table.row("y", fgcolor="bogus")
+        with self.assertRaises(ValueError):
+            table.row("y", bgcolor="bogus")
+
+    def test_inline_color_markup_validated(self):
+        table = ANSITable("a", color=False)
+        table.row("<<red>>hello")
+        with self.assertRaises(ValueError):
+            table.row("<<bogus>>hello")
+
+
+# ----------------------------------------------------------------------- #
+if __name__ == "__main__":
+
+    unittest.main()

@@ -1,0 +1,176 @@
+[project]
+name = "dreamscale"
+version = "0.1.0a272"
+description = "Cloud robot policy inference — one function call."
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Dreamscale Labs" },
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+keywords = ["robotics", "physical-ai", "inference", "vla"]
+dependencies = [
+  "dreamscale-transport==0.1.1a103",
+  "httpx>=0.27,<1",
+  "typer>=0.12,<0.26",
+  # Click 8.5 resets argument help set by Typer <=0.25.1. Keep the CLI's
+  # argument descriptions until Typer forwards help to Click's constructor.
+  "click>=8.1.7,<8.5",
+  "rich>=13.9,<14",
+  # Isaac Sim 5.0 camera bindings require NumPy 1.x. The SDK wire/runtime code
+  # supports 1.26 and 2.x; keep simulator installs from forcing an ABI upgrade.
+  "numpy>=1.26,<3",
+  "typing-extensions>=4.10,<5",
+  "tomli-w>=1.0,<2",
+  "pillow>=10,<12",
+  "jsonschema>=4.23,<5",
+  # Evaluates the platform markers on optional dependencies (dreamscale.extras).
+  "packaging>=23,<27",
+]
+
+[project.optional-dependencies]
+trace = ["rerun-sdk>=0.26.2,<0.33"]
+cameras = ["opencv-python==4.11.0.86"]
+# pyrealsense2's own wheels cover x86_64 Linux and Windows. On aarch64 Linux (Jetson),
+# Dreamscale's RSUSB build of the same module, which streams on stock kernels.
+realsense = [
+  "pyrealsense2==2.56.5.9235; sys_platform != 'linux' or platform_machine != 'aarch64'",
+  "dreamscale-pyrealsense2==2.58.4; sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+# franky runs libfranka's 1 kHz loop in C++; the PyPI wheel bundles libfranka 0.21.2 (FCI
+# protocol 10). Other robots need its GitHub +libfranka.X builds; doctor franka names one.
+franka = ["franky-control==2.0.0; sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# ur_rtde: RTDE state and, through UR's External Control URCap(X), joint streaming. 1.6.5
+# is the first release that drives PolyScope X.
+ur = ["ur-rtde==1.6.5"]
+# scipy: the xArm 7 kinematics (Rotation) that turn Hy-VLA pose chunks into joints.
+xarm7 = ["xarm-python-sdk==1.18.4", "scipy>=1.11,<2"]
+# `dreamscale datasets upload ./folder`: reads a local LeRobot dataset's Parquet tables for the
+# check beside the upload (without it, the upload skips the check and says how to install it).
+train = ["pyarrow>=15,<26"]
+# Dreamscale's PyPI build of the qualified I2RT YAM arm driver (upstream v1.3.6).
+yam = ["dreamscale-i2rt==1.3.6.post1"]
+dreamzero = [
+  # One pin for every supported Python. 15.0.0 was the version DreamZero-YAM's
+  # H.264 serving was qualified against, but it publishes no cp314 wheel, so on
+  # 3.14 it is a source build of PyAV that fails without FFmpeg headers.
+  #
+  # Measured before moving: the worker still decodes with 15.0.0, and reading a
+  # stream this encoder produces scores 32.42 dB against the source versus 32.43
+  # dB for a 15.0.0-encoded stream -- a 0.01 dB difference, against roughly 32 dB
+  # of H.264 loss the model already tolerates. The encoder pins every
+  # rate-control and GOP option explicitly, so the build is not choosing them.
+  # One specification for every supported Python. An exact pin is not available
+  # here: this workspace also builds the worker, which pins av==15.0.0, and two
+  # exact pins on one dependency cannot both hold.
+  #
+  # A range resolves both. Users get the newest wheel, 18.1.0 today, which is
+  # what 3.14 needs since 15.0.0 publishes no cp314 wheel. In-repo the worker's
+  # exact pin wins, so our own tests keep exercising the encoder/decoder pairing
+  # that is actually deployed.
+  #
+  # Measured before widening: H.264 decode is bit-exact across both builds, and
+  # the worker reads an 18.1.0-encoded stream at 32.42 dB against the source
+  # versus 32.43 dB for its own, so the model's input is unchanged.
+  "av>=15,<19",
+]
+so101 = [
+  "lerobot[feetech]==0.6.1",
+]
+# `dreamscale run yam --hud`: HUD job/trace telemetry and its PyAV video encoder.
+# 0.6.20 adds lossless trace video. Not hud[robot]: its openpi-client pins NumPy <2.
+# HUD supports Python <3.13.
+hud = ["hud==0.6.20", "av>=15,<19"]
+# `--policy dreamscale` in Inspect Robots (registered below). Its plugin API moves
+# between minors, so bump this range deliberately.
+inspect-robots = ["inspect-robots>=0.60,<0.61"]
+sim = [
+  # Curated dependencies for the built-in local `dreamscale sim` path.
+  # Downstream user projects and consumer workspaces should usually depend on
+  # their own simulator/environment stack directly instead of relying on this
+  # extra transitively.
+  # robosuite 1.4.1 joint-enum membership fails with MuJoCo 3.14.
+  # Keep resolution at or below the latest locally qualified version.
+  "mujoco>=3.2,<=3.9.0",
+  # hf-libero benchmark reads initial-state .pt files with torch.load.
+  # Include 2.9 wheels for Python 3.14 while preserving worker 2.8 compatibility.
+  "torch>=2.8,<3",
+  "robosuite==1.4.1",
+  "bddl==1.0.1",
+  "easydict>=1.13,<2",
+  "future>=1,<2",
+  "pyyaml>=6,<7",
+  "imageio[pyav]>=2.36,<3",
+  "av>=15,<19",
+  "opencv-python>=4.10,<5",
+  # hf-libero is installed --no-deps in the sim-runner image. Its envs/venv.py
+  # hard-imports the first two packages, while download_utils.py requires the
+  # Hugging Face Hub client and tqdm.
+  "cloudpickle>=2,<4",
+  "gymnasium>=0.29,<2",
+  "huggingface-hub>=1,<2",
+  "tqdm>=4.66,<5",
+  # hf-libero's env_wrapper.py imports matplotlib.cm at module level (live
+  # E2E finding 2026-06-12) — needed even though we never record video.
+  "matplotlib>=3.9,<4",
+]
+
+[project.urls]
+Homepage = "https://app.dreamscalelabs.com"
+Documentation = "https://docs.dreamscalelabs.com"
+
+[project.scripts]
+dreamscale = "dreamscale.cli:app"
+
+[project.entry-points."inspect_robots.policies"]
+dreamscale = "dreamscale.integrations.inspect_robots_policy:DreamscalePolicy"
+
+[project.entry-points."inspect_robots.embodiments"]
+dreamscale_yam = "dreamscale.integrations.inspect_robots_yam:DreamscaleYam"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dreamscale"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "dreamscale",
+  "examples",
+  "README.md",
+  "CHANGELOG.md",
+  "LICENSE",
+]
+
+[tool.uv.sources]
+dreamscale-transport = { workspace = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]

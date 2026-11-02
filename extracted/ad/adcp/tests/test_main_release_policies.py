@@ -1,0 +1,579 @@
+"""Policy provenance and actual integrated-history regressions, without writes."""
+
+from __future__ import annotations
+
+import base64
+import copy
+import json
+import re
+import subprocess
+import urllib.error
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from scripts import check_main_policies as policies
+from scripts.check_main_policies import ReleaseRejectedError
+
+LEDGER_SHA = "d" * 40
+BREAKING_SUBJECT = "fix(reporting)!: scope configuration generations by account (#1174)"
+BREAKING_FOOTER = (
+    "BREAKING CHANGE: generation_key returns ReportingConfigurationGenerationKey "
+    "instead of a two-tuple. Use its named fields."
+)
+
+
+@pytest.fixture
+def history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(policies, "ROOT", tmp_path)
+    policies.git("config", "user.name", "Policy Fixture")
+    policies.git("config", "user.email", "fixture@example.invalid")
+    commits = []
+    for message in (
+        "chore: published baseline",
+        "fix: first contribution",
+        BREAKING_SUBJECT + "\n\n" + BREAKING_FOOTER,
+    ):
+        policies.git("-c", "core.hooksPath=/dev/null", "commit", "--allow-empty", "-m", message)
+        commits.append(policies.git("rev-parse", "HEAD"))
+    monkeypatch.setattr(policies, "PUBLISHED_BASE", commits[0])
+    return commits
+
+
+class PolicyAPI(policies.GitHub):
+    def __init__(self, commits: list[str]) -> None:
+        super().__init__("fixture-token")
+        self.reads: list[str] = []
+        self.records = [
+            {
+                "id": 7,
+                "name": "signed-user",
+                "method": "pr_comment",
+                "created_at": "2026-04-01T00:00:00Z",
+            }
+        ]
+        self.data: dict[str, Any] = {}
+        for number, sha in enumerate(commits[1:], 1173):
+            pr = {
+                "number": number,
+                "base": {"ref": "main", "repo": {"full_name": policies.REPOSITORY}},
+                "head": {"sha": "e" * 40},
+                "merge_commit_sha": sha,
+                "merged_at": "2026-09-22T00:00:00Z",
+                "merged": True,
+                "state": "closed",
+                "user": {"id": 7, "type": "User", "login": "signed-user"},
+            }
+            self.data[f"commits/{sha}/pulls?per_page=100&page=1"] = [pr]
+            self.data[f"pulls/{number}"] = pr
+
+    def request(self, path: str, method: str = "GET", body: Any = None) -> Any:
+        assert method == "GET" and body is None, "policy must not write any evidence"
+        self.reads.append(path)
+        prefix = f"/repos/{policies.LEDGER_REPOSITORY}"
+        if path == prefix + "/git/ref/heads/main":
+            return {"object": {"type": "commit", "sha": LEDGER_SHA}}
+        assert path == prefix + f"/contents/signatures/ipr-signatures.json?ref={LEDGER_SHA}"
+        return {
+            "encoding": "base64",
+            "content": base64.b64encode(
+                json.dumps({"signedContributors": self.records}).encode()
+            ).decode(),
+        }
+
+    def repo(self, suffix: str, method: str = "GET", body: Any = None) -> Any:
+        assert method == "GET" and body is None, "policy must not write any evidence"
+        self.reads.append(suffix)
+        return copy.deepcopy(self.data[suffix])
+
+
+def test_every_post_release_integration_has_real_agreement(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    evidence = policies.ipr(api, "push", history[-1], {})
+    assert evidence["target_sha"] == history[-1]
+    assert evidence["ledger_sha"] == LEDGER_SHA
+    assert [entry["sha"] for entry in evidence["contributions"]] == history[1:]
+    assert [entry["author_id"] for entry in evidence["contributions"]] == [7, 7]
+    assert not any("check-runs" in path or "status" in path for path in api.reads)
+    assert policies.conventional("push", history[-1], {})["commits"] == history[1:]
+
+
+def test_conventional_rerun_reads_the_corrected_pr_body(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    pr = {
+        "number": 1174,
+        "head": {"sha": history[-1]},
+        "base": {"sha": history[0]},
+        "title": BREAKING_SUBJECT,
+        "body": "Missing the breaking footer in the original webhook.",
+    }
+    api.data["pulls/1174"] = {**pr, "body": BREAKING_FOOTER}
+
+    result = policies.conventional("pull_request", history[-1], {"pull_request": pr}, api=api)
+
+    assert result["commits"] == history[1:]
+    assert api.reads == ["pulls/1174"]
+
+
+def test_conventional_rerun_rejects_a_newly_invalid_pr_message(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    pr = {
+        "number": 1174,
+        "head": {"sha": history[-1]},
+        "base": {"sha": history[0]},
+        "title": BREAKING_SUBJECT,
+        "body": BREAKING_FOOTER,
+    }
+    api.data["pulls/1174"] = {**pr, "body": None}
+
+    with pytest.raises(ReleaseRejectedError, match="BREAKING CHANGE"):
+        policies.conventional("pull_request", history[-1], {"pull_request": pr}, api=api)
+
+
+def test_conventional_rerun_cannot_validate_a_different_pr_head(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    pr = {
+        "number": 1174,
+        "head": {"sha": history[-1]},
+        "base": {"sha": history[0]},
+        "title": "fix: valid contribution",
+        "body": "",
+    }
+    api.data["pulls/1174"] = {**pr, "head": {"sha": "a" * 40}}
+
+    with pytest.raises(ReleaseRejectedError, match="PR head changed"):
+        policies.conventional("pull_request", history[-1], {"pull_request": pr}, api=api)
+
+
+def test_conventional_workflow_can_read_current_pr_metadata() -> None:
+    workflow = yaml.safe_load((policies.ROOT / ".github/workflows/ci.yml").read_text())
+    job = workflow["jobs"]["conventional-commits"]
+    assert job["permissions"] == {"contents": "read", "pull-requests": "read"}
+    step = next(s for s in job["steps"] if "check_main_policies conventional" in s.get("run", ""))
+    assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "unsigned_earlier",
+        "renamed_login_wrong_id",
+        "unknown_author",
+        "fake_bot_login",
+        "late_signature",
+        "duplicate_signature",
+        "empty_ledger",
+        "wrong_base",
+        "wrong_repository",
+        "wrong_merge",
+        "not_merged",
+        "direct_push",
+        "ambiguous_pr",
+    ],
+)
+def test_main_agreement_cannot_be_substituted(history: list[str], case: str) -> None:
+    api = PolicyAPI(history)
+    earlier = api.data["pulls/1173"]
+    if case in {"unsigned_earlier", "renamed_login_wrong_id"}:
+        earlier["user"]["id"] = 8
+    elif case == "unknown_author":
+        earlier["user"] = None
+    elif case == "fake_bot_login":
+        earlier["user"] = {"id": 8, "type": "User", "login": "github-actions[bot]"}
+    elif case == "late_signature":
+        api.records[0]["created_at"] = "2026-09-23T00:00:00Z"
+    elif case == "duplicate_signature":
+        api.records.append(dict(api.records[0]))
+    elif case == "empty_ledger":
+        api.records.clear()
+    elif case == "wrong_base":
+        earlier["base"]["ref"] = "other"
+    elif case == "wrong_repository":
+        earlier["base"]["repo"]["full_name"] = "fork/other"
+    elif case == "wrong_merge":
+        earlier["merge_commit_sha"] = "c" * 40
+    elif case == "not_merged":
+        earlier["merged"] = False
+    elif case == "direct_push":
+        api.data[f"commits/{history[1]}/pulls?per_page=100&page=1"] = []
+    else:
+        api.data[f"commits/{history[1]}/pulls?per_page=100&page=1"] *= 2
+    with pytest.raises(ReleaseRejectedError):
+        policies.ipr(api, "push", history[-1], {})
+
+
+def test_signer_identity_survives_login_rename_and_real_bots_follow_policy(
+    history: list[str],
+) -> None:
+    api = PolicyAPI(history)
+    api.data["pulls/1173"]["user"]["login"] = "renamed-user"
+    api.data["pulls/1174"]["user"] = {"id": 8, "type": "Bot", "login": "release-app[bot]"}
+    evidence = policies.ipr(api, "push", history[-1], {})
+    assert evidence["contributions"][0]["author_id"] == 7
+    assert evidence["contributions"][1]["agreement"] == "canonical-bot-exemption"
+
+
+def _rebase_merge_both_commits_into_one_pr(api: PolicyAPI, history: list[str]) -> None:
+    pr = {**api.data["pulls/1174"], "number": 1174, "merge_commit_sha": history[2]}
+    for sha in history[1:]:
+        api.data[f"commits/{sha}/pulls?per_page=100&page=1"] = [pr]
+    api.data["pulls/1174"] = pr
+
+
+def test_rebase_merged_earlier_commit_is_rejected_unless_listed(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    _rebase_merge_both_commits_into_one_pr(api, history)
+    with pytest.raises(ReleaseRejectedError, match="no unique merged contribution"):
+        policies.ipr(api, "push", history[-1], {})
+
+
+def test_listed_rebased_commit_maps_to_its_exact_pr(
+    history: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    api = PolicyAPI(history)
+    _rebase_merge_both_commits_into_one_pr(api, history)
+    monkeypatch.setattr(policies, "HISTORICAL_REBASED_COMMITS", {history[1]: 1174})
+    evidence = policies.ipr(api, "push", history[-1], {})
+    assert [entry["pr"] for entry in evidence["contributions"]] == [1174, 1174]
+    monkeypatch.setattr(policies, "HISTORICAL_REBASED_COMMITS", {history[1]: 9999})
+    with pytest.raises(ReleaseRejectedError):
+        policies.ipr(api, "push", history[-1], {})
+
+
+def test_all_pages_are_read_before_selecting_merged_pr(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    path = f"commits/{history[1]}/pulls?per_page=100&page="
+    actual = api.data[path + "1"]
+    api.data[path + "1"] = [{**actual[0], "merge_commit_sha": "c" * 40}] * 100
+    api.data[path + "2"] = actual
+    policies.ipr(api, "push", history[-1], {})
+    assert path + "2" in api.reads
+
+
+def test_ledger_permission_failure_is_not_agreement(
+    history: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    api = PolicyAPI(history)
+
+    def forbidden(*args: Any) -> Any:
+        raise urllib.error.HTTPError("https://api.github.com", 403, "forbidden", {}, None)
+
+    monkeypatch.setattr(api, "request", forbidden)
+    with pytest.raises(urllib.error.HTTPError):
+        policies.ipr(api, "push", history[-1], {})
+
+
+@pytest.mark.parametrize("case", ["missing_floor", "floor_only", "non_sha"])
+def test_incomplete_main_history_rejects(
+    history: list[str], monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    target = history[-1]
+    if case == "missing_floor":
+        monkeypatch.setattr(policies, "PUBLISHED_BASE", "c" * 40)
+    elif case == "floor_only":
+        target = history[0]
+    else:
+        target = "main"
+    with pytest.raises(ReleaseRejectedError):
+        policies.main_commits(target)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Merge abc into def",
+        "fix: bad (description)",
+        'fix: bad "description"',
+        "fix: ",
+        BREAKING_SUBJECT,
+        BREAKING_SUBJECT + "\n\nMigration notes without a footer.",
+    ],
+)
+def test_nonconventional_or_lost_breaking_footer_rejects(message: str) -> None:
+    with pytest.raises(ReleaseRejectedError):
+        policies.validate_message(message)
+
+
+def test_actual_main_message_is_checked_not_pr_title(history: list[str]) -> None:
+    policies.git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "--allow-empty",
+        "--amend",
+        "-m",
+        BREAKING_SUBJECT,
+    )
+    target = policies.git("rev-parse", "HEAD")
+    with pytest.raises(RuntimeError, match="BREAKING CHANGE footer"):
+        policies.conventional("push", target, {})
+
+
+@pytest.mark.parametrize("keep_footer", [True, False])
+def test_two_parent_main_merge_preserves_reviewed_ancestry_and_checks_actual_footer(
+    history: list[str], keep_footer: bool
+) -> None:
+    policies.git("checkout", "-b", "reviewed-reporting", history[0])
+    policies.git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "feat: reviewed reporting",
+    )
+    reviewed = policies.git("rev-parse", "HEAD")
+    policies.git("checkout", "-b", "integration", history[-1])
+    message = BREAKING_SUBJECT + ("\n\n" + BREAKING_FOOTER if keep_footer else "")
+    policies.git(
+        "-c", "core.hooksPath=/dev/null", "merge", "--no-ff", "reviewed-reporting", "-m", message
+    )
+    target = policies.git("rev-parse", "HEAD")
+    assert policies.git("show", "-s", "--format=%P", target).split() == [history[-1], reviewed]
+    assert policies.main_commits(target) == [*history[1:], target]
+    # Policy checks the integrating PR's author for the complete contribution;
+    # it does not flatten or rewrite the reviewed branch's commit ancestry.
+    api = PolicyAPI([*history, target])
+    assert len(policies.ipr(api, "push", target, {})["contributions"]) == 3
+    if keep_footer:
+        assert policies.conventional("push", target, {})["commits"][-1] == target
+    else:
+        with pytest.raises(RuntimeError, match="BREAKING CHANGE footer"):
+            policies.conventional("push", target, {})
+
+
+@pytest.mark.parametrize(
+    ("body", "accepted"),
+    [
+        ("feat: reviewed reporting", True),
+        (BREAKING_SUBJECT + "\n\n" + BREAKING_FOOTER, True),
+        ("", False),
+        ("Reporting changes without a conventional message", False),
+        (BREAKING_SUBJECT, False),
+    ],
+)
+def test_github_merge_checks_conventional_message_stored_in_commit(
+    history: list[str], body: str, accepted: bool
+) -> None:
+    policies.git("checkout", "-b", "reviewed-reporting", history[0])
+    policies.git(
+        "-c", "core.hooksPath=/dev/null", "commit", "--allow-empty", "-m", "feat: reporting"
+    )
+    policies.git("checkout", "-b", "integration", history[-1])
+    policies.git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "merge",
+        "--no-ff",
+        "reviewed-reporting",
+        "-m",
+        "Merge pull request #1175 from example/reviewed-reporting\n\n" + body,
+    )
+    target = policies.git("rev-parse", "HEAD")
+    if accepted:
+        assert policies.conventional("push", target, {})["commits"][-1] == target
+    else:
+        with pytest.raises(RuntimeError):
+            policies.conventional("push", target, {})
+
+
+def test_single_parent_commit_cannot_impersonate_github_merge(history: list[str]) -> None:
+    policies.git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Merge pull request #1175 from example/reviewed-reporting\n\nfeat: reporting",
+    )
+    with pytest.raises(RuntimeError, match="not a conventional commit"):
+        policies.conventional("push", policies.git("rev-parse", "HEAD"), {})
+
+
+@pytest.mark.parametrize(
+    ("commit_sha", "subject", "accepted"),
+    [
+        ("6c5ee7b29ef9d548ae2bb3665032e0c53a8146ac", BREAKING_SUBJECT, True),
+        ("a" * 40, BREAKING_SUBJECT, False),
+        (None, BREAKING_SUBJECT, False),
+        (
+            "6c5ee7b29ef9d548ae2bb3665032e0c53a8146ac",
+            "fix(reporting)!: different breaking change (#1174)",
+            False,
+        ),
+        (
+            "34c8f6d929aeac3407e2f595104a8e903e572623",
+            "feat(reporting)!: enable production tier status and ownership",
+            True,
+        ),
+        ("a" * 40, "feat(reporting)!: enable production tier status and ownership", False),
+        (None, "feat(reporting)!: enable production tier status and ownership", False),
+        ("34c8f6d929aeac3407e2f595104a8e903e572623", BREAKING_SUBJECT, False),
+        (
+            "5ce9ee4dc9daef34af143b84ff7d660489fef1be",
+            "fix(types)!: allow assignment-only creative syncs",
+            True,
+        ),
+        ("a" * 40, "fix(types)!: allow assignment-only creative syncs", False),
+        ("5ce9ee4dc9daef34af143b84ff7d660489fef1be", BREAKING_SUBJECT, False),
+    ],
+)
+def test_historical_footer_exception_requires_exact_commit_and_subject(
+    commit_sha: str | None, subject: str, accepted: bool
+) -> None:
+    message = subject + "\n\nHistorical migration described in the PR."
+    if accepted:
+        policies.validate_message(message, commit_sha=commit_sha)
+    else:
+        with pytest.raises(RuntimeError, match="BREAKING CHANGE footer"):
+            policies.validate_message(message, commit_sha=commit_sha)
+
+
+def test_actual_main_history_preserves_both_historical_breaking_integrations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Capture actual committed messages/parents so shallow CI checkouts exercise
+    # the complete regression without network access or moving origin/main.
+    snapshot = json.loads(
+        (Path(__file__).parent / "fixtures" / "release_main_history.json").read_text()
+    )
+    commits = snapshot["commits"]
+    records = {record["sha"]: record for record in commits}
+
+    def read_history(*arguments: str) -> str:
+        if arguments == ("rev-list", "--first-parent", snapshot["target"]):
+            return "\n".join(
+                [record["sha"] for record in reversed(commits)] + [snapshot["published_base"]]
+            )
+        if len(arguments) == 4 and arguments[:3] == ("show", "-s", "--format=%P%n%B"):
+            record = records[arguments[3]]
+            return " ".join(record["parents"]) + "\n" + record["message"]
+        raise AssertionError(f"Unexpected history query: {arguments}")
+
+    monkeypatch.setattr(policies, "git", read_history)
+    assert policies.PUBLISHED_BASE == snapshot["published_base"]
+    result = policies.conventional("push", snapshot["target"], {})
+    assert len(result["commits"]) == 28
+    assert result["commits"] == [record["sha"] for record in commits]
+
+
+def test_pr_policy_uses_live_numeric_author_and_exact_head(history: list[str]) -> None:
+    api = PolicyAPI(history)
+    pr = api.data["pulls/1174"]
+    pr.update(merged=False, merged_at=None, state="open")
+    event = {"pull_request": copy.deepcopy(pr)}
+    assert policies.ipr(api, "pull_request", "a" * 40, event)["contributions"][0]["author_id"] == 7
+    pr["head"]["sha"] = "f" * 40
+    with pytest.raises(ReleaseRejectedError, match="head changed"):
+        policies.ipr(api, "pull_request", "a" * 40, event)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "valid",
+        "wrong_repo",
+        "wrong_ref",
+        "wrong_sha",
+        "wrong_workflow_sha",
+        "wrong_event_sha",
+        "forced",
+        "deleted",
+        "dispatch",
+    ],
+)
+def test_exact_push_event_is_bound_to_checkout(
+    history: list[str], monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    event = {"after": history[-1], "ref": "refs/heads/main", "deleted": False, "forced": False}
+    environment = {
+        "GITHUB_REPOSITORY": policies.REPOSITORY,
+        "GITHUB_SHA": history[-1],
+        "GITHUB_WORKFLOW_SHA": history[-1],
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_EVENT_NAME": "push",
+    }
+    if case in {"forced", "deleted"}:
+        event[case] = True
+    elif case == "wrong_event_sha":
+        event["after"] = history[1]
+    elif case == "wrong_repo":
+        environment["GITHUB_REPOSITORY"] = "fork/repository"
+    elif case == "wrong_ref":
+        environment["GITHUB_REF"] = "refs/heads/other"
+    elif case == "wrong_sha":
+        environment["GITHUB_SHA"] = history[1]
+    elif case == "wrong_workflow_sha":
+        environment["GITHUB_WORKFLOW_SHA"] = history[1]
+    elif case == "dispatch":
+        environment["GITHUB_EVENT_NAME"] = "workflow_dispatch"
+    path = policies.ROOT / "event.json"
+    path.write_text(json.dumps(event))
+    for key, value in {**environment, "GITHUB_EVENT_PATH": str(path)}.items():
+        monkeypatch.setenv(key, value)
+    if case == "valid":
+        assert policies.event_context() == ("push", history[-1], event)
+    else:
+        with pytest.raises(ReleaseRejectedError):
+            policies.event_context()
+
+
+def test_native_policy_jobs_are_read_only_pinned_and_run_on_main() -> None:
+    root = Path(__file__).resolve().parent.parent
+    document = yaml.load((root / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    for name, command in (("ipr-policy", "ipr"), ("conventional-commits", "conventional")):
+        job = document["jobs"][name]
+        assert job["if"] == "github.event_name == 'pull_request' || github.ref == 'refs/heads/main'"
+        assert all(value == "read" for value in job["permissions"].values())
+        checkout = job["steps"][0]
+        assert checkout["uses"] == "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+        assert checkout["with"] == {
+            "ref": "${{ github.sha }}",
+            "fetch-depth": "0",
+            "persist-credentials": "false",
+        }
+        assert job["steps"][1]["run"] == f"python3 -m scripts.check_main_policies {command}"
+        assert "secrets." not in json.dumps(job)
+
+
+def test_main_ci_cannot_be_superseded_by_a_different_release_commit() -> None:
+    root = Path(__file__).resolve().parent.parent
+    ci = yaml.load((root / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    concurrency = ci["concurrency"]
+    assert concurrency["group"] == (
+        "ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}"
+    )
+    assert concurrency["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
+    publisher = yaml.load(
+        (root / ".github/workflows/release-publish.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    gate = publisher["jobs"]["build"]["steps"][1]["run"]
+    assert '--commit "$RELEASE_SHA"' in gate
+    assert '.headSha == $sha and .headBranch == "main"' in gate
+    assert 'git checkout --detach "$RELEASE_SHA"' in gate
+
+
+def test_release_wait_and_job_budgets_cover_full_test_steps() -> None:
+    root = Path(__file__).resolve().parent.parent
+    ci = yaml.load((root / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    job = ci["jobs"]["test"]
+    budgets = [int(value) for value in re.findall(r"&& (\d+)", job["timeout-minutes"])]
+    steps = {step["name"]: step for step in job["steps"] if "name" in step}
+    coverage_minutes = int(steps["Run canonical suite with coverage"]["timeout-minutes"])
+    full_minutes = int(steps["Run full native suite"]["timeout-minutes"])
+    assert coverage_minutes >= 70
+    assert full_minutes >= 55
+    assert budgets[0] >= coverage_minutes + 15
+    assert budgets[1] >= full_minutes + 15
+    publisher = yaml.load(
+        (root / ".github/workflows/release-publish.yml").read_text(), Loader=yaml.BaseLoader
+    )["jobs"]["build"]
+    gate = publisher["steps"][1]["run"]
+    attempts = int(re.search(r"for attempt in \{1\.\.(\d+)\}", gate)[1])
+    delay = int(re.search(r"sleep (\d+)", gate)[1])
+    wait_minutes = attempts * delay / 60
+    assert wait_minutes >= max(budgets) + 20
+    assert int(publisher["timeout-minutes"]) >= wait_minutes + 10

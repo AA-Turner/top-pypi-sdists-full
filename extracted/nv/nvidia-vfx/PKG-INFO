@@ -1,0 +1,194 @@
+Metadata-Version: 2.2
+Name: nvidia-vfx
+Version: 0.2.0.0
+Summary: Python bindings for NVIDIA Video Effects SDK
+Author: NVIDIA Python Bindings Contributors
+License: LicenseRef-NvidiaProprietary
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# nvidia-vfx Python Wheel README
+
+## nvidia-vfx
+
+`nvidia-vfx` provides Python bindings for the **NVIDIA VFX SDK**. It includes the **VideoSuperRes**, **VideoFrameGeneration**, and **TrueHDR** effects for GPU-accelerated video enhancement, frame interpolation, and SDR-to-HDR10 conversion from Python.
+
+## Features
+
+- **Video Frame Generation** – generate intermediate frames between consecutive frames for smoother playback or slow motion.
+- **Video Super Resolution** – upscale and enhance SDR video up to 4x while reducing compression artifacts.
+- **TrueHDR** – convert SDR frames to HDR10 with configurable contrast, saturation, middle gray, target luminance, and debanding.
+- **Same-resolution denoise/deblur** – set output dimensions equal to input and use denoise or deblur quality levels to clean noisy or blurry footage without changing resolution.
+- **RGB10A2 image encoding** - pass packed 10-bit RGBA frames to VideoSuperRes or VideoFrameGeneration as `(H, W)` CUDA `uint32` DLPack tensors and receive packed `uint32` output.
+- **Zero-copy interop** – exchange data with PyTorch, CuPy, and other frameworks via the DLPack protocol.
+- **GPU-accelerated** – runs entirely on NVIDIA GPUs with Tensor Cores for real-time or near-real-time performance on supported hardware.
+
+## Requirements
+
+- **Python:** 3.10 or later
+- **GPU:** NVIDIA GPU with Tensor Cores (Turing, Ampere, Ada, Blackwell, or Hopper architecture)
+- **GPU driver:**
+  - Windows: 570.65 or later (for Tesla Compute Cluster (TCC) devices, 595 or later is required)
+  - Linux: 570.190+, 580.82+, or 590.44+
+- **OS:**
+  - Windows: 64-bit Windows 10 or later
+  - Linux: Ubuntu 20.04, 22.04, 24.04, Debian 12, or RHEL 8/9
+
+## Installation
+
+```bash
+pip install nvidia-vfx
+```
+
+This installs the Python bindings; at runtime `nvidia-vfx` loads the NVIDIA VFX libraries bundled in the wheel.
+
+## Video Super Resolution
+
+### PyTorch
+
+```python
+import torch
+from nvvfx import VideoSuperRes
+
+# Example input: 1080p RGB frame on CUDA in [0, 1] range
+frame = torch.rand(3, 1080, 1920, device="cuda", dtype=torch.float32)
+
+# Create effect with standard HIGH quality (default)
+vsr = VideoSuperRes(quality=VideoSuperRes.QualityLevel.HIGH)
+# Set output dimensions (e.g. 2x upscale)
+vsr.output_width = 3840  # 1920 * 2
+vsr.output_height = 2160  # 1080 * 2
+vsr.load()
+
+# Run Video Super Resolution; returns DLPack capsule
+result = vsr.run(frame)
+# IMPORTANT: convert and clone before reusing the effect
+out = torch.from_dlpack(result.image).clone()
+print(out.shape)  # -> (3, 2160, 3840)
+```
+
+### CuPy
+
+```python
+import cupy as cp
+from nvvfx import VideoSuperRes
+
+# Example input: 720p RGB frame on CUDA in [0, 1] range
+frame = cp.random.rand(3, 720, 1280, dtype=cp.float32)
+
+# Same-resolution denoise: output dimensions = input dimensions
+vsr = VideoSuperRes(quality=VideoSuperRes.QualityLevel.DENOISE_HIGH)
+vsr.output_width = 1280
+vsr.output_height = 720
+vsr.load()
+
+result = vsr.run(frame)
+# IMPORTANT: convert and copy before the next call
+out = cp.from_dlpack(result.image).copy()
+print(out.shape)  # -> (3, 720, 1280)
+```
+
+### RGB10A2 Input
+
+For packed 10-bit input, use
+`VideoSuperRes(image_encoding=VideoSuperRes.ImageEncoding.RGB10A2)`.
+Input must be a contiguous `(H, W)` CUDA `uint32` tensor; output is a packed
+`uint32` tensor with shape `(output_height, output_width)`.
+
+Packed pixel layout is R in bits `[9:0]`, G in `[19:10]`, B in `[29:20]`, and A
+in `[31:30]`.
+
+### Output Dimensions and Quality Overview
+
+- Set **`output_width`** and **`output_height`** (in pixels), then call **`load()`** before **`run()`**. Input size is inferred from each frame; use output size to control upscaling or same-resolution processing.
+- **Upscaling (2x, 3x, 4x):** Set `output_width` and `output_height` to the desired size (e.g. 2x input width and height). Use standard quality levels (e.g. `VideoSuperRes.QualityLevel.HIGH`) or high-bitrate levels for clean sources.
+- **Same-resolution (denoise/deblur):** Set `output_width` and `output_height` equal to the input dimensions. Use a `DENOISE_*` or `DEBLUR_*` quality level.
+- **`QualityLevel`** is an `IntEnum` (e.g. `VideoSuperRes.QualityLevel`) with values grouped into:
+  - Standard upscaling modes (BICUBIC through ULTRA)
+  - Denoise modes (`DENOISE_LOW` ... `DENOISE_ULTRA`)
+  - Deblur modes (`DEBLUR_LOW` ... `DEBLUR_ULTRA`)
+  - High-bitrate upscaling modes (`HIGHBITRATE_LOW` ... `HIGHBITRATE_ULTRA`)
+  - Streaming modes (`STREAMING_MEDIUM`, `STREAMING_ULTRA`)
+
+Pass a `QualityLevel` enum member to the `quality` argument (e.g. `VideoSuperRes.QualityLevel.HIGH`).
+
+### Best Practices
+
+- For `ImageEncoding.RGB8`, keep tensors on the GPU and in channels-first RGB `(3, H, W)` format with `float32` values in `[0.0, 1.0]`. For `ImageEncoding.RGB10A2`, pass packed `(H, W)` CUDA `uint32` tensors.
+- Use moderate quality levels for interactive previews, and then switch to ULTRA or high-bitrate variants for final renders.
+- **`run()`** returns a **`VideoSuperResOutput`** whose `.image` is a DLPack capsule. Convert with `torch.from_dlpack(result.image).clone()` or `cp.from_dlpack(result.image).copy()` and keep that copy before the next **`run()`** so the underlying buffer is not overwritten.
+
+## Video Frame Generation
+
+```python
+import torch
+from nvvfx import VideoFrameGeneration
+
+previous_frame = torch.rand(3, 1080, 1920, device="cuda", dtype=torch.float32)
+current_frame = torch.rand(3, 1080, 1920, device="cuda", dtype=torch.float32)
+
+with VideoFrameGeneration(VideoFrameGeneration.Mode.MEDIUM) as vfg:
+    vfg.input_width = 1920
+    vfg.input_height = 1080
+    vfg.load()
+    result = vfg.run(previous_frame, current_frame)
+    generated_frame = torch.from_dlpack(result.image).clone()
+```
+
+Set `frame_multiplier` to `N` and call `run()` with each one-based index from `1` through `N - 1` for uniform interpolation. Use `run_at_timestep(previous_frame, current_frame, timestep)` for an explicit position in `(0.0, 1.0)`. Pass `shot_change=True` for known shot changes, or set `automatic_shot_change_detection_enabled` before `load()`.
+
+### RGB10A2 Input
+
+For packed 10-bit frame generation, use
+`VideoFrameGeneration(image_encoding=VideoFrameGeneration.ImageEncoding.RGB10A2)`.
+Both inputs must be contiguous `(H, W)` CUDA `uint32` tensors; the output uses the
+same packed shape and dtype.
+
+Packed pixel layout is R in bits `[9:0]`, G in `[19:10]`, B in `[29:20]`, and A
+in `[31:30]`.
+
+## TrueHDR
+
+```python
+import torch
+from nvvfx import TrueHDR
+
+# SDR input: RGB channels-first, float32, CUDA, [0, 1]
+frame = torch.rand(3, 1080, 1920, device="cuda", dtype=torch.float32)
+
+with TrueHDR(luminance=1000) as thdr:
+    result = thdr.run(frame)
+    hdr10 = torch.from_dlpack(result.image).clone()
+
+print(hdr10.shape, hdr10.dtype)  # -> (1080, 1920) torch.uint32
+```
+
+TrueHDR is same-resolution (output shape matches the input) and lazy-loading (`load()` runs on the first `run()`, or call it explicitly to prewarm). Tunables (`contrast`, `saturation`, `middle_gray`, `luminance`, `debanding_off`) may be set at construction or reassigned between calls.
+
+The output is a packed `(H, W)` CUDA `uint32` tensor. Packed pixel layout is R in bits `[9:0]`, G in `[19:10]`, B in `[29:20]`, and A in `[31:30]`.
+
+## Documentation
+
+For the complete API reference, parameter details, and advanced usage, refer to the [NVIDIA Video Effects (VFX) Python Bindings Guide](https://docs.nvidia.com/maxine/vfx-python/latest/index.html).
+
+## Changelog
+
+### 0.2.0.0
+
+- **Internal VFX SDK version:** 1.3.0.0.
+- **Video Frame Generation** – interpolate frames via the `VideoFrameGeneration` effect.
+- **TrueHDR** – convert SDR frames to HDR10 (packed R10G10B10A2 output) via the `TrueHDR` effect.
+- Added `VideoFrameGeneration.ImageEncoding.RGB10A2` for packed 10-bit input pairs and output.
+- Added `VideoSuperRes.ImageEncoding.RGB10A2` for packed 10-bit RGBA input and output via DLPack `uint32` tensors.
+
+### 0.1.0.1 (first release)
+
+- Initial release of the `nvidia-vfx` Python wheel.
+- **Internal VFX SDK version:** 1.2.0.0.
+- **Video Super Resolution** – upscale, denoise, and deblur via the `VideoSuperRes` effect.
+- Zero-copy interop with PyTorch, CuPy, and other frameworks via the DLPack protocol.

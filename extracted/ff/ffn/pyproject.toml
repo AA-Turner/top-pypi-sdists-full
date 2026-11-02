@@ -1,0 +1,168 @@
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "ffn"
+description = "Financial functions for Python"
+version = "1.4.1"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [
+    { name = "Philippe Morissette", email = "morissette.philippe@gmail.com" },
+]
+keywords = [
+    "python",
+    "finance",
+    "quant",
+    "quant finance",
+    "algotrading",
+    "algorithmic trading",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "decorator>=5.0.7",
+    "matplotlib>=1",
+    "numpy",
+    "pandas>=0.19",
+    "scikit-learn>=0.15",
+    "scipy>=0.15",
+    "tabulate>=0.7.5",
+]
+
+[project.entry-points."ffn.providers"]
+yahoo = "ffn.yahoo:download"
+csv = "ffn.data:csv"
+
+[project.optional-dependencies]
+yahoo = ["yfinance>=0.2"]
+develop = [
+    "build",
+    "bump-my-version",
+    "check-dist",
+    "codespell",
+    "copier",
+    "hatchling",
+    "klink>=0.1.13",
+    "mdformat",
+    "mdformat-myst",
+    "mdformat-tables>=1",
+    "ruff",
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+    "twine",
+    "ty",
+    "uv",
+    "wheel",
+    "yardang>=0.10.0",
+]
+dev = ["ffn[develop]"]
+test = [
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+]
+
+[project.urls]
+Repository = "https://github.com/pmorissette/ffn"
+Homepage = "http://pmorissette.github.io/ffn/"
+Documentation = "https://pmorissette.github.io/ffn/"
+
+[tool.bumpversion]
+current_version = "1.4.1"
+commit = true
+tag = true
+commit_args = "-s"
+
+[[tool.bumpversion.files]]
+filename = "ffn/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[tool.pytest.ini_options]
+addopts = ["-vvv", "--junitxml=junit.xml"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["raise NotImplementedError", "if __name__ == .__main__.:", "@(abc\\.)?abstractmethod"]
+fail_under = 50
+
+[tool.ruff]
+line-length = 180
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/ffn",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["ffn"]
+
+[tool.check-dist]
+present = ["ffn/__init__.py", "ffn/core.py", "ffn/data.py", "ffn/utils.py", "ffn/yahoo.py"]
+absent = ["base/*", "bt/*", "reference/*", "tests/*", "benchmarks/*", "docs/*", "TODO.md"]
+
+[tool.check-dist.sdist]
+present = ["LICENSE", "README.md", "pyproject.toml"]
+
+[tool.yardang]
+title = "ffn - Financial Functions for Python"
+theme = "klink"
+docs-host = "https://pmorissette.github.io/ffn/"
+root = "README.md"
+pages = [
+    "docs/source/install.md",
+    "docs/source/introduction.md",
+    "docs/source/quick.md",
+    "docs/source/data-providers.md",
+    "docs/source/provider-contract.md",
+    "docs/source/ffn.md",
+    "docs/development.md",
+]
+use-autoapi = false
+use-search = false
+nb-execution-mode = "off"
+exclude-patterns = ["**/*.ipynb", "docs/source/intro.md", "docs/source/quickstart.md", "TODO.md", "base", "bt", "klink", "yardang", "reference", ".venv"]
+extensions = ["sphinx.ext.intersphinx"]
+
+[tool.yardang.html-theme-options]
+github = "pmorissette/ffn"
+logo = "logo.png"
+
+[tool.yardang.redirects]
+install = "docs/source/install.html"
+intro = "docs/source/introduction.html"
+quick = "docs/source/quick.html"
+quickstart = "docs/source/quick.html"
+ffn = "docs/source/ffn.html"
+modules = "docs/source/modules.html"

@@ -1,0 +1,202 @@
+"""
+Diagram — the object returned by mmdr.render().
+
+SVG comes from the chosen backend (merman or mermaid-rs-renderer).
+Everything else (PNG, raw pixels, numpy) is rasterized by novasvg — no Pillow
+needed.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import novasvg
+
+from . import _mmdr
+
+if TYPE_CHECKING:
+    import numpy as np
+
+
+class Diagram:
+    """A rendered Mermaid diagram.
+
+    Created by :func:`mmdr.render`. SVG is computed lazily on first access
+    and cached. PNG and raw pixels are always derived from that SVG via novasvg.
+
+    Example::
+
+        import mmdr
+
+        d = mmdr.render("flowchart LR; A-->B-->C")
+
+        d.svg()                          # str
+        d.png()                          # bytes (PNG)
+        d.png(width=1200, background="#ffffff")
+        d.raw()                          # (bytes, width, height) — RGBA8888
+        d.numpy()                        # np.ndarray H×W×4, no Pillow needed
+        d.save("out.svg")
+        d.save("out.png", width=1200)
+        d._repr_svg_()                   # Jupyter inline rendering
+    """
+
+    def __init__(self, source: str, backend: str | None = None, **opts) -> None:
+        self._source = source
+        self._backend = backend
+        self._opts = opts
+        self._svg_cache: str | None = None
+
+    # ------------------------------------------------------------------
+    # SVG — from the chosen backend
+    # ------------------------------------------------------------------
+
+    def svg(self) -> str:
+        """Return the diagram as an SVG string (cached after first call)."""
+        if self._svg_cache is None:
+            svg_opts = {
+                k: v for k, v in self._opts.items()
+                if k in {"theme", "node_spacing", "rank_spacing", "aspect_ratio"}
+                and v is not None
+            }
+            self._svg_cache = _mmdr.render(self._source, self._backend, **svg_opts)
+        return self._svg_cache
+
+    # ------------------------------------------------------------------
+    # Rasterization — always via novasvg
+    # ------------------------------------------------------------------
+
+    def _bitmap(
+        self,
+        width: float | None,
+        height: float | None,
+        background: str | None,
+    ) -> "novasvg.Bitmap":
+        doc = novasvg.Document.load_from_data(self.svg())
+        if doc is None:  # novasvg signals a parse error with None, not an exception
+            raise ValueError("SVG parse error: novasvg could not load the document")
+        # novasvg's default background is opaque black, so transparency must be explicit.
+        # -1 means "automatic": the size (or the other dimension) follows the SVG.
+        return doc.render_to_bitmap(
+            -1 if width is None else round(width),
+            -1 if height is None else round(height),
+            novasvg.Color(0, 0, 0, 0) if background is None else novasvg.Color(background),
+        )
+
+    def png(
+        self,
+        width: float | None = None,
+        height: float | None = None,
+        background: str | None = None,
+    ) -> bytes:
+        """Return the diagram as PNG bytes.
+
+        Args:
+            width:      Output width in pixels (height follows the aspect ratio if omitted).
+            height:     Output height in pixels.
+            background: Background fill as a CSS hex color or color name, e.g. ``"#ffffff"``.
+                        Transparent by default.
+        """
+        return self._bitmap(width, height, background).to_png()
+
+    def raw(
+        self,
+        width: float | None = None,
+        height: float | None = None,
+        background: str | None = None,
+    ) -> tuple[bytes, int, int]:
+        """Return raw RGBA8888 pixel data as ``(bytes, width, height)``.
+
+        The bytes have stride ``width * 4``, row-major, top-to-bottom, with
+        straight (non-premultiplied) alpha. No Python imaging library needed.
+
+        Args:
+            width:      Output width in pixels (height follows the aspect ratio if omitted).
+            height:     Output height in pixels.
+            background: Background fill as a CSS hex color or color name.
+        """
+        bitmap = self._bitmap(width, height, background)
+        return bitmap.tobytes(rgba=True), bitmap.width, bitmap.height
+
+    def numpy(
+        self,
+        width: float | None = None,
+        height: float | None = None,
+        background: str | None = None,
+    ) -> "np.ndarray":
+        """Return the diagram as a NumPy array (H×W×4, uint8, RGBA).
+
+        No Pillow needed — uses :meth:`raw` directly.
+        Requires NumPy, which is optional::
+
+            pip install numpy        # or: pip install mmdr[numpy]
+        """
+        try:
+            import numpy as np
+        except ImportError as exc:
+            raise ImportError(
+                "numpy is required for .numpy(). Install it with:\n"
+                "    pip install numpy"
+            ) from exc
+
+        raw, w, h = self.raw(width=width, height=height, background=background)
+        return np.frombuffer(raw, dtype=np.uint8).reshape(h, w, 4)
+
+    def pdf(self) -> bytes:
+        """Return the diagram as PDF bytes.
+
+        Not yet supported — planned for a future release.
+        """
+        raise NotImplementedError(
+            "PDF export is not yet supported. Planned for a future release."
+        )
+
+    # ------------------------------------------------------------------
+    # Save
+    # ------------------------------------------------------------------
+
+    def save(
+        self,
+        output: str,
+        width: float | None = None,
+        height: float | None = None,
+        background: str | None = None,
+    ) -> None:
+        """Save the diagram to *output*, inferring the format from the extension.
+
+        Args:
+            output:     Destination path, e.g. ``"diagram.svg"`` or ``"diagram.png"``.
+            width:      Canvas width in pixels (PNG only).
+            height:     Canvas height in pixels (PNG only).
+            background: Background color, e.g. ``"#ffffff"`` (PNG only).
+
+        Raises:
+            ValueError: if the file extension is not recognised.
+        """
+        path = Path(output)
+        suffix = path.suffix.lower()
+
+        if suffix == ".svg":
+            path.write_text(self.svg(), encoding="utf-8")
+        elif suffix == ".png":
+            path.write_bytes(self.png(width=width, height=height, background=background))
+        elif suffix == ".pdf":
+            path.write_bytes(self.pdf())
+        else:
+            raise ValueError(
+                f"Cannot infer output format from {output!r}. "
+                "Supported extensions: .svg  .png  .pdf"
+            )
+
+    # ------------------------------------------------------------------
+    # Dunder helpers
+    # ------------------------------------------------------------------
+
+    def __repr__(self) -> str:
+        first_line = (self._source.strip().splitlines() or [""])[0]
+        backend_label = self._backend or "default"
+        return f"<Diagram backend={backend_label!r} {first_line!r}>"
+
+    def _repr_svg_(self) -> str:
+        """Jupyter/IPython rich display — renders inline SVG automatically."""
+        return self.svg()

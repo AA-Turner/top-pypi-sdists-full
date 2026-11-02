@@ -337,8 +337,8 @@ def _probe_files(sink: Sink) -> None:
 
 
 def _probe_doctor(sink: Sink) -> None:
-    from probe.cli import doctor as doctor_impl
-    from probe.cli import service_calls
+    from probe.cli.wizard import doctor as doctor_impl
+    from probe.cli.lifecycle import service_calls
 
     caps = doctor_impl.collect(local=True)
     sink.text("probe/doctor.txt", doctor_impl.render(caps, service=service_calls.view()) + "\n")
@@ -370,7 +370,7 @@ def _service_files(sink: Sink) -> None:
     """The service's folder, whole: its logs, its records (credential-named
     variables in `recorders.json` redacted), its actions' newest logs. The hook
     queue holds hook events (an agent's prompts among them): counted only."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     folder = paths.service_dir()
     root = paths.root_dir()
@@ -446,12 +446,13 @@ def _service_live(sink: Sink) -> None:
     the status line, notes and the guard included), when it replies in 2 s."""
     if os.name != "posix":
         raise _Skip("not read on this platform (the service is asked over a UNIX socket here)")
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     if not service_calls._reachable():  # noqa: SLF001 -- the same two stats `probe status` makes
         raise _Skip("the Probe service is not running")
-    from probe.service import client
-    from probe.service.protocol import Client, Method
+    from probe.foundation import service_api as client
+    from probe.foundation.service_api.vocabularies import Client
+    from probe.foundation.service_api.wire import Method
 
     deadline = time.monotonic() + SERVICE_LIVE_BUDGET_S
 

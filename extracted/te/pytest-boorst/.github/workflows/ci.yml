@@ -1,0 +1,370 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.12"
+          python-version: "3.12"
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - run: uv sync --locked --no-install-project
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --lib
+
+  wheels:
+    name: Wheel / ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - os: macos-14
+            python: "3.12"
+          - os: windows-latest
+            python: "3.12"
+          - os: macos-14
+            python: "3.14"
+          - os: windows-latest
+            python: "3.14"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.12"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - run: uv sync --locked --no-install-project
+      - run: uv run --no-sync maturin build --release --locked --out dist
+      - name: Install the wheel into the clean test environment
+        run: |
+          uv pip install --only-binary :all: dist/*.whl
+      - run: uv run --no-sync pytest -q
+      - run: uv run --no-sync python scripts/smoke.py --pytest-version 9.1.1
+      - name: Verify portable trial
+        if: matrix.os != 'windows-latest'
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist --expect-native
+      - name: Verify portable trial in PowerShell
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist --expect-native
+      - name: Build the universal fallback wheel
+        if: matrix.python == '3.12' && (matrix.os == 'ubuntu-24.04' || matrix.os == 'windows-latest')
+        run: uv run --no-sync python scripts/build_pure.py
+      - name: Verify the universal fallback trial
+        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.12'
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist/pure
+      - name: Verify the universal fallback trial in PowerShell
+        if: matrix.os == 'windows-latest' && matrix.python == '3.12'
+        shell: pwsh
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist/pure
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.12'
+        with:
+          name: wheel-universal
+          path: dist/pure/*.whl
+          if-no-files-found: error
+      - name: Preserve legacy pytest versions during normal wheel installation
+        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.10'
+        run: |
+          legacy_env=".legacy-pytest-6.2.5"
+          uv venv --python 3.10 "$legacy_env"
+          uv pip install --python "$legacy_env/bin/python" pytest==6.2.5
+          uv pip install --python "$legacy_env/bin/python" --only-binary :all: dist/*.whl
+          "$legacy_env/bin/python" scripts/smoke.py --expect fallback --pytest-version 6.2.5
+      - name: Verify supported pytest versions with the installed wheel
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          pytest_versions="7.4.4 8.4.2"
+          if [[ "${{ matrix.python }}" == "3.12" ]]; then
+            pytest_versions="$pytest_versions 9.0.2 9.0.3"
+          fi
+          for pytest_version in $pytest_versions; do
+            compat_env=".compat-pytest-$pytest_version"
+            uv venv --python "${{ matrix.python }}" "$compat_env"
+            if [[ "$pytest_version" == 7.* ]]; then
+              asyncio_version="0.23.8"
+            else
+              asyncio_version="1.4.0"
+            fi
+            uv pip install --python "$compat_env/bin/python" \
+              "pytest==$pytest_version" "pytest-asyncio==$asyncio_version" \
+              "pytest-cov==7.0.0" "pytest-xdist==3.8.0"
+            uv pip install --python "$compat_env/bin/python" --only-binary :all: dist/*.whl
+            if [[ "$pytest_version" == 9.* ]]; then
+              "$compat_env/bin/python" -m pytest -q
+            else
+              "$compat_env/bin/python" -m pytest -q tests/test_ids.py tests/test_plugin.py tests/test_profile.py tests/test_schedule.py tests/test_assertions.py
+            fi
+            "$compat_env/bin/python" scripts/smoke.py --pytest-version "$pytest_version"
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  desktop-wheels:
+    name: Wheel / ${{ matrix.name }} / Python 3.12
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-x86_64
+            os: macos-15-intel
+            architecture: x64
+            target: x86_64-apple-darwin
+            bits: 64
+          - name: windows-x86
+            os: windows-2022
+            architecture: x86
+            target: i686-pc-windows-msvc
+            bits: 32
+          - name: windows-arm64
+            os: windows-11-arm
+            architecture: arm64
+            target: aarch64-pc-windows-msvc
+            bits: 64
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.architecture }}
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.12"
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: Select the matching Python interpreter
+        env:
+          EXPECTED_BITS: ${{ matrix.bits }}
+        run: |
+          python -c 'import os, struct; assert struct.calcsize("P") * 8 == int(os.environ["EXPECTED_BITS"])'
+          uv sync --locked --no-install-project --python "$(python -c 'import sys; print(sys.executable)')"
+      - name: Build and install the native wheel
+        env:
+          RUST_TARGET: ${{ matrix.target }}
+        run: |
+          uv run --no-sync maturin build --release --locked --target "$RUST_TARGET" --interpreter "$(python -c 'import sys; print(sys.executable)')" --out dist
+          uv pip install --only-binary :all: dist/*.whl
+      - run: uv run --no-sync pytest -q
+      - run: uv run --no-sync python scripts/smoke.py --pytest-version 9.1.1
+      - name: Verify portable trial
+        if: runner.os != 'Windows'
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist --expect-native
+      - name: Verify portable trial in PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: uv run --no-sync python scripts/verify_trial.py --wheels dist --expect-native
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: wheel-${{ matrix.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  linux-wheels:
+    name: Wheel / ${{ matrix.name }} / Python 3.12
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: manylinux-x86_64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            compatibility: "2014"
+            bits: 64
+            image: quay.io/pypa/manylinux2014_x86_64@sha256:ffd6d1f11237599748657996b750db6b3a5b724fea5a81cd9ea65add4f45b6c9
+          - name: manylinux-aarch64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            compatibility: "2014"
+            bits: 64
+            image: quay.io/pypa/manylinux2014_aarch64@sha256:9026a55e05e76ad74d9a4e6be814a5abda26cde08b1baa659ea4f7ee16b246e3
+          - name: manylinux-i686
+            os: ubuntu-24.04
+            target: i686-unknown-linux-gnu
+            compatibility: "2014"
+            bits: 32
+            image: quay.io/pypa/manylinux2014_i686@sha256:b82fab2ed4674093372106a6d0c511039bbce3c69a6fc1a7d703d770bb348c2b
+          - name: musllinux-x86_64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            compatibility: musllinux_1_2
+            bits: 64
+            image: quay.io/pypa/musllinux_1_2_x86_64@sha256:ff786af69d772d7ac3e318c00a2b682428a352cc822d6175f6a0d4b431c0d44d
+          - name: musllinux-aarch64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            compatibility: musllinux_1_2
+            bits: 64
+            image: quay.io/pypa/musllinux_1_2_aarch64@sha256:09c35642d008faa6d43a45809ff068e22f37bba801f7d75faf19431aefed579d
+          - name: musllinux-i686
+            os: ubuntu-24.04
+            target: i686-unknown-linux-musl
+            compatibility: musllinux_1_2
+            bits: 32
+            image: quay.io/pypa/musllinux_1_2_i686@sha256:1dd91376182cb65bd594fec2043ed7045a0482dee5b4c7685dcc743dc6259a9d
+            builder: ghcr.io/rust-cross/rust-musl-cross@sha256:e515546ceeb7fef8a70e7a59198981f5851cbcf16dd8d1adeb28736ea4751e05
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          maturin-version: v1.15.0
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.compatibility }}
+          container: ${{ matrix.builder || matrix.image }}
+          args: --release --locked --out dist --interpreter python3.12
+      - name: Test the wheel in the matching Linux runtime
+        env:
+          RUNTIME_IMAGE: ${{ matrix.image }}
+          EXPECTED_BITS: ${{ matrix.bits }}
+        run: |
+          docker run --rm --volume "$GITHUB_WORKSPACE:/io" --workdir /io --env EXPECTED_BITS "$RUNTIME_IMAGE" bash -eu -c '
+            export PATH=/opt/python/cp312-cp312/bin:$PATH
+            python -c "import os, struct; assert struct.calcsize(\"P\") * 8 == int(os.environ[\"EXPECTED_BITS\"])"
+            python -m pip install uv==0.12.12
+            uv sync --locked --no-install-project --python /opt/python/cp312-cp312/bin/python
+            uv pip install --only-binary :all: dist/*.whl
+            uv run --no-sync pytest -q
+            uv run --no-sync python scripts/smoke.py --pytest-version 9.1.1
+            uv run --no-sync python scripts/verify_trial.py --wheels dist --expect-native
+          '
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: wheel-${{ matrix.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.12"
+          python-version: "3.12"
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - run: uv sync --locked --no-install-project
+      - run: uv run --no-sync maturin sdist --out dist
+      - name: Build a wheel from the source distribution
+        run: uv build dist/*.tar.gz --wheel --out-dir rebuilt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: source-distribution
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  distributions:
+    needs: [wheels, desktop-wheels, linux-wheels, sdist]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.12"
+          python-version: "3.12"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: artifacts
+      - name: Assemble the canonical tested distributions
+        run: |
+          release_tag=$(uv run --no-project python -c 'import tomllib; print("v" + tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          uv run --no-project python scripts/prepare_release.py --artifacts artifacts --output dist --tag "$release_tag" --source-commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pypi-dist
+          path: dist/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-evidence
+          path: release-evidence/*
+          if-no-files-found: error
+
+  benchmark:
+    needs: quality
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.23"
+          python-version: "3.14.8"
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - run: uv sync --locked --no-install-project
+      - run: uv run --no-sync maturin develop --release --locked
+      - run: uv run --no-sync python benchmarks/run.py --size 10000 --repeats 3
+      - run: uv run --no-sync python benchmarks/memory.py --repeats 3
+      - run: uv run --no-sync python benchmarks/discovery.py --repeats 3
+      - run: uv run --no-sync python benchmarks/discovery.py --directories 4 --repeats 3 --output benchmark-results-multiple-directories.json
+      - run: uv run --no-sync python benchmarks/assertions.py --repeats 3
+      - name: Verify target and native helper timings
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          result = json.load(open("benchmark-results.json"))
+          target = result["scenarios"]["duplicate"]
+          times = target["full_run"]["median_seconds"]
+          if times["rust"] > times["stock"] * 0.9:
+              raise SystemExit(f"Duplicate target not met: {times}")
+          component = target["component_median_seconds"]
+          if component["rust"] >= component["python"]:
+              raise SystemExit(f"Native helper target not met: {component}")
+          for control in ("unique", "small"):
+              if result["scenarios"][control]["state"]["rust"]["native_calls"] != 0:
+                  raise SystemExit(f"Native helper unexpectedly used by {control}")
+          for filename in ("benchmark-results-discovery.json", "benchmark-results-multiple-directories.json"):
+              discovery = json.load(open(filename))
+              times = discovery["median_seconds"]
+              if times["enabled"] > times["stock"] * 0.95:
+                  raise SystemExit(f"Directory discovery target not met for {filename}: {times}")
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: benchmark-evidence
+          path: benchmark-results*.json
+          if-no-files-found: warn

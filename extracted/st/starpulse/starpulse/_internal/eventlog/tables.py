@@ -1,0 +1,166 @@
+"""StarPulse's tables that more than one module reads or writes, in one metadata with the history's own.
+
+The event log (`event_log`) and the history store (`history`) share a database and the `starpulse_gaps` table, so
+the tables they share are declared here, where neither module has to import the other.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    Float,
+    Index,
+    Integer,
+    MetaData,
+    PrimaryKeyConstraint,
+    String,
+    Table,
+    Text,
+)
+
+metadata = MetaData()
+
+#: Where the database records the revision it is at, named so it never meets a host project's own Alembic table.
+VERSION_TABLE = "starpulse_alembic_version"
+
+#: The append-only event log. `id` is the readers' cursor: SQLite's AUTOINCREMENT never hands a pruned id out again,
+#: so a cursor only ever moves forward.
+events = Table(
+    "starpulse_events",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("stream", String, nullable=False),
+    Column("event_id", String, nullable=False, unique=True),
+    Column("fields", JSON, nullable=False),
+    Column("at", Float, nullable=False),
+    Index("ix_starpulse_events_stream", "stream", "id"),
+    Index("ix_starpulse_events_at", "at"),
+    sqlite_autoincrement=True,
+)
+
+#: Entries of a stream (or a span of the event log) that a reader never read before they were trimmed.
+gaps = Table(
+    "starpulse_gaps",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("stream", String, nullable=False),
+    Column("after_id", String, nullable=False),
+    Column("before_id", String, nullable=False),
+    Column("lost", Integer, nullable=False),
+    Column("noted_at", Float, nullable=False),
+    Index("ux_starpulse_gaps", "stream", "after_id", unique=True),
+)
+
+#: How far each reader of the log got: an integer position and, for a reader that rebuilds state, the snapshot it
+#: rebuilds from. A snapshot of another `schema_version` is not read; the reader replays from the log.
+checkpoints = Table(
+    "starpulse_checkpoints",
+    metadata,
+    Column("name", String, primary_key=True),
+    Column("position", Integer, nullable=False),
+    Column("schema_version", Integer, nullable=False),
+    Column("state", JSON(none_as_null=True), nullable=True),
+    Column("saved_at", Float, nullable=False),
+)
+
+#: The one instance each source's token speaks for: the first instance id that source sent.
+#: No code writes it now; the table stays with the migration chain.
+source_instances = Table(
+    "starpulse_source_instances",
+    metadata,
+    Column("source", String, primary_key=True),
+    Column("instance", String, nullable=False),
+    Column("bound_at", Float, nullable=False),
+)
+
+#: An operator setting the instance keeps across restarts: the scheduler switch and the Admin
+#: history-window override. One row per key, with the epoch second it was last written; a missing row means the
+#: setting's default.
+settings = Table(
+    "starpulse_settings",
+    metadata,
+    Column("key", String, primary_key=True),
+    Column("value", JSON, nullable=False),
+    Column("updated_at", Float, nullable=False),
+)
+
+#: The scheduler's run ledger: one row per finished run, the labelled data admission learns demand from. `peak` is the
+#: demand the run drew per capacity dimension; `recorded_at` is the epoch second the run was recorded (a run imported
+#: from the old JSONL file carries that file's modification time). Event-log pruning never touches it.
+scheduler_runs = Table(
+    "starpulse_scheduler_runs",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("task", String, nullable=False),
+    Column("tier", String, nullable=False),
+    Column("points", Integer, nullable=False),
+    Column("outcome", String, nullable=False),
+    Column("duration_s", Float, nullable=False),
+    Column("peak", JSON, nullable=False),
+    Column("recorded_at", Float, nullable=False),
+    Index("ix_starpulse_scheduler_runs_tier_points", "tier", "points"),
+    sqlite_autoincrement=True,
+)
+
+#: The native board's retired tasks: a finished task's file taken off the board, so its reads and numbering scan fewer
+#: files, kept whole by its front matter `id` (`task`) under its file `name`, to be restored as that file. `retired_at`
+#: is the epoch second it was retired or imported. Event-log pruning never touches it.
+retired_tasks = Table(
+    "starpulse_retired_tasks",
+    metadata,
+    Column("task", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("retired_at", Float, nullable=False),
+    Index("ix_starpulse_retired_tasks_retired_at", "retired_at"),  # the change poll's count and max read this alone
+)
+
+#: What the retired server history kept of a day after its raw events were dropped: per team, machine and state,
+#: how many tasks or runs entered the state that UTC day (`entries`), how many of those had not left it when the day was
+#: rolled up (`open_entries`), and the seconds the others stayed. Nothing writes it now, and no revision creates it.
+day_rollups = Table(
+    "starpulse_day_rollups",
+    metadata,
+    Column("day", Date, nullable=False),
+    Column("team", String, nullable=False),
+    Column("machine", String, nullable=False),
+    Column("state", String, nullable=False),
+    Column("entries", Integer, nullable=False),
+    Column("open_entries", Integer, nullable=False),
+    Column("seconds", Float, nullable=False),
+    PrimaryKeyConstraint("day", "team", "machine", "state"),
+)
+
+#: Each pull request the PR store read from GitHub, one row per (repository, number), replaced by each read of an open
+#: one and never read again once `state` is MERGED or CLOSED (a MERGED row without `merge_sha` is read until it has one). `checks` is the required-check rollup (pass, failing,
+#: pending, none), `required` each required check as {name, result}, `updated_at` GitHub's own ISO 8601 UTC text
+#: (equal-width, so it sorts as time), `fetched_at` the epoch second this row was read and `detail` what the Board's
+#: per-task pull request state reads beside the served fields (merge commit and time, commits behind main, changed
+#: files and the CI history), null in a row saved before it was kept.
+pull_requests = Table(
+    "starpulse_pull_requests",
+    metadata,
+    Column("repo", String, nullable=False),
+    Column("number", Integer, nullable=False),
+    Column("state", String, nullable=False),
+    Column("is_draft", Boolean, nullable=False),
+    Column("mergeable", String, nullable=False),
+    Column("base", String, nullable=False),
+    Column("head", String, nullable=False),
+    Column("body", Text, nullable=False),
+    Column("checks", String, nullable=False),
+    Column("required", JSON, nullable=False),
+    Column("threads", Integer, nullable=False),
+    Column("updated_at", String, nullable=False),
+    Column("merged_at", String),
+    Column("merge_sha", String),
+    Column("fetched_at", Float, nullable=False),
+    Column("detail", JSON, nullable=True),
+    Column("head_ref", String),
+    Column("unresolved", JSON),
+    PrimaryKeyConstraint("repo", "number"),
+    Index("ix_starpulse_pull_requests_state", "state", "repo"),
+)

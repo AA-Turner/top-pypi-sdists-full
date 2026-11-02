@@ -1,0 +1,71 @@
+"""Audio pipeline — TTS and lip-sync providers + orchestration.
+
+Phase 3 ships:
+
+- Protocols: ``TTSProvider``, ``LipSyncProvider`` (Phase 1).
+- Default offline provider: ``OfflineTTS`` (silent WAV). The lip-sync providers
+  (``OfflineLipSync`` deterministic char-to-viseme, ``RhubarbLipSync``,
+  ``WhisperLipSync``) moved to ``cutan`` with the cut-out genre (an#225), and the
+  old names were removed from here (an#321): import them from ``cutan.audio``.
+- Real providers: ``ElevenLabsTTS`` (needs ``ELEVEN_API_KEY``); ``RecordedTTS``, a
+  performer's imported takes (``an voices import``, :mod:`an.audio.recorded`).
+- Orchestration: ``produce_audio_for_dialogue`` /
+  ``produce_audio_for_scene`` walk a SceneIR, synthesize, persist to mall,
+  stamp viseme tracks back onto the IR.
+
+The defaults are intentionally offline so the entire `an` pipeline works
+without external services.
+"""
+
+from an.audio.tts import TTSProvider, AudioClip, VoiceMeta
+from an.audio.lipsync import (
+    LipSyncProvider,
+    Viseme,
+    VisemeTrack,
+    WordTiming,
+    WordTimingProvider,
+    NullLipSync,
+    word_timings_to_visemes,
+)
+from an.audio.offline_tts import OfflineTTS
+from an.audio.recorded import RecordedTTS, import_recordings
+from an.audio.elevenlabs_tts import ElevenLabsTTS
+from an.audio.mac_say_tts import MacSayTTS
+from an.audio.pipeline import (
+    default_tts,
+    default_lipsync,
+    produce_audio_for_dialogue,
+    produce_audio_for_scene,
+)
+from an.audio.providers import (
+    make_tts,
+    make_lipsync,
+    known_tts_names,
+    known_lipsync_names,
+)
+
+__all__ = [
+    "TTSProvider",
+    "AudioClip",
+    "VoiceMeta",
+    "LipSyncProvider",
+    "Viseme",
+    "VisemeTrack",
+    "WordTiming",
+    "WordTimingProvider",
+    "NullLipSync",
+    "word_timings_to_visemes",
+    "OfflineTTS",
+    "RecordedTTS",
+    "import_recordings",
+    "ElevenLabsTTS",
+    "MacSayTTS",
+    "default_tts",
+    "default_lipsync",
+    "produce_audio_for_dialogue",
+    "produce_audio_for_scene",
+    "make_tts",
+    "make_lipsync",
+    "known_tts_names",
+    "known_lipsync_names",
+]

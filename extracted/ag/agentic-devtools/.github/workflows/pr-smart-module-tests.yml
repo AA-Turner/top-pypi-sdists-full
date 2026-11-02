@@ -1,0 +1,401 @@
+name: PR Smart Module Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  smart-module-tests:
+    name: Run Smart Module Tests
+    runs-on: ubuntu-latest
+    # For pull_request_review events, only run when Copilot (or trusted synthetic
+    # reviewer) submits an approval. For pull_request events, always run.
+    if: >
+      github.event.pull_request.base.ref == 'main' &&
+      (
+        github.event_name == 'pull_request' ||
+        (
+          github.event_name == 'pull_request_review' &&
+          github.event.review.state == 'approved' &&
+          (github.event.review.user.login == 'copilot-pull-request-reviewer[bot]' ||
+           github.event.review.user.login == 'AMARSNIK_swica')
+        )
+      )
+
+    outputs:
+      coverage_generated: ${{ steps.coverage_check.outputs.exists }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Detect changed modules
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          filters: |
+            git:
+              - 'agentic_devtools/cli/git/**'
+              - 'tests/unit/cli/git/**'
+              - 'tests/test_git_*.py'
+            azure_devops:
+              - 'agentic_devtools/cli/azure_devops/**'
+              - 'tests/unit/cli/azure_devops/**'
+              - 'tests/azure_devops/**'
+            azure_context:
+              - 'agentic_devtools/cli/azure_context/**'
+              - 'tests/unit/cli/azure_context/**'
+              - 'tests/azure_context/**'
+            jira:
+              - 'agentic_devtools/cli/jira/**'
+              - 'tests/unit/cli/jira/**'
+            vpn:
+              - 'agentic_devtools/cli/vpn/**'
+              - 'tests/unit/cli/vpn/**'
+              - 'tests/vpn/**'
+            network:
+              - 'agentic_devtools/cli/network/**'
+              - 'tests/unit/cli/network/**'
+              - 'tests/network/**'
+            release:
+              - 'agentic_devtools/cli/release/**'
+              - 'tests/unit/cli/release/**'
+              - 'tests/test_release_*.py'
+            tasks:
+              - 'agentic_devtools/cli/tasks/**'
+              - 'tests/unit/cli/tasks/**'
+            github_module:
+              - 'agentic_devtools/cli/github/**'
+              - 'tests/unit/cli/github/**'
+            copilot:
+              - 'agentic_devtools/cli/copilot/**'
+              - 'tests/unit/cli/copilot/**'
+            ci:
+              - 'agentic_devtools/cli/ci/critique_adjudicator.py'
+              - 'agentic_devtools/cli/ci/pipeline/critique_gate.py'
+              - 'agentic_devtools/cli/ci/windows_specific.py'
+              - 'agentic_devtools/cli/ci/windows_specific_cli.py'
+              - 'agentic_devtools/cli/ci/windows_fixture_bytes.py'
+              - 'tests/unit/cli/ci/critique_adjudicator/test_critique_adjudicator.py'
+              - 'tests/unit/cli/ci/pipeline/critique_gate/test_critique_gate_exception_passed.py'
+              - 'tests/unit/cli/ci/windows_specific/**'
+              - 'tests/unit/cli/ci/windows_specific_cli/**'
+              - 'tests/unit/cli/ci/windows_fixture_bytes/**'
+            speckit:
+              - 'agentic_devtools/cli/speckit/**'
+              - 'tests/unit/cli/speckit/**'
+            azure:
+              - 'agentic_devtools/cli/azure/**'
+              - 'tests/unit/cli/azure/**'
+            issue_template:
+              - 'agentic_devtools/cli/issue_template/**'
+              - 'tests/unit/cli/issue_template/**'
+            hierarchy:
+              - 'agentic_devtools/hierarchy/**'
+              - 'agentic_devtools/cli/hierarchy/**'
+              - 'tests/unit/hierarchy/**'
+              - 'tests/unit/cli/hierarchy/**'
+            workflows:
+              - 'agentic_devtools/cli/workflows/**'
+              - 'tests/unit/cli/workflows/**'
+            core:
+              - 'agentic_devtools/*.py'
+              - 'agentic_devtools/cli/runner.py'
+              - 'agentic_devtools/cli/state.py'
+              - 'agentic_devtools/cli/subprocess_utils.py'
+              - 'agentic_devtools/cli/testing.py'
+              - 'tests/unit/state/**'
+              - 'tests/unit/background_tasks/**'
+              - 'tests/unit/config/**'
+              - 'tests/unit/file_locking/**'
+              - 'tests/unit/task_state/**'
+              - 'tests/unit/cli/runner/**'
+              - 'tests/unit/cli/state/**'
+              - 'tests/unit/cli/subprocess_utils/**'
+              - 'tests/unit/cli/testing/**'
+              - 'tests/test_validate_test_structure.py'
+              - 'tests/test_scaffold_tests.py'
+              - 'tests/test_version.py'
+            orchestration:
+              - 'agentic_devtools/orchestration/**'
+              - 'tests/unit/orchestration/**'
+            tools:
+              - 'agentic_devtools/tools/**'
+              - 'tests/unit/tools/**'
+            config:
+              - 'pyproject.toml'
+              - 'scripts/validate_test_structure.py'
+              - 'tests/conftest.py'
+              - 'tests/helpers.py'
+            e2e_smoke:
+              - 'tests/e2e_smoke/**'
+              - '.specify/extensions/**'
+              - '.specify/presets/**'
+              - '.specify/config.yml'
+            skill_classification:
+              - '.github/agents/agdt.*.agent.md'
+              - '.github/prompts/agdt.*.prompt.md'
+              # Canonical skills tree — a skills-only change must still run the
+              # customization-content validation steps rather than no jobs at all.
+              - '.agents/skills/**'
+              - 'tests/fixtures/skill_classification_expected.json'
+              - 'scripts/validate_skill_classification.py'
+              - 'agentic_devtools/cli/checks/skill_classification.py'
+              - 'agentic_devtools/skill_classification.py'
+              - 'agentic_devtools/cli/checks/commands.py'
+              - 'tests/unit/cli/checks/skill_classification/**'
+              - 'tests/unit/cli/checks/commands/**'
+            workflow_contract:
+              - '.github/workflows/pr-smart-module-tests.yml'
+              - '.github/workflows/pr-windows-specific-tests.yml'
+              - '.github/workflows/post-merge-full-suite.yml'
+              - '.github/windows-specific-tests.json'
+              - 'agentic_devtools/cli/ci/windows_specific.py'
+              - 'agentic_devtools/cli/ci/windows_specific_cli.py'
+              - 'agentic_devtools/cli/ci/windows_fixture_bytes.py'
+              - 'tests/unit/cli/ci/windows_specific/**'
+              - 'tests/unit/cli/ci/windows_specific_cli/**'
+              - 'tests/unit/cli/ci/windows_fixture_bytes/**'
+              - 'tests/workflows/test_smart_module_ci_contract.py'
+              - 'tests/workflows/test_windows_specific_ci.py'
+              - 'tests/workflows/test_windows_specific_fixture_bytes.py'
+
+      # Conservatively require the full suite for every Python diff. This stays
+      # fail-closed independently of filter/runner mappings, including mixed diffs.
+      - name: Detect changed Python files
+        id: python-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+
+          try:
+              paths = subprocess.check_output(
+                  ["git", "diff", "--name-only", "--no-renames", "-z",
+                   f"{os.environ['BASE_SHA']}...{os.environ['HEAD_SHA']}", "--"],
+                  shell=False,
+              ).split(b"\0")
+          except subprocess.CalledProcessError:
+              raise SystemExit("::error::Cannot inspect the PR Python diff; fetch the base and head commits and rerun.")
+          changed = any(path.endswith(b".py") for path in paths)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"changed={str(changed).lower()}\n")
+          if changed:
+              print("Changed Python requires the full suite; scoped selection alone is insufficient.")
+          PY
+
+      - name: Check if any module changed
+        id: has-modules
+        run: |
+          if [[ "${{ steps.filter.outputs.git }}" == "true" || \
+                "${{ steps.filter.outputs.azure_devops }}" == "true" || \
+                "${{ steps.filter.outputs.azure_context }}" == "true" || \
+                "${{ steps.filter.outputs.jira }}" == "true" || \
+                "${{ steps.filter.outputs.vpn }}" == "true" || \
+                "${{ steps.filter.outputs.network }}" == "true" || \
+                "${{ steps.filter.outputs.release }}" == "true" || \
+                "${{ steps.filter.outputs.tasks }}" == "true" || \
+                "${{ steps.filter.outputs.github_module }}" == "true" || \
+                "${{ steps.filter.outputs.copilot }}" == "true" || \
+                "${{ steps.filter.outputs.ci }}" == "true" || \
+                "${{ steps.filter.outputs.speckit }}" == "true" || \
+                "${{ steps.filter.outputs.azure }}" == "true" || \
+                "${{ steps.filter.outputs.hierarchy }}" == "true" || \
+                "${{ steps.filter.outputs.issue_template }}" == "true" || \
+                "${{ steps.filter.outputs.workflows }}" == "true" || \
+                "${{ steps.filter.outputs.core }}" == "true" || \
+                "${{ steps.filter.outputs.orchestration }}" == "true" || \
+                "${{ steps.filter.outputs.tools }}" == "true" || \
+                "${{ steps.filter.outputs.e2e_smoke }}" == "true" ]]; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.has-modules.outputs.result == 'true' || steps.filter.outputs.config == 'true' || steps.filter.outputs.skill_classification == 'true' || steps.filter.outputs.workflow_contract == 'true' || steps.python-changes.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.has-modules.outputs.result == 'true' || steps.filter.outputs.config == 'true' || steps.filter.outputs.skill_classification == 'true' || steps.filter.outputs.workflow_contract == 'true' || steps.python-changes.outputs.changed == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Validate 1:1:1 test structure
+        if: steps.has-modules.outputs.result == 'true' || steps.filter.outputs.config == 'true' || steps.filter.outputs.skill_classification == 'true'
+        run: |
+          python scripts/validate_test_structure.py
+
+      - name: Validate skill classification fixture
+        if: steps.has-modules.outputs.result == 'true' || steps.filter.outputs.config == 'true' || steps.filter.outputs.skill_classification == 'true'
+        run: |
+          python scripts/validate_skill_classification.py
+
+      - name: Validate CI workflow contract
+        if: steps.filter.outputs.workflow_contract == 'true'
+        run: |
+          python -m pytest tests/workflows/test_smart_module_ci_contract.py -v --override-ini="addopts="
+
+      - name: Validate Windows-specific workflow contract
+        if: steps.filter.outputs.workflow_contract == 'true'
+        run: |
+          python -m pytest tests/workflows/test_windows_specific_ci.py tests/workflows/test_windows_specific_fixture_bytes.py -v --override-ini="addopts="
+
+      - name: Run scoped tests with per-module coverage
+        if: steps.has-modules.outputs.result == 'true' && steps.filter.outputs.config != 'true' && steps.python-changes.outputs.changed != 'true'
+        env:
+          AGDT_SMART_MODULE_FLAGS: >-
+            {
+              "git": "${{ steps.filter.outputs.git }}",
+              "azure_devops": "${{ steps.filter.outputs.azure_devops }}",
+              "azure_context": "${{ steps.filter.outputs.azure_context }}",
+              "jira": "${{ steps.filter.outputs.jira }}",
+              "vpn": "${{ steps.filter.outputs.vpn }}",
+              "network": "${{ steps.filter.outputs.network }}",
+              "release": "${{ steps.filter.outputs.release }}",
+              "tasks": "${{ steps.filter.outputs.tasks }}",
+              "github_module": "${{ steps.filter.outputs.github_module }}",
+              "copilot": "${{ steps.filter.outputs.copilot }}",
+              "ci": "${{ steps.filter.outputs.ci }}",
+              "speckit": "${{ steps.filter.outputs.speckit }}",
+              "azure": "${{ steps.filter.outputs.azure }}",
+              "issue_template": "${{ steps.filter.outputs.issue_template }}",
+              "hierarchy": "${{ steps.filter.outputs.hierarchy }}",
+              "workflows": "${{ steps.filter.outputs.workflows }}",
+              "core": "${{ steps.filter.outputs.core }}",
+              "orchestration": "${{ steps.filter.outputs.orchestration }}",
+              "tools": "${{ steps.filter.outputs.tools }}"
+            }
+        run: |
+          python -m agentic_devtools.cli.checks.smart_module_tests
+
+      - name: Run full test suite (config changed)
+        if: steps.filter.outputs.config == 'true' || steps.python-changes.outputs.changed == 'true'
+        env:
+          COVERAGE_CORE: sysmon
+          TEST_RESULTS: ${{ runner.temp }}/smart-module-results.xml
+        run: |
+          pytest -n auto --dist=worksteal --cov=agentic_devtools --cov-report=term-missing --cov-report=xml --cov-fail-under=100 --ignore=tests/workflows --junitxml="$TEST_RESULTS"
+
+      - name: Run skill classification tests
+        if: steps.filter.outputs.skill_classification == 'true' && steps.has-modules.outputs.result != 'true' && steps.filter.outputs.config != 'true' && steps.python-changes.outputs.changed != 'true'
+        env:
+          COVERAGE_CORE: sysmon
+        run: |
+          pytest \
+            tests/unit/cli/checks/skill_classification \
+            tests/unit/cli/checks/commands \
+            --cov=agentic_devtools.cli.checks.skill_classification \
+            --cov=agentic_devtools.cli.checks.commands \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=100 \
+            '--override-ini=addopts='
+
+      - name: Run E2E smoke tests
+        if: steps.filter.outputs.e2e_smoke == 'true'
+        run: |
+          pytest tests/e2e_smoke/ -v --no-cov
+
+      - name: Run workflow integration tests
+        if: steps.filter.outputs.workflows == 'true' || steps.python-changes.outputs.changed == 'true'
+        run: |
+          pytest tests/workflows/ -v --override-ini="addopts="
+
+      - name: No modules changed
+        if: steps.has-modules.outputs.result != 'true' && steps.filter.outputs.config != 'true' && steps.filter.outputs.workflow_contract != 'true' && steps.python-changes.outputs.changed != 'true'
+        run: echo "No testable modules changed — skipping tests."
+
+      - name: Require executed tests for changed Python
+        if: always() && steps.python-changes.outputs.changed == 'true'
+        env:
+          TEST_RESULTS: ${{ runner.temp }}/smart-module-results.xml
+        run: |
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          try:
+              results = ET.parse(os.environ["TEST_RESULTS"])
+          except (OSError, ET.ParseError):
+              raise SystemExit("::error::Changed Python requires full suite execution evidence; no valid JUnit report. Check test selection and rerun the full suite.")
+          executed = sum(
+              case.find("skipped") is None and case.find("error") is None
+              for case in results.iter("testcase")
+          )
+          if not executed:
+              raise SystemExit("::error::Changed Python executed zero tests in the full suite. Check selection and skip conditions, then rerun the full suite.")
+          print(f"Full suite executed {executed} tests.")
+          PY
+
+      - name: Check coverage report exists
+        id: coverage_check
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload coverage artifact
+        if: steps.coverage_check.outputs.exists == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-python
+          path: coverage.xml
+
+  upload-coverage-python:
+    name: Upload Python Coverage
+    needs: [smart-module-tests]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.smart-module-tests.result == 'success' && needs.smart-module-tests.outputs.coverage_generated == 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4.1.3
+        with:
+          name: coverage-report-python
+
+      - uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.xml
+          language: Python
+          label: code-coverage-agent
+
+  smart-module-tests-gate:
+    name: Smart Module Tests ✅
+    needs: [smart-module-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        run: |
+          if [[ "${{ needs.smart-module-tests.result }}" == "failure" ]]; then
+            echo "Smart module tests failed"
+            exit 1
+          fi
+          echo "Smart module tests passed or were skipped"

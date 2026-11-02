@@ -1,0 +1,42 @@
+! This file is part of tblite.
+! SPDX-Identifier: LGPL-3.0-or-later
+!
+! tblite is free software: you can redistribute it and/or modify it under
+! the terms of the GNU Lesser General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! tblite is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU Lesser General Public License for more details.
+!
+! You should have received a copy of the GNU Lesser General Public License
+! along with tblite.  If not, see <https://www.gnu.org/licenses/>.
+
+!> @file tblite/disp/cache.f90
+!> Provides a cache for dispersion interactions
+
+!> Reusable data container for dispersion related calculations
+module tblite_disp_cache
+   use mctc_env, only : wp
+   use tblite_partition, only : pair_list
+   implicit none
+   private
+   public :: dispersion_cache
+
+   type :: dispersion_cache
+      !> Locally owned atom pairs in row order
+      type(pair_list) :: pairs
+      !> Local dispersion blocks indexed by row reference, neighbour reference, and pair
+      real(wp), allocatable :: dispmat(:, :, :)
+      real(wp), allocatable :: gwvec(:, :, :)
+      !> Coordination-number derivatives of reference weights, computed with dgwdq
+      real(wp), allocatable :: dgwdcn(:, :, :)
+      !> Charge derivatives of reference weights, computed with dgwdcn
+      real(wp), allocatable :: dgwdq(:, :, :)
+      real(wp), allocatable :: cn(:)
+   end type dispersion_cache
+
+
+end module tblite_disp_cache

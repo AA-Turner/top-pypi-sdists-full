@@ -77,8 +77,8 @@ def _send(client: "Client", path: str, body: dict, *, what: str, queue: bool = T
     try:
         with deadline_scope(time.monotonic() + REQUEST_SECONDS):
             if queue:
-                return client.write("POST", path, body, sync=True, raise_permanent=True)
-            return client.write("POST", path, body, sync=True, strict=True)
+                return client.send("POST", path, body, raise_permanent=True)
+            return client.send("POST", path, body, strict=True)
     except errors.RosError as exc:
         if not queue and could_succeed_later(exc):
             warn_not_queued(client, what, exc)

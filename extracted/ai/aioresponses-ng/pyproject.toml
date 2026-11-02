@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling==1.30.1", "hatch-fancy-pypi-readme==25.1.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aioresponses-ng"
+version = "0.8.2"
+description = "Maintained fork of aioresponses with aiohttp compatibility fixes"
+dynamic = ["readme"]
+license = "MIT"
+authors = [{ name = "MountainGod2", email = "admin@reid.ca" }]
+keywords = ["aiohttp", "mock", "testing", "asyncio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Mocking",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.10"
+dependencies = ["packaging>=22.0", "aiohttp>=3.9,<4.0"]
+
+[project.urls]
+Homepage = "https://github.com/mountaingod2/aioresponses-ng"
+Repository = "https://github.com/mountaingod2/aioresponses-ng"
+Issues = "https://github.com/mountaingod2/aioresponses-ng/issues"
+
+[dependency-groups]
+dev = [
+    "ruff==0.15.20",
+    "coverage==7.14.3",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "pytest-html==4.2.0",
+    "ddt==1.7.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["aioresponses"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "aioresponses/",
+    "tests/",
+    "AUTHORS.rst",
+    "CONTRIBUTING.rst",
+    "HISTORY.rst",
+    "LICENSE",
+    "README.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["aioresponses"]
+
+[tool.coverage.report]
+omit = ["/usr*", "*/tests/*", ".venv/*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade — flags old-style type hints, etc.
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "PERF",  # perflint
+    "PL",    # pylint
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit
+    "TRY",   # tryceratops
+    "RUF",   # ruff
+]
+ignore = ["COM812"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aioresponses"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101","PLR2004"]
+
+[tool.ruff.lint.pylint]
+max-args = 15
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [{ path = "README.md" }]
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# Replace relative links with absolute links
+pattern = '\[(.+?)\]\(((?!https?://)\.?/?(\S+?))\)'
+replacement = '[\1](https://github.com/MountainGod2/aioresponses-ng/tree/main/\g<3>)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# Remove `> [!NOTE]` admonitions but keep the codeblocks
+pattern = '> \[![A-Z]+\][^\n]*\n'
+replacement = ''

@@ -9,9 +9,12 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import bootstrap, doctor, setup, tui
-from probe.cli.actions import Action
-from probe.cli.capabilities import Capabilities, TokenSource, capture_token_sources, tap_plugin_dir
+from probe.cli.install import bootstrap
+from probe.cli.wizard import doctor, terminal as tui
+from probe.cli import wizard as setup
+from probe.cli.wizard.actions.onboarding import Action
+from probe.cli.wizard.state.state import Capabilities, TokenSource
+from probe.cli.wizard.state.capture_credentials import capture_token_sources, tap_plugin_dir
 from probe.sdk.settings.settings import load_context, resolve, save_context
 from probe.sdk.settings.device import DeviceLoginError, OnboardingRequired
 
@@ -38,14 +41,19 @@ def entry(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(main, "_version_notice", lambda: None)
     monkeypatch.setattr(main, "_outbox_notice", lambda **_: None)
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code",))
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True))
-    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code",))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code",))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code",))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: Capabilities(claude_available=True))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
     monkeypatch.setattr(
-        "probe.cli.capabilities.verify_mcp_credential", lambda **_kwargs: True
+        "probe.cli.wizard.state.mcp_checks.verify_mcp_credential", lambda **_kwargs: True
     )
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(tui, "page", lambda *a, **kw: None)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "page", lambda *a, **kw: None)
+    monkeypatch.setattr(tui.forms, "page", lambda *a, **kw: None)
+    monkeypatch.setattr(tui.progress, "page", lambda *a, **kw: None)
     events = []
 
     def sign_in(**kwargs):
@@ -53,14 +61,15 @@ def entry(tmp_path, monkeypatch):
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=["Signed in."])
 
-    monkeypatch.setattr(setup, "sign_in", sign_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", sign_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", sign_in)
     monkeypatch.setattr(
-        setup, "run_action_menu", lambda _caps: events.append(("menu", {})) or Action.EXIT
+        setup.screens.screens, "run_action_menu", lambda _caps: events.append(("menu", {})) or Action.EXIT
     )
     monkeypatch.setattr(
-        setup, "run_confirm_install", lambda *a, **kw: events.append(("confirm", {})) or True
+        setup.screens.confirm, "run_confirm_install", lambda *a, **kw: events.append(("confirm", {})) or True
     )
-    monkeypatch.setattr(setup, "run_backfill_offer", lambda *_a, **_kw: set())
+    monkeypatch.setattr(setup.screens.import_offer, "run_backfill_offer", lambda *_a, **_kw: set())
     monkeypatch.setattr(
         main, "_run_wizard_action", lambda *a, **kw: events.append(("apply", kw)) or []
     )
@@ -79,7 +88,9 @@ def test_bare_launch_on_a_fresh_device_opens_the_install(entry):
 
 def test_bare_launch_with_no_coding_agent_signs_in_before_the_main_menu(entry, monkeypatch):
     """An install with no agent to act on is no onboarding: the menu, as before."""
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ())
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ())
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert [event for event, _ in entry] == ["signin", "menu"]
@@ -87,7 +98,7 @@ def test_bare_launch_with_no_coding_agent_signs_in_before_the_main_menu(entry, m
 
 
 def test_backing_out_of_a_fresh_devices_onboarding_changes_nothing(entry, monkeypatch):
-    monkeypatch.setattr(setup, "run_defaults_step", lambda pick, **_kw: (tui.BACK, pick))
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_step", lambda pick, **_kw: (tui.BACK, pick))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert entry == [], "no sign-in, no install"
@@ -101,14 +112,14 @@ def test_the_session_default_is_saved_at_install_not_before(entry, monkeypatch):
     from probe.sdk import session_marker
 
     pick = setup.DefaultsPick(recorder=session_marker.RECORDER_AGENT, session_state="off")
-    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_step", lambda _pick, **_kw: (True, pick))
     seen = []
 
     def confirm(*_a, **kw):
         seen.append((setup.setting_state(session_marker.default_session_state()), kw.get("defaults")))
         return True
 
-    monkeypatch.setattr(setup, "run_confirm_install", confirm)
+    monkeypatch.setattr(setup.screens.confirm, "run_confirm_install", confirm)
     applied_with = []
     monkeypatch.setattr(
         main, "_run_wizard_action",
@@ -124,7 +135,7 @@ def test_a_daemon_pick_rides_the_install_approval(entry, monkeypatch):
     from probe.sdk import session_marker
 
     pick = setup.DefaultsPick(recorder=session_marker.RECORDER_DAEMON, session_state="full")
-    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_step", lambda _pick, **_kw: (True, pick))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     applied = [kwargs for event, kwargs in entry if event == "apply"]
@@ -142,7 +153,7 @@ def test_revoked_saved_token_starts_browser_sign_in_again(entry, monkeypatch):
     save_context({"token": "probe_pat_revoked", "base_url": "https://api.test"})
     validity = iter([False, True])
     monkeypatch.setattr(
-        doctor, "collect", lambda: Capabilities(api_credential_valid=next(validity))
+        doctor.doctor, "collect", lambda: Capabilities(api_credential_valid=next(validity))
     )
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
@@ -179,10 +190,10 @@ def test_install_without_code_keeps_browser_authorization_after_confirmation(ent
 def test_explicit_install_code_replaces_an_existing_authorized_account(entry, monkeypatch):
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
     monkeypatch.setattr(
-        doctor, "collect", lambda: Capabilities(capture_token_sources=(TokenSource.PAIRED_FILE,))
+        doctor.doctor, "collect", lambda: Capabilities(capture_token_sources=(TokenSource.PAIRED_FILE,))
     )
     monkeypatch.setattr(
-        "probe.cli.capabilities.verify_mcp_credential",
+        "probe.cli.wizard.state.mcp_checks.verify_mcp_credential",
         lambda **kwargs: pytest.fail("an explicit code selects the account; do not probe the old one"),
     )
     result = CliRunner().invoke(main.app, ["install", "ABCD234567"])
@@ -213,14 +224,14 @@ def switch_prompt(monkeypatch):
         asked.append(previous)
         return answers["reply"]
 
-    monkeypatch.setattr(setup, "run_confirm_account_switch", confirm)
+    monkeypatch.setattr(setup.screens.confirm_gates, "run_confirm_account_switch", confirm)
     return SimpleNamespace(asked=asked, answers=answers)
 
 
 @pytest.mark.parametrize("argv", [["install", "ABCD234567"], ["wizard", "ABCD234567"]])
 def test_install_code_asks_before_replacing_a_named_account(entry, monkeypatch, switch_prompt, argv):
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(doctor, "collect", _signed_in_as("old@example.test"))
+    monkeypatch.setattr(doctor.doctor, "collect", _signed_in_as("old@example.test"))
     result = CliRunner().invoke(main.app, argv)
     assert result.exit_code == 0, result.output
     # Named, and named BEFORE anything redeemed the code.
@@ -231,7 +242,7 @@ def test_install_code_asks_before_replacing_a_named_account(entry, monkeypatch, 
 @pytest.mark.parametrize("argv", [["install", "ABCD234567"], ["wizard", "ABCD234567"]])
 def test_declining_the_account_switch_redeems_nothing(entry, monkeypatch, switch_prompt, argv):
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(doctor, "collect", _signed_in_as("old@example.test"))
+    monkeypatch.setattr(doctor.doctor, "collect", _signed_in_as("old@example.test"))
     switch_prompt.answers["reply"] = False
     result = CliRunner().invoke(main.app, argv)
     assert result.exit_code == 0, result.output
@@ -258,7 +269,7 @@ def test_install_code_does_not_ask_on_a_fresh_device(entry, switch_prompt):
 
 def test_yes_switches_accounts_without_asking(entry, monkeypatch, switch_prompt):
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(doctor, "collect", _signed_in_as("old@example.test"))
+    monkeypatch.setattr(doctor.doctor, "collect", _signed_in_as("old@example.test"))
     result = CliRunner().invoke(main.app, ["install", "--yes", "ABCD234567"])
     assert result.exit_code == 0, result.output
     assert switch_prompt.asked == []
@@ -267,8 +278,8 @@ def test_yes_switches_accounts_without_asking(entry, monkeypatch, switch_prompt)
 
 def test_headless_install_code_refuses_to_switch_accounts(entry, monkeypatch, switch_prompt):
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    monkeypatch.setattr(doctor, "collect", _signed_in_as("old@example.test"))
-    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(doctor.doctor, "collect", _signed_in_as("old@example.test"))
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: False)
     result = CliRunner().invoke(main.app, ["install", "ABCD234567"])
     assert result.exit_code == 1, result.output
     assert entry == [], "a switch nobody can be shown is a switch nobody consented to"
@@ -286,17 +297,28 @@ def test_guided_install_reports_the_account_the_code_selected(entry, monkeypatch
         def note(self, *lines):
             notes.extend(lines)
 
-    monkeypatch.setattr(tui, "Progress", Recording)
+    monkeypatch.setattr(tui.progress, "Progress", Recording)
     monkeypatch.setattr(
-        setup,
+        setup.apply.authorize,
         "authorize",
         lambda *a, **kw: ({"api": {"token": "new-api"}, "mcp": {"token": "new-mcp"}}, []),
     )
-    monkeypatch.setattr(setup, "account_email", lambda _base: "new@example.test")
+    monkeypatch.setattr(
+        setup.account.sign_in,
+        "authorize",
+        lambda *a, **kw: ({"api": {"token": "new-api"}, "mcp": {"token": "new-mcp"}}, []),
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials,
+        "authorize",
+        lambda *a, **kw: ({"api": {"token": "new-api"}, "mcp": {"token": "new-mcp"}}, []),
+    )
+    monkeypatch.setattr(setup.account.account, "account_email", lambda _base: "new@example.test")
+    monkeypatch.setattr(setup.account.sign_in, "account_email", lambda _base: "new@example.test")
     for name in ("apply_tracking", "apply_auto_update", "apply_agent_rules", "refresh_marketplace"):
         monkeypatch.setattr(setup, name, lambda *a, **kw: [])
     monkeypatch.setattr(
-        doctor,
+        doctor.doctor,
         "collect",
         lambda: Capabilities(
             claude_available=True,
@@ -328,9 +350,11 @@ def test_guided_install_reuses_saved_grants_even_when_capture_is_disabled(
     entry, monkeypatch, agents, disabled
 ):
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: agents)
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: agents)
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: agents)
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: agents)
     monkeypatch.setattr(
-        doctor,
+        doctor.doctor,
         "collect",
         lambda: Capabilities(
             agent_source=os.environ.get("PROBE_AGENT", "claude_code"),
@@ -360,9 +384,11 @@ def test_guided_install_repairs_missing_or_rejected_grants(entry, monkeypatch, m
         "token": "probe_pat_existing" if missing != "api" else None,
         "mcp_token": "probe_pat_read" if missing != "mcp" else None,
     })
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
     monkeypatch.setattr(
-        "probe.cli.capabilities.verify_mcp_credential", lambda **_kwargs: missing != "revoked_mcp"
+        "probe.cli.wizard.state.mcp_checks.verify_mcp_credential", lambda **_kwargs: missing != "revoked_mcp"
     )
 
     def collect():
@@ -377,7 +403,7 @@ def test_guided_install_repairs_missing_or_rejected_grants(entry, monkeypatch, m
             capture_credential_valid=not (missing == "revoked_capture" and source == "codex"),
         )
 
-    monkeypatch.setattr(doctor, "collect", collect)
+    monkeypatch.setattr(doctor.doctor, "collect", collect)
     result = CliRunner().invoke(main.app, ["install", "--agent", "both"])
     assert result.exit_code == 0, result.output
     applied = [kwargs for event, kwargs in entry if event == "apply"]
@@ -388,9 +414,11 @@ def test_guided_install_repairs_missing_or_rejected_grants(entry, monkeypatch, m
 
 def test_installing_pi_requires_its_own_capture_grant(entry, monkeypatch):
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("pi",))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("pi",))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("pi",))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("pi",))
     monkeypatch.setattr(
-        doctor,
+        doctor.doctor,
         "collect",
         lambda: Capabilities(
             agent_source="pi",
@@ -421,9 +449,12 @@ def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, m
         ]}
 
     monkeypatch.setattr(device, "device_authorize", mint)
-    monkeypatch.setattr(setup, "sign_in", sign_in_to_account)
-    monkeypatch.setattr(setup, "account_email", lambda _base: "researcher@example.com")
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", sign_in_to_account)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", sign_in_to_account)
+    monkeypatch.setattr(setup.account.account, "account_email", lambda _base: "researcher@example.com")
+    monkeypatch.setattr(setup.account.sign_in, "account_email", lambda _base: "researcher@example.com")
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: [])
 
     def collect():
         return Capabilities(
@@ -433,16 +464,16 @@ def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, m
             capture_killswitched=(tap_plugin_dir("claude_code") / ".disabled").exists(),
         )
 
-    monkeypatch.setattr(doctor, "collect", collect)
+    monkeypatch.setattr(doctor.doctor, "collect", collect)
     actions = iter([Action.CONFIGURE, Action.EXIT])
-    monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(actions))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda _caps: next(actions))
 
     def confirm(*args, **kwargs):
         assert resolve().ingest_token == "ros_ing_capture"
         assert not collect().capture_on, "signing in must not enable capture before installation"
         return True
 
-    monkeypatch.setattr(setup, "run_confirm_install", confirm)
+    monkeypatch.setattr(setup.screens.confirm, "run_confirm_install", confirm)
     result = CliRunner().invoke(main.app, ["wizard", *([code] if code else [])], input="\n")
     assert result.exit_code == 0, result.output
     assert len(authorizations) == 1
@@ -457,7 +488,7 @@ def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, m
 @pytest.mark.parametrize("repair", ["disabled_capture", "codex_bearer", "legacy_capture"])
 def test_install_applies_local_repairs_without_reauthorizing(entry, monkeypatch, repair):
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli import onboarding_complete
+    from probe.cli.wizard.account import onboarding_complete
     from probe.shared.harness import plugins as plugin_cli
 
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
@@ -492,15 +523,25 @@ def test_install_applies_local_repairs_without_reauthorizing(entry, monkeypatch,
         pending.discard("legacy_capture")
         return claude_cli.Result(ok=True, detail="removed")
 
-    monkeypatch.setattr(setup, "detectable_sources", lambda: (source,))
-    monkeypatch.setattr(doctor, "collect", collect)
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: (source,))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: (source,))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: (source,))
+    monkeypatch.setattr(doctor.doctor, "collect", collect)
     monkeypatch.setattr(main, "_run_wizard_action", apply_wizard_action)
     monkeypatch.setattr(main, "_register_local_capabilities", lambda *a, **kw: [])
-    monkeypatch.setattr(setup, "codex_mcp_token_drifted", lambda: "codex_bearer" in pending)
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", sync)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.codex_mcp_token_drifted", lambda: "codex_bearer" in pending)
+    monkeypatch.setattr(setup.apply.authorize, "codex_mcp_token_drifted", lambda: "codex_bearer" in pending)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", sync)
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", sync)
     monkeypatch.setattr(plugin_cli, "uninstall", uninstall)
     monkeypatch.setattr(
-        setup, "authorize", lambda *a, **kw: pytest.fail("the saved grants must be reused")
+        setup.apply.authorize, "authorize", lambda *a, **kw: pytest.fail("the saved grants must be reused")
+    )
+    monkeypatch.setattr(
+        setup.account.sign_in, "authorize", lambda *a, **kw: pytest.fail("the saved grants must be reused")
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials, "authorize", lambda *a, **kw: pytest.fail("the saved grants must be reused")
     )
     completed = []
     monkeypatch.setattr(
@@ -516,12 +557,15 @@ def test_install_applies_local_repairs_without_reauthorizing(entry, monkeypatch,
 
 
 def test_new_browser_account_exits_before_the_menu_or_install(entry, monkeypatch):
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
 
     def incomplete(**kwargs):
         raise OnboardingRequired("Finish onboarding", onboarding_url="https://dash.test/onboarding")
 
-    monkeypatch.setattr(setup, "sign_in", incomplete)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", incomplete)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", incomplete)
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert "Complete onboarding on https://dash.test/onboarding first." in result.output
@@ -531,7 +575,10 @@ def test_new_browser_account_exits_before_the_menu_or_install(entry, monkeypatch
 
 def test_failed_authentication_cannot_open_the_menu(entry, monkeypatch):
     monkeypatch.setattr(
-        setup, "sign_in", lambda **kw: setup.SignInResult(ok=False, lines=["Code expired."])
+        setup.account.sign_in, "sign_in", lambda **kw: setup.SignInResult(ok=False, lines=["Code expired."])
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials, "sign_in", lambda **kw: setup.SignInResult(ok=False, lines=["Code expired."])
     )
     result = CliRunner().invoke(main.app, ["wizard", "ABCD234567"])
     assert result.exit_code == 1, result.output
@@ -550,7 +597,7 @@ def test_invalid_code_is_rejected_without_bootstrapping(entry, monkeypatch):
 
 
 def test_headless_install_code_still_authenticates_when_tooling_is_declined(entry, monkeypatch):
-    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: False)
     result = CliRunner().invoke(
         main.app,
         [
@@ -584,7 +631,8 @@ def test_short_code_credentials_use_the_existing_persistence_path(entry, monkeyp
         }
 
     monkeypatch.setattr(device, "device_authorize", mint)
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: [])
     granted, _ = setup.authorize(
         ["api", "mcp"], base_url="https://api.test", install_code="ABCD234567"
     )
@@ -616,7 +664,9 @@ def test_install_auth_failure_exits_before_any_tooling_changes(entry, monkeypatc
             )
         return {}, ["The website code expired."]
 
-    monkeypatch.setattr(setup, "authorize", authorize)
+    monkeypatch.setattr(setup.apply.authorize, "authorize", authorize)
+    monkeypatch.setattr(setup.account.sign_in, "authorize", authorize)
+    monkeypatch.setattr(setup.apply.capture_credentials, "authorize", authorize)
     for name in ("apply_tracking", "apply_capture", "apply_agent_rules", "refresh_marketplace"):
         monkeypatch.setattr(
             setup, name, lambda *a, **kw: pytest.fail("no installation before authentication")
@@ -685,7 +735,8 @@ def test_only_explicit_code_overrides_matching_inherited_credentials(entry, monk
         },
     )
     during_sync = []
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: during_sync.append(resolve()) or [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: during_sync.append(resolve()) or [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: during_sync.append(resolve()) or [])
     _granted, messages = setup.authorize(
         ["api", "mcp", "capture"],
         base_url="https://api.test",
@@ -759,7 +810,8 @@ def test_code_selects_the_new_identity_for_signin_and_following_menu_actions(ent
     from probe.sdk.settings import device
 
     monkeypatch.setenv("PROBE_TOKEN", "previous-environment-api")
-    monkeypatch.setattr(setup, "sign_in", sign_in_to_account)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", sign_in_to_account)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", sign_in_to_account)
     monkeypatch.setattr(
         device,
         "device_authorize",
@@ -770,20 +822,22 @@ def test_code_selects_the_new_identity_for_signin_and_following_menu_actions(ent
             ]
         },
     )
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: [])
     identities = []
 
     def account_email(base_url):
         identities.append(resolve().token)
         return "new@example.test"
 
-    monkeypatch.setattr(setup, "account_email", account_email)
+    monkeypatch.setattr(setup.account.account, "account_email", account_email)
+    monkeypatch.setattr(setup.account.sign_in, "account_email", account_email)
 
     def menu(_caps):
         identities.append(resolve().token)
         return Action.EXIT
 
-    monkeypatch.setattr(setup, "run_action_menu", menu)
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", menu)
     result = CliRunner().invoke(main.app, ["wizard", "ABCD234567"])
     assert result.exit_code == 0, result.output
     assert identities == ["new-api", "new-api"]
@@ -797,33 +851,60 @@ def test_code_selects_the_new_identity_for_signin_and_following_menu_actions(ent
 def test_sign_out_cleans_the_current_account_and_exits_without_reopening(
     entry, monkeypatch, exported_token
 ):
-    from probe.cli.capabilities import TokenSource
+    from probe.cli.wizard.state.state import TokenSource
 
     save_context({"token": "saved-api", "mcp_token": "saved-mcp", "base_url": "https://api.test"})
     if exported_token:
         monkeypatch.setenv("PROBE_TOKEN", "exported-api")
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
     monkeypatch.setattr(main, "_run_wizard_action", apply_wizard_action)
     monkeypatch.setattr(
-        setup, "sign_in", lambda **kw: pytest.fail("sign-out must not sign back in")
+        setup.account.sign_in, "sign_in", lambda **kw: pytest.fail("sign-out must not sign back in")
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials, "sign_in", lambda **kw: pytest.fail("sign-out must not sign back in")
     )
     monkeypatch.setattr(setup, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda _source: (TokenSource.PAIRED_FILE,))
     monkeypatch.setattr(setup.codex_config, "configured_bearer", lambda _name: None)
     revoked, stopped, menus = [], [], []
-    monkeypatch.setattr(setup, "_revoke", lambda token, **kw: revoked.append(token) or [])
+    monkeypatch.setattr(setup.account.sign_in, "_revoke", lambda token, **kw: revoked.append(token) or [])
+    monkeypatch.setattr(setup.account.sign_out, "_revoke", lambda token, **kw: revoked.append(token) or [])
+    monkeypatch.setattr(setup.apply.recorder, "_revoke", lambda token, **kw: revoked.append(token) or [])
 
     def stop_capture(_mode):
         stopped.append(setup.agent_source())
         return SimpleNamespace(summary=lambda: "capture stopped", warnings=[])
 
     monkeypatch.setattr(setup, "turn_off", stop_capture)
+    monkeypatch.setattr(setup.account.sign_out, "turn_off", stop_capture)
+    monkeypatch.setattr(setup.apply.apply, "turn_off", stop_capture)
+    monkeypatch.setattr(setup.apply.removal, "turn_off", stop_capture)
     monkeypatch.setattr(
-        setup, "run_action_menu", lambda caps: menus.append(caps) or Action.SIGN_OUT
+        setup.screens.screens, "run_action_menu", lambda caps: menus.append(caps) or Action.SIGN_OUT
     )
     # The confirmation page answered "Sign out" (Richard 2026-09-29).
-    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: True)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_sign_out", lambda account=None: True)
     monkeypatch.setattr(
-        tui,
+        tui.layout,
+        "page",
+        lambda *a, **kw: pytest.fail("sign-out must exit without a return-to-menu page"),
+    )
+    monkeypatch.setattr(
+        tui.forms,
+        "page",
+        lambda *a, **kw: pytest.fail("sign-out must exit without a return-to-menu page"),
+    )
+    monkeypatch.setattr(
+        tui.progress,
         "page",
         lambda *a, **kw: pytest.fail("sign-out must exit without a return-to-menu page"),
     )
@@ -855,7 +936,7 @@ def test_no_main_menu_after_an_action_clears_the_account(entry, monkeypatch):
     save_context({"token": "saved-api"})
     menus = []
     monkeypatch.setattr(
-        setup, "run_action_menu", lambda caps: menus.append(caps) or Action.DIAGNOSE
+        setup.screens.screens, "run_action_menu", lambda caps: menus.append(caps) or Action.DIAGNOSE
     )
 
     def clear_account(*a, **kw):
@@ -871,9 +952,12 @@ def test_no_main_menu_after_an_action_clears_the_account(entry, monkeypatch):
 
 
 def test_reported_login_success_cannot_open_a_menu_without_credentials(entry, monkeypatch):
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
     signed = []
-    monkeypatch.setattr(setup, "sign_in", lambda **kw: signed.append(kw) or setup.SignInResult(ok=True, lines=[]))
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", lambda **kw: signed.append(kw) or setup.SignInResult(ok=True, lines=[]))
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", lambda **kw: signed.append(kw) or setup.SignInResult(ok=True, lines=[]))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert signed, "the menu's sign-in ran"
@@ -884,7 +968,7 @@ def test_a_signed_out_device_with_probe_set_up_signs_in_to_the_menu(entry, monke
     """Not a fresh device: a sign-out (or a revoked key) on a machine Probe is
     set up on goes back through the menu's sign-in, never through onboarding."""
     monkeypatch.setattr(
-        doctor, "collect", lambda: Capabilities(claude_available=True, tracking_plugin_installed=True)
+        doctor.doctor, "collect", lambda: Capabilities(claude_available=True, tracking_plugin_installed=True)
     )
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
@@ -896,8 +980,9 @@ def test_a_session_default_that_cannot_be_saved_installs_nothing(entry, monkeypa
     from probe.sdk import session_marker
 
     pick = setup.DefaultsPick(recorder=session_marker.RECORDER_AGENT, session_state="off")
-    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
-    monkeypatch.setattr(setup, "apply_settings", lambda changes, **_kw: ["! could not save the session default"])
+    monkeypatch.setattr(setup.settings.defaults, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup.settings.settings, "apply_settings", lambda changes, **_kw: ["! could not save the session default"])
+    monkeypatch.setattr(setup.screens.screens, "apply_settings", lambda changes, **_kw: ["! could not save the session default"])
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert "apply" not in [event for event, _ in entry], "an `off` that did not save is never followed by an install"
@@ -910,13 +995,15 @@ def test_who_records_moves_agents_only_when_the_row_was_changed(entry, monkeypat
     from probe.sdk import session_marker
 
     session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
-    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.agents, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.agent_picker, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(setup.screens.screens, "detectable_sources", lambda: ("claude_code", "codex"))
     monkeypatch.setattr(main, "_opens_onboarding", lambda *_a, **_kw: True)
     picked = session_marker.RECORDER_AGENT if changed else session_marker.RECORDER_DAEMON
     monkeypatch.setattr(
-        setup, "run_defaults_step", lambda pick, **_kw: (True, setup.DefaultsPick(picked, pick.session_state))
+        setup.settings.defaults, "run_defaults_step", lambda pick, **_kw: (True, setup.DefaultsPick(picked, pick.session_state))
     )
-    monkeypatch.setattr(setup, "run_agent_menu", lambda defaults, action=None: defaults)
+    monkeypatch.setattr(setup.screens.agent_picker, "run_agent_menu", lambda defaults, action=None: defaults)
     moved = []
     monkeypatch.setattr(main, "_apply_recorder_pick", lambda recorder, **kw: moved.append(recorder) or [])
     result = CliRunner().invoke(main.app, ["wizard"])
@@ -927,7 +1014,7 @@ def test_who_records_moves_agents_only_when_the_row_was_changed(entry, monkeypat
 @pytest.mark.parametrize("action", ["account", "settings"])
 def test_reported_login_success_cannot_open_submenus_with_rejected_credentials(entry, monkeypatch, action):
     monkeypatch.setenv("PROBE_TOKEN", "revoked-exported-token")
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities(api_credential_valid=False))
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: Capabilities(api_credential_valid=False))
     result = CliRunner().invoke(main.app, ["wizard", "--action", action])
     assert result.exit_code == 0, result.output
     assert not any(event == "apply" for event, _ in entry)
@@ -936,9 +1023,12 @@ def test_reported_login_success_cannot_open_submenus_with_rejected_credentials(e
 
 @pytest.mark.parametrize("action", ["diagnose", "logout"])
 def test_headless_maintenance_stays_available_while_signed_out(entry, monkeypatch, action):
-    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: False)
     monkeypatch.setattr(
-        setup, "sign_in", lambda **kw: pytest.fail("maintenance must not require a browser")
+        setup.account.sign_in, "sign_in", lambda **kw: pytest.fail("maintenance must not require a browser")
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials, "sign_in", lambda **kw: pytest.fail("maintenance must not require a browser")
     )
     result = CliRunner().invoke(main.app, ["wizard", "--action", action, "--yes"])
     assert result.exit_code == 0, result.output
@@ -951,13 +1041,13 @@ def test_headless_maintenance_stays_available_while_signed_out(entry, monkeypatc
 ])
 def test_every_way_to_uninstall_is_the_one_uninstall_run_once(entry, monkeypatch, argv):
     """`probe uninstall` IS `probe wizard --action uninstall` (one
-    implementation, `probe.cli.uninstall`): it runs once for the whole device,
+    implementation, `probe.cli.install.uninstall`): it runs once for the whole device,
     signed in or not, never per agent through the wizard's action loop. Its
     phases are `test_uninstall.py`'s."""
     runs: list[dict] = []
     monkeypatch.setattr(main, "_run_uninstall", lambda **kw: runs.append(kw) or 0)
     monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("the per-agent removal ran"))
-    monkeypatch.setattr(setup, "finish_removal", lambda: pytest.fail("the old sign-out ran"))
+    monkeypatch.setattr(setup.account.sign_out, "finish_removal", lambda: pytest.fail("the old sign-out ran"))
     result = CliRunner().invoke(main.app, argv)
     assert result.exit_code == 0, result.output
     assert len(runs) == 1 and runs[0]["yes"] is True
@@ -967,12 +1057,12 @@ def test_uninstall_with_agent_removes_probe_from_that_agent_only(entry, monkeypa
     """`probe wizard --action uninstall --agent codex` keeps what the setup
     command documents: Probe out of that agent (its plugins, hooks and rules),
     no account key revoked, the CLI kept: never the whole `probe uninstall`."""
-    from probe.cli.capabilities import agent_source
+    from probe.cli.wizard.state.agent_identity import agent_source
 
     removed: list[tuple] = []
     monkeypatch.setattr(main, "_run_uninstall", lambda **kw: pytest.fail("the whole uninstall ran"))
-    monkeypatch.setattr(setup, "finish_removal", lambda: pytest.fail("a key was released"))
-    monkeypatch.setattr(setup, "release_credentials", lambda: pytest.fail("a key was released"))
+    monkeypatch.setattr(setup.account.sign_out, "finish_removal", lambda: pytest.fail("a key was released"))
+    monkeypatch.setattr(setup.account.sign_out, "release_credentials", lambda: pytest.fail("a key was released"))
     monkeypatch.setattr(main, "_run_wizard_action",
                         lambda action, *a, **kw: removed.append((action, agent_source())) or ["Removed."])
     result = CliRunner().invoke(main.app, ["wizard", "--action", "uninstall", "--agent", "codex", "--yes"])
@@ -982,15 +1072,18 @@ def test_uninstall_with_agent_removes_probe_from_that_agent_only(entry, monkeypa
 
 def test_declining_the_removal_changes_nothing(entry, monkeypatch):
     """"No" at the confirmation is no: nothing planned, revoked or removed."""
-    from probe.cli import uninstall, uninstall_procs
-    from probe.service import paths
+    from probe.cli.install import uninstall
+    from probe.cli.install.uninstall import processes as uninstall_procs
+    from probe.foundation.service_api import paths
 
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(setup, "confirm_removal", lambda *a, **k: False)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *a, **k: False)
     monkeypatch.setattr(uninstall_procs, "live_users", lambda: [])
     monkeypatch.setattr(uninstall_procs, "recorded_session_here", lambda: None)
-    monkeypatch.setattr(uninstall, "_server_ids", lambda run: None)
-    monkeypatch.setattr(uninstall, "_take_lock", lambda run: pytest.fail("declined, yet it went on"))
+    monkeypatch.setattr(uninstall.preparation, "_server_ids", lambda run: None)
+    monkeypatch.setattr(uninstall.uninstall, "_server_ids", lambda run: None)
+    monkeypatch.setattr(uninstall.preparation, "_take_lock", lambda run: pytest.fail("declined, yet it went on"))
+    monkeypatch.setattr(uninstall.uninstall, "_take_lock", lambda run: pytest.fail("declined, yet it went on"))
     result = CliRunner().invoke(main.app, ["wizard", "--action", "uninstall"])
     assert result.exit_code == 2, result.output
     assert not paths.uninstall_dir().exists()
@@ -1001,9 +1094,9 @@ def test_declining_at_the_confirmation_reports_nothing_happened(entry, monkeypat
     `[]` here, which reads as "the action ran and had nothing to say" -- a
     "press enter" pause on an empty page, a state re-read for nothing, and now
     also the signal that decides whether to release the account."""
-    monkeypatch.setattr(setup, "confirm_removal", lambda *_a, **_kw: False)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_removal", lambda *_a, **_kw: False)
     monkeypatch.setattr(
-        setup, "remove_everything", lambda *_a, **_kw: pytest.fail("declined, so nothing to remove")
+        setup.apply.removal, "remove_everything", lambda *_a, **_kw: pytest.fail("declined, so nothing to remove")
     )
 
     assert (
@@ -1030,9 +1123,9 @@ def test_staying_signed_in_on_the_confirmation_page_goes_back_to_the_menu(entry,
     monkeypatch.setattr(main, "_run_wizard_action", apply_wizard_action)
     picks = iter([Action.SIGN_OUT, Action.EXIT])
     menus: list = []
-    monkeypatch.setattr(setup, "run_action_menu", lambda caps: menus.append(caps) or next(picks))
-    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: False)
-    monkeypatch.setattr(setup, "sign_out", lambda sources: pytest.fail("declined: must not sign out"))
+    monkeypatch.setattr(setup.screens.screens, "run_action_menu", lambda caps: menus.append(caps) or next(picks))
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_sign_out", lambda account=None: False)
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: pytest.fail("declined: must not sign out"))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert len(menus) == 2, "the menu came back after the page"
@@ -1041,7 +1134,7 @@ def test_staying_signed_in_on_the_confirmation_page_goes_back_to_the_menu(entry,
 
 @pytest.mark.parametrize("recorder, companion", [("daemon", True), ("agent", False), (None, False)])
 def test_desktop_code_includes_daemon_grant_only_when_explicitly_selected(entry, monkeypatch, recorder, companion):
-    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: False)
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(
         message="", installed=False, already_persistent=True,
     ))
@@ -1059,7 +1152,7 @@ def test_desktop_code_includes_daemon_grant_only_when_explicitly_selected(entry,
 
 def test_daemon_key_from_install_code_is_saved_and_reused_without_another_approval(entry, monkeypatch):
     from probe.sdk.settings import device
-    from probe.cli import companion, daemon_cli
+    from probe.cli.commands.daemon import companion, daemon as daemon_cli
 
     calls = []
     def mint(base_url, **kwargs):
@@ -1069,7 +1162,8 @@ def test_daemon_key_from_install_code_is_saved_and_reused_without_another_approv
             {"grant": setup.COMPANION_GRANT, "token": "scoped-daemon-token"},
         ]}
     monkeypatch.setattr(device, "device_authorize", mint)
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: [])
     setup.authorize(["api", setup.COMPANION_GRANT], base_url="https://api.test", install_code="ABCD234567")
     stored = load_context()
     assert stored["token"] == "account-token"
@@ -1086,15 +1180,18 @@ def test_a_refused_browser_approval_adds_no_marketplace(entry, monkeypatch):
     """Every install refused its credential, so the marketplace step is skipped
     too: adding it writes the agent's own config (every installing agent's, in
     a batch), and a refused approval leaves the machine as it was."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "Progress", type("Quiet", (tui.Progress,), {"note": lambda self, *lines: None}))
-    monkeypatch.setattr(setup, "authorize", lambda *a, **kw: ({}, ["browser approval failed: denied"]))
+    monkeypatch.setattr(tui.progress, "Progress", type("Quiet", (tui.Progress,), {"note": lambda self, *lines: None}))
+    monkeypatch.setattr(setup.apply.authorize, "authorize", lambda *a, **kw: ({}, ["browser approval failed: denied"]))
+    monkeypatch.setattr(setup.account.sign_in, "authorize", lambda *a, **kw: ({}, ["browser approval failed: denied"]))
+    monkeypatch.setattr(setup.apply.capture_credentials, "authorize", lambda *a, **kw: ({}, ["browser approval failed: denied"]))
     for name in ("apply_tracking", "apply_capture", "refresh_marketplace"):
         monkeypatch.setattr(setup, name, lambda *a, **kw: pytest.fail("nothing installed after a refusal"))
-    monkeypatch.setattr(setup, "apply_auto_update", lambda *a, **kw: [])
-    monkeypatch.setattr(setup, "apply_agent_rules", lambda *a, **kw: [])
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True, plugins_verified=True))
+    monkeypatch.setattr(setup.apply.agent_files, "apply_auto_update", lambda *a, **kw: [])
+    monkeypatch.setattr(setup.apply.agent_files, "apply_agent_rules", lambda *a, **kw: [])
+    monkeypatch.setattr(setup.apply.removal, "apply_agent_rules", lambda *a, **kw: [])
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: Capabilities(claude_available=True, plugins_verified=True))
     with pytest.raises(main.typer.Exit):
         apply_wizard_action(
             Action.CONFIGURE,

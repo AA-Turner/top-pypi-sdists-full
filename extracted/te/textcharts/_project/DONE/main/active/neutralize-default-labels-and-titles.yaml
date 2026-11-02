@@ -1,0 +1,139 @@
+id: "neutralize-default-labels-and-titles"
+title: "Neutralize domain-specific default labels, titles, and comments"
+worktree: "main"
+priority: "High"
+status: "Completed"
+completed_date: "2026-03-09"
+description: |
+  textcharts constructor parameters, factory functions, and default titles still
+  carry BenchBox benchmark-specific defaults like "Execution Time (ms)", "Query
+  Latency Histogram", and "ms" units. A generic charting library should ship
+  neutral defaults so non-BenchBox callers get sensible output without passing
+  explicit overrides for every label.
+
+  BenchBox already passes all labels and titles explicitly, so changing defaults
+  is fully backward-compatible — only callers that omit labels will see different
+  (better) output.
+
+  Also remove "Expected keys" comments from SummaryStats that encode BenchBox's
+  schema (OS/Python/CPUs/Memory, Driver/Tables/Tuning). Verify the rendering
+  code iterates whatever keys are present rather than branching on specific names.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Change constructor parameter defaults from benchmark-specific to generic values"
+    status: done
+    notes: |
+      histogram.py y_label: "Execution Time (ms)" → "Value"
+      comparison_bar.py metric_label: "Execution Time (ms)" → "Value"
+      percentile_ladder.py metric_label: "ms" → ""
+      scatter_plot.py x_label/y_label: "Cost (USD)"/"Performance" → "X"/"Y"
+      stacked_bar.py metric_label: "ms" → ""
+      heatmap.py value_label: "ms" → ""
+
+  - id: w2
+    summary: "Change factory function parameter defaults to match new constructor defaults"
+    needs: [w1]
+    status: done
+    notes: |
+      histogram.py from_query_latency_data() y_label → "Value"
+      comparison_bar.py from_comparison_data() metric_label → "Value"
+      scatter_plot.py from_cost_performance_points() cost_label/performance_label → "X"/"Y"
+      line_chart.py from_time_series_points() y_label → "Y"
+      box_plot.py from_distribution_series() y_label → "Value"
+      cdf_chart.py from_query_results() x_label → "Value"
+      heatmap.py from_matrix() value_label → ""
+      bar_chart.py from_bar_data() metric_label → "Value"
+
+  - id: w3
+    summary: "Change default titles from benchmark-specific to generic"
+    needs: [w1]
+    status: done
+    notes: |
+      histogram.py: "Query Latency Histogram" → "Histogram"
+      diverging_bar.py: "Regression / Improvement Distribution" → "Change Distribution"
+      percentile_ladder.py: "Percentile Latency by Platform" → "Percentile Distribution"
+      cdf_chart.py: "Cumulative Distribution of Query Latency" → "Cumulative Distribution"
+      stacked_bar.py: "Phase Breakdown by Platform" → "Stacked Breakdown"
+      summary_box.py SummaryStats.title: "Benchmark Summary" → "Summary"
+      rank_table.py: "Query Rankings (1st = fastest)" → "Rankings (1st = best)"
+
+  - id: w4
+    summary: "Remove BenchBox-specific comments from SummaryStats and verify key-agnostic rendering"
+    needs: [w1]
+    status: done
+    notes: |
+      Remove "Expected keys: OS, Python, CPUs, Memory" and "Expected keys: Driver,
+      Tables, Tuning" comments. Verify that _render_two_col_metrics and
+      _render_three_col_metrics iterate dict items generically without branching
+      on specific key names.
+
+  - id: w5
+    summary: "Regenerate golden snapshots and run full test suite"
+    needs: [w1, w2, w3, w4]
+    status: done
+    notes: |
+      Run tests with --update-golden for intentional changes. Visually inspect
+      updated snapshots. Regenerate gallery screenshots.
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "backward-compatible"
+  estimated_effort: "Small"
+  created_date: "2026-03-08"
+  last_updated: "2026-03-08T00:00:00"
+impact:
+  business_value: |
+    Makes textcharts usable out-of-the-box for non-benchmark domains without
+    requiring callers to override every default label and title.
+  user_impact: |
+    New users get sensible generic defaults instead of confusing benchmark jargon
+    when they omit optional parameters.
+  technical_debt: |
+    Eliminates the largest category of BenchBox coupling in the library's public
+    API surface.
+files_affected:
+  modified:
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/percentile_ladder.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/stacked_bar.py"
+    - "src/textcharts/heatmap.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/cdf_chart.py"
+    - "src/textcharts/summary_box.py"
+    - "src/textcharts/rank_table.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/line_chart.py"
+    - "src/textcharts/box_plot.py"
+must_preserve:
+  - "All existing callers that pass explicit labels/titles see identical output"
+  - "SummaryBox renders arbitrary environment/platform_config keys without branching on key names"
+  - "uv run python -m pytest tests/ passes after golden snapshot regeneration"
+approach: |
+  Change defaults in constructor signatures first, then factory functions, then
+  default titles. Each is a simple string substitution. Run the test suite after
+  each sub-group to catch exactly which golden snapshots need regeneration.
+  Follow the subtitle migration pattern: make the library neutral, let callers
+  provide domain context.
+anti_patterns:
+  - "DO NOT change parameter names or signatures — because that breaks callers — only change default values"
+  - "DO NOT remove factory functions — because BenchBox uses them — just update their defaults"
+verification:
+  - description: "Full test suite passes after golden regeneration"
+    command: "uv run python -m pytest tests/ -x -q"
+    expected_output: "all tests pass"
+  - description: "No benchmark-specific defaults remain in constructor signatures"
+    command: "rg 'Execution Time|Query Latency|Phase Breakdown|Benchmark Summary' src/textcharts/*.py"
+    expected_output: "no matches"
+scope_limit:
+  only_modify:
+    - "src/textcharts/"
+    - "tests/"
+  do_not_modify:
+    - "docs/"
+    - "scripts/"

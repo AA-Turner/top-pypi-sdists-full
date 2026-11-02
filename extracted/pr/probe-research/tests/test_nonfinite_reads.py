@@ -8,7 +8,7 @@ NaN token is not JSON and the MCP serializer refuses it outright.
 
 The fake server's rows below are the exact field set of the server's
 `ExportPoint` / `MetricPointOut`; research-os's
-`tests/unit/test_metric_point_nonfinite.py` feeds the real route's bytes through
+`tests/unit/runs/telemetry/wire/test_metric_point_nonfinite.py` feeds the real route's bytes through
 this same SDK path.
 """
 

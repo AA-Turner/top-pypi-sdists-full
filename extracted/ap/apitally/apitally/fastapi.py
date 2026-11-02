@@ -1,0 +1,135 @@
+from __future__ import annotations
+
+import json
+import logging
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
+
+from fastapi import FastAPI
+from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+from opentelemetry.util.http import get_excluded_urls
+from starlette.middleware.errors import ServerErrorMiddleware
+
+from apitally.shared import activation, config, startup, validation_errors
+from apitally.shared.asgi import ApitallyASGIMiddleware, ExceptionRecordingMiddleware, get_default_span_details
+
+
+if TYPE_CHECKING:
+    from starlette.routing import BaseRoute
+    from starlette.types import Scope
+
+
+__all__ = ["init"]
+
+logger = logging.getLogger(__name__)
+
+
+def init(
+    app: FastAPI,
+    *,
+    app_version: str | None = None,
+    **kwargs: Any,
+) -> None:
+    """
+    Set up Apitally for a FastAPI application.
+
+    For more information, see:
+    - Setup guide: https://docs.apitally.io/setup-guides/fastapi
+    - Reference: https://docs.apitally.io/sdk-reference/python
+    """
+    try:
+        cfg = activation.configure(**config.explicit_kwargs(kwargs))
+        if cfg.disabled:
+            return
+        _instrument_app(app)
+        startup.set_app_info(
+            framework="fastapi",
+            paths=lambda: _get_paths(app),
+            versions=startup.resolve_versions(app_version, fastapi="fastapi", starlette="starlette"),
+            openapi=lambda: json.dumps(app.openapi()) if app.openapi_url else None,
+        )
+    except Exception:  # pragma: no cover
+        logger.exception("Apitally setup for FastAPI failed")
+
+
+def _instrument_app(app: FastAPI) -> None:
+    if getattr(app, "_is_instrumented_by_apitally", False):
+        return
+    setattr(app, "_is_instrumented_by_apitally", True)
+    is_instrumented_by_user = getattr(app, "_is_instrumented_by_opentelemetry", False)
+    # Makes a later FastAPIInstrumentor.instrument_app call a no-op
+    setattr(app, "_is_instrumented_by_opentelemetry", True)
+    # FastAPI 0.142+ marks excluded requests so mounted FastAPI apps don't start their own SERVER span
+    if (telemetry_config := getattr(app, "_telemetry", None)) is not None:
+        telemetry_config["exclude"] = lambda scope: True
+
+    # Replacing build_middleware_stack puts the transport middleware outside ServerErrorMiddleware
+    # (and outside a user's FastAPIInstrumentor stack), so 500 responses to unhandled exceptions
+    # pass through it
+    build_inner = app.build_middleware_stack
+
+    def build_with_shim() -> activation.ASGIActivationShim:
+        inner = build_inner()
+        if not is_instrumented_by_user:
+            if isinstance(inner, ServerErrorMiddleware):
+                inner.app = ExceptionRecordingMiddleware(inner.app)  # ty: ignore[invalid-assignment, invalid-argument-type]
+            # Composed directly instead of via FastAPIInstrumentor.instrument_app, whose span
+            # details callback matches the request against every route before routing
+            inner = OpenTelemetryMiddleware(
+                inner,
+                excluded_urls=get_excluded_urls("FASTAPI"),
+                default_span_details=get_default_span_details,
+                exclude_spans=["receive", "send"],
+            )
+        return activation.ASGIActivationShim(
+            ApitallyASGIMiddleware(
+                inner,  # ty: ignore[invalid-argument-type]
+                resolve_route=_resolve_route,
+                use_scope_client_address=True,
+                validation_error_status=422,
+                validation_error_extractor=validation_errors.extract_pydantic_validation_errors,
+            )
+        )
+
+    app.build_middleware_stack = build_with_shim  # ty: ignore[invalid-assignment]
+
+
+def _resolve_route(scope: Scope) -> str | None:
+    # FastAPI 0.138+ no longer copies included-router routes into the app's route list; the full
+    # templated path is only on the effective route context, scope["route"].path lacks the prefix
+    context = scope.get("fastapi", {}).get("effective_route_context")
+    path = getattr(context, "path", None) or getattr(scope.get("route"), "path", None)
+    return path if isinstance(path, str) else None
+
+
+def _get_paths(app: FastAPI) -> list[dict[str, str]]:
+    paths = []
+    for prefix, route in _iter_routes(app.routes):
+        path = getattr(route, "path", None)
+        if not isinstance(path, str) or not getattr(route, "include_in_schema", True):
+            continue
+        for method in sorted(getattr(route, "methods", None) or []):
+            if method in ("HEAD", "OPTIONS"):
+                continue
+            entry = {"method": method, "path": prefix + path}
+            if summary := getattr(route, "summary", None):
+                entry["summary"] = summary
+            if description := getattr(route, "description", None):
+                entry["description"] = description
+            paths.append(entry)
+    return paths
+
+
+def _iter_routes(routes: list[BaseRoute], prefix: str = "") -> Iterator[tuple[str, Any]]:
+    # FastAPI 0.138+ route lists contain included-router entries; effective_route_contexts()
+    # expands them into route objects whose path, methods, summary, and description use the
+    # full templated path
+    for route in routes:
+        contexts = getattr(route, "effective_route_contexts", None)
+        if callable(contexts):
+            for context in contexts():
+                yield prefix, context
+        elif (sub_routes := getattr(route, "routes", None)) is not None:
+            yield from _iter_routes(sub_routes, prefix + getattr(route, "path", ""))
+        else:
+            yield prefix, route

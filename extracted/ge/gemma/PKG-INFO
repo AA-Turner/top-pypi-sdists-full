@@ -1,0 +1,135 @@
+Metadata-Version: 2.4
+Name: gemma
+Version: 4.0.1
+Summary: Gemma open-weight LLM library from Google DeepMind.
+Keywords: 
+Author-email: Alek Andreev <alekandreev@google.com>, Armand Joulin <ajoulin@google.com>, Cassidy Hardin <cassidyhardin@google.com>, Juliette Love <juliettelove@google.com>, Kathleen Kenealy <kkenealy@google.com>, Laurent Sifre <sifre@google.com>, Léonard Hussenot <hussenot@google.com>, Michelle Casbon <michellecasbon@google.com>, Mihir Sanjay Kale <mihirkale@google.com>, Morgane Riviere <mriviere@google.com>, Ravin Kumar <ravink@google.com>, Robert Dadashi <dadashi@google.com>, Shreya Pathak <shreyapa@google.com>, Surya Bhupatiraju <sbhupatiraju@google.com>, Thomas Mesnard <mesnard@google.com>
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Science/Research
+License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: dialog>=1.1
+Requires-Dist: etils[edc, enp, epath, epy, etree]
+Requires-Dist: einops
+Requires-Dist: grain ; sys_platform != 'win32'
+Requires-Dist: jax
+Requires-Dist: jaxtyping
+Requires-Dist: kauldron
+Requires-Dist: flax
+Requires-Dist: numpy
+Requires-Dist: orbax-checkpoint
+Requires-Dist: sentencepiece
+Requires-Dist: treescope
+Requires-Dist: fastmcp
+Requires-Dist: mcp
+Requires-Dist: pytest ; extra == "dev"
+Requires-Dist: pytest-xdist ; extra == "dev"
+Requires-Dist: pylint>=2.6.0 ; extra == "dev"
+Requires-Dist: pyink ; extra == "dev"
+Project-URL: changelog, https://github.com/google-deepmind/gemma/blob/main/CHANGELOG.md
+Project-URL: homepage, https://gemma-llm.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/google-deepmind/gemma
+Provides-Extra: dev
+
+# Gemma
+
+[![Unittests](https://github.com/google-deepmind/gemma/actions/workflows/pytest_and_autopublish.yml/badge.svg)](https://github.com/google-deepmind/gemma/actions/workflows/pytest_and_autopublish.yml)
+[![PyPI version](https://badge.fury.io/py/gemma.svg)](https://badge.fury.io/py/gemma)
+[![Documentation Status](https://readthedocs.org/projects/gemma-llm/badge/?version=latest)](https://gemma-llm.readthedocs.io/en/latest/?badge=latest)
+
+[Gemma](https://ai.google.dev/gemma) is a family of open-weights Large Language
+Model (LLM) by [Google DeepMind](https://deepmind.google/), based on Gemini
+research and technology.
+
+This repository contains the implementation of the
+[`gemma`](https://pypi.org/project/gemma/) PyPI package. A
+[JAX](https://github.com/jax-ml/jax) library to use and fine-tune Gemma.
+
+For examples and use cases, see our
+[documentation](https://gemma-llm.readthedocs.io/). Please
+report issues and feedback in
+[our GitHub](https://github.com/google-deepmind/gemma/issues).
+
+### Installation
+
+1.  Install JAX for CPU, GPU or TPU. Follow the instructions on
+    [the JAX website](https://jax.readthedocs.io/en/latest/installation.html).
+1.  Run
+
+    ```sh
+    pip install gemma
+    ```
+
+### Examples
+
+Here is a minimal example to have a multi-turn, multi-modal conversation with
+Gemma:
+
+```python
+from gemma import gm
+
+# Model and parameters (Gemma 4)
+model = gm.nn.Gemma4_E4B()
+params = gm.ckpts.load_params(gm.ckpts.CheckpointPath.GEMMA4_E4B_IT)
+
+# Example of multi-turn conversation
+sampler = gm.text.ChatSampler(
+    model=model,
+    params=params,
+    multi_turn=True,
+)
+
+prompt = """Which of the 2 images do you prefer ?
+
+Image 1: <|image|>
+Image 2: <|image|>
+
+Write your answer as a poem."""
+out0 = sampler.chat(prompt, images=[image1, image2])
+
+out1 = sampler.chat('What about the other image ?')
+```
+
+The same `ChatSampler` API works with all Gemma versions (2, 3, 3n, 4).
+
+Our documentation contains various Colabs and tutorials, including:
+
+* [Sampling](https://gemma-llm.readthedocs.io/en/latest/colab_sampling.html)
+* [Multi-modal](https://gemma-llm.readthedocs.io/en/latest/colab_multimodal.html)
+* [Fine-tuning](https://gemma-llm.readthedocs.io/en/latest/colab_finetuning.html)
+* [LoRA](https://gemma-llm.readthedocs.io/en/latest/colab_lora_sampling.html)
+* ...
+
+Additionally, our
+[examples/](https://github.com/google-deepmind/gemma/tree/main/examples) folder
+contain additional scripts to fine-tune and sample with Gemma.
+
+### Learn more about Gemma
+
+* To use this library: [Gemma documentation](https://gemma-llm.readthedocs.io/)
+* Technical reports for metrics and model capabilities:
+  * [Gemma 1](https://goo.gle/GemmaReport)
+  * [Gemma 2](https://goo.gle/gemma2report)
+  * [Gemma 3](https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf)
+  * Gemma 4 (Coming soon)
+* Other Gemma implementations and doc on the
+  [Gemma ecosystem](https://ai.google.dev/gemma/docs)
+
+### Downloading the models
+
+To download the model weights. See
+[our documentation](https://gemma-llm.readthedocs.io/en/latest/checkpoints.html).
+
+### System Requirements
+
+Gemma can run on a CPU, GPU and TPU. For GPU, we recommend 8GB+ RAM on GPU for
+The 2B checkpoint and 24GB+ RAM on GPU are used for the 7B checkpoint.
+
+### Contributing
+
+We welcome contributions! Please read our [Contributing Guidelines](./CONTRIBUTING.md) before submitting a pull request.
+
+*This is not an official Google product.*
+

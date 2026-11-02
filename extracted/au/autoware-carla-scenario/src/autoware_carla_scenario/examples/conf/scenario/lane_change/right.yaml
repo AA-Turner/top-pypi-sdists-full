@@ -1,0 +1,35 @@
+# @package _global_
+scenario:
+  name: lane_change
+  direction: right
+  expect: success
+  timeout_seconds: 10.0
+
+ego:
+  initial_speed_kmh: 1.0
+  spawn_lanelet_id: 183
+  # Off the lanelet's start, which can sit on the seam between two
+  # OpenDRIVE roads and resolve to the one the ego is not on.
+  spawn_s: 5.0
+  # Up the road from the spawn.
+  goal_lanelet_id: 141
+
+sweep:
+  constraints:
+    ego.spawn_lanelet_id:
+      - type: and
+        constraints:
+          - type: has_adjacent
+            value: right
+          # Long enough to finish the change before the road ends: the pass
+          # condition looks for the target lane only up to the next junction.
+          - type: lanelet_length
+            rule: greater_than_or_equal
+            value: 30.0
+          - type: not
+            constraint:
+              type: is_junction
+          - type: not
+            constraint:
+              type: in_set
+              values: ${map.no_3d_model_lanelet_ids}

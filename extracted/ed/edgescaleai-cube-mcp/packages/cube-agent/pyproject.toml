@@ -1,0 +1,24 @@
+[project]
+name = "cube-agent"
+version = "0.1.0"
+description = "Thin local MCP agent for cube-mcp: proxies to cube-cloud, handles local builds"
+requires-python = ">=3.10"
+dependencies = [
+    "cube-common",
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "truststore>=0.9.0",
+    "pydantic>=2.0.0",
+    "websockets>=12.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+cube-agent = "cube_agent.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cube_agent"]

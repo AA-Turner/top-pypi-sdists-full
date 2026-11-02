@@ -1,0 +1,2045 @@
+Metadata-Version: 2.4
+Name: adcp
+Version: 9.3.1
+Summary: Official Python client for the Ad Context Protocol (AdCP)
+Author-email: AdCP Community <maintainers@adcontextprotocol.org>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/adcontextprotocol/adcp-client-python
+Project-URL: Documentation, https://docs.adcontextprotocol.org
+Project-URL: Repository, https://github.com/adcontextprotocol/adcp-client-python
+Project-URL: Issues, https://github.com/adcontextprotocol/adcp-client-python/issues
+Keywords: adcp,mcp,a2a,protocol,advertising
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx<1.0,>=0.28.1
+Requires-Dist: httpcore<2.0,>=1.0.9
+Requires-Dist: httpx2<3.0,>=2.5.0
+Requires-Dist: httpcore2<3.0,>=2.5
+Requires-Dist: pydantic<2.14,>=2.13.0
+Requires-Dist: typing-extensions>=4.14.1
+Requires-Dist: a2a-sdk<1.0.2,>=1.0.1
+Requires-Dist: protobuf<8,>=6.31.0
+Requires-Dist: sse-starlette>=3.0.0
+Requires-Dist: mcp<3.0,>=2.0.0
+Requires-Dist: email-validator>=2.0.0
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: rfc8785>=0.1.4
+Requires-Dist: jsonschema>=4.20.0
+Requires-Dist: rfc3986-validator<0.2,>=0.1.1
+Requires-Dist: tldextract>=5.1.0
+Requires-Dist: idna<4,>=3.18
+Provides-Extra: dev
+Requires-Dist: build>=1.2.1; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: pytest-xdist<4,>=3.8; extra == "dev"
+Requires-Dist: freezegun==1.5.5; extra == "dev"
+Requires-Dist: mypy==1.20.2; extra == "dev"
+Requires-Dist: pyright==1.1.414; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: datamodel-code-generator[http]==0.64.0; extra == "dev"
+Requires-Dist: asgi-lifespan>=2.1.0; extra == "dev"
+Requires-Dist: fastapi>=0.100; extra == "dev"
+Requires-Dist: svix>=1.0; extra == "dev"
+Requires-Dist: types-protobuf>=7.34.1.20260408; extra == "dev"
+Requires-Dist: respx>=0.20.0; extra == "dev"
+Requires-Dist: alembic>=1.13.0; extra == "dev"
+Requires-Dist: psycopg2-binary>=2.9.9; extra == "dev"
+Requires-Dist: pre-commit>=4.4.0; extra == "dev"
+Requires-Dist: opentelemetry-sdk<2,>=1.25; extra == "dev"
+Requires-Dist: google-cloud-storage>=2.18; extra == "dev"
+Requires-Dist: boto3>=1.35; extra == "dev"
+Requires-Dist: azure-storage-blob>=12.20; extra == "dev"
+Requires-Dist: moto[s3]>=5.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: pdoc3>=0.10.0; extra == "docs"
+Provides-Extra: pg
+Requires-Dist: psycopg[binary]>=3.1.0; extra == "pg"
+Requires-Dist: psycopg-pool>=3.2.0; extra == "pg"
+Provides-Extra: observability
+Requires-Dist: opentelemetry-api<2,>=1.25; extra == "observability"
+Dynamic: license-file
+
+# adcp - Python Client for Ad Context Protocol
+
+[![PyPI version](https://badge.fury.io/py/adcp.svg)](https://badge.fury.io/py/adcp)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
+Official Python SDK for the **Ad Context Protocol (AdCP)**. Build and connect to advertising agents that work synchronously OR asynchronously with the same code.
+
+## Choose your path
+
+This README serves both sides of an AdCP integration. Jump to what you're doing:
+
+- **Connect as a buyer** → [Quick Start: Test Helpers](#quick-start-test-helpers) and [Quick Start: Distributed Operations](#quick-start-distributed-operations). Entry point: `from adcp import ADCPClient, AgentConfig`; start with the `client.simple.*` API.
+- **Build a seller / agent** → [Building an AdCP Agent](#building-an-adcp-agent). Entry point: `from adcp.server import ADCPHandler, serve`; use the [production seller path](docs/production-seller.md) when adding tenants, durable tasks, and webhooks.
+- **Run Reliable Reporting** → [Account currencies](docs/reporting-currency.md), [ledger migrations](docs/reporting-ledger-migration.md), [reconciliation storage](docs/reporting-reconciliation-storage.md), and [durable status notifications](docs/reporting-status-notifications.md). The PostgreSQL and object-storage stores are the separate [`adcp-reporting-storage`](packages/adcp-reporting-storage/README.md) distribution.
+- **Understand the type system & imports** → [Type Safety](#type-safety) (import surface, partial modules, cold-start note).
+- **Test against reference agents** → [Quick Start: Test Helpers](#quick-start-test-helpers) and [Test Helpers](#test-helpers). Entry point: `from adcp.testing import test_agent, creative_agent`.
+
+## Table of Contents
+
+- [Building an AdCP Agent](#building-an-adcp-agent)
+  - [Multi-agent discovery manifest](#multi-agent-discovery-manifest)
+- [Connecting to AdCP Agents](#connecting-to-adcp-agents)
+  - [Buyer OAuth authorization code with PKCE](#buyer-oauth-authorization-code-with-pkce)
+- [The Core Concept](#the-core-concept)
+- [Installation](#installation)
+- [Quick Start: Test Helpers](#quick-start-test-helpers)
+  - [Simple vs. Standard API](#simple-vs-standard-api)
+  - [Available Test Helpers](#available-test-helpers)
+- [Quick Start: Distributed Operations](#quick-start-distributed-operations)
+- [AdCP version support](#adcp-version-support)
+- [Documentation](#documentation)
+- [Features](#features)
+  - [Test Helpers](#test-helpers)
+  - [Full Protocol Support](#full-protocol-support)
+  - [Type Safety](#type-safety)
+  - [Multi-Agent Operations](#multi-agent-operations)
+  - [Webhook Handling](#webhook-handling)
+  - [Security](#security)
+  - [Signed webhooks (AdCP 3.0): receiver quickstart](#signed-webhooks-adcp-30-receiver-quickstart)
+  - [Signed webhooks: sender quickstart](#signed-webhooks-sender-quickstart)
+  - [Debug Mode](#debug-mode)
+  - [Resource Management](#resource-management)
+  - [Response size limits](#response-size-limits)
+  - [Error Handling](#error-handling)
+  - [Idempotency and retries](#idempotency-and-retries)
+  - [Building a seller: idempotency middleware](#building-a-seller-idempotency-middleware)
+  - [AdCP 3.0.0-rc.4 migration](#adcp-300-rc4-migration)
+- [Available Tools](#available-tools)
+- [Workflow Examples](#workflow-examples)
+  - [Complete Media Buy Workflow](#complete-media-buy-workflow)
+  - [Complete Creative Workflow](#complete-creative-workflow)
+  - [Integrated Workflow: Media Buy + Creatives](#integrated-workflow-media-buy--creatives)
+- [Property Discovery (AdCP v2.2.0)](#property-discovery-adcp-v220)
+- [Publisher Authorization Validation](#publisher-authorization-validation)
+  - [Authorization Discovery](#authorization-discovery)
+- [Request Signing (AdCP 3.0 optional, 4.0 required)](#request-signing-adcp-30-optional-40-required)
+  - [Generate a keypair](#generate-a-keypair)
+  - [Sign an outgoing request](#sign-an-outgoing-request)
+  - [Auto-sign on `ADCPClient`](#auto-sign-on-adcpclient)
+  - [Auto-sign on raw httpx (no ADCPClient)](#auto-sign-on-raw-httpx-no-adcpclient)
+  - [Verify incoming requests (FastAPI)](#verify-incoming-requests-fastapi)
+  - [Migration & rollout](#migration--rollout)
+  - [Conformance](#conformance)
+- [CLI Tool](#cli-tool)
+  - [Installation](#installation-1)
+  - [Quick Start](#quick-start)
+  - [Using Test Agents from CLI](#using-test-agents-from-cli)
+  - [Configuration Management](#configuration-management)
+  - [Direct URL Access](#direct-url-access)
+  - [Examples](#examples)
+  - [Configuration File](#configuration-file)
+- [Environment Configuration](#environment-configuration)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
+## Building an AdCP Agent
+
+The fastest path to a working agent: subclass `ADCPHandler`, use response builders, call `serve()`.
+
+```python
+from adcp.server import ADCPHandler, serve
+from adcp.server.responses import capabilities_response, products_response
+
+class MySeller(ADCPHandler):
+    async def get_adcp_capabilities(self, params, context=None):
+        return capabilities_response(["media_buy"])
+
+    async def get_products(self, params, context=None):
+        return products_response(MY_PRODUCTS)
+
+    # implement create_media_buy, get_media_buys, sync_creatives, etc.
+
+serve(MySeller(), name="my-seller")
+```
+
+Validate with storyboards:
+```bash
+python agent.py &
+npx @adcp/sdk storyboard run http://localhost:3001/mcp media_buy_seller --json
+```
+
+| Agent type | Skill | Storyboard | Steps |
+|-----------|-------|-----------|-------|
+| Seller (publisher, SSP, retail media) | [`skills/build-seller-agent/`](skills/build-seller-agent/SKILL.md) | `media_buy_seller` | 9 |
+| Signals (audience data, CDP) | [`skills/build-signals-agent/`](skills/build-signals-agent/SKILL.md) | `signal_owned` | 4 |
+| Creative (ad server, CMP) | [`skills/build-creative-agent/`](skills/build-creative-agent/SKILL.md) | `creative_lifecycle` | 6 |
+
+For compliance testing, add a `TestControllerStore` so storyboards can force state transitions:
+```python
+from adcp.server.test_controller import TestControllerStore
+serve(MySeller(), name="my-seller", test_controller=MyStore())
+```
+
+Each skill file in [`skills/`](skills/) contains the complete pattern, response shapes, and validation loop for coding agents (Claude, Codex) to generate passing servers.
+
+Decisioning sellers can choose SDK or platform ownership of property-list
+filtering. Platform mode retains capability advertisement and skips SDK fetching
+and post-filtering; see [property-list filtering](docs/property-list-filtering.md).
+
+### Multi-agent discovery manifest
+
+Every HTTP transport (`streamable-http`, `a2a`, `both`) automatically
+serves the AdCP multi-agent topology manifest at
+`/.well-known/adcp-agents.json`. Buyers, conformance runners, and
+tooling fetch this once per origin to discover which agents the host
+serves and over which transports — no out-of-band configuration.
+
+```bash
+curl http://localhost:3001/.well-known/adcp-agents.json
+```
+
+Set `base_url`, `specialisms`, and `description` to populate the
+manifest with your public origin and AdCP specialisms:
+
+```python
+serve(
+    MySeller(),
+    name="my-seller",
+    transport="both",
+    base_url="https://sales.example.com",
+    specialisms=["sales-non-guaranteed", "sales-guaranteed"],
+    description="Premium publisher inventory.",
+)
+```
+
+## Connecting to AdCP Agents
+
+### Buyer OAuth authorization code with PKCE
+
+`adcp.oauth` provides a hardened, pre-registered **public-client** flow. Pass a
+trusted authorization-server issuer URL (not an MCP resource URL), bind `state`
+to the user's browser session, and keep pending flows server-side:
+
+```python
+from adcp.oauth import (
+    InMemoryPendingOAuthFlowStore,
+    OAuthIssuerBinding,
+    complete_oauth_authorization,
+    discover_oauth_metadata,
+    start_oauth_authorization,
+)
+
+pending = InMemoryPendingOAuthFlowStore()  # development / one process only
+metadata = await discover_oauth_metadata("https://login.example.com/tenant")
+
+request = await start_oauth_authorization(
+    metadata,
+    client_id="registered-public-client-id",
+    redirect_uri="https://buyer.example.com/oauth/callback",
+    store=pending,
+    issuer_binding=OAuthIssuerBinding.AUTHORIZATION_RESPONSE_ISS,
+    scopes=["media.buy"],
+    resource="https://seller.example.com/mcp",
+)
+# Store request.state in the authenticated browser session, then redirect the
+# browser to request.authorization_url.
+
+tokens = await complete_oauth_authorization(
+    code=callback_query.get("code"),
+    callback_state=callback_query["state"],
+    expected_state=browser_session["oauth_state"],
+    callback_issuer=callback_query.get("iss"),
+    store=pending,
+)
+bearer = tokens.access_token.get_secret_value()
+```
+
+Discovery requires an exact RFC 8414 issuer match, S256 PKCE, authorization
+code support, and `token_endpoint_auth_methods_supported: ["none", ...]`.
+Metadata and token requests are size-bounded, ignore proxy environment
+variables, reject redirects/compression, and use DNS-pinned transports. For an
+authorization server without RFC 9207 `iss` support, use
+`DISTINCT_REDIRECT_URI` only when that callback URI is exclusive to one issuer.
+Multi-process deployments must implement `PendingOAuthFlowStore` using shared
+storage with atomic insert-if-absent and consume operations. Encrypt the real
+`SecretStr` verifier value at rest; JSON-serializing the model produces the
+masked display value, not a recoverable verifier. Once completion consumes a
+flow, any failure or cancellation requires starting a new one instead of
+retrying it. Plain HTTP is disabled by default; `allow_loopback_http=True` is a
+development/native app escape limited to literal loopback IPs and is persisted
+with the flow.
+
+## The Core Concept
+
+AdCP operations are **distributed and asynchronous by default**. An agent might:
+- Complete your request **immediately** (synchronous)
+- Need time to process and **send results via webhook** (asynchronous)
+- Ask for **clarifications** before proceeding
+- Send periodic **status updates** as work progresses
+
+**Your code stays the same.** You write handlers once, and they work for both sync completions and webhook deliveries.
+
+## Installation
+
+```bash
+pip install adcp
+```
+
+> **Note**: This client requires Python 3.10 or later and supports both synchronous and asynchronous workflows.
+
+### Upgrading to SDK 9
+
+`pip install adcp` selects SDK 9, which targets AdCP 3.2. To stay on SDK 8,
+pin `adcp>=8,<9`. Read [the SDK 9 migration guide](MIGRATION_v8_to_v9.md)
+before upgrading.
+
+## Quick Start: Test Helpers
+
+The fastest way to get started is using pre-configured test agents with the **`.simple` API**:
+
+```python
+from adcp.testing import test_agent
+
+# Zero configuration - just import and call with kwargs!
+products = await test_agent.simple.get_products(
+    brief='Coffee subscription service for busy professionals',
+    buying_mode='brief',
+)
+
+print(f"Found {len(products.products)} products")
+```
+
+### Simple vs. Standard API
+
+**Every ADCPClient** includes both API styles via the `.simple` accessor:
+
+**Simple API** (`client.simple.*`) - Recommended for examples/prototyping:
+```python
+from adcp.testing import test_agent
+
+# Kwargs and direct return - raises on error
+products = await test_agent.simple.get_products(brief='Coffee brands', buying_mode='brief')
+print(products.products[0].name)
+```
+
+**Standard API** (`client.*`) - Recommended for production:
+```python
+from adcp.testing import test_agent
+from adcp import GetProductsRequest
+
+# Explicit request objects and TaskResult wrapper
+request = GetProductsRequest(brief='Coffee brands', buying_mode='brief')
+result = await test_agent.get_products(request)
+
+if result.success and result.data:
+    print(result.data.products[0].name)
+else:
+    print(f"Error: {result.error}")
+```
+
+**When to use which:**
+- **Simple API** (`.simple`): Quick testing, documentation, examples, notebooks
+- **Standard API**: Production code, complex error handling, webhook workflows
+
+### Available Test Helpers
+
+Pre-configured agents (all include `.simple` accessor):
+- **`test_agent`**: MCP test agent with authentication
+- **`test_agent_a2a`**: A2A test agent with authentication
+- **`test_agent_no_auth`**: MCP test agent without authentication
+- **`test_agent_a2a_no_auth`**: A2A test agent without authentication
+- **`creative_agent`**: Reference creative agent for preview functionality
+- **`test_agent_client`**: Multi-agent client with both protocols
+
+> **Note**: Test agents are rate-limited and for testing/examples only. DO NOT use in production.
+
+See [examples/simple_api_demo.py](examples/simple_api_demo.py) for a complete comparison.
+
+> **Tip**: Import types from the main `adcp` package (e.g., `from adcp import GetProductsRequest`), from `adcp.types`, or from a curated partial module (`adcp.types.media_buy`, `.creative`, `.signals`, `.protocol`, `.buyer`, `.seller`); `adcp.types.domains.*` is public too, and is where a name several schemas declare is unambiguous. `import adcp` is lightweight; the generated type graph is built only when you import a type.
+
+## Quick Start: Distributed Operations
+
+For production use, configure your own agents:
+
+```python
+from adcp import ADCPMultiAgentClient, AgentConfig, GetProductsRequest
+
+# Configure agents and handlers (context manager ensures proper cleanup)
+async with ADCPMultiAgentClient(
+    agents=[
+        AgentConfig(
+            id="agent_x",
+            agent_uri="https://agent-x.com",
+            protocol="a2a"
+        ),
+        AgentConfig(
+            id="agent_y",
+            agent_uri="https://agent-y.com/mcp/",
+            protocol="mcp"
+        )
+    ],
+    # Webhook URL template (macros: {agent_id}, {task_type}, {operation_id})
+    webhook_url_template="https://myapp.com/webhook/{task_type}/{agent_id}/{operation_id}",
+
+    # Activity callback - fires for ALL events
+    on_activity=lambda activity: print(f"[{activity.type}] {activity.task_type}"),
+
+    # Status change handlers
+    handlers={
+        "on_get_products_status_change": lambda response, metadata: (
+            db.save_products(metadata.operation_id, response.products)
+            if metadata.status == "completed" else None
+        )
+    }
+) as client:
+    # Execute operation - library handles operation IDs, webhook URLs, context management
+    agent = client.agent("agent_x")
+    request = GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+    result = await agent.get_products(request)
+
+    # Check result
+    if result.status == "completed":
+        # Agent completed synchronously!
+        print(f"✅ Sync completion: {len(result.data.products)} products")
+
+    if result.status == "submitted":
+        # Poll or let the seller's durable publisher send the webhook.
+        print(f"⏳ Async - webhook registered at: {result.submitted.webhook_url}")
+# Connections automatically cleaned up here
+```
+
+## AdCP version support
+
+SDK 8 is built against **AdCP 3.2.1**, the AdCP 3.2 general-availability
+release, and makes canonical creatives the primary Python contract. It
+negotiates AdCP 3.0, 3.1, and 3.2. On the wire, 3.2 is `"3.2"`, because
+`adcp_version` carries release precision only. AdCP 3.2.0 was withdrawn and
+is not a supported target. The SDK package version and protocol version are
+intentionally independent:
+
+```python
+import adcp
+
+adcp.get_adcp_sdk_version()   # SDK package version, e.g. "8.0.0"
+adcp.get_adcp_spec_version()  # AdCP spec this build targets, e.g. "3.2.1"
+```
+
+Client calls and server handlers use current application models while the SDK
+translates older wire versions. See [cross-version conversion](docs/cross-version-conversion.md)
+for negotiation, dropped-field reports, and account-key reduction.
+
+The SDK also accepts and advertises `"3.2-rc.7"` as an explicit compatibility
+alias for buyers shipped with `adcp==8.0.0rc3`. These requests use the stable
+3.2 validators and responses retain the `"3.2-rc.7"` alias so strict rc3
+clients can select their bundled response validator.
+Constructor pins to that alias resolve to `"3.2"`. Other prereleases are
+not automatically aliased.
+
+If you talk to an agent on a newer spec than this SDK validates, the response
+still parses — unknown fields are preserved on the model (but not surfaced as
+typed attributes). Strict schema validation fails closed for native tools when
+an explicit version has no bundled validator, with `VERSION_UNSUPPORTED` and
+the SDK's supported versions in the error details.
+
+## Documentation
+
+- **[API Reference](https://adcontextprotocol.github.io/adcp-client-python/)** - Complete API documentation with type signatures and examples
+- **[Protocol Spec](https://github.com/adcontextprotocol/adcp)** - Ad Context Protocol specification
+- **[The type surface](docs/type-surface.md)** - Where a generated class lives, which spelling to import it by, and what `AdcpRequest` and `AdcpResponse` guarantee
+- **[How the type tree is generated](docs/design/type-generation.md)** - The generation pipeline, name derivation, the guards, and the generator pin
+- **[Handler authoring](docs/handler-authoring.md)** - Building an AdCP-compliant agent on `adcp.server`
+- **[Production seller path](docs/production-seller.md)** - Choose the server abstraction and wire durable multi-tenant tasks and webhook delivery
+- **[Validation contract](docs/validation-contract.md)** - Canonical wire validation versus structural Pydantic models
+- **[Account lifecycle](docs/account-lifecycle.md)** - Provisioning registry, account policy, seller resolution, and shared public feed overlays
+- **[Reporting source adapters](docs/reporting-source-adapters.md)** - Per-metric availability evidence, coverage, and control totals for inline delivery fetches
+- **[Migrating from SDK 6 to 7](https://github.com/adcontextprotocol/adcp-client-python/blob/main/MIGRATION_v6_to_v7.md)** - Breaking API, security, concurrency, and webhook changes
+- **[Migrating from SDK 7 to 8](https://github.com/adcontextprotocol/adcp-client-python/blob/main/MIGRATION_v7_to_v8.md)** - Secure webhook defaults and telemetry changes
+- **[Migrating from SDK 8 to 9](MIGRATION_v8_to_v9.md)** - Strict validation, HTTP security and reporting caller ownership
+- **[Migrating from AdCP 3.1 to 3.2](MIGRATION_ADCP_3.1_TO_3.2.md)** - Compact lifecycle adoption and old/new compatibility matrix
+- **[Durable legacy purchase continuations](docs/legacy-purchase-continuations.md)** - Safe products-only compatibility redemption and crash recovery
+- **[Media-buy lifecycle coordinator](docs/media-buy-lifecycle-coordinator.md)** - Negotiated catalog-to-purchase workflow across AdCP 3.0, 3.1, and 3.2; remaining buyer parity is tracked in [#1154](https://github.com/adcontextprotocol/adcp-client-python/issues/1154)
+- **[Media-buy action rights](docs/media-buy-action-rights.md)** - Assess product possibilities, accepted change rights, and currently available actions
+- **[Media-buy state machine](docs/media-buy-state-machine.md)** - Requested and observed lifecycle graphs, and terminal statuses
+- **[Testing your AdCP server](docs/testing-your-adcp-server.md)** - In-process harness for unit tests plus storyboard-runner compliance grading
+- **[Universal macro translation](docs/universal-macro-translation.md)** - Producer-side pixel URL translation, trust boundary, and diagnostics
+- **[Multi-tenant contract](docs/multi-tenant-contract.md)** - Scope invariants every multi-tenant agent must satisfy
+- **[Examples](examples/)** - Code examples and usage patterns
+
+The API reference documentation is automatically generated from the code and includes:
+- Full type signatures for all methods
+- Field descriptions from JSON Schema
+- Method documentation with examples
+- Searchable interface
+
+## Features
+
+### Test Helpers
+
+Pre-configured test agents for instant prototyping and testing:
+
+```python
+from adcp.testing import (
+    test_agent, test_agent_a2a,
+    test_agent_no_auth, test_agent_a2a_no_auth,
+    creative_agent, test_agent_client, create_test_agent
+)
+from adcp import GetProductsRequest, PreviewCreativeRequest
+
+# 1. Single agent with authentication (MCP)
+result = await test_agent.get_products(
+    GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+)
+
+# 2. Single agent with authentication (A2A)
+result = await test_agent_a2a.get_products(
+    GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+)
+
+# 3. Single agent WITHOUT authentication (MCP)
+# Useful for testing unauthenticated behavior
+result = await test_agent_no_auth.get_products(
+    GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+)
+
+# 4. Single agent WITHOUT authentication (A2A)
+result = await test_agent_a2a_no_auth.get_products(
+    GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+)
+
+# 5. Creative agent (preview functionality, no auth required)
+result = await creative_agent.preview_creative(
+    PreviewCreativeRequest(
+        manifest={"format_id": "banner_300x250", "assets": {...}}
+    )
+)
+
+# 6. Multi-agent (parallel execution with both protocols)
+results = await test_agent_client.get_products(
+    GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+)
+
+# 7. Custom configuration
+from adcp.client import ADCPClient
+config = create_test_agent(id="my-test", timeout=60.0)
+client = ADCPClient(config)
+```
+
+**Use cases:**
+- Quick prototyping and experimentation
+- Example code and documentation
+- Integration testing without mock servers
+- Testing authentication behavior (comparing auth vs no-auth results)
+- Learning AdCP concepts
+
+**Important:** Test agents are public, rate-limited, and for testing only. Never use in production.
+
+### Full Protocol Support
+- **A2A Protocol**: Native support for Agent-to-Agent protocol
+- **MCP Protocol**: Native support for Model Context Protocol
+- **Auto-detection**: Automatically detect which protocol an agent uses
+
+### Type Safety
+
+Full type hints with Pydantic validation and auto-generated types from the AdCP spec. All commonly-used types are exported from the main `adcp` package for convenience:
+
+```python
+from adcp import (
+    GetProductsRequest,
+    BrandReference,
+    Package,
+    CpmFixedRatePricingOption,
+    MediaBuyStatus,
+)
+
+# All methods require typed request objects
+request = GetProductsRequest(brief="Coffee brands", buying_mode="brief", max_results=10)
+result = await agent.get_products(request)
+# result: TaskResult[GetProductsResponse]
+
+if result.success:
+    for product in result.data.products:
+        print(product.name, product.pricing_options)  # Full IDE autocomplete!
+
+# Type-safe pricing with discriminators
+pricing = CpmFixedRatePricingOption(
+    pricing_option_id="cpm_usd",
+    pricing_model="cpm",
+    is_fixed=True,  # Literal[True] - type checked!
+    currency="USD",
+    rate=5.0
+)
+
+# Type-safe status enums
+if media_buy.status == MediaBuyStatus.active:
+    print("Media buy is active")
+```
+
+**Exported from main package:**
+- **Core domain types**: `BrandReference`, `Creative`, `CreativeManifest`, `MediaBuy`, `Package`, `PackageRequest`, `TargetingOverlayInput`, `TargetingOverlay`
+- **AdCP status enums**: `CreativeStatus`, `DeliveryStatus`, `MediaBuyStatus`, `PricingModel`
+- **All 9 pricing options**: `CpcPricingOption`, `CpmFixedRatePricingOption`, `VcpmAuctionPricingOption`, etc.
+- **Request/Response types**: All 16 operations with full request/response types
+
+Use `TargetingOverlayInput` for create/update/control/direct-buy targeting mutations
+(per dimension: omit to inherit or retain, null to clear, value to replace). Use `TargetingOverlay`
+for resolved targeting in discovery, commercial terms, and readback. Subclass the
+variant for that context; see [Extending types](docs/extending-types.md#targeting-mutation-inputs-and-resolved-state).
+
+For types not on the top-level surface, import from `adcp.types` (e.g., `from adcp.types import AssetStatus`), or from one of the curated partial modules that group the types by domain:
+
+```python
+from adcp.types.media_buy import CreateMediaBuyRequest, MediaBuyStatus
+from adcp.types.creative import Format, SyncCreativesRequest
+from adcp.types.signals import GetSignalsRequest, SignalTargeting
+from adcp.types.protocol import Error, Pagination, GetTaskStatusRequest
+from adcp.types.buyer import GetProductsRequest, CpmPricingOption
+from adcp.types.seller import Offering, PropertyList, ContentStandards
+```
+
+If a type you need isn't in `adcp.types`, open an issue — we'll add an alias. The `adcp.types.domains.*` modules are public and are where codegen defines every class, so they always have it; the caveat is the class NAMES, which codegen derives and renumbers (`Assets162`) — an alias is the stable spelling.
+
+The six partial modules (`media_buy`, `creative`, `signals`, `protocol`, `buyer`, `seller`) are for curation and discoverability — they group types by domain and give you a smaller import surface. They are **not** a per-domain performance tier: the first AdCP type you touch through any of them builds the same single Pydantic graph.
+
+#### Cold start / import performance
+
+`import adcp` is lightweight (~2ms) and builds nothing — it does not import pydantic, the A2A SDK, or the client, and it does not construct the type graph. The first time you access *any* AdCP type — through `adcp`, `adcp.types`, or a partial module — the full generated Pydantic graph builds once per process (~1s). There is only one graph; subsequent type access is free.
+
+For latency-sensitive cold starts (AWS Lambda, agent tool invocations), warm the graph at startup so the cost lands before your first request:
+
+```python
+import adcp.types
+adcp.types.Product  # forces the one-time graph build now, not on the hot path
+```
+
+Request serialization also discovers nullable paths separately for each task
+and wire version. Warming the generated type graph does not warm that cache.
+Allow startup time before imposing a short first-call deadline. Applications
+that need to warm known task/version pairs can use the internal schema helper
+at startup; its import path is not a public API stability guarantee:
+
+```python
+from adcp._null_clear import nullable_request_paths
+
+nullable_request_paths("get_products", "3.2")
+nullable_request_paths("create_media_buy", "3.2")
+```
+
+Cold discovery has taken about 127–204 ms on a loaded machine, compared with
+about 0.001 ms from the cache; these are measurements, not latency guarantees.
+A deadline that expires before transport dispatch returns `recovery=None`
+because the request was never sent. A timeout after dispatch may need recovery
+because the remote outcome is uncertain. Warming changes startup latency, not
+that distinction.
+
+#### Semantic Type Aliases
+
+For discriminated union types (success/error responses), use semantic aliases for clearer code:
+
+```python
+from adcp import (
+    CreateMediaBuySuccessResponse,  # Clear: this is the success case
+    CreateMediaBuyErrorResponse,     # Clear: this is the error case
+)
+
+def handle_response(
+    response: CreateMediaBuySuccessResponse | CreateMediaBuyErrorResponse
+) -> None:
+    if isinstance(response, CreateMediaBuySuccessResponse):
+        print(f"✅ Media buy created: {response.media_buy_id}")
+    else:
+        print(f"❌ Errors: {response.errors}")
+```
+
+**Available semantic aliases:**
+- Response types: `*SuccessResponse` / `*ErrorResponse` (e.g., `CreateMediaBuySuccessResponse`)
+- Preview renders: `PreviewRenderImage` / `PreviewRenderHtml` / `PreviewRenderIframe`
+- Activation keys: `PropertyIdActivationKey` / `PropertyTagActivationKey`
+
+See `examples/type_aliases_demo.py` for more examples.
+
+**Import guidelines:**
+- ✅ **DO**: Import from main package: `from adcp import GetProductsRequest`
+- ✅ **DO**: Use semantic aliases: `from adcp import CreateMediaBuySuccessResponse`
+- ⚠️ **AVOID**: Import a numbered generated class (`Assets5`, `Type11`) by any path — codegen renumbers them on every schema regeneration. `adcp.types.domains.<domain>.<schema>` itself is a supported import.
+
+The main package exports provide a stable API while internal generated types may change.
+
+### Multi-Agent Operations
+Execute across multiple agents simultaneously:
+
+```python
+from adcp import GetProductsRequest
+
+# Parallel execution across all agents
+request = GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+results = await client.get_products(request)
+
+for result in results:
+    if result.status == "completed":
+        print(f"Sync: {len(result.data.products)} products")
+    elif result.status == "submitted":
+        print(f"Async: webhook to {result.submitted.webhook_url}")
+```
+
+### Legacy HMAC webhook handling
+
+For registrations that explicitly select `HMAC-SHA256`, a single endpoint can
+route callbacks through the client helper. Capture the raw body before parsing;
+those exact bytes are what the signature authenticates:
+
+```python
+import json
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.post("/webhook/{task_type}/{agent_id}/{operation_id}")
+async def webhook(task_type: str, agent_id: str, operation_id: str, request: Request):
+    raw_body = await request.body()
+    payload = json.loads(raw_body)
+
+    # Route to agent client - handlers fire automatically
+    agent = client.agent(agent_id)
+    await agent.handle_webhook(
+        payload=payload,
+        task_type=task_type,
+        operation_id=operation_id,
+        signature=request.headers.get("x-adcp-signature"),
+        timestamp=request.headers.get("x-adcp-timestamp"),
+        raw_body=raw_body,
+    )
+
+    return {"received": True}
+```
+
+### Legacy HMAC callback verification
+
+For AdCP 3.x registrations that explicitly select the deprecated
+`HMAC-SHA256` authentication mode, shared-secret verification is available on
+the client helper:
+
+```python
+client = ADCPMultiAgentClient(
+    agents=agents,
+    webhook_secret=os.getenv("WEBHOOK_SECRET")
+)
+# Legacy HMAC signatures are verified on handle_webhook().
+```
+
+For the protocol-default RFC 9421 mode, use `WebhookReceiver` as shown below.
+
+### Signed webhooks (AdCP 3.0): receiver quickstart
+
+AdCP webhooks are signed under the RFC 9421 profile
+(`adcp/webhook-signing/v1`) and carry a required `idempotency_key` for
+at-least-once delivery. The `WebhookReceiver` packages verification, immutable
+key-to-payload binding, claim ownership, and parsing into one call:
+
+```python
+from flask import Flask, request, Response
+from adcp.server.idempotency import MemoryBackend, WebhookDedupStore
+from adcp.signing import StaticJwksResolver
+from adcp.webhooks import (
+    WebhookReceiver,
+    WebhookReceiverConfig,
+    WebhookVerifyOptions,
+)
+
+# Discover this value from the publisher's
+# webhook_signing.delivery_retry_horizon_seconds capability. Receiver proof
+# must live for at least the whole advertised retry horizon.
+publisher_retry_horizon_seconds = 86400
+
+# One resolver per publisher. In production, wire an async JWKS fetcher and a
+# durable multi-process backend (PgBackend rather than MemoryBackend).
+jwks = StaticJwksResolver(publisher_jwks_dict)
+
+receiver = WebhookReceiver(
+    config=WebhookReceiverConfig(
+        verify_options=WebhookVerifyOptions(jwks_resolver=jwks),
+        dedup=WebhookDedupStore(
+            MemoryBackend(),  # local example only; use PgBackend in production
+            ttl_seconds=publisher_retry_horizon_seconds,
+        ),
+        receiver_scope="buyer-account-123",
+        publisher_scope_for=lambda _signer: "seller-agent-456",
+    ),
+)
+
+app = Flask(__name__)
+
+@app.post("/webhooks/adcp")
+async def hook():
+    outcome = await receiver.receive(
+        method=request.method, url=request.url,
+        headers=dict(request.headers), body=request.get_data(),
+    )
+    # 409 for same-key/different-payload, 503 for an identical delivery still
+    # being processed, 2xx only for a durably completed exact duplicate.
+    if outcome.http_status is not None:
+        return Response(status=outcome.http_status, headers=outcome.response_headers)
+    try:
+        await process(outcome.payload)  # typed McpWebhookPayload
+    except Exception:
+        await receiver.release(outcome)  # exact retry may claim again
+        raise
+    await receiver.acknowledge(outcome)  # durable proof after publication
+    return Response(status=200)
+```
+
+**Legacy HMAC-SHA256 fallback** (3.x only, removed in 4.0). The shortcut
+constructor covers the "one publisher, one shared secret" case:
+
+```python
+from adcp.webhooks import LegacyHmacFallback
+
+config = WebhookReceiverConfig(
+    verify_options=WebhookVerifyOptions(jwks_resolver=jwks),
+    dedup=WebhookDedupStore(
+        MemoryBackend(),  # local example only; use PgBackend in production
+        ttl_seconds=publisher_retry_horizon_seconds,
+    ),
+    receiver_scope="buyer-account-123",
+    publisher_scope_for=lambda _signer: "seller-agent-456",
+    legacy_hmac=LegacyHmacFallback.from_shared_secret(
+        secret=os.environ["WEBHOOK_SHARED_SECRET"].encode(),
+        sender_identity="publisher-buyerco",
+    ),
+)
+```
+
+By default the fallback only fires when no 9421 headers are present — this
+prevents a MITM from stripping a valid 9421 signature and substituting a
+forged HMAC one.
+
+### Signed webhooks: sender quickstart
+
+```python
+from adcp.webhooks import WebhookSender
+
+# One sender per private key; reuses a pooled httpx client under the hood.
+sender = WebhookSender.from_jwk(webhook_signing_jwk_with_private_d)
+
+async with sender:
+    result = await sender.send_mcp(
+        url="https://buyer.example.com/webhooks/adcp/create_media_buy/op_abc",
+        task_id="task_456",
+        task_type="create_media_buy",
+        operation_id="op_abc",
+        status="completed",
+        result={"media_buy_id": "mb_1"},
+    )
+
+    if not result.ok:
+        # resend() replays the exact same bytes under a fresh signature —
+        # preserves idempotency_key AND every other payload field, so the
+        # receiver dedupes against the original event.
+        retry = await sender.resend(result)
+```
+
+`WebhookSender` handles payload construction, byte-exact JSON serialization,
+9421 signing, and the httpx POST in one call. `send_raw(...)` is an escape
+hatch for custom payload shapes; dedicated methods exist for every webhook
+kind (`send_revocation_notification`, `send_artifact_webhook`,
+`send_collection_list_changed`, `send_property_list_changed`,
+`send_wholesale_feed`).
+
+Validate buyer-provided webhook URLs before storing durable subscriptions:
+
+```python
+from adcp import (
+    WebhookChallengeError,
+    WebhookDestinationPolicy,
+    WebhookSender,
+    challenge_webhook_destination,
+)
+
+sender = WebhookSender.from_jwk(webhook_signing_jwk_with_private_d)
+
+try:
+    # Call only for new or changed active durable subscriptions. Persist
+    # active=False configs without challenging; challenge before activation.
+    auth_kwargs = (
+        {"authentication": config.authentication}
+        if config.authentication
+        else {"sender": sender}
+    )
+    await challenge_webhook_destination(
+        url=config.url,
+        account_id=account_id,
+        subscriber_id=config.subscriber_id,
+        **auth_kwargs,
+        field="accounts[0].notification_configs[0].url",
+        policy=WebhookDestinationPolicy.production(),
+    )
+except WebhookChallengeError as exc:
+    return {"errors": [exc.to_error()]}
+```
+
+Use `WebhookDestinationPolicy.local_development()` only for local tests that
+need `http://localhost` or private-network destinations. Production validation
+requires HTTPS and rejects loopback, private, link-local, reserved, and cloud
+metadata destinations. The challenge helper uses the SDK-managed pinned
+transport and fails unless the receiver echoes the challenge in a JSON
+`challenge` or `token` field. For omitted `authentication`, pass an RFC 9421
+`WebhookSender.from_jwk(...)` without `client=`. Bearer/HMAC durable configs
+must pass `authentication=config.authentication`; custom egress clients,
+proxies, and mTLS transports are for normal delivery paths, not registration
+challenges.
+
+Wholesale feed notifications use stable types from `adcp` / `adcp.types`:
+
+```python
+from adcp import NotificationConfig, WholesaleFeedEvent, WholesaleFeedWebhook
+from adcp.webhooks import WebhookSender
+
+if "product.updated" in subscription.event_types:
+    await sender.send_wholesale_feed_to_subscription(
+        subscription=subscription,
+        account_id=account_id,
+        notification_type="product.updated",
+        wholesale_feed_version=feed_version,
+        cache_scope="public",
+        event=event,
+    )
+```
+
+The webhook-signing JWK MUST be published in your `adagents.json` with
+`adcp_use: "webhook-signing"` — distinct from your `request-signing` key so
+neither signature can be replayed as the other. `WebhookSender.from_jwk`
+refuses to construct from a JWK with the wrong `adcp_use` to fail fast at
+setup rather than at receiver verification.
+
+### Debug Mode
+
+Enable debug mode to see full request/response details:
+
+```python
+agent_config = AgentConfig(
+    id="agent_x",
+    agent_uri="https://agent-x.com",
+    protocol="mcp",
+    debug=True  # Enable debug mode
+)
+
+result = await client.agent("agent_x").get_products(brief="Coffee brands", buying_mode="brief")
+
+# Access debug information
+if result.debug_info:
+    print(f"Duration: {result.debug_info.duration_ms}ms")
+    print(f"Request: {result.debug_info.request}")
+    print(f"Response: {result.debug_info.response}")
+```
+
+Or use the CLI:
+
+```bash
+uvx adcp --debug myagent get_products '{"brief":"TV ads"}'
+```
+
+### Resource Management
+
+**Why use async context managers?**
+- Ensures HTTP connections are properly closed, preventing resource leaks
+- Handles cleanup even when exceptions occur
+- Required for production applications with connection pooling
+- Prevents issues with async task group cleanup in MCP protocol
+
+The recommended pattern uses async context managers:
+
+```python
+from adcp import ADCPClient, AgentConfig, GetProductsRequest
+
+# Recommended: Automatic cleanup with context manager
+config = AgentConfig(id="agent_x", agent_uri="https://...", protocol="a2a")
+async with ADCPClient(config) as client:
+    request = GetProductsRequest(brief="Coffee brands", buying_mode="brief")
+    result = await client.get_products(request)
+    # Connection automatically closed on exit
+
+# Multi-agent client also supports context managers
+async with ADCPMultiAgentClient(agents) as client:
+    # Execute across all agents in parallel
+    results = await client.get_products(request)
+    # All agent connections closed automatically (even if some failed)
+```
+
+Manual cleanup is available for special cases (e.g., managing client lifecycle manually):
+
+```python
+# Use manual cleanup when you need fine-grained control over lifecycle
+client = ADCPClient(config)
+try:
+    result = await client.get_products(request)
+finally:
+    await client.close()  # Explicit cleanup
+```
+
+**When to use manual cleanup:**
+- Managing client lifecycle across multiple functions
+- Testing scenarios requiring explicit control
+- Integration with frameworks that manage resources differently
+
+In most cases, prefer the context manager pattern.
+
+### Per-call task deadlines
+
+Use `TaskOptions` when a complete SDK call must fit one wall-clock budget:
+
+```python
+from adcp import ADCPTimeoutError, TaskOptions
+
+try:
+    result = await client.create_media_buy(
+        request,
+        options=TaskOptions(timeout=15.0),
+    )
+except ADCPTimeoutError as error:
+    if error.recovery is not None:
+        # Dispatch began, so the seller may have committed the mutation.
+        # Retry the exact request with this same key; never mint a new one.
+        retry_key = error.recovery.idempotency_key
+```
+
+The deadline includes discovery, capability/version and signing preflight,
+protocol dispatch, response validation, and postflight projection. It never
+resets when one phase finishes. `AgentConfig.timeout` remains a separate
+transport timeout for connection/read-idle behavior.
+
+Every single-agent task method accepts the keyword-only `options` argument.
+Multi-agent fan-out intentionally does not yet accept it because one timeout
+exception cannot safely represent several sellers' independent mutation
+outcomes and idempotency keys.
+
+### Response size limits
+
+Agent responses are untrusted input. Every MCP and A2A response the SDK's own
+transports read is capped at **4 MiB by default** — tool calls, `tools/list`,
+discovery, the A2A agent card, and SSE streams alike. The budget is enforced
+*while the body is read*: a declared `Content-Length` over the cap is refused
+before the first body byte, and the running total of **decoded** bytes aborts
+the read the moment it passes the cap. SSE streams are capped per event, so a
+peer cannot slip a large payload past the budget by replying with
+`Content-Type: text/event-stream`, and a per-call response also carries a
+cumulative cap.
+
+Two scopes are deliberately different. MCP's session-lifetime server-push
+stream (the standalone `GET` SSE channel, and the whole legacy
+`mcp_transport="sse"` channel) is capped **per event only** — a cumulative cap
+there would be a session total, not a per-call cap, and would fail a healthy
+long session. `ADCPClient.from_mcp_client()` sessions get no *streaming*
+cap — the caller owns that transport, so counting bytes as they arrive is the
+caller's job — but the `content[].text` bound below still applies, and on
+that path it is the only one. Pass `max_response_bytes=` to
+`from_mcp_client()` to raise or remove it.
+
+An oversized response raises `ADCPResponseTooLargeError` — it is never silently
+truncated:
+
+```python
+from adcp import ADCPResponseTooLargeError
+
+try:
+    result = await client.get_products(request)
+except ADCPResponseTooLargeError as error:
+    print(error.limit, error.received, error.per_event, error.declared)
+```
+
+Raise the budget for an agent with a legitimately large catalog, or override a
+single call:
+
+```python
+from adcp import AgentConfig, DEFAULT_MAX_RESPONSE_BYTES, Protocol, TaskOptions
+
+config = AgentConfig(
+    id="big-catalog-seller",
+    agent_uri="https://agent.example.com",
+    protocol=Protocol.MCP,
+    max_response_bytes=32 * 1024 * 1024,   # per agent
+)
+
+result = await client.get_products(
+    request,
+    options=TaskOptions(max_response_bytes=16 * 1024 * 1024),   # per call
+)
+```
+
+The same budget bounds the MCP text-fallback path. For a server that answers
+with `content[].text` and no `structuredContent`, that one item is the whole
+response, so bounding it at anything tighter would silently become the real
+call cap — the SDK used to apply a fixed 1 MiB there. An over-budget text item
+raises rather than being skipped, so it cannot be mistaken for an agent that
+sent no structured data.
+
+Prefer asking the agent to paginate over raising the cap. `max_response_bytes=None`
+on `AgentConfig` removes the budget entirely and is not recommended for agents
+you do not control. Because the decoded size has to be measurable before it is
+expanded, the SDK requests only `gzip`/`deflate` and raises
+`ADCPResponseEncodingError` (an `ADCPProtocolError`) for a response that comes
+back in another content coding.
+
+In a multi-agent fan-out the rejection is contained to the offending agent: it
+becomes that agent's `TaskResult(FAILED)` rather than aborting the batch, so
+one oversized reply cannot discard every other agent's results.
+
+### Optional OpenTelemetry tracing
+
+AdCP client calls create one OpenTelemetry `CLIENT` span when an application
+has configured an OpenTelemetry SDK provider. The library configures no SDK,
+exporter, endpoint, or credentials itself, so its default behavior remains a
+non-recording no-op.
+
+```bash
+pip install "adcp[observability]" opentelemetry-sdk
+```
+
+Configure the provider/exporter once in application startup using the normal
+OpenTelemetry Python APIs. The SDK then emits `adcp.mcp.call_tool` or
+`adcp.a2a.call_tool` spans with bounded attributes for the agent ID, protocol,
+tool name (`adcp.tool` plus the `adcp.tool.name` compatibility alias), standard
+RPC system/method fields, task status, and success flag. Multi-call helpers use
+an `adcp.client.workflow` parent with one child CLIENT span per wire call.
+Request parameters, response bodies, credentials, idempotency keys, and remote
+error prose are never attached; invalid or oversized identifiers become
+`unknown` instead of being truncated into telemetry.
+
+Active W3C `traceparent`/`tracestate` values propagate on actual tool requests;
+agent-card and connection discovery requests are excluded. AdCP deliberately
+does not propagate OpenTelemetry baggage across the agent boundary.
+
+```python
+from adcp import ADCPClient, is_tracing_available
+
+client = ADCPClient(config)
+assert is_tracing_available()  # API installed; exporting still needs a provider
+result = await client.get_products(request)
+```
+
+The `get_tracer()` and `inject_trace_headers()` exports are available for
+custom integrations. Libraries should depend only on `opentelemetry-api`;
+applications own the SDK and exporter configuration.
+
+### Error Handling
+
+The library provides a comprehensive exception hierarchy with helpful error messages:
+
+```python
+from adcp.exceptions import (
+    ADCPError,               # Base exception
+    ADCPConnectionError,     # Connection failed
+    ADCPAuthenticationError, # Auth failed (401, 403)
+    ADCPTimeoutError,        # Request timed out
+    ADCPProtocolError,       # Invalid response format
+    ADCPResponseTooLargeError,  # Response over max_response_bytes
+    ADCPResponseEncodingError,  # Response in an unmeasurable content coding
+    ADCPToolNotFoundError,   # Tool not found
+    ADCPWebhookSignatureError  # Invalid webhook signature
+)
+
+try:
+    result = await client.agent("agent_x").get_products(brief="Coffee", buying_mode="brief")
+except ADCPAuthenticationError as e:
+    # Exception includes agent context and helpful suggestions
+    print(f"Auth failed for {e.agent_id}: {e.message}")
+    print(f"Suggestion: {e.suggestion}")
+except ADCPTimeoutError as e:
+    print(f"Request timed out after {e.timeout}s")
+except ADCPConnectionError as e:
+    print(f"Connection failed: {e.message}")
+    print(f"Agent URI: {e.agent_uri}")
+except ADCPError as e:
+    # Catch-all for other AdCP errors
+    print(f"AdCP error: {e.message}")
+```
+
+All exceptions include:
+- **Contextual information**: agent ID, URI, and operation details
+- **Actionable suggestions**: specific steps to fix common issues
+- **Error classification**: proper HTTP status code handling
+
+### Idempotency and retries
+
+AdCP 3.0 requires an `idempotency_key` on every mutating request (`create_media_buy`, `sync_creatives`, and 26 others). The client handles this for you — you pass a key (or let the SDK generate one) and get back the key the seller cached under, plus a `replayed` flag indicating whether the seller served a cached response:
+
+```python
+import uuid
+from adcp import CreateMediaBuyRequest
+
+# Pass a fresh UUID v4 on each new logical operation — the request schema
+# requires idempotency_key at construction time.
+request = CreateMediaBuyRequest(
+    idempotency_key=uuid.uuid4().hex,
+    account=..., brand=..., start_time=..., end_time=..., packages=[...]
+)
+result = await client.create_media_buy(request)
+print(result.idempotency_key)    # The key the SDK sent
+print(result.replayed)           # True if the seller returned a cached response
+```
+
+**Retrying the same logical operation** — wrap the retry loop in `use_idempotency_key` so every attempt sends the same key. Otherwise each retry gets a new UUID and defeats the whole point.
+
+```python
+stored = uuid.uuid4().hex
+for attempt in range(3):
+    try:
+        with client.use_idempotency_key(stored):
+            result = await client.create_media_buy(request)
+        break
+    except TimeoutError:
+        continue
+```
+
+**Bring your own key** when you persist keys across process restarts (e.g., storing alongside a campaign row in your DB):
+
+```python
+with client.use_idempotency_key(campaign.stored_key):
+    result = await client.create_media_buy(request)
+```
+
+The pinned key is scoped to *this* client instance — a sibling `ADCPClient` running inside the same `with` block generates a fresh key (per AdCP §2315: keys must be unique per `(seller, request)` pair to prevent cross-seller correlation). The pinned key is also single-use within the scope: if you `asyncio.gather` two sibling calls inside the block, only the first gets the pinned key, the rest get fresh UUIDs — preventing accidental payload drift.
+
+**Typed errors** for the two idempotency-specific failure modes:
+
+```python
+from adcp import IdempotencyConflictError, IdempotencyExpiredError
+
+try:
+    await client.create_media_buy(request)
+except IdempotencyConflictError:
+    # Same key, different payload. Either mint a fresh uuid.uuid4() or resend original.
+    ...
+except IdempotencyExpiredError:
+    # Replay window closed; reconcile via a read before resubmitting with a new key.
+    ...
+```
+
+**Strict mode** refuses mutating calls against sellers that don't declare `adcp.idempotency.replay_ttl_seconds` in capabilities:
+
+```python
+client = ADCPClient(agent, strict_idempotency=True)  # default: False
+# First mutating call fetches capabilities and raises IdempotencyUnsupportedError
+# if the seller is silent. Set False to opt-out; you then own reconciliation.
+```
+
+**Security note on logs.** The SDK redacts `idempotency_key` in its own debug captures, but the underlying `httpx`/`httpcore` loggers log full request bodies at `DEBUG`. If you enable `logging.basicConfig(level=logging.DEBUG)` in production, raise those two loggers back to `INFO` — otherwise full keys end up in logs during the seller's replay TTL window and become a retry-pattern oracle for anyone who can read them.
+
+### Building a seller: idempotency middleware
+
+If you're building an AdCP seller, the companion middleware handles the `(principal, key, canonical-hash)` bookkeeping so you don't hand-roll it per tool handler. Drop `@idempotency.wrap` above each mutating handler and declare your replay window in capabilities:
+
+```python
+from adcp.server import ADCPHandler, IdempotencyStore, MemoryBackend, serve
+from adcp.server.responses import capabilities_response
+
+idempotency = IdempotencyStore(
+    backend=MemoryBackend(),  # Use PgBackend for a durable, multi-worker cache
+    ttl_seconds=86400,        # 24h, spec-recommended floor
+    # In production, also set raise_on_persist_error=True and independently
+    # deduplicate the business effect using the same buyer key.
+)
+
+class MySeller(ADCPHandler):
+    async def get_adcp_capabilities(self, params, context=None):
+        return capabilities_response(
+            ["media_buy"],
+            idempotency=idempotency.capability(),
+        )
+
+    @idempotency.wrap
+    async def create_media_buy(self, params, context=None):
+        # Same key + canonical-equivalent payload → this body is skipped,
+        # the cached response is returned. Same key + different payload →
+        # IdempotencyConflictError raised before this runs, which the
+        # framework translates to IDEMPOTENCY_CONFLICT on the wire.
+        return my_business_logic(params)
+
+serve(MySeller(), name="my-seller")
+```
+
+The advertised capability applies globally, not just to the decorated example
+method. Declare it only after every mutating operation the seller supports is
+covered. Production integrations also need operation-aware handling for both
+inline responses and durable task handoffs; a partial set of method wrappers
+must leave `adcp.idempotency.supported` false.
+
+**What the middleware does for you:**
+
+- Extracts `idempotency_key` from `params`, scopes lookups by `context.caller_identity` (per-principal — a security requirement from AdCP §2315)
+- Hashes the payload with RFC 8785 JCS + SHA-256, stripping the spec's closed exclusion list (`idempotency_key`, `context`, `governance_context`, `push_notification_config.authentication.credentials`)
+- On cache hit with matching hash: returns the cached response verbatim, skips your handler (deep-copied so caller mutation can't poison future replays)
+- On cache hit with different hash: raises `IdempotencyConflictError`, which the framework surfaces as `IDEMPOTENCY_CONFLICT` on both MCP (`is_error=true` + text) and A2A (failed task with `adcp_error` DataPart)
+- On cache miss: runs your handler, then commits the response
+
+**Backends:** use `MemoryBackend` for tests and single-process agents. `PgBackend` provides a durable PostgreSQL replay cache for production deployments with multiple workers; it requires a separate advisory-lock pool and the `pg` extra.
+
+**Decorator atomicity caveat:** both backends commit the cache entry after your handler returns. `PgBackend` is durable and coordinates concurrent workers, but its cache transaction is not atomic with unrelated business writes. Put a uniqueness constraint on the business effect using the buyer's idempotency key so a crash between the side effect and cache commit cannot duplicate the effect. Read the `PgBackend` docstring before shipping it. For business and replay writes that must commit together, use the explicit `IdempotencyStore.reserve` / `slot.record` API; see [atomic PostgreSQL idempotency](docs/idempotency-transactions.md) for transaction ownership, commit-before-unlock ordering, and migration guidance.
+
+With `raise_on_persist_error=True`, a failed cache write becomes retryable
+`SERVICE_UNAVAILABLE`, but the handler has already completed and its outcome
+may be unknown. A retry is safe only when the downstream business effect is
+independently deduplicated using the same buyer key.
+
+**How caller identity gets populated.** The middleware scopes its cache by `(caller_identity, idempotency_key)` — same key from two buyers must hit different cache slots, and a buyer's retry must replay only against its own prior call. `caller_identity` comes from `ToolContext`, which the transport layer builds per request:
+
+- **A2A** — the framework derives `caller_identity` from `ServerCallContext.user.user_name` when the user is authenticated. Wire your [a2a-sdk auth middleware](https://a2aproject.github.io/) (bearer tokens, mTLS, OAuth) and `@idempotency.wrap` works automatically. Unauthenticated requests → no identity → dedup is skipped (fail-closed, with a one-time `UserWarning` so you notice).
+
+- **MCP** — FastMCP exposes a session `client_id` but not an authenticated principal. The SDK does NOT auto-populate `caller_identity` for MCP tools today. If you're serving via MCP, wire your own FastMCP auth middleware and populate `ToolContext.caller_identity` before the idempotency middleware runs — either by overriding `adcp.server.mcp_tools.create_tool_caller` or by wrapping your handlers directly. Without this, `@idempotency.wrap` is a no-op on MCP (you'll get the one-time warning above).
+
+**Principal contract.** `caller_identity` MUST be a stable, globally-unique identifier per tenant — an opaque buyer ID, not an email or display name. Email reuse after account deletion would cause cross-principal cache collisions. The value is logged at DEBUG (prefix-truncated) and keyed on in the cache; treat it as you would any user-scoping identifier.
+
+### AdCP 3.0.0-rc.4 migration
+
+**`plan.budget.authority_level` removed.** The single enum (`agent_full` / `agent_limited` / `human_required`) is replaced by two orthogonal fields on `plan.budget`, plus a new top-level flag on `plan`:
+
+| Old (removed) | New |
+|---|---|
+| `budget.authority_level: agent_full` | `budget.reallocation_unlimited: true` |
+| `budget.authority_level: agent_limited` | `budget.reallocation_threshold: <amount>` (in `budget.currency`) |
+| `budget.authority_level: human_required` | Set `plan.human_review_required: true` **and** `budget.reallocation_threshold: 0` |
+
+`reallocation_threshold` and `reallocation_unlimited` are mutually exclusive — pick one. `plan.human_review_required` is a separate field governing decisions that affect data subjects (targeting, creative, delivery) under GDPR Art 22 / EU AI Act Annex III; set it independently from the budget reallocation autonomy.
+
+```python
+# Before (rc.3 and earlier)
+plan = SyncPlansRequest(plans=[{
+    "plan_id": "...",
+    "budget": {"total": 100000, "currency": "USD", "authority_level": "agent_limited"},
+}])
+
+# After (rc.4+)
+plan = SyncPlansRequest(plans=[{
+    "plan_id": "...",
+    "budget": {
+        "total": 100000,
+        "currency": "USD",
+        "reallocation_threshold": 5000,  # agent may reallocate up to $5K per change
+    },
+    "human_review_required": False,  # defaults to False; set True for GDPR Art 22 gating
+}])
+```
+
+Any hand-coded `plan.budget` payload using `authority_level` will fail Pydantic validation against the rc.4 schema with `extra fields not permitted`. The SDK itself has no code references to the old enum; downstream consumers need to update their payloads.
+
+**`update_rights` task added.** Buyers can now modify an existing rights acquisition without re-acquiring. See `client.update_rights(request)` or the MCP/A2A `update_rights` tool.
+
+## Available Tools
+
+All AdCP tools with full type safety:
+
+**Media Buy Lifecycle:**
+- `get_products()` - Discover advertising products
+- Product `format_options` from `get_products()` - Discover accepted canonical formats
+- `list_creative_formats_legacy()` - Explicit deprecated raw-format escape hatch
+- `create_media_buy()` - Create new media buy
+- `update_media_buy()` - Update existing media buy
+- `sync_creatives()` - Upload/sync creative assets
+- `list_creatives()` - List creative assets
+- `get_media_buy_delivery()` - Get delivery performance
+
+**Creative Management:**
+- `preview_creative()` - Preview creative before building
+- `build_creative()` - Generate production-ready creative assets
+
+**Discovery & Accounts:**
+- `get_adcp_capabilities()` - Discover agent capabilities and authorized publishers
+- `list_accounts()` - List billing accounts
+
+**Audience & Targeting:**
+- `get_signals()` - Get audience signals
+- `activate_signal()` - Activate audience signals
+- `provide_performance_feedback()` - Send performance feedback
+
+## Workflow Examples
+
+### Complete Media Buy Workflow
+
+A typical media buy workflow involves discovering products, creating the buy, and managing creatives:
+
+```python
+from adcp import ADCPClient, AgentConfig, GetProductsRequest, CreateMediaBuyRequest
+from adcp import BrandReference, PublisherPropertiesAll
+
+# 1. Connect to agent
+config = AgentConfig(id="sales_agent", agent_uri="https://...", protocol="mcp")
+async with ADCPClient(config) as client:
+
+    # 2. Discover available products
+    products_result = await client.get_products(
+        GetProductsRequest(brief="Premium video inventory for coffee brand", buying_mode="brief")
+    )
+
+    if products_result.success:
+        product = products_result.data.products[0]
+        print(f"Found product: {product.name}")
+
+    # 3. Create media buy reservation
+    media_buy_result = await client.create_media_buy(
+        CreateMediaBuyRequest(
+            brand=BrandReference(domain="coffeeco.com"),
+            packages=[{
+                "package_id": product.packages[0].package_id,
+                "quantity": 1000000,  # impressions
+            }],
+            publisher_properties=PublisherPropertiesAll(
+                selection_type="all",  # Target all authorized properties
+            ),
+        )
+    )
+
+    if media_buy_result.success:
+        media_buy_id = media_buy_result.data.media_buy_id
+        revision = media_buy_result.data.revision
+        confirmed_at = media_buy_result.data.confirmed_at
+        print(f"✅ Media buy created: {media_buy_id} at {confirmed_at}")
+
+    # 4. Update media buy if needed
+    from adcp import UpdateMediaBuyPackagesRequest
+
+    update_result = await client.update_media_buy(
+        UpdateMediaBuyPackagesRequest(
+            media_buy_id=media_buy_id,
+            revision=revision,  # optimistic concurrency token from create/get/update
+            packages=[{
+                "package_id": product.packages[0].package_id,
+                "quantity": 1500000  # Increase budget
+            }]
+        )
+    )
+
+    if update_result.success:
+        revision = update_result.data.revision
+        print("✅ Media buy updated")
+```
+
+`revision` is the media-buy concurrency token. Read it from `create_media_buy`,
+`get_media_buys`, or the last successful `update_media_buy`, then pass it on the
+next mutating update so the seller can reject stale writes. `confirmed_at` is the
+seller commitment timestamp and should remain stable across later pause/resume or
+budget updates. The key is always present on a success response, but its value is
+`None` until the seller actually commits — a buy still in `pending_creatives` has
+no commitment instant to report — so narrow it before use.
+
+### Complete Creative Workflow
+
+Build and deliver production-ready creatives:
+
+```python
+from adcp import ADCPClient, AgentConfig
+from adcp import PreviewCreativeRequest, BuildCreativeRequest
+from adcp import CreativeManifest, LegacyListCreativeFormatsRequest
+
+# 1. Connect to creative agent
+config = AgentConfig(id="creative_agent", agent_uri="https://...", protocol="mcp")
+async with ADCPClient(config) as client:
+
+    # 2. Legacy-only named-format discovery for this pre-canonical build flow
+    formats_result = await client.list_creative_formats_legacy(
+        LegacyListCreativeFormatsRequest()
+    )
+
+    if formats_result.success:
+        # format_id is a FormatReferenceStructuredObject; reuse it directly
+        format_id = formats_result.data.formats[0].format_id
+        print(f"Using format: {format_id.id}")
+
+    # 3. Preview creative (test before building)
+    preview_result = await client.preview_creative(
+        PreviewCreativeRequest(
+            request_type="single",
+            format_id=format_id,
+            inputs=[
+                {
+                    "name": "Coffee promo",
+                    "macros": {
+                        "headline": "Fresh Coffee Daily",
+                        "cta": "Order Now",
+                    },
+                }
+            ],
+            output_format="url",  # Get preview URL
+        )
+    )
+
+    if preview_result.success:
+        preview_url = preview_result.data.renders[0].url
+        print(f"Preview at: {preview_url}")
+
+    # 4. Build production creative
+    build_result = await client.build_creative(
+        BuildCreativeRequest(
+            idempotency_key="build-coffee-001",
+            creative_manifest=CreativeManifest(
+                format_id=format_id,
+                assets={
+                    "banner_image": {
+                        "asset_type": "image",
+                        "url": "https://cdn.coffeeco.com/banner_300x250.png",
+                        "width": 300,
+                        "height": 250,
+                    }
+                },
+            ),
+            target_format_id=format_id,
+        )
+    )
+
+    if build_result.success:
+        vast_url = build_result.data.assets[0].url
+        print(f"✅ Creative ready: {vast_url}")
+```
+
+### Integrated Workflow: Media Buy + Creatives
+
+Combine both workflows for a complete campaign setup:
+
+```python
+from adcp import ADCPMultiAgentClient, AgentConfig, BrandReference, PublisherPropertiesAll
+from adcp import BuildCreativeRequest, CreateMediaBuyRequest, CreativeManifest
+
+# Connect to both sales and creative agents
+async with ADCPMultiAgentClient(
+    agents=[
+        AgentConfig(id="sales", agent_uri="https://sales-agent.com", protocol="mcp"),
+        AgentConfig(id="creative", agent_uri="https://creative-agent.com", protocol="mcp"),
+    ]
+) as client:
+
+    # 1. Get products from sales agent
+    sales_agent = client.agent("sales")
+    products = await sales_agent.simple.get_products(
+        brief="Premium video inventory",
+        buying_mode="brief",
+    )
+
+    # 2. Get creative formats from creative agent
+    creative_agent = client.agent("creative")
+    formats = await creative_agent.simple.list_creative_formats_legacy()
+    format_id = formats.formats[0].format_id
+
+    # 3. Build creative asset
+    creative_result = await creative_agent.build_creative(
+        BuildCreativeRequest(
+            idempotency_key="build-campaign-001",
+            creative_manifest=CreativeManifest(
+                format_id=format_id,
+                assets={
+                    "banner_image": {
+                        "asset_type": "image",
+                        "url": "https://cdn.coffeeco.com/banner_300x250.png",
+                        "width": 300,
+                        "height": 250,
+                    }
+                },
+            ),
+            target_format_id=format_id,
+        )
+    )
+
+    # 4. Create media buy with creative
+    media_buy_result = await sales_agent.create_media_buy(
+        CreateMediaBuyRequest(
+            brand=BrandReference(domain="coffeeco.com"),
+            packages=[{"package_id": products.products[0].packages[0].package_id}],
+            publisher_properties=PublisherPropertiesAll(selection_type="all"),
+            creative_urls=[creative_result.data.assets[0].url],
+        )
+    )
+
+    print(f"✅ Campaign live: {media_buy_result.data.media_buy_id}")
+```
+
+## Property Discovery (AdCP v2.2.0)
+
+Build agent registries by discovering properties agents can sell:
+
+```python
+from adcp.discovery import PropertyCrawler, get_property_index
+
+# Crawl agents to discover properties
+crawler = PropertyCrawler()
+await crawler.crawl_agents([
+    {"agent_url": "https://agent-x.com", "protocol": "a2a"},
+    {"agent_url": "https://agent-y.com/mcp/", "protocol": "mcp"}
+])
+
+index = get_property_index()
+
+# Query 1: Who can sell this property?
+matches = index.find_agents_for_property("domain", "cnn.com")
+
+# Query 2: What can this agent sell?
+auth = index.get_agent_authorizations("https://agent-x.com")
+
+# Query 3: Find by tags
+premium = index.find_agents_by_property_tags(["premium", "ctv"])
+```
+
+## Publisher Authorization Validation
+
+Verify sales agents are authorized to sell publisher properties via adagents.json:
+
+```python
+from adcp import (
+    fetch_adagents,
+    verify_agent_authorization,
+    verify_agent_for_property,
+)
+
+# Fetch and parse adagents.json from publisher
+adagents_data = await fetch_adagents("publisher.com")
+
+# Verify agent authorization for a property
+is_authorized = verify_agent_authorization(
+    adagents_data=adagents_data,
+    agent_url="https://sales-agent.example.com",
+    property_type="website",
+    property_identifiers=[{"type": "domain", "value": "publisher.com"}]
+)
+
+# Or use convenience wrapper (fetch + verify in one call)
+is_authorized = await verify_agent_for_property(
+    publisher_domain="publisher.com",
+    agent_url="https://sales-agent.example.com",
+    property_identifiers=[{"type": "domain", "value": "publisher.com"}],
+    property_type="website"
+)
+```
+
+**Domain Matching Rules:**
+- Exact match: `example.com` matches `example.com`
+- Common subdomains: `www.example.com` matches `example.com`
+- Wildcards: `api.example.com` matches `*.example.com`
+- Protocol-agnostic: `http://agent.com` matches `https://agent.com`
+
+**Use Cases:**
+- Sales agents verify authorization before accepting media buys
+- Publishers test their adagents.json files
+- Developer tools build authorization validators
+
+See `examples/adagents_validation.py` for complete examples.
+
+### Authorization Discovery
+
+Discover which publishers have authorized your agent using two approaches:
+
+**1. "Push" Approach** - Ask the agent (recommended, fastest):
+```python
+from adcp import ADCPClient, GetAdcpCapabilitiesRequest
+
+async with ADCPClient(agent_config) as client:
+    # Single API call to agent
+    result = await client.get_adcp_capabilities(GetAdcpCapabilitiesRequest())
+    if result.success and result.data.media_buy:
+        portfolio = result.data.media_buy.portfolio
+        print(f"Authorized for: {portfolio.publisher_domains}")
+```
+
+**2. "Pull" Approach** - Check publisher adagents.json files (when you need property details):
+```python
+from adcp import fetch_agent_authorizations
+
+# Check specific publishers (fetches in parallel)
+contexts = await fetch_agent_authorizations(
+    "https://our-sales-agent.com",
+    ["nytimes.com", "wsj.com", "cnn.com"]
+)
+
+for domain, ctx in contexts.items():
+    print(f"{domain}:")
+    print(f"  Property IDs: {ctx.property_ids}")
+    print(f"  Tags: {ctx.property_tags}")
+```
+
+**When to use which:**
+- **Push**: Quick discovery, portfolio overview, high-level authorization check
+- **Pull**: Property-level details, specific publisher list, works offline
+
+See `examples/fetch_agent_authorizations.py` for complete examples.
+
+## Request Signing (AdCP 3.0 optional, 4.0 required)
+
+AdCP defines an optional transport-layer request-signing profile based on
+[RFC 9421 HTTP Message Signatures](https://datatracker.ietf.org/doc/rfc9421/).
+A valid signature proves the request came from the agent whose key signed it.
+See the [spec profile](https://adcontextprotocol.org/docs/building/implementation/security#signed-requests-transport-layer)
+and the [conformance vectors](https://adcontextprotocol.org/test-vectors/request-signing/).
+
+### Generate a keypair
+
+```bash
+python -m adcp.signing.keygen --alg ed25519 --out signing-key.pem
+# prints the JWK to stdout — publish it at your agent's jwks_uri
+```
+
+ES256 is also supported: `--alg es256`. Ed25519 is the recommended default.
+
+### Sign an outgoing request
+
+```python
+from cryptography.hazmat.primitives import serialization
+from adcp.signing import sign_request
+
+private_key = serialization.load_pem_private_key(
+    open("signing-key.pem", "rb").read(), password=None
+)
+
+signed = sign_request(
+    method="POST",
+    url="https://seller.example.com/adcp/create_media_buy",
+    headers={"Content-Type": "application/json"},
+    body=body,
+    private_key=private_key,
+    key_id="adcp-ed25519-20260418",
+    alg="ed25519",
+    cover_content_digest=True,  # required by sellers that set covers_content_digest="required"
+    signing_profile_version="3.2",  # required for the low-level signer
+)
+httpx.post(url, content=body, headers={**headers, **signed.as_dict()})
+```
+
+### Auto-sign on `ADCPClient`
+
+The high-level client wires the signing event hook for you when you pass a `SigningConfig`:
+
+```python
+from adcp.client import ADCPClient
+from adcp.signing import SigningConfig, load_private_key_pem
+
+signing = SigningConfig(
+    private_key=load_private_key_pem(open("signing-key.pem", "rb").read()),
+    key_id="my-agent-2026",
+)
+
+client = ADCPClient(agent_config, signing=signing)
+# Outbound calls are signed automatically per the seller's request_signing capability.
+```
+
+### Auto-sign on raw httpx (no ADCPClient)
+
+For adapters that integrate against a seller via raw `httpx`, install the same hook on your own client:
+
+```python
+import httpx
+from adcp.signing import SigningConfig, install_signing_event_hook, signing_operation
+
+client = httpx.AsyncClient()
+install_signing_event_hook(
+    client,
+    signing=signing,
+    seller_capability=seller_caps.request_signing,
+    adcp_version="3.2",
+)
+
+async with client:
+    with signing_operation("create_media_buy"):
+        resp = await client.post("https://seller.example.com/mcp", json=payload)
+```
+
+### Verify incoming requests (framework)
+
+Sellers on `serve()` opt in and the framework verifies before dispatch, enforcing the `request_signing` block they advertise — unsigned `required_for` calls get `401` + `WWW-Authenticate: Signature error="request_signature_required"`, and a verified signer becomes `ctx.caller_identity` (the buyer's agent URL) plus an `http_sig` `AuthInfo` for `BuyerAgentRegistry` dispatch:
+
+```python
+from adcp.decisioning import serve
+from adcp.signing import JwksUriSignerKeys
+
+serve(
+    platform,  # platform.capabilities.request_signing is enforced as declared
+    signer_keys=JwksUriSignerKeys({
+        "https://buyer.example.com": "https://buyer.example.com/.well-known/jwks.json",
+    }),
+    signature_replay_store=replay_store,  # shared store for multi-replica deployments
+)
+```
+
+On `adcp.server.serve`, pass `request_signature_verification=RequestSignatureVerification.from_capability(request_signing, signer_keys=..., replay_store=...)`. See [`docs/request-signing-migration.md`](docs/request-signing-migration.md#framework-verification) for the full behavior.
+
+### Verify incoming requests (FastAPI, by hand)
+
+```python
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from adcp.signing import (
+    CachingJwksResolver, InMemoryReplayStore, SignatureVerificationError,
+    VerifierCapability, VerifyOptions,
+    unauthorized_response_headers, verify_starlette_request,
+)
+
+jwks = CachingJwksResolver("https://buyer.example.com/.well-known/jwks.json")
+capability = VerifierCapability(
+    covers_content_digest="required",
+    required_for=frozenset({"create_media_buy"}),
+)
+# One store for every request. Omitting `replay_store` from the per-request
+# VerifyOptions gives each request a fresh store, which disables replay
+# protection. Use a shared store (PgReplayStore via the [pg] extra) across replicas.
+replay_store = InMemoryReplayStore()
+
+@app.post("/adcp/create_media_buy")
+async def create_media_buy(request: Request):
+    options = VerifyOptions(
+        now=time.time(),
+        capability=capability,
+        operation="create_media_buy",
+        jwks_resolver=jwks,
+        replay_store=replay_store,
+    )
+    try:
+        signer = await verify_starlette_request(request, options=options)
+    except SignatureVerificationError as exc:
+        return JSONResponse(
+            {"error": exc.code},
+            status_code=401,
+            headers=unauthorized_response_headers(exc),
+        )
+    # signer.key_id is the verified caller's key identity.
+    # signer.parsed_body is the body as parsed by the strict step-14 parser;
+    # dispatch on it instead of `await request.json()`, which keeps the last
+    # of two duplicate keys. It is signed only when signer.body_authenticated
+    # is True (content-digest covered and matched); under "either" a
+    # signature may leave the body unauthenticated.
+    ...
+```
+
+Flask has an equivalent synchronous helper `verify_flask_request`.
+
+To discover keys from an agent URL, use `async_resolve_agent` or
+`verify_from_agent_url`. Both call `get_adcp_capabilities` over MCP by default;
+pass `protocol="a2a"` for A2A agents. See
+[agent identity resolution](docs/agent-identity-resolution.md) for examples and limits.
+
+A signed body that is not strict JSON (duplicate object keys at any depth,
+invalid UTF-8, or not JSON) is rejected with `request_body_malformed` after
+the nonce is consumed (checklist step 14).
+
+### Migration & rollout
+
+Rolling signing out against an existing integration is a staged exercise — bootstrap, then advance each operation through `supported_for` → `warn_for` → `required_for`. See [`docs/request-signing-migration.md`](docs/request-signing-migration.md) for the full walkthrough including key rotation, common pitfalls, and a pre-enforcement checklist.
+
+### Conformance
+
+The verifier passes the AdCP request-signing conformance vectors bundled under
+`tests/conformance/vectors/request-signing/` (positive, negative, and the 3.2
+profile). Run them against your signer or verifier:
+
+```bash
+pytest tests/conformance/signing/
+```
+
+## CLI Tool
+
+The `adcp` command-line tool provides easy interaction with AdCP agents without writing code.
+
+### Installation
+
+```bash
+# Install globally
+pip install adcp
+
+# Or use uvx to run without installing
+uvx adcp --help
+```
+
+### Quick Start
+
+```bash
+# Save agent configuration
+uvx adcp --save-auth myagent https://agent.example.com mcp
+
+# List tools available on agent
+uvx adcp myagent list_tools
+
+# Execute a tool
+uvx adcp myagent get_products '{"brief":"TV ads"}'
+
+# Use from stdin
+echo '{"brief":"TV ads"}' | uvx adcp myagent get_products
+
+# Use from file
+uvx adcp myagent get_products @request.json
+
+# Get JSON output
+uvx adcp --json myagent get_products '{"brief":"TV ads"}'
+
+# Enable debug mode
+uvx adcp --debug myagent get_products '{"brief":"TV ads"}'
+```
+
+### Using Test Agents from CLI
+
+The CLI provides easy access to public test agents without configuration:
+
+```bash
+# Use test agent with authentication (MCP)
+uvx adcp https://test-agent.adcontextprotocol.org/mcp/ \
+  --auth 1v8tAhASaUYYp4odoQ1PnMpdqNaMiTrCRqYo9OJp6IQ \
+  get_products '{"brief":"Coffee brands"}'
+
+# Use test agent WITHOUT authentication (MCP)
+uvx adcp https://test-agent.adcontextprotocol.org/mcp/ \
+  get_products '{"brief":"Coffee brands"}'
+
+# Use test agent with authentication (A2A)
+uvx adcp --protocol a2a \
+  --auth 1v8tAhASaUYYp4odoQ1PnMpdqNaMiTrCRqYo9OJp6IQ \
+  https://test-agent.adcontextprotocol.org \
+  get_products '{"brief":"Coffee brands"}'
+
+# Save test agent for easier access
+uvx adcp --save-auth test-agent https://test-agent.adcontextprotocol.org/mcp/ mcp
+# Enter token when prompted: 1v8tAhASaUYYp4odoQ1PnMpdqNaMiTrCRqYo9OJp6IQ
+
+# Now use saved config
+uvx adcp test-agent get_products '{"brief":"Coffee brands"}'
+
+# Use creative agent (no auth required)
+uvx adcp https://creative.adcontextprotocol.org/mcp \
+  preview_creative @creative_manifest.json
+```
+
+**Test Agent Details:**
+- **URL (MCP)**: `https://test-agent.adcontextprotocol.org/mcp/`
+- **URL (A2A)**: `https://test-agent.adcontextprotocol.org`
+- **Auth Token**: `1v8tAhASaUYYp4odoQ1PnMpdqNaMiTrCRqYo9OJp6IQ` (optional, public token)
+- **Rate Limited**: For testing only, not for production
+- **No Auth Mode**: Omit `--auth` flag to test unauthenticated behavior
+```
+
+### Configuration Management
+
+```bash
+# Save agent with authentication
+uvx adcp --save-auth myagent https://agent.example.com mcp
+# Prompts for optional auth token
+
+# List saved agents
+uvx adcp --list-agents
+
+# Remove saved agent
+uvx adcp --remove-agent myagent
+
+# Show config file location
+uvx adcp --show-config
+```
+
+### Direct URL Access
+
+```bash
+# Use URL directly without saving
+uvx adcp https://agent.example.com/mcp list_tools
+
+# Override protocol
+uvx adcp --protocol a2a https://agent.example.com list_tools
+
+# Pass auth token
+uvx adcp --auth YOUR_TOKEN https://agent.example.com list_tools
+```
+
+### Examples
+
+```bash
+# Get products from saved agent
+uvx adcp myagent get_products '{"brief":"Coffee brands for digital video"}'
+
+# Create media buy
+uvx adcp myagent create_media_buy '{
+  "name": "Q4 Campaign",
+  "budget": 50000,
+  "start_date": "2024-01-01",
+  "end_date": "2024-03-31"
+}'
+
+# List creative formats with JSON output
+uvx adcp --json myagent list_creative_formats_legacy | jq '.data'
+
+# Debug connection issues
+uvx adcp --debug myagent list_tools
+```
+
+### Configuration File
+
+Agent configurations are stored in `~/.adcp/config.json`:
+
+```json
+{
+  "agents": {
+    "myagent": {
+      "agent_uri": "https://agent.example.com",
+      "protocol": "mcp",
+      "auth_token": "optional-token"
+    }
+  }
+}
+```
+
+## Environment Configuration
+
+```bash
+# .env
+WEBHOOK_URL_TEMPLATE="https://myapp.com/webhook/{task_type}/{agent_id}/{operation_id}"
+WEBHOOK_SECRET="your-webhook-secret"
+
+ADCP_AGENTS='[
+  {
+    "id": "agent_x",
+    "agent_uri": "https://agent-x.com",
+    "protocol": "a2a",
+    "auth_token_env": "AGENT_X_TOKEN"
+  }
+]'
+AGENT_X_TOKEN="actual-token-here"
+```
+
+```python
+# Auto-discover from environment
+client = ADCPMultiAgentClient.from_env()
+```
+
+## Development
+
+This repository uses `uv` for the contributor environment and pre-commit hooks.
+Install `uv` first if it is not already on your `PATH`.
+
+```bash
+# Install dev dependencies and git hooks (requires uv)
+make bootstrap
+
+# Run tests
+make test
+
+# Type checking: source package plus adopter-facing type fixtures
+make typecheck-all
+
+# Format code
+make format
+make lint
+```
+
+`make ci-local` runs the core local gate: lint, all type-check contracts, tests,
+and generated-code validation. Specialized CI jobs such as storyboard runners,
+Postgres conformance, and conventional-commit validation still run separately in
+GitHub Actions.
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. All contributors must agree to the [AgenticAdvertising.Org IPR Policy](https://github.com/adcontextprotocol/adcp/blob/main/IPR_POLICY.md) — the bot prompts new contributors on their first PR and a single signature covers all AAO repositories.
+
+## License
+
+Apache 2.0 License - see [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **API Reference**: [adcontextprotocol.github.io/adcp-client-python](https://adcontextprotocol.github.io/adcp-client-python/)
+- **Protocol Documentation**: [docs.adcontextprotocol.org](https://docs.adcontextprotocol.org)
+- **Issues**: [GitHub Issues](https://github.com/adcontextprotocol/adcp-client-python/issues)
+- **Protocol Spec**: [AdCP Specification](https://github.com/adcontextprotocol/adcp)

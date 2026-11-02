@@ -65,6 +65,10 @@ CORE_SOURCES = (
     # The sinusoidal basis' point-matched field tensors (momwire#1607 B1):
     # the extension TU's text over `_mw_nd.h`'s arrays.
     "_sinusoidal_core.cpp",
+    # The Sinusoidal-Galerkin far fills (momwire#1718 S1): the extension TU's
+    # text over `_mw_nd.h`'s arrays, and the complex fill's sweep TU it calls.
+    "_sinusoidal_galerkin_core.cpp",
+    "_accel_sinusoidal_cplx.cpp",
     # The NEC-4 dialect's junction kernels and solve (momwire#1644), which
     # the front half and the fill call.
     "_sinusoidal_nec4_core.cpp",
@@ -74,10 +78,24 @@ CORE_SOURCES = (
     # The sinusoidal free-space fill and port solve over it (momwire#1607
     # B3), linked into `sinusoidal_fill_driver.cpp`.
     "_sinusoidal_fill_core.cpp",
+    "_sinusoidal_transmitted_core.cpp",
+    # The Sinusoidal-Galerkin mixed-potential fill and port solve over the
+    # same front (momwire#1718 S2), linked into
+    # `sinusoidal_galerkin_fill_driver.cpp`.
+    "_sinusoidal_galerkin_fill_core.cpp",
+    "_sinusoidal_galerkin_crossing_core.cpp",
+    # Its direct-field fill (momwire#1718 S7): a wire end on the ground plane.
+    "_sinusoidal_galerkin_direct_core.cpp",
+    "_sinusoidal_crossing_core.cpp",
     # The NEC-4.2 run half and the sinusoidal basis' answers to it
     # (momwire#1607 B4a), linked into `nec4_sinusoidal_printout_driver.cpp`.
     "_nec4_run_core.cpp",
     "_sinusoidal_run_core.cpp",
+    # The Sinusoidal-Galerkin basis' answers to the same run half
+    # (momwire#1718 S3).
+    "_sinusoidal_galerkin_run_core.cpp",
+    # The B-spline basis' answers to the same run half (momwire#1607 C1).
+    "_bspline_nec4_run_core.cpp",
     # The NEC-5 deck reader (unit 2a): the executable's first step, card text
     # to the parsed deck, linked into `nec5_deck_driver.cpp` below.
     "_nec5_deck_core.cpp",
@@ -112,6 +130,8 @@ CORE_SOURCES = (
     "_somm_below_proj_core.cpp",
     "_somm_below_grid_core.cpp",
     "_somm_below_fill_core.cpp",
+    # The transmitted table and projection (momwire#1718 S12).
+    "_somm_transmitted_core.cpp",
     "_near_interface_core.cpp",
     "_near_interface_eval.cpp",
     # The point-observer twin and the buried near-field readout over it
@@ -124,14 +144,19 @@ CORE_SOURCES = (
     # The B-spline remainder block's kernel (momwire#1517 step 3).
     "_somm_remainder_core.cpp",
     "_somm_pairs_core.cpp",
+    "_somm_pairs_owned_core.cpp",
     # bs2's NEC-5 seam, front half, fill and run half (momwire#1517 step 1):
     # deck text to printout bytes for the B-spline basis, linked into
     # `nec5_bspline_printout_driver.cpp`.
     "_nec5_bspline_seam_core.cpp",
     "_bspline_front_core.cpp",
     "_bspline_fill_core.cpp",
+    "_bspline_transmitted_core.cpp",
     "_bspline_crossing_core.cpp",
     "_nec5_bspline_printout_core.cpp",
+    # The Sinusoidal-Galerkin basis on the NEC-5 seam (momwire#1718 S8),
+    # linked into `nec5_sinusoidal_galerkin_printout_driver.cpp`.
+    "_nec5_sinusoidal_galerkin_core.cpp",
 )
 DECK = ROOT / "tests" / "fixtures" / "razor_front_deck.txt"
 
@@ -227,9 +252,14 @@ def driver(accel, tmp_path_factory):
         "exact_kernel_coaxial_driver",
         "bspline_core_driver",
         "sinusoidal_core_driver",
+        "sinusoidal_galerkin_far_driver",
         "sinusoidal_front_driver",
         "sinusoidal_fill_driver",
+        "sinusoidal_galerkin_fill_driver",
         "nec4_sinusoidal_printout_driver",
+        "nec4_sinusoidal_galerkin_printout_driver",
+        "nec5_sinusoidal_galerkin_printout_driver",
+        "transmitted_core_driver",
     )
     sources = [PKG / s for s in CORE_SOURCES] + [SPLIT / f"{d}.cpp" for d in drivers]
     objects, deps, cmds = {}, [], []
@@ -278,8 +308,11 @@ def test_the_core_includes_no_python_header(driver):
     assert "_nec5_razor_seam_core.h" in seen, "the seam's core was not built"
     assert "_bspline_core.h" in seen, "the B-spline kernels' core was not built"
     assert "_sinusoidal_core.h" in seen, "the sinusoidal kernels' core was not built"
+    assert "_sinusoidal_galerkin_core.h" in seen, "the SG far fill's core was not built"
     assert "_sinusoidal_front_core.h" in seen, "the sinusoidal front half was not built"
     assert "_sinusoidal_fill_core.h" in seen, "the sinusoidal fill was not built"
+    assert "_sinusoidal_galerkin_fill_core.h" in seen, "the SG fill was not built"
+    assert "_sinusoidal_galerkin_direct_core.h" in seen, "the SG direct fill is missing"
     assert "_nec4_run_core.h" in seen, "the NEC-4.2 run half was not built"
     for marker in ("Python.h", "pybind11", "numpy"):
         assert marker not in seen, f"a core TU includes {marker}"
@@ -501,6 +534,63 @@ def test_the_sinusoidal_fill_in_cxx_alone_is_pythons(driver):
     assert compared >= 30, compared
 
 
+@pytest.mark.slow  # the free-space NEC-4.2 fixtures, each solved twice
+def test_the_sinusoidal_galerkin_fill_in_cxx_alone_is_pythons(driver):
+    """momwire#1718 S2: the Sinusoidal-Galerkin mixed-potential fill and port
+    solve in free space (G, the coefficients, Y), built from the core TUs
+    alone (`sinusoidal_galerkin_fill_driver`, on the OpenBLAS SciPy bundles),
+    is `SinusoidalGalerkinSolver.compute_port_solution`'s at every operating
+    point the NEC-4.2 build makes of every fixture deck it fills, to the
+    bit -- since S7 the direct-field fill of the decks with a wire end on the
+    ground plane among them."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_sinusoidal_galerkin_fill_compare",
+        SPLIT / "sinusoidal_galerkin_fill_compare.py",
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    run = subprocess.run(
+        [
+            str(driver[0]["sinusoidal_galerkin_fill_driver"]),
+            pc.scipy_openblas(),
+            pc.numpy_openblas(),
+            *map(str, decks),
+        ],
+        capture_output=True,
+        check=True,
+        env=dict(os.environ, **_ONE_THREAD),
+    )
+    dumps: dict[str, str] = {}
+    current = None
+    for line in run.stdout.decode("utf-8").splitlines(keepends=True):
+        if line.startswith("== "):
+            current = line[3:].rstrip("\n")
+            dumps[current] = ""
+        else:
+            dumps[current] += line
+    compared = contact = 0
+    for path in decks:
+        cxx = dumps[str(path)]
+        if nc.classify(cxx) != "fills":
+            continue
+        diff = nc.dc.first_difference(
+            nc.py_fill(path.read_bytes().decode("latin-1")), cxx
+        )
+        assert diff is None, (path, diff)
+        compared += 1
+        contact += path.name.startswith(("0234_", "0235_", "m1_", "m2_", "p6_"))
+    assert compared >= 80, compared
+    assert contact >= 5, contact
+
+
 @pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.1
 def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
     """momwire#1607 B4a: deck text to the NEC-4.2 slot's printout for the
@@ -517,10 +607,64 @@ def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
     assert _nec42_sinusoidal_printouts(driver, decks) >= 30
 
 
-def _nec42_sinusoidal_printouts(driver, decks) -> int:
-    """How many of `decks` `nec4_sinusoidal_printout_driver` prints, each
-    checked against `_nec4.render(text, basis="sinusoidal")` byte for byte but
-    for the two measured-time lines."""
+@pytest.mark.slow  # every NEC-4.2 fixture, printed by both copies
+def test_the_nec42_sinusoidal_galerkin_printout_in_cxx_alone_is_pythons(driver):
+    """momwire#1718 S3: deck text to the NEC-4.2 slot's printout for the
+    Sinusoidal-Galerkin basis, built from the core TUs alone
+    (`nec4_sinusoidal_galerkin_printout_driver`), is `_nec4.render(text,
+    basis="sinusoidal-galerkin")`'s on every NEC-4.2 fixture deck it prints,
+    byte for byte but for the two measured-time lines."""
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    assert _nec42_sinusoidal_printouts(driver, decks, "sinusoidal-galerkin") >= 80
+
+
+def test_a_wholly_buried_sinusoidal_galerkin_printout_in_cxx_alone_is_pythons(
+    driver, monkeypatch
+):
+    """momwire#1718 S11a: the lower-medium fill (k_m, the below remainder,
+    the loss power at k_m) through the core TUs alone, on the buried
+    fixtures; the below grids the exact fill on both sides."""
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
+    decks = sorted(
+        (ROOT / "tests" / "fixtures" / "bspline_printout_buried").glob("*.nec")
+    )
+    assert _nec42_sinusoidal_printouts(driver, decks, "sinusoidal-galerkin") == len(
+        decks
+    )
+
+
+@pytest.mark.slow  # the mixed decks' transmitted tables, filled by both copies
+def test_the_mixed_decks_print_as_python_on_the_nec42_sinusoidal(driver, monkeypatch):
+    """momwire#1718 S12: wires on both sides of the interface with no
+    crossing junction through the point-matched lane in C++ alone -- the
+    stitched basis, the two transmitted pair classes over the table
+    `_somm_transmitted_core` fills, the class blocks -- byte for byte as
+    `_nec4.render(text, basis="sinusoidal")` prints them. Two decline by
+    name: two radii (the class kernels read one) and a near field over a
+    buried wire."""
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
+    decks = sorted(
+        (ROOT / "tests" / "fixtures" / "transmitted_mixed").glob("*.nec")
+    ) + [
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "eznec_nec42"
+        / "probes"
+        / "p9_above_and_buried_gn2.nec"
+    ]
+    assert _nec42_sinusoidal_printouts(driver, decks) == len(decks) - 2
+
+
+def _nec42_sinusoidal_printouts(driver, decks, basis="sinusoidal") -> int:
+    """How many of `decks` `nec4_sinusoidal_printout_driver` (for `basis`
+    "sinusoidal-galerkin", `nec4_sinusoidal_galerkin_printout_driver`)
+    prints, each checked against `_nec4.render(text, basis=basis)` byte for
+    byte but for the two measured-time lines."""
     spec = importlib.util.spec_from_file_location(
         "core_split_nec4_run_compare", SPLIT / "nec4_run_compare.py"
     )
@@ -532,7 +676,13 @@ def _nec42_sinusoidal_printouts(driver, decks) -> int:
     version, variant, marker = rc.pc.stamp()
     run = subprocess.run(
         [
-            str(driver[0]["nec4_sinusoidal_printout_driver"]),
+            str(
+                driver[0][
+                    "nec4_sinusoidal_galerkin_printout_driver"
+                    if basis == "sinusoidal-galerkin"
+                    else "nec4_sinusoidal_printout_driver"
+                ]
+            ),
             pc.scipy_openblas(),
             pc.numpy_openblas(),
             version,
@@ -568,7 +718,7 @@ def _nec42_sinusoidal_printouts(driver, decks) -> int:
             ok, text = answers[str(path)]
             if not ok:
                 continue
-            a, na = rc.mask(rc.py_printout(path.read_bytes().decode("latin-1")))
+            a, na = rc.mask(rc.py_printout(path.read_bytes().decode("latin-1"), basis))
             b, nb = rc.mask(text)
             assert (rc.first_difference(a, b), na) == (None, nb), path
             printed += 1
@@ -694,6 +844,183 @@ def test_the_sinusoidal_kernels_in_cxx_alone_are_the_extensions(
             got = (tmp_path / f"c{c}_{t}.bin").read_bytes()
             want = np.ascontiguousarray(out[t]).tobytes()
             assert got == want, (name, c, t)
+
+
+_SG_FAR_FILLS = (
+    "sinusoidal_galerkin_far_fill",
+    "sinusoidal_galerkin_far_fill_ek",
+    "sinusoidal_galerkin_far_fill_cplx",
+)
+
+
+def _sg_spec(value, tmp_path, name: str) -> str:
+    """One recorded argument in `sinusoidal_galerkin_far_driver`'s syntax."""
+    import struct
+
+    def bits(x: float) -> str:
+        return struct.pack(">d", float(x)).hex()
+
+    if isinstance(value, np.ndarray):
+        kind = {
+            np.dtype(np.float64): "A",
+            np.dtype(np.int64): "L",
+            np.dtype(np.complex128): "W",
+        }[value.dtype]
+        np.ascontiguousarray(value).tofile(tmp_path / name)
+        return f"{kind}:{name}:" + "x".join(str(d) for d in value.shape)
+    if isinstance(value, (bool, np.bool_)):
+        return f"B:{int(value)}"
+    if isinstance(value, complex):
+        return f"Z:{bits(value.real)}:{bits(value.imag)}"
+    if isinstance(value, float):
+        return f"D:{bits(value)}"
+    raise TypeError(f"no driver spelling for {type(value).__name__}")
+
+
+def test_the_sg_far_fills_in_cxx_alone_are_the_extensions(
+    driver, tmp_path, monkeypatch
+):
+    """momwire#1718 S1: the Sinusoidal-Galerkin far fills, built from the
+    core TUs alone (`sinusoidal_galerkin_far_driver`, the default host: memory
+    from `new`, no GIL), return the extension's bytes on every call the
+    direct fill's real solves make: free space with the staged real body and
+    with the reference one, the extended kernel (`_ek`), a PEC image folded
+    onto the free-space block (`out`, scale -1, both kernels), the
+    reflection-coefficient and Sommerfeld grounds' plain blocks, and a buried
+    wire at a complex wavenumber (`_cplx`). On top of those, every recorded
+    call is replayed through the extension once more with a general complex
+    fold scale (and the complex fill's reference body), so the fold's complex
+    arm and `reference=True` on `_cplx` are held too."""
+    import warnings
+
+    import momwire._accel as _accel
+    from momwire import sinusoidal_galerkin as sg
+
+    if not (sg._HAVE_GALERKIN_FAR_FILL_EK and sg._HAVE_GALERKIN_FAR_FILL_CPLX):
+        pytest.skip("no compiled Galerkin far fills in this build")
+    acc = _accel.acc
+    real = {name: getattr(acc, name) for name in _SG_FAR_FILLS}
+    calls = []
+
+    def spy(name):
+        def call(*args, **kw):
+            # Copies, taken at the call: a fold writes into `out`, and the
+            # solver works in place on what it is handed back.
+            kept = tuple(
+                np.array(a, copy=True) if isinstance(a, np.ndarray) else a for a in args
+            )
+            out0 = kw.get("out")
+            out0 = None if out0 is None else tuple(np.array(o, copy=True) for o in out0)
+            res = real[name](*args, **kw)
+            calls.append(
+                (
+                    name,
+                    kept,
+                    out0,
+                    kw.get("scale", 1 + 0j),
+                    bool(kw.get("reference", False)),
+                    tuple(np.array(o, copy=True) for o in res),
+                )
+            )
+            return res
+
+        return call
+
+    for name in _SG_FAR_FILLS:
+        monkeypatch.setattr(acc, name, spy(name))
+    c0 = 299792458.0
+    wl = c0 / 7e6 / 2.5
+    dipole = [np.array([(0.0, 0.0, -2.0), (0.0, 0.0, 2.0)])]
+    raised = [np.array([(-2.0, 0.0, 3.0), (2.0, 0.0, 3.5)])]
+    buried = [np.array([(-2.0, 0.0, -0.5), (2.0, 0.0, -0.5)])]
+    soil = dict(ground_z=0.0, ground_eps=(13.0, 0.005))
+    somm = {**soil, "ground_model": "sommerfeld"}
+    cases = [
+        (dipole, {}, True),
+        (dipole, {}, False),
+        (dipole, {"extended_kernel": True}, True),
+        (raised, {"ground_z": 0.0}, True),
+        (raised, {"ground_z": 0.0, "extended_kernel": True}, True),
+        (raised, soil, True),
+        (raised, somm, True),
+        (buried, somm, True),
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for wires, kw, staged in cases:
+            monkeypatch.setattr(sg, "_SG_REAL_STAGED", staged)
+            sg.SinusoidalGalerkinSolver(
+                wires=wires,
+                n_per_edge_per_wire=[[15]],
+                feeds=[(0, 2.0, 1.0)],
+                wavelength=wl,
+                wire_radius=1e-3,
+                fill="direct",
+                **kw,
+            ).compute_port_solution()
+    monkeypatch.undo()
+    seen = {(name, out0 is not None, ref) for name, _a, out0, _s, ref, _o in calls}
+    for want in (
+        ("sinusoidal_galerkin_far_fill", False, False),
+        ("sinusoidal_galerkin_far_fill", False, True),
+        ("sinusoidal_galerkin_far_fill", True, False),
+        ("sinusoidal_galerkin_far_fill_ek", False, False),
+        ("sinusoidal_galerkin_far_fill_ek", True, False),
+        ("sinusoidal_galerkin_far_fill_cplx", False, False),
+    ):
+        assert want in seen, (want, seen)
+    # The general complex fold and the complex fill's reference body, through
+    # the extension, on the recorded arguments.
+    rng = np.random.default_rng(1718)
+    extra = []
+    for name, args, _out0, _scale, _ref, out in calls:
+        dst = tuple(
+            rng.standard_normal(o.shape) + 1j * rng.standard_normal(o.shape)
+            for o in out
+        )
+        kw = {"out": tuple(d.copy() for d in dst), "scale": 0.3 - 0.7j}
+        if name == "sinusoidal_galerkin_far_fill_cplx":
+            kw["reference"] = True
+        res = real[name](*args, **kw)
+        extra.append((name, args, dst, kw["scale"], kw.get("reference", False), res))
+    calls += extra
+    lines = []
+    for c, (name, args, out0, scale, ref, _out) in enumerate(calls):
+        specs = []
+        for j, value in enumerate(args):
+            if (
+                j == len(args) - 1
+                and isinstance(value, int)
+                and not isinstance(value, bool)
+            ):
+                specs.append("U:0")  # the cancel flag: no cancellation in the replay
+            else:
+                specs.append(_sg_spec(value, tmp_path, f"c{c}_a{j}.bin"))
+        if out0 is None:
+            specs.append("N")
+        else:
+            files = []
+            for t, o in enumerate(out0):
+                np.ascontiguousarray(o).tofile(tmp_path / f"c{c}_f{t}.bin")
+                files.append(f"c{c}_f{t}.bin")
+            shape = "x".join(str(d) for d in out0[0].shape)
+            specs.append("F:" + ":".join(files) + ":" + shape)
+            specs.append(_sg_spec(complex(scale), tmp_path, ""))
+        if name != "sinusoidal_galerkin_far_fill_ek":
+            specs.append(f"B:{int(ref)}")
+        lines.append(f"{name} c{c} " + " ".join(specs))
+    (tmp_path / "calls.txt").write_text("\n".join(lines) + "\n")
+    run = subprocess.run(
+        [str(driver[0]["sinusoidal_galerkin_far_driver"]), str(tmp_path)],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    for c, (name, _args, out0, _s, ref, out) in enumerate(calls):
+        for t in range(3):
+            got = (tmp_path / f"c{c}_{t}.bin").read_bytes()
+            want = np.ascontiguousarray(out[t]).tobytes()
+            assert got == want, (name, c, t, out0 is not None, ref)
 
 
 @pytest.mark.parametrize("prefix", ["", "ek_"], ids=["reduced", "extended_kernel"])
@@ -1072,7 +1399,9 @@ def test_deck_text_to_printout_in_cxx_alone_is_the_launchers(driver, tmp_path):
     # Not vacuous: results, refusals and the last line of defence all print,
     # and the three run-half declines are reached by name.
     assert counts.get("served", 0) >= 25 and counts.get("refused", 0) >= 50, counts
-    assert counts.get("served|frame", 0) >= 2, counts
+    # one deck still raises in the echo (`echo_raises_nxq`); the infinite PQ
+    # field that did now refuses on the card (`echo_refuses_inf_field`)
+    assert counts.get("served|frame", 0) >= 1, counts
     assert counts.get("runs", 0) >= 30 and counts.get("multi-port", 0) >= 5, counts
     # The run half declines nothing by name any more: LD 0 / 1 / 4, RP and
     # NE / NH all print (what is left declines in the seam, before it).
@@ -1137,8 +1466,8 @@ def test_the_printout_decks_take_the_paths_they_name(driver, tmp_path):
     }
     assert routes == {
         "chain_then_refusal": ("printed", "refused", ""),
-        "echo_raises_inf_field": ("printed", "served", "OverflowError"),
         "echo_raises_nxq": ("printed", "served", "DeckError"),
+        "echo_refuses_inf_field": ("printed", "refused", ""),
         "multi_run_three_ports": ("printed", "served", ""),
         "node_gap_ex4_complex": ("printed", "served", ""),
         "node_gap_two_sources": ("printed", "served", ""),
@@ -1610,10 +1939,11 @@ BSPLINE_EXACT_DECKS = SPLIT / "bspline_exact_decks"
 BSPLINE_BURIED_DECKS = ROOT / "tests" / "fixtures" / "bspline_printout_buried"
 
 
-def _bspline_printouts(driver, decks, tmp_path):
+def _bspline_printouts(driver, decks, tmp_path, basis="bspline"):
     """bs2's driver against `_shell.render(text, basis="bspline")` over
     `decks`, both on one BLAS thread: every printed deck byte for byte, and
-    every finished run's arrays. Returns (counts, decline reasons)."""
+    every finished run's arrays. Returns (counts, decline reasons). `basis`
+    "sinusoidal-galerkin": that basis' driver (momwire#1718 S8)."""
     pc = _printout_compare_module()
     if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
         pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
@@ -1621,10 +1951,14 @@ def _bspline_printouts(driver, decks, tmp_path):
     os.environ.update(_ONE_THREAD)
     try:
         answers = pc.run_driver(
-            driver[0]["nec5_bspline_printout_driver"],
+            driver[0][
+                "nec5_sinusoidal_galerkin_printout_driver"
+                if basis == "sinusoidal-galerkin"
+                else "nec5_bspline_printout_driver"
+            ],
             decks,
             tmp_path,
-            basis="bspline",
+            basis=basis,
             arrays=True,
         )
     finally:
@@ -1643,7 +1977,7 @@ def _bspline_printouts(driver, decks, tmp_path):
             counts[key] = counts.get(key, 0) + 1
             py_runs = []
             ref = pc.python_printout(
-                path.read_bytes().decode("latin-1"), basis="bspline", runs=py_runs
+                path.read_bytes().decode("latin-1"), basis=basis, runs=py_runs
             )
             assert ans["printout"] == ref, (
                 f"{path}: {pc.first_difference(ref, ans['printout'])}"
@@ -1671,10 +2005,11 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     vectors -- wire loading (LD 5 / 2 / 3) and the exact ring-kernel
     correction (step 2), a perfect ground's image term (step 3a) and the
     Sommerfeld composition with its graded raised pairs (steps 3b, 3c) and a
-    wholly-buried structure (step 4a) included. What it declines is a deck
-    with wires on both sides of the interface and no crossing node (the
-    transmitted blocks, step 4c) and a geometry Python refuses by medium
-    (its sentence not yet ported), by name, and nothing else. The exact
+    wholly-buried structure (step 4a) included, and since momwire#1718 S12 a
+    deck with wires on both sides of the interface and no crossing node (the
+    transmitted blocks, step 4c). What it declines is a geometry Python
+    refuses by medium (its sentence not yet ported), by name, and nothing
+    else. The exact
     kernel's cross job across a radius step is served (momwire#1615). A
     one-radius crossing node is served
     (step 4b), a node gap on one included (its KCL row, momwire#1282 /
@@ -1691,12 +2026,13 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     counts, reasons = _bspline_printouts(driver, decks, tmp_path)
     # Not vacuous: results, refusals and the INTERNAL ERROR frame all print.
     assert counts.get("served", 0) >= 80 and counts.get("refused", 0) >= 100, counts
-    assert counts.get("raised|frame", 0) >= 3, counts
+    # two decks that once raised now refuse on the GW card (non-finite
+    # field, too many segments: `deck._cards.gw_field_refusal`)
+    assert counts.get("raised|frame", 0) >= 2, counts
     assert counts.get("runs", 0) >= 100, counts
     assert set(reasons) <= {
         "front:bspline-buried-two-radius-spread",
         "front:bspline-buried-two-radius-nodes",
-        "front:bspline-buried-mixed",
         "front:bspline-buried-refusal-crossing",
         "front:bspline-buried-refusal-medium",
         "front:bspline-buried-refusal-contact",
@@ -1719,6 +2055,27 @@ def test_the_wholly_buried_decks_print_as_python(driver, tmp_path):
     counts, reasons = _bspline_printouts(driver, decks, tmp_path)
     assert counts.get("served", 0) == 6 and not reasons, (counts, reasons)
     assert counts.get("runs", 0) == 7, counts
+
+
+MIXED_DECKS = ROOT / "tests" / "fixtures" / "transmitted_mixed"
+
+
+@pytest.mark.slow
+def test_the_mixed_decks_print_as_python(driver, tmp_path):
+    """momwire#1718 S12: wires on both sides of a Sommerfeld ground with no
+    crossing junction -- a vertical over a separate buried screen, a dipole
+    over a buried wire, two radii, loads, buried wires at two depths (a z'
+    ladder of several rungs), a pair closer than a segment (the cross
+    block's raised order), a pattern with and without a near field --
+    through the two transmitted blocks over the below->above table filled in
+    C++ (`_somm_transmitted_core`), byte for byte as `_shell.render(text,
+    basis="bspline")` prints them. GN 3 and a NEC-4 load spelling refuse in
+    this dialect, in its own words."""
+    decks = sorted(MIXED_DECKS.glob("*.nec"))
+    assert len(decks) == 10
+    counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+    assert counts.get("served", 0) == 8 and not reasons, (counts, reasons)
+    assert counts.get("refused", 0) == 2, counts
 
 
 GRAZING_1672_DECKS = ROOT / "tests" / "fixtures" / "buried_grazing_1672"
@@ -1971,3 +2328,223 @@ def test_the_exact_kernel_windows_print_as_python(driver, tmp_path):
     assert len(decks) == 2
     counts, reasons = _bspline_printouts(driver, decks, tmp_path)
     assert counts.get("served", 0) == 2 and not reasons, (counts, reasons)
+
+
+@pytest.mark.slow  # every fixture deck, printed by both copies
+def test_deck_text_to_nec5_printout_in_cxx_alone_is_sinusoidal_galerkins(
+    driver, tmp_path, monkeypatch
+):
+    """momwire#1718 S8: every NEC deck in tests/fixtures through the
+    Sinusoidal-Galerkin basis on the NEC-5 seam in a process with no Python
+    -- the reader, the seam (the node spelling, no cuts), the sinusoidal
+    front with the knot feeds' `feed_xi`, the Galerkin fill and port solve,
+    the inherited readouts in the caller's wire numbering, the run half and
+    the writer. Every deck it prints is `_shell.render(text,
+    basis="sinusoidal-galerkin")`'s, byte for byte, with Python's Y,
+    coefficients and port vectors, node gaps (S9), wholly-buried decks
+    (S11a, the below grids the exact fill on both sides) and crossing decks
+    (S11b) included. It declines, by name, a wire end on the plane (S7) and
+    wires on both sides of the interface with no crossing junction (S12)."""
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    counts, reasons = _bspline_printouts(
+        driver, decks, tmp_path, basis="sinusoidal-galerkin"
+    )
+    assert counts.get("served", 0) >= 350, counts
+    allowed = ("S7)", "S12)")
+    assert all(r.endswith(allowed) for r in reasons), reasons
+
+
+# --- the transmitted family (momwire#1718 S12) ------------------------------
+
+
+def _hexs(xs):
+    return " ".join(float(x).hex() for x in xs)
+
+
+def _transmitted_driver(driver, requests):
+    run = subprocess.run(
+        [str(driver[0]["transmitted_core_driver"])],
+        input="\n".join(requests) + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return run.stdout.splitlines()
+
+
+def _floats(tokens):
+    return np.array([float.fromhex(t) for t in tokens])
+
+
+# (eps~, k2, r_max, zp_min, zp_max, r_min): one rung at the default floor,
+# and one with the log-R axis extended down (`r_min_bucket`)
+_SOIL = complex(13.0, -0.005 / (2 * np.pi * 7.15e6 * 8.8541878188e-12))
+_K2 = 2 * np.pi * 7.15e6 / 299792458.0
+_T_GRIDS = [
+    (_SOIL, _K2, 10.0, 0.1, 0.1, None),
+    (_SOIL, _K2, 6.0, 0.15, 0.15, 0.004),
+]
+# a z' ladder (more than one rung), the multi-rung interpolation's case
+_T_LADDER = (_SOIL, _K2, 6.0, 0.1, 0.16, None)
+
+
+def _check_transmitted_grid(driver, spec):
+    from momwire import _sommerfeld_transmitted as T
+
+    eps, k2, r_max, zlo, zhi, r_min = spec
+    omega = k2 * 299792458.0
+    g = T.TransmittedGrid(eps, k2, r_max, zlo, zhi, omega=omega, r_min=r_min)
+    req = "grid " + _hexs(
+        [eps.real, eps.imag, k2, r_max, zlo, zhi, omega, T._MU0]
+        + [r_min is not None, r_min or 0.0]
+    )
+    (line,) = _transmitted_driver(driver, [req])
+    tok = line.split()
+    assert tok[0] == "grid", line
+    assert (int(tok[1]), int(tok[2]), int(tok[3])) == (g.n_zp, g.n_r, g.n_th)
+    state = _floats(tok[4:13])
+    want = [g.zp_min, g.zp_max, g.r_min, g.r_max, g.th_min, g.dth, g.lnr0, g.lnz0]
+    want.append(g.dlnz)
+    assert np.array_equal(state, np.array(want)), (state, want)
+    vals = _floats(tok[13:])
+    assert np.array_equal(vals, g._vals.view(np.float64).ravel())
+
+
+@pytest.mark.parametrize("spec", _T_GRIDS, ids=["one-rung", "r-min-extended"])
+def test_the_transmitted_table_in_cxx_alone_is_pythons(driver, spec, monkeypatch):
+    """The below->above table a mixed deck's cross blocks read
+    (`_somm_transmitted_core.cpp`, the six integrals' node the extension's
+    own `_somm_transmitted_six_inline.h`), filled with no Python: every
+    lattice constant and every one of the five surfaces at every node is
+    `TransmittedGrid`'s, bit for bit."""
+    from momwire import _sommerfeld_transmitted as T
+
+    monkeypatch.setattr(T, "_FORCE_NUMPY", False)
+    if not T._use_transmitted_accel():
+        pytest.skip("the transmitted accelerator is not built")
+    _check_transmitted_grid(driver, spec)
+
+
+@pytest.mark.slow
+def test_the_transmitted_ladder_in_cxx_alone_is_pythons(driver):
+    """A z' ladder of several rungs (`ladder_nodes`' numpy linspace), each
+    rung's surfaces Python's bit for bit."""
+    from momwire import _sommerfeld_transmitted as T
+
+    if not T._use_transmitted_accel():
+        pytest.skip("the transmitted accelerator is not built")
+    _check_transmitted_grid(driver, _T_LADDER)
+
+
+def test_the_transmitted_projection_and_plan_in_cxx_alone_are_pythons(driver):
+    """Both directions' projected tables over the grid `get_grid_below_above`
+    keys and fills (the role-order kernel, with the downward table the
+    upward one's reciprocity transpose), and `serve_plan`'s cross-medium
+    extents and refusals, as the executables compute them."""
+    from momwire import _below_interface as bi
+    from momwire import _sommerfeld_transmitted as T
+    from momwire import bspline
+    from momwire._sommerfeld_below import lambda_medium
+
+    if not T._use_transmitted_accel():
+        pytest.skip("the transmitted accelerator is not built")
+    eps, k2 = _SOIL, _K2
+    omega = k2 * 299792458.0
+    k_m = T.k_medium(eps, k2)
+    rng = np.random.default_rng(1718)
+    above = np.column_stack(
+        [rng.uniform(-3, 3, 7), rng.uniform(-3, 3, 7), rng.uniform(0.2, 6, 7)]
+    )
+    below = np.column_stack(
+        [rng.uniform(-3, 3, 5), rng.uniform(-3, 3, 5), np.full(5, -0.15)]
+    )
+    t_a = rng.normal(size=(7, 3))
+    t_b = rng.normal(size=(5, 3))
+    seg = np.zeros((1, 3))
+    plan = bi.serve_plan(
+        0.0,
+        seg,
+        seg,
+        np.arange(1),
+        above,
+        below,
+        k2,
+        k_m,
+        crossing=False,
+        pair_extents=bspline._pair_extents_below,
+    )
+    req = (
+        "plan "
+        + _hexs([0.0, k2, k_m.real, k_m.imag, 7, 5])
+        + " "
+        + _hexs(above.ravel())
+    )
+    req += " " + _hexs(below.ravel())
+    grid_args = [
+        eps.real,
+        eps.imag,
+        k2,
+        plan["r_cross_max"],
+        plan["zp_min"],
+        plan["zp_max"],
+    ]
+    grid_args += [omega, T._MU0, plan["r_cross_min"]]
+    g = T.get_grid_below_above(
+        eps,
+        k2,
+        plan["r_cross_max"],
+        plan["zp_min"],
+        plan["zp_max"],
+        omega,
+        r_min=plan["r_cross_min"],
+    )
+    pts_a = " ".join(_hexs([*p, *t]) for p, t in zip(above, t_a, strict=True))
+    pts_b = " ".join(_hexs([*p, *t]) for p, t in zip(below, t_b, strict=True))
+    reqs = [req]
+    for tr in (0, 1):
+        head = _hexs(grid_args + [0.0, k2, k_m.real, k_m.imag, tr, 7, 5])
+        reqs.append(f"proj {head} {pts_a} {pts_b}")
+    lines = _transmitted_driver(driver, reqs)
+    tok = lines[0].split()
+    assert tok[0] == "plan", lines[0]
+    want = [plan["r_cross_max"], plan["r_cross_min"], plan["zp_min"], plan["zp_max"]]
+    assert np.array_equal(_floats(tok[1:]), np.array(want))
+    up = T.transmitted_field_proj_below_to_above(
+        above, t_a, below, t_b, 0.0, k2, k_m, g
+    )
+    down = T.transmitted_field_proj_above_to_below(
+        below, t_b, above, t_a, 0.0, k2, k_m, g
+    )
+    for line, want in zip(lines[1:], (up, down.T), strict=True):
+        tok = line.split()
+        assert tok[:2] == ["proj", "-"], line[:80]
+        assert np.array_equal(_floats(tok[2:]), want.view(np.float64).ravel())
+    # a source past the ladder's reach refuses by name, where Python raises
+    deep = below.copy()
+    deep[0, 2] = -0.25 * lambda_medium(eps, k2) - 0.1
+    with pytest.raises(ValueError):
+        bi.serve_plan(
+            0.0,
+            seg,
+            seg,
+            np.arange(1),
+            above,
+            deep,
+            k2,
+            k_m,
+            crossing=False,
+            pair_extents=bspline._pair_extents_below,
+        )
+    req = (
+        "plan "
+        + _hexs([0.0, k2, k_m.real, k_m.imag, 7, 5])
+        + " "
+        + _hexs(above.ravel())
+    )
+    (line,) = _transmitted_driver(driver, [req + " " + _hexs(deep.ravel())])
+    assert line == "refused buried-depth", line

@@ -1,7 +1,7 @@
 """The MCP's retrieval-query guidance keeps the two search tools apart.
 
 This file used to hold the MCP copy identical to the dashboard assistant's
-(`app/assistant/tools.py`). The assistant now reads through the hosted MCP and
+(`app/agents/assistant/tools/tools.py`). The assistant now reads through the hosted MCP and
 its own copy is gone (#2223), so there is nothing to compare: the backend's
 `tests/unit/test_query_bag_parity.py` pins that the guidance lives once, and
 what it says.

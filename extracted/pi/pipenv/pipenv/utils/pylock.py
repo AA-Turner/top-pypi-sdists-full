@@ -9,9 +9,10 @@ installation reproducibility).
 import datetime
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin
 
 from pipenv.utils import err
@@ -97,12 +98,36 @@ class PylockFile:
         except Exception as e:
             raise ValueError(f"Invalid Pipfile.lock file: {e}")
 
+        from pipenv.patched.pip._vendor.packaging.utils import canonicalize_name
+
+        # Group names are PEP 735 normalized; category names are not, so
+        # record which category each group came from for the way back.
+        dev_groups = list(dict.fromkeys(canonicalize_name(group) for group in dev_groups))
+        category_groups = {"default": ["default"], "develop": dev_groups}
+        group_categories = {"default": "default"}
+        for section in dict.fromkeys(["develop", *lockfile_data]):
+            if section in {"_meta", "default"}:
+                continue
+            groups = category_groups.setdefault(section, [canonicalize_name(section)])
+            for group in groups:
+                owner = group_categories.setdefault(group, section)
+                if owner != section:
+                    raise ValueError(
+                        f"Pipfile.lock categories {owner!r} and {section!r} both "
+                        f"map to the dependency group {group!r}; rename the "
+                        "category or choose different --dev-groups"
+                    )
+        del group_categories["default"]
+
         # Create the basic pylock.toml structure
         pylock_data: Dict[str, Any] = {
             "lock-version": "1.0",
             "environments": [],
             "extras": [],
-            "dependency-groups": dev_groups.copy(),  # Include dev groups
+            "dependency-groups": list(dict.fromkeys(
+                group for section, groups in category_groups.items()
+                if section != "default" for group in groups
+            )),
             "default-groups": ["default"],  # Default group for non-dev packages
             "created-by": "pipenv",
             "packages": [],
@@ -139,33 +164,26 @@ class PylockFile:
             if sources and sources[0].get("url"):
                 default_index = sources[0]["url"].rstrip("/") + "/"
 
-        # Build dev marker expression: 'group1' in dependency_groups or 'group2' in ...
-        dev_marker = " or ".join(f"'{g}' in dependency_groups" for g in dev_groups)
-
-        # Process packages
-        default_packages = lockfile_data.get("default", {})
-        default_entries: Dict[str, Any] = {}
-        for section in ["default", "develop"]:
+        # Guard every category, including default, so an unconditional shared
+        # dependency can be recovered when installing a custom category alone.
+        entries_by_name: Dict[str, Any] = {}
+        for section, groups in category_groups.items():
+            group_marker = " or ".join(f"'{group}' in dependency_groups" for group in groups)
             packages = lockfile_data.get(section, {})
             for name, package_data in packages.items():
-                # Pipfile.lock repeats a shared dependency in both sections.
-                # PEP 751 requires every install to narrow down to a single
-                # entry per package, so fold the develop copy into the
-                # default entry instead of writing a second one.
-                if section == "develop" and _same_locked_package(
-                    default_packages.get(name), package_data
-                ):
-                    _merge_develop_marker(
-                        default_entries[name],
-                        default_packages[name].get("markers"),
-                        package_data.get("markers"),
-                        dev_marker,
-                    )
+                marker = package_data.get("markers")
+                marker = f"({group_marker}) and ({marker})" if marker else group_marker
+                shared_entry = next(
+                    (entry for original, entry in entries_by_name.get(name, [])
+                     if _same_locked_package(original, package_data)),
+                    None,
+                )
+                if shared_entry is not None:
+                    shared_entry["marker"] = f"({shared_entry['marker']}) or ({marker})"
                     continue
 
-                package: Dict[str, Any] = {"name": name}
-                if section == "default":
-                    default_entries[name] = package
+                package: Dict[str, Any] = {"name": name, "marker": marker}
+                entries_by_name.setdefault(name, []).append((package_data, package))
 
                 # Add version if present and not a wildcard
                 if "version" in package_data:
@@ -177,24 +195,6 @@ class PylockFile:
                         package["version"] = version[2:]
                     else:
                         package["version"] = version
-
-                # Add markers if present
-                # PEP 751 marker syntax: 'group' in dependency_groups
-                if "markers" in package_data:
-                    # For develop packages, add dependency_groups marker only
-                    # if it isn't already present (avoids duplication when
-                    # re-writing an existing pylock.toml).
-                    if (
-                        section == "develop"
-                        and "dependency_groups" not in package_data["markers"]
-                    ):
-                        package["marker"] = (
-                            f"({dev_marker}) and ({package_data['markers']})"
-                        )
-                    else:
-                        package["marker"] = package_data["markers"]
-                elif section == "develop":
-                    package["marker"] = dev_marker
 
                 # Packages from a local path, a VCS or a URL don't come from the
                 # index: record where they come from (PEP 751 packages.directory,
@@ -257,6 +257,7 @@ class PylockFile:
                 "generation_date": datetime.datetime.now(
                     datetime.timezone.utc
                 ).isoformat(),
+                "categories": group_categories,
             }
         }
 
@@ -477,8 +478,6 @@ class PylockFile:
             return package
         except Exception:
             # Fallback: simple name extraction
-            import re
-
             match = re.match(r"^([a-zA-Z0-9][-a-zA-Z0-9._]*)", dep_string)
             if match:
                 return {"name": match.group(1).lower()}
@@ -781,11 +780,19 @@ class PylockFile:
                     f"environments: {self.environments}"
                 )
 
+        seen = set()
         for package in self.get_packages_for_environment(
             extras=extras,
             dependency_groups=dependency_groups,
             environment=environment,
         ):
+            name = package.get("name", "").lower()
+            if name in seen:
+                raise PylockFormatError(
+                    f"Package {name!r} has multiple entries that match the selected "
+                    "groups and environment; they must narrow down to a single entry"
+                )
+            seen.add(name)
             requires_python = package.get("requires-python")
             if requires_python and not satisfies(requires_python):
                 raise PylockEnvironmentError(
@@ -794,7 +801,8 @@ class PylockFile:
                 )
 
     def _narrow_package_entries(
-        self, environment: Optional[Dict[str, str]] = None
+        self, environment: Optional[Dict[str, str]] = None,
+        packages: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """Narrow packages listed more than once to the entry for the environment.
 
@@ -819,7 +827,7 @@ class PylockFile:
         )
 
         entries_by_name: Dict[str, List[Dict[str, Any]]] = {}
-        for package in self.packages:
+        for package in self.packages if packages is None else packages:
             name = package.get("name")
             if name:
                 entries_by_name.setdefault(name.lower(), []).append(package)
@@ -858,8 +866,64 @@ class PylockFile:
             result.append(matching[0] if matching else entries[0])
         return result
 
+    def _category_groups(self) -> Dict[str, Set[str]]:
+        """Map Pipfile.lock categories to normalized pylock dependency groups."""
+        from pipenv.patched.pip._vendor.packaging.utils import canonicalize_name
+
+        defaults = {canonicalize_name(group) for group in self.default_groups}
+        categories = {"default": defaults, "develop": set()}
+        names = {canonicalize_name(group): group for group in self.dependency_groups}
+        # Accept older locks which omit the top-level dependency-groups list.
+        for package in self.packages:
+            for group in sorted(_marker_dependency_groups(package.get("marker"))):
+                names.setdefault(group, group)
+        # Pipenv records the category each group was exported from.
+        recorded = self.tool.get("pipenv", {}).get("categories", {})
+        if not isinstance(recorded, dict):
+            recorded = {}
+        recorded = {canonicalize_name(group): category for group, category in recorded.items()}
+        for group, name in names.items():
+            if group in defaults:
+                continue
+            category = recorded.get(group) or (
+                "develop" if group in {"dev", "develop", "dev-packages"} else name
+            )
+            categories.setdefault(category, set()).add(group)
+        return categories
+
+    def groups_for_categories(self, categories: Iterable[str]) -> Set[str]:
+        """Translate an install's category selection without enabling other groups."""
+        category_groups = self._category_groups()
+        return set().union(*(
+            category_groups.get(_lockfile_category(category), set())
+            for category in categories
+        ))
+
+    def _packages_for_category(self, category, groups, selected_groups=None):
+        """Resolve group conditions while retaining ordinary environment markers."""
+        result = []
+        for package in self.packages:
+            marker = package.get("marker")
+            if category != "default" and not (_marker_dependency_groups(marker) & groups):
+                continue
+            if category == "default" and _project_marker(marker, groups, self.extras) is False:
+                continue
+            projected = _project_marker(
+                marker, groups if selected_groups is None else selected_groups, self.extras
+            )
+            if projected is False:
+                continue
+            entry = dict(package)
+            if projected is True:
+                entry.pop("marker", None)
+            else:
+                entry["marker"] = projected
+            result.append(entry)
+        return result
+
     def convert_to_pipenv_lockfile(
-        self, environment: Optional[Dict[str, str]] = None
+        self, environment: Optional[Dict[str, str]] = None,
+        categories: Optional[Iterable[str]] = None,
     ) -> Dict[str, Any]:
         """Convert the pylock.toml file to a Pipfile.lock format.
 
@@ -867,6 +931,9 @@ class PylockFile:
             environment: Marker variables that override the running
                 interpreter's, used to pick between entries of a package
                 listed more than once
+            categories: Optional install selection. Group expressions are
+                evaluated against precisely this combination of categories.
+                Otherwise each category is converted independently.
 
         Returns:
             A dictionary in Pipfile.lock format
@@ -885,7 +952,9 @@ class PylockFile:
 
         # Add Python version requirement if present
         if self.requires_python:
-            lockfile["_meta"]["requires"]["python_version"] = self.requires_python
+            lockfile["_meta"]["requires"].update(
+                _pipfile_requires_from_pylock(self.requires_python)
+            )
 
         # Add sources if present
         if "sources" in self.data:
@@ -913,59 +982,158 @@ class PylockFile:
                 }
             ]
 
-        # Process packages
-        for package in self._narrow_package_entries(environment):
-            name = package.get("name")
+        category_groups = self._category_groups()
+        selected_groups = None
+        if categories is not None:
+            categories = [_lockfile_category(category) for category in categories]
+            selected_groups = self.groups_for_categories(categories)
+            category_groups = {
+                category: category_groups.get(category, set()) for category in categories
+            }
 
-            # Determine if this is a dev package based on markers
-            # This is a simplification - in reality we'd need to parse the markers
-            is_dev = False
-            marker = package.get("marker", "")
-            if marker and "dependency_groups" in marker:
-                # Simple heuristic - if it mentions dev or test, it's probably a dev package
-                if "dev" in marker.lower() or "test" in marker.lower():
-                    is_dev = True
-
-            # Create the package entry
-            package_entry = _lockfile_source_from_pylock_package(package)
-
-            # Add version if present, otherwise use wildcard for Pipfile.lock compatibility
-            if package_entry:
-                # Local, VCS and URL entries are pinned by their source, not a version
-                pass
-            elif "version" in package:
-                package_entry["version"] = f"=={package['version']}"
-            else:
-                # No version in pylock.toml means any version is acceptable
-                package_entry["version"] = "*"
-
-            # Add hashes if present
-            hashes: List[str] = []
-            if "wheels" in package:
-                hashes.extend(
-                    f"sha256:{wheel['hashes']['sha256']}"
-                    for wheel in package["wheels"]
-                    if "hashes" in wheel and "sha256" in wheel["hashes"]
-                )
-            if (
-                "sdist" in package
-                and "hashes" in package["sdist"]
-                and "sha256" in package["sdist"]["hashes"]
-            ):
-                hashes.append(f"sha256:{package['sdist']['hashes']['sha256']}")
-            hashes.extend(package.get("tool", {}).get("pipenv", {}).get("hashes", []))
-            if hashes:
-                package_entry["hashes"] = sorted(set(hashes))
-
-            # Add marker if present
-            if marker:
-                package_entry["markers"] = marker
-
-            # Add to the appropriate section
-            section = "develop" if is_dev else "default"
-            lockfile[section][name] = package_entry
+        for category, groups in category_groups.items():
+            lockfile[category] = {}
+            packages = self._packages_for_category(category, groups, selected_groups)
+            for package in self._narrow_package_entries(environment, packages=packages):
+                lockfile[category][package["name"]] = _pipfile_package(package)
 
         return lockfile
+
+
+def _lockfile_category(category):
+    return {"packages": "default", "dev-packages": "develop"}.get(category, category)
+
+
+def _marker_dependency_groups(marker: Optional[str]) -> Set[str]:
+    """Read group names from the marker grammar, independent of whitespace."""
+    from pipenv.patched.pip._vendor.packaging.markers import InvalidMarker, Marker, Value, Variable
+    from pipenv.patched.pip._vendor.packaging.utils import canonicalize_name
+
+    if not marker:
+        return set()
+    try:
+        parsed = Marker(marker)
+    except InvalidMarker:
+        return set()
+
+    def names(nodes):
+        result = set()
+        for node in nodes:
+            if isinstance(node, list):
+                result.update(names(node))
+            elif isinstance(node, tuple) and any(
+                isinstance(term, Variable) and term.value == "dependency_groups" for term in node
+            ):
+                result.update(canonicalize_name(term.value) for term in node if isinstance(term, Value))
+        return result
+
+    return names(parsed._markers)
+
+
+def _project_marker(marker, groups, extras):
+    """Substitute lock-file-only conditions, retaining the PEP 508 expression.
+
+    A boolean result means the whole expression is unconditional or excluded.
+    In particular, an inactive group in an OR branch must become false, rather
+    than being stripped as though every group had been selected.
+    """
+    from pipenv.patched.pip._vendor.packaging.markers import InvalidMarker, Marker, Variable
+
+    if not marker:
+        return True
+    try:
+        parsed = Marker(marker)
+    except InvalidMarker:
+        return marker
+    environment = {"dependency_groups": frozenset(groups), "extras": frozenset(extras)}
+
+    def simplify(nodes):
+        branches, terms = [], []
+        for node in nodes + ["or"]:
+            if node == "or":
+                if not any(term is False for term in terms):
+                    kept = [term for term in terms if term is not True]
+                    if not kept:
+                        return True
+                    branch = []
+                    for term in kept:
+                        branch.extend(["and", term] if branch else [term])
+                    branches.extend(["or", *branch] if branches else branch)
+                terms = []
+            elif node != "and":
+                if isinstance(node, list):
+                    node = simplify(node)
+                elif any(isinstance(term, Variable) and term.value in environment for term in node):
+                    node = Marker._from_markers([node]).evaluate(environment, context="lock_file")
+                terms.append(node)
+        return branches or False
+
+    projected = simplify(parsed._markers)
+    if isinstance(projected, bool):
+        return projected
+    if projected == parsed._markers:
+        return marker
+    return str(Marker._from_markers(projected))
+
+
+def _pipfile_package(package):
+    """Convert an already selected package, including its remaining marker."""
+    # Create the package entry
+    package_entry = _lockfile_source_from_pylock_package(package)
+
+    # Add version if present, otherwise use wildcard for Pipfile.lock compatibility
+    if package_entry:
+        # Local, VCS and URL entries are pinned by their source, not a version
+        pass
+    elif "version" in package:
+        package_entry["version"] = f"=={package['version']}"
+    else:
+        # No version in pylock.toml means any version is acceptable
+        package_entry["version"] = "*"
+
+    # Add hashes if present
+    hashes: List[str] = []
+    if "wheels" in package:
+        hashes.extend(
+            f"sha256:{wheel['hashes']['sha256']}"
+            for wheel in package["wheels"]
+            if "hashes" in wheel and "sha256" in wheel["hashes"]
+        )
+    if (
+        "sdist" in package
+        and "hashes" in package["sdist"]
+        and "sha256" in package["sdist"]["hashes"]
+    ):
+        hashes.append(f"sha256:{package['sdist']['hashes']['sha256']}")
+    hashes.extend(package.get("tool", {}).get("pipenv", {}).get("hashes", []))
+    if hashes:
+        package_entry["hashes"] = sorted(set(hashes))
+
+    # Add marker if present
+    if package.get("marker"):
+        package_entry["markers"] = package["marker"]
+
+    return package_entry
+
+
+_REQUIRES_PYTHON_RE = re.compile(r"^\s*(>=|==)\s*(\d+(?:\.\d+)*)\s*$")
+
+
+def _pipfile_requires_from_pylock(requires_python):
+    """Map a pylock ``requires-python`` to the Pipfile.lock ``requires`` entry.
+
+    This reverses what ``PylockFile.from_lockfile`` writes (``>=X.Y`` for
+    ``python_version`` and ``==X.Y.Z`` for ``python_full_version``). Any other
+    specifier is kept as ``python_version`` unchanged.
+    """
+    match = _REQUIRES_PYTHON_RE.match(requires_python)
+    if match:
+        operator, version = match.groups()
+        if operator == ">=":
+            return {"python_version": version}
+        if version.count(".") >= 2:
+            return {"python_full_version": version}
+    return {"python_version": requires_python}
 
 
 def _same_locked_package(default_data, develop_data) -> bool:
@@ -977,20 +1145,6 @@ def _same_locked_package(default_data, develop_data) -> bool:
         return {key: value for key, value in data.items() if key != "markers"}
 
     return without_markers(default_data) == without_markers(develop_data)
-
-
-def _merge_develop_marker(entry, default_markers, develop_markers, dev_marker):
-    """Widen a default entry's marker so it also covers the develop install."""
-    if not default_markers or develop_markers == default_markers:
-        # The default entry already applies whenever the develop one would.
-        return
-    if not develop_markers:
-        develop_condition = dev_marker
-    elif "dependency_groups" in develop_markers:
-        develop_condition = develop_markers
-    else:
-        develop_condition = f"({dev_marker}) and ({develop_markers})"
-    entry["marker"] = f"({default_markers}) or ({develop_condition})"
 
 
 def _files_for_lockfile_hashes(name, index_url, hashes, source=None):

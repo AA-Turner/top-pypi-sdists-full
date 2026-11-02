@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: Flask-SocketIO
-Version: 5.7.0
+Version: 5.7.1
 Summary: Socket.IO integration for Flask applications
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
+License-Expression: MIT
 Project-URL: Homepage, https://code.miguelgrinberg.com/miguelgrinberg/flask-socketio
 Project-URL: Documentation, https://flask-socketio.readthedocs.io/
 Project-URL: Source Code, https://code.miguelgrinberg.com/miguelgrinberg/flask-socketio
@@ -12,7 +13,6 @@ Project-URL: Funding, https://code.miguelgrinberg.com/miguelgrinberg/flask-socke
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -22,7 +22,7 @@ Requires-Dist: click
 Requires-Dist: flask
 Requires-Dist: Flask>=2.1.0
 Requires-Dist: jinja2
-Requires-Dist: python-socketio>=5.12.0
+Requires-Dist: python-socketio>=5.18.0
 Requires-Dist: werkzeug
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"

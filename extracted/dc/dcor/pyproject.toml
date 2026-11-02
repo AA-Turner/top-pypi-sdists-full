@@ -1,0 +1,81 @@
+[project]
+name = "dcor"
+description = "dcor: distance correlation and energy statistics in Python."
+readme = "README.rst"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+keywords = [
+	"distance correlation",
+	"distance covariance",
+	"energy distance",
+	"e-statistic",
+	"dependency measure",
+	"homogeneity",
+	"independence",
+]
+authors = [
+  {name = "Carlos Ramos Carreño", email = "vnmabus@gmail.com"},
+]
+maintainers = [
+  {name = "Carlos Ramos Carreño", email = "vnmabus@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dynamic = ["version"]
+
+dependencies = [
+  "array-api-compat",
+  "joblib",
+  "numba>=0.51",
+  "numpy",
+  "scipy",
+]
+
+[project.optional-dependencies]
+docs = [
+	"docutils==0.17.1",
+	"jupyter-sphinx",
+	"matplotlib",
+	"myst-parser",
+	"pygments>=2.4.1",
+	"pandas",
+	"pydata-sphinx-theme",
+	"sphinx>=3",
+	"sphinxcontrib-bibtex",
+	"sphinx-gallery",
+]
+test = [
+  "array-api-strict",
+  "numpy<2", # NumPy 2 changes array repr, affecting doctests.
+  "pytest",
+  "pytest-cov",
+  "pytest-subtests",
+]
+
+[project.urls]
+homepage = "https://github.com/vnmabus/dcor"
+documentation = "https://dcor.readthedocs.io"
+repository = "https://github.com/vnmabus/dcor"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["dcor*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "dcor.__version__"}

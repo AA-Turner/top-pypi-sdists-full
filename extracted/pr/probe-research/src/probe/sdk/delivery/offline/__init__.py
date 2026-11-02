@@ -1,4 +1,4 @@
-"""Offline runs and `probe sync`, and the old `probe.sdk.offline` as one front door over its pieces.
+"""Offline runs and `probe sync`, as one front door over its pieces.
 Names are served live, so a patch on the defining piece reaches callers here; code imports pieces."""
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ for _piece in (
     "probe.sdk.delivery.offline.queue",
     "probe.sdk.delivery.offline.sync",
     "probe.sdk.delivery.ops.op_handlers.create_run",
-    "probe.sdk.delivery.sinks.offline",
+    "probe.sdk.delivery.offline.client",
     "probe.sdk.delivery.offline.offline",
 ):
     importlib.import_module(_piece)
@@ -29,6 +29,7 @@ _HOMES = {
     "_LATE": "probe.sdk.delivery.offline.lineage",
     "_unobserved": "probe.sdk.delivery.offline.lineage",
     "_drop_untaken_lineage": "probe.sdk.delivery.offline.lineage",
+    "LINEAGE_ROUTES": "probe.sdk.delivery.offline.lineage",
     # probe.sdk.delivery.offline.queue
     "OFFLINE_DIRNAME": "probe.sdk.delivery.offline.queue",
     "MAPPING_NAME": "probe.sdk.delivery.offline.queue",
@@ -57,10 +58,9 @@ _HOMES = {
     "_create_with_policy": "probe.sdk.delivery.ops.op_handlers.create_run",
     "_conflict_message": "probe.sdk.delivery.ops.op_handlers.create_run",
     "_mark_supersede": "probe.sdk.delivery.ops.op_handlers.create_run",
-    # probe.sdk.delivery.sinks.offline
-    "LINEAGE_ROUTES": "probe.sdk.delivery.sinks.offline",
-    "OfflineTransport": "probe.sdk.delivery.sinks.offline",
-    "OfflineClient": "probe.sdk.delivery.sinks.offline",
+    # probe.sdk.delivery.offline.client
+    "OfflineTransport": "probe.sdk.delivery.offline.client",
+    "OfflineClient": "probe.sdk.delivery.offline.client",
     # probe.sdk.delivery.offline.offline
     "MANIFEST_NAME": "probe.sdk.delivery.offline.offline",
     "MANIFEST_SCHEMA": "probe.sdk.delivery.offline.offline",
@@ -89,11 +89,11 @@ _HOMES = {
     "uuid": "probe.sdk.delivery.offline.offline",
     "Path": "probe.sdk.delivery.offline.lineage",
     "Any": "probe.sdk.delivery.offline.queue",
-    "httpx": "probe.sdk.delivery.sinks.offline",
+    "httpx": "probe.sdk.delivery.offline.client",
     "errors": "probe.sdk.delivery.offline.lineage",
     "_diagnostics": "probe.sdk.delivery.ops.op_handlers.create_run",
     "Client": "probe.sdk.delivery.offline.offline",
-    "Settings": "probe.sdk.delivery.sinks.offline",
+    "Settings": "probe.sdk.delivery.offline.client",
     "resolve_settings": "probe.sdk.delivery.offline.offline",
     "now_iso": "probe.sdk.delivery.offline.queue",
     "write_text_atomic": "probe.sdk.delivery.offline.queue",
@@ -103,9 +103,9 @@ _HOMES = {
     "_now": "probe.sdk.delivery.offline.offline",
     "_summary_wire": "probe.sdk.delivery.offline.offline",
     "_UNSET": "probe.sdk.delivery.offline.offline",
-    "Transport": "probe.sdk.delivery.sinks.offline",
+    "Transport": "probe.sdk.delivery.offline.client",
 }
-#: `from <old path> import *` takes what the old module's did: every public name.
+#: `from <door> import *` takes what the old module's did: every public name.
 __all__ = [name for name in _HOMES if not name.startswith("_")]
 
 

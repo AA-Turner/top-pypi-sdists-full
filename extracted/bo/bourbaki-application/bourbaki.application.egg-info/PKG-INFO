@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: bourbaki.application
+Version: 0.10.13
+Summary: CLIs derived directly from type signatures and docstrings years before typer existed
+Author-email: Matthew Hawthorn <hawthorn.matthew@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/bourbaki-py/
+Project-URL: repository, https://github.com/bourbaki-py/application.git
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pkginfo
+Requires-Dist: multipledispatch>=0.4.9
+Requires-Dist: ujson
+Requires-Dist: toml
+Requires-Dist: PyYAML>=3.12
+Requires-Dist: typing_inspect
+Requires-Dist: bourbaki.introspection>=0.5.1
+Dynamic: license-file
+
+[![Build Status](https://travis-ci.org/bourbaki-py/application.svg?branch=master)](https://travis-ci.org/bourbaki-py/application)
+[![Coverage Status](https://coveralls.io/repos/github/bourbaki-py/application/badge.svg?branch=master)](https://coveralls.io/github/bourbaki-py/application?branch=master)

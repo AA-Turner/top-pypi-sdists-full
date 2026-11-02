@@ -1,0 +1,73 @@
+# TeDDy Configuration
+
+editor: ""
+
+execute:
+  default_timeout_seconds: 60       # Default timeout for EXECUTE actions.
+  max_output_lines: 100             # Caps EXECUTE stdout/stderr output lines.
+
+edit:
+  similarity_threshold: 0.95        # EDIT match threshold (1.0 = exact match; ignores relative indentation).
+
+workspace:
+  init: true                        # Initialize a missing Git repository (start and resume).
+  pre-commit: true                  # Install pre-commit and post-commit git hooks (start and resume).
+  pull: true                        # Fast-forward pull before starting a new session (start only).
+
+read:
+  max_lines: 1000                   # Caps READ action output lines.
+
+context:
+  max_depth: 3                      # Max project tree depth.
+  max_children: 20                  # Max entries listed per subdirectory.
+
+research:
+  max_results: 5                    # Number of search results to fetch and scrape.
+
+checks:
+  prompts: true                     # Warn when local .teddy/prompts/ differ from bundled defaults.
+  templates: true                   # Warn when local docs/templates/ differ from bundled defaults.
+  update: true                      # Warn when a newer TeDDy release is available on PyPI.
+
+yolo_default: false                 # When true, runs non-interactively by default; overridden per-command by -n / --no-yolo.
+
+guardrails:                         # Non-interactive limits (--yolo / --pipeline). Counters reset on 'teddy resume' and on message turns if message_reset: true.
+  enabled: true
+  max_turns: 150
+  max_session_cost: 5.00
+  message_reset: true
+
+auto_pruning:
+  enabled: true
+  turn_context_threshold: 50000     # Token budget for turn-scoped files only (excludes session.context & system prompts).
+  prune_failure_history: true       # Prunes non-green turns once recovery succeeds.
+  prune_validation_failures: true   # Prunes malformed turns that failed validation.
+  preserve_message_turns: true      # Preserves user-communicating turns from pruning.
+  max_turns_retention: 10           # Max historical turns retained in turn context.
+
+# LiteLLM reference: https://docs.litellm.ai/docs/completion/input (all keys under llm pass directly to litellm).
+# OpenRouter syntax: "openrouter/<slug>" (:nitro=fastest, :floor=cheapest).
+# ${TEDDY_LLM_API_KEY} resolves from .teddy/.env or shell environment.
+
+llm:
+  model: "openrouter/~deepseek/deepseek-flash-latest:nitro"
+  api_key: "${TEDDY_LLM_API_KEY}"
+  max_retries: 3
+  timeout: 300
+  extra_headers:
+    HTTP-Referer: "https://github.com/atte500/teddy"
+    X-Title: "TeDDy"
+    X-OpenRouter-Title: "TeDDy"
+    X-OpenRouter-Categories: "cli-agent"
+
+# llm.model must start with the provider prefix, e.g. "openai/qwen3-coder-30b".
+# A bare model name fails preflight, because litellm cannot infer the provider.
+
+# Local models (Ollama, LM Studio):
+#   model: "ollama/qwen3-coder:30b"
+#   model: "lm_studio/qwen3-coder-30b"
+
+# OpenAI-compatible server (vLLM, llama.cpp):
+#   model: "openai/qwen3-coder-30b"
+#   api_base: "http://localhost:8080/v1"
+#   api_key: "dummy-key-custom-endpoints"

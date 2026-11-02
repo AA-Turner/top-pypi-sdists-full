@@ -1,0 +1,426 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import numpy as np
+import trimesh
+
+from ..io.write_geometries import export_section_stl as export_section_stl
+from . import centerline_prep, labeling, mesh_regions, scaling, stitching
+from . import debug_plots as debug_plots
+from . import postprocessing as _postprocessing
+
+if TYPE_CHECKING:
+    from ..multimodars import (
+        PyCenterline,
+        PyDiscretizedVesselTree,
+        PyFrame,
+        PyGeometry,
+    )
+
+
+# -------------------------------
+# Convenience Functions
+# -------------------------------
+def label(
+    path_ccta_geometry: Path | str | trimesh.Trimesh,
+    path_centerline_aorta: Path | str | PyCenterline | np.ndarray,
+    path_centerline_rca: Path | str | PyCenterline | np.ndarray,
+    path_centerline_lca: Path | str | PyCenterline | np.ndarray,
+    aligned_frames: list[PyFrame],
+    acute_takeoff_rca: bool = False,
+    acute_takeoff_lca: bool = False,
+    range_mm_takeoff_rca: float = 60.0,
+    range_mm_takeoff_lca: float = 60.0,
+    step_size_mm: float = 1.0,
+    bounding_sphere_radius_mm_rca: float = 3.0,
+    bounding_sphere_radius_mm_lca: float = 3.0,
+    tolerance_float: float = 1e-6,
+    control_plot: bool = True,
+    branch_id: int = 0,
+) -> dict:
+    """Label CCTA mesh vertices as aorta, RCA, or LCA using centerline-based region detection.
+
+    Loads a 3-D surface mesh and three centerlines (aorta, RCA, LCA), then assigns
+    each mesh vertex to one of the anatomical regions. For vessels with an acute
+    takeoff angle from the aorta (e.g. an anomalous intramural course, or simply
+    an acute ostium where the coronary and aortic walls overlap) an additional
+    occlusion-removal step uses ray-triangle intersection to strip the overlapping
+    points, followed by adjacency-map reclassification to clean up isolated
+    mis-labelled vertices. Herfore, a ray is cast from every aorta point to the
+    centerline points of the coronary near the ostium and if 3 faces are
+    intersected by the ray the points from the first face must correspond to the
+    overlapping/intramural section.
+
+    The coronary vertices are then split per centerline branch
+    (:func:`~multimodars.label_branches`), and for the vessel with the acute
+    takeoff the pullback branch *branch_id* is split into proximal, anomalous and
+    distal sub-regions (:func:`~multimodars.label_anomalous_region`): the
+    intravascular imaging frames determine where along that branch the anomalous
+    (intramural) segment begins and ends.
+
+    Parameters
+    ----------
+    path_ccta_geometry : Path or str
+        Path to the CCTA surface mesh file (any format supported by
+        :func:`multimodars.io.read_geometrical.read_mesh`).
+    path_centerline_aorta : PyCenterline, Path, str, or numpy.ndarray
+        Aortic centerline: a ``.vtp`` file path, a CSV file path (comma-delimited,
+        columns: x, y, z, …), an existing ``PyCenterline``, or an array of points.
+        Loaded and oriented (``orient_by_max_z``) automatically; if it needs
+        trimming, resampling, or branch extraction first, prepare it beforehand
+        with :func:`multimodars.prepare_centerline` and pass the resulting
+        ``PyCenterline`` directly.
+    path_centerline_rca : PyCenterline, Path, str, or numpy.ndarray
+        RCA centerline, same accepted formats as *path_centerline_aorta*.
+    path_centerline_lca : PyCenterline, Path, str, or numpy.ndarray
+        LCA centerline, same accepted formats as *path_centerline_aorta*.
+    aligned_frames : list of PyFrame
+        Ordered list of intravascular imaging frames for the vessel.
+    acute_takeoff_rca : bool, optional
+        When ``True`` applies ray-triangle occlusion removal to the RCA region
+        to strip points overlapping the aortic wall near an acute-angle takeoff
+        (e.g. anomalous/intramural courses).  Default is ``False``.
+    acute_takeoff_lca : bool, optional
+        When ``True`` applies ray-triangle occlusion removal to the LCA region,
+        same as *acute_takeoff_rca* but for the LCA.  Default is ``False``.
+    range_mm_takeoff_rca : float, optional
+        Arc-length in mm along the RCA centerline, from its proximal end,
+        examined during occlusion removal (the overlapping/intramural segment
+        length). Expressed as a physical length rather than a point count so
+        it stays correct regardless of centerline resampling density.
+        Default is ``60.0``.
+    range_mm_takeoff_lca : float, optional
+        Same as *range_mm_takeoff_rca* but for the LCA. Default is ``60.0``.
+    step_size_mm : float, optional
+        Step size in mm for iterating over coronary centerline points during
+        occlusion removal.  Default is ``1.0`` mm.
+    bounding_sphere_radius_mm_rca : float, optional
+        Radius in millimetres of the rolling sphere used to collect candidate
+        mesh vertices around each centerline point of the RCA.  Default is
+        ``3.0``.
+    bounding_sphere_radius_mm_lca : float, optional
+        Radius in millimetres of the rolling sphere used to collect candidate
+        mesh vertices around each centerline point of the LCA.  Default is
+        ``3.0``.
+    tolerance_float : float, optional
+        Distance tolerance used when matching mesh vertices to points during
+        face lookup.  Default is ``1e-6``.
+    control_plot : bool, optional
+        When ``True`` opens an interactive 3-D scene showing the labelled mesh
+        after processing.  Default is ``True``.
+    branch_id : int, optional
+        Branch of the acute-takeoff vessel the frames are aligned to. Default
+        ``0``, the main vessel.
+
+    Returns
+    -------
+    results : dict
+        Dictionary with keys:
+
+        * ``"mesh"`` - the original :class:`trimesh.Trimesh` object.
+        * ``"aorta_points"`` - list of ``(x, y, z)`` tuples for aortic vertices.
+        * ``"rca_points"`` - list of ``(x, y, z)`` tuples for RCA vertices.
+        * ``"lca_points"`` - list of ``(x, y, z)`` tuples for LCA vertices.
+        * ``"rca_removed_points"`` - RCA vertices removed by occlusion detection.
+        * ``"lca_removed_points"`` - LCA vertices removed by occlusion detection.
+        * ``"rca_branches"`` / ``"lca_branches"`` - vertices per branch id.
+        * ``"proximal_points"``, ``"anomalous_points"``, ``"distal_points"``,
+          ``"off_path_points"`` - with an acute takeoff, see
+          :func:`~multimodars.label_anomalous_region`.
+
+    Raises
+    ------
+    Exception
+        Re-raises any error that occurs while reading the mesh or centerline
+        files, after printing a descriptive message.
+    """
+    # Resolve and orient centerlines once, locally, so the same oriented objects
+    # can be passed both to `label_geometry` (which uses them as-is) and to
+    # `label_anomalous_region` below — `label_geometry` no longer returns
+    # centerlines, so it can't hand them back.
+    ao_cl = centerline_prep.load_centerline(path_centerline_aorta, "Aorta")
+    ao_cl = ao_cl.orient_by_max_z()
+    rca_cl = centerline_prep.load_centerline(path_centerline_rca, "RCA")
+    rca_cl = rca_cl.orient_to_reference(ao_cl)
+    lca_cl = centerline_prep.load_centerline(path_centerline_lca, "LCA")
+    lca_cl = lca_cl.orient_to_reference(ao_cl)
+
+    results = labeling.label_geometry(
+        path_ccta_geometry=path_ccta_geometry,
+        centerline_aorta=ao_cl,
+        centerline_rca=rca_cl,
+        centerline_lca=lca_cl,
+        acute_takeoff_rca=acute_takeoff_rca,
+        acute_takeoff_lca=acute_takeoff_lca,
+        range_mm_takeoff_rca=range_mm_takeoff_rca,
+        range_mm_takeoff_lca=range_mm_takeoff_lca,
+        step_size_mm=step_size_mm,
+        bounding_sphere_radius_mm_rca=bounding_sphere_radius_mm_rca,
+        bounding_sphere_radius_mm_lca=bounding_sphere_radius_mm_lca,
+        tolerance_float=tolerance_float,
+        control_plot=control_plot,
+    )
+
+    results = labeling.label_branches(rca_cl, results, vessel="rca")
+    results = labeling.label_branches(lca_cl, results, vessel="lca")
+
+    if acute_takeoff_rca or acute_takeoff_lca:
+        results = labeling.label_anomalous_region(
+            centerline=rca_cl if acute_takeoff_rca else lca_cl,
+            frames=aligned_frames,
+            results=results,
+            branch_id=branch_id,
+        )
+
+    return results
+
+
+def scale(
+    results: dict,
+    cl_vessel: PyCenterline,
+    cl_aorta: PyCenterline,
+    aligned_frames: list[PyFrame],
+) -> dict:
+    """Scale the distal, proximal, and aortic regions of the vessel mesh.
+
+    1. Computes proximal and distal radial scaling factors via
+       :func:`scaling.find_distal_and_proximal_scaling`, which matches
+       the anomalous segment endpoints to lumen wall points from the first and
+       last intravascular frames.
+    2. Computes an aortic radial scaling factor via
+       :func:`scaling.find_aorta_scaling`, which aligns removed RCA points
+       to reconstructed aortic wall points from the frames.
+    3. Applies the scaling in sequence — distal, then aortic (``aorta_points``
+       + ``rca_removed_points``), then proximal — using
+       :func:`scaling.scale_region_centerline_morphing`, which displaces
+       each vertex radially around the nearest centerline point.
+    4. After each aortic/proximal scaling step,
+       :func:`scaling.sync_results_to_mesh` remaps all coordinate lists
+       in *results* to the updated vertex positions.
+
+    Only the pullback branch is scaled: branches off the pullback path
+    (``"off_path_points"``) keep their size.  To scale them too, call
+    :func:`scaling.scale_region_centerline_morphing` on
+    ``results["off_path_points"]`` (or one branch of ``results["rca_branches"]``)
+    and :func:`scaling.sync_results_to_mesh` afterwards.
+
+    Parameters
+    ----------
+    results : dict
+        Labelled results dictionary containing at minimum:
+
+        * ``"mesh"`` - the :class:`trimesh.Trimesh` to scale.
+        * ``"anomalous_points"`` - points in the anomalous segment.
+        * ``"distal_points"`` - vertices of the distal region.
+        * ``"proximal_points"`` - vertices of the proximal region.
+        * ``"aorta_points"`` - vertices of the aortic wall region.
+        * ``"rca_removed_points"`` - RCA vertices removed by occlusion detection.
+
+    cl_vessel : PyCenterline
+        Centerline of the vessel (used for proximal/distal scaling).
+    cl_aorta : PyCenterline
+        Centerline of the aorta (used for aortic scaling).
+    aligned_frames : list of PyFrame
+        Ordered intravascular imaging frames, used as the reference geometry
+        for computing all three scaling factors.
+
+    Returns
+    -------
+    dict
+        Updated *results* with ``"mesh"`` replaced by the fully scaled mesh
+        and all coordinate lists remapped to the new vertex positions.
+    """
+    prox_scaling, distal_scaling = scaling.find_distal_and_proximal_scaling(
+        frames=aligned_frames,
+        centerline=cl_vessel,
+        results=results,
+    )
+
+    aortic_scaling = scaling.find_aorta_scaling(
+        frames=aligned_frames,
+        cl_aorta=cl_aorta,
+        results=results,
+    )
+
+    scaled_distal = scaling.scale_region_centerline_morphing(
+        mesh=results["mesh"],
+        region_points=results["distal_points"],
+        centerline=cl_vessel,
+        diameter_adjustment_mm=distal_scaling,
+    )
+    results = scaling.sync_results_to_mesh(results, results["mesh"], scaled_distal)
+
+    scaled_distal_aortic = scaling.scale_region_centerline_morphing(
+        mesh=results["mesh"],
+        region_points=results["aorta_points"] + results["rca_removed_points"],
+        centerline=cl_aorta,
+        diameter_adjustment_mm=aortic_scaling,
+    )
+    results = scaling.sync_results_to_mesh(
+        results, results["mesh"], scaled_distal_aortic
+    )
+
+    scaled_proximal = scaling.scale_region_centerline_morphing(
+        mesh=results["mesh"],
+        region_points=results["proximal_points"],
+        centerline=cl_vessel,
+        diameter_adjustment_mm=prox_scaling,
+    )
+    results = scaling.sync_results_to_mesh(results, results["mesh"], scaled_proximal)
+
+    return results
+
+
+def stitch(
+    results: dict,
+    geometry: PyGeometry,
+    region_remove: list[str] | str | None = None,
+    prox_start_mode: str = "highest_z",
+    dist_start_mode: str = "nearest_iv",
+    tree: PyDiscretizedVesselTree | None = None,
+) -> dict:
+    """Stitch a CCTA mesh to the intravascular geometry.
+
+    Removes labeled anatomical regions from the CCTA mesh, then stitches the
+    remaining surface to the intravascular geometry reconstructed from
+    *geometry*.
+
+    *Anomalous vessel*: The recommended approach for anomalies is to remove anomalous points
+    and proximal points and stitch the intravascular vessel directly to aorta with highest_z
+    approach (default).
+
+    Only the pullback branch is cut: the regions come from
+    :func:`~multimodars.label_anomalous_region`, which leaves every branch off
+    the pullback path in ``"off_path_points"``.  A branch leaving the removed
+    segment is cut off from the vessel. Pass *tree* to join it to the
+    intravascular wall, otherwise it stays loose and a warning says so.
+
+    The result is only hole-filled, not remeshed or smoothed.  For that, run
+    :func:`postprocessing.postprocess_stitched_mesh` on the returned mesh as a
+    separate, explicit step (requires pymeshlab).
+
+    Parameters
+    ----------
+    results : dict
+        Labelled results dictionary (output of :func:`scale`), containing at
+        minimum ``"mesh"`` and the point-label lists produced by
+        :func:`label`.
+    geometry : PyGeometry
+        Intravascular imaging geometry whose contours define the vessel lumen
+        used as the stitching target.
+    region_remove : str or list of str, optional
+        Labeled regions cut out of the CCTA mesh before stitching (default
+        ``["anomalous_points", "proximal_points"]``).
+    prox_start_mode : str, optional
+        How to choose index 0 of the proximal boundary ring before stitching.
+        ``"highest_z"`` (default here) rotates to the point with the largest
+        z-coordinate and treats the ostium as two halves (see
+        :func:`~multimodars.ccta.stitching.stitch_ccta_to_intravascular`);
+        ``"nearest_iv"`` rotates to the point closest to IV point 0.
+    dist_start_mode : str, optional
+        Same as *prox_start_mode* but for the distal boundary ring (default
+        ``"nearest_iv"``).
+    tree : PyDiscretizedVesselTree, optional
+        Discretized tree of the mesh before the removal (from
+        :func:`~multimodars.discretize_vessel_tree`), used to reconnect side
+        branches leaving the removed segment (see
+        :func:`~multimodars.ccta.stitching.reconnect_side_branches`).
+
+    Returns
+    -------
+    dict
+        Stitched results dictionary with the same structure as *results*, where
+        ``"mesh"`` is the stitched, hole-filled surface.
+    """
+    if region_remove is None:
+        region_remove = ["anomalous_points", "proximal_points"]
+    # Cutting a segment out of the vessel opens a rim at each end, and the
+    # stitch needs both as separate rings.
+    updated_results = mesh_regions.remove_labeled_points_from_mesh(
+        results, region_remove, target_boundaries=2
+    )
+
+    stitched = stitching.stitch_ccta_to_intravascular(
+        geometry,
+        updated_results["mesh"],
+        updated_results,
+        prox_start_mode=prox_start_mode,
+        dist_start_mode=dist_start_mode,
+        tree=tree,
+    )
+
+    stitched["mesh"] = _postprocessing.manual_hole_fill(stitched["mesh"])
+
+    return stitched
+
+
+def create_wall_mesh(
+    frames: list[PyFrame] | None,
+    cl_aorta: PyCenterline,
+    cl_rca: PyCenterline,
+    cl_lca: PyCenterline,
+    results: dict,
+    aortic_scaling: float | None = None,
+    coronary_scaling: float = 1.0,
+) -> dict:
+    """Create a wall, by assigning a wall thickness for coronaries, and then finding either
+    directly the best scaling for aorta (for coronary artery anomalies), by finding the distance
+    between aortic wall and the reference point on the coronary or by directly providing a scaling factor
+    for coronarie sand aorta.
+    ...
+    """
+    if frames is None and aortic_scaling is None:
+        raise ValueError("Either provide frames or aortic scaling")
+
+    scaling_factor = 0.0
+
+    if frames is not None:
+        ao_scaling = scaling.find_aortic_wall_scaling(
+            frames=frames,
+            cl_aorta=cl_aorta,
+            results=results,
+        )
+        scaling_factor = ao_scaling
+    else:
+        assert aortic_scaling is not None
+        scaling_factor = aortic_scaling
+
+    # Extract aorta sub-mesh, fill ostia holes, then scale the closed aorta directly
+    sub_mesh_dict = mesh_regions.keep_labeled_points_from_mesh(
+        results, ["aorta_points", "rca_removed_points", "lca_removed_points"]
+    )
+    sub_mesh = sub_mesh_dict["mesh"]
+    sub_mesh_filled = _postprocessing.manual_hole_fill(sub_mesh)
+    filled_vertices = [
+        (float(p[0]), float(p[1]), float(p[2])) for p in sub_mesh_filled.vertices
+    ]
+
+    scaled_aorta = scaling.scale_region_centerline_morphing(
+        mesh=sub_mesh_filled,
+        region_points=filled_vertices,
+        centerline=cl_aorta,
+        diameter_adjustment_mm=scaling_factor,
+    )
+
+    # Extract and scale each coronary sub-mesh independently
+    rca_sub_dict = mesh_regions.keep_labeled_points_from_mesh(results, ["rca_points"])
+    scaled_rca = scaling.scale_region_centerline_morphing(
+        mesh=rca_sub_dict["mesh"],
+        region_points=rca_sub_dict["rca_points"],
+        centerline=cl_rca,
+        diameter_adjustment_mm=coronary_scaling,
+    )
+
+    lca_sub_dict = mesh_regions.keep_labeled_points_from_mesh(results, ["lca_points"])
+    scaled_lca = scaling.scale_region_centerline_morphing(
+        mesh=lca_sub_dict["mesh"],
+        region_points=lca_sub_dict["lca_points"],
+        centerline=cl_lca,
+        diameter_adjustment_mm=coronary_scaling,
+    )
+
+    results["mesh"] = trimesh.util.concatenate([scaled_aorta, scaled_rca, scaled_lca])
+
+    return results

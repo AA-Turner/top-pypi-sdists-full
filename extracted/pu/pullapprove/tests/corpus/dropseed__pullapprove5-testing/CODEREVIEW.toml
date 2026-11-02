@@ -1,0 +1,12 @@
+[[scopes]]
+name = "All"
+reviewers = ["davegaeddert"]
+paths = ["**/*"]
+request = 1
+require = 1
+
+[[scopes]]
+name = "Legal"
+cc = ["davegaeddert"]
+paths = ["**/*"]
+code = [".*copyright.*"]

@@ -14,6 +14,7 @@ from ....models import (
     SpanBatch,
     SpanCreate)
 from probe.sdk.run.handle import _UNSET
+from probe.sdk.routes import WriteOp, path_for
 
 if TYPE_CHECKING:  # Run only in annotations: importing it here would loop back into run.py
     from ..run import Run
@@ -292,7 +293,7 @@ class SpansMixin:
             wire_span.update(_summary_wire(wire_span.get("summary_metrics") or {}))
         self._client.write(
             "POST",
-            f"/v1/runs/{self.id}/spans",
+            path_for(WriteOp.SPANS, self.id),
             self._stamp_writer(body),
             strict=strict,
             blocking=blocking,
@@ -345,7 +346,7 @@ class SpansMixin:
         # sent; a later log() at this step keeps this name and these keys.
         self._remember_step_record(step_index, name, kw.get("attributes"))
         return self._client.write(
-            "POST", f"/v1/runs/{self.id}/steps", self._stamp_writer(body), strict=strict
+            "POST", path_for(WriteOp.STEPS, self.id), self._stamp_writer(body), strict=strict
         )
 
     def _flush_for_span(self, span_id: str | None) -> None:

@@ -13,7 +13,7 @@ from __future__ import annotations
 import subprocess
 
 from probe import __version__
-from probe.cli import bootstrap
+from probe.cli.install import bootstrap
 
 
 def _behind(monkeypatch, *, before: str, after: str):
@@ -45,7 +45,7 @@ def test_an_install_still_behind_afterwards_says_so_and_how_to_fix_it(monkeypatc
     """Where the CLI lives side by side, the fix is `npx probe-research repair`:
     a `uv tool install --force` through its link replaces it with uv's own
     folder (plan clean-uninstall-reinstall R4). Elsewhere, the plain install."""
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     _behind(monkeypatch, before="0.0.1", after="0.0.1")
     monkeypatch.setattr(bootstrap.shutil, "which", lambda name: "/usr/bin/uv" if name == "uv" else None)
@@ -81,7 +81,7 @@ def test_no_install_at_all_installs_the_newest(monkeypatch):
 def _in_place_machine(monkeypatch) -> None:
     """A machine whose CLI is not side by side (Windows, the versions folder on
     another filesystem): the bootstrap's own `uv tool install`, as before."""
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     monkeypatch.setattr(install_pipeline, "layout_usable", lambda tools: False)
 
@@ -140,7 +140,7 @@ def test_an_update_from_a_stale_copy_pins_to_the_newer_target(monkeypatch):
 def test_without_uv_the_still_behind_hint_installs_uv_first(monkeypatch):
     """pipx is no longer an install of its own (plan clean-uninstall-reinstall
     R-T1): the managed install is uv's, so the hint puts uv on the machine."""
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     _behind(monkeypatch, before="0.0.1", after="0.0.1")
     monkeypatch.setattr(bootstrap.shutil, "which", lambda name: "/usr/bin/pipx" if name == "pipx" else None)

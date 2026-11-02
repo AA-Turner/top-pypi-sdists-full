@@ -1,0 +1,74 @@
+"""Tracker issue ``/comments`` operations, declared once (sans-IO).
+
+Examples:
+    >>> reactions_create("DE-1", 2238, "LIKE").path
+    'issues/DE-1/comments/2238/reactions/LIKE'
+    >>> list_("DE-1", expand=None, page_size=10).endpoint.params
+    {'expand': None}
+"""
+
+from __future__ import annotations
+
+from http import HTTPMethod
+from typing import TYPE_CHECKING
+
+from ycli.yandex.core.endpoint import Endpoint, Paged, segment
+from ycli.yandex.core.pagination import RelativeIDPagination
+from ycli.yandex.models import ItemList
+from ycli.yandex.tracker.comments.models import Comment, CommentUpdate, ImportComment
+
+if TYPE_CHECKING:
+    from ycli.yandex.tracker.models import CommentCreate
+
+PAGE_SIZE = 100
+
+
+def _comment_id(comment: Comment) -> str | None:
+    return str(comment.id) if comment.id is not None else None
+
+
+def list_(
+    issue_key: str, *, expand: str | None, page_size: int = PAGE_SIZE
+) -> Paged[ItemList[Comment], Comment]:
+    """``GET /issues/{key}/comments``, each next page from ``id=<last comment id>``."""
+    return Paged(
+        Endpoint(
+            HTTPMethod.GET,
+            f"issues/{segment(issue_key)}/comments",
+            ItemList[Comment],
+            params={"expand": expand},
+        ),
+        RelativeIDPagination(id_of=_comment_id, page_size=page_size),
+        lambda page: page.root,
+    )
+
+
+def get(issue_key: str, comment_id: int | str, *, expand: str | None = None) -> Endpoint[Comment]:
+    path = f"issues/{segment(issue_key)}/comments/{segment(comment_id)}"
+    return Endpoint(HTTPMethod.GET, path, Comment, params={"expand": expand})
+
+
+def create(issue_key: str, body: CommentCreate) -> Endpoint[Comment]:
+    return Endpoint(HTTPMethod.POST, f"issues/{segment(issue_key)}/comments/", Comment, json=body)
+
+
+def update(issue_key: str, comment_id: int | str, body: CommentUpdate) -> Endpoint[Comment]:
+    path = f"issues/{segment(issue_key)}/comments/{segment(comment_id)}"
+    return Endpoint(HTTPMethod.PATCH, path, Comment, json=body)
+
+
+def delete(issue_key: str, comment_id: int | str) -> Endpoint[None]:
+    return Endpoint(
+        HTTPMethod.DELETE, f"issues/{segment(issue_key)}/comments/{segment(comment_id)}"
+    )
+
+
+def reactions_create(issue_key: str, comment_id: int | str, name: str) -> Endpoint[Comment]:
+    path = f"issues/{segment(issue_key)}/comments/{segment(comment_id)}/reactions/{segment(name)}"
+    return Endpoint(HTTPMethod.POST, path, Comment)
+
+
+def import_(issue_key: str, body: ImportComment) -> Endpoint[Comment]:
+    return Endpoint(
+        HTTPMethod.POST, f"issues/{segment(issue_key)}/comments/_import", Comment, json=body
+    )

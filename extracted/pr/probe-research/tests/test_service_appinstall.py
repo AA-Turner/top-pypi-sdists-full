@@ -39,9 +39,13 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from probe.service import appinstall, appupdate, paths, updater
-from probe.service.appinstall import InstallError, Outcome
-from probe.service.protocol import AppCheckReason, AppResult
+from probe.service.updater import app as appinstall
+from probe.service.updater.app import locate as appupdate
+from probe.foundation.service_api import paths
+from probe.service import updater
+from probe.service.updater.app.errors import InstallError
+from probe.service.updater.app.app import Outcome
+from probe.foundation.service_api.vocabularies import AppCheckReason, AppResult
 from tests.service_fakes import enable_auto_update, fake_open, open_calls
 from tests.service_harness import service_home  # noqa: F401 -- a fixture
 
@@ -739,15 +743,26 @@ def test_a_bundle_or_folder_this_user_cannot_write_is_skipped_without_a_download
 
 
 def _sleeper(mac) -> Path:
-    """The installed app with a real long-running executable (a copy of `sleep`)."""
+    """The installed app with a real long-running executable: a copy of this
+    interpreter. Never a copy of `sleep`: Ubuntu 26.04's (GitHub's ubuntu-latest
+    from 2026-11-01) is uutils' multi-call binary, which exits 1 as `desktop`."""
     shutil.rmtree(mac["app"])
-    return make_app(mac["apps"], "0.1.51", exe=Path(shutil.which("sleep")))
+    return make_app(mac["apps"], "0.1.51", exe=Path(os.path.realpath(sys.executable)))
+
+
+def _run_app(app: Path) -> subprocess.Popen:
+    """The app's executable (`_sleeper`'s interpreter copy), sleeping for 60 s.
+    A copied interpreter finds its stdlib and libpython only through these."""
+    base = Path(sys.base_prefix)
+    env = {**os.environ, "PYTHONHOME": str(base),
+           "LD_LIBRARY_PATH": os.pathsep.join(filter(None, [str(base / "lib"), os.environ.get("LD_LIBRARY_PATH")]))}
+    return subprocess.Popen([str(app / "Contents" / "MacOS" / EXE), "-c", "import time; time.sleep(60)"], env=env)
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="/proc tells exactly where an executable runs from")
 def test_a_running_app_is_skipped_without_a_download(mac):
     app = _sleeper(mac)
-    proc = subprocess.Popen([str(app / "Contents" / "MacOS" / EXE), "60"])
+    proc = _run_app(app)
     try:
         time.sleep(0.2)
         assert appinstall.running_from(app) == [proc.pid]
@@ -768,7 +783,7 @@ def test_an_app_process_that_starts_during_the_download_stops_the_install_before
     app = _sleeper(mac)
     started = []
     feed = release(mac)
-    feed.during_download = lambda: started.append(subprocess.Popen([str(app / "Contents" / "MacOS" / EXE), "60"]))
+    feed.during_download = lambda: started.append(_run_app(app))
     try:
         result = install(mac, feed)
     finally:
@@ -1654,7 +1669,7 @@ def test_an_install_whose_undo_failed_is_sticky_until_the_app_verifies(closed_ma
     service keeps a record, every step says `reinstall`, and `probe doctor` says to
     reinstall Probe. The next cycles are never `current` while the app fails codesign:
     the same release is installed over it, and the record goes once the app verifies."""
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     monkeypatch.setattr(appinstall, "CODESIGN", str(_codesign_broken_marker(tmp_path)))
     feed, key = closed_mac["feed"], closed_mac["key"]
@@ -1736,7 +1751,7 @@ def test_off_macos_a_closed_app_is_still_only_skipped(service_home, monkeypatch)
 def test_the_install_is_imported_before_step_one_replaces_the_files(mac_os):
     """Plan R2: the cycle's preload imports the install (and cryptography) on
     macOS, before the update child replaces the files it would import from."""
-    names = ["probe.service.appinstall", "cryptography.hazmat.primitives.asymmetric.ed25519", "tarfile",
+    names = ["probe.service.updater.app.app", "cryptography.hazmat.primitives.asymmetric.ed25519", "tarfile",
              "urllib.request"]
     code = (
         "import sys; from probe.service import updater; "
@@ -1752,18 +1767,20 @@ def test_the_install_is_imported_before_step_one_replaces_the_files(mac_os):
 
 def test_the_service_start_path_never_imports_the_install():
     done = subprocess.run(
+        # The install is every piece of updater/app/ but `locate`, the light module the start path reads.
         [sys.executable, "-I", "-c", "import probe.service.server, sys; "
-         "print('probe.service.appinstall' in sys.modules, any(m.startswith('cryptography') for m in sys.modules))"],
+         "print(sorted(m for m in sys.modules if m.startswith('probe.service.updater.app.') "
+         "and m != 'probe.service.updater.app.locate'), any(m.startswith('cryptography') for m in sys.modules))"],
         capture_output=True, text=True, timeout=60, cwd="/",
     )
-    assert done.stdout.split() == ["False", "False"], done.stderr
+    assert done.stdout.split() == ["[]", "False"], done.stderr
 
 
 # -- what probe doctor says ------------------------------------------------------------------
 
 
 def test_doctor_names_who_installed_the_app_and_why_a_cycle_skipped():
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     record = {"state": "done", "result": "updated", "via": updater.VIA_SERVICE_INSTALL, "version_before": "0.1.51",
               "version_after": "0.1.52", "at": time.time()}

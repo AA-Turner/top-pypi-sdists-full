@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zipcodes
-Version: 3.0.0
+Version: 3.0.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.9
@@ -23,14 +23,12 @@ Project-URL: Issues, https://github.com/seanpianka/zipcodes/issues
 
 # Zipcodes
 
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/zipcodes)
-[![PyPI](https://img.shields.io/pypi/v/zipcodes)](https://pypi.org/project/zipcodes/)
-[![crates.io](https://img.shields.io/crates/v/zipcodes)](https://crates.io/crates/zipcodes)
-[![Downloads](https://static.pepy.tech/badge/zipcodes/month)](https://pepy.tech/project/zipcodes)
-[![Contributors](https://img.shields.io/github/contributors/seanpianka/zipcodes.svg)](https://github.com/seanpianka/zipcodes/graphs/contributors)
+Python: ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/zipcodes) [![PyPI](https://img.shields.io/pypi/v/zipcodes)](https://pypi.org/project/zipcodes/) [![Python downloads (all time)](https://static.pepy.tech/badge/zipcodes)](https://pepy.tech/project/zipcodes) [![Python downloads (monthly)](https://static.pepy.tech/badge/zipcodes/month)](https://pepy.tech/project/zipcodes)
+
+Rust: [![Minimum Rust version](https://img.shields.io/crates/msrv/zipcodes)](https://crates.io/crates/zipcodes) [![crates.io](https://img.shields.io/crates/v/zipcodes)](https://crates.io/crates/zipcodes) [![Rust downloads (all time)](https://img.shields.io/crates/d/zipcodes?label=downloads%20(all%20time))](https://crates.io/crates/zipcodes) [![Rust downloads (recent)](https://img.shields.io/crates/dr/zipcodes?label=downloads%20(recent))](https://crates.io/crates/zipcodes)
 
 Zipcodes is a simple library for querying U.S. zipcodes. No SQLite, no
-network, no runtime data files — the full dataset is embedded in the package.
+network, no runtime data files — the full dataset is embedded in the package. [![Contributors](https://img.shields.io/github/contributors/seanpianka/zipcodes.svg)](https://github.com/seanpianka/zipcodes/graphs/contributors)
 
 Since 2.0, the library is implemented in Rust and published from a single
 codebase as both the [`zipcodes` Python package](https://pypi.org/project/zipcodes/)
@@ -146,19 +144,25 @@ automatically.
 To rebuild the dataset manually:
 
 ```shell script
-$ pip install xlrd
+$ pip install -r scripts/requirements.txt
 $ curl -fsSL https://download.geonames.org/export/zip/US.zip -o /tmp/geonames_us.zip
-$ # download the .xls linked from https://postalpro.usps.com/ZIP_Locale_Detail
+$ # download the .xlsx linked from https://postalpro.usps.com/ZIP_Locale_Detail
 $ python scripts/update_zipcode_dataset.py \
     --base scripts/data/zip_code_database.csv \
     --gps scripts/data/zip-codes-database-FREE.csv \
     --geonames-zip /tmp/geonames_us.zip \
-    --usps-xls /tmp/usps_zip_locale.xls \
+    --usps-file /tmp/usps_zip_locale.xlsx \
     --output-bz2 crates/zipcodes/src/zips.json.bz2 \
     --summary-output /tmp/change_summary.json
 ```
 
 ## Tests
+
+[CI](https://github.com/seanpianka/Zipcodes/actions/workflows/ci.yml) runs Rust
+checks and Python tests on pushes to `master` and pull requests. Rust API docs
+are built automatically on [docs.rs](https://docs.rs/zipcodes) after each crate
+release; this README is published to [PyPI](https://pypi.org/project/zipcodes/)
+with each Python release.
 
 The tests are defined in a declarative, table-based format that generates test
 cases.

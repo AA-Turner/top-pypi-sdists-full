@@ -1,0 +1,108 @@
+Metadata-Version: 2.4
+Name: adaptive_cards_templating_py
+Version: 0.1.5
+Summary: This library largely implements the JSON-to-JSON Adaptive Cards Template language for Python. Most features are supported, except for the Adaptive expressions prebuilt functions.
+Author-email: Dion Olsthoorn <dion.olsthoorn@gmail.com>
+License: MIT License
+        
+        Copyright (c) [2025] [Dion Olsthoorn]
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+Project-URL: Homepage, https://github.com/dionoid/adaptive-cards-templating-py
+Project-URL: Source, https://github.com/dionoid/adaptive-cards-templating-py
+Project-URL: Issues, https://github.com/dionoid/adaptive-cards-templating-py/issues
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
+
+# Adaptive Cards Templating for Python
+
+This library largely implements the JSON-to-JSON Adaptive Cards Template language for Python. It allows you to dynamically expand Adaptive Card templates using data and host-specific information.
+
+## Features
+
+- Supports most standard features of the Adaptive Cards Template language.
+- Inline data expansion with `$data`.
+- Conditional rendering with `$when`.
+- Expression evaluation using `${}` syntax.
+- Custom functions like `if()` and `json()`.
+- Supports `$root`, `$host`, and `$index` for advanced templating.
+
+## Currently unsupported
+
+- Adaptive expressions prebuilt functions.
+
+## Installation
+
+To install the package, use:
+
+```bash
+pip install adaptive-cards-templating-py
+```
+
+## Usage
+
+Here's a quick example of how to use the library:
+
+```python
+import json
+from adaptive_cards_templating_py import Template
+
+# Define a template
+template_json = {
+    "type": "AdaptiveCard",
+    "body": [
+        {
+            "type": "TextBlock",
+            "text": "${message}"
+        }
+    ]
+}
+
+# Create a Template instance
+template = Template(template_json)
+
+# Expand the template with data
+data = {
+    "$root": {
+        "message": "Hello, Adaptive Cards!"
+    }
+}
+card = template.expand(data)
+
+# Pretty-print the card
+print(json.dumps(card, indent=2))
+```
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Write tests for your changes.
+4. Commit your changes and push the branch.
+5. Open a pull request.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

@@ -29,7 +29,7 @@ def _safe(session_id: str) -> str:
 
 def service_dir() -> Path | None:
     try:
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         return paths.service_dir()
     except Exception:  # noqa: BLE001 -- no service folder: its sources are skipped
@@ -51,8 +51,8 @@ def live_sessions() -> list[dict]:
     """Registered sessions that are not off and whose owner still runs (or, with
     no owner, whose registrant re-registered within the heartbeat TTL)."""
     try:
-        from probe.service import procid
-        from probe.service.registry import HEARTBEAT_TTL_S
+        from probe.foundation.service_api import procid
+        from probe.service.sessions.sessions import HEARTBEAT_TTL_S
     except Exception:  # noqa: BLE001
         return []
     now = time.time()

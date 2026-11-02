@@ -1,0 +1,1593 @@
+"""Scenario IR -- the canonical representation edited by the Scenario Editor.
+
+The editor never edits Python.  It edits a :class:`ScenarioDocument`, a
+declarative, serialisable description of a scenario that
+:mod:`autoware_carla_scenario.authoring.compiler` turns into the *existing*
+runtime primitives (``BaseAction`` / ``BaseCondition`` / ``BaseScenario``).
+
+Two rules shape the model:
+
+* **Semantics and layout are separate.**  Everything under :attr:`ScenarioDocument.ui`
+  is presentation only -- ``column_hint`` and ``actor_order`` never reach the
+  runtime.  Deleting the whole ``ui`` block must not change what the scenario does.
+* **Primitives are named, not modelled.**  Actions, conditions, spawn constraints
+  and bindings are stored as a ``type`` string plus a free-form ``params`` mapping,
+  and are given meaning by the metadata in
+  :mod:`autoware_carla_scenario.authoring.registry`.  Adding a primitive is a
+  Python-side change; neither this module nor the HTML templates need to know
+  about it.
+
+This module deliberately has **no** CARLA or lanelet2 import, so a document can
+be loaded, validated and compiled anywhere.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+from dataclasses import dataclass
+from typing import Annotated, Any, Literal, Optional, Union, cast, get_args
+
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from .registry import LaneletPlace, get_action_spec
+
+__all__ = [
+    "ActionNode",
+    "Assertions",
+    "BindingRef",
+    "ConditionNode",
+    "ConstraintNode",
+    "CountRange",
+    "EgoDriver",
+    "AUTO_MODEL",
+    "Entity",
+    "EntitySize",
+    "DEFAULT_MODELS",
+    "EntityKind",
+    "GoalSpec",
+    "JunctionPath",
+    "JunctionSegment",
+    "LaneSegment",
+    "LaneletChoice",
+    "LaneletMode",
+    "LaneletSlot",
+    "MapRef",
+    "LengthRange",
+    "RouteSearch",
+    "RouteSegment",
+    "ScenarioDocument",
+    "SIGNAL_STATE_NAMES",
+    "SignalControllerRef",
+    "SignalGroupRef",
+    "SignalPhaseRef",
+    "SignalStateRef",
+    "SpawnMode",
+    "SpawnSpec",
+    "SValue",
+    "ActionPhaseName",
+    "TICK_PHASES",
+    "ACTION_PHASE_VALUES",
+    "as_action_phase",
+    "UiLayout",
+    "UiNode",
+    "VertexCondition",
+    "DOCUMENT_FORMAT_VERSION",
+    "new_object_id",
+]
+
+#: Bumped whenever the on-disk shape of a document changes incompatibly.
+DOCUMENT_FORMAT_VERSION = 1
+
+EntityKind = Literal["ego", "vehicle", "pedestrian"]
+#: The CARLA blueprint an entity of each kind gets when nothing says otherwise.
+#: A pedestrian is not a vehicle with a different model -- it spawns from a
+#: different blueprint family, is driven by nothing, and has no goal -- so the
+#: default has to follow the kind rather than sit on the field.
+DEFAULT_MODELS: dict[str, str] = {
+    "ego": "vehicle.mini.cooper",
+    "vehicle": "vehicle.mini.cooper",
+    # 0001-0014 are gone from CARLA 0.10; 0015 is in every release.
+    "pedestrian": "walker.pedestrian.0015",
+}
+#: Which stack drives the ego, rendered as the framework's ``ego.entity`` key.
+#:
+#: ``autopilot`` is CARLA's TrafficManager, which is driven for the ego and
+#: reads no goal.  ``autoware`` is the closed loop: Autoware localizes at the
+#: spawn, plans a route to the goal and only then engages, so a goal is required
+#: of it and of nothing else.  (The framework's other values, ``carla_driver``
+#: and ``ros2``, need a ``driver`` or ``ros2`` config group the editor does not
+#: author; a run can still select them from the command line.)
+EgoDriver = Literal["autopilot", "autoware"]
+#: How a lanelet-valued slot gets its lanelet.
+#:
+#: ``fixed`` pins the id the document carries.  ``constraint_search`` states a
+#: property of the lanelet instead and leaves finding it to the existing
+#: lanelet-constraint sweeper, which runs the scenario once per match.
+#: ``derived`` follows that search: a binding works the lanelet out from the
+#: one the sweep picked -- the lane beside it, the lanelet after it, the pick
+#: itself.  The choice is the same wherever a lanelet is named -- a spawn, a
+#: goal, the lanelet a condition watches -- so it is one type rather than one
+#: per site.
+LaneletMode = Literal["fixed", "constraint_search", "derived"]
+#: The spawn's own name for :data:`LaneletMode`, kept because documents,
+#: forms and tests spell the spawn's mode with it.
+SpawnMode = LaneletMode
+#: When in a run an action is performed.  ``init`` is the scenario's
+#: initialization phase -- from the ego spawning until it reports ready -- which
+#: is a phase and not a tick: the clock has not started and no condition has been
+#: evaluated.  The other two are positions within a tick of the running loop.
+#:
+#: The distinction is not cosmetic.  The runner waits for the ego to be ready
+#: *before* the loop starts, so anything the ego needs in order to become ready
+#: -- a goal, above all -- has to happen in ``init``; delivered from inside the
+#: loop it would never arrive.
+ActionPhaseName = Literal["init", "pre_tick", "post_tick"]
+
+#: Phases that are a position within a tick, as opposed to the phase before the
+#: loop.  The runtime ``TickTiming`` enum has members for exactly these.
+TICK_PHASES: frozenset[str] = frozenset({"pre_tick", "post_tick"})
+
+#: Read off the Literal, so the values and the type cannot drift apart.
+ACTION_PHASE_VALUES: tuple[ActionPhaseName, ...] = get_args(ActionPhaseName)
+
+
+def as_action_phase(value: object) -> Optional[ActionPhaseName]:
+    """Return *value* as a phase name, or ``None`` if it does not name one.
+
+    The one place a phase arriving from outside -- a form field, a hand-edited
+    document -- is checked, so a caller cannot accept a phase the IR does not
+    have by forgetting to compare against the same list.
+    """
+    return cast(ActionPhaseName, value) if value in ACTION_PHASE_VALUES else None
+
+
+_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def new_object_id(prefix: str) -> str:
+    """Return a short, unique, identifier-safe object id with *prefix*."""
+    import uuid  # noqa: PLC0415
+
+    return f"{prefix}_{uuid.uuid4().hex[:8]}"
+
+
+class _Node(BaseModel):
+    """Base for every IR node.
+
+    ``extra="forbid"`` makes a typo in a hand-edited YAML fail loudly rather
+    than being silently dropped, and ``validate_assignment=True`` extends the
+    same guarantee to the editor: a rejected value has to raise where it is
+    assigned, not corrupt the draft and surface as a parse error the next time
+    it is opened.
+    """
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
+# ---------------------------------------------------------------------------
+# Spawn
+# ---------------------------------------------------------------------------
+
+
+class ConstraintNode(_Node):
+    """One node of a lanelet spawn-constraint tree.
+
+    The shape mirrors the ``sweep.constraints`` YAML syntax consumed by
+    :mod:`autoware_carla_scenario.sweeper.constraints` one-for-one, so
+    :meth:`to_sweep_dict` is a pure re-shaping step -- the editor never gets
+    its own constraint engine.
+
+    Children always live in :attr:`constraints`, however many a type takes.
+    The sweeper spells a unary ``not`` child as a singular ``constraint`` key,
+    so that difference lives in :meth:`to_sweep_dict` alone rather than in a
+    second field every walk, edit and validation would have to branch on.
+
+    Attributes:
+        type: Constraint ``type`` string (``has_adjacent``, ``and``, ``not``, ...).
+        params: Leaf parameters (e.g. ``{"value": "left"}``).
+        constraints: Child constraints, bounded by the type's
+            :attr:`~autoware_carla_scenario.authoring.registry.ConstraintSpec.max_children`.
+    """
+
+    id: str = Field(default_factory=lambda: new_object_id("c"))
+    type: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    constraints: list[ConstraintNode] = Field(default_factory=list)
+
+    def to_sweep_dict(self) -> dict[str, Any]:
+        """Return this subtree in ``sweep.constraints`` YAML form."""
+        from .registry import get_constraint_spec
+
+        out: dict[str, Any] = {"type": self.type}
+        out.update(self.params)
+        if not self.constraints:
+            return out
+        spec = get_constraint_spec(self.type)
+        if spec is not None and spec.kind == "wrapper":
+            out["constraint"] = self.constraints[0].to_sweep_dict()
+        else:
+            out["constraints"] = [c.to_sweep_dict() for c in self.constraints]
+        return out
+
+    def walk(self) -> "list[ConstraintNode]":
+        """Return this node followed by every descendant, depth first."""
+        found = [self]
+        for child in self.constraints:
+            found.extend(child.walk())
+        return found
+
+    def remove(self, node_id: str) -> bool:
+        """Remove the descendant identified by *node_id*.  Returns success."""
+        for index, child in enumerate(self.constraints):
+            if child.id == node_id:
+                del self.constraints[index]
+                return True
+            if child.remove(node_id):
+                return True
+        return False
+
+
+class BindingRef(_Node):
+    """Reference to a ``sweep.bindings`` entry that derives a value.
+
+    Attributes:
+        type: Binding ``type`` string (e.g. ``stop_line_offset``).
+        params: Binding parameters (e.g. ``{"offset": 15.0}``).
+    """
+
+    type: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+    def to_sweep_dict(self) -> dict[str, Any]:
+        """Return this binding in ``sweep.bindings`` YAML form.
+
+        With the parameters its spec fixes, which the editor does not offer.
+        """
+        from .registry import get_binding_spec  # noqa: PLC0415
+
+        spec = get_binding_spec(self.type)
+        fixed = dict(spec.fixed) if spec else {}
+        return {"type": self.type, **self.params, **fixed}
+
+
+class SValue(_Node):
+    """Longitudinal spawn offset, either given outright or derived from the map.
+
+    ``mode="fixed"`` uses :attr:`value` verbatim.  ``mode="derived"`` hands the
+    value to a :class:`BindingRef` (``sweep.bindings``), which resolves it
+    per matched lanelet -- "15 m before the stop line" rather than "s = 12.5".
+    :attr:`value` is still carried in derived mode: it is the concrete number
+    written into the Hydra config as the starting point the sweeper overrides.
+    """
+
+    mode: Literal["fixed", "derived"] = "fixed"
+    value: float = 0.0
+    binding: Optional[BindingRef] = None
+
+
+class LaneletChoice(_Node):
+    """How one lanelet-valued slot gets its lanelet.
+
+    ``mode="fixed"`` means the id stored beside this choice is the answer.
+    ``mode="constraint_search"`` states what the lanelet has to *be* instead --
+    a left-adjacent lane, one with a stop line, one at least 30 m long -- and
+    leaves finding it to the existing lanelet-constraint sweeper, which runs
+    the scenario once per matching lanelet with the id stored beside it as the
+    default a non-swept run keeps.
+
+    The pair is carried by everything that names a lanelet: an entity's spawn,
+    the ego's goal, and every ``lanelet`` parameter of an action or a condition.
+    They differ only in *where* the id lives -- which is what
+    :class:`LaneletSlot` exists to paper over -- so anything reading a document
+    for "what is searched here" reads this one class.
+    """
+
+    mode: LaneletMode = "fixed"
+    constraints: list[ConstraintNode] = Field(default_factory=list)
+    #: How a ``derived`` lanelet follows the pick -- a ``sweep.bindings`` entry
+    #: that produces a lanelet.  Kept when the mode flips away, as the
+    #: constraints are.
+    binding: Optional[BindingRef] = None
+
+    @property
+    def searching(self) -> bool:
+        """Whether the lanelet is left to the sweeper rather than pinned."""
+        return self.mode == "constraint_search"
+
+    @property
+    def deriving(self) -> bool:
+        """Whether the lanelet is worked out from the sweep's pick."""
+        return self.mode == "derived"
+
+    @property
+    def binding_title(self) -> Optional[str]:
+        """The title of the binding a derived lanelet follows, if it has one."""
+        from .registry import get_binding_spec  # noqa: PLC0415
+
+        spec = get_binding_spec(self.binding.type) if self.binding else None
+        return spec.title if spec else None
+
+    def sweep_constraint_dicts(self) -> list[dict[str, Any]]:
+        """Return the constraint tree in ``sweep.constraints`` YAML form.
+
+        Empty unless the slot is actually searched: a tree left behind by
+        flipping back to Fixed is kept (so flipping forward again does not lose
+        it) and must not reach the sweeper.
+        """
+        if not self.searching:
+            return []
+        return [c.to_sweep_dict() for c in self.constraints]
+
+
+def _ensure_search(node: Any, field: str) -> LaneletChoice:
+    """Return *node*'s stored choice for *field*, attaching a pinned one if absent.
+
+    Attaching is deliberately not done on read: a document should carry a
+    ``searches`` entry for a parameter someone has actually opened the question
+    on, not one for every lanelet field every primitive happens to declare.
+    """
+    existing = node.searches.get(field)
+    if existing is None:
+        existing = LaneletChoice()
+        node.searches[field] = existing
+    return existing
+
+
+class SpawnSpec(LaneletChoice):
+    """Where an entity starts.
+
+    ``mode="fixed"`` pins :attr:`lanelet_id`.  ``mode="constraint_search"``
+    leaves the lanelet to the existing lanelet-constraint sweeper: the
+    :attr:`constraints` tree is emitted as ``sweep.constraints`` and
+    :attr:`lanelet_id` becomes the concrete default the sweep overrides.
+    """
+
+    lanelet_id: int = 0
+    s: SValue = Field(default_factory=SValue)
+    #: Lateral offset from the lanelet's centreline, positive to its left.  A
+    #: vehicle is snapped to the road after it, so only a pedestrian -- which
+    #: is not -- really stands off the lane: at the kerb, say.
+    t: float = 0.0
+    #: Yaw relative to the lanelet's direction of travel, in radians, positive
+    #: anticlockwise.  ``pi / 2`` faces across the lane from its right-hand edge.
+    heading: float = 0.0
+    #: Spawn out of the world -- under the map, physics off -- and let an
+    #: action bring the entity in: a *Set Goal* card that keeps it out
+    #: until its first vertex.  What a road user a recording picks up late
+    #: needs: placed where it first appears, it could collide at spawn with
+    #: whatever stood there when the run began.
+    hidden: bool = False
+
+    @property
+    def heading_deg(self) -> float:
+        """:attr:`heading` in degrees, as the editor shows it."""
+        return math.degrees(self.heading)
+
+
+class GoalSpec(LaneletChoice):
+    """Where the ego is being sent.
+
+    A goal is not something that happens during a run: Autoware localizes at
+    the spawn pose, plans a route to the goal, and only then engages, so the
+    goal is part of what it takes to *initialize* the ego.  That is why it sits
+    on the entity next to its spawn -- both ends of the ego's run in one place
+    -- rather than being an action performed at some point in the loop.
+
+    It is rendered as the framework's own ``ego.goal_lanelet_id`` / ``ego.goal_s``
+    keys and reaches the runtime on the ego's
+    :class:`~autoware_carla_scenario.EgoConfig`.  An ``autoware`` ego is refused
+    without one; an ego the TrafficManager drives may be given no destination at
+    all, and then this is simply absent.
+
+    A goal is a lanelet like any other, so it inherits the same choice a spawn
+    has: it may be searched for, and then :attr:`lanelet_id` is the default the
+    sweep overrides through ``ego.goal_lanelet_id``.
+    """
+
+    lanelet_id: int = 0
+    s: float = 0.0
+
+
+#: An entity's ``vehicle_type`` that names no blueprint: the vehicle of the
+#: running CARLA nearest the entity's :attr:`Entity.size`, chosen when it is
+#: spawned (:mod:`autoware_carla_scenario.entity.fit`).
+AUTO_MODEL = "auto"
+
+
+class EntitySize(_Node):
+    """The size of the box an entity is to fill, in metres."""
+
+    length: float = Field(gt=0.0)
+    width: float = Field(gt=0.0)
+
+
+class Entity(_Node):
+    """A vehicle taking part in the scenario.
+
+    Exactly one entity must have ``kind="ego"``; its
+    :attr:`role_name` is fixed to the framework's ego role by the compiler.
+    Other entities map onto ``npc<N>`` roles in registration order.
+
+    :attr:`goal` and :attr:`driven_by` are the ego's alone; nothing reads
+    either on any other entity, so one stored there is a validation error
+    rather than something quietly dropped at export.
+
+    A ``pedestrian`` is not a vehicle with a different model.  It spawns from
+    the ``walker`` blueprint family, no traffic model drives it, and the only
+    thing it can be asked to do is walk -- so :attr:`vehicle_type` follows the
+    kind's default (see :data:`DEFAULT_MODELS`) and the actions it may perform
+    are the ones whose spec names its kind.
+
+    A vehicle other than the ego may have ``vehicle_type: auto`` and a
+    :attr:`size`: it is then the vehicle of the running CARLA whose bounding
+    box is nearest that size, chosen when it is spawned -- whatever the
+    server's version and assets -- and the kind's default where there is none.
+    """
+
+    id: str
+    kind: EntityKind = "vehicle"
+    title: str = ""
+    vehicle_type: str = "vehicle.mini.cooper"
+    #: The box a ``vehicle_type: auto`` vehicle is to fill (a recorded one).
+    size: Optional[EntitySize] = None
+    initial_speed_kmh: float = 0.0
+    spawn: SpawnSpec = Field(default_factory=SpawnSpec)
+    #: Which stack drives the ego.  Only the ego is driven by anything the
+    #: document chooses; every other vehicle is the TrafficManager's.
+    driven_by: EgoDriver = "autopilot"
+    #: Where the ego is routed to.  ``None`` is a destination left unsaid, which
+    #: only an ``autoware`` ego is a validation error for: it plans its own
+    #: route and will not move without one.
+    goal: Optional[GoalSpec] = None
+
+    @field_validator("id")
+    @classmethod
+    def _check_id(cls, value: str) -> str:
+        if not _ID_PATTERN.match(value):
+            raise ValueError(
+                f"Entity id {value!r} must be lower_snake_case starting with a letter."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _default_model_to_the_kind(self) -> "Entity":
+        """Give an unset blueprint this kind's default.
+
+        Without it, switching a card to Pedestrian would leave it carrying a
+        car's blueprint, and the document would be one the editor accepted and
+        the runtime could not spawn.
+
+        It fires only when the field was never supplied.  Comparing the value
+        against the other kinds' defaults is not enough to tell "omitted" from
+        "chosen": a document that says ``kind: pedestrian`` with
+        ``vehicle_type: vehicle.mini.cooper`` has made a choice -- a wrong one,
+        which `validate_document` reports -- and rewriting it would both hide
+        the mistake and change an authored value on a load-and-save round trip.
+        ``model_fields_set`` is what distinguishes the two.
+        """
+        if "vehicle_type" in self.model_fields_set:
+            return self
+        wanted = DEFAULT_MODELS[self.kind]
+        if self.vehicle_type != wanted:
+            # `object.__setattr__` because assignment re-runs this validator,
+            # and would also mark the field as set.
+            object.__setattr__(self, "vehicle_type", wanted)
+        return self
+
+    @property
+    def display_name(self) -> str:
+        """Human-facing name: the explicit title, else the id."""
+        return self.title or self.id
+
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+
+
+class ConditionNode(_Node):
+    """One node of a condition tree: a leaf check, or a composition of them.
+
+    A single recursive node type covers leaves (``entity_distance``, ``ttc``,
+    ``speed``, ...) and compositions (``all`` / ``any`` / ``not`` / ``sticky`` /
+    ``persistent``).  Which of :attr:`params` and :attr:`children` matter is
+    decided by the node's :class:`~autoware_carla_scenario.authoring.registry.ConditionSpec`,
+    which is also what the templates render from -- that is what keeps the GUI
+    free of per-type branching.
+    """
+
+    id: str = Field(default_factory=lambda: new_object_id("p"))
+    type: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    children: list[ConditionNode] = Field(default_factory=list)
+    #: Field name -> how that lanelet parameter is chosen.  Absent for a
+    #: parameter nobody has opened the question on, which reads as pinned.
+    searches: dict[str, LaneletChoice] = Field(default_factory=dict)
+
+    def search(self, field: str) -> Optional[LaneletChoice]:
+        """Return the stored choice for the lanelet parameter *field*."""
+        return self.searches.get(field)
+
+    def ensure_search(self, field: str) -> LaneletChoice:
+        """Return the choice for *field*, attaching a pinned one if absent."""
+        return _ensure_search(self, field)
+
+    def walk(self) -> "list[ConditionNode]":
+        """Return this node followed by every descendant, depth first."""
+        found = [self]
+        for child in self.children:
+            found.extend(child.walk())
+        return found
+
+    def find(self, node_id: str) -> Optional["ConditionNode"]:
+        """Return the descendant (or self) whose id is *node_id*."""
+        for node in self.walk():
+            if node.id == node_id:
+                return node
+        return None
+
+    def remove(self, node_id: str) -> bool:
+        """Remove the descendant identified by *node_id*.  Returns success."""
+        for index, child in enumerate(self.children):
+            if child.id == node_id:
+                del self.children[index]
+                return True
+            if child.remove(node_id):
+                return True
+        return False
+
+
+def is_environment_action(action: "ActionNode") -> bool:
+    """Whether *action* acts on the world rather than on a vehicle.
+
+    The action *type* decides, never the stored ``actor``: the field is not read
+    when such an action is built, so honouring it would put the card in a
+    vehicle's track and claim a relationship the run does not have.
+    """
+    spec = get_action_spec(action.type)
+    return spec is not None and spec.scope == "environment"
+
+
+def condition_refs(node: "ConditionNode", kind: str) -> list[str]:
+    """Return the ids *node* itself names through fields of *kind*, in order.
+
+    The one place that knows how a condition points at something else.  Which
+    parameters are references is the spec's business, so a newly registered
+    condition is picked up without changing any caller, and the canvas, the step
+    ordering and the delete path cannot come to disagree about what a reference
+    is -- a disagreement that shows up as a causal arrow drawn for a dependency
+    the layout rules never saw.
+
+    Only this node is read, never its children, so a caller gets the leaf that
+    actually names the id rather than the composition wrapped around it.
+    """
+    from .registry import field_holders, get_condition_spec  # noqa: PLC0415
+
+    spec = get_condition_spec(node.type)
+    if spec is None:
+        return []
+    found: list[str] = []
+    for field, holder in field_holders(spec.fields, node.params):
+        if field.kind != kind:
+            continue
+        value = str(holder.get(field.name) or "")
+        if value and value not in found:
+            found.append(value)
+    return found
+
+
+class Assertions(_Node):
+    """The scenario's verdict: what makes it pass and what makes it fail."""
+
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, populate_by_name=True
+    )
+
+    pass_conditions: list[ConditionNode] = Field(default_factory=list, alias="pass")
+    fail_conditions: list[ConditionNode] = Field(default_factory=list, alias="fail")
+
+
+# ---------------------------------------------------------------------------
+# Actions
+# ---------------------------------------------------------------------------
+
+
+class VertexCondition(_Node):
+    """A waypoint condition: what an action's entity departs one vertex on.
+
+    Attached to an action whose spec takes them
+    (:attr:`~autoware_carla_scenario.authoring.registry.ActionSpec.vertex_conditions`,
+    the *Set Goal* card): the entity departs vertex :attr:`vertex` of
+    its trajectory when :attr:`condition` holds -- the runtime's
+    :attr:`~autoware_carla_scenario.TrajectoryVertex.advance`.  A vertex
+    has one: its time (a ``trajectory_time`` condition) or any other
+    condition.  The condition is an ordinary condition tree, written, checked
+    and compiled exactly as a trigger is.
+
+    Attributes:
+        vertex: Which vertex, counted **from 1**: the Nth vertex of the card's
+            list (blank and comment lines are not counted) -- the number the
+            editor's messages give ("vertex 3").
+        condition: The condition the entity departs on.
+    """
+
+    vertex: int = Field(ge=1)
+    condition: ConditionNode
+
+
+class ActionNode(_Node):
+    """Something an actor does, gated by an optional trigger condition.
+
+    There is no separate "events" concept: a trigger is simply the condition
+    tree attached to the action it fires, which is what the swimlane draws
+    underneath the action card.
+    """
+
+    # `extra="forbid"` would reject a draft written before the field was named
+    # `phase`, so the old name is still read.  Only the new one is written.
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, populate_by_name=True
+    )
+
+    id: str = Field(default_factory=lambda: new_object_id("a"))
+    type: str
+    title: str = ""
+    actor: Optional[str] = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    trigger: Optional[ConditionNode] = None
+    phase: ActionPhaseName = Field(
+        default="pre_tick", validation_alias=AliasChoices("phase", "timing")
+    )
+    #: Whether the action fires only once (``BaseAction.once``).  ``False``
+    #: only for an action that can fire again: ``ONCE_ACTIONS``.
+    once: bool = True
+    #: Whether the action takes over a control domain of its entity another
+    #: action holds, stopping that action, rather than end the run in error
+    #: (``BaseAction.overrides``).  Only for an action that commands one:
+    #: ``OVERRIDING_ACTIONS``.
+    overrides: bool = False
+    #: Field name -> how that lanelet parameter is chosen; see
+    #: :attr:`ConditionNode.searches`.
+    searches: dict[str, LaneletChoice] = Field(default_factory=dict)
+    #: Waypoint conditions, in vertex order: see :class:`VertexCondition`.
+    #: Only for an action whose spec takes them; the validator says so.
+    advance_conditions: list[VertexCondition] = Field(default_factory=list)
+
+    def search(self, field: str) -> Optional[LaneletChoice]:
+        """Return the stored choice for the lanelet parameter *field*."""
+        return self.searches.get(field)
+
+    def ensure_search(self, field: str) -> LaneletChoice:
+        """Return the choice for *field*, attaching a pinned one if absent."""
+        return _ensure_search(self, field)
+
+    def vertex_condition(self, vertex: int) -> Optional[VertexCondition]:
+        """Return the waypoint condition on *vertex* (counted from 1), if any."""
+        return next((g for g in self.advance_conditions if g.vertex == vertex), None)
+
+    @property
+    def takes_trigger(self) -> bool:
+        """Whether this action can be gated by a trigger condition.
+
+        The init phase cannot.  It is one step that begins at once and happens
+        exactly once, so there is no later moment for a condition to be waiting
+        for: `run_init` would evaluate the trigger a single time, at elapsed
+        0.0, and an action whose trigger was not already true would silently
+        never run.  A phase with nothing to wait for should not offer a place
+        to write the waiting.
+        """
+        return self.phase != "init"
+
+
+# ---------------------------------------------------------------------------
+# Presentation (never read by the runtime)
+# ---------------------------------------------------------------------------
+
+
+class UiNode(_Node):
+    """Layout hints for one object on the canvas."""
+
+    column_hint: int = 0
+
+
+class UiLayout(_Node):
+    """Everything the canvas needs and the runtime must ignore."""
+
+    actor_order: list[str] = Field(default_factory=list)
+    nodes: dict[str, UiNode] = Field(default_factory=dict)
+
+    def column_of(self, object_id: str) -> int:
+        """Return the stored column hint for *object_id* (0 when unset)."""
+        node = self.nodes.get(object_id)
+        return node.column_hint if node is not None else 0
+
+    def set_column(self, object_id: str, column: int) -> None:
+        """Store a column hint for *object_id*."""
+        node = self.nodes.setdefault(object_id, UiNode())
+        node.column_hint = column
+
+
+# ---------------------------------------------------------------------------
+# Map reference
+# ---------------------------------------------------------------------------
+
+
+#: The signal states a phase may name.
+#:
+#: Mirrors :data:`autoware_carla_scenario.signals.STATE_NAMES`, which holds the
+#: same words with their CARLA members attached; the pair is pinned by a test,
+#: because this package must not import CARLA and the runtime must not import
+#: this one.  Lower case because a scenario document should not be spelling a
+#: simulator's enum members.
+SIGNAL_STATE_NAMES: tuple[str, ...] = ("green", "yellow", "red", "off", "unknown")
+
+
+class SignalGroupRef(_Node):
+    """Signals that move together, named once for every phase that drives them.
+
+    This is the part of a junction that really does belong to the map.  Which
+    signals change as one, and which movements may not both be let through, are
+    facts about the road: every scenario on it inherits the same ones.  A
+    junction's *timings* are not -- two scenarios on the same crossing may
+    legitimately want different ones, which is why the phases themselves stay
+    per-scenario.
+
+    Naming the group rather than its members is also what keeps a phase table
+    writable.  One approach of three lanes is three regulatory elements, and
+    nishishinjuku declares 164 of them; a phase that had to list each one would
+    be copied wrong long before it was copied twice.
+
+    Attributes:
+        name: What a phase calls this group.  Unique within the map.
+        lanelet2_regulatory_element_ids: The signals it drives, by the same
+            Lanelet2 regulatory element id every other signal primitive takes.
+        conflicts_with: Groups whose movements cross this one's, so no phase may
+            let both through at once.  Read symmetrically -- declaring it on
+            either side is enough -- because a crossing is not directional.
+    """
+
+    name: str
+    lanelet2_regulatory_element_ids: list[int] = Field(default_factory=list)
+    conflicts_with: list[str] = Field(default_factory=list)
+
+
+class SignalStateRef(_Node):
+    """What one signal, or one group of them, shows for the duration of a phase.
+
+    Exactly one of *group* and *lanelet2_regulatory_element_id* names the
+    subject.  A group is the normal way to write this: it is the movement the
+    phase is actually about, and the map already says which lights carry it.  A
+    bare id stays available for the case a group cannot express -- among them a
+    junction the scenario deliberately puts into a state the map calls
+    conflicting, which is a legitimate thing to test and which naming groups
+    would refuse.
+
+    Attributes:
+        group: A :class:`SignalGroupRef` declared on the map, by name.
+        lanelet2_regulatory_element_id: One signal, named by the Lanelet2
+            regulatory element it belongs to -- the same id every other signal
+            primitive here takes.
+        state: ``green``, ``yellow``, ``red``, ``off`` or ``unknown``.
+    """
+
+    group: Optional[str] = None
+    lanelet2_regulatory_element_id: Optional[int] = None
+    state: str = "red"
+
+
+class SignalPhaseRef(_Node):
+    """One step of a junction's cycle.
+
+    A phase states every signal its controller drives, not only the ones that
+    change.  That is what makes it a phase rather than a set of edits: applying
+    it puts the junction into a known whole, so no earlier phase can leave a
+    light behind in a state nobody wrote.
+
+    Attributes:
+        name: What the scenario calls this phase; unique within its controller.
+        duration_seconds: How long it holds before the cycle moves on.
+        states: The signals and their states.
+    """
+
+    name: str
+    duration_seconds: float = 10.0
+    states: list[SignalStateRef] = Field(default_factory=list)
+
+
+class SignalControllerRef(_Node):
+    """A junction's cycle: its phases, their durations, and their order.
+
+    Declared per scenario, not per map.  What a junction *is* -- which signals
+    move together, which movements conflict -- is map data, and lives in
+    :class:`SignalGroupRef`.  What it *does* is a choice the scenario makes: a
+    test of an ego creeping into a long amber and a test of the same crossing
+    running a short cycle are two scenarios on one road, and forcing them to
+    share a timing would make the second a change to the first.
+
+    OpenSCENARIO reads the same way: ``RoadNetwork/TrafficSignals`` holds the
+    controllers, and ``RoadNetwork`` is a section of the *scenario* file, beside
+    the ``LogicFile`` that names the map rather than inside it.
+    ``scenario_simulator_v2`` builds its ``TrafficSignalController`` from that
+    scenario XML too.
+
+    A phase named in an action or a condition refers to this.
+
+    Attributes:
+        name: What the scenario calls this controller.
+        phases: The cycle, in order.  Walked in a loop, each phase for its own
+            duration.
+        delay_seconds: How long after *reference* starts its first phase this
+            one starts.  Requires *reference*.
+        reference: Another controller this one is offset from, which is how a
+            green wave along a corridor is written.
+    """
+
+    name: str
+    phases: list[SignalPhaseRef] = Field(default_factory=list)
+    delay_seconds: float = 0.0
+    reference: Optional[str] = None
+
+
+class MapRef(_Node):
+    """The map the scenario runs on.
+
+    Mirrors the framework's ``map`` Hydra config group.  ``group`` names an
+    existing built-in group (e.g. ``nishishinjuku``) so an exported package can
+    just select it; the paths are carried too so the editor can load the
+    Lanelet2 map for spawn previews without composing Hydra.
+
+    ``source`` names a git repository instead of a path, and is the same string
+    the framework's ``map.source`` takes -- so a scenario authored against a
+    published HD map exports to a package that finds the same map on any
+    machine, rather than to one that names a file only this machine has.
+
+    ``directory`` names a map directory on this machine instead, read in place
+    -- the framework's ``map.directory``.
+    """
+
+    group: str = "nishishinjuku"
+    name: str = "NishishinjukuMap"
+    source: Optional[str] = None
+    directory: Optional[str] = None
+    xodr_path: Optional[str] = None
+    lanelet2_path: Optional[str] = None
+    no_3d_model_lanelet_ids: list[int] = Field(default_factory=list)
+    #: Which signals move together on this road, and which movements conflict.
+    #: Map data: the same on every scenario that runs here.
+    signal_groups: list[SignalGroupRef] = Field(default_factory=list)
+    #: The junction timings *this* scenario runs.  Kept beside the groups rather
+    #: than in the storyboard because a controller is not something the
+    #: storyboard does -- it runs underneath it -- but it is this scenario's to
+    #: choose; see :class:`SignalControllerRef`.
+    traffic_signal_controllers: list[SignalControllerRef] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Lanelet slots
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LaneletSlot:
+    """One place in a document that names a lanelet, and how it is chosen.
+
+    A lanelet id is stored in three different shapes -- on a
+    :class:`SpawnSpec`, on a :class:`GoalSpec`, and in the ``params`` of an
+    action or a condition -- and *how* it is chosen is a
+    :class:`LaneletChoice` that either is the holder itself or hangs off its
+    ``searches`` mapping.  Every consumer of "where does this document name a
+    lanelet" -- the picker, the validator, the Hydra config -- would otherwise
+    branch on all three, and they did not stay in step: the goal could not be
+    searched for years after the spawn could.
+
+    This is a *view*, rebuilt on demand rather than stored: nothing in the
+    serialised document knows about it.
+
+    Attributes:
+        key: Stable address, ``"<owner id>.<field>"``, safe to put in a form.
+        owner_id: What the inspector selects when this slot is edited.
+        holder: The object the id and the choice live on.
+        field: ``"spawn"``, ``"goal"``, or the name of a lanelet parameter.
+        title: Who names the place -- an actor, an action, a condition.
+        role: What the place is to them -- ``"spawn"``, ``"goal"``, or the
+            parameter's own label.
+        place: What kind of place it is, from the field's spec.
+        of_entity: Whether :attr:`title` names an actor, which is what decides
+            how :attr:`label` reads.
+    """
+
+    key: str
+    owner_id: str
+    holder: Any
+    field: str
+    title: str
+    role: str
+    place: LaneletPlace = "watched"
+    of_entity: bool = False
+
+    @property
+    def label(self) -> str:
+        """How the slot is named to a person, for warnings and headings.
+
+        Derived from the two halves rather than stored beside them: a consumer
+        that wants "NPC1" and "spawn" separately -- the editor's map draws them
+        as a pin -- would otherwise re-split this string, and the split and the
+        join drifted the moment both existed.
+        """
+        if self.of_entity:
+            return f"{self.title}'s {self.role} lanelet"
+        return f"{self.role} on {self.title}"
+
+    @property
+    def choice(self) -> LaneletChoice:
+        """How this slot's lanelet is chosen.
+
+        A parameter nobody has opened the question on has no stored choice, and
+        reads as a detached pinned one -- writing to it would be lost, so an
+        edit goes through :meth:`attach` instead.
+        """
+        if isinstance(self.holder, LaneletChoice):
+            return self.holder
+        return self.holder.searches.get(self.field) or LaneletChoice()
+
+    def attach(self) -> LaneletChoice:
+        """Return this slot's choice, storing one on the document if needed."""
+        if isinstance(self.holder, LaneletChoice):
+            return self.holder
+        return _ensure_search(self.holder, self.field)
+
+    @property
+    def searching(self) -> bool:
+        """Whether the lanelet is left to the sweeper rather than pinned."""
+        return self.choice.searching
+
+    @property
+    def deriving(self) -> bool:
+        """Whether the lanelet is worked out from the sweep's pick."""
+        return self.choice.deriving
+
+    @property
+    def lanelet_id(self) -> int:
+        """The pinned id, or the default a searched slot falls back to."""
+        if isinstance(self.holder, (SpawnSpec, GoalSpec)):
+            return self.holder.lanelet_id
+        raw = self.holder.params.get(self.field)
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return 0
+
+    def set_lanelet_id(self, value: int) -> None:
+        """Store *value* as this slot's lanelet id."""
+        if isinstance(self.holder, (SpawnSpec, GoalSpec)):
+            self.holder.lanelet_id = value
+        else:
+            self.holder.params[self.field] = value
+
+
+# ---------------------------------------------------------------------------
+# Route search (a logical scenario)
+# ---------------------------------------------------------------------------
+
+#: A yes / no / don't-care property of a route segment.
+Tristate = Literal["any", "yes", "no"]
+
+
+def _tristate_from_yaml(value: Any) -> Any:
+    """YAML 1.1 reads a bare ``yes`` / ``no`` as a boolean; take it back."""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return value
+
+
+class LengthRange(_Node):
+    """An inclusive range of metres; an unset bound is open."""
+
+    min: Optional[float] = Field(default=None, ge=0.0)
+    max: Optional[float] = Field(default=None, gt=0.0)
+
+
+class CountRange(_Node):
+    """An inclusive range of lane counts; an unset bound is open."""
+
+    min: Optional[int] = Field(default=None, ge=0)
+    max: Optional[int] = Field(default=None, ge=0)
+
+
+class LaneSegment(_Node):
+    """A stretch of road between junctions, by its properties.
+
+    See :class:`autoware_carla_scenario.route.model.LaneSegmentSpec`, which is
+    what this reaches the search as, for what each property means.
+    """
+
+    kind: Literal["lane"] = "lane"
+    length: LengthRange = Field(default_factory=LengthRange)
+    lanes_left: CountRange = Field(default_factory=CountRange)
+    lanes_right: CountRange = Field(default_factory=CountRange)
+    opposite_lane: Tristate = "any"
+    shape: Literal["any", "straight", "curved_left", "curved_right"] = "any"
+    stop_line: Tristate = "any"
+    traffic_light_stop_line: Tristate = "any"
+
+    _yes_no = field_validator(
+        "opposite_lane", "stop_line", "traffic_light_stop_line", mode="before"
+    )(classmethod(lambda cls, v: _tristate_from_yaml(v)))
+
+    def summary(self) -> str:
+        """One line for the editor: what this segment asks for."""
+        parts = [f"lane {_range_text(self.length, 'm')}"]
+        for name, label in (
+            ("lanes_left", "lanes left"),
+            ("lanes_right", "lanes right"),
+        ):
+            text = _range_text(getattr(self, name), "")
+            if text != "any":
+                parts.append(f"{label} {text}")
+        if self.shape != "any":
+            parts.append(self.shape.replace("_", " "))
+        for name, label in (
+            ("opposite_lane", "opposite lane"),
+            ("stop_line", "stop line"),
+            ("traffic_light_stop_line", "signal stop line"),
+        ):
+            value = getattr(self, name)
+            if value != "any":
+                parts.append(f"{label}: {value}")
+        return ", ".join(parts)
+
+
+class JunctionPath(_Node):
+    """Another path through the ego's junction a match must have.
+
+    See :class:`autoware_carla_scenario.route.model.JunctionPathSpec`.
+    """
+
+    approach: Literal["same", "left", "right", "opposite"]
+    turn: Literal["left", "right", "straight"]
+    before: LengthRange = Field(default_factory=LengthRange)
+    after: LengthRange = Field(default_factory=LengthRange)
+    path: Optional[int] = Field(default=None, ge=1)
+
+
+class JunctionSegment(_Node):
+    """The ego's way through a junction, by its properties.
+
+    See :class:`autoware_carla_scenario.route.model.JunctionSegmentSpec`.
+    """
+
+    kind: Literal["junction"] = "junction"
+    turn: Literal["any", "left", "right", "straight"] = "any"
+    traffic_light: Tristate = "any"
+    crossing_from_left: Tristate = "any"
+    crossing_from_right: Tristate = "any"
+    crossing_from_opposite: Tristate = "any"
+    crosswalk_entry: Tristate = "any"
+    crosswalk_exit: Tristate = "any"
+    paths: list[JunctionPath] = Field(default_factory=list)
+    length: LengthRange = Field(default_factory=LengthRange)
+
+    _yes_no = field_validator(
+        "traffic_light",
+        "crossing_from_left",
+        "crossing_from_right",
+        "crossing_from_opposite",
+        "crosswalk_entry",
+        "crosswalk_exit",
+        mode="before",
+    )(classmethod(lambda cls, v: _tristate_from_yaml(v)))
+
+    def summary(self) -> str:
+        """One line for the editor: what this segment asks for."""
+        parts = [f"junction, turn {self.turn}"]
+        if self.length.min is not None or self.length.max is not None:
+            parts.append(f"length {_range_text(self.length, 'm')}")
+        for name, label in (
+            ("traffic_light", "traffic light"),
+            ("crossing_from_left", "crossing from left"),
+            ("crossing_from_right", "crossing from right"),
+            ("crossing_from_opposite", "crossing from opposite"),
+            ("crosswalk_entry", "crosswalk on entry"),
+            ("crosswalk_exit", "crosswalk on exit"),
+        ):
+            value = getattr(self, name)
+            if value != "any":
+                parts.append(f"{label}: {value}")
+        for path in self.paths:
+            text = f"path from {path.approach} turning {path.turn}"
+            if path.path is not None:
+                text += f" (path {path.path} from the left)"
+            for name in ("before", "after"):
+                reach = _range_text(getattr(path, name), "m")
+                if reach != "any":
+                    text += f" ({name} {reach})"
+            parts.append(text)
+        return ", ".join(parts)
+
+
+def _range_text(value: "LengthRange | CountRange", unit: str) -> str:
+    low, high = value.min, value.max
+    suffix = f" {unit}" if unit else ""
+    if low is None and high is None:
+        return "any"
+    if high is None:
+        return f">= {low:g}{suffix}"
+    if low is None:
+        return f"<= {high:g}{suffix}"
+    if low == high:
+        return f"= {low:g}{suffix}"
+    return f"{low:g}-{high:g}{suffix}"
+
+
+#: One segment of a route search, told apart by its ``kind``.
+RouteSegment = Annotated[
+    Union[LaneSegment, JunctionSegment], Field(discriminator="kind")
+]
+
+
+class RouteSearch(_Node):
+    """A logical scenario's route: the ego's drive as a pattern of road.
+
+    Instead of lanelet ids, the ego's route is an ordered list of segments --
+    lanes and junctions with the properties the drive had -- that a route
+    search finds on whatever map the scenario runs on
+    (:mod:`autoware_carla_scenario.route`).  Each match is one concrete
+    scenario: ``scenario-expand`` lists them, and a run that was not expanded
+    takes match :attr:`match_index`.  The ego spawns on the match and is
+    routed along it; route poses and ``route_progress`` conditions are measured
+    on it.  See ``docs/logical_scenarios.md``.
+
+    Attributes:
+        segments: The pattern, in driving order.
+        ego_spawn_s: Where the ego spawns, metres along the route from its
+            start.
+        ego_goal: Whether the ego's goal is the route's end.
+        ego_goal_margin: How far before the route's end the goal is (m).
+        match_index: Which match a run that was not expanded takes.
+        max_matches: How many matches the search returns at most.
+        seed: Shuffle the matches with this seed before ``max_matches`` cuts
+            the list; ``None`` keeps them sorted by lanelet ids.
+    """
+
+    segments: list[RouteSegment] = Field(default_factory=list)
+    ego_spawn_s: float = Field(default=0.0, ge=0.0)
+    ego_goal: bool = True
+    ego_goal_margin: float = Field(default=0.0, ge=0.0)
+    match_index: int = Field(default=0, ge=0)
+    max_matches: int = Field(default=64, ge=1, le=1000)
+    seed: Optional[int] = None
+
+    @property
+    def junction_count(self) -> int:
+        """How many junction segments the pattern has."""
+        return sum(1 for s in self.segments if s.kind == "junction")
+
+    def to_sweep_dict(self) -> dict[str, Any]:
+        """This search as the ``sweep.route`` mapping the route search reads.
+
+        A junction segment that asks for no other path says nothing about
+        ``paths``, as it did before they existed.
+        """
+        out = cast(dict[str, Any], self.model_dump(mode="json", exclude_none=True))
+        for segment in out.get("segments", []):
+            if segment.get("paths") == []:
+                del segment["paths"]
+            if segment.get("kind") == "junction" and segment.get("length") == {}:
+                del segment["length"]
+            for path in segment.get("paths", []):
+                for name in ("before", "after"):
+                    if path.get(name) == {}:
+                        del path[name]
+        return out
+
+
+# ---------------------------------------------------------------------------
+# Document
+# ---------------------------------------------------------------------------
+
+
+class ScenarioDocument(_Node):
+    """The complete, canonical description of one authored scenario."""
+
+    version: int = DOCUMENT_FORMAT_VERSION
+    id: str = "new_scenario"
+    title: str = "New scenario"
+    description: str = ""
+    timeout_seconds: float = 30.0
+    map: MapRef = Field(default_factory=MapRef)
+    entities: list[Entity] = Field(default_factory=list)
+    actions: list[ActionNode] = Field(default_factory=list)
+    assertions: Assertions = Field(default_factory=Assertions)
+    #: A logical scenario's route search; ``None`` for a scenario whose ego
+    #: spawns where :attr:`entities` say.
+    route: Optional[RouteSearch] = None
+    ui: UiLayout = Field(default_factory=UiLayout)
+
+    @field_validator("id")
+    @classmethod
+    def _check_id(cls, value: str) -> str:
+        if not _ID_PATTERN.match(value):
+            raise ValueError(
+                f"Scenario id {value!r} must be lower_snake_case starting with a letter."
+            )
+        return value
+
+    # -- lookups --------------------------------------------------------
+
+    def entity(self, entity_id: str) -> Optional[Entity]:
+        """Return the entity with *entity_id*, or ``None``."""
+        return next((e for e in self.entities if e.id == entity_id), None)
+
+    def action(self, action_id: str) -> Optional[ActionNode]:
+        """Return the action with *action_id*, or ``None``."""
+        return next((a for a in self.actions if a.id == action_id), None)
+
+    @property
+    def ego(self) -> Optional[Entity]:
+        """Return the ego entity, or ``None`` when the document has none."""
+        return next((e for e in self.entities if e.kind == "ego"), None)
+
+    def condition(self, node_id: str) -> Optional[ConditionNode]:
+        """Return any condition node in the document by id."""
+        for root in self.condition_roots():
+            found = root.find(node_id)
+            if found is not None:
+                return found
+        return None
+
+    def condition_roots(self) -> list[ConditionNode]:
+        """Return every condition tree root.
+
+        Action triggers, the actions' waypoint conditions, then the
+        assertions.
+        """
+        roots = [a.trigger for a in self.actions if a.trigger is not None]
+        roots.extend(
+            gate.condition for a in self.actions for gate in a.advance_conditions
+        )
+        roots.extend(self.assertions.pass_conditions)
+        roots.extend(self.assertions.fail_conditions)
+        return roots
+
+    def vertex_condition_of(
+        self, node_id: str
+    ) -> Optional[tuple[ActionNode, VertexCondition]]:
+        """Return the action and the waypoint condition *node_id* belongs to.
+
+        ``None`` for a condition anywhere else -- a trigger, an assertion -- or
+        for an id that names no condition at all.
+        """
+        for action in self.actions:
+            for gate in action.advance_conditions:
+                if gate.condition.find(node_id) is not None:
+                    return action, gate
+        return None
+
+    # -- lanelet slots --------------------------------------------------
+
+    def lanelet_slots(self) -> "list[LaneletSlot]":
+        """Return every place this document names a lanelet, in a stable order.
+
+        Entity spawns come first, then goals, then the lanelet parameters of
+        actions and of conditions.  The order is what decides which slot a
+        sweep drives when several are searched -- the sweeper enumerates one
+        target key per run -- so it is document order, not the order a template
+        happens to render in.
+        """
+        from .registry import (  # noqa: PLC0415 -- see the module docstring
+            get_condition_spec,
+            searchable_lanelet_fields,
+        )
+
+        slots: list[LaneletSlot] = []
+        for entity in self.entities:
+            name = entity.display_name
+            slots.append(
+                LaneletSlot(
+                    key=f"{entity.id}.spawn",
+                    owner_id=entity.id,
+                    holder=entity.spawn,
+                    field="spawn",
+                    title=name,
+                    role="spawn",
+                    place="spawn",
+                    of_entity=True,
+                )
+            )
+            if entity.goal is not None:
+                slots.append(
+                    LaneletSlot(
+                        key=f"{entity.id}.goal",
+                        owner_id=entity.id,
+                        holder=entity.goal,
+                        field="goal",
+                        title=name,
+                        role="goal",
+                        place="goal",
+                        of_entity=True,
+                    )
+                )
+        for action in self.actions:
+            for spec_field in searchable_lanelet_fields(get_action_spec(action.type)):
+                slots.append(
+                    LaneletSlot(
+                        key=f"{action.id}.{spec_field.name}",
+                        owner_id=action.id,
+                        holder=action,
+                        field=spec_field.name,
+                        title=action.title or action.type,
+                        role=spec_field.label,
+                        place=spec_field.place,
+                    )
+                )
+        for root in self.condition_roots():
+            for node in root.walk():
+                spec = get_condition_spec(node.type)
+                for spec_field in searchable_lanelet_fields(spec):
+                    slots.append(
+                        LaneletSlot(
+                            key=f"{node.id}.{spec_field.name}",
+                            owner_id=node.id,
+                            holder=node,
+                            field=spec_field.name,
+                            title=spec.title if spec is not None else node.type,
+                            role=spec_field.label,
+                            place=spec_field.place,
+                        )
+                    )
+        return slots
+
+    def lanelet_slot(
+        self, key: str, *, create: bool = False
+    ) -> "Optional[LaneletSlot]":
+        """Return the lanelet slot addressed by *key*, or ``None``.
+
+        An ego that has no goal yet has no goal slot in the document.  *create*
+        gives it one, which is what letting someone search for a goal before
+        pinning one takes: the search is how the goal is chosen, so it cannot
+        require the goal to already be chosen.  Without *create* the same key
+        answers with a **detached** slot -- a default nothing on the document
+        holds -- so a template can render the controls for a goal that does not
+        exist yet.  Anything that writes has to pass ``create=True``, or the
+        write lands on an object the document has already forgotten.
+        """
+        for slot in self.lanelet_slots():
+            if slot.key == key:
+                return slot
+        owner_id, _, field = key.rpartition(".")
+        entity = self.entity(owner_id)
+        if field == "goal" and entity is not None:
+            if create:
+                entity.goal = GoalSpec()
+                return self.lanelet_slot(key)
+            return LaneletSlot(
+                key=key,
+                owner_id=entity.id,
+                holder=GoalSpec(),
+                field="goal",
+                title=entity.display_name,
+                role="goal",
+                place="goal",
+                of_entity=True,
+            )
+        return None
+
+    def searched_lanelet_slots(self) -> "list[LaneletSlot]":
+        """Return the slots whose lanelet is left to the constraint sweeper."""
+        return [slot for slot in self.lanelet_slots() if slot.searching]
+
+    def derived_lanelet_slots(self) -> "list[LaneletSlot]":
+        """Return the slots whose lanelet a binding derives from the sweep's pick."""
+        return [slot for slot in self.lanelet_slots() if slot.deriving]
+
+    # -- layout ---------------------------------------------------------
+
+    def ordered_entities(self) -> list[Entity]:
+        """Return entities in the canvas' actor order, ego first by default."""
+        order = {eid: i for i, eid in enumerate(self.ui.actor_order)}
+        fallback = len(order)
+        return sorted(
+            self.entities,
+            key=lambda e: (order.get(e.id, fallback), 0 if e.kind == "ego" else 1),
+        )
+
+    def lane_members(self, entity_id: Optional[str]) -> list[ActionNode]:
+        """Return the actions drawn in a lane, in document order.
+
+        The lane is an actor's when *entity_id* names one, and the
+        environment's when it is ``None``.  Document order is insertion order,
+        which is what the init cell wants: its phase has no columns to sort by.
+        """
+        if entity_id is None:
+            return [a for a in self.actions if is_environment_action(a) or not a.actor]
+        return [
+            a
+            for a in self.actions
+            if a.actor == entity_id and not is_environment_action(a)
+        ]
+
+    def actions_for(self, entity_id: str) -> list[ActionNode]:
+        """Return the actions *entity_id* performs, in column order."""
+        owned = self.lane_members(entity_id)
+        return sorted(owned, key=lambda a: (self.ui.column_of(a.id), a.id))
+
+    def environment_actions(self) -> list[ActionNode]:
+        """Return the actions that belong to the environment, in column order.
+
+        Two kinds end up here.  An action whose *type* acts on the world rather
+        than on a vehicle -- setting traffic lights, for instance -- belongs
+        here whatever its ``actor`` says, because the runtime ignores that field
+        for it.  An action that merely has no actor yet belongs here too: it is
+        invalid and has to stay reachable, and a card nothing draws cannot be
+        fixed.
+        """
+        loose = self.lane_members(None)
+        return sorted(loose, key=lambda a: (self.ui.column_of(a.id), a.id))
+
+    def action_dependencies(self) -> dict[str, set[str]]:
+        """Action id -> the ids of the actions its trigger waits on.
+
+        Only triggers are walked: an assertion that waits on an action says
+        nothing about when the action runs.
+        """
+        found: dict[str, set[str]] = {}
+        for action in self.actions:
+            if action.trigger is None:
+                continue
+            needs = {
+                ref
+                for node in action.trigger.walk()
+                for ref in condition_refs(node, "action")
+            }
+            if needs:
+                found[action.id] = needs
+        return found
+
+    def init_actions(self, entity_id: Optional[str]) -> list[ActionNode]:
+        """Return the lane's initialization actions, in a stable order.
+
+        The init phase has no steps: it runs once, from the ego spawning until
+        it reports ready, and nothing inside it is ordered by a column.  So the
+        cards are a set, drawn in one cell, and they are kept out of
+        :meth:`action_slots` -- a card cannot be in the phase before the loop
+        and at a step of it at the same time.
+        """
+        return [a for a in self.lane_members(entity_id) if a.phase == "init"]
+
+    def action_slots(self, entity_id: Optional[str]) -> "list[list[ActionNode]]":
+        """Return the lane as one list of actions per step, empty steps included.
+
+        A step is a *set* of actions, not one action: every action is armed from
+        the first tick and fires when its own trigger says so, so actions that
+        nothing sequences really do run alongside each other.  Drawing them
+        stacked in one column says that; spreading them across columns would
+        draw an order the runtime does not have.
+
+        The gaps matter too.  A reaction belongs in a later step than the action
+        that provokes it even when its own actor does nothing in between -- an
+        ego that swerves *after* NPC1 cuts in reads as a reaction only if its
+        card is further right.
+        """
+        lane = self.actions_for(entity_id) if entity_id else self.environment_actions()
+        slots: list[list[ActionNode]] = []
+        for action in lane:
+            if action.phase == "init":
+                # Drawn in the init cell instead; it is not a step of the run.
+                continue
+            column = self.ui.column_of(action.id)
+            while len(slots) <= column:
+                slots.append([])
+            slots[column].append(action)
+        return slots
+
+    def step_count(self) -> int:
+        """Return how many steps the ruler has to number.
+
+        As long as the busiest track, or the lane that runs past the last
+        numbered step would have unlabelled slots.  Every lane carries one
+        column that is not a step of its own -- the "add" control at its end --
+        and no lane carries any other, so a step number means the same column
+        on all of them.
+        """
+        trailing_add = 1
+        widths = [
+            len(self.action_slots(entity.id)) for entity in self.ordered_entities()
+        ]
+        widths += [
+            len(self.action_slots(None)),
+            len(self.assertions.pass_conditions),
+            len(self.assertions.fail_conditions),
+        ]
+        return max(widths, default=0) + trailing_add
+
+    def enforce_dependency_order(self) -> None:
+        """Push actions right until every trigger's dependencies are behind it.
+
+        The step axis only means something if a dependency is visibly earlier
+        than what waits on it: an action triggered by "the cut-in has completed"
+        cannot share a step with the cut-in, because within one step nothing is
+        ordered.  Actions are only ever moved *later*, so a layout is repaired
+        rather than rearranged.
+
+        A cycle -- two actions each waiting on the other, which can never fire
+        at runtime either -- leaves the layout untouched for
+        :mod:`.validator` to report.
+        """
+        dependencies = self.action_dependencies()
+        if not dependencies:
+            return
+
+        columns = {a.id: self.ui.column_of(a.id) for a in self.actions}
+        for _ in range(len(self.actions) + 1):
+            moved = False
+            for action_id, needs in dependencies.items():
+                floor = max(
+                    (columns[need] for need in needs if need in columns), default=-1
+                )
+                if columns[action_id] <= floor:
+                    columns[action_id] = floor + 1
+                    moved = True
+            if not moved:
+                break
+        else:
+            return
+
+        for action_id, column in columns.items():
+            if column != self.ui.column_of(action_id):
+                self.ui.set_column(action_id, column)
+
+    def sync_layout(self) -> None:
+        """Make :attr:`ui` consistent with the semantic content.
+
+        Adds newly created entities to the actor order, drops stale entries,
+        and gives every action a column hint.  Purely cosmetic -- it is safe
+        to call at any time and never changes scenario semantics.
+        """
+        known = [e.id for e in self.entities]
+        self.ui.actor_order = [e for e in self.ui.actor_order if e in known]
+        self.ui.actor_order.extend(e for e in known if e not in self.ui.actor_order)
+
+        # An environment action's actor is meaningless -- nothing builds with
+        # it -- so it is dropped rather than left in the file to imply that some
+        # vehicle performs it.
+        for action in self.actions:
+            if is_environment_action(action):
+                action.actor = None
+
+        # An init action has no column: its phase runs once, before the loop and
+        # before any step exists.  Leaving it in the numbering gave it step 1
+        # and pushed the run's own first card to step 2, so the grid disagreed
+        # with the phase about what happens first.
+        stepped = [a for a in self.actions if a.phase != "init"]
+        object_ids = {a.id for a in stepped}
+        self.ui.nodes = {k: v for k, v in self.ui.nodes.items() if k in object_ids}
+        for owner in [*known, None]:
+            for column, action in enumerate(
+                [a for a in stepped if (a.actor or None) == owner]
+            ):
+                if action.id not in self.ui.nodes:
+                    self.ui.set_column(action.id, column)
+        self.enforce_dependency_order()
+
+    # -- serialisation --------------------------------------------------
+
+    def to_yaml_dict(self) -> dict[str, Any]:
+        """Return a plain, YAML-friendly dict (aliases applied, defaults kept).
+
+        A document with no route search says nothing about one, as it did
+        before routes existed; a route search leaves its unset bounds out.
+        """
+        out = self.model_dump(mode="json", by_alias=True)
+        if self.route is None:
+            out.pop("route", None)
+        else:
+            out["route"] = self.route.to_sweep_dict()
+        return out

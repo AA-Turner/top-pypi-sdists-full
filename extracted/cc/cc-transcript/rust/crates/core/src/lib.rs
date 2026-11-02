@@ -1,0 +1,60 @@
+pub mod literals;
+
+pub const BUILD_IDENTITY: &str = env!("CC_TRANSCRIPT_CORE_BUILD");
+
+pub mod activity;
+#[cfg(feature = "sqlite")]
+pub mod actor;
+pub mod blame;
+pub mod buckets;
+pub mod codex;
+#[cfg(feature = "command")]
+pub mod command;
+pub mod context;
+#[cfg(feature = "sqlite")]
+pub mod corrections;
+pub mod cost;
+pub mod discovery;
+#[cfg(feature = "command")]
+pub mod facts;
+#[cfg(feature = "sqlite")]
+pub mod feedback;
+pub mod filter;
+pub mod gateway;
+pub mod ids;
+pub mod judge;
+pub mod notifications;
+pub mod parse;
+pub mod protocol;
+pub mod pystr;
+pub mod query;
+pub mod render;
+pub mod request_body;
+pub mod rng;
+pub mod scan;
+pub mod scan_checkpoint;
+pub mod scan_grep;
+pub mod scan_index;
+pub mod scan_projection;
+pub mod scan_stream;
+#[cfg(feature = "sqlite")]
+pub mod schema;
+pub mod snapshot;
+pub mod snapshot_activity;
+pub mod snapshot_codec;
+pub mod snapshot_labels;
+pub mod snapshot_ledger;
+pub mod snapshot_memory;
+pub mod snapshot_owned;
+pub mod snapshot_prepared;
+pub mod snapshot_prepared_disk;
+pub mod snapshot_projection;
+mod snapshot_raw_window;
+mod snapshot_skill_framing;
+pub mod snapshot_text;
+#[cfg(feature = "sqlite")]
+pub mod sqlite;
+pub mod toolcall;
+pub mod types;
+pub mod value;
+pub mod watch;

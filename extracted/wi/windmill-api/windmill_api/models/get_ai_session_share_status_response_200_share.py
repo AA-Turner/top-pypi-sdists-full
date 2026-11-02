@@ -1,0 +1,95 @@
+import datetime
+from typing import Any, Dict, List, Type, TypeVar
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+from dateutil.parser import isoparse
+
+T = TypeVar("T", bound="GetAiSessionShareStatusResponse200Share")
+
+
+@_attrs_define
+class GetAiSessionShareStatusResponse200Share:
+    """
+    Attributes:
+        id (str):
+        name (str):
+        is_public (bool):
+        message_count (int):
+        created_by (str):
+        shared_at (datetime.datetime):
+    """
+
+    id: str
+    name: str
+    is_public: bool
+    message_count: int
+    created_by: str
+    shared_at: datetime.datetime
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        id = self.id
+        name = self.name
+        is_public = self.is_public
+        message_count = self.message_count
+        created_by = self.created_by
+        shared_at = self.shared_at.isoformat()
+
+        field_dict: Dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "id": id,
+                "name": name,
+                "is_public": is_public,
+                "message_count": message_count,
+                "created_by": created_by,
+                "shared_at": shared_at,
+            }
+        )
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        d = src_dict.copy()
+        id = d.pop("id")
+
+        name = d.pop("name")
+
+        is_public = d.pop("is_public")
+
+        message_count = d.pop("message_count")
+
+        created_by = d.pop("created_by")
+
+        shared_at = isoparse(d.pop("shared_at"))
+
+        get_ai_session_share_status_response_200_share = cls(
+            id=id,
+            name=name,
+            is_public=is_public,
+            message_count=message_count,
+            created_by=created_by,
+            shared_at=shared_at,
+        )
+
+        get_ai_session_share_status_response_200_share.additional_properties = d
+        return get_ai_session_share_status_response_200_share
+
+    @property
+    def additional_keys(self) -> List[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

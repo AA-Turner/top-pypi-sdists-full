@@ -1,9 +1,8 @@
 """Delivery: the write pipeline Client and Run write through (normalize, drop what the server
-cannot store, NUL check, redact), into the sink chosen once from the client's mode."""
+cannot store, NUL check, redact), into the sink the client's mode picks."""
 
 from __future__ import annotations
 
-import importlib
 import os
 import warnings
 from typing import Any
@@ -11,11 +10,11 @@ from typing import Any
 from .. import errors
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from . import sink as _sink
-from .ops.ops import run_ref_for_path
+from .. import routes
 from .sink import HeldClient, Sink
-from .sinks.direct import DirectSink
+from .sender import Sender, resolve_policy
 from .sinks.fanout import FanOutSink
-from .sinks.journaled import JournalSink, _usable_journal  # noqa: F401 -- Client picks its journal here
+from .sinks.queued import QueuedSink, _usable_journal  # noqa: F401 -- Client picks its journal here
 
 #: Kinds of unstorable metric point this process has warned about.
 _UNSTORABLE_WARNED: set[str] = set()
@@ -66,50 +65,30 @@ def _env_async_writes() -> bool | None:
     return None
 
 
-#: The offline sink and client, by name: their module holds OfflineClient, a Client subclass,
-#: so it loads with the client (which imports this module) and is only looked up when needed.
-OFFLINE_SINK = "probe.sdk.delivery.sinks.offline:OfflineSink"
-OFFLINE_CLIENT = "probe.sdk.delivery.sinks.offline:OfflineClient"
-
-
-def _by_name(target: str) -> Any:
-    module, _, name = target.partition(":")
-    return getattr(importlib.import_module(module), name)
-
-
 def is_offline_client(client: Any) -> bool:
     """Whether ``client`` writes an offline run's queue (an `OfflineClient`)."""
-    return isinstance(client, _by_name(OFFLINE_CLIENT))
+    # Imported here: OfflineClient is a Client subclass, so its module loads with the client.
+    from .offline.client import OfflineClient
+
+    return isinstance(client, OfflineClient)
 
 
 class Delivery:
-    """One client's write pipeline and its sinks. The sink is chosen once from the client's
-    mode (async or sync, drained by hand or not), and again only if that mode is reassigned."""
+    """One client's write pipeline and its sinks, built once. `sink` follows the client's mode
+    (async or sync) as it is now. An offline run is an async client: its writes land in
+    `QueuedSink` like any other's, in its own queue."""
 
     _client = HeldClient()
 
     def __init__(self, client: Any) -> None:
         self._client = client
-        self.direct = DirectSink(client)
-        self.journaled = JournalSink(client)
+        self.sender = Sender(client)
+        self.queued = QueuedSink(client)
         self.fanout = FanOutSink(client)
-        #: (mode, sink) as ONE value: two threads choosing at once never pair a mode with the other's sink.
-        self._chosen: tuple[tuple[bool, bool], Sink] | None = None
 
     @property
     def sink(self) -> Sink:
-        client = self._client
-        mode = (bool(client.async_writes), bool(getattr(client, "_drains_by_hand", False)))
-        chosen = self._chosen
-        if chosen is None or chosen[0] != mode:
-            if not mode[0]:
-                sink = self.direct
-            elif mode[1]:
-                sink = _by_name(OFFLINE_SINK)(client)
-            else:
-                sink = self.journaled
-            chosen = self._chosen = (mode, sink)
-        return chosen[1]
+        return self.queued if self._client.async_writes else self.sender
 
     def write(
         self,
@@ -144,21 +123,19 @@ class Delivery:
             _warn_unstorable(unstorable_reasons)
             if not body.get("points"):
                 return None
-        if raise_permanent is None:
-            raise_permanent = bool(getattr(client, "raise_permanent", False))
-        strict = (not client.fail_open) if strict is None else strict
+        policy = resolve_policy(client, strict=strict, sync=sync, durable=durable, raise_permanent=raise_permanent)
         validation_error = None
         try:
             unstorable.validate_nuls(body, path=path, method=method)
         except errors.ValidationError as exc:
-            if strict or raise_permanent or not durable:
+            if policy.should_raise_on_invalid_body():
                 raise
             validation_error = str(exc)
         if client._redact is not None and body is not None:
             body = client._redact(body)
         # The runs this process writes: the delivery notices name only
         # trouble of these (plan 1.7).
-        run_ref = run_ref_for_path(path)
+        run_ref = routes.run_ref_of(path)
         runs = client.__dict__.get("_my_runs")
         if run_ref is not None and runs is not None:
             runs.add(run_ref)
@@ -180,20 +157,14 @@ class Delivery:
             ):
                 client._after_enqueue()
             return None
-        if not durable:
+        if not policy.durable:
             resp = client.transport.request(method, path, json_body=body)
             return resp.json() if resp.content else None
-        # Resolve `strict` BEFORE the async branch. Read after, async mode downgraded a
-        # strict write to a queued replay: a data-loss bug once async became the default
-        # (Miles passes strict=True, then `queue.acknowledge()` DELETES its durable record
+        # `strict` is resolved BEFORE the async branch (`resolve_policy`). Read after, async mode
+        # downgraded a strict write to a queued replay: a data-loss bug once async became the
+        # default (Miles passes strict=True, then `queue.acknowledge()` DELETES its durable record
         # on seeing no exception, so a queued write erased the only copy).
-        # strict = "fail loudly, never journal" = a demand for the network, so it implies
-        # sync and an explicit strict=True beats async mode.
-        strict = (not client.fail_open) if strict is None else strict
-        return self.sink.land(
-            method, path, body, strict=strict, sync=sync, blocking=blocking,
-            raise_permanent=raise_permanent, admitted=admitted,
-        )
+        return self.sink.land(method, path, body, policy=policy, blocking=blocking, admitted=admitted)
 
     def note_undelivered(self, method: str, path: str, exc: BaseException, *, queued: bool) -> None:
         """Hand a write that fell back to the outbox (`queued`) or was lost with it to

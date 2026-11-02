@@ -1,0 +1,91 @@
+id: "configurable-improvement-direction"
+title: "Add lower_is_better parameter for improvement direction"
+worktree: "main"
+priority: "Medium-High"
+status: "Completed"
+completed_date: "2026-03-09"
+description: |
+  Three chart types hardcode "negative % = improvement (green), positive % =
+  regression (red)": comparison_bar, diverging_bar, and summary_box. This is
+  correct for latency (lower is better) but wrong for throughput, success rate,
+  or any higher-is-better metric.
+
+  Add a lower_is_better: bool = True parameter to each chart's constructor.
+  When False, invert the color mapping so positive % = green and negative % = red.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Add lower_is_better to ASCIIComparisonBar and update _format_annotation"
+    status: done
+    notes: |
+      Add lower_is_better: bool = True to __init__. In _format_annotation,
+      compute is_regression = pct_change > 0 if self.lower_is_better else pct_change < 0.
+
+  - id: w2
+    summary: "Add lower_is_better to ASCIIDivergingBar and update _colorize_sides and _render_summary_counts"
+    status: done
+    notes: |
+      Same pattern. Invert the improved/regressed classification when
+      lower_is_better=False.
+
+  - id: w3
+    summary: "Add lower_is_better to SummaryStats and update _format_pct_colored in ASCIISummaryBox"
+    status: done
+    notes: |
+      Add lower_is_better: bool = True to SummaryStats dataclass.
+      Use it in _format_pct_colored to determine green/red assignment.
+
+  - id: w4
+    summary: "Add tests for lower_is_better=False verifying color inversion"
+    needs: [w1, w2, w3]
+    status: done
+    notes: |
+      Test each chart with lower_is_better=False and a positive pct_change —
+      verify green coloring (improvement) instead of red (regression).
+      Test default True preserves existing behavior.
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "color"
+  estimated_effort: "Small"
+  created_date: "2026-03-08"
+  last_updated: "2026-03-08T00:00:00"
+deps:
+  needs:
+    - "neutralize-default-labels-and-titles"
+impact:
+  business_value: |
+    Enables textcharts to correctly color-code improvements for throughput,
+    success rate, and other higher-is-better metrics.
+  user_impact: |
+    Callers with higher-is-better metrics no longer see misleading red/green
+    color coding that implies the opposite interpretation.
+files_affected:
+  modified:
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/summary_box.py"
+    - "tests/test_edge_cases_and_features.py"
+must_preserve:
+  - "Default lower_is_better=True preserves all existing color behavior"
+  - "All existing comparison_bar, diverging_bar, and summary_box tests pass unchanged"
+approach: |
+  Add the boolean parameter with True default. Compute is_regression using a
+  conditional expression instead of a hardcoded sign check. The pattern is
+  identical across all three files.
+verification:
+  - description: "Existing tests pass without modification"
+    command: "uv run python -m pytest tests/ -x -q"
+    expected_output: "all tests pass"
+  - description: "lower_is_better=False inverts color assignment"
+    command: "uv run python -m pytest tests/ -k 'lower_is_better' -v"
+    expected_output: "tests pass"
+scope_limit:
+  only_modify:
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/summary_box.py"
+    - "tests/"

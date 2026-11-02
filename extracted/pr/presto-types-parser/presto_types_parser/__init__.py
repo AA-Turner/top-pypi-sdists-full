@@ -1,1 +1,0 @@
-from presto_types_parser.src.row_parser_builder import build_row_parser

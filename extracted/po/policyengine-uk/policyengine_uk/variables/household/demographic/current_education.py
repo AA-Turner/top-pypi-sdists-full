@@ -1,0 +1,54 @@
+from policyengine_uk.model_api import *
+from policyengine_uk.variables.household.demographic.highest_education import (
+    EducationType,
+)
+from policyengine_uk.utils.supplied_inputs import latest_supplied_input_period
+
+
+class current_education(Variable):
+    value_type = Enum
+    possible_values = EducationType
+    default_value = EducationType.NOT_IN_EDUCATION
+    entity = Person
+    label = "Current education enrolment"
+    documentation = (
+        "Which stage of education the person is currently enrolled in (or "
+        "NOT_IN_EDUCATION if none). This is enrolment status, not attainment "
+        "— see `highest_education` for the highest completed stage. A year "
+        "with no input keeps the latest earlier input; with none, it is "
+        "imputed from age."
+    )
+    definition_period = YEAR
+
+    def formula(person, period, parameters):
+        # Enrolment supplied for an earlier year carries forward: datasets give
+        # one for each year they cover, and later years keep the latest. Only
+        # without a supplied value is it imputed from age. Values calculated
+        # for earlier years are not used, so the result does not depend on
+        # which years were calculated first.
+        latest = latest_supplied_input_period(person, "current_education", period)
+        if latest is not None:
+            return person("current_education", latest)
+        age = person("age", period)
+        return np.select(
+            [
+                age < 4,
+                (age >= 4) & (age < 7),
+                (age >= 7) & (age < 11),
+                (age >= 11) & (age < 14),
+                (age >= 14) & (age < 16),
+                (age >= 16) & (age < 18),
+                (age >= 18) & (age < 20),
+                age >= 20,
+            ],
+            [
+                EducationType.PRE_PRIMARY,
+                EducationType.NOT_COMPLETED_PRIMARY,
+                EducationType.PRIMARY,
+                EducationType.LOWER_SECONDARY,
+                EducationType.UPPER_SECONDARY,
+                EducationType.POST_SECONDARY,
+                EducationType.TERTIARY,
+                EducationType.NOT_IN_EDUCATION,
+            ],
+        )

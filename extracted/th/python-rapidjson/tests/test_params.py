@@ -8,6 +8,7 @@
 
 from calendar import timegm
 from datetime import date, datetime, time, timezone, timedelta
+from decimal import Decimal
 import io
 import math
 import uuid
@@ -15,6 +16,20 @@ import uuid
 import pytest
 
 import rapidjson as rj
+
+
+@pytest.mark.parametrize('mode', ['datetime_mode', 'uuid_mode', 'parse_mode'])
+@pytest.mark.parametrize('value', [2**32, 2**32 + 1, -(2**32)])
+def test_large_decode_mode_is_rejected(loads, mode, value):
+    with pytest.raises((ValueError, OverflowError)):
+        loads('null', **{mode: value})
+
+
+@pytest.mark.parametrize('mode', ['datetime_mode', 'uuid_mode'])
+@pytest.mark.parametrize('value', [2**32, 2**32 + 1, -(2**32)])
+def test_large_encode_mode_is_rejected(dumps, mode, value):
+    with pytest.raises((ValueError, OverflowError)):
+        dumps(None, **{mode: value})
 
 
 def test_skipkeys():
@@ -154,6 +169,57 @@ def test_parse_mode(dumps, loads):
     pytest.raises(ValueError, loads, c_and_tc, parse_mode=rj.PM_TRAILING_COMMAS)
     pytest.raises(ValueError, loads, c_and_tc, parse_mode=rj.PM_COMMENTS)
     assert loads(c_and_tc, parse_mode=rj.PM_COMMENTS | rj.PM_TRAILING_COMMAS) == expected
+
+
+@pytest.mark.parametrize('number_mode', [None, rj.NM_NONE, rj.NM_DECIMAL])
+@pytest.mark.parametrize('parse_mode', [
+    rj.PM_NONE, rj.PM_COMMENTS, rj.PM_TRAILING_COMMAS,
+    rj.PM_COMMENTS | rj.PM_TRAILING_COMMAS,
+])
+def test_parse_mode_without_nan(loads, number_mode, parse_mode):
+    documents = [
+        (rj.PM_NONE,
+         '[0.123456789123456789,{"integer":1208925819614629174706177}]'),
+        (rj.PM_COMMENTS,
+         '/* start */[0.123456789123456789,// fraction\n'
+         '{"integer":1208925819614629174706177/* integer */}]/* end */'),
+        (rj.PM_TRAILING_COMMAS,
+         '[0.123456789123456789,{"integer":1208925819614629174706177,},]'),
+        (rj.PM_COMMENTS | rj.PM_TRAILING_COMMAS,
+         '/* start */[0.123456789123456789,// fraction\n'
+         '{"integer":1208925819614629174706177/* integer */,},]/* end */'),
+    ]
+    options = {'number_mode': number_mode, 'parse_mode': parse_mode}
+    number_type = Decimal if number_mode == rj.NM_DECIMAL else float
+    for required_mode, document in documents:
+        if parse_mode & required_mode == required_mode:
+            result = loads(document, **options)
+            assert result == [number_type('0.123456789123456789'),
+                              {'integer': 2**80 + 1}]
+            assert type(result[0]) is number_type
+            assert type(result[1]['integer']) is int
+        else:
+            with pytest.raises(rj.JSONDecodeError):
+                loads(document, **options)
+
+    for document in ('[NaN]', '[Infinity]', '[-Infinity]', '[1.5,,2]',
+                     '[1.5 2]', '{unquoted:1}', '[1.5] /* unterminated',
+                     '[1.5] [2]'):
+        with pytest.raises(rj.JSONDecodeError):
+            loads(document, **options)
+    assert loads('["/* text */","// text"]', **options) == ['/* text */', '// text']
+
+
+@pytest.mark.parametrize('parse_mode,document', [
+    (rj.PM_COMMENTS, '/* comment */[1.5]'),
+    (rj.PM_TRAILING_COMMAS, '[1.5,]'),
+    (rj.PM_COMMENTS | rj.PM_TRAILING_COMMAS, '/* comment */[1.5,]'),
+])
+def test_parse_mode_with_allow_nan_false(parse_mode, document):
+    assert rj.loads(document, allow_nan=False, parse_mode=parse_mode) == [1.5]
+    assert rj.load(io.StringIO(document), allow_nan=False, parse_mode=parse_mode) == [1.5]
+    assert rj.load(io.BytesIO(document.encode()), allow_nan=False,
+                   parse_mode=parse_mode) == [1.5]
 
 
 def test_indent(dumps):
@@ -612,6 +678,58 @@ def test_invalid_loads_params(posargs, kwargs, loads):
         assert False, "Expected either a TypeError or a ValueError"
 
 
+@pytest.mark.parametrize('number_mode,error', (
+    (1.0, TypeError),
+    ('0', TypeError),
+    ([], TypeError),
+    ({}, TypeError),
+    (object(), TypeError),
+    (-1, ValueError),
+    (8, ValueError),
+    (2**32, ValueError),
+    (2**32 + 1, ValueError),
+    (-(2**32), ValueError),
+    (2**64, ValueError),
+    (2**64 + 1, ValueError),
+    (-(2**64), ValueError),
+    (rj.NM_NATIVE | rj.NM_DECIMAL, ValueError),
+    (rj.NM_NATIVE | rj.NM_DECIMAL | rj.NM_NAN, ValueError),
+))
+def test_invalid_number_mode(number_mode, error, loads):
+    with pytest.raises(error) as exc:
+        loads('[1.25]', number_mode=number_mode)
+    assert type(exc.value) is error
+
+
+def test_invalid_number_mode_index_object(loads):
+    class IndexMode:
+        def __index__(self):
+            return rj.NM_NONE
+
+    with pytest.raises(TypeError):
+        loads('[1.25]', number_mode=IndexMode())
+
+
+@pytest.mark.parametrize('number_mode,error', ((1.0, TypeError), (2**32, ValueError)))
+def test_invalid_number_mode_decoder_constructor(number_mode, error):
+    with pytest.raises(error) as exc:
+        rj.Decoder(number_mode=number_mode)
+    assert type(exc.value) is error
+
+
+@pytest.mark.parametrize('stream_type,document', (
+    (io.StringIO, '[1.25]'), (io.BytesIO, b'[1.25]'),
+))
+@pytest.mark.parametrize('number_mode,error', ((1.0, TypeError), (2**32, ValueError)))
+def test_invalid_number_mode_preserves_stream(stream_type, document, number_mode, error):
+    stream = stream_type(document)
+    with pytest.raises(error) as exc:
+        rj.load(stream, number_mode=number_mode)
+    assert type(exc.value) is error
+    assert stream.tell() == 0
+    assert not stream.closed
+
+
 @pytest.mark.parametrize(
     'posargs,kwargs', (
         ( (), {} ),
@@ -774,3 +892,37 @@ def test_encoder_attrs():
     e = rj.Encoder(mapping_mode=rj.MM_SKIP_NON_STRING_KEYS|rj.MM_SORT_KEYS)
     assert e.skip_invalid_keys
     assert e.sort_keys
+
+
+@pytest.mark.parametrize('value', [
+    date(2026, 10, 26),
+    datetime(2026, 10, 26, 1, 2, 3, 123456, tzinfo=timezone.utc),
+])
+@pytest.mark.parametrize('comma_decimal', [False, True])
+def test_unix_time_preserves_numeric_locale(value, comma_decimal, dumps):
+    import locale
+
+    original = locale.setlocale(locale.LC_NUMERIC)
+    try:
+        if comma_decimal:
+            for candidate in ('de_DE.UTF-8', 'de_DE.utf8', 'German_Germany.1252'):
+                try:
+                    active = locale.setlocale(locale.LC_NUMERIC, candidate)
+                except locale.Error:
+                    continue
+                if locale.localeconv()['decimal_point'] == ',':
+                    break
+            else:
+                pytest.skip('a comma-decimal locale is not available')
+        else:
+            active = locale.setlocale(locale.LC_NUMERIC, 'C')
+
+        encoded = dumps(value, datetime_mode=rj.DM_UNIX_TIME | rj.DM_NAIVE_IS_UTC)
+        assert locale.setlocale(locale.LC_NUMERIC) == active
+        assert locale.format_string('%.1f', 1.5) == ('1,5' if comma_decimal else '1.5')
+        assert ',' not in encoded
+        expected = (value.timestamp() if isinstance(value, datetime)
+                    else datetime(2026, 10, 26, tzinfo=timezone.utc).timestamp())
+        assert rj.loads(encoded) == expected
+    finally:
+        locale.setlocale(locale.LC_NUMERIC, original)

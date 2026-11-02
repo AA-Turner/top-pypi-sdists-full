@@ -26,10 +26,11 @@ import pytest
 
 from probe.shared import mailbox
 from probe.shared.harness.events import PEER_TOOL, Event, Kind
-from probe.service import hints, recorders
-from probe.service.alertpoll import Endpoint
-from probe.service.protocol import Mode
-from probe.service.registry import Session
+from probe.service import hints
+from probe.service.sessions import recorders
+from probe.service.watch.alertpoll import Endpoint
+from probe.foundation.service_api.vocabularies import Mode
+from probe.service.sessions.sessions import Session
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the service is POSIX-only until R3")
 
@@ -681,7 +682,8 @@ def test_a_request_past_its_deadline_is_never_sent_again(monkeypatch):
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    monkeypatch.setattr(hints, "TIMEOUT_S", 0.3)
+    monkeypatch.setattr(hints.request, "TIMEOUT_S", 0.3)
+    monkeypatch.setattr(hints.delivery, "TIMEOUT_S", 0.3)
     monkeypatch.setattr(hints.HintFetcher, "timeout", 0.3)
     try:
         fetch = hints.HintFetcher(VERSION)
@@ -1218,7 +1220,7 @@ def test_the_lanes_threads_read_ask_and_post_and_stop(tmp_path, state):
 
 def test_the_service_builds_its_lane_and_lists_no_session_before_any_recording(tmp_path):
     from probe.service import server
-    from probe.service.registry import Registry
+    from probe.service.sessions.sessions import Registry
 
     service = server.Service(registry=Registry(tmp_path / "sessions.json"))
     assert isinstance(service.hints, hints.HintLane)
@@ -1633,9 +1635,10 @@ def test_a_window_request_waits_window_timeout_s_and_any_other_timeout_s(monkeyp
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    monkeypatch.setattr(hints, "TIMEOUT_S", 0.3)
+    monkeypatch.setattr(hints.request, "TIMEOUT_S", 0.3)
+    monkeypatch.setattr(hints.delivery, "TIMEOUT_S", 0.3)
     monkeypatch.setattr(hints.HintFetcher, "timeout", 0.3)  # as in production: the socket's own, TIMEOUT_S
-    monkeypatch.setattr(hints, "WINDOW_TIMEOUT_S", 3.0)
+    monkeypatch.setattr(hints.request, "WINDOW_TIMEOUT_S", 3.0)
     try:
         fetch = hints.HintFetcher(VERSION)
         ep = Endpoint(f"http://127.0.0.1:{server.server_address[1]}", "pk_read")
@@ -1657,7 +1660,8 @@ def test_a_window_request_outwaits_the_servers_window_lookup():
     source = AGENT_ROOT.parent / "app" / "knowledge" / "hints" / "hints.py"
     if not source.is_file():
         pytest.skip("the server's code is not beside this package")
-    text = source.read_text(encoding="utf-8")
+    # The hints module is split into pieces (the engine budget lives in pool.py): read them all.
+    text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(source.parent.glob("*.py")))
     engine = float(re.search(r"^ENGINE_BUDGET_SECONDS = ([\d.]+)", text, re.M).group(1))
     window = re.search(r"^WINDOW_BUDGET_SECONDS = (.+)$", text, re.M).group(1).strip()
     budget = engine if window == "ENGINE_BUDGET_SECONDS" else float(window)
@@ -1895,7 +1899,7 @@ def test_a_counted_tool_call_never_runs_the_filters_per_call_reads(tmp_path, sta
 
 
 def test_past_max_pending_a_window_goes_before_any_other_lookup(tmp_path, state, monkeypatch):
-    monkeypatch.setattr(hints, "MAX_PENDING", 3)
+    monkeypatch.setattr(hints.tail, "MAX_PENDING", 3)
     sessions = [_session(tmp_path, state, sid=f"{i:08d}-0000-0000-0000-000000000000") for i in range(5)]
     lane, _ = _lane(tmp_path, sessions, Api())
     looking = sessions[0]
@@ -2409,7 +2413,8 @@ def test_every_request_carries_what_became_of_the_sessions_hints(tmp_path, state
 
 
 def test_doctor_and_status_name_a_session_its_hints_do_not_reach(tmp_path, state):
-    from probe.cli import doctor, service_calls
+    from probe.cli.wizard import doctor
+    from probe.cli.lifecycle import service_calls
 
     now = time.time()
     with mailbox.rooted(str(state)):

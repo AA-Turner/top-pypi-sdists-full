@@ -1,0 +1,8 @@
+[[scopes]]
+name = "code-review"
+paths = ["**/*"]
+reviewers = ["davegaeddert", "pullapprove-dropseed"]
+request = 1
+require = 1
+author_value = 1
+labels = ["needs-review"]

@@ -170,22 +170,40 @@ def test_invoke_force_color(invoke):
     )
 
 
-def test_invoke_color_forced_is_deprecated(invoke):
-    """`color="forced"` still forces colors, warning at the caller."""
-    with pytest.warns(
-        DeprecationWarning, match="use force_color=True instead"
-    ) as record:
-        result = CliRunner().invoke(run_cli1, color="forced")
-    assert record[0].filename == __file__
-    assert result.stdout.endswith(
-        "Context.color = True\nclick.utils.should_strip_ansi = False\n",
-    )
-
-
 def test_invoke_force_color_contradicting_color_raises():
     """Asking for forced colors and stripped ones at once is refused."""
     with pytest.raises(ValueError, match="contradicts"):
         CliRunner().invoke(run_cli1, color=False, force_color=True)
+
+
+@click.command
+def run_cli_crash():
+    raise ZeroDivisionError("division by zero")
+
+
+@pytest.mark.parametrize(
+    ("runner_catches", "invoke_catches", "propagates"),
+    (
+        pytest.param(True, None, False, id="runner-default"),
+        pytest.param(False, None, True, id="runner-setting"),
+        pytest.param(False, True, False, id="invoke-overrides-runner"),
+        pytest.param(True, False, True, id="invoke-overrides-default"),
+    ),
+)
+def test_invoke_catch_exceptions_follows_the_runner(
+    runner_catches, invoke_catches, propagates
+):
+    """`invoke()` falls back to the runner's own `catch_exceptions` setting."""
+    runner = CliRunner(catch_exceptions=runner_catches)
+    # Left out rather than passed as `None`, which is how a caller relies on it.
+    kwargs = {} if invoke_catches is None else {"catch_exceptions": invoke_catches}
+    if propagates:
+        with pytest.raises(ZeroDivisionError):
+            runner.invoke(run_cli_crash, **kwargs)
+    else:
+        result = runner.invoke(run_cli_crash, **kwargs)
+        assert isinstance(result.exception, ZeroDivisionError)
+        assert result.exit_code == 1
 
 
 # --- Full-stack click-extra color tests ---

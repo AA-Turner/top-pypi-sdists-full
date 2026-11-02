@@ -1,0 +1,17 @@
+[package]
+name = "djc-core"
+description = "Singular Python API for Rust code used by django-components"
+version = "1.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "djc_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+djc-html-transformer = { path = "../djc-html-transformer" }
+djc-safe-eval = { path = "../djc-safe-eval" }
+djc-template-parser = { path = "../djc-template-parser" }
+pyo3 = { workspace = true }
+quick-xml = { workspace = true }

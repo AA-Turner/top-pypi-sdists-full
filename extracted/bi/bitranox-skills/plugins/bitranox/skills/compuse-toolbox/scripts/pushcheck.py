@@ -1,0 +1,740 @@
+# /// script
+# requires-python = ">=3.14"
+# ///
+"""Would this push publish something private? Answer BEFORE pushing, not after.
+
+Publishing is the irreversible direction. A local path, an internal hostname or an operator's
+username that reaches a public repo stays in its public history even after the file is fixed,
+because scrubbing it needs a force-push - which breaks every clone that already fetched.
+
+Two things make this a tool rather than a habit:
+
+1. **Visibility comes from the REMOTE, never from the directory name.** A tree that sorts repos
+   into `public/` and `private/` folders is a filing convention, not a fact about GitHub, and it
+   drifts: measured, a folder named `public/...` held a PRIVATE repo. A name-based guess is
+   wrong in both directions - it also calls a public repo private and waves the scan through,
+   which is the direction that publishes.
+2. **Every non-answer fails CLOSED.** Unknown visibility, an unreadable range and an EMPTY range
+   are refusals. A gate that reports "no findings" after examining nothing is indistinguishable
+   from one that works, so this one always states how many lines it read and treats zero as a
+   refusal.
+
+Only ADDED lines are scanned. A `-` line is content leaving the repo, and flagging it would make
+a cleanup commit unpushable, which is backwards; a range that only REMOVES lines, and changes no
+binary file (whose content is never scanned), is therefore safe, and "empty" means a range with
+neither added nor removed lines. They are read from EVERY commit in the range, not from the diff
+between its two ends: a value added in one commit and removed in the next is still published, in
+that first commit. A symmetric range `A...B` scans only B's side, the commits B adds since it
+forked from A.
+
+Every commit MESSAGE in the range is scanned too, since the push publishes it with its commit; a
+finding there is attributed to `commit <sha> message` and its line, and on a public repo it
+refuses even a removal-only range. A binary file's CONTENT is never scanned (a byte search of
+images and archives would bury the real findings in noise), so each one is NAMED instead: listed
+in the JSON `skipped` list and on a `not scanned` line, and a range adding nothing but binary
+content is refused as unscanned rather than passed.
+
+Documentation-safe values are deliberately NOT findings: the RFC5737 ranges (192.0.2.0/24,
+198.51.100.0/24, 203.0.113.0/24), `example.com`/`.test`/`.invalid`, loopback, and placeholder
+home paths like `/home/user/`. Flagging those trains a reader to skim the report, which is how a
+real finding gets waved through.
+
+The pattern list is a FLOOR, never a proof. It cannot know your infrastructure's names, so pass
+them with --denylist-file; the file is yours and is never shipped, which is what lets this tool be
+public while the terms stay private. It is read as a redaction list, the format `redaction_scan`
+reads, through the same parser (`parse_rules`): one rule per line, blank lines and lines whose
+first non-blank character is `#` are comments, and a rule is `term` or `term==>replacement`, the
+term being the text before the first `==>`, stripped. A term matches case-insensitively by
+`str.casefold` (`fold_case`, shared with `redaction_scan`), so `Strasse` also finds the spelling
+with the German sharp s, which `lower()` would miss. A list
+that parses to zero terms is refused (exit 2), because a denylist that checked nothing would
+otherwise print the same clean result as one that checked everything.
+
+Run:
+  `uv run scripts/pushcheck.py --repo . --json`
+  `uv run scripts/pushcheck.py --range origin/main..HEAD --denylist-file ~/.config/infra.txt`
+  `uv run scripts/pushcheck.py --visibility public --range HEAD~3..HEAD`   (skip the gh lookup)
+
+Exit codes: 0 = safe to push, 1 = a PUBLIC repo's range carries private-looking content,
+2 = refused to answer (unknown visibility, empty range, bad arguments, git or gh failure, an
+internal error).
+
+`--json` prints `{ok, command, data, skipped}` on every exit, 2 included. `ok` means the check RAN
+(false exactly on exit 2); the verdict is `data.safe` - so a leak found is `ok: true, safe: false`.
+"""
+
+import argparse
+import hashlib
+import json
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from fnmatch import fnmatch
+from pathlib import Path
+
+from _cli_envelope import EXIT_ERROR, EnvelopeArgumentParser, emit, guarded
+
+__all__ = ["Finding", "Rule", "RuleList", "Verdict", "added_lines", "decide", "fold_case",
+           "parse_remote", "parse_rules", "scan_diff", "scan_messages", "scan_text", "split_lines"]
+
+# A remote URL in any of the shapes git accepts. Owner and repo are what the visibility lookup
+# needs; the host decides whether we can ask at all.
+_SCP_RX = re.compile(r"^(?:(?P<user>[^@/]+)@)?(?P<host>[^:/@]+):(?P<path>[^:].*)$")
+_URL_RX = re.compile(r"^[a-z][a-z0-9+.-]*://(?:[^@/]+@)?(?P<host>[^:/]+)(?::\d+)?/(?P<path>.+)$")
+
+# Absolute paths that carry local layout. Deliberately not "every absolute path": /usr/bin/python3
+# belongs in documentation, and flagging it would bury the findings that matter.
+# A Windows profile path is written with one backslash, with two once it sits inside a JSON or
+# source string literal, with forward slashes (Windows accepts both, and many config files and
+# tools write `c:/users/...`), and in any case (NTFS is case-insensitive, `c:\users` is common).
+_ABS_RX = re.compile(
+    r"(?P<hit>(?:/home/|/Users/|/root/|/media/|/mnt/|/srv/)[A-Za-z0-9._-]+"
+    r"|(?i:[a-z]:[\\/]{1,2}users[\\/]{1,2})[A-Za-z0-9._-]+)")
+# Home directories written as documentation. `alice` is NOT here on purpose: a real-looking name
+# is a candidate for a human to clear, and the cost of clearing one is a sentence.
+_PLACEHOLDER_USERS = {"user", "username", "youruser", "you", "me", "example", "USER", "$USER"}
+
+# A host is a finding when its TLD says "not on the public internet".
+_INTERNAL_TLDS = {"internal", "local", "lan", "home", "corp", "intranet", "private", "localdomain"}
+_HOST_RX = re.compile(r"\b(?P<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+                      r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)\b")
+_DOC_DOMAINS = ("example.com", "example.net", "example.org", "example.test", "example.invalid")
+_DOC_TLDS = {"test", "invalid", "example"}
+
+_IPV4_RX = re.compile(r"\b(?P<ip>\d{1,3}(?:\.\d{1,3}){3})\b")
+# RFC5737 exists so an address can be written down. Treating one as a leak is a false positive
+# with a real cost: it is the kind that makes people pass --no-verify.
+_DOC_NETS = ("192.0.2.", "198.51.100.", "203.0.113.")
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One private-looking value, located well enough to open the file and look."""
+
+    kind: str
+    file: str
+    line: int
+    text_excerpt: str
+
+    def as_dict(self) -> dict:
+        return {"kind": self.kind, "file": self.file, "line": self.line,
+                "excerpt": self.text_excerpt}
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """The answer, plus how much was read to reach it - the second half is not optional."""
+
+    ok: bool
+    exit_code: int
+    reason: str
+    examined_lines: int
+    visibility: str | None = None
+    findings: list[Finding] = field(default_factory=list)
+    unused_exclusions: list[str] = field(default_factory=list)
+    examined_message_lines: int = 0
+    unscanned_binary: list[str] = field(default_factory=list)
+
+
+def parse_remote(url: str) -> tuple[str, str, str] | None:
+    """(host, owner, repo) for a remote URL, or None when it names no owner/repo pair.
+
+    None is a real answer and not a parse failure to paper over: a filesystem remote genuinely
+    has no visibility to look up, and inventing an owner would produce a confident wrong one.
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    m = _URL_RX.match(raw) or _SCP_RX.match(raw)
+    if not m:
+        return None
+    path = m.group("path").strip("/")
+    if path.endswith(".git"):
+        path = path[: -len(".git")]
+    parts = [p for p in path.split("/") if p]
+    if len(parts) < 2:
+        return None
+    return (m.group("host"), parts[-2], parts[-1])
+
+
+def _abs_path_hits(line: str) -> list[str]:
+    out = []
+    for m in _ABS_RX.finditer(line):
+        hit = m.group("hit")
+        tail = re.split(r"[/\\]", hit)[-1]
+        if tail not in _PLACEHOLDER_USERS:
+            out.append(hit)
+    return out
+
+
+def _looks_like_a_host(labels: list[str]) -> bool:
+    """Whether a dotted name is host-shaped rather than attribute access.
+
+    `Path.home()`, `self.local` and `settings.home` are shaped exactly like domains, and an
+    internal TLD set that does not exclude them reports them - measured on this repo's own
+    history. That false positive is not cosmetic: a report the reader learns to skim is how the
+    one real finding gets waved through. So a host must LOOK like one, either by carrying a digit
+    or hyphen in its first label or by having three or more labels. The cost is a plain
+    two-label name like `db.internal`, which the --denylist-file covers and which is why this
+    pattern set is documented as a floor rather than a proof.
+    """
+    if len(labels) >= 3:
+        return True
+    first = labels[0]
+    return any(c.isdigit() or c == "-" for c in first)
+
+
+def _hostname_hits(line: str) -> list[str]:
+    out = []
+    for m in _HOST_RX.finditer(line):
+        host = m.group("host")
+        low = host.lower()
+        if low.endswith(_DOC_DOMAINS) or low.split(".")[-1] in _DOC_TLDS:
+            continue
+        if line[m.end():m.end() + 1] == "(":          # a method call, not a host
+            continue
+        labels = low.split(".")
+        if labels[-1] in _INTERNAL_TLDS and _looks_like_a_host(labels):
+            out.append(host)
+    return out
+
+
+def _private_ip_hits(line: str) -> list[str]:
+    out = []
+    for m in _IPV4_RX.finditer(line):
+        ip = m.group("ip")
+        try:
+            a, b = (int(x) for x in ip.split(".")[:2])
+        except ValueError:                                   # not four real octets
+            continue
+        if any(ip.startswith(net) for net in _DOC_NETS):
+            continue
+        if a == 10 or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168):
+            out.append(ip)
+        elif a == 100 and 64 <= b <= 127 or (a == 169 and b == 254):
+            out.append(ip)
+    return out
+
+
+def split_lines(text: str) -> list[str]:
+    """`text` split on newlines ONLY, with a trailing CR dropped.
+
+    `str.splitlines()` also splits on form feed, U+2028 and the other Unicode separators. In a
+    diff that turns the tail of an ADDED line into a fake context line, which is never scanned -
+    a value placed after such a character would pass the gate unread.
+    """
+    parts = (text or "").split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return [p[:-1] if p.endswith("\r") else p for p in parts]
+
+
+# ---- the redaction-list format, shared with redaction_scan ------------------------------------
+
+_SEPARATOR = "==>"
+
+
+@dataclass(frozen=True)
+class Rule:
+    """One parsed pattern: its 1-based index among patterns and the list line it came from."""
+    index: int
+    list_line: int
+    pattern: str
+
+    @property
+    def digest(self) -> str:
+        """A short hash naming the pattern without showing it (case-folded, as it matches)."""
+        return hashlib.sha256(fold_case(self.pattern).encode("utf-8")).hexdigest()[:12]
+
+
+@dataclass(frozen=True)
+class RuleList:
+    """The parsed list, with the counts a report must state."""
+    rules: tuple[Rule, ...]
+    comment_lines: int
+    blank_lines: int
+    empty_rules: int                # `==>x` or whitespace before `==>`: nothing to match
+
+
+def fold_case(text: str) -> str:
+    """`text` as both jigs compare it: `str.casefold`, never `lower()`.
+
+    `lower()` leaves the German sharp s as it is, so a term written `Strasse` misses `STRASSE`
+    spelled with one; casefold maps it to `ss`. A missed private name is the dangerous direction,
+    so the wider match is the one both pushcheck's denylist and redaction_scan use.
+
+    Examples:
+        >>> fold_case("STRA\\u00dfE") == fold_case("Strasse")
+        True
+    """
+    return text.casefold()
+
+
+def parse_rules(text: str) -> RuleList:
+    """Parse a redaction list. PURE, and the ONE parser of the format: pushcheck's
+    --denylist-file and redaction_scan's --list both read through it, so the two jigs cannot
+    disagree about which lines are terms.
+
+    One rule per line. A blank line, and a line whose first non-blank character is `#`, is a
+    comment. A rule is `literal` or `literal==>replacement`; the pattern is the text before the
+    FIRST `==>`, stripped. A rule whose pattern is empty after that is counted, never used: an
+    empty pattern is a substring of every line.
+
+    Examples:
+        >>> rl = parse_rules("# names\\n\\nAlpha Corp==>Org1\\nbeta\\n")
+        >>> [r.pattern for r in rl.rules], rl.comment_lines, rl.blank_lines
+        (['Alpha Corp', 'beta'], 1, 1)
+    """
+    rules: list[Rule] = []
+    comments = blanks = empty = 0
+    for n, raw in enumerate(split_lines(text), start=1):
+        stripped = raw.strip()
+        if not stripped:
+            blanks += 1
+            continue
+        if stripped.startswith("#"):
+            comments += 1
+            continue
+        pattern = stripped.split(_SEPARATOR, 1)[0].strip()
+        if not pattern:
+            empty += 1
+            continue
+        rules.append(Rule(len(rules) + 1, n, pattern))
+    return RuleList(tuple(rules), comments, blanks, empty)
+
+
+def scan_text(text: str, path: str, denylist: tuple[str, ...] | list[str] = ()) -> list[Finding]:
+    """Every private-looking value in `text`, with 1-based line numbers. PURE."""
+    terms = [fold_case(t.strip()) for t in denylist if t.strip()]
+    found: list[Finding] = []
+    for n, line in enumerate(split_lines(text), start=1):
+        for hit in _abs_path_hits(line):
+            found.append(Finding("abs_path", path, n, hit))
+        for hit in _hostname_hits(line):
+            found.append(Finding("hostname", path, n, hit))
+        for hit in _private_ip_hits(line):
+            found.append(Finding("private_ip", path, n, hit))
+        folded = fold_case(line)
+        for term in terms:
+            if term in folded:
+                found.append(Finding("denylist", path, n, line.strip()[:120]))
+    return found
+
+
+_HUNK_RX = re.compile(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,\d+)? @@")
+_C_ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\\": 92, '"': 34}
+
+
+def _unquote_path(raw: str) -> str:
+    """A header path as git wrote it, with git's C-style quoting undone.
+
+    git quotes a path holding a double quote, a backslash or a control character (and, unless
+    core.quotePath is off, every non-ASCII byte as octal). Left quoted, the finding names a file
+    that does not exist and no --exclude pattern can ever match it.
+    """
+    if len(raw) < 2 or not (raw.startswith('"') and raw.endswith('"')):
+        return raw
+    body, out, i = raw[1:-1], bytearray(), 0
+    while i < len(body):
+        if body[i] == "\\" and i + 1 < len(body):
+            octal = body[i + 1:i + 4]
+            if len(octal) == 3 and all(c in "01234567" for c in octal):
+                out.append(int(octal, 8) & 0xFF)
+                i += 4
+                continue
+            out.append(_C_ESCAPES.get(body[i + 1], ord(body[i + 1]) & 0xFF))
+            i += 2
+            continue
+        out.extend(body[i].encode("utf-8"))
+        i += 1
+    return out.decode("utf-8", errors="replace")
+
+
+def _header_path(field_text: str) -> str:
+    # git appends a TAB to a header path that contains a space; that tab is not part of the name.
+    target = _unquote_path(field_text.rstrip("\t"))
+    return target[2:] if target.startswith(("a/", "b/")) else target
+
+
+def _changed_lines(diff: str):
+    """(path, new-file line, sign, text) for every ADDED (`+`) and REMOVED (`-`) line of a diff.
+
+    A `+++ `/`--- ` line is a file header only BETWEEN a `diff ` line and the first `@@` of that
+    file. Inside a hunk the same prefix is content: an added line that itself begins `++ ` shows
+    as `+++ ...`, and a parser keyed on the prefix alone would read it as a header and never scan
+    it. Inside a hunk a line starting `@@` or `diff ` cannot be content (content lines start with
+    `+`, `-`, a space or a backslash), so those two are the only way out of one.
+    """
+    path, lineno, in_header = "?", 0, True
+    for raw in split_lines(diff):
+        if raw.startswith("diff "):
+            in_header = True
+            continue
+        hunk = _HUNK_RX.match(raw)
+        if hunk:
+            in_header, lineno = False, int(hunk.group("start"))
+            continue
+        if in_header:
+            if raw.startswith("+++ "):
+                path = _header_path(raw[4:])
+            continue
+        if raw.startswith("+"):
+            yield path, lineno, "+", raw[1:]
+            lineno += 1
+        elif raw.startswith("-"):
+            yield path, lineno, "-", raw[1:]
+        else:
+            lineno += 1
+
+
+def added_lines(diff: str):
+    """(path, new-file line, text) for every ADDED line of a unified diff."""
+    for path, lineno, sign, text in _changed_lines(diff):
+        if sign == "+":
+            yield path, lineno, text
+
+
+def scan_diff(diff: str, denylist: tuple[str, ...] | list[str] = ()) -> list[Finding]:
+    """Findings in the ADDED lines of a unified diff, attributed to file and new-file line.
+
+    Removed lines are skipped deliberately: they are content LEAVING the repo, so flagging them
+    would refuse exactly the commit that cleans a leak up. The same value found twice at the same
+    place (a merge's first-parent diff repeats its side branch's commits) is reported once.
+    """
+    found: list[Finding] = []
+    for path, lineno, text in added_lines(diff):
+        found.extend(Finding(f.kind, path, lineno, f.text_excerpt)
+                     for f in scan_text(text, path, denylist))
+    return list(dict.fromkeys(found))
+
+
+def added_line_count(diff: str) -> int:
+    """How many added lines the scan actually read - the denominator the verdict must report."""
+    return sum(1 for _ in added_lines(diff))
+
+
+def removed_line_count(diff: str) -> int:
+    """How many lines the range removes - what tells a cleanup range from an empty one."""
+    return sum(1 for _, _, sign, _ in _changed_lines(diff) if sign == "-")
+
+
+_BINARY_RX = re.compile(r"^Binary files (?P<old>.+) and (?P<new>.+) differ$")
+
+
+def changes_binary_content(diff: str) -> bool:
+    """Whether any file in the range is binary. Its content is never scanned, so a range whose
+    only readable change is a removal is not known to add nothing when one is present."""
+    return bool(binary_files(diff))
+
+
+def binary_files(diff: str) -> list[str]:
+    """Every binary file the range touches, once each, by its new name (its old one if deleted).
+
+    Their content is never scanned - a byte-level search of images and archives would flood the
+    report with noise - so they are NAMED in the verdict instead of passing unmentioned."""
+    names: list[str] = []
+    for line in split_lines(diff):
+        match = _BINARY_RX.match(line)
+        if match:
+            side = match.group("new") if match.group("new") != "/dev/null" else match.group("old")
+            names.append(_header_path(side))
+    return list(dict.fromkeys(names))
+
+
+def scan_messages(messages: list[tuple[str, str]],
+                  denylist: tuple[str, ...] | list[str] = ()) -> list[Finding]:
+    """Findings in each commit MESSAGE, attributed to `commit <sha12> message` and its line.
+
+    A push publishes every message in the range as surely as its diff, and a message is where a
+    local path or host is most often pasted ("port the fix from /home/...")."""
+    found: list[Finding] = []
+    for sha, message in messages:
+        found.extend(scan_text(message, f"commit {sha[:12]} message", denylist))
+    return list(dict.fromkeys(found))
+
+
+def message_line_count(messages: list[tuple[str, str]]) -> int:
+    """How many message lines the scan read - reported beside the added-line count."""
+    return sum(len(split_lines(message)) for _, message in messages)
+
+
+def exclude_findings(findings: list[Finding], patterns: list[str]) -> tuple[list[Finding],
+                                                                          list[str]]:
+    """Drop findings whose file matches an exclusion, and name the exclusions that matched none.
+
+    Security fixtures are the case this exists for: a project that TESTS for private-looking
+    values necessarily contains them, and this tool refused its own repository's every push on
+    exactly that. A gate routinely bypassed is the failure it exists to prevent, arriving by a
+    different route.
+
+    An exclusion matching nothing is REPORTED rather than ignored, because the quiet direction is
+    a caller believing a path is covered by a pattern that never applied.
+    """
+    kept = [f for f in findings
+            if not any(fnmatch(f.file, pat) or f.file == pat for pat in patterns)]
+    used = {pat for f in findings for pat in patterns
+            if fnmatch(f.file, pat) or f.file == pat}
+    return kept, [pat for pat in patterns if pat not in used]
+
+
+def decide(*, visibility: str | None, findings: list[Finding], examined_lines: int,
+           unused_exclusions: list[str] | None = None, removed_lines: int = 0,
+           examined_message_lines: int = 0, unscanned_binary: list[str] | None = None) -> Verdict:
+    """The verdict. PURE, and every non-answer fails closed.
+
+    Zero added lines is a refusal only when the range removed nothing either: a range that only
+    REMOVES lines is a cleanup, which publishes nothing new, and refusing it would make a leak
+    unfixable through this gate. A caller that does not pass `removed_lines` gets the refusal.
+
+    A finding on a public repo refuses BEFORE that cleanup rule: a commit message is published
+    with its commit, so a cleanup whose message names the value it removes publishes it again.
+    A range whose only content is binary is refused as unscanned, not called empty.
+    """
+    unused = list(unused_exclusions or [])
+    binary = list(unscanned_binary or [])
+
+    def verdict(ok: bool, code: int, reason: str, vis: str | None = visibility) -> Verdict:
+        return Verdict(ok, code, reason, examined_lines, vis, findings, unused,
+                       examined_message_lines, binary)
+
+    read = f"{examined_lines} added line(s)" + (
+        f" and {examined_message_lines} commit-message line(s)" if examined_message_lines else "")
+    if visibility is None:
+        return verdict(False, 2, "could not resolve the repository's visibility from its remote; "
+                                 "refusing rather than guessing from the directory name", None)
+    if visibility == "public" and findings:
+        return verdict(False, 1, f"{len(findings)} private-looking value(s) in {read} bound for "
+                                 f"a PUBLIC repo")
+    if examined_lines <= 0 and removed_lines > 0:
+        return verdict(True, 0, f"the range only removes {removed_lines} line(s) and adds none, "
+                                f"so it publishes no new content")
+    if examined_lines <= 0 and binary:
+        return verdict(False, 2, f"the range adds no text, only binary content ({len(binary)} "
+                                 f"file(s)), which is never scanned - refusing rather than "
+                                 f"calling it clean")
+    if examined_lines <= 0:
+        return verdict(False, 2, "the range is empty, so nothing was examined - that is a broken "
+                                 "check, not a clean one")
+    if findings:
+        return verdict(True, 0, f"{len(findings)} finding(s) in {read}, but the repo is "
+                                f"{visibility} - reported, not refused")
+    return verdict(True, 0, f"clean across {read}")
+
+
+# ---- adapters ----------------------------------------------------------------------------------
+
+class PushCheckError(Exception):
+    """Reported as a typed message and exit 2, never as a traceback."""
+
+
+def _run(args: list[str], cwd: Path) -> str:
+    try:
+        proc = subprocess.run(args, cwd=str(cwd), capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", check=False)
+    except OSError as exc:
+        raise PushCheckError(f"cannot run {args[0]}: {exc}") from exc
+    if proc.returncode != 0:
+        raise PushCheckError(f"{' '.join(args[:2])} failed: {(proc.stderr or '').strip()[:200]}")
+    return proc.stdout
+
+
+def remote_url(repo: Path, remote: str) -> str:
+    return _run(["git", "remote", "get-url", remote], repo).strip()
+
+
+def default_range(repo: Path) -> str:
+    """`@{u}..HEAD`, but only once an upstream exists - otherwise say so instead of scanning all."""
+    try:
+        _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], repo)
+    except PushCheckError as exc:
+        raise PushCheckError("no upstream is configured, so the pending range is undefined - "
+                             "pass --range explicitly") from exc
+    return "@{u}..HEAD"
+
+
+def repo_root(repo: Path) -> Path:
+    """The work tree's top level, so the tool works from any subdirectory of it."""
+    if not repo.is_dir():
+        raise PushCheckError(f"not a git repository: {repo}")
+    try:
+        top = _run(["git", "rev-parse", "--show-toplevel"], repo).strip()
+    except PushCheckError as exc:
+        raise PushCheckError(f"not a git repository: {repo}") from exc
+    if not top:
+        raise PushCheckError(f"not a git repository: {repo}")
+    return Path(top)
+
+
+def range_diff(repo: Path, rev_range: str) -> str:
+    """The diff of EVERY commit in the range, not the diff between its two ends.
+
+    A push publishes each commit, so a value added in one commit and removed in the next is in
+    public history although the endpoint diff never shows it. A merge contributes its diff
+    against its first parent, which covers a conflict resolution. `core.quotePath=false` keeps a
+    non-ASCII path readable, so a finding names the real file and --exclude can match it.
+
+    `--right-only` keeps a symmetric range `A...B` meaning what it means to `git diff` - the
+    commits B adds since it forked from A - instead of `git log`'s both sides, where a commit only
+    on A (already upstream, not part of this push) would refuse the push. On an ordinary `A..B`
+    range no commit is marked left, so the option changes nothing there.
+    """
+    return _run(["git", "-c", "core.quotePath=false", "log", "-p", "--format=", "--unified=0",
+                 "--no-color", "--no-ext-diff", "--diff-merges=first-parent", "--right-only",
+                 rev_range, "--"], repo)
+
+
+def range_messages(repo: Path, rev_range: str) -> list[tuple[str, str]]:
+    """(sha, full message) for every commit in the range - the same commits `range_diff` reads.
+
+    `-z` ends each record with a NUL, which no commit message can hold, so a message that itself
+    contains a line looking like a sha cannot be split into two records."""
+    out = _run(["git", "log", "-z", "--format=%H%n%B", "--right-only", rev_range, "--"], repo)
+    records = []
+    for record in out.split("\x00"):
+        sha, _, message = record.lstrip("\n").partition("\n")
+        if sha:
+            records.append((sha, message))
+    return records
+
+
+def gh_visibility(host: str, owner: str, repo: str, gh: str = "gh") -> str | None:
+    """The repo's visibility per the forge API, or None when it cannot be established."""
+    if host.lower() != "github.com":
+        return None
+    try:
+        out = _run([gh, "repo", "view", f"{owner}/{repo}", "--json", "visibility"], Path.cwd())
+    except PushCheckError:
+        return None
+    try:
+        value = json.loads(out).get("visibility")
+    except (ValueError, AttributeError):
+        return None
+    return str(value).lower() if value else None
+
+
+def _render(verdict: Verdict) -> str:
+    head = ("SAFE TO PUSH" if verdict.ok else "REFUSED") + f": {verdict.reason}"
+    lines = [head, f"visibility  {verdict.visibility or '(unresolved)'}",
+             f"examined    {verdict.examined_lines} added line(s), "
+             f"{verdict.examined_message_lines} commit-message line(s)"]
+    if verdict.unscanned_binary:
+        lines.append(f"not scanned {len(verdict.unscanned_binary)} binary file(s): "
+                     + ", ".join(verdict.unscanned_binary))
+    if verdict.unused_exclusions:
+        lines.append("! these --exclude patterns matched nothing: "
+                     + ", ".join(verdict.unused_exclusions))
+    lines += [f"  {f.kind:<11} {f.file}:{f.line}  {f.text_excerpt}" for f in verdict.findings]
+    return "\n".join(lines)
+
+
+def _emit(as_json: bool, verdict: Verdict) -> None:
+    if as_json:
+        # `ok` is the envelope's "ran without error"; the verdict travels as data.safe, so a leak
+        # found (exit 1) is not mistaken for a run that failed.
+        emit(verdict.exit_code, "pushcheck",
+             {"safe": verdict.ok, "visibility": verdict.visibility,
+              "examined_lines": verdict.examined_lines,
+              "examined_message_lines": verdict.examined_message_lines,
+              "reason": verdict.reason,
+              "unused_exclusions": verdict.unused_exclusions,
+              "findings": [f.as_dict() for f in verdict.findings]},
+             skipped=[f"{name}: binary content is not scanned" for name in verdict.unscanned_binary],
+             error=verdict.reason if verdict.exit_code == EXIT_ERROR else None)
+    else:
+        print(_render(verdict))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = EnvelopeArgumentParser(description=__doc__.splitlines()[0], envelope_command="pushcheck")
+    p.add_argument("--repo", default=".", help="the repository to check (default: cwd)")
+    p.add_argument("--remote", default="origin", help="remote whose URL names the repo")
+    p.add_argument("--range", dest="rev_range", default=None,
+                   help="commit range to scan (default: @{u}..HEAD)")
+    p.add_argument("--visibility", default=None, choices=["public", "private", "internal"],
+                   help="skip the forge lookup and state the visibility")
+    p.add_argument("--denylist-file", default=None,
+                   help="your own hostnames/usernames as a redaction list: one rule per line, "
+                        "`term` or `term==>replacement`; blank and `#` lines are comments. "
+                        "Never shipped; a list with no term is refused")
+    p.add_argument("--exclude", action="append", default=[], metavar="GLOB",
+                   help="skip findings in these paths (security fixtures); repeatable. An "
+                        "exclusion matching nothing is reported, not ignored")
+    p.add_argument("--gh", default="gh", help="path to the gh CLI")
+    p.add_argument("--json", action="store_true", dest="as_json", help="emit a JSON envelope")
+    return p
+
+
+def _denylist(path: str | None) -> list[str]:
+    if not path:
+        return []
+    try:
+        # utf-8-sig: Notepad and PowerShell 5 write a BOM, which plain utf-8 glues onto the
+        # FIRST term so that it silently matches nothing.
+        text = Path(path).expanduser().read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise PushCheckError(f"cannot read --denylist-file: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        # The exception's own text is not echoed: the offending bytes are part of a term, and
+        # the terms are what this file exists to keep out of every log.
+        raise PushCheckError(f"--denylist-file is not UTF-8 text (undecodable byte at offset "
+                             f"{exc.start}); re-save it as UTF-8") from None
+    parsed = parse_rules(text)
+    if not parsed.rules:
+        # A denylist that yields no term checked nothing; a clean verdict after it would read
+        # exactly like one that checked every term.
+        raise PushCheckError(f"--denylist-file parsed to zero terms ({parsed.comment_lines} "
+                             f"comment line(s), {parsed.blank_lines} blank line(s), "
+                             f"{parsed.empty_rules} rule(s) with nothing before `==>`), so it "
+                             f"would check nothing - check the path and that its rules are not "
+                             f"all commented out")
+    return [rule.pattern for rule in parsed.rules]
+
+
+def _tolerate_unencodable_output() -> None:
+    """A cp1252 console or redirect must not turn a verdict into a traceback (exit 1 = leak)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="backslashreplace")
+        except (ValueError, OSError):
+            continue
+
+
+@guarded("pushcheck")
+def main(argv: list[str] | None = None) -> int:
+    """Check the range; an uncaught exception exits 2, never Python's 1, which means "a leak"."""
+    _tolerate_unencodable_output()
+    args = build_parser().parse_args(argv)
+    try:
+        repo = repo_root(Path(args.repo).expanduser())
+        visibility = args.visibility
+        if visibility is None:
+            parsed = parse_remote(remote_url(repo, args.remote))
+            visibility = gh_visibility(*parsed, gh=args.gh) if parsed else None
+        rev_range = args.rev_range or default_range(repo)
+        diff = range_diff(repo, rev_range)
+        messages = range_messages(repo, rev_range)
+        denylist = _denylist(args.denylist_file)
+        findings = scan_diff(diff, denylist) + scan_messages(messages, denylist)
+        findings, unused = exclude_findings(findings, list(args.exclude))
+        binary = binary_files(diff)
+        verdict = decide(visibility=visibility, findings=findings,
+                         examined_lines=added_line_count(diff), unused_exclusions=unused,
+                         removed_lines=0 if binary else removed_line_count(diff),
+                         examined_message_lines=message_line_count(messages),
+                         unscanned_binary=binary)
+    except PushCheckError as exc:
+        verdict = Verdict(False, 2, str(exc), 0, None, [])
+        _emit(args.as_json, verdict)
+        if not args.as_json:
+            print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _emit(args.as_json, verdict)
+    return verdict.exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

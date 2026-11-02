@@ -39,6 +39,7 @@ from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
+from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
@@ -58,6 +59,7 @@ from schemathesis.specs.openapi.coverage._schema import (
 )
 from schemathesis.specs.openapi.coverage._wire import stringify_value
 from schemathesis.specs.openapi.error_feedback import apply_adjustments
+from schemathesis.specs.openapi.formats import cookie_alphabet, header_alphabet
 from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
 from schemathesis.transport.prepare import prepare_path
 from schemathesis.transport.serialization import Binary, quote_all
@@ -209,13 +211,21 @@ class Template:
             if container_name == "query" and isinstance(value, dict):
                 query_component = components.get(ParameterLocation.QUERY)
                 if query_component is None or query_component.mode == GenerationMode.POSITIVE:
-                    # Query strings have no rendering for a JSON null; leaving an optional parameter out is what
-                    # "no value" means there. Negative data keeps `null`, since sending it is the point of the case.
-                    value = {
-                        name: item
-                        for name, item in value.items()
-                        if item is not None or name not in self._optional_query
-                    }
+                    omittable = self._optional_query
+                else:
+                    # A negative case still carries the template's positive `null` for parameters it does not target.
+                    template_query = self._template.get("query", {})
+                    query_modes = self._parameter_modes.get(ParameterLocation.QUERY, {})
+                    omittable = frozenset(
+                        name
+                        for name in self._optional_query
+                        if name in template_query
+                        and template_query[name] is None
+                        and query_modes.get(name) == GenerationMode.POSITIVE
+                    )
+                # Query strings have no rendering for a JSON null; leaving an optional parameter out is what
+                # "no value" means there. Negative data keeps `null`, since sending it is the point of the case.
+                value = {name: item for name, item in value.items() if item is not None or name not in omittable}
                 value = stringify_value(value, container_name)
             if container_name == "path_parameters" and isinstance(value, dict):
                 # dict() copy prevents quote_all from mutating self._template
@@ -759,6 +769,9 @@ class CoverageRun:
     custom_formats: dict[str, SearchStrategy]
     validator_cls: type[jsonschema_rs.Validator]
     update_pattern: Callable[[str, int | None, int | None], str] | None
+    alphabet: Alphabet
+    header_alphabet: Alphabet
+    cookie_alphabet: Alphabet
     session: GenerationSession | None
     error_feedback: ErrorFeedbackStore | None
     responses: list[tuple[str, object]]
@@ -774,6 +787,12 @@ def _coverage_context(
     is_required: bool,
     media_type: tuple[str, str] | None = None,
 ) -> CoverageContext:
+    if location == ParameterLocation.COOKIE:
+        alphabet = run.cookie_alphabet
+    elif location == ParameterLocation.HEADER:
+        alphabet = run.header_alphabet
+    else:
+        alphabet = run.alphabet
     return CoverageContext(
         session=run.session,
         root_schema=schema,
@@ -784,13 +803,14 @@ def _coverage_context(
         custom_formats=run.custom_formats,
         validator_cls=run.validator_cls,
         update_pattern=run.update_pattern,
+        alphabet=alphabet,
         allow_extra_parameters=run.generation_config.allow_extra_parameters,
     )
 
 
 def _json_media_type(parameter: OpenApiParameter) -> tuple[str, str] | None:
     """The media type of a parameter that travels as JSON text rather than in its location's own style."""
-    if next(iter(parameter.definition.get("content", {})), None) == "application/json":
+    if parameter.content_media_type == "application/json":
         return ("application", "json")
     return None
 
@@ -1457,6 +1477,8 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
         required = {p.name for p in parameter_set if p.is_required}
         all_params = {p.name for p in parameter_set}
         optional = sorted(all_params - required)
+        # Optional parameters without a positive value are never sent, so positive combinations leave them out.
+        sendable_optional = [name for name in optional if name in base_container]
 
         # Helper function to create and yield a case
         def make_case(
@@ -1566,10 +1588,16 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
             if combo == base_container:
                 continue
             if GenerationMode.POSITIVE in generation_modes and template.can_emit(GenerationMode.POSITIVE):
+                if opt_param in sendable_optional:
+                    scenario = CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL
+                    description = f"All required properties and optional '{opt_param}'"
+                else:
+                    scenario = CoverageScenario.OBJECT_ONLY_REQUIRED
+                    description = "Only required properties"
                 case = make_case(
                     combo,
-                    CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
-                    f"All required properties and optional '{opt_param}'",
+                    scenario,
+                    description,
                     location,
                     None,
                     GenerationMode.POSITIVE,
@@ -1584,12 +1612,12 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
 
         # 3. Generate one combination for each size from 2 to N-1 of optional parameters
         if (
-            len(optional) > 1
+            len(sendable_optional) > 1
             and GenerationMode.POSITIVE in generation_modes
             and template.can_emit(GenerationMode.POSITIVE)
         ):
-            for size in range(2, len(optional)):
-                for combination in combinations(optional, size):
+            for size in range(2, len(sendable_optional)):
+                for combination in combinations(sendable_optional, size):
                     combo = {k: v for k, v in base_container.items() if k in required or k in combination}
                     if combo != base_container:
                         case = make_case(
@@ -1666,6 +1694,9 @@ def iter_coverage_cases(
         custom_formats=custom_formats,
         validator_cls=validator_cls,
         update_pattern=update_pattern,
+        alphabet=Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec),
+        header_alphabet=header_alphabet(generation_config),
+        cookie_alphabet=cookie_alphabet(generation_config),
         session=session,
         error_feedback=error_feedback,
         responses=responses,

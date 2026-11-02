@@ -1,0 +1,5354 @@
+/*******************************************************************************
+Copyright (c) 1999-2009 by Text Analysis International, Inc.
+All rights reserved.
+********************************************************************************
+*
+* NAME:	CG.CPP
+* FILE:	c:/cs/libconsh/cg.cpp
+* CR:		04/28/99 AM.
+* SUBJ:	API class for Conceptual Grammar representation system (libconsh).
+* NOTE:	May want to rename it libcg -- makes more sense.  Consh is a
+*			user interface system.
+*
+*******************************************************************************/
+
+#include "StdAfx.h"
+#include <time.h>
+#include <filesystem>
+#include <limits>
+#include <vector>
+#include <algorithm>
+#include "machine-min.h"					// 03/08/00 AM.
+#include "prim/libprim.h"
+#include "lite/global.h"
+#include "cg_global.h"				// 09/16/99 AM.
+
+#include "prim/unicode.h"					// 01/13/06 AM.
+#include "prim/prim.h"
+#include "prim/str.h"				// 04/30/99 AM.
+#include "prim/list_s.h"
+#include "prim/list.h"
+#include "prim/dir.h"				// 05/06/99 AM.
+#include "prim/dyn.h"				// 06/29/00 AM.
+#include "prim/unicu.h"
+
+#include "kbm/libkbm.h"
+#include "kbm/sym_s.h"
+#include "kbm/sym.h"
+#include "kbm/con_s.h"
+#include "kbm/con_.h"
+#include "kbm/ptr_s.h"
+#include "kbm/ptr.h"
+#include "kbm/attr.h"
+#include "kbm/kbm_kb.h"			// 04/30/99 AM.
+#include "kbm/dict.h"			// 05/04/99 AM.
+#include "kbm/Akbm.h"			// API for LIBKBM.					// 06/11/02 AM.
+
+#include "ext/kb.h"
+
+#include "consh/libconsh.h"
+#include "consh/cc_var.h"
+#include "consh/Aconsh.h"
+#include "consh/cg.h"
+#include "consh/bind.h"			// 05/02/99 AM.
+#include "consh/consh_kb.h"	// 05/04/99 AM.
+#include "consh/blockcom.h"	// 07/31/26 DD.
+
+#include "io.h"
+#include "cmd.h"
+#include "dyn.h"					// 06/29/00 AM.
+#include "lite/dir.h"
+
+#include "prim/unicu.h"
+using namespace unicu;
+
+// Number of ind attr commands per file.								// 07/01/03 AM.
+// Segmenting the attr commands into multiple cmd files.			// 07/01/03 AM.
+#define ATTRS_PER_FILE 25000
+
+int CG::count_ = 0;
+
+
+/********************************************
+* FN:		Special functions for the class
+********************************************/
+
+CG::CG(
+	_TCHAR *appdir,
+	bool compiled,		// TRY loading compiled kb (kb.dll).		// 04/27/01 AM.
+	ALIST *alist		// List Manager.									// 08/14/02 AM.
+	)
+{
+
+// Init vars.																	// 08/22/02 AM.
+cg_CONCEPT =
+cg_PHRASE =
+cg_ATOM =
+nlp_PUNCT =
+0;
+
+dirty_ = false;																// 05/12/00 AM.
+userkbLoaded_ = false;														// 07/11/26 DD.
+// Must run on Linux too: hkbdll_ was previously only zeroed under
+// #ifndef LINUX, leaving it uninitialized on Linux. readKB() treats a
+// nonzero hkbdll_ as "compiled KB loaded" and skips reading the dict
+// files, so garbage here silently produced an empty KB (every word
+// "unknown"). Whether the garbage was zero depended on CG's layout, so
+// it surfaced only after unrelated members shifted the object.	// 06/10/26.
+hkbdll_ = 0;																	// 06/29/00 AM.
+appdir_[0] = '\0';
+kbdir_[0] = '\0';
+if (appdir && *appdir) {
+	_tcscpy(appdir_, appdir);
+	_stprintf(kbdir_, _T("%s%ckb%cuser"), appdir_, DIR_CH, DIR_CH);
+} else
+	{
+	std::_t_cerr << _T("[CG: No app dir given.]") << std::endl;
+	return;
+	}
+if (!appdir_ || !*appdir_)			// CONFIRM.							// 05/07/01 AM.
+	{
+	std::_t_cerr << _T("[CG: BAD APPDIR]") << std::endl;									// 05/07/01 AM.
+	return;																		// 05/07/01 AM.
+	}
+
+if (!alist)																		// 08/14/02 AM.
+	{
+	std::_t_cerr << _T("[List manager needed for CG object.]") << std::endl;		// 08/14/02 AM.
+	return;																		// 08/14/02 AM.
+	}
+alist_ = alist;																// 08/14/02 AM.
+
+//cerr << "[CG got appdir=" << appdir_ << "]" << std::endl;			// 02/19/02 AM.
+
+// DIVERT GLOBAL ERROR STREAM TO LOG FILE.							// 09/16/99 AM.
+// Commented out. // 04/04/01 AM.
+//sprintf(errout_, "%s%coutput%ccgerr.log", appdir_,				// 09/16/99 AM.
+//			DIR_CH, DIR_CH);													// 03/08/00 AM.
+// PUTTING THIS ELSEWHERE SO IT WON'T CAUSE TROUBLE FOR GUI.	// 04/04/01 AM.
+// (For now, place at top level folder for analyzer app.			// 04/04/01 AM.
+// Moving this to the logs directory.									// 02/21/02 AM.
+
+// Allowing multiple KBs/instances to use the same log file.	// 08/22/02 AM.
+if (count_ == 0)																// 08/22/02 AM.
+	{
+	_stprintf(errout_, _T("%s%clogs%ccgerr.log"),
+													appdir_,DIR_CH,DIR_CH);	// 02/21/02 AM.
+//	cgfileErr(errout_, /*DU*/ ferr_, serr_);							// 09/16/99 AM.
+	cgfileErr(errout_);														// 07/18/03 AM.
+	}
+else																				// 08/22/02 AM.
+	{
+	*cgerr << _T("[Starting up KB number ") << (count_ + 1)			// 08/22/02 AM.
+		<< _T("]") << std::endl;														// 08/22/02 AM.
+	}
+
+kbm_ = 0;
+ast_ = 0;
+aptr_ = 0;
+asym_ = 0;
+acon_ = 0;
+
+// Create a KB Manager object to manage bindings to kb,etc.		// 06/11/02 AM.
+kbm_ = new AKBM();															// 06/11/02 AM.
+
+// Convenience references.													// 08/15/02 AM.
+ast_ = kbm_->ast_;
+aptr_ = kbm_->aptr_;
+asym_ = kbm_->asym_;
+acon_ = kbm_->acon_;
+
+bool loaded = false;															// 06/29/00 AM.
+//#ifndef LINUX
+
+// TRY TO LOAD A COMPILED KNOWLEDGE BASE.								// 06/29/00 AM.
+// Each library config will have a different DLL name.					// 01/21/06 AM.
+#ifdef _DEBUG
+
+#ifndef UNICODE
+_TCHAR *fname = _T("kbd");										// kbd.dll		// 01/21/06 AM.
+#else
+_TCHAR *fname = _T("kbdu");									// kbdu.dll		// 01/17/06 AM.
+#endif
+
+#else	// RELEASE CONFIG
+
+#ifndef UNICODE
+_TCHAR *fname = _T("kb");										// kb.dll		// 01/21/06 AM.
+#else
+_TCHAR *fname = _T("kbu");										// kbu.dll		// 01/17/06 AM.
+#endif
+
+#endif
+
+#ifdef EMBEDED_KB
+if (compiled)																	// 04/27/01 AM.
+	{
+	*cgerr << _T("[CG: Trying to load compiled KB.]") << std::endl;		// 02/19/02 AM.
+	_TCHAR bin[MAXSTR];		// The real file in bin directory.		// 05/06/01 AM.
+#ifndef LINUX
+	_stprintf(bin, _T("%s%cbin%c%s.dll"),									// 05/06/01 AM.
+				appdir,DIR_CH,
+				DIR_CH,
+				fname);																// 01/21/06 AM.
+	_TCHAR buf[MAXSTR];
+	_stprintf(buf, _T("%s%ckb%c%s.dll"), appdir,						// 04/27/01 AM.
+				DIR_CH,DIR_CH,													// 03/08/00 AM.
+				fname);																// 01/21/06 AM.
+#else
+	// Linux now mirrors the Windows compiled-KB load model: dlopen a
+	// <fname>.so out of <appdir>/bin/, resolve kb_setup via dlsym.
+	_stprintf(bin, _T("%s%cbin%c%s.so"),
+				appdir,DIR_CH,
+				DIR_CH,
+				fname);
+	*cgerr << _T("[Compiled kb=") << bin << _T("]") << std::endl;
+#endif
+
+// No longer having VisualText move the KB.DLL file around.				// 01/23/06 AM.
+#ifdef _OLDWAY_
+	// CHECK IF NEW LIB FILE EXISTS.										// 05/06/01 AM.
+	if (f_exists(buf))														// 05/06/01 AM.
+		{
+		*cgerr << _T("[Found updated KB library.]") << std::endl;			// 02/19/02 AM.
+		_TCHAR cmd[MAXSTR*2];													// 05/06/01 AM.
+		// Delete the current kb.dll file, if in bin directory.	// 05/06/01 AM.
+		if (f_exists(bin))													// 05/06/01 AM.
+			{
+			*cgerr << _T("[Deleting old kb library.]") << std::endl;			// 02/19/02 AM.
+			_stprintf(cmd, _T("del /F /Q %s"), bin);							// 05/06/01 AM.
+			if (_tsystem(cmd) < 0)												// 05/06/01 AM.
+				{
+				*cgerr << _T("[Error. Can't delete kb library.]")		// 05/06/01 AM.
+						 << std::endl;
+				goto interp;	// Recover.									// 05/06/01 AM.
+				}
+			}
+
+		// Move from the project to the bin directory.				// 05/06/01 AM.
+		*cgerr << _T("[Moving new KB library into place.]") << std::endl;	// 02/19/02 AM.
+		_stprintf(cmd, _T("move %s %s"), buf, bin);							// 05/06/01 AM.
+		if (_tsystem(cmd) < 0)													// 05/06/01 AM.
+			{
+			*cgerr << _T("[Error. Can't move kb library.]")				// 05/06/01 AM.
+					 << std::endl;
+			goto interp;		// Recover.									// 05/06/01 AM.
+			}
+		}
+	else
+#endif
+
+	if (!f_exists(bin))												// 05/06/01 AM.
+		{
+		// No compiled-kb file exists for this config.					// 05/06/01 AM.
+		*cgerr << _T("[Error. No compiled kb for ")						// 05/06/01 AM.
+			<< fname
+#ifndef LINUX
+			<< _T(".dll .]")
+#else
+			<< _T(".so .]")
+#endif
+			<< std::endl;
+		loaded = false;														// 05/06/01 AM.
+		goto interp;															// 05/06/01 AM.
+		}
+
+	*cgerr << _T("[Loading compiled kb: ") << bin << _T("]") << std::endl;			// 05/06/01 AM.
+	// Split decl/assign (as readKB does) so the earlier `goto interp` may skip
+	// this scalar legally -- jumping across an initialization is ill-formed
+	// under GCC (crosses initialization of 'ckb_s_time').				// 06/18/26 DD.
+	clock_t ckb_s_time;
+	ckb_s_time = clock();													// Compiled KB load timing.
+	hkbdll_ = load_dll(bin);												// 05/06/01 AM.
+	if (hkbdll_)
+		{
+		*cgerr << _T("[Loaded compiled kb library]") << std::endl;			// 02/19/02 AM.
+		loaded = true;
+		// NEED TO BIND VARIABLES & WHATEVER ELSE IS NEEDED TO
+		// GET THIS KB UP.
+		if (!call_kb_setup(hkbdll_,this))								// 08/16/02 AM.
+			{
+			loaded = false;													// 05/07/01 AM.
+			std::_t_cerr << _T("[Error in calling kb library.]") << std::endl;		// 05/07/01 AM.
+			*cgerr << _T("[Error in calling kb library.]") << std::endl;	// 05/07/01 AM.
+			goto interp;														// 05/07/01 AM.
+			}
+		cg_CONCEPT = 1;		// BIND ROOT OF KB.						// 06/29/00 AM.
+		if (!bind_all(this))
+			{
+			*cgerr << _T("[Couldn't bind vars to compiled kb.]") << std::endl;
+			loaded = false;
+			unload_dll(hkbdll_);
+			}
+		// Report compiled-KB load time (DLL load + kb_setup + bind).	// 06/18/26 DD.
+		if (loaded)
+			{
+			double ckb_tot = (double)(clock() - ckb_s_time) / CLOCKS_PER_SEC;
+			std::_t_cerr << _T("[Loaded compiled KB library: ") << ckb_tot << _T(" sec]") << std::endl;
+			}
+		}
+	else																			// 05/07/01 AM.
+		{
+		std::_t_cerr << _T("[Error. Failed to load KB library.]") << std::endl;	// 05/07/01 AM.
+		*cgerr << _T("[Error. Failed to load KB library.]") << std::endl;	// 02/19/02 AM.
+		}
+interp:																			// 05/06/01 AM.
+	;		// Empty statement for the label :-)						// 05/06/01 AM.
+	}
+//#endif
+#endif
+
+// THIS IS THE HARD-WIRED INITIALIZATION OF AN EMPTY KB.
+if (!loaded)		// No kb.dll file was loaded.						// 06/29/00 AM.
+	{
+	*cgerr << _T("[Loading interpreted kb.]") << std::endl;					// 07/25/00 AM.
+//	cerr << "[Loading interpreted kb.]" << std::endl;						// 05/07/01 AM.
+	if (!consh_ini(this))													// 08/15/02 AM.
+		*cgerr << _T("[ERROR INITIALIZING KB.]") << std::endl;				// 05/05/01 AM.
+	}
+// Now the KB user must hand it a List Manager.						// 08/14/02 AM.
+//else										// FIX.	// 09/17/01 DD.	// 08/14/02 AM.
+//	alist_->list_ini();					// FIX.	// 09/17/01 DD.	// 08/14/02 AM.
+
+#ifndef STABLE_
+++count_;
+#endif
+}
+
+/*******************************************/
+
+/*******************************************/
+
+CG::~CG()
+{
+#ifdef DEBUGGING_
+asym_->sym_pp(cgerr);														// 06/29/03 AM.
+#endif
+
+consh_clean(this);
+
+if (kbm_)																		// 06/11/02 AM.
+	delete kbm_;																// 06/11/02 AM.
+
+// alist_ is just a reference.  DO NOT FREE IT.						// 08/14/02 AM.
+
+// RESET ERROR STREAM.														// 09/16/99 AM.
+
+if (count_ == 1)																// 08/22/02 AM.
+//	cgresetErr(ferr_, serr_);												// 09/16/99 AM.
+	cgresetErr();																// 07/18/03 AM.
+else
+	*cgerr << _T("[Closing KB number ") << count_ << _T("]") << std::endl;	// 08/22/02 AM.
+
+// FREE UP COMPILED KB, IF ANY.											// 06/29/00 AM.
+if (hkbdll_)																	// 06/29/00 AM.
+	{
+	unload_dll(hkbdll_);														// 06/29/00 AM.
+	hkbdll_ = 0;																// 06/29/00 AM.
+	}
+
+#ifndef STABLE_
+--count_;
+#endif
+}
+
+/********************************************
+* FN:		MAKECG, DELETECG
+* CR:		07/28/03 AM..
+* NOTE:	Class function.
+********************************************/
+
+CG *CG::makeCG(                                                // 07/28/03 AM.
+	   ALIST *alist,
+      _TCHAR *appdir,
+		bool compiled
+		)
+{
+return new CG(appdir,compiled,alist);
+}
+
+void CG::deleteCG(CG *cg)                                      // 07/28/03 AM.
+{
+if (cg)
+	delete cg;
+}
+
+
+/********************************************
+* FN:		Access Functions
+********************************************/
+
+_TCHAR	*CG::getAppdir()	{return appdir_;}
+bool	 CG::getDirty()	{return dirty_;}								// 05/12/00 AM.
+bool	 CG::getUserkbLoaded()	{return userkbLoaded_;}				// 07/11/26 DD.
+AKBM	*CG::getKBM()		{return kbm_;}									// 06/11/02 AM.
+ALIST *CG::getALIST()	{return alist_;}								// 08/14/02 AM.
+#ifndef LINUX
+HINSTANCE CG::getHkbdll()	{return hkbdll_;}
+#endif
+
+
+/********************************************
+* FN:		Class-wide Functions
+********************************************/
+void	CG::setAppdir(_TCHAR *x)	{_tcscpy(appdir_, x);	}
+void	CG::setDirty(bool x)		{dirty_ = x;			}				// 05/12/00 AM.
+void	CG::setUserkbLoaded(bool x)	{userkbLoaded_ = x;	}				// 07/11/26 DD.
+void	CG::setKBM(AKBM *x)		{kbm_	= x;				}				// 06/11/02 AM.
+void	CG::setALIST(ALIST *x)	{alist_ = x;			}
+#ifndef LINUX
+void	CG::setHkbdll(HINSTANCE x) {hkbdll_ = x;}
+#endif
+
+
+/********************************************
+* FN:		GETCOUNT
+* CR:		12/14/98 AM.
+* NOTE:	Class function.
+********************************************/
+#ifndef STABLE_
+int CG::getCount() { return count_; }
+#endif
+
+/********************************************
+* FN:		PRETTYCOUNT
+* NOTE:	Class function.
+********************************************/
+#ifndef STABLE_
+void CG::prettyCount()
+{
+if (count_)
+	std::_t_cout << _T("Active CG count=") << count_ << std::endl;
+}
+#endif
+
+
+	/////////////////////
+	// OVERALL KB FUNS
+	/////////////////////
+
+/********************************************
+* FN:		WRITEKB
+* SUBJ:	Write the knowledge base in memory to files.
+* CR:		04/28/99 AM.
+* NOTE:	Save latest KB (from memory to files).
+*			If dir is present, kb is written to $appdir/kb/dir.
+* METH:	Traverse the concept hierarchy.  Write out one file for:
+*			hier, word, attr, phrase.
+********************************************/
+
+bool CG::writeKB(_TCHAR *dir)
+{
+*cgerr << _T("[In writeKB]") << std::endl;
+clock_t s_time, e_time;										// 10/20/99 AM.
+s_time = clock();												// 10/20/99 AM.
+
+if (!dir || !*dir)
+	{
+	*cgerr << _T("[writeKB: Given no output directory.]") << std::endl;
+	return false;
+	}
+
+// 10/20/99 AM. Moved this up so kb files won't get wiped out if there's
+// a problem.
+// Grab hold of the root of the hierarchy.
+CONCEPT *root;
+if (!(root = findRoot()))
+	{
+	*cgerr << _T("[writeKB: No root of concept hierarchy.]") << std::endl;
+	return false;
+	}
+
+// TRAP A BAD KB WRITE!!!								// 10/20/99 AM.
+if (!findConcept(root, _T("gram")))						// 10/20/99 AM.
+	{
+	*cgerr << _T("[writeKB: No GRAM concept in hierarchy.]") << std::endl;
+	return false;
+	}
+
+// For example, path= C:\apps\Resume\kb\user.
+_TCHAR *kbdir = _T("kb");
+_TCHAR path[MAXPATH];
+_stprintf(path, _T("%s%c%s%c%s"), getAppdir(), DIR_CH, kbdir, DIR_CH, dir);
+*cgerr << _T("[writeKB: path=") << path << _T("]") << std::endl;				// 02/19/02 AM.
+
+// If directory doesn't exist, create it.
+make_dir(path);	// 05/06/99 AM.
+
+// Prep and open up the output files.
+_TCHAR o_hier[MAXPATH*2];
+_TCHAR o_word[MAXPATH*2];
+_TCHAR o_attr[MAXPATH*2];
+_TCHAR o_phr[MAXPATH*2];
+
+_TCHAR *suff;
+suff = _T("kb");		// Kb file suffix.
+
+_stprintf(o_hier, _T("%s%chier.%s"), path, DIR_CH, suff);
+_stprintf(o_word, _T("%s%cword.%s"), path, DIR_CH, suff);
+_stprintf(o_phr,  _T("%s%cphr.%s"),  path, DIR_CH, suff);
+
+// Open the files for output.
+std::_t_ofstream f_hier(TCHAR2A(o_hier));
+std::_t_ofstream f_word(TCHAR2A(o_word));
+std::_t_ofstream f_phr(TCHAR2A(o_phr));
+
+// May open multiples of these as needed.								// 07/01/03 AM.
+long n_attr = 1;	// Count attr#.kb files.							// 07/01/03 AM.
+long c_attr = 0;	// Count of attributes.								// 07/01/03 AM.
+_stprintf(o_attr, _T("%s%cattr%ld.%s"),path,DIR_CH,n_attr,suff);		// 07/01/03 AM.
+std::_t_ofstream *f_attr = new std::_t_ofstream(TCHAR2A(o_attr));								// 07/01/03 AM.
+
+// KB BOOTSTRAP COMMANDS. (Axiomatics)									// 08/06/01 AM.
+// (Moved out of writeTree).												// 08/06/01 AM.
+f_hier << _T("add empty") << std::endl;											// 08/06/01 AM.
+f_hier << _T("add root") << std::endl;												// 08/06/01 AM.
+
+// Traverse the concept hierarchy.  Write out the goodies.
+if (!writeTree(root, true, f_hier,f_word,f_phr, _T(""),
+			f_attr,n_attr,c_attr,o_attr,path,suff))					// 07/01/03 AM.
+	{
+	delete f_attr;																// 08/07/03 AM.
+	return false;
+	}
+
+// Terminate the command files.			// 05/02/99 AM.
+f_hier << std::endl << _T("quit") << std::endl << std::endl;
+f_word << std::endl << _T("quit") << std::endl << std::endl;
+f_phr  << std::endl << _T("quit") << std::endl << std::endl;
+
+// Shut down the last attr kb file.										// 07/01/03 AM.
+*f_attr << std::endl << _T("quit") << std::endl << std::endl;							// 07/01/03 AM.
+delete f_attr;																	// 07/01/03 AM.
+f_attr = 0;																		// 07/01/03 AM.
+
+// Write a top-level command file						// 07/01/03 AM.
+writeKBmain(n_attr,path,suff);							// 07/01/03 AM.
+
+e_time = clock();												// 10/20/99 AM.
+*cgerr << _T("[WRITE KB time=")								// 10/20/99 AM.
+	  << (double) (e_time - s_time)/CLOCKS_PER_SEC	// 10/20/99 AM.
+	  << _T(" sec]") << std::endl;									// 10/20/99 AM.
+
+return true;
+}
+
+/********************************************
+* FN:		WRITEKBMAIN
+* SUBJ:	Write top-level KB command file.
+* CR:		07/01/03 AM.
+
+********************************************/
+
+bool CG::writeKBmain(
+	long n_attr,	// Number of attr files.
+	_TCHAR *path,		// Path for files.
+	_TCHAR *suff		// File suffix.
+	)
+{
+_TCHAR o_main[4096];
+_stprintf(o_main, _T("%s%cmain.%s"), path, DIR_CH, suff);
+std::_t_ofstream f_main(TCHAR2A(o_main));
+
+// Use forward-slash separators in the generated `take` statements. The
+// take parser (cmd_take -> resolve_file in cs/libprim/io.cpp) does NOT
+// normalize backslashes to slashes on Linux; resolve_file
+// concatenates verbatim and then fopen sees one filename with literal
+// '\' chars. Windows historically accepted forward slashes here, so
+// emitting them on both platforms preserves Windows behavior bit-for-bit
+// while fixing the Linux take. The previous #ifdef LINUX branch was
+// inverted (emitting backslashes on Linux, slashes on Windows).
+f_main << _T("take \"kb/user/hier.kb\"") << std::endl;
+f_main << _T("bind sys") << std::endl;
+f_main << _T("take \"kb/user/word.kb\"") << std::endl;
+f_main << _T("take \"kb/user/phr.kb\"") << std::endl;
+
+long ii;
+for (ii=1; ii <= n_attr; ++ii)
+	f_main
+		<< _T("take \"kb/user/attr")
+		<< ii
+		<< _T(".kb\"")
+		<< std::endl;
+f_main << _T("quit") << std::endl;
+
+return true;
+}
+
+
+/********************************************
+* FN:		READKB
+* SUBJ:	Read the knowledge base from files to memory.
+* CR:		05/02/99 AM.
+********************************************/
+
+bool CG::readKB(_TCHAR *dir)
+{
+*cgerr << _T("[readKB:]") << std::endl;											// 02/19/02 AM.
+clock_t s_time;										// 10/20/99 AM.
+s_time = clock();												// 10/20/99 AM.
+
+if (!dir || !*dir)
+	{
+	*cgerr << _T("[readKB: Given no input directory.]") << std::endl;
+	return false;
+	}
+
+if (!kbm_ || !ast_ || !aptr_ || !asym_ || !acon_)	// 07/29/03 AM.
+	{
+	*cgerr << _T("[readKB: Internal error. KB tables not initialized.]") << std::endl;
+	return false;
+	}
+
+// If a compiled KB library was loaded by the CG constructor (kb.dll
+// resolved + kb_setup ran + bind_all succeeded), the KB tables are
+// already populated. Reading the interpreted .kb files on top would
+// re-add every concept, hierarchy, etc. and produce a flood of
+// "[Hierarchy already exists.]" messages — and worse, leave the KB
+// in a state that crashes the compiled `kb` pass at run time.
+//
+// NLP-ENGINE-497: removed a 2019 `hkbdll_ = 0;` debug hack from above
+// this check that made the guard always-false. The hack was latent
+// for years because nothing ever produced a working compiled KB
+// until NLP-ENGINE-495/496 generated kb_setup with proper dllexport.
+if (hkbdll_)
+	{
+	*cgerr << _T("[Using compiled kb. readKB ignored.]") << std::endl;	// 06/29/00 AM.
+	// The compiled kb.dll holds the hierarchy/dict/kbb concepts, but a
+	// "*full.dict"/"*full.kbb" is never compiled in -- it stays a sorted file
+	// on disk that we binary-search per unknown word. readKB normally opens
+	// those via readDicts/readKBBs below, but that code is skipped for a
+	// compiled KB, so open them explicitly here or lazy lookup never runs
+	// in a compiled analyzer.									// 07/13/26 DD.
+	openFullFiles();
+	// Likewise, per-run data dropped in as a "<stem>.json"/"<stem>.kbb" pair
+	// (e.g. data.json converted to data.kbb) is not part of the compiled KB;
+	// load such pairs into the live KB so a compiled analyzer still sees
+	// run-time data.											// 07/14/26 DD.
+	loadJsonPairedKBBs();
+	return true;		// This is just info, ok.						// 06/29/00 AM.
+	}
+
+// For example, path= C:\apps\Resume\kb\user.
+_TCHAR *kbdir = _T("kb");
+_TCHAR path[MAXPATH];
+_stprintf(path, _T("%s%c%s%c%s"), getAppdir(),DIR_CH, kbdir,DIR_CH, dir);
+// 08/11/99 AM. Checking out Purify warnings.
+*cgerr << _T("[readKB: path=")													// 02/19/02 AM.
+		 << path
+		 << _T("]")
+		 << std::endl;
+
+// Prep and open up the input file.
+// hier, word, phr, attr.
+_TCHAR infile[MAXPATH*2];
+_TCHAR *suff;
+suff = _T("kb");		// Kb file suffix.
+std::vector<std::filesystem::path> kbfiles;
+std::vector<std::filesystem::path> dictfiles;
+bool kbLoaded = false;
+bool bound = false;
+
+openKBB(kbfiles);
+openDict(dictfiles);
+
+if (kbfiles.size() > 0) {
+	if (!bound) {
+		if (!readHier(path))
+			return false;
+		bind_sys(this);
+		con_add_root(this);
+	}
+	readKBBs(kbfiles);
+	outputTime(_T("[READ kbb files time="),s_time);
+	s_time = clock();
+	kbLoaded = true;
+}
+
+if (dictfiles.size() > 0) {
+	if (!readHier(path))
+		return false;
+	con_add_root(this);
+	bind_sys(this);
+	bound = true;
+	readDicts(dictfiles,kbfiles);
+	outputTime(_T("[READ dict files time="),s_time);
+	s_time = clock();
+	kbLoaded = true;
+}
+
+if (!kbLoaded) {
+
+	// Using a master take file for readin kb.			// 07/01/03 AM.
+	_stprintf(infile, _T("%s%cmain.%s"),path,DIR_CH,suff);	// 07/01/03 AM.
+	if (f_exists(infile))										// 07/01/03 AM.
+		{
+		if (!readFile(infile))									// 07/01/03 AM.
+			return false;											// 07/01/03 AM.
+		}
+	else
+		{
+		// The old way.											// 07/01/03 AM.
+
+		// Read in the HIER.KB file, or start a new KB without one.
+		if (!readHier(path))
+			return false;
+
+		// BIND SYSTEM CONCEPTS TO CODE VARIABLES.
+		bind_sys(this);
+
+		// WORD.KB, PHR.KB and ATTR.KB hold what was saved from an earlier
+		// KB; a new one has none, so a missing file is not an error.	// 10/12/26 DD.
+		const _TCHAR *rest[] = {_T("word"), _T("phr"), _T("attr")};
+		for (int i = 0; i < 3; ++i)
+			{
+			_stprintf(infile, _T("%s%c%s.%s"), path, DIR_CH, rest[i], suff);
+			if (f_exists(infile) && !readFile(infile))
+				return false;
+			}
+			
+		outputTime(_T("[READ original KB files time="),s_time);
+	}
+}
+
+return true;
+}
+
+void CG::outputTime(_TCHAR *timeMsg, clock_t s_time) {
+clock_t e_time = clock();
+double secs = (double) (e_time - s_time)/CLOCKS_PER_SEC;
+*cgerr << timeMsg << _T(" ") << secs << _T(" sec]") << std::endl;
+// Also surface KB/dictionary load timings on the visible log stream so the
+// interpreted-KB times appear alongside [Loaded knowledge base: ...].	// 06/18/26 DD.
+std::_t_cerr << timeMsg << _T(" ") << secs << _T(" sec]") << std::endl;
+}
+
+/********************************************
+* FN:		READSYSTEMKB
+* SUBJ:	Read in the "factory default" knowledge base from files.
+* CR:		05/03/99 AM.
+* NOTE:	Same as readKB("sys");
+********************************************/
+
+bool CG::readSystemKB()
+{
+return readKB(_T("sys"));
+}
+
+/********************************************
+* FN:		GENKB
+* SUBJ:	Generate code for the knowledge base tables.
+* CR:		06/28/00 AM.
+* NOTE:	REVIVING VERY OLD CODE!
+*			First will dump files to a local tmp directory.  If everything
+*			ok, then copy files to the app/kb folder.  Compile into kb.dll.
+* METH:	Traverse the concept hierarchy.  Write out one file for:
+*			hier, word, attr, phrase.
+********************************************/
+
+bool CG::genKB()
+{
+// For example, path= d:\apps\resume\kb\ .
+_TCHAR *kbdir = _T("kb");
+_TCHAR path[MAXPATH];
+_stprintf(path, _T("%s%c%s"), getAppdir(),DIR_CH, kbdir);
+
+if (!cmd_gen_all(path,0,cgerr,this))
+	return false;
+// Move generated code to cg folder.
+// Optionally compile here.
+return true;
+}
+
+
+/********************************************
+* FN:		COMPILEKB
+* SUBJ:	Compile the knowledge base library.
+* CR:		09/13/00 AM.
+* NOTE:	Call genKB first.
+*			First will dump files to a local tmp directory.  If everything
+*			ok, then copy files to the app/kb folder.  Compile into kb.dll.
+* METH:	Traverse the concept hierarchy.  Write out one file for:
+*			hier, word, attr, phrase.
+********************************************/
+
+bool CG::compileKB(bool releaseflag)
+{
+
+_TCHAR cmd[MAXSTR];
+cmd[0] = '\0';
+#ifndef LINUX
+if (releaseflag)
+	_stprintf(cmd,
+// Generating and using makefile.										// 07/28/01 AM.
+//		"msdev %s%ckb%ckb.dsp /MAKE \"kb - Win32 Release\" /REBUILD",
+//		getAppdir(), DIR_CH,DIR_CH);
+		_T("%s%ckb%ckb_release.bat"), getAppdir(), DIR_CH, DIR_CH);
+else
+	_stprintf(cmd,
+// Generating and using makefile.										// 07/28/01 AM.
+//		"msdev %s%ckb%ckb.dsp /MAKE \"kb - Win32 Debug\" /REBUILD",
+//		"NMAKE /f \"%s%ckb%ckb.mak\" CFG=\"kb - Win32 Debug\" > c:\\xxx.txt",
+//		getAppdir(), DIR_CH,DIR_CH);
+		_T("%s%ckb%ckb_debug.bat"), getAppdir(), DIR_CH, DIR_CH);
+if (_tsystem(cmd) < 0)															// 04/27/01 AM.
+	return false;																// 04/27/01 AM.
+#endif
+return true;
+}
+
+
+/********************************************
+* FN:		UNLOADLIB
+* SUBJ:	Unload the knowledge base library.
+* CR:		09/13/00 AM.
+* WARN:	Code may still have bindings into the kb!
+*			Just a primitive function.
+********************************************/
+
+bool CG::unloadLib()
+{
+// FREE UP COMPILED KB, IF ANY.
+if (hkbdll_)
+	{
+	unload_dll(hkbdll_);
+	hkbdll_ = 0;
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		LOADLIB
+* SUBJ:	Load the knowledge base library.
+* CR:		09/13/00 AM.
+* WARN:	Doesn't do anything with code bindings into the kb!
+*			Just a primitive function.
+********************************************/
+
+bool CG::loadLib()
+{
+if (hkbdll_)
+	{
+	*cgerr << _T("[Load kb lib: Already loaded.]") << std::endl;
+	return false;
+	}
+
+// TRY TO LOAD A COMPILED KNOWLEDGE BASE.
+#ifdef _DEBUG
+
+#ifndef UNICODE
+_TCHAR *fname = _T("kbd");										// kbd.dll		// 01/21/06 AM.
+#else
+_TCHAR *fname = _T("kbdu");									// kbdu.dll		// 01/17/06 AM.
+#endif
+
+#else	// RELEASE CONFIG
+
+#ifndef UNICODE
+_TCHAR *fname = _T("kb");										// kb.dll		// 01/21/06 AM.
+#else
+_TCHAR *fname = _T("kbu");										// kbu.dll		// 01/17/06 AM.
+#endif
+
+#endif
+
+// NLP-ENGINE-517: same three-way split as lite/nlp.cpp's load_compiled.
+// macOS gets LINUX defined by the engine's cmake but the actual KB file
+// next to the analyzer is kb.dylib (not kb.so), so the load path needs
+// the platform-correct extension.
+#ifndef LINUX
+const _TCHAR *libext = _T("dll");
+#elif defined(__APPLE__)
+const _TCHAR *libext = _T("dylib");
+#else
+const _TCHAR *libext = _T("so");
+#endif
+
+_TCHAR buf[MAXSTR];
+_stprintf(buf, _T("%s%ckb%c%s.%s"),
+			getAppdir(),
+			DIR_CH,DIR_CH,
+			fname,
+			libext);
+
+if (!f_exists(buf))															// 05/06/01 AM.
+	{
+	*cgerr << _T("[loadLib: Error. Can't load compiled ")			// 05/06/01 AM.
+			 << fname															// 01/21/06 AM.
+			 << _T(".") << libext
+			 << _T("]")
+			 << std::endl;
+	return false;																// 05/06/01 AM.
+	}
+
+*cgerr << _T("[Loading compiled kb: ") << buf << _T("]") << std::endl;
+hkbdll_ = load_dll(buf);
+return true;
+}
+
+	//////////////////////
+	// FIND THINGS
+	//////////////////////
+
+// Find the root concept of hierarchy.
+CONCEPT *CG::findRoot()
+{
+return (CONCEPT *) kbm_->acon_->c_cg_CONCEPT;						// 08/22/02 AM.
+}
+
+// Find the named concept under given parent.
+// Wend your way down from "concept", the root concept.
+CONCEPT *CG::findConcept(
+	CONCEPT *parent,
+	_TCHAR *name
+	)
+{
+CONCEPT *con = (CONCEPT *) kbm_->acon_->con_get_child((CON *)parent, name);
+if (con || fullKBBs_.empty() || lazyBusy_ || !parent || !name)
+	return con;
+return findLazyKey(parent, name);		// A key of a lazy *full.kbb.
+}
+
+// Find the nth concept under parent.
+CONCEPT *CG::findConcept(CONCEPT *parent, int pos)
+{
+CON *phr;
+if (!parent)
+	return 0;
+phr = ((CON *) parent)->dn;
+if (!phr)
+	return 0;
+return (CONCEPT *) kbm_->acon_->con_nth((CON *)phr, pos);
+}
+
+// Find concept's attribute.				// 07/12/99 AM.
+ATTR *CG::findAttr(CONCEPT *conc, _TCHAR *name)
+{
+return kbm_->attr_find_h((CON *)conc, name);
+}
+
+// Fetch the list of attributes for the concept.
+ATTR *CG::findAttrs(CONCEPT *conc)
+{
+if (!conc)
+	return (ATTR *) 0;
+return (ATTR *) ((CON *)conc)->attrs;
+}
+
+// Fetch attribute name into given buffer.	// 07/05/99 AM.
+bool CG::attrName(ATTR *attr, _TCHAR *buf, int bufsiz)
+{
+*buf = '\0';
+
+if (!attr)
+	return false;
+
+_TCHAR *name;
+if (!(name = kbm_->attrs_name((PTR *) attr)))
+	return false;
+
+if (_tcsclen(name) >= (unsigned)bufsiz)
+	return false;
+_tcscpy(buf, name);
+return true;
+}
+
+int CG::attrValType(CONCEPT *con, _TCHAR *attr) {
+int type = 0;
+PTR *pval;
+if (!(pval = kbm_->attr_find((CON *)con, attr)))
+	return false;
+switch (pval->kind)
+	{
+	case pST:
+		type = 0;
+		break;
+	case pNUM:
+		type = 1;
+		break;
+	case pCON:
+		type = 2;
+		break;
+	case pFLOAT:
+		type = 3;
+		break;
+	default:
+		break;
+	}
+
+return type;
+}
+
+// Fetch attribute values.				// 07/05/99 AM.
+VAL *CG::attrVals(ATTR *attr)
+{
+return kbm_->attrs_vals((PTR *) attr);
+}
+
+// Fetch the list of values of concept's attribute.
+VAL *CG::findVals(CONCEPT *conc, _TCHAR *s_attr)
+{
+//return (VAL *) attr_get((CON *)conc, s_attr);		// FIX.	// 08/12/99 AM.
+return (VAL *) kbm_->attr_find((CON *)conc, s_attr);		// FIX.	// 08/12/99 AM.
+}
+
+// Fetch the first value of given attribute of a concept.
+// Treat as appropriate type if possible.
+bool CG::findVal(CONCEPT *conc, _TCHAR *s_attr, /*UP*/ _TCHAR *val)
+{
+*val = '\0';
+
+PTR *pval;
+//if (!(pval = attr_get((CON *)conc, s_attr)))	// FIX.	// 08/12/99 AM.
+if (!(pval = kbm_->attr_find((CON *)conc, s_attr)))	// FIX.	// 08/12/99 AM.
+	return false;
+if (pval->kind != pST)
+	{
+	*cgerr << _T("[findVal: Attribute value not a string.]") << std::endl;
+	return false;
+	}
+_tcscpy(val, pval->v.vst);
+return true;
+}
+
+
+bool CG::findVal(CONCEPT *conc, _TCHAR *s_attr, /*UP*/ long long &val)
+{
+val = -1;
+
+PTR *pval;
+//if (!(pval = attr_get((CON *)conc, s_attr)))	// FIX.	// 08/12/99 AM.
+if (!(pval = kbm_->attr_find((CON *)conc, s_attr)))	// FIX.	// 08/12/99 AM.
+	return false;
+switch (pval->kind)	// 12/27/06 AM.
+	{
+	case pNUM:			// 12/27/06 AM.
+		val = pval->v.vnum;
+		break;
+	case pFLOAT:		// 12/27/06 AM.
+		val = (long long) pval->v.vfloat;	// Truncate/convert.	// 12/27/06 AM.
+		break;
+	default:				// 12/27/06 AM.
+		*cgerr << _T("[findVal: Attribute value not a number.]") << std::endl;
+		return false;
+		break;
+	}
+return true;
+}
+
+// VARIANT. 08/16/01 AM.
+bool CG::findVal(CONCEPT *conc, _TCHAR *s_attr, /*UP*/ float &val)
+{
+val = -1.0;
+
+PTR *pval;
+if (!(pval = kbm_->attr_find((CON *)conc, s_attr)))
+	return false;
+switch (pval->kind)	// 12/27/06 AM.
+	{
+	case pFLOAT:		// 12/27/06 AM.
+		val = pval->v.vfloat;
+		break;
+	case pNUM:			// 12/27/06 AM.
+		val = pval->v.vnum;	// Convert.	// 12/27/06 AM.
+		break;
+	default:				// 12/27/06 AM.
+		*cgerr << _T("[findVal: Attribute value not a float.]") << std::endl;
+		return false;
+		break;
+	}
+return true;
+}
+
+// VARIANT.	// 08/12/00 AM.
+bool CG::findVal(CONCEPT *conc, _TCHAR *s_attr, /*UP*/ CONCEPT* &val)
+{
+val = 0;
+
+PTR *pval;
+if (!(pval = kbm_->attr_find((CON *)conc, s_attr)))
+	return false;
+if (pval->kind != pCON)
+	{
+	*cgerr << _T("[findVal: Attribute value not a concept.]") << std::endl;
+	return false;
+	}
+val = pval->v.vcon;
+return true;
+}
+
+// GET STRING-VALUED ATTRIBUTE WITHOUT COPYING.					// 11/12/00 AM.
+// OPT: Strings are already "interned" in the kb, so don't
+// need to copy them.
+_TCHAR *CG::strVal(CONCEPT *conc, _TCHAR *s_attr)
+{
+PTR *pval;
+if (!(pval = kbm_->attr_find((CON *)conc, s_attr)))	// FIX.	// 08/12/99 AM.
+	return 0;
+if (pval->kind != pST)
+	{
+	*cgerr << _T("[strVal: Attribute value not a string.]") << std::endl;
+	return 0;
+	}
+return pval->v.vst;
+}
+
+
+// Look for an attribute up the hierarchy. (INHERIT).	// 08/12/99 AM.
+// hier is the top of the concept hierarchy to be searched.
+// hier = 0 means search up to root of the entire tree.
+// RET:	false if no value was found or other error.
+//			Oh yeah, this one returns a boolean value.
+// Boolean return is now just if attr was found.					// 02/05/01 AM.
+bool CG::inheritVal(
+	CONCEPT *con,
+	_TCHAR *attr,
+	CONCEPT *hier,
+	/*UP*/
+	_TCHAR *valbuf
+	)
+{
+*valbuf = '\0';
+if (!con || !attr || !*attr)
+	return false;
+if (!hier)
+	hier = findRoot();	// Root of entire hierarchy.
+
+
+// Traverse up the tree, starting with current concept.
+for (; con; con = Up(con))
+	{
+	*valbuf = '\0';
+	findVal(con, attr, /*UP*/ valbuf);
+	if (valbuf && *valbuf)
+		{
+//		if (!strcmp(valbuf, "true"))										// 02/05/01 AM.
+//			return true;														// 02/05/01 AM.
+//		else																		// 02/05/01 AM.
+//			return false;														// 02/05/01 AM.
+		return true;															// 02/05/01 AM.
+		}
+	if (con == hier)		// Reached the top.
+		return false;
+	}
+return false;			// Error to be here.
+}
+
+
+// Find hierarchy concept.  Given a name, look through the given subtree
+// for it.  Also look through node names.  If a node, return its owning
+// concept.  If tree == 0, start at root of concept tree.
+CONCEPT *CG::findHierConcept(_TCHAR *name, CONCEPT *tree)
+{
+if (!name || !*name)
+	return 0;
+if (!tree)
+	tree = findRoot();
+
+return hierConcept(name, tree, true);
+}
+
+// Recursive workhorse for findHierConcept.
+CONCEPT *CG::hierConcept(_TCHAR *name, CONCEPT *tree, bool isroot)
+{
+if (!tree)
+	return 0;
+
+// Look at me.
+//char buf[128];
+_TCHAR buf[MAXSTR];	// 12/17/03 AM.
+conceptName(tree, /*UP*/ buf);
+if (!_tcscmp(name, buf))
+	return tree;
+
+// Look at my phrase.
+CON *node;
+node = (CON *) findPhrase(tree);
+for (; node; node = node->next)
+	{
+	conceptName(node, /*UP*/ buf);
+	if (!_tcscmp(name, buf))
+		return tree;				// Return the concept owning the phrase.
+	}
+
+// If not root and first in list, look at my siblings.
+CON *tmp = NULL;
+CONCEPT *found;
+if (!isroot && !((CON *)tree)->prev)
+	{
+	for (tmp = ((CON *)tree)->next; tmp; tmp = tmp->next)
+		{
+		if ((found = hierConcept(name, tmp, false)))
+			return found;
+		}
+	}
+
+// Look at my children.
+return hierConcept(name, ((CON *)tree)->dn, false);
+}
+
+
+/********************************************
+* FN:		SORTHIER
+* SUBJ:	Sort a subhierarchy in the KB.
+* CR:		02/20/09 AM.
+* RET:	true if ok, else false.
+* NOTE:	Each local list of concepts made alphabetical.
+********************************************/
+
+bool CG::sortHier(CONCEPT *tree)
+{
+if (!tree)
+	return false;
+
+return sort_hier_rec(tree, true);
+}
+
+// Recursive workhorse for sortHier.
+bool CG::sort_hier_rec(CONCEPT *tree, bool isroot)
+{
+if (!tree)
+	return true;
+
+
+// Look at my children.
+sort_hier_rec(((CON *)tree)->dn, false);
+
+// Look at me.
+sortChilds(tree);
+
+// If not root and first in list, look at my siblings.
+CON *tmp = NULL;
+bool ok = true;
+if (!isroot && !((CON *)tree)->prev)
+	{
+	for (tmp = ((CON *)tree)->next; tmp; tmp = tmp->next)
+		{
+		// Current sibling.
+		sort_hier_rec((CON *)tmp, true);
+		}
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		CONCEPTNAME
+* SUBJ:	Get name of given concept.
+* CR:		04/28/99 AM.
+* ARG:	User supplies buffer.
+********************************************/
+
+bool CG::conceptName(CONCEPT *con, /*UP*/ _TCHAR *name,
+	long bufsiz)																// 06/18/02 AM.
+{
+*name = '\0';
+
+if (!con)
+	return false;
+
+_TCHAR *tmp;
+SYM *sym;
+
+switch (((CON *)con)->kind)
+	{
+	case cBASIC:
+		sym = ((CON *)con)->v.vname;
+		break;
+	case cWORD:
+		sym = ((CON *)con)->v.vsym;
+		break;
+	case cPROXY:
+		CON *owner;
+		owner = ((CON *)con)->v.vcon;
+		sym = owner->v.vsym;
+		break;
+	case cNO_CON:
+	default:
+		*cgerr << _T("[conceptName: Not basic or word concept.]") << std::endl;
+		return false;
+	}
+
+if (!sym)
+	{
+	*cgerr << _T("[conceptName: Concept has no sym.]") << std::endl;
+	return false;
+	}
+tmp = sym->str;
+if (!tmp)
+	{
+	*cgerr << _T("[conceptName: Concept has no name.]") << std::endl;
+	return false;
+	}
+
+long len = _tcsclen(tmp);														// 06/18/02 AM.
+if (len >= bufsiz)															// 06/18/02 AM.
+	{
+	_tcsnccpy(name,tmp, bufsiz-1);											// 06/18/02 AM.
+	name[bufsiz-1] = '\0';	// Terminate.								// 06/18/02 AM.
+	}
+else																				// 06/18/02 AM.
+	_tcscpy(name, tmp);
+return true;
+}
+
+
+/********************************************
+* FN:		CONCEPTPATH
+* SUBJ:	Get path to given concept.
+* CR:		07/21/99 AM.
+* ARG:	User supplies buffer and buffer size.
+* NOTE:	Path is a string of double-quoted concept names separated
+*			by blanks.  eg "root" "gram" "Simple".
+* WARN:	bufsize not handled internally.
+********************************************/
+
+bool CG::conceptPath(CONCEPT *conc, /*DU*/ _TCHAR *buf, int bufsize)
+{
+*buf = '\0';
+if (!conc || bufsize < PATHSIZ)
+	return false;
+kbm_->acon_->con_to_path((CON *) conc, /*DU*/ buf);
+if (!*buf)
+	return false;
+buf[bufsize-1] = '\0';	// At least be sure the string terminates somewhere.
+return true;
+}
+
+
+/********************************************
+* FN:		PATHCONCEPT
+* SUBJ:	Convert concept to path.
+* CR:		04/25/00 AM.
+* NOTE:	Path is a string of double-quoted concept names separated
+*			by blanks.  eg "root" "gram" "Simple".
+********************************************/
+
+CONCEPT *CG::pathConcept(_TCHAR *path)
+{
+if (!path || !*path)
+	return 0;
+return kbm_->acon_->path_to_con(path);
+}
+
+
+/********************************************
+* FN:		WORDPATH
+* SUBJ:	Get path to given word's concept.
+* CR:		03/06/00 AM.
+* ARG:	User supplies buffer and buffer size.
+* NOTE:	Path is a string of double-quoted concept names separated
+*			by blanks.  eg "root" "gram" "Simple".
+* WARN:	bufsize not handled internally.
+********************************************/
+
+bool CG::wordPath(_TCHAR *str, /*DU*/ _TCHAR *buf, int bufsize)
+{
+*buf = '\0';
+if (!str || !*str || bufsize < PATHSIZ)
+	return false;
+
+#ifdef OLD_030629_
+if (!(word = kbm_->dict_find_word(str)))
+	{
+	if (!(word = kbm_->dict_add_word(str)))									// 05/12/00 AM.
+		return false;
+	dirty_ = true;																// 05/12/00 AM.
+	}
+#endif
+
+bool dirt;																		// 06/29/03 AM.
+CON *word = kbm_->dict_get_word(str,dirt);							// 06/29/03 AM.
+if (!word)																		// 06/29/03 AM.
+	return false;																// 06/29/03 AM.
+if (dirt)																		// 06/29/03 AM.
+	dirty_ = true;																// 06/29/03 AM.
+
+kbm_->acon_->con_to_path(word, /*DU*/ buf);
+if (!*buf)
+	return false;
+buf[bufsize-1] = '\0';	// At least be sure the string terminates somewhere.
+return true;
+}
+
+
+/********************************************
+* FN:		FINDWORDPATH
+* SUBJ:	Find path to given word's concept.
+* CR:		05/30/00 AM.
+* ARG:	User supplies buffer and buffer size.
+* NOTE:	Path is a string of double-quoted concept names separated
+*			by blanks.  eg "root" "gram" "Simple".
+*			Unlike wordPath, does not add the word if it is not already in
+*			the dictionary.  (Per Dave's request.)
+* WARN:	bufsize not handled internally.
+********************************************/
+
+bool CG::findWordpath(_TCHAR *str, /*DU*/ _TCHAR *buf, int bufsize)
+{
+*buf = '\0';
+if (!str || !*str || bufsize < PATHSIZ)
+	return false;
+CON *word;
+if (!(word = kbm_->dict_find_word(str)))
+	return false;
+kbm_->acon_->con_to_path(word, /*DU*/ buf);
+if (!*buf)
+	return false;
+buf[bufsize-1] = '\0';	// At least be sure the string terminates somewhere.
+return true;
+}
+
+
+/********************************************
+* FN:		WORDINDEX
+* SUBJ:	Get index concept where word would be placed.
+* CR:		05/31/00 AM.
+* NOTE:	Kb internals.
+********************************************/
+
+CONCEPT *CG::wordIndex(_TCHAR *str)
+{
+
+if (!str || !*str)
+	return 0;
+return (CONCEPT *) kbm_->dict_find_index(str);
+}
+
+
+/********************************************
+* FN:		ATTRWITHVAL
+* SUBJ:	See if attr and value are in concept.
+* CR:		05/02/00 AM.
+********************************************/
+
+bool CG::attrWithval(CONCEPT *conc, _TCHAR *attr, _TCHAR *val)
+{
+if (!conc || !attr || !*attr || !val || !*val)
+	return false;
+
+// Fetch attribute values.
+PTR *ptr = kbm_->attr_find((CON *)conc, attr);
+if (!ptr)
+	return false;
+
+// Look through them for value.
+for (; ptr; ptr = ptr->next)
+	{
+	if (ptr->kind == pST									// FIX.					// 08/07/00 AM.
+		&& unicu::strCmp(val,ptr->v.vst))
+/*
+#ifndef LINUX
+		 && !_tcsicmp(val, ptr->v.vst))
+#else
+		 && !strcasecmp(val, ptr->v.vst))
+#endif
+*/
+		return true;		// Found matching value. 
+	}
+return false;				// Did not find value.
+}
+
+
+/********************************************
+* FN:		ATTREXISTS
+* SUBJ:	See if attribute with value exists in given tree.
+* CR:		08/06/99 AM.
+* NOTE:	Undefined results if val of 0 is given.
+********************************************/
+
+bool CG::attrExists(CONCEPT *tree, _TCHAR *attr, _TCHAR *val)
+{
+if (!tree || !attr || !*attr || !val || !*val)
+	return false;
+return attrExistsrec((CON *)tree, true, attr, val);
+}
+
+
+bool CG::attrExistsrec(CONCEPT *tree, bool root, _TCHAR *attr, _TCHAR *val)
+{
+if (!tree)
+	return false;
+
+_TCHAR ptr[MAXPATH];				// Fix.	// 10/01/99 AM.
+ptr[0] = '\0';						// Fix.	// 10/01/99 AM.
+if (findVal(tree, attr, /*UP*/ ptr))
+	{
+	if (ptr && *ptr && !_tcscmp(val, ptr))			// FOUND IT!
+		return true;
+	}
+
+// If first in list of concepts, manage it.
+if (!root && !((CON *)tree)->prev)
+	{
+	CON *conc;
+	for (conc = ((CON *)tree)->next; conc; conc = conc->next)
+		{
+		if (attrExistsrec(conc, false, attr, val))
+			return true;
+		}
+	}
+
+// Look down the tree.
+return attrExistsrec(((CON *)tree)->dn, false, attr, val);
+}
+
+
+/********************************************
+* FN:		NODEATTREXISTS
+* SUBJ:	See if node attribute with value exists in given tree.
+* CR:		04/30/00 AM.
+* NOTE:	Undefined results if val of 0 is given.
+********************************************/
+
+bool CG::nodeAttrexists(CONCEPT *tree, _TCHAR *attr, _TCHAR *val)
+{
+if (!tree || !attr || !*attr || !val || !*val)
+	return false;
+return nodeAttrexistsrec((CON *)tree, true, attr, val);
+}
+
+
+bool CG::nodeAttrexistsrec(CONCEPT *tree, bool root, _TCHAR *attr, _TCHAR *val)
+{
+if (!tree)
+	return false;
+
+// Look for attribute in concept's phrase.
+_TCHAR ptr[MAXPATH];
+CON *node;
+if ((node = kbm_->acon_->con_phrase((CON *) tree)))
+	{
+	for (; node; node = node->next)
+		{
+		ptr[0] = '\0';
+		if (findVal(node, attr, /*UP*/ ptr))
+			{
+			if (ptr && *ptr && !_tcscmp(val, ptr))		// FOUND IT!
+				return true;
+			}
+		}
+	}
+
+// If first in list of concepts, manage it.
+if (!root && !((CON *)tree)->prev)
+	{
+	CON *conc;
+	for (conc = ((CON *)tree)->next; conc; conc = conc->next)
+		{
+		if (nodeAttrexistsrec(conc, false, attr, val))
+			return true;
+		}
+	}
+
+// Look down the tree.
+return nodeAttrexistsrec(((CON *)tree)->dn, false, attr, val);
+}
+
+
+/********************************************
+* FN:		ATTRCHANGE
+* SUBJ:	Change all values of attribute to the new value, in a subtree.
+* CR:		08/06/99 AM.
+********************************************/
+
+void CG::attrChange(CONCEPT *tree, _TCHAR *attr,_TCHAR *val,_TCHAR *newval)
+{
+if (!tree || !attr || !*attr)
+	return;
+
+// Intern the new string value.
+SYM *sym;
+_TCHAR *str = 0;
+bool dirt;	// 06/29/03 AM.
+if (newval && *newval && (sym = kbm_->asym_->sym_get(newval,dirt)))	// FIX.		// 08/12/99 AM.
+	str = sym->str;
+
+attrChangerec(tree, true, attr, val, str);
+}
+
+// OPT:	Doing redundant work.  Should find the attribute and value only
+//			once and then replace the value.
+void CG::attrChangerec(
+	CONCEPT *tree,
+	bool root,
+	_TCHAR *attr,
+	_TCHAR *val,
+	_TCHAR *newval
+	)
+{
+if (!tree)
+	return;
+
+_TCHAR ptr[MAXPATH];		// FIX.	// 08/12/99 AM.
+ptr[0] = '\0';				// FIX.	// 08/12/99 AM.
+// Look for attribute in the current concept.
+if (findVal(tree, attr, /*UP*/ ptr))
+	{
+	if (ptr && *ptr && !_tcscmp(val, ptr))			// FOUND IT!
+		{
+		// Replace the value.
+		replaceVal(tree, attr, newval);
+		dirty_ = true;															// 05/12/00 AM.
+		}
+	}
+
+// Look for attribute in concept's phrase.	// FIX				// 08/12/99 AM.
+CON *node;
+if ((node = kbm_->acon_->con_phrase((CON *) tree)))
+	{
+	for (; node; node = node->next)
+		{
+		ptr[0] = '\0';
+		if (findVal(node, attr, /*UP*/ ptr))
+			{
+			if (ptr && *ptr && !_tcscmp(val, ptr))		// FOUND IT!
+				{
+				// Replace the value.
+				replaceVal((CONCEPT *)node, attr, newval);
+				dirty_ = true;													// 05/12/00 AM.
+				}
+			}
+		}
+	}
+
+
+// If first in list of concepts, manage it.
+if (!root && !((CON *)tree)->prev)
+	{
+	CON *conc;
+	for (conc = ((CON *)tree)->next; conc; conc = conc->next)
+		{
+		attrChangerec(conc, false, attr, val, newval);
+		}
+	}
+
+// Look down the tree.
+attrChangerec(((CON *)tree)->dn, false, attr, val, newval);
+}
+
+
+	//////////////////////
+	// TRAVERSE THINGS
+	//////////////////////
+
+// Get a concept attached to the given concept.
+CONCEPT *CG::Down(CONCEPT *conc)
+{
+return conc ? (CONCEPT *) ((CON *)conc)->dn : (CONCEPT *) 0;
+}
+
+CONCEPT *CG::Up(CONCEPT *conc)
+{
+// Must get to first concept of list, then its up.
+// Fix. 05/13/99 AM.
+return (CONCEPT *) kbm_->acon_->con_parent((CON *) conc);
+}
+
+CONCEPT *CG::Next(CONCEPT *conc)
+{
+return conc ? (CONCEPT *) ((CON *)conc)->next : (CONCEPT *) 0;
+}
+
+CONCEPT *CG::Prev(CONCEPT *conc)
+{
+return conc ? (CONCEPT *) ((CON *)conc)->prev : (CONCEPT *) 0;
+}
+
+// Traverse a list of attributes.
+ATTR *CG::popAttr(ATTR* &attrs)
+{
+if (!attrs)
+	return (ATTR *) 0;
+ATTR *ptr;
+ptr = attrs;
+attrs = (ATTR *) ((PTR *) attrs)->next;
+return ptr;
+}
+
+// Traverse a list of values.												// 03/02/00 AM.
+VAL *CG::nextVal(VAL *val)													// 03/02/00 AM.
+{
+if (!val)
+	return 0;
+return (VAL *) ((PTR *)val)->next;
+}
+
+// Pop attribute value as a string.		// 07/09/99 AM.
+void CG::popSval(VAL *&vals, /*UP*/ _TCHAR *buf)
+{
+*buf = '\0';
+long num = 0;
+float fnum = 0.0;																// 08/16/01 AM.
+if (!vals)
+	return;
+PTR *ptr;
+ptr = (PTR *) vals;
+
+// Pop (even if error, to forestall infinite loops).
+vals = (VAL *) ((PTR *)vals)->next;
+switch (ptr->kind)
+	{
+	case pST:
+		_tcscpy(buf, ptr->v.vst);
+		return;
+	case pNUM:
+		num = ptr->v.vnum;
+		_stprintf(buf, _T("%ld"), num);	// Convert to string.
+		return;
+	case pFLOAT:																// 08/16/01 AM.
+		fnum = ptr->v.vfloat;												// 08/16/01 AM.
+		_stprintf(buf, _T("%f"), fnum);											// 08/16/01 AM.
+		return;																	// 08/16/01 AM.
+	default:
+		*cgerr << _T("[popSval: Can't convert to string.]") << std::endl;
+		return;
+	}
+}
+
+// Pop the next value from a list of attributes.
+void CG::popVal(VAL* &vals, /*UP*/ _TCHAR *val)
+{
+*val = '\0';
+if (!vals)
+	return;
+PTR *ptr;
+ptr = (PTR *) vals;
+
+// Pop (even if error, to forestall infinite loops).
+vals = (VAL *) ((PTR *)vals)->next;
+
+if (ptr->kind != pST)
+	{
+	// NLP-ENGINE-506: cgerr can be null when the @CODE-block runtime
+	// hits a type-mismatched value (e.g. compiled NLP++ doing
+	// `getstrval(numAttrVal)` on a pNUM value) before any CG instance
+	// has reopened the cgerr.log stream. Guard the deref.
+	if (cgerr) *cgerr << _T("[popVal: Attribute not a string.]") << std::endl;
+	return;
+	}
+
+_tcscpy(val, ptr->v.vst);
+}
+
+
+void CG::popVal(VAL* &vals, /*UP*/ long long &val)
+{
+val = -1;
+if (!vals)
+	return;
+PTR *ptr;
+ptr = (PTR *) vals;
+
+vals = (VAL *) ((PTR *)vals)->next;
+
+if (ptr->kind != pNUM)
+	{
+	// NLP-ENGINE-506: see popVal(_TCHAR*) above.
+	if (cgerr) *cgerr << _T("[popVal: Attribute not a num.]") << std::endl;
+	return;
+	}
+val = ptr->v.vnum;
+}
+
+// VARIANT. 08/16/01 AM.
+void CG::popVal(VAL* &vals, /*UP*/ float &val)
+{
+val = -1.0;
+if (!vals)
+	return;
+PTR *ptr;
+ptr = (PTR *) vals;
+
+vals = (VAL *) ((PTR *)vals)->next;
+
+if (ptr->kind != pFLOAT)
+	{
+	// NLP-ENGINE-506: see popVal(_TCHAR*) above.
+	if (cgerr) *cgerr << _T("[popVal: Attribute not a float.]") << std::endl;
+	return;
+	}
+val = ptr->v.vfloat;
+}
+
+// VARIANT.	// 08/12/00 AM.
+void CG::popVal(VAL* &vals, /*UP*/ CONCEPT* &val)
+{
+val = 0;
+if (!vals)
+	return;
+PTR *ptr;
+ptr = (PTR *) vals;
+
+vals = (VAL *) ((PTR *)vals)->next;
+
+if (ptr->kind != pCON)
+	{
+	// NLP-ENGINE-506: see popVal(_TCHAR*) above.
+	if (cgerr) *cgerr << _T("[popVal: Attribute not a concept.]") << std::endl;
+	return;
+	}
+val = ptr->v.vcon;
+}
+
+// 6/3/02 Dd.
+bool CG::isValCon(VAL* &vals)
+{
+if (!vals)
+	return false;
+PTR *ptr;
+ptr = (PTR *) vals;
+if (ptr->kind != pCON)
+	return false;
+return true;
+}
+
+bool CG::isValStr(VAL* &vals)
+{
+if (!vals)
+	return false;
+PTR *ptr;
+ptr = (PTR *) vals;
+if (ptr->kind != pST)
+	return false;
+return true;
+}
+
+bool CG::isValNum(VAL* &vals)
+{
+if (!vals)
+	return false;
+PTR *ptr;
+ptr = (PTR *) vals;
+if (ptr->kind != pNUM)
+	return false;
+return true;
+}
+
+	//////////////////////
+	// MAKE THINGS
+	//////////////////////
+
+// Make named concept under given parent.
+// Concept is placed at end of list of children.
+CONCEPT *CG::makeConcept(CONCEPT *parent, _TCHAR *name)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) kbm_->acon_->con_add_basic(name, (CON *) parent);
+}
+
+// Make named concept at given position under parent.
+// pos == 0 means at add end of list.
+CONCEPT *CG::makeConcept(CONCEPT *parent, _TCHAR *name, int pos)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) kbm_->acon_->con_add_nth((CON *) parent, name, pos);
+}
+
+// Add concept to nth position in parent's children.
+// pos == 0 means at end of list.
+CONCEPT *CG::addConcept(CONCEPT *parent, CONCEPT *conc, int pos)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) kbm_->acon_->con_add_nth((CON *) parent, (CON *)conc, pos);
+}
+
+// Add an empty attribute. (For an editor.)	// 07/12/99 AM.
+ATTR *CG::addAttr(CONCEPT *conc, _TCHAR *attr)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return kbm_->attr_get_h((CON *)conc, attr);
+}
+
+
+// Add value as a string type.	// 07/09/99 AM.
+bool CG::addSval(CONCEPT *con, _TCHAR *attr, _TCHAR *val)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return addVal(con, attr, val);
+}
+
+
+bool CG::addSval(CONCEPT *con, _TCHAR *attr, long long val)
+{
+_TCHAR buf[256];
+dirty_ = true;																	// 05/12/00 AM.
+_stprintf(buf, _T("%llu"), val);
+return addVal(con, attr, buf);
+}
+
+
+// Add string value at end of attribute's values.
+bool CG::addVal(CONCEPT *conc, _TCHAR *attr, _TCHAR *val)
+{
+dirty_ = true;																	// 05/12/00 AM.
+if (kbm_->attr_add_by_name((CON *) conc, attr, val))
+	return true;
+return false;
+}
+
+// Add num value at end of attribute's values.
+bool CG::addVal(CONCEPT *conc, _TCHAR *attr, long long val)
+{
+dirty_ = true;																	// 05/12/00 AM.
+if (kbm_->attr_add_by_name((CON *) conc, attr, val))
+	return true;
+return false;
+
+}
+
+// Add num value at end of attribute's values IF UNIQUE.
+bool CG::addValUnique(CONCEPT *conc, _TCHAR *attr, long long val)
+{
+dirty_ = true;
+if (!kbm_->attr_has_n_val((CON *) conc, attr, val)) {
+	if (kbm_->attr_add_by_name((CON *) conc, attr, val))
+		return true;
+}
+return false;
+}
+
+// Add float value at end of attribute's values.
+bool CG::addVal(CONCEPT *conc, _TCHAR *attr, float val)				// 06/11/03 AM.
+{
+dirty_ = true;
+if (kbm_->attr_add_by_name((CON *) conc, attr, val))
+	return true;
+return false;
+
+}
+
+
+// Add CONCEPT values at end of attr's values.						// 08/11/00 AM.
+bool CG::addVal(CONCEPT *conc, _TCHAR *attr, CONCEPT *val)			// 08/11/00 AM.
+{
+dirty_ = true;
+if (kbm_->attr_add_by_name((CON *)conc, attr, (CON *)val))
+	return true;
+return false;
+}
+
+
+CONCEPT *CG::addWord(_TCHAR *str)
+{
+if (!str || !*str)
+	return 0;
+
+#ifdef OLD_030629_
+CON *word;
+if (!(word = kbm_->dict_find_word(str)))
+	{
+	if (!(word = kbm_->dict_add_word(str)) )
+		return 0;
+	dirty_ = true;																// 05/12/00 AM.
+	}
+#endif
+
+bool dirt;																		// 06/29/03 AM.
+CON *word = kbm_->dict_get_word(str,dirt);							// 06/29/03 AM.
+if (!word)																		// 06/29/03 AM.
+	return 0;																	// 06/29/03 AM.
+if (dirt)																		// 06/29/03 AM.
+	dirty_ = true;																// 06/29/03 AM.
+
+return (CONCEPT *) word;
+}
+
+	//////////////////////
+	// FIND OR MAKE THINGS
+	//////////////////////
+
+// Find or make concept under given parent.
+CONCEPT *CG::getConcept(CONCEPT *parent, _TCHAR *name)
+{
+CONCEPT *con = (CONCEPT *) kbm_->acon_->con_get_child((CON *) parent, name);
+if (con)																// FIX.	// 08/07/00 AM.
+	return con;														// FIX.	// 08/07/00 AM.
+if (!fullKBBs_.empty() && !lazyBusy_ && parent && name
+	 && (con = findLazyKey(parent, name)))
+	return con;							// A key of a lazy *full.kbb.
+dirty_ = true;		// Todo: check if made concept.					// 05/12/00 AM.
+return (CONCEPT *) kbm_->acon_->con_add_basic(name, (CON *) parent);			// 08/07/00 AM.
+}
+	//////////////////////
+	// DELETE THINGS
+	//////////////////////
+
+// For compatibility with kbms based on QDBM, which needs to free some objects.
+// Eg, strings need to be freed or interned, as appropriate.	// 02/11/07 AM.
+bool CG::kbfree(void *obj)
+{
+// Our in-memory kbms already has strings interned and taken care of.
+return true;
+}
+
+// Delete the given concept.
+bool CG::rmConcept(CONCEPT *conc)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return kbm_->acon_->con_remove((CON *) conc);
+}
+
+
+// Delete the named concept from its parent.
+bool CG::rmConcept(CONCEPT *parent, _TCHAR *name)
+{
+CONCEPT *ptr;
+dirty_ = true;																	// 05/12/00 AM.
+//if (ptr = getConcept(parent, name))	// CREATES!!	// FIX	// 02/06/01 AM.
+if ((ptr = findConcept(parent, name)))						// FIX.	// 02/06/01 AM.
+	return rmConcept(ptr);
+return false;
+}
+
+// Delete nth concept from its parent.
+bool CG::rmConcept(CONCEPT *parent, int pos)
+{
+CON *ptr;
+if (!parent)
+	return false;
+if (!(ptr = ((CON *)parent)->dn))
+	return false;
+CON *pcon;
+if (!(pcon = kbm_->acon_->con_nth(ptr, pos)))
+	return false;
+dirty_ = true;																	// 05/12/00 AM.
+return rmConcept(pcon);
+}
+
+// Delete values of concept's attribute.
+// 08/26/99 AM. Don't care if attribute is missing.
+bool CG::rmVals(CONCEPT *conc, _TCHAR *attr)
+{
+if (!kbm_->attr_rm_by_name((CON *) conc, attr))						// 05/25/01 AM.
+	return false;																// 05/25/01 AM.
+
+dirty_ = true;																	// 05/12/00 AM.
+return true;																	// 08/26/99 AM.
+}
+
+bool CG::rmVal(ATTR *attr, VAL *val)							// 05/11/00 AM.
+{
+dirty_ = true;																	// 05/12/00 AM.
+return kbm_->rm_one_val((PTR *)attr, (PTR *)val);
+}
+
+
+// Delete an attribute.			// 07/12/99 AM.
+bool CG::rmAttr(CONCEPT *con, _TCHAR *attr)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return rmVals(con, attr);
+}
+
+bool CG::rmAttr(CONCEPT *conc, ATTR *attr)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return kbm_->attr_rm((CON *)conc, (PTR *) attr);
+}
+
+bool CG::rmAttrval(CONCEPT *con, _TCHAR *attr_s, _TCHAR *val_s)		// 05/17/00 AM.
+{
+dirty_ = true;
+return kbm_->attr_rm_val_by_name((CON *)con, attr_s, val_s);
+}
+
+bool CG::rmAttrval(CONCEPT *con, _TCHAR *attr_s, long long val)			// 05/19/00 AM.
+{
+dirty_ = true;
+return kbm_->attr_rm_val_by_name((CON *)con, attr_s, val);
+}
+
+bool CG::rmAttrval(CONCEPT *con, _TCHAR *attr_s, float val)		// 06/11/03 AM.
+{
+dirty_ = true;
+return kbm_->attr_rm_val_by_name((CON *)con, attr_s, val);
+}
+
+bool CG::rmAttrval(CONCEPT *con, _TCHAR *attr_s, CONCEPT *val)			// 05/19/00 AM.
+{
+dirty_ = true;
+return kbm_->attr_rm_val_by_concept((CON *)con, attr_s, (CON *)val);
+}
+
+// REMOVE ALL "NORMAL" ATTRIBUTES OF CONCEPT.						// 10/31/00 AM.
+bool CG::rmAttrs(CONCEPT *conc)
+{
+bool dirty = false;
+bool ok = kbm_->attrs_rm((CON *)conc, /*UP*/ dirty);
+if (dirty)
+	dirty_ = true;
+return ok;
+}
+
+
+
+// Remove all the subtree below given concept, including the
+// phrase under the concept.  // 08/10/99 AM.
+// If given a node (ie sample), does nothing.
+bool CG::rmChildren(CONCEPT *conc)
+{
+if (!conc)
+	return false;
+if (((CON *)conc)->kind == cPROXY)
+	return false;			// Do nothing if it's a node.
+
+if (!rmCphrase(conc))	// Remove concept's phrase.
+	return false;
+dirty_ = true;																	// 05/12/00 AM.
+
+// Detach concept from its children.
+//return rmConcept(Down(conc));											// 11/02/00 DD.
+CON *child = ((CON *)conc)->dn;											// 11/02/00 DD.
+if (child)																		// 11/02/00 AM.
+	child->up = CNULL;														// 11/02/00 DD.
+((CON *)conc)->dn = CNULL;													// 11/02/00 DD.
+return true;
+}
+
+// Remove all the phrases (ie samples) from the given subtree.
+// If given a node (ie sample), does nothing.	// 08/10/99 AM.
+bool CG::prunePhrases(CONCEPT *tree)
+{
+if (!tree)
+	return false;
+prunePhrasesRec((CON *)tree, true);
+dirty_ = true;																	// 05/12/00 AM.
+return true;
+}
+
+// Recursive prune phrases from subtree.	// 08/10/99 AM.
+void CG::prunePhrasesRec(CONCEPT *conc, bool root)
+{
+if (!conc)
+	return;
+
+// Remove concept's phrase, if any.
+rmCphrase(conc);
+
+// If not root and start of list, manage the list.
+if (!root && !((CON *)conc)->prev)
+	{
+	CON *tmp = NULL;
+	for (tmp = ((CON *)conc)->next; tmp; tmp = tmp->next)
+		prunePhrasesRec(tmp, false);
+	}
+
+// Prune phrases from concept's children.
+prunePhrasesRec(((CON *)conc)->dn, false);
+}
+
+
+
+// Remove word.																// 07/17/00 AM.
+bool CG::rmWord(_TCHAR *str)
+{
+if (!str || !*str)
+	return false;
+
+dirty_ = true;
+return kbm_->dict_rm_word(str);
+}
+
+
+	//////////////////////
+	// REPLACE THINGS
+	//////////////////////
+
+// Replace attribute value with given value.
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, _TCHAR *val)
+{
+//*cgerr << "[replaceVal: attr=" << attr << ",val=" << val << "]" << std::endl;
+rmVals(con, attr);															// 05/28/01 AM.
+dirty_ = true;																	// 05/12/00 AM.
+return addVal(con, attr, val);
+}
+
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, long long val)
+{
+rmVals(con, attr);															// 05/28/01 AM.
+dirty_ = true;																	// 05/12/00 AM.
+return addVal(con, attr, val);
+}
+
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, float val)			// 06/11/03 AM.
+{
+rmVals(con, attr);
+dirty_ = true;
+return addVal(con, attr, val);
+}
+
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, CONCEPT *val)		// 08/12/00 AM.
+{
+rmVals(con, attr);															// 05/28/01 AM.
+dirty_ = true;
+return addVal(con, attr, val);
+}
+
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, CONCEPT *oldval, CONCEPT *newVal)		// 06/04/02 Dd.
+{
+if (!rmAttrval(con, attr, oldval))
+	return false;
+return addVal(con, attr, newVal);
+}
+
+// Multi-valued attr replacement.
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, _TCHAR *oldval, _TCHAR *newval)
+{
+if (!rmAttrval(con, attr, oldval))
+	return false;
+return addVal(con, attr, newval);
+}
+
+// Multi-valued attr replacement.
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, long long oldval, long long newval)
+{
+if (!rmAttrval(con, attr, oldval))
+	return false;
+dirty_ = true;
+return addVal(con, attr, newval);
+}
+
+// Multi-valued attr replacement.										// 06/11/03 AM.
+bool CG::replaceVal(CONCEPT *con, _TCHAR *attr, float oldval, float newval)
+{
+if (!rmAttrval(con, attr, oldval))
+	return false;
+dirty_ = true;
+return addVal(con, attr, newval);
+}
+
+bool CG::renameConcept(CONCEPT *con, _TCHAR *name)
+{
+// Make sure it's a reasonable concept.
+if (!con || ((CON *)con)->kind != cBASIC)
+	return false;
+SYM *sym;
+bool dirt;	// 06/29/03 AM.
+sym = kbm_->asym_->sym_get(name,dirt);
+((CON *)con)->v.vname = sym;
+dirty_ = true;																	// 05/12/00 AM.
+return true;
+}
+
+bool CG::renameConcept(CONCEPT *parent, int pos, _TCHAR *name)
+{
+CONCEPT *conc;
+if (!(conc = findConcept(parent, pos)))
+	return false;
+return renameConcept(conc, name);
+}
+
+
+// Rename an attribute. // 07/12/99 AM.
+bool CG::renameAttr(CONCEPT *con, _TCHAR *attr, _TCHAR *rename)
+{
+ATTR *ptr;
+if (!(ptr = findAttr(con, attr)))
+	return false;
+return renameAttr(ptr, rename);
+}
+
+bool CG::renameAttr(ATTR *attr, _TCHAR *rename)
+{
+dirty_ = true;																	// 05/12/00 AM.
+return kbm_->attr_rename((PTR *) attr, rename);
+}
+
+	//////////////////////
+	// MOVE THINGS
+	//////////////////////
+
+// "Bubble" concept left.
+bool CG::moveCleft(CONCEPT *con)
+{
+if (!con || ((CON *) con)->kind != cBASIC)
+	return false;
+
+
+CON *after;				// Prior concept in list.
+if (!(after = ((CON *)con)->prev))
+	return false;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rmConcept(con))
+	return false;
+
+// Reattach between the two previous siblings.
+CON *before;
+if (!(before = after->prev))
+	{
+	// Add to beginning of parent's list.
+	return kbm_->acon_->con_add_first((CON *)con, after->up);
+	}
+else				// Insert into list of siblings.
+	{
+	((CON *)con)->prev = before;
+	((CON *)con)->next = after;
+	before->next = ((CON *)con);
+	after->prev = ((CON *)con);
+	return true;
+	}
+}
+
+
+// Move concept, with its subtree, attributes and phrase, to the end of
+// PARENT's children (#133). Refuses to move the root, to move a concept
+// under itself or its own subtree, or onto a parent that already has a
+// child of the same name. Moving within the same parent moves it last.
+bool CG::moveConcept(CONCEPT *conc, CONCEPT *parent)
+{
+CON *con = (CON *) conc;
+CON *par = (CON *) parent;
+if (!con || !par || con->kind != cBASIC || par->kind != cBASIC)
+	return false;
+ACON *acon = kbm_->acon_;
+CON *old = acon->con_parent(con);
+if (!old)
+	return false;		// Root, or not in the hierarchy.
+for (CON *p = par; p; p = acon->con_parent(p))
+	if (p == con)
+		return false;	// Would move it under itself.
+if (old != par && findConcept(parent, ACON::con_str(con)))
+	return false;		// Parent already has a child by that name.
+
+dirty_ = true;
+if (!acon->con_remove(con))
+	return false;
+if (!par->dn)
+	return acon->con_add_first(con, par);
+CON *last = par->dn;
+while (last->next)
+	last = last->next;
+last->next = con;
+con->prev = last;
+con->next = CNULL;
+con->up = CNULL;		// Only a first child points up.
+return true;
+}
+
+
+// "Bubble" concept right.
+bool CG::moveCright(CONCEPT *con)
+{
+if (!con || ((CON *) con)->kind != cBASIC)
+	return false;
+
+CON *before;
+if (!(before = ((CON *)con)->next))
+	return false;
+
+CON *parent = ((CON *)con)->up;								// FIX	// 10/31/00 DD.
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rmConcept(con))
+	return false;
+
+CON *after;
+after = before->next;
+
+// Reattach.
+((CON *)con)->prev = before;
+((CON *)con)->next = after;
+before->next = ((CON *)con);
+
+if (after)
+	after->prev = ((CON *)con);
+
+if (parent)															// FIX.	// 10/31/00 AM.
+	{
+	before->up = parent;											// FIX.	// 10/31/00 DD.
+	parent->dn = before;											// FIX.	// 10/31/00 AM.
+	((CON *)con)->up = CNULL;									// FIX.	// 10/31/00 AM.
+	}
+
+return true;
+}
+
+// Create new parent concept and place existing concepts underneath
+CONCEPT *CG::makeParentConcept(_TCHAR *name, CONCEPT *conStart, CONCEPT *conEnd)
+{
+if (!conStart || !conEnd || ((CON *) conStart)->kind != cBASIC || ((CON *) conEnd)->kind != cBASIC)
+	return NULL;
+
+// GET POS OF FIRST CONCEPT
+CON *sibling = ((CON *)conStart);
+
+int posStart = 1;
+while (sibling->up == NULL) {
+   sibling = sibling->prev;
+   posStart++;
+}
+CON *parent = sibling->up;
+
+sibling = (CON *)conStart;
+bool isSibling = false;
+int count = 0;
+while (sibling) {
+	if (sibling == conEnd) {
+		isSibling = true;
+		break;
+	}
+	sibling = sibling->next;
+	count++;
+}
+
+if (!isSibling)
+	return NULL;
+
+dirty_ = true;
+
+CON *newParent = kbm_->acon_->con_add_nth((CON *) parent, name, posStart);
+
+sibling = (CON *)conStart;
+CON *next = NULL;
+
+while (sibling) {
+	next = ((CON *)sibling)->next;
+	if (!rmConcept(sibling))
+		return NULL;
+	kbm_->acon_->con_add_nth((CON *) newParent, (CON *)sibling, 0);
+	if (sibling == ((CON *)conEnd))
+		break;
+	sibling = next;
+}
+
+return (CONCEPT *)newParent;
+}
+
+// Adopt concepts under new concept
+void CG::adoptConcepts(CONCEPT *conParent, CONCEPT *conStart, CONCEPT *conEnd)
+{
+if (!conParent || !conStart || !conEnd ||
+	((CON *) conParent)->kind != cBASIC || ((CON *) conStart)->kind != cBASIC || ((CON *) conEnd)->kind != cBASIC)
+	return;
+
+dirty_ = true;
+
+CON *sibling = (CON *)conStart;
+CON *next = NULL;
+
+while (sibling) {
+	next = ((CON *)sibling)->next;
+	if (!rmConcept(sibling))
+		return;
+	kbm_->acon_->con_add_nth((CON *) conParent, (CON *)sibling, 0);
+	if (sibling == ((CON *)conEnd))
+		break;
+	sibling = next;
+}
+}
+
+// Sort concept's attributes alphabetically by name, as sortChilds orders
+// children (#384). Stable, so attributes of the same name keep their order;
+// each attribute's values are untouched.
+bool CG::sortAttrs(CONCEPT *conc)
+{
+CON *con = (CON *) conc;
+if (!con)
+	return false;
+PTR *attrs = con->attrs;
+if (!attrs || !attrs->next)
+	return true;		// Nothing to sort.
+std::vector<PTR *> arr;
+for (PTR *p = attrs; p; p = p->next)
+	arr.push_back(p);
+AKBM *kbm = kbm_;
+std::stable_sort(arr.begin(), arr.end(), [kbm](PTR *a, PTR *b) {
+	_TCHAR *na = kbm->attrs_name(a);
+	_TCHAR *nb = kbm->attrs_name(b);
+	return unicu::strCmp(na ? na : (_TCHAR *) _T(""),
+							  nb ? nb : (_TCHAR *) _T("")) < 0;
+	});
+for (size_t i = 0; i + 1 < arr.size(); ++i)
+	arr[i]->next = arr[i + 1];
+arr.back()->next = 0;
+con->attrs = arr.front();
+dirty_ = true;
+return true;
+}
+
+// Sort concept's children.	[NEW!]
+bool CG::sortChilds(CONCEPT *conc)	// 02/20/09 AM.
+{
+if (!conc)
+	return false;
+dirty_ = true;
+return sort_childs((CON *) conc,this);
+}
+
+	//////////////////////
+	// PHRASE MGMT
+	//////////////////////
+
+// Find concept's phrase.
+PHRASE *CG::findPhrase(CONCEPT *conc)
+{
+return (CONCEPT *) kbm_->acon_->con_phrase((CON *) conc);
+}
+
+// Sort concept's phrase.	[NEW!]
+bool CG::sortPhrase(CONCEPT *conc)
+{
+if (!conc)
+	return false;
+dirty_ = true;																	// 05/12/00 AM.
+return sort_phrase((CON *) conc,this);
+}
+
+long CG::phraseLength(CONCEPT *conc)
+{
+return kbm_->acon_->phrase_len((CON *)findPhrase(conc));
+}
+
+// FIND CONCEPT THAT THIS NODE IS A PROXY FOR.						// 12/03/02 AM.
+// Changed functionality.													// 12/03/02 AM.
+CONCEPT *CG::nodeConcept(CONCEPT *node)
+{
+if (node)
+	return kbm_->acon_->nc((struct con *)node);
+return 0;
+}
+
+// Find node's owning concept.			// 08/27/99 AM.
+// RENAMED THIS FUNCTIONALITY FROM nodeconcept.						// 12/03/02 AM.
+CONCEPT *CG::nodeOwner(CONCEPT *node)
+{
+CONCEPT *fst;
+
+if (!(fst = listNode(node)))
+	return 0;
+return kbm_->attr_get_c((CON *)fst, kbm_->acon_->c_cg_ATOM);
+}
+
+// Find nth phrase node.  pos = 0 means find last node.
+CONCEPT *CG::findNode(PHRASE  *phr,  int pos)
+{
+return (CONCEPT *) kbm_->acon_->con_nth((CON *) phr, pos);
+}
+
+
+// Find first node that matches.
+CONCEPT *CG::findNode(PHRASE *phr, _TCHAR    *name)
+{
+CON *nodes;
+
+if (!(nodes = (CON *) phr))
+	return 0;
+SYM *sym;
+bool dirt;	// 06/29/03 AM.
+if (!(sym = kbm_->asym_->sym_get(name,dirt)))
+	return 0;
+CON *con;
+for (; nodes; nodes = nodes->next)
+	{
+	con = kbm_->acon_->nc(nodes);
+	if (sym == con->v.vname)
+		return (CONCEPT *) nodes;
+	}
+return 0;
+}
+
+// Given a node, find first node in list.	// 08/31/99 AM.
+CONCEPT *CG::listNode(CONCEPT *node)
+{
+CON *nn;
+nn = (CON *) node;
+if (!nn || nn->kind != cPROXY)
+	{
+	*cgerr << _T("[listNode: Given bad node.]") << std::endl;
+	return 0;
+	}
+CON *tmp = NULL;
+while ((tmp = nn->prev))
+	nn = tmp;
+return (CONCEPT *)nn;
+}
+
+// Conveniences.
+CONCEPT *CG::firstNode(PHRASE  *phr)
+{
+if (!phr || ((CON *)phr)->prev)
+	{
+	*cgerr << _T("[firstNode: Must be called with a phrase.]") << std::endl;
+	return 0;
+	}
+return (CONCEPT *) phr;
+}
+
+CONCEPT *CG::lastNode( PHRASE  *phr)
+{
+if (!phr || ((CON *)phr)->prev)
+	{
+	*cgerr << _T("[lastNode: Must be called with a phrase.]") << std::endl;
+	return 0;
+	}
+return (CONCEPT *) kbm_->acon_->con_nth((CON *) phr, 0);
+}
+
+// Create a phrase under concept by adding first node.
+PHRASE *CG::makePhrase(CONCEPT *con, _TCHAR *name)
+{
+if (!con || !name || !*name)
+	return 0;
+
+#ifdef OLD_030629_
+CON *word;
+if (!(word = kbm_->dict_find_word(name))
+	 && !(word = kbm_->dict_add_word(name)) )
+	return 0;
+#endif
+
+bool dirt;																		// 06/29/03 AM.
+CON *word = kbm_->dict_get_word(name,dirt);							// 06/29/03 AM.
+if (!word)																		// 06/29/03 AM.
+	return NULL;																// 06/29/03 AM.
+
+CON *proxy;
+proxy = kbm_->acon_->con_add_proxy(word);
+
+/* Bind concept to first element of phrase. */
+PVAL pv;
+pv.vcon = proxy;
+kbm_->attr_add_val((CON *)con, kbm_->acon_->c_cg_PHRASE, pv, pCON);
+pv.vcon = (CON *)con;
+kbm_->attr_add_val(proxy, kbm_->acon_->c_cg_ATOM, pv, pCON);
+dirty_ = true;																	// 05/12/00 AM.
+return (PHRASE *) proxy;
+}
+
+// NEW!  Sorry, has to be named differently (everything is really void).
+CONCEPT *CG::addCnode(CONCEPT *con, _TCHAR *name)
+{
+PHRASE *phr;
+phr = 0;
+return addNode(con, name, /*DU*/ phr);
+}
+
+
+CONCEPT *CG::addCnode(CONCEPT *con, CONCEPT *ncon)	// 11/27/02 AM.
+{
+if (!con || !ncon)
+	return 0;
+
+dirty_ = true;
+CON *proxy = kbm_->acon_->con_add_proxy((CON *)ncon);
+return (CONCEPT *) phr_add_nth((CON *)con, proxy, 0, this);
+}
+
+// Add a node to a concept's phrase. Create phrase as needed.
+// Phrase can be passed down, or 0 if empty or not known.
+// Phrase will be passed back up by the function.
+// New node is returned by the function.
+CONCEPT *CG::addNode(CONCEPT *con, _TCHAR *name, /*DU*/ PHRASE* &phr)
+{
+if (!con || !name || !*name)
+	return 0;
+
+if (phr)									// Use the given phrase.
+	return addNode(phr, name);
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!(phr = findPhrase(con)))		// Empty phrase.
+	{
+	phr = makePhrase(con, name);
+	return firstNode(phr);
+	}
+else
+	return addNode(phr, name);
+}
+
+
+// Add node to phrase. pos == 0, the default, means add to end
+// of phrase.
+CONCEPT *CG::addNode(PHRASE *phr, _TCHAR    *name, int pos)
+{
+CON *owner;
+if (!(owner = kbm_->attr_get_c((CON *)phr, kbm_->acon_->c_cg_ATOM)))
+	return 0;
+
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) phr_add_nth(owner, name, pos, this);
+}
+
+
+// Add detached node at given position.
+CONCEPT *CG::addNode(PHRASE *phr, CONCEPT *node,  int pos)
+{
+CON *owner;
+if (!(owner = kbm_->attr_get_c((CON *)phr, kbm_->acon_->c_cg_ATOM)))
+	return 0;
+
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) phr_add_nth(owner, (CON *)node, pos, this);
+}
+
+
+// Add node before n_pos.  If n_pos == 0, add at end of phrase.
+// RENAMED.	// 02/13/07 AM.
+CONCEPT *CG::addNode_c(PHRASE *phr, CONCEPT *node, CONCEPT *n_pos)
+{
+if (!phr || !node)
+	return 0;
+
+CON *owner;
+if (!(owner = kbm_->attr_get_c((CON *)phr, kbm_->acon_->c_cg_ATOM)))
+	return 0;
+
+dirty_ = true;																	// 05/12/00 AM.
+return (CONCEPT *) insert_node(owner, (CON *) node, (CON *) n_pos, this);
+}
+
+// Move node from one position to another. from,to=0 end position.
+// Note: Whether data structures are switched or their content is
+// replaced is undefined.  Don't rely on one or the other.
+CONCEPT *CG::moveNode(PHRASE *phr, int        from, int        to)
+{
+CONCEPT *n_from, *n_to;
+n_from = n_to = 0;
+
+// Find both nodes.
+if (!(n_from = findNode(phr, from)))
+	return 0;
+
+if (to == 0)					// Moving to last position.
+	n_to = 0;
+else if (!(n_to = findNode(phr, to)))
+	return 0;
+
+if (n_from == n_to)			// No op.
+	return n_from;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rmNode(phr, n_from)) // Remove the from node.
+	return 0;
+
+// Add node in proper position.
+return addNode_c(phr, n_from, n_to);
+}
+
+// If s_to == 0, move to end.
+CONCEPT *CG::moveNode(PHRASE *phr, _TCHAR    *s_from, _TCHAR    *s_to)
+{
+CONCEPT *n_from, *n_to;
+n_from = n_to = 0;
+
+// Find both nodes.
+if (!(n_from = findNode(phr, s_from)))
+	return 0;
+
+if (s_to == 0)					// Moving to last position.
+	n_to = 0;
+else if (!(n_to = findNode(phr, s_to)))
+	return 0;
+
+dirty_ = true;																	// 05/12/00 AM.
+return moveNode(phr, n_from, n_to);
+}
+
+CONCEPT *CG::moveNode(PHRASE *phr, CONCEPT *n_from, CONCEPT *n_to)
+{
+if (!phr)
+	return 0;
+
+if (n_from == n_to)			// No op.
+	return n_from;
+
+if (!rmNode(phr, n_from)) // Remove the from node.
+	return 0;
+
+// Add node in proper position.
+dirty_ = true;																	// 05/12/00 AM.
+return addNode_c(phr, n_from, n_to);
+
+}
+
+
+// "Bubble" node left.
+bool CG::moveNleft(CONCEPT *con)
+{
+if (!con || ((CON *) con)->kind != cPROXY)
+	return false;
+
+CON *after;				// Prior concept in list.
+if (!(after = ((CON *)con)->prev))
+	return false;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rmConcept(con))
+	return false;
+
+// Reattach between the two previous siblings.
+CON *before;
+if (!(before = after->prev))
+	{
+	// Add as first phrase node.
+	// after == phrase and first phrase node.
+	if (addNode_c(after, con, after))
+		return true;
+	return false;
+	}
+else				// Insert into list of siblings.
+	{
+	((CON *)con)->prev = before;
+	((CON *)con)->next = after;
+	before->next = ((CON *)con);
+	after->prev = ((CON *)con);
+	return true;
+	}
+}
+
+
+// "Bubble" node right.
+bool CG::moveNright(CONCEPT *con)
+{
+if (!con || ((CON *) con)->kind != cPROXY)
+	return false;
+
+CON *before;
+if (!(before = ((CON *)con)->next))
+	return false;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rmNode(con))
+	return false;
+
+CON *after;
+after = before->next;
+
+// Reattach.
+((CON *)con)->prev = before;
+((CON *)con)->next = after;
+before->next = ((CON *)con);
+if (after)
+	after->prev = ((CON *)con);
+return true;
+}
+
+
+// Delete a node.
+bool CG::rmNode(PHRASE* &phr,  _TCHAR *name)
+{
+CON *con;
+if (!(con = (CON *) findNode(phr, name)))
+	return false;
+
+// If removing first node in phrase, set caller's phrase properly.
+PHRASE *tmp = NULL;
+if (phr == (PHRASE *)con)
+	tmp = (PHRASE *) con->next;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rm_proxy(con,this))			// Remove phrase node.
+	return false;
+
+phr = tmp;
+return true;
+}
+
+bool CG::rmNode(PHRASE* &phr,  int    pos)
+{
+CON *con;
+if (!(con = (CON *) findNode(phr, pos)))
+	return false;
+
+// If removing first node in phrase, set caller's phrase properly.
+PHRASE *tmp = NULL;
+if (phr == (PHRASE *)con)
+	tmp = (PHRASE *) con->next;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rm_proxy(con,this))			// Remove phrase node.
+	return false;
+
+phr = tmp;
+return true;
+}
+
+// Remove node from its phrase.
+bool CG::rmNode(PHRASE* &phr, CONCEPT *node)
+{
+if (!node)
+	return false;
+if (((CON *)node)->kind != cPROXY)
+	return false;
+
+// If removing first node in phrase, set caller's phrase properly.
+PHRASE *tmp = NULL;
+if (phr == (PHRASE *)node)
+	tmp = (PHRASE *) ((CON *)node)->next;
+
+dirty_ = true;																	// 05/12/00 AM.
+if (!rm_proxy((CON *) node,this))
+	return false;
+
+phr = tmp;
+return true;
+}
+
+// Remove node from its phrase.
+bool CG::rmNode(CONCEPT *node)
+{
+if (!node)
+	return false;
+if (((CON *)node)->kind != cPROXY)
+	return false;
+dirty_ = true;																	// 05/12/00 AM.
+if (!rm_proxy((CON *) node,this))
+	return false;
+return true;
+}
+
+
+// Delete phrase.
+bool CG::rmPhrase(PHRASE* &phr)
+{
+CON *owner;
+if (!(owner = kbm_->attr_get_c((CON *)phr, kbm_->acon_->c_cg_ATOM)))
+	return false;
+
+// Unbind phrase.
+dirty_ = true;																	// 05/12/00 AM.
+kbm_->attr_rm_by_name((CON *)phr, _T("atom"));
+kbm_->attr_rm_by_name(owner, _T("phrase"));
+phr = 0;				// Zero out caller's phrase pointer.
+return true;
+}
+
+bool CG::rmCphrase(CONCEPT *owner)
+{
+CON *phr;
+if (!(phr = kbm_->attr_get_c((CON *)owner, kbm_->acon_->c_cg_PHRASE)))
+	return true;			// NO PHRASE IS OK.							// 11/02/00 AM.
+
+// Unbind phrase.
+dirty_ = true;																	// 05/12/00 AM.
+kbm_->attr_rm_by_name(phr, _T("atom"));
+kbm_->attr_rm_by_name((CON *)owner, _T("phrase"));
+return true;
+}
+
+// Rename node.
+bool CG::renameNode(PHRASE  *phr, _TCHAR *name, _TCHAR *rename)
+{
+CON *node;
+if (!(node = (CON *) findNode(phr, name)))
+	return false;
+
+// Make sure it's a reasonable concept.
+if (((CON *)node)->kind != cPROXY)
+	return false;
+
+#ifdef OLD_030629_
+CON *word;
+if (!(word = kbm_->dict_find_word(rename))
+	 && !(word = kbm_->dict_add_word(rename)))
+	return false;
+#endif
+
+bool dirt;																		// 06/29/03 AM.
+CON *word = kbm_->dict_get_word(rename,dirt);						// 06/29/03 AM.
+if (!word)																		// 06/29/03 AM.
+	return false;																// 06/29/03 AM.
+
+((CON *)node)->v.vcon = word;
+dirty_ = true;																	// 05/12/00 AM.
+return true;
+}
+
+bool CG::renameNode(PHRASE  *phr, int    pos, _TCHAR *rename)
+{
+CON *node;
+if (!(node = (CON *) findNode(phr, pos)))
+	return false;
+
+// Make sure it's a reasonable concept.
+if (((CON *)node)->kind != cPROXY)
+	return false;
+
+#ifdef OLD_030629_
+CON *word;
+if (!(word = kbm_->dict_find_word(rename))
+	 && !(word = kbm_->dict_add_word(rename)))
+	return false;
+#endif
+
+bool dirt;																		// 06/29/03 AM.
+CON *word = kbm_->dict_get_word(rename,dirt);						// 06/29/03 AM.
+if (!word)																		// 06/29/03 AM.
+	return false;																// 06/29/03 AM.
+
+((CON *)node)->v.vcon = word;
+dirty_ = true;																	// 05/12/00 AM.
+return true;
+}
+
+
+/********************************************
+* FN:		DUMPTREE
+* SUBJ:	Modular dump of KB subtree to a file.
+* CR:		08/06/01 AM.
+* NOTE:	Patterned after writeKB.
+* ASS:	Assumes we're not dumping in the system hierarchy.
+* METH:	Traverse the concept subtree.  Write out one file for:
+*			hier, attr, phrase.  For each concept and node name, write
+*			an "add word" command to word file.  Then catenate the 4
+*			files to given file path.
+********************************************/
+
+// Modular dump of a kb subtree.											// 08/06/01 AM.
+bool CG::dumpTree(															// 08/06/01 AM.
+	CONCEPT *root,		// Root of subtree.
+	_TCHAR *file			// Dump file (should end in .kb).
+	)
+{
+*cgerr << _T("[Starting modular kb dump.]") << std::endl;
+
+if (!root)					// Check for good concept.
+	return false;
+
+if (!goodKbfile(file))	// Check for good kb filename.
+	return false;
+
+// Todo: Check to make sure we're not in a bad hierarchy.
+// (ie, one that has dictionary in it....) Won't hurt too badly,
+// but may get lots of "add word" redundancy if so.
+
+// Make a tmp directory if absent.
+_TCHAR *dir = _T("tmp");
+
+// For example, path= C:\apps\Resume\tmp.
+_TCHAR path[MAXPATH];
+_stprintf(path, _T("%s%c%s"), getAppdir(), DIR_CH, dir);
+
+// If tmp directory absent, create it.
+make_dir(path);
+
+// Prep and open up the output files.
+_TCHAR o_hier[MAXPATH*2];
+_TCHAR o_word[MAXPATH*2];
+_TCHAR o_attr[MAXPATH*2];
+_TCHAR o_phr[MAXPATH*2];
+
+_TCHAR *suff;
+suff = _T("kb");		// Kb file suffix.
+
+_stprintf(o_hier, _T("%s%chier.%s"), path, DIR_CH, suff);
+_stprintf(o_word, _T("%s%cword.%s"), path, DIR_CH, suff);
+_stprintf(o_attr, _T("%s%cattr.%s"), path, DIR_CH, suff);
+_stprintf(o_phr,  _T("%s%cphr.%s"),  path, DIR_CH, suff);
+
+// Open the files for output.
+std::_t_ofstream f_hier(TCHAR2A(o_hier));
+std::_t_ofstream f_word(TCHAR2A(o_word));
+std::_t_ofstream f_phr(TCHAR2A(o_phr));
+
+std::_t_ofstream *f_attr = new std::_t_ofstream(TCHAR2A(o_attr));	// 07/01/03 AM.
+
+// GET PATH TO "root" CONCEPT.
+CONCEPT *parent = Up(root);
+_TCHAR spath[MAXPATH];
+if (!parent)			// Root of hierarchy
+	{
+	spath[0] ='\0';
+	f_hier << _T("add empty") << std::endl;
+	f_hier << _T("add root") << std::endl;
+	}
+else
+	kbm_->acon_->con_to_path((struct con *)parent, /*UP*/ spath);
+
+// Traverse the subtree.  Write out the goodies.
+long n_attr=0;												// 07/01/03 AM.
+long c_attr=0;												// 07/01/03 AM.
+if (!writeTree(root, true, f_hier,f_word,f_phr, spath,
+			f_attr,n_attr,c_attr,0,0))					// 07/01/03 AM.
+	{
+	delete f_attr;											// 08/07/03 AM.
+	return false;
+	}
+delete f_attr;												// 08/07/03 AM.
+
+// Terminate the last command file.
+f_phr  << std::endl << _T("quit") << std::endl << std::endl;
+
+// Catenate the command files to the output file, in C++ on every
+// platform: Linux and macOS ran "cat", through the shell (#323). Flush
+// the files still open first, or their last lines may be missing.
+f_hier.close();
+f_word.close();
+f_phr.close();
+// Any length of line: a MAXMSG buffer cut the dump off at the first
+// line of 2048+ chars, eg a long attribute value.
+std::string buf;
+std::_t_ofstream *f_dump = new std::_t_ofstream(TCHAR2A(file));	// Final output file.
+std::_t_ifstream *f_in = new std::_t_ifstream(TCHAR2A(o_hier));
+while (std::getline(*f_in, buf))		// Copy first file.
+	*f_dump << buf << std::endl;
+delete f_in;
+
+*f_dump << std::endl;								// Separate commands.
+f_in = new std::_t_ifstream(TCHAR2A(o_word));
+while (std::getline(*f_in, buf))		// Copy first file.
+	*f_dump << buf << std::endl;
+delete f_in;
+
+*f_dump << std::endl;								// Separate commands.
+f_in = new std::_t_ifstream(TCHAR2A(o_attr));
+while (std::getline(*f_in, buf))		// Copy first file.
+	*f_dump << buf << std::endl;
+delete f_in;
+
+*f_dump << std::endl;								// Separate commands.
+f_in = new std::_t_ifstream(TCHAR2A(o_phr));
+while (std::getline(*f_in, buf))		// Copy first file.
+	*f_dump << buf << std::endl;
+delete f_in;
+
+delete f_dump;
+
+*cgerr << _T("[Done with modular kb dump.]") << std::endl;
+return true;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+/////////                      UTILITIES                  /////////////////
+///////////////////////////////////////////////////////////////////////////
+
+/********************************************
+* FN:		WRITETREE
+* SUBJ:	Traverse and write the knowledge base in memory to files.
+* CR:		04/28/99 AM.
+* METH:	Traverse the concept hierarchy.  Write out one file for:
+*			hier, word, attr, phrase.
+********************************************/
+
+bool CG::writeTree(
+	CONCEPT *root,
+	bool flag,				// true if root of subtree.
+	std::_t_ofstream &hier,
+	std::_t_ofstream &word,
+	std::_t_ofstream &phr,
+	_TCHAR *path,				// Hierarchy path down to parent.
+	std::_t_ofstream *&attr,		// Current attr output stream.			// 07/01/03 AM.
+	long &n_attr,			// # of attr files.						// 07/01/03 AM.
+	long &c_attr,			// # of attributes in curr file.		// 07/01/03 AM.
+	_TCHAR *o_attr,			// Buff for building attr filenames.	// 07/01/03 AM.
+	_TCHAR *fpath,			// Path for attr file.						// 07/01/03 AM.
+	_TCHAR *suff				// Filename suffix.							// 07/01/03 AM.
+	)
+{
+if (!root)
+	return true;
+
+//char name[128];
+_TCHAR name[MAXSTR];	// 12/17/03 AM.
+if (!conceptName(root, name))
+	{
+	*cgerr << _T("[writeTree: No concept name.]") << std::endl;
+	return false;
+	}
+
+_TCHAR buf[MAXMSG];
+prep_str(buf, name);
+
+// Print information for the current concept.
+CON *con;
+con = (CON *)root;
+switch (con->kind)
+	{
+	case cBASIC:
+		if (path && *path)	// So KB ROOT won't be redundant.	// 02/20/02 AM.
+			{
+			// 01/13/06 AM. TESTING UNICODE.
+			#ifdef UNICODE
+			char *lpstr8;
+			#endif
+
+			hier << _T("add hier ");
+
+			#ifdef UNICODE
+			u_to_mbcs((LPCWSTR)path, CP_UTF8, (LPCTSTR*&)lpstr8);
+			hier << lpstr8;
+			u_delete((LPCTSTR*&)lpstr8);
+			#else
+			hier << path;
+			#endif
+
+			hier << _T(" \"");
+
+			#ifdef UNICODE
+			u_to_mbcs((LPCWSTR)buf, CP_UTF8, (LPCTSTR*&)lpstr8);
+			hier << lpstr8;
+			u_delete((LPCTSTR*&)lpstr8);
+			#else
+			hier << buf;
+			#endif
+
+			hier << _T("\"");
+			hier << std::endl;
+			}
+//		else
+//			{
+			// Axiomatics.
+//			hier << "add empty" << std::endl;
+//			hier << "add root" << std::endl;
+//			}
+		break;
+	case cWORD:
+		// Need to handle some chars specially.
+		{
+#ifndef UNICODE
+		word << _T("add word \"") << buf << _T("\"") << std::endl;
+#else
+		char *lpstr8;
+		word << _T("add word \"");
+		u_to_mbcs((LPCWSTR)buf, CP_UTF8, (LPCTSTR*&)lpstr8);
+		word << lpstr8;
+		u_delete((LPCTSTR*&)lpstr8);
+		word << _T("\"");
+		word << std::endl;
+#endif
+		}
+		break;
+	default:
+		*cgerr << _T("[writeTree: Not word or basic concept.]") << std::endl;
+		return false;
+	}
+
+// Make path to concept itself.
+_TCHAR conpath[MAXPATH*2];
+if (path && *path)
+	_stprintf(conpath, _T("%s \"%s\""), path, buf);
+else if (*buf && !_tcscmp(buf,_T("concept")))				// CHECK.	// 12/28/01 AM.
+	_stprintf(conpath, _T("\"%s\""), buf);
+else																				// 12/28/01 AM.
+	{
+	*cgerr << _T("[writeTree:  Bad path.]") << std::endl;						// 12/28/01 AM.
+	return false;																// 12/28/01 AM.
+	}
+	//strcpy(conpath, name);
+
+// Print attributes for current concept.
+// Print phrase for current concept.
+// For each attr, traverse all its values.
+if (!writeAttrs(con, 0, attr, conpath,
+			n_attr,c_attr,o_attr,fpath,suff))							// 07/01/03 AM.
+	{
+	*cgerr << _T("[writeTree: Couldn't write attrs for con=") << name << _T("]")
+		  << std::endl;
+	return false;
+	}
+
+// TODO: If concept has a phrase, traverse that separately...
+if (!writePhrase(con, hier,word,attr,phr,conpath,
+						n_attr,c_attr,o_attr,fpath,suff))				// 07/01/03 AM.
+	{
+	*cgerr << _T("[Error calling writePhrase]") << std::endl;
+	return false;
+	}
+
+// Traverse children of concept.
+if (!writeTree(con->dn, false, hier,word,phr,conpath,
+			attr,n_attr,c_attr,o_attr,fpath,suff))						// 07/01/03 AM.
+	{
+	*cgerr << _T("[Error calling writeTree]") << std::endl;
+	return false;
+	}
+
+// If concept is first in a list, traverse its siblings.
+if (!flag && !(con->prev))
+	{
+	CON *sib;
+	bool ok;
+	for (sib = con->next; sib; sib = sib->next)
+		{
+		// Handle sibling as root of a subtree.
+		ok = writeTree(sib, true, hier,word,phr,path,
+			attr,n_attr,c_attr,o_attr,fpath,suff);						// 07/01/03 AM.
+		if (!ok)
+			{
+			*cgerr << _T("[Error in sibling call of writeTree]") << std::endl;
+			return false;
+			}
+		}
+	}
+
+return true;
+}
+
+
+/********************************************
+* FN:		WRITEATTRS
+* SUBJ:	Traverse and write out attributes for given concept.
+* CR:		04/29/99 AM.
+********************************************/
+
+bool CG::writeAttrs(
+	CONCEPT *conc,			// Concept (or node).
+	int pos,					// 0 for concept, positive int for each
+								// node of concept's phrase.
+	std::_t_ofstream *&o_attr,		// File to write attributes to.	// 07/01/03 AM.
+	_TCHAR *conpath,			// Hierarchy path down to (node's) concept.
+	long &n_attr,			// # of attr files.						// 07/01/03 AM.
+	long &c_attr,			// # of attributes in curr file.		// 07/01/03 AM.
+	_TCHAR *b_attr,															// 07/01/03 AM.
+	_TCHAR *fpath,															// 07/01/03 AM.
+	_TCHAR *suff																// 07/01/03 AM.
+	)
+{
+CON *con;
+
+if (!(con = (CON *) conc))
+	{
+	*cgerr << _T("[writeAttrs: Given null concept.]") << std::endl;
+	return false;
+	}
+
+PTR *attrs = 0;
+if (!(attrs = con->attrs))
+	return true;				// No attrs. That's OK.
+
+PTR *p_slot, *vals;
+CON *slot;
+//PVAL pv;
+_TCHAR *str, *s_slot;
+_TCHAR *s_kind;
+_TCHAR buf[MAXPATH];					// 04/29/99 AM.
+_TCHAR sbuf[MAXPATH];					// 04/29/99 AM.
+_TCHAR strbuf[MAXPATH*2];				// 04/30/99 AM.
+int val_pos = 0;	// If concept value is a node.	// 10/09/05 AM.
+
+while (attrs)
+   {
+   p_slot = attrs->v.vptr;
+   slot   = p_slot->v.vcon;
+
+	if (slot->id == cg_PHRASE
+		 || slot->id == cg_ATOM		// Fix. 05/03/99 AM.
+		 )
+		{
+		// Phrases are special. Handle elsewhere.
+		attrs = attrs->next;
+		continue;
+		}
+
+   vals   = p_slot->next;
+	kbm_->acon_->con_to_path(slot, /*UP*/ sbuf);		// 04/29/99 AM.
+   s_slot = sbuf;								// 04/29/99 AM.
+   while (vals)
+      {
+		/*
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		;; lastblank rule has trig_flag == true
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		ind attr
+		concept app resume rules zone_lines lastblank
+		0						; concept itself.
+		concept sys attrs proxy trig_flag
+		pcon
+		concept sys vals boolean true
+		end ind
+		*/
+		// New command for kb node as value.	// 10/09/05 AM.
+		/*
+		ind nattr
+		concept app resume rules zone_lines lastblank
+		0						; concept itself.
+		concept sys attrs proxy trig_flag
+		pcon
+		concept sys vals boolean true
+		1						; node number
+		end ind
+		*/
+
+		val_pos = 0;	// Reset node indicator.							// 10/09/05 AM.
+		buf[0] = '\0';
+
+      switch (vals->kind)
+         {
+         case pCON:
+            {
+				// Handle case where value is a KB NODE.					// 10/09/05 AM.
+				// val_pos = node number...									// 10/09/05 AM.
+				struct con *qcon = vals->v.vcon;								// 10/09/05 AM.
+				struct con *hcon = kbm_->acon_->node_owner(qcon);		// 10/09/05 AM.
+				if (hcon)		// Original concept is a node.			// 10/09/05 AM.
+					{
+					// Get position of the node.								// 10/09/05 AM.
+					val_pos = kbm_->acon_->con_ord(qcon);					// 10/09/05 AM.
+					kbm_->acon_->con_to_path(hcon, /*UP*/ buf);			// 10/09/05 AM.
+					}
+				else																	// 10/09/05 AM.
+					kbm_->acon_->con_to_path(vals->v.vcon, /*UP*/ buf);// 04/29/99 AM.
+				//str = kbm_->acon_->con_str(vals->v.vcon);				// 04/29/99 AM.
+				str = buf;															// 04/29/99 AM.
+				s_kind = _T("pcon");
+				}
+				break;
+         case pSYM:
+				str = vals->v.vsym->str;
+				prep_str(buf, str);											// 04/30/99 AM.
+				_stprintf(strbuf, _T("\"%s\""), buf);							// 04/30/99 AM.
+				str = strbuf;													// 04/30/99 AM.
+				s_kind = _T("psym");
+				break;
+         case pST:
+				str = vals->v.vst;
+				prep_str(buf, str);											// 04/30/99 AM.
+				_stprintf(strbuf, _T("\"%s\""), buf);							// 04/30/99 AM.
+				str = strbuf;													// 04/30/99 AM.
+				s_kind = _T("pst");
+				break;
+         case pNUM:
+				_stprintf(buf, _T("%llu"), vals->v.vnum);
+				str = buf;
+				s_kind = _T("pnum");
+				break;
+         case pFLOAT:														// 08/16/01 AM.
+				_stprintf(buf, _T("%f"), vals->v.vfloat);						// 08/16/01 AM.
+				str = buf;														// 08/16/01 AM.
+				s_kind = _T("pfloat");											// 08/16/01 AM.
+				break;															// 08/16/01 AM.
+         case pCHAR:
+				_stprintf(buf, _T("%c"), vals->v.vchar);
+				str = buf;
+				s_kind = _T("pchar");
+				break;
+         case pPTR:
+         default:
+			// 04/20/99 AM.
+        //fprintf(stderr, "[attrs_pret: Bad value kind=%d]\n", vals->kind);
+		  *cgerr << _T("[attrs_pret: Bad value kind=") << vals->kind << std::endl;
+            exit(1);
+         }
+
+		// For backward compatibility, avoid ind nattr.				// 10/09/05 AM.
+		if (!val_pos)															// 10/09/05 AM.
+			*o_attr << _T("ind attr") << std::endl;
+		else																		// 10/09/05 AM.
+			*o_attr << _T("ind nattr") << std::endl;							// 10/09/05 AM.
+		*o_attr << conpath << std::endl;
+		*o_attr << pos << std::endl;
+		*o_attr << s_slot << std::endl;
+		*o_attr << s_kind << std::endl;
+		*o_attr << str << std::endl;												// 04/29/99 AM.
+		if (val_pos)															// 10/09/05 AM.
+			*o_attr << val_pos << std::endl;									// 10/09/05 AM.
+		*o_attr << _T("end ind") << std::endl << std::endl;
+
+		// Manage current attr kb file.									// 07/01/03 AM.
+		if (n_attr	// If zero, keep the old way.						// 07/01/03 AM.
+		 && ++c_attr >= ATTRS_PER_FILE )									// 07/01/03 AM.
+			{
+			// Close up the attr file and open a new one.			// 07/01/03 AM.
+			++n_attr;	// Increment file count.						// 07/01/03 AM.
+			c_attr = 0;	// Reset count of attributes.					// 07/01/03 AM.
+			*o_attr << std::endl << _T("quit") << std::endl << std::endl;				// 07/01/03 AM.
+			delete o_attr;	// Maxed out in the old file.				// 07/01/03 AM.
+			_stprintf(b_attr, _T("%s%cattr%ld.%s"),fpath,DIR_CH,n_attr,suff);
+			o_attr = new std::_t_ofstream(TCHAR2A(b_attr));								// 07/01/03 AM.
+			}
+
+      vals = vals->next;
+      }
+   //fprintf(out, "\n");													// 04/20/99 AM.
+	*o_attr << std::endl;															// 04/20/99 AM.
+   attrs = attrs->next;
+   }
+
+return true;
+}
+
+
+/********************************************
+* FN:		WRITEPHRASE
+* SUBJ:	Traverse and write out concept's phrase.
+* CR:		04/30/99 AM.
+********************************************/
+
+bool CG::writePhrase(			// 04/30/99 AM.
+	CONCEPT *conc,
+	std::_t_ofstream &o_hier,
+	std::_t_ofstream &o_word,
+	std::_t_ofstream *&o_attr,
+	std::_t_ofstream &o_phr,
+	_TCHAR *path,				// Hierarchy path down to parent.
+	long &n_attr,			// # of attr files.						// 07/01/03 AM.
+	long &c_attr,			// # of attributes in curr file.		// 07/01/03 AM.
+	_TCHAR *b_attr,															// 07/01/03 AM.
+	_TCHAR *fpath,															// 07/01/03 AM.
+	_TCHAR *suff																// 07/01/03 AM.
+	)
+{
+CON *con;
+if (!(con = (CON *) conc))
+	{
+	*cgerr << _T("[writePhrase: no concept]") << std::endl;
+	return false;
+	}
+CON *phr;
+if (!(phr = kbm_->acon_->con_phrase(con)))
+	return true;			// No phrase.  That's OK.
+
+CON *ptr;				// For traversing.
+CON *bas;				// Node's basic concept.
+_TCHAR buf[MAXPATH];
+
+// Traverse phrase and write it out.
+o_phr << _T("ind phrase") << std::endl;
+o_phr << path << std::endl;
+for (ptr = phr; ptr; ptr = ptr->next)
+	{
+	bas = kbm_->acon_->nc(ptr);
+	kbm_->acon_->con_to_path(bas, /*UP*/ buf);
+	o_phr << buf << std::endl;
+	}
+o_phr << _T("end ind") << std::endl << std::endl;
+
+// Retraverse phrase to write out attributes.
+// (Opt: not optimal, but simple and modular.)
+int pos = 0;
+for (ptr = phr; ptr; ptr = ptr->next)
+	{
+	if (!writeAttrs(ptr, ++pos, o_attr, path,
+							n_attr,c_attr,b_attr,fpath,suff))		// 07/01/03 AM.
+		{
+		*cgerr << _T("[writeTree: Couldn't write attrs for con=") << path
+			  << _T(", node=") << pos
+			  << _T("]") << std::endl;
+		return false;
+		}
+	}
+
+return true;
+}
+
+/********************************************
+* FN:		READFILE
+* SUBJ:	Read a kb file into memory.
+* CR:		05/02/99 AM.
+********************************************/
+
+bool CG::readFile(
+	_TCHAR *infile
+	)
+{
+//cout << "infile=" << infile << std::endl;
+//ifstream fin(infile, std::ios::in | std::ios::nocreate);	// Upgrade. // 01/24/01 AM.
+std::_t_ifstream fin(infile, std::ios::in);							// Upgrade.	// 01/24/01 AM.
+#ifdef UNICODE
+if (!u_readbom(&fin))
+	{
+	*cgerr << _T("[readFile: Unhandled Unicode format=") << infile << _T("]") << std::endl;
+	return false;
+	}
+#endif
+
+if (!fin)
+	{
+	*cgerr << _T("[readFile: File not found=") << infile << _T("]") << std::endl;
+	return false;
+	}
+
+// "Take" the input command file.
+//if (!cmd_top(&fin, &cout, "> ", false))
+//if (!cmd_top(&fin, &cout, "> ", false,true))						// 03/27/00 AM.
+if (!cmd_top(&fin, cgerr, _T("> "), false,this,true))					// 02/19/02 AM.
+	{
+	*cgerr << _T("[readFile: Error in reading file=") << infile << _T("]") << std::endl;
+	return false;
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		READHIER
+* SUBJ:	Read <path>/hier.kb, or build the base hierarchy if it is missing.
+* NOTE:	An analyzer whose kb/user was empty, or held only .dict/.kbb files,
+*			had no hier.kb to read, so readKB returned before bind_sys() and the
+*			system concepts were never bound. Interpreted runs ignore that
+*			failure (Parse::execute reads kb/user late), so the first attribute
+*			add dereferenced a null and the engine segfaulted. A missing hier.kb
+*			now means a new, empty KB: the system concepts, with the dictionary
+*			index left flat (dict_find_index files words straight under "a" when
+*			it has no index children).						// 10/12/26 DD.
+********************************************/
+
+bool CG::readHier(
+	_TCHAR *path
+	)
+{
+_TCHAR infile[MAXPATH*2];
+_stprintf(infile, _T("%s%chier.kb"), path, DIR_CH);
+if (f_exists(infile))
+	return readFile(infile);
+
+*cgerr << _T("[readKB: No hier.kb in ") << path
+		 << _T(". Starting a new knowledge base.]") << std::endl;
+// One command per entry. Kept as separate literals: on Linux and macOS
+// _T(x) expands to (x), so adjacent _T("...") _T("...") is not a string.
+static const _TCHAR *baseHier[] = {
+	_T("add empty"),
+	_T("add root"),
+	_T("add hier \"concept\" \"gram\""),
+	_T("add hier \"concept\" \"sys\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"proxy\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"proxy\" \"atom\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"pproxy\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"pproxy\" \"phrase\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"common\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"common\" \"var\""),
+	_T("add hier \"concept\" \"sys\" \"attrs\" \"rule_elt\""),
+	_T("add hier \"concept\" \"sys\" \"vals\""),
+	_T("add hier \"concept\" \"sys\" \"vals\" \"boolean\""),
+	_T("add hier \"concept\" \"sys\" \"vals\" \"boolean\" \"false\""),
+	_T("add hier \"concept\" \"sys\" \"vals\" \"boolean\" \"true\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"wht\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"punct\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"ctrl\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"lex\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"lex\" \"slot\""),
+	_T("add hier \"concept\" \"sys\" \"nlp\" \"lex\" \"slot\" \"cases\""),
+	_T("add hier \"concept\" \"sys\" \"mean\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\" \"case\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\" \"case\" \"cap\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\" \"case\" \"allcap\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\" \"case\" \"mixed\""),
+	_T("add hier \"concept\" \"sys\" \"mean\" \"slot\" \"mixed\""),
+	_T("add hier \"concept\" \"sys\" \"dict\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"a\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"0\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"emoji\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"ctrl\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"pnct\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"unknown\""),
+	_T("add hier \"concept\" \"sys\" \"dict\" \"wht\""),
+	_T("quit")
+	};
+std::_t_stringstream base;
+for (size_t i = 0; i < sizeof(baseHier)/sizeof(baseHier[0]); ++i)
+	base << baseHier[i] << std::endl;
+if (!cmd_top(&base, cgerr, _T("> "), false,this,true))
+	{
+	*cgerr << _T("[readHier: Error building the base hierarchy.]") << std::endl;
+	return false;
+	}
+return true;
+}
+
+
+/********************************************
+* FN:           FINDWORDCONCEPT
+* SUBJ:	Find the concept for a word
+* CR:		04/18/00 Dd.
+* ARG:  User supplies the word string
+* NOTE:	06/29/03 AM. Renamed this from getwordconcept.
+********************************************/
+
+CONCEPT *CG::findWordInMemory(_TCHAR *str)
+{
+return kbm_->dict_find_word(str);
+}
+
+CONCEPT *CG::findWordConcept(_TCHAR *str)
+{
+CONCEPT *word = kbm_->dict_find_word(str);
+if (fullKBBs_.empty() && fullDicts_.empty())
+	return word;
+if (word && findAttrs(word))
+	return mergeFullWord(str, word);	// A dictionary entry already in memory.
+
+// Not in memory, or in memory with no attributes of its own: try a
+// lazily-loaded "*full" dictionary.	// 06/10/26.
+if (fullMissCache_.count(str))
+	{
+	if (!word)
+		logMissingWord(str);		// Known absent: skip the search but
+	return word;					// still record it for this file's log.
+	}
+
+CONCEPT *full = mergeFullWord(str, findFullWord(str));
+if (!word)
+	{
+	if (!full)
+		{
+		fullMissCache_.insert(str);	// Negative cache (run-wide).
+		logMissingWord(str);		// Record for later KB curation.
+		}
+	return full;
+	}
+
+// A bare word says nothing about what the dictionaries hold for it: every
+// attribute name is a dictionary word, so any KB work that names one leaves
+// it bare -- and under callanalyzer() the KB is shared with other analyzers.
+// A dict hit has been added to word itself; a kbb-only hit is linked to it.
+// Searched once either way.	// 09/13/26 DD.
+fullMissCache_.insert(str);
+CONCEPT *meaning = 0;
+if (full && full != word && !findVal(word, _T("meaning"), meaning))
+	addVal(word, _T("meaning"), full);
+return word;
+}
+
+/********************************************
+* FN:		MERGEFULLWORD
+* CR:		09/14/26 DD.
+* SUBJ:	Add what lazy files opened to merge hold for a word.
+* RET:	word, or what a merge file found if word is 0.
+* NOTE:	A file is opened to merge for an analyzer run by callanalyzer(),
+*			whose KB is its caller's. The caller's dictionaries have usually
+*			defined many of the same words, with attributes of their own, so
+*			unlike an analyzer's own lazy files these are searched for words
+*			already in memory too -- once per word, per file.
+********************************************/
+
+CONCEPT *CG::mergeFullWord(_TCHAR *str, CONCEPT *word)
+{
+for (FullFile &f : fullDicts_)
+	{
+	if (!f.merge || !f.merged.insert(str).second)
+		continue;
+	CONCEPT *found = searchDictFile(f, str);	// Adds to word if it exists.
+	if (!word)
+		word = found;
+	}
+for (FullFile &f : fullKBBs_)
+	{
+	if (!f.merge || !f.words || !f.merged.insert(str).second)
+		continue;
+	CONCEPT *found = searchKBBFile(f, str);
+	CONCEPT *meaning = 0;
+	if (!word)
+		word = found;
+	else if (found && found != word && !findVal(word, _T("meaning"), meaning))
+		addVal(word, _T("meaning"), found);
+	}
+return word;
+}
+
+CONCEPT *CG::matchDictKB(std::string dictFilename, std::vector<std::filesystem::path> kbfiles) {
+	if (kbfiles.size() == 0) return NULL;
+	std::vector<std::filesystem::path>::iterator ptr;
+	
+	CONCEPT *con, *dictcon;
+	std::filesystem::path filePath(dictFilename);
+	std::string head = removeExtension(filePath.filename().string());
+
+    for (ptr = kbfiles.begin(); ptr < kbfiles.end(); ptr++) {
+		std::filesystem::path kbpath(ptr->string());
+		std::string headkb = removeExtension(kbpath.filename().string());
+
+        if (strcmp(head.c_str(), headkb.c_str()) == 0) {
+			con = findRoot();
+			dictcon = findConcept(con,"dictionary");
+			if (dictcon) {
+				return dictcon;
+			}
+		}
+	}
+	return NULL;
+}
+
+std::string CG::removeExtension(const std::string& filename) {
+    size_t lastDot = filename.find_last_of(".");
+    if (lastDot == std::string::npos)
+        return filename;
+    return filename.substr(0, lastDot);
+}
+
+// Scan the kb dir for lazy "*full.dict"/"*full.kbb" files and open them for
+// on-disk stream lookup (openFullDict/openFullKBB) without loading them into
+// the KB. Used by the compiled-KB path, where readKB() returns early before it
+// would otherwise open them via readDicts/readKBBs.
+//
+// Note: we glob "*.dict"/"*.kbb" directly rather than reusing openDict()/
+// openKBB(), which short-circuit to a consolidated all.dict/all.kbb and would
+// not surface the separate full files. Each hit is filtered through
+// stemEndsWithFull so the same "-full"/"_full" boundary rule applies.	// 07/13/26 DD.
+void CG::openFullFiles() {
+	// In a compiled analyzer the source kb/user dir may be stripped down to just
+	// the lazy "*full" blobs -- or removed entirely. read_files() opens a
+	// directory_iterator, which throws on a missing dir, so bail out quietly if
+	// there is nothing to scan.
+	std::error_code ec;
+	if (!std::filesystem::is_directory(kbdir_, ec))
+		return;
+
+	std::vector<std::filesystem::path> files;
+	std::vector<std::filesystem::path>::iterator ptr;
+
+	read_files(kbdir_, _T("(.*\\.kbb)$"), files);
+	for (ptr = files.begin(); ptr < files.end(); ptr++) {
+		if (!stemEndsWithFull(removeExtension(ptr->filename().string())))
+			continue;
+		if (!openFullKBB(ptr->string()))
+			std::_t_cerr << _T("[Error: ") << ptr->string()
+				<< _T(" is not byte-sorted (LC_ALL=C); cannot lazy-load. Skipping.]") << std::endl;
+	}
+
+	read_files(kbdir_, _T("(.*\\.dict)$"), files);
+	for (ptr = files.begin(); ptr < files.end(); ptr++) {
+		if (!stemEndsWithFull(removeExtension(ptr->filename().string())))
+			continue;
+		if (!openFullDict(ptr->string()))
+			std::_t_cerr << _T("[Error: ") << ptr->string()
+				<< _T(" is not byte-sorted (LC_ALL=C); cannot lazy-load. Skipping.]") << std::endl;
+	}
+}
+
+// Load per-run incoming data into a compiled-KB analyzer. The static KB is
+// baked into kb.dll, so readKB() returns early (above) and never runs the
+// normal readKBBs load -- but data supplied at run time (e.g. a caller drops
+// "data.json" into kb/user and a json2kbb pass converts it to "data.kbb") is
+// NOT part of the compiled KB and must still reach the live KB. The signal is
+// the pair: a "<stem>.kbb" that has a matching "<stem>.json" sibling is loaded
+// normally here. Anything without a ".json" mate is assumed already compiled
+// in (so it is skipped, not double-loaded); a "*full" file is skipped too
+// (those are lazy-opened by openFullFiles(), never read whole). Generic: works
+// for any XXX.json/XXX.kbb pair, not just "data".					// 07/14/26 DD.
+void CG::loadJsonPairedKBBs() {
+	std::error_code ec;
+	if (!std::filesystem::is_directory(kbdir_, ec))
+		return;
+
+	std::vector<std::filesystem::path> files;
+	std::vector<std::filesystem::path>::iterator ptr;
+
+	read_files(kbdir_, _T("(.*\\.kbb)$"), files);
+	for (ptr = files.begin(); ptr < files.end(); ptr++) {
+		std::string stem = removeExtension(ptr->filename().string());
+		if (stemEndsWithFull(stem))
+			continue;						// lazy full file: opened by openFullFiles(), never loaded whole
+		std::filesystem::path jsonpath = ptr->parent_path() / (stem + ".json");
+		if (!std::filesystem::exists(jsonpath, ec))
+			continue;						// no ".json" mate: part of the compiled KB, do not re-load
+		readKBB(ptr->string());				// incoming run-time data: load into the live KB
+	}
+}
+
+bool CG::openDict(std::vector<std::filesystem::path>& files) {
+	bool found = false;
+	files.clear();
+
+	std::filesystem::path p(kbdir_);
+	p /= _T("all.dict");
+	allDictStream_.open(p.string(), std::ios::in);
+
+	if (allDictStream_) {
+		files.push_back(p);
+		allDictStream_.close();
+		found = true;
+	} else {
+		read_files(kbdir_,_T("(.*\\.dict)$"),files);
+		found = files.size() ? true : false;
+	}
+
+	return found;
+}
+
+bool CG::readDicts(std::vector<std::filesystem::path> files, std::vector<std::filesystem::path> kbfiles) {
+	std::vector<std::filesystem::path>::iterator ptr;
+	if (files.size() == 0) return false;
+    for (ptr = files.begin(); ptr < files.end(); ptr++) {
+		// A "*full.dict" is lazy-loaded and is huge by design. If it can't be
+		// lazy-loaded (eg not byte-sorted) do NOT fall back to a normal load --
+		// reading ~1M entries into the KB exhausts memory / stalls. Report and
+		// skip it so the engine fails fast instead of hanging.	// 07/03/26.
+		std::string stem = removeExtension(ptr->filename().string());
+		if (stemEndsWithFull(stem)) {
+			if (!openFullDict(ptr->string()))
+				std::_t_cerr << _T("[Error: ") << ptr->string()
+					<< _T(" is not byte-sorted (LC_ALL=C); cannot lazy-load. Skipping.]") << std::endl;
+			continue;
+		}
+        readDict(ptr->string(), kbfiles);
+	}
+	return true;
+}
+
+static bool dictSource = false;	// -DICTSOURCE (#432).
+void CG::setDictSource(bool on) { dictSource = on; }
+bool CG::getDictSource() { return dictSource; }
+
+bool CG::readDict(std::string file, std::vector<std::filesystem::path> kbfiles) {
+	// Any length of line. A MAXMSG buffer used to skip (with a cgerr
+	// message) any line of 2048+ chars; parseDictLine is no longer limited.
+	std::string line;
+	int lineCount = 0;
+	bool inBlock = false;					// Open "/*" carried between lines.
+
+	CONCEPT *ambigKB = matchDictKB(file, kbfiles);
+
+	allDictStream_.open(file, std::ios::in);
+
+	while (std::getline(allDictStream_, line)) {
+		// A CRLF file (eg a Windows checkout) read on Linux/macOS keeps
+		// the '\r', which would end up in the last word or value.
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+		_TCHAR *buf = line.data();
+		lineCount++;
+		// Blank out /* ... */ before the line lexer sees it. A comment-only
+		// line becomes all white and is dropped by the check below.	// 07/31/26 DD.
+		strip_block_comments(buf, inBlock, '#');
+		if (unicu::isStrWhiteSpace(buf))
+			continue;
+		// A bad line is reported (cgerr) and skipped. It used to end the
+		// read, silently dropping every entry after it (#433).
+		parseDictLine(buf, ambigKB, file, lineCount);
+	}
+
+	allDictStream_.close();
+
+	if (inBlock) {
+		// Every entry after the "/*" was blanked out. Silently loading a
+		// half-empty dictionary is far worse than refusing it.
+		sprintf(errout_, "%d 1 [unterminated /* block comment - %s]",
+				lineCount, file.c_str());
+		*cgerr << errout_ << std::endl;
+		std::_t_cerr << _T("[Unterminated /* block comment in ") << file
+					 << _T("]") << std::endl;
+		return false;
+	}
+	return true;
+}
+
+// Parse one line of a "*.dict" file (flat "word attr=val ..." format) into the
+// KB. Returns false on a malformed line. Shared by readDict and the lazy
+// per-word loader for "*full.dict".									// 06/10/26.
+bool CG::parseDictLine(_TCHAR *buf, CONCEPT *ambigKB, const std::string &file, int lineCount) {
+	bool dirty;
+	CONCEPT *wordCon, *parentCon;
+	// Sized to the data: these were _TCHAR[MAXSTR], and a quoted value or word
+	// of 512+ chars was copied in unbounded, overflowing the stack.
+	std::string token;
+	std::string attr;
+	std::string val;
+	DICT_CALL caller;
+	caller.line = lineCount;
+
+	// For error printouts
+	std::size_t botDirPos = file.find_last_of(DIR_CH);
+	std::string filename = file.substr(botDirPos+1, file.length()-2);
+
+	{
+		icu::StringPiece sp(buf);
+		const char *line = sp.data();
+		int32_t length = sp.length();
+
+		UChar32 c = 1;
+		int32_t e = 0;
+		int32_t eLast = 0;
+		int32_t ulen = 0;
+		int start = e;
+		int wordCount = 0;
+		int eqSign = -1;
+		bool suggestedAttr = false;
+		bool suggestedLit = false;
+		bool comment = false;
+		// Max tokens captured from a single dict line. Was a bare 30, which
+		// begins[]/lens[] indexed without any bound check -- a line with more
+		// tokens overflowed these stack arrays (UB). Cap generously and guard
+		// the loop below.	// #481-followup.
+		const int MAXDICTTOKS = 256;
+		int begins[MAXDICTTOKS];
+		int lens[MAXDICTTOKS];
+		bool lastWhite = false;
+		bool backSlash = false;
+		bool inWord = false;
+		bool inString = false;
+		bool firstTime = true;
+		bool doNext = true;
+		int tokint = 0;
+		int startQuote = 0;
+
+		for (int i = 0; i<MAXDICTTOKS; i++) {
+			begins[i] = -1;
+			lens[i] = -1;
+		}
+
+		U8_NEXT(line, e, length, c);
+
+		// get tokens
+		while (c) {
+			// A single iteration can emit up to two tokens; stop before
+			// begins[]/lens[] can overflow and report the over-long line.
+			if (tokint >= MAXDICTTOKS - 2) {
+				sprintf(errout_, "%d 1 [dict line has too many tokens (limit %d) - %s]",
+						lineCount, MAXDICTTOKS, filename.c_str());
+				*cgerr << errout_ << std::endl;
+				return false;
+			}
+			doNext =  true;
+			if (c == '"') {
+				if (backSlash && !inString) {
+					begins[tokint] = e - 2;
+					lens[tokint++] = 2;
+					inWord = false;
+					lastWhite = false;
+					backSlash = false;
+				} else if (!backSlash) {
+					if (inString) {
+						lens[tokint++] = e - begins[tokint];
+						inString = false;
+					} else {
+						begins[tokint] = startQuote = e - 1;
+						inString = true;
+					}					
+				}
+				backSlash = false;
+			}
+			else if (!inString) {
+				if (c == '#') {
+					comment = true;
+					break;
+				}
+				else if (c == '\\') {
+					backSlash = true;
+				}
+				else if (unicu::isWhiteSpace(c)) {
+					if (inWord) {
+						lens[tokint] = e - begins[tokint] - 1;
+						tokint++;
+						inWord = false;
+					}
+					start = e - 1;
+					lastWhite = true;
+				}
+				else if (unicu::isSingle(c)) {
+					if (unicu::isEmoji(c)) {
+						int32_t eSave = e;
+						U8_NEXT(line, e, length, c);
+						if (unicu::isEmojiVariation(c) || unicu::isEmojiJoiner(c)) {
+							bool joining = false;
+							while (c && (unicu::isEmojiVariation(c) || unicu::isEmojiJoiner(c) || joining)) {
+								joining = unicu::isEmojiJoiner(c);
+								eSave = e;
+								U8_NEXT(line, e, length, c);
+							}
+						}
+						e = eSave;
+						doNext = false;
+					}
+					begins[tokint] = firstTime ? 0 : eLast;
+					lens[tokint] = e - eLast;
+					tokint++;
+				}
+				else if (c != '_' && (unicu::isPunct(c) || c == '=')) {
+					if (inWord) {
+						lens[tokint] = e - begins[tokint] - 1;
+						tokint++;
+					}
+					if (c == '=' && eqSign == -1 && !backSlash) {
+						eqSign = tokint;
+					}
+					begins[tokint] = backSlash ? e - 2 : e - 1;
+					lens[tokint++] = backSlash ? 2 : 1;
+					inWord = false;
+					lastWhite = false;
+					backSlash = false;
+				}
+				else {
+					if (!inWord) {
+						inWord = true;
+						begins[tokint] = firstTime ? 0 : e - 1;
+					}
+					lastWhite = false;
+					backSlash = false;
+				}
+			}
+			eLast = e;
+			if (doNext)
+				U8_NEXT(line, e, length, c);
+			firstTime = false;
+		}
+		if (inWord) {
+			lens[tokint] = e - begins[tokint] - 1;
+			tokint++;
+		}
+		
+		// If comment, skip line
+		if (comment)
+			return true;
+
+		if (inString) {
+			sprintf(errout_, "%d %d [missing ending double quote - %s]", lineCount, startQuote, filename.c_str());
+			*cgerr << errout_ << std::endl;
+			return false;
+		}
+
+		// No attributes: the line is all words, eg "license plate" (#433).
+		// It used to be a "missing equal sign" error.
+		if (eqSign == -1)
+			eqSign = tokint + 1;
+
+		// Loop through tokens
+
+		bool isPhrase = false;
+		parentCon = NULL;
+		bool attrFlag = false;
+		_TCHAR cc = 0;
+		bool addValue = false;
+		bool wasQuoted = false;		// value came in double-quoted -> keep as string.
+
+		caller.file = file;
+		caller.type = DICT_CALL_FILE;
+
+		for (int i=0; i<tokint; i++) {
+			addValue = false;
+			int len = lens[i];
+			int beg = begins[i];
+			token.assign(&line[beg],len);
+			cc = token[0];
+			if (cc == '\\') {
+				beg++;
+				len--;
+				token.assign(&line[beg],len);
+				cc = token[0];
+			}
+
+			// Tokens before the first token before the equals sign
+			if (i < eqSign - 1) {
+				wordCon = kbm_->dict_get_word(token.data(),dirty,caller);
+				if (parentCon) {
+					parentCon = getConcept(parentCon,token.data());
+					isPhrase = true;
+				} else {
+					parentCon = wordCon;
+				}
+				// add ambigous concept to word concept
+				if (ambigKB) {
+					CONCEPT *kbcon = findConcept(ambigKB,token.data());
+					if (kbcon) {
+						CONCEPT *ambigCon = NULL;
+						if (!findVal(wordCon,"meaning",ambigCon)) {
+							addVal(wordCon,_T("meaning"),kbcon);
+						}
+					}
+				}
+
+			} else if (cc == '=') {
+				int donothing = 1;
+
+			} else if (cc == '"') {
+				int len = lens[i] - 2;
+				val.assign(token, 1, len > 0 ? len : 0);
+				addValue = true;
+				wasQuoted = true;
+
+			} else if (attrFlag) {
+				// Unquoted value. The line tokenizer splits on punctuation, so a
+				// value such as A-B-C arrives as separate tokens (A, -, B, -, C).
+				// Re-join tokens that are contiguous in the source (no whitespace
+				// gap) so hyphens/dots inside an unquoted value are preserved
+				// rather than mis-read as extra attributes. -- #481.
+				int vbeg = begins[i];
+				int vend = begins[i] + lens[i];
+				while (i + 1 < tokint && begins[i+1] == vend) {
+					i++;
+					vend = begins[i] + lens[i];
+				}
+				val.assign(&line[vbeg], vend - vbeg);
+				addValue = true;
+				attrFlag = false;
+
+			} else {
+				attr.assign(token, 0, lens[i]);
+				attrFlag = true;
+				if (!_tcsicmp(attr.c_str(), _T("l"))) {
+					suggestedLit = true;
+				}
+				else if (!_tcsicmp(attr.c_str(), _T("s"))) {
+					suggestedAttr = true;
+				}
+			}
+
+			if (addValue) {
+				// A double-quoted value is always a string, even if it looks
+				// numeric (at="123"): preserve the author's intent.	// #385.
+				if (!wasQuoted && unicu::isNumeric(val.data())) {
+					long long vnum = 0;
+					unicu::strToLong(val.data(),vnum);
+					addVal(parentCon,attr.data(),vnum);
+				} else
+					addSval(parentCon,attr.data(),val.data());
+				attrFlag = false;
+				addValue = false;
+				wasQuoted = false;
+			}
+		}
+
+		if (attrFlag) {
+			sprintf(errout_, "%d %d [missing attribute value - %s]", lineCount, begins[tokint-1]+1, filename.c_str());
+			*cgerr << errout_ << std::endl;
+			return false;
+		}
+
+		if (isPhrase && suggestedLit) {
+			addSval(parentCon,_T("l"),val.data());
+		} else if (isPhrase && !suggestedAttr) {
+			addSval(parentCon,_T("s"),_T("phrase"));
+		}
+
+		// -DICTSOURCE: where the entry is, for the debugger and editors
+		// (#432, #475). A word on several lines keeps its first. A lazily
+		// loaded *full.dict line has no line number, so only its file.
+		if (dictSource && parentCon && !findVals(parentCon, _T("dictfile"))) {
+			_TCHAR fname[MAXSTR];
+			_stprintf(fname, _T("%.*s"), (int)(MAXSTR - 1), filename.c_str());
+			addSval(parentCon,_T("dictfile"),fname);
+			if (lineCount > 0)
+				addVal(parentCon,_T("dictline"),(long long) lineCount);
+		}
+
+	}
+
+	return true;
+}
+
+bool CG::openKBB(std::vector<std::filesystem::path>& files) {
+	bool found = false;
+	files.clear();
+
+	std::filesystem::path p(kbdir_);
+	p /= _T("all.kbb");
+	allDictStream_.open(p.string(), std::ios::in);
+
+	if (allDictStream_) {
+		files.push_back(p);
+		allDictStream_.close();
+		found = true;
+	} else {
+		read_files(kbdir_,_T("(.*\\.kbb)$"),files);
+		found = files.size() ? true : false;
+	}
+
+	return found;
+}
+
+bool CG::readKBBs(std::vector<std::filesystem::path> files) {
+	std::vector<std::filesystem::path>::iterator ptr;
+	if (files.size() == 0) return false;
+    for (ptr = files.begin(); ptr < files.end(); ptr++) {
+		// A "*full.kbb" is lazy-loaded and is huge by design. If it can't be
+		// lazy-loaded (eg not byte-sorted) do NOT fall back to a normal load --
+		// reading ~1M entries into the KB exhausts memory / stalls. Report and
+		// skip it so the engine fails fast instead of hanging.	// 07/03/26.
+		std::string stem = removeExtension(ptr->filename().string());
+		if (stemEndsWithFull(stem)) {
+			if (!openFullKBB(ptr->string()))
+				std::_t_cerr << _T("[Error: ") << ptr->string()
+					<< _T(" is not byte-sorted (LC_ALL=C); cannot lazy-load. Skipping.]") << std::endl;
+			continue;
+		}
+        readKBB(ptr->string());
+	}
+	return true;
+}
+
+bool CG::readKBB(std::string file) {
+	// Any length of line. This was getline() into a MAXMSG buffer: a line of
+	// 2048+ chars set failbit, peek() then returned EOF, and every line after
+	// it was silently dropped.
+	std::string line;
+
+	std::ifstream streamer;
+	streamer.open(file, std::ios::in);
+
+	std::vector<CONCEPT *> cons;
+	int32_t index = 0;					// Indentation state, carried between lines.
+	bool inBlock = false;				// Open "/*" carried between lines.
+
+	while (std::getline(streamer, line)) {
+		// A CRLF file (eg a Windows checkout) read on Linux/macOS keeps
+		// the '\r': the concept on every line was then named "verbs\r"
+		// and findconcept("verbs") came back null, with no error.
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+		_TCHAR *buf = line.data();
+		// Blank out /* ... */ before the line lexer sees it.	// 07/31/26 DD.
+		// Only a line the stripper actually touched is dropped when it comes
+		// back all white: parseKBBLine reads leading spaces as indentation and
+		// resets the concept stack at indent 0, so feeding it a blanked-out
+		// comment would break the nesting of the entries around it. Lines the
+		// stripper left alone still go through unchanged, blank or not.
+		if (strip_block_comments(buf, inBlock, '#') && unicu::isStrWhiteSpace(buf))
+			continue;
+		parseKBBLine(buf, cons, index, findRoot());
+	}
+
+	streamer.close();
+
+	if (inBlock) {
+		// Every entry after the "/*" was blanked out -- report rather than
+		// quietly loading a truncated kbb.
+		std::_t_cerr << _T("[Unterminated /* block comment in ") << file
+					 << _T("]") << std::endl;
+		return false;
+	}
+	return true;
+}
+
+// Parse one line of a "*.kbb" file into the KB. The indentation state (cons,
+// the concept stack, and index, the previous line's depth) is carried between
+// calls so callers can feed whole files or just the block for a single word.
+void CG::parseKBBLine(_TCHAR *buf, std::vector<CONCEPT *> &cons, int32_t &index, CONCEPT *root) {
+		bool found;
+		CONCEPT *con = 0, *parent;
+		std::vector<std::pair<int,int>> conIndices;
+		// Sized to the data: these were _TCHAR[MAXSTR], and a concept name,
+		// attribute or value of 512+ chars was copied in unbounded.
+		std::string word;
+		std::string attr;
+		std::string val;
+		int32_t indent = 0;
+		int32_t lastIndent = 0;
+		bool attrFlag = false;
+		bool openSquare = false;
+		bool openDouble = false;
+		bool collectingConcept = false;
+		// A quoted value was just stored. The empty text between its closing
+		// quote and the next ',', ']' or space is not another value: it used
+		// to be stored as the number 0 after every quoted value but the last
+		// on a line (["a","b"] loaded as a, 0, b, 0).
+		bool quoted = false;
+
+		icu::StringPiece sp(buf);
+		const char *line = sp.data();
+		int32_t length = sp.length();
+		if (!length)
+			return;
+
+		UChar32 c = 1;
+		int32_t end = 0;
+		int32_t start = 0;
+		int32_t ulen = 0;
+		found = false;
+		U8_NEXT(line, end, length, c);
+
+		// Copy n bytes of the line from start (none if n < 1).
+		auto take = [&](std::string &s, int32_t n) {
+			s.assign(&line[start], n > 0 ? n : 0);
+		};
+
+		// Get indent
+		int spaces = 0;
+		while (c) {
+			if (unicu::isWhiteSpace(c)) {
+				spaces++;
+				U8_NEXT(line, end, length, c);
+			} else {
+				break;
+			}
+		}
+		if (c == '#')
+			return;
+
+		lastIndent = index;
+		indent = spaces;
+
+		attrFlag = false;
+		openSquare = false;
+		openDouble = false;
+		collectingConcept = false;
+
+		index = indent/2;
+		start = indent;
+		if (indent == 0) {
+			cons.clear();
+			lastIndent = 0;
+		}
+
+		bool conceptDone = false;
+
+		// Get the rest
+		while (c) {
+			if (c == '#') {
+				break;
+			}
+			// A space ends an unquoted attribute value in the inline KBB form
+			// "attr=val attr=val ..." (eg "m01: pos=verb vform=past tense=past").
+			// Without this, each space just reset start and every value but the
+			// last one (which EOL terminates) was silently dropped.
+			else if (conceptDone && attrFlag && !openDouble && !openSquare
+						&& unicu::isWhiteSpace(c)) {
+				take(val, end-start-1);
+				if (quoted)
+					;
+				else if (unicu::isNumeric(val.data())) {
+					long long vnum = 0;
+					unicu::strToLong(val.data(), vnum);
+					addVal(con, attr.data(), vnum);
+				} else
+					addSval(con, attr.data(), val.data());
+				quoted = false;
+				start = end;
+				attrFlag = false;
+				openDouble = false;
+			}
+			else if (conceptDone && !openDouble && unicu::isWhiteSpace(c)) {
+				int doNothing = 1;
+				start = end;
+			}
+			else if (conceptDone && !openDouble && c == '[') {
+				openSquare = true;
+				start = end;
+				attrFlag = true;			
+			}
+			else if (conceptDone && openSquare && collectingConcept && (c == ']' || c ==',')) {
+				CONCEPT *conPath = addConceptByPath(line,conIndices);
+				addVal(con,attr.data(),conPath);
+				start = end;
+				if (c != ',') {
+					openDouble = false;
+					openSquare = false;
+					collectingConcept = false;
+					attrFlag = false;
+				}
+				conIndices.clear();		
+			}
+			else if (conceptDone && openSquare && openDouble && c == '"') {
+				take(val, end-start-1);
+				if (val == _T("concept") || collectingConcept) {
+					collectingConcept = true;
+					conIndices.push_back(std::make_pair(start,end-1));
+				} else {
+					start = end;
+					addSval(con,attr.data(),val.data());
+					quoted = true;
+				}
+				start = end;
+				// Add to concept path
+				openDouble = false;
+			}
+			else if (conceptDone && openSquare && c == '"') {
+				openDouble = true;
+				start = end;
+				attrFlag = true;			
+			}
+			// If attribute starts with a double quote
+			else if (conceptDone && !attrFlag && !openDouble && c == '"') {
+				openDouble = true;
+				start = end;
+			}
+			else if (conceptDone && attrFlag && !openDouble && c == '"') {
+				openDouble = true;
+				start = end;
+			}
+			else if (conceptDone && !attrFlag && c == ':') {
+				start = end;
+			}
+			else if (conceptDone && attrFlag &&
+						((openSquare && !openDouble && (c == ',' || c == ']')) ||
+						 (!openSquare && !openDouble && c == ',') ||
+						 (openDouble && c == '"') ||
+						  end == length)) {
+				int adjust = length && c != ']' && c != '"' && c != ',' ? 0 : 1;
+				take(val, end-start-adjust);
+				// An unquoted numeric value is stored as a number; a quoted value
+				// (openDouble) is always a string. This is what lets a KBB round-
+				// trip num/float vs string, instead of everything being a string.
+				// -- #439.
+				if (quoted && !openDouble)
+					;
+				else if (!openDouble && unicu::isNumeric(val.data())) {
+					long long vnum = 0;
+					unicu::strToLong(val.data(),vnum);
+					addVal(con,attr.data(),vnum);
+				} else
+					addSval(con,attr.data(),val.data());
+				quoted = openDouble;
+				start = end;
+				if (end >= length) {
+					conceptDone = false;
+					attrFlag = false;
+					openSquare = false;
+				}
+				else if (c == ']') {
+					openSquare = false;
+					attrFlag = false;
+				// Comma separating attributes
+				} else if (c == ',' && attrFlag && !openDouble && !openSquare) {
+					attrFlag = false;
+				}
+				openDouble = false;			
+			}
+			else if (conceptDone && c == '=') {
+				int adjust = openDouble ? 2 : 1;  // This is in case the attribute was double quoted
+				take(attr, end-start-adjust);
+				openDouble = false;
+				quoted = false;
+				start = end;
+				attrFlag = true;			
+			}
+			else if (!conceptDone && (c == ':' || end == length || (openDouble && !attrFlag && c == '"'))) {
+				int adjust = (c == ':' || c == '"') ? 1 : 0;
+				openDouble = false;
+				take(word, end-start-adjust);
+				if (index == 0)
+					parent = root;
+				else
+					parent = cons[index-1];
+				con = makeConcept(parent,word.data());
+				// Backup if indent less than last
+				for (int j=lastIndent; j && j>=index; j--)
+					cons.pop_back();
+				cons.push_back(con);
+				conceptDone = true;
+				start = end;
+			}
+			else if (!conceptDone && c == '"') {
+				openDouble = true;
+				start = end;		
+			}
+			U8_NEXT(line, end, length, c);
+		}
+}
+
+CONCEPT *CG::addConceptByPath(const char *line, std::vector<std::pair<int,int>> conIndices) {
+	CONCEPT *con = findRoot();
+	int i = 0;
+	std::string word;
+    for (auto indice: conIndices) {
+		// indice.second is an end offset, not a length. Copying that many
+		// bytes into a MAXMSG buffer overflowed it on a long line.
+		word.assign(&line[indice.first], indice.second - indice.first);
+		if (i++)
+			con = makeConcept(con,word.data());
+    }
+	return con;
+}
+
+/********************************************
+* LAZY "*full" DICTIONARY LOADING.						// 06/10/26.
+* A dictionary file whose stem ends in "full" (eg "en-full.kbb",
+* "en-full.dict") is NOT read whole into the KB. Instead it is kept open and
+* binary-searched one word at a time, the first time each word is needed during
+* analysis (see findWordConcept). The file MUST be sorted for the binary search;
+* if it is not, we warn and fall back to loading it the normal way.
+********************************************/
+
+// Read one whole line of any length into str, CR/LF trimmed. The lazy loaders
+// used getline() into a MAXMSG buffer, which failed on a 2048+ char line.
+// false at end of file, like getline().
+static bool readFullLine(std::istream &in, std::string &str)
+{
+	if (!std::getline(in, str))
+		return false;
+	while (!str.empty() && (str.back() == '\r' || str.back() == '\n'))
+		str.pop_back();
+	return true;
+}
+
+// True if the file stem ends in the word "full" (eg "en-full", or just "full").
+bool CG::stemEndsWithFull(const std::string &stem)
+{
+	const std::string suffix = "full";
+	size_t n = stem.size();
+	if (n < suffix.size())
+		return false;
+	std::string tail = stem.substr(n - suffix.size());
+	for (size_t i = 0; i < tail.size(); i++)
+		if (tail[i] >= 'A' && tail[i] <= 'Z')
+			tail[i] = (char)(tail[i] + 32);			// ASCII lowercase.
+	if (tail != suffix)
+		return false;
+	if (n == suffix.size())
+		return true;
+	// Require a word boundary so "en-full" matches but "en-full-feat" does not.
+	char before = stem[n - suffix.size() - 1];
+	return (before == '-' || before == '_');
+}
+
+// Set sym->con for a word so a lazily-loaded kbb concept is found (and cached)
+// by dict_find_word on the next lookup. (Flat *.dict words are cached for free
+// because parseDictLine routes them through dict_get_word.)
+void CG::cacheWordCon(_TCHAR *name, CONCEPT *con)
+{
+	if (!con)
+		return;
+	bool dirty;
+	SYM *sym = kbm_->asym_->sym_get(name, dirty);
+	if (sym && !sym->con)
+		sym->con = (CON *) con;
+}
+
+// Record a word that is not in any "*full" file to "missing-words.log" in the
+// kb directory, one word per line, for later addition to the KBB/dicts. Only
+// canonical all-lowercase words are logged, so capitalized surface forms (eg
+// "The", looked up before the tokenizer retries "the") don't pollute the list.
+void CG::logMissingWord(_TCHAR *str)
+{
+	if (!str || !*str)
+		return;
+	if (!unicu::isStrLower(str))
+		return;
+	if (!loggedThisFile_.insert(str).second)
+		return;							// Already logged for this file.
+	if (!fullMissLogOpen_) {
+		std::filesystem::path p(missingLogDir_.empty() ? std::string(kbdir_) : missingLogDir_);
+		p /= _T("missing-words.log");
+		fullMissLog_.open(p.string(), std::ios::out);
+		fullMissLogOpen_ = true;
+	}
+	if (fullMissLog_)
+		fullMissLog_ << str << std::endl;
+}
+
+// Choose where missing-words.log is written. Called per input file with that
+// file's output "*_log" folder; if the folder changes, reopen there.
+void CG::setMissingLogDir(const _TCHAR *dir)
+{
+	if (!dir || !*dir)
+		return;
+	if (missingLogDir_ == dir)
+		return;
+	missingLogDir_ = dir;
+	loggedThisFile_.clear();			// New file: fresh, independent log.
+	if (fullMissLogOpen_) {				// Redirect to the new folder.
+		fullMissLog_.close();
+		fullMissLogOpen_ = false;
+	}
+}
+
+// Read forward from the current position to the next "word:" line (indent 2) in
+// the open *full.kbb. Returns its word, the byte offset of the line, and the
+// byte offset just after it. false at end of file.
+bool CG::nextKBBKey(FullFile &f, std::streamoff &keyStart, std::string &key, std::streamoff &afterKey, bool *multiLine)
+{
+	std::string str;
+	while (true) {
+		std::streamoff pos = f.stream.tellg();
+		if (pos < 0)
+			return false;
+		if (!readFullLine(f.stream, str))
+			return false;
+		_TCHAR *line = str.data();
+		// Single-line "/* ... */" only: this file is binary-searched, so a
+		// comment that runs past its own line cannot be recognized from an
+		// arbitrary seek. Report it and let the caller reject the file.
+		bool inBlock = false;
+		if (strip_block_comments(line, inBlock, '#')) {
+			if (inBlock && multiLine)
+				*multiLine = true;
+			if (unicu::isStrWhiteSpace(line))
+				continue;					// Comment-only line.
+		}
+		int sp = 0;
+		while (line[sp] == ' ')
+			sp++;
+		if (sp == 2 && line[2] != '\0') {		// A word line ("  word:").
+			std::string w;
+			for (int i = 2; line[i] && line[i] != ':'; i++)
+				w += line[i];
+			keyStart = pos;
+			key = w;
+			afterKey = f.stream.tellg();
+			// Reading the file's last line (no trailing newline) leaves the
+			// stream at EOF, where tellg() returns -1. The position past the
+			// last key is end-of-file; returning -1 made searchKBBFile set
+			// lo = -1, so the binary search never terminated for any key that
+			// sorts after the last word in the file (e.g. an em-dash). See #669.
+			if (afterKey < 0)
+				afterKey = f.size;
+			return true;
+		}
+	}
+}
+
+// Read forward from the current position to the next non-comment line in the
+// open *full.dict and return its first token (the word).
+bool CG::nextDictKey(FullFile &f, std::streamoff &keyStart, std::string &key, std::streamoff &afterKey, bool *multiLine)
+{
+	std::string str;
+	while (true) {
+		std::streamoff pos = f.stream.tellg();
+		if (pos < 0)
+			return false;
+		if (!readFullLine(f.stream, str))
+			return false;
+		_TCHAR *line = str.data();
+		// Single-line "/* ... */" only -- see nextKBBKey.
+		bool inBlock = false;
+		if (strip_block_comments(line, inBlock, '#') && inBlock && multiLine)
+			*multiLine = true;
+		int i = 0;
+		while (line[i] == ' ' || line[i] == '\t')
+			i++;
+		if (line[i] == '\0' || line[i] == '#')
+			continue;							// Blank or comment line.
+		std::string w;
+		for (; line[i] && line[i] != ' ' && line[i] != '\t'; i++)
+			w += line[i];
+		keyStart = pos;
+		key = w;
+		afterKey = f.stream.tellg();
+		// Reading the file's last line (no trailing newline) leaves the stream
+		// at EOF, where tellg() returns -1. The position past the last key is
+		// end-of-file; returning -1 made searchDictFile set lo = -1, so the
+		// binary search never terminated for any key that sorts after the last
+		// word in the file (e.g. an em-dash U+2014 / en-dash U+2013). See #669.
+		if (afterKey < 0)
+			afterKey = f.size;
+		return true;
+	}
+}
+
+// Verify the open *full.kbb is sorted by word (a precondition of binary search).
+bool CG::kbbFileSorted(FullFile &f)
+{
+	f.stream.clear();
+	f.stream.seekg(0);
+	std::streamoff keyStart, afterKey;
+	std::string key, prev;
+	bool first = true;
+	bool multiLine = false;
+	while (nextKBBKey(f, keyStart, key, afterKey, &multiLine)) {
+		if (multiLine) {
+			std::_t_cerr << _T("[kbbFileSorted: multi-line /* */ comment is not")
+						 << _T(" supported in a lazily-searched *full.kbb.]") << std::endl;
+			return false;
+		}
+		if (!first && strcmp(key.c_str(), prev.c_str()) < 0)
+			return false;
+		prev = key;
+		first = false;
+	}
+	if (multiLine) {
+		std::_t_cerr << _T("[kbbFileSorted: multi-line /* */ comment is not")
+					 << _T(" supported in a lazily-searched *full.kbb.]") << std::endl;
+		return false;
+	}
+	f.stream.clear();
+	f.stream.seekg(0);
+	return true;
+}
+
+// Verify the open *full.dict is sorted by word.
+bool CG::dictFileSorted(FullFile &f)
+{
+	f.stream.clear();
+	f.stream.seekg(0);
+	std::streamoff keyStart, afterKey;
+	std::string key, prev;
+	bool first = true;
+	bool multiLine = false;
+	while (nextDictKey(f, keyStart, key, afterKey, &multiLine)) {
+		if (multiLine) {
+			std::_t_cerr << _T("[dictFileSorted: multi-line /* */ comment is not")
+						 << _T(" supported in a lazily-searched *full.dict.]") << std::endl;
+			return false;
+		}
+		if (!first && strcmp(key.c_str(), prev.c_str()) < 0)
+			return false;
+		prev = key;
+		first = false;
+	}
+	if (multiLine) {
+		std::_t_cerr << _T("[dictFileSorted: multi-line /* */ comment is not")
+					 << _T(" supported in a lazily-searched *full.dict.]") << std::endl;
+		return false;
+	}
+	f.stream.clear();
+	f.stream.seekg(0);
+	return true;
+}
+
+// Open a "*full.kbb" for lazy lookup. Returns false (caller loads it normally)
+// if it can't be opened or is not sorted.
+bool CG::openFullKBB(const std::string &file, bool merge)
+{
+	fullKBBs_.emplace_back();					// In-place: ifstream is not movable.
+	FullFile &f = fullKBBs_.back();
+	f.file = file;
+	f.merge = merge;
+	f.stream.open(file, std::ios::in | std::ios::binary);
+	if (!f.stream) {
+		std::_t_cerr << _T("[openFullKBB: couldn't open ") << file << _T("]") << std::endl;
+		fullKBBs_.pop_back();
+		return false;
+	}
+	f.stream.seekg(0, std::ios::end);
+	f.size = f.stream.tellg();
+	f.stream.seekg(0);
+
+	if (!kbbFileSorted(f)) {
+		std::_t_cerr << _T("[openFullKBB: ") << file
+					 << _T(" is not sorted.]") << std::endl;
+		fullKBBs_.pop_back();
+		return false;
+	}
+
+	// The kbb's top concept. Read it from the file (the first non-comment line
+	// at indent 0) rather than assuming "dictionary": an isolated kbb such as
+	// "en-roots-full.kbb" has its own top concept ("roots"), and its words must
+	// hang off that so the analyzer can find it (getconcept(findroot(),"roots")).
+	// This also creates that concept up front, before any word is looked up.
+	std::string rootName;
+	f.stream.clear();
+	f.stream.seekg(0);
+	{
+		std::string str;
+		while (readFullLine(f.stream, str)) {
+			_TCHAR *line = str.data();
+			bool inBlock = false;			// Single-line "/* */" only.
+			strip_block_comments(line, inBlock, '#');
+			if (line[0] == '#' || line[0] == '\0' || line[0] == ' ')
+				continue;					// comment, blank, or indented line
+			for (int i = 0; line[i] && line[i] != ':'; i++)
+				rootName += line[i];
+			break;
+		}
+	}
+	if (rootName.empty())
+		rootName = _T("dictionary");		// no top concept found; fall back
+	f.root = getConcept(findRoot(), rootName.data());
+
+	// Searched for every word only if it is a dictionary: its top concept
+	// is "dictionary", or a same-stem .dict twin sits beside it (en-full.kbb
+	// with en-full.dict). A domain KB (an ICD index, synonyms) is searched
+	// only when findconcept/getconcept/down ask for its keys: searching it
+	// for every token and spelling candidate made a spell pass 100x slower.
+	std::filesystem::path twin(file);
+	twin.replace_extension(".dict");
+	f.words = rootName == _T("dictionary") || std::filesystem::exists(twin);
+
+	std::_t_cerr << _T("[Lazy-loading ") << (f.words ? _T("words") : _T("keys"))
+				 << _T(" from ") << file
+				 << _T(" under \"") << rootName << _T("\"]") << std::endl;
+
+	// A word missed before this file was open may be in it. Only matters when
+	// files are added mid-run, as callanalyzer() does.	// 09/13/26 DD.
+	fullMissCache_.clear();
+	return true;
+}
+
+// Open a "*full.dict" for lazy lookup. Returns false (caller loads it normally)
+// if it can't be opened or is not sorted.
+bool CG::openFullDict(const std::string &file, bool merge)
+{
+	fullDicts_.emplace_back();					// In-place: ifstream is not movable.
+	FullFile &f = fullDicts_.back();
+	f.file = file;
+	f.merge = merge;
+	f.stream.open(file, std::ios::in | std::ios::binary);
+	if (!f.stream) {
+		std::_t_cerr << _T("[openFullDict: couldn't open ") << file << _T("]") << std::endl;
+		fullDicts_.pop_back();
+		return false;
+	}
+	f.stream.seekg(0, std::ios::end);
+	f.size = f.stream.tellg();
+	f.stream.seekg(0);
+
+	if (!dictFileSorted(f)) {
+		std::_t_cerr << _T("[openFullDict: ") << file
+					 << _T(" is not sorted.]") << std::endl;
+		fullDicts_.pop_back();
+		return false;
+	}
+
+	std::_t_cerr << _T("[Lazy-loading words from ") << file << _T("]") << std::endl;
+
+	// See openFullKBB.	// 09/13/26 DD.
+	fullMissCache_.clear();
+	return true;
+}
+
+// Lazily look up a word. Try the flat ".dict" first: it carries pos (and other
+// features) directly on the word concept, which is what the tokenizer reads via
+// findAttrs(word). Then always consult the ".kbb": it loads the word under the
+// kbb's top "dictionary" concept and we link the word to that kbb entry via a
+// "meaning" attribute (mirroring the full-load dict/kbb pairing).
+CONCEPT *CG::findFullWord(_TCHAR *str)
+{
+	CONCEPT *word = 0;
+	if (!fullDicts_.empty())
+		word = findFullDictWord(str);
+
+	if (!fullKBBs_.empty()) {
+		CONCEPT *kbbWord = findFullKBBWord(str);		// Loads it under "dictionary".
+		if (kbbWord) {
+			if (!word)
+				word = kbbWord;						// Word present only in the kbb.
+			else if (word != kbbWord) {
+				CONCEPT *existing = 0;
+				if (!findVal(word, _T("meaning"), existing))
+					addVal(word, _T("meaning"), kbbWord);
+			}
+		}
+	}
+	return word;
+}
+
+// Look up str in every open *full.kbb. Each kbb is an independent knowledge
+// source with its own top concept (eg "dictionary" for en-full.kbb, "roots"
+// for en-roots-full.kbb), so we build the word under each one that has it --
+// not just the first -- and return the first match to the caller (the token's
+// primary word concept). Lookups are cached after the first hit, so this whole
+// scan runs at most once per distinct word.
+CONCEPT *CG::findFullKBBWord(_TCHAR *str)
+{
+	CONCEPT *first = 0;
+	for (FullFile &f : fullKBBs_) {
+		if (f.merge)
+			continue;					// Searched by mergeFullWord.
+		if (!f.words)
+			continue;					// A domain KB: findconcept only.
+		CONCEPT *word = searchKBBFile(f, str);
+		if (word && !first)
+			first = word;
+	}
+	return first;
+}
+
+// Binary-search one open *full.kbb for str. If found, build that word's block
+// (the word line plus its indented senses) into the KB, cache it, and return it.
+CONCEPT *CG::searchKBBFile(FullFile &f, _TCHAR *str)
+{
+	std::streamoff keyStart;
+	if (!locateKBBKey(f, str, keyStart))
+		return 0;
+	CONCEPT *word = buildKBBBlock(f, keyStart);
+	if (f.words)
+		cacheWordCon(str, word);	// A domain key (eg an ICD code) is no word.
+	return word;
+}
+
+// Binary-search one open *full.kbb for the key line "  key:". Sets keyStart to
+// the byte offset of that line.
+bool CG::locateKBBKey(FullFile &f, const std::string &str, std::streamoff &keyStart)
+{
+	std::string buf;
+	std::streamoff lo = 0, hi = f.size;
+	std::streamoff afterKey;
+	std::string key;
+
+	// Lower-bound: first word line whose word >= str.
+	while (lo < hi) {
+		std::streamoff mid = lo + (hi - lo) / 2;
+		f.stream.clear();
+		f.stream.seekg(mid);
+		if (mid != 0)
+			std::getline(f.stream, buf);		// Align to a line start.
+		if (!nextKBBKey(f, keyStart, key, afterKey)) {
+			hi = mid;
+			continue;
+		}
+		if (key < str) {
+			if (afterKey <= lo)		// Defensive: never move lo backwards/sideways
+				break;				// (would loop forever). str is past EOF here.
+			lo = afterKey;
+		} else
+			hi = mid;
+	}
+
+	// lo is <= the target's word line and a line boundary. The midpoint search
+	// can leave it a line or two short, so scan forward past any remaining
+	// word lines < str.
+	f.stream.clear();
+	f.stream.seekg(lo);
+	do {
+		if (!nextKBBKey(f, keyStart, key, afterKey))
+			return false;
+	} while (key < str);
+	return key == str;
+}
+
+// Build the block of the key line at keyStart (the key plus its indented
+// lines) under the file's top concept, and return the key's concept.
+CONCEPT *CG::buildKBBBlock(FullFile &f, std::streamoff keyStart)
+{
+	std::string buf;
+	_TCHAR *line;
+	f.stream.clear();
+	f.stream.seekg(keyStart);
+
+	std::vector<CONCEPT *> cons;
+	cons.push_back(f.root);						// cons[0] = parent for the word.
+	int32_t index = 0;
+
+	bool busy = lazyBusy_;						// Making the key must not
+	lazyBusy_ = true;							// search the file again.
+	bool inBlock = false;						// Single-line "/* */" only.
+	readFullLine(f.stream, buf);				// The word line.
+	line = buf.data();
+	strip_block_comments(line, inBlock, '#');
+	parseKBBLine(line, cons, index, f.root);
+	CONCEPT *word = cons.size() > 1 ? cons[1] : 0;
+
+	while (true) {
+		if (f.stream.peek() == EOF)
+			break;
+		if (!readFullLine(f.stream, buf))
+			break;
+		line = buf.data();
+		// A comment line inside the word's block must not look like the blank
+		// line that ends it, so skip it rather than falling into the test
+		// below. Lines the stripper left alone keep their old meaning.
+		inBlock = false;
+		if (strip_block_comments(line, inBlock, '#') && unicu::isStrWhiteSpace(line))
+			continue;
+		int sp = 0;
+		while (line[sp] == ' ')
+			sp++;
+		if (line[sp] == '\0' || sp <= 2)		// Blank, or next word/root: done.
+			break;
+		parseKBBLine(line, cons, index, f.root);
+	}
+	lazyBusy_ = busy;
+	return word;
+}
+
+/********************************************
+* FN:		FINDLAZYKEY
+* SUBJ:	Find a key of a lazy *full.kbb on demand.
+* RET:	The key's concept, or 0.
+* NOTE:	findconcept() and getconcept() call this on a miss. A key under
+*			the top concept of an open *full.kbb is binary-searched in that
+*			file only and its block built, so a later pass finds it the
+*			ordinary way: it used to be found only if the tokenizer or a
+*			dictfindword() call had loaded it. A name the file lacks is
+*			remembered, so it is searched once. SaveKB quotes a name with a
+*			space ("heart attack":), so that form is tried too.
+********************************************/
+
+CONCEPT *CG::findLazyKey(CONCEPT *parent, _TCHAR *name)
+{
+	for (FullFile &f : fullKBBs_) {
+		if (f.root != parent)
+			continue;
+		if (f.all || f.misses.count(name))
+			return 0;
+		std::streamoff keyStart;
+		std::string key = name;
+		bool found = locateKBBKey(f, key, keyStart);
+		if (!found) {
+			key = "\"" + key + "\"";
+			found = locateKBBKey(f, key, keyStart);
+		}
+		if (!found) {
+			f.misses.insert(name);
+			return 0;
+		}
+		if (f.merge)
+			f.merged.insert(name);		// mergeFullWord must not build it twice.
+		CONCEPT *con = buildKBBBlock(f, keyStart);
+		if (f.words)
+			cacheWordCon(name, con);
+		return con;
+	}
+	return 0;
+}
+
+/********************************************
+* FN:		LOADLAZY
+* SUBJ:	Load every key of a lazy *full.kbb, for down() and next().
+* NOTE:	Only for the file whose top concept is con. Keys already in memory
+*			are kept and not built twice. Costs what loading the file eagerly
+*			would, once, and only in an analyzer that lists the keys.
+********************************************/
+
+void CG::loadLazy(CONCEPT *con)
+{
+	if (!con || fullKBBs_.empty())
+		return;
+	for (FullFile &f : fullKBBs_) {
+		if (f.root != con || f.all)
+			continue;
+		f.all = true;
+
+		// Names already loaded, read once: searching the children for each
+		// key would be quadratic on a large file.
+		std::set<std::string> have;
+		std::vector<_TCHAR> name(MAXMSG * 4);
+		for (CONCEPT *c = Down(con); c; c = Next(c)) {
+			conceptName(c, name.data(), (long) name.size());
+			have.insert(name.data());
+		}
+
+		std::streamoff keyStart, afterKey;
+		std::string key;
+		f.stream.clear();
+		f.stream.seekg(0);
+		while (nextKBBKey(f, keyStart, key, afterKey)) {
+			std::string bare = key;
+			if (bare.size() > 1 && bare.front() == '"' && bare.back() == '"')
+				bare = bare.substr(1, bare.size() - 2);
+			if (have.count(bare))
+				continue;
+			CONCEPT *c = buildKBBBlock(f, keyStart);
+			if (f.words && c)
+				cacheWordCon(bare.data(), c);
+			if (f.merge)
+				f.merged.insert(bare);
+			f.stream.clear();
+			f.stream.seekg(afterKey);			// buildKBBBlock read ahead.
+		}
+		f.stream.clear();
+		return;
+	}
+}
+
+// Look up str across every open *full.dict, returning the first match.
+CONCEPT *CG::findFullDictWord(_TCHAR *str)
+{
+	for (FullFile &f : fullDicts_) {
+		if (f.merge)
+			continue;					// Searched by mergeFullWord.
+		CONCEPT *word = searchDictFile(f, str);
+		if (word)
+			return word;
+	}
+	return 0;
+}
+
+// Binary-search one open *full.dict for str. If found, parse every consecutive
+// line for that word (one sense per line) into the KB and return it. Flat-dict
+// words are routed through dict_get_word, so they are findable/cached for free.
+CONCEPT *CG::searchDictFile(FullFile &f, _TCHAR *str)
+{
+	std::string buf;
+	std::streamoff lo = 0, hi = f.size;
+	std::streamoff keyStart, afterKey;
+	std::string key;
+
+	while (lo < hi) {
+		std::streamoff mid = lo + (hi - lo) / 2;
+		f.stream.clear();
+		f.stream.seekg(mid);
+		if (mid != 0)
+			std::getline(f.stream, buf);
+		if (!nextDictKey(f, keyStart, key, afterKey)) {
+			hi = mid;
+			continue;
+		}
+		if (strcmp(key.c_str(), str) < 0) {
+			if (afterKey <= lo)		// Defensive: never move lo backwards/sideways
+				break;				// (would loop forever). str is past EOF here.
+			lo = afterKey;
+		} else
+			hi = mid;
+	}
+
+	// lo is <= the target's line and a line boundary. The midpoint search can
+	// leave it a line or two short (hi may settle below the matching line's
+	// start), so scan forward past any remaining keys < str.
+	f.stream.clear();
+	f.stream.seekg(lo);
+	do {
+		if (!nextDictKey(f, keyStart, key, afterKey))
+			return 0;
+	} while (strcmp(key.c_str(), str) < 0);
+	if (strcmp(key.c_str(), str) != 0)
+		return 0;
+
+	// Parse all consecutive lines belonging to this word.
+	f.stream.clear();
+	f.stream.seekg(keyStart);
+	while (true) {
+		if (f.stream.peek() == EOF)
+			break;
+		if (!readFullLine(f.stream, buf))
+			break;
+		_TCHAR *line = buf.data();
+		bool inBlock = false;					// Single-line "/* */" only.
+		strip_block_comments(line, inBlock, '#');
+		int i = 0;
+		while (line[i] == ' ' || line[i] == '\t')
+			i++;
+		if (line[i] == '\0' || line[i] == '#')
+			continue;
+		std::string w;
+		for (int j = i; line[j] && line[j] != ' ' && line[j] != '\t'; j++)
+			w += line[j];
+		if (strcmp(w.c_str(), str) != 0)
+			break;								// Reached the next word.
+		parseDictLine(line, 0, f.file, 0);
+	}
+
+	return (CONCEPT *) kbm_->dict_find_word(str);
+}
+
+/********************************************
+* FN:           FINDDICTCONCEPT
+* SUBJ:	Find the concept for a word from a *.dict file
+* ARG:  User supplies the word string
+********************************************/
+
+CONCEPT *CG::findDictConcept(_TCHAR *str)
+{
+bool dirty = false;
+CONCEPT *word = kbm_->dict_get_word(str,dirty);
+
+allDictStream_.clear();
+allDictStream_.seekg(0);
+
+_TCHAR buf[MAXMSG];
+_TCHAR attr[MAXSTR];
+_TCHAR val[MAXSTR];
+bool found = false;
+
+int32_t c2 = 1;
+int32_t e2 = 0;
+icu::StringPiece strp(str);
+const char *strd = strp.data();
+int32_t length2 = strp.length();
+bool done = false;
+
+while (allDictStream_.getline(buf, MAXMSG) && !done) {
+	size_t blen = strlen(buf);
+	if (blen && buf[blen-1] == '\r')	// CRLF file read on Linux/macOS.
+		buf[blen-1] = '\0';
+	icu::StringPiece sp(buf);
+	const char *line = sp.data();
+	int32_t length = sp.length();
+
+	UChar32 c = 1;
+	int32_t e = 0;
+	int32_t ulen = 0;
+	c2 = 1;
+	e2 = 0;
+	U8_NEXT(strd, e2, length2, c2);
+
+	while (c && !done) {
+		U8_NEXT(line, e, length, c);
+		if (unicu::isWhiteSpace(c)) {
+			if (c2 == 0) {
+				found = true;
+			}
+			break;
+		} else if (c > c2) {
+			done = true;
+			break;
+		}
+		else if (c != c2) {
+			break;
+		}
+		U8_NEXT(strd, e2, length2, c2);
+	}
+
+	// If found, parse the attributes and add
+	if (found) {
+		int start = e;
+		bool attrFlag = false;
+		bool doubleQuote = false;
+		bool backslash = false;
+
+		while (c) {
+			U8_NEXT(line, e, length, c);
+			if (c == '\\') {
+				backslash = true;
+			}
+			else if (!doubleQuote && attrFlag && !backslash && c == '"') {
+				doubleQuote = true;
+				start++;
+			}
+			else if (doubleQuote && !backslash && c == '"') {
+				bool nothing = true;
+			}
+			else if (attrFlag && ((!doubleQuote && unicu::isWhiteSpace(c)) || !c)) {
+				_tcsnccpy(val, &line[start],e-start-1);
+				e -= doubleQuote ? 1 : 0;
+				val[e-start-1] = '\0';
+				addSval(word,attr,val);
+				attrFlag = false;
+				start = e;
+			} else if (c == '=') {
+				_tcsnccpy(attr, &line[start],e-start-1);
+				attr[e-start-1] = '\0';
+				start = e;
+				attrFlag = true;
+			} else if (backslash) {
+				backslash = false;
+			}
+		}
+
+		found = false;
+	}
+}
+
+return word;
+}
+
+
+/********************************************
+* FN:				GETWORDCONCEPT
+* SUBJ:	Gets the concept for a word
+* CR:		06/29/03 AM.
+* NOTE:	Now ADD word if couldn't FIND it.
+********************************************/
+
+CONCEPT *CG::getWordConcept(_TCHAR *str)
+{
+CONCEPT *word;
+bool dirt;	// 06/29/03 AM.
+if (!(word = kbm_->dict_get_word(str,dirt)) )
+        return 0;
+return word;
+}
+
+/********************************************
+* FN:           GOODKBFILE
+* SUBJ: See if path is a good kb filename.
+* CR:   08/06/01 AM.
+********************************************/
+
+bool CG::goodKbfile(_TCHAR *file)
+{
+if (!file || !*file)
+   return false;
+
+_TCHAR *end = file-1;				// Set up for traversing string.
+long count = 0;
+while (*++end)
+	++count;
+if (count < 4)
+	return false;
+
+// Now end is at string terminator.
+// Check for ".kb".
+if (*--end != 'b')
+	return false;
+if (*--end != 'k')
+	return false;
+if (*--end != '.')
+	return false;
+return true;
+}
+
+
+/********************************************
+* FN:		DICTFIRST
+* SUBJ:	Get first alphabetic word-concept in dictionary.
+* CR:		03/21/03 AM..
+* NOTE:	To support dict traversal.
+********************************************/
+
+CONCEPT *CG::dictFirst()
+{
+return (CONCEPT *) kbm_->dict_first();
+}
+
+
+/********************************************
+* FN:		DICTNEXT
+* SUBJ:	Get next alphabetic word-concept in dictionary.
+* CR:		03/21/03 AM..
+* NOTE:	To support dict traversal.
+********************************************/
+
+CONCEPT *CG::dictNext(CONCEPT *con)
+{
+if (!con)
+	return 0;
+return (CONCEPT *) kbm_->dict_next((CON*)con);
+}
+
+/**********************     END OF FILE         ***************************/

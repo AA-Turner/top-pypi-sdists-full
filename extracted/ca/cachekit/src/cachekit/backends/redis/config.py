@@ -1,0 +1,131 @@
+"""Redis-specific backend configuration.
+
+This module contains Redis-specific configuration separated from generic cache config.
+Backend-specific settings (connection URLs, pool sizes, etc.) are encapsulated here
+to maintain clean separation of concerns.
+"""
+
+from __future__ import annotations
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import SettingsConfigDict
+
+from cachekit.backends.base_config import BaseBackendConfig, inherit_config
+
+
+class RedisBackendConfig(BaseBackendConfig):
+    """Redis-specific backend configuration.
+
+    Configuration for Redis connection management, connection pooling,
+    and Redis-specific performance tuning.
+
+    Attributes:
+        redis_url: Redis server connection URL; left out of the config's repr, as it can carry a password
+        connection_pool_size: Maximum connections in the Redis pool. When all are
+            in use, an operation waits up to socket_timeout for one to be released
+        socket_timeout: Socket read/write timeout in seconds (finite so a dead
+            Redis fails fast instead of blocking on the OS TCP timeout)
+        socket_connect_timeout: Socket connect timeout in seconds
+        socket_keepalive: Enable TCP keepalive (SO_KEEPALIVE) on TCP connections;
+            not applied to unix:// URLs
+        disable_hiredis: Reports CACHEKIT_DISABLE_HIREDIS. cachekit.hiredis_compat reads that
+            variable at import, before redis loads; setting this field changes nothing
+
+    Examples:
+        Create with defaults:
+
+        >>> config = RedisBackendConfig()
+        >>> config.redis_url
+        'redis://localhost:6379'
+        >>> config.connection_pool_size
+        50
+        >>> config.socket_keepalive
+        True
+
+        Override via constructor:
+
+        >>> custom = RedisBackendConfig(
+        ...     redis_url="redis://myhost:6380",
+        ...     connection_pool_size=25,
+        ... )
+        >>> custom.redis_url
+        'redis://myhost:6380'
+        >>> custom.connection_pool_size
+        25
+
+        The URL is left out of the repr:
+
+        >>> "myhost" in repr(custom)
+        False
+    """
+
+    model_config = SettingsConfigDict(
+        **inherit_config(BaseBackendConfig),
+        env_prefix="CACHEKIT_",
+    )
+
+    redis_url: str = Field(
+        default="redis://localhost:6379",
+        validation_alias=AliasChoices("CACHEKIT_REDIS_URL", "REDIS_URL"),
+        description="Redis connection URL (env: CACHEKIT_REDIS_URL or REDIS_URL)",
+        repr=False,
+    )
+    connection_pool_size: int = Field(
+        # Above the default executor's min(32, cpu_count + 4) threads, which async
+        # decorated calls share for their L2 operations. Connections open lazily.
+        default=50,
+        gt=0,
+        description="Maximum connections in the Redis pool (env: CACHEKIT_CONNECTION_POOL_SIZE)",
+    )
+    socket_timeout: float = Field(
+        default=5.0,
+        gt=0,
+        description="Socket read/write timeout in seconds (env: CACHEKIT_SOCKET_TIMEOUT)",
+    )
+    socket_connect_timeout: float = Field(
+        default=5.0,
+        gt=0,
+        description="Socket connect timeout in seconds (env: CACHEKIT_SOCKET_CONNECT_TIMEOUT)",
+    )
+    socket_keepalive: bool = Field(
+        default=True,
+        description="Enable TCP keepalive on TCP connections; not applied to unix:// URLs (env: CACHEKIT_SOCKET_KEEPALIVE)",
+    )
+    disable_hiredis: bool = Field(
+        default=False,
+        description=(
+            "Reports CACHEKIT_DISABLE_HIREDIS; the parser is chosen from that variable at import cachekit "
+            "(see cachekit.hiredis_compat), so setting this field changes nothing"
+        ),
+    )
+
+    @classmethod
+    def from_env(cls) -> RedisBackendConfig:
+        """Create Redis configuration from environment variables.
+
+        Priority (via AliasChoices): CACHEKIT_REDIS_URL > REDIS_URL > default
+
+        This allows standard 12-factor app conventions (REDIS_URL) while
+        supporting namespaced configuration (CACHEKIT_REDIS_URL) for
+        multi-service deployments.
+
+        Returns:
+            RedisBackendConfig instance loaded from environment
+
+        Examples:
+            Set environment variables:
+
+            .. code-block:: bash
+
+                # Option 1: Namespaced (takes priority)
+                export CACHEKIT_REDIS_URL="redis://localhost:6379"
+
+                # Option 2: Standard 12-factor convention
+                export REDIS_URL="redis://localhost:6379"
+
+            .. code-block:: python
+
+                config = RedisBackendConfig.from_env()
+                print(config.redis_url)  # redis://localhost:6379
+        """
+        return cls()

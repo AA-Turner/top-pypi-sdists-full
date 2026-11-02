@@ -1,0 +1,1010 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from bisect import bisect_right
+from dataclasses import dataclass, replace
+from functools import lru_cache
+from io import StringIO
+from pathlib import Path
+import re
+from string import ascii_lowercase, ascii_uppercase
+from types import MappingProxyType
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, final
+
+from sarj_rule_contracts import (
+    AutofixPolicy as AutofixPolicy,
+    DefaultLevel as DefaultLevel,
+    DiagnosticSeverity as DiagnosticSeverity,
+    ExampleFile as ExampleFile,
+    ExampleOutcome as ExampleOutcome,
+    NativeRuleSpec as NativeRuleSpec,
+    RuleCategory as RuleCategory,
+    RuleDocumentation as RuleDocumentation,
+    RuleExample as RuleExample,
+    diagnostic_severity,
+)
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping, Sequence
+
+
+class StatementFragment(NamedTuple):
+    line: int
+    text: str
+
+
+type Statement = list[StatementFragment]
+"""A statement as `(lineno, text)` fragments — one per source line it spans."""
+
+
+class SourceLocation(NamedTuple):
+    line: int
+    column: int
+
+
+_SQL_LINE_END = re.compile(r"\r\n?|\n")
+
+
+@lru_cache(maxsize=1)
+def _line_starts(source: str) -> tuple[int, ...]:
+    return (0, *(match.end() for match in _SQL_LINE_END.finditer(source)))
+
+
+def physical_lines(source: str, *, keepends: bool = False) -> list[str]:
+    lines = StringIO(source, newline="").readlines()
+    return lines if keepends else [line.removesuffix("\n").removesuffix("\r") for line in lines]
+
+
+def source_location(source: str, offset: int) -> SourceLocation:
+    starts = _line_starts(source)
+    line = bisect_right(starts, offset)
+    return SourceLocation(line, offset - starts[line - 1] + 1)
+
+
+class _ScanResult(NamedTuple):
+    masked_source: str
+    executable_spans: list[tuple[int, int]]
+    comments: list[SourceComment]
+    comment_spans: tuple[tuple[int, int], ...]
+    identifier_spans: tuple[tuple[int, int], ...]
+    dollar_spans: tuple[tuple[int, int], ...]
+
+
+class SourceComment(NamedTuple):
+    line: int
+    column: int
+    body: str
+    block: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _CommentScan:
+    end: int
+    comment: SourceComment
+
+
+_SARJ_NOQA_RE = re.compile(
+    r"--\s*sarj-noqa\b(?::[ \t]*([A-Za-z][A-Za-z0-9_]*(?:[ \t]*,[ \t]*[A-Za-z][A-Za-z0-9_]*)*))?",
+    re.IGNORECASE,
+)
+_NON_NEWLINE = re.compile(r"[^\r\n]")
+_PLAIN_SQL_RUN = re.compile(r"""[^'"`$/\[{-]+""")
+
+# A dollar-quote delimiter (`$$` or `$tag$`) where `tag` cannot start with a digit, preventing match with `$1`/`$2` positional parameters.
+_DOLLAR_DELIM_RE = re.compile(r"\$(?:[A-Za-z_\u0080-\U0010ffff][A-Za-z0-9_\u0080-\U0010ffff]*)?\$")
+POSTGRES_IDENTIFIER_CONTINUATION = r"[A-Za-z0-9_$\u0080-\U0010ffff]"
+_IDENT_CHAR_RE = re.compile(POSTGRES_IDENTIFIER_CONTINUATION)
+_CONTINUED_QUOTE = re.compile(r"[ \t\f\v]*(?:--[^\r\n]*)?[\r\n](?:[ \t\f\v\r\n]|--[^\r\n]*[\r\n])*'")
+_STATEMENT_HEAD_SIZE = 4
+
+
+_DUMP_HEADER_RE = re.compile(r"postgresql database dump|dumped by pg_dump|dumped from database", re.IGNORECASE)
+
+
+def is_dump_file(source: str, path: Path | None = None) -> bool:
+    if path is not None:
+        name = path.name.lower()
+        if name in {"structure.sql", "schema.sql"} or name.endswith("_dump.sql") or "restore" in path.parts:
+            return True
+    if has_file_comment_match(source, _DUMP_HEADER_RE, limit=1024):
+        return True
+    header = source[:1024].lower()
+    if "set statement_timeout = 0;" not in header or "set lock_timeout = 0;" not in header:
+        return False
+    code = mask_sql(header, mask_dollar_literals=True)
+    return "set statement_timeout = 0;" in code and "set lock_timeout = 0;" in code
+
+
+# Tokens (like backticks or AUTO_INCREMENT) that exist in MySQL/SQLite and cannot appear in Postgres DDL.
+_NON_POSTGRES_RE = re.compile(
+    r"`[^`\n]+`"  # backtick-quoted identifier — MySQL, MariaDB, SQLite
+    r"|\b(?:AUTO_INCREMENT\b"  # MySQL column attribute
+    r"|AUTOINCREMENT\b"  # SQLite column attribute
+    r"|ENGINE\s*="  # MySQL table option (`ENGINE=InnoDB`)
+    r"|COLLATE\s+utf8"  # MySQL collation family (`utf8mb4_unicode_ci`)
+    r"|UNSIGNED\b)",  # MySQL integer modifier
+    re.IGNORECASE,
+)
+
+# Tokens exclusive to MySQL/MariaDB, intentionally narrower than _NON_POSTGRES_RE so SQLite files are not matched.
+_MYSQL_RE = re.compile(
+    r"\bAUTO_INCREMENT\b"
+    r"|\bENGINE\s*="
+    r"|\bCOLLATE\s+utf8"
+    r"|\bUNSIGNED\b"
+    r"|\bON\s+DUPLICATE\s+KEY\b"
+    r"|\bMODIFY\s+COLUMN\b",
+    re.IGNORECASE,
+)
+
+_DIALECT_WORD_RE = re.compile(r"dialect", re.IGNORECASE)
+_DIALECT_DIRECTIVE_RE = re.compile(
+    r"^\s*--\s*(?:sql-)?dialect\s*:\s*(postgres(?:ql)?|sqlite|mysql|mariadb|clickhouse|bigquery|duckdb|snowflake|redshift|trino|athena|databricks|spark)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_DBMATE_DIRECTIVE_RE = re.compile(
+    r"^(?P<header>--[ \t\n\f\r]*migrate:(?P<section>up|down))([ \t\n\f\r]*$|[ \t\n\f\r]+[^ \t\n\f\r]+)",
+    re.MULTILINE,
+)
+# Dbmate uses Go RE2 ASCII whitespace for fields, and Unicode White_Space for option-edge trimming.
+_DBMATE_FIELD_SPACE = re.compile(r"[ \t\n\f\r]+")
+_DBMATE_OPTION_TRIM = re.compile(r"^[^\S\x1c-\x1f]+|[^\S\x1c-\x1f]+$")
+_DBMATE_PREFIX_SPACE = " \t\n\f\r"
+_SQLITE_RE = re.compile(r"\bAUTOINCREMENT\b", re.IGNORECASE)
+
+_MIGRATION_ROOT_NAMES = frozenset({"changesets", "drizzle", "migrate", "migration", "migrations"})
+_NON_PRODUCTION_SQL_PARTS = frozenset(
+    {
+        "__fixtures__",
+        "__mocks__",
+        "__snapshots__",
+        "example",
+        "examples",
+        "fixture",
+        "fixtures",
+        "mock",
+        "mocks",
+        "queries",
+        "query",
+        "script",
+        "scripts",
+        "snapshot",
+        "snapshots",
+        "testdata",
+    }
+)
+_NON_POSTGRES_SQL_PARTS = frozenset({"clickhouse", "d1", "mariadb", "mysql", "sqlite"})
+_FLYWAY_MIGRATION_RE = re.compile(r"^(?:B|R|V)(?:\d+(?:[._]\d+)*)?__.+\.sql$", re.IGNORECASE)
+_MIGRATION_SOURCE_DIRECTIVE_RE = re.compile(
+    r"^\s*--\s*(?:migrate:up(?:\s|$)|\+goose\s+up\s*$|liquibase\s+formatted\s+sql\s*$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_POSTGRES_MIGRATION_EVIDENCE_RE = re.compile(
+    r"::[A-Za-z_]"
+    r"|\b(?:BIGSERIAL|BYTEA|CITEXT|JSONB|SERIAL|TIMESTAMPTZ|UUID)\b"
+    r"|\bCREATE\s+EXTENSION\b"
+    r"|\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b"
+    r"|\bDO\s+\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$"
+    r"|\bSET\s+(?:(?:LOCAL|SESSION)\s+)?(?:lock_timeout|statement_timeout)\b"
+    r"|\bUSING\s+(?:GIN|GIST|HASH|SPGIST)\b",
+    re.IGNORECASE,
+)
+
+
+@lru_cache(maxsize=32)
+def _file_comment_spans(
+    source: str,
+) -> tuple[tuple[SourceComment, tuple[int, int]], ...]:
+    scanned = _scan(source, mask_dollar_literals=True, cross_dialect_identifiers=True)
+    body_starts = tuple(first for first, _ in scanned.executable_spans)
+    comments: list[tuple[SourceComment, tuple[int, int]]] = []
+    for comment, (start, end) in zip(scanned.comments, scanned.comment_spans, strict=True):
+        preceding = bisect_right(body_starts, start) - 1
+        if preceding >= 0 and start < scanned.executable_spans[preceding][1]:
+            continue
+        comments.append((comment, (start, end)))
+    return tuple(comments)
+
+
+def has_file_comment_match(source: str, pattern: re.Pattern[str], *, limit: int) -> bool:
+    spans: tuple[tuple[SourceComment, tuple[int, int]], ...] | None = None
+    cursor = 0
+    header = source[:limit]
+    for match in pattern.finditer(header):
+        if spans is None:
+            spans = _file_comment_spans(header)
+        position = match.end() - 1
+        while cursor < len(spans) and spans[cursor][1][1] <= position:
+            cursor += 1
+        if cursor < len(spans) and spans[cursor][1][0] <= position:
+            return True
+    return False
+
+
+@lru_cache(maxsize=32)
+def _standalone_directive_comments(source: str) -> tuple[SourceComment, ...]:
+    line_starts = _line_starts(source)
+    return tuple(
+        comment
+        for comment, (start, _) in _file_comment_spans(source)
+        if not comment.block and not source[line_starts[comment.line - 1] : start].strip()
+    )
+
+
+@lru_cache(maxsize=32)
+def declared_dialect(source: str) -> str | None:
+    if _DIALECT_WORD_RE.search(source) is None:
+        return None
+    for comment in _standalone_directive_comments(source):
+        match = _DIALECT_DIRECTIVE_RE.fullmatch(f"--{comment.body}")
+        if match is None:
+            continue
+        dialect = match.group(1).lower()
+        if dialect in {"postgres", "postgresql"}:
+            return "postgresql"
+        return "mysql" if dialect == "mariadb" else dialect
+    return None
+
+
+class DbmateDirective(NamedTuple):
+    match: re.Match[str]
+    section: str
+    transactional: bool
+
+
+class _DbmateSource(NamedTuple):
+    directives: tuple[DbmateDirective, ...]
+    starts: tuple[int, ...]
+    has_valid_prefix: bool
+
+
+@lru_cache(maxsize=32)
+def _dbmate_source(source: str) -> _DbmateSource:
+    directives: list[DbmateDirective] = []
+    for match in _DBMATE_DIRECTIVE_RE.finditer(source):
+        end = source.find("\n", match.start())
+        line = source[match.start() : len(source) if end < 0 else end]
+        options: dict[str, str] = {}
+        option_text = _DBMATE_OPTION_TRIM.sub("", line.removeprefix(match.group("header")))
+        for word in _DBMATE_FIELD_SPACE.split(option_text):
+            match word.split(":"):
+                case [key, value]:
+                    options[key] = value
+                case _:
+                    pass
+        directives.append(DbmateDirective(match, match.group("section"), options.get("transaction") != "false"))
+    first_up = next((item for item in directives if item.section == "up"), None)
+    prefix_valid = first_up is not None and all(
+        not line.strip(_DBMATE_PREFIX_SPACE) or line.lstrip(_DBMATE_PREFIX_SPACE).startswith("--")
+        for line in source[: first_up.match.start()].split("\n")
+    )
+    return _DbmateSource(tuple(directives), tuple(item.match.start() for item in directives), prefix_valid)
+
+
+def dbmate_directives(source: str) -> tuple[DbmateDirective, ...]:
+    scanned = _dbmate_source(source)
+    return scanned.directives if scanned.has_valid_prefix else ()
+
+
+@lru_cache(maxsize=32)
+def dbmate_section_boundaries(source: str) -> tuple[tuple[int, re.Match[str]], ...]:
+    directives = dbmate_directives(source)
+    if directives:
+        return tuple((item.match.start(), item.match) for item in directives)
+    # Preserve genuine down-section boundaries in existing partial SQL inputs.
+    boundaries: list[tuple[int, re.Match[str]]] = []
+    for comment in _standalone_directive_comments(source):
+        match = _DBMATE_DIRECTIVE_RE.match(f"--{comment.body}")
+        if match is not None and match.group("section") == "down":
+            offset = _line_starts(source)[comment.line - 1] + comment.column - 1
+            boundaries.append((offset, match))
+    return tuple(boundaries)
+
+
+def dbmate_transactional(source: str, offset: int) -> bool | None:
+    directives = _dbmate_source(source)
+    index = bisect_right(directives.starts, offset) - 1
+    return None if index < 0 or not directives.has_valid_prefix else directives.directives[index].transactional
+
+
+def has_dbmate_directive(source: str, directive: str) -> bool:
+    if directive == "no-transaction":
+        return any(item.section == "up" and not item.transactional for item in dbmate_directives(source))
+    return any(item.section == directive for item in dbmate_directives(source))
+
+
+# Drizzle writes this separator between statements in every migration it emits.
+_GENERATED_MIGRATION_SENTINEL = "--> statement-breakpoint"
+
+# A directory holding one of these is the root of a generator-owned migration
+# tree: Prisma writes `migration_lock.toml`, Drizzle writes `meta/_journal.json`,
+# Atlas writes `atlas.sum`.
+_GENERATED_MIGRATION_MARKERS = ("migration_lock.toml", "atlas.sum")
+
+_MAX_MARKER_ASCENT = 12
+
+
+def is_postgres(source: str) -> bool:
+    dialect = declared_dialect(source)
+    if dialect is not None:
+        return dialect == "postgresql"
+    return _NON_POSTGRES_RE.search(mask_sql(source, mask_dollar_literals=True)) is None
+
+
+def is_postgres_source(path: Path, source: str) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    if any(part in _NON_POSTGRES_SQL_PARTS for part in parts):
+        return False
+    dialect = declared_dialect(source)
+    if dialect is not None:
+        return dialect == "postgresql"
+    scanned = _scan(source, mask_dollar_literals=True)
+    return is_postgres(source) and (
+        "supabase" in parts
+        or _POSTGRES_MIGRATION_EVIDENCE_RE.search(scanned.masked_source) is not None
+        or bool(scanned.executable_spans)
+    )
+
+
+def is_mysql(source: str) -> bool:
+    dialect = declared_dialect(source)
+    if dialect is not None:
+        return dialect == "mysql"
+    return (
+        _MYSQL_RE.search(_scan(source, mask_dollar_literals=True, cross_dialect_identifiers=True).masked_source)
+        is not None
+    )
+
+
+def is_sqlite(source: str) -> bool:
+    dialect = declared_dialect(source)
+    if dialect is not None:
+        return dialect == "sqlite"
+    return (
+        _SQLITE_RE.search(_scan(source, mask_dollar_literals=True, cross_dialect_identifiers=True).masked_source)
+        is not None
+    )
+
+
+def is_postgres_migration(path: Path, source: str) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    if any(part in _NON_PRODUCTION_SQL_PARTS or part in _NON_POSTGRES_SQL_PARTS for part in parts):
+        return False
+
+    source_directive = _MIGRATION_SOURCE_DIRECTIVE_RE.search(source) is not None
+    migration_path = (
+        any(part in _MIGRATION_ROOT_NAMES for part in parts) or _FLYWAY_MIGRATION_RE.fullmatch(path.name) is not None
+    )
+    if not source_directive and not migration_path:
+        return False
+
+    dialect = declared_dialect(source)
+    if dialect is not None:
+        return dialect == "postgresql"
+    # Dbmate/Goose/Liquibase directives establish migration intent even when a
+    # small PostgreSQL seed uses no dialect-exclusive syntax. Supabase is a
+    # PostgreSQL migration root by contract. Ambiguous plain SQL stays silent.
+    return source_directive or is_postgres_source(path, source)
+
+
+def is_migration_source(path: Path, source: str) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    if any(part in _NON_PRODUCTION_SQL_PARTS for part in parts):
+        return False
+    return (
+        _MIGRATION_SOURCE_DIRECTIVE_RE.search(source) is not None
+        or any(part in _MIGRATION_ROOT_NAMES for part in parts)
+        or _FLYWAY_MIGRATION_RE.fullmatch(path.name) is not None
+        or path.name.lower() == "migration.sql"
+    )
+
+
+@lru_cache(maxsize=2048)
+def _has_generated_marker(directory: Path) -> bool:
+    for depth, parent in enumerate((directory, *directory.parents)):
+        if depth > _MAX_MARKER_ASCENT:
+            return False
+        try:
+            if any((parent / marker).is_file() for marker in _GENERATED_MIGRATION_MARKERS):
+                return True
+            if (parent / "meta" / "_journal.json").is_file():
+                return True
+            if (parent / ".git").exists():
+                return False
+        except OSError:
+            return False
+    return False
+
+
+def is_generated_migration(path: Path, source: str) -> bool:
+    if _GENERATED_MIGRATION_SENTINEL in source and any(
+        _GENERATED_MIGRATION_SENTINEL in source[start:end] for _, (start, end) in _file_comment_spans(source)
+    ):
+        return True
+    return _has_generated_marker(path.parent)
+
+
+def clear_path_caches() -> None:
+    _has_generated_marker.cache_clear()
+    _line_starts.cache_clear()
+    _suppression_codes.cache_clear()
+    _standalone_directive_comments.cache_clear()
+    _file_comment_spans.cache_clear()
+    _dbmate_source.cache_clear()
+    declared_dialect.cache_clear()
+    dbmate_section_boundaries.cache_clear()
+
+
+def is_suppressed(source_lines: str | list[str], line: int, code: str) -> bool:
+    if line < 1 or (isinstance(source_lines, list) and line > len(source_lines)):
+        return False
+    source = source_lines if isinstance(source_lines, str) else "\n".join(source_lines)
+    codes = _suppression_codes(source).get(line, frozenset())
+    return codes is not None and code.upper() in codes
+
+
+@lru_cache(maxsize=32)
+def _suppression_codes(source: str) -> Mapping[int, frozenset[str] | None]:
+    suppressions: dict[int, frozenset[str] | None] = {}
+    comments = _scan(
+        source,
+        mask_dollar_literals=True,
+        cross_dialect_identifiers=declared_dialect(source) in {"mysql", "sqlite"},
+    ).comments
+    for comment in comments:
+        suppression = _comment_suppression(comment)
+        if suppression is not None:
+            suppressions[suppression[0]] = suppression[1]
+    return MappingProxyType(suppressions)
+
+
+def _comment_suppression(comment: SourceComment) -> tuple[int, frozenset[str] | None] | None:
+    if comment.block:
+        return None
+    payload = f"--{comment.body}"
+    match = _SARJ_NOQA_RE.match(payload)
+    if match is None:
+        return None
+    codes_str = match.group(1)
+    trailing = payload[match.end() :]
+    if codes_str is None:
+        if trailing and (not trailing[0].isspace() or trailing.lstrip().startswith(":")):
+            return None
+        return None
+    suffix = trailing.lstrip()
+    separated_dash = bool(trailing) and trailing[0].isspace() and suffix.startswith("-")
+    if suffix and not (suffix.startswith(("--", "—", "–")) or separated_dash):
+        return None
+    codes = frozenset(val.upper() for part in codes_str.split(",") if (val := part.strip()))
+    return comment.line, codes
+
+
+def _scan_quoted(  # sarj-noqa: SARJ023 — scanner primitive stays above the cached engine.
+    source: str, start: int, quote: str, *, backslash_escapes: bool = False
+) -> int:
+    n = len(source)
+    j = start + 1
+    while j < n:
+        if backslash_escapes and source[j] == "\\" and j + 1 < n:
+            j += 2
+            continue
+        if source[j] == quote:
+            if j + 1 < n and source[j + 1] == quote:
+                j += 2
+                continue
+            return j + 1
+        j += 1
+    return n
+
+
+def cross_dialect_identifier_end(chars: Sequence[str], cursor: int, char: str) -> int:
+    closer = "`" if char == "`" else "]"
+    index = cursor + 1
+    while index < len(chars):
+        if chars[index] != closer:
+            index += 1
+            continue
+        if index + 1 < len(chars) and chars[index + 1] == closer:
+            index += 2
+            continue
+        index += 1
+        break
+    return index
+
+
+def _dollar_open_tag(  # sarj-noqa: SARJ023 — scanner primitive stays above the cached engine.
+    source: str, i: int
+) -> str | None:
+    if i > 0 and _IDENT_CHAR_RE.match(source, i - 1) is not None:
+        return None
+    m = _DOLLAR_DELIM_RE.match(source, i)
+    return None if m is None else m.group(0)
+
+
+def _closing_depth(  # sarj-noqa: SARJ023 — scanner primitive stays above the cached engine.
+    source: str, i: int, open_tag_depths: dict[str, list[int]]
+) -> int | None:
+    match = _DOLLAR_DELIM_RE.match(source, i)
+    if match is None:
+        return None
+    depths = open_tag_depths.get(match.group(0))
+    return depths[0] if depths else None
+
+
+@final
+class _StatementContext:
+    def __init__(self) -> None:
+        self.head: list[str] = []
+        self.tail = ""
+
+    def record(self, token: str) -> None:
+        self.tail = token
+        if len(self.head) < _STATEMENT_HEAD_SIZE:
+            self.head.append(token)
+
+    def consume(self, source: str, offset: int) -> int:
+        ch = source[offset]
+        if ch.isalpha() or ch == "_":
+            end = offset + 1
+            while end < len(source) and (source[end].isalnum() or source[end] in {"_", "$"}):
+                end += 1
+            self.record(source[offset:end].upper())
+            return end
+        if ch == ";":
+            self.head.clear()
+            self.tail = ""
+        elif not ch.isspace():
+            self.record(ch)
+        return offset + 1
+
+    def is_executable_body(self) -> bool:
+        match self.head:
+            case ["DO"] | ["DO", "LANGUAGE", _]:
+                return True
+            case ["CREATE", "FUNCTION" | "PROCEDURE", *_] | ["CREATE", "OR", "REPLACE", "FUNCTION" | "PROCEDURE"]:
+                return self.tail == "AS"
+            case _:
+                return False
+
+
+@final
+class _SqlMasker:
+    def __init__(
+        self,
+        source: str,
+        *,
+        preserve_quoted_identifiers: bool,
+        mask_dollar_literals: bool,
+        cross_dialect_identifiers: bool,
+    ) -> None:
+        self.source = source
+        self.preserve_quoted_identifiers = preserve_quoted_identifiers
+        self.mask_dollar_literals = mask_dollar_literals
+        self.cross_dialect_identifiers = cross_dialect_identifiers
+        self.out: list[str] = []
+        self.bodies = _DollarBodies()
+        self.scalar_dollar_spans: list[tuple[int, int]] = []
+        self.comments: list[SourceComment] = []
+        self.comment_spans: list[tuple[int, int]] = []
+        self.identifier_spans: list[tuple[int, int]] = []
+        self.statement = _StatementContext()
+        self.offset = 0
+        self.chunk_start = 0
+
+    def scan(self) -> _ScanResult:
+        no_dollars = "$" not in self.source
+        while self.offset < len(self.source):
+            # Statement history only controls dollar bodies; lexical openers keep their existing branches.
+            if no_dollars and (plain := _PLAIN_SQL_RUN.match(self.source, self.offset)) is not None:
+                self.offset = plain.end()
+                continue
+            self._scan_token()
+        if self.chunk_start < len(self.source):
+            self.out.append(self.source[self.chunk_start :])
+        body_spans = self.bodies.finish(len(self.source))
+        return _ScanResult(
+            "".join(self.out),
+            body_spans,
+            self.comments,
+            tuple(self.comment_spans),
+            tuple(self.identifier_spans),
+            tuple(sorted((*body_spans, *self.scalar_dollar_spans))),
+        )
+
+    def _scan_token(self) -> None:
+        ch = self.source[self.offset]
+        if ch == "{" and (template_end := _template_end(self.source, self.offset)) is not None:
+            self._mask(template_end)
+            return
+        if ch == "`" or (self.cross_dialect_identifiers and ch == "["):
+            end = cross_dialect_identifier_end(self.source, self.offset, ch)
+            if self.cross_dialect_identifiers:
+                self._mask(end)
+            else:
+                self.identifier_spans.append((self.offset, end))
+                self.offset = end
+            if self.mask_dollar_literals and not self.bodies.tags:
+                self.statement.record("<quoted>")
+            return
+        if ch == "$":
+            self._scan_dollar()
+            return
+        pair = self.source[self.offset : self.offset + 2]
+        if pair in {"--", "/*"}:
+            scanned = _scan_source_comment(self.source, self.offset, pair)
+            self.comments.append(scanned.comment)
+            self.comment_spans.append((self.offset, scanned.end))
+            self._mask(scanned.end)
+            return
+        if ch in {"'", '"'}:
+            self._scan_literal(ch)
+            return
+        if self.mask_dollar_literals and not self.bodies.tags:
+            self.offset = self.statement.consume(self.source, self.offset)
+        else:
+            self.offset += 1
+
+    def _scan_literal(self, quote: str) -> None:
+        if quote == '"' and self.preserve_quoted_identifiers:
+            end = _scan_quoted(self.source, self.offset, quote)
+            self.identifier_spans.append((self.offset, end))
+            self.offset = end
+            if self.mask_dollar_literals and not self.bodies.tags:
+                self.statement.record("<quoted>")
+            return
+        self._mask(_scan_literal(self.source, self.offset, quote))
+        if self.mask_dollar_literals and not self.bodies.tags:
+            self.statement.record("<quoted>")
+
+    def _scan_dollar(self) -> None:
+        closed = self.bodies.close(self.source, self.offset)
+        if closed is not None:
+            self._mask(closed)
+            self.statement.tail = "<body>"
+            return
+        tag = _dollar_open_tag(self.source, self.offset)
+        if tag is None:
+            self.offset += 1
+            return
+        if self.mask_dollar_literals and (self.bodies.tags or not self.statement.is_executable_body()):
+            close = self.source.find(tag, self.offset + len(tag))
+            end = len(self.source) if close < 0 else close + len(tag)
+            if not self.bodies.tags:
+                self.scalar_dollar_spans.append((self.offset, end))
+            self._mask(end)
+            self.statement.tail = "<literal>"
+        else:
+            self._mask(self.bodies.open(tag, self.offset))
+
+    def _mask(self, end: int) -> None:
+        _append_masked_chunk(self.out, self.source, self.chunk_start, self.offset, end)
+        self.offset = end
+        self.chunk_start = end
+
+
+@lru_cache(maxsize=32)
+def _scan(
+    source: str,
+    *,
+    preserve_quoted_identifiers: bool = False,
+    mask_dollar_literals: bool = False,
+    cross_dialect_identifiers: bool = False,
+) -> _ScanResult:
+    # Preserve offsets while masking noise inside executable dollar-quoted bodies.
+    return _SqlMasker(
+        source,
+        preserve_quoted_identifiers=preserve_quoted_identifiers,
+        mask_dollar_literals=mask_dollar_literals,
+        cross_dialect_identifiers=cross_dialect_identifiers,
+    ).scan()
+
+
+def mask_sql(source: str, *, mask_dollar_literals: bool = False) -> str:
+    return (_scan(source, mask_dollar_literals=True) if mask_dollar_literals else _scan(source)).masked_source
+
+
+def mask_sql_comments(source: str) -> str:
+    chunks: list[str] = []
+    chunk_start = 0
+    for start, end in _scan(source, preserve_quoted_identifiers=True, mask_dollar_literals="$" in source).comment_spans:
+        _append_masked_chunk(chunks, source, chunk_start, start, end)
+        chunk_start = end
+    chunks.append(source[chunk_start:])
+    return "".join(chunks)
+
+
+def mask_sql_literals_and_comments(source: str, *, mask_dollar_literals: bool = False) -> str:
+    return _scan(source, preserve_quoted_identifiers=True, mask_dollar_literals=mask_dollar_literals).masked_source
+
+
+def quoted_identifier_spans(source: str) -> tuple[tuple[int, int], ...]:
+    return _scan(source, preserve_quoted_identifiers=True).identifier_spans if '"' in source else ()
+
+
+def sql_code_matches(
+    pattern: re.Pattern[str], source: str, *, group: str | int = 0, pos: int = 0
+) -> Iterator[re.Match[str]]:
+    # The caller supplies a literal/comment-masked view that preserves identifiers.
+    spans = quoted_identifier_spans(source)
+    starts = tuple(start for start, _ in spans)
+    for match in pattern.finditer(source, pos):
+        position = match.start(group)
+        preceding = bisect_right(starts, position) - 1
+        if preceding >= 0:
+            start, end = spans[preceding]
+            if position < end and (position != start or match.end(group) < end):
+                continue
+        yield match
+
+
+POSTGRES_IDENTIFIER_PART = rf'(?-i:"(?:""|[^"\x00])+"|[A-Za-z_\u0080-\U0010ffff]{POSTGRES_IDENTIFIER_CONTINUATION}*)'
+SQL_WHITESPACE = " \t\r\n\v\f"
+_SQL_IDENTIFIER_PART = re.compile(POSTGRES_IDENTIFIER_PART)
+_SQL_QUALIFIED_IDENTIFIER = re.compile(rf"\s*{POSTGRES_IDENTIFIER_PART}(?:\s*\.\s*{POSTGRES_IDENTIFIER_PART})*\s*")
+_SAFE_SQL_IDENTIFIER = re.compile(r"[a-z_\u0080-\U0010ffff][a-z0-9_$\u0080-\U0010ffff]*")
+SQL_ASCII_LOWER = str.maketrans(ascii_uppercase, ascii_lowercase)
+_CATALOG_PARTS = 3
+_TEMP_SCHEMA_RE = re.compile(r"pg_temp_[0-9]+")
+
+
+def sql_relation_key(value: str) -> tuple[str, ...]:
+    # PostgreSQL UTF-8 identifiers fold ASCII letters only; quoted parts preserve their exact text.
+    parts: list[str] = []
+    for match in _SQL_IDENTIFIER_PART.finditer(value):
+        token = match.group()
+        parts.append(token[1:-1].replace('""', '"') if token.startswith('"') else token.translate(SQL_ASCII_LOWER))
+    if len(parts) > 1 and _TEMP_SCHEMA_RE.fullmatch(parts[-2]) is not None:
+        parts[-2] = "pg_temp"
+    return tuple(parts[-2:] if len(parts) == _CATALOG_PARTS else parts)
+
+
+def normalize_sql_identifier(value: str, *, unqualified: bool = False) -> str:
+    if _SQL_QUALIFIED_IDENTIFIER.fullmatch(value) is None:
+        return value.strip(SQL_WHITESPACE)
+    parts: list[str] = []
+    for match in _SQL_IDENTIFIER_PART.finditer(value):
+        token = match.group(0)
+        if not token.startswith('"'):
+            parts.append(token.translate(SQL_ASCII_LOWER))
+        elif _SAFE_SQL_IDENTIFIER.fullmatch(token[1:-1]) is not None:
+            parts.append(token[1:-1])
+        else:
+            parts.append(token)
+    return parts[-1] if unqualified else ".".join(parts)
+
+
+def sql_comments(source: str, *, mask_dollar_literals: bool = False) -> tuple[SourceComment, ...]:
+    return tuple(_scan(source, mask_dollar_literals=mask_dollar_literals).comments)
+
+
+def dollar_quoted_lines(source: str) -> frozenset[int]:
+    spans = _scan(source, mask_dollar_literals=True).dollar_spans
+    if not spans:
+        return frozenset()
+    inside: set[int] = set()
+    for start, end in spans:
+        first = source_location(source, start).line
+        # `end - 1` is the span's last character: an unterminated body runs to
+        # end-of-file, and its trailing newline must not add a phantom line.
+        last = source_location(source, end - 1).line
+        inside.update(range(first, last + 1))
+    return frozenset(inside)
+
+
+def dollar_quoted_spans(source: str) -> tuple[tuple[int, int], ...]:
+    return _scan(source, mask_dollar_literals=True).dollar_spans
+
+
+def split_statements(masked: str) -> list[Statement]:
+    statements: list[Statement] = []
+    current: Statement = []
+    spans = quoted_identifier_spans(masked)
+    starts = tuple(start for start, _ in spans)
+    line_offset = 0
+    for lineno, raw_with_ending in enumerate(physical_lines(masked, keepends=True), start=1):
+        raw = raw_with_ending.removesuffix("\n").removesuffix("\r")
+        fragment_start = 0
+        for separator in re.finditer(r";", raw):
+            position = line_offset + separator.start()
+            preceding = bisect_right(starts, position) - 1
+            if preceding >= 0 and position < spans[preceding][1]:
+                continue
+            current.append(StatementFragment(lineno, raw[fragment_start : separator.start()]))
+            statements.append(current)
+            current = []
+            fragment_start = separator.end()
+        if fragment_start < len(raw):
+            current.append(StatementFragment(lineno, raw[fragment_start:]))
+        line_offset += len(raw_with_ending)
+    if current:
+        statements.append(current)
+    return statements
+
+
+def locate(statement: Statement, offset: int) -> SourceLocation:
+    pos = 0
+    for lineno, text in statement:
+        if offset <= pos + len(text):
+            return SourceLocation(lineno, offset - pos + 1)
+        pos += len(text) + 1
+    last_lineno, last_text = statement[-1]
+    return SourceLocation(last_lineno, len(last_text) + 1)
+
+
+@dataclass(frozen=True, slots=True)
+class Diagnostic:
+    path: Path
+    line: int
+    col: int
+    code: str
+    message: str
+    severity: DiagnosticSeverity = DefaultLevel.ERROR
+
+    def __post_init__(self) -> None:
+        diagnostic_severity(self.severity)
+
+    def format(self) -> str:
+        label = "warning: " if self.severity is DefaultLevel.WARNING else ""
+        return f"{self.path}:{self.line}:{self.col}: {self.code} {label}{self.message}"
+
+
+_MODEL_OWNED_SUFFIX = (
+    " This migration is generator-owned, so the edit belongs in the schema model "
+    "(`schema.prisma`, the Drizzle schema module, the Atlas HCL) followed by a new "
+    "migration — editing this file directly is reverted by the next generate."
+)
+
+
+def redirect_to_model(diags: list[Diagnostic], *, model_owned: bool) -> list[Diagnostic]:
+    if not model_owned:
+        return diags
+    return [replace(d, message=d.message + _MODEL_OWNED_SUFFIX) for d in diags]
+
+
+class Rule(ABC):
+    id: str
+    code: str
+    description: str
+    documentation: ClassVar[RuleDocumentation | None] = None
+
+    @abstractmethod
+    def check(self, path: Path, source: str) -> list[Diagnostic]:
+        raise NotImplementedError
+
+    @classmethod
+    def native_spec(cls) -> NativeRuleSpec | None:
+        authored = cls.documentation
+        if authored is None:
+            return None
+        if cls.id in authored.aliases:
+            msg = f"{cls.id}: a live rule ID cannot also be a historical alias"
+            raise ValueError(msg)
+        if authored.summary != cls.description:
+            msg = f"{cls.id}: description must be the authored documentation summary"
+            raise ValueError(msg)
+        return NativeRuleSpec(
+            engine="sql",
+            rule_id=cls.id,
+            code=cls.code,
+            summary=authored.summary,
+            rationale=authored.rationale,
+            remediation=authored.remediation,
+            category=authored.category,
+            default_level=authored.default_level,
+            autofix=authored.autofix,
+            aliases=authored.aliases,
+            limitations=authored.limitations,
+            examples=authored.examples,
+        )
+
+    @classmethod
+    def public_examples(cls) -> tuple[RuleExample, ...]:
+        spec = cls.native_spec()
+        return () if spec is None else spec.public_examples
+
+
+def _scan_source_comment(source: str, start: int, pair: str) -> _CommentScan:
+    if pair == "--":
+        newline = _SQL_LINE_END.search(source, start)
+        end = len(source) if newline is None else newline.start()
+        body_end = end
+    else:
+        end = _scan_block_comment(source, start)
+        body_end = end - 2 if end < len(source) or source.endswith("*/") else end
+    location = source_location(source, start)
+    return _CommentScan(
+        end=end,
+        comment=SourceComment(
+            line=location.line,
+            column=location.column,
+            body=source[start + 2 : body_end].strip(),
+            block=pair == "/*",
+        ),
+    )
+
+
+def _scan_block_comment(source: str, start: int) -> int:
+    depth = 1
+    cursor = start + 2
+    while cursor < len(source):
+        if source.startswith("/*", cursor):
+            depth += 1
+            cursor += 2
+            continue
+        if source.startswith("*/", cursor):
+            depth -= 1
+            cursor += 2
+            if depth == 0:
+                return cursor
+            continue
+        cursor += 1
+    return len(source)
+
+
+def _scan_literal(source: str, i: int, ch: str) -> int:
+    escape_string = (
+        ch == "'" and i > 0 and source[i - 1] in {"E", "e"} and (i == 1 or _IDENT_CHAR_RE.match(source, i - 2) is None)
+    )
+    end = _scan_quoted(source, i, ch, backslash_escapes=escape_string)
+    while escape_string and (continuation := _CONTINUED_QUOTE.match(source, end)) is not None:
+        end = _scan_quoted(source, continuation.end() - 1, ch, backslash_escapes=True)
+    return end
+
+
+class _DollarBodies:
+    def __init__(self) -> None:
+        self.tags: list[str] = []
+        self.depths: dict[str, list[int]] = {}
+        self.spans: list[tuple[int, int]] = []
+        self.start: int = 0
+
+    def close(self, source: str, offset: int) -> int | None:
+        if not self.tags:
+            return None
+        depth = _closing_depth(source, offset, self.depths)
+        if depth is None:
+            return None
+        end = offset + len(self.tags[depth])
+        self.tags = self.tags[:depth]
+        self.depths = {
+            tag: [tag_depth for tag_depth in depths if tag_depth < depth]
+            for tag, depths in self.depths.items()
+            if any(tag_depth < depth for tag_depth in depths)
+        }
+        if not self.tags:
+            self.spans.append((self.start, end))
+        return end
+
+    def open(self, tag: str, offset: int) -> int:
+        if not self.tags:
+            self.start = offset
+        self.depths.setdefault(tag, []).append(len(self.tags))
+        self.tags.append(tag)
+        return offset + len(tag)
+
+    def finish(self, end: int) -> list[tuple[int, int]]:
+        if self.tags:
+            self.spans.append((self.start, end))
+        return self.spans
+
+
+def _append_masked_chunk(out: list[str], source: str, chunk_start: int, start: int, end: int) -> None:
+    if start > chunk_start:
+        out.append(source[chunk_start:start])
+    out.append(_blank(source[start:end]))
+
+
+def _blank(segment: str) -> str:  # sarj-noqa: SARJ023 — scanner primitive stays above the cached engine.
+    return _NON_NEWLINE.sub(" ", segment)
+
+
+def _template_end(source: str, offset: int) -> int | None:
+    closer = next(
+        (closer for opener, closer in (("{#", "#}"), ("{%", "%}"), ("{{", "}}")) if source.startswith(opener, offset)),
+        None,
+    )
+    if closer is None:
+        return None
+    close = source.find(closer, offset + 2)
+    return len(source) if close < 0 else close + len(closer)

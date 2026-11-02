@@ -1,0 +1,398 @@
+//! # Net SDK
+//!
+//! Ergonomic Rust SDK for the Net mesh network.
+//!
+//! The core `net` crate is the engine. This SDK is what developers actually import.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use net_sdk::{Net, Backpressure};
+//! use futures::StreamExt;
+//!
+//! # async fn example() -> net_sdk::error::Result<()> {
+//! let node = Net::builder()
+//!     .shards(4)
+//!     .backpressure(Backpressure::DropOldest)
+//!     .memory()
+//!     .build()
+//!     .await?;
+//!
+//! // Emit events
+//! node.emit(&serde_json::json!({"token": "hello"}))?;
+//! node.emit_raw(b"{\"token\": \"world\"}" as &[u8])?;
+//!
+//! // Subscribe to a stream
+//! let mut stream = node.subscribe(Default::default());
+//! while let Some(event) = stream.next().await {
+//!     let event = event?;
+//!     println!("{}", event.raw_str().unwrap_or("<non-utf8>"));
+//! }
+//!
+//! node.shutdown().await?;
+//! # Ok(())
+//! # }
+//! ```
+
+/// Crate version, sourced from `Cargo.toml` at build time. Re-
+/// exported so downstream binaries (the `net` CLI in particular)
+/// can report the embedded SDK version without hardcoding a
+/// literal that silently drifts on every workspace bump.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(feature = "compute")]
+pub mod compute;
+pub mod config;
+// Local consent surface — capability identity, the credential-status
+// vocabulary, and the allowlist/pin consent gate + persistent pin
+// store. Graduated from the MCP bridge adapter (MCP_BRIDGE_SDK_PLAN.md
+// P0) because consent isn't MCP-specific: every surface that exposes
+// mesh capabilities to a model-driven caller gates on the same local
+// decision, and the pin-store lock protocol must have exactly one
+// implementation. Unconditional (no feature gate): pure local-state
+// primitives with no mesh dependency.
+pub mod consent;
+#[cfg(feature = "cortex")]
+pub mod cortex;
+#[cfg(feature = "dataforts")]
+pub mod dataforts;
+#[cfg(feature = "deck")]
+pub mod deck;
+pub mod error;
+#[cfg(feature = "groups")]
+pub mod groups;
+#[cfg(feature = "net")]
+pub mod mesh;
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub mod mesh_rpc;
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub mod mesh_rpc_resilience;
+#[cfg(feature = "meshdb")]
+pub mod meshdb;
+#[cfg(feature = "meshos")]
+pub mod meshos;
+mod net;
+// Persistent pin store — the machine-shared, lock-protected consent
+// records behind `consent`. See the module docs for the two rules
+// (no model self-approval; cross-process lock on every mutation).
+pub mod pins;
+#[cfg(feature = "redis")]
+pub mod redis_dedup;
+pub mod stream;
+#[cfg(feature = "testing")]
+pub mod testing;
+#[cfg(feature = "tool")]
+pub mod tool;
+// The A2A task admission seam (the provider gate + the caller's payment
+// evidence for `Mesh::serve_a2a_configured`). Ungated for the same reason
+// as `tool_payment` below, and one more: a FREE A2A service must never
+// link a payments crate to serve work it gives away.
+pub mod a2a_payment;
+// The native tool payment seam (wire constants + the provider gate for
+// `Mesh::serve_tool_paid`). Deliberately ungated: implementors of the
+// gate (net-payments) need the trait without pulling the full `tool`
+// feature's schemars surface.
+pub mod tool_payment;
+// On-demand cross-peer movement primitives (blob + directory transfer
+// over the fairscheduler stream transport). Needs the networked node
+// (`net`) and the blob storage layer (`dataforts`); the transfer
+// surface lives here rather than in `dataforts` (which is storage +
+// operator read side).
+#[cfg(all(feature = "net", feature = "dataforts"))]
+pub mod transport;
+
+/// Procedural-macro re-exports gated by the `macros` feature.
+///
+/// Currently ships the `#[tool]` attribute macro — see the
+/// per-macro docs for the full attribute surface and an example.
+/// The macro generates a sibling `<fn>_descriptor()` /
+/// `<fn>_register(mesh)` pair atop `metadata_for::<Req, Resp>(name)
+/// .build()` + `mesh.serve_tool(...)`.
+///
+/// Always pulled in alongside `tool` because the macro's expansion
+/// references `net_sdk::tool::*`; users that don't want the
+/// proc-macro2 / syn / quote build cost simply omit the `macros`
+/// feature.
+#[cfg(feature = "macros")]
+pub mod macros {
+    pub use net_sdk_macros::tool;
+}
+
+#[cfg(feature = "redis")]
+pub use redis_dedup::RedisStreamDedup;
+
+// Security surface — identity (keypairs + tokens), capabilities
+// (declare + query), and subnets (visibility partitioning). All
+// three ride the `net` feature because they share a subprotocol
+// dispatch and operate as a single unit at runtime.
+#[cfg(feature = "net")]
+pub mod capabilities;
+// Delegated agent identity — `root → machine → gateway → subagent`
+// delegation chains for capability-invocation attribution (Hermes plan
+// Phase 3). Rides `net` because it composes the identity / token-chain
+// surface; adds only the derivation + verification *convention* over the
+// core `TokenChain` / `RevocationRegistry` machinery.
+#[cfg(feature = "net")]
+pub mod delegation;
+// Device enrollment — the invite → join → approve handshake that admits a new
+// device into an operator's mesh with a `root → device` delegation to the
+// device's *own* key (Hermes V2 Phase 1). Rides `net`: composes the identity /
+// delegation surface and pulls `getrandom` for the single-use invite nonce.
+#[cfg(feature = "net")]
+pub mod enrollment;
+// The browser bootstrap credential (plan §5 Layer 0) — a NEW format,
+// not an invite with fields bolted on: invite + the anchor Noise key
+// a browser pins + the NKpsk0 PSK + the trust domain that PSK
+// defines + the bootstrap URL, with the single-use and standing
+// lifetimes both stated in the encoding. Rides `net` for the same
+// reason `enrollment` does (identity, base64, blake3).
+#[cfg(feature = "net")]
+pub mod bootstrap_credential;
+#[cfg(feature = "net")]
+pub mod game_anchor;
+// The browser bootstrap LISTENER (plan §5 Layer 0, Stage 4 bullet
+// 3): HTTPS `POST /rtc/offer`, `GET /rtc/anchor`, and the `wss`
+// trickle socket, over the core's production dialog path. It lives
+// here rather than in the core for the reason the MCP adapter does:
+// the credential is an SDK type, and the core must not grow an HTTP
+// server in its dependency tree.
+#[cfg(feature = "rtc-bootstrap")]
+pub mod rtc_bootstrap;
+#[cfg(feature = "rtc-bootstrap")]
+pub mod rtc_bootstrap_acme;
+// Machine-shared device registry — the operator's inventory of enrolled devices
+// (Hermes V2 Phase 1), backing `mesh.devices()`. Inventory/display state, not
+// enforcement (that's `revocation`); mirrors the revocation store's file
+// discipline. Rides `net` (records `EntityId`s).
+#[cfg(feature = "net")]
+pub mod devices;
+// Operator-side mesh management (Hermes V2 Phase 1) — the transport-independent
+// `mesh.invite/approve/revoke/devices` surface, composing the enrollment
+// authority + device registry + revocation store into one coordinator.
+#[cfg(feature = "net")]
+pub mod operator;
+// Organization capability auth (OA-1, scaffolded ownership) — org root keys,
+// membership certificates, revocation-floor bundles, and the node authority
+// files `net node adopt` provisions. Re-exports of the core primitives; see
+// ORG_CAPABILITY_AUTH_PLAN.md.
+#[cfg(feature = "net")]
+pub mod org;
+
+// Signed membership observations from named nodes (NET_CLI_PLAN_V3 V3-3).
+#[cfg(feature = "net")]
+pub mod members;
+
+// Delegated channel credentials: root → issuing node → device (V3-2A).
+#[cfg(feature = "net")]
+pub mod channel_issuer;
+// Live enrollment over the mesh (Hermes V2 Phase 1 Slice B2b) — `mesh.join` /
+// `mesh.serve_enrollment` via direct-addressed nRPC. Needs `cortex` for the
+// nRPC surface, so gated net+cortex (the `operator` facade above is
+// transport-independent and rides `net` alone).
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub mod mesh_enroll;
+// Live agent-to-agent task handoff over the mesh (Hermes V2 Phase 3 Slice B) —
+// `mesh.serve_a2a` (executor) + `mesh.submit_task`/`task_status`/`cancel_task`
+// (requester) via direct-addressed nRPC. Needs `cortex` for the nRPC surface,
+// like `mesh_enroll`; the `a2a` task core above is transport-independent (`net`).
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub mod mesh_a2a;
+// Persistent, machine-shared delegation-revocation floors (Hermes plan Phase
+// 3): the provider side of revocation — a running `net wrap` honors an
+// operator's revocation of a delegated gateway without a restart. Mirrors the
+// pin store's file discipline; composes with a future mesh-published layer.
+/// Gang-claim resource-island scheduler value types (live ops on [`mesh::Mesh`]).
+#[cfg(feature = "net")]
+pub mod gang;
+#[cfg(feature = "net")]
+pub mod identity;
+// Its own file rather than another block in `identity.rs`: these walk
+// a full rotation against a `RevocationRegistry` rather than unit-
+// testing one method, and the module is already long.
+#[cfg(test)]
+mod identity_generation_tests;
+#[cfg(feature = "net")]
+pub mod revocation;
+// Agent-to-agent (A2A) task handoff (Hermes V2 Phase 3) — the transport-
+// independent task types + executor-side registry + cancellation, so one
+// enrolled agent hands a long job to another and can cancel it mid-run. The
+// mesh wiring (serve + client) is `mesh_a2a` (gated net + cortex).
+#[cfg(feature = "net")]
+pub mod a2a;
+// Durable (and in-memory) admission records for the configured A2A
+// serving path: one owner per journal, CAS transitions over the D2
+// state table, a launch ledger that outlives the result, and the three
+// retention classes. Gated with `a2a` above — it persists that
+// module's owner, brief and task-state types.
+#[cfg(feature = "net")]
+pub mod a2a_journal;
+// The subnet AUTHORITY facade (SUBNET_AUTH_SDK_PLAN.md): named exports,
+// the admin surface, DTOs, and the stable `subnet:` error envelope.
+// Topology/discovery compatibility stays in `subnets` below.
+#[cfg(feature = "net")]
+pub mod subnet;
+#[cfg(feature = "net")]
+pub mod subnets;
+// Capability sensing — the PROVIDER lifecycle (`provide`, the
+// ownership-safe registration handle, state-edge notification) plus the
+// own-organization EXACT-PROVIDER consumer observation (`watch`, one
+// request-relative snapshot, missed-wake-safe change notification,
+// explicit close). See CAPABILITY_SENSING_SDK_INTEGRATION_PLAN.md
+// §4.1-§4.5. Still absent above it, and named as absent in the module
+// docs: provider-free / leader-backed selection, cross-organization and
+// `Granted` sensing, and any sensed call verb. Rides `net`: every
+// operation is node state on a live `MeshNode`.
+#[cfg(feature = "net")]
+pub mod sensing;
+
+// Aggregator + lifecycle surfaces. Aggregator-daemon clients
+// (`RegistryClient`, `FoldQueryClient`) + the daemon-author
+// types (`AggregatorRegistry`, `LifecycleGroup`,
+// `HealthMonitor`). The `aggregator` feature is on by default and
+// transitively activates `net` (every surface in this module
+// routes through `Mesh::call` / `Mesh::serve_rpc`); the explicit
+// flag mirrors the per-binding `aggregator` Cargo feature so a
+// `--no-default-features` consumer can opt in by name.
+#[cfg(feature = "aggregator")]
+pub mod aggregator;
+
+// Re-export the main handle.
+pub use crate::net::{Net, PollRequest, PollResponse, Receipt, Stats};
+
+// Re-export config types.
+pub use crate::config::{Backpressure, NetBuilder};
+
+// Re-export stream types.
+pub use crate::stream::{EventStream, SubscribeOpts, TypedEventStream};
+
+// Re-export core types that users will need.
+pub use ::net::config::{BatchConfig, ScalingPolicy};
+pub use ::net::consumer::Ordering;
+pub use ::net::event::{Event, RawEvent, StoredEvent};
+pub use ::net::Filter;
+
+/// `bytes::Bytes`, re-exported because this SDK's public signatures
+/// are written in it — `Mesh::publish`, `publish_many`, every stream
+/// send — so a consumer cannot call them without the type.
+///
+/// Leaving it out meant every user added a direct `bytes` dependency
+/// and had to keep its version in step with ours, or hit a
+/// two-versions-of-one-type mismatch that reads as a nonsense
+/// signature error. Re-exporting makes the version we compiled
+/// against the one they get.
+pub use ::bytes::Bytes;
+
+// Feature-gated re-exports.
+#[cfg(feature = "redis")]
+pub use ::net::config::RedisAdapterConfig;
+
+#[cfg(feature = "jetstream")]
+pub use ::net::config::JetStreamAdapterConfig;
+
+#[cfg(feature = "net")]
+pub use ::net::adapter::net::NetAdapterConfig;
+
+#[cfg(feature = "net")]
+pub use ::net::adapter::net::{
+    CloseBehavior, Reliability, Stream as MeshStream, StreamConfig, StreamStats,
+};
+
+// Channel (distributed pub/sub) types. Ship alongside `net` because
+// they live on the mesh transport — subscribing / publishing require
+// a live `Mesh`.
+#[cfg(feature = "net")]
+pub use ::net::adapter::net::{
+    AckReason, ChannelConfig, ChannelId, ChannelName, OnFailure, PublishConfig, PublishReport,
+    Visibility,
+};
+
+#[cfg(feature = "net")]
+pub use crate::mesh::{
+    Mesh, MeshBuilder, StreamDataSubscription, StreamInboundEvent, StreamInbox, SubscribeOptions,
+};
+
+// Raw substrate handle. The SDK's `Mesh` is the ergonomic
+// front-door, but typed RPC clients (`RegistryClient`,
+// `FoldQueryClient`) and FFI bindings want the underlying
+// `Arc<MeshNode>` directly — `Mesh::node_arc()` hands one out.
+// Re-exporting here lets downstream consumers (the CLI's
+// remote-attach context, in particular) name the type without
+// reaching into `::net::adapter::net` themselves.
+#[cfg(feature = "net")]
+pub use ::net::adapter::net::MeshNode;
+
+// Compute surface — `MeshDaemon` trait + runtime. Gated by the
+// `compute` feature (which depends on `net`).
+#[cfg(feature = "compute")]
+pub use crate::compute::{
+    CausalEvent, CausalLink, DaemonError as ComputeDaemonError, DaemonHandle, DaemonHostConfig,
+    DaemonRuntime, DaemonStats, MeshDaemon, MigrationError, MigrationHandle, MigrationOpts,
+    MigrationPhase, StateSnapshot,
+};
+
+// Convenience re-exports for the common security types, so users can
+// `use net_sdk::{Identity, TokenScope};` without reaching for a
+// sub-module path.
+#[cfg(feature = "net")]
+pub use crate::capabilities::{CapabilityFilter, CapabilitySet};
+#[cfg(feature = "net")]
+pub use crate::identity::{
+    Identity, IdentityStateError, PermissionToken, TokenError, TokenScope, IDENTITY_STATE_SIZE,
+};
+// Delegated-identity convenience re-exports (Phase 3): the chain type, the
+// shared revocation registry, and the child-seed KDF.
+#[cfg(feature = "net")]
+pub use crate::delegation::{
+    derive_child_seed, DelegationChain, RevocationRegistry, TokenChain, GATEWAY_DELEGATION_CHANNEL,
+};
+// Device-enrollment convenience re-exports (V2 Phase 1): the invite/join/approve
+// types + the displayed root fingerprint.
+#[cfg(feature = "net")]
+pub use crate::enrollment::{
+    fingerprint, reject, DeviceEnrollment, DeviceEnrollmentError, Enrollment, EnrollmentAuthority,
+    EnrollmentError, InviteToken, JoinError, JoinOutcome, JoinRequest, RenewalRequest,
+};
+// Device-inventory convenience re-exports (V2 Phase 1): the registry backing
+// `mesh.devices()`.
+#[cfg(feature = "net")]
+pub use crate::devices::{default_device_registry_path, DeviceRecord, DeviceRegistry};
+// Operator-surface convenience re-exports (V2 Phase 1).
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub use crate::mesh_enroll::{JoinFlowError, ENROLLMENT_SERVICE};
+// Live A2A task-handoff convenience re-exports (V2 Phase 3 Slice B).
+#[cfg(all(feature = "net", feature = "cortex"))]
+pub use crate::mesh_a2a::{A2aFlowError, A2A_CANCEL_SERVICE, A2A_STATUS_SERVICE, A2A_TASK_SERVICE};
+#[cfg(feature = "net")]
+pub use crate::operator::{OperatorEnrollment, OperatorError};
+#[cfg(feature = "net")]
+pub use crate::revocation::{default_revocation_store_path, RevocationStore};
+// Agent-to-agent task-handoff convenience re-exports (V2 Phase 3).
+#[cfg(feature = "net")]
+pub use crate::a2a::{
+    A2aError, CancelToken, TaskAck, TaskBrief, TaskExecutor, TaskRecord, TaskRegistry, TaskState,
+};
+#[cfg(feature = "net")]
+pub use crate::subnets::{SubnetId, SubnetPolicy};
+// Capability-sensing convenience re-exports (S1): the provider trait an
+// integration implements with its result model and registration handle,
+// the own-organization exact-provider consumer observation, and the loud
+// refusal. The incarnation derivation and the population bound stay
+// behind `net_sdk::sensing::` so the crate root does not grow a second
+// sensing surface.
+//
+// What is NOT re-exported anywhere: interest, audience or wire
+// vocabulary, and any provider-free / cross-organization selector. See
+// the module docs for the exact boundary.
+#[cfg(feature = "net")]
+pub use crate::sensing::{
+    EvaluationRequest, ProjectedReadiness, ReadinessEvaluation, ReadinessEvaluator,
+    ReadinessRegistration, SensedProvider, SensedViability, SensingClient, SensingError,
+    SensingQuery, SensingSnapshot, SensingWatch,
+};
+
+impl NetBuilder {
+    /// Build and start the node.
+    pub async fn build(self) -> error::Result<Net> {
+        Net::from_builder(self).await
+    }
+}

@@ -1,0 +1,233 @@
+"""Shared spawn helpers for vehicle entities."""
+
+from __future__ import annotations
+
+import itertools
+import logging
+import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional, Union
+
+from ..coordinate.map_manager import run_carla_map
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+    from ..coordinate.poses import OpenDrivePose
+    from ..coordinate.snap import GroundProjectionConfig
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SpawnTransform:
+    """Spawn at an explicit :class:`carla.Transform`."""
+
+    value: "carla.Transform"
+
+
+@dataclass(frozen=True)
+class SpawnPointIndex:
+    """Spawn at a map spawn-point by index."""
+
+    value: int
+
+
+SpawnLocation = Union[SpawnTransform, SpawnPointIndex]
+"""Where to place a vehicle.  Exactly one variant must be chosen."""
+
+
+def spawn_vehicle_actor(
+    world: "carla.World",
+    vehicle_type: str,
+    role_name: str,
+    spawn_location: Union[SpawnTransform, SpawnPointIndex],
+    *,
+    od_pose: Optional["OpenDrivePose"] = None,
+    spawn_retry_max_count: int = 0,
+    spawn_retry_t_step: float = 0.1,
+    spawn_retry_z_step: float = 0.5,
+    ground_projection: Optional["GroundProjectionConfig"] = None,
+) -> "carla.Actor":
+    """Spawn a vehicle actor in the CARLA world.
+
+    This is the shared implementation used by both :class:`EgoVehicle` and
+    :class:`VehicleEntity`.
+
+    When the initial spawn fails and *spawn_retry_max_count* > 0 and
+    *od_pose* is provided, the function retries by shifting the spawn
+    transform across its own heading in increments of *spawn_retry_t_step*
+    metres (and up by *spawn_retry_z_step*).
+
+    Args:
+        world: The CARLA world instance.
+        vehicle_type: CARLA blueprint ID (e.g. ``"vehicle.tesla.model3"``).
+        role_name: Value for the ``role_name`` actor attribute.
+        spawn_location: Where to place the vehicle \u2014 either an explicit
+            :class:`SpawnTransform` or a :class:`SpawnPointIndex`.
+        od_pose: Optional :class:`OpenDrivePose` of the spawn; giving it
+            marks the spawn as a road placement and enables the retries,
+            which are offset from the spawn transform itself.
+        spawn_retry_max_count: Maximum number of lateral-shift retries
+            when the initial spawn fails.  0 disables retries.
+        spawn_retry_t_step: Lateral shift in OpenDRIVE *t* (metres) per
+            retry attempt.
+        spawn_retry_z_step: Vertical shift (metres) per retry attempt.
+        ground_projection: Accepted for compatibility; unused now that the
+            retries offset the resolved spawn transform instead of re-snapping.
+
+    Returns:
+        The spawned vehicle actor.
+
+    Raises:
+        ValueError: If the blueprint is unavailable or the spawn index is
+            out of range.
+        RuntimeError: If the actor could not be placed at the location
+            even after all retry attempts.
+    """
+    import typesafe_carla.carla as carla  # noqa: PLC0415
+
+    bp_lib = world.get_blueprint_library()
+
+    # Validate blueprint \u2013 bp_lib.find() raises an opaque C++ exception when
+    # the ID does not exist, so we pre-check with a set (O(n), no sort).
+    vehicle_ids = {bp.id for bp in bp_lib.filter("vehicle.*")}
+    if vehicle_type not in vehicle_ids:
+        raise ValueError(
+            f"Vehicle blueprint {vehicle_type!r} is not available. "
+            f"Available vehicles: {sorted(vehicle_ids)}"
+        )
+
+    # Resolve spawn transform.  Only fetch spawn points when needed so that
+    # the explicit-transform path avoids the get_map() RPC call.
+    spawn_points: Optional[list[carla.Transform]] = None
+    if isinstance(spawn_location, SpawnPointIndex):
+        # The run's map: get_map() builds a whole new one on every call.
+        spawn_points = run_carla_map(world).get_spawn_points()
+        if spawn_location.value >= len(spawn_points):
+            raise ValueError(
+                f"Spawn index {spawn_location.value} is out of range. "
+                f"The map has {len(spawn_points)} spawn points "
+                f"(valid indices: 0\u2013{len(spawn_points) - 1})."
+            )
+        resolved_transform = spawn_points[spawn_location.value]
+    else:
+        resolved_transform = spawn_location.value
+
+    vehicle_bp = bp_lib.find(vehicle_type)
+    if vehicle_bp is None:
+        raise RuntimeError(f"Blueprint not found: {vehicle_type}")
+    vehicle_bp.set_attribute("role_name", role_name)
+
+    # try_spawn_actor returns None on collision / out-of-bounds instead of
+    # raising an opaque std::exception like spawn_actor does.
+    logger.info(
+        "Spawning '%s' at x=%.3f, y=%.3f, z=%.3f",
+        role_name,
+        resolved_transform.location.x,
+        resolved_transform.location.y,
+        resolved_transform.location.z,
+    )
+    actor = world.try_spawn_actor(vehicle_bp, resolved_transform)
+
+    # Retry by shifting laterally (t) and vertically (z) from the position the
+    # first attempt was made at.  That transform is already the resolved
+    # placement; re-snapping ``od_pose`` instead would, on a map where the
+    # Lanelet2 and OpenDRIVE geometries disagree, move the retries back to the
+    # OpenDRIVE lane -- possibly the opposing one -- before offsetting them.
+    if actor is None and spawn_retry_max_count > 0 and od_pose is not None:
+        base_transform = resolved_transform
+        yaw_rad = math.radians(base_transform.rotation.yaw)
+        sin_yaw = math.sin(yaw_rad)
+        cos_yaw = math.cos(yaw_rad)
+        base_x = base_transform.location.x
+        base_y = base_transform.location.y
+        base_z = base_transform.location.z
+
+        logger.info(
+            "Spawn failed for '%s', starting retry "
+            "(max_count=%d, t_step=%.3f, z_step=%.3f, "
+            "base=%.3f, %.3f, %.3f)",
+            role_name,
+            spawn_retry_max_count,
+            spawn_retry_t_step,
+            spawn_retry_z_step,
+            base_x,
+            base_y,
+            base_z,
+        )
+
+        # Signs to try per axis: 0 keeps the base value, ±1 shifts.
+        _SIGNS = ((-1, "-"), (0, "0"), (+1, "+"))
+
+        for attempt in range(1, spawn_retry_max_count + 1):
+            t_delta = spawn_retry_t_step * attempt
+            z_delta = spawn_retry_z_step * attempt
+
+            for (t_sign, t_label), (z_sign, z_label) in itertools.product(
+                _SIGNS, _SIGNS
+            ):
+                if t_sign == 0 and z_sign == 0:
+                    continue  # (0, 0) is the original position already tried
+
+                t_offset = t_sign * t_delta
+                z_offset = z_sign * z_delta
+                retry_transform = carla.Transform(
+                    carla.Location(
+                        x=base_x + sin_yaw * t_offset,
+                        y=base_y - cos_yaw * t_offset,
+                        z=base_z + z_offset,
+                    ),
+                    base_transform.rotation,
+                )
+                logger.info(
+                    "Spawn retry %d/%d (%st,%sz) for '%s': "
+                    "t=%.3f z=%.3f (x=%.3f, y=%.3f, z=%.3f)",
+                    attempt,
+                    spawn_retry_max_count,
+                    t_label,
+                    z_label,
+                    role_name,
+                    t_offset,
+                    z_offset,
+                    retry_transform.location.x,
+                    retry_transform.location.y,
+                    retry_transform.location.z,
+                )
+                actor = world.try_spawn_actor(vehicle_bp, retry_transform)
+                if actor is not None:
+                    logger.info(
+                        "Spawn succeeded on retry %d (%st,%sz) for '%s' "
+                        "(x=%.3f, y=%.3f, z=%.3f)",
+                        attempt,
+                        t_label,
+                        z_label,
+                        role_name,
+                        retry_transform.location.x,
+                        retry_transform.location.y,
+                        retry_transform.location.z,
+                    )
+                    break
+            if actor is not None:
+                break
+
+    if actor is None:
+        if spawn_points is None:
+            spawn_points = run_carla_map(world).get_spawn_points()
+        # Codon does not narrow the Optional; an annotated local unwraps it.
+        known_points: list[carla.Transform] = spawn_points
+        suggestions = "\n".join(
+            f"  [{i}] x={sp.location.x:.1f}, y={sp.location.y:.1f}, "
+            f"z={sp.location.z:.1f}"
+            for i, sp in enumerate(known_points[:5])
+        )
+        raise RuntimeError(
+            f"Failed to spawn vehicle '{role_name}' at "
+            f"x={resolved_transform.location.x}, "
+            f"y={resolved_transform.location.y}, "
+            f"z={resolved_transform.location.z}. "
+            "The location may be occupied or out of map bounds. "
+            f"Try one of these spawn points:\n{suggestions}"
+        )
+
+    return actor

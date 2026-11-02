@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added the option ``--skip-missing`` to skip runs on missing Python
-    interpreters.

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dns-lexicon
-Version: 3.25.2
+Version: 3.26.0
 Summary: Manipulate DNS records on various DNS providers in a standardized/agnostic way
 Project-URL: Homepage, https://dns-lexicon.github.io/dns-lexicon/introduction.html
 Project-URL: Documentation, https://dns-lexicon.github.io/dns-lexicon/user_guide.html
@@ -16,20 +16,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: Name Service (DNS)
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4>=4
 Requires-Dist: cryptography>=2
 Requires-Dist: dnspython>=2
-Requires-Dist: importlib-metadata>=4.6; python_version < '3.10'
 Requires-Dist: pyotp>=2
 Requires-Dist: pyyaml>=3
 Requires-Dist: requests-unixsocket>=0.4

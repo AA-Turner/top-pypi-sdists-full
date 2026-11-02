@@ -1,0 +1,2262 @@
+/**
+ * @file module.cpp
+ * @brief Compiled sequence storage and analysis bindings for pypulseqpp._ext.
+ */
+
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include <type_traits>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include "pulseq/analysis.hpp"
+#include "pulseq/corners.hpp"
+#include "pulseq/fov.hpp"
+#include "pulseq/parallel.hpp"
+#include "pulseq/sequence.hpp"
+#include "pulseq/shape.hpp"
+#include "pulseq/kspace.hpp"
+#include "pulseq/timing.hpp"
+#include "pulseq/waveforms.hpp"
+#include "pulseq/types.hpp"
+#include "pulseqpp_events.h"
+#include "pulseqpp_decode.h"
+#include "pulseqpp_eventtypes.h"
+#include "arbgrad.h"
+#include "sampling.h"
+#include "sim.h"
+#include "ptx.h"
+#include "slr.h"
+#include "labels.h"
+
+#include "pulseq/binary.hpp"
+#include "pulseq/pns.hpp"
+#include "pulseq/read.hpp"
+#include "pulseq/resonance.hpp"
+#include "pulseq/rf_safety.hpp"
+#include "pulseq/safety.hpp"
+#include "pulseq/write.hpp"
+
+namespace py = pybind11;
+
+namespace
+{
+    /**
+     * The sequence the module exposes.
+     *
+     * `pulseq::Sequence` plus the memory an event needs: which shape ids this
+     * sequence issued for a waveform it has already seen, so a pulse played a
+     * thousand times registers its shape once.
+     */
+    using Sequence = pulseqpp_events::BoundSequence;
+
+
+    using Row = py::array_t<double, py::array::c_style | py::array::forcecast>;
+
+    /** The one row of @p width a registration call expects, or an error. */
+    const double* row_of(const Row& values, int width, const char* what)
+    {
+        if (values.ndim() != 1 || values.shape(0) != width)
+            throw std::invalid_argument(
+                std::string(what) + " takes exactly " + std::to_string(width) +
+                " values, got " + std::to_string(values.size()));
+        return values.data();
+    }
+
+    /**
+     * Timing findings as dicts, each carrying only what its kind reports.
+     *
+     * A finding is a fixed struct in C++ so that judging a million-block
+     * sequence allocates nothing per block, but what a caller reads is the
+     * report the toolbox writes: the fields that mean something for this kind
+     * of problem, and no others, so a message template naming them formats
+     * without a missing key and without a stray zero.
+     */
+    py::list findings_as_dicts(const std::vector<pulseq::TimingFinding>& findings)
+    {
+        py::list out;
+        for (size_t i = 0; i < findings.size(); ++i)
+        {
+            const pulseq::TimingFinding& f = findings[i];
+            py::dict d;
+            d["block"] = f.block;
+            d["event"] = f.event;
+            d["field"] = f.field;
+            d["error_type"] = f.error_type;
+
+            if (f.error_type == "RASTER")
+            {
+                d["value"] = f.value;
+                d["value_rounded"] = f.value_rounded;
+                d["error"] = f.error;
+                d["raster"] = f.raster;
+            }
+            else if (f.error_type == "NEGATIVE_DELAY")
+            {
+                d["value"] = f.value;
+            }
+            else if (f.error_type == "BLOCK_DURATION_MISMATCH")
+            {
+                d["value"] = f.value;
+                d["duration"] = f.duration;
+            }
+            else if (f.error_type == "ADC_SAMPLES_DIVISOR")
+            {
+                d["value"] = static_cast<int64_t>(f.value);
+                d["divisor"] = f.divisor;
+            }
+            else if (f.error_type == "RF_DEAD_TIME" || f.error_type == "ADC_DEAD_TIME")
+            {
+                d["value"] = f.value;
+                d["dead_time"] = f.dead_time;
+            }
+            else if (f.error_type == "RF_RINGDOWN_TIME")
+            {
+                d["value"] = f.value;
+                d["duration"] = f.duration;
+                d["ringdown_time"] = f.ringdown_time;
+            }
+            else if (f.error_type == "POST_ADC_DEAD_TIME")
+            {
+                d["value"] = f.value;
+                d["duration"] = f.duration;
+                d["dead_time"] = f.dead_time;
+            }
+            else if (f.error_type == "FREQ_OFFSET")
+            {
+                d["value"] = f.value;
+                d["offset"] = f.offset;
+                d["limit"] = f.limit;
+            }
+            else if (f.error_type == "GRADIENT_START_DELAY")
+            {
+                d["value"] = f.value;
+                d["amplitude"] = f.amplitude;
+            }
+            else if (f.error_type == "GRADIENT_END_NONZERO")
+            {
+                d["value"] = f.value;
+                d["duration"] = f.duration;
+                d["amplitude"] = f.amplitude;
+            }
+            else if (f.error_type == "SOFT_DELAY_HINT_INCONSISTENCY")
+            {
+                d["value"] = f.hint;
+                d["hint"] = f.hint;
+                d["prev_hint"] = f.prev_hint;
+                d["numID"] = static_cast<int64_t>(f.num_id);
+            }
+            else if (f.error_type == "SOFT_DELAY_INVALID_NUMID")
+            {
+                d["value"] = static_cast<int64_t>(f.value);
+                d["hint"] = f.hint;
+                d["numID"] = static_cast<int64_t>(f.num_id);
+            }
+            else
+            {
+                d["value"] = f.value;
+                d["hint"] = f.hint;
+                d["numID"] = static_cast<int64_t>(f.num_id);
+            }
+            out.append(d);
+        }
+        return out;
+    }
+
+    /** A capsule owning @p buffer, so an array over it keeps it alive. */
+    template <typename T> py::capsule keep_alive_capsule(std::shared_ptr<const T> buffer)
+    {
+        auto* held = new std::shared_ptr<const T>(std::move(buffer));
+        return py::capsule(held, [](void* owned) {
+            delete static_cast<std::shared_ptr<const T>*>(owned);
+        });
+    }
+
+    /**
+     * `add_block(rf, gx, gy, gz, adc, ext, duration)`, without argument parsing.
+     *
+     * A design loop makes this call once per block and a protocol-scale scan
+     * has millions of them, so it is the one place where pybind11's argument
+     * handling is worth going around: METH_FASTCALL hands the arguments over
+     * as a C array of borrowed references, which is what building a block
+     * wanted in the first place. Nothing is allocated, and no tuple is built.
+     */
+    PyObject* add_block_fast(PyObject* self, PyObject* const* args, Py_ssize_t nargs)
+    {
+        if (nargs != 7)
+        {
+            PyErr_SetString(
+                PyExc_TypeError,
+                "add_block() takes exactly 7 arguments "
+                "(rf, gx, gy, gz, adc, ext, duration)");
+            return nullptr;
+        }
+        try
+        {
+            pulseq::Block block;
+            block.rf = static_cast<int32_t>(PyLong_AsLong(args[0]));
+            block.gx = static_cast<int32_t>(PyLong_AsLong(args[1]));
+            block.gy = static_cast<int32_t>(PyLong_AsLong(args[2]));
+            block.gz = static_cast<int32_t>(PyLong_AsLong(args[3]));
+            block.adc = static_cast<int32_t>(PyLong_AsLong(args[4]));
+            block.ext = static_cast<int32_t>(PyLong_AsLong(args[5]));
+            block.duration = PyFloat_AsDouble(args[6]);
+            if (PyErr_Occurred())
+                return nullptr;
+
+            Sequence& sequence = py::cast<Sequence&>(py::handle(self));
+            return PyLong_FromLong(sequence.add_block(block));
+        }
+        catch (py::error_already_set& raised)
+        {
+            raised.restore();
+            return nullptr;
+        }
+        catch (const std::exception& raised)
+        {
+            PyErr_SetString(PyExc_ValueError, raised.what());
+            return nullptr;
+        }
+    }
+
+    /**
+     * `add_block_events(*events)`, called without building a tuple.
+     *
+     * The compiled events go straight to `build_block`, which registers what
+     * the sequence has not seen and hands back the block's rows -- so a block
+     * costs one crossing rather than one per event.
+     */
+    PyObject* add_block_events_fast(PyObject* self, PyObject* const* args, Py_ssize_t nargs)
+    {
+        try
+        {
+            Sequence& sequence = py::cast<Sequence&>(py::handle(self));
+            return PyLong_FromLong(
+                sequence.add_block(pulseqpp_events::build_block(sequence, args, nargs)));
+        }
+        catch (py::error_already_set& raised)
+        {
+            raised.restore();
+            return nullptr;
+        }
+        catch (const std::exception& raised)
+        {
+            PyErr_SetString(PyExc_ValueError, raised.what());
+            return nullptr;
+        }
+    }
+
+    /**
+     * `set_block_events(index, *events)`, the same crossing written over an
+     * existing block.
+     *
+     * A sequence read out block by block and put back -- rotated, rescaled,
+     * a label changed -- makes this call once per block, so it is bound the
+     * same way `add_block_events` is.
+     */
+    PyObject* set_block_events_fast(PyObject* self, PyObject* const* args, Py_ssize_t nargs)
+    {
+        try
+        {
+            if (nargs < 1)
+                throw std::invalid_argument("set_block_events() needs a block index");
+            Sequence& sequence = py::cast<Sequence&>(py::handle(self));
+            const long index = PyLong_AsLong(args[0]);
+            if (index == -1 && PyErr_Occurred())
+                return nullptr;
+            sequence.set_block(
+                static_cast<int>(index),
+                pulseqpp_events::build_block(sequence, args + 1, nargs - 1));
+            Py_RETURN_NONE;
+        }
+        catch (py::error_already_set& raised)
+        {
+            raised.restore();
+            return nullptr;
+        }
+        catch (const std::exception& raised)
+        {
+            PyErr_SetString(PyExc_ValueError, raised.what());
+            return nullptr;
+        }
+    }
+
+    PyMethodDef set_block_events_def = {
+        "set_block_events",
+        reinterpret_cast<PyCFunction>(reinterpret_cast<void*>(set_block_events_fast)),
+        METH_FASTCALL,
+        PyDoc_STR("set_block_events(index, *events) -> None")};
+
+    PyMethodDef add_block_events_def = {
+        "add_block_events",
+        reinterpret_cast<PyCFunction>(reinterpret_cast<void*>(add_block_events_fast)),
+        METH_FASTCALL,
+        PyDoc_STR("add_block_events(*events) -> int")};
+
+    PyMethodDef add_block_fast_def = {
+        "add_block",
+        reinterpret_cast<PyCFunction>(reinterpret_cast<void*>(add_block_fast)),
+        METH_FASTCALL,
+        PyDoc_STR("add_block(rf, gx, gy, gz, adc, ext, duration) -> int")};
+
+    /** A `[DEFINITIONS]` value from whatever Python handed over. */
+    pulseq::Definition definition_from(const py::object& value)
+    {
+        if (py::isinstance<py::str>(value))
+            return pulseq::Definition(value.cast<std::string>());
+        if (py::isinstance<py::float_>(value) || py::isinstance<py::int_>(value))
+            return pulseq::Definition(value.cast<double>());
+        return pulseq::Definition(value.cast<std::vector<double>>());
+    }
+
+} // namespace
+
+namespace
+{
+
+    /**
+     * One promoted column of the block table, as a view onto the table.
+     *
+     * An extension promoted to a column is still an extension in the file;
+     * the column is how often it is asked for. Handing it back strided rather
+     * than copied keeps that true of the answer as well.
+     */
+    py::array_t<int32_t> promoted_column(const Sequence& self, int column)
+    {
+        auto buffer = self.block_events_buffer();
+        const int32_t* first = buffer->data() + column;
+        const py::ssize_t item = static_cast<py::ssize_t>(sizeof(int32_t));
+        return py::array_t<int32_t>(
+            {static_cast<py::ssize_t>(self.num_blocks())},
+            {item * pulseq::BLOCK_WIDTH},
+            first,
+            keep_alive_capsule(std::move(buffer)));
+    }
+
+    /**
+     * Rows of @p width as an (n, width) array of their own.
+     *
+     * The buffer is allocated here rather than by NumPy, which advises huge
+     * pages for large arrays: under the common `defrag=madvise` setting each
+     * such fault compacts memory synchronously, which costs seconds on a
+     * library of millions of rows. The copy is split across threads.
+     */
+    template <typename T>
+    py::array_t<T> rows_copy(const T* values, int rows, int width)
+    {
+        const size_t count = static_cast<size_t>(rows) * static_cast<size_t>(width);
+        T* copied = new T[count > 0 ? count : 1];
+        py::capsule owner(copied, [](void* held) { delete[] static_cast<T*>(held); });
+        pulseq::parallel_ranges(
+            static_cast<size_t>(rows),
+            pulseq::worker_count(static_cast<size_t>(rows)),
+            [&](size_t first, size_t last)
+            {
+                const size_t w = static_cast<size_t>(width);
+                std::memcpy(copied + first * w, values + first * w, sizeof(T) * (last - first) * w);
+            });
+        return py::array_t<T>(
+            {static_cast<py::ssize_t>(rows), static_cast<py::ssize_t>(width)}, copied, owner);
+    }
+
+    template <typename T> py::array_t<T> table_copy(const pulseq::BasicTable<T>& table)
+    {
+        return rows_copy(table.data(), table.size(), table.width());
+    }
+
+    /**
+     * Every library of @p seq, copied, under the ids its blocks name.
+     *
+     * The gradients are split as a file splits them: trapezoids and
+     * arbitrary gradients share one numbering, so each table comes with the
+     * ids its rows hold. Labels are named rather than numbered, because a
+     * label id is only this sequence's index into its own table.
+     */
+    py::dict libraries_of(const pulseq::Sequence& seq)
+    {
+        py::dict out;
+        out["rf"] = table_copy(seq.rf_library());
+        const std::vector<char>& uses = seq.rf_uses();
+        py::list use_names;
+        for (size_t id = 1; id <= static_cast<size_t>(seq.rf_library().size()); ++id)
+            use_names.append(pulseqpp_decode::use_name(id <= uses.size() ? uses[id - 1] : 'u'));
+        out["rf_use"] = use_names;
+
+        std::vector<int32_t> trapezoid_ids;
+        std::vector<int32_t> arbitrary_ids;
+        std::vector<double> trapezoids;
+        std::vector<double> arbitrary;
+        for (int id = 1; id <= seq.num_gradients(); ++id)
+        {
+            const bool trapezoid = seq.grad_kind(id) == pulseq::GradKind::Trap;
+            const double* row = trapezoid ? seq.trap_library().row(seq.grad_row(id))
+                                          : seq.arb_library().row(seq.grad_row(id));
+            std::vector<double>& into = trapezoid ? trapezoids : arbitrary;
+            (trapezoid ? trapezoid_ids : arbitrary_ids).push_back(id);
+            into.insert(into.end(), row, row + (trapezoid ? pulseq::TRAP_WIDTH : pulseq::ARB_WIDTH));
+        }
+        out["trapezoid_ids"] = py::array_t<int32_t>(
+            static_cast<py::ssize_t>(trapezoid_ids.size()), trapezoid_ids.data());
+        out["trapezoids"] = rows_copy(
+            trapezoids.data(), static_cast<int>(trapezoid_ids.size()), pulseq::TRAP_WIDTH);
+        out["arbitrary_gradient_ids"] = py::array_t<int32_t>(
+            static_cast<py::ssize_t>(arbitrary_ids.size()), arbitrary_ids.data());
+        out["arbitrary_gradients"] = rows_copy(
+            arbitrary.data(), static_cast<int>(arbitrary_ids.size()), pulseq::ARB_WIDTH);
+
+        out["adc"] = table_copy(seq.adc_library());
+
+        const pulseq::ShapeLibrary& shapes = seq.shape_library();
+        py::list shape_rows;
+        for (int id = 1; id <= shapes.size(); ++id)
+            shape_rows.append(py::make_tuple(
+                shapes.num_uncompressed(id),
+                py::array_t<double>(
+                    static_cast<py::ssize_t>(shapes.num_compressed(id)), shapes.samples(id))));
+        out["shapes"] = shape_rows;
+
+        out["extensions"] = table_copy(seq.extensions_library());
+        py::dict types;
+        for (const auto& entry : seq.extension_types())
+            types[py::str(entry.second)] = entry.first;
+        out["extension_types"] = types;
+        out["triggers"] = table_copy(seq.trigger_library());
+        out["rotations"] = table_copy(seq.rotation_library());
+
+        const std::pair<const char*, const pulseq::IntTable*> labels[] = {
+            {"label_set", &seq.label_set_library()}, {"label_inc", &seq.label_inc_library()}};
+        for (const auto& library : labels)
+        {
+            const int rows = library.second->size();
+            py::array_t<int32_t> values(static_cast<py::ssize_t>(rows));
+            py::list names;
+            for (int id = 1; id <= rows; ++id)
+            {
+                const int32_t* row = library.second->row(id);
+                values.mutable_data()[id - 1] = row[0];
+                // Named as the writer names it, so the export and the file agree.
+                const std::string& name = seq.label_name(row[1]);
+                names.append(name.empty() ? "UNKNOWN" : name);
+            }
+            out[py::str(std::string(library.first) + "_values")] = values;
+            out[py::str(std::string(library.first) + "_labels")] = names;
+        }
+
+        const pulseq::RaggedTable& shims = seq.rf_shim_library();
+        py::list shim_rows;
+        for (int id = 1; id <= shims.size(); ++id)
+            shim_rows.append(
+                py::array_t<double>(static_cast<py::ssize_t>(shims.length(id)), shims.row(id)));
+        out["rf_shims"] = shim_rows;
+
+        const std::vector<pulseq::SoftDelay>& delays = seq.soft_delay_library();
+        py::array_t<double> soft_delays(
+            {static_cast<py::ssize_t>(delays.size()), static_cast<py::ssize_t>(3)});
+        py::list hints;
+        for (size_t i = 0; i < delays.size(); ++i)
+        {
+            double* row = soft_delays.mutable_data() + 3 * i;
+            row[0] = delays[i].num;
+            row[1] = delays[i].offset;
+            row[2] = delays[i].factor;
+            hints.append(delays[i].hint);
+        }
+        out["soft_delays"] = soft_delays;
+        out["soft_delay_hints"] = hints;
+        return out;
+    }
+
+} // namespace
+
+PYBIND11_MODULE(_ext, module)
+{
+    module.doc() = "Compiled sequence core for pypulseqpp";
+
+    // The trajectory solver, under a name of its own: it shares nothing with
+    // the sequence core but the wheel it ships in.
+    py::module_ arbgrad = module.def_submodule("arbgrad");
+    arbgrad.attr("__name__") = "pypulseqpp._ext.arbgrad";
+    py::module_::import("sys").attr("modules")["pypulseqpp._ext.arbgrad"] = arbgrad;
+    pypulseqpp_bind_arbgrad(arbgrad);
+
+    py::module_ sampling = module.def_submodule("sampling");
+    sampling.attr("__name__") = "pypulseqpp._ext.sampling";
+    py::module_::import("sys").attr("modules")["pypulseqpp._ext.sampling"] = sampling;
+    pypulseqpp_bind_sampling(sampling);
+
+    // The Bloch simulation both sim_bloch and sim_rf run on.
+    py::module_ sim = module.def_submodule("sim");
+    sim.attr("__name__") = "pypulseqpp._ext.sim";
+    py::module_::import("sys").attr("modules")["pypulseqpp._ext.sim"] = sim;
+    pypulseqpp_bind_sim(sim);
+
+    // Shinnar-Le Roux pulse design, for the searches too slow to run in NumPy.
+    py::module_ slr = module.def_submodule("slr");
+    slr.attr("__name__") = "pypulseqpp._ext.slr";
+    py::module_::import("sys").attr("modules")["pypulseqpp._ext.slr"] = slr;
+    pypulseqpp_bind_slr(slr);
+
+    pypulseqpp_bind_labels(module);
+
+    // Small-tip parallel-transmit design: spatial-domain, shimming, spokes.
+    py::module_ ptx = module.def_submodule("ptx");
+    ptx.attr("__name__") = "pypulseqpp._ext.ptx";
+    py::module_::import("sys").attr("modules")["pypulseqpp._ext.ptx"] = ptx;
+    pypulseqpp_bind_ptx(ptx);
+
+    // The events a block is made of, as compiled objects rather than
+    // dictionaries. See pulseqpp_eventtypes.h.
+    pulseqpp_types::bind(module);
+
+    py::enum_<pulseq::ShapeRole>(module, "ShapeRole", py::arithmetic(),
+                                 "What a shape is played as. Masks, so they combine.")
+        .value("NONE", pulseq::SHAPE_ROLE_NONE)
+        .value("RF_MAGNITUDE", pulseq::SHAPE_ROLE_RF_MAGNITUDE)
+        .value("RF_PHASE", pulseq::SHAPE_ROLE_RF_PHASE)
+        .value("RF_TIME", pulseq::SHAPE_ROLE_RF_TIME)
+        .value("GRADIENT", pulseq::SHAPE_ROLE_GRADIENT)
+        .value("GRADIENT_TIME", pulseq::SHAPE_ROLE_GRADIENT_TIME)
+        .value("ADC_PHASE", pulseq::SHAPE_ROLE_ADC_PHASE)
+        .value("TIME", pulseq::SHAPE_ROLE_TIME)
+        .export_values();
+
+    py::class_<pulseq::Block>(module, "Block", "One block's event ids and its duration.")
+        .def(
+            py::init([](int32_t rf, int32_t gx, int32_t gy, int32_t gz, int32_t adc, int32_t ext,
+                        double duration) {
+                pulseq::Block block;
+                block.rf = rf;
+                block.gx = gx;
+                block.gy = gy;
+                block.gz = gz;
+                block.adc = adc;
+                block.ext = ext;
+                block.duration = duration;
+                return block;
+            }),
+            py::arg("rf") = 0, py::arg("gx") = 0, py::arg("gy") = 0, py::arg("gz") = 0,
+            py::arg("adc") = 0, py::arg("ext") = 0, py::arg("duration") = 0.0)
+        .def_readwrite("rf", &pulseq::Block::rf)
+        .def_readwrite("gx", &pulseq::Block::gx)
+        .def_readwrite("gy", &pulseq::Block::gy)
+        .def_readwrite("gz", &pulseq::Block::gz)
+        .def_readwrite("adc", &pulseq::Block::adc)
+        .def_readwrite("ext", &pulseq::Block::ext)
+        .def_readwrite("duration", &pulseq::Block::duration);
+
+    py::class_<pulseq::SoftDelay>(module, "SoftDelay", "One `[DELAYS]` library row.")
+        .def(py::init([](int32_t num, double offset, double factor, std::string hint) {
+                 pulseq::SoftDelay delay;
+                 delay.num = num;
+                 delay.offset = offset;
+                 delay.factor = factor;
+                 delay.hint = std::move(hint);
+                 return delay;
+             }),
+             py::arg("num"), py::arg("offset"), py::arg("factor"), py::arg("hint"))
+        .def_readwrite("num", &pulseq::SoftDelay::num)
+        .def_readwrite("offset", &pulseq::SoftDelay::offset)
+        .def_readwrite("factor", &pulseq::SoftDelay::factor)
+        .def_readwrite("hint", &pulseq::SoftDelay::hint);
+
+    auto sequence_class =
+        py::class_<Sequence>(module, "Sequence", "Event libraries and a block table.")
+            .def(py::init<>())
+            .def(
+                "copy", [](const Sequence& self) { return Sequence(self); },
+                "Return a sequence of its own holding every library, the block table "
+                "and the definitions this one holds.")
+
+        /* -- header ---------------------------------------------------- */
+        .def("set_version", &Sequence::set_version, py::arg("major"), py::arg("minor"),
+             py::arg("revision"))
+        .def("version_major", &Sequence::version_major,
+             "The major version of the format this sequence is held as.")
+        .def("version_minor", &Sequence::version_minor, "Its minor version.")
+        .def("version_revision", &Sequence::version_revision,
+             "Its revision: what a file it was read from declared, or what "
+             "this package writes.")
+        .def("set_rasters", &Sequence::set_rasters, py::arg("rf"), py::arg("grad"),
+             py::arg("adc"), py::arg("block"))
+        .def("block_duration_raster", &Sequence::block_duration_raster,
+             "The raster a block's duration is a whole number of, in seconds.")
+        .def("grad_raster_time", &Sequence::grad_raster_time,
+             "The gradient raster, in seconds.")
+        .def("rf_raster_time", &Sequence::rf_raster_time, "The RF raster, in seconds.")
+        .def("adc_raster_time", &Sequence::adc_raster_time,
+             "The ADC dwell raster, in seconds.")
+        .def("publish_rasters", &Sequence::publish_rasters,
+             "Record the raster times in `[DEFINITIONS]`.")
+
+        /* -- definitions ----------------------------------------------- */
+        .def(
+            "set_definition",
+            [](Sequence& self, const std::string& key, const py::object& value) {
+                self.set_definition(key, definition_from(value));
+            },
+            py::arg("key"), py::arg("value"))
+        .def(
+            "set_integer_definition",
+            [](Sequence& self, const std::string& key, std::vector<double> values) {
+                self.set_definition(key, pulseq::Definition::integers(std::move(values)));
+            },
+            py::arg("key"), py::arg("values"),
+            "Record whole numbers, which the writer formats without a decimal point.")
+        .def(
+            "definitions",
+            [](const Sequence& self) {
+                py::dict out;
+                for (const auto& entry : self.definitions())
+                {
+                    const pulseq::Definition& value = entry.second;
+                    if (value.kind() == pulseq::Definition::Kind::Text)
+                        out[py::str(entry.first)] = py::str(value.text());
+                    else
+                        out[py::str(entry.first)] = py::cast(value.numbers());
+                }
+                return out;
+            },
+            "Every `[DEFINITIONS]` entry, as a dict.")
+
+        /* -- event libraries ------------------------------------------- */
+        .def(
+            "register_rf",
+            [](Sequence& self, const Row& values, const std::string& use) {
+                return self.register_rf(row_of(values, pulseq::RF_WIDTH, "an RF event"),
+                                        use.empty() ? 'u' : use[0]);
+            },
+            py::arg("values"), py::arg("use") = "u")
+        .def(
+            "register_trap",
+            [](Sequence& self, const Row& values) {
+                return self.register_trap(row_of(values, pulseq::TRAP_WIDTH, "a trapezoid"));
+            },
+            py::arg("values"))
+        .def(
+            "register_arbitrary",
+            [](Sequence& self, const Row& values) {
+                return self.register_arbitrary(
+                    row_of(values, pulseq::ARB_WIDTH, "an arbitrary gradient"));
+            },
+            py::arg("values"))
+        .def(
+            "register_adc",
+            [](Sequence& self, const Row& values) {
+                return self.register_adc(row_of(values, pulseq::ADC_WIDTH, "an ADC event"));
+            },
+            py::arg("values"))
+        .def(
+            "register_trigger",
+            [](Sequence& self, const Row& values) {
+                return self.register_trigger(row_of(values, pulseq::TRIGGER_WIDTH, "a trigger"));
+            },
+            py::arg("values"))
+        .def(
+            "register_rotation",
+            [](Sequence& self, const Row& values) {
+                return self.register_rotation(row_of(values, pulseq::ROTATION_WIDTH, "a rotation"));
+            },
+            py::arg("values"))
+        .def("register_label_set", &Sequence::register_label_set, py::arg("value"),
+             py::arg("label_id"))
+        .def("register_label_inc", &Sequence::register_label_inc, py::arg("value"),
+             py::arg("label_id"))
+        .def(
+            "register_rf_shim",
+            [](Sequence& self, const Row& values) {
+                return self.register_rf_shim(values.data(), static_cast<int>(values.size()));
+            },
+            py::arg("values"))
+        .def("register_soft_delay", &Sequence::register_soft_delay, py::arg("delay"))
+
+        /* -- shapes ---------------------------------------------------- */
+        .def(
+            "register_shape",
+            [](Sequence& self, int num_uncompressed, const Row& samples) {
+                return self.register_shape(num_uncompressed, samples.data(),
+                                           static_cast<int>(samples.size()));
+            },
+            py::arg("num_uncompressed"), py::arg("samples"),
+            "Register an already-compressed shape.")
+        .def(
+            "register_raw_shape",
+            [](Sequence& self, const Row& samples) {
+                return self.register_raw_shape(samples.data(), static_cast<int>(samples.size()));
+            },
+            py::arg("samples"), "Register uncompressed samples; compress_shapes() encodes them.")
+        .def(
+            "register_raw_shape_divided",
+            [](Sequence& self, const Row& samples, double divisor) {
+                return self.register_raw_shape_divided(samples.data(),
+                                                       static_cast<int>(samples.size()), divisor);
+            },
+            py::arg("samples"), py::arg("divisor"))
+        .def("compress_shapes", &Sequence::compress_shapes,
+             py::call_guard<py::gil_scoped_release>(),
+             "Run-length encode every shape registered raw.")
+
+        /* -- what shapes are played as ----------------------------------- */
+        .def(
+            "shape_roles",
+            [](const Sequence& self) {
+                const pulseq::ShapeLibrary& shapes = self.shape_library();
+                py::array_t<uint32_t> out(shapes.size());
+                uint32_t* values = out.mutable_data();
+                for (int id = 1; id <= shapes.size(); ++id)
+                    values[id - 1] = shapes.roles(id);
+                return out;
+            },
+            "Per shape, a mask of what it is played as. See ShapeRole.")
+        .def(
+            "shapes_with_role",
+            [](const Sequence& self, uint32_t role) {
+                const pulseq::ShapeLibrary& shapes = self.shape_library();
+                std::vector<int32_t> found;
+                for (int id = 1; id <= shapes.size(); ++id)
+                    if (shapes.roles(id) & role)
+                        found.push_back(id);
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(found.size()), found.data());
+            },
+            py::arg("role"),
+            "The ids of every shape played as any of `role`, in id order.")
+
+        /* -- extensions and labels ------------------------------------- */
+        .def("extension_type_id", &Sequence::extension_type_id, py::arg("name"),
+             "The id for an extension name, minting one if it is new.")
+        .def("set_extension_type_id", &Sequence::set_extension_type_id, py::arg("name"),
+             py::arg("id"), "Pin an extension name to a chosen id.")
+        .def("extension_type_name", &Sequence::extension_type_name, py::arg("id"),
+             "The name an extension id stands for.")
+        .def(
+            "extension_chain",
+            [](const Sequence& self, int32_t head) {
+                /* Type and reference per link, as a 2-by-n array: the shape
+                 * the toolboxes report a block's extensions in. */
+                const pulseq::IntTable& links = self.extensions_library();
+                std::vector<int32_t> types;
+                std::vector<int32_t> refs;
+                int32_t node = head;
+                while (node > 0 && node <= links.size())
+                {
+                    const int32_t* link = links.row(node);
+                    types.push_back(link[0]);
+                    refs.push_back(link[1]);
+                    node = link[2];
+                }
+                const py::ssize_t held = static_cast<py::ssize_t>(types.size());
+                py::array_t<int32_t> out({static_cast<py::ssize_t>(2), held});
+                auto view = out.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < held; ++i)
+                {
+                    view(0, i) = types[static_cast<size_t>(i)];
+                    view(1, i) = refs[static_cast<size_t>(i)];
+                }
+                return out;
+            },
+            py::arg("head"),
+            "The extension chain from `head`, as type and reference ids.")
+        .def("label_id", &Sequence::label_id, py::arg("name"),
+             "The id for a label name, minting one if it is not built in.")
+        .def("label_name", &Sequence::label_name, py::arg("id"))
+        .def("chain_extension", &Sequence::chain_extension, py::arg("type_id"),
+             py::arg("ref"), py::arg("next"))
+
+        /* -- blocks ---------------------------------------------------- */
+        /* -- reading the block table back -------------------------------- */
+        //
+        // Views, not copies: a million-row table costs nothing to read a
+        // column out of. The array owns a share of the buffer it points into,
+        // and the sequence copies that buffer before writing to it while a
+        // view is out, so a view is a snapshot. It never sees a later write
+        // and it never outlives its memory -- it stays valid even if the
+        // sequence itself is collected.
+        .def(
+            "block_events",
+            [](const Sequence& self) {
+                /* The six columns the file carries, over a table that holds
+                 * more: a stride rather than a copy, so this stays a view
+                 * into the table and the rotation column stays out of a
+                 * caller's way. */
+                auto buffer = self.block_events_buffer();
+                const int32_t* first = buffer->data();
+                const py::ssize_t item = static_cast<py::ssize_t>(sizeof(int32_t));
+                return py::array_t<int32_t>(
+                    {static_cast<py::ssize_t>(self.num_blocks()),
+                     static_cast<py::ssize_t>(pulseq::BLOCK_FILE_COLUMNS)},
+                    {item * pulseq::BLOCK_WIDTH, item},
+                    first,
+                    keep_alive_capsule(std::move(buffer)));
+            },
+            "The block table as an (N, 6) snapshot: rf, gx, gy, gz, adc, ext.")
+        .def(
+            "block_rotations",
+            [](const Sequence& self) {
+                /* The rotation each block turns its gradients by, as a column
+                 * of the same table -- a rotation is an extension in the file
+                 * and stays one, and this is how often it is asked for. */
+                return promoted_column(self, pulseq::BLOCK_ROTATION_COLUMN);
+            },
+            "Per block, the rotation row it turns its gradients by; 0 for none.")
+        .def(
+            "block_shims",
+            [](const Sequence& self) {
+                return promoted_column(self, pulseq::BLOCK_SHIM_COLUMN);
+            },
+            "Per block, the RF shim row its pulse is played through; 0 for "
+            "none.")
+        .def(
+            "block_durations",
+            [](const Sequence& self) {
+                auto buffer = self.block_durations_buffer();
+                const double* first = buffer->data();
+                return py::array_t<double>({self.num_blocks()}, first,
+                                           keep_alive_capsule(std::move(buffer)));
+            },
+            "Every block's duration in seconds, as a snapshot.")
+        .def(
+            "set_block_duration",
+            [](Sequence& self, int index, double seconds) {
+                if (index < 1 || index > self.num_blocks())
+                    throw py::index_error("block index out of range");
+                self.set_block_duration(index, seconds);
+            },
+            py::arg("index"), py::arg("seconds"))
+
+        .def(
+            "repetition",
+            [](Sequence& self) {
+                const pulseq::Repetition found = self.repetition();
+                return py::make_tuple(found.size, found.start);
+            },
+            "The repeating unit of the scan as (size, start), in blocks: the "
+            "whole table when nothing repeats, a size of 0 without blocks, and "
+            "a 0-based start of 0.")
+        .def(
+            "repeating_part",
+            [](Sequence& self) {
+                const pulseq::Repetition found = self.repeating_part();
+                return py::make_tuple(found.size, found.start);
+            },
+            "The longest repeating run as (size, start), in blocks: what a "
+            "diagram draws when a preparation or a rewind keeps the scan from "
+            "repeating as a whole.")
+        .def(
+            "loops",
+            [](Sequence& self) {
+                const pulseq::Loops found = self.loops();
+                py::list bodies;
+                for (const auto& body : found.bodies)
+                    bodies.append(py::cast(body));
+                return py::make_tuple(py::cast(found.top), bodies, py::cast(found.counts));
+            },
+            "The block definitions folded into nested loops as (top, bodies, "
+            "counts): a token above zero is a definition id, and -(k + 1) is "
+            "loop k, bodies[k] played counts[k] times.")
+        .def(
+            "locate_repetition",
+            [](const Sequence& self, int size) {
+                const pulseq::Repetition found = self.locate_repetition(size);
+                return py::make_tuple(found.size, found.start);
+            },
+            py::arg("size"),
+            "Where a repeating unit of the given size starts, as (size, start).")
+        .def(
+            "detect_rf_uses", &Sequence::detect_rf_uses, py::arg("b0"), py::arg("gamma"),
+            "Label every pulse the file did not, from what the pulse does. "
+            "Returns how many were labelled.")
+        .def(
+            "apply_soft_delays",
+            [](Sequence& self, const std::map<std::string, double>& values) {
+                pulseq::SoftDelayReport report;
+                {
+                    py::gil_scoped_release unlocked;
+                    report = self.apply_soft_delays(values);
+                }
+
+                py::list rounded;
+                for (size_t i = 0; i < report.rounded.size(); ++i)
+                {
+                    const pulseq::SoftDelayReport::Rounding& note = report.rounded[i];
+                    py::dict entry;
+                    entry["block"] = note.block;
+                    entry["hint"] = note.hint;
+                    entry["numID"] = note.num;
+                    entry["error"] = note.error;
+                    rounded.append(entry);
+                }
+
+                py::dict out;
+                out["hints"] = report.hints;
+                out["rounded"] = rounded;
+                out["problem"] = py::none();
+                if (report.problem != pulseq::SoftDelayReport::Problem::None)
+                {
+                    py::dict problem;
+                    problem["kind"] =
+                        report.problem == pulseq::SoftDelayReport::Problem::HintRenumbered
+                        ? "hint_renumbered"
+                        : (report.problem ==
+                                   pulseq::SoftDelayReport::Problem::NumberRenamed
+                               ? "number_renamed"
+                               : "negative");
+                    problem["block"] = report.block;
+                    problem["hint"] = report.hint;
+                    problem["numID"] = report.num;
+                    problem["duration"] = report.duration;
+                    problem["offset"] = report.offset;
+                    problem["factor"] = report.factor;
+                    out["problem"] = problem;
+                }
+                return out;
+            },
+            py::arg("values"),
+            "Set each named soft delay, by hint, to the value given. Returns "
+            "the hints found, what had to be rounded, and the first problem.")
+
+        /* -- counts ------------------------------------------------------ */
+        .def("num_rf", [](const Sequence& self) { return self.rf_library().size(); })
+        .def("num_gradients", &Sequence::num_gradients)
+        .def("num_adc", [](const Sequence& self) { return self.adc_library().size(); })
+        .def("num_triggers",
+             [](const Sequence& self) { return self.trigger_library().size(); })
+        .def("num_rotations",
+             [](const Sequence& self) { return self.rotation_library().size(); })
+        .def("num_extensions",
+             [](const Sequence& self) { return self.extensions_library().size(); })
+        .def("num_label_set",
+             [](const Sequence& self) { return self.label_set_library().size(); })
+        .def("num_label_inc",
+             [](const Sequence& self) { return self.label_inc_library().size(); })
+        .def("num_shapes",
+             [](const Sequence& self) { return self.shape_library().size(); })
+        .def("num_rf_shims",
+             [](const Sequence& self) { return self.rf_shim_library().size(); })
+        .def("num_soft_delays", [](const Sequence& self) {
+            return static_cast<int>(self.soft_delay_library().size());
+        })
+
+        // `add_block` is attached after the class rather than here, because it
+        // is METH_FASTCALL. See add_block_fast above.
+        .def(
+            "set_block",
+            [](Sequence& self, int index, int32_t rf, int32_t gx, int32_t gy, int32_t gz,
+               int32_t adc, int32_t ext, double duration) {
+                pulseq::Block block;
+                block.rf = rf;
+                block.gx = gx;
+                block.gy = gy;
+                block.gz = gz;
+                block.adc = adc;
+                block.ext = ext;
+                block.duration = duration;
+                self.set_block(index, block);
+            },
+            py::arg("index"), py::arg("rf"), py::arg("gx"), py::arg("gy"), py::arg("gz"),
+            py::arg("adc"), py::arg("ext"), py::arg("duration"))
+        .def("get_block", &Sequence::get_block, py::arg("index"))
+        .def(
+            "decode_block",
+            [](const Sequence& self, int index) {
+                return pulseqpp_decode::decode_block(self, index);
+            },
+            py::arg("index"),
+            "Block `index` (1-based) as the events it plays, rather than as "
+            "the ids they are stored under.")
+        .def(
+            "libraries",
+            [](const Sequence& self) { return libraries_of(self); },
+            "Every event, shape and extension library, copied, by the names "
+            "SequenceLibraries gives them.")
+        .def("num_blocks", &Sequence::num_blocks)
+        .def("edits", &Sequence::edits,
+             "How many times the sequence has been edited; it only rises.")
+
+        /* -- definitions and instances --------------------------------- */
+        .def("num_block_definitions", &Sequence::num_block_definitions,
+             "How many distinct block structures the scan plays.")
+        .def("num_rf_definitions", &Sequence::num_rf_definitions)
+        .def("num_grad_definitions", &Sequence::num_grad_definitions)
+        .def("num_adc_definitions", &Sequence::num_adc_definitions)
+        .def(
+            "rf_definitions",
+            [](const Sequence& self) {
+                const auto& v = self.rf_definitions();
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(v.size()), v.data());
+            },
+            "Per RF id, the id of the definition it plays; index with id - 1.")
+        .def(
+            "grad_definitions",
+            [](const Sequence& self) {
+                const auto& v = self.grad_definitions();
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(v.size()), v.data());
+            },
+            "Per gradient id, the id of the definition it plays; index with id - 1.")
+        .def(
+            "adc_definitions",
+            [](const Sequence& self) {
+                const auto& v = self.adc_definitions();
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(v.size()), v.data());
+            },
+            "Per ADC id, the id of the definition it digitises with; index with id - 1.")
+        .def(
+            "instance_definitions",
+            [](const Sequence& self) {
+                const auto& v = self.instance_definitions();
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(v.size()), v.data());
+            },
+            "Per block, the id of the definition it plays.")
+        .def(
+            "instance_adc_definitions",
+            [](const Sequence& self) {
+                const auto& v = self.instance_adc_definitions();
+                return py::array_t<int32_t>(static_cast<py::ssize_t>(v.size()), v.data());
+            },
+            "Per block, the ADC definition it digitises with; 0 if it does not.")
+        .def(
+            "instance_parameters",
+            [](const Sequence& self) {
+                const std::vector<double> v = self.instance_parameters();
+                const py::ssize_t rows =
+                    static_cast<py::ssize_t>(v.size() / pulseq::INSTANCE_WIDTH);
+                return py::array_t<double>(
+                    {rows, static_cast<py::ssize_t>(pulseq::INSTANCE_WIDTH)}, v.data());
+            },
+            "Per block, its per-playout parameters.  See INSTANCE_WIDTH.")
+        .def("duration", &Sequence::duration, "Total duration in seconds.")
+        .def(
+            "event_counts",
+            [](const Sequence& self) {
+                const std::array<int64_t, pulseq::BLOCK_FILE_COLUMNS> counts = self.event_counts();
+                return py::array_t<int64_t>(
+                    static_cast<py::ssize_t>(pulseq::BLOCK_FILE_COLUMNS), counts.data());
+            },
+            "How many blocks carry an event in each column: rf, gx, gy, gz, "
+            "adc, extension.")
+        .def(
+            "scale_gradient_axis", &Sequence::scale_gradient_axis, py::arg("axis"),
+            py::arg("modifier"),
+            "Scale every gradient played on an axis (0, 1 or 2) by a factor.")
+        .def("remove_duplicates", &Sequence::remove_duplicates,
+             py::call_guard<py::gil_scoped_release>(),
+             "Collapse identical library rows and renumber the block table.")
+        .def(
+            "expand_repeats",
+            [](Sequence& seq, int repeats, const std::string& label, bool strip_once)
+            {
+                pulseq::ExpandResult result;
+                {
+                    py::gil_scoped_release release;
+                    result = seq.expand_repeats(repeats, label, strip_once);
+                }
+                py::dict out;
+                out["repeats"] = result.repeats;
+                out["blocks_before"] = result.blocks_before;
+                out["blocks_after"] = result.blocks_after;
+                out["prep_blocks"] = result.prep_blocks;
+                out["body_blocks"] = result.body_blocks;
+                out["cooldown_blocks"] = result.cooldown_blocks;
+                return out;
+            },
+            py::arg("repeats"),
+            py::arg("label") = "AVG",
+            py::arg("strip_once") = true,
+            "Play the scan a number of times, written into the block table; return the block counts.")
+        .def("__len__", &Sequence::num_blocks);
+
+    // METH_FASTCALL has no pybind11 spelling, so the descriptor is built by
+    // hand and bound onto the type the class just created.
+    {
+        PyTypeObject* type = reinterpret_cast<PyTypeObject*>(sequence_class.ptr());
+        sequence_class.attr("add_block") =
+            py::reinterpret_steal<py::object>(PyDescr_NewMethod(type, &add_block_fast_def));
+        sequence_class.attr("add_block_events") =
+            py::reinterpret_steal<py::object>(PyDescr_NewMethod(type, &add_block_events_def));
+        sequence_class.attr("set_block_events") =
+            py::reinterpret_steal<py::object>(PyDescr_NewMethod(type, &set_block_events_def));
+    }
+
+    module.def(
+        "write_text",
+        [](Sequence& sequence, bool create_signature, const py::object& rows) {
+            std::string written;
+            if (rows.is_none())
+            {
+                py::gil_scoped_release unlocked;
+                written = pulseq::write_text(sequence, create_signature);
+            }
+            else
+            {
+                const auto chosen = rows.cast<std::vector<int32_t>>();
+                py::gil_scoped_release unlocked;
+                written = pulseq::write_text(sequence, create_signature, chosen);
+            }
+            return py::bytes(written);
+        },
+        py::arg("sequence"), py::arg("create_signature") = true, py::arg("rows") = py::none(),
+        "Serialize as a Pulseq `.seq` text file: every block, or the 1-based blocks "
+        "`rows` names, in that order.");
+
+    module.def(
+        "write_text_v141",
+        [](Sequence& sequence, bool create_signature, double gamma, double field) {
+            if (!sequence.soft_delay_library().empty())
+            {
+                // The reference toolbox warns rather than refusing, and so
+                // does this: the file is valid apart from the delays, which
+                // 1.4.1 has no way to carry.
+                PyErr_WarnEx(
+                    PyExc_UserWarning,
+                    "write_text_v141(): this sequence uses soft delays, which the 1.4.1 "
+                    "format cannot carry; they are left out of the file",
+                    1);
+            }
+            std::string written;
+            {
+                py::gil_scoped_release unlocked;
+                written = pulseq::write_text_v141(sequence, create_signature, gamma, field);
+            }
+            return py::bytes(written);
+        },
+        py::arg("sequence"), py::arg("create_signature") = true,
+        py::arg("gamma") = 42576000.0, py::arg("field") = 1.5,
+        "Serialize as a Pulseq 1.4.1 `.seq` text file.");
+
+    module.def(
+        "check_timing",
+        [](const Sequence& sequence,
+           double rf_raster_time,
+           double grad_raster_time,
+           double adc_raster_time,
+           double block_duration_raster,
+           double rf_dead_time,
+           double rf_ringdown_time,
+           double adc_dead_time,
+           double adc_samples_divisor,
+           double max_freq_offset,
+           double larmor) {
+            pulseq::TimingLimits limits;
+            limits.rf_raster_time = rf_raster_time;
+            limits.grad_raster_time = grad_raster_time;
+            limits.adc_raster_time = adc_raster_time;
+            limits.block_duration_raster = block_duration_raster;
+            limits.rf_dead_time = rf_dead_time;
+            limits.rf_ringdown_time = rf_ringdown_time;
+            limits.adc_dead_time = adc_dead_time;
+            limits.adc_samples_divisor = adc_samples_divisor;
+            limits.max_freq_offset = max_freq_offset;
+            limits.larmor = larmor;
+
+            std::vector<pulseq::TimingFinding> findings;
+            {
+                py::gil_scoped_release unlocked;
+                findings = pulseq::check_timing(sequence, limits);
+            }
+            return findings_as_dicts(findings);
+        },
+        py::arg("sequence"), py::arg("rf_raster_time"), py::arg("grad_raster_time"),
+        py::arg("adc_raster_time"), py::arg("block_duration_raster"),
+        py::arg("rf_dead_time") = 0.0, py::arg("rf_ringdown_time") = 0.0,
+        py::arg("adc_dead_time") = 0.0, py::arg("adc_samples_divisor") = 1.0,
+        py::arg("max_freq_offset") = 0.0, py::arg("larmor") = 42576000.0 * 1.5,
+        "Every timing problem in the sequence, one dict per finding.");
+
+    module.def(
+        "register_event",
+        [](Sequence& sequence, py::handle event) {
+            /* One event is a block of one, minus the linking: the extension
+             * chain is left uncommitted, so registering a trigger costs the
+             * trigger row and not an extension row nobody points at. */
+            PyObject* item = event.ptr();
+            py::dict out;
+            /* The shapes first, so the row that follows points at ids this
+             * sequence has already been given rather than at copies. */
+            out["shapes"] = pulseqpp_events::warm_event(sequence, event);
+
+            int32_t chain[8][2];
+            int chained = 0;
+            const pulseq::Block block =
+                pulseqpp_events::collect_block(sequence, &item, 1, chain, chained);
+
+            if (block.rf > 0)
+            {
+                out["kind"] = "rf";
+                out["id"] = block.rf;
+            }
+            else if (block.gx > 0 || block.gy > 0 || block.gz > 0)
+            {
+                out["kind"] = "grad";
+                out["id"] = block.gx > 0 ? block.gx : (block.gy > 0 ? block.gy : block.gz);
+            }
+            else if (block.adc > 0)
+            {
+                out["kind"] = "adc";
+                out["id"] = block.adc;
+            }
+            else if (chained > 0)
+            {
+                out["kind"] = sequence.extension_type_name(chain[0][0]);
+                out["id"] = chain[0][1];
+            }
+            else
+            {
+                out["kind"] = "delay";
+                out["id"] = 0;
+            }
+            return out;
+        },
+        py::arg("sequence"), py::arg("event"),
+        "Register one event's row and shapes, and report what it was stored "
+        "as: its kind, its library id, and the ids of its shapes.");
+
+    const auto peak_as_dict = [](const pulseq::Peak& found) {
+        py::dict out;
+        out["value"] = found.value;
+        out["block"] = found.block;
+        out["axis"] = found.axis;
+        return out;
+    };
+
+    const auto axes_as_list = [peak_as_dict](const std::array<pulseq::Peak, 3>& found) {
+        py::list out;
+        for (size_t axis = 0; axis < found.size(); ++axis)
+            out.append(peak_as_dict(found[axis]));
+        return out;
+    };
+
+    module.def(
+        "max_gradient",
+        [peak_as_dict, axes_as_list](const Sequence& sequence) {
+            pulseq::GradientReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::max_gradient(sequence);
+            }
+            py::dict out;
+            out["per_axis"] = peak_as_dict(found.per_axis);
+            out["vector"] = peak_as_dict(found.vector);
+            out["axes"] = axes_as_list(found.axes);
+            return out;
+        },
+        py::arg("sequence"),
+        "The strongest gradient the sequence plays: the worst axis, each "
+        "axis on its own, and the vector magnitude.");
+
+    module.def(
+        "block_extremes",
+        [](const Sequence& sequence) {
+            std::vector<double> found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::block_extremes(sequence);
+            }
+            const py::ssize_t blocks = static_cast<py::ssize_t>(found.size() / 6);
+            py::array_t<double> out({blocks, static_cast<py::ssize_t>(3), static_cast<py::ssize_t>(2)});
+            std::copy(found.begin(), found.end(), out.mutable_data());
+            return out;
+        },
+        py::arg("sequence"),
+        "Per block, the lowest and highest value each axis plays after the "
+        "block's rotation, in Hz/m: blocks x 3 x (low, high).");
+
+    module.def(
+        "max_slew",
+        [peak_as_dict, axes_as_list](
+            const Sequence& sequence, double max_slew, double grad_raster_time) {
+            pulseq::GradientLimits limits;
+            limits.max_slew = max_slew;
+            limits.grad_raster_time = grad_raster_time;
+
+            pulseq::SlewReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::max_slew(sequence, limits);
+            }
+
+            py::dict out;
+            out["per_axis"] = peak_as_dict(found.per_axis);
+            out["vector"] = peak_as_dict(found.vector);
+            out["axes"] = axes_as_list(found.axes);
+            return out;
+        },
+        py::arg("sequence"), py::arg("max_slew") = 0.0,
+        py::arg("grad_raster_time") = 10e-6,
+        "What the sequence asks in the way of slewing, within its blocks: "
+        "the worst axis, each axis on its own, and the vector magnitude.");
+
+    module.def(
+        "grad_continuity",
+        [](const Sequence& sequence, double max_slew, double grad_raster_time) {
+            pulseq::GradientLimits limits;
+            limits.max_slew = max_slew;
+            limits.grad_raster_time = grad_raster_time;
+
+            pulseq::ContinuityReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::continuity(sequence, limits);
+            }
+
+            py::list jumps;
+            for (size_t i = 0; i < found.discontinuities.size(); ++i)
+            {
+                const pulseq::Discontinuity& where = found.discontinuities[i];
+                py::dict entry;
+                entry["block"] = where.block;
+                entry["axis"] = where.axis;
+                entry["before"] = where.before;
+                entry["after"] = where.after;
+                entry["slew"] = where.slew;
+                entry["limit"] = where.limit;
+                jumps.append(entry);
+            }
+
+            py::dict out;
+            out["discontinuities"] = jumps;
+            out["ends_at_zero"] = found.ends_at_zero;
+            return out;
+        },
+        py::arg("sequence"), py::arg("max_slew") = 0.0,
+        py::arg("grad_raster_time") = 10e-6,
+        "Where a gradient does not carry on from the block before it, and "
+        "whether the sequence leaves its gradients at zero.");
+
+    module.def(
+        "mech_resonance",
+        [](const Sequence& sequence,
+           const std::vector<std::tuple<int, double, double, double, double>>& bands,
+           double window, double stride, int oversampling,
+           const std::array<std::array<double, 3>, 3>& rotation,
+           const std::string& mkl_runtime, int64_t keep_spectrum, int reread,
+           double reread_keep) {
+            std::vector<pulseq::ForbiddenBand> guarded;
+            guarded.reserve(bands.size());
+            for (const auto& band : bands)
+            {
+                pulseq::ForbiddenBand one;
+                one.axis = std::get<0>(band);
+                one.f_min = std::get<1>(band);
+                one.f_max = std::get<2>(band);
+                one.threshold = std::get<3>(band);
+                one.gradient_limit = std::get<4>(band);
+                guarded.push_back(one);
+            }
+            pulseq::ResonanceOptions options;
+            options.window = window;
+            options.stride = stride;
+            options.oversampling = oversampling;
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    options.rotation[i][j] = rotation[i][j];
+            options.mkl_runtime = mkl_runtime;
+            options.keep_spectrum = keep_spectrum;
+            options.reread = reread;
+            options.reread_keep = reread_keep;
+
+            pulseq::ResonanceReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::mech_resonance(sequence, guarded, options);
+            }
+
+            py::list readings;
+            for (const pulseq::BandReading& reading : found.readings)
+            {
+                py::dict entry;
+                entry["band"] = reading.band;
+                entry["axis"] = reading.axis;
+                entry["peak"] = reading.peak;
+                entry["frequency"] = reading.frequency;
+                entry["window"] = reading.window;
+                entry["window_start"] = reading.window_start;
+                entry["gradient"] = reading.gradient;
+                entry["violations"] = reading.violations;
+                entry["leakage"] = reading.leakage;
+                readings.append(entry);
+            }
+            py::dict out;
+            out["readings"] = readings;
+            out["band_violations"] = found.band_violations;
+            out["windows"] = found.windows;
+            out["window"] = found.window;
+            out["stride"] = found.stride;
+            out["frequency_step"] = found.frequency_step;
+            out["backend"] = found.backend;
+            if (!found.spectrum.empty())
+            {
+                out["spectrum"] = found.spectrum;
+                out["spectrum_start"] = found.spectrum_start;
+            }
+            return out;
+        },
+        py::arg("sequence"), py::arg("bands"), py::arg("window"), py::arg("stride"),
+        py::arg("oversampling"), py::arg("rotation"), py::arg("mkl_runtime") = "",
+        py::arg("keep_spectrum") = -1, py::arg("reread") = 4, py::arg("reread_keep") = 0.8,
+        "Windowed physical-axis gradient spectrum against forbidden bands "
+        "(axis, f_min, f_max, threshold, gradient limit in Hz/m); amplitudes in Hz/m.");
+
+    module.def(
+        "pns",
+        [](const Sequence& sequence, const std::string& kind,
+           const std::vector<std::array<double, 8>>& safe,
+           const std::array<double, 7>& chronaxie,
+           const std::array<std::array<double, 3>, 3>& rotation, double gamma,
+           bool keep_trace) {
+            pulseq::PnsModel model;
+            if (kind == "safe")
+            {
+                if (safe.size() != 3)
+                    throw std::invalid_argument("a SAFE model has one coefficient set per axis");
+                model.kind = pulseq::PnsModel::Kind::Safe;
+                for (size_t axis = 0; axis < 3; ++axis)
+                {
+                    const std::array<double, 8>& c = safe[axis];
+                    pulseq::SafeAxis& into = model.safe[axis];
+                    for (int stage = 0; stage < 3; ++stage)
+                    {
+                        into.a[stage] = c[static_cast<size_t>(stage)];
+                        into.tau_ms[stage] = c[static_cast<size_t>(3 + stage)];
+                    }
+                    into.stim_limit = c[6];
+                    into.g_scale = c[7];
+                }
+            }
+            else if (kind == "chronaxie")
+            {
+                model.kind = pulseq::PnsModel::Kind::Chronaxie;
+                model.chronaxie = chronaxie[0];
+                for (size_t axis = 0; axis < 3; ++axis)
+                {
+                    model.rheobase[axis] = chronaxie[1 + axis];
+                    model.alpha[axis] = chronaxie[4 + axis];
+                }
+            }
+            else
+            {
+                throw std::invalid_argument("kind is 'safe' or 'chronaxie'");
+            }
+            pulseq::PnsOptions options;
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    options.rotation[i][j] = rotation[i][j];
+            options.gamma = gamma;
+            options.keep_trace = keep_trace;
+
+            pulseq::PnsReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::pns(sequence, model, options);
+            }
+
+            const auto peak = [](const pulseq::PnsPeak& p) {
+                py::dict out;
+                out["value"] = p.value;
+                out["time"] = p.time;
+                out["block"] = p.block;
+                return out;
+            };
+            const auto array = [](const std::vector<double>& values) {
+                return py::array_t<double>(
+                    static_cast<py::ssize_t>(values.size()), values.data());
+            };
+            py::dict out;
+            out["norm"] = peak(found.norm);
+            py::list axes;
+            for (const pulseq::PnsPeak& p : found.axes)
+                axes.append(peak(p));
+            out["axes"] = axes;
+            out["samples"] = found.samples;
+            out["raster"] = found.raster;
+            out["phase"] = found.phase;
+            if (keep_trace)
+            {
+                out["trace_norm"] = array(found.trace_norm);
+                py::list traces;
+                for (const std::vector<double>& trace : found.trace_axes)
+                    traces.append(array(trace));
+                out["trace_axes"] = traces;
+            }
+            return out;
+        },
+        py::arg("sequence"), py::arg("kind"), py::arg("safe"), py::arg("chronaxie"),
+        py::arg("rotation"), py::arg("gamma"), py::arg("keep_trace") = false,
+        "Nerve response to the physical-axis slew, as a fraction of threshold: "
+        "SAFE (a1..a3, tau1..tau3 in ms, stim_limit, g_scale per axis) or "
+        "chronaxie (chronaxie s, then a rheobase in T/m/s and an alpha per "
+        "physical axis).");
+
+    module.def(
+        "rf_power",
+        [](const Sequence& sequence, int first, int last, double window, double dt) {
+            pulseq::RfPower found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::rf_power(sequence, first, last, window, dt);
+            }
+            py::dict out;
+            out["mean_power"] = found.mean_power;
+            out["peak_power"] = found.peak_power;
+            out["rms"] = found.rms;
+            out["energy"] = found.energy;
+            return out;
+        },
+        py::arg("sequence"), py::arg("first"), py::arg("last"), py::arg("window") = 0.0,
+        py::arg("dt") = 1e-6,
+        "RF mean power (Hz^2), peak power (Hz^2), rms (Hz) and energy (Hz^2 s) of "
+        "blocks first..last, as MATLAB Pulseq's calcRfPower; window <= 0 for none.");
+
+    using ComplexArray =
+        py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast>;
+    module.def(
+        "vop_sar",
+        [](const Sequence& sequence, const ComplexArray& vops,
+           const py::array_t<double, py::array::c_style | py::array::forcecast>& drive,
+           const ComplexArray& default_shim, int size, int start,
+           const py::object& global_matrix, const py::object& reference, double dt) {
+            if (vops.ndim() != 3 || vops.shape(1) != vops.shape(2))
+                throw std::invalid_argument("vops is (N, Nc, Nc)");
+            pulseq::SarModel model;
+            model.channels = static_cast<int>(vops.shape(1));
+            model.vops.assign(vops.data(), vops.data() + vops.size());
+            if (!global_matrix.is_none())
+            {
+                const auto global = py::cast<ComplexArray>(global_matrix);
+                const size_t square = static_cast<size_t>(model.channels) *
+                    static_cast<size_t>(model.channels);
+                if (global.size() == 0 || static_cast<size_t>(global.size()) % square != 0)
+                    throw std::invalid_argument("global_matrix is (Nc, Nc) or (B, Nc, Nc)");
+                model.global.assign(global.data(), global.data() + global.size());
+            }
+            if (!reference.is_none())
+            {
+                const auto against = py::cast<
+                    py::array_t<double, py::array::c_style | py::array::forcecast>>(reference);
+                if (against.size() != vops.shape(0))
+                    throw std::invalid_argument("the reference holds one SAR per VOP");
+                model.reference.assign(against.data(), against.data() + against.size());
+            }
+            model.drive.assign(drive.data(), drive.data() + drive.size());
+            model.default_shim.assign(
+                default_shim.data(), default_shim.data() + default_shim.size());
+            model.dt = dt;
+
+            pulseq::SarReport found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::vop_sar(sequence, model, size, start);
+            }
+
+            const py::ssize_t count = static_cast<py::ssize_t>(found.windows.size());
+            py::array_t<int> first(count), last(count), vop(count), ratio_vop(count);
+            py::array_t<int> global_body(count);
+            py::array_t<double> duration(count), local(count), global(count), ratio(count);
+            for (py::ssize_t i = 0; i < count; ++i)
+            {
+                const pulseq::SarWindow& window = found.windows[static_cast<size_t>(i)];
+                first.mutable_data()[i] = window.first;
+                last.mutable_data()[i] = window.last;
+                vop.mutable_data()[i] = window.vop;
+                duration.mutable_data()[i] = window.duration;
+                local.mutable_data()[i] = window.local;
+                global.mutable_data()[i] = window.global;
+                global_body.mutable_data()[i] = window.global_body;
+                ratio.mutable_data()[i] = window.ratio;
+                ratio_vop.mutable_data()[i] = window.ratio_vop;
+            }
+            py::dict out;
+            out["first"] = first;
+            out["last"] = last;
+            out["duration"] = duration;
+            out["local"] = local;
+            out["vop"] = vop;
+            out["global"] = global;
+            out["global_body"] = global_body;
+            out["ratio"] = ratio;
+            out["ratio_vop"] = ratio_vop;
+            out["worst"] = py::array_t<double>(
+                static_cast<py::ssize_t>(found.worst.size()), found.worst.data());
+            return out;
+        },
+        py::arg("sequence"), py::arg("vops"), py::arg("drive"), py::arg("default_shim"),
+        py::arg("size"), py::arg("start"), py::arg("global_matrix") = py::none(),
+        py::arg("reference") = py::none(), py::arg("dt") = 1e-6,
+        "Time-averaged VOP and global SAR of each window -- the prologue, each "
+        "repetition of `size` blocks from `start`, and the tail -- with each "
+        "window's largest per-VOP ratio to `reference` and the per-VOP SAR of "
+        "the worst window; the global SAR is the largest over the body models "
+        "`global_matrix` stacks, and `global_body` says which.");
+
+    module.def(
+        "evaluate_labels",
+        [](const Sequence& sequence, const std::string& evolution, int first_block,
+           int last_block, const py::dict& start) {
+            pulseq::LabelEvolutionAt at = pulseq::LabelEvolutionAt::End;
+            if (evolution == "blocks")
+                at = pulseq::LabelEvolutionAt::Blocks;
+            else if (evolution == "adc")
+                at = pulseq::LabelEvolutionAt::Adc;
+            else if (evolution == "label")
+                at = pulseq::LabelEvolutionAt::Label;
+            else if (evolution != "none")
+                throw std::invalid_argument(
+                    "evolution must be one of 'none', 'blocks', 'adc', 'label'");
+
+            std::vector<std::pair<std::string, int32_t>> given;
+            for (auto item : start)
+            {
+                given.emplace_back(
+                    py::cast<std::string>(item.first), py::cast<int32_t>(item.second));
+            }
+
+            pulseq::LabelEvolution found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::evaluate_labels(
+                    sequence, at, first_block, last_block, given);
+            }
+
+            /* Each column is handed over rather than copied: one per label,
+             * each a value per block. */
+            py::dict out;
+            for (size_t i = 0; i < found.names.size(); ++i)
+            {
+                auto* values = new std::vector<int32_t>(std::move(found.values[i]));
+                py::capsule owner(values, [](void* held) {
+                    delete static_cast<std::vector<int32_t>*>(held);
+                });
+                out[py::str(found.names[i])] = py::array_t<int32_t>(
+                    static_cast<py::ssize_t>(values->size()), values->data(), owner);
+            }
+            return out;
+        },
+        py::arg("sequence"), py::arg("evolution") = "none", py::arg("first_block") = 1,
+        py::arg("last_block") = 0, py::arg("start") = py::dict(),
+        "What every label the sequence uses is set to, as an array per label.");
+
+    module.def(
+        "label_blocks",
+        [](const Sequence& sequence, const std::string& label, bool setting) {
+            std::vector<int32_t> found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::label_blocks(sequence, label, setting);
+            }
+            return py::array_t<int32_t>(static_cast<py::ssize_t>(found.size()), found.data());
+        },
+        py::arg("sequence"), py::arg("label"), py::arg("setting") = true,
+        "The 1-based blocks whose extension chain sets, or with setting=False "
+        "increments, a label.");
+
+    module.def(
+        "block_k_origins",
+        [](const Sequence& sequence, int first, int last,
+           std::array<double, 3> carry) {
+            std::vector<std::array<double, 3>> found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::block_k_origins(sequence, first, last, carry.data());
+            }
+            py::array_t<double> out(
+                {static_cast<py::ssize_t>(found.size()), static_cast<py::ssize_t>(3)});
+            auto view = out.mutable_unchecked<2>();
+            for (py::ssize_t i = 0; i < static_cast<py::ssize_t>(found.size()); ++i)
+            {
+                for (py::ssize_t axis = 0; axis < 3; ++axis)
+                    view(i, axis) = found[static_cast<size_t>(i)][static_cast<size_t>(axis)];
+            }
+            py::dict answer;
+            answer["origins"] = out;
+            answer["carry"] = py::make_tuple(carry[0], carry[1], carry[2]);
+            return answer;
+        },
+        py::arg("sequence"), py::arg("first") = 1, py::arg("last") = 0,
+        py::arg("carry") = std::array<double, 3>{0.0, 0.0, 0.0},
+        "Where the trajectory stands at the start of each block, and where it "
+        "is left at the end of the range.");
+
+    module.def(
+        "apply_fov_scale",
+        [](Sequence& sequence, std::array<double, 3> scale, int first, int last) {
+            py::gil_scoped_release unlocked;
+            pulseq::apply_fov_scale(sequence, scale.data(), first, last);
+        },
+        py::arg("sequence"), py::arg("scale"), py::arg("first") = 1,
+        py::arg("last") = 0,
+        "Resize the field of view: one multiply per gradient row met.");
+
+    module.def(
+        "apply_fov_rotation",
+        [](Sequence& sequence, std::array<double, 4> quaternion, int first, int last,
+           std::optional<int> reflected_axis) {
+            py::gil_scoped_release unlocked;
+            pulseq::apply_fov_rotation(
+                sequence, quaternion.data(), first, last, reflected_axis.value_or(-1));
+        },
+        py::arg("sequence"), py::arg("quaternion"), py::arg("first") = 1,
+        py::arg("last") = 0, py::arg("reflected_axis") = py::none(),
+        "Turn the field of view, as an extension on each block; reflected_axis "
+        "negates that channel axis first, for an improper prescription.");
+
+    module.def(
+        "absolute_trajectory",
+        [](const Sequence& sequence, int block, std::array<double, 3> origin) {
+            std::array<std::vector<double>, 3> found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::absolute_trajectory(sequence, block, origin.data());
+            }
+            const py::ssize_t samples =
+                static_cast<py::ssize_t>(found[0].size());
+            py::array_t<double> out({static_cast<py::ssize_t>(3), samples});
+            auto view = out.mutable_unchecked<2>();
+            for (py::ssize_t axis = 0; axis < 3; ++axis)
+            {
+                for (py::ssize_t i = 0; i < samples; ++i)
+                    view(axis, i) = found[static_cast<size_t>(axis)][static_cast<size_t>(i)];
+            }
+            return out;
+        },
+        py::arg("sequence"), py::arg("block"),
+        py::arg("origin") = std::array<double, 3>{0.0, 0.0, 0.0},
+        "Where a readout samples k, per axis, in 1/m.");
+
+    module.def(
+        "apply_fov_shift",
+        [](Sequence& sequence, std::array<double, 3> shift, bool with_adc, int first,
+           int last, std::array<double, 3> carry, std::array<double, 3> origin,
+           py::object exempt, bool through_rotation) {
+            std::vector<unsigned char> flags;
+            if (!exempt.is_none())
+            {
+                const auto given = exempt.cast<py::array_t<unsigned char>>();
+                flags.assign(given.data(), given.data() + given.size());
+            }
+            {
+                py::gil_scoped_release unlocked;
+                pulseq::apply_fov_shift(
+                    sequence, shift.data(),
+                    with_adc ? pulseq::FovShiftScope::RfAndAdc
+                             : pulseq::FovShiftScope::RfOnly,
+                    first, last, carry.data(), origin.data(),
+                    flags.empty() ? nullptr : flags.data(), through_rotation);
+            }
+            py::dict out;
+            out["swept"] = py::make_tuple(carry[0], carry[1], carry[2]);
+            out["origin"] = py::make_tuple(origin[0], origin[1], origin[2]);
+            return out;
+        },
+        py::arg("sequence"), py::arg("shift"), py::arg("with_adc") = true,
+        py::arg("first") = 1, py::arg("last") = 0,
+        py::arg("carry") = std::array<double, 3>{0.0, 0.0, 0.0},
+        py::arg("origin") = std::array<double, 3>{0.0, 0.0, 0.0},
+        py::arg("exempt") = py::none(), py::arg("through_rotation") = false,
+        "Move the field of view by a shift in metres along the channel axes, "
+        "or along the logical axes with through_rotation.");
+
+    module.def(
+        "flip_angles",
+        [](const Sequence& sequence) {
+            std::vector<double> angles;
+            {
+                py::gil_scoped_release unlocked;
+                angles = pulseq::flip_angles(sequence);
+            }
+            return py::array_t<double>(
+                static_cast<py::ssize_t>(angles.size()), angles.data());
+        },
+        py::arg("sequence"),
+        "Every distinct flip angle the sequence uses, in degrees, ascending.");
+
+    module.def(
+        "rf_flip_angles",
+        [](const Sequence& sequence) {
+            std::vector<double> angles;
+            {
+                py::gil_scoped_release unlocked;
+                angles = pulseq::rf_flip_angles(sequence);
+            }
+            return py::array_t<double>(
+                static_cast<py::ssize_t>(angles.size()), angles.data());
+        },
+        py::arg("sequence"),
+        "The flip angle of every RF library row, in degrees, by id.");
+
+    module.def(
+        "rf_channel_counts",
+        [](const Sequence& sequence) {
+            std::vector<int> counts;
+            {
+                py::gil_scoped_release unlocked;
+                counts = pulseq::rf_channel_counts(sequence);
+            }
+            return py::array_t<int>(static_cast<py::ssize_t>(counts.size()), counts.data());
+        },
+        py::arg("sequence"),
+        "The transmit channels every RF library row holds, by id.");
+
+    module.def(
+        "kspace_coverage",
+        [](const py::array_t<double, py::array::c_style | py::array::forcecast>& samples,
+           double threshold) {
+            if (samples.ndim() != 2)
+                throw std::invalid_argument(
+                    "the sampled trajectory must be one row per axis");
+
+            const int axes = static_cast<int>(samples.shape(0));
+            const int count = static_cast<int>(samples.shape(1));
+
+            pulseq::KspaceCoverage found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::kspace_coverage(samples.data(), axes, count, threshold);
+            }
+
+            py::dict out;
+            out["unique_positions"] = py::array_t<double>(
+                static_cast<py::ssize_t>(found.unique_positions.size()),
+                found.unique_positions.data());
+            out["repeats_min"] = found.repeats_min;
+            out["repeats_max"] = found.repeats_max;
+            out["repeats_median"] = found.repeats_median;
+            out["is_cartesian"] = found.is_cartesian;
+            return out;
+        },
+        py::arg("samples"), py::arg("threshold"),
+        "What the sampled trajectory covers: the distinct positions along "
+        "each axis, how often a position is revisited, and whether the "
+        "positions fill a grid.");
+
+    module.def(
+        "adc_echoes",
+        [](const Sequence& sequence, double b0, double gamma) {
+            pulseq::KspaceOptions options;
+            options.b0 = b0;
+            options.gamma = gamma;
+            pulseq::AdcEchoes found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::adc_echoes(sequence, options);
+            }
+            const py::ssize_t readouts = static_cast<py::ssize_t>(found.block.size());
+            /* Handed over rather than copied: a few values per readout of the scan. */
+            const auto handed = [](auto&& values, std::vector<py::ssize_t> shape) {
+                using Vector = std::decay_t<decltype(values)>;
+                auto* held = new Vector(std::move(values));
+                py::capsule owner(held, [](void* p) { delete static_cast<Vector*>(p); });
+                return py::array_t<typename Vector::value_type>(shape, held->data(), owner);
+            };
+            py::dict out;
+            out["block"] = handed(std::move(found.block), {readouts});
+            out["num_samples"] = handed(std::move(found.num_samples), {readouts});
+            out["first_sample"] = handed(std::move(found.first_sample), {readouts});
+            out["moving"] = handed(std::move(found.moving), {readouts, 3});
+            out["echo"] = handed(std::move(found.echo), {readouts, 2});
+            if (found.origin.empty())
+                return out;
+            out["origin"] = handed(std::move(found.origin), {readouts, 3});
+            out["sweep"] = handed(std::move(found.sweep), {readouts});
+            out["rotation"] = handed(std::move(found.rotation), {readouts});
+            const py::ssize_t turns = static_cast<py::ssize_t>(found.rotations.size() / 9);
+            out["rotations"] = handed(std::move(found.rotations), {turns, 3, 3});
+            py::list sweeps;
+            for (const auto& swept : found.sweeps)
+            {
+                const py::ssize_t n = static_cast<py::ssize_t>(swept[0].size());
+                py::array_t<double> k({py::ssize_t{3}, n});
+                double* into = k.mutable_data();
+                for (size_t axis = 0; axis < 3; ++axis)
+                    std::copy(swept[axis].begin(), swept[axis].end(),
+                              into + static_cast<py::ssize_t>(axis) * n);
+                sweeps.append(k);
+            }
+            out["sweeps"] = sweeps;
+            return out;
+        },
+        py::arg("sequence"), py::arg("b0") = 1.5, py::arg("gamma") = 42576000.0,
+        "Per readout, the axes its k-space moves along and the first and last "
+        "sample nearest the centre of k-space.");
+
+    module.def(
+        "readout_kspace",
+        [](const Sequence& sequence,
+           std::array<double, 3> delay,
+           std::array<double, 3> offset,
+           int64_t first,
+           int64_t stop,
+           double b0,
+           double gamma) {
+            pulseq::KspaceOptions options;
+            options.delay = delay;
+            options.offset = offset;
+            options.b0 = b0;
+            options.gamma = gamma;
+            pulseq::ReadoutKspace found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::readout_kspace(sequence, options, first, stop);
+            }
+            const py::ssize_t held = static_cast<py::ssize_t>(found.sampled[0].size());
+            py::array_t<double> k({py::ssize_t{3}, held});
+            auto view = k.mutable_unchecked<2>();
+            for (py::ssize_t axis = 0; axis < 3; ++axis)
+                for (py::ssize_t i = 0; i < held; ++i)
+                    view(axis, i) = found.sampled[static_cast<size_t>(axis)][static_cast<size_t>(i)];
+            py::dict out;
+            out["k_traj_adc"] = k;
+            out["warnings"] = found.warnings;
+            return out;
+        },
+        py::arg("sequence"), py::arg("delay") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("offset") = std::array<double, 3>{{0.0, 0.0, 0.0}}, py::arg("first") = 0,
+        py::arg("stop") = 0, py::arg("b0") = 1.5, py::arg("gamma") = 42576000.0,
+        "The k-space location of each ADC sample of readouts first to before "
+        "stop, where following the whole sequence puts it.");
+
+    module.def(
+        "rf_gradients",
+        [](const Sequence& sequence) {
+            pulseq::RfGradients found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::rf_gradients(sequence);
+            }
+            const py::ssize_t pulses = static_cast<py::ssize_t>(found.block.size());
+            py::dict out;
+            out["block"] = py::array_t<int32_t>(pulses, found.block.data());
+            out["steady"] =
+                py::array_t<uint8_t>({pulses, py::ssize_t{3}}, found.steady.data());
+            out["gradient"] =
+                py::array_t<double>({pulses, py::ssize_t{3}}, found.gradient.data());
+            return out;
+        },
+        py::arg("sequence"),
+        "Per block with RF, whether the gradient along each channel axis holds "
+        "one value across the pulse, and its value at the pulse's centre.");
+
+    module.def(
+        "gradient_statistics",
+        [](const Sequence& sequence) {
+            pulseq::GradientStatistics found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::gradient_statistics(sequence);
+            }
+            const auto row = [](const std::vector<double>& values) {
+                return py::array_t<double>(static_cast<py::ssize_t>(values.size()), values.data());
+            };
+            py::dict out;
+            out["peak_slew"] = row(found.peak_slew);
+            out["energy"] = row(found.energy);
+            out["slew_energy"] = row(found.slew_energy);
+            return out;
+        },
+        py::arg("sequence"),
+        "Per gradient event, the steepest slew rate and the integrals of the "
+        "squared gradient and of the squared slew rate of its waveform.");
+
+    module.def(
+        "calculate_kspace",
+        [](const Sequence& sequence,
+           std::array<double, 3> delay,
+           std::array<double, 3> offset,
+           int first_block,
+           int last_block,
+           double b0,
+           double gamma,
+           bool samples_only) {
+            pulseq::KspaceOptions options;
+            options.samples_only = samples_only;
+            options.delay = delay;
+            options.offset = offset;
+            options.first_block = first_block;
+            options.last_block = last_block;
+            options.b0 = b0;
+            options.gamma = gamma;
+
+            pulseq::Kspace found;
+            {
+                py::gil_scoped_release unlocked;
+                found = pulseq::calculate_kspace(sequence, options);
+            }
+
+            const auto stacked = [](const std::array<std::vector<double>, 3>& rows) {
+                const py::ssize_t held =
+                    static_cast<py::ssize_t>(rows[0].size());
+                py::array_t<double> out({static_cast<py::ssize_t>(3), held});
+                auto view = out.mutable_unchecked<2>();
+                for (py::ssize_t axis = 0; axis < 3; ++axis)
+                    for (py::ssize_t i = 0; i < held; ++i)
+                        view(axis, i) = rows[static_cast<size_t>(axis)][static_cast<size_t>(i)];
+                return out;
+            };
+            const auto row = [](const std::vector<double>& values) {
+                return py::array_t<double>(
+                    static_cast<py::ssize_t>(values.size()), values.data());
+            };
+
+            py::list gradients;
+            for (int axis = 0; axis < 3; ++axis)
+            {
+                py::dict channel;
+                channel["t"] = row(found.gradient_times[static_cast<size_t>(axis)]);
+                channel["v"] = row(found.gradient_values[static_cast<size_t>(axis)]);
+                gradients.append(channel);
+            }
+
+            py::dict out;
+            out["k_traj"] = stacked(found.position);
+            out["t_ktraj"] = row(found.times);
+            out["k_traj_adc"] = stacked(found.sampled);
+            out["t_adc"] = row(found.adc_times);
+            out["pm_adc"] = row(found.adc_modulation);
+            out["t_excitation"] = row(found.excitation_times);
+            out["t_refocusing"] = row(found.refocusing_times);
+            out["slicepos"] = stacked(found.slice_position);
+            out["gradients"] = gradients;
+            out["warnings"] = found.warnings;
+            return out;
+        },
+        py::arg("sequence"), py::arg("delay") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("offset") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("first_block") = 1, py::arg("last_block") = 0, py::arg("b0") = 1.5,
+        py::arg("gamma") = 42576000.0, py::arg("samples_only") = false,
+        "Follow the sequence into k-space: the trajectory, where it is "
+        "sampled, and the gradients it was integrated from.");
+
+    module.def(
+        "waveforms_and_times",
+        [](const Sequence& sequence,
+           bool append_rf,
+           int first_block,
+           int last_block,
+           double b0,
+           double gamma) {
+            pulseq::WaveformOptions options;
+            options.append_rf = append_rf;
+            options.first_block = first_block;
+            options.last_block = last_block;
+            options.b0 = b0;
+            options.gamma = gamma;
+
+            pulseq::Waveforms made;
+            {
+                py::gil_scoped_release unlocked;
+                made = pulseq::waveforms_and_times(sequence, options);
+            }
+
+            /* Each channel as the 2-by-n array the toolboxes report: a row of
+             * times over a row of amplitudes. */
+            const auto paired = [](const std::vector<double>& t,
+                                   const std::vector<double>& v) {
+                const py::ssize_t held = static_cast<py::ssize_t>(t.size());
+                py::array_t<double> out({static_cast<py::ssize_t>(2), held});
+                auto view = out.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < held; ++i)
+                {
+                    view(0, i) = t[static_cast<size_t>(i)];
+                    view(1, i) = v[static_cast<size_t>(i)];
+                }
+                return out;
+            };
+
+            const auto moments = [](const std::vector<pulseq::PulseMoment>& held) {
+                const py::ssize_t count = static_cast<py::ssize_t>(held.size());
+                py::array_t<double> out({static_cast<py::ssize_t>(3), count});
+                auto view = out.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < count; ++i)
+                {
+                    view(0, i) = held[static_cast<size_t>(i)].time;
+                    view(1, i) = held[static_cast<size_t>(i)].frequency;
+                    view(2, i) = held[static_cast<size_t>(i)].phase;
+                }
+                return out;
+            };
+
+            py::list waves;
+            for (int axis = 0; axis < 3; ++axis)
+                waves.append(paired(made.times[static_cast<size_t>(axis)],
+                                    made.amplitudes[static_cast<size_t>(axis)]));
+            if (append_rf)
+            {
+                const py::ssize_t held = static_cast<py::ssize_t>(made.rf_times.size());
+                py::array_t<std::complex<double>> rf(
+                    {static_cast<py::ssize_t>(2), held});
+                auto view = rf.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < held; ++i)
+                {
+                    view(0, i) = made.rf_times[static_cast<size_t>(i)];
+                    view(1, i) = made.rf_signal[static_cast<size_t>(i)];
+                }
+                waves.append(rf);
+            }
+
+            const py::ssize_t samples =
+                static_cast<py::ssize_t>(made.adc_times.size());
+            py::array_t<double> fp({static_cast<py::ssize_t>(2), samples});
+            {
+                auto view = fp.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < samples; ++i)
+                {
+                    view(0, i) = made.adc_frequency[static_cast<size_t>(i)];
+                    view(1, i) = made.adc_phase[static_cast<size_t>(i)];
+                }
+            }
+
+            const py::ssize_t windows =
+                static_cast<py::ssize_t>(made.window_frequency.size());
+            py::array_t<double> window_fp({windows, static_cast<py::ssize_t>(2)});
+            {
+                auto view = window_fp.mutable_unchecked<2>();
+                for (py::ssize_t i = 0; i < windows; ++i)
+                {
+                    view(i, 0) = made.window_frequency[static_cast<size_t>(i)];
+                    view(i, 1) = made.window_phase[static_cast<size_t>(i)];
+                }
+            }
+
+            py::dict out;
+            out["wave_data"] = waves;
+            out["window_fp"] = window_fp;
+            out["duration"] = made.duration;
+            /* Every pulse, tagged: Pulseq has seven uses and sorting them
+             * into two buckets here would drop five of them. Which pulse is
+             * an excitation is a question for the caller, and the two the
+             * upstream tuple carries are gathered there. */
+            const py::ssize_t pulses = static_cast<py::ssize_t>(made.pulses.size());
+            out["tfp_pulses"] = moments(made.pulses);
+            py::list uses;
+            for (py::ssize_t i = 0; i < pulses; ++i)
+                uses.append(std::string(1, made.pulse_uses[static_cast<size_t>(i)]));
+            out["pulse_uses"] = uses;
+            out["pulse_blocks"] =
+                py::array_t<int>(pulses, made.pulse_blocks.data());
+            out["window_blocks"] =
+                py::array_t<int>(windows, made.window_blocks.data());
+            out["window_samples"] =
+                py::array_t<int>(windows, made.window_samples.data());
+            out["t_adc"] = py::array_t<double>(samples, made.adc_times.data());
+            out["fp_adc"] = fp;
+            out["pm_adc"] = py::array_t<double>(samples, made.adc_modulation.data());
+            out["warnings"] = made.warnings;
+            return out;
+        },
+        py::arg("sequence"), py::arg("append_rf") = false, py::arg("first_block") = 1,
+        py::arg("last_block") = 0, py::arg("b0") = 1.5, py::arg("gamma") = 42576000.0,
+        "Expand the sequence into the gradient waveforms it plays, the RF "
+        "moments, and the ADC sampling.");
+
+    module.def(
+        "write_binary",
+        [](Sequence& sequence, bool create_signature) {
+            std::string written;
+            {
+                py::gil_scoped_release unlocked;
+                written = pulseq::write_binary(sequence, create_signature);
+            }
+            return py::bytes(written);
+        },
+        py::arg("sequence"), py::arg("create_signature") = true,
+        "Serialize as a Pulseq binary sequence file.");
+
+    module.def(
+        "write_binary_file",
+        [](Sequence& sequence, const std::string& path, bool create_signature) {
+            py::gil_scoped_release unlocked;
+            return pulseq::write_binary_file(sequence, path, create_signature);
+        },
+        py::arg("sequence"), py::arg("path"), py::arg("create_signature") = true,
+        "Write a Pulseq binary sequence file; return its MD5 signature as hex, "
+        "or an empty string without one.");
+
+    module.def(
+        "binary_signature",
+        [](const py::bytes& contents, bool check) {
+            char* data = nullptr;
+            Py_ssize_t size = 0;
+            PyBytes_AsStringAndSize(contents.ptr(), &data, &size);
+            std::string type;
+            std::string value;
+            bool valid;
+            {
+                py::gil_scoped_release release;
+                valid = pulseq::binary_signature(
+                    std::string_view(data, static_cast<size_t>(size)), type, value, check);
+            }
+            py::dict out;
+            out["type"] = type;
+            out["value"] = value;
+            out["valid"] = valid;
+            return out;
+        },
+        py::arg("contents"), py::arg("check") = true,
+        "The signature a binary file carries, and whether it is the digest of "
+        "what it covers; with check false, whether there is one.");
+
+    module.def(
+        "is_binary",
+        [](const py::bytes& contents) {
+            char* data = nullptr;
+            Py_ssize_t size = 0;
+            PyBytes_AsStringAndSize(contents.ptr(), &data, &size);
+            return pulseq::is_binary(std::string_view(data, static_cast<size_t>(size)));
+        },
+        py::arg("contents"), "Whether the bytes open with the binary magic.");
+
+    module.def(
+        "required_revision",
+        [](const Sequence& sequence) { return pulseq::required_revision(sequence); },
+        py::arg("sequence"),
+               "The Pulseq revision the sequence's contents actually need.");
+
+    module.def(
+        "read",
+        [](const py::bytes& contents, bool verify) {
+            // The base is what read() builds; the bound sequence is what
+            // Python holds, so the one is moved into the other.
+            Sequence sequence;
+            {
+                const std::string text = contents;
+                py::gil_scoped_release unlocked;
+                static_cast<pulseq::Sequence&>(sequence) = pulseq::read(text, verify);
+            }
+            return sequence;
+        },
+        py::arg("contents"), py::arg("verify") = false,
+        "Parse a Pulseq `.seq` file back into a Sequence.");
+
+    module.def(
+        "read_file",
+        [](const std::string& path, bool verify) {
+            Sequence sequence;
+            {
+                py::gil_scoped_release unlocked;
+                static_cast<pulseq::Sequence&>(sequence) = pulseq::read_file(path, verify);
+            }
+            return sequence;
+        },
+        py::arg("path"), py::arg("verify") = false, "As read(), for a file on disk.");
+
+    module.def(
+        "compress_shape",
+        [](const Row& samples) {
+            const std::vector<double> out =
+                pulseq::compress_shape(samples.data(), static_cast<int>(samples.size()));
+            return py::array_t<double>(static_cast<py::ssize_t>(out.size()), out.data());
+        },
+        py::arg("samples"), "Run-length encode samples on their derivative.");
+
+    module.def(
+        "decompress_shape",
+        [](const Row& samples, int num_uncompressed) {
+            const std::vector<double> out = pulseq::decompress_shape(
+                samples.data(), static_cast<int>(samples.size()), num_uncompressed);
+            return py::array_t<double>(static_cast<py::ssize_t>(out.size()), out.data());
+        },
+        py::arg("samples"), py::arg("num_uncompressed"), "The inverse of compress_shape.");
+}

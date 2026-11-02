@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meshagent-api"
+dynamic = ["version", "readme"]
+description = "Python Server API for Meshagent"
+license = "Apache-2.0"
+requires-python = ">=3.13"
+keywords = []
+dependencies = [
+  "pyjwt~=2.10",
+  "aiohttp[speedups]~=3.13.0",
+  # CVE-2026-111497: aiohttp speedups must use patched Brotli decoders.
+  "brotli>=1.2.1; platform_python_implementation == 'CPython'",
+  "brotlicffi>=1.2.1.0; platform_python_implementation != 'CPython'",
+  "jsonschema~=4.23",
+  "pycrdt~=0.12.26",
+  "opentelemetry-distro~=0.59b0",
+  "pydantic~=2.11.7",
+  "jinja2~=3.1.6",
+  "pyyaml~=6.0.2",
+  "certifi>=2026.10.19",
+  "pyarrow~=22.0.0",
+  "croniter~=6.0",
+]
+classifiers = [
+  # You can add your classifiers here if needed.
+]
+
+[project.optional-dependencies]
+all = [
+]
+
+sync = [
+]
+
+stpyv8 = [
+  "stpyv8~=13.1"
+]
+
+ci = [
+  "pytest~=8.4",
+  "pytest-asyncio~=0.26"
+]
+
+[project.urls]
+Documentation = "https://docs.meshagent.com"
+Website = "https://www.meshagent.com"
+Source = "https://www.meshagent.com"
+
+[tool.setuptools.packages.find]
+include = ["meshagent.*"]
+
+[tool.setuptools.package-data]
+"meshagent.api" = ["py.typed", "*.pyi", "**/*.pyi", "**/*.js", "entrypoint.js"]
+
+[tool.setuptools.dynamic]
+version = {attr = "meshagent.api.version.__version__"}
+readme = { file = "README.md", content-type = "text/markdown" }

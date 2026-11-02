@@ -1,0 +1,47 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# MCP Server Specification: Hugging Face
+# Provides access to Hugging Face models, datasets, spaces, and papers
+
+id: huggingface
+version: 0.0.1
+name: Hugging Face
+description: Hugging Face models, datasets, spaces, and papers access
+
+# Hugging Face's own hosted server, reached by the runtime itself over
+# Streamable HTTP: no command, the url and the headers sent with every
+# request, the token's `${HF_TOKEN}` expanded as it starts.
+transport: streamable-http
+url: "https://huggingface.co/mcp"
+headers:
+  Authorization: "Bearer ${HF_TOKEN}"
+
+# Whether the server is enabled by default
+enabled: false
+# Environment variable specifications
+envvars:
+  - HF_TOKEN:0.0.1
+
+# Optional environment variables to pass to the server process
+env: {}
+
+# Server capabilities/tags
+tags:
+  - models
+  - datasets
+  - machine-learning
+  - huggingface
+  - papers
+
+icon: "@primer/octicons-react:hubot"
+emoji: 🤗
+
+# What each tool does to the world (agentspecs.actions). A tool not named here is
+# unknown, and unknown is the most restricted.
+actions:
+  checked: null
+  note: >-
+    Not read off the running server yet: its tools are unknown, and unknown is the most
+    restricted. Run the server, list its tools, and class each one here.
+  tools: {}

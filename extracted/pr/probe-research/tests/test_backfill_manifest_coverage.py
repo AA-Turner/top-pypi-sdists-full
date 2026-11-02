@@ -8,8 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill, backfill_ledger, backfill_run
-from probe.cli.backfill_manifest import validate_manifest
+from probe.cli.imports import folder as backfill
+from probe.cli.imports.folder.upload import ledger as backfill_ledger
+from probe.cli import backfill_run
+from probe.cli.imports.folder.upload.manifest import validate_manifest
 
 
 @pytest.mark.parametrize("bad", [
@@ -56,7 +58,7 @@ def test_an_agent_cannot_shorten_its_unit(tmp_path, monkeypatch):
         (work / "unit.jsonl").write_text('{"path":"a.py"}\n')  # what the old contract let it do
         return True, "Imported both files"
 
-    monkeypatch.setattr(backfill, "launch_agent", launch)
+    monkeypatch.setattr(backfill.agents.launch, "launch_agent", launch)
     outcome = backfill_run.run_unit(folder, unit, agent=backfill.Agent.CODEX,
                                    ledger=ledger, work_dir=work)
     assert outcome.ok and outcome.rows == 2

@@ -314,7 +314,7 @@ def both(hook, monkeypatch, tmp_path):
     The `.hosted` marker's pid is NOT a divergence: both require the service
     (`probe.service` in its command line).
     """
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     monkeypatch.setattr(capture_state, "_looks_like_the_uploader", lambda pid: True)
 
@@ -627,7 +627,7 @@ def test_the_hook_never_signals_a_process_group(hook, monkeypatch, tmp_path):
 
 def test_the_hooks_reasons_are_in_the_cli_vocabulary(hook, monkeypatch, tmp_path):
     """The renderers print the reason VERBATIM, so the hook may not invent one."""
-    from probe.cli import capture_state
+    from probe.cli.capture import state as capture_state
 
     monkeypatch.setenv("PROBE_AGENT", "claude_code")
     monkeypatch.setenv(EXPECTED_PLUGIN_DIR["claude_code"][0], str(tmp_path / "absent"))
@@ -723,7 +723,8 @@ def test_only_off_reads_probe_is_off_on_both_sides(both, tmp_path, state):
 def test_a_recorder_the_service_holds_off_reads_probe_is_off_on_both_sides(hook, monkeypatch):
     """The service's own word for a held session (`recorders[].off`), when the
     switch read here says otherwise (it moved a moment ago): both read it."""
-    from probe.cli import capture_state, service_calls
+    from probe.cli.capture import state as capture_state
+    from probe.cli.lifecycle import service_calls
 
     row = {"sid": SID, "alive": True, "recording": True, "off": True}
     monkeypatch.setattr(hook, "_service_recorders", lambda: [row])

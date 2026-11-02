@@ -1,0 +1,1 @@
+import{c as p}from"./syntax-highlight-BzDpWjL6.js";import"./react-vendor-DJmotw6X.js";function i({rows:n,...r}){return n.map((e,t)=>{const[m,...o]=e.children;return p({...r,key:t,node:{...e,children:[m,{type:"element",tagName:"span",properties:{className:["min-w-0","flex-1"]},children:o}]}})})}export{i as WrappedCodeRows};

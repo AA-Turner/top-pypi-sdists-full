@@ -81,13 +81,13 @@ def _dashdash_as_value(words: Sequence[_Word]) -> list[_Word] | None:
     option's arity, which the lists here do not know in full. So the caller
     checks both readings; None when no `--` is in that position."""
     out = list(words)
-    changed = False
+    is_changed = False
     for k in range(1, len(out)):
-        prev = out[k - 1].value
-        if out[k].value == "--" and prev.startswith("-") and prev not in ("-", "--"):
+        previous = out[k - 1].value
+        if out[k].value == "--" and previous.startswith("-") and previous not in ("-", "--"):
             out[k] = _Word("", "''", synthetic=True)
-            changed = True
-    return out if changed else None
+            is_changed = True
+    return out if is_changed else None
 
 
 def _positionals(words: Sequence[_Word], text_options: Sequence[str]) -> list[_Word]:

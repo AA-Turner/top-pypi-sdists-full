@@ -1,0 +1,28 @@
+Metadata-Version: 2.5
+Name: marin-rigging
+Version: 0.2.237.dev41304778591
+Requires-Python: <3.14,>=3.12
+Requires-Dist: aiobotocore>=2.12.2
+Requires-Dist: aiohttp>=3.9
+Requires-Dist: braceexpand>=0.1.7
+Requires-Dist: click>=8.3.1
+Requires-Dist: connect-python>=0.9.0
+Requires-Dist: fsspec>=2024.0.0
+Requires-Dist: gcsfs>=2024.0.0
+Requires-Dist: google-auth>=2.0.0
+Requires-Dist: huggingface-hub>=1.21.0
+Requires-Dist: msgspec>=0.20.0
+Requires-Dist: psutil>=7.2.2
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyjwt[crypto]>=2.15.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: requests>=2.0.0
+Requires-Dist: s3fs>=2024.0.0
+Requires-Dist: starlette>=0.40
+Requires-Dist: zstandard>=0.22
+Provides-Extra: iap
+Requires-Dist: google-auth-oauthlib>=1.0.0; extra == 'iap'
+Provides-Extra: prometheus
+Requires-Dist: prometheus-client>=0.24; extra == 'prometheus'
+Provides-Extra: secrets
+Requires-Dist: google-cloud-secret-manager>=2.16.0; extra == 'secrets'

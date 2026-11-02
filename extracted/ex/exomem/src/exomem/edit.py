@@ -1,0 +1,1144 @@
+"""The `edit` MCP tool: lightweight in-place edit of a page.
+
+For tweaks — typo fixes, sentence additions, tag corrections — without
+going through full supersession via `replace`. Heavy rewrites still
+belong in `replace`; this is for the trivial cases where creating a
+whole superseded-link chain would be silly.
+
+What it touches:
+- The page body (if `new_body` provided)
+- The `tags:` frontmatter field (if `tags` provided)
+- The `updated:` frontmatter field (always — bumped to the write instant)
+
+What it leaves alone:
+- All other frontmatter fields (type, project, status, sources, etc.).
+  If you need to change those, that's a `replace`.
+
+Refuses:
+- Sources/ and Evidence/ paths (rule 2: append-only).
+- Metadata edits on pages without frontmatter (won't synthesize a frontmatter
+  block); body-only edits preserve ordinary Markdown as-is.
+- Pages already marked `status: superseded` (don't edit history; supersede
+  the new page instead).
+
+No type allowlist: any page outside Sources/Evidence with frontmatter is
+editable. The KB taxonomy grows over time (`identity`, future types) and
+gating editability on a closed type set creates needless friction.
+Append-only paths and supersession status are the real safety.
+
+Every edit appends a log entry naming `why` — so changes remain auditable
+even though they didn't create a new file.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import logging
+import os
+import re
+from dataclasses import dataclass, replace
+from pathlib import Path
+
+from . import (
+    corpus_aware,
+    indexes,
+    lifecycle_statuses,
+    markdown_relations,
+    reserved_paths,
+    semantic_contract,
+    semantic_writes,
+    tag_variants,
+    temporal,
+)
+from . import find as find_module
+from .cli_ops import OpError
+from .kbdir import kb_page_target, kb_prefix
+from .mutation_timings import MutationTimings, write_timings_enabled
+from .vault import _FM_PATTERN as _VAULT_FM_PATTERN
+from .vault import (
+    DirectoryCensusGuard,
+    PathGuard,
+    PlannedWrite,
+    WikilinkResolver,
+    content_hash,
+    escape_wikilinks_for_log,
+    in_append_only_tree,
+    is_casing_only_rewrite,
+    kb_root,
+    normalize_body_wikilinks,
+    plan_log_writes,
+    read_guarded_text,
+    render_frontmatter_document,
+    yaml_flow_list,
+)
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class EditResult:
+    path: str  # vault-relative, with .md
+    warnings: list[str]
+    semantic: dict | None = None
+    timings: dict | None = None  # only under EXOMEM_WRITE_TIMINGS
+
+    def as_dict(self) -> dict:
+        value = {"path": self.path, "warnings": self.warnings}
+        if self.semantic is not None:
+            value["semantic"] = self.semantic
+        if self.timings is not None:
+            value["timings"] = self.timings
+        return value
+
+
+@dataclass
+class EditValidation:
+    """Preview returned by `edit(validate_only=True)` — no write performed."""
+
+    path: str            # vault-relative, with .md
+    validate_only: bool  # always True
+    mode: str            # selected edit mode
+    match_count: int     # occurrences of old_string for surgical edits
+    matches: list[str]   # matching lines for surgical edits (capped)
+    semantic: dict | None = None
+
+    def as_dict(self) -> dict:
+        value = {
+            "path": self.path,
+            "validate_only": self.validate_only,
+            "mode": self.mode,
+            "match_count": self.match_count,
+            "matches": self.matches,
+        }
+        if self.semantic is not None:
+            value["semantic"] = self.semantic
+        return value
+
+
+@dataclass
+class EditError(Exception):
+    code: str
+    missing: list[str]
+    reason: str
+
+    def as_dict(self) -> dict:
+        return {"code": self.code, "missing": self.missing, "reason": self.reason}
+
+
+def _resolve_date_iso(
+    semantic_transition_token: str | None, now: dt.date | dt.datetime
+) -> str:
+    """The `updated:` stamp to write, honouring a reviewed token when given.
+
+    Thin `EditError`-flavored wrapper around the shared
+    `semantic_writes.resolve_reviewed_date_iso` — every existing-page writer
+    (`edit`, `multi_edit`, `set_frontmatter_field`, `create_file`'s
+    overwrite-by-token path) shares that decision and only differs in which
+    domain error it converts a refusal into. See its docstring for the full
+    no-token/reviewed/expired/skewed/unreviewable breakdown.
+    """
+    try:
+        return semantic_writes.resolve_reviewed_date_iso(semantic_transition_token, now)
+    except semantic_writes.SemanticWriteError as error:
+        raise EditError(error.code, [], error.reason) from error
+
+
+def edit(
+    vault_root: Path,
+    *,
+    path: str,
+    why: str,
+    new_body: str | None = None,
+    tags: list[str] | None = None,
+    old_string: str | None = None,
+    new_string: str | None = None,
+    replace_all: bool = False,
+    heading: str | None = None,
+    section_position: str = "append",
+    expected_hash: str | None = None,
+    validate_only: bool = False,
+    create_missing_section: bool = False,
+    today: dt.date | None = None,
+    semantic_transition_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    read_dependency_guards: tuple[PathGuard | DirectoryCensusGuard, ...] = (),
+) -> EditResult | EditValidation:
+    """Edit an existing page in place. Frontmatter pages bump `updated:`.
+
+    Four (composable) modes:
+    - `new_body` — replace the whole body. The heavyweight mode.
+    - `tags` — replace the `tags:` frontmatter list.
+    - `old_string`/`new_string` — **surgical** string-replace inside the body.
+      Token-cheap: the caller sends only the changed snippet instead of the
+      whole body. By default `old_string` must occur exactly once (an
+      ambiguous match is an error so you never edit the wrong row); pass
+      `replace_all=True` to replace every occurrence. Surgical mode cannot be
+      combined with `new_body` (they both rewrite the body), but may be paired
+      with `tags`.
+    - `heading` + `section_position` — **section-targeted**. Locate the
+      `## Heading` (or its bare text), take its section (from the heading line
+      to the next heading of equal-or-higher level, or EOF), and
+      replace/prepend/append `new_string` within it. Token-cheap: you don't
+      re-send the page or quote the exact snippet. Mutually exclusive with
+      `new_body`/`old_string`; may be paired with `tags`.
+
+    `why` is required — it lands in the log entry so the change is auditable.
+    """
+    missing: list[str] = []
+    reasons: list[str] = []
+
+    surgical = old_string is not None
+    heading_mode = heading is not None
+
+    if heading_mode and new_body is not None:
+        missing.append("heading/new_body")
+        reasons.append(
+            "section mode (`heading`) and whole-body mode (`new_body`) both rewrite "
+            "the body — supply one or the other, not both"
+        )
+    if heading_mode and surgical:
+        missing.append("heading/old_string")
+        reasons.append(
+            "section mode (`heading`) and surgical mode (`old_string`) are mutually "
+            "exclusive — supply one or the other"
+        )
+    if heading_mode and new_string is None:
+        missing.append("new_string")
+        reasons.append("`new_string` (the section content) is required in heading mode")
+    if heading_mode and section_position not in ("replace", "prepend", "append"):
+        missing.append("section_position")
+        reasons.append(
+            f"section_position must be replace|prepend|append, got {section_position!r}"
+        )
+
+    if surgical and new_body is not None:
+        missing.append("old_string/new_body")
+        reasons.append(
+            "surgical mode (`old_string`) and whole-body mode (`new_body`) both "
+            "rewrite the body — supply one or the other, not both"
+        )
+    if surgical and new_string is None:
+        missing.append("new_string")
+        reasons.append("`new_string` is required when `old_string` is given")
+    if surgical and new_string is not None and new_string == old_string:
+        missing.append("new_string")
+        reasons.append("`new_string` equals `old_string` — that's a no-op edit")
+    if not surgical and not heading_mode and new_string is not None:
+        missing.append("old_string")
+        reasons.append("`new_string` given without `old_string` — nothing to match")
+    if new_body is None and tags is None and not surgical and not heading_mode:
+        missing.append("new_body, tags, heading, or old_string")
+        reasons.append(
+            "must supply at least one of `new_body`, `tags`, `heading`, or "
+            "`old_string`/`new_string`; otherwise there's nothing to edit"
+        )
+    if not why or not why.strip():
+        missing.append("why")
+        reasons.append("why is required — edits without rationale aren't auditable")
+    if missing:
+        raise EditError(
+            code="INVALID_EDIT", missing=missing, reason="; ".join(reasons)
+        )
+
+    now = today or temporal.now()
+    date_iso = _resolve_date_iso(semantic_transition_token, now)
+
+    editable = load_editable(
+        vault_root,
+        path,
+        expected_hash=expected_hash,
+        allow_frontmatterless=tags is None,
+    )
+    abs_path = editable.abs_path
+    rel_path = editable.rel_path
+    fm_text = editable.fm_text
+    body = editable.body
+
+    # Frontmatter-backed pages keep the server-owned timestamp contract.
+    if editable.has_frontmatter:
+        fm_text = _set_or_append(fm_text, "updated", date_iso)
+
+    # Patch tags: if provided.
+    tag_warnings: list[str] = []
+    if tags is not None:
+        tags_clean = _clean_tags(tags)
+        tag_warnings = tag_variants.advise_authored(vault_root, tags_clean)
+        fm_text = _remove_yaml_key(fm_text, "tags")
+        if tags_clean:
+            fm_text = fm_text.rstrip() + "\ntags: " + yaml_flow_list(tags_clean)
+        else:
+            fm_text = fm_text.rstrip() + "\ntags: []"
+
+    # Resolve the new body across the three modes.
+    body_warnings: list[str] = []
+    body_changed = False
+    validation_mode = (
+        "surgical"
+        if surgical
+        else "section"
+        if heading_mode
+        else "body"
+        if new_body is not None
+        else "tags"
+    )
+    match_count = 0
+    matches: list[str] = []
+
+    if surgical:
+        # old_string/new_string are not None here (validated above).
+        if validate_only:
+            # Preview only — report the count (don't raise on 0 or >1; seeing
+            # the count is the whole point) and write nothing.
+            match_count = body.count(old_string)  # type: ignore[arg-type]
+            matches = _match_contexts(body, old_string)  # type: ignore[arg-type]
+            if match_count == 0 or (match_count > 1 and not replace_all):
+                return EditValidation(
+                    path=rel_path,
+                    validate_only=True,
+                    mode=validation_mode,
+                    match_count=match_count,
+                    matches=matches,
+                )
+        resolver = find_module.writer_resolver_snapshot(vault_root)
+        new_body_final, body_warnings = apply_surgical_replace(
+            body,
+            old_string,  # type: ignore[arg-type]
+            new_string,  # type: ignore[arg-type]
+            replace_all,
+            vault_root,
+            rel_path=rel_path,
+            resolver=resolver,
+        )
+        body_changed = True
+    elif heading_mode:
+        # new_string is not None here (validated above).
+        resolver = find_module.writer_resolver_snapshot(vault_root)
+        new_body_final, body_warnings = apply_section_edit(
+            body,
+            heading,  # type: ignore[arg-type]
+            section_position,
+            new_string,  # type: ignore[arg-type]
+            vault_root,
+            rel_path=rel_path,
+            resolver=resolver,
+            create_missing=create_missing_section,
+        )
+        body_changed = True
+    elif new_body is not None:
+        # Normalize wikilinks to canonical full form. Existing body is left
+        # alone to preserve user-intended legacy forms in untouched files.
+        resolver = find_module.writer_resolver_snapshot(vault_root)
+        new_body_final, body_warnings = normalize_body_wikilinks(
+            new_body, vault_root, resolver=resolver
+        )
+        body_changed = True
+    else:
+        new_body_final = body
+
+    # Normalize trailing newline so we don't accumulate blanks across edits.
+    new_body_final = new_body_final.rstrip() + "\n"
+
+    new_text = render_editable(editable, new_body_final, fm_text)
+
+    if validate_only:
+        try:
+            semantic = semantic_writes.preflight_existing(
+                vault_root,
+                path=rel_path,
+                after_source=new_text,
+                operation="edit",
+                expected_before_hash=editable.raw_hash,
+                transition_token=semantic_transition_token,
+                relation_disposition=relation_disposition,
+                relation_review_hash=relation_review_hash,
+                relation_review_reason=relation_review_reason,
+                stamp=date_iso,
+                validate_only=True,
+            ).as_dict()
+        except semantic_writes.SemanticWriteError as error:
+            raise EditError(error.code, [], error.reason) from error
+        return EditValidation(
+            path=rel_path,
+            validate_only=True,
+            mode=validation_mode,
+            match_count=match_count,
+            matches=matches,
+            semantic=semantic,
+        )
+
+    changed: list[str] = []
+    if body_changed:
+        if surgical:
+            changed.append("body (surgical)")
+        elif heading_mode:
+            changed.append(f"body (section: {heading})")
+        else:
+            changed.append("body")
+    if tags is not None:
+        changed.append("tags")
+
+    committed = commit_edit(
+        vault_root,
+        abs_path=abs_path,
+        rel_path=rel_path,
+        new_text=new_text,
+        date_iso=date_iso,
+        why=why,
+        changed=changed,
+        extra_warnings=body_warnings + tag_warnings,
+        expected_before_hash=editable.raw_hash,
+        semantic_transition_token=semantic_transition_token,
+        relation_disposition=relation_disposition,
+        relation_review_hash=relation_review_hash,
+        relation_review_reason=relation_review_reason,
+        read_dependency_guards=read_dependency_guards,
+    )
+    return EditResult(
+        path=rel_path,
+        warnings=committed.warnings,
+        semantic=committed.semantic,
+        timings=committed.timings,
+    )
+
+
+# ---------------- path resolution ----------------
+
+
+def _existing_page_outside_kb(vault_root: Path, given: str) -> str | None:
+    """The vault-relative page the caller addressed, iff it exists on disk under
+    the vault root but outside ``Knowledge Base/`` — else ``None``.
+
+    Lets `_resolve` tell "you addressed a real page outside the governed root"
+    apart from "no such page". It leaks nothing the read side would not already
+    surface: it only confirms a vault-relative path `get_page` itself resolves,
+    and never a path that escapes the vault. Extension handling mirrors
+    `_resolve` so the two agree on what "the same page" means.
+    """
+    # The caller's own text, separators normalised but *not* re-rooted: this
+    # question is precisely "did they name something outside the governed
+    # root?", so it must not go through `kbdir.kb_page_relative_form`, whose
+    # whole job is to supply the prefix `_resolve` wants and this does not.
+    given = given.strip().replace("\\", "/").lstrip("/")
+    if given.startswith(kb_prefix()):
+        return None  # caller explicitly addressed KB/ — a genuine miss stays one
+    rel = given if given.endswith(".md") else given + ".md"
+    candidate = vault_root / rel
+    try:
+        resolved = candidate.resolve()
+        resolved.relative_to(vault_root.resolve())  # must stay inside the vault
+    except (ValueError, OSError):
+        return None
+    try:
+        resolved.relative_to(kb_root(vault_root).resolve())
+        return None  # already under the governed root — not this case
+    except ValueError:
+        pass
+    # `resolved` has followed symlinks and been confirmed under vault_root
+    # above, so stat the real target rather than the lexical candidate.
+    return rel if resolved.is_file() else None
+
+
+def _write_target_withheld(vault_root: Path, rel: str) -> bool:
+    from .governance import egress
+
+    return egress.write_target_withheld(vault_root, rel)
+
+
+def _resolve(vault_root: Path, path: str) -> tuple[Path, str]:
+    if not path or not path.strip():
+        raise EditError(code="INVALID_PATH", missing=["path"], reason="path is empty")
+    # Shared with `replace._resolve_kb_path` and the hosted protected-tree
+    # guard. See `kbdir.kb_relative_form` for why this must not be inlined.
+    candidate, rel = kb_page_target(vault_root, path)
+    # The literal (NFKC) spelling may be absent because the on-disk name is a
+    # different Unicode normalization -- a macOS-origin NFD name on a
+    # byte-exact filesystem (Linux ext4) -- or it may sit beside such a twin.
+    # Resolving never renames: see `reserved_paths.physical_spelling_refusal`.
+    # A collision is refused even when the NFKC spelling exists, so reads and
+    # writes agree on the path; a non-canonical name only when the NFKC
+    # spelling does not open, because a normalization-insensitive filesystem
+    # (APFS) opens it through the NFD name and that edit always worked.
+    refusal = reserved_paths.physical_spelling_refusal(vault_root, rel)
+    if refusal is not None and (refusal[0] == "AMBIGUOUS_PATH" or not candidate.exists()):
+        from .get_page import path_withheld
+
+        if path_withheld(vault_root, rel):
+            # A withheld page answers exactly like a missing one.
+            raise EditError(
+                code="NOT_FOUND",
+                missing=["path"],
+                reason=f"file does not exist: {rel}",
+            )
+        raise EditError(code=refusal[0], missing=["path"], reason=refusal[1])
+    try:
+        resolved = candidate.resolve()
+        kb_relative = resolved.relative_to(kb_root(vault_root).resolve())
+    except (ValueError, OSError) as e:
+        raise EditError(
+            code="INVALID_PATH",
+            missing=["path"],
+            reason=f"path escapes {kb_prefix()}: {e}",
+        ) from None
+    # A page the caller may not see is answered exactly as a missing one, and
+    # never loaded (see `egress.write_target_withheld`).
+    if not candidate.exists() or _write_target_withheld(vault_root, rel):
+        # The read side (`get_page`) accepts a vault-relative path and will read
+        # a page living OUTSIDE the governed Knowledge Base/ root. Governed edits
+        # re-root every bare path under Knowledge Base/, so a caller re-using
+        # such a path here gets a re-rooted candidate that does not exist. A
+        # plain NOT_FOUND would then name a path the caller never gave and
+        # assert the page is missing when it demonstrably exists — a typo and an
+        # outside-the-root refusal become indistinguishable (issue #599). Detect
+        # that case and refuse honestly; the governance model is intentional, so
+        # we still don't write outside the root.
+        outside = _existing_page_outside_kb(vault_root, path)
+        if outside is not None:
+            raise EditError(
+                code="OUTSIDE_GOVERNED_ROOT",
+                missing=["path"],
+                reason=(
+                    f"page exists at {outside} but is outside {kb_prefix()}"
+                    f" — exomem only edits governed content under {kb_prefix()};"
+                    " move it under the governed root or address it there"
+                ),
+            )
+        raise EditError(
+            code="NOT_FOUND",
+            missing=["path"],
+            reason=f"file does not exist: {rel}",
+        )
+    # Return the rel-form re-spelled to the real on-disk casing, reusing the
+    # `resolved` already computed for the escape check above (no extra
+    # syscalls). On a case-insensitive filesystem a caller addressing
+    # `…/Acme/x.md` for an on-disk `…/ACME/` would otherwise carry its own
+    # spelling into every identity comparison keyed on `rel_path`. Rebuilding
+    # from `kb_prefix()` also re-spells segment 1 to the configured KB name,
+    # matching `vault.canonical_vault_rel`; fail open to the literal form.
+    #
+    # Adopted ONLY when the rewrite is casing-only — `resolved` has followed any
+    # symlink, expanded any junction/8.3 short name and collapsed any `..`, and
+    # a rel-form silently swapped for a link's target defeats the callers that
+    # re-check it (see `vault.is_casing_only_rewrite`). Comparing two strings
+    # adds no syscalls, so the property this mirror exists for is preserved.
+    canonical = kb_relative.as_posix()
+    if canonical and canonical != ".":
+        canonical = kb_prefix() + canonical
+        if is_casing_only_rewrite(canonical, rel):
+            rel = canonical
+    return candidate, rel
+
+
+# ---------------- shared load / apply / commit (edit + multi_edit) ----------------
+
+
+@dataclass
+class _Editable:
+    """A page resolved for editing with its exact stored-byte hash.
+
+    `original_text` contains logical LF text for rendering. `raw_hash` guards
+    the stored bytes through semantic preflight and commit.
+    """
+
+    abs_path: Path
+    rel_path: str
+    original_text: str
+    raw_hash: str
+    fm_text: str
+    body: str
+    has_frontmatter: bool
+
+
+def load_editable(
+    vault_root: Path,
+    path: str,
+    *,
+    expected_hash: str | None = None,
+    allow_frontmatterless: bool = False,
+) -> _Editable:
+    """Resolve + guard a page for in-place editing, returning its split parts.
+
+    Runs every safety gate, in the exact order `edit` used inline: append-only
+    refusal (Sources/Evidence), NOT_FOUND, superseded refusal, the optimistic-
+    concurrency `expected_hash` guard, and the frontmatter-required check.
+    `allow_frontmatterless` is owned by the requested operation: ordinary body
+    edits may opt in, while metadata operations retain the strict requirement.
+    Shared by `edit` and `multi_edit`.
+    """
+    abs_path, rel_path = _resolve(vault_root, path)
+
+    append_only = in_append_only_tree(rel_path)
+    if append_only is not None:
+        raise EditError(
+            code="INVALID_EDIT",
+            missing=["path"],
+            reason=(
+                f"{rel_path} is in {append_only}/, which is append-only "
+                "(SKILL.md rule 2). Add a corrective source instead, or compile "
+                "a downstream note that supersedes the framing."
+            ),
+        )
+
+    try:
+        snapshot = reserved_paths.read_generic_bytes(vault_root, rel_path)
+    except reserved_paths.ReservedPathLeafError as error:
+        if error.code == "MISSING":
+            raise EditError(
+                code="NOT_FOUND",
+                missing=["path"],
+                reason=f"file does not exist: {rel_path}",
+            ) from None
+        if error.code in {
+            "CAPABILITY_UNAVAILABLE",
+            "IDENTITY_CHANGED",
+            "RESERVED_PATH",
+            "UNSAFE_PATH",
+        }:
+            raise EditError(
+                code="RESERVED_PATH",
+                missing=["path"],
+                reason="path is reserved for its owning subsystem",
+            ) from None
+        raise EditError(
+            code="UNREADABLE",
+            missing=["path"],
+            reason="page could not be read safely",
+        ) from None
+
+    parsed = find_module._parse_page(
+        abs_path,
+        snapshot.mtime,
+        vault_root,
+        content=snapshot.data,
+        resolved_relative=rel_path,
+    )
+    if parsed is None:
+        raise EditError(
+            code="UNREADABLE",
+            missing=["path"],
+            reason=f"could not parse {rel_path} as markdown",
+        )
+
+    if (
+        lifecycle_statuses.Basis(vault_root).classify(
+            parsed.frontmatter.get("status"), path=rel_path, frontmatter=parsed.frontmatter
+        ).require()
+        == "superseded"
+    ):
+        raise EditError(
+            code="ALREADY_SUPERSEDED",
+            missing=["path"],
+            reason=(
+                f"{rel_path} is marked status: superseded. Don't edit history — "
+                "supersede the new (active) page instead."
+            ),
+        )
+
+    try:
+        raw_text = snapshot.data.decode("utf-8")
+    except UnicodeError as error:
+        raise EditError(code="UNREADABLE", missing=["path"], reason=str(error)) from error
+    # Edit reasons about logical Markdown with LF newlines, matching
+    # `Path.read_text(newline=None)` and the body `get` returns.
+    original_text = raw_text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Optimistic-concurrency guard. If the caller passed the hash it read via
+    # `get`, refuse when the file changed on disk since — don't clobber another
+    # writer. Checked before any mutation; the `updated:` bump happens after
+    # this read, so it never self-trips.
+    #
+    # Hashed over `raw_text`, not the newline-normalized form: `content_hash`
+    # is defined as the sha256 of a file's full raw text and `get_page` hands
+    # out exactly that. Comparing the normalized hash made the two disagree on
+    # every CRLF page, so the guard reported STALE_EDIT when nothing had
+    # changed -- and re-reading returned the same raw hash, so the page could
+    # never be edited through the guarded path at all.
+    if expected_hash is not None and content_hash(raw_text) != expected_hash:
+        raise EditError(
+            code="STALE_EDIT",
+            missing=["expected_hash"],
+            reason=(
+                f"{rel_path} changed on disk since you read it "
+                "(expected_hash mismatch). Re-read the page with `get` and "
+                "retry the edit against the current content."
+            ),
+        )
+
+    fm_match = _FM_PATTERN.match(original_text)
+    if not fm_match:
+        if allow_frontmatterless:
+            return _Editable(
+                abs_path=abs_path,
+                rel_path=rel_path,
+                original_text=original_text,
+                raw_hash=content_hash(raw_text),
+                fm_text="",
+                body=original_text,
+                has_frontmatter=False,
+            )
+        raise EditError(
+            code="FRONTMATTER_REQUIRED",
+            missing=[],
+            reason=(
+                f"{rel_path} has no frontmatter delimiters; this operation "
+                "requires frontmatter and refuses to synthesize it."
+            ),
+        )
+    return _Editable(
+        abs_path=abs_path,
+        rel_path=rel_path,
+        original_text=original_text,
+        raw_hash=content_hash(raw_text),
+        fm_text=fm_match.group(1),
+        body=fm_match.group(2),
+        has_frontmatter=True,
+    )
+
+
+def render_editable(editable: _Editable, body: str, fm_text: str) -> str:
+    """Render a candidate with the page's existing frontmatter policy.
+
+    Emits LF deliberately, not `document_newline(...)`: `original_text` is
+    already newline-normalized, so asking it for the document's line ending
+    can only ever answer LF, and a call that reads as preservation while
+    guaranteeing canonicalization is worse than none. Editing a CRLF page
+    through this seam rewrites it as LF -- that is the current contract, not an
+    accident. Restoring real preservation is a larger change than it looks,
+    because `SemanticPageState.source_hash` hashes whatever bytes it is handed
+    while `semantic_index` compares that against a normalized re-read.
+    """
+    body = body.rstrip() + "\n"
+    if not editable.has_frontmatter:
+        return body
+    return render_frontmatter_document(fm_text, body, newline="\n")
+
+
+def apply_surgical_replace(
+    body: str,
+    old_string: str,
+    new_string: str,
+    replace_all: bool,
+    vault_root: Path,
+    *,
+    rel_path: str = "",
+    resolver: WikilinkResolver | None = None,
+    pair_index: int | None = None,
+) -> tuple[str, list[str]]:
+    """Count, validate, and apply one surgical replace → (new_body, warnings).
+
+    Raises EditError (STRING_NOT_FOUND / AMBIGUOUS_MATCH) exactly as `edit`'s
+    inline surgical mode did. `pair_index` is woven into messages when called
+    from `multi_edit` so a failing pair is identifiable. Pass a shared
+    `resolver` to avoid rebuilding the wikilink index per pair.
+    """
+    where = f" in {rel_path}" if rel_path else ""
+    which = f" (edit #{pair_index})" if pair_index is not None else ""
+    count = body.count(old_string)
+    if count == 0:
+        raise EditError(
+            code="STRING_NOT_FOUND",
+            missing=["old_string"],
+            reason=(
+                f"`old_string` not found{where}{which}. It must match the file "
+                "exactly, including whitespace. Read the page (or the section) "
+                "first to copy the snippet verbatim."
+            ),
+        )
+    if count > 1 and not replace_all:
+        raise EditError(
+            code="AMBIGUOUS_MATCH",
+            missing=["old_string"],
+            reason=(
+                f"`old_string` occurs {count}×{where}{which}; refusing to guess "
+                "which. Add surrounding context to make it unique, or pass "
+                "replace_all=True to replace every occurrence."
+            ),
+        )
+    # Normalize wikilinks only in the inserted snippet — the rest of the body
+    # is left byte-for-byte untouched (no incidental legacy rewrites).
+    if resolver is None:
+        resolver = find_module.shared_resolver(vault_root)
+    new_string_norm, warnings = normalize_body_wikilinks(
+        new_string, vault_root, resolver=resolver
+    )
+    n = -1 if replace_all else 1
+    return body.replace(old_string, new_string_norm, n), warnings
+
+
+def apply_section_edit(
+    body: str,
+    heading: str,
+    position: str,
+    content: str,
+    vault_root: Path,
+    *,
+    rel_path: str = "",
+    resolver: WikilinkResolver | None = None,
+    create_missing: bool = False,
+) -> tuple[str, list[str]]:
+    """Replace/prepend/append `content` within the section under `heading`.
+
+    The section runs from the matched `## Heading` line to the next heading of
+    EQUAL-OR-HIGHER level (or EOF). The heading line itself is preserved; only
+    its body is rewritten. Returns `(new_body, warnings)`.
+
+    Raises EditError(code="HEADING_NOT_FOUND") if the heading is absent — UNLESS
+    `create_missing` is set, in which case a new `## <heading>` section is
+    appended at the end of the body with `content`. `create_missing` is off by
+    default so an interactive caller's heading typo still errors rather than
+    silently spawning a section; server-side authors that must be able to write
+    the first entry into an absent section (e.g. the relation-acceptance queue
+    writing `## Relations` into a note that has none) opt in. Only the inserted
+    `content` is wikilink-normalized — the rest of the body is left byte-for-byte
+    untouched (matching `apply_surgical_replace`).
+    """
+    where = f" in {rel_path}" if rel_path else ""
+    # The relation parser decides what counts as a section (case-blind, outside
+    # code fences), so this match follows it; a stricter match would append a
+    # second `## Relations` heading beside one the parser already reads.
+    want_title = markdown_relations.heading_title(heading)
+    want = markdown_relations.heading_key(want_title)
+    lines = body.split("\n")
+    headings = list(markdown_relations.iter_headings(lines))
+
+    h_idx = -1
+    h_level = 0
+    for i, level, title in headings:
+        if markdown_relations.heading_key(title) == want:
+            h_idx = i
+            h_level = level
+            break
+    if h_idx == -1:
+        if not create_missing:
+            raise EditError(
+                code="HEADING_NOT_FOUND",
+                missing=["heading"],
+                reason=(
+                    f"heading {heading!r} not found{where}. Match an existing `## Heading` "
+                    "(the `#` markers are optional in the arg); read the page first."
+                ),
+            )
+        # Append a new level-2 section (the scaffold's convention) with `content`.
+        if resolver is None:
+            resolver = find_module.shared_resolver(vault_root)
+        content_norm, warnings = normalize_body_wikilinks(
+            content, vault_root, resolver=resolver
+        )
+        prefix = body.rstrip("\n")
+        joiner = "\n\n" if prefix else ""
+        new_body = f"{prefix}{joiner}## {want_title}\n\n{content_norm}\n"
+        return new_body, warnings
+
+    end = next(
+        (j for j, level, _ in headings if j > h_idx and level <= h_level), len(lines),
+    )
+
+    if resolver is None:
+        resolver = find_module.shared_resolver(vault_root)
+    content_norm, warnings = normalize_body_wikilinks(
+        content, vault_root, resolver=resolver
+    )
+    content_lines = content_norm.split("\n")
+
+    before = lines[:h_idx]
+    head_line = lines[h_idx]
+    section_lines = lines[h_idx + 1 : end]
+    after = lines[end:]
+
+    if position == "replace":
+        new_section = content_lines
+    elif position == "prepend":
+        new_section = content_lines + section_lines
+    else:  # append — after the section's existing content, before the next heading
+        trimmed = list(section_lines)
+        while trimmed and trimmed[-1].strip() == "":
+            trimmed.pop()
+        new_section = trimmed + content_lines
+
+    return "\n".join(before + [head_line] + new_section + after), warnings
+
+
+@dataclass(frozen=True, slots=True)
+class CommitEditResult:
+    warnings: list[str]
+    semantic: dict
+    timings: dict | None = None  # only under EXOMEM_WRITE_TIMINGS
+
+
+def commit_edit(
+    vault_root: Path,
+    *,
+    abs_path: Path,
+    rel_path: str,
+    new_text: str,
+    date_iso: str,
+    why: str,
+    changed: list[str],
+    op: str = "edit",
+    extra_warnings: list[str] | None = None,
+    expected_before_hash: str | None = None,
+    semantic_transition_token: str | None = None,
+    relation_disposition: str | None = None,
+    relation_review_hash: str | None = None,
+    relation_review_reason: str | None = None,
+    read_dependency_guards: tuple[PathGuard | DirectoryCensusGuard, ...] = (),
+) -> CommitEditResult:
+    """Stage page write + opportunistic index refresh + ONE log entry; commit atomically.
+
+    Shared by `edit` and `multi_edit` so both produce exactly one log entry and
+    one embedding re-sync per call. Returns the warnings list (extended with any
+    log-missing / partial-write warnings).
+    """
+    kb = kb_root(vault_root)
+    writes: list[PlannedWrite] = []
+    derived_auxiliary_writes: list[tuple[str, PlannedWrite]] = []
+    warnings: list[str] = list(extra_warnings or [])
+
+    # Opportunistic sub-index refresh — surfacing any drift on every write
+    # keeps the indexes self-healing.
+    top_index = kb / "index.md"
+    if top_index.exists():
+        current_top, top_guard = read_guarded_text(vault_root, top_index)
+        sub_writes, new_top = indexes.compute_subindex_writes(
+            vault_root, top_index_text=current_top
+        )
+        if new_top is not None and new_top != current_top:
+            writes.append(
+                PlannedWrite(path=top_index, content=new_top, guard=top_guard)
+            )
+            derived_auxiliary_writes.append(("index", writes[-1]))
+        writes.extend(sub_writes)
+        derived_auxiliary_writes.extend(("index", write) for write in sub_writes)
+
+    rel_no_ext = rel_path.removesuffix(".md")
+    recorded = temporal.parse(date_iso)
+    day = temporal.render_date(recorded.day) if recorded is not None else date_iso
+    log_body_parts = [f"Edit via exomem. {why.strip()}"]
+    if changed:
+        log_body_parts.append(f"Changed: {', '.join(changed)}.")
+    log_body = " ".join(log_body_parts)
+
+    semantic_operation = "edit" if op in {"edit", "multi_edit"} else op
+    # One collector spans preflight+commit so the envelope accounts for the
+    # whole governed write, not two unrelated halves. It is always built (the
+    # `write.*` service histograms are unconditional); only the response key
+    # is gated.
+    timings = MutationTimings()
+    from . import writer_lease
+
+    # The default sweep reads only the new body's bare paragraphs, and only when
+    # the body changed. Under fast acknowledgement the batch's `write_advisory`
+    # component runs it with these exact inputs; an edit that does not touch
+    # the body declares that it has no sweep, so it takes no advisory custody.
+    body_changed = any(item.startswith("body") for item in changed)
+    body_match = _FM_PATTERN.match(new_text)
+    advisory_inputs = (
+        corpus_aware.WriteAdvisoryInputs(
+            route="edit",
+            target_rel_path=rel_path,
+            self_path=rel_path,
+            body=body_match.group(2) if body_match is not None else new_text,
+        )
+        if body_changed
+        else None
+    )
+    try:
+        with semantic_contract.call_context("write"), writer_lease.declare_write_advisory(
+            advisory_inputs
+        ):
+            preflight = semantic_writes.preflight_existing(
+                vault_root,
+                path=rel_path,
+                after_source=new_text,
+                operation=semantic_operation,  # type: ignore[arg-type]
+                expected_before_hash=expected_before_hash,
+                transition_token=semantic_transition_token,
+                relation_disposition=relation_disposition,
+                relation_review_hash=relation_review_hash,
+                relation_review_reason=relation_review_reason,
+                stamp=date_iso,
+                timings=timings,
+            )
+            preflight = replace(preflight, read_dependency_guards=read_dependency_guards)
+            try:
+                from .relation_census import operation_provenance
+
+                log_plan = plan_log_writes(
+                    vault_root,
+                    date_iso=date_iso,
+                    op=op,
+                    rel_path_no_ext=rel_no_ext,
+                    body=log_body,
+                    provenance=operation_provenance(preflight),
+                    operation_token=(
+                        "edit:"
+                        + content_hash(
+                            # Keyed on the calendar day, not the stamp: this token is
+                            # what makes a replayed edit idempotent, and a
+                            # second-granularity value would mint a fresh key on every
+                            # attempt and defeat the dedup entirely.
+                            f"{day}\0{op}\0{rel_path}\0{why}\0{new_text}"
+                        )
+                    ),
+                )
+            except (OSError, UnicodeError, ValueError) as error:
+                raise EditError(
+                    "LOG_PLAN_CONFLICT", ["log"], "edit log update could not be planned safely"
+                ) from error
+            writes.extend(log_plan.writes)
+            derived_auxiliary_writes.extend(("operation-log", write) for write in log_plan.writes)
+            if log_plan.warning is not None:
+                warnings.append(log_plan.warning)
+            if log_plan.rotation_note is not None:
+                warnings.append(log_plan.rotation_note)
+            committed = semantic_writes.commit_existing(
+                vault_root,
+                preflight=preflight,
+                history_reason=why,
+                auxiliary_writes=tuple(writes),
+                derived_auxiliary_writes=tuple(derived_auxiliary_writes),
+                timings=timings,
+            )
+    except semantic_writes.SemanticWriteError as error:
+        raise EditError(error.code, [], error.reason) from error
+    except OpError:
+        # Ordinary boundary contention (MUTATION_BUSY/MUTATION_WARMING) from
+        # the commit seam's own guard is not a partial write — nothing was
+        # written. Let it surface with its retryable envelope instead of a
+        # false partial-write alarm.
+        raise
+    except Exception as e:
+        log.exception("partial write during edit(); some files may be updated")
+        warnings.append(f"partial write — reconcile on desktop: {e}")
+        raise
+
+    # Suggestions are measurements, never dispositions. They run only after
+    # the guarded semantic batch succeeds, so validation/blocking paths cannot
+    # mutate model/cache state or spend embedding work.
+    if (
+        advisory_inputs is not None
+        and not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS")
+        and not writer_lease.write_advisory_deferred(vault_root, advisory_inputs)
+    ):
+        try:
+            warnings.extend(
+                emitted.warning
+                for emitted in corpus_aware.write_advisory_for(vault_root, advisory_inputs)
+            )
+        except Exception as error:  # noqa: BLE001 — nudges never break an edit
+            log.debug(
+                "corpus-aware contradiction check failed (non-fatal): %s", error
+            )
+    # The ledger gets the stages whatever the envelope flag says; see
+    # `MutationTimings.emit_call_spans`.
+    timings.emit_call_spans()
+    return CommitEditResult(
+        warnings,
+        committed.as_dict(),
+        timings.as_dict() if write_timings_enabled() else None,
+    )
+
+
+# ---------------- validate-only preview ----------------
+
+
+def _match_contexts(body: str, old_string: str, *, max_matches: int = 5) -> list[str]:
+    """Return the full line(s) each occurrence of `old_string` spans (capped).
+
+    Used by validate_only so the caller can eyeball *which* rows a match (or a
+    replace_all) would touch before committing.
+    """
+    contexts: list[str] = []
+    start = 0
+    while len(contexts) < max_matches:
+        idx = body.find(old_string, start)
+        if idx == -1:
+            break
+        line_start = body.rfind("\n", 0, idx) + 1
+        end = idx + len(old_string)
+        nl = body.find("\n", end)
+        line_end = nl if nl != -1 else len(body)
+        contexts.append(body[line_start:line_end])
+        start = end if end > idx else idx + 1
+    return contexts
+
+
+# ---------------- frontmatter surgery ----------------
+
+
+# One definition, shared with `vault`: these modules fold CRLF to LF before
+# matching, but a private copy is free to drift out of that agreement.
+_FM_PATTERN = _VAULT_FM_PATTERN
+
+
+def _set_or_append(fm_text: str, key: str, value: str) -> str:
+    """Set `key: value` in YAML frontmatter — patch existing line or append."""
+    pattern = re.compile(rf"^{re.escape(key)}:.*$", re.MULTILINE)
+    if pattern.search(fm_text):
+        return pattern.sub(f"{key}: {value}", fm_text, count=1)
+    return fm_text.rstrip() + f"\n{key}: {value}"
+
+
+def reviewed_render(text: str, stamp: str) -> str:
+    """The page `text` as this writer renders it at the reviewed instant `stamp`.
+
+    An edit stamps `updated:` with its commit instant. This puts the reviewed
+    instant back, so a page committed later can be compared with reviewed bytes.
+    """
+    match = _FM_PATTERN.match(text)
+    if match is None:
+        return text
+    fm_text = _set_or_append(match.group(1), "updated", stamp)
+    return render_frontmatter_document(fm_text, match.group(2), newline="\n")
+
+
+def _remove_yaml_key(fm_text: str, key: str) -> str:
+    """Remove `key: <inline>` line OR `key:\\n  - item\\n  - item` block.
+
+    Used when we're about to rewrite a key from scratch (e.g. tags) and
+    don't want to leave the old form around.
+    """
+    lines = fm_text.split("\n")
+    out: list[str] = []
+    in_block = False
+    key_prefix = f"{key}:"
+    for line in lines:
+        if in_block:
+            if line.lstrip().startswith("- ") or line.startswith(("  ", "\t")):
+                continue
+            in_block = False
+        if line.startswith(key_prefix):
+            # Could be inline ("key: foo" or "key: [a,b]") or block header ("key:")
+            rest = line[len(key_prefix):].strip()
+            if rest == "":
+                # block-style header — swallow following indented items
+                in_block = True
+                continue
+            # inline — drop just this line
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def _clean_tags(tags: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in tags:
+        norm = str(t).strip().lower().replace(" ", "-").replace("_", "-")
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return out
+
+
+def _prepend_log_entry(
+    text: str, *, date_iso: str, rel_no_ext: str, body: str, op: str = "edit"
+) -> str:
+    title = rel_no_ext.replace(kb_prefix(), "", 1)
+    new_entry = f"## [{date_iso}] {op} | {title}\n\n{escape_wikilinks_for_log(body)}\n"
+    sep_idx = text.find(indexes.LOG_SEPARATOR)
+    if sep_idx == -1:
+        return text.rstrip() + "\n\n" + new_entry + "\n"
+    insertion_point = sep_idx + len(indexes.LOG_SEPARATOR)
+    return text[:insertion_point] + "\n" + new_entry + "\n" + text[insertion_point:]

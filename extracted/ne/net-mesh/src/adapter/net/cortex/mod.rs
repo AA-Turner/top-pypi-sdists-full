@@ -1,0 +1,79 @@
+//! CortEX adapter — the seam between CortEX events and RedEX storage.
+//!
+//! Takes a CortEX `EventEnvelope`, projects it into a fixed 20-byte
+//! [`EventMeta`] prefix plus a type-specific payload tail, appends the
+//! concatenation to a [`super::redex::RedexFile`], and drives a
+//! caller-supplied [`super::redex::RedexFold`] as the tail advances.
+//! Exposes the materialized state as the read-side NetDB handle.
+//!
+//! See `docs/internal/plans/CORTEX_ADAPTER_PLAN.md` for the full design.
+//!
+//! # Layering
+//!
+//! - **Net** moves events and runs daemons.
+//! - **RedEX** keeps a per-node append-only log.
+//! - **CortEX adapter** (this module) projects Net events → RedEX
+//!   payloads, folds them into local state, exposes that state as a
+//!   read handle.
+//! - **CortEX / NetDB** (outside this crate) query that state.
+
+mod adapter;
+#[cfg(feature = "cortex")]
+mod checkpoint;
+mod config;
+mod envelope;
+mod error;
+mod meta;
+#[cfg(feature = "cortex")]
+mod needle;
+pub mod rpc;
+#[cfg(feature = "cortex")]
+pub mod rpc_observer;
+#[cfg(feature = "cortex")]
+mod watermark;
+
+#[cfg(feature = "cortex")]
+pub mod memories;
+#[cfg(feature = "cortex")]
+pub mod tasks;
+#[cfg(feature = "cortex")]
+pub mod workflow;
+
+#[cfg(feature = "tool")]
+pub mod tool;
+
+pub use adapter::{
+    set_global_ryw_inflight_cap, ChangeEvent, CortexAdapter, RywMetricsSnapshot, WaitForTokenError,
+};
+pub use config::{CortexAdapterConfig, FoldErrorPolicy, StartPosition, RYW_INFLIGHT_CAP_DEFAULT};
+pub use envelope::{EventEnvelope, IntoRedexPayload};
+pub use error::CortexAdapterError;
+pub use meta::{
+    compute_checksum, compute_checksum_with_meta, EventMeta, DISPATCH_RAW, EVENT_META_SIZE,
+    FLAG_CAUSAL, FLAG_CONTINUITY_PROOF,
+};
+pub use rpc::{
+    build_trace_headers, classify_streaming_chunk, decode_request_grant, decode_rpc_route,
+    decode_stream_grant, encode_request_grant, encode_rpc_route, encode_stream_grant,
+    extract_trace_context, insert_rpc_route, is_rpc_dispatch_frame, parse_request_window_initial,
+    parse_stream_window_initial, peek_request_service, request_wire_size, response_wire_size,
+    RequestStream, RpcAsyncResponseEmitter, RpcCancellationToken, RpcClientFold, RpcClientPending,
+    RpcClientStreamingHandler, RpcCodecError, RpcContext, RpcDuplexFold, RpcDuplexHandler,
+    RpcHandler, RpcHandlerError, RpcHeader, RpcInboundDispatcher, RpcInboundEvent,
+    RpcRequestChunkPayload, RpcRequestGrantEmitter, RpcRequestGrantPayload, RpcRequestPayload,
+    RpcResponseEmitter, RpcResponsePayload, RpcResponseSink, RpcServerFold, RpcServerStreamingFold,
+    RpcSinkClosed, RpcStatus, RpcStreamingContext, RpcStreamingHandler, RpcStreamingRequestFold,
+    StreamItem, StreamingChunkKind, TraceContext, DISPATCH_RPC_CANCEL,
+    DISPATCH_RPC_DEADLINE_EXCEEDED, DISPATCH_RPC_REQUEST, DISPATCH_RPC_REQUEST_CHUNK,
+    DISPATCH_RPC_REQUEST_GRANT, DISPATCH_RPC_RESPONSE, DISPATCH_RPC_STREAM_GRANT,
+    FLAG_RPC_CLIENT_STREAMING_REQUEST, FLAG_RPC_PROPAGATE_TRACE, FLAG_RPC_REQUEST_END,
+    FLAG_RPC_STREAMING_RESPONSE, HEADER_NRPC_REQUEST_WINDOW_INITIAL, HEADER_NRPC_STREAMING,
+    HEADER_NRPC_STREAMING_CONTINUE, HEADER_NRPC_STREAMING_END, HEADER_NRPC_STREAM_WINDOW_INITIAL,
+    MAX_RPC_BODY_LEN, MAX_RPC_HEADERS, MAX_RPC_HEADER_NAME_LEN, MAX_RPC_HEADER_VALUE_LEN,
+    MAX_RPC_SERVICE_NAME_LEN, RPC_FRAME_BODY_OFFSET, RPC_ROUTE_V1_SIZE,
+};
+#[cfg(feature = "cortex")]
+pub use rpc_observer::{
+    observer_dropped_total, unix_now_ms as rpc_observer_unix_now_ms, ObserverChannel, RpcCallEvent,
+    RpcCallStatus, RpcDirection, RpcObserver, RpcObserverHandle, OBSERVER_BUFFER_CAPACITY,
+};

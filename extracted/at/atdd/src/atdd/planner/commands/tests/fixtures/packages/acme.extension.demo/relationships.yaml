@@ -1,3 +1,0 @@
-graph_id: acme.extension.demo.relationships
-# Extension-internal edges only; no core<->extension edges (composition design deferred).
-edges: []

@@ -1,0 +1,356 @@
+//! Audio/ASR backend for docling.rs — a port of docling's `AsrPipeline`
+//! (native Whisper path, `temperature=0` greedy with timestamps).
+//!
+//! Everything runs in-process and in Rust: [`symphonia`] demuxes/decodes the
+//! audio container (wav/mp3/flac/ogg/aac/m4a, plus the audio track of
+//! mp4/mov/mkv/webm video — no ffmpeg), a ported log-mel
+//! front-end feeds a **Whisper** encoder/decoder exported to ONNX (run on
+//! [`ort`], like the PDF pipeline's layout/TableFormer/OCR models), and each
+//! transcribed segment becomes one text paragraph in the docling conversation
+//! form:
+//!
+//! ```text
+//! [time: 2.0-7.72] And so my fellow Americans, ask not …
+//! ```
+//!
+//! Model files (`encoder_model.onnx`, `decoder_model.onnx`, `vocab.json`, and
+//! optionally `added_tokens.json` for non-English language selection) live in
+//! `.models/asr/` (override with `DOCLING_ASR_{ENCODER,DECODER,VOCAB}`) —
+//! `scripts/install/download_dependencies.sh` fetches Whisper *tiny*, docling's ASR
+//! default. The transcription language is auto-detected per file from the
+//! first 30-second window (docling 2.116 parity); `DOCLING_RS_ASR_LANG` or
+//! the `asr_lang` option pin it explicitly (`auto` re-enables detection).
+//!
+//! The `parakeet_tdt_0.6b_v3` preset (#508) swaps Whisper for NVIDIA's
+//! Parakeet TDT 0.6B v3 transducer — 25 European languages detected by the
+//! model itself, a 128-mel NeMo front-end, TDT greedy decoding with token
+//! timestamps and Silero VAD segmentation; see [`parakeet`]. Same output
+//! form, same option on every surface (`asr_model`).
+
+pub mod audio;
+pub mod mel;
+pub mod nemo_mel;
+pub mod parakeet;
+pub mod tokenizer;
+pub mod vad;
+pub mod whisper;
+
+use std::fmt;
+
+use docling_core::{DoclingDocument, Node};
+
+pub use parakeet::Parakeet;
+pub use whisper::{models_available, Segment, Transcriber};
+
+/// Every model preset `asr_model` accepts: the Whisper ones
+/// ([`whisper::PRESETS`]) and the Parakeet ones ([`parakeet::PRESETS`]).
+pub const PRESETS: &[&str] = &[
+    "whisper_tiny",
+    "whisper_tiny_en",
+    "whisper_base_en",
+    "whisper_small_en",
+    "whisper_distil_small_en",
+    "parakeet_tdt_0.6b_v3",
+];
+
+/// Whether the model files of `preset` are present (the default Whisper tiny
+/// for `None`), so callers can fail with a clear "models missing" message
+/// instead of an opaque load error.
+pub fn models_available_for(preset: Option<&str>) -> bool {
+    match preset {
+        Some(p) if parakeet::is_preset(p) => parakeet::models_available(p),
+        _ => whisper::models_available_for(preset),
+    }
+}
+
+/// One ONNX session the way every ASR graph is opened: the quota-aware thread
+/// budget, the shared `DOCLING_RS_EP` execution-provider switch, created
+/// under the GPU creation lock (#452).
+pub(crate) fn session(path: &std::path::Path) -> Result<ort::session::Session, String> {
+    let builder = docling_onnx::session_builder()
+        .map_err(|e| format!("asr: builder: {e}"))?
+        // Quota-aware (#262): a cgroup CPU limit clamps the pool.
+        .with_intra_threads(docling_core::env::cpu_budget())
+        .map_err(|e| format!("asr: threads: {e}"))?;
+    // Same DOCLING_RS_EP switch as the PDF pipeline - a GPU build runs the
+    // ASR sessions on the accelerator.
+    let builder =
+        docling_onnx::apply(builder).map_err(|e| format!("asr: execution providers: {e}"))?;
+    // Under the GPU creation lock (#452): ASR sessions must not initialize
+    // concurrently with the PDF pool's.
+    docling_onnx::commit_uncached(builder, path)
+        .map_err(|e| format!("asr: loading {}: {e}", path.display()))
+}
+
+/// Errors from the ASR backend. Detailed and surfaced (never silently skipped).
+#[derive(Debug)]
+pub struct AsrError(pub String);
+
+impl fmt::Display for AsrError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for AsrError {}
+
+/// Convert an audio file (bytes + name, the extension hinting the container)
+/// into a [`DoclingDocument`] of `[time: start-end] text` paragraphs.
+///
+/// Loads the Whisper models per call (the converter is one-shot); reuse a
+/// [`Transcriber`] directly to batch many files. Fails with a clear message
+/// when the model files are absent.
+pub fn convert_audio(bytes: &[u8], name: &str) -> Result<DoclingDocument, AsrError> {
+    convert_audio_with_model(bytes, name, None)
+}
+
+/// [`convert_audio`] with a named Whisper model preset (see [`PRESETS`]):
+/// English-only and Distil-Whisper variants, each under its own
+/// `.models/asr/<preset>/` directory (docling PR #3741's presets, limited to
+/// the variants with public ONNX exports).
+pub fn convert_audio_with_model(
+    bytes: &[u8],
+    name: &str,
+    model: Option<&str>,
+) -> Result<DoclingDocument, AsrError> {
+    convert_audio_with_options(bytes, name, model, None)
+}
+
+/// [`convert_audio_with_model`] with an explicit transcription language: a
+/// Whisper code (`en`, `de`, `zh`, …) or `auto`. `None` falls back to
+/// `DOCLING_RS_ASR_LANG`, and to per-file auto-detection when that is unset
+/// too (multilingual presets; English-only ones always transcribe English).
+/// Parakeet detects the language itself: an explicit code there warns and is
+/// ignored.
+pub fn convert_audio_with_options(
+    bytes: &[u8],
+    name: &str,
+    model: Option<&str>,
+    lang: Option<&str>,
+) -> Result<DoclingDocument, AsrError> {
+    let segments = transcribe_with_options(bytes, name, model, lang)?;
+    let mut doc = DoclingDocument::new(name);
+    for seg in &segments {
+        doc.nodes.push(segment_node(seg));
+    }
+    Ok(doc)
+}
+
+/// docling's `ZERO_DURATION_SEGMENT_EPS`: a segment whose end is not after
+/// its start ends this much later, so its cue has a duration.
+const ZERO_DURATION_SEGMENT_EPS: f64 = 0.001;
+
+/// One transcript segment as a document node: the `[time: start-end] text`
+/// paragraph Markdown and JSON have always shown, wrapped in its
+/// [`Node::Track`] — docling's `TrackSource` (#614), which the JSON writes as
+/// the item's `source` and `--to vtt` turns into a cue. As docling's ASR
+/// pipeline does, a blank segment gets no track (no cue) and a zero-duration
+/// one ends [`ZERO_DURATION_SEGMENT_EPS`] after its start.
+pub fn segment_node(seg: &Segment) -> Node {
+    let paragraph = Node::Paragraph {
+        text: format!(
+            "[time: {}-{}] {}",
+            fmt_seconds(seg.start),
+            fmt_seconds(seg.end),
+            seg.text
+        ),
+    };
+    if seg.text.trim().is_empty() {
+        return paragraph;
+    }
+    let end = if seg.end <= seg.start {
+        seg.start + ZERO_DURATION_SEGMENT_EPS
+    } else {
+        seg.end
+    };
+    Node::Track {
+        track: docling_core::tree::TreeTrack {
+            start_time: seg.start,
+            end_time: end,
+            identifier: None,
+            voice: None,
+        },
+        cue: seg.text.clone(),
+        inner: Box::new(paragraph),
+    }
+}
+
+/// [`convert_audio_with_model`] up to (and excluding) document assembly: the
+/// raw timed [`Segment`]s. The video pipeline (#138 Phase 2) uses this to
+/// interleave sampled frames with the transcript by timestamp before building
+/// the document.
+pub fn transcribe_with_model(
+    bytes: &[u8],
+    name: &str,
+    model: Option<&str>,
+) -> Result<Vec<Segment>, AsrError> {
+    transcribe_with_options(bytes, name, model, None)
+}
+
+/// [`transcribe_with_model`] with an explicit transcription language (see
+/// [`convert_audio_with_options`] for the `None` fallback chain).
+pub fn transcribe_with_options(
+    bytes: &[u8],
+    name: &str,
+    model: Option<&str>,
+    lang: Option<&str>,
+) -> Result<Vec<Segment>, AsrError> {
+    // An unknown name says so (with the list), rather than reporting the
+    // missing files of a directory no preset uses.
+    if let Some(m) = model.filter(|m| !m.is_empty() && !PRESETS.contains(m)) {
+        return Err(AsrError(format!(
+            "asr: unknown model preset '{m}' (available: {})",
+            PRESETS.join(", ")
+        )));
+    }
+    if let Some(preset) = model.filter(|m| parakeet::is_preset(m)) {
+        if !parakeet::models_available(preset) {
+            return Err(AsrError(format!(
+                "asr: Parakeet model files not found under .models/asr/{preset}/ \
+                 (run scripts/install/download_dependencies.sh --asr-model={preset})"
+            )));
+        }
+        if let Some(l) = lang.filter(|l| !l.is_empty() && *l != "auto") {
+            eprintln!(
+                "docling.rs: asr: {preset} detects the language itself; ignoring asr_lang '{l}'"
+            );
+        }
+        let samples = audio::decode_to_mono_16k(bytes, name).map_err(AsrError)?;
+        let mut parakeet = Parakeet::load(preset).map_err(AsrError)?;
+        return parakeet.transcribe(&samples).map_err(AsrError);
+    }
+    if !models_available_for(model) {
+        let dir = match model {
+            None | Some("whisper_tiny") | Some("") => ".models/asr/".to_string(),
+            Some(p) => format!(".models/asr/{p}/"),
+        };
+        return Err(AsrError(format!(
+            "asr: Whisper model files not found under {dir} \
+             (run scripts/install/download_dependencies.sh{}, or set \
+             DOCLING_ASR_{{ENCODER,DECODER,VOCAB}})",
+            model
+                .filter(|m| !m.is_empty() && *m != "whisper_tiny")
+                .map(|m| format!(" --asr-model={m}"))
+                .unwrap_or_default()
+        )));
+    }
+    let samples = audio::decode_to_mono_16k(bytes, name).map_err(AsrError)?;
+    let mut transcriber = Transcriber::load_preset(model).map_err(AsrError)?;
+    if let Some(lang) = lang {
+        transcriber.set_language(lang).map_err(AsrError)?;
+    }
+    transcriber.transcribe(&samples).map_err(AsrError)
+}
+
+/// Format seconds the way Python prints a rounded float (`0.0`, `7.5`, `7.72`)
+/// — docling interpolates the values into `[time: {start}-{end}]` with plain
+/// f-string formatting.
+pub fn fmt_seconds(v: f64) -> String {
+    let mut s = format!("{v}");
+    if !s.contains('.') {
+        s.push_str(".0");
+    }
+    s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_preset_names_the_available_ones() {
+        let err = transcribe_with_options(b"", "x.mp3", Some("parakeet_bogus"), None)
+            .err()
+            .expect("unknown preset errors");
+        assert!(
+            err.0.contains("unknown model preset 'parakeet_bogus'"),
+            "{err}"
+        );
+        assert!(err.0.contains("parakeet_tdt_0.6b_v3"), "{err}");
+    }
+
+    #[test]
+    fn seconds_format_like_python_floats() {
+        assert_eq!(fmt_seconds(0.0), "0.0");
+        assert_eq!(fmt_seconds(7.5), "7.5");
+        assert_eq!(fmt_seconds(7.72), "7.72");
+        assert_eq!(fmt_seconds(30.0), "30.0");
+    }
+
+    /// Whether the Whisper models are reachable, pointing `DOCLING_ASR_*` at
+    /// the workspace-root `.models/asr/` (model resolution is CWD-relative and
+    /// tests run from the crate dir).
+    fn asr_models_ready() -> bool {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.models/asr");
+        if !root.join("encoder_model.onnx").exists() {
+            return false;
+        }
+        std::env::set_var("DOCLING_ASR_ENCODER", root.join("encoder_model.onnx"));
+        std::env::set_var("DOCLING_ASR_DECODER", root.join("decoder_model.onnx"));
+        std::env::set_var("DOCLING_ASR_VOCAB", root.join("vocab.json"));
+        std::env::set_var("DOCLING_ASR_ADDED_TOKENS", root.join("added_tokens.json"));
+        true
+    }
+
+    fn fixture_bytes(name: &str) -> Vec<u8> {
+        let path = format!(
+            "{}/../../tests/data/audio/sources/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        std::fs::read(&path).unwrap_or_else(|e| panic!("read {path}: {e}"))
+    }
+
+    /// #180 e2e (model-gated): on English speech, auto-detection picks `en`
+    /// and the transcript is byte-identical to an explicit `en` request; an
+    /// unknown language code is a clear error, not a silent fallback.
+    #[test]
+    fn auto_detected_language_matches_explicit_english() {
+        if !asr_models_ready() {
+            eprintln!("skipping: Whisper models missing under .models/asr/");
+            return;
+        }
+        let bytes = fixture_bytes("sample_10s.mp3");
+
+        let auto = transcribe_with_options(&bytes, "sample_10s.mp3", None, Some("auto"))
+            .expect("auto-detect transcribes");
+        let en = transcribe_with_options(&bytes, "sample_10s.mp3", None, Some("en"))
+            .expect("explicit en transcribes");
+        let text = |segs: &[Segment]| {
+            segs.iter()
+                .map(|s| s.text.clone())
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        assert!(!auto.is_empty(), "transcript must not be empty");
+        assert_eq!(text(&auto), text(&en), "auto-detect must resolve to en");
+
+        let mut t = Transcriber::load_preset(None).expect("models load");
+        let err = t.set_language("xx").expect_err("unknown code errors");
+        assert!(err.contains("unknown language 'xx'"), "{err}");
+        t.set_language("de").expect("known code is accepted");
+        t.set_language("auto").expect("auto is accepted");
+    }
+
+    /// #180 e2e (model-gated): non-English speech resolves to the right
+    /// language token — Russian over Ogg Vorbis, German over MP3 — and the
+    /// transcript comes back non-empty in that language.
+    #[test]
+    fn auto_detects_russian_and_german() {
+        if !asr_models_ready() {
+            eprintln!("skipping: Whisper models missing under .models/asr/");
+            return;
+        }
+        for (fixture, expect) in [("sample_12s_ru.ogg", "ru"), ("sample_14s_de.mp3", "de")] {
+            let bytes = fixture_bytes(fixture);
+            let samples = audio::decode_to_mono_16k(&bytes, fixture).expect("fixture decodes");
+            let mut t = Transcriber::load_preset(None).expect("models load");
+            t.set_language("auto").expect("auto is accepted");
+            let segments = t.transcribe(&samples).expect("transcribes");
+            assert_eq!(t.detected_language(), Some(expect), "{fixture}");
+            assert!(
+                segments.iter().any(|s| !s.text.trim().is_empty()),
+                "{fixture}: transcript must not be empty"
+            );
+        }
+    }
+}

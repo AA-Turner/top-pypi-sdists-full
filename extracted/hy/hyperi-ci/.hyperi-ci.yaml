@@ -1,0 +1,60 @@
+# Project:   HyperI CI
+# File:      .hyperi-ci.yaml
+# Purpose:   Self-hosting hyperi-ci configuration overrides
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+
+# Public and BUSL-1.1, published to PyPI for every consumer and runner image.
+classification: product
+
+# Coverage is informational here -- CI (.github/workflows/ci.yml) runs
+# pytest without --cov-fail-under, and the codebase is heavy on
+# subprocess-driven CI orchestration that's painful to unit-cover.
+# Lower the local gate so hyperi-ci check matches CI reality.
+test:
+  min_coverage: 0
+  python:
+    # The suite is parallel-safe: no fixed ports, every fixture in tmp_path.
+    parallel: true
+
+# hyperi-ci ships as a pip-installable CLI (PyPI), not a containerised
+# service, and _release-tail includes the container job.
+release:
+  container:
+    enabled: false
+
+# Quality-gate suppressions. semgrep's auto ruleset flags importlib.resources as
+# a pre-3.9 backport-compat issue; this repo pins requires-python >= 3.12, so the
+# whole python3x-compat rule class is noise here. Suppress both the py36 and py37
+# variants (the ruleset has surfaced different IDs across versions).
+quality:
+  # Agent working artefacts, never committed (AGENT-RULES 4) and never
+  # shipped. Linting them puts eight broken-link errors from a May plan file
+  # into every local check, which is how a check stops being read.
+  exclude_paths:
+    - docs/superpowers
+    # The scalo-service skeleton `chart assemble` tests build on; its library
+    # dependency is supplied at assembly, so helm cannot render it standalone.
+    - tests/unit/data/scalo-service
+
+  # Gates that run as their own CI JOB, repeated here so a local
+  # `hyperi-ci check` green actually predicts a CI green. Both are blocking in
+  # ci.yml and neither had any local path, so touching versions.yaml or a
+  # workflow passed locally and went red on the runner.
+  local_gates:
+    - name: version SSOT
+      command: ["uv", "run", "python", "scripts/update-versions.py", "--check"]
+    - name: workflow interfaces
+      command: ["uv", "run", "python", "scripts/check-workflow-interfaces.py"]
+  ignore:
+    - tool: semgrep
+      ids:
+        - python.lang.compatibility.python36.python36-compatibility-importlib2
+        - python.lang.compatibility.python37.python37-compatibility-importlib2
+      reason: "importlib.resources is stdlib; repo requires-python >= 3.12, no py<3.9 support"
+    - tool: ruff
+      ids:
+        - S603
+        - S607
+      reason: "hyperi-ci is a CI orchestration CLI -- every subprocess call passes a fixed list of argv, never a shell string built from untrusted input (docs/agents.md, 'Never roll your own subprocess.run'). A partial executable path (S607) resolves through PATH by design, same as every other tool invocation here."

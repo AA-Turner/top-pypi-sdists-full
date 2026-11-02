@@ -1,0 +1,54 @@
+[project]
+name = "wecom-aibot-sdk"
+version = "1.0.8"
+description = "企业微信智能机器人 Python SDK —— 基于 WebSocket 长连接通道"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "mattzwang" },
+]
+keywords = ["wecom", "wechat-work", "aibot", "websocket", "bot", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "websockets>=13.0",
+    "httpx>=0.27.0",
+    "cryptography>=43.0.0",
+]
+
+[project.optional-dependencies]
+examples = [
+    "python-dotenv>=1.0.0",
+]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/xiaowangzhixiao/wecom-aibot-python-sdk"
+Repository = "https://github.com/xiaowangzhixiao/wecom-aibot-python-sdk"
+Issues = "https://github.com/xiaowangzhixiao/wecom-aibot-python-sdk/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wecom_aibot_sdk"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

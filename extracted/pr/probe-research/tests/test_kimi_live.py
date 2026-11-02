@@ -104,7 +104,7 @@ def test_the_fingerprint_is_what_kimi_keeps_from_its_start(tmp_path):
 
 def _service_holds(monkeypatch, tmp_path: Path, *session_ids: str) -> None:
     """The Probe service's saved list of what it records names `session_ids`."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     folder = paths.service_dir()
@@ -113,7 +113,7 @@ def _service_holds(monkeypatch, tmp_path: Path, *session_ids: str) -> None:
 
 
 def test_the_service_list_is_the_one_the_service_writes():
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     assert kimi_live.RECORDERS_NAME == recorders.RECORDERS_NAME
 

@@ -9,9 +9,9 @@ class ReaderTablesMixin:
 
     def add_read_ask(self, ask_id: str, question: str, asked_at: float, wait: bool) -> bool:
         """Store an ask the mailbox handed over. False: already stored."""
-        cur = self.db.execute("INSERT OR IGNORE INTO read_asks (id, question, asked_at, wait, taken_at) "
+        current = self.db.execute("INSERT OR IGNORE INTO read_asks (id, question, asked_at, wait, taken_at) "
                               "VALUES (?, ?, ?, ?, ?)", (ask_id, question, asked_at, int(wait), self.clock()))
-        return cur.rowcount > 0
+        return current.rowcount > 0
 
     def waiting_read_asks(self) -> list[sqlite3.Row]:
         return list(self.db.execute("SELECT * FROM read_asks WHERE state = 'waiting' ORDER BY asked_at, id"))
@@ -74,9 +74,9 @@ class ReaderTablesMixin:
                             [(int(i), message_id, now) for i in ids])
 
     def open_read_turn(self, trigger: str, ask: str | None, first_seq: int | None, last_seq: int | None) -> int:
-        cur = self.db.execute("INSERT INTO read_turns (started, trigger, ask, first_seq, last_seq) "
+        current = self.db.execute("INSERT INTO read_turns (started, trigger, ask, first_seq, last_seq) "
                               "VALUES (?, ?, ?, ?, ?)", (self.clock(), trigger, ask, first_seq, last_seq))
-        return int(cur.lastrowid)
+        return int(current.lastrowid)
 
     def close_read_turn(self, turn_id: int, *, outcome: str, error: str | None = None, rounds: int = 0,
                         input_tokens: int = 0, cached_tokens: int = 0, output_tokens: int = 0,

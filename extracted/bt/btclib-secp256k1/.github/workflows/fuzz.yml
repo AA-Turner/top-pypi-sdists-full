@@ -33,12 +33,12 @@ name: fuzz
 # one run here is minutes before any fuzzing starts -- the builder image
 # pulled, the vendored library and the extension compiled under the
 # sanitizer. What a pull request owes is the deterministic half, and
-# that is tests/fuzz_corpus_test.py in the ordinary suite: every seed
-# still accepted by its entry point. A crash this workflow finds is an
-# issue against the entry point and its regression is a test there too,
-# never a seed -- a hardened parser refuses the input, and that test
-# would turn red on it. workflow_dispatch is what runs the batch by hand
-# before a release.
+# that is tests/fuzz_corpus_test.py in the ordinary suite, whose
+# docstring says what it holds each seed to. A crash this workflow finds
+# is an issue against the entry point and its regression is a test there
+# too, never a seed -- section 10 of the organization standard makes it a
+# test naming the input and what the entry point now does with it.
+# workflow_dispatch is what runs the batch by hand before a release.
 on:
   schedule:
     # Tuesday, hour 04, at this repository's minute: section 10's two
@@ -76,27 +76,23 @@ jobs:
     # target, so a new harness is read against the last run's duration
     timeout-minutes: 150
     steps:
-      # pinned to a commit SHA, with the tag above the pin rather than
-      # trailing it: the action's path and its sha fill the width
-      # .yamllint.yaml gives a line. `v1` is the only tag
-      # google/clusterfuzzlite publishes, and a major is a name its
-      # owner can move, so whether the pin is current is read from the
-      # tag rather than from this comment:
+      # pinned to a commit SHA, its tag trailing the pin. `v1` is the only tag
+      # google/clusterfuzzlite publishes, and a major is a name its owner can
+      # move, so whether the pin is current is read from the tag rather than
+      # from this comment:
       #
       #   gh api repos/google/clusterfuzzlite/commits/v1 --jq .sha
       #
       # peels the tag to the commit a runner checks out, and a sha other
       # than the one both steps carry is `v1` having moved
       - name: Build fuzzers
-        # v1
-        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
         with:
           language: python
           sanitizer: address
       # fuzz-seconds is the action's total time allotted to fuzzing
       - name: Run fuzzers
-        # v1
-        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fuzz-seconds: 3600

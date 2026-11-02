@@ -1,0 +1,857 @@
+from __future__ import annotations
+
+import contextlib
+import enum
+import json
+import logging
+import threading
+from collections import deque
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
+
+import anyio
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+from pydantic import BaseModel, ValidationError, field_validator
+
+from pivot import display, exceptions, types, unix_socket
+from pivot.engine import stage_queries
+from pivot.engine.types import CancelRequested, EngineState, OutputEvent, RunRequested
+from pivot.types import DataDiffResult, OnError, StageExplanation
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from anyio.abc import SocketListener, SocketStream
+
+    from pivot.engine.engine import Engine
+    from pivot.engine.types import InputEvent
+    from pivot.registry import PipelineLike
+
+__all__ = [
+    "AgentRpcHandler",
+    "AgentRpcSource",
+    "BroadcastEventSink",
+    "CommitResult",
+    "EventBuffer",
+    "EventsResult",
+    "VersionedEvent",
+]
+
+_logger = logging.getLogger(__name__)
+
+_MAX_VERSION = 2**63 - 1
+
+
+def _json_default(obj: object) -> object:
+    """Encode enums by value, and a diff result's numpy and pandas values as `--json` does."""
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    from pivot.show import data as data_mod
+
+    return data_mod.json_default(obj)
+
+
+def _identity_json(ref: types.ArtifactRef) -> types.ArtifactIdentityJson:
+    return types.identity_to_json(ref.identity)
+
+
+def _to_wire(value: object) -> object:
+    """Return ``value`` with every ArtifactIdentity in its ``{producer, key}`` object form.
+
+    ArtifactIdentity is a NamedTuple, which ``json.dumps`` would write as an array without
+    consulting ``default``, so identities are converted before encoding.
+    """
+    if isinstance(value, types.ArtifactIdentity):
+        return types.identity_to_json(value)
+    if isinstance(value, dict):
+        mapping = cast("dict[str, object]", value)
+        return {key: _to_wire(item) for key, item in mapping.items()}
+    if isinstance(value, (list, tuple)):
+        items = cast("list[object] | tuple[object, ...]", value)
+        return [_to_wire(item) for item in items]
+    return value
+
+
+def _encode_wire(message: object) -> bytes:
+    """Encode one JSON-RPC message as a newline-terminated line, as clients receive it."""
+    return display.to_json(_to_wire(message), default=_json_default).encode() + b"\n"
+
+
+# JSON-RPC 2.0: id can be string, number, or null (for notifications)
+type JsonRpcId = str | int | None
+
+
+class JsonRpcErrorDetail(TypedDict):
+    """JSON-RPC error object structure."""
+
+    code: int
+    message: str
+
+
+class JsonRpcSuccessResponse(TypedDict):
+    """JSON-RPC success response structure."""
+
+    jsonrpc: Literal["2.0"]
+    result: object
+    id: JsonRpcId
+
+
+class JsonRpcErrorResponse(TypedDict):
+    """JSON-RPC error response structure."""
+
+    jsonrpc: Literal["2.0"]
+    error: JsonRpcErrorDetail
+    id: JsonRpcId
+
+
+type JsonRpcResponse = JsonRpcSuccessResponse | JsonRpcErrorResponse
+
+
+class JsonRpcRequest(BaseModel):
+    """JSON-RPC 2.0 request validation model."""
+
+    jsonrpc: Literal["2.0"] = "2.0"
+    method: str
+    params: dict[str, object] = dict[str, object]()
+    id: str | int | None = None
+
+    @field_validator("jsonrpc", mode="before")
+    @classmethod
+    def validate_jsonrpc(cls, v: object) -> Literal["2.0"]:
+        """Validate jsonrpc version is exactly '2.0'."""
+        if v != "2.0":
+            raise ValueError("Only JSON-RPC 2.0 is supported (jsonrpc must be '2.0')")
+        return "2.0"
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def validate_id(cls, v: object) -> str | int | None:
+        """Validate id is string, int, or None."""
+        if v is None or isinstance(v, str | int):
+            return v
+        raise ValueError("id must be string, integer, or null")
+
+
+class QueryStatusResult(TypedDict):
+    """Result type for the 'status' query."""
+
+    state: Literal["idle", "active"]
+    running: list[str]
+    pending: list[str]
+
+
+class QueryStagesResult(TypedDict):
+    """Result type for the 'stages' query.
+
+    ``stages`` holds no template (``Pipeline.map``); ``templates`` maps each to the instances it
+    expanded into, an empty list until it expands.
+    """
+
+    stages: list[str]
+    templates: dict[str, list[str]]
+
+
+class QueryStageInfoResult(TypedDict):
+    """Result type for stage_info query."""
+
+    name: str
+    deps: list[types.ArtifactIdentityJson]
+    outs: list[types.ArtifactIdentityJson]
+
+
+class CommitResult(TypedDict):
+    """Result type for the 'commit' query."""
+
+    committed: list[str]
+    failed: list[str]
+
+
+type QueryResult = (
+    QueryStatusResult
+    | QueryStagesResult
+    | EventsResult
+    | StageExplanation
+    | QueryStageInfoResult
+    | CommitResult
+    | DataDiffResult
+)
+
+
+def _validate_json_rpc_request(
+    raw: object,
+) -> tuple[str, dict[str, object], JsonRpcId] | None:
+    """Validate and extract fields from a JSON-RPC request.
+
+    Returns (method, params, id) tuple if valid, None if invalid.
+    """
+    if not isinstance(raw, dict):
+        return None
+
+    try:
+        request = JsonRpcRequest.model_validate(raw)
+        return request.method, request.params, request.id
+    except ValidationError:
+        return None
+
+
+# Limits for security
+_MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
+_CLIENT_TIMEOUT = 300  # 5 minutes
+
+# Custom error codes
+_ERR_STAGE_NOT_FOUND = -32001
+_ERR_PIPELINE_INVALID = -32003
+_ERR_ENGINE_STARTING = -32004
+_ERR_INTERNAL = -32603
+
+
+def _json_rpc_response(result: object, request_id: JsonRpcId) -> JsonRpcSuccessResponse | None:
+    """Build a JSON-RPC response, or None for notifications (no request_id)."""
+    if request_id is None:
+        return None
+    return JsonRpcSuccessResponse(jsonrpc="2.0", result=result, id=request_id)
+
+
+def _json_rpc_error(code: int, message: str, request_id: JsonRpcId) -> JsonRpcErrorResponse | None:
+    """Build a JSON-RPC error response, or None for notifications."""
+    if request_id is None:
+        return None
+    return JsonRpcErrorResponse(
+        jsonrpc="2.0", error=JsonRpcErrorDetail(code=code, message=message), id=request_id
+    )
+
+
+def _validate_stages_param(raw: object) -> list[str] | None | str:
+    """Validate 'stages' parameter for run command.
+
+    Returns:
+        list[str]: Valid stages list
+        None: stages was None (meaning all stages)
+        str: Error message if validation failed
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return "stages must be list of strings"
+    # Cast to list[object] for type-safe iteration, then validate each item
+    for item in cast("list[object]", raw):
+        if not isinstance(item, str):
+            return "stages must be list of strings"
+    # After validation, we know all items are strings
+    return cast("list[str]", raw)
+
+
+class AgentRpcHandler:
+    """Handles JSON-RPC queries that need engine/inspector access."""
+
+    _engine: Engine
+    _event_buffer: EventBuffer | None
+    _on_error: OnError
+
+    def __init__(
+        self,
+        *,
+        engine: Engine,
+        event_buffer: EventBuffer | None = None,
+    ) -> None:
+        self._engine = engine
+        self._event_buffer = event_buffer
+        self._on_error = OnError.FAIL
+
+    @property
+    def starting(self) -> bool:
+        """Whether the engine is still taking its startup fingerprint snapshot."""
+        return self._engine.is_starting
+
+    @property
+    def reloading(self) -> bool:
+        """Whether the engine is reloading edited pipeline code."""
+        return self._engine.is_reloading
+
+    @property
+    def pipeline_error(self) -> str | None:
+        """Why the engine's pipeline cannot run, or None when it can."""
+        return self._engine.pipeline_error
+
+    def validate_stages(self, stages: list[str] | None) -> str | None:
+        """Validate stage names exist. Returns error message or None if valid.
+
+        A template (``Pipeline.map``) and an instance of one are names a run takes
+        (``stage_queries.unknown_run_stages``).
+        """
+        if stages is None:
+            return None
+        pipeline = self._engine._pipeline  # pyright: ignore[reportPrivateUsage]
+        if pipeline is None:
+            return "No pipeline loaded"
+        unknown = stage_queries.unknown_run_stages(pipeline, stages)
+        if unknown:
+            return f"Unknown stages: {', '.join(unknown)}"
+        return None
+
+    def _stage_param(self, params: dict[str, object]) -> tuple[str, PipelineLike]:
+        """The stage param and the engine's pipeline, both validated."""
+        stage = params.get("stage")
+        if not isinstance(stage, str):
+            raise ValueError("stage must be string")
+        pipeline = self._engine._pipeline  # pyright: ignore[reportPrivateUsage]
+        if pipeline is None:
+            raise ValueError("No pipeline loaded")
+        return stage, pipeline
+
+    async def handle_query(
+        self, method: str, params: dict[str, object] | None = None
+    ) -> QueryResult:
+        """Handle a query request and return the result."""
+        if params is None:
+            params = {}
+
+        match method:
+            case "events_since":
+                if self._event_buffer is None:
+                    raise ValueError("Event buffer not configured")
+                version = params.get("version", 0)
+                # Note: isinstance(True, int) is True in Python, so check bool explicitly
+                if isinstance(version, bool) or not isinstance(version, int):
+                    raise ValueError(f"version must be integer between 0 and {_MAX_VERSION}")
+                if version < 0 or version > _MAX_VERSION:
+                    raise ValueError(f"version must be integer between 0 and {_MAX_VERSION}")
+                return self._event_buffer.events_since(version)
+            case "status":
+                return QueryStatusResult(
+                    state="idle" if self._engine.state == EngineState.IDLE else "active",
+                    running=list[str](),
+                    pending=list[str](),
+                )
+            case "stages":
+                pipeline = self._engine._pipeline  # pyright: ignore[reportPrivateUsage]
+                if pipeline is None:
+                    return QueryStagesResult(stages=list[str](), templates=dict[str, list[str]]())
+                return QueryStagesResult(
+                    stages=pipeline.list_stages(),
+                    templates={
+                        name: pipeline.instances_of(name) for name in pipeline.list_templates()
+                    },
+                )
+            case "explain":
+                # Explain fingerprints the stage; the startup snapshot or a reload must finish
+                # first, and it explains the pipeline loaded once they have.
+                await self._engine.wait_for_fingerprints()
+                stage, pipeline = self._stage_param(params)
+                return await stage_queries.explain(self._engine, pipeline, stage)
+            case "commit":
+                # Commit fingerprints every stage, so it never runs alongside the startup
+                # snapshot or a reload. Over the socket it is refused while either runs instead.
+                await self._engine.wait_for_fingerprints()
+                pipeline = self._engine._pipeline  # pyright: ignore[reportPrivateUsage]
+                if pipeline is None:
+                    raise ValueError("No pipeline loaded")
+
+                def _do_commit() -> CommitResult:
+                    from pivot.executor import commit as commit_mod
+
+                    committed, failed = commit_mod.commit_stages(pipeline)
+                    return CommitResult(committed=committed, failed=failed)
+
+                # Its thread reads the registry, so no run start or expansion changes it meanwhile
+                async with self._engine.reading_registry():
+                    return await anyio.to_thread.run_sync(_do_commit)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType] - anyio stub issue
+            case "stage_info":
+                stage, pipeline = self._stage_param(params)
+                reg_info = stage_queries.stage_info(self._engine, pipeline, stage)
+                return QueryStageInfoResult(
+                    name=stage,
+                    deps=[_identity_json(dep) for dep in reg_info["deps"].values()],
+                    outs=[_identity_json(out) for out in reg_info["outs"]],
+                )
+            case "diff_output":
+                path = params.get("path")
+                old_hash = params.get("old_hash")
+                new_hash = params.get("new_hash")
+                if not isinstance(path, str):
+                    raise ValueError("path must be string")
+                if old_hash is not None and not isinstance(old_hash, str):
+                    raise ValueError("old_hash must be string or null")
+                if new_hash is not None and not isinstance(new_hash, str):
+                    raise ValueError("new_hash must be string or null")
+                if not old_hash and not new_hash:
+                    raise ValueError("old_hash or new_hash must be given")
+
+                max_rows = params.get("max_rows", 50)
+                if not isinstance(max_rows, int) or isinstance(max_rows, bool):
+                    max_rows = 50
+
+                # Capture validated locals for closure
+                _path = path
+                _old_hash = old_hash
+                _new_hash = new_hash
+                _max_rows = max_rows
+
+                def _compute_diff() -> DataDiffResult:
+                    from pivot.show import data as data_mod
+
+                    old_path_file = None
+                    new_path_file = None
+                    try:
+                        if _old_hash:
+                            old_path_file = data_mod.restore_data_from_cache(_path, _old_hash)
+                        if _new_hash:
+                            new_path_file = data_mod.restore_data_from_cache(_path, _new_hash)
+                        if not _old_hash:
+                            change_type = types.ChangeType.ADDED
+                        elif not _new_hash:
+                            change_type = types.ChangeType.REMOVED
+                        else:
+                            change_type = types.ChangeType.MODIFIED
+                        return data_mod.diff_data_files(
+                            old_path_file,
+                            new_path_file,
+                            _path,
+                            change_type=change_type,
+                            max_rows=_max_rows,
+                        )
+                    finally:
+                        if old_path_file:
+                            old_path_file.unlink(missing_ok=True)
+                        if new_path_file:
+                            new_path_file.unlink(missing_ok=True)
+
+                return await anyio.to_thread.run_sync(_compute_diff)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType] - anyio stub issue
+            case _:
+                raise ValueError(f"Unknown query method: {method}")
+
+
+class AgentRpcSource:
+    """Async source that receives commands from agents via Unix socket.
+
+    Implements JSON-RPC 2.0 over Unix socket. Commands (run, cancel) become
+    input events. Queries are handled directly and return responses.
+    """
+
+    _socket_path: Path
+    _handler: AgentRpcHandler | None
+    _resource_capacity: dict[str, int]
+    _ready: threading.Event | None
+
+    def __init__(
+        self,
+        *,
+        socket_path: Path,
+        handler: AgentRpcHandler | None = None,
+        resource_capacity: dict[str, int] | None = None,
+        ready: threading.Event | None = None,
+    ) -> None:
+        """``ready`` is set once the socket is listening, so clients can connect."""
+        self._socket_path = socket_path
+        self._handler = handler
+        self._resource_capacity = dict(resource_capacity or {})
+        self._ready = ready
+
+    async def run(self, send: MemoryObjectSendStream[InputEvent]) -> None:
+        """Listen for agent connections and process requests."""
+        # Clean up stale socket (suppress errors if file changed/removed)
+        with contextlib.suppress(OSError):
+            if self._socket_path.exists():
+                self._socket_path.unlink()
+
+        listener = await self._listen()
+        async with listener:
+            bound = self._socket_path.lstat()
+            try:
+                self._socket_path.chmod(0o600)  # Owner-only access
+                if self._ready is not None:
+                    self._ready.set()
+                async with anyio.create_task_group() as tg:
+                    while True:
+                        conn = await listener.accept()
+                        tg.start_soon(self._handle_connection, conn, send)
+            finally:
+                # A newer serve can take this pathname while this source still accepts clients.
+                # Unlink only the socket this source bound; lstat avoids following a replacement
+                # link. The check runs while the listener is open: the bound socket keeps its
+                # inode, so a replacement cannot be given the same inode number.
+                with contextlib.suppress(FileNotFoundError):
+                    current = self._socket_path.lstat()
+                    if (current.st_dev, current.st_ino) == (bound.st_dev, bound.st_ino):
+                        self._socket_path.unlink()
+
+    async def _listen(self) -> SocketListener:  # pyright: ignore[reportReturnType] - CancelScope.__exit__ is typed -> bool but never swallows an exception it did not raise
+        """Bind the listener; a cancellation waits until the bind has finished.
+
+        anyio binds in a worker thread that it abandons on cancellation, so a cancel landing
+        mid-bind would return before the socket exists while the thread goes on to create it,
+        and the caller's cleanup would run too early to remove it.
+        """
+        with anyio.CancelScope(shield=True):
+            return await unix_socket.create_unix_listener(self._socket_path)
+
+    async def _handle_connection(
+        self,
+        conn: SocketStream,
+        send: MemoryObjectSendStream[InputEvent],
+    ) -> None:
+        """Handle a single agent connection."""
+        async with conn:
+            try:
+                with anyio.move_on_after(_CLIENT_TIMEOUT) as cancel_scope:
+                    await self._process_requests(conn, send)
+
+                if cancel_scope.cancelled_caught:
+                    # Client timed out - send error before closing
+                    error_response = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32000, "message": "Connection timeout"},
+                        "id": None,
+                    }
+                    with anyio.move_on_after(1.0):  # Brief timeout for error send
+                        await self._send_response(
+                            conn,
+                            _encode_wire(error_response),
+                        )
+            except Exception:
+                _logger.exception("Error handling agent connection")
+
+    async def _send_response(self, conn: SocketStream, response: bytes) -> bool:
+        """Send one response, treating a client-side close as a normal disconnect."""
+        try:
+            await conn.send(response)
+        except anyio.BrokenResourceError:
+            _logger.debug("Agent client disconnected")
+            return False
+        return True
+
+    async def _process_requests(
+        self,
+        conn: SocketStream,
+        send: MemoryObjectSendStream[InputEvent],
+    ) -> None:
+        """Process JSON-RPC requests from a connection."""
+        buffer = b""
+
+        while True:
+            # Check buffer size BEFORE receiving more data to prevent unbounded growth
+            if len(buffer) >= _MAX_MESSAGE_SIZE:
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32600, "message": "Request too large"},
+                    "id": None,
+                }
+                if not await self._send_response(
+                    conn,
+                    _encode_wire(error_response),
+                ):
+                    return
+                return
+
+            # Limit receive size to prevent single-chunk overflow
+            max_to_receive = _MAX_MESSAGE_SIZE - len(buffer)
+
+            try:
+                chunk = await conn.receive(max_to_receive)
+            except anyio.EndOfStream:
+                _logger.debug("Agent client disconnected")
+                return
+            if not chunk:
+                return
+
+            buffer += chunk
+
+            # Process complete lines
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                if not line.strip():
+                    continue
+
+                try:
+                    request = json.loads(line.decode())
+                    response = await self._handle_request(request, send)
+
+                    if response is not None and not await self._send_response(
+                        conn, _encode_wire(response)
+                    ):
+                        return
+
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    error_response = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32700, "message": "Parse error"},
+                        "id": None,
+                    }
+                    if not await self._send_response(
+                        conn,
+                        _encode_wire(error_response),
+                    ):
+                        return
+
+    async def _handle_request(
+        self,
+        request: object,
+        send: MemoryObjectSendStream[InputEvent],
+    ) -> JsonRpcResponse | None:
+        """Handle a single JSON-RPC request.
+
+        Returns response dict, or None for notifications.
+        """
+        # Validate and extract request fields
+        validated = _validate_json_rpc_request(request)
+        if validated is None:
+            return _json_rpc_error(-32600, "Invalid Request", None)
+
+        method, params, request_id = validated
+
+        # Commands become input events
+        if method == "run":
+            # Validate stages param
+            stages = _validate_stages_param(params.get("stages"))
+            if isinstance(stages, str):
+                return _json_rpc_error(-32602, f"Invalid params: {stages}", request_id)
+
+            # Validate force param
+            force = params.get("force", False)
+            if not isinstance(force, bool):
+                return _json_rpc_error(-32602, "Invalid params: force must be boolean", request_id)
+
+            refusal = self._refuse_while_not_ready(request_id)
+            if refusal is not None:
+                return refusal
+
+            # Validate stage names exist (if handler available)
+            if self._handler is not None and stages is not None:
+                validation_error = self._handler.validate_stages(stages)
+                if validation_error:
+                    return _json_rpc_error(_ERR_STAGE_NOT_FOUND, validation_error, request_id)
+
+            # Use stored on_error from handler if available, otherwise default to FAIL
+            on_error = (
+                self._handler._on_error  # pyright: ignore[reportPrivateUsage]
+                if self._handler is not None and hasattr(self._handler, "_on_error")
+                else OnError.FAIL
+            )
+            event = RunRequested(
+                type="run_requested",
+                stages=stages,
+                force=force,
+                reason="agent",
+                single_stage=False,
+                parallel=True,
+                max_workers=None,
+                resource_capacity=dict(self._resource_capacity),
+                no_commit=False,
+                on_error=on_error,
+                cache_dir=None,
+                allow_uncached_incremental=False,
+                checkout_missing=False,
+            )
+            await send.send(event)
+            return _json_rpc_response("accepted", request_id)
+
+        if method == "cancel":
+            await send.send(CancelRequested(type="cancel_requested"))
+            return _json_rpc_response("accepted", request_id)
+
+        if method == "set_on_error":
+            mode = params.get("mode")
+            if not isinstance(mode, str):
+                return _json_rpc_error(-32602, "Invalid params: mode must be string", request_id)
+            try:
+                on_error = OnError(mode)
+            except ValueError:
+                valid_modes = ", ".join(m.value for m in OnError)
+                return _json_rpc_error(
+                    -32602, f"Invalid params: mode must be one of: {valid_modes}", request_id
+                )
+            # Store on handler for use in future runs
+            if self._handler is not None:
+                self._handler._on_error = on_error  # pyright: ignore[reportPrivateUsage]
+            return _json_rpc_response(True, request_id)
+
+        # Commit records the workspace as the pipeline's current state, so it is refused when
+        # that state is not trustworthy, exactly like run
+        if method == "commit":
+            refusal = self._refuse_while_not_ready(request_id)
+            if refusal is not None:
+                return refusal
+
+        # Queries handled by handler (if available)
+        if self._handler is not None:
+            try:
+                result = await self._handler.handle_query(method, params)
+                return _json_rpc_response(result, request_id)
+            except ValueError as e:
+                # Distinguish "unknown method" from "invalid params" by checking message
+                msg = str(e)
+                if "Unknown query method" in msg:
+                    return _json_rpc_error(-32601, "Method not found", request_id)
+                # Invalid params or other handler errors
+                return _json_rpc_error(-32602, f"Invalid params: {msg}", request_id)
+            except exceptions.PivotError as e:
+                # A Pivot error (a stage that fails to fingerprint, a failed commit) gets a reply
+                # carrying its message instead of a dropped connection
+                return _json_rpc_error(_ERR_INTERNAL, e.format_user_message(), request_id)
+
+        # Unknown method, no handler
+        return _json_rpc_error(-32601, "Method not found", request_id)
+
+    def _refuse_while_not_ready(self, request_id: JsonRpcId) -> JsonRpcErrorResponse | None:
+        """Refuse at once while stages are fingerprinted, or while the pipeline is invalid.
+
+        Never holds the reply for the startup snapshot or a reload; returns None when the
+        request may proceed.
+        """
+        if self._handler is None:
+            return None
+        if self._handler.starting:
+            return _json_rpc_error(
+                _ERR_ENGINE_STARTING,
+                "Engine is starting: fingerprinting stages; try again when it is ready",
+                request_id,
+            )
+        if self._handler.reloading:
+            return _json_rpc_error(
+                _ERR_ENGINE_STARTING,
+                "Engine is reloading: fingerprinting edited stages; try again when it is ready",
+                request_id,
+            )
+        if self._handler.pipeline_error is not None:
+            return _json_rpc_error(
+                _ERR_PIPELINE_INVALID,
+                f"Pipeline invalid - waiting for fix: {self._handler.pipeline_error}",
+                request_id,
+            )
+        return None
+
+
+class BroadcastEventSink:
+    """Async sink that broadcasts events to connected agents.
+
+    Thread safety: All subscriber dict operations are protected by a lock
+    to prevent race conditions between handle(), subscribe(), and unsubscribe().
+    """
+
+    _buffer_size: int
+    _subscribers: dict[str, MemoryObjectSendStream[OutputEvent]]
+    _lock: anyio.Lock
+
+    def __init__(self, buffer_size: int = 64) -> None:
+        self._buffer_size = buffer_size
+        self._subscribers = dict[str, MemoryObjectSendStream[OutputEvent]]()
+        self._lock = anyio.Lock()
+
+    async def subscribe(self, client_id: str) -> MemoryObjectReceiveStream[OutputEvent]:
+        """Subscribe a client to receive events. Returns receive channel."""
+        send, recv = anyio.create_memory_object_stream[OutputEvent](self._buffer_size)
+        async with self._lock:
+            self._subscribers[client_id] = send
+        return recv
+
+    async def unsubscribe(self, client_id: str) -> None:
+        """Unsubscribe a client and close its send channel."""
+        async with self._lock:
+            send = self._subscribers.pop(client_id, None)
+        if send is not None:
+            await send.aclose()
+
+    async def handle(self, event: OutputEvent) -> None:
+        """Broadcast event to all subscribers."""
+        to_remove = list[str]()
+        async with self._lock:
+            for client_id, send in list(self._subscribers.items()):
+                try:
+                    send.send_nowait(event)
+                except anyio.WouldBlock:
+                    # Client too slow, drop event
+                    _logger.debug("Dropping event for slow client %s", client_id)
+                except anyio.ClosedResourceError:
+                    # Client disconnected, mark for removal
+                    _logger.debug("Client %s disconnected, removing subscriber", client_id)
+                    to_remove.append(client_id)
+            # Clean up disconnected subscribers
+            for client_id in to_remove:
+                self._subscribers.pop(client_id, None)
+
+    async def close(self) -> None:
+        """Close all subscriber channels.
+
+        Errors closing individual channels are logged but do not prevent
+        other channels from being closed.
+        """
+        errors = list[tuple[str, Exception]]()
+        async with self._lock:
+            for client_id, send in list(self._subscribers.items()):
+                try:
+                    await send.aclose()
+                except Exception as e:
+                    errors.append((client_id, e))
+            self._subscribers.clear()
+        for client_id, error in errors:
+            _logger.warning("Error closing channel for client %s: %s", client_id, error)
+
+
+class VersionedEvent(TypedDict):
+    """Event with version number."""
+
+    version: int
+    event: OutputEvent
+
+
+class EventsResult(TypedDict):
+    """Result of events_since query."""
+
+    version: int
+    events: list[VersionedEvent]
+
+
+class EventBuffer:
+    """Ring buffer for event polling via events_since.
+
+    Thread-safe: uses threading.Lock since buffer is accessed from both
+    sync (events_since) and async (handle) contexts.
+    """
+
+    _max_events: int
+    _events: deque[tuple[int, OutputEvent]]
+    _version: int
+    _lock: threading.Lock
+
+    def __init__(self, max_events: int = 1000) -> None:
+        self._max_events = max_events
+        self._events = deque[tuple[int, OutputEvent]](maxlen=max_events)
+        self._version = 0
+        self._lock = threading.Lock()
+
+    def handle_sync(self, event: OutputEvent) -> None:
+        """Store event with version number (sync, thread-safe).
+
+        Version wraps at _MAX_VERSION to prevent overflow. Clients polling
+        with a version from before wrap will receive all buffered events.
+        """
+        with self._lock:
+            self._version += 1
+            # Wrap version to prevent overflow - clients will get all events on wrap
+            if self._version > _MAX_VERSION:
+                self._version = 1
+            self._events.append((self._version, event))
+
+    async def handle(self, event: OutputEvent) -> None:
+        """Async wrapper for sink interface compatibility."""
+        self.handle_sync(event)
+
+    def events_since(self, since_version: int) -> EventsResult:
+        """Return events after the given version.
+
+        If since_version > current version (e.g., after version wrap), returns
+        all buffered events to ensure clients don't miss events. Clients should
+        dedupe by version since wraparound may return previously-seen events.
+        """
+        with self._lock:
+            # Handle version wrap: if client's version is higher than current,
+            # they're from before a wrap - return all events
+            if since_version > self._version:
+                result = [VersionedEvent(version=v, event=e) for v, e in self._events]
+            else:
+                result = [
+                    VersionedEvent(version=v, event=e) for v, e in self._events if v > since_version
+                ]
+            return EventsResult(version=self._version, events=result)
+
+    async def close(self) -> None:
+        """No cleanup needed for EventBuffer."""

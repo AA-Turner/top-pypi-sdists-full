@@ -67,7 +67,7 @@ from ..form_fit.measure import (
     _GLYPHS,
     _HALF_EM_GLYPHS,
     _HALF_EM_SPACES,
-    _design_units,
+    _glyph_units,
     _hancom_break_opportunities,
     _hangul_units,
     _laid_out_face,
@@ -197,6 +197,8 @@ def write_line_caches(document: "HwpxDocument") -> LineCacheReport:
         switched = bool(_pages._switched(section.element)) or stop is None \
             or any(_pages._section_settings(paragraph) is not None for paragraph in paragraphs[1:])
         columns = _column_widths(section.element, page)
+        # A negative gap may leave several valid columns even where one full-width column would round to zero.
+        single = _pages._column_layout(None, page.text_width)[1] if page.text_width >= 4 else None
         lines = estimate.lines[index:index + len(paragraphs)]
         index += len(paragraphs)
         # lines beside an object are narrower: the pages where one stands are left for Hancom
@@ -211,7 +213,7 @@ def write_line_caches(document: "HwpxDocument") -> LineCacheReport:
             width = columns[number]
             laid = None if not sure[number] else (
                 _lines(measure, paragraph, width, first=number == 0)
-                or (_table_line(measure, paragraph, width) if width == page.text_width else None)  # one column
+                or (_table_line(measure, paragraph, width) if width == single else None)  # one column
                 or _picture_lines(measure, paragraph, width))
             if laid is None or len(laid[0]) != len(placed):
                 skipped += 1
@@ -223,7 +225,7 @@ def write_line_caches(document: "HwpxDocument") -> LineCacheReport:
             written += 1
             changed = True
         for table in (child for number, paragraph in enumerate(paragraphs)
-                      if sure[number] and columns[number] == page.text_width  # in one column
+                      if sure[number] and columns[number] == single  # in one column
                       for run in paragraph.findall(f"{HP}run") for child in run if _pages._local(child) == "tbl"):
             cells = _cell_caches(measure, table)
             written += cells[0]
@@ -384,6 +386,14 @@ def _table_line(measure: Any, paragraph: Any, width: int) -> tuple[list[dict[str
     }], []
 
 
+def _margins_unread(cell: Any) -> bool:
+    """Whether *cell*'s own margins hold a value written as -1 (unsigned, as documents converted from .hwp carry):
+    Hancom then lays its text out in a width other than the table's margins give, which was not pinned down."""
+
+    own = cell.find(f"{HP}cellMargin")
+    return own is not None and any(value.isdigit() and int(value) >= 1 << 31 for value in own.attrib.values())
+
+
 def _cells_sure(measure: Any, table: Any) -> bool:
     """Whether every paragraph of *table*'s cells is one this module lays out (none of them a table)."""
 
@@ -391,7 +401,7 @@ def _cells_sure(measure: Any, table: Any) -> bool:
     for cell in table.findall(f"{HP}tr/{HP}tc"):
         paragraphs = cell.findall(f"{HP}subList/{HP}p")
         sub_list = cell.find(f"{HP}subList")
-        if not paragraphs or _pages._vertical(cell) or sub_list is None \
+        if not paragraphs or _pages._vertical(cell) or sub_list is None or _margins_unread(cell) \
                 or sub_list.get("lineWrap") in ("SQUEEZE", "KEEP"):
             return False
         margins = cell_margins_of(cell, table)
@@ -414,7 +424,7 @@ def _cell_caches(measure: Any, table: Any) -> tuple[int, int, int]:
             kept += len(paragraphs)
             continue
         sub_list = cell.find(f"{HP}subList")
-        if not paragraphs or _pages._vertical(cell) or sub_list is None \
+        if not paragraphs or _pages._vertical(cell) or sub_list is None or _margins_unread(cell) \
                 or sub_list.get("lineWrap") in ("SQUEEZE", "KEEP"):
             skipped += len(paragraphs)
             continue
@@ -473,7 +483,7 @@ def _lines(measure: Any, paragraph: Any, width: int, *, first: bool,
     if style is not None and style.line_wrap == "SQUEEZE":
         return None  # Hancom presses the paragraph onto one line, as wide as its text: left for it
     if style is not None and (style.auto_space_latin or style.auto_space_digit) and any(
-            look.spacing or look.script_size != 1 for look in set(looks or [style])) and any(
+            look.spacing or look.script_size != 1 or look.script_sizes for look in set(looks or [style])) and any(
             auto_space_gap(a, b, 10, style) for a, b in zip(text, text[1:])):
         return None  # automatic spacing under 자간 or beside a superscript: how Hancom sizes the gap was not pinned down
     room = width - shape.left - shape.right
@@ -558,7 +568,7 @@ def _sure_of(text: str, starts: list[int], style: Any, looks: list[Any] | None =
             if _hangul_units(_laid_out_face(look.hangul_face), ch) is None:
                 return False
         elif (ch not in _SURE_GLYPHS or glyph_face_of(ch, look) not in _SURE_GLYPH_FACES
-              or _design_units(_laid_out_face(glyph_face_of(ch, look)), ch) is None):
+              or _glyph_units(glyph_face_of(ch, look), ch) is None):
             return False  # each glyph in its own script's face (see glyph_face_of)
     breaks = _hancom_break_opportunities(text, style)
     return all(start in breaks or text[start - 1] == "\n" for start in starts[1:])

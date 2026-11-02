@@ -1,0 +1,1447 @@
+"""SQLite durable store for :mod:`adcp.compat.purchase_continuation`.
+
+The store opens one connection per operation and uses ``BEGIN IMMEDIATE`` for
+claim/state transitions.  That gives a single atomic winner across threads and
+processes sharing the same local database file.  Network filesystems with weak
+SQLite locking semantics are not supported; distributed deployments should
+implement :class:`CompatibilityContinuationStore` on their transactional
+database.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import copy
+import json
+import os
+import secrets
+import sqlite3
+import stat
+import time
+from collections.abc import Callable, Mapping
+from contextlib import closing
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, ClassVar
+
+from adcp.compat.purchase_continuation import (
+    CompatibilityContinuationError,
+    CompatibilityContinuationErrorCode,
+    CompatibilityOperationState,
+    CompatibilityPurchaseOperation,
+    LegacyPurchaseContinuation,
+    _quota_error,
+    _validate_continuation_persistence,
+    _validate_persistable_payload,
+)
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS adcp_compat_continuations (
+    token_hash TEXT PRIMARY KEY,
+    issuance_fingerprint TEXT,
+    issuance_binding_hash TEXT,
+    principal_id TEXT NOT NULL,
+    account_identity TEXT NOT NULL,
+    source_adcp_version TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    observed_request_json TEXT NOT NULL,
+    observed_response_json TEXT NOT NULL,
+    observed_payload_hash TEXT NOT NULL,
+    product_ids_json TEXT NOT NULL,
+    projected_products_json TEXT NOT NULL DEFAULT '[]',
+    losses_json TEXT NOT NULL,
+    mutation_idempotency_guaranteed INTEGER NOT NULL DEFAULT 0,
+    target_binding TEXT NOT NULL,
+    listed_purchase_context_json TEXT,
+    claimed_operation_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS adcp_compat_continuations_principal_idx
+    ON adcp_compat_continuations (principal_id, token_hash);
+CREATE TABLE IF NOT EXISTS adcp_compat_operations (
+    operation_id TEXT PRIMARY KEY,
+    principal_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    token_hash TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (
+        state IN ('claimed', 'in_flight', 'pending', 'succeeded', 'failed', 'ambiguous')
+    ),
+    revision INTEGER NOT NULL DEFAULT 1,
+    execution_input_json TEXT NOT NULL DEFAULT '{}',
+    reserved_result_bytes INTEGER NOT NULL DEFAULT 0 CHECK (reserved_result_bytes >= 0),
+    result_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (principal_id, idempotency_key),
+    UNIQUE (token_hash),
+    FOREIGN KEY (token_hash)
+        REFERENCES adcp_compat_continuations(token_hash)
+);
+CREATE TABLE IF NOT EXISTS adcp_compat_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+"""
+
+_REPLAY_FENCE_SCHEMA = (
+    """
+    CREATE TABLE IF NOT EXISTS adcp_compat_issuance_tombstones (
+        token_hash TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        issuance_fingerprint TEXT,
+        issuance_binding_hash TEXT,
+        retired_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS adcp_compat_issuance_tombstones_issuance_idx
+    ON adcp_compat_issuance_tombstones (principal_id, issuance_fingerprint)
+    WHERE issuance_fingerprint IS NOT NULL
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_continuations_fingerprint_insert_guard
+    BEFORE INSERT ON adcp_compat_continuations
+    WHEN NEW.issuance_fingerprint IS NULL
+    BEGIN
+        SELECT RAISE(ABORT, 'new continuations require an issuance fingerprint');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_continuations_fingerprint_downgrade_guard
+    BEFORE UPDATE OF issuance_fingerprint ON adcp_compat_continuations
+    WHEN OLD.issuance_fingerprint IS NOT NULL
+     AND NEW.issuance_fingerprint IS NULL
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation issuance fingerprint cannot be removed');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_continuations_retired_insert_guard
+    BEFORE INSERT ON adcp_compat_continuations
+    WHEN EXISTS (
+        SELECT 1 FROM adcp_compat_issuance_tombstones AS tombstone
+        WHERE tombstone.token_hash = NEW.token_hash
+           OR (
+                NEW.issuance_fingerprint IS NOT NULL
+                AND tombstone.principal_id = NEW.principal_id
+                AND tombstone.issuance_fingerprint = NEW.issuance_fingerprint
+           )
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation issuance identity is retired');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_continuations_retired_update_guard
+    BEFORE UPDATE OF token_hash, principal_id, issuance_fingerprint
+    ON adcp_compat_continuations
+    WHEN EXISTS (
+        SELECT 1 FROM adcp_compat_issuance_tombstones AS tombstone
+        WHERE tombstone.token_hash = NEW.token_hash
+           OR (
+                NEW.issuance_fingerprint IS NOT NULL
+                AND tombstone.principal_id = NEW.principal_id
+                AND tombstone.issuance_fingerprint = NEW.issuance_fingerprint
+           )
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation issuance identity is retired');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_continuations_delete_guard
+    BEFORE DELETE ON adcp_compat_continuations
+    WHEN NOT EXISTS (
+        SELECT 1 FROM adcp_compat_issuance_tombstones AS tombstone
+        WHERE tombstone.token_hash = OLD.token_hash
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation deletion requires issuance tombstone');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_issuance_tombstones_update_guard
+    BEFORE UPDATE ON adcp_compat_issuance_tombstones
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation issuance tombstones are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS adcp_compat_issuance_tombstones_delete_guard
+    BEFORE DELETE ON adcp_compat_issuance_tombstones
+    BEGIN
+        SELECT RAISE(ABORT, 'continuation issuance tombstones are permanent');
+    END
+    """,
+)
+
+_REPLAY_FENCE_TRIGGER_NAMES = (
+    "adcp_compat_continuations_fingerprint_insert_guard",
+    "adcp_compat_continuations_fingerprint_downgrade_guard",
+    "adcp_compat_continuations_retired_insert_guard",
+    "adcp_compat_continuations_retired_update_guard",
+    "adcp_compat_continuations_delete_guard",
+    "adcp_compat_issuance_tombstones_update_guard",
+    "adcp_compat_issuance_tombstones_delete_guard",
+)
+
+
+class SqliteCompatibilityContinuationStore:
+    """Durable local continuation ledger backed by a SQLite file."""
+
+    is_durable: ClassVar[bool] = True
+
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        timeout: float = 30.0,
+        clock: Callable[[], datetime] | None = None,
+        max_records: int = 20_000,
+        max_bytes: int = 64 * 1024 * 1024,
+        max_payload_bytes: int = 1024 * 1024,
+        max_records_per_principal: int = 2_000,
+        max_bytes_per_principal: int = 8 * 1024 * 1024,
+    ) -> None:
+        raw = str(path)
+        if raw == ":memory:" or raw.startswith("file::memory:"):
+            raise ValueError("SqliteCompatibilityContinuationStore requires a file-backed database")
+        # Keep the lexical path so lstat() can reject symlink components;
+        # Path.resolve() would dereference them before the safety walk.
+        self.path = Path(os.path.abspath(os.path.expanduser(raw)))
+        self._ensure_private_parent_directory()
+        self.timeout = timeout
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        for name, value in (
+            ("max_records", max_records),
+            ("max_bytes", max_bytes),
+            ("max_payload_bytes", max_payload_bytes),
+            ("max_records_per_principal", max_records_per_principal),
+            ("max_bytes_per_principal", max_bytes_per_principal),
+        ):
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        self.max_records = max_records
+        self.max_bytes = max_bytes
+        self.max_payload_bytes = max_payload_bytes
+        self.max_records_per_principal = min(max_records_per_principal, max_records)
+        self.max_bytes_per_principal = min(max_bytes_per_principal, max_bytes)
+        self._ensure_private_database_file()
+        with closing(self._connect()) as conn, conn:
+            conn.executescript(_SCHEMA)
+            self._ensure_timestamp_columns(conn)
+
+    def _ensure_timestamp_columns(self, conn: sqlite3.Connection) -> None:
+        """Migrate ledgers created by pre-release coordinator builds."""
+
+        # Serialize the inspect/alter/backfill sequence across processes. Without
+        # the write lock, two starters can both observe a missing column and the
+        # second ALTER then fails with ``duplicate column name``.
+        conn.execute("BEGIN IMMEDIATE")
+        now = _format_datetime(self._clock())
+        for table in ("adcp_compat_continuations", "adcp_compat_operations"):
+            columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for column in ("created_at", "updated_at"):
+                if column not in columns:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+                conn.execute(
+                    f"UPDATE {table} SET {column} = ? WHERE {column} IS NULL",
+                    (now,),
+                )
+        continuation_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(adcp_compat_continuations)")
+        }
+        if "projected_products_json" not in continuation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_continuations ADD COLUMN projected_products_json TEXT"
+            )
+        if "issuance_fingerprint" not in continuation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_continuations ADD COLUMN issuance_fingerprint TEXT"
+            )
+        if "issuance_binding_hash" not in continuation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_continuations ADD COLUMN issuance_binding_hash TEXT"
+            )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS adcp_compat_continuations_issuance_idx "
+            "ON adcp_compat_continuations (principal_id, issuance_fingerprint) "
+            "WHERE issuance_fingerprint IS NOT NULL"
+        )
+        if "mutation_idempotency_guaranteed" not in continuation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_continuations "
+                "ADD COLUMN mutation_idempotency_guaranteed INTEGER NOT NULL DEFAULT 0"
+            )
+
+        operation_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(adcp_compat_operations)")
+        }
+        if "revision" not in operation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_operations ADD COLUMN revision INTEGER NOT NULL DEFAULT 1"
+            )
+        if "execution_input_json" not in operation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_operations "
+                "ADD COLUMN execution_input_json TEXT NOT NULL DEFAULT '{}'"
+            )
+
+        operations_sql_row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'adcp_compat_operations'"
+        ).fetchone()
+        operations_sql = operations_sql_row["sql"] if operations_sql_row is not None else ""
+        if "'pending'" not in operations_sql or "'failed'" not in operations_sql:
+            self._rebuild_operations_table(conn)
+        operation_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(adcp_compat_operations)")
+        }
+        if "reserved_result_bytes" not in operation_columns:
+            conn.execute(
+                "ALTER TABLE adcp_compat_operations "
+                "ADD COLUMN reserved_result_bytes INTEGER NOT NULL DEFAULT 0 "
+                "CHECK (reserved_result_bytes >= 0)"
+            )
+        # Pre-reservation ledgers may already contain a seller mutation that
+        # requires a terminal write. Give each unresolved row a durable budget
+        # once, preserving any larger pending result already on disk.
+        conn.execute(
+            "UPDATE adcp_compat_operations "
+            "SET reserved_result_bytes = MAX(?, "
+            "length(CAST(COALESCE(result_json, '') AS BLOB))) "
+            "WHERE state IN ('in_flight', 'pending', 'ambiguous') "
+            "AND reserved_result_bytes = 0",
+            (self.max_payload_bytes,),
+        )
+        self._audit_legacy_payloads(conn)
+        # The table, index, and guards share this migration's write transaction.
+        # Otherwise an older process could delete a continuation after the table
+        # became visible but before the delete guard committed.
+        self._migrate_replay_fence_schema(conn)
+        for statement in _REPLAY_FENCE_SCHEMA:
+            conn.execute(statement)
+
+    @staticmethod
+    def _migrate_replay_fence_schema(conn: sqlite3.Connection) -> None:
+        """Remove the pre-release write-only equivalence column atomically."""
+
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(adcp_compat_issuance_tombstones)")
+        }
+        if "legacy_equivalence_hash" not in columns:
+            return
+
+        for trigger_name in _REPLAY_FENCE_TRIGGER_NAMES:
+            conn.execute(f'DROP TRIGGER IF EXISTS "{trigger_name}"')
+        conn.execute(
+            "ALTER TABLE adcp_compat_issuance_tombstones "
+            "RENAME TO adcp_compat_issuance_tombstones_legacy"
+        )
+        conn.execute(_REPLAY_FENCE_SCHEMA[0])
+        conn.execute(
+            """
+            INSERT INTO adcp_compat_issuance_tombstones (
+                token_hash, principal_id, issuance_fingerprint,
+                issuance_binding_hash, retired_at
+            )
+            SELECT
+                token_hash, principal_id, issuance_fingerprint,
+                issuance_binding_hash, retired_at
+            FROM adcp_compat_issuance_tombstones_legacy
+            """
+        )
+        conn.execute("DROP TABLE adcp_compat_issuance_tombstones_legacy")
+
+    @staticmethod
+    def _audit_legacy_payloads(conn: sqlite3.Connection) -> None:
+        audited = conn.execute(
+            "SELECT value FROM adcp_compat_metadata WHERE key = 'persistence_policy_version'"
+        ).fetchone()
+        if audited is not None and audited["value"] == "1":
+            return
+        for row in conn.execute("SELECT * FROM adcp_compat_continuations"):
+            _validate_continuation_persistence(_decode_continuation(row))
+        for row in conn.execute("SELECT * FROM adcp_compat_operations"):
+            operation = _decode_operation(row)
+            _validate_persistable_payload(operation.execution_input, context="execution input")
+            if operation.result is not None:
+                _validate_persistable_payload(operation.result, context="legacy result")
+        conn.execute(
+            "INSERT OR REPLACE INTO adcp_compat_metadata (key, value) VALUES (?, ?)",
+            ("persistence_policy_version", "1"),
+        )
+
+    @staticmethod
+    def _rebuild_operations_table(conn: sqlite3.Connection) -> None:
+        """Expand the operation-state constraint without losing ledger rows."""
+
+        conn.execute("ALTER TABLE adcp_compat_operations RENAME TO adcp_compat_operations_old")
+        conn.execute(
+            """
+            CREATE TABLE adcp_compat_operations (
+                operation_id TEXT PRIMARY KEY,
+                principal_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                token_hash TEXT NOT NULL,
+                payload_hash TEXT NOT NULL,
+                state TEXT NOT NULL CHECK (
+                    state IN (
+                        'claimed', 'in_flight', 'pending', 'succeeded', 'failed', 'ambiguous'
+                    )
+                ),
+                revision INTEGER NOT NULL DEFAULT 1,
+                execution_input_json TEXT NOT NULL DEFAULT '{}',
+                result_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (principal_id, idempotency_key),
+                UNIQUE (token_hash),
+                FOREIGN KEY (token_hash)
+                    REFERENCES adcp_compat_continuations(token_hash)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO adcp_compat_operations (
+                operation_id, principal_id, idempotency_key, token_hash,
+                payload_hash, state, revision, execution_input_json,
+                result_json, created_at, updated_at
+            )
+            SELECT
+                operation_id, principal_id, idempotency_key, token_hash,
+                payload_hash, state, revision, execution_input_json,
+                result_json, created_at, updated_at
+            FROM adcp_compat_operations_old
+            """
+        )
+        conn.execute("DROP TABLE adcp_compat_operations_old")
+
+    def _ensure_private_parent_directory(self) -> None:
+        """Create and validate the directory used for SQLite pathname opens."""
+
+        parent = self.path.parent
+        chain = list(reversed(parent.parents)) + [parent]
+        for directory in chain:
+            try:
+                directory_status = directory.lstat()
+            except FileNotFoundError:
+                directory.mkdir(mode=0o700, exist_ok=True)
+                directory_status = directory.lstat()
+            except OSError as exc:
+                raise PermissionError(f"SQLite directory {directory} is not accessible") from exc
+            if not stat.S_ISDIR(directory_status.st_mode):
+                raise PermissionError(
+                    f"SQLite directory {directory} must be a real directory, not a symlink"
+                )
+
+        try:
+            direct_status = parent.lstat()
+        except OSError as exc:
+            raise PermissionError(f"SQLite parent directory {parent} is not accessible") from exc
+        if not stat.S_ISDIR(direct_status.st_mode):
+            raise PermissionError(f"SQLite parent directory {parent} is not a directory")
+        if direct_status.st_uid != os.geteuid():
+            raise PermissionError(
+                f"SQLite parent directory {parent} must be owned by the current user"
+            )
+        direct_mode = stat.S_IMODE(direct_status.st_mode)
+        if direct_mode & 0o022:
+            raise PermissionError(
+                f"SQLite parent directory {parent} has mode {direct_mode:#o}; "
+                "remove group/world write access before opening"
+            )
+
+        for ancestor in parent.parents:
+            try:
+                ancestor_status = ancestor.lstat()
+            except OSError as exc:
+                raise PermissionError(
+                    f"SQLite ancestor directory {ancestor} is not accessible"
+                ) from exc
+            ancestor_mode = stat.S_IMODE(ancestor_status.st_mode)
+            unsafe_writable = bool(ancestor_mode & 0o022) and not bool(
+                ancestor_status.st_mode & stat.S_ISVTX
+            )
+            if unsafe_writable:
+                raise PermissionError(
+                    f"SQLite ancestor directory {ancestor} has unsafe writable mode "
+                    f"{ancestor_mode:#o}"
+                )
+
+    def _ensure_private_database_file(self) -> None:
+        """Create the ledger as 0600 and reject an existing loose mode."""
+
+        self._ensure_private_file(self.path, "continuation database")
+
+    def _ensure_private_sidecar_files(self) -> None:
+        """Pre-create SQLite WAL files privately before SQLite can open them.
+
+        SQLite normally inherits the database mode for ``-wal`` and ``-shm``
+        files.  Creating and validating them explicitly makes that guarantee
+        independent of the process umask and SQLite build behavior.
+        """
+
+        for suffix in ("-wal", "-shm"):
+            self._ensure_private_file(Path(f"{self.path}{suffix}"), "SQLite sidecar")
+
+    @staticmethod
+    def _ensure_private_file(path: Path, description: str) -> None:
+        """Atomically create *path* as 0600 or validate the existing file."""
+
+        create_flags = os.O_CREAT | os.O_EXCL | os.O_RDWR
+        existing_flags = os.O_RDWR
+        if hasattr(os, "O_NOFOLLOW"):
+            create_flags |= os.O_NOFOLLOW
+            existing_flags |= os.O_NOFOLLOW
+        while True:
+            try:
+                descriptor = os.open(path, create_flags, 0o600)
+                break
+            except FileExistsError:
+                try:
+                    descriptor = os.open(path, existing_flags)
+                    break
+                except FileNotFoundError:
+                    # SQLite removes sidecars when the last WAL connection
+                    # closes.  If that happens between the existence check and
+                    # this open, retry the atomic create path.
+                    continue
+                except OSError as exc:
+                    raise PermissionError(
+                        f"{description} {path} is not a safe regular file"
+                    ) from exc
+            except OSError as exc:
+                raise PermissionError(f"{description} {path} is not a safe regular file") from exc
+        try:
+            file_status = os.fstat(descriptor)
+            if not stat.S_ISREG(file_status.st_mode):
+                raise PermissionError(f"{description} {path} is not a regular file")
+            if file_status.st_uid != os.geteuid():
+                raise PermissionError(f"{description} {path} must be owned by the current user")
+            mode = stat.S_IMODE(file_status.st_mode)
+            if mode & 0o077:
+                raise PermissionError(
+                    f"{description} {path} has mode {mode:#o}; restrict it to 0o600 before opening"
+                )
+        finally:
+            os.close(descriptor)
+
+    def _connect(self) -> sqlite3.Connection:
+        # Re-check on every connection so sidecars removed after the previous
+        # last close are recreated with a private mode before the next write.
+        self._ensure_private_parent_directory()
+        self._ensure_private_database_file()
+        self._ensure_private_sidecar_files()
+        conn = sqlite3.connect(self.path, timeout=self.timeout)
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON")
+            deadline = time.monotonic() + self.timeout
+            while True:
+                try:
+                    conn.execute("PRAGMA journal_mode = WAL")
+                    break
+                except sqlite3.OperationalError as exc:
+                    if "locked" not in str(exc).lower() or time.monotonic() >= deadline:
+                        raise
+                    time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
+            conn.execute("PRAGMA synchronous = FULL")
+            return conn
+        except BaseException:
+            conn.close()
+            raise
+
+    async def put_continuation(self, continuation: LegacyPurchaseContinuation) -> None:
+        await asyncio.to_thread(self._put_continuation, copy.deepcopy(continuation))
+
+    def _put_continuation(self, value: LegacyPurchaseContinuation) -> None:
+        _validate_continuation_persistence(value)
+        now = _format_datetime(self._clock())
+        if value.projected_products is None:
+            raise ValueError("new continuations require buyer-visible product bindings")
+        payloads = (
+            _dumps(value.observed_request),
+            _dumps(value.observed_response),
+            _dumps(list(value.product_ids)),
+            _dumps(list(value.projected_products)),
+            _dumps(sorted(value.losses)),
+            (
+                _dumps(value.listed_purchase_context)
+                if value.listed_purchase_context is not None
+                else None
+            ),
+        )
+        self._enforce_payload_quota(*(payload for payload in payloads if payload is not None))
+        try:
+            with closing(self._connect()) as conn, conn:
+                conn.execute("BEGIN IMMEDIATE")
+                retired = conn.execute(
+                    "SELECT 1 FROM adcp_compat_issuance_tombstones "
+                    "WHERE token_hash = ? OR "
+                    "(principal_id = ? AND issuance_fingerprint = ?)",
+                    (value.token_hash, value.principal_id, value.issuance_fingerprint),
+                ).fetchone()
+                if retired is not None:
+                    raise _error(
+                        CompatibilityContinuationErrorCode.STORE_CONFLICT,
+                        "continuation issuance identity was already retired",
+                        "Start a genuinely new discovery with a new issuance identity.",
+                    )
+                legacy = conn.execute(
+                    """
+                    SELECT 1 FROM adcp_compat_continuations
+                    WHERE issuance_fingerprint IS NULL
+                      AND principal_id = ?
+                      AND observed_payload_hash = ?
+                      AND account_identity = ?
+                      AND target_binding = ?
+                    LIMIT 1
+                    """,
+                    (
+                        value.principal_id,
+                        value.observed_payload_hash,
+                        value.account_identity,
+                        value.target_binding,
+                    ),
+                ).fetchone()
+                if legacy is not None:
+                    raise _error(
+                        CompatibilityContinuationErrorCode.STORE_CONFLICT,
+                        "equivalent pre-migration authorization requires operator resolution",
+                        "Resolve or quarantine the legacy continuation before reissuing.",
+                    )
+                conn.execute(
+                    """
+                    INSERT INTO adcp_compat_continuations (
+                        token_hash, issuance_fingerprint, issuance_binding_hash,
+                        principal_id, account_identity,
+                        source_adcp_version, expires_at, observed_request_json,
+                        observed_response_json, observed_payload_hash,
+                        product_ids_json, projected_products_json, losses_json,
+                        mutation_idempotency_guaranteed, target_binding,
+                        listed_purchase_context_json, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        value.token_hash,
+                        value.issuance_fingerprint,
+                        value.issuance_binding_hash,
+                        value.principal_id,
+                        value.account_identity,
+                        value.source_adcp_version,
+                        _format_datetime(value.expires_at),
+                        payloads[0],
+                        payloads[1],
+                        value.observed_payload_hash,
+                        payloads[2],
+                        payloads[3],
+                        payloads[4],
+                        int(value.mutation_idempotency_guaranteed),
+                        value.target_binding,
+                        payloads[5],
+                        now,
+                        now,
+                    ),
+                )
+                self._enforce_ledger_quota(conn, principal_id=value.principal_id)
+        except sqlite3.IntegrityError as exc:
+            with closing(self._connect()) as conn:
+                row = conn.execute(
+                    "SELECT * FROM adcp_compat_continuations "
+                    "WHERE token_hash = ? OR (principal_id = ? AND issuance_fingerprint = ?)",
+                    (value.token_hash, value.principal_id, value.issuance_fingerprint),
+                ).fetchone()
+            if row is not None and _decode_continuation(row) == value:
+                return
+            raise _error(
+                CompatibilityContinuationErrorCode.STORE_CONFLICT,
+                "continuation issuance fingerprint is already registered differently",
+                "Use the same token derivation key and exact issuance inputs.",
+            ) from exc
+
+    async def get_continuation(
+        self, token_hash: str, *, principal_id: str
+    ) -> LegacyPurchaseContinuation | None:
+        return await asyncio.to_thread(self._get_continuation, token_hash, principal_id)
+
+    def _get_continuation(
+        self, token_hash: str, principal_id: str
+    ) -> LegacyPurchaseContinuation | None:
+        with closing(self._connect()) as conn, conn:
+            row = conn.execute(
+                """
+                SELECT * FROM adcp_compat_continuations
+                WHERE token_hash = ? AND principal_id = ?
+                """,
+                (token_hash, principal_id),
+            ).fetchone()
+        return _decode_continuation(row) if row is not None else None
+
+    async def claim(
+        self,
+        token_hash: str,
+        *,
+        principal_id: str,
+        idempotency_key: str,
+        payload_hash: str,
+        execution_input: Mapping[str, Any],
+        now: datetime,
+    ) -> CompatibilityPurchaseOperation:
+        snapshot = copy.deepcopy(dict(execution_input))
+        _validate_persistable_payload(snapshot, context="execution input")
+        return await asyncio.to_thread(
+            self._claim,
+            token_hash,
+            principal_id,
+            idempotency_key,
+            payload_hash,
+            snapshot,
+            now,
+        )
+
+    def _claim(
+        self,
+        token_hash: str,
+        principal_id: str,
+        idempotency_key: str,
+        payload_hash: str,
+        execution_input: dict[str, Any],
+        now: datetime,
+    ) -> CompatibilityPurchaseOperation:
+        execution_input_json = _dumps(execution_input)
+        with closing(self._connect()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            claim_time = max(_as_utc(now), _as_utc(self._clock()))
+            existing = conn.execute(
+                """
+                SELECT * FROM adcp_compat_operations
+                WHERE principal_id = ? AND idempotency_key = ?
+                """,
+                (principal_id, idempotency_key),
+            ).fetchone()
+            if existing is not None:
+                operation = _decode_operation(existing)
+                if operation.token_hash != token_hash or operation.payload_hash != payload_hash:
+                    raise _error(
+                        CompatibilityContinuationErrorCode.IDEMPOTENCY_CONFLICT,
+                        "idempotency key was already used with a different logical payload",
+                        "Use the original payload or start a new projected purchase.",
+                    )
+                if not operation.execution_input:
+                    # Pre-hardening ledgers retained the logical payload hash
+                    # but not the sanitized execution snapshot. An exact retry
+                    # can adopt it atomically; the revision increment fences
+                    # every pre-migration operation object.
+                    self._enforce_payload_quota(execution_input_json)
+                    updated_at = _format_datetime(self._clock())
+                    adopted = conn.execute(
+                        "UPDATE adcp_compat_operations "
+                        "SET execution_input_json = ?, revision = revision + 1, updated_at = ? "
+                        "WHERE operation_id = ? AND revision = ? "
+                        "AND execution_input_json = '{}'",
+                        (
+                            execution_input_json,
+                            updated_at,
+                            operation.operation_id,
+                            operation.revision,
+                        ),
+                    )
+                    if adopted.rowcount != 1:
+                        raise _state_error("legacy execution input changed concurrently")
+                    # This bounded, one-time migration write may be required to
+                    # reconcile a seller mutation that already executed. Global
+                    # fullness must not prevent recovery of that existing row.
+                    operation = CompatibilityPurchaseOperation(
+                        operation_id=operation.operation_id,
+                        principal_id=operation.principal_id,
+                        idempotency_key=operation.idempotency_key,
+                        token_hash=operation.token_hash,
+                        payload_hash=operation.payload_hash,
+                        state=operation.state,
+                        revision=operation.revision + 1,
+                        execution_input=copy.deepcopy(execution_input),
+                        reserved_result_bytes=operation.reserved_result_bytes,
+                        result=copy.deepcopy(operation.result),
+                    )
+                elif operation.execution_input != execution_input:
+                    raise _state_error("stored execution input changed for idempotent claim")
+                conn.commit()
+                return operation
+
+            continuation = conn.execute(
+                """
+                SELECT * FROM adcp_compat_continuations
+                WHERE token_hash = ? AND principal_id = ?
+                """,
+                (token_hash, principal_id),
+            ).fetchone()
+            if continuation is None:
+                raise _not_found()
+            expires_at = _parse_datetime(continuation["expires_at"])
+            if claim_time >= expires_at:
+                raise _error(
+                    CompatibilityContinuationErrorCode.EXPIRED,
+                    "continuation expired before it could be claimed",
+                    "Repeat product discovery and obtain a new continuation.",
+                )
+            if continuation["claimed_operation_id"] is not None:
+                raise _error(
+                    CompatibilityContinuationErrorCode.ALREADY_CLAIMED,
+                    "continuation was already claimed by another operation",
+                    "Replay the original idempotency key, or restart product discovery.",
+                )
+
+            self._enforce_payload_quota(execution_input_json)
+            operation_id = secrets.token_urlsafe(24)
+            updated = conn.execute(
+                """
+                UPDATE adcp_compat_continuations
+                SET claimed_operation_id = ?, updated_at = ?
+                WHERE token_hash = ? AND principal_id = ?
+                  AND claimed_operation_id IS NULL
+                """,
+                (operation_id, _format_datetime(claim_time), token_hash, principal_id),
+            )
+            if updated.rowcount != 1:
+                raise _error(
+                    CompatibilityContinuationErrorCode.ALREADY_CLAIMED,
+                    "continuation was concurrently claimed by another operation",
+                    "Replay the original idempotency key, or restart product discovery.",
+                )
+            conn.execute(
+                """
+                INSERT INTO adcp_compat_operations (
+                    operation_id, principal_id, idempotency_key, token_hash,
+                    payload_hash, state, revision, execution_input_json,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    operation_id,
+                    principal_id,
+                    idempotency_key,
+                    token_hash,
+                    payload_hash,
+                    CompatibilityOperationState.CLAIMED.value,
+                    1,
+                    execution_input_json,
+                    _format_datetime(claim_time),
+                    _format_datetime(claim_time),
+                ),
+            )
+            self._enforce_ledger_quota(conn, principal_id=principal_id)
+            conn.commit()
+            return CompatibilityPurchaseOperation(
+                operation_id=operation_id,
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+                token_hash=token_hash,
+                payload_hash=payload_hash,
+                state=CompatibilityOperationState.CLAIMED,
+                revision=1,
+                execution_input=copy.deepcopy(execution_input),
+                reserved_result_bytes=0,
+            )
+
+    async def get_operation(
+        self, operation_id: str, *, principal_id: str
+    ) -> CompatibilityPurchaseOperation | None:
+        return await asyncio.to_thread(self._get_operation, operation_id, principal_id)
+
+    def _get_operation(
+        self, operation_id: str, principal_id: str
+    ) -> CompatibilityPurchaseOperation | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM adcp_compat_operations WHERE operation_id = ? AND principal_id = ?",
+                (operation_id, principal_id),
+            ).fetchone()
+        return _decode_operation(row) if row is not None else None
+
+    async def get_operation_by_idempotency_key(
+        self, idempotency_key: str, *, principal_id: str
+    ) -> CompatibilityPurchaseOperation | None:
+        return await asyncio.to_thread(
+            self._get_operation_by_idempotency_key, idempotency_key, principal_id
+        )
+
+    def _get_operation_by_idempotency_key(
+        self, idempotency_key: str, principal_id: str
+    ) -> CompatibilityPurchaseOperation | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT * FROM adcp_compat_operations "
+                "WHERE idempotency_key = ? AND principal_id = ?",
+                (idempotency_key, principal_id),
+            ).fetchone()
+        return _decode_operation(row) if row is not None else None
+
+    async def mark_in_flight(
+        self, operation: CompatibilityPurchaseOperation
+    ) -> CompatibilityPurchaseOperation:
+        return await asyncio.to_thread(
+            self._transition,
+            copy.deepcopy(operation),
+            {CompatibilityOperationState.CLAIMED},
+            CompatibilityOperationState.IN_FLIGHT,
+            None,
+        )
+
+    async def mark_ambiguous(
+        self, operation: CompatibilityPurchaseOperation
+    ) -> CompatibilityPurchaseOperation:
+        return await asyncio.to_thread(
+            self._transition,
+            copy.deepcopy(operation),
+            {CompatibilityOperationState.CLAIMED, CompatibilityOperationState.IN_FLIGHT},
+            CompatibilityOperationState.AMBIGUOUS,
+            None,
+        )
+
+    async def complete(
+        self,
+        operation: CompatibilityPurchaseOperation,
+        result: Mapping[str, Any],
+        *,
+        state: CompatibilityOperationState = CompatibilityOperationState.SUCCEEDED,
+    ) -> CompatibilityPurchaseOperation:
+        if state not in {
+            CompatibilityOperationState.PENDING,
+            CompatibilityOperationState.SUCCEEDED,
+            CompatibilityOperationState.FAILED,
+        }:
+            raise ValueError("complete state must be pending, succeeded, or failed")
+        snapshot = copy.deepcopy(dict(result))
+        _validate_persistable_payload(snapshot, context="legacy result")
+        return await asyncio.to_thread(
+            self._transition,
+            copy.deepcopy(operation),
+            {
+                CompatibilityOperationState.IN_FLIGHT,
+                CompatibilityOperationState.AMBIGUOUS,
+                CompatibilityOperationState.PENDING,
+            },
+            state,
+            snapshot,
+        )
+
+    async def fence_in_flight(
+        self, operation: CompatibilityPurchaseOperation
+    ) -> CompatibilityPurchaseOperation:
+        return await asyncio.to_thread(
+            self._transition,
+            copy.deepcopy(operation),
+            {CompatibilityOperationState.IN_FLIGHT},
+            CompatibilityOperationState.AMBIGUOUS,
+            None,
+        )
+
+    async def resume_after_not_applied(
+        self, operation: CompatibilityPurchaseOperation
+    ) -> CompatibilityPurchaseOperation:
+        return await asyncio.to_thread(
+            self._transition,
+            copy.deepcopy(operation),
+            {CompatibilityOperationState.AMBIGUOUS},
+            CompatibilityOperationState.CLAIMED,
+            None,
+        )
+
+    def _transition(
+        self,
+        operation: CompatibilityPurchaseOperation,
+        allowed: set[CompatibilityOperationState],
+        target: CompatibilityOperationState,
+        result: dict[str, Any] | None,
+    ) -> CompatibilityPurchaseOperation:
+        with closing(self._connect()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM adcp_compat_operations WHERE operation_id = ?",
+                (operation.operation_id,),
+            ).fetchone()
+            if row is None:
+                raise _state_error("operation is missing from continuation store")
+            current = _decode_operation(row)
+            if (
+                current.principal_id != operation.principal_id
+                or current.idempotency_key != operation.idempotency_key
+                or current.token_hash != operation.token_hash
+                or current.payload_hash != operation.payload_hash
+                or current.execution_input != operation.execution_input
+                or current.reserved_result_bytes != operation.reserved_result_bytes
+            ):
+                raise _state_error("operation binding changed in continuation store")
+            if current.revision != operation.revision:
+                raise _state_error("operation revision changed concurrently")
+            if current.state not in allowed:
+                raise _state_error(
+                    f"cannot transition operation from {current.state.value} to {target.value}"
+                )
+            result_json = _dumps(result) if result is not None else None
+            if (
+                result_json is not None
+                and len(result_json.encode("utf-8")) > current.reserved_result_bytes
+            ):
+                raise CompatibilityContinuationError(
+                    CompatibilityContinuationErrorCode.STORE_QUOTA_EXCEEDED,
+                    "operation result exceeds its reserved durable capacity",
+                    recovery_guidance=(
+                        "Reconcile using a result within the operation's "
+                        "original durable reservation."
+                    ),
+                    details={"reserved_result_bytes": current.reserved_result_bytes},
+                )
+            reserved_result_bytes = current.reserved_result_bytes
+            if current.state is CompatibilityOperationState.CLAIMED and target in {
+                CompatibilityOperationState.IN_FLIGHT,
+                CompatibilityOperationState.AMBIGUOUS,
+            }:
+                reserved_result_bytes = self.max_payload_bytes
+            elif target in {
+                CompatibilityOperationState.CLAIMED,
+                CompatibilityOperationState.SUCCEEDED,
+                CompatibilityOperationState.FAILED,
+            }:
+                reserved_result_bytes = 0
+            updated_at = _format_datetime(self._clock())
+            updated = conn.execute(
+                """
+                UPDATE adcp_compat_operations
+                SET state = ?, result_json = ?, reserved_result_bytes = ?,
+                    revision = revision + 1, updated_at = ?
+                WHERE operation_id = ? AND state = ? AND revision = ?
+                """,
+                (
+                    target.value,
+                    result_json,
+                    reserved_result_bytes,
+                    updated_at,
+                    current.operation_id,
+                    current.state.value,
+                    current.revision,
+                ),
+            )
+            if updated.rowcount != 1:
+                raise _state_error("operation state changed concurrently")
+            if current.state is CompatibilityOperationState.CLAIMED and target in {
+                CompatibilityOperationState.IN_FLIGHT,
+                CompatibilityOperationState.AMBIGUOUS,
+            }:
+                # Reserve one full result payload before the seller mutation can
+                # run. Later pending/terminal writes consume that reservation,
+                # so another principal cannot strand an executed mutation by
+                # filling the global quota between execution and completion.
+                self._enforce_ledger_quota(conn, principal_id=current.principal_id)
+            conn.commit()
+            return CompatibilityPurchaseOperation(
+                operation_id=current.operation_id,
+                principal_id=current.principal_id,
+                idempotency_key=current.idempotency_key,
+                token_hash=current.token_hash,
+                payload_hash=current.payload_hash,
+                state=target,
+                revision=current.revision + 1,
+                execution_input=copy.deepcopy(current.execution_input),
+                reserved_result_bytes=reserved_result_bytes,
+                result=copy.deepcopy(result),
+            )
+
+    def _enforce_payload_quota(self, *serialized_values: str) -> None:
+        payload_bytes = sum(len(value.encode("utf-8")) for value in serialized_values)
+        if payload_bytes > self.max_payload_bytes:
+            raise _quota_error(self.max_records, self.max_bytes)
+
+    def _enforce_ledger_quota(self, conn: sqlite3.Connection, *, principal_id: str) -> None:
+        records = conn.execute(
+            "SELECT "
+            "(SELECT COUNT(*) FROM adcp_compat_continuations) + "
+            "(SELECT COUNT(*) FROM adcp_compat_operations) + "
+            "(SELECT COUNT(*) FROM adcp_compat_issuance_tombstones)"
+        ).fetchone()[0]
+        continuation_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(COALESCE(issuance_fingerprint, '') AS BLOB)) +
+                length(CAST(COALESCE(issuance_binding_hash, '') AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(account_identity AS BLOB)) +
+                length(CAST(source_adcp_version AS BLOB)) +
+                length(CAST(expires_at AS BLOB)) +
+                length(CAST(observed_request_json AS BLOB)) +
+                length(CAST(observed_response_json AS BLOB)) +
+                length(CAST(observed_payload_hash AS BLOB)) +
+                length(CAST(product_ids_json AS BLOB)) +
+                length(CAST(COALESCE(projected_products_json, '') AS BLOB)) +
+                length(CAST(losses_json AS BLOB)) +
+                length(CAST(target_binding AS BLOB)) +
+                length(CAST(COALESCE(listed_purchase_context_json, '') AS BLOB))
+            ), 0) FROM adcp_compat_continuations
+            """
+        ).fetchone()[0]
+        tombstone_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(COALESCE(issuance_fingerprint, '') AS BLOB)) +
+                length(CAST(COALESCE(issuance_binding_hash, '') AS BLOB))
+            ), 0) FROM adcp_compat_issuance_tombstones
+            """
+        ).fetchone()[0]
+        operation_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(operation_id AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(idempotency_key AS BLOB)) +
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(payload_hash AS BLOB)) +
+                CASE
+                    WHEN state = 'pending' THEN length(CAST('succeeded' AS BLOB))
+                    ELSE length(CAST(state AS BLOB))
+                END +
+                length(CAST(execution_input_json AS BLOB)) +
+                CASE
+                    WHEN state IN ('in_flight', 'pending', 'ambiguous')
+                        THEN reserved_result_bytes
+                    ELSE length(CAST(COALESCE(result_json, '') AS BLOB))
+                END
+            ), 0) FROM adcp_compat_operations
+            """
+        ).fetchone()[0]
+        if (
+            records > self.max_records
+            or continuation_bytes + operation_bytes + tombstone_bytes > self.max_bytes
+        ):
+            raise _quota_error(self.max_records, self.max_bytes)
+        principal_records = conn.execute(
+            "SELECT "
+            "(SELECT COUNT(*) FROM adcp_compat_continuations WHERE principal_id = ?) + "
+            "(SELECT COUNT(*) FROM adcp_compat_operations WHERE principal_id = ?) + "
+            "(SELECT COUNT(*) FROM adcp_compat_issuance_tombstones WHERE principal_id = ?)",
+            (principal_id, principal_id, principal_id),
+        ).fetchone()[0]
+        principal_continuation_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(COALESCE(issuance_fingerprint, '') AS BLOB)) +
+                length(CAST(COALESCE(issuance_binding_hash, '') AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(account_identity AS BLOB)) +
+                length(CAST(source_adcp_version AS BLOB)) +
+                length(CAST(expires_at AS BLOB)) +
+                length(CAST(observed_request_json AS BLOB)) +
+                length(CAST(observed_response_json AS BLOB)) +
+                length(CAST(observed_payload_hash AS BLOB)) +
+                length(CAST(product_ids_json AS BLOB)) +
+                length(CAST(COALESCE(projected_products_json, '') AS BLOB)) +
+                length(CAST(losses_json AS BLOB)) +
+                length(CAST(target_binding AS BLOB)) +
+                length(CAST(COALESCE(listed_purchase_context_json, '') AS BLOB))
+            ), 0) FROM adcp_compat_continuations WHERE principal_id = ?
+            """,
+            (principal_id,),
+        ).fetchone()[0]
+        principal_operation_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(operation_id AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(idempotency_key AS BLOB)) +
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(payload_hash AS BLOB)) +
+                CASE
+                    WHEN state = 'pending' THEN length(CAST('succeeded' AS BLOB))
+                    ELSE length(CAST(state AS BLOB))
+                END +
+                length(CAST(execution_input_json AS BLOB)) +
+                CASE
+                    WHEN state IN ('in_flight', 'pending', 'ambiguous')
+                        THEN reserved_result_bytes
+                    ELSE length(CAST(COALESCE(result_json, '') AS BLOB))
+                END
+            ), 0) FROM adcp_compat_operations WHERE principal_id = ?
+            """,
+            (principal_id,),
+        ).fetchone()[0]
+        principal_tombstone_bytes = conn.execute(
+            """
+            SELECT COALESCE(SUM(
+                length(CAST(token_hash AS BLOB)) +
+                length(CAST(principal_id AS BLOB)) +
+                length(CAST(COALESCE(issuance_fingerprint, '') AS BLOB)) +
+                length(CAST(COALESCE(issuance_binding_hash, '') AS BLOB))
+            ), 0) FROM adcp_compat_issuance_tombstones WHERE principal_id = ?
+            """,
+            (principal_id,),
+        ).fetchone()[0]
+        if (
+            principal_records > self.max_records_per_principal
+            or principal_continuation_bytes + principal_operation_bytes + principal_tombstone_bytes
+            > self.max_bytes_per_principal
+        ):
+            raise _quota_error(self.max_records_per_principal, self.max_bytes_per_principal)
+
+    async def purge_resolved_before(self, cutoff: datetime) -> int:
+        """Delete only old terminal or never-claimed continuations.
+
+        Claimed, in-flight, pending, and ambiguous operations are deliberately
+        retained regardless of age because deleting them could permit an unsafe
+        replay. Returns the number of continuation records removed.
+        """
+
+        return await asyncio.to_thread(self._purge_resolved_before, cutoff)
+
+    def _purge_resolved_before(self, cutoff: datetime) -> int:
+        cutoff_utc = _as_utc(cutoff)
+        now_utc = _as_utc(self._clock())
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    continuation.token_hash,
+                    continuation.issuance_fingerprint,
+                    continuation.expires_at,
+                    continuation.updated_at AS continuation_updated_at,
+                    operation.operation_id,
+                    operation.state,
+                    operation.updated_at AS operation_updated_at
+                FROM adcp_compat_continuations AS continuation
+                LEFT JOIN adcp_compat_operations AS operation
+                  ON operation.token_hash = continuation.token_hash
+                WHERE continuation.issuance_fingerprint IS NOT NULL
+                  AND (
+                       operation.state IN ('succeeded', 'failed')
+                       OR operation.operation_id IS NULL
+                  )
+                """,
+            ).fetchall()
+        candidates = {
+            row["token_hash"]: (
+                row["expires_at"],
+                row["continuation_updated_at"],
+                row["operation_id"],
+                row["state"],
+                row["operation_updated_at"],
+                row["issuance_fingerprint"],
+            )
+            for row in rows
+            if row["issuance_fingerprint"] is not None
+            and (
+                (
+                    row["state"]
+                    in {
+                        CompatibilityOperationState.SUCCEEDED.value,
+                        CompatibilityOperationState.FAILED.value,
+                    }
+                    and _parse_datetime(row["expires_at"]) <= now_utc
+                    and _parse_datetime(row["operation_updated_at"]) < cutoff_utc
+                )
+                or (
+                    row["state"] is None
+                    and _parse_datetime(row["expires_at"]) <= now_utc
+                    and _parse_datetime(row["expires_at"]) < cutoff_utc
+                    and _parse_datetime(row["continuation_updated_at"]) < cutoff_utc
+                )
+            )
+        }
+        if not candidates:
+            return 0
+
+        # Candidate scanning and timestamp parsing happen without a write lock.
+        # Each small write transaction then compares the raw values again, so a
+        # newly claimed or otherwise updated row cannot be purged from a stale
+        # scan.
+        deleted = 0
+        token_hashes = list(candidates)
+        for start in range(0, len(token_hashes), 200):
+            batch = token_hashes[start : start + 200]
+            deleted += self._purge_candidate_batch(batch, candidates, now_utc=now_utc)
+        return deleted
+
+    def _purge_candidate_batch(
+        self,
+        token_hashes: list[str],
+        candidates: Mapping[
+            str,
+            tuple[str, str, str | None, str | None, str | None, str],
+        ],
+        *,
+        now_utc: datetime,
+    ) -> int:
+        placeholders = ",".join("?" for _ in token_hashes)
+        with closing(self._connect()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = conn.execute(
+                f"""
+                SELECT
+                    continuation.token_hash,
+                    continuation.principal_id,
+                    continuation.issuance_fingerprint,
+                    continuation.issuance_binding_hash,
+                    continuation.expires_at,
+                    continuation.updated_at AS continuation_updated_at,
+                    operation.operation_id,
+                    operation.state,
+                    operation.updated_at AS operation_updated_at
+                FROM adcp_compat_continuations AS continuation
+                LEFT JOIN adcp_compat_operations AS operation
+                  ON operation.token_hash = continuation.token_hash
+                WHERE continuation.token_hash IN ({placeholders})
+                """,
+                token_hashes,
+            ).fetchall()
+            confirmed_rows = [
+                row
+                for row in rows
+                if candidates.get(row["token_hash"])
+                == (
+                    row["expires_at"],
+                    row["continuation_updated_at"],
+                    row["operation_id"],
+                    row["state"],
+                    row["operation_updated_at"],
+                    row["issuance_fingerprint"],
+                )
+                and row["issuance_fingerprint"] is not None
+                and _parse_datetime(row["expires_at"]) <= now_utc
+            ]
+            if not confirmed_rows:
+                return 0
+            confirmed = [row["token_hash"] for row in confirmed_rows]
+            confirmed_placeholders = ",".join("?" for _ in confirmed)
+            conn.executemany(
+                """
+                INSERT INTO adcp_compat_issuance_tombstones (
+                    token_hash, principal_id, issuance_fingerprint,
+                    issuance_binding_hash, retired_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        row["token_hash"],
+                        row["principal_id"],
+                        row["issuance_fingerprint"],
+                        row["issuance_binding_hash"],
+                        _format_datetime(now_utc),
+                    )
+                    for row in confirmed_rows
+                ],
+            )
+            conn.execute(
+                f"DELETE FROM adcp_compat_operations "
+                f"WHERE token_hash IN ({confirmed_placeholders})",
+                confirmed,
+            )
+            removed = conn.execute(
+                f"DELETE FROM adcp_compat_continuations "
+                f"WHERE token_hash IN ({confirmed_placeholders})",
+                confirmed,
+            ).rowcount
+            conn.commit()
+            return removed
+
+
+def _decode_continuation(row: sqlite3.Row) -> LegacyPurchaseContinuation:
+    listed = _loads(row["listed_purchase_context_json"])
+    projected = _loads(row["projected_products_json"])
+    return LegacyPurchaseContinuation(
+        token_hash=row["token_hash"],
+        issuance_fingerprint=row["issuance_fingerprint"],
+        issuance_binding_hash=row["issuance_binding_hash"],
+        principal_id=row["principal_id"],
+        account_identity=row["account_identity"],
+        source_adcp_version=row["source_adcp_version"],
+        expires_at=_parse_datetime(row["expires_at"]),
+        observed_request=_require_object(_loads(row["observed_request_json"])),
+        observed_response=_require_object(_loads(row["observed_response_json"])),
+        observed_payload_hash=row["observed_payload_hash"],
+        product_ids=tuple(_loads(row["product_ids_json"])),
+        projected_products=(
+            tuple(_require_object(product) for product in projected)
+            if projected is not None
+            else None
+        ),
+        losses=frozenset(_loads(row["losses_json"])),
+        mutation_idempotency_guaranteed=bool(row["mutation_idempotency_guaranteed"]),
+        target_binding=row["target_binding"],
+        listed_purchase_context=_require_object(listed) if listed is not None else None,
+    )
+
+
+def _decode_operation(row: sqlite3.Row) -> CompatibilityPurchaseOperation:
+    result = _loads(row["result_json"])
+    return CompatibilityPurchaseOperation(
+        operation_id=row["operation_id"],
+        principal_id=row["principal_id"],
+        idempotency_key=row["idempotency_key"],
+        token_hash=row["token_hash"],
+        payload_hash=row["payload_hash"],
+        state=CompatibilityOperationState(row["state"]),
+        revision=row["revision"],
+        execution_input=_require_object(_loads(row["execution_input_json"])),
+        reserved_result_bytes=row["reserved_result_bytes"],
+        result=_require_object(result) if result is not None else None,
+    )
+
+
+def _dumps(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+
+
+def _loads(value: str | None) -> Any:
+    return json.loads(value) if value is not None else None
+
+
+def _require_object(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise _state_error("stored JSON payload is not an object")
+    return value
+
+
+def _format_datetime(value: datetime) -> str:
+    return _as_utc(value).isoformat().replace("+00:00", "Z")
+
+
+def _parse_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        raise ValueError("continuation store requires timezone-aware datetimes")
+    return value.astimezone(timezone.utc)
+
+
+def _error(
+    code: CompatibilityContinuationErrorCode,
+    message: str,
+    recovery: str,
+) -> CompatibilityContinuationError:
+    return CompatibilityContinuationError(code, message, recovery_guidance=recovery)
+
+
+def _not_found() -> CompatibilityContinuationError:
+    return _error(
+        CompatibilityContinuationErrorCode.NOT_FOUND,
+        "continuation was not found for the authenticated principal",
+        "Verify the principal or restart product discovery.",
+    )
+
+
+def _state_error(message: str) -> CompatibilityContinuationError:
+    return _error(
+        CompatibilityContinuationErrorCode.STORE_CONFLICT,
+        message,
+        "Stop mutation and inspect the durable continuation ledger.",
+    )
+
+
+__all__ = ["SqliteCompatibilityContinuationStore"]

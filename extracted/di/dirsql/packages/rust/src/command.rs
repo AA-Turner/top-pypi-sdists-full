@@ -1,0 +1,963 @@
+//! Reusable shell-command runner — the foundation for the command-backed
+//! `on-file` event, which is thin wiring on top of it.
+//!
+//! ## Contract
+//!
+//! - **argv, not a shell.** The command *template* is split into argv with
+//!   shell-like quoting (via [`shlex`]) so `sh -c '…'` keeps its script as a
+//!   single argument — but no shell is ever invoked: there is no globbing,
+//!   piping, or variable expansion. To get a real shell, ask for one
+//!   explicitly (`sh -c '…'`).
+//! - **Placeholders.** `{args}`, `{root}` (and any others a caller
+//!   supplies) are substituted into whole argv tokens, every
+//!   occurrence. Substitution is single-pass and left-to-right per token, so a
+//!   value that itself contains `{…}` is never re-scanned — a substituted value
+//!   is always exactly one argv element, keeping values with spaces (and
+//!   untrusted input) injection-safe. An unknown `{…}` is left literal.
+//! - **cwd / env.** The child runs in `cwd` (the config file's directory) and
+//!   inherits dirsql's environment (so `uvx --with …` / `npx …` dependency
+//!   resolution works). The run is unbounded — a caller that wants a bound
+//!   wraps the command in `timeout(1)`.
+//! - **stdin.** An optional payload is written to the child's stdin (used by
+//!   events whose payload may exceed the OS argv limit).
+//! - **Framing.** The output payload is the **last non-empty line of stdout**;
+//!   any chatter/log lines above it are ignored. stderr is never data — it is
+//!   captured only to enrich errors.
+//! - **Errors.** A non-zero exit is a failure carrying the tail of stderr.
+
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+/// A named placeholder substituted into a command's argv.
+///
+/// `name` is the bare identifier (no braces): a `name` of `root` matches the
+/// template token `{root}`. Substitution only — a placeholder whose `{name}`
+/// never appears in the template is a no-op.
+#[derive(Debug, Clone)]
+pub struct Placeholder {
+    pub name: String,
+    pub value: String,
+}
+
+impl Placeholder {
+    /// Replaces `{name}` where it appears, and is a no-op when the template
+    /// omits it.
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+
+    /// A placeholder whose value is a filesystem path, handed to the child in
+    /// its plain (non-verbatim) form; see [`non_verbatim`].
+    pub fn path(name: impl Into<String>, path: &str) -> Self {
+        Self::new(name, non_verbatim(path))
+    }
+}
+
+/// The plain form of a Windows verbatim path: `\\?\C:\x` becomes `C:\x` and
+/// `\\?\UNC\server\share\x` becomes `\\server\share\x`. Anything else, and any
+/// verbatim path whose plain spelling would name a different file, is returned
+/// unchanged.
+pub(crate) fn non_verbatim(path: &str) -> String {
+    plain_form(path).unwrap_or_else(|| path.to_string())
+}
+
+fn plain_form(path: &str) -> Option<String> {
+    let rest = path.strip_prefix(r"\\?\")?;
+    let (plain, tail) = if let Some(unc) = rest.strip_prefix(r"UNC\") {
+        if unc.split('\\').count() < 2 {
+            return None;
+        }
+        (format!(r"\\{unc}"), unc)
+    } else {
+        let drive = rest.as_bytes();
+        let is_drive = drive.len() >= 3
+            && drive[0].is_ascii_alphabetic()
+            && drive[1] == b':'
+            && drive[2] == b'\\';
+        if !is_drive {
+            return None;
+        }
+        (rest.to_string(), &rest[3..])
+    };
+    // Win32 rejects or rewrites these, so the plain spelling would not name
+    // the same file; MAX_PATH counts UTF-16 units including the terminator.
+    let same_file = (tail.is_empty() || tail.split('\\').all(is_plain_component))
+        && plain.encode_utf16().count() < 260;
+    same_file.then_some(plain)
+}
+
+fn is_plain_component(name: &str) -> bool {
+    let invalid_char = |c: char| c < ' ' || r#"/<>:"|?*"#.contains(c);
+    let stem = name
+        .split_once('.')
+        .map_or(name, |(stem, _)| stem)
+        .trim_end_matches(' ');
+    let reserved = matches!(
+        stem.to_ascii_uppercase().as_bytes(),
+        b"CON"
+            | b"PRN"
+            | b"AUX"
+            | b"NUL"
+            | [b'C', b'O', b'M', b'1'..=b'9']
+            | [b'L', b'P', b'T', b'1'..=b'9']
+    );
+    !name.is_empty() && !name.ends_with(['.', ' ']) && !name.contains(invalid_char) && !reserved
+}
+
+/// A successful command run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandOutput {
+    /// The last non-empty line of stdout (trimmed).
+    pub payload: String,
+}
+
+/// Everything that can go wrong running a command.
+#[derive(Debug, thiserror::Error)]
+pub enum CommandError {
+    /// The template was empty (or only whitespace), or its quoting was
+    /// unbalanced, so it produced no argv.
+    #[error("invalid command template: {0:?}")]
+    InvalidCommand(String),
+
+    /// The child could not be spawned.
+    #[error("failed to spawn `{program}`: {source}")]
+    Spawn {
+        program: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// A program named without a `/` was not found on `$PATH`. `local` is the
+    /// file of that name in the child's cwd, which a bare name never reaches.
+    #[error("failed to spawn `{program}`: not found on $PATH{}", local_hint(.program, .local.as_deref()))]
+    NotOnPath {
+        program: String,
+        local: Option<PathBuf>,
+    },
+
+    /// The child exited with a non-zero status. `code` is the exit code, or
+    /// `"signal"` when the child was terminated by a signal.
+    #[error("command `{command}` failed (exit {code}): {stderr_tail}")]
+    NonZeroExit {
+        command: String,
+        code: String,
+        stderr_tail: String,
+    },
+
+    /// The child exited cleanly but wrote no non-empty line to stdout.
+    #[error("command `{command}` produced no output on stdout")]
+    EmptyOutput { command: String },
+
+    /// An I/O error while waiting on the child.
+    #[error("command `{command}` I/O error: {source}")]
+    Io {
+        command: String,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// Run `command` to completion and return its payload.
+///
+/// See the [module docs](self) for the full contract. `cwd` is the child's
+/// working directory (the config file's directory) and `stdin_payload`, when
+/// `Some`, is written to the child's stdin. The run is unbounded; wrap the
+/// command in `timeout(1)` to bound it.
+pub fn run_command(
+    command: &str,
+    placeholders: &[Placeholder],
+    cwd: &Path,
+    stdin_payload: Option<&[u8]>,
+) -> Result<CommandOutput, CommandError> {
+    let argv = build_argv(command, placeholders)?;
+    run_argv(command, &argv, cwd, stdin_payload)
+}
+
+/// Run an already-built `argv` to completion. `command` is the template the
+/// argv came from, used only to name the command in errors.
+pub(crate) fn run_argv(
+    command: &str,
+    argv: &[String],
+    cwd: &Path,
+    stdin_payload: Option<&[u8]>,
+) -> Result<CommandOutput, CommandError> {
+    let stdout = run_argv_stdout(command, argv, cwd, stdin_payload)?;
+    match extract_payload(&stdout) {
+        Some(payload) => Ok(CommandOutput { payload }),
+        None => Err(CommandError::EmptyOutput {
+            command: command.to_string(),
+        }),
+    }
+}
+
+/// Run an already-built `argv` to completion and return all of its stdout.
+pub(crate) fn run_argv_stdout(
+    command: &str,
+    argv: &[String],
+    cwd: &Path,
+    stdin_payload: Option<&[u8]>,
+) -> Result<String, CommandError> {
+    // `build_argv` guarantees a non-empty argv.
+    let mut cmd = Command::new(&argv[0]);
+    push_args(&mut cmd, &argv[1..]);
+    cmd.current_dir(cwd)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(if stdin_payload.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        });
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|source| spawn_error(&argv[0], source, cwd))?;
+
+    // Feed stdin and drain stdout/stderr on their own threads. Draining the
+    // output pipes concurrently is required: a child that writes more than a
+    // pipe buffer would otherwise block on write while we block on `wait`,
+    // deadlocking. Writing stdin on a thread lets a large payload flow while
+    // the child streams output.
+    let stdin_thread = stdin_payload.map(|payload| {
+        let mut stdin = child.stdin.take().expect("stdin piped");
+        let payload = payload.to_vec();
+        std::thread::spawn(move || {
+            // A child that ignores stdin closes the pipe early; a broken-pipe
+            // write is expected, not an error. Dropping `stdin` sends EOF.
+            let _ = stdin.write_all(&payload);
+        })
+    });
+
+    let mut stdout_pipe = child.stdout.take().expect("stdout piped");
+    let mut stderr_pipe = child.stderr.take().expect("stderr piped");
+    let stdout_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stdout_pipe.read_to_end(&mut buf);
+        buf
+    });
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut buf);
+        buf
+    });
+
+    let status = child.wait().map_err(|source| CommandError::Io {
+        command: command.to_string(),
+        source,
+    })?;
+
+    if let Some(t) = stdin_thread {
+        let _ = t.join();
+    }
+    let stdout = stdout_thread.join().unwrap_or_default();
+    let stderr = stderr_thread.join().unwrap_or_default();
+
+    check_exit(command, status, &stderr)?;
+
+    Ok(String::from_utf8_lossy(&stdout).into_owned())
+}
+
+fn check_exit(
+    command: &str,
+    status: std::process::ExitStatus,
+    stderr: &[u8],
+) -> Result<(), CommandError> {
+    if status.success() {
+        return Ok(());
+    }
+    let code = status
+        .code()
+        .map(|c| c.to_string())
+        .unwrap_or_else(|| "signal".to_string());
+    Err(CommandError::NonZeroExit {
+        command: command.to_string(),
+        code,
+        stderr_tail: stderr_tail(stderr),
+    })
+}
+
+/// Bytes read from a child's stdout per `read` call.
+const READ_BYTES: usize = 262_144;
+
+/// Run an already-built `argv` and hand its stdout to `on_block` as it
+/// arrives, in blocks that each hold whole lines (the last block may lack its
+/// trailing newline). The child runs with stdin closed. A non-zero exit is an
+/// error after every block has been delivered.
+pub(crate) fn run_argv_blocks(
+    command: &str,
+    argv: &[String],
+    cwd: &Path,
+    on_block: &mut dyn FnMut(&str),
+) -> Result<(), CommandError> {
+    let mut cmd = Command::new(&argv[0]);
+    push_args(&mut cmd, &argv[1..]);
+    cmd.current_dir(cwd)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::null());
+    let mut child = cmd
+        .spawn()
+        .map_err(|source| spawn_error(&argv[0], source, cwd))?;
+
+    let mut stderr_pipe = child.stderr.take().expect("stderr piped");
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut buf);
+        buf
+    });
+    let mut stdout_pipe = child.stdout.take().expect("stdout piped");
+    let mut pending: Vec<u8> = Vec::new();
+    let mut buf = vec![0u8; READ_BYTES];
+    loop {
+        let n = match stdout_pipe.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => n,
+        };
+        pending.extend_from_slice(&buf[..n]);
+        if let Some(end) = pending.iter().rposition(|&b| b == b'\n') {
+            on_block(&String::from_utf8_lossy(&pending[..=end]));
+            pending.drain(..=end);
+        }
+    }
+    if !pending.is_empty() {
+        on_block(&String::from_utf8_lossy(&pending));
+    }
+
+    let status = child.wait().map_err(|source| CommandError::Io {
+        command: command.to_string(),
+        source,
+    })?;
+    let stderr = stderr_thread.join().unwrap_or_default();
+    check_exit(command, status, &stderr)
+}
+
+// One fn with cfg blocks rather than two cfg'd fns: cargo-mutants mutates
+// the uncompiled twin too, and no test on a Linux gate can kill that mutant.
+fn push_args(cmd: &mut Command, args: &[String]) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        for arg in args {
+            cmd.raw_arg(quote_windows_arg(arg));
+        }
+    }
+    #[cfg(not(windows))]
+    cmd.args(args);
+}
+
+fn spawn_error(program: &str, source: std::io::Error, cwd: &Path) -> CommandError {
+    // A missing cwd fails the child's chdir with `NotFound` too.
+    if !searched_path(program, source.kind()) || !cwd.is_dir() {
+        return CommandError::Spawn {
+            program: program.to_string(),
+            source,
+        };
+    }
+    let candidate = cwd.join(program);
+    CommandError::NotOnPath {
+        program: program.to_string(),
+        local: candidate.is_file().then_some(candidate),
+    }
+}
+
+/// A `NotFound` for a name without a `/` means the `$PATH` search came up
+/// empty (`execvp` semantics); with a `/` the name was a path.
+fn searched_path(program: &str, kind: std::io::ErrorKind) -> bool {
+    kind == std::io::ErrorKind::NotFound && !program.contains('/')
+}
+
+fn local_hint(program: &str, local: Option<&Path>) -> String {
+    match local {
+        Some(path) => format!(
+            ". Names without a `/` are resolved against $PATH; use `./{program}` to run `{}`",
+            path.display()
+        ),
+        None => String::new(),
+    }
+}
+
+/// Split a command template into argv (shell-like quoting, no shell) and
+/// substitute placeholders into whole tokens.
+pub(crate) fn build_argv(
+    command: &str,
+    placeholders: &[Placeholder],
+) -> Result<Vec<String>, CommandError> {
+    let tokens =
+        shlex::split(command).ok_or_else(|| CommandError::InvalidCommand(command.to_string()))?;
+    if tokens.is_empty() {
+        return Err(CommandError::InvalidCommand(command.to_string()));
+    }
+
+    let argv: Vec<String> = tokens
+        .iter()
+        .map(|token| substitute(token, placeholders))
+        .collect();
+
+    Ok(argv)
+}
+
+/// Quote `arg` for a Windows command line by the MS C-runtime rules, always
+/// wrapped in double quotes: an MSYS/Cygwin child globs, brace-expands and
+/// unescapes any unquoted word, while an MSVCRT child parses the quoted form
+/// back to `arg` exactly.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn quote_windows_arg(arg: &str) -> String {
+    let mut out = String::with_capacity(arg.len() + 2);
+    out.push('"');
+    let mut backslashes = 0;
+    for ch in arg.chars() {
+        match ch {
+            '\\' => backslashes += 1,
+            '"' => {
+                out.extend(std::iter::repeat_n('\\', backslashes * 2 + 1));
+                out.push('"');
+                backslashes = 0;
+            }
+            _ => {
+                out.extend(std::iter::repeat_n('\\', backslashes));
+                out.push(ch);
+                backslashes = 0;
+            }
+        }
+    }
+    out.extend(std::iter::repeat_n('\\', backslashes * 2));
+    out.push('"');
+    out
+}
+
+/// Replace every `{name}` in `token` with its placeholder value in a single
+/// left-to-right pass. Injected values are never re-scanned, so an untrusted
+/// value containing `{…}` is inert. Unknown `{…}` sequences are left literal.
+fn substitute(token: &str, placeholders: &[Placeholder]) -> String {
+    let mut out = String::with_capacity(token.len());
+    let mut i = 0;
+    while i < token.len() {
+        if let Some((idx, consumed)) = match_placeholder(token, i, placeholders) {
+            out.push_str(&placeholders[idx].value);
+            i += consumed;
+            continue;
+        }
+        // Not a recognized placeholder: copy one whole UTF-8 char.
+        let ch = token[i..].chars().next().expect("valid utf-8");
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
+}
+
+/// If a recognized `{name}` starts at byte `i` of `token`, return the matching
+/// placeholder index and the number of bytes consumed; otherwise `None`.
+fn match_placeholder(
+    token: &str,
+    i: usize,
+    placeholders: &[Placeholder],
+) -> Option<(usize, usize)> {
+    // Braces are ASCII, so byte indexing is safe at these positions.
+    if token.as_bytes()[i] != b'{' {
+        return None;
+    }
+    let rel = token[i + 1..].find('}')?;
+    let name = &token[i + 1..i + 1 + rel];
+    let idx = placeholders.iter().position(|p| p.name == name)?;
+    Some((idx, 1 + rel + 1))
+}
+
+/// The payload framing: the last line of `stdout` that is non-empty after
+/// trimming, returned trimmed. `None` when every line is blank.
+fn extract_payload(stdout: &str) -> Option<String> {
+    stdout
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(str::to_string)
+}
+
+/// The tail of stderr for error messages: lossy UTF-8, trimmed, capped to the
+/// last `MAX` characters (prefixed with `…` when truncated).
+fn stderr_tail(stderr: &[u8]) -> String {
+    const MAX: usize = 2000;
+    let text = String::from_utf8_lossy(stderr);
+    let trimmed = text.trim();
+    let count = trimmed.chars().count();
+    if count <= MAX {
+        trimmed.to_string()
+    } else {
+        let tail: String = trimmed.chars().skip(count - MAX).collect();
+        format!("…{tail}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(command: &str, placeholders: &[Placeholder]) -> Vec<String> {
+        build_argv(command, placeholders).expect("valid command")
+    }
+
+    fn unchanged(path: &str) {
+        assert_eq!(non_verbatim(path), path);
+    }
+
+    #[test]
+    fn non_verbatim_strips_a_verbatim_drive_path() {
+        assert_eq!(
+            non_verbatim(r"\\?\C:\Users\runner\in_cwd.txt"),
+            r"C:\Users\runner\in_cwd.txt"
+        );
+        assert_eq!(non_verbatim(r"\\?\d:\x"), r"d:\x");
+        assert_eq!(non_verbatim(r"\\?\C:\my file.txt"), r"C:\my file.txt");
+    }
+
+    #[test]
+    fn non_verbatim_strips_a_verbatim_drive_root() {
+        assert_eq!(non_verbatim(r"\\?\C:\"), r"C:\");
+    }
+
+    #[test]
+    fn non_verbatim_rewrites_a_verbatim_unc_path() {
+        assert_eq!(
+            non_verbatim(r"\\?\UNC\server\share\dir\f.txt"),
+            r"\\server\share\dir\f.txt"
+        );
+        assert_eq!(non_verbatim(r"\\?\UNC\server\share"), r"\\server\share");
+    }
+
+    #[test]
+    fn non_verbatim_leaves_plain_paths_unchanged() {
+        unchanged(r"C:\Users\runner\f.txt");
+        unchanged(r"\\server\share\f.txt");
+        unchanged("/tmp/root/f.txt");
+        unchanged("relative/f.txt");
+        unchanged("");
+    }
+
+    #[test]
+    fn non_verbatim_leaves_verbatim_forms_without_a_drive_or_unc_unchanged() {
+        unchanged(r"\\?\GLOBALROOT\Device\HarddiskVolume1\f.txt");
+        unchanged(r"\\?\Volume{0b1c2d3e-0000-0000-0000-100000000000}\f.txt");
+        unchanged(r"\\?\C:");
+        unchanged(r"\\?\C:x");
+        unchanged(r"\\?\1:\x");
+        unchanged(r"\\?\");
+    }
+
+    #[test]
+    fn non_verbatim_leaves_an_incomplete_unc_unchanged() {
+        unchanged(r"\\?\UNC\");
+        unchanged(r"\\?\UNC\server");
+        unchanged(r"\\?\UNC\server\");
+    }
+
+    #[test]
+    fn non_verbatim_leaves_components_win32_would_reinterpret_unchanged() {
+        unchanged(r"\\?\C:\a\..\b");
+        unchanged(r"\\?\C:\a\.\b");
+        unchanged(r"\\?\C:\a\\b");
+        unchanged(r"\\?\C:\a\");
+        unchanged(r"\\?\C:\trailing.");
+        unchanged(r"\\?\C:\trailing ");
+        unchanged(r"\\?\C:\a/b");
+        unchanged(r"\\?\C:\a?b");
+        unchanged(r"\\?\C:\a*b");
+        unchanged(r"\\?\C:\a:b");
+        unchanged(r#"\\?\C:\a"b"#);
+        unchanged(r"\\?\C:\a<b");
+        unchanged(r"\\?\C:\a>b");
+        unchanged(r"\\?\C:\a|b");
+        unchanged("\\\\?\\C:\\a\u{1}b");
+        unchanged(r"\\?\UNC\server\share\..\x");
+    }
+
+    #[test]
+    fn non_verbatim_leaves_reserved_device_names_unchanged() {
+        for name in [
+            "CON", "con", "PRN", "AUX", "NUL", "nul.txt", "NUL .txt", "COM1", "COM9", "LPT1",
+            "lpt9.log",
+        ] {
+            unchanged(&format!(r"\\?\C:\dir\{name}"));
+        }
+    }
+
+    #[test]
+    fn non_verbatim_strips_names_that_only_resemble_device_names() {
+        for name in [
+            "CONSOLE", "NULL.txt", "COM0", "COM10", "LPT", "xCON", "AUXa",
+        ] {
+            assert_eq!(
+                non_verbatim(&format!(r"\\?\C:\dir\{name}")),
+                format!(r"C:\dir\{name}")
+            );
+        }
+    }
+
+    #[test]
+    fn non_verbatim_strips_up_to_max_path_and_no_further() {
+        let fits = format!(r"C:\{}", "a".repeat(256));
+        assert_eq!(fits.encode_utf16().count(), 259);
+        assert_eq!(non_verbatim(&format!(r"\\?\{fits}")), fits);
+        unchanged(&format!(r"\\?\C:\{}", "a".repeat(257)));
+    }
+
+    #[test]
+    fn path_placeholder_carries_the_non_verbatim_value() {
+        let placeholder = Placeholder::path("path", r"\\?\C:\a\f.txt");
+        assert_eq!(placeholder.name, "path");
+        assert_eq!(placeholder.value, r"C:\a\f.txt");
+    }
+
+    #[test]
+    fn splits_on_whitespace_without_placeholders() {
+        assert_eq!(argv("echo hello world", &[]), ["echo", "hello", "world"]);
+    }
+
+    #[test]
+    fn respects_shell_quoting_so_sh_c_keeps_its_script_as_one_arg() {
+        assert_eq!(
+            argv("sh -c 'echo one two'", &[]),
+            ["sh", "-c", "echo one two"]
+        );
+    }
+
+    #[test]
+    fn empty_or_whitespace_template_is_invalid() {
+        assert!(matches!(
+            build_argv("", &[]),
+            Err(CommandError::InvalidCommand(_))
+        ));
+        assert!(matches!(
+            build_argv("   ", &[]),
+            Err(CommandError::InvalidCommand(_))
+        ));
+    }
+
+    #[test]
+    fn unbalanced_quotes_are_invalid() {
+        assert!(matches!(
+            build_argv("sh -c 'unterminated", &[]),
+            Err(CommandError::InvalidCommand(_))
+        ));
+    }
+
+    #[test]
+    fn substitutes_a_single_placeholder() {
+        assert_eq!(
+            argv("cat {file}", &[Placeholder::new("file", "a/b.json")]),
+            ["cat", "a/b.json"]
+        );
+    }
+
+    #[test]
+    fn substitutes_all_occurrences_across_and_within_tokens() {
+        assert_eq!(
+            argv(
+                "cp {file} {file}.bak --label={file}",
+                &[Placeholder::new("file", "x")]
+            ),
+            ["cp", "x", "x.bak", "--label=x"]
+        );
+    }
+
+    #[test]
+    fn a_substituted_value_with_spaces_stays_a_single_arg() {
+        assert_eq!(
+            argv("read {file}", &[Placeholder::new("file", "my file.json")]),
+            ["read", "my file.json"]
+        );
+    }
+
+    #[test]
+    fn substitution_is_single_pass_so_injected_braces_are_not_rescanned() {
+        assert_eq!(
+            argv(
+                "run {args} {file}",
+                &[
+                    Placeholder::new("args", "hello {file}"),
+                    Placeholder::new("file", "REAL"),
+                ]
+            ),
+            ["run", "hello {file}", "REAL"]
+        );
+    }
+
+    #[test]
+    fn unknown_placeholder_is_left_literal() {
+        assert_eq!(
+            argv("echo {unknown} {file}", &[Placeholder::new("file", "p")]),
+            ["echo", "{unknown}", "p"]
+        );
+    }
+
+    #[test]
+    fn a_placeholder_the_template_omits_is_dropped() {
+        assert_eq!(argv("run", &[Placeholder::new("file", "/tmp/x")]), ["run"]);
+    }
+
+    #[test]
+    fn windows_quoting_wraps_a_plain_arg_in_quotes() {
+        assert_eq!(quote_windows_arg("hello"), r#""hello""#);
+    }
+
+    #[test]
+    fn windows_quoting_keeps_an_empty_arg_as_an_empty_quoted_word() {
+        assert_eq!(quote_windows_arg(""), r#""""#);
+    }
+
+    #[test]
+    fn windows_quoting_quotes_glob_and_brace_characters() {
+        assert_eq!(quote_windows_arg("[{}]"), r#""[{}]""#);
+        assert_eq!(quote_windows_arg("a?b*c"), r#""a?b*c""#);
+    }
+
+    #[test]
+    fn windows_quoting_leaves_backslashes_not_before_a_quote_alone() {
+        assert_eq!(
+            quote_windows_arg(r"\\?\C:\Users\x.txt"),
+            r#""\\?\C:\Users\x.txt""#
+        );
+    }
+
+    #[test]
+    fn windows_quoting_doubles_trailing_backslashes_before_the_closing_quote() {
+        assert_eq!(quote_windows_arg(r"C:\dir\"), r#""C:\dir\\""#);
+        assert_eq!(quote_windows_arg(r"a\\"), r#""a\\\\""#);
+    }
+
+    #[test]
+    fn windows_quoting_escapes_embedded_quotes() {
+        assert_eq!(quote_windows_arg(r#"[{"n":1}]"#), r#""[{\"n\":1}]""#);
+    }
+
+    #[test]
+    fn windows_quoting_doubles_backslashes_before_an_embedded_quote() {
+        assert_eq!(quote_windows_arg(r#"a\"b"#), r#""a\\\"b""#);
+        assert_eq!(quote_windows_arg(r#"a\\"b"#), r#""a\\\\\"b""#);
+    }
+
+    #[test]
+    fn extract_payload_takes_the_last_non_empty_line() {
+        assert_eq!(
+            extract_payload("log line\n[{\"a\":1}]\n"),
+            Some("[{\"a\":1}]".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_payload_ignores_leading_chatter_and_trailing_blanks() {
+        assert_eq!(
+            extract_payload("starting...\ndone\nPAYLOAD\n\n   \n"),
+            Some("PAYLOAD".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_payload_is_none_when_all_lines_are_blank() {
+        assert_eq!(extract_payload(""), None);
+        assert_eq!(extract_payload("\n  \n\t\n"), None);
+    }
+
+    #[test]
+    fn stderr_tail_passes_short_output_through_trimmed() {
+        assert_eq!(stderr_tail(b"\n  boom  \n"), "boom");
+    }
+
+    #[test]
+    fn stderr_tail_truncates_long_output_to_the_tail() {
+        let long = "x".repeat(3000);
+        let tail = stderr_tail(long.as_bytes());
+        assert_eq!(tail.chars().count(), 2001); // 2000 chars + the leading '…'
+        assert!(tail.starts_with('…'));
+        assert!(tail.ends_with('x'));
+    }
+
+    // The run_command tests spawn real `sh`/`echo`/`cat`. Their test code must
+    // statically reference only `super::` items (plus pure std) to satisfy the
+    // unit-lint isolation rule.
+
+    fn cwd() -> std::path::PathBuf {
+        std::path::PathBuf::from(".")
+    }
+
+    #[test]
+    fn run_command_returns_last_nonempty_stdout_line() {
+        let out = run_command("sh -c 'echo chatter; echo PAYLOAD'", &[], &cwd(), None).unwrap();
+        assert_eq!(out.payload, "PAYLOAD");
+    }
+
+    #[test]
+    fn run_argv_stdout_returns_all_of_stdout_and_allows_none() {
+        let argv = |script: &str| vec!["sh".to_string(), "-c".to_string(), script.to_string()];
+        let all = run_argv_stdout("t", &argv("echo a; echo b"), &cwd(), None).unwrap();
+        assert_eq!(all, "a\nb\n");
+        assert_eq!(
+            run_argv_stdout("t", &argv("true"), &cwd(), None).unwrap(),
+            ""
+        );
+    }
+
+    #[test]
+    fn run_argv_blocks_delivers_whole_lines_and_the_unterminated_tail() {
+        let argv = vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "printf 'a\\nb\\nc'".to_string(),
+        ];
+        let mut seen = String::new();
+        let mut blocks = 0;
+        run_argv_blocks("t", &argv, &cwd(), &mut |block| {
+            seen.push_str(block);
+            blocks += 1;
+        })
+        .unwrap();
+        assert_eq!(seen, "a\nb\nc");
+        assert!(blocks >= 1);
+    }
+
+    #[test]
+    fn run_argv_blocks_cuts_every_block_at_a_line_boundary() {
+        let argv = vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "yes abcdefghijklmnopqrstuvwxyz | head -n 100000".to_string(),
+        ];
+        let mut lines = 0;
+        let mut blocks = 0;
+        run_argv_blocks("t", &argv, &cwd(), &mut |block| {
+            blocks += 1;
+            assert!(block.ends_with('\n'), "block cut mid-line");
+            lines += block.lines().count();
+        })
+        .unwrap();
+        assert_eq!(lines, 100_000);
+        assert!(blocks > 1, "2.7 MB arrives in more than one read");
+    }
+
+    #[test]
+    fn run_argv_blocks_reports_a_non_zero_exit_after_delivering_output() {
+        let argv = vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "echo partial; echo oops >&2; exit 3".to_string(),
+        ];
+        let mut seen = String::new();
+        let err =
+            run_argv_blocks("t", &argv, &cwd(), &mut |block| seen.push_str(block)).unwrap_err();
+        assert_eq!(seen, "partial\n");
+        match err {
+            CommandError::NonZeroExit {
+                code, stderr_tail, ..
+            } => {
+                assert_eq!(code, "3");
+                assert!(stderr_tail.contains("oops"));
+            }
+            other => panic!("expected NonZeroExit, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn run_argv_blocks_names_a_missing_program() {
+        let argv = vec!["definitely-not-a-real-binary-xyzzy".to_string()];
+        let err = run_argv_blocks("t", &argv, &cwd(), &mut |_| {}).unwrap_err();
+        assert!(
+            matches!(err, CommandError::NotOnPath { .. }),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn run_command_writes_stdin_payload_to_the_child() {
+        let out = run_command("cat", &[], &cwd(), Some(b"hello-stdin")).unwrap();
+        assert_eq!(out.payload, "hello-stdin");
+    }
+
+    #[test]
+    fn run_command_reports_nonzero_exit_with_stderr_tail() {
+        let err = run_command("sh -c 'echo oops >&2; exit 3'", &[], &cwd(), None).unwrap_err();
+        match err {
+            CommandError::NonZeroExit {
+                code, stderr_tail, ..
+            } => {
+                assert_eq!(code, "3");
+                assert!(stderr_tail.contains("oops"), "got: {stderr_tail}");
+            }
+            other => panic!("expected NonZeroExit, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn run_command_reports_empty_output_when_stdout_is_blank() {
+        let err = run_command("true", &[], &cwd(), None).unwrap_err();
+        assert!(
+            matches!(err, CommandError::EmptyOutput { .. }),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn run_command_reports_a_bare_missing_program_as_not_on_path() {
+        let err = run_command("definitely-not-a-real-binary-xyzzy", &[], &cwd(), None).unwrap_err();
+        assert!(
+            matches!(err, CommandError::NotOnPath { local: None, .. }),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn run_command_reports_a_missing_path_as_a_plain_spawn_error() {
+        let err =
+            run_command("./definitely-not-a-real-binary-xyzzy", &[], &cwd(), None).unwrap_err();
+        assert!(matches!(err, CommandError::Spawn { .. }), "got: {err:?}");
+    }
+
+    #[test]
+    fn a_bare_not_found_name_searched_path() {
+        assert!(searched_path("extract.py", std::io::ErrorKind::NotFound));
+    }
+
+    #[test]
+    fn a_name_with_a_slash_did_not_search_path() {
+        assert!(!searched_path("./extract.py", std::io::ErrorKind::NotFound));
+        assert!(!searched_path(
+            "bin/extract.py",
+            std::io::ErrorKind::NotFound
+        ));
+    }
+
+    #[test]
+    fn a_non_not_found_error_did_not_search_path() {
+        assert!(!searched_path(
+            "extract.py",
+            std::io::ErrorKind::PermissionDenied
+        ));
+    }
+
+    #[test]
+    fn not_on_path_without_a_local_file_offers_no_hint() {
+        let err = CommandError::NotOnPath {
+            program: "extract.py".to_string(),
+            local: None,
+        };
+        assert_eq!(
+            err.to_string(),
+            "failed to spawn `extract.py`: not found on $PATH"
+        );
+    }
+
+    #[test]
+    fn not_on_path_with_a_local_file_offers_the_dot_slash_form() {
+        let err = CommandError::NotOnPath {
+            program: "extract.py".to_string(),
+            local: Some(PathBuf::from("/notes/extract.py")),
+        };
+        assert_eq!(
+            err.to_string(),
+            "failed to spawn `extract.py`: not found on $PATH. Names without a `/` are \
+             resolved against $PATH; use `./extract.py` to run `/notes/extract.py`"
+        );
+    }
+}

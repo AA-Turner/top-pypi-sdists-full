@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill
-from probe.cli import backfill_evidence as ev
+from probe.cli.imports import folder as backfill
+from probe.cli.imports.folder import evidence as ev
 
 # Every test here drives a prompt_toolkit app session and asserts on the frames
 # it rendered. That is a finished-render measurement, so it belongs in the serial
@@ -48,7 +48,8 @@ def test_listing_children_never_walks_into_them(tmp_path, monkeypatch):
     # guard still has to point somewhere real.
     calls = []
     real = ev.walk
-    monkeypatch.setattr(ev, "walk", lambda *a, **k: calls.append(a) or real(*a, **k))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.walk.walk", lambda *a, **k: calls.append(a) or real(*a, **k))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.sampling.walk", lambda *a, **k: calls.append(a) or real(*a, **k))
     backfill.subdirectories(tmp_path)
     assert calls == [], "the picker must not census its children"
 
@@ -97,7 +98,8 @@ def test_the_picker_never_censuses_the_folder_it_is_standing_in(tmp_path, monkey
 
     walked = []
     real = ev.walk
-    monkeypatch.setattr(ev, "walk", lambda *a, **k: walked.append(a) or real(*a, **k))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.walk.walk", lambda *a, **k: walked.append(a) or real(*a, **k))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.sampling.walk", lambda *a, **k: walked.append(a) or real(*a, **k))
     backfill.subdirectories(tmp_path)
     assert walked == [], "the picker must not walk the tree to draw a row"
 
@@ -181,7 +183,7 @@ def test_file_path_is_rejected_and_can_be_corrected(tmp_path):
 
 
 def test_escape_leaves_the_picker_after_invalid_path_edits(tmp_path):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     assert _pick(tmp_path, "\x0c\x01\x0bmissing\r\x1b") is tui.BACK
 
@@ -190,7 +192,7 @@ def test_import_with_an_unsubmitted_address_opens_it_for_review_first(tmp_path):
     from prompt_toolkit.application import create_app_session
     from prompt_toolkit.input import create_pipe_input
     from prompt_toolkit.output import DummyOutput
-    from probe.cli.directory_picker import DirectoryPicker
+    from probe.cli.wizard.terminal.directory_picker import DirectoryPicker
 
     _tree(tmp_path, "child")
     with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
@@ -214,7 +216,7 @@ def test_empty_folder_can_be_confirmed(tmp_path):
 @pytest.mark.parametrize("focus", ["", "\t", "\t\t", "\t\t\t"],
                          ids=["folders", "back", "skip", "import"])
 def test_b_leaves_from_every_browsing_control(tmp_path, focus):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     _tree(tmp_path, "child")
     assert _pick(tmp_path, focus + "b") is tui.BACK
@@ -228,7 +230,7 @@ def test_i_confirms_from_every_browsing_control(tmp_path, focus):
 
 
 def test_i_opens_an_edited_path_before_confirming_it(tmp_path):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     _tree(tmp_path, "child")
     edited = "\x0c\x01\x0bchild\ti"
@@ -245,7 +247,7 @@ def test_i_keeps_an_invalid_path_editable_until_corrected(tmp_path):
 @pytest.mark.parametrize("focus", ["", "\t", "\t\t", "\t\t\t"],
                          ids=["folders", "back", "skip", "import"])
 def test_s_skips_from_every_browsing_control(tmp_path, focus):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     _tree(tmp_path, "child")
     assert _pick(tmp_path, focus + "s") is tui.SKIP
@@ -263,7 +265,7 @@ def test_ctrl_b_edits_path_without_leaving_picker(tmp_path):
 
 
 def test_skip_folder_button_does_not_confirm_the_folder(tmp_path):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     assert _pick(tmp_path, "\t\t\r") is tui.SKIP
 
@@ -274,7 +276,7 @@ def test_skip_folder_button_does_not_confirm_the_folder(tmp_path):
     ("\x03", True), ("\x0c\x03", True),
 ])
 def test_back_and_quit_keep_their_distinct_results(tmp_path, keys, quit):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     assert _pick(tmp_path, keys) is (None if quit else tui.BACK)
 
@@ -418,8 +420,8 @@ def test_folder_list_reflows_when_terminal_and_progress_header_resize(tmp_path, 
     from prompt_toolkit.data_structures import Size
     from prompt_toolkit.input import create_pipe_input
     from prompt_toolkit.output import DummyOutput
-    from probe.cli import tui
-    from probe.cli.directory_picker import DirectoryPicker
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.terminal.directory_picker import DirectoryPicker
 
     _tree(tmp_path, *[f"folder_{i:03d}" for i in range(12)])
     terminal = Size(rows=40, columns=120)

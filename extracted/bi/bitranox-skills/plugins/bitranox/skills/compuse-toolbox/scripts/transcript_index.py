@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.14"
+# dependencies = []
+# ///
+"""Full-text search over raw Claude Code transcripts.
+
+The curated fact store answers "what rule applies here". This answers "what did
+we actually do about X", which does not depend on a fact having been written at
+the time. No LLM in the write path: index narrated prose, grep it later.
+
+Coverage: only string message content and the "text" parts of list content are
+indexed. tool_use, tool_result and thinking blocks contribute no text and are
+NOT indexed, so a session where the work happened through tool calls with no
+narrating sentence is invisible to search. A miss means "not narrated in
+prose", not "never happened" - corroborate with the raw transcript before
+concluding something did not occur.
+
+Query: each whitespace-separated word is matched LITERALLY and all of them must
+occur (in any order), so a filename, a flag or error text is searchable as
+typed: `search anchor_edit.py`, `search ssh-keygen`. Pass --fts to write raw
+SQLite FTS5 syntax instead (OR, NEAR, "exact phrase", prefix*).
+
+Only the message text is searched. The project, path and role printed with a
+hit are labels, not searchable text, so a word that occurs only in a
+transcript's path matches nothing, and an --fts column filter on one of them
+(`project : foo`) matches nothing either. An index built by an older version,
+which searched the labels too, is rebuilt in place on the next run.
+
+Usage:
+    transcript_index.py index
+    transcript_index.py search "zpool scrub" --limit 5
+    transcript_index.py search "zpool scrub" --json
+    transcript_index.py search --fts '"zpool scrub" OR resilver'
+
+Exit: 0 hits (or index done), 1 no match, 2 error (a malformed --fts query, an
+empty query or one with no letter or digit in any word - punctuation is not
+indexed, so it could never match - a directory or file that could not be read
+while indexing, an index database that cannot be created, opened, migrated or
+written - unwritable ~/.claude, a corrupt, locked or full database - or an
+internal error).
+
+`search --json` prints `{ok, command, data, skipped}` on every exit, 2 included;
+`ok` is false exactly when the exit is 2, and a miss adds a `caveat` key.
+"""
+
+import argparse
+import json
+import os
+import pathlib
+import sqlite3
+import sys
+import unicodedata
+
+from _cli_envelope import (EXIT_ERROR, EXIT_NO, EXIT_YES, EnvelopeArgumentParser, emit,
+                           envelope_for_exit, guarded, render)
+
+__all__ = ["QueryError", "ensure_schema", "fts_literal", "index_dir", "search", "main"]
+
+DB_PATH = pathlib.Path.home() / ".claude" / "transcript-index.db"
+ROOT = pathlib.Path.home() / ".claude" / "projects"
+
+NO_MATCH_CAVEAT = (
+    "tool calls, tool results and thinking blocks are not indexed - a miss "
+    "means it was not narrated in prose, not that it never happened"
+)
+
+
+class QueryError(ValueError):
+    """The query could not be run, so it answered nothing - never report it as a miss."""
+
+
+# Only `text` is tokenised. The other three are labels returned with a hit: indexed as full text, a
+# word in a transcript's PATH matched every message in that transcript, and "assistant" matched
+# every reply, so a query answered yes about something no message ever said.
+MESSAGES_DDL = (
+    "CREATE VIRTUAL TABLE messages USING fts5("
+    "project UNINDEXED, path UNINDEXED, role UNINDEXED, text, tokenize='porter unicode61')"
+)
+# Recorded in PRAGMA user_version. A database below it predates the UNINDEXED labels, and
+# `CREATE ... IF NOT EXISTS` would leave its old table matching path words for ever.
+SCHEMA_VERSION = 1
+
+
+def _table_exists(db: sqlite3.Connection, name: str) -> bool:
+    row = db.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (name,)).fetchone()
+    return row is not None
+
+
+def _migrate_messages(db: sqlite3.Connection, *, ddl: str = MESSAGES_DDL) -> None:
+    """Rebuild an old `messages` table under `ddl`, keeping every row and its rowid.
+
+    The rowid is kept because search orders newest-first by it, and the `seen` registry is left
+    alone so a re-index after the migration adds nothing twice. One transaction: a failure part way
+    leaves the old table, never an empty one.
+    """
+    db.commit()
+    with db:
+        # Explicit: the sqlite3 module opens no implicit transaction before DDL, so without this
+        # the DROP would commit on its own and a failed copy would lose the whole index.
+        db.execute("BEGIN")
+        db.execute("CREATE TEMP TABLE messages_old AS "
+                   "SELECT rowid AS rid, project, path, role, text FROM messages")
+        db.execute("DROP TABLE messages")
+        db.execute(ddl)
+        db.execute("INSERT INTO messages(rowid, project, path, role, text) "
+                   "SELECT rid, project, path, role, text FROM messages_old ORDER BY rid")
+        db.execute("DROP TABLE messages_old")
+
+
+def ensure_schema(db: sqlite3.Connection) -> None:
+    """Create the FTS5 table and the seen-line registry, migrating an older version's table."""
+    version = db.execute("PRAGMA user_version").fetchone()[0]
+    if not _table_exists(db, "messages"):
+        db.execute(MESSAGES_DDL)
+    elif version < SCHEMA_VERSION:
+        _migrate_messages(db)
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS seen (key TEXT PRIMARY KEY)"
+    )
+    db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    db.commit()
+
+
+def _text_of(obj: dict) -> str:
+    """Flatten a transcript message to searchable text."""
+    msg = obj.get("message")
+    if isinstance(msg, str):
+        return msg
+    if isinstance(msg, dict):
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return " ".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict)
+            )
+    return ""
+
+
+def _transcripts(root: pathlib.Path, errors: list[str]) -> list[pathlib.Path]:
+    """Every .jsonl under root, recording each directory that could not be listed.
+
+    Recursive, not `*/*.jsonl`: a SUBAGENT's transcript sits two levels deeper, at
+    <project>/<session>/subagents/agent-*.jsonl. The shallow walk reached only the main-session
+    files - 878 of 2,090 on the machine this was measured on - so work a subagent narrated came
+    back as no match, which reads exactly like "it never happened". That is the one conclusion
+    this tool's own docstring warns a reader not to draw from a miss. For the same reason an
+    unreadable directory is reported, never skipped in silence.
+    """
+    found: list[pathlib.Path] = []
+
+    def onerror(exc: OSError) -> None:
+        errors.append(f"cannot list {exc.filename}: {exc.strerror or exc}")
+
+    for dirpath, _dirs, files in os.walk(root, onerror=onerror):
+        found.extend(pathlib.Path(dirpath) / f for f in files if f.endswith(".jsonl"))
+    return sorted(found)
+
+
+def _index_file(path: pathlib.Path, project: str, db: sqlite3.Connection) -> int:
+    added = 0
+    # utf-8-sig: a BOM would otherwise make the first record unparseable and drop it unseen.
+    with path.open(encoding="utf-8-sig", errors="replace") as fh:
+        for lineno, line in enumerate(fh):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            text = _text_of(obj)
+            # strip(): a list of only tool parts joins to bare separators, which is no text.
+            if not text.strip():
+                continue
+            key = f"{path}:{lineno}"
+            cur = db.execute("SELECT 1 FROM seen WHERE key = ?", (key,))
+            if cur.fetchone():
+                continue
+            db.execute("INSERT INTO seen(key) VALUES (?)", (key,))
+            db.execute(
+                "INSERT INTO messages(project, path, role, text) "
+                "VALUES (?, ?, ?, ?)",
+                (project, str(path), obj.get("type", ""), text),
+            )
+            added += 1
+    return added
+
+
+def index_dir(root: pathlib.Path, db: sqlite3.Connection,
+              errors: list[str] | None = None) -> int:
+    """Index every .jsonl under root. Returns the count of NEW messages.
+
+    Directories and files that could not be read are appended to `errors` (when given) and
+    the rest is still indexed.
+    """
+    errors = [] if errors is None else errors
+    added = 0
+    for path in _transcripts(root, errors):
+        # The label is the PROJECT, so take the component directly under root, never the parent
+        # dir: for a nested transcript that parent is `subagents`, which names no project.
+        project = path.relative_to(root).parts[0]
+        try:
+            added += _index_file(path, project, db)
+        except OSError as exc:
+            errors.append(f"cannot read {path}: {exc.strerror or exc}")
+    db.commit()
+    return added
+
+
+def fts_literal(query: str) -> str:
+    """Turn plain words into an FTS5 query that matches each word literally, all required.
+
+    Raw FTS5 reads `.`, `-` and `:` as syntax, so `anchor_edit.py` was a syntax error and
+    `ssh-keygen` a column filter, and both came back as "no matches". Quoting each word as a
+    phrase makes its punctuation plain text while keeping the implicit AND between words.
+    """
+    words = query.split()
+    if not words:
+        raise QueryError("empty query")
+    if not any(_is_token_char(ch) for w in words for ch in w):
+        # Every word would be an empty phrase, which matches nothing, so the search would report
+        # "not narrated" about a corpus it never tested. A punctuation word BESIDE a real one is
+        # harmless: FTS5 drops the empty phrase from the AND.
+        raise QueryError("no searchable word in %r: only letters and digits are indexed, "
+                         "punctuation is not" % query)
+    return " ".join('"' + w.replace('"', '""') + '"' for w in words)
+
+
+def _is_token_char(ch: str) -> bool:
+    """A character the unicode61 tokenizer keeps in a token: its default classes L*, N* and Co."""
+    category = unicodedata.category(ch)
+    return category[0] in "LN" or category == "Co"
+
+
+def search(db: sqlite3.Connection, query: str, limit: int = 10,
+           raw: bool = False) -> list[dict]:
+    """Return matching messages, newest rowid first.
+
+    `query` is plain words (see fts_literal) unless `raw`, when it is FTS5 syntax as typed.
+    Raises QueryError when the query cannot be run, so a caller can tell it from a miss.
+    """
+    match = query if raw else fts_literal(query)
+    try:
+        rows = db.execute(
+            "SELECT project, path, role, text FROM messages "
+            "WHERE messages MATCH ? ORDER BY rowid DESC LIMIT ?",
+            (match, limit),
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        raise QueryError(str(exc)) from exc
+    return [
+        {"project": r[0], "path": r[1], "role": r[2], "text": r[3]}
+        for r in rows
+    ]
+
+
+def _tolerate_console_encoding() -> None:
+    """A cp1252 console cannot encode most transcript text; escape it, never crash."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="backslashreplace")
+            except (ValueError, OSError):
+                pass
+
+
+def _run_index(db: sqlite3.Connection) -> int:
+    errors: list[str] = []
+    try:
+        n = index_dir(ROOT, db, errors)
+    except sqlite3.Error as exc:
+        # A locked, corrupt or full database mid-run: what was committed stays, the rest did not
+        # happen, so this is "could not index", never the 1 a search reads as "no match".
+        print(f"transcript_index: database error while indexing {DB_PATH}: {exc}",
+              file=sys.stderr)
+        return EXIT_ERROR
+    print(f"indexed {n} new message(s)")
+    for e in errors:
+        print(f"transcript_index: {e}", file=sys.stderr)
+    return EXIT_ERROR if errors else EXIT_YES
+
+
+def _query_failed(exc: QueryError, as_json: bool) -> int:
+    message = f"query error: {exc}"
+    if as_json:
+        emit(EXIT_ERROR, "search", [], error=message, indent=None)
+    else:
+        print(message, file=sys.stderr)
+    return EXIT_ERROR
+
+
+def _open_index(as_json: bool) -> sqlite3.Connection | None:
+    """The index database, created or migrated as needed; None (reported) when it cannot be.
+
+    An unwritable ~/.claude, a file where the directory should be, and a corrupt or locked
+    database all used to escape as a traceback, whose exit 1 reads as "no match".
+    """
+    try:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        db = sqlite3.connect(DB_PATH)
+        ensure_schema(db)
+    except (OSError, sqlite3.Error) as exc:
+        message = f"cannot open the index database {DB_PATH}: {exc}"
+        print(f"transcript_index: {message}", file=sys.stderr)
+        if as_json:
+            emit(EXIT_ERROR, "search", [], error=message, indent=None)
+        return None
+    return db
+
+
+@guarded("transcript_index")
+def main(argv: list[str] | None = None) -> int:
+    """Index or search; an uncaught exception exits 2, never Python's 1, which is "no match"."""
+    _tolerate_console_encoding()
+    ap = EnvelopeArgumentParser(description=__doc__, envelope_command="search",
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("index", help="index every transcript")
+    s = sub.add_parser("search", help="full-text search")
+    s.add_argument("query", help="words to find, each literally, all required")
+    s.add_argument("--fts", action="store_true",
+                   help="treat the query as raw SQLite FTS5 syntax (OR, NEAR, phrases)")
+    s.add_argument("--limit", type=int, default=10)
+    s.add_argument("--json", action="store_true", dest="as_json")
+    args = ap.parse_args(argv)
+
+    db = _open_index(getattr(args, "as_json", False))
+    if db is None:
+        return EXIT_ERROR
+
+    if args.cmd == "index":
+        return _run_index(db)
+
+    try:
+        hits = search(db, args.query, args.limit, raw=args.fts)
+    except QueryError as exc:
+        return _query_failed(exc, args.as_json)
+    code = EXIT_YES if hits else EXIT_NO
+    if args.as_json:
+        payload = envelope_for_exit(code, "search", hits)
+        if not hits:
+            payload["caveat"] = NO_MATCH_CAVEAT
+        print(render(payload, indent=None))
+        return code
+    for h in hits:
+        print(f"[{h['project']}] {h['role']}: {h['text'][:200]}")
+    if not hits:
+        print("no matches", file=sys.stderr)
+        print(NO_MATCH_CAVEAT, file=sys.stderr)
+    return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

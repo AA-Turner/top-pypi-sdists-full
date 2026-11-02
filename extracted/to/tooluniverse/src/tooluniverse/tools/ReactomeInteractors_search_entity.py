@@ -1,0 +1,73 @@
+"""
+ReactomeInteractors_search_entity
+
+Search and page through Reactome biological entities by name or identifier. Reactome groups resul...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def ReactomeInteractors_search_entity(
+    query: str,
+    species: Optional[str] = None,
+    types: Optional[str] = None,
+    limit: Optional[int] = 50,
+    offset: Optional[int] = 0,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> Any:
+    """
+    Search and page through Reactome biological entities by name or identifier. Reactome groups resul...
+
+    Parameters
+    ----------
+    query : str
+        Search query - gene name, protein name, pathway name, or Reactome ID. Example...
+    species : str
+        Species name filter (default: 'Homo sapiens'). Examples: 'Homo sapiens', 'Mus...
+    types : str
+        Entity type filter. Options: 'Protein', 'Complex', 'Reaction', 'Pathway', 'Sm...
+    limit : int
+        Rows to request per Reactome result-type group, not a global response maximum.
+    offset : int
+        Zero-based start row applied independently within every result-type group. Co...
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    Any
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "species": species,
+            "types": types,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
+    return get_shared_client().run_one_function(
+        {
+            "name": "ReactomeInteractors_search_entity",
+            "arguments": _args,
+        },
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["ReactomeInteractors_search_entity"]

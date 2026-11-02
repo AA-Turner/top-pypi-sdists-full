@@ -1,0 +1,1254 @@
+//! The deterministic workloads the instruction gate runs, and nothing else.
+//!
+//! `scripts/perf_gate.py` builds `examples/binding_workload.rs` against an
+//! embedded interpreter and counts what one of these shapes executes under
+//! cachegrind. They are a measuring instrument: no caller reaches them, the
+//! suites do not exercise them, and `#[doc(hidden)]` keeps them out of the
+//! extension's documented surface.
+//!
+//! **They live apart from the crate root for a reason a number tells.** The
+//! coverage lane holds the binding to a floor on its lines, measured by the Python
+//! suite and the Rust unit tests -- and a workload is run by neither, so every
+//! line here counts against a figure it says nothing about: held in a file the
+//! lane reads, these shapes are lines nothing covers, so adding one lowers the
+//! binding's coverage without a line of the caller's surface changing. The lane
+//! skips this file by name, and what it measures is what it claims to: the
+//! surface a caller reaches. `.github/workflows/ci.yml` owns the floor.
+//!
+//! The mutation sweep skips it for the same reason, beside `lib.rs`, which it
+//! already skipped.
+//!
+//! **It is in the library because an example reaches only public items**, and a
+//! shape drives the walk and the frontend directly, which are the crate's own.
+//! A cargo feature could keep it out of the shipped extension and buys nothing:
+//! the release profile links with fat LTO and strips, and the library measures
+//! 3,526,472 bytes with this module and 3,524,136 without. The sweeps would
+//! still skip it by name, because `cargo mutants` reads the module tree from the
+//! source and offers a mutant in a file no build compiles. Nor would it lift the
+//! allowance below: the restriction lints read the library with every feature
+//! on, so a gated module is linted as this one is.
+//!
+//! A shape that cannot build its value is a rig fault rather than a verdict, and
+//! a panic is how an instrument says so: the library's restriction lints admit
+//! `expect` here and nowhere else.
+#![expect(
+    clippy::expect_used,
+    reason = "a workload that cannot build its fixed value has measured nothing"
+)]
+
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+use valgebra_core::{Constraint, DefIx, Field, MapClause, Schema, SeqKind, SeqShape};
+
+use crate::build::{Pool, build_root};
+use crate::check::{Frame, Unwritten, WalkMode, WalkState, member};
+use crate::input::Value;
+use crate::validator::Validator;
+
+/// Which deterministic workload to run.
+///
+/// The comparison gate -- `scripts/compare_gate.py` -- measures its shapes
+/// against pydantic-core on a wall clock. A shape only it measures regresses
+/// without a gate saying so: a wall clock under a ceiling it clears reads
+/// nothing until the ceiling is crossed.
+///
+/// Each variant below is the deterministic twin of a comparison shape, so a
+/// wall-clock movement can be confirmed or refuted by an instruction count on
+/// the same work. They are *not* the same code as the comparison shapes and are
+/// not meant to be: the gate compares against another library and has to run
+/// what that library can also run, while these run the thing being budgeted.
+// A gate's own hook, like the workload it selects: not part of the extension's
+// surface, and not in the crate's documentation.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingShape {
+    /// The membership walk over a homogeneous list of sixty-four integers: the
+    /// original workload, and the twin of `large_array`.
+    Walk,
+    /// The walk over a single integer: the floor every other shape stands on,
+    /// and the nearest deterministic twin of `scalar`.
+    ///
+    /// Not the FFI crossing itself. This runs inside one interpreter attachment
+    /// and calls the walk directly, so what it counts is the dispatch and the
+    /// type check with no container around them -- the part of `scalar` this
+    /// crate owns. The crossing is `PyO3`'s and is measured by the comparison
+    /// gate's wall clock, where it belongs.
+    Boundary,
+    /// The accepting walk over a fifty-field record: the twin of `wide_record`,
+    /// and the path that resolves each key through the plan built with the
+    /// validator rather than through the walk.
+    Record,
+    /// Building a fifty-field record validator from its Python spelling: the
+    /// twin of `build`.
+    ///
+    /// The whole of what `Validator({"f0": int, ...})` does after the call
+    /// lands: the annotation walk over the dict, the canonical form it imposes
+    /// -- fields ordered, clauses deduplicated -- and the validator's own
+    /// index. The spelling is built once, outside the loop, so the count is
+    /// of reading it and of nothing the harness does to write it. Assembled in
+    /// Rust inside the loop, three quarters of what it counted would be the
+    /// harness formatting fifty names and filling a dict per iteration, with
+    /// the annotation walk in none of it.
+    Build,
+    /// The explaining walk over a fifty-field record with one bad field, read
+    /// to the end: the twin of `error_report`, and the only shape here that
+    /// builds violations rather than answering a bool.
+    Explain,
+    /// The accepting walk over the same fifty fields declared by a record that
+    /// is **open** the way a `TypedDict` is: its clause admits any further
+    /// `str` key. The shape the record walk takes for the annotation users
+    /// write most, which the closed twin above does not walk.
+    Open,
+    /// The *accepting* walk over a fifty-field record in explain mode: the path
+    /// `validate()` takes when the value is a member.
+    ///
+    /// The twin of `Explain` on the other answer. Every other accepting shape
+    /// runs in fast mode, so without this one the cost of explain mode on a
+    /// value that passes -- the mode a caller asking for a report is in, most
+    /// of the time -- is measured by nothing, and a change to the failing path
+    /// that pays for itself there and charges the accepting one reads as a
+    /// pure win.
+    ExplainAccept,
+    /// `validate` over ten thousand integers whose last element is a string:
+    /// the explaining walk over a homogeneous list that is refused.
+    ///
+    /// Every other list shape here accepts, so without this one what a refusal
+    /// costs the list reader -- the case `validate` exists for -- is measured by
+    /// nothing: where a snapshot pays, the explaining reader copies the list,
+    /// finds the failure, and reads the whole list again in place to report
+    /// it. Its count is the reading a change to that path is compared with.
+    ExplainList,
+    /// Compiling a fifty-field `TypedDict` of `Annotated[int, Ge(0)]`: the
+    /// frontend's *other* work, and the half [`Build`](BindingShape::Build)
+    /// never reaches.
+    ///
+    /// `Build` reads a dict of plain type objects, which asks the frontend for
+    /// none of what an annotation with any depth to it costs: a class read
+    /// through `get_type_hints`, a field asked whether a qualifier states its
+    /// required-ness, a marker read for the bound names it might carry.
+    /// Without this shape every one of those is measured by nothing, and a
+    /// frontend that raises an `AttributeError` per absent attribute moves no
+    /// count.
+    Annotated,
+    /// The fifty-field record walked with a value whose keys are **interned**:
+    /// a dict written as a literal, `**kwargs`, an object's `__dict__`.
+    ///
+    /// The twin of [`Record`](BindingShape::Record), which walks the same
+    /// schema over a dict built with `format!`. A dict probe compares by
+    /// pointer before hash and bytes, so which of the two a caller brings
+    /// decides whether fifty field lookups are fifty pointer comparisons or
+    /// fifty hashes and memcmps -- 29% of the call. The pointer path needs
+    /// *both* sides interned, so this shape is the one that can see the
+    /// validator's own side stop being.
+    Keys,
+    /// Compiling a fifty-field **dataclass**: the one class form whose build
+    /// asks a question of the standard library.
+    ///
+    /// The two build shapes beside it read a `dict` and a `TypedDict`, and
+    /// neither reaches a class at all. A dataclass does: the frontend asks it
+    /// for the `__dataclass_fields__` that `dataclasses.is_dataclass` reads,
+    /// reads its fields through `get_type_hints`, and reads the class's own
+    /// declared order. Without this shape nothing counts any of that.
+    Object,
+    /// Walking an instance of the same fifty-field dataclass: its type, then
+    /// each attribute through the name the index interned for it.
+    ///
+    /// The dataclass build beside it counts compiling the class, and the
+    /// record shapes walk a `dict`; neither reads an attribute. An instance is
+    /// read through `getattr` once a field, and the index's interned names are
+    /// what keep each lookup a pointer compare in the type's dictionary: a
+    /// name made per call would be hashed and compared every time, which no
+    /// other shape counts.
+    ObjectWalk,
+    /// Compiling a fifty-member **protocol**: forty-five annotated members and
+    /// five methods.
+    ///
+    /// The one class form whose members are a list `typing` keeps and the
+    /// frontend classifies name by name: the cached `__protocol_attrs__`, each
+    /// member's class attribute looked up along the `__mro__`, its hint, and a
+    /// method's callability. The dataclass beside it reads declared fields and
+    /// asks none of that, so a change to how a protocol is read would move no
+    /// shape without this one.
+    Protocol,
+    /// Relating two **dataclasses**: a two-field `Point` against a one-field
+    /// `Other`, which answers `"not_subset"`.
+    ///
+    /// The one shape that decides a relation through the bindings. A refutation
+    /// about a class stands on a direct instance of it, and what that instance
+    /// can carry is read off the namespaces of the class's `__mro__`, its own
+    /// once per query: the core's decision shapes cannot reach that reading,
+    /// because their classes are identities with nothing behind them. The
+    /// reading is most of what such a relation costs, and no other shape reads
+    /// a class's namespace.
+    Relation,
+    /// Walking a `tuple` **subclass** that overrides nothing: a `NamedTuple`,
+    /// against `tuple[int, ...]`.
+    ///
+    /// The walk cannot trust the C length accessor for a subclass, because
+    /// `cpyext` answers it through the object's own `__len__`; it can trust the
+    /// accessor for a subclass that *inherits* the base's slot, which is every
+    /// `NamedTuple`. Telling the two apart by "is this exactly a tuple" instead
+    /// would copy every `NamedTuple`, at 100 ns against a tuple's 57.
+    ///
+    /// No test can hold the difference: reading every subclass as a liar
+    /// decides the same things and only costs more, so the mutant that does it
+    /// is *answer*-equivalent. A count is the only instrument that can, which
+    /// is what this shape is.
+    Subclass,
+    /// A JSON document of two hundred records, parsed and walked in one pass:
+    /// the twin of `json_document`.
+    ///
+    /// It is the comparison gate's closest race, and the tooling page says what
+    /// a wide margin costs: a wall clock under a ceiling it clears by a third
+    /// measures nothing until somebody looks. A count has no ceiling to hide
+    /// under.
+    ///
+    /// What it counts is not all this crate's: most of one call is `jiter`
+    /// building the value tree and dropping it, and the rest is the walk.
+    /// `pydantic-core` parses to the same `jiter` tree before it validates, so
+    /// the parse is the floor both libraries stand on and the walk is what the
+    /// ratio is actually about. A regression in the walk reads smaller here
+    /// than in a shape measuring the walk alone -- which is the reason to count
+    /// this rather than to infer it from [`Record`](BindingShape::Record),
+    /// whose dict the interpreter hands over already built.
+    Json,
+    /// A string checked against a **pattern** refinement: the one refinement
+    /// whose cost is a compiled object rather than a comparison.
+    ///
+    /// `check/index.rs` compiles the pattern once, when the validator's index
+    /// is built, and the walk finds it by the pattern's address. Losing that
+    /// precompute is not a wrong answer -- `check/walk/scalar.rs` compiles the
+    /// pattern on the spot and decides the same thing -- so no test can hold
+    /// it, and the index's mutation survivor for the arm that fills it is
+    /// accepted on exactly that argument. This count is what makes accepting
+    /// it honest: with the arm deleted, every validation compiles the regex
+    /// instead of matching against one, and nothing else in the tree would
+    /// say so.
+    Pattern,
+    /// A nested tree walked against a **recursive** schema: `mu X. int | list[X]`
+    /// over a list nested eight deep.
+    ///
+    /// The one shape that enters a reference. Every other shape here walks a
+    /// schema with no `Ref` in it, so the trail the walk keeps to refuse a
+    /// cyclic value -- entered and left once per level, per value -- is reached
+    /// by none of them, and a change to how it is held reads as free. The
+    /// recursive schema is also the one a caller writes for a JSON document or
+    /// a syntax tree, which is the shape most likely to carry real depth.
+    Recursive,
+    /// The JSON document with one record's `id` a string, halfway through: the
+    /// *rejecting* path of `is_valid_json`, where the walk stops at the first
+    /// field that fails and every shape beside it accepts.
+    JsonReject,
+    /// A document of records of two kinds against `list[JsonRecord |
+    /// JsonEvent]`, alternating, so half the elements fail the first branch and
+    /// are asked again: the union over parsed objects, which no accepting record
+    /// shape reaches.
+    JsonUnion,
+    /// A document of records read through a typed catch-all, `{"id": int, str:
+    /// str}`: every key but one is covered by the clause rather than named by a
+    /// field, which is the reading an open record takes in place.
+    JsonOpen,
+    /// The same records, each under a length bound: `Annotated[{"id": int,
+    /// str: str}, MaxLen(8)]`. A bound on a parsed object counts the keys the
+    /// object holds, which no shape without a bound on a mapping reads.
+    JsonBounded,
+    /// A recursive schema, `mu X. int | list[X]`, over a parsed document of
+    /// twenty trees twelve levels deep: the reference and its trail on the JSON
+    /// path, which the recursive shape measures only on Python values.
+    JsonDeep,
+    /// `list[list[...[int]...]]` twenty-five levels deep over a value nested as
+    /// deep: the deterministic twin of the comparison gate's `deep_nesting`, a
+    /// descent with no reference in it.
+    Deep,
+    /// Sixty-four integers against `list[Annotated[int, Ge(1000)]]`: a walk over
+    /// refined values, where every element reads its bound. Every other walk
+    /// shape checks a kind and nothing more.
+    Refined,
+    /// A `dict[str, int]` of sixty-four entries: a mapping, read entry by entry
+    /// through its clause. Every record shape names its keys and asks the dict
+    /// for each; a mapping declares none, so each entry is iterated and asked
+    /// of the clause, a reading no other shape over a Python value reaches.
+    Mapping,
+    /// A `dict[str, list[int]]` of sixty-four entries, each a list of two
+    /// integers: a mapping whose value no type test decides, so each entry is
+    /// read by the scan every mapping takes but one of scalar kinds, which
+    /// asks the clause of the key and walks the value. The clause
+    /// [`Mapping`](BindingShape::Mapping) reads is two scalar kinds, which a
+    /// reader of its own settles, so without this shape the scan is measured
+    /// by nothing.
+    MappingLists,
+    /// Sixty-four records in a list, against `list[User]` where `User` is a
+    /// `TypedDict` of an integer, a string and a list of strings: the list a
+    /// payload is, read by the list's reader for records. That reader inlines
+    /// the record's check, a copy of its own beside the one [`member`] calls,
+    /// and every record shape here reads only that one.
+    RecordList,
+    /// Sixty-four elements against `list[int | None]`, integers and `None`
+    /// alternating: a list whose element is a union of scalars, which has a
+    /// reader of its own beside the one for a single kind that the walk shape
+    /// reaches.
+    Nullable,
+    /// A `set[str]` of sixty-four strings: a set, read through its own
+    /// iterator rather than by position, which no other shape reaches.
+    Set,
+}
+
+impl BindingShape {
+    /// The name the gate passes on the command line.
+    #[must_use]
+    pub fn named(name: &str) -> Option<BindingShape> {
+        Some(match name {
+            "walk" => BindingShape::Walk,
+            "boundary" => BindingShape::Boundary,
+            "record" => BindingShape::Record,
+            "build" => BindingShape::Build,
+            "explain" => BindingShape::Explain,
+            "open" => BindingShape::Open,
+            "explain-accept" => BindingShape::ExplainAccept,
+            "explain-list" => BindingShape::ExplainList,
+            "annotated" => BindingShape::Annotated,
+            "keys" => BindingShape::Keys,
+            "object" => BindingShape::Object,
+            "object-walk" => BindingShape::ObjectWalk,
+            "protocol" => BindingShape::Protocol,
+            "relation" => BindingShape::Relation,
+            "subclass" => BindingShape::Subclass,
+            "json" => BindingShape::Json,
+            "pattern" => BindingShape::Pattern,
+            "recursive" => BindingShape::Recursive,
+            "json-reject" => BindingShape::JsonReject,
+            "json-union" => BindingShape::JsonUnion,
+            "json-open" => BindingShape::JsonOpen,
+            "json-bounded" => BindingShape::JsonBounded,
+            "json-deep" => BindingShape::JsonDeep,
+            "deep" => BindingShape::Deep,
+            "refined" => BindingShape::Refined,
+            "mapping" => BindingShape::Mapping,
+            "mapping-lists" => BindingShape::MappingLists,
+            "record-list" => BindingShape::RecordList,
+            "nullable" => BindingShape::Nullable,
+            "set" => BindingShape::Set,
+            _ => return None,
+        })
+    }
+}
+
+/// The fifty-field record both record shapes use, as a schema and as a value.
+///
+/// Fifty fields is the comparison gate's width, kept identical so the two
+/// measurements are of the same size of problem.
+///
+/// The *failing position* is not identical, and deliberately stays that way.
+/// The explain shape below writes the wrong value at `f37` where the comparison
+/// gate writes it at `f7` -- and the **name is not the position**, which is the
+/// thing to read twice. [`Schema::keyed_map`] sorts fields by name, and `f0`
+/// through `f49` sort as strings, so the walk visits
+///
+/// ```text
+/// f0 f1 f10 f11 ... f19 f2 f20 ... f29 f3 f30 ... f39 f4 f40 ... f49 f5 f6 f7 f8 f9
+/// ```
+///
+/// which puts `f37` at position **31** and `f7` at position **47**. The fast
+/// pass stops at the first field that fails and the explain pass resumes there
+/// and reads every field after it, so both shapes probe fifty-one fields across
+/// the two passes; the failing position decides how many of them each pass
+/// reads, and so what the count is.
+///
+/// The two stay apart because aligning them changes the count, and
+/// `perf_gate.py --against` rebuilds the *base* to compare, so a workload whose
+/// shape changed is measured against a different workload and reads as a
+/// regression it is not. A shape is part of a workload's identity, and
+/// re-recording its budget does not make two shapes one. What the two
+/// instruments share is the size of the problem; that is what the sentence
+/// above claims and all it claims.
+fn wide_record(py: Python<'_>) -> (Schema, Py<PyAny>) {
+    let (fields, value) = wide_fields(py);
+    (Schema::keyed_map(fields, Vec::new()), value)
+}
+
+/// The same fifty fields and value under the clause a `TypedDict` carries.
+fn open_record(py: Python<'_>) -> (Schema, Py<PyAny>) {
+    let (fields, value) = wide_fields(py);
+    let any_str_key = MapClause {
+        key: Schema::Str,
+        value: Schema::ANYTHING,
+    };
+    (Schema::keyed_map(fields, vec![any_str_key]), value)
+}
+
+/// The fifty-field record as the comparison gate spells it to `Validator`:
+/// `{"f0": int, ..., "f49": int}`.
+fn wide_spelling(py: Python<'_>) -> Bound<'_, PyDict> {
+    let int = py.get_type::<PyInt>();
+    let spelling = PyDict::new(py);
+    for i in 0..50 {
+        spelling
+            .set_item(format!("f{i}"), &int)
+            .expect("a fresh dict of fifty type objects always builds");
+    }
+    spelling
+}
+
+/// The fifty-field record's value with **interned** keys, which is what a dict
+/// written as a literal or handed over as `**kwargs` carries.
+fn wide_interned_value(py: Python<'_>) -> Py<PyAny> {
+    let value = PyDict::new(py);
+    for i in 0..50 {
+        value
+            .set_item(PyString::intern(py, &format!("f{i}")), i)
+            .expect("a fresh dict of small ints always builds");
+    }
+    value.into_any().unbind()
+}
+
+/// The fifty-field `TypedDict` of refined integers the annotated build shape
+/// compiles, built once.
+///
+/// The marker is defined here rather than imported from `annotated_types`, and
+/// carries that package's module, which is what the frontend reads a
+/// constraint off: a workload that names no third-party package is one this
+/// lane can run with whatever it has installed, and it compiles the same
+/// constraint either way. It takes both shapes a marker keeps its bound in,
+/// which the frontend reads in two ways: the forty-five required fields a
+/// `slots` class, as `annotated_types` defines its markers, whose bound is a
+/// name on the type; the five others a class that keeps it in an instance
+/// dictionary, read from that dictionary.
+fn annotated_record(py: Python<'_>) -> Py<PyAny> {
+    let module = PyModule::from_code(
+        py,
+        &std::ffi::CString::new(
+            "from typing import Annotated, NotRequired, TypedDict\n\
+             class Ge:\n\
+             \x20   __slots__ = ('ge',)\n\
+             \x20   def __init__(self, ge):\n\
+             \x20       self.ge = ge\n\
+             \x20   def __repr__(self):\n\
+             \x20       return f'Ge({self.ge})'\n\
+             class Floor:\n\
+             \x20   def __init__(self, ge):\n\
+             \x20       self.ge = ge\n\
+             \x20   def __repr__(self):\n\
+             \x20       return f'Floor({self.ge})'\n\
+             Ge.__module__ = Floor.__module__ = 'annotated_types'\n\
+             fields = {f'f{i}': Annotated[int, Ge(0)] for i in range(45)}\n\
+             fields.update({f'o{i}': NotRequired[Annotated[int, Floor(0)]] for i in range(5)})\n\
+             SPELLING = TypedDict('Wide', fields)\n",
+        )
+        .expect("no interior nul"),
+        &std::ffi::CString::new("annotated.py").expect("no interior nul"),
+        &std::ffi::CString::new("annotated").expect("no interior nul"),
+    )
+    .expect("the spelling compiles");
+    module
+        .getattr("SPELLING")
+        .expect("the spelling is defined")
+        .unbind()
+}
+
+/// The fifty-member protocol the protocol build shape compiles, built once.
+///
+/// Made with `types.new_class` rather than written out, as the dataclass beside
+/// it is made with `make_dataclass`: fifty members are fifty lines that say one
+/// thing, and the class the frontend reads is the same either way.
+fn protocol_record(py: Python<'_>) -> Py<PyAny> {
+    let module = PyModule::from_code(
+        py,
+        &std::ffi::CString::new(
+            "import types\n\
+             from typing import Protocol\n\
+             def body(namespace):\n\
+             \x20   namespace['__annotations__'] = {f'f{i}': int for i in range(45)}\n\
+             \x20   for i in range(5):\n\
+             \x20       namespace[f'm{i}'] = lambda self: 0\n\
+             SPELLING = types.new_class('Wide', (Protocol,), exec_body=body)\n",
+        )
+        .expect("no interior nul"),
+        &std::ffi::CString::new("protocol_shape.py").expect("no interior nul"),
+        &std::ffi::CString::new("protocol_shape").expect("no interior nul"),
+    )
+    .expect("the spelling compiles");
+    module
+        .getattr("SPELLING")
+        .expect("the spelling is defined")
+        .unbind()
+}
+
+/// The fifty-field dataclass the object build shape compiles, built once.
+///
+/// Made with `make_dataclass` rather than written out: fifty `@dataclass`
+/// fields are fifty lines that say one thing, and the class the frontend reads
+/// is the same either way -- `__dataclass_fields__`, annotations, and the
+/// declared order.
+fn object_record(py: Python<'_>) -> Py<PyAny> {
+    let module = PyModule::from_code(
+        py,
+        &std::ffi::CString::new(
+            "from dataclasses import make_dataclass\n\
+             SPELLING = make_dataclass('Wide', [(f'f{i}', int) for i in range(50)])\n",
+        )
+        .expect("no interior nul"),
+        &std::ffi::CString::new("object_shape.py").expect("no interior nul"),
+        &std::ffi::CString::new("object_shape").expect("no interior nul"),
+    )
+    .expect("the spelling compiles");
+    module
+        .getattr("SPELLING")
+        .expect("the spelling is defined")
+        .unbind()
+}
+
+/// The two dataclasses the relation shape relates, each compiled once into the
+/// validator a caller holds.
+fn related_classes(py: Python<'_>) -> (Py<PyAny>, Py<PyAny>) {
+    let module = spelled_module(
+        py,
+        "from dataclasses import dataclass\n\
+         @dataclass\n\
+         class Point:\n\
+         \x20   x: int\n\
+         \x20   y: int\n\
+         @dataclass\n\
+         class Other:\n\
+         \x20   name: str\n",
+    );
+    let compiled = |name: &str| {
+        let mut literals = Pool::default();
+        let mut definitions = Vec::new();
+        let schema = build_root(
+            &module.getattr(name).expect("the class is defined"),
+            &mut literals,
+            &mut definitions,
+        )
+        .expect("a two-field dataclass always builds");
+        Validator::checked(schema, literals.into_items(), definitions)
+            .expect("a two-field dataclass is within every limit")
+    };
+    let held = |name: &str| {
+        Py::new(py, compiled(name))
+            .expect("a validator always wraps")
+            .into_any()
+    };
+    (held("Point"), held("Other"))
+}
+
+/// `Point`'s relation to `Other`, decided once per iteration.
+///
+/// Asked through the method a caller calls rather than the function behind it:
+/// a second caller in Rust takes that function out of line in the extension,
+/// and the trampoline pays for the call. Kept out of line itself, because the
+/// call's machinery inlined into the dispatcher moves what the other shapes'
+/// loops compile to, which the call-boundary shape counts.
+#[inline(never)]
+fn relation_walk(py: Python<'_>, iters: usize) -> u64 {
+    let (point, other) = related_classes(py);
+    let (point, other) = (point.bind(py), other.bind(py));
+    let name = PyString::new(py, "relation_to");
+    // The two schemas are what a relation reads, each held by its validator.
+    let nodes = |held: &Bound<'_, PyAny>| {
+        held.cast::<Validator>()
+            .expect("each side is a validator")
+            .borrow()
+            .schema
+            .node_count()
+    };
+    let work = digest(nodes(point), nodes(other));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let relation = point
+            .call_method1(&name, (std::hint::black_box(other),))
+            .expect("relating two dataclasses raises nothing");
+        let refuted = relation
+            .cast::<PyString>()
+            .is_ok_and(|relation| relation == "not_subset");
+        checksum = checksum.wrapping_add(u64::from(refuted) + work);
+    }
+    checksum
+}
+
+/// The three-field `NamedTuple` the subclass walk reads, built once.
+///
+/// A `NamedTuple` rather than a bare `tuple` subclass because it is the one a
+/// program is most likely to hold, and the two take the same path: both inherit
+/// `tuple.__len__`.
+fn subclass_value(py: Python<'_>) -> Py<PyAny> {
+    let module = PyModule::from_code(
+        py,
+        &std::ffi::CString::new(
+            "from typing import NamedTuple\n\
+             class Point(NamedTuple):\n\
+             \x20   x: int\n\
+             \x20   y: int\n\
+             \x20   z: int\n\
+             VALUE = Point(1, 2, 3)\n",
+        )
+        .expect("no interior nul"),
+        &std::ffi::CString::new("subclass.py").expect("no interior nul"),
+        &std::ffi::CString::new("subclass").expect("no interior nul"),
+    )
+    .expect("the spelling compiles");
+    module
+        .getattr("VALUE")
+        .expect("the value is defined")
+        .unbind()
+}
+
+/// The comparison gate's JSON document and the annotation it is read against,
+/// built once: `list[JsonRecord]` over two hundred records.
+///
+/// Spelled in Python and compiled through the frontend rather than assembled as
+/// `Schema` nodes here, for the same reason the document is `json.dumps`ed
+/// rather than written out: the two gates have to measure one problem, and the
+/// only way to be sure of that is to build it from the same source. Five fields
+/// of four shapes -- an integer, two strings, a list of strings and a mapping
+/// of strings -- reach the scalar arms, the sequence arm and the clause arm in
+/// one record, which is what makes a document of them a walk rather than a
+/// parse with a type check on the end.
+///
+/// Returns the annotation and the document as bytes. `is_valid_json` takes
+/// `str` or `bytes` and decodes the first, so bytes is the form that measures
+/// the parse and not the decode.
+fn json_document(py: Python<'_>, source: &str) -> (Py<PyAny>, Vec<u8>) {
+    let module = spelled_module(py, source);
+    let document = module
+        .getattr("DOCUMENT")
+        .expect("the document is defined")
+        .extract()
+        .expect("the document is bytes");
+    let spelling = module
+        .getattr("SPELLING")
+        .expect("the spelling is defined")
+        .unbind();
+    (spelling, document)
+}
+
+/// Run a shape's Python source as a module of its own.
+///
+/// The embedded interpreter has the standard library and nothing else, so a
+/// shape spells its annotation with `typing` and a marker class it defines.
+fn spelled_module<'py>(py: Python<'py>, source: &str) -> Bound<'py, PyModule> {
+    PyModule::from_code(
+        py,
+        &std::ffi::CString::new(source).expect("no interior nul"),
+        &std::ffi::CString::new("shape.py").expect("no interior nul"),
+        &std::ffi::CString::new("shape").expect("no interior nul"),
+    )
+    .expect("the spelling compiles")
+}
+
+/// A JSON shape's source: the record every one is written around, then its own
+/// spelling and document.
+macro_rules! json_shape {
+    ($shape:literal) => {
+        concat!(
+            "import json\n\
+     from typing import TypedDict\n\
+     JsonRecord = TypedDict('JsonRecord', {'id': int, 'name': str, \
+     'email': str, 'tags': list[str], 'meta': dict[str, str]})\n\
+     def record(i):\n\
+     \x20   return {'id': i, 'name': 'Ada', 'email': 'a@b.c', 'tags': ['x', 'y'], \
+     'meta': {'k': 'v'}}\n",
+            $shape
+        )
+    };
+}
+
+/// Two hundred records, every one a member.
+const JSON_DOCUMENT: &str = json_shape!(
+    "SPELLING = list[JsonRecord]\n\
+     DOCUMENT = json.dumps([record(i) for i in range(200)]).encode()\n"
+);
+
+/// The same two hundred, the hundredth with a string for its `id`.
+const JSON_REJECT: &str = json_shape!(
+    "SPELLING = list[JsonRecord]\n\
+     records = [record(i) for i in range(200)]\n\
+     records[100]['id'] = 'x'\n\
+     DOCUMENT = json.dumps(records).encode()\n"
+);
+
+/// Records and events alternating, against the union of the two.
+const JSON_UNION: &str = json_shape!(
+    "JsonEvent = TypedDict('JsonEvent', {'kind': str, 'at': int, 'tags': list[str]})\n\
+     SPELLING = list[JsonRecord | JsonEvent]\n\
+     DOCUMENT = json.dumps([record(i) if i % 2 else \
+     {'kind': 'login', 'at': i, 'tags': ['x']} for i in range(200)]).encode()\n"
+);
+
+/// Records whose every key but `id` is read through the `str` clause.
+const JSON_OPEN: &str = json_shape!(
+    "SPELLING = list[{'id': int, str: str}]\n\
+     DOCUMENT = json.dumps([{'id': i, 'name': 'Ada', 'email': 'a@b.c', \
+     'city': 'Rome', 'lang': 'en'} for i in range(200)]).encode()\n"
+);
+
+/// The same records under a length bound, the marker spelled as the refined
+/// shape spells its own so the workload imports nothing it does not hold.
+const JSON_BOUNDED: &str = json_shape!(
+    "from typing import Annotated\n\
+     class MaxLen:\n\
+     \x20   def __init__(self, max_length):\n\
+     \x20       self.max_length = max_length\n\
+     MaxLen.__module__ = 'annotated_types'\n\
+     SPELLING = list[Annotated[{'id': int, str: str}, MaxLen(8)]]\n\
+     DOCUMENT = json.dumps([{'id': i, 'name': 'Ada', 'email': 'a@b.c', \
+     'city': 'Rome', 'lang': 'en'} for i in range(200)]).encode()\n"
+);
+
+fn wide_fields(py: Python<'_>) -> (Vec<Field>, Py<PyAny>) {
+    let fields: Vec<Field> = (0..50)
+        .map(|i| Field {
+            name: format!("f{i}").into(),
+            schema: Schema::Int,
+            required: true,
+        })
+        .collect();
+    let value = PyDict::new(py);
+    for i in 0..50 {
+        value
+            .set_item(format!("f{i}"), i)
+            .expect("a fresh dict of small ints always builds");
+    }
+    (fields, value.into_any().unbind())
+}
+
+/// A deterministic, binding-level instruction workload for the perf gate.
+///
+/// The shipped hot path is the membership walk over a live Python value, where
+/// the core's deterministic core-only workload does not reach. This runs that walk
+/// `iters` times over a fixed record value crossing the boundary at every node
+/// kind on the hot path (an int, a str, and a homogeneous int list), returning a
+/// checksum so the optimizer cannot discard the work.
+///
+/// Embedding `CPython` makes the absolute instruction count include a non-fixed
+/// interpreter startup, so the gate ([`scripts/perf_gate.py`]) measures the
+/// *difference* between two iteration counts: startup is identical in both runs
+/// and cancels, leaving the deterministic per-iteration walk cost. This is the
+/// budgeted signal, and it also covers the per-node `ctx.state.fatal.borrow()` tax.
+#[doc(hidden)]
+#[must_use]
+pub fn binding_perf_workload_shape(py: Python<'_>, shape: BindingShape, iters: usize) -> u64 {
+    match shape {
+        BindingShape::Walk => binding_perf_workload(py, iters),
+        BindingShape::Boundary => boundary_walk(py, iters),
+        BindingShape::Record | BindingShape::Open | BindingShape::Keys | BindingShape::Subclass => {
+            let (schema, value) = match shape {
+                BindingShape::Record => wide_record(py),
+                BindingShape::Keys => (wide_record(py).0, wide_interned_value(py)),
+                BindingShape::Subclass => (
+                    Schema::tuple(SeqShape::homogeneous(Schema::Int)),
+                    subclass_value(py),
+                ),
+                _ => open_record(py),
+            };
+            let validator = Validator::new(schema, Vec::new(), Vec::new());
+            let obj = value.bind(py).clone();
+            let work = digest(validator.schema.node_count(), shown(&obj));
+            settle_the_heap(py);
+            let mut checksum: u64 = 0;
+            for _ in 0..iters {
+                let state = WalkState::new();
+                let ok = member(
+                    std::hint::black_box(&validator.schema),
+                    &Value::Py(std::hint::black_box(&obj)),
+                    &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+                );
+                checksum = checksum.wrapping_add(u64::from(ok) + work);
+            }
+            checksum
+        }
+        BindingShape::Build => {
+            let spelling = wide_spelling(py);
+            settle_the_heap(py);
+            let mut checksum: u64 = 0;
+            for _ in 0..iters {
+                let mut literals = Pool::default();
+                let mut definitions = Vec::new();
+                let schema = build_root(
+                    std::hint::black_box(&spelling).as_any(),
+                    &mut literals,
+                    &mut definitions,
+                )
+                .expect("fifty fields typed `int` always build");
+                let validator = Validator::checked(schema, literals.into_items(), definitions)
+                    .expect("a fifty-field record is within every limit");
+                checksum = checksum.wrapping_add(validator.schema.node_count() as u64);
+            }
+            checksum
+        }
+        BindingShape::Recursive => recursive_walk(py, iters),
+        BindingShape::Relation => relation_walk(py, iters),
+        BindingShape::Json => json_walk(py, iters, JSON_DOCUMENT, Expect::Member),
+        BindingShape::JsonReject => json_walk(py, iters, JSON_REJECT, Expect::NonMember),
+        BindingShape::JsonUnion => json_walk(py, iters, JSON_UNION, Expect::Member),
+        BindingShape::JsonOpen => json_walk(py, iters, JSON_OPEN, Expect::Member),
+        BindingShape::JsonBounded => json_walk(py, iters, JSON_BOUNDED, Expect::Member),
+        BindingShape::JsonDeep => json_deep_walk(py, iters),
+        BindingShape::Deep => spelled_walk(py, iters, DEEP),
+        BindingShape::Refined => spelled_walk(py, iters, REFINED),
+        BindingShape::Mapping => spelled_walk(py, iters, MAPPING),
+        BindingShape::MappingLists => spelled_walk(py, iters, MAPPING_LISTS),
+        BindingShape::RecordList => spelled_walk(py, iters, RECORD_LIST),
+        BindingShape::Nullable => spelled_walk(py, iters, NULLABLE),
+        BindingShape::Set => spelled_walk(py, iters, SET),
+        BindingShape::Pattern => pattern_walk(py, iters),
+        BindingShape::ExplainAccept => explaining_record(py, iters, Wrong::No),
+        BindingShape::Explain => explaining_record(py, iters, Wrong::Yes),
+        BindingShape::ExplainList => explaining_list(py, iters),
+        BindingShape::ObjectWalk => object_walk(py, iters),
+        BindingShape::Annotated | BindingShape::Object | BindingShape::Protocol => {
+            let spelling = match shape {
+                BindingShape::Annotated => annotated_record(py),
+                BindingShape::Object => object_record(py),
+                _ => protocol_record(py),
+            };
+            settle_the_heap(py);
+            let mut checksum: u64 = 0;
+            for _ in 0..iters {
+                let mut literals = Pool::default();
+                let mut definitions = Vec::new();
+                let schema = build_root(
+                    std::hint::black_box(spelling.bind(py)),
+                    &mut literals,
+                    &mut definitions,
+                )
+                .expect("fifty typed fields always build");
+                let validator = Validator::checked(schema, literals.into_items(), definitions)
+                    .expect("a fifty-field record is within every limit");
+                checksum = checksum.wrapping_add(validator.schema.node_count() as u64);
+            }
+            checksum
+        }
+    }
+}
+
+/// The walk over an instance of the fifty-field dataclass, one validator call
+/// per iteration.
+fn object_walk(py: Python<'_>, iters: usize) -> u64 {
+    let spelling = object_record(py);
+    let mut literals = Pool::default();
+    let mut definitions = Vec::new();
+    let schema = build_root(spelling.bind(py), &mut literals, &mut definitions)
+        .expect("fifty typed fields always build");
+    let validator = Validator::checked(schema, literals.into_items(), definitions)
+        .expect("a fifty-field record is within every limit");
+    let fields = PyTuple::new(py, 0..50_i32).expect("fifty small ints always build");
+    let obj = spelling
+        .bind(py)
+        .call1(fields)
+        .expect("the dataclass takes its fifty fields");
+    let work = digest(validator.schema.node_count(), shown(&obj));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// The walk over a single integer, one validator call per iteration.
+fn boundary_walk(py: Python<'_>, iters: usize) -> u64 {
+    let validator = Validator::new(Schema::Int, Vec::new(), Vec::new());
+    let obj = 42_i64
+        .into_pyobject(py)
+        .expect("an i64 always converts")
+        .into_any();
+    let work = digest(validator.schema.node_count(), shown(&obj));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// Two sizes of what one iteration walks, folded into its checksum beside the
+/// answer.
+///
+/// The gate holds a binding shape's counts to one work by comparing the
+/// checksum the change and its base print, and the answer alone cannot say the
+/// work is one: a value cut to half its elements answers as the whole did, and
+/// its count would read as a saving. So the sizes go in beside it, each in
+/// digits of its own -- the schema's node count and the length of the value's
+/// `repr`, or of the document for a JSON shape -- and either moving moves the
+/// checksum. Doubled, so the answer is the lowest bit and a changed answer moves
+/// it too. The figure is the same every iteration, which keeps the checksum a
+/// multiple of the iteration count, as the gate checks.
+fn digest(major: usize, minor: usize) -> u64 {
+    2 * (major as u64 * 1_000_000 + minor as u64)
+}
+
+/// The length of a value's `repr`, the size [`digest`] reads of a value.
+fn shown(value: &Bound<'_, PyAny>) -> usize {
+    value
+        .repr()
+        .and_then(|text| text.len())
+        .expect("a workload's value has a repr")
+}
+
+/// Hand the allocator's free memory back before a shape starts counting.
+///
+/// The count is taken of the loop, but what a loop's allocations cost depends
+/// on the heap the loop starts from, and nothing in the loop decides that:
+/// whether glibc serves a large request straight from the top chunk or first
+/// consolidates every small chunk the previous iteration freed is a fact about
+/// where the long-lived blocks landed while the shape was being set up. The
+/// size of the process environment alone moves it. Measured on one build, the
+/// JSON shape reads 8.2% apart and the recursive one 7.2% apart between a
+/// `uv run` and a bare shell, and a change to the *build* path -- which runs
+/// before the loop and never inside it -- can move the JSON reading by the same
+/// amount while its loop executes the same instructions.
+///
+/// `malloc_trim(0)` consolidates the free lists and returns the top of the
+/// heap, so every shape counts from the same settled state whatever ran before
+/// it. Called through `ctypes` because the crate forbids `unsafe`; a C library
+/// without the symbol leaves the heap as it is, which is every platform the
+/// gate does not run on.
+fn settle_the_heap(py: Python<'_>) {
+    py.run(
+        c"import ctypes\n\
+          try:\n\
+          \x20   ctypes.CDLL(None).malloc_trim(0)\n\
+          except (AttributeError, OSError):\n\
+          \x20   pass\n",
+        None,
+        None,
+    )
+    .expect("trimming the heap raises nothing it does not catch");
+}
+
+/// What a JSON shape's document is, so the checksum counts the answer expected.
+#[derive(Clone, Copy)]
+enum Expect {
+    Member,
+    NonMember,
+}
+
+/// The JSON document parsed and walked once per iteration.
+///
+/// The document and the validator are built outside the loop, as every shape
+/// here builds what it reads: what is counted is one `matches_json`, which is
+/// the parse and the walk and the drop of the tree between them. That is the
+/// whole of what `is_valid_json` does after the argument is known to be bytes,
+/// and it is the entry the comparison gate times.
+fn json_walk(py: Python<'_>, iters: usize, source: &str, expect: Expect) -> u64 {
+    let (spelling, document) = json_document(py, source);
+    let mut literals = Pool::default();
+    let mut definitions = Vec::new();
+    let schema = build_root(spelling.bind(py), &mut literals, &mut definitions)
+        .expect("a JSON shape's spelling always builds");
+    let validator = Validator::checked(schema, literals.into_items(), definitions)
+        .expect("a JSON shape's schema is within every limit");
+    json_loop(py, iters, &validator, &document, expect)
+}
+
+/// Check one document `iters` times, counting the answers that were expected.
+///
+/// The count is the iteration count by construction, which is what the gate
+/// asserts: a rejecting shape counts its rejections.
+fn json_loop(
+    py: Python<'_>,
+    iters: usize,
+    validator: &Validator,
+    document: &[u8],
+    expect: Expect,
+) -> u64 {
+    let work = digest(validator.schema.node_count(), document.len());
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let ok = validator
+            .matches_json(py, std::hint::black_box(document))
+            .expect("a well-formed document raises nothing");
+        checksum = checksum.wrapping_add(u64::from(ok == matches!(expect, Expect::Member)) + work);
+    }
+    checksum
+}
+
+/// `mu X. int | list[X]`, built as the recursive shape builds it, over a parsed
+/// document of twenty trees twelve levels deep.
+fn json_deep_walk(py: Python<'_>, iters: usize) -> u64 {
+    let body = Schema::union([
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ]);
+    let validator = Validator::checked(Schema::Ref(DefIx::new(0)), Vec::new(), vec![body])
+        .expect("one definition is within every limit");
+    let document = spelled_module(
+        py,
+        "import json\n\
+         def tree(depth):\n\
+         \x20   return 1 if depth == 0 else [tree(depth - 1), depth]\n\
+         DOCUMENT = json.dumps([tree(12) for _ in range(20)]).encode()\n",
+    )
+    .getattr("DOCUMENT")
+    .expect("the document is defined")
+    .extract::<Vec<u8>>()
+    .expect("the document is bytes");
+    json_loop(py, iters, &validator, &document, Expect::Member)
+}
+
+/// `list[...]` nested twenty-five deep, over a value nested as deep.
+const DEEP: &str = "SPELLING = int\n\
+     VALUE = 0\n\
+     for _ in range(25):\n\
+     \x20   SPELLING = list[SPELLING]\n\
+     \x20   VALUE = [VALUE]\n";
+
+/// Sixty-four integers at or above their refinement's lower bound.
+const REFINED: &str = "from typing import Annotated\n\
+     class Ge:\n\
+     \x20   def __init__(self, ge):\n\
+     \x20       self.ge = ge\n\
+     Ge.__module__ = 'annotated_types'\n\
+     SPELLING = list[Annotated[int, Ge(1000)]]\n\
+     VALUE = list(range(1000, 1064))\n";
+
+/// Sixty-four string keys, each holding an integer.
+const MAPPING: &str = "SPELLING = dict[str, int]\n\
+     VALUE = {f'k{i}': i for i in range(64)}\n";
+
+/// Sixty-four string keys, each holding two integers.
+const MAPPING_LISTS: &str = "SPELLING = dict[str, list[int]]\n\
+     VALUE = {f'k{i}': [i, i] for i in range(64)}\n";
+
+/// Sixty-four of the records `scripts/perf_shapes.py` reads, each a member.
+const RECORD_LIST: &str = "from typing import TypedDict\n\
+     User = TypedDict('User', {'id': int, 'name': str, 'tags': list[str]})\n\
+     SPELLING = list[User]\n\
+     VALUE = [{'id': i, 'name': f'n{i}', 'tags': ['a', 'b']} for i in range(64)]\n";
+
+/// Sixty-four integers and `None`, alternating.
+const NULLABLE: &str = "SPELLING = list[int | None]\n\
+     VALUE = [i if i % 2 else None for i in range(64)]\n";
+
+/// Sixty-four strings in a set.
+const SET: &str = "SPELLING = set[str]\n\
+     VALUE = {f'k{i}' for i in range(64)}\n";
+
+/// Build a shape's `SPELLING` through the frontend and walk its `VALUE`.
+fn spelled_walk(py: Python<'_>, iters: usize, source: &str) -> u64 {
+    let module = spelled_module(py, source);
+    let mut literals = Pool::default();
+    let mut definitions = Vec::new();
+    let spelling = module.getattr("SPELLING").expect("the spelling is defined");
+    let schema = build_root(&spelling, &mut literals, &mut definitions)
+        .expect("a walk shape's spelling always builds");
+    let validator = Validator::checked(schema, literals.into_items(), definitions)
+        .expect("a walk shape's schema is within every limit");
+    let value = module.getattr("VALUE").expect("the value is defined");
+    let work = digest(validator.schema.node_count(), shown(&value));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&value)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// The recursive schema's own shape: `mu X. int | list[X]` over a nested list.
+///
+/// Eight levels of nesting, each a one-element list, so the walk enters and
+/// leaves the reference eight times per iteration and the leaf is an integer.
+/// A one-element list at each level rather than a wide one keeps what is
+/// counted the *descent* -- the reference, the trail, and the union choice --
+/// rather than a list loop the homogeneous shapes already measure.
+///
+/// The value is built once, outside the loop, like every shape here.
+fn recursive_walk(py: Python<'_>, iters: usize) -> u64 {
+    // mu X. int | list[X], as the frontend's own `recursive` spelling lowers it:
+    // one definition, and a reference standing for the whole.
+    let body = Schema::union([
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ]);
+    let validator = Validator::checked(Schema::Ref(DefIx::new(0)), Vec::new(), vec![body])
+        .expect("one definition is within every limit");
+    let mut value = 42_i64
+        .into_pyobject(py)
+        .expect("an i64 always converts")
+        .into_any();
+    for _ in 0..8 {
+        value = PyList::new(py, [value])
+            .expect("a one-element list always builds")
+            .into_any();
+    }
+    let work = digest(validator.schema.node_count(), shown(&value));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&value)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// The pattern refinement's own shape: one string, one compiled match.
+///
+/// An address-like pattern rather than a trivial one, because what is being
+/// counted is a *compiled* match against a lookup, and a pattern the engine
+/// answers in three instructions would leave the lookup indistinguishable from
+/// the compile. The value matches, so the match runs to the end rather than
+/// failing at the first character.
+fn pattern_walk(py: Python<'_>, iters: usize) -> u64 {
+    let schema = Schema::refine(
+        Schema::Str,
+        vec![Constraint::Regex(
+            r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}".to_owned(),
+        )],
+    );
+    let validator = Validator::new(schema, Vec::new(), Vec::new());
+    let obj = PyString::new(py, "ada.lovelace@example.com").into_any();
+    let work = digest(validator.schema.node_count(), shown(&obj));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// Whether the explaining record shape's value carries the wrong type.
+///
+/// The two shapes differ in one value and in nothing else, which is the point:
+/// what separates them is the *answer*, so the pair measures what explain mode
+/// costs on each.
+#[derive(Clone, Copy)]
+enum Wrong {
+    /// `f37` holds a string, so the record is refused and the report is built.
+    Yes,
+    /// Every field holds an integer, so the walk accepts and reports nothing.
+    No,
+}
+
+/// The fifty-field record walked in explain mode, accepting or refusing.
+fn explaining_record(py: Python<'_>, iters: usize, wrong: Wrong) -> u64 {
+    let (schema, value) = wide_record(py);
+    let validator = Validator::new(schema, Vec::new(), Vec::new());
+    let obj = value.bind(py).clone();
+    if matches!(wrong, Wrong::Yes) {
+        obj.cast::<PyDict>()
+            .expect("the record value is a dict")
+            .set_item("f37", "not an int")
+            .expect("replacing one key always succeeds");
+    }
+    let work = digest(validator.schema.node_count(), shown(&obj));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let mut out = Vec::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Frame::new(
+                &mut Vec::new(),
+                &mut out,
+                validator.context(py, &state, WalkMode::Explain),
+            ),
+        );
+        checksum = checksum
+            .wrapping_add(u64::from(ok) + work)
+            .wrapping_add(out.len() as u64);
+    }
+    checksum
+}
+
+/// Ten thousand integers whose last element is a string, walked in explain
+/// mode: one violation, at the end, after every element before it passed.
+fn explaining_list(py: Python<'_>, iters: usize) -> u64 {
+    let schema = Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape::homogeneous(Schema::Int),
+    };
+    let validator = Validator::new(schema, Vec::new(), Vec::new());
+    let list = PyList::new(py, 0..10_000_i64).expect("a fresh list of i64 always builds");
+    list.set_item(9_999, "not an int")
+        .expect("replacing the last element always succeeds");
+    let obj = list.into_any();
+    let work = digest(validator.schema.node_count(), shown(&obj));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let mut out = Vec::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Frame::new(
+                &mut Vec::new(),
+                &mut out,
+                validator.context(py, &state, WalkMode::Explain),
+            ),
+        );
+        checksum = checksum
+            .wrapping_add(u64::from(ok) + work)
+            .wrapping_add(out.len() as u64);
+    }
+    checksum
+}
+
+#[doc(hidden)]
+#[must_use]
+pub fn binding_perf_workload(py: Python<'_>, iters: usize) -> u64 {
+    // A homogeneous int list: the walk crosses the boundary at the container and
+    // at each element (an `isinstance` check and the per-node `ctx.state.fatal.borrow()`
+    // tax), the most common shape on the hot path.
+    let schema = Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape::homogeneous(Schema::Int),
+    };
+    let validator = Validator::new(schema, Vec::new(), Vec::new());
+
+    // A fixed matching value, built once; the walk visits each list element.
+    let items: Vec<i64> = (0..64).collect();
+    let obj = PyList::new(py, items)
+        .expect("a fresh list of i64 always builds")
+        .into_any();
+    let work = digest(validator.schema.node_count(), shown(&obj));
+
+    settle_the_heap(py);
+
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        // `black_box` the inputs so the optimizer cannot hoist the loop-invariant
+        // walk out of the loop: the per-iteration walk is the signal being timed.
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&obj)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}

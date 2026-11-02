@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import json
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 from probe.cli import backfill_run as runner
 
 
@@ -56,7 +56,7 @@ def test_per_turn_notifications_cannot_overwrite_the_shared_scan_denominator(
     tmp_path, monkeypatch,
 ):
     events = []
-    monkeypatch.setattr(bf, 'launch_agent', lambda *a, **kw: (
+    monkeypatch.setattr(bf.agents.launch, 'launch_agent', lambda *a, **kw: (
         True, json.dumps({'findings': [{'work': 'training'}]}),
     ))
     with runner.classification_context(

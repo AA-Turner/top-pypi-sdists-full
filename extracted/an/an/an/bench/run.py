@@ -1,0 +1,1274 @@
+"""`run_bench`: render the corpus, compute the panel, write one ledger row.
+
+**Every encode-side metric is measured against a lossless (`-qp 0`) encode of
+the same frames, not against a second conversion of the PNGs.** That is a
+correction, and CI is what made it: the PNG conversion agrees with the
+encoder's own exactly on ffmpeg 8.1 and disagrees by mean 0.63 / max 5 on the
+Linux runner's older build — 42% of `coded_luma_edge_error`'s whole crf23 value,
+which would have been measured as encoder damage on that machine and as nothing
+on this one. `-qp 0` is lossless, so its decoded luma **is** the plane libx264
+received, on any build. Referencing to it removes the assumption rather than
+widening it. See :mod:`an.bench.imageio`.
+
+The PNG conversion is still performed and its distance from the encoder's input
+is recorded as `png_to_encoder_input_luma` — that number is the build
+dependence, and it belongs in provenance rather than inside a gate.
+"""
+
+from __future__ import annotations
+
+import shutil
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+from an.bench import contract, golden as G, imageio, masks, metrics as M, palette as P
+from an.bench import png
+from an.stage.compile import FOREGROUND_SUFFIX
+from an.stage.tree import walk
+from an.bench.capture import (
+    SceneCapture,
+    capture_fixture,
+    cleanup,
+    expected_frame_count,
+)
+from an.bench.corpus import BENCH_RENDER_KWARGS, DFLT_FIXTURES, Fixture
+from an.bench import environment
+from an.bench.environment import environment_record
+from an.bench.ledger import (
+    Value,
+    build_ledger,
+    build_scene_block,
+    gated,
+    measured,
+    unavailable,
+    write_ledger,
+)
+from an.bench.paths import git_state, ledger_path, repo_root
+from an.bench.registry import METRICS
+
+
+class BenchError(RuntimeError):
+    """The bench could not produce a row it would be honest to file."""
+
+
+def _ffmpeg_available() -> bool:
+    return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
+
+
+def _one_delivered_format(formats: set[str]) -> str:
+    """The single pixel format every delivery in this run is in.
+
+    A row carries ONE `encode_side.pix_fmt` and `bench-compare` keys on it, so a
+    run whose scenes were delivered in different formats has no honest value to
+    put there — reporting either one would file a row that lies about most of
+    its own scenes. Refused rather than picked, for the reason
+    `frame_count_disagreement` is recorded rather than truncated.
+    """
+    if len(formats) == 1:
+        return formats.pop()
+    if not formats:
+        raise BenchError(
+            "no scene was captured, so the delivered pixel format is unknown "
+            "and the row's comparability key cannot be filled"
+        )
+    raise BenchError(
+        f"the corpus was delivered in more than one pixel format ({sorted(formats)}), "
+        "so no single value belongs in `encode_side.pix_fmt` — the row would be "
+        "comparable to rows it does not match"
+    )
+
+
+def lossless_reference(
+    frames_dir: Path, fps: int, out: Path, *, delivered: Path | None
+):
+    """Encode the frames losslessly and return the decode — the encoder's input.
+
+    Returned as a path rather than an array so the caller controls its
+    lifetime; every encode-side reference comes from here.
+
+    ``delivered`` is the delivered mp4 this leg is the reference FOR, and
+    passing it is what makes the leg's pixel format match — **probed off the
+    file rather than re-derived** (an#72). Re-deriving is not enough: the
+    delivered encode resolves its format from ``RenderContext.pix_fmt`` *or*
+    from ``render.DEFAULT_PIX_FMT``, so a leg that consults the global tracks
+    the bench's lever and silently misses ``an render --pix-fmt yuv444p``,
+    which sets the context instead. Only the file knows which seam won.
+
+    ``delivered`` is keyword-only and has **no default**, deliberately — the
+    same argument `imageio._reshape` makes for its own `frames`: a default here
+    would let a caller opt out of the match by omission, and the failure is
+    invisible (a 4:2:0 reference silently measuring a 4:4:4 delivery). Passing
+    ``None`` explicitly means "no delivered file to match" and falls back to the
+    module default; that is right for a caller building a reference for its own
+    sake and wrong for the bench, which always has the file in hand.
+    """
+    pix_fmt = imageio.delivered_pix_fmt(delivered) if delivered is not None else None
+    imageio.run_raw(
+        imageio.lossless_encode_command(frames_dir, fps, out, pix_fmt=pix_fmt)
+    )
+    return out
+
+
+def conversion_distance(
+    frames_dir: Path, lossless_mp4: Path, *, height: int, width: int, frames: int
+) -> dict:
+    """How far this build's PNG->YUV conversion sits from the encoder's own.
+
+    Recorded, never gated. It was a gate — a hard equality — and it failed on
+    the Linux runner while passing here, which is precisely the shape of a
+    machine-dependent fact masquerading as a universal one. Now the metrics no
+    longer depend on it, and the number is kept because it is the thing that
+    will explain a future cross-build surprise.
+    """
+    import numpy as np
+
+    src = imageio.source_yuv(frames_dir, height=height, width=width, frames=frames)
+    enc_in = imageio.decoded_yuv(lossless_mp4, height=height, width=width)
+    n = min(len(src), len(enc_in))
+    if n == 0:
+        return {"error": "one of the legs decoded to zero frames"}
+    residual = np.abs(enc_in[:n, 0].astype(np.int16) - src[:n, 0].astype(np.int16))
+    return {
+        "luma_residual_mean": round(float(residual.mean()), 6),
+        "luma_residual_max": int(residual.max()),
+        "png_command": imageio.source_yuv_command(frames_dir),
+        "encoder_input_command": imageio.decoded_yuv_command(lossless_mp4),
+        "note": (
+            "Zero means this build's explicit PNG->YUV conversion reproduces "
+            "what libx264 received. Nonzero means it does not, which is a "
+            "property of the ffmpeg build and NOT an error: the encode-side "
+            "metrics reference the lossless decode, so they do not depend on "
+            "this agreeing. Measured 0.0 on ffmpeg 8.1 (arm64 macOS) and "
+            "0.629 / max 5 on the Linux runner's older build."
+        ),
+    }
+
+
+def _png_source_rgb(frames_dir: Path, *, height: int, width: int, frames: int):
+    """Decode a shot's PNG sequence with the package's own reader, no ffmpeg.
+
+    Byte-for-byte the same array ``imageio.source_rgb`` returns — asserted
+    against it on every rendered frame in the repo — but reachable on a machine
+    with no ffmpeg, which is what makes family A honestly render-side.
+
+    ``frames`` mirrors ``imageio.source_rgb``'s signature, because :func:`_stack`
+    calls both through the same ``loader`` parameter and a signature that drifted
+    would make one of the two legs uncheckable. It is **not a guard here** and
+    must not be described as one: ``frames`` arrives as ``ShotCapture.
+    frame_count``, which is a glob of this same directory, so the two can only
+    disagree if the tree changed between capture and metrics. It is a
+    consistency assertion, kept for signature parity. The real equality is on
+    :func:`an.bench.imageio.source_rgb`'s ffmpeg leg, where the decoder can and
+    does return a different count from the glob.
+
+    Its own shape check is kept even though :func:`_assert_declared_resolution`
+    runs above it — this is the no-ffmpeg branch's own opinion, formed from
+    decoded arrays rather than from IHDRs.
+    """
+    import numpy as np
+
+    from an.stage.render import DEFAULT_FRAME_PNG_PATTERN
+
+    paths = sorted(Path(frames_dir).glob("frame_*.png"))
+    if not paths:
+        raise BenchError(f"no {DEFAULT_FRAME_PNG_PATTERN} frames under {frames_dir}")
+    if len(paths) != frames:
+        raise BenchError(
+            f"{frames_dir} holds {len(paths)} frames but the caller counted "
+            f"{frames}; the two legs of every metric below pair frame i with "
+            "frame i, so a count disagreement offsets all of them"
+        )
+    stacked = np.stack([png.read_png(p) for p in paths])
+    if stacked.shape[1:3] != (height, width):
+        raise BenchError(
+            f"{frames_dir} holds {stacked.shape[2]}x{stacked.shape[1]} frames but "
+            f"the scene declares {width}x{height}"
+        )
+    return stacked
+
+
+def _assert_declared_resolution(capture: SceneCapture) -> None:
+    """Refuse when the PNGs on disk are not the size the scene declares.
+
+    **The load-bearing check of this module**, because what it catches is
+    silent. Every family-A metric is computed by reshaping a decoded byte stream
+    to the DECLARED size; a k-times supersample makes that stream exactly
+    ``k**2`` larger, which divides evenly, so the old divisibility test always
+    passed and the panel was computed over ``k**2 * N`` scrambled frames. The
+    corruption is *plausible* rather than obvious: at k=2 destination row 0 is
+    the source row's left half and row 1 its right half, so most horizontal runs
+    survive and ``edge_transition_width`` returns a believable number. Measured
+    live: ``resolution: 2, autoDensity: false`` really does put 640x480 PNGs
+    beside a 320x240 declared scene (``misc/docs/wave3_research.md`` §1).
+
+    The two facts compared are genuinely independent. ``capture.resolution``
+    comes from the staged scene's ``meta.width/height`` and never from a file;
+    ``ShotCapture.frame_sizes`` is read from each PNG's IHDR and never from the
+    scene.
+
+    Here rather than in :func:`an.bench.capture.capture_fixture`, deliberately:
+    rendering a fixture at a size the scene does not declare is a legitimate
+    thing to do — ``misc/bench/wave3_ab.py`` does exactly that to measure the
+    supersample — and the invariant being asserted is the **bench's**, that the
+    declared resolution is the resolution of the pixels the panel measures. It
+    runs above the ``_ffmpeg_available()`` fork so it covers both branches, and
+    above the first decode so nothing is computed on a wrong shape.
+    """
+    for shot in capture.frame_segments:
+        sizes = set(shot.frame_sizes)
+        if sizes != {capture.resolution}:
+            raise BenchError(
+                f"{capture.name}: shot {shot.shot_id!r} holds frames sized "
+                f"{sorted(sizes)} but the staged scene declares "
+                f"{[capture.resolution]}"
+                + (" — the shot wrote no frames at all." if not sizes else ".")
+                + " Nothing below would have raised: a k-times supersample "
+                "divides evenly by k**2, so every render-side metric would have "
+                "been computed over k**2 as many wrongly-shaped frames and "
+                "returned a plausible number for each. If this is a deliberate "
+                "supersample, the downscale belongs in the frame stage, before "
+                "the PNGs are written."
+            )
+
+
+@contextmanager
+def _timeline_frames_dir(capture: SceneCapture):
+    """A single directory holding every frame of the scene, in timeline order.
+
+    A one-shot scene yields its own frames directory **unchanged**, so nothing
+    is copied and the existing corpus's numbers are bit-identical to what they
+    were before multi-shot support existed.
+
+    A multi-shot scene gets a temporary directory of symlinks renumbered
+    ``0..N-1``, because ffmpeg's image2 demuxer reads the contiguous
+    ``frame_%06d.png`` run from 0 and each shot restarts its own numbering at 0.
+    Encoding the shots separately and concatenating would not do: the lossless
+    reference has to be the same sequence, in the same order, that the delivered
+    mp4 shows.
+    """
+    from an.stage.render import DEFAULT_FRAME_PNG_PATTERN
+
+    segments = capture.frame_segments
+    if len(segments) == 1:
+        yield segments[0].frames_dir
+        return
+    staged = Path(tempfile.mkdtemp(prefix=f"an-bench-timeline-{capture.name}-"))
+    try:
+        index = 0
+        for shot in segments:
+            for src in sorted(shot.frames_dir.glob("frame_*.png")):
+                (staged / (DEFAULT_FRAME_PNG_PATTERN % index)).symlink_to(src)
+                index += 1
+        yield staged
+    finally:
+        shutil.rmtree(staged, ignore_errors=True)
+
+
+@contextmanager
+def _lossless_scratch_dir(*, root: Path | None = None):
+    """A per-run unique directory to hold the lossless-reference mp4.
+
+    an#143: the reference used to be written to a FIXED name
+    (``_bench_qp0.mp4``) inside ``frames_dir.parent`` — a literal, not a path
+    the caller controls the uniqueness of. Two bench runs sharing that parent
+    (concurrent processes, or a leftover from a killed one) raced to write and
+    unlink the same file, and the loser's decode hit ffmpeg exit 254 (no such
+    file). ``tempfile.mkdtemp`` is the fix rather than a longer literal: it is
+    atomic and collision-free by construction, which a second guessed name
+    (a pid, a uuid pasted in by hand) is not.
+
+    ``root`` is keyword-only and defaults to the platform temp directory
+    (``tempfile.mkdtemp``'s own default); a caller may override it to point
+    every scratch directory at one parent — this is what lets a test put two
+    concurrent runs' scratch directories side by side without reintroducing
+    the fixed name the override exists to rule out.
+    """
+    scratch = Path(tempfile.mkdtemp(prefix="an-bench-lossless-", dir=root))
+    try:
+        yield scratch
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _render_edge_mask(src_rgb):
+    """Family A's own edge mask: numpy only, no ffmpeg, no decoder.
+
+    NOT `_scene_metrics`'s `edge`, which is `masks.edge_mask(src_yuv[:n, 0])` on
+    ffmpeg's LIMITED-RANGE Y. Same operator, same threshold, different plane —
+    full-range gradients are 255/219 of limited-range ones, so this mask is
+    slightly wider — and a different frame count when the two legs disagree,
+    because this one is never truncated to `n`. Computed here rather than reused
+    from there because family A is render-side and has no business depending on
+    the encoder's toolchain (an#55).
+    """
+    return masks.edge_mask(M.luma_u8(src_rgb))
+
+
+def _render_edge_record(edge) -> dict:
+    """What the ledger records about family A's own mask."""
+    return {
+        "operator": masks.RENDER_EDGE_OPERATOR,
+        "threshold": masks.EDGE_MASK_THRESHOLD,
+        "edge_px": int(edge.sum()),
+        "frame_px": int(edge.size),
+        "fraction": round(float(edge.mean()), 6),
+    }
+
+
+def _render_side_values(src_rgb, packed, palette_uint32, *, edge) -> dict[str, Value]:
+    """Family A. Computed on the pre-encode pixels; blind to the encoder by construction."""
+    width_mean, width_median = M.edge_transition_width(src_rgb)
+    edge_colours, frames_measured = M.edge_masked_distinct_colours(packed, edge)
+    return {
+        "edge_transition_width": measured(
+            round(width_mean, 4), median=round(width_median, 4)
+        ),
+        "off_palette_pixel_fraction": measured(
+            round(M.off_palette_pixel_fraction(packed, palette_uint32), 6)
+        ),
+        "frame_distinct_colours": measured(round(M.frame_distinct_colours(packed), 4)),
+        # `unavailable`, never `measured(0.0)`. A scene with no hard edge
+        # anywhere has no edge colour count, and a substituted zero would be the
+        # largest possible downward move in the one metric that exists to notice
+        # a downward move (an#55). `measured` refuses the NaN anyway.
+        "edge_masked_distinct_colours": (
+            unavailable(
+                "the render-side edge mask selected no pixels in any frame of "
+                "this scene, so there is no edge colour count to report"
+            )
+            if edge_colours != edge_colours
+            else measured(round(edge_colours, 4), frames_measured=frames_measured)
+        ),
+    }
+
+
+def _stack(loader, capture: SceneCapture, *, height: int, width: int):
+    """Decode every shot's frames in **timeline order** and concatenate them.
+
+    The delivered mp4 is the concatenation of the per-shot renders in
+    ``scene.timeline`` order (``an/render.py``'s ``_ffmpeg_concat``), so the
+    reference leg of every encode-side metric has to be built the same way.
+    ``capture.shots`` is already in timeline order — see
+    :func:`an.bench.corpus.iter_shot_dirs`, whose ``order`` argument is
+    mandatory for exactly this reason.
+    """
+    import numpy as np
+
+    parts = [
+        loader(s.frames_dir, height=height, width=width, frames=s.frame_count)
+        for s in capture.frame_segments
+    ]
+    return parts[0] if len(parts) == 1 else np.concatenate(parts)
+
+
+def _merged_palette(capture: SceneCapture) -> dict:
+    """The union of every shot's declared palette, plus per-shot provenance.
+
+    A union rather than the first shot's: ``off_palette_pixel_fraction`` is
+    computed over the concatenated frames, so a colour declared only by the
+    second shot would otherwise be counted as off-palette for the whole scene.
+    """
+    per_shot = [
+        (s.shot_id, P.palette_for_scene(s.scene_json, runtime_dir=s.runtime_dir))
+        for s in capture.shots
+    ]
+    palette: set = set()
+    hexes: set = set()
+    sources: dict[str, Any] = {}
+    unresolved: list = []
+    superset = False
+    for shot_id, pal in per_shot:
+        palette |= set(pal["palette"])
+        hexes |= set(pal.get("palette_hex") or ())
+        sources[shot_id] = pal.get("palette_sources")
+        unresolved.extend(pal.get("unresolved_svg_colour_tokens") or ())
+        superset = superset or bool(pal.get("palette_is_superset"))
+    return {
+        "palette": sorted(palette),
+        "palette_hex": sorted(hexes),
+        "palette_sources": sources,
+        "palette_is_superset": superset,
+        "unresolved_svg_colour_tokens": sorted(set(unresolved)),
+    }
+
+
+def _scene_metrics(
+    capture: SceneCapture, *, lossless_scratch_root: Path | None = None
+) -> tuple[dict[str, Value], dict[str, Any]]:
+    """The whole panel for one scene, plus the provenance the panel needs recorded.
+
+    Computed over the scene's **concatenated** frames, not over its first shot.
+    A single-shot scene is the same thing with one part, so the numbers for the
+    existing corpus are unchanged; a multi-shot scene is the reason this is not
+    ``_shot_metrics``, because the delivered mp4 it is compared against covers
+    every shot.
+
+    ``lossless_scratch_root`` is keyword-only and forwarded to
+    :func:`_lossless_scratch_dir` unchanged — see an#143.
+    """
+    import numpy as np
+
+    # Before the first decode, and above the ffmpeg fork so it covers both
+    # branches: everything below reshapes a byte stream to the DECLARED size.
+    _assert_declared_resolution(capture)
+    h, w = capture.resolution[1], capture.resolution[0]
+    n_source = sum(s.frame_count for s in capture.frame_segments)
+    values: dict[str, Value] = {}
+
+    if not _ffmpeg_available():
+        # Checked BEFORE the first decode, not after it. The check used to sit
+        # below `source_rgb`, which runs ffmpeg — so on a machine without it the
+        # bench raised `BenchDecodeError` and this whole degradation branch was
+        # unreachable. Render-side metrics still need the frames, so they are
+        # decoded with the package's own PNG reader instead: family A is
+        # render-side and has no business depending on the encoder's toolchain.
+        src_rgb = _stack(_png_source_rgb, capture, height=h, width=w)
+        packed = M.pack_rgb(src_rgb)
+        render_edge = _render_edge_mask(src_rgb)
+        pal = _merged_palette(capture)
+        values.update(
+            _render_side_values(src_rgb, packed, pal["palette"], edge=render_edge)
+        )
+        reason = "ffmpeg/ffprobe not on PATH; every encode-side metric needs both"
+        for key in METRICS:
+            values.setdefault(key, unavailable(reason))
+        return values, {
+            **{k: v for k, v in pal.items() if k != "palette"},
+            "decoder": "an.bench.png (ffmpeg absent)",
+            "masks": {"render_edge": _render_edge_record(render_edge)},
+            "source_pixels_sha256": contract.frames_sha256(src_rgb),
+            "frames_on_disk": sum(s.frame_count for s in capture.frame_segments),
+            "decoded_source_frames": int(len(src_rgb)),
+        }
+
+    src_rgb = _stack(imageio.source_rgb, capture, height=h, width=w)
+    packed = M.pack_rgb(src_rgb)
+    # Over the FULL stack, not the `[:n]` slice the encode-side masks use:
+    # family A is computed over every rendered frame, exactly as
+    # `edge_transition_width(src_rgb)` already is.
+    render_edge = _render_edge_mask(src_rgb)
+
+    pal = _merged_palette(capture)
+    palette_uint32 = pal["palette"]
+
+    values.update(
+        _render_side_values(src_rgb, packed, palette_uint32, edge=render_edge)
+    )
+
+    prov: dict[str, Any] = {
+        **{k: v for k, v in pal.items() if k != "palette"},
+        "off_palette_top_colours": M.classify_off_palette(
+            M.off_palette_top_colours(packed, palette_uint32), palette_uint32
+        ),
+        "off_palette_blend_note": (
+            "`blend_of` names the two declared colours a pixel sits between. "
+            "All-blends means the metric is reporting anti-aliasing correctly; "
+            "a non-blend near the top means the palette derivation missed a "
+            "literal and the number is inflated with no error anywhere."
+        ),
+        "decoder": "ffmpeg",
+        "source_pixels_sha256": contract.frames_sha256(src_rgb),
+        "frames_on_disk": sum(s.frame_count for s in capture.frame_segments),
+        "decoded_source_frames": int(len(src_rgb)),
+        "tolerances": {
+            "edge_flat_tol": M.EDGE_FLAT_TOL,
+            "flat_dev_tol": M.FLAT_DEV_TOL,
+            "flicker_delta_tol": M.FLICKER_DELTA_TOL,
+            "ssim_radius": M.SSIM_RADIUS,
+            "luma_coefficients": list(M.LUMA_709),
+        },
+    }
+
+    # The reference. `-qp 0` is lossless, so this IS the plane libx264 received
+    # — on any build, without assuming that our own PNG->YUV conversion matches
+    # ffmpeg's internal one. It does on ffmpeg 8.1 and does not on the Linux
+    # runner's older build (see the module docstring), which is exactly why the
+    # metrics no longer depend on it.
+    with _timeline_frames_dir(capture) as frames_dir:
+        with _lossless_scratch_dir(root=lossless_scratch_root) as scratch_dir:
+            qp0_mp4 = scratch_dir / "lossless_reference.mp4"
+            lossless_reference(frames_dir, capture.fps, qp0_mp4, delivered=capture.mp4)
+            ref_yuv = imageio.decoded_yuv(qp0_mp4, height=h, width=w)
+            ref_rgb = imageio.decoded_rgb(qp0_mp4, height=h, width=w)
+            distance = conversion_distance(
+                frames_dir, qp0_mp4, height=h, width=w, frames=n_source
+            )
+            prov["png_to_encoder_input_luma"] = distance
+            # Derived so a reader does not have to. When it is True,
+            # `coded_luma_edge_error` (lossless-referenced) and `chroma_edge_dY`
+            # (PNG-referenced) are numerically identical on this build — which
+            # looks like a duplicate and is not: they differ by exactly this
+            # residual, and on a build where it is nonzero they diverge.
+            prov["references_coincide"] = distance.get("luma_residual_max") == 0
+            # The direct RGB->444 conversion, kept for ONE metric: the chroma one,
+            # whose subject IS the 4:2:0 subsampling that happens during the
+            # conversion -- which is exactly what the lossless leg cancels, so a
+            # lossless-referenced version cannot see it however the leg is
+            # encoded. It does not, however, read ~0: measured, it reads 1.7-2.5
+            # against this metric's 2.9-9.3, because it measures chroma
+            # QUANTISER damage instead. See `chroma_edge_dCr` below (an#72).
+            src_yuv = imageio.source_yuv(frames_dir, height=h, width=w, frames=n_source)
+            dec_yuv = imageio.decoded_yuv(capture.mp4, height=h, width=w)
+            dec_rgb = imageio.decoded_rgb(capture.mp4, height=h, width=w)
+
+    n = min(len(src_yuv), len(dec_yuv), len(dec_rgb), len(src_rgb), len(ref_yuv))
+    if n != len(src_rgb) or n != len(dec_rgb):
+        # Not silently truncated: every encode-side metric pairs frame i with
+        # frame i, so a length disagreement means the pairing is offset and
+        # every one of them would measure inter-frame motion instead.
+        prov["frame_count_disagreement"] = {
+            "source_rgb": int(len(src_rgb)),
+            "source_yuv": int(len(src_yuv)),
+            "decoded_rgb": int(len(dec_rgb)),
+            "decoded_yuv": int(len(dec_yuv)),
+            "lossless_reference": int(len(ref_yuv)),
+        }
+
+    edge = masks.edge_mask(src_yuv[:n, 0])
+    flat = masks.flat_mask(src_rgb[:n])
+    ring = masks.ring_mask(edge)
+    prov["masks"] = {
+        "edge": {
+            "operator": masks.EDGE_OPERATOR,
+            "threshold": masks.EDGE_MASK_THRESHOLD,
+            "edge_px": int(edge.sum()),
+            "frame_px": int(edge.size),
+            "fraction": round(float(edge.mean()), 6),
+        },
+        "flat": {
+            "operator": masks.FLAT_OPERATOR,
+            "dilate_k": masks.FLAT_DILATE_K,
+            "flat_px": int(flat.sum()),
+            "fraction": round(float(flat.mean()), 6),
+        },
+        "held": {"operator": masks.HELD_OPERATOR, "pairs": max(0, n - 1)},
+        "ring": {"operator": masks.RING_OPERATOR, "ring_px": int(ring.sum())},
+        # Family A's own mask, recorded beside the encode-side one rather than
+        # instead of it. Same threshold, different plane (full-range RGB luma
+        # against ffmpeg's limited-range Y), so the two `edge_px` counts are
+        # EXPECTED to differ and the operator strings are what say why.
+        "render_edge": _render_edge_record(render_edge),
+    }
+
+    def _num(fn, *args, **kwargs) -> Value:
+        v = fn(*args, **kwargs)
+        if isinstance(v, float) and v != v:
+            return unavailable("the mask selected no pixels in this scene")
+        return measured(round(float(v), 6))
+
+    # Referenced to the LOSSLESS leg: pure quantiser damage, with no
+    # colour-conversion term and no build dependence.
+    values["coded_luma_edge_error"] = _num(
+        M.masked_mean_abs, dec_yuv[:n, 0], ref_yuv[:n, 0], edge
+    )
+
+    # Referenced to the PNG conversion, deliberately and for this metric only:
+    # the 4:2:0 subsampling it exists to see happens DURING that conversion --
+    # which is precisely the term the lossless leg cancels, so a
+    # lossless-referenced version is blind to it no matter what format the leg
+    # is encoded in (an#72's tracking leg included: with both legs at 4:4:4 the
+    # subsampling does not exist to be measured).
+    #
+    # The old wording here said such a version "would read ~0 and measure
+    # nothing", and that half is wrong. MEASURED 2026-08-29, four scenes, ffmpeg 8.1: mean |dCr| over the edge mask reads 1.71 / 1.90 / 2.24 / 2.50 against the shipped metric's 7.19 / 9.29 / 8.04 / 2.93. So it is NOT ~0 -- it is chroma QUANTISER damage, which is a real number about a different subject.
+    # The conclusion stands and the number does not, which matters because "~0"
+    # invites a reader to treat the alternative as costless. `dY` on
+    # the same reference and the same mask is therefore NOT a second name for
+    # `coded_luma_edge_error` — the two differ by exactly the reference — and it
+    # is the only denominator for which the ratio means what it claims.
+    d_y = M.masked_mean_abs(dec_yuv[:n, 0], src_yuv[:n, 0], edge)
+    d_cr = M.masked_mean_abs(dec_yuv[:n, 2], src_yuv[:n, 2], edge)
+    values["chroma_edge_dY"] = _num(lambda: d_y)
+    values["chroma_edge_dCr"] = _num(lambda: d_cr)
+    values["chroma_edge_dCr_over_dY"] = (
+        measured(round(float(d_cr / d_y), 6))
+        if d_y and d_y == d_y and d_cr == d_cr
+        else unavailable(
+            "the luma error on the edge mask is zero or undefined, so the ratio "
+            "has no value"
+        )
+    )
+
+    frac, p99 = M.flat_field_deviation(ref_rgb[:n], dec_rgb[:n], flat)
+    # The count at every cell of its own declared parameter grid, carried on
+    # the value (an#140). Not a second number: the shipped cell IS this metric
+    # (`an bench-compare` refuses the row if it is not), and the rest decide
+    # whether its direction is a direction or a threshold accident. The mask
+    # source is the same `src_rgb[:n]` the `flat` mask above was built from.
+    values["flat_field_deviation"] = (
+        unavailable("no flat field in this scene")
+        if frac != frac
+        else measured(
+            round(frac, 6),
+            sweep=M.flat_field_deviation_sweep(
+                ref_rgb[:n], dec_rgb[:n], mask_rgb=src_rgb[:n]
+            ),
+        )
+    )
+    values["flat_field_p99_dev"] = (
+        unavailable("no flat field in this scene")
+        if p99 != p99
+        else measured(round(float(p99), 4))
+    )
+    # The panel's other hard-threshold counter, so the same sweep (an#140).
+    flicker = _num(M.encode_flicker_on_held_pixels, ref_rgb[:n], dec_rgb[:n])
+    values["encode_flicker_on_held_pixels"] = (
+        measured(flicker.value, sweep=M.encode_flicker_sweep(ref_rgb[:n], dec_rgb[:n]))
+        if flicker.state == "measured"
+        else flicker
+    )
+    # The Q4 pair, both on the PNG reference. `encode_ringing_excess` cancels a
+    # term that exists only when both its legs share that reference — against
+    # the lossless leg the second term is 0 by construction and the metric
+    # degenerates into raw overshoot, which is the form the research refuted.
+    # `ring_band_mae` is its declared rival, so it must share the reference or
+    # the comparison answers a different question.
+    values["ring_band_mae"] = _num(
+        M.masked_mean_abs, dec_yuv[:n, 0], src_yuv[:n, 0], ring
+    )
+    values["encode_ringing_excess"] = _num(
+        M.encode_ringing_excess, dec_yuv[:n, 0], ref_yuv[:n, 0], src_yuv[:n, 0], ring
+    )
+
+    values["video_stream_bytes"] = measured(imageio.video_stream_bytes(capture.mp4))
+    values["file_bytes"] = measured(int(capture.mp4.stat().st_size))
+    return values, prov
+
+
+#: Family B's two rows, one in each block. Named here because the golden result
+#: fills both from one comparison, and a reader has to be able to see that the
+#: boolean and the number are the same evidence read two ways.
+GOLDEN_METRIC_KEY: str = "min_ssim_win8_vs_golden"
+GOLDEN_TRIPWIRE_KEY: str = "golden_identity"
+PAIRWISE_METRIC_KEY: str = "expression_min_pairwise_changed_px"
+#: A pairwise minimum needs two frames; every fixture pins at least two, so on
+#: a real capture this row is always measured (the render-side panel may not
+#: be null — `tests/test_bench_capture.py`).
+MIN_PINNED_FRAMES_FOR_PAIRWISE: int = 2
+
+
+def pinned_frames_min_pairwise_changed_px(capture: SceneCapture, times) -> Value:
+    """``expression_min_pairwise_changed_px`` for one scene: decode the pinned
+    frames from today's render and take the minimum over every pair of the
+    count of pixels that differ (an#98). On a two-frame scene that is the
+    pair's own change; `unavailable`, never zero, only when a scene pins a
+    single frame, which the fixture rule forbids."""
+    from itertools import combinations
+
+    from an.bench.png import read_png
+
+    if len(times) < MIN_PINNED_FRAMES_FOR_PAIRWISE:
+        return unavailable(
+            f"the scene pins {len(times)} frame(s); a pairwise minimum needs "
+            f"{MIN_PINNED_FRAMES_FOR_PAIRWISE}"
+        )
+    frames = {}
+    for ref in G.resolve_frames(capture, times):
+        frames[ref.index] = read_png(G.frame_png_path(capture, ref)).astype(int)
+    if len(frames) < MIN_PINNED_FRAMES_FOR_PAIRWISE:
+        return unavailable(
+            f"the scene's {len(times)} pinned times resolve to {len(frames)} distinct "
+            f"frame(s); a pairwise minimum needs {MIN_PINNED_FRAMES_FOR_PAIRWISE}"
+        )
+    best = None
+    for a, b in combinations(sorted(frames), 2):
+        changed = int((frames[a] != frames[b]).any(axis=-1).sum())
+        if best is None or changed < best[0]:
+            best = (changed, a, b)
+    changed, a, b = best
+    return measured(changed, closest_pair=[G.frame_key(a), G.frame_key(b)])
+
+
+#: The pan measurement (an#111). Metric and tripwire come from ONE measurement,
+#: as the golden pair does: the boolean and the number must be the same evidence
+#: read two ways, or a reader has to reconcile them.
+STAGE_METRIC_KEY: str = "stage_min_plane_ratio_gap"
+STAGE_TRIPWIRE_KEY: str = "stage_planes_parallaxed"
+
+#: The floor the tripwire fires below, set at HALF the first bless's measured
+#: minimum — the `expression_min_pairwise_changed_px` precedent followed
+#: literally.
+#:
+#: Measured on `stage_pan` at the first bless: **0.375**. Ratios are taken
+#: against the largest mover, so depths 0.25 / 1.0 / 2.0 report as
+#: 0.125 / 0.5 / 1.0 and the closest pair is far/mid. (An earlier draft of this
+#: comment said 0.75, which is the same measurement taken against the
+#: `depth == 1` plane — a reference the pixel half cannot see, which is why
+#: `_reference` is now always the largest mover.)
+STAGE_MIN_RATIO_GAP: float = 0.1875
+
+
+def _plane_colours(capture: SceneCapture) -> dict[str, int]:
+    """``{plane path: packed RGB}`` for every DECLARED plane in the staged scene.
+
+    Read from the document the browser actually loaded, for the same reason
+    `expect_visual_kinds` is: a fixture's own declaration is what the compiler
+    produced, and the staged JSON is the independent second opinion.
+
+    **Scoped by what the document SAYS, not by depth in the tree.** The first
+    version walked `scene.children[*].children[*]` and called every `rect` a
+    plane — which is also the shape of a procedural character's parts, so
+    `single_character` and `dialogue` reported three "planes" (`torso`,
+    `left_arm`, `right_arm`, all one colour) and the tripwire would have called
+    a scene with no stage a flattened stage. The docstring claimed the walk was
+    scoped to environment nodes; nothing in it was (an#111 review, H1).
+
+    The scoping is `asset_resolution`: an environment built from planes records
+    `resolved="planes"`, which is exactly the fact needed and is written by the
+    one place that knows it. A preset backdrop records `preset`/`store`/`default`
+    and its `sky`/`ground` rects are correctly ignored.
+
+    Keyed by full PATH, not bare name, so two environments each with a `sky`
+    cannot overwrite each other.
+    """
+    for shot in capture.shots:
+        doc = shot.scene_json
+        ids = {
+            entry.get("id")
+            for entry in doc.get("asset_resolution", []) or []
+            if entry.get("kind") == "environment" and entry.get("resolved") == "planes"
+        }
+        if not ids:
+            continue
+        out: dict[str, int] = {}
+        for env in doc.get("scene", {}).get("children", []) or []:
+            name = env.get("name") or ""
+            # …and every container an environment is split into (an#110's
+            # foreground container, an#343's `scope`): it names the
+            # environment by `scope`, or by its id plus the suffix.
+            owner = env.get("scope") or name.rsplit(FOREGROUND_SUFFIX, 1)[0]
+            if name not in ids and owner not in ids:
+                continue
+            # Keyed by the path the runtime indexes (an.stage.tree): a plane
+            # in a scoped container is `<env>/<plane>`.
+            for plane_path, child in walk(env):
+                if child is env or plane_path.count("/") != 1:
+                    continue
+                visual = child.get("visual") or {}
+                colour = visual.get("color")
+                if visual.get("kind") == "rect" and isinstance(colour, str):
+                    packed = _packed_hex(colour)
+                    if packed is not None:
+                        out[plane_path] = packed
+        if len(out) >= 2:
+            return out
+    return {}
+
+
+def _packed_hex(colour: str) -> int | None:
+    """``"#204080"`` -> ``0x204080``; anything else -> ``None``."""
+    text = colour.strip().lstrip("#")
+    if len(text) != 6:
+        return None
+    try:
+        return int(text, 16)
+    except ValueError:
+        return None
+
+
+def _stage_pan_values(capture: SceneCapture, times) -> tuple[Value, Value]:
+    """``(stage_min_plane_ratio_gap, stage_planes_parallaxed)`` for one scene.
+
+    Measured on the PRE-ENCODE PNGs, like every other family-B row: the mp4 is
+    `yuv420p`, so an exact-colour mask finds nothing in it (verified while
+    writing this — every plane read zero pixels).
+
+    `unavailable`, never zero, for a scene with fewer than two coloured planes:
+    a scene with nothing to compare has no ratio, and reporting that as a
+    flattened stage would fire the tripwire on every fixture in the corpus.
+    """
+    from an.bench.png import read_png
+    from an.bench.stage import ClippedPlane, measure_pan_pixels, min_ratio_gap
+
+    colours = _plane_colours(capture)
+    if len(colours) < 2:
+        detail = (
+            f"the scene stages {len(colours)} colour-filled plane(s); a ratio "
+            "needs two. Only a multiplane stage has a pan to measure."
+        )
+        return unavailable(detail), unavailable(detail)
+    refs = G.resolve_frames(capture, times)
+    if len(refs) < 2:
+        detail = (
+            f"the scene pins {len(refs)} distinct frame(s); a displacement needs two"
+        )
+        return unavailable(detail), unavailable(detail)
+    frames = tuple(read_png(G.frame_png_path(capture, r)) for r in refs[:2])
+    try:
+        measurement = measure_pan_pixels(frames, colours)
+    except ClippedPlane as e:
+        # NOT zero: a clipped plane means the instrument could not measure,
+        # and a tripwire that fires on its own failure cries wolf.
+        return unavailable(str(e)), unavailable(str(e))
+    if measurement.is_rigid and all(t.dx == 0 for t in measurement.tracks):
+        # Nothing moved at the probe column. That is what a zoom-only shot
+        # looks like — correctly, since the probe is chosen so a zoom cancels —
+        # and there is no ratio to report. `unavailable`, never zero: a
+        # tripwire that fires on a scene with no pan is crying wolf.
+        detail = (
+            "no plane moved at the probe column, so there is no displacement "
+            "ratio. A zoom cancels there by construction; only a translation "
+            "has a pan to measure."
+        )
+        return unavailable(detail), unavailable(detail)
+    gap = min_ratio_gap(measurement.ratios)
+    ratios = {k: round(v, 6) for k, v in measurement.ratios.items()}
+    return (
+        measured(round(gap, 6), ratios=ratios, reference=measurement.reference),
+        measured(
+            gap > STAGE_MIN_RATIO_GAP,
+            ratios=ratios,
+            floor=STAGE_MIN_RATIO_GAP,
+            detail=(
+                "every plane moved together — the stage panned as one rigid "
+                "image, which is what a flattened parallax looks like"
+                if gap <= STAGE_MIN_RATIO_GAP
+                else ""
+            ),
+        ),
+    )
+
+
+#: Said when a run blessed the goldens it would otherwise have compared against.
+JUST_BLESSED_DETAIL: str = (
+    "this run WROTE these goldens, so comparing against them is a tautology: "
+    "the identity holds by construction and no code could have failed it. Run "
+    "`an bench` again, without --bless, for a comparison that can fail."
+)
+
+
+def _golden_values(result: dict) -> tuple[Value, Value]:
+    """``(metric, tripwire)`` for one scene's golden result.
+
+    Both come from the same comparison. ``golden_identity`` is a change
+    detector and counts zero toward any criterion; ``min_ssim_win8_vs_golden``
+    is the magnitude beside it. Splitting them across the two blocks is what
+    keeps a boolean from being counted as a measurement.
+    """
+    state = result["state"]
+    if state == "gated":
+        value = gated(result["gate"], detail=result["detail"])
+        return value, value
+    if state == "unavailable":
+        value = unavailable(result["detail"])
+        return value, value
+    extra = {"changed_px": result["changed_px"], "max_delta": result["max_delta"]}
+    mismatch = result.get("shape_mismatch")
+    if mismatch:
+        # The golden was blessed at a different resolution, so there is no
+        # windowed SSIM to report — but the identity IS knowable, and it is
+        # False. Reporting the boolean and withholding the number is the split
+        # the two blocks exist for; substituting 0.0 would be a measurement
+        # nobody took, which is the unknown-is-not-zero failure this schema
+        # exists to prevent.
+        metric = unavailable(
+            "the committed golden has a different shape from today's frame "
+            f"({mismatch}); a windowed SSIM between them has no value. The "
+            "scene's resolution changed — re-bless deliberately."
+        )
+        return metric, measured(False, **extra, shape_mismatch=mismatch)
+    metric = measured(round(float(result["min_ssim_win8"]), 6), **extra)
+    tripwire = measured(bool(result["identical"]), **extra)
+    return metric, tripwire
+
+
+def naming_git_state(git: dict, *, blessed: bool, root: Path) -> dict:
+    """Which git state NAMES the row: the tree the run **left**, not the one it read.
+
+    :func:`run_bench` reads ``git_state`` once, *before* the corpus loop,
+    because that is the tree the pixels came from. A ``--bless`` run then WRITES
+    into that same tree inside the loop — the golden PNGs, and a bless record
+    whose ``blessed_at`` moves on every run — so by the time the row is named
+    the two are no longer one fact.
+
+    Named under the pre-bless state, a bless on a clean tree lands as
+    ``<date>-<sha>.json``: a filename claiming a commit whose tree that very run
+    then modified, which is exactly what the ``-dirty`` suffix exists to prevent
+    (:func:`an.bench.paths.ledger_path`). So the row records both — ``git`` is
+    what rendered, ``git_after_bless`` is what the run left behind — and the
+    *filename* follows the second. A non-bless run re-reads nothing.
+
+    Deliberately a plain function of ``blessed`` rather than an inline
+    conditional: it is the whole of the fix, and a guard for it must not have to
+    render the corpus to reach it.
+    """
+    return git_state(root) if blessed else git
+
+
+def shot_policy_provenance(shots) -> dict[str, dict[str, Any]]:
+    """The per-shot COMPILE POLICIES a scene rendered under, keyed by shot id.
+
+    Additive scene-provenance facts read off each staged ``scene_json``'s
+    ``meta``; ``shots`` is any iterable of objects with ``shot_id`` and
+    ``scene_json`` (a :class:`~an.bench.capture.ShotCapture`, or a stand-in).
+
+    - ``blink_phases`` (an#88): the per-entity blink phase each shot was
+      compiled with. A renamed corpus character re-phases every blink and
+      moves every pixel metric; this makes that a visible diff in the row
+      instead of an unexplained shift.
+    - ``step_hz`` (an#89): the stepped-timing policy each shot's tweens were
+      compiled under; ``None`` = smooth (the meta key is absent then, by the
+      serializer). Stepping moves ``scene_contract_sha256`` by construction —
+      the resampled keyframes ARE the contract — and this says the movement
+      was a timing policy, not a mystery.
+
+    >>> from types import SimpleNamespace as NS
+    >>> shot_policy_provenance([NS(shot_id="s1", scene_json={"meta": {"step_hz": 12.0, "blink_phases": {"a": 0.5}}}),
+    ...                         NS(shot_id="s2", scene_json={"meta": {}})])
+    {'blink_phases': {'s1': {'a': 0.5}, 's2': {}}, 'step_hz': {'s1': 12.0, 's2': None}, 'viseme_keyframes_per_second': {'s1': None, 's2': None}}
+    """
+    metas = {s.shot_id: (s.scene_json.get("meta") or {}) for s in shots}
+    return {
+        "blink_phases": {
+            sid: dict(m.get("blink_phases") or {}) for sid, m in metas.items()
+        },
+        "step_hz": {sid: m.get("step_hz") for sid, m in metas.items()},
+        "viseme_keyframes_per_second": {
+            s.shot_id: viseme_keyframes_per_second(s.scene_json) for s in shots
+        },
+    }
+
+
+def viseme_keyframes_per_second(scene_json: dict) -> float | None:
+    """Viseme keyframes per second of dialogue in a compiled shot, or ``None``
+    when nothing speaks (an#97).
+
+    Counted over the ``__viseme__`` clips: keyframes minus one per channel
+    (the trailing rest is an invariant, not a decision — today's emission has
+    one channel per clip), over the clips' summed durations, which are the
+    frame-ceiled windows rather than the lines' exact lengths (a small
+    downward bias, the same for every row). Keyframes, not distinct shapes — a repeated code (the carried
+    rest before the terminal one) counts. The co-articulation passes bring
+    this below the RAW provider track's rate; against the old drop-not-hold
+    condenser it can rise, because that loop was cheaper only by dropping
+    shapes. Recorded as provenance rather than a panel metric because no lever
+    in the registry moves it.
+
+    >>> viseme_keyframes_per_second({"animations": {}})
+    >>> viseme_keyframes_per_second({"animations": {"__viseme__s_0_m": {"duration": 2.0,
+    ...     "channels": [{"keyframes": [{"time": 0}, {"time": 0.5}, {"time": 1.0}, {"time": 2.0}]}]}}})
+    1.5
+    """
+    changes = 0
+    seconds = 0.0
+    for name, clip in (scene_json.get("animations") or {}).items():
+        if not str(name).startswith("__viseme__"):
+            continue
+        for ch in clip.get("channels") or []:
+            changes += max(0, len(ch.get("keyframes") or []) - 1)
+        seconds += float(clip.get("duration") or 0.0)
+    if seconds <= 0:
+        return None
+    return changes / seconds
+
+
+def run_bench(
+    *,
+    scenes: dict[str, Fixture] | None = None,
+    out: Path | None = None,
+    keep_render: Path | None = None,
+    write: bool = True,
+    bless: str = "",
+    golden_root: Path | None = None,
+    lossless_scratch_root: Path | None = None,
+    root: Path | None = None,
+) -> dict:
+    """Render the corpus, compute the panel, and (by default) write the row.
+
+    ``bless`` is the **reason** a re-bless is being made, and passing it is what
+    turns the run into a bless. One argument rather than a ``--bless`` flag plus
+    a ``--reason`` string, so "blessed with no recorded reason" — the failure
+    this rule exists to prevent — is not expressible.
+
+    ``lossless_scratch_root`` is forwarded to :func:`_lossless_scratch_dir` for
+    every scene (an#143) — a caller may point it at a shared parent to prove
+    that two concurrent lossless-leg encodes still get distinct scratch
+    directories under it; production code has no reason to pass it.
+
+    ``golden_root`` redirects where goldens are read and written, and it exists
+    because without it a test of the bless path has no choice but to overwrite
+    the committed corpus. That is not hypothetical: the first version of an#38's
+    bless test did exactly that, replacing a real bless record's reason with the
+    test's own.
+
+    ``root`` is the source checkout whose corpus ``scenes`` names (default: ``an``'s
+    own); a genre package runs its own corpus with its own checkout (``cutan.bench``).
+    """
+    root = Path(root) if root is not None else repo_root()
+    goldens = Path(golden_root) if golden_root is not None else root
+    fixtures = scenes if scenes is not None else DFLT_FIXTURES
+    git = git_state(root)
+    # Probed ONCE, before the loop: the golden path keys on the Chromium build,
+    # so the gate needs it per scene, and probing again at the end would launch
+    # a second browser that could in principle report a different build from the
+    # one that actually rendered.
+    browser = environment.probe_browser()
+    chromium_build = G.chromium_build_of({"render_side": browser})
+
+    scene_blocks: dict[str, dict] = {}
+    captures: list[SceneCapture] = []
+    blessed: dict[str, dict] = {}
+    # Read while the throwaway tree still exists: the SEI is the field that
+    # decides whether two rows may be compared at all, and the tree is deleted
+    # before the run-level provenance is assembled.
+    sei: str | None = None
+    #: The pixel format the deliveries actually are, measured off the files
+    #: while the throwaway trees still exist — `environment_record` runs after
+    #: the cleanup, and it is a comparability key, so it cannot be re-derived
+    #: from a module global that the `ctx.pix_fmt` seam bypasses (an#72).
+    delivered_formats: set[str] = set()
+
+    try:
+        for name, fixture in fixtures.items():
+            capture = capture_fixture(
+                name, fixture, repo_root=root, keep_render=keep_render
+            )
+            captures.append(capture)
+            delivered_formats.add(imageio.delivered_pix_fmt(capture.mp4))
+            if sei is None:
+                sei = environment.x264_sei(capture.mp4)
+
+            values, scene_prov = _scene_metrics(
+                capture, lossless_scratch_root=lossless_scratch_root
+            )
+            scene_contract = contract.scenes_contract_sha256(
+                [s.scene_json for s in capture.shots]
+            )
+            expected = sum(
+                expected_frame_count(s.duration, capture.fps)
+                for s in capture.frame_segments
+            )
+
+            if bless:
+                blessed[name] = G.bless_scene(
+                    capture,
+                    times=fixture.golden_frames,
+                    chromium_build=chromium_build,
+                    reason=bless,
+                    git=git,
+                    scene_contract_sha256=scene_contract,
+                    golden_note=fixture.golden_note,
+                    root=goldens,
+                )
+                golden = {
+                    "state": "gated",
+                    "gate": G.GATE_JUST_BLESSED,
+                    "detail": JUST_BLESSED_DETAIL,
+                }
+            elif chromium_build is None:
+                golden = {
+                    "state": "gated",
+                    "gate": G.GATE_BUILD_UNKNOWN,
+                    "detail": (
+                        "the Chromium build could not be determined, and every "
+                        "golden path keys on it, so no golden could be looked up. "
+                        f"probe: {browser.get('error', 'no chromium_build field')}"
+                    ),
+                }
+            else:
+                golden = G.compare_scene(
+                    capture,
+                    times=fixture.golden_frames,
+                    chromium_build=chromium_build,
+                    root=goldens,
+                )
+            metric_value, tripwire_value = _golden_values(golden)
+            values[GOLDEN_METRIC_KEY] = metric_value
+            values[PAIRWISE_METRIC_KEY] = pinned_frames_min_pairwise_changed_px(
+                capture, fixture.golden_frames
+            )
+            stage_metric, stage_tripwire = _stage_pan_values(
+                capture, fixture.golden_frames
+            )
+            values[STAGE_METRIC_KEY] = stage_metric
+            values[STAGE_TRIPWIRE_KEY] = stage_tripwire
+            scene_prov["golden"] = {
+                **golden,
+                "chromium_build": chromium_build,
+                "declared_times": list(fixture.golden_frames),
+                "what_moves": fixture.golden_note,
+                "note": (
+                    "DIAGNOSTICS, not comparability keys. `an bench --compare` "
+                    "keys on named provenance fields — the scene contract hash, "
+                    "the resolution, the mask parameters, the encode command, "
+                    "the x264 SEI and the ISA — never on this block's equality. "
+                    "`today_sha256` here is a per-run MEASUREMENT and changes "
+                    "exactly when the render changes, which is when two rows are "
+                    "most worth comparing."
+                ),
+            }
+
+            provenance = {
+                "source": capture.source,
+                "prepared": capture.prepared,
+                "scene_contract_sha256": scene_contract,
+                "shot_contract_sha256": {
+                    s.shot_id: contract.scene_contract_sha256(s.scene_json)
+                    for s in capture.shots
+                },
+                **shot_policy_provenance(capture.shots),
+                "n_drawable_entities": sum(
+                    contract.count_drawable_entities(s.scene_json)
+                    for s in capture.shots
+                ),
+                "n_declared_entity_refs": capture.n_declared_entity_refs,
+                "n_nodes": sum(
+                    contract.count_nodes(s.scene_json) for s in capture.shots
+                ),
+                "n_frames": expected,
+                "resolution": list(capture.resolution),
+                "fps": capture.fps,
+                "shot_count": len(capture.shots),
+                "shot_order": [s.shot_id for s in capture.shots],
+                "shots": [
+                    {
+                        "id": s.shot_id,
+                        "frames": s.frame_count,
+                        "duration": s.duration,
+                        # What the pixels on disk actually measured, as opposed
+                        # to `resolution`, which is what the scene declared.
+                        # Recorded so a reader can see the check ran and what it
+                        # examined, not only that it did not fire.
+                        "frame_sizes": [list(size) for size in s.frame_sizes],
+                    }
+                    for s in capture.shots
+                ],
+                "visual_kinds": sorted(capture.visual_kinds),
+                "asset_resolution": capture.asset_resolution,
+                "audio_cache": capture.audio_cache,
+                "wall_seconds": capture.wall_seconds,
+                # Beside the timing it explains: the canvas path is several
+                # times faster and moves no pixel (an#192), so wall_seconds on
+                # either side of the default flip are not comparable.
+                "capture": capture.capture,
+                **scene_prov,
+            }
+            if provenance["frames_on_disk"] != expected:
+                raise BenchError(
+                    f"{name}: rendered {provenance['frames_on_disk']} frames but the "
+                    f"scene declares {expected}. ffmpeg's image2 demuxer reads the "
+                    "contiguous run from 0, so a mismatch means one leg of every "
+                    "encode-side metric is a different length from the other."
+                )
+            scene_blocks[name] = build_scene_block(
+                provenance=provenance,
+                metrics=values,
+                tripwires={GOLDEN_TRIPWIRE_KEY: tripwire_value},
+            )
+    finally:
+        if keep_render is None:
+            for capture in captures:
+                cleanup(capture)
+
+    # Computed AFTER the loop, which is where a bless writes. `blessed` is
+    # non-empty exactly when this run wrote goldens.
+    naming_git = naming_git_state(git, blessed=bool(blessed), root=root)
+
+    ledger = build_ledger(
+        provenance={
+            "git": git,
+            **({"git_after_bless": naming_git} if blessed else {}),
+            "render_kwargs": dict(BENCH_RENDER_KWARGS),
+            "environment": environment_record(
+                pix_fmt=_one_delivered_format(delivered_formats),
+                x264_sei=sei,
+                browser=browser,
+            ),
+            **({"blessed": blessed} if blessed else {}),
+            "encode_command_source": (
+                "an.stage.render._ffmpeg_mux + DETERMINISTIC_X264_ARGS"
+            ),
+            "decode_commands": {
+                "source_rgb": imageio.source_rgb_command(Path("<frames>")),
+                "source_yuv444": imageio.source_yuv_command(Path("<frames>")),
+                "decoded_rgb": imageio.decoded_rgb_command(Path("<mp4>")),
+                "decoded_yuv444": imageio.decoded_yuv_command(Path("<mp4>")),
+            },
+        },
+        scenes=scene_blocks,
+    )
+    if write:
+        path = Path(out) if out else ledger_path(root=root, git=naming_git)
+        write_ledger(ledger, path)
+        ledger["_written_to"] = str(path)
+    return ledger
+
+
+def _golden_failure_lines(name: str, block: dict) -> list[str]:
+    """The loud block a fired golden gets, and nothing at all otherwise.
+
+    A tripwire that fired is the one line in the panel a reader must not scroll
+    past, and a lone ``False`` in a column of floats is not that. What a
+    reviewer needs next is the magnitude, which file to look at, what was
+    supposed to move, and the command — so the panel prints all four rather
+    than leaving them to be derived.
+    """
+    row = (block.get("tripwires") or {}).get(GOLDEN_TRIPWIRE_KEY) or {}
+    if row.get("state") != "measured" or row.get("value") is not False:
+        return []
+    golden = (block.get("provenance") or {}).get("golden") or {}
+    changed = row.get("changed_px")
+    delta = row.get("max_delta")
+    magnitude = (
+        f"{changed} px changed, max delta {delta}"
+        if changed is not None
+        else "the frames have DIFFERENT SHAPES, so there is no pixel count"
+    )
+    lines = [f"  GOLDEN MISMATCH in {name}: {magnitude}"]
+    for frame in golden.get("frames") or []:
+        if frame.get("state") == "compared" and not frame.get("identical"):
+            lines.append(
+                f"    {frame['frame_key']}  t={frame['time']}s  "
+                f"{frame.get('changed_px')} px  "
+                f"min_ssim_win8 {frame.get('min_ssim_win8')}  {frame.get('golden')}"
+            )
+    lines.append(
+        f"    what should move between the two blessed frames: "
+        f"{golden.get('what_moves') or '(unrecorded)'}"
+    )
+    lines.append(
+        "    if this change is intended, look at the PNG diff FIRST (GitHub "
+        "renders 2-up, swipe and onion skin), then:"
+    )
+    lines.append(f'      an bench --scenes {name} --bless "<why this picture changed>"')
+    return lines
+
+
+def format_panel(ledger: dict) -> str:
+    """A human-readable digest of a row — the thing `an bench` prints."""
+    lines: list[str] = []
+    for name, block in sorted((ledger.get("scenes") or {}).items()):
+        prov = block["provenance"]
+        lines.append(
+            f"{name}  {prov['resolution'][0]}x{prov['resolution'][1]} @{prov['fps']}fps  "
+            f"{prov['n_frames']} frames  visuals={','.join(prov['visual_kinds'])}"
+        )
+        lines.append(
+            f"  contract {prov['scene_contract_sha256'][:16]}  "
+            f"edge {prov.get('masks', {}).get('edge', {}).get('fraction', '?')}  "
+            f"flat {prov.get('masks', {}).get('flat', {}).get('fraction', '?')}"
+        )
+        for key, row in block["metrics"].items():
+            state = row["state"]
+            shown = (
+                row["value"]
+                if state == "measured"
+                else f"{state}({row.get('gate') or row.get('detail', '')[:40]})"
+            )
+            lines.append(f"    [{row['side'][:3]}/{row['family']}] {key:32s} {shown}")
+        for key, row in block["tripwires"].items():
+            # NOT `f"{row['state']}({row.get('gate')})"`. A measured tripwire
+            # carries no gate, so that spelling printed `measured(None)` — the
+            # same eight characters whether the gate held or fired, in the one
+            # place a human actually looks after `an bench`.
+            if row["state"] != "measured":
+                shown = f"{row['state']}({row.get('gate')})"
+            else:
+                shown = "ok" if row["value"] else "FIRED"
+            lines.append(f"    [tripwire] {key:32s} {shown}")
+        lines.extend(_golden_failure_lines(name, block))
+    if "_written_to" in ledger:
+        lines.append(f"\nwrote {ledger['_written_to']}")
+    return "\n".join(lines)

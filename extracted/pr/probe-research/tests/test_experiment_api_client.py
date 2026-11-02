@@ -779,7 +779,7 @@ def test_the_cli_looks_in_the_active_project_first(app, tmp_path, monkeypatch):
 
 
 def test_backfill_counts_every_experiment_page():
-    from probe.cli.backfill import count_landed
+    from probe.cli.imports.folder.flow.landed import count_landed
     from probe.sdk.delivery.transport.transport import Page
 
     class Stub:
@@ -796,7 +796,7 @@ def test_backfill_counts_every_experiment_page():
             return Page(items=[{"id": "e500"}], next_cursor=None)
 
     stub = Stub()
-    import probe.cli.backfill as backfill
+    import probe.cli.imports.folder as backfill
 
     original = backfill._project_id
     backfill._project_id = lambda client, project: P

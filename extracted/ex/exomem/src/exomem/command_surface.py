@@ -1,0 +1,1523 @@
+"""Command-surface metadata shared by MCP, REST, and CLI adapters."""
+
+from __future__ import annotations
+
+import functools
+import hashlib
+import inspect
+import json
+import logging
+import threading
+import time
+import types
+import typing
+import uuid
+from collections.abc import Callable, Iterable, Mapping
+from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+
+from mcp.types import ToolAnnotations
+from pydantic import Field, TypeAdapter, ValidationError, WithJsonSchema
+
+from . import (
+    activation_result,
+    call_spans,
+    capabilities,
+    operation_entries,
+    request_budget,
+    reserved_paths,
+)
+from .call_spans import (  # noqa: F401 - re-exported for existing importers
+    pop_call_spans,
+    record_span,
+    span,
+)
+from .governance import operations as governance_operations
+from .mutation_terminal import ResponseDetail
+
+_log = logging.getLogger(__name__)
+
+# Namespaced MCP tools/call metadata is transport state, never a tool argument.
+MCP_IDEMPOTENCY_META_KEY = "io.exomem/idempotency_key"
+
+# Signal channel from the synchronous MCP tool wrapper (below, runs in
+# FastMCP's anyio threadpool) to `CallTraceMiddleware` (server.py, runs in the
+# async request task): a ContextVar set inside the wrapper does NOT propagate
+# back to the middleware once the threadpool call returns, so the wrapper
+# leaves a bounded, lock-protected breadcrumb here instead, keyed by request
+# id. `mcp_request_id()` accepts a client-supplied `x-exomem-request-id`
+# verbatim once it is UUIDv4-shaped — that shape is validated, not uniqueness
+# — so two concurrent calls can legitimately share one request id. Each
+# request id therefore maps to a FIFO list of failures rather than a single
+# entry: the middleware pops the oldest one per completed call, so N
+# concurrent failing calls sharing an id each get their own failure logged
+# instead of the second silently clobbering the first. The middleware pops
+# unconditionally (whether or not an entry is present) so nothing can leak
+# indefinitely; a TTL sweep and a total-size bound are further independent
+# guards in case a pop is ever missed (e.g. a caller that never reaches the
+# middleware, such as a direct test harness).
+_TOOL_FAILURES_LOCK = threading.Lock()
+_TOOL_FAILURES: dict[str, list[dict[str, object]]] = {}
+_TOOL_FAILURE_TTL_SECONDS = 300.0
+_TOOL_FAILURES_MAX_TOTAL = 1000
+
+# Per-call signal key, defined in `call_spans` so the phase timers and this
+# failure breadcrumb key off one token rather than two definitions that must
+# agree. Re-exported under the original private name: every reader of this
+# module already knows it by that name.
+_MCP_CALL_TOKEN = call_spans.MCP_CALL_TOKEN
+
+
+def _sweep_tool_failures_locked(now: float) -> None:
+    empty_keys = []
+    for request_id, entries in _TOOL_FAILURES.items():
+        entries[:] = [entry for entry in entries if now - entry["at"] <= _TOOL_FAILURE_TTL_SECONDS]
+        if not entries:
+            empty_keys.append(request_id)
+    for request_id in empty_keys:
+        _TOOL_FAILURES.pop(request_id, None)
+
+
+def _evict_oldest_entry_locked() -> None:
+    """Drop the globally oldest recorded failure to bound total memory."""
+    oldest_key = None
+    oldest_at = None
+    for request_id, entries in _TOOL_FAILURES.items():
+        if entries and (oldest_at is None or entries[0]["at"] < oldest_at):
+            oldest_key, oldest_at = request_id, entries[0]["at"]
+    if oldest_key is not None:
+        entries = _TOOL_FAILURES[oldest_key]
+        entries.pop(0)
+        if not entries:
+            _TOOL_FAILURES.pop(oldest_key, None)
+
+
+def _record_tool_failure(request_id: str, code: str) -> None:
+    try:
+        now = time.monotonic()
+        with _TOOL_FAILURES_LOCK:
+            _sweep_tool_failures_locked(now)
+            total = sum(len(entries) for entries in _TOOL_FAILURES.values())
+            if total >= _TOOL_FAILURES_MAX_TOTAL:
+                _evict_oldest_entry_locked()
+            _TOOL_FAILURES.setdefault(request_id, []).append({"code": code, "at": now})
+    except Exception:  # noqa: BLE001 - the signal channel must never break a tool call
+        pass
+
+
+def pop_tool_failure(request_id: str) -> dict[str, object] | None:
+    """Pop and return the OLDEST recorded failure for `request_id`, if any.
+
+    FIFO per request id: two concurrent calls sharing a (client-supplied)
+    request id each pop their own failure in the order they were recorded.
+    Unconditional: call this exactly once per completed MCP call regardless
+    of outcome, so a call that never failed simply pops `None`.
+    """
+    try:
+        with _TOOL_FAILURES_LOCK:
+            _sweep_tool_failures_locked(time.monotonic())
+            entries = _TOOL_FAILURES.get(request_id)
+            if not entries:
+                return None
+            entry = entries.pop(0)
+            if not entries:
+                _TOOL_FAILURES.pop(request_id, None)
+            return entry
+    except Exception:  # noqa: BLE001 - the signal channel must never break a tool call
+        return None
+
+
+def _scope_kind(retry_scope: str | None) -> str:
+    """A content-free descriptor of the caller identity kind, never the value."""
+    if not retry_scope:
+        return "none"
+    return retry_scope.split(":", 1)[0]
+
+
+def _retry_scope_hash(retry_scope: str | None) -> str | None:
+    """A short, stable correlation hash for `retry_scope` — never the value.
+
+    `retry_scope` is already itself a privacy-safe hash-based identifier
+    (e.g. `bearer:<sha256>`), so this is a hash-of-a-hash purely to give log
+    readers a short, consistent token for spotting repeated retries of the
+    same (tool, scope) pair without re-deriving or exposing the identity.
+    """
+    if not retry_scope:
+        return None
+    return hashlib.sha256(retry_scope.encode("utf-8")).hexdigest()[:16]
+
+
+def _log_tool_failure(
+    *,
+    tool: str,
+    request_id: str,
+    code: str,
+    duration_ms: float,
+    message: str,
+    retry_scope: str | None = None,
+) -> None:
+    try:
+        from . import metrics
+        from .log_events import log_event
+
+        log_event(
+            _log,
+            logging.WARNING,
+            "tool_failure",
+            fields={
+                "tool": tool,
+                "request_id": request_id,
+                "code": code,
+                "duration_ms": duration_ms,
+                "scope": _scope_kind(retry_scope),
+                "retry_scope_hash": _retry_scope_hash(retry_scope),
+            },
+            content={"message": str(message)[:300]},
+        )
+        metrics.inc_counter("exomem_tool_calls_total", {"tool": tool, "outcome": "failure"})
+        metrics.inc_counter("exomem_tool_failures_total", {"tool": tool, "code": code})
+        metrics.observe_duration_ms("exomem_tool_duration_ms", duration_ms, {"tool": tool})
+    except Exception:  # noqa: BLE001 - observability must never break a tool call
+        pass
+    _record_tool_failure(_MCP_CALL_TOKEN.get() or request_id, code)
+
+
+def _log_tool_success(
+    *, tool: str, duration_ms: float, retry_scope: str | None = None
+) -> None:
+    """Count a successful MCP tool call. Exactly one of `_log_tool_success`
+    or `_log_tool_failure` runs per call, both from this same wrapper, so a
+    call is counted exactly once."""
+    try:
+        from . import metrics
+        from .log_events import log_event
+
+        log_event(
+            _log,
+            logging.DEBUG,
+            "tool_success",
+            fields={
+                "tool": tool,
+                "duration_ms": duration_ms,
+                "retry_scope_hash": _retry_scope_hash(retry_scope),
+            },
+        )
+        metrics.inc_counter("exomem_tool_calls_total", {"tool": tool, "outcome": "success"})
+        metrics.observe_duration_ms("exomem_tool_duration_ms", duration_ms, {"tool": tool})
+    except Exception:  # noqa: BLE001 - observability must never break a tool call
+        pass
+
+# Text-write ops -> the argument field(s) whose value must not be a base64 binary
+# blob. The model pays for those characters as output tokens before the request
+# arrives, so they are rejected at every write boundary (MCP middleware + REST
+# coercion) and the caller is pointed at /upload.
+GUARDED_WRITE_FIELDS: dict[str, tuple[str, ...]] = {
+    "add": ("content",),
+    "note": ("content",),
+    "edit": ("new_body", "new_string"),
+    "replace": ("content",),
+    "create_file": ("content",),
+    "append_to_file": ("content",),
+    "preserve": ("content",),
+    "remember": ("content",),
+    "capture_source": ("content",),
+    "preserve_evidence": ("content",),
+    "edit_memory": ("new_body", "new_string"),
+    "observe_memory": ("content",),
+    "replace_memory": ("content",),
+    "manage_memory_file": ("content",),
+    "record_memory": ("manifest_text", "body"),
+    "plan_memory": ("manifest_text", "body"),
+    "episode_memory": ("subject", "summary"),
+}
+
+
+_MCP_ACTIVATION_RESULT: ContextVar[activation_result.Observation | None] = ContextVar(
+    "exomem_mcp_activation_result", default=None
+)
+
+
+def current_activation_result() -> activation_result.Observation | None:
+    return _MCP_ACTIVATION_RESULT.get()
+
+
+_MCP_REQUEST_ID: ContextVar[str | None] = ContextVar(
+    "exomem_mcp_request_id", default=None
+)
+
+
+def governance_tool_is_destructive(
+    registry: Mapping[str, governance_operations.OperationSpec] = governance_operations.OPERATION_SPECS,
+) -> bool:
+    """Whether any registered governance operation overwrites policy state."""
+    return any(
+        spec.destructive or any(variant.destructive for variant in spec.variants)
+        for spec in registry.values()
+    )
+
+
+# Write ops whose mutation OVERWRITES or REMOVES existing vault content, as opposed
+# to purely additive writes (add / note / create_file / append_to_file / link /
+# preserve / recover_from_trash / reconcile). Drives the MCP `destructiveHint` so a
+# cautious client does not badge an append as destructive.
+DESTRUCTIVE_OPS: frozenset[str] = frozenset(
+    {
+        "edit",
+        "replace",
+        "delete",
+        "move_file",
+        "audit_fix",
+        "edit_memory",
+        "observe_memory",
+        "replace_memory",
+        "manage_memory_file",
+        "maintain_memory",
+        "schema_memory",
+        "configure_memory",
+        "record_memory",
+        "plan_memory",
+        "episode_memory",
+        "adoption_studio",
+        # Discards staged originals and pauses assistants: both are irreversible
+        # for the owner, so a client must prompt before it runs the tool.
+        "transfer_memory",
+        *({"govern_memory"} if governance_tool_is_destructive() else set()),
+    }
+)
+
+#: Who executes a command's work. `cell` is every command that runs in the vault's
+#: own process. `control_plane` marks a command the Cloud gateway serves from the
+#: control plane: a cell lists it so one registry feeds schemas, annotations and
+#: budgets, and refuses a call that reaches it. A closed protocol set, not vocabulary.
+EXECUTORS: tuple[str, ...] = ("cell", "control_plane")
+
+# These operations fetch caller-supplied temporary HTTPS artifact handles.
+# A URL recorded only as source provenance does not make a tool open-world.
+OPEN_WORLD_OPS: frozenset[str] = frozenset({"capture_source", "preserve_artifacts"})
+
+
+def mcp_tool_annotations(
+    name: str, *, read_only: bool, open_world: bool = False, idempotent: bool = False,
+    public_title: str | None = None,
+) -> ToolAnnotations:
+    """Discovery hints for the whole tool; invocation authorization stays separate."""
+    return ToolAnnotations(
+        title=public_title or name.replace("_", " ").title(),
+        readOnlyHint=read_only,
+        destructiveHint=False if read_only else (name in DESTRUCTIVE_OPS),
+        idempotentHint=idempotent,
+        openWorldHint=open_world,
+    )
+
+
+@dataclass(frozen=True)
+class Param:
+    """One operation parameter, surface-agnostic."""
+
+    name: str
+    type: str = "str"
+    required: bool = False
+    help: str = ""
+    cli_positional: bool = False
+    choices: tuple[str, ...] = ()
+    schema: Mapping[str, typing.Any] | None = field(default=None, compare=False, hash=False)
+    schema_description: str = field(default="", compare=False, hash=False)
+    schema_default: object = field(
+        default=inspect.Parameter.empty, compare=False, hash=False
+    )
+
+
+@dataclass(frozen=True)
+class ArgumentRules:
+    """A grouped command's own argument checks, shared by every spelling of the command."""
+
+    #: Raises the command's refusal unless `arguments` suit the selected action.
+    validate: Callable[[object, Mapping[str, typing.Any]], None]
+    #: Raises the command's refusal with `detail` as its explanation.
+    refuse: Callable[[str], typing.NoReturn]
+
+
+@dataclass(frozen=True)
+class Command:
+    name: str
+    leaf: Callable
+    params: tuple[Param, ...]
+    surfaces: frozenset
+    tier: int = 1
+    cli_writes: bool = False
+    needs_schema: bool = False
+    description: str = ""
+    product_surface: str = "advanced"
+    product_actions: tuple[str, ...] = ()
+    first_run_safe: bool = False
+    routes: tuple[str, ...] = ()
+    response_detail: ResponseDetail | None = None
+    path_roles: tuple[reserved_paths.PathRole, ...] = ()
+    #: A direct read whose refusals a restricted caller receives no sooner than
+    #: `projection_timing.RESTRICTED_REFUSAL_FLOOR_MS` after dispatch.
+    restricted_refusal_floor: bool = False
+    mcp_meta: Mapping[str, tuple[str, ...]] = field(
+        default_factory=lambda: types.MappingProxyType({}), hash=False
+    )
+    mcp_annotation_pin: Mapping[str, object] | None = field(
+        default=None, compare=False, hash=False
+    )
+    preferred_name: str | None = None
+    public_title: str | None = None
+    executor: str = "cell"
+    #: Public MCP tool spellings that split this command's selector across tools.
+    #: Each rendering resolves back to this command before authorization.
+    renderings: tuple[operation_entries.Rendering, ...] = field(
+        default=(), compare=False, hash=False
+    )
+    #: The command's own argument rules, which every spelling of it shares.
+    argument_rules: ArgumentRules | None = field(default=None, compare=False, hash=False)
+
+    def __post_init__(self) -> None:
+        if self.renderings and self.argument_rules is None:
+            raise ValueError(f"a command with renderings needs argument rules: {self.name}")
+        if self.executor not in EXECUTORS:
+            raise ValueError(f"unknown command executor {self.executor!r}: {self.name}")
+
+    @property
+    def cloud_only(self) -> bool:
+        """True when only a Cloud surface lists the command.
+
+        A control-plane command has no meaning where no control plane serves it, so the
+        executor alone declares the Cloud-only listing; there is no second flag to drift.
+        """
+        return self.executor == "control_plane"
+
+    @property
+    def public_name(self) -> str:
+        """Preferred discovery spelling; ``name`` remains the execution identity."""
+        return self.preferred_name or self.name
+
+    @property
+    def callable_names(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys((self.public_name, self.name)))
+
+    @property
+    def doc(self) -> str:
+        """The full description Claude reads — the leaf's own docstring."""
+        return self.description or (self.leaf.__doc__ or "")
+
+    @property
+    def guarded_fields(self) -> tuple[str, ...]:
+        """Text fields whose value must not be a base64 binary blob."""
+        return GUARDED_WRITE_FIELDS.get(self.name, ())
+
+    @property
+    def read_only(self) -> bool:
+        """True for non-mutating ops (search / get / list)."""
+        return not self.cli_writes
+
+    @property
+    def mcp_annotations(self) -> ToolAnnotations:
+        """MCP behaviour hints for this command's generated tool."""
+        if self.mcp_annotation_pin is not None:
+            return ToolAnnotations(**dict(self.mcp_annotation_pin))
+        return mcp_tool_annotations(
+            self.name, read_only=self.read_only, open_world=self.name in OPEN_WORLD_OPS,
+            public_title=self.public_title or self.public_name.replace("_", " ").title(),
+        )
+
+
+def gateway_required_error(name: str):
+    """The refusal for a control-plane command that reached a cell.
+
+    Shared by the wrapper and the leaf, so the direct-call envelope has one text.
+    """
+    from .cli_ops import OpError
+
+    return OpError(
+        "CLOUD_GATEWAY_REQUIRED",
+        f"`{name}` runs on the Exomem Cloud control plane, and this call did not pass "
+        "through a gateway that serves it. Nothing was read or changed.",
+        "Call it through your Exomem Cloud connector; if the error persists, the "
+        "operator has not enabled transfer tools, so use Home to import or export.",
+    )
+
+
+def resolve_command(name: str, commands: Iterable[Command]) -> Command | None:
+    """Resolve either spelling only within the adapter's already-filtered registry."""
+    return next((command for command in commands if name in command.callable_names), None)
+
+
+ToolShape = operation_entries.ToolShape
+TOOL_SHAPES = operation_entries.TOOL_SHAPES
+DEFAULT_TOOL_SHAPE = operation_entries.DEFAULT_TOOL_SHAPE
+
+
+def listed_names(command: Command, shape: str) -> tuple[str, ...]:
+    """The names MCP discovery lists for a command on a surface of this shape.
+
+    A command with renderings is listed by them, and its own name stays callable but
+    hidden; every other command, and every command on the `grouped` shape, is listed
+    under its public name.
+    """
+    if command.renderings and shape != "grouped":
+        return tuple(rendering.name for rendering in command.renderings)
+    return (command.public_name,)
+
+
+class UnresolvedInvocation(LookupError):
+    """A public tool name that neither a command spelling nor a rendering resolves."""
+
+
+def find_rendering(
+    public_name: str, commands: Iterable[Command], *, shape: str = DEFAULT_TOOL_SHAPE,
+    kind: object = None,
+) -> tuple[Command, operation_entries.Rendering] | None:
+    """The command and rendering that `public_name` spells, when this shape lists renderings."""
+    if shape == "grouped":
+        return None
+    for command in commands:
+        for rendering in command.renderings:
+            if rendering.name == public_name and (kind is None or kind in rendering.kinds):
+                return command, rendering
+    return None
+
+
+def resolve_invocation(
+    public_name: str,
+    arguments: Mapping[str, typing.Any],
+    commands: Iterable[Command],
+    *,
+    shape: str = DEFAULT_TOOL_SHAPE,
+    passthrough: frozenset[str] = frozenset(),
+    strict: bool = True,
+) -> tuple[Command, dict[str, typing.Any]]:
+    """Resolve one public call to its command and the arguments a direct call would carry.
+
+    A command spelling resolves to itself with its arguments untouched. A rendering
+    resolves to its grouped command with the selector and fields flattened, after the
+    command's own argument rules accept them for the variant this rendering carries
+    and each value has the type the grouped command publishes for it.
+    The caller then dispatches the command exactly as if it had been called directly.
+    `passthrough` names transport-owned top-level keys that cross untouched. `strict`
+    is the server's `strict_input_validation`, which FastMCP applies to the grouped call.
+
+    Raises the command's own refusal for arguments the rendering does not carry, and
+    `UnresolvedInvocation` for a name nothing resolves: a name that routes no call
+    must fail closed rather than reach a default.
+    """
+    commands = tuple(commands)
+    command = resolve_command(public_name, commands)
+    nested = isinstance(arguments.get("operation"), Mapping)
+    found = find_rendering(public_name, commands, shape=shape)
+    if command is not None and (found is None or not nested and "operation" not in arguments):
+        return command, dict(arguments)
+    # A grouped selector remains a scalar. Its explicit scalar spelling is compatibility.
+    if command is not None and found is not None and not nested and any(
+        rendering.selector == "operation" for rendering in command.renderings
+    ) and isinstance(arguments.get("operation"), str):
+        return command, dict(arguments)
+    if found is None:
+        raise UnresolvedInvocation(public_name)
+    from .cli_ops import OpError
+
+    operation = arguments.get("operation")
+    kind = operation.get("kind") if isinstance(operation, Mapping) else None
+    selected = find_rendering(public_name, commands, shape=shape, kind=kind) if isinstance(kind, str) else None
+    if selected is None and isinstance(kind, str):
+        # A known sibling operation keeps its target and its wrong-tool refusal.
+        siblings = [(command, rendering) for command in commands for rendering in command.renderings
+                    if rendering.name == public_name
+                    and any(kind in other.kinds for other in command.renderings)]
+        if len(siblings) == 1:
+            selected = siblings[0]
+    if selected is None:
+        contributors = [(command, rendering) for command in commands for rendering in command.renderings
+                        if rendering.name == public_name]
+        if len(contributors) == 1:
+            # One source owns the refusal format, but an invalid kind still owns no execution target.
+            contributors[0][0].argument_rules.refuse(f"{public_name} needs a valid operation.kind")
+        raise OpError("INVALID_OPERATION", f"{public_name} needs a valid operation.kind")
+    command, rendering = selected
+    rules = command.argument_rules
+    if rules is None:
+        raise UnresolvedInvocation(public_name)
+    carried, tool_arguments, parsed = _split_rendered_call(rendering, arguments, passthrough)
+    # Authorization needs the selected route even when its business fields are invalid.
+    flat = dict(carried)
+    if isinstance(operation, Mapping):
+        flat.update({key: value for key, value in operation.items()
+                     if key in {"scope", "session_action", "backfill_action"}})
+    if rendering.selector:
+        entry = next((variant for other in command.renderings for variant in other.variants
+                      if variant.kind == kind), None)
+        if entry is not None:
+            flat[rendering.selector] = entry.action
+            for constraint in entry.constraints:
+                if len(constraint.path) == 1 and constraint.path[0] in {
+                    "scope", "session_action", "backfill_action",
+                }:
+                    flat.setdefault(constraint.path[0], constraint.value)
+    try:
+        return _resolve_rendered(command, rendering, arguments, carried, tool_arguments,
+                                 parsed, strict=strict)
+    except OpError as error:
+        error.command = command
+        error.arguments = flat
+        error.rendering = rendering
+        raise
+
+
+def _resolve_rendered(command, rendering, arguments, carried, tool_arguments, parsed, *, strict):
+    """Validate business fields after the public discriminator selects its command."""
+    rules = command.argument_rules
+    if parsed is None:
+        rules.refuse(f"{rendering.name} takes an operation object and nothing else")
+    kind, fields = parsed
+    try:
+        fields = rendering.leaf_fields(fields)
+    except ValueError as error:
+        rules.refuse(str(error))
+    label = operation_entries.OPERATION_KIND
+    variant = rendering.variant_for(kind, fields)
+    if variant is None:
+        sibling = next(
+            (
+                other.name
+                for other in command.renderings
+                if other is not rendering and other.variant_for(kind, fields) is not None
+            ),
+            None,
+        )
+        if sibling is not None:
+            rules.refuse(f"{kind} is not a {rendering.effect} operation: send it to {sibling}")
+        if hint := rendering.constraint_hint(kind):
+            rules.refuse(hint)
+        rules.refuse(f"{rendering.name} takes {label} as one of: {', '.join(rendering.kinds)}")
+    fields = rendering.selected_arguments(variant, fields)
+    fields.pop(rendering.selector, None)
+    rules.validate(variant.action, fields)
+    unexpected = {key for key in set(fields) - variant.fields if fields[key] is not None}
+    missing = {key for key in variant.required if fields.get(key) is None}
+    if unexpected:
+        rules.refuse(f"unexpected for {kind}: {', '.join(sorted(unexpected))}")
+    if missing:
+        rules.refuse(f"{kind} requires {', '.join(sorted(missing))}")
+    wrong = _type_errors(command, {**fields, **tool_arguments}, skip=rendering.selector, strict=strict)
+    if wrong:
+        # FastMCP's own error for the grouped call would name a tool the host cannot call.
+        rules.refuse(f"wrong type in {rendering.name} {kind}: {'; '.join(wrong)}")
+    # The selector goes last: a field spelt like it must not replace the variant's action.
+    return command, {**fields, **tool_arguments, **carried,
+                     **({rendering.selector: variant.action} if rendering.selector else {})}
+
+
+def _split_rendered_call(
+    rendering: operation_entries.Rendering,
+    arguments: Mapping[str, typing.Any],
+    passthrough: frozenset[str],
+) -> tuple[dict[str, typing.Any], dict[str, typing.Any], tuple[object, dict[str, typing.Any]] | None]:
+    """A rendered call's transport keys, its tool-level arguments and its parsed operation."""
+    carried = {key: value for key, value in arguments.items() if key in passthrough}
+    body = {key: value for key, value in arguments.items() if key not in passthrough}
+    tool_arguments = rendering.take_tool_arguments(body)
+    return carried, tool_arguments, operation_entries.split_operation(body)
+
+
+def rendered_call_writes(
+    command: Command,
+    rendering: operation_entries.Rendering,
+    arguments: Mapping[str, typing.Any],
+    *,
+    passthrough: frozenset[str] = frozenset(),
+) -> bool:
+    """Whether the grouped call that a rendered call spells would take the writer lease.
+
+    A refused rendered call never reaches the lease, but the grouped command's write
+    refusal carries the lease's ids, so the refusal answers with the same keys. An
+    operation that does not parse classifies as a grouped call without a selector.
+    """
+    from .commands import invocation_is_read_only
+    from .governance.egress import SelectorCoverageError
+
+    _, _, parsed = _split_rendered_call(rendering, arguments, passthrough)
+    flat = {}
+    if parsed is not None:
+        try:
+            flat = rendering.leaf_fields(parsed[1])
+            variant = next((v for v in rendering.variants if v.kind == parsed[0]), None)
+            if rendering.selector:
+                flat[rendering.selector] = variant.action if variant is not None else parsed[0]
+        except ValueError:
+            # A conflicting alias never reaches dispatch; classify the refusal conservatively.
+            return True
+    try:
+        return not invocation_is_read_only(command, flat)
+    except SelectorCoverageError:
+        # The dispatcher treats an uncovered selector as a write; so does the refusal.
+        return True
+
+
+@functools.cache
+def _published_annotations(command: Command) -> Mapping[str, object]:
+    """Each parameter's annotation as `bind_vault` publishes it for the grouped command."""
+    _, published, _ = _published_parameters(
+        command.leaf, 0, description=command.doc, command=command
+    )
+    return types.MappingProxyType({parameter.name: parameter.annotation for parameter in published})
+
+
+@functools.cache
+def _argument_adapter(command: Command, name: str) -> TypeAdapter:
+    return TypeAdapter(_published_annotations(command)[name])
+
+
+def _type_errors(
+    command: Command, values: Mapping[str, typing.Any], *, skip: str, strict: bool
+) -> list[str]:
+    """`field: reason` for each value FastMCP would reject on the grouped call, input withheld."""
+    annotations = _published_annotations(command)
+    wrong = []
+    for name, value in values.items():
+        if name == skip or annotations.get(name, inspect.Parameter.empty) is inspect.Parameter.empty:
+            continue
+        try:
+            _argument_adapter(command, name).validate_python(value, strict=strict)
+        except ValidationError as error:
+            first = error.errors(include_url=False)[0]
+            where = ".".join(str(part) for part in (name, *first["loc"]))
+            wrong.append(f"{where}: {first['msg']}")
+    return wrong
+
+
+_MCP_RENDERING: ContextVar[str | None] = ContextVar("exomem_mcp_rendering", default=None)
+_MCP_RENDERING_REFUSAL: ContextVar[BaseException | None] = ContextVar(
+    "exomem_mcp_rendering_refusal", default=None
+)
+_MCP_RENDERING_REFUSAL_WRITES: ContextVar[bool] = ContextVar(
+    "exomem_mcp_rendering_refusal_writes", default=False
+)
+
+
+@contextmanager
+def rendering_scope(name: str, refusal: BaseException | None = None, *, writes: bool = False):
+    """Carry the public spelling of one rendered call to the middleware inside the rewrite.
+
+    The rewrite hands FastMCP the grouped command's name, so tracing would otherwise lose
+    which tool the client called. `refusal` is the grouped command's refusal for a call
+    whose operation the rendering does not carry; the innermost middleware answers with it.
+    `writes` says whether the grouped call it spells would take the writer lease.
+    """
+    rendering_reset = _MCP_RENDERING.set(name)
+    refusal_reset = _MCP_RENDERING_REFUSAL.set(refusal)
+    writes_reset = _MCP_RENDERING_REFUSAL_WRITES.set(writes)
+    try:
+        yield
+    finally:
+        _MCP_RENDERING_REFUSAL_WRITES.reset(writes_reset)
+        _MCP_RENDERING_REFUSAL.reset(refusal_reset)
+        _MCP_RENDERING.reset(rendering_reset)
+
+
+def current_rendering() -> str | None:
+    """The rendering the client called for this request, or None for a direct call."""
+    return _MCP_RENDERING.get()
+
+
+def pending_rendering_refusal() -> BaseException | None:
+    """The refusal that translation recorded for this request, if it refused."""
+    return _MCP_RENDERING_REFUSAL.get()
+
+
+def pending_rendering_refusal_writes() -> bool:
+    """Whether the refused rendered call spells a grouped call that takes the writer lease."""
+    return _MCP_RENDERING_REFUSAL_WRITES.get()
+
+
+def rendering_annotations(rendering: operation_entries.Rendering) -> ToolAnnotations:
+    """Discovery hints for one rendering, from its own variants rather than its command's name."""
+    return ToolAnnotations(
+        title=rendering.title,
+        readOnlyHint=rendering.read_only,
+        destructiveHint=False if rendering.read_only else rendering.destructive,
+        idempotentHint=rendering.read_only,
+        openWorldHint=False,
+    )
+
+
+def _published_parameters(
+    leaf: Callable, skip: int, *, description: str | None, command: Command | None
+) -> tuple[inspect.Signature, list[inspect.Parameter], dict[str, typing.Any]]:
+    """The leaf's signature, the parameters MCP publishes after `skip` injected ones, and its hints."""
+    sig = inspect.signature(leaf)
+    visible = list(sig.parameters.values())[skip:]
+
+    try:
+        resolved = typing.get_type_hints(leaf, include_extras=True)
+    except Exception:  # noqa: BLE001 - fall back to inspect's annotations
+        resolved = {}
+
+    help_text = parse_args_help(description if description is not None else leaf.__doc__)
+    if command is not None:
+        help_text.update(
+            {
+                param.name: param.help
+                for param in getattr(command, "params", ())
+                if param.help
+            }
+        )
+    visible = [
+        p.replace(
+            annotation=_annotate_description(
+                resolved.get(p.name, p.annotation), help_text.get(p.name, "")
+            )
+        )
+        for p in visible
+    ]
+    if command is not None:
+        visible = [
+            _closed_selector(command.name, parameter, resolved, help_text)
+            for parameter in visible
+        ]
+    if command is not None and command.name == "activate_context":
+        from .working_set_conversation import public_input_schema
+
+        # Discovery describes existing bounds; validation still uses the permissive dict.
+        visible = [
+            parameter.replace(
+                annotation=typing.Annotated[
+                    dict[str, typing.Any] | None,
+                    WithJsonSchema({"anyOf": [public_input_schema(), {"type": "null"}]}),
+                    Field(description=help_text["conversation"]),
+                ],
+            )
+            if parameter.name == "conversation"
+            else parameter
+            for parameter in visible
+        ]
+    if command is not None and command.name == "edit_memory":
+        from .edit_operations import EditOperation, public_edit_operation_schema
+
+        operation_schema = public_edit_operation_schema()
+        operation_help = help_text.get("operation", "")
+        if operation_help:
+            operation_schema = {**operation_schema, "description": operation_help}
+        visible = [
+            parameter.replace(
+                default=inspect.Parameter.empty,
+                annotation=typing.Annotated[
+                    EditOperation,
+                    WithJsonSchema(operation_schema),
+                    Field(description=operation_help),
+                ],
+            )
+            if parameter.name == "operation"
+            else parameter
+            for parameter in visible
+            if parameter.kind is not inspect.Parameter.VAR_KEYWORD
+        ]
+    default_response_detail = getattr(command, "response_detail", None)
+    if default_response_detail is not None:
+        response_detail_help = help_text["response_detail"]
+        response_detail = inspect.Parameter(
+            "response_detail",
+            kind=inspect.Parameter.KEYWORD_ONLY,
+            default=default_response_detail,
+            annotation=typing.Annotated[
+                ResponseDetail,
+                Field(description=response_detail_help),
+            ],
+        )
+        insert_at = next(
+            (
+                index
+                for index, parameter in enumerate(visible)
+                if parameter.kind is inspect.Parameter.VAR_KEYWORD
+            ),
+            len(visible),
+        )
+        visible.insert(insert_at, response_detail)
+    return sig, visible, resolved
+
+
+def bind_vault(
+    leaf: Callable,
+    *injected: object,
+    name: str | None = None,
+    description: str | None = None,
+    command: Command | None = None,
+    surface_descriptor: capabilities.ActiveSurfaceDescriptor | None = None,
+) -> Callable:
+    """Return a callable FastMCP introspects exactly like a hand-written wrapper."""
+    sig, visible, resolved = _published_parameters(
+        leaf, len(injected), description=description, command=command
+    )
+    # Raw transport consumes credentials before validation; tools advertise task inputs only.
+    new_sig = sig.replace(parameters=visible)
+
+    def wrapper(**kwargs):
+        from .governance import authorization_request
+        from .governance import principal as principal_module
+
+        if kwargs.pop("authorization_session_credential", None) is not None:
+            raise authorization_request.AuthorizationContextUnavailable
+        principal = principal_module.current_principal()
+        if principal is None:
+            raise authorization_request.AuthorizationContextUnavailable
+
+        context = (
+            capabilities.active_surface(surface_descriptor)
+            if surface_descriptor is not None
+            else nullcontext()
+        )
+        # Resolve the canonical audience at the MCP boundary, beside the
+        # existing `mcp_retry_scope()` identity derivation (design D5). Bound
+        # for the whole invocation so every read leaf under it decides against
+        # the same principal; stdio resolves to `owner`.
+        with context, principal_module.request_scope(principal), principal_module.invocation_scope():
+            if command is None:
+                return leaf(*injected, **kwargs)
+            if command.executor == "control_plane":
+                # The gateway answers these before the cell sees them. A call that
+                # arrives anyway is refused here, ahead of the read-only
+                # classifier, the call ledger, the writer lease and any vault
+                # access, so a read-only or paused cell answers the same way.
+                started = time.perf_counter()
+                refusal = gateway_required_error(command.name).as_public_dict()
+                _log_tool_failure(
+                    tool=command.name,
+                    request_id=mcp_request_id(),
+                    code=str(refusal["code"]),
+                    duration_ms=round((time.perf_counter() - started) * 1000, 2),
+                    message=str(refusal["message"]),
+                )
+                from . import cli_ops
+
+                return cli_ops.envelope(False, error=refusal)
+            from .commands import invocation_is_read_only
+            from .governance.egress import SelectorCoverageError
+            from .writer_lease import invoke_command
+
+            try:
+                invocation_read_only = invocation_is_read_only(command, kwargs)
+            except SelectorCoverageError:
+                # The dispatcher will acquire writer authority and reject the
+                # uncovered selector before its leaf. This preliminary result
+                # exists only to keep retry/admission metadata conservative.
+                invocation_read_only = False
+            from . import call_ledger
+
+            call_ledger.note_call_access(invocation_read_only)
+            request_id = mcp_request_id()
+            tool_name = command.name
+            # Computed at most once per call, and only for a mutation: a
+            # read-only invocation must never call `mcp_retry_scope()` at
+            # all (a live dependency lookup), so the same value is reused
+            # here for logging instead of a second, independent call.
+            explicit_key = None if invocation_read_only else mcp_idempotency_key()
+            if explicit_key is not None and (
+                not principal.resolved
+                or principal.audience_id == principal_module.MOST_RESTRICTIVE_AUDIENCE
+            ):
+                raise authorization_request.AuthorizationContextUnavailable
+            retry_scope = (
+                None if invocation_read_only else
+                principal.audience_id if explicit_key is not None else mcp_retry_scope()
+            )
+            # Omitted transport metadata keeps the existing dispatcher call shape.
+            retry_options = {
+                "idempotency_key": explicit_key,
+                "idempotency_principal_scope": principal.audience_id,
+            } if explicit_key is not None else {}
+            t0 = time.perf_counter()
+            returned_from_invoke = False
+            try:
+                from .collection_store import connection
+                from .collection_store.governance import _StaleQueryHistoryProjection
+
+                # The dispatcher's terminal filter released this result: every return of
+                # `invoke_command` over a vault passes it, so a second pass here only redecided it.
+                # One whole reread handles ordinary movement without holding old authority or retrying writes.
+                for refreshed in (False, True):
+                    try:
+                        call_spans.mark("command.leaf_start")
+                        result = invoke_command(
+                            command,
+                            *injected,
+                            mutation_request_id=request_id,
+                            implicit_idempotency_scope=retry_scope if explicit_key is None else None,
+                            **retry_options,
+                            **kwargs,
+                        )
+                        returned_from_invoke = True
+                        # Measure the dispatcher and MCP's own work after it separately.
+                        call_spans.record_span_since("command.leaf", "command.leaf_start")
+                        call_spans.mark("command.leaf_done")
+                    except _StaleQueryHistoryProjection:
+                        if not invocation_read_only:
+                            raise
+                        budget = request_budget.current()
+                        if refreshed or (budget is not None and budget.remaining() <= 0):
+                            raise connection.busy("the collection changed during its release checks") from None
+                        # Discard every old field; the reread must admit the original read again.
+                    else:
+                        break
+                from .governance import scrubber as governance_scrubber
+
+                if governance_scrubber._issuance_projection_context(result) is not None:
+                    from fastmcp.tools import ToolResult
+                    from mcp.types import TextContent
+
+                    redacted_text, blocked = governance_scrubber.scrub_value(dict(result))
+                    if not blocked:
+                        raise authorization_request.AuthorizationContextUnavailable
+                    result = ToolResult(
+                        content=[
+                            TextContent(
+                                type="text",
+                                text=json.dumps(
+                                    redacted_text,
+                                    ensure_ascii=False,
+                                    separators=(",", ":"),
+                                ),
+                            )
+                        ],
+                        structured_content=dict(result),
+                    )
+                if tool_name == "activate_context":
+                    try:
+                        observation = current_activation_result()
+                        if observation is not None:
+                            observation.capture(result)
+                    except Exception:  # noqa: BLE001 - telemetry must not change the response
+                        pass
+                call_spans.record_span_since("command.postfilter", "command.leaf_done")
+                _log_tool_success(
+                    tool=tool_name,
+                    duration_ms=round((time.perf_counter() - t0) * 1000, 2),
+                    retry_scope=retry_scope,
+                )
+                return result
+            except Exception as error:
+                from . import cli_ops
+
+                duration_ms = round((time.perf_counter() - t0) * 1000, 2)
+                if isinstance(
+                    error,
+                    (
+                        authorization_request.AuthorizationContextUnavailable,
+                        authorization_request.AuthorizationRouteUnclassified,
+                    ),
+                ):
+                    # Lost authority answers with the content-free native tool
+                    # error that the authorization middleware also raises.
+                    raise
+                refusal = cli_ops.public_refusal(error)
+                if refusal is None:
+                    raise
+                if returned_from_invoke and not invocation_read_only:
+                    # The leaf returned before this surface's own handling of its result refused.
+                    from .writer_lease import post_leaf_refusal
+
+                    refusal = cli_ops.public_refusal(post_leaf_refusal(error)) or refusal
+                _log_tool_failure(
+                    tool=tool_name,
+                    request_id=request_id,
+                    code=str(refusal.get("code") or "OP_ERROR"),
+                    duration_ms=duration_ms,
+                    message=str(refusal.get("message") or ""),
+                    retry_scope=retry_scope,
+                )
+                return cli_ops.envelope(False, error=refusal)
+
+    wrapper.__signature__ = new_sig  # type: ignore[attr-defined]
+    wrapper.__name__ = name or leaf.__name__
+    wrapper.__qualname__ = wrapper.__name__
+    wrapper.__doc__ = description if description is not None else leaf.__doc__
+    ann = {
+        p.name: p.annotation
+        for p in visible
+        if p.annotation is not inspect.Parameter.empty
+    }
+    if "return" in resolved:
+        ann["return"] = resolved["return"]
+    wrapper.__annotations__ = ann
+    return wrapper
+
+
+def mcp_idempotency_key() -> str | None:
+    """Consume an explicit key without enlarging advertised tool schemas."""
+    from fastmcp.server.dependencies import get_context
+
+    try:
+        request_context = get_context().request_context
+    except (LookupError, RuntimeError):
+        return None
+    metadata = request_context.meta if request_context is not None else None
+    if metadata is None or MCP_IDEMPOTENCY_META_KEY not in metadata:
+        return None
+    key = metadata[MCP_IDEMPOTENCY_META_KEY]
+    if not isinstance(key, str) or not key:
+        raise ValueError("INVALID_IDEMPOTENCY_KEY: MCP metadata requires a nonempty string")
+    return key
+
+
+#: The one session identity of a stdio connection. One stdio server process serves
+#: exactly one client, but `mcp` builds a new `Connection` for every stdio request,
+#: so FastMCP's own `session_id` (cached on that connection) is a new uuid per call.
+#: A uuid4 per process cannot collide with a concurrent stdio server.
+_STDIO_SESSION_ID = str(uuid.uuid4())
+
+
+def _mcp_transport(headers: Mapping[str, str]) -> str:
+    """`http` or `stdio` for one MCP call: request headers exist only on the HTTP transports.
+
+    The single transport signal; `mcp_caller_identity` and `mcp_session_id` both read it,
+    and both pass `get_http_headers(include_all=True)`. FastMCP's default call strips
+    `host` and `accept` among others, so a request carrying only those would read as
+    stdio and share the process-wide session id.
+    """
+    return "http" if headers else "stdio"
+
+
+def mcp_session_id() -> str | None:
+    """The conversation session of the active MCP call, or None outside one.
+
+    HTTP keeps FastMCP's `session_id` unchanged. stdio returns the process-wide
+    `_STDIO_SESSION_ID`, so every call on one connection shares one session. The
+    shared id needs both FastMCP's explicit stdio transport (set only by the stdio
+    runner) and no request headers; any other combination keeps the per-call id, so
+    an unexpected transport shares nothing.
+    """
+    try:
+        from fastmcp.server.dependencies import get_context, get_http_headers
+
+        context = get_context()
+        if (
+            getattr(context, "transport", None) == "stdio"
+            and _mcp_transport(get_http_headers(include_all=True)) == "stdio"
+        ):
+            return _STDIO_SESSION_ID
+        return str(context.session_id)
+    except (AttributeError, ImportError, LookupError, RuntimeError, ValueError):
+        return None
+
+
+def mcp_retry_scope() -> str | None:
+    """Return a stable, privacy-safe principal scope for bounded MCP replay."""
+    try:
+        from fastmcp.server.dependencies import (
+            get_access_token,
+            get_http_headers,
+        )
+
+        access_token = get_access_token()
+        claims = getattr(access_token, "claims", None) or {}
+        subject = str(claims.get("sub") or "").strip()
+        if subject:
+            issuer = str(claims.get("iss") or "verified-principal").strip()
+            digest = hashlib.sha256(f"{issuer}\0{subject}".encode()).hexdigest()
+            return f"principal:{digest}"
+
+        headers = get_http_headers(include={"authorization"})
+        authorization = headers.get("authorization", "").strip()
+        scheme, separator, credential = authorization.partition(" ")
+        if separator and scheme.lower() == "bearer" and credential.strip():
+            digest = hashlib.sha256(credential.strip().encode("utf-8")).hexdigest()
+            return f"bearer:{digest}"
+        session_id = mcp_session_id()
+        return f"session:{session_id}" if session_id else None
+    except (LookupError, RuntimeError):
+        return None
+
+
+def mcp_request_id() -> str:
+    """Return one canonical correlation ID for the active MCP tool call."""
+    active = _MCP_REQUEST_ID.get()
+    if active is not None:
+        return active
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+
+        value = get_http_headers(include={"x-exomem-request-id"}).get(
+            "x-exomem-request-id", ""
+        )
+        canonical = canonical_request_id(value)
+        if canonical is not None:
+            return canonical
+    except (LookupError, RuntimeError):
+        pass
+    return str(uuid.uuid4())
+
+
+def mcp_caller_identity() -> dict[str, str | None]:
+    """Who is calling: MCP client name/version, transport, and session.
+
+    The MCP initialize handshake carries `clientInfo`, so the server already
+    knows whether a call came from claude.ai, ChatGPT, Codex, or a local CLI --
+    and then discards it. Every existing journal is therefore one
+    undifferentiated stream across every connected client, which is exactly the
+    distinction an operator needs first when one client's calls are failing.
+
+    Deliberately *not* hashed, unlike `mcp_retry_scope`. A client's product name
+    and version identify software, not a person: it is the same class of value
+    as a `User-Agent`, and hashing it would destroy the only field that answers
+    "which client?" while protecting nothing. The per-principal identity stays
+    hashed and separate.
+
+    The name comes from `clientInfo`, then (cloud mode only) the gateway's
+    `cloud_cell.GATEWAY_CLIENT_HEADER`, then `User-Agent`.
+    `app_id` comes only from the Cloud gateway's authenticated grant UUID.
+    It correlates owner activity and never participates in authorization.
+
+    Never raises. Outside an MCP call every field is simply `None`.
+    """
+    identity: dict[str, str | None] = {
+        "client_name": None,
+        "client_version": None,
+        "transport": None,
+        "session_id": None,
+        "app_id": None,
+    }
+    try:
+        from fastmcp.server.dependencies import get_context, get_http_headers
+    except ImportError:
+        return identity
+    try:
+        context = get_context()
+    except (LookupError, RuntimeError):
+        return identity
+    try:
+        params = getattr(context.session, "client_params", None)
+        info = getattr(params, "client_info", None)
+        if info is not None:
+            identity["client_name"] = str(getattr(info, "name", "") or "") or None
+            identity["client_version"] = str(getattr(info, "version", "") or "") or None
+    except (AttributeError, LookupError, RuntimeError, ValueError):
+        pass
+    identity["session_id"] = mcp_session_id()
+    try:
+        headers = get_http_headers(include_all=True)
+        identity["transport"] = _mcp_transport(headers)
+        from . import cloud_cell
+
+        if cloud_cell.cloud_mode_enabled():
+            identity["app_id"] = cloud_cell.canonical_app_id(
+                headers.get(cloud_cell.GATEWAY_APP_ID_HEADER)
+            )
+        if not identity["client_name"]:
+            if cloud_cell.cloud_mode_enabled():
+                gateway_client = str(
+                    headers.get(cloud_cell.GATEWAY_CLIENT_HEADER, "") or ""
+                ).strip()
+                identity["client_name"] = gateway_client or None
+        agent = str(headers.get("user-agent", "") or "").strip()
+        if agent and not identity["client_name"]:
+            identity["client_name"] = agent
+    except (LookupError, RuntimeError):
+        identity["transport"] = identity["transport"] or "stdio"
+    return identity
+
+
+def gateway_client_context() -> str | None:
+    """The engagement context the Cloud gateway declared for this request.
+
+    Cloud mode only, for the reason `cloud_cell.GATEWAY_CONTEXT_HEADER` gives.
+    A value outside the closed context set is ignored, not refused: the header
+    tunes eagerness only, and name detection still answers without it.
+    """
+    from . import cloud_cell, prominence
+
+    if not cloud_cell.cloud_mode_enabled():
+        return None
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+
+        value = get_http_headers().get(cloud_cell.GATEWAY_CONTEXT_HEADER)
+    except (ImportError, LookupError, RuntimeError):
+        return None
+    return value if value in prominence.CONTEXTS else None
+
+
+def peek_request_id() -> str | None:
+    """Return the active MCP request id if one is bound, without minting.
+
+    Unlike `mcp_request_id()`, this never falls back to reading headers or
+    generating a fresh uuid — it is for best-effort correlation (e.g. an
+    additive JSONL field) from code that may run outside any MCP call at
+    all, where minting an id would fabricate a false correlation.
+    """
+    return _MCP_REQUEST_ID.get()
+
+
+def canonical_request_id(value: object) -> str | None:
+    """Return a canonical UUIDv4 request ID or reject caller-controlled log text."""
+    clean = str(value or "").strip()
+    try:
+        parsed = uuid.UUID(clean)
+    except (AttributeError, ValueError):
+        return None
+    if parsed.version != 4 or parsed.variant != uuid.RFC_4122 or str(parsed) != clean:
+        return None
+    return clean
+
+
+@contextmanager
+def mcp_request_context(
+    request_id: str,
+    *,
+    tool: str | None = None,
+    arguments: Mapping[str, object] | None = None,
+):
+    """Bind the middleware correlation ID through the synchronous tool wrapper.
+
+    Yields the minted per-call token: the failure-signal key that stays unique
+    even when concurrent calls share a client-supplied request id.
+
+    The request-scoped deadline is created here, beside the call token, because
+    this is the one place every MCP tool call passes through: a budget minted
+    anywhere further in would be a bound on some paths and not others. `tool`
+    and `arguments` are read only to exempt the reconcile-class commands, whose
+    terminal is the derived state and whose graph join is unbounded by design.
+    """
+    token = _MCP_REQUEST_ID.set(request_id)
+    call_token = uuid.uuid4().hex
+    call_reset = _MCP_CALL_TOKEN.set(call_token)
+    budget = (
+        None
+        if request_budget.is_reconcile_class(tool, arguments)
+        else request_budget.RequestBudget(seconds=request_budget.budget_seconds())
+    )
+    budget_reset = request_budget.set_current(budget)
+    activation_reset = _MCP_ACTIVATION_RESULT.set(
+        activation_result.Observation() if tool == "activate_context" else None
+    )
+    try:
+        yield call_token
+    finally:
+        _MCP_ACTIVATION_RESULT.reset(activation_reset)
+        request_budget.reset_current(budget_reset)
+        _MCP_CALL_TOKEN.reset(call_reset)
+        _MCP_REQUEST_ID.reset(token)
+
+
+_SCHEMA_MAPPING_KEYS = ("properties", "$defs", "patternProperties")
+_SCHEMA_VALUE_KEYS = ("items", "additionalProperties", "not", "if", "then", "else")
+_SCHEMA_LIST_KEYS = ("anyOf", "oneOf", "allOf", "prefixItems")
+
+
+def compact_input_schema(schema: object, *, optional_property: bool = False) -> object:
+    """Drop schema keywords that restate JSON Schema defaults.
+
+    Stops advertising "this optional parameter may be null".
+
+    An optional parameter is already absent from `required`, so `"default":
+    null` and a `{"type": "null"}` arm can be omitted from its published schema.
+    Required properties and other values retain nullability. Argument validation
+    is built from the Python signature, so an explicit null is still accepted.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    out: dict = {}
+    for key, value in schema.items():
+        if key in _SCHEMA_MAPPING_KEYS and isinstance(value, dict):
+            out[key] = {
+                name: compact_input_schema(
+                    item,
+                    optional_property=key == "properties" and name not in schema.get("required", []),
+                )
+                for name, item in value.items()
+            }
+        elif key in _SCHEMA_VALUE_KEYS:
+            out[key] = compact_input_schema(value)
+        elif key in _SCHEMA_LIST_KEYS and isinstance(value, list):
+            out[key] = [compact_input_schema(item) for item in value]
+        else:
+            out[key] = value
+    if optional_property and "default" in out and out["default"] is None:
+        del out["default"]
+    # `additionalProperties: true` is the JSON Schema default.
+    if out.get("additionalProperties") is True:
+        del out["additionalProperties"]
+    arms = out.get("anyOf")
+    if optional_property and isinstance(arms, list) and {"type": "null"} in arms:
+        rest = [arm for arm in arms if arm != {"type": "null"}]
+        if len(rest) == 1 and isinstance(rest[0], dict):
+            del out["anyOf"]
+            out = {**rest[0], **out}
+        else:
+            out["anyOf"] = rest
+    return out
+
+
+def _closed_selector(
+    command_name: str,
+    parameter: inspect.Parameter,
+    resolved: Mapping[str, object],
+    help_text: Mapping[str, str],
+) -> inspect.Parameter:
+    """Publish a registry-covered selector as the enum the selector registry holds."""
+    from .governance.egress import selector_for_command, selector_registry
+
+    selector = selector_for_command(command_name)
+    if selector != parameter.name:
+        return parameter
+    values = tuple(selector_registry()[(command_name, selector)])
+    annotation = resolved.get(parameter.name, parameter.annotation)
+    declared = _literal_string_values(annotation)
+    if declared:
+        # Fail the build: a schema that disagrees with the lease and egress registry
+        # would advertise values the dispatcher refuses, or hide ones it accepts.
+        if set(declared) != set(values):
+            raise RuntimeError(
+                f"selector Literal and selector registry disagree: {command_name}.{selector}"
+            )
+        return parameter
+    if parameter.default is not inspect.Parameter.empty and parameter.default not in (
+        None,
+        *values,
+    ):
+        # Fail the build: an enum that excludes the default makes the default call invalid.
+        raise RuntimeError(
+            f"selector default outside the selector registry: {command_name}.{selector}"
+        )
+    closed: object = typing.Literal[values]
+    if parameter.default is None:
+        closed = closed | None
+    return parameter.replace(
+        annotation=_annotate_description(closed, help_text.get(parameter.name, ""))
+    )
+
+
+def _annotate_description(annotation: object, description: str) -> object:
+    if (
+        not description
+        or annotation is inspect.Parameter.empty
+        or typing.get_origin(annotation) is typing.Annotated
+    ):
+        return annotation
+    return typing.Annotated[annotation, Field(description=description)]
+
+
+def parse_args_help(doc: str | None, *, continuation: str = " ") -> dict[str, str]:
+    """Best-effort `{param: one-line help}` from a Google-style `Args:` block."""
+    if not doc:
+        return {}
+    lines = inspect.cleandoc(doc).splitlines()
+    try:
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == "Args:")
+    except StopIteration:
+        return {}
+    out: dict[str, str] = {}
+    cur: str | None = None
+    buf: list[str] = []
+    for ln in lines[start + 1:]:
+        if ln.strip() and not ln.startswith((" ", "\t")):
+            break
+        stripped = ln.strip()
+        head, sep, rest = stripped.partition(":")
+        if sep and head and head.replace("_", "").isalnum() and " " not in head:
+            if cur is not None:
+                out[cur] = continuation.join(buf).strip()
+            cur, buf = head, [rest.strip()]
+        elif cur is not None:
+            buf.append(stripped)
+    if cur is not None:
+        out[cur] = continuation.join(buf).strip()
+    return out
+
+
+def type_tag(annotation: object) -> str:
+    """Map a resolved type annotation to a REST/CLI coercion tag."""
+    origin = typing.get_origin(annotation)
+    if origin is typing.Annotated:
+        return type_tag(typing.get_args(annotation)[0])
+    if origin is typing.Literal:
+        values = typing.get_args(annotation)
+        if values and all(isinstance(value, str) for value in values):
+            return "str"
+        return "json"
+    if origin is typing.Union or origin is types.UnionType:
+        non_none = [a for a in typing.get_args(annotation) if a is not type(None)]
+        if len(non_none) == 1:
+            return type_tag(non_none[0])
+        return "json"
+    if annotation is bool:
+        return "bool"
+    if annotation is int:
+        return "int"
+    if annotation is str:
+        return "str"
+    if annotation is dict or origin is dict:
+        return "dict"
+    if annotation is list or origin is list:
+        args = typing.get_args(annotation)
+        return "list[str]" if args in ((), (str,)) else "json"
+    return "json"
+
+
+def _literal_string_values(annotation: object) -> tuple[str, ...]:
+    """Return registry-style string Literal values, including Optional aliases."""
+    origin = typing.get_origin(annotation)
+    if origin is typing.Literal:
+        values = typing.get_args(annotation)
+        return tuple(values) if all(isinstance(value, str) for value in values) else ()
+    if origin is typing.Union or origin is types.UnionType:
+        non_none = [item for item in typing.get_args(annotation) if item is not type(None)]
+        if len(non_none) == 1:
+            return _literal_string_values(non_none[0])
+    return ()
+
+
+def _is_nullable_dict(annotation: object) -> bool:
+    """Whether an annotated public mapping also admits JSON null."""
+    if typing.get_origin(annotation) is typing.Annotated:
+        annotation = typing.get_args(annotation)[0]
+    origin = typing.get_origin(annotation)
+    if origin is not typing.Union and origin is not types.UnionType:
+        return False
+    args = typing.get_args(annotation)
+    non_none = [item for item in args if item is not type(None)]
+    return type(None) in args and len(non_none) == 1 and type_tag(non_none[0]) == "dict"
+
+
+def derive_params(
+    leaf: Callable, *, skip: int, positional: str | None = None
+) -> tuple[Param, ...]:
+    """Derive the declarative `Param` tuple from a leaf signature + docstring."""
+    sig = inspect.signature(leaf)
+    try:
+        hints = typing.get_type_hints(leaf, include_extras=True)
+    except Exception:  # noqa: BLE001
+        hints = {}
+    helps = parse_args_help(leaf.__doc__)
+    schema_descriptions = parse_args_help(leaf.__doc__, continuation="\n")
+    params: list[Param] = []
+    for p in list(sig.parameters.values())[skip:]:
+        ann = hints.get(p.name, p.annotation)
+        schema = next(
+            (
+                metadata.json_schema
+                for metadata in typing.get_args(ann)[1:]
+                if isinstance(metadata, WithJsonSchema)
+            ),
+            None,
+        ) if typing.get_origin(ann) is typing.Annotated else None
+        literal_values = _literal_string_values(ann)
+        param_type = "nullable_dict" if schema and _is_nullable_dict(ann) else type_tag(ann)
+        params.append(
+            Param(
+                name=p.name,
+                type=param_type,
+                required=p.default is inspect.Parameter.empty,
+                help=helps.get(p.name, ""),
+                cli_positional=(p.name == positional),
+                choices=(
+                    tuple(literal_values)
+                    if literal_values
+                    and all(isinstance(value, str) for value in literal_values)
+                    else ()
+                ),
+                schema=schema,
+                schema_description=schema_descriptions.get(p.name, "") if schema else "",
+                schema_default=p.default if schema else inspect.Parameter.empty,
+            )
+        )
+    return tuple(params)

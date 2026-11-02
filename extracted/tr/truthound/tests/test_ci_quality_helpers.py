@@ -1,0 +1,695 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+import pytest
+import yaml
+
+
+def _load_module(script_name: str):
+    script_path = Path(__file__).resolve().parents[1] / "verification" / "ci" / script_name
+    spec = importlib.util.spec_from_file_location(script_name.replace(".py", ""), script_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_ruff_ratchet_manifest() -> list[dict[str, object]]:
+    manifest_path = (
+        Path(__file__).resolve().parents[1] / "verification" / "ci" / "ruff_ratchet_targets.toml"
+    )
+    manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    return manifest["target"]
+
+
+@pytest.mark.contract
+def test_build_quality_shards_writes_balanced_manifests(tmp_path: Path):
+    module = _load_module("build_quality_shards.py")
+    contract_collect = tmp_path / "contract.txt"
+    fault_collect = tmp_path / "fault-e2e.txt"
+    e2e_collect = tmp_path / "e2e.txt"
+    output_dir = tmp_path / "quality-shards"
+    summary_path = tmp_path / "quality-summary.json"
+
+    contract_collect.write_text(
+        "\n".join(
+            [
+                "tests/unit/checkpoint/test_alpha.py::test_one",
+                "tests/unit/checkpoint/test_alpha.py::test_two",
+                "tests/unit/execution/test_beta.py::test_three",
+                "tests/unit/execution/test_beta.py::test_four",
+                "tests/unit/execution/test_beta.py::test_five",
+                "tests/unit/profiler/test_gamma.py::test_six",
+                "=========================== short test summary info ============================",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    fault_collect.write_text(
+        "\n".join(
+            [
+                "tests/test_process_timeout.py::test_fast_timeout",
+                "tests/test_checkpoint.py::test_fault_path",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    e2e_collect.write_text("", encoding="utf-8")
+
+    exit_code = module.main(
+        [
+            "--contract-nodeids",
+            str(contract_collect),
+            "--fault-nodeids",
+            str(fault_collect),
+            "--e2e-nodeids",
+            str(e2e_collect),
+            "--output-dir",
+            str(output_dir),
+            "--summary-out",
+            str(summary_path),
+            "--contract-shards",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["contract_selected"] == 6
+    assert summary["fault_e2e_selected"] == 2
+    assert summary["e2e_selected"] == 0
+    assert summary["contract_shard_count"] == 2
+
+    manifests = {
+        path.name: path.read_text(encoding="utf-8").splitlines()
+        for path in sorted(output_dir.glob("*.txt"))
+    }
+    assert set(manifests) == {"contract-0.txt", "contract-1.txt", "fault-e2e.txt"}
+
+    assigned_contract = set(manifests["contract-0.txt"]) | set(manifests["contract-1.txt"])
+    assert assigned_contract == {
+        "tests/unit/checkpoint/test_alpha.py",
+        "tests/unit/execution/test_beta.py",
+        "tests/unit/profiler/test_gamma.py",
+    }
+    assert manifests["fault-e2e.txt"] == [
+        "tests/test_checkpoint.py",
+        "tests/test_process_timeout.py",
+    ]
+
+    alpha_shards = [
+        name
+        for name, nodeids in manifests.items()
+        if "tests/unit/checkpoint/test_alpha.py" in nodeids
+    ]
+    beta_shards = [
+        name
+        for name, nodeids in manifests.items()
+        if "tests/unit/execution/test_beta.py" in nodeids
+    ]
+    assert alpha_shards == ["contract-1.txt"] or alpha_shards == ["contract-0.txt"]
+    assert beta_shards == ["contract-1.txt"] or beta_shards == ["contract-0.txt"]
+    assert alpha_shards != beta_shards
+
+
+@pytest.mark.contract
+def test_build_quality_shards_rejects_invalid_contract_shard_count(tmp_path: Path):
+    module = _load_module("build_quality_shards.py")
+    contract_collect = tmp_path / "contract.txt"
+    fault_collect = tmp_path / "fault.txt"
+    contract_collect.write_text(
+        "tests/unit/checkpoint/test_alpha.py::test_one\n",
+        encoding="utf-8",
+    )
+    fault_collect.write_text(
+        "tests/test_process_timeout.py::test_fast_timeout\n",
+        encoding="utf-8",
+    )
+
+    exit_code = module.main(
+        [
+            "--contract-nodeids",
+            str(contract_collect),
+            "--fault-nodeids",
+            str(fault_collect),
+            "--output-dir",
+            str(tmp_path / "quality-shards"),
+            "--summary-out",
+            str(tmp_path / "quality-summary.json"),
+            "--contract-shards",
+            "0",
+        ]
+    )
+
+    assert exit_code == 1
+
+
+@pytest.mark.contract
+def test_build_quality_shards_dedupes_overlap_into_fault_lane(tmp_path: Path):
+    module = _load_module("build_quality_shards.py")
+    contract_collect = tmp_path / "contract.txt"
+    fault_collect = tmp_path / "fault.txt"
+    output_dir = tmp_path / "quality-shards"
+    summary_path = tmp_path / "quality-summary.json"
+
+    contract_collect.write_text(
+        "\n".join(
+            [
+                "tests/unit/security/test_overlap.py::test_shared",
+                "tests/unit/security/test_overlap.py::test_contract_only",
+                "tests/unit/security/test_other.py::test_other",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    fault_collect.write_text(
+        "\n".join(
+            [
+                "tests/unit/security/test_overlap.py::test_shared",
+                "tests/unit/security/test_fault.py::test_fault_only",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = module.main(
+        [
+            "--contract-nodeids",
+            str(contract_collect),
+            "--fault-nodeids",
+            str(fault_collect),
+            "--output-dir",
+            str(output_dir),
+            "--summary-out",
+            str(summary_path),
+            "--contract-shards",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["total_selected"] == 4
+    assert summary["contract_selected"] == 2
+    assert summary["fault_e2e_selected"] == 2
+    assert summary["overlap_selected"] == 1
+
+    contract_manifests = {
+        path.name: path.read_text(encoding="utf-8").splitlines()
+        for path in sorted(output_dir.glob("contract-*.txt"))
+    }
+    fault_manifest = (output_dir / "fault-e2e.txt").read_text(encoding="utf-8").splitlines()
+
+    assert fault_manifest == [
+        "tests/unit/security/test_fault.py",
+        "tests/unit/security/test_overlap.py",
+    ]
+    assert any(
+        "tests/unit/security/test_overlap.py" in entries for entries in contract_manifests.values()
+    )
+
+
+@pytest.mark.contract
+def test_run_pytest_manifest_executes_selected_nodeids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    script_path = (
+        Path(__file__).resolve().parents[1] / "verification" / "ci" / "run_pytest_manifest.py"
+    )
+    test_file = tmp_path / "test_sample.py"
+    manifest = tmp_path / "manifest.txt"
+    junit_path = tmp_path / "manifest-junit.xml"
+
+    test_file.write_text(
+        "\n".join(
+            [
+                "import pytest",
+                "",
+                "@pytest.mark.contract",
+                "def test_selected():",
+                "    assert True",
+                "",
+                "@pytest.mark.fault",
+                "def test_unselected():",
+                "    assert False",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manifest.write_text("test_sample.py\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--manifest",
+            str(manifest),
+            "--junitxml",
+            str(junit_path),
+            "--pytest-arg=-m",
+            "--pytest-arg=contract and not (fault or e2e)",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert junit_path.exists()
+    assert "1 targets from 1 files" in result.stdout
+
+
+@pytest.mark.contract
+def test_run_pytest_manifest_rejects_empty_manifest(tmp_path: Path):
+    script_path = (
+        Path(__file__).resolve().parents[1] / "verification" / "ci" / "run_pytest_manifest.py"
+    )
+    manifest = tmp_path / "manifest.txt"
+    manifest.write_text("", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--manifest",
+            str(manifest),
+            "--junitxml",
+            str(tmp_path / "empty-junit.xml"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "does not contain any pytest targets" in result.stderr
+
+
+@pytest.mark.contract
+def test_tests_pr_workflow_uses_sharded_quality_gate():
+    workflow_path = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "tests-pr.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    ratchet_targets = [target["name"] for target in _load_ruff_ratchet_manifest()]
+    on_section = workflow.get("on") or workflow.get(True) or {}
+
+    assert workflow["name"] == "Tests PR"
+    assert workflow["concurrency"]["cancel-in-progress"] is True
+    assert workflow["env"]["POLARS_MAX_THREADS"] == "1"
+    assert workflow["env"]["OMP_NUM_THREADS"] == "1"
+    assert workflow["env"]["OPENBLAS_NUM_THREADS"] == "1"
+    assert workflow["env"]["MKL_NUM_THREADS"] == "1"
+    assert workflow["env"]["LOKY_MAX_CPU_COUNT"] == "1"
+    assert workflow["env"]["TRUTHOUND_ML_N_JOBS"] == "1"
+    assert "quality-collect" in workflow["jobs"]
+    assert "quality-contract" in workflow["jobs"]
+    assert "quality-fault-e2e" in workflow["jobs"]
+    assert "quality-ruff-ratchet" in workflow["jobs"]
+    assert "quality-gate" in workflow["jobs"]
+    for event in ("pull_request", "push"):
+        assert "src/**" in on_section[event]["paths"]
+        assert "docs/**" not in on_section[event]["paths"]
+        assert "README.md" not in on_section[event]["paths"]
+    assert workflow["jobs"]["quality-contract"]["strategy"]["matrix"]["shard_id"] == [0, 1, 2, 3]
+    assert "strategy" not in workflow["jobs"]["quality-ruff-ratchet"]
+    assert workflow["jobs"]["quality-gate"]["needs"] == [
+        "quality-contract",
+        "quality-fault-e2e",
+        "quality-ruff-ratchet",
+    ]
+    collect_steps = workflow["jobs"]["quality-collect"]["steps"]
+    e2e_step = next(step for step in collect_steps if step.get("name") == "Collect e2e nodes")
+    assert '[ "$status" -ne 5 ]' in e2e_step["run"]
+    contract_steps = workflow["jobs"]["quality-contract"]["steps"]
+    fault_steps = workflow["jobs"]["quality-fault-e2e"]["steps"]
+    ratchet_steps = workflow["jobs"]["quality-ruff-ratchet"]["steps"]
+    contract_download = next(
+        step for step in contract_steps if step.get("name") == "Download quality shard artifacts"
+    )
+    fault_download = next(
+        step for step in fault_steps if step.get("name") == "Download quality shard artifacts"
+    )
+    contract_run = next(step for step in contract_steps if step.get("name") == "Run contract shard")
+    fault_run = next(
+        step for step in fault_steps if step.get("name") == "Run fault and e2e manifest"
+    )
+    ratchet_run = next(
+        step for step in ratchet_steps if step.get("name") == "Run ruff ratchet target"
+    )
+    assert contract_download["with"]["path"] == "test-artifacts"
+    assert fault_download["with"]["path"] == "test-artifacts"
+    assert "--pytest-arg=-m" in contract_run["run"]
+    assert "contract and not (fault or e2e)" in contract_run["run"]
+    assert "--pytest-arg=-m" in fault_run["run"]
+    assert "fault or e2e" in fault_run["run"]
+    assert "run_ruff_ratchet.py" in ratchet_run["run"]
+    assert "for target in " + " ".join(ratchet_targets) + "; do" in ratchet_run["run"]
+    assert '--target "$target"' in ratchet_run["run"]
+
+
+@pytest.mark.contract
+def test_docs_workflow_does_not_checkout_dashboard_repo() -> None:
+    workflow_path = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "docs.yml"
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    assert workflow["name"] == "Docs"
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    assert "workflow_dispatch" in triggers
+    assert {"push", "pull_request"} <= triggers.keys()
+    steps = workflow["jobs"]["docs"]["steps"]
+    rendered = yaml.safe_dump(steps, sort_keys=False)
+
+    assert "seadonggyun4/truthound-dashboard" not in rendered
+    assert ".external/truthound-dashboard" not in rendered
+    assert "prepare_public_docs.py --mode full" in rendered
+    assert "prepare_public_docs.py --mode public" in rendered
+
+
+@pytest.mark.contract
+def test_ruff_ratchet_manifest_tracks_clean_boundaries():
+    targets = _load_ruff_ratchet_manifest()
+
+    assert [target["name"] for target in targets] == [
+        "reporters",
+        "checkpoint-top-level",
+        "datasets-private",
+    ]
+    assert targets[0]["paths"] == ["src/truthound/reporters"]
+    assert targets[1]["paths"] == [
+        "src/truthound/checkpoint/__init__.py",
+        "src/truthound/checkpoint/adapters.py",
+        "src/truthound/checkpoint/checkpoint.py",
+        "src/truthound/checkpoint/runner.py",
+        "src/truthound/checkpoint/async_checkpoint.py",
+        "src/truthound/checkpoint/async_runner.py",
+        "src/truthound/checkpoint/_result_helpers.py",
+        "src/truthound/checkpoint/_validation.py",
+    ]
+    assert targets[2]["paths"] == [
+        "src/truthound/_datasets",
+        "src/truthound/_redaction.py",
+        "src/truthound/_ai_redaction.py",
+    ]
+
+
+@pytest.mark.contract
+def test_run_ruff_ratchet_lists_manifest_targets():
+    script_path = (
+        Path(__file__).resolve().parents[1] / "verification" / "ci" / "run_ruff_ratchet.py"
+    )
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--list"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "reporters" in result.stdout
+    assert "checkpoint-top-level" in result.stdout
+    assert "datasets-private" in result.stdout
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("target_name", ["reporters", "checkpoint-top-level", "datasets-private"])
+def test_run_ruff_ratchet_smoke(target_name: str):
+    script_path = (
+        Path(__file__).resolve().parents[1] / "verification" / "ci" / "run_ruff_ratchet.py"
+    )
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--target", target_name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert f"Running ruff ratchet target '{target_name}'" in result.stdout
+
+
+@pytest.mark.contract
+def test_tests_nightly_workflow_publishes_collect_summary():
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "tests-nightly.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    trigger_block = workflow.get("on") or workflow.get(True) or {}
+    workflow_dispatch = trigger_block["workflow_dispatch"]
+    jobs = workflow["jobs"]
+    collect = jobs["nightly-collect"]
+    lane = jobs["nightly-lane"]
+    gate = jobs["nightly-gate"]
+
+    assert trigger_block["schedule"] == [{"cron": "0 18 * * 3"}]
+    assert workflow_dispatch["inputs"]["run_full_suite"]["type"] == "boolean"
+    assert workflow_dispatch["inputs"]["run_full_suite"]["default"] is False
+    assert "manual-full" in workflow["env"]["NIGHTLY_MODE"]
+    assert "weekly-integration-core" in workflow["env"]["NIGHTLY_MODE"]
+    assert any("nightly_plan.py collect" in s.get("run", "") for s in collect["steps"])
+    assert lane["needs"] == "nightly-collect"
+    assert lane["strategy"]["fail-fast"] is False
+    sql_setup = next(s for s in lane["steps"] if "pg_config --bindir" in s.get("run", ""))
+    assert sql_setup["if"] == "matrix.lane == 'integration'"
+    for provider in ("sql", "oracle", "sqlserver"):
+        assert f"-r verification/ci/requirements-{provider}-isolation.txt" in sql_setup["run"]
+    assert 'command -v mysqld' in sql_setup["run"]
+    assert lane["env"]["TRUTHOUND_SQLSERVER_REQUIRE_NATIVE"] == "1"
+    root = workflow_path.parents[2]
+    for provider in ("oracle", "sqlserver"):
+        fixture = (root / "tests" / f"test_tenant_{provider}_isolation.py").read_text()
+        image = next(line.split('"')[1] for line in fixture.splitlines() if line.startswith('IMAGE = "'))
+        assert f"docker pull {image}" in sql_setup["run"]
+    execute_index = next(i for i, s in enumerate(lane["steps"]) if "run_pytest_manifest.py" in s.get("run", ""))
+    assert lane["steps"].index(sql_setup) < execute_index
+    execute = next(s["run"] for s in lane["steps"] if "run_pytest_manifest.py" in s.get("run", ""))
+    assert "--run-expensive" in execute and "--run-soak" in execute
+    assert "--execution-report" in execute and "--junitxml" in execute
+    assert gate["if"] == "${{ always() }}"
+    assert set(gate["needs"]) == {"nightly-collect", "nightly-lane"}
+    assert any("nightly_plan.py verify" in s.get("run", "") for s in gate["steps"])
+    for job in (collect, lane, gate):
+        uploads = [
+            s for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact@")
+        ]
+        assert uploads and all(s["with"]["if-no-files-found"] == "error" for s in uploads)
+
+
+@pytest.mark.contract
+def test_benchmarks_nightly_workflow_is_manual_only():
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "benchmarks-nightly.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    trigger_block = workflow.get("on") or workflow.get(True) or {}
+
+    assert workflow["name"] == "Benchmarks Manual"
+    # Remains explicit-only: reuse by the manual release orchestrator is not
+    # a schedule or an automatic push/PR benchmark run.
+    assert set(trigger_block) == {"workflow_dispatch", "workflow_call"}
+
+
+@pytest.mark.contract
+def test_benchmarks_release_workflow_is_version_agnostic():
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "benchmarks-release.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    trigger_block = workflow.get("on") or workflow.get(True) or {}
+    release_job = workflow["jobs"]["release-parity"]
+    rendered = yaml.safe_dump(workflow, sort_keys=False)
+
+    assert workflow["name"] == "Benchmarks Release Gate"
+    assert trigger_block["push"]["branches"] == ["release/*"]
+    assert trigger_block["push"]["tags"] == ["v*"]
+    assert release_job["environment"] == "truthound-release-ga"
+    assert release_job["concurrency"]["group"] == "truthound-release-ga"
+    assert "release/3.0" not in rendered
+    assert "release/3.1" not in rendered
+    assert "truthound-3-0-ga" not in rendered
+    assert "truthound-3.0-release-ga" not in rendered
+
+
+@pytest.mark.contract
+def test_ai_live_smoke_workflow_is_manual_and_collects_artifacts():
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ai-live-smoke.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    trigger_block = workflow.get("on", workflow.get(True))
+    steps = workflow["jobs"]["ai-live-smoke"]["steps"]
+    step_names = [step.get("name", "") for step in steps]
+    proposal_step = next(
+        step for step in steps if step.get("name") == "Run live OpenAI proposal smoke"
+    )
+    analysis_step = next(
+        step for step in steps if step.get("name") == "Run live OpenAI explain-run smoke"
+    )
+    upload_step = next(step for step in steps if step.get("name") == "Upload live smoke artifacts")
+
+    assert workflow["name"] == "AI Live Smoke"
+    assert "workflow_dispatch" in trigger_block
+    inputs = trigger_block["workflow_dispatch"]["inputs"]
+    assert "model" in inputs
+    assert "keep_workspace" in inputs
+    assert inputs["keep_workspace"]["type"] == "boolean"
+    assert "Sync locked dev environment" in step_names
+    assert "Validate live smoke configuration" in step_names
+    assert "Collect retained proposal smoke workspace" in step_names
+    assert "Collect retained explain-run smoke workspace" in step_names
+    assert "--run-integration" in proposal_step["run"]
+    assert "tests/integration/ai/test_openai_live_smoke.py" in proposal_step["run"]
+    assert proposal_step["env"]["TRUTHOUND_AI_RUN_LIVE_SMOKE"] == "1"
+    assert (
+        proposal_step["env"]["TRUTHOUND_AI_SMOKE_RESULT_PATH"]
+        == "test-artifacts/ai-live-smoke-proposal.json"
+    )
+    assert analysis_step["if"] == "always()"
+    assert "--run-integration" in analysis_step["run"]
+    assert "tests/integration/ai/test_openai_live_explain_run_smoke.py" in analysis_step["run"]
+    assert analysis_step["env"]["TRUTHOUND_AI_RUN_LIVE_SMOKE"] == "1"
+    assert (
+        analysis_step["env"]["TRUTHOUND_AI_SMOKE_RESULT_PATH"]
+        == "test-artifacts/ai-live-smoke-analysis.json"
+    )
+    assert upload_step["if"] == "always()"
+    assert upload_step["with"]["name"] == "truthound-ai-live-smoke"
+    assert upload_step["with"]["path"] == "test-artifacts"
+
+
+@pytest.mark.contract
+def test_release_pypi_workflow_is_manual_token_only_publish():
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release-pypi.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    trigger_block = workflow.get("on", workflow.get(True))
+    publish_job = workflow["jobs"]["publish"]
+    steps = publish_job["steps"]
+    rendered = yaml.safe_dump(workflow, sort_keys=False)
+    step_names = [step.get("name", "") for step in steps]
+
+    assert workflow["name"] == "Release PyPI"
+    assert workflow["permissions"]["contents"] == "read"
+    assert "id-token" not in workflow["permissions"]
+    assert "workflow_dispatch" in trigger_block
+    assert "publish_mode" not in trigger_block["workflow_dispatch"]["inputs"]
+    assert "environment" not in publish_job
+    assert "Verify release version" in step_names
+    assert "Verify and install the exact release candidate, without rebuilding" in step_names
+    assert "Require complete same-SHA release verification before publishing" in step_names
+    assert "Check package metadata" in step_names
+    assert "Run CLI and SQL provider release contracts" in step_names
+    assert "Smoke install built wheel with AI and SQL provider extras" in step_names
+    assert "Validate PyPI API token secret" in step_names
+    assert "Publish to PyPI" in step_names
+    assert "uv build" not in rendered
+    assert "--from-artifacts canonical" in rendered
+    assert "verification_run_id" in trigger_block["workflow_dispatch"]["inputs"]
+    assert "twine check" in rendered
+    assert "[ai,sql-connectors]" in rendered
+    for module_name in (
+        "psycopg2",
+        "pymysql",
+        "duckdb",
+        "snowflake.connector",
+        "google.cloud.bigquery",
+        "redshift_connector",
+        "databricks.sql",
+        "oracledb",
+        "pymssql",
+    ):
+        assert module_name in rendered
+    assert "truthound.check(source=source)" in rendered
+    assert "truthound.profile(source=source)" in rendered
+    assert "PYPI_API_TOKEN" in rendered
+    assert "pypa/gh-action-pypi-publish@release/v1" in rendered
+    assert "Trusted Publishing" not in rendered
+    assert "twine upload" not in rendered
+
+
+@pytest.mark.contract
+def test_dev_and_streaming_extras_cover_quality_gate_dependencies():
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    optional = pyproject["project"]["optional-dependencies"]
+
+    ai_extra = optional["ai"]
+    dev = optional["dev"]
+    streaming = optional["streaming"]
+    all_extra = optional["all"]
+    reports = optional["reports"]
+
+    assert any(dep.startswith("pydantic") for dep in ai_extra)
+    assert any(dep.startswith("openai") for dep in ai_extra)
+    assert any(dep.startswith("pydantic") for dep in dev)
+    assert any(dep.startswith("openai") for dep in dev)
+    assert any(dep.startswith("pydantic") for dep in all_extra)
+    assert any(dep.startswith("openai") for dep in all_extra)
+    assert any(dep.startswith("jinja2") for dep in reports)
+    assert any(dep.startswith("jinja2") for dep in dev)
+    assert any(dep.startswith("pyarrow") for dep in streaming)
+    assert any(dep.startswith("pyarrow") for dep in dev)
+    assert any(dep.startswith("pyarrow") for dep in all_extra)
+
+
+@pytest.mark.contract
+def test_pr_manifests_split_only_reviewed_independent_algorithm_cases(tmp_path: Path):
+    module = _load_module("build_quality_shards.py")
+    parity_file = "tests/test_mcp_algorithm_parity.py"
+    parity_nodes = [f"{parity_file}::test_native_parity[case-{i:02d}]" for i in range(12)]
+    ordinary_nodes = [f"tests/test_owner_{i}.py::test_lifecycle" for i in range(4)]
+    contract = tmp_path / "contract.txt"
+    fault = tmp_path / "fault.txt"
+    contract.write_text("\n".join(parity_nodes + ordinary_nodes) + "\n")
+    fault.write_text("tests/test_fault.py::test_failure\n")
+    output = tmp_path / "manifests"
+    assert module.main([
+        "--contract-nodeids", str(contract), "--fault-nodeids", str(fault),
+        "--output-dir", str(output), "--summary-out", str(tmp_path / "summary.json"),
+        "--contract-shards", "4",
+    ]) == 0
+    manifests = [p.read_text().splitlines() for p in sorted(output.glob("contract-*.txt"))]
+    assigned = [node for entries in manifests for node in entries if node.startswith(parity_file)]
+    assert sorted(assigned) == sorted(parity_nodes)
+    assert all(sum(node.startswith(parity_file) for node in entries) == 3 for entries in manifests)
+    # Files with shared fixtures remain whole and appear exactly once.
+    ordinary = [node for entries in manifests for node in entries if not node.startswith(parity_file)]
+    assert sorted(ordinary) == sorted(node.split("::")[0] for node in ordinary_nodes)
+
+
+@pytest.mark.contract
+def test_strict_nightly_measurements_share_exclusive_fixed_runner_and_owned_runtime():
+    root = Path(__file__).resolve().parents[1]
+    nightly = yaml.safe_load((root / ".github/workflows/benchmarks-nightly.yml").read_text())["jobs"]["nightly-parity"]
+    release = yaml.safe_load((root / ".github/workflows/benchmarks-release.yml").read_text())["jobs"]["release-parity"]
+    assert nightly["runs-on"] == release["runs-on"] == ["self-hosted", "benchmark-fixed"]
+    assert nightly["concurrency"] == release["concurrency"] == {
+        "group": "truthound-release-ga", "cancel-in-progress": False,
+    }
+    assert nightly["environment"] == release["environment"]
+    runs = [step.get("run", "") for step in nightly["steps"]]
+    assert not any("--system" in command for command in runs)
+    assert any("benchmark_runtime.py claim" in command for command in runs)
+    cleanup = [step for step in nightly["steps"] if "benchmark_runtime.py cleanup" in step.get("run", "")]
+    assert len(cleanup) == 1 and cleanup[0]["if"] == "always()"
+    commands = [command for command in runs if "benchmark parity --suite" in command]
+    assert len(commands) == 3
+    for suite, framework, backend, strict in [
+        ("nightly-core", "both", "local", True),
+        ("nightly-sql", "both", "sqlite", True),
+        ("nightly-sql", "truthound", "duckdb-shadow", False),
+    ]:
+        command = next(c for c in commands if f"--suite {suite}" in c and f"--backend {backend}" in c)
+        assert '"$RELEASE_VENV/bin/python" -m truthound.cli' in command
+        assert f"--frameworks {framework}" in command
+        assert ("--strict" in command) is strict

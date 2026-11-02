@@ -1,0 +1,529 @@
+"""Temporary stop condition for detecting standstill at specified positions.
+
+A stop position is matched in the frame it was given in.  One given as a
+lanelet is a stretch of that lanelet, in its own ``s``; one given in OpenDRIVE
+(or as a CARLA world position) is a stretch of the OpenDRIVE road, in the road's
+``s``.  When the margin around it runs past the end of the lanelet or road,
+additional :class:`EntityLanePositionCondition` instances are created for the
+lanelets or roads before and after it and combined via :class:`OrCondition`.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+from typing import TYPE_CHECKING, Optional, Sequence, Union
+
+import numpy as np
+
+from ...coordinate.map_manager import MapManager
+from ...coordinate.poses import AnyPose, Lanelet2Pose, OpenDrivePose
+from ...coordinate.transform import lanelet_length, to_opendrive
+from ..and_condition import AndCondition
+from ..base import BaseCondition, ScenarioResult
+from ..comparison import ComparisonRule, ScalarComparisonRule
+from ...entity_role import EntityRole
+from ..or_condition import OrCondition
+from ..persistent import PersistentCondition
+from .base import CompositionCondition
+from .entity_lane_position import EntityLanePositionCondition
+from .speed import SpeedCondition
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+logger = logging.getLogger(__name__)
+
+
+class TemporaryStopCondition(CompositionCondition):
+    """Pass when entity temporarily stops at any of the given positions.
+
+    For each stop position, constructs a composite condition:
+    ``PersistentCondition(AndCondition(position_cond, SpeedCondition))``.
+
+    When the margin around a stop position spans across OpenDRIVE road
+    boundaries, multiple :class:`EntityLanePositionCondition` instances
+    (one per road segment) are wrapped in an :class:`OrCondition`.
+
+    When multiple stop positions are given, they are combined with
+    :class:`OrCondition` — stopping at any one position is sufficient.
+
+    An :class:`EntityExistenceCondition` guard ensures the entity is present
+    before the inner conditions are evaluated.
+
+    Args:
+        entity_name: The ``role_name`` attribute of the actor to track.
+        stop_positions: One or more poses where a stop is expected.  A
+            :class:`Lanelet2Pose` is matched on its lanelet, in the lanelet's own
+            ``s`` (from its start along its direction of travel); any other pose
+            is converted to an :class:`OpenDrivePose` and matched on its road,
+            in the road's ``s``, in any lane.
+        s_margin: Arc-length margin (m) around each stop position.
+            The entity must be within ``[s - s_margin, s + s_margin]``, in the
+            frame of the position.
+        speed_threshold: Maximum speed (m/s) considered as stopped.
+        stop_duration: Minimum consecutive seconds the entity must remain
+            stopped at the position.
+
+    Raises:
+        ValueError: If *stop_positions* is empty, *s_margin* is not positive,
+            *speed_threshold* is negative, or *stop_duration* is not positive
+            and finite (NaN fails every comparison, so a NaN duration would
+            never fire).
+    """
+
+    def __init__(
+        self,
+        entity_name: Union[EntityRole, str],
+        stop_positions: Sequence[AnyPose],
+        s_margin: float = 5.0,
+        speed_threshold: float = 0.1,
+        stop_duration: float = 1.0,
+        *,
+        label: str,
+    ) -> None:
+        if not stop_positions:
+            raise ValueError("stop_positions must not be empty")
+        if s_margin <= 0:
+            raise ValueError("s_margin must be positive")
+        if speed_threshold < 0:
+            raise ValueError("speed_threshold must be non-negative")
+        if not math.isfinite(stop_duration) or stop_duration <= 0:
+            raise ValueError("stop_duration must be positive and finite")
+
+        # list[BaseCondition], not list[PersistentCondition]: OrCondition takes
+        # a list of BaseCondition, and Codon does not upcast a list.
+        persistent_conditions: list[BaseCondition] = []
+        for pose in stop_positions:
+            # In the frame the position was given in: a lanelet is a lane, with
+            # an s of its own that runs the other way from the road's on every
+            # lane against the road's reference line.
+            if isinstance(pose, Lanelet2Pose):
+                position_conds = self._build_lanelet_conditions(
+                    entity_name, pose, s_margin, label=label
+                )
+            else:
+                # Build position conditions spanning multiple roads if needed
+                position_conds = self._build_position_conditions(
+                    entity_name, to_opendrive(pose), s_margin, label=label
+                )
+            if len(position_conds) == 1:
+                position_cond: BaseCondition = position_conds[0]
+            else:
+                # Upcast for the static check: Codon does not take a
+                # list[EntityLanePositionCondition] as a list[BaseCondition].
+                position_members: list[BaseCondition] = []
+                for member in position_conds:
+                    position_members.append(member)
+                position_cond = OrCondition(position_members)
+
+            speed_cond = SpeedCondition(
+                entity_name=entity_name,
+                value=speed_threshold,
+                rule=ComparisonRule.LESS_THAN_OR_EQUAL,
+                label=f"{label}_speed",
+            )
+            and_members: list[BaseCondition] = [position_cond, speed_cond]
+            and_cond = AndCondition(and_members)
+            persistent = PersistentCondition(and_cond, duration=stop_duration)
+            persistent_conditions.append(persistent)
+
+        if len(persistent_conditions) == 1:
+            child: BaseCondition = persistent_conditions[0]
+        else:
+            child = OrCondition(persistent_conditions)
+
+        super().__init__(child=child, entity_name=entity_name, label=label)
+
+    # ------------------------------------------------------------------
+    # Margin / road-boundary helpers
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _build_position_conditions(
+        cls,
+        entity_name: Union[EntityRole, str],
+        od_pose: OpenDrivePose,
+        s_margin: float,
+        *,
+        label: str,
+    ) -> list[EntityLanePositionCondition]:
+        """Build EntityLanePositionConditions, splitting across roads when needed.
+
+        If the margin range ``[s - s_margin, s + s_margin]`` stays within the
+        road, a single condition is returned.  When the range overflows past
+        ``s < 0`` (road start) or ``s > road_length`` (road end), additional
+        conditions for the predecessor / successor roads, and the roads beyond
+        them as far as the margin reaches, are appended
+        (:meth:`_spill_onto_roads`).  Each direction keeps its own visited set,
+        so a short ring of roads reached from both ends gets both stretches.
+        """
+        road_length = cls._get_road_length(od_pose.road_id)
+        s_min = od_pose.s - s_margin
+        s_max = od_pose.s + s_margin
+
+        conditions: list[EntityLanePositionCondition] = []
+
+        # --- Main road (clamped to valid range) ---
+        clamped_min = max(0.0, s_min)
+        clamped_max = min(road_length, s_max)
+        conditions.append(
+            cls._make_road_segment_condition(
+                entity_name, od_pose.road_id, clamped_min, clamped_max, label=label
+            )
+        )
+        logger.info(
+            "Position condition: road='%s' s=[%.1f, %.1f] (road_length=%.1f)",
+            od_pose.road_id,
+            clamped_min,
+            clamped_max,
+            road_length,
+        )
+
+        # --- Overflow before road start (s - margin < 0) ---
+        if s_min < 0:
+            visited_before: set[str] = {od_pose.road_id}
+            conditions += cls._spill_onto_roads(
+                entity_name,
+                od_pose.road_id,
+                -s_min,
+                False,
+                visited_before,
+                label=label,
+            )
+
+        # --- Overflow beyond road end (s + margin > road_length) ---
+        if s_max > road_length:
+            visited_after: set[str] = {od_pose.road_id}
+            conditions += cls._spill_onto_roads(
+                entity_name,
+                od_pose.road_id,
+                s_max - road_length,
+                True,
+                visited_after,
+                label=label,
+            )
+
+        return conditions
+
+    @classmethod
+    def _spill_onto_roads(
+        cls,
+        entity_name: Union[EntityRole, str],
+        road_id: str,
+        overflow: float,
+        past_end: bool,
+        visited: set[str],
+        *,
+        label: str,
+    ) -> list[EntityLanePositionCondition]:
+        """The stretch of *overflow* metres beyond one end of *road_id*.
+
+        *past_end* says which end the margin leaves *road_id* through: its end
+        (into its successors) or its start (into its predecessors).  Each
+        linked road is entered at its own contact point and takes what it can
+        hold from there -- ``[0, overflow]`` entered at its start,
+        ``[length - overflow, length]`` entered at its end -- and passes the
+        rest on through its other end, along every branch, until nothing is
+        left.  A map converted from Lanelet2 has roads as short as lanelets,
+        so a margin often reaches past the next road (#837).  *visited* keeps
+        a loop of roads from being walked round forever.
+        """
+        conditions: list[EntityLanePositionCondition] = []
+        direction = "successor" if past_end else "predecessor"
+        for linked_id, contact in cls._find_linked_roads(road_id, direction):
+            if linked_id in visited:
+                continue
+            visited.add(linked_id)
+            linked_length = cls._get_road_length(linked_id)
+            entered_at_start = contact == "start"
+            if entered_at_start:
+                lo = 0.0
+                hi = min(overflow, linked_length)
+            else:
+                lo = max(0.0, linked_length - overflow)
+                hi = linked_length
+            conditions.append(
+                cls._make_road_segment_condition(
+                    entity_name, linked_id, lo, hi, label=label
+                )
+            )
+            logger.info(
+                "  + %s road='%s' s=[%.1f, %.1f] (contact=%s, length=%.1f)",
+                direction,
+                linked_id,
+                lo,
+                hi,
+                contact,
+                linked_length,
+            )
+            if overflow > linked_length:
+                # Entered at its start, the margin leaves it through its end.
+                conditions += cls._spill_onto_roads(
+                    entity_name,
+                    linked_id,
+                    overflow - linked_length,
+                    entered_at_start,
+                    visited,
+                    label=label,
+                )
+        return conditions
+
+    @classmethod
+    def _build_lanelet_conditions(
+        cls,
+        entity_name: Union[EntityRole, str],
+        pose: Lanelet2Pose,
+        s_margin: float,
+        *,
+        label: str,
+    ) -> list[EntityLanePositionCondition]:
+        """The Lanelet2 counterpart of :meth:`_build_position_conditions`.
+
+        ``[s - s_margin, s + s_margin]`` on the lanelet, in its own ``s``; what
+        runs past its start is taken from the end of the lanelets before it,
+        and what runs past its end from the start of the lanelets after it
+        (the routing graph's previous and following lanelets, as far as the
+        margin reaches).
+        """
+        length = cls._get_lanelet_length(pose.lanelet_id)
+        s_min = pose.s - s_margin
+        s_max = pose.s + s_margin
+
+        conditions = [
+            cls._make_lanelet_segment_condition(
+                entity_name,
+                pose.lanelet_id,
+                max(0.0, s_min),
+                min(length, s_max),
+                label=label,
+            )
+        ]
+        logger.info(
+            "Position condition: lanelet=%d s=[%.1f, %.1f] (length=%.1f)",
+            pose.lanelet_id,
+            max(0.0, s_min),
+            min(length, s_max),
+            length,
+        )
+        visited = {pose.lanelet_id}
+        if s_min < 0:
+            conditions += cls._spill_onto_lanelets(
+                entity_name, pose.lanelet_id, -s_min, "previous", visited, label=label
+            )
+        if s_max > length:
+            conditions += cls._spill_onto_lanelets(
+                entity_name,
+                pose.lanelet_id,
+                s_max - length,
+                "following",
+                visited,
+                label=label,
+            )
+        return conditions
+
+    @classmethod
+    def _spill_onto_lanelets(
+        cls,
+        entity_name: Union[EntityRole, str],
+        lanelet_id: int,
+        overflow: float,
+        direction: str,
+        visited: set[int],
+        *,
+        label: str,
+    ) -> list[EntityLanePositionCondition]:
+        """The stretch of *overflow* metres beyond *lanelet_id* in *direction*.
+
+        A lanelet map cuts a road into lanelets, often short ones, so a margin
+        can reach past the next lanelet into the one after it: each lanelet
+        takes what it can hold and passes the rest on, along every branch, until
+        nothing is left.  *visited* keeps a loop in the graph from being walked
+        round forever.
+        """
+        conditions: list[EntityLanePositionCondition] = []
+        for linked in cls._find_linked_lanelets(lanelet_id, direction):
+            if linked in visited:
+                continue
+            visited.add(linked)
+            linked_length = cls._get_lanelet_length(linked)
+            if direction == "previous":
+                lo, hi = max(0.0, linked_length - overflow), linked_length
+            else:
+                lo, hi = 0.0, min(overflow, linked_length)
+            conditions.append(
+                cls._make_lanelet_segment_condition(
+                    entity_name, linked, lo, hi, label=label
+                )
+            )
+            logger.info("  + %s lanelet=%d s=[%.1f, %.1f]", direction, linked, lo, hi)
+            if overflow > linked_length:
+                conditions += cls._spill_onto_lanelets(
+                    entity_name,
+                    linked,
+                    overflow - linked_length,
+                    direction,
+                    visited,
+                    label=label,
+                )
+        return conditions
+
+    @staticmethod
+    def _make_lanelet_segment_condition(
+        entity_name: Union[EntityRole, str],
+        lanelet_id: int,
+        s_lo: float,
+        s_hi: float,
+        *,
+        label: str,
+    ) -> EntityLanePositionCondition:
+        """Create an EntityLanePositionCondition for a stretch of one lanelet."""
+        return EntityLanePositionCondition(
+            entity_name,
+            Lanelet2Pose(lanelet_id=lanelet_id, s=0.0),
+            rules=[
+                ScalarComparisonRule(
+                    field="s",
+                    rule=ComparisonRule.GREATER_THAN_OR_EQUAL,
+                    value=s_lo,
+                ),
+                ScalarComparisonRule(
+                    field="s",
+                    rule=ComparisonRule.LESS_THAN_OR_EQUAL,
+                    value=s_hi,
+                ),
+            ],
+            label=label,
+        )
+
+    @staticmethod
+    def _get_lanelet_length(lanelet_id: int) -> float:
+        """The length of a lanelet's centerline."""
+        return lanelet_length(lanelet_id)
+
+    @staticmethod
+    def _find_linked_lanelets(lanelet_id: int, direction: str) -> list[int]:
+        """The lanelets the routing graph puts before or after *lanelet_id*.
+
+        Args:
+            lanelet_id: The lanelet to query.
+            direction: ``"previous"`` or ``"following"``.
+        """
+        mm = MapManager.get_instance()
+        lanelet = mm.lanelet_map.laneletLayer[lanelet_id]
+        graph = mm.routing_graph
+        linked = (
+            graph.previous(lanelet)
+            if direction == "previous"
+            else graph.following(lanelet)
+        )
+        return [other.id for other in linked]
+
+    @staticmethod
+    def _make_road_segment_condition(
+        entity_name: Union[EntityRole, str],
+        road_id: str,
+        s_lo: float,
+        s_hi: float,
+        *,
+        label: str,
+    ) -> EntityLanePositionCondition:
+        """Create an EntityLanePositionCondition for a road segment.
+
+        The lane is deliberately not part of it: a stop is at an ``s`` along the
+        road, and which lane the vehicle waits in is not being asserted.
+        """
+        return EntityLanePositionCondition.anywhere_on_road(
+            entity_name,
+            road_id,
+            rules=[
+                ScalarComparisonRule(
+                    field="s",
+                    rule=ComparisonRule.GREATER_THAN_OR_EQUAL,
+                    value=s_lo,
+                ),
+                ScalarComparisonRule(
+                    field="s",
+                    rule=ComparisonRule.LESS_THAN_OR_EQUAL,
+                    value=s_hi,
+                ),
+            ],
+            label=label,
+        )
+
+    @staticmethod
+    def _get_road_length(road_id: str) -> float:
+        """Compute the total arc length of an OpenDRIVE road's reference line."""
+        mm = MapManager.get_instance()
+        road = mm.road_network.road_ids_to_object[road_id]
+        ref_line: np.ndarray = road.reference_line
+        if len(ref_line) < 2:
+            return 0.0
+        deltas = np.diff(ref_line, axis=0)
+        return float(np.sum(np.linalg.norm(deltas, axis=1)))
+
+    @staticmethod
+    def _find_linked_roads(road_id: str, direction: str) -> list[tuple[str, str]]:
+        """Find predecessor or successor roads with their contact points.
+
+        Parses the ``<link>`` XML element of the given road to extract
+        ``<predecessor>`` or ``<successor>`` entries whose ``elementType``
+        is ``"road"`` (junctions are excluded).
+
+        Args:
+            road_id: The OpenDRIVE road ID to query.
+            direction: ``"predecessor"`` or ``"successor"``.
+
+        Returns:
+            List of ``(linked_road_id, contact_point)`` tuples.
+            ``contact_point`` is ``"start"`` or ``"end"``.
+        """
+        mm = MapManager.get_instance()
+        road = mm.road_network.road_ids_to_object[road_id]
+        results: list[tuple[str, str]] = []
+        try:
+            link_xml = road.road_xml.find("link")
+            if link_xml is None:
+                return results
+            default_contact = "end" if direction == "predecessor" else "start"
+            for elem_xml in link_xml.findall(direction):
+                elem_type = elem_xml.attrib.get("elementType", "")
+                if elem_type != "road":
+                    continue
+                elem_id = elem_xml.attrib.get("elementId", "")
+                if elem_id not in mm.road_network.road_ids_to_object:
+                    continue
+                contact = elem_xml.attrib.get("contactPoint", default_contact)
+                results.append((elem_id, contact))
+        except Exception:
+            logger.debug(
+                "Failed to find %s roads for road %s",
+                direction,
+                road_id,
+                exc_info=True,
+            )
+        return results
+
+    def _check(self, world: "carla.World", elapsed: float) -> Optional[ScenarioResult]:
+        """Return a pass result once the child condition fires.
+
+        The entity is guaranteed to exist by the
+        :class:`EntityExistenceCondition` guard, and the child
+        (``OrCondition`` / ``PersistentCondition``) has already passed
+        when this method is called.
+
+        Args:
+            world: The CARLA world instance.
+            elapsed: Elapsed time in seconds since the scenario started.
+
+        Returns:
+            :class:`ScenarioResult` with ``passed=True``.
+        """
+        return ScenarioResult(
+            passed=True,
+            message=(
+                f"Entity '{self._entity_name}' has temporarily stopped"
+                f" at a target position at {elapsed:.2f}s"
+            ),
+            elapsed_seconds=elapsed,
+        )

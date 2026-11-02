@@ -1,0 +1,351 @@
+Metadata-Version: 2.4
+Name: runta-sdk
+Version: 0.2.6
+Summary: Python SDK for Runta runtime management
+Author: Runta
+License-Expression: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: attrs>=22.2.0
+Requires-Dist: httpx>=0.27
+Requires-Dist: aiohttp<3.15,>=3.14.3
+Requires-Dist: certifi>=2024.2.2
+Requires-Dist: websockets>=13
+Requires-Dist: tomli>=2.0; python_version < "3.11"
+Provides-Extra: harbor
+Requires-Dist: harbor>=0.20.0; python_version >= "3.12" and extra == "harbor"
+Provides-Extra: openai
+Requires-Dist: openai-agents>=0.18.0; extra == "openai"
+Provides-Extra: dev
+Requires-Dist: griffe>=1.0; extra == "dev"
+Requires-Dist: mkdocs-material; extra == "dev"
+Requires-Dist: mkdocstrings[python]; extra == "dev"
+Requires-Dist: openapi-python-client==0.29.0; python_version >= "3.11" and extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: ruamel-yaml; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+
+# Runta Python SDK
+
+This package provides matching async and sync SDKs. Both call the public
+`runta-api` HTTP/JSON service; they do not speak control-plane gRPC directly.
+
+## Install
+
+```bash
+pip install runta-sdk
+```
+
+Optional framework integrations are installed through extras:
+
+```bash
+pip install "runta-sdk[harbor]"
+pip install "runta-sdk[openai]"
+```
+
+The OpenAI extra installs the `agents_runta` provider module so Agents SDK users
+can run `SandboxAgent` workspaces on Runta without installing a separate
+adapter package.
+
+For user-facing installation, configuration, and workflow examples, see
+[`doc.md`](doc.md).
+
+For a full API reference with every public method, parameter, return value, and
+data type field, see [`manual.md`](manual.md).
+
+To render the local Python API docs:
+
+```bash
+uv run --extra dev mkdocs serve -a 127.0.0.1:8000
+```
+
+```python
+import asyncio
+
+from runta import AsyncRunta
+
+
+async def main():
+    async with AsyncRunta() as runta:
+        runtime = await runta.runtimes.create(
+            "example", memory_mib=1024, memory_max_mib=4096
+        )
+        result = await runtime.exec("echo hello")
+        print(result.stdout_text)
+
+
+asyncio.run(main())
+```
+
+```python
+from runta import Runta
+
+runta = Runta()
+runtime = runta.runtimes.create("example")
+result = runtime.exec("echo hello")
+print(result.stdout_text)
+runta.close()
+```
+
+Commands run as independent Runtime tasks. The SDK keeps a WebSocket open to
+observe progress and reconnects to the same task after a disconnect, without
+executing the command again. See [execution and automatic reconnection](docs/background-execution.md)
+for Runtime dependencies, timeouts, and recovering a task by ID.
+
+Authentication uses `Runta(token="rt_...")` or `RUNTA_TOKEN`. The endpoint
+defaults to `https://api.runta.com`; override it with `Runta(endpoint="...")`,
+`RUNTA_ENDPOINT`, or `endpoint` from the optional Runta config file.
+
+Runtime creation and updates support automatic shutdown/deletion policies and
+raw TCP allowlists in both clients. See [the policy examples](doc.md#automatic-shutdown-and-deletion)
+for configuration, checkpoint inheritance, and deadline metadata.
+
+## Public REST endpoint lifecycle test
+
+You can test the SDK against the hosted REST API by pointing the client at
+`https://api.runta.com` and providing a Runta token:
+
+```bash
+export RUNTA_TOKEN="rt_..."
+uv run python scripts/runta-lifecycle.py
+```
+
+The lifecycle script creates a runtime, starts it, runs a command, writes and
+reads a remote file, uploads a local file, downloads it back, pauses/resumes the
+runtime, then stops and deletes it. To pass credentials explicitly:
+
+```bash
+uv run python scripts/runta-lifecycle.py \
+  --endpoint https://api.runta.com \
+  --token "$RUNTA_TOKEN"
+```
+
+Use `--keep` to leave the runtime behind for inspection.
+
+The SDK is aligned with the current `crates/runta-api` routes. The OpenAPI
+contract exposes single-file raw byte routes at
+`/v2/runtimes/{runtime_id}/files`; `runtime.files.read` and
+`runtime.files.write` use those routes for small in-memory values.
+`runtime.files.upload` and `runtime.files.download` instead stream files or
+directory archives over the public exec WebSocket. They avoid the REST
+request-body limit, verify or stage content before committing it, and clean up
+temporary paths when a transfer is interrupted. SDK `sessions` are SDK-owned
+handles because persistent server-side session routes are not exposed.
+
+```python
+runtime.files.upload("./project", "/workspace/project")
+runtime.files.download("/workspace/dist", "./artifacts/")
+```
+
+To merge a directory's **contents** into an existing local directory, use:
+
+```python
+runtime.files.download_dir_contents("/workspace/dist", "./artifacts")
+# AsyncRuntime exposes the same method:
+await runtime.files.download_dir_contents("/workspace/dist", "./artifacts")
+```
+
+This creates the destination if needed, overwrites matching files, and preserves
+unrelated files without appending `dist`. The source must be a directory (a
+source directory symlink is followed). File/directory conflicts raise an error;
+existing directories are never recursively removed. Empty sources preserve the
+existing destination and its root metadata. The merge is **not transactional**:
+failure or cancellation may leave partially merged files. Existing `download()`
+path and replacement behavior is unchanged.
+
+To transfer only explicit relative paths, pass `paths` to either method:
+
+```python
+await runtime.files.download_dir_contents(
+    "/workspace/dist", "./artifacts", paths=["agent.log", "nested/result.json"]
+)
+```
+
+`paths=None` downloads the complete directory; `paths=[]` does nothing, including
+leaving a missing destination uncreated. Selected directories are not recursive:
+list each desired file explicitly. Selected symlinks (including dangling links)
+are skipped; paths traversing a directory symlink are rejected. Hardlinks never
+add unselected paths. Missing selected paths fail before local merging begins.
+Paths must be relative to the source without `..`, NUL, backslashes or Windows
+path forms. Spaces, newlines, Unicode and leading `-` are supported; names are
+passed through stdin rather than shell interpolation.
+
+Selective downloads require remote `sh`, `mktemp` and a tar supporting
+`--null`, `--verbatim-files-from`, `--no-recursion` and `--files-from`; missing
+capabilities cause an error without an unsafe fallback. Only a temporary path
+manifest is created remotely. Do not modify the source concurrently while it is
+being checked and archived. Selection is checked again against the downloaded
+archive before any custom filter runs. The SDK does not interpret include,
+exclude or protect rules.
+
+The new method reads the downloaded seekable archive directly, without a second
+archive or a complete staging copy. It always applies safe tar data filtering,
+including to members returned by an optional synchronous
+`filter(member, destination)` callback. Return `None` to skip a member, for
+example to ignore FIFOs and device nodes; by default these are rejected.
+Permissions follow `tarfile.data_filter` (including removal of unsafe mode bits
+and ownership). Safe links are preserved where supported; the standard library
+copies archive referents when link creation is unavailable. Unresolvable dangling
+symlinks are skipped on platforms that cannot create them, preserving any
+existing entry at that destination. The SDK uses native
+filtered link fallback when available and provides a safe compatibility path on
+older Python patch releases. A build without `tarfile.data_filter` still raises
+an error rather than extracting unsafely. As with standard tar extraction, do not
+allow another process to modify the destination concurrently during extraction.
+
+Runtime, Checkpoint, and Secret queries, file reads, Runtime creation and deletion,
+resource and egress updates, and streaming transfers retry transient failures
+with exponential backoff and full jitter. The default is 16 total attempts,
+including the first request; set `retry_max_attempts` on
+`Runta` or `AsyncRunta` to use 1–16 attempts. Creation uses one idempotency key
+per call, and PATCH retries keep the original expected revision. Reads, Runtime
+creation and deletion, and PATCH operations have an eight-minute retry budget.
+Read and Runtime deletion retries use a valid `Retry-After` on HTTP 429 instead of
+full jitter;
+the header accepts seconds or an HTTP date and cannot extend the retry budget.
+Otherwise the jitter bound starts at one second and doubles up to 60 seconds.
+Authentication, permission, not-found, parameter, and certificate errors are
+not retried. Paginated reads retry only the failed page, with one time budget
+shared across all pages. Runtime and Checkpoint readiness queries, their
+name-lookup fallbacks, and polling delays share the readiness timeout instead
+of receiving a separate eight-minute budget. Health checks remain single requests.
+
+Runtime, Checkpoint, and Secret lookups retain their direct-GET then list
+fallback. Names and UUIDs use the same retry policy.
+
+Runtime deletion retries the revision GET and DELETE together without nested
+GET retries, fetching the current revision for each attempt. A 404 from either
+request means the Runtime is already deleted and is treated as success;
+202/204 returns immediately without polling for deletion to finish. Revision
+conflicts are not retried.
+Deletion also retries HTTP 500 from either the revision GET or DELETE. HTTP 501
+and revision conflicts still fail immediately; other operations keep their
+existing retry status policy.
+
+Async REST requests share one aiohttp session per client. The client's `timeout`
+(30 seconds by default) covers each complete REST request, including connection
+pool waiting and response reading. Use and close an async client in the same
+event loop. Synchronous REST continues to use httpx. New async HTTPS connections attempt TLS
+1.2/1.3 session resumption using an in-memory cache per client, isolated by
+hostname and port. Missing, expired, or rejected tickets fall back to a full
+handshake. Certificate verification remains enabled; no 0-RTT data is sent.
+Closing the client clears its TLS session cache.
+
+Each transfer connection uses the client's `timeout` (30 seconds by default);
+an established transfer has no overall time limit. Transfers restart from the
+beginning after a disconnect.
+
+Directory uploads wait for stdin EOF before committing the extracted files and
+reporting completion, so tar's archive trailer cannot close the connection
+before the SDK finishes its upload.
+Async directory uploads wait for archive data in the event loop, keeping
+executor threads available to produce archives under concurrent uploads.
+
+## REST contract
+
+`contracts/runta-api.openapi.yaml` is copied from
+`runta/openapi/public.yaml` and is used by the SDK contract tests.
+CI fetches this file directly from the `runta` repository's `integration` branch
+using the GitHub Contents API and `RUNTA_CONTRACT_TOKEN`. The contract sync check
+fails if the source cannot be fetched or differs from the committed copy.
+The test job may fall back to raw YAML and then to the checked-in contract when
+the source is unavailable.
+
+To refresh it locally after changing `runta-api`:
+
+```bash
+cd ~/runta
+mise run api-contract
+cp openapi/public.yaml ~/RuntaPythonSDK/contracts/runta-api.openapi.yaml
+cd ~/RuntaPythonSDK
+uv run python -m pytest tests/test_openapi_contract.py
+```
+
+To fetch the current source contract directly:
+
+```bash
+scripts/fetch-runta-openapi.py
+```
+
+## Generate API reference
+
+The public API reference is generated from `runta.__all__`, Python type
+annotations, and docstrings with Griffe. Every object exported by
+`src/runta/__init__.py` and every public method or attribute must have a
+docstring; generation fails when one is missing. Attribute docstrings are
+rendered in the generated field tables. The overview separates components into
+Sync, Async, and Shared sections, while paired class pages link to their
+counterpart and asynchronous methods retain the `async` keyword in signatures.
+Generated class pages are written to `classes/sync/`, `classes/async/`, and
+`classes/shared/` instead of a single mixed directory.
+
+Every class page includes a declaration. Publicly constructible classes include
+construction syntax, while SDK-owned handles explain how to access them from a
+client or runtime. Method sections use fully qualified names and render
+parameters, return values, raised exceptions, and examples from Google-style
+docstrings when available.
+
+The generator records the package version and exact OpenAPI contract revision,
+then writes `llms.txt` and `llms-full.txt` alongside the Markdown for
+agent-oriented consumption.
+
+```bash
+uv run --extra dev python scripts/generate-api-reference.py
+```
+
+The command writes Markdown to `docs/api/`. That directory is ignored because
+the website repository owns the committed generated pages. To update the
+website when both repositories are sibling directories:
+
+```bash
+cd ../next.runta.com
+npm run docs:generate:python-sdk
+```
+
+Set `RUNTA_PYTHON_SDK_DIR=/path/to/python-sdk` when the SDK checkout is
+elsewhere. Do not edit generated website pages manually; update Python
+docstrings or annotations and regenerate them instead.
+
+The SDK CI uploads `docs/api/` as the `python-sdk-reference` artifact. The
+website build downloads that artifact from the latest successful `main` CI run
+and extracts it into `reference/sdk/python/api/` before building Starlight.
+
+## Live tests
+
+The live test module runs mocked SDK workflow tests by default:
+
+```bash
+python -m unittest tests/test_live.py -v
+```
+
+Pass `--live` to run the real runtime tests. They create real runtimes and use
+external egress, so run them only with `scripts/dev-api.sh` already running:
+
+```bash
+uv run python -m pytest --live
+```
+
+Local pytest loads `.env` automatically. The default local file uses:
+
+```bash
+RUNTA_ENDPOINT=http://127.0.0.1:8080
+RUNTA_TOKEN=rt_your_token
+```
+
+Copy or edit `.env.example` for your local endpoint and token.
+
+## Release
+
+This repository publishes `runta-sdk` to PyPI from GitHub Releases.
+
+1. Update `version` in `pyproject.toml`.
+2. Run `uv run --extra dev python -m pytest`.
+3. Run `rm -rf build dist *.egg-info` to avoid stale package artifacts.
+4. Run `uv build` and `uvx twine check dist/*`.
+5. Commit the release change and create a GitHub Release whose tag is exactly
+   `v{pyproject version}`, for example `v0.0.5`.
+
+The `Publish SDK` workflow validates that the release tag matches
+`pyproject.toml` and publishes the built distributions to PyPI with trusted
+publishing.

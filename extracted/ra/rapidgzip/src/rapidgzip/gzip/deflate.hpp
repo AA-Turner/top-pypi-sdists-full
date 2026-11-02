@@ -433,9 +433,9 @@ readDistanceAndLiteralCodeLengths( LiteralAndDistanceCLBuffer&              lite
             i += bitReader.read<3>() + 3;
         } else if ( code == 18 ) {
             /* Decode fixed number of zeros. The vector is initialized to zeros, so we can simply skip these. */
-            #if defined( __GNUC__ )
-                #pragma GCC unroll 16
-            #endif
+        #if defined( __GNUC__ )
+            #pragma GCC unroll 16
+        #endif
             for ( size_t j = 0; j < 11U + ( 1U << 7U ) - 1U; ++j ) {
                 literalCL[i + j] = 0;
             }
@@ -965,12 +965,8 @@ template<bool ENABLE_STATISTICS>
 template<bool treatLastBlockAsError>
 Error
 Block<ENABLE_STATISTICS>::readHeader( gzip::BitReader& bitReader )
-{
-    try {
-        m_isLastBlock = bitReader.read<1>();
-    } catch ( const gzip::BitReader::EndOfFileReached& ) {
-        return Error::END_OF_FILE;
-    }
+try {
+    m_isLastBlock = bitReader.read<1>();
 
     if constexpr ( treatLastBlockAsError ) {
         if ( m_isLastBlock ) {
@@ -1019,6 +1015,8 @@ Block<ENABLE_STATISTICS>::readHeader( gzip::BitReader& bitReader )
     m_backreferences.clear();
 
     return error;
+} catch ( const gzip::BitReader::EndOfFileReached& ) {
+    return Error::END_OF_FILE;
 }
 
 
@@ -1358,9 +1356,9 @@ Block<ENABLE_STATISTICS>::resolveBackreference( Window&        window,
         const auto decodedBytesInBlock = m_decodedBytes - m_decodedBytesAtBlockStart + nBytesRead;
         if ( distance > decodedBytesInBlock ) {
             m_backreferences.emplace_back( Backreference{
-                static_cast<uint16_t>( distance - decodedBytesInBlock ),
-                std::min( length, distance )
-            } );
+                    static_cast<uint16_t>( distance - decodedBytesInBlock ),
+                    std::min( length, distance )
+                } );
         }
     }
 
@@ -1497,10 +1495,25 @@ Block<ENABLE_STATISTICS>::readInternalUncompressed( gzip::BitReader& bitReader,
         for ( size_t i = 0; i < nBytesRead; ++i ) {
             appendToWindow( window, buffer[i] );
         }
+        /* A short read means the file ended before the declared stored block size was read. This check is necessary
+         * because bitReader.read will not throw EndOfFileReached and this loop would hang when incrementing by
+         * nBytesRead or, as it is now, we would increment the loop counter by more than we actually read. */
+        if ( nBytesRead < buffer.size() ) {
+            m_atEndOfBlock = true;
+            m_decodedBytes += totalBytesRead + nBytesRead;
+            return { totalBytesRead + nBytesRead, Error::EOF_UNCOMPRESSED };
+        }
     }
     for ( ; totalBytesRead < m_uncompressedSize; ++totalBytesRead ) {
-        appendToWindow( window, static_cast<uint8_t>( bitReader.read<BYTE_SIZE>() ) );
+        try {
+            appendToWindow( window, static_cast<uint8_t>( bitReader.read<BYTE_SIZE>() ) );
+        } catch ( const gzip::BitReader::EndOfFileReached& ) {
+            m_atEndOfBlock = true;
+            m_decodedBytes += totalBytesRead;
+            return { totalBytesRead, Error::EOF_UNCOMPRESSED };
+        }
     }
+
     m_atEndOfBlock = true;
     m_decodedBytes += m_uncompressedSize;
     return { m_uncompressedSize, Error::NONE };

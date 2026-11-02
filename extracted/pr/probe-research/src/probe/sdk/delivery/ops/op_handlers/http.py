@@ -1,8 +1,7 @@
 """HttpOpHandler: deliver http and rejected_http ops, placing an experiment child write at its experiment's project."""
 
 from __future__ import annotations
-from .... import errors
-from ..ops import _UNPLACED_EXPERIMENT_PATH
+from .... import errors, routes
 
 
 def _placed(client, op: dict) -> dict | None:
@@ -12,10 +11,10 @@ def _placed(client, op: dict) -> dict | None:
 
     A route-absent server (older than X21) is answered as its own 404, which
     dead-letters like any refusal, not as a capability error the drain would not classify."""
-    match = _UNPLACED_EXPERIMENT_PATH.fullmatch(op.get("path") or "")
-    if match is None:
+    unplaced = routes.unplaced_experiment(op.get("path"))
+    if unplaced is None:
         return None
-    rest = match.group(2)
+    experiment, rest = unplaced
 
     def send(project: str, experiment: str):
         return client.transport.request(
@@ -25,7 +24,7 @@ def _placed(client, op: dict) -> dict | None:
         )
 
     try:
-        return {"response": client._on_experiment(send, match.group(1))}
+        return {"response": client._on_experiment(send, experiment)}
     except errors.CapabilityUnavailable as exc:
         if isinstance(exc.__cause__, errors.RosError):
             raise exc.__cause__ from None

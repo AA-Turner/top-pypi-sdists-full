@@ -10,6 +10,7 @@ from __future__ import annotations
 import enum
 import inspect
 import math
+import re
 import types
 import typing
 from collections.abc import Callable, Iterator, Mapping, Sequence, Set
@@ -45,7 +46,6 @@ from cozy_runtime.author._markers import (
 from cozy_runtime.author._memo import Memoize
 from cozy_runtime.author._model import Model, component_use
 from cozy_runtime.author._services import SERVICES, Secrets, Settings
-from cozy_runtime.author._video import Implements
 from cozy_runtime.author._walker import is_struct, strip, unwrap_optional, walk
 from cozy_runtime.author._weights import WeightsOutput, weights_class
 
@@ -302,6 +302,11 @@ class Slot:
     weights: bool = False
 
 
+def described(docstring: str | None) -> str:
+    """A docstring's first paragraph on one line: what `cozy run <package>` lists."""
+    return " ".join(re.split(r"\n\s*\n", (docstring or "").strip(), maxsplit=1)[0].split())
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Declaration:
     """One callable as a reader found it: by import (a `Surface`) or from source alone.
@@ -314,6 +319,8 @@ class Declaration:
     export: str
     payload_type: object
     result_type: object
+    description: str = ""
+    """The first paragraph of its docstring, whitespace collapsed (`described`)."""
     contexts: tuple[str, ...] = ()
     services: tuple[str, ...] = ()
     """Each injected service's capability, as often as the signature names it."""
@@ -336,8 +343,6 @@ class Declaration:
     model_prepared_use: Mapping[str, str] = field(default_factory=dict)
     model_on_demand: tuple[str, ...] = ()
     """Model arguments built, and their weights fetched, on first use (`on_demand=`)."""
-    implements: Implements | None = None
-    """The interface it implements (`implements=`)."""
     parameters: tuple[str, ...] | None = None
     """An invocable's caller parameters; None: a handler, whose request is its struct."""
     parameter_defaults: Mapping[str, object] = field(default_factory=dict)
@@ -517,7 +522,6 @@ def analyze(
     model_on_demand: tuple[str, ...] = (),
     model_prepared_use: Mapping[str, str] | None = None,
     model_classes: Mapping[str, type[Model[Any]]] | None = None,
-    implements: Implements | None = None,
 ) -> Surface:
     """Derive the whole surface from the signature. Every refusal here is a BUILD refusal.
     `model_classes` names a model argument's class in place of its annotation."""
@@ -670,6 +674,7 @@ def analyze(
         name=name,
         module=fn.__module__,
         export=fn.__name__,
+        description=described(fn.__doc__),
         fn=fn,
         is_async=inspect.iscoroutinefunction(fn),
         params=tuple(params),
@@ -702,7 +707,6 @@ def analyze(
         model_components=model_components or {},
         model_on_demand=model_on_demand,
         model_prepared_use=model_prepared_use or {},
-        implements=implements,
         parameters=tuple(callers) if invocable else None,
         parameter_defaults={
             name: signature.parameters[name].default

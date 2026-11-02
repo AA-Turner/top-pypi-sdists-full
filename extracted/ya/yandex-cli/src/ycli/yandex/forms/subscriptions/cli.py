@@ -1,0 +1,116 @@
+"""`forms subscriptions` commands: the integrations of an integration group (hook).
+
+``attach`` uploads a local file (a binary payload), so it is CLI/SDK only.
+"""
+
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from ycli.cli.body_fields import CallerFields
+from ycli.yandex.forms.client import FormsClient
+from ycli.yandex.forms.models import FileOut
+from ycli.yandex.forms.subscriptions.models import Subscription, SubscriptionAdapter
+from ycli.yandex.forms.typedefs import HookIDArg, SurveyIDArg
+from ycli.yandex.models import Ack, ItemList
+
+app = typer.Typer(
+    name="subscriptions", help="Forms integrations of an integration group.", no_args_is_help=True
+)
+
+SubscriptionIDArg = Annotated[
+    int, typer.Argument(metavar="SUBSCRIPTION_ID", help="Integration id (integer).")
+]
+AttachedFilePathArg = Annotated[
+    Path,
+    typer.Argument(
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        metavar="FILE_PATH",
+        help="Local file to attach to every run.",
+    ),
+]
+
+
+def _body(caller: CallerFields) -> Subscription:
+    # The body is a union that picks its class by ``type``: it comes from --body-file and -F.
+    return SubscriptionAdapter.validate_python(caller.over({}))
+
+
+@app.command("list")
+def list_(
+    survey_id: SurveyIDArg, hook_id: HookIDArg, *, forms: FormsClient
+) -> ItemList[Subscription]:
+    """List the integrations of hook HOOK_ID (GET …/hooks/{id}/subscriptions)."""
+    return forms.subscriptions.list(survey_id, hook_id)
+
+
+@app.command()
+def get(
+    survey_id: SurveyIDArg,
+    hook_id: HookIDArg,
+    subscription_id: SubscriptionIDArg,
+    *,
+    forms: FormsClient,
+) -> Subscription:
+    """Print one integration (SURVEY_ID HOOK_ID SUBSCRIPTION_ID)."""
+    return forms.subscriptions.get(survey_id, hook_id, subscription_id)
+
+
+@app.command()
+def create(
+    survey_id: SurveyIDArg,
+    hook_id: HookIDArg,
+    *,
+    caller: CallerFields,
+    forms: FormsClient,
+) -> Subscription:
+    """Add an integration to hook HOOK_ID from a JSON body (POST …/subscriptions)."""
+    return forms.subscriptions.create(survey_id, hook_id, _body(caller))
+
+
+@app.command()
+def update(
+    survey_id: SurveyIDArg,
+    hook_id: HookIDArg,
+    subscription_id: SubscriptionIDArg,
+    *,
+    caller: CallerFields,
+    forms: FormsClient,
+) -> Subscription:
+    """Change integration SUBSCRIPTION_ID: only the fields in the JSON body change (PATCH)."""
+    return forms.subscriptions.update(survey_id, hook_id, subscription_id, _body(caller))
+
+
+@app.command()
+def delete(
+    survey_id: SurveyIDArg,
+    hook_id: HookIDArg,
+    subscription_id: SubscriptionIDArg,
+    *,
+    forms: FormsClient,
+) -> Ack:
+    """Delete integration SUBSCRIPTION_ID from hook HOOK_ID."""
+    forms.subscriptions.delete(survey_id, hook_id, subscription_id)
+    return Ack.deleted("subscription", subscription_id, from_=f"hook {hook_id}")
+
+
+@app.command()
+def attach(
+    survey_id: SurveyIDArg,
+    hook_id: HookIDArg,
+    subscription_id: SubscriptionIDArg,
+    file_path: AttachedFilePathArg,
+    *,
+    forms: FormsClient,
+) -> FileOut:
+    """Upload a file for the integration's fixed attachments; returns its path."""
+    return forms.subscriptions.attach(
+        survey_id,
+        hook_id,
+        subscription_id,
+        filename=file_path.name,
+        data=file_path.read_bytes(),
+    )

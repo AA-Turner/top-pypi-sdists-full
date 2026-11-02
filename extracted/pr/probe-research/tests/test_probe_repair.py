@@ -18,7 +18,7 @@ import pytest
 import typer
 
 from probe.shared.updates import installs, uninstall_barrier
-from probe.cli import repair
+from probe.cli.install import repair
 from probe.core import events
 from tests.reinstall_harness import reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 
@@ -76,7 +76,7 @@ def test_an_incomplete_machine_says_why(parts, monkeypatch):
 
 
 def test_it_refuses_while_an_uninstall_runs(parts, monkeypatch):
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     path = uninstall_barrier.path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,7 +89,7 @@ def test_it_refuses_while_an_uninstall_runs(parts, monkeypatch):
 
 def test_the_cli_part_rebuilds_a_broken_env_with_real_uv(uv_machine, monkeypatch):
     """`probe repair` run by a person whose active env no longer imports."""
-    from probe.cli import install_pipeline
+    from probe.cli.install import install as install_pipeline
 
     m = uv_machine
     assert install_pipeline.install_cli("1.0.1").ok
@@ -106,7 +106,7 @@ def test_the_service_part_restarts_a_service_on_another_env(monkeypatch):
     """The service runs the old generation: stopped, started on the active env."""
     from pathlib import Path
 
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     answers = [{"service_version": "1.0.0", "env": "/v/1.0.0/probe-research"}, None,
                {"service_version": "1.0.0", "env": "/v/1.0.0+g2/probe-research"}]

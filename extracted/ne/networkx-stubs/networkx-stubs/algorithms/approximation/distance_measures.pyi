@@ -1,3 +1,0 @@
-from typing import Any
-
-def diameter(G, seed: Any | None = ...): ...

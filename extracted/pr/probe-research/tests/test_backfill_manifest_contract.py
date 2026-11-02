@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from probe.cli import backfill_prompts as bp
+from probe.cli.imports.folder.agents import prompts as bp
 
 
 def _row_keys_the_import_writes(tmp_path=None) -> set[str]:
@@ -20,7 +20,8 @@ def _row_keys_the_import_writes(tmp_path=None) -> set[str]:
     import tempfile
     from pathlib import Path
 
-    from probe.cli import backfill_ledger, backfill_run
+    from probe.cli.imports.folder.upload import ledger as backfill_ledger
+    from probe.cli import backfill_run
 
     root = Path(tempfile.mkdtemp())
     (root / "a.py").write_text("x = 1\n")
@@ -37,7 +38,7 @@ def _row_keys_the_import_writes(tmp_path=None) -> set[str]:
 def test_the_prompt_only_asks_for_keys_the_reader_accepts():
     """An unknown key FAILS the row, so a prompt naming one nobody reads would
     make every unit enqueue nothing while reporting success."""
-    from probe.cli.main import _MANIFEST_KEYS  # noqa: PLC0415
+    from probe.cli.commands.artifacts.manifest import _MANIFEST_KEYS  # noqa: PLC0415
 
     assert _row_keys_the_import_writes() <= set(_MANIFEST_KEYS)
 
@@ -52,7 +53,7 @@ def test_an_artifact_name_defaults_to_the_relative_path_not_the_basename(tmp_pat
     is not incidental -- with the wrong cwd every row fails "is not a regular
     file", which is at least loud.
     """
-    from probe.cli.main import _plan_manifest_row  # noqa: PLC0415
+    from probe.cli.commands.artifacts.manifest import _plan_manifest_row  # noqa: PLC0415
 
     target = tmp_path / "michael" / "odyssey" / "config.yaml"
     target.parent.mkdir(parents=True)
@@ -88,7 +89,7 @@ def test_an_absolute_path_still_falls_back_to_the_basename(tmp_path, monkeypatch
     """An absolute path says where a file sits on the machine that wrote the
     manifest. That is not a name anyone wants in a dashboard, and it leaks a
     local layout into shared data."""
-    from probe.cli.main import _plan_manifest_row  # noqa: PLC0415
+    from probe.cli.commands.artifacts.manifest import _plan_manifest_row  # noqa: PLC0415
     from probe.sdk.artifact.anchors import Anchor  # noqa: PLC0415
 
     target = tmp_path / "deep" / "shard.bin"

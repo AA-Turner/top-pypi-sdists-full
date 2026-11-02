@@ -423,7 +423,7 @@ def waiting(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> bool:
     """Some hook `approve` would approve is waiting: the same rule, so a hook
     Probe may not approve (another marketplace's Probe-named plugin) never
     reads as work for it. False when Codex cannot be asked. Never raises."""
-    from probe.cli.capabilities import MARKETPLACE
+    from probe.cli.wizard.state.state import MARKETPLACE
 
     try:
         result = list_hooks(cwd, timeout=timeout)
@@ -465,7 +465,7 @@ def _trust_listing() -> dict[str, str]:
 
 
 def trust_records_path() -> Path:
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     return paths.state_dir() / TRUST_RECORDS_NAME
 
@@ -520,7 +520,7 @@ def approve(
     server = None
     trust_before = _trust_listing()
     try:
-        from probe.cli.capabilities import MARKETPLACE
+        from probe.cli.wizard.state.state import MARKETPLACE
 
         server = _open(timeout)
         if server is None:
@@ -562,12 +562,12 @@ def approve(
 
 def heal() -> dict:
     """`python -m probe.core.run codex_trust`'s answer, for the Probe service's
-    healer (`probe.service.codextrust`, #3617): `approve`, the update's own
+    healer (`probe.service.hooks.codex_trust`, #3617): `approve`, the update's own
     approval, as `{"outcome", "approved", "error"}` (`codextrust.Trust`).
     `settled` once nothing `approve` may approve still waits: a Probe-named
     hook it must not approve is the person's (`/hooks`), as after an update.
     Never raises."""
-    from probe.service.codextrust import Trust
+    from probe.service.hooks.codex_trust import Trust
 
     try:
         if codex_binary() is None:
@@ -709,7 +709,7 @@ def blank_snapshot(state: HooksState) -> dict:
 
 
 def status_snapshot(*, now: float | None = None) -> dict:
-    """`probe status`'s `codex_hooks` (its schema is `probe.cli.status`'s).
+    """`probe status`'s `codex_hooks` (its schema is `probe.cli.wizard.state.status`'s).
 
     Probe's Codex plugins not installed: `none`, nothing asked. Otherwise Codex's
     own answer, cached for STATUS_TTL_S (keyed by the installed copies, so an

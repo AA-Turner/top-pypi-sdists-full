@@ -1,5 +1,6 @@
 """SummariesResource (client.summaries, typed reads) and SummariesMixin, Client's methods: a
-project's or experiment's summary, versions and visuals (twins: app/summaries, app/overviews)."""
+project's or experiment's summary, versions and visuals
+(twins: app/generation/summaries, app/generation/overviews)."""
 
 from __future__ import annotations
 from .....generated.models import (

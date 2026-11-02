@@ -1,0 +1,324 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""Test diagnostic selection and collection with temporary files and fake commands."""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from . import collect_diagnostics
+from .collect_diagnostics import (
+    Capture,
+    collect,
+    Copy,
+    diagnostic_plan,
+    main,
+    SIMULATOR_LOG_WINDOW,
+)
+
+UDID = "1E4D2A00-0000-4000-8000-000000000000"
+
+
+class Recorder:
+    """Record each command and return its arguments as output."""
+
+    def __init__(self) -> None:
+        self.commands: list[list[str]] = []
+
+    def __call__(self, argv):
+        self.commands.append(list(argv))
+        return " ".join(argv)
+
+
+def write(path: Path, text: str = "") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+class DiagnosticPlanTests(unittest.TestCase):
+    def plan(self, **overrides):
+        arguments = {
+            "home": Path("/home/runner"),
+            "companion_root": Path("/tmp"),
+            "device_set": Path("/sets/end-to-end"),
+            "udid": UDID,
+        }
+        arguments.update(overrides)
+        return diagnostic_plan(**arguments)
+
+    def test_names_every_file_it_copies(self) -> None:
+        patterns = [
+            str(source.root / source.pattern)
+            for source in self.plan()
+            if isinstance(source, Copy)
+        ]
+
+        self.assertEqual(
+            patterns,
+            [
+                "/tmp/idb-e2e-*/companion.log",
+                "/home/runner/Library/Logs/DiagnosticReports/idb_companion*.ips",
+                "/home/runner/Library/Logs/DiagnosticReports/"
+                "SimulatorFrameworkBridge*.ips",
+                f"/sets/end-to-end/{UDID}/data/Library/Logs/CrashReporter/*.ips",
+            ],
+        )
+
+    def test_names_every_command_it_captures(self) -> None:
+        captures = {
+            source.name: list(source.argv)
+            for source in self.plan()
+            if isinstance(source, Capture)
+        }
+
+        self.assertEqual(
+            captures,
+            {
+                "devices.txt": [
+                    "xcrun",
+                    "simctl",
+                    "--set",
+                    "/sets/end-to-end",
+                    "list",
+                    "devices",
+                ],
+                "simulator-log.txt": [
+                    "xcrun",
+                    "simctl",
+                    "--set",
+                    "/sets/end-to-end",
+                    "spawn",
+                    UDID,
+                    "log",
+                    "show",
+                    "--last",
+                    SIMULATOR_LOG_WINDOW,
+                    "--style",
+                    "compact",
+                ],
+            },
+        )
+
+    def test_missing_simulator_keeps_host_diagnostics(self) -> None:
+        for absent in ({"device_set": None}, {"udid": None}, {"udid": ""}):
+            with self.subTest(**absent):
+                plan = self.plan(**absent)
+                self.assertEqual(len(plan), 3)
+                self.assertTrue(all(isinstance(source, Copy) for source in plan))
+
+
+class CollectTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.output = self.root / "diagnostics"
+        self.run = Recorder()
+
+    def run_command_line(
+        self, environment: dict[str, str], *argv: str
+    ) -> tuple[int, str]:
+        """Run the command line with commands recorded rather than executed."""
+        error = io.StringIO()
+        with (
+            mock.patch.dict("os.environ", environment, clear=True),
+            mock.patch.object(collect_diagnostics, "_run", self.run),
+            contextlib.redirect_stderr(error),
+        ):
+            status = main(
+                [
+                    "--output",
+                    str(self.output),
+                    "--companion-root",
+                    str(self.root / "tmp"),
+                    *argv,
+                ]
+            )
+        return status, error.getvalue()
+
+    def test_collects_flat_companion_logs_into_a_separate_directory(self) -> None:
+        artifacts = self.root / "artifacts"
+        write(artifacts / "idb-e2e-a-companion.log", "first")
+        write(artifacts / "idb-e2e-b-companion.log", "second")
+        collected = collect(
+            diagnostic_plan(
+                home=self.root / "home",
+                companion_root=self.root / "tmp",
+                artifacts_dir=artifacts,
+            ),
+            self.output,
+            self.run,
+        )
+        self.assertEqual(
+            [(name, (self.output / name).read_text()) for name in collected],
+            [
+                ("idb-e2e-a-companion.log", "first"),
+                ("idb-e2e-b-companion.log", "second"),
+            ],
+        )
+
+    def test_retains_logs_already_in_the_output_directory(self) -> None:
+        log = write(self.output / "idb-e2e-a-companion.log", "retained")
+        with mock.patch("sys.stderr") as stderr:
+            collected = collect(
+                [Copy(self.output, "idb-e2e-*-companion.log")], self.output, self.run
+            )
+        self.assertEqual(collected, [log.name])
+        self.assertEqual(log.read_text(), "retained")
+        stderr.write.assert_not_called()
+
+    def test_artifact_directory_selection(self) -> None:
+        explicit = self.root / "explicit"
+        runner = self.root / "runner"
+        override = self.root / "override"
+        for directory in (explicit, runner, override):
+            write(directory / "idb-e2e-a-companion.log", directory.name)
+        cases = [
+            ({"TEST_RESULT_ARTIFACTS_DIR": str(runner)}, [], "runner"),
+            (
+                {
+                    "IDB_E2E_ARTIFACTS_DIR": str(explicit),
+                    "TEST_RESULT_ARTIFACTS_DIR": str(runner),
+                },
+                [],
+                "explicit",
+            ),
+            (
+                {"IDB_E2E_ARTIFACTS_DIR": str(explicit)},
+                ["--artifacts-dir", str(override)],
+                "override",
+            ),
+        ]
+        for environment, arguments, expected in cases:
+            with (
+                self.subTest(expected=expected),
+                mock.patch.dict("os.environ", environment, clear=True),
+            ):
+                self.assertEqual(
+                    main(
+                        [
+                            "--output",
+                            str(self.output),
+                            "--companion-root",
+                            str(self.root / "tmp"),
+                            *arguments,
+                        ]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    (self.output / "idb-e2e-a-companion.log").read_text(), expected
+                )
+
+    def test_companion_log_collision(self) -> None:
+        write(self.root / "idb-e2e-a" / "companion.log", "first")
+        write(self.root / "idb-e2e-b" / "companion.log", "second")
+        collected = collect(
+            diagnostic_plan(home=self.root / "home", companion_root=self.root),
+            self.output,
+            self.run,
+        )
+        self.assertEqual(
+            [(name, (self.output / name).read_text()) for name in collected],
+            [
+                ("companions/idb-e2e-a/companion.log", "first"),
+                ("companions/idb-e2e-b/companion.log", "second"),
+            ],
+        )
+
+    def test_host_and_simulator_crash_report_collision(self) -> None:
+        home = self.root / "home"
+        device_set = self.root / "devices"
+        filename = "idb_companion-example.ips"
+        write(home / "Library/Logs/DiagnosticReports" / filename, "host crash")
+        write(
+            device_set / UDID / "data/Library/Logs/CrashReporter" / filename,
+            "simulator crash",
+        )
+
+        collected = collect(
+            diagnostic_plan(
+                home=home,
+                companion_root=self.root,
+                device_set=device_set,
+                udid=UDID,
+            ),
+            self.output,
+            self.run,
+        )
+
+        self.assertEqual(
+            [
+                (name, (self.output / name).read_text())
+                for name in collected
+                if name.endswith(".ips")
+            ],
+            [
+                (f"host-crashes/{filename}", "host crash"),
+                (f"simulator-crashes/{filename}", "simulator crash"),
+            ],
+        )
+
+    def test_unmatched_pattern_collects_no_files(self) -> None:
+        self.assertEqual(
+            collect([Copy(self.root / "absent", "*.ips")], self.output, self.run),
+            [],
+        )
+        self.assertTrue(self.output.is_dir())
+
+    def test_saves_command_output(self) -> None:
+        collected = collect(
+            [Capture("devices.txt", ("xcrun", "simctl", "list"))], self.output, self.run
+        )
+        self.assertEqual(collected, ["devices.txt"])
+        self.assertEqual((self.output / "devices.txt").read_text(), "xcrun simctl list")
+        self.assertEqual(self.run.commands, [["xcrun", "simctl", "list"]])
+
+    def test_names_the_simulator_from_the_environment(self) -> None:
+        device_set = self.root / "devices"
+        write(device_set / UDID / "data/Library/Logs/CrashReporter/crash.ips", "crash")
+
+        status, _ = self.run_command_line(
+            {"DEVICE_SET_PATH": str(device_set), "DEVICE_UDID": UDID}
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            (self.output / "simulator-crashes/crash.ips").read_text(), "crash"
+        )
+        self.assertEqual(
+            [command[:4] for command in self.run.commands],
+            [["xcrun", "simctl", "--set", str(device_set)]] * 2,
+        )
+
+    def test_an_empty_device_set_path_names_no_simulator(self) -> None:
+        # `Path("")` is the working directory, so an exported-but-unset
+        # variable has to read as absent rather than as a device set here.
+        status, error = self.run_command_line(
+            {"DEVICE_SET_PATH": "", "DEVICE_UDID": UDID}
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(self.run.commands, [])
+        self.assertIn("host-side diagnostics only", error)
+
+    def test_collection_continues_after_source_error(self) -> None:
+        def raising(argv):
+            raise OSError("xcrun is not on this host")
+
+        collected = collect(
+            [
+                Capture("devices.txt", ("xcrun", "simctl", "list")),
+                Copy(write(self.root / "crash.ips").parent, "crash.ips"),
+            ],
+            self.output,
+            raising,
+        )
+        self.assertEqual(collected, ["crash.ips"])

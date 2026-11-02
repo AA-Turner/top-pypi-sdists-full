@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from omnibase_core.container.container_auto_config import local_event_bus
 from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
 from omnibase_core.errors.model_onex_error import ModelOnexError
 from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
@@ -23,6 +24,7 @@ from omnibase_core.models.event_bus.model_event_message import ModelEventMessage
 from omnibase_core.models.nodes.source_file_gather.model_source_file_gather_input import (
     ModelSourceFileGatherInput,
 )
+from omnibase_core.models.runtime.model_operational_timeouts import packaged_timeouts
 from omnibase_core.models.validation.model_shared_token_allowlist import (
     ModelSharedTokenAllowlist,
 )
@@ -73,7 +75,7 @@ async def run_policy(
     contract = ModelEventBusSubcontract.model_validate(raw["event_bus"])
     (command_topic,) = contract.subscribe_topics
     (result_topic,) = contract.publish_topics
-    transport = bus if bus is not None else EventBusInmemory()
+    transport = bus if bus is not None else local_event_bus()
     results: asyncio.Queue[ModelSharedTokenPolicyResult] = asyncio.Queue(maxsize=1)
 
     async def on_command(message: ModelEventMessage) -> None:
@@ -103,7 +105,10 @@ async def run_policy(
             ),
         )
         await transport.publish(command_topic, None, request.model_dump_json().encode())
-        return await asyncio.wait_for(results.get(), timeout=5)
+        return await asyncio.wait_for(
+            results.get(),
+            timeout=packaged_timeouts().shared_token_policy_response_seconds,
+        )
     finally:
         await transport.shutdown()
 

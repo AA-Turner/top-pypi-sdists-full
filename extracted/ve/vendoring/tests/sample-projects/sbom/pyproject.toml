@@ -1,0 +1,6 @@
+[tool.vendoring]
+destination = "vendored/"
+requirements = "vendor.txt"
+namespace = "sbom.vendored"
+
+sbom-file = "vendored/bom.cdx.json"

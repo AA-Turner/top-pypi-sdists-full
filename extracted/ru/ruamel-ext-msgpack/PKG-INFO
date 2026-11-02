@@ -1,0 +1,183 @@
+Metadata-Version: 2.1
+Name: ruamel.ext.msgpack
+Version: 0.2.2
+Summary: thin wrapper around msgpack to deal with naive datetime and ruamel defined extension types
+Home-page: https://sourceforge.net/p/ruamel-ext-msgpack/code/ci/default/tree
+Author: Anthon van der Neut
+Author-email: a.van.der.neut@ruamel.eu
+License: Copyright Ruamel bvba 2007-2023
+Keywords: pypi statistics
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Requires-Python: >=3
+Description-Content-Type: text/x-rst
+
+
+ruamel.ext.msgpack
+==================
+
+ruamel.ext.msgpack is  a thin wrapper around msgpack, that deals with naive datetime instances and ruamel defined 
+extension types (date).
+
+.. image:: https://sourceforge.net/p/ruamel-ext-msgpack/code/ci/default/tree/_doc/_static/license.svg?format=raw
+     :target: https://opensource.org/licenses/MIT
+.. image:: https://sourceforge.net/p/ruamel-ext-msgpack/code/ci/default/tree/_doc/_static/pypi.svg?format=raw
+     :target: https://pypi.org/project/ruamel.ext.msgpack
+.. image:: https://sourceforge.net/p/oitnb/code/ci/default/tree/_doc/_static/oitnb.svg?format=raw
+   :target: https://pypi.org/project/oitnb/
+
+
+naive datetime.datetime
++++++++++++++++++++++++
+
+If you try to pack a naive datetime.datetime instance, you'll get an error:
+
+.. code:: python
+
+
+  import datetime
+  from msgpack import packb
+
+  try:
+      packb(datetime.datetime(2011, 10, 2), datetime=True)
+  except Exception as e:
+      print('exception:', type(e), e)
+
+which will print:
+
+.. code::
+
+  exception: <class 'ValueError'> can not serialize 'datetime.datetime' object where tzinfo=None
+
+
+using ``pack``/``packb`` from ``ruamel.ext.msgpack``  will prevent this from happening, without
+having to go over the data structure and replacing all naive ``datetime.datetime`` instances.
+It will provide both an argument to ``default`` that handles the naive datetimestamp and
+some Ext types, set ``use_bin_type=True`` and ``datetime=True``. 
+
+.. code:: python
+
+
+  import sys
+  import datetime
+  from ruamel.ext.msgpack import packb, unpackb
+
+  res = packb(datetime.datetime(2011, 10, 2, 17, 15, 1))
+  print(unpackb(res))
+
+which will print:
+
+.. code::
+
+  2011-10-02 17:15:01+00:00
+
+
+as you can see from the output this will make the instance, that was read back, timezone aware.
+
+use_bin_type=True
+++++++++++++++++++
+
+The ``pack`` and ``packb`` routines do not change the default ``use_bin_type=True``.
+So the UTF-8 "bytestrings" get dumped as bin 8/16/32 and not as the slightly more
+efficient "fixstr" for strings up to a length of 31 bytes.
+In the following the function hex() returns a string of hexadecimal values from the bytes array passed into it:
+
+.. code:: python
+
+
+  from ruamel.ext.msgpack import packb, unpackb, hex
+
+  res = packb('こんにちは世界')
+  print(hex(res), len(res))
+  print(unpackb(res))
+  res = packb('こんにちは世界'.encode('utf-8'))
+  print(hex(res), len(res))
+  print(unpackb(res))
+
+``\xb5`` indicates "fixstr" of length 21,
+``\xc4\x15`` indicates "bin 8" of length 21
+
+.. code::
+
+  \xb5\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf\xe4\xb8\x96\xe7\x95\x8c 22
+  こんにちは世界
+  \xc4\x15\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf\xe4\xb8\x96\xe7\x95\x8c 23
+  b'\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf\xe4\xb8\x96\xe7\x95\x8c'
+
+
+If you don't need byte arrays, and want conversion done of ``bytes`` to ``str`` on msgpack-roundtrip,
+an alternate version of ``pack``/``unpack``  can be constructed,
+that still handles naive datetime objects, and the other types provided by ``ruamel.ext.msgpack``:
+
+.. code:: python
+
+
+  from functools import partial
+  from ruamel.ext.msgpack import hex, unpackb, msgpack_default
+  import msgpack
+
+  pack = partial(msgpack.pack, default=msgpack_default, use_bin_type=False, datetime=True)
+  packb = partial(msgpack.packb, default=msgpack_default, use_bin_type=False, datetime=True)
+
+  res = packb('こんにちは世界'.encode('utf-8'))
+  print(hex(res), len(res))
+  print(unpackb(res))
+
+Although packing ``bytes``, now ``\xb5`` indicates "fixstr" of length 21, and the unpacking results in a ``str``:
+
+.. code::
+
+  \xb5\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf\xe4\xb8\x96\xe7\x95\x8c 22
+  こんにちは世界
+
+
+extension types
++++++++++++++++
+
+The following extension types are provided by ``ruamel.ext.msgpack``. Each has associated attribute
+on ``msgpack_default`` with the type number. This number can be changed, but the same numbers should
+be used for packing and unpacking. If a number is set to ``None`` the associated type will not be
+packed or unpacked.
+The type used for naive ``datetime.datetime``,  -1, cannot be changed.
+
+datetime.date
+^^^^^^^^^^^^^
+
+Python's ``datetime.date`` instances are packed in a two bytes stucture for dates in the range 2000-01-01 and 2126-12-31.
+
+.. code:: python
+
+
+  import datetime
+  from ruamel.ext.msgpack import packb, unpackb, hex, msgpack_default
+
+  res = packb(datetime.date(2011, 10, 2))
+  print('hex:', hex(res), len(res))
+  print(unpackb(res))
+  print(f'{msgpack_default.date=}')
+
+  msgpack_default.date = 42
+  res = packb(datetime.date(2011, 10, 2))
+  print('hex:', hex(res), len(res))
+  print(unpackb(res))
+
+  try:
+      msgpack_default.date = None
+      res = packb(datetime.date(2011, 10, 2))
+  except Exception as e:
+      print('exception:', type(e), e)
+
+
+which will print:
+
+.. code::
+
+  hex: \xd5\x11\x17\x82 4
+  2011-10-02
+  msgpack_default.date=17
+  hex: \xd5\x11\x17\x82 4
+  2011-10-02
+

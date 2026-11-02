@@ -18,6 +18,13 @@ JSON_TYPE_TO_PYTHON_TYPE = {
 DOLLAR_FINDER = re.compile(r"(?<!\\)\$")  # Finds any un-escaped $ (including inside []-sets)
 
 
+# Calendar date: the day must exist in its month, and 29 February only in a leap year.
+DATE_REGEX = (
+    r'\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|02-(?:0[1-9]|1\d|2[0-8]))'
+    r'|(?:\d\d(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29'
+)
+
+
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 class CodeGeneratorDraft04(CodeGenerator):
     # pylint: disable=line-too-long
@@ -26,11 +33,11 @@ class CodeGeneratorDraft04(CodeGenerator):
     # vs. 9 ms with a regex! Other modules are also ineffective or not available in standard
     # library. Some regexps are not 100% precise but good enough, fast and without dependencies.
     FORMAT_REGEXS = {
-        'date-time': r'^\d{4}-[01]\d-[0-3]\d(t|T)[0-2]\d:[0-5]\d:[0-5]\d(?:\.\d+)?(?:[+-][0-2]\d:[0-5]\d|[+-][0-2]\d[0-5]\d|z|Z)\Z',
+        'date-time': r'^(?:' + DATE_REGEX + r')(t|T)(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[+-](?:[01]\d|2[0-3]):[0-5]\d|[+-](?:[01]\d|2[0-3])[0-5]\d|z|Z)\Z',
         'email': r'^(?!.*\.\..*@)[^@.][^@]*(?<!\.)@[^@]+\.[^@]+\Z',
         'hostname': r'^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9])\Z',
         'ipv4': r'^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\Z',
-        'ipv6': r'^(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)\Z',
+        'ipv6': r'^(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)\Z',
         'uri': r'^\w+:(\/?\/?)[^\s]+\Z',
     }
 
@@ -286,7 +293,7 @@ class CodeGeneratorDraft04(CodeGenerator):
     def generate_pattern(self):
         with self.l('if isinstance({variable}, str):'):
             pattern = self._definition['pattern']
-            safe_pattern = pattern.replace('\\', '\\\\').replace('"', '\\"')
+            safe_pattern = self.e(pattern)
             end_of_string_fixed_pattern = DOLLAR_FINDER.sub(r'\\Z', pattern)
             self._compile_regexps[pattern] = re.compile(end_of_string_fixed_pattern)
             with self.l('if not REGEX_PATTERNS[{}].search({variable}):', repr(pattern)):
@@ -336,7 +343,7 @@ class CodeGeneratorDraft04(CodeGenerator):
                 self.exc('{name} must be {}', format_name, rule='format')
 
     def generate_minimum(self):
-        with self.l('if isinstance({variable}, (int, float, Decimal)):'):
+        with self.l('if isinstance({variable}, (int, float, Decimal)) and not isinstance({variable}, bool):'):
             if not isinstance(self._definition['minimum'], (int, float, decimal.Decimal)):
                 raise JsonSchemaDefinitionException('minimum must be a number')
             if self._definition.get('exclusiveMinimum', False):
@@ -347,7 +354,7 @@ class CodeGeneratorDraft04(CodeGenerator):
                     self.exc('{name} must be bigger than or equal to {minimum}', rule='minimum')
 
     def generate_maximum(self):
-        with self.l('if isinstance({variable}, (int, float, Decimal)):'):
+        with self.l('if isinstance({variable}, (int, float, Decimal)) and not isinstance({variable}, bool):'):
             if not isinstance(self._definition['maximum'], (int, float, decimal.Decimal)):
                 raise JsonSchemaDefinitionException('maximum must be a number')
             if self._definition.get('exclusiveMaximum', False):
@@ -358,20 +365,25 @@ class CodeGeneratorDraft04(CodeGenerator):
                     self.exc('{name} must be smaller than or equal to {maximum}', rule='maximum')
 
     def generate_multiple_of(self):
-        with self.l('if isinstance({variable}, (int, float, Decimal)):'):
+        with self.l('if isinstance({variable}, (int, float, Decimal)) and not isinstance({variable}, bool):'):
             if not isinstance(self._definition['multipleOf'], (int, float, decimal.Decimal)):
                 raise JsonSchemaDefinitionException('multipleOf must be a number')
-            # For proper multiplication check of floats we need to use decimals,
-            # because for example 19.01 / 0.01 = 1901.0000000000002.
-            if isinstance(self._definition['multipleOf'], float):
-                self.l('quotient = Decimal(repr({variable})) / Decimal(repr({multipleOf}))')
-            else:
-                self.l('quotient = {variable} / {multipleOf}')
-            with self.l('if int(quotient) != quotient:'):
-                self.exc('{name} must be multiple of {multipleOf}', rule='multipleOf')
-            # For example, 1e308 / 0.123456789
-            with self.l('if {variable} / {multipleOf} == float("inf"):'):
-                self.exc('inifinity reached', rule='multipleOf')
+            # Integer division through a float loses precision or can overflow.
+            with self.l('if isinstance({variable}, int) and isinstance({multipleOf}, int):'):
+                with self.l('if {variable} % {multipleOf} != 0:'):
+                    self.exc('{name} must be multiple of {multipleOf}', rule='multipleOf')
+            with self.l('else:'):
+                # For proper multiplication check of floats we need to use decimals,
+                # because for example 19.01 / 0.01 = 1901.0000000000002.
+                if isinstance(self._definition['multipleOf'], float):
+                    self.l('quotient = Decimal(repr({variable})) / Decimal(repr({multipleOf}))')
+                else:
+                    self.l('quotient = {variable} / {multipleOf}')
+                with self.l('if int(quotient) != quotient:'):
+                    self.exc('{name} must be multiple of {multipleOf}', rule='multipleOf')
+                # For example, 1e308 / 0.123456789
+                with self.l('if {variable} / {multipleOf} == float("inf"):'):
+                    self.exc('inifinity reached', rule='multipleOf')
 
     def generate_min_items(self):
         self.create_variable_is_list()
@@ -418,7 +430,7 @@ class CodeGeneratorDraft04(CodeGenerator):
                 'for k, v in var.items()).items()) '
                 'if hasattr(var, "items") else tuple(fn(v) '
                 'for v in var) '
-                'if isinstance(var, (dict, list)) else str(var) '
+                'if isinstance(var, (dict, list)) else (bool, var) '
                 'if isinstance(var, bool) else var')
             self.create_variable_with_length()
             with self.l('if {variable}_len > len(set(fn({variable}_x) for {variable}_x in {variable})):'):
@@ -557,7 +569,7 @@ class CodeGeneratorDraft04(CodeGenerator):
                     self.generate_func_code_block(
                         prop_definition,
                         '{}__{}'.format(self._variable, key_name),
-                        '{}.{}'.format(self._variable_name, self.e(key)),
+                        '{}.{}'.format(self._variable_name, self.e(key).replace('{', '{{').replace('}', '}}')),
                         clear_variables=True,
                     )
                 if self._use_default and isinstance(prop_definition, dict) and 'default' in prop_definition:

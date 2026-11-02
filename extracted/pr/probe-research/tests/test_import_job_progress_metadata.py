@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import import_jobs as jobs
+from probe.cli.imports import jobs as jobs
 
 
 @pytest.fixture
@@ -40,7 +40,8 @@ def test_worker_retains_verified_completion_when_it_stops(saved_job, monkeypatch
             raise jobs._Interrupted
         return ["Finished."]
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     jobs.run_worker(saved_job["id"])
     stopped = jobs.get_job(saved_job["id"])
     assert stopped["state"] == expected
@@ -71,7 +72,8 @@ def test_orphan_detection_and_resume_keep_last_measured_work(saved_job, monkeypa
         assert "eta_seconds" not in started["progress"]
         return []
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     jobs.run_worker(saved_job["id"])
 
 
@@ -136,7 +138,8 @@ def test_eta_uses_verified_completion_and_excludes_connection_wait(saved_job, mo
         assert "eta_seconds" not in waiting
         clock[0] += 600
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     monkeypatch.setattr(jobs.time, "sleep", disconnected)
     assert jobs.run_worker(saved_job["id"]) == 0
 
@@ -160,7 +163,8 @@ def test_receipt_replay_keeps_verified_ids_for_the_same_frozen_job(saved_job, mo
         assert jobs.get_job(saved_job["id"])["progress"]["completion_completed"] == 3
         return []
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     assert jobs.run_worker(saved_job["id"]) == 1
     jobs.resume(saved_job["id"])
     assert jobs.run_worker(saved_job["id"]) == 0
@@ -179,7 +183,8 @@ def test_scan_observations_do_not_contribute_verified_ids_to_delivery(saved_job,
         assert "eta_seconds" not in importing
         return []
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     assert jobs.run_worker(saved_job["id"]) == 0
 
 
@@ -205,7 +210,8 @@ def test_file_eta_times_new_receipts_after_preparation(saved_job, monkeypatch, a
         assert measured["eta_seconds"] == (8 - already_complete) * 10
         return []
 
-    monkeypatch.setattr(jobs, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.kind, "_dispatch", dispatch)
+    monkeypatch.setattr(jobs.runner, "_dispatch", dispatch)
     assert jobs.run_worker(saved_job["id"]) == 0
 
 

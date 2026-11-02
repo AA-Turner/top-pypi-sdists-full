@@ -24,7 +24,7 @@ import time
 import uuid
 from pathlib import Path
 
-from probe.cli import backfill as bf
+from probe.cli.imports import folder as bf
 
 
 #: Bound at import: several suites replace `subprocess.Popen` with a fake child

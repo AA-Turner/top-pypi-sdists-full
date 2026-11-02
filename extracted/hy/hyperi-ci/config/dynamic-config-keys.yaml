@@ -1,0 +1,98 @@
+# Project:   HyperI CI
+# File:      config/dynamic-config-keys.yaml
+# Purpose:   Config keys read by a path no literal search can see
+#
+# License:   BUSL-1.1 -- HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# `scripts/audit-config-keys.py` fails when a key declared in defaults.yaml is
+# read by nothing. It finds readers by searching for the quoted dotted path, so
+# a path assembled at runtime -- `f"quality.{language}.{tool}"` -- is invisible
+# to it and reads as dead. `quality.golang.test_ignore` is live and was nearly
+# deleted on exactly that evidence.
+#
+# Declaring the key here is the fix: a dynamic read must be written down, with
+# the file that performs it. The audit checks that file still exists, so an
+# entry cannot outlive its reader.
+#
+# Add an entry ONLY after reading the code and confirming the key is read. An
+# entry for a key nothing reads defeats the whole gate.
+
+keys:
+  # resolve_tool_mode() builds `quality.<language>.<tool>`.
+  quality.golang.gofmt: src/hyperi_ci/languages/quality_common.py
+  quality.golang.govet: src/hyperi_ci/languages/quality_common.py
+  quality.golang.golangci_lint: src/hyperi_ci/languages/quality_common.py
+  quality.golang.gosec: src/hyperi_ci/languages/quality_common.py
+  quality.golang.govulncheck: src/hyperi_ci/languages/quality_common.py
+  quality.python.ruff: src/hyperi_ci/languages/quality_common.py
+  quality.python.ruff_format: src/hyperi_ci/languages/quality_common.py
+  quality.python.ruff_docstrings: src/hyperi_ci/languages/quality_common.py
+  quality.python.ty: src/hyperi_ci/languages/quality_common.py
+  quality.python.pip_audit: src/hyperi_ci/languages/quality_common.py
+  quality.python.vulture: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.eslint: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.oxlint: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.prettier: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.oxfmt: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.tsc: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.audit: src/hyperi_ci/languages/quality_common.py
+  quality.typescript.osv_scanner: src/hyperi_ci/languages/quality_common.py
+  quality.rust.fmt: src/hyperi_ci/languages/quality_common.py
+  quality.rust.clippy: src/hyperi_ci/languages/quality_common.py
+  quality.rust.semver_checks: src/hyperi_ci/languages/quality_common.py
+  quality.rust.audit: src/hyperi_ci/languages/quality_common.py
+  quality.rust.osv_scanner: src/hyperi_ci/languages/quality_common.py
+  quality.rust.deny: src/hyperi_ci/languages/quality_common.py
+  quality.rust.feature_matrix.warnings: src/hyperi_ci/languages/quality_common.py
+  quality.rust.feature_matrix_tests: src/hyperi_ci/languages/quality_common.py
+
+  # get_test_ignore() builds `quality.<language>.test_ignore`.
+  quality.golang.test_ignore: src/hyperi_ci/languages/quality_common.py
+  quality.python.test_ignore: src/hyperi_ci/languages/quality_common.py
+  quality.rust.test_ignore: src/hyperi_ci/languages/quality_common.py
+
+  # _normalize_rust_features() builds `<stage>.rust.features`.
+  quality.rust.features: src/hyperi_ci/dispatch.py
+  test.rust.features: src/hyperi_ci/dispatch.py
+
+  # The Python directory split reads each `test.tiers.<dir>` mapping by name.
+  test.tiers.unit.enabled: src/hyperi_ci/languages/python/test.py
+  test.tiers.unit.fail_fast: src/hyperi_ci/languages/python/test.py
+  test.tiers.integration.enabled: src/hyperi_ci/languages/python/test.py
+  test.tiers.integration.fail_fast: src/hyperi_ci/languages/python/test.py
+  test.tiers.e2e.enabled: src/hyperi_ci/languages/python/test.py
+  test.tiers.e2e.fail_fast: src/hyperi_ci/languages/python/test.py
+
+  # Read off .hyperi-ci.yaml by chained .get(), not by dotted path.
+  build.rust.arm64_on_main: src/hyperi_ci/arm64_check.py
+
+  # resolve_tool_mode() with no language builds `quality.<tool>` for the tools
+  # that run once at dispatch level rather than per language.
+  quality.gitleaks: src/hyperi_ci/quality/gitleaks.py
+  quality.kubeconform: src/hyperi_ci/quality/kubeconform.py
+  quality.checkov: src/hyperi_ci/quality/checkov.py
+  quality.hadolint: src/hyperi_ci/quality/hadolint.py
+  quality.droast: src/hyperi_ci/quality/droast.py
+  quality.kube_linter: src/hyperi_ci/quality/kube_linter.py
+  quality.compose_config: src/hyperi_ci/quality/compose_config.py
+  quality.compose_pins: src/hyperi_ci/quality/compose_pins.py
+  quality.tofu: src/hyperi_ci/quality/tofu.py
+  quality.ansible_lint: src/hyperi_ci/quality/ansible_lint.py
+  quality.iac: src/hyperi_ci/dispatch.py
+  quality.iac_generated: src/hyperi_ci/quality/lint_iac.py
+  quality.render_stable: src/hyperi_ci/quality/lint_iac.py
+  quality.charset: src/hyperi_ci/quality/charset.py
+  quality.cargo_flags: src/hyperi_ci/quality/cargo_flags.py
+  quality.doc_paths: src/hyperi_ci/quality/doc_paths.py
+  quality.doc_links: src/hyperi_ci/quality/doc_links.py
+  quality.mermaid_parse: src/hyperi_ci/quality/mermaid_parse.py
+  quality.markdownlint: src/hyperi_ci/quality/markdownlint.py
+  # quality.docs_touched is NOT here: it reads its key as a literal, because
+  # `--strict` must not be able to promote a nudge into a gate.
+
+# Keys declared ahead of the reader that lands with separate work. Each has NO
+# reader yet; the value says what will read it. The audit reports every pending
+# key on each run, and fails once a reader exists, so the entry is removed in
+# the change that lands the reader.
+pending: {}

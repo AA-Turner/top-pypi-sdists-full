@@ -1,0 +1,363 @@
+"""Minimal contract for delegating Autoware startup to ``autoware_carla_interface``.
+
+The whole init sequence (localization pose initialization -> route/goal setting ->
+engage / change-to-autonomous) is owned by the Autoware side, not driven step by
+step from here:
+
+* localization is auto-initialized by ``autoware_automatic_pose_initializer``
+  (GNSS) or from a published ``/initialpose``;
+* routing is auto-set by ``routing_adaptor`` from the goal pose;
+* engaging and a single readiness signal are provided by small Autoware-side
+  helpers (an auto-engage node + a readiness aggregator that ANDs
+  localization/routing/operation-mode state).
+
+So the scenario framework only needs to (1) hand Autoware the scenario's initial
+pose and goal, and (2) wait for a single "ready" (initialized + routed + engaged
+and now driving) signal.  That is the entire contract below.
+
+The framework core depends only on the abstract :class:`AutowareBridge`.  The
+concrete gRPC transport hosts the ``AutowareBridge`` *server*; the
+``autoware_carla_interface`` node is the *client* that dials it (splatsim-
+consistent - see the topology note in
+``proto/autoware_bridge/v0/autoware_bridge.proto``).  The transport and that wire
+contract are implemented separately, so this package never imports ROS 2 / rclpy
+(all ROS 2 / Autoware AD API I/O lives on the client, inside the interface node).
+Tests use
+:class:`~autoware_carla_scenario.autoware_bridge.fake.FakeAutowareBridge`.
+
+Ego pose/velocity for scenario conditions is NOT part of this contract: it is
+read directly from the shared CARLA world (see :class:`AutowareEgoEntity`), so
+the bridge carries only the readiness handshake.
+"""
+
+from __future__ import annotations
+
+import math
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class AutowareBridgeConfig:
+    """Connection settings for a concrete :class:`AutowareBridge`.
+
+    Attributes:
+        address: ``host:port`` the bridge gRPC server (hosted by the framework)
+            binds to and that the ``autoware_carla_interface`` client dials.
+        timeout_s: Per-RPC timeout in seconds.
+        ready_timeout_ticks: Maximum world ticks to wait for Autoware to become
+            ready before the scenario fails.  At 20 Hz, ``1200`` is ~60 s.  When
+            the framework launches Autoware itself, they are counted from when
+            the stack reaches the bridge, not from when it was started.
+        boot_timeout_s: When the framework launches Autoware itself, the
+            wall-clock seconds the stack has to reach the bridge before the
+            scenario ends.  Launching Autoware takes as long as it takes,
+            whatever the world does meanwhile, so it is not measured in ticks.
+        boot_tick_period_s: How long each tick waits while the stack is still
+            starting, so the world advances at about real time rather than
+            hundreds of simulated seconds before Autoware is there to see them.
+        base_link_offset_m: Signed offset along the ego's forward axis from the
+            CARLA actor's origin to Autoware's ``base_link`` (the rear axle), in
+            metres -- negative, as the axle is behind the vehicle's centre.  The
+            initial pose and the goal Autoware is handed are moved by it.
+            ``None`` derives it from the vehicle (see
+            :func:`~autoware_carla_scenario.driver.observation.rear_axle_offset`);
+            set it to the half wheelbase Autoware's vehicle model uses when the
+            two must agree to the centimetre.
+
+    Raises:
+        ValueError: Naming the field, when ``ready_timeout_ticks`` is not a
+            positive whole number, ``timeout_s`` or ``boot_timeout_s`` is not
+            positive and finite, ``boot_tick_period_s`` is negative or not
+            finite, or ``base_link_offset_m`` is not finite.
+    """
+
+    address: str = "localhost:50052"
+    timeout_s: float = 60.0
+    ready_timeout_ticks: int = 1200
+    base_link_offset_m: Optional[float] = None
+    boot_timeout_s: float = 300.0
+    boot_tick_period_s: float = 0.05
+
+    def __post_init__(self) -> None:
+        # Hydra reads ``=nan`` and ``=inf`` as floats, and a NaN fails every
+        # comparison: a NaN ready or boot timeout never fires, and the run
+        # waits for the stack forever.  The messages name the field; the
+        # caller prefixes the group it came from (``autoware.``).
+        ticks = float(self.ready_timeout_ticks)
+        if not math.isfinite(ticks) or ticks <= 0.0 or ticks != math.floor(ticks):
+            raise ValueError(
+                "ready_timeout_ticks must be a positive whole number, "
+                f"got {self.ready_timeout_ticks}"
+            )
+        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0.0:
+            raise ValueError(
+                f"timeout_s must be positive and finite, got {self.timeout_s}"
+            )
+        if not math.isfinite(self.boot_timeout_s) or self.boot_timeout_s <= 0.0:
+            raise ValueError(
+                "boot_timeout_s must be positive and finite, "
+                f"got {self.boot_timeout_s}"
+            )
+        if not math.isfinite(self.boot_tick_period_s) or self.boot_tick_period_s < 0.0:
+            raise ValueError(
+                "boot_tick_period_s must be finite and not negative, "
+                f"got {self.boot_tick_period_s}"
+            )
+        offset = self.base_link_offset_m
+        if offset is not None and not math.isfinite(offset):
+            raise ValueError(f"base_link_offset_m must be finite, got {offset}")
+
+
+@dataclass(frozen=True)
+class Vector3:
+    """A 3D vector (metres).  Shares the shape/name of the splatsim proto
+    ``Vector3`` so the physics primitives can be unified in the future.
+
+    Note: distinct from the frame-aware
+    :class:`autoware_carla_scenario.kinematics.Vector3` - this one is the plain
+    wire primitive that mirrors the proto; unifying the two is future work.
+    """
+
+    x: float
+    y: float
+    z: float
+
+
+@dataclass(frozen=True)
+class Quaternion:
+    """An orientation quaternion in ``wxyz`` order.
+
+    Matches the splatsim/gsplat proto convention (and the alpasim ``common.Quat``
+    already vendored here).  The interface node converts to/from ROS
+    ``geometry_msgs/Quaternion`` (``xyzw``) internally.
+    """
+
+    w: float
+    x: float
+    y: float
+    z: float
+
+
+@dataclass(frozen=True)
+class BridgePose:
+    """A full 6-DoF map-frame pose for pose initialization and goal setting.
+
+    Mirrors the splatsim proto ``Pose`` (a :class:`Vector3` ``position`` plus a
+    :class:`Quaternion` ``rotation``) so the type is shareable with that stack;
+    it is also structurally ``geometry_msgs/Pose``, how Autoware and
+    ``autoware_carla_interface`` hold poses, so there is no lossy conversion at
+    the boundary.
+
+    The ``position.z`` disambiguates multi-level roads (overpasses): a 2D
+    ``(x, y)`` alone can match both an elevated road and the surface beneath it,
+    which would let localization or the interface node's ground projection snap
+    to the wrong level.  The quaternion (not a bare yaw) represents pitch/roll on
+    ramps and banked segments exactly.  The scenario already knows both from its
+    snapped CARLA transform, so they are carried through rather than re-estimated.
+
+    Use :meth:`from_rpy` when the full orientation is known and
+    :meth:`from_yaw` when only a planar heading is available.
+
+    Attributes:
+        position: Map-frame position (metres).
+        rotation: Map-frame orientation (``wxyz`` quaternion).
+    """
+
+    position: Vector3
+    rotation: Quaternion
+
+    @classmethod
+    def from_rpy(
+        cls,
+        x: float,
+        y: float,
+        z: float,
+        roll: float,
+        pitch: float,
+        yaw: float,
+    ) -> "BridgePose":
+        """Build a pose from a position and roll/pitch/yaw (radians).
+
+        The angles are intrinsic ZYX (yaw, then pitch, then roll) about the
+        map frame's own axes -- the convention ROS uses, so the quaternion is
+        the one ``geometry_msgs/Pose`` would carry.
+
+        Args:
+            x: Position X in the map frame (metres).
+            y: Position Y in the map frame (metres).
+            z: Position Z in the map frame (metres).
+            roll: Rotation about the body X axis (radians).
+            pitch: Rotation about the body Y axis (radians).
+            yaw: Rotation about the map Z axis (radians).
+        """
+        cr, sr = math.cos(roll * 0.5), math.sin(roll * 0.5)
+        cp, sp = math.cos(pitch * 0.5), math.sin(pitch * 0.5)
+        cy, sy = math.cos(yaw * 0.5), math.sin(yaw * 0.5)
+        return cls(
+            Vector3(x, y, z),
+            Quaternion(
+                w=cr * cp * cy + sr * sp * sy,
+                x=sr * cp * cy - cr * sp * sy,
+                y=cr * sp * cy + sr * cp * sy,
+                z=cr * cp * sy - sr * sp * cy,
+            ),
+        )
+
+    @classmethod
+    def from_yaw(cls, x: float, y: float, z: float, yaw: float) -> "BridgePose":
+        """Build a pose from a position and a planar heading (yaw about +Z).
+
+        Args:
+            x: Position X in the map frame (metres).
+            y: Position Y in the map frame (metres).
+            z: Position Z in the map frame (metres).
+            yaw: Heading in the map frame (radians).
+        """
+        half = yaw * 0.5
+        return cls(
+            Vector3(x, y, z),
+            Quaternion(w=math.cos(half), x=0.0, y=0.0, z=math.sin(half)),
+        )
+
+    def moved_forward(self, distance: float) -> "BridgePose":
+        """The same orientation, *distance* metres along its own forward (+X) axis.
+
+        Forward is the body X axis, pitch included, so a pose on a ramp moves
+        along the ramp rather than into it.  A negative *distance* moves back.
+        """
+        if distance == 0.0:
+            return self
+        q = self.rotation
+        forward = (
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+            2.0 * (q.x * q.y + q.w * q.z),
+            2.0 * (q.x * q.z - q.w * q.y),
+        )
+        p = self.position
+        return BridgePose(
+            Vector3(
+                p.x + distance * forward[0],
+                p.y + distance * forward[1],
+                p.z + distance * forward[2],
+            ),
+            q,
+        )
+
+
+class AutowareBridge(ABC):
+    """Interface to the ``autoware_carla_interface`` node.
+
+    Concrete implementations back these calls with a transport the interface
+    node connects to - a gRPC server the interface node dials as a client (see
+    the topology note in the proto).  :meth:`configure` records the mission for
+    the client to pull; :meth:`reroute` changes its goal and waypoints part-way
+    through the run; :meth:`is_ready` returns the readiness the client last
+    reported.  The contract is intentionally tiny: hand Autoware the mission,
+    then poll a single readiness flag.
+    """
+
+    @abstractmethod
+    def configure(
+        self,
+        initial_pose: BridgePose,
+        goal: BridgePose,
+        waypoints: Optional[list[BridgePose]] = None,
+    ) -> None:
+        """Give Autoware the scenario's initial pose, goal and way there.
+
+        The Autoware side owns the rest: it initializes localization at
+        *initial_pose*, plans a route through *waypoints* to *goal*, and engages
+        autonomous mode.
+
+        Args:
+            initial_pose: Map-frame pose to initialize localization at.
+            goal: Map-frame goal pose to plan the route to.
+            waypoints: Map-frame poses the route must pass through, in order.
+                ``None`` or empty leaves the way to the goal to Autoware, which
+                plans the shortest one. A scenario that is a particular drive
+                rather than a destination -- one rendered from a recorded run,
+                where leaving that road means leaving the rendered world --
+                names them.
+        """
+
+    def reroute(
+        self,
+        goal: BridgePose,
+        waypoints: Optional[list[BridgePose]] = None,
+    ) -> None:
+        """Send the running stack to a new *goal*, through new *waypoints*.
+
+        A re-route part-way through the run, after :meth:`configure`: the
+        mission's initial pose stays as it was, since localization is already
+        running, and the stack changes the route it drives
+        (``/api/routing/change_route_points``) rather than planning a first one.
+        A transport hands it over as a new version of the mission, which the
+        interface node keeps polling for.
+
+        Args:
+            goal: Map-frame goal pose to route to now.
+            waypoints: Map-frame poses the new route must pass through, in
+                order.  ``None`` or empty leaves the way there to the stack.
+
+        Raises:
+            NotImplementedError: For a bridge that cannot re-route.  The default:
+                a bridge written before re-routing existed says so rather than
+                leaving the stack on its old route without a word.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} cannot re-route a running stack: "
+            "it does not implement AutowareBridge.reroute()"
+        )
+
+    @abstractmethod
+    def is_ready(self) -> bool:
+        """Return ``True`` once Autoware is initialized, routed, engaged, and driving.
+
+        Must be non-blocking so it can be polled once per world tick.
+        """
+
+    def take_turn_indicators(self) -> Optional[int]:
+        """The newest turn-indicator command the stack reported since the last call.
+
+        An ``autoware_vehicle_msgs/TurnIndicatorsCommand`` value
+        (``ReportTurnIndicators``), or ``None`` when none arrived; the ego lights
+        its indicators from it.  A bridge whose stack reports none returns
+        ``None``.  Must be non-blocking, as :meth:`is_ready`.
+        """
+        return None
+
+    @property
+    def client_connected(self) -> bool:
+        """Whether the interface node has reached this bridge yet.
+
+        Tells a stack that is still starting from one that is localizing: the
+        first takes as long as Autoware takes to launch, in wall-clock time,
+        and only the second is measured in ticks.  A bridge that cannot tell
+        says ``True``.
+        """
+        return True
+
+    @property
+    def client_address(self) -> Optional[str]:
+        """``host:port`` for the interface node to dial, once :meth:`start` ran.
+
+        ``None`` for a bridge with no address of its own.
+        """
+        return None
+
+    def start(self) -> None:
+        """Bring the transport up.  A bridge that needs nothing does nothing.
+
+        Called by the ego entity when the scenario starts, so a transport that
+        holds a scarce resource -- a TCP port, say -- can take it then rather
+        than when the scenario was built.
+        """
+
+    def close(self) -> None:
+        """Release any transport resources.  Must be idempotent.
+
+        The default is a no-op; transport-backed implementations (e.g. a gRPC
+        server) override this to stop serving and release their port.
+        """

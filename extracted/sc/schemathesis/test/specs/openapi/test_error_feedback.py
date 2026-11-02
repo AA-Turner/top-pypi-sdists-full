@@ -25,6 +25,7 @@ from schemathesis.core.error_feedback.pipeline import FeedbackPipeline, _reset_p
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, resolve_bundled_ref
 from schemathesis.core.jsonschema.patterns import normalize_regex
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
@@ -103,14 +104,15 @@ def _assert_valid_schema_object(input_schema: object, out: object, *, draft: str
         raise AssertionError(f"Adjustment output is not a valid Schema Object: {exc}") from exc
 
 
-def _apply_body_adjustment(adjustment, schema, observations, case_factory):
+def _apply_body_adjustment(adjustment, schema, observations, case_factory, *, draft="3.0"):
+    # Adjustments edit in place; a clone keeps the parametrized input intact for the validity check and reruns.
     out = adjustment.apply(
         operation=case_factory().operation,
         location=ParameterLocation.BODY,
-        schema=schema,
+        schema=deepclone(schema),
         observations=observations,
     )
-    _assert_valid_schema_object(schema, out)
+    _assert_valid_schema_object(schema, out, draft=draft)
     return out
 
 
@@ -660,6 +662,29 @@ def _build_observations(*paths: tuple[str | int, ...]) -> tuple[Observation, ...
             [("foo", 0)],
             {"type": "object", "properties": {}},
         ),
+        (
+            {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+            [("email",)],
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "email": {"type": "string", "minLength": 1}},
+                "required": ["name", "email"],
+            },
+        ),
+        (
+            {"type": "object"},
+            [("address", "zip")],
+            {
+                "type": "object",
+                "properties": {
+                    "address": {
+                        "type": "object",
+                        "properties": {"zip": {"type": "string", "minLength": 1}},
+                        "required": ["zip"],
+                    }
+                },
+            },
+        ),
     ],
     ids=[
         "string-property-bump-minlength",
@@ -681,6 +706,8 @@ def _build_observations(*paths: tuple[str | int, ...]) -> tuple[Observation, ...
         "empty-path-observation-skipped",
         "non-string-step-in-prefix-skipped",
         "non-string-leaf-skipped",
+        "existing-required-kept",
+        "nested-path-under-object-without-properties",
     ],
 )
 def test_required_field_adjustment_applies_correctly(input_schema, paths, expected, case_factory):
@@ -730,7 +757,7 @@ def test_apply_adjustments_returns_input_when_no_observations(case_factory):
 
 
 def _build_size_bound_observations(
-    *items: tuple[tuple[str | int, ...], int, int],
+    *items: tuple[tuple[str | int, ...], int | None, int | None],
 ) -> tuple[Observation, ...]:
     return tuple(
         Observation(
@@ -873,6 +900,21 @@ def _build_size_bound_observations(
                 },
             },
         ),
+        (
+            {"type": "object", "properties": {"username": {"type": "string", "maxLength": 10}}},
+            [(("username",), 0, 15)],
+            {"type": "object", "properties": {"username": {"type": "string", "minLength": 0, "maxLength": 10}}},
+        ),
+        (
+            {"type": "object", "properties": {"name": {"type": "string"}}},
+            [(("name",), 3, None)],
+            {"type": "object", "properties": {"name": {"type": "string", "minLength": 3}}},
+        ),
+        (
+            {"type": "object", "properties": {"name": {"type": "string"}}},
+            [(("name",), None, 20)],
+            {"type": "object", "properties": {"name": {"type": "string", "maxLength": 20}}},
+        ),
     ],
     ids=[
         "string-property-applies-length-bounds",
@@ -889,6 +931,9 @@ def _build_size_bound_observations(
         "empty-path-observation-skipped",
         "non-string-step-skipped",
         "non-dict-intermediate-properties-skipped",
+        "stricter-existing-bound-preserved",
+        "min-only-payload",
+        "max-only-payload",
     ],
 )
 def test_size_bound_adjustment_applies_correctly(input_schema, items, expected, case_factory):
@@ -1082,7 +1127,17 @@ def openapi_31_case_factory(openapi_31):
 
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
 def test_adjustments_reach_properties_behind_ref(ctx, version):
-    address = {"type": "object", "properties": {"street": {"type": "string"}, "zip": {"type": "string"}}}
+    address = {
+        "type": "object",
+        "properties": {
+            "street": {"type": "string"},
+            "zip": {"type": "string"},
+            "code": {"type": "string"},
+            "level": {"type": "integer"},
+            "kind": {"type": "string"},
+            "since": {"type": "string"},
+        },
+    }
     operation = ctx.openapi.load_operation(
         "POST /users",
         {
@@ -1107,6 +1162,16 @@ def test_adjustments_reach_properties_behind_ref(ctx, version):
     for path, kind, payload in [
         (("address", "street"), ObservationKind.SIZE_BOUND, SizeBoundPayload(min=3, max=None)),
         (("address", "zip"), ObservationKind.MUST_NOT_BE_BLANK, None),
+        (("address", "zip"), ObservationKind.FORMAT, FormatPayload(name="postal-code")),
+        (("address", "code"), ObservationKind.PATTERN, PatternPayload(regex="^[A-Z]+$")),
+        (
+            ("address", "level"),
+            ObservationKind.NUMERIC_BOUND,
+            NumericBoundPayload(bound=1, direction=BoundDirection.MIN, exclusive=False),
+        ),
+        (("address", "kind"), ObservationKind.ENUM, EnumPayload(values=("home", "work"))),
+        (("address", "since"), ObservationKind.TYPE_MISMATCH, TypeMismatchPayload(type_name="java.time.LocalDate")),
+        (("address",), ObservationKind.FORBIDS_ADDITIONAL_PROPERTIES, None),
     ]:
         store.record(
             Observation(
@@ -1131,9 +1196,14 @@ def test_adjustments_reach_properties_behind_ref(ctx, version):
                 "type": "object",
                 "properties": {
                     "street": {"type": "string", "minLength": 3},
-                    "zip": {"type": "string", "minLength": 1},
+                    "zip": {"type": "string", "minLength": 1, "format": "postal-code"},
+                    "code": {"type": "string", "pattern": "^[A-Z]+$"},
+                    "level": {"type": "integer", "minimum": 1},
+                    "kind": {"type": "string", "enum": ["home", "work"]},
+                    "since": {"type": "string", "format": "date"},
                 },
                 "required": ["zip"],
+                "additionalProperties": False,
             },
         },
     }
@@ -1285,23 +1355,67 @@ def test_numeric_bound_adjustment_applies_correctly_draft4(input_schema, items, 
                 "properties": {"price": {"type": "number", "exclusiveMinimum": 0.5}},
             },
         ),
+        (
+            {"type": "object", "properties": {"score": {"type": "integer", "exclusiveMinimum": 5}}},
+            [(("score",), 0.0, BoundDirection.MIN, False)],
+            {"type": "object", "properties": {"score": {"type": "integer", "exclusiveMinimum": 5}}},
+        ),
+        (
+            {"type": "object", "properties": {"score": {"type": "integer", "exclusiveMaximum": 5}}},
+            [(("score",), 100.0, BoundDirection.MAX, False)],
+            {"type": "object", "properties": {"score": {"type": "integer", "exclusiveMaximum": 5}}},
+        ),
+        (
+            {"type": "object", "properties": {"scores": {"type": "array", "items": {"type": "integer"}}}},
+            [(("scores",), 0.0, BoundDirection.MIN, True)],
+            {
+                "type": "object",
+                "properties": {"scores": {"type": "array", "items": {"type": "integer", "exclusiveMinimum": 0}}},
+            },
+        ),
     ],
     ids=[
         "integer-min-inclusive",
         "integer-min-exclusive-draft2020",
         "integer-max-exclusive-draft2020",
         "number-decimal-exclusive-draft2020",
+        "existing-exclusive-min-not-overwritten",
+        "existing-exclusive-max-not-overwritten",
+        "array-items-exclusive-draft2020",
     ],
 )
 def test_numeric_bound_adjustment_applies_correctly_draft2020(input_schema, items, expected, openapi_31_case_factory):
-    out = NumericBoundAdjustment().apply(
-        operation=openapi_31_case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_numeric_bound_observations(*items),
+    assert (
+        _apply_body_adjustment(
+            NumericBoundAdjustment(),
+            input_schema,
+            _build_numeric_bound_observations(*items),
+            openapi_31_case_factory,
+            draft="3.1",
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out, draft="3.1")
-    assert out == expected
+
+
+@pytest.mark.parametrize(
+    ("declared_type", "bound", "expected"),
+    [
+        ("integer", 5.0, "5"),
+        ("number", 5.0, "5.0"),
+        (["integer", "number"], 5.0, "5.0"),
+        ("integer", 5.5, "5.5"),
+    ],
+    ids=["integer-integral", "number", "integer-or-number", "integer-fractional"],
+)
+def test_numeric_bound_is_written_as_integer_only_for_integer_properties(case_factory, declared_type, bound, expected):
+    # Coverage emits the bound itself, so `5.0` on an integer property would reach the server as a float.
+    out = _apply_body_adjustment(
+        NumericBoundAdjustment(),
+        {"type": "object", "properties": {"score": {"type": declared_type}}},
+        _build_numeric_bound_observations((("score",), bound, BoundDirection.MIN, False)),
+        case_factory,
+    )
+    assert json.dumps(out["properties"]["score"]["minimum"]) == expected
 
 
 def test_numeric_bound_adjustment_tightens_a_format_derived_bound(case_factory):
@@ -1453,6 +1567,16 @@ def _build_pattern_observations(*items: tuple[tuple[str | int, ...], str]) -> tu
         ),
         (
             {"type": "object", "properties": {"code": {"type": "string"}}},
+            [(("code",), "\\A[a-z]+")],
+            {"type": "object", "properties": {"code": {"type": "string", "pattern": "^[a-z]+"}}},
+        ),
+        (
+            {"type": "object", "properties": {"code": {"type": "string"}}},
+            [(("code",), "[a-z]+\\Z")],
+            {"type": "object", "properties": {"code": {"type": "string", "pattern": "[a-z]+$"}}},
+        ),
+        (
+            {"type": "object", "properties": {"code": {"type": "string"}}},
             [(("code",), "[A-Z(unbalanced")],
             {"type": "object", "properties": {"code": {"type": "string"}}},
         ),
@@ -1474,6 +1598,8 @@ def _build_pattern_observations(*items: tuple[tuple[str | int, ...], str]) -> tu
         "nested-path-pattern-injected",
         "pcre-unicode-property-translated",
         "python-anchors-translated-to-ecma",
+        "python-start-anchor-translated",
+        "python-end-anchor-translated",
         "invalid-untranslatable-pattern-skipped",
         "empty-path-observation-skipped",
     ],
@@ -1700,6 +1826,11 @@ def test_type_mismatch_adjustment_applies_correctly(input_schema, items, expecte
             },
         ),
         (
+            {"type": "object", "properties": {"age": {"allOf": [{"type": "string"}]}}},
+            [(("age",), "integer")],
+            {"type": "object", "properties": {"age": {"allOf": [{"type": "string"}]}}},
+        ),
+        (
             {
                 "type": "object",
                 "properties": {"age": {"type": ["string", "integer"]}},
@@ -1755,6 +1886,7 @@ def test_type_mismatch_adjustment_applies_correctly(input_schema, items, expecte
         "drf-token-noop-when-matching",
         "composed-anyOf-skip",
         "composed-oneOf-skip",
+        "composed-allOf-skip",
         "type-list-skip",
         "drf-token-boolean",
         "java-fqn-regression",
@@ -1890,53 +2022,6 @@ def test_enum_adjustment_applies_correctly(input_schema, items, expected, case_f
         _apply_body_adjustment(EnumAdjustment(), input_schema, _build_enum_observations(*items), case_factory)
         == expected
     )
-
-
-def test_size_bound_adjustment_preserves_stricter_existing_bound(case_factory):
-    # Schema's `maxLength: 10` is tighter than server's `max: 15` — keep the schema's.
-    schema = {"type": "object", "properties": {"username": {"type": "string", "maxLength": 10}}}
-    assert _apply_body_adjustment(
-        SizeBoundAdjustment(), schema, _build_size_bound_observations((("username",), 0, 15)), case_factory
-    ) == {
-        "type": "object",
-        "properties": {"username": {"type": "string", "minLength": 0, "maxLength": 10}},
-    }
-
-
-def test_size_bound_adjustment_min_only_payload(case_factory):
-    schema = {"type": "object", "properties": {"name": {"type": "string"}}}
-    obs = (
-        Observation(
-            operation_label="POST /api/users",
-            location=ParameterLocation.BODY,
-            parameter_path=("name",),
-            kind=ObservationKind.SIZE_BOUND,
-            raw_message="too short",
-            payload=SizeBoundPayload(min=3, max=None),
-        ),
-    )
-    assert _apply_body_adjustment(SizeBoundAdjustment(), schema, obs, case_factory) == {
-        "type": "object",
-        "properties": {"name": {"type": "string", "minLength": 3}},
-    }
-
-
-def test_size_bound_adjustment_max_only_payload(case_factory):
-    schema = {"type": "object", "properties": {"name": {"type": "string"}}}
-    obs = (
-        Observation(
-            operation_label="POST /api/users",
-            location=ParameterLocation.BODY,
-            parameter_path=("name",),
-            kind=ObservationKind.SIZE_BOUND,
-            raw_message="too long",
-            payload=SizeBoundPayload(min=None, max=20),
-        ),
-    )
-    assert _apply_body_adjustment(SizeBoundAdjustment(), schema, obs, case_factory) == {
-        "type": "object",
-        "properties": {"name": {"type": "string", "maxLength": 20}},
-    }
 
 
 def test_apply_adjustments_does_not_mutate_caller_schema(case_factory):
@@ -2106,6 +2191,17 @@ def test_apply_adjustments_bounds_an_untyped_property(case_factory):
             id="allof-root-with-non-object-properties",
         ),
         pytest.param(
+            {"type": "object", "allOf": [{"type": "object", "properties": {"a": {}}}, {"required": ["a"]}]},
+            (),
+            {
+                "type": "object",
+                "properties": {"a": {}},
+                "allOf": [{"type": "object", "properties": {"a": {}}}, {"required": ["a"]}],
+                "additionalProperties": False,
+            },
+            id="allof-branch-without-properties",
+        ),
+        pytest.param(
             {"type": "object", "properties": {"address": {"type": "object", "properties": {"city": {}}}}},
             ("address",),
             {
@@ -2219,21 +2315,16 @@ def test_additional_properties_adjustment_preserves_allof_ref_properties(ctx, ca
     ],
 )
 def test_additional_properties_adjustment_skips_unreachable_targets(input_schema, path, expected, case_factory):
-    out = AdditionalPropertiesAdjustment().apply(
-        operation=case_factory().operation,
+    observation = Observation(
+        operation_label="POST /api/users",
         location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=(
-            Observation(
-                operation_label="POST /api/users",
-                location=ParameterLocation.BODY,
-                parameter_path=path,
-                kind=ObservationKind.FORBIDS_ADDITIONAL_PROPERTIES,
-                raw_message="Extra inputs are not permitted",
-            ),
-        ),
+        parameter_path=path,
+        kind=ObservationKind.FORBIDS_ADDITIONAL_PROPERTIES,
+        raw_message="Extra inputs are not permitted",
     )
-    assert out == expected
+    assert (
+        _apply_body_adjustment(AdditionalPropertiesAdjustment(), input_schema, (observation,), case_factory) == expected
+    )
 
 
 def test_pipeline_forwards_case_to_parser(case_factory, response_factory):
@@ -2433,6 +2524,7 @@ def _build_unexpected_property_observations(*paths: tuple[str | int, ...]) -> tu
 @pytest.mark.parametrize(
     "input_schema, paths, expected",
     [
+        # Empty `required` violates the Open API meta-schema and crashes Hypothesis draws.
         pytest.param(
             {"type": "object", "properties": {"shadow": {}, "ok": {}}, "required": ["shadow"]},
             [("shadow",)],
@@ -2550,15 +2642,6 @@ def test_unexpected_property_adjustment_applies_correctly(input_schema, paths, e
         )
         == expected
     )
-
-
-def test_unexpected_property_adjustment_drops_empty_required(case_factory):
-    # Empty `required` violates the OpenAPI meta-schema and crashes Hypothesis draws.
-    input_schema = {"type": "object", "properties": {"shadow": {}}, "required": ["shadow"]}
-    out = _apply_body_adjustment(
-        UnexpectedPropertyAdjustment(), input_schema, _build_unexpected_property_observations(("shadow",)), case_factory
-    )
-    assert "required" not in out
 
 
 @pytest.mark.parametrize(

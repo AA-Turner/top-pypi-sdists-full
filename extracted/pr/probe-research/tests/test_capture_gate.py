@@ -1,4 +1,4 @@
-"""The capture gate's own pieces (`probe.service.capture_gate`): the gaps, the
+"""The capture gate's own pieces (`probe.service.sessions.capture_gate`): the gaps, the
 switch it reads, and the drains it wraps in the loaded tap. The whole path, a
 real service recording a real tap against a stub server, is
 `test_probe_off_capture.py`."""
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import capture_gate as gate
+from probe.service.sessions import capture_gate as gate
 
 TAP_ROOT = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-tap"
 
@@ -549,7 +549,7 @@ class _Controls:
 
 
 def _host(tmp_path, monkeypatch, *, switch: dict, mark=lambda path, size: size):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
     host.gated = True
@@ -564,7 +564,7 @@ def _host(tmp_path, monkeypatch, *, switch: dict, mark=lambda path, size: size):
 
 
 def _recording(tmp_path, transcript):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     rec = recorders.Recording(SID, {"sid": SID, "state_dir": str(tmp_path / "state"), "env": {}}, _Controls())
     rec.transcript = transcript
@@ -656,7 +656,7 @@ def test_a_recording_a_resume_replaced_touches_nothing_of_the_session(tmp_path, 
     assert host._gate(old) is False
     host._settled(old, [[3, None]], everything=True)
     old.controls.stop.set()
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     assert host._hold(old) == recorders.ENDED_STEP
     assert gate.gaps_of(old.params) == [[3, None]]
@@ -863,7 +863,7 @@ def test_a_first_look_whose_gap_file_read_fails_holds_the_session_and_reads_agai
 
 
 def _start_host(tmp_path, monkeypatch, *, mark):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
     host.gated = True
@@ -921,7 +921,7 @@ def test_a_first_look_that_fails_never_lets_the_next_one_drop_the_gap_file(tmp_p
 
 def test_a_gap_file_that_cannot_be_written_is_said_once_and_once_it_can_again(tmp_path, monkeypatch,
                                                                               clean_unsettled):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     lines = []
     host, rec = _host(tmp_path, monkeypatch, switch={"now": "off"})
@@ -1115,7 +1115,7 @@ def test_a_gap_the_service_settled_is_never_taken_back_from_a_watchs_older_write
 def _held_between_tries(tmp_path, monkeypatch):
     import time
 
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     monkeypatch.setenv(recorders.RETRY_ENV, "120")
     host, rec = _host(tmp_path, monkeypatch, switch={"now": "full"})
@@ -1143,7 +1143,7 @@ def test_a_held_recorder_finishes_its_session_at_its_session_end_not_its_next_tr
         tmp_path, monkeypatch, clean_unsettled):
     import asyncio
 
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
     answer = asyncio.run(host.finish({"sid": SID, "wait": 5}))
@@ -1152,7 +1152,7 @@ def test_a_held_recorder_finishes_its_session_at_its_session_end_not_its_next_tr
 
 
 def test_a_held_recorder_finishes_its_session_when_its_agent_exits(tmp_path, monkeypatch, clean_unsettled):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
     monkeypatch.setattr(host, "_owner_alive", lambda r: False)
@@ -1167,7 +1167,7 @@ def test_a_held_recorder_sees_its_session_end_with_no_wake_within_a_look(tmp_pat
     """Review of #3393: an end that reaches it without a wake (a `/clear`: the
     tap's end sentinel alone) is seen at the next look (HELD_POLL_S), not at
     the end of the back-off; the back-off only spaces the tries to settle."""
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
     monkeypatch.setattr(host, "_ending", lambda r: True)
@@ -1196,7 +1196,7 @@ def test_three_wakes_for_one_end_keep_its_last_tries_two_seconds_apart(tmp_path,
     later service stay 2 s apart, so a server blip of a few seconds is ridden out."""
     import time
 
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
     finals = []
@@ -1244,7 +1244,7 @@ def test_after_its_agent_exits_a_failing_recorders_last_passes_are_two_seconds_a
     import time
     import types as _types
 
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     monkeypatch.setenv(recorders.RETRY_ENV, "120")
     host, rec = _host(tmp_path, monkeypatch, switch={"now": "full"})
@@ -1270,8 +1270,9 @@ def test_after_its_agent_exits_a_failing_recorders_last_passes_are_two_seconds_a
 def test_the_service_wakes_the_recorder_when_its_session_ends_or_its_agent_exits(tmp_path, monkeypatch):
     """Review of #3393: the server's two end paths (`_end`, `_owner_exited`)
     reach the recorder."""
-    from probe.service import client, server
-    from probe.service.registry import Registry
+    from probe.foundation import service_api as client
+    from probe.service import server
+    from probe.service.sessions.sessions import Registry
 
     service = server.Service(registry=Registry(tmp_path / "sessions.json"))
     woken = []

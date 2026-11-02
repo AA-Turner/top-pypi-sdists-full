@@ -1,0 +1,544 @@
+"""Deterministic measurements for progressively activating an existing corpus.
+
+This module measures explicit Markdown structure only. It does not infer semantic
+relationships, score knowledge quality, or write to the vault.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from . import (
+    access,
+    lifecycle_statuses,
+    note_types,
+    relation_registry,
+    semantic_language_registry,
+    semantic_units,
+    state_paths,
+)
+from . import find as find_module
+from .audit import AuditFinding
+from .vault import content_hash, find_body_wikilinks, kb_root
+
+ACTIVATION_CATEGORIES: tuple[str, ...] = (
+    "unregistered_relation",
+    "provenance_debt",
+    "typed_relation_debt",
+    "relation_debt",
+)
+
+_SKIP_SLUG_SUFFIXES = ("-architecture", "-snapshot", "-catalog-snapshot")
+_SKIP_TAGS = frozenset({"hub", "snapshot"})
+_ASSERTION_BLOCK_TYPES = frozenset({"claim", "finding", "inference", "hypothesis", "result"})
+_PROVENANCE_RELATIONS = frozenset({"derived_from", "evidenced_by", "cites"})
+_FRONTMATTER_TYPED_FIELDS: dict[str, str] = {
+    "sources": "derived_from",
+    "evidence": "evidenced_by",
+    "evidences": "evidenced_by",
+    "evidence_paths": "evidenced_by",
+    "supersedes": "supersedes",
+    "superseded_by": "supersedes",
+}
+_WIKILINK_RE = re.compile(r"\[\[([^\]|\n]+)(?:\|[^\]\n]+)?\]\]")
+
+
+@dataclass(frozen=True)
+class ActivationScan:
+    findings: list[AuditFinding]
+    coverage: dict[str, int]
+
+
+def scan(vault_root: Path) -> ActivationScan:
+    """Measure activation coverage and review deficits in one tolerant vault walk.
+
+    Each page is admitted through RAW before it is counted, as the audit's
+    page walk is, so a protected capture counts for the owner only.
+    """
+    from . import semantic_index
+    from .governance import egress
+    from .governance.principal import effective_principal
+
+    vault_root = Path(vault_root)
+    who = effective_principal()
+    status_basis = lifecycle_statuses.Basis(vault_root)
+    interpretations = semantic_index.Interpretations(vault_root)
+    type_basis = note_types.Basis(vault_root)
+    findings: list[AuditFinding] = []
+    coverage = {
+        "eligible_pages": 0,
+        "connected_pages": 0,
+        "typed_relation_pages": 0,
+        "generic_only_pages": 0,
+        "disconnected_pages": 0,
+        "provenance_candidate_pages": 0,
+        "provenance_linked_pages": 0,
+        "unregistered_relation_observations": 0,
+        "definitions_unavailable_pages": 0,
+    }
+
+    kb = kb_root(vault_root)
+    if not kb.is_dir():
+        return ActivationScan(findings=findings, coverage=coverage)
+
+    for path in find_module._walk_md(kb):
+        if not egress.content_permits(vault_root, path.relative_to(vault_root).as_posix(), who):
+            continue
+        try:
+            page = find_module._parse_page(path, path.stat().st_mtime, vault_root)
+        except OSError:
+            continue
+        if page is None or not is_eligible_governed_page(
+            vault_root, page, status_basis=status_basis, type_basis=type_basis
+        ):
+            continue
+
+        coverage["eligible_pages"] += 1
+        definitions = interpretations.definitions(page.rel_path, page.frontmatter)
+        if definitions is None:
+            # Its selected relations are unknown here: count, never measure.
+            coverage["definitions_unavailable_pages"] += 1
+            continue
+        measurement = _measure_page(
+            page,
+            definitions.snapshots["relations"].typed,
+            language_registry=semantic_language_registry.for_attached_projects(
+                definitions.snapshots["categories"].typed,
+                semantic_index.page_projects(page.frontmatter),
+            ),
+        )
+        meta = {
+            "signal_version": _signal_version(page),
+            "typed_relations": measurement["typed_relations"],
+            "body_wikilinks": measurement["body_wikilinks"],
+            "frontmatter_links": measurement["frontmatter_links"],
+            "assertion_blocks": measurement["assertion_blocks"],
+            "provenance_relations": measurement["provenance_relations"],
+        }
+
+        if measurement["connected"]:
+            coverage["connected_pages"] += 1
+        else:
+            coverage["disconnected_pages"] += 1
+            findings.append(_relation_debt(page.rel_path, meta))
+
+        if measurement["typed_relations"]:
+            coverage["typed_relation_pages"] += 1
+        elif measurement["connected"]:
+            coverage["generic_only_pages"] += 1
+            findings.append(_typed_relation_debt(page.rel_path, meta))
+
+        if measurement["assertion_blocks"]:
+            coverage["provenance_candidate_pages"] += 1
+            if measurement["provenance_relations"]:
+                coverage["provenance_linked_pages"] += 1
+            else:
+                findings.append(_provenance_debt(page.rel_path, meta))
+
+        unknown = measurement["unregistered"]
+        if unknown:
+            coverage["unregistered_relation_observations"] += len(unknown)
+            findings.append(_unregistered_relation(page.rel_path, meta, unknown))
+
+    return ActivationScan(
+        findings=sorted(
+            findings,
+            key=lambda item: (ACTIVATION_CATEGORIES.index(item.category), item.path),
+        ),
+        coverage=coverage,
+    )
+
+
+def _eligible(vault_root: Path, page: Any) -> bool:
+    return is_eligible_governed_page(vault_root, page)
+
+
+def is_eligible_governed_page(
+    vault_root: Path,
+    page: Any,
+    *,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> bool:
+    """Return whether ``page`` is an active governed graph endpoint."""
+    return _eligible_for(
+        vault_root,
+        page,
+        selects=note_types.governed_endpoint,
+        status_basis=status_basis,
+        type_basis=type_basis,
+    )
+
+
+def is_eligible_compiled_page(
+    vault_root: Path,
+    page: Any,
+    *,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> bool:
+    """Return whether ``page`` belongs to the writable compiled-page domain.
+
+    Activation coverage historically includes entities.  The semantic contract
+    applies to note-type role `compiled` only, while sharing every other
+    activation eligibility rule.
+    """
+    return _eligible_for(
+        vault_root,
+        page,
+        selects=note_types.compiled,
+        status_basis=status_basis,
+        type_basis=type_basis,
+    )
+
+
+def is_connectable_target(
+    vault_root: Path,
+    page: Any,
+    *,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> bool:
+    """Return whether ``page`` may be the *target* of a connectivity signal.
+
+    Shares every eligibility rule with :func:`is_eligible_governed_page` except
+    two: append-only material qualifies (a cited Source is a real connection),
+    and note-type role `source` is admitted.  This is a target-side predicate
+    only — the authoring page must still be an eligible governed page. It stays
+    separate from the governed predicate: `eligible_governed_paths` gates the
+    empty-corpus bootstrap disposition, and one captured Source must not end
+    the carve-out for a user's very first compiled note.
+    """
+    return _eligible_for(
+        vault_root,
+        page,
+        selects=note_types.connectable,
+        status_basis=status_basis,
+        type_basis=type_basis,
+        tiers=CONNECTABLE_TIERS,
+    )
+
+
+def is_managed_governed_path(vault_root: Path, path: Path | str) -> bool:
+    """Return whether ``path`` resolves inside the configured governed subtree."""
+    root = Path(vault_root)
+    candidate = Path(path)
+    absolute = candidate if candidate.is_absolute() else root / candidate
+    try:
+        # The subtree root is configuration, so a scope may reuse it; the candidate resolves live.
+        governed = state_paths.resolved_vault_path(kb_root(root), expanduser=False)
+        absolute.resolve().relative_to(governed)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def normalized_page_type(value: object) -> str | None:
+    """Normalize one authored page type for shared eligibility decisions."""
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().casefold()
+    return normalized or None
+
+
+def _eligible_for(
+    vault_root: Path,
+    page: Any,
+    *,
+    selects: note_types.Predicate,
+    tiers: frozenset[str] = frozenset({access.TIER_READ_WRITE}),
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+) -> bool:
+    if not structurally_eligible(
+        vault_root, page, selects=selects, tiers=tiers, type_basis=type_basis
+    ):
+        return False
+    basis = status_basis or lifecycle_statuses.Basis(vault_root)
+    return basis.classify(page.frontmatter.get("status"), path=page.rel_path, frontmatter=page.frontmatter).live
+
+
+#: Access tiers a connectable target may sit in: a cited append-only Source counts.
+CONNECTABLE_TIERS = frozenset({access.TIER_READ_WRITE, access.TIER_APPEND_ONLY})
+
+
+def structurally_eligible(
+    vault_root: Path,
+    page: Any,
+    *,
+    selects: note_types.Predicate,
+    tiers: frozenset[str] = frozenset({access.TIER_READ_WRITE}),
+    type_basis: note_types.Basis | None = None,
+) -> bool:
+    """Every eligibility rule except the lifecycle class.
+
+    The type value is casefolded and stripped before the registry lookup. A
+    type whose definition the caller cannot admit matches no predicate.
+    """
+    # The path check runs first so a page outside the governed tree never
+    # reads the caller's note-type overlay.
+    if not is_managed_governed_path(vault_root, page.path):
+        return False
+    basis = type_basis or note_types.Basis(vault_root)
+    if not basis.selects(normalized_page_type(page.page_type), selects):
+        return False
+    return structurally_placed(vault_root, page, tiers=tiers)
+
+
+def structurally_placed(
+    vault_root: Path,
+    page: Any,
+    *,
+    tiers: frozenset[str] = frozenset({access.TIER_READ_WRITE}),
+) -> bool:
+    """Every eligibility rule that no caller's note-type registry decides.
+
+    A shared parse may cache this; the type predicate stays per caller.
+    """
+    if not is_managed_governed_path(vault_root, page.path):
+        return False
+    if page.path.name.casefold() in {"index.md", "log.md"}:
+        return False
+    if access.access_tier(vault_root, page.rel_path) not in tiers:
+        return False
+    stem = page.path.stem.lower()
+    if any(stem.endswith(suffix) for suffix in _SKIP_SLUG_SUFFIXES):
+        return False
+    normalized_tags = {
+        str(tag).strip().casefold().lstrip("#") for tag in page.tags
+    }
+    if _SKIP_TAGS & normalized_tags:
+        return False
+    return True
+
+
+def _measure_page(
+    page: Any,
+    registry: relation_registry.RelationRegistry,
+    *,
+    language_registry: semantic_language_registry.SemanticLanguageRegistry | None = None,
+) -> dict[str, Any]:
+    project = _page_project(page.frontmatter)
+    document = semantic_units.parse_semantic_units(
+        page.body,
+        validate=False,
+        language_registry=language_registry,
+        relation_registry=registry,
+        include_legacy_relations=True,
+        retain_unknown_relations=True,
+        project=project,
+        page_type=page.page_type,
+    )
+
+    return measure_document(
+        document, registry, project=project, page_type=page.page_type,
+        body_wikilinks=len(find_body_wikilinks(page.body)),
+        frontmatter_counts=frontmatter_link_counts(page.frontmatter),
+    )
+
+
+def frontmatter_link_counts(frontmatter: dict[str, Any]) -> dict[str, int]:
+    """Keep each fixed field separate so summaries preserve provenance counts."""
+    return {field: len(_frontmatter_links(frontmatter.get(field)))
+            for field in (*_FRONTMATTER_TYPED_FIELDS, "related")}
+
+
+def measure_document(
+    document: semantic_units.SemanticUnitDocument | semantic_units.SelectedStructure,
+    registry: relation_registry.RelationRegistry, *, project: str | None,
+    page_type: str | None, body_wikilinks: int, frontmatter_counts: dict[str, int],
+) -> dict[str, Any]:
+    """Reduce selected authored occurrences through one activation arithmetic owner."""
+    registered: list[str] = []
+    unregistered: list[dict[str, str | int]] = []
+    for relation in document.note_relations:
+        resolution = registry.resolve(
+            relation.kind,
+            project=project,
+            page_type=page_type,
+            source_kind="file",
+            origin="semantic_relation",
+        )
+        if resolution.canonical is None:
+            unregistered.append(
+                {"label": relation.kind, "anchor": f"line-{relation.line}"}
+            )
+        else:
+            registered.append(resolution.canonical)
+
+    for unit in document.rich_units:
+        for relation in unit.relations:
+            raw = relation.raw.split(":", 1)[0].strip()
+            resolution = registry.resolve(
+                raw,
+                project=project,
+                page_type=page_type,
+                source_kind=unit.kind,
+                origin="semantic_relation",
+            )
+            if resolution.canonical is None:
+                unregistered.append(
+                    {
+                        "label": relation_registry.normalize_relation(raw),
+                        "anchor": unit.anchor or f"line-{relation.line}",
+                    }
+                )
+            else:
+                registered.append(resolution.canonical)
+
+    frontmatter_links = 0
+    for field, relation_kind in _FRONTMATTER_TYPED_FIELDS.items():
+        count = frontmatter_counts.get(field, 0)
+        frontmatter_links += count
+        registered.extend([relation_kind] * count)
+    related_count = frontmatter_counts.get("related", 0)
+    frontmatter_links += related_count
+
+    assertion_blocks = sum(
+        1 for unit in document.rich_units if unit.kind in _ASSERTION_BLOCK_TYPES
+    )
+    provenance_relations = sum(1 for kind in registered if kind in _PROVENANCE_RELATIONS)
+    unique_unknown = {
+        (str(item["label"]), str(item["anchor"])): item for item in unregistered
+    }
+    authored_relations = len(document.note_relations) + sum(
+        len(unit.relations) for unit in document.rich_units
+    )
+    return {
+        "connected": bool(body_wikilinks or frontmatter_links or authored_relations),
+        "typed_relations": len(registered),
+        "body_wikilinks": body_wikilinks,
+        "frontmatter_links": frontmatter_links,
+        "assertion_blocks": assertion_blocks,
+        "provenance_relations": provenance_relations,
+        "unregistered": list(unique_unknown.values()),
+    }
+
+
+def _frontmatter_links(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        matches = _WIKILINK_RE.findall(value)
+        return (
+            [item.strip() for item in matches]
+            if matches
+            else ([value.strip()] if value.strip() else [])
+        )
+    if isinstance(value, list):
+        return [link for item in value for link in _frontmatter_links(item)]
+    if isinstance(value, dict):
+        return [link for item in value.values() for link in _frontmatter_links(item)]
+    return []
+
+
+def _page_project(frontmatter: dict[str, Any]) -> str | None:
+    if frontmatter.get("project") not in (None, ""):
+        return str(frontmatter["project"])
+    projects = frontmatter.get("projects")
+    if isinstance(projects, list) and len(projects) == 1:
+        return str(projects[0])
+    return None
+
+
+def _signal_version(page: Any) -> str:
+    frontmatter = yaml.safe_dump(page.frontmatter, sort_keys=True, allow_unicode=True)
+    return content_hash(frontmatter + "\n" + page.body)[:16]
+
+
+def _relation_debt(path: str, meta: dict[str, Any]) -> AuditFinding:
+    return AuditFinding(
+        category="relation_debt",
+        severity="info",
+        path=path,
+        detail="Active compiled page has no explicit outbound graph connection.",
+        proposed_fix="Review candidate neighbours; accept only meaningful durable edges.",
+        meta={
+            **meta,
+            "next_actions": [
+                {"tool": "connect_memory", "args": {"operation": "suggest-links", "path": path}},
+                {
+                    "tool": "connect_memory",
+                    "args": {"operation": "suggest-relations", "path": path},
+                },
+            ],
+        },
+    )
+
+
+def _typed_relation_debt(path: str, meta: dict[str, Any]) -> AuditFinding:
+    return AuditFinding(
+        category="typed_relation_debt",
+        severity="info",
+        path=path,
+        detail="Page has generic connections but no registered typed semantic relation.",
+        proposed_fix=(
+            "Review relation proposals; generic links may remain generic when that "
+            "is accurate."
+        ),
+        meta={
+            **meta,
+            "next_actions": [
+                {
+                    "tool": "connect_memory",
+                    "args": {"operation": "suggest-relations", "path": path},
+                },
+                {"tool": "read_memory", "args": {"identifier": path}},
+            ],
+        },
+    )
+
+
+def _provenance_debt(path: str, meta: dict[str, Any]) -> AuditFinding:
+    return AuditFinding(
+        category="provenance_debt",
+        severity="info",
+        path=path,
+        detail=(
+            "Page has assertion-bearing semantic blocks but no explicit page-level provenance; "
+            "page-level provenance would not by itself establish support for every block."
+        ),
+        proposed_fix=(
+            "Review the assertions and add only provenance that the stored sources "
+            "or evidence support."
+        ),
+        meta={
+            **meta,
+            "next_actions": [
+                {"tool": "read_memory", "args": {"identifier": path}},
+                {
+                    "tool": "connect_memory",
+                    "args": {"operation": "suggest-relations", "path": path},
+                },
+            ],
+        },
+    )
+
+
+def _unregistered_relation(
+    path: str, meta: dict[str, Any], observations: list[dict[str, str | int]]
+) -> AuditFinding:
+    labels = sorted({str(item["label"]) for item in observations})
+    return AuditFinding(
+        category="unregistered_relation",
+        severity="warn",
+        path=path,
+        detail=f"Page uses relation vocabulary not governed by the loaded registry: {labels}.",
+        proposed_fix=(
+            "Review corpus-wide usage before registering, aliasing, replacing, or "
+            "removing the vocabulary."
+        ),
+        meta={
+            **meta,
+            "unregistered": observations,
+            "next_actions": [
+                {"tool": "schema_memory", "args": {"operation": "infer", "subject": "relations"}},
+                {"tool": "read_memory", "args": {"identifier": path}},
+            ],
+        },
+    )

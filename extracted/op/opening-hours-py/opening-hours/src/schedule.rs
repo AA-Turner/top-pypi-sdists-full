@@ -1,0 +1,301 @@
+use std::cmp::{max, min};
+use std::iter::Peekable;
+use std::ops::Range;
+use std::sync::Arc;
+
+use opening_hours_syntax::{ExtendedTime, RuleKind};
+
+/// An period of time in a schedule annotated with a state and comments.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TimeRange {
+    /// Active period for this range
+    pub range: Range<ExtendedTime>,
+    /// State of the schedule while this period is active
+    pub kind: RuleKind,
+    /// Comment raised while this period is active
+    pub comment: Arc<str>,
+}
+
+impl TimeRange {
+    /// Small helper to create a new range.
+    pub fn new(range: Range<ExtendedTime>, kind: RuleKind, comment: Arc<str>) -> Self {
+        TimeRange { range, kind, comment }
+    }
+
+    /// Extract the kind and comment from the range, which are the values that define current state
+    /// of an expression.
+    pub fn as_state(&self) -> (RuleKind, &str) {
+        (self.kind, &self.comment)
+    }
+}
+
+/// Describe a full schedule for a day, keeping track of open, closed and
+/// unknown periods.
+///
+/// It can be turned into an iterator which will yield consecutive ranges of
+/// different states, with no holes or overlapping.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Schedule {
+    /// Always keep a sequence of non-overlaping, increasing time ranges.
+    pub(crate) inner: Vec<TimeRange>,
+}
+
+impl Schedule {
+    /// Creates a new empty schedule, which represents an always closed period.
+    ///
+    /// ```
+    /// use opening_hours::schedule::Schedule;
+    ///
+    /// assert!(Schedule::new().is_empty());
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a new schedule from a list of ranges of same kind and comment.
+    ///
+    /// ```
+    /// use opening_hours::schedule::Schedule;
+    /// use opening_hours_syntax::{ExtendedTime, RuleKind};
+    ///
+    /// let sch1 = Schedule::from_ranges(
+    ///     [
+    ///         ExtendedTime::new(10, 0).unwrap()..ExtendedTime::new(14, 0).unwrap(),
+    ///         ExtendedTime::new(12, 0).unwrap()..ExtendedTime::new(16, 0).unwrap(),
+    ///     ],
+    ///     RuleKind::Open,
+    ///     Default::default(),
+    /// );
+    ///
+    /// let sch2 = Schedule::from_ranges(
+    ///     [ExtendedTime::new(10, 0).unwrap()..ExtendedTime::new(16, 0).unwrap()],
+    ///     RuleKind::Open,
+    ///     Default::default(),
+    /// );
+    ///
+    /// assert_eq!(sch1, sch2);
+    /// ```
+    pub fn from_ranges(
+        ranges: impl IntoIterator<Item = Range<ExtendedTime>>,
+        kind: RuleKind,
+        comment: Arc<str>,
+    ) -> Self {
+        let mut inner: Vec<_> = ranges
+            .into_iter()
+            .filter(|range| range.start < range.end)
+            .map(|range| TimeRange { range, kind, comment: comment.clone() })
+            .collect();
+
+        // Ensure ranges are disjoint and in increasing order
+        if inner.len() > 1 {
+            inner.sort_unstable_by_key(|rng| rng.range.start);
+            let mut i_kept = 0; // the last element to be kept
+
+            for i_next in 1..inner.len() {
+                if inner[i_kept].range.end >= inner[i_next].range.start {
+                    inner[i_kept].range.end = inner[i_next].range.end;
+                } else {
+                    i_kept += 1;
+                    inner.swap(i_kept, i_next);
+                }
+            }
+
+            inner.truncate(i_kept + 1);
+        }
+
+        Self { inner }
+    }
+
+    /// Check if a schedule is empty.
+    ///
+    /// ```
+    /// use opening_hours::schedule::Schedule;
+    ///
+    /// assert!(Schedule::new().is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Check if a schedule is always closed with no comments.
+    pub(crate) fn is_always_closed_with_no_comments(&self) -> bool {
+        self.inner
+            .iter()
+            .all(|rg| rg.kind == RuleKind::Closed && rg.comment.is_empty())
+    }
+
+    /// Remove closed with no comment sections
+    pub fn filter_closed_ranges(mut self) -> Self {
+        self.inner
+            .retain(|rg| rg.kind != RuleKind::Closed || !rg.comment.is_empty());
+
+        self
+    }
+
+    /// Merge two schedules together.
+    pub fn addition(self, mut other: Self) -> Self {
+        // TODO (optimisation): this is implemented with quadratic time where it could probably be
+        // linear.
+        match other.inner.pop() {
+            None => self,
+            Some(tr) => self.insert(tr).addition(other),
+        }
+    }
+
+    /// Insert a new time range in a schedule.
+    fn insert(self, mut ins_tr: TimeRange) -> Self {
+        // Build sets of intervals before and after the inserted interval
+
+        let ins_start = ins_tr.range.start;
+        let ins_end = ins_tr.range.end;
+
+        let mut before: Vec<_> = self
+            .inner
+            .iter()
+            .filter(|tr| tr.range.start < ins_end)
+            .cloned()
+            .filter_map(|mut tr| {
+                tr.range.end = min(tr.range.end, ins_tr.range.start);
+
+                if tr.range.start < tr.range.end {
+                    Some(tr)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut after = self
+            .inner
+            .into_iter()
+            .filter(|tr| tr.range.end > ins_start)
+            .filter_map(|mut tr| {
+                tr.range.start = max(tr.range.start, ins_tr.range.end);
+
+                if tr.range.start < tr.range.end {
+                    Some(tr)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .peekable();
+
+        // Extend the inserted interval if it has adjacent intervals with same value
+
+        while let Some(tr) = before
+            .pop_if(|tr| tr.range.end == ins_tr.range.start && tr.as_state() == ins_tr.as_state())
+        {
+            ins_tr.range.start = tr.range.start;
+        }
+
+        while let Some(tr) = after
+            .next_if(|tr| ins_tr.range.end == tr.range.start && tr.as_state() == ins_tr.as_state())
+        {
+            ins_tr.range.end = tr.range.end;
+        }
+
+        // Build final set of intervals
+
+        let mut inner = before;
+        inner.push(ins_tr);
+        inner.extend(after);
+        Schedule { inner }
+    }
+}
+
+impl IntoIterator for Schedule {
+    type Item = TimeRange;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self)
+    }
+}
+
+/// Return value for [`Schedule::into_iter`].
+#[derive(Debug)]
+pub struct IntoIter {
+    last_end: ExtendedTime,
+    ranges: Peekable<std::vec::IntoIter<TimeRange>>,
+}
+
+impl IntoIter {
+    /// The value that will fill holes
+    const HOLES_STATE: (RuleKind, &str) = (RuleKind::Closed, "");
+
+    /// Create a new iterator from a schedule.
+    fn new(schedule: Schedule) -> Self {
+        Self {
+            last_end: ExtendedTime::MIDNIGHT_00,
+            ranges: schedule.inner.into_iter().peekable(),
+        }
+    }
+
+    /// Must be called before a value is yielded.
+    fn yielded(&mut self, value: TimeRange) -> Option<TimeRange> {
+        assert!(
+            value.range.start < value.range.end,
+            "infinite loop detected"
+        );
+
+        self.last_end = value.range.end;
+        Some(value)
+    }
+}
+
+impl Iterator for IntoIter {
+    type Item = TimeRange;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_end >= ExtendedTime::MIDNIGHT_24 {
+            // Iteration ended
+            return None;
+        }
+
+        let mut yielded_range = (self.ranges)
+            // Start from an interval
+            .next_if(|tr| tr.range.start == self.last_end)
+            // Start from a hole
+            .unwrap_or_else(|| {
+                let start = self.last_end;
+                let end = self.ranges.peek().map(|tr| tr.range.start).unwrap_or(start);
+                TimeRange::new(start..end, Self::HOLES_STATE.0, Default::default())
+            });
+
+        while let Some(next_range) = self.ranges.peek() {
+            // If there is a gap before next range
+            if next_range.range.start > yielded_range.range.end {
+                // If current range is the "holes" values (typicaly closed)
+                if yielded_range.as_state() == Self::HOLES_STATE {
+                    // Just extend the closed range with this hole
+                    yielded_range.range.end = next_range.range.start;
+                } else {
+                    // The range before the hole is not closed, then this is
+                    // were current range stops.
+                    return self.yielded(yielded_range);
+                }
+            }
+
+            let Some(next_range) = (self.ranges)
+                .next_if(|next_range| yielded_range.as_state() == next_range.as_state())
+            else {
+                // The next range has a different state, then this is where the current range
+                // stops.
+                return self.yielded(yielded_range);
+            };
+
+            yielded_range.range.end = next_range.range.end;
+        }
+
+        if yielded_range.as_state() == Self::HOLES_STATE {
+            // Extend with the last hole
+            yielded_range.range.end = ExtendedTime::MIDNIGHT_24;
+        }
+
+        self.yielded(yielded_range)
+    }
+}
+
+impl std::iter::FusedIterator for IntoIter {}

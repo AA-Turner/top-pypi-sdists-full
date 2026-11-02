@@ -1,0 +1,178 @@
+"""Getting a session for a place, and tearing one down.
+
+A "place" is just a directory. Creating a session for one and destroying one are
+the same operations whether the directory already exists, has to be acquired
+first, or is about to be released - so they share one path.
+"""
+
+import dataclasses
+from pathlib import Path
+
+from .. import tmux
+from ..config import Config, PlaceRoot
+from ..log import get_logger
+from . import hooks
+
+_log = get_logger("places.lifecycle")
+
+_ACQUIRE_TIMEOUT_SECONDS = 900  # acquiring a directory may install dependencies
+
+
+@dataclasses.dataclass(frozen=True)
+class Opened:
+    session: str = ""  # "" when none could be told apart
+    created: bool = False  # False when an existing session was switched to
+    error: str | None = None
+
+
+def _switch(session: str, pane_id: str, attach: bool) -> Opened:
+    """Switch to an existing session, unless *attach* is off."""
+    if attach and not tmux.navigation.switch_to_pane(session, pane_id):
+        return Opened(session, error=f"Could not switch to existing session '{session}'")
+
+    return Opened(session)
+
+
+def _spawn(
+    directory: Path,
+    config: Config,
+    session_name: str,
+    attach: bool,
+    harness: str,
+    prompt: str,
+    title: str,
+) -> Opened:
+    """A new session from the *harness* template.
+
+    The name comes from the spawn, not from looking the directory up again: a
+    pane in another session can report the same directory, as lemonaid's scratch
+    pane does while it runs a command there.
+    """
+    error = tmux.session.spawn_session(
+        cwd=str(directory),
+        config=config.tmux_session,
+        session_name=session_name,
+        attach=attach,
+        template_name=harness,
+        initial_prompt=prompt,
+        title=title,
+    )
+    return Opened(tmux.session.spawned_name(session_name, str(directory)), True, error)
+
+
+def open_place(
+    directory: Path,
+    config: Config,
+    session_name: str = "",
+    attach: bool = True,
+    harness: str = "default",
+    prompt: str = "",
+    title: str = "",
+) -> Opened:
+    """Switch to a session rooted at *directory*, creating one if none exists."""
+    session, pane_id = tmux.navigation.get_pane_for_cwd(str(directory))
+
+    if session == tmux.navigation.AMBIGUOUS:
+        return Opened(
+            error=f"Several tmux sessions have a window in {directory}; "
+            "not guessing which one you meant. Switch to it yourself, or close "
+            "the ones that aren't the session working there."
+        )
+
+    if session and pane_id:
+        return _switch(session, pane_id, attach)
+
+    return _spawn(directory, config, session_name, attach, harness, prompt, title)
+
+
+def open_session(
+    name: str,
+    directory: Path,
+    config: Config,
+    attach: bool = True,
+    harness: str = "default",
+    prompt: str = "",
+    title: str = "",
+) -> Opened:
+    """Get a session called *name* sitting in *directory*, acquiring nothing.
+
+    For directories no root claims the names of, where a name can only have meant
+    a session. Nothing is created or released on disk.
+
+    Identity is the name, not the directory - unlike a place, where one directory
+    means one session. Several differently-named sessions in the same directory is
+    a normal thing to want here.
+    """
+    session, pane_id = tmux.navigation.get_pane_for_session(tmux.session.sanitize_name(name))
+    if session and pane_id:
+        return _switch(session, pane_id, attach)
+
+    return _spawn(directory, config, name, attach, harness, prompt, title)
+
+
+def harness_window(config: Config, template_name: str) -> str:
+    """tmux's index for the window a template starts its lemon in."""
+    windows = config.tmux_session.get_template(template_name) or [""]
+    configured = config.tmux_session.harness_window
+    idx = config.tmux_session.resume_window if configured is None else configured
+    return str(tmux.session.get_base_index() + max(0, min(idx, len(windows) - 1)))
+
+
+def acquire_key(key: str, root: PlaceRoot) -> tuple[Path | None, str | None]:
+    """Get the directory for *key*, creating it if needed. No session is involved.
+
+    What a caller that isn't a tmux client wants: an agent has its own session and
+    will never attach to one, so opening a place would leave an unused session
+    behind. Nothing is recorded either way - ownership is derived from tmux when
+    asked - so a directory acquired here is found and released exactly like one a
+    session was opened for.
+
+    Returns (directory, error message).
+    """
+    directory = hooks.directory_for_key(root, key)
+    if directory is not None:
+        return directory, None
+
+    if not root.create:
+        return None, f"No create command configured for {root.path}"
+
+    _log.info("acquiring %r under %s", key, root.path)
+    directory = hooks.create(root, key, timeout=_ACQUIRE_TIMEOUT_SECONDS)
+
+    if directory is None:
+        return None, f"Could not acquire a directory for {key!r} under {root.path}"
+
+    return directory, None
+
+
+def open_key(
+    key: str,
+    config: Config,
+    root: PlaceRoot,
+    attach: bool = True,
+    harness: str = "default",
+    prompt: str = "",
+    title: str = "",
+) -> tuple[Path | None, Opened]:
+    """Get a session for *key* under *root*, acquiring its directory if needed.
+
+    Idempotent at three levels: an existing directory is not re-created, an
+    existing session is switched to rather than duplicated, and neither case is
+    an error. So asking for a session is always safe, and no caller - person or
+    agent - has to check first.
+
+    Returns (directory, what was opened there).
+    """
+    directory, error = acquire_key(key, root)
+    if directory is None:
+        return None, Opened(error=error)
+
+    return directory, open_place(
+        directory,
+        config,
+        session_name=key,
+        attach=attach,
+        harness=harness,
+        prompt=prompt,
+        title=title,
+    )

@@ -55,7 +55,7 @@ from .utils import (
 )
 
 # Ultralytics dataset *.cache version, >= 1.0.0 for Ultralytics YOLO models.
-# 1.0.12: Accept UTF-8 byte-order marks in labels.
+# 1.0.12: Accept UTF-8 byte-order marks in labels (since removed, version kept to avoid cache rescans).
 # 1.0.11: Reject negative box dimensions.
 # 1.0.10: EXIF-rotated image shapes match the decoded image.
 DATASET_CACHE_VERSION = "1.0.12"
@@ -1306,9 +1306,11 @@ class ClassificationDataset:
         return len(self.samples)
 
     @staticmethod
-    def imread(f: str) -> np.ndarray | None:
+    def imread(f: str) -> np.ndarray:
         """Read a BGR image with cv2, decoding the formats cv2 cannot read through the shared PIL fallback."""
-        return imread(f) if f.lower().endswith(PIL_FALLBACK_SUFFIXES) else imread_unicode(f)
+        if (im := imread(f) if f.lower().endswith(PIL_FALLBACK_SUFFIXES) else imread_unicode(f)) is None:
+            raise FileNotFoundError(f"Image Not Found {f}")
+        return im
 
     def cache_images(self) -> None:
         """Decode all images once into a single contiguous uint8 buffer before DataLoader workers fork.

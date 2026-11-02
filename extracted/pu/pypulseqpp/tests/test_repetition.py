@@ -1,0 +1,478 @@
+"""Block-definition periods, prologues and cache invalidation."""
+
+import math
+
+import numpy as np
+import pytest
+from scipy.spatial.transform import Rotation
+
+import pypulseqpp as pp
+
+
+@pytest.fixture
+def gradient_echo():
+    """One shot is three blocks: excite, encode, read."""
+
+    def make(lines=8, prologue=0):
+        sequence = pp.Sequence(pp.Opts())
+        pulse, select, rephase = pp.make_sinc_pulse(
+            flip_angle=math.pi / 12,
+            duration=1e-3,
+            slice_thickness=3e-3,
+            use="excitation",
+            return_gz=True,
+        )
+        read = pp.make_trapezoid("x", area=1000, duration=2e-3)
+        window = pp.make_adc(num_samples=64, duration=2e-3)
+        encode = pp.make_trapezoid("y", area=500, duration=1e-3)
+
+        for _ in range(prologue):
+            sequence.add_block(pp.make_delay(5e-3))
+        for line in range(lines):
+            sequence.add_block(pulse, select)
+            sequence.add_block(pp.scale_grad(encode, (line / lines) or 1e-9), rephase)
+            sequence.add_block(read, window)
+        return sequence
+
+    return make
+
+
+def test_a_scan_repeats_at_the_length_of_one_shot(gradient_echo):
+    sequence = gradient_echo(lines=8)
+
+    size, start = sequence.repetition()
+
+    assert size == 3
+    assert start == 1
+
+
+def test_a_phase_encode_does_not_make_a_shot_different(gradient_echo):
+    """Every line has its own amplitude and they are all one definition."""
+    sequence = gradient_echo(lines=32)
+
+    size, _ = sequence.repetition()
+
+    assert size == 3
+    assert len(sequence) == 96
+
+
+def test_blocks_played_once_before_the_loop_make_the_whole_sequence_one(
+    gradient_echo,
+):
+    """A preparation is its own subsequence or part of a hyper-TR; within one
+    table there is no prologue."""
+    sequence = gradient_echo(lines=8, prologue=3)
+
+    assert sequence.repetition() == (27, 1)
+
+
+def test_a_prologue_is_outside_the_run_a_diagram_draws(gradient_echo):
+    """What the scan repeats as a whole and what repeats inside it differ here:
+    the preparation belongs to the first, and a diagram wants the second."""
+    sequence = gradient_echo(lines=8, prologue=3)
+
+    assert sequence.repetition() == (27, 1)
+    assert sequence._native.repeating_part() == (3, 3)
+
+
+def test_the_run_a_diagram_draws_is_the_scan_unit_when_the_scan_repeats(gradient_echo):
+    sequence = gradient_echo(lines=8)
+
+    assert sequence._native.repeating_part() == (3, 0)
+
+
+def test_a_rewind_after_the_loop_is_outside_the_run_a_diagram_draws(gradient_echo):
+    sequence = gradient_echo(lines=8)
+    sequence.add_block(pp.make_trapezoid("y", area=-500, duration=1e-3))
+
+    size, start = sequence._native.repeating_part()
+
+    assert (size, start) == (3, 0)
+    assert (len(sequence) - start) // size == 8
+
+
+def test_a_sequence_in_which_nothing_repeats_is_one_repetition(gradient_echo):
+    assert gradient_echo(lines=1).repetition() == (3, 1)
+
+
+def test_a_shot_that_opens_with_two_equal_runs_repeats_at_its_own_length():
+    """Two identical sets of saturation bands open each shot; the shots before
+    the first readout play no ADC, so only the definitions say it repeats."""
+    sequence = pp.Sequence(pp.Opts())
+    band = pp.make_block_pulse(math.pi / 2, duration=1e-3, use="saturation")
+    spoil = pp.make_trapezoid("z", area=2000, duration=3e-3)
+    pulse = pp.make_block_pulse(math.pi / 12, duration=1e-3, use="excitation")
+    read = pp.make_trapezoid("x", area=1000, duration=2e-3)
+    window = pp.make_adc(num_samples=64, duration=2e-3)
+
+    for shot in range(6):
+        for _ in range(2):
+            sequence.add_block(band)
+            sequence.add_block(spoil)
+        sequence.add_block(pulse)
+        sequence.add_block(read, *([window] if shot >= 2 else []))
+
+    assert sequence.repetition() == (6, 1)
+
+
+def test_a_sequence_with_nothing_in_it_does_not_repeat():
+    assert pp.Sequence(pp.Opts()).repetition() == (0, 1)
+
+
+def test_asking_for_the_repeating_unit_writes_nothing_into_the_sequence(
+    gradient_echo, tmp_path
+):
+    sequence = gradient_echo(lines=8)
+
+    assert sequence.repetition() == (3, 1)
+
+    path = tmp_path / "gre.seq"
+    sequence.write(str(path))
+    assert sequence.get_definition("TRSize") == ""
+    assert "TRSize" not in path.read_text()
+
+
+def test_a_declared_repeating_unit_survives_a_file(gradient_echo, tmp_path):
+    """Declared by the design in `[DEFINITIONS]`, and taken again on reading."""
+    sequence = gradient_echo(lines=8)
+    sequence.set_definition("TRSize", 6)
+    path = tmp_path / "gre.seq"
+    sequence.write(str(path))
+
+    loaded = pp.Sequence(pp.Opts())
+    loaded.read(str(path))
+
+    assert loaded.get_definition("TRSize") == pytest.approx([6])
+    assert loaded.repetition() == (6, 1)
+
+
+def test_adding_a_block_makes_the_answer_stale(gradient_echo):
+    sequence = gradient_echo(lines=8)
+    assert sequence._native.repetition() == (3, 0)
+
+    sequence.add_block(pp.make_delay(5e-3))
+
+    # Played once, at the end: nothing repeats up to it, so the whole
+    # sequence is one repetition.
+    assert sequence._native.repetition() == (25, 0)
+
+
+def test_retiming_a_block_that_plays_events_makes_the_answer_stale():
+    """A block's duration is part of its definition unless it is a pure delay.
+
+    One pulse block of four lengthened: the pulse blocks no longer share a
+    definition or a duration, so nothing repeats and the whole sequence is one
+    repetition.
+    """
+    sequence = pp.Sequence(pp.Opts())
+    pulse = pp.make_block_pulse(math.pi / 6, duration=1e-3, use="excitation")
+    for _ in range(4):
+        sequence.add_block(pulse)
+        sequence.add_block(pp.make_delay(2e-3))
+    assert sequence.repetition() == (2, 1)
+
+    sequence.block_durations[3] = 1.5e-3
+
+    assert sequence.repetition() == (8, 1)
+
+
+def test_collapsing_duplicates_makes_the_answer_stale():
+    """The repeat only becomes visible once equal shapes are one definition.
+
+    Three equal pulses built one at a time are three definitions until
+    deduplication collapses them. Five blocks do not divide into pulse and
+    wait, so by structure nothing repeats either: before deduplication the
+    whole sequence is one repetition, and after it a pulse and its wait are,
+    the last copy cut short. A remembered answer would still say the former.
+    """
+    sequence = pp.Sequence(pp.Opts())
+    for pulse in range(3):
+        # A fresh pulse each time: equal, but registered as its own shapes.
+        sequence.add_block(
+            pp.make_block_pulse(math.pi / 6, duration=1e-3, use="excitation")
+        )
+        if pulse < 2:
+            sequence.add_block(pp.make_delay(2e-3))
+
+    assert sequence._native.repetition() == (5, 0)
+
+    sequence.remove_duplicates(in_place=True)
+
+    assert sequence._native.repetition() == (2, 0)
+
+
+def test_collapsing_duplicates_twice_does_the_pass_once():
+    """The flag either method sets is what makes the second call free."""
+    sequence = pp.Sequence(pp.Opts())
+    for _ in range(4):
+        sequence.add_block(
+            pp.make_block_pulse(math.pi / 6, duration=1e-3, use="excitation")
+        )
+    sequence.remove_duplicates(in_place=True)
+    collapsed = sequence._native.num_rf()
+
+    sequence.remove_duplicates(in_place=True)
+
+    assert sequence._native.num_rf() == collapsed
+
+
+def test_a_repeating_unit_can_be_located_when_its_size_is_known(gradient_echo):
+    """For a caller that already knows the period: it has to divide the table
+    and be repeated by it, and be shorter than the table."""
+    sequence = gradient_echo(lines=8)
+
+    assert sequence._native.locate_repetition(3) == (3, 0)
+    assert sequence._native.locate_repetition(6) == (6, 0)
+    assert sequence._native.locate_repetition(4) == (0, 0)
+    assert sequence._native.locate_repetition(24) == (0, 0)
+
+
+def test_a_declared_hyper_tr_the_blocks_repeat_with_is_taken(gradient_echo):
+    sequence = gradient_echo(lines=8)
+    sequence.set_definition("TRSize", 6)
+
+    assert sequence.repetition() == (6, 1)
+
+
+def test_a_declared_tr_the_blocks_contradict_is_ignored(gradient_echo):
+    sequence = gradient_echo(lines=8)
+    sequence.set_definition("TRSize", 4)
+
+    assert sequence.repetition() == (3, 1)
+
+
+def test_shots_that_differ_only_in_their_waveforms_repeat_by_structure():
+    """A pulse of its own per shot: no definition recurs, but every shot plays
+    the same channels for the same time."""
+    system = pp.Opts()
+    read = pp.make_trapezoid("x", area=1000, duration=2e-3, system=system)
+    sequence = pp.Sequence(system)
+    for shot in range(4):
+        sequence.add_block(
+            pp.make_sinc_pulse(
+                math.pi / 6, duration=1e-3, time_bw_product=2 + shot, system=system
+            )
+        )
+        sequence.add_block(read)
+
+    assert sequence._native.num_rf_definitions() == 4
+    assert sequence.repetition() == (2, 1)
+
+
+def test_finding_the_repeat_of_a_long_scan_is_one_pass(gradient_echo):
+    """A guard on where the work happens: this is an array, not the blocks."""
+    sequence = gradient_echo(lines=20000)
+
+    size, start = sequence.repetition()
+
+    assert (size, start) == (3, 1)
+    assert len(sequence) == 60000
+
+
+def test_labelling_a_pulse_splits_the_definition_it_shared(tmp_path):
+    """What a pulse is for is part of which definition it is.
+
+    An excitation and a refocusing off the same shape differ only in
+    amplitude, which is an instance parameter, so while both are unlabelled
+    they are one definition and the sequence looks like it repeats every
+    block. Labelling them splits that definition in two, and the tables the
+    repeat is read off have to say so.
+    """
+    system = pp.Opts()
+    spin_echo = pp.Sequence(system)
+    for _ in range(3):
+        spin_echo.add_block(
+            pp.make_block_pulse(
+                math.pi / 2, duration=1e-3, system=system, use="excitation"
+            )
+        )
+        spin_echo.add_block(
+            pp.make_block_pulse(math.pi, duration=1e-3, system=system, use="refocusing")
+        )
+    path = tmp_path / "se.seq"
+    # 1.4.1 has nowhere to record what a pulse is for.
+    spin_echo.write_v141(str(path))
+
+    loaded = pp.Sequence(system)
+    loaded.read(str(path))
+    assert loaded._native.num_rf_definitions() == 1
+    assert loaded._native.repetition() == (1, 0)
+
+    loaded._native.detect_rf_uses(system.B0, system.gamma)
+
+    assert loaded._native.num_rf_definitions() == 2
+    assert list(loaded._native.instance_definitions()) == [1, 2, 1, 2, 1, 2]
+    assert loaded.repetition() == (2, 1)
+
+
+def test_a_phase_encode_table_is_one_definition_at_many_amplitudes():
+    """One gradient at its largest step, scaled per line.
+
+    Which is what makes a table read as one repetition, and it is not left to
+    the caller: every readout module builds its encodes with
+    `make_phase_encoding` for the step and `scale_grad` for the line, so the
+    amplitude is a column of the row and the timings never move. Ask
+    `make_trapezoid` for an area per line instead and it derives its own rise
+    and fall from each, which is a definition per line and a scan that reads
+    as though it never does the same thing twice.
+    """
+    system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+    step = pp.make_phase_encoding("y", 0.24 / 64, system=system)
+
+    sequence = pp.Sequence(system)
+    for line in (-1.0, -0.5, 0.25, 1.0):
+        sequence.add_block(pp.scale_grad(step, line))
+
+    assert sequence._native.num_grad_definitions() == 1
+    assert sequence.repetition() == (1, 1)
+
+
+def test_a_line_scaled_to_zero_is_the_same_definition_at_no_amplitude():
+    """How a calibration line is acquired without the encode.
+
+    Not a block with one fewer event, which would be a definition of its own
+    and would break the scan into pieces around it. The amplitude is the
+    instance's, so zero is a number in the row.
+    """
+    system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+    step = pp.make_phase_encoding("y", 0.24 / 64, system=system)
+
+    sequence = pp.Sequence(system)
+    for line in (1.0, 0.0, -1.0):
+        sequence.add_block(pp.scale_grad(step, line))
+
+    assert sequence._native.num_grad_definitions() == 1
+    assert sequence.repetition() == (1, 1)
+    assert float(sequence.get_block(2).gy.amplitude) == 0.0
+
+
+def test_a_run_of_waits_repeats_every_block_however_long_each_waits():
+    """A pure delay is one definition and its duration is not part of it.
+
+    A block that plays nothing is a position an interpreter waits at, and how
+    long it waits there is set at run time -- so a fill and the pad after it
+    are one position waited at twice, not two things.
+    """
+    sequence = pp.Sequence(pp.Opts())
+    for duration in (1e-3, 2e-3, 3e-3):
+        sequence.add_block(pp.make_delay(duration))
+
+    assert sequence.repetition() == (1, 1)
+
+
+def test_the_repeat_survives_a_shift(gradient_echo):
+    """A prescription writes phases onto rows; it does not restructure a scan."""
+    sequence = gradient_echo(lines=8)
+    moved = pp.TransformFOV(translation=(0.01, 0.0, 0.0)).apply_to_sequence(sequence)
+
+    assert moved.repetition() == sequence.repetition()
+
+
+def test_the_repeat_survives_a_rotation(gradient_echo):
+    """A rotation is four numbers on a block, not a new set of waveforms, so
+    it cannot split one readout into many."""
+    sequence = gradient_echo(lines=8)
+    turned = pp.TransformFOV(
+        rotation=Rotation.from_euler("z", 45, degrees=True)
+    ).apply_to_sequence(sequence)
+
+    assert turned.repetition() == sequence.repetition()
+
+
+@pytest.mark.parametrize("dummies", [0, 2])
+def test_a_slice_acquisition_with_its_preparation_is_one_repetition(dummies):
+    """A 2D balanced acquisition: per slice a half-flip preparation, dummy
+    shots and four lines. The lines alone repeat too, but only inside the last
+    slice; the slice is the longest stretch that repeats, so it is the TR."""
+    system = pp.Opts(rf_ringdown_time=20e-6, rf_dead_time=100e-6, adc_dead_time=10e-6)
+    half = pp.make_block_pulse(math.pi / 8, duration=0.5e-3, system=system)
+    flip = pp.make_block_pulse(math.pi / 4, duration=0.5e-3, system=system)
+    readout = pp.make_trapezoid("x", area=1000, duration=1.5e-3, system=system)
+    adc = pp.make_adc(64, duration=0.8e-3, delay=readout.rise_time, system=system)
+    sequence = pp.Sequence(system)
+    for _ in range(3):
+        sequence.add_block(half)
+        for line in range(dummies + 4):
+            sequence.add_block(flip, readout, *([adc] if line >= dummies else []))
+
+    assert sequence.repetition() == (1 + dummies + 4, 1)
+
+
+def test_a_preparation_before_the_slice_loop_makes_the_whole_sequence_one():
+    """Blocks played once before the outer loop leave no period to find."""
+    system = pp.Opts()
+    half = pp.make_block_pulse(math.pi / 8, duration=0.5e-3, system=system)
+    flip = pp.make_block_pulse(math.pi / 4, duration=0.5e-3, system=system)
+    sequence = pp.Sequence(system)
+    sequence.add_block(pp.make_block_pulse(math.pi, duration=2e-3, system=system))
+    sequence.add_block(pp.make_delay(10e-3))
+    for _ in range(3):
+        sequence.add_block(half)
+        for _ in range(4):
+            sequence.add_block(flip)
+
+    assert sequence.repetition() == (17, 1)
+
+
+def test_declared_tr_size_is_read_under_the_files_own_spelling(tmp_path):
+    sequence = pp.Sequence(pp.Opts())
+    for _ in range(4):
+        sequence.add_block(pp.make_delay(1e-3))
+    sequence.set_definition("TRSize", 2)
+    path = tmp_path / "declared.seq"
+    sequence.write(path)
+    loaded = pp.Sequence()
+    loaded.read(path)
+    assert loaded.repetition() == (2, 1)
+    assert loaded.get_definition("TRsize") == ""
+
+
+def _ptx_pulse(channel, system):
+    signal = np.zeros((2, 100), complex)
+    signal[channel] = np.hanning(100) * 200.0
+    return pp.make_ptx_pulse(
+        signal, dwell=system.rf_raster_time, system=system, use="excitation"
+    )
+
+
+def test_shots_that_play_different_ptx_pulses_are_one_longer_repetition():
+    """The pulse decides which transmit channels a shot drives, so local SAR.
+
+    Shot by shot, the two pulses match in timing and in the channels they
+    play, and by structure alone each shot would stand for the other; keyed
+    on the pulse, the repetition holds both.
+    """
+    system = pp.Opts()
+    first, second = _ptx_pulse(0, system), _ptx_pulse(1, system)
+    sequence = pp.Sequence(system)
+    for _ in range(3):
+        for pulse in (first, second):
+            sequence.add_block(pulse)
+            sequence.add_block(pp.make_delay(5e-3))
+
+    assert sequence.repetition() == (4, 1)
+
+
+def test_shots_that_play_one_pulse_through_different_shims_are_one_longer_repetition():
+    system = pp.Opts()
+    pulse = pp.make_block_pulse(math.pi / 6, duration=1e-3, system=system)
+    shims = [pp.make_rf_shim([1.0, 1.0]), pp.make_rf_shim([1.0, -1.0])]
+    sequence = pp.Sequence(system)
+    for _ in range(3):
+        for shim in shims:
+            sequence.add_block(pulse, shim)
+            sequence.add_block(pp.make_delay(5e-3))
+    # A shim row is shared once equal shims are collapsed, as writing does.
+    sequence.remove_duplicates(in_place=True)
+
+    assert sequence.repetition() == (4, 1)
+
+
+def test_ptx_pulses_that_never_repeat_make_the_whole_sequence_one_repetition():
+    system = pp.Opts()
+    sequence = pp.Sequence(system)
+    for channel in (0, 1):
+        sequence.add_block(_ptx_pulse(channel, system))
+        sequence.add_block(pp.make_delay(5e-3))
+
+    assert sequence.repetition() == (4, 1)

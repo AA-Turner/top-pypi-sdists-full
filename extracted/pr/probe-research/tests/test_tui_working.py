@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 from tests.test_setup_wizard import _Screen
 
 pytestmark = pytest.mark.tui
@@ -54,12 +54,29 @@ def spinner(monkeypatch):
     dimensions = [80, 24]
     output = io.StringIO()
     ticks = _Ticks()
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "columns", lambda: dimensions[0])
-    monkeypatch.setattr(tui, "rows", lambda: dimensions[1])
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: dimensions[0])
+    monkeypatch.setattr(tui.boxes, "columns", lambda: dimensions[0])
+    monkeypatch.setattr(tui.layout, "columns", lambda: dimensions[0])
+    monkeypatch.setattr(tui.progress, "columns", lambda: dimensions[0])
+    monkeypatch.setattr(tui.status_board, "columns", lambda: dimensions[0])
+    monkeypatch.setattr(tui.terminal, "rows", lambda: dimensions[1])
+    monkeypatch.setattr(tui.choices, "rows", lambda: dimensions[1])
+    monkeypatch.setattr(tui.layout, "rows", lambda: dimensions[1])
+    monkeypatch.setattr(tui.progress, "rows", lambda: dimensions[1])
+    monkeypatch.setattr(tui.status_board, "rows", lambda: dimensions[1])
     # pytest replaces process stdout between fixture setup and the test call.
     # Patch this module's stream reference so both phases use the same buffer.
-    monkeypatch.setattr(tui, "sys", SimpleNamespace(stdout=output))
+    fake_sys = SimpleNamespace(stdout=output)
+    monkeypatch.setattr(tui.terminal, "sys", fake_sys)
+    monkeypatch.setattr(tui.clipboard, "sys", fake_sys)
+    monkeypatch.setattr(tui.images, "sys", fake_sys)
+    monkeypatch.setattr(tui.status_board, "sys", fake_sys)
     monkeypatch.setattr(threading, "Event", lambda: ticks)
     monkeypatch.setattr(threading, "Thread", ticks.thread)
 

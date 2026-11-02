@@ -1,0 +1,251 @@
+from __future__ import annotations
+
+import functools
+import logging
+import os
+import sys
+from typing import TYPE_CHECKING, Any, cast
+
+import click
+
+from pivot import discovery, exceptions, metrics
+from pivot.cli import errors
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from pivot.registry import PipelineLike
+
+
+# Context key for storing the discovered Pipeline
+PIPELINE_CONTEXT_KEY = "_pivot_pipeline"
+ALL_PIPELINES_CONTEXT_KEY = "_pivot_all_pipelines"
+
+
+def with_error_handling[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Wrap function with Pivot error handling.
+
+    Use this decorator with @group.command() for group subcommands:
+
+        @remote.command("add")
+        @with_error_handling
+        def remote_add(...):
+            ...
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return func(*args, **kwargs)
+        except (click.ClickException, click.exceptions.Exit):
+            # ctx.exit(code) raises Exit: let click exit with the code, not print "Exit(1)"
+            raise
+        except exceptions.PivotError as e:
+            raise errors.handle_pivot_error(e) from e
+        except BaseExceptionGroup as eg:
+            # Async TaskGroups wrap exceptions in ExceptionGroup. A group of PivotErrors only is
+            # handled like one; any other exception in it gets its traceback logged, as below.
+            if eg.split(exceptions.PivotError)[1] is not None:
+                logger.debug("Unhandled exception in CLI command", exc_info=True)
+            raise click.ClickException(errors.format_unhandled_error(eg)) from eg
+        except Exception as e:
+            # --verbose shows this traceback; the message is one line naming the problem.
+            logger.debug("Unhandled exception in CLI command", exc_info=True)
+            raise click.ClickException(errors.format_unhandled_error(e)) from e
+
+    return wrapper
+
+
+def pivot_command(
+    name: str | None = None,
+    *,
+    auto_discover: bool = True,
+    allow_all: bool = False,
+    **attrs: Any,
+) -> Callable[[Callable[..., Any]], click.Command]:
+    """Create a Click command with Pivot error handling and optional auto-discovery.
+
+    Combines @click.command() with automatic error handling that converts
+    PivotError to user-friendly messages with suggestions.
+
+    Args:
+        name: Optional command name (defaults to function name)
+        auto_discover: If True (default), automatically discover and register
+            stages before running the command. Set to False for commands that
+            don't need the registry (e.g., init, schema).
+        allow_all: If True, add --all flag for multi-pipeline discovery.
+        **attrs: Additional arguments passed to click.command()
+
+    Returns:
+        Decorator that creates a click.Command with error handling
+    """
+
+    def decorator(func: Callable[..., Any]) -> click.Command:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Pop all_pipelines before passing to the actual function —
+            # it's consumed by the decorator, not the command function
+            use_all = kwargs.pop("all_pipelines", False) if allow_all else False
+            _t_total = metrics.start()
+            try:
+                # Check if Pipeline is already in context (e.g., when invoking subcommand)
+                if (auto_discover or use_all) and not _has_pipeline_in_context():
+                    try:
+                        _t_discover = metrics.start()
+                        try:
+                            pipeline = discovery.discover_pipeline(
+                                all_pipelines=use_all,
+                            )
+                            if pipeline is not None:
+                                # Store Pipeline in context for commands that need it
+                                store_pipeline_in_context(pipeline)
+                            # If no Pipeline found, commands that need stages will fail
+                            # with NoPipelineError when they try to access stages
+                        finally:
+                            metrics.end("cli.discover", _t_discover)
+                    except discovery.DiscoveryError as e:
+                        raise click.ClickException(str(e)) from e
+                # Store all_pipelines flag so Engine can use it for watch mode reload
+                if use_all:
+                    _store_all_pipelines_in_context(use_all)
+                return func(*args, **kwargs)
+            finally:
+                metrics.end("cli.total", _t_total)
+                if os.environ.get("PIVOT_METRICS"):
+                    _print_metrics_summary()
+
+        wrapped = with_error_handling(wrapper)
+        cmd = click.command(name=name, **attrs)(wrapped)
+
+        # Add --all option if allowed
+        if allow_all:
+            cmd = click.option(
+                "--all",
+                "all_pipelines",
+                is_flag=True,
+                default=False,
+                help="Run across all pipelines in the project.",
+            )(cmd)
+
+        return cmd
+
+    return decorator
+
+
+def _parse_resource_capacities(
+    _ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]
+) -> dict[str, int]:
+    """Parse repeatable ``NAME=CAPACITY`` resource overrides for run commands."""
+    capacities = dict[str, int]()
+    for value in values:
+        name, separator, capacity_text = value.partition("=")
+        normalized_name = name.strip().casefold()
+        if not separator or not normalized_name or not capacity_text.isdecimal():
+            raise click.BadParameter("must use NAME=POSITIVE_INTEGER")
+        capacity = int(capacity_text)
+        if capacity <= 0:
+            raise click.BadParameter("capacity must be a positive integer")
+        if normalized_name in capacities:
+            raise click.BadParameter(f"resource {normalized_name!r} was supplied more than once")
+        capacities[normalized_name] = capacity
+    return capacities
+
+
+resources_option = click.option(
+    "--resources",
+    "resource_capacity",
+    multiple=True,
+    callback=_parse_resource_capacities,
+    metavar="NAME=CAPACITY",
+    help="Set a scheduler resource capacity. May be repeated.",
+)
+"""The ``--resources`` option of every command that runs stages, parsed to ``dict[str, int]``."""
+
+checkout_mode_option = click.option(
+    "--checkout-mode",
+    type=click.Choice(["symlink", "hardlink", "copy"]),
+    default=None,
+    help="Checkout mode (default: cache.checkout_mode, else hardlink, symlink, copy)",
+)
+"""The ``--checkout-mode`` option of every command that restores outputs: ``checkout``, ``get`` and
+``pull``. None means the configured order."""
+
+
+def store_pipeline_in_context(pipeline: PipelineLike) -> None:
+    """Store a Pipeline in the Click context."""
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return
+    # Context obj is set by CLI group as a dict-like CliContext
+    if ctx.obj is None:
+        ctx.obj = {}
+    # TypedDict is a dict, so we can add extra keys
+    ctx.obj[PIPELINE_CONTEXT_KEY] = pipeline  # type: ignore[literal-required]
+
+
+def get_pipeline_from_context() -> PipelineLike | None:
+    """Get the discovered Pipeline from Click context, if any.
+
+    Returns None if no Pipeline was discovered.
+    """
+    from pivot.registry import PipelineLike
+
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return None
+    obj = ctx.obj
+    if obj is None or not isinstance(obj, dict):
+        return None
+    # ctx.obj is typed as Any, so dict.get returns Unknown
+    pipeline = cast("Any", obj).get(PIPELINE_CONTEXT_KEY)
+    if pipeline is None or not isinstance(pipeline, PipelineLike):
+        return None
+    return pipeline
+
+
+def _has_pipeline_in_context() -> bool:
+    """Check if a Pipeline is stored in the current Click context."""
+    return get_pipeline_from_context() is not None
+
+
+def _store_all_pipelines_in_context(value: bool) -> None:
+    """Store the all_pipelines flag in the Click context."""
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj[ALL_PIPELINES_CONTEXT_KEY] = value  # type: ignore[literal-required]
+
+
+def get_all_pipelines_from_context() -> bool:
+    """Get the all_pipelines flag from Click context.
+
+    Returns False if not set.
+    """
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return False
+    obj = ctx.obj
+    if obj is None or not isinstance(obj, dict):
+        return False
+    return bool(cast("Any", obj).get(ALL_PIPELINES_CONTEXT_KEY, False))
+
+
+def _print_metrics_summary() -> None:
+    """Print metrics summary to stderr."""
+    summary = metrics.summary()
+    if not summary:
+        return
+
+    print("\nMetrics:", file=sys.stderr)
+    for name, data in sorted(summary.items()):
+        count = data["count"]
+        total = data["total_ms"]
+        avg = data["avg_ms"]
+        if count == 1:
+            print(f"  {name}: {total:.1f}ms", file=sys.stderr)
+        else:
+            print(f"  {name}: {count}x, total={total:.1f}ms, avg={avg:.1f}ms", file=sys.stderr)

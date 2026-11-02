@@ -1,0 +1,469 @@
+"""Every protein hypothesis for small variants, with scoped RNA evidence.
+
+`export_protein_hypotheses` turns `run_isovar` results into one JSON-ready
+exchange format, ``isovar.protein_hypotheses.v2``. It keeps every protein
+Isovar reconstructed for each variant, in Isovar's ranked order, and every
+nucleotide translation behind each protein, so synonymous cDNAs stay distinct.
+Every support is the RNA support record (reads, fragments, UMIs and cells; see
+`isovar.rna_evidence.rna_support`) plus an evidence set ID; each set's hashed
+read identities are stored once, so consumers can combine evidence without
+counting a read twice. The export selects nothing:
+ranking and filtering stay later policies, and recorded filter outcomes are
+reported, not applied.
+"""
+
+import csv
+from pathlib import Path
+
+from . import __version__
+from .coding_interval_support import coding_interval_support
+from .genetic_code import translate_cdna
+from .json_files import json_stem, write_json
+from .protein_sequence_helpers import covered_protein_groups
+from .protein_reference_comparison import reference_comparison
+from .read_identity import source_read_ids
+from .read_metadata import unique_header_entries
+from .rna_candidate_support import candidate_catalog, score_fragments, validate_comparison_settings
+from .rna_evidence import SUPPORT_COLUMNS, EvidenceSets, content_identifier, support_columns
+from .transcript_edit_helpers import categorize_transcript_assembly_edits_from_translation
+
+SCHEMA = "isovar.protein_hypotheses.v2"
+
+_EFFECT_FIELDS = ("gene_name", "gene_id", "transcript_id", "transcript_name", "modifies_protein_sequence")
+
+
+class _EvidenceSets(EvidenceSets):
+    """Support records, each labelled with the reads it describes."""
+
+    def support(self, reads, description=None, labels=None):
+        """The RNA support record and evidence set ID of ``reads``."""
+        record = super().support(reads, labels)
+        return record if description is None else dict(scope=description, **record)
+
+    def counts(self, reads, description, labels=None):
+        """The RNA support record alone, storing no evidence set."""
+        reads = list(reads)
+        record = dict(scope=description, **self.record(reads, labels)[0])
+        if self.base_quality_policy is not None:
+            record["base_quality"] = self.quality_support(reads, labels, store_sets=False)
+        return record
+
+
+def _variant(variant):
+    return dict(reference_name=variant.reference_name, contig=variant.contig, start=variant.start,
+                ref=variant.ref, alt=variant.alt, description=variant.short_description)
+
+
+def _event_id(variant):
+    return content_identifier("variant", [variant.reference_name, variant.contig, variant.start,
+                                          variant.ref, variant.alt])
+
+
+def _starts_at_annotated_start_codon(translation):
+    """Whether translation begins at the annotated start codon, as Isovar frames it."""
+    context, orf = translation.reference_context, translation.variant_orf
+    matched_from = len(context.sequence_before_variant_locus) - len(orf.reference_cdna_sequence_before_variant)
+    return bool(context.contains_start_codon and matched_from <= context.offset_to_first_complete_codon)
+
+
+def _check_translation(translation):
+    """The exported cDNA, frame and protein must agree (a length cap may shorten the protein)."""
+    orf = translation.variant_orf
+    amino_acids, stop = translate_cdna(
+        orf.cdna_sequence[orf.offset_to_first_complete_codon:], first_codon_is_start=False,
+        translation_table=translation.reference_context.translation_table)
+    if (amino_acids[:len(translation.amino_acids)] != translation.amino_acids
+            or (translation.ends_with_stop_codon and not (stop and amino_acids == translation.amino_acids))):
+        raise ValueError("Translation cDNA, frame and amino acids disagree")
+
+
+def _edits(translation, known_variants):
+    """Each difference from each transcript, with the supplied variant it is, if any."""
+    focal = translation.reference_context.variant
+    rows = set()
+    for transcript in translation.reference_context.transcripts:
+        categories = categorize_transcript_assembly_edits_from_translation(
+            translation, transcript, known_variants)
+        for category, edits in categories.items():
+            for edit in edits:
+                source = edit.source_variant
+                origin = ("unexplained" if source is None else "nominated_variant" if source == focal
+                          else "germline_variant" if category == "known_germline" else "co_somatic_variant")
+                rows.add((edit.transcript_id, edit.cdna_start, edit.cdna_end, edit.alt_bases, origin,
+                          None if source is None else _event_id(source)))
+    return [dict(transcript_id=t, cdna_interval=[a, b], alt_bases=alt, origin=origin, source_event_id=source)
+            for t, a, b, alt, origin, source in sorted(rows, key=lambda row: row[:5])]
+
+
+def _translation(translation, event_id, evidence, known_variants, labels):
+    _check_translation(translation)
+    orf, context = translation.variant_orf, translation.reference_context
+    transcripts = sorted(context.transcripts, key=lambda t: t.id)
+    offset, cdna = orf.offset_to_first_complete_codon, orf.cdna_sequence
+    translated = 3 * (len(translation.amino_acids) + int(translation.ends_with_stop_codon))
+    edits = _edits(translation, known_variants)
+    return dict(
+        translation_id=content_identifier("translation", [
+            event_id, cdna, offset, [t.id for t in transcripts], translation.amino_acids,
+            context.translation_table]),
+        nucleotide_sequence=cdna, nucleotide_sequence_id=content_identifier("nt", cdna),
+        translated_interval=[offset, offset + translated],
+        variant_cdna_interval=[orf.variant_cdna_interval_start, orf.variant_cdna_interval_end],
+        starts_at_annotated_start_codon=_starts_at_annotated_start_codon(translation),
+        reference_context=dict(
+            strand=context.strand, transcript_ids=[t.id for t in transcripts],
+            transcript_names=[getattr(t, "name", None) for t in transcripts],
+            contains_start_codon=context.contains_start_codon,
+            overlaps_start_codon=context.overlaps_start_codon,
+            contains_five_prime_utr=context.contains_five_prime_utr,
+            amino_acids_before_variant=context.amino_acids_before_variant,
+            translation_table=context.translation_table),
+        mismatches_before_variant=orf.num_mismatches_before_variant,
+        mismatches_after_variant=orf.num_mismatches_after_variant,
+        observed_edits=edits,
+        reference_comparison=reference_comparison(translation, edits),
+        coding_support=coding_interval_support(
+            translation.reads, cdna, orf.variant_cdna_interval_start,
+            (offset, offset + translated), context.strand,
+            lambda reads: evidence.support(reads, "exact_coding_interval_spans", labels)),
+        rna_support=evidence.support(translation.reads, "reads_assembled_into_this_cdna", labels))
+
+
+def _frame_contexts(protein):
+    return {(t.reference_context.strand,
+             (t.variant_orf.variant_cdna_interval_start - t.variant_orf.offset_to_first_complete_codon) % 3,
+             transcript.id, t.reference_context.translation_table)
+            for t in protein.translations for transcript in t.reference_context.transcripts}
+
+
+def _hypothesis_id(protein, event_id):
+    return content_identifier("protein_hypothesis", [
+        event_id, protein.amino_acids, [protein.mutation_start_idx, protein.mutation_end_idx],
+        protein.ends_with_stop_codon, protein.frameshift])
+
+
+def _protein(protein, rank, event_id, evidence, labels):
+    translations = sorted((_translation(t, event_id, evidence, protein.known_variants, labels)
+                           for t in protein.translations),
+                          key=lambda t: t["translation_id"])
+    starts = {t["starts_at_annotated_start_codon"] for t in translations}
+    interval = [protein.mutation_start_idx, protein.mutation_end_idx]
+    return dict(
+        hypothesis_id=_hypothesis_id(protein, event_id), isovar_rank=rank, amino_acids=protein.amino_acids,
+        protein_sequence_id=content_identifier("aa", protein.amino_acids),
+        mutation_interval=interval, mutant_amino_acids=protein.mutant_amino_acids,
+        contains_mutation=protein.contains_mutation, frameshift=protein.frameshift,
+        ends_with_stop_codon=protein.ends_with_stop_codon,
+        n_terminus=("annotated_start_codon" if starts == {True} else "local_window" if starts == {False}
+                    else "mixed"),
+        c_terminus="stop_codon" if protein.ends_with_stop_codon else "no_stop_in_context",
+        transcript_ids=list(protein.transcript_ids), transcript_names=list(protein.transcript_names),
+        gene_ids=list(protein.gene_ids), gene_names=list(protein.gene_names),
+        rna_support=evidence.support(protein.supporting_reads, "reads_assembled_into_this_protein", labels),
+        translations=translations)
+
+
+def _proteins(proteins, event_id, evidence, labels):
+    """Every protein, marking the shorter contexts that another one contains."""
+    rows = [_protein(p, rank, event_id, evidence, labels) for rank, p in enumerate(proteins, 1)]
+    keys = [(_frame_contexts(p), p.frameshift, p.mutation_start_idx,
+             p.amino_acids + ("*" if p.ends_with_stop_codon else "")) for p in proteins]
+    groups = covered_protein_groups(keys)
+    representatives = {i for i, _ in groups}
+    for j, row in enumerate(rows):
+        row["representative"] = j in representatives
+        row["covered_by"] = [
+            dict(hypothesis_id=rows[i]["hypothesis_id"], protein_interval=[
+                proteins[i].mutation_start_idx - proteins[j].mutation_start_idx,
+                proteins[i].mutation_start_idx - proteins[j].mutation_start_idx + len(proteins[j])])
+            for i, covered in groups if i != j and j in covered]
+    return rows
+
+
+def _edit_attribution(proteins):
+    """How many supplied variants the edits were checked against; null if none were."""
+    known = {getattr(p, "known_variants", None) for p in proteins} - {None}
+    if len(known) != 1:
+        return None
+    known, = known
+    return dict(somatic_variants=len(known.somatic), germline_variants=len(known.germline))
+
+
+def _completeness(result):
+    """Whether the returned proteins are all that Isovar found, given its cap."""
+    settings = result.protein_sequence_settings
+    if settings is None:
+        return None, None
+    limit = settings["max_protein_sequences_per_variant"]
+    return limit, not limit or len(result.sorted_protein_sequences) < limit
+
+
+def _allele_support(reads, evidence, labels):
+    """Support of each allele at the locus; only the alternate allele stores an evidence set."""
+    return dict(
+        ref=evidence.counts(reads.ref_reads, "ref_allele_reads_at_locus", labels),
+        alt=evidence.support(reads.alt_reads, "alt_allele_reads_at_locus", labels),
+        other=evidence.counts(reads.other_reads, "other_allele_reads_at_locus", labels),
+        total=evidence.counts(list(reads.ref_reads) + list(reads.alt_reads) + list(reads.other_reads),
+                              "all_reads_at_locus", labels),
+        cells_with_ref_and_alt=None if labels is None else labels.shared_cells(
+            *({key for read in group for key in source_read_ids(read)} for group in (reads.ref_reads, reads.alt_reads))))
+
+
+def _event(result, evidence, cell_labels, partial_read_support=False, support_max_edits=1, support_min_overlap=10):
+    variant, reads = result.variant, result.read_evidence
+    event_id = _event_id(variant)
+    effect = result.predicted_effect
+    limit, complete = _completeness(result)
+    labels = None if cell_labels is None else cell_labels.labels(variant, [
+        key for group in (reads.ref_reads, reads.alt_reads, reads.other_reads)
+        for read in group for key in source_read_ids(read)])
+    row = dict(
+        event_id=event_id, variant=_variant(variant),
+        reference_prediction=None if effect is None else dict(
+            effect_class=type(effect).__name__, description=getattr(effect, "short_description", None),
+            **{name: getattr(effect, name, None) for name in _EFFECT_FIELDS}),
+        allele_support=_allele_support(reads, evidence, labels),
+        filters=dict(values=dict(result.filter_values), passes_all_filters=result.passes_all_filters),
+        phased_variants=dict(
+            supporting_reads=sorted(_event_id(v) for v in result.phased_variants_in_supporting_reads),
+            top_protein_sequence=sorted(_event_id(v) for v in result.phased_variants_in_protein_sequence)),
+        protein_sequence_limit=limit, protein_hypotheses_complete=complete,
+        edit_attribution=_edit_attribution(result.sorted_protein_sequences),
+        protein_sequence_settings=result.protein_sequence_settings,
+        rna_assessment=(None if result.rna_assessment is None else
+                        result.rna_assessment.to_dict(evidence, labels)),
+        protein_hypotheses=_proteins(result.sorted_protein_sequences, event_id, evidence, labels))
+
+    if partial_read_support:
+        candidates, transcripts = candidate_catalog(result.sorted_protein_sequences, row["protein_hypotheses"], event_id)
+        row["partial_read_support"] = score_fragments(
+            reads.ref_reads + reads.alt_reads + reads.other_reads, candidates, transcripts,
+            reads.trimmed_ref, evidence, labels, max_edits=support_max_edits,
+            min_overlap=support_min_overlap, catalog_complete=complete)
+        scores = {score["hypothesis_id"]: score for score in row["partial_read_support"]["protein_scores"]}
+        for protein in row["protein_hypotheses"]:
+            protein["partial_read_support"] = scores[protein["hypothesis_id"]]
+    return row
+
+
+def read_group_metadata(alignment_header):
+    """Sample, library and platform of each read group in a SAM header.
+
+    Parameters
+    ----------
+    alignment_header : pysam.AlignmentHeader or dict
+        The header of the alignment file, or its ``to_dict()``.
+
+    Returns
+    -------
+    dict
+        Read group ID to ``sample``, ``library`` and ``platform`` (the ``SM``,
+        ``LB`` and ``PL`` fields; null when absent). IDs that appear more than
+        once are omitted, since they cannot identify one read group.
+    """
+    header = alignment_header if isinstance(alignment_header, dict) else alignment_header.to_dict()
+    return {group: dict(sample=entry.get("SM"), library=entry.get("LB"), platform=entry.get("PL"))
+            for group, entry in unique_header_entries(header.get("RG", [])).items()}
+
+
+def _read_groups(results, alignment_header):
+    groups = set()
+    for result in results:
+        evidence = result.read_evidence
+        for read in list(evidence.ref_reads) + list(evidence.alt_reads) + list(evidence.other_reads):
+            groups.update(key[0] for key in source_read_ids(read))
+    metadata = {} if alignment_header is None else read_group_metadata(alignment_header)
+    return {group: metadata.get(group) for group in sorted(groups)}
+
+
+def export_protein_hypotheses(isovar_results, *, sample_id, source, alignment_header=None,
+                              cell_umi_alignment_file=None, read_collector=None, base_quality_policy=None,
+                              partial_read_support=False, support_max_edits=1, support_min_overlap=10):
+    """Export every protein hypothesis and translation, with scoped RNA evidence.
+
+    Parameters
+    ----------
+    isovar_results : iterable of IsovarResult
+        Results from `run_isovar`. Proteins beyond the creator's
+        ``max_protein_sequences_per_variant`` were never kept, so run with 0
+        to export them all; each event says whether its list is complete.
+    sample_id : str
+        The sample the reads came from.
+    source : str
+        Identity of the read set, such as the BAM path or an accession. With
+        `sample_id` it scopes the read identities: exports with the same
+        scope give the same read the same ID.
+    alignment_header : pysam.AlignmentHeader or dict, optional
+        Header of the alignment file, used to report each read group's sample
+        and library. Without it their metadata are null (unknown).
+    cell_umi_alignment_file : pysam.AlignmentFile, optional
+        The alignments the results came from. When given, every support's
+        ``umis`` and ``cells`` are counted from the reads' cell barcodes and
+        UMIs, and ``allele_support`` gains ``cells_with_ref_and_alt``;
+        otherwise those fields are null (not assessed).
+    read_collector : ReadCollector, optional
+        The collector used for the results, for record eligibility when
+        resolving cell/UMI labels.
+    base_quality_policy : BaseQualityPolicy, optional
+        Add focal-allele quality support alongside raw RNA support in JSON.
+        Reconstruction, ranking and the TSV's raw support are unchanged.
+    partial_read_support : bool
+        Add separate fractional fragment scores and dense ranks using original
+        partial reads and all exported candidates. Default False.
+    support_max_edits, support_min_overlap : int
+        Edit tolerance and minimum compared bases for partial-read scoring.
+        Defaults are 1 and 10, as in cell attribution. These are not probabilities.
+
+    Returns
+    -------
+    dict
+        ``isovar.protein_hypotheses.v2``: one event per result, in input
+        order, each with its protein hypotheses in Isovar's ranked order and
+        their translations, plus ``evidence_sets``, the hashed read IDs of
+        every support by evidence set ID. Intervals are 0-based and
+        half-open. Read and fragment counts are not molecule counts.
+
+    Raises
+    ------
+    ValueError
+        If a translation's cDNA and frame do not give its amino acids.
+    """
+    if partial_read_support:
+        validate_comparison_settings(support_max_edits, support_min_overlap)
+    results = list(isovar_results)
+    scope = [sample_id, source]
+    evidence = _EvidenceSets(scope, base_quality_policy)
+    cell_labels = None
+    if cell_umi_alignment_file is not None:
+        from .cell_evidence import CellUmiAlleles, warn_if_unlabelled
+        cell_labels = CellUmiAlleles(cell_umi_alignment_file, sample_id=sample_id, source=source,
+                                     read_collector=read_collector)
+    events = [_event(result, evidence, cell_labels, partial_read_support, support_max_edits, support_min_overlap)
+              for result in results]
+    if cell_labels is not None:
+        warn_if_unlabelled(e["allele_support"][a] for e in events for a in ("ref", "alt", "other"))
+    return dict(
+        **({} if base_quality_policy is None else dict(base_quality_policy=base_quality_policy.description())),
+        **({} if not partial_read_support else dict(partial_read_support=dict(
+            max_edits=support_max_edits, min_overlap=support_min_overlap))),
+        schema=SCHEMA, isovar_version=__version__, sample_id=sample_id, source=source,
+        evidence_scope=scope, interval_convention="zero_based_half_open",
+        evidence_identity_policy="sha256_of_domain_and_canonical_json; sample/source scoped",
+        read_group_metadata="alignment_header" if alignment_header is not None else "not_supplied",
+        read_groups=_read_groups(results, alignment_header),
+        interpretation="RNA-derived protein hypotheses in Isovar's ranked order; nothing is selected. "
+                       "Counts are reads, fragments, UMIs and cells, not molecules or abundance.",
+        events=events,
+        evidence_sets={key: evidence.sets[key] for key in sorted(evidence.sets)})
+
+
+_TSV_COLUMNS = (
+    "schema", "sample_id", "source", "event_id", "variant", "hypothesis_id", "isovar_rank", "representative",
+    "amino_acids", "mutation_start", "mutation_end", "ends_with_stop_codon", "frameshift", "n_terminus",
+    "gene_names", "protein_transcript_ids", *("protein_" + column for column in SUPPORT_COLUMNS),
+    "protein_evidence_set_id", "translation_id", "nucleotide_sequence", "translated_start",
+    "translated_end", "starts_at_annotated_start_codon", "context_transcript_ids",
+    *("translation_" + column for column in SUPPORT_COLUMNS), "translation_evidence_set_id",
+    "annotation_comparison_status", "focal_comparison_status", "changed_residue_count",
+    "focal_changed_residue_count", "annotation_stop_changed", "coding_sequence_extent",
+    "coding_window_fragments", "coding_window_evidence_set_id", "single_read_span_fragments",
+    "single_read_span_evidence_set_id", "paired_template_span_fragments", "paired_template_span_evidence_set_id",
+    "minimum_coding_fragment_depth", "coding_fully_tiled",
+    "protein_hypotheses_complete")
+
+
+_SCORE_TSV_COLUMNS = ("protein_fractional_fragments", "protein_unique_support_fragments",
+                      "protein_ambiguous_support_fragments", "protein_support_score_rank")
+
+
+def _tsv_rows(export):
+    for event in export["events"]:
+        for protein in event["protein_hypotheses"]:
+            for translation in protein["translations"]:
+                comparison = translation["reference_comparison"]
+                annotation = comparison.get("annotation_comparison", {})
+                focal = comparison.get("focal_allele_comparison", {})
+                coverage = translation["coding_support"]
+                paired = coverage.get("paired_template_span_support", {})
+                row = dict(
+                    schema=export["schema"], sample_id=export["sample_id"], source=export["source"],
+                    event_id=event["event_id"], variant=event["variant"]["description"],
+                    hypothesis_id=protein["hypothesis_id"], isovar_rank=protein["isovar_rank"],
+                    representative=protein["representative"],
+                    amino_acids=protein["amino_acids"], mutation_start=protein["mutation_interval"][0],
+                    mutation_end=protein["mutation_interval"][1],
+                    ends_with_stop_codon=protein["ends_with_stop_codon"], frameshift=protein["frameshift"],
+                    n_terminus=protein["n_terminus"], gene_names=";".join(protein["gene_names"]),
+                    protein_transcript_ids=";".join(protein["transcript_ids"]),
+                    **support_columns(protein["rna_support"], "protein_"),
+                    protein_evidence_set_id=protein["rna_support"]["evidence_set_id"] or "",
+                    translation_id=translation["translation_id"],
+                    nucleotide_sequence=translation["nucleotide_sequence"],
+                    translated_start=translation["translated_interval"][0],
+                    translated_end=translation["translated_interval"][1],
+                    starts_at_annotated_start_codon=translation["starts_at_annotated_start_codon"],
+                    context_transcript_ids=";".join(translation["reference_context"]["transcript_ids"]),
+                    **support_columns(translation["rna_support"], "translation_"),
+                    translation_evidence_set_id=translation["rna_support"]["evidence_set_id"] or "",
+                    annotation_comparison_status=annotation.get("status", "unresolved"),
+                    focal_comparison_status=focal.get("status", "unresolved"),
+                    changed_residue_count=annotation.get("changed_residue_count"),
+                    focal_changed_residue_count=focal.get("changed_residue_count"),
+                    annotation_stop_changed=annotation.get("stop_changed"),
+                    coding_sequence_extent="complete_coding_candidate"
+                        if translation["starts_at_annotated_start_codon"] and protein["ends_with_stop_codon"]
+                        else "partial_coding_candidate",
+                    coding_window_fragments=coverage["allele_observation_span_support"]["fragments"],
+                    coding_window_evidence_set_id=coverage["allele_observation_span_support"]["evidence_set_id"],
+                    single_read_span_fragments=coverage["single_read_span_support"]["fragments"],
+                    single_read_span_evidence_set_id=coverage["single_read_span_support"]["evidence_set_id"],
+                    paired_template_span_fragments=paired.get("fragments"),
+                    paired_template_span_evidence_set_id=paired.get("evidence_set_id"),
+                    minimum_coding_fragment_depth=coverage["minimum_fragment_depth"],
+                    coding_fully_tiled=coverage["fully_tiled"],
+                    protein_hypotheses_complete=("" if event["protein_hypotheses_complete"] is None
+                                                 else event["protein_hypotheses_complete"]))
+
+                if export.get("partial_read_support") is not None:
+                    score = protein["partial_read_support"]
+                    row.update(zip(_SCORE_TSV_COLUMNS, (score[key] for key in (
+                        "fractional_fragments", "unique_fragments", "ambiguous_fragments", "rank"))))
+                yield row
+
+
+def protein_hypotheses_tsv_path(path):
+    """The TSV written beside a protein hypotheses JSON ``path``."""
+    stem = json_stem(Path(path).expanduser())
+    return stem.with_name(stem.name + ".tsv")
+
+
+def write_protein_hypotheses(export, path):
+    """Write an export as JSON, plus a TSV with one row per translation.
+
+    Parameters
+    ----------
+    export : dict
+        An ``isovar.protein_hypotheses.v2`` export.
+    path : str or Path
+        The JSON path, gzip-compressed when it ends in ``.gz``. The TSV is
+        written beside it with ``.tsv`` in place of ``.json`` or ``.json.gz``
+        (or appended). Existing files are replaced.
+
+    Returns
+    -------
+    dict
+        The written ``json`` and ``tsv`` paths.
+    """
+    if export.get("schema") != SCHEMA:
+        raise ValueError("Expected an %s export" % SCHEMA)
+    path = Path(path).expanduser()
+    tsv = protein_hypotheses_tsv_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(path, export)
+    with tsv.open("w", newline="") as handle:
+        columns = _TSV_COLUMNS + (_SCORE_TSV_COLUMNS if export.get("partial_read_support") is not None else ())
+        writer = csv.DictWriter(handle, fieldnames=columns, delimiter="\t", lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(_tsv_rows(export))
+    return dict(json=path, tsv=tsv)

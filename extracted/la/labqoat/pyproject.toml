@@ -1,0 +1,118 @@
+[project]
+name = "labqoat"
+version = "0.2.144"
+description = "Typed Python SDK and lab command-line client for the Labqoat platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Labqoat" }]
+keywords = ["labqoat", "sdk", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = [
+  "certifi>=2026.7.22",
+  "click>=8.4.0",
+  "keyring>=24.0.0",
+  "jsonschema-rs>=0.40.0",
+  "packaging>=23.0",
+  "pyarrow>=18.0.0",
+  "rfc8785>=0.1.2",
+  "rich>=15.0.0",
+  "websockets>=14.0",
+]
+[project.scripts]
+labqoat = "labqoat.cli.cli_application:CliApplication.main"
+lab = "labqoat.cli.cli_application:CliApplication.main"
+
+[project.optional-dependencies]
+lightning = [
+    "lightning==2.6.6",
+]
+harbor = [
+    "harbor==0.24.0; python_version >= '3.12'",
+]
+
+[dependency-groups]
+dev = [
+  "coverage==7.17.0",
+  "lightning==2.6.6",
+  "mypy==2.4.0",
+  "numpy==2.5.4; python_version >= '3.12'",
+  "numpy==2.4.6; python_version < '3.12'",
+  "pyarrow-stubs==20.0.0.20260819",
+  "pytest==9.1.1",
+  "pytest-testmon==2.2.0",
+  "ruff==0.17.2",
+]
+# What checks the Harbor backend, in an environment of its own (scripts/harbor.sh).
+harbor-dev = [
+  "coverage==7.17.0",
+  "harbor==0.24.0; python_version >= '3.12'",
+  "mypy==2.4.0",
+  "pytest==9.1.1",
+]
+
+# Harbor caps websockets below the version worker images lock, so anything with Harbor resolves apart
+# from the SDK's own environment, which keeps testing what those images run.
+[tool.uv]
+conflicts = [
+  [{ extra = "harbor" }, { group = "dev" }],
+  [{ group = "harbor-dev" }, { group = "dev" }],
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+dev-mode-dirs = ["src"]
+packages = ["src/labqoat"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/labqoat", "pyproject.toml", "uv.lock", "README.md"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"pyproject.toml" = "labqoat/compute/images/runtime_metadata/pyproject.toml"
+"uv.lock" = "labqoat/compute/images/runtime_metadata/uv.lock"
+"README.md" = "labqoat/compute/images/runtime_metadata/README.md"
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+show_error_codes = true
+warn_unreachable = true
+files = ["src", "tests"]
+# Harbor has its own environment and needs Python 3.12; scripts/typecheck.sh checks these paths there.
+exclude = ['^src/labqoat/harbor/', '^tests/harbor/', '^tests/support/harbor_']
+
+[[tool.mypy.overrides]]
+module = "harbor.*"
+follow_untyped_imports = true
+
+[tool.coverage.run]
+source = ["labqoat", "tests.support", "../labqoat-api-schema/codegen"]
+branch = true
+parallel = true
+concurrency = ["thread", "multiprocessing"]
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+[tool.coverage.report]
+exclude_also = []
+show_missing = true
+skip_covered = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-W", "error::DeprecationWarning", "-W", "error::PendingDeprecationWarning"]

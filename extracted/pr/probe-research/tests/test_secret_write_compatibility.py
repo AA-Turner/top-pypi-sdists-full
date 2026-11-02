@@ -86,7 +86,6 @@ def test_slug_write_verification_compares_safe_value():
 @pytest.mark.parametrize("source_change", ["deleted", "credential"])
 def test_upload_correlation_replay_uses_admitted_identity(tmp_path, monkeypatch, delivered, source_change):
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     queue = jm.Journal.for_receipts(tmp_path / "outbox", context={"base_url": "http://test"})
     source = tmp_path / "report.txt"
     source.write_text("Ordinary training result.")

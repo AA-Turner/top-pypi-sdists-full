@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import notes_find
+from probe.cli.commands.notes import find as notes_find
 from probe.daemon.worker.bite import bite as bite_mod
 from probe.daemon.host import lease
 from probe.daemon.agent import tools, toolset

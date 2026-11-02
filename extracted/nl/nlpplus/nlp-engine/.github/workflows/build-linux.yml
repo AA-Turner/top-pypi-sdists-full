@@ -1,0 +1,2020 @@
+name: Linux
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Build the tagged commit so the release binary carries the right version.
+  push:
+    # Also build on merges to master. Without a run on the default branch,
+    # the vcpkg binary cache added alongside this is useless across PRs:
+    # GitHub Actions lets a run read caches from its own ref and from the
+    # DEFAULT branch only, and nothing ever ran on master -- so every PR
+    # missed, rebuilt ICU (~10 min on Windows, ~4 min on Linux), and saved a
+    # private copy no other PR could see. A master run seeds the shared entry
+    # that PR runs then hit. It also means something finally verifies the
+    # merge result, which nothing did before.
+    branches:
+      - master
+    tags:
+      - '*'
+
+jobs:
+  build_engine:
+    name: Build NLP-ENGINE (${{ matrix.display_name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: docker-ubuntu-20.04
+            runner: ubuntu-22.04
+            version_suffix: "20.04"
+            docker_image: "ubuntu:20.04"
+            display_name: "ubuntu-20.04"
+          - id: ubuntu-22.04
+            runner: ubuntu-22.04
+            version_suffix: "22.04"
+            display_name: "ubuntu-22.04"
+          - id: ubuntu-latest
+            runner: ubuntu-latest
+            version_suffix: "latest"
+            display_name: "ubuntu-latest"
+
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-linux
+      VERSION_SUFFIX: ${{ matrix.version_suffix }}
+      # Re-use compiled vcpkg packages between runs; otherwise every run
+      # rebuilds ICU from source (measured: 4m11s on Linux, 10m04s on Windows).
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg-bincache,readwrite"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # ===============================
+      # Ubuntu 20.04 (Docker Build)
+      # ===============================
+      - name: Build and Run (Ubuntu 20.04)
+        if: matrix.id == 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pull the target image directly (with retries) and run the build
+          # script in it via the runner's pre-installed Docker. This replaces
+          # addnab/docker-run-action@v3, which first builds a docker:20.10
+          # helper image -- that Docker Hub pull was intermittently timing out
+          # ("failed to resolve docker.io/library/docker:20.10 ... i/o timeout")
+          # and failing the whole Linux job.
+          for attempt in 1 2 3 4 5; do
+            if docker pull ubuntu:20.04; then break; fi
+            echo "docker pull ubuntu:20.04 failed (attempt $attempt); retrying in 20s..."
+            sleep 20
+          done
+          docker run --rm \
+            --shm-size=512m \
+            --mount type=tmpfs,destination=/dev/shm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            ubuntu:20.04 \
+            bash scripts/build-ubuntu-2004.sh
+
+      - name: Upload ICU Libraries Zip (20.04)
+        if: matrix.id == 'docker-ubuntu-20.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: icu-libs-ubuntu-${{ env.VERSION_SUFFIX }}
+          path: ./icu-libs.zip
+
+      - name: Upload nlpengine-compile-libs zip (20.04)
+        if: matrix.id == 'docker-ubuntu-20.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nlpengine-compile-libs-linux-${{ env.VERSION_SUFFIX }}.zip
+          path: nlpengine-compile-libs-linux-20.04.zip
+
+      # ===============================
+      # Non-20.04 (Normal Build)
+      # ===============================
+      - name: Install Required Dependencies (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: |
+          sudo apt update
+          sudo apt install -y autoconf-archive pkg-config python3 ninja-build build-essential cmake g++ git curl zip unzip tar
+
+      - name: Vcpkg Bootstrap Shell (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: ./bootstrap-vcpkg.sh
+        shell: bash
+        working-directory: vcpkg
+
+      # The submodule commit pins the ports, so it decides what the built
+      # packages are; vcpkg.json decides which ones. Key on both. vcpkg checks
+      # each package's ABI hash itself, so a partial restore-keys hit is safe:
+      # anything that does not match is simply rebuilt.
+      - name: Resolve vcpkg commit for cache key
+        if: matrix.id != 'docker-ubuntu-20.04'
+        id: vcpkgkey
+        shell: bash
+        run: echo "sha=$(git -C vcpkg rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache vcpkg binary packages
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg-bincache
+          key: vcpkg-${{ runner.os }}-${{ matrix.id }}-${{ steps.vcpkgkey.outputs.sha }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ matrix.id }}-${{ steps.vcpkgkey.outputs.sha }}-
+            vcpkg-${{ runner.os }}-${{ matrix.id }}-
+
+      # vcpkg errors out if the binary-cache directory does not exist yet.
+      - name: Create vcpkg binary cache dir
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: mkdir -p "${{ github.workspace }}/vcpkg-bincache"
+
+      - name: Install 3rd Party (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        # Same latent mismatch as the Windows job: use the vcpkg the
+        # bootstrap step just produced rather than whatever is on PATH, so a
+        # system vcpkg can never be paired with this repo's submodule root.
+        # Linux has not broken on this yet; this keeps it from doing so.
+        run: ./vcpkg install
+        working-directory: vcpkg
+
+      - name: Create Build Directory (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: mkdir -p build
+
+      - name: Generate Solution Linux (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release \
+            -DVCPKG_BUILD_TYPE=release \
+            -B build -S . \
+            -DCMAKE_TOOLCHAIN_FILE='${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake'
+
+      - name: Cmake Build all targets Linux (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: cmake --build build/ --target all --parallel $(nproc)
+
+      - name: Test executable --version (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: ./bin/nlp --version || true
+
+      - name: Full-dict binary-search hang regression (#669, Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          # An em-dash sorts after every word in the lazy "*full.dict"; that used
+          # to make the dict binary search loop forever (#669: afterKey=-1 at EOF
+          # -> lo=-1). The fixture is self-contained (tiny sorted zz-full.dict +
+          # em-dash input). A hang -> `timeout` exits 124 -> this step fails.
+          # NOTE: no `|| true` here on purpose -- we WANT a hang to fail CI.
+          timeout 120 ./bin/nlp -ANA .github/workflows/tests/fulldict-hang \
+            -WORK ./ .github/workflows/tests/fulldict-hang/input/dash.txt
+          echo "[#669 regression] analyzer completed without hanging"
+
+      - name: Function names with digits regression (#698, Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The rule-file tokenizer splits "Round2" into "Round" + "2", so
+          # user functions whose name held a digit or an underscore never
+          # matched the "_LIT \(" function grammar and the analyzer died with
+          # a misleading "[Warning: Missing ';']". The fixture also asserts
+          # that @RULES literals ("covid19", "a1 \(") still tokenize the old
+          # way -- the glom must only fire on an unescaped "(".
+          FIX=.github/workflows/tests/fnname-digits
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          # Windows always leaves a make_ana.log behind; Linux only writes one
+          # when the build had something to say. Print it if it's there.
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          TREE="$FIX/input/text.txt_log/final.tree"
+          # Assert the output too: an analyzer can load with rule errors and still
+          # exit 0, so the exit code alone does not prove the rules worked.
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(#698): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          if [ "$got" != "3 21 201 2001 1 8 71" ]; then
+            echo "FAIL(#698): out.txt was '$got'"; exit 1
+          fi
+          grep -q '_COVID' "$TREE" || { echo "FAIL(#698): literal covid19 no longer matches two tokens"; exit 1; }
+          grep -q '_APAREN' "$TREE" || { echo "FAIL(#698): escaped '\\(' literal regressed"; exit 1; }
+          echo "[#698 regression] digit/underscore function names compile and run"
+
+      - name: Block comment regression (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # NLP++ knew only "#" line comments, so a C-style "/* ... */" in a
+          # pass file lexed as ordinary tokens and died with "[Syntax error.]".
+          # The fixture checks that comments are skipped everywhere (@DECL,
+          # @CODE, around and inside @RULES), that "/*" and "*/" inside a
+          # string or a "#" comment stay text, that "/" and "*" still parse as
+          # operators, and that a rule can still match a literal "/" "*" in
+          # the INPUT text (_SLASHSTAR / _STARSLASH).
+          FIX=.github/workflows/tests/block-comments
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          TREE="$FIX/input/text.txt_log/final.tree"
+          # Assert the output too: an analyzer can load with rule errors and still
+          # exit 0, so the exit code alone does not prove the rules worked.
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(block comments): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want='a string with /* and */ inside|/*/|7|12|43|esc: * /'
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(block comments): out.txt was '$got'"; exit 1
+          fi
+          grep -q '_SLASHSTAR' "$TREE" || { echo "FAIL(block comments): rule matching a literal '/' '*' in input regressed"; exit 1; }
+          grep -q '_STARSLASH' "$TREE" || { echo "FAIL(block comments): rule matching a literal '*' '/' in input regressed"; exit 1; }
+          echo "[block comments] /* */ is skipped in pass files"
+
+      - name: Block comment regression, data files (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The line-oriented data files have their own hand-written C lexers,
+          # so they get block comments from the shared stripper in
+          # cs/libconsh/blockcom.cpp rather than from the RFB grammar. The
+          # fixture puts comments in all four -- .seq (where a leading "/"
+          # already means "inactive pass"), .kb, .dict and .kbb -- and probes
+          # the loaded KB to prove the entries around them survived intact.
+          # The .seq also takes "//" line comments, which collide with the same
+          # leading "/", so the fixture covers those too.
+          FIX=.github/workflows/tests/block-comments-data
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          # Dump every log the run produced. A KB-load failure (eg a bad .kb
+          # command) only ever reaches cgerr.log, so without this a failure
+          # here surfaces as "no out.txt" with no reason attached.
+          for f in "$FIX"/logs/*.log; do
+            [ -f "$f" ] || continue
+            echo "----- $f"; cat "$f"
+          done
+          OUT="$FIX/input/text.txt_log/out.txt"
+          TREE="$FIX/input/text.txt_log/final.tree"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(data block comments): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want='zzTrailing|kbliteral|kbstarslash|kept|starred'
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(data block comments): out.txt was '$got'"; exit 1
+          fi
+          # .dict string values must keep their delimiters byte-for-byte.
+          grep -qF '("note" "a /* b */ c")' "$TREE" || { echo "FAIL(data block comments): dict string lost its /* */"; exit 1; }
+          grep -qF '("note" "lone * and / here")' "$TREE" || { echo "FAIL(data block comments): dict string lost its * or /"; exit 1; }
+          echo "[block comments] /* */ and .seq // are skipped in .seq, .kb, .dict and .kbb"
+
+      - name: Long kbb/dict lines and NLP++ errors (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Three failures that exited 0 with nothing on the console.
+          # kbb-long-line: readKBB read lines into a 2,048-byte buffer and
+          # silently stopped loading at the first longer line. Its long line
+          # is a quoted array, which also loaded a stray 0 after each value.
+          # kbb-long-value: parseKBBLine and parseDictLine copied values
+          # unbounded into 512-byte buffers, overflowing the stack at startup.
+          # code-region-error: an NLP++ error still abandons the rest of its
+          # region, but is now echoed to stderr, not only written to err.log.
+          check() {
+            FIX=.github/workflows/tests/$1
+            rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+            ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> "/tmp/$1.err"
+            if [ ! -f "$FIX/input/text.txt_log/out.txt" ]; then
+              echo "FAIL($1): no out.txt"; cat "/tmp/$1.err"; exit 1
+            fi
+            got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+            if [ "$got" != "$2" ]; then
+              echo "FAIL($1): out.txt was '$got'"; cat "/tmp/$1.err"; exit 1
+            fi
+          }
+          check kbb-long-line '30|item30|140'
+          check kbb-long-value '30|item30|600|3000|600|3000|noun'
+          check code-region-error "$(printf 'item 1\nitem 2\nitem 3\nnext pass ran')"
+          ERR=/tmp/code-region-error.err
+          grep -qF '[Error in NLP++ @CODE: pass 2 (loop) line 13, rest of the region skipped.' "$ERR" \
+            || { echo "FAIL(code-region-error): @CODE error not on stderr"; cat "$ERR"; exit 1; }
+          # The @POST rule matches all four words: one line, not four.
+          n=$(grep -cF '[Error in NLP++ @POST: pass 4 (post) line 6,' "$ERR" || true)
+          if [ "$n" != 1 ]; then
+            echo "FAIL(code-region-error): @POST error echoed $n times, want 1"; cat "$ERR"; exit 1
+          fi
+          echo "[long lines] kbb/dict lines and values of any length load; NLP++ errors reach stderr"
+
+      - name: Inputs over 2 GB are refused with a message (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # file_size() returned a long, which is 32 bits on Windows: a file of
+          # 2 to 4 GB went negative and was "not found" in err.log only, and one
+          # over 4 GB wrapped to a small size and was read in part, silently.
+          # Text lengths and node offsets are still long, so an input over
+          # INPUT_MAX (2,000,000,000 bytes) is refused, on stderr as well.
+          # dd seek= sets the size without writing the data, and the engine
+          # refuses the file before reading any of it.
+          FIX=.github/workflows/tests/stdin-stream
+          BIG="$FIX/big"
+          mkdir -p "$BIG"
+          for size in 2200000000 4294967396; do
+            dd if=/dev/zero of="$BIG/big.txt" bs=1 count=0 seek=$size 2> /dev/null
+            err=$(./bin/nlp -ANA "$FIX" -WORK ./ "$BIG/big.txt" 2>&1 > /dev/null | tr -d '\r')
+            if ! grep -q "is $size bytes. The largest input is 2000000000 bytes" <<< "$err"; then
+              echo "FAIL(input-size $size): stderr was:"; echo "$err"; rm -rf "$BIG"; exit 1
+            fi
+          done
+          rm -rf "$BIG"
+          echo "[input-size] inputs over 2 GB are refused with a message, never read in part"
+
+      - name: Zone mode runs the passes after a zone line once per zone (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # "zone _line" in analyzer.seq: the passes before it run on the whole
+          # document and build _line nodes; each _line then runs the passes
+          # after it on its own, seeing only itself under _ROOT, with G()
+          # carried over and $isfirstzone/$islastzone set. Afterward a zone
+          # stays as a childless stub, so memory goes by the largest zone.
+          # The passes after "endzone" run once, on the stubs, at the end.
+          FIX=.github/workflows/tests/zone-mode
+          rm -rf "$FIX/logs" "$FIX"/input/*_log "$FIX/output"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -DEV "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' \
+            "zone 1: first=1 last=0 lines under root=1 words=2 text=one two" \
+            "zone 2: first=0 last=0 lines under root=1 words=3 text=three four five" \
+            "zone 3: first=0 last=1 lines under root=1 words=1 text=six" \
+            "summary: zones=3 stubs=3 first=0 last=0")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(zone-mode): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          # The final tree keeps the three zones as stubs with no children.
+          tree=$(tr -d '\r' < "$FIX/input/text.txt_log/final.tree" | grep -c '^      ' || true)
+          if [ "$tree" != "0" ] || [ "$(grep -c '^   _line ' "$FIX/input/text.txt_log/final.tree")" != "3" ]; then
+            echo "FAIL(zone-mode): final.tree is not three _line stubs:"; cat "$FIX/input/text.txt_log/final.tree"; exit 1
+          fi
+          # -DEV writes per-zone pass trees, named by zone. The zone line takes
+          # no pass number, as in the sequence view, so words is pass 3.
+          for z in 001 002 003; do
+            if [ ! -f "$FIX/input/text.txt_log/z$z-ana003.tree" ]; then
+              echo "FAIL(zone-mode): no z$z-ana003.tree"; ls "$FIX/input/text.txt_log"; exit 1
+            fi
+          done
+          echo "[zone-mode] one run of the zone passes per zone, zones kept as stubs"
+
+      - name: -ZONES runs only the zones it names (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # -ZONES 2-3: zone 1 gets only the passes before the zone line, so
+          # it keeps its tokens and is no stub. $isfirstzone and $islastzone
+          # mark the first and last zone that runs, and -DEV writes trees for
+          # every zone that runs.
+          FIX=.github/workflows/tests/zone-mode
+          rm -rf "$FIX/logs" "$FIX"/input/*_log "$FIX/output"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -DEV -ZONES 2-3 "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' \
+            "zone 1: first=1 last=0 lines under root=1 words=3 text=three four five" \
+            "zone 2: first=0 last=1 lines under root=1 words=1 text=six" \
+            "summary: zones=2 stubs=2 first=0 last=0")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(-ZONES): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          L="$FIX/input/text.txt_log"
+          if [ -f "$L/z001-ana003.tree" ] || [ ! -f "$L/z002-ana003.tree" ] || [ ! -f "$L/z003-ana003.tree" ]; then
+            echo "FAIL(-ZONES): wrong zone trees:"; ls "$L"; exit 1
+          fi
+          # A list, and a spec that is not zone numbers.
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ -ZONES 1,3 "$FIX/input/text.txt" | tr -d '\r' | grep -c '^zone ' || true)
+          if [ "$out" != "2" ]; then echo "FAIL(-ZONES 1,3): ran $out zones"; exit 1; fi
+          if ./bin/nlp -ANA "$FIX" -WORK ./ -ZONES 3-1 "$FIX/input/text.txt" > /dev/null 2>&1; then
+            echo "FAIL(-ZONES 3-1): a bad range was accepted"; exit 1
+          fi
+          echo "[-ZONES] only the named zones run"
+
+      - name: A rec pass that never settles is stopped (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A rec pass repeats while any rule matches, so a rule that kept
+          # matching without changing what it matched (parse-en-us pos50 on
+          # "much I have been to blame.") hung forever with nothing said. A
+          # region may now take 1,000 matches plus 20 a node; NLP_REC_LIMIT
+          # scales that and 0 lifts it. The fixture's rec pass takes 3 matches
+          # in a 6-node region, so at NLP_REC_LIMIT=1 it is stopped at 2 and
+          # the pass after it still runs.
+          FIX=.github/workflows/tests/rec-limit
+          rm -rf "$FIX/logs" "$FIX"/input/*_log
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> rec.err | tr -d '\r')
+          if [ "$out" != "matches=3" ] || grep -q "rec pass" rec.err; then
+            echo "FAIL(rec-limit default): stdout was: $out"; cat rec.err; exit 1
+          fi
+          rm -rf "$FIX/logs" "$FIX"/input/*_log
+          out=$(NLP_REC_LIMIT=1 ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> rec.err | tr -d '\r')
+          if [ "$out" != "matches=2" ]; then
+            echo "FAIL(rec-limit 1): stdout was: $out"; cat rec.err; exit 1
+          fi
+          if ! grep -q "Error in rec pass 3 (cycle): rules matched 1 times in a region of 6 nodes" rec.err; then
+            echo "FAIL(rec-limit 1): no rec pass error on stderr:"; cat rec.err; exit 1
+          fi
+          rm -f rec.err
+          echo "[rec-limit] a rec pass region past its match limit is stopped, with a message"
+
+      - name: Lazy kbb lookups from any pass, and << to a path (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # kbb-lazy-lookup: a key of a lazy *full.kbb used to be found only if
+          # the tokenizer or dictfindword() had loaded it, and down() listed
+          # only those. findconcept/getconcept now search the file on a miss,
+          # down() loads it whole, and the tokenizer searches only dictionary
+          # files (top concept "dictionary", or a .dict twin) -- not domain
+          # KBs, which made spelling candidates 100x slower.
+          FIX=.github/workflows/tests/kbb-lazy-lookup
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> /tmp/lazy.err
+          got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+          want=$(printf 'domain not a word: 1\ntwin linked: 1\nkilo: 1\nnested: 1\nquoted key: 1\nmiss: 1\nmiss again: 1\ngetconcept: 1\nchildren: 17')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(kbb-lazy-lookup): out.txt was:"; echo "$got"; cat /tmp/lazy.err; exit 1
+          fi
+          # output-path: "path" << x silently wrote nothing for an absolute
+          # path (it was appended to the output folder). $apppath follows -ANA,
+          # so give it an absolute one.
+          FIX=.github/workflows/tests/output-path
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          ABS="$(pwd -W 2>/dev/null || pwd)/$FIX"
+          ./bin/nlp -ANA "$ABS" -WORK ./ "$ABS/input/text.txt" 2> /tmp/opath.err
+          check() {
+            got=$(tr -d '\r' < "$1" 2>/dev/null || echo "(missing)")
+            [ "$got" = "$2" ] || { echo "FAIL(output-path): $1 was '$got'"; cat /tmp/opath.err; exit 1; }
+          }
+          check "$FIX/output/abs.txt" "$(printf 'one\ntwo')"
+          check "$FIX/output/expr.txt" expr
+          check "$FIX/input/text.txt_log/rel.txt" rel
+          check "$FIX/input/text.txt_log/out.txt" done
+          n=$(grep -c "can't open output file" /tmp/opath.err || true)
+          if [ "$n" != 1 ]; then
+            echo "FAIL(output-path): bad path reported $n times on stderr, want 1"; cat /tmp/opath.err; exit 1
+          fi
+          echo "[lazy kbb] findconcept/getconcept/down reach a lazy file's keys; << writes to an absolute path"
+
+      - name: String positions are characters (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # strindexof and strlastindexof answered in bytes, strlength in
+          # UTF-16 units, and strpiece and strchar in characters, so on text
+          # outside ASCII a position from one was wrong in another. A loop
+          # that cut at the first colon until none was left never ended on
+          # a curly apostrophe ahead of the colon. strpiece also refused any
+          # piece of 512 characters or more. All five count characters now,
+          # and strpiece has no length limit.
+          FIX=.github/workflows/tests/str-positions
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          timeout 120 ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(str positions): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'len:36' 'colon:26' 'lasta:16' 'tail:TEIXEIRA' 'emoji-len:5' 'emoji-colon:3' 'emoji-lastb:2' 'emoji-piece:b' 'long:600' 'long-piece:599' 'label:TEIXEIRA' 'turns:1')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(str positions): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[str positions] every string position is a character"
+
+      - name: A run past -TIMELIMIT is stopped (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -o pipefail
+          # A loop that never ends used to run until something killed the
+          # process; one that makes a string a turn, until it ran out of
+          # memory. With -TIMELIMIT the run stops at the next while turn past
+          # the limit: the code after the loop and the passes after it do not
+          # run, the stop is reported on stderr, and nlp exits 2.
+          FIX=.github/workflows/tests/run-limit
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          rc=0
+          ./bin/nlp -TIMELIMIT 2 -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2> /tmp/runlimit.err || rc=$?
+          if [ "$rc" != 2 ]; then
+            echo "FAIL(run limit): exit $rc, wanted 2"; cat /tmp/runlimit.err; exit 1
+          fi
+          got=$(tr -d '\r' < "$FIX/input/text.txt_log/out.txt")
+          if [ "$got" != "before" ]; then
+            echo "FAIL(run limit): out.txt was:"; echo "$got"; echo "wanted: before"; exit 1
+          fi
+          grep -qF '[Run stopped: past its time limit of 2000 ms in pass 3 (loop)' /tmp/runlimit.err \
+            || { echo "FAIL(run limit): no stop message on stderr"; cat /tmp/runlimit.err; exit 1; }
+          echo "[run limit] a loop that never ends is stopped at -TIMELIMIT"
+
+      - name: Run-mode globals ($dev / $silent, Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # NLP++ had no way to ask which mode the engine was run in, so
+          # analyzers hardcoded their debug flags and no engine switch could
+          # reach them. $dev lets a grammar gate its own diagnostic passes on
+          # the caller's intent: G("verbose") = G("$dev");
+          # -SILENT is NOT asserted here: it selects conf_ZILCH, which
+          # suppresses the analyzer's own output files too, so there is no
+          # out.txt to check under it.
+          FIX=.github/workflows/tests/runmode-globals
+          for mode in "" "-DEV"; do
+            rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+            ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" $mode
+            OUT="$FIX/input/text.txt_log/out.txt"
+            if [ ! -f "$OUT" ]; then
+              echo "FAIL(run-mode): no out.txt for mode '${mode:-default}'"; exit 1
+            fi
+            got=$(tr -d '\r' < "$OUT")
+            if [ -z "$mode" ]; then want="dev=0 silent=0"; else want="dev=1 silent=0"; fi
+            if [ "$got" != "$want" ]; then
+              echo "FAIL(run-mode ${mode:-default}): got '$got' wanted '$want'"; exit 1
+            fi
+          done
+          echo "[run-mode] \$dev and \$silent report the engine's run mode"
+
+      - name: struniquechars regression (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # str_unique_chars() used to rebuild an icu::StringPiece over its
+          # OUTPUT buffer, call u_strlen() on it and re-decode it with
+          # U8_NEXT -- once per input character. This pins the observable
+          # behavior of struniquechars(), including multi-byte UTF-8, so the
+          # rewrite (and any future one) cannot drift.
+          FIX=.github/workflows/tests/struniquechars
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(struniquechars): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%b' 'abc|abc|a|abcdefg|helo wrd|3|ab\xc3\xa9\xc3\xbc|\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(struniquechars): out.txt was '$got' (wanted '$want')"; exit 1
+          fi
+          echo "[struniquechars] unique-character extraction is UTF-8 correct"
+
+      - name: openfile creates the file it names (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # On Linux fnOpenfile started its open mode from std::ios::in, so the
+          # stream opened read-write -- which cannot create a file -- and every
+          # openfile("name") without a mode wrote nothing and reported nothing.
+          # "app" worked, because in|app creates. Both must write.
+          FIX=.github/workflows/tests/openfile-create
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          DIR="$FIX/input/text.txt_log"
+          if [ ! -f "$DIR/out.txt" ]; then
+            echo "FAIL(openfile): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          for f in made appended; do
+            if [ ! -f "$DIR/$f.txt" ]; then
+              echo "FAIL(openfile): $f.txt was not created"; ls -la "$DIR"; exit 1
+            fi
+            got=$(tr -d '\r' < "$DIR/$f.txt")
+            if [ "$got" != "$f" ]; then
+              echo "FAIL(openfile): $f.txt was '$got'"; exit 1
+            fi
+          done
+          echo "[openfile] openfile creates the file it names, with and without \"app\""
+
+      - name: A rerun replaces the last run's output (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A second run added to the first run's output. "file" << ... opens
+          # for append and the engine reused <file>_log without emptying it, so
+          # out.txt grew a line per run and a JSON export became several
+          # documents in one file. The engine now empties the files in the
+          # <file>_log folder it creates, and leaves subfolders alone.
+          FIX=.github/workflows/tests/log-rerun
+          LOG="$FIX/input/text.txt_log"
+          rm -rf "$FIX/logs" "$LOG"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" > /dev/null
+          # Leave a stale file and a subfolder, then run again.
+          echo stale > "$LOG/stale.txt"
+          mkdir -p "$LOG/keep" && echo kept > "$LOG/keep/marker.txt"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" > /dev/null
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          got=$(tr -d '\r' < "$LOG/out.txt")
+          if [ "$got" != "ran" ]; then
+            echo "FAIL(log rerun): out.txt after two runs was:"; echo "$got"; exit 1
+          fi
+          if [ -f "$LOG/stale.txt" ]; then
+            echo "FAIL(log rerun): a file from the previous run survived"; exit 1
+          fi
+          if [ ! -f "$LOG/keep/marker.txt" ]; then
+            echo "FAIL(log rerun): a subfolder of the log folder was removed"; exit 1
+          fi
+          echo "[log rerun] each run starts with an empty <file>_log"
+
+      - name: regexp/regexpi glob matching (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # regexp() and regexpi() returned false for EVERY input: the "no
+          # literal yet" marker in Regexp::init was an empty string rather
+          # than a null pointer, so every "has a literal" test read true, the
+          # literal never bound and the pattern degenerated. regexpi() also
+          # recursed into the case-SENSITIVE match(), losing case folding
+          # after the first pattern element -- hence the i-multi line.
+          FIX=.github/workflows/tests/regexp-glob
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(regexp glob): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'star-tail:cat|' \
+            'star-head:Walking|JumPing|' \
+            'star-both:Walking|cat|' \
+            'literal:cat|' \
+            'qmark:cat|' \
+            'whole:0' \
+            'i-multi:RUNNING|' \
+            'i-head:RUNNING|Walking|JumPing|' \
+            'nomatch:0')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(regexp glob): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[regexp glob] regexp/regexpi match, and regexpi folds case throughout"
+
+      - name: Signed numbers in str() (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # str() converted a signed long long with the UNSIGNED "%llu", so
+          # every negative printed as roughly 1.8e19 -- str(-1) gave
+          # "18446744073709551615" -- which also made the documented -1
+          # return of filesize() unreadable. The same fault was in the
+          # compiled-analyzer path (Arun::str) and in the code generator.
+          FIX=.github/workflows/tests/signed-str
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(signed str): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'expr:-1' 'big:-12345' 'filesize:-1' 'pos:42' 'zero:0')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(signed str): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[signed str] negative numbers render as negative"
+
+      - name: Empty string literal (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # An empty string literal was a hard syntax error for 28 years:
+          # PostRFA::postRFAstr bailed with "Unhandled null case" because the
+          # _STR rule's content wild legitimately collects nothing between the
+          # quotes. Amnon's own 11/26/98 note there asked for this fix. So
+          # L("x") = "" would not build, and neither would the natural emptiness
+          # test x != "" -- which read to users as "!= is broken on strings".
+          # Behind it: the hash table refuses to intern "" so any builtin
+          # RETURNING empty logged "[hget: Given null string.]" and returned 0,
+          # and strtrim/strclean/struniquechars warned instead of returning "".
+          # This pins all three layers, including a clean err.log.
+          FIX=.github/workflows/tests/empty-string
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(empty string): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'assign:[]' 'lit:[]' 'ne_nonempty:1' 'eq_nonempty:0' 'ne_empty:0' 'eq_empty:1' 'lit_eq_lit:1' 'if_nonempty:taken' 'if_empty:NOT' 'len:0' 'subst_del:[hello ]' 'subst_all:[]' 'concat:[ab]' 'trim:[]' 'clean:[]' 'uniq:[]' 'roundtrip:1')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(empty string): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          # An empty string must not log errors on the way through.
+          ERR="$FIX/input/text.txt_log/err.log"
+          if [ -f "$ERR" ]; then
+            noise=$(grep -v '^0 0 \[Date' "$ERR" | tr -d '\r' | sed '/^$/d' || true)
+            if [ -n "$noise" ]; then
+              echo "FAIL(empty string): err.log not clean:"; echo "$noise"; exit 1
+            fi
+          fi
+          echo "[empty string] \"\" is a first-class empty string"
+
+      - name: cout() writes to standard output (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The command-line engine bound the analyzer's cout() stream to a
+          # leftover test file (e:\dummy.txt on Windows, ./dummy.txt on
+          # Linux), so cout() output never reached the terminal.
+          FIX=.github/workflows/tests/cout-stdout
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" dummy.txt
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          # Engine status lines go to stderr, so stdout is the analyzer's
+          # output and nothing else.
+          want=$(printf '%s\n' "cout-stdout: hello" "cout-stdout: via a variable")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(cout): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          if [ -f dummy.txt ]; then
+            echo "FAIL(cout): cout() still writes to dummy.txt"; exit 1
+          fi
+          echo "[cout] stdout holds only the analyzer's cout() output"
+
+      - name: -STDIN loads once and streams inputs (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # #548: a long-running nlp reads one input file path per stdin
+          # line and analyzes each with the analyzer and KB it loaded once.
+          # It behaves as a folder run whose files arrive one at a time: the
+          # fixture's KB counter climbs 1,2,3 only if the KB carried over,
+          # and $islastfile is set on the last input once EOF is read.
+          FIX=.github/workflows/tests/stdin-stream
+          rm -rf "$FIX/logs" "$FIX"/input/*_log
+          out=$(printf '%s\n' a.txt b.txt c.txt | ./bin/nlp -ANA "$FIX" -WORK ./ -STDIN | tr -d '\r')
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          want=$(printf '%s\n' "first=1 last=0 dir=1 n=1" "first=0 last=0 dir=1 n=2" "first=0 last=1 dir=1 n=3")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(stdin): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          for f in a b c; do
+            if [ ! -d "$FIX/input/$f.txt_log" ]; then
+              echo "FAIL(stdin): no $f.txt_log beside the input"; exit 1
+            fi
+          done
+          # A blank line ends the stream like EOF; the input before it is last.
+          out=$(printf '%s\n' a.txt b.txt "" c.txt | ./bin/nlp -ANA "$FIX" -WORK ./ -STDIN | tr -d '\r')
+          want=$(printf '%s\n' "first=1 last=0 dir=1 n=1" "first=0 last=1 dir=1 n=2")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(stdin blank line): stdout was:"; echo "$out"; exit 1
+          fi
+          # A UTF-8 BOM ahead of the first path, as a .NET or PowerShell caller
+          # on Windows writes, used to make the first input "no such input file".
+          out=$( { printf '\xEF\xBB\xBF'; printf '%s\n' a.txt b.txt c.txt; } | ./bin/nlp -ANA "$FIX" -WORK ./ -STDIN | tr -d '\r')
+          want=$(printf '%s\n' "first=1 last=0 dir=1 n=1" "first=0 last=0 dir=1 n=2" "first=0 last=1 dir=1 n=3")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(stdin BOM): stdout was:"; echo "$out"; exit 1
+          fi
+          echo "[stdin] one load, KB carried across inputs, last-file flag set at end of stream"
+
+      - name: Non-ASCII punctuation in rules (#467) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Curly quotes, guillemets and inverted marks have no role in rule
+          # syntax, but the rule-file grammar never made them literals, so a
+          # rule using one was a "Syntax error" and the analyzer did not load.
+          FIX=.github/workflows/tests/unicode-punct
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          if grep -q "rror" "$FIX/logs/make_ana.log"; then cat "$FIX/logs/make_ana.log"; exit 1; fi
+          want=$(printf '%s\n' "_curly|“hi there”" "_guil|«oui»" "_inv|¿")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(unicode-punct): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[unicode-punct] non-ASCII punctuation works as rule literals"
+
+      - name: kb/user without hier.kb starts a new KB (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # With no hier.kb, readKB returned before binding the system
+          # concepts and the first attribute add segfaulted; with no kb
+          # folder the engine aborted on a filesystem exception. The fixture
+          # has only words.dict in kb/user; a copy with no kb folder at all
+          # covers the second case.
+          FIX=.github/workflows/tests/empty-kb-user
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "n=1" "runs=V über=P 42abc 🔥" "walks: tag=W verb=1")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(empty-kb-user): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          NOKB=empty-kb-nofolder
+          rm -rf "$NOKB"; mkdir -p "$NOKB/logs"; cp -r "$FIX/spec" "$FIX/input" "$NOKB/"
+          rm -rf "$NOKB/input/text.txt_log"
+          out=$(./bin/nlp -ANA "$NOKB" -WORK ./ "$NOKB/input/text.txt" | tr -d '\r')
+          out=${out%%$'\n'*}
+          rm -rf "$NOKB"
+          if [ "$out" != "n=1" ]; then
+            echo "FAIL(no kb folder): first line was '$out'"; exit 1
+          fi
+          echo "[empty-kb-user] a missing hier.kb or kb folder starts a new knowledge base"
+
+      - name: Special variables on a multi-node element (#435) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Only $text and $length handled an element that matched several
+          # nodes; N("$ostart",2) on a wildcard aborted the rule's actions.
+          FIX=.github/workflows/tests/multinode-vars
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "ostart=5 oend=25 start=0 end=0 exists=1" "range=[ CAFÉ AU LAIT — OK]" "text=[CAFÉ AU LAIT — OK]")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(multinode-vars): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[multinode-vars] \$ostart/\$oend/\$start/\$end/\$exists work on a multi-node element"
+
+      - name: pntype() returns a node's token type (#511) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          FIX=.github/workflows/tests/pntype
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "Hi alpha" "_ white" "_pair node" "_ white" "🔥 emoji" "! punct" "42 num")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(pntype): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[pntype] alpha/num/punct/white/emoji tokens and nonleaf nodes"
+
+      - name: Reading .dict and .kbb files (#483) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Value typing (bare all-digit = number, quoted = string), quoted
+          # values with spaces and commas, unquoted hyphenated values, KBB
+          # hierarchy, and dictionary phrases with their real input $text.
+          FIX=.github/workflows/tests/dict-kbb
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/out.txt"
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            "zip code=007 type=0 n=42 type=1 note=two words, one comma" \
+            "12011 description=SUSPENSION code=12011 type=0 count=42 type=1" \
+            "11100 description=REG VIOL, GENERALLY sub level=2" \
+            "token walks tag=W" \
+            "phrase New York state=NY kind=city" \
+            "token well-known tag=re-entry")
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(dict-kbb): out.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[dict-kbb] .dict/.kbb values, hierarchy and phrases read as written"
+
+      - name: nlp exits non-zero when the analyzer or input is missing (#484) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          # A missing analyzer used to exit 0, so scripts and CI could not
+          # tell the run had failed.
+          FIX=.github/workflows/tests/stdin-stream
+          mkdir -p "$FIX/logs"
+          if ./bin/nlp -ANA no-such-analyzer -WORK ./ "$FIX/input/a.txt"; then
+            echo "FAIL: missing analyzer exited 0"; exit 1
+          fi
+          if ./bin/nlp -ANA "$FIX" -WORK ./; then
+            echo "FAIL: missing input exited 0"; exit 1
+          fi
+          # An input file that does not exist exits 1 too, and leaves no
+          # stray <file>_log folder (4.2.51).
+          rm -rf "$FIX/input/no-such-file.txt_log"
+          if ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/no-such-file.txt"; then
+            echo "FAIL: missing input file exited 0"; exit 1
+          fi
+          if [ -d "$FIX/input/no-such-file.txt_log" ]; then
+            echo "FAIL: missing input file left a _log folder"; exit 1
+          fi
+          # -OUT makes its folder; it used to fall back to <file>_log.
+          rm -rf "$FIX/out-new"
+          ./bin/nlp -ANA "$FIX" -WORK ./ -OUT "$FIX/out-new" "$FIX/input/a.txt" > /dev/null
+          if [ ! -f "$FIX/out-new/final.tree" ]; then
+            echo "FAIL: -OUT did not make its folder"; exit 1
+          fi
+          rm -rf "$FIX/out-new"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/a.txt" > /dev/null
+          echo "[exit-codes] failures exit 1, a good run exits 0"
+
+      - name: nlp rejects bad arguments instead of crashing (#347) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          # No arguments, an unknown option, or an option missing its value
+          # used to segfault (exit 139). Each must now exit 1 with a message;
+          # --version and --help exit 0.
+          expect() {
+            want=$1; shift
+            set +e; ./bin/nlp "$@" > /dev/null 2>&1; got=$?; set -e
+            if [ "$got" != "$want" ]; then echo "FAIL(args): nlp $* exited $got, wanted $want"; exit 1; fi
+          }
+          set -e
+          expect 1
+          expect 1 -FOO
+          expect 1 --foo
+          expect 1 -ANA
+          expect 1 -ANA .github/workflows/tests/stdin-stream -IN
+          expect 0 --version
+          expect 0 --help
+          echo "[args] bad arguments exit 1, --version/--help exit 0, no crash"
+
+      - name: Small builtin and grammar fixes (#264 #209 #168 #396 #386 #345 #428) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # abs(-5) and negative function arguments, negative strpiece
+          # positions, num() on Unicode digits, $os, split into characters,
+          # rmchars, underscores in node names, Capitalized dictionary entries.
+          FIX=.github/workflows/tests/small-builtins
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "abs=5" "strpiece=ello,hell,llo" "num=42,12,3" "os=ok" "split=3:hé!" "rmchars=abcd,hllo" "dict JUMPS=J" "dict jumps=J" "dict Jumps=J" "name _my_node")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(small-builtins): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[small-builtins] all checks pass"
+
+      - name: Non-ASCII file and folder names (#197, #260) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Input, pass, dictionary and output file all have non-ASCII names.
+          # On Windows the engine used the ANSI code page for file names and
+          # found none of them; nlp.exe now runs with UTF-8 as its code page.
+          # Bash passes forward slashes, which also checks $inputname splits on "/".
+          FIX=.github/workflows/tests/utf8-paths
+          IN="$FIX/input/café-日本.txt"
+          rm -rf "$FIX/logs" "${IN}_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$IN" | tr -d '\r')
+          want=$(printf '%s\n' "input=café-日本.txt" "tag=E")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(utf8-paths): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          if [ "$(tr -d '\r' < "${IN}_log/sortie-é.txt")" != "ok" ]; then
+            echo "FAIL(utf8-paths): sortie-é.txt was not written"; exit 1
+          fi
+          echo "[utf8-paths] non-ASCII input, pass, dictionary and output names work"
+
+      - name: system() runs a shell command (#546) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          FIX=.github/workflows/tests/system-cmd
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" system-cmd.txt
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "system returned 1" "failing command returned 0")
+          if [ "$out" != "$want" ]; then echo "FAIL(system): stdout was: $out"; exit 1; fi
+          if [ ! -f system-cmd.txt ] || [ "$(tr -d '\r' < system-cmd.txt)" != "system-ok" ]; then
+            echo "FAIL(system): command did not write system-cmd.txt"; exit 1
+          fi
+          rm -f system-cmd.txt
+          echo "[system] system() ran the command and returned its status"
+
+      - name: Spelling word list loads from data/words (#697) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The 172,325-word list behind spellword/spellcorrect used to be
+          # compiled in; it is now data/words/en-words.txt, read on first use.
+          FIX=.github/workflows/tests/spell-words
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "receive=1 recieve=0 ozocerite=1 long=1" "correct recieve=receive teh=teg" "candidate=receive")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(spell-words): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[spell-words] word list loaded from data/words"
+
+      - name: _xSTART before a wildcard (#430, #431) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # _xSTART followed by an unrestricted _xWILD matched mid-phrase, missed
+          # matches, and reduced only the part after the wildcard.
+          FIX=.github/workflows/tests/xstart-wildcard
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "t1 [one two abc]" "t2 [one two abc]" "t4 [one]" "t6 reduced [one two abc]")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(xstart-wildcard): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[xstart-wildcard] _xSTART with a wildcard matches and reduces the whole span"
+
+      - name: "@POSTCODE region (#392) (Non-20.04)"
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # @POSTCODE runs NLP++ after a pass has matched its rules: after @CODE,
+          # at the end of a file, in a rec pass, with @NODES first, and alone.
+          # exitpass() in @CODE skips the rules and @POSTCODE alike.
+          FIX=.github/workflows/tests/postcode
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          out=$(./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" | tr -d '\r')
+          want=$(printf '%s\n' "code n=0" "postcode n=5 first=_letter" "pairs=2" "exiting" "rec first=_list kids=2" "select_first seen=1" "only")
+          if [ "$out" != "$want" ]; then
+            echo "FAIL(postcode): stdout was:"; echo "$out"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[postcode] @POSTCODE runs after the rules in every placement"
+
+      - name: "@PRE on a wildcard (#449) (Non-20.04)"
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A wildcard with @PRE is matched greedily and stops at the first node
+          # that fails @PRE (LinesDictTokZ ends a line at a newline this way).
+          # It must also stop before the next element, or a rule like
+          #   one _xWILD [plus] three   with   <2,2> varz("num")
+          # never matches (#449). Checked rightward, leftward and after _xSTART.
+          FIX=.github/workflows/tests/pre-wildcard
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(pre-wildcard): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' "clean varz" "right var" "left var" "start var" "range var")
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(pre-wildcard): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[pre-wildcard] @PRE wildcards stop before the next element"
+
+      - name: moveconcept and sortattrs (#133, #384) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # moveconcept(concept, parent) moves a concept with its subtree,
+          # attributes and phrase (#133); it refuses the root, a move into its own
+          # subtree, and a parent that already has a child of that name.
+          # sortattrs(concept) orders attributes by name, values untouched (#384).
+          FIX=.github/workflows/tests/kb-move-sort
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(kb-move-sort): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'moved: b' \
+            'a: []' \
+            'c: [x b]' \
+            'b keeps: [b1] color=red' \
+            'path: "concept" "movetest" "c" "b" "b1"' \
+            'into own subtree: refused' \
+            'name taken: refused' \
+            'root: refused' \
+            'c still: [x b]' \
+            'p: [k2 k3 k1] down=k2' \
+            'before: zeta=z alpha=2,1 Mid=m' \
+            'sortattrs=1' \
+            'after: alpha=2,1 Mid=m zeta=z' \
+            'lookup: z')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(kb-move-sort): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[kb-move-sort] moveconcept and sortattrs"
+
+      - name: Rule recorded on fired-but-not-built nodes (#73) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A rule that fires but builds nothing records its pass and rule line on
+          # the nodes it matched, so the -DEV tree logs and the debugger can tell
+          # which rule fired there (#73). Children of a built node, nodes moved up
+          # by splice(), and nodes built earlier in the same pass are not stamped.
+          FIX=.github/workflows/tests/fired-rule
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -DEV -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          LOG="$FIX/input/text.txt_log"
+          check() {
+            if ! tr -d '\r' < "$LOG/$1" | grep -qxF -- "$2"; then
+              echo "FAIL(fired-rule): $3: no line '$2' in $1:"; tr -d '\r' < "$LOG/$1"; exit 1
+            fi
+          }
+          check ana002.tree '   one [0,2,0,2,2,13,alpha,fired]' 'noop rule stamps the node it matched'
+          check ana003.tree '   _pair [4,12,4,12,3,10,node,fired,blt]' 'built node records its builder'
+          check ana003.tree '      two [4,6,4,6,0,0,alpha]' 'children of a built node keep their creator'
+          check ana003.tree '   one [0,2,0,2,2,13,alpha]' 'the stamp carries into later passes'
+          check ana004.tree '   two [4,6,4,6,0,0,alpha]' 'nodes moved up by splice are not stamped'
+          check ana005.tree '   _one [0,2,0,2,5,10,node,fired,blt]' 'built then fired in one pass keeps its builder'
+          echo "[fired-rule] fired-but-not-built nodes record their rule"
+
+      - name: Array indexing resumes from the last position (#401) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # NLP++ array indexing walked the values list from the head on every
+          # access, so a loop over x[0..n-1] cost O(n^2) (#401). It now resumes
+          # from the last position. These checks interleave cached reads with
+          # every way an array changes; the output matches engine 4.2.18 exactly.
+          FIX=.github/workflows/tests/array-index
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(array-index): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'forward: 0 10 20 30 40 50' \
+            'backward: 50 40 30 20 10 0' \
+            'past end: 0 then 40' \
+            'overwrite: 0 10 20 333 40 50' \
+            'incdec: 0 10 21 333 40 49' \
+            'padded: 0 10 21 333 40 49 0 0 88' \
+            'length 9' \
+            'deep: 0' \
+            'sliced: 10 21 0 0' \
+            'before scalar: 0' \
+            'scalar: 5 0' \
+            'b end: 20' \
+            'sorted: 10 20 30' \
+            'reversed: 30 20 10' \
+            'pushed: 5 30 20 10' \
+            'copy: 99 30 20 10' \
+            'original: 5 30 20 10' \
+            'local: p q r' \
+            'local2: p Q r' \
+            'alpha: wxyz then x' \
+            'alpha: zZxw' \
+            'beta: wxyz then x' \
+            'beta: zZxw' \
+            'gamma: wxyz then x' \
+            'gamma: zZxw')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(array-index): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[array-index] cached array indexing gives the same values"
+
+      - name: Postfix ++ and -- on an array element (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Postfix ++ and -- ignored the index of an array element, saw several
+          # values, and stopped with the multi-valued variable error.
+          # Prefix ++x[i] worked. Now x[i]++ changes that element and returns
+          # its old value, in the interpreter and in compiled analyzers.
+          FIX=.github/workflows/tests/postfix-index
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(postfix-index): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'inc returns 20, now 10 21 30' \
+            'dec returns 30, now 10 21 29' \
+            'padded: 0 0 1 length 6' \
+            'string: 42' \
+            'local: 0 2' \
+            'scalar: 7 then 8' \
+            'node: 5 6')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(postfix-index): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[postfix-index] x[i]++ and x[i]-- change that element"
+
+      - name: "@PRE conditions on rule elements (#438) (Non-20.04)"
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A @PRE condition can be written on the rule element itself (#438):
+          #   _xWILD [plus varz="num"]  is  <n,n> varz("num");  in @PRE.
+          # Each case runs in both forms; their matches must agree.
+          FIX=.github/workflows/tests/element-pre
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(element-pre): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'vareq @PRE: two' \
+            'vareq elt : two' \
+            'varz @PRE: two Three ABC 3' \
+            'varz elt : two Three ABC 3' \
+            'two @PRE: one' \
+            'two elt : one' \
+            'flag @PRE: ABC' \
+            'flag elt : ABC' \
+            'cap @PRE: Three' \
+            'cap @PRE: ABC' \
+            'cap elt : Three' \
+            'cap elt : ABC' \
+            'range @PRE: 9' \
+            'range elt : 9' \
+            'regexp @PRE: two' \
+            'regexp elt : two' \
+            'mixed: one two')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(element-pre): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[element-pre] element-key conditions match like @PRE"
+
+      - name: Wildcards stop before later elements (#427) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # With a wildcard pending, an optional element is absent if a later
+          # element (up to the next required one) matches first (#427), so
+          # the wildcard no longer runs past it. Both directions; ties keep
+          # the optional element.
+          FIX=.github/workflows/tests/smart-wildcard
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(smart-wildcard): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'right: [the big bears] wild=big three=0 bears=bears' \
+            'right: [the big three bears] wild=big three=three bears=bears' \
+            'present: [the big bears] three=0' \
+            'present: [the big three bears] three=three' \
+            'tie: [the big bears] opt=big' \
+            'left: [bears met]' \
+            'left: [bears met]')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(smart-wildcard): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[smart-wildcard] wildcards stop before later elements"
+
+      - name: makeliteral() post action (#450) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # makeliteral(start, end, text [, type]) replaces rule elements with one
+          # token whose text is the given string, typed as the tokenizer would
+          # (#450): OCR "7O" becomes a num token "70" that later passes match
+          # as _xNUM, keeping the original offsets.
+          FIX=.github/workflows/tests/literal
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(literal): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'He alpha text=He at 0-1' \
+            'paid alpha text=paid at 3-6' \
+            '70 num text=70 at 8-9' \
+            'dollars alpha text=dollars at 11-17' \
+            ', punct text=, at 19-19' \
+            'USA alpha text=USA at 21-23' \
+            '_xNUM matched: 70 dollars')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(literal): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[literal] makeliteral() makes a token later passes match"
+
+      - name: attr="value" on rule elements (#438) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A key on a rule element that is not a modifier, with one value, is
+          # an attribute test (#438): _xALPHA [pos="noun"] is vareq=("pos" "noun").
+          # Digits compare as a number, as do the values of vareq=/vargt=/...
+          # written on an element. A key one edit from a modifier warns.
+          FIX=.github/workflows/tests/element-eq
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(element-eq): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'text attr=value: two' \
+            'text vareq=: two' \
+            'number attr=value: three' \
+            'number vareq=: three' \
+            'both attr=value: two' \
+            'both vareq=: two' \
+            'greater: three')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(element-eq): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          if ! grep -q "Element key=mtch is not a modifier.*Did you mean match" "$FIX/logs/make_ana.log"; then
+            echo "FAIL(element-eq): no typo warning for mtch= in make_ana.log"; cat "$FIX/logs/make_ana.log"; exit 1
+          fi
+          echo "[element-eq] attr=value on an element tests the attribute"
+
+      - name: Dictionary join=, split=, _name lines and bare entries (#433 #434 #426 #417) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # A bare dictionary line (no attributes) used to end the read of the
+          # file (#433). join=1 makes a phrase one token (#434), split="a b"
+          # makes a token several words (#426), and a "_bridge type=x" line puts
+          # attributes on every _bridge node (#417).
+          FIX=.github/workflows/tests/dict-shape
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(dict-shape): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'A alpha text=A at 0-0' \
+            '_vehicle node text=HOT-ROD at 2-8 speed=fast [HOTROD 2-8]' \
+            'near alpha text=near at 10-13' \
+            'the alpha text=the at 15-17' \
+            '_bridge node text=viaduct at 19-25 type=location kind=raised [viaduct 19-25]' \
+            'and alpha text=and at 27-29' \
+            '_bridge node text=bridge at 31-36 type=location kind=generic [bridge 31-36]' \
+            '; punct text=; at 37-37' \
+            'my alpha text=my at 39-40' \
+            '_phrase node text=licenseplate at 42-53 [license 42-48, plate 49-53]' \
+            ', punct text=, at 54-54' \
+            '_weather node text=weathervconditions at 56-73 [weather 56-73, conditions 56-73]' \
+            ', punct text=, at 74-74' \
+            'email alpha text=email at 76-81' \
+            '; punct text=; at 82-82' \
+            '_phrase node text=license plate at 84-96 [license 84-90, plate 92-96]' \
+            '. punct text=. at 97-97')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(dict-shape): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[dict-shape] dictionary join, split, _name lines and bare entries"
+
+      - name: mkdir() and kbdumptree() without the shell (#323) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # mkdir() was a shell "mkdir PATH": a path with spaces (or, on
+          # Windows, forward slashes) made nothing, a path with & ran a
+          # command, and it always returned 1. kbdumptree() ran "cat" on
+          # Linux and macOS. Both use std::filesystem / C++ now (#323).
+          FIX=.github/workflows/tests/fs-ops
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output" "$FIX/made" pwned_323.txt
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(fs-ops): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'plain 1' 'spaces 1' 'nested 1' 'again 1' 'dump 1')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(fs-ops): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          for d in plain "with spaces" a/b/c; do
+            [ -d "$FIX/made/$d" ] || { echo "FAIL(fs-ops): mkdir() did not make $d"; exit 1; }
+          done
+          if [ -e pwned_323.txt ]; then
+            echo "FAIL(fs-ops): mkdir() ran a shell command from its path"; exit 1
+          fi
+          DUMP="$FIX/made/dump.kb"
+          grep -q 'add hier "concept" "fsTest" "child"' "$DUMP" || { echo "FAIL(fs-ops): dump.kb lacks the child"; cat "$DUMP"; exit 1; }
+          grep -q '^"blue"' "$DUMP" || { echo "FAIL(fs-ops): dump.kb lacks the attribute"; cat "$DUMP"; exit 1; }
+          [ "$(tr -d '\r' < "$DUMP" | grep -v '^$' | tail -1)" = quit ] || { echo "FAIL(fs-ops): dump.kb does not end in quit"; cat "$DUMP"; exit 1; }
+          echo "[fs-ops] mkdir() and kbdumptree() work without the shell"
+
+      - name: -DICTSOURCE marks nodes with their dictionary file and line (#432) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # With -DICTSOURCE, nodes dicttok builds from .dict entries get
+          # dictfile and dictline attributes (#432, #475); without it, none.
+          FIX=.github/workflows/tests/dict-source
+          OUT="$FIX/input/text.txt_log/output.txt"
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -s "$OUT" ]; then
+            echo "FAIL(dict-source): attributes without -DICTSOURCE:"; cat "$OUT"; exit 1
+          fi
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ -DICTSOURCE "$FIX/input/text.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(dict-source): no output.txt with -DICTSOURCE"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            '_vehicle words.dict:6' \
+            '  HOTROD words.dict:6' \
+            '_bridge words.dict:14' \
+            '  viaduct words.dict:14' \
+            '_bridge words.dict:13' \
+            '  bridge words.dict:13' \
+            '_phrase words.dict:3' \
+            '  license words.dict:9' \
+            '  plate words.dict:9' \
+            '_weather words.dict:11' \
+            '  weather words.dict:10' \
+            '  conditions words.dict:10' \
+            'email words.dict:7' \
+            '_phrase words.dict:3')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(dict-source): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[dict-source] -DICTSOURCE marks dictionary nodes with file and line"
+
+      - name: iscon, isstr, isnum, isfloat, ispn, isarray (#447) (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Type tests on each kind of value (#447). Columns of 1/0 are
+          # con str num float pn array. An unset variable reads as 0.
+          FIX=.github/workflows/tests/type-tests
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/output.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(type-tests): no output.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'concept 100000' \
+            'string 010000' \
+            'digits 010000' \
+            'empty 010000' \
+            'number 001000' \
+            'float 000100' \
+            'node 000010' \
+            'array 000001' \
+            'unset 001000' \
+            'direct 1111')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(type-tests): output.txt was:"; echo "$got"; echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[type-tests] iscon, isstr, isnum, isfloat, ispn and isarray"
+
+      - name: "-DATUM sets G($datum) (NLPPlus #1) (Non-20.04)"
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # NLP_ENGINE::setDatum and nlp -DATUM pass a string the analyzer
+          # reads as G("$datum"), eg the output format a caller wants. The
+          # engine API always passed none before.
+          FIX=.github/workflows/tests/datum
+          OUT="$FIX/input/text.txt_log/output.txt"
+          for v in json xml; do
+            rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/output"
+            mkdir -p "$FIX/logs"
+            ./bin/nlp -ANA "$FIX" -WORK ./ -DATUM "$v" "$FIX/input/text.txt"
+            got=$(tr -d '\r' < "$OUT")
+            if [ "$got" != "datum=[$v]" ]; then
+              echo "FAIL(datum): wanted datum=[$v], got: $got"; exit 1
+            fi
+          done
+          echo "[datum] -DATUM reaches G(\$datum)"
+
+      - name: factorial() up to 20! (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # factorial() checked its result against LONG_MAX, which is 32 bits
+          # on Windows, so 13! and up reported an overflow there.
+          FIX=.github/workflows/tests/factorial
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(factorial): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(head -1 "$OUT" | tr -d '\r')
+          want='1 1 479001600 6227020800 2432902008176640000'
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(factorial): got '$got', wanted '$want'"; exit 1
+          fi
+          # 21! does not fit in 64 bits and must still be reported.
+          grep -q 'factorial: Overflow' "$FIX/input/text.txt_log/err.log" \
+            || { echo "FAIL(factorial): 21! did not report an overflow"; exit 1; }
+          echo "[factorial] 13! to 20! compute; 21! reports an overflow"
+
+      - name: User functions shadow builtins (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Defining a function whose name is also a builtin used to be a hard
+          # error, so adding any builtin broke every analyzer that had already
+          # defined that name -- which is what happened to arrayreverse and
+          # push, hand-written in visualText/spec/UtilFuncs.nlp long before
+          # they became builtins. The user definition now wins, with a warning.
+          FIX=.github/workflows/tests/shadowing
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(shadowing): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'shadowed:USER-WON' 'unshadowed:HELLO' 'stilldispatches:5')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(shadowing): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          # make_analyzer only writes make_ana.log when logs/ already exists,
+          # which is why the step recreates it above. Without that, Linux left
+          # no log to grep while Windows created the directory on the way.
+          if ! grep -q "shadows built-in" "$FIX/logs/make_ana.log"; then
+            echo "FAIL(shadowing): the shadowing warning was never emitted"; exit 1
+          fi
+          echo "[shadowing] a user function overrides a builtin of the same name"
+
+      - name: File-reading and regex builtins (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # NLP++ could write files but never read one, could not list a
+          # directory, and regexp() was a "?"/"*" glob with no classes,
+          # anchors, quantifiers or capture groups. This pins readfile,
+          # readlines, dirlist, rematch, refind and resubst.
+          # readfile's line is run through resubst so the expected output is
+          # the same whether the fixture is checked out LF or CRLF, and the
+          # dirlist line proves paths come back sorted with forward slashes
+          # on every platform.
+          FIX=.github/workflows/tests/file-regex
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(file/regex): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'dirlist:3:alpha.dict:beta.dict:config.txt' \
+            'glob:2' \
+            'readlines:2:name = widget:count = 42' \
+            'readfile:name = widget|count = 42|' \
+            'rematch:1010' \
+            'refind:3:count:42' \
+            'resubst:1a 2b 3c' \
+            'empty:0')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(file/regex): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[file/regex] readfile, readlines, dirlist, rematch, refind, resubst"
+
+      - name: String and array builtins (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # split() had no inverse, there was no way to get the index of a
+          # substring, and every existing sort was knowledge-base or parse
+          # tree oriented, leaving plain arrays with none. push() had been
+          # documented as UNIMPLEMENTED.
+          # sort: is byte order, so uppercase sorts ahead of lowercase.
+          # neg: re-checks that str() renders negatives as negative.
+          FIX=.github/workflows/tests/str-array
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(str/array): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'join:a-b-c' \
+            'join1:solo' \
+            'joinnum:1,2,3' \
+            'idx:6/-1/0' \
+            'lastidx:8/2' \
+            'neg:-1/-1/-12345/42' \
+            'sort:Banana,apple,cherry' \
+            'sortdesc:cherry,apple,Banana' \
+            'sortnum:2,10,100' \
+            'sortnumdesc:100,10,2' \
+            'unique:a,b,c' \
+            'reverse:c,b,a' \
+            'slice:b,c' \
+            'sliceopen:c,d' \
+            'sliceclamp:d' \
+            'slicenone:' \
+            'push:z,a,b,c' \
+            'chain:A,B,C')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(str/array): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          echo "[str/array] strjoin, strindexof, arraysort/unique/reverse/slice, push"
+
+      - name: Python pass interpreter and error reporting (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The python pass hardcoded the command "python". macOS 12.3+ has no
+          # /usr/bin/python and most Linux distros ship only python3, so on many
+          # machines the pass silently did nothing: system() returns the shell's
+          # exit status (127 for command-not-found), never <0, so the old rc<0
+          # test never fired. For json2kbb that meant no .kbb was built and the
+          # analyzer ran against an empty KB with no warning at all.
+          FIX=.github/workflows/tests/python-pass
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/marker.txt"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(python pass): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          if [ "$got" != "python:PYTHON-RAN-pre" ]; then
+            echo "FAIL(python pass): the pass did not run. out.txt was '$got'"; exit 1
+          fi
+          # Now prove a missing interpreter is REPORTED rather than swallowed.
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" "$FIX/marker.txt"
+          mkdir -p "$FIX/logs"
+          NLPPP_PYTHON=definitely-not-a-real-interpreter \
+            ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" > pyfail.out 2>&1 || true
+          cat pyfail.out
+          got=$(tr -d '\r' < "$OUT")
+          if [ "$got" != "python:absent" ]; then
+            echo "FAIL(python pass): expected the pass to be skipped, got '$got'"; exit 1
+          fi
+          if ! grep -q "python pass FAILED" pyfail.out; then
+            echo "FAIL(python pass): a failing pass was not reported"; exit 1
+          fi
+          if ! grep -q "python pass" "$FIX/input/text.txt_log/err.log"; then
+            echo "FAIL(python pass): the failure never reached err.log"; exit 1
+          fi
+          echo "[python pass] interpreter is resolved, and failures are reported"
+
+      - name: JSON builtins (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # jsonwrite replaces the JsonKB family in KBFuncs.nlp, which is
+          # interpreted NLP++ and dominates a knowledge-base analyzer's
+          # runtime (43.9% of date-time was the 13-line output pass calling
+          # JsonKB and SaveKB). Its output must stay byte-identical.
+          # jsonparse is the inverse and removes the need for a python pass
+          # to load JSON, which the npm and pypi distributions cannot run.
+          # The round trip is the real assertion: it caught jsonparse storing
+          # jsonwrite's synthesized "id" as a real attribute, which made the
+          # second write emit it twice.
+          FIX=.github/workflows/tests/json-builtins
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(json): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'parsed:1' 'roundtrip:same' 'badjson:0' 'notobject:0')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(json): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          # The serialized document must have the exact shape JsonKB produces.
+          J="$FIX/input/text.txt_log/rt1.json"
+          grep -q '"id": "1"' "$J" || { echo "FAIL(json): counted concepts lost their id"; exit 1; }
+          grep -q '"item": \[' "$J" || { echo "FAIL(json): counted siblings did not become an array"; exit 1; }
+          grep -qF 'He said \"hi\"' "$J" || { echo "FAIL(json): quote escaping regressed"; exit 1; }
+          # And the round trip must not duplicate the synthesized id.
+          if [ "$(grep -c '"id":' "$FIX/input/text.txt_log/rt2.json")" != "2" ]; then
+            echo "FAIL(json): round trip duplicated the synthesized id"; exit 1
+          fi
+          echo "[json] jsonwrite serializes and jsonparse round-trips"
+
+      - name: JSON arrays (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # jsonwrite groups counted concepts (item1, item2) into arrays.
+          # Until 4.2.37 an array followed by a plain sibling was not JSON,
+          # two arrays side by side merged, and "a1b2" counted as 12. Each
+          # case must match its expected file and survive a jsonparse round
+          # trip unchanged.
+          FIX=.github/workflows/tests/json-arrays
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(json arrays): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' 'A:same' 'B:same' 'C:same' 'E:same' 'F:same')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(json arrays): round trip, out.txt was:"; echo "$got"; exit 1
+          fi
+          for c in A B C E F; do
+            # Strip CR on both sides: the Windows checkout gives expected/ CRLF.
+            if ! diff <(tr -d '\r' < "$FIX/input/text.txt_log/$c.json") <(tr -d '\r' < "$FIX/expected/$c.json"); then
+              echo "FAIL(json arrays): case $c differs from expected/$c.json"; exit 1
+            fi
+          done
+          echo "[json arrays] counted concepts become valid, separate arrays"
+
+      - name: callanalyzer runs another analyzer, loaded once
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # callanalyzer (4.1.0) runs another analyzer's passes on one node of
+          # this analyzer's parse tree, with this analyzer's KB. The callee
+          # sits beside the caller, in tests/call-analyzer-callee, and is found
+          # by name. The tree lines prove it changed only the nodes it was
+          # given; crimson proves its lazy *full.dict was run on the passed
+          # text; the load count proves it was built once for two calls.
+          FIX=.github/workflows/tests/call-analyzer
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log" .github/workflows/tests/call-analyzer-callee/logs
+          mkdir -p "$FIX/logs"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt" 2>&1 | tee "$FIX/logs/run.log"
+          if [ -f "$FIX/logs/make_ana.log" ]; then cat "$FIX/logs/make_ana.log"; fi
+          OUT="$FIX/input/text.txt_log/out.txt"
+          if [ ! -f "$OUT" ]; then
+            echo "FAIL(callanalyzer): no out.txt -- the analyzer did not build"; exit 1
+          fi
+          got=$(tr -d '\r' < "$OUT")
+          want=$(printf '%s\n' \
+            'loaded-before:0' \
+            'call:1' \
+            'call:1' \
+            'loaded-after:1' \
+            'mine:caller' \
+            'tree:_sent _color apples* .' \
+            'tree:_sent _color sky* and* _color grass* .' \
+            'tree:Blue' \
+            'concept:sent root:_ROOT sawcallerG:0 backcall:0 colors:red;' \
+            'concept:sent root:_ROOT sawcallerG:0 backcall:0 colors:crimson;green;' \
+            'red:angry yes' \
+            'self:0' \
+            'missing:0')
+          if [ "$got" != "$want" ]; then
+            echo "FAIL(callanalyzer): out.txt was:"; echo "$got"
+            echo "wanted:"; echo "$want"; exit 1
+          fi
+          loads=$(grep -c 'callanalyzer: loaded call-analyzer-callee' "$FIX/logs/run.log" || true)
+          if [ "$loads" != "1" ]; then
+            echo "FAIL(callanalyzer): the called analyzer was loaded $loads times for two calls"; exit 1
+          fi
+          echo "[callanalyzer] called analyzer ran on the given nodes, loaded once"
+
+      - name: Rule-level debug server (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -eo pipefail
+          # The engine can stop between rule attempts when started with
+          # -DEBUG <port> (3.9.0). The hooks sit in Pat::matchRules, the hottest
+          # loop in the engine, so they are exactly the kind of thing a later
+          # change removes or reorders without anyone noticing until an author
+          # finds the debugger silently never stops.
+          FIX=.github/workflows/tests/rule-debugger
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          python3 "$FIX/drive.py" ./bin/nlp "$FIX" ./
+          # Debugging must not change the analysis. Run the same fixture with no
+          # debugger and require the parse tree to come out byte for byte the
+          # same as the one the debugged run produced.
+          cp "$FIX/input/text.txt_log/final.tree" /tmp/debugged.tree
+          rm -rf "$FIX/logs" "$FIX/input/text.txt_log"
+          ./bin/nlp -ANA "$FIX" -WORK ./ "$FIX/input/text.txt"
+          if ! diff -q /tmp/debugged.tree "$FIX/input/text.txt_log/final.tree" >/dev/null; then
+            echo "FAIL(debug): the debugged run produced a different parse tree"
+            diff /tmp/debugged.tree "$FIX/input/text.txt_log/final.tree" | head -20
+            exit 1
+          fi
+          echo "[rule debugger] pause points fire and leave the analysis unchanged"
+
+      - name: Copy nlp.exe to nlpl.exe (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: cp bin/nlp bin/nlpl.exe
+        shell: bash
+
+      # ===============================
+      # Upload Artifacts (All Versions)
+      # ===============================
+      - name: Upload nlpl.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: nlpl-ubuntu-${{ env.VERSION_SUFFIX }}.exe
+          path: bin/nlpl.exe
+
+      - name: Upload libicutu.a (non ubuntu-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: libicutu-ubuntu-${{ env.VERSION_SUFFIX }}.a
+          path: vcpkg_installed/x64-linux/lib/libicutu.a
+
+      - name: Upload libicuuc.a (ubuntu-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: libicuuc-ubuntu-${{ env.VERSION_SUFFIX }}.a
+          path: vcpkg_installed/x64-linux/lib/libicuuc.a
+
+      - name: Package compile libraries (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf compile-libs
+          mkdir -p compile-libs/include/Api compile-libs/lib
+          cp -r include/Api/. compile-libs/include/Api/
+          cp -r cs/include compile-libs/include/cs
+
+          for name in prim kbm consh words lite; do
+            lib=$(find "$GITHUB_WORKSPACE" -type f -name "lib${name}.a" \
+              -not -path "*/vcpkg/*" -not -path "*/vcpkg_installed/*" \
+              -not -path "*/compile-libs/*" | head -n1)
+            if [ -z "$lib" ]; then
+              echo "Missing required static library: lib${name}.a" >&2
+              exit 1
+            fi
+            cp "$lib" "compile-libs/lib/lib${name}.a"
+          done
+
+          # ICU static libs from vcpkg (matches the Windows ICU DLL trio:
+          # data/uc/i18n). Downstream analyzer/KB linking against lite needs
+          # i18n for Collator (find_str_nocase).
+          for icu_lib in libicudata.a libicuuc.a libicui18n.a; do
+            cp "vcpkg_installed/x64-linux/lib/$icu_lib" "compile-libs/lib/$icu_lib"
+          done
+
+          (cd compile-libs && zip -r "$GITHUB_WORKSPACE/nlpengine-compile-libs-linux-${VERSION_SUFFIX}.zip" .)
+
+      - name: Upload nlpengine-compile-libs zip (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nlpengine-compile-libs-linux-${{ env.VERSION_SUFFIX }}.zip
+          path: nlpengine-compile-libs-linux-${{ env.VERSION_SUFFIX }}.zip
+
+      # ===============================
+      # Run Tests
+      # ===============================
+      - name: Remove submodule analyzers before fresh checkout (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: rm -rf analyzers   # drop the pinned submodule copy so the checkout below lands cleanly
+
+      - name: Checkout Analyzers Repo
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: actions/checkout@v4
+        with:
+          repository: VisualText/analyzers
+          submodules: recursive
+          path: analyzers
+
+      - name: Full English Test (20.04)
+        if: matrix.id == 'docker-ubuntu-20.04'
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/final.tree
+          new: ./rfb-logs/final.tree
+          mode: addition
+          tolerance: same
+          output: parse-en-us-diff-lin.txt
+
+      # parse-en-us runs zone mode (one _TEXTZONE at a time, each freed to a
+      # stub after its passes), so final.tree is only the zone skeleton. The
+      # whole parse is checked through out.xml, which buff_out writes zone by
+      # zone and is byte-identical to the unzoned analyzer's.
+      - name: Full English Test, parse XML (20.04)
+        if: matrix.id == 'docker-ubuntu-20.04'
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/out.xml
+          new: ./rfb-logs/out.xml
+          mode: addition
+          tolerance: same
+          output: parse-en-us-xml-diff-lin.txt
+
+      - name: Run English Parser Test (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        run: ./bin/nlp -ANA ./analyzers/parse-en-us -WORK ./ ./analyzers/parse-en-us/input/doj.txt -DEV || true
+
+      - name: Full English Test (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/final.tree
+          new: ./analyzers/parse-en-us/input/doj.txt_log/final.tree
+          mode: addition
+          tolerance: same
+          output: parse-en-us-diff-lin.txt
+
+      # parse-en-us runs zone mode (one _TEXTZONE at a time, each freed to a
+      # stub after its passes), so final.tree is only the zone skeleton. The
+      # whole parse is checked through out.xml, which buff_out writes zone by
+      # zone and is byte-identical to the unzoned analyzer's.
+      - name: Full English Test, parse XML (Non-20.04)
+        if: matrix.id != 'docker-ubuntu-20.04'
+        uses: LouisBrunner/diff-action@v0.2.0
+        with:
+          old: .github/workflows/tests/parse-en-us/out.xml
+          new: ./analyzers/parse-en-us/input/doj.txt_log/out.xml
+          mode: addition
+          tolerance: same
+          output: parse-en-us-xml-diff-lin.txt
+

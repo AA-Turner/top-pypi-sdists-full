@@ -22,6 +22,11 @@ def escape_surrogates(text: str) -> str:
     return text.encode("utf-8", "backslashreplace").decode("utf-8")
 
 
+def escape_nonprintable(text: str) -> str:
+    # Escapes control characters like `repr` does, but keeps backslashes single.
+    return "".join(char if char.isprintable() else repr(char)[1:-1] for char in text)
+
+
 def truncate_json(data: Any, *, config: OutputConfig, max_lines: int | None = None) -> str:
     # Convert JSON to string with indentation
     indent = 4
@@ -72,6 +77,8 @@ def decode_response_text(response: Response) -> str | None:
     Returns `None` when the body is binary (undecodable under its own or the default encoding);
     a response declaring an unknown or broken charset is decoded lossily instead of raising.
     """
+    if response.render_content is not None:
+        return response.render_content(response.content)
     try:
         return response.text
     except UnicodeDecodeError:

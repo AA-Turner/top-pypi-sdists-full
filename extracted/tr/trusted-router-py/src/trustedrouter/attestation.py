@@ -1,0 +1,787 @@
+"""GCP Confidential Space attestation verification for TrustedRouter.
+
+The hosted gateway runs as a Confidential Space workload. On request,
+its `/attestation` endpoint mints an OIDC JWT signed by Google's
+Confidential Space signer that commits to:
+
+  - the workload's container image digest (sha256:...)
+  - the workload's image reference (Artifact Registry path:tag)
+  - a caller-supplied `nonce` (binds the doc to this exact request)
+  - the workload's TLS leaf cert SHA-256, as one `eat_nonce` entry
+  - the TLS exporter of the session the request arrived on
+
+This module verifies the JWT signature against Google's JWKS, then
+checks each claim against an `AttestationPolicy` derived from the
+public trust release. If everything matches, a workload running the
+exact build the trust page advertises minted the token. Whether it also
+proves *your connection* reaches that workload depends on what the
+caller can check, and every result reports that as `binding` (see
+`AttestationBinding`):
+
+  - `verify_gateway_session()` (trustedrouter.session) binds the TLS
+    exporter;
+  - `verify_gateway_attestation()` with `tls_cert_der` binds the leaf
+    cert;
+  - `verify_gateway_attestation_document()` binds nothing, for callers
+    that cannot see the TLS connection at all.
+
+The verification uses the `cryptography` library which is shipped as
+an optional extra: `pip install trusted-router-py[attestation]`. The
+base SDK doesn't pull it because most users only want chat completions
+and shouldn't pay the install cost.
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import re
+import time
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any, Literal
+
+import httpx as httpx
+
+from trustedrouter.client import (
+    DEFAULT_TRUST_RELEASE_URL,
+    fetch_trust_release,
+)
+from trustedrouter.models import TrustRelease
+
+GCP_ISSUER = "https://confidentialcomputing.googleapis.com"
+GCP_JWKS_URI = (
+    "https://www.googleapis.com/service_accounts/v1/metadata/jwk/"
+    "signer@confidentialspace-sign.iam.gserviceaccount.com"
+)
+EXPORTER_LABEL = b"EXPORTER-Channel-Binding"
+EXPORTER_LENGTH = 32
+
+# 16 bytes is the least a caller-chosen challenge should carry. The upper
+# bound only keeps input sane; the gateway enforces its own, lower, limit.
+_FRESH_NONCE_HEX = re.compile(r"(?:[0-9a-fA-F]{2}){16,64}")
+_SHA256_HEX = re.compile(r"[0-9a-fA-F]{64}")
+
+AttestationBinding = Literal["none", "tls-cert", "tls-exporter"]
+"""What a verified attestation proves about the caller's connection, weakest
+first. Every check on the token itself (Google's signature, issuer, audience,
+expiry, production Confidential Space claims, image pins) passes before any of
+these is reported.
+
+``"none"``
+    Nothing ties the token to your connection. With a fresh nonce it shows a
+    workload running a pinned build answered your challenge just now; it does
+    not show that your requests reach that workload. Anything that can reach
+    the gateway (a proxy, a relay, a TLS-terminating middlebox) can obtain such
+    a token for your nonce and still serve your traffic itself.
+``"tls-cert"``
+    You supplied the DER leaf certificate of your own TLS connection, and the
+    token commits to its SHA-256. A relay that terminates TLS presents a
+    different certificate unless it holds the gateway's key.
+``"tls-exporter"``
+    The token commits to the RFC 9266 exporter of your own TLS session, so it
+    was minted inside that session.
+"""
+
+
+class AttestationVerificationError(ValueError):
+    """Raised when the gateway's attestation document fails any required
+    trust check (signature, claim mismatch, expired, or cert binding)."""
+
+
+@dataclass(frozen=True, slots=True)
+class AttestationPolicy:
+    """Pinned values the JWT claims must match. Build one with
+    `policy_from_trust_release()` to derive these from the live
+    trust page, or construct directly to pin to a specific build."""
+
+    gcp_audience: str = "quill-cloud"
+    expected_cert_sha256: str | None = None
+    expected_image_digest: str | None = None
+    expected_image_digests: tuple[str, ...] = ()
+    expected_image_reference: str | None = None
+    expected_image_references: tuple[str, ...] = ()
+    allow_debug: bool = False
+
+    @property
+    def pins_image_identity(self) -> bool:
+        """Whether this policy constrains *which* workload image is acceptable.
+
+        Both image checks in `_check_claims` are skipped when their accepted
+        set is empty, so a policy that pins neither a digest nor a reference
+        accepts any genuinely-attested Confidential Space workload — it proves
+        "some CSP VM" rather than "the gateway build we published". Policy
+        construction and verification both refuse that state rather than
+        silently downgrading the guarantee."""
+        return bool(
+            self.expected_image_digests
+            or self.expected_image_digest
+            or self.expected_image_references
+            or self.expected_image_reference
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayAttestation:
+    """Verified attestation result. `cert_sha256` is the SHA-256 of the
+    gateway's TLS leaf cert as committed by the JWT — callers can
+    re-use it to pin subsequent connections without re-fetching the
+    JWT each time.
+
+    `binding` reports which connection evidence was compared (see
+    `AttestationBinding`). With `"none"`, `cert_sha256` is only what the
+    token claims; nothing compared it with a connection."""
+
+    cert_sha256: str
+    image_digest: str
+    image_reference: str
+    nonce: str | None
+    expires_at: int | None
+    issuer: str | None
+    audience: str | None
+    raw_claims: Mapping[str, Any]
+    binding: AttestationBinding = "none"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "binding": self.binding,
+            "cert_sha256": self.cert_sha256,
+            "image_digest": self.image_digest,
+            "image_reference": self.image_reference,
+            "nonce": self.nonce,
+            "expires_at": self.expires_at,
+            "issuer": self.issuer,
+            "audience": self.audience,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayAttestationDocument:
+    """Result of `verify_gateway_attestation_document()`.
+
+    It has no `cert_sha256`: the document names no certificate as the
+    connection's, so code written against `GatewayAttestation` that reads one
+    fails rather than trusting it. `binding` is always `"none"`.
+
+    `cert_sha256_candidates` lists the SHA-256-shaped values the token commits
+    to other than your nonce: labelled certificate claims when present, then
+    `eat_nonce` entries. The gateway's TLS leaf certificate hash is among them,
+    alongside other per-instance or per-connection commitments, so test
+    membership rather than picking an entry. A match is a comparison you make,
+    not a binding this SDK checked; when you hold the certificate, pass it to
+    `verify_gateway_attestation()` as `tls_cert_der` instead.
+
+    `nonce` is the fresh nonce you supplied, found in the token's
+    `eat_nonce`."""
+
+    cert_sha256_candidates: tuple[str, ...]
+    image_digest: str
+    image_reference: str
+    nonce: str
+    expires_at: int | None
+    issuer: str | None
+    audience: str | None
+    raw_claims: Mapping[str, Any]
+
+    @property
+    def binding(self) -> Literal["none"]:
+        """Always `"none"`: document verification checks no TLS evidence."""
+        return "none"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "binding": self.binding,
+            "cert_sha256_candidates": list(self.cert_sha256_candidates),
+            "image_digest": self.image_digest,
+            "image_reference": self.image_reference,
+            "nonce": self.nonce,
+            "expires_at": self.expires_at,
+            "issuer": self.issuer,
+            "audience": self.audience,
+        }
+
+
+def policy_from_trust_release(
+    release: Mapping[str, Any] | TrustRelease | None = None,
+    *,
+    audience: str = "quill-cloud",
+    cert_sha256: str | None = None,
+    trust_release_url: str = DEFAULT_TRUST_RELEASE_URL,
+) -> AttestationPolicy:
+    """Build a policy by reading the published trust release. If
+    `release` isn't provided, fetches it from `trust_release_url`. The
+    audience defaults to "quill-cloud" — the gateway hard-codes this."""
+    release_obj = release if release is not None else fetch_trust_release(trust_release_url)
+    if isinstance(release_obj, TrustRelease):
+        image_digest = release_obj.image_digest
+        accepted_image_digests = tuple(release_obj.accepted_image_digests)
+        image_reference = release_obj.image_reference
+        accepted_image_references = tuple(release_obj.accepted_image_references)
+    else:
+        if not isinstance(release_obj, Mapping):
+            raise AttestationVerificationError("trust release must be an object")
+        image_digest = _image_pin(release_obj, "image_digest")
+        accepted_image_digests = _image_pins(release_obj, "accepted_image_digests")
+        image_reference = _image_pin(release_obj, "image_reference")
+        accepted_image_references = _image_pins(release_obj, "accepted_image_references")
+    if not accepted_image_digests and image_digest:
+        accepted_image_digests = (image_digest,)
+    if not accepted_image_references and image_reference:
+        accepted_image_references = (image_reference,)
+    policy = AttestationPolicy(
+        gcp_audience=audience,
+        expected_cert_sha256=cert_sha256,
+        expected_image_digest=image_digest,
+        expected_image_digests=accepted_image_digests,
+        expected_image_reference=image_reference,
+        expected_image_references=accepted_image_references,
+    )
+    if not policy.pins_image_identity:
+        # A truncated response, an error page that happens to parse as JSON, or
+        # a schema change all land here. Returning a policy anyway would leave
+        # the caller believing it verified a specific build while the image
+        # checks silently no-op, so refuse at the point the degraded input is
+        # visible rather than at the point the guarantee is already lost.
+        raise AttestationVerificationError(
+            "trust release pins no image identity (none of image_digest, "
+            "accepted_image_digests, image_reference, accepted_image_references); "
+            "refusing to build a policy that would accept any Confidential Space workload"
+        )
+    return policy
+
+
+def _image_pin(release: Mapping[str, Any], field: str) -> str | None:
+    value = release.get(field)
+    if value is not None and not isinstance(value, str):
+        raise AttestationVerificationError(f"trust release {field} must be a string or null")
+    return value or None
+
+
+def _image_pins(release: Mapping[str, Any], field: str) -> tuple[str, ...]:
+    value = release.get(field, [])
+    if not isinstance(value, list) or any(not isinstance(pin, str) or not pin for pin in value):
+        raise AttestationVerificationError(f"trust release {field} must be a string array")
+    return tuple(value)
+
+
+# ---- low-level JWT verification -----------------------------------------
+
+
+def _b64url_decode(segment: str) -> bytes:
+    pad = "=" * (-len(segment) % 4)
+    return base64.urlsafe_b64decode(segment + pad)
+
+
+def _jwt_split(token: bytes) -> tuple[dict[str, Any], dict[str, Any], bytes, bytes]:
+    """Decode a compact JWS into (header, payload, signing_input, sig_bytes).
+    Raises AttestationVerificationError on shape problems."""
+    text = token.decode("ascii", errors="replace").strip()
+    parts = text.split(".")
+    if len(parts) != 3:
+        raise AttestationVerificationError(f"expected 3 JWT segments, got {len(parts)}")
+    h_b64, p_b64, s_b64 = parts
+    try:
+        header: object = json.loads(_b64url_decode(h_b64))
+        payload: object = json.loads(_b64url_decode(p_b64))
+        signature = _b64url_decode(s_b64)
+    except (ValueError, UnicodeError) as exc:
+        raise AttestationVerificationError(f"invalid JWT encoding: {exc}") from exc
+    if not isinstance(header, dict) or not isinstance(payload, dict):
+        raise AttestationVerificationError("JWT header and claims must be objects")
+    signing_input = f"{h_b64}.{p_b64}".encode("ascii")
+    return header, payload, signing_input, signature
+
+
+def _verify_rs256(
+    jwks: Mapping[str, Any], header: Mapping[str, Any], signing_input: bytes, signature: bytes
+) -> None:
+    """Find the matching JWK by `kid`, build an RSA public key, verify
+    the RS256 signature. Raises AttestationVerificationError on any
+    mismatch or unsupported parameter."""
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding, rsa
+    except ImportError as exc:  # pragma: no cover — dep missing path
+        raise AttestationVerificationError(
+            "attestation verification requires the `cryptography` package; "
+            "install with `pip install trusted-router-py[attestation]`"
+        ) from exc
+
+    if header.get("alg") != "RS256":
+        raise AttestationVerificationError(
+            f"unsupported JWT alg {header.get('alg')!r}; expected RS256"
+        )
+    kid = header.get("kid")
+    if not isinstance(kid, str) or not kid:
+        raise AttestationVerificationError("JWT kid must be a non-empty string")
+    if not isinstance(jwks, Mapping):
+        raise AttestationVerificationError("JWKS must be an object")
+    keys = jwks.get("keys")
+    if not isinstance(keys, list) or any(not isinstance(key, Mapping) for key in keys):
+        raise AttestationVerificationError("JWKS keys must be an array of objects")
+    matching = next((k for k in keys if k.get("kid") == kid), None)
+    if matching is None:
+        raise AttestationVerificationError(
+            f"no JWK with kid={kid!r} in JWKS — gateway key may have rotated"
+        )
+    if matching.get("kty") != "RSA":
+        raise AttestationVerificationError("expected RSA key in JWKS")
+
+    modulus = matching.get("n")
+    exponent = matching.get("e")
+    if not isinstance(modulus, str) or not isinstance(exponent, str):
+        raise AttestationVerificationError("JWK n and e must be strings")
+    try:
+        n_bytes = _b64url_decode(modulus)
+        e_bytes = _b64url_decode(exponent)
+    except (ValueError, UnicodeError) as exc:
+        raise AttestationVerificationError(f"malformed JWK: {exc}") from exc
+
+    n = int.from_bytes(n_bytes, "big")
+    e = int.from_bytes(e_bytes, "big")
+    try:
+        public_key = rsa.RSAPublicNumbers(e=e, n=n).public_key()
+    except ValueError as exc:
+        raise AttestationVerificationError("invalid RSA public numbers") from exc
+    try:
+        public_key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
+    except InvalidSignature as exc:
+        raise AttestationVerificationError("JWT signature verification failed") from exc
+
+
+def _check_claims(
+    claims: Mapping[str, Any],
+    *,
+    policy: AttestationPolicy,
+    nonce_hex: str | None,
+    tls_cert_der: bytes | None,
+    tls_exporter: bytes | None,
+    binding_mode: Literal["live-channel", "document"] = "live-channel",
+) -> GatewayAttestation:
+    """Validate every claim the policy requires. Raises on any mismatch.
+    Returns a GatewayAttestation if everything checks out.
+
+    `"document"` mode checks the token alone: no TLS evidence, and the nonce
+    (or receipt-key commitment) must be in `eat_nonce` itself."""
+    if binding_mode not in {"live-channel", "document"}:
+        raise AttestationVerificationError(f"unsupported attestation binding mode {binding_mode!r}")
+    now = int(time.time())
+    exp = claims.get("exp")
+    if not isinstance(exp, int) or isinstance(exp, bool):
+        raise AttestationVerificationError("JWT is missing a valid expiration")
+    if exp <= now:
+        raise AttestationVerificationError(f"JWT expired at {exp} (now={now})")
+
+    iss = claims.get("iss")
+    if iss != GCP_ISSUER:
+        raise AttestationVerificationError(f"unexpected issuer {iss!r}; expected {GCP_ISSUER}")
+
+    if not policy.allow_debug and claims.get("dbgstat") != "disabled-since-boot":
+        raise AttestationVerificationError(
+            "debug Confidential Space workload must report disabled-since-boot"
+        )
+    if claims.get("swname") != "CONFIDENTIAL_SPACE":
+        raise AttestationVerificationError("attested workload is not running Confidential Space")
+    if claims.get("secboot") is not True:
+        raise AttestationVerificationError("attested workload does not report Secure Boot")
+    if claims.get("hwmodel") not in (
+        "GCP_AMD_SEV",
+        "GCP_AMD_SEV_ES",
+        "GCP_INTEL_TDX",
+    ):
+        raise AttestationVerificationError(
+            f"unsupported confidential hardware model {claims.get('hwmodel')!r}"
+        )
+
+    aud = claims.get("aud")
+    # `aud` may be a string OR a list per RFC 7519
+    if isinstance(aud, str):
+        aud_list = [aud]
+    elif isinstance(aud, list) and all(isinstance(value, str) for value in aud):
+        aud_list = aud
+    else:
+        raise AttestationVerificationError("JWT aud must be a string or string list")
+    if policy.gcp_audience not in aud_list:
+        raise AttestationVerificationError(
+            f"audience {policy.gcp_audience!r} not in JWT aud {aud_list!r}"
+        )
+
+    if not policy.pins_image_identity:
+        # Defence in depth for hand-constructed policies: both image checks
+        # below are guarded on a non-empty accepted set, so reaching them with
+        # nothing pinned would accept any attested workload.
+        raise AttestationVerificationError(
+            "attestation policy pins no image identity; refusing to verify against a "
+            "policy that cannot distinguish the gateway from any other workload"
+        )
+
+    submods = claims.get("submods")
+    if not isinstance(submods, Mapping):
+        raise AttestationVerificationError("JWT submods must be an object")
+    container = submods.get("container")
+    if not isinstance(container, Mapping):
+        raise AttestationVerificationError("JWT container must be an object")
+    image_digest = container.get("image_digest", "")
+    image_reference = container.get("image_reference", "")
+    if not isinstance(image_digest, str) or not isinstance(image_reference, str):
+        raise AttestationVerificationError("JWT image identity must contain strings")
+
+    accepted_image_digests = policy.expected_image_digests
+    if not accepted_image_digests and policy.expected_image_digest:
+        accepted_image_digests = (policy.expected_image_digest,)
+    if accepted_image_digests and not any(
+        _safe_eq(image_digest, expected) for expected in accepted_image_digests
+    ):
+        raise AttestationVerificationError(
+            f"image_digest mismatch: workload={image_digest!r}, policy={accepted_image_digests!r}"
+        )
+    accepted_image_references = policy.expected_image_references
+    if not accepted_image_references and policy.expected_image_reference:
+        accepted_image_references = (policy.expected_image_reference,)
+    if accepted_image_references and not any(
+        _safe_eq(image_reference, expected) for expected in accepted_image_references
+    ):
+        raise AttestationVerificationError(
+            f"image_reference mismatch: workload={image_reference!r}, "
+            f"policy={accepted_image_references!r}"
+        )
+
+    # Nonce binding: the gateway echoes the caller-supplied nonce in
+    # the `nonces` claim (a list per CSP convention). If we sent one
+    # but the JWT doesn't carry it, this is either a replay or a
+    # misbehaving gateway — fail closed.
+    eat_nonces = claims.get("eat_nonce")
+    for field in ("eat_nonce", "nonces"):
+        value = claims.get(field)
+        if value is not None and not (
+            isinstance(value, str)
+            or (isinstance(value, list) and all(isinstance(item, str) for item in value))
+        ):
+            raise AttestationVerificationError(f"JWT {field} must be a string or string array")
+    nonces = eat_nonces or claims.get("nonces") or []
+    nonce_match: str | None = None
+    if isinstance(nonces, str):
+        nonces = [nonces]
+    if nonce_hex is not None:
+        if binding_mode == "document":
+            # Receipt-key commitments and document challenges must appear in
+            # eat_nonce itself, never only in the legacy `nonces` fallback.
+            if isinstance(eat_nonces, str):
+                receipt_nonces = [eat_nonces]
+            elif isinstance(eat_nonces, list):
+                receipt_nonces = eat_nonces
+            else:
+                receipt_nonces = []
+            committed_values = {
+                nonce.lower() for nonce in receipt_nonces if isinstance(nonce, str)
+            }
+            nonce_present = nonce_hex.lower() in committed_values
+        else:
+            nonce_present = nonce_hex in nonces
+        if not nonce_present:
+            raise AttestationVerificationError(
+                f"nonce {nonce_hex!r} not present in JWT nonces {nonces!r}"
+            )
+        nonce_match = nonce_hex
+
+    if binding_mode == "live-channel" and tls_exporter is not None:
+        if nonce_hex is None:
+            raise AttestationVerificationError("fresh nonce required with exporter binding")
+        exporter_hex = tls_exporter.hex()
+        # G6 binds the RFC 9266 TLS exporter and a caller fresh nonce into the
+        # same single nonce list. Requiring both, and requiring distinct values,
+        # closes the relay case where a proxy launders only the client exporter.
+        if _safe_eq(nonce_hex.lower(), exporter_hex):
+            raise AttestationVerificationError("fresh nonce must differ from TLS exporter binding")
+        if not any(
+            isinstance(nonce, str) and _safe_eq(nonce.lower(), exporter_hex) for nonce in nonces
+        ):
+            raise AttestationVerificationError("TLS exporter binding not present in JWT nonces")
+
+    binding: AttestationBinding = "none"
+    if binding_mode == "live-channel":
+        # Cert binding: the gateway includes the SHA-256 hex of its TLS
+        # leaf cert as a nonce-style claim too (`tls_cert_sha256` or
+        # `dbgstat`/`hwmodel` fields differ by CSP version). We accept
+        # several known field names.
+        cert_sha = (
+            claims.get("tls_cert_sha256")
+            or claims.get("workload_tls_cert_sha256")
+            or _find_cert_in_nonces(nonces, tls_cert_der)
+        )
+        if not isinstance(cert_sha, str) or len(cert_sha) != 64:
+            raise AttestationVerificationError(
+                "JWT does not commit to a TLS cert SHA-256 — cannot bind connection"
+                + (
+                    ""
+                    if tls_cert_der is not None
+                    else "; pass tls_cert_der from this connection, or use "
+                    "verify_gateway_attestation_document() for document-only verification"
+                )
+            )
+        cert_sha = cert_sha.lower()
+
+        if tls_cert_der is not None:
+            actual = hashlib.sha256(tls_cert_der).hexdigest()
+            if not _safe_eq(actual, cert_sha):
+                raise AttestationVerificationError(
+                    f"TLS cert mismatch: connection={actual!r}, JWT={cert_sha!r}"
+                )
+
+        if policy.expected_cert_sha256 and not _safe_eq(
+            cert_sha, policy.expected_cert_sha256.lower()
+        ):
+            raise AttestationVerificationError(
+                "JWT-committed cert SHA-256 doesn't match policy pin"
+            )
+
+        # A policy pin compares the token with a published hash, not with this
+        # connection, so it does not raise the binding on its own.
+        if tls_exporter is not None:
+            binding = "tls-exporter"
+        elif tls_cert_der is not None:
+            binding = "tls-cert"
+    else:
+        # A receipt attestation certifies a durable signing key, and a document
+        # check has no connection to compare. Neither is evidence about the
+        # verifier's current TLS connection.
+        cert_sha = ""
+
+    return GatewayAttestation(
+        cert_sha256=cert_sha,
+        image_digest=image_digest,
+        image_reference=image_reference,
+        nonce=nonce_match,
+        expires_at=exp,
+        issuer=GCP_ISSUER,
+        audience=policy.gcp_audience,
+        raw_claims=dict(claims),
+        binding=binding,
+    )
+
+
+def _cert_sha256_candidates(claims: Mapping[str, Any], nonce_hex: str) -> tuple[str, ...]:
+    """SHA-256-shaped commitments in the token other than the caller nonce:
+    labelled certificate claims first, then `eat_nonce` entries, lowercased
+    and deduplicated."""
+    eat_nonce = claims.get("eat_nonce")
+    if isinstance(eat_nonce, str):
+        eat_nonce = [eat_nonce]
+    elif not isinstance(eat_nonce, list):
+        eat_nonce = []
+    labelled = (claims.get("tls_cert_sha256"), claims.get("workload_tls_cert_sha256"))
+    nonce = nonce_hex.lower()
+    candidates: list[str] = []
+    for value in (*labelled, *eat_nonce):
+        if not isinstance(value, str) or _SHA256_HEX.fullmatch(value) is None:
+            continue
+        hex_value = value.lower()
+        if hex_value != nonce and hex_value not in candidates:
+            candidates.append(hex_value)
+    return tuple(candidates)
+
+
+def _find_cert_in_nonces(nonces: list[Any], tls_cert_der: bytes | None) -> str | None:
+    """Some CSP versions stick the cert hash into the nonces list rather
+    than a dedicated claim. We pick whichever 64-hex string in `nonces`
+    matches the actual cert (when we have the cert to compare)."""
+    if tls_cert_der is None:
+        return None
+    actual = hashlib.sha256(tls_cert_der).hexdigest()
+    for n in nonces:
+        if isinstance(n, str) and n.lower() == actual:
+            return n.lower()
+    return None
+
+
+def _safe_eq(a: str, b: str) -> bool:
+    return hmac.compare_digest(a.encode(), b.encode())
+
+
+# ---- jwks fetch ---------------------------------------------------------
+
+
+def _fetch_jwks(url: str = GCP_JWKS_URI, *, timeout: float = 10.0) -> dict[str, Any]:
+    with httpx.Client(timeout=timeout) as client:
+        response = client.get(url)
+        response.raise_for_status()
+        try:
+            data: object = response.json()
+        except ValueError as exc:
+            raise AttestationVerificationError("GCP JWKS returned malformed JSON") from exc
+    if not isinstance(data, dict) or "keys" not in data:
+        raise AttestationVerificationError(f"GCP JWKS at {url} returned unexpected shape")
+    return data
+
+
+# ---- public entrypoint --------------------------------------------------
+
+
+def _verified_jwt_claims(
+    document: bytes,
+    *,
+    jwks: Mapping[str, Any] | None,
+    jwks_url: str,
+) -> Mapping[str, Any]:
+    """Verify the JWS signature and return its decoded claims."""
+    header, payload, signing_input, signature = _jwt_split(document)
+    if jwks is None:
+        jwks = _fetch_jwks(jwks_url)
+    _verify_rs256(jwks, header, signing_input, signature)
+    return payload
+
+
+def verify_gateway_attestation(
+    document: bytes,
+    *,
+    policy: AttestationPolicy,
+    nonce_hex: str | None = None,
+    tls_cert_der: bytes | None = None,
+    tls_exporter: bytes | None = None,
+    jwks: Mapping[str, Any] | None = None,
+    jwks_url: str = GCP_JWKS_URI,
+) -> GatewayAttestation:
+    """Verify a GCP Confidential Space attestation JWT.
+
+    `document` is the raw bytes returned by `client.attestation()`.
+    `policy` says which image_digest / image_reference / cert_sha256
+    the JWT must commit to (build with `policy_from_trust_release()`).
+    `nonce_hex` should be the same nonce the caller put in the
+    /attestation request (binds the doc to this request).
+    `tls_cert_der` is the DER bytes of the leaf cert from the live TLS
+    connection — when provided, we re-derive its SHA-256 and require
+    the JWT to commit to the same cert.
+    `tls_exporter` is the 32-byte RFC 9266 exporter from the same live
+    TLS session used to fetch `/attestation`; when provided, the JWT
+    must bind both that exporter and a distinct fresh `nonce_hex`.
+
+    The token must commit to a TLS certificate hash. Live gateway tokens
+    carry it only as an `eat_nonce` entry, which is found by hashing
+    `tls_cert_der`, so without the certificate this raises. A caller that
+    cannot see its TLS connection uses
+    `verify_gateway_attestation_document()` instead and gets
+    `binding="none"` rather than a cert binding it never checked.
+
+    Pass `jwks=` to inject a pre-fetched JWKS dict (e.g. for offline
+    verification or tests); otherwise the function fetches Google's
+    public JWKS at boot.
+
+    Returns a GatewayAttestation on success; `binding` reports which
+    connection evidence was checked. Raises AttestationVerificationError
+    on any failure — never returns False or None for a failed
+    verification."""
+    payload = _verified_jwt_claims(document, jwks=jwks, jwks_url=jwks_url)
+    return _check_claims(
+        payload,
+        policy=policy,
+        nonce_hex=nonce_hex,
+        tls_cert_der=tls_cert_der,
+        tls_exporter=tls_exporter,
+        binding_mode="live-channel",
+    )
+
+
+def verify_gateway_attestation_document(
+    document: bytes,
+    *,
+    policy: AttestationPolicy,
+    nonce_hex: str,
+    jwks: Mapping[str, Any] | None = None,
+    jwks_url: str = GCP_JWKS_URI,
+) -> GatewayAttestationDocument:
+    """Verify a gateway attestation document on its own, with no TLS binding.
+
+    For callers that cannot see the TLS connection their requests use: code
+    behind an HTTP proxy or a platform HTTP stack, or anything that only holds
+    the document. It runs every check `verify_gateway_attestation()` runs on
+    the token — Google's signature, issuer, audience, expiry, production
+    Confidential Space claims, and the policy's image pins — and requires
+    `nonce_hex` in `eat_nonce`, so the token was minted for this challenge
+    rather than replayed.
+
+    It checks no TLS certificate or exporter, and the result says so with
+    `binding="none"`. A verified document shows that a workload running a
+    pinned build answered your challenge; it does not show that your other
+    requests reach that workload. Because nothing here trusts the transport,
+    the document may be fetched through a relay without weakening the result;
+    the JWKS and the policy must not come from that relay.
+
+    `document` is the JWT from `client.attestation(nonce_hex=...)`.
+    `policy` comes from `policy_from_trust_release()` and must pin an image.
+    `nonce_hex` is 16 to 64 fresh random bytes as hex, sent with that request
+    (`secrets.token_hex(32)`).
+
+    Raises AttestationVerificationError on any failure — never returns False
+    or None for a failed verification."""
+    # Freshness is the only thing tying a document to this moment, so a
+    # missing, short, or non-hex challenge is refused before any network or
+    # crypto work.
+    if not isinstance(nonce_hex, str) or _FRESH_NONCE_HEX.fullmatch(nonce_hex) is None:
+        raise AttestationVerificationError(
+            "document verification requires a fresh nonce of 16 to 64 random bytes as hex"
+        )
+    payload = _verified_jwt_claims(document, jwks=jwks, jwks_url=jwks_url)
+    verified = _check_claims(
+        payload,
+        policy=policy,
+        nonce_hex=nonce_hex,
+        tls_cert_der=None,
+        tls_exporter=None,
+        binding_mode="document",
+    )
+    return GatewayAttestationDocument(
+        cert_sha256_candidates=_cert_sha256_candidates(payload, nonce_hex),
+        image_digest=verified.image_digest,
+        image_reference=verified.image_reference,
+        nonce=nonce_hex,
+        expires_at=verified.expires_at,
+        issuer=verified.issuer,
+        audience=verified.audience,
+        raw_claims=verified.raw_claims,
+    )
+
+
+def verify_receipt_key_attestation(
+    document: bytes,
+    *,
+    policy: AttestationPolicy,
+    key_commitment_hex: str,
+    jwks: Mapping[str, Any] | None = None,
+    jwks_url: str = GCP_JWKS_URI,
+) -> None:
+    """Verify a GCP key-binding attestation for a receipt signing key.
+
+    This performs the same signature, issuer, audience, validity, debug,
+    hardware, and image-policy checks as :func:`verify_gateway_attestation`,
+    but deliberately omits live TLS certificate/exporter binding. The receipt
+    key commitment must occur somewhere in the attestation's nonce set.
+    """
+    payload = _verified_jwt_claims(document, jwks=jwks, jwks_url=jwks_url)
+    _check_claims(
+        payload,
+        policy=policy,
+        nonce_hex=key_commitment_hex,
+        tls_cert_der=None,
+        tls_exporter=None,
+        binding_mode="document",
+    )
+
+
+__all__ = [
+    "EXPORTER_LABEL",
+    "EXPORTER_LENGTH",
+    "GCP_ISSUER",
+    "GCP_JWKS_URI",
+    "AttestationBinding",
+    "AttestationPolicy",
+    "AttestationVerificationError",
+    "GatewayAttestation",
+    "GatewayAttestationDocument",
+    "policy_from_trust_release",
+    "verify_gateway_attestation",
+    "verify_gateway_attestation_document",
+    "verify_receipt_key_attestation",
+]

@@ -1,0 +1,74 @@
+id: rich-output-formats-png-html-greyscale
+title: "Rich Output Formats — PNG, HTML/SVG, and Greyscale Chart Rendering"
+worktree: main
+priority: Low
+status: Not Started
+category: User Experience
+description: |
+  Extends textcharts beyond ASCII with richer output formats.
+  Consolidated from deferred work originally tracked in BenchBox
+  (moved 2026-03-27 when all charting was confirmed to live in textcharts).
+
+  The ASCII path is complete and functional with color, no-color, and
+  structural-pattern fallbacks. These items are aspirational — implement only
+  if user demand materializes.
+
+context_sections:
+  "Background": |
+    textcharts is the canonical terminal chart library. ASCII rendering is fully
+    implemented covering CLI, MCP, and --no-color use cases. These deferred items
+    represent the next tier of visualization richness for users who need exportable
+    or web-embeddable charts.
+
+  "User Demand Signal": |
+    No user requests for PNG/HTML/SVG output have been received as of 2026-03-27.
+    These items should be re-evaluated when:
+    - Users report ASCII charts are insufficient for their workflow
+    - MCP web UIs become a primary consumption path
+    - Documentation or blog needs programmatic chart generation
+
+metadata:
+  tags:
+    - visualization
+    - charts
+    - deferred-followup
+    - research-needed
+  estimated_effort: "Medium"
+  created_date: "2026-03-27"
+  moved_from: "BenchBox:_project/TODO/main/planning/deferred-visualization-and-output-enhancements.yaml"
+
+files_affected:
+  modified:
+    - "src/textcharts/base.py"
+    - "src/textcharts/cli.py"
+    - "src/textcharts/mcp_server.py"
+  added:
+    - "src/textcharts/png_backend.py"
+    - "src/textcharts/html_backend.py"
+
+work:
+  - id: w1
+    summary: "Add PNG chart rendering backend using matplotlib — CLI flag --format=png writes image files"
+    status: pending
+    notes: |
+      Treat matplotlib as an optional dependency (soft import, clear error message
+      if missing). Generates one PNG per chart type. Follow the same optional-dep
+      pattern used in BenchBox's benchbox plot command. MCP integration can follow
+      as a separate work unit if demand arises.
+
+  - id: w2
+    summary: "Add HTML/SVG chart output format — self-contained HTML files with inline SVG for MCP web UIs and report embedding"
+    status: pending
+    notes: |
+      Use lightweight SVG generation (prefer no heavy dependency) or matplotlib's
+      SVG backend. Target: single self-contained HTML file per chart. Expose via
+      CLI --format=html and as an MCP output option.
+
+  - id: w3
+    summary: "Add intermediate greyscale ColorMode (dim/bold ANSI) between BASIC and NONE"
+    status: pending
+    notes: |
+      ColorMode enum lives in src/textcharts/base.py. Add GREYSCALE tier between
+      NONE and BASIC — uses bold/dim ANSI attributes only (no color codes). Target
+      the rare terminal class that supports bold/dim but not 16-color ANSI.
+      Lowest priority of the three items.

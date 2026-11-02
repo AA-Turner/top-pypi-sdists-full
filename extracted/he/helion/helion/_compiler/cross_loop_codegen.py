@@ -211,26 +211,6 @@ def _clone_opaque_statements_with_loop_segments(
     return cloned
 
 
-def _extract_case_bodies(
-    owner: ForEachProgramID,
-    base_body: list[ast.stmt],
-) -> list[list[ast.stmt]]:
-    if len(owner.cases) == 1:
-        return [base_body]
-    assert len(base_body) >= 2
-    node = base_body[1]
-    result: list[list[ast.stmt]] = []
-    while isinstance(node, ast.If):
-        result.append(node.body)
-        if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
-            node = node.orelse[0]
-            continue
-        result.append(node.orelse)
-        break
-    assert len(result) == len(owner.cases)
-    return result
-
-
 def _case_pid_info(case: ProgramIDs) -> list[PIDInfo]:
     if isinstance(case, L2GroupingProgramIDs):
         assert case.parent_strategy is not None
@@ -810,11 +790,14 @@ def _outline_cross_loop_region(
     noinline: bool = False,
 ) -> ast.stmt:
     """Outline a scheduled region while keeping its computation opaque."""
+    # Warp specialization changes kernel-wide thread participation. Keep
+    # scheduler helpers inline so Triton lowers their explicit and implicit
+    # barriers for the caller's active warp group rather than the physical CTA.
     helper_name, arguments = device_function.register_triton_outlined_helper(
         name_hint,
         body,
         extra_argument_names=extra_argument_names,
-        noinline=noinline,
+        noinline=noinline and not any(device_function.config.range_warp_specializes),
     )
     return statement_from_string(f"{helper_name}({', '.join(arguments)})")
 
@@ -1440,15 +1423,7 @@ def emit_cross_loop_schedule(
     )
     worker = typed_program_id(0)
     epoch_var = device_function.new_var("tile_dependency_epoch", dce=False)
-    base_body = cast(
-        "list[ast.stmt]",
-        owner._prepare_persistent_body(
-            device_function.body,
-            device_function,
-            strategy.virtual_pid_var,
-        ),
-    )
-    case_bodies = _extract_case_bodies(owner, base_body)
+    case_bodies = cast("list[list[ast.stmt]]", owner.case_bodies)
     opaque_case_fingerprints = tuple(_ast_fingerprint(body) for body in case_bodies)
     target_device_capability = (
         CompileEnvironment.current().config_spec.target_device_capability
@@ -1731,7 +1706,7 @@ def emit_cross_loop_schedule(
         return f"{peer_key_offsets[plan]} + ({key}) * {_PEER_SLOT_WORDS}"
 
     def peer_counter_publications(
-        root: int, coordinates: dict[int, str], sem: str
+        root: int, coordinates: dict[int, str], sem: str, guard: str | None = None
     ) -> list[ast.stmt]:
         result: list[ast.stmt] = []
         for plan in peer_counter_plans:
@@ -1756,7 +1731,9 @@ def emit_cross_loop_schedule(
                     ast.If, test=expr_from_string(membership), body=[add], orelse=[]
                 )
             )
-        return result
+        if guard is None or not result:
+            return result
+        return [create(ast.If, test=expr_from_string(guard), body=result, orelse=[])]
 
     def peer_counter_waits(
         root: int, coordinates: dict[int, str]
@@ -2019,7 +1996,10 @@ def emit_cross_loop_schedule(
         inner_counts = [axis_counts[block_id] for block_id in axis_order[:-1]]
         if (
             root in scheduled_task_roots
-            or root in root_counters_by_producer
+            or any(
+                plan.continuation_consumer is not None
+                for plan, _producer in root_counters_by_producer.get(root, ())
+            )
             or root in nested_producer_roots
             or root in nested_loop_counters_by_consumer
             or isinstance(owner.cases[root], L2GroupingProgramIDs)
@@ -2620,6 +2600,7 @@ def emit_cross_loop_schedule(
     def emit_readiness_arrival_for_key(
         plan: ReadinessCounterPlan,
         readiness_key: str,
+        sem: str = "release",
     ) -> list[ast.stmt]:
         continuation_consumer = plan.continuation_consumer
         if continuation_consumer is None:
@@ -2628,12 +2609,12 @@ def emit_cross_loop_schedule(
                 return [
                     statement_from_string(
                         f"tl.atomic_xchg({counter}, {epoch_var}, "
-                        "sem='release', scope='gpu')"
+                        f"sem='{sem}', scope='gpu')"
                     )
                 ]
             return [
                 statement_from_string(
-                    f"tl.atomic_add({counter}, 1, sem='release', scope='gpu')"
+                    f"tl.atomic_add({counter}, 1, sem='{sem}', scope='gpu')"
                 ),
             ]
 
@@ -2739,6 +2720,7 @@ def emit_cross_loop_schedule(
         plan: ReadinessCounterPlan,
         readiness_producer: ReadinessProducer,
         producer_coordinates: dict[int, str],
+        sem: str = "release",
     ) -> list[ast.stmt]:
         publication = readiness_producer.incidence.keys_by_item
         if publication is None:
@@ -2748,7 +2730,7 @@ def emit_cross_loop_schedule(
             producer_coordinates,
             trusted_single_valued=True,
         )
-        publications = emit_readiness_arrival_for_key(plan, readiness_key)
+        publications = emit_readiness_arrival_for_key(plan, readiness_key, sem)
         if membership == "True":
             return publications
         return [
@@ -2898,6 +2880,7 @@ def emit_cross_loop_schedule(
                 raise AssertionError("body PID ABI is not total")
             body.append(statement_from_string(f"{pid_task} = {pid_task_expression}"))
             scheduled_logical_pid = f"{case_offset_strings[root]} + {pid_task}"
+        readiness_tokens: list[str] = []
         for (
             incoming_readiness_counter,
             incoming_consumer,
@@ -2908,19 +2891,42 @@ def emit_cross_loop_schedule(
                 incoming_consumer.keys_by_consumer,
                 scheduled_coordinates,
             )
-            wait = _wait_for_counter(
-                device_function=device_function,
-                counter=readiness_counter(
-                    incoming_readiness_counter,
-                    readiness_key,
-                ),
-                target=readiness_target(
-                    incoming_readiness_counter,
-                    readiness_key,
-                ),
-                prefix="tile_dependency_readiness_wait",
-            )
-            if not incoming_consumer.keys_by_consumer.is_total_function():
+            counter = readiness_counter(incoming_readiness_counter, readiness_key)
+            target = readiness_target(incoming_readiness_counter, readiness_key)
+            total = incoming_consumer.keys_by_consumer.is_total_function()
+            if any(device_function.config.range_warp_specializes):
+                # Triton's warp specialization rejects a while loop in a task
+                # loop: spin in one asm block and gate the task PID on its token.
+                token = device_function.new_var(
+                    "tile_dependency_readiness_token", dce=False
+                )
+                fence = (
+                    "fence.proxy.async.global; "
+                    if device_function.uses_async_proxy_global
+                    else ""
+                )
+                wait = [
+                    statement_from_string(
+                        f"{token} = tl.inline_asm_elementwise("
+                        "asm='{ .reg .pred p; .reg .b32 v; READY_WAIT: "
+                        "ld.acquire.gpu.global.u32 v, [$1]; setp.ne.u32 p, v, $2; "
+                        "@p bra READY_WAIT; bar.warp.sync 0xffffffff; "
+                        f"{fence}mov.u32 $0, 0; }}', constraints='=r,l,r', "
+                        f"args=[{counter}, tl.cast({target}, tl.uint32)], "
+                        "dtype=tl.int32, is_pure=False, pack=1)"
+                    )
+                ]
+                readiness_tokens.append(token)
+                if not total:
+                    body.append(statement_from_string(f"{token} = 0"))
+            else:
+                wait = _wait_for_counter(
+                    device_function=device_function,
+                    counter=counter,
+                    target=target,
+                    prefix="tile_dependency_readiness_wait",
+                )
+            if not total:
                 body.append(
                     create(
                         ast.If,
@@ -2934,6 +2940,10 @@ def emit_cross_loop_schedule(
         peer_counter_spins, peer_tokens = peer_counter_waits(
             root, scheduled_coordinates
         )
+        if readiness_tokens:
+            scheduled_logical_pid = " + ".join(
+                [scheduled_logical_pid, *readiness_tokens]
+            )
         if peer_tokens:
             # Zero tokens make every PID-derived address depend on the spins.
             has_task_scheduling = True
@@ -2995,7 +3005,13 @@ def emit_cross_loop_schedule(
                 )
             )
         peer_counter_adds = peer_counter_publications(
-            root, scheduled_coordinates, "release"
+            root,
+            scheduled_coordinates,
+            "release",
+            # A worker's last task releases from the next root's first task.
+            guard=f"{strategy.virtual_pid_var} != {deferred_last_task[root]}"
+            if root in deferred_last_task
+            else None,
         )
         if producer_counters or peer_counter_adds:
             has_task_scheduling = True
@@ -3037,6 +3053,48 @@ def emit_cross_loop_schedule(
     # Live-task counts of guarded resident roots emitted at kernel scope.
     resident_live_tasks: dict[int, tuple[str, int]] = {}
 
+    def warp_specialized(block_ids: list[int]) -> bool:
+        specializes = CompileEnvironment.current().config_spec.range_warp_specialize
+        return any(
+            specializes.config_get(
+                device_function.config.range_warp_specializes, block_id, None
+            )
+            for block_id in block_ids
+        )
+
+    # Each worker's last keyed peer release of a root moves into the next
+    # resident root's first task (StaticPipelinePlan.deferred_peer_releases):
+    # the source root keeps the worker's last task id at kernel scope (-1 for
+    # none) and the next root issues that release.
+    deferred_releases = static_pipeline_plan.deferred_peer_releases(
+        frozenset(
+            root
+            for root, case in enumerate(owner.cases)
+            if warp_specialized([info.block_id for info in _case_pid_info(case)])
+        )
+    )
+    deferred_last_task = {
+        prev: device_function.new_var("tile_dependency_deferred_task", dce=False)
+        for prev in deferred_releases.values()
+    }
+
+    def deferred_release(root: int, guard: str) -> ast.stmt:
+        """Under ``guard``, this worker's last release of the previous root."""
+        prev = deferred_releases[root]
+        last = deferred_last_task[prev]
+        coordinates = execution_coordinates(
+            prev, f"{last} - {static_pipeline_plan.static_base(prev)}"
+        )
+        return create(
+            ast.If,
+            test=expr_from_string(f"({guard}) and {last} >= 0"),
+            body=[
+                *_release_sync(device_function),
+                *peer_counter_publications(prev, coordinates, "release"),
+            ],
+            orelse=[],
+        )
+
     def root_lane(root: int) -> str:
         # A trailing root begins mid-wave, where the earlier roots' live tasks end:
         # rotate workers onto its lanes.
@@ -3072,13 +3130,7 @@ def emit_cross_loop_schedule(
         ], live
 
     def shared_captures(extent: _GuardedExtent, block_ids: list[int]) -> list[ast.stmt]:
-        specializes = CompileEnvironment.current().config_spec.range_warp_specialize
-        if not any(
-            specializes.config_get(
-                device_function.config.range_warp_specializes, block_id, None
-            )
-            for block_id in block_ids
-        ):
+        if not warp_specialized(block_ids):
             return []
         # Partitions share hoisted reductions and loads instead of each
         # recomputing them; cheap index math stays rematerialized.
@@ -3099,12 +3151,17 @@ def emit_cross_loop_schedule(
 
     def skipped_task_dispatch(root: int, live: str) -> list[ast.stmt]:
         scatter_root = None if peer is None else peer.scatter_roots.get(root)
-        if scatter_root is None and not any(
-            plan.producers[0].producer_root == root for plan in peer_counter_plans
+        local_counters = root_counters_by_producer.get(root, ())
+        if (
+            scatter_root is None
+            and not local_counters
+            and not any(
+                plan.producers[0].producer_root == root for plan in peer_counter_plans
+            )
         ):
             return []
         # Guard-skipped tasks still count once per launch for keyed peers and
-        # mark their scatter done words.
+        # local readiness counters, and mark their scatter done words.
         segment_begin = static_pipeline_plan.static_base(root)
         segment_end = (
             segment_begin + static_pipeline_plan.execution_orders[root].task_count
@@ -3118,6 +3175,13 @@ def emit_cross_loop_schedule(
         )
         coordinates = execution_coordinates(root, f"({skipped}) - {segment_begin}")
         body = peer_counter_publications(root, coordinates, "relaxed")
+        # A skipped task writes nothing, so its arrivals need no release.
+        for plan, readiness_producer in local_counters:
+            body.extend(
+                emit_readiness_arrivals_from_producer(
+                    plan, readiness_producer, coordinates, "relaxed"
+                )
+            )
         if scatter_root is not None:
             assert peer is not None
             body.append(
@@ -3166,6 +3230,37 @@ def emit_cross_loop_schedule(
             hoisted.extend(shared_captures(extent, block_ids))
             segment_stop = f"tl.minimum({segment_begin} + {live}, {segment_end})"
             skipped_dispatch = skipped_task_dispatch(root, live)
+        first_task = f"((({lane}) - 0) + ({segment_begin}))"
+        has_task = f"{first_task} < {segment_stop}"
+        task_arguments = (
+            strategy.virtual_pid_var,
+            *(() if extent is None else extent.hoisted_names),
+        )
+        # Kernel-scope statements around the root (outside its membership guard)
+        # and the first statements of its task loop.
+        kernel_scope: list[ast.stmt] = []
+        trailer: list[ast.stmt] = []
+        task_prologue: list[ast.stmt] = []
+        if root in deferred_last_task:
+            last = deferred_last_task[root]
+            kernel_scope.append(statement_from_string(f"{last} = -1"))
+            hoisted.append(
+                statement_from_string(
+                    f"{last} = tl.where({has_task}, {first_task} + ({segment_stop}"
+                    f" - {first_task} - 1) // {launch_worker_count} * "
+                    f"{launch_worker_count}, -1)"
+                )
+            )
+            task_arguments = (*task_arguments, last)
+        if root in deferred_releases:
+            ran = device_function.new_var("tile_dependency_deferred_ran", dce=False)
+            kernel_scope.append(statement_from_string(f"{ran} = 0"))
+            hoisted.append(statement_from_string(f"{ran} = tl.where({has_task}, 1, 0)"))
+            task_prologue.append(
+                deferred_release(root, f"{strategy.virtual_pid_var} == {first_task}")
+            )
+            # A worker that runs no task here still owes the release.
+            trailer.append(deferred_release(root, f"{ran} == 0"))
         task_dispatch: list[ast.stmt] = [
             *hoisted,
             create(
@@ -3180,20 +3275,18 @@ def emit_cross_loop_schedule(
                     TileStrategy.get_range_call_str(
                         device_function.config,
                         block_ids,
-                        begin=f"(({lane}) - 0) + ({segment_begin})",
+                        begin=first_task,
                         end=segment_stop,
                         step=str(launch_worker_count),
                     )
                 ),
-                body=scheduled_root_task_body(
+                body=task_prologue
+                + scheduled_root_task_body(
                     root,
                     f"({strategy.virtual_pid_var}) - {segment_begin}",
                     f"{case_offsets[root]} + "
                     f"(({strategy.virtual_pid_var}) - {segment_begin})",
-                    (
-                        strategy.virtual_pid_var,
-                        *(() if extent is None else extent.hoisted_names),
-                    ),
+                    task_arguments,
                 ),
                 orelse=[],
                 type_comment=None,
@@ -3212,7 +3305,7 @@ def emit_cross_loop_schedule(
         ):
             if live is not None:
                 resident_live_tasks[root] = (live, task_count_value)
-            return task_dispatch
+            return [*kernel_scope, *task_dispatch, *trailer]
 
         active_body = _wait_for_dependencies(
             device_function=device_function,
@@ -3226,12 +3319,14 @@ def emit_cross_loop_schedule(
         active_body.extend(root_barrier_publication(root, synced=bool(publications)))
         active_body.extend(publications)
         return [
+            *kernel_scope,
             create(
                 ast.If,
                 test=expr_from_string(segment_membership),
                 body=active_body,
                 orelse=[],
-            )
+            ),
+            *trailer,
         ]
 
     if not uses_packet_dispatch:

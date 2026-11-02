@@ -1,0 +1,517 @@
+import asyncio
+import base64
+import io
+import json
+import zipfile
+from pathlib import Path
+import logging
+
+from trame_client.widgets.core import AbstractElement
+from trame_common.exec.throttle import Throttle
+
+from trame_vtklocal import module
+from trame_vtklocal.utils import exporter
+
+try:
+    import zlib  # noqa
+
+    ZIP_COMPRESSION = zipfile.ZIP_DEFLATED
+except ImportError:
+    ZIP_COMPRESSION = zipfile.ZIP_STORED
+
+logger = logging.getLogger(__name__)
+
+
+class HtmlElement(AbstractElement):
+    def __init__(self, _elem_name, children=None, **kwargs):
+        super().__init__(_elem_name, children, **kwargs)
+        if self.server:
+            # Remove the server reference from kwargs to avoid multiple args with same name.
+            kwargs.pop("trame_server", None)
+            self.server.enable_module(module, **kwargs)
+
+
+def encode_blobs(blob_map):
+    result = {}
+    for key in blob_map:
+        result[key] = base64.b64encode(bytes(blob_map[key].get("bytes", []))).decode(
+            "utf-8"
+        )
+
+    return result
+
+
+def get_version():
+    from vtkmodules.vtkCommonCore import vtkVersion
+
+    vtk_version = vtkVersion()
+    return vtk_version.GetVTKVersion()
+
+
+def is_vtk_version_newer(major, min, patch):
+    from vtkmodules.vtkCommonCore import vtkVersion
+
+    vtk_version = vtkVersion()
+    if vtk_version.GetVTKMajorVersion() > major:
+        return True
+    elif vtk_version.GetVTKMajorVersion() == major:
+        if vtk_version.GetVTKMinorVersion() > min:
+            return True
+        elif vtk_version.GetVTKMinorVersion() == min:
+            if vtk_version.GetVTKBuildVersion() > patch:
+                return True
+    return False
+
+
+class LocalView(HtmlElement):
+    """
+    LocalView allow to mirror a server side vtkRenderWindow
+    on the client side using VTK.wasm.
+
+    Args:
+        render_window (vtkRenderWindow):
+            Specify the VTK window to mirror
+        throttle_rate (number):
+            Number of update per second the render_throttle()
+            method will actually perform.
+        cache_size (number):
+            Size of client side cache for geometry and arrays in Bytes.
+        listeners (dict):
+            Dynamic structure describing what to observe and how to map internal
+            WASM state to trame state variable.
+        progress_enabled (bool):
+            Allow the progress synchronization to show (or not).
+        progress_delay (int):
+            Number of ms to wait before showing the progress. This allow to disable
+            progress dialog to show for short synchronization time.
+        config (dict):
+            Provide configuration for your wasm runtime.
+            {
+               rendering: 'webgpu' or 'webgl',
+               exec: 'sync' or 'async',
+               wasmBaseName: 'vtk',  # base name of the wasm file, will look for `${wasmBaseName}WebAssembly.mjs`
+            }
+        emit_memory (bool):
+            Emit memory information events. By default it is skipped.
+        auto_resize (bool):
+            Enabled by default. If disabled, the render window will not
+            automatically resize when the canvas is resized.
+        updated/on_updated (event):
+            Emitted after each completed client side update.
+        memory_vtk/on_memory_vtk (event):
+            Event which provides the current memory used by vtk object structures.
+        memory_arrays/on_memory_arrays (event):
+            Event which provides the current memory used by vtk arrays.
+        camera/on_camera (event):
+            Event emitted when any camera is changed. The actual state of
+            the camera is passed as arg.
+        progress/on_progress (event):
+            Event emitted during wasm sync. Payload includes active flag and
+            current/total counts for states and blobs.
+
+        end_interaction/on_end_interaction (event):
+            Event emitted after a camera/widget interaction. Payload includes a
+            list of camera state for possible client/server synchronization.
+
+        Events starting with on_* are for client_type='react'.
+
+    """
+
+    _next_id = 0
+
+    def __init__(
+        self,
+        render_window,
+        throttle_rate=10,
+        **kwargs,
+    ):
+        self._pending_invoke_result = {}
+        self._pending_result_id = 0
+        self._mounted = False
+
+        super().__init__(
+            "vtk-local",
+            **kwargs,
+        )
+        self.__registered_obj = []
+        self.__ref = kwargs.get("ref")
+        if self.__ref is None:
+            LocalView._next_id += 1
+            self.__ref = f"_vtklocalview_{LocalView._next_id}"
+
+        # Must trigger update after registration
+        self._render_window = render_window
+        self._window_id = self.object_manager.RegisterObject(render_window)
+        render_window.Render()
+        self.object_manager.UpdateStatesFromObjects()
+        if self.api._debug_state:
+            self.object_manager.Export(f"snapshot-{self.api._debug_state_counter}")
+
+        if self.server.client_type == "react":
+            from trame.widgets import react
+
+            self.props += [
+                ("render_window", "renderWindow"),
+                ("progress_enabled", "progressEnabled"),
+                ("progress_delay", "progressDelay"),
+                ("cache_size", "cacheSize"),
+                "verbosity",
+                "listeners",
+                "config",
+                ("auto_resize", "autoResize"),
+            ]
+            self.events += [
+                ("on_ready", "onReady"),
+                ("on_unmount", "onUnmount"),
+                ("on_updated", "onUpdated"),
+                ("on_camera", "onCamera"),
+                ("on_memory_vtk", "onMemoryVtk"),
+                ("on_memory_arrays", "onMemoryArrays"),
+                ("on_invoke_response", "onInvokeResponse"),
+                ("on_progress", "onProgress"),
+                ("on_end_interaction", "onEndInteraction"),
+            ]
+
+            self.ref = self.__ref
+            self.render_window = self._window_id
+
+            # Register response callback if not overridden
+            if "on_invoke_response" not in kwargs:
+                self.on_invoke_response = react.Callback(
+                    self._on_invoke_response, "$event"
+                )
+            if "on_ready" not in kwargs:
+                self.on_ready = react.Callback(self._on_ready, "[$event]")
+            if "on_unmount" not in kwargs:
+                self.on_unmount = react.Callback(self._on_unmount)
+        else:
+            # Register response callback if not overridden
+            if "invoke_response" not in kwargs:
+                self.invoke_response = (self._on_invoke_response, "$event")
+            if "ready" not in kwargs:
+                self.ready = (self._on_ready, "[$event]")
+            if "unmount" not in kwargs:
+                self.unmount = self._on_unmount
+
+            self._attributes["rw_id"] = f':render-window="{self._window_id}"'
+            self._attributes["ref"] = f'ref="{self.__ref}"'
+            self._attr_names += [
+                ("use_handler", "useHandler"),
+                ("cache_size", "cacheSize"),
+                "verbosity",
+                ("listeners", ":listeners"),
+                ("config", ":config"),
+                ("progress_enabled", "progressEnabled"),
+                ("progress_delay", "progressDelay"),
+                ("emit_memory", "emitMemory"),
+                ("auto_resize", "autoResize"),
+            ]
+            self._event_names += [
+                "ready",
+                "unmount",
+                "updated",
+                "camera",
+                ("memory_vtk", "memory-vtk"),
+                ("memory_arrays", "memory-arrays"),
+                ("invoke_response", "invoke-response"),
+                "progress",
+                ("end_interaction", "end-interaction"),
+            ]
+
+        # Generate throttle update function
+        self._update_throttle = Throttle(self.update)
+        self._update_throttle.rate = throttle_rate
+
+    def _on_ready(self, wasm_runtime_id):
+        self._mounted = True
+        self._wasm_runtime_id = wasm_runtime_id
+
+    def _on_unmount(self):
+        self._mounted = False
+
+    def _on_invoke_response(self, request_id, response):
+        future = self._pending_invoke_result.pop(request_id, None)
+        if future is None:
+            logger.error("No pending invoke for id %s", request_id)
+            return
+        future.set_result(response)
+
+    @property
+    def api(self):
+        """Return API from helper"""
+        return module.get_helper(self.server).api
+
+    @property
+    def object_manager(self):
+        """Return object_manager"""
+        return self.api.vtk_object_manager
+
+    def eval(self, state_mapping):
+        """Evaluate WASM state extract and map it onto trame state variables
+
+        >>> html_view.eval({
+        ...    "trame_state_name": {
+        ...        "prop_name1": (wasm_id, "PropName"),
+        ...        "origin": (wasm_id, "WidgetRepresentation", "origin"),
+        ...        "widget_state": widget_id,
+        ...    }
+        ... }
+        """
+        self.server.js_call(self.__ref, "evalStateExtract", state_mapping)
+
+    def dispose_remote_session(self):
+        """
+        This will clear and dispose of the remote session.
+        """
+        if self._mounted and self._wasm_runtime_id:
+            self.server.js_call(self.__ref, "disposeRemoteSession")
+        else:
+            self.server.js_call(
+                "vtkWASM", "disposeRemoteSession", self._wasm_runtime_id
+            )
+
+    def dispose_wasm_runtime(self):
+        """
+        This will clear and dispose of the WASM runtime.
+        """
+        if self._mounted and self._wasm_runtime_id:
+            self.server.js_call(self.__ref, "disposeWasmRuntime")
+        else:
+            self.server.js_call("vtkWASM", "disposeWasmRuntime", self._wasm_runtime_id)
+            self._wasm_runtime_id = None
+
+    @property
+    def update_throttle(self):
+        """Throttled update method on which you can update its rate by doing
+
+        >>> html_view.update_throttle.rate = 15  # time per second
+        >>> html_view.update_throttle()
+        """
+        return self._update_throttle
+
+    def update(self, push_camera=False, obj_to_update=None, **options):
+        """Sync view by pushing updates to client.
+
+        :param push_camera: If ``True``, include camera state in the update.
+        :param obj_to_update: Pass a list of objects registered with
+            :meth:`register_vtk_object` when you only want to update a specific
+            subset of the scene. When None (default), the render window together
+            with all registered objects tracked by this view are updated.
+        :param options: Forwarded to the client and become the content of the
+            ``@updated=`` event.
+        """
+        if obj_to_update is None:
+            # Registered objects first: one attached to the window's interactor
+            # reaches the whole scene, so serializing it covers the window as well.
+            obj_to_update = [*self.__registered_obj, self._render_window]
+        if not isinstance(obj_to_update, list | tuple):
+            obj_to_update = [obj_to_update]
+        self.api.update(
+            push_camera=push_camera,
+            obj_to_update=obj_to_update,
+        )
+        self.server.js_call(self.__ref, "update", options)
+
+    def register_vtk_object(self, vtk_instance):
+        """Register external element (i.e. widget) into the scene so it can be managed and return its wasm_id
+
+        A widget attached to the render window's interactor does not need this when
+        the interactor is created with
+        ``vtkRenderWindowInteractor(track_interactor_observer_instances=True)``:
+        it is then serialized as part of the render window.
+        """
+        if vtk_instance not in self.__registered_obj:
+            self.api.register_widget(self._render_window, vtk_instance)
+            self.__registered_obj.append(vtk_instance)
+            self.api.update()
+
+        return self.get_wasm_id(vtk_instance)
+
+    def unregister_vtk_object(self, vtk_instance):
+        """Unregister external element (i.e. widget) from the scene so it can removed from tracking"""
+        if vtk_instance in self.__registered_obj:
+            self.api.unregister_widget(self._render_window, vtk_instance)
+            return True
+
+        return False
+
+    def unregister_all_vtk_objects(self):
+        """Unregister all external element (i.e. widget) from the scene"""
+        for vtk_instance in self.__registered_obj:
+            self.api.unregister_widget(self._render_window, vtk_instance)
+            self.__registered_obj.remove(vtk_instance)
+
+    def export(self, format="zip", **kwargs):
+        """Export standalone scene for WASMViewer
+
+        :param format: Can be either be "zip" or "json".
+        """
+        base_name = str(Path(f"snapshot-{self.api._debug_state_counter}").resolve())
+        self.object_manager.Export(base_name)
+        states_file = Path(f"{base_name}.states.json")
+        blobs_file = Path(f"{base_name}.blobs.json")
+
+        json_structure = {
+            "version": get_version(),
+            "states": json.loads(states_file.read_text()),
+            "blobs": encode_blobs(json.loads(blobs_file.read_text())),
+        }
+        states_file.unlink()
+        blobs_file.unlink()
+
+        # write json file to disk
+        if format == "json":
+            json_out = json.dumps(json_structure)
+            return json_out.encode(encoding="UTF-8", errors="strict")
+        if format == "zip":
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "a") as zfile:
+                zfile.writestr(
+                    "index.json",
+                    json.dumps(json_structure),
+                    compress_type=ZIP_COMPRESSION,
+                )
+
+            return zip_buffer.getvalue()
+
+    def save(self, file_name, wasm_ids=None):
+        """Save zip file capturing state and blob data for a given render window"""
+        if wasm_ids is None:
+            wasm_ids = self.api.get_all_ids(self._window_id)
+
+        self.api.dump_data(file_name, wasm_ids)
+
+    def export_wazex(self, file_name=None):
+        """Serialize the scene into an in memory `BytesIO` return or into a provided wazex file path"""
+        return exporter.to_wazex(
+            object_manager=self.object_manager,
+            root_ids=self.api.get_all_ids(self._window_id),
+            output=file_name,
+        )
+
+    def export_html(self, file_name=None, config=None):
+        """Serialize the scene into a standalone HTML as in memory `BytesIO` return or a provided html file path"""
+        return exporter.to_html(
+            object_manager=self.object_manager,
+            root_ids=self.api.get_all_ids(self._window_id),
+            output=file_name,
+            config=self._extract_config(config),
+        )
+
+    def export_viewer(self, file_name, config=None):
+        """Write a standalone WASM viewer HTML page that does NOT embed any data."""
+        exporter.create_viewer(file_name, self._extract_config(config))
+
+    def download_screenshot(self, filename, format="image/png"):
+        self.server.js_call(self.__ref, "screenshot", filename, format)
+
+    def _extract_config(self, config):
+        if config is None and self.config:
+            if isinstance(self.config, str):
+                config = json.loads(self.config)
+            elif isinstance(self.config, tuple | list):
+                config = self.state[self.config[0]]
+            else:
+                msg = f"Invalid config: {self.config}"
+                raise ValueError(msg)
+
+        return config
+
+    def reset_camera(self, renderer_or_render_window=None, **kwargs):
+        """Reset camera by making the call on the client side"""
+        if renderer_or_render_window is None:
+            renderer_or_render_window = self._render_window
+
+        if renderer_or_render_window.IsA("vtkRenderWindow"):
+            renderer_or_render_window = (
+                renderer_or_render_window.GetRenderers().GetFirstRenderer()
+            )
+
+        if renderer_or_render_window.IsA("vtkRenderer"):
+            id_to_reset_camera = self.get_wasm_id(renderer_or_render_window)
+            self.server.js_call(self.__ref, "resetCamera", id_to_reset_camera)
+
+    def start_web_xr(self, mode=1, required_features=1, optional_features=2):
+        """Start WebXR session
+
+        :param mode: 0 (inline), 1 (VR) or 2 (AR)
+        """
+        if not is_vtk_version_newer(9, 6, 20260326):
+            raise NotImplementedError("You need VTK>=9.7 to use WebXR (>=9.6.20260327)")
+        self.server.js_call(
+            self.__ref, "startWebXR", mode, required_features, optional_features
+        )
+
+    def stop_web_xr(self):
+        """Stop WebXR session"""
+        if not is_vtk_version_newer(9, 6, 20260326):
+            raise NotImplementedError("You need VTK>=9.7 to use WebXR (>=9.6.20260327)")
+        self.server.js_call(self.__ref, "stopWebXR")
+
+    @property
+    def ref_name(self):
+        """Return the assigned name as a vue.js ref"""
+        return self.__ref
+
+    def get_wasm_id(self, vtk_object):
+        """Return vtkObject id used within WASM scene manager"""
+        if hasattr(vtk_object, "IsA"):  # vtkObject
+            return self.object_manager.GetId(vtk_object)
+        return vtk_object
+
+    def get_wasm_obj_id(self, vtk_object):
+        """Return vtkObject {Id: id} used within WASM scene manager"""
+        if hasattr(vtk_object, "IsA"):  # vtkObject
+            return {"Id": self.object_manager.GetId(vtk_object)}
+        return vtk_object
+
+    def get_vtk_obj(self, wasm_id):
+        """Return corresponding VTK object"""
+        return self.object_manager.GetObjectAtId(wasm_id)
+
+    def vtk_update_from_state(self, state_obj):
+        """Use a state from WASM to update a VTK object"""
+        if isinstance(state_obj, dict):
+            state_obj = json.dumps(state_obj)
+
+        self.object_manager.UpdateObjectFromState(state_obj)
+
+    def _generate_pending_future(self):
+        future = asyncio.get_running_loop().create_future()
+        self._pending_result_id += 1
+        self._pending_invoke_result[self._pending_result_id] = future
+        return future, self._pending_result_id
+
+    def render(self):
+        self.server.js_call(self.__ref, "render")
+
+    async def invoke(self, vtk_obj, method, *args, unwrap_vtk_object=True):
+        wasm_id = self.get_wasm_id(vtk_obj)
+
+        if is_vtk_version_newer(9, 5, 100):
+            args = list(map(self.get_wasm_obj_id, args))
+        else:
+            args = list(map(self.get_wasm_id, args))
+
+        future, req_id = self._generate_pending_future()
+        self.server.js_call(self.__ref, "invoke", (req_id, wasm_id), method, args)
+        await future
+        result_from_client = future.result()
+
+        # auto unwrap vtk objects
+        if (
+            unwrap_vtk_object
+            and isinstance(result_from_client, dict)
+            and "Id" in result_from_client
+        ):
+            return self.get_vtk_obj(result_from_client.get("Id"))
+
+        return result_from_client
+
+    def print_scene_manager_information(self):
+        self.server.js_call(self.__ref, "printSceneManagerInformation")
+
+
+__all__ = [
+    "LocalView",
+]

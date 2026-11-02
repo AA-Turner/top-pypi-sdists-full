@@ -405,12 +405,10 @@ def test_a_refusing_journal_drops_hw_points_quietly(queued_client, app, monkeypa
     try:
         if refusal == "op_ceiling":
             monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 1)
-            monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 1)
             # Fill the queue to its ceiling with someone else's op.
             client.journal.append_http("POST", "/v1/runs/someone-else/metrics", {"points": []})
         else:
             monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 1 << 62)
-            monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 1 << 62)
             monkeypatch.setattr(journal_module.headroom, "_STATVFS_EVERY", 1)
             monkeypatch.setattr(journal_module.journal, "_STATVFS_EVERY", 1)
         before = len(client.journal.pending())
@@ -520,19 +518,88 @@ def test_inventory_never_clobbers_the_env_ref_a_snapshot_pinned(
     )
     try:
         run = open_run(client, experiment="hw-snap", hw=True)
-        snapshot_hash = next(h for h, row in app.execution_records.items() if row.get("code"))
         run.finish()
         _settle_hw_threads()
         client.flush()
     finally:
         client.close()
 
+    # Read after the close: under async writes the open POSTs its record on a thread.
+    snapshot_hash = next(h for h, row in app.execution_records.items() if row.get("code"))
     assert app.runs[run.id]["env_ref"] == snapshot_hash
     pinned = [
         json.loads(r.content).get("env_ref")
         for r in _direct(app, "PATCH", f"/v1/runs/{run.id}")
     ]
     assert set(pinned) - {None} == {snapshot_hash}, pinned
+
+
+@pytest.mark.filterwarnings("ignore:probe. env_ref was queued, not confirmed")
+def test_the_inventory_waits_for_the_opens_record_in_flight(
+    app, monkeypatch, snapshot_repo, tmp_path
+):
+    """Under async writes the open POSTs its execution record on a thread of its own. The
+    inventory asks the handle only after that answer, or it mints a hardware-only record
+    while the real one is in flight and races its PATCH."""
+    monkeypatch.chdir(snapshot_repo)
+    monkeypatch.setenv("PROBE_AUTO_SNAPSHOT", "1")
+    _real_collector(monkeypatch, FakeHwSource(inventory={"gpu_count": 8}))
+    client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, drain_interval=0.05)
+    real = client.transport.request
+
+    def slow_open_record(method, path, *args, **kwargs):
+        if path == "/v1/execution-records" and threading.current_thread().name == "probe-execution-record":
+            time.sleep(0.5)
+        return real(method, path, *args, **kwargs)
+
+    monkeypatch.setattr(client.transport, "request", slow_open_record)
+    try:
+        run = open_run(client, experiment="hw-slow-record", hw=True)
+        _settle_hw_threads_named("probe-hw-inventory")
+        run.finish()
+        _settle_hw_threads()
+        client.flush()
+    finally:
+        client.close()
+
+    minted = [h for h, row in app.execution_records.items() if not row.get("code")]
+    assert minted == [], "the inventory minted a record while the open's was in flight"
+    snapshot_hash = next(h for h, row in app.execution_records.items() if row.get("code"))
+    assert app.runs[run.id]["env_ref"] == snapshot_hash
+
+
+@pytest.mark.filterwarnings("ignore:probe. execution record not recorded")
+def test_the_inventory_never_pins_once_the_run_is_closing(app, monkeypatch, snapshot_repo, tmp_path):
+    """A close that gave up on the open's record (a short run on a slow API) wakes the
+    inventory with no env_ref: it must not mint and pin then, or its PATCH lands after the
+    run's status."""
+    from probe.sdk.run.files import snapshot_queue
+
+    monkeypatch.chdir(snapshot_repo)
+    monkeypatch.setenv("PROBE_AUTO_SNAPSHOT", "1")
+    monkeypatch.setattr(snapshot_queue, "EXECUTION_RECORD_TIMEOUT_SECONDS", 0.3)
+    _real_collector(monkeypatch, FakeHwSource(inventory={"gpu_count": 8}))
+    client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, drain_interval=0.05)
+    real = client.transport.request
+    release = threading.Event()
+
+    def hung_open_record(method, path, *args, **kwargs):
+        if path == "/v1/execution-records" and threading.current_thread().name == "probe-execution-record":
+            release.wait(10)
+        return real(method, path, *args, **kwargs)
+
+    monkeypatch.setattr(client.transport, "request", hung_open_record)
+    try:
+        run = open_run(client, experiment="hw-closing", hw=True)
+        run.finish(flush_timeout=2.0)
+        _settle_hw_threads()
+        client.flush()
+    finally:
+        release.set()
+        client.close()
+
+    assert [h for h, row in app.execution_records.items() if not row.get("code")] == []
+    assert not app.runs[run.id].get("env_ref")
 
 
 class RunRowLocks:
@@ -731,7 +798,6 @@ def test_a_refused_hw_point_records_no_capture_gap_but_a_users_write_does(
     run.log({"loss": 0.5}, step=0)
     try:
         monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 1 << 62)
-        monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 1 << 62)
         monkeypatch.setattr(journal_module.headroom, "_STATVFS_EVERY", 1)
         monkeypatch.setattr(journal_module.journal, "_STATVFS_EVERY", 1)
         with warnings.catch_warnings(record=True) as caught:

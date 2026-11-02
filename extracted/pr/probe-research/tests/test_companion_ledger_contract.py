@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import companion
+from probe.cli.commands.daemon import companion
 
 TAP_ROOT = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-tap"
 SID = "11111111-2222-3333-4444-555555555555"

@@ -19,7 +19,7 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import capy_retire
+from probe.cli.install import capy_retire
 
 SESSION = "4b0e5a63-6a7c-5f2c-9f3e-0c9a1d2b3c4d"
 
@@ -80,7 +80,19 @@ def leftovers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict:
             return False
 
     monkeypatch.setattr(
-        "probe.cli.capabilities._credential_opener",
+        "probe.cli.wizard.state.credential_http._credential_opener",
+        lambda: SimpleNamespace(open=lambda request, timeout: calls["revoked"].append(
+            (request.full_url, request.get_header("Authorization"), (plugin / ".token").exists())
+        ) or _Response()),
+    )
+    monkeypatch.setattr(
+        "probe.cli.wizard.state.capture_credentials._credential_opener",
+        lambda: SimpleNamespace(open=lambda request, timeout: calls["revoked"].append(
+            (request.full_url, request.get_header("Authorization"), (plugin / ".token").exists())
+        ) or _Response()),
+    )
+    monkeypatch.setattr(
+        "probe.cli.wizard.state.device_state._credential_opener",
         lambda: SimpleNamespace(open=lambda request, timeout: calls["revoked"].append(
             (request.full_url, request.get_header("Authorization"), (plugin / ".token").exists())
         ) or _Response()),
@@ -127,7 +139,9 @@ def test_a_failed_revoke_still_takes_everything_down(leftovers, monkeypatch, fai
         def fail(request, timeout):
             raise error
 
-        monkeypatch.setattr("probe.cli.capabilities._credential_opener", lambda: SimpleNamespace(open=fail))
+        monkeypatch.setattr("probe.cli.wizard.state.credential_http._credential_opener", lambda: SimpleNamespace(open=fail))
+        monkeypatch.setattr("probe.cli.wizard.state.capture_credentials._credential_opener", lambda: SimpleNamespace(open=fail))
+        monkeypatch.setattr("probe.cli.wizard.state.device_state._credential_opener", lambda: SimpleNamespace(open=fail))
     assert capy_retire.retire() == list(capy_retire.REMOVED)
     assert not leftovers["state"].exists()
     assert not leftovers["plist"].exists()
@@ -200,7 +214,7 @@ def test_the_shim_is_hidden_from_help():
 
 
 def test_an_update_takes_it_down(leftovers, monkeypatch):
-    from probe.cli import updater, upgrading
+    from probe.cli.install import updater, upgrade as upgrading
 
     monkeypatch.setattr(capy_retire.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {})
@@ -216,7 +230,7 @@ def test_an_update_takes_it_down(leftovers, monkeypatch):
 
 
 def test_sign_out_takes_it_down(leftovers, monkeypatch):
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     monkeypatch.setattr(capy_retire.platform, "system", lambda: "Darwin")
     lines = setup.release_credentials()
@@ -231,7 +245,7 @@ def test_an_agent_with_no_daemon_profile_has_no_failing_recorder_row(monkeypatch
 
     import probe.cli.main  # noqa: F401
     from probe.cli import json_events
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
     from probe.sdk import session_marker
 
     main = sys.modules["probe.cli.main"]

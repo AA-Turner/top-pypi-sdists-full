@@ -71,7 +71,7 @@ def offer_run_alerts(session_id: str, config: "str | None", pid: "int | None" = 
 
 def alerts_handoff_path(session_id: str) -> Path:
     """Where the Probe service leaves this session's run alerts as the server
-    answered them (`probe.service.alertpoll`): `{sid, polled_at, alerts (a
+    answered them (`probe.service.watch.alertpoll`): `{sid, polled_at, alerts (a
     listing or null), refused_until (null or epoch seconds), every (seconds
     between its polls), pid}`."""
     return root() / "alerts" / f"{_safe(session_id)}.json"

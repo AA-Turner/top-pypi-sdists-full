@@ -1,0 +1,57 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/languages/golang/test.py
+# Purpose:   Golang test runner with coverage support
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Golang test handler.
+
+Runs go test with optional race detection and coverage, written to
+test-results/ for artifact upload.
+"""
+
+from pathlib import Path
+
+from hyperi_ci.common import error, info, run_cmd, success
+from hyperi_ci.config import CIConfig
+from hyperi_ci.languages.tiering import SuiteTier, handler_tier, warn_full_ran_core
+
+_RESULTS_DIR = Path("test-results")
+
+
+def run(config: CIConfig, extra_env: dict[str, str] | None = None) -> int:
+    """Run Golang tests."""
+    info("Running Golang tests...")
+    if handler_tier(extra_env) is SuiteTier.FULL:
+        warn_full_ran_core("Go has no ignored-test mechanism")
+
+    cmd = ["go", "test"]
+    args = list(config.setting("test.golang.args"))
+    cmd.extend(args)
+
+    if config.setting("test.golang.race"):
+        cmd.append("-race")
+
+    if config.setting("test.coverage"):
+        _RESULTS_DIR.mkdir(exist_ok=True)
+        coverage_file = _RESULTS_DIR / "coverage.out"
+        cmd.extend(["-coverprofile", str(coverage_file), "-covermode=atomic"])
+
+    cmd.append("./...")
+
+    result = run_cmd(cmd, check=False)
+    if result.returncode != 0:
+        error("Golang tests failed")
+        return result.returncode
+
+    coverage_file = _RESULTS_DIR / "coverage.out"
+    if coverage_file.exists():
+        html_file = _RESULTS_DIR / "coverage.html"
+        run_cmd(
+            ["go", "tool", "cover", f"-html={coverage_file}", f"-o={html_file}"],
+            check=False,
+        )
+        info(f"  Coverage report: {html_file}")
+
+    success("Golang tests passed")
+    return 0

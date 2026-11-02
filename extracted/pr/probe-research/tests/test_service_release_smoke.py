@@ -52,9 +52,11 @@ from pathlib import Path
 import pytest
 
 from probe import __version__ as CURRENT_VERSION
-from probe.cli import service_calls
-from probe.service import client, protocol
-from probe.service.protocol import Client, ErrorCode, Method
+from probe.cli.lifecycle import service_calls
+from probe.foundation import service_api as client
+from probe.foundation import service_api as protocol
+from probe.foundation.service_api.vocabularies import Client
+from probe.foundation.service_api.wire import ErrorCode, Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 from tests.test_service_api_contract import CURRENT, SNAPSHOT
 from tests.test_service_recorders import _tap
@@ -107,7 +109,7 @@ print(json.dumps({
 }))
 '''
 #: The old side's client, against whichever service runs: one connection, each
-#: call's answer or error. Its own `probe.service.client`, as its tap and CLI use it.
+#: call's answer or error. Its own `probe.foundation.service_api`, as its tap and CLI use it.
 _SPEAK = r'''
 import json, sys
 from probe import __version__

@@ -107,7 +107,7 @@ def test_spawned_and_forkserver_workers_record_into_the_run(tmp_path, method) ->
         tmp_path,
         f"""
         import json, multiprocessing, workers
-        from probe.sdk import inputs
+        from probe.sdk.capture import lineage as inputs
         assert inputs.start("run-{method}")
         assert inputs.bind_workers("run-{method}")
         ctx = multiprocessing.get_context("{method}")
@@ -137,7 +137,8 @@ def test_an_offline_runs_spawned_worker_records_into_it(tmp_path) -> None:
         f"""
         import json, multiprocessing, os, workers
         import probe
-        from probe.sdk import inputs, offline
+        from probe.sdk.capture import lineage as inputs
+        from probe.sdk.delivery import offline
         from probe.sdk.delivery.journal.journal import Journal
 
         run = probe.init(mode="offline", project="p1", name="spawner")
@@ -236,7 +237,7 @@ def test_a_persistent_worker_follows_its_owner_to_the_next_run(tmp_path, method)
         tmp_path,
         f"""
         import json, multiprocessing, time, workers
-        from probe.sdk import inputs
+        from probe.sdk.capture import lineage as inputs
 
         class Client:
             journal = None
@@ -344,7 +345,7 @@ def test_a_worker_opening_its_own_run_leaves_the_binding(tmp_path, own_capture) 
     grand = f"open({str(grandchild)!r}, 'rb').read()"
     code = (
         "import os, subprocess, sys\n"
-        "from probe.sdk import inputs\n"
+        "from probe.sdk.capture import lineage as inputs\n"
         f"open({str(before)!r}, 'rb').read()\n"
         f"inputs.start('run-worker-own', capture_reads={own_capture})\n"
         f"open({str(after)!r}, 'rb').read()\n"

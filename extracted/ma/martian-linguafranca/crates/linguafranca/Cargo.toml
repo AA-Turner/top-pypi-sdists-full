@@ -1,0 +1,19 @@
+[package]
+name = "linguafranca"
+version = "0.3.16"
+description = "LLM API format converter — convert between OpenAI, Anthropic, and Open Responses formats"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+sha2 = "0.10.9"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }

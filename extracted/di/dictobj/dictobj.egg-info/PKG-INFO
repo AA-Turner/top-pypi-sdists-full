@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: dictobj
+Version: 0.4
+Summary: A set of Python dictionary objects where keys can be accessed as instance attributes.
+Home-page: https://github.com/grimwm/py-dictobj
+Author: William Grim
+Author-email: william@grimapps.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

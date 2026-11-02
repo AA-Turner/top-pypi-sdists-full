@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: boltdb
+Version: 0.0.2
+Summary: python port of boltdb
+Home-page: https://github.com/qingyunha/pybolt
+Author: Tao Qingyun
+Author-email: taoqy@ls-a.me
+License: UNKNOWN
+Description: # boltdb
+        
+        A Python port of [Bolt][bolt] key/value store.
+        
+        [bolt]: https://github.com/boltdb/bolt
+        
+        
+        ## Install
+        
+        ``` console
+        $ pip install boltdb
+        ```
+        
+        
+        ## Example
+        
+        see [test\_bucket.py](./tests/test_bucket.py)
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

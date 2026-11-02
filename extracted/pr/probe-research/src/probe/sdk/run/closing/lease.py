@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.routes import WriteOp, path_for
 
 
 #: How long a finishing writer's draining beat keeps its lease live (2.8):
@@ -114,7 +115,7 @@ class WriterLeaseMixin:
                 body["ended_at"] = ended_at
             if summary is not None:
                 body.update(_summary_wire(summary))
-            data = self._client.write("PATCH", f"/v1/runs/{self.id}", body, sync=sync, strict=strict)
+            data = self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, sync=sync, strict=strict)
         resp = self._send_release(status, sync=sync, strict=strict)
         self._closed_status = status
         from ..launch import daemon_channel

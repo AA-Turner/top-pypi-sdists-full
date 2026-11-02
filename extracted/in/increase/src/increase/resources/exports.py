@@ -1,0 +1,678 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Literal
+
+import httpx
+
+from ..types import export_list_params, export_create_params
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..pagination import SyncPage, AsyncPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.export import Export
+
+__all__ = ["ExportsResource", "AsyncExportsResource"]
+
+
+class ExportsResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> ExportsResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return ExportsResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> ExportsResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return ExportsResourceWithStreamingResponse(self)
+
+    def create(
+        self,
+        *,
+        category: Literal[
+            "account_statement_bai2",
+            "account_statement_ofx",
+            "account_verification_letter",
+            "balance_csv",
+            "bookkeeping_account_balance_csv",
+            "daily_account_balance_csv",
+            "entity_csv",
+            "fee_csv",
+            "funding_instructions",
+            "transaction_csv",
+            "vendor_csv",
+            "voided_check",
+        ],
+        account_statement_bai2: export_create_params.AccountStatementBai2 | Omit = omit,
+        account_statement_ofx: export_create_params.AccountStatementOfx | Omit = omit,
+        account_verification_letter: export_create_params.AccountVerificationLetter | Omit = omit,
+        bookkeeping_account_balance_csv: export_create_params.BookkeepingAccountBalanceCsv | Omit = omit,
+        daily_account_balance_csv: export_create_params.DailyAccountBalanceCsv | Omit = omit,
+        entity_csv: export_create_params.EntityCsv | Omit = omit,
+        fee_csv: export_create_params.FeeCsv | Omit = omit,
+        funding_instructions: export_create_params.FundingInstructions | Omit = omit,
+        transaction_csv: export_create_params.TransactionCsv | Omit = omit,
+        vendor_csv: export_create_params.VendorCsv | Omit = omit,
+        voided_check: export_create_params.VoidedCheck | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> Export:
+        """
+        Create an Export
+
+        Args:
+          category: The type of Export to create.
+
+              - `account_statement_bai2` - Export a BAI2 file of transactions and balances for
+                a given date and optional Account.
+              - `account_statement_ofx` - Export an Open Financial Exchange (OFX) file of
+                transactions and balances for a given time range and Account.
+              - `account_verification_letter` - A PDF of an account verification letter.
+              - `balance_csv` - Export a CSV of account balances for the dates in a given
+                range. (deprecated, use `daily_account_balance_csv` instead)
+              - `bookkeeping_account_balance_csv` - Export a CSV of bookkeeping account
+                balances for the dates in a given range.
+              - `daily_account_balance_csv` - Export a CSV of daily account balances with
+                starting and ending balances for a given date range.
+              - `entity_csv` - Export a CSV of entities with a given status.
+              - `fee_csv` - Export a CSV of fees. The time range must not include any fees
+                that are part of an open fee statement.
+              - `funding_instructions` - A PDF of funding instructions.
+              - `transaction_csv` - Export a CSV of all transactions for a given time range.
+              - `vendor_csv` - Export a CSV of vendors added to the third-party risk
+                management dashboard.
+              - `voided_check` - A PDF of a voided check.
+
+          account_statement_bai2: Options for the created export. Required if `category` is equal to
+              `account_statement_bai2`.
+
+          account_statement_ofx: Options for the created export. Required if `category` is equal to
+              `account_statement_ofx`.
+
+          account_verification_letter: Options for the created export. Required if `category` is equal to
+              `account_verification_letter`.
+
+          bookkeeping_account_balance_csv: Options for the created export. Required if `category` is equal to
+              `bookkeeping_account_balance_csv`.
+
+          daily_account_balance_csv: Options for the created export. Required if `category` is equal to
+              `daily_account_balance_csv`.
+
+          entity_csv: Options for the created export. Required if `category` is equal to `entity_csv`.
+
+          fee_csv: Options for the created export. Required if `category` is equal to `fee_csv`.
+
+          funding_instructions: Options for the created export. Required if `category` is equal to
+              `funding_instructions`.
+
+          transaction_csv: Options for the created export. Required if `category` is equal to
+              `transaction_csv`.
+
+          vendor_csv: Options for the created export. Required if `category` is equal to `vendor_csv`.
+
+          voided_check: Options for the created export. Required if `category` is equal to
+              `voided_check`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        return self._post(
+            "/exports",
+            body=maybe_transform(
+                {
+                    "category": category,
+                    "account_statement_bai2": account_statement_bai2,
+                    "account_statement_ofx": account_statement_ofx,
+                    "account_verification_letter": account_verification_letter,
+                    "bookkeeping_account_balance_csv": bookkeeping_account_balance_csv,
+                    "daily_account_balance_csv": daily_account_balance_csv,
+                    "entity_csv": entity_csv,
+                    "fee_csv": fee_csv,
+                    "funding_instructions": funding_instructions,
+                    "transaction_csv": transaction_csv,
+                    "vendor_csv": vendor_csv,
+                    "voided_check": voided_check,
+                },
+                export_create_params.ExportCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=Export,
+        )
+
+    def retrieve(
+        self,
+        export_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Export:
+        """
+        Retrieve an Export
+
+        Args:
+          export_id: The identifier of the Export to retrieve.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not export_id:
+            raise ValueError(f"Expected a non-empty value for `export_id` but received {export_id!r}")
+        return self._get(
+            path_template("/exports/{export_id}", export_id=export_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Export,
+        )
+
+    def list(
+        self,
+        *,
+        category: Literal[
+            "account_statement_bai2",
+            "account_statement_ofx",
+            "account_verification_letter",
+            "balance_csv",
+            "bookkeeping_account_balance_csv",
+            "daily_account_balance_csv",
+            "dashboard_table_csv",
+            "entity_csv",
+            "fee_csv",
+            "form_1099_int",
+            "form_1099_misc",
+            "funding_instructions",
+            "transaction_csv",
+            "vendor_csv",
+            "voided_check",
+        ]
+        | Omit = omit,
+        created_at: export_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        form_1099_int: export_list_params.Form1099Int | Omit = omit,
+        form_1099_misc: export_list_params.Form1099Misc | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: export_list_params.Status | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[Export]:
+        """
+        List Exports
+
+        Args:
+          category: Filter Exports for those with the specified category.
+
+              - `account_statement_bai2` - Export a BAI2 file of transactions and balances for
+                a given date and optional Account.
+              - `account_statement_ofx` - Export an Open Financial Exchange (OFX) file of
+                transactions and balances for a given time range and Account.
+              - `account_verification_letter` - A PDF of an account verification letter.
+              - `balance_csv` - Export a CSV of account balances for the dates in a given
+                range. (deprecated, use `daily_account_balance_csv` instead)
+              - `bookkeeping_account_balance_csv` - Export a CSV of bookkeeping account
+                balances for the dates in a given range.
+              - `daily_account_balance_csv` - Export a CSV of daily account balances with
+                starting and ending balances for a given date range.
+              - `dashboard_table_csv` - Certain dashboard tables are available as CSV exports.
+                This export cannot be created via the API.
+              - `entity_csv` - Export a CSV of entities with a given status.
+              - `fee_csv` - Export a CSV of fees. The time range must not include any fees
+                that are part of an open fee statement.
+              - `form_1099_int` - A PDF of an Internal Revenue Service Form 1099-INT.
+              - `form_1099_misc` - A PDF of an Internal Revenue Service Form 1099-MISC.
+              - `funding_instructions` - A PDF of funding instructions.
+              - `transaction_csv` - Export a CSV of all transactions for a given time range.
+              - `vendor_csv` - Export a CSV of vendors added to the third-party risk
+                management dashboard.
+              - `voided_check` - A PDF of a voided check.
+
+          cursor: Return the page of entries after this one.
+
+          idempotency_key: Filter records to the one with the specified `idempotency_key` you chose for
+              that object. This value is unique across Increase and is used to ensure that a
+              request is only processed once. Learn more about
+              [idempotency](https://increase.com/documentation/idempotency-keys).
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/exports",
+            page=SyncPage[Export],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "category": category,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "form_1099_int": form_1099_int,
+                        "form_1099_misc": form_1099_misc,
+                        "idempotency_key": idempotency_key,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    export_list_params.ExportListParams,
+                ),
+            ),
+            model=Export,
+        )
+
+
+class AsyncExportsResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncExportsResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncExportsResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncExportsResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return AsyncExportsResourceWithStreamingResponse(self)
+
+    async def create(
+        self,
+        *,
+        category: Literal[
+            "account_statement_bai2",
+            "account_statement_ofx",
+            "account_verification_letter",
+            "balance_csv",
+            "bookkeeping_account_balance_csv",
+            "daily_account_balance_csv",
+            "entity_csv",
+            "fee_csv",
+            "funding_instructions",
+            "transaction_csv",
+            "vendor_csv",
+            "voided_check",
+        ],
+        account_statement_bai2: export_create_params.AccountStatementBai2 | Omit = omit,
+        account_statement_ofx: export_create_params.AccountStatementOfx | Omit = omit,
+        account_verification_letter: export_create_params.AccountVerificationLetter | Omit = omit,
+        bookkeeping_account_balance_csv: export_create_params.BookkeepingAccountBalanceCsv | Omit = omit,
+        daily_account_balance_csv: export_create_params.DailyAccountBalanceCsv | Omit = omit,
+        entity_csv: export_create_params.EntityCsv | Omit = omit,
+        fee_csv: export_create_params.FeeCsv | Omit = omit,
+        funding_instructions: export_create_params.FundingInstructions | Omit = omit,
+        transaction_csv: export_create_params.TransactionCsv | Omit = omit,
+        vendor_csv: export_create_params.VendorCsv | Omit = omit,
+        voided_check: export_create_params.VoidedCheck | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> Export:
+        """
+        Create an Export
+
+        Args:
+          category: The type of Export to create.
+
+              - `account_statement_bai2` - Export a BAI2 file of transactions and balances for
+                a given date and optional Account.
+              - `account_statement_ofx` - Export an Open Financial Exchange (OFX) file of
+                transactions and balances for a given time range and Account.
+              - `account_verification_letter` - A PDF of an account verification letter.
+              - `balance_csv` - Export a CSV of account balances for the dates in a given
+                range. (deprecated, use `daily_account_balance_csv` instead)
+              - `bookkeeping_account_balance_csv` - Export a CSV of bookkeeping account
+                balances for the dates in a given range.
+              - `daily_account_balance_csv` - Export a CSV of daily account balances with
+                starting and ending balances for a given date range.
+              - `entity_csv` - Export a CSV of entities with a given status.
+              - `fee_csv` - Export a CSV of fees. The time range must not include any fees
+                that are part of an open fee statement.
+              - `funding_instructions` - A PDF of funding instructions.
+              - `transaction_csv` - Export a CSV of all transactions for a given time range.
+              - `vendor_csv` - Export a CSV of vendors added to the third-party risk
+                management dashboard.
+              - `voided_check` - A PDF of a voided check.
+
+          account_statement_bai2: Options for the created export. Required if `category` is equal to
+              `account_statement_bai2`.
+
+          account_statement_ofx: Options for the created export. Required if `category` is equal to
+              `account_statement_ofx`.
+
+          account_verification_letter: Options for the created export. Required if `category` is equal to
+              `account_verification_letter`.
+
+          bookkeeping_account_balance_csv: Options for the created export. Required if `category` is equal to
+              `bookkeeping_account_balance_csv`.
+
+          daily_account_balance_csv: Options for the created export. Required if `category` is equal to
+              `daily_account_balance_csv`.
+
+          entity_csv: Options for the created export. Required if `category` is equal to `entity_csv`.
+
+          fee_csv: Options for the created export. Required if `category` is equal to `fee_csv`.
+
+          funding_instructions: Options for the created export. Required if `category` is equal to
+              `funding_instructions`.
+
+          transaction_csv: Options for the created export. Required if `category` is equal to
+              `transaction_csv`.
+
+          vendor_csv: Options for the created export. Required if `category` is equal to `vendor_csv`.
+
+          voided_check: Options for the created export. Required if `category` is equal to
+              `voided_check`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        return await self._post(
+            "/exports",
+            body=await async_maybe_transform(
+                {
+                    "category": category,
+                    "account_statement_bai2": account_statement_bai2,
+                    "account_statement_ofx": account_statement_ofx,
+                    "account_verification_letter": account_verification_letter,
+                    "bookkeeping_account_balance_csv": bookkeeping_account_balance_csv,
+                    "daily_account_balance_csv": daily_account_balance_csv,
+                    "entity_csv": entity_csv,
+                    "fee_csv": fee_csv,
+                    "funding_instructions": funding_instructions,
+                    "transaction_csv": transaction_csv,
+                    "vendor_csv": vendor_csv,
+                    "voided_check": voided_check,
+                },
+                export_create_params.ExportCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=Export,
+        )
+
+    async def retrieve(
+        self,
+        export_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Export:
+        """
+        Retrieve an Export
+
+        Args:
+          export_id: The identifier of the Export to retrieve.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not export_id:
+            raise ValueError(f"Expected a non-empty value for `export_id` but received {export_id!r}")
+        return await self._get(
+            path_template("/exports/{export_id}", export_id=export_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Export,
+        )
+
+    def list(
+        self,
+        *,
+        category: Literal[
+            "account_statement_bai2",
+            "account_statement_ofx",
+            "account_verification_letter",
+            "balance_csv",
+            "bookkeeping_account_balance_csv",
+            "daily_account_balance_csv",
+            "dashboard_table_csv",
+            "entity_csv",
+            "fee_csv",
+            "form_1099_int",
+            "form_1099_misc",
+            "funding_instructions",
+            "transaction_csv",
+            "vendor_csv",
+            "voided_check",
+        ]
+        | Omit = omit,
+        created_at: export_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        form_1099_int: export_list_params.Form1099Int | Omit = omit,
+        form_1099_misc: export_list_params.Form1099Misc | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: export_list_params.Status | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Export, AsyncPage[Export]]:
+        """
+        List Exports
+
+        Args:
+          category: Filter Exports for those with the specified category.
+
+              - `account_statement_bai2` - Export a BAI2 file of transactions and balances for
+                a given date and optional Account.
+              - `account_statement_ofx` - Export an Open Financial Exchange (OFX) file of
+                transactions and balances for a given time range and Account.
+              - `account_verification_letter` - A PDF of an account verification letter.
+              - `balance_csv` - Export a CSV of account balances for the dates in a given
+                range. (deprecated, use `daily_account_balance_csv` instead)
+              - `bookkeeping_account_balance_csv` - Export a CSV of bookkeeping account
+                balances for the dates in a given range.
+              - `daily_account_balance_csv` - Export a CSV of daily account balances with
+                starting and ending balances for a given date range.
+              - `dashboard_table_csv` - Certain dashboard tables are available as CSV exports.
+                This export cannot be created via the API.
+              - `entity_csv` - Export a CSV of entities with a given status.
+              - `fee_csv` - Export a CSV of fees. The time range must not include any fees
+                that are part of an open fee statement.
+              - `form_1099_int` - A PDF of an Internal Revenue Service Form 1099-INT.
+              - `form_1099_misc` - A PDF of an Internal Revenue Service Form 1099-MISC.
+              - `funding_instructions` - A PDF of funding instructions.
+              - `transaction_csv` - Export a CSV of all transactions for a given time range.
+              - `vendor_csv` - Export a CSV of vendors added to the third-party risk
+                management dashboard.
+              - `voided_check` - A PDF of a voided check.
+
+          cursor: Return the page of entries after this one.
+
+          idempotency_key: Filter records to the one with the specified `idempotency_key` you chose for
+              that object. This value is unique across Increase and is used to ensure that a
+              request is only processed once. Learn more about
+              [idempotency](https://increase.com/documentation/idempotency-keys).
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/exports",
+            page=AsyncPage[Export],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "category": category,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "form_1099_int": form_1099_int,
+                        "form_1099_misc": form_1099_misc,
+                        "idempotency_key": idempotency_key,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    export_list_params.ExportListParams,
+                ),
+            ),
+            model=Export,
+        )
+
+
+class ExportsResourceWithRawResponse:
+    def __init__(self, exports: ExportsResource) -> None:
+        self._exports = exports
+
+        self.create = to_raw_response_wrapper(
+            exports.create,
+        )
+        self.retrieve = to_raw_response_wrapper(
+            exports.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            exports.list,
+        )
+
+
+class AsyncExportsResourceWithRawResponse:
+    def __init__(self, exports: AsyncExportsResource) -> None:
+        self._exports = exports
+
+        self.create = async_to_raw_response_wrapper(
+            exports.create,
+        )
+        self.retrieve = async_to_raw_response_wrapper(
+            exports.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            exports.list,
+        )
+
+
+class ExportsResourceWithStreamingResponse:
+    def __init__(self, exports: ExportsResource) -> None:
+        self._exports = exports
+
+        self.create = to_streamed_response_wrapper(
+            exports.create,
+        )
+        self.retrieve = to_streamed_response_wrapper(
+            exports.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            exports.list,
+        )
+
+
+class AsyncExportsResourceWithStreamingResponse:
+    def __init__(self, exports: AsyncExportsResource) -> None:
+        self._exports = exports
+
+        self.create = async_to_streamed_response_wrapper(
+            exports.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            exports.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            exports.list,
+        )

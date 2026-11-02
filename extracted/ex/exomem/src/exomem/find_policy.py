@@ -1,0 +1,854 @@
+"""Ranking, intent, temporal, and rerank policy for find()."""
+
+from __future__ import annotations
+
+import heapq
+import math
+import re
+from collections.abc import Callable, Set
+from dataclasses import dataclass
+from datetime import date, timedelta
+from functools import lru_cache
+from typing import Any, NamedTuple
+
+from . import lifecycle_statuses, note_types
+from .find_types import Hit
+from .ranking_config import DEFAULT_RANKING, RankingConfig
+
+# Names imported directly rather than the `temporal` module: this file already
+# has a parameter called `temporal` in `apply_post_rrf_multipliers`, and a
+# module of the same name would sit one refactor away from being shadowed.
+from .temporal import Moment, Order
+from .temporal import compare as compare_moments
+from .temporal import parse as parse_moment
+
+TEMPORAL_MARKERS = re.compile(
+    r"\b(recent|recently|latest|newest|today|yesterday|tonight|"
+    r"week|weeks|month|months|year|years|"
+    r"when|before|after|since|until|ago|"
+    r"20\d\d|\d{4}-\d{2}-\d{2})\b",
+    re.IGNORECASE,
+)
+RELATIONSHIP_MARKERS = re.compile(
+    r"\b(links?|linked|relate[sd]?|related|relationship|"
+    r"connect(?:s|ed|ion|ions)?|cite[sd]?|citations?|"
+    r"mention(?:s|ed)?)\b",
+    re.IGNORECASE,
+)
+
+PageOf = Callable[[str], object | None]
+
+# Function words that cannot, by themselves, satisfy degraded BM25-only
+# retention.  Keep this policy next to the rank/retrieval policy rather than a
+# corpus reader so projected retrieval can apply the same rule without opening
+# a raw page.
+_FUNCTION_WORDS = frozenset(
+    """a an the this that these those all any some each no not
+    i we you he she it they me us them my our your their his her its
+    what which who whom whose when where why how
+    of in on at to for from by with about as into over under
+    and or but if then than so
+    is are was were be been being am
+    do does did done doing have has had having
+    can could will would shall should may might must""".split()
+)
+_FUNCTION_WORD_STEMS: frozenset[str] | None = None
+
+
+def _function_word_stems() -> frozenset[str]:
+    """Return the function-word lexicon in the canonical BM25 stem space."""
+
+    global _FUNCTION_WORD_STEMS
+    if _FUNCTION_WORD_STEMS is None:
+        from . import bm25
+
+        _FUNCTION_WORD_STEMS = frozenset(
+            bm25.stem_word(word) for word in _FUNCTION_WORDS
+        )
+    return _FUNCTION_WORD_STEMS
+
+
+def query_word_stem_groups(query: str) -> list[tuple[list[str], bool, int]]:
+    """Per query word: its distinct BM25 stems, whether it is a function word,
+    and how many of those stems must occur for the word to count as present.
+
+    A whitespace word needs every subtoken stem, so `alpha-beta-gamma` needs all
+    three parts. An unspaced run (Japanese, Chinese, Thai...) has no spaces to
+    split on, so each run is its own word, present when a strict majority of
+    its content bigrams occur (`bm25.run_content_stems`: those without
+    hiragana, so Japanese particles are not required). The spaced parts of a
+    word that also holds a run stay one compound word, as before.
+    """
+
+    from . import bm25
+
+    function_stems = _function_word_stems()
+    groups: list[tuple[list[str], bool, int]] = []
+
+    def add(stems: list[str], *, run: bool) -> None:
+        distinct = list(dict.fromkeys(stems))
+        required = len(distinct) // 2 + 1 if run else len(distinct)
+        is_function = not run and all(stem in function_stems for stem in distinct)
+        groups.append((distinct, is_function, required))
+
+    for word in query.split():
+        if word.isascii():
+            subtoken_stems = bm25.tokenize(word, query=True)
+            if subtoken_stems:
+                add(subtoken_stems, run=False)
+            continue
+        units = bm25.token_units(word, query=True)
+        spaced = [stem for unit in units if not unit.run for stem in unit.stems]
+        if spaced:
+            add(spaced, run=False)
+        for unit in units:
+            if unit.run:
+                add(list(bm25.run_content_stems(unit.stems)), run=True)
+    return groups
+
+
+def query_word_count(query: str) -> int:
+    """Whitespace words, with each unspaced run inside a word counted as a word.
+
+    An ASCII query counts exactly its whitespace words, as it always did.
+    """
+
+    from . import bm25
+
+    count = 0
+    for word in (query or "").split():
+        if word.isascii():
+            count += 1
+            continue
+        units = bm25.token_units(word, query=True)
+        runs = sum(1 for unit in units if unit.run)
+        count += runs + (0 if units and runs == len(units) else 1)
+    return count
+
+
+def stem_word_coverage(
+    text_stems: Set[str],
+    word_stem_groups: list[tuple[list[str], bool, int]],
+) -> tuple[int, int, int]:
+    """Return present, total, and content-word coverage for stemmed text."""
+
+    present = 0
+    content_present = 0
+    for stems, is_function, required in word_stem_groups:
+        if sum(1 for stem in stems if stem in text_stems) >= required:
+            present += 1
+            if not is_function:
+                content_present += 1
+    return present, len(word_stem_groups), content_present
+
+
+def type_multiplier(
+    page_type: str | None,
+    config: RankingConfig = DEFAULT_RANKING,
+    type_basis: note_types.Basis | None = None,
+) -> float:
+    """The ranking knob of the page type's note-type role.
+
+    The authored value is looked up as written. A type whose definition the
+    caller cannot admit, or that no entry defines, ranks neutral.
+    """
+    note_type = (type_basis or note_types.Basis(None)).resolve(page_type).note_type
+    return config.note_type_factor(note_type.role if note_type is not None else None)
+
+
+def page_type_factor(
+    page_type: str | None,
+    media_type: str | None,
+    config: RankingConfig = DEFAULT_RANKING,
+    type_basis: note_types.Basis | None = None,
+) -> float:
+    """The compiled-preference factor for one ranked page.
+
+    A media sidecar ranks neutral: its body is the extracted text of the
+    original, so the source penalty would bury a document the search matched
+    on its own words. Every other page takes its type's role factor.
+    """
+    if media_type:
+        return 1.0
+    return type_multiplier(page_type, config, type_basis)
+
+
+def status_multiplier(
+    status: str | None, config: RankingConfig = DEFAULT_RANKING
+) -> float:
+    """Demote superseded tombstones; everything else is neutral."""
+    if status == "superseded":
+        return config.superseded_penalty
+    return 1.0
+
+
+def apply_type_boost(
+    fused: list[tuple[str, float]],
+    page_of: PageOf,
+    config: RankingConfig = DEFAULT_RANKING,
+    *,
+    type_basis: note_types.Basis | None = None,
+) -> list[tuple[str, float]]:
+    """Re-sort fused `(path, score)` pairs after applying per-type multipliers."""
+    adjusted: list[tuple[str, float]] = []
+    for path, score in fused:
+        page = page_of(path)
+        mult = page_type_factor(
+            getattr(page, "page_type", None),
+            getattr(page, "media_type", None),
+            config,
+            type_basis,
+        )
+        adjusted.append((path, score * mult))
+    adjusted.sort(key=lambda t: (-t[1], t[0]))
+    return adjusted
+
+
+def _authored_status(page: object) -> object:
+    """The page's raw frontmatter status, so classification sees malformed values as authored."""
+    frontmatter = getattr(page, "frontmatter", None)
+    return frontmatter.get("status") if frontmatter is not None else getattr(page, "status", None)
+
+
+def apply_status_demotion(
+    fused: list[tuple[str, float]],
+    page_of: PageOf,
+    config: RankingConfig = DEFAULT_RANKING,
+    *,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> list[tuple[str, float]]:
+    """Re-sort fused `(path, score)` pairs after demoting superseded pages."""
+    status_basis = status_basis or lifecycle_statuses.Basis(None)
+    adjusted: list[tuple[str, float]] = []
+    for path, score in fused:
+        page = page_of(path)
+        mult = status_multiplier(
+            status_basis.classify(
+                _authored_status(page), path=path, frontmatter=getattr(page, "frontmatter", None)
+            ).require(),
+            config,
+        )
+        adjusted.append((path, score * mult))
+    adjusted.sort(key=lambda t: (-t[1], t[0]))
+    return adjusted
+
+
+def multiplier_bounds(
+    config: RankingConfig,
+    *,
+    prefer_compiled: bool,
+    prefer_active: bool,
+    temporal_active: bool,
+    usage_active: bool,
+) -> tuple[float, float]:
+    """(min, max) of the product of every ACTIVE post-RRF multiplier.
+
+    Each factor is bounded by a declared config value, which is what makes the
+    bounded pass below exact rather than approximate:
+
+    * ``type_multiplier``   -> ``compiled_boost`` high, ``source_penalty`` low,
+      because ``RankingConfig.note_type_factor`` maps every role to one of
+      those knobs or to 1.0
+    * ``status_multiplier`` -> 1.0 high, ``superseded_penalty`` low (penalty only)
+    * ``recency_multiplier``-> ``temporal_boost`` at zero days, 1.0 at infinity
+    * ``usage_multiplier``  -> ``usage_boost`` high, 1.0 low (never a penalty)
+
+    An inactive factor contributes exactly 1.0 to both ends.
+    """
+    low = high = 1.0
+    if prefer_compiled:
+        low *= min(config.compiled_boost, config.source_penalty, 1.0)
+        high *= max(config.compiled_boost, config.source_penalty, 1.0)
+    if prefer_active:
+        low *= min(config.superseded_penalty, 1.0)
+        high *= max(config.superseded_penalty, 1.0)
+    if temporal_active:
+        low *= min(config.temporal_boost, 1.0)
+        high *= max(config.temporal_boost, 1.0)
+    if usage_active:
+        low *= min(config.usage_boost, 1.0)
+        high *= max(config.usage_boost, 1.0)
+    return low, high
+
+
+def apply_post_rrf_multipliers(
+    fused: list[tuple[str, float]],
+    query: str,
+    config: RankingConfig,
+    *,
+    prefer_compiled: bool,
+    prefer_active: bool,
+    temporal: bool,
+    page_of: PageOf,
+    status_basis: lifecycle_statuses.Basis | None = None,
+    type_basis: note_types.Basis | None = None,
+    usage_map: dict[str, float] | None = None,
+    evidence_out: dict[str, list[dict[str, float | str]]] | None = None,
+    top_n: int | None = None,
+) -> list[tuple[str, float]]:
+    """All post-RRF multiplicative boosts in one pass with one final sort.
+
+    Every factor needs the candidate's page, and `page_of` on a cold page is a
+    file read plus a policy admission check — so an unbounded pass loads the
+    whole fused set to rank it. On a 2.4k-page vault that measured ~500 pages
+    loaded to return 10 results, and was the single largest read-path term
+    (#283).
+
+    `top_n` bounds that work WITHOUT changing the answer. Candidates arrive in
+    descending RRF order, so once `top_n` results are in hand, a candidate whose
+    best possible adjusted score cannot reach the current `top_n`-th score can
+    be skipped — and so can every candidate after it, because their raw scores
+    are no lower. `multiplier_bounds` supplies "best possible" exactly.
+
+    The first `top_n` entries of the result are therefore byte-identical to an
+    unbounded pass. Entries beyond `top_n` keep raw RRF order and raw scores,
+    since by construction nothing there can enter the top. Pass `top_n=None`
+    (the default) for the full pass — every existing caller keeps its behaviour.
+    """
+    status_basis = status_basis or lifecycle_statuses.Basis(None)
+    temporal_active = temporal and config.temporal_boost != 1.0 and is_temporal_query(query)
+    usage_active = bool(usage_map)
+    if not (prefer_compiled or prefer_active or temporal_active or usage_active):
+        return fused
+    if usage_active:
+        from . import usage as usage_module
+    today = date.today() if temporal_active else None
+    # Evidence must describe every candidate a trace will show, so an explain
+    # request takes the full pass. Bounding it would leave the tail with no
+    # multiplier chain and make the trace lie by omission.
+    bounded = top_n is not None and top_n > 0 and evidence_out is None
+    low_mult = high_mult = 1.0
+    if bounded:
+        low_mult, high_mult = multiplier_bounds(
+            config,
+            prefer_compiled=prefer_compiled,
+            prefer_active=prefer_active,
+            temporal_active=temporal_active,
+            usage_active=usage_active,
+        )
+    cutoff: list[float] = []  # min-heap of the best `top_n` adjusted scores
+    adjusted: list[tuple[str, float]] = []
+    for index, (path, score) in enumerate(fused):
+        if bounded and len(cutoff) >= top_n:
+            # Upper bound of `score * m` over m in [low, high]. Written as a max
+            # of both products rather than `score * high` so a negative raw
+            # score (a negative lane weight would produce one) bounds correctly
+            # instead of inverting.
+            reachable = max(score * low_mult, score * high_mult)
+            # Strict `<` only: on equality the loser could still win the
+            # `(-score, path)` tie-break, so an equal candidate must be scored.
+            if reachable < cutoff[0]:
+                adjusted.sort(key=lambda t: (-t[1], t[0]))
+                return adjusted + list(fused[index:])
+        page = page_of(path)
+        chain: list[dict[str, float | str]] | None = (
+            [] if evidence_out is not None else None
+        )
+        if prefer_compiled:
+            factor = page_type_factor(
+                getattr(page, "page_type", None),
+                getattr(page, "media_type", None),
+                config,
+                type_basis,
+            )
+            if chain is None:
+                score *= factor
+            else:
+                before = score
+                score *= factor
+                chain.append(
+                    {
+                        "name": "type",
+                        "factor": factor,
+                        "before": before,
+                        "after": score,
+                    }
+                )
+        if prefer_active:
+            factor = status_multiplier(
+                status_basis.classify(
+                    _authored_status(page),
+                    path=path,
+                    frontmatter=getattr(page, "frontmatter", None),
+                ).require(),
+                config,
+            )
+            if chain is None:
+                score *= factor
+            else:
+                before = score
+                score *= factor
+                chain.append(
+                    {
+                        "name": "status",
+                        "factor": factor,
+                        "before": before,
+                        "after": score,
+                    }
+                )
+        if temporal_active:
+            d = parse_date(getattr(page, "updated", None)) if page else None
+            if d is not None:
+                factor = recency_multiplier(
+                    max(0.0, float((today - d).days)), config
+                )
+                if chain is None:
+                    score *= factor
+                else:
+                    before = score
+                    score *= factor
+                    chain.append(
+                        {
+                            "name": "recency",
+                            "factor": factor,
+                            "before": before,
+                            "after": score,
+                        }
+                    )
+        if usage_active:
+            b = usage_map.get(usage_module.canon(path))
+            if b is not None:
+                factor = usage_module.usage_multiplier(b, config)
+                if chain is None:
+                    score *= factor
+                else:
+                    before = score
+                    score *= factor
+                    chain.append(
+                        {
+                            "name": "usage",
+                            "factor": factor,
+                            "before": before,
+                            "after": score,
+                        }
+                    )
+        if evidence_out is not None:
+            assert chain is not None
+            evidence_out[path] = chain
+        adjusted.append((path, score))
+        if bounded:
+            # `cutoff[0]` is the weakest of the best `top_n` adjusted scores
+            # seen so far. It only ever rises, which is what makes the early
+            # return above safe for every remaining candidate rather than only
+            # the next one.
+            if len(cutoff) < top_n:
+                heapq.heappush(cutoff, score)
+            elif score > cutoff[0]:
+                heapq.heapreplace(cutoff, score)
+    adjusted.sort(key=lambda t: (-t[1], t[0]))
+    return adjusted
+
+
+def is_temporal_query(query: str) -> bool:
+    """True when the query carries a recency/time marker."""
+    if not query:
+        return False
+    return TEMPORAL_MARKERS.search(query) is not None
+
+
+def classify_intent(query: str) -> str:
+    """Deterministic intent label: exact | temporal | relationship | conceptual."""
+    q = (query or "").strip()
+    if not q:
+        return "conceptual"
+    if '"' in q or "[[" in q:
+        return "exact"
+    if is_temporal_query(q):
+        return "temporal"
+    if RELATIONSHIP_MARKERS.search(q):
+        return "relationship"
+    return "conceptual"
+
+
+def parse_date(value: str | None) -> date | None:
+    """Best-effort parse of a recorded date; None when unparseable.
+
+    Recency scoring buckets pages by whole days, so a timestamp collapses to
+    its day. Delegating to `temporal` also picks up the quoted and
+    space-separated forms that prefix-slicing to 10 characters used to reject.
+    """
+    moment = parse_moment(value)
+    return moment.day if moment is not None else None
+
+
+def recency_multiplier(
+    days_old: float, config: RankingConfig = DEFAULT_RANKING
+) -> float:
+    """Gaussian recency weight: peaks at temporal_boost for a brand-new page."""
+    if config.temporal_boost == 1.0:
+        return 1.0
+    sigma = config.temporal_sigma_days or 1.0
+    return 1.0 + (config.temporal_boost - 1.0) * math.exp(
+        -(days_old ** 2) / (2.0 * sigma ** 2)
+    )
+
+
+def apply_temporal_boost(
+    fused: list[tuple[str, float]],
+    query: str,
+    page_of: PageOf,
+    config: RankingConfig = DEFAULT_RANKING,
+) -> list[tuple[str, float]]:
+    """Re-sort fused `(path, score)` after a Gaussian recency multiplier."""
+    if not is_temporal_query(query) or config.temporal_boost == 1.0:
+        return fused
+    today = date.today()
+    adjusted: list[tuple[str, float]] = []
+    for path, score in fused:
+        page = page_of(path)
+        d = parse_date(getattr(page, "updated", None)) if page else None
+        mult = 1.0 if d is None else recency_multiplier(
+            max(0.0, float((today - d).days)), config
+        )
+        adjusted.append((path, score * mult))
+    adjusted.sort(key=lambda t: (-t[1], t[0]))
+    return adjusted
+
+
+def recency_ranking(candidate_paths: list[str], page_of: PageOf, cap: int) -> list[str]:
+    """Candidate paths ordered most-recently-updated first."""
+    dated: list[tuple[date, str]] = []
+    seen: set[str] = set()
+    for p in candidate_paths:
+        if p in seen:
+            continue
+        seen.add(p)
+        page = page_of(p)
+        if page is None:
+            continue
+        d = parse_date(getattr(page, "updated", None))
+        if d is not None:
+            dated.append((d, p))
+    dated.sort(key=lambda t: (-t[0].toordinal(), t[1]))
+    return [p for _, p in dated][:cap]
+
+
+def _bound_verdict(
+    recorded: Moment, bound: str | None, *, keep_when: tuple[Order, ...]
+) -> tuple[bool, bool]:
+    """Apply one bound to one recorded value. Returns `(keep, indeterminate)`.
+
+    The bound's own precision decides the granularity. A day-scoped bound asks
+    a day-scoped question, which every page can answer; an instant bound cannot
+    be answered by a page recorded only to the day it falls on.
+    """
+    parsed = parse_moment(bound)
+    if parsed is None:
+        return True, False
+    if parsed.precise:
+        order = compare_moments(recorded, parsed)
+        if order is Order.INDETERMINATE:
+            # Undecidable: keep it and say so, rather than dropping it silently
+            # (the defect this change exists to fix) or passing a guess off as
+            # a match.
+            return True, True
+    else:
+        order = compare_moments(
+            Moment(recorded.day), Moment(parsed.day)
+        )
+        if order is Order.INDETERMINATE:
+            order = Order.SAME
+    return order in keep_when, False
+
+
+def filter_by_date(
+    hits: list[Hit],
+    *,
+    updated_after: str | None = None,
+    updated_before: str | None = None,
+    recency_days: int | None = None,
+) -> list[Hit]:
+    """Drop hits whose recorded time falls outside the requested window.
+
+    `updated_after`/`updated_before` accept an instant as well as a day.
+    `recency_days` stays day-scoped: it is a window of whole days by
+    construction. A hit kept on a bound that could not actually be decided is
+    marked in `Hit.order_indeterminate` rather than presented as a clean match.
+    """
+    floor: date | None = None
+    if recency_days is not None and recency_days >= 0:
+        floor = date.today() - timedelta(days=recency_days)
+    if updated_after is None and updated_before is None and floor is None:
+        return hits
+    after_keep = (Order.AFTER, Order.SAME)
+    before_keep = (Order.BEFORE, Order.SAME)
+    out: list[Hit] = []
+    for h in hits:
+        recorded = parse_moment(h.updated)
+        if recorded is None:
+            continue
+        if floor is not None and recorded.day < floor:
+            continue
+        keep_after, vague_after = _bound_verdict(
+            recorded, updated_after, keep_when=after_keep
+        )
+        if not keep_after:
+            continue
+        keep_before, vague_before = _bound_verdict(
+            recorded, updated_before, keep_when=before_keep
+        )
+        if not keep_before:
+            continue
+        vague = [
+            name
+            for name, flag in (
+                ("updated_after", vague_after),
+                ("updated_before", vague_before),
+            )
+            if flag
+        ]
+        if vague:
+            h.order_indeterminate = vague
+        out.append(h)
+    return out
+
+
+def should_rerank(
+    hits: list[Hit], query: str, config: RankingConfig = DEFAULT_RANKING
+) -> bool:
+    """Heuristic: is this query worth the reranker's model-load cost?"""
+    if query_word_count(query) >= 5:
+        return True
+    vec = [
+        h.path
+        for h in sorted(
+            (h for h in hits if h.vector_rank is not None),
+            key=lambda h: h.vector_rank,  # type: ignore[arg-type,return-value]
+        )
+    ][:3]
+    bm = [
+        h.path
+        for h in sorted(
+            (h for h in hits if h.bm25_rank is not None),
+            key=lambda h: h.bm25_rank,  # type: ignore[arg-type,return-value]
+        )
+    ][:3]
+    if not vec or not bm:
+        return False
+    overlap = len(set(vec) & set(bm))
+    disagreement = 1.0 - overlap / max(len(vec), len(bm))
+    return disagreement > 0.5
+
+
+@dataclass(frozen=True)
+class RerankerCoverage:
+    """What a reranker can judge, declared per model as data.
+
+    `scripts` names the letter scripts it reads (None: every script), as
+    `dominant_script` reads them. `cross_lingual` says whether it can judge a
+    query against a passage written in another language.
+    """
+
+    scripts: frozenset[str] | None
+    cross_lingual: bool
+
+
+#: `BAAI/bge-reranker-base` was trained on English and Chinese. On the
+#: multilingual recall fixture over bge-m3 recall (2026-09-23) it improved
+#: English (golden NDCG@10 0.931 -> 0.962) and left same-language Latin queries
+#: whole, but moved a Russian gold from rank 1 to 3 and another out of the top
+#: ten, and on German and Estonian queries answered by an English page it put
+#: the same-language look-alike first again. `BAAI/bge-reranker-v2-m3` is the
+#: multilingual opt-in for accelerated hosts (`EXOMEM_RANKING_MODEL`). Its card
+#: says only "multilingual": the all-scripts, cross-lingual declaration below is
+#: an assumption, not measured here. Coverage is by script, not by language:
+#: a Latin-script query answered by an English page (German, Estonian) is not
+#: gated, and a kanji-dominant Japanese query reads as Han.
+_RERANKER_COVERAGE: dict[str, RerankerCoverage] = {
+    "BAAI/bge-reranker-base": RerankerCoverage(frozenset({"latin", "han"}), cross_lingual=False),
+    "BAAI/bge-reranker-v2-m3": RerankerCoverage(None, cross_lingual=True),
+}
+#: A reranker the owner configured without a declaration is trusted as configured.
+#: The lookup is by exact name, so a local path or mirror of a declared model is
+#: undeclared too.
+_UNDECLARED_RERANKER = RerankerCoverage(None, cross_lingual=True)
+
+#: Block-name markers that split the declared unspaced blocks into scripts; any
+#: other unspaced block (CJK, Kangxi, the ideographic planes) is Han.
+_UNSPACED_SCRIPT_MARKERS = (
+    ("Hiragana", "kana"),
+    ("Katakana", "kana"),
+    ("Kana", "kana"),
+    ("Hangul", "hangul"),
+    ("Thai", "thai"),
+    ("Lao", "lao"),
+    ("Khmer", "khmer"),
+    ("Myanmar", "myanmar"),
+)
+
+
+def reranker_coverage(model_name: str) -> RerankerCoverage:
+    """The declared coverage of `model_name`; an undeclared reranker is not gated."""
+    return _RERANKER_COVERAGE.get(model_name, _UNDECLARED_RERANKER)
+
+
+@lru_cache(maxsize=4096)
+def _letter_script(character: str) -> str:
+    from . import text_scripts
+
+    if text_scripts.is_scriptio_continua(character):
+        code_point = ord(character)
+        for start, end, name in text_scripts.SCRIPTIO_CONTINUA_BLOCKS:
+            if start <= code_point <= end:
+                for marker, script in _UNSPACED_SCRIPT_MARKERS:
+                    if marker in name:
+                        return script
+                return "han"
+    return text_scripts.uniform_letter_script(character) or "other"
+
+
+_ASCII_LETTER = re.compile(r"[A-Za-z]")
+_NON_ASCII = re.compile(r"[^\x00-\x7f]+")
+
+
+def dominant_script(text: str) -> str | None:
+    """The script most of the text's letters are written in; None with no letters.
+
+    Read from the declared Unicode blocks in `text_scripts`, after NFKC, so a
+    full-width Latin letter is Latin. Scripts the table does not declare read as
+    "other". No language is detected. ASCII letters are counted in bulk, so an
+    English page costs one regex pass.
+    """
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKC", text or "")
+    counts: dict[str, int] = {}
+    ascii_letters = len(_ASCII_LETTER.findall(normalized))
+    if ascii_letters:
+        counts["latin"] = ascii_letters
+    for run in _NON_ASCII.findall(normalized):
+        for character in run:
+            if unicodedata.category(character).startswith("L"):
+                script = _letter_script(character)
+                counts[script] = counts.get(script, 0) + 1
+    if not counts:
+        return None
+    return min(counts, key=lambda script: (-counts[script], script))
+
+
+def reranker_reads_query(coverage: RerankerCoverage, query: str) -> bool:
+    """True when the reranker declares the script most of the query is written in."""
+    if coverage.scripts is None:
+        return True
+    script = dominant_script(query)
+    return script is None or script in coverage.scripts
+
+
+#: The dense lead is lexically invisible and fusion withheld a vote for a page
+#: in another script than the lead: the query's words lead into another script.
+CROSSING_VOTES_WITHHELD = "lexical_votes_across_scripts"
+#: The dense lead is lexically invisible, no lexical candidate holds a content
+#: word of the query, and the query is written in another script than the lead.
+CROSSING_UNMATCHED = "query_script_differs_from_dense_lead"
+#: Why fusion withheld a lexical vote, as the explain trace reports it.
+WITHHELD_REASON = "other_script_than_dense_lead"
+
+
+class LexicalVisibility(NamedTuple):
+    """What fusion learned about the lexical lanes against the dense lead."""
+
+    #: Lexical-lane candidates whose votes fusion withholds.
+    withheld: frozenset[str]
+    #: Why the request crosses scripts (`CROSSING_*`), or None when it does not.
+    crossing: str | None
+
+
+LEXICALLY_VISIBLE = LexicalVisibility(frozenset(), None)
+
+
+def lexical_visibility(
+    *,
+    query: str,
+    vector_ranking: list[str],
+    lexical_rankings: tuple[list[str], ...],
+    lane_weights: tuple[float, ...],
+    rrf_k: int,
+    window: int,
+    view_of: Callable[[str], Any],
+) -> LexicalVisibility:
+    """Which lexical votes fusion withholds, and whether the request crosses scripts.
+
+    `view_of(identity)` returns an object with `stem_set` (query-comparable
+    index stems) and `letter_script` (`dominant_script` of its text), read
+    lazily, or None when the identity cannot be read: a parsed page in `find`,
+    a projection's search fields in governed projected recall.
+
+    The dense lane is the only lane that can match a page written in another
+    language than the query. When its strongest candidate shares no content word
+    with the query, the lexical lanes cannot see that page at all, and their
+    votes rank other pages by vocabulary overlap with the query. Where those
+    pages are written in another script than the dense lead -- the query's own,
+    when the lead is in another -- reciprocal-rank fusion would let one partial
+    match plus a weaker dense vote outrank the dense lead.
+
+    So, with the dense lead lexically invisible, a lexical lane stops voting for
+    a page that (a) holds only some of the query's content words and (b) is
+    written mostly in another letter script than the dense lead
+    (`dominant_script`, the table the rerank coverage gate reads).
+    The page keeps its dense and other votes. Words are counted as the
+    degraded-retention gate counts them (`query_word_stem_groups`),
+    function words excluded. There is no threshold and no language detection: a
+    lead in the query's own script never costs a same-script page its vote, so
+    an English vault ranks exactly as before. A Latin-script query whose answer
+    is an English page (German, Estonian) is not protected by this rule.
+
+    Only candidates that can reach the fused window are read. The walk follows
+    the fusion of the dense and lexical lanes (`lexical_rankings` weighted by
+    `lane_weights`, the dense lane first) and stops once `window` pages have kept
+    their votes. Withholding only lowers the withheld page's score, so the pages
+    that keep their votes rank among themselves exactly as in this walk, and a
+    page the walk did not reach cannot enter the first `window` of the fusion.
+    Lanes fused later (graph, temporal, CLIP) and the post-fusion multipliers
+    are not in the walk; the window is the depth that multiplier pass reads.
+
+    The request crosses scripts, with the dense lead invisible, when a vote was
+    withheld (`CROSSING_VOTES_WITHHELD`), or when no candidate in the window
+    holds any content word of the query and the query itself is written in
+    another script than the lead (`CROSSING_UNMATCHED`). A query that matches
+    nothing in the lead's own script (an English paraphrase under an English
+    lead) does not cross. A reranker that cannot judge across languages is
+    skipped on a crossing request. The caller skips this in vector mode, where
+    no lexical lane ran and there is no evidence either way.
+    """
+    if not vector_ranking:
+        return LEXICALLY_VISIBLE
+    lexical = {path for lane in lexical_rankings for path in lane}
+    groups = query_word_stem_groups(query)
+    content_words = sum(1 for _stems, is_function, _required in groups if not is_function)
+    if not content_words:
+        return LEXICALLY_VISIBLE
+    lead_path = vector_ranking[0]
+    lead = view_of(lead_path)
+    if lead is None or stem_word_coverage(lead.stem_set, groups)[2]:
+        return LEXICALLY_VISIBLE
+    lead_script = lead.letter_script
+    # Only a query in another script than the lead can cross by matching nothing,
+    # so only then must same-script candidates be read for a content word.
+    unmatched_can_cross = dominant_script(query) != lead_script
+    from . import fusion
+
+    order = fusion.reciprocal_rank_fusion_weighted(
+        [vector_ranking, *lexical_rankings], list(lane_weights), k=rrf_k
+    )
+    withheld: set[str] = set()
+    any_content_match = False
+    kept = 0
+    for path, _score in order:
+        if kept >= window:
+            break
+        if path in lexical and path != lead_path:
+            page = view_of(path)
+            if page is not None:
+                other_script = page.letter_script != lead_script
+                if other_script or (unmatched_can_cross and not any_content_match):
+                    matched = stem_word_coverage(page.stem_set, groups)[2]
+                    any_content_match = any_content_match or matched > 0
+                    if other_script and matched < content_words:
+                        withheld.add(path)
+                        continue
+        kept += 1
+    if withheld:
+        return LexicalVisibility(frozenset(withheld), CROSSING_VOTES_WITHHELD)
+    if unmatched_can_cross and not any_content_match:
+        return LexicalVisibility(frozenset(), CROSSING_UNMATCHED)
+    return LEXICALLY_VISIBLE

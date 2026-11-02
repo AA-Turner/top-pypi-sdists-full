@@ -1,21 +1,5 @@
-"""``PROBE_MODE=offline`` and ``probe sync``: train with no API, deliver later (plan 2.12).
-
-`probe.init(mode="offline")` makes NO network call: it mints the run's 0268 ``creation_key``,
-journals a ``create_run`` op FIRST in a queue of its own and journals every write behind it,
-addressed to ``local:<creation_key>``. `probe sync` later delivers the create (idempotent by
-key), then each write with ``local:<key>`` rewritten to the real id, then the queued finish.
-
-Nothing but `probe sync` drains these queues and the client's transport refuses every socket.
-`sync` refuses a queue recorded against another base URL (or, tenant unknown, another login
-context) without ``--allow-mismatch`` and a queue for another tenant always. Not supported
-offline: code snapshot, output capture, hardware rail (named once on stderr and in
-``metadata.offline.skipped``). Scale: one op file per write, one request per op at sync; the
-coalesced drain does not merge offline metric ops (`journal._merge_key` takes a run id only).
-
-DESIGN.md has the queue layout, identity rules, the ``PROBE_INIT_FALLBACK=offline`` flow and its
-KNOWN RISK (a heartbeat-owned run whose writer went offline is reaped ``crashed`` after ~15
-minutes), killed-before-close behaviour and the read/write lineage lists.
-"""
+"""``PROBE_MODE=offline`` and ``probe sync`` (plan 2.12): an offline run queues its create and every
+write as ``local:<key>`` with no network; `probe sync` delivers them later (DESIGN.md)."""
 
 from __future__ import annotations
 
@@ -38,6 +22,7 @@ from ...run.run import Run
 from ...run.metrics.values import _now
 from ...run.summary import _summary_wire
 from ...run.handle import _UNSET
+from probe.sdk.routes import WriteOp, path_for
 MANIFEST_NAME = "offline.json"
 MANIFEST_SCHEMA = "probe.offline/1"
 LOCAL_PREFIX = "local:"
@@ -166,6 +151,11 @@ class OfflineRun(Run):
         )
         if dropped:
             marker["dropped_writes"] = dropped
+        earlier = getattr(self, "_closed_status", None)
+        if earlier is not None:
+            # A launcher already queued the run's verdict (`execute()`'s close): the exit hook's
+            # default `completed` must not replace it. Queued again with the end time and marker.
+            status = earlier
         body: dict[str, Any] = {
             "status": status,
             "ended_at": _now(),
@@ -176,7 +166,7 @@ class OfflineRun(Run):
             # `admitted`: the close is the ONE op no room check may refuse; a run that logged
             # to the disk floor still has to end (as online).
             self._client.journal.append_http(
-                "PATCH", f"/v1/runs/{self.id}", body, run_ref=self.id, admitted=True
+                "PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, run_ref=self.id, admitted=True
             )
             self._closed_status = status
             result["finish_queued"] = True
@@ -251,6 +241,43 @@ def open_offline_run(
     resolved home and body (plus the offline marks); the request is kept for
     `deliver_create` to replay verbatim if its key turns out to have landed."""
     kw = dict(kw)
+    on_conflict, sent_body = _check_offline_conflict(kw, sent, fallback)
+    settings = settings or resolve_settings()
+    identity = cached_identity(settings)
+    started_at = now_iso()
+    # Who recorded it. "unknown" when this machine never reached the API under its
+    # credential (nothing cached): said so again at sync.
+    owner = identity.get("user_id") or UNKNOWN_OWNER
+    if sent is not None:
+        key, body, create, home, skipped = _create_from_sent(kw, sent, sent_body, on_conflict, started_at, owner)
+    else:
+        key, body, create, home, skipped = _create_from_init(kw, on_conflict, started_at, owner, settings.project)
+    ref = local_ref(key)
+    directory = offline_root(base) / key
+    journal = _start_offline_queue(directory, settings, identity, key, ref, started_at, body, home, fallback)
+    op = journal._base_op(CREATE_KIND, ref)
+    op["create"] = create
+    journal._append(op, admitted=True)
+    run = _open_offline_handle(settings, journal, ref, key, body, started_at)
+    why = "the API could not be reached (PROBE_INIT_FALLBACK=offline)" if fallback else "PROBE_MODE=offline"
+    print(
+        f"probe: recording OFFLINE ({why}) -- run {ref} queues in {directory}; "
+        "deliver it later with `probe sync`",
+        flush=True,
+    )
+    if skipped or not fallback:
+        _diagnostics.warn(
+            "probe: an offline run records metrics, spans, artifacts, config updates, what "
+            "it reads and writes, and its close; code snapshot, output capture (file "
+            "uploads) and hardware metrics are skipped offline"
+            + (f" (ignored: {', '.join(skipped)})" if skipped else "")
+        )
+    return run
+
+
+def _check_offline_conflict(kw: dict, sent: dict | None, fallback: bool) -> tuple[str | None, dict]:
+    """Pop ``on_conflict`` from ``kw`` and refuse one an offline run cannot honour; returns it with
+    the sent create's body ({} when nothing was sent)."""
     on_conflict = kw.pop("on_conflict", None)
     if on_conflict is not None and on_conflict not in _OFFLINE_CONFLICT:
         raise errors.ValidationError(
@@ -271,79 +298,94 @@ def open_offline_run(
             "Pass on_conflict='supersede' (a colliding id opens as <id>-rN at sync) or "
             "'error' to let the fallback record it offline"
         )
+    return on_conflict, sent_body
 
-    settings = settings or resolve_settings()
-    identity = cached_identity(settings)
-    started_at = now_iso()
-    # Who recorded it. "unknown" when this machine never reached the API under its
-    # credential (nothing cached): said so again at sync.
-    owner = identity.get("user_id") or UNKNOWN_OWNER
-    if sent is not None:
-        # The create was already built and SENT: arguments checked, home resolved online.
-        # Nothing else in `kw` is re-validated (an online-only argument must not turn the
-        # fallback into a failure).
-        home = {k: kw.get(k) for k in _HOME_FIELDS}
-        skipped: list[str] = []
-        key = str(sent_body["creation_key"])
-        body = _offline_body(sent_body, started_at=started_at, owner=owner)
-        create: dict[str, Any] = {
-            "creation_key": key,
-            "body": body,
-            "path": sent["path"],
-            "on_conflict": on_conflict or "error",
-            # Replayed ONLY if the server says this key already made a run.
-            "request": {"path": sent["path"], "body": sent_body},
-        }
-    else:
-        intent = kw.pop("intent", None)
-        skipped = sorted(k for k in _SKIPPED_FIELDS if kw.pop(k, None) is not None)
-        home = {k: kw.pop(k, None) for k in _HOME_FIELDS}
-        create_kw = {k: kw.pop(k) for k in _CREATE_FIELDS if k in kw}
-        if kw:
-            raise errors.ValidationError(
-                f"probe.init(mode='offline') does not take {', '.join(sorted(kw))}"
-            )
-        if home["question"] is not None and not (home["experiment"] and home["project"]):
-            raise errors.ValidationError(
-                "question= creates an experiment, so it needs experiment= and project="
-            )
-        if home["experiment_name"] is not None and home["question"] is None:
-            raise errors.ValidationError("experiment_name only titles an experiment question= creates")
-        if create_kw.get("group_id") is not None and not home["experiment"]:
-            raise errors.ValidationError("a group needs an experiment: name the experiment or drop the group")
-        key = uuid.uuid4().hex
-        metadata = dict(create_kw.pop("metadata", None) or {})
-        if intent is not None:
-            metadata["intent"] = str(intent).strip()
-        name = create_kw.pop("name", None)
-        body = Client._run_create_body(
-            name,
-            description=create_kw.pop("description", None),
-            notes=create_kw.pop("notes", None),
-            source=create_kw.pop("source", None) or "api",
-            external_id=create_kw.pop("external_id", None),
-            parent_run_id=create_kw.pop("parent_run_id", None),
-            parent_relation=create_kw.pop("parent_relation", None),
-            parent_provenance=create_kw.pop("parent_provenance", None),
-            group_id=create_kw.pop("group_id", None),
-            config=create_kw.pop("config", None),
-            tags=create_kw.pop("tags", None),
-            metadata=metadata,
-            labeled_point_budget=create_kw.pop("labeled_point_budget", None),
-            slug=create_kw.pop("slug", None),
-            heartbeat=False,
-            authored_by=create_kw.pop("authored_by", None),
+
+def _create_from_sent(
+    kw: dict, sent: dict, sent_body: dict, on_conflict: str | None, started_at: str, owner: str
+) -> tuple[str, dict, dict, dict, list[str]]:
+    """The create an online init already SENT: arguments checked, home resolved online. Nothing
+    else in `kw` is re-validated (an online-only argument must not turn the fallback into a
+    failure)."""
+    home = {k: kw.get(k) for k in _HOME_FIELDS}
+    skipped: list[str] = []
+    key = str(sent_body["creation_key"])
+    body = _offline_body(sent_body, started_at=started_at, owner=owner)
+    create: dict[str, Any] = {
+        "creation_key": key,
+        "body": body,
+        "path": sent["path"],
+        "on_conflict": on_conflict or "error",
+        # Replayed ONLY if the server says this key already made a run.
+        "request": {"path": sent["path"], "body": sent_body},
+    }
+    return key, body, create, home, skipped
+
+
+def _create_from_init(
+    kw: dict, on_conflict: str | None, started_at: str, owner: str, ambient_project: str | None
+) -> tuple[str, dict, dict, dict, list[str]]:
+    """The create built from ``probe.init()``'s keywords, refusing ones an offline run cannot take.
+    With no project or experiment named it takes this computer's (as online), else refuses."""
+    intent = kw.pop("intent", None)
+    skipped = sorted(k for k in _SKIPPED_FIELDS if kw.pop(k, None) is not None)
+    home = {k: kw.pop(k, None) for k in _HOME_FIELDS}
+    create_kw = {k: kw.pop(k) for k in _CREATE_FIELDS if k in kw}
+    if kw:
+        raise errors.ValidationError(
+            f"probe.init(mode='offline') does not take {', '.join(sorted(kw))}"
         )
-        body["creation_key"] = key
-        body = _offline_body(body, started_at=started_at, owner=owner)
-        create = {
-            "creation_key": key,
-            "body": body,
-            "on_conflict": on_conflict or "error",
-            **{k: v for k, v in home.items() if v is not None},
-        }
-    ref = local_ref(key)
-    directory = offline_root(base) / key
+    if home["question"] is not None and not (home["experiment"] and home["project"]):
+        raise errors.ValidationError(
+            "question= creates an experiment, so it needs experiment= and project="
+        )
+    if home["experiment_name"] is not None and home["question"] is None:
+        raise errors.ValidationError("experiment_name only titles an experiment question= creates")
+    if create_kw.get("group_id") is not None and not home["experiment"]:
+        raise errors.ValidationError("a group needs an experiment: name the experiment or drop the group")
+    if not home["experiment"] and not home["project"]:
+        home["project"] = ambient_project
+    if not home["experiment"] and not home["project"]:
+        raise errors.ProjectRequired()
+    key = uuid.uuid4().hex
+    metadata = dict(create_kw.pop("metadata", None) or {})
+    if intent is not None:
+        metadata["intent"] = str(intent).strip()
+    name = create_kw.pop("name", None)
+    body = Client._run_create_body(
+        name,
+        description=create_kw.pop("description", None),
+        notes=create_kw.pop("notes", None),
+        source=create_kw.pop("source", None) or "api",
+        external_id=create_kw.pop("external_id", None),
+        parent_run_id=create_kw.pop("parent_run_id", None),
+        parent_relation=create_kw.pop("parent_relation", None),
+        parent_provenance=create_kw.pop("parent_provenance", None),
+        group_id=create_kw.pop("group_id", None),
+        config=create_kw.pop("config", None),
+        tags=create_kw.pop("tags", None),
+        metadata=metadata,
+        labeled_point_budget=create_kw.pop("labeled_point_budget", None),
+        slug=create_kw.pop("slug", None),
+        heartbeat=False,
+        authored_by=create_kw.pop("authored_by", None),
+    )
+    body["creation_key"] = key
+    body = _offline_body(body, started_at=started_at, owner=owner)
+    create = {
+        "creation_key": key,
+        "body": body,
+        "on_conflict": on_conflict or "error",
+        **{k: v for k, v in home.items() if v is not None},
+    }
+    return key, body, create, home, skipped
+
+
+def _start_offline_queue(
+    directory: Path, settings: Settings, identity: dict, key: str, ref: str, started_at: str,
+    body: dict, home: dict, fallback: bool,
+) -> Journal:
+    """The offline run's own queue, with its manifest (`offline.json`) written first."""
     journal = Journal(
         directory,
         context={"name": _context_name(), "base_url": settings.base_url},
@@ -365,10 +407,13 @@ def open_offline_run(
     }
     journal._ensure()
     write_text_atomic(directory / MANIFEST_NAME, json.dumps(manifest, indent=2) + "\n", mode=0o600)
-    op = journal._base_op(CREATE_KIND, ref)
-    op["create"] = create
-    journal._append(op, admitted=True)
+    return journal
 
+
+def _open_offline_handle(
+    settings: Settings, journal: Journal, ref: str, key: str, body: dict, started_at: str
+) -> OfflineRun:
+    """The OfflineRun the caller writes through, holding the run lock and counted as open."""
     client = OfflineClient(settings, journal)
     data = {
         "id": ref,
@@ -389,19 +434,6 @@ def open_offline_run(
     from ...run.launch import open_runs as _open_runs
 
     _open_runs.opened(run)  # counted like an online run (F5 binding)
-    why = "the API could not be reached (PROBE_INIT_FALLBACK=offline)" if fallback else "PROBE_MODE=offline"
-    print(
-        f"probe: recording OFFLINE ({why}) -- run {ref} queues in {directory}; "
-        "deliver it later with `probe sync`",
-        flush=True,
-    )
-    if skipped or not fallback:
-        _diagnostics.warn(
-            "probe: an offline run records metrics, spans, artifacts, config updates, what "
-            "it reads and writes, and its close; code snapshot, output capture (file "
-            "uploads) and hardware metrics are skipped offline"
-            + (f" (ignored: {', '.join(skipped)})" if skipped else "")
-        )
     return run
 
 
@@ -445,4 +477,4 @@ def _context_name() -> str | None:
 def fallback_enabled() -> bool:
     return os.environ.get(FALLBACK_ENV, "").strip().lower() == "offline"
 from probe.sdk.delivery.offline.queue import OFFLINE_DIRNAME, _OFFLINE_CONFLICT, read_manifest  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.sinks.offline import OfflineClient  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.offline.client import OfflineClient  # noqa: E402 -- pieces need each other; the front door loads this one first

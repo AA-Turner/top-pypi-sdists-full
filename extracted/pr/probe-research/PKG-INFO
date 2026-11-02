@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.356.0
+Version: 0.362.1
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -533,7 +533,7 @@ point in any of those visible documents.
 One small process per user per machine (`python -m probe.service`, standard
 library only) that agent sessions, the desktop app and the CLI talk to over
 `~/.local/state/probe/service/service.sock` (JSON-RPC 2.0 lines; the contract is
-`probe.service.protocol`). It is never a login item: the first session that needs
+`probe.foundation.service_api.wire`). It is never a login item: the first session that needs
 it starts it, and it exits a few seconds after the last live session and the last
 open app window are gone.
 
@@ -768,7 +768,7 @@ the flat modes each read one route and refuse arguments they do not read:
 
 | `mode` | Lists | Takes |
 |---|---|---|
-| `runs` | every run filed under a project, newest first (unfiled runs are on the tree's root, with no `ref` or `workspace_id`) | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
+| `runs` | every run, newest first | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
 | `workspaces` | the team's filing locations, by name | — |
 | `notes` | the notes catalog, sub-notes included; each row is an address `entity` opens | `query` (literal) |
 | `files` | the Shared folder, or one workspace's files | `workspace_id`, `prefix` (a folder) |

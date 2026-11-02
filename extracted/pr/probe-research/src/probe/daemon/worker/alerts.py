@@ -236,8 +236,8 @@ def report(kind: Kind, *, session_id: str, lane: str, exc: BaseException | None 
     try:
         error_type = type(exc).__name__ if exc is not None else None
         status = status_of(exc)
-        ctx = telemetry.detached_context(_base.get(), via=telemetry.Via.DAEMON)
-        if not ctx.enabled:  # the opt-out or self-host: send nothing, stamp nothing
+        context = telemetry.detached_context(_base.get(), via=telemetry.Via.DAEMON)
+        if not context.enabled:  # the opt-out or self-host: send nothing, stamp nothing
             return False
         from probe.daemon.store.store import state_dir
         from probe.sdk import diagnostics
@@ -247,7 +247,7 @@ def report(kind: Kind, *, session_id: str, lane: str, exc: BaseException | None 
         if not telemetry.report_due(str(state_dir()), key, interval_s=REPORT_INTERVAL_S):
             return False
         source = text if text is not None else exc
-        ctx.emit(
+        context.emit(
             telemetry.EVENT_DAEMON_ERROR,
             kind=str(kind),
             lane=lane,

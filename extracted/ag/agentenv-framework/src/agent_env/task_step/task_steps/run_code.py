@@ -1,0 +1,662 @@
+"""Run a Python script in a deployed sandbox and store its JSON result.
+
+The script defines ``run(input) -> JSON``, where ``input = {"args", "results"}``.
+The result is stored at ``context.metadata["script_results"][result_id]``.
+A script run for an env also gets ``input["env"] = {"id", "url", "mcp_url"}``: the env's
+address, where its card is at ``/.well-known/agent-env.json``, and its MCP endpoint, as the script
+reaches them: on the env's host as that host does (``Sandbox.url_on_host``), since a host can't
+always call its own public URL; inside a computer, the driver on loopback, with the ``headers`` that
+carry the computer's control token to its framework-only routes. A script run in an agent's sandbox
+never gets the token.
+
+``script_artifact_id`` is either a single-file ``FileArtifact`` or a
+``FileArtifactUniverse`` whose ``.py`` members are staged side by side so the entry
+file can import its siblings; non-``.py`` members are skipped. ``script_file`` names
+the entry, defaulting to the sole ``.py`` member or to ``run.py``.
+
+Target: with ``env_id`` set, the script runs on that env's VM host, or in its container for an
+env in a container sandbox, whose image needs python3 (no agent, no LLM key); for an env whose card
+serves computer-exec/v1 (a computer), inside the computer as its session user, through the driver:
+staged under ``~/.agentenv/run_code/<step id>/`` with ``data/add``, run with ``run``, its result read
+with ``data/get``, and the folder then removed, since the agent can read the home; with
+``sandbox_name`` set, on a ``deploy_sandbox`` sandbox (its VM host, or its container for a
+container-mode sandbox); otherwise it runs inside the agent container (``agent_name``), where
+it can see the agent's workspace.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import re
+import shlex
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
+from typing import Any, ClassVar, Optional, Protocol
+
+from agentenv_protocol.computer import COMPUTER_EXEC
+
+from agent_env.artifact import Artifact, FileArtifact
+from agent_env.artifact.artifacts.file_artifact_universe import FileArtifactUniverse
+from agent_env.env.env import DeployedSandboxEnv, require_sandbox
+from agent_env.env.envs.computer.utils import inside
+from agent_env.providers.sandbox_providers.sandbox import into_container
+from agent_env.task_step.context import TaskStepContext
+from agent_env.entity.refs import EntityRef
+from agent_env.task_step.task_step import TaskStep, TaskStepDependency
+
+logger = logging.getLogger(__name__)
+
+
+_RUN_DIR = "/tmp/agent_env_run_code"
+# Inside a computer, relative to the session user's home.
+_COMPUTER_RUN_DIR = ".agentenv/run_code"
+# How much longer than the script's timeout a computer lets the runner run, so the runner stops the script first.
+_RUNNER_SLACK_S = 10
+# What a POSIX extended regular expression, as `pkill -f` reads one, gives a meaning to outside brackets.
+_ERE_SPECIAL = re.compile(r"[.\[\\()*+?{|^$]")
+
+# The bootstrap we run in the sandbox: `python3 runner.py <run_dir> <entrypoint> <script_file> <timeout_seconds>`.
+_RUNNER_SOURCE = (Path(__file__).parent / "run_code_runner.py").read_text(encoding="utf-8")
+
+# A universe member with one of these names would shadow run_code's own staging files.
+_RESERVED_MEMBERS = frozenset({"runner.py", "input.json", "output.json"})
+
+# Where a single-file FileArtifact is always staged, regardless of its own filename.
+_STAGED_SCRIPT = "script.py"
+
+class RunCodeValidationError(ValueError):
+    """Bad step config or malformed/oversized script output."""
+
+
+class RunCodeExecutionError(Exception):
+    """Script crashed, timed out, or otherwise failed to run."""
+
+
+class RunCodeTaskStep(TaskStep):
+    type: ClassVar[str] = "run_code"
+    entity_refs = (
+        EntityRef.artifact("script_artifact_id", version_field="script_artifact_version"),
+        EntityRef.env("env_id"),
+    )
+    DEFAULT_ENTRYPOINT: ClassVar[str] = "run"
+    DEFAULT_TIMEOUT_SECONDS: ClassVar[int] = 600
+    MAX_OUTPUT_BYTES: ClassVar[int] = 50 * 1024 * 1024
+    MAX_SCRIPT_BYTES: ClassVar[int] = 5 * 1024 * 1024  # total .py bytes staged from a universe
+    # Not an __init__ default (script_file defaults to None) — the universe entry
+    # chosen when several .py members exist.
+    ENTRY_WHEN_AMBIGUOUS: ClassVar[str] = "run.py"
+    _TIMEOUT_EXIT_CODE: ClassVar[int] = 124  # the runner's status at the limit, after GNU timeout's
+    # The end of a failed script's stderr that its error keeps: the error is stored and raised whole.
+    _STDERR_TAIL_BYTES: ClassVar[int] = 1024 * 1024
+    # A collect_artifacts universe can hold hundreds of non-.py members; name a few.
+    _SKIPPED_MEMBERS_LOGGED: ClassVar[int] = 10
+
+    # from_dict forwards these as-is; __init__ owns per-field defaulting.
+    _SERIALIZED_FIELDS: ClassVar[tuple[str, ...]] = (
+        "script_artifact_id",
+        "script_artifact_version",
+        "script_file",
+        "entrypoint",
+        "args",
+        "result_id",
+        "timeout_seconds",
+        "env_id",
+        "agent_name",
+        "sandbox_name",
+    )
+
+    def __init__(
+        self,
+        id: str,
+        version: Optional[int],
+        # --- step-specific fields ---
+        script_artifact_id: str,
+        entrypoint: str = DEFAULT_ENTRYPOINT,
+        script_artifact_version: Optional[int] = None,
+        script_file: Optional[str] = None,
+        args: Optional[dict] = None,
+        result_id: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+        env_id: Optional[str] = None,
+        agent_name: Optional[str] = None,
+        sandbox_name: Optional[str] = None,
+        # --- base TaskStep params ---
+        depends_on: Optional[list[TaskStepDependency]] = None,
+        fail_task_on_error: bool = True,
+    ):
+        # A blank field (as a form submits it) is unset, not a second target.
+        env_id, sandbox_name, agent_name = env_id or None, sandbox_name or None, agent_name or None
+        targets = [
+            name
+            for name, value in (("env_id", env_id), ("sandbox_name", sandbox_name), ("agent_name", agent_name))
+            if value is not None
+        ]
+        if len(targets) > 1:
+            raise ValueError(f"run_code: set at most one of `env_id`, `sandbox_name` and `agent_name`; got {targets}")
+        super().__init__(id, version, depends_on=depends_on, fail_task_on_error=fail_task_on_error)
+        self.script_artifact_id = script_artifact_id
+        self.script_artifact_version = script_artifact_version
+        # Universe-only; rejected at resolve time for a single-file FileArtifact.
+        self.script_file = script_file
+        self.entrypoint = entrypoint or self.DEFAULT_ENTRYPOINT
+        self.args = args or {}
+        self.result_id = result_id or id
+        self.timeout_seconds = timeout_seconds or self.DEFAULT_TIMEOUT_SECONDS
+        self.env_id = env_id
+        self.sandbox_name = sandbox_name
+        self.agent_name = None if env_id or sandbox_name else agent_name or self.DEFAULT_AGENT_NAME
+
+    def to_dict(self) -> dict:
+        base = super().to_dict()
+        base.update({f: getattr(self, f) for f in self._SERIALIZED_FIELDS})
+        return base
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "RunCodeTaskStep":
+        fields = {f: data[f] for f in cls._SERIALIZED_FIELDS if f in data}
+        # Steps stored before the targets were exclusive can carry an `agent_name` beside `env_id`, which `env_id`
+        # overrode: drop it so they still load. A sandbox_name step only ever stored the default.
+        if fields.get("env_id") or (
+            fields.get("sandbox_name") and fields.get("agent_name") == cls.DEFAULT_AGENT_NAME
+        ):
+            fields.pop("agent_name", None)
+        return cls(**cls._base_from_dict(data), **fields)
+
+    def preflight(self) -> list[str]:
+        """Config problems detectable without a sandbox; resolves documents, never content."""
+        from agent_env.store.base import NotFoundError
+
+        # Infra failures (expired creds, unreachable store) are not config problems: propagate.
+        try:
+            self._resolve_script_artifact()
+        except RunCodeValidationError as exc:
+            return [str(exc)]
+        except NotFoundError:
+            return [
+                f"run_code '{self.id}': script_artifact '{self.script_artifact_id}' "
+                f"(version {self.script_artifact_version or 'latest'}) does not exist"
+            ]
+        return []
+
+    async def execute(self, context: TaskStepContext) -> TaskStepContext:
+        script_file, files = await asyncio.to_thread(self._load_script)
+        target = await self._resolve_target(context)
+        run_dir = target.run_dir(self.id)
+
+        try:
+            await self._stage(target, run_dir, files, self._build_input(context, target))
+            await self._run(target, run_dir, script_file)
+            result = await self._read_output(target, run_dir)
+        finally:
+            if isinstance(target, _DriverTarget):
+                await self._remove(target, run_dir)
+
+        context.metadata.setdefault("script_results", {})[self.result_id] = result
+        logger.info(
+            "run_code '%s' completed (result_id=%s, target=%s)",
+            self.id, self.result_id, self._target_kind(),
+        )
+        return context
+
+    # --- execution phases ---
+
+    def _resolve_script_artifact(self) -> tuple[str, Any]:
+        """Resolve to ``(entry_filename, artifact)``; reads documents only, never content."""
+        artifact = Artifact.get(self.script_artifact_id, self.script_artifact_version)
+        if isinstance(artifact, FileArtifact):
+            if self.script_file:
+                raise self._validation_error(
+                    f"script_file '{self.script_file}' is set but "
+                    f"'{self.script_artifact_id}' is a single-file FileArtifact; drop "
+                    f"script_file or point at a FileArtifactUniverse"
+                )
+            # Never the artifact's filename: a non-.py suffix breaks importlib, and
+            # runner.py would be overwritten by the bootstrap.
+            return (_STAGED_SCRIPT, artifact)
+        if isinstance(artifact, FileArtifactUniverse):
+            return (self._pick_entry(_member_names(artifact)), artifact)
+        raise self._validation_error(
+            f"script_artifact '{self.script_artifact_id}' must be a FileArtifact or "
+            f"FileArtifactUniverse, got {type(artifact).__name__}"
+        )
+
+    def _pick_entry(self, members: list[str]) -> str:
+        py = self._validated_py_members(members)
+        if self.script_file:
+            if not self.script_file.endswith(".py"):
+                raise self._validation_error(
+                    f"script_file '{self.script_file}' must be a .py file"
+                )
+            if self.script_file not in py:
+                raise self._validation_error(
+                    f"script_file '{self.script_file}' is not a .py member of "
+                    f"'{self.script_artifact_id}'; .py members: {py}"
+                )
+            return self.script_file
+        if not py:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' has no .py member; "
+                f"members: {sorted(members)}"
+            )
+        if len(py) == 1:
+            return py[0]
+        # Universe members can be nested paths, so match the entry by basename.
+        default = [n for n in py if os.path.basename(n) == self.ENTRY_WHEN_AMBIGUOUS]
+        if len(default) == 1:
+            return default[0]
+        # Two different reasons, and they need different wording: "no single 'run.py'" reads as
+        # "there is no run.py" when in fact there are several, sending the author to look for a file
+        # that is not missing. The hub's selector already distinguishes these.
+        if default:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' has {len(default)} files named "
+                f"'{self.ENTRY_WHEN_AMBIGUOUS}' ({default}), so the default entry is ambiguous; "
+                f"set script_file to one of {py}"
+            )
+        raise self._validation_error(
+            f"script_artifact '{self.script_artifact_id}' has {len(py)} .py members "
+            f"and no '{self.ENTRY_WHEN_AMBIGUOUS}'; set script_file to one of {py}"
+        )
+
+    def _validated_py_members(self, members: list[str]) -> list[str]:
+        """Reject an unstageable member set; return its sorted ``.py`` members."""
+        if not members:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' is an empty FileArtifactUniverse"
+            )
+        # Member names are unvalidated on write and can come from agent output; we stage as root.
+        unsafe = sorted(n for n in members if not _is_safe_member(n))
+        if unsafe:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' has member name(s) {unsafe} "
+                f"that are absolute or escape the staging directory"
+            )
+        py = sorted(n for n in members if n.endswith(".py"))
+        clash = sorted(set(py) & _RESERVED_MEMBERS)
+        if clash:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' has member(s) {clash} "
+                f"that would shadow run_code's staging files; rename them"
+            )
+        return py
+
+    def _load_script(self) -> tuple[str, dict[str, bytes]]:
+        """Resolve the artifact and load only its ``.py`` members: ``(entry, {name: bytes})``."""
+        script_file, artifact = self._resolve_script_artifact()
+        if isinstance(artifact, FileArtifact):
+            return (script_file, {script_file: artifact.load()})
+
+        # .py only: these universes are often collect_artifacts output, uncapped and binary.
+        members = artifact.get_file_artifacts()
+        py = {name: fa for name, fa in members.items() if name.endswith(".py")}
+        if script_file not in py:
+            # Unreachable unless the universe doc's refs and ids disagree.
+            raise self._validation_error(
+                f"entry '{script_file}' is missing from the resolved members of "
+                f"'{self.script_artifact_id}' ({sorted(members)})"
+            )
+        files = {name: fa.load() for name, fa in py.items()}
+        total = sum(len(b) for b in files.values())
+        if total > self.MAX_SCRIPT_BYTES:
+            raise self._validation_error(
+                f"script_artifact '{self.script_artifact_id}' .py members total "
+                f"{total} bytes, over the {self.MAX_SCRIPT_BYTES}-byte staging cap"
+            )
+        skipped = sorted(set(members) - set(py))
+        if skipped:
+            logger.info(
+                "run_code '%s': staging %d .py member(s); skipped %d non-.py member(s): %s",
+                self.id, len(files), len(skipped), skipped[:self._SKIPPED_MEMBERS_LOGGED],
+            )
+        return (script_file, files)
+
+    def _build_input(self, context: TaskStepContext, target: _ExecTarget) -> dict:
+        """Build the {args, results} input passed to the script, and its env's endpoints on an env's host."""
+        script_input = {
+            "args": self.args,
+            "results": context.metadata.get("script_results", {}),
+        }
+        if self.env_id is not None:
+            script_input["env"] = target.endpoints(self._deployed_env(context))
+        return script_input
+
+    def _target_kind(self) -> str:
+        if self.env_id is not None:
+            return "host"
+        if self.sandbox_name is not None:
+            return "sandbox"
+        return "agent"
+
+    async def _resolve_target(self, context: TaskStepContext) -> _ExecTarget:
+        """Pick where the script runs: the env's host, a deployed sandbox's host, or the agent container."""
+        if self.env_id is not None:
+            return await self._host_target(context)
+        if self.sandbox_name is not None:
+            return await self._sandbox_target(context)
+        return await self._agent_target(context)
+
+    async def _stage(
+        self, target: _ExecTarget, run_dir: str, files: dict[str, bytes], script_input: dict
+    ) -> None:
+        """Clear the run dir, then write the script files, the input, and the runner.
+
+        Sandboxes are reused across reruns and retries: a stale output.json would be
+        read back as this run's result, and a stale sibling module would satisfy an import.
+        """
+        await target.reset_dir(run_dir)
+        for name, content in files.items():
+            await target.write_file(f"{run_dir}/{name}", content.decode("utf-8"))
+        await target.write_file(f"{run_dir}/input.json", json.dumps(script_input))
+        await target.write_file(f"{run_dir}/runner.py", _RUNNER_SOURCE)
+
+    async def _run(self, target: _ExecTarget, run_dir: str, script_file: str) -> None:
+        """Run the script, which the runner stops at the timeout."""
+        exit_code, _stdout, stderr = await target.run(
+            "python3", f"{run_dir}/runner.py", run_dir, self.entrypoint, script_file, str(self.timeout_seconds),
+        )
+        if exit_code == 0:
+            return
+        reason = (
+            f"timed out after {self.timeout_seconds}s"
+            if exit_code == self._TIMEOUT_EXIT_CODE
+            else f"exited {exit_code}: {self._stderr_tail(stderr)}"
+        )
+        raise self._exec_error(reason)
+
+    async def _read_output(self, target: _ExecTarget, run_dir: str) -> Any:
+        """Read and parse the script's JSON result, enforcing the size cap."""
+        # Check the byte size before reading any content: a complete,
+        # runner-written file is always valid UTF-8 JSON, so an over-cap result is
+        # rejected here rather than slurped into the worker — and we never decode a
+        # truncated file (which would crash strict UTF-8 decode mid-codepoint).
+        path = f"{run_dir}/output.json"
+        exit_code, size_out, stderr = await target.run("wc", "-c", path)
+        if exit_code != 0:
+            raise self._exec_error(f"wrote no result file: {self._stderr_tail(stderr)}")
+        if int(size_out.split()[0]) > self.MAX_OUTPUT_BYTES:
+            raise self._validation_error(
+                f"result exceeds {self.MAX_OUTPUT_BYTES}-byte cap"
+            )
+        try:
+            content = await target.read_file(path)
+        except OSError as exc:
+            raise self._exec_error(f"could not read result file: {self._stderr_tail(str(exc))}") from exc
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise self._validation_error(f"result is not valid JSON: {exc}") from exc
+
+    async def _remove(self, target: _DriverTarget, run_dir: str) -> None:
+        """Remove a computer's run folder; a failure is logged, not raised over the run's own."""
+        try:
+            await target.remove_dir(run_dir)
+        except Exception as e:
+            logger.warning("run_code '%s': couldn't remove %s: %s", self.id, run_dir, e)
+
+    # --- run targets ---
+
+    def _deployed_env(self, context: TaskStepContext) -> DeployedSandboxEnv:
+        """The record of ``env_id``'s deploy, which must be in one of agent-env's sandboxes."""
+        deployed = next(
+            (d for d in context.deployed_envs if d.env_id == self.env_id), None
+        )
+        if deployed is not None:
+            deployed = require_sandbox(deployed, "run_code on the env's host")
+        if deployed is None or not deployed.sandbox_id:
+            raise RuntimeError(
+                f"Env '{self.env_id}' not found in context.deployed_envs "
+                "(or missing sandbox_id)"
+            )
+        return deployed
+
+    async def _host_target(self, context: TaskStepContext) -> _ExecTarget:
+        from agent_env.providers.sandbox_providers.sandbox import VmSandbox
+        from agent_env.providers.sandbox_providers.sandbox_provider import (
+            build_sandbox_provider,
+            get_env_sandbox_provider,
+        )
+
+        deployed = self._deployed_env(context)
+        if deployed.supports(COMPUTER_EXEC, "run"):
+            return self._driver_target(deployed)
+        # env sandbox provider, honoring a custom sandbox_type
+        provider = (
+            build_sandbox_provider(deployed.sandbox_type)
+            if deployed.sandbox_type
+            else get_env_sandbox_provider()
+        )
+        sandbox = await provider.get_sandbox(deployed.sandbox_id)
+        # An env in a container sandbox has no host to run on: the script runs in the container, beside its server.
+        return _HostTarget(sandbox) if isinstance(sandbox, VmSandbox) else _AgentTarget(sandbox, prefix=())
+
+    def _driver_target(self, deployed: DeployedSandboxEnv) -> _DriverTarget:
+        """Inside the computer, through its driver, once its card serves what the run needs and allows its timeout."""
+        if missing := inside.missing(deployed):
+            raise self._validation_error(f"env '{self.env_id}' serves computer-exec/v1 but not {', '.join(missing)}, "
+                                         "which running code in it needs")
+        limit = inside.max_timeout_s(deployed)
+        if self.timeout_seconds > limit - _RUNNER_SLACK_S:
+            raise self._validation_error(f"timeout_seconds {self.timeout_seconds} is above the "
+                                         f"{limit - _RUNNER_SLACK_S} s a script in env '{self.env_id}' may run: it "
+                                         f"runs a command for at most {limit} s, and the runner keeps "
+                                         f"{_RUNNER_SLACK_S} s of that to stop the script")
+        return _DriverTarget(deployed, self.timeout_seconds + _RUNNER_SLACK_S)
+
+    async def _sandbox_target(self, context: TaskStepContext) -> _ExecTarget:
+        from agent_env.providers.sandbox_providers.sandbox import VmSandbox
+        from agent_env.providers.sandbox_providers.sandbox_provider import (
+            SANDBOX_MODE_VM,
+            build_sandbox_provider,
+            get_sandbox_provider,
+        )
+
+        deployed = next(
+            (s for s in context.deployed_sandboxes if s.sandbox_name == self.sandbox_name), None
+        )
+        if deployed is None:
+            raise RuntimeError(f"Sandbox '{self.sandbox_name}' not found in context.deployed_sandboxes")
+        provider = (
+            build_sandbox_provider(deployed.sandbox_type)
+            if deployed.sandbox_type
+            else get_sandbox_provider()
+        )
+        sandbox = await provider.get_sandbox(deployed.sandbox_id)
+        if deployed.sandbox_mode == SANDBOX_MODE_VM:
+            return _HostTarget(sandbox)
+        # A container sandbox on a VM-backed provider runs its image beside the host: exec into it.
+        prefix = (
+            ("sudo", "docker", "exec", "-u", "0", sandbox.container_name)
+            if isinstance(sandbox, VmSandbox)
+            else ()
+        )
+        return _AgentTarget(sandbox, prefix)
+
+    async def _agent_target(self, context: TaskStepContext) -> _ExecTarget:
+        # Runs inside the agent container. VM mode needs `sudo docker exec -u 0`:
+        # docker on the host needs sudo, and -u 0 reads the root-owned copied files.
+        from agent_env.providers.sandbox_providers.sandbox_provider import (
+            SANDBOX_MODE_VM,
+            build_sandbox_provider,
+            get_agent_sandbox_provider,
+        )
+
+        agent = next(
+            (a for a in context.deployed_agents if a.agent_name == self.agent_name), None
+        )
+        if agent is None or not agent.sandbox_id:
+            raise RuntimeError(
+                f"Agent '{self.agent_name}' not found in context.deployed_agents "
+                "(or missing sandbox_id)"
+            )
+        provider = build_sandbox_provider(agent.sandbox_type) if agent.sandbox_type else get_agent_sandbox_provider()
+        sandbox = await provider.get_sandbox(agent.sandbox_id)
+        if agent.on_host:
+            # A host-installed agent has no container: stage and run on the VM host, as root.
+            return _HostTarget(sandbox)
+        prefix = (
+            ("sudo", "docker", "exec", "-u", "0", agent.installed_container or sandbox.container_name)
+            if sandbox.mode == SANDBOX_MODE_VM
+            else ()
+        )
+        return _AgentTarget(sandbox, prefix, agent.installed_container)
+
+    # --- errors ---
+
+    def _stderr_tail(self, stderr: str) -> str:
+        """``stderr`` within ``_STDERR_TAIL_BYTES``, kept from the end, where the exception is."""
+        data = stderr.encode("utf-8", "replace")
+        if len(data) <= self._STDERR_TAIL_BYTES:
+            return stderr
+        tail = data[-self._STDERR_TAIL_BYTES:].decode("utf-8", "ignore")  # a character cut in two goes
+        return f"[first {len(data) - len(tail.encode('utf-8')):,} bytes of stderr cut]\n{tail}"
+
+    def _exec_error(self, msg: str) -> RunCodeExecutionError:
+        return RunCodeExecutionError(f"run_code '{self.id}': {msg}")
+
+    def _validation_error(self, msg: str) -> RunCodeValidationError:
+        return RunCodeValidationError(f"run_code '{self.id}': {msg}")
+
+
+# --- module helpers ---
+
+
+def _member_names(universe: Any) -> list[str]:
+    """Member names in get_file_artifacts' precedence, so preflight sees what execute stages."""
+    if universe.file_artifact_refs:
+        return list(universe.file_artifact_refs)
+    return list(universe.file_artifact_ids or {})
+
+
+def _is_safe_member(name: str) -> bool:
+    """True when `name` stays inside the staging dir as a relative path."""
+    if not name or name.startswith(("/", "~")):
+        return False
+    return ".." not in PurePosixPath(name).parts
+
+
+def _env_on_host(deployed: DeployedSandboxEnv, sandbox: Any) -> dict:
+    """The env's id, address and MCP endpoint as a script on its host reaches them."""
+    url, mcp_url = deployed.environment_url, deployed.mcp_url
+    return {
+        "id": deployed.env_id,
+        "url": url and sandbox.url_on_host(url),
+        "mcp_url": mcp_url and sandbox.url_on_host(mcp_url),
+    }
+
+
+async def _cat(target: _ExecTarget, path: str) -> str:
+    exit_code, stdout, stderr = await target.run("cat", path)
+    if exit_code != 0:
+        raise OSError(stderr)
+    return stdout
+
+
+class _ExecTarget(Protocol):
+    def run_dir(self, step_id: str) -> str: ...
+    def endpoints(self, deployed: DeployedSandboxEnv) -> dict: ...
+    async def reset_dir(self, path: str) -> None: ...
+    async def write_file(self, path: str, content: str) -> None: ...
+    async def read_file(self, path: str) -> str: ...
+    async def run(self, *command: str) -> tuple[int, str, str]: ...
+
+
+@dataclass
+class _HostTarget:
+    """Runs the script on a VM host (an env's or a deployed sandbox's; no agent)."""
+
+    sandbox: Any
+
+    def run_dir(self, step_id: str) -> str:
+        # The sandbox's own: runs on the local provider share this machine's /tmp, and teardown removes it there.
+        return f"{self.sandbox.scoped_name(_RUN_DIR)}/{step_id}"
+
+    def endpoints(self, deployed: DeployedSandboxEnv) -> dict:
+        return _env_on_host(deployed, self.sandbox)
+
+    async def reset_dir(self, path: str) -> None:
+        await self.sandbox.exec_script(
+            f"rm -rf {shlex.quote(path)} && mkdir -p {shlex.quote(path)}"
+        )
+
+    async def write_file(self, path: str, content: str) -> None:
+        await self.sandbox.write_host_file(content.encode("utf-8"), path)
+
+    async def read_file(self, path: str) -> str:
+        return await _cat(self, path)
+
+    async def run(self, *command: str) -> tuple[int, str, str]:
+        # Files are written as root, so run as root too.
+        return await self.sandbox.exec_with_output("sudo", *command)
+
+
+@dataclass
+class _AgentTarget:
+    """Runs the script inside a container: an agent's, a container sandbox's, or an env's in one. ``container`` is
+    the one install_agent put the agent in, which its files are written into too."""
+
+    sandbox: Any
+    prefix: tuple[str, ...]
+    container: str | None = None
+
+    def run_dir(self, step_id: str) -> str:
+        return f"{_RUN_DIR}/{step_id}"
+
+    def endpoints(self, deployed: DeployedSandboxEnv) -> dict:
+        return _env_on_host(deployed, self.sandbox)
+
+    async def reset_dir(self, path: str) -> None:
+        await self.run("rm", "-rf", path)
+        await self.run("mkdir", "-p", path)
+
+    async def write_file(self, path: str, content: str) -> None:
+        # write_file_from_text takes (content, path); we expose (path, content).
+        await self.sandbox.write_file_from_text(content, path, **into_container(self.container))
+
+    async def read_file(self, path: str) -> str:
+        return await _cat(self, path)
+
+    async def run(self, *command: str) -> tuple[int, str, str]:
+        return await self.sandbox.exec_with_output(*self.prefix, *command)
+
+
+@dataclass
+class _DriverTarget:
+    """Runs the script inside a computer, as its session user, through its driver: files written with ``data/add`` and
+    read with ``data/get``, commands run with computer-exec/v1 ``run`` for at most ``timeout_s``, with ``env`` added
+    to the driver's environment. Paths are relative to the home, where commands run."""
+
+    deployed: DeployedSandboxEnv
+    timeout_s: float
+    env: dict[str, str] = field(default_factory=dict)
+
+    def run_dir(self, step_id: str) -> str:
+        return f"{_COMPUTER_RUN_DIR}/{step_id}"
+
+    def endpoints(self, deployed: DeployedSandboxEnv) -> dict:
+        return inside.loopback(deployed)
+
+    async def reset_dir(self, path: str) -> None:
+        """End whatever still runs from the folder, as a run whose driver died leaves going, then remove it."""
+        await self.run("pkill", "-f", _ERE_SPECIAL.sub(r"\\\g<0>", f"{path}/runner.py"))
+        await self.remove_dir(path)
+
+    async def remove_dir(self, path: str) -> None:
+        exit_code, _, stderr = await self.run("rm", "-rf", path)
+        if exit_code != 0:
+            raise OSError(stderr)
+
+    async def write_file(self, path: str, content: str) -> None:
+        await inside.add_files(self.deployed, {path: content.encode("utf-8")})
+
+    async def read_file(self, path: str) -> str:
+        return (await inside.read_file(self.deployed, path)).decode("utf-8")
+
+    async def run(self, *command: str) -> tuple[int, str, str]:
+        """``command``'s exit status, stdout and stderr, each cut at the driver's output cap; a command stopped at the
+        timeout exits as the runner's does."""
+        answer = await inside.run(self.deployed, list(command), timeout_s=self.timeout_s, env=self.env)
+        exit_code = RunCodeTaskStep._TIMEOUT_EXIT_CODE if answer["timed_out"] else answer["exit_code"]
+        return exit_code, answer["stdout"], answer["stderr"]

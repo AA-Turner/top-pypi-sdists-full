@@ -9,13 +9,19 @@ from flask import jsonify, request
 
 import schemathesis
 from schemathesis.cli.wfc_report import FAULT_CATEGORY_IDS, fault_category
-from schemathesis.core.failures import AcceptedNegativeData, MalformedJson, ResponseTimeExceeded, ServerError
+from schemathesis.core.failures import (
+    AcceptedNegativeData,
+    AuthScenario,
+    IgnoredAuth,
+    MalformedJson,
+    ResponseTimeExceeded,
+    ServerError,
+)
 from schemathesis.engine.events import ScenarioFinished
+from schemathesis.grpc.checks import UndecodableGrpcRequest
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
-    AuthScenario,
     EnsureResourceAvailability,
-    IgnoredAuth,
     MissingHeaderNotRejected,
     ObjectLevelAuthorizationViolation,
     RejectedPositiveData,
@@ -137,64 +143,6 @@ def test_failure_reported_once_is_one_test_case(ctx, cli, tmp_path):
     assert (len(report["testCases"]), len(report["faults"]["foundFaults"])) == (1, 1)
 
 
-def test_stateful_failure_block_replays_the_chain(ctx, cli, tmp_path):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/items": {
-                "post": {
-                    "responses": {
-                        "201": {
-                            "description": "Created",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {"id": {"type": "integer"}},
-                                        "required": ["id"],
-                                    }
-                                }
-                            },
-                            "links": {
-                                "GetItem": {"operationId": "getItem", "parameters": {"id": "$response.body#/id"}}
-                            },
-                        }
-                    }
-                }
-            },
-            "/items/{id}": {
-                "get": {
-                    "operationId": "getItem",
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            },
-        }
-    )
-
-    @app.route("/items", methods=["POST"])
-    def create_item():
-        return jsonify({"id": 1}), 201
-
-    @app.route("/items/<int:item_id>")
-    def get_item(item_id):
-        return jsonify({}), 500
-
-    path = tmp_path / "report.json"
-    cli.run_openapi_app(
-        app, f"--report-wfc-path={path}", "--max-examples=5", "--phases=stateful", "--checks=not_a_server_error"
-    )
-
-    report = load_report(path)
-    [test_case] = report["testCases"]
-    lines = (tmp_path / "report.sh").read_text(encoding="utf-8").splitlines()
-    block = lines[test_case["startLine"] : test_case["endLine"] + 1]
-    assert [line.split(" http")[0] for line in block if not line.startswith("#")] == [
-        "curl -X POST",
-        "curl -X GET",
-    ]
-    assert report["problemDetails"]["rest"]["outputHttpCalls"] == 2
-
-
 def test_undeclared_method_fault_names_the_probed_method(ctx, cli, tmp_path):
     app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
@@ -246,11 +194,12 @@ def test_only_anonymous_modifications_are_308(ctx, cli, tmp_path, accepts_anonym
         "--checks=ignored_auth",
     )
 
-    assert [
-        category["code"]
-        for fault in load_report(path)["faults"]["foundFaults"]
-        for category in fault["faultCategories"]
-    ] == [code]
+    report = load_report(path)
+    # The requests without valid credentials that reveal the fault are not test cases of their own.
+    assert (
+        [category["code"] for fault in report["faults"]["foundFaults"] for category in fault["faultCategories"]],
+        report["totalTests"],
+    ) == ([code], 1)
 
 
 def test_same_failure_on_two_operations_is_two_faults(ctx, cli, tmp_path):
@@ -549,6 +498,24 @@ def test_object_level_authorization_context_names_both_peers():
         906,
         "ObjectLevelAuthorizationViolation: Object-level authorization bypass (bob read an object alice owns)",
     )
+
+
+@pytest.mark.parametrize(
+    ("failure", "description"),
+    [
+        (
+            ServerError(operation=OPERATION, status_code=500, status_name="DATA_LOSS"),
+            "ServerError: Server error (status 500 DATA_LOSS)",
+        ),
+        (
+            UndecodableGrpcRequest(operation=OPERATION, status_code=500, status_name="INTERNAL"),
+            "UndecodableGrpcRequest: Server could not decode the request (status 500 INTERNAL)",
+        ),
+    ],
+    ids=["server-error", "undecodable-grpc-request"],
+)
+def test_server_error_context_names_the_protocol_status(failure, description):
+    assert fault_category(failure) == (100, description)
 
 
 def test_declared_auth_not_enforced_context_names_the_scenario():

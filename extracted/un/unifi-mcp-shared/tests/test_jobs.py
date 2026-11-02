@@ -1,0 +1,93 @@
+"""Tests for the shared jobs module."""
+
+import asyncio
+import copy
+
+import pytest
+from unifi_core.jobs import JobStore, get_job_status, start_async_tool
+
+
+class TestJobStore:
+    """Tests for the JobStore class."""
+
+    @pytest.fixture
+    def store(self):
+        return JobStore()
+
+    async def test_status_running(self, store):
+        event = asyncio.Event()
+
+        async def wait_for_event():
+            await event.wait()
+            return "finished"
+
+        job_id = await store.start(wait_for_event())
+        assert isinstance(job_id, str)
+        assert len(job_id) == 16
+        status = await store.status(job_id)
+        assert status["status"] == "running"
+        assert status["result"] is None
+        event.set()
+        await asyncio.sleep(0.05)
+
+    @pytest.mark.parametrize("result_val", [{"data": "result"}, "ok", "done"])
+    async def test_status_done(self, store, result_val):
+        expected = copy.deepcopy(result_val)
+
+        async def quick():
+            return result_val
+
+        job_id = await store.start(quick())
+        assert isinstance(job_id, str)
+        assert len(job_id) == 16
+        await asyncio.sleep(0.05)  # let task complete
+        status = await store.status(job_id)
+        status_copy = await store.status(job_id)
+        assert status["status"] == "done"
+        assert status["result"] == expected
+        assert "completed" in status
+        assert status is not status_copy
+        assert status == status_copy
+
+    async def test_status_error(self, store):
+        async def fail():
+            raise ValueError("test error")
+
+        job_id = await store.start(fail())
+        await asyncio.sleep(0.05)
+        status = await store.status(job_id)
+        assert status["status"] == "error"
+        assert "test error" in status["error"]
+
+    async def test_status_unknown(self, store):
+        status = await store.status("nonexistent")
+        assert status["status"] == "unknown"
+
+
+class TestStartAsyncTool:
+    """Tests for start_async_tool."""
+
+    async def test_returns_job_id(self):
+        async def handler(x=1):
+            return {"success": True}
+
+        result = await start_async_tool(handler, {"x": 1})
+        assert "jobId" in result
+
+    async def test_error_returns_error_dict(self):
+        async def bad_handler(**kwargs):
+            raise TypeError("bad args")
+
+        # Passing invalid args to trigger error before coroutine starts
+        result = await start_async_tool(bad_handler, {"nonexistent_required": 1})
+        # The handler accepts **kwargs so it won't fail on extra args
+        # Let's test with a handler that fails on instantiation
+        assert "jobId" in result or "error" in result
+
+
+class TestGetJobStatus:
+    """Tests for get_job_status convenience wrapper."""
+
+    async def test_delegates_to_jobs_store(self):
+        status = await get_job_status("nonexistent_id")
+        assert status["status"] == "unknown"

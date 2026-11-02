@@ -1,3 +1,0 @@
-from typing import Any
-
-def asyn_fluidc(G, k, max_iter: int = ..., seed: Any | None = ...): ...

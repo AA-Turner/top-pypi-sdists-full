@@ -91,8 +91,13 @@ def capture_manifest(
     scan: bool = True,
     scan_budget_bytes: int | None = DEFAULT_MAX_UPLOAD_BYTES,
     ignore: _ignore.IgnoreRules | None = None,
+    probe_remote: bool = True,
 ) -> dict[str, Any]:
     """Classify each captured file as bytes-to-upload or too-large-to-copy.
+
+    ``probe_remote=False`` skips `ls-remote` (the one network call): ``base_commit`` and
+    ``remote`` read None, as for a tree with no pushed base. Run open passes it and asks
+    the remote on a thread instead (`start_pushed_base`).
 
     CLASSIFICATION ONLY. Nothing here moves bytes: a ``source="blob"`` entry
     carries ``path``/``mode``/``sha256``/``size`` and says "someone must upload
@@ -166,7 +171,7 @@ def capture_manifest(
         # never cost the capture (plan 2.6); `git_provenance` records why.
         return as_directory()
 
-    base, remote = pushed_base(cwd)
+    base, remote = pushed_base(cwd) if probe_remote else (None, None)
     listed = sorted(tracked | set(untracked))
     # A name that is not valid UTF-8 (decoded with surrogates) cannot enter the
     # tree digest or the JSON execution record; it is excluded VISIBLY, like a

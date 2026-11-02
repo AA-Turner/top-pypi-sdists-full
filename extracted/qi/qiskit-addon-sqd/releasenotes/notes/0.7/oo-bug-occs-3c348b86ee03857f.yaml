@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fixed a bug in open-shell workflows which would cause :func:`qiskit_addon_sqd.fermion.optimize_orbitals` to crash with a ``malloc`` error.

@@ -125,7 +125,7 @@ class EntityReadsMixin:
         # back to a name they may not have. The invariant that 422 protected still
         # holds, just earlier: an id is never answered as an absent NAME.
         folder = name.rsplit("/", 1)[0] if "/" in name else ""
-        params = {"prefix": folder} if folder else {}
+        parameters = {"prefix": folder} if folder else {}
         # NO `limit`, deliberately. A cap would make an artifact past the cap read
         # as absent, and absent is defined downstream as licence to create a new
         # identity -- reintroducing the precise bug the retired asset registry
@@ -133,7 +133,7 @@ class EntityReadsMixin:
         # to no_match and callers were told to register a duplicate). An unbounded
         # read of one curated team folder is the cheaper failure. A server-side
         # name filter would fix both; /v1/shared/files has no such parameter yet.
-        rows = self.client.list_anchored(Anchor.SHARED, **params) or []
+        rows = self.client.list_anchored(Anchor.SHARED, **parameters) or []
         exact = [row for row in rows if row.get("name") == name]
         if not exact:
             # States what was SEARCHED, not what exists. This lookup covers live

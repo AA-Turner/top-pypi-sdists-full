@@ -1,3 +1,0 @@
-from typing import Any
-
-def random_cograph(n, seed: Any | None = ...): ...

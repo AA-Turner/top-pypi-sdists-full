@@ -1,0 +1,156 @@
+Metadata-Version: 2.4
+Name: autoware-carla-scenario
+Version: 22.3.1
+Summary: CARLA scenario testing framework for Autoware
+Author: Masaya Kataoka
+Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: typesafe-carla>=0.8.1,<0.9 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+Requires-Dist: pyxodr>=0.1.0
+Requires-Dist: opencv-python-headless>=4.8
+Requires-Dist: numpy>=1.21
+Requires-Dist: pytest>=9.0.1
+Requires-Dist: mypy>=1.19.0
+Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: simple-lanelet2>=1.2.3
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: hydra-core>=1.3.2
+Requires-Dist: omegaconf>=2.3.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.34.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: openodd-py>=0.18.0
+Requires-Dist: packaging>=23.0
+Requires-Dist: tomli>=1.1.0 ; python_full_version < '3.11'
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: carla-driver-interface>=2.4,<3
+Requires-Dist: grpcio>=1.60
+Requires-Dist: protobuf>=4.25.0,<8
+Requires-Dist: orjson>=3.13.0
+Requires-Dist: hilspy>=0.16,<0.17 ; extra == 'hils'
+Requires-Dist: roadgen>=0.41.2 ; extra == 'map'
+Requires-Dist: autoware-carla-scenario-rerun>=0.1,<0.2 ; extra == 'rerun'
+Requires-Dist: autoware-carla-scenario-rerun>=0.1,<0.2 ; extra == 'rerun-lidar'
+Requires-Dist: rerun-sdk>=0.38.1,<0.39 ; extra == 'rerun-lidar'
+Requires-Dist: cyclonedds>=11.0.1 ; python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'ros2'
+Requires-Dist: eclipse-sumo>=1.23 ; extra == 'sumo'
+Requires-Dist: libsumo>=1.23 ; extra == 'sumo'
+Requires-Dist: sumolib>=1.23 ; extra == 'sumo'
+Requires-Dist: traci>=1.23 ; extra == 'sumo'
+Requires-Dist: roadgen>=0.41.2 ; extra == 'sumo'
+Requires-Dist: autoware-carla-scenario-t4>=0.1,<0.2 ; extra == 't4'
+Requires-Dist: autoware-carla-scenario-rerun[viewer]>=0.1,<0.2 ; extra == 'viewer'
+Requires-Python: >=3.10, <3.15
+Project-URL: Homepage, https://github.com/autowarefoundation/autoware_carla_scenario
+Project-URL: Documentation, https://autowarefoundation.github.io/autoware_carla_scenario/
+Project-URL: Repository, https://github.com/autowarefoundation/autoware_carla_scenario
+Project-URL: Issues, https://github.com/autowarefoundation/autoware_carla_scenario/issues
+Project-URL: Changelog, https://github.com/autowarefoundation/autoware_carla_scenario/releases
+Provides-Extra: hils
+Provides-Extra: map
+Provides-Extra: rerun
+Provides-Extra: rerun-lidar
+Provides-Extra: ros2
+Provides-Extra: sumo
+Provides-Extra: t4
+Provides-Extra: viewer
+Description-Content-Type: text/markdown
+
+# Autoware CARLA Scenario
+
+A CARLA scenario testing framework for [Autoware](https://autoware.org/). Drives an Autoware ego vehicle through configurable scenarios in the [CARLA simulator](https://carla.org/), evaluates pass/fail conditions tick-by-tick, and produces JSON results plus a trajectory log of the run.
+
+It is typically run against OpenDRIVE maps produced by the `convert` CLI of [`autoware_lanelet2_to_opendrive`](https://github.com/hakuturu583/autoware_lanelet2_to_opendrive), but does not depend on it: the Lanelet2 and OpenDRIVE maps are loaded as two independent coordinate systems, related only through CARLA world coordinates.
+
+## Features
+
+- Automated scenario execution against CARLA UE5 (`0.10.0` and `ue5-dev`), through the statically typed [typesafe_carla](https://github.com/hakuturu583/typesafe_carla) client.
+- [Hydra](https://hydra.cc/)-composed configurations for map, server, ego, entities, and scenario.
+- Glob-pattern batch execution of multiple scenarios in a single CARLA session.
+- Condition system: timing, collisions, traffic signals, speed/standstill, lane/area position, waypoint crossing, plus logical (`And`/`Or`/`Not`), latching (`Sticky`), and persistent combinators.
+- Action system: turns, lane changes, traffic-light state, on-demand camera attachment.
+- Pluggable traffic backends: CARLA's TrafficManager by default, `traffic=none` for an empty road, or a traffic simulator of your own through an entry point.
+- Coordinate transforms between Lanelet2, OpenDRIVE, and CARLA world frames.
+- Hydra `lanelet_constraint` sweeper plugin for parametric map-driven sweeps (resolvable without CARLA).
+- FastAPI + Uvicorn web viewer for browsing results and triggering runs.
+- A trajectory log of every run (actors, lights, map, the ego's plan, conditions, verdict; JSON Schema in the package), which the `rerun` extra turns into a Rerun recording as the run ends (`rerun.enabled=true`), to see the run, beside CARLA's native recording.
+- `scenario-setup` downloads CARLA's nightly build, which the runner then launches by itself.
+- pytest integration via `CarlaScenarioFixture` (auto-skips when there is no CARLA to launch).
+
+## Installation
+
+Python 3.10 to 3.14 (`>=3.10,<3.15`, the interpreters CI tests), Linux x86_64 or aarch64 (CARLA's server itself is x86_64 only; see [installation](docs/installation.md#operating-system)). Install via the workspace root:
+
+```bash
+# From the repository root
+uv sync --dev
+```
+
+The CARLA client is [typesafe_carla](https://github.com/hakuturu583/typesafe_carla) (`typesafe-carla` on PyPI), a plain dependency — no extra to request — imported as `import typesafe_carla.carla as carla`. Its PyPI wheel carries the CPython package prebuilt, so the sync above compiles nothing ([installation](docs/installation.md) has the cases that build it instead). The official `carla` wheels, and CARLA 0.9.16 (UE4), are no longer supported. CARLA's simulator binary itself is downloaded by `uv run scenario-setup` (the nightly build, into `~/.autoware_carla_scenario/bin/carla`); see the [quick start](docs/quickstart.md).
+
+## Quick usage
+
+The package provides these CLI entry points:
+
+| Command | Framework | Purpose |
+|---------|-----------|---------|
+| `scenario` | Hydra | Run autonomous-driving scenario tests in CARLA |
+| `scenario-setup` | argparse | Download CARLA (the nightly build) for `scenario` to launch |
+| `detect-no-3d-model` | argparse | Detect lanelets without a matching 3D ground model in CARLA |
+| `viewer` | FastAPI + Uvicorn | Web UI for browsing and monitoring scenario results |
+
+### Run a scenario
+
+Uses a CARLA server already listening on the configured host/port, or launches one: `CARLA_EXECUTABLE`, else the one `scenario-setup` installed.
+
+```bash
+# Single scenario
+uv run scenario scenario=intersection_passing/straight
+
+# Batch run via glob pattern (sequential, single CARLA session)
+uv run scenario scenario='intersection_passing/*'
+
+# Other built-in scenarios
+uv run scenario scenario=lane_change/left
+uv run scenario scenario=temporary_stop/temporary_stop
+uv run scenario scenario=traffic_light_compliance/traffic_light_compliance
+```
+
+Results (JSON and the trajectory log) are written under the configured output directory and can be inspected interactively via:
+
+```bash
+uv run viewer
+```
+
+### Detect missing 3D models
+
+For diagnosing lanelets that do not project onto a CARLA ground mesh, pass a
+map config (run from the repository root, with CARLA running); the detected IDs
+are written to its `no_3d_model_lanelet_ids`:
+
+```bash
+uv run detect-no-3d-model \
+  autoware_carla_scenario/src/autoware_carla_scenario/examples/conf/map/nishishinjuku.yaml
+```
+
+## Documentation
+
+Full guides live under [`docs/`](docs/) and are served by MkDocs:
+
+- [`docs/installation.md`](docs/installation.md) — system requirements, CARLA setup, `uv` install steps.
+- [`docs/usage.md`](docs/usage.md) — every CLI command, configuration overrides, glob batch execution, viewer.
+- [`docs/architecture.md`](docs/architecture.md) — module layout, scenario lifecycle, condition/action system.
+- [`docs/api.md`](docs/api.md) — generated API reference.
+- [`docs/development.md`](docs/development.md) — contributing, testing, pre-commit, release flow.

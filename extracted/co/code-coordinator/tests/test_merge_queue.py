@@ -28,7 +28,7 @@ from coord.merge_queue import (
     save_queue,
     sequence,
 )
-from coord.models import Assignment
+from coord.models import Assignment, IssueResolution
 from coord.uat_checks import HeaderAssertion, UatCheckConfig, UatCheckResult, UatChecks
 from coord import db as db_mod
 from coord import sql
@@ -14918,9 +14918,16 @@ class TestSweepSiblingConflicts:
     ) -> None:
         """``MERGE_LANDED_KINDS`` sits next to the sweep but is written by
         hand, while the kinds it has to cover are emitted thousands of lines
-        away in :func:`process`. Derive them straight from ``process()``'s
-        source so adding a fourth ``merged*`` outcome without listing it here
-        fails loudly instead of silently skipping the sibling sweep.
+        away in the merge-finalization path. Derive them straight from that
+        path's source so adding a fourth ``merged*`` outcome without listing
+        it here fails loudly instead of silently skipping the sibling sweep.
+
+        The path spans two functions: ``process()`` and the shared
+        ``_finalize_merged_entry()`` helper it (and the inert base-move
+        takeover) delegate post-merge bookkeeping to — the ``merged_partial``
+        / ``merged_close_unconfirmed`` emissions live in the helper. Both are
+        scraped, so a ``merged*`` emission later extracted into a further
+        helper must be added to this tuple too.
 
         Read-back of source rather than a parametrised ``process()`` run on
         purpose: reaching every close-failure arm needs a different gh fake
@@ -14930,7 +14937,10 @@ class TestSweepSiblingConflicts:
         emitted = set(
             re.findall(
                 r'MergeEvent\(\s*[A-Za-z_][A-Za-z0-9_.]*\s*,\s*"(merged\w*)"',
-                inspect.getsource(mq.process),
+                "".join(
+                    inspect.getsource(fn)
+                    for fn in (mq.process, mq._finalize_merged_entry)
+                ),
             )
         )
 
@@ -15454,3 +15464,180 @@ class TestCiPendingPollIntervalS:
     def test_custom_base_and_cap_are_honoured(self) -> None:
         assert mq.ci_pending_poll_interval_s(1, base=10.0, cap=15.0) == 15.0
         assert mq.ci_pending_poll_interval_s(0, base=10.0, cap=15.0) == 10.0
+
+
+# ── #3836: inert base-move skew merges directly, no conflict-fix leg ────────
+
+
+@dataclass
+class _InertSkewGh(FakeGh):
+    """`FakeGh` with `get_compare_files` keyed by the literal (base, head)
+    pair, since `conflict_base_move_is_inert` compares live branch NAMES
+    (``target_branch``/``branch``), not recorded SHAs — unlike the
+    SHA-keyed `_Gh` fixture `TestStaleSmokeVerdictReporting` uses."""
+
+    files_by_pair: dict[tuple[str, str], list[str] | None] = field(
+        default_factory=dict
+    )
+    compare_calls: list[tuple[str, str]] = field(default_factory=list)
+
+    def get_compare_files(self, repo: str, base: str, head: str) -> list[str] | None:
+        self.compare_calls.append((base, head))
+        return self.files_by_pair.get((base, head))
+
+
+class TestConflictBaseMoveIsInert:
+    """`conflict_base_move_is_inert` — the #3836 predicate that tells a
+    GitHub-reported ``"rebaseable"`` merge conflict apart from a genuine
+    content collision, by asking the two live branch names (no recorded
+    SHA snapshot needed) the same three #1479/#1847 escape-hatch questions
+    `_base_move_spared` already asks off a recorded SHA pair."""
+
+    def test_true_when_the_branchs_own_diff_is_inert_only(self) -> None:
+        gh = _InertSkewGh(
+            files_by_pair={("main", "worker/w1"): ["docs/README.md"]},
+        )
+        assert mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main") is True
+
+    def test_true_when_the_base_moved_diff_is_inert_only(self) -> None:
+        gh = _InertSkewGh(
+            files_by_pair={
+                ("main", "worker/w1"): ["coord/merge_queue.py"],
+                ("worker/w1", "main"): ["CONTRIBUTING.md"],
+            },
+        )
+        assert mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main") is True
+
+    def test_true_when_the_two_diffs_are_disjoint(self) -> None:
+        gh = _InertSkewGh(
+            files_by_pair={
+                ("main", "worker/w1"): ["tui/src/app/render.rs"],
+                ("worker/w1", "main"): ["coord/state.py"],
+            },
+        )
+        assert mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main") is True
+
+    def test_false_on_a_genuine_overlapping_conflict(self) -> None:
+        gh = _InertSkewGh(
+            files_by_pair={
+                ("main", "worker/w1"): ["coord/state.py", "coord/drive.py"],
+                ("worker/w1", "main"): ["coord/state.py"],
+            },
+        )
+        assert mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main") is False
+
+    def test_fails_closed_without_gh_ops(self) -> None:
+        assert mq.conflict_base_move_is_inert(None, "acme/api", "worker/w1", "main") is False
+
+    def test_fails_closed_without_repo_github(self) -> None:
+        gh = _InertSkewGh(files_by_pair={("main", "worker/w1"): ["docs/README.md"]})
+        assert mq.conflict_base_move_is_inert(gh, None, "worker/w1", "main") is False
+
+    def test_fails_closed_when_compare_is_unreadable(self) -> None:
+        gh = _InertSkewGh()  # files_by_pair empty -> every compare is None
+        assert mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main") is False
+
+    def test_fails_closed_when_compare_raises(self) -> None:
+        # `_fetch_compare_files` already catches and swallows this (fails
+        # closed to None) — so the predicate sees an unreadable compare, not
+        # a propagating exception, and reads it the same as "not proven inert".
+        class _Raising(_InertSkewGh):
+            def get_compare_files(self, repo, base, head):
+                raise RuntimeError("gh api boom")
+
+        assert (
+            mq.conflict_base_move_is_inert(_Raising(), "acme/api", "worker/w1", "main")
+            is False
+        )
+
+    def test_calls_get_compare_files_at_most_twice(self) -> None:
+        gh = _InertSkewGh(
+            files_by_pair={("main", "worker/w1"): ["docs/README.md"]},
+        )
+        mq.conflict_base_move_is_inert(gh, "acme/api", "worker/w1", "main")
+        assert len(gh.compare_calls) <= 2
+
+
+class TestAttemptDirectMergeForInertBaseMove:
+    """`attempt_direct_merge_for_inert_base_move` — the finisher's
+    merge-commit takeover once #3836's predicate has proven the conflict an
+    inert skew. Always a plain ``method="merge"`` call, never
+    rebase/squash, since only a merge commit leaves *entry*'s own patch-id
+    (and therefore its review approval) untouched.
+
+    *issue_resolution*/*issue_close_block_reason* are the gate chain's
+    already-computed verdict for this entry this tick — a plain "resolved"
+    with no block reason is the common case exercised here; `#3836`'s own
+    post-merge bookkeeping (`_finalize_merged_entry`, close/comment/audit)
+    is exercised separately in `TestFinalizeMergedEntry`-adjacent coverage
+    of `process()` itself, so these tests only assert the takeover's own
+    contract: merge-or-don't, and the resulting event list.
+    """
+
+    _resolved = IssueResolution("resolved", "")
+
+    def test_confirmed_success_merges_and_returns_the_event(self) -> None:
+        entry = _q("w1", pr=42, state=CONFLICT)
+        gh = FakeGh(merge_results={42: (True, "merged via API")})
+
+        events = mq.attempt_direct_merge_for_inert_base_move(
+            entry, gh, None, None,
+            issue_resolution=self._resolved, issue_close_block_reason=None,
+        )
+
+        assert events is not None
+        assert events[0].kind == "inert_base_move_merged"
+        assert events[0].message == "merged via API"
+        assert events[0].entry is entry
+        assert entry.state == MERGED
+        assert entry.error is None
+        assert entry.last_attempt is not None
+        assert gh.merge_calls == [("acme/api", 42, "merge")]
+        # The shared post-merge helper ran too — the linked issue closed.
+        assert gh.close_calls == [(entry.repo_github, entry.issue_number)]
+        assert any(e.kind == "merged" for e in events)
+
+    def test_declined_merge_returns_none_and_leaves_entry_untouched(self) -> None:
+        entry = _q("w1", pr=42, state=CONFLICT)
+        entry.error = "original conflict error"
+        gh = FakeGh(merge_results={42: (False, "still conflicting")})
+
+        events = mq.attempt_direct_merge_for_inert_base_move(
+            entry, gh, None, None,
+            issue_resolution=self._resolved, issue_close_block_reason=None,
+        )
+
+        assert events is None
+        assert entry.state == CONFLICT
+        assert entry.error == "original conflict error"
+        assert gh.close_calls == []
+
+    def test_raising_merge_call_returns_none_and_leaves_entry_untouched(self) -> None:
+        class _Raising(FakeGh):
+            def merge_pr(self, repo, number, method="rebase"):
+                raise RuntimeError("gh api boom")
+
+        entry = _q("w1", pr=42, state=CONFLICT)
+        entry.error = "original conflict error"
+
+        events = mq.attempt_direct_merge_for_inert_base_move(
+            entry, _Raising(), None, None,
+            issue_resolution=self._resolved, issue_close_block_reason=None,
+        )
+
+        assert events is None
+        assert entry.state == CONFLICT
+        assert entry.error == "original conflict error"
+
+    def test_fails_closed_without_gh_ops(self) -> None:
+        entry = _q("w1", pr=42, state=CONFLICT)
+        entry.error = "original conflict error"
+
+        events = mq.attempt_direct_merge_for_inert_base_move(
+            entry, None, None, None,
+            issue_resolution=self._resolved, issue_close_block_reason=None,
+        )
+
+        assert events is None
+        assert entry.state == CONFLICT
+        assert entry.error == "original conflict error"

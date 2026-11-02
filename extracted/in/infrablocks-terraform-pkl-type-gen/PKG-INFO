@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: infrablocks.terraform_pkl_type_gen
+Version: 0.1.1
+Summary: Provides invoke tasks to interact with terraform
+License: MIT
+Author: Toby Clemson
+Author-email: tobyclemson@gmail.com
+Requires-Python: >=3.13,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Dist: invoke (>=2.2.0)
+Requires-Dist: tfparse (>=0.6.16)
+Description-Content-Type: text/markdown
+
+# Terraform Pkl Type Gen
+
+A library for creating Pkl types from Terraform variables definitions.
+
+## Development
+
+For the best developer experience make sure you have `direnv` and `asdf` installed.
+
+Contributing
+Bug reports and pull requests are welcome on GitHub at https://github.com/infrablocks/terraform_pkl_type_gen.
+This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the
+Contributor Covenant code of conduct.
+
+License
+Copyright © 2025 InfraBlocks Maintainers
+
+Distributed under the terms of the MIT License.

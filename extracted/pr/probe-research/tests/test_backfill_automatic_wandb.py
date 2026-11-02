@@ -6,9 +6,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from probe.cli import backfill as bf, backfill_import as imp, backfill_wandb as wb
-from probe.cli import import_jobs as jobs, tui
-from probe.cli.backfill_coverage import CoverageError
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import flow as imp
+from probe.cli.imports.folder.sources import wandb as wb
+from probe.cli.imports import jobs as jobs
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import CoverageError
 from probe.sdk.delivery import journal
 from probe.sdk.delivery.transport.transport import Transport
 from tests import test_backfill_wandb as history, test_import_jobs as job_tests
@@ -24,9 +27,10 @@ def automatic_history(tmp_path, monkeypatch, queued):
     h.client.close()
     h.client = h.new_client(tenant="synthetic", workspace=history.WORKSPACE, backend="https://api.invalid")
     remote = history.Remote(tmp_path / "not-created.sqlite3")
-    monkeypatch.setattr(bf, "degraded_note", lambda *a: None)
-    monkeypatch.setattr(bf, "git_context", lambda *a: None)
-    monkeypatch.setattr(imp, "_background_client", lambda payload: nullcontext(h.client))
+    monkeypatch.setattr(bf.agents.flags, "degraded_note", lambda *a: None)
+    monkeypatch.setattr(bf.walk.git, "git_context", lambda *a: None)
+    monkeypatch.setattr(imp.background_job, "_background_client", lambda payload: nullcontext(h.client))
+    monkeypatch.setattr(imp.auto_import, "_background_client", lambda payload: nullcontext(h.client))
     monkeypatch.setattr(h.client, "flush", lambda **kw: journal.drain(
         h.client.journal, client_factory=lambda _: h.remote, **kw,
     ))
@@ -57,7 +61,7 @@ def answer(monkeypatch, responses):
         reply = next(replies)
         return choices[reply][1] if isinstance(reply, int) else reply
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     return seen
 
 
@@ -92,12 +96,14 @@ def test_approve_new_destination_does_not_scan_or_admit_history(automatic_histor
 
 
 def test_folder_picker_to_automatic_worker_with_wandb_and_default_workspace(automatic_history, monkeypatch):
-    from probe.cli import import_jobs_ui
+    from probe.cli.imports.jobs import ui as import_jobs_ui
 
     h, remote = automatic_history
-    monkeypatch.setattr(bf, "choose_directory", lambda *a: h.folder)
-    monkeypatch.setattr(bf, "resolve_agent", lambda *a, **k: (bf.Agent.CLAUDE, None))
-    monkeypatch.setattr(tui, "working", lambda *a, **k: nullcontext())
+    monkeypatch.setattr(bf.flow.choices, "choose_directory", lambda *a: h.folder)
+    monkeypatch.setattr(bf.folder, "choose_directory", lambda *a: h.folder)
+    monkeypatch.setattr(bf.flow.choices, "resolve_agent", lambda *a, **k: (bf.Agent.CLAUDE, None))
+    monkeypatch.setattr(bf.folder, "resolve_agent", lambda *a, **k: (bf.Agent.CLAUDE, None))
+    monkeypatch.setattr(tui.status_board, "working", lambda *a, **k: nullcontext())
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     seen = answer(monkeypatch, [1, 1, bf.FolderImportMode.AUTOMATIC, 1, "import"])
     result = bf.run(client_factory=lambda: nullcontext(h.client), background=True, back_to_selection=True)
@@ -110,7 +116,7 @@ def test_folder_picker_to_automatic_worker_with_wandb_and_default_workspace(auto
     assert not remote.jobs and not remote.attachments
     assert len(jobs.list_jobs()) == 1
     remote.path = Path(result.job["payload"]["directory"]) / "coverage.sqlite3"
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("Automatic worker prompted"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("Automatic worker prompted"))
     assert run(result.job)["state"] == jobs.State.SUCCEEDED
     assert len(h.classified) == len(remote.jobs) == len(remote.attachments) == 1
 
@@ -147,7 +153,7 @@ def test_automatic_job_scans_without_prompt_then_imports_exact_destination(autom
     assert job["payload"]["scope"]["project_id"] == approval["project_id"]
     assert job["payload"]["wandb_approval"] == approval
     assert not h.classified and not remote.jobs
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("Automatic work cannot prompt"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("Automatic work cannot prompt"))
     saved = run(job)
     assert saved["state"] == jobs.State.SUCCEEDED
     assert h.classified == [["a.py"]] and len(h.created) == len(h.manifested) == len(h.remote.calls) == 1
@@ -162,7 +168,7 @@ def test_automatic_wandb_retry_reuses_scan_project_and_request(automatic_history
     h, remote = automatic_history
     approval = approve(h, monkeypatch)
     job = enqueue(h, remote, approval)
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("Retry cannot prompt"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("Retry cannot prompt"))
     waits = []
     patch_own_sleep(monkeypatch, jobs, waits.append)
     remote.lose = lost
@@ -175,7 +181,7 @@ def test_automatic_wandb_retry_reuses_scan_project_and_request(automatic_history
 def test_another_automatic_import_reuses_existing_files_and_wandb_job(automatic_history, monkeypatch):
     h, remote = automatic_history
     approval = approve(h, monkeypatch)
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("No post-import prompt"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("No post-import prompt"))
     first = enqueue(h, remote, approval)
     run(first)
     second = enqueue(h, remote, approval)
@@ -246,7 +252,7 @@ def test_empty_folder_can_still_start_approved_wandb_history(automatic_history, 
     h, remote = automatic_history
     (h.folder / "a.py").unlink()
     approval = approve(h, monkeypatch)
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("No deferred review"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("No deferred review"))
     run(enqueue(h, remote, approval))
     assert h.classified == h.manifested == [] and len(remote.jobs) == 1
 
@@ -256,7 +262,7 @@ def test_current_workspace_change_does_not_redirect_queued_destination(automatic
     approval = approve(h, monkeypatch)
     job = enqueue(h, remote, approval)
     h.client.settings.workspace = "newly-selected-workspace"
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("No deferred review"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("No deferred review"))
     run(job)
     assert remote.saved()["scope"]["workspace_id"] == history.WORKSPACE
     assert remote.saved()["imports"][0]["project_id"] == approval["project_id"]
@@ -274,7 +280,7 @@ def test_failed_wandb_receipt_is_reported_without_automatic_history_retry(automa
         return respond(request)
 
     monkeypatch.setattr(remote, "respond", terminal_receipt)
-    monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("No deferred review"))
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **k: pytest.fail("No deferred review"))
     assert jobs.run_worker(job["id"]) == 1
     error = jobs.get_job(job["id"])["error"]
     assert f"W&B history lab/training is {state}" in error

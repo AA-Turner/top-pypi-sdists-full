@@ -1,0 +1,536 @@
+"""Tests for commit-tell-sweep.py (git commit-message tell PreToolUse guard).
+
+Drives main() with a stdin PreToolUse Bash payload; a subprocess smoke test runs the shim.
+All source ASCII; tell characters via chr(), never pasted.
+"""
+
+import io
+import json
+import os
+import subprocess
+import sys
+import pytest
+from pathlib import Path
+
+import commit_tell_sweep as C
+
+HOOKS_DIR = Path(__file__).resolve().parent.parent
+SCRIPT = HOOKS_DIR / "commit-tell-sweep.py"
+SHIM = HOOKS_DIR / "run-python.sh"
+
+EM_DASH = chr(0x2014)
+CURLY = chr(0x201D)   # the CLOSING curly quote: the opening one is German punctuation now
+
+
+def _run(monkeypatch, command, tool_name="Bash"):
+    payload = {"tool_name": tool_name, "tool_input": {"command": command}}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    return C.main()
+
+
+def test_clean_commit_passes(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "Fix the bug - properly"') == 0
+
+
+def test_em_dash_in_message_blocks(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "Fix %s properly"' % EM_DASH) == 2
+
+
+def test_curly_quote_blocks(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m %sTitle%s' % (CURLY, CURLY)) == 2
+
+
+def test_second_m_body_scanned(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "clean" -m "body %s here"' % EM_DASH) == 2
+
+
+def test_attached_m_form(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m"msg %s"' % EM_DASH) == 2
+
+
+def test_git_tag_and_merge_messages_scanned(monkeypatch):
+    assert _run(monkeypatch, 'git tag -a v1 -m "release %s"' % EM_DASH) == 2
+    assert _run(monkeypatch, 'git merge --no-ff -m "merge %s"' % EM_DASH) == 2
+
+
+def test_backtick_reference_ignored(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "do not use `%s` in prose"' % EM_DASH) == 0
+
+
+def test_non_git_command_ignored(monkeypatch):
+    # a non-git -m value with a tell (e.g. grep) must not fire
+    assert _run(monkeypatch, 'grep -m 5 "%s" file' % EM_DASH) == 0
+
+
+def test_message_file_scanned(monkeypatch, tmp_path):
+    """Runs on every platform now.
+
+    It was skipped on Windows because a Windows tmp_path is backslashed and shlex eats the
+    separators - but that is what BASH does too (verified against real bash: an unquoted
+    C:\\Users\\me\\f.txt reaches the program as C:Usersmef.txt), so on the Bash arm it was never a
+    defect, only an unrealistic command. Hand bash a path bash can carry and the test is portable.
+    The backslash case that IS a defect lives on the PowerShell arm, below.
+    """
+    f = tmp_path / "msg.txt"
+    f.write_text("Subject %s tell\n" % EM_DASH, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+
+
+def test_bad_payload_safe(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert C.main() == 0
+
+
+def test_unbalanced_quotes_safe(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "oops') == 0    # shlex fails -> fail-open
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason='bare "bash" on a Windows runner resolves to the WSL stub in System32, not Git Bash; this drives the bash shim directly')
+def test_shim_smoke(tmp_path):
+    payload = json.dumps({"tool_input": {"command": 'git commit -m "bad %s dash"' % EM_DASH}})
+    r = subprocess.run(["bash", str(SHIM), str(SCRIPT)], input=payload, capture_output=True, text=True)
+    assert r.returncode == 2 and "tell(s)" in r.stderr
+
+
+@pytest.mark.parametrize("flags", ["-m", "-am", "-sm", "-asm", "-anm"])
+def test_a_clustered_short_flag_still_exposes_the_message(monkeypatch, flags):
+    """`git commit -am "..."` is the commonest commit form there is, and it bypassed this guard.
+
+    `_messages` tested `t in ("-m", "--message")` and `t.startswith("-m")`; a cluster matches
+    neither, so the message list came back empty and the hook approved a message it never read.
+    `-m` is the control: it always worked, so a harness broken for another reason fails it too.
+    """
+    assert _run(monkeypatch, 'git commit %s "subject %s here"' % (flags, EM_DASH)) == 2
+
+
+def test_a_value_taking_flag_before_m_is_not_a_message(monkeypatch):
+    """In `-Cm` the `m` is `-C`'s VALUE (reuse commit "m"), not the message flag.
+
+    Scanning a cluster for `m` anywhere would read the next token as a message and block a commit
+    that carries none - so the scan has to stop at the first value-taking option.
+    """
+    assert _run(monkeypatch, 'git commit -Cm "not %s a message"' % EM_DASH) == 0
+
+
+def test_the_attached_file_form_is_read(monkeypatch, tmp_path):
+    """`-Fmsg.txt` is the same cluster gap on the file side: only `-F file` was handled.
+
+    The path is passed forward-slashed and quoted so this stays a test of the ATTACHED form. A
+    BACKSLASHED path is mangled by POSIX shlex on every platform and is a separate, real defect -
+    see the skip on test_message_file_scanned - and letting it fail here would attribute it to the
+    cluster parsing instead.
+    """
+    f = tmp_path / "msg.txt"
+    f.write_text("subject %s here\n" % EM_DASH, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F"%s"' % f.as_posix()) == 2
+
+
+def _backslashed_file(tmp_path, text):
+    """A file that really exists and whose path string contains a backslash, on either platform.
+
+    On Windows every path already is one. On POSIX a backslash is an ordinary filename character,
+    which is what lets the PowerShell arm be tested on the platform this suite mostly runs on.
+    """
+    if os.name == "nt":
+        f = tmp_path / "sub" / "msg.txt"
+        f.parent.mkdir()
+    else:
+        f = tmp_path / "sub\\msg.txt"
+    f.write_text(text, encoding="utf-8")
+    return f
+
+
+def test_a_powershell_backslashed_message_file_is_read(monkeypatch, tmp_path):
+    """The defect this whole split exists for: in PowerShell a backslash is a PATH SEPARATOR.
+
+    POSIX shlex eats it, the -F path opens nothing, and the guard returns 0 on a commit whose
+    message it never inspected - a guard approving precisely what it exists to block.
+    """
+    f = _backslashed_file(tmp_path, "Subject %s tell\n" % EM_DASH)
+    assert _run(monkeypatch, 'git commit -F %s' % f, tool_name="PowerShell") == 2
+
+
+def test_the_same_command_under_bash_is_not_second_guessed(monkeypatch, tmp_path):
+    """The control that proves the split is KEYED rather than made uniform.
+
+    Real bash mangles that unquoted path identically, so the guard reading nothing here is the
+    guard agreeing with the shell. Applying the Windows rules to a Bash command would be a new
+    defect, not a wider net.
+    """
+    f = _backslashed_file(tmp_path, "Subject %s tell\n" % EM_DASH)
+    # The mangled path names no file, so the file is never read as the message. (The commit is
+    # still refused, as one whose absolute -F path does not exist: git could not read it either.)
+    assert C._messages('git commit -F %s' % f, "Bash") == []
+
+
+REPLACEMENT = chr(0xFFFD)
+
+
+def test_a_non_utf8_message_file_is_blocked_for_its_encoding_not_as_a_tell(
+        monkeypatch, tmp_path, capsys):
+    """Two things at once, and the second is why the first is not simply "pass".
+
+    The reader must not manufacture the character the detector hunts for: U+FFFD is in RANGES on
+    purpose - it is mojibake and worth reporting - but decoding with errors="replace" MINTS one
+    per undecodable byte, so any file that is not UTF-8 was reported as carrying AI-writing tells
+    and blocked on a message naming a character the file does not contain.
+
+    Dropping those bytes silently would trade that loud wrong answer for a quiet one, so the
+    encoding is reported as its own finding, at the byte that failed. git assumes UTF-8 for a
+    commit message (i18n.commitEncoding), so this is a real problem in its own right.
+    """
+    head = b"Subject line, plain ASCII\n"
+    f = tmp_path / "msg.txt"
+    f.write_bytes(head + b"\xff\xfe\x00tail\n")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+    err = capsys.readouterr().err
+    assert "not valid UTF-8" in err
+    assert "byte %d" % len(head) in err
+    assert "AI-writing tell" not in err
+
+
+def test_a_cp1252_dash_no_longer_sails_through(monkeypatch, tmp_path, capsys):
+    """The case that decides it. An em-dash written by a Windows editor is byte 0x97, which is
+    not valid UTF-8, so dropping undecodable bytes would report this file clean - missing exactly
+    the character the hook exists to catch. It is caught as an encoding fault instead."""
+    f = tmp_path / "msg.txt"
+    f.write_bytes("Subject with a real dash".encode("cp1252") + b"\x97 tail\n")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+    assert "not valid UTF-8" in capsys.readouterr().err
+
+
+def test_a_valid_utf8_file_reports_no_encoding_fault(monkeypatch, tmp_path, capsys):
+    """The direction the encoding check must NOT reach: a clean UTF-8 file still passes, and one
+    with a real tell still blocks as a TELL, not as an encoding fault."""
+    clean = tmp_path / "clean.txt"
+    clean.write_text("Subject line - plain ASCII\n", encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % clean.as_posix()) == 0
+    telly = tmp_path / "telly.txt"
+    telly.write_text("Subject %s tail\n" % EM_DASH, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % telly.as_posix()) == 2
+    err = capsys.readouterr().err
+    assert "AI-writing tell" in err and "not valid UTF-8" not in err
+
+
+def test_a_genuine_replacement_character_is_still_a_tell(monkeypatch, tmp_path):
+    """The direction the fix must NOT reach: a U+FFFD that was really encoded in the file.
+
+    Without this the previous test is satisfied by deleting U+FFFD from the tell set, which
+    would silently stop reporting real mojibake.
+    """
+    f = tmp_path / "msg.txt"
+    f.write_text("Subject %s tail\n" % REPLACEMENT, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+
+
+def test_a_message_file_s_content_is_never_echoed_to_the_model(monkeypatch, tmp_path, capsys):
+    """PreToolUse runs BEFORE the Bash call is approved, so the path is still just a string the
+    model named. Quoting the matched lines back on exit 2 hands it up to 20 lines of a file the
+    Read tool's permission rules might refuse. A line number and a codepoint fix the message
+    just as well and carry nothing the model did not already have.
+    """
+    f = tmp_path / "msg.txt"
+    f.write_text("private-value-from-a-file %s\n" % EM_DASH, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+    err = capsys.readouterr().err
+    assert "private-value-from-a-file" not in err
+    assert "1: U+2014" in err
+
+
+def test_an_inline_message_is_still_quoted_back(monkeypatch, capsys):
+    """The direction the containment fix must NOT reach: the model typed this text itself, so
+    quoting the offending line is free and is what makes the block actionable."""
+    assert _run(monkeypatch, 'git commit -m "Fix the widget %s properly"' % EM_DASH) == 2
+    assert "Fix the widget" in capsys.readouterr().err
+
+
+def test_the_message_file_read_is_capped(tmp_path):
+    """A commit message file is small. Reading an unbounded one lets a guard that runs before
+    approval pull an arbitrary amount of a file into the hook."""
+    f = tmp_path / "big.txt"
+    f.write_text("x" * 200000, encoding="utf-8")
+    assert len(C._read_message_file(str(f))) <= 65536
+
+
+def test_a_character_sliced_by_the_read_cap_is_not_an_encoding_fault(monkeypatch, tmp_path, capsys):
+    """The cap can cut a multi-byte character in half, and a fault reported there would be the
+    hook's own doing - the same class of defect as the manufactured tell it was built to stop."""
+    f = tmp_path / "big.txt"
+    two_byte = chr(0x00E4).encode("utf-8")          # 2 bytes; the cap lands between them
+    assert len(two_byte) == 2
+    f.write_bytes(b"x" * (C._MAX_MESSAGE_BYTES - 1) + two_byte + b"tail")
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_a_real_bad_byte_in_a_capped_read_is_still_reported(monkeypatch, tmp_path, capsys):
+    """The direction the truncation exemption must NOT reach: only a failure in the last few
+    bytes of a full read is the cap's fault. One anywhere else is the file's."""
+    f = tmp_path / "big.txt"
+    f.write_bytes(b"head" + b"\xff" + b"x" * C._MAX_MESSAGE_BYTES)
+    assert _run(monkeypatch, 'git commit -F "%s"' % f.as_posix()) == 2
+    assert "byte 4" in capsys.readouterr().err
+
+
+# ---- a message read from the command's own STDIN ---------------------------------------------------
+#
+# `git commit -F - <<'EOF'` is a real, recurring form in the transcript corpus: a quoted heredoc is
+# the one inline route bash never expands. The guard handed "-" to open() like any path, read
+# nothing, and approved a message it had never seen.
+
+@pytest.mark.parametrize("flag", ["-F -", "-F-", "--file=-", "--file -", "-F /dev/stdin",
+                                  "-aF -", "--file=/dev/fd/0"])
+def test_a_stdin_heredoc_message_is_scanned(monkeypatch, flag):
+    cmd = "git commit %s <<'EOF'\nSpike: core %s typed records\nEOF" % (flag, EM_DASH)
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_a_stdin_heredoc_message_after_pathspecs_is_scanned(monkeypatch):
+    cmd = "git commit -F - OPEN-WORK.md handover.md <<'MSG'\nClose rank 34 %s now\nMSG" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_a_stdin_message_on_a_continued_line_is_scanned(monkeypatch):
+    cmd = "git commit -F - \\\n  OPEN-WORK.md <<'MSG'\nClose rank 34 %s now\nMSG" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_a_heredoc_piped_into_a_stdin_commit_is_scanned(monkeypatch):
+    cmd = "cat <<'EOF' | git commit -F -\nSubject %s here\nEOF" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_a_stdin_message_with_an_apostrophe_is_still_scanned(monkeypatch):
+    """An apostrophe in a quoted-heredoc body is plain text to bash, but an argv split of the raw
+    command reads it as an unterminated quote. The guard must not give up on the whole command."""
+    cmd = "git commit -F - <<'EOF'\nDon't drop it %s ever\nEOF" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_an_inline_message_beside_an_apostrophe_heredoc_is_still_scanned(monkeypatch):
+    """The same split failure took down an ordinary -m message sharing a command with any
+    heredoc whose body holds an apostrophe."""
+    cmd = "cat > notes.txt <<'EOF'\nit's data\nEOF\ngit commit -m \"Fix %s now\"" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+
+
+def test_a_clean_stdin_heredoc_message_passes(monkeypatch):
+    cmd = "git commit -F - <<'EOF'\nSpike: core - typed records, it's fine\nEOF"
+    assert _run(monkeypatch, cmd) == 0
+
+
+def test_a_heredoc_that_is_not_the_message_is_not_read_as_one(monkeypatch):
+    """A tell in some OTHER heredoc of the same command (a script, a notes file) is not the
+    commit message, so it must not block a commit whose message comes from stdin elsewhere."""
+    cmd = ("python3 - <<'PY'\nprint('%s')\nPY\nprintf 'ok\\n' | git commit -F -" % EM_DASH)
+    assert _run(monkeypatch, cmd) == 0
+
+
+def test_a_stdin_redirect_from_a_file_is_scanned(monkeypatch, tmp_path):
+    f = tmp_path / "msg.txt"
+    f.write_text("Subject %s here\n" % EM_DASH, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F - < "%s"' % f.as_posix()) == 2
+
+
+def test_a_stdin_message_is_quoted_back_like_an_inline_one(monkeypatch, capsys):
+    """The heredoc body is text the caller typed into the command, so quoting it is free."""
+    cmd = "git commit -F - <<'EOF'\nSubject %s here\nEOF" % EM_DASH
+    assert _run(monkeypatch, cmd) == 2
+    assert "Subject" in capsys.readouterr().err
+
+
+# --- AI attribution lines (iron rule: no Claude/AI attribution in a commit or a PR) ----------------
+
+TRAILER = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+FOOTER = "Generated with [Claude Code](https://claude.com/claude-code)"
+
+
+@pytest.mark.parametrize("line", [
+    TRAILER,
+    "co-authored-by: claude <noreply@anthropic.com>",
+    "Co-authored-by: Someone <bot@anthropic.com>",
+    FOOTER,
+    "Generated with Claude Code",
+])
+def test_an_attribution_line_in_a_commit_message_blocks(monkeypatch, tmp_path, line):
+    msg = tmp_path / "msg.txt"
+    msg.write_text("Fix the bug\n\nBody text.\n\n%s\n" % line, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % msg.as_posix()) == 2
+
+
+def test_an_attribution_trailer_in_an_inline_message_blocks(monkeypatch):
+    assert _run(monkeypatch, 'git commit -m "Fix the bug" -m "%s"' % TRAILER) == 2
+
+
+def test_an_attribution_trailer_in_a_stdin_heredoc_blocks(monkeypatch):
+    command = "git commit -F - <<'EOF'\nFix the bug\n\n%s\nEOF" % TRAILER
+    assert _run(monkeypatch, command) == 2
+
+
+def test_the_attribution_refusal_names_the_rule_and_not_the_file_lines(monkeypatch, tmp_path, capsys):
+    msg = tmp_path / "msg.txt"
+    msg.write_text("Fix\n\n%s\n" % TRAILER, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % msg.as_posix()) == 2
+    err = capsys.readouterr().err
+    assert "attribution" in err.lower()
+    assert "noreply@anthropic.com" not in err
+
+
+@pytest.mark.parametrize("message", [
+    "Fix the Claude Code hook that misread a heredoc",
+    "commit-tell-sweep refuses the `Generated with Claude Code` footer and the trailer",
+    "  `Generated with Claude Code` footer, wrapped onto its own line in prose",
+    "Assisted-by: Claude:claude-opus-5-5",
+    "Co-Authored-By: Jane Doe <jane@example.com>",
+])
+def test_a_message_that_only_mentions_claude_or_a_human_co_author_passes(monkeypatch, message):
+    assert _run(monkeypatch, 'git commit -m "Subject" -m "%s"' % message) == 0
+
+
+def test_an_attribution_footer_in_a_gh_pr_body_blocks(monkeypatch):
+    assert _run(monkeypatch, 'gh pr create --title "Fix" --body "Body.\n\n%s"' % FOOTER) == 2
+
+
+def test_an_attribution_footer_in_a_gh_pr_short_body_flag_blocks(monkeypatch):
+    assert _run(monkeypatch, 'gh pr create -t "Fix" -b "%s"' % FOOTER) == 2
+
+
+def test_an_attribution_footer_in_a_gh_pr_body_file_blocks(monkeypatch, tmp_path):
+    body = tmp_path / "body.md"
+    body.write_text("Body.\n\n%s\n" % FOOTER, encoding="utf-8")
+    assert _run(monkeypatch, 'gh pr create --title Fix --body-file "%s"' % body.as_posix()) == 2
+
+
+def test_an_attribution_trailer_in_a_gh_pr_comment_blocks(monkeypatch):
+    assert _run(monkeypatch, 'gh pr comment 12 --body "%s"' % TRAILER) == 2
+
+
+def test_a_gh_pr_body_is_not_held_to_the_commit_tell_check(monkeypatch):
+    assert _run(monkeypatch, 'gh pr create --title Fix --body "range 1%s2"' % EM_DASH) == 0
+
+
+def test_an_attribution_footer_in_a_gh_pr_stdin_body_blocks(monkeypatch):
+    command = "gh pr create --title Fix --body-file - <<'EOF'\nBody.\n\n%s\nEOF" % FOOTER
+    assert _run(monkeypatch, command) == 2
+
+
+@pytest.mark.parametrize("footer", [
+    "\U0001F916 Generated with [Claude Code](https://claude.com/claude-code)",
+    "Generated with Claude Code.",
+])
+def test_a_footer_line_with_an_emoji_or_trailing_punctuation_blocks(monkeypatch, tmp_path, footer):
+    msg = tmp_path / "msg.txt"
+    msg.write_text("Fix\n\n%s\n" % footer, encoding="utf-8")
+    assert _run(monkeypatch, 'git commit -F "%s"' % msg.as_posix()) == 2
+
+
+# --- a message file the same command writes: it does not exist yet when this guard reads it ------
+
+@pytest.mark.parametrize("command", [
+    # The 2026-10-29 leak: printf wrote the trailer, the guard found no file and let it through.
+    'printf "Fix x\\n\\nCo-Authored-By: Claude <noreply@anthropic.com>\\n" > $M && git commit -F $M',
+    'echo "Co-Authored-By: Claude <noreply@anthropic.com>" >"$M"; git commit -q -F "$M" -- a.py',
+    "printf 'Fix x\\n\\nCo-Authored-By: Claude <c@anthropic.com>' | tee $M >/dev/null && git commit --file=$M",
+    "cat > $M <<'EOF'\nFix x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\ngit commit -F $M",
+    'printf "Body\\n\\nGenerated with Claude Code\\n" > $B && gh pr create --title t --body-file $B',
+])
+def test_attribution_in_a_message_file_the_same_command_writes_is_refused(monkeypatch, capsys, command):
+    assert _run(monkeypatch, command) == 2
+    assert "AI attribution" in capsys.readouterr().err
+
+
+def test_a_tell_in_a_message_file_the_same_command_writes_is_refused(monkeypatch, capsys):
+    command = "cat > $M <<'EOF'\nFix x %s properly\nEOF\ngit commit -F $M" % EM_DASH
+    assert _run(monkeypatch, command) == 2
+    assert "tell" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", [
+    "cat > $M <<'EOF'\nFix x\n\nA clean body.\nEOF\ngit commit -F $M",
+    'printf "Fix x\\n\\nA clean body.\\n" > $M && git commit -F $M',
+])
+def test_a_clean_message_file_the_same_command_writes_passes(monkeypatch, command):
+    assert _run(monkeypatch, command) == 0
+
+
+@pytest.mark.parametrize("command", [
+    "cp /tmp/draft.txt $M && python3 fix.py > $M && git commit -F $M",
+    "python3 make_msg.py > $M; git commit -F $M",
+])
+def test_a_message_file_written_by_an_unreadable_writer_is_refused(monkeypatch, capsys, command):
+    assert _run(monkeypatch, command) == 2
+    assert "its own earlier command" in capsys.readouterr().err
+
+
+def test_an_absolute_message_file_that_does_not_exist_is_refused(monkeypatch, tmp_path, capsys):
+    missing = (tmp_path / "nope.txt").as_posix()
+    assert _run(monkeypatch, "git commit -F %s" % missing) == 2
+    assert "its own earlier command" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", [
+    "git commit -F $M",                           # written by an earlier call: unknowable here
+    "git commit -F msg.txt",                      # relative: the commit may run elsewhere
+    "printf x > other.txt && git commit -F msg.txt",
+    "git commit -F msg.txt && python3 x.py > $M",  # written AFTER the commit
+])
+def test_a_message_file_the_command_does_not_write_is_not_refused_for_it(monkeypatch, command):
+    assert _run(monkeypatch, command) == 0
+
+
+# --- a message file this host cannot check: refusing it as missing blocks a commit for nothing -----
+
+@pytest.mark.parametrize("command", [
+    # The git runs on another machine or in a container, so its -F path names a file THERE.
+    "ssh host git commit -F /srv/repo/msg-missing.txt",
+    "pct exec 100 -- git -C /opt/app commit -F /root/msg-missing.txt",
+    "docker exec app git commit -F /root/msg-missing.txt",
+    "ssh -o BatchMode=yes host gh pr create --title t --body-file /root/body-missing.txt",
+    "sudo ssh host git commit -F /root/msg-missing.txt",
+    "podman exec -it app git commit -F /root/msg-missing.txt",
+    "kubectl exec pod -- git commit -F /root/msg-missing.txt",
+    "lxc-attach -n ct -- git commit -F /root/msg-missing.txt",
+    "machinectl shell box /usr/bin/git commit -F /root/msg-missing.txt",
+    "incus exec ct -- git commit -F /root/msg-missing.txt",
+    "lxc exec ct -- git commit -F /root/msg-missing.txt",
+])
+def test_a_message_file_for_a_git_that_runs_elsewhere_is_not_judged_missing(monkeypatch, command):
+    assert _run(monkeypatch, command) == 0
+
+
+@pytest.mark.parametrize("command", [
+    "sudo git commit -F %s",                       # a LOCAL launcher still runs the git here
+    "ssh host true && git commit -F %s",           # the ssh is a different statement
+    # Wrappers no launcher list names still run the git HERE: only a remote runner moves the file.
+    "python3 gen.py %s && flock /tmp/l git commit -F %s",
+    "uv run git commit -F %s",
+    "xargs -a /dev/null git commit -F %s",
+])
+def test_a_local_git_after_a_launcher_or_a_remote_statement_is_still_judged(
+        monkeypatch, tmp_path, capsys, command):
+    missing = (tmp_path / "nope.txt").as_posix()
+    assert _run(monkeypatch, command.replace("%s", missing)) == 2
+    assert "its own earlier command" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("path", "expected"), [
+    # Git Bash maps /tmp and /c/... itself; Python on Windows reads /tmp as C:\tmp, so a
+    # drive-less path cannot be checked there and must never be judged missing.
+    ("/tmp/msg-missing.txt", False),
+    ("/c/Users/x/msg-missing.txt", False),
+    ("\\tmp\\msg-missing.txt", False),
+    ("Z:/no/such/dir/msg-missing.txt", True),
+    ("Z:\\no\\such\\dir\\msg-missing.txt", True),
+])
+def test_on_windows_only_a_drive_qualified_path_is_judged_missing(path, expected):
+    assert C.provably_missing(path, windows=True) is expected
+
+
+@pytest.mark.parametrize(("path", "expected"), [
+    ("/no/such/dir/msg-missing.txt", True),
+    ("msg-missing.txt", False),                    # relative: the commit may run elsewhere
+    ("$M", False),
+])
+def test_on_posix_an_absolute_missing_path_is_judged_missing(path, expected):
+    assert C.provably_missing(path, windows=False) is expected

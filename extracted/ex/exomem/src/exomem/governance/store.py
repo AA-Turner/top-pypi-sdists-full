@@ -1,0 +1,1308 @@
+"""Per-machine governance sidecar and its monotonic schema owner.
+
+`.governance.sqlite` is a derived convenience, never the enforcement
+authority (design decision D6): rebuildable at any time from
+`_Governance/**.yaml`, never synced, and never consulted by
+`policy.load`/`membership.evaluate`/`decisions.decide` — those run entirely
+in-process off the parsed YAML. Only an explicit `compile.write_snapshot`
+call opens this file.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sqlite3
+import threading
+from collections import OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .. import index_paths, reserved_paths, sidecar_store
+
+if TYPE_CHECKING:
+    from .authorization_custody import AuthorizationCustody
+    from .schema_v4 import MigrationSeed, VerifiedActiveGovernanceState
+
+SCHEMA_USER_VERSION = 3
+DATA_TABLE = "compiled_policy"
+_INITIALIZED_SIDECARS_MAX = 64
+_INITIALIZED_SIDECARS: OrderedDict[
+    Path, tuple[int, int, int, int, int, str]
+] = OrderedDict()
+_INITIALIZED_SIDECARS_LOCK = threading.Lock()
+
+
+class UnsupportedGovernanceSchema(RuntimeError):
+    """The authoring core cannot safely interpret this sidecar version."""
+
+
+class GovernanceStoreUnreadable(RuntimeError):
+    """A sidecar exists at the bound path but cannot be read as v3 or v4.
+
+    Reporting an unreadable store as "no schema" is what let a read-only
+    mount look identical to a cell that had never opened its governance
+    store at all.  The message is deliberately fixed: this classification
+    reaches operator-facing terminals, so it carries neither the path nor
+    the underlying exception text.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("governance store is present but unreadable")
+
+
+def _reset_initialized_sidecars_after_fork() -> None:
+    global _INITIALIZED_SIDECARS, _INITIALIZED_SIDECARS_LOCK
+    _INITIALIZED_SIDECARS = OrderedDict()
+    _INITIALIZED_SIDECARS_LOCK = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_initialized_sidecars_after_fork)
+
+
+def sidecar_path(vault_root: Path) -> Path:
+    return index_paths.governance_sidecar_path(Path(vault_root))
+
+
+def open_readonly_connection(vault_root: Path) -> sqlite3.Connection | None:
+    """Open an existing supported sidecar without migration, DDL, or creation."""
+
+    try:
+        connection, version = _open_existing_read_connection(vault_root)
+    except (FileNotFoundError, RuntimeError, sqlite3.Error, OSError):
+        return None
+    if version != SCHEMA_USER_VERSION:
+        connection.close()
+        return None
+    return connection
+
+
+def _open_existing_read_connection(
+    vault_root: Path,
+) -> tuple[sqlite3.Connection, int]:
+    connection: sqlite3.Connection | None = None
+    # Scope exit can refuse the opened target, so cleanup encloses every scope.
+    try:
+        with reserved_paths._subsystem_authority_scope("governance.store"):
+            with reserved_paths._identity_coordination_scope(
+                vault_root,
+                descriptor_ids=("governance-store",),
+                # External sidecar families do not change the vault's private inventory.
+                identity_may_change=False,
+            ):
+                path = sidecar_path(vault_root)
+                with reserved_paths._sqlite_owner_target_scope(
+                    vault_root,
+                    path,
+                    "governance-store",
+                    create=False,
+                ) as retained_path:
+                    connection = sqlite3.connect(
+                        f"{retained_path.as_uri()}?mode=ro", uri=True
+                    )
+                    connection.execute("PRAGMA query_only=ON")
+                    version = int(
+                        connection.execute("PRAGMA user_version").fetchone()[0]
+                    )
+                    from . import schema_v4
+
+                    if version not in (SCHEMA_USER_VERSION, schema_v4.SCHEMA_USER_VERSION):
+                        raise UnsupportedGovernanceSchema(
+                            "governance read requires an existing v3 or v4 store"
+                        )
+                    reserved_paths._publish_sqlite_owner_family(
+                        vault_root, path, "governance-store", connection
+                    )
+        return connection, version
+    except BaseException:
+        if connection is not None:
+            connection.close()
+        raise
+
+
+def open_connection(
+    vault_root: Path, *, check_same_thread: bool = True
+) -> sqlite3.Connection:
+    """Open (creating if absent) the governance sidecar with its schema in place."""
+
+    with reserved_paths._subsystem_authority_scope("governance.store"):
+        with reserved_paths._identity_coordination_scope(
+            vault_root,
+            descriptor_ids=("governance-store",),
+        ):
+            return _open_connection_owned(
+                vault_root,
+                check_same_thread=check_same_thread,
+            )
+
+
+def open_authorization_session_connection(
+    vault_root: Path,
+    *,
+    check_same_thread: bool = True,
+) -> sqlite3.Connection:
+    """Open an existing exact-v4 store for session lifecycle DML only.
+
+    This opener never creates or migrates a sidecar. Ordinary v3 openers remain
+    unchanged; only the explicit offline coordinator may perform the v3-to-v4
+    transition before this boundary becomes available.
+    """
+    with reserved_paths._subsystem_authority_scope("governance.store"):
+        with reserved_paths._identity_coordination_scope(
+            vault_root,
+            descriptor_ids=("governance-store",),
+        ):
+            path = sidecar_path(vault_root)
+            with reserved_paths._sqlite_owner_target_scope(
+                vault_root,
+                path,
+                "governance-store",
+                create=False,
+            ) as retained_path:
+                connection = sqlite3.connect(
+                    f"{retained_path.as_uri()}?mode=rw",
+                    uri=True,
+                    check_same_thread=check_same_thread,
+                )
+                try:
+                    from . import schema_v4
+
+                    version = int(
+                        connection.execute("PRAGMA user_version").fetchone()[0]
+                    )
+                    if version != schema_v4.SCHEMA_USER_VERSION:
+                        raise UnsupportedGovernanceSchema(
+                            "authorization sessions require an existing exact-v4 store"
+                        )
+                    connection.execute("PRAGMA synchronous=FULL")
+                    connection.execute("PRAGMA busy_timeout=5000")
+                    reserved_paths._publish_sqlite_owner_family(
+                        vault_root,
+                        path,
+                        "governance-store",
+                        connection,
+                    )
+                    return connection
+                except BaseException:
+                    connection.close()
+                    raise
+
+
+def open_active_governance_read_connection(vault_root: Path) -> sqlite3.Connection:
+    """Open one existing exact-v4 activation store as a pinned read source.
+
+    The caller starts an explicit SQLite read transaction before sampling the
+    active tuple.  Legacy stores are reported distinctly so the staged rollout
+    can retain the current v3 reader until the external schema fence is active.
+    """
+
+    try:
+        initial = _acquire_policy_read(vault_root, observe_legacy=False)
+    except FileNotFoundError as exc:
+        raise UnsupportedGovernanceSchema("active governance store is absent") from exc
+    assert initial.connection is not None
+    return initial.connection
+
+
+@dataclass(frozen=True)
+class _InitialPolicyRead:
+    connection: sqlite3.Connection | None = None
+    observation: dict[str, object] | None = None
+
+
+def _initial_policy_read(vault_root: Path) -> _InitialPolicyRead:
+    """Discriminate v4, legacy, or absence in one non-creating acquisition."""
+    if not sidecar_path(vault_root).exists():
+        return _InitialPolicyRead()
+    return _acquire_policy_read(vault_root, observe_legacy=True)
+
+
+def _acquire_policy_read(
+    vault_root: Path, *, observe_legacy: bool
+) -> _InitialPolicyRead:
+    connection: sqlite3.Connection | None = None
+    observation = None
+    version: int | None = None
+    # Scope exit can refuse the opened target, so cleanup encloses every scope.
+    try:
+        with reserved_paths._subsystem_authority_scope("governance.store"):
+            with reserved_paths._identity_coordination_scope(
+                vault_root,
+                descriptor_ids=("governance-store",),
+                identity_may_change=False,
+            ):
+                path = sidecar_path(vault_root)
+                with reserved_paths._sqlite_owner_target_scope(
+                    vault_root,
+                    path,
+                    "governance-store",
+                    create=False,
+                ) as retained_path:
+                    connection = sqlite3.connect(
+                        f"{retained_path.as_uri()}?mode=ro",
+                        uri=True,
+                    )
+                    from . import schema_v4
+
+                    version = int(
+                        connection.execute("PRAGMA user_version").fetchone()[0]
+                    )
+                    if version != schema_v4.SCHEMA_USER_VERSION and not observe_legacy:
+                        raise UnsupportedGovernanceSchema(
+                            "active governance requires an existing exact-v4 store"
+                        )
+                    connection.execute("PRAGMA query_only=ON")
+                    connection.execute("PRAGMA busy_timeout=50")
+                    reserved_paths._publish_sqlite_owner_family(
+                        vault_root,
+                        path,
+                        "governance-store",
+                        connection,
+                    )
+                    if version != schema_v4.SCHEMA_USER_VERSION:
+                        observation = _guard_generation_observation(connection, version)
+                        connection.close()
+                        connection = None
+        return _InitialPolicyRead(connection, observation)
+    except BaseException as exc:
+        if connection is not None:
+            connection.close()
+        if (
+            observe_legacy
+            and version is not None
+            and version != 4
+            and isinstance(exc, (RuntimeError, sqlite3.Error, OSError))
+        ):
+            return _InitialPolicyRead(
+                observation={
+                    "state": "blocked",
+                    "generation": f"unreadable:{type(exc).__name__}",
+                    "event_ids": (),
+                }
+            )
+        raise
+
+
+def authorization_session_schema_version(vault_root: Path) -> int | None:
+    """Return exact v3/v4 for an existing protected store, never creating one.
+
+    ``None`` means one thing only: no sidecar exists at the bound path.  A
+    sidecar that exists but cannot be read as exact v3 or v4 -- a denied open,
+    a lease-scope failure, a directory in its place, a version this release
+    does not know -- raises `GovernanceStoreUnreadable`.  Callers that must
+    keep treating both as "unavailable" use
+    `authorization_session_schema_version_if_readable`.
+    """
+
+    path = sidecar_path(Path(vault_root))
+    try:
+        os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        raise GovernanceStoreUnreadable from None
+    connection: sqlite3.Connection | None = None
+    try:
+        connection, version = _open_existing_read_connection(vault_root)
+        return version
+    except (OSError, RuntimeError, sqlite3.Error):
+        raise GovernanceStoreUnreadable from None
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def authorization_session_schema_version_if_readable(vault_root: Path) -> int | None:
+    """Read the schema version tolerantly: an unreadable store reads as absent.
+
+    This is the pre-classification reading. Serving and readiness callers stay
+    fail-closed on ``None`` and must not learn a new exception; only the hosted
+    migration runner distinguishes absent from unreadable.
+    """
+
+    try:
+        return authorization_session_schema_version(vault_root)
+    except GovernanceStoreUnreadable:
+        return None
+
+
+def _schema_migration_barrier(point: str) -> None:
+    """Test seam after the only durable database effect."""
+
+    del point
+
+
+def _v3_snapshot_digest(connection: sqlite3.Connection) -> str:
+    snapshot = sqlite3.connect(":memory:")
+    try:
+        connection.backup(snapshot)
+        snapshot.execute("VACUUM")
+        serialized = snapshot.serialize()
+    finally:
+        snapshot.close()
+    domain = b"exomem.governance-v3-snapshot.v1"
+    return hashlib.sha256(
+        domain + len(serialized).to_bytes(8, "big") + serialized
+    ).hexdigest()
+
+
+def canonical_uncommitted_v3_digest(connection: sqlite3.Connection) -> str:
+    """Digest a held uncommitted v3 transform through SQLite's backup boundary.
+
+    ``deserialize(...); VACUUM`` is not an equivalent proof: it bypasses the
+    source connection's SQLite snapshot semantics.  Keep the clone/backup
+    sequence explicit so rollback D0 is derived from the actual held database.
+    """
+    from . import schema_v4
+
+    schema_v4.require_exact_v3_connection(connection)
+    source = sqlite3.connect(":memory:")
+    snapshot = sqlite3.connect(":memory:")
+    try:
+        serialized_source = connection.serialize()
+        if (
+            len(serialized_source) < 100
+            or serialized_source[:16] != b"SQLite format 3\x00"
+        ):
+            raise schema_v4.SchemaV4Error("schema v3 migration source is unavailable")
+        journal_versions = serialized_source[18:20]
+        if journal_versions == b"\x02\x02":
+            serialized_source = (
+                serialized_source[:18] + b"\x01\x01" + serialized_source[20:]
+            )
+        elif journal_versions != b"\x01\x01":
+            raise schema_v4.SchemaV4Error("schema v3 migration source is unavailable")
+        source.deserialize(serialized_source)
+        schema_v4.require_exact_v3_connection(source)
+        source.backup(snapshot)
+        snapshot.execute("VACUUM")
+        serialized = snapshot.serialize()
+    finally:
+        snapshot.close()
+        source.close()
+    domain = b"exomem.governance-v3-snapshot.v1"
+    return hashlib.sha256(
+        domain + len(serialized).to_bytes(8, "big") + serialized
+    ).hexdigest()
+
+
+def _commit_enrolled_v3_store(
+    vault_root: Path,
+    *,
+    seed: MigrationSeed,
+    expected_source_store_digest: str,
+    now: int,
+    source_recheck: Callable[[], None] | None = None,
+    expected_custody: AuthorizationCustody | None = None,
+) -> tuple[VerifiedActiveGovernanceState, AuthorizationCustody]:
+    """Commit one pre-enrolled exact-v3 store to its exact v4 target.
+
+    This is the filesystem-backed offline database transaction. It verifies the
+    authenticated serving membership is wholly drained at schema v3 before the
+    first database effect. External membership publication remains the custody
+    owner's separate responsibility after this transaction has verified its v4
+    target.
+    """
+
+    from .. import writer_lease
+    from . import authorization_custody, policy, schema_v4
+
+    root = Path(vault_root)
+    path = sidecar_path(root)
+    if (
+        not isinstance(expected_source_store_digest, str)
+        or len(expected_source_store_digest) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in expected_source_store_digest
+        )
+    ):
+        raise schema_v4.SchemaV4Error("migration source store digest is invalid")
+    with reserved_paths._subsystem_authority_scope("governance.store"):
+        with reserved_paths._identity_coordination_scope(
+            root,
+            descriptor_ids=("governance-store",),
+            identity_may_change=False,
+        ):
+            with reserved_paths._sqlite_owner_target_scope(
+                root,
+                path,
+                "governance-store",
+                create=False,
+            ) as retained_path:
+                connection = sqlite3.connect(
+                    f"{retained_path.as_uri()}?mode=rw",
+                    uri=True,
+                )
+                try:
+                    connection.execute("PRAGMA synchronous=FULL")
+                    connection.execute("PRAGMA busy_timeout=0")
+                    reserved_paths._publish_sqlite_owner_family(
+                        root,
+                        path,
+                        "governance-store",
+                        connection,
+                    )
+                    version = int(
+                        connection.execute("PRAGMA user_version").fetchone()[0]
+                    )
+                    if version == SCHEMA_USER_VERSION:
+                        schema_v4.require_exact_v3_connection(connection)
+                    elif version == schema_v4.SCHEMA_USER_VERSION:
+                        schema_v4.require_exact_v4_connection(connection)
+                    else:
+                        raise UnsupportedGovernanceSchema(
+                            "explicit governance migration requires exact schema v3 or v4"
+                        )
+
+                    target = schema_v4.migration_target(seed)
+                    load_custody = authorization_custody.load_authorization_custody
+                    custody = load_custody(
+                        root,
+                        now=now,
+                    )
+                    if expected_custody is not None and custody != expected_custody:
+                        raise authorization_custody.AuthorizationCustodyUnavailable
+                    control = custody.control
+                    if (
+                        not control.governance_enrolled
+                        or control.activation_store_id != target.activation_store_id
+                        or control.activation_epoch != target.activation_epoch
+                        or control.activation_state_digest
+                        != target.activation_state_digest
+                        or control.logical_vault_id != target.logical_vault_id
+                    ):
+                        raise authorization_custody.AuthorizationCustodyUnavailable
+                    if version == SCHEMA_USER_VERSION and (
+                        custody.serving_membership is None
+                        or custody.local_replica_id is None
+                        or not custody.serving_membership.replicas
+                        or any(
+                            replica.state != "DRAINING"
+                            or replica.schema_version != SCHEMA_USER_VERSION
+                            or not replica.issuance_stopped
+                            or not replica.no_in_flight
+                            for replica in custody.serving_membership.replicas
+                        )
+                    ):
+                        raise authorization_custody.AuthorizationCustodyUnavailable
+                    if version == SCHEMA_USER_VERSION and (
+                        _v3_snapshot_digest(connection) != expected_source_store_digest
+                    ):
+                        raise schema_v4.SchemaV4Error(
+                            "migration source store changed after owner review"
+                        )
+
+                    before = None
+                    if version == SCHEMA_USER_VERSION:
+                        before = policy.observe_authoring_snapshot(root)
+                        if (
+                            before is None
+                            or before.documents != seed.policy.source_documents
+                            or before.source_fingerprint
+                            != seed.policy.source_fingerprint
+                            or before.conflict_set_digest
+                            != seed.policy.conflict_digest
+                        ):
+                            raise schema_v4.SchemaV4Error(
+                                "migration policy workspace does not match the reviewed seed"
+                            )
+
+                    try:
+                        fenced = writer_lease.advance_configured_schema_fence(
+                            source_schema_version=SCHEMA_USER_VERSION,
+                            target_schema_version=schema_v4.SCHEMA_USER_VERSION,
+                        )
+                    except writer_lease.OpError:
+                        raise authorization_custody.AuthorizationCustodyUnavailable from None
+                    if fenced is not None:
+                        _schema_migration_barrier("after_schema_fence")
+
+                    result = schema_v4.migrate_v3_connection(connection, seed)
+                    reserved_paths._publish_sqlite_owner_family(
+                        root,
+                        path,
+                        "governance-store",
+                        connection,
+                    )
+                    _schema_migration_barrier("after_store_commit")
+                    if fenced is not None:
+                        try:
+                            confirmed_fence = (
+                                writer_lease.require_configured_schema_fence(
+                                    schema_v4.SCHEMA_USER_VERSION
+                                )
+                            )
+                        except writer_lease.OpError:
+                            raise authorization_custody.AuthorizationCustodyUnavailable from None
+                        if confirmed_fence != fenced:
+                            raise authorization_custody.AuthorizationCustodyUnavailable
+                    active = schema_v4.load_active_policy(
+                        connection,
+                        expected_logical_vault_id=target.logical_vault_id,
+                        expected_activation_store_id=target.activation_store_id,
+                        expected_activation_epoch=target.activation_epoch,
+                        expected_activation_state_digest=(
+                            target.activation_state_digest
+                        ),
+                    ).active
+                    if (
+                        result.schema_version != schema_v4.SCHEMA_USER_VERSION
+                        or result.activation_store_id != target.activation_store_id
+                        or result.activation_state_digest
+                        != target.activation_state_digest
+                        or active != target
+                    ):
+                        raise schema_v4.SchemaV4Error(
+                            "migration result does not match the enrolled target"
+                        )
+                    if before is not None:
+                        after = policy.observe_authoring_snapshot(root)
+                        if after != before:
+                            raise schema_v4.SchemaV4Error(
+                                "migration policy workspace changed during commit"
+                            )
+                    if source_recheck is not None:
+                        source_recheck()
+                finally:
+                    connection.close()
+
+    return active, custody
+
+
+def commit_enrolled_v3_store(
+    vault_root: Path,
+    *,
+    seed: MigrationSeed,
+    expected_source_store_digest: str,
+    now: int,
+    expected_custody: AuthorizationCustody,
+    source_recheck: Callable[[], None] | None = None,
+) -> VerifiedActiveGovernanceState:
+    """Commit an enrolled target without any external custody publication."""
+
+    active, _custody = _commit_enrolled_v3_store(
+        vault_root,
+        seed=seed,
+        expected_source_store_digest=expected_source_store_digest,
+        now=now,
+        source_recheck=source_recheck,
+        expected_custody=expected_custody,
+    )
+    return active
+
+
+
+
+def migrate_enrolled_v3_store(
+    vault_root: Path,
+    *,
+    seed: MigrationSeed,
+    expected_source_store_digest: str,
+    now: int,
+    source_recheck: Callable[[], None] | None = None,
+) -> VerifiedActiveGovernanceState:
+    """Commit and complete the existing standalone v3-to-v4 migration."""
+
+    from . import authorization_custody
+
+    root = Path(vault_root)
+    with (
+        reserved_paths._subsystem_authority_scope("governance.store"),
+        reserved_paths._identity_coordination_scope(
+            root,
+            descriptor_ids=("governance-store",),
+            identity_may_change=False,
+        ),
+    ):
+        active, custody = _commit_enrolled_v3_store(
+            root,
+            seed=seed,
+            expected_source_store_digest=expected_source_store_digest,
+            now=now,
+            source_recheck=source_recheck,
+        )
+        verified = authorization_custody.complete_standalone_v4_migration(
+            root,
+            target=active,
+            now=now,
+        )
+        if (
+            verified.keyring != custody.keyring
+            or verified.control.logical_vault_id != active.logical_vault_id
+            or verified.control.activation_store_id != active.activation_store_id
+            or verified.control.activation_epoch != active.activation_epoch
+            or verified.control.activation_state_digest != active.activation_state_digest
+            or verified.control.serving_membership_epoch != 2
+        ):
+            raise authorization_custody.AuthorizationCustodyUnavailable
+    return active
+
+
+def _open_connection_owned(
+    vault_root: Path, *, check_same_thread: bool
+) -> sqlite3.Connection:
+    path = sidecar_path(vault_root)
+    with reserved_paths._sqlite_owner_target_scope(
+        vault_root,
+        path,
+        "governance-store",
+        create=True,
+    ) as retained_path:
+        return _open_connection_retained(
+            vault_root,
+            retained_path,
+            check_same_thread=check_same_thread,
+        )
+
+
+def _open_connection_retained(
+    vault_root: Path,
+    path: Path,
+    *,
+    check_same_thread: bool,
+) -> sqlite3.Connection:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, check_same_thread=check_same_thread)
+    try:
+        with _INITIALIZED_SIDECARS_LOCK:
+            state = _connection_state(conn, path)
+            cached = _INITIALIZED_SIDECARS.get(path)
+            if cached == state:
+                # WAL mode persists in the database. These two pragmas are
+                # connection-local and cheap, so every new handle still gets
+                # the production timeout/durability settings without rerunning
+                # journal negotiation and idempotent DDL on every receipt.
+                conn.execute("PRAGMA synchronous=FULL")
+                conn.execute("PRAGMA busy_timeout=5000")
+                _INITIALIZED_SIDECARS.move_to_end(path)
+            else:
+                sidecar_store.apply_sidecar_pragmas(conn)
+                conn.execute("PRAGMA synchronous=FULL")
+                _migrate(conn)
+                if int(conn.execute("PRAGMA user_version").fetchone()[0]) <= SCHEMA_USER_VERSION:
+                    sidecar_store.ensure_meta_table(conn, DATA_TABLE, "governance")
+                    conn.commit()
+                _INITIALIZED_SIDECARS[path] = _connection_state(conn, path)
+                _INITIALIZED_SIDECARS.move_to_end(path)
+                while len(_INITIALIZED_SIDECARS) > _INITIALIZED_SIDECARS_MAX:
+                    _INITIALIZED_SIDECARS.popitem(last=False)
+        reserved_paths._publish_sqlite_owner_family(
+            vault_root,
+            path,
+            "governance-store",
+            conn,
+        )
+        return conn
+    except BaseException:
+        conn.close()
+        raise
+
+
+def _connection_state(
+    conn: sqlite3.Connection, path: Path
+) -> tuple[int, int, int, int, int, str]:
+    """Identity + live schema state; DML does not invalidate this fast path."""
+    stat_result = path.stat()
+    user_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    schema_version = int(conn.execute("PRAGMA schema_version").fetchone()[0])
+    journal_mode = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+    return (
+        os.getpid(),
+        int(stat_result.st_dev),
+        int(stat_result.st_ino),
+        user_version,
+        schema_version,
+        journal_mode,
+    )
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Apply known sidecar migrations without ever lowering a newer version."""
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version < 1:
+        conn.execute(
+            f"CREATE TABLE IF NOT EXISTS {DATA_TABLE} ("
+            "fingerprint TEXT PRIMARY KEY, snapshot TEXT NOT NULL, compiled_at REAL NOT NULL)"
+        )
+        version = 1
+    if version < 2:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipt_instance "
+            "(singleton INTEGER PRIMARY KEY CHECK (singleton = 1), instance_id TEXT NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipts_head ("
+            "instance_id TEXT PRIMARY KEY, durable_seq INTEGER NOT NULL, durable_hash TEXT NOT NULL, "
+            "observed_seq INTEGER NOT NULL, observed_hash TEXT NOT NULL, "
+            "path TEXT NOT NULL DEFAULT '', byte_offset INTEGER NOT NULL DEFAULT 0)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipt_secrets ("
+            "name TEXT PRIMARY KEY, value BLOB NOT NULL)"
+        )
+        version = 2
+    if version == 2:
+        conn.execute(
+            f"CREATE TABLE IF NOT EXISTS {DATA_TABLE} ("
+            "fingerprint TEXT PRIMARY KEY, snapshot TEXT NOT NULL, compiled_at REAL NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipt_instance "
+            "(singleton INTEGER PRIMARY KEY CHECK (singleton = 1), instance_id TEXT NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipts_head ("
+            "instance_id TEXT PRIMARY KEY, durable_seq INTEGER NOT NULL, durable_hash TEXT NOT NULL, "
+            "observed_seq INTEGER NOT NULL, observed_hash TEXT NOT NULL, "
+            "path TEXT NOT NULL DEFAULT '', byte_offset INTEGER NOT NULL DEFAULT 0)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS receipt_secrets ("
+            "name TEXT PRIMARY KEY, value BLOB NOT NULL)"
+        )
+        columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(receipts_head)")}
+        if "path" not in columns:
+            conn.execute("ALTER TABLE receipts_head ADD COLUMN path TEXT NOT NULL DEFAULT ''")
+        if "byte_offset" not in columns:
+            conn.execute(
+                "ALTER TABLE receipts_head ADD COLUMN byte_offset INTEGER NOT NULL DEFAULT 0"
+            )
+    if version < 3:
+        _migrate_v3(conn)
+        version = 3
+    elif version == 3:
+        _migrate_v3(conn)
+        _add_column(
+            conn,
+            "governance_session_grants",
+            "membership_manifest TEXT NOT NULL DEFAULT '[]'",
+        )
+        _add_column(
+            conn,
+            "governance_session_grants",
+            "policy_fingerprint TEXT NOT NULL DEFAULT ''",
+        )
+    if version <= SCHEMA_USER_VERSION:
+        conn.execute(f"PRAGMA user_version = {version}")
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {str(row[1]) for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _add_column(conn: sqlite3.Connection, table: str, declaration: str) -> None:
+    name = declaration.split()[0]
+    if name not in _columns(conn, table):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {declaration}")
+
+
+def _migrate_v3(conn: sqlite3.Connection) -> None:
+    """Install the complete governance-authoring schema in one owned step."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS withhold_tokens ("
+        "jti TEXT PRIMARY KEY, audience TEXT NOT NULL, max_level INTEGER NOT NULL, "
+        "fingerprints TEXT NOT NULL, paths TEXT NOT NULL, expires_at INTEGER NOT NULL, "
+        "minted_at REAL NOT NULL, consumed_at REAL)"
+    )
+    _add_column(conn, "withhold_tokens", "authorization_session TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "withhold_tokens", "purpose TEXT")
+    _add_column(conn, "withhold_tokens", "org_ceiling INTEGER NOT NULL DEFAULT 6")
+    _add_column(conn, "withhold_tokens", "status TEXT NOT NULL DEFAULT 'active'")
+    _add_column(conn, "withhold_tokens", "prepared_event_id TEXT")
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_proposals ("
+        "proposal_id TEXT PRIMARY KEY, created_at REAL NOT NULL, expires_at REAL NOT NULL, "
+        "proposal_json TEXT NOT NULL, fingerprint_at_propose TEXT NOT NULL, "
+        "membership_manifest TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', "
+        "reserved_event_id TEXT, attempt_no INTEGER NOT NULL DEFAULT 0, "
+        "attempt_nonce TEXT, spent_at REAL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_operation_journals ("
+        "event_id TEXT PRIMARY KEY, operation TEXT NOT NULL, causation_id TEXT NOT NULL, "
+        "authorization_session TEXT, principal_id TEXT NOT NULL, phase TEXT NOT NULL, "
+        "direction TEXT NOT NULL, prior_digest TEXT NOT NULL, prepared_digest TEXT NOT NULL, "
+        "final_digest TEXT NOT NULL, affected_ids TEXT NOT NULL, "
+        "required_child_intents TEXT NOT NULL, required_child_terminals TEXT NOT NULL, "
+        "proposal_id TEXT, attempt_no INTEGER, marker_required INTEGER NOT NULL DEFAULT 0, "
+        "created_at REAL NOT NULL, updated_at REAL NOT NULL, blocked_reason TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_operation_components ("
+        "event_id TEXT NOT NULL, phase TEXT NOT NULL, ordinal INTEGER NOT NULL, "
+        "component_kind TEXT NOT NULL, component_key TEXT NOT NULL, "
+        "value_json TEXT NOT NULL, value_hash TEXT NOT NULL, status TEXT NOT NULL, "
+        "PRIMARY KEY(event_id, phase, ordinal), "
+        "FOREIGN KEY(event_id) REFERENCES governance_operation_journals(event_id))"
+    )
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS governance_components_no_update "
+        "BEFORE UPDATE ON governance_operation_components BEGIN "
+        "SELECT RAISE(ABORT, 'governance operation components are immutable'); END"
+    )
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS governance_components_no_delete "
+        "BEFORE DELETE ON governance_operation_components BEGIN "
+        "SELECT RAISE(ABORT, 'governance operation components are immutable'); END"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_session_grants ("
+        "grant_id TEXT PRIMARY KEY, authorization_session TEXT NOT NULL, "
+        "audience TEXT NOT NULL, purpose TEXT, ceiling INTEGER NOT NULL, "
+        "paths TEXT NOT NULL, fingerprints TEXT NOT NULL, token_jti TEXT NOT NULL, "
+        "status TEXT NOT NULL, prepared_event_id TEXT, created_at REAL NOT NULL, "
+        "expires_at REAL NOT NULL, revoked_at REAL, "
+        "membership_manifest TEXT NOT NULL DEFAULT '[]', "
+        "policy_fingerprint TEXT NOT NULL DEFAULT '')"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_session_purpose ("
+        "authorization_session TEXT PRIMARY KEY, principal_id TEXT NOT NULL, "
+        "purpose TEXT NOT NULL, status TEXT NOT NULL, prepared_event_id TEXT, "
+        "created_at REAL NOT NULL, expires_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_session_purpose_staging ("
+        "event_id TEXT PRIMARY KEY, authorization_session TEXT NOT NULL, "
+        "principal_id TEXT NOT NULL, purpose TEXT NOT NULL, created_at REAL NOT NULL, "
+        "expires_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS governance_policy_archives ("
+        "archive_id TEXT PRIMARY KEY, event_id TEXT NOT NULL, path TEXT NOT NULL, "
+        "prior_bytes BLOB, prior_hash TEXT NOT NULL, created_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS governance_journals_phase "
+        "ON governance_operation_journals(phase)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS governance_grants_session "
+        "ON governance_session_grants(authorization_session, audience, status)"
+    )
+
+
+def require_authoring_schema(
+    vault_root: Path,
+    *,
+    supported_versions: tuple[int, ...] = (SCHEMA_USER_VERSION,),
+) -> None:
+    """Refuse authoring on a schema this release cannot interpret."""
+    if (
+        type(supported_versions) is not tuple
+        or not supported_versions
+        or any(type(version) is not int or version < 1 for version in supported_versions)
+    ):
+        raise ValueError("supported authoring schema versions are invalid")
+    conn = open_connection(vault_root)
+    try:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    finally:
+        conn.close()
+    if version not in supported_versions:
+        raise UnsupportedGovernanceSchema(
+            "governance authoring requires schema "
+            f"{','.join(f'v{item}' for item in supported_versions)}, found v{version}"
+        )
+
+
+def pinned_component_keys(
+    vault_root: Path, *, conn: sqlite3.Connection | None = None
+) -> dict[str, frozenset[str]]:
+    """Rows referenced by a live recovery journal and therefore not GC-able."""
+    path = sidecar_path(vault_root)
+    if not path.exists():
+        return {}
+    owns_connection = conn is None
+    active = open_connection(vault_root) if conn is None else conn
+    try:
+        rows = active.execute(
+            "SELECT DISTINCT c.component_kind, c.component_key "
+            "FROM governance_operation_components c "
+            "JOIN governance_operation_journals j ON j.event_id=c.event_id "
+            "WHERE j.phase IN ('allocating', 'pending')"
+        ).fetchall()
+    finally:
+        if owns_connection:
+            active.close()
+    grouped: dict[str, set[str]] = {}
+    for kind, key in rows:
+        grouped.setdefault(str(kind), set()).add(str(key))
+    return {kind: frozenset(keys) for kind, keys in grouped.items()}
+
+
+def _delete_expired_except(
+    conn: sqlite3.Connection,
+    *,
+    table: str,
+    key_column: str,
+    expiry_column: str,
+    now: float,
+    pinned: frozenset[str],
+) -> int:
+    if pinned:
+        placeholders = ",".join("?" for _ in pinned)
+        cursor = conn.execute(
+            f"DELETE FROM {table} WHERE {expiry_column} < ? "
+            f"AND {key_column} NOT IN ({placeholders})",
+            (now, *sorted(pinned)),
+        )
+    else:
+        cursor = conn.execute(f"DELETE FROM {table} WHERE {expiry_column} < ?", (now,))
+    return int(cursor.rowcount or 0)
+
+
+def _retained_v4_policy_components(
+    conn: sqlite3.Connection,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Return immutable policy-history rows that TTL sweeping cannot retire.
+
+    A spent v4 proposal is the retained semantic/publication history for its
+    compiled generation, and its reviewed dependent-grant targets remain part
+    of crash recovery evidence.  They are intentionally durable until a later
+    schema supplies an equivalent immutable history table.
+    """
+
+    proposal_ids: set[str] = set()
+    grant_ids: set[str] = set()
+
+    def retain_all_grants() -> None:
+        grant_ids.update(
+            str(row[0])
+            for row in conn.execute(
+                "SELECT grant_id FROM governance_session_grants"
+            ).fetchall()
+        )
+
+    rows = conn.execute(
+        "SELECT proposal_id, proposal_json, status, reserved_event_id "
+        "FROM governance_proposals WHERE status IN ('pending','spent') "
+        "ORDER BY proposal_id"
+    ).fetchall()
+    for proposal_id, proposal_json, status, reserved_event_id in rows:
+        if status == "pending" and reserved_event_id is None:
+            continue
+        try:
+            payload = json.loads(str(proposal_json))
+        except json.JSONDecodeError:
+            if "exomem.governance-policy-proposal/v" in str(proposal_json):
+                proposal_ids.add(str(proposal_id))
+                retain_all_grants()
+            continue
+        binding = payload.get("authority_binding") if isinstance(payload, dict) else None
+        schema = binding.get("schema") if isinstance(binding, dict) else None
+        if schema not in {
+            "exomem.governance-policy-proposal/v3",
+            "exomem.governance-policy-proposal/v4",
+            "exomem.governance-policy-proposal/v5",
+        }:
+            continue
+        proposal_ids.add(str(proposal_id))
+        dependent = binding.get("dependent_grants", [])
+        if not isinstance(dependent, list):
+            retain_all_grants()
+            continue
+        seen_grants: set[str] = set()
+        malformed = False
+        expected_transition_keys = {
+            "grant_id",
+            "expected_policy_fingerprint",
+            "expected_membership_manifest",
+            "target_status",
+            "target_policy_fingerprint",
+            "target_membership_manifest",
+        }
+        for transition in dependent:
+            grant_id = transition.get("grant_id") if isinstance(transition, dict) else None
+            if (
+                not isinstance(transition, dict)
+                or set(transition) != expected_transition_keys
+                or not isinstance(grant_id, str)
+                or not grant_id
+                or grant_id in seen_grants
+            ):
+                malformed = True
+                break
+            seen_grants.add(grant_id)
+        if malformed:
+            retain_all_grants()
+        else:
+            grant_ids.update(seen_grants)
+    return frozenset(proposal_ids), frozenset(grant_ids)
+
+
+def sweep_authoring_state(vault_root: Path, *, now: float | None = None) -> int:
+    """Physically retire expired tool state while pinning live composites."""
+    if not sidecar_path(vault_root).exists():
+        return 0
+    moment = __import__("time").time() if now is None else float(now)
+    conn = open_connection(vault_root)
+    conn.isolation_level = None
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        pinned = pinned_component_keys(vault_root, conn=conn)
+        retained_proposals, retained_grants = _retained_v4_policy_components(conn)
+        removed = _delete_expired_except(
+            conn,
+            table="governance_proposals",
+            key_column="proposal_id",
+            expiry_column="expires_at",
+            now=moment,
+            pinned=pinned.get("proposal", frozenset()) | retained_proposals,
+        )
+        grant_pins = pinned.get("grant", frozenset()) | pinned.get(
+            "dependent_grant", frozenset()
+        ) | retained_grants
+        removed += _delete_expired_except(
+            conn,
+            table="governance_session_grants",
+            key_column="grant_id",
+            expiry_column="expires_at",
+            now=moment,
+            pinned=grant_pins,
+        )
+        removed += _delete_expired_except(
+            conn,
+            table="governance_session_purpose",
+            key_column="authorization_session",
+            expiry_column="expires_at",
+            now=moment,
+            pinned=pinned.get("purpose", frozenset()),
+        )
+        cursor = conn.execute(
+            "DELETE FROM governance_session_purpose_staging WHERE expires_at < ? "
+            "AND event_id NOT IN (SELECT event_id FROM governance_operation_journals "
+            "WHERE phase IN ('allocating', 'pending'))",
+            (moment,),
+        )
+        removed += int(cursor.rowcount or 0)
+        conn.commit()
+        return removed
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
+
+
+def active_session_grants(
+    vault_root: Path,
+    *,
+    audience: str,
+    authorization_session: str | None,
+    rel_path: str,
+    purpose: str | None,
+    now: float | None = None,
+) -> tuple[list[dict[str, object]], str]:
+    """Return exact unchanged active grants and their decision identity."""
+    if not authorization_session or not sidecar_path(vault_root).exists():
+        return [], "no-session-grants"
+    # Schema-v3 rows bind paths and a membership snapshot, but do not persist
+    # the exact reviewed scope IDs. Re-evaluating current item membership and
+    # treating it as a grant binding would let a legacy row authorise sibling
+    # scopes it never reviewed. v4 will store that proof; v3 grants are inert.
+    del audience, rel_path, purpose, now
+    return [], "v3-session-grants-unscoped"
+
+
+def active_session_purpose(
+    vault_root: Path,
+    *,
+    audience: str,
+    authorization_session: str | None,
+    now: float | None = None,
+) -> str | None:
+    """Resolve the live purpose default for one explicit authorization session."""
+    if not authorization_session or not sidecar_path(vault_root).exists():
+        return None
+    moment = __import__("time").time() if now is None else float(now)
+    conn = open_readonly_connection(vault_root)
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT purpose FROM governance_session_purpose WHERE authorization_session=? "
+            "AND principal_id=? AND status='active' AND expires_at>=?",
+            (authorization_session, audience, moment),
+        ).fetchone()
+    finally:
+        conn.close()
+    return None if row is None else str(row[0])
+
+
+_V3_GUARD_TABLES = frozenset(
+    {
+        "governance_operation_journals",
+        "governance_operation_components",
+        "governance_proposals",
+        "governance_session_grants",
+        "governance_session_purpose",
+        "governance_session_purpose_staging",
+        "governance_policy_archives",
+        "withhold_tokens",
+    }
+)
+
+_V4_GUARD_TABLES = _V3_GUARD_TABLES | frozenset(
+    {
+        "governance_authorization_sessions",
+        "compiled_policy_generations",
+        "catalog_generation_descriptors",
+        "governance_projection_namespaces",
+        "active_governance_tuple",
+        "governance_activation_store",
+        "governance_schema_migrations",
+        "governance_tuple_publications",
+        "governance_legacy_authority",
+    }
+)
+
+
+def guard_generation_probe(vault_root: Path) -> dict[str, object]:
+    """Non-creating read-only seqlock probe for the policy loader."""
+    path = sidecar_path(vault_root)
+    if not path.exists():
+        return {"state": "clear", "generation": "absent", "event_ids": ()}
+    try:
+        with reserved_paths._subsystem_authority_scope("governance.store"):
+            with reserved_paths._identity_coordination_scope(
+                vault_root,
+                descriptor_ids=("governance-store",),
+                identity_may_change=False,
+            ):
+                with reserved_paths._sqlite_owner_target_scope(
+                    vault_root,
+                    path,
+                    "governance-store",
+                    create=False,
+                ) as retained_path:
+                    return _guard_generation_probe_retained(
+                        vault_root,
+                        path,
+                        retained_path,
+                    )
+    except (RuntimeError, sqlite3.Error, OSError) as exc:
+        return {
+            "state": "blocked",
+            "generation": f"unreadable:{type(exc).__name__}",
+            "event_ids": (),
+        }
+
+
+def _guard_generation_probe_retained(
+    vault_root: Path,
+    path: Path,
+    retained_path: Path,
+) -> dict[str, object]:
+    conn = sqlite3.connect(
+        f"{retained_path.as_uri()}?mode=ro",
+        uri=True,
+        timeout=0.05,
+    )
+    try:
+        reserved_paths._publish_sqlite_owner_family(
+            vault_root,
+            path,
+            "governance-store",
+            conn,
+        )
+        conn.execute("PRAGMA query_only=ON")
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        return _guard_generation_observation(conn, version)
+    finally:
+        conn.close()
+
+
+def _guard_generation_observation(
+    conn: sqlite3.Connection, version: int
+) -> dict[str, object]:
+    if version < SCHEMA_USER_VERSION:
+        return {
+            "state": "clear",
+            "generation": f"legacy:{version}",
+            "event_ids": (),
+        }
+    if version not in {SCHEMA_USER_VERSION, 4}:
+        return {
+            "state": "blocked",
+            "generation": f"unsupported:{version}",
+            "event_ids": (),
+        }
+    tables = {
+        str(row[0])
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    required_tables = (
+        _V4_GUARD_TABLES
+        if version == 4
+        else _V3_GUARD_TABLES - {"governance_session_purpose_staging"}
+    )
+    if not required_tables <= tables:
+        return {
+            "state": "blocked",
+            "generation": "structurally-unknown",
+            "event_ids": (),
+        }
+    pending = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT event_id, operation, prior_digest, prepared_digest, final_digest, "
+            "affected_ids, required_child_intents, required_child_terminals, "
+            "marker_required, updated_at FROM governance_operation_journals "
+            "WHERE phase='pending' ORDER BY event_id"
+        )
+    ]
+    if (
+        version == SCHEMA_USER_VERSION
+        and "governance_session_purpose_staging" not in tables
+        and pending
+    ):
+        return {
+            "state": "blocked",
+            "generation": "legacy-open-protocol",
+            "event_ids": tuple(str(row[0]) for row in pending),
+        }
+    schema_generation = int(conn.execute("PRAGMA schema_version").fetchone()[0])
+    active = (
+        conn.execute(
+            "SELECT policy_generation_id, policy_fingerprint, "
+            "projector_schema_version, catalog_generation "
+            "FROM active_governance_tuple WHERE singleton=1"
+        ).fetchone()
+        if version == 4
+        else None
+    )
+    activation = (
+        conn.execute(
+            "SELECT activation_store_id, logical_vault_id, activation_epoch, "
+            "activation_state_digest FROM governance_activation_store "
+            "WHERE singleton=1"
+        ).fetchone()
+        if version == 4
+        else None
+    )
+    if version == 4 and (active is None or activation is None):
+        return {
+            "state": "blocked",
+            "generation": "activation-incomplete",
+            "event_ids": tuple(str(row[0]) for row in pending),
+        }
+    generation = hashlib.sha256(
+        json.dumps(
+            [version, schema_generation, pending, active, activation],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "state": "pending" if pending else "clear",
+        "generation": generation,
+        "event_ids": tuple(str(row[0]) for row in pending),
+    }

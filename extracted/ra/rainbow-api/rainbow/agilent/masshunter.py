@@ -1,0 +1,2174 @@
+""" 
+Methods for parsing Agilent Masshunter files. 
+ 
+"""
+import os
+import re
+import struct
+import warnings
+import numpy as np
+# See the note in chemstation.py: lxml is a dependency, and the ElementTree
+# fallback is insurance. This module only parses well-formed vendor XML.
+try:
+    from lxml import etree
+except ImportError:
+    import xml.etree.ElementTree as etree
+from rainbow import DataFile
+from rainbow._binning import HRMS_MZ_FLOOR, label_precision
+from rainbow.agilent.chemstation import parse_optics
+
+# NOTE: `lzf` (python-lzf) is imported lazily inside parse_msdata, and only
+# when an LZF-compressed MSProfile.bin segment is actually encountered. The
+# rest of this module - the scan-counting that replaces MSTS.xml and the
+# run-length-encoded (Q-TOF) MSProfile.bin path - works without it installed.
+
+# Optional compiled accelerator for the run-length MSProfile.bin decode. If it
+# was not built (no compiler or no Cython at install time), decompress_inten_list
+# falls back to the pure-Python loop transparently.
+try:
+    from rainbow.agilent import _msprofile as _msprofile_fast
+except ImportError:
+    _msprofile_fast = None
+
+# Pointer for the per-scan profile error messages (see ProfileDataFile).
+_PROFILE_DOC_URL = (
+    "https://rainbow-api.readthedocs.io/en/latest/agilent/hrms_data_model.html")
+
+
+class ProfileDataFile(DataFile):
+    """
+    A high-resolution profile spectrum whose m/z axis is per-scan.
+
+    Unlike a regular :class:`~rainbow.datafile.DataFile`, an HRMS profile has no
+    single m/z axis. Every scan is sampled on the same raw flight-time grid
+    (:attr:`flight_times`), so a column index is the same physical bin in every
+    scan, but the flight-time-to-m/z calibration drifts from scan to scan. The
+    m/z of a point therefore depends on both the scan and the point. Access a
+    scan's m/z with :meth:`mass_labels` or :meth:`scan`; reading ``ylabels``
+    raises, because a single shared m/z axis does not exist (see
+    :ref:`hrms-data-model`).
+
+    Attributes:
+        flight_times (numpy.ndarray): The shared flight-time axis, one value per
+            column of ``data``, identical for every scan.
+        data (numpy.ndarray): 2D intensities, shape ``(num_scans, num_points)``.
+            Rows are scans (retention times); columns are flight-time bins.
+        xlabels (numpy.ndarray): Retention time of each scan (row).
+        mz_decimals (int or None): Decimals to round reported m/z to; None keeps
+            full float precision.
+
+    """
+    # Every scan is sampled on the same flight-time grid, so one scan's m/z
+    # axis is the instrument's own grid and the spacing along it is meaningful.
+    # (The calibration drifts between scans, so pooling scans is not: it would
+    # measure the drift instead of the grid.)
+    _per_scan_axis_is_a_grid = True
+    # Unrounded by default: the per-scan m/z axis is the measurement, not a
+    # display of it, so rounding it discards precision the instrument recorded.
+    # Every caller inside rainbow passes None; the default is here so a
+    # hand-built ProfileDataFile behaves the same way a parsed one does.
+    def __init__(self, path, xlabels, flight_times, data, calib, use_flags,
+                 metadata, mz_decimals=None):
+        self.name = os.path.basename(path)
+        self.detector = 'MS'
+        self.xlabels = xlabels
+        self.flight_times = flight_times
+        self.data = data
+        self._calib = calib
+        self._use_flags = use_flags
+        self.mz_decimals = mz_decimals
+        self.metadata = metadata
+        warnings.filterwarnings("ignore", category=FutureWarning)
+
+    def _no_shared_axis(self, what):
+        return AttributeError(
+            f"{what} needs one shared m/z axis, but an HRMS profile has a "
+            "per-scan m/z axis that drifts with calibration. Use scan(i) or "
+            "mass_labels(i) for one scan's m/z; or read with a bin_width for "
+            "the (lossy) shared-grid DataFile. See "
+            f"{_PROFILE_DOC_URL}")
+
+    @property
+    def ylabels(self):
+        raise self._no_shared_axis("ylabels")
+
+    def extract_traces(self, labels=None):
+        raise self._no_shared_axis("extract_traces")
+
+    def export_csv(self, filename, labels=None, delim=','):
+        raise self._no_shared_axis("export_csv")
+
+    def to_csvstr(self, labels=None, delim=','):
+        raise self._no_shared_axis("to_csvstr")
+
+    def plot(self, label, **kwargs):
+        raise self._no_shared_axis("plot")
+
+    @property
+    def tof(self):
+        # Renamed in 1.5.0. A property rather than __getattr__, which would be
+        # reached by every attribute lookup that fails - including the ylabels
+        # and data properties above, which raise AttributeError on purpose to
+        # explain themselves, and whose message __getattr__ would replace.
+        raise AttributeError(
+            "'tof' was renamed to 'flight_times' in 1.5.0: the axis is a "
+            "flight time per column, shared by every scan.")
+
+    def mass_labels(self, i):
+        """ The calibrated m/z values for scan ``i`` (rounded to
+        :attr:`mz_decimals`, or exact when that is None). """
+        mz = calibrate_mz(self.flight_times, self._calib[i], self._use_flags[i])
+        if self.mz_decimals is not None:
+            mz = np.round(mz, self.mz_decimals)
+        return mz
+
+    def scan(self, i):
+        """ The decoded spectrum of scan ``i`` as ``(mass_labels, intensities)``,
+        i.e. the per-scan m/z axis and that scan's intensities, with no binning
+        and no inserted zeros. """
+        return self.mass_labels(i), self.data[i]
+
+    def get_info(self):
+        n, k = self.data.shape
+        return f"\n{'-' * len(self.name)}\n" \
+               f"{self.name}\n" \
+               f"{'-' * len(self.name)}\n" \
+               f"Detector: {self.detector}\n" \
+               f"Xlabels: {self.xlabels}\n" \
+               f"Profile: {n} scans x {k} points " \
+               f"(per-scan m/z; use scan(i)/mass_labels(i))\n" \
+               f"Flight times: {self.flight_times}\n" \
+               f"Data: {self.data}\n" \
+               f"Metadata: {self.metadata}\n"
+
+
+class CentroidDataFile(DataFile):
+    """
+    A centroid (peak-picked) spectrum whose m/z axis is per-scan.
+
+    A centroid keeps only the peaks of each scan, so every scan is a list of
+    ``(m/z, intensity)`` pairs of a *different* length, and (for a drifting
+    Q-TOF) at different m/z. There is therefore no single m/z axis and no
+    rectangular data matrix, unlike a regular
+    :class:`~rainbow.datafile.DataFile`. This mirrors :class:`ProfileDataFile`,
+    but a centroid has no shared flight-time axis to fall back on, so it is
+    simpler: just the per-scan peak lists. Access one scan with :meth:`scan` or
+    :meth:`mass_labels`; reading ``ylabels`` (or ``data``) raises. Read with a
+    ``bin_width`` for the (lossy) shared-grid DataFile instead (see
+    :ref:`hrms-data-model`).
+
+    Attributes:
+        xlabels (numpy.ndarray): Retention time of each scan.
+
+    """
+    # A scan holds only the peaks that were picked, at whatever m/z they were
+    # found, so the gaps between them are peak separations and not a grid: a
+    # two-peak scan would "measure" the distance between those two peaks. What
+    # the file quantizes to only shows up over the whole run.
+    _per_scan_axis_is_a_grid = False
+
+    def __init__(self, path, xlabels, mz_arrays, intensity_arrays, metadata):
+        self.name = os.path.basename(path)
+        self.detector = 'MS'
+        self.xlabels = xlabels
+        self._mz = mz_arrays
+        self._intensities = intensity_arrays
+        self.metadata = metadata
+
+    def _no_shared_axis(self, what):
+        return AttributeError(
+            f"{what} needs one shared m/z axis, but a centroid spectrum has a "
+            "per-scan m/z axis: each scan is its own peak list. Use scan(i) or "
+            "mass_labels(i) for one scan's peaks; or read with a bin_width for "
+            f"the (lossy) shared-grid DataFile. See {_PROFILE_DOC_URL}")
+
+    @property
+    def ylabels(self):
+        raise self._no_shared_axis("ylabels")
+
+    @property
+    def data(self):
+        raise self._no_shared_axis("data")
+
+    def extract_traces(self, labels=None):
+        raise self._no_shared_axis("extract_traces")
+
+    def export_csv(self, filename, labels=None, delim=','):
+        raise self._no_shared_axis("export_csv")
+
+    def to_csvstr(self, labels=None, delim=','):
+        raise self._no_shared_axis("to_csvstr")
+
+    def plot(self, label, **kwargs):
+        raise self._no_shared_axis("plot")
+
+    def mass_labels(self, i):
+        """ The m/z of the peaks in scan ``i``. """
+        return self._mz[i]
+
+    def scan(self, i):
+        """ Scan ``i`` as ``(m/z, intensity)``: its peak list, no binning. """
+        return self._mz[i], self._intensities[i]
+
+    def get_info(self):
+        n = len(self.xlabels)
+        return f"\n{'-' * len(self.name)}\n" \
+               f"{self.name}\n" \
+               f"{'-' * len(self.name)}\n" \
+               f"Detector: {self.detector}\n" \
+               f"Xlabels: {self.xlabels}\n" \
+               f"Centroid: {n} scans, per-scan peak lists " \
+               f"(use scan(i)/mass_labels(i))\n" \
+               f"Metadata: {self.metadata}\n"
+
+
+"""
+MAIN PARSING METHOD
+
+"""
+
+def parse_allfiles(path, display_precision='auto', hrms=False, centroid=False,
+                   bin_width=None, telemetry=False, requested_files=None,
+                   labels_only=False):
+    """
+    Finds and parses Agilent Masshunter data files.
+
+    MassHunter stores a scan's spectrum as a dense profile trace
+    (``MSProfile.bin``) and/or a peak-picked centroid list (``MSPeak.bin``).
+    Both are opt-in: ``hrms`` parses the profile and ``centroid`` parses the
+    centroids (see :obj:`parse_msdata` and :obj:`parse_mspeakdata`). With
+    neither flag set no MS data is parsed here.
+
+    A DAD's data (see :obj:`parse_dadfiles`) is parsed unconditionally, as the
+    Chemstation UV formats are - it is uncompressed and cheap to read.
+
+    Args:
+        path (str): Path to the Agilent .D directory.
+        display_precision (int or str, optional): Number of decimals to round m/z to.
+            ``'auto'`` (the default) resolves per file: 4 for the profile and TOF
+            centroids, 0 for unit-resolution (GC/quadrupole) centroids.
+        hrms (bool, optional): Parse the profile spectrum (MSProfile.bin).
+        centroid (bool, optional): Parse the centroid spectrum (MSPeak.bin).
+        bin_width (float, optional): For the profile, omit (the default) to keep
+            the per-scan representation (:class:`ProfileDataFile`); pass a width
+            in daltons to project onto the shared m/z grid; see
+            :obj:`parse_msdata`.
+        telemetry (bool, optional): Parse the DAD's non-absorbance traces.
+        requested_files (list, optional): Lowercased filenames to restrict the
+            DAD parse to. The MS files are selected by their flags instead.
+        labels_only (bool, optional): Return each binned MS channel's m/z
+            labels against an empty grid, for a caller that reads nothing but
+            the axis; see :obj:`bin_to_grid`.
+
+    Returns:
+        List containing a DataFile for each parsed file.
+
+    """
+    datafiles = []
+
+    acqdata_path = os.path.join(path, "AcqData")
+    if not os.path.isdir(acqdata_path):
+        return datafiles
+
+    acqdata_files = set(os.listdir(acqdata_path))
+    datafiles.extend(parse_dadfiles(
+        acqdata_path, telemetry, requested_files, acqdata_files))
+    # MSTS.xml is no longer required: the scan count is recovered from the
+    # MSScan.bin record geometry (see read_scan_records). This lets us parse
+    # Agilent OpenLab .rslt/.sirslt result folders, which omit MSTS.xml.
+    if {"MSScan.xsd", "MSScan.bin"} <= acqdata_files:
+        # ICP-MS data is distinguished by the presence of MSScan_XSpecific.bin,
+        # which records the per-isotope channels. Its MSProfile.bin is stored
+        # uncompressed in a different layout than the HRMS one, so it needs a
+        # dedicated parser, and it is parsed under the hrms flag like the HRMS
+        # profile it stands in for.
+        if "MSScan_XSpecific.bin" in acqdata_files:
+            if hrms:
+                datafiles.append(parse_icpmsdata(acqdata_path, display_precision))
+        else:
+            if centroid and "MSPeak.bin" in acqdata_files:
+                datafiles.append(parse_mspeakdata(
+                    acqdata_path, display_precision, bin_width, labels_only))
+            if hrms and "MSProfile.bin" in acqdata_files:
+                profile = parse_msdata(
+                    acqdata_path, display_precision, bin_width, labels_only)
+                if bin_width is not None:
+                    datafiles.append(profile)         # single shared-grid file
+                else:
+                    # The per-scan form is one ProfileDataFile per grid.
+                    datafiles.extend(profile)
+
+    return datafiles
+
+
+"""
+DAD PARSING METHODS
+
+"""
+
+# The DAD files of a MassHunter .d are a family of four that share a 68-byte
+# header whose only populated field is a little-endian u16 type tag. They pair
+# up as descriptor/data: the descriptor indexes the data file, giving each
+# record's byte offset and its length - in bytes for a .sd, in points for a
+# .cd - so neither data file has to be walked with an assumed stride.
+#
+#   DAD1.cd (0x0200) -> describes the signals in DAD1.cg
+#   DAD1.cg (0x0201) -> one chromatogram per signal
+#   DAD1.sd (0x0202) -> describes the spectra in DAD1.sp
+#   DAD1.sp (0x0203) -> the spectra themselves
+#
+# A tag names the kind of file, not the detector that wrote it: the pumps and
+# column compartments write .cd/.cg pairs under the same two tags, which is why
+# the DAD files are found by device name rather than by tag. Only the .sd/.sp
+# spectra are unique to a detector.
+#
+# Everything is little-endian, uncompressed float64 - unlike the Chemstation
+# .uv/.ch formats, there is no delta encoding and no scaling factor.
+_DAD_HEADER_SIZE = 68
+_DAD_TAGS = {'.cd': 0x0200, '.cg': 0x0201, '.sd': 0x0202, '.sp': 0x0203}
+
+# Both descriptors carry their own header past the shared one, but lay it out
+# differently: a .sd gives where its fixed width records begin and then how
+# many there are, while a .cd gives its count first and starts its records
+# directly afterwards.
+_SD_DATA_OFFSET = 0x4c      # u32: byte offset of the first spectrum record
+_SD_NUM_RECORDS = 0x50      # u32
+_CD_NUM_SIGNALS = 0x4c      # u32
+_CD_DATA_OFFSET = 0x50
+
+# A .sd spectrum record: 80 bytes, of which we read these fields.
+_SD_RECORD_SIZE = 80
+_SD_RETENTION_TIME = 4      # f64, minutes
+_SD_SP_OFFSET = 32          # u32, byte offset of the spectrum in .sp
+_SD_SP_NBYTES = 40          # u32, its length in bytes
+_SD_NUM_WAVELENGTHS = 44    # u32
+_SD_WAVELENGTH_START = 48   # f64, nm
+_SD_WAVELENGTH_END = 56     # f64, nm
+
+# Both data files prefix a record with its own axis before the values: a .sp
+# spectrum with its wavelengths, a .cg chromatogram with its retention times.
+_AXIS_PREFIX_SIZE = 16      # f64 start + f64 step
+
+# Devices whose .cd/.cg chromatograms are read as detector signals, matching
+# the Chemstation naming: the absorbance detectors, and a fluorescence
+# detector, which writes the same pair. The pumps and column compartments,
+# whose pairs hold only telemetry, are not among them.
+_DAD_DEVICES = ('DAD', 'MWD', 'VWD', 'FLD')
+
+# A description naming an excitation or emission, numeric or not.
+_NAMES_EX_EM_RE = re.compile(r'\b(?:Ex|Em)\b', re.IGNORECASE)
+
+
+def parse_dadfiles(path, telemetry=False, requested_files=None, listing=None):
+    """
+    Finds and parses the Agilent Masshunter DAD files of a .d directory.
+
+    A MassHunter DAD writes its data as a ``.cd``/``.cg`` pair holding the
+    wavelength chromatograms and a ``.sd``/``.sp`` pair holding the spectra -
+    the same two views the Chemstation format splits into ``.ch`` and ``.uv``
+    files. The spectra are returned as a single multi-wavelength DataFile and
+    each chromatogram as its own, named for the signal it carries
+    (``DAD1A.cg``, ``DAD1B.cg``, ...), carrying the signal letter Chemstation
+    would put in the filename since here they share one file.
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        telemetry (bool, optional): Also parse the non-absorbance traces the
+            detector records alongside its signals (lamp voltage, board
+            temperature). Off by default, matching ``.dx`` telemetry.
+        requested_files (list, optional): Lowercased filenames to restrict the
+            parse to, as for the Chemstation parser. Both the file on disk
+            (``dad1.cg``) and a per-signal name (``dad1a.cg``) select.
+        listing (iterable, optional): The contents of ``path``, when the caller
+            has already listed it. Saves re-listing the directory.
+
+    Returns:
+        List containing a DataFile for each parsed signal and spectrum.
+
+    """
+    datafiles = []
+    if listing is None:
+        if not os.path.isdir(path):
+            return datafiles
+        listing = os.listdir(path)
+
+    # The siblings of a .cd share its casing, which matters on a case-sensitive
+    # filesystem: an acquisition written as DAD1.CD carries DAD1.CG beside it.
+    # Build this in sorted order, so that a directory holding names differing
+    # only by case resolves the same way every time.
+    by_name = {name.lower(): name for name in sorted(listing)}
+
+    def sibling(stem, ext):
+        want = (stem + ext).lower()
+        return os.path.join(path, by_name.get(want, stem + ext))
+
+    for name in sorted(listing):
+        stem, ext = os.path.splitext(name)
+        if ext.lower() != '.cd' or stem[:3].upper() not in _DAD_DEVICES:
+            continue
+
+        chrom_path = sibling(stem, '.cg')
+        if os.path.isfile(chrom_path) and _dad_requested(
+                requested_files, stem, '.cg'):
+            signals = read_dad_signals(
+                os.path.join(path, name), os.path.getsize(chrom_path))
+            if signals:
+                datafiles.extend(parse_dadchroms(
+                    chrom_path, signals, telemetry, requested_files))
+
+        spectra_path = sibling(stem, '.sp')
+        desc_path = sibling(stem, '.sd')
+        # The spectra are one file under one name, so unlike the chromatograms
+        # they match a request exactly - a name that is merely similar is not a
+        # file anyone asked for.
+        # Only an absorbance detector's spectra are absorbance spectra; a
+        # fluorescence detector's would be read as UV.
+        if (stem[:3].upper() != 'FLD'
+                and os.path.isfile(spectra_path) and os.path.isfile(desc_path)
+                and (not requested_files
+                     or os.path.basename(spectra_path).lower() in requested_files)):
+            spectra = parse_dadspectra(spectra_path, desc_path)
+            if spectra is not None:
+                datafiles.append(spectra)
+
+    return datafiles
+
+
+def _dad_requested(requested_files, stem, ext):
+    """
+    Returns True if any requested filename could be served by ``stem + ext``.
+
+    The chromatograms all live in one .cg but are returned under per-signal
+    names, so a request for either form has to keep that file in play; which
+    signals it yields is settled in :obj:`parse_dadchroms`.
+
+    """
+    if not requested_files:
+        return True
+    return any(name.endswith(ext) and name.startswith(stem.lower())
+               for name in requested_files)
+
+
+def read_dad_header(f, ext):
+    """
+    Validates a DAD file's header and returns True if it matches ``ext``.
+
+    Args:
+        f (_io.BufferedReader): File opened in 'rb' mode.
+        ext (str): Extension whose type tag is expected, e.g. '.sp'.
+
+    Returns:
+        True if the file carries the expected type tag, otherwise False.
+
+    """
+    f.seek(0)
+    head = f.read(_DAD_HEADER_SIZE)
+    if len(head) < _DAD_HEADER_SIZE:
+        return False
+    return struct.unpack_from('<H', head, 0)[0] == _DAD_TAGS[ext]
+
+
+def read_dad_signals(path, data_size=None):
+    """
+    Parses an Agilent Masshunter DAD descriptor (.cd) file.
+
+    The descriptor holds one record per signal, each a run of length-prefixed
+    strings (the signal's letter, its description, and its unit) interleaved
+    with the fields locating that signal's data in the matching ``.cg``. A
+    record is variable width because the strings are, so it is walked rather
+    than indexed.
+
+    Args:
+        path (str): Path to the .cd file.
+        data_size (int): Size of the matching .cg in bytes, if known. Every
+            record indexes data inside that file, so giving its size lets a
+            coincidental byte pattern be told apart from a real record.
+
+    Returns:
+        List of dicts with the keys ``letter``, ``description``, ``unit``,
+        ``offset`` and ``num_times``; empty if the file cannot be parsed.
+
+    """
+    with open(path, 'rb') as f:
+        if not read_dad_header(f, '.cd'):
+            return []
+        f.seek(0)
+        raw = f.read()
+
+    if len(raw) < _CD_DATA_OFFSET + 4:
+        warnings.warn(
+            f"{os.path.basename(path)} is too short to hold a signal "
+            f"descriptor; no signals could be read.")
+        return []
+    num_signals = struct.unpack_from('<I', raw, _CD_NUM_SIGNALS)[0]
+
+    signals = []
+    pos = _CD_DATA_OFFSET
+    for _ in range(num_signals):
+        # Each record is the signal's letter and description followed by the
+        # fields locating its data: what kind of signal it is, the byte offset,
+        # an always-zero word, and the number of points.
+        header = _read_record_header(raw, pos, data_size)
+        if header is None:
+            break
+        letter, description, offset, num_times, pos = header
+        # The unit follows, but not adjacently - fields we have no use for sit
+        # in between - so scan ahead to the next record and take the unit from
+        # what lies before it.
+        end = _find_next_record(raw, pos, data_size) or len(raw)
+        signals.append({
+            'letter': letter,
+            'description': description.strip(),
+            'unit': _find_unit(raw, pos, end),
+            'offset': offset,
+            'num_times': num_times,
+        })
+        pos = end
+
+    if len(signals) != num_signals:
+        # Losing a signal loses a whole trace, so say so rather than quietly
+        # returning a short list. An unreadable record is skipped over rather
+        # than ending the walk, so name what survived: the gap can fall
+        # anywhere, not only at the end.
+        read = ', '.join(signal['letter'] for signal in signals) or 'none'
+        warnings.warn(
+            f"{os.path.basename(path)} describes {num_signals} signals but only "
+            f"{len(signals)} could be read ({read}); the others are missing "
+            f"from the parse.")
+    return signals
+
+
+def parse_dadchroms(path, signals, telemetry=False, requested_files=None):
+    """
+    Parses the chromatograms of an Agilent Masshunter DAD (.cg) file.
+
+    Each signal is stored as its own contiguous block: the retention time of
+    the first point, the time step, then one float64 absorbance per point. The
+    block's offset and length come from the ``.cd`` descriptor, so signals
+    recorded at different rates - the detector's telemetry traces are sampled
+    several times more often than its absorbance signals - are read correctly.
+
+    A signal's description gives the band it integrates and the band subtracted
+    from it, in the Chemstation form ``Sig=254.0,4.0  Ref=360.0,100.0`` (254 nm
+    over 4 nm, referenced to 360 nm over 100 nm). These chromatograms are
+    therefore not slices of the ``.sp`` spectra: they are band averages, minus
+    a reference, where the spectra are raw. They are stored by the instrument
+    rather than recomputed here.
+
+    Args:
+        path (str): Path to the .cg file.
+        signals (list): Signal records from :obj:`read_dad_signals`.
+        telemetry (bool, optional): Include the non-absorbance traces.
+        requested_files (list, optional): Lowercased filenames to restrict the
+            parse to; a signal is kept if its own name (``dad1a.cg``) or the
+            file it lives in (``dad1.cg``) was asked for.
+
+    Returns:
+        List with a DataFile per signal, in the order they are described.
+
+    """
+    datafiles = []
+    stem = os.path.splitext(os.path.basename(path))[0]
+    filename = os.path.basename(path).lower()
+
+    with open(path, 'rb') as f:
+        if not read_dad_header(f, '.cg'):
+            return datafiles
+        f.seek(0)
+        raw = f.read()
+
+    for signal in signals:
+        # An absorbance signal is named the Chemstation way ("Sig=254.0,..."),
+        # and carries mAU; the detector's telemetry traces have neither. A
+        # fluorescence signal names its excitation and emission ("Ex=230,
+        # Em=310") in any unit.
+        optics = parse_optics(signal['description'])
+        # In an FLD's own file, a signal that names an excitation or emission
+        # in any form ("Ex=Scan"), or reads in its luminescence units, is a
+        # fluorescence signal too, not one of the detector's telemetry traces.
+        is_fluorescence = 'emission_wavelength' in optics or (
+            stem[:3].upper() == 'FLD'
+            and (_NAMES_EX_EM_RE.search(signal['description'])
+                 or signal['unit'].strip().upper() == 'LU'))
+        is_absorbance = not is_fluorescence and (
+            signal['unit'].lower() == 'mau'
+            or signal['description'].startswith('Sig='))
+        signal_name = f"{stem}{signal['letter']}.cg".lower()
+        requested = bool(requested_files) and signal_name in requested_files
+        # Naming a telemetry trace explicitly parses it whether or not the flag
+        # is set, as it does for .dx telemetry.
+        if not (is_absorbance or is_fluorescence) and not telemetry \
+                and not requested:
+            continue
+        if requested_files and not (requested or filename in requested_files):
+            continue
+
+        num_times = signal['num_times']
+        start = signal['offset']
+        end = start + _AXIS_PREFIX_SIZE + num_times * 8
+        if start < _DAD_HEADER_SIZE or end > len(raw):
+            warnings.warn(
+                f"Skipping DAD signal {signal['letter']} of {os.path.basename(path)}: "
+                f"its descriptor points outside the file.")
+            continue
+
+        first_time, time_step = struct.unpack_from('<dd', raw, start)
+        values = np.frombuffer(
+            raw, dtype='<f8', count=num_times, offset=start + _AXIS_PREFIX_SIZE)
+        times = first_time + time_step * np.arange(num_times)
+
+        # Give the trace the signal letter Chemstation would put in the
+        # filename (DAD1A.ch), keeping this format's own extension: here all
+        # the signals share one file, so the letter is what tells them apart.
+        name = os.path.join(os.path.dirname(path), f"{stem}{signal['letter']}.cg")
+        if is_fluorescence:
+            detector, ylabel = 'FLD', optics.get('emission_wavelength', '')
+        else:
+            detector = 'UV' if is_absorbance else None
+            ylabel = _signal_wavelength(signal['description'])
+        datafiles.append(DataFile(
+            name,
+            detector,
+            times,
+            np.array([ylabel]),
+            values.reshape(-1, 1).copy(),
+            # The description follows the Chemstation convention, so its optics
+            # are surfaced by the same parser the .ch and .dx readers use. A
+            # telemetry trace has no Sig= clause and simply adds nothing. This
+            # is what lets an export record the channel's wavelength setting
+            # rather than leaving it to be inferred from the ylabel.
+            {'signal': signal['description'], 'unit': signal['unit'],
+             **optics}))
+
+    return datafiles
+
+
+def parse_dadspectra(path, desc_path):
+    """
+    Parses the spectra of an Agilent Masshunter DAD (.sp) file.
+
+    Every spectrum is stored as its own wavelength axis (a start and a step)
+    followed by one float64 absorbance per wavelength. The ``.sd`` descriptor
+    supplies each spectrum's retention time and its offset and length in the
+    ``.sp``, so the spectra are located rather than assumed to be evenly
+    spaced.
+
+    Spectra sharing one wavelength axis - the usual case - are returned as a
+    single (retention time x wavelength) DataFile. If the axis changes during
+    the run the spectra cannot form one grid, and None is returned with a
+    warning rather than silently reshaping mismatched rows.
+
+    Args:
+        path (str): Path to the .sp file.
+        desc_path (str): Path to the matching .sd file.
+
+    Returns:
+        DataFile with the DAD spectra, or None if they cannot be parsed.
+
+    """
+    with open(desc_path, 'rb') as f:
+        if not read_dad_header(f, '.sd'):
+            return None
+        f.seek(0)
+        desc = f.read()
+
+    if len(desc) < _SD_NUM_RECORDS + 4:
+        return None
+    # The descriptor states where its records begin and how many there are; it
+    # carries its own header past the shared one, so neither can be assumed.
+    data_offset = struct.unpack_from('<I', desc, _SD_DATA_OFFSET)[0]
+    num_times = struct.unpack_from('<I', desc, _SD_NUM_RECORDS)[0]
+    if (num_times == 0 or data_offset < _DAD_HEADER_SIZE
+            or data_offset + num_times * _SD_RECORD_SIZE > len(desc)):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(desc_path)}: it describes "
+            f"{num_times} spectra from offset {data_offset}, which its size "
+            f"does not accommodate.")
+        return None
+    records = np.frombuffer(
+        desc, dtype=np.uint8, count=num_times * _SD_RECORD_SIZE,
+        offset=data_offset
+    ).reshape(num_times, _SD_RECORD_SIZE)
+
+    def field(offset, dtype):
+        width = np.dtype(dtype).itemsize
+        return records[:, offset:offset + width].copy().view(dtype).ravel()
+
+    times = field(_SD_RETENTION_TIME, '<f8')
+    offsets = field(_SD_SP_OFFSET, '<u4')
+    num_wavelengths = field(_SD_NUM_WAVELENGTHS, '<u4')
+    starts = field(_SD_WAVELENGTH_START, '<f8')
+    ends = field(_SD_WAVELENGTH_END, '<f8')
+
+    # One shared wavelength axis is what makes a dense 2D array meaningful.
+    if not (np.all(num_wavelengths == num_wavelengths[0])
+            and np.all(starts == starts[0]) and np.all(ends == ends[0])):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its wavelength axis changes "
+            f"during the run, so the spectra do not share a grid.")
+        return None
+
+    count = int(num_wavelengths[0])
+    if count <= 0:
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its descriptor reports "
+            f"{count} wavelengths per spectrum.")
+        return None
+
+    with open(path, 'rb') as f:
+        if not read_dad_header(f, '.sp'):
+            return None
+        f.seek(0)
+        raw = f.read()
+
+    stride = _AXIS_PREFIX_SIZE + count * 8
+    # The descriptor states each spectrum's length too, so the stride derived
+    # from the wavelength count can be checked rather than assumed. A record
+    # may be longer than the values it holds, which only means it is padded or
+    # carries a trailer; one that is shorter would be read past its end.
+    nbytes = field(_SD_SP_NBYTES, '<u4')
+    if np.any(nbytes < stride):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its descriptor gives "
+            f"spectra shorter than {count} wavelengths ({stride} bytes).")
+        return None
+
+    spectrum_offsets = offsets.astype(np.int64)
+    if (spectrum_offsets.min() < _DAD_HEADER_SIZE
+            or spectrum_offsets.max() + stride > len(raw)):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its descriptor points to "
+            f"spectra outside the file.")
+        return None
+
+    # The spectra are contiguous and equally sized in every file seen so far,
+    # which lets the whole block be viewed at once instead of read per scan.
+    contiguous = np.array_equal(
+        spectrum_offsets, spectrum_offsets[0] + stride * np.arange(num_times))
+    prefix_size = _AXIS_PREFIX_SIZE // 8
+    if contiguous:
+        block = np.frombuffer(
+            raw, dtype='<f8', count=num_times * stride // 8,
+            offset=spectrum_offsets[0]
+        ).reshape(num_times, stride // 8)
+        axes = block[:, :prefix_size]
+        data = block[:, prefix_size:]
+    else:
+        axes = np.empty((num_times, prefix_size), dtype=np.float64)
+        data = np.empty((num_times, count), dtype=np.float64)
+        for i, start in enumerate(spectrum_offsets):
+            record = np.frombuffer(
+                raw, dtype='<f8', count=prefix_size + count, offset=start)
+            axes[i] = record[:prefix_size]
+            data[i] = record[prefix_size:]
+
+    # Every spectrum carries its own axis, so an acquisition could in principle
+    # change it mid-run. Those spectra share no grid and cannot be stacked, so
+    # check them all rather than trusting the first.
+    wavelength_start, wavelength_step = axes[0]
+    if not np.allclose(axes, axes[0]):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its spectra do not all "
+            f"share one wavelength axis.")
+        return None
+
+    # The axis is stated twice - as a start and step in the .sp, and as a range
+    # in the .sd - so check the two against each other rather than trusting one.
+    stated_end = wavelength_start + wavelength_step * (count - 1)
+    if not np.isclose(stated_end, ends[0]) or not np.isclose(
+            wavelength_start, starts[0]):
+        warnings.warn(
+            f"Cannot parse {os.path.basename(path)}: its spectra span "
+            f"{wavelength_start:g}-{stated_end:g} nm but its descriptor says "
+            f"{starts[0]:g}-{ends[0]:g} nm.")
+        return None
+
+    wavelengths = wavelength_start + wavelength_step * np.arange(count)
+    data = np.ascontiguousarray(data)
+    if not data.flags.writeable:
+        # A single spectrum needs no restriding, which would otherwise leave the
+        # read-only file buffer as the returned array.
+        data = data.copy()
+    return DataFile(path, 'UV', times, wavelengths, data,
+                    {'signal': f"Spectra {starts[0]:g}-{ends[0]:g} nm",
+                     'unit': 'mAU'})
+
+
+def _read_pascal_string(raw, pos):
+    """
+    Reads a length-prefixed ASCII string, or (None, pos) if there is not one.
+
+    Used only for the .cd descriptor, whose records are strings of varying
+    length interleaved with fixed-width fields.
+
+    """
+    if pos >= len(raw):
+        return None, pos
+    length = raw[pos]
+    end = pos + 1 + length
+    if length == 0 or end > len(raw):
+        return None, pos
+    chunk = raw[pos + 1:end]
+    # The strings are UTF-8, not ASCII: a DAD writes its temperature traces in
+    # degrees Celsius, whose degree sign is two bytes. Reject only control
+    # bytes, which is what actually distinguishes a string from binary here.
+    try:
+        text = chunk.decode('utf-8')
+    except UnicodeDecodeError:
+        return None, pos
+    if any(c < ' ' or c == '\x7f' for c in text):
+        return None, pos
+    return text, end
+
+
+def _find_next_record(raw, pos, data_size=None):
+    """
+    Returns the offset of the next .cd signal record, or None at the end.
+
+    A record opens with the length-prefixed letter naming the signal. That
+    alone is too weak to anchor on - a one-character unit such as ``V`` has the
+    same shape - so a candidate is accepted only if a whole record header reads
+    out of it: the letter, a description, and the field block behind it.
+
+    """
+    for i in range(pos, len(raw) - 2):
+        if raw[i] != 1 or not _is_signal_letter(chr(raw[i + 1])):
+            continue
+        if _read_record_header(raw, i, data_size) is not None:
+            return i
+    return None
+
+
+def _is_signal_letter(char):
+    """
+    Returns True if ``char`` could be the letter naming a signal.
+
+    Every signal seen is named A-Z, as under Chemstation. The scan and the
+    header reader have to agree on this, or a detector naming them some other
+    way would yield its first signal and silently lose the rest.
+
+    """
+    return char.isascii() and char.isalnum()
+
+
+def _read_record_header(raw, pos, data_size=None):
+    """
+    Reads a .cd signal record header, or None if one does not start at ``pos``.
+
+    Returns ``(letter, description, offset, num_times, end)``, where ``end`` is
+    the position just past the field block.
+
+    """
+    letter, after_letter = _read_pascal_string(raw, pos)
+    if letter is None or len(letter) != 1 or not _is_signal_letter(letter):
+        return None
+    description, after_description = _read_pascal_string(raw, after_letter)
+    if description is None or after_description + 16 > len(raw):
+        return None
+    _, offset, _, num_times = struct.unpack_from('<IIII', raw, after_description)
+    # A real record locates data inside the .cg; a coincidental byte pattern
+    # almost never does. Where the .cg's size is known, requiring the record to
+    # fit inside it rules out nearly every such pattern - text read as a field
+    # gives implausibly large numbers.
+    if offset < _DAD_HEADER_SIZE or num_times <= 0:
+        return None
+    if data_size is not None and (
+            offset + _AXIS_PREFIX_SIZE + num_times * 8 > data_size):
+        return None
+    return letter, description, offset, num_times, after_description + 16
+
+
+def _find_unit(raw, start, end):
+    """
+    Returns the unit string inside a .cd signal record, or '' if absent.
+
+    The unit is the last length-prefixed string before the next record, sitting
+    behind numeric fields we have no use for. Absorbance signals carry ``mAU``;
+    the detector's telemetry traces carry their own (``°C``, ``V``).
+
+    """
+    unit = ''
+    for i in range(start, min(end, len(raw))):
+        text, _ = _read_pascal_string(raw, i)
+        # Any short printable string here could be the unit: one may be a single
+        # symbol ('%', 'V') as readily as a word, so it cannot be required to
+        # contain a letter. Take the last rather than the first, since only the
+        # last is pinned to a known position - a stray run of bytes in the
+        # numeric fields ahead of it can read as a string too.
+        if text and 1 <= len(text) <= 8 and text.strip():
+            unit = text.strip()
+    return unit
+
+
+def _signal_wavelength(description):
+    """
+    Pulls the wavelength out of a signal description, or 0 if it has none.
+
+    The descriptions follow the Chemstation convention, e.g.
+    ``Sig=254.0,4.0  Ref=360.0,100.0`` for a signal at 254 nm, sometimes with
+    the channel prefixed (``DAD1B, Sig=280.0,4.0``).
+
+    """
+    # Uses the same parser the metadata does, so the ylabel and the recorded
+    # wavelength cannot disagree on a prefixed description such as
+    # "DAD1B, Sig=280.0,4.0".
+    return parse_optics(description).get('wavelength', 0.0)
+
+
+"""
+MS PARSING METHODS
+
+"""
+
+def _with_mz_floor(datafile, floor):
+    """
+    Records the finest m/z bin ``datafile``'s binary meaningfully records.
+
+    :func:`rainbow.read` reads this back to decide whether a caller's
+    ``bin_width`` was finer than the data can support. It is set here, where the
+    acquisition is known, because the vendor default it replaces is right for
+    unit-resolution data and wrong for calibrated TOF data. Left unset, a
+    channel falls back to its vendor's floor; set to None, it has no floor at
+    all, which is the right answer for an acquisition that is never binned.
+    """
+    datafile._mz_floor = floor
+    return datafile
+
+
+def parse_msdata(path, display_precision='auto', bin_width=None,
+                 labels_only=False):
+    """
+    Parses Masshunter MS data.
+
+    IMPORTANT: Masshunter MS data can be either stored in MSProfile.bin or \
+        MSPeak.bin. This method only supports parsing MSProfile.bin.  
+    
+    The following files are used (in order of listing):
+        - MSScan.xsd -> File structure of MSScan.bin.
+        - MSScan.bin -> Offsets, compression info, and scan count.
+        - MSMassCal.bin -> Calibration info for masses.
+        - MSProfile.bin -> Actual data values.
+
+    The scan count is recovered by reading MSScan.bin to EOF, so MSTS.xml is \
+        not required. This lets us parse OpenLab .rslt/.sirslt result \
+        folders, which omit MSTS.xml.
+
+    Learn more about this file format :ref:`here <hrms>`.
+
+    With no ``bin_width`` (the default) the per-scan representation is returned: a
+    list of :class:`ProfileDataFile` objects (one per flight-time grid), each
+    keeping the raw intensities and exposing the per-scan m/z via ``scan(i)``.
+    Pass a ``bin_width`` to project the spectra onto a single shared m/z grid,
+    which is convenient for extracted-ion chromatograms and heatmaps but inserts
+    zeros and loses resolution for high-resolution data (see
+    :ref:`hrms-data-model`). The bin width is independent of the ``display_precision``
+    label rounding; it is what turns binning on.
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        display_precision (int or str, optional): Number of decimals to round mz labels
+            to. ``'auto'`` (the default) resolves to 4 for this high-resolution
+            data.
+        bin_width (float, optional): Omit (the default) to return the per-scan
+            representation (a list of :class:`ProfileDataFile`, one per
+            flight-time grid); pass a width in daltons to project onto the shared
+            grid.
+        labels_only (bool, optional): With a ``bin_width``, return the m/z
+            labels against an empty grid, for a caller that reads nothing but
+            the axis; see :obj:`bin_to_grid`. The per-scan representation is
+            unaffected, having no grid to build.
+
+    Returns:
+        A list of :class:`ProfileDataFile` (one per grid), or, when a
+        ``bin_width`` is given, a single :class:`~rainbow.datafile.DataFile` on
+        the shared grid.
+
+    """
+    if bin_width is not None and (
+            isinstance(bin_width, bool)
+            or not isinstance(bin_width, (int, float)) or bin_width <= 0):
+        raise Exception(f"Invalid bin_width: {bin_width}.")
+
+    # The profile is always a high-resolution TOF trace, so an 'auto'
+    # display_precision means 4 decimals.
+    if display_precision == 'auto':
+        display_precision = 4
+
+    # bin_width and display_precision are independent: bin_width sets the grid,
+    # display_precision only rounds the reported labels. A display_precision
+    # too coarse for the bin_width would round neighbouring bins onto one
+    # label; bin_to_grid raises it to the decimals the grid needs rather than
+    # returning labels that cannot name their own columns.
+
+    # MSScan.xsd: Extract the file structure of MSScan.bin.
+    complextypes_dict = parse_scan_xsd(os.path.join(path, "MSScan.xsd"))
+
+    # MSScan.bin: Read every scan record until EOF. The number of records is
+    # the number of retention times - historically read from MSTS.xml, which
+    # is absent in OpenLab result folders. For each retention time we keep:
+    #   - the retention time itself
+    #   - the number of masses recorded
+    #   - the starting offset of the data in MSProfile.bin
+    #   - the compressed length in bytes
+    #   - the uncompressed length in bytes
+    #   - the calibration id (selects a polynomial calibration; see below)
+    scan_records = read_scan_records(
+        os.path.join(path, "MSScan.bin"), complextypes_dict, count_scans(path))
+    num_times = len(scan_records)
+    data_info = [
+        (rec['ScanTime'],
+         rec['SpectrumParamValues']['PointCount'],
+         rec['SpectrumParamValues']['SpectrumOffset'],
+         rec['SpectrumParamValues']['ByteCount'],
+         rec['SpectrumParamValues']['UncompressedByteCount'],
+         rec.get('CalibrationID'))
+        for rec in scan_records]
+
+    # Mass calibration (see _load_calibration and calibrate_mz): the per-scan
+    # 10 doubles and polynomial flags. A profile m/z axis is stored as raw
+    # time-of-flight, so MSProfile.bin always needs the calibration.
+    calib_vals, calib_flags = _load_calibration(
+        path, [cid for *_, cid in data_info])
+    if calib_vals is None:
+        raise FileNotFoundError(
+            "Cannot calibrate MSProfile.bin: neither MSMassCal.bin nor a "
+            f"usable DefaultMassCal.xml was found in {path}.")
+
+    # MSProfile.bin: Extract the data values.
+    # Each retention time has a data segment that starts with two doubles
+    #     (the smallest mz and the mz delta, before calibration), followed by
+    #     the intensities. The intensities are stored in one of two ways:
+    #       - LZF compression (the historically supported case). The whole
+    #         segment - header included - is compressed; we decompress it and
+    #         read the intensities as a contiguous block of uint32 values.
+    #       - A run-length encoding that leaves the 16-byte header raw and
+    #         encodes the intensities itself (see decompress_inten_list). This
+    #         is what Q-TOF profile acquisitions emit; LZF decompression fails
+    #         on it ("error in compressed data", issue #27).
+    #     UncompressedByteCount does not reliably distinguish the two (it is
+    #     sometimes set, sometimes zero, for the RLE case), so we detect the
+    #     RLE format from the segment's own header (see segment_is_rle).
+    profile_path = os.path.join(path, "MSProfile.bin")
+    profile_size = os.path.getsize(profile_path)
+    f = open(profile_path, 'rb')
+    twodoubles_unpack = struct.Struct('<dd').unpack
+    times = np.empty(num_times)
+    num_mz_per_time = np.empty(num_times)
+    mz_arrs = []
+    inten_arrs = []
+    grid_keys = []        # (num_mz, start_mz, delta) per scan, per-scan mode
+    scan_calib_ids = []   # CalibrationID per scan, per-scan mode
+    for i in range(num_times):
+        time, num_mz, offset, comp_len, decomp_len, calib_id = data_info[i]
+
+        # An interrupted acquisition leaves MSScan.bin describing scans whose
+        # MSProfile.bin segment was never (fully) written. Stop at the first
+        # such scan and keep the complete prefix instead of failing the parse.
+        if offset + comp_len > profile_size:
+            num_times = i
+            times = times[:num_times]
+            num_mz_per_time = num_mz_per_time[:num_times]
+            break
+
+        times[i] = time
+        num_mz_per_time[i] = num_mz
+
+        # Read and decompress the segment for the current retention time.
+        f.seek(offset)
+        comp_bytes = f.read(comp_len)
+        if segment_is_rle(comp_bytes, num_mz):
+            start_mz, delta_mz = twodoubles_unpack(comp_bytes[:16])
+            body = memoryview(comp_bytes)[16:]
+            # Use the compiled accelerator if it was built (identical output).
+            if _msprofile_fast is not None:
+                inten = _msprofile_fast.decompress_inten_list(body, num_mz)
+            else:
+                inten = decompress_inten_list(body, num_mz)
+        else:
+            # Only LZF-compressed segments need python-lzf; import it lazily so
+            # RLE-only data (and the rest of this module) works without it.
+            try:
+                import lzf
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(
+                    "Reading LZF-compressed MSProfile.bin (HRMS) data needs "
+                    "python-lzf: pip install rainbow-api[hrms]")
+            decomp_view = memoryview(lzf.decompress(comp_bytes, decomp_len))
+            start_mz, delta_mz = twodoubles_unpack(decomp_view[:16])
+            inten = np.ndarray(num_mz, '<I', bytes(decomp_view[16:]))
+
+        if bin_width is None:
+            # The per-scan path keeps the raw intensities and recovers m/z per
+            # scan on demand, so it skips the calibration here.
+            grid_keys.append((num_mz, start_mz, delta_mz))
+            scan_calib_ids.append(calib_id)
+        else:
+            # Calculate the calibrated mz values from the raw flight-time axis.
+            flight_times = np.arange(
+                start_mz, start_mz + delta_mz * (num_mz - 1) + 1e-3, delta_mz)
+            flight_times = flight_times[:num_mz]
+            mzs = calibrate_mz(
+                flight_times, calib_vals[i], calib_flags.get(calib_id))
+            mz_arrs.append(mzs)
+        inten_arrs.append(inten)
+
+    f.close()
+
+    if num_times == 0:
+        raise ValueError(
+            f"MSProfile.bin in {path} contains no complete scans.")
+
+    if bin_width is None:
+        # mz_decimals=None, not display_precision: on the per-scan profile
+        # mass_labels(i) is the m/z axis itself, the same way it is on a
+        # centroid, so rounding it is not a display step. At the vendor default
+        # of 0 decimals a 105,152-point scan came back with 2,398 distinct
+        # labels, which cannot name their own columns. Callers who want them
+        # rounded can set mz_decimals on the returned file.
+        return _build_per_scan_profiles(
+            times, inten_arrs, grid_keys, calib_vals[:num_times],
+            scan_calib_ids, calib_flags, mz_decimals=None)
+
+    # Concatenating the per-scan arrays avoids materializing a ~100M-element
+    # Python list (and the numpy round-trip through it), which otherwise
+    # dominates parsing of large profile files.
+    mz_arr = np.concatenate(mz_arrs)
+    intensities = np.concatenate(inten_arrs).astype(np.uint64)
+    rows = np.repeat(np.arange(num_times), num_mz_per_time.astype(np.int64))
+    mz_ylabels, data = bin_to_grid(
+        mz_arr, intensities, rows, num_times, display_precision, bin_width,
+        labels_only)
+
+    return _with_mz_floor(
+        DataFile("MSProfile.bin", 'MS', times, mz_ylabels, data, {}),
+        HRMS_MZ_FLOOR)
+
+
+def _build_per_scan_profiles(times, inten_arrs, grid_keys, calib_vals,
+                             scan_calib_ids, calib_flags, mz_decimals=None):
+    """
+    Builds the per-scan profile representation (see :obj:`parse_msdata` with no
+    ``bin_width``).
+
+    Scans that share a flight-time grid (same point count, start, and delta)
+    have an index-aligned intensity rectangle, so each such group becomes one
+    :class:`ProfileDataFile`. The m/z is not stored per point; instead each file
+    keeps the shared flight-time axis plus the per-scan calibration and
+    recomputes m/z on demand, which is exact and compact (the only thing that
+    varies scan to scan is the calibration).
+
+    Args:
+        times (np.ndarray): Retention time of each (kept) scan.
+        inten_arrs (list): Per-scan uint32 intensity arrays.
+        grid_keys (list): ``(num_mz, start_mz, delta)`` flight-time grid of each
+            scan.
+        calib_vals (np.ndarray): ``(num_scans, 10)`` calibration rows.
+        scan_calib_ids (list): CalibrationID of each scan.
+        calib_flags (dict): Maps CalibrationID to polynomial ValueUseFlags.
+
+    Returns:
+        A list of :class:`ProfileDataFile`, largest grid first.
+
+    """
+    groups = {}
+    for idx, key in enumerate(grid_keys):
+        groups.setdefault(key, []).append(idx)
+
+    profiles = []
+    for seg, (key, idxs) in enumerate(
+            sorted(groups.items(), key=lambda kv: -len(kv[1]))):
+        num_mz, start_mz, delta_mz = key
+        flight_times = np.arange(
+            start_mz, start_mz + delta_mz * (num_mz - 1) + 1e-3, delta_mz)
+        flight_times = flight_times[:num_mz]
+        data = np.stack([inten_arrs[i] for i in idxs]).astype(np.uint32)
+        xlabels = times[idxs]
+        calib = calib_vals[idxs]
+        use_flags = [calib_flags.get(scan_calib_ids[i]) for i in idxs]
+        # One grid keeps the canonical name; extra grids are suffixed.
+        name = "MSProfile.bin" if seg == 0 else f"MSProfile.bin.{seg + 1}"
+        profiles.append(ProfileDataFile(
+            name, xlabels, flight_times, data, calib, use_flags, {},
+            mz_decimals=mz_decimals))
+    return profiles
+
+
+def parse_icpmsdata(path, display_precision='auto'):
+    """
+    Parses Agilent Masshunter ICP-MS data (MSProfile.bin).
+
+    ICP-MS acquisitions store an intensity for each isotope channel at every
+    retention time. Unlike the HRMS MSProfile.bin parsed by :obj:`parse_msdata`,
+    the ICP-MS MSProfile.bin is NOT LZF-compressed and is laid out as four
+    parallel blocks per scan (channel index, reported value, raw pulse count,
+    analog value). This parser reads the reported values, which are the
+    intensities Masshunter reports in its CSV export.
+
+    The decoding was contributed by Jeremy Hourigan (UC Santa Cruz); see
+    issue #25. It has been verified against an Agilent 8900 triple-quadrupole
+    ICP-MS file. It currently supports time-resolved acquisitions with a single
+    tune mode and one measurement per isotope; files with multiple tune modes
+    or multiple measurements per isotope are not yet handled.
+
+    The following files are used (in order of listing):
+        - MSScan.xsd -> File structure of MSScan.bin.
+        - MSScan.bin -> Per-scan retention time, offset, and point count.
+        - MSTS_XSpecific.xml -> Number of isotope channels.
+        - MSTS_XAddition.xml (parent dir) -> Real isotope m/z labels.
+        - MSProfile.bin -> Actual data values (uncompressed).
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        display_precision (int, optional): Number of decimals to round m/z values.
+
+    Returns:
+        DataFile containing Masshunter ICP-MS data.
+
+    """
+    # ICP-MS isotope channels are unit-resolution, so 'auto' means whole numbers.
+    if display_precision == 'auto':
+        display_precision = 0
+
+    # MSScan.xsd: Extract the file structure of MSScan.bin.
+    complextypes_dict = parse_scan_xsd(os.path.join(path, "MSScan.xsd"))
+
+    # MSScan.bin: Read one scan record per retention time. ICP-MS MSProfile.bin
+    # is uncompressed, so only the retention time, point count, and data offset
+    # are needed (no byte counts or calibration ids).
+    scan_records = read_scan_records(
+        os.path.join(path, "MSScan.bin"), complextypes_dict, count_scans(path))
+    num_times = len(scan_records)
+    data_info = [
+        (rec['ScanTime'],
+         rec['SpectrumParamValues']['PointCount'],
+         rec['SpectrumParamValues']['SpectrumOffset'])
+        for rec in scan_records]
+
+    # MSTS_XSpecific.xml: Extract the number of isotope channels (masses).
+    root = etree.parse(os.path.join(path, "MSTS_XSpecific.xml")).getroot()
+    num_masses = 0
+    for ion_record in root.findall("IonRecord"):
+        num_masses += len(ion_record.findall("Masses"))
+
+    # Determine the m/z label for each isotope channel.
+    mz_ylabels = _read_icpms_mzs(path, num_masses)
+
+    # MSProfile.bin: Extract the data values (uncompressed).
+    # Each scan stores four parallel blocks of `num_mz` points:
+    #   - channel index : num_mz * 4 bytes (float32, unused here)
+    #   - reported value : num_mz * 8 bytes (float64) <- the reported intensity
+    #   - raw pulse count: num_mz * 8 bytes (float64, unused here)
+    #   - analog value   : num_mz * 8 bytes (float64, unused here)
+    # Only the reported values are kept; the pulse and analog blocks are used
+    # for detector cross-calibration but are not part of the DataFile.
+    f = open(os.path.join(path, "MSProfile.bin"), 'rb')
+    times = np.empty(num_times)
+    data = np.empty((num_times, num_masses), dtype=np.float64)
+    double_block = struct.Struct(f'<{num_masses}d').unpack
+    for i in range(num_times):
+        time, num_mz, offset = data_info[i]
+        times[i] = time
+        f.seek(offset)
+        f.read(num_mz * 4) # skip the channel-index block
+        data[i] = double_block(f.read(num_mz * 8)) # reported values
+    f.close()
+
+    # Sort channels by m/z so the ylabels are monotonically increasing.
+    mz_ylabels = np.round(mz_ylabels, display_precision)
+    order = np.argsort(mz_ylabels, kind='stable')
+
+    # No floor: an ICP-MS acquisition is a fixed set of isotope channels, not a
+    # binned axis, and this parser ignores bin_width entirely. Falling back to
+    # the vendor default would warn that a fine bin_width inserts empty bins
+    # when nothing here is binned at all.
+    return _with_mz_floor(DataFile(
+        "MSProfile.bin", 'MS', times, mz_ylabels[order], data[:, order], {}),
+        None)
+
+
+def _read_icpms_mzs(path, num_masses):
+    """
+    Returns the m/z label for each ICP-MS isotope channel.
+
+    Prefers the real isotope m/z values from MSTS_XAddition.xml (located one
+    directory above AcqData). Falls back to the per-channel XValue stored in
+    MSScan_XSpecific.bin when that file is absent or does not match the
+    expected channel count.
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        num_masses (int): Number of isotope channels.
+
+    Returns:
+        1D numpy array of m/z values, length num_masses.
+
+    """
+    addition_path = os.path.join(path, os.pardir, "MSTS_XAddition.xml")
+    if os.path.isfile(addition_path):
+        root = etree.parse(addition_path).getroot()
+        mzs = [float(im.findtext("ProductIonMZ"))
+               for im in root.findall(".//MSTS_XAddition_IndexedMasses")
+               if im.findtext("ProductIonMZ") is not None]
+        if len(mzs) == num_masses:
+            return np.array(mzs, dtype=np.float64)
+
+    # Fallback: XValue per channel from MSScan_XSpecific.bin. Its layout is
+    # described by MSScan_XSpecific.xsd, parsed the same way as MSScan.xsd.
+    complextypes_dict = parse_scan_xsd(
+        os.path.join(path, "MSScan_XSpecific.xsd"))
+    f = open(os.path.join(path, "MSScan_XSpecific.bin"), 'rb')
+    f.seek(0x48) # start offset
+    mzs = [read_complextype(f, complextypes_dict, "IonRecordType")['XValue']
+           for _ in range(num_masses)]
+    f.close()
+    return np.array(mzs, dtype=np.float64)
+
+
+# Cap on the dense (retention time x mz-bin) grid the fast binning path will
+# allocate, in cells. 50M uint64 cells is ~400 MB; above this we fall back to
+# the sort-based mapping, which only allocates the occupied columns.
+_MAX_DENSE_BINS = 50_000_000
+
+# float64 represents integers exactly up to 2**53. np.bincount sums its weights
+# in float64, so a uint64 scatter-add round-trips losslessly only while the total
+# stays under this bound. It always does for real profile data (a whole run's
+# summed counts are orders of magnitude below 2**53), but the guard below keeps
+# the guarantee total for any input.
+_FLOAT64_EXACT_INT = 1 << 53
+
+
+def _scatter_sum(idx, intensities, size):
+    """
+    Scatter-adds ``intensities`` into a length-``size`` uint64 array at the flat
+    indices ``idx`` (i.e. ``grid[idx[k]] += intensities[k]``, accumulating
+    duplicates).
+
+    Uses :func:`numpy.bincount`, a fast single-pass C reduction, which is far
+    quicker than :func:`numpy.add.at`. ``bincount`` sums in float64; while the
+    total fits float64's exact 53-bit integer range the uint64 cast is lossless
+    and reproduces an exact integer scatter-add bit for bit. Above that (not seen
+    in real data) it falls back to an exact uint64 ``np.add.at`` so the result is
+    identical for any input.
+
+    Args:
+        idx (np.ndarray): Flat destination index of every point.
+        intensities (np.ndarray): uint64 intensity of every point.
+        size (int): Length of the output grid.
+
+    Returns:
+        Length-``size`` uint64 array of summed intensities.
+
+    """
+    if intensities.size == 0:
+        return np.zeros(size, dtype=np.uint64)
+
+    def _bincount():
+        return np.bincount(
+            idx, weights=intensities, minlength=size).astype(np.uint64)
+
+    # count * max bounds the total from above, and both are C reductions, so
+    # the common case is decided without ever forming a Python int per point.
+    # The exact total (sum(dtype=object), which cannot be fooled by a uint64
+    # wraparound before the comparison) is only worth its cost when this
+    # conservative bound fails, which real data does not reach.
+    if int(intensities.max()) * intensities.size < _FLOAT64_EXACT_INT:
+        return _bincount()
+    if int(intensities.sum(dtype=object)) < _FLOAT64_EXACT_INT:
+        return _bincount()
+    grid = np.zeros(size, dtype=np.uint64)
+    np.add.at(grid, idx, intensities)
+    return grid
+
+
+def bin_to_grid(mz_arr, intensities, rows, num_times, display_precision,
+                bin_width=None, labels_only=False):
+    """
+    Bins per-point (mz, intensity) values into a (retention time x mz) grid.
+
+    The shared-grid bin width is decoupled from the label display_precision. ``display_precision``
+    only sets how many decimals the returned m/z labels are rounded to, while
+    ``bin_width`` (in daltons) sets how wide each bin is - i.e. how aggressively
+    points from different scans are pooled into one column. When ``bin_width`` is
+    None it defaults to ``10**-display_precision`` (one bin per labelled m/z), which is the
+    historical behavior.
+
+    Each point is assigned to bin ``round(mz / bin_width)``; mapping those bins
+    to integers lets us assign each point a column directly and sum with a single
+    pass, avoiding the global sort that :func:`numpy.unique`/
+    :func:`numpy.searchsorted` would do over every point. For wide mz ranges with
+    narrow bins the dense grid would be too large, so above :data:`_MAX_DENSE_BINS`
+    we fall back to the sort-based mapping.
+
+    Args:
+        mz_arr (np.ndarray): mz value of every point, all scans concatenated.
+        intensities (np.ndarray): uint64 intensity of every point.
+        rows (np.ndarray): Retention-time (row) index of every point.
+        num_times (int): Number of retention times (grid rows).
+        display_precision (int): Number of decimals to round the returned mz labels to.
+        bin_width (float, optional): Width of each shared-grid bin in daltons.
+            Defaults to ``10**-display_precision``.
+        labels_only (bool, optional): Return the m/z labels with an empty
+            ``(num_times, 0)`` grid, for a caller that reads nothing but the
+            axis. The labels are identical either way.
+
+    Returns:
+        Tuple ``(mz_ylabels, data)``: the sorted bin-center mz values that occur,
+        and the ``(num_times, mz_ylabels.size)`` uint64 intensity grid.
+
+    """
+    # Assign each point to integer bin round(mz / bin_width). The None default
+    # uses the integer scale 10**display_precision directly, reproducing the prior grid bit
+    # for bit; an explicit bin_width divides by the requested width instead.
+    width = bin_width if bin_width is not None else 10 ** -display_precision
+    if bin_width is None:
+        keys = np.round(mz_arr * (10 ** display_precision)).astype(np.int64)
+    else:
+        # Same guard as bin_datapairs: a width small enough to push a key past
+        # the float64 range, or past what an int64 bin index holds, wraps every
+        # key onto one index and returns a single column carrying the whole
+        # run's signal. rb.read promises to refuse that, and this is the branch
+        # it reaches. The default-width branch above is not guarded, because
+        # reaching it needs a display_precision past _MAX_LABEL_DECIMALS, which
+        # every read entry point refuses first (see _arguments) and no caller
+        # inside rainbow passes.
+        scaled = mz_arr / bin_width
+        if not np.isfinite(scaled).all() or np.abs(scaled).max() >= 2.0 ** 62:
+            raise ValueError(
+                f"bin_width={bin_width!r} is too small for m/z up to "
+                f"{float(np.max(mz_arr)):g}: the bin index overflows.")
+        keys = np.round(scaled).astype(np.int64)
+    # Label the bins finely enough to tell them apart. On the None default the
+    # grid is 10**-display_precision, which already matches, so this changes
+    # nothing there; an explicit bin_width finer than the labels would round
+    # neighbouring bins onto one label without it.
+    decimals = label_precision(display_precision, width)
+
+    if labels_only:
+        # Both paths below return the bins some scan actually filled, and an
+        # intensity is never negative, so a bin is returned exactly when one of
+        # its points carries signal. That is answerable from the keys alone, at
+        # the cost of one pass, where the grid it is otherwise read off is
+        # num_times by the number of bins: at the width mz_resolution probes
+        # with, an 8.7 MB run peaks at 350 MB and a long one runs to gigabytes,
+        # all of it to be discarded unread.
+        filled = np.unique(keys[intensities > 0])
+        return (np.round(filled * width, decimals),
+                np.zeros((num_times, 0), dtype=np.uint64))
+
+    low = int(keys.min())
+    span = int(keys.max()) - low + 1
+
+    if span * num_times <= _MAX_DENSE_BINS:
+        # Dense path: integer bin keys index straight into the grid.
+        idx = rows * span + (keys - low)
+        grid = _scatter_sum(idx, intensities, num_times * span)
+        grid = grid.reshape(num_times, span)
+        present = np.nonzero(grid.any(axis=0))[0]
+        return np.round((low + present) * width, decimals), grid[:, present]
+
+    # Sparse path: map bins onto only the columns that occur, then drop any
+    # column whose intensity summed to zero. The profile stream can contain
+    # points whose recorded intensity is 0, so a bin can be "occupied" by a point
+    # yet hold no signal; uniq() keys off point presence, not intensity, so it
+    # would keep those phantom all-zero columns. Filtering here matches the dense
+    # path (grid.any) so every returned column is a bin some scan actually filled.
+    uniq = np.unique(keys)
+    cols = np.searchsorted(uniq, keys)
+    idx = rows * uniq.size + cols
+    grid = _scatter_sum(idx, intensities, num_times * uniq.size)
+    grid = grid.reshape(num_times, uniq.size)
+    present = np.nonzero(grid.any(axis=0))[0]
+    return np.round(uniq[present] * width, decimals), grid[:, present]
+
+
+# Bytes-per-peak -> (mz dtype, intensity dtype) for the MSPeak.bin centroid
+# encodings seen in the wild. 8 and 12 interleave one mz and one intensity per
+# peak; 16 stores all mz values then all intensities (a split block).
+_PEAK_DTYPES = {8: ('<f4', '<f4'), 12: ('<f8', '<f4'), 16: ('<f8', '<f8')}
+
+
+def parse_mspeakdata(path, display_precision='auto', bin_width=None,
+                     labels_only=False):
+    """
+    Parses Masshunter centroided MS data stored in MSPeak.bin.
+
+    MSPeak.bin holds the peak-picked (centroid) spectrum of each scan - a list
+    of (mz, intensity) pairs - in contrast to the dense profile trace in
+    MSProfile.bin (:obj:`parse_msdata`). GC quadrupole acquisitions store only
+    centroids; Q-TOF/TOF acquisitions store a profile block and a centroid block
+    per scan (see :obj:`read_scan_records`), and this reads the centroid one.
+
+    Like the profile, a centroid has a per-scan m/z axis (each scan is its own
+    peak list), so with no ``bin_width`` (the default) the per-scan
+    representation is returned (a :class:`CentroidDataFile`); pass a ``bin_width``
+    to project the peaks onto a single shared m/z grid (a :class:`DataFile`).
+
+    The following files are used:
+        - MSScan.xsd  -> File structure of MSScan.bin.
+        - MSScan.bin  -> Per-scan metadata and pointers into MSPeak.bin.
+        - MSPeak.bin  -> Raw (mz, intensity) peak pairs.
+
+    The MSPeak.bin centroid decoding was contributed by denisshragin (issue #37).
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        display_precision (int or str, optional): Decimals to round the m/z
+            labels to. ``'auto'`` (the default) resolves to 4 for TOF-calibrated
+            centroids and 0 for unit-resolution (GC/quadrupole) centroids.
+        bin_width (float, optional): Omit (the default) for the per-scan
+            :class:`CentroidDataFile`; pass a width in daltons to project the
+            peaks onto one shared m/z grid.
+        labels_only (bool, optional): With a ``bin_width``, return the m/z
+            labels against an empty grid, for a caller that reads nothing but
+            the axis; see :obj:`bin_to_grid`. The per-scan representation is
+            unaffected, having no grid to build.
+
+    Returns:
+        A :class:`CentroidDataFile` (per-scan), or a single
+        :class:`~rainbow.datafile.DataFile` on the shared grid when a
+        ``bin_width`` is given.
+
+    """
+    complextypes_dict = parse_scan_xsd(os.path.join(path, "MSScan.xsd"))
+    scan_records = read_scan_records(
+        os.path.join(path, "MSScan.bin"), complextypes_dict, count_scans(path))
+    num_times = len(scan_records)
+
+    # Mass calibration. GC-quadrupole MSPeak.bin already stores m/z (no
+    # calibration files, so calib_vals is None), but a TOF/Q-TOF centroid axis
+    # is raw time-of-flight and is calibrated exactly like the profile axis.
+    calibration_ids = [record.get('CalibrationID') for record in scan_records]
+    calib_vals, calib_flags = _load_calibration(path, calibration_ids)
+
+    # 'auto' display_precision: TOF centroids (calibrated, high-resolution) round
+    # to 4 decimals; unit-resolution GC/quadrupole centroids (no calibration) 0.
+    if display_precision == 'auto':
+        display_precision = 4 if calib_vals is not None else 0
+
+    peak_path = os.path.join(path, "MSPeak.bin")
+    peak_size = os.path.getsize(peak_path)
+    times = np.empty(num_times)
+    # Per-scan peak lists, aligned to every scan (empty where a scan has none).
+    mz_per_scan = [None] * num_times
+    inten_per_scan = [None] * num_times
+    with open(peak_path, 'rb') as f:
+        for i, record in enumerate(scan_records):
+            times[i] = record['ScanTime']
+            block = _select_centroid_block(record['SpectrumParamsBlocks'])
+            if block is None:
+                continue
+            num_peaks = block['PointCount']
+            offset = block['SpectrumOffset']
+            byte_count = block['ByteCount']
+            # Skip scans with no peaks, or whose data was never (fully) written
+            # (an interrupted acquisition - keep the complete scans).
+            if (num_peaks <= 0 or byte_count <= 0
+                    or offset + byte_count > peak_size):
+                continue
+            f.seek(offset)
+            mzs, intensities = _decode_peak_block(
+                f.read(byte_count), num_peaks, byte_count // num_peaks)
+            if calib_vals is not None:
+                mzs = calibrate_mz(np.asarray(mzs, dtype=np.float64),
+                                   calib_vals[i], calib_flags.get(
+                                       calibration_ids[i]))
+            mz_per_scan[i] = np.asarray(mzs, dtype=np.float64)
+            inten_per_scan[i] = np.asarray(intensities, dtype=np.uint64)
+
+    for i in range(num_times):
+        if mz_per_scan[i] is None:
+            mz_per_scan[i] = np.array([], dtype=np.float64)
+            inten_per_scan[i] = np.array([], dtype=np.uint64)
+
+    if bin_width is None:
+        # The per-scan (faithful) representation, like the HRMS profile default.
+        # display_precision is not applied to it. On a centroid the m/z labels
+        # are the data - mass_labels(i) returns the peak list itself, and there
+        # is no separate display of it to round - so rounding them here would
+        # discard measured precision under a control documented as cosmetic.
+        # The lossy control for this channel is bin_width, below.
+        centroid = CentroidDataFile(
+            "MSPeak.bin", times, mz_per_scan, inten_per_scan, {})
+        # Whether the peak m/z land on a lattice. An uncalibrated quadrupole
+        # writes them near nominal mass, so pooling the run shows a real
+        # quantization; a calibrated TOF writes continuous m/z that drift
+        # between scans, so there is nothing to find and pooling reports the
+        # drift. rb.mz_resolution reads this.
+        centroid._mz_is_quantized = calib_vals is None
+        return centroid
+
+    # A bin_width projects the per-scan peaks onto one shared m/z grid (lossy),
+    # the same way the profile binning does. display_precision plays no part in
+    # it: rounding the m/z on the way onto the grid would make the labels the
+    # lossy control, which is the profile path's job to avoid too.
+    #
+    # No floor is recorded for this channel. A floor says "the binary stores a
+    # lattice this coarse, so a finer bin only inserts empty bins", and a peak
+    # list has no lattice: each peak carries its own m/z at whatever precision
+    # the file kept. Asserting the vendor's unit-resolution floor here made
+    # rainbow warn that 0.09 was too fine on a run that quantizes to 0.0899963,
+    # which rb.mz_resolution reports and reads back happily. That function
+    # measures this channel where a lattice exists; a constant cannot. Where
+    # one does not (a calibrated TOF centroid, whose peaks carry continuous
+    # m/z), it reports nothing for the channel rather than inventing a number,
+    # which is the same reason no floor is recorded here.
+    floor = None
+
+    mz_arr = np.concatenate(mz_per_scan)
+    if mz_arr.size == 0:
+        return _with_mz_floor(DataFile(
+            "MSPeak.bin", 'MS', times, np.array([], dtype=np.float64),
+            np.zeros((num_times, 0), dtype=np.uint64), {}), floor)
+    intensities = np.concatenate(inten_per_scan)
+    num_peaks_per_time = np.array(
+        [len(m) for m in mz_per_scan], dtype=np.int64)
+    rows = np.repeat(np.arange(num_times), num_peaks_per_time)
+    mz_ylabels, data = bin_to_grid(
+        mz_arr, intensities, rows, num_times, display_precision, bin_width,
+        labels_only)
+    return _with_mz_floor(
+        DataFile("MSPeak.bin", 'MS', times, mz_ylabels, data, {}), floor)
+
+
+def _select_centroid_block(blocks):
+    """
+    Returns the centroid (MSPeak.bin) block among a scan's SpectrumParamValues
+    blocks, or None if there is no peak block.
+
+    A centroid block stores fixed-width (mz, intensity) peaks, so its ByteCount
+    is an exact multiple of PointCount equal to one of the known bytes-per-peak
+    widths. A profile block's ByteCount is a compressed length and does not
+    satisfy this, which distinguishes the two on instruments that store both.
+    """
+    for block in blocks:
+        num_peaks = block['PointCount']
+        byte_count = block['ByteCount']
+        if (num_peaks > 0 and byte_count % num_peaks == 0
+                and byte_count // num_peaks in _PEAK_DTYPES):
+            return block
+    return None
+
+
+def _decode_peak_block(raw, num_peaks, bytes_per_peak):
+    """
+    Decodes one MSPeak.bin centroid segment into (mz, intensity) float arrays.
+
+    The segment is a split block: all ``num_peaks`` mz values followed by all
+    ``num_peaks`` intensities. ``bytes_per_peak`` selects the dtypes (see
+    :data:`_PEAK_DTYPES`).
+    """
+    mz_dtype, inten_dtype = _PEAK_DTYPES[bytes_per_peak]
+    mz_bytes = num_peaks * np.dtype(mz_dtype).itemsize
+    mzs = np.frombuffer(raw[:mz_bytes], dtype=mz_dtype)
+    intensities = np.frombuffer(
+        raw[mz_bytes:num_peaks * bytes_per_peak], dtype=inten_dtype)
+    return mzs, intensities
+
+
+def parse_default_masscal(xml_path):
+    """
+    Reads the polynomial ``ValueUseFlags`` for each calibration id from
+    DefaultMassCal.xml.
+
+    Each ``DefaultCalibration`` has a ``Polynomial`` step whose
+    ``ValueUseFlags`` is a bitmask: bit ``k`` (counting from the least
+    significant) being set means the polynomial includes a term of order
+    ``k``, and the active coefficients in MSMassCal.bin fill those orders in
+    ascending order. A flag of 0 (or a missing file) means no polynomial
+    refinement - only the traditional calibration is used.
+
+    Args:
+        xml_path (str): Path to DefaultMassCal.xml.
+
+    Returns:
+        Dictionary mapping calibration id (int) to its ValueUseFlags (int).
+        Empty if the file does not exist.
+
+    """
+    if not os.path.exists(xml_path):
+        return {}
+    flags = {}
+    root = etree.parse(xml_path).getroot()
+    for calibration in root.iter("DefaultCalibration"):
+        calib_id = calibration.get("DefaultCalibrationID")
+        if calib_id is None:
+            continue
+        for step in calibration.iter("Step"):
+            if step.findtext("CalibrationFormula") == "Polynomial":
+                use_flags = step.findtext("ValueUseFlags")
+                flags[int(calib_id)] = int(use_flags) if use_flags else 0
+    return flags
+
+
+def read_default_masscal_rows(xml_path):
+    """
+    Reads the default per-calibration-id calibration rows from
+    DefaultMassCal.xml.
+
+    Used as the fallback when the per-scan MSMassCal.bin is absent. Each
+    ``DefaultCalibration`` provides a ``Traditional`` step (coeff, base) and,
+    optionally, a ``Polynomial`` step (left, right, then six coefficients).
+    Together these are the ten doubles MSMassCal.bin would otherwise store per
+    scan - ``[coeff, base, left, right, c0..c5]`` - so a row can stand in for a
+    MSMassCal.bin row directly (see :obj:`calibrate_mz`). The polynomial's
+    ValueUseFlags is read separately by :obj:`parse_default_masscal`.
+
+    Args:
+        xml_path (str): Path to DefaultMassCal.xml.
+
+    Returns:
+        Dictionary mapping calibration id (int) to a length-10 list of doubles.
+        Empty if the file does not exist or defines no traditional calibration.
+
+    """
+    if not os.path.exists(xml_path):
+        return {}
+    rows = {}
+    root = etree.parse(xml_path).getroot()
+    for calibration in root.iter("DefaultCalibration"):
+        calib_id = calibration.get("DefaultCalibrationID")
+        if calib_id is None:
+            continue
+        traditional, polynomial = [], []
+        for step in calibration.iter("Step"):
+            values = [float(v.text) for v in step.iter("Value")]
+            formula = step.findtext("CalibrationFormula")
+            if formula == "Traditional":
+                traditional = values
+            elif formula == "Polynomial":
+                polynomial = values
+        if len(traditional) < 2:
+            continue
+        row = list(traditional[:2]) + list(polynomial[:8])
+        row += [0.0] * (10 - len(row))
+        rows[int(calib_id)] = row[:10]
+    return rows
+
+
+def _load_calibration(path, calibration_ids):
+    """
+    Loads the per-scan mass calibration for an AcqData directory.
+
+    Returns ``(calib_vals, calib_flags)`` where ``calib_vals`` is an ``(N, 10)``
+    array of the ten calibration doubles for each of the N scans (in the order
+    of ``calibration_ids``) and ``calib_flags`` maps each CalibrationID to its
+    polynomial ValueUseFlags. The values come from the per-scan MSMassCal.bin
+    when present, otherwise from DefaultMassCal.xml by CalibrationID (see
+    :obj:`read_default_masscal_rows`); the per-scan refinement MSMassCal.bin
+    adds is sub-ppm.
+
+    Returns ``(None, None)`` when the directory has no calibration at all - e.g.
+    GC-quadrupole centroid data, whose MSPeak.bin already stores m/z directly.
+
+    Args:
+        path (str): Path to the AcqData subdirectory.
+        calibration_ids (list): CalibrationID of each scan, in scan order.
+
+    Returns:
+        Tuple ``(calib_vals, calib_flags)``, or ``(None, None)`` if uncalibrated.
+
+    """
+    masscal_path = os.path.join(path, "MSMassCal.bin")
+    if os.path.isfile(masscal_path):
+        with open(masscal_path, 'rb') as f:
+            f.seek(0x4c)  # start offset
+            calib_vals = np.ndarray(
+                (len(calibration_ids), 10), '<d', f.read(), 0, (84, 8))
+    else:
+        default_rows = read_default_masscal_rows(
+            os.path.join(path, "DefaultMassCal.xml"))
+        if not default_rows:
+            return None, None
+        fallback_row = next(iter(default_rows.values()))
+        calib_vals = np.array(
+            [default_rows.get(cid, fallback_row) for cid in calibration_ids],
+            dtype='<d')
+    calib_flags = parse_default_masscal(
+        os.path.join(path, "DefaultMassCal.xml"))
+    return calib_vals, calib_flags
+
+
+def calibrate_mz(tof, calib_row, use_flags):
+    """
+    Converts a raw time-of-flight axis to calibrated mz values.
+
+    The traditional calibration is ``mz = (coeff * (tof - base))**2``. When a
+    polynomial refinement is active (``use_flags`` truthy), a correction is
+    subtracted: the six MSMassCal.bin coefficients are assigned to the
+    polynomial orders whose bits are set in ``use_flags`` (ascending), and the
+    polynomial is evaluated on the time-of-flight clipped to ``[left, right]``.
+    This matches the masses Agilent MassHunter reports (validated to <0.0001
+    Da against exported spectra); without it the masses are off by ~1-2 ppm.
+
+    Args:
+        tof (np.ndarray): Raw time-of-flight values for one scan.
+        calib_row (np.ndarray): The scan's 10 MSMassCal.bin doubles
+            (coeff, base, left, right, and six polynomial coefficients).
+        use_flags (int or None): The polynomial ValueUseFlags for this scan's
+            calibration id, or None/0 to apply only the traditional formula.
+
+    Returns:
+        A numpy array of calibrated mz values.
+
+    """
+    coeff, base, left, right = calib_row[:4]
+    mzs = (coeff * (tof - base)) ** 2
+    if not use_flags:
+        return mzs
+
+    # Map the six coefficients onto the polynomial orders flagged for use.
+    coefficients = calib_row[4:10]
+    orders = [k for k in range(use_flags.bit_length()) if use_flags >> k & 1]
+    poly = np.zeros(max(orders) + 1) if orders else np.zeros(1)
+    for order, coefficient in zip(orders, coefficients):
+        poly[order] = coefficient
+    # np.polyval wants coefficients highest-order first; Horner's method keeps
+    # the high-order terms stable for the large time-of-flight magnitudes.
+    correction = np.polyval(poly[::-1], np.clip(tof, left, right))
+    return mzs - correction
+
+
+def segment_is_rle(comp_bytes, num_mz):
+    """
+    Returns whether a MSProfile.bin segment uses run-length encoding.
+
+    RLE segments leave the 16-byte (smallest mz, mz delta) header raw and
+    follow it with an intensity stream whose first 4 bytes are a little-endian
+    word: the low 3 bytes hold the point count and the high byte is a fixed
+    0x90 marker. Both must match for us to treat the segment as RLE, which
+    makes this a self-validating check rather than a guess (LZF-compressed
+    segments effectively never satisfy it). See :obj:`decompress_inten_list`.
+
+    Args:
+        comp_bytes (bytes): The raw segment bytes read from MSProfile.bin.
+        num_mz (int): The expected number of mz-intensity pairs.
+
+    Returns:
+        True if the segment is RLE-encoded, False otherwise.
+
+    """
+    if len(comp_bytes) < 20:
+        return False
+    header = struct.unpack('<I', comp_bytes[16:20])[0]
+    return (header & 0x00FFFFFF) == num_mz and (header >> 24) == 0x90
+
+
+def decompress_inten_list(comp_view, num_mz):
+    """
+    Decompresses the run-length-encoded intensity stream of a MSProfile.bin
+    segment (see :obj:`segment_is_rle`). Q-TOF profile acquisitions store
+    intensities this way instead of LZF-compressing them (issue #27).
+
+    The stream begins with a 4-byte point-count word (low 3 bytes) and a fixed
+    0x90 marker (high byte), then a negated little-endian int32 giving the
+    count of leading zero intensities. The token stream follows, opening at a
+    width of 4 bytes (signed). Each value is read at the current width:
+
+    - A non-negative value is a literal intensity.
+    - A negative value -v encodes ``divmod(v, 4)``: the quotient is a run
+      of zero intensities to emit, and the remainder is the new width flag
+      (1, 2, 3 -> 1-, 2-, 4-byte) to switch to for subsequent values. The
+      remainder is always 0-3, and 0 is malformed, so the only widths are
+      1, 2, and 4 bytes.
+
+    Most scans open with an ``0xffffffff`` token, read as -1 at the 4-byte
+    starting width, which emits no zeros and switches to 1-byte values; this is
+    why the opening width is rarely seen directly. High-signal scans instead
+    open with a literal 4-byte intensity. (Issue #27: an earlier reading
+    mistook that first token for a separate "width flag" field, which decoded
+    identically for the common case but failed on the literal-first scans.)
+
+    Trailing zero intensities are not stored, so the output is pre-filled with
+    zeros to length ``num_mz``.
+
+    Args:
+        comp_view (memoryview): Segment bytes after the 16-byte header.
+        num_mz (int): The number of mz-intensity pairs (output length).
+
+    Returns:
+        A numpy array of ``num_mz`` uint32 intensities.
+
+    Raises:
+        ValueError: If the stream is malformed (bad width flag, runs past the
+            point count, or is truncated).
+
+    """
+    unpackers = {
+        1: struct.Struct('<b').unpack,
+        2: struct.Struct('<h').unpack,
+        3: struct.Struct('<i').unpack,
+    }
+    sizes = {1: 1, 2: 2, 3: 4}
+
+    init_zero_repeat = struct.unpack('<i', comp_view[4:8])[0]
+    cur_idx = -init_zero_repeat
+    # cur_idx only ever advances, so once it starts non-negative it stays in
+    # range and out-of-bounds literals raise IndexError below. A positive
+    # init_zero_repeat would make it start negative (and silently wrap), so
+    # reject that up front. Bad width flags and truncated tails surface as
+    # KeyError / struct.error inside the loop; all are reported as ValueError
+    # rather than added as per-iteration checks that would slow the hot path.
+    if cur_idx < 0:
+        raise ValueError(
+            "Malformed MSProfile.bin RLE segment: negative initial index.")
+
+    inten = np.zeros(num_mz, dtype=np.uint32)
+    # The token stream begins right after the leading-zero count, at an initial
+    # width of 4 bytes (width flag 3); a control value switches it thereafter.
+    offset = 8
+    end = len(comp_view)
+    try:
+        cur_size = sizes[3]
+        cur_unpack = unpackers[3]
+        while offset < end:
+            value = cur_unpack(comp_view[offset:offset + cur_size])[0]
+            offset += cur_size
+            if value >= 0:
+                inten[cur_idx] = value
+                cur_idx += 1
+            else:
+                num_zeros, width_flag = divmod(-value, 4)
+                cur_idx += num_zeros
+                cur_size = sizes[width_flag]
+                cur_unpack = unpackers[width_flag]
+    except (KeyError, IndexError, struct.error) as err:
+        raise ValueError(
+            "Malformed MSProfile.bin RLE segment.") from err
+    return inten
+
+
+def parse_scan_xsd(xsd_path):
+    """
+    Parses MSScan.xsd into a dictionary describing its "complex" types.
+
+    There are "simple" types that translate directly into number types, and
+    "complex" types made up of other "simple" and "complex" types. The
+    returned dictionary maps each complex type's name to a list of its
+    (name, type) members, which enables the recursive parsing in
+    :obj:`read_complextype`.
+
+    Args:
+        xsd_path (str): Path to MSScan.xsd.
+
+    Returns:
+        Dictionary mapping complex type names to lists of (name, type) tuples.
+
+    """
+    tree = etree.parse(xsd_path)
+    root = tree.getroot()
+    # The schema's own namespace, which every type below is qualified by. It is
+    # the root tag's "{namespace}" prefix, or empty if the document declares
+    # none.
+    namespace = root.tag[1:root.tag.index('}')] \
+        if root.tag.startswith('{') else ''
+    complextypes_dict = {}
+    for complextype in root.findall(f"{{{namespace}}}complexType"):
+        innertypes = []
+        for element in complextype[0].findall(f"{{{namespace}}}element"):
+            innertypes.append((element.get('name'), element.get('type')))
+        complextypes_dict[complextype.get('name')] = innertypes
+    return complextypes_dict
+
+
+# Byte sizes of the MSScan.xsd "simple" types (mirrors the readers in
+# read_type). Used to compute a record's on-disk size without reading it.
+_SIMPLE_TYPE_SIZES = {
+    'xs:byte': 1, 'xs:short': 2, 'xs:int': 4,
+    'xs:long': 8, 'xs:float': 4, 'xs:double': 8,
+}
+
+# A scan may store more than one SpectrumParamValues block; this bounds how many
+# we will consider when inferring the record stride (see read_scan_records).
+_MAX_SPECTRUM_BLOCKS = 8
+
+
+def type_size(complextypes_dict, name):
+    """
+    Returns the on-disk byte size of one MSScan.bin record of the given type.
+
+    Mirrors :obj:`read_complextype`/:obj:`read_type`: each member is counted
+    once, so for ScanRecordType this is the size of a record with a single
+    SpectrumParamValues block. Lets read_scan_records reason about the record
+    stride without reading the file.
+
+    Args:
+        complextypes_dict (dict): Output of :obj:`parse_scan_xsd`.
+        name (str): A simple ("xs:int", ...) or complex type name.
+
+    Returns:
+        Size in bytes (int).
+
+    """
+    if name in _SIMPLE_TYPE_SIZES:
+        return _SIMPLE_TYPE_SIZES[name]
+    return sum(type_size(complextypes_dict, subtype)
+               for _, subtype in complextypes_dict[name.split(':')[-1]])
+
+
+def read_scan_records(msscan_path, complextypes_dict, num_records=None):
+    """
+    Reads the scan records (ScanRecordType) from MSScan.bin, one per retention
+    time.
+
+    Each record holds the scalar scan fields followed by one or more
+    ``SpectrumParamValues`` blocks - the schema element is
+    ``maxOccurs="unbounded"``. A profile-only acquisition writes a single block,
+    but an acquisition that also stores centroids (MSPeak.bin) writes a profile
+    block *and* a centroid block, making the record larger.
+    :obj:`read_complextype` reads only the first block, so reading records
+    back-to-back would mis-parse the trailing block(s) as the next record.
+
+    To stay aligned we read each record at the true record stride and skip to
+    the next. The stride is ``scalar + n * block`` for some block count ``n``;
+    it is taken from the MSTS.xml scan count when that is consistent, otherwise
+    inferred as the value of ``n`` that tiles the record region exactly. The
+    first block of each record is the profile spectrum, which is what
+    :obj:`parse_msdata` consumes. Only when no stride tiles the region (a record
+    truncated mid-write) do we fall back to reading single-block records to EOF.
+
+    Args:
+        msscan_path (str): Path to MSScan.bin.
+        complextypes_dict (dict): Output of :obj:`parse_scan_xsd`.
+        num_records (int, optional): Scan count from MSTS.xml (:obj:`count_scans`),
+            used as a hint. May be None (OpenLab result folders omit MSTS.xml)
+            or stale (interrupted acquisitions); the stride is validated against
+            the file geometry either way.
+
+    Returns:
+        List of dictionaries, one per retention time, each mapping the
+        ScanRecordType member names to their parsed values.
+
+    """
+    file_size = os.path.getsize(msscan_path)
+    block = type_size(complextypes_dict, "SpectrumParamsType")
+    scalar = type_size(complextypes_dict, "ScanRecordType") - block
+    records = []
+    with open(msscan_path, 'rb') as f:
+        f.seek(0x58)  # offset to the uint32 pointer at the start of records
+        rec_start = struct.unpack('<I', f.read(4))[0]
+        body = file_size - rec_start
+
+        candidates = [scalar + n * block
+                      for n in range(1, _MAX_SPECTRUM_BLOCKS + 1)]
+        stride = None
+        # Trust the MSTS scan count when it implies a structurally valid stride.
+        if num_records and num_records > 0 and body % num_records == 0:
+            hinted = body // num_records
+            if hinted in candidates:
+                stride = hinted
+        # Otherwise infer it: the record size must tile the region exactly. If
+        # several block counts do, prefer the scan count nearest MSTS (a stale
+        # MSTS is still in the right range), else the fewest blocks.
+        if stride is None:
+            divisors = [s for s in candidates if body % s == 0]
+            if divisors:
+                stride = min(divisors, key=lambda s: (
+                    abs(body // s - num_records) if num_records else s))
+
+        if stride is not None:
+            # Number of SpectrumParamValues blocks per record (e.g. a profile
+            # block plus a centroid block). read_complextype consumes the scalar
+            # fields and the first block; read any remaining blocks explicitly so
+            # callers that need the centroid block (parse_mspeakdata) can see it.
+            num_blocks = (stride - scalar) // block
+            for i in range(body // stride):
+                f.seek(rec_start + i * stride)
+                record = read_complextype(
+                    f, complextypes_dict, "ScanRecordType")
+                blocks = [record['SpectrumParamValues']]
+                for _ in range(num_blocks - 1):
+                    blocks.append(read_complextype(
+                        f, complextypes_dict, "SpectrumParamsType"))
+                record['SpectrumParamsBlocks'] = blocks
+                records.append(record)
+        else:
+            # No stride tiles the region (e.g. truncated mid-record): best-effort
+            # single-block read to EOF.
+            f.seek(rec_start)
+            while f.tell() < file_size:
+                record = read_complextype(
+                    f, complextypes_dict, "ScanRecordType")
+                record['SpectrumParamsBlocks'] = [record['SpectrumParamValues']]
+                records.append(record)
+    return records
+
+
+def count_scans(acqdata_path):
+    """
+    Returns the total scan count from MSTS.xml, or None if MSTS.xml is absent.
+
+    MSTS.xml lists the number of scans per acquisition time segment
+    (``<NumOfScans>``); the total is their sum. Agilent OpenLab .rslt/.sirslt
+    result folders omit MSTS.xml, in which case :obj:`read_scan_records` infers
+    the scan count from the record geometry instead.
+
+    Args:
+        acqdata_path (str): Path to the AcqData subdirectory.
+
+    Returns:
+        Total scan count (int), or None if MSTS.xml does not exist.
+
+    """
+    msts_path = os.path.join(acqdata_path, "MSTS.xml")
+    if not os.path.isfile(msts_path):
+        return None
+    root = etree.parse(msts_path).getroot()
+    counts = [int(el.text) for el in root.iter("NumOfScans") if el.text]
+    return sum(counts) if counts else None
+
+
+def read_complextype(f, complextypes_dict, name):
+    """ 
+    Reads a "complex" type from :obj:`f`. Used only for MSScan.bin. 
+
+    Mutually recurs with :obj:`read_type`.
+
+    Args:
+        f (_io.BufferedReader): File opened in 'rb' mode.
+        complextypes_dict (dict): Dictionary defining all "complex" types.
+        name (str): Name of the "complex" type to parse. 
+
+    Returns:
+        Dictionary mapping subtype names to values. \
+        If the subtype is "complex", the value is a nested dictionary. \
+        Otherwise, the value is a number.
+        
+    """ 
+    desc_to_value = {}
+    for subname, subtype in complextypes_dict[name]:
+        desc_to_value[subname] = read_type(f, complextypes_dict, subtype)
+    return desc_to_value
+
+def read_type(f, complextype_dict, name):
+    """
+    Reads a type from :obj:`f`. Used only for MSScan.bin. 
+
+    Mutually recurs with :obj:`read_complextype`.
+
+    Args: 
+        f (_io.BufferedReader): File opened in 'rb' mode.
+        complextypes_dict (dict): Dictionary defining all "complex" types.
+        name (str): Name of the type to parse. 
+
+    Returns:
+        If the type is "simple", a number value. \
+        If the type is "complex", a dictionary mapping names to values.
+
+    """
+    if name == 'xs:byte':
+        return struct.unpack('c', f.read(1))[0]
+    elif name == 'xs:short':
+        return struct.unpack('<H', f.read(2))[0]
+    elif name == 'xs:int':
+        return struct.unpack('<I', f.read(4))[0]
+    elif name == 'xs:long':
+        return struct.unpack('<Q', f.read(8))[0]
+    elif name == 'xs:float':
+        return struct.unpack('<f', f.read(4))[0]
+    elif name == 'xs:double':
+        return struct.unpack('<d', f.read(8))[0]
+    # A "complex" type. Newer MassHunter acquisition software qualifies these
+    # references with the schema's target-namespace prefix (e.g.
+    # "mstns:ScanRecordType"), while the complexType is defined under its bare
+    # local name. Strip any such prefix before looking it up.
+    return read_complextype(f, complextype_dict, name.split(':')[-1])

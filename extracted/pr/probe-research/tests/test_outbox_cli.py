@@ -490,6 +490,49 @@ def test_outbox_status_reports_and_exits_two_when_pending(wired_async, outbox_di
     assert payload["ops"][0]["run_ref"] == run_id
 
 
+def test_outbox_status_counts_torn_files_an_older_status_rewrite_dropped(wired_async, outbox_dir, capsys):
+    """Review of #3785, I11: an older SDK rewrites status.json without the `torn` tally; the
+    status counts the torn files in failed/ themselves."""
+    from probe.sdk.delivery.journal.journal import Journal as J
+
+    journal = J(outbox_dir)
+    journal._ensure()
+    (journal.failed_dir / "000000000001-00000000000000000001-deadbeef.json").write_text("")
+    status = J.read_status(str(outbox_dir), include_receipts=False) or {}
+    status.pop("torn", None)
+    journal.status_file.write_text(json.dumps(status))
+    cli.main(["--spool-dir", str(outbox_dir), "outbox", "status"])
+    assert json.loads(capsys.readouterr().out)["torn"] == 1
+
+
+def test_outbox_status_reads_each_dead_letter_once(wired_async, outbox_dir, capsys, monkeypatch):
+    """`failed()` parsed every file in failed/ and the torn count parsed them all again:
+    twice the I/O on a folder nothing caps. One pass gives both the dead letters and the torn."""
+    from pathlib import Path
+
+    from probe.sdk.delivery.journal.journal import Journal as J
+
+    journal = J(outbox_dir)
+    journal._ensure()
+    for index in range(3):
+        (journal.failed_dir / f"00000000000{index}-00000000000000000001-0000beef.json").write_text(
+            json.dumps({"kind": "http", "method": "POST", "path": "/v1/x", "body": {}})
+        )
+    (journal.failed_dir / "000000000009-00000000000000000001-deadbeef.json").write_text("")
+    reads: dict = {}
+    real = Path.read_text
+
+    def counting(self, *args, **kwargs):
+        if self.parent == journal.failed_dir:
+            reads[self.name] = reads.get(self.name, 0) + 1
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counting)
+    cli.main(["--spool-dir", str(outbox_dir), "outbox", "status"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["torn"] == 1 and out["failed"] == 3
+    assert reads and set(reads.values()) == {1}, reads
+
 def test_outbox_pause_blocks_drain_and_resume_rekicks(wired_async, outbox_dir, capsys):
     run_id = start_run(wired_async)
     cli.main(["--async", "log", run_id, "loss=1.0"])
@@ -1892,9 +1935,9 @@ def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, 
             pass
 
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
-    monkeypatch.setattr(journal_module.journal, "_settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr(journal_module.failures.discards, "_settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
     monkeypatch.setattr("probe.sdk.delivery.ops.classify._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.senders._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
     monkeypatch.setattr(client_module.client, "Client", FakeClient)
     monkeypatch.setattr(client_module.resources.runs.attach, "Client", FakeClient)
 
@@ -1909,7 +1952,7 @@ def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, 
 
 
 def test_probe_doctor_fix_reports_what_it_set_aside(tmp_path, monkeypatch):
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.wizard import doctor as doctor_impl
     from probe import analytics as telemetry
 
     root = tmp_path / "outbox"

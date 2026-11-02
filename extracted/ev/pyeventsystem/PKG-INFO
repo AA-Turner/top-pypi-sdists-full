@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: pyeventsystem
+Version: 0.1.0
+Summary: An event driven middleware library for Python
+Home-page: https://github.com/cloudve/pyeventsystem
+Author: Galaxy and GVL projects
+Author-email: help@genome.edu.au
+License: MIT
+Description: .. image:: https://travis-ci.org/CloudVE/pyeventsystem.svg?branch=master
+           :target: https://travis-ci.org/CloudVE/pyeventsystem
+           :alt: build status
+        
+        .. image:: https://codecov.io/gh/CloudVE/pyeventsystem/branch/master/graph/badge.svg
+           :target: https://codecov.io/gh/CloudVE/pyeventsystem
+           :alt: coverage status
+        
+        pyeventsystem
+        =============
+        
+        pyeventsystem is an event-driven middleware library for Python. In addition to
+        providing a mechanism for subscribing and listening to events, it also provides
+        a mechanism for intercepting functions, thus making it suitable for writing
+        middleware. By intercepting functions, middleware can be injected before, after
+        or even replacing the original function. It also provides capabilities for
+        grouping related event handlers into middleware classes, making it easier to
+        manage installable middleware.
+        
+        Simple Example
+        ==============
+        
+        .. code-block:: python
+        
+            from pyeventsystem.middleware import SimpleMiddlewareManager
+            from pyeventsystem.middleware import dispatch
+            from pyeventsystem.middleware import observe
+        
+        
+            class MyMiddleWare(object):
+        
+                def __init__(self, event_dispatcher):
+                    self.events = event_dispatcher
+        
+                @dispatch("a.series.of.unfortunate.events", priority=2500)
+                def perform_villainy(self, name):
+                    return "Drop ACME Anvil on " + name
+        
+                @observe("a.series.of.unfortunate.events", priority=2400)
+                def pre_log_villainy(self, event_args, name):
+                    print("Prepping for villainy: " + name)
+        
+                @observe("*.unfortunate.events", priority=2600)
+                def post_log_villainy(self, event_args, name):
+                    print("Result of villainy: {0}".format(event_args['result']))
+        
+        
+            manager = SimpleMiddlewareManager()
+            myobj = MyMiddleWare(manager.events)
+            manager.add(myobj)
+            myobj.perform_villainy("RoadRunner")
+        
+        In this example, we have intercepted the `perform_villainy` function, and
+        observed the function both before and after execution.
+        
+        The output is:
+        
+        .. code-block:: console
+        
+            Prepping for villainy: RoadRunner
+            Result of villainy: Drop ACME Anvil on RoadRunner
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/markdown
+Provides-Extra: dev

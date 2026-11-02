@@ -7,7 +7,7 @@ import inspect
 
 import pytest
 
-from probe.foundation.compose.compose import compose
+from probe.foundation.compose.compose import compose, fold_parts
 
 
 class _Reads:
@@ -118,3 +118,45 @@ def test_zero_argument_super_is_refused_even_behind_a_wrapper() -> None:
 
     with pytest.raises(TypeError, match="zero-argument super"):
         compose(type("X", (_A,), {}))
+
+
+class Folded:
+    """Defined bare; its parts are folded in below, as a module whose parts import it back does."""
+
+    def __init__(self) -> None:
+        self.value = 1
+
+
+EARLY = Folded  # what a part's bottom import binds before the fold
+fold_parts(Folded, _Reads, _Writes)
+
+
+def test_fold_parts_keeps_the_class_object_and_matches_compose() -> None:
+    assert EARLY is Folded
+    assert Folded.__bases__ == (object,) and Folded.__mro__ == (Folded, object)
+    assert set(vars(Thing)) - {"__doc__"} <= set(vars(Folded)) | {"__doc__"}
+    assert inspect.get_annotations(Folded) == {"count": "int"}
+    folded = Folded()
+    folded.write(5)
+    assert (folded.read(), folded.doubled, Folded.name(), Folded.made(), folded.count) == (15, 10, "reads", "Folded", 1)
+
+
+def test_fold_parts_refuses_what_compose_refuses() -> None:
+    class Base:
+        pass
+
+    class Child(Base):
+        pass
+
+    class Clash:
+        def read(self) -> int:
+            return 0
+
+    class Cell:
+        def method(self):
+            return __class__
+
+    for parts in ((Child,), (_Reads, Clash), (Cell,)):
+        bare = type("Bare", (), {})
+        with pytest.raises(TypeError):
+            fold_parts(bare, *parts)

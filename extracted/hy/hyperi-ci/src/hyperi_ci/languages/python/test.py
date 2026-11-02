@@ -1,0 +1,564 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/languages/python/test.py
+# Purpose:   Python test runner (pytest with tiered execution)
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Python test handler: pytest with optional directory tiers and coverage.
+
+The test tier decides the marker selection. ``core`` leaves the project's own
+``addopts -m`` in force and ``full`` passes ``-m <test.full.python.markers>``,
+which pytest applies in its place. Every run reports its passed, skipped and
+deselected counts as a ``test tier`` notice.
+
+Under ``full`` a skip fails the run unless its reason matches
+``test.full.python.allow_skip``, as a skip there is a test that could not run.
+
+Every run lists skip reasons (``-r`` with ``s``) and keeps only a failed test's
+``tmp_path``. In CI it also lists the slowest tests (``--durations``) and writes
+JUnit XML to ``test-results/``. A project's own setting for any of these wins.
+"""
+
+import re
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+
+from hyperi_ci.common import (
+    echo_chunk,
+    error,
+    info,
+    is_ci,
+    stream_cmd,
+    strip_ansi,
+    success,
+    warn,
+)
+from hyperi_ci.config import CIConfig
+from hyperi_ci.languages.python.parallel import parallel_args
+from hyperi_ci.languages.python.pytest_args import (
+    ini_value,
+    option_values,
+    project_args,
+)
+from hyperi_ci.languages.quality_common import get_python_source_paths
+from hyperi_ci.languages.tiering import (
+    KeptLines,
+    SuiteTier,
+    announce_tier,
+    handler_tier,
+)
+
+_FULL_MARKERS_KEY = "test.full.python.markers"
+_ALLOW_SKIP_KEY = "test.full.python.allow_skip"
+
+# How many of the slowest tests a CI run lists, so a core test that has grown
+# slow is seen and can move to the full tier.
+_CI_DURATIONS = 25
+
+# The directory python-ci.yml's Test job uploads as its test results.
+_RESULTS_DIR = "test-results"
+
+
+def _resolve_cmd(cmd: list[str]) -> list[str]:
+    """Resolve the command, going through `uv run` in a uv project (uv.lock).
+
+    A PATH pytest sits outside the project venv and misses its plugins
+    (pytest-cov, pytest-xdist). ``--all-extras`` matches the environment
+    python-ci.yml's Test job syncs, so a fresh local checkout whose test plugins
+    sit in an extra runs the same suite.
+    """
+    if shutil.which("uv") and Path("uv.lock").exists():
+        return ["uv", "run", "--all-extras", *cmd]
+    if shutil.which(cmd[0]):
+        return cmd
+    if shutil.which("uv"):
+        return ["uv", "run", *cmd]
+    return cmd
+
+
+# pytest's exit code for "collected nothing", distinct from a failure (1).
+_PYTEST_NO_TESTS_COLLECTED = 5
+
+# The closing line: "== 3 passed, 1 skipped, 2 deselected in 0.12s ==", with
+# no rule under -q, or "no tests ran in 0.01s".
+_SUMMARY_DURATION = re.compile(r"\bin \d+(?:\.\d+)?s\b")
+_SUMMARY_COUNT = re.compile(
+    r"(\d+) (passed|failed|skipped|deselected|xfailed|xpassed|errors?|warnings?)\b"
+)
+
+# pytest-xdist's header lines, -v and -q forms. Its controller never learns the
+# deselected count, so the summary omits it under -n.
+_XDIST_HEADER = re.compile(
+    r"^(created: \d+/\d+ workers?|bringing up nodes|\d+ workers? \[)"
+)
+
+# pytest's exits that end with a summary: passed, tests failed, nothing
+# collected. Interrupted, internal and usage errors leave nothing to check.
+_COMPLETED_EXITS = (0, 1, _PYTEST_NO_TESTS_COLLECTED)
+
+# pytest's report chars when a project sets none. ``-r`` is last-wins, so every
+# run appends ``s`` to the project's chars rather than passing it alone.
+_DEFAULT_REPORT_CHARS = "fE"
+
+_SHORT_SUMMARY = re.compile(r"^=+ short test summary info =+$")
+
+# A subtest skip is "SUBSKIPPED" plus "[msg] (k=v)". The folded summary labels
+# every line with the first skip's word, so a plain skip can carry it too.
+_SKIP_WORD = r"(?:SUB)?SKIPPED(?:\[.*?\])?(?: ?\(.*?\))?"
+
+# The default, folded form: "SKIPPED [2] tests/t.py:12: needs kafka". The line
+# number is absent when a skip marker covers a whole module.
+_FOLDED_SKIP = re.compile(rf"^{_SKIP_WORD} \[(\d+)\] (.+?(?::\d+)?): (.*)$")
+
+# --no-fold-skipped: "SKIPPED tests/t.py::test_a - Skipped: needs kafka".
+_UNFOLDED_SKIP = re.compile(rf"^{_SKIP_WORD} (\S.*?)(?: - (.*))?$")
+_UNFOLDED_PREFIX = "Skipped: "
+
+# Locations named per skip reason; any beyond these are counted, not named.
+_MAX_LOCATIONS = 3
+
+# The lines tier_detail and the skip check read, kept while pytest streams: the
+# xdist header is at the start of the output, the skips and summary at the end.
+_KEEP = re.compile(
+    f"{_XDIST_HEADER.pattern}|{_SUMMARY_DURATION.pattern}"
+    "|^(?:SUB)?SKIPPED|short test summary info"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Skip:
+    """One entry of pytest's short test summary for skipped tests.
+
+    Attributes:
+        count: Tests this entry stands for; pytest folds identical skips.
+        where: ``path:line``, ``path``, or a node id when unfolded.
+        reason: The skip reason, ``Skipped`` when none was given.
+
+    """
+
+    count: int
+    where: str
+    reason: str
+
+
+def summary_counts(output: str) -> dict[str, int] | None:
+    """Read the counts off pytest's closing summary line.
+
+    Args:
+        output: pytest's combined output.
+
+    Returns:
+        Outcome to count, e.g. ``{"passed": 3, "deselected": 2}``, empty for
+        "no tests ran", or None when no summary line is present.
+
+    """
+    for line in reversed(strip_ansi(output).splitlines()):
+        if not _SUMMARY_DURATION.search(line):
+            continue
+        counts = {kind: int(n) for n, kind in _SUMMARY_COUNT.findall(line)}
+        if counts or "no tests ran" in line:
+            return counts
+    return None
+
+
+def parse_skips(output: str) -> list[Skip]:
+    """Read the skips out of pytest's short test summary (``-rs``).
+
+    Args:
+        output: pytest's combined output.
+
+    Returns:
+        One entry per summary line, in pytest's order; empty when the output
+        has no short test summary section.
+
+    """
+    lines = strip_ansi(output).splitlines()
+    starts = [i for i, line in enumerate(lines) if _SHORT_SUMMARY.match(line.strip())]
+    if not starts:
+        return []
+    skips: list[Skip] = []
+    for line in lines[starts[-1] + 1 :]:
+        if folded := _FOLDED_SKIP.match(line):
+            count, where, reason = folded.groups()
+            skips.append(Skip(int(count), where, reason))
+        elif unfolded := _UNFOLDED_SKIP.match(line):
+            where, reason = unfolded.groups()
+            reason = (reason or "").removeprefix(_UNFOLDED_PREFIX)
+            skips.append(Skip(1, where, reason))
+    return skips
+
+
+def _locations(skips: list[Skip]) -> str:
+    """Name where a reason's skips are, the first few of them."""
+    named = ", ".join(skip.where for skip in skips[:_MAX_LOCATIONS])
+    rest = len(skips) - _MAX_LOCATIONS
+    return f"{named} and {rest} more" if rest > 0 else named
+
+
+def check_skips(output: str, allow: list[re.Pattern[str]]) -> bool:
+    """Report a full-tier run's skips, refusing any the allow list does not match.
+
+    Args:
+        output: pytest's combined output, run with ``s`` in its report chars.
+        allow: ``test.full.python.allow_skip``, compiled.
+
+    Returns:
+        True when every skip's reason matches a pattern. False when one does
+        not, and when the summary's skip count cannot be matched to listed
+        reasons, because a skip that cannot be checked cannot pass.
+
+    """
+    counts = summary_counts(output)
+    skips = parse_skips(output)
+    listed = sum(skip.count for skip in skips)
+    counted = None if counts is None else counts.get("skipped", 0)
+    if counted is None:
+        error(
+            "  Full tier: pytest printed no summary line, so the skips could not "
+            f"be checked against {_ALLOW_SKIP_KEY}. The likely cause is net -qq "
+            "in test.python.args, addopts or PYTEST_ADDOPTS, or a plugin that "
+            "replaces the terminal reporter. Drop the extra -q, or disable the "
+            "plugin with -p no:<name> in test.python.args"
+        )
+        return False
+    if counted != listed:
+        error(
+            f"  Full tier: pytest reported {counted} skipped and listed {listed} "
+            f"skip reasons, so the skips could not be checked against "
+            f"{_ALLOW_SKIP_KEY}"
+        )
+        return False
+
+    by_reason: dict[str, list[Skip]] = {}
+    for skip in skips:
+        by_reason.setdefault(skip.reason, []).append(skip)
+    refused = False
+    for reason, group in by_reason.items():
+        total = sum(skip.count for skip in group)
+        where = _locations(group)
+        if any(pattern.search(reason) for pattern in allow):
+            info(
+                f"  Full tier: {total} skipped, allowed by {_ALLOW_SKIP_KEY}: "
+                f"{reason} ({where})"
+            )
+        else:
+            error(f"  Full tier: {total} skipped, not allowed: {reason} ({where})")
+            refused = True
+    if refused:
+        error(
+            "  Under the full tier a skip is a test that did not run. Fix what it "
+            "needs, or add a regular expression matching its reason to "
+            f"{_ALLOW_SKIP_KEY}"
+        )
+    return not refused
+
+
+def tier_detail(output: str) -> str:
+    """Describe what a pytest run ran and did not run, for the tier notice.
+
+    Args:
+        output: pytest's combined output.
+
+    Returns:
+        E.g. ``"7892 passed, 17 skipped, 281 deselected"``.
+
+    """
+    counts = summary_counts(output)
+    if counts is None:
+        return "no pytest summary line in the output, counts unknown"
+    parts = [f"{counts.get('passed', 0)} passed"]
+    if counts.get("failed"):
+        parts.append(f"{counts['failed']} failed")
+    parts.append(f"{counts.get('skipped', 0)} skipped")
+    lines = strip_ansi(output).splitlines()
+    under_xdist = any(_XDIST_HEADER.match(line) for line in lines)
+    if "deselected" in counts or not under_xdist:
+        parts.append(f"{counts.get('deselected', 0)} deselected")
+    else:
+        parts.append("deselected count not reported under pytest-xdist")
+    return ", ".join(parts)
+
+
+def _run_pytest(
+    args: list[str],
+    test_tier: SuiteTier,
+    dir_tier: str | None = None,
+    allow_skip: list[re.Pattern[str]] | None = None,
+) -> int:
+    """Run pytest with given arguments and announce what it ran.
+
+    Args:
+        args: pytest arguments.
+        test_tier: The test tier, for the notice.
+        dir_tier: The ``test.use_tiers`` directory, when running split.
+        allow_skip: The skip reasons full tolerates; None leaves skips alone.
+
+    Returns:
+        pytest's exit code, or 1 when it passed with a skip not allowed.
+
+    """
+    label = f" ({dir_tier})" if dir_tier else ""
+    cmd = _resolve_cmd(["pytest"] + args)
+    info(f"  Running pytest{label}: {' '.join(cmd)}")
+    kept = KeptLines(_KEEP)
+    rc, _tail = stream_cmd(cmd, on_line=kept, on_chunk=echo_chunk)
+    output = kept.text()
+    prefix = f"{dir_tier}: " if dir_tier else ""
+    announce_tier(test_tier, f"{prefix}{tier_detail(output)}")
+    if allow_skip is None or rc not in _COMPLETED_EXITS:
+        return rc
+    return rc if check_skips(output, allow_skip) else 1
+
+
+def _absolve_empty_run(rc: int, config: CIConfig, *, label: str = "") -> int:
+    """Map pytest's no-tests-collected exit to success unless configured fatal.
+
+    ``test.fail_on_missing`` defaults to false. Only exit 5 is remapped.
+
+    Args:
+        rc: pytest's exit code.
+        config: Merged CI configuration.
+        label: Tier name for the message, when running tiered.
+
+    Returns:
+        0 when the run collected nothing and that is permitted, else ``rc``.
+
+    """
+    if rc != _PYTEST_NO_TESTS_COLLECTED:
+        return rc
+    where = f" in {label}" if label else ""
+    if config.setting("test.fail_on_missing"):
+        error(f"No tests found{where} and test.fail_on_missing is set")
+        return rc
+    warn(f"No tests found{where} - allowed by test.fail_on_missing: false")
+    return 0
+
+
+def _full_tier_args(config: CIConfig) -> list[str] | None:
+    """Return the marker override for the full tier, None when misconfigured.
+
+    pytest keeps the LAST ``-m``, and ``addopts`` is placed before the command
+    line, so this replaces the project's own selection; an empty expression
+    selects everything.
+    """
+    markers = config.get(_FULL_MARKERS_KEY, "")
+    if markers is None:
+        markers = ""
+    if not isinstance(markers, str):
+        error(
+            f"{_FULL_MARKERS_KEY} must be a marker expression string, got {markers!r}"
+        )
+        return None
+    shown = repr(markers) if markers else '"" (every test)'
+    info(f"  Full tier: -m {shown} replaces the project's own marker selection")
+    return ["-m", markers]
+
+
+def _allow_skip_patterns(config: CIConfig) -> list[re.Pattern[str]] | None:
+    """Compile ``test.full.python.allow_skip``, None when misconfigured."""
+    raw = config.get(_ALLOW_SKIP_KEY, [])
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        error(f"{_ALLOW_SKIP_KEY} must be a list of regular expressions, got {raw!r}")
+        return None
+    patterns: list[re.Pattern[str]] = []
+    for item in raw:
+        try:
+            patterns.append(re.compile(item))
+        except re.error as exc:
+            error(f"{_ALLOW_SKIP_KEY}: {item!r} is not a regular expression: {exc}")
+            return None
+    info(
+        f"  Full tier: a skip fails the run unless {_ALLOW_SKIP_KEY} matches its "
+        f"reason ({len(patterns)} patterns)"
+    )
+    return patterns
+
+
+def _durations_args(args: list[str]) -> list[str]:
+    """Return ``--durations`` for a CI run, empty locally or when the project sets it."""
+    if not is_ci():
+        return []
+    if option_values(project_args(args), "--durations"):
+        info("  Slowest tests: the project sets its own --durations, leaving it alone")
+        return []
+    return [f"--durations={_CI_DURATIONS}"]
+
+
+# Added in pytest 7.3. An older pytest only warns on the unknown key, so the
+# override is safe to add unconditionally.
+_RETENTION_KEY = "tmp_path_retention_policy"
+
+
+def _retention_args(args: list[str]) -> list[str]:
+    """Return the override keeping only a failed test's ``tmp_path`` dir.
+
+    pytest's default keeps every test's ``tmp_path`` for the last 3 runs, which
+    fills a small /tmp on a large suite. Empty when the project sets the policy
+    through ``-o``/``--override-ini`` or its pytest config file.
+    """
+    tokens = project_args(args)
+    overrides = option_values(tokens, "--override-ini", "-o")
+    already_set = any(
+        value.split("=", 1)[0].strip() == _RETENTION_KEY for value in overrides
+    )
+    if not already_set:
+        already_set = ini_value(Path.cwd(), _RETENTION_KEY) is not None
+    if already_set:
+        info(f"  Tmp dirs: the project sets its own {_RETENTION_KEY}, leaving it alone")
+        return []
+    return [f"--override-ini={_RETENTION_KEY}=failed"]
+
+
+def _report_chars_arg(args: list[str]) -> str:
+    """Return ``-r`` with the project's report chars plus ``s``, for skip reasons."""
+    given = option_values(project_args(args), "--report-chars", "-r")
+    chars = given[-1] if given else _DEFAULT_REPORT_CHARS
+    return f"-r{chars}s"
+
+
+def _junit_wanted(args: list[str]) -> bool:
+    """Report whether a run writes JUnit XML for the CI upload, never locally."""
+    if not is_ci():
+        return False
+    tokens = project_args(args)
+    if option_values(tokens, "--junitxml", "--junit-xml"):
+        info("  JUnit: the project sets its own --junitxml, leaving it alone")
+        return False
+    # With the plugin disabled, pytest rejects --junitxml as a usage error.
+    if "no:junitxml" in option_values(tokens, "-p"):
+        info("  JUnit: the project disables pytest's junitxml plugin, writing none")
+        return False
+    return True
+
+
+def _junit_args(wanted: bool, filename: str) -> list[str]:
+    """Return ``--junitxml`` into the results directory, which pytest creates."""
+    return [f"--junitxml={_RESULTS_DIR}/{filename}"] if wanted else []
+
+
+def _sets_own_cov(args: list[str]) -> bool:
+    """Report whether the project names its own ``--cov`` source."""
+    return any(t == "--cov" or t.startswith("--cov=") for t in project_args(args))
+
+
+def _coverage_args(config: CIConfig, args: list[str]) -> list[str]:
+    """Return pytest-cov arguments measuring each Python source directory.
+
+    A project's own ``--cov`` keeps its source, as an added untested directory
+    would drag the total under its floor. A repo with no source directory runs
+    without coverage, as ``--cov`` naming a missing directory measures nothing.
+
+    Args:
+        config: Merged CI configuration.
+        args: The arguments assembled so far from ``test.python.args``.
+
+    Returns:
+        The ``--cov``, ``--cov-report`` and ``--cov-fail-under`` arguments to add.
+
+    """
+    min_cov = config.setting("test.min_coverage")
+    if _sets_own_cov(args):
+        info("  Coverage: the project sets its own --cov source, leaving it alone")
+        cov_sources: list[str] = []
+    else:
+        sources = get_python_source_paths(config)
+        if not sources:
+            note = "  Coverage: no Python source directory found, running without it"
+            if min_cov and int(min_cov) > 0:
+                warn(f"{note}; test.min_coverage {min_cov} is not enforced")
+            else:
+                info(note)
+            return []
+        cov_sources = [f"--cov={path.rstrip('/')}" for path in sources]
+    coverage_format = config.setting("test.python.coverage_format")
+    cov_args = [*cov_sources, f"--cov-report={coverage_format}"]
+    if min_cov and int(min_cov) > 0:
+        cov_args.append(f"--cov-fail-under={min_cov}")
+    return cov_args
+
+
+def run(config: CIConfig, extra_env: dict[str, str] | None = None) -> int:
+    """Run Python tests.
+
+    Args:
+        config: Merged CI configuration.
+        extra_env: ``TEST_TIER`` from the stage; nothing else is read.
+
+    Returns:
+        Exit code (0 = success).
+
+    """
+    if not shutil.which("pytest") and not shutil.which("uv"):
+        error("pytest not installed")
+        return 1
+
+    info("Running Python tests...")
+    test_tier = handler_tier(extra_env)
+
+    base_args: list[str] = list(config.setting("test.python.args"))
+
+    if config.setting("test.coverage"):
+        base_args.extend(_coverage_args(config, base_args))
+
+    # pytest-cov combines worker data before reporting, so xdist needs no setup.
+    base_args.extend(parallel_args(config, base_args, _resolve_cmd(["pytest"])))
+    base_args.extend(_durations_args(base_args))
+    base_args.extend(_retention_args(base_args))
+    base_args.append(_report_chars_arg(base_args))
+    junit = _junit_wanted(base_args)
+
+    allow_skip: list[re.Pattern[str]] | None = None
+    if test_tier is SuiteTier.FULL:
+        full_args = _full_tier_args(config)
+        allow_skip = _allow_skip_patterns(config)
+        if full_args is None or allow_skip is None:
+            return 1
+        base_args.extend(full_args)
+
+    # Directory split, independent of the test tier.
+    if config.setting("test.use_tiers"):
+        dir_tiers = [
+            ("unit", "tests/unit/"),
+            ("integration", "tests/integration/"),
+            ("e2e", "tests/e2e/"),
+        ]
+        for dir_tier, dir_path in dir_tiers:
+            if not config.setting(f"test.tiers.{dir_tier}.enabled"):
+                info(f"  {dir_tier} tests: disabled")
+                continue
+
+            rc = _absolve_empty_run(
+                _run_pytest(
+                    base_args
+                    + _junit_args(junit, f"junit-{dir_tier}.xml")
+                    + [dir_path],
+                    test_tier,
+                    dir_tier=dir_tier,
+                    allow_skip=allow_skip,
+                ),
+                config,
+                label=dir_tier,
+            )
+            if rc != 0:
+                if config.setting(f"test.tiers.{dir_tier}.fail_fast"):
+                    error(f"  {dir_tier} tests failed - stopping pipeline")
+                    return rc
+                warn(f"  {dir_tier} tests failed (non-blocking)")
+
+        success("All test tiers complete")
+        return 0
+
+    rc = _absolve_empty_run(
+        _run_pytest(
+            base_args + _junit_args(junit, "junit.xml"),
+            test_tier,
+            allow_skip=allow_skip,
+        ),
+        config,
+    )
+    if rc == 0:
+        success("Tests passed")
+    return rc

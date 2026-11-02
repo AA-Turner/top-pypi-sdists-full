@@ -6,7 +6,10 @@ import pytest
 
 from backfill_plan_agent import filing
 
-from probe.cli import backfill as bf, backfill_run as runner, import_jobs_ui, tui
+from probe.cli.imports import folder as bf
+from probe.cli import backfill_run as runner
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
 from tests.test_backfill_background import background_harness as background_harness
 
 _CLASSIFY = runner.classify
@@ -14,8 +17,10 @@ _CLASSIFY = runner.classify
 
 @pytest.mark.parametrize("choice", [tui.BACK, tui.SKIP])
 def test_leaving_folder_picker_does_not_read_or_enqueue(monkeypatch, choice):
-    monkeypatch.setattr(bf, "choose_directory", lambda _: choice)
-    monkeypatch.setattr(bf, "resolve_agent", lambda *a, **kw: pytest.fail("No agent should start"))
+    monkeypatch.setattr(bf.flow.choices, "choose_directory", lambda _: choice)
+    monkeypatch.setattr(bf.folder, "choose_directory", lambda _: choice)
+    monkeypatch.setattr(bf.flow.choices, "resolve_agent", lambda *a, **kw: pytest.fail("No agent should start"))
+    monkeypatch.setattr(bf.folder, "resolve_agent", lambda *a, **kw: pytest.fail("No agent should start"))
     assert bf.run(client_factory=lambda: pytest.fail("No credentials needed"), background=True) is None
 
 
@@ -38,7 +43,7 @@ def test_approval_precedes_background_delivery_and_live_handoff(background_harne
         order.append("watching")
         return {**job, "state": "succeeded"}
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", handoff)
     lines = h.run(background=True, interactive=True, yes=False)
     assert order == ["approved", "watching"]
@@ -51,7 +56,7 @@ def test_cancelled_read_is_cached_but_never_replaces_explicit_approval(
     h, queued = background_harness
     # The harness normally substitutes classification; restore the real cache
     # and parser while keeping model calls synthetic and entirely local.
-    monkeypatch.setattr(runner, "classify", _CLASSIFY)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", _CLASSIFY)
     reads, reviews = [], []
 
     def launch(folder, prompt, **kwargs):
@@ -65,9 +70,9 @@ def test_cancelled_read_is_cached_but_never_replaces_explicit_approval(
         reviews.append(title)
         return "cancel"
 
-    monkeypatch.setattr(bf, "launch_agent", filing(launch))
-    monkeypatch.setattr(bf, "git_context", lambda *args: None)
-    monkeypatch.setattr(tui, "review", cancel)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(launch))
+    monkeypatch.setattr(bf.walk.git, "git_context", lambda *args: None)
+    monkeypatch.setattr(tui.forms, "review", cancel)
     for _ in range(2):
         with pytest.raises(KeyboardInterrupt):
             h.run(background=True, interactive=True, yes=False)

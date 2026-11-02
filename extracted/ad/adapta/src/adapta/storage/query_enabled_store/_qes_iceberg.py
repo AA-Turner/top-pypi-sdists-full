@@ -1,0 +1,180 @@
+"""
+QES implementations for PyIceberg.
+"""
+
+import re
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Self, final
+
+from dataclasses_json import DataClassJsonMixin
+from polars import DataFrame, LazyFrame
+from pyiceberg.catalog import Catalog
+
+from adapta.storage.iceberg.v1 import (
+    IcebergRestCatalogConfig,
+    IcebergRestOAuth2Config,
+    get_catalog,
+    load_using_catalog,
+    write_using_catalog,
+)
+from adapta.storage.models.enum import QueryEnabledStoreOptions
+from adapta.storage.models.expression_dsl.filter_expression import Expression
+from adapta.storage.models.iceberg import IcebergPath
+from adapta.storage.query_enabled_store._models import (
+    CONNECTION_STRING_REGEX,
+    QueryEnabledStore,
+)
+from adapta.utils.metaframe import MetaFrame, concat
+
+
+@dataclass
+class IcebergCredential(DataClassJsonMixin):
+    """
+    Credential helper for Iceberg QES.
+    """
+
+    oauth_enabled: bool
+    warehouse: str | None = None
+    read_from_warehouse: str | None = None
+    write_to_warehouse: str | None = None
+    uri: str | None = None
+
+    def __post_init__(self):
+        self._read_catalog_config: IcebergRestCatalogConfig | None = None
+        self._write_catalog_config: IcebergRestCatalogConfig | None = None
+
+        if self.warehouse is not None:
+            self.read_from_warehouse = self.warehouse
+            self.write_to_warehouse = self.warehouse
+
+        if self.read_from_warehouse is None and self.write_to_warehouse is None:
+            self._read_catalog_config = IcebergRestCatalogConfig.from_environment(oauth2_enabled=self.oauth_enabled)
+            self._write_catalog_config = self._read_catalog_config
+            return
+
+        if self.read_from_warehouse is not None and self.write_to_warehouse is not None and self.uri is not None:
+            self._read_catalog_config = IcebergRestCatalogConfig(
+                uri=self.uri,
+                warehouse=self.read_from_warehouse,
+                oauth2_config=IcebergRestOAuth2Config.from_environment() if self.oauth_enabled else None,
+            )
+            self._write_catalog_config = IcebergRestCatalogConfig(
+                uri=self.uri,
+                warehouse=self.write_to_warehouse,
+                oauth2_config=IcebergRestOAuth2Config.from_environment() if self.oauth_enabled else None,
+            )
+            return
+
+        raise RuntimeError(
+            "Invalid IcebergCredential value supplied for Iceberg QES: you must either provide no values in both "
+            "read_from_warehouse/write_to_warehouse, or provide both of them together with catalog url."
+        )
+
+    @property
+    def read_catalog_config(self) -> IcebergRestCatalogConfig:
+        """
+        Catalog configuration for Iceberg QES (read only).
+        """
+        assert self._read_catalog_config is not None, "Catalog not initialized for read"
+
+        return self._read_catalog_config
+
+    @property
+    def write_catalog_config(self) -> IcebergRestCatalogConfig:
+        """
+        Catalog configuration for Iceberg QES (write only).
+        """
+        assert self._write_catalog_config is not None, "Catalog not initialized for write"
+
+        return self._write_catalog_config
+
+
+@dataclass
+class IcebergSettings(DataClassJsonMixin):
+    """
+    Iceberg QES has no additional settings.
+    """
+
+    lazy_read: bool
+    catalog_name: str = "default"
+
+
+@final
+class IcebergQueryEnabledStore(QueryEnabledStore[IcebergCredential, IcebergSettings]):
+    """
+    QES Client for Iceberg tables managed by REST catalog, using PyIceberg.
+    """
+
+    def __init__(self, credentials: IcebergCredential, settings: IcebergSettings):
+        super().__init__(credentials, settings)
+        self._read_catalog: Catalog | None = None
+        self._write_catalog: Catalog | None = None
+
+    def _init_catalog(self) -> Self:
+        self._read_catalog = get_catalog(self.settings.catalog_name, self.credentials.read_catalog_config)
+        self._write_catalog = get_catalog(self.settings.catalog_name, self.credentials.write_catalog_config)
+        return self
+
+    def close(self) -> None:
+        pass
+
+    @classmethod
+    def _from_connection_string(
+        cls, connection_string: str, lazy_init: bool = False
+    ) -> "QueryEnabledStore[IcebergCredential, IcebergSettings]":
+        _, credentials, settings = re.findall(re.compile(CONNECTION_STRING_REGEX), connection_string)[0]
+        return cls(
+            credentials=IcebergCredential.from_json(credentials), settings=IcebergSettings.from_json(settings)
+        )._init_catalog()
+
+    def _apply_filter(
+        self,
+        path: IcebergPath,
+        filter_expression: Expression,
+        columns: list[str],
+        options: dict[QueryEnabledStoreOptions, any] | None = None,
+        limit: int | None = None,
+    ) -> MetaFrame | Iterator[MetaFrame]:
+        return load_using_catalog(
+            schema=path.schema,
+            row_filter=filter_expression,
+            table_name=path.table,
+            columns=columns if columns else None,
+            limit=limit,
+            version_id=options.get(QueryEnabledStoreOptions.VERSION_ID, None) if options else None,
+            lazy_read=self.settings.lazy_read,
+            catalog=self._read_catalog,
+        )
+
+    def _apply_query(self, query: str) -> MetaFrame | Iterator[MetaFrame]:
+        raise NotImplementedError("Text queries are not supported by Iceberg QES")
+
+    def _write(
+        self,
+        path: IcebergPath,
+        data: MetaFrame | Iterator[MetaFrame],
+        block_size: int,
+        overwrite: bool,
+        merge_columns: list[str] | None = None,
+        delete_filter: Expression | None = None,
+    ) -> None:
+        # only polars is supported
+        def _resolve_dataframe() -> DataFrame | LazyFrame:
+            if isinstance(data, Iterator):
+                return concat(data).to_polars()
+
+            return data.to_polars()
+
+        assert self._write_catalog is not None, "Catalog not initialized"
+
+        write_using_catalog(
+            schema_name=path.schema,
+            table_name=path.table,
+            catalog=self._write_catalog,
+            data=_resolve_dataframe(),
+            write_chunk_size=block_size,
+            overwrite=overwrite,
+            merge_columns=merge_columns,
+            delete_filter=delete_filter,
+        )

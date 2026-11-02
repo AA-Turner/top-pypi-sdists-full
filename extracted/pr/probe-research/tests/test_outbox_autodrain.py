@@ -171,7 +171,7 @@ def test_worker_exit_guard_sees_a_multipart_upload_queued_during_its_linger(tmp_
 
 def test_kick_repeats_once_the_throttle_window_passes(tmp_path, kicks):
     with _async_client(tmp_path) as client:
-        client._drainer_kick_interval = 0.0
+        client._drainer.kick_interval = 0.0
         client.write("POST", "/v1/runs/r1/metrics", {"points": []})
         client.write("POST", "/v1/runs/r1/metrics", {"points": []})
     assert len(kicks) == 2

@@ -3,7 +3,6 @@
 from __future__ import annotations
 import json
 import os
-import re
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
@@ -12,6 +11,8 @@ from pathlib import Path
 from typing import Any
 # At module load, not in the drain: a module first imported while a script exits clears its
 # pending KeyboardInterrupt (tests/test_ctrlc_exit_code.py).
+from .... import routes
+from ....routes import WriteOp
 from ....values import unstorable
 from ....artifact.storage_handlers import r2 as upload_many
 
@@ -32,31 +33,10 @@ MANY_IN_FLIGHT = 4
 def _prefetch_uploads(
     journal, entries, client_for, workers, run_ref, *, skips=None, already=frozenset(), away=None
 ) -> dict:
-    """Do the NETWORK half of several upload operations at once.
-
-    Every file is presign -> PUT -> confirm, three round trips, done one file after another by
-    the drain: on a hundred thousand small files, hours of latency no bandwidth can fix.
-
-    WHAT IS PARALLEL IS DELIBERATELY NARROW. Only uploads. In the backfill/receipt lane, ones
-    carrying a correlation (content-addressed identity, server idempotent per correlation: order
-    cannot matter). In a run's outbox, only uploads at the head of each run's queue
-    (`_run_window`): an upload never moves past an op it could depend on. Plain HTTP operations
-    keep strict FIFO, because their order IS their meaning.
-
-    A run's small uploads go together (`upload_many`): one presign and one confirm request for
-    the window, the PUTs in parallel. The rest, and every file of a server without those doors,
-    go one op per worker.
-
-    NOTHING IS DECIDED HERE. Workers return a result or raise. Saving the receipt, deleting the
-    op file, classifying the failure, parking the queue, breaking on auth all still happen
-    exactly once, in order, on the drain's own thread. A failed worker leaves its op for the
-    serial pass.
-
-    ``skips(path, op)`` names the ops the serial pass would not attempt now (a stalled or held
-    run, a barrier's other ops); ``already`` the ops an earlier window delivered. ``away(lanes)``,
-    when given, wraps the network half (`_DrainHold.away`: the drain lock let go, those runs'
-    locks held) for a window of run uploads; one carrying a receipt correlation keeps the lock.
-    """
+    """Do the network half (presign, PUT, confirm) of several uploads at once: only uploads at the head
+    of their run's queue, or correlated receipt uploads, whose order cannot matter. Nothing is decided
+    here: receipts, deletes and failures are settled once, in order, on the drain's own thread.
+    ``skips``/``already``/``away``: what to leave, what an earlier window sent, the lock let go."""
     limit = workers * UPLOAD_WINDOW_FACTOR
     if journal.receipt_enabled:
         candidates = _receipt_window(journal, entries, client_for, limit, run_ref, already)
@@ -182,12 +162,10 @@ def _receipt_window(journal, entries, client_for, limit, run_ref, already) -> li
 def _passes_uploads(op: dict) -> bool:
     """An op an upload may go ahead of: a metric write (no file depends on a metric point and
     no point on a file)."""
-    return (
-        op.get("kind") == "http"
-        and op.get("method") == "POST"
-        and not op.get("correlation")
-        and _METRICS_ROUTE.fullmatch(op.get("path") or "") is not None
-    )
+    if op.get("kind") != "http" or op.get("method") != "POST" or op.get("correlation"):
+        return False
+    route = routes.classify("POST", op.get("path"))
+    return route.op is WriteOp.METRICS and route.exact
 
 
 def _run_window(entries, client_for, limit, run_ref, skips, already) -> list:
@@ -289,7 +267,6 @@ def _many_item(journal, op: dict, client: Any):
         content_type=sent.get("content_type"),
         body=body,
     )
-_METRICS_ROUTE = re.compile(r"/v1/runs/([^/?#]+)/metrics")
 from probe.sdk.delivery.ops.op_handler import _delivery_scope, _execute  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     DELIVERY_SCHEMA,
@@ -300,4 +277,4 @@ from probe.sdk.delivery.ops.ops import (  # noqa: E402 -- pieces need each other
     _queued_bucket,
 )
 from probe.sdk.delivery.outbox.drain.credentials import op_credential  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.outbox.drain.drain import UPLOAD_WINDOW_FACTOR  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.drain.senders import UPLOAD_WINDOW_FACTOR  # noqa: E402 -- pieces need each other; the front door loads this one first

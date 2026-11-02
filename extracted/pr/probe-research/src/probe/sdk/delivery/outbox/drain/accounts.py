@@ -90,17 +90,9 @@ def record_account(
     scopes: "list[str] | None" = None,
     login_of: str | None = None,
 ) -> None:
-    """Remember that the credential named ``fingerprint`` is ``account``, and the ``scopes``
-    `/v1/me` named for it when known.
-
-    Written by the wizard's sign-in, a job's heartbeat lookup and a drain that just delivered
-    with a stored login (#2041 round 3): a write queued under a login whose account nobody
-    recorded can then still follow a same-account re-login instead of waiting forever. The
-    scopes keep a narrower token's writes from going out with a login that may do more
-    (`adoption_account`). ``login_of`` (a server URL) says the token was this machine's stored
-    login for that server, so a job that copied it into `PROBE_TOKEN` is still taken for the
-    login once a re-login replaced it, in any process (`was_login`). Never raises: evidence,
-    not a step in delivery."""
+    """Remember that the credential ``fingerprint`` is ``account`` (and its ``scopes`` when known), so
+    its queued writes can follow a same-account re-login (#2041). ``login_of``: it was this
+    machine's stored login for that server. Never raises: evidence, not a delivery step."""
     if not fingerprint or not account or not all(account):
         return
     entry: dict = {"customer_id": str(account[0]), "user_id": str(account[1]), "at": now_iso()}

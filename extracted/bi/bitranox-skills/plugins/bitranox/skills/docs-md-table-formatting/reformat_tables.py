@@ -1,0 +1,679 @@
+#!/usr/bin/env python3
+"""Reformat all markdown tables in a file with proper column alignment.
+
+Rules applied:
+- Cells padded to widest content per column, measured in DISPLAY columns (a CJK character
+  counts two, a combining mark none), so the source stays aligned in a terminal or editor
+- Separator dashes touch pipes (no spaces)
+- Content cells have exactly one space padding
+- Consistent column count per table
+- Preserves column alignment markers (:---, :---:, ---:)
+- Reformats tables inside blockquotes (> | ... |), preserving prefix
+- Keeps a table's leading indentation, so a table nested in a list item stays in it
+- Leaves a table alone when its indentation makes it an indented code block
+- Reformats tables inside ```markdown / ```md fenced code blocks
+- Skips tables inside all other fenced code blocks, including one nested in a markdown fence
+- Recognises fences the CommonMark way: an opener or closer sits less than four columns into its
+  block, a backtick fence's info string holds no backtick (so a line opening with an inline span
+  such as ```x``` is prose), and a closer is bare and at least as long as its opener
+- Recognises a fence inside a blockquote (> ```), which ends with the quote at the latest
+- Keeps the file's line endings (CRLF stays CRLF) and a leading UTF-8 BOM
+
+Usage:
+    python3 reformat_tables.py file.md [file2.md ...]
+    python3 reformat_tables.py --check file.md     # dry-run, exit 1 if changes needed
+    python3 reformat_tables.py --backup file.md    # creates file.md.bak before writing
+    python3 reformat_tables.py -r [dir ...]        # find and reformat all *.md under dir (default: .)
+    python3 reformat_tables.py --strict file.md    # exit 1 if any table has a ragged row
+
+Exit codes: 0 = done (nothing needed, or everything was rewritten), 1 = `--check` found a table
+to reformat or `--strict` found a ragged row, 2 = usage error or a file that could not be read.
+
+Cells are split the way GFM splits them: at EVERY pipe not escaped with a backslash, including a
+pipe inside a code span. GFM does not protect a pipe in backticks, so `a | b` in a cell is two
+cells when rendered; write it as `a \\| b`.
+
+A RAGGED ROW - one whose cell count does not match its header - is reported on stderr and named
+in the status line, always. It is the one shape this tool cannot repair: GFM splits a row at each
+unescaped pipe and DROPS the surplus, so the extra content vanishes when rendered while the table
+still looks correct. Since there is nothing to reformat, the file would otherwise be reported as
+Unchanged, which reads as a clean bill of health for the exact defect worth catching. `--strict`
+turns that report into a non-zero exit for CI; the default stays a warning so existing callers
+keep their exit codes.
+"""
+
+import re
+import shutil
+import sys
+import unicodedata
+from pathlib import Path
+
+USAGE = (
+    "Usage: python3 reformat_tables.py [--check] [--backup] [--strict] "
+    "(<file.md> [...] | -r [dir ...])"
+)
+
+EXIT_OK = 0
+EXIT_FINDING = 1
+EXIT_ERROR = 2
+
+# A fence line with its indentation removed: the marker run, then the rest (the info string).
+_FENCE_RX = re.compile(r"^(`{3,}|~{3,})(.*)$")
+# A list item marker and the whitespace after it; group(0) ends where the item's content starts.
+_LIST_ITEM_RX = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]+|$)")
+# CommonMark: four columns of indentation beyond the enclosing block's content make a code block.
+_CODE_INDENT = 4
+_TAB_WIDTH = 4
+
+
+def parse_separator_cell(cell):
+    """Parse a separator cell, return (left_align, right_align, is_valid).
+
+    Recognizes: ---, :---, ---:, :---:
+    """
+    s = cell.strip()
+    if not s:
+        return False, False, False
+    left = s.startswith(":")
+    right = s.endswith(":")
+    inner = s.lstrip(":").rstrip(":")
+    if not inner or not all(c == "-" for c in inner):
+        return False, False, False
+    return left, right, True
+
+
+def is_separator_row(cells):
+    """Check if all cells in a row are valid separator cells."""
+    if not cells:
+        return False
+    return all(parse_separator_cell(c)[2] for c in cells)
+
+
+def build_separator_cell(width, left_align, right_align):
+    """Build a separator cell with proper width and alignment markers.
+
+    Total width between pipes = content_width + 2 (for the spaces in content rows).
+    Alignment colons consume one dash each.
+    """
+    total = width + 2  # must fill same width as "| content |" minus the pipes
+    if left_align and right_align:
+        return ":" + "-" * (total - 2) + ":"
+    elif left_align:
+        return ":" + "-" * (total - 1)
+    elif right_align:
+        return "-" * (total - 1) + ":"
+    else:
+        return "-" * total
+
+
+def _strip_edge_pipes(stripped):
+    """Drop the row's outer pipes. A trailing `\\|` is an escaped pipe, not the row's edge.
+
+    The splitter below treats every backslash-pipe as escaped, so the edge test must agree with
+    it: dropping that pipe would turn cell text into a separator the next pass then pads.
+    """
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|") and not stripped.endswith("\\|"):
+        stripped = stripped[:-1]
+    return stripped
+
+
+def split_table_row(line):
+    """Split a markdown table row into cells the way GFM does.
+
+    Every pipe splits a cell unless a backslash escapes it - INCLUDING a pipe inside a code span.
+    GFM gives backticks no protection here, so treating `a | b` as one cell would report a row as
+    well formed while the rendered table drops its last cell.
+    """
+    stripped = _strip_edge_pipes(line.strip())
+    cells = []
+    current = []
+    i = 0
+    while i < len(stripped):
+        ch = stripped[i]
+        if ch == "\\" and i + 1 < len(stripped) and stripped[i + 1] == "|":
+            current.append("\\|")
+            i += 2
+        elif ch == "|":
+            cells.append("".join(current).strip())
+            current = []
+            i += 1
+        else:
+            current.append(ch)
+            i += 1
+    cells.append("".join(current).strip())
+    return cells
+
+
+def display_width(text):
+    """Columns the text occupies in a monospace view: wide East Asian characters take two,
+    combining marks and format characters none. Counting code points instead misaligns every
+    row holding CJK text or a decomposed accent, and `--check` then calls it aligned."""
+    width = 0
+    for ch in text:
+        if unicodedata.combining(ch) or unicodedata.category(ch) in ("Mn", "Me", "Cf"):
+            continue
+        width += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return width
+
+
+def _pad(cell, width):
+    return cell + " " * (width - display_width(cell))
+
+
+def table_column_mismatches(lines):
+    """Rows whose cell count differs from the header's, as (index, count) pairs.
+
+    This is the one shape the reformatter cannot repair, and the reason it needs reporting
+    separately: GFM splits a row at each unescaped pipe and DROPS the surplus, so a 4-cell row
+    under a 3-column header renders as 3 cells and the extra content disappears. Nothing about
+    the rendered table looks wrong, and the formatter - which can only align what parses - is
+    right to leave the file alone. Silence is what makes it a defect.
+
+    Empty for anything without a valid separator row: that is not a ragged table, it is not a
+    table, and reporting it would bury the real finding in noise.
+    """
+    if len(lines) < 2:
+        return []
+    rows = [split_table_row(line) for line in lines]
+    if not is_separator_row(rows[1]):
+        return []
+    expected = len(rows[0])
+    return [(i, len(row)) for i, row in enumerate(rows) if len(row) != expected]
+
+
+def reformat_table(lines):
+    """Reformat a markdown table. Returns lines unchanged if structure is invalid."""
+    if len(lines) < 2:
+        return lines
+
+    rows = [split_table_row(line) for line in lines]
+
+    # Second row must be a valid separator
+    if not is_separator_row(rows[1]):
+        return lines
+
+    num_cols = len(rows[0])
+
+    # All rows must have the same column count  -  bail if not
+    for row in rows:
+        if len(row) != num_cols:
+            return lines
+
+    # Parse alignment from separator row
+    alignments = []
+    for cell in rows[1]:
+        left, right, _ = parse_separator_cell(cell)
+        alignments.append((left, right))
+
+    # Calculate max width per column (skip separator row)
+    col_widths = [0] * num_cols
+    for i, row in enumerate(rows):
+        if i == 1:
+            continue
+        for j, cell in enumerate(row):
+            col_widths[j] = max(col_widths[j], display_width(cell))
+
+    # Minimum width of 1 so separator is at least "---"
+    col_widths = [max(w, 1) for w in col_widths]
+
+    result = []
+    for i, row in enumerate(rows):
+        if i == 1:
+            parts = [
+                "|" + build_separator_cell(col_widths[j], *alignments[j])
+                for j in range(num_cols)
+            ]
+            result.append("".join(parts) + "|")
+        else:
+            parts = ["| " + _pad(row[j], col_widths[j]) + " " for j in range(num_cols)]
+            result.append("".join(parts) + "|")
+    return result
+
+
+def strip_blockquote(line):
+    """Strip blockquote prefix (``> ``) from a line.
+
+    Returns (prefix, rest) where *prefix* is the blockquote marker(s)
+    including trailing space (e.g. ``"> "``, ``"> > "``) or ``""`` if the
+    line is not inside a blockquote.
+    """
+    prefix = ""
+    rest = line
+    while rest.startswith(">"):
+        rest = rest[1:]
+        if rest.startswith(" "):
+            prefix += "> "
+            rest = rest[1:]
+        else:
+            prefix += ">"
+    return prefix, rest
+
+
+def _leading_whitespace(line):
+    return line[: len(line) - len(line.lstrip(" \t"))]
+
+
+def _indent_columns(line):
+    return len(_leading_whitespace(line).expandtabs(_TAB_WIDTH))
+
+
+def _container_columns(lines, index, floor, base_columns):
+    """The column where the block holding the line at `index` starts its content.
+
+    Inside a list item that is the item's content column, after its marker; otherwise it is
+    `base_columns` (the page margin, or the indentation of an enclosing markdown fence). The walk
+    goes back, no further than `floor`, to the nearest less-indented line: a list item decides by
+    its content column, top-level text means there is no list to belong to.
+    """
+    columns = _indent_columns(lines[index])
+    for j in range(index - 1, floor, -1):
+        prior = lines[j]
+        if not prior.strip():
+            continue
+        prior_columns = _indent_columns(prior)
+        if prior_columns >= columns:
+            continue
+        item = _LIST_ITEM_RX.match(prior)
+        if item:
+            content_columns = len(item.group(0).expandtabs(_TAB_WIDTH))
+            if not item.group(0).endswith((" ", "\t")):
+                content_columns += 1
+            return content_columns
+        if prior_columns <= base_columns:
+            return base_columns
+    return base_columns
+
+
+def is_indented_code(lines, index, floor, base_columns):
+    """Whether the line at `index` is indented code rather than a table row or a fence.
+
+    Four columns beyond the enclosing block make an indented code block in CommonMark, so a
+    pipe table written that way is an example, not a table. Inside a list item the enclosing
+    block is the item's content, so a table indented to sit in the item is not code.
+    """
+    columns = _indent_columns(lines[index])
+    if columns - base_columns < _CODE_INDENT:
+        return False
+    return columns - _container_columns(lines, index, floor, base_columns) >= _CODE_INDENT
+
+
+class _Fence:
+    """An open fenced code block: its marker, whether its content is markdown, and the content
+    column of the block it sits in (a closer must be within three columns of that too)."""
+
+    def __init__(self, marker, info, columns, container):
+        self.char = marker[0]
+        self.length = len(marker)
+        lang = info.split()[0].lower() if info else ""
+        self.markdown = lang in ("markdown", "md")
+        self.columns = columns
+        self.container = container
+
+    def closed_by(self, line):
+        """CommonMark: the same character, at least as long, nothing after it but whitespace,
+        and indented less than four columns into the block. A deeper line is fence content."""
+        close = _FENCE_RX.match(line.lstrip())
+        if not close or close.group(2).strip():
+            return False
+        marker = close.group(1)
+        return (marker[0] == self.char and len(marker) >= self.length
+                and _indent_columns(line) - self.container < _CODE_INDENT)
+
+
+def _fence_opener(lines, index, floor, base_columns):
+    """The fence the line at `index` opens, or None.
+
+    CommonMark: a run of three or more backticks or tildes, indented less than four columns into
+    its block. A BACKTICK fence's info string may not contain a backtick - without that rule a
+    prose line opening with an inline span (```x``` ...) opens a fence that swallows the rest of
+    the file."""
+    line = lines[index]
+    match = _FENCE_RX.match(line.lstrip())
+    if not match:
+        return None
+    marker, info = match.group(1), match.group(2)
+    if marker[0] == "`" and "`" in info:
+        return None
+    if is_indented_code(lines, index, floor, base_columns):
+        return None
+    container = _container_columns(lines, index, floor, base_columns)
+    return _Fence(marker, info.strip(), _indent_columns(line), container)
+
+
+# What classify_lines says about one line.
+FENCE = "fence"      # a fence opener or closer
+LITERAL = "literal"  # inside a code fence whose content is not markdown
+TEXT = "text"        # markdown: where a table can be
+
+
+class LineClass:
+    """One line's classification. `floor` is the index of the last fence line above it (-1 when
+    none) and `base` the indentation of the markdown fence it sits in (0 at top level): the two
+    arguments `is_indented_code` needs to judge a candidate table row on this line."""
+
+    __slots__ = ("kind", "floor", "base")
+
+    def __init__(self, kind, floor, base):
+        self.kind = kind
+        self.floor = floor
+        self.base = base
+
+
+def classify_lines(lines):
+    """Classify every line (newline-free) as FENCE, LITERAL or TEXT: the one fence scanner both
+    this tool and tablekit.py use, so the two always agree on which lines may hold a table.
+
+    A fence tagged `markdown` or `md` holds a document of its own, so its lines are TEXT and a
+    fence nested in it is tracked too. Its own closer is checked FIRST, as a renderer of the outer
+    document does: a nested fence can never outlive the markdown fence it sits in.
+
+    A blockquote is a document of its own too: a run of `>` lines is classified by the same
+    scanner with one quote level removed, so `> ```` opens a fence there, and that fence ends
+    with the quote at the latest. Inside an open code fence a `>` line is code, never a quote.
+    """
+    classes = []
+    fence = None   # the open outer fence
+    inner = None   # a fence opened inside a markdown fence
+    floor = -1     # index of the last fence line, where the indented-code walk stops
+
+    index = 0
+    while index < len(lines):
+        base = fence.columns if fence is not None else 0
+        block_may_start = fence is None or (fence.markdown and inner is None)
+        if block_may_start and _opens_quote(lines, index, floor, base):
+            end = _quote_run_end(lines, index)
+            quoted = classify_lines([_unquote_once(text) for text in lines[index:end]])
+            for offset, cls in enumerate(quoted):
+                classes.append(LineClass(cls.kind, floor, base if cls.kind != FENCE else 0))
+                if cls.kind == FENCE:
+                    floor = index + offset
+            index = end
+            continue
+        line = lines[index]
+        kind = TEXT
+        if fence is None:
+            opener = _fence_opener(lines, index, floor, 0)
+            if opener is not None:
+                fence, kind = opener, FENCE
+        elif fence.closed_by(line):
+            fence, inner, kind = None, None, FENCE
+        elif not fence.markdown:
+            kind = LITERAL
+        elif inner is not None and inner.closed_by(line):
+            inner, kind = None, FENCE
+        elif inner is None:
+            opener = _fence_opener(lines, index, floor, fence.columns)
+            if opener is not None:
+                inner, kind = opener, FENCE
+        elif not inner.markdown:
+            kind = LITERAL
+        base = fence.columns if fence is not None and kind != FENCE else 0
+        classes.append(LineClass(kind, floor, base))
+        if kind == FENCE:
+            floor = index
+        index += 1
+    return classes
+
+
+def _opens_quote(lines, index, floor, base_columns):
+    """Whether the line at `index` starts a blockquote: a `>` at most three columns into its
+    block. Deeper, it is indented code (or list content) as it was before quotes were tracked."""
+    line = lines[index]
+    if not line.lstrip(" \t").startswith(">"):
+        return False
+    return not is_indented_code(lines, index, floor, base_columns)
+
+
+def _quote_run_end(lines, start):
+    """The index just past the run of consecutive `>` lines starting at `start`. A line without
+    the marker ends the run: a lazy continuation only continues a paragraph, never a code block."""
+    end = start + 1
+    while end < len(lines) and lines[end].lstrip(" \t").startswith(">"):
+        end += 1
+    return end
+
+
+def _unquote_once(line):
+    """The line with one quote level removed: the `>` and one optional space after it."""
+    return line.lstrip(" \t")[1:].removeprefix(" ")
+
+
+def _ragged_messages(filepath, first_line, contents):
+    """One message per ragged row, or one for the whole table when its separator is the problem."""
+    expected = len(split_table_row(contents[0]))
+    mismatches = table_column_mismatches(contents)
+    for offset, count in mismatches:
+        if offset == 1:
+            # GFM requires the delimiter row to match the header; if it does not, nothing below it
+            # is a table at all, so a per-row claim about dropped or padded cells would be false.
+            return [
+                f"{filepath}:{first_line + 1}: ragged table - the separator row has {count} cells "
+                f"under a {expected}-column header; GFM does not render this as a table at all"
+            ]
+    messages = []
+    for offset, count in mismatches:
+        # The two directions have DIFFERENT consequences, and only one loses content. A single
+        # message claiming loss would be wrong half the time, which is how a warning trains its
+        # reader to ignore it.
+        effect = (
+            "GFM drops the surplus, so this row LOSES CONTENT when rendered"
+            if count > expected else
+            "GFM pads the row, so the missing cell renders EMPTY"
+        )
+        messages.append(
+            f"{filepath}:{first_line + offset}: ragged table row - "
+            f"{count} cells under a {expected}-column header; {effect}"
+        )
+    return messages
+
+
+def _read_document(filepath):
+    """(text without BOM, had_bom). newline="" keeps every CR, so line endings survive a rewrite."""
+    with open(filepath, encoding="utf-8", newline="") as f:
+        original = f.read()
+    if original.startswith("\ufeff"):
+        return original[1:], True
+    return original, False
+
+
+def _reformat_lines(lines, filepath, warnings):
+    """The reformatted lines, one output line per input line and in the same order."""
+    result = []
+    table_lines = []   # (indent, blockquote prefix, row content)
+    table_start = [0]  # 1-based file line of the current table's first row
+
+    def flush_table():
+        if not table_lines:
+            return
+        contents = [t[2] for t in table_lines]
+        if warnings is not None:
+            warnings.extend(_ragged_messages(filepath, table_start[0], contents))
+        indent = table_lines[0][0]
+        for (_lead, bq_prefix, _row), fline in zip(table_lines, reformat_table(contents)):
+            result.append(indent + bq_prefix + fline)
+        table_lines.clear()
+
+    for index, (line, cls) in enumerate(zip(lines, classify_lines(lines), strict=True)):
+        if cls.kind != TEXT:
+            # Flushing at a fence line keeps a pending table above it, where it was.
+            flush_table()
+            result.append(line)
+            continue
+
+        # Collect table rows (must start with | and contain at least one more |)
+        # Also detect tables inside blockquotes (> | ... |)
+        bq_prefix, table_content = strip_blockquote(line.strip())
+        is_row = table_content.startswith("|") and "|" in table_content[1:]
+        if is_row and not table_lines:
+            is_row = not is_indented_code(lines, index, cls.floor, cls.base)
+        if is_row:
+            if not table_lines:
+                table_start[0] = index + 1
+            table_lines.append((_leading_whitespace(line), bq_prefix, table_content))
+        else:
+            flush_table()
+            result.append(line)
+
+    flush_table()
+    return result
+
+
+def reformat_file(filepath, *, check_only=False, backup=False, warnings=None):
+    """Reformat all tables in a file.
+
+    Tables inside ```markdown / ```md fenced code blocks are reformatted.
+    Tables inside all other fenced code blocks are skipped.
+    Returns True if the file was (or would be) changed.
+
+    Pass a list as `warnings` to receive one message per ragged table - a row whose cell count
+    does not match its header. Those are never reformatted, so without this they leave no trace.
+
+    Raises:
+        OSError: the file cannot be read or written.
+        UnicodeDecodeError: the file is not UTF-8.
+    """
+    text, had_bom = _read_document(filepath)
+    raw_lines = text.split("\n")
+    carriage = [line.endswith("\r") for line in raw_lines]
+    lines = [line[:-1] if cr else line for line, cr in zip(raw_lines, carriage)]
+
+    result = _reformat_lines(lines, filepath, warnings)
+    body = "\n".join(line + ("\r" if cr else "") for line, cr in zip(result, carriage))
+
+    if body == text:
+        return False
+
+    if check_only:
+        return True
+
+    if backup:
+        shutil.copy2(filepath, str(filepath) + ".bak")
+
+    with open(filepath, "w", encoding="utf-8", newline="") as f:
+        f.write(("\ufeff" if had_bom else "") + body)
+    return True
+
+
+def _reconfigure_stdio():
+    """Never let a filename the console code page cannot encode crash a run half way through.
+
+    On Windows a redirected stdout uses the ANSI code page; a CJK filename then raised after that
+    file had already been rewritten, and every later file was skipped.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            continue
+
+
+def _parse_args(args):
+    """(options dict, positional paths). Exits 2 on an unknown option."""
+    options = {"check": False, "backup": False, "recursive": False, "strict": False}
+    paths = []
+    for arg in args:
+        if arg in ("--check", "-c"):
+            options["check"] = True
+        elif arg in ("--backup", "-b"):
+            options["backup"] = True
+        elif arg in ("--recursive", "-r"):
+            options["recursive"] = True
+        elif arg == "--strict":
+            options["strict"] = True
+        elif arg in ("--help", "-h"):
+            print(__doc__.strip())
+            sys.exit(EXIT_OK)
+        elif arg.startswith("-"):
+            print(f"Unknown option: {arg}", file=sys.stderr)
+            print(USAGE, file=sys.stderr)
+            sys.exit(EXIT_ERROR)
+        else:
+            paths.append(arg)
+    return options, paths
+
+
+def _collect_recursive(paths):
+    """Every regular *.md file under the named directories. A directory named *.md or a dangling
+    link is reported and skipped rather than aborting the run half way through."""
+    dirs = [Path(p) for p in paths] if paths else [Path(".")]
+    files = []
+    for d in dirs:
+        if not d.is_dir():
+            print(f"Error: not a directory: {d}", file=sys.stderr)
+            sys.exit(EXIT_ERROR)
+        for candidate in sorted(d.rglob("*.md")):
+            if candidate.is_file():
+                files.append(candidate)
+            else:
+                print(f"Skipping (not a regular file): {candidate}", file=sys.stderr)
+    return files
+
+
+def _collect_explicit(paths):
+    """The named files, all checked BEFORE any is written, so a typo cannot stop a run half done."""
+    files = [Path(p) for p in paths]
+    missing = [p for p in files if not p.is_file()]
+    for path in missing:
+        print(f"Error: not a file: {path}", file=sys.stderr)
+    if missing:
+        sys.exit(EXIT_ERROR)
+    return files
+
+
+def _process(path, options):
+    """(changed, ragged count) for one file; raises OSError / UnicodeDecodeError."""
+    warnings = []
+    changed = reformat_file(
+        path, check_only=options["check"], backup=options["backup"], warnings=warnings)
+    for message in warnings:
+        print(message, file=sys.stderr)
+    # A ragged table is named on stdout too. It cannot be reformatted, so the status line
+    # would otherwise read "Unchanged", which is exactly the false all-clear being fixed.
+    suffix = f" ({len(warnings)} ragged table row(s))" if warnings else ""
+    if not changed:
+        print(f"Unchanged{suffix}: {path}")
+    elif options["check"]:
+        print(f"Would reformat{suffix}: {path}")
+    else:
+        print(f"Reformatted{suffix}: {path}")
+    return changed, len(warnings)
+
+
+def main():
+    _reconfigure_stdio()
+    options, paths = _parse_args(sys.argv[1:])
+
+    if options["recursive"]:
+        files = _collect_recursive(paths)
+        if not files:
+            print("No .md files found.", file=sys.stderr)
+            sys.exit(EXIT_OK)
+    elif not paths:
+        print(USAGE, file=sys.stderr)
+        sys.exit(EXIT_ERROR)
+    else:
+        files = _collect_explicit(paths)
+
+    any_changed = any_ragged = any_error = False
+    for path in files:
+        try:
+            changed, ragged = _process(path, options)
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"Error: cannot process {path}: {exc}", file=sys.stderr)
+            any_error = True
+            continue
+        any_changed = any_changed or changed
+        any_ragged = any_ragged or bool(ragged)
+
+    if any_error:
+        sys.exit(EXIT_ERROR)
+    if options["check"] and any_changed:
+        sys.exit(EXIT_FINDING)
+    if options["strict"] and any_ragged:
+        sys.exit(EXIT_FINDING)
+
+
+if __name__ == "__main__":
+    main()

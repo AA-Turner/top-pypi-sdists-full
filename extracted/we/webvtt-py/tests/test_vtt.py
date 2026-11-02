@@ -3,7 +3,9 @@ import textwrap
 import io
 
 from webvtt import vtt
-from webvtt.errors import MalformedFileError, MalformedCaptionError
+from webvtt.errors import (
+    MalformedFileError, MalformedCaptionError, MalformedRegionError
+    )
 from webvtt.models import Caption, Region, Style
 
 
@@ -71,6 +73,11 @@ class TestWebVTTCueBlock(unittest.TestCase):
             self.assertFalse(
                 vtt.WebVTTCueBlock.is_valid([timings, 'Caption #1'])
                 )
+
+    def test_is_valid_non_ascii_digits(self):
+        lines = ['00:00:0\u0661.500 --> 00:00:07.000', 'Caption #1']
+        self.assertFalse(vtt.WebVTTCueBlock.is_valid(lines))
+        self.assertFalse(vtt.WebVTTCueBlock.is_valid(lines, strict=True))
 
     def test_is_valid_non_padded_timestamps(self):
         lines = ['0:0:13.540 --> 0:0:17.85', 'Caption #1']
@@ -172,6 +179,15 @@ class TestWebVTTCommentBlock(unittest.TestCase):
             // This is not a comment
             ''').strip().split('\n'))
             )
+
+    def test_is_valid_keyword(self):
+        for line in ('NOTE', 'NOTE comment', 'NOTE\tcomment'):
+            with self.subTest(line=line):
+                self.assertTrue(vtt.WebVTTCommentBlock.is_valid([line]))
+
+        for line in ('NOTEBOOK x', 'NOTE-x', 'NOTE\x0ccomment'):
+            with self.subTest(line=line):
+                self.assertFalse(vtt.WebVTTCommentBlock.is_valid([line]))
 
     def test_from_lines(self):
         comment = vtt.WebVTTCommentBlock.from_lines(textwrap.dedent('''
@@ -559,13 +575,22 @@ class TestVTTModule(unittest.TestCase):
                  'Comments must not have empty lines'),
                 ('arrow after first line of footer comment',
                  {'footer_comments': ['line 1\na --> b']},
-                 '"-->" after the first line'),
+                 'Comments must not have empty lines or "-->"'),
+                ('arrow in single line header comment',
+                 {'header_comments': ['a --> b']},
+                 'Comments must not have empty lines or "-->"'),
                 ('cue timings in first line of comment',
                  {'captions': [with_comment(
                      caption(),
                      '00:00:05.000 --> 00:00:06.000\nreview this'
                      )]},
-                 'or be read as a cue'),
+                 'Comments must not have empty lines or "-->"'),
+                ('cue timings in single line comment',
+                 {'footer_comments': ['00:00:05.000 --> 00:00:06.000']},
+                 'Comments must not have empty lines or "-->"'),
+                ('arrow in header text',
+                 {'header_text': 'a --> b'},
+                 'Header text must be a single line without "-->"'),
                 ('empty line in caption comment',
                  {'captions': [with_comment(caption(), 'a\n\nb')]},
                  'Comments must not have empty lines'),
@@ -591,12 +616,12 @@ class TestVTTModule(unittest.TestCase):
             # empty lines at the end only end the cue
             Caption('00:00:03.000', '00:00:04.000', ['b', '', ''])
             ]
-        captions[1].comments.append('a --> b\nsecond line')
+        captions[1].comments.append('first line\nsecond line')
         styles = [Style('::cue {\n  color: red;\n}\n\n')]
 
         output = vtt.parse(
             vtt.to_str(captions, styles,
-                       ['a --> b', '00:00:05.000 --> 00:00:06.000'],
+                       ['header', 'NOTE in a comment'],
                        ['footer\n\n']
                        ).split('\n')
             )
@@ -605,15 +630,14 @@ class TestVTTModule(unittest.TestCase):
             [(c.identifier, c.raw_text, c.comments)
              for c in output.captions],
             [(' ', 'line 1\n \nline 2', []),
-             (None, '', ['a --> b\nsecond line']),
+             (None, '', ['first line\nsecond line']),
              ('id', 'a', []),
              (None, 'b', [])]
             )
         self.assertEqual([s.text for s in output.styles],
                          ['::cue {\n  color: red;\n}'])
-        # cue timings in a single line comment are written after "NOTE "
         self.assertEqual(output.header_comments,
-                         ['a --> b', '00:00:05.000 --> 00:00:06.000'])
+                         ['header', 'NOTE in a comment'])
         self.assertEqual(output.footer_comments, ['footer'])
 
     def test_write(self):
@@ -1317,7 +1341,7 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(len(output.captions), 1)
 
     def test_parse_strict_region_after_a_cue(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             vtt.parse(
                 textwrap.dedent('''
                 WEBVTT
@@ -1364,7 +1388,7 @@ class TestVTTModule(unittest.TestCase):
         for settings in ('id:fred scroll:down', 'id:fred foo:bar',
                          'id:fred id:bill', 'id:fred width'):
             with self.subTest(settings=settings):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     vtt.parse(
                         ['WEBVTT', '', 'REGION', settings],
                         strict=True
@@ -1377,6 +1401,211 @@ class TestVTTModule(unittest.TestCase):
                 ['WEBVTT', '', 'REGION', '0:0:0.5 --> 0:0:4.3', 'text'],
                 strict=True
                 )
+
+    def test_parse_strict_invalid_blocks(self):
+        cue = ['00:00:00.500 --> 00:00:04.300', 'Caption text']
+        for block in (['stray text'], ['NOTEbook'], ['NOTE', 'a --> b'],
+                      ['NOTE a --> b'], ['STYLE'], ['STYLES', '::cue {}']):
+            for lines in ([*block, '', *cue],
+                          [*cue, '', *block, '', *cue],
+                          [*cue, '', *block]):
+                with self.subTest(lines=lines):
+                    with self.assertRaises(MalformedCaptionError) as cm:
+                        vtt.parse(['WEBVTT', '', *lines], strict=True)
+                    self.assertIn(repr(block), str(cm.exception))
+
+    def test_parse_ignores_invalid_blocks(self):
+        cue = ['00:00:00.500 --> 00:00:04.300', 'Caption text']
+        for block in (['stray text'], ['NOTEbook'], ['NOTE', 'a --> b'],
+                      ['NOTE a --> b'], ['STYLE'], ['STYLES', '::cue {}']):
+            with self.subTest(block=block):
+                output = vtt.parse(['WEBVTT', '', *block, '', *cue])
+                self.assertEqual(len(output.captions), 1)
+                self.assertListEqual(output.styles, [])
+                self.assertListEqual(output.header_comments, [])
+
+    def test_parse_strict_text_block_between_cues(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:04.300
+                Caption text #1
+
+                stray text block
+
+                00:00:05.000 --> 00:00:07.000
+                Caption text #2
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn("Invalid block ['stray text block']", str(cm.exception))
+
+    def test_parse_strict_valid_blocks(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT - Sample title
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+
+            NOTE
+
+            NOTE\tcomment after a tab
+
+            NOTE
+            comment on the next line
+
+            STYLE \t
+            ::cue {
+              color: papayawhip;
+            }
+
+            00:00:00.500 --> 00:00:04.300
+            Caption text #1
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(len(output.styles), 1)
+        self.assertListEqual(
+            output.header_comments,
+            ['', 'comment after a tab', 'comment on the next line']
+            )
+
+    def test_parse_header_keyword(self):
+        cue = ['', '00:00:00.500 --> 00:00:04.300', 'Caption text']
+        for line, header_text in (('WEBVTT', ''),
+                                  ('WEBVTT ', ''),
+                                  ('WEBVTT - title', '- title'),
+                                  ('WEBVTT\ttitle', 'title')):
+            for strict in (False, True):
+                with self.subTest(line=line, strict=strict):
+                    output = vtt.parse([line, *cue], strict=strict)
+                    self.assertEqual(output.header_text, header_text)
+                    self.assertEqual(len(output.captions), 1)
+
+    def test_parse_header_keyword_followed_by_text(self):
+        cue = ['', '00:00:00.500 --> 00:00:04.300', 'Caption text']
+        for line in ('WEBVTTX', 'WEBVTT-title', 'WEBVTT\x0ctitle'):
+            with self.subTest(line=line):
+                output = vtt.parse([line, *cue])
+                self.assertEqual(len(output.captions), 1)
+
+    def test_parse_strict_header_keyword_followed_by_text(self):
+        cue = ['', '00:00:00.500 --> 00:00:04.300', 'Caption text']
+        for line in ('WEBVTTX', 'WEBVTT-title', 'WEBVTT\x0ctitle'):
+            with self.subTest(line=line):
+                with self.assertRaises(MalformedFileError) as cm:
+                    vtt.parse([line, *cue], strict=True)
+                self.assertIn(repr(line), str(cm.exception))
+
+    def test_parse_strict_header_with_cue_timings_arrow(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                ['WEBVTT a --> b', '',
+                 '00:00:00.500 --> 00:00:04.300', 'Caption text'],
+                strict=True
+                )
+        self.assertIn("Invalid cue block ['WEBVTT a --> b']",
+                      str(cm.exception))
+
+    def test_parse_ignores_comments_with_cue_timings_arrow(self):
+        for block in (['NOTE a --> b'], ['NOTE', 'a --> b'],
+                      ['NOTE 00:00:05.000 --> 00:00:06.000']):
+            with self.subTest(block=block):
+                output = vtt.parse(
+                    ['WEBVTT', '', 'NOTE kept', '', *block, '',
+                     '00:00:00.500 --> 00:00:04.300', 'Caption text', '',
+                     *block]
+                    )
+                self.assertListEqual(output.header_comments, ['kept'])
+                self.assertListEqual(output.captions[0].comments, [])
+                self.assertListEqual(output.footer_comments, [])
+
+    def test_parse_header_text_with_cue_timings_arrow(self):
+        output = vtt.parse(
+            ['WEBVTT a --> b', 'Kind: captions', '',
+             'REGION', 'id:fred', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text']
+            )
+        self.assertEqual(output.header_text, '')
+        self.assertListEqual(output.metadata, ['Kind: captions'])
+        self.assertListEqual([region.id for region in output.regions],
+                             ['fred'])
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_and_write_back_cue_timings_arrows(self):
+        output = vtt.parse(
+            ['WEBVTT a --> b', '', 'NOTE a --> b', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text']
+            )
+        content = vtt.to_str(
+            output.captions, output.styles, output.header_comments,
+            output.footer_comments, output.header_text, output.metadata,
+            output.regions
+            )
+        self.assertEqual(
+            content,
+            'WEBVTT\n\n00:00:00.500 --> 00:00:04.300\nCaption text\n'
+            )
+
+    def test_parse_style_with_whitespace_after_style(self):
+        output = vtt.parse(
+            ['WEBVTT', '', 'STYLE \t', '::cue { color: papayawhip; }', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text']
+            )
+        self.assertListEqual(
+            [style.text for style in output.styles],
+            ['::cue { color: papayawhip; }']
+            )
+
+    def test_parse_ignores_styles_after_a_cue(self):
+        output = vtt.parse(
+            ['WEBVTT', '', 'STYLE', '::cue { color: peachpuff; }', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text', '',
+             'STYLE', '::cue { color: papayawhip; }']
+            )
+        self.assertListEqual(
+            [style.text for style in output.styles],
+            ['::cue { color: peachpuff; }']
+            )
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_strict_style_after_a_cue(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                ['WEBVTT', '', '00:00:00.500 --> 00:00:04.300',
+                 'Caption text', '', 'STYLE', '::cue { color: papayawhip; }'],
+                strict=True
+                )
+        self.assertIn('Style block after a cue', str(cm.exception))
+
+    def test_parse_end_time_not_after_start_time(self):
+        for timings in ('00:00:05.000 --> 00:00:02.000',
+                        '00:00:02.000 --> 00:00:02.000'):
+            with self.subTest(timings=timings):
+                output = vtt.parse(['WEBVTT', '', timings, 'Caption text'])
+                self.assertEqual(len(output.captions), 1)
+
+    def test_parse_strict_end_time_not_after_start_time(self):
+        for timings in ('00:00:05.000 --> 00:00:02.000',
+                        '00:00:02.000 --> 00:00:02.000',
+                        '01:00:00.000 --> 00:59:59.999'):
+            with self.subTest(timings=timings):
+                with self.assertRaises(MalformedCaptionError) as cm:
+                    vtt.parse(
+                        ['WEBVTT', '', timings, 'Caption text'],
+                        strict=True
+                        )
+                self.assertIn('not after the start time', str(cm.exception))
+                self.assertIn(timings, str(cm.exception))
+
+    def test_parse_strict_end_time_just_after_start_time(self):
+        output = vtt.parse(
+            ['WEBVTT', '', '00:00:02.000 --> 00:00:02.001', 'Caption text'],
+            strict=True
+            )
+        self.assertEqual(len(output.captions), 1)
 
     def test_to_str_regions(self):
         output = vtt.to_str(
@@ -1591,7 +1820,8 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(vtt.parse(content.split('\n')), output)
 
     def test_to_str_invalid_header_text(self):
-        for header_text in ('title\nmore', 'title\r', 'title\r\nmore'):
+        for header_text in ('title\nmore', 'title\r', 'title\r\nmore',
+                            'a --> b'):
             with self.subTest(header_text=header_text):
                 with self.assertRaises(ValueError):
                     vtt.to_str([], [], [], [], header_text)
@@ -1612,6 +1842,24 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(output.header_text, '')
         self.assertListEqual(output.metadata, [])
         self.assertEqual(len(output.captions), 1)
+
+    def test_parse_items_strict_without_header(self):
+        output = vtt.parse_items(['00:00:00.500 --> 00:00:07.000',
+                                  'Caption text #1'
+                                  ],
+                                 strict=True
+                                 )
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_items_strict_invalid_first_block(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse_items(['stray text', '',
+                             '00:00:00.500 --> 00:00:07.000',
+                             'Caption text #1'
+                             ],
+                            strict=True
+                            )
+        self.assertIn("Invalid block ['stray text']", str(cm.exception))
 
     def test_to_str_invalid_metadata(self):
         for line in ('',

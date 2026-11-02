@@ -1,0 +1,746 @@
+"""CLIP visual vector sidecar store.
+
+This module owns the `.clip.sqlite` lifecycle: image vectors, video keyframe
+vectors, matrix caching, and sqlite-vec fallback behavior. CLIP model loading and
+encoding stay in `embeddings.py`; this file is storage only.
+"""
+
+from __future__ import annotations
+
+import logging
+import sqlite3
+import threading
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, NamedTuple
+
+import numpy as np
+
+from . import chance_band, index_paths, reserved_paths, sidecar_store, vecstore
+from .vector_index_common import vec_gate
+
+log = logging.getLogger(__name__)
+
+
+def _sqlite_connect(database: Any, *args: Any, **kwargs: Any) -> sqlite3.Connection:
+    with reserved_paths._subsystem_authority_scope("clip_index"):
+        return _sqlite_connect_owned(database, *args, **kwargs)
+
+
+def _sqlite_connect_owned(
+    database: Any, *args: Any, **kwargs: Any
+) -> sqlite3.Connection:
+    return sqlite3.connect(database, *args, **kwargs)
+
+CLIP_DIM = 512
+
+#: The recorded vector space. A writer's artifact identity is recorded beside it.
+SPACE_KEYS = ("space", "width", "precision")  # nosemgrep: ep-word-set -- the keys of this module's own space record schema.
+
+
+class ClipSpaceMismatch(ValueError):
+    """An encoder in another vector space must not write into this sidecar."""
+
+
+#: The space of rows written before the record existed. It is a historical fact,
+#: like `recall_space.LEGACY_IDENTITY`, so it must not follow a registry change.
+LEGACY_SPACE = {"space": "openai/clip-vit-base-patch32", "width": "512", "precision": "fp32"}
+
+
+class _ClipCache(NamedTuple):
+    """ClipIndex's in-memory matrix cache.
+
+    `frame_ts[i]` is None for an image row, seconds for a video keyframe row;
+    `paths`/`frame_ts`/`matrix` are parallel arrays.
+    """
+
+    epoch: int
+    generation: int
+    instance: int
+    mtime: float
+    recall_policy_identity: tuple[str, str]
+    paths: list[str]
+    frame_ts: list[float | None]
+    matrix: np.ndarray
+
+
+class ClipSearch(NamedTuple):
+    """The hits of a CLIP search and what the chance band did to them."""
+
+    hits: list[tuple[str, float | None, float]]
+    #: Distinct pages (a video's frames count once) among the unbanded top-k hits that the
+    #: band removed entirely.
+    withheld_pages: int
+    #: "applied" the band ran; "uncalibrated" the population was too small or uniform to
+    #: calibrate one; "off" no band was asked for (alpha outside (0, 1)); "not_attempted"
+    #: there was no image to score.
+    band: str
+
+
+class ClipIndex:
+    """Per-vault sqlite sidecar of CLIP image/video-frame vectors."""
+
+    def __init__(self, vault_root: Path, encoder_space: Callable[[], dict[str, str]] | None = None):
+        self.vault_root = vault_root
+        #: The writing encoder's space and artifact; storage-only callers pass none.
+        self._encoder_space = encoder_space
+        self.path = index_paths.clip_sidecar_path(vault_root)
+        self._cache: _ClipCache | None = None
+        self._lock = threading.RLock()
+        #: Matrix served or loaded: the use signal the idle reaper watches.
+        self._hits = 0
+        self._vec = vecstore.SqliteVecStore("images", "vector", CLIP_DIM, "vec_images")
+        self._vec_ready: bool | None = None
+        self._vec_quant_synced = False
+        self._vec_failed = False
+
+    def _connect(self, path: Path | None = None) -> sqlite3.Connection:
+        with reserved_paths._subsystem_authority_scope("clip_index"):
+            with reserved_paths._identity_coordination_scope(
+                self.vault_root,
+                descriptor_ids=("clip-store",),
+            ):
+                return self._connect_owned(path)
+
+    def _connect_owned(self, path: Path | None = None) -> sqlite3.Connection:
+        target = path if path is not None else self.path
+        if target == self.path:
+            with reserved_paths._sqlite_owner_target_scope(
+                self.vault_root,
+                target,
+                "clip-store",
+                create=True,
+            ) as retained_target:
+                return self._connect_retained(retained_target)
+        return self._connect_retained(target)
+
+    def _connect_retained(self, target: Path) -> sqlite3.Connection:
+        sidecar_store.ensure_sidecar_parent(target)
+        conn = _sqlite_connect_owned(target)
+        sidecar_store.apply_sidecar_pragmas(conn)
+        # Multi-vector schema: one row per image (frame_ts NULL) OR one row per
+        # video keyframe (frame_ts = seconds). Composite PK keys frames within a
+        # file. SQLite treats NULL as DISTINCT in a PRIMARY KEY/UNIQUE index, so
+        # image writes use delete-then-insert rather than INSERT OR REPLACE.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS images (
+                file_path  TEXT NOT NULL,
+                frame_ts   REAL,
+                vector     BLOB NOT NULL,
+                file_mtime REAL NOT NULL,
+                PRIMARY KEY (file_path, frame_ts)
+            )
+            """
+        )
+        self._migrate_add_frame_ts(conn)
+        sidecar_store.ensure_meta_table(conn, "images", self.path.name)
+        if target == self.path:
+            try:
+                reserved_paths._publish_sqlite_owner_family(
+                    self.vault_root,
+                    target,
+                    "clip-store",
+                    conn,
+                )
+            except BaseException:
+                conn.close()
+                raise
+        return conn
+
+    def _claim_space(self, conn: sqlite3.Connection) -> None:
+        """Record the writer's space, or refuse a write that would mix two spaces."""
+        if self._encoder_space is None:
+            return
+        encoder = self._encoder_space()
+        conn.execute("CREATE TABLE IF NOT EXISTS space (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        recorded = dict(conn.execute("SELECT key, value FROM space").fetchall())
+        claimed = {key: encoder[key] for key in SPACE_KEYS}
+        if recorded:
+            current = {key: recorded.get(key) for key in SPACE_KEYS}
+        elif conn.execute("SELECT 1 FROM images LIMIT 1").fetchone() is not None:
+            current = dict(LEGACY_SPACE)
+        else:
+            current = claimed
+        if current != claimed:
+            raise ClipSpaceMismatch(f"image vectors are in {current}; the encoder writes {claimed}")
+        conn.executemany(
+            "INSERT OR IGNORE INTO space (key, value) VALUES (?, ?)",
+            [*claimed.items(), (f"artifact:{encoder['artifact']}", "written")],
+        )
+
+    def space(self) -> dict[str, str]:
+        """The recorded space and writer artifacts; an unrecorded sidecar reads as legacy."""
+        conn = self._connect()
+        try:
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='space'"
+            ).fetchone()
+            recorded = dict(conn.execute("SELECT key, value FROM space").fetchall()) if exists else {}
+        finally:
+            conn.close()
+        return recorded or dict(LEGACY_SPACE)
+
+    @staticmethod
+    def _migrate_add_frame_ts(conn: sqlite3.Connection) -> None:
+        """Upgrade a pre-existing single-vector `images` table in place."""
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(images)").fetchall()]
+        if "frame_ts" in cols:
+            return
+        with conn:
+            conn.execute(
+                """
+                CREATE TABLE images_new (
+                    file_path  TEXT NOT NULL,
+                    frame_ts   REAL,
+                    vector     BLOB NOT NULL,
+                    file_mtime REAL NOT NULL,
+                    PRIMARY KEY (file_path, frame_ts)
+                )
+                """
+            )
+            conn.execute(
+                "INSERT INTO images_new (file_path, frame_ts, vector, file_mtime) "
+                "SELECT file_path, NULL, vector, file_mtime FROM images"
+            )
+            conn.execute("DROP TABLE images")
+            conn.execute("ALTER TABLE images_new RENAME TO images")
+        log.info("ClipIndex: migrated images table to multi-vector schema (frame_ts)")
+
+    def upsert(self, rel_path: str, vector: np.ndarray, mtime: float) -> None:
+        """Store one image vector, preserving any video keyframe rows."""
+        conn = self._connect()
+        try:
+            vec_on = vec_gate(self, conn)
+            with conn:
+                self._claim_space(conn)
+                if vec_on:
+                    self._vec.dual_delete(
+                        conn, "file_path = ? AND frame_ts IS NULL", (rel_path,)
+                    )
+                conn.execute(
+                    "DELETE FROM images WHERE file_path = ? AND frame_ts IS NULL",
+                    (rel_path,),
+                )
+                conn.execute(
+                    "INSERT INTO images (file_path, frame_ts, vector, file_mtime) "
+                    "VALUES (?, NULL, ?, ?)",
+                    (rel_path, vector.astype(np.float32).tobytes(), mtime),
+                )
+                if vec_on:
+                    self._vec.dual_insert(
+                        conn, "file_path = ? AND frame_ts IS NULL", (rel_path,)
+                    )
+                sidecar_store.bump_meta(conn, "generation")
+                own_epoch, own_gen, own_instance = sidecar_store.read_meta_token(conn)
+        finally:
+            conn.close()
+        self._patch_cache(
+            rel_path,
+            [rel_path],
+            [None],
+            np.asarray(vector, dtype=np.float32).reshape(1, -1),
+            own_epoch,
+            own_gen,
+            own_instance,
+            images_only=True,
+        )
+
+    def upsert_frames(
+        self, rel_path: str, frames: list[tuple[float, np.ndarray]], mtime: float
+    ) -> None:
+        """Replace all vectors for a video with one row per keyframe."""
+        if not frames:
+            return
+        conn = self._connect()
+        try:
+            vec_on = vec_gate(self, conn)
+            with conn:
+                self._claim_space(conn)
+                if vec_on:
+                    self._vec.dual_delete(conn, "file_path = ?", (rel_path,))
+                conn.execute("DELETE FROM images WHERE file_path = ?", (rel_path,))
+                conn.executemany(
+                    "INSERT INTO images (file_path, frame_ts, vector, file_mtime) "
+                    "VALUES (?, ?, ?, ?)",
+                    [
+                        (rel_path, float(ts), vec.astype(np.float32).tobytes(), mtime)
+                        for ts, vec in frames
+                    ],
+                )
+                if vec_on:
+                    self._vec.dual_insert(conn, "file_path = ?", (rel_path,))
+                sidecar_store.bump_meta(conn, "generation")
+                own_epoch, own_gen, own_instance = sidecar_store.read_meta_token(conn)
+        finally:
+            conn.close()
+        ordered = sorted(frames, key=lambda f: f[0])
+        self._patch_cache(
+            rel_path,
+            [rel_path] * len(ordered),
+            [float(ts) for ts, _ in ordered],
+            np.stack([np.asarray(vec, dtype=np.float32) for _, vec in ordered], axis=0),
+            own_epoch,
+            own_gen,
+            own_instance,
+        )
+
+    def has_vectors(self) -> bool:
+        """Probe held read-only storage without creating or loading a matrix."""
+        try:
+            with reserved_paths._subsystem_authority_scope("clip_index"):
+                with reserved_paths._identity_coordination_scope(
+                    self.vault_root,
+                    descriptor_ids=("clip-store",),
+                    identity_may_change=False,
+                ):
+                    with reserved_paths._sqlite_owner_target_scope(
+                        self.vault_root, self.path, "clip-store", create=False,
+                    ) as target:
+                        connection = _sqlite_connect_owned(
+                            f"{target.resolve().as_uri()}?mode=ro", uri=True
+                        )
+                        try:
+                            connection.execute("PRAGMA query_only=ON")
+                            return connection.execute("SELECT 1 FROM images LIMIT 1").fetchone() is not None
+                        finally:
+                            connection.close()
+        except FileNotFoundError:
+            return False
+
+    def frame_timestamps(self, rel_path: str) -> list[float]:
+        """Read existing keyframe timestamps without creating or migrating the index."""
+
+        try:
+            with reserved_paths._subsystem_authority_scope("clip_index"):
+                with reserved_paths._identity_coordination_scope(
+                    self.vault_root,
+                    descriptor_ids=("clip-store",),
+                    identity_may_change=False,
+                ):
+                    with reserved_paths._sqlite_owner_target_scope(
+                        self.vault_root,
+                        self.path,
+                        "clip-store",
+                        create=False,
+                    ) as target:
+                        connection = _sqlite_connect_owned(
+                            f"{target.resolve().as_uri()}?mode=ro", uri=True
+                        )
+                        try:
+                            connection.execute("PRAGMA query_only=ON")
+                            rows = connection.execute(
+                                "SELECT frame_ts FROM images WHERE file_path=? "
+                                "AND frame_ts IS NOT NULL ORDER BY frame_ts, rowid",
+                                (rel_path,),
+                            ).fetchall()
+                        finally:
+                            connection.close()
+        except (FileNotFoundError, sqlite3.DatabaseError, RuntimeError):
+            return []
+        return [float(row[0]) for row in rows]
+
+    def delete(self, rel_path: str) -> None:
+        """Delete one visual key if the sidecar exists."""
+        self.purge_paths_if_present([rel_path])
+
+    def purge_paths_if_present(
+        self, rel_paths: list[str], *, connection_path: Path | None = None
+    ) -> int:
+        """Model-free, idempotent removal of stale visual-vector paths.
+
+        A policy transition must be able to evict a Record's image/video rows on
+        a machine without CLIP installed.  In particular this avoids creating a
+        missing sidecar merely to express an already-satisfied deletion.
+        """
+        paths = sorted({path for path in rel_paths if path})
+        target = connection_path if connection_path is not None else self.path
+        if not paths or not target.exists():
+            return 0
+        conn = self._connect(target)
+        try:
+            vec_on = vec_gate(self, conn)
+            with conn:
+                removed = 0
+                for rel_path in paths:
+                    exists = conn.execute(
+                        "SELECT 1 FROM images WHERE file_path = ?", (rel_path,)
+                    ).fetchone()
+                    if exists is None:
+                        continue
+                    if vec_on:
+                        self._vec.dual_delete(conn, "file_path = ?", (rel_path,))
+                    conn.execute("DELETE FROM images WHERE file_path = ?", (rel_path,))
+                    removed += 1
+                if removed:
+                    sidecar_store.bump_meta(conn, "generation")
+                    own_epoch, own_gen, own_instance = sidecar_store.read_meta_token(conn)
+        finally:
+            conn.close()
+        if removed:
+            self._purge_cache_paths(set(paths), own_epoch, own_gen, own_instance)
+        return removed
+
+    def purge_exact_persisted_rows(
+        self, values: list[str], *, connection_path: Path | None = None
+    ) -> int:
+        """Remove quarantined visual keys without filesystem routing."""
+        return self.purge_paths_if_present(values, connection_path=connection_path)
+
+    def _purge_cache_paths(
+        self,
+        paths: set[str],
+        own_epoch: int,
+        own_gen: int,
+        own_instance: int,
+    ) -> None:
+        """Drop stale visual rows from a warm matrix only when contiguous."""
+        with self._lock:
+            cached = self._cache
+            if cached is None:
+                return
+            if (
+                own_epoch != cached.epoch
+                or own_instance != cached.instance
+                or own_gen != cached.generation + 1
+            ):
+                self._cache = None
+                return
+            keep = [index for index, path in enumerate(cached.paths) if path not in paths]
+            self._cache = _ClipCache(
+                cached.epoch,
+                own_gen,
+                cached.instance,
+                cached.mtime,
+                cached.recall_policy_identity,
+                [cached.paths[index] for index in keep],
+                [cached.frame_ts[index] for index in keep],
+                cached.matrix[keep]
+                if keep
+                else np.zeros((0, CLIP_DIM), dtype=np.float32),
+            )
+
+    def purge_markdown_paths_if_present(self, markdown_paths: list[str]) -> int:
+        """Purge image keys corresponding to Markdown sidecars.
+
+        ``photo.jpg.md`` is the canonical artifact exposed to ordinary recall;
+        CLIP stores it as ``photo.jpg``.  Only a terminal ``.md`` is stripped.
+        """
+        return self.purge_paths_if_present(
+            [path.removesuffix(".md") for path in markdown_paths]
+        )
+
+    def is_recall_candidate(self, rel_path: str) -> bool:
+        """Whether a CLIP key's Markdown sidecar may enter ordinary recall."""
+        from . import recall_policy
+
+        return recall_policy.is_recall_candidate(
+            self.vault_root,
+            self.vault_root / f"{rel_path}.md",
+        )
+
+    def _patch_cache(
+        self,
+        rel_path: str,
+        new_paths: list[str],
+        new_frame_ts: list[float | None],
+        new_vecs: np.ndarray | None,
+        own_epoch: int,
+        own_gen: int,
+        own_instance: int,
+        *,
+        images_only: bool = False,
+    ) -> None:
+        """Splice one file's rows into the cached matrix when generation-contiguous."""
+        with self._lock:
+            c = self._cache
+            if c is None:
+                return
+            if own_epoch != c.epoch or own_instance != c.instance or own_gen != c.generation + 1:
+                return
+            try:
+                paths, frame_ts, matrix = c.paths, c.frame_ts, c.matrix
+                lo, hi = sidecar_store.file_block(paths, rel_path)
+                if images_only and hi > lo:
+                    keep = [j for j in range(lo, hi) if frame_ts[j] is not None]
+                    block_paths = [paths[j] for j in keep] + list(new_paths)
+                    block_ts = [frame_ts[j] for j in keep] + list(new_frame_ts)
+                    keep_mat = (
+                        matrix[keep] if keep else np.zeros((0, CLIP_DIM), dtype=np.float32)
+                    )
+                    block_parts = [keep_mat]
+                    if new_vecs is not None and new_vecs.shape[0]:
+                        block_parts.append(new_vecs)
+                else:
+                    block_paths = list(new_paths)
+                    block_ts = list(new_frame_ts)
+                    block_parts = (
+                        [new_vecs] if (new_vecs is not None and new_vecs.shape[0]) else []
+                    )
+                out_paths = paths[:lo] + block_paths + paths[hi:]
+                out_ts = frame_ts[:lo] + block_ts + frame_ts[hi:]
+                parts = [matrix[:lo], *block_parts, matrix[hi:]]
+                parts = [p for p in parts if p.shape[0]]
+                out_matrix = (
+                    np.concatenate(parts, axis=0)
+                    if parts
+                    else np.zeros((0, CLIP_DIM), dtype=np.float32)
+                )
+                if not (len(out_paths) == len(out_ts) == out_matrix.shape[0]):
+                    raise ValueError(
+                        f"CLIP splice invariant broken for {rel_path}: "
+                        f"{len(out_paths)} paths / {len(out_ts)} ts / "
+                        f"{out_matrix.shape[0]} vecs"
+                    )
+                self._cache = _ClipCache(
+                    c.epoch,
+                    own_gen,
+                    c.instance,
+                    c.mtime,
+                    c.recall_policy_identity,
+                    out_paths,
+                    out_ts,
+                    out_matrix,
+                )
+            except Exception as e:  # noqa: BLE001
+                log.warning("CLIP matrix splice failed (%s); dropping cache", e)
+                self._cache = None
+
+    def has(self, rel_path: str) -> bool:
+        """True if this file has any visual vector row."""
+        if not self.path.exists():
+            return False
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM images WHERE file_path = ?", (rel_path,)
+            ).fetchone()
+        finally:
+            conn.close()
+        return row is not None
+
+    def has_frames(self, rel_path: str) -> bool:
+        """True if this file has at least one per-keyframe vector row."""
+        if not self.path.exists():
+            return False
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM images WHERE file_path = ? AND frame_ts IS NOT NULL",
+                (rel_path,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return row is not None
+
+    def all_vectors(self) -> tuple[list[str], list[float | None], np.ndarray]:
+        """Return parallel `(file_paths, frame_ts, matrix)` arrays."""
+        if not self.path.exists():
+            return [], [], np.zeros((0, CLIP_DIM), dtype=np.float32)
+        from . import recall_policy
+
+        policy_identity = recall_policy.recall_policy_identity(self.vault_root)
+        c = self._cache
+        served = (
+            sidecar_store.try_serve_cached(c, self.path)
+            if c is not None and c.recall_policy_identity == policy_identity
+            else None
+        )
+        if served is not None:
+            self._hits += 1
+            return served.paths, served.frame_ts, served.matrix
+        with self._lock:
+            c = self._cache
+            served = (
+                sidecar_store.try_serve_cached(c, self.path)
+                if c is not None and c.recall_policy_identity == policy_identity
+                else None
+            )
+            if served is not None:
+                self._hits += 1
+                return served.paths, served.frame_ts, served.matrix
+            # Keep this call zero-argument: cache tests and production probes
+            # deliberately wrap the named full-reload seam.
+            loaded = self._load_all_rows()
+            log.info(
+                "CLIP matrix full load: reason=%s rows=%d gen=%d epoch=%d",
+                sidecar_store.reload_reason(c, loaded.epoch, loaded.generation),
+                len(loaded.paths),
+                loaded.generation,
+                loaded.epoch,
+            )
+            self._cache = loaded
+            self._hits += 1
+            return loaded.paths, loaded.frame_ts, loaded.matrix
+
+    def unload_cache(self) -> bool:
+        """Drop the resident CLIP matrix cache without deleting sidecar rows."""
+        with self._lock:
+            loaded = self._cache is not None
+            self._cache = None
+            return loaded
+
+    def cache_status(self) -> dict:
+        """Best-effort residency status for this in-memory matrix only."""
+        c = self._cache
+        if c is None:
+            return {"loaded": False, "rows": 0, "bytes": 0, "hits": self._hits}
+        return {
+            "loaded": True,
+            "hits": self._hits,
+            "rows": len(c.paths),
+            "bytes": int(c.matrix.nbytes),
+            "epoch": c.epoch,
+            "generation": c.generation,
+        }
+
+    def _load_all_rows(self, policy_identity: tuple[str, str] | None = None) -> _ClipCache:
+        """Full reload from `.clip.sqlite` under one read transaction."""
+        if policy_identity is None:
+            from . import recall_policy
+
+            policy_identity = recall_policy.recall_policy_identity(self.vault_root)
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN")
+            try:
+                epoch, gen, instance = sidecar_store.read_meta_token(conn)
+                rows = conn.execute(
+                    "SELECT file_path, frame_ts, vector FROM images "
+                    "ORDER BY file_path, frame_ts"
+                ).fetchall()
+            finally:
+                conn.rollback()
+        finally:
+            conn.close()
+        try:
+            mtime = self.path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        if not rows:
+            return _ClipCache(
+                epoch,
+                gen,
+                instance,
+                mtime,
+                policy_identity,
+                [],
+                [],
+                np.zeros((0, CLIP_DIM), dtype=np.float32),
+            )
+        paths = [r[0] for r in rows]
+        frame_ts = [r[1] for r in rows]
+        matrix = np.stack([np.frombuffer(r[2], dtype=np.float32) for r in rows], axis=0)
+        return _ClipCache(
+            epoch, gen, instance, mtime, policy_identity, paths, frame_ts, matrix
+        )
+
+    @staticmethod
+    def cache_token(vault_root: Path) -> tuple[int, int, int]:
+        """Read-only `(epoch, generation, instance)` token for `.clip.sqlite`."""
+        return sidecar_store.sidecar_cache_token(index_paths.clip_sidecar_path(vault_root))
+
+    def _vec_search(
+        self, query_vec: np.ndarray, k: int
+    ) -> list[tuple[str, float | None, float]] | None:
+        """sqlite-vec KNN, or None when the backend cannot serve."""
+        if self._vec_failed or vecstore.backend() == "numpy" or vecstore.load_failed():
+            return None
+        if not self.path.exists():
+            return None
+        try:
+            conn = self._connect()
+            try:
+                if not vec_gate(self, conn):
+                    return None
+                quant = vecstore.quant_mode() == "binary"
+                pairs = self._vec.knn(conn, query_vec, k, quant=quant)
+                if not pairs:
+                    return []
+                ids = [rid for rid, _ in pairs]
+                placeholders = ",".join("?" * len(ids))
+                rows = conn.execute(
+                    "SELECT rowid, file_path, frame_ts FROM images "
+                    f"WHERE rowid IN ({placeholders})",
+                    ids,
+                ).fetchall()
+                by_id = {r[0]: r for r in rows}
+                return [
+                    (by_id[rid][1], by_id[rid][2], score)
+                    for rid, score in pairs
+                    if rid in by_id
+                ]
+            finally:
+                conn.close()
+        except Exception as e:  # noqa: BLE001
+            log.warning(
+                "vec search failed for %s (%s); falling back to the in-memory scan",
+                self.path,
+                e,
+            )
+            self._vec_failed = True
+            return None
+
+    def search(
+        self,
+        query_vec: np.ndarray,
+        k: int,
+        *,
+        allowed_paths: set[str] | None = None,
+    ) -> list[tuple[str, float | None, float]]:
+        """Top-k visual hits: `(file_path, frame_ts, score)` by cosine similarity."""
+        if allowed_paths is None:
+            vec_hits = self._vec_search(query_vec, k)
+            if vec_hits is not None:
+                return vec_hits
+        return self._brute_force(query_vec, k, allowed_paths, None).hits
+
+    def search_above_chance(
+        self,
+        query_vec: np.ndarray,
+        k: int,
+        *,
+        allowed_paths: set[str] | None,
+        alpha: float,
+        min_population: int,
+    ) -> ClipSearch:
+        """`search`, keeping only the images whose similarity clears the chance maximum.
+
+        The chance level is measured from every indexed image, not from `allowed_paths`: a
+        filter chooses which images may be returned, and does not change what an unrelated
+        match scores. The in-memory scan alone sees that whole population. The KNN backend
+        returns k rows, so it is never used here and the band is never bypassed. An alpha
+        outside (0, 1) has no chance level, so it switches the band off instead of failing
+        the lane.
+        """
+        band = (alpha, min_population) if 0.0 < alpha < 1.0 else None
+        return self._brute_force(query_vec, k, allowed_paths, band)
+
+    def _brute_force(
+        self,
+        query_vec: np.ndarray,
+        k: int,
+        allowed_paths: set[str] | None,
+        band: tuple[float, int] | None,
+    ) -> ClipSearch:
+        paths, frame_ts, matrix = self.all_vectors()
+        if not paths:
+            return ClipSearch([], 0, "not_attempted")
+        scores = matrix @ query_vec.astype(np.float32, copy=False)
+        rows = np.arange(len(paths))
+        if allowed_paths is not None:
+            rows = np.array([i for i, path in enumerate(paths) if path in allowed_paths], dtype=np.intp)
+        wanted = min(k, len(rows))
+        if wanted <= 0:
+            return ClipSearch([], 0, "not_attempted")
+        in_rows = scores[rows]
+        top = np.argpartition(-in_rows, wanted - 1)[:wanted]
+        window = [int(i) for i in rows[top[np.argsort(-in_rows[top])]]]
+        state = "off"
+        cleared = None
+        if band is not None:
+            cleared = chance_band.semantic_band(scores, alpha=band[0], min_population=band[1])
+            state = "uncalibrated" if cleared is None else "applied"
+        kept = window if cleared is None else [i for i in window if i in cleared]
+        withheld = {paths[i] for i in window} - {paths[i] for i in kept}
+        return ClipSearch([(paths[i], frame_ts[i], float(scores[i])) for i in kept], len(withheld), state)

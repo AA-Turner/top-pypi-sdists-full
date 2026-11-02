@@ -1,0 +1,396 @@
+"""The DTLS transport extension: a direct DTLS 1.3 session
+binding (a binding of protocol version 1).
+
+Config (handed over by the runner):
+    transport_dtls block:
+        port    UDP port to listen on (default 20220; 0 asks
+                the kernel for a free port)
+        bind    local address to bind (default "0.0.0.0" --
+                this transport LISTENS, unlike the others;
+                it is off unless enabled in `transports`)
+        Either one present but not usable (a port that is not
+        a whole number 0..65535, a bind that is not an address
+        string) is a startup config error: the extension
+        refuses to start and names the key. An address is
+        never substituted (docs/design/present-but-invalid-
+        config.md, the refuse class).
+    dtls_greeting (top-level runner key, handed over for this
+    extension): the platform disclosure tier --
+        none / family (default) / standard / full
+    shared_secret, additional_secrets: handed over ONLY to
+    this extension, because this pipe does not merely carry
+    envelopes -- it terminates DTLS-PSK authentication with
+    the secret itself. With no secret handed over the
+    extension refuses to start: there is nothing to
+    authenticate with.
+
+The session profile lives in runner/wire/dtlsproto.py: DTLS 1.3,
+one ciphersuite, PSK-only, psk_dhe_ke only (perfect forward
+secrecy is enforced, never negotiated away), a stateless
+cookie exchange before any state exists, Connection IDs so a
+NAT rebinding keeps the session. The handshake authenticates
+the peer; the job inside still faces the runner core's HMAC
+verification like every other transport's jobs -- channel
+security is a second gate, not a replacement, and channel
+security is not delivery (ack/dedup stays the protocol's
+seen-set, in the core).
+
+The runner side puts its platform disclosure, tiered by
+dtls_greeting, in a configuration-style extension in the
+server's EncryptedExtensions. The pattern is lifted from
+IKEv2's Configuration Payload (RFC 7296, section 3.15): the
+information rides the final handshake flight, so the SI holds
+it when the session is established and no post-handshake
+greeting message follows. The SI initiates the session; the
+responder chooses what it discloses; the client cannot widen
+it. Jobs are accepted only on established sessions.
+
+Results are session-bound: a result that lands after its
+session is gone cannot go out on that session. The file stays.
+The SI re-asks on a fresh session, that session is remembered
+against the job, and the result goes out then. Acking it into
+done/ here threw the only copy away, and the seen-set would
+not run the job again.
+"""
+
+import json
+import os
+import platform
+import re
+import select
+import shutil
+import socket
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
+
+from runner.wire import dtlsproto  # noqa: E402
+from runner.wire import platformcard as _platformcard  # noqa: E402
+from runner.wire import verify as _verify  # noqa: E402
+from runner.wire import subject as _subject  # noqa: E402
+from runner.guard import security as _security  # noqa: E402
+from runner.guard import confval as _confval  # noqa: E402
+from runner.transport_extensions import channel as ch  # noqa: E402
+
+DEFAULT_PORT = 20220
+GREETING_TIERS = _platformcard.TIERS
+_JOB_ID_RE = _subject.JOB_ID_RE  # the one grammar (Q121)
+
+
+def build_platform_payload(tier, cfg=None):
+    """The platform disclosure object for a tier, as bytes for
+    the platform-configuration extension in the server's
+    EncryptedExtensions. The extension goes out at every tier;
+    at `none` it carries the disclosure tier and no `platform`
+    member, while the other tiers decide how much platform
+    information rides in that member. The card is the one a
+    ping's result carries (runner/wire/platformcard.py), so the
+    two bindings describe the box the same way."""
+    obj = {"type": "greeting", "transport": "dtls", "v": 1,
+           "disclosure": tier}
+    versions = [1]
+    if isinstance(cfg, dict) and cfg.get("protocol_v2") is True:
+        versions.append(2)
+    card = _platformcard.build_card(tier, cfg, protocol_versions=versions)
+    if card:
+        card = dict(card)
+        card.pop("disclosure", None)
+        obj["platform"] = card
+    return (json.dumps(obj, sort_keys=True) + "\n").encode("utf-8")
+
+
+# Compatibility name for callers written when this object was
+# delivered as an application message. The bytes are the same;
+# their carriage is now the handshake extension above.
+build_greeting = build_platform_payload
+
+
+def directory_lookup(cfg, lookup, log=None, now=time.time):
+    """The PSK lookup under the key directory (PROTOCOL.md section
+    14.3, Q114): an identity whose key the directory refuses answers
+    None, so the handshake fails as an unknown identity would, and a
+    resumption ticket issued under that key stops resuming by the
+    same lookup (Q110). No directory configured leaves the lookup as
+    it was. The directory is read at each lookup, so a state change
+    holds from the next handshake, no restart; one that cannot be
+    read admits nothing, and says so."""
+    secrets = {"": cfg.get("shared_secret") or ""}
+    for key_id, secret in (cfg.get("additional_secrets") or {}).items():
+        if isinstance(key_id, str) and isinstance(secret, str):
+            secrets[key_id] = secret
+    say = log or (lambda msg, level="INFO": None)
+
+    def look(identity):
+        secret = lookup(identity)
+        if secret is None:
+            return None
+        key_id = dtlsproto.key_id_for(identity)
+        if key_id is None:
+            return None
+        try:
+            directory = _verify.load_key_directory(cfg)
+        except Exception as e:
+            say(f"dtls: key directory unreadable: {e}; handshake refused",
+                "WARN")
+            return None
+        verdict = _verify.key_directory_verdict(directory, secrets, key_id,
+                                                now())
+        if verdict:
+            say(f"dtls: key {key_id or 'default'!s} refused by the key "
+                f"directory: {verdict}", "WARN")
+            return None
+        return secret
+
+    return look
+
+
+def _psk_floor_problem(cfg):
+    """None when every PSK this pipe would terminate with
+    clears the shared-secret entropy floor (draft Section
+    19.2), else a loggable reason naming the offender. The
+    core validates the same values at startup; this pipe is
+    the endpoint that authenticates with them, so it checks
+    what it was handed too -- a runtime config written by
+    anything else must not talk it into a weak PSK."""
+    candidates = [("shared_secret", cfg.get("shared_secret"))]
+    extra = cfg.get("additional_secrets")
+    if isinstance(extra, dict):
+        for kid in sorted(extra, key=str):
+            candidates.append(
+                (f"additional_secrets[{kid!r}]", extra[kid]))
+    for label, value in candidates:
+        if not isinstance(value, str) or not value:
+            continue
+        try:
+            _security.validate_shared_secret(value)
+        except RuntimeError as e:
+            return f"{label}: {e}"
+    return None
+
+
+def greeting_tier(cfg):
+    """The platform disclosure tier: dtls_greeting, default family."""
+    raw = cfg.get("dtls_greeting") if isinstance(cfg, dict) else None
+    return _confval.choice(raw, GREETING_TIERS, "family")
+
+
+def _shown(value):
+    """A value for an error message: its repr, cut to one line."""
+    text = repr(value)
+    return text if len(text) <= 40 else text[:37] + "..."
+
+
+def listen_port(cfg):
+    """transport_dtls.port: default 20220 when absent; a config error
+    when present but not a whole number 0..65535 (a numeric string
+    is read, a boolean, null, inf or an out-of-range value is not)."""
+    if not isinstance(cfg, dict) or "port" not in cfg:
+        return DEFAULT_PORT
+    raw = cfg["port"]
+    port = _confval.integer(raw, None, lo=0, hi=65535)
+    if port is None or (not isinstance(raw, str)
+                        and port != raw):
+        raise RuntimeError(
+            "config error: transport_dtls.port must be a whole number "
+            "0..65535, not %s" % _shown(raw))
+    return port
+
+
+def bind_address(cfg):
+    """transport_dtls.bind: default 0.0.0.0 when absent; a config
+    error when present but not an address string. The empty
+    string is every interface."""
+    if not isinstance(cfg, dict) or "bind" not in cfg:
+        return "0.0.0.0"
+    raw = cfg["bind"]
+    if not isinstance(raw, str):
+        raise RuntimeError(
+            "config error: transport_dtls.bind must be an address "
+            "string, not %s" % _shown(raw))
+    return raw.strip() or "0.0.0.0"
+
+
+class DtlsPipe:
+    """One UDP listener, one DtlsServerCore, one channel."""
+
+    def __init__(self, cfg, channel_dir):
+        self.cfg = cfg
+        self.channel = channel_dir
+        # docs/oracle/configuring-oracle.md: dtls_greeting default family
+        # (a value that is not a tier reads as the default), and
+        # transport_dtls.port default 20220, bind default 0.0.0.0
+        # when the key is absent. The port and the bind address are
+        # addressing values, the refuse class of
+        # docs/design/present-but-invalid-config.md: present but not
+        # usable is a config error that names the key, never a
+        # substituted address ("2O220" must not listen on 20220).
+        # Port 0 is usable: it asks the kernel for a free port. An
+        # empty bind is every interface, as the socket API reads it.
+        self.tier = greeting_tier(cfg)
+        self.port = listen_port(cfg)
+        self.bind = bind_address(cfg)
+        lookup = directory_lookup(cfg, dtlsproto.make_secret_lookup(
+            cfg.get("shared_secret"), cfg.get("additional_secrets")),
+            log=ch.log)
+        self.core = dtlsproto.DtlsServerCore(
+            secret_lookup=lookup,
+            platform_for=lambda session: build_platform_payload(
+                self.tier, self.cfg),
+            log=ch.log)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # bind is config, default every interface. This is how jobs arrive.
+        # codeql[py/bind-socket-all-network-interfaces]
+        self.sock.bind((self.bind, self.port))
+        self.sock.setblocking(False)
+        self.job_session = {}        # job ident -> session id
+        # Idents we already logged as waiting for a session, so a
+        # pass every tenth of a second does not say it again.
+        self._waiting_session = set()
+
+    # -- one pass -----------------------------------------------------
+
+    def run_once(self, now=None):
+        now = time.monotonic() if now is None else now
+        try:
+            ready, _, _ = select.select([self.sock], [], [], 0.1)
+        except (OSError, ValueError):
+            ready = []
+        if ready:
+            try:
+                data, addr = self.sock.recvfrom(65535)
+            except OSError:
+                data = None
+            if data:
+                for dg in self.core.feed(data, addr, now):
+                    self._send(dg, addr)
+        for addr, dg in self.core.tick(now):
+            self._send(dg, addr)
+        self._drain_events()
+        self._pump_results()
+
+    def _send(self, datagram, addr):
+        try:
+            self.sock.sendto(datagram, addr)
+        except OSError as e:
+            ch.log(f"dtls transport: send to {addr} failed: {e}",
+                   "WARN")
+            return False
+        return True
+
+    def _drain_events(self):
+        events, self.core.events = self.core.events, []
+        for event in events:
+            if event[0] == "established":
+                info = event[2]
+                ch.log(f"dtls transport: session established "
+                       f"with {info.get('addr')} "
+                       f"(identity {info.get('identity')!r}, "
+                       f"resumed={info.get('resumed')}); platform "
+                       f"payload carried in the handshake at "
+                       f"tier {self.tier}")
+            elif event[0] == "app":
+                self._on_job(event[1], event[2])
+
+    def _on_job(self, session_id, message):
+        try:
+            text = message.decode("utf-8")
+        except UnicodeDecodeError:
+            ch.log("dtls transport: job message is not UTF-8; "
+                   "dropped", "WARN")
+            return
+        parsed = ch.parse_envelope(text)
+        if parsed is None:
+            ch.log("dtls transport: job message is not an "
+                   "envelope; dropped", "WARN")
+            return
+        subject, body = parsed
+        m = _JOB_ID_RE.search(subject or "")
+        ident = m.group(1) if m else None
+        if not ident:
+            ch.log("dtls transport: job envelope carries no job "
+                   "id in its subject; dropped", "WARN")
+            return
+        ch.deliver_job(self.channel, ident, subject, body)
+        self.job_session[ident] = session_id
+        ch.log(f"dtls transport: job {ident} delivered to the "
+               "runner core")
+
+    def _pump_results(self):
+        for fname, subject, body in ch.pending_results(
+                self.channel):
+            ident = ch.result_file_id(fname) or fname
+            session_id = self.job_session.get(ident)
+            text = ch.envelope(subject, body)
+            if body and not body.endswith("\n"):
+                text += "\n"
+            sent = []
+            if session_id is not None:
+                sent = self.core.send_app(
+                    session_id, text.encode("utf-8"))
+            delivered = bool(sent) and all(
+                self._send(dg, addr) for addr, dg in sent)
+            if not delivered:
+                # No session, or the datagram did not leave. The
+                # file is the only copy. The peer comes back on a
+                # fresh session and this pass sends it then.
+                if ident not in self._waiting_session:
+                    ch.log(f"dtls transport: result for {ident} "
+                           "is not on a session yet; it stays "
+                           "until the peer is back", "WARN")
+                    self._waiting_session.add(ident)
+                continue
+            self._waiting_session.discard(ident)
+            ch.ack_result(self.channel, fname)
+            ch.log(f"dtls transport: result for {ident} sent")
+
+
+def main(argv=None):
+    argv = list(sys.argv if argv is None else argv)
+    channel_dir, cfg = ch.load_runtime_config(argv)
+    if not channel_dir:
+        ch.log("dtls transport: no channel directory given",
+               "ERROR")
+        return 2
+    if not cfg.get("shared_secret"):
+        ch.log("dtls transport: no shared_secret was handed "
+               "over; the shared secret is this transport's "
+               "PSK -- there is nothing to authenticate with, "
+               "so the extension will not start", "ERROR")
+        return 2
+    tier = greeting_tier(cfg)
+    raw_tier = cfg.get("dtls_greeting", "family")
+    if raw_tier != tier:
+        ch.log(f"dtls transport: dtls_greeting must be one of "
+               f"{GREETING_TIERS}, not {raw_tier!r}; using the "
+               f"default tier {tier}", "WARN")
+    problem = _psk_floor_problem(cfg)
+    if problem is not None:
+        ch.log(f"dtls transport: refusing to start -- {problem}",
+               "ERROR")
+        return 2
+    try:
+        pipe = DtlsPipe(cfg, channel_dir)
+    except RuntimeError as e:
+        # The refuse class: a port or bind present but not usable.
+        # Named, and the extension does not start (the supervisor
+        # sees exit 2, the operator sees the key).
+        ch.log(f"dtls transport: refusing to start -- {e}", "ERROR")
+        return 2
+    except (OSError, TypeError, ValueError) as e:
+        ch.log(f"dtls transport: cannot listen: {e!r}", "ERROR")
+        return 2
+    ch.log(f"dtls transport: listening on udp "
+           f"{pipe.bind}:{pipe.port}; platform disclosure "
+           f"tier {tier}")
+    while True:
+        try:
+            pipe.run_once()
+        except Exception as e:  # a session must never kill it
+            ch.log(f"dtls transport: pass failed: {e!r}", "ERROR")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -25,10 +25,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_record
-from probe.cli import import_agent_settings as settings_mod
-from probe.cli.import_agent_settings import ENV_VAR, Lane, Meter, Source
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.record import record as backfill_record
+from probe.cli.imports import agent_settings as settings_mod
+from probe.cli.imports.agent_settings import ENV_VAR, Lane, Meter, Source
 
 pytestmark = pytest.mark.usefixtures("real_import_agent_settings")
 
@@ -116,7 +116,8 @@ _MAIN_MODEL = {  # what each lane sent before settings existed (the claims draft
 ])
 @pytest.mark.parametrize("agent", [bf.Agent.CLAUDE, bf.Agent.CODEX])
 def test_every_failed_read_launches_exactly_as_before(monkeypatch, answer, agent):
-    monkeypatch.setattr(bf, "codex_features", lambda binary: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(bf.agents.argv, "codex_features", lambda binary: None)
     agents = _resolve(_Client(answer), agent)
     assert agents.version is None
     for lane in Lane:
@@ -244,10 +245,15 @@ def test_the_degraded_note_names_a_settings_flag_only_when_this_import_sends_it(
     binary = tmp_path / "claude"
     binary.write_text(f"#!/bin/sh\ncat <<'H'\n{help_text}\nH\n")
     binary.chmod(0o755)
-    monkeypatch.setattr(bf, "which_agent", lambda agent: str(binary))
-    monkeypatch.setattr(bf, "supported_flags", lambda b, agent=None: frozenset({"--model"}))
-    monkeypatch.setattr(bf, "unsupported_flags", lambda agent, b: ([], []))
-    monkeypatch.setattr(bf, "_agent_version_cached", lambda b: None)
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: str(binary))
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: str(binary))
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: str(binary))
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: str(binary))
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda b, agent=None: frozenset({"--model"}))
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda b, agent=None: frozenset({"--model"}))
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda b, agent=None: frozenset({"--model"}))
+    monkeypatch.setattr(bf.agents.flags, "unsupported_flags", lambda agent, b: ([], []))
+    monkeypatch.setattr(bf.agents.flags, "_agent_version_cached", lambda b: None)
     with_effort = _resolve(_server({"claude": {"import": {"effort": "low"}}}), bf.Agent.CLAUDE)
     assert "--effort" in bf.degraded_note(bf.Agent.CLAUDE, with_effort.flags())
     without = _resolve(_server({}), bf.Agent.CLAUDE)
@@ -270,7 +276,7 @@ def harness(tmp_path, monkeypatch):
         launched.append(kwargs)
         return real(folder, prompt, **kwargs)
 
-    monkeypatch.setattr(bf, "launch_agent", spy)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", spy)
     monkeypatch.setattr(settings_mod, "_read_server",
                         lambda client: ({"claude": {"import": {"effort": "low"}}}, "v9"))
     h.launched = launched
@@ -289,14 +295,15 @@ def test_the_foreground_import_runs_its_units_at_the_servers_setting(harness):
 def test_a_background_job_reads_them_itself_and_meters_into_the_attempt(tmp_path, monkeypatch, harness):
     from contextlib import nullcontext
 
-    from probe.cli import backfill_import as imp
-    from probe.cli import import_jobs
+    from probe.cli.imports.folder import flow as imp
+    from probe.cli.imports import jobs as import_jobs
     from probe.sdk.delivery import journal
 
     queued = []
-    monkeypatch.setattr(import_jobs, "enqueue", lambda **kw: queued.append(
+    monkeypatch.setattr(import_jobs.jobs, "enqueue", lambda **kw: queued.append(
         json.loads(json.dumps(kw["payload"]))) or {"id": "job-1"})
-    monkeypatch.setattr(imp, "_background_client", lambda payload: nullcontext(harness.client))
+    monkeypatch.setattr(imp.background_job, "_background_client", lambda payload: nullcontext(harness.client))
+    monkeypatch.setattr(imp.auto_import, "_background_client", lambda payload: nullcontext(harness.client))
     monkeypatch.setattr(harness.client, "flush", lambda **kwargs: journal.drain(
         harness.client.journal, client_factory=lambda _: harness.remote, **kwargs))
     harness.run(background=True)
@@ -309,13 +316,15 @@ def test_a_background_job_reads_them_itself_and_meters_into_the_attempt(tmp_path
 
 
 def test_the_worker_hands_its_attempt_meter_to_the_folder_lane(monkeypatch):
-    from probe.cli import backfill_import as imp
-    from probe.cli import import_jobs
+    from probe.cli.imports.folder import flow as imp
+    from probe.cli.imports import jobs as import_jobs
 
     seen = []
-    monkeypatch.setattr(imp, "run_background_job",
+    monkeypatch.setattr(imp.background_job, "run_background_job",
+                        lambda payload, *, progress, meter=None: seen.append(meter) or [])
+    monkeypatch.setattr(imp.auto_import, "run_background_job",
                         lambda payload, *, progress, meter=None: seen.append(meter) or [])
     meter = Meter()
-    monkeypatch.setattr(import_jobs, "_attempt_meter", meter)
+    monkeypatch.setattr(import_jobs.runner, "_attempt_meter", meter)
     import_jobs._dispatch(import_jobs.Kind.FOLDER, {}, lambda *a, **k: None)
     assert seen == [meter]

@@ -1,0 +1,661 @@
+#!/usr/bin/env python3
+"""Stop + PostToolUse hook: act at the context limit before the harness compacts the session.
+
+Two modes (`context_mode`). COMPACT, the default: shortly before the harness auto-compacts, ask the
+session to save a checkpoint (OPEN-WORK.md plus handover.md) and keep working; compact-resume.py
+hands the checkpoint back after the compaction. The harness compacts about 33k tokens below
+CLAUDE_CODE_AUTO_COMPACT_WINDOW (measured, see _HARNESS_RESERVE), so that variable must hold the
+context limit, and the request says so when it does not. The request goes out on PostToolUse as
+well as on Stop, because a long autonomous turn can pass both the save point and the compaction
+without stopping once - probe-verified on 2.1.310, where five compactions ran inside one turn and
+the turn carried on after each. HANDOVER: offer a handover plus /clear at the limit instead (Stop
+only), as before compact mode existed; everything below about rot and thresholds applies to both.
+
+A long session gets worse before it gets full, and nothing says so. Chroma's 2025 study measured
+accuracy falling from roughly 300-400k tokens on a 1M window and from about 50k on a 200k one, with
+the lost-in-the-middle effect costing 30% or more on retrieval. Left alone, Claude Code's own
+auto-compact does not act until close to the full window (the model-config docs put its default
+auto-compact window on a 1M model at about 967k); CLAUDE_CODE_AUTO_COMPACT_WINDOW moves it. So there is a long stretch where the
+session is measurably worse than it reads, and when the harness finally does act it COMPACTS, which
+keeps a summary and drops the working detail - unless that detail was saved first.
+
+This repo already handles compaction, but only in retrospect: `PreCompact` salvages learning signals
+and `PostCompact` nudges `meta-dream-nap` to tidy MEMORY. Neither watches context approaching the
+wall, and neither writes down TASK STATE - the nap deliberately prunes that as noise.
+
+HOW THE SIZE IS MEASURED, which is the part that had to be discovered rather than assumed. NO hook
+event carries a token count: the only token fields in the whole hook contract are `max_output_tokens`
+as a StopFailure error type and a subagent's `totalTokens`, neither of which is session context. But
+the transcript records real per-request usage, so the last record carrying `message.usage` gives
+
+    input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+
+which is the context that request actually carried - a measurement, not a bytes/4 proxy. It also
+self-corrects after a compaction, because the next request's usage drops on its own.
+
+THE WINDOW comes from the model FAMILY, which `message.model` carries on every assistant record.
+That id never includes Claude Code's `[1m]` suffix, and it does not need to: measured across 1485
+local transcripts, every non-haiku family has actually carried far more than a 200K window can hold
+(opus-5 999,946; opus-4-8 999,911; fable-5 997,450; sonnet-5 665,313), while haiku peaked at
+119,393. The peaks stopping just under 1,000,000 is the window boundary showing itself in the data.
+So the family settles it: opus, fable, sonnet and mythos are 1M; haiku 4.5 is 200K. Haiku 5 is 1M:
+its `claude -p` modelUsage reports contextWindow 1000000, and its transcripts carry requests above
+200K.
+
+A family the TABLE has not met - a gateway model like glm-5.3 behind ANTHROPIC_BASE_URL - must not
+land on the 200K default, because that errs LARGE for a model actually running 1M: the ask fires at
+140K and then the misconfigured check sees 200K < 1M so nothing catches the stale default either -
+the silent-inert failure this hook exists to prevent. For exactly that case Claude Code defines
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS` (model-config docs, "correct the window for a gateway or custom
+model id"): the launcher declares the real window because the API advertises none. Probe-verified
+on 2.1.269: the variable reaches a Stop hook's subprocess environment, and the bitranox glm
+launcher (claude_on_inco/claude-glm.sh) sets it to 1,000,000. It is read ONLY for a family the
+table does not know - for a known family the table wins, so a stale globally-exported value cannot
+silently override a measured family window.
+
+THE ASSUMPTION IN THAT TABLE, stated because its failure is silent. Those transcripts come from ONE
+machine and one account tier, so the table asserts that current opus, fable, sonnet and mythos run
+1M for EVERYONE. If some tier or plan runs a 200K opus, that session gets a 400K threshold it can
+never reach - it would compact near 166K - and the misconfigured check below cannot catch it either,
+because 166K is far under the 1M being assumed. The symptom is the hook simply never speaking, which
+is the symptom nobody reports.
+
+The remedy is `context_window`: setting it to a real token count overrides the table entirely. A
+deliberate trade - the alternative was to assume 200K until each session proved otherwise, which is
+correct for every tier but asks early on every genuine 1M session.
+
+For a model OUTSIDE the table entirely (a gateway id like glm-5.3) the fallback is not a guess but
+the launcher's own declaration: `CLAUDE_CODE_MAX_CONTEXT_TOKENS` names the window precisely because
+the API behind a custom model id advertises none (model-config docs). That leg answers only when
+the family is unknown - see the window paragraph above for why.
+
+When the measured context exceeds the window in use, that IS reported rather than ignored - a
+threshold nothing can cross is indistinguishable from a watcher that works. It catches an
+over-large explicit knob; it cannot catch an over-large assumption, per the paragraph above.
+
+THE THRESHOLD is min(percentage of the window, absolute cap), because the two research findings
+disagree on a big window and both are worth honouring. The percentage leg keeps a cushion below
+auto-compact so there is room to actually write the handover; the absolute leg catches the case the
+percentage misses entirely - a 1M session sailing past the measured rot onset while only 40% full.
+
+PROVENANCE OF THE 400k CAP, stated plainly because it gates an interruption: it is one published
+finding (Chroma's 2025 context-rot study, which measured accuracy falling from roughly 300-400k on a
+1M window) read second-hand from a summary, not something measured here. It is wrong in the safe
+direction - too low means asking early, which costs a decline - and the knob exists to move it.
+
+RE-ASKS are spaced by 10% of the window rather than happening once. A decline at 40% is "not yet",
+not "never", and by 90% the question has changed from "quality is drifting" to "the harness is about
+to discard detail". Yields entirely when a post-compaction nap is already owed: the Stop gate
+refuses to stop on that obligation and stacking a second block would make the two fight over the
+same turn. Fail-open on every error path - a broken watcher must never wedge a turn.
+
+Pure standard library, ASCII only; launched via run-python.sh so it works on Windows too.
+"""
+
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+import self_improve_signals as sig
+
+# Enough tail to reach a recent assistant record even when the last turn wrote a large tool result,
+# while staying a single bounded read on a multi-megabyte transcript.
+_TAIL_BYTES = 2 * 1024 * 1024
+
+_DEFAULT_WINDOW = 200_000
+_RE_ASK_FRACTION = 10           # re-ask each time context grows another 1/10th of the window
+
+# Context window per model FAMILY, matched on the id `message.model` carries. Measured over 1485
+# local transcripts rather than inferred: every non-haiku family has carried far more than a 200K
+# window could hold, and the observed peaks stop just under 1,000,000. Claude Code's `[1m]` suffix
+# appears in `~/.claude.json` but never in `message.model`, and it turns out to be redundant - the
+# current families run 1M regardless. Source for the roster: the bundled `claude-api` skill's model
+# table (cached 2026-06-24).
+# Haiku splits by generation: haiku 5 reports contextWindow 1000000 in a `claude -p` modelUsage
+# record and has carried requests above 200K, while haiku 4.5 never has. The first matching prefix
+# wins, so the haiku-5 row must sit ahead of the generic haiku one.
+_FAMILY_WINDOWS = (("claude-fable", 1_000_000), ("claude-mythos", 1_000_000),
+                   ("claude-opus", 1_000_000), ("claude-sonnet", 1_000_000),
+                   ("claude-haiku-5", 1_000_000), ("claude-haiku", 200_000),
+                   ("oss-128k", 128_000))
+
+# What the launcher declared for a model the family table has not met. Read only in that case -
+# see the module docstring for why a known family ignores it.
+_ENV_MAX_CONTEXT = "CLAUDE_CODE_MAX_CONTEXT_TOKENS"
+
+# The harness's own auto-compact window. Probe-verified on 2.1.310: an `env` block in settings.json
+# sets it for the session AND reaches a hook's environment, so the hook can check it is aligned.
+_ENV_COMPACT_WINDOW = "CLAUDE_CODE_AUTO_COMPACT_WINDOW"
+# How far BELOW that window the harness actually compacts. Measured with scripted probes on 2.1.310
+# at windows of 100k and 200k: compaction fired at estimated contexts of 69-99k and 166-178k, while
+# requests of 84k and 171k still went through - a fixed reserve of roughly 33k, not a percentage.
+_HARNESS_RESERVE = 33_000
+# The least room left between the checkpoint request and that compaction point. One tool result
+# added up to 42k in the same probes, so a smaller gap can let the compaction overtake the save.
+_SAVE_MARGIN_MIN = 40_000
+
+
+def window_for_model(model_id, environ=None) -> int:
+    """The context window this model family runs. PURE.
+
+    A family the table knows answers from the table alone - the environment is not consulted for
+    it, so a globally-exported `CLAUDE_CODE_MAX_CONTEXT_TOKENS` left over from another model can
+    never override a measured family window. An UNKNOWN family (a gateway model id the table has
+    not met) reads that variable when the caller passes an environment mapping, because the
+    launcher set it precisely to declare this model's window; only when even that is absent does it
+    fall back to 200K, which errs SMALL on purpose: too small asks early and costs a decline, while
+    too large sets a threshold the session can never reach and the hook goes silently inert - the
+    failure this whole check exists to prevent.
+    """
+    mid = str(model_id or "").lower()
+    if mid.endswith("[1m]"):                  # `~/.claude.json` spells it this way; harmless here
+        mid = mid[:-4]
+    for prefix, window in _FAMILY_WINDOWS:
+        if mid.startswith(prefix):
+            return window
+    if environ is not None:
+        declared = _env_max_context(environ)
+        if declared:
+            return declared
+    return _DEFAULT_WINDOW
+
+
+def _env_max_context(environ) -> int:
+    """The window a launcher declared for a custom model, or 0 when it declared none. PURE.
+
+    `None` (no environment passed at all) counts as no declaration, not an error.
+    """
+    if not isinstance(environ, dict):
+        return 0
+    try:
+        value = int(environ.get(_ENV_MAX_CONTEXT) or 0)
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
+def read_session(transcript_path, tail_bytes=_TAIL_BYTES):
+    """(current_tokens, family_model) from ONE tail read. IMPURE.
+
+    Both come from the same records, so reading them together avoids a second pass over a
+    multi-megabyte transcript on every turn.
+    """
+    try:
+        size = os.path.getsize(transcript_path)
+        with open(transcript_path, "rb") as handle:
+            if size > tail_bytes:
+                handle.seek(size - tail_bytes)
+                handle.readline()
+            data = handle.read()
+    except (OSError, TypeError, ValueError):
+        return None, None
+    current, model = None, None
+    for raw in data.splitlines():
+        try:
+            record = json.loads(raw.strip().decode("utf-8", "replace"))
+        except (ValueError, AttributeError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        message = record.get("message")
+        if not isinstance(message, dict):
+            continue                          # a string or list message carries no usage
+        usage = message.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        try:
+            total = (int(usage.get("input_tokens") or 0)
+                     + int(usage.get("cache_creation_input_tokens") or 0)
+                     + int(usage.get("cache_read_input_tokens") or 0))
+        except (TypeError, ValueError):
+            continue
+        current = total                       # the LAST one wins; the loop runs forward
+        if message.get("model"):
+            model = message["model"]
+    return current, model
+
+
+def context_tokens(transcript_path, tail_bytes=_TAIL_BYTES):
+    """Context carried by the most recent request, or None when it cannot be read. IMPURE (reads).
+
+    The three fields sum to what the request actually sent: fresh input, whatever was written to
+    cache this turn, and whatever was read from cache. Omitting the cache legs would report a
+    handful of tokens on a session hundreds of thousands deep, because almost all of a long
+    session's context arrives as a cache read.
+
+    Scans the tail BACKWARDS and stops at the first usage record, so the answer is the latest one.
+    """
+    try:
+        size = os.path.getsize(transcript_path)
+        with open(transcript_path, "rb") as handle:
+            if size > tail_bytes:
+                handle.seek(size - tail_bytes)
+                handle.readline()             # drop the partial line the seek landed in
+            data = handle.read()
+    except (OSError, TypeError, ValueError):
+        return None
+    for raw in reversed(data.splitlines()):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line.decode("utf-8", "replace"))
+        except ValueError:
+            continue                          # a tail read can start mid-line
+        if not isinstance(record, dict):
+            continue
+        message = record.get("message")
+        if not isinstance(message, dict):
+            continue                          # a string or list message carries no usage
+        usage = message.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        try:
+            return (int(usage.get("input_tokens") or 0)
+                    + int(usage.get("cache_creation_input_tokens") or 0)
+                    + int(usage.get("cache_read_input_tokens") or 0))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def threshold(window, pct, cap):
+    """The token count at which a handover is offered. PURE.
+
+    Whichever leg bites first. The result is floored at 1 so a zero or negative knob cannot make a
+    reading of 0 tokens count as crossed. The floor does NOT stop an early ask: a knob at 0 or 1
+    still asks on the first measured turn, because that is what such a setting asks for. Bounding
+    the knobs to sensible values is the settings CLI's job (it accepts 1..100 and >= 1), and a
+    higher clamp here would silently override a value that tool accepted.
+    """
+    try:
+        by_pct = int(window) * int(pct) // 100
+        return max(1, min(by_pct, int(cap)))
+    except (TypeError, ValueError):
+        return None
+
+
+def verdict(tokens, window, pct, cap):
+    """('quiet'|'offer'|'misconfigured', detail dict). PURE - all the arithmetic, no IO.
+
+    `misconfigured` is a real answer, not an error: measuring more context than the window is
+    supposed to hold means `context_window` is wrong (a 1M model left on the 200k default), and
+    saying so is the difference between a watcher that reports and one that silently never fires.
+    """
+    limit = threshold(window, pct, cap)
+    if tokens is None or limit is None:
+        return "quiet", {}
+    detail = {"tokens": tokens, "window": int(window), "limit": limit,
+              "pct": int(pct), "cap": int(cap)}
+    if tokens > int(window):
+        return "misconfigured", detail
+    if tokens >= limit:
+        return "offer", detail
+    return "quiet", detail
+
+
+def context_mode(cfg) -> str:
+    """'handover' only when configured so; anything else, missing or misspelt, is 'compact'. PURE."""
+    return "handover" if str(cfg.get("context_mode") or "").strip().lower() == "handover" else "compact"
+
+
+def harness_window(environ) -> int:
+    """The auto-compact window the harness was given, or 0 when none is visible. PURE."""
+    if not isinstance(environ, dict):
+        return 0
+    try:
+        value = int(environ.get(_ENV_COMPACT_WINDOW) or 0)
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
+def compaction_point(limit, harness) -> int:
+    """Where the harness will compact, in tokens. PURE.
+
+    A harness window SMALLER than the limit compacts earlier, so it wins. An unset or larger one
+    is a misalignment the save request reports; the limit is then the value it should be set to,
+    and the save is timed against it.
+    """
+    window = harness if 0 < harness < limit else limit
+    return max(1, int(window) - _HARNESS_RESERVE)
+
+
+def save_point(compact_at) -> int:
+    """The context at which the checkpoint is requested: room for the save before the compaction."""
+    return max(1, int(compact_at) - max(_SAVE_MARGIN_MIN, int(compact_at) // 10))
+
+
+def compact_verdict(tokens, window, pct, cap, harness):
+    """('quiet'|'save'|'misconfigured', detail) for compact mode. PURE."""
+    limit = threshold(window, pct, cap)
+    if tokens is None or limit is None:
+        return "quiet", {}
+    compact_at = compaction_point(limit, harness)
+    detail = {"tokens": tokens, "window": int(window), "limit": limit, "pct": int(pct),
+              "cap": int(cap), "harness": harness, "compact_at": compact_at,
+              "save_at": save_point(compact_at)}
+    if tokens > int(window):
+        return "misconfigured", detail
+    if tokens >= detail["save_at"]:
+        return "save", detail
+    return "quiet", detail
+
+
+def _asked_flag(session):
+    """Session-keyed state, so one left by an older session can never suppress this one."""
+    return sig.touched_file(session).with_suffix(".handover-asked")
+
+
+def _misconfigured_flag(session):
+    """The misconfigured notice's OWN once-per-session latch.
+
+    Kept apart from `_asked_flag` because the two answer different questions. When the notice read
+    "has this session been told anything" off the offer's flag, an earlier offer silenced it for
+    the rest of the session - exactly when a reading past the window proves the window wrong.
+    """
+    return sig.touched_file(session).with_suffix(".handover-misconfigured")
+
+
+def already_reported(session) -> bool:
+    """True once this session has seen the misconfigured notice - it says itself once."""
+    try:
+        return _misconfigured_flag(session).is_file()
+    except OSError:
+        return False
+
+
+def mark_reported(session) -> None:
+    try:
+        flag = _misconfigured_flag(session)
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("1\n", encoding="utf-8")
+    except OSError:
+        pass                                  # an unwritable latch means it may say it twice
+
+
+def asked_at(session) -> int:
+    """Context level of the last ask, or 0 when this session has not been asked. IMPURE (reads)."""
+    try:
+        return int(_asked_flag(session).read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def mark_asked(session, tokens) -> None:
+    try:
+        flag = _asked_flag(session)
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(str(int(tokens)) + "\n", encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass                                  # an unwritable flag means it may ask twice, not wedge
+
+
+def due(tokens, limit, window, last_asked) -> bool:
+    """True when this reading earns an ask. PURE.
+
+    The first ask is the threshold. After that, a decline is "not yet" rather than "never", so the
+    next one waits until context has grown another 1/10th of the window - by which point the
+    question has genuinely changed rather than being the same one repeated.
+    """
+    if tokens < limit:
+        return False
+    if not last_asked:
+        return True
+    return tokens >= last_asked + max(1, int(window) // _RE_ASK_FRACTION)
+
+
+#: git reads these before cwd, and a hook launched under a linked-worktree push inherits GIT_DIR: an
+#: inherited one would answer the tracking question below about some other repository.
+_GIT_SCOPE_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                   "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE",
+                   "GIT_PREFIX", "GIT_QUARANTINE_PATH")
+
+
+def _git(proj, *args):
+    """(returncode, stdout) of a read-only git call in `proj`. Raises OSError/SubprocessError."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_SCOPE_VARS}
+    env["LC_ALL"] = "C"
+    done = subprocess.run(["git", *args], cwd=str(proj), env=env, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace", timeout=3)
+    return done.returncode, done.stdout
+
+
+def handover_tracking(proj) -> str:
+    """Whether the handover.md a session would overwrite has earlier versions in git. IMPURE.
+
+    "tracked" (git holds its history), "untracked" (it exists but git has no copy: gitignored,
+    never added, or no repository at all), "absent" (nothing to overwrite), or "unknown" (git
+    could not be asked). It is a per-repo fact - some repos gitignore the file, others commit it -
+    so the offer tests it instead of asserting either. Never raises.
+    """
+    try:
+        rc, top = _git(proj, "rev-parse", "--show-toplevel")
+        if rc != 0:
+            return "untracked" if (pathlib.Path(proj) / "handover.md").exists() else "absent"
+        root = top.strip()
+        rc, _out = _git(root, "ls-files", "--error-unmatch", "--", "handover.md")
+        if rc == 0:
+            return "tracked"
+        return "untracked" if (pathlib.Path(root) / "handover.md").exists() else "absent"
+    except Exception:                         # noqa: BLE001 - a missing git must not wedge a turn
+        return "unknown"
+
+
+_OVERWRITE_WARNING = {
+    "tracked": (
+        "The handover is written by OVERWRITING the outgoing one. `handover.md` is tracked here, "
+        "so its earlier versions are in git history - but nobody diffs a handover against its "
+        "predecessor looking for what went missing, so carry anything still open into "
+        "`OPEN-WORK.md` before you overwrite it, not after."),
+    "untracked": (
+        "The handover is written by OVERWRITING the outgoing one, and git holds no copy of "
+        "`handover.md` here, so anything still open that you do not first carry into "
+        "`OPEN-WORK.md` is gone with no earlier version to recover it from. Reconcile before you "
+        "overwrite, not after."),
+    "unknown": (
+        "The handover is written by OVERWRITING the outgoing one, and whether git keeps its "
+        "earlier versions could not be checked here (`git ls-files --error-unmatch handover.md` "
+        "answers it). If it does not, anything still open that you do not first carry into "
+        "`OPEN-WORK.md` is gone for good. Reconcile before you overwrite, not after."),
+}
+
+
+def _offer(detail, tracking="unknown") -> str:
+    text = (
+        "This session is carrying %(tokens)s tokens of context, past the %(limit)s at which a "
+        "handover is worth writing (%(pct)s%% of a %(window)s window, %(source)s, capped at "
+        "%(cap)s). Quality degrades well before the window fills, and the harness will not compact "
+        "until about 83%% - at which point it DISCARDS working detail rather than preserving it."
+        "\n\n"
+        "Ask the user whether to write `handover.md` now and start a fresh session. If they agree, "
+        "invoke bitranox:meta-context-watcher, which says what the file must contain. If they "
+        "decline, carry on - the next ask waits until context has grown another tenth of the "
+        "window, so declining costs one interruption, not a stream of them."
+    ) % {k: format(v, ",") if isinstance(v, int) and k != "pct" else v for k, v in detail.items()}
+    warning = _OVERWRITE_WARNING.get(tracking)
+    return text + "\n\n" + warning if warning else text
+
+
+def _save(detail, tracking="unknown") -> str:
+    fill = {k: format(v, ",") if isinstance(v, int) and k != "pct" else v for k, v in detail.items()}
+    text = (
+        "This session is carrying %(tokens)s tokens of context. The harness auto-compacts at about "
+        "%(compact_at)s, and a compaction keeps only a summary of the working detail. Save a "
+        "checkpoint NOW, then keep working:\n\n"
+        "1. Invoke bitranox:meta-context-watcher and follow its checkpoint procedure (compact "
+        "mode): carry every unfinished item and every unmet user request into `OPEN-WORK.md`, and "
+        "write `handover.md` - in flight, decisions, the exact next action, and `## Lessons for the "
+        "next nap`. Commit nothing just for this.\n"
+        "2. Then CONTINUE the task you were on. Do not stop, do not ask the user, and do not tell "
+        "them to /clear: the compaction follows automatically, and the checkpoint is handed back "
+        "to you right after it."
+    ) % fill
+    if not detail.get("harness") or detail["harness"] > detail["limit"]:
+        text += (
+            "\n\nThe harness is not set to compact at the %(limit)s limit (%(env)s is %(now)s), so "
+            "nothing will compact until its own default, far later, and this checkpoint goes stale "
+            "meanwhile. Tell the user once and offer to set %(env)s=%(raw)d in the env block of "
+            "~/.claude/settings.json through the update-config skill; it takes effect in the next "
+            "session." % {"limit": fill["limit"], "env": _ENV_COMPACT_WINDOW, "raw": detail["limit"],
+                          "now": fill["harness"] if detail.get("harness") else "unset"})
+    warning = _OVERWRITE_WARNING.get(tracking)
+    return text + "\n\n" + warning if warning else text
+
+
+def _misconfigured(detail) -> str:
+    return (
+        "The context watcher measured %(tokens)s tokens, which is MORE than the %(window)s window "
+        "it was measuring against (%(source)s) - so the threshold can never be reached. This is "
+        "reported rather than ignored because a threshold nothing can cross looks exactly like a "
+        "watcher that works.\n\n"
+        "The window is normally derived from the model this project has used, or - for a model no "
+        "family table knows - declared by the launcher via CLAUDE_CODE_MAX_CONTEXT_TOKENS. If both "
+        "failed, set `context_window` to the real figure via bitranox:meta-memory-settings. Until "
+        "then this check is inert."
+    ) % {k: format(v, ",") if isinstance(v, int) and k != "pct" else v for k, v in detail.items()}
+
+
+def resolve_window(cfg, model=None, environ=None):
+    """(window, how it was established). PURE.
+
+    An explicit `context_window` wins - the escape hatch for a model the table has not met.
+    Otherwise the family decides; an unknown family takes what the launcher declared in
+    `CLAUDE_CODE_MAX_CONTEXT_TOKENS` ("declared"), and failing that the 200K default. The label
+    records which leg answered, which the offer message quotes.
+    """
+    explicit = cfg.get("context_window") or 0
+    try:
+        if int(explicit) > 0:
+            return int(explicit), "configured"
+    except (TypeError, ValueError):
+        pass
+    if model:
+        if _family_known(model):
+            return window_for_model(model, environ), "detected"
+        declared = _env_max_context(environ)
+        if declared:
+            return declared, "declared"
+    return _DEFAULT_WINDOW, "assumed"
+
+
+def _family_known(model_id) -> bool:
+    """True when the family table has a window for this model id. PURE."""
+    mid = str(model_id or "").lower()
+    if mid.endswith("[1m]"):
+        mid = mid[:-4]
+    return any(mid.startswith(prefix) for prefix, _window in _FAMILY_WINDOWS)
+
+
+def decide(event, cfg):
+    """The text for this Stop or PostToolUse event, or None to stay quiet. IMPURE (reads).
+
+    On Stop the caller turns it into a block reason, on PostToolUse into additionalContext.
+    PostToolUse speaks only in compact mode: a long autonomous turn can pass both the save point
+    and the compaction without ever stopping, so a Stop-only request would arrive after the
+    compaction it was meant to precede.
+
+    `stop_hook_active` means a Stop hook already kept this turn going. Blocking that continuation
+    again would stack a second interruption on one turn and spend the consecutive-block budget, so
+    it stays quiet and marks nothing; the next ordinary Stop asks instead.
+    """
+    on_stop = (event.get("hook_event_name") or "Stop") == "Stop"
+    mode = context_mode(cfg)
+    if not on_stop and mode != "compact":
+        return None
+    if on_stop and event.get("stop_hook_active"):
+        return None
+    session = str(event.get("session_id") or "")
+    transcript = event.get("transcript_path") or ""
+    if not session or not transcript:
+        return None
+    if not cfg.get("nudges", True):
+        return None
+    # A post-compaction nap is already an obligation the Stop gate refuses to stop on. Two blocks
+    # on one turn would fight over it and burn the consecutive-block budget, so a Stop yields. A
+    # mid-turn note blocks nothing, so it has nothing to fight over and does not yield. A nap the
+    # user declined blocks nothing either.
+    proj = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    if on_stop:
+        try:
+            if sig.nap_owed_blocks(proj):
+                return None
+        except Exception:                     # noqa: BLE001 - a missing helper must not wedge a turn
+            pass
+    tokens, model = read_session(transcript)
+    window, source = resolve_window(cfg, model, os.environ)
+    pct, cap = cfg.get("context_handover_pct", 70), cfg.get("context_handover_cap", 400000)
+    if mode == "compact":
+        return _decide_compact(session, proj, tokens, window, source, pct, cap)
+    state, detail = verdict(tokens, window, pct, cap)
+    if not detail:
+        return None
+    detail["source"] = source
+    if state == "misconfigured":
+        if already_reported(session):
+            return None
+        mark_reported(session)
+        return _misconfigured(detail)
+    if state == "offer" and due(tokens, detail["limit"], window, asked_at(session)):
+        mark_asked(session, tokens)
+        # Asked only here, on the rare turn that offers, so an ordinary Stop never pays for git.
+        return _offer(detail, handover_tracking(proj))
+    return None
+
+
+def _decide_compact(session, proj, tokens, window, source, pct, cap):
+    """Compact mode: request a checkpoint once per crossing of the save point. IMPURE.
+
+    A reading back BELOW the save point after a request means the harness compacted, so the request
+    re-arms and the next crossing asks for a fresh checkpoint. Above it, `due` spaces repeats by a
+    tenth of the window, which refreshes a checkpoint only when the harness is not compacting.
+    """
+    state, detail = compact_verdict(tokens, window, pct, cap, harness_window(dict(os.environ)))
+    if not detail:
+        return None
+    detail["source"] = source
+    if state == "misconfigured":
+        if already_reported(session):
+            return None
+        mark_reported(session)
+        return _misconfigured(detail)
+    last = asked_at(session)
+    if state != "save":
+        if last:
+            mark_asked(session, 0)
+        return None
+    if not due(tokens, detail["save_at"], window, last):
+        return None
+    mark_asked(session, tokens)
+    sig.mark_checkpoint_asked(session)
+    return _save(detail, handover_tracking(proj))
+
+
+def main() -> int:
+    try:
+        event = json.load(sys.stdin)
+    except Exception:                         # noqa: BLE001 - no/invalid stdin: do nothing
+        return 0
+    if not isinstance(event, dict):
+        return 0
+    try:
+        reason = decide(event, sig.load_config())
+    except Exception:                         # noqa: BLE001 - a broken watcher must never wedge a turn
+        return 0
+    if not reason:
+        return 0
+    if event.get("hook_event_name") == "PostToolUse":
+        sys.stdout.write(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse", "additionalContext": reason}}))
+    else:
+        sys.stdout.write(json.dumps({"decision": "block", "reason": reason}))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:                         # noqa: BLE001 - fail open
+        sys.exit(0)

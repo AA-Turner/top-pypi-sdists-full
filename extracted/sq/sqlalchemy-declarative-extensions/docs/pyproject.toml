@@ -1,0 +1,24 @@
+[project]
+name = "docs"
+version = "0.1.0"
+description = ""
+authors = [
+  {name = "Dan Cardin", email = "ddcardin@gmail.com"},
+]
+
+requires-python = ">=3.10"
+dependencies = [
+  "furo >= 2022.4.7",
+  "linkify-it-py",
+  "myst-parser[linkify] >= 0.17.2",
+  "sphinx >= 4.5.0",
+  "sphinx-autoapi >= 1.8.4",
+  "sphinx-autobuild >= 2021.3.14",
+  "sphinx-autodoc-typehints >= 1.18.1",
+  "sphinx-copybutton",
+  "sphinx-pyproject",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

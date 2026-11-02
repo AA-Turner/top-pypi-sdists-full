@@ -1,5 +1,5 @@
 """RunReadsMixin, Client's methods: read, update, fork and delete one run: trials, sandbox base
-state, bundle and reproduce (twins: app/runs, app/trials)."""
+state, bundle and reproduce (twins: app/runs, app/runs/trials)."""
 
 from __future__ import annotations
 from .....models import TrialPatch
@@ -11,6 +11,7 @@ from ....delivery.transport.transport import Page
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
 from ....run.run import Run  # noqa: E402
+from probe.sdk.routes import WriteOp, path_for
 
 
 class RunReadsMixin:
@@ -54,9 +55,8 @@ class RunReadsMixin:
         elif src.get("project_id"):
             run = self.create_project_run(src["project_id"], fork_name, **kw)
         elif "project_id" in src:
-            # A FLOATING source (daemon v2) begets a floating fork; it is filed
-            # with its source, or on its own, later.
-            run = self.create_floating_run(fork_name, **kw)
+            # Unfiled (an older CLI made it): no home to inherit.
+            raise errors.build_unfiled_parent_error(source)
         else:
             raise errors.ValidationError(
                 f"run {source} reports neither an experiment nor a project — this "
@@ -178,7 +178,7 @@ class RunReadsMixin:
         # and letting it satisfy "at least one field to set" would turn a
         # no-op call into a PATCH.
         _put_authorship(body, authored_by)
-        row = self.transport.patch(f"/v1/runs/{run_id}", body)
+        row = self.transport.patch(path_for(WriteOp.RUN_PATCH, run_id), body)
         self._warn_if_notes_dropped(notes, row, "runs")
         return row
 

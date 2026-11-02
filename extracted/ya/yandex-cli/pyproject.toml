@@ -1,0 +1,352 @@
+[project]
+name = "yandex-cli"
+version = "0.142.0"
+description = "Interact with Yandex 360 services (Wiki, Tracker, Forms, …) from a CLI, an MCP server, or a Python SDK."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [{ name = "Sava Znatnov", email = "careless.sava@gmail.com" }]
+keywords = ["yandex", "yandex-360", "tracker", "wiki", "forms", "cli", "mcp", "sdk", "fastmcp", "typer"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
+    "Topic :: Office/Business :: Groupware",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx2>=2.13.1",
+    "platformdirs>=4.10.0",
+    "pydantic>=2.13.4",
+    "pydantic-core>=2.46.4",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "stamina>=26.1.0",
+    "typer>=0.26.8",
+]
+
+# The MCP server (`ycli mcp`) is optional — install with `yandex-cli[mcp]`.
+[project.optional-dependencies]
+mcp = [
+    "fastmcp>=4.0.11,<5",
+]
+service-account = [
+    "pyjwt[crypto]>=2.15.1",
+]
+
+[project.scripts]
+yandex-cli = "ycli.cli.app:main"
+ycli = "ycli.cli.app:main"
+
+[project.urls]
+Homepage = "https://github.com/bim-ba/ycli"
+Repository = "https://github.com/bim-ba/ycli"
+Documentation = "https://ycli.savaznatnov.dev/"
+Issues = "https://github.com/bim-ba/ycli/issues"
+Changelog = "https://github.com/bim-ba/ycli/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ycli"]
+
+# Keep the sdist lean: ship only the package + changelog (pyproject, README, and
+# LICENSE are always included from metadata) — not the repo's docs, tests, Claude
+# plugin, agent config, or vendored API references.
+[tool.hatch.build.targets.sdist]
+# The five plugin skills are the MCP guides: `guide.md` in the package is a link to each.
+only-include = [
+    "src/ycli",
+    "CHANGELOG.md",
+    "plugins/yandex-360/skills/yandex-360/SKILL.md",
+    "plugins/yandex-360/skills/yandex-360-tracker/SKILL.md",
+    "plugins/yandex-360/skills/yandex-360-wiki/SKILL.md",
+    "plugins/yandex-360/skills/yandex-360-forms/SKILL.md",
+    "plugins/yandex-360/skills/yandex-360-datalens/SKILL.md",
+]
+
+# TestPyPI as an explicit publish target (used by `uv publish --index testpypi`).
+# `explicit = true` keeps it out of normal dependency resolution.
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[tool.pytest.ini_options]
+# `src` too: its docstring examples run as doctests, answered by the contract cases (conftest.py).
+testpaths = ["tests", "src"]
+asyncio_mode = "auto"
+# Four workers: CI runners have four vCPUs, and more barely helps locally (`-n 0` turns it off).
+addopts = "-n 4 --strict-markers --doctest-modules --cov=ycli --cov-report=term-missing --cov-fail-under=100"
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
+# A new warning fails the run.
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["ycli"]
+# Lines and branches: a guard with an untested side counts as missing coverage.
+branch = true
+# tests/tooling/test_new_endpoint.py imports a throwaway scaffold from tmp_path into the ycli namespace
+omit = ["*/scaffold_probe/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[dependency-groups]
+dev = [
+    "ast-grep-cli>=0.45.3",
+    "datamodel-code-generator==0.83.0",
+    "import-linter>=2.12",
+    "jmespath>=1.1.0",
+    "jsonschema>=4.26.0",
+    "openapi-spec-validator>=0.9.0",
+    "pre-commit>=4.6.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.20",
+    "ty>=0.0.55",
+]
+docs = [
+    "mkdocstrings-python>=2.0.9",
+    "zensical>=0.0.67",
+]
+
+# Automated versioning from Conventional Commits. CI runs `semantic-release version`
+# on push to main; a separate job publishes the tagged build to PyPI.
+[tool.semantic_release]
+commit_parser = "conventional"
+version_toml = ["pyproject.toml:project.version"]
+# Everything released together with the package carries its version: the Claude Code plugin
+# (manifest + the pinned MCP server), the MCP Registry manifest (server.json: its own version,
+# the PyPI package, the `--with` pin and the OCI tag) and the Claude Desktop bundle (mcpb/).
+# tests/tooling/test_distribution.py fails when any of them drifts.
+version_variables = [
+    "plugins/yandex-360/.claude-plugin/plugin.json:version",
+    "plugins/yandex-360/.mcp.json:yandex-cli[mcp]",
+    "server.json:version",
+    "server.json:yandex-cli[mcp]",
+    "server.json:ghcr.io/bim-ba/ycli",
+    "mcpb/manifest.json:version",
+    "mcpb/pyproject.toml:version",
+    "mcpb/pyproject.toml:yandex-cli[mcp]",
+    # The documentation's copy-paste examples pin the current release.
+    "docs/en/how-to/use-in-ci.md:yandex-cli",
+    "docs/en/how-to/use-in-ci.md:ghcr.io/bim-ba/ycli",
+    "docs/ru/how-to/use-in-ci.md:yandex-cli",
+    "docs/ru/how-to/use-in-ci.md:ghcr.io/bim-ba/ycli",
+    "docs/en/how-to/keep-content-in-git.md:yandex-cli",
+    "docs/ru/how-to/keep-content-in-git.md:yandex-cli",
+    "docs/en/how-to/install-in-your-harness.md:yandex-cli[mcp]",
+    "docs/ru/how-to/install-in-your-harness.md:yandex-cli[mcp]",
+]
+tag_format = "v{version}"
+allow_zero_version = true
+major_on_zero = false
+build_command = ""   # skip PSR's build; the release workflow builds with `uv build`
+
+[tool.semantic_release.changelog]
+mode = "update"
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "scripts", "e2e"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "RUF", "ANN", "TC", "D", "TID251"]
+# D105/D107: a magic method and `__init__` are described by their class docstring (Google style).
+ignore = ["ANN401", "D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# `next` and `all` are the caller's words for a listing on every surface (#502).
+[tool.ruff.lint.flake8-builtins]
+ignorelist = ["next", "all"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastmcp.dependencies.Depends"]
+
+# ARCH-5: the environment is read in `settings.py` and nowhere else in the package.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.environ".msg = "read the environment in ycli/settings.py only (ARCH-5)"
+"os.getenv".msg = "read the environment in ycli/settings.py only (ARCH-5)"
+
+[tool.ruff.lint.isort]
+known-first-party = ["ycli"]
+
+# Pydantic resolves field annotations at runtime, so a model's imports stay real imports.
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "ycli.yandex.models.APIModel",
+    "ycli.yandex.models.RequestBody",
+    "ycli.yandex.models.WarnsOnIgnored",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Only the shipped package must document every public name; the rest keeps the format rules.
+"tests/**/*.py" = ["ANN", "D1", "TID251"]
+"scripts/**/*.py" = ["D1", "TID251"]
+# The Russian site's sentences: a short Russian word is not a Latin one mistyped.
+"scripts/gen_services.py" = ["RUF001"]
+"e2e/**/*.py" = ["TID251"]
+"src/ycli/settings.py" = ["TID251"]
+"{e2e,docs,.claude}/**/*.py" = ["D1"]
+# Sans-IO builders named after their operation; the resource client documents the operation.
+"src/ycli/yandex/**/endpoints.py" = ["D103"]
+# Generated from the DataLens specification (scripts/gen_datalens_models.py): a class has the
+# docstring its schema has, and a description is as long as DataLens wrote it.
+"src/ycli/yandex/datalens/schemas/*.py" = ["D1", "E501", "RUF001"]
+# Typer reads command annotations at runtime (inspect.signature(eval_str=True)), so their
+# imports must stay real imports, never `if TYPE_CHECKING:` ones.
+"src/ycli/**/cli.py" = ["TC001", "TC003"]
+"src/ycli/cli/app.py" = ["TC001"]  # the root callback's option aliases, read by Typer
+"src/ycli/cli/api.py" = ["TC001"]  # the command's option aliases and return types, read by Typer
+
+# Args, Returns and Raises match the signature. cli.py and mcp.py are left out: their parameters
+# are documented once, in the Typer option help and the `Field(description=...)` an agent reads.
+[tool.pydoclint]
+style = "google"
+exclude = '/cli\.py$|/mcp\.py$|/endpoints\.py$'
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+allow-init-docstring = true
+quiet = true
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.ty.rules]
+possibly-unresolved-reference = "error"
+unused-ignore-comment = "warn"
+
+[tool.importlinter]
+root_package = "ycli"
+include_external_packages = true
+# Imports under `if TYPE_CHECKING:` never execute, so they cannot break a layer at runtime.
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "ARCH-2: cli/mcp/models never import HTTP libraries directly"
+type = "forbidden"
+source_modules = [
+    "ycli.yandex.**.cli",
+    "ycli.yandex.**.mcp",
+    "ycli.yandex.**.models",
+]
+forbidden_modules = ["httpx2"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "ARCH-2: fastmcp is imported only in mcp modules"
+type = "forbidden"
+source_modules = [
+    "ycli.mcp",
+    "ycli.cli",
+    "ycli.cli.**",
+    "ycli.yandex.**.cli",
+    "ycli.yandex.**.client",
+    "ycli.yandex.**.models",
+]
+forbidden_modules = ["fastmcp"]
+allow_indirect_imports = true
+# The server, its listing transforms, its HTTP sign-in and its `schema_get` tool. `ycli.mcp.cli` and the package __init__ must stay free
+# of fastmcp: the base install loads `ycli mcp` without the extra.
+ignore_imports = [
+    "ycli.mcp.server -> fastmcp",
+    "ycli.mcp.listing -> fastmcp",
+    "ycli.mcp.http_auth -> fastmcp",
+    "ycli.mcp.schemas -> fastmcp",
+]
+
+[[tool.importlinter.contracts]]
+name = "ARCH-2: MCP never imports the CLI layer (ycli.cli, typer), even through a helper"
+type = "forbidden"
+source_modules = [
+    "ycli.mcp.server",
+    "ycli.mcp.listing",
+    "ycli.mcp.http_auth",
+    "ycli.yandex.mcp",
+    "ycli.yandex.**.mcp",
+    "ycli.yandex.**.dependencies",
+]
+forbidden_modules = ["ycli.cli", "typer"]
+
+[[tool.importlinter.contracts]]
+name = "conventions: a resource mcp.py imports from its domain dependencies, not ycli.yandex.mcp"
+type = "forbidden"
+source_modules = ["ycli.yandex.*.*.mcp"]
+forbidden_modules = ["ycli.yandex.mcp"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "ARCH-2: the httpx2 core knows no service and no surface"
+type = "forbidden"
+source_modules = ["ycli.yandex.core"]
+forbidden_modules = [
+    "ycli.yandex.tracker",
+    "ycli.yandex.wiki",
+    "ycli.yandex.forms",
+    "ycli.yandex.datalens",
+    "ycli.yandex.status",
+    "ycli.cli",
+    "ycli.mcp",
+    "typer",
+    "fastmcp",
+]
+
+[[tool.importlinter.contracts]]
+name = "ARCH-2: the file engine (ycli.yandex.sync) knows no service and no surface"
+type = "forbidden"
+source_modules = ["ycli.yandex.sync"]
+forbidden_modules = [
+    "ycli.yandex.tracker",
+    "ycli.yandex.wiki",
+    "ycli.yandex.forms",
+    "ycli.yandex.datalens",
+    "ycli.yandex.status",
+    "ycli.cli",
+    "ycli.mcp",
+    "typer",
+    "fastmcp",
+]

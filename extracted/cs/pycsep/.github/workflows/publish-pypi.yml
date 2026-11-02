@@ -1,0 +1,40 @@
+name: Build and upload to PyPI
+
+# Only build on tagged releases
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Build and upload sdist
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: mamba-org/setup-micromamba@v1
+        with:
+          generate-run-shell: true
+          environment-file: environment.yml
+          create-args: >-
+            python=3.10
+
+      - name: Check dependencies
+        run: |
+          conda info -a
+          conda list
+
+      - name: Create sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish Package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.pypi_upload_token }}

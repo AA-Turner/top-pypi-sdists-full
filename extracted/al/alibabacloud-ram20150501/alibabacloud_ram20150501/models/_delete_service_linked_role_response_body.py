@@ -12,7 +12,7 @@ class DeleteServiceLinkedRoleResponseBody(DaraModel):
     ):
         # The ID of the deletion task.
         self.deletion_task_id = deletion_task_id
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

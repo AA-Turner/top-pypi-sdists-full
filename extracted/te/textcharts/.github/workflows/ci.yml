@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'dev-*']
+    tags: ['v*']
+  pull_request:
+    branches: [main, 'dev-*']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Lint
+        run: uv run --python ${{ matrix.python-version }} --group dev -- ruff check src/ tests/
+      - name: Test
+        run: uv run --python ${{ matrix.python-version }} --group dev --all-extras -- python -m pytest -q --cov=textcharts --cov-report=term-missing --cov-fail-under=85
+      - name: Build docs
+        run: uv run --python ${{ matrix.python-version }} --group dev -- sphinx-build -W -b html docs docs/_build/html
+      - name: Build package
+        run: uv build
+      - name: Check version consistency
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          TOML_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          INIT_VERSION=$(python3 -c "import re; print(re.search(r'__version__ = \"(.+)\"', open('src/textcharts/__init__.py').read()).group(1))")
+          echo "Tag=$TAG_VERSION Toml=$TOML_VERSION Init=$INIT_VERSION"
+          [ "$TAG_VERSION" = "$TOML_VERSION" ] && [ "$TAG_VERSION" = "$INIT_VERSION" ] || { echo "::error::Version mismatch"; exit 1; }
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Build
+        run: uv build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

@@ -1,0 +1,333 @@
+id: generalize-benchbox-field-names
+title: "Generalize BenchBox-specific field names across all chart types"
+worktree: dev-012
+priority: High
+status: Completed
+completed_date: "2026-03-10"
+category: Core Functionality
+description: |
+  The MCP server tool schemas and CLI parameters use BenchBox-specific field names
+  (e.g., query_id, latency_ms, geo_mean_ms, platforms). When LLMs use these tools
+  for non-benchmark data, they're forced into benchmark terminology. Example: creating
+  a "commits per day" histogram, the LLM used query_id and latency_ms instead of
+  meaningful field names like "date" and "count".
+
+  This is a BREAKING CHANGE to the public API, acceptable at v0.1.2-dev (pre-1.0).
+
+  The CLI is 100% registry-driven (cli.py dynamically generates argparse from
+  registry.py), so all registry changes automatically propagate to both MCP tool
+  schemas AND CLI --flags. No separate CLI parameter definitions exist.
+
+  Rename map:
+    Histogram: query_id->label, latency_ms->value, sort_by enum query_id/latency->label/value
+    Summary:   geo_mean_ms->primary_value, median_ms->secondary_value, total_time_ms->total_value,
+               geo_mean_baseline_ms->primary_baseline, geo_mean_comparison_ms->primary_comparison,
+               total_time_baseline_ms->total_baseline, total_time_comparison_ms->total_comparison,
+               num_queries->num_items, best_queries->best_items, worst_queries->worst_items
+    Rank:      queries->items, platforms->groups, times->values, tuple (platform,query)->(group,item)
+    Sparkline: platforms->rows
+    Scatter:   remove "# Cost"/"# Performance" comments, remove cost/performance getattr fallbacks
+    Registry defaults: scatter x/y "Cost (USD)"/"Performance"->"X"/"Y",
+               comparison metric_label "Execution Time (ms)"->"Value",
+               heatmap/stacked/percentile "ms"->"", summary title "Benchmark Summary"->"Summary"
+
+work:
+  - id: w1
+    summary: "Rename histogram HistogramBar fields: query_id->label, latency_ms->value"
+    status: done
+    notes: |
+      Files: src/textcharts/histogram.py (~30 locations),
+             src/textcharts/commands/registry.py (histogram entry),
+             src/textcharts/commands/parsers.py (parse_histogram)
+
+      Dataclass: HistogramBar.query_id -> label, .latency_ms -> value
+      Constructor: sort_by default "query_id" -> "label", comparison == "latency" -> == "value"
+      Hardcoded: "Query ID" x-axis labels (lines 338, 564) -> "" (empty)
+      Factory: from_data() getattr calls
+      Method: _compact_query_label -> _compact_label
+      Registry: histogram entry fields, sort_by enum ["query_id","latency"] -> ["label","value"],
+                description "query latency" -> "frequency distribution",
+                y_label default "Execution Time (ms)" -> "Value"
+      Parser: parse_histogram() required keys + field access
+
+  - id: w2
+    summary: "Rename SummaryStats dataclass fields from benchmark-specific to generic"
+    status: done
+    notes: |
+      Files: src/textcharts/summary_box.py (dataclass + ~20 field references),
+             src/textcharts/commands/registry.py (summary entry),
+             src/textcharts/commands/parsers.py (parse_summary)
+
+      Field renames in SummaryStats dataclass and all self.stats.FIELD_NAME references:
+        geo_mean_ms -> primary_value, median_ms -> secondary_value,
+        total_time_ms -> total_value,
+        geo_mean_baseline_ms -> primary_baseline,
+        geo_mean_comparison_ms -> primary_comparison,
+        total_time_baseline_ms -> total_baseline,
+        total_time_comparison_ms -> total_comparison,
+        num_queries -> num_items,
+        best_queries -> best_items, worst_queries -> worst_items
+      Update is_comparison property (checks primary_baseline/total_baseline)
+      Registry: summary title default "Benchmark Summary" -> "Summary", all field names
+      Parser: parse_summary() float_fields, int_fields, field access
+
+  - id: w3
+    summary: "Add configurable rendered labels to SummaryStats, replace hardcoded strings"
+    needs: [w2]
+    status: done
+    notes: |
+      Files: src/textcharts/summary_box.py (rendering methods only),
+             src/textcharts/commands/registry.py (add new data fields)
+
+      Add new fields to SummaryStats:
+        primary_label: str = "Primary"    (replaces hardcoded "Geo Mean:")
+        secondary_label: str = "Secondary" (replaces hardcoded "Median:")
+        total_label: str = "Total"         (keeps existing label)
+        count_label: str = "Items"         (replaces hardcoded "Queries:")
+
+      Update rendering methods to use self.stats.*_label:
+        _render_comparison_metrics (lines 370, 386, 394)
+        _render_single_metrics (lines 410, 415, 420, 425)
+        _build_metric_texts_single (lines 435, 437, 439, 441)
+        _build_metric_texts_comparison (lines 453, 462, 464)
+
+  - id: w4
+    summary: "Rename RankTableData fields: queries->items, platforms->groups, times->values"
+    status: done
+    notes: |
+      Files: src/textcharts/rank_table.py (~15 locations),
+             src/textcharts/commands/registry.py (rank entry),
+             src/textcharts/commands/parsers.py (parse_rank)
+
+      Dataclass: queries->items, platforms->groups, times->values
+      Tuple key: (platform, query) -> (group, item) throughout
+      Factory: from_matrix() param names queries->items, platforms->groups
+      Parser: key format error "platform,query" -> "group,item"
+      Column header: "Query" -> "Item" (line 121)
+
+  - id: w5
+    summary: "Rename SparklineTableData.platforms -> rows"
+    status: done
+    notes: |
+      Files: src/textcharts/sparkline_table.py (~8 locations),
+             src/textcharts/commands/registry.py (sparkline entry),
+             src/textcharts/commands/parsers.py (parse_sparkline)
+
+      Dataclass: platforms -> rows
+      Factory: from_data() param rename platforms->rows
+      SparklineColumn.values dict keys are dynamic (no rename needed)
+
+  - id: w6
+    summary: "Clean up scatter plot + fix all remaining registry defaults"
+    status: done
+    notes: |
+      Files: src/textcharts/scatter_plot.py (5 locations),
+             src/textcharts/commands/registry.py (scatter, comparison, heatmap, stacked, percentile entries)
+
+      Scatter: remove "# Cost"/"# Performance" comments from ScatterPoint,
+               remove getattr fallbacks for "cost"/"performance" in from_points()
+      Registry defaults to fix:
+        scatter x_label "Cost (USD)" -> "X", y_label "Performance" -> "Y"
+        scatter description "cost vs. performance" -> "X/Y relationship"
+        comparison metric_label "Execution Time (ms)" -> "Value"
+        heatmap value_label "ms" -> ""
+        stacked metric_label "ms" -> ""
+        percentile metric_label "ms" -> ""
+
+  - id: w7
+    summary: "Update documentation (input-formats.md, base.py docstring)"
+    needs: [w1, w3, w4, w5, w6]
+    status: done
+    notes: |
+      Files: docs/input-formats.md (histogram, summary, rank, sparkline sections),
+             src/textcharts/base.py (1 docstring referencing "Query ID")
+
+      input-formats.md: update field tables, JSON examples, chart_params for each
+      renamed chart type. Update sort_by enum values in histogram section.
+
+  - id: w8
+    summary: "Update histogram test files"
+    needs: [w1]
+    status: done
+    notes: |
+      All HistogramBar(query_id=..., latency_ms=...) -> HistogramBar(label=..., value=...)
+      All sort_by="query_id" -> sort_by="label"
+
+      Files:
+        tests/test_histogram_behavior.py (~14 locations)
+        tests/test_rendering_modes.py (histogram data helper)
+        tests/test_edge_cases.py (histogram zero-latency test)
+        tests/test_outlier_regression.py (~15 locations)
+        tests/test_factory_functions.py (test_histogram_from_data)
+
+  - id: w9
+    summary: "Update summary box test files"
+    needs: [w3]
+    status: done
+    notes: |
+      All SummaryStats field renames: geo_mean_ms->primary_value, etc.
+      All num_queries->num_items, best_queries->best_items, worst_queries->worst_items
+
+      Files:
+        tests/test_summary_box.py (~45 locations across 15+ test functions)
+        tests/test_edge_cases_and_features.py (summary + "Benchmark Summary" assertion)
+
+  - id: w10
+    summary: "Update rank table and sparkline test files"
+    needs: [w4, w5]
+    status: done
+    notes: |
+      Rank: RankTableData(queries=..., platforms=..., times=...) -> (items=..., groups=..., values=...)
+             from_matrix() param renames
+      Sparkline: SparklineTableData(platforms=...) -> (rows=...)
+                 sparkline_from_data(platforms=...) -> (rows=...)
+
+      Files:
+        tests/test_rank_table_behavior.py (~15 locations)
+        tests/test_sparkline_table_behavior.py (~6 locations)
+        tests/test_factory_functions.py (rank from_matrix + sparkline_from_data)
+
+  - id: w11
+    summary: "Update shared SAMPLE_DATA in CLI, commands, MCP, golden, and other test files"
+    needs: [w1, w3, w4, w5, w6]
+    status: done
+    notes: |
+      SAMPLE_DATA dicts contain field names for ALL chart types — must update all at once.
+
+      Files:
+        tests/test_commands.py - SAMPLE_DATA + parser test assertions (result[0].query_id etc.)
+        tests/test_mcp_server.py - SAMPLE_DATA
+        tests/test_cli.py - SAMPLE_DATA
+        tests/test_golden_output.py - all chart data constructors
+        tests/test_chart_rendering.py - histogram + summary data (~35 locations)
+        tests/test_edge_cases_and_features.py - scatter "Cost (USD)" assertions
+        scripts/generate_doc_screenshots.py - all chart data constructors (~4 functions)
+
+  - id: w12
+    summary: "Regenerate golden snapshots and run full verification"
+    needs: [w7, w8, w9, w10, w11]
+    status: done
+    notes: |
+      uv run pytest tests/test_golden_output.py --update-golden
+      uv run pytest tests/ -x -q
+      Verify no old names: rg 'query_id|latency_ms|geo_mean_ms|median_ms|total_time_ms|num_queries|best_queries|worst_queries' src/textcharts/
+      Smoke test: echo '[{"label":"Mon","value":3}]' | uv run textcharts histogram
+
+files_affected:
+  modified:
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/summary_box.py"
+    - "src/textcharts/rank_table.py"
+    - "src/textcharts/sparkline_table.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/commands/registry.py"
+    - "src/textcharts/commands/parsers.py"
+    - "src/textcharts/base.py"
+    - "docs/input-formats.md"
+    - "scripts/generate_doc_screenshots.py"
+    - "tests/test_histogram_behavior.py"
+    - "tests/test_summary_box.py"
+    - "tests/test_rank_table_behavior.py"
+    - "tests/test_sparkline_table_behavior.py"
+    - "tests/test_commands.py"
+    - "tests/test_mcp_server.py"
+    - "tests/test_cli.py"
+    - "tests/test_golden_output.py"
+    - "tests/test_factory_functions.py"
+    - "tests/test_rendering_modes.py"
+    - "tests/test_edge_cases.py"
+    - "tests/test_edge_cases_and_features.py"
+    - "tests/test_chart_rendering.py"
+    - "tests/test_outlier_regression.py"
+
+must_preserve:
+  - "Histogram.render() produces identical bar output with HistogramBar(label=x, value=y) as old HistogramBar(query_id=x, latency_ms=y) — only the x-axis 'Query ID' label is removed"
+  - "SummaryBox.render() produces identical box layout; only rendered metric labels change from hardcoded 'Geo Mean:'/'Median:'/'Queries:' to configurable label fields"
+  - "RankTable.render() produces identical ranking table with new field names"
+  - "SparklineTable.render() produces identical sparkline output with rows= instead of platforms="
+  - "CLI --help for all 15 commands still works correctly (generated from registry)"
+  - "MCP server tool schemas remain valid JSON Schema via get_input_schema()"
+
+approach: |
+  Use systematic find-and-replace per chart type, working from dataclass -> parser ->
+  registry -> tests. The registry is the single source of truth for both CLI and MCP.
+
+  w1, w2, w4, w5, w6 are independent (different chart types, different sections of
+  registry.py and parsers.py). Execute in any order. w3 depends on w2. w7-w11 depend
+  on source renames completing first. w12 is final verification.
+
+  For summary box, split into two steps: w2 renames fields, w3 adds label fields and
+  updates rendering. This keeps the field rename mechanical and the label addition clean.
+
+  Use targeted per-file replaces, not global codebase search-replace, because field
+  names like 'value' and 'label' are common words.
+
+anti_patterns:
+  - "DO NOT use global text replace across the whole codebase -- because field names like 'value' and 'label' are common words -- do targeted replaces per file instead"
+  - "DO NOT try to keep tests passing at intermediate steps -- because the renames are deeply interconnected across registry+parser+dataclass -- update all three together per chart type, then fix tests"
+  - "DO NOT rename CLI flag names like --sort-by or --y-label -- because these are already generic -- only change their default values and enum choices"
+
+verification:
+  - description: "No old BenchBox field names remain in source"
+    command: "rg 'query_id|latency_ms|geo_mean_ms|median_ms|total_time_ms|num_queries|best_queries|worst_queries' src/textcharts/"
+    expected_output: "No matches found (exit code 1)"
+  - description: "Full test suite passes"
+    command: "uv run pytest tests/ -x -q"
+    expected_output: "All tests pass, 0 failures"
+  - description: "MCP histogram schema uses generic field names"
+    command: "uv run python -c \"from textcharts.commands.registry import get_input_schema; import json; s=get_input_schema('histogram'); fields=list(s['properties']['data']['items']['properties'].keys()); print(fields); assert 'label' in fields and 'value' in fields and 'query_id' not in fields\""
+    expected_output: "Prints field list containing 'label' and 'value'"
+  - description: "MCP summary schema uses generic field names"
+    command: "uv run python -c \"from textcharts.commands.registry import get_input_schema; import json; s=get_input_schema('summary'); fields=list(s['properties']['data']['properties'].keys()); print(fields); assert 'primary_value' in fields and 'geo_mean_ms' not in fields\""
+    expected_output: "Prints field list containing 'primary_value', not 'geo_mean_ms'"
+  - description: "MCP rank schema uses generic field names"
+    command: "uv run python -c \"from textcharts.commands.registry import get_input_schema; import json; s=get_input_schema('rank'); fields=list(s['properties']['data']['properties'].keys()); print(fields); assert 'items' in fields and 'queries' not in fields\""
+    expected_output: "Prints field list containing 'items' and 'groups', not 'queries' and 'platforms'"
+  - description: "MCP sparkline schema uses generic field names"
+    command: "uv run python -c \"from textcharts.commands.registry import get_input_schema; import json; s=get_input_schema('sparkline'); fields=list(s['properties']['data']['properties'].keys()); print(fields); assert 'rows' in fields and 'platforms' not in fields\""
+    expected_output: "Prints field list containing 'rows', not 'platforms'"
+  - description: "CLI histogram renders with generic data"
+    command: "echo '[{\"label\": \"Mon\", \"value\": 3}, {\"label\": \"Tue\", \"value\": 6}]' | uv run textcharts histogram --title 'Test' --no-color"
+    expected_output: "Renders a histogram with Mon/Tue labels"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/histogram.py"
+    - "src/textcharts/summary_box.py"
+    - "src/textcharts/rank_table.py"
+    - "src/textcharts/sparkline_table.py"
+    - "src/textcharts/scatter_plot.py"
+    - "src/textcharts/commands/registry.py"
+    - "src/textcharts/commands/parsers.py"
+    - "src/textcharts/base.py"
+    - "docs/input-formats.md"
+    - "scripts/generate_doc_screenshots.py"
+    - "tests/"
+  do_not_modify:
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/line_chart.py"
+    - "src/textcharts/cdf_chart.py"
+    - "src/textcharts/box_plot.py"
+    - "src/textcharts/diverging_bar.py"
+    - "src/textcharts/comparison_bar.py"
+    - "src/textcharts/normalized_speedup.py"
+    - "src/textcharts/mcp_server.py"
+    - "src/textcharts/commands/executor.py"
+    - "src/textcharts/cli.py"
+
+impact:
+  business_value: |
+    The textcharts package is a general-purpose visualization tool, not a benchmark tool.
+    BenchBox-specific field names confuse LLMs and users, limiting adoption.
+  user_impact: |
+    LLMs will use meaningful field names when creating charts via MCP. Users will see
+    generic defaults like "Value" instead of "Execution Time (ms)" in CLI output.
+
+metadata:
+  tags:
+    - breaking-change
+    - api-cleanup
+    - mcp
+    - cli
+  estimated_effort: "2-3 days"
+  created_date: "2026-03-10"

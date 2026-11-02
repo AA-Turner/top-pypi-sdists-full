@@ -1,0 +1,172 @@
+id: "textual-widget-core"
+title: "Implement core Textual widget via ANSI wrapper (Phase 1)"
+worktree: "dev-013"
+priority: "High"
+status: "Completed"
+completed_date: "2026-03-12"
+description: |
+  Create a textcharts[textual] optional extra that provides a TextChart widget
+  for embedding any textcharts chart inside a Textual TUI app. This follows the
+  same architecture as textual-plotext: the chart's render() -> str output (which
+  contains ANSI escape codes) is converted to a Rich Text object via
+  Text.from_ansi(), and returned from the Textual widget's render() method.
+
+  The widget must handle Textual-specific concerns: sizing from widget dimensions
+  instead of shutil.get_terminal_size(), theme bridging (Textual dark mode ->
+  textcharts theme), and proper resize behavior.
+
+  This is Phase 1 of Textual integration. It requires zero changes to the core
+  textcharts rendering engine — the widget is a thin adapter layer.
+
+category: "Integration"
+
+work:
+  - id: w1
+    summary: "Add textual optional dependency to pyproject.toml and create src/textcharts/textual/ package with __init__.py"
+    status: done
+    notes: |
+      Add `textual = ["textual>=0.86"]` to [project.optional-dependencies].
+      Create src/textcharts/textual/__init__.py that exports TextChart.
+      Keep the import guarded so textcharts works without textual installed.
+
+  - id: w2
+    summary: "Implement TextChart(Static) widget with ANSI-wrapper rendering, auto-sizing, and theme bridging"
+    needs: [w1]
+    status: done
+    notes: |
+      Core widget in src/textcharts/textual/widget.py. Key behaviors:
+      - Accepts any ChartBase subclass instance (or a callable that returns one)
+      - render() passes self.size.width/height to ChartOptions, calls chart.render(),
+        returns Text.from_ansi(result)
+      - on_mount: sync Textual dark mode to textcharts theme ("dark"/"light")
+      - Force use_color=True, use_unicode=True (Textual handles terminal output)
+      - Handle color mode: force EXTENDED or TRUECOLOR since Textual supports it
+      - Expose `chart` as a reactive property so reassignment triggers re-render
+      - Provide update_data() convenience method for swapping chart data
+
+  - id: w3
+    summary: "Implement chart factory function and convenience constructors for common chart types"
+    needs: [w2]
+    status: done
+    notes: |
+      Add text_chart() factory that creates TextChart from chart type name + data dict,
+      reusing the existing commands/executor.py dispatch. Also add typed convenience
+      functions: text_bar(), text_line(), text_heatmap() etc. that construct the
+      appropriate chart class and wrap it in TextChart. These live in
+      src/textcharts/textual/__init__.py or a separate factories.py.
+
+  - id: w4
+    summary: "Write unit tests for TextChart widget (rendering, sizing, theme sync, reactivity)"
+    needs: [w2]
+    status: done
+    notes: |
+      Use textual's async test harness (pilot). Tests should verify:
+      - Widget renders chart content (check for expected labels/values in output)
+      - Width/height from widget size are passed to ChartOptions
+      - Theme bridging: app.dark=True -> chart uses dark theme
+      - Reactive: assigning new chart triggers re-render
+      - All 15 chart types render without error in a basic Textual app
+      Location: tests/test_textual_widget.py
+
+  - id: w5
+    summary: "Create example Textual app demonstrating all chart types in a gallery layout"
+    needs: [w3]
+    status: done
+    notes: |
+      examples/textual_gallery.py — a Textual app with a sidebar listing chart types
+      and a main content area showing the selected chart. Demonstrates sizing,
+      theme switching (dark/light toggle), and data updates. Serves as both a demo
+      and integration smoke test.
+
+deferred:
+  - summary: "Textual CSS component classes for chart sub-elements"
+    reason: "Requires native Strip rendering (Phase 3); ANSI wrapper doesn't expose sub-elements to CSS"
+  - summary: "Mouse interactivity on chart elements (hover, click)"
+    reason: "Requires native rendering to know element positions; out of scope for ANSI wrapper"
+
+metadata:
+  created_date: "2026-03-12"
+  estimated_effort: "3-5 days"
+  tags:
+    - "textual"
+    - "integration"
+    - "widget"
+
+impact:
+  business_value: |
+    Opens textcharts to the Textual TUI ecosystem — users building dashboards,
+    monitoring tools, and data apps can embed textcharts visualizations directly.
+    Increases distribution surface and adoption.
+  user_impact: |
+    Textual developers get 15 chart types with zero-dep rendering, accessible
+    color palettes, and automatic theme integration — filling a gap not covered
+    by textual-plotext's general-purpose plotting.
+
+files_affected:
+  modified:
+    - "pyproject.toml"
+    - "docs/index.rst"
+  added:
+    - "src/textcharts/textual/__init__.py"
+    - "src/textcharts/textual/factories.py"
+    - "src/textcharts/textual/widget.py"
+    - "tests/test_textual_widget.py"
+    - "examples/textual_gallery.py"
+
+must_preserve:
+  - "ChartBase.render() -> str contract remains unchanged — all 15 chart types"
+  - "textcharts works without textual installed (import guarded behind optional dep)"
+  - "Zero runtime dependencies for base textcharts — textual is optional only"
+  - "Existing CLI, MCP server, and programmatic API unchanged"
+
+approach: |
+  Mirror the textual-plotext architecture: PlotextPlot(Widget) calls
+  Text.from_ansi(self._plot.build()) in its render() method. Our TextChart(Static)
+  does the same with chart.render(). Use Static base class for simplicity
+  (it caches render output and provides update() for refreshes).
+
+  For sizing: override render() to inject self.size into ChartOptions before
+  calling chart.render(). ChartOptions already supports explicit width/height.
+
+  For theme: watch app.dark reactive attribute, map to chart options.theme.
+
+  For color mode: prefer injecting capabilities via ChartOptions constructor or
+  a public setter if one exists. If no public API is available, setting
+  options._capabilities directly is acceptable (same project, internal coupling)
+  but consider promoting it to a public parameter on ChartOptions first.
+
+anti_patterns:
+  - "DO NOT modify ChartBase or any chart class to support Textual — because the core must remain zero-dep and Textual-unaware — use adapter/wrapper pattern only"
+  - "DO NOT import textual at module level in any core textcharts module — because it would break the zero-dep guarantee — guard all textual imports behind optional dep check"
+  - "DO NOT re-implement chart rendering using Strips/Segments — because that's Phase 3 scope and would require rewriting all 15 chart renderers — use Text.from_ansi() bridge"
+
+verification:
+  - description: "All existing tests pass (no regressions)"
+    command: "uv run pytest tests/ -v --ignore=tests/test_textual_widget.py"
+    expected_output: "all tests pass, 0 failures, coverage >= 85%"
+  - description: "Textual widget tests pass"
+    command: "uv run pytest tests/test_textual_widget.py -v"
+    expected_output: "all tests pass"
+  - description: "Import textcharts without textual installed does not pull in textual"
+    command: "uv run python -c 'from textcharts import BarChart; import sys; assert \"textual\" not in sys.modules; print(\"OK\")'"
+    expected_output: "OK"
+  - description: "Import textcharts.textual with textual installed succeeds"
+    command: "uv run --extra textual python -c 'from textcharts.textual import TextChart; print(\"OK\")'"
+    expected_output: "OK"
+  - description: "Example gallery app launches without crash"
+    command: "timeout 5 uv run --extra textual python examples/textual_gallery.py || true"
+    expected_output: "exits cleanly (timeout or user quit), no traceback"
+
+scope_limit:
+  only_modify:
+    - "pyproject.toml"
+    - "src/textcharts/__init__.py"
+    - "src/textcharts/textual/"
+    - "tests/test_textual_widget.py"
+    - "examples/textual_gallery.py"
+  do_not_modify:
+    - "src/textcharts/base.py"
+    - "src/textcharts/bar_chart.py"
+    - "src/textcharts/cli.py"
+    - "src/textcharts/mcp_server.py"
+    - "src/textcharts/commands/"

@@ -1,0 +1,21 @@
+Metadata-Version: 1.1
+Name: PyFastNER
+Version: 1.0.10
+Summary: A fast implementation of dictionary based named entity recognition.
+Home-page: https://github.com/jianlins/PyFastNER
+Author: Jianlin
+Author-email: jianlinshi.cn@gmail.com
+License: Apache License
+Description: PyFastNER is the python implementation of FastNER, which is orginally developed using Java. It uses hash function to process multiple rules at the same time. Similar to FastNER, PyFastNER supports token-based rules (FastNER--under developing) and character-based rules (FastCNER). It is licensed under the Apache License, Version 2.0.
+Keywords: PyFastNER,ner,regex
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Linguistic

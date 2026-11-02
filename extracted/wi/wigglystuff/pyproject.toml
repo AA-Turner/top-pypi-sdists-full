@@ -1,0 +1,92 @@
+[project]
+name = "wigglystuff"
+version = "0.5.36"
+description = "Collection of Anywidget Widgets"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Vincent D. Warmerdam" }]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "anywidget>=0.11.0",
+    "drawdata",
+]
+
+[project.optional-dependencies]
+numpy = [
+    "numpy",
+]
+pillow = [
+    "pillow",
+]
+all = [
+    "numpy",
+    "pillow",
+]
+torch = [
+    "torch>=2.10.0",
+]
+neo4j = [
+    "neo4j>=5.0.0",
+]
+otel = [
+    "opentelemetry-sdk>=1.20.0",
+]
+weave = [
+    "weave>=0.53.12",
+]
+pytest = [
+    "pytest>=8.3.3",
+]
+test = [
+    "pytest>=8.3.3",
+    "pytest-check-links>=0.10.0",
+    "marimo>=0.23.3",
+    "opentelemetry-sdk>=1.20.0",
+    "scikit-learn>=1.0",
+    "weave>=0.53.12",
+    "matplotlib>=3.0",
+    "pandas>=2.3.3",
+    "polars>=1.36.1",
+    "rich>=13.0",
+]
+test-browser = [
+    "pytest>=8.3.3",
+    "pytest-playwright>=0.6.2",
+    "marimo>=0.23.3",
+]
+docs = [
+    "altair>=6.0.0",
+    "marimo>=0.18.0",
+    "mkdocstrings[python]>=0.25.1",
+    "mohtml>=0.1.11",
+    "pandas>=2.3.3",
+    "polars>=1.36.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+only-packages = true
+artifacts = ["wigglystuff/static/*"]
+
+[tool.marimo.runtime]
+auto_instantiate = true
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: browser/server tests that exercise full user flows",
+]
+
+[dependency-groups]
+dev = [
+    "zensical>=0.0.38",
+]

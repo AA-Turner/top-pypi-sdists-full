@@ -1,0 +1,1287 @@
+"""File system access: dict-like stores over folders and files.
+
+``Files`` gives a folder a ``MutableMapping`` interface: keys are paths relative to the
+root folder, values are the files' bytes. ``TextFiles``, ``JsonFiles`` and ``PickleFiles``
+add the corresponding value codecs. Writing under a sub-folder that does not exist raises
+``KeyError``; wrap the store with ``mk_dirs_if_missing`` to create folders on write.
+
+Main entry points:
+
+- ``Files``: bytes of the files under a root folder
+- ``TextFiles``: same, with text values
+- ``JsonFiles``: same, with JSON-decoded values
+- ``PickleFiles``: same, with pickled values
+- ``mk_dirs_if_missing``: make a file store create missing directories on write
+
+    >>> import tempfile
+    >>> s = Files(tempfile.mkdtemp())
+    >>> s['hello.txt'] = b'world'
+    >>> s['hello.txt']
+    b'world'
+    >>> list(s)
+    ['hello.txt']
+"""
+
+import locale
+import os
+from os import stat as os_stat
+from functools import wraps, partial
+from typing import Union, Optional
+from collections.abc import Callable, Iterable
+
+from dol.base import Collection, KvReader, KvPersister
+from dol.trans import wrap_kvs, store_decorator, filt_iter, _wrap_store
+from dol.naming import mk_pattern_from_template_and_format_dict
+from dol.paths import mk_relative_path_store
+
+file_sep = os.path.sep
+inf = float("infinity")
+
+
+def ensure_slash_suffix(path: str):
+    r"""Add a file separation (/ or \) at the end of path str, if not already present.
+
+    An empty path stays empty: an empty prefix has no slash to "ensure", and turning
+    it into a bare separator anchors otherwise-absolute keys to the filesystem root.
+    On Windows that produces invalid paths like ``\C:\Users\...`` (a separator before
+    the drive letter -> ``OSError: [Errno 22]``); e.g. ``Files("")`` used with
+    absolute keys, as in ``dol.misc.get_obj``.
+    """
+    if path and not path.endswith(file_sep):
+        return path + file_sep
+    else:
+        return path
+
+
+def paths_in_dir(rootdir, include_hidden=False):
+    """Yield the paths of the entries of ``rootdir`` (directories with a trailing separator), skipping hidden ones unless ``include_hidden``."""
+    try:
+        for name in os.listdir(rootdir):
+            if include_hidden or not name.startswith(
+                "."
+            ):  # TODO: is dot a platform independent marker for hidden file?
+                filepath = os.path.join(rootdir, name)
+                if os.path.isdir(filepath):
+                    yield ensure_slash_suffix(filepath)
+                else:
+                    yield filepath
+    except (FileNotFoundError, NotADirectoryError, PermissionError):
+        # Skip directories that vanished, aren't directories, or aren't readable rather
+        # than crashing the (recursive) walk. Notably, OS-protected directories such as
+        # macOS's ``.../com.apple.*/TemporaryItems/`` under the temp dir raise
+        # PermissionError from ``os.listdir`` (Issue #3).
+        pass
+
+
+def iter_filepaths_in_folder_recursively(
+    root_folder, max_levels=None, _current_level=0, include_hidden=False
+):
+    """Recursively generates filepaths of folder (and subfolders, etc.) up to a given level"""
+    if max_levels is None:
+        max_levels = inf
+    for full_path in paths_in_dir(root_folder, include_hidden):
+        if os.path.isdir(full_path):
+            if _current_level < max_levels:
+                yield from iter_filepaths_in_folder_recursively(
+                    full_path, max_levels, _current_level + 1, include_hidden
+                )
+        else:
+            if os.path.isfile(full_path):
+                yield full_path
+
+
+def iter_dirpaths_in_folder_recursively(
+    root_folder, max_levels=None, _current_level=0, include_hidden=False
+):
+    """Recursively generates dirpaths of folder (and subfolders, etc.) up to a given level"""
+    if max_levels is None:
+        max_levels = inf
+    for full_path in paths_in_dir(root_folder, include_hidden):
+        if os.path.isdir(full_path):
+            yield full_path
+            if _current_level < max_levels:
+                yield from iter_dirpaths_in_folder_recursively(
+                    full_path, max_levels, _current_level + 1, include_hidden
+                )
+
+
+def create_directories(dirpath, max_dirs_to_make: int | None = None):
+    """
+    Create directories up to a specified limit.
+
+    Args:
+        dirpath: The directory path to create.
+        max_dirs_to_make: The maximum number of directories to create. If None,
+            there's no limit.
+
+    Returns:
+        True if the directory exists (already, or after creation); False if creating
+        it would need more than ``max_dirs_to_make`` new directories (none are made).
+
+    Raises:
+        ValueError: If max_dirs_to_make is negative.
+
+    .. rubric:: Examples
+
+    >>> import tempfile, shutil
+    >>> temp_dir = tempfile.mkdtemp()
+    >>> target_dir = os.path.join(temp_dir, 'a', 'b', 'c')
+    >>> create_directories(target_dir, max_dirs_to_make=2)
+    False
+    >>> create_directories(target_dir, max_dirs_to_make=3)
+    True
+    >>> os.path.isdir(target_dir)
+    True
+    >>> shutil.rmtree(temp_dir)  # Cleanup
+
+    >>> temp_dir = tempfile.mkdtemp()
+    >>> target_dir = os.path.join(temp_dir, 'a', 'b', 'c', 'd')
+    >>> create_directories(target_dir)
+    True
+    >>> os.path.isdir(target_dir)
+    True
+    >>> shutil.rmtree(temp_dir)  # Cleanup
+    """
+    if max_dirs_to_make is not None and max_dirs_to_make < 0:
+        raise ValueError("max_dirs_to_make must be non-negative or None")
+
+    if os.path.exists(dirpath):
+        return True
+
+    if max_dirs_to_make is None:
+        os.makedirs(dirpath, exist_ok=True)
+        return True
+
+    # Calculate the number of directories to create
+    dirs_to_make = []
+    current_path = dirpath
+
+    while not os.path.exists(current_path):
+        dirs_to_make.append(current_path)
+        current_path, _ = os.path.split(current_path)
+
+    if len(dirs_to_make) > max_dirs_to_make:
+        return False
+
+    # Create directories from the top level down
+    for dir_to_make in reversed(dirs_to_make):
+        os.mkdir(dir_to_make)
+
+    return True
+
+
+def process_path(
+    *path: Iterable[str],
+    ensure_dir_exists: int | bool = False,
+    assert_exists: bool = False,
+    ensure_endswith_slash: bool = False,
+    ensure_does_not_end_with_slash: bool = False,
+    expanduser: bool = True,
+    expandvars: bool = True,
+    abspath: bool = True,
+    rootdir: str = "",
+) -> str:
+    """
+    Process a path string, ensuring it exists, and optionally expanding user.
+
+    Args:
+        path (Iterable[str]): The path to process. Can be multiple components of a path.
+        ensure_dir_exists (bool): Whether to ensure the path exists.
+        assert_exists (bool): Whether to assert that the path exists.
+        ensure_endswith_slash (bool): Whether to ensure the path ends with a slash.
+        ensure_does_not_end_with_slash (bool): Whether to ensure the path does not end with a slash.
+        expanduser (bool): Whether to expand the user in the path.
+        expandvars (bool): Whether to expand environment variables in the path.
+        abspath (bool): Whether to convert the path to an absolute path.
+        rootdir (str): The root directory to prepend to the path.
+
+    Returns:
+        str: The processed path.
+
+    The result uses the running OS's native separator, so these examples assert
+    OS-independently (the literal forward-slash form is what you get on POSIX):
+
+    >>> import os
+    >>> process_path('a', 'b', 'c').endswith(os.path.join('a', 'b', 'c'))
+    True
+    >>> p = process_path(
+    ...     'a', 'b', 'c', rootdir='root_dir',
+    ...     ensure_endswith_slash=True, abspath=False, expanduser=False, expandvars=False,
+    ... )
+    >>> p == os.path.join('root_dir', 'a', 'b', 'c') + os.sep
+    True
+    """
+    path = os.path.join(*path)
+    if ensure_endswith_slash and ensure_does_not_end_with_slash:
+        raise ValueError(
+            "Cannot ensure both ends with slash and does not end with slash."
+        )
+    if rootdir:
+        path = os.path.join(rootdir, path)
+    if expanduser:
+        path = os.path.expanduser(path)
+    if expandvars:
+        path = os.path.expandvars(path)
+    if abspath:
+        path = os.path.abspath(path)
+    if ensure_endswith_slash:
+        if not path.endswith(os.path.sep):
+            path = path + os.path.sep
+    if ensure_does_not_end_with_slash:
+        if path.endswith(os.path.sep):
+            path = path[:-1]
+    if ensure_dir_exists:
+        if ensure_dir_exists is True:
+            ensure_dir_exists = None  # max_dirs_to_make
+        create_directories(path, max_dirs_to_make=ensure_dir_exists)
+    if assert_exists:
+        assert os.path.exists(path), f"Path does not exist: {path}"
+    return path
+
+
+def _announce_dir_to_make(dirpath, verbose):
+    """The ``verbose`` behaviour of :func:`ensure_dir`, before a directory is made."""
+    if verbose:
+        if isinstance(verbose, bool):
+            print(f"Making the directory: {dirpath}")
+        elif isinstance(verbose, Callable):
+            callaback = verbose
+            callaback(dirpath)
+        else:
+            string_to_print = verbose
+            print(string_to_print)
+
+
+def ensure_dir(
+    dirpath,
+    *,
+    max_dirs_to_make: int | None = None,
+    verbose: bool | str | Callable = False,
+):
+    """Ensure that a directory exists, creating it if necessary.
+
+    :param dirpath: path to the directory to create
+    :param max_dirs_to_make: the maximum number of directories to create.
+        If None, there's no limit.
+    :param verbose: controls verbosity (the noise ensure_dir makes if it make folder)
+    :return: the path to the directory
+
+    When the path does not exist, if ``verbose`` is:
+
+    - a ``bool``' a standard message will be printed
+
+    - a ``callable``; will be called on dirpath before directory is created -- you
+      can use this to ask the user for confirmation for example
+
+    - a ''string``; this string will be printed
+
+
+    Usage note: If you want to string or the (argument-less) callable to be dependent
+    on ``dirpath``, you need make them so when calling ensure_dir.
+    """
+    if not os.path.exists(dirpath):
+        _announce_dir_to_make(dirpath, verbose)
+        create_directories(dirpath, max_dirs_to_make=max_dirs_to_make)
+    return dirpath
+
+
+def temp_dir(dirname="", make_it_if_necessary=True, verbose=False):
+    """
+    Create and return a path to a temporary directory that's guaranteed to be
+    accessible to the user.
+
+    Args:
+        dirname: Optional subdirectory name to append to the temporary directory path
+        make_it_if_necessary: Whether to create the directory if it doesn't exist
+        verbose: Controls verbosity when creating directories
+
+    Returns:
+        Path to a temporary directory that the user has access to
+
+    Note:
+        This function creates a user-specific temporary directory to avoid permission
+        issues with system-wide temporary directories.
+    """
+    from tempfile import mkdtemp, gettempdir
+    import uuid
+    import getpass
+
+    # Create a unique user-specific directory under the system temp dir
+    user_temp_base = os.path.join(gettempdir(), f"user_{getpass.getuser()}")
+
+    if dirname:
+        # If a specific dirname is provided, use it
+        tmpdir = os.path.join(user_temp_base, dirname)
+    else:
+        # Otherwise create a unique directory with uuid
+        unique_id = str(uuid.uuid4())[:8]
+        tmpdir = os.path.join(user_temp_base, f"dol_temp_{unique_id}")
+
+    if make_it_if_necessary:
+        try:
+            ensure_dir(tmpdir, verbose=verbose)
+            # Verify we have write access
+            test_file = os.path.join(tmpdir, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+        except (PermissionError, OSError):
+            # Fallback: create a truly temporary directory with mkdtemp
+            if verbose:
+                print(f"Could not access {tmpdir}, falling back to mkdtemp()")
+            tmpdir = mkdtemp(prefix=f"dol_temp_")
+
+    return tmpdir
+
+
+mk_tmp_dol_dir = temp_dir  # for backward compatibility
+
+
+def mk_absolute_path(path_format):
+    """Expand a leading ``~``, or make a leading ``.`` path absolute; other paths are returned as is."""
+    if path_format.startswith("~"):
+        path_format = os.path.expanduser(path_format)
+    elif path_format.startswith("."):
+        path_format = os.path.abspath(path_format)
+    return path_format
+
+
+# TODO: subpath: Need to be able to allow named and unnamed file format markers (i.e {} and {named})
+
+_dflt_not_valid_error_msg = (
+    "Key not valid (usually because does not exist or access not permitted): {}"
+)
+_dflt_not_found_error_msg = "Key not found: {}"
+
+
+class KeyValidationError(KeyError):
+    """A ``KeyError`` for keys that fail a file-system store's validation."""
+
+    pass
+
+
+# TODO: The validate and try/except is a frequent pattern. Make it a decorator.
+def validate_key_and_raise_key_error_on_exception(func):
+    """Method decorator: validate the key first, and re-raise any exception of the method as a ``KeyError``."""
+
+    @wraps(func)
+    def wrapped_method(self, k, *args, **kwargs):
+        self.validate_key(k)
+        try:
+            return func(self, k, *args, **kwargs)
+        except Exception as e:
+            raise KeyError(str(e))
+
+    return wrapped_method
+
+
+def resolve_path(path, assert_existence: bool = False):
+    """Resolve a path to a full, real, (file or folder) path (opt assert existence).
+    That is, resolve situations where ~ and . prefix the paths.
+    """
+    if path.startswith("."):
+        path = os.path.abspath(path)
+    elif path.startswith("~"):
+        path = os.path.expanduser(path)
+    if assert_existence:
+        assert os.path.exists(path), f"This path (file or folder) wasn't found: {path}"
+    return path
+
+
+def resolve_dir(
+    dirpath: str, assert_existence: bool = False, ensure_existence: bool = False
+):
+    """Resolve a path to a full, real, path to a directory"""
+    dirpath = resolve_path(dirpath)
+    if ensure_existence and not os.path.isdir(dirpath):
+        os.makedirs(dirpath, exist_ok=True)
+    if assert_existence:
+        assert os.path.isdir(dirpath), f"This directory wasn't found: {dirpath}"
+    return dirpath
+
+
+def _for_repr(obj, quote="'"):
+    """
+    >>> _for_repr('a string')
+    "'a string'"
+    >>> _for_repr(10)
+    10
+    >>> _for_repr(None)
+    'None'
+    """
+    if isinstance(obj, str):
+        obj = f"{quote}{obj}{quote}"
+    elif obj is None:
+        obj = "None"
+    return obj
+
+
+def path_is_under(path: str, rootdir: str) -> bool:
+    """Whether ``path``, *lexically* normalized, is ``rootdir`` or lies under it.
+
+    A ``startswith`` check is not enough: ``'/data/root/../secret'`` starts with
+    ``'/data/root/'`` but addresses ``/data/secret`` (i2mint/dol#107). The check is
+    lexical (``os.path.normpath``, not ``realpath``), so a symlinked sub-directory of
+    the root still counts as inside it.
+
+    >>> path_is_under('/data/root/a/b.txt', '/data/root/')
+    True
+    >>> path_is_under('/data/root/a/../b.txt', '/data/root/')
+    True
+    >>> path_is_under('/data/root/../secret.txt', '/data/root/')
+    False
+    >>> path_is_under('/data/root/a/../../secret.txt', '/data/root')
+    False
+    >>> path_is_under('/data/rootsibling/x', '/data/root')
+    False
+    >>> path_is_under('//data/root/a', '//data/root/')
+    True
+    >>> path_is_under('root/../a', 'root/..'), path_is_under('root/../../a', 'root/..')
+    (True, False)
+    """
+    root, path = os.path.normpath(rootdir), os.path.normpath(path)
+    if root == os.curdir:  # commonpath(['x', '.']) is '', so handle '.' apart
+        return not (
+            os.path.isabs(path)
+            or path == os.pardir
+            or path.startswith(os.pardir + os.sep)
+        )
+    try:
+        # compare against commonpath([root]), not root: commonpath collapses a
+        # leading '//' that normpath keeps
+        return os.path.commonpath([path, root]) == os.path.commonpath([root])
+    except ValueError:  # mixed absolute/relative paths, or different drives
+        return False
+
+
+def dotdot_resolves_lexically(path: str, *, base: str = "") -> bool:
+    """Whether every ``..`` in ``path`` undoes the segment before it, as
+    ``os.path.normpath`` assumes.
+
+    It doesn't when a symlink comes before a ``..``: the OS then climbs out of the
+    link's target, so ``root/lnk/../x`` with ``root/lnk -> /elsewhere/deep`` addresses
+    ``/elsewhere/x``, not ``root/x`` (i2mint/dol#123). Paths without a ``..`` segment
+    are not touched (no file-system access); otherwise the part up to the last ``..``
+    is resolved both ways and compared.
+
+    With ``base`` (a string prefix of ``path``, e.g. a store's ``rootdir``), only the
+    ``..`` segments after it count: ``base`` itself is taken as the OS resolves it,
+    whatever ``..`` it holds. Conservative by design: a ``..`` after a symlink is
+    refused even when the link points back inside ``base``.
+
+    >>> dotdot_resolves_lexically('/data/root/a/b.txt')
+    True
+    >>> dotdot_resolves_lexically('/no/such/dir/../file')  # nothing to follow: lexical
+    True
+    """
+    if base and path.startswith(base):
+        base, path = path[: len(base)], path[len(base) :]
+    else:
+        base = ""
+    if os.pardir not in path:  # fast path: the common case, e.g. every listed key
+        return True
+    if os.altsep:
+        path = path.replace(os.altsep, os.sep)
+    segments = path.split(os.sep)
+    if os.pardir not in segments:
+        return True
+    last_pardir = len(segments) - 1 - segments[::-1].index(os.pardir)
+    head = os.sep.join(segments[: last_pardir + 1])
+    try:
+        physical = os.path.realpath(base + head)
+        return physical == os.path.realpath(base + os.path.normpath(head))
+    except (OSError, ValueError):  # unresolvable: don't vouch for it
+        return False
+
+
+class FileSysCollection(Collection):
+    # rootdir = None  # mentioning here so that the attribute is seen as an attribute before instantiation.
+
+    """Base collection of file-system paths under ``rootdir``, optionally restricted by ``subpath``, ``max_levels`` and hidden-file inclusion.
+
+    Keys that would leave ``rootdir`` through ``..`` segments (e.g.
+    ``'<rootdir>/../secret'``) are not valid keys: reading, writing or deleting them
+    raises ``KeyError``, and ``in`` returns ``False`` (i2mint/dol#107). Pass the
+    keyword-only ``allow_escape=True`` to address paths outside the root on purpose.
+    """
+
+    def __init__(
+        self,
+        rootdir,
+        subpath="",
+        pattern_for_field=None,
+        max_levels=None,
+        *,
+        include_hidden=False,
+        assert_rootdir_existence=False,
+        allow_escape=False,
+    ):
+        self._init_kwargs = {k: v for k, v in locals().items() if k != "self"}
+        if not allow_escape:
+            # keep the repr unchanged for the default (see i2mint/dol#107)
+            del self._init_kwargs["allow_escape"]
+        rootdir = resolve_dir(rootdir, assert_existence=assert_rootdir_existence)
+        if max_levels is None:
+            max_levels = inf
+        subpath_implied_min_levels = len(subpath.split(os.path.sep)) - 1
+        assert max_levels >= subpath_implied_min_levels, (
+            f"max_levels is {max_levels}, but subpath {subpath} would imply at least {subpath_implied_min_levels}"
+        )
+        pattern_for_field = pattern_for_field or {}
+        self.rootdir = ensure_slash_suffix(rootdir)
+        self.subpath = subpath
+        self._key_pattern = mk_pattern_from_template_and_format_dict(
+            os.path.join(rootdir, subpath), pattern_for_field
+        )
+        self._max_levels = max_levels
+        self.include_hidden = include_hidden
+        self.allow_escape = allow_escape
+
+    allow_escape = False  # for subclasses whose __init__ skips super().__init__
+
+    def is_valid_key(self, k):
+        """Whether ``k`` is a key of this collection: it must match the key pattern
+        and, unless ``allow_escape=True``, stay under ``rootdir`` once ``..``
+        segments are resolved (see :func:`path_is_under`). An empty ``rootdir``
+        (as in ``Files('')``, used by ``dol.misc``) confines nothing: its keys are
+        arbitrary paths by design."""
+        return bool(self._key_pattern.match(k)) and self.is_in_root(k)
+
+    def is_in_root(self, k):
+        """Whether ``k`` stays under ``rootdir`` (always true with
+        ``allow_escape=True`` or an empty ``rootdir``).
+
+        The containment test is lexical (:func:`path_is_under`), so a key whose ``..``
+        follows a symlink -- where the OS climbs out of the link's *target*, not back
+        to the link's directory -- is refused too (i2mint/dol#123).
+        """
+        return (
+            self.allow_escape
+            or not self.rootdir
+            or (
+                path_is_under(k, self.rootdir)
+                and dotdot_resolves_lexically(k, base=self.rootdir)
+            )
+        )
+
+    def validate_in_root(self, k):
+        """Raise ``KeyValidationError`` if ``k`` leaves ``rootdir`` (i2mint/dol#107).
+
+        For methods that build a value from ``k`` without a full ``validate_key``.
+        """
+        if not self.is_in_root(k):
+            raise KeyValidationError(_dflt_not_valid_error_msg.format(k))
+
+    def validate_key(
+        self,
+        k,
+        err_msg_format=_dflt_not_valid_error_msg,
+        err_type=KeyValidationError,
+    ):
+        if not self.is_valid_key(k):
+            raise err_type(err_msg_format.format(k))
+
+    def __repr__(self):
+        input_str = ", ".join(
+            f"{k}={_for_repr(v)}" for k, v in self._init_kwargs.items()
+        )
+        return f"{type(self).__name__}({input_str})"
+
+    def with_relative_paths(self):
+        """Return a copy of self with relative paths"""
+        return with_relative_paths(self)
+
+
+class DirCollection(FileSysCollection):
+    """Collection of the directory paths under ``rootdir``."""
+
+    def __iter__(self):
+        yield from filter(
+            self.is_valid_key,
+            iter_dirpaths_in_folder_recursively(
+                self.rootdir,
+                max_levels=self._max_levels,
+                include_hidden=self.include_hidden,
+            ),
+        )
+
+    def __contains__(self, k):
+        return self.is_valid_key(k) and os.path.isdir(k)
+
+
+class FileCollection(FileSysCollection):
+    """Collection of the file paths under ``rootdir``."""
+
+    def __iter__(self):
+        """
+        Iterator of valid filepaths.
+
+        >>> import os
+        >>> filepath = __file__  # path to this module
+        >>> dirpath = os.path.dirname(__file__)  # path of the directory where I (the module file) am
+        >>> s = FileCollection(dirpath, max_levels=0)
+        >>>
+        >>> files_in_this_dir = list(s)
+        >>> filepath in files_in_this_dir
+        True
+        """
+        yield from filter(
+            self.is_valid_key,
+            iter_filepaths_in_folder_recursively(
+                self.rootdir,
+                max_levels=self._max_levels,
+                include_hidden=self.include_hidden,
+            ),
+        )
+
+    def __contains__(self, k):
+        """
+        Checks if k is valid and contained in the store
+
+        >>> import os
+        >>> filepath = __file__  # path to this module
+        >>> dirpath = os.path.dirname(__file__)  # path of the directory where I (the module file) am
+        >>> s = FileCollection(dirpath, max_levels=0)
+        >>>
+        >>> filepath in s
+        True
+        >>> '_this_filepath_will_never_be_valid_' in s
+        False
+        """
+        return self.is_valid_key(k) and os.path.isfile(k)
+
+
+class FileInfoReader(FileCollection, KvReader):
+    """Reader mapping file paths to their ``os.stat`` result."""
+
+    def __getitem__(self, k):
+        self.validate_key(k)
+        return os_stat(k)
+
+
+class FileBytesReader(FileCollection, KvReader):
+    """Reader mapping file paths under ``rootdir`` to the files' bytes."""
+
+    _read_open_kwargs = dict(
+        mode="rb",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    )
+
+    @validate_key_and_raise_key_error_on_exception
+    def __getitem__(self, k):
+        '''
+        Gets the bytes contents of the file k.
+
+        >>> import os
+        >>> filepath = __file__
+        >>> dirpath = os.path.dirname(__file__)  # path of the directory where I (the module file) am
+        >>> s = FileBytesReader(dirpath, max_levels=0)
+        >>>
+        >>> ####### Get the first 9 characters (as bytes) of this module #####################
+        >>> s[filepath][:9]
+        b'"""File s'
+        >>>
+        >>> ####### Test key validation #####################
+        >>> # this key is not valid since not under the dirpath folder, so should give an exception
+        >>> # Skipped because filesys.KeyValidationError vs dol.filesys.KeyValidationError on different systems
+        >>> s['not_a_valid_key']  # doctest: +SKIP
+        Traceback (most recent call last):
+            ...
+        filesys.KeyValidationError: 'Key not valid (usually because does not exist or access not permitted): not_a_valid_key'
+        >>>
+        >>> ####### Test further exceptions (that should be wrapped in KeyError) #####################
+        >>> # this key is valid, since under dirpath, but the file itself doesn't exist (hopefully for this test)
+        >>> non_existing_file = os.path.join(dirpath, 'non_existing_file')
+        >>> try:
+        ...     s[non_existing_file]
+        ... except KeyError:
+        ...     print("KeyError (not FileNotFoundError) was raised.")
+        KeyError (not FileNotFoundError) was raised.
+        '''
+        with open(k, **self._read_open_kwargs) as fp:
+            return fp.read()
+
+
+class LocalFileDeleteMixin:
+    """Mixin providing configurable file deletion.
+
+    The deletion function can be configured either at class level by setting
+    the _delete_func class attribute, or at instance level by setting the
+    _delete_func instance attribute.
+
+    By default, uses safe deletion that tries to move to trash with fallback
+    to os.remove (with warning).
+
+    See dol.trash module for available deletion strategies:
+
+    - default_delete_func: Safe trash with warning on fallback
+    - permanent_delete: Direct os.remove (no warnings)
+    - trash_only: Error if trash unavailable
+    """
+
+    _delete_func = None  # Will be set to default_delete_func after import
+
+    @validate_key_and_raise_key_error_on_exception
+    def __delitem__(self, k):
+        # Import here to avoid circular import issues
+        if self._delete_func is None:
+            from dol.trash import default_delete_func
+
+            delete_func = default_delete_func
+        else:
+            delete_func = self._delete_func
+        delete_func(k)
+
+
+class FileBytesPersister(LocalFileDeleteMixin, FileBytesReader, KvPersister):
+    """File persistence with configurable deletion.
+
+    Supports custom deletion functions via delete_func parameter in __init__.
+
+    By default, tries to move files to trash with fallback to os.remove.
+    See dol.trash module for deletion strategies: permanent_delete, trash_only, etc.
+    """
+
+    _write_open_kwargs = dict(
+        mode="wb",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    )
+    # _make_dirs_if_missing = False
+
+    def __init__(self, *args, delete_func=None, write_open_kwargs=None, **kwargs):
+        """Initialize FileBytesPersister.
+
+        Args:
+            *args: Passed to parent classes
+            write_open_kwargs: Optional mapping of keyword arguments for the builtin
+                ``open`` used to write each value file, merged over the class
+                defaults (``_write_open_kwargs``). Use it for e.g. ``opener=`` (to
+                create files with ``0o600``), ``encoding=``, ``errors=`` or
+                ``newline=``. If you override ``mode``, also override the keys that go with
+                it (a binary mode takes no ``encoding``/``errors``/``newline``).
+            delete_func: Optional custom deletion function.
+                If None, uses class default (safe trash with fallback).
+                Common options from dol.trash:
+
+                - default_delete_func (safe trash, warning on fallback)
+                - permanent_delete (os.remove, no warnings)
+                - trash_only (error if trash unavailable)
+
+                Note: the default (trash) is a kind choice for a store of a user's
+                own files, but a surprising one for a store of derived/generated
+                data -- every deletion leaves a full copy outside the store
+                indefinitely, and the OS trash is keyed by basename, so same-named
+                keys from different prefixes/stores can collide there. Pass
+                ``delete_func=os.remove`` (or ``permanent_delete``) to opt out
+                (see i2mint/dol#97).
+
+            **kwargs: Passed to parent classes
+        """
+        super().__init__(*args, **kwargs)
+        if delete_func is not None:
+            self._delete_func = delete_func
+        if write_open_kwargs:
+            self._write_open_kwargs = {**self._write_open_kwargs, **write_open_kwargs}
+
+    def _check_value_before_open(self, v):
+        """Raise if ``v`` can't be written, *before* the file is opened (and so
+        truncated). The bytes persister has nothing to check; see
+        ``FileStringPersister``."""
+        if "b" not in self._write_open_kwargs.get("mode", "wb"):
+            return
+        try:
+            memoryview(v)
+        except TypeError:
+            raise TypeError(
+                f"a bytes-like object is required, not {type(v).__name__!r}"
+            ) from None
+
+    @validate_key_and_raise_key_error_on_exception
+    def __setitem__(self, k, v):
+        # TODO: Make this work with validate_key_and_raise_key_error_on_exception
+        # if self._make_dirs_if_missing:
+        #     dirname = os.path.dirname(k)
+        #     os.makedirs(dirname, exist_ok=True)
+        self._check_value_before_open(v)
+        with open(k, **self._write_open_kwargs) as fp:
+            return fp.write(v)
+
+
+# ---------------------------------------------------------------------------------------
+# TODO: Once test coverage sufficient, apply this pattern to all other convenience stores
+
+with_relative_paths = partial(mk_relative_path_store, prefix_attr="rootdir")
+
+
+@with_relative_paths
+class FilesReader(FileBytesReader):
+    """FileBytesReader with relative paths"""
+
+
+@with_relative_paths
+class Files(FileBytesPersister):
+    """FileBytesPersister with relative paths"""
+
+
+RelPathFileBytesReader = FilesReader
+RelPathFileBytesPersister = Files  # back-compatibility alias
+
+# ---------------------------------------------------------------------------------------
+
+
+class FileStringReader(FileBytesReader):
+    """Reader mapping file paths to the files' text (files opened in text mode).
+
+    Reads as UTF-8 explicitly, rather than inheriting ``locale.getpreferredencoding()``
+    (see i2mint/dol#97): a store is a serialization boundary, and one whose format
+    silently depends on an ambient environment variable isn't really specified. This
+    also matches how ``FileStringPersister`` writes (below), so a round trip is safe
+    regardless of which locale reads or writes.
+    """
+
+    _read_open_kwargs = dict(
+        FileBytesReader._read_open_kwargs, mode="rt", encoding="utf-8"
+    )
+
+
+def _locale_encoding():
+    """The encoding ``open`` falls back to in text mode (``locale.getencoding`` where
+    available, i.e. Python >= 3.11)."""
+    get = getattr(locale, "getencoding", None)
+    return get() if get else locale.getpreferredencoding(False)
+
+
+class FileStringPersister(FileBytesPersister):
+    """Persister mapping file paths to the files' text (files opened in text mode).
+
+    Reads and writes as UTF-8 explicitly, rather than inheriting
+    ``locale.getpreferredencoding()`` (see i2mint/dol#97): a store is a serialization
+    boundary, and one whose format silently depends on an ambient environment
+    variable isn't really specified. Without this, a write can raise on a
+    non-ASCII-locale machine, or a store synced between two machines with different
+    locales can silently corrupt on round trip.
+    """
+
+    _read_open_kwargs = dict(
+        FileBytesReader._read_open_kwargs, mode="rt", encoding="utf-8"
+    )
+    _write_open_kwargs = dict(
+        FileBytesPersister._write_open_kwargs, mode="wt", encoding="utf-8"
+    )
+
+    def _check_value_before_open(self, v):
+        """Encode ``v`` (and discard the result) before the file is opened.
+
+        Opening for writing truncates, so a value that can't be encoded (a lone
+        surrogate under utf-8, a non-``str``) used to leave the existing file
+        emptied before raising. Now it raises with the file untouched.
+        """
+        kw = self._write_open_kwargs
+        if "b" in kw.get("mode", "wt"):
+            return
+        if not isinstance(v, str):
+            raise TypeError(f"write() argument must be str, not {type(v).__name__}")
+        v.encode(
+            kw.get("encoding") or _locale_encoding(),
+            kw.get("errors") or "strict",
+        )
+
+
+@with_relative_paths(prefix_attr="rootdir")
+class TextFilesReader(FileStringReader):
+    """FileStringReader with relative paths"""
+
+
+@with_relative_paths(prefix_attr="rootdir")
+class TextFiles(FileStringPersister):
+    """FileStringPersister with relative paths"""
+
+
+RelPathFileStringReader = TextFilesReader
+RelPathFileStringPersister = TextFiles
+
+
+# ------------------------------------ misc --------------------------------------------
+import pickle
+import json
+
+# TODO: Want to replace with use of ValueCodecs but need to resolve circular imports
+pickle_bytes_wrap = wrap_kvs(value_decoder=pickle.loads, value_encoder=pickle.dumps)
+json_bytes_wrap = wrap_kvs(
+    value_decoder=json.loads, value_encoder=partial(json.dumps, indent=4)
+)
+
+
+# And two factories to make the above more configurable:
+def mk_pickle_bytes_wrap(
+    *, loads_kwargs: dict | None = None, dumps_kwargs: dict | None = None
+) -> Callable:
+    """Make a ``wrap_kvs`` value-codec wrapper for pickle, with kwargs for ``pickle.loads``/``pickle.dumps``."""
+    return wrap_kvs(
+        value_decoder=partial(pickle.loads, **(loads_kwargs or {})),
+        value_encoder=partial(pickle.dumps, **(dumps_kwargs or {})),
+    )
+
+
+def mk_json_bytes_wrap(
+    *, loads_kwargs: dict | None = None, dumps_kwargs: dict | None = None
+) -> Callable:
+    """Make a ``wrap_kvs`` value-codec wrapper for JSON, with kwargs for ``json.loads``/``json.dumps``."""
+    return wrap_kvs(
+        value_decoder=partial(json.loads, **(loads_kwargs or {})),
+        value_encoder=partial(json.dumps, **(dumps_kwargs or {})),
+    )
+
+
+class ReprMixin:
+    """A ``__repr__`` showing the ``_init_kwargs`` the instance was created with."""
+
+    def __repr__(self):
+        input_str = ", ".join(
+            f"{k}={_for_repr(v)}" for k, v in getattr(self, "_init_kwargs", {}).items()
+        )
+        return f"{type(self).__name__}({input_str})"
+
+
+@pickle_bytes_wrap
+class PickleFiles(ReprMixin, Files):
+    """A store of pickles"""
+
+
+PickleStore = PickleFiles  # back-compatibility alias
+
+
+@json_bytes_wrap
+class JsonFiles(ReprMixin, TextFiles):
+    """A store of json files"""
+
+
+from dol.trans import affix_key_codec
+
+
+@affix_key_codec(suffix=".json")
+@filt_iter.suffixes(".json")
+class Jsons(ReprMixin, JsonFiles):
+    """Like JsonFiles, but with added .json extension handling
+    Namely: filtering for `.json` extensions but not showing the extension in keys"""
+
+
+# @wrap_kvs(key_of_id=lambda x: x[:-1], id_of_key=lambda x: x + path_sep)
+@mk_relative_path_store(prefix_attr="rootdir")
+class PickleStores(DirCollection):
+    """Reader mapping each sub-directory of ``rootdir`` to a ``PickleFiles`` store of it."""
+
+    def __getitem__(self, k):
+        self.validate_in_root(k)
+        return PickleFiles(k)
+
+    def __repr__(self):
+        return f"{type(self).__name__}('{self.rootdir}', ...)"
+
+
+class DirReader(DirCollection, KvReader):
+    """Reader mapping each sub-directory of ``rootdir`` to a ``DirReader`` of it."""
+
+    def __getitem__(self, k):
+        self.validate_in_root(k)
+        return DirReader(k)
+
+
+# TODO: This, with mk_dirs_if_missing, should replace uses of AutoMkDirsOnSetitemMixin and MakeMissingDirsStoreMixin
+def mk_dirs_if_missing_preset(
+    self, k, v, *, max_dirs_to_make: int | None = None, verbose=False
+):
+    """
+    Preset function that will make the store create directories on write as needed.
+
+    It only makes the directory: the write itself is left to the wrapper that calls
+    this preset, so it happens exactly once and its errors propagate (#112). The
+    directory is made only when the innermost layer is a file-system store, the key
+    resolves (through every layer's ``_id_of_key``) to a path whose directory is
+    missing, and that layer's ``validate_key`` accepts it -- so an invalid key (e.g.
+    one leaving ``rootdir``, #107) never gets a directory, and the write raises for it.
+
+    (``mk_dirs_if_missing`` itself no longer goes through this preset: it also has to see
+    the write fail, to remove the directories it made for a key a layer below rejects,
+    i2mint/dol#122.)
+    """
+    dirname = _missing_dir_of_key(self, k)
+    if dirname is not None:
+        ensure_dir(dirname, max_dirs_to_make=max_dirs_to_make, verbose=verbose)
+    return v
+
+
+def _missing_dir_of_key(store, k):
+    """The directory ``store`` needs, but lacks, to write ``k``; ``None`` if none.
+
+    ``None`` when the innermost layer is not a file-system store (a dict-backed or
+    other non-path store never gets a directory, in particular not under the process
+    CWD), when the directory already exists, or when that layer rejects the key. A
+    relative path (a relative ``rootdir``) is made relative to the CWD, which is where
+    the write will put it.
+    """
+    try:
+        path = path_of(store, k)
+    except (
+        TypeError,
+        KeyError,
+    ):  # not a file store / key not followable / key rejected
+        return None
+    dirname = os.path.dirname(path)
+    return None if os.path.isdir(dirname) else dirname
+
+
+def path_of(store, key) -> str:
+    """The file-system path of ``key`` in a file-backed ``store``, however it is wrapped.
+
+    The key is followed through every layer's ``_id_of_key`` (the same walk as
+    ``dol.inner_most_key``) down to the innermost file-system store, which must accept
+    the result: a key leaving ``rootdir`` raises ``KeyValidationError`` (a ``KeyError``),
+    as a read or write of it would. A store with no file-system layer at its core, or
+    with a layer that maps keys without defining ``_id_of_key`` (so the key cannot be
+    followed), raises ``TypeError``. Nothing is read or created. The result is an
+    absolute, normalized path (relative roots resolve against the CWD).
+
+    Limit: like ``dol.dig.key_in_scope``, this reads what the layers declare through
+    ``_id_of_key``; a layer that maps keys by other means (``add_path_access``,
+    ``flatten``) is not followed, and a ``filt_iter`` scope is not enforced.
+
+    >>> import tempfile
+    >>> from dol import Files, KeyCodecs
+    >>> root = tempfile.mkdtemp()
+    >>> path_of(Files(root), os.path.join('a', 'b.txt')) == os.path.join(root, 'a', 'b.txt')
+    True
+    >>> s = KeyCodecs.suffixed('.json')(Files(root))  # wrapped: the outer key is mapped
+    >>> path_of(s, 'a').endswith('a.json')
+    True
+    >>> path_of(Files(root), '../x')
+    Traceback (most recent call last):
+      ...
+    dol.filesys.KeyValidationError: 'Key not valid (usually because does not exist or access not permitted): ...'
+    >>> path_of({}, 'a')
+    Traceback (most recent call last):
+      ...
+    TypeError: ...
+    """
+    from dol.dig import inner_most_key
+
+    innermost = _innermost_layer(store)
+    if not isinstance(innermost, FileSysCollection):
+        raise TypeError(
+            f"{type(innermost).__name__} is not a file-system store: no path for {key!r}"
+        )
+    path = key if innermost is store else inner_most_key(store, key)
+    path = os.fspath(path)
+    innermost.validate_key(path)
+    return os.path.abspath(path)
+
+
+def _innermost_layer(store):
+    """The deepest layer of ``store``'s ``.store`` chain, walked the way
+    ``inner_most_key`` walks it (only through layers that define ``_id_of_key``)."""
+    while hasattr(store, "_id_of_key") and hasattr(store, "store"):
+        store = store.store
+    return store
+
+
+def _missing_ancestors(dirname):
+    """The directories from the topmost missing one down to ``dirname`` (those to be made)."""
+    missing = []
+    while dirname and not os.path.isdir(dirname):
+        missing.append(dirname)
+        parent = os.path.dirname(dirname)
+        if parent == dirname:
+            break
+        dirname = parent
+    return missing[::-1]
+
+
+def _make_dirs_tracking(dirname, *, max_dirs_to_make=None, verbose=False):
+    """Like :func:`ensure_dir`; returns the directories *this call* made, top-down.
+
+    A directory another process makes meanwhile is not counted as made here, so a later
+    cleanup never removes it. Exceeding ``max_dirs_to_make`` makes none, as there.
+    """
+    if os.path.exists(dirname):
+        return []
+    _announce_dir_to_make(dirname, verbose)
+    to_make = _missing_ancestors(dirname)
+    if max_dirs_to_make is not None and len(to_make) > max_dirs_to_make:
+        return []
+    made = []
+    try:
+        for dir_to_make in to_make:
+            try:
+                os.mkdir(dir_to_make)
+            except FileExistsError:
+                continue
+            made.append(dir_to_make)
+    except BaseException:
+        _remove_dirs_made(made)
+        raise
+    return made
+
+
+def _remove_dirs_made(made):
+    """Remove (deepest first) directories that were made for a write that then failed.
+
+    Only directories that are still empty go, so nothing another writer put there is lost.
+    """
+    for dirname in reversed(made):
+        try:
+            os.rmdir(dirname)
+        except OSError:
+            pass
+
+
+def _mk_dirs_if_missing_class_trans(
+    store_cls, *, max_dirs_to_make=None, verbose=False, __module__=None
+):
+    def __setitem__(self, k, v):
+        dirname = _missing_dir_of_key(self, k)
+        made = (
+            _make_dirs_tracking(
+                dirname, max_dirs_to_make=max_dirs_to_make, verbose=verbose
+            )
+            if dirname is not None
+            else []
+        )
+        try:
+            return super(store_cls, self).__setitem__(k, v)
+        except BaseException:
+            # A layer below refused the write (e.g. a ``filt_iter`` that rejects ``k``,
+            # i2mint/dol#122): do not leave the directories made for it behind.
+            _remove_dirs_made(made)
+            raise
+
+    store_cls.__setitem__ = __setitem__
+    if __module__ is not None:
+        store_cls.__module__ = __module__
+    return store_cls
+
+
+# TODO: Add more control over mk dir condition (e.g. number of levels, or any key cond)
+#   Also, add a verbose option to print the dirs that are being made
+#   (see dol.filesys.ensure_dir)
+@store_decorator
+def mk_dirs_if_missing(
+    store_cls=None,
+    *,
+    max_dirs_to_make: int | None = None,
+    verbose: bool | str | Callable = False,
+    key_condition=None,  # TODO: not used! Should use! Add to ensure_dir
+):
+    """Store decorator that will make the store create directories on write as
+    needed.
+
+    Note that it'll only effect paths relative to the rootdir, which needs to be
+    ensured to exist separatedly.
+
+    The directories are made just before the write. If the write then fails (a layer
+    below refuses the key, e.g. a ``filt_iter`` scope, or the write itself errors), the
+    directories this call made are removed again (those still empty), so a rejected
+    key leaves no stray folder behind (i2mint/dol#122). (A concurrent writer that had
+    just seen such a directory exist can still lose it to this cleanup: its write then
+    fails like any write to a missing directory.)
+    """
+    return _wrap_store(
+        _mk_dirs_if_missing_class_trans,
+        dict(
+            store=store_cls,
+            max_dirs_to_make=max_dirs_to_make,
+            verbose=verbose,
+        ),
+    )
+
+
+# DEPRECATED!!
+# This one really smells. Replace uses with mk_dirs_if_missing
+class MakeMissingDirsStoreMixin:
+    """Will make a local file store automatically create the directories needed to create a file.
+    Should be placed before the concrete perisister in the mro but in such a manner so that it receives full paths.
+    """
+
+    _verbose: bool | str | Callable = False  # eek! Can't set in init.
+
+    def __setitem__(self, k, v):
+        print(
+            f"Deprecating message: Consider using the mk_dirs_if_missing decorator instead."
+        )
+        # TODO: I'm not thrilled in the way I'm doing this; find alternatives
+        try:
+            super().__setitem__(k, v)
+        except KeyValidationError:
+            raise  # invalid key (e.g. outside rootdir): never make dirs for it (#107)
+        except Exception:  # general on purpose...
+            # TODO: ... But perhaps a more precise (but sufficient) exception list better?
+            from dol.dig import inner_most_key
+
+            # Get the inner most key, which should be a full path.
+            # ``default=k``: this mixin is normally mixed into a persister whose keys ARE
+            # full paths and which therefore defines no ``_id_of_key``. Without the default
+            # the resolution fails, and it used to fail as a silent ``None`` -- turning the
+            # original write error into ``TypeError: expected str ... not NoneType``.
+            _id = inner_most_key(self, k, default=k)
+            # get the full path of directory needed for this file
+            dirname = os.path.dirname(_id)
+            # Only create directories for an ABSOLUTE path. A relative one means the key
+            # was never resolved to a filepath (a persister with relative keys and no
+            # ``_id_of_key``), and creating it would silently mkdir under the process CWD --
+            # outside the store -- after which the write would still fail. Re-raise instead.
+            if not os.path.isabs(dirname):
+                raise
+            # make all the directories needed
+            # ``verbose`` is keyword-only; this was passing it positionally, so the
+            # recovery path raised TypeError instead of creating the directory.
+            ensure_dir(dirname, verbose=self._verbose)
+            # try writing again
+            super().__setitem__(k, v)
+            # TODO: Undesirable here: If the setitem still fails, we created dirs
+            #  already, for nothing, and are not cleaning up (if clean up need to make
+            #  sure to not delete dirs that already existed!)
+
+
+# -------------------------------------------------------------------------------------
+
+from dol.kv_codecs import KeyCodecs
+
+
+def subfolder_stores(
+    root_folder,
+    *,
+    max_levels: int | None = None,
+    include_hidden: bool = False,
+    relative_paths: bool = True,
+    slash_suffix: bool = False,
+    folder_to_store=Files,
+):
+    """
+    Create a store of subfolders of a given folder, where the keys are the subfolder
+    paths (by default, relative and slash-less) and the values are stores of these
+    subfolders.
+
+    By default, all subfolders will be taken, recursively, but this can be controlled by
+    the `max_levels` parameter.
+    """
+    root_folder = ensure_slash_suffix(root_folder)
+    # Strip the native trailing separator (os.sep), NOT a hardcoded "/": the dir
+    # paths end with os.sep ('\\' on Windows), so a literal "/" would not match and
+    # the affix codec would re-add a "/" -> mixed-separator KeyError on Windows.
+    wrap = KeyCodecs.affixed(
+        prefix=root_folder if relative_paths else "",
+        suffix=os.path.sep if not slash_suffix else "",
+    )
+    folders = iter_dirpaths_in_folder_recursively(
+        root_folder, max_levels=max_levels, include_hidden=include_hidden
+    )
+    return wrap({path: folder_to_store(path) for path in folders})

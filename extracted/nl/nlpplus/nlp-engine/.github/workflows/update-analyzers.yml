@@ -1,0 +1,86 @@
+# Install at: VisualText/nlp-engine  ->  .github/workflows/update-analyzers.yml
+#
+# Bumps the `analyzers` submodule to the latest upstream and opens a PR.
+#
+# Why a PR (not commit+tag+release like the analyzers/visualtext-files jobs):
+# nlp-engine has its own version (NLP_ENGINE_VERSION in nlp/main.cpp) and a
+# heavy per-platform release pipeline. A submodule bump should NOT auto-cut an
+# engine release, and shouldn't land on master untested. So this opens a PR
+# with auto-merge on: it merges itself once the required builds pass.
+#
+# The PR is opened with CLASSIC_PAT, not GITHUB_TOKEN. A PR opened with
+# GITHUB_TOKEN never starts other workflows, so the required builds never ran
+# and every bump sat blocked until merged by hand with the admin override.
+#
+# A parse-en-us change can change the parse-en-us final.tree/out.xml the builds
+# compare against. Then the PR stays open with a red check: update the
+# baseline on the PR branch and it merges itself.
+#
+# Needs "Allow auto-merge" on in the repo settings.
+#
+# Event-driven: fired by analyzers (event-type analyzers-release) when its
+# parse-en-us bump releases — no more nightly polling. Still runnable by hand.
+#
+# PREREQUISITE: the `analyzers` submodule must actually be attached in the tree
+# (see nlp-engine PR #643 "Re-attach orphaned analyzers submodule"). Until that
+# merges, there is no analyzers/ gitlink for this job to bump.
+
+name: Update analyzers submodule
+
+on:
+  workflow_dispatch: {}
+  repository_dispatch:
+    types: [analyzers-release]   # ping sent by analyzers/parse-en-us.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-analyzers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true   # not recursive: only the analyzers pointer is bumped
+          fetch-depth: 0
+
+      - name: Move analyzers to latest upstream
+        run: |
+          git submodule update --remote analyzers
+          echo "Status:"; git submodule status analyzers
+
+      - name: Open PR if the pointer moved
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CLASSIC_PAT }}
+          branch: auto/bump-analyzers
+          delete-branch: true
+          title: "Auto: bump analyzers submodule to latest upstream"
+          commit-message: "Auto: bump analyzers submodule to latest upstream"
+          body: |
+            Automated bump of the `analyzers` submodule to the latest upstream
+            commit (which includes whatever has been released into analyzers,
+            e.g. parse-en-us fixes).
+
+            Auto-merge is on: this merges itself once the required builds
+            pass. If a build fails on the parse-en-us final.tree/out.xml
+            baseline, the parser's output changed: update the baseline on
+            this branch.
+
+      - name: Turn on auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.CLASSIC_PAT }}
+          PR: ${{ steps.cpr.outputs.pull-request-number }}
+        # GitHub refuses auto-merge on a PR that is already mergeable ("clean
+        # status"); with nothing to wait for, merge it now. Any other failure
+        # stays a failure: a plain merge with this admin token would bypass
+        # the required builds.
+        run: |
+          if ! out=$(gh pr merge --auto --merge "$PR" -R "$GITHUB_REPOSITORY" 2>&1); then
+            echo "$out"
+            echo "$out" | grep -q "clean status" || exit 1
+            gh pr merge --merge "$PR" -R "$GITHUB_REPOSITORY"
+          fi

@@ -365,6 +365,14 @@ class PredictionResult:
             result['_links'] = self.links
         return result
 
+    def ablation_score(self) -> float:
+        """What leave-one-out ablation compares: the predicted value for a regressor,
+        the confidence for a classifier, same as the router's certificate ablation."""
+        is_regression = (self.predicted_class is None
+                         and isinstance(self.prediction, (int, float))
+                         and not isinstance(self.prediction, bool))
+        return (self.prediction if is_regression else self.confidence) or 0.0
+
 
 @dataclass
 class PredictionFeedback:

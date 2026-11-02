@@ -1,0 +1,225 @@
+Metadata-Version: 2.4
+Name: pylibCZIrw
+Version: 6.1.0
+Summary: A python wrapper around the libCZI C++ library with reading and writing functionality.
+Author: Sebastian Soyer
+Author-email: sebastian.soyer@zeiss.com
+Keywords: czi,imaging
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Requires-Python: >=3.9,<3.15
+Description-Content-Type: text/markdown
+License-File: COPYING
+License-File: COPYING.LESSER
+License-File: NOTICE.txt
+Requires-Dist: numpy
+Requires-Dist: cmake
+Requires-Dist: xmltodict
+Requires-Dist: validators
+Requires-Dist: packaging
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# pylibCZIrw - Python wrapper for libCZI
+
+This project provides a simple and easy-to-use Python wrapper for [libCZI](https://github.com/ZEISS/libczi) - a cross-platform C++ library intended for providing read and write access to CZI image documents.
+
+## Important Remarks
+
+* At the moment, **pylibCZIrw** completely abstracts away the subblock concept, both in the reading and in the writing APIs.
+* The core concept of pylibCZIrw is focussing on reading and writing 2D image planes by specifying the dimension indices and its location in order to only read or write **what is really needed**.
+* It allows reading data via http/https-protocol enabling cloud storage scenarios.
+
+## Example Usage
+
+```python
+from pylibCZIrw import czi as pyczi
+
+filepath = "myimagefile.czi"
+
+# open the CZI document to read the
+with pyczi.open_czi(filepath) as czidoc:
+    # get the image dimensions as a dictionary, where the key identifies the dimension
+    total_bounding_box = czidoc.total_bounding_box
+
+    # get the total bounding box for all scenes
+    total_bounding_rectangle = czidoc.total_bounding_rectangle
+
+    # get the bounding boxes for each individual scene
+    scenes_bounding_rectangle = czidoc.scenes_bounding_rectangle
+
+    # read a 2D image plane and optionally specify planes, zoom levels and ROIs
+    image2d = czidoc.read(plane={"T": 1, "Z": 2, "C": 0}, zoom=1.0, roi=(0, 0, 50, 100))
+```
+
+The detailed usage can be inferred from the [sample notebooks](https://github.com/ZEISS/pylibczirw/tree/main/doc/jupyter_notebooks).  
+
+For more detailed information (on the latest version) refer to <https://zeiss.github.io/pylibczirw/>.  
+
+## Installation
+In case there is no wheel available for your system configuration, you can:  
+- try to install from the provided source distribution  
+  **For Windows**:
+  - try to [keep paths short on systems with maximum path lengths](https://github.com/pypa/pip/issues/3055)
+  - make [Win10 accept file paths over 260 characters](https://www.howtogeek.com/266621/how-to-make-windows-10-accept-file-paths-over-260-characters/)
+- reach out to the maintainers of this project to add more wheels
+
+## Disclaimer
+
+The library and the notebook are free to use for everybody. Carl Zeiss Microscopy GmbH undertakes no warranty concerning the use of those tools. Use them at your own risk.
+
+**By using any of those examples you agree to this disclaimer.**
+
+Version: 2023.11.20
+
+Copyright (c) 2023 Carl Zeiss AG, Germany. All Rights Reserved.
+
+
+# CHANGELOG
+
+
+
+## v6.1.0 (2026-07-01)
+
+### Feature
+
+* feat: add subblock header enumeration (#121) ([`6feeaff`](https://github.com/ZEISS/pylibczirw/commit/6feeaff63237e43be676834ee4556b22b9e6db82))
+
+### Fix
+
+* fix: pre-populate eigen for CI (#126) ([`3fd66f6`](https://github.com/ZEISS/pylibczirw/commit/3fd66f681d82f5781e404fa56d783e5b8b74684f))
+
+
+## v6.0.1 (2026-03-12)
+
+### Fix
+
+* fix: add defensive template change and only render subject lines for changelog (#120) ([`1c0e27e`](https://github.com/ZEISS/pylibczirw/commit/1c0e27eaf0b9041055cbae172da497ca5a879fcb))
+
+
+## v6.0.0 (2026-03-10)
+
+### Breaking
+
+* feat: Pass through reader options related to coordinates (#118) ([`3bfafd4`](https://github.com/ZEISS/pylibczirw/commit/3bfafd4405339cefb10d74420732584456e73b4b))
+
+### Deps
+
+* deps: bump actions/github-script from 7 to 8 (#105) ([`9ecb0e7`](https://github.com/ZEISS/pylibczirw/commit/9ecb0e7903efa5f52636564e2dd79c2442ab3176))
+
+* deps: bump github/codeql-action from 3 to 4 (#106) ([`c5c648b`](https://github.com/ZEISS/pylibczirw/commit/c5c648b234c3cf284605f5fe9b53e75a223c972f))
+
+* deps: bump actions/upload-pages-artifact from 3 to 4 (#107) ([`3bc2a20`](https://github.com/ZEISS/pylibczirw/commit/3bc2a207a0bdd5f647b9d5866fda4e45cc50a8bb))
+
+* deps: bump actions/upload-artifact from 4 to 5 (#108) ([`8989aff`](https://github.com/ZEISS/pylibczirw/commit/8989affbf259da243d7470cacfceb03cf0d74e76))
+
+* deps: Bump actions/download-artifact from 5.0.0 to 6.0.0 in /.github/workflows (#66) ([`dbb0bfc`](https://github.com/ZEISS/pylibczirw/commit/dbb0bfcd15f43b88541bacad57becc96e380c32c))
+
+* deps: bump codecov/codecov-action from 4 to 5 (#69) ([`43ce3d7`](https://github.com/ZEISS/pylibczirw/commit/43ce3d7ecf08d64ab6ec523c15dac5d3e50bbcd6))
+
+* deps: bump actions/download-artifact from 4.1.0 to 5.0.0 (#91) ([`cb807c4`](https://github.com/ZEISS/pylibczirw/commit/cb807c49af0e64e8e818f91fd88aed16cc75b652))
+
+* deps: bump actions/checkout from 3 to 5 (#92) ([`dce8aa3`](https://github.com/ZEISS/pylibczirw/commit/dce8aa3091710808d8810b09eba41ef3d6338db6))
+
+* deps: bump amannn/action-semantic-pull-request from 5 to 6 (#103) ([`74535f7`](https://github.com/ZEISS/pylibczirw/commit/74535f7c007b0ea5acacab5e8c97dec373a9d42f))
+
+* deps: bump fsfe/reuse-action from 1 to 6 (#100) ([`c71a865`](https://github.com/ZEISS/pylibczirw/commit/c71a865483d566de3b1d72a0b1f1595210885522))
+
+* deps: update pybind to latest 2.x version (2.13.6) (#101) ([`0ac54dc`](https://github.com/ZEISS/pylibczirw/commit/0ac54dc7a36c1a7babedf2673c50149e096de6fa))
+
+### Documentation
+
+* docs: Update README and CONTRIBUTING (#65) ([`fc52575`](https://github.com/ZEISS/pylibczirw/commit/fc52575fbb8a34cc589f58bc47b1e525e697b2f9))
+
+### Feature
+
+* feat: add editing in-place for metadata (#114) ([`959a898`](https://github.com/ZEISS/pylibczirw/commit/959a89846ffea70188b3447ced6694952eba7e94))
+
+* feat: More complete type hints for open_czi and create_czi (#73) ([`992f92a`](https://github.com/ZEISS/pylibczirw/commit/992f92a0f0b6502d817d32dbc512f0d8c6e5104c))
+
+
+## v5.1.1 (2025-10-22)
+
+### Fix
+
+* fix(setup): correct setup.py configuration (#102) ([`552a47d`](https://github.com/ZEISS/pylibczirw/commit/552a47d04e427f92610b167439d4b15d3e75da63))
+
+
+## v5.1.0 (2025-10-21)
+
+### Chore
+
+* chore: Wheels for MacOS and ARM Linux (#85) ([`c8fd2ff`](https://github.com/ZEISS/pylibczirw/commit/c8fd2ff4b2b3aeac89d12bcfbeaeda2d694a1230))
+
+* chore: Upgrade from windows-2019 to windows-2022 (#84) ([`0dabe3a`](https://github.com/ZEISS/pylibczirw/commit/0dabe3ab48146997825a35ff421b19d789525242))
+
+### Feature
+
+* feat: add &#34;mask support&#34; for reading &amp; composition (#96) ([`cc17eb3`](https://github.com/ZEISS/pylibczirw/commit/cc17eb364af509aa4cc8047c75fae44669389e68))
+
+
+## v5.0.0 (2025-04-11)
+
+### Breaking
+
+* feat: Support python upto 3.13 (#64) ([`c2f7cb3`](https://github.com/ZEISS/pylibczirw/commit/c2f7cb3ed599c68a6b76e37850293f22755a75bc))
+
+### Chore
+
+* chore: Move deploy job from reusable workflow to caller workflow (#71) ([`805ce42`](https://github.com/ZEISS/pylibczirw/commit/805ce42edc38234801c01b69172dc9497b6df977))
+
+### Deps
+
+* deps: Batch-bump pages-related actions (#3) ([`844d89c`](https://github.com/ZEISS/pylibczirw/commit/844d89c0632436a67a4d90c0768857b601c3fb9f))
+
+
+## v4.1.3 (2024-08-26)
+
+### Fix
+
+* fix: Channel ID and Name in display settings metadata (#37) ([`04316fe`](https://github.com/ZEISS/pylibczirw/commit/04316fe5861f4e3a5f7a5cb6797903cf75c770e6))
+
+
+## v4.1.2 (2024-08-06)
+
+### Chore
+
+* chore: remove temporary debugging logic to push to PyPI (#30) ([`3b2ea06`](https://github.com/ZEISS/pylibczirw/commit/3b2ea0610baaa0608156426e5c7d781ca7bcdfcb))
+
+### Fix
+
+* fix: consider only dimensions with size &gt;1 for plane-coordinate (#28) ([`264fcb4`](https://github.com/ZEISS/pylibczirw/commit/264fcb4ab95274e54433a0054d69f07c402582f4))
+
+
+## v4.1.1 (2024-07-26)
+
+### Chore
+
+* chore: Add codeowners (#27) ([`dc1717b`](https://github.com/ZEISS/pylibczirw/commit/dc1717b88e4141546f4e9c29d4c3fa91a2c9ea95))
+
+### Deps
+
+* deps: bump codecov/codecov-action from 3 to 4 (#2) ([`dab7b18`](https://github.com/ZEISS/pylibczirw/commit/dab7b1807486f8eee57c9a565912d1337621cddd))
+
+### Refactor
+
+* refactor: Megalinter and infrastructure (#19) ([`2e60a2b`](https://github.com/ZEISS/pylibczirw/commit/2e60a2bc15933e92e75d96dce34171de07d109b7))
+
+### Unknown

@@ -1,0 +1,106 @@
+from inspect_viz._util.deprecation import relocated_module_attribute
+
+_VIEW_BETA_MODULE_VERSION_3_18 = "0.3.4"
+_REMOVED_IN = "0.4"
+relocated_module_attribute(
+    "scores_by_factor",
+    "inspect_viz.view.scores_by_factor",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_by_task",
+    "inspect_viz.view.scores_by_task",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_timeline",
+    "inspect_viz.view.scores_timeline",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_heatmap",
+    "inspect_viz.view.scores_heatmap",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_by_model",
+    "inspect_viz.view.scores_by_model",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "sample_tool_calls",
+    "inspect_viz.view.sample_tool_calls",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_heatmap",
+    "inspect_viz.view.scores_heatmap",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "sample_heatmap",
+    "inspect_viz.view.sample_heatmap",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "CellOptions",
+    "inspect_viz.view.CellOptions",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_by_limit_df",
+    "inspect_viz.view.scores_by_limit_df",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_by_limit",
+    "inspect_viz.view.scores_by_limit",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "heatmap",
+    "inspect_viz.view.heatmap",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_radar_by_task",
+    "inspect_viz.view.scores_radar_by_task",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_radar_by_metric",
+    "inspect_viz.view.scores_radar_by_metric",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_radar_by_task_df",
+    "inspect_viz.view.scores_radar_by_task_df",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "scores_radar_by_metric_df",
+    "inspect_viz.view.scores_radar_by_metric_df",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)
+relocated_module_attribute(
+    "LabelStyles",
+    "inspect_viz.view.LabelStyles",
+    _VIEW_BETA_MODULE_VERSION_3_18,
+    _REMOVED_IN,
+)

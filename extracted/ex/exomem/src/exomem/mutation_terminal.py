@@ -1,0 +1,2711 @@
+"""Pure construction and presentation of committed mutation terminals."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+import uuid
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal, cast
+
+from . import capabilities, operation_entries, relation_registry
+from . import curation as curation_module
+
+log = logging.getLogger(__name__)
+
+ResponseDetail = Literal["compact", "full", "legacy"]
+
+
+class _CanonicalRequestReplay(dict[str, Any]):
+    """Internal tag for an authorized receipt recovered from a committed store txn.
+
+    Only the canonical writer constructs this after current authorization and
+    exact request matching. Public JSON remains an ordinary dict, not this tag.
+    """
+
+
+_TERMINAL_MARKER = "exomem.mutation-terminal"
+_TERMINAL_VERSION = 1
+_RESPONSE_DETAILS = frozenset({"compact", "full", "legacy"})
+_RECORD_RECEIPT_FIELDS = (
+    "operation",
+    "collection_id",
+    "item_key",
+    # Only a discard carries this; it names the candidate the call removed, and
+    # without it the compact response says nothing about what was discarded.
+    "held_id",
+    "before_item_hash",
+    "after_item_hash",
+    "before_manifest_hash",
+    "after_manifest_hash",
+    "before_container_hash",
+    "after_container_hash",
+    "affected_paths",
+    "payload_hash",
+    "outcome",
+    "audit_correlation",
+    "continuity",
+    "acknowledged_gap_codes",
+    "gap_fingerprint",
+    "checkpoint_snapshot_hash",
+    "minimum_reader_version",
+)
+_RECORD_RECEIPT_MARKER = "exomem.records-mutation"
+_RECORD_RECEIPT_VERSION = 1
+_LIFECYCLE_RECEIPT_VERSION = 2
+_PLAN_RECEIPT_MARKER = "exomem.planning-mutation"
+_EPISODE_RECEIPT_FIELDS = (
+    "operation",
+    "episode",
+    "revision",
+    "source",
+    "idempotent",
+    "recovery",
+    "ledger",
+    "about_skipped",
+)
+_EPISODE_WORKFLOW_FIELDS = (
+    "operation",
+    "action",
+    "episode",
+    "input_revision",
+    "status",
+    "code",
+    "reason",
+    "candidates",
+    "complete",
+    "execution",
+    "executed",
+    "reconciled",
+    "blocked",
+    "deferred",
+    "publication",
+)
+
+_PLAN_RECEIPT_FIELDS = (
+    "operation",
+    "collection_id",
+    "plan_id",
+    "before_item_hash",
+    "after_item_hash",
+    "before_container_hash",
+    "after_container_hash",
+    "affected_paths",
+    "payload_hash",
+    "outcome",
+    "audit_correlation",
+)
+
+#: The closed mutation state machine. A client may branch on exactly these values and
+#: MUST NOT infer any other. `needs_review` is explicitly NONTERMINAL: it means the
+#: guarded write is mid-flight and the caller should complete the review step, not that
+#: anything failed. Conflating it with failure is the 2026-08-06 misclassification.
+STATES = ("needs_review", "committed", "rejected", "retryable", "indeterminate", "settled")
+TERMINAL_STATES = frozenset({"committed", "rejected", "settled"})
+
+#: The closed derived-graph outcome vocabulary a client may branch on. Absent
+#: means no graph work was required; `pending` means the write is durable but
+#: its derived graph is still rebuilding behind the response.
+#:
+#: Public because it is a cross-surface contract, not a projection detail:
+#: `scripts/records_live_acceptance.py` validates against it and is NOT run by
+#: CI, so a second hand-maintained copy of this vocabulary would drift silently
+#: until someone ran the script against a real build. One definition, imported.
+GRAPH_SYNC_OUTCOMES = frozenset({"completed", "failed", "pending"})
+DERIVED_SYNC_OUTCOMES = frozenset({"completed", "failed", "pending"})
+ADVISORY_SYNC_OUTCOMES = frozenset(
+    {"completed", "failed", "not_required", "pending"}
+)
+
+_DERIVED_COMPONENT_NAMES = frozenset(
+    {
+        "freshness",
+        "memory_refs",
+        "resolver",
+        "semantic_purge",
+        "lexstore",
+        "embeddings",
+        "claims",
+    }
+)
+_DERIVED_FAILURE = (
+    "DERIVED_COMPONENT_FAILED",
+    "Run reconcile to repair derived state.",
+)
+_ADVISORY_FAILURE = (
+    "WRITE_ADVISORY_FAILED",
+    "Query the advisory result or retry reconciliation.",
+)
+#: Bounds the diagnostics carried by one acknowledgement, not one batch: a
+#: multi-batch mutation shares this budget rather than multiplying it.
+_MAX_DERIVED_DIAGNOSTICS = 9
+
+#: Keys a client may branch on. Everything else in a response is advisory.
+_ENVELOPE_KEYS = (
+    "ok",
+    "state",
+    "terminal",
+    "status",
+    "mutated",
+    "path",
+    "paths",
+    "operation_id",
+    "error_code",
+    "next_action",
+    "request_id",
+    "receipt_id",
+)
+
+#: Bounds on the free-text `warnings` compact carries beside `warnings_count`.
+#: Same shape the client-artifact rows already use (see `_artifact_receipt_projection`),
+#: because compact otherwise carries no unbounded strings at all and a bulk
+#: `delete_directory` emits one warning per path.
+_MAX_WARNINGS = 8
+_MAX_WARNING_CHARS = 300
+_MAX_RELATION_ADVISORY_LABELS = 8
+_MAX_RELATION_ADVISORY_EXAMPLES = 5
+_MAX_RELATION_ADVISORY_LABEL_CHARS = 128
+
+
+def _operation_id(result: Any) -> str | None:
+    """Correlate a validate call with its later commit.
+
+    Both halves of a guarded write already carry the same `draft_id` — it is minted at
+    validation and handed back on commit — so the correlation identity exists and only
+    needs naming. Nothing has to be threaded through the writer lease.
+    """
+    if not isinstance(result, Mapping):
+        return None
+    draft_id = result.get("draft_id")
+    if isinstance(draft_id, str) and draft_id:
+        return draft_id
+    for nested_key in ("creation_commit", "creation_validation", "source"):
+        nested = result.get(nested_key)
+        if isinstance(nested, Mapping):
+            nested_id = nested.get("draft_id")
+            if isinstance(nested_id, str) and nested_id:
+                return nested_id
+    step = result.get("step")
+    if isinstance(step, Mapping):
+        operation_id = step.get("operation_id")
+        if isinstance(operation_id, str) and operation_id:
+            return operation_id
+    return None
+
+
+def _without_graph_rebuild_handoff(result: Any) -> Any:
+    if isinstance(result, Mapping) and "_graph_rebuild_handoff" in result:
+        return {key: value for key, value in result.items() if key != "_graph_rebuild_handoff"}
+    return result
+
+
+#: The terminal states one preserved file can end in. `outcome` mirrors them
+#: for one release, reporting `already_stored` as `stored`, so a reader that
+#: needs to tell a fresh commit from a duplicate reads `state`.
+_ARTIFACT_STATES = frozenset({"stored", "already_stored", "failed"})
+
+
+def _artifact_state(item: Any) -> Any:
+    """This row's terminal state, falling back to the lane that has no states."""
+    if not isinstance(item, Mapping):
+        return None
+    return item.get("state", item.get("outcome"))
+
+
+def _warning_count(result: Any) -> int:
+    if not isinstance(result, Mapping):
+        return 0
+    artifact_receipt = _artifact_receipt_projection(result)
+    if artifact_receipt:
+        return sum(
+            len(item.get("warnings", []))
+            for item in artifact_receipt["files"]
+            if item["outcome"] == "stored"
+        )
+    warnings = result.get("warnings")
+    if isinstance(warnings, (list, tuple)):
+        return len(warnings)
+    if warnings:
+        return 1
+    source = result.get("source")
+    if isinstance(source, Mapping):
+        source_warnings = source.get("warnings")
+        if isinstance(source_warnings, (list, tuple)):
+            return len(source_warnings)
+        return 1 if source_warnings else 0
+    return 0
+
+
+def _warning_texts(result: Any, *, has_artifact_receipt: bool) -> list[str]:
+    """The warnings behind ``warnings_count``, bounded for the compact envelope.
+
+    A bare count is not actionable: the caller learns something was wrong but
+    not what, and the texts were only reachable by re-issuing the whole call
+    with ``detail="full"``.
+
+    Follows ``_warning_count``'s source order exactly so the list and the count
+    always describe the same warnings. Artifact receipts are skipped because
+    ``_artifact_receipt_projection`` already puts their per-file warnings in the
+    compact ``files`` rows; repeating them here would show each one twice.
+
+    Bounded deliberately. These are the only free-text strings compact carries,
+    and ``delete_directory``/``adopt`` emit one per path. ``warnings_count``
+    stays authoritative, so a caller seeing fewer entries than the count knows
+    the remainder was dropped and can ask for ``detail="full"``.
+    """
+    if not isinstance(result, Mapping) or has_artifact_receipt:
+        return []
+    warnings = result.get("warnings")
+    if isinstance(warnings, (list, tuple)):
+        candidates: Sequence[Any] = warnings
+    elif warnings:
+        candidates = [warnings]
+    else:
+        source = result.get("source")
+        source_warnings = source.get("warnings") if isinstance(source, Mapping) else None
+        if isinstance(source_warnings, (list, tuple)):
+            candidates = source_warnings
+        elif source_warnings:
+            candidates = [source_warnings]
+        else:
+            return []
+    return [
+        (warning if isinstance(warning, str) else str(warning))[:_MAX_WARNING_CHARS]
+        for warning in candidates[:_MAX_WARNINGS]
+    ]
+
+
+def _path_projection(result: Any) -> dict[str, Any]:
+    """Adapt only the small set of explicit mutation path shapes we own."""
+    if not isinstance(result, Mapping):
+        return {"paths": []}
+    artifact_receipt = _artifact_receipt_projection(result)
+    if artifact_receipt:
+        # Only what this call stored. A duplicate names a path an earlier call
+        # committed; reporting it here would claim this mutation wrote it.
+        paths = [
+            item["stored_path"]
+            for item in artifact_receipt["files"]
+            if _artifact_state(item) == "stored"
+        ]
+        if len(paths) == 1:
+            return {"path": paths[0]}
+        if paths:
+            return {"paths": paths}
+    path = result.get("path")
+    if isinstance(path, str):
+        return {"path": path}
+    step = result.get("step")
+    if isinstance(step, Mapping) and isinstance(step.get("path"), str):
+        return {"path": step["path"]}
+    affected_paths = result.get("affected_paths")
+    if (
+        valid_collection_receipt(result)
+        and isinstance(affected_paths, (list, tuple))
+        and all(isinstance(item, str) for item in affected_paths)
+    ):
+        return {"paths": list(affected_paths)}
+    raw_paths = result.get("paths")
+    if isinstance(raw_paths, (list, tuple)) and all(isinstance(item, str) for item in raw_paths):
+        return {"paths": list(raw_paths)}
+    source = result.get("source")
+    if isinstance(source, Mapping) and isinstance(source.get("path"), str):
+        return {"path": source["path"]}
+    manifest = result.get("manifest")
+    if isinstance(manifest, Mapping) and isinstance(manifest.get("path"), str):
+        return {"path": manifest["path"]}
+    copy = result.get("copy")
+    if isinstance(copy, Mapping):
+        copied_sources = copy.get("copied_sources")
+        if isinstance(copied_sources, (list, tuple)):
+            copied_paths = [
+                item["source_path"]
+                for item in copied_sources
+                if isinstance(item, Mapping) and isinstance(item.get("source_path"), str)
+            ]
+            return {"paths": copied_paths}
+    compile_plan = result.get("compile_plan")
+    if isinstance(compile_plan, Mapping):
+        copied_sources = compile_plan.get("copied_sources")
+        if isinstance(copied_sources, (list, tuple)):
+            copied_paths = [
+                item["source_path"]
+                for item in copied_sources
+                if isinstance(item, Mapping) and isinstance(item.get("source_path"), str)
+            ]
+            return {"paths": copied_paths}
+    old_path = result.get("old_path")
+    new_path = result.get("new_path")
+    if isinstance(old_path, str) and isinstance(new_path, str):
+        return {"paths": [old_path, new_path]}
+    restored_path = result.get("restored_path")
+    if isinstance(restored_path, str):
+        return {"path": restored_path}
+    return {"paths": []}
+
+
+def _adoption_control_projection(leaf: Mapping[str, Any]) -> dict[str, Any]:
+    """The import flow's control signals, which the compact reply must not hide.
+
+    Without them the reply that must stop (`apply_stop`), that has a next page (`next_after`)
+    or that leaves staged files with the person (`finish.residual`) has the shape of ordinary
+    progress. Each field is built by `adoption_run` and is small: `apply_stop` has five keys,
+    `next_actions` holds at most five entries of three strings, and `residual` counts files by a
+    closed set of reasons. The inventory and the plan items are not copied. `residual` stays under
+    `finish` because the next actions name it as `finish.residual`.
+    """
+    kept: dict[str, Any] = {
+        key: leaf[key]
+        for key, kind in (("next_after", str), ("apply_stop", Mapping), ("next_actions", list))
+        if isinstance(leaf.get(key), kind)
+    }
+    finish = leaf.get("finish")
+    if isinstance(finish, Mapping) and isinstance(finish.get("residual"), Mapping):
+        kept["finish"] = {"residual": finish["residual"]}
+    return kept
+
+
+def _media_result_projection(result: Any) -> dict[str, Any]:
+    """Keep selected-media outcomes bounded without copying leaf diagnostics."""
+    if not isinstance(result, Mapping):
+        return {}
+    operation = result.get("operation")
+    if operation not in {"process", "retry"}:
+        return {}
+
+    def integer(value: Any, *, allow_none: bool = False) -> bool:
+        return (allow_none and value is None) or (
+            isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        )
+
+    def metadata() -> dict[str, Any] | None:
+        if not (
+            integer(result.get("index_refreshed"))
+            and integer(result.get("index_refresh_remaining"))
+        ):
+            return None
+        return {
+            "operation": operation,
+            "index_refreshed": result["index_refreshed"],
+            "index_refresh_remaining": result["index_refresh_remaining"],
+        }
+
+    base = metadata()
+    if base is None:
+        return {}
+    results = result.get("results")
+
+    def path(value: Any) -> bool:
+        return (
+            isinstance(value, str)
+            and 0 < len(value) <= 2048
+            and value.startswith("Knowledge Base/")
+            and "\\" not in value
+            and "\x00" not in value
+        )
+
+    if results is None:
+        if not (
+            path(result.get("path"))
+            and isinstance(result.get("media_type"), str)
+            and 0 < len(result["media_type"]) <= 32
+            and result.get("state")
+            in {"pending", "running", "blocked", "failed", "completed"}
+            and path(result.get("sidecar_path"))
+            and integer(result.get("job_id"), allow_none=True)
+        ):
+            return {}
+        projected = {
+            **base,
+            "media_type": result["media_type"],
+            "media_state": result["state"],
+            "sidecar_path": result["sidecar_path"],
+            "job_id": result["job_id"],
+        }
+        if operation == "retry":
+            if not integer(result.get("requeued")):
+                return {}
+            projected["requeued"] = result["requeued"]
+        return projected
+
+    if not isinstance(results, (list, tuple)) or not 1 <= len(results) <= 32:
+        return {}
+
+    projected: list[dict[str, Any]] = []
+    for item in results:
+        if not isinstance(item, Mapping):
+            return {}
+        outcome = item.get("outcome")
+        state = item.get("state")
+        if outcome == "failed":
+            if not (
+                state in {"blocked", "failed"}
+                and path(item.get("path"))
+                and isinstance(item.get("code"), str)
+                and 0 < len(item["code"]) <= 128
+                and isinstance(item.get("remediation"), str)
+                and 0 < len(item["remediation"]) <= 300
+            ):
+                return {}
+            projected.append(
+                {
+                    "path": item["path"],
+                    "outcome": outcome,
+                    "state": state,
+                    "code": item["code"],
+                    "remediation": item["remediation"],
+                }
+            )
+            continue
+        if outcome not in {"processed", "retried"} or state not in {
+            "pending",
+            "running",
+            "blocked",
+            "failed",
+            "completed",
+        }:
+            return {}
+        if not (
+            path(item.get("path"))
+            and isinstance(item.get("media_type"), str)
+            and 0 < len(item["media_type"]) <= 32
+            and path(item.get("sidecar_path"))
+            and integer(item.get("job_id"), allow_none=True)
+            and integer(item.get("requeued"))
+        ):
+            return {}
+        projected.append(
+            {
+                key: item[key]
+                for key in (
+                    "path",
+                    "outcome",
+                    "state",
+                    "media_type",
+                    "sidecar_path",
+                    "job_id",
+                    "requeued",
+                )
+            }
+        )
+    return {
+        **base,
+        "paths": [item["path"] for item in projected],
+        "media_results": projected,
+    }
+
+
+def settled_media_terminal(
+    leaf_result: Any,
+    *,
+    request_id: str,
+    receipt_id: str | None,
+    idempotency_key: str | None,
+) -> dict[str, Any] | None:
+    """Own a completed queue-only media acknowledgement without claiming a commit.
+
+    Reconciliation can find an already-current sidecar or retry only its
+    machine-local job. Both are complete public requests, but neither crossed
+    the canonical mutation boundary. Keep their bounded media outcome behind
+    the same terminal marker as canonical writes so compact/full presentation
+    and exact idempotency replay cannot fall back to a raw leaf.
+    """
+    if not _media_result_projection(leaf_result):
+        return None
+    terminal: dict[str, Any] = {
+        "_terminal": _TERMINAL_MARKER,
+        "version": _TERMINAL_VERSION,
+        "ok": True,
+        "state": "settled",
+        "status": "settled",
+        "terminal": True,
+        "mutated": False,
+        "request_id": request_id,
+        "receipt_id": receipt_id,
+        "warnings_count": _warning_count(leaf_result),
+        "leaf_result": leaf_result,
+    }
+    terminal.update(_path_projection(leaf_result))
+    if idempotency_key is not None:
+        terminal["idempotency_key"] = idempotency_key
+    return terminal
+
+
+def _artifact_receipt_projection(result: Any) -> dict[str, Any]:
+    """Keep the bounded client-artifact outcome visible in compact terminals."""
+
+    def string(value: Any, *, limit: int, allow_none: bool = False) -> bool:
+        return (allow_none and value is None) or (
+            isinstance(value, str) and 0 < len(value) <= limit
+        )
+
+    def nonnegative_int(value: Any) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+    def sha256(value: Any) -> bool:
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+        )
+
+    if not isinstance(result, Mapping):
+        return {}
+    files = result.get("files")
+    summary = result.get("summary")
+    if (
+        not isinstance(files, (list, tuple))
+        or not 1 <= len(files) <= 8
+        or not isinstance(summary, Mapping)
+    ):
+        return {}
+
+    def invalid_row(item: Any, index: int) -> dict[str, str]:
+        file_id = item.get("file_id") if isinstance(item, Mapping) else None
+        return {
+            "file_id": file_id
+            if isinstance(file_id, str) and string(file_id, limit=256)
+            else f"invalid-file-{index + 1}",
+            "outcome": "failed",
+            "code": "INVALID_ARTIFACT_RECEIPT",
+            "reason": "artifact result was invalid",
+        }
+
+    def adoption_receipt(value: Any, item: Mapping[str, Any]) -> dict[str, Any] | None:
+        fields = (
+            "version",
+            "committed",
+            "key_digest",
+            "trigger",
+            "selected_file_id",
+            "lane",
+            "destination",
+            "stored_path",
+            "page_path",
+            "hash_algorithm",
+            "hash",
+            "size",
+            "content_type",
+            "media_id",
+        )
+        if not isinstance(value, Mapping) or set(value) != set(fields):
+            return None
+        if not (
+            value.get("version") == 1
+            and value.get("committed") is True
+            and sha256(value.get("key_digest"))
+            and string(value.get("trigger"), limit=64)
+            and string(value.get("selected_file_id"), limit=256)
+            and value.get("lane") in {"source", "evidence"}
+            and string(value.get("destination"), limit=2048)
+            and string(value.get("stored_path"), limit=2048)
+            and string(value.get("page_path"), limit=2048)
+            and value.get("hash_algorithm") == "sha256"
+            and sha256(value.get("hash"))
+            and nonnegative_int(value.get("size"))
+            and string(value.get("content_type"), limit=255, allow_none=True)
+            and value.get("media_id") == f"sha256:{value.get('hash')}"
+            and value.get("selected_file_id") == item.get("file_id")
+            and value.get("stored_path") == item.get("stored_path")
+            and value.get("hash") == item.get("hash")
+            and value.get("size") == item.get("size")
+            and value.get("content_type") == item.get("content_type")
+            and value.get("media_id") == item.get("media_id")
+        ):
+            return None
+        return {field: value[field] for field in fields}
+
+    def duplicate_of(value: Any) -> dict[str, Any] | None:
+        """The bounded identity of the artifact a duplicate resolved to."""
+        if (
+            not isinstance(value, Mapping)
+            or set(value) != {"path", "ref"}
+            or not string(value.get("path"), limit=2048)
+            or not string(value.get("ref"), limit=2048)
+        ):
+            return None
+        return {"path": value["path"], "ref": value["ref"]}
+
+    def transcription(value: Any) -> dict[str, Any] | None:
+        """Whether a client transcription was recorded with its original."""
+        if not isinstance(value, Mapping):
+            return None
+        if value.get("state") == "recorded" and set(value) == {"state", "page"}:
+            return dict(value) if string(value.get("page"), limit=2048) else None
+        if value.get("state") == "not_recorded" and set(value) == {"state", "reason"}:
+            return dict(value) if string(value.get("reason"), limit=300) else None
+        return None
+
+    projected: list[dict[str, Any]] = []
+    for index, item in enumerate(files):
+        if not isinstance(item, Mapping) or not string(item.get("file_id"), limit=256):
+            projected.append(invalid_row(item, index))
+            continue
+        # `outcome` mirrors `state` for one release, so `already_stored` arrives
+        # as `stored`; the state itself has to survive the projection or a
+        # compact client cannot tell a fresh commit from a duplicate.
+        if "state" in item and item["state"] not in _ARTIFACT_STATES:
+            projected.append(invalid_row(item, index))
+            continue
+        outcome = item.get("outcome")
+        if outcome in {"stored", "replayed"}:
+            if not (
+                string(item.get("stored_path"), limit=2048)
+                and nonnegative_int(item.get("size"))
+                and sha256(item.get("hash"))
+                and item.get("hash_algorithm") == "sha256"
+                and string(item.get("content_type"), limit=255, allow_none=True)
+                and string(item.get("media_id"), limit=512, allow_none=True)
+                and isinstance(item.get("warnings"), list)
+                and len(item["warnings"]) <= 8
+                and all(string(warning, limit=300) for warning in item["warnings"])
+            ):
+                projected.append(invalid_row(item, index))
+                continue
+            row = {
+                key: item[key]
+                for key in (
+                    "file_id",
+                    "outcome",
+                    "state",
+                    "stored_path",
+                    "size",
+                    "hash",
+                    "hash_algorithm",
+                    "media_id",
+                    "content_type",
+                    "warnings",
+                )
+                if key in item
+            }
+            for key in ("path", "page", "ref"):
+                if key in item and string(item[key], limit=2048):
+                    row[key] = item[key]
+            if "duplicate_of" in item:
+                duplicate = duplicate_of(item["duplicate_of"])
+                if duplicate is None:
+                    projected.append(invalid_row(item, index))
+                    continue
+                row["duplicate_of"] = duplicate
+            if "transcription" in item:
+                recorded = transcription(item["transcription"])
+                if recorded is None:
+                    projected.append(invalid_row(item, index))
+                    continue
+                row["transcription"] = recorded
+            if "adoption" in item:
+                receipt = adoption_receipt(item["adoption"], item)
+                if receipt is None:
+                    projected.append(invalid_row(item, index))
+                    continue
+                row["adoption"] = receipt
+            elif outcome == "replayed":
+                projected.append(invalid_row(item, index))
+                continue
+        elif outcome == "unselected":
+            row = {"file_id": item["file_id"], "outcome": "unselected"}
+        elif (
+            outcome == "failed"
+            and string(item.get("code"), limit=64)
+            and string(item.get("reason"), limit=300)
+        ):
+            row = {
+                key: item[key]
+                for key in ("file_id", "outcome", "state", "code", "reason")
+                if key in item
+            }
+        else:
+            projected.append(invalid_row(item, index))
+            continue
+        projected.append(row)
+    # Counted by terminal state, so the projected summary and the projected
+    # rows report the same three numbers. A row with no state is one of the
+    # adoption/source lanes, whose vocabulary is still its outcome.
+    counts = {
+        state: sum(_artifact_state(item) == state for item in projected)
+        for state in ("stored", "already_stored", "replayed", "failed", "unselected")
+    }
+    adoption_result = any(
+        isinstance(item, Mapping)
+        and (item.get("outcome") in {"replayed", "unselected"} or "adoption" in item)
+        for item in files
+    ) or any(key in summary for key in ("replayed", "unselected"))
+    if not adoption_result:
+        raw_stored = summary.get("stored")
+        raw_failed = summary.get("failed")
+        raw_omitted = summary.get("omitted")
+        raw_already_stored = summary.get("already_stored")
+        if (
+            nonnegative_int(raw_stored)
+            and raw_stored >= counts["stored"]
+            and nonnegative_int(raw_failed)
+            and raw_failed >= counts["failed"]
+            and (raw_omitted is None or nonnegative_int(raw_omitted))
+            and (
+                raw_already_stored is None
+                or (
+                    nonnegative_int(raw_already_stored)
+                    and raw_already_stored >= counts["already_stored"]
+                )
+            )
+        ):
+            projected_summary = {"stored": raw_stored, "failed": raw_failed}
+            if raw_already_stored is not None:
+                projected_summary["already_stored"] = raw_already_stored
+            if raw_omitted is not None:
+                projected_summary["omitted"] = raw_omitted
+            return {"files": projected, "summary": projected_summary}
+        recomputed = {"stored": counts["stored"], "failed": counts["failed"]}
+        if counts["already_stored"] or raw_already_stored is not None:
+            recomputed["already_stored"] = counts["already_stored"]
+        return {"files": projected, "summary": recomputed}
+    projected_summary: dict[str, int] = {}
+    for outcome in ("stored", "replayed", "failed", "unselected"):
+        value = summary.get(outcome)
+        if value is None and outcome not in {"stored", "failed"}:
+            continue
+        if not nonnegative_int(value) or value < counts[outcome]:
+            return {}
+        projected_summary[outcome] = value
+    omitted = summary.get("omitted")
+    if omitted is not None:
+        if not nonnegative_int(omitted):
+            return {}
+        projected_summary["omitted"] = omitted
+    return {"files": projected, "summary": projected_summary}
+
+
+#: Bounds on the advisory structural suggestion compact may carry. Same posture as
+#: `warnings`: advisory, projected from the leaf, and never something a client
+#: branches on for the outcome of the mutation (see `_ENVELOPE_KEYS`).
+_STRUCTURE_STRENGTHS = frozenset({"strong", "moderate"})
+_MAX_STRUCTURE_REASONS = 8
+_MAX_STRUCTURE_TERMS = 6
+_MAX_STRUCTURE_TOKEN_CHARS = 64
+_MAX_ROUTING_TITLE_CHARS = 160
+_MAX_ROUTING_COLLECTION_CHARS = 512
+_MAX_ROUTING_KEY_FIELDS = 16
+_ROUTING_STRENGTHS = frozenset({"strong", "moderate"})
+_ROUTING_REQUIRED_KEYS = frozenset(
+    {"collection", "title", "matched_terms", "natural_key", "strength"}
+)
+_ROUTING_OPTIONAL_KEYS = frozenset(
+    {
+        "matched_predicates",
+        "disposition",
+        "signal_version",
+        "instruction",
+        "question",
+        "missing_fields",
+    }
+)
+_ROUTING_DISPOSITIONS = frozenset({"file", "ask", "hold", "append_occurrence"})
+_ROUTING_CALL_ACTIONS = frozenset({"append", "update"})
+#: The Records command whose call a disposition proposes.
+_ROUTING_CALL_COMMAND = "record_memory"
+
+
+def _routing_call_tool() -> str:
+    """The tool a disposition names for its write: the active surface's change tool."""
+    (tool,) = capabilities.active_tools(_ROUTING_CALL_COMMAND, "write")
+    return tool
+
+
+_MAX_ROUTING_PROSE_CHARS = 480
+_MAX_ROUTING_CALL_BYTES = 4096
+_MAX_ROUTING_PREDICATES = 4
+#: Advisory kind emitted by the capture path. Its payload counts the vault's
+#: sources with no chosen kind and names their folders, not the off-scope units
+#: a compiled write reports.
+_SOURCE_CLASSIFICATION_KIND = "source_classification_debt"
+_MAX_UNCLASSIFIED_FOLDERS = 4
+
+
+def _structure_suggestion_projection(leaf: Any) -> dict[str, Any] | None:
+    """Lift one advisory structural suggestion out of a write leaf.
+
+    Compiled creations carry it under `creation`, compiled edits under `semantic`,
+    and a source capture carries it under `source`. The shape is re-validated
+    here rather than trusted, so a malformed or oversized advisory is dropped
+    instead of widening the wire contract.
+
+    Each advisory kind declares the payload it is allowed to carry. Adding a kind
+    therefore extends these bounds rather than bypassing them — the alternative,
+    passing an unvalidated body through, is how an advisory channel turns into an
+    arbitrary one.
+    """
+    if not isinstance(leaf, Mapping):
+        return None
+    for container_key in ("creation", "semantic", "source", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        value = container.get("structure_suggestion")
+        if not isinstance(value, Mapping):
+            continue
+        kind = value.get("kind")
+        strength = value.get("strength")
+        reasons = value.get("reasons")
+        if not isinstance(kind, str) or not kind or len(kind) > _MAX_STRUCTURE_TOKEN_CHARS:
+            continue
+        if strength not in _STRUCTURE_STRENGTHS:
+            continue
+        if not _bounded_tokens(reasons, _MAX_STRUCTURE_REASONS):
+            continue
+        common = {"kind": kind, "strength": strength, "reasons": list(reasons)}
+        if kind == _SOURCE_CLASSIFICATION_KIND:
+            sources = value.get("unclassified_sources")
+            folders = value.get("folders")
+            if type(sources) is not int or sources < 1:
+                continue
+            if not isinstance(folders, list) or not _bounded_tokens(
+                folders, _MAX_UNCLASSIFIED_FOLDERS
+            ):
+                continue
+            return {**common, "unclassified_sources": sources, "folders": list(folders)}
+        terms = value.get("cluster_terms")
+        units = value.get("off_scope_units")
+        if type(units) is not int or units < 0:
+            continue
+        if not _bounded_tokens(terms, _MAX_STRUCTURE_TERMS):
+            continue
+        return {**common, "off_scope_units": units, "cluster_terms": list(terms)}
+    return None
+
+
+def _records_routing_projection(leaf: Any) -> dict[str, Any] | None:
+    """Lift one bounded, validated Records routing advisory from a write leaf."""
+    if not isinstance(leaf, Mapping):
+        return None
+    for container_key in ("creation", "semantic", "source", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        value = container.get("records_routing")
+        if (
+            not isinstance(value, Mapping)
+            or not _ROUTING_REQUIRED_KEYS <= set(value)
+            or set(value) - _ROUTING_REQUIRED_KEYS - _ROUTING_OPTIONAL_KEYS - {_routing_call_tool()}
+        ):
+            continue
+        collection = value.get("collection")
+        title = value.get("title")
+        matched_terms = value.get("matched_terms")
+        natural_key = value.get("natural_key")
+        strength = value.get("strength")
+        if not (
+            isinstance(collection, str)
+            and 0 < len(collection) <= _MAX_ROUTING_COLLECTION_CHARS
+            and collection.startswith("Knowledge Base/Records/")
+            and collection.endswith("/_collection.md")
+            and ".." not in collection.split("/")
+        ):
+            continue
+        if not isinstance(title, str) or not 0 < len(title) <= _MAX_ROUTING_TITLE_CHARS:
+            continue
+        predicates = value.get("matched_predicates")
+        if predicates is not None and not _bounded_tokens(predicates, _MAX_ROUTING_PREDICATES):
+            continue
+        # A declared-membership route may share no word at all with the claims.
+        if not (
+            _bounded_tokens(matched_terms, _MAX_STRUCTURE_TERMS)
+            or (predicates is not None and matched_terms == [])
+        ):
+            continue
+        if not _bounded_tokens(natural_key, _MAX_ROUTING_KEY_FIELDS):
+            continue
+        if not isinstance(strength, str) or strength not in _ROUTING_STRENGTHS:
+            continue
+        disposition = _routing_disposition_projection(value, collection)
+        if disposition is None:
+            continue
+        return {
+            "collection": collection,
+            "title": title,
+            "matched_terms": list(matched_terms),
+            **({"matched_predicates": list(predicates)} if predicates is not None else {}),
+            "natural_key": list(natural_key),
+            "strength": strength,
+            **disposition,
+        }
+    return None
+
+
+def _routing_disposition_projection(
+    value: Mapping[str, Any], collection: str
+) -> dict[str, Any] | None:
+    """The bounded disposition half of a routing advisory; None when malformed.
+
+    An advisory without a disposition projects as `{}`. One with a malformed
+    disposition is dropped whole, like any other malformed advisory: a partial
+    instruction to act is worse than none.
+    """
+    call_tool = _routing_call_tool()
+    if "disposition" not in value:
+        return (
+            {}
+            if not set(value) & {"signal_version", "instruction", "question", call_tool, "missing_fields"}
+            else None
+        )
+    disposition = value.get("disposition")
+    if disposition not in _ROUTING_DISPOSITIONS:
+        return None
+    out: dict[str, Any] = {"disposition": disposition}
+    signal = value.get("signal_version")
+    if signal is not None:
+        if not isinstance(signal, str) or not 0 < len(signal) <= 64:
+            return None
+        out["signal_version"] = signal
+    for key in ("instruction", "question"):
+        text = value.get(key)
+        if text is None:
+            continue
+        if not isinstance(text, str) or not 0 < len(text) <= _MAX_ROUTING_PROSE_CHARS:
+            return None
+        out[key] = text
+    if "question" in out and disposition != "ask":
+        return None
+    call = value.get(call_tool)
+    if call is not None:
+        # The call is spelled for the active surface; the checks run on the grouped call it stands for.
+        grouped = (
+            operation_entries.unspell_call(call_tool, call, capabilities.current_tool_shape())
+            if isinstance(call, Mapping)
+            else None
+        )
+        if (
+            disposition not in {"file", "append_occurrence"}
+            or grouped is None
+            or grouped[1].get("action") not in _ROUTING_CALL_ACTIONS
+            or grouped[1].get("collection") != collection
+        ):
+            return None
+        try:
+            # The bound measures the grouped call, so one item passes or fails alike in every shape.
+            bounded = json.dumps(grouped[1], ensure_ascii=False, sort_keys=True)
+            encoded = json.dumps(call, ensure_ascii=False, sort_keys=True)
+        except (TypeError, ValueError):
+            return None
+        if len(bounded.encode("utf-8")) > _MAX_ROUTING_CALL_BYTES:
+            return None
+        out[call_tool] = json.loads(encoded)
+    missing = value.get("missing_fields")
+    if missing is not None:
+        if not _bounded_tokens(missing, _MAX_ROUTING_KEY_FIELDS):
+            return None
+        out["missing_fields"] = list(missing)
+    return out
+
+
+#: Wire bounds on the advisory `entity_candidate` block
+#: (`write-time-identity-candidates` spec): at most three identities, each with
+#: at most eight linking pages and at most three registry near matches. This
+#: module's own numbers, for the same reason the structure-suggestion and
+#: due-state bounds above are its own: the terminal re-validates what a leaf
+#: attached instead of trusting it. `_ENTITY_CANDIDATE_ROUTES` is the closed,
+#: ordered pair every identity carries; a leaf naming anything else is dropped.
+_MAX_ENTITY_CANDIDATE_IDENTITIES = 3
+_MAX_ENTITY_CANDIDATE_NAME_CHARS = 64
+_MAX_ENTITY_CANDIDATE_PAGES = 8
+_MAX_ENTITY_CANDIDATE_PAGE_CHARS = 512
+_MAX_ENTITY_CANDIDATE_NEAR_MATCHES = 3
+_MAX_ENTITY_CANDIDATE_MATCH_PATH_CHARS = 512
+_MAX_ENTITY_CANDIDATE_MATCH_TITLE_CHARS = 200
+_MAX_ENTITY_CANDIDATE_SHARED_TOKENS = 8
+_ENTITY_CANDIDATE_ROUTES = ("resolve-entity", "create-entity")
+#: The block's own copy of its one fixed guidance sentence (task 2.4), for the
+#: same reason `_ENTITY_CANDIDATE_ROUTES` is this module's own copy: the
+#: terminal re-validates what a leaf attached rather than trusting it, and
+#: re-emits its own constant rather than whatever bytes the leaf carried.
+_ENTITY_CANDIDATE_GUIDANCE = (
+    "Resolve before you create an Entity, and hydrate an existing Entity "
+    "before you make a second one."
+)
+
+
+def _entity_candidate_near_match(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    path = value.get("path")
+    title = value.get("title")
+    shared = value.get("shared_tokens")
+    if (
+        not isinstance(path, str)
+        or not 0 < len(path) <= _MAX_ENTITY_CANDIDATE_MATCH_PATH_CHARS
+    ):
+        return None
+    if (
+        not isinstance(title, str)
+        or not 0 < len(title) <= _MAX_ENTITY_CANDIDATE_MATCH_TITLE_CHARS
+    ):
+        return None
+    if not _bounded_tokens(shared, _MAX_ENTITY_CANDIDATE_SHARED_TOKENS):
+        return None
+    return {"path": path, "title": title, "shared_tokens": list(shared)}
+
+
+def _entity_candidate_identity(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    name = value.get("name")
+    pages = value.get("pages")
+    near_matches = value.get("near_matches")
+    routes = value.get("routes")
+    if not isinstance(name, str) or not 0 < len(name) <= _MAX_ENTITY_CANDIDATE_NAME_CHARS:
+        return None
+    if not isinstance(pages, (list, tuple)) or not (
+        0 < len(pages) <= _MAX_ENTITY_CANDIDATE_PAGES
+    ):
+        return None
+    if not all(
+        isinstance(page, str) and 0 < len(page) <= _MAX_ENTITY_CANDIDATE_PAGE_CHARS
+        for page in pages
+    ):
+        return None
+    if not isinstance(near_matches, (list, tuple)) or len(near_matches) > (
+        _MAX_ENTITY_CANDIDATE_NEAR_MATCHES
+    ):
+        return None
+    matches: list[dict[str, Any]] = []
+    for match in near_matches:
+        projected = _entity_candidate_near_match(match)
+        if projected is None:
+            return None
+        matches.append(projected)
+    if not isinstance(routes, (list, tuple)) or list(routes) != list(_ENTITY_CANDIDATE_ROUTES):
+        return None
+    return {
+        "name": name,
+        "pages": list(pages),
+        "near_matches": matches,
+        "routes": list(_ENTITY_CANDIDATE_ROUTES),
+    }
+
+
+def _entity_candidate_projection(leaf: Any) -> dict[str, Any] | None:
+    """Lift one advisory `entity_candidate` block out of a write leaf.
+
+    Same posture as `_structure_suggestion_projection`, and carried the same
+    way: kept at compact detail, dropped (as a top-level key; the raw leaf is
+    untouched) at `legacy`. A malformed or oversized advisory is DROPPED
+    rather than allowed to widen the wire contract.
+    """
+    if not isinstance(leaf, Mapping):
+        return None
+    for container_key in ("creation", "semantic", "source", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        value = container.get("entity_candidate")
+        if not isinstance(value, Mapping):
+            continue
+        identities = value.get("identities")
+        if not isinstance(identities, (list, tuple)) or not (
+            0 < len(identities) <= _MAX_ENTITY_CANDIDATE_IDENTITIES
+        ):
+            continue
+        projected = [_entity_candidate_identity(item) for item in identities]
+        if any(item is None for item in projected):
+            continue
+        if value.get("guidance") != _ENTITY_CANDIDATE_GUIDANCE:
+            continue
+        return {"identities": projected, "guidance": _ENTITY_CANDIDATE_GUIDANCE}
+    return None
+
+
+#: Wire bounds on the advisory due-state block. Deliberately this module's own
+#: numbers rather than an import of the producer's: the terminal re-validates what
+#: a leaf attached instead of trusting it, and a bound that came from the producer
+#: would validate nothing. The category vocabulary is NOT restated here for the
+#: opposite reason — `audit` owns which categories exist, and a second copy of that
+#: list would drift the day a category ships, so a category is checked as a bounded
+#: token and its meaning is left to the module that owns it. The count of categories
+#: is bounded by `_max_due_state_categories` below for the same reason.
+_MAX_DUE_STATE_TOP = 5
+_MAX_DUE_STATE_TOKEN_CHARS = 64
+_MAX_DUE_STATE_REF_CHARS = 256
+# The advisory protocol fixes this scope; omitted scope means historical global counts.
+DUE_STATE_AFFECTED_PATHS = "affected_paths"
+#: Every reference this substrate puts on the wire is an `exomem://` URI.
+_ADVISORY_REF_SCHEME = "exomem://"
+
+
+def _max_due_state_categories() -> int:
+    """The most categories one block can name: one per category the projection holds.
+
+    It is the length of the owner's list, not a value the leaf supplied, so it still
+    rejects a malformed block, and it moves with the list the day a category ships.
+    """
+    from . import due_state as due_state_module  # lazy, as in `_admit_due_state`
+
+    return len(due_state_module.PROJECTION_CATEGORIES)
+
+
+def _due_state_projection(leaf: Any) -> tuple[dict[str, Any] | None, str]:
+    """Lift one advisory due-state block out of a write leaf.
+
+    Same posture as `_structure_suggestion_projection`, and for the same reason: a
+    malformed or oversized advisory is DROPPED rather than allowed to widen the
+    wire contract. The difference is what it describes — a structural suggestion is
+    evidence about the page just written, while this is a bounded count of what the
+    vault owes. Neither is ever a key a client branches on for the outcome of the
+    mutation (see `_ENVELOPE_KEYS`), and both are absent — never null, never empty —
+    when there is nothing to say.
+
+    Returns the validated block and the vault it was computed for. The vault rides
+    on the leaf under a server-internal `_vault` key that never reaches the wire —
+    the block below is rebuilt from validated fields only — because the terminal is
+    where emission is DECIDED and one process can serve more than one vault.
+    """
+    if not isinstance(leaf, Mapping):
+        return None, ""
+    for container_key in ("creation", "semantic", "source", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        value = container.get("due_state")
+        if not isinstance(value, Mapping):
+            continue
+        if "scope" in value and value["scope"] != DUE_STATE_AFFECTED_PATHS:
+            continue
+        total = value.get("total")
+        categories = value.get("categories")
+        top = value.get("top")
+        if type(total) is not int or total <= 0:
+            continue
+        if not isinstance(categories, Mapping) or not (
+            0 < len(categories) <= _max_due_state_categories()
+        ):
+            continue
+        if not all(
+            _due_state_token(name) and type(count) is int and count >= 0
+            for name, count in categories.items()
+        ):
+            continue
+        if not isinstance(top, (list, tuple)) or len(top) > _MAX_DUE_STATE_TOP:
+            continue
+        rows: list[dict[str, Any]] = []
+        for row in top:
+            if not isinstance(row, Mapping):
+                break
+            category = row.get("category")
+            ref = row.get("ref")
+            fingerprint = row.get("fingerprint")
+            due_since = row.get("due_since")
+            if not _due_state_token(category) or not _due_state_token(fingerprint):
+                break
+            if (
+                not isinstance(ref, str)
+                or not ref.startswith(_ADVISORY_REF_SCHEME)
+                or len(ref) > _MAX_DUE_STATE_REF_CHARS
+            ):
+                break
+            if not _iso_date(due_since):
+                break
+            rows.append(
+                {
+                    "category": category,
+                    "ref": ref,
+                    "fingerprint": fingerprint,
+                    "due_since": due_since,
+                }
+            )
+        else:
+            hint = value.get("_vault")
+            return (
+                {
+                    "total": total,
+                    "categories": {str(name): categories[name] for name in categories},
+                    "top": rows,
+                    **({"scope": DUE_STATE_AFFECTED_PATHS} if "scope" in value else {}),
+                },
+                str(hint) if isinstance(hint, str) else "",
+            )
+    return None, ""
+
+
+#: Wire bounds on the advisory capture-sweep block. This module's own numbers
+#: rather than an import of the producer's, for the reason stated above the
+#: due-state bounds: the terminal re-validates what a leaf attached instead of
+#: trusting it, and a bound that came from the producer would validate nothing.
+#: The boundary vocabulary IS restated here, unlike the due-state categories,
+#: because it is closed by design and three tokens long -- a drifting copy of it
+#: would be visible, while an unbounded token would let the leaf name anything.
+_CAPTURE_SWEEP_BOUNDARIES = frozenset({"quiet-interval"})
+_MAX_CAPTURE_SWEEP_RULE_CHARS = 400
+_MAX_CAPTURE_SWEEP_CLASSES = 12
+_MAX_CAPTURE_SWEEP_CLASS_CHARS = 64
+_MAX_CAPTURE_SWEEP_REFS = 8
+_MAX_CAPTURE_SWEEP_MENTIONS = 5
+_MAX_CAPTURE_SWEEP_MENTION_CHARS = 64
+
+
+def _capture_sweep_projection(leaf: Any) -> dict[str, Any] | None:
+    """Lift one advisory capture-sweep block out of a write leaf.
+
+    Same posture as the two projections above, and dropped rather than truncated
+    for the same reason: a malformed or oversized advisory is a bug or an
+    untrusted leaf, and silently repairing one would make the wire contract
+    whatever the producer happened to send.
+
+    What it describes is neither of the other two: `structure_suggestion` is
+    evidence about the page just written and `due_state` is a count of what the
+    vault owes, while this is a prompt about the EPISODE the write sits in. It
+    carries no emission decision here -- the producer's quiet-interval ledger
+    already made it -- so unlike `due_state` there is no `_vault` hint to strip.
+    """
+    if not isinstance(leaf, Mapping):
+        return None
+    for container_key in ("creation", "semantic", "source", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        value = container.get("capture_sweep")
+        if not isinstance(value, Mapping):
+            continue
+        boundary = value.get("boundary")
+        rule = value.get("rule")
+        consider = value.get("consider")
+        if boundary not in _CAPTURE_SWEEP_BOUNDARIES:
+            continue
+        if not isinstance(rule, str) or not 0 < len(rule) <= _MAX_CAPTURE_SWEEP_RULE_CHARS:
+            continue
+        if not isinstance(consider, (list, tuple)) or not (
+            0 < len(consider) <= _MAX_CAPTURE_SWEEP_CLASSES
+        ):
+            continue
+        if not all(
+            isinstance(item, str) and 0 < len(item) <= _MAX_CAPTURE_SWEEP_CLASS_CHARS
+            for item in consider
+        ):
+            continue
+        projected: dict[str, Any] = {
+            "boundary": boundary,
+            "rule": rule,
+            "consider": list(consider),
+        }
+        written = value.get("written_recently")
+        if written is not None:
+            if not isinstance(written, (list, tuple)) or len(written) > _MAX_CAPTURE_SWEEP_REFS:
+                continue
+            if not all(
+                isinstance(ref, str)
+                and ref.startswith(_ADVISORY_REF_SCHEME)
+                and len(ref) <= _MAX_DUE_STATE_REF_CHARS
+                for ref in written
+            ):
+                continue
+            if written:
+                projected["written_recently"] = list(written)
+        mentions = value.get("unpaged_mentions")
+        if mentions is not None:
+            if (
+                not isinstance(mentions, (list, tuple))
+                or len(mentions) > _MAX_CAPTURE_SWEEP_MENTIONS
+            ):
+                continue
+            if not all(
+                isinstance(name, str)
+                and 0 < len(name) <= _MAX_CAPTURE_SWEEP_MENTION_CHARS
+                for name in mentions
+            ):
+                continue
+            if mentions:
+                projected["unpaged_mentions"] = list(mentions)
+        return projected
+    return None
+
+
+def _admit_due_state(block: dict[str, Any], vault_hint: str) -> bool:
+    """Decide, at the point of DELIVERY, whether this response carries the block.
+
+    This is the one choke point every mutating command reaches, and it is called
+    once per command invocation -- so "a multi-write product command emits at most
+    once, at its terminal" (D9) holds by construction rather than by each writer
+    remembering to behave. It is also the first moment the detail level is known,
+    which matters: deciding at production burnt the session's single emission on
+    `legacy` responses that strip the block and on blocks the validation above
+    drops, leaving the caller told nothing and the next response silent.
+
+    Fails CLOSED. If the governor cannot be consulted, the safe direction for an
+    anti-nagging mechanism is silence -- the items are still on the review surface.
+    """
+    try:
+        from . import due_state as due_state_module
+
+        vault = vault_hint or None
+        if not due_state_module.would_emit(block, vault_root=vault):
+            return False
+        due_state_module.mark_emitted(block, vault_root=vault)
+        return True
+    except Exception:  # noqa: BLE001 -- an ungovernable advisory is not delivered
+        log.debug("due-state emission governor unavailable; dropping", exc_info=True)
+        return False
+
+
+def _due_state_token(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and 0 < len(value) <= _MAX_DUE_STATE_TOKEN_CHARS
+        and all(character.isalnum() or character == "_" for character in value)
+    )
+
+
+def _iso_date(value: Any) -> bool:
+    """A strict `YYYY-MM-DD`, checked without importing a date parser into a pure module."""
+    if not isinstance(value, str) or len(value) != 10:
+        return False
+    year, sep_one, rest = value.partition("-")
+    month, sep_two, day = rest.partition("-")
+    return (
+        sep_one == "-"
+        and sep_two == "-"
+        and len(year) == 4
+        and len(month) == 2
+        and len(day) == 2
+        and year.isdigit()
+        and month.isdigit()
+        and day.isdigit()
+        and 1 <= int(month) <= 12
+        and 1 <= int(day) <= 31
+    )
+
+
+def _without_leaf_advisory(result: Any, advisory_key: str) -> Any:
+    """Strip one advisory block from the leaf the legacy detail and diagnostics see.
+
+    The legacy detail returns the leaf verbatim, so leaving a block there would
+    put an advisory on exactly the response shape the spec says omits it. Mirrors
+    `_without_graph_rebuild_handoff`: the leaf attaches, the terminal decides who
+    sees it.
+
+    Parameterised by key rather than copied per advisory, because "which shapes
+    omit an advisory" is one rule and a second copy of it would drift the day a
+    third carrier lands on this seam.
+    """
+    if not isinstance(result, Mapping):
+        return result
+    changed = False
+    stripped: dict[str, Any] = {}
+    for key, value in result.items():
+        if key == advisory_key:
+            changed = True
+            continue
+        if (
+            key in ("creation", "semantic", "source")
+            and isinstance(value, Mapping)
+            and (advisory_key in value)
+        ):
+            stripped[key] = {inner: value[inner] for inner in value if inner != advisory_key}
+            changed = True
+            continue
+        stripped[key] = value
+    return stripped if changed else result
+
+
+def _without_advisory_due_state(result: Any) -> Any:
+    return _without_leaf_advisory(result, "due_state")
+
+
+def _without_advisory_capture_sweep(result: Any) -> Any:
+    return _without_leaf_advisory(result, "capture_sweep")
+
+
+def _semantic_advisory_projection(leaf: Any) -> dict[str, Any] | None:
+    """Carry fixed actionable relation findings without forwarding private payloads."""
+    from . import semantic_contract
+
+    if not isinstance(leaf, Mapping):
+        return None
+    codes: set[str] = set()
+    for key in ("creation", "semantic", None):
+        container = leaf if key is None else leaf.get(key)
+        contract = container.get("contract_result") if isinstance(container, Mapping) else None
+        findings = contract.get("findings") if isinstance(contract, Mapping) else None
+        if not isinstance(findings, (list, tuple)):
+            continue
+        for finding in findings:
+            code = finding.get("code") if isinstance(finding, Mapping) else None
+            # These closed finding codes are protocol data, not relation vocabulary.
+            if isinstance(code, str) and code in semantic_contract.RELATION_QUALITY_ADVISORIES:
+                codes.add(code)
+    if not codes:
+        return None
+    return {
+        "findings": [
+            {"code": code, **semantic_contract.RELATION_QUALITY_ADVISORIES[code]}
+            for code in sorted(codes)
+        ],
+        "next_action": {"tool": "schema_memory", "args": {"operation": "inspect", "subject": "relations"}},
+    }
+
+
+def _semantic_compilation_projection(leaf: Any) -> dict[str, Any] | None:
+    """Lift informational state and bounded admitted read/preparation routes only."""
+    from . import source_coverage
+
+    if not isinstance(leaf, Mapping):
+        return None
+    feedback = leaf.get("write_feedback")
+    sources = feedback.get("sources") if isinstance(feedback, Mapping) else None
+    containers = [leaf, sources]
+    for container in containers:
+        block = container.get("semantic_compilation") if isinstance(container, Mapping) else None
+        # This state is fixed by the source-feedback protocol, never a semantic verdict.
+        if not isinstance(block, Mapping) or block.get("state") != "unassessed":
+            continue
+        out: dict[str, Any] = {"state": "unassessed"}
+        routes = block.get("full_source_reads", [])
+        if not isinstance(routes, (list, tuple)):
+            return out
+        paths: list[str] = []
+        for route in routes[:source_coverage.COMPILATION_SOURCES_LISTED]:
+            args = route.get("args") if isinstance(route, Mapping) else None
+            path = args.get("path") if isinstance(args, Mapping) else None
+            if (
+                isinstance(route, Mapping) and route.get("tool") == "read_memory"
+                and isinstance(args, Mapping) and args.get("include_raw") is True
+                and isinstance(path, str) and 0 < len(path) <= source_coverage.COMPILATION_PATH_CHARS
+            ):
+                paths.append(path)
+        out = source_coverage.compilation_routes(paths)
+        if block.get("truncated") is True or len(paths) < len(routes):
+            out["truncated"] = True
+        return out
+    return None
+
+
+def _relation_advisory_projection(leaf: Any) -> dict[str, Any] | None:
+    """Project just-parsed unregistered facts plus optional indexed recurrence.
+
+    The fact scan is bounded by the semantic feedback renderer. Recurrence is a
+    point lookup against one already-current graph snapshot and is deliberately
+    fail-open: unavailable or malformed evidence leaves the committed advisory
+    useful without changing the mutation outcome.
+    """
+    if not isinstance(leaf, Mapping):
+        return None
+    context = leaf.get("_relation_advisory_context")
+    labels: set[str] = set()
+    facts_truncated = False
+    registry_hash: str | None = None
+    vault_hint: str | None = None
+    if isinstance(context, Mapping):
+        candidate_hash = context.get("registry_hash")
+        if isinstance(candidate_hash, str) and 0 < len(candidate_hash) <= 256:
+            registry_hash = candidate_hash
+        candidate_vault = context.get("vault")
+        if isinstance(candidate_vault, str) and candidate_vault:
+            vault_hint = candidate_vault
+    for container_key in ("creation", "semantic", None):
+        container = leaf if container_key is None else leaf.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        contract = container.get("contract_result")
+        if not isinstance(contract, Mapping):
+            continue
+        disposition = contract.get("relation_disposition")
+        if not isinstance(disposition, Mapping):
+            continue
+        omitted = disposition.get("omitted_counts")
+        if isinstance(omitted, Mapping) and type(omitted.get("rejected_facts")) is int:
+            facts_truncated = omitted["rejected_facts"] > 0
+        rejected = disposition.get("rejected_facts")
+        if not isinstance(rejected, (list, tuple)):
+            continue
+        for rejected_fact in rejected:
+            if not isinstance(rejected_fact, Mapping):
+                continue
+            fact = rejected_fact.get("fact")
+            if not isinstance(fact, Mapping) or fact.get("registry_status") != "unregistered":
+                continue
+            raw = fact.get("raw_relation")
+            if not isinstance(raw, str):
+                continue
+            normalized = relation_registry.normalize_relation(raw)
+            if (
+                normalized
+                and normalized != relation_registry.generic_relation_key()
+                and len(normalized) <= _MAX_RELATION_ADVISORY_LABEL_CHARS
+            ):
+                labels.add(normalized)
+    if not labels:
+        return None
+    ordered = sorted(labels)
+    retained = ordered[:_MAX_RELATION_ADVISORY_LABELS]
+    truncated = facts_truncated or len(ordered) > len(retained)
+    occurrences: list[dict[str, Any]] = []
+    recurrence_available = False
+    if vault_hint:
+        try:
+            from pathlib import Path
+
+            from . import memory_schema
+
+            indexed = memory_schema.indexed_relation_observations(
+                Path(vault_hint),
+                raw_relations=retained,
+                limit=len(retained),
+                offset=0,
+            )
+            recurrence_available = indexed is not None
+            rows = indexed.get("items", ()) if isinstance(indexed, Mapping) else ()
+            aggregated: dict[str, dict[str, Any]] = {}
+            example_keys: dict[str, set[tuple[str, str | None]]] = {}
+            for row in rows:
+                if not isinstance(row, Mapping):
+                    continue
+                label = row.get("raw_relation")
+                count = row.get("count")
+                examples = row.get("examples")
+                normalized_label = (
+                    relation_registry.normalize_relation(label)
+                    if isinstance(label, str)
+                    else ""
+                )
+                if (
+                    normalized_label not in retained
+                    or type(count) is not int
+                    or count < 0
+                    or not isinstance(examples, (list, tuple))
+                ):
+                    continue
+                occurrence = aggregated.setdefault(
+                    normalized_label,
+                    {
+                        "raw_relation": normalized_label,
+                        "count": 0,
+                        "examples": [],
+                    },
+                )
+                occurrence["count"] += count
+                seen = example_keys.setdefault(normalized_label, set())
+                for example in examples:
+                    if len(occurrence["examples"]) >= _MAX_RELATION_ADVISORY_EXAMPLES:
+                        break
+                    if not isinstance(example, Mapping):
+                        continue
+                    path = example.get("path")
+                    anchor = example.get("anchor")
+                    if not isinstance(path, str) or not (
+                        anchor is None or isinstance(anchor, str)
+                    ):
+                        continue
+                    example_key = (path, anchor)
+                    if example_key in seen:
+                        continue
+                    seen.add(example_key)
+                    occurrence["examples"].append(
+                        {"path": path, "anchor": anchor}
+                    )
+            occurrences = list(aggregated.values())
+            occurrences.sort(key=lambda item: (-item["count"], item["raw_relation"]))
+        except Exception:  # noqa: BLE001 - advisory evidence never breaks a commit
+            recurrence_available = False
+            occurrences = []
+    return {
+        "raw_relations": retained,
+        "registry_hash": registry_hash,
+        "recurrence_available": recurrence_available,
+        "occurrences": occurrences,
+        "truncated": truncated,
+        "message": "Raw observations are preserved but untraversed until registered.",
+        "next_action": {
+            "tool": "connect_memory",
+            "args": {"operation": "resolve-relation"},
+        },
+    }
+
+
+def _without_relation_advisory_context(result: Any) -> Any:
+    """Remove local lookup hints from legacy and diagnostic representations."""
+    if not isinstance(result, Mapping):
+        return result
+    changed = False
+    stripped: dict[str, Any] = {}
+    for key, value in result.items():
+        if key == "_relation_advisory_context":
+            changed = True
+            continue
+        if isinstance(value, Mapping) and "_relation_advisory_context" in value:
+            stripped[key] = {
+                inner: value[inner]
+                for inner in value
+                if inner != "_relation_advisory_context"
+            }
+            changed = True
+            continue
+        stripped[key] = value
+    return stripped if changed else result
+
+
+#: A write's vocabulary receipt: at most this many lines of at most this many characters.
+_VOCABULARY_RECEIPT_LINES = 16
+_VOCABULARY_RECEIPT_CHARS = 600
+
+
+def _valid_vocabulary_receipt(value: Any) -> bool:
+    return (
+        isinstance(value, (list, tuple))
+        and 0 < len(value) <= _VOCABULARY_RECEIPT_LINES
+        and all(
+            isinstance(line, str) and 0 < len(line) <= _VOCABULARY_RECEIPT_CHARS
+            for line in value
+        )
+    )
+
+
+def _bounded_tokens(value: Any, limit: int) -> bool:
+    return (
+        isinstance(value, (list, tuple))
+        and 0 < len(value) <= limit
+        and all(
+            isinstance(item, str) and 0 < len(item) <= _MAX_STRUCTURE_TOKEN_CHARS for item in value
+        )
+    )
+
+
+def receipt_leaf_projection(leaf_result: Any) -> dict[str, Any]:
+    """Portable graph receipts never retain collection paths or content metadata."""
+    # Collection receipts are public API results, not portable graph protocol
+    # authority: both shapes include affected paths.  A local exact retry can
+    # reconstruct only the envelope after a SQLite cut, which is preferable
+    # to copying user paths into a synced hidden file.
+    del leaf_result
+    return {}
+
+
+def committed_terminal(
+    leaf_result: Any,
+    *,
+    request_id: str,
+    receipt_id: str | None,
+    idempotency_key: str | None,
+) -> dict[str, Any]:
+    """Own one canonical successful result before receipt persistence."""
+    terminal: dict[str, Any] = {
+        "_terminal": _TERMINAL_MARKER,
+        "version": _TERMINAL_VERSION,
+        "ok": True,
+        # `state` is the closed machine; `status` is retained verbatim for existing
+        # consumers and always agrees with it.
+        "state": "committed",
+        "status": "committed",
+        "terminal": True,
+        "mutated": True,
+    }
+    terminal.update(_path_projection(leaf_result))
+    operation_id = _operation_id(leaf_result)
+    if operation_id is not None:
+        terminal["operation_id"] = operation_id
+    terminal.update(
+        request_id=request_id,
+        receipt_id=receipt_id,
+        warnings_count=_warning_count(leaf_result),
+        leaf_result=leaf_result,
+    )
+    if idempotency_key is not None:
+        terminal["idempotency_key"] = idempotency_key
+    return terminal
+
+
+def with_fast_acknowledgement(
+    terminal: Mapping[str, Any],
+    *,
+    derived_sync: str,
+    derived_sync_components: Sequence[str] = (),
+    component_diagnostics: Sequence[Mapping[str, Any]] = (),
+    advisory_sync: str,
+    advisory_result_ref: str | None = None,
+) -> dict[str, Any]:
+    """Freeze one bounded derived-custody snapshot into a committed terminal.
+
+    ``graph_sync`` is deliberately absent. Graph convergence has one author --
+    the existing graph pipeline -- and its outcome always travels with its own
+    code and remediation. A second writer here would strip those and let the
+    receipt store reinterpret a field this contract says it must not touch.
+    The receipt's own graph component stays visible under the derived
+    diagnostics instead.
+    """
+    if (
+        terminal.get("_terminal") != _TERMINAL_MARKER
+        or terminal.get("version") != _TERMINAL_VERSION
+        or terminal.get("state") != "committed"
+    ):
+        raise ValueError("fast acknowledgement requires a committed mutation terminal")
+    if derived_sync not in DERIVED_SYNC_OUTCOMES:
+        raise ValueError("unknown derived acknowledgement outcome")
+    if advisory_sync not in ADVISORY_SYNC_OUTCOMES:
+        raise ValueError("unknown advisory acknowledgement outcome")
+
+    components = tuple(sorted(set(derived_sync_components)))
+    if len(components) > len(_DERIVED_COMPONENT_NAMES) or any(
+        component not in _DERIVED_COMPONENT_NAMES for component in components
+    ):
+        raise ValueError("derived acknowledgement components are invalid")
+    if derived_sync == "completed" and components:
+        raise ValueError("completed derived acknowledgement cannot name unfinished work")
+
+    diagnostics: list[dict[str, str | None]] = []
+    for item in component_diagnostics:
+        if len(diagnostics) >= _MAX_DERIVED_DIAGNOSTICS:
+            break
+        component = item.get("component")
+        state = item.get("state")
+        code = item.get("code")
+        if (
+            not isinstance(component, str)
+            or not component
+            or len(component) > 32
+            or not isinstance(state, str)
+            or not state
+            or len(state) > 32
+            or (code is not None and (not isinstance(code, str) or len(code) > 64))
+        ):
+            raise ValueError("derived acknowledgement diagnostic is invalid")
+        diagnostics.append({"component": component, "state": state, "code": code})
+    diagnostics.sort(key=lambda item: item["component"] or "")
+
+    applicable_advisory = advisory_sync != "not_required"
+    if applicable_advisory != (
+        isinstance(advisory_result_ref, str)
+        and advisory_result_ref.startswith("exomem://write-advisory-result/")
+        and len(advisory_result_ref) <= 256
+    ):
+        raise ValueError("applicable advisory acknowledgement requires one stable result ref")
+
+    frozen = dict(terminal)
+    frozen["derived_sync"] = derived_sync
+    if components:
+        frozen["derived_sync_components"] = list(components)
+    else:
+        frozen.pop("derived_sync_components", None)
+    if derived_sync == "failed":
+        frozen["derived_sync_code"], frozen["derived_sync_next_action"] = _DERIVED_FAILURE
+    else:
+        frozen.pop("derived_sync_code", None)
+        frozen.pop("derived_sync_next_action", None)
+    frozen["advisory_sync"] = advisory_sync
+    if advisory_result_ref is not None:
+        frozen["advisory_result_ref"] = advisory_result_ref
+    else:
+        frozen.pop("advisory_result_ref", None)
+    if advisory_sync == "failed":
+        frozen["advisory_sync_code"], frozen["advisory_sync_next_action"] = (
+            _ADVISORY_FAILURE
+        )
+    else:
+        frozen.pop("advisory_sync_code", None)
+        frozen.pop("advisory_sync_next_action", None)
+    frozen["_derived_diagnostics"] = diagnostics
+    return frozen
+
+
+def replayed_terminal(
+    leaf_result: Any,
+    *,
+    request_id: str,
+    receipt_id: str | None,
+    idempotency_key: str | None,
+) -> dict[str, Any]:
+    """Present a verified governed no-op replay without fabricating a commit."""
+    lifecycle_replay = (
+        isinstance(leaf_result, Mapping)
+        and leaf_result.get("receipt_version") == _LIFECYCLE_RECEIPT_VERSION
+        and leaf_result.get("outcome") == "committed"
+    )
+    recorded_replay = isinstance(leaf_result, _CanonicalRequestReplay)
+    if not recorded_replay and (not (
+        valid_collection_receipt(leaf_result)
+        or valid_structured_files_receipt(leaf_result)
+        or curation_module.valid_replay_result(leaf_result)
+    ) or (leaf_result.get("outcome") != "replayed" and not lifecycle_replay)):
+        raise ValueError("replayed terminal requires a valid governed mutation receipt")
+
+    terminal: dict[str, Any] = {
+        "_terminal": _TERMINAL_MARKER,
+        "version": _TERMINAL_VERSION,
+        "ok": True,
+        "status": "replayed",
+        "mutated": False,
+    }
+    if recorded_replay:
+        terminal.update(state="settled", terminal=True)
+    terminal.update(_path_projection(leaf_result))
+    terminal.update(
+        request_id=request_id,
+        receipt_id=receipt_id,
+        warnings_count=_warning_count(leaf_result),
+        leaf_result=dict(leaf_result) if recorded_replay else leaf_result,
+    )
+    if idempotency_key is not None:
+        terminal["idempotency_key"] = idempotency_key
+    return terminal
+
+
+def _is_guarded_precommit(result: Any) -> bool:
+    """Whether a non-committing leaf result is a guarded write awaiting review.
+
+    Deliberately narrow. Most non-committing leaves are ordinary reads or unrelated
+    shapes and MUST pass through untouched; only a validated draft that explicitly
+    reports it did not mutate earns the nonterminal envelope.
+    """
+    if not isinstance(result, Mapping):
+        return False
+    if result.get("mutated") is not False:
+        return False
+    if _operation_id(result) is None:
+        return False
+    return any(key in result for key in ("committable_after_review", "draft_hash", "draft_token"))
+
+
+def needs_review_terminal(leaf_result: Any) -> Any:
+    """Own the NONTERMINAL half of a guarded write; pass anything else through.
+
+    A precommit refusal is not a failure: the operation is mid-flight and the caller
+    should complete the review step. Before this, validation returned a shape with no
+    relationship to the eventual success envelope, so a client had nothing tying the
+    two calls together and could reasonably read the first response as the outcome —
+    which is exactly the misclassification observed on 2026-08-06.
+    """
+    if not _is_guarded_precommit(leaf_result):
+        return leaf_result
+    committable = bool(leaf_result.get("committable_after_review"))
+    terminal: dict[str, Any] = {
+        "_terminal": _TERMINAL_MARKER,
+        "version": _TERMINAL_VERSION,
+        "ok": True,
+        "state": "needs_review",
+        "terminal": False,
+        "mutated": False,
+        "next_action": (
+            "Re-issue the same call with the returned draft identity and an explicit "
+            "relation disposition to commit it. This response is not a failure."
+            if committable
+            else "Resolve the reported blocking findings, then re-validate. This "
+            "response is not a failure."
+        ),
+    }
+    operation_id = _operation_id(leaf_result)
+    if operation_id is not None:
+        terminal["operation_id"] = operation_id
+    terminal.update(
+        warnings_count=_warning_count(leaf_result),
+        leaf_result=leaf_result,
+    )
+    return terminal
+
+
+def split_response_detail(
+    kwargs: Mapping[str, Any],
+    *,
+    default: ResponseDetail = "compact",
+) -> tuple[dict[str, Any], ResponseDetail]:
+    """Remove presentation detail from an owned invocation-payload copy."""
+    payload = dict(kwargs)
+    detail = payload.pop("response_detail", default)
+    if not isinstance(detail, str) or detail not in _RESPONSE_DETAILS:
+        raise ValueError("response_detail must be one of: compact, full, legacy")
+    return payload, cast(ResponseDetail, detail)
+
+
+def project_terminal(result: Any, detail: ResponseDetail = "compact") -> Any:
+    """Project a canonical terminal, preserving unversioned legacy results."""
+    if not isinstance(detail, str) or detail not in _RESPONSE_DETAILS:
+        raise ValueError("response_detail must be one of: compact, full, legacy")
+    if (
+        not isinstance(result, Mapping)
+        or result.get("_terminal") != _TERMINAL_MARKER
+        or result.get("version") != _TERMINAL_VERSION
+        or "leaf_result" not in result
+    ):
+        return result
+    raw_leaf = result["leaf_result"]
+    due_state, due_state_vault = _due_state_projection(raw_leaf)
+    capture_sweep = _capture_sweep_projection(raw_leaf)
+    relation_advisory = (
+        _relation_advisory_projection(raw_leaf)
+        if result.get("state") == "committed"
+        else None
+    )
+    leaf = _without_relation_advisory_context(
+        _without_advisory_capture_sweep(
+            _without_advisory_due_state(_without_graph_rebuild_handoff(raw_leaf))
+        )
+    )
+    if detail == "legacy":
+        return leaf
+    compact = {key: result[key] for key in _ENVELOPE_KEYS if key in result}
+    if "idempotency_key" in result:
+        compact["idempotency_key"] = result["idempotency_key"]
+    if result.get("derived_sync") in DERIVED_SYNC_OUTCOMES:
+        compact["derived_sync"] = result["derived_sync"]
+        components = result.get("derived_sync_components")
+        if isinstance(components, (list, tuple)):
+            bounded_components = sorted(
+                {
+                    component
+                    for component in components
+                    if isinstance(component, str)
+                    and component in _DERIVED_COMPONENT_NAMES
+                }
+            )
+            if bounded_components:
+                compact["derived_sync_components"] = bounded_components
+        if result["derived_sync"] == "failed":
+            if result.get("derived_sync_code") == _DERIVED_FAILURE[0]:
+                compact["derived_sync_code"] = _DERIVED_FAILURE[0]
+            if result.get("derived_sync_next_action") == _DERIVED_FAILURE[1]:
+                compact["derived_sync_next_action"] = _DERIVED_FAILURE[1]
+    if result.get("advisory_sync") in ADVISORY_SYNC_OUTCOMES:
+        compact["advisory_sync"] = result["advisory_sync"]
+        advisory_ref = result.get("advisory_result_ref")
+        if (
+            result["advisory_sync"] != "not_required"
+            and isinstance(advisory_ref, str)
+            and advisory_ref.startswith("exomem://write-advisory-result/")
+            and len(advisory_ref) <= 256
+        ):
+            compact["advisory_result_ref"] = advisory_ref
+        if result["advisory_sync"] == "failed":
+            if result.get("advisory_sync_code") == _ADVISORY_FAILURE[0]:
+                compact["advisory_sync_code"] = _ADVISORY_FAILURE[0]
+            if result.get("advisory_sync_next_action") == _ADVISORY_FAILURE[1]:
+                compact["advisory_sync_next_action"] = _ADVISORY_FAILURE[1]
+    if _is_record_receipt(leaf):
+        if leaf["receipt_version"] == _LIFECYCLE_RECEIPT_VERSION:
+            compact.update(
+                {
+                    "_record_receipt": leaf["_record_receipt"],
+                    "receipt_version": leaf["receipt_version"],
+                }
+            )
+        compact.update({key: leaf[key] for key in _RECORD_RECEIPT_FIELDS if key in leaf})
+    elif valid_planning_receipt(leaf):
+        compact.update({key: leaf[key] for key in _PLAN_RECEIPT_FIELDS if key in leaf})
+    elif isinstance(leaf, Mapping) and leaf.get("operation") == "episode_workflow":
+        # The agent resumes by leaf id and must see which leaves ran, which
+        # reconciled and which are blocked; every list is bounded by the
+        # episode model's own caps.
+        compact.update({key: leaf[key] for key in _EPISODE_WORKFLOW_FIELDS if key in leaf})
+    elif isinstance(leaf, Mapping) and leaf.get("operation") == "episode_memory":
+        # The recording agent needs the key back to record the next revision,
+        # and every field here is bounded by `episode_capture`'s own caps.
+        compact.update({key: leaf[key] for key in _EPISODE_RECEIPT_FIELDS if key in leaf})
+    elif isinstance(leaf, Mapping) and leaf.get("operation") == "configure_memory":
+        # The configuration contract is metadata-only and bounded by the
+        # canonical prominence vocabulary. Keep the newly effective contract
+        # visible so the current conversation can adopt it immediately.
+        compact.update({key: leaf[key] for key in (
+            "operation", "action", "scope", "stored", "contexts", "context", "levels",
+            "revision", "before_hash", "after_hash", "receipt_id", "engagement",
+        ) if key in leaf})
+    elif (
+        isinstance(leaf, Mapping)
+        and isinstance(leaf.get("run_id"), str)
+        and str(leaf["run_id"]).startswith("cur-")
+        and isinstance(leaf.get("plan_id"), str)
+    ):
+        compact.update(
+            {
+                key: leaf[key]
+                for key in (
+                    "action",
+                    "run_id",
+                    "plan_id",
+                    "plan_fingerprint",
+                    "phase",
+                    "active_step",
+                    "committed_steps",
+                    "failed_step",
+                    "retryable",
+                    "next_action",
+                    "outcome",
+                    "recovery",
+                )
+                if key in leaf
+            }
+        )
+    elif (
+        isinstance(leaf, Mapping)
+        and isinstance(leaf.get("run_id"), str)
+        and str(leaf["run_id"]).startswith("adr-")
+    ):
+        # An Adoption Studio call: the caller carries on with the run id, the plan id
+        # and the continuation cursor, so these must survive the compact view.
+        compact.update(
+            {key: leaf[key] for key in ("run_id", "run_ref", "phase", "continuation", "progress")
+             if key in leaf}
+        )
+        plan = leaf.get("plan")
+        if isinstance(plan, Mapping) and isinstance(plan.get("plan_id"), str):
+            compact["plan_id"] = plan["plan_id"]
+        compact.update(_adoption_control_projection(leaf))
+    artifact_receipt = _artifact_receipt_projection(leaf)
+    compact.update(artifact_receipt)
+    if isinstance(leaf, Mapping) and isinstance(leaf.get("source"), Mapping):
+        # Closed text capture outcomes belong to the durable capture protocol.
+        from typing import get_args
+
+        from .source_capture import CaptureOutcome
+
+        if leaf.get("capture_outcome") in get_args(CaptureOutcome):
+            compact["capture_outcome"] = leaf["capture_outcome"]
+            compact["source"] = {
+                key: leaf["source"][key] for key in ("path", "ref")
+                if key in leaf["source"]
+            }
+    if result.get("state") == "committed":
+        compact.update(_commit_metadata_projection(leaf))
+    compact.update(_media_result_projection(leaf))
+    # `pending` (#576) is the fourth outcome: canonical bytes committed, the
+    # registered derived-graph rebuild has not converged yet. It has to survive
+    # into `compact` -- the default detail -- or a bounded write would be
+    # indistinguishable from one whose graph is current, which is the exact
+    # dishonesty the bound is not allowed to introduce.
+    graph_result = result if result.get("graph_sync") in GRAPH_SYNC_OUTCOMES else leaf
+    if isinstance(graph_result, Mapping) and graph_result.get("graph_sync") in GRAPH_SYNC_OUTCOMES:
+        compact["graph_sync"] = graph_result["graph_sync"]
+        for key in (
+            "graph_sync_code",
+            "graph_sync_checkpoint",
+            "graph_sync_remediation",
+        ):
+            value = graph_result.get(key)
+            if isinstance(value, str):
+                compact[key] = value
+    if (
+        isinstance(leaf, Mapping)
+        and all(
+        type(leaf.get(key)) is bool
+        for key in ("graph_rebuild_requested", "graph_rebuild_applicable")
+        )
+        and leaf.get("graph_rebuild_status")
+        in {
+        "not_requested",
+        "not_applicable",
+        "would_quarantine",
+        "quarantined",
+        "cleared",
+        "retained",
+        "failed",
+        }
+    ):
+        compact.update(
+            {
+                key: leaf[key]
+                for key in (
+                    "graph_rebuild_requested",
+                    "graph_rebuild_applicable",
+                    "graph_rebuild_status",
+                )
+            }
+        )
+        quarantine_id = leaf.get("graph_quarantine_id")
+        if isinstance(quarantine_id, str) and len(quarantine_id) == 24:
+            compact["graph_quarantine_id"] = quarantine_id
+        warning = leaf.get("graph_rebuild_warning")
+        if isinstance(warning, str) and 0 < len(warning) <= 128:
+            compact["graph_rebuild_warning"] = warning
+    structure_suggestion = _structure_suggestion_projection(leaf)
+    if structure_suggestion is not None:
+        compact["structure_suggestion"] = structure_suggestion
+    records_routing = _records_routing_projection(leaf)
+    if records_routing is not None:
+        compact["records_routing"] = records_routing
+    entity_candidate = _entity_candidate_projection(leaf)
+    if entity_candidate is not None:
+        compact["entity_candidate"] = entity_candidate
+    if due_state is not None and _admit_due_state(due_state, due_state_vault):
+        compact["due_state"] = due_state
+    if capture_sweep is not None:
+        # No admission step, unlike due-state. This carrier's governor is its own
+        # quiet-interval ledger and it already ran at the seam, where the write it
+        # measures actually happened. See `capture_sweep`'s module docstring on
+        # why this ledger records writes rather than deliveries.
+        compact["capture_sweep"] = capture_sweep
+    if relation_advisory is not None:
+        compact["relation_advisory"] = relation_advisory
+    semantic_advisory = _semantic_advisory_projection(leaf)
+    if semantic_advisory is not None:
+        compact["semantic_advisory"] = semantic_advisory
+    semantic_compilation = _semantic_compilation_projection(leaf)
+    if semantic_compilation is not None:
+        compact["semantic_compilation"] = semantic_compilation
+    if "vocabulary_sync" in result or "vocabulary_advisory" in result:
+        from .vocabulary_delivery import public_projection
+
+        compact.update(public_projection(result))
+    if "additive_authority" in result:
+        from .vocabulary_receipts import valid_projection
+
+        if valid_projection(result["additive_authority"]):
+            compact["additive_authority"] = result["additive_authority"]
+    if isinstance(leaf, Mapping):
+        resolution = leaf.get("vocabulary_resolution")
+        if resolution is None and isinstance(leaf.get("creation"), Mapping):
+            resolution = leaf["creation"].get("vocabulary_resolution")
+        if resolution is not None:
+            from .vocabulary_resolution import valid_public_resolution
+
+            if valid_public_resolution(resolution):
+                compact["vocabulary_resolution"] = resolution
+    if isinstance(leaf, Mapping) and _valid_vocabulary_receipt(leaf.get("vocabulary_receipt")):
+        # One line per key a write registered or changed, with its revert route
+        # (`vocabulary.contract`): a promotion is unmissable in the default
+        # detail, and it belongs to this write's response only.
+        compact["vocabulary_receipt"] = list(leaf["vocabulary_receipt"])
+    if "vocabulary_resolution" in result:
+        from .vocabulary_resolution import valid_public_resolution
+
+        if valid_public_resolution(result["vocabulary_resolution"]):
+            compact["vocabulary_resolution"] = result["vocabulary_resolution"]
+    compact["warnings_count"] = result["warnings_count"]
+    # Projected from the leaf, never from the receipt. Receipt recovery replaces
+    # `leaf_result` with `{}` on purpose (the portable receipt must not retain
+    # leaf paths or content) while `warnings_count` survives in the receipt
+    # fields, so that path keeps reporting a count with no texts — by design.
+    warnings = _warning_texts(leaf, has_artifact_receipt=bool(artifact_receipt))
+    if warnings:
+        compact["warnings"] = warnings
+    if detail == "full":
+        derived_diagnostics = result.get("_derived_diagnostics")
+        if isinstance(derived_diagnostics, (list, tuple)):
+            compact["diagnostics"] = {
+                "leaf_result": leaf,
+                "derived_components": list(
+                    derived_diagnostics[:_MAX_DERIVED_DIAGNOSTICS]
+                ),
+            }
+        else:
+            compact["diagnostics"] = leaf
+    return compact
+
+
+def _commit_metadata_projection(leaf: Any) -> dict[str, str]:
+    """Preserve exact bounded identities, never page/unit bodies or diagnostics.
+
+    Portable receipt recovery intentionally supplies no leaf; it cannot invent
+    these identities. Semantic hashes are copied only from the same committed
+    primary path, not an auxiliary page or a preflight preview.
+    """
+    if not isinstance(leaf, Mapping) or not isinstance(leaf.get("path"), str):
+        return {}
+    projection = {
+        key: leaf[key] for key in ("before_hash", "after_hash") if _hash(leaf.get(key))
+    }
+    semantic = leaf.get("semantic")
+    if (
+        "after_hash" not in projection
+        and isinstance(semantic, Mapping)
+        and semantic.get("path") == leaf["path"]
+        and semantic.get("mutated") is True
+        and _hash(semantic.get("after_hash"))
+    ):
+        projection["after_hash"] = semantic["after_hash"]
+    for key in ("unit_ref", "removed_unit_ref"):
+        value = leaf.get(key)
+        if not isinstance(value, str) or len(value) > 128:
+            continue
+        parent, separator, fragment = value.partition("#")
+        if (
+            separator
+            and parent.startswith("exomem://memory/")
+            and _normalized_uuid(parent.removeprefix("exomem://memory/"))
+            and (
+                re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?", fragment)
+                or re.fullmatch(r"unit-[0-9a-f]{64}", fragment)
+            )
+        ):
+            projection[key] = value
+    return projection
+
+
+def valid_record_receipt(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    if (
+        type(value.get("receipt_version")) is int
+        and value.get("receipt_version") == _LIFECYCLE_RECEIPT_VERSION
+    ):
+        return _valid_lifecycle_record_receipt(value)
+    operation = value.get("operation")
+    if (
+        value.get("_record_receipt") != _RECORD_RECEIPT_MARKER
+        or type(value.get("receipt_version")) is not int
+        or value.get("receipt_version") != _RECORD_RECEIPT_VERSION
+        or not _normalized_uuid(value.get("collection_id"))
+        or not isinstance(value.get("affected_paths"), list)
+        or len(value["affected_paths"]) > 16
+        or not all(
+            isinstance(path, str) and 0 < len(path) <= 1024 for path in value["affected_paths"]
+        )
+    ):
+        return False
+    # A discard has its own closed shape and never mixes with the committing
+    # operations: it is admitted here rather than by widening their outcome set,
+    # so `outcome: discarded` stays impossible for an append or an update.
+    if operation == "discard":
+        return _valid_discard_receipt(value)
+    if operation not in {"create", "append", "update"} or value.get("outcome") not in {
+        "committed",
+        "replayed",
+    }:
+        return False
+    outcome = value.get("outcome")
+    correlation = value.get("audit_correlation")
+    if operation == "create":
+        if (
+            value.get("item_key") is not None
+            or outcome != "committed"
+            or value.get("before_item_hash") is not None
+            or (
+                value.get("after_item_hash") is not None and not _hash(value.get("after_item_hash"))
+            )
+            or value.get("before_container_hash") is not None
+            or value.get("payload_hash") is not None
+            or not _hash(value.get("after_container_hash"))
+        ):
+            return False
+    elif not _normalized_uuid(value.get("item_key")):
+        return False
+    for name in (
+        "before_item_hash",
+        "after_item_hash",
+        "before_container_hash",
+        "after_container_hash",
+        "payload_hash",
+    ):
+        hash_value = value.get(name)
+        if hash_value is not None and (
+            not isinstance(hash_value, str)
+            or len(hash_value) != 64
+            or any(character not in "0123456789abcdef" for character in hash_value)
+        ):
+            return False
+    if not (
+        isinstance(correlation, str)
+        and len(correlation) == 24
+        and all(character in "0123456789abcdef" for character in correlation)
+    ):
+        return False
+    if operation == "append" and outcome == "committed":
+        return (
+            value.get("before_item_hash") is None
+            and _hash(value.get("after_item_hash"))
+            and _hash(value.get("before_container_hash"))
+            and _hash(value.get("after_container_hash"))
+            and _hash(value.get("payload_hash"))
+        )
+    if operation == "update" and outcome == "committed":
+        return (
+            _hash(value.get("before_item_hash"))
+            and _hash(value.get("after_item_hash"))
+            and _hash(value.get("before_container_hash"))
+            and _hash(value.get("after_container_hash"))
+            and value.get("payload_hash") is None
+        )
+    if operation == "append" and outcome == "replayed":
+        return (
+            _hash(value.get("before_item_hash"))
+            and _hash(value.get("after_item_hash"))
+            and _hash(value.get("before_container_hash"))
+            and _hash(value.get("after_container_hash"))
+            and _hash(value.get("payload_hash"))
+        )
+    if operation == "create":
+        return True
+    return False
+
+
+def _valid_discard_receipt(value: Mapping[str, Any]) -> bool:
+    """Whether *value* is the closed receipt a held-candidate discard returns.
+
+    A discard removes a candidate that never entered the audit chain, so there
+    is no item key, no item or container hash and nothing to correlate; the
+    removed reference and its path are the whole of it. The key set is exact so
+    that admitting this shape cannot admit a malformed committing receipt.
+    """
+    if set(value) != {
+        "_record_receipt",
+        "receipt_version",
+        "operation",
+        "collection_id",
+        "held_id",
+        "affected_paths",
+        "outcome",
+        "audit_correlation",
+    }:
+        return False
+    return (
+        value.get("outcome") == "discarded"
+        and _normalized_uuid(value.get("held_id"))
+        and value.get("audit_correlation") is None
+        and len(value["affected_paths"]) == 1
+    )
+
+
+def _valid_lifecycle_record_receipt(value: Mapping[str, Any]) -> bool:
+    if set(value) != {
+        "_record_receipt",
+        "receipt_version",
+        "operation",
+        "collection_id",
+        "item_key",
+        "before_item_hash",
+        "after_item_hash",
+        "before_manifest_hash",
+        "after_manifest_hash",
+        "before_container_hash",
+        "after_container_hash",
+        "affected_paths",
+        "payload_hash",
+        "outcome",
+        "audit_correlation",
+        "continuity",
+        "acknowledged_gap_codes",
+        "gap_fingerprint",
+        "checkpoint_snapshot_hash",
+        "minimum_reader_version",
+    }:
+        return False
+    if not (
+        value.get("_record_receipt") == _RECORD_RECEIPT_MARKER
+        and type(value.get("receipt_version")) is int
+        and value.get("receipt_version") == _LIFECYCLE_RECEIPT_VERSION
+        and value.get("operation") in {"revise", "rebaseline"}
+        and _normalized_uuid(value.get("collection_id"))
+        and value.get("item_key") is None
+        and value.get("before_item_hash") is None
+        and value.get("after_item_hash") is None
+        and all(
+            _hash(value.get(name))
+            for name in (
+                "before_manifest_hash",
+                "after_manifest_hash",
+                "before_container_hash",
+                "after_container_hash",
+                "payload_hash",
+            )
+        )
+    ):
+        return False
+    paths = value.get("affected_paths")
+    correlation = value.get("audit_correlation")
+    codes = value.get("acknowledged_gap_codes")
+    if not (
+        isinstance(paths, list)
+        and len(paths) == 1
+        and isinstance(paths[0], str)
+        and 0 < len(paths[0]) <= 1024
+        and value.get("outcome") == "committed"
+        and isinstance(correlation, str)
+        and len(correlation) == 24
+        and all(character in "0123456789abcdef" for character in correlation)
+        and type(value.get("continuity")) is bool
+        and isinstance(codes, list)
+        and all(type(code) is str and code and len(code.encode("utf-8")) <= 256 for code in codes)
+        and type(value.get("minimum_reader_version")) is int
+        and value.get("minimum_reader_version") == 2
+    ):
+        return False
+    if value["operation"] == "revise":
+        return (
+            value["continuity"] is True
+            and codes == []
+            and value.get("gap_fingerprint") is None
+            and value.get("checkpoint_snapshot_hash") is None
+        )
+    return (
+        value["continuity"] is False
+        and codes == sorted(set(codes))
+        and bool(codes)
+        and _hash(value.get("gap_fingerprint"))
+        and _hash(value.get("checkpoint_snapshot_hash"))
+    )
+
+
+def valid_planning_receipt(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    if value.get("receipt_version") == _LIFECYCLE_RECEIPT_VERSION:
+        return _valid_lifecycle_planning_receipt(value)
+    operation = value.get("operation")
+    if (
+        value.get("_plan_receipt") != _PLAN_RECEIPT_MARKER
+        or value.get("receipt_version") != _RECORD_RECEIPT_VERSION
+        or operation not in {"create", "add", "update", "triage"}
+        or not _normalized_uuid(value.get("collection_id"))
+        or not isinstance(value.get("affected_paths"), list)
+        or len(value["affected_paths"]) > 16
+        or not all(
+            isinstance(path, str) and 0 < len(path) <= 1024 for path in value["affected_paths"]
+        )
+        or value.get("outcome") not in {"committed", "replayed"}
+    ):
+        return False
+    if operation == "create":
+        if value.get("plan_id") is not None or value.get("outcome") != "committed":
+            return False
+    elif not _normalized_uuid(value.get("plan_id")):
+        return False
+    for name in _PLAN_RECEIPT_FIELDS[3:7]:
+        hash_value = value.get(name)
+        if hash_value is not None and not _hash(hash_value):
+            return False
+    correlation = value.get("audit_correlation")
+    if not (
+        isinstance(correlation, str)
+        and len(correlation) == 24
+        and all(character in "0123456789abcdef" for character in correlation)
+    ):
+        return False
+    if operation == "create":
+        return (
+            value.get("before_item_hash") is None
+            and value.get("before_container_hash") is None
+            and value.get("payload_hash") is None
+            and _hash(value.get("after_container_hash"))
+        )
+    if operation == "add":
+        return (
+            (
+            _hash(value.get("before_item_hash"))
+            if value.get("outcome") == "replayed"
+            else value.get("before_item_hash") is None
+            )
+            and _hash(value.get("after_item_hash"))
+            and _hash(value.get("before_container_hash"))
+            and _hash(value.get("after_container_hash"))
+            and _hash(value.get("payload_hash"))
+        )
+    return (
+        value.get("outcome") == "committed"
+        and _hash(value.get("before_item_hash"))
+        and _hash(value.get("after_item_hash"))
+        and _hash(value.get("before_container_hash"))
+        and _hash(value.get("after_container_hash"))
+        and value.get("payload_hash") is None
+    )
+
+
+def _valid_lifecycle_planning_receipt(value: Mapping[str, Any]) -> bool:
+    expected = {
+        "_plan_receipt",
+        "receipt_version",
+        "operation",
+        "collection_id",
+        "item_key",
+        "before_item_hash",
+        "after_item_hash",
+        "before_manifest_hash",
+        "after_manifest_hash",
+        "before_container_hash",
+        "after_container_hash",
+        "affected_paths",
+        "payload_hash",
+        "outcome",
+        "audit_correlation",
+        "continuity",
+        "acknowledged_gap_codes",
+        "gap_fingerprint",
+        "checkpoint_snapshot_hash",
+        "minimum_reader_version",
+    }
+    if set(value) != expected:
+        return False
+    if not (
+        value.get("_plan_receipt") == _PLAN_RECEIPT_MARKER
+        and value.get("receipt_version") == _LIFECYCLE_RECEIPT_VERSION
+        and value.get("operation") in {"revise", "rebaseline"}
+        and _normalized_uuid(value.get("collection_id"))
+        and value.get("item_key") is None
+        and value.get("before_item_hash") is None
+        and value.get("after_item_hash") is None
+        and all(
+            _hash(value.get(name))
+            for name in (
+                "before_manifest_hash",
+                "after_manifest_hash",
+                "before_container_hash",
+                "after_container_hash",
+                "payload_hash",
+            )
+        )
+    ):
+        return False
+    paths = value.get("affected_paths")
+    correlation = value.get("audit_correlation")
+    codes = value.get("acknowledged_gap_codes")
+    if not (
+        isinstance(paths, list)
+        and 1 <= len(paths) <= 513
+        and all(isinstance(path, str) and 0 < len(path.encode("utf-8")) <= 1024 for path in paths)
+        and value.get("outcome") == "committed"
+        and isinstance(correlation, str)
+        and len(correlation) == 24
+        and all(character in "0123456789abcdef" for character in correlation)
+        and type(value.get("continuity")) is bool
+        and isinstance(codes, list)
+        and all(type(code) is str and code and len(code.encode("utf-8")) <= 256 for code in codes)
+        and value.get("minimum_reader_version") == 2
+    ):
+        return False
+    if value["operation"] == "revise":
+        return (
+            value["continuity"] is True
+            and codes == []
+            and value.get("gap_fingerprint") is None
+            and value.get("checkpoint_snapshot_hash") is None
+        )
+    return (
+        value["continuity"] is False
+        and codes == sorted(set(codes))
+        and bool(codes)
+        and _hash(value.get("gap_fingerprint"))
+        and _hash(value.get("checkpoint_snapshot_hash"))
+    )
+
+
+def valid_collection_receipt(value: Any) -> bool:
+    return valid_record_receipt(value) or valid_planning_receipt(value)
+
+
+#: Import-job state changes that commit no rows (``collection_store.importer``).
+IMPORT_JOB_OPERATIONS = frozenset({
+    "import_job_start", "import_job_pause", "import_job_authority_lost", "import_job_resume",
+    "import_job_cancel", "import_job_fail", "import_job_complete",
+})
+#: Content-free control transitions a collection-store txn may record. Each changes no
+#: item, manifest or container hash, and its receipt carries counts and ids only.
+#: ``import_member`` records one export member an import completed (its import log row).
+# nosemgrep: ep-word-set -- the store's closed set of control operations, each implemented here.
+CONTROL_OPERATIONS = frozenset({"store_reconcile", "import_member", *IMPORT_JOB_OPERATIONS})
+CONTROL_RECEIPT_MARKER = "exomem.collection-control"
+#: Identifiers one control receipt may carry; a larger transition is recorded in parts.
+CONTROL_RECEIPT_MAX_IDS = 4096
+_CONTROL_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_CONTROL_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z._:-]{0,127}")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+_ITEM_REF = re.compile(f"{_UUID}:{_UUID}")  # collection id, then item key
+#: The id names a control receipt may carry, each with the only shape its ids may take.
+#: A caller reusing the API registers its own names here.
+CONTROL_ID_PATTERNS = {
+    "held_ids": re.compile(r"[0-9a-f]{24}"),
+    "evidence_sha256": _HEX64,
+    "skipped_unreadable": _HEX64,
+    "skipped_another_store": _HEX64,
+    "skipped_collection_absent": _ITEM_REF,
+    "skipped_no_committed_row": _ITEM_REF,
+    "import_job_ids": re.compile(r"[0-9a-f]{32}"),
+    "member_sha256": _HEX64,
+    "rows_digest": _HEX64,
+}
+
+
+def valid_control_receipt(value: Any) -> bool:
+    """Whether *value* is one closed, content-free control-transition receipt.
+
+    ``counts`` maps names to non-negative integers. ``ids`` maps registered names
+    (``CONTROL_ID_PATTERNS``) to lists of identifiers of that name's exact shape, so
+    neither can carry an item value, free text or a secret-shaped string.
+    """
+    if not isinstance(value, Mapping) or set(value) != {
+        "_control_receipt", "receipt_version", "operation", "collection_id", "transition_id",
+        "commit_seq", "counts", "ids", "outcome",
+    }:
+        return False
+    counts, ids = value.get("counts"), value.get("ids")
+    return (
+        value.get("_control_receipt") == CONTROL_RECEIPT_MARKER
+        and type(value.get("receipt_version")) is int
+        and value.get("receipt_version") == 1
+        and value.get("operation") in CONTROL_OPERATIONS
+        and _normalized_uuid(value.get("collection_id"))
+        and isinstance(value.get("transition_id"), str)
+        and _CONTROL_ID.fullmatch(value["transition_id"]) is not None
+        and type(value.get("commit_seq")) is int
+        and value["commit_seq"] > 0
+        and value.get("outcome") == "committed"
+        and isinstance(counts, Mapping)
+        and len(counts) <= 16
+        and all(
+            isinstance(name, str) and _CONTROL_NAME.fullmatch(name) and type(count) is int and count >= 0
+            for name, count in counts.items()
+        )
+        and isinstance(ids, Mapping)
+        and len(ids) <= 16
+        and sum(len(found) for found in ids.values() if isinstance(found, list)) <= CONTROL_RECEIPT_MAX_IDS
+        and all(
+            name in CONTROL_ID_PATTERNS and isinstance(found, list)
+            and all(isinstance(item, str) and CONTROL_ID_PATTERNS[name].fullmatch(item) for item in found)
+            for name, found in ids.items()
+        )
+    )
+
+
+def valid_structured_files_receipt(value: Any) -> bool:
+    """Whether *value* is one bounded terminal structured-file receipt."""
+    if not isinstance(value, Mapping) or set(value) != {
+        "_structured_files_receipt",
+        "receipt_version",
+        "operation",
+        "collection_id",
+        "manifest_path",
+        "plan_id",
+        "source_snapshot",
+        "outcome",
+        "rationale",
+        "inverse",
+    }:
+        return False
+    inverse = value.get("inverse")
+    if not (
+        value.get("_structured_files_receipt") == "exomem.structured-files-migration"
+        and value.get("receipt_version") == 1
+        and value.get("operation") == "structured-files"
+        and _normalized_uuid(value.get("collection_id"))
+        and isinstance(value.get("manifest_path"), str)
+        and 0 < len(value["manifest_path"].encode("utf-8")) <= 1024
+        and _hash(value.get("plan_id"))
+        and _hash(value.get("source_snapshot"))
+        and value.get("outcome") in {"committed", "replayed"}
+        and isinstance(value.get("rationale"), str)
+        and 0 < len(value["rationale"].encode("utf-8")) <= 512
+        and isinstance(inverse, list)
+        and len(inverse) <= 2048
+    ):
+        return False
+    return all(
+        isinstance(entry, Mapping)
+        and set(entry) == {"before_path", "after_path", "before_hash", "after_hash"}
+        and all(
+            isinstance(entry.get(name), str) and 0 < len(entry[name].encode("utf-8")) <= 1024
+            for name in ("before_path", "after_path")
+        )
+        and _hash(entry.get("before_hash"))
+        and _hash(entry.get("after_hash"))
+        for entry in inverse
+    )
+
+
+_is_record_receipt = valid_record_receipt
+
+
+def _hash(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _normalized_uuid(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return str(uuid.UUID(value)) == value
+    except ValueError:
+        return False

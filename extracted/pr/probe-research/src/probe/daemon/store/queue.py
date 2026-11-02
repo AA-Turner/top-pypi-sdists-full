@@ -60,9 +60,9 @@ class QueueMixin:
     def leave_unrecorded(self, first_seq: int) -> int:
         """Mark every uncovered event from `first_seq` on as never to be recorded
         (`read only (daemon)`: the reader reads them, no bite ever covers them)."""
-        cur = self.db.execute("UPDATE events SET bite = ? WHERE bite IS NULL AND seq >= ?",
+        current = self.db.execute("UPDATE events SET bite = ? WHERE bite IS NULL AND seq >= ?",
                               (UNRECORDED_BITE, first_seq))
-        return cur.rowcount
+        return current.rowcount
 
     def leave_unrecorded_before(self, first_seq: int, until: float) -> int:
         """`leave_unrecorded`, but only for events stamped before `until` (epoch

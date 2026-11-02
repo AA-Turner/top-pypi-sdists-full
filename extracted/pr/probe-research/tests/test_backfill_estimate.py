@@ -10,8 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as bp
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as bp
 
 
 def _records(tmp_path: Path):

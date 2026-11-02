@@ -1,0 +1,58 @@
+"""Tests for build_pr_base_url (now defined in helpers.py)."""
+
+from agentic_devtools.cli.azure_devops.config import AzureDevOpsConfig
+from agentic_devtools.cli.azure_devops.helpers import build_pr_base_url
+
+_ORG = "https://dev.azure.com/testorg"
+_PROJECT = "TestProject"
+_REPO = "test-repo"
+
+
+def _make_config(org=_ORG, project=_PROJECT, repo=_REPO) -> AzureDevOpsConfig:
+    return AzureDevOpsConfig(organization=org, project=project, repository=repo)
+
+
+class TestBuildPrBaseUrl:
+    """Tests for build_pr_base_url defined in helpers.py."""
+
+    def test_builds_correct_url(self):
+        """Builds the expected PR web URL."""
+        config = _make_config()
+        result = build_pr_base_url(config, 42)
+        assert result == f"{_ORG}/{_PROJECT}/_git/{_REPO}/pullrequest/42"
+
+    def test_strips_trailing_slash_from_org(self):
+        """Handles trailing slash in organization URL."""
+        config = _make_config(org="https://dev.azure.com/testorg/")
+        result = build_pr_base_url(config, 1)
+        assert result == f"https://dev.azure.com/testorg/{_PROJECT}/_git/{_REPO}/pullrequest/1"
+
+    def test_normalizes_short_org_name(self):
+        """Normalizes a short org name to a full Azure DevOps URL."""
+        config = _make_config(org="myorg")
+        result = build_pr_base_url(config, 7)
+        assert result == f"https://dev.azure.com/myorg/{_PROJECT}/_git/{_REPO}/pullrequest/7"
+
+    def test_normalizes_short_org_name_with_leading_slash(self):
+        """Strips leading slash from short organization names."""
+        config = _make_config(org="/myorg")
+        result = build_pr_base_url(config, 7)
+        assert result == f"https://dev.azure.com/myorg/{_PROJECT}/_git/{_REPO}/pullrequest/7"
+
+    def test_url_encodes_project_with_spaces(self):
+        """URL-encodes project names containing spaces."""
+        config = _make_config(project="My Project")
+        result = build_pr_base_url(config, 1)
+        assert result == f"{_ORG}/My%20Project/_git/{_REPO}/pullrequest/1"
+
+    def test_url_encodes_repo_with_spaces(self):
+        """URL-encodes repository names containing spaces."""
+        config = _make_config(repo="my repo")
+        result = build_pr_base_url(config, 1)
+        assert result == f"{_ORG}/{_PROJECT}/_git/my%20repo/pullrequest/1"
+
+    def test_public_package_export_preserves_helper_identity(self):
+        """The package-level build_pr_base_url export is the helper implementation."""
+        from agentic_devtools.cli.azure_devops import build_pr_base_url as package_export
+
+        assert package_export is build_pr_base_url

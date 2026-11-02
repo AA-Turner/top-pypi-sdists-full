@@ -220,6 +220,11 @@ class EngineErrorInfo:
             if base_url_is_set:
                 return f"Check that the API is running and reachable at {target}."
             return f"Check that the API is running and reachable at {target}; set the address with {bold('`--url`')}."
+        if isinstance(self._error, ServerUnavailable):
+            if self._error.culprit_listed:
+                return None
+            if not self._error.recordable:
+                return CRASH_MAY_BE_OLDER
         return get_runtime_error_suggestion(self._kind, bold=bold)
 
     def format(self, *, bold: Callable[[str], str] = str, indent: str = "    ", base_url_is_set: bool = False) -> str:
@@ -258,6 +263,9 @@ def extract_health_check_error(error: hypothesis.errors.FailedHealthCheck) -> hy
     return None
 
 
+CRASH_MAY_BE_OLDER = "If the server crashed, the request that caused it may be older than these."
+
+
 def get_runtime_error_suggestion(error_type: RuntimeErrorKind, bold: Callable[[str], str] = str) -> str | None:
     """Get a user-friendly suggestion for handling the error."""
     from hypothesis import HealthCheck
@@ -275,8 +283,7 @@ def get_runtime_error_suggestion(error_type: RuntimeErrorKind, bold: Callable[[s
 
     return {
         RuntimeErrorKind.CONNECTION_SSL: f"Bypass SSL verification with {bold('`--tls-verify=false`')}.",
-        RuntimeErrorKind.SERVER_UNAVAILABLE: "If the server crashed, the request that caused it may be older than these.\n"
-        f"Record every request sent with {bold('`--report=har`')}.",
+        RuntimeErrorKind.SERVER_UNAVAILABLE: f"{CRASH_MAY_BE_OLDER}\nRecord every request sent with {bold('`--report=har`')}.",
         RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE: "Review all parameters and request body schemas for conflicting constraints.",
         RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE_FILTER_HOOK: "Review your `filter_case` hook to ensure it accepts at least some generated cases.",
         RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION: "Ensure your regex follows ECMA 262 (JavaScript) syntax.\n"
@@ -471,6 +478,8 @@ def is_unrecoverable_network_error(exc: Exception) -> bool:
     from urllib3.exceptions import ProtocolError
 
     def has_connection_reset(inner: BaseException) -> bool:
+        if isinstance(inner, (ConnectionAbortedError, ConnectionResetError)):
+            return True
         exc_str = str(inner)
         if any(
             pattern in exc_str
@@ -484,8 +493,10 @@ def is_unrecoverable_network_error(exc: Exception) -> bool:
         ):
             return True
 
-        if inner.__context__ is not None:
-            return has_connection_reset(inner.__context__)
+        # An explicitly chained error is the real cause; otherwise the error raised while handling another one.
+        parent = inner.__cause__ or inner.__context__
+        if parent is not None:
+            return has_connection_reset(parent)
 
         return False
 
@@ -516,11 +527,21 @@ def build_code_sample(
         headers = dict(request.headers)
     else:
         headers = {**dict(case.headers or {}), **transport_kwargs.get("headers", {})}
-    return case.as_curl_command(headers=headers, verify=transport_kwargs.get("verify", True))
+    return case.as_reproduction_command(headers=headers, verify=transport_kwargs.get("verify", True))
 
 
 class ServerUnavailable(Exception):
     """The server stopped responding in the middle of the run."""
+
+    # Whether a HAR report can record the requests sent to this server.
+    recordable: bool
+    # Whether the message lists a request the crash dropped, so the cause is very likely among them.
+    culprit_listed: bool
+
+    def __init__(self, message: str, *, recordable: bool, culprit_listed: bool) -> None:
+        super().__init__(message)
+        self.recordable = recordable
+        self.culprit_listed = culprit_listed
 
 
 def _refused_address(exc: requests.ConnectionError) -> str | None:

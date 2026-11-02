@@ -1,0 +1,54 @@
+"""Util functions for interpax."""
+
+import functools
+from typing import Any
+
+import jax
+import jax.numpy as jnp
+from jaxtyping import Array, Inexact
+from numpy.typing import ArrayLike
+
+# jax.typing.ArrayLike and jaxtyping.ArrayLike don't include eg tuples,lists,iterables
+# like np.ArrayLike. This combines all the usual array types
+Arrayish = Array | ArrayLike
+
+
+def isbool(x: Any) -> bool:
+    """Check if something is boolean or ndarray of bool type."""
+    return isinstance(x, bool) or (hasattr(x, "dtype") and (x.dtype == bool))
+
+
+def errorif(cond: bool | jax.Array, err: type[Exception] = ValueError, msg: str = ""):
+    """Raise an error if condition is met.
+
+    Similar to assert but allows wider range of Error types, rather than
+    just AssertionError.
+    """
+    if cond:
+        raise err(msg)
+
+
+def asarray_inexact(x: Arrayish) -> Inexact[Array, "..."]:
+    """Convert to jax array with floating point dtype."""
+    x = jnp.asarray(x)
+    if x.weak_type:  # preserve weakly typed things like scalars
+        return x
+    dtype = x.dtype
+    if not jnp.issubdtype(dtype, jnp.inexact):
+        dtype = jnp.result_type(x, jnp.array(1.0))
+    return x.astype(dtype)
+
+
+def wrap_jit(*args, **kwargs):
+    """Wrap a function with jit with optional extra args.
+
+    This is a helper to ensure docstrings and type hints are correctly propagated
+    to the wrapped function, bc vscode seems to have issues with regular jitted funcs.
+    """
+
+    def wrapper(fun):
+        foo = jax.jit(fun, *args, **kwargs)
+        foo = functools.wraps(fun)(foo)
+        return foo
+
+    return wrapper

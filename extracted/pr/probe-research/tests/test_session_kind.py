@@ -14,7 +14,7 @@ from uuid import uuid4
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.daemon.lanes import audit as audit_mod
 from probe.tap_core import session_identity as si
 from probe.tap_core.session_journal import DeliveryPending, Journal

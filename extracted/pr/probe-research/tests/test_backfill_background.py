@@ -6,12 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_import as imp
+from probe.cli.imports.folder import flow as imp
 from probe.cli import backfill_run as runner
-from probe.cli import import_jobs, tui
-from probe.cli.backfill_coverage import CoverageError
-from probe.cli.backfill_ledger import MAX_UNIT_ATTEMPTS, Ledger, Unit
-from probe.cli.import_jobs import enqueue as enqueue_job
+from probe.cli.imports import jobs as import_jobs
+from probe.cli.wizard import terminal as tui
+from probe.cli.imports.folder.coverage.coverage import CoverageError
+from probe.cli.imports.folder.upload.ledger import MAX_UNIT_ATTEMPTS, Ledger, Unit
+from probe.cli.imports.jobs.jobs import enqueue as enqueue_job
 from probe.sdk.delivery import journal
 from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
@@ -33,8 +34,9 @@ def background_harness(tmp_path, monkeypatch):
         queued.append(json.loads(json.dumps(payload)))
         return {"id": "folder-job-1"}
 
-    monkeypatch.setattr(import_jobs, "enqueue", enqueue)
-    monkeypatch.setattr(imp, "_background_client", lambda payload: nullcontext(harness.client))
+    monkeypatch.setattr(import_jobs.jobs, "enqueue", enqueue)
+    monkeypatch.setattr(imp.background_job, "_background_client", lambda payload: nullcontext(harness.client))
+    monkeypatch.setattr(imp.auto_import, "_background_client", lambda payload: nullcontext(harness.client))
     monkeypatch.setattr(harness.client, "flush", lambda **kwargs: journal.drain(
         harness.client.journal, client_factory=lambda _: harness.remote, **kwargs,
     ))
@@ -71,7 +73,7 @@ def test_repeated_folder_approval_reports_the_existing_job_state(
 ):
     h, _queued = background_harness
     monkeypatch.setattr(
-        import_jobs, "enqueue", lambda **kwargs: {
+        import_jobs.jobs, "enqueue", lambda **kwargs: {
             "id": "existing-job", "state": state,
             "error": "Restore the approved folder." if state == "failed" else None,
         },
@@ -95,9 +97,9 @@ def test_background_resume_never_replans_and_does_not_import_new_files(
     def forbidden(*args, **kwargs):
         pytest.fail("A saved background job must not classify, discover sources, or prompt again")
 
-    monkeypatch.setattr(runner, "classify", forbidden)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", forbidden)
     monkeypatch.setattr(imp.github, "collect_evidence", forbidden)
-    monkeypatch.setattr(tui, "review", forbidden)
+    monkeypatch.setattr(tui.forms, "review", forbidden)
     lines, progress = _resume(queued[0])
     assert h.manifested == [("a.py", "value = 1\n")]
     assert h.report()["delivered"] == ["a.py"]
@@ -165,8 +167,8 @@ def test_a_failed_batch_whose_file_changed_is_reported_not_retried(background_ha
 def test_an_automatic_import_keeps_a_batch_retry_a_batch_retry(tmp_path, monkeypatch):
     """The automatic wrapper turns transport failures into a connection wait;
     a batch retry is retryable too, but must not be reported as one."""
-    monkeypatch.setattr(imp, "_verify_auto_folder", lambda payload: tmp_path)
-    monkeypatch.setattr(imp, "_auto_checkpoint", lambda payload: (tmp_path / "checkpoint", "id"))
+    monkeypatch.setattr(imp.auto_import, "_verify_auto_folder", lambda payload: tmp_path)
+    monkeypatch.setattr(imp.auto_import, "_auto_checkpoint", lambda payload: (tmp_path / "checkpoint", "id"))
 
     def stopped(*args, **kwargs):
         raise import_jobs.UnitRetryJobError("1 import batch(es) stopped before finishing.")
@@ -208,7 +210,8 @@ def test_worker_retries_extended_outage_with_the_same_file_receipts(
     h.run(background=True)
     payload = queued[0]
     monkeypatch.setenv("XDG_STATE_HOME", str(h.root / "jobs"))
-    monkeypatch.setattr(import_jobs, "_launch", lambda folder: import_jobs._read(folder))
+    monkeypatch.setattr(import_jobs.workers, "_launch", lambda folder: import_jobs._read(folder))
+    monkeypatch.setattr(import_jobs.jobs, "_launch", lambda folder: import_jobs._read(folder))
     # Use the real scheduler after inspecting the foreground handoff; launching
     # is disabled so this test runs the worker against the local fake remote.
     job = enqueue_job("folder", payload, "Approved folder")
@@ -219,7 +222,7 @@ def test_worker_retries_extended_outage_with_the_same_file_receipts(
     # policy keeps the immutable operation pending instead of sending it to
     # failed/ during an extended outage.
     monkeypatch.setenv("PROBE_OUTBOX_TRANSIENT_BUDGET_SEC", "0")
-    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.MIN_TRANSIENT_ATTEMPTS", 2)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.MIN_TRANSIENT_ATTEMPTS", 2)
 
     def intermittent(*args, **kwargs):
         attempts.append(kwargs["digest"])
@@ -255,7 +258,8 @@ def test_folder_worker_does_not_retry_failures_requiring_attention(
     h, queued = background_harness
     h.run(background=True)
     monkeypatch.setenv("XDG_STATE_HOME", str(h.root / "jobs"))
-    monkeypatch.setattr(import_jobs, "_launch", lambda folder: import_jobs._read(folder))
+    monkeypatch.setattr(import_jobs.workers, "_launch", lambda folder: import_jobs._read(folder))
+    monkeypatch.setattr(import_jobs.jobs, "_launch", lambda folder: import_jobs._read(folder))
     job = enqueue_job("folder", queued[0], "Approved folder")
 
     def fail_upload(*args, **kwargs):
@@ -289,7 +293,7 @@ def test_a_previously_changed_file_left_pending_does_not_expand_the_background_j
     (h.folder / "a.py").write_text("value = 2\n")
     (h.folder / "b.py").write_text("new = True\n")
     monkeypatch.setattr(
-        tui, "review",
+        tui.forms, "review",
         lambda title, lines, choices: False if title == "Review changed files" else "import",
     )
     h.run(background=True, interactive=True, yes=False)
@@ -309,7 +313,8 @@ def test_background_worker_rejects_changed_authenticated_scope(
     h, queued = background_harness
     h.run(background=True)
     changed_client = h.new_client(**scope_change)
-    monkeypatch.setattr(imp, "_background_client", lambda payload: nullcontext(changed_client))
+    monkeypatch.setattr(imp.background_job, "_background_client", lambda payload: nullcontext(changed_client))
+    monkeypatch.setattr(imp.auto_import, "_background_client", lambda payload: nullcontext(changed_client))
     with pytest.raises(CoverageError, match="account or destination differs"):
         _resume(queued[0])
     assert h.manifested == h.remote.calls == []
@@ -361,7 +366,7 @@ def test_background_worker_rejects_another_user_in_the_same_workspace(
 
 def test_canceling_the_plan_does_not_queue_a_job(background_harness, monkeypatch):
     h, queued = background_harness
-    monkeypatch.setattr(tui, "review", lambda *args, **kwargs: "cancel")
+    monkeypatch.setattr(tui.forms, "review", lambda *args, **kwargs: "cancel")
     with pytest.raises(KeyboardInterrupt):
         h.run(background=True, interactive=True, yes=False)
     assert queued == [] and h.manifested == [] and h.created == []

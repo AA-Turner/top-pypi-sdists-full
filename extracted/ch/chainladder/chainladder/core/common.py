@@ -1,0 +1,432 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+import pandas as pd
+
+from chainladder import options
+from chainladder import _DEPRECATED_BACKENDS, _deprecated_backend_message
+from chainladder.utils.cupy import cp
+from chainladder.utils.dask import dp
+from chainladder.utils.sparse import sp
+from chainladder.utils.utility_functions import concat
+
+from typing import Callable, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chainladder.core.typing import TriangleLike
+
+
+def _get_full_expectation(cdf_, ultimate_, is_cumulative=True):
+    """Private method that builds full expectation"""
+    full = ultimate_ / cdf_
+
+    if is_cumulative:
+        return concat((full, ultimate_.copy().rename("development", [9999])), axis=3)
+
+    else:
+        tail_ = full.iloc[:, :, :, -1] - ultimate_
+
+        return concat(
+            (full.cum_to_incr(), tail_.copy().rename("development", [9999])), axis=3
+        )
+
+
+def _get_full_triangle(X, ultimate, is_cumulative=True):
+    """Private method that builds full triangle"""
+    # Getting the LDFs and expand for all origins
+    from chainladder.utils.utility_functions import num_to_nan
+
+    emergence = (X.ldf_.copy() * (ultimate / ultimate)).fillna(1)
+
+    # Setting LDFs for all of the known diagonals as 1
+    emergence = (
+        emergence[emergence.valuation < X.valuation_date] * 0
+        + 1
+        + emergence[emergence.valuation >= X.valuation_date]
+    )
+
+    emergence.valuation_date = pd.to_datetime(options.ULT_VAL)
+    emergence.values = emergence.values.cumprod(axis=3) - 1
+
+    # Shifting the CDFs by development age, and renaming the last column as 9999
+    emergence.ddims = (
+        emergence.ddims + {"Y": 12, "Q": 3, "S": 6, "M": 1}[emergence.development_grain]
+    )
+    emergence.ddims[-1] = 9999
+    emergence.values = emergence.values / num_to_nan(emergence.values[..., -1:])
+    ld = X.incr_to_cum().latest_diagonal
+    cum_run_off = ld + emergence * (ultimate - ld)
+    cum_run_off = cum_run_off[cum_run_off.valuation > X.valuation_date]
+    cum_run_off.is_cumulative = True
+
+    if is_cumulative:
+        return X + cum_run_off
+    else:
+        return (X.incr_to_cum() + cum_run_off).cum_to_incr()
+
+
+class Common:
+    """Class that contains common properties of a "fitted" Triangle."""
+
+    @property
+    def has_ldf(self):
+        if hasattr(self, "ldf_"):
+            return True
+        else:
+            return False
+
+    @property
+    def has_zeta(self):
+        if hasattr(self, "zeta_"):
+            return True
+        else:
+            return False
+
+    @property
+    def cdf_(self):
+        """
+        Cumulative development factors, ``ldf_`` converted with ``incr_to_cum``.
+
+        Examples
+        --------
+        After fitting a development estimator, ``cdf_`` is the cumulative
+        product of the selected LDFs, including the tail if one was applied.
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            import numpy as np
+            cdf = cl.Development().fit_transform(cl.load_sample('raa')).cdf_
+            print(np.round(cdf.values[0, 0, 0, :3], 4).tolist())
+
+        .. testoutput::
+
+            [8.9202, 2.974, 1.8318]
+        """
+        if not self.has_ldf:
+            x = self.__class__.__name__
+            raise AttributeError("'" + x + "' object has no attribute 'cdf_'")
+        return self.ldf_.incr_to_cum()
+
+    @property
+    def pct_reported_(self):
+        """
+        Percentage of ultimate reported (or paid) at each development age,
+        equal to the inverse of the cumulative development factor.
+
+        Examples
+        --------
+        At 12 months, RAA volume-weighted development implies about 11% of
+        ultimate is reported.
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            import numpy as np
+            pct = cl.Development().fit_transform(cl.load_sample('raa')).pct_reported_
+            print(np.round(pct.values[0, 0, 0, :3], 4).tolist())
+
+        .. testoutput::
+
+            [0.1121, 0.3362, 0.5459]
+        """
+        if not self.has_ldf:
+            x = self.__class__.__name__
+            raise AttributeError("'" + x + "' object has no attribute 'pct_reported_'")
+        return 1 / self.cdf_
+
+    @property
+    def pct_unreported_(self):
+        """
+        Percentage of ultimate still unreported (or unpaid) at each
+        development age, equal to ``1 - 1 / cdf_``.
+        """
+        if not self.has_ldf:
+            x = self.__class__.__name__
+            raise AttributeError(
+                "'" + x + "' object has no attribute 'pct_unreported_'"
+            )
+        return 1 - 1 / self.cdf_
+
+    @property
+    def cum_zeta_(self):
+        if not self.has_zeta:
+            x = self.__class__.__name__
+            raise AttributeError("'" + x + "' object has no attribute 'cum_zeta_'")
+        return self.zeta_.incr_to_cum()
+
+    @property
+    def ibnr_(self):
+        """
+        Outstanding development to ultimate: ``ultimate_`` minus the latest
+        diagonal (or the origin total, for incremental triangles).
+
+        Examples
+        --------
+        Chainladder IBNR is zero for the oldest origin once that year is fully
+        developed, and largest for the youngest origin.
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            ibnr = cl.Chainladder().fit(cl.load_sample('raa')).ibnr_
+            print(ibnr.to_frame(origin_as_datetime=False).round(2).iloc[:, 0].tolist())
+
+        .. testoutput::
+
+            [nan, 153.95, 617.37, 1636.14, 2746.74, 3649.1, 5435.3, 10907.19, 10649.98, 16339.44]
+        """
+        if not hasattr(self, "ultimate_"):
+            x = self.__class__.__name__
+            raise AttributeError("'" + x + "' object has no attribute 'ibnr_'")
+        if hasattr(self, "X_"):
+            ld = self.latest_diagonal
+        else:
+            ld = self.latest_diagonal if self.is_cumulative else self.sum(axis=3)
+        ibnr = self.ultimate_ - ld
+        ibnr.vdims = self.ultimate_.vdims
+        return ibnr
+
+    @property
+    def full_expectation_(self):
+        if not hasattr(self, "ultimate_"):
+            raise AttributeError(
+                "'"
+                + self.__class__.__name__
+                + "' object has no attribute 'full_expectation_'"
+            )
+
+        if hasattr(self, "X_"):
+            X = self.X_
+        else:
+            X = self
+        return _get_full_expectation(self.cdf_, self.ultimate_, X.is_cumulative)
+
+    @property
+    def full_triangle_(self):
+        if not hasattr(self, "ultimate_"):
+            raise AttributeError(
+                "'"
+                + self.__class__.__name__
+                + "' object has no attribute 'full_triangle_'"
+            )
+
+        if hasattr(self, "X_"):
+            X = self.X_
+        else:
+            X = self
+        return _get_full_triangle(X, self.ultimate_, X.is_cumulative)
+
+    def pipe(self, func, *args, **kwargs):
+        """
+        Apply ``func(self, *args, **kwargs)``.
+
+        Parameters
+        ----------
+        func : callable
+            Function to apply to the Triangle.
+        *args
+            Positional arguments passed to ``func``.
+        **kwargs
+            Keyword arguments passed to ``func``.
+
+        Returns
+        -------
+        object
+            The return value of ``func``.
+
+        Examples
+        --------
+        Keep development periods from 48 onward:
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            raa = cl.load_sample('raa')
+            print(raa.pipe(lambda tri: tri.loc[..., 48:]))
+
+        .. testoutput::
+           :options: +NORMALIZE_WHITESPACE
+
+                  48       60       72       84       96       108      120
+            1981  11805.0  13539.0  16181.0  18009.0  18608.0  18662.0  18834.0
+            1982  10666.0  13782.0  15599.0  15496.0  16169.0  16704.0      NaN
+            1983  16141.0  18735.0  22214.0  22863.0  23466.0      NaN      NaN
+            1984  21266.0  23425.0  26083.0  27067.0      NaN      NaN      NaN
+            1985  22169.0  25955.0  26180.0      NaN      NaN      NaN      NaN
+            1986  12935.0  15852.0      NaN      NaN      NaN      NaN      NaN
+            1987  12314.0      NaN      NaN      NaN      NaN      NaN      NaN
+            1988      NaN      NaN      NaN      NaN      NaN      NaN      NaN
+            1989      NaN      NaN      NaN      NaN      NaN      NaN      NaN
+            1990      NaN      NaN      NaN      NaN      NaN      NaN      NaN
+        """
+        return func(self, *args, **kwargs)
+
+    def set_backend(
+        self,
+        backend: str,
+        inplace: bool = False,
+        deep: bool = False,
+        _warn: bool = True,
+        **kwargs,
+    ):
+        """
+        Converts triangle array_backend.
+
+        Parameters
+        ----------
+        backend : str
+            Currently supported options are 'numpy', 'sparse', and 'cupy'
+        inplace : bool
+            Whether to mutate the existing Triangle instance or return a new
+            one.
+        deep : bool
+            Whether to also convert the backend of nested Triangle-like
+            attributes (e.g. fitted estimator components).
+        _warn : bool
+            Internal flag controlling whether a deprecation warning is emitted.
+            Set to ``False`` on internal recursive calls so the warning fires
+            only once, at the user's call site. Not part of the public API.
+
+        Returns
+        -------
+            Triangle with updated array_backend
+
+        Examples
+        --------
+        ``set_backend`` returns a new Triangle unless ``inplace=True``.
+
+        .. testsetup::
+
+            import chainladder as cl
+
+        .. testcode::
+
+            raa = cl.load_sample('raa')
+            print(raa.array_backend)
+            print(raa.set_backend('sparse').array_backend)
+            print(raa.array_backend)
+
+        .. testoutput::
+
+            numpy
+            sparse
+            numpy
+        """
+        # Warn once, at the public entry point, so stacklevel=2 points at the
+        # user's call site rather than an internal recursive call. The _warn
+        # flag suppresses duplicate warnings from internal recursion below.
+        if _warn and backend in _DEPRECATED_BACKENDS:
+            warnings.warn(
+                _deprecated_backend_message(backend),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if hasattr(self, "array_backend"):
+            old_backend: str = self.array_backend
+        else:
+            if hasattr(self, "ldf_"):
+                old_backend: str = self.ldf_.array_backend
+            else:
+                raise ValueError("Unable to determine array backend.")
+        if inplace:
+            # Coming from dask - compute and then recall this method
+            # going to dask  -
+            if old_backend == "dask" and backend != "dask":
+                self = self.compute()
+                old_backend: str = self.array_backend
+            if backend in ["numpy", "sparse", "cupy", "dask"]:
+                lookup: dict = {
+                    "numpy": {
+                        "sparse": lambda x: x.todense(),
+                        "cupy": lambda x: cp.asnumpy(x),
+                    },
+                    "cupy": {
+                        "numpy": lambda x: cp.array(x),
+                        "sparse": lambda x: cp.array(x.todense()),
+                    },
+                    "sparse": {
+                        "numpy": lambda x: sp.array(x),
+                        "cupy": lambda x: sp.array(cp.asnumpy(x)),
+                    },
+                    "dask": {
+                        # should this be chunked?
+                        "numpy": lambda x: dp.from_array(x, **kwargs),
+                        "cupy": lambda x: dp.from_array(x, **kwargs),
+                        "sparse": lambda x: dp.from_array(x, **kwargs),
+                    },
+                }
+                if hasattr(self, "values"):
+                    self.values = lookup[backend].get(old_backend, lambda x: x)(
+                        self.values
+                    )
+                if deep:
+                    for k, v in vars(self).items():
+                        if isinstance(v, Common):
+                            v.set_backend(backend, inplace=True, deep=True, _warn=False)
+                if hasattr(self, "array_backend"):
+                    self.array_backend = backend
+            else:
+                raise AttributeError(backend, "backend is not supported.")
+            return self
+        else:
+            obj = self.copy()
+            return obj.set_backend(
+                backend=backend, inplace=True, deep=deep, _warn=False, **kwargs
+            )
+
+    @staticmethod
+    def _validate_assumption(
+        triangle: TriangleLike,
+        value: str | int | float | list | tuple | set | np.ndarray | dict | Callable,
+        axis: Literal[0, 1, 2, 3],
+    ) -> np.ndarray:
+        """
+        Used by development estimators to turn user-supplied assumptions into a uniform NumPy array
+        shaped to broadcast over the triangle.
+
+        Parameters
+        ----------
+        value: str | int | float | list | tuple | set | np.ndarray | dict | Callable
+            The user-supplied assumption.
+        axis: Literal[0, 1, 2, 3]
+            The axis to broadcast over.
+
+        """
+        if type(value) in (int, float, str):
+            arr = np.repeat(value, triangle.shape[axis])
+        elif type(value) in (list, tuple, set, np.ndarray):
+            arr = np.array(value)
+        elif type(value) is dict:
+            arr = np.array([value[a] for a in triangle._get_axis_value(axis)])
+        elif callable(value):
+            arr = np.array([value(a) for a in triangle._get_axis_value(axis)])
+        else:
+            raise TypeError(
+                """
+                Invalid type provided to value parameter. 
+                Accepted types are str, int, float, list, tuple, set, ndarray, dict, or Callable.
+                """
+            )
+        if axis == 3:
+            arr = arr[None, None, None]
+        if axis == 2:
+            arr = arr[None, None, :, None]
+        return arr

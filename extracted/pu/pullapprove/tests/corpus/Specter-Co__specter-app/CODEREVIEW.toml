@@ -1,0 +1,66 @@
+[aliases]
+seanpaul = ["swkonz", "sullivph"]
+
+# frontend comes before frontend-critical so that frontend-critical wins as last match
+# for collections.ts (which matches both scopes)
+[[scopes]]
+name = "frontend"
+description = "Frontend code touching TanStack libraries, QueryClient, or tRPC"
+paths = ["src/client/**/*"]
+code = [
+  # TanStack package imports (@tanstack/react-db, @tanstack/db, @tanstack/query-db-collection, etc.)
+  '^(\+|-).*@tanstack/',
+  # Live query hooks (useLiveQuery, useLiveSuspenseQuery, useLiveInfiniteQuery, useLiveQueryEffect)
+  '^(\+|-).*useLive',
+  '^(\+|-).*usePacedMutations',
+  # Collection mutations: collection.insert/update/delete and collections.*.insert/update/delete
+  '^(\+|-).*(Collection|collections)\.(insert|update|delete)\(',
+  # Write utilities: writeInsert, writeUpdate, writeDelete, writeBatch (via .utils.write*)
+  '^(\+|-).*\.utils\.write',
+  # Manual transactions and optimistic mutations
+  '^(\+|-).*createTransaction',
+  '^(\+|-).*createOptimisticAction',
+  # TanStack Query
+  '^(\+|-).*QueryClient',
+  '^(\+|-).*queryOptions',
+  # tRPC
+  '^(\+|-).*trpc\.',
+  '^(\+|-).*useTRPC',
+  '^(\+|-).*createTRPC',
+  '^(\+|-).*@trpc/',
+]
+reviewers = ["$seanpaul"]
+require = 1
+request = 1
+
+[[scopes]]
+name = "frontend-critical"
+description = "TanStack DB collections definition and Vite config — always require review"
+paths = ["src/client/lib/collections.ts", "vite.config.ts"]
+reviewers = ["$seanpaul"]
+require = 1
+request = 1
+
+[[scopes]]
+name = "backend"
+description = "tRPC server, routers, services, and TypeScript server-side code"
+paths = ["src/server/**/*", "patches/**/*", "pnpm-workspace.yaml"]
+reviewers = ["$seanpaul"]
+require = 1
+request = 1
+
+[[scopes]]
+name = "python"
+description = "Data ingestion pipeline, protocol engine, Temporal worker, and shared Python code"
+paths = ["qingest/**/*", "qeternal/**/*", "worker/**/*", "pycommon/**/*"]
+reviewers = ["$seanpaul"]
+require = 1
+request = 1
+
+[[scopes]]
+name = "migrations"
+description = "Database schema changes — Drizzle ORM and Atlas migrations"
+paths = ["drizzle/**/*", "atlas/**/*"]
+reviewers = ["$seanpaul"]
+require = 1
+request = 1

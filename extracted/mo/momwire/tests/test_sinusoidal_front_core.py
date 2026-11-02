@@ -14,7 +14,10 @@ these tests hold the C++ dump equal to it over:
   grounded junction (`ground_minus` / `ground_plus` and their P-sum atoms),
   the Sommerfeld ground above the plane, an FR sweep (one point per
   frequency), and the segment-in-the-plane refusal;
-- the declines: a buried wire (momwire#1607 B6) and duplicated wires.
+- a wire listed twice (momwire#1042): merged as it runs, merged reversed
+  under wire loading, and refused when the copy carries the feed;
+- a wholly-buried deck at k_m (momwire#1607 B6a), and one with wires on
+  both sides of the interface and no crossing junction (momwire#1718 S12).
 """
 
 from __future__ import annotations
@@ -69,6 +72,8 @@ def test_the_nec42_fixtures_have_the_same_front(acc):
     assert counts["fronts"] >= 50, counts
 
 
+# Default-lane budget is 5 s; CI median 5.4 s Linux (momwire 0.85.0 release prep).
+@pytest.mark.slow
 def test_every_fixture_deck_has_the_same_front(acc):
     counts, mismatches = nc.compare(_decks(FIXTURES))
     assert not mismatches, mismatches[:2]
@@ -101,6 +106,8 @@ SQUARE = (
     "GW 1 4 0 0 0 .2 0 0 .001\nGW 2 4 .2 0 0 .2 .2 0 .001\n"
     "GW 3 4 .2 .2 0 0 .2 0 .001\nGW 4 4 0 .2 0 0 0 0 .001\n"
 )
+
+PARASITE = "GW 2 9 .2 0 -.23 .2 0 .23 .001\n"
 
 CASES = [
     ("dipole", deck(DIPOLE, FR + "EX 0 1 6 0 1\nXQ\n"), "fronts"),
@@ -180,18 +187,56 @@ CASES = [
         "fronts",
     ),
     (
-        "buried_declines",
+        "buried_vertical_at_k_m",
         deck(
             "GW 1 11 0 0 -1 0 0 -.5 .001\n",
             "GN 2 0 0 0 13 .005\n" + FR + "EX 0 1 6 0 1\nXQ\n",
             ge="GE -1",
         ),
-        "declined",
+        "fronts",
     ),
     (
-        "duplicate_declines",
+        # momwire#1718 S12: wires on both sides with no crossing junction,
+        # D2's stitched basis (each entry from its segment's medium's view)
+        "above_and_below_stitched",
+        deck(
+            "GW 1 11 0 0 -1 0 0 -.5 .001\nGW 2 5 1 0 .5 1 0 2 .001\n",
+            "GN 2 0 0 0 13 .005\n" + FR + "EX 0 2 3 0 1\nXQ\n",
+            ge="GE -1",
+        ),
+        "fronts",
+    ),
+    # momwire#1607 B6a: a wholly-buried deck's basis at k_m
+    (
+        "buried_at_k_m",
+        deck(
+            "GW 1 11 -3 0 -.3 3 0 -.3 .001\nGW 2 11 -3 1 -.3 3 1 -.3 .002\n",
+            "GN 2 0 0 0 13 .005\n" + FR + "EX 0 1 6 0 1\nXQ\n",
+            ge="GE -1",
+        ),
+        "fronts",
+    ),
+    # momwire#1042: a wire listed twice is solved once, or refused by name
+    (
+        "duplicate_merged",
+        deck(
+            DIPOLE + PARASITE + PARASITE.replace("GW 2", "GW 3"),
+            FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "fronts",
+    ),
+    (
+        "duplicate_reversed_merged",
+        deck(
+            DIPOLE + PARASITE + "GW 3 9 .2 0 .23 .2 0 -.23 .001\n",
+            "LD 5 0 0 0 3.5e7\n" + FR + "EX 0 1 6 0 1\nXQ\n",
+        ),
+        "fronts",
+    ),
+    (
+        "duplicate_fed_refused",
         deck(DIPOLE + "GW 2 11 0 0 -.25 0 0 .25 .001\n", FR + "EX 0 1 6 0 1\nXQ\n"),
-        "declined",
+        "fronts",
     ),
 ]
 

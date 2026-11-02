@@ -1,0 +1,34 @@
+# disable autofixing PRs, commenting "pre-commit.ci autofix" on a pull request triggers a autofix
+ci:
+    autofix_prs: false
+    skip: [ty]
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: trailing-whitespace
+    exclude: |
+      (?x)^(
+        .*\.patch$
+        | ^conda_lock/_vendor/
+      )
+  - id: check-ast
+    exclude: ^conda_lock/_vendor/conda/_vendor/appdirs\.py$
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.14.14
+  hooks:
+  - id: ruff
+    args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
+  - id: ruff-format
+
+- repo: local
+  hooks:
+  - id: ty
+    name: ty (type checker by Astral)
+    entry: python scripts/run_ty_via_micromamba.py
+    language: python
+    pass_filenames: false
+    additional_dependencies:
+      - ensureconda

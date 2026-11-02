@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
-from probe.cli import capabilities, tui
+from probe.cli.imports import transcripts as bt
+from probe.cli.wizard import state as capabilities, terminal as tui
 from probe.cli import telemetry as tm
 
 
@@ -56,8 +56,9 @@ def test_a_machine_that_never_paired_capture_is_not_a_machine_with_no_sessions(
 ):
     """Two different problems with two different fixes, and they used to be the
     same event: none."""
-    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: None)
-    monkeypatch.setattr(capabilities, "tap_plugin_dir", lambda s=None: None)
+    monkeypatch.setattr(capabilities.capture_credentials, "resolved_capture_credential", lambda s=None: None)
+    monkeypatch.setattr(capabilities.device_state, "resolved_capture_credential", lambda s=None: None)
+    monkeypatch.setattr(capabilities.capture_credentials, "tap_plugin_dir", lambda s=None: None)
     bt.run_lane(client=object(), interactive=False, sources=[bt.CLAUDE])
     summary = _summary(captured)
     assert summary["outcome"] == tm.TranscriptsOutcome.NOT_PAIRED
@@ -66,12 +67,19 @@ def test_a_machine_that_never_paired_capture_is_not_a_machine_with_no_sessions(
 
 def test_a_census_that_verified_nothing_reports_why(captured, monkeypatch):
     monkeypatch.setattr(
-        capabilities, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
+        capabilities.capture_credentials, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
     )
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda s=None: "dev")
-    monkeypatch.setattr(capabilities, "tap_plugin_dir", lambda s=None: None)
     monkeypatch.setattr(
-        bt, "discover",
+        capabilities.device_state, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
+    )
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda s=None: "dev")
+    monkeypatch.setattr(capabilities.capture_credentials, "tap_plugin_dir", lambda s=None: None)
+    monkeypatch.setattr(
+        bt.discovery, "discover",
+        lambda **kw: bt.Census(candidates=[], identity_unverified=3, identity_conflicts=1),
+    )
+    monkeypatch.setattr(
+        bt.lane, "discover",
         lambda **kw: bt.Census(candidates=[], identity_unverified=3, identity_conflicts=1),
     )
     bt.run_lane(client=object(), interactive=False, sources=[bt.CLAUDE])
@@ -92,16 +100,21 @@ def test_a_lane_that_ran_to_completion_carries_what_it_looked_at(
     )
     (tmp_path / "s-1.jsonl").write_text("{}\n")
     monkeypatch.setattr(
-        capabilities, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
+        capabilities.capture_credentials, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
     )
-    monkeypatch.setattr(capabilities, "capture_device_id", lambda s=None: "dev")
-    monkeypatch.setattr(capabilities, "tap_plugin_dir", lambda s=None: None)
-    monkeypatch.setattr(bt, "discover", lambda **kw: bt.Census(candidates=[transcript]))
+    monkeypatch.setattr(
+        capabilities.device_state, "resolved_capture_credential", lambda s=None: ("tok", "http://x"),
+    )
+    monkeypatch.setattr(capabilities.capture_credentials, "capture_device_id", lambda s=None: "dev")
+    monkeypatch.setattr(capabilities.capture_credentials, "tap_plugin_dir", lambda s=None: None)
+    monkeypatch.setattr(bt.discovery, "discover", lambda **kw: bt.Census(candidates=[transcript]))
+    monkeypatch.setattr(bt.lane, "discover", lambda **kw: bt.Census(candidates=[transcript]))
     monkeypatch.setattr(
         bt.TranscriptLedger, "for_device",
         classmethod(lambda cls: bt.TranscriptLedger(tmp_path / "ledger.jsonl")),
     )
-    monkeypatch.setattr(bt, "_execute_census", lambda census, **kw: ["Imported."])
+    monkeypatch.setattr(bt.background, "_execute_census", lambda census, **kw: ["Imported."])
+    monkeypatch.setattr(bt.lane, "_execute_census", lambda census, **kw: ["Imported."])
     bt.run_lane(client=object(), interactive=False, sources=[bt.CLAUDE])
     summary = _summary(captured)
     assert summary["outcome"] == tm.TranscriptsOutcome.COMPLETED
@@ -114,7 +127,7 @@ def test_a_crash_is_reported_and_still_a_crash(captured, monkeypatch):
     def explode(**kwargs):
         raise RuntimeError("census exploded")
 
-    monkeypatch.setattr(bt, "_run_lane", explode)
+    monkeypatch.setattr(bt.lane, "_run_lane", explode)
     with pytest.raises(RuntimeError):
         bt.run_lane(client=object(), interactive=False)
     assert _summary(captured)["outcome"] == tm.TranscriptsOutcome.ERROR
@@ -124,21 +137,21 @@ def test_an_abort_is_separable_from_a_crash(captured, monkeypatch):
     def interrupt(**kwargs):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(bt, "_run_lane", interrupt)
+    monkeypatch.setattr(bt.lane, "_run_lane", interrupt)
     with pytest.raises(KeyboardInterrupt):
         bt.run_lane(client=object(), interactive=False)
     assert _summary(captured)["outcome"] == tm.TranscriptsOutcome.ABORTED
 
 
 def test_the_lane_reports_under_the_wizard_session_that_opened_it(captured, monkeypatch):
-    monkeypatch.setattr(bt, "_run_lane", lambda **kwargs: ["done"])
+    monkeypatch.setattr(bt.lane, "_run_lane", lambda **kwargs: ["done"])
     bt.run_lane(client=object(), interactive=False)
     summary = _summary(captured)
     assert summary["session_id"] == "wizardsession" and summary["via"] == "wizard"
 
 
 def test_exactly_one_summary_per_call(captured, monkeypatch):
-    monkeypatch.setattr(bt, "_run_lane", lambda **kwargs: ["done"])
+    monkeypatch.setattr(bt.lane, "_run_lane", lambda **kwargs: ["done"])
     bt.run_lane(client=object(), interactive=False)
     assert [record["event"] for record in captured].count(tm.EVENT_TRANSCRIPTS_SUMMARY) == 1
 
@@ -148,7 +161,7 @@ def test_a_back_out_is_not_an_outcome_the_funnel_counts_as_declining(captured, m
         kwargs["summary"]["outcome"] = "back"
         return tui.BACK
 
-    monkeypatch.setattr(bt, "_run_lane", back)
+    monkeypatch.setattr(bt.lane, "_run_lane", back)
     assert bt.run_lane(client=object(), interactive=True) is tui.BACK
     assert _summary(captured)["outcome"] == tm.TranscriptsOutcome.BACK
 
@@ -156,10 +169,12 @@ def test_a_back_out_is_not_an_outcome_the_funnel_counts_as_declining(captured, m
 def test_every_outcome_the_lane_names_is_a_declared_one():
     """The lane sets bare strings at each return; nothing else pins them to the
     enum the dashboards are built on."""
+    import importlib
     import re
     from pathlib import Path
 
-    source = Path(bt.__file__).read_text()
+    # Every piece the old backfill_transcripts.py was split into (its door lists them).
+    source = "".join(Path(importlib.import_module(piece).__file__).read_text() for piece in bt._PIECES)
     named = set(re.findall(r'summary\["outcome"\] = "([a-z_]+)"', source))
     assert named, "the regex stopped matching the assignments"
     assert named <= {value.value for value in tm.TranscriptsOutcome}

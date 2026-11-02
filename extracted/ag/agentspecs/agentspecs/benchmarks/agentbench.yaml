@@ -1,0 +1,28 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: agentbench
+version: 0.0.1
+name: AgentBench
+description: >-
+  Multi-dimensional LLM-as-agent evaluation across 8 diverse environments
+  including web browsing, operating system interaction, database queries,
+  digital card games, lateral thinking, and household tasks.
+category: Agentic
+task_count: 4080
+metric: success_rate
+source: https://github.com/THUDM/AgentBench
+difficulty: hard
+dataset_source: hosted
+supports_live_monitoring: true
+supports_experiment_comparison: true
+evaluator_shapes:
+  - pass_rate
+  - numeric
+evaluators:
+  - precision-recall-evaluator:0.0.1
+  - llm-judge:0.0.1
+languages:
+  - python
+  - sql
+  - bash

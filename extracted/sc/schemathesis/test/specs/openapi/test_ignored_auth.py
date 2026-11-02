@@ -10,17 +10,18 @@ from flask import jsonify, redirect, request
 from hypothesis import Phase, given, settings
 
 import schemathesis
-from schemathesis.core.failures import FailureGroup
+from schemathesis.core.failures import AuthScenario, FailureGroup, IgnoredAuth
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status
 from schemathesis.engine.events import ScenarioFinished
 from schemathesis.engine.run import PhaseName
+from schemathesis.generation.overrides import Override
 from schemathesis.python.asgi import ASGIClient
 from schemathesis.schemas import BaseSchema
 from schemathesis.specs.openapi._auth_retry import build_retry_transport_kwargs
 from schemathesis.specs.openapi.adapter.security import SecurityParameter
-from schemathesis.specs.openapi.checks import AuthKind, IgnoredAuth, _contains_auth, ignored_auth, remove_auth
+from schemathesis.specs.openapi.checks import AuthKind, _contains_auth, ignored_auth, remove_auth
 from test.utils import EventStream, check_context, run_given
 
 
@@ -273,6 +274,12 @@ def test_validate_response_probes_the_server_that_answered(ctx, app_runner, enfo
             [api_key("A", "cookie")],
             AuthKind.GENERATED,
         ),
+        (
+            check_context(headers={}),
+            {"url": "https://example.com", "headers": {"Cookie": "B=a; $=b"}},
+            [api_key("A", "cookie")],
+            None,
+        ),
     ],
 )
 def test_contains_auth(context, request_kwargs, parameters, expected, response_factory, case_factory):
@@ -280,6 +287,33 @@ def test_contains_auth(context, request_kwargs, parameters, expected, response_f
     response.request = requests.Request("GET", **request_kwargs).prepare()
     assert (
         _contains_auth(context, case_factory(), Response.from_requests(response, verify=True), parameters) == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("transport_kwargs", "override", "url", "parameters", "expected"),
+    [
+        ({"params": {"A": "V"}}, None, "https://example.com?A=V", [api_key("A", "query")], AuthKind.EXPLICIT),
+        ({"params": {"B": "V"}}, None, "https://example.com?A=V", [api_key("A", "query")], AuthKind.GENERATED),
+        (None, Override(), "https://example.com?A=V", [api_key("A", "query")], AuthKind.GENERATED),
+        (None, Override(query={"A": "V"}), "https://example.com?A=V", [api_key("A", "query")], AuthKind.EXPLICIT),
+        (None, Override(), "https://example.com", [api_key("A", "cookie")], AuthKind.GENERATED),
+    ],
+    ids=["transport-params", "other-transport-params", "empty-override", "query-override", "cookie-empty-override"],
+)
+def test_contains_auth_reads_sent_overrides(
+    transport_kwargs, override, url, parameters, expected, response_factory, case_factory
+):
+    response = response_factory.requests()
+    response.request = requests.Request("GET", url=url, cookies={"A": "V"}).prepare()
+    assert (
+        _contains_auth(
+            check_context(transport_kwargs=transport_kwargs),
+            case_factory(),
+            Response.from_requests(response, True, _override=override),
+            parameters,
+        )
+        == expected
     )
 
 
@@ -416,31 +450,30 @@ def test_ignored_auth_with_cookie_jar_kwarg():
     ]
 
 
-# Frameworks whose first authentication scheme offers no challenge answer 403 instead of 401.
-def test_forbidden_response_counts_as_enforced_auth():
+def _api_with_basic_auth(*, missing=401, invalid=401, documented=(200, 401)):
     app = FastAPI()
     api_key = APIKeyHeader(name="Authorization", auto_error=False)
 
-    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}, 403: {"model": {}}})
+    @app.get("/", responses={status_code: {"model": {}} for status_code in documented})
     def root(credentials: Annotated[str | None, Security(api_key)]):
+        if credentials is None:
+            raise HTTPException(status_code=missing)
         if credentials != "Basic dGVzdDp0ZXN0":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+            raise HTTPException(status_code=invalid)
         return {"message": "OK"}
 
+    return app
+
+
+# Frameworks whose first authentication scheme offers no challenge answer 403 instead of 401.
+def test_forbidden_response_counts_as_enforced_auth():
+    app = _api_with_basic_auth(missing=403, invalid=403, documented=(200, 401, 403))
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
     schema["/"]["GET"].Case().call_and_validate(session=ASGIClient(app), auth=("test", "test"), checks=[ignored_auth])
 
 
 def test_server_error_without_auth_is_reported():
-    app = FastAPI()
-    api_key = APIKeyHeader(name="Authorization", auto_error=False)
-
-    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
-    def root(credentials: Annotated[str | None, Security(api_key)]):
-        if credentials != "Basic dGVzdDp0ZXN0":
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return {"message": "OK"}
-
+    app = _api_with_basic_auth(missing=500, invalid=500)
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
     with pytest.raises(FailureGroup) as exc:
         schema["/"]["GET"].Case().call_and_validate(
@@ -449,6 +482,53 @@ def test_server_error_without_auth_is_reported():
     assert str(exc.value.exceptions[0]) == (
         "Unexpected response to a request without authentication\n\n"
         "Expected 401 or 403, got `500 Internal Server Error` for `GET /`"
+    )
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [
+        (300, []),
+        (399, []),
+        (400, ["400 Bad Request"]),
+        (500, ["500 Internal Server Error"]),
+        (599, ["599 Unknown"]),
+    ],
+    ids=["redirect", "last-redirect-status", "bad-request", "server-error", "unknown-status"],
+)
+def test_invalid_auth_probe_response(status_code, expected):
+    app = _api_with_basic_auth(invalid=status_code)
+    case = schemathesis.openapi.from_asgi("/openapi.json", app)["/"]["GET"].Case()
+    try:
+        case.call_and_validate(session=ASGIClient(app), auth=("test", "test"), checks=[ignored_auth])
+    except FailureGroup as exc:
+        failures = list(exc.exceptions)
+    else:
+        failures = []
+    assert [(str(failure), failure.operation, failure.scenario) for failure in failures] == [
+        (
+            "Unexpected response to invalid authentication\n\n"
+            f"Expected 401 or 403, got `{response}` for `GET /` (invalid credentials provided)",
+            "GET /",
+            AuthScenario.INVALID_AUTH,
+        )
+        for response in expected
+    ]
+    assert all(failure.case_id is not None for failure in failures)
+
+
+# An explicit `Authorization` header the schema does not declare may be the real credential.
+def test_explicit_authorization_header_beside_other_declared_scheme():
+    app = FastAPI()
+    api_key = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    def root(credentials: Annotated[str | None, Security(api_key)]):
+        return {"message": "OK"}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    schema["/"]["GET"].Case().call_and_validate(
+        session=ASGIClient(app), headers={"Authorization": "Bearer secret"}, checks=[ignored_auth]
     )
 
 
@@ -673,15 +753,7 @@ async def data(api_key: str = Depends(get_api_key)):
 
 def test_explicit_auth_tuple_in_call_and_validate():
     # GH-3386: `auth` kwarg passed to `call_and_validate` is not forwarded to CheckContext
-    app = FastAPI()
-    api_key = APIKeyHeader(name="Authorization", auto_error=False)
-
-    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
-    def root(credentials: Annotated[str | None, Security(api_key)]):
-        if credentials is None or credentials != "Basic dGVzdDp0ZXN0":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-        return {"message": "OK"}
-
+    app = _api_with_basic_auth()
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
     case = schema["/"]["GET"].Case()
     client = ASGIClient(app)
@@ -799,3 +871,47 @@ def test_invalid_path_parameter_missing_the_route(ctx, cli, snapshot_cli):
         cli.run_openapi_app(app, "-c", "ignored_auth", "--phases=coverage", "--mode=negative", "--max-examples=10")
         == snapshot_cli
     )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_explicit_api_key_header_in_other_case_cli(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
+
+    @app.route("/items/<int:item_id>")
+    def item(item_id):
+        if request.headers.get("X-API-Key") != "secret":
+            return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"id": item_id})
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "-H",
+            "x-api-key: secret",
+            "-c",
+            "ignored_auth",
+            "--phases=coverage,fuzzing",
+            "--mode=positive",
+            "--max-examples=3",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.parametrize("source", ["case", "call"])
+def test_explicit_api_key_header_in_other_case(source):
+    app = FastAPI()
+    api_key = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    def root(credentials: Annotated[str | None, Security(api_key)]):
+        if credentials != "secret":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        return {"message": "OK"}
+
+    headers = {"x-api-key": "secret"}
+    operation = schemathesis.openapi.from_asgi("/openapi.json", app)["/"]["GET"]
+    if source == "case":
+        operation.Case(headers=headers).call_and_validate(session=ASGIClient(app), checks=[ignored_auth])
+    else:
+        operation.Case().call_and_validate(session=ASGIClient(app), headers=headers, checks=[ignored_auth])

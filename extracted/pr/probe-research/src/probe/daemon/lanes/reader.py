@@ -82,7 +82,7 @@ def _env_seconds(name: str, default: float) -> float:
 READ_EVERY_ENV = "PROBE_READER_EVERY_S"
 READ_EVERY_S = _env_seconds(READ_EVERY_ENV, 1800.0)
 #: Set (and readable) in the environment: the check-ins stay on whatever the
-#: Probe service's window hints do (`_checkins_off`).
+#: Probe service's window hints do (`_is_checkins_off`).
 READ_EVERY_EXPLICIT = _env_seconds(READ_EVERY_ENV, -1.0) >= 0
 #: An ask the reader has held this long without an answer is closed as failed.
 READ_ASK_TIMEOUT_S = 10 * 60.0
@@ -185,15 +185,15 @@ def write_status(session_id: str, state: Status, reason: str = "", *, now: float
         return
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_text(json.dumps({"state": str(state), "reason": reason,
+        temp = path.with_suffix(f".{os.getpid()}.tmp")
+        temp.write_text(json.dumps({"state": str(state), "reason": reason,
                                    "since": time.time() if now is None else now}), encoding="utf-8")
-        os.replace(tmp, path)
+        os.replace(temp, path)
     except OSError as exc:
         log.warning("reader status not written: %s", exc)
 
 
-def _mcp_failure(exc: BaseException) -> bool:
+def _is_mcp_failure(exc: BaseException) -> bool:
     """The Probe MCP itself failed (unreachable, key refused), not the model."""
     text = f"{type(exc).__module__}.{type(exc).__name__}: {exc}".lower()
     return "mcp" in text
@@ -209,7 +209,7 @@ class TurnResult:
     text: str = ""
 
 
-def _checkins_off() -> bool:
+def _is_checkins_off() -> bool:
     """The 30-minute check-in is the Probe service's window hints' (plan
     hints-window-trigger W4): they look at this session's work every 10
     minutes (`model.window_hints_live`), and no explicit PROBE_READER_EVERY_S
@@ -385,8 +385,8 @@ class ReaderLane:
         behind."""
         from probe.daemon.agent.model import model as model_mod
 
-        # The window hints' check-ins (`_checkins_off`) drain no backlog either.
-        if model_mod.reader_prompt_wake() and not _checkins_off():
+        # The window hints' check-ins (`_is_checkins_off`) drain no backlog either.
+        if model_mod.reader_prompt_wake() and not _is_checkins_off():
             return self.new_events()
         out, used = [], 0
         for ev in reversed(self.store.events_upto(self.cursor(), self.store.newest_seq(), READ_MAX_EVENTS)):
@@ -401,7 +401,7 @@ class ReaderLane:
             return None
         if self.store.waiting_read_asks():
             return "ask"
-        if self._catching_up():
+        if self._is_catching_up():
             # The session's first worker is still reading the history it found: its
             # judgment moves this cursor to the current turn (`Worker._catch_up`).
             # An ask is answered meanwhile, on no events (`run_turn`).
@@ -429,12 +429,12 @@ class ReaderLane:
             # look at the agent's work every 10 minutes, so the 30-minute
             # check-in is theirs (plan hints-window-trigger W4); an explicit
             # PROBE_READER_EVERY_S keeps it. An ask still wakes the reader.
-            if _checkins_off():
+            if _is_checkins_off():
                 return None
             return "events"
         return None
 
-    def _catching_up(self) -> bool:
+    def _is_catching_up(self) -> bool:
         catching_up = getattr(self.w, "catching_up", None)
         return catching_up is not None and catching_up()
 
@@ -531,7 +531,7 @@ class ReaderLane:
         ask = asks[0] if asks else None
         # An ask while the first worker still reads the session's history: answered
         # on no events, the cursor where it is (the history is judged first).
-        events = [] if self._catching_up() else self.next_window()
+        events = [] if self._is_catching_up() else self.next_window()
         instructions = read_session_text()
         fingerprint = self._fingerprint(instructions)
         size = agent_mod.read_context_tokens()
@@ -592,10 +592,10 @@ class ReaderLane:
                 return run.result
 
         message, saved, outcome, stopped = "", None, Outcome.NOTHING, None
-        cursor_to, stop_exc, ended = last_seq, None, False
+        cursor_to, stop_exc, is_ended = last_seq, None, False
         try:
             result = await asyncio.wait_for(go(), timeout=wall + READ_GRACE_S)
-            ended = True  # the model ended the turn with final_result
+            is_ended = True  # the model ended the turn with final_result
             message = (result.output.message or "").strip()
             saved = worker_mod._dump_messages(result.all_messages())
         except UnexpectedModelBehavior as exc:
@@ -682,7 +682,7 @@ class ReaderLane:
         # reader bench, recall equal).
         too_big = _too_big(seen.get("run"), state.context_tokens)
         why = stopped or state.limit_why or state.detector.tripped
-        if why and ended and state.limit_kind is not None and state.detector.tripped is None:
+        if why and is_ended and state.limit_kind is not None and state.detector.tripped is None:
             # A guard (size, rounds, time) told the model to end the turn and it
             # did, with its answer: nothing broke, so nobody is told (strand-ai
             # 2026-10-17: "180,000 tokens"; Bucket 2026-10-24: "40 model rounds",
@@ -749,7 +749,7 @@ class ReaderLane:
         with self.store.tx():
             self.store.close_read_turn(turn_id, outcome=Outcome.FAILED, error=detail, rounds=state.rounds, **spent)
         if self.failures >= READ_FAILURES_TO_REPORT:
-            mcp = _mcp_failure(exc)
+            mcp = _is_mcp_failure(exc)
             write_status(self.sid, Status.READS_UNAVAILABLE if mcp else Status.FAILING, detail)
             if self.failures == READ_FAILURES_TO_REPORT:
                 worker_mod._device_error(f"session {self.sid}: the daemon's reader failed "
@@ -764,7 +764,7 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _last_prompt_tokens(run: Any) -> int | None:
+def _get_last_prompt_tokens(run: Any) -> int | None:
     """The size of the turn's last request to the reader's model (its prompt
     tokens, cached and written included), or None before any answer."""
     from pydantic_ai.messages import ModelResponse
@@ -812,7 +812,7 @@ def _too_big(run: Any, size: int, exc: BaseException | None = None) -> str | Non
             return f"the model route refused the request as sent (400: {body[:200]})"
         if any(marker in str(exc).lower() for marker in _TOO_LONG):
             return f"the model refused the request as too long ({type(exc).__name__})"
-    last = _last_prompt_tokens(run)
+    last = _get_last_prompt_tokens(run)
     if last is not None and size > 0 and last > size:
         return f"the last request was {last:,} tokens, over the size ({size:,})"
     try:

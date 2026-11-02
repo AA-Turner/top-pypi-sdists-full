@@ -217,8 +217,24 @@ def test_detect_missing_deserializers_with_malformed_media_type(ctx):
             },
             ["application/msgpack"],
         ),
+        (
+            {
+                "application/jsonl": {
+                    "itemSchema": {"type": "object"},
+                    "schema": {"type": "array", "maxItems": 10},
+                }
+            },
+            [],
+        ),
+        ({"application/x-ndjson": {"schema": {"type": "array"}}}, ["application/x-ndjson"]),
     ],
-    ids=["unstructured-sibling", "structured-non-first", "schemaless-sibling"],
+    ids=[
+        "unstructured-sibling",
+        "structured-non-first",
+        "schemaless-sibling",
+        "json-sequence-with-item-schema",
+        "json-sequence-without-item-schema",
+    ],
 )
 def test_detect_missing_deserializers_judges_each_media_type_separately(ctx, content, expected):
     operation = ctx.openapi.load_operation(
@@ -232,6 +248,11 @@ def test_detect_missing_deserializers_judges_each_media_type_separately(ctx, con
 
 
 MISSING_SCHEMA = {"$ref": "#/components/schemas/Missing"}
+EMBEDDED_RESOURCE = {
+    "id": "https://example.com/item",
+    "properties": {"id": {"$ref": "#/definitions/Id"}},
+    "definitions": {"Id": {"type": "integer"}},
+}
 
 
 @pytest.mark.parametrize(
@@ -293,6 +314,84 @@ MISSING_SCHEMA = {"$ref": "#/components/schemas/Missing"}
             },
             [],
         ),
+        (
+            {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {"application/json": {"$ref": "#/components/mediaTypes/Missing"}},
+                    }
+                }
+            },
+            [("response `200`", "#/components/mediaTypes/Missing")],
+        ),
+        (
+            {
+                "responses": {
+                    "200": {"description": "Success", "content": {"application/jsonl": {"itemSchema": MISSING_SCHEMA}}}
+                }
+            },
+            [("response `200`", "#/components/schemas/Missing")],
+        ),
+        (
+            {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {"application/json": {"schema": EMBEDDED_RESOURCE}},
+                    }
+                }
+            },
+            [],
+        ),
+        (
+            {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {**EMBEDDED_RESOURCE, "properties": {"id": {"$ref": "#/definitions/Missing"}}}
+                            }
+                        },
+                    }
+                }
+            },
+            [("response `200`", "#/definitions/Missing")],
+        ),
+        (
+            {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {**EMBEDDED_RESOURCE, "properties": {"id": {"$ref": "item"}}}
+                            }
+                        },
+                    }
+                }
+            },
+            [],
+        ),
+        (
+            {
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {"id": {"$ref": "./item"}},
+                                    "$defs": {"Id": {"$id": "item", "type": "integer"}},
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+            [],
+        ),
     ],
     ids=[
         "optional-parameter",
@@ -301,6 +400,12 @@ MISSING_SCHEMA = {"$ref": "#/components/schemas/Missing"}
         "dropped-required-body",
         "media-type-not-an-object",
         "media-type-without-schema",
+        "media-type-reference",
+        "json-sequence-item-schema",
+        "inside-embedded-resource",
+        "missing-inside-embedded-resource",
+        "reference-relative-to-embedded-resource",
+        "dot-segment-reference-to-relative-id",
     ],
 )
 def test_detect_unresolvable_references(ctx, operation, expected):

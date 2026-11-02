@@ -29,6 +29,7 @@ from sarj_standards.libs.adoption.configs import CONFIG_NAMES
 from sarj_standards.libs.filesystem import is_link_like
 from sarj_standards.libs.linting.policy import Policy
 from sarj_standards.libs.rules import RuleSelector
+from sarj_standards.libs.staged_git import isolated_environment, staged_environment
 
 
 _TEXT_DIAGNOSTIC_LIMIT: Final = 50
@@ -56,9 +57,6 @@ _NEXT_STEPS = (
 )
 _RELEASE_RESOLUTION_TIMEOUT = timedelta(seconds=120)
 _UPDATE_TIMEOUT = timedelta(minutes=30)
-_GIT_SAFE_ENV = frozenset(
-    {"HOME", "LANG", "LC_ALL", "LC_CTYPE", "PATH", "SYSTEMDRIVE", "SYSTEMROOT", "TMPDIR", "XDG_CONFIG_HOME"}
-)
 _INVALID_DOCTOR_IDS = frozenset(
     {
         "doctor.manifest.invalid",
@@ -206,6 +204,7 @@ class _Args:
     prepared_devops: list[Path] = field(default_factory=list)
     prepared_targets: list[str] = field(default_factory=list)
     prepared_only: bool = False
+    web_policy: Path | None = None
 
 
 def cmd_sync(args: _Args, *, next_steps: bool = True) -> int:
@@ -1129,10 +1128,15 @@ def cmd_check(args: _Args) -> int:
         return 2
     if args.fix and _validate_analysis_output(args, root):
         return 2
+    scope = _CheckScope(repository_wide=not args.files)
+    if args.staged:
+        try:
+            scope.git_environment = staged_environment(root)
+        except (OSError, ValueError) as exc:
+            return _staged_input_error(args, root, str(exc))
     catalog_status = 0 if args.selected_rules else _check_conventional_slack_catalog(args, root)
     if catalog_status:
         return catalog_status
-    scope = _CheckScope(repository_wide=not args.files)
     selection_status = _select_check_scope(args, root, scope)
     if selection_status is not None:
         return selection_status
@@ -1235,6 +1239,7 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
 @dataclass(slots=True)
 class _CheckScope:
     repository_wide: bool
+    git_environment: dict[str, str] | None = None
     pull_request_scoped: bool = False
     react_doctor_triggered: bool = False
 
@@ -1254,13 +1259,22 @@ def _select_check_scope(args: _Args, root: Path, scope: _CheckScope) -> int | No
     return None
 
 
+def _staged_input_error(args: _Args, root: Path, message: str) -> int:
+    if args.output_format != "text":
+        return _emit_analysis_report(args, root, _machine_input_error(root, message))
+    print(f"error: {message}", file=sys.stderr)
+    return 2
+
+
 def _select_staged_check(args: _Args, root: Path, scope: _CheckScope) -> int | None:
     try:
-        staged_names = _staged_file_names(root)
+        staged_names = _staged_file_names(root, environment=scope.git_environment)
         scope.react_doctor_triggered = _react_doctor_triggered_by(
             staged_names, policy=Policy.from_manifest(root, _declared_manifest(args))
         )
-        staged = _safe_staged_paths(root, _staged_file_names(root, include_deleted=False))
+        staged = _safe_staged_paths(
+            root, _staged_file_names(root, include_deleted=False, environment=scope.git_environment)
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         if args.output_format != "text":
             return _emit_analysis_report(args, root, _machine_input_error(root, f"cannot read staged files: {exc}"))
@@ -1275,7 +1289,7 @@ def _select_staged_check(args: _Args, root: Path, scope: _CheckScope) -> int | N
         selected_staged_names = staged_names
         args.files = staged
     try:
-        drifted = _unstaged_versions(root, selected_staged_names)
+        drifted = _unstaged_versions(root, selected_staged_names, environment=scope.git_environment)
     except (OSError, subprocess.SubprocessError) as exc:
         if args.output_format != "text":
             return _emit_analysis_report(args, root, _machine_input_error(root, f"cannot read staged files: {exc}"))
@@ -2092,7 +2106,9 @@ def _emit_staged_adoption_health(args: _Args, root: Path, drifted: list[doctor.F
     return _emit_analysis_report(args, root, report)
 
 
-def _staged_file_names(root: Path, *, include_deleted: bool = True) -> list[str]:
+def _staged_file_names(
+    root: Path, *, include_deleted: bool = True, environment: Mapping[str, str] | None = None
+) -> list[str]:
     git = shutil.which("git")
     if git is None:
         msg = "git is required for --staged"
@@ -2105,7 +2121,7 @@ def _staged_file_names(root: Path, *, include_deleted: bool = True) -> list[str]
         cwd=root,
         check=True,
         capture_output=True,
-        env=_git_environment(staged=True),
+        env=staged_environment(root) if environment is None else environment,
     )
     names = [part.decode("utf-8", errors="surrogateescape") for part in completed.stdout.split(b"\0") if part]
     return list(dict.fromkeys(names))
@@ -2171,9 +2187,12 @@ def _safe_scope_path(root: Path, raw: str) -> Path | None:
     return resolved if resolved.is_relative_to(repository) else None
 
 
-def _unstaged_versions(root: Path, staged_paths: Iterable[str]) -> tuple[str, ...]:
+def _unstaged_versions(
+    root: Path, staged_paths: Iterable[str], *, environment: Mapping[str, str] | None = None
+) -> tuple[str, ...]:
     if not (root / ".git").exists():
         return ()
+    selected_environment = staged_environment(root) if environment is None else environment
     git = shutil.which("git")
     if git is None:
         msg = "git is required for --staged"
@@ -2201,7 +2220,7 @@ def _unstaged_versions(root: Path, staged_paths: Iterable[str]) -> tuple[str, ..
         cwd=root,
         check=False,
         capture_output=True,
-        env=_git_environment(staged=True),
+        env=selected_environment,
     )
     if completed.returncode not in {0, 1}:
         completed.check_returncode()
@@ -2209,7 +2228,8 @@ def _unstaged_versions(root: Path, staged_paths: Iterable[str]) -> tuple[str, ..
     unstaged = {
         path
         for path, binary in entries.items()
-        if path in selected and (not binary or _binary_worktree_differs(root, git, path))
+        if path in selected
+        and (not binary or _binary_worktree_differs(root, git, path, environment=selected_environment))
     }
     if selected:
         tracked = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- literal selected paths and NUL records preserve authored filenames.
@@ -2217,7 +2237,7 @@ def _unstaged_versions(root: Path, staged_paths: Iterable[str]) -> tuple[str, ..
             cwd=root,
             check=True,
             capture_output=True,
-            env=_git_environment(staged=True),
+            env=selected_environment,
         )
         unstaged.update(
             entry[2:].decode("utf-8", errors="surrogateescape")
@@ -2253,7 +2273,7 @@ def _numstat_entries(output: bytes) -> dict[str, bool]:
     return entries
 
 
-def _binary_worktree_differs(root: Path, git: str, path: str) -> bool:
+def _binary_worktree_differs(root: Path, git: str, path: str, *, environment: Mapping[str, str]) -> bool:
     # Binary numstat records can be stat-only. Internal patch generation compares canonical content and mode.
     completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv and literal selected path, no shell.
         [
@@ -2274,7 +2294,7 @@ def _binary_worktree_differs(root: Path, git: str, path: str) -> bool:
         cwd=root,
         check=False,
         capture_output=True,
-        env=_git_environment(staged=True),
+        env=environment,
     )
     if completed.returncode not in {0, 1}:
         completed.check_returncode()
@@ -2298,12 +2318,8 @@ def _repository_relative_names(root: Path, paths: Iterable[str]) -> list[str]:
     return list(dict.fromkeys(relative_names))
 
 
-def _git_environment(*, staged: bool = False) -> dict[str, str]:
-    return {
-        name: value
-        for name, value in os.environ.items()  # ruff: ignore[banned-api] -- staged hooks retain only Git's prospective index selection in addition to the closed environment.
-        if name in _GIT_SAFE_ENV or (staged and name == "GIT_INDEX_FILE")
-    }
+def _git_environment() -> dict[str, str]:
+    return isolated_environment()
 
 
 def _selected_paths(root: Path, paths: Iterable[str]) -> list[str]:
@@ -2337,19 +2353,14 @@ def _selected_paths(root: Path, paths: Iterable[str]) -> list[str]:
 
 
 def cmd_format(args: _Args) -> int:
-    from sarj_standards.libs.adoption import doctor  # ruff: ignore[import-outside-top-level] -- diagnosis gates an explicit fix operation.
-
     root = _resolve_dest(args.dest)
-    diagnosed = doctor.diagnose(root)
-    if any(finding.id == "doctor.manifest.absent" for finding in diagnosed):
-        print("error: repository is not adopted; run `code-standards setup`", file=sys.stderr)
-        return 2
-    drifted = [finding for finding in diagnosed if finding.level is doctor.Level.DRIFT]
-    if drifted:
-        for finding in drifted:
-            print(f"error: {finding.id} {finding.where} -- {finding.detail}", file=sys.stderr)
-        print("fix: run `code-standards doctor --repair`, then retry", file=sys.stderr)
-        return 2 if any(finding.id in _INVALID_DOCTOR_IDS for finding in drifted) else 1
+    if args.staged:
+        try:
+            staged_environment(root)
+        except (OSError, ValueError) as exc:
+            return _staged_input_error(args, root, str(exc))
+    if (adoption_status := _format_adoption_status(root)) is not None:
+        return adoption_status
     if args.staged:
         selection_status = _select_staged_fix(args, root)
         if selection_status is not None:
@@ -2361,6 +2372,22 @@ def cmd_format(args: _Args) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
     return _apply_safe_fixes(root, args.files, args=args, trusted=True).status
+
+
+def _format_adoption_status(root: Path) -> int | None:
+    from sarj_standards.libs.adoption import doctor  # ruff: ignore[import-outside-top-level] -- diagnosis gates an explicit fix operation.
+
+    diagnosed = doctor.diagnose(root)
+    if any(finding.id == "doctor.manifest.absent" for finding in diagnosed):
+        print("error: repository is not adopted; run `code-standards setup`", file=sys.stderr)
+        return 2
+    drifted = [finding for finding in diagnosed if finding.level is doctor.Level.DRIFT]
+    if drifted:
+        for finding in drifted:
+            print(f"error: {finding.id} {finding.where} -- {finding.detail}", file=sys.stderr)
+        print("fix: run `code-standards doctor --repair`, then retry", file=sys.stderr)
+        return 2 if any(finding.id in _INVALID_DOCTOR_IDS for finding in drifted) else 1
+    return None
 
 
 def _apply_safe_fixes(
@@ -2448,11 +2475,12 @@ def _select_staged_fix(args: _Args, root: Path) -> int | None:
 
 
 def staged_fix_paths(root: Path, files: Sequence[str]) -> list[str]:
-    staged_names = _staged_file_names(root, include_deleted=False)
+    environment = staged_environment(root)
+    staged_names = _staged_file_names(root, include_deleted=False, environment=environment)
     if files:
         requested = set(_repository_relative_names(root, files))
         staged_names = [name for name in staged_names if name in requested]
-    if drifted := _unstaged_versions(root, staged_names):
+    if drifted := _unstaged_versions(root, staged_names, environment=environment):
         msg = (
             "--staged found files with unstaged content or unverifiable Git index flags; "
             "stage the intended versions and clear assume-unchanged/skip-worktree flags before fixing: "
@@ -2944,24 +2972,42 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _root_option_first(argv: list[str]) -> list[str]:
-    equals_positions = [index for index, value in enumerate(argv) if value.startswith("--root=")]
+    options = argv[: argv.index("--")] if "--" in argv else argv
+    equals_positions = [index for index, value in enumerate(options) if value.startswith("--root=")]
     if equals_positions:
         if len(equals_positions) != 1:
             return argv
         index = equals_positions[0]
         value = argv[index].partition("=")[2]
         return ["--root", value, *argv[:index], *argv[index + 1 :]]
-    positions = [index for index, value in enumerate(argv) if value == "--root"]
+    positions = [index for index, value in enumerate(options) if value == "--root"]
     if not positions or positions == [0] or len(positions) != 1:
         return argv
     index = positions[0]
-    if index + 1 >= len(argv):
+    if index + 1 >= len(options):
         return argv
     return ["--root", argv[index + 1], *argv[:index], *argv[index + 2 :]]
 
 
+def cmd_web_security(args: _Args) -> int:
+    from sarj_standards.libs.security.web import check_policy  # ruff: ignore[import-outside-top-level] -- Keep network-policy dependencies off unrelated CLI startup paths.
+
+    if args.web_policy is None:
+        print('{"errors":["A web policy path is required."]}')
+        return 2
+    try:
+        report = check_policy(Path(args.dest) / args.web_policy)
+    except OSError, ValueError:
+        print('{"errors":["The web policy is unreadable or invalid; input values are withheld."]}')
+        return 2
+    print(report.model_dump_json())
+    return report.exit_code
+
+
 def _dispatch(args: _Args) -> int:
     match args.cmd:
+        case "web-security":
+            return cmd_web_security(args)
         case "doctor":
             return cmd_doctor(args)
         case "update":
@@ -3382,6 +3428,17 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 files=files if files is not None else [],
             )
         )
+
+    @app.command(
+        "web-security",
+        help="check declared HTTPS deployment policies; violations exit 1, invalid input or execution exits 2",
+    )
+    def command_web_security(
+        ctx: typer.Context,
+        *,
+        web_policy: Annotated[Path, typer.Argument(metavar="POLICY")],
+    ) -> int:
+        return handler(_Args(dest=_command_root(ctx), cmd="web-security", web_policy=web_policy))
 
     @app.command("validate-slack-automations", help="validate a versioned Slack automation catalog")
     def command_validate_slack_automations(

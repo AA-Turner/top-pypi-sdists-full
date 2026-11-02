@@ -1,0 +1,1024 @@
+//! The compiled validator: the object a user holds, and every method on it.
+//!
+//! A leaf module. It lives here rather than in the crate root because the schema
+//! frontend needs the type -- a compiled validator is itself a schema
+//! description -- and a type defined in the aggregator and imported back by one
+//! of its members is what puts the two in a cycle. `lib.rs` re-exports it, so no
+//! caller spells a new path and the Python surface is unchanged.
+
+use std::cell::RefCell;
+use std::sync::{Arc, OnceLock};
+
+use jiter::JsonValue;
+use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::sync::{OnceLockExt, PyOnceLock};
+use pyo3::types::PyBool;
+use pyo3::{PyTraverseError, PyVisit};
+use valgebra_core::{Measure, Openness, Relation, Schema};
+
+use crate::build::{Pool, PoolKeys, build_root};
+use crate::check::{
+    Ctx, Frame, Unwritten, ValidatorIndex, WalkMode, WalkState, build_index, member,
+};
+use crate::errors::into_pyerr;
+use crate::input::{JsonInput, Value, decode_json_input, parse_json};
+use crate::oracle::PoolRelations;
+use crate::render::render;
+/// The deepest structural nesting a constructed schema may reach.
+///
+/// A real schema is nowhere near this deep and the annotation frontend caps its
+/// own nesting lower, so a validator this deep is one built in an unbounded
+/// loop. Every recursive walk over the tree -- clone, drop, the decision
+/// procedure -- descends one native stack frame per level, so building past this
+/// bound returns an error rather than overflowing the stack. Structural
+/// recursion in a schema is written with `recursive`, whose back edge is a `Ref`
+/// leaf and does not count toward this depth.
+pub(crate) const MAX_SCHEMA_DEPTH: usize = 128;
+/// The most recursive definitions a constructed schema may hold. A recursive
+/// schema needs a mere handful; a validator with more is one whose definitions
+/// were chained in an unbounded loop, and the render walk descends the chain one
+/// native stack frame per link (a chain of distinct definitions is invisible to
+/// the per-tree depth measure, which counts a `Ref` as a leaf). The decision
+/// descends it too, and counts its own depth, because a chain inside this bound
+/// still nests deeper than a stack holds.
+pub(crate) const MAX_DEFINITIONS: usize = 128;
+/// The most schema nodes a constructed schema may hold, across its tree and every
+/// definition. Bounds a schema that is shallow but exponentially wide — a
+/// doubling union grows its node count, not its depth — where the depth bound
+/// alone cannot. Set far above any real schema (a record with tens of thousands
+/// of fields still fits) so only a runaway loop trips it; combining two operands
+/// whose sizes already sum past it is rejected, so the doubling stops early
+/// rather than exhausting memory.
+pub(crate) const MAX_SCHEMA_NODES: usize = 100_000;
+
+// The comparison's step bound is four times this one, written as a number in
+// `equality.rs` because this module reads that one.
+const _: () = assert!(crate::equality::MAX_COMPARISON_STEPS == 4 * MAX_SCHEMA_NODES);
+
+thread_local! {
+    /// The self-reference tokens of the `recursive` definitions being built on
+    /// this thread, innermost last.
+    ///
+    /// A placeholder validator says nothing about where it means something: it is
+    /// an ordinary `Validator`, and a caller can keep it past the builder it was
+    /// handed to. Its token sits here for exactly the span in which the fixpoint
+    /// it stands for is being defined, which is what lets construction tell a
+    /// marker that is about to become a back edge from one that outlived its
+    /// call.
+    static OPEN_DEFINITIONS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+}
+
+/// One `recursive` definition open on this thread, closed when the guard drops.
+pub(crate) struct OpenDefinition;
+
+impl OpenDefinition {
+    /// Open `token` for as long as the returned guard lives.
+    pub(crate) fn open(token: u64) -> Self {
+        OPEN_DEFINITIONS.with_borrow_mut(|open| open.push(token));
+        OpenDefinition
+    }
+}
+
+impl Drop for OpenDefinition {
+    fn drop(&mut self) {
+        OPEN_DEFINITIONS.with_borrow_mut(|open| {
+            open.pop();
+        });
+    }
+}
+
+/// Whether `token` names a definition being built on this thread.
+fn definition_is_open(token: u64) -> bool {
+    OPEN_DEFINITIONS.with_borrow(|open| open.contains(&token))
+}
+
+/// Turn a membership walk's outcome into a Python result: re-raise a fatal
+/// interpreter signal the walk recorded, otherwise report the membership verdict.
+fn reraise_fatal(state: &WalkState, ok: bool) -> PyResult<bool> {
+    match state.take_fatal() {
+        Some(err) => Err(err),
+        None => Ok(ok),
+    }
+}
+
+/// Which side of `|` the other operand sits on.
+///
+/// A union is commutative as a set and not as a rendering, so the members are
+/// built in the order the caller wrote them. Named rather than spelled as a
+/// boolean, because `true` at a call site says nothing about which side it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Operand {
+    /// `other | self`, which `__ror__` answers.
+    Left,
+    /// `self | other`, which `__or__` answers.
+    Right,
+}
+
+/// A compiled, immutable schema validator.
+///
+/// Build one by calling `Validator(schema)`, or with a combinator such as
+/// `union`, `intersection`, or `recursive`. Then check values with `validate`,
+/// `is_valid`, or `ensure`, and JSON documents with `validate_json` or
+/// `is_valid_json`.
+///
+/// Validation is a membership test against the set the schema denotes: the value
+/// is never copied or coerced. A validator never changes after it is built and
+/// is safe to share across threads. Its `repr` is an expression that builds the
+/// same schema, but for the few forms the API reference lists, and it can be
+/// copied with `copy.copy`/`copy.deepcopy`.
+///
+/// The class names the **public** package rather than the extension underneath
+/// it, which is the path a user imports it from and the one the API reference
+/// keeps true. It cannot be subclassed: every method reads a schema this type
+/// built, and a subclass overriding one would be a validator whose answers are
+/// not the algebra's.
+///
+/// `Validator[T]` is the annotation a static checker reads for a validator whose
+/// members are `T`s. At runtime it is a `types.GenericAlias`, so an annotation
+/// that is evaluated finds it; the parameter changes nothing a validator does,
+/// and the alias is not a schema.
+// `generic` is PyO3's `__class_getitem__`, which returns that alias; the
+// parameter itself lives in the stub, where the checkers read it.
+#[pyclass(frozen, weakref, generic, module = "valgebra")]
+pub struct Validator {
+    pub(crate) schema: Schema,
+    pub(crate) literals: Vec<Py<PyAny>>,
+    pub(crate) definitions: Vec<Schema>,
+    /// Per-node precompute (record-field lookups and literal-union decision
+    /// tables), built once on first use from this validator's own schema and
+    /// reused across calls. Lazy so an unused validator never pays for it, and
+    /// rebuilt per validator (a copy starts empty) so its buffer-address keys
+    /// always refer to this schema's nodes.
+    index: OnceLock<ValidatorIndex>,
+    /// The keys of `literals`, read on the first relation this validator is a
+    /// side of and shared by every relation after it. Lazy for the reason
+    /// `index` is, and never copied: a copy reads its own.
+    pub(crate) keys: PyOnceLock<Arc<PoolKeys>>,
+    /// The digest `__hash__` computed, kept once it has been: the validator is
+    /// immutable, so its hash is too.
+    hash: OnceLock<u64>,
+}
+
+impl Validator {
+    /// Assemble a validator from its parts, deferring the precompute to first
+    /// use. Every construction path goes through here so the index is never
+    /// copied between validators.
+    pub(crate) fn new(schema: Schema, literals: Vec<Py<PyAny>>, definitions: Vec<Schema>) -> Self {
+        Validator {
+            schema,
+            literals,
+            definitions,
+            index: OnceLock::new(),
+            keys: PyOnceLock::new(),
+            hash: OnceLock::new(),
+        }
+    }
+
+    /// The keys of this validator's pool, read once and shared after.
+    pub(crate) fn pool_keys(&self, py: Python<'_>) -> Arc<PoolKeys> {
+        Arc::clone(
+            self.keys
+                .get_or_init(py, || Arc::new(PoolKeys::of(py, &self.literals))),
+        )
+    }
+
+    /// The pool a relation with `other` builds in: this validator's constants,
+    /// indexed by keys read once rather than per question.
+    ///
+    /// Where `other` is a validator its keys are read now, and kept, so the
+    /// build that pools its constants reads them from the cache: a pair asked
+    /// about twice pays the interpreter for its keys once.
+    fn relation_pool(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> Pool {
+        if let Ok(other) = other.cast::<Validator>() {
+            other.get().pool_keys(py);
+        }
+        Pool::seeded_by(
+            self.literals.iter().map(|o| o.clone_ref(py)).collect(),
+            self.pool_keys(py),
+        )
+    }
+
+    /// Assemble a validator, rejecting one whose schema is too deep, holds too
+    /// many recursive definitions, or spans too many nodes. Every growth path —
+    /// the `Validator(...)` constructor, the `|`/`union`/`intersection`/
+    /// `complement` combinators, `recursive`, `instance_of`, and the
+    /// whole-schema rewrites `open` and `close` — routes through here, so no public call can build a schema that overflows the stack or
+    /// exhausts memory on a later walk. A combinator's schema reaching this point
+    /// grew by one step from operands already within the bounds, so it is at most
+    /// one step past them — shallow and small enough that measuring it and
+    /// dropping it when a bound is exceeded are themselves safe. The constructor's
+    /// schema is a whole annotation read in one call, which no step bounds; the
+    /// frontend holds what it builds to the node bound as it reads (`BuildGuard`
+    /// in `build.rs`) and refuses at the step after the one that passes it, so
+    /// that schema arrives here at most one step past the bound too.
+    pub(crate) fn checked(
+        schema: Schema,
+        literals: Vec<Py<PyAny>>,
+        definitions: Vec<Schema>,
+    ) -> PyResult<Self> {
+        // A fold can leave a definition nothing names -- `json | ~json` is the
+        // top and keeps the fixpoint's body -- and a definition no reference
+        // reaches is invisible to the set and visible to `==`, which compares
+        // the definitions too. Dropping it here is what makes the top built that
+        // way the top built any other way.
+        let (schema, definitions) = valgebra_core::pruned(schema, definitions);
+        // The placeholder a `recursive` builder receives is an ordinary validator,
+        // so a caller can keep it and hand it back after the call it stands for
+        // has finished -- at which point it names a fixpoint nobody is defining.
+        // A marker for a definition still open is the ordinary way a body is
+        // written and passes; one for a closed definition denotes no set, so it
+        // is refused below rather than validating as a value nothing matches.
+        //
+        // One walk per tree reads all three facts the checks below are asked
+        // on; the checks keep their order, so the error a caller sees is the
+        // same whichever of them a schema breaks first.
+        let is_open: &dyn Fn(u64) -> bool = &definition_is_open;
+        let whole = std::iter::once(&schema)
+            .chain(&definitions)
+            .map(|tree| tree.measure(is_open))
+            .fold(
+                Measure {
+                    depth: 0,
+                    nodes: 0,
+                    escaped_self_ref: false,
+                },
+                |whole, tree| Measure {
+                    depth: whole.depth.max(tree.depth),
+                    nodes: whole.nodes.saturating_add(tree.nodes),
+                    escaped_self_ref: whole.escaped_self_ref || tree.escaped_self_ref,
+                },
+            );
+        let depth = whole.depth;
+        if depth > MAX_SCHEMA_DEPTH {
+            return Err(PyValueError::new_err(format!(
+                "schema nesting is too deep: this validator reaches {depth} levels of \
+                 nesting, past the limit of {MAX_SCHEMA_DEPTH}. A validator this deep \
+                 comes from building in an unbounded loop; checking it would risk a \
+                 native stack overflow. Express structural recursion with recursive(...) \
+                 instead of nesting schemas."
+            )));
+        }
+        if definitions.len() > MAX_DEFINITIONS {
+            return Err(PyValueError::new_err(format!(
+                "schema holds too many recursive definitions: this validator has {} of \
+                 them, past the limit of {MAX_DEFINITIONS}. A validator with this many \
+                 comes from chaining recursive schemas in an unbounded loop; rendering \
+                 or deciding it would risk a native stack overflow.",
+                definitions.len()
+            )));
+        }
+        let nodes = whole.nodes;
+        if nodes > MAX_SCHEMA_NODES {
+            return Err(PyValueError::new_err(format!(
+                "schema is too large: this validator spans {nodes} nodes, past the limit \
+                 of {MAX_SCHEMA_NODES}. A schema this large comes from combining a \
+                 validator with itself in an unbounded loop, which doubles its size each \
+                 step; building it would exhaust memory."
+            )));
+        }
+        if whole.escaped_self_ref {
+            return Err(PyValueError::new_err(
+                "schema holds an unresolved recursive placeholder: the validator a \
+                 recursive(...) builder receives stands for the schema being defined \
+                 and is only meaningful inside that call. Build the schema that uses \
+                 it inside the builder, and use the validator recursive(...) returns \
+                 outside.",
+            ));
+        }
+        Ok(Validator::new(schema, literals, definitions))
+    }
+
+    /// Rebuild this validator with `f` applied to the root schema and to every
+    /// recursive definition.
+    ///
+    /// Both fields hold the carrier. A recursive validator's root is a single
+    /// [`Schema::Ref`] leaf and every record, union and refinement it declares
+    /// lives in the definitions table, so a rewrite reaching only the root is a
+    /// no-op on exactly the schemas with the most to rewrite.
+    ///
+    /// The result goes through [`checked`](Self::checked) because a rewrite is a
+    /// growth path: opening a closed record adds a catch-all clause.
+    fn map_schemas(&self, py: Python<'_>, f: impl Fn(&Schema) -> Schema) -> PyResult<Validator> {
+        Validator::checked(
+            f(&self.schema),
+            self.literals.iter().map(|o| o.clone_ref(py)).collect(),
+            self.definitions.iter().map(&f).collect(),
+        )
+    }
+
+    /// The precompute, built once from this validator's schema, definitions, and
+    /// constants pool.
+    ///
+    /// A thread that finds another building it waits detached from the
+    /// interpreter. `build_index` interns strings, which on a free-threaded
+    /// build can wait on a lock and let a stop-the-world pause begin; a waiter
+    /// still attached would never reach that pause, and the builder would never
+    /// finish. The built path is the same `get()` either way.
+    fn index(&self, py: Python<'_>) -> &ValidatorIndex {
+        self.index.get_or_init_py_attached(py, || {
+            build_index(py, &self.schema, &self.definitions, &self.literals)
+        })
+    }
+
+    /// The read-only walk context: the pool, the definitions, the precomputed
+    /// record and union indexes, the call's own [`WalkState`], and the mode.
+    pub(crate) fn context<'a>(
+        &'a self,
+        py: Python<'_>,
+        state: &'a WalkState,
+        mode: WalkMode,
+    ) -> Ctx<'a> {
+        Ctx {
+            pool: &self.literals,
+            defs: &self.definitions,
+            index: self.index(py),
+            state,
+            mode,
+        }
+    }
+
+    /// Union this schema with `other` (a spec or validator), placing `other`
+    /// first when it is the `|` right operand. Backs `__or__`/`__ror__`: the
+    /// fresh pool seeds with this validator's constants so its schema indices
+    /// stay valid, then `other` interns into it.
+    fn union_with(&self, other: &Bound<'_, PyAny>, side: Operand) -> PyResult<Validator> {
+        let py = other.py();
+        let mut literals =
+            Pool::seeded(py, self.literals.iter().map(|o| o.clone_ref(py)).collect());
+        let mut definitions = self.definitions.clone();
+        let other_schema = build_root(other, &mut literals, &mut definitions)?;
+        let members = if side == Operand::Left {
+            vec![other_schema, self.schema.clone()]
+        } else {
+            vec![self.schema.clone(), other_schema]
+        };
+        let schema = Schema::union_within(members, &definitions);
+        Validator::checked(schema, literals.into_items(), definitions)
+    }
+
+    /// Whether the JSON in `bytes` parses and belongs to the schema's set,
+    /// validated in place against the parsed JSON value with no intermediate
+    /// Python objects. `bytes` outlives the parsed value and the walk.
+    pub(crate) fn matches_json(&self, py: Python<'_>, bytes: &[u8]) -> PyResult<bool> {
+        let Ok(json) = JsonValue::parse(bytes, false) else {
+            return Ok(false);
+        };
+        let state = WalkState::new();
+        let ok = member(
+            &self.schema,
+            &Value::Json(py, &json),
+            &mut Unwritten::default().frame(self.context(py, &state, WalkMode::Fast)),
+        );
+        reraise_fatal(&state, ok)
+    }
+}
+
+#[expect(
+    clippy::doc_markdown,
+    reason = "these doc comments are the Python API reference (rendered by \
+              mkdocstrings), written in Google docstring style: the \
+              `Args:`/`Returns:`/`Raises:` sections must name parameters and \
+              exceptions as bare identifiers for the reference to parse them, \
+              which is exactly what this lint wants backticked. Python \
+              documentation conventions win here over the Rust-doc lint"
+)]
+#[pymethods]
+impl Validator {
+    /// Show the cycle collector every Python object this validator owns.
+    ///
+    /// A validator holds the classes, enum members and predicates its schema
+    /// names, so the natural spelling -- a class that keeps its own validator --
+    /// is a reference cycle:
+    ///
+    /// ```python
+    /// class Model:
+    ///     a: int
+    /// Model.validator = Validator(Model)
+    /// ```
+    ///
+    /// Without a traversal the type is untracked, the collector never sees the
+    /// edge from the validator back to the class, and the cycle is never
+    /// collected: such classes stay alive across a `gc.collect()` that frees
+    /// the same classes when the validator is held anywhere else.
+    ///
+    /// Traversal alone breaks these. The collector needs to *see* the edge to
+    /// find the cycle, and clearing any one participant is enough to break it --
+    /// the class in every such cycle carries `tp_clear`. A frozen pyclass has no
+    /// `&mut self` to offer a `__clear__` of its own, which is the point of
+    /// being frozen: a validator that could be emptied would answer differently
+    /// after the collector touched it.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "`PyVisit` is taken by value because that is the signature \
+                  CPython's `tp_traverse` maps to; it is a handle, not a payload"
+    )]
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for constant in &self.literals {
+            visit.call(constant)?;
+        }
+        if let Some(index) = self.index.get() {
+            for name in index.interned_names() {
+                visit.call(name)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Compile a schema into a reusable, immutable validator.
+    ///
+    /// The schema is any supported form: a type or typing annotation (`int`,
+    /// `list[str]`, `int | None`, `Literal[...]`, a `TypedDict`, a dataclass, an
+    /// `Annotated` refinement, ...), a native form (a `[T]` list, a `{K: V}`
+    /// mapping, an all-string-key dict record, or a constant as a literal), or
+    /// another `Validator`. A callable that is not a class is refused rather
+    /// than read as a constant: it is spelled `Annotated[T, fn]` for the values
+    /// it accepts, or `Literal[fn]` for the object itself.
+    ///
+    /// Args:
+    ///     schema: The schema to compile.
+    ///
+    /// Raises:
+    ///     NotImplementedError: If the schema uses an unsupported form (for
+    ///         example a recursive class, which must be written with `recursive`),
+    ///         or a callable that is not a class.
+    ///     ValueError: If a marker's value denotes no set, a `recursive` body is
+    ///         not contractive, or the schema crosses a size bound: depth,
+    ///         definitions, or nodes.
+    #[new]
+    #[pyo3(signature = (schema, /))]
+    fn py_new(schema: &Bound<'_, PyAny>) -> PyResult<Validator> {
+        let mut literals = Pool::default();
+        let mut definitions = Vec::new();
+        let schema = build_root(schema, &mut literals, &mut definitions)?;
+        Validator::checked(schema, literals.into_items(), definitions)
+    }
+
+    /// Validate `obj`, raising `ValidationError` if it is not a member of the
+    /// schema's set. Check-only: `obj` is never copied or coerced.
+    ///
+    /// Args:
+    ///     obj: The object to check.
+    ///     fail_fast: Stop at the first failure instead of aggregating every
+    ///         independent failure into the error.
+    ///
+    /// Returns:
+    ///     `None` if `obj` is a member of the schema's set.
+    ///
+    /// Raises:
+    ///     ValidationError: If `obj` is not a member; its `errors` lists each
+    ///         failure with a code and a path.
+    ///     BaseException: If a comparison the walk performs, or a `repr` its
+    ///         message names, raises a fatal interpreter signal; it propagates
+    ///         rather than being read as a non-member.
+    #[pyo3(signature = (obj, /, *, fail_fast = false))]
+    fn validate(&self, obj: &Bound<'_, PyAny>, fail_fast: bool) -> PyResult<()> {
+        let state = WalkState::new();
+        let mut path = Vec::new();
+        let mut violations = Vec::new();
+        let ok = member(
+            &self.schema,
+            &Value::Py(obj),
+            &mut Frame::new(
+                &mut path,
+                &mut violations,
+                self.context(obj.py(), &state, WalkMode::explaining(fail_fast)),
+            ),
+        );
+        if let Some(err) = state.take_fatal() {
+            return Err(err);
+        }
+        if ok {
+            Ok(())
+        } else {
+            Err(into_pyerr(obj.py(), violations))
+        }
+    }
+
+    /// Whether `obj` is a member of the schema's set.
+    ///
+    /// Check-only: it does not build an error and returns as soon as membership
+    /// is decided. It raises only if a comparison the membership test performs
+    /// raises a fatal interpreter signal (for example a KeyboardInterrupt during
+    /// a long check); an ordinary exception in a comparison is folded to a
+    /// non-member, as the membership contract requires.
+    ///
+    /// Args:
+    ///     obj: The object to check.
+    ///
+    /// Returns:
+    ///     `True` if `obj` is a member of the schema's set, else `False`.
+    ///
+    /// Raises:
+    ///     BaseException: If a membership comparison raises a fatal interpreter
+    ///         signal, it propagates rather than being read as a non-member.
+    #[pyo3(signature = (obj, /))]
+    fn is_valid(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let state = WalkState::new();
+        let ok = member(
+            &self.schema,
+            &Value::Py(obj),
+            &mut Unwritten::default().frame(self.context(obj.py(), &state, WalkMode::Fast)),
+        );
+        reraise_fatal(&state, ok)
+    }
+
+    /// Validate `obj` and return it unchanged.
+    ///
+    /// The value-returning check. Because validation is a membership test rather
+    /// than a coercion, the returned object is exactly the input; `ensure` exists
+    /// so code that wants the checked value back reads distinctly from the
+    /// boolean `is_valid`.
+    ///
+    /// Args:
+    ///     obj: The object to check.
+    ///
+    /// Returns:
+    ///     `obj` unchanged.
+    ///
+    /// Raises:
+    ///     ValidationError: If `obj` is not a member of the schema's set.
+    ///     BaseException: If a comparison the walk performs, or a `repr` its
+    ///         message names, raises a fatal interpreter signal; it propagates
+    ///         rather than being read as a non-member.
+    #[pyo3(signature = (obj, /))]
+    fn ensure<'py>(&self, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        self.validate(obj, false)?;
+        Ok(obj.clone())
+    }
+
+    /// Validate a JSON document, parsing it on the Rust path.
+    ///
+    /// Parsing runs in Rust, faster than the standard library, and the parsed
+    /// value runs the same validation walk as a native object, so this reaches
+    /// the same decision and the same errors as `validate` on the parsed object.
+    /// `fail_fast` behaves as it does for `validate`.
+    ///
+    /// Args:
+    ///     data: The JSON document, as `str` or `bytes`.
+    ///     fail_fast: Stop at the first failure instead of aggregating.
+    ///
+    /// Returns:
+    ///     `None` if the document parses and is a member of the schema's set.
+    ///
+    /// Raises:
+    ///     ValidationError: If the document is malformed or undecodable JSON
+    ///         (code `json_invalid`) or is not a member of the schema's set.
+    ///     TypeError: If `data` is not `str` or `bytes`.
+    ///     BaseException: If a comparison the walk performs, or a `repr` its
+    ///         message names, raises a fatal interpreter signal; it propagates
+    ///         rather than being read as a non-member.
+    #[pyo3(signature = (data, /, *, fail_fast = false))]
+    fn validate_json(&self, data: &Bound<'_, PyAny>, fail_fast: bool) -> PyResult<()> {
+        let parsed = parse_json(data)?;
+        self.validate(&parsed, fail_fast)
+    }
+
+    /// Validate a JSON document and return the parsed value.
+    ///
+    /// Like `validate_json`, but returns the parsed Python object instead of
+    /// discarding it, so a caller that needs the data does not parse it again.
+    /// Parsing runs in Rust (jiter), and the parsed value is validated by the
+    /// same walk, reaching the same decision and errors as `validate`.
+    ///
+    /// Args:
+    ///     data: The JSON document, as `str` or `bytes`.
+    ///     fail_fast: Stop at the first failure instead of aggregating.
+    ///
+    /// Returns:
+    ///     The parsed Python object, once it is confirmed a member of the set.
+    ///
+    /// Raises:
+    ///     ValidationError: If the document is malformed or undecodable JSON
+    ///         (code `json_invalid`) or is not a member of the schema's set.
+    ///     TypeError: If `data` is not `str` or `bytes`.
+    ///     BaseException: If a comparison the walk performs, or a `repr` its
+    ///         message names, raises a fatal interpreter signal; it propagates
+    ///         rather than being read as a non-member.
+    #[pyo3(signature = (data, /, *, fail_fast = false))]
+    fn load<'py>(&self, data: &Bound<'py, PyAny>, fail_fast: bool) -> PyResult<Bound<'py, PyAny>> {
+        let parsed = parse_json(data)?;
+        self.validate(&parsed, fail_fast)?;
+        Ok(parsed)
+    }
+
+    /// Whether a JSON document parses and is a member of the schema's set.
+    ///
+    /// Check-only: malformed or undecodable JSON, or input that is neither `str`
+    /// nor `bytes`, is not a member and returns `False`. The raising entries
+    /// (`validate_json`/`load`) report the same undecodable input as a structured
+    /// `json_invalid` error. The document is validated in place
+    /// against the parsed value, with no intermediate Python objects for the
+    /// structure it walks. It raises only if a membership comparison raises a
+    /// fatal interpreter signal.
+    ///
+    /// Args:
+    ///     data: The JSON document, as `str` or `bytes`.
+    ///
+    /// Returns:
+    ///     `True` if `data` parses and is a member of the schema's set, else
+    ///     `False`.
+    ///
+    /// Raises:
+    ///     BaseException: If a membership comparison raises a fatal interpreter
+    ///         signal, it propagates rather than being read as a non-member.
+    #[pyo3(signature = (data, /))]
+    fn is_valid_json(&self, data: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let py = data.py();
+        match decode_json_input(data) {
+            JsonInput::Bytes(bytes) => self.matches_json(py, bytes),
+            // An undecodable string and a non-str/bytes argument are both
+            // not members — the same verdict the raising path reports structurally.
+            JsonInput::Undecodable | JsonInput::NotStrOrBytes => Ok(false),
+        }
+    }
+
+    /// Whether the schema is unsatisfiable — provably empty, so `is_valid`
+    /// returns `False` for every value.
+    ///
+    /// Decided soundly: `True` only when no value can belong to the schema — an
+    /// unsatisfiable intersection, a fixed sequence with an impossible position,
+    /// a record with an impossible required field, a refinement whose bounds
+    /// cannot hold together (a lower bound above an upper bound, or a minimum
+    /// length above a maximum), or a recursive schema with no base case (a
+    /// mandatory self-reference that can never bottom out). It never reports a
+    /// satisfiable schema as empty; for forms it cannot decide it returns `False`.
+    /// The decision is also bounded by a budget of decision steps, so on a deeply
+    /// nested adversarial schema a `False` can mean "not proven empty within the
+    /// bound" rather than "non-empty"; a real schema decides far inside the
+    /// bound. The budget counts steps, not time.
+    ///
+    /// A `False` therefore carries two cases -- a value belongs, or nothing
+    /// proves none does -- and telling them apart is a relation away.
+    /// Emptiness is `s <= nothing`, so [`relation_to`](Self::relation_to)
+    /// against the bottom gives the three answers: `"subset"` where the schema
+    /// is proved empty, `"not_subset"` where a value says otherwise, and
+    /// `"undecided"` where no reading settles it. There is no second method
+    /// for that, because it would be a second spelling of one question.
+    ///
+    /// Deciding a refinement's bounds orders the two operands, which runs their
+    /// rich comparison, so this can call back into Python.
+    ///
+    /// Returns:
+    ///     `True` if the schema denotes the empty set, else `False`.
+    ///
+    /// Raises:
+    ///     BaseException: If a comparison of the bounds raises a fatal
+    ///         interpreter signal; it propagates rather than being read as an
+    ///         answer.
+    fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
+        let oracle = PoolRelations::new(py, &self.literals, &self.definitions);
+        let empty = self.schema.is_empty_with(&oracle, &self.definitions);
+        oracle.answer(empty)
+    }
+
+    /// Whether every value of this schema is also a value of `other` — set
+    /// inclusion, the subtyping relation.
+    ///
+    /// `other` is any schema spec or compiled validator. The decision is sound:
+    /// `True` only when the inclusion provably holds (`bool` is a subtype of
+    /// `int`, `list[bool]` of `list[int]`, a recursive schema of a wider one, a
+    /// class of a base class). For the forms it cannot decide — a predicate, a
+    /// leaf relation the oracle declines, a schema past the set
+    /// representation's bounds — it returns `False` rather than a relation it
+    /// cannot justify. The decision is bounded by
+    /// a budget of decision steps, so on a deeply nested adversarial schema a
+    /// `False` can mean "not proven a subtype within the bound"; a real schema
+    /// decides far inside the bound. The budget counts steps, not time.
+    ///
+    /// Nothing is inferred from a predicate refinement, but one may be **called**:
+    /// deciding whether a literal is a subtype of a refinement decides whether the
+    /// literal's value belongs to it, and belonging runs the predicate. A slow or
+    /// side-effecting predicate is one this query pays for.
+    ///
+    /// Args:
+    ///     other: The candidate supertype, as a schema spec or validator.
+    ///
+    /// Returns:
+    ///     `True` if this schema is a subtype of `other`, else `False`.
+    ///
+    /// Raises:
+    ///     NotImplementedError: If `other` uses an unsupported form, or is a
+    ///         callable that is not a class.
+    ///     ValueError: If a marker in `other` denotes no set, a `recursive`
+    ///         body in it is not contractive, or it crosses a size bound.
+    ///     BaseException: If a predicate, a comparison or a class read the
+    ///         decision runs raises a fatal interpreter signal; it propagates
+    ///         rather than being read as an answer.
+    #[pyo3(signature = (other, /))]
+    fn is_subtype_of(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let mut literals = self.relation_pool(py, other);
+        let mut definitions = self.definitions.clone();
+        let other = build_root(other, &mut literals, &mut definitions)?;
+        let oracle = PoolRelations::new(py, literals.items(), &definitions);
+        let holds = self
+            .schema
+            .is_subtype_of_under(&other, &oracle, &definitions);
+        oracle.answer(holds)
+    }
+
+    /// The inclusion in three answers rather than two.
+    ///
+    /// `is_subtype_of` reports a proof as `True` and everything else as
+    /// `False`, which folds together the two cases a caller most often wants
+    /// apart: a value of this schema that `other` rejects, and a question the
+    /// decision procedure declines. This reports them separately.
+    ///
+    /// `"subset"` is the proof `is_subtype_of` returns `True` for.
+    /// `"not_subset"` is a refutation: some value of this schema is outside
+    /// `other`. Where a class is the subject, that rests on the class holding an
+    /// instance, which is the one assumption the decidability page records.
+    /// `"undecided"` is neither, and the schemas it happens for are the
+    /// conservative boundary that page describes -- a predicate, a leaf
+    /// relation the oracle declines, a schema past the set representation's
+    /// bounds, a query that spends its budget of decision steps.
+    ///
+    /// What `"subset"` proves is inclusion between two sets of values, not a
+    /// static checker's assignability, which is a relation between
+    /// declarations. A checker holds a mutable member invariant, so it refuses
+    /// a `TypedDict` declaring `x: bool` where one declaring `x: int` is wanted,
+    /// and a class declaring `count: bool` where a protocol declares
+    /// `count: int`; every `bool` is an `int`, so both pairs are `"subset"`
+    /// here. And a plain class is below a protocol only where its instances
+    /// cannot be changed out of it, which its declarations do not decide.
+    ///
+    /// Runs the same work `is_subtype_of` runs and calls back into Python
+    /// wherever it does.
+    ///
+    /// Args:
+    ///     other: The candidate supertype, as a schema spec or validator.
+    ///
+    /// Returns:
+    ///     One of `"subset"`, `"not_subset"` or `"undecided"`.
+    ///
+    /// Raises:
+    ///     NotImplementedError: If `other` uses an unsupported form, or is a
+    ///         callable that is not a class.
+    ///     ValueError: If a marker in `other` denotes no set, a `recursive`
+    ///         body in it is not contractive, or it crosses a size bound.
+    ///     BaseException: If a predicate, a comparison or a class read the
+    ///         decision runs raises a fatal interpreter signal; it propagates
+    ///         rather than being read as an answer.
+    #[pyo3(signature = (other, /))]
+    fn relation_to(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<&'static str> {
+        let mut literals = self.relation_pool(py, other);
+        let mut definitions = self.definitions.clone();
+        let other = build_root(other, &mut literals, &mut definitions)?;
+        let oracle = PoolRelations::new(py, literals.items(), &definitions);
+        let relation = self
+            .schema
+            .subtype_relation_under(&other, &oracle, &definitions);
+        oracle.answer(match relation {
+            Relation::Holds => "subset",
+            Relation::Fails => "not_subset",
+            Relation::Unknown => "undecided",
+        })
+    }
+
+    /// Whether this schema and `other` denote the same set — mutual inclusion.
+    ///
+    /// `other` is any schema spec or compiled validator. Sound, like
+    /// `is_subtype_of`: `True` only when the two are provably equivalent,
+    /// whatever their syntax (`bool | int` is equivalent to `int`). Bounded by the
+    /// same budget of decision steps as `is_subtype_of`, so on a deeply nested
+    /// adversarial schema a `False` can mean "not proven equivalent within the
+    /// bound".
+    ///
+    /// Mutual inclusion, so it calls back into Python wherever `is_subtype_of`
+    /// does.
+    ///
+    /// Args:
+    ///     other: The schema to compare, as a spec or validator.
+    ///
+    /// Returns:
+    ///     `True` if the two schemas are equivalent, else `False`.
+    ///
+    /// Raises:
+    ///     NotImplementedError: If `other` uses an unsupported form, or is a
+    ///         callable that is not a class.
+    ///     ValueError: If a marker in `other` denotes no set, a `recursive`
+    ///         body in it is not contractive, or it crosses a size bound.
+    ///     BaseException: If a predicate, a comparison or a class read the
+    ///         decision runs raises a fatal interpreter signal; it propagates
+    ///         rather than being read as an answer.
+    #[pyo3(signature = (other, /))]
+    fn is_equivalent(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let mut literals = self.relation_pool(py, other);
+        let mut definitions = self.definitions.clone();
+        let other = build_root(other, &mut literals, &mut definitions)?;
+        let oracle = PoolRelations::new(py, literals.items(), &definitions);
+        let equivalent = self
+            .schema
+            .is_equivalent_under(&other, &oracle, &definitions);
+        oracle.answer(equivalent)
+    }
+
+    /// Render the compiled schema back as the annotation expression that
+    /// produces it.
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        render(py, &self.schema, &self.literals, &self.definitions)
+    }
+
+    /// Refuse to pickle, and say what to do instead.
+    ///
+    /// A validator is a compiled tree over a pool of live Python objects -- the
+    /// classes an `isinstance` atom names, the callables a predicate runs -- and
+    /// pickling it would have to pickle those, which is a different question
+    /// with a different answer per object. The schema it was built from is the
+    /// thing that travels, and rebuilding from it costs about as much as
+    /// unpickling would: a fifty-field record compiles in eleven microseconds.
+    ///
+    /// Written out rather than left to the default, because the default says
+    /// "cannot pickle 'valgebra.Validator' object" and stops there.
+    #[expect(
+        clippy::unused_self,
+        reason = "a dunder pyo3 exposes: the signature is Python's, not ours"
+    )]
+    fn __reduce__(&self) -> PyResult<()> {
+        Err(PyTypeError::new_err(
+            "a Validator cannot be pickled: it holds the classes and callables \
+             its schema names, and those are what would have to travel. Send the \
+             schema instead and rebuild with Validator(...) on the other side; \
+             compiling is cheap. `repr(validator)` gives an expression that \
+             rebuilds most schemas, but not all: the API reference lists the \
+             forms it cannot spell, and the two that read back as a different \
+             schema.",
+        ))
+    }
+
+    /// Return this validator. It is immutable and cannot be subclassed, so a
+    /// copy is the object itself, as `copy.copy` gives back a `tuple` or a
+    /// `frozenset`: one that kept the schema, the pool and the definitions
+    /// would hold the same set and drop the hash and the per-node tables this
+    /// one has computed.
+    fn __copy__(slf: Bound<'_, Self>) -> Bound<'_, Self> {
+        slf
+    }
+
+    /// Return this validator, for the reason `__copy__` gives: nothing in it
+    /// is mutable, so a deep copy is the object itself and the memo is unused.
+    fn __deepcopy__<'py>(slf: Bound<'py, Self>, _memo: &Bound<'py, PyAny>) -> Bound<'py, Self> {
+        slf
+    }
+
+    /// Open every record and mapping in the schema: a key no clause claims is
+    /// admitted with any value, throughout, including inside recursive
+    /// definitions.
+    ///
+    /// Returns a new validator; this one is unchanged. A clause keeps what it
+    /// says: a record claims no key beyond its fields, so opening it admits
+    /// every other key, while `{"a": int, str: int}` opened still maps a `str`
+    /// key to an `int` and frees only the keys that are not strings.
+    /// `open` and `close` are idempotent projections rather than inverses.
+    ///
+    /// Opening a mapping writes the freed region as a clause keyed by the
+    /// complement of the keys it claims. Over whole kinds the relations decide
+    /// the result like any other map. Over literals, which is what
+    /// `dict[Literal["a"], int]` claims, the complement holds part of a kind,
+    /// and a relation about the result may answer `"undecided"`. Membership is
+    /// exact either way.
+    ///
+    /// **These two read the schema, not the set it denotes.** Every relation on
+    /// this surface answers about the set, so two spellings of one set give one
+    /// answer; these rewrite the records the schema is written out of, and two
+    /// spellings can open into two different sets. `{"a?": int}` and
+    /// `union({}, {"a": int})` admit the same dicts, and opening the first keeps
+    /// `a` an integer while opening the second admits every dict -- because the
+    /// branch declaring no field opens to every dict on its own. Apply them to
+    /// the record you mean rather than to a union of spellings of it.
+    ///
+    /// Returns:
+    ///     A validator whose every record and mapping admits the keys no clause
+    ///     claims.
+    ///
+    /// Raises:
+    ///     ValueError: If admitting undeclared keys expands the schema past the
+    ///         size bound; opening a record adds a catch-all clause, so a
+    ///         validator near the limit can cross it.
+    fn open(&self, py: Python<'_>) -> PyResult<Validator> {
+        self.map_schemas(py, |schema| schema.with_records_open(Openness::Open))
+    }
+
+    /// Close every record and mapping in the schema: a key no clause claims is
+    /// refused, throughout, including inside recursive definitions.
+    ///
+    /// Returns a new validator; this one is unchanged. A clause short of every
+    /// value keeps what it says, and so does a `str: anything` clause beside
+    /// declared fields; the clauses admitting every value close as one clause,
+    /// so `{str: anything, complement(str): anything}` closes to `{}`. A record
+    /// with no clause admits only its declared keys, `{"a": int, str: int}` closed still admits a `str` key
+    /// mapped to an `int`, and `Validator(dict[str, int]).close()` is the
+    /// mapping it was asked of.
+    ///
+    /// Reads the schema rather than the set, for the reason
+    /// [`open`](Self::open) gives.
+    ///
+    /// Returns:
+    ///     A validator whose every record and mapping refuses the keys no clause
+    ///     claims.
+    fn close(&self, py: Python<'_>) -> PyResult<Validator> {
+        self.map_schemas(py, |schema| schema.with_records_open(Openness::Closed))
+    }
+
+    /// Whether `obj` is a member of the schema's set: the operator form of
+    /// `is_valid`, so `obj in validator` reads as the set membership it is.
+    fn __contains__(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.is_valid(obj)
+    }
+
+    /// The union of this schema and `other`, written `validator | other`. `|` is
+    /// the one operator typing already uses for unions; intersection and
+    /// complement stay spelled out as `intersection`/`complement`. `other` is any
+    /// schema spec or validator.
+    fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<Validator> {
+        self.union_with(other, Operand::Right)
+    }
+
+    /// The union `other | validator`, used when the left operand does not handle
+    /// `|` (for example `None | validator`).
+    fn __ror__(&self, other: &Bound<'_, PyAny>) -> PyResult<Validator> {
+        self.union_with(other, Operand::Left)
+    }
+
+    /// Equality of the normal form: two validators are equal when their schema
+    /// trees, recursive definitions, and pooled constants all match, after the
+    /// lattice laws construction settles. So `union(int, str)` equals
+    /// `union(str, int)`, and `union(int, complement(int))` equals `anything`.
+    /// The order `recursive` definitions were met in is not a difference
+    /// either: a reference is read through to the definition it names, so
+    /// `union(r1, r2)` equals `union(r2, r1)`. Past the laws it is *syntactic*:
+    /// `union(bool, int)` is not `int`, since a containment rewrites one into
+    /// the other and no law does. `is_equivalent` compares the sets two schemas
+    /// denote, whatever their shape.
+    ///
+    /// A pooled constant is compared the way a literal reads one: same type and
+    /// equal. Python's `==` runs across types, so equality alone makes
+    /// `Literal[1]` and `Literal[True]` the same validator while `is_equivalent`
+    /// reports them disjoint — two answers about one pair. The type test is what
+    /// `Literal` already means, so equality says what the schema says.
+    ///
+    /// A non-validator gets `NotImplemented` rather than `False`: the data model
+    /// asks the other operand next, and it may know something about validators
+    /// that validators do not know about it.
+    fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = other.py();
+        let Ok(bound) = other.cast::<Validator>() else {
+            return Ok(py.NotImplemented().into_bound(py));
+        };
+        let other = bound.get();
+        let equal = crate::equality::schemas_equal(
+            py,
+            &self.schema,
+            &crate::equality::Side {
+                definitions: &self.definitions,
+                pool: &self.literals,
+            },
+            &other.schema,
+            &crate::equality::Side {
+                definitions: &other.definitions,
+                pool: &other.literals,
+            },
+        )?;
+        Ok(PyBool::new(py, equal).to_owned().into_any())
+    }
+
+    /// A hash consistent with equality, which is equality modulo the pool.
+    ///
+    /// It digests the schema's node kinds, the parts of them no pool slot
+    /// reaches, and the **constant behind each slot that has one**. Not the
+    /// slot itself: two equal validators may index one constant at different
+    /// slots, so the index is construction order and not part of the schema.
+    ///
+    /// Reading the constants is what makes two schemas differing only in one
+    /// two keys rather than one bucket. Skipping them put `Literal[1]` through
+    /// `Literal[1000]` on a single hash and turned a registry of validators --
+    /// the reason this method exists -- into a linear scan.
+    ///
+    /// A union's members are folded commutatively, since their order is not
+    /// part of the schema, and a constant with no hash contributes nothing:
+    /// that is a collision, so a validator stays usable as a key whatever it
+    /// pools.
+    ///
+    /// The digest is kept once computed, the way a `frozenset` keeps its own:
+    /// a registry keyed by validators hashes a key on every lookup, and the
+    /// digest reads every constant. A fatal signal raised while computing it
+    /// propagates, and nothing is kept.
+    fn __hash__(&self, py: Python<'_>) -> PyResult<u64> {
+        use std::hash::Hasher;
+        if let Some(&digest) = self.hash.get() {
+            return Ok(digest);
+        }
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let side = crate::equality::Side {
+            definitions: &self.definitions,
+            pool: &self.literals,
+        };
+        crate::equality::hash_shape(py, &self.schema, &side, &mut hasher)?;
+        Ok(*self.hash.get_or_init(|| hasher.finish()))
+    }
+}
+
+// Needs a live interpreter; compiled and run only under the `interpreter-tests`
+// feature, which links an embedded Python.
+#[cfg(all(test, feature = "interpreter-tests"))]
+mod tests;

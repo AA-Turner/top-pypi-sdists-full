@@ -1,0 +1,1478 @@
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    num::NonZeroU16,
+    panic::AssertUnwindSafe,
+    sync::{
+        Arc,
+        atomic::{AtomicU16, Ordering},
+    },
+    time::Duration,
+};
+
+use futures::FutureExt;
+use pgtask_core::{
+    HandlerVersion, LeaseRenewal, QueueName, RetryPolicy, ScheduleConfig, Task, TaskId, TaskName, TaskState, WorkerId,
+};
+use pgtask_postgres::{PostgresError, ReadyListener, Store, TaskCompletion, TaskFailure};
+use serde_json::json;
+use thiserror::Error;
+use tokio::{
+    sync::{Mutex, Notify, mpsc, oneshot},
+    task::{JoinError, JoinSet},
+    time::{Instant, MissedTickBehavior},
+};
+use tokio_util::sync::CancellationToken;
+use tracing::{Instrument, info_span, warn};
+
+use crate::{
+    HandlerRegistry,
+    health::{Health, Supervisor},
+    outcome::{self, PreparedResult},
+    registry::RegisteredHandler,
+};
+
+const MAX_RECOVERY_DRAIN_BATCHES: usize = 16;
+const MAX_RETENTION_DRAIN_BATCHES: usize = 16;
+/// How long a stopping worker waits for PostgreSQL to take back the leases of aborted handlers.
+const LEASE_RELEASE_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Debug)]
+pub struct WorkerConfig {
+    /// Ordered by priority: the worker drains earlier queues before claiming from later ones.
+    pub queues: Vec<QueueName>,
+    pub concurrency: NonZeroU16,
+    pub claim_batch_size: NonZeroU16,
+    pub recovery_batch_size: NonZeroU16,
+    pub lease_duration: Duration,
+    pub poll_interval: Duration,
+    pub shutdown_grace: Duration,
+    pub worker_heartbeat_interval: Duration,
+    pub worker_ttl: Duration,
+    pub scheduler_enabled: bool,
+    pub schedule_batch_size: NonZeroU16,
+    pub wait_batch_size: NonZeroU16,
+    pub schedule_reconciliation_interval: Duration,
+    pub retention_enabled: bool,
+    pub retention_batch_size: NonZeroU16,
+    pub retention_interval: Duration,
+    /// How long a worker row is kept after it expires before retention deletes it.
+    pub expired_worker_retention: Duration,
+    pub declared_schedules: Vec<ScheduleConfig>,
+    pub health_address: Option<SocketAddr>,
+    pub supervisor_interval: Duration,
+    pub overload_protection: OverloadProtectionConfig,
+}
+
+#[derive(Clone, Debug)]
+pub struct OverloadProtectionConfig {
+    pub enabled: bool,
+    pub enforce: bool,
+    pub event_loop_lag_threshold: Duration,
+    pub sustained_samples: NonZeroU16,
+    pub recovery_samples: NonZeroU16,
+    pub minimum_concurrency: NonZeroU16,
+}
+
+impl Default for OverloadProtectionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            enforce: false,
+            event_loop_lag_threshold: Duration::from_millis(250),
+            sustained_samples: NonZeroU16::new(3).expect("3 is nonzero"),
+            recovery_samples: NonZeroU16::new(5).expect("5 is nonzero"),
+            minimum_concurrency: NonZeroU16::MIN,
+        }
+    }
+}
+
+impl WorkerConfig {
+    pub fn new(queue_name: QueueName) -> Self {
+        Self::with_queues(vec![queue_name])
+    }
+
+    pub fn with_queues(queues: Vec<QueueName>) -> Self {
+        Self {
+            queues,
+            concurrency: NonZeroU16::new(10).expect("10 is nonzero"),
+            claim_batch_size: NonZeroU16::new(10).expect("10 is nonzero"),
+            recovery_batch_size: NonZeroU16::new(10).expect("10 is nonzero"),
+            lease_duration: Duration::from_secs(30),
+            poll_interval: Duration::from_secs(30),
+            shutdown_grace: Duration::from_secs(30),
+            worker_heartbeat_interval: Duration::from_secs(10),
+            worker_ttl: Duration::from_secs(30),
+            scheduler_enabled: true,
+            schedule_batch_size: NonZeroU16::new(100).expect("100 is nonzero"),
+            wait_batch_size: NonZeroU16::new(100).expect("100 is nonzero"),
+            schedule_reconciliation_interval: Duration::from_secs(30),
+            retention_enabled: true,
+            retention_batch_size: NonZeroU16::new(100).expect("100 is nonzero"),
+            retention_interval: Duration::from_mins(1),
+            expired_worker_retention: Duration::from_hours(24),
+            declared_schedules: Vec::new(),
+            health_address: None,
+            supervisor_interval: Duration::from_secs(1),
+            overload_protection: OverloadProtectionConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum WorkerError {
+    #[error(transparent)]
+    Postgres(#[from] PostgresError),
+    #[error("lease duration must be at least three milliseconds")]
+    InvalidLeaseDuration,
+    #[error("poll interval must be greater than zero")]
+    InvalidPollInterval,
+    #[error("worker heartbeat interval must be at least one millisecond and shorter than its time to live")]
+    InvalidWorkerHeartbeat,
+    #[error("schedule reconciliation interval must be greater than zero")]
+    InvalidScheduleReconciliationInterval,
+    #[error("retention interval must be greater than zero")]
+    InvalidRetentionInterval,
+    #[error("supervisor interval must be greater than zero")]
+    InvalidSupervisorInterval,
+    #[error("overload protection minimum concurrency exceeds configured concurrency")]
+    InvalidMinimumConcurrency,
+    #[error("worker supervisor failed: {0}")]
+    Supervisor(#[source] std::io::Error),
+    #[error(
+        "database storage protocols {database_minimum}..={database_maximum} are incompatible with worker protocols {worker_minimum}..={worker_maximum}"
+    )]
+    IncompatibleStorageProtocol {
+        database_minimum: u32,
+        database_maximum: u32,
+        worker_minimum: u32,
+        worker_maximum: u32,
+    },
+    #[error("worker has no registered handlers")]
+    MissingHandlers,
+    #[error("worker has no queues")]
+    MissingQueues,
+    #[error("worker queue list contains duplicates")]
+    DuplicateQueues,
+    #[error("effective concurrency {requested} exceeds configured concurrency {configured}")]
+    AdmissionLimitExceedsConfigured { requested: u16, configured: u16 },
+    #[error("declared schedule {0} targets another queue or an unregistered handler")]
+    InvalidDeclaredSchedule(String),
+    #[error("claimed task {0} has no lease token")]
+    MissingLeaseToken(pgtask_core::TaskId),
+    #[error("claimed task has no registered handler")]
+    MissingHandler,
+}
+
+pub struct Worker {
+    store: Store,
+    registry: Arc<HandlerRegistry>,
+    config: WorkerConfig,
+    control: WorkerControl,
+    health: Health,
+    id: WorkerId,
+}
+
+#[derive(Clone)]
+pub struct WorkerControl {
+    configured: NonZeroU16,
+    effective: Arc<AtomicU16>,
+    proposed: Arc<AtomicU16>,
+    changed: Arc<Notify>,
+    queue_name: QueueName,
+}
+
+impl WorkerControl {
+    pub fn configured_concurrency(&self) -> NonZeroU16 {
+        self.configured
+    }
+
+    pub fn effective_concurrency(&self) -> NonZeroU16 {
+        NonZeroU16::new(self.effective.load(Ordering::Acquire)).expect("the admission limit is always nonzero")
+    }
+
+    pub fn proposed_concurrency(&self) -> NonZeroU16 {
+        NonZeroU16::new(self.proposed.load(Ordering::Acquire)).expect("the proposed admission limit is always nonzero")
+    }
+
+    pub fn set_effective_concurrency(&self, limit: NonZeroU16) -> Result<(), WorkerError> {
+        self.apply_effective_concurrency(limit, "manual")
+    }
+
+    pub(crate) fn apply_effective_concurrency(
+        &self,
+        limit: NonZeroU16,
+        reason: &'static str,
+    ) -> Result<(), WorkerError> {
+        if limit > self.configured {
+            return Err(WorkerError::AdmissionLimitExceedsConfigured {
+                requested: limit.get(),
+                configured: self.configured.get(),
+            });
+        }
+        let previous = self.effective.swap(limit.get(), Ordering::AcqRel);
+        if previous != limit.get() {
+            pgtask_otel::record_worker_admission_limit(self.queue_name.as_str(), "applied", reason, limit.get());
+        }
+        self.changed.notify_waiters();
+        Ok(())
+    }
+
+    pub(crate) fn record_proposed_concurrency(&self, limit: NonZeroU16, reason: &'static str) {
+        let previous = self.proposed.swap(limit.get(), Ordering::AcqRel);
+        if previous != limit.get() {
+            pgtask_otel::record_worker_admission_limit(self.queue_name.as_str(), "proposed", reason, limit.get());
+        }
+    }
+}
+
+type ActiveLeases = Arc<Mutex<HashMap<TaskId, ActiveLease>>>;
+
+#[derive(Clone)]
+struct TransitionWriter {
+    sender: mpsc::Sender<TransitionRequest>,
+}
+
+enum TransitionRequest {
+    Complete {
+        completion: TaskCompletion,
+        response: oneshot::Sender<Result<bool, Arc<PostgresError>>>,
+    },
+    Fail {
+        failure: TaskFailure,
+        response: oneshot::Sender<Result<Option<TaskState>, Arc<PostgresError>>>,
+    },
+}
+
+#[derive(Debug, Error)]
+enum TransitionError {
+    #[error("task transition writer stopped")]
+    Closed,
+    #[error("database operation failed: {0}")]
+    Postgres(Arc<PostgresError>),
+}
+
+impl TransitionWriter {
+    async fn complete(&self, completion: TaskCompletion) -> Result<bool, TransitionError> {
+        let (response, receiver) = oneshot::channel();
+        self.sender
+            .send(TransitionRequest::Complete { completion, response })
+            .await
+            .map_err(|_| TransitionError::Closed)?;
+        receiver
+            .await
+            .map_err(|_| TransitionError::Closed)?
+            .map_err(TransitionError::Postgres)
+    }
+
+    async fn fail(&self, failure: TaskFailure) -> Result<Option<TaskState>, TransitionError> {
+        let (response, receiver) = oneshot::channel();
+        self.sender
+            .send(TransitionRequest::Fail { failure, response })
+            .await
+            .map_err(|_| TransitionError::Closed)?;
+        receiver
+            .await
+            .map_err(|_| TransitionError::Closed)?
+            .map_err(TransitionError::Postgres)
+    }
+}
+
+#[derive(Clone)]
+struct ActiveLease {
+    renewal: LeaseRenewal,
+    queue_name: QueueName,
+    task_name: TaskName,
+    lost: CancellationToken,
+    last_renewed: Instant,
+}
+
+struct HeartbeatConfig {
+    worker_id: WorkerId,
+    queue_name: QueueName,
+    interval: Duration,
+    ttl: Duration,
+}
+
+impl Worker {
+    pub fn new(store: Store, registry: HandlerRegistry, config: WorkerConfig) -> Result<Self, WorkerError> {
+        if config.lease_duration < Duration::from_millis(3) {
+            return Err(WorkerError::InvalidLeaseDuration);
+        }
+        if config.poll_interval.is_zero() {
+            return Err(WorkerError::InvalidPollInterval);
+        }
+        if config.worker_heartbeat_interval < Duration::from_millis(1)
+            || config.worker_heartbeat_interval >= config.worker_ttl
+        {
+            return Err(WorkerError::InvalidWorkerHeartbeat);
+        }
+        if config.schedule_reconciliation_interval.is_zero() {
+            return Err(WorkerError::InvalidScheduleReconciliationInterval);
+        }
+        if config.retention_interval.is_zero() {
+            return Err(WorkerError::InvalidRetentionInterval);
+        }
+        if config.supervisor_interval.is_zero() {
+            return Err(WorkerError::InvalidSupervisorInterval);
+        }
+        if config.overload_protection.minimum_concurrency > config.concurrency {
+            return Err(WorkerError::InvalidMinimumConcurrency);
+        }
+        if registry.capabilities().is_empty() {
+            return Err(WorkerError::MissingHandlers);
+        }
+        if config.queues.is_empty() {
+            return Err(WorkerError::MissingQueues);
+        }
+        if config
+            .queues
+            .iter()
+            .enumerate()
+            .any(|(index, queue)| config.queues[..index].contains(queue))
+        {
+            return Err(WorkerError::DuplicateQueues);
+        }
+        if let Some(schedule) = config.declared_schedules.iter().find(|schedule| {
+            !config.queues.contains(&schedule.task.queue_name)
+                || registry
+                    .get(&schedule.task.task_name, schedule.task.handler_version)
+                    .is_none()
+        }) {
+            return Err(WorkerError::InvalidDeclaredSchedule(schedule.name.to_string()));
+        }
+        let control = WorkerControl {
+            configured: config.concurrency,
+            effective: Arc::new(AtomicU16::new(config.concurrency.get())),
+            proposed: Arc::new(AtomicU16::new(config.concurrency.get())),
+            changed: Arc::new(Notify::new()),
+            queue_name: config.queues[0].clone(),
+        };
+        Ok(Self {
+            store,
+            registry: Arc::new(registry),
+            config,
+            control,
+            health: Health::new(),
+            id: WorkerId::new(),
+        })
+    }
+
+    pub fn control(&self) -> WorkerControl {
+        self.control.clone()
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub async fn run(self, shutdown: CancellationToken) -> Result<(), WorkerError> {
+        self.ensure_storage_protocol().await?;
+        let _supervisor = self.start_supervisor()?;
+        let active_leases = Arc::new(Mutex::new(HashMap::new()));
+        let task_wakeup = Arc::new(Notify::new());
+        let schedule_wakeup = Arc::new(Notify::new());
+        let runtime_shutdown = CancellationToken::new();
+        let (transition_sender, transition_receiver) = mpsc::channel(usize::from(self.config.concurrency.get()));
+        let transition_writer = TransitionWriter {
+            sender: transition_sender,
+        };
+        let transitions = write_transitions(
+            self.store.clone(),
+            transition_receiver,
+            self.config.concurrency,
+            runtime_shutdown.clone(),
+        );
+        let registrations = self.registry.registrations();
+        let ready_listener = self.store.ready_listener_for(&self.config.queues).await?;
+        self.health.set_listener(true);
+        for schedule in &self.config.declared_schedules {
+            self.store.put_schedule(schedule).await?;
+        }
+        self.store
+            .register_worker(
+                self.id,
+                &self.config.queues[0],
+                env!("CARGO_PKG_VERSION"),
+                &registrations,
+                self.config.worker_ttl,
+            )
+            .await?;
+        self.health.set_database(true);
+        self.health.set_admission(true);
+        let renewer = renew_leases(
+            self.store.clone(),
+            Arc::clone(&active_leases),
+            self.health.clone(),
+            self.config.lease_duration,
+            runtime_shutdown.clone(),
+        );
+        let recovery = recover_expired_leases(self.store.clone(), &self.config, runtime_shutdown.clone());
+        let listener = listen_for_ready(
+            self.store.clone(),
+            self.config.queues.clone(),
+            Arc::clone(&task_wakeup),
+            Arc::clone(&schedule_wakeup),
+            runtime_shutdown.clone(),
+            ready_listener,
+            self.health.clone(),
+        );
+        let scheduler = materialize_schedules(
+            self.store.clone(),
+            self.config.scheduler_enabled,
+            self.config.schedule_batch_size,
+            self.config.wait_batch_size,
+            self.config.schedule_reconciliation_interval,
+            schedule_wakeup,
+            runtime_shutdown.clone(),
+        );
+        let retention = delete_expired_rows(self.store.clone(), &self.config, runtime_shutdown.clone());
+        let heartbeat = heartbeat_worker(
+            self.store.clone(),
+            HeartbeatConfig {
+                worker_id: self.id,
+                queue_name: self.config.queues[0].clone(),
+                interval: self.config.worker_heartbeat_interval,
+                ttl: self.config.worker_ttl,
+            },
+            runtime_shutdown.clone(),
+            self.health.clone(),
+        );
+        let sampler = sample_queue_demand(
+            self.store.clone(),
+            self.config.queues[0].clone(),
+            self.config.worker_heartbeat_interval,
+            runtime_shutdown.clone(),
+        );
+        let handlers = async {
+            let result = self
+                .run_handlers(shutdown, Arc::clone(&active_leases), task_wakeup, transition_writer)
+                .await;
+            runtime_shutdown.cancel();
+            self.health.set_admission(false);
+            result
+        };
+        let ((), (), (), (), (), (), (), (), result) = tokio::join!(
+            transitions,
+            renewer,
+            recovery,
+            listener,
+            scheduler,
+            retention,
+            heartbeat,
+            sampler,
+            handlers
+        );
+        result
+    }
+
+    fn start_supervisor(&self) -> Result<Supervisor, WorkerError> {
+        Supervisor::start(
+            self.health.clone(),
+            self.config.queues[0].clone(),
+            self.config.supervisor_interval,
+            self.config.health_address,
+            self.control.clone(),
+            self.config.overload_protection.clone(),
+            self.config.lease_duration * 2 / 3,
+        )
+        .map_err(WorkerError::Supervisor)
+    }
+
+    async fn ensure_storage_protocol(&self) -> Result<(), WorkerError> {
+        let database_protocol = self.store.storage_protocol_range().await?;
+        if database_protocol.overlaps(crate::STORAGE_PROTOCOL_RANGE) {
+            return Ok(());
+        }
+        Err(WorkerError::IncompatibleStorageProtocol {
+            database_minimum: database_protocol.minimum,
+            database_maximum: database_protocol.maximum,
+            worker_minimum: crate::STORAGE_PROTOCOL_MIN_VERSION,
+            worker_maximum: crate::STORAGE_PROTOCOL_MAX_VERSION,
+        })
+    }
+    async fn run_handlers(
+        &self,
+        shutdown: CancellationToken,
+        active_leases: ActiveLeases,
+        wakeup: Arc<Notify>,
+        transition_writer: TransitionWriter,
+    ) -> Result<(), WorkerError> {
+        let mut handlers = JoinSet::new();
+        let capabilities = self.registry.capabilities();
+        loop {
+            self.health.record_runtime_progress();
+            while let Some(result) = handlers.try_join_next() {
+                handle_handler_result(result);
+            }
+            if shutdown.is_cancelled() {
+                break;
+            }
+
+            let Some((limit, tasks)) = self
+                .claim_tasks(&shutdown, &wakeup, handlers.len(), &capabilities)
+                .await
+            else {
+                continue;
+            };
+            let claimed_any = !tasks.is_empty();
+            for task in tasks {
+                self.spawn_task(&mut handlers, &active_leases, &transition_writer, task)
+                    .await?;
+            }
+
+            if !claimed_any {
+                let deadline_delay = if limit == 0 {
+                    self.config.poll_interval
+                } else {
+                    self.next_task_delay(&capabilities).await
+                };
+                if handlers.is_empty() {
+                    tokio::select! {
+                        () = shutdown.cancelled() => break,
+                        () = self.control.changed.notified() => {}
+                        () = wakeup.notified() => {}
+                        () = tokio::time::sleep(deadline_delay) => {}
+                    }
+                } else {
+                    tokio::select! {
+                        () = shutdown.cancelled() => break,
+                        () = self.control.changed.notified() => {}
+                        result = handlers.join_next() => handle_handler_result(
+                            result.expect("a nonempty handler set returns one task"),
+                        ),
+                        () = wakeup.notified() => {}
+                        () = tokio::time::sleep(deadline_delay) => {}
+                    }
+                }
+            }
+        }
+
+        let deadline = Instant::now() + self.config.shutdown_grace;
+        while !handlers.is_empty() {
+            tokio::select! {
+                result = handlers.join_next() => handle_handler_result(
+                    result.expect("a nonempty handler set returns one task"),
+                ),
+                () = tokio::time::sleep_until(deadline) => {
+                    handlers.abort_all();
+                    break;
+                }
+            }
+        }
+        // Let aborted handlers unwind, so none of them is still between its handler and its
+        // transition write. A handler that finished removed its own lease; what is left belongs to
+        // the aborted ones.
+        while let Some(result) = handlers.join_next().await {
+            match result {
+                Err(error) if error.is_cancelled() => {}
+                result => handle_handler_result(result),
+            }
+        }
+        let aborted: Vec<_> = active_leases
+            .lock()
+            .await
+            .drain()
+            .map(|(_, lease)| lease.renewal)
+            .collect();
+        self.release_aborted_leases(&aborted).await;
+        Ok(())
+    }
+
+    /// Hands the tasks of aborted handlers back as pending without charging them an attempt.
+    /// Best effort: whatever is not released is recovered once its lease expires, as before.
+    async fn release_aborted_leases(&self, leases: &[LeaseRenewal]) {
+        if leases.is_empty() {
+            return;
+        }
+        match tokio::time::timeout(LEASE_RELEASE_TIMEOUT, self.store.release_leases(leases)).await {
+            Ok(Ok(released)) => {
+                tracing::info!(
+                    released = released.len(),
+                    aborted = leases.len(),
+                    "released the leases of handlers aborted at shutdown"
+                );
+            }
+            Ok(Err(error)) => {
+                warn!(%error, aborted = leases.len(), "could not release aborted leases; they will expire instead");
+            }
+            Err(_) => {
+                warn!(
+                    aborted = leases.len(),
+                    "releasing aborted leases timed out; they will expire instead"
+                );
+            }
+        }
+    }
+
+    async fn next_task_delay(&self, capabilities: &[(TaskName, HandlerVersion)]) -> Duration {
+        let mut delay = self.config.poll_interval;
+        for queue_name in &self.config.queues {
+            match self.store.next_task_delay(queue_name, capabilities).await {
+                Ok(Some(queue_delay)) => delay = delay.min(queue_delay),
+                Ok(None) => {}
+                Err(error) => {
+                    self.health.set_database(false);
+                    warn!(%error, "could not read the next task deadline");
+                    return Duration::from_secs(1).min(self.config.poll_interval);
+                }
+            }
+        }
+        delay.max(Duration::from_millis(1))
+    }
+
+    async fn claim_tasks(
+        &self,
+        shutdown: &CancellationToken,
+        wakeup: &Notify,
+        active_handlers: usize,
+        capabilities: &[(TaskName, HandlerVersion)],
+    ) -> Option<(usize, Vec<Task>)> {
+        let effective_concurrency = self.control.effective_concurrency().get();
+        pgtask_otel::record_worker_capacity(
+            self.config.queues[0].as_str(),
+            self.config.concurrency.get(),
+            effective_concurrency,
+            active_handlers,
+        );
+        let available = usize::from(effective_concurrency).saturating_sub(active_handlers);
+        let limit = available.min(usize::from(self.config.claim_batch_size.get()));
+        if limit == 0 {
+            return Some((limit, Vec::new()));
+        }
+        let mut tasks = Vec::new();
+        for queue_name in &self.config.queues {
+            let remaining = limit - tasks.len();
+            if remaining == 0 {
+                break;
+            }
+            match self
+                .store
+                .claim(
+                    queue_name,
+                    self.id,
+                    capabilities,
+                    u16::try_from(remaining).expect("limit is bounded by a u16 configuration value"),
+                    self.config.lease_duration,
+                )
+                .await
+            {
+                Ok(claimed) => {
+                    self.health.set_database(true);
+                    tasks.extend(claimed);
+                }
+                Err(error) => {
+                    self.health.set_database(false);
+                    warn!(%error, "could not claim tasks");
+                    wait_after_database_error(shutdown, wakeup).await;
+                    return None;
+                }
+            }
+        }
+        Some((limit, tasks))
+    }
+
+    async fn spawn_task(
+        &self,
+        handlers: &mut JoinSet<Result<(), TransitionError>>,
+        active_leases: &ActiveLeases,
+        transition_writer: &TransitionWriter,
+        task: Task,
+    ) -> Result<(), WorkerError> {
+        let lease_token = task.lease_token.ok_or(WorkerError::MissingLeaseToken(task.id))?;
+        let handler = self
+            .registry
+            .get(&task.task_name, task.handler_version)
+            .ok_or(WorkerError::MissingHandler)?
+            .clone();
+        let lost = CancellationToken::new();
+        active_leases.lock().await.insert(
+            task.id,
+            ActiveLease {
+                renewal: LeaseRenewal {
+                    task_id: task.id,
+                    attempt: task.attempt,
+                    lease_token,
+                },
+                queue_name: task.queue_name.clone(),
+                task_name: task.task_name.clone(),
+                lost: lost.clone(),
+                last_renewed: Instant::now(),
+            },
+        );
+        self.health.set_active_leases(true);
+        let span = info_span!(
+            "pgtask.execute",
+            otel.kind = "consumer",
+            pgtask.task.id = %task.id,
+            pgtask.task.name = %task.task_name,
+            pgtask.task.attempt = task.attempt,
+            pgtask.queue.name = %task.queue_name,
+        );
+        pgtask_otel::set_parent_from_headers(&span, &task.headers)
+            .unwrap_or_else(|error| warn!(%error, "could not attach the producer trace context"));
+        let active_leases = Arc::clone(active_leases);
+        let store = self.store.clone();
+        let transition_writer = transition_writer.clone();
+        let health = self.health.clone();
+        handlers.spawn(
+            async move {
+                let task_id = task.id;
+                let result = execute(store, transition_writer, handler, task, lease_token, lost).await;
+                let mut leases = active_leases.lock().await;
+                leases.remove(&task_id);
+                health.set_active_leases(!leases.is_empty());
+                result
+            }
+            .instrument(span),
+        );
+        Ok(())
+    }
+}
+
+fn handle_handler_result(result: Result<Result<(), TransitionError>, JoinError>) {
+    if let Err(error) = result.expect("engine execution tasks do not panic") {
+        warn!(%error, "task state transition failed; its lease will be recovered");
+    }
+}
+
+async fn wait_after_database_error(shutdown: &CancellationToken, wakeup: &Notify) {
+    tokio::select! {
+        () = shutdown.cancelled() => {}
+        () = wakeup.notified() => {}
+        () = tokio::time::sleep(Duration::from_secs(1)) => {}
+    }
+}
+
+async fn execute(
+    store: Store,
+    transition_writer: TransitionWriter,
+    handler: RegisteredHandler,
+    task: Task,
+    lease_token: pgtask_core::LeaseToken,
+    lease_lost: CancellationToken,
+) -> Result<(), TransitionError> {
+    let queue_latency = task
+        .updated_at
+        .signed_duration_since(task.created_at)
+        .to_std()
+        .unwrap_or_default();
+    pgtask_otel::record_queue_latency(task.queue_name.as_str(), task.task_name.as_str(), queue_latency);
+    let started_at = std::time::Instant::now();
+    let context = crate::TaskContext::new(store.clone(), &task, lease_token, lease_lost.clone());
+    let handler_future = AssertUnwindSafe((handler.function)(task.clone(), context)).catch_unwind();
+    tokio::pin!(handler_future);
+
+    tokio::select! {
+        result = &mut handler_future => {
+            match result {
+                Ok(Ok(result)) => complete_execution(&transition_writer, &task, lease_token, result, started_at).await?,
+                Ok(Err(error)) if error.is_suspended() => pgtask_otel::record_execution(
+                    task.queue_name.as_str(),
+                    task.task_name.as_str(),
+                    "suspended",
+                    started_at.elapsed(),
+                ),
+                Ok(Err(error)) => fail_execution(
+                    &transition_writer,
+                    &task,
+                    lease_token,
+                    error,
+                    handler.retry_policy,
+                    started_at,
+                ).await?,
+                Err(_) => record_panicked_execution(
+                    &transition_writer,
+                    &task,
+                    lease_token,
+                    handler.retry_policy,
+                    started_at,
+                ).await?,
+            }
+        }
+        () = lease_lost.cancelled() => {
+            pgtask_otel::record_execution(
+                task.queue_name.as_str(),
+                task.task_name.as_str(),
+                "lease_lost",
+                started_at.elapsed(),
+            );
+            warn!("task lost its lease during execution");
+        }
+    }
+    Ok(())
+}
+
+async fn complete_execution(
+    writer: &TransitionWriter,
+    task: &Task,
+    lease_token: pgtask_core::LeaseToken,
+    result: serde_json::Value,
+    started_at: std::time::Instant,
+) -> Result<(), TransitionError> {
+    let result = match outcome::prepare_result(result) {
+        PreparedResult::Result(result) => result,
+        PreparedResult::TooLarge(error) => {
+            warn!(%error, "task result exceeds the result size limit; failing the task");
+            return fail_rejected_result(writer, task, lease_token, error, started_at).await;
+        }
+    };
+    let completed = match writer
+        .complete(TaskCompletion {
+            task_id: task.id,
+            attempt: task.attempt,
+            lease_token,
+            result: Some(result),
+        })
+        .await
+    {
+        Ok(completed) => completed,
+        Err(TransitionError::Postgres(error)) if error.is_rejected_value() => {
+            warn!(%error, "PostgreSQL rejected the task result; failing the task");
+            let error = outcome::rejected_value_error("result_rejected", &error.to_string());
+            return fail_rejected_result(writer, task, lease_token, error, started_at).await;
+        }
+        Err(error) => return Err(error),
+    };
+    if completed {
+        pgtask_otel::record_succeeded(task.queue_name.as_str(), task.task_name.as_str());
+        pgtask_otel::record_execution(
+            task.queue_name.as_str(),
+            task.task_name.as_str(),
+            "succeeded",
+            started_at.elapsed(),
+        );
+    } else {
+        pgtask_otel::record_lease_lost(task.queue_name.as_str(), task.task_name.as_str());
+        warn!("task completion lost its lease");
+    }
+    Ok(())
+}
+
+/// A result the database cannot store fails the task for good: running it again returns the same value.
+async fn fail_rejected_result(
+    writer: &TransitionWriter,
+    task: &Task,
+    lease_token: pgtask_core::LeaseToken,
+    error: serde_json::Value,
+    started_at: std::time::Instant,
+) -> Result<(), TransitionError> {
+    let state = write_failure(writer, task, lease_token, error, None).await?;
+    if state.is_none() {
+        pgtask_otel::record_lease_lost(task.queue_name.as_str(), task.task_name.as_str());
+        warn!("task failure lost its lease");
+    }
+    record_failure_state(task, state);
+    pgtask_otel::record_execution(
+        task.queue_name.as_str(),
+        task.task_name.as_str(),
+        "failed",
+        started_at.elapsed(),
+    );
+    Ok(())
+}
+
+async fn fail_execution(
+    writer: &TransitionWriter,
+    task: &Task,
+    lease_token: pgtask_core::LeaseToken,
+    error: crate::HandlerError,
+    retry_policy: RetryPolicy,
+    started_at: std::time::Instant,
+) -> Result<(), TransitionError> {
+    let retry_after = if error.retryable {
+        task.retry_policy
+            .unwrap_or(retry_policy)
+            .delay_for(task.failed_attempts.saturating_add(1))
+    } else {
+        None
+    };
+    let state = write_failure(writer, task, lease_token, error.error, retry_after).await?;
+    if state.is_none() {
+        pgtask_otel::record_lease_lost(task.queue_name.as_str(), task.task_name.as_str());
+        warn!("task failure lost its lease");
+    } else if state == Some(TaskState::Pending) {
+        tracing::debug!("task scheduled for retry");
+    }
+    record_failure_state(task, state);
+    pgtask_otel::record_execution(
+        task.queue_name.as_str(),
+        task.task_name.as_str(),
+        if state == Some(TaskState::Pending) {
+            "retry"
+        } else {
+            "failed"
+        },
+        started_at.elapsed(),
+    );
+    Ok(())
+}
+
+async fn record_panicked_execution(
+    writer: &TransitionWriter,
+    task: &Task,
+    lease_token: pgtask_core::LeaseToken,
+    retry_policy: RetryPolicy,
+    started_at: std::time::Instant,
+) -> Result<(), TransitionError> {
+    let retry_after = task
+        .retry_policy
+        .unwrap_or(retry_policy)
+        .delay_for(task.failed_attempts.saturating_add(1));
+    let state = write_failure(writer, task, lease_token, json!({"type": "handler_panic"}), retry_after).await?;
+    if state.is_none() {
+        pgtask_otel::record_lease_lost(task.queue_name.as_str(), task.task_name.as_str());
+        warn!("panicked task lost its lease");
+    }
+    record_failure_state(task, state);
+    pgtask_otel::record_execution(
+        task.queue_name.as_str(),
+        task.task_name.as_str(),
+        "panic",
+        started_at.elapsed(),
+    );
+    Ok(())
+}
+
+/// Writes a failure with its error made storable. If PostgreSQL still rejects the error, the
+/// failure is recorded with a short replacement so the task follows its retry policy instead of
+/// waiting for its lease to expire.
+async fn write_failure(
+    writer: &TransitionWriter,
+    task: &Task,
+    lease_token: pgtask_core::LeaseToken,
+    error: serde_json::Value,
+    retry_after: Option<Duration>,
+) -> Result<Option<TaskState>, TransitionError> {
+    let failure = TaskFailure {
+        task_id: task.id,
+        attempt: task.attempt,
+        lease_token,
+        error: outcome::prepare_error(error),
+        retry_after,
+    };
+    match writer.fail(failure.clone()).await {
+        Err(TransitionError::Postgres(error)) if error.is_rejected_value() => {
+            warn!(%error, "PostgreSQL rejected the task error; recording a replacement");
+            writer
+                .fail(TaskFailure {
+                    error: outcome::rejected_value_error("error_rejected", &error.to_string()),
+                    ..failure
+                })
+                .await
+        }
+        result => result,
+    }
+}
+
+fn record_failure_state(task: &Task, state: Option<TaskState>) {
+    match state {
+        Some(TaskState::Pending) => pgtask_otel::record_retried(task.queue_name.as_str(), task.task_name.as_str()),
+        Some(_) => pgtask_otel::record_failed(task.queue_name.as_str(), task.task_name.as_str()),
+        None => {}
+    }
+}
+
+async fn write_transitions(
+    store: Store,
+    mut receiver: mpsc::Receiver<TransitionRequest>,
+    batch_size: NonZeroU16,
+    shutdown: CancellationToken,
+) {
+    loop {
+        let first = tokio::select! {
+            () = shutdown.cancelled() => return,
+            request = receiver.recv() => match request {
+                Some(request) => request,
+                None => return,
+            },
+        };
+        let mut requests = Vec::with_capacity(usize::from(batch_size.get()));
+        requests.push(first);
+        let deadline = tokio::time::sleep(Duration::from_millis(1));
+        tokio::pin!(deadline);
+        while requests.len() < usize::from(batch_size.get()) {
+            tokio::select! {
+                () = shutdown.cancelled() => return,
+                request = receiver.recv() => match request {
+                    Some(request) => requests.push(request),
+                    None => break,
+                },
+                () = &mut deadline => break,
+            }
+        }
+        if !write_transition_batch(&store, requests, &shutdown).await {
+            return;
+        }
+    }
+}
+
+async fn write_transition_batch(store: &Store, requests: Vec<TransitionRequest>, shutdown: &CancellationToken) -> bool {
+    let mut completions = Vec::new();
+    let mut completion_responses = Vec::new();
+    let mut failures = Vec::new();
+    let mut failure_responses = Vec::new();
+    for request in requests {
+        match request {
+            TransitionRequest::Complete { completion, response } => {
+                completions.push(completion);
+                completion_responses.push(response);
+            }
+            TransitionRequest::Fail { failure, response } => {
+                failures.push(failure);
+                failure_responses.push(response);
+            }
+        }
+    }
+    let completion_result = tokio::select! {
+        () = shutdown.cancelled() => return false,
+        result = store.complete_many(&completions) => result,
+    };
+    match completion_result {
+        Ok(results) => {
+            for (response, completed) in completion_responses.into_iter().zip(results) {
+                let _ = response.send(Ok(completed));
+            }
+        }
+        Err(error) => {
+            warn!(%error, batch = completions.len(), "batched task completion failed; writing each completion alone");
+            for (completion, response) in completions.iter().zip(completion_responses) {
+                let result = tokio::select! {
+                    () = shutdown.cancelled() => return false,
+                    result = store.complete(
+                        completion.task_id,
+                        completion.attempt,
+                        completion.lease_token,
+                        completion.result.as_ref(),
+                    ) => result,
+                };
+                let _ = response.send(result.map_err(Arc::new));
+            }
+        }
+    }
+    let failure_result = tokio::select! {
+        () = shutdown.cancelled() => return false,
+        result = store.fail_many(&failures) => result,
+    };
+    match failure_result {
+        Ok(results) => {
+            for (response, state) in failure_responses.into_iter().zip(results) {
+                let _ = response.send(Ok(state));
+            }
+        }
+        Err(error) => {
+            warn!(%error, batch = failures.len(), "batched task failure failed; writing each failure alone");
+            for (failure, response) in failures.iter().zip(failure_responses) {
+                let result = tokio::select! {
+                    () = shutdown.cancelled() => return false,
+                    result = store.fail(
+                        failure.task_id,
+                        failure.attempt,
+                        failure.lease_token,
+                        &failure.error,
+                        failure.retry_after,
+                    ) => result,
+                };
+                let _ = response.send(result.map_err(Arc::new));
+            }
+        }
+    }
+    true
+}
+
+async fn renew_leases(
+    store: Store,
+    active: ActiveLeases,
+    health: Health,
+    lease_duration: Duration,
+    shutdown: CancellationToken,
+) {
+    let renewal_interval = lease_duration / 3;
+    let mut interval = tokio::time::interval_at(Instant::now() + renewal_interval, renewal_interval);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => break,
+            _ = interval.tick() => {
+                let leases: Vec<_> = active.lock().await.values().cloned().collect();
+                if leases.is_empty() {
+                    health.set_active_leases(false);
+                    continue;
+                }
+                match store.renew_leases(
+                    &leases.iter().map(|lease| lease.renewal).collect::<Vec<_>>(),
+                    lease_duration,
+                ).await {
+                    Ok(renewed) => {
+                        health.set_database(true);
+                        health.record_lease_renewal(renewed.len() == leases.len());
+                        update_renewed_leases(&active, &leases, &renewed).await;
+                    }
+                    Err(error) => {
+                        health.set_database(false);
+                        health.record_lease_renewal(false);
+                        warn!(%error, "could not renew active task leases");
+                        cancel_uncertain_leases(&active, &leases, lease_duration).await;
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn recover_expired_leases(store: Store, config: &WorkerConfig, shutdown: CancellationToken) {
+    let mut interval = tokio::time::interval(config.lease_duration / 3);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            _ = interval.tick() => {
+                for queue_name in &config.queues {
+                    let limit = config.recovery_batch_size.get();
+                    for batch in 0..MAX_RECOVERY_DRAIN_BATCHES {
+                        let result = tokio::select! {
+                            () = shutdown.cancelled() => return,
+                            result = store.recover_expired(queue_name, limit) => result,
+                        };
+                        match result {
+                            Ok(recovered) if recovered < u64::from(limit) => break,
+                            Ok(_) if batch + 1 == MAX_RECOVERY_DRAIN_BATCHES => {
+                                warn!(%queue_name, "lease recovery drain reached its batch budget");
+                            }
+                            Ok(_) => {}
+                            Err(error) => {
+                                pgtask_otel::record_recovery_failure(queue_name.as_str());
+                                warn!(%error, %queue_name, "could not recover expired task leases");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn update_renewed_leases(active: &ActiveLeases, leases: &[ActiveLease], renewed: &[TaskId]) {
+    let now = Instant::now();
+    let mut active = active.lock().await;
+    for lease in leases {
+        let was_renewed = renewed.contains(&lease.renewal.task_id);
+        pgtask_otel::record_renewed(lease.queue_name.as_str(), lease.task_name.as_str(), was_renewed);
+        if let Some(current) = active.get_mut(&lease.renewal.task_id)
+            && current.renewal == lease.renewal
+        {
+            if was_renewed {
+                current.last_renewed = now;
+            } else {
+                current.lost.cancel();
+                pgtask_otel::record_lease_lost(lease.queue_name.as_str(), lease.task_name.as_str());
+            }
+        }
+    }
+}
+
+async fn cancel_uncertain_leases(active: &ActiveLeases, leases: &[ActiveLease], lease_duration: Duration) {
+    let mut active = active.lock().await;
+    for lease in leases {
+        if lease.last_renewed.elapsed() >= lease_duration * 2 / 3
+            && let Some(current) = active.get_mut(&lease.renewal.task_id)
+            && current.renewal == lease.renewal
+        {
+            current.lost.cancel();
+            pgtask_otel::record_lease_lost(lease.queue_name.as_str(), lease.task_name.as_str());
+        }
+    }
+}
+
+async fn listen_for_ready(
+    store: Store,
+    queues: Vec<QueueName>,
+    task_wakeup: Arc<Notify>,
+    schedule_wakeup: Arc<Notify>,
+    shutdown: CancellationToken,
+    mut listener: ReadyListener,
+    health: Health,
+) {
+    let mut retry_delay = Duration::from_millis(100);
+    loop {
+        loop {
+            let notification = tokio::select! {
+                () = shutdown.cancelled() => return,
+                result = listener.recv() => result,
+            };
+            match notification {
+                Ok(notification)
+                    if notification.channel().starts_with("pgtask_ready_")
+                        && queues.iter().any(|queue| notification.payload() == queue.as_str()) =>
+                {
+                    task_wakeup.notify_one();
+                }
+                Ok(notification) if matches!(notification.channel(), "pgtask_schedule" | "pgtask_wait") => {
+                    schedule_wakeup.notify_one();
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    health.set_listener(false);
+                    warn!(%error, "task notification listener disconnected");
+                    break;
+                }
+            }
+        }
+        loop {
+            let reconnected = tokio::select! {
+                () = shutdown.cancelled() => return,
+                result = store.ready_listener_for(&queues) => result,
+            };
+            match reconnected {
+                Ok(reconnected) => {
+                    listener = reconnected;
+                    health.set_database(true);
+                    health.set_listener(true);
+                    retry_delay = Duration::from_millis(100);
+                    task_wakeup.notify_one();
+                    schedule_wakeup.notify_one();
+                    break;
+                }
+                Err(error) => {
+                    health.set_database(false);
+                    warn!(%error, "could not reconnect the task notification listener");
+                    tokio::select! {
+                        () = shutdown.cancelled() => return,
+                        () = tokio::time::sleep(retry_delay) => {}
+                    }
+                    retry_delay = (retry_delay * 2).min(Duration::from_secs(5));
+                }
+            }
+        }
+    }
+}
+
+const SCHEDULE_ERROR_BACKOFF_START: Duration = Duration::from_millis(100);
+
+async fn materialize_schedules(
+    store: Store,
+    enabled: bool,
+    schedule_batch_size: NonZeroU16,
+    wait_batch_size: NonZeroU16,
+    reconciliation_interval: Duration,
+    wakeup: Arc<Notify>,
+    shutdown: CancellationToken,
+) {
+    let mut error_backoff = None;
+    loop {
+        let mut failed = false;
+        if enabled && let Err(error) = store.materialize_due_schedules(schedule_batch_size.get()).await {
+            failed = true;
+            warn!(%error, "could not materialize due schedules");
+        }
+        if let Err(error) = store.recover_wait_timeouts(wait_batch_size.get()).await {
+            failed = true;
+            warn!(%error, "could not recover signal wait timeouts");
+        }
+        if let Err(error) = store.recover_result_wait_timeouts(wait_batch_size.get()).await {
+            failed = true;
+            warn!(%error, "could not recover result wait timeouts");
+        }
+        let mut delay = reconciliation_interval;
+        if enabled {
+            match store.next_schedule_delay().await {
+                Ok(schedule_delay) => {
+                    if let Some(schedule_delay) = schedule_delay {
+                        delay = delay.min(schedule_delay);
+                    }
+                }
+                Err(error) => {
+                    failed = true;
+                    warn!(%error, "could not read the next schedule deadline");
+                }
+            }
+        }
+        match store.next_wait_delay().await {
+            Ok(wait_delay) => {
+                if let Some(wait_delay) = wait_delay {
+                    delay = delay.min(wait_delay);
+                }
+            }
+            Err(error) => {
+                failed = true;
+                warn!(%error, "could not read the next wait deadline");
+            }
+        }
+        // A deadline that is still due after a failed sweep is the work that failed. Sleeping
+        // until it would retry at once, so back off instead, doubling up to the reconciliation
+        // interval, and reset after the first clean sweep.
+        error_backoff = schedule_error_backoff(error_backoff, failed, reconciliation_interval);
+        if let Some(backoff) = error_backoff {
+            delay = delay.max(backoff);
+        }
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            () = wakeup.notified() => {}
+            () = tokio::time::sleep(delay) => {}
+        }
+    }
+}
+
+fn schedule_error_backoff(previous: Option<Duration>, failed: bool, cap: Duration) -> Option<Duration> {
+    failed.then(|| {
+        previous
+            .map_or(SCHEDULE_ERROR_BACKOFF_START, |backoff| backoff * 2)
+            .min(cap)
+    })
+}
+
+/// Each tick drains every kind of expired row until a batch comes back short or the per-tick budget
+/// runs out, the way lease recovery does, so retention keeps up with a busy queue.
+async fn delete_expired_rows(store: Store, config: &WorkerConfig, shutdown: CancellationToken) {
+    if !config.retention_enabled {
+        return;
+    }
+    let limit = config.retention_batch_size.get();
+    let mut interval = tokio::time::interval(config.retention_interval);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            _ = interval.tick() => {}
+        }
+        for queue_name in &config.queues {
+            let drained = drain_retention(&shutdown, "expired terminal tasks", limit, || {
+                store.delete_expired_terminal(queue_name, limit)
+            })
+            .await
+                && drain_retention(&shutdown, "expired idempotency keys", limit, || {
+                    store.delete_expired_idempotency_keys(queue_name, limit)
+                })
+                .await;
+            if !drained {
+                return;
+            }
+        }
+        if !drain_retention(&shutdown, "expired worker rows", limit, || {
+            store.delete_expired_workers(config.expired_worker_retention, limit)
+        })
+        .await
+        {
+            return;
+        }
+    }
+}
+
+/// Returns false when shutdown interrupted the drain.
+async fn drain_retention<F, Fut>(shutdown: &CancellationToken, rows: &str, limit: u16, mut delete: F) -> bool
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<u64, PostgresError>>,
+{
+    for batch in 0..MAX_RETENTION_DRAIN_BATCHES {
+        let result = tokio::select! {
+            () = shutdown.cancelled() => return false,
+            result = delete() => result,
+        };
+        match result {
+            Ok(deleted) if deleted < u64::from(limit) => break,
+            Ok(_) if batch + 1 == MAX_RETENTION_DRAIN_BATCHES => {
+                warn!(
+                    rows,
+                    "retention drain reached its batch budget; the rest waits for the next tick"
+                );
+            }
+            Ok(_) => {}
+            Err(error) => {
+                warn!(%error, rows, "could not delete expired rows");
+                break;
+            }
+        }
+    }
+    true
+}
+
+async fn heartbeat_worker(store: Store, config: HeartbeatConfig, shutdown: CancellationToken, health: Health) {
+    let mut interval = tokio::time::interval(config.interval);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    interval.tick().await;
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => {
+                if let Err(error) = store.heartbeat_worker(config.worker_id, Duration::from_millis(1), true).await {
+                    warn!(%error, "could not mark worker as stopped");
+                }
+                break;
+            }
+            _ = interval.tick() => {
+                match store.heartbeat_worker(config.worker_id, config.ttl, false).await {
+                    Ok(true) => {
+                        health.set_database(true);
+                        pgtask_otel::record_heartbeat(config.queue_name.as_str(), "ok");
+                    }
+                    Ok(false) => {
+                        health.set_database(false);
+                        pgtask_otel::record_heartbeat(config.queue_name.as_str(), "missing");
+                        warn!("worker registration disappeared");
+                    }
+                    Err(error) => {
+                        health.set_database(false);
+                        pgtask_otel::record_heartbeat(config.queue_name.as_str(), "error");
+                        warn!(%error, "could not update worker heartbeat");
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn sample_queue_demand(
+    store: Store,
+    queue_name: QueueName,
+    sample_interval: Duration,
+    shutdown: CancellationToken,
+) {
+    let mut interval = tokio::time::interval(sample_interval);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            () = shutdown.cancelled() => return,
+            _ = interval.tick() => {
+                let sample = tokio::select! {
+                    () = shutdown.cancelled() => return,
+                    sample = store.sample_queue_demand(&queue_name, sample_interval) => sample,
+                };
+                match sample {
+                    Ok(sample) => {
+                        pgtask_otel::record_live_workers(queue_name.as_str(), sample.live_workers);
+                        pgtask_otel::record_queue_demand(
+                            queue_name.as_str(),
+                            sample.routable_tasks,
+                            sample.unroutable_tasks,
+                        );
+                    }
+                    Err(error) => {
+                        warn!(%error, "could not sample queue demand");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::schedule_error_backoff;
+
+    #[test]
+    fn schedule_error_backoff_doubles_to_the_cap_and_resets_after_success() {
+        let cap = Duration::from_millis(500);
+        let mut backoff = None;
+        let mut seen = Vec::new();
+        for _ in 0..5 {
+            backoff = schedule_error_backoff(backoff, true, cap);
+            seen.push(backoff.unwrap().as_millis());
+        }
+        assert_eq!(seen, [100, 200, 400, 500, 500]);
+        assert_eq!(schedule_error_backoff(backoff, false, cap), None);
+        assert_eq!(
+            schedule_error_backoff(None, true, Duration::from_millis(10)),
+            Some(Duration::from_millis(10))
+        );
+    }
+}

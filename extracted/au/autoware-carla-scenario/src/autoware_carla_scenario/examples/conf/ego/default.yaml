@@ -1,0 +1,28 @@
+# @package _global_
+ego:
+  vehicle_type: vehicle.mini.cooper
+  initial_speed_kmh: 0.0
+  spawn_lanelet_id: 242
+  spawn_s: 25.0
+  # Lateral offset (m, positive to the left) and heading (rad, relative to the
+  # lanelet's direction of travel) of the spawn.
+  spawn_t: 0.0
+  spawn_heading: 0.0
+  # Where the ego is going.  Required for entity: autoware, which plans its
+  # route to it and will not move without one; the other entities are driven for
+  # the ego and read no goal.  It belongs to the scenario rather than to this
+  # group either way: a default here would silently override the goal a scenario
+  # derives for itself.
+  #
+  # A scenario whose spawn is swept keeps whatever goal it names: the sweeper
+  # enumerates one target key per run, and it is the spawn.
+  goal_lanelet_id: null
+  goal_s: 0.0
+  # Lanelets the route must pass through, in order, on the way to that goal.
+  # Empty leaves the way there to Autoware, which plans the shortest one -- the
+  # right answer when any way there will do, and the wrong one when the run is a
+  # particular drive: a scenario rendered from a recorded run leaves the
+  # rendered world as soon as the route takes a shortcut the recording did not.
+  waypoint_lanelet_ids: []
+  # Which entity drives the ego: autopilot | autoware | carla_driver | ros2 | hils
+  entity: autopilot

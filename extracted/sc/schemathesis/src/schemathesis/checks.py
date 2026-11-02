@@ -16,10 +16,9 @@ from schemathesis.core.failures import (
     Failure,
     FailureGroup,
     ResponseTimeExceeded,
-    ServerError,
 )
 from schemathesis.core.registries import Registry
-from schemathesis.core.transport import Response, expand_status_codes
+from schemathesis.core.transport import CallOutcome, Response, expand_status_codes
 from schemathesis.engine import Status
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, CoverageScenario, coverage_scenario
 from schemathesis.generation.overrides import Override
@@ -105,11 +104,21 @@ class CheckInternals:
 
     def record_case(self, *, parent_id: str, case: Case) -> None:
         if self.recorder is not None:
-            self.recorder.record_case(parent_id=parent_id, case=case)
+            self.recorder.record_case(parent_id=parent_id, case=case, is_probe=True)
 
     def record_response(self, *, case_id: str, response: Response) -> None:
         if self.recorder is not None:
             self.recorder.record_response(case_id=case_id, response=response)
+
+    def send_probe(self, parent: Case, probe: Case, kwargs: dict[str, Any]) -> Response:
+        """Send `probe` as a child of `parent` with the given transport settings."""
+        if parent.operation.app is not None:
+            kwargs.setdefault("app", parent.operation.app)
+        self.record_case(parent_id=parent.id, case=probe)
+        probe.settle_metadata()
+        response = parent.operation.schema.transport.send(probe, **kwargs)
+        self.record_response(case_id=probe.id, response=response)
+        return response
 
 
 class CheckContext:
@@ -420,12 +429,7 @@ def _check_content_type_probe(
     # The same request with the operation's own media type. When it fails too, the header is not the cause and
     # the operation's ordinary requests report that server error with a plain reproducer.
     control = case.derive(headers=headers, keep_auth=True)
-    kwargs = dict(ctx.internals.transport_kwargs or {})
-    if case.operation.app is not None:
-        kwargs.setdefault("app", case.operation.app)
-    ctx.internals.record_case(parent_id=case.id, case=control)
-    control_response = case.operation.schema.transport.send(control, **kwargs)
-    ctx.internals.record_response(case_id=control.id, response=control_response)
+    control_response = ctx.internals.send_probe(case, control, dict(ctx.internals.transport_kwargs or {}))
     if control_response.status_code not in expected_statuses:
         return
     if scenario == CoverageScenario.MALFORMED_CONTENT_TYPE:
@@ -454,7 +458,10 @@ def not_a_server_error(ctx: CheckContext, response: Response, case: Case) -> boo
         if scenario in CONTENT_TYPE_PROBES:
             _check_content_type_probe(ctx, case, scenario, status_code, expected_statuses)
             return None
-        raise ServerError(operation=case.operation.label, status_code=status_code)
+        # A server that does not serve the operation at all has not failed on the data it was sent.
+        if case.operation.schema.classify_call_outcome(case, response) is CallOutcome.NOT_SERVED:
+            return None
+        raise case.operation.schema.server_error(case, response)
     case.operation.schema.evaluate_server_error(case, response)
     return None
 

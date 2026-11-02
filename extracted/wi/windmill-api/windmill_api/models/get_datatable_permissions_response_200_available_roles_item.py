@@ -1,0 +1,96 @@
+from typing import Any, Dict, List, Type, TypeVar, Union
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..models.get_datatable_permissions_response_200_available_roles_item_cluster import (
+    GetDatatablePermissionsResponse200AvailableRolesItemCluster,
+)
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="GetDatatablePermissionsResponse200AvailableRolesItem")
+
+
+@_attrs_define
+class GetDatatablePermissionsResponse200AvailableRolesItem:
+    """
+    Attributes:
+        id (str):
+        name (str):
+        enabled (bool):
+        cluster (GetDatatablePermissionsResponse200AvailableRolesItemCluster): The Windmill-managed Postgres cluster a
+            data table role is a login on: Windmill's own (behind `instance` data tables) or the external instance cluster
+            (behind `external_instance` ones). Defaults to `instance`.
+        in_use (Union[Unset, bool]): Whether any data table, in any workspace, lets someone connect as this role. Only
+            set in a data table's available_roles.
+    """
+
+    id: str
+    name: str
+    enabled: bool
+    cluster: GetDatatablePermissionsResponse200AvailableRolesItemCluster
+    in_use: Union[Unset, bool] = UNSET
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        id = self.id
+        name = self.name
+        enabled = self.enabled
+        cluster = self.cluster.value
+
+        in_use = self.in_use
+
+        field_dict: Dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "id": id,
+                "name": name,
+                "enabled": enabled,
+                "cluster": cluster,
+            }
+        )
+        if in_use is not UNSET:
+            field_dict["in_use"] = in_use
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        d = src_dict.copy()
+        id = d.pop("id")
+
+        name = d.pop("name")
+
+        enabled = d.pop("enabled")
+
+        cluster = GetDatatablePermissionsResponse200AvailableRolesItemCluster(d.pop("cluster"))
+
+        in_use = d.pop("in_use", UNSET)
+
+        get_datatable_permissions_response_200_available_roles_item = cls(
+            id=id,
+            name=name,
+            enabled=enabled,
+            cluster=cluster,
+            in_use=in_use,
+        )
+
+        get_datatable_permissions_response_200_available_roles_item.additional_properties = d
+        return get_datatable_permissions_response_200_available_roles_item
+
+    @property
+    def additional_keys(self) -> List[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

@@ -1,0 +1,357 @@
+# SPDX-License-Identifier: MIT
+
+from typing import Optional
+
+from htmlcompare.nodes import Comment, ConditionalComment, Document, Element, TextNode
+from htmlcompare.parser import parse_html
+
+
+def test_parse_empty_document():
+    doc = parse_html('')
+    assert isinstance(doc, Document)
+    # html5lib always creates html/head/body structure
+    child, = doc.children
+    assert child.tag == 'html'
+
+
+def test_parse_single_element():
+    doc = parse_html('<div></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div is not None
+    assert div.tag == 'div'
+    assert div.attributes == {}
+    assert div.children == []
+
+
+def test_parse_element_with_text():
+    doc = parse_html('<p>Hello</p>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    p = _find_first_child_with_tag(body, 'p')
+    assert p is not None
+    assert p.tag == 'p'
+    assert len(p.children) == 1
+    assert p.children[0] == TextNode('Hello')
+
+
+def test_parse_nested_elements():
+    doc = parse_html('<div><span>x</span></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div is not None
+    assert len(div.children) == 1
+    span = div.children[0]
+    assert isinstance(span, Element)
+    assert span.tag == 'span'
+    assert span.children == [TextNode('x')]
+
+
+def test_parse_element_with_attributes():
+    doc = parse_html('<div class="foo" id="bar"></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div.attributes == {'class': 'foo', 'id': 'bar'}
+
+
+def test_parse_self_closing_element():
+    doc = parse_html('<br>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    br = _find_first_child_with_tag(body, 'br')
+    assert br is not None
+    assert br.tag == 'br'
+
+
+def test_parse_multiple_children():
+    doc = parse_html('<div><p>a</p><p>b</p></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert len(div.children) == 2
+    assert div.children[0].tag == 'p'
+    assert div.children[1].tag == 'p'
+    assert div.children[0].children == [TextNode('a')]
+    assert div.children[1].children == [TextNode('b')]
+
+
+def test_parse_mixed_content():
+    doc = parse_html('<p>Hello <b>world</b>!</p>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    p = _find_first_child_with_tag(body, 'p')
+    assert len(p.children) == 3
+    assert p.children[0] == TextNode('Hello ')
+    assert isinstance(p.children[1], Element)
+    assert p.children[1].tag == 'b'
+    assert p.children[1].children == [TextNode('world')]
+    assert p.children[2] == TextNode('!')
+
+
+def test_parse_comment():
+    doc = parse_html('<div><!-- comment --></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert len(div.children) == 1
+    assert isinstance(div.children[0], Comment)
+    assert div.children[0].content == ' comment '
+
+
+def test_parse_comment_with_text():
+    doc = parse_html('<div>before<!-- comment -->after</div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert len(div.children) == 3
+    assert div.children[0] == TextNode('before')
+    assert isinstance(div.children[1], Comment)
+    assert div.children[2] == TextNode('after')
+
+
+def test_parse_whitespace_preserved():
+    doc = parse_html('<p>  spaces  </p>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    p = _find_first_child_with_tag(body, 'p')
+    assert p.children == [TextNode('  spaces  ')]
+
+
+def test_parse_attribute_with_empty_value():
+    doc = parse_html('<div class=""></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div.attributes == {'class': ''}
+
+
+def test_parse_img_with_alt():
+    doc = parse_html('<img alt="">')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    img = _find_first_child_with_tag(body, 'img')
+    assert img.attributes == {'alt': ''}
+
+
+def test_parse_deeply_nested():
+    doc = parse_html('<div><ul><li><a href="#">link</a></li></ul></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    ul = div.children[0]
+    li = ul.children[0]
+    a = li.children[0]
+    assert a.tag == 'a'
+    assert a.attributes == {'href': '#'}
+    assert a.children == [TextNode('link')]
+
+
+def test_parse_style_attribute():
+    doc = parse_html('<div style="color: red; font-weight: bold"></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div.attributes == {'style': 'color: red; font-weight: bold'}
+
+
+def test_parse_multiple_classes():
+    doc = parse_html('<div class="foo bar baz"></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert div.attributes == {'class': 'foo bar baz'}
+
+
+def test_parse_head_and_body():
+    doc = parse_html('<html><head><title>Test</title></head><body><p>Hello</p></body></html>')
+    html, = doc.children
+    assert html.tag == 'html'
+    head = _find_first_child_with_tag(html, 'head')
+    body = _find_first_child_with_tag(html, 'body')
+    assert head is not None
+    assert body is not None
+    title = _find_first_child_with_tag(head, 'title')
+    assert title.children == [TextNode('Test')]
+
+
+def test_parse_script_content():
+    doc = parse_html('<script>var x = 1;</script>')
+    html, = doc.children
+    head = _find_first_child_with_tag(html, 'head')
+    script = _find_first_child_with_tag(head, 'script')
+    assert script is not None
+    assert script.children == [TextNode('var x = 1;')]
+
+
+def test_parse_style_tag_content():
+    doc = parse_html('<style>.foo { color: red; }</style>')
+    html, = doc.children
+    head = _find_first_child_with_tag(html, 'head')
+    style = _find_first_child_with_tag(head, 'style')
+    assert style is not None
+    assert style.children == [TextNode('.foo { color: red; }')]
+
+
+def test_parses_conditional_comment():
+    doc = parse_html('<div><!--[if IE]><p>IE only</p><![endif]--></div>')
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    assert len(div.children) == 1
+    cc, = div.children
+    assert isinstance(cc, ConditionalComment)
+    assert cc.condition == 'IE'
+    # Children should contain the <p> element
+    p, = cc.children
+    assert isinstance(p, Element)
+    assert p.tag == 'p'
+
+
+def test_parses_conditional_comment_with_comparison():
+    doc = parse_html("<div><!--[if lt IE 9]><script src='ie8.js'></script><![endif]--></div>")
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    cc, = div.children
+    assert isinstance(cc, ConditionalComment)
+    assert cc.condition == 'lt IE 9'
+
+
+def test_parses_conditional_comment_gte():
+    doc = parse_html('<head><!--[if gte IE 8]><link rel="stylesheet" href="ie8.css"><![endif]--></head>')  # noqa: E501
+    html, = doc.children
+    head = _find_first_child_with_tag(html, 'head')
+    assert len(head.children) >= 1
+    cc, = head.children
+    assert isinstance(cc, ConditionalComment)
+    assert cc.condition == 'gte IE 8'
+
+
+def test_regular_comment_not_parsed_as_conditional():
+    doc = parse_html('<div><!-- just a regular comment --></div>')
+    html = doc.children[0]
+    body = _find_first_child_with_tag(html, 'body')
+    div = _find_first_child_with_tag(body, 'div')
+    comment, = div.children
+    assert isinstance(comment, Comment)
+    assert comment.content == ' just a regular comment '
+
+
+def test_parse_html5_doctype():
+    doc = parse_html('<!DOCTYPE html><html><body></body></html>')
+    assert doc.doctype is not None
+    assert doc.doctype.name == 'html'
+    assert doc.doctype.public_id == ''
+    assert doc.doctype.system_id == ''
+
+
+def test_parse_no_doctype():
+    doc = parse_html('<html><body></body></html>')
+    assert doc.doctype is None
+
+
+def test_parse_xhtml_transitional_doctype():
+    public_id = '-//W3C//DTD XHTML 1.0 Transitional//EN'
+    system_id = 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'
+    doctype = f'<!DOCTYPE html PUBLIC "{public_id}" "{system_id}">'
+    html = '<html><body></body></html>'
+    doc = parse_html(doctype + html)
+    assert doc.doctype is not None
+    assert doc.doctype.name == 'html'
+    assert doc.doctype.public_id == public_id
+    assert doc.doctype.system_id == system_id
+
+
+def test_parse_html_strict_doctype():
+    public_id = '-//W3C//DTD HTML 4.01//EN'
+    system_id = 'http://www.w3.org/TR/html4/strict.dtd'
+    doctype = f'<!DOCTYPE HTML PUBLIC "{public_id}" "{system_id}">'
+    html = '<html><body></body></html>'
+    doc = parse_html(doctype + html)
+    assert doc.doctype is not None
+    assert doc.doctype.name == 'html'
+    assert doc.doctype.public_id == public_id
+    assert doc.doctype.system_id == system_id
+
+
+# --- Document Prefix ---
+#
+# Everything before the DOCTYPE used to be discarded. Raw text there did not
+# merely disappear, it corrupted the parse: character data forces html5lib out
+# of its "initial" insertion mode, so the DOCTYPE was dropped and the document
+# relocated into "<body>".
+
+_DOC = '<!doctype html>\n<html><head><title>t</title></head><body>Hello</body></html>'
+
+
+def test_document_without_a_prefix_has_an_empty_prefix():
+    assert parse_html(_DOC).prefix == ''
+
+
+def test_document_without_a_doctype_has_an_empty_prefix():
+    # the whole document must not be swallowed as a prefix
+    doc = parse_html('<html><body>Hello</body></html>')
+    assert doc.prefix == ''
+    assert doc.doctype is None
+    html, = doc.children
+    body = _find_first_child_with_tag(html, 'body')
+    assert body.children == [TextNode('Hello')]
+
+
+def test_keeps_text_before_the_doctype_as_the_prefix():
+    doc = parse_html('{# subject: x #}\n' + _DOC)
+    assert doc.prefix == '{# subject: x #}\n'
+
+
+def test_keeps_a_comment_before_the_doctype_as_the_prefix():
+    doc = parse_html('<!-- generated by our template system -->\n' + _DOC)
+    assert doc.prefix == '<!-- generated by our template system -->\n'
+
+
+def test_text_before_the_doctype_no_longer_corrupts_the_parse():
+    doc = parse_html('{# subject: x #}\n' + _DOC)
+    # the doctype used to be dropped entirely
+    assert doc.doctype is not None
+    assert doc.doctype.name == 'html'
+    # ... and "<title>" used to end up inside "<body>", next to the raw text
+    html, = doc.children
+    head = _find_first_child_with_tag(html, 'head')
+    body = _find_first_child_with_tag(html, 'body')
+    assert _find_first_child_with_tag(head, 'title') is not None
+    assert body.children == [TextNode('Hello')]
+
+
+def test_splits_the_prefix_case_insensitively():
+    doc = parse_html('{# x #}<!DOCTYPE html><html><body></body></html>')
+    assert doc.prefix == '{# x #}'
+    assert doc.doctype is not None
+
+
+def test_keeps_the_prefix_of_a_bytes_document():
+    doc = parse_html('{# sübject #}\n'.encode('utf-8') + _DOC.encode('utf-8'))
+    assert doc.prefix == '{# sübject #}\n'
+    assert doc.doctype is not None
+
+
+def test_keeps_an_undecodable_bytes_prefix_distinguishable():
+    # no valid UTF-8, but the prefix must neither raise nor lose bytes
+    first = parse_html(b'\xff\xfe' + _DOC.encode('utf-8'))
+    second = parse_html(b'\xff\xfd' + _DOC.encode('utf-8'))
+    assert first.prefix != second.prefix
+
+
+def test_prefix_splits_at_a_doctype_inside_a_leading_comment():
+    # known limitation: the split is a plain search for "<!doctype", so a comment
+    # mentioning one wins over the real declaration
+    doc = parse_html('<!-- see <!doctype html> -->' + _DOC)
+    assert doc.prefix == '<!-- see '
+
+
+def _find_first_child_with_tag(element: Element, tag: str) -> Optional[Element]:
+    for child in element.children:
+        if isinstance(child, Element) and child.tag == tag:
+            return child
+    return None

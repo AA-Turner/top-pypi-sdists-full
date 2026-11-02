@@ -1,0 +1,205 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+import stat
+import sys
+from typing import TYPE_CHECKING, Annotated
+
+from sarj_rule_contracts import NewlinePolicy, RuleId, fix_file
+import typer
+
+from sarj_sql_lint import __version__
+from sarj_sql_lint.autofix import fix_source
+from sarj_sql_lint.rule_base import DefaultLevel, Diagnostic, clear_path_caches, is_migration_source, is_suppressed
+from sarj_sql_lint.rules import REGISTRY
+from sarj_sql_lint.rules.require_fk_index import index_analysis_session
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
+    from sarj_rule_contracts import SourceCatalog
+
+    from sarj_sql_lint.rule_base import Rule
+
+
+SKIP_DIR_NAMES = frozenset(
+    {
+        "node_modules",
+        ".venv",
+        "venv",
+        ".git",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+        ".turbo",
+        ".yarn",
+        ".pnpm-store",
+    }
+)
+MAX_FILE_BYTES = 500_000
+
+
+def _expand_paths(paths: list[Path]) -> list[Path]:
+    out: list[Path] = []
+    for p in paths:
+        try:
+            metadata = p.stat()
+        except FileNotFoundError as exc:
+            msg = f"input does not exist: {p}"
+            raise ValueError(msg) from exc
+        if stat.S_ISREG(metadata.st_mode):
+            if metadata.st_size > MAX_FILE_BYTES:
+                msg = f"input exceeds the {MAX_FILE_BYTES:,}-byte analysis limit: {p}"
+                raise ValueError(msg)
+            out.append(p)
+            continue
+        out.extend(_iter_directory_inputs(p))
+    return out
+
+
+def _check(rule_names: Sequence[str], paths: list[Path], *, sources: SourceCatalog | None = None) -> list[Diagnostic]:
+    unknown = [name for name in rule_names if name not in REGISTRY]
+    if unknown:
+        sys.stderr.write(f"unknown rule(s): {', '.join(unknown)}\n")
+        sys.stderr.write(f"available: {', '.join(sorted(REGISTRY))}\n")
+        raise SystemExit(2)
+    rules = [REGISTRY[RuleId(name)]() for name in rule_names]
+    clear_path_caches()
+    expanded = _expand_paths(paths)
+    diags: list[Diagnostic] = []
+    for p in expanded:
+        source = (
+            p.read_text(encoding="utf-8", errors="replace")
+            if sources is None
+            else sources.capture(p).decode("utf-8", errors="replace", newlines=NewlinePolicy.UNIVERSAL).text
+        )
+        diags.extend(_source_diagnostics(p, source, rules, comments_banned="no-migration-comments" in rule_names))
+    return diags
+
+
+def _source_diagnostics(path: Path, source: str, rules: Sequence[Rule], *, comments_banned: bool) -> list[Diagnostic]:
+    migration = is_migration_source(path, source)
+    findings: list[Diagnostic] = []
+    for rule in rules:
+        if migration and comments_banned and rule.code in {"SARJ113", "SARJ115"}:
+            continue
+        findings.extend(
+            diagnostic
+            for diagnostic in rule.check(path, source)
+            if (migration and diagnostic.code in {"SARJ114", "SARJ120", "SARJ128"})
+            or not is_suppressed(source, diagnostic.line, diagnostic.code)
+        )
+    return findings
+
+
+def analyze(
+    rule_ids: Sequence[str],  # sarj-noqa: SARJ093 -- Public parsing boundary accepts raw names.
+    paths: list[Path],
+    *,
+    sources: SourceCatalog | None = None,
+) -> list[Diagnostic]:
+    with index_analysis_session():
+        return _check(rule_ids, paths, sources=sources)
+
+
+@dataclass
+class _Result:
+    code: int = 0
+
+
+app = typer.Typer(
+    help="Custom SQL lint rules.",
+    add_completion=False,
+    no_args_is_help=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+def _show_version(*, value: bool) -> None:
+    if value:
+        sys.stdout.write(f"sarj-sql-lint {__version__}\n")
+        raise typer.Exit
+
+
+@app.callback()
+def _root(
+    *,
+    _version: Annotated[bool, typer.Option("--version", callback=_show_version, is_eager=True)] = False,
+) -> None:
+    pass
+
+
+@app.command("list-rules", help="List available rule IDs.")
+def _list_rules() -> None:
+    for rid, cls in sorted(REGISTRY.items()):
+        inst = cls()
+        sys.stdout.write(f"{inst.code:8}  {rid:40}  {inst.description}\n")
+
+
+@app.command("check", help="Run rules over .sql files.")
+def _check_command(
+    context: typer.Context,
+    files: Annotated[list[Path], typer.Argument(parser=Path)],
+    rule: Annotated[list[str], typer.Option("--rule", help="Rule ID (repeat for multiple).")],
+    *,
+    fix: Annotated[bool, typer.Option("--fix", help="Apply safe fixes before reporting remaining findings.")] = False,
+) -> None:
+    context.ensure_object(_Result).code = _run_check(rule, files, fix=fix)
+
+
+def _apply_fixes(rule: list[str], files: list[Path]) -> None:
+    if unknown := set(rule) - REGISTRY.keys():
+        message = f"unknown rule(s): {', '.join(sorted(unknown))}"
+        raise ValueError(message)
+    for path in _expand_paths(files):
+        fix_file(path, partial(fix_source, path, rule_ids=rule))
+
+
+def _run_check(rule: list[str], files: list[Path], *, fix: bool = False) -> int:
+    try:
+        if fix:
+            _apply_fixes(rule, files)
+        diags = analyze(rule, files)
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+    for d in diags:
+        sys.stdout.write(d.format() + "\n")
+    return 1 if any(d.severity is DefaultLevel.ERROR for d in diags) else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    result = _Result()
+    try:
+        app(args=argv, prog_name="sarj-sql-lint", obj=result)
+    except SystemExit as exc:
+        if exc.code != 0:
+            raise
+    return result.code
+
+
+def _iter_directory_inputs(p: Path) -> Iterator[Path]:
+    for child in p.rglob("*.sql"):
+        if not child.is_file():
+            continue
+        if any(part in SKIP_DIR_NAMES for part in child.parts):
+            continue
+        try:
+            if child.stat().st_size > MAX_FILE_BYTES:
+                continue
+        except OSError:
+            continue
+        yield child
+
+
+if __name__ == "__main__":
+    sys.exit(main())

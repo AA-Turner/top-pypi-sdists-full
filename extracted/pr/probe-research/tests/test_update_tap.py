@@ -19,7 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import autoupdate, doctor, updater, upgrading
+from probe.cli import autoupdate
+from probe.cli.wizard import doctor
+from probe.cli.install import updater, upgrade as upgrading
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 from probe.shared.updates.updates import Comparison, VersionStatus
 
@@ -61,8 +63,8 @@ def _fake_claude(monkeypatch, issued):
 def test_update_plugin_reads_the_tap_before_and_after_its_update(monkeypatch):
     issued: list[list[str]] = []
     _fake_claude(monkeypatch, issued)
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.96.1")
-    monkeypatch.setattr(updater, "installed_tap_version", _seq(["0.7.1", "0.7.2"]))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.96.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", _seq(["0.7.1", "0.7.2"]))
 
     result = updater.update_plugin("0.96.1")
 
@@ -86,8 +88,8 @@ def _fake_claude_failing_tap(monkeypatch, result):
 
     monkeypatch.setattr(updater.claude_cli, "run", _run)
     monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.96.1")
-    monkeypatch.setattr(updater, "installed_tap_version", lambda: "0.7.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.96.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", lambda: "0.7.1")
 
 
 TAP_COMMAND = f"claude plugin update {updater.TAP_PLUGIN_ID}"
@@ -135,8 +137,8 @@ def test_a_failed_refresh_is_the_taps_reason_too(monkeypatch):
 
     monkeypatch.setattr(updater.claude_cli, "run", _run)
     monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.96.1")
-    monkeypatch.setattr(updater, "installed_tap_version", lambda: "0.7.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.96.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", lambda: "0.7.1")
 
     pres = updater.update_plugin("0.96.1")
 
@@ -197,7 +199,7 @@ def test_a_codex_tap_that_did_not_move_says_why(monkeypatch):
     monkeypatch.setattr(updater.plugin_cli, "refresh_marketplace", lambda source, marketplace: ok)
     monkeypatch.setattr(updater.plugin_cli, "install", lambda source, plugin_id: ok)
     same = {"probe-research": "0.96.1", "probe-research-tap": "0.7.1"}
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda codex: dict(same))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda codex: dict(same))
 
     pres = updater.update_codex_plugins()
 
@@ -244,7 +246,7 @@ def test_codex_carries_the_tap_versions_too(monkeypatch):
             {"probe-research": "0.96.1", "probe-research-tap": "0.7.1"},
         ]
     )
-    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda codex: next(versions))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions", lambda codex: next(versions))
 
     result = updater.update_codex_plugins()
 
@@ -397,7 +399,7 @@ def test_no_restart_is_never_said_on_windows(monkeypatch):
     there), and no `tap watch` is seen there to count: as the session-start
     notice says (`tap_handover.watchers_movable`), a restart."""
     _ledger("user")
-    monkeypatch.setattr(updater, "_windows", lambda: True)
+    monkeypatch.setattr(updater.tap_sessions, "_windows", lambda: True)
     result = updater.PluginResult(True, True, True, "0.96.0", "0.96.1", "", tap_before="0.10.12",
                                   tap_after="0.10.16")
     assert updater.follows_without_restart("claude_code", result) is False
@@ -663,8 +665,7 @@ def _update_that_fails(monkeypatch, agent, detail, plugin="0.96.0"):
             lambda *a, **k: pytest.fail("reinstalled from a marketplace that did not refresh"),
         )
         monkeypatch.setattr(
-            updater,
-            "_codex_plugin_versions",
+            "probe.shared.harness.harnesses.codex.plugins._codex_plugin_versions",
             lambda codex: {"probe-research": plugin, "probe-research-tap": "0.6.1"},
         )
     else:
@@ -677,8 +678,8 @@ def _update_that_fails(monkeypatch, agent, detail, plugin="0.96.0"):
 
         monkeypatch.setattr(updater.claude_cli, "run", _run)
         monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/local/bin/claude")
-        monkeypatch.setattr(updater, "installed_plugin_version", lambda: plugin)
-        monkeypatch.setattr(updater, "installed_tap_version", lambda: "0.6.1")
+        monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: plugin)
+        monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", lambda: "0.6.1")
     return upgrading.perform_update(base_url="https://x", include_plugin=True)
 
 
@@ -754,8 +755,8 @@ def test_a_tap_that_alone_hits_the_blocked_git_gets_the_fix_and_keeps_the_comman
 
     monkeypatch.setattr(updater.claude_cli, "run", _run)
     monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.96.1")
-    monkeypatch.setattr(updater, "installed_tap_version", lambda: "0.6.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.96.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", lambda: "0.6.1")
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -777,8 +778,8 @@ def test_a_blocked_later_step_never_hides_the_commands_without_the_fix(monkeypat
 
     monkeypatch.setattr(updater.claude_cli, "run", _run)
     monkeypatch.setattr(updater.shutil, "which", lambda _name: "/usr/local/bin/claude")
-    monkeypatch.setattr(updater, "installed_plugin_version", lambda: "0.96.1")
-    monkeypatch.setattr(updater, "installed_tap_version", lambda: "0.6.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_plugin_version", lambda: "0.96.1")
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.installed_tap_version", lambda: "0.6.1")
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
@@ -855,7 +856,7 @@ def test_a_daemon_without_a_versioned_folder_is_read_from_its_record(tmp_path, m
     try:
         record.write_text("0.7.1")
         monkeypatch.setattr(
-            updater, "_process_commands",
+            updater.tap_sessions, "_process_commands",
             lambda: [" ".join(["/usr/bin/python3", *_daemon_command(sid, root, tmp_path)])],
         )
         assert updater.stale_tap_daemons("kimi_code", "0.7.2") == ("0.7.1",)
@@ -869,7 +870,7 @@ def _update_beside_an_old_session(monkeypatch, daemons, *, scope="user", tap=("0
     _ledger(scope, tap[1])
     cache = _claude_tap_cache(Path(os.environ["HOME"]))
     monkeypatch.setattr(
-        updater, "_process_commands",
+        updater.tap_sessions, "_process_commands",
         lambda: [
             " ".join(["/usr/bin/python3", *_daemon_command(sid, cache / version, Path("/home/x"))])
             for sid, version in daemons
@@ -928,7 +929,7 @@ def test_a_current_tap_beside_an_old_session_stays_current_with_the_note(monkeyp
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     cache = _claude_tap_cache(Path(os.environ["HOME"]))
     monkeypatch.setattr(
-        updater, "_process_commands",
+        updater.tap_sessions, "_process_commands",
         lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.7.1", Path("/x"))])],
     )
     monkeypatch.setattr(
@@ -947,7 +948,7 @@ def test_a_tap_left_behind_is_still_behind_beside_an_old_session(monkeypatch):
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     cache = _claude_tap_cache(Path(os.environ["HOME"]))
     monkeypatch.setattr(
-        updater, "_process_commands",
+        updater.tap_sessions, "_process_commands",
         lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.6.0", Path("/x"))])],
     )
     monkeypatch.setattr(
@@ -990,10 +991,10 @@ def test_several_old_sessions_are_counted_once_each(monkeypatch):
 
 
 def _hosted(monkeypatch, rows):
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     monkeypatch.setattr(service_calls, "recorders", lambda timeout=0.5: rows, raising=False)
-    monkeypatch.setattr(updater, "_process_commands", lambda: [])
+    monkeypatch.setattr(updater.tap_sessions, "_process_commands", lambda: [])
 
 
 def _recorder(sid, harness="claude_code", version="0.10.13", **over):
@@ -1022,7 +1023,7 @@ def test_a_service_that_does_not_say_which_tap_it_loaded_is_left_out(monkeypatch
     """No guessing: an older service names no `tap_version`, and a recorder
     may name no agent; neither is counted, whatever its saved `recorders.json`
     says (a session's own tap there is not the tap the service loaded)."""
-    from probe.service import paths
+    from probe.foundation.service_api import paths
 
     folder = paths.service_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -1041,7 +1042,7 @@ def test_a_session_whose_own_watcher_still_holds_it_is_counted_once(monkeypatch,
     cache = _claude_tap_cache(Path(os.environ["HOME"]))
     _hosted(monkeypatch, [_recorder("s1")])
     monkeypatch.setattr(
-        updater, "_process_commands",
+        updater.tap_sessions, "_process_commands",
         lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.10.12", tmp_path)])],
     )
     assert updater.stale_tap_daemons("claude_code", "0.10.16") == ("0.10.12",)
@@ -1057,7 +1058,7 @@ def test_the_update_report_names_the_services_sessions(monkeypatch):
 
 def test_with_the_tap_alone_an_old_session_still_needs_a_restart():
     """No Probe plugin beside the tap (capture only): nothing moves its watcher."""
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     result = updater.PluginResult(True, True, True, None, None, "", tap_before="0.7.1", tap_after="0.7.2",
                                   tap_running_stale=("0.7.1",))
@@ -1084,7 +1085,7 @@ def _looked(monkeypatch, rows, commands=()):
     """The service's recorders `rows`, and a process listing that could be read
     (it always holds this process): `commands` are the `tap watch` lines in it."""
     _hosted(monkeypatch, rows)
-    monkeypatch.setattr(updater, "_process_commands", lambda: ["/usr/bin/python3 -m pytest", *commands])
+    monkeypatch.setattr(updater.tap_sessions, "_process_commands", lambda: ["/usr/bin/python3 -m pytest", *commands])
 
 
 def _installed(source):
@@ -1168,10 +1169,10 @@ def test_a_look_that_could_not_be_made_keeps_the_sentence(monkeypatch):
     def unreadable():
         raise OSError("no ps, no /proc")
 
-    monkeypatch.setattr(updater, "tap_daemons", lambda commands=None: unreadable())
-    monkeypatch.setattr(updater, "_process_commands", lambda: ["/usr/bin/python3 -m pytest"])
+    monkeypatch.setattr(updater.tap_sessions, "tap_daemons", lambda commands=None: unreadable())
+    monkeypatch.setattr(updater.tap_sessions, "_process_commands", lambda: ["/usr/bin/python3 -m pytest"])
     assert updater.settle_stale_notes(_OLD_UPDATER, plugin_after=_installed) == _OLD_UPDATER
-    monkeypatch.setattr(updater, "_process_commands", lambda: [])  # nothing listed: nothing readable
+    monkeypatch.setattr(updater.tap_sessions, "_process_commands", lambda: [])  # nothing listed: nothing readable
     assert updater.stale_tap_sessions("claude_code", "0.10.19") is None
     assert updater.settle_stale_notes(_ONE_PASS, plugin_after=_installed) == _ONE_PASS
     assert updater.stale_tap_daemons("claude_code", "0.10.19") == (), "the update report counts none, as before"
@@ -1199,10 +1200,10 @@ def test_doctor_prints_the_attempt_as_it_stands(monkeypatch):
 
 
 def test_doctor_reads_another_agents_probe_plugin_from_its_own_record(monkeypatch):
-    from probe.cli import capabilities
+    from probe.cli.wizard import state as capabilities
 
     seen = []
-    monkeypatch.setattr(capabilities, "installed_plugins",
+    monkeypatch.setattr(capabilities.plugins, "installed_plugins",
                         lambda source=None, local=False: seen.append((source, local)) or {"probe-research"})
     plugin_after = doctor._probe_plugin_of("claude_code", False)
     assert plugin_after("claude_code") is None, "the selected agent: doctor's own read"
@@ -1229,8 +1230,8 @@ def test_a_tap_behind_where_sessions_cannot_follow_keeps_the_restart_line(monkey
     _ledger("project" if why == "project" else "user")
     _looked(monkeypatch, [])
     if why == "unlooked":
-        monkeypatch.setattr(updater, "_process_commands", lambda: [])
-    monkeypatch.setattr(updater, "_windows", lambda: why == "windows")
+        monkeypatch.setattr(updater.tap_sessions, "_process_commands", lambda: [])
+    monkeypatch.setattr(updater.tap_sessions, "_windows", lambda: why == "windows")
     latest = "0.10.12" if why == "no_handback" else "0.10.19"
     warning = doctor.tap_behind_warning([_row("tap", "0.10.11", latest, VersionStatus.UPDATE)], "claude_code",
                                         "installed")

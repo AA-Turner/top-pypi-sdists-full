@@ -170,6 +170,7 @@ ATTRIBUTES: list[AttributeEntry] = [
     (0x000C, "CHANNEL-NUMBER", pack_unsigned_short, unpack_unsigned_short),
     (0x000D, "LIFETIME", pack_unsigned, unpack_unsigned),
     (0x0012, "XOR-PEER-ADDRESS", pack_xor_address, unpack_xor_address),
+    (0x0013, "DATA", pack_bytes, unpack_bytes),
     (0x0014, "REALM", pack_string, unpack_string),
     (0x0015, "NONCE", pack_bytes, unpack_bytes),
     (0x0016, "XOR-RELAYED-ADDRESS", pack_xor_address, unpack_xor_address),
@@ -261,7 +262,8 @@ class Message:
         return (
             f"Message(message_method=Method.{self.message_method.name}, "
             f"message_class=Class.{self.message_class.name}, "
-            f"transaction_id={repr(self.transaction_id)})"
+            f"transaction_id={self.transaction_id.hex()}, "
+            f"attributes={self.attributes})"
         )
 
 
@@ -326,6 +328,11 @@ class Transaction:
                 self.__timeout_handle.cancel()
 
     def __retry(self) -> None:
+        # Retransmissions stop once a response is received (RFC 5389 section 7.2.1),
+        # which may have happened before run() could cancel the timer.
+        if self.__future.done():
+            return
+
         if self.__tries >= self.__tries_max:
             self.__future.set_exception(TransactionTimeout())
             return

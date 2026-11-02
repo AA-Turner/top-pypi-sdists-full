@@ -1,0 +1,2394 @@
+"""Pure, bounded structured-filter compiler and evaluator.
+
+The compiler accepts only the namespaced JSON filter language described by the
+semantic-unit retrieval contract.  It produces a deterministic typed AST before
+any backend or candidate work; the evaluator is shared by every retrieval lane.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from typing import Any, Final, Literal, TypeAlias, cast
+
+from . import semantic_language_registry, semantic_units, temporal
+from .vocabulary.registry import PUBLIC_INSTANCE
+
+MAX_PLAN_BYTES = 16 * 1024
+MAX_POINTER_BYTES = 512
+MAX_POINTER_SEGMENTS = 16
+MAX_STRING_CODEPOINTS = 1024
+MAX_STRING_BYTES = 4096
+MAX_LIST_VALUES = 64
+MAX_TOTAL_VALUES = 256
+MAX_NUMERIC_CHARS = 64
+MAX_LOGICAL_DEPTH = 4
+MAX_LEAF_PREDICATES = 32
+
+_LOGICAL = frozenset({"$and", "$or", "$not"})
+_OPERATORS = frozenset(
+    {
+        "$eq",
+        "$ne",
+        "$in",
+        "$all",
+        "$contains",
+        "$exists",
+        "$gt",
+        "$gte",
+        "$lt",
+        "$lte",
+        "$between",
+    }
+)
+_ORDERED = frozenset({"$gt", "$gte", "$lt", "$lte", "$between"})
+_RFC3339_DATETIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$"
+)
+_KNOWN_ARRAY_FIELDS = frozenset(
+    {"page.project", "page.tags", "page.speakers", "unit.tags"}
+)
+_KNOWN_STRING_FIELDS = frozenset(
+    {
+        "page.status",
+        "page.type",
+        "page.file_type",
+        "page.source_kind",
+        "page.domain",
+        "unit.category",
+        "unit.category_key",
+        "unit.kind",
+        "unit.context",
+        "unit.form",
+        "unit.verdict",
+    }
+)
+# Fields compared as real dates rather than strings. Every site that used to
+# name `page.updated` alone consults this set, so a second typed date field is
+# one entry instead of five scattered special cases.
+_KNOWN_DATE_FIELDS = frozenset({"page.updated", "unit.check_by"})
+_KNOWN_SCALAR_FIELDS = _KNOWN_STRING_FIELDS | _KNOWN_DATE_FIELDS
+_PAGE_FIELDS = frozenset(
+    {
+        "page.status",
+        "page.type",
+        "page.project",
+        "page.tags",
+        "page.speakers",
+        "page.file_type",
+        "page.updated",
+        # The two open source-classification axes. First-class rather than only
+        # reachable through `page.frontmatter:/...` because they are a primary
+        # way to find a source; page predicates are evaluated in memory over the
+        # parsed page either way, so this costs no table, column, or reindex.
+        "page.source_kind",
+        "page.domain",
+    }
+)
+_UNIT_FIELDS = frozenset(
+    {
+        "unit.category",
+        "unit.category_key",
+        "unit.kind",
+        "unit.tags",
+        "unit.context",
+        "unit.form",
+        "unit.verdict",
+        "unit.check_by",
+    }
+)
+
+ScalarKind = Literal["null", "boolean", "number", "string", "date", "datetime"]
+CategoryResolver = Callable[[str], str]
+KindResolver = Callable[[str], str]
+
+
+class FilterError(ValueError):
+    """Stable path-addressed validation failure."""
+
+    def __init__(
+        self,
+        code: str,
+        path: str,
+        message: str,
+        *,
+        expected: str,
+        remediation: str,
+    ) -> None:
+        self.code = code
+        self.path = path
+        self.message = message
+        self.expected = expected
+        self.remediation = remediation
+        super().__init__(f"{code} at {path}: {message}")
+
+    def as_public_dict(self) -> dict[str, str]:
+        """The client refusal block; `cli_ops.public_refusal` finds it by this name."""
+        return {
+            "code": self.code,
+            "path": self.path,
+            "message": self.message,
+            "expected": self.expected,
+            "remediation": self.remediation,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FilterShortcuts:
+    types: tuple[str, ...] = ()
+    projects: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
+    speakers: tuple[str, ...] = ()
+    file_types: tuple[str, ...] = ()
+    exclude_file_types: tuple[str, ...] = ()
+    categories: tuple[str, ...] = ()
+    kinds: tuple[str, ...] = ()
+    source_kinds: tuple[str, ...] = ()
+    domains: tuple[str, ...] = ()
+    updated_after: str | None = None
+    updated_before: str | None = None
+    recency_days: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TypedScalar:
+    kind: ScalarKind
+    value: None | bool | int | float | str | date | datetime
+
+    def json_value(self) -> Any:
+        if self.kind == "date":
+            assert isinstance(self.value, date) and not isinstance(self.value, datetime)
+            return self.value.isoformat()
+        if self.kind == "datetime":
+            assert isinstance(self.value, datetime)
+            value = self.value.astimezone(UTC).isoformat()
+            return value.replace("+00:00", "Z")
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
+class FieldReference:
+    name: str
+    namespace: Literal["page", "unit"]
+    path: str
+    pointer: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Predicate:
+    field: FieldReference
+    operators: tuple[tuple[str, TypedScalar | tuple[TypedScalar, ...] | bool], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AllOf:
+    children: tuple[FilterNode, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AnyOf:
+    children: tuple[FilterNode, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Not:
+    child: FilterNode
+
+
+FilterNode: TypeAlias = Predicate | AllOf | AnyOf | Not
+
+
+@dataclass(frozen=True, slots=True)
+class FilterPlan:
+    root: FilterNode | None
+    has_unit_predicate: bool
+    leaf_count: int
+    collection_value_count: int
+    #: The vocabulary instance whose entries the plan's `unit.category` and
+    #: `unit.kind` values name. A unit holds the same entry only when the value
+    #: is core or its page selected this instance.
+    unit_instance: str = PUBLIC_INSTANCE
+
+    def to_dict(self) -> dict[str, Any]:
+        return _node_to_dict(self.root) if self.root is not None else {}
+
+
+@dataclass(slots=True)
+class _ParseState:
+    leaf_count: int = 0
+    collection_value_count: int = 0
+
+
+class _Missing:
+    __slots__ = ()
+
+
+MISSING = _Missing()
+
+
+class _ForeignEntry:
+    """A unit value that is another instance's extension entry: present, never equal.
+
+    A sentinel object, not a vocabulary value, so no spelling can collide with it.
+    """
+
+    __slots__ = ()
+
+
+FOREIGN_ENTRY = _ForeignEntry()
+
+#: The unit axes whose values are vocabulary entries rather than authored spelling:
+#: each is a selected meaning, so stored rows can only propose candidates on it.
+#: Closed filter field names that the filter schema declares, not vocabulary.
+ENTRY_AXES: Final = frozenset({"unit.category", "unit.kind"})
+
+
+def compile_filter(
+    expression: Any,
+    *,
+    shortcuts: FilterShortcuts | None = None,
+    resolve_category: CategoryResolver | None = None,
+    resolve_kind: KindResolver | None = None,
+    unit_instance: str = PUBLIC_INSTANCE,
+) -> FilterPlan:
+    """Validate and normalize a generic expression plus legacy shortcuts.
+
+    `unit_instance` is the instance the resolvers read; unit values compile
+    to its entries.
+    """
+    generic = {} if expression is None else expression
+    if not isinstance(generic, Mapping):
+        raise _error(
+            "INVALID_FILTER_SHAPE",
+            "$",
+            "filters must be a JSON object",
+            "object",
+            "Pass a namespaced field expression or logical object.",
+        )
+    _bounded_json(generic, path="$", code="FILTER_TOO_LARGE")
+
+    active_shortcuts = shortcuts or FilterShortcuts()
+    _bounded_json(
+        {
+            key: value
+            for key, value in {
+                "types": active_shortcuts.types,
+                "projects": active_shortcuts.projects,
+                "tags": active_shortcuts.tags,
+                "speakers": active_shortcuts.speakers,
+                "file_types": active_shortcuts.file_types,
+                "exclude_file_types": active_shortcuts.exclude_file_types,
+                "categories": active_shortcuts.categories,
+                "kinds": active_shortcuts.kinds,
+                "source_kinds": active_shortcuts.source_kinds,
+                "domains": active_shortcuts.domains,
+                "updated_after": active_shortcuts.updated_after,
+                "updated_before": active_shortcuts.updated_before,
+                "recency_days": active_shortcuts.recency_days,
+            }.items()
+            if value not in ((), None)
+        },
+        path="$.shortcuts",
+        code="FILTER_TOO_LARGE",
+    )
+
+    state = _ParseState()
+    root = _parse_expression(generic, path="$", depth=0, state=state)
+    shortcut_nodes = _compile_shortcuts(active_shortcuts, state=state)
+    children = ([root] if root is not None else []) + shortcut_nodes
+    structural = _normalize_node(_all_of(children))
+    if state.collection_value_count > MAX_TOTAL_VALUES:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            "$.shortcuts",
+            f"combined filter contains {state.collection_value_count} collection values",
+            f"at most {MAX_TOTAL_VALUES} collection and shortcut values",
+            "Reduce collection operands or shortcut values.",
+        )
+    _validate_combined_structure(structural)
+    _validate_temporal_conjunctions(structural)
+    _bounded_json(
+        _node_to_dict(structural) if structural is not None else {},
+        path="$",
+        code="FILTER_TOO_LARGE",
+    )
+
+    category_resolver = resolve_category or (lambda value: value)
+    kind_resolver = resolve_kind or (lambda value: value)
+    resolved = _normalize_node(
+        _resolve_language_aliases(structural, category_resolver, kind_resolver)
+    )
+    _bounded_json(
+        _node_to_dict(resolved) if resolved is not None else {},
+        path="$",
+        code="FILTER_TOO_LARGE",
+    )
+    return FilterPlan(
+        root=resolved,
+        has_unit_predicate=_has_unit_predicate(resolved),
+        leaf_count=state.leaf_count,
+        collection_value_count=state.collection_value_count,
+        unit_instance=unit_instance,
+    )
+
+
+def evaluate_filter(
+    plan: FilterPlan,
+    *,
+    page: Mapping[str, Any],
+    unit: Mapping[str, Any] | None = None,
+) -> bool:
+    """Evaluate one normalized plan against one parent/unit pair."""
+    if plan.root is None:
+        return True
+    return _evaluate_node(plan.root, page=page, unit=unit, instance=plan.unit_instance) is True
+
+
+def resolve_result_level(requested: str, plan: FilterPlan) -> str:
+    """Resolve ``auto`` without inspecting candidates or backend state."""
+    if requested not in {"auto", "page", "unit", "mixed"}:
+        raise _error(
+            "INVALID_RESULT_LEVEL",
+            "$.result_level",
+            f"unknown result level {requested!r}",
+            "auto, page, unit, or mixed",
+            "Choose one of the documented recall result levels.",
+        )
+    if requested == "auto":
+        return "unit" if plan.has_unit_predicate else "page"
+    return requested
+
+
+@dataclass(frozen=True, slots=True)
+class IndexCandidateClause:
+    """One conjunctive candidate constraint over the category/kind axes.
+
+    Each axis is ``None`` when unconstrained or a (possibly empty) frozenset of
+    canonical positive values the index can serve directly.
+    """
+
+    category_seeds: frozenset[str] | None
+    kind_seeds: frozenset[str] | None
+
+
+@dataclass(frozen=True, slots=True)
+class IndexCandidateAlgebra:
+    """Candidate-first classification of a compiled plan.
+
+    ``status`` is ``complete`` when the positive category/kind seeds fully
+    describe the candidate set the index can serve (post-evaluation may still
+    narrow via page / NOT / unsupported predicates), or ``unsupported`` when no
+    positive complete seed exists and recall must fall back to the ordinary
+    keyword path.  A ``complete`` result may carry an empty seed set: two exact
+    positive equals that intersect to nothing prove ``definitely_empty`` without
+    a scope walk.
+    """
+
+    status: Literal["complete", "unsupported"]
+    definitely_empty: bool
+    clauses: tuple[IndexCandidateClause, ...]
+    category_seeds: frozenset[str] | None
+    kind_seeds: frozenset[str] | None
+    post_filter_required: bool
+
+    @property
+    def state(self) -> str:
+        return self.status
+
+
+@dataclass(frozen=True, slots=True)
+class _Seed:
+    """Intermediate per-subtree candidate constraint.
+
+    ``clauses`` is the deduplicated disjunction of conjunctive candidate clauses
+    the subtree can serve.  ``has_seed`` marks whether the subtree contributes at
+    least one positive complete seed; an empty ``clauses`` with ``has_seed`` set
+    records a proven contradiction.  ``post`` marks whether the subtree also
+    carries predicates left for post-evaluation.
+    """
+
+    clauses: tuple[IndexCandidateClause, ...]
+    has_seed: bool
+    post: bool
+
+
+_SEEDLESS = _Seed((), False, True)
+_EMPTY_SUBTREE = _Seed((), False, False)
+
+
+def plan_index_candidates(plan: FilterPlan) -> IndexCandidateAlgebra:
+    """Classify a compiled plan as a complete or unsupported candidate seed set.
+
+    Exact positive ``unit.category`` / ``unit.kind`` ``$eq`` and ``$in`` provide
+    complete seed clauses.  AND takes the Cartesian product of the branch clauses
+    and intersects each shared axis, leaving page / NOT / unsupported predicates
+    for canonical post-evaluation; OR is complete only when every branch carries
+    a complete seed and unions the branch clauses.  A top-level NOT, a page-only
+    expression, and an empty plan are unsupported.
+    """
+    seed = _analyze_index_node(plan.root)
+    if not seed.has_seed:
+        return IndexCandidateAlgebra(
+            status="unsupported",
+            definitely_empty=False,
+            clauses=(),
+            category_seeds=None,
+            kind_seeds=None,
+            post_filter_required=False,
+        )
+    category_seeds, kind_seeds, post_multi = _clause_compatibility(seed.clauses)
+    return IndexCandidateAlgebra(
+        status="complete",
+        definitely_empty=not seed.clauses,
+        clauses=seed.clauses,
+        category_seeds=category_seeds,
+        kind_seeds=kind_seeds,
+        post_filter_required=seed.post or post_multi,
+    )
+
+
+def _analyze_index_node(node: FilterNode | None) -> _Seed:
+    if node is None:
+        return _EMPTY_SUBTREE
+    if isinstance(node, Predicate):
+        return _predicate_seed(node)
+    if isinstance(node, AllOf):
+        clauses: tuple[IndexCandidateClause, ...] | None = None
+        has_seed = False
+        post = False
+        for child in node.children:
+            child_seed = _analyze_index_node(child)
+            if not child_seed.has_seed:
+                # Page / NOT / unsupported children only post-filter.
+                post = True
+                continue
+            has_seed = True
+            post = post or child_seed.post
+            if clauses is None:
+                clauses = child_seed.clauses
+            else:
+                clauses = _merge_clause_sets(clauses, child_seed.clauses)
+        # Keep ``has_seed`` even when contradiction dropped every clause.
+        return _Seed(clauses or (), has_seed, post)
+    if isinstance(node, AnyOf):
+        collected: list[IndexCandidateClause] = []
+        post = False
+        for child in node.children:
+            child_seed = _analyze_index_node(child)
+            if not child_seed.has_seed:
+                # A branch without a complete seed makes the whole OR unsupported.
+                return _SEEDLESS
+            # A seedful empty branch is valid and contributes no clauses.
+            collected.extend(child_seed.clauses)
+            post = post or child_seed.post
+        return _Seed(_dedupe_clauses(collected), True, post)
+    # Top-level or nested NOT contributes no positive seed; post-evaluate it.
+    return _SEEDLESS
+
+
+def _predicate_seed(predicate: Predicate) -> _Seed:
+    field = predicate.field.name
+    if field not in {"unit.category", "unit.kind"}:
+        return _SEEDLESS
+    positive: frozenset[str] | None = None
+    extra = False
+    for operator, operand in predicate.operators:
+        if operator == "$eq" and isinstance(operand, TypedScalar) and operand.kind == "string":
+            assert isinstance(operand.value, str)
+            values: frozenset[str] = frozenset({operand.value})
+        elif operator == "$in" and isinstance(operand, tuple):
+            values = frozenset(
+                item.value
+                for item in operand
+                if isinstance(item, TypedScalar)
+                and item.kind == "string"
+                and isinstance(item.value, str)
+            )
+        else:
+            # $ne / $contains / $exists on the seed field post-evaluate.
+            extra = True
+            continue
+        positive = values if positive is None else (positive & values)
+    if positive is None:
+        return _SEEDLESS
+    if field == "unit.category":
+        clause = IndexCandidateClause(positive, None)
+    else:
+        clause = IndexCandidateClause(None, positive)
+    return _Seed((clause,), True, extra)
+
+
+def _merge_clause_sets(
+    left: tuple[IndexCandidateClause, ...],
+    right: tuple[IndexCandidateClause, ...],
+) -> tuple[IndexCandidateClause, ...]:
+    merged: list[IndexCandidateClause] = []
+    for first in left:
+        for second in right:
+            clause = _merge_clause(first, second)
+            if clause is not None:
+                merged.append(clause)
+    return _dedupe_clauses(merged)
+
+
+def _merge_clause(
+    left: IndexCandidateClause, right: IndexCandidateClause
+) -> IndexCandidateClause | None:
+    category, category_empty = _merge_axis(left.category_seeds, right.category_seeds)
+    kind, kind_empty = _merge_axis(left.kind_seeds, right.kind_seeds)
+    if category_empty or kind_empty:
+        # A dropped clause is a proven per-clause contradiction.
+        return None
+    return IndexCandidateClause(category, kind)
+
+
+def _merge_axis(
+    left: frozenset[str] | None, right: frozenset[str] | None
+) -> tuple[frozenset[str] | None, bool]:
+    if left is None:
+        return right, False
+    if right is None:
+        return left, False
+    intersection = left & right
+    return intersection, not intersection
+
+
+def _dedupe_clauses(
+    clauses: Sequence[IndexCandidateClause],
+) -> tuple[IndexCandidateClause, ...]:
+    unique: dict[_ClauseKey, IndexCandidateClause] = {}
+    for clause in clauses:
+        unique[_clause_sort_key(clause)] = clause
+    return tuple(unique[key] for key in sorted(unique))
+
+
+_AxisKey = tuple[int, tuple[str, ...]]
+_ClauseKey = tuple[_AxisKey, _AxisKey]
+
+
+def _clause_sort_key(clause: IndexCandidateClause) -> _ClauseKey:
+    return (_axis_sort_key(clause.category_seeds), _axis_sort_key(clause.kind_seeds))
+
+
+def _axis_sort_key(axis: frozenset[str] | None) -> _AxisKey:
+    # ``None`` sorts distinctly from an empty (contradiction) constraint.
+    if axis is None:
+        return (0, ())
+    return (1, tuple(sorted(axis)))
+
+
+def _clause_compatibility(
+    clauses: tuple[IndexCandidateClause, ...],
+) -> tuple[frozenset[str] | None, frozenset[str] | None, bool]:
+    if len(clauses) == 1:
+        clause = clauses[0]
+        return clause.category_seeds, clause.kind_seeds, False
+    if not clauses:
+        return None, None, False
+    category = _union_axis([clause.category_seeds for clause in clauses])
+    kind = _union_axis([clause.kind_seeds for clause in clauses])
+    return category, kind, True
+
+
+def _union_axis(axes: Sequence[frozenset[str] | None]) -> frozenset[str] | None:
+    result: frozenset[str] = frozenset()
+    for axis in axes:
+        if axis is None:
+            # An unconstrained clause means the axis cannot be narrowed by union.
+            return None
+        result = result | axis
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Index-backed eligibility
+#
+# `plan_index_candidates` above answers a different question: which candidates
+# can the semantic-unit sidecar seed for the UNIT lane. This section answers the
+# eligibility question — can the maintained catalogue resolve this plan's
+# eligible page set, and how far can it narrow. They are deliberately separate:
+# widening the candidate algebra would change what the unit lane's bounded
+# prefix trusts, and this classifier has to accept plans (a top-level NOT, a
+# page-only expression) that carry no positive candidate seed but are still
+# fully answerable from columns.
+#
+# The result is an EXPRESSION TREE, not a flattened disjunction. A DNF cannot
+# express a complement, so a `$not` could only ever be widened to "every page";
+# a tree renders `NOT (...)` directly, which is what makes `$ne`, `$not` and
+# `$exists` narrow instead of hydrating the whole scope. Each node also reports
+# whether it is EXACT — equal to the set the evaluator would produce, not
+# merely a superset — because a complement of a superset is an under-selection,
+# and that is the one direction a seed may never err in.
+# --------------------------------------------------------------------------- #
+
+#: Page axes stored as one canonicalized scalar column plus a members array.
+INDEX_PAGE_SCALAR_AXES: Final = frozenset(
+    {"page.status", "page.type", "page.file_type", "page.source_kind", "page.domain"}
+)
+#: Page axes stored only as a members array.
+INDEX_PAGE_LIST_AXES: Final = frozenset({"page.project", "page.tags", "page.speakers"})
+#: The page axis compared as a real date.
+INDEX_PAGE_DATE_AXES: Final = frozenset({"page.updated"})
+#: Unit axes stored as one scalar column on `semantic_units`.
+INDEX_UNIT_SCALAR_AXES: Final = frozenset(
+    {
+        "unit.category",
+        "unit.category_key",
+        "unit.kind",
+        "unit.context",
+        "unit.form",
+        "unit.verdict",
+    }
+)
+#: Unit axes stored as a canonicalized members array.
+INDEX_UNIT_LIST_AXES: Final = frozenset({"unit.tags"})
+#: The unit axis compared as a real date.
+INDEX_UNIT_DATE_AXES: Final = frozenset({"unit.check_by"})
+
+#: Unit axes `unit_view` always names, so `$exists` on them is a constant. The
+#: view sets `context` even when it is None — absence is not the same as a null
+#: value, and only `verdict` and `check_by` are omitted when absent.
+_ALWAYS_PRESENT_UNIT_AXES: Final = frozenset(
+    {"unit.category", "unit.category_key", "unit.kind", "unit.context", "unit.form", "unit.tags"}
+)
+
+#: Every field an index can evaluate. A plan naming anything else cannot be
+#: answered without reading pages, so a managed reader refuses it outright
+#: instead of silently becoming the scan. Only `page.frontmatter:/<pointer>`
+#: is outside this set: it is open-ended by construction and has no column.
+INDEX_ANSWERABLE_FIELDS: Final = _PAGE_FIELDS | _UNIT_FIELDS
+
+
+@dataclass(frozen=True, slots=True)
+class AxisTest:
+    """One test against the catalogue columns that hold ``axis``.
+
+    ``op`` is a closed vocabulary the SQL renderer knows: ``eq`` / ``ne``
+    compare the scalar column, ``in`` / ``all`` / ``contains`` consult the
+    members array, ``exists`` tests key presence, ``nullish`` tests "declared,
+    but not as a comparable string", and ``range`` bounds the day column (open
+    on both ends it means "carries a real date"). ``lower_op`` / ``upper_op``
+    carry the strictness, because a day-scoped bound compares whole days and
+    `$gt` on a day is genuinely `>`, not `>=`.
+    """
+
+    axis: str
+    op: Literal["eq", "ne", "in", "all", "contains", "exists", "range", "nullish"]
+    values: tuple[str, ...] = ()
+    present: bool = True
+    lower: str | None = None
+    lower_op: str = ">="
+    upper: str | None = None
+    upper_op: str = "<="
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityConst:
+    """A branch that is decided without consulting a column."""
+
+    value: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityAll:
+    children: tuple[EligibilityExpr, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityAny:
+    children: tuple[EligibilityExpr, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityNot:
+    child: EligibilityExpr
+
+
+EligibilityExpr: TypeAlias = (
+    "AxisTest | EligibilityConst | EligibilityAll | EligibilityAny | EligibilityNot"
+)
+
+ELIGIBILITY_TRUE: Final = EligibilityConst(True)
+ELIGIBILITY_FALSE: Final = EligibilityConst(False)
+
+
+@dataclass(frozen=True, slots=True)
+class EligibilityPlan:
+    """Whether the catalogue can resolve a plan, and how far it narrows.
+
+    ``status`` is ``resolvable`` when every field the plan names has an
+    index-backed evaluation, and ``unsupported`` otherwise — in which case
+    ``unsupported_fields`` names them, because a managed reader refuses by
+    field rather than by silently walking.
+
+    ``expr`` renders to SQL over the catalogue. ``exact`` says the rendered set
+    equals the evaluator's rather than containing it; it is what licenses a
+    complement. ``narrows`` is false only when the expression is a tautology,
+    which is the one shape a managed reader cannot serve from an index at all.
+    """
+
+    status: Literal["resolvable", "unsupported"]
+    unsupported_fields: tuple[str, ...] = ()
+    expr: EligibilityExpr = ELIGIBILITY_TRUE
+    exact: bool = False
+    has_unit_axis: bool = False
+    inexpressible: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def resolvable(self) -> bool:
+        return self.status == "resolvable"
+
+    @property
+    def narrows(self) -> bool:
+        return self.expr != ELIGIBILITY_TRUE
+
+    @property
+    def refuses(self) -> bool:
+        """A complement the columns cannot express, with nothing to fall back on.
+
+        Kept distinct from a stale index on purpose. The retryable warming
+        outcome promises that retrying will work, which is true of a catalogue
+        behind the live projection and false of a shape no generation can
+        express — so this one is refused with a typed error naming the shape,
+        and the caller is told which bound does work.
+
+        Only when the plan is left with NOTHING to narrow by. A widened
+        complement inside a conjunction still answers correctly through the
+        surviving clauses (the seed is a superset and the evaluation settles
+        it), so refusing that would remove working capability rather than fix
+        a wrong answer.
+        """
+        return bool(self.inexpressible) and not self.narrows
+
+
+def canonicalize_axis_value(field: str, value: str) -> str | None:
+    """The exact spelling `_runtime_scalar` compares for ``field``, or None.
+
+    The maintained columns are written through this, so a column comparison in
+    SQL and the in-memory evaluator settle on the same string. None means the
+    value is not a legal member of that axis and can never match an operand.
+    """
+    try:
+        return _canonicalize_string(field, value)
+    except FilterError:
+        return None
+    except ValueError:
+        return None
+
+
+class _EligibilityIssues:
+    """What a plan walk could not express, collected as it goes."""
+
+    __slots__ = ("fields", "shapes")
+
+    def __init__(self) -> None:
+        self.fields: list[str] = []
+        self.shapes: list[tuple[str, str]] = []
+
+
+def plan_index_eligibility(plan: FilterPlan) -> EligibilityPlan:
+    """Classify a compiled plan for index-backed eligibility resolution."""
+    issues = _EligibilityIssues()
+    expr, exact, _reasons = _eligibility_expr(plan.root, issues)
+    if issues.fields:
+        return EligibilityPlan("unsupported", tuple(sorted(set(issues.fields))))
+    return EligibilityPlan(
+        "resolvable",
+        (),
+        expr,
+        exact,
+        has_unit_axis=plan.has_unit_predicate,
+        inexpressible=tuple(dict.fromkeys(issues.shapes)),
+    )
+
+
+#: Why one predicate could not be described exactly. Carried out of the walk so
+#: a refusal can name the shape the caller wrote rather than an internal state.
+_Reasons = tuple[tuple[str, str], ...]
+
+
+def _eligibility_expr(
+    node: FilterNode | None, issues: _EligibilityIssues
+) -> tuple[EligibilityExpr, bool, _Reasons]:
+    """One subtree as a column expression, whether it is exact, and why not."""
+    if node is None:
+        return ELIGIBILITY_TRUE, True, ()
+    if isinstance(node, Predicate):
+        return _eligibility_predicate(node, issues)
+    if isinstance(node, AllOf):
+        children: list[EligibilityExpr] = []
+        exact = True
+        reasons: list[tuple[str, str]] = []
+        for child in node.children:
+            # Recursed unconditionally: an unsupported field anywhere in the
+            # tree still has to be evaluated, so it still has to be reported.
+            child_expr, child_exact, child_reasons = _eligibility_expr(child, issues)
+            exact = exact and child_exact
+            reasons.extend(child_reasons)
+            if child_expr == ELIGIBILITY_FALSE:
+                children = [ELIGIBILITY_FALSE]
+            elif child_expr != ELIGIBILITY_TRUE and children != [ELIGIBILITY_FALSE]:
+                children.append(child_expr)
+        return _fold_all(children), exact, tuple(reasons)
+    if isinstance(node, AnyOf):
+        or_children: list[EligibilityExpr] = []
+        exact = True
+        or_reasons: list[tuple[str, str]] = []
+        for child in node.children:
+            child_expr, child_exact, child_reasons = _eligibility_expr(child, issues)
+            exact = exact and child_exact
+            or_reasons.extend(child_reasons)
+            if child_expr == ELIGIBILITY_TRUE:
+                or_children = [ELIGIBILITY_TRUE]
+            elif child_expr != ELIGIBILITY_FALSE and or_children != [ELIGIBILITY_TRUE]:
+                or_children.append(child_expr)
+        return _fold_any(or_children), exact, tuple(or_reasons)
+    child_expr, child_exact, child_reasons = _eligibility_expr(node.child, issues)
+    if not child_exact:
+        # The complement of a SUPERSET is an under-selection, which would drop
+        # pages the evaluator keeps. Widen to "every page" and record the shape:
+        # if nothing else narrows the plan, the caller is told so rather than
+        # handed a retryable outcome that can never succeed.
+        issues.shapes.extend(
+            (field, f"$not over {text}") for field, text in child_reasons
+        )
+        if not child_reasons:
+            issues.shapes.append(("$", "$not over a comparison with no exact column"))
+        return ELIGIBILITY_TRUE, False, ()
+    if child_expr == ELIGIBILITY_TRUE:
+        return ELIGIBILITY_FALSE, True, ()
+    if child_expr == ELIGIBILITY_FALSE:
+        return ELIGIBILITY_TRUE, True, ()
+    return EligibilityNot(child_expr), True, ()
+
+
+def _fold_all(children: list[EligibilityExpr]) -> EligibilityExpr:
+    if not children:
+        return ELIGIBILITY_TRUE
+    if children == [ELIGIBILITY_FALSE]:
+        return ELIGIBILITY_FALSE
+    if len(children) == 1:
+        return children[0]
+    return EligibilityAll(tuple(children))
+
+
+def _fold_any(children: list[EligibilityExpr]) -> EligibilityExpr:
+    if not children:
+        return ELIGIBILITY_FALSE
+    if children == [ELIGIBILITY_TRUE]:
+        return ELIGIBILITY_TRUE
+    if len(children) == 1:
+        return children[0]
+    return EligibilityAny(tuple(children))
+
+
+def _eligibility_predicate(
+    predicate: Predicate, issues: _EligibilityIssues
+) -> tuple[EligibilityExpr, bool, _Reasons]:
+    field = predicate.field.name
+    if predicate.field.pointer is not None or field not in INDEX_ANSWERABLE_FIELDS:
+        # `page.frontmatter:/<pointer>` is open-ended by construction: there is
+        # no column, and no index answer to give.
+        issues.fields.append(field)
+        return ELIGIBILITY_TRUE, False, ()
+    tests: list[EligibilityExpr] = []
+    exact = True
+    reasons: list[tuple[str, str]] = []
+    for operator, operand in predicate.operators:
+        test, test_exact = _axis_test(field, operator, operand)
+        exact = exact and test_exact
+        if not test_exact:
+            reasons.append((field, _inexactness_reason(field, operator, operand)))
+        if test is not None:
+            tests.append(test)
+    if not tests:
+        # The predicate produced no column constraint at all. Left alone it
+        # folds into a tautology, and a plan with nothing else to narrow by
+        # would be answered with the retryable warming outcome — the same
+        # never-succeeding promise a complement used to get. Record the shape
+        # so the refusal fires instead; if a sibling clause does narrow, the
+        # plan still answers and `refuses` stays false.
+        issues.shapes.extend(reasons)
+    return _fold_all(tests), exact, tuple(reasons)
+
+
+def _inexactness_reason(
+    field: str, operator: str, operand: TypedScalar | tuple[TypedScalar, ...] | bool
+) -> str:
+    """Why one comparison is only a superset, in the caller's own terms.
+
+    A refusal is only useful if it names the shape that was written, so this
+    describes the operand the caller supplied rather than the column that could
+    not hold it.
+    """
+    if isinstance(operand, TypedScalar) and operand.kind == "null":
+        return f"a null-valued {field} comparison"
+    if field in INDEX_PAGE_DATE_AXES or field in INDEX_UNIT_DATE_AXES:
+        if operator == "$between":
+            return f"a {field} $between window, which is settled by kind identity"
+        if operator in _ORDERED:
+            return f"a {field} bound with sub-day precision"
+        if operator in {"$eq", "$ne", "$in"}:
+            return (
+                f"a {field} equality comparison, which cannot tell a recorded "
+                "day from a recorded instant"
+            )
+        return f"a {field} comparison a day column cannot decide"
+    return f"a {field} {operator} comparison with no exact column"
+
+
+def _axis_test(
+    field: str, operator: str, operand: TypedScalar | tuple[TypedScalar, ...] | bool
+) -> tuple[EligibilityExpr | None, bool]:
+    """One column test for one operator, plus whether it is exact.
+
+    ``None`` means the operator contributes no constraint; paired with
+    ``exact=False`` that is a widening, which the evaluation then settles.
+    """
+    if operator == "$exists":
+        assert isinstance(operand, bool)
+        # The axis is kept even for the unit keys `unit_view` always names, so
+        # the renderer can still tell the two arms apart: with NO unit at all
+        # the key is MISSING, which is the opposite answer.
+        return AxisTest(field, "exists", present=operand), True
+
+    is_date = field in INDEX_PAGE_DATE_AXES or field in INDEX_UNIT_DATE_AXES
+    is_list = field in INDEX_PAGE_LIST_AXES or field in INDEX_UNIT_LIST_AXES
+
+    if operator == "$in" and isinstance(operand, tuple):
+        if is_date:
+            days = tuple(day for item in operand if (day := _operand_day(item)) is not None)
+            if len(days) != len(operand):
+                return None, False
+            # The members array holds a DAY for both a date and an instant,
+            # while `$in` compares typed scalars and refuses to match an
+            # instant against a day. A superset, so never complemented.
+            return AxisTest(field, "in", days), False
+        return AxisTest(field, "in", _string_values(operand)), True
+    if operator == "$all" and isinstance(operand, tuple) and is_list:
+        return AxisTest(field, "all", _string_values(operand)), True
+    if operator == "$contains" and isinstance(operand, TypedScalar):
+        if operand.kind != "string" or not isinstance(operand.value, str):
+            return None, False
+        if is_list:
+            # Membership, not substring: `_evaluate_operator` treats $contains
+            # on a list runtime as "one member equals this".
+            return AxisTest(field, "in", (operand.value,)), True
+        return AxisTest(field, "contains", (operand.value,)), True
+    if operator in {"$eq", "$ne"} and isinstance(operand, TypedScalar):
+        if is_date:
+            if operator == "$ne":
+                # "carries a real date and is not this one" — the second half
+                # is not expressible at day granularity, so bound only the
+                # first and let the evaluation settle the rest.
+                return AxisTest(field, "range"), False
+            day = _operand_day(operand)
+            return (None, False) if day is None else (
+                AxisTest(field, "range", lower=day, upper=day),
+                False,
+            )
+        if operand.kind == "null":
+            if operator == "$ne":
+                # `$ne null` needs a null-kinded value that differs from null,
+                # which nothing can be. Provably empty, and provably exact.
+                return ELIGIBILITY_FALSE, True
+            # `$eq null` wants a declared null. The columns record "declared,
+            # but not as a comparable string", which also covers a declared 7
+            # or a declared list — a superset the evaluation then settles.
+            return AxisTest(field, "nullish"), False
+        if operand.kind != "string" or not isinstance(operand.value, str):
+            return None, False
+        return AxisTest(field, "eq" if operator == "$eq" else "ne", (operand.value,)), True
+    if is_date and operator in _ORDERED:
+        return _date_range_test(field, operator, operand)
+    return None, False
+
+
+def _operand_day(operand: object) -> str | None:
+    if not isinstance(operand, TypedScalar):
+        return None
+    if operand.kind == "datetime" and isinstance(operand.value, datetime):
+        return operand.value.date().isoformat()
+    if operand.kind == "date" and isinstance(operand.value, date):
+        return operand.value.isoformat()
+    return None
+
+
+def _string_values(operand: tuple[TypedScalar, ...]) -> tuple[str, ...]:
+    """Only the string members narrow; a non-string operand matches no column.
+
+    Dropping non-strings is safe for ``$in`` (a value that cannot equal any
+    stored string cannot add pages) and for ``$all``, where the whole predicate
+    is unsatisfiable once one required member cannot be stored — so requiring
+    the remainder is still a superset.
+    """
+    return tuple(
+        item.value
+        for item in operand
+        if isinstance(item, TypedScalar) and item.kind == "string" and isinstance(item.value, str)
+    )
+
+
+def _day_scoped(operand: object) -> bool:
+    """Whether the bound asks a whole-day question.
+
+    `_temporal_match` lets the BOUND decide granularity: a date-kinded bound
+    compares whole days and is always decidable, so a day column answers it
+    exactly. A precise bound compares instants, and a day-only page reports
+    INDETERMINATE — which the evaluator counts as a match — so a day bound is
+    then only a superset.
+    """
+    return isinstance(operand, TypedScalar) and operand.kind == "date"
+
+
+def _date_range_test(
+    field: str, operator: str, operand: TypedScalar | tuple[TypedScalar, ...] | bool
+) -> tuple[EligibilityExpr | None, bool]:
+    """Day bounds, exact for a day-scoped question and a superset otherwise."""
+    if operator in {"$gt", "$gte", "$lt", "$lte"}:
+        day = _operand_day(operand)
+        if day is None:
+            return None, False
+        exact = _day_scoped(operand)
+        # A day-scoped `$gt` really is `> day`. A precise bound widens to the
+        # inclusive day, because a page recorded only to that day matches.
+        if operator in {"$gt", "$gte"}:
+            op = ">" if (operator == "$gt" and exact) else ">="
+            return AxisTest(field, "range", lower=day, lower_op=op), exact
+        op = "<" if (operator == "$lt" and exact) else "<="
+        return AxisTest(field, "range", upper=day, upper_op=op), exact
+    if operator == "$between" and isinstance(operand, tuple) and len(operand) == 2:
+        lower, upper = _operand_day(operand[0]), _operand_day(operand[1])
+        if lower is None or upper is None:
+            return None, False
+        # NEVER exact, day-scoped or not. `$between` is the one ordered
+        # operator `_evaluate_operator` does not route through
+        # `_temporal_match`: it settles by KIND IDENTITY
+        # (`scalar.kind == operand[0].kind`), so a date-kinded bound never
+        # matches a page recorded to the instant, however plainly the day sits
+        # inside the window. A day column says the opposite, so the seed is a
+        # superset here even for a whole-day question — and a superset must
+        # never be complemented.
+        return AxisTest(field, "range", lower=lower, upper=upper), False
+    return None, False
+
+
+def matching_units(
+    plan: FilterPlan,
+    *,
+    page: Mapping[str, Any],
+    units: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Return units that satisfy the whole expression with the same parent.
+
+    A page-only logical branch is also evaluated once with the missing-unit
+    sentinel, which lets a page match an OR expression without fabricating a
+    child unit.  Callers can distinguish that case through the empty tuple.
+    """
+    if not plan.has_unit_predicate:
+        return tuple(units) if evaluate_filter(plan, page=page) else ()
+    matched = tuple(
+        unit for unit in units if evaluate_filter(plan, page=page, unit=unit)
+    )
+    if matched:
+        return matched
+    # The parent may still satisfy a page-only branch of an OR.
+    if evaluate_filter(plan, page=page, unit=None):
+        return ()
+    return ()
+
+
+def page_matches(
+    plan: FilterPlan,
+    *,
+    page: Mapping[str, Any],
+    units: Sequence[Mapping[str, Any]] = (),
+) -> bool:
+    """Evaluate page eligibility with same-unit existential grouping."""
+    if not plan.has_unit_predicate:
+        return evaluate_filter(plan, page=page)
+    return evaluate_filter(plan, page=page, unit=None) or any(
+        evaluate_filter(plan, page=page, unit=unit) for unit in units
+    )
+
+
+def page_view(page: Any) -> dict[str, Any]:
+    """Adapt a find ``ParsedPage`` without changing YAML runtime types."""
+    frontmatter = page.frontmatter
+    out: dict[str, Any] = {
+        "frontmatter": frontmatter,
+        "file_type": page.file_kind,
+    }
+    for source_key, target_key in (
+        ("status", "status"),
+        ("type", "type"),
+        ("tags", "tags"),
+        ("speakers", "speakers"),
+        # `source_type` is the durable frontmatter name for the source-kind
+        # axis; `page.source_kind` is what a caller filters on. One field, two
+        # names — never two competing fields.
+        ("source_type", "source_kind"),
+        ("domain", "domain"),
+    ):
+        if source_key in frontmatter:
+            out[target_key] = frontmatter[source_key]
+    projects: list[Any] = []
+    project_declared = "project" in frontmatter or "projects" in frontmatter
+    if "project" in frontmatter:
+        project = frontmatter["project"]
+        if project is not None:
+            projects.append(project)
+    if "projects" in frontmatter:
+        attached = frontmatter["projects"]
+        if isinstance(attached, list):
+            projects.extend(attached)
+        elif attached is not None:
+            projects.append(attached)
+    # `project` and legacy `projects` are one query field. Preserve declaration
+    # separately from membership so $exists distinguishes absent metadata from
+    # an explicitly null/empty declaration while collection operators still
+    # see the union of all non-null values.
+    if project_declared:
+        out["project"] = projects
+    recorded = frontmatter.get("updated") if "updated" in frontmatter else None
+    if "updated" not in frontmatter and "captured" in frontmatter:
+        recorded = frontmatter["captured"]
+    if "updated" in frontmatter or "captured" in frontmatter:
+        # Settle precision here rather than downstream. `page.updated` is
+        # strictly typed — `date` and `datetime` are deliberately not
+        # comparable (see `_evaluate_operator`) — so an unnormalized value
+        # whose YAML spelling differs from the operand's silently evaluates
+        # False and drops the page from every date filter with no warning.
+        # Frontmatter reaches us in four shapes: bare date, quoted date (what
+        # `serialize_frontmatter` writes), and both again with a timestamp.
+        # They all denote a recorded day, so all four answer day-granular
+        # questions. A value we cannot parse is passed through untouched, so
+        # it still fails date filters instead of acquiring an invented day.
+        moment = temporal.parse(recorded)
+        if moment is None:
+            out["updated"] = recorded
+        else:
+            # Present the most precise recorded value. `_evaluate_operator`
+            # decides at what granularity to compare, because that is a
+            # property of the *question* — "updated on or after this day" is
+            # fully answerable for a page recorded to the second, while
+            # "updated after 09:00" is not answerable for a page recorded only
+            # to the day.
+            out["updated"] = moment.instant or moment.day
+    return out
+
+
+def unit_view(unit: Any, *, instance: str | None = None) -> dict[str, Any]:
+    """Adapt one normalized ``SemanticUnit`` for predicate evaluation.
+
+    `instance` is the vocabulary instance the unit's page selected, or None
+    when its definitions are unavailable; only core values match then.
+
+    The governed metadata keys are *omitted* when absent rather than present as
+    null, because for them absence is the meaningful state — "no verdict yet",
+    "no check date" — and `$exists` has to be able to say so. `check_by` is
+    settled into a real `date` here for the same reason `page_view` settles
+    `updated`: `_evaluate_operator` compares typed scalars, so a leftover
+    string would silently never equal a date operand and would drop the unit
+    from every date filter with no warning.
+    """
+    view: dict[str, Any] = {
+        "category": unit.category,
+        "category_key": unit.category_key,
+        "kind": unit.kind,
+        "tags": list(unit.tags),
+        "context": unit.context,
+        "form": unit.form,
+        "instance": instance,
+    }
+    verdict = getattr(unit, "verdict", None)
+    if verdict is not None:
+        view["verdict"] = verdict
+    check_by = getattr(unit, "check_by", None)
+    if check_by is not None:
+        parsed = _parse_temporal(str(check_by))
+        # The parser already rejects a non-calendar `check_by`, so an
+        # unparseable value can only reach here from a caller that built a unit
+        # by hand. Pass it through untouched so it fails date filters instead of
+        # acquiring an invented day.
+        view["check_by"] = parsed.value if parsed is not None else check_by
+    return view
+
+
+def _parse_expression(
+    value: Mapping[Any, Any],
+    *,
+    path: str,
+    depth: int,
+    state: _ParseState,
+) -> FilterNode | None:
+    if not value:
+        return None
+    if any(not isinstance(key, str) for key in value):
+        raise _error(
+            "INVALID_FILTER_FIELD",
+            path,
+            "filter object keys must be strings",
+            "namespaced string fields or logical operators",
+            "Use page.*, unit.*, $and, $or, or $not keys.",
+        )
+    logical = [key for key in value if key in _LOGICAL]
+    if logical:
+        if len(value) != 1:
+            raise _error(
+                "INVALID_FILTER_SHAPE",
+                path,
+                "a logical expression cannot be mixed with sibling fields",
+                "one $and, $or, or $not key",
+                "Wrap sibling predicates inside the logical expression.",
+            )
+        operator = logical[0]
+        if depth >= MAX_LOGICAL_DEPTH:
+            raise _error(
+                "FILTER_TOO_COMPLEX",
+                f"{path}.{operator}",
+                "logical nesting exceeds four levels",
+                f"at most {MAX_LOGICAL_DEPTH} logical levels",
+                "Flatten or split the filter expression.",
+            )
+        operand = value[operator]
+        if operator in {"$and", "$or"}:
+            if not isinstance(operand, list) or not operand:
+                raise _error(
+                    "INVALID_FILTER_VALUE",
+                    f"{path}.{operator}",
+                    f"{operator} requires a non-empty array",
+                    "non-empty expression array",
+                    "Provide at least one child expression.",
+                )
+            children: list[FilterNode] = []
+            for index, child in enumerate(operand):
+                child_path = f"{path}.{operator}[{index}]"
+                if not isinstance(child, Mapping) or not child:
+                    raise _error(
+                        "INVALID_FILTER_SHAPE",
+                        child_path,
+                        "logical children must be non-empty objects",
+                        "filter expression object",
+                        "Provide a field predicate or nested logical expression.",
+                    )
+                parsed = _parse_expression(
+                    child, path=child_path, depth=depth + 1, state=state
+                )
+                assert parsed is not None
+                children.append(parsed)
+            return AllOf(tuple(children)) if operator == "$and" else AnyOf(tuple(children))
+        if not isinstance(operand, Mapping) or not operand:
+            raise _error(
+                "INVALID_FILTER_VALUE",
+                f"{path}.$not",
+                "$not requires exactly one expression object",
+                "one non-empty expression object",
+                "Pass the expression directly as the $not value.",
+            )
+        child = _parse_expression(
+            operand, path=f"{path}.$not", depth=depth + 1, state=state
+        )
+        assert child is not None
+        return Not(child)
+
+    predicates = [
+        _parse_predicate(str(field), operators, path=path, state=state)
+        for field, operators in value.items()
+    ]
+    return _all_of(predicates)
+
+
+def _parse_predicate(
+    field_name: str,
+    operators: Any,
+    *,
+    path: str,
+    state: _ParseState,
+) -> Predicate:
+    field_path = f"{path}.{field_name}"
+    field = _parse_field(field_name, field_path)
+    if not isinstance(operators, Mapping) or not operators:
+        raise _error(
+            "INVALID_FILTER_SHAPE",
+            field_path,
+            "field predicates must be non-empty operator objects",
+            "object containing supported $ operators",
+            "Wrap the comparison value in an operator such as {$eq: value}.",
+        )
+    if any(not isinstance(operator, str) for operator in operators):
+        raise _error(
+            "INVALID_FILTER_OPERATOR",
+            field_path,
+            "operator names must be strings",
+            "supported $ operator",
+            "Use a documented structured-filter operator.",
+        )
+    _register_leaf(state, path=field_path)
+    parsed: list[tuple[str, TypedScalar | tuple[TypedScalar, ...] | bool]] = []
+    for operator, operand in operators.items():
+        operator_path = f"{field_path}.{operator}"
+        if operator not in _OPERATORS:
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                f"unknown operator {operator!r}",
+                "one of $eq, $ne, $in, $all, $contains, $exists, comparison operators, or $between",
+                "Use a documented bounded operator; regex, SQL, and scripts are unsupported.",
+            )
+        if field.name in _KNOWN_ARRAY_FIELDS and operator in {"$eq", "$ne"}:
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                f"{operator} cannot compare known array field {field.name}",
+                "$in, $all, or $contains",
+                "Use an array operator for terminal collection fields.",
+            )
+        if field.name in _KNOWN_ARRAY_FIELDS and operator in _ORDERED:
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                f"{operator} cannot order known array field {field.name}",
+                "$in, $all, or $contains",
+                "Use an array operator for terminal collection fields.",
+            )
+        if field.name in _KNOWN_SCALAR_FIELDS and operator == "$all":
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                "$all requires a terminal array field",
+                "terminal array field",
+                "Use $eq, $in, or $contains for scalar strings.",
+            )
+        if field.name in _KNOWN_STRING_FIELDS and operator in _ORDERED:
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                f"{operator} cannot order string field {field.name}",
+                "$eq, $ne, $in, or $contains",
+                "Use exact or substring comparison for string fields.",
+            )
+        if field.name in _KNOWN_DATE_FIELDS and operator == "$contains":
+            raise _error(
+                "INVALID_FILTER_OPERATOR",
+                operator_path,
+                f"$contains cannot compare the typed date field {field.name}",
+                "$eq, $ne, $in, or an ordered date comparison",
+                "Use an ISO date or timezone-qualified date-time comparison.",
+            )
+        parsed_operand = _parse_operator_operand(
+            field,
+            operator,
+            operand,
+            path=operator_path,
+            state=state,
+        )
+        _validate_closed_field_operand(
+            field,
+            operator,
+            parsed_operand,
+            path=operator_path,
+        )
+        parsed.append((operator, parsed_operand))
+    temporal_kinds = {
+        scalar.kind
+        for _operator, operand in parsed
+        for scalar in (
+            operand if isinstance(operand, tuple) else (operand,)
+        )
+        if isinstance(scalar, TypedScalar)
+        and scalar.kind in {"date", "datetime"}
+    }
+    if len(temporal_kinds) > 1:
+        raise _invalid_value(
+            field_path,
+            "one field predicate cannot mix dates and date-times",
+            "all temporal operands resolved to dates or all resolved to date-times",
+        )
+    return Predicate(field=field, operators=tuple(sorted(parsed, key=lambda item: item[0])))
+
+
+def _parse_field(name: str, path: str) -> FieldReference:
+    if name in _PAGE_FIELDS:
+        return FieldReference(name=name, namespace="page", path=path)
+    if name in _UNIT_FIELDS:
+        return FieldReference(name=name, namespace="unit", path=path)
+    prefix = "page.frontmatter:"
+    if name.startswith(prefix):
+        pointer = name[len(prefix) :]
+        return FieldReference(
+            name=name,
+            namespace="page",
+            path=path,
+            pointer=_decode_pointer(pointer, path=path),
+        )
+    raise _error(
+        "INVALID_FILTER_FIELD",
+        path,
+        f"unknown filter field {name!r}",
+        "reserved page.*, page.frontmatter:/pointer, or closed unit.* field",
+        "Correct the field name or address custom metadata through page.frontmatter:/... .",
+    )
+
+
+def _decode_pointer(pointer: str, *, path: str) -> tuple[str, ...]:
+    if len(pointer.encode("utf-8")) > MAX_POINTER_BYTES:
+        raise _error(
+            "FILTER_TOO_LARGE",
+            path,
+            "frontmatter pointer exceeds 512 UTF-8 bytes",
+            f"at most {MAX_POINTER_BYTES} UTF-8 bytes",
+            "Use a shorter frontmatter pointer.",
+        )
+    if not pointer.startswith("/"):
+        raise _error(
+            "INVALID_FILTER_POINTER",
+            path,
+            "frontmatter pointer must start with '/'",
+            "RFC 6901 pointer beginning with /",
+            "Prefix the frontmatter key path with '/'.",
+        )
+    raw_segments = pointer[1:].split("/")
+    if len(raw_segments) > MAX_POINTER_SEGMENTS:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            path,
+            "frontmatter pointer exceeds 16 decoded segments",
+            f"at most {MAX_POINTER_SEGMENTS} segments",
+            "Use a shallower metadata path.",
+        )
+    decoded: list[str] = []
+    for segment in raw_segments:
+        out: list[str] = []
+        index = 0
+        while index < len(segment):
+            char = segment[index]
+            if char != "~":
+                out.append(char)
+                index += 1
+                continue
+            if index + 1 >= len(segment) or segment[index + 1] not in {"0", "1"}:
+                raise _error(
+                    "INVALID_FILTER_POINTER",
+                    path,
+                    "frontmatter pointer contains an invalid '~' escape",
+                    "RFC 6901 ~0 or ~1 escape",
+                    "Escape '~' as '~0' and '/' inside a key as '~1'.",
+                )
+            out.append("~" if segment[index + 1] == "0" else "/")
+            index += 2
+        decoded.append("".join(out))
+    return tuple(decoded)
+
+
+def _parse_operator_operand(
+    field: FieldReference,
+    operator: str,
+    operand: Any,
+    *,
+    path: str,
+    state: _ParseState,
+) -> TypedScalar | tuple[TypedScalar, ...] | bool:
+    if operator == "$exists":
+        if type(operand) is not bool:
+            raise _invalid_value(path, "$exists requires a boolean", "boolean")
+        return operand
+    if operator in {"$in", "$all"}:
+        if not isinstance(operand, list) or not operand:
+            raise _invalid_value(path, f"{operator} requires a non-empty array", "non-empty scalar array")
+        _check_list_length(operand, path=path, state=state)
+        values = tuple(
+            _parse_scalar(item, field=field, ordered=False, path=f"{path}[{index}]")
+            for index, item in enumerate(operand)
+        )
+        return _dedupe_scalars(values)
+    if operator == "$between":
+        if not isinstance(operand, list) or len(operand) != 2:
+            raise _invalid_value(path, "$between requires exactly two values", "two ordered values")
+        _check_list_length(operand, path=path, state=state)
+        values = tuple(
+            _parse_scalar(item, field=field, ordered=True, path=f"{path}[{index}]")
+            for index, item in enumerate(operand)
+        )
+        if values[0].kind != values[1].kind:
+            raise _invalid_value(path, "$between bounds must have the same resolved type", "two numbers, dates, or date-times of one type")
+        assert values[0].value is not None and values[1].value is not None
+        if cast(Any, values[0].value) > cast(Any, values[1].value):
+            raise _invalid_value(path, "$between lower bound exceeds upper bound", "ordered inclusive bounds")
+        return values
+    if operator in _ORDERED:
+        return _parse_scalar(operand, field=field, ordered=True, path=path)
+    if operator in {"$eq", "$ne", "$contains"}:
+        if operator == "$contains" and operand is None:
+            raise _invalid_value(path, "$contains requires a non-null scalar", "string, number, or boolean scalar")
+        return _parse_scalar(operand, field=field, ordered=False, path=path)
+    raise AssertionError(f"unhandled operator: {operator}")
+
+
+def _parse_scalar(
+    value: Any,
+    *,
+    field: FieldReference,
+    ordered: bool,
+    path: str,
+) -> TypedScalar:
+    if value is None:
+        if ordered:
+            raise _invalid_value(path, "ordered comparison does not accept null", "number, ISO date, or timezone-qualified date-time")
+        return TypedScalar("null", None)
+    if type(value) is bool:
+        if ordered:
+            raise _invalid_value(path, "ordered comparison does not accept booleans", "number, ISO date, or timezone-qualified date-time")
+        return TypedScalar("boolean", value)
+    if type(value) in {int, float}:
+        assert isinstance(value, (int, float))
+        if not math.isfinite(value):
+            raise _invalid_value(path, "numeric operands must be finite", "finite JSON number")
+        encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        if len(encoded) > MAX_NUMERIC_CHARS:
+            raise _error(
+                "FILTER_TOO_LARGE",
+                path,
+                "numeric operand exceeds 64 encoded characters",
+                f"at most {MAX_NUMERIC_CHARS} encoded characters",
+                "Use a shorter finite JSON number.",
+            )
+        return TypedScalar("number", value)
+    if not isinstance(value, str):
+        raise _invalid_value(path, "filter operands must be JSON scalars", "string, number, boolean, or null")
+    _check_string(value, path=path)
+    if field.name in _KNOWN_DATE_FIELDS or ordered:
+        parsed_temporal = _parse_temporal(value)
+        if parsed_temporal is None:
+            if ordered:
+                raise _invalid_value(path, "ordered string operands must be ISO dates or timezone-qualified RFC 3339 date-times", "ISO date or timezone-qualified RFC 3339 date-time")
+            raise _invalid_value(path, f"{field.name} requires an ISO date or timezone-qualified RFC 3339 date-time", "ISO date or timezone-qualified RFC 3339 date-time")
+        return parsed_temporal
+    return TypedScalar("string", _canonicalize_string(field.name, value, path=path))
+
+
+def _validate_closed_field_operand(
+    field: FieldReference,
+    operator: str,
+    operand: TypedScalar | tuple[TypedScalar, ...] | bool,
+    *,
+    path: str,
+) -> None:
+    if operator == "$exists" or field.pointer is not None:
+        return
+    values = operand if isinstance(operand, tuple) else (operand,)
+    scalars = tuple(value for value in values if isinstance(value, TypedScalar))
+    if field.name in _KNOWN_DATE_FIELDS:
+        allowed = {"date", "datetime"}
+        if operator in {"$eq", "$ne"}:
+            allowed.add("null")
+        if any(value.kind not in allowed for value in scalars):
+            raise _invalid_value(
+                path,
+                f"{field.name} accepts only typed ISO dates or timezone-qualified date-times",
+                "date/date-time operand (or null for $eq/$ne)",
+            )
+        return
+    if field.name in _KNOWN_STRING_FIELDS:
+        allowed = {"string"}
+        if operator in {"$eq", "$ne"}:
+            allowed.add("null")
+        if any(value.kind not in allowed for value in scalars):
+            raise _invalid_value(
+                path,
+                f"{field.name} accepts only string operands",
+                "string operand (or null for $eq/$ne)",
+            )
+        return
+    if field.name in _KNOWN_ARRAY_FIELDS and any(
+        value.kind != "string" for value in scalars
+    ):
+        raise _invalid_value(
+            path,
+            f"{field.name} accepts only string collection operands",
+            "string scalar or string array operand",
+        )
+
+
+def _parse_temporal(value: str) -> TypedScalar | None:
+    try:
+        if len(value) == 10:
+            parsed_date = date.fromisoformat(value)
+            if parsed_date.isoformat() == value:
+                return TypedScalar("date", parsed_date)
+        if _RFC3339_DATETIME_RE.fullmatch(value) is None:
+            return None
+        candidate = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
+        parsed = datetime.fromisoformat(candidate)
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            return None
+        return TypedScalar("datetime", parsed.astimezone(UTC))
+    except (TypeError, ValueError):
+        return None
+
+
+def _canonicalize_string(field: str, value: str, *, path: str = "$") -> str:
+    if field in {
+        "page.status",
+        "page.type",
+        "page.file_type",
+        "unit.form",
+        "unit.verdict",
+    }:
+        return value.strip().casefold()
+    if field in {"page.tags", "page.speakers", "unit.tags"}:
+        return value.casefold()
+    if field in {"unit.category", "unit.category_key"}:
+        try:
+            return semantic_units.canonicalize_category(value)
+        except ValueError as error:
+            raise _invalid_value(path, str(error), "valid semantic-unit category") from error
+    if field == "unit.kind":
+        normalized = semantic_language_registry.normalize_label(value)
+        if not normalized:
+            raise _invalid_value(
+                path,
+                "kind cannot be empty",
+                "non-empty governed kind",
+            )
+        return normalized
+    return value
+
+
+def _check_string(value: str, *, path: str) -> None:
+    if len(value) > MAX_STRING_CODEPOINTS or len(value.encode("utf-8")) > MAX_STRING_BYTES:
+        raise _error(
+            "FILTER_TOO_LARGE",
+            path,
+            "string operand exceeds the codepoint or UTF-8 byte limit",
+            f"at most {MAX_STRING_CODEPOINTS} codepoints and {MAX_STRING_BYTES} UTF-8 bytes",
+            "Use a shorter string value.",
+        )
+
+
+def _check_list_length(values: list[Any], *, path: str, state: _ParseState) -> None:
+    if len(values) > MAX_LIST_VALUES:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            path,
+            f"collection contains {len(values)} raw values",
+            f"at most {MAX_LIST_VALUES} values before deduplication",
+            "Reduce the collection operand.",
+        )
+    state.collection_value_count += len(values)
+
+
+def _compile_shortcuts(shortcuts: FilterShortcuts, *, state: _ParseState) -> list[FilterNode]:
+    nodes: list[FilterNode] = []
+    axes = (
+        ("types", "page.type", shortcuts.types, False),
+        ("projects", "page.project", shortcuts.projects, False),
+        ("tags", "page.tags", shortcuts.tags, False),
+        ("speakers", "page.speakers", shortcuts.speakers, False),
+        ("file_types", "page.file_type", shortcuts.file_types, False),
+        ("exclude_file_types", "page.file_type", shortcuts.exclude_file_types, True),
+        ("categories", "unit.category", shortcuts.categories, False),
+        ("kinds", "unit.kind", shortcuts.kinds, False),
+        ("source_kinds", "page.source_kind", shortcuts.source_kinds, False),
+        ("domains", "page.domain", shortcuts.domains, False),
+    )
+    for shortcut_name, field_name, raw_values, negate in axes:
+        if not raw_values:
+            continue
+        path = f"$.shortcuts.{shortcut_name}"
+        values = list(raw_values)
+        _check_list_length(values, path=path, state=state)
+        _register_leaf(state, path=path)
+        field = _parse_field(field_name, path)
+        typed = tuple(
+            _parse_scalar(value, field=field, ordered=False, path=f"{path}[{index}]")
+            for index, value in enumerate(values)
+        )
+        predicate: FilterNode = Predicate(field, (("$in", _dedupe_scalars(typed)),))
+        nodes.append(Not(predicate) if negate else predicate)
+
+    date_ops: list[tuple[str, str, str]] = []
+    if shortcuts.updated_after is not None:
+        date_ops.append(("$gte", shortcuts.updated_after, "updated_after"))
+    if shortcuts.updated_before is not None:
+        date_ops.append(("$lte", shortcuts.updated_before, "updated_before"))
+    if shortcuts.recency_days is not None:
+        if type(shortcuts.recency_days) is not int or shortcuts.recency_days < 0:
+            raise _invalid_value(
+                "$.shortcuts.recency_days",
+                "recency_days must be a non-negative integer",
+                "non-negative integer",
+            )
+        try:
+            recency_lower_bound = date.today() - timedelta(
+                days=shortcuts.recency_days
+            )
+        except OverflowError as error:
+            raise _invalid_value(
+                "$.shortcuts.recency_days",
+                "recency_days exceeds the supported calendar range",
+                "non-negative integer with a lower bound on or after 0001-01-01",
+            ) from error
+        date_ops.append(
+            ("$gte", recency_lower_bound.isoformat(), "recency_days")
+        )
+    for operator, value, shortcut_name in date_ops:
+        path = f"$.shortcuts.{shortcut_name}"
+        state.collection_value_count += 1
+        _register_leaf(state, path=path)
+        field = _parse_field("page.updated", "$.shortcuts.dates")
+        nodes.append(
+            Predicate(
+                field,
+                (
+                    (
+                        operator,
+                        _parse_scalar(
+                            value,
+                            field=field,
+                            ordered=True,
+                            path=path,
+                        ),
+                    ),
+                ),
+            )
+        )
+    return nodes
+
+
+def _resolve_language_aliases(
+    node: FilterNode | None,
+    category_resolver: CategoryResolver,
+    kind_resolver: KindResolver,
+) -> FilterNode | None:
+    if node is None:
+        return None
+    if isinstance(node, Predicate):
+        if node.field.name not in {"unit.category", "unit.kind"}:
+            return node
+        resolver = (
+            category_resolver if node.field.name == "unit.category" else kind_resolver
+        )
+        resolved_ops: list[tuple[str, TypedScalar | tuple[TypedScalar, ...] | bool]] = []
+        for operator, operand in node.operators:
+            if isinstance(operand, TypedScalar):
+                resolved_ops.append(
+                    (
+                        operator,
+                        _resolve_scalar_language(
+                            operand,
+                            resolver,
+                            category=node.field.name == "unit.category",
+                            path=node.field.path,
+                        ),
+                    )
+                )
+            elif isinstance(operand, tuple):
+                resolved_ops.append(
+                    (
+                        operator,
+                        _dedupe_scalars(
+                            tuple(
+                                _resolve_scalar_language(
+                                    item,
+                                    resolver,
+                                    category=node.field.name == "unit.category",
+                                    path=node.field.path,
+                                )
+                                for item in operand
+                            )
+                        ),
+                    )
+                )
+            else:
+                resolved_ops.append((operator, operand))
+        return Predicate(node.field, tuple(resolved_ops))
+    if isinstance(node, AllOf):
+        return AllOf(
+            tuple(
+                _require_node(
+                    _resolve_language_aliases(
+                        child, category_resolver, kind_resolver
+                    )
+                )
+                for child in node.children
+            )
+        )
+    if isinstance(node, AnyOf):
+        return AnyOf(
+            tuple(
+                _require_node(
+                    _resolve_language_aliases(
+                        child, category_resolver, kind_resolver
+                    )
+                )
+                for child in node.children
+            )
+        )
+    return Not(
+        _require_node(
+            _resolve_language_aliases(
+                node.child, category_resolver, kind_resolver
+            )
+        )
+    )
+
+
+def _resolve_scalar_language(
+    value: TypedScalar,
+    resolver: Callable[[str], str],
+    *,
+    category: bool,
+    path: str,
+) -> TypedScalar:
+    if value.kind != "string":
+        return value
+    assert isinstance(value.value, str)
+    try:
+        resolved = resolver(value.value)
+    except FilterError as error:
+        raise _error(
+            error.code,
+            path,
+            error.message,
+            error.expected,
+            error.remediation,
+        ) from error
+    if not isinstance(resolved, str) or not resolved:
+        raise _error(
+            "INVALID_FILTER_VALUE",
+            path,
+            f"{'category' if category else 'kind'} resolver returned an invalid canonical value",
+            "non-empty canonical category key" if category else "non-empty governed kind",
+            "Repair the semantic-language registry alias.",
+        )
+    try:
+        canonical = (
+            semantic_units.canonicalize_category(resolved)
+            if category
+            else semantic_language_registry.normalize_label(resolved)
+        )
+        if not canonical:
+            raise ValueError("kind cannot be empty")
+    except ValueError as error:
+        raise _error(
+            "INVALID_FILTER_VALUE",
+            path,
+            str(error),
+            "valid canonical category" if category else "valid governed kind",
+            "Repair the semantic-language registry alias.",
+        ) from error
+    return TypedScalar("string", canonical)
+
+
+def _evaluate_node(
+    node: FilterNode,
+    *,
+    page: Mapping[str, Any],
+    unit: Mapping[str, Any] | None,
+    instance: str,
+) -> bool | None:
+    if isinstance(node, Predicate):
+        if node.field.namespace == "unit" and unit is None:
+            return None
+        runtime = _resolve_runtime_field(node.field, page=page, unit=unit, instance=instance)
+        return all(
+            _evaluate_operator(node.field, runtime, operator, operand)
+            for operator, operand in node.operators
+        )
+    if isinstance(node, AllOf):
+        values = [
+            _evaluate_node(child, page=page, unit=unit, instance=instance)
+            for child in node.children
+        ]
+        if False in values:
+            return False
+        return None if None in values else True
+    if isinstance(node, AnyOf):
+        values = [
+            _evaluate_node(child, page=page, unit=unit, instance=instance)
+            for child in node.children
+        ]
+        if True in values:
+            return True
+        return None if None in values else False
+    value = _evaluate_node(node.child, page=page, unit=unit, instance=instance)
+    return None if value is None else not value
+
+
+def _resolve_runtime_field(
+    field: FieldReference,
+    *,
+    page: Mapping[str, Any],
+    unit: Mapping[str, Any] | None,
+    instance: str,
+) -> Any:
+    if field.pointer is not None:
+        current: Any = page.get("frontmatter", MISSING)
+        for segment in field.pointer:
+            if not isinstance(current, Mapping):
+                return MISSING
+            if segment not in current:
+                return MISSING
+            current = current[segment]
+        return current
+    if field.namespace == "unit":
+        if unit is None:
+            return MISSING
+        value = unit.get(field.name.removeprefix("unit."), MISSING)
+        if field.name in ENTRY_AXES and value is not MISSING and unit.get("instance") != instance:
+            core = semantic_language_registry.core_registry()
+            shared = core.core_categories if field.name == "unit.category" else core.core_kinds
+            if value not in shared:
+                return FOREIGN_ENTRY
+        return value
+    return page.get(field.name.removeprefix("page."), MISSING)
+
+
+def _evaluate_operator(
+    field: FieldReference,
+    runtime: Any,
+    operator: str,
+    operand: TypedScalar | tuple[TypedScalar, ...] | bool,
+) -> bool:
+    if operator == "$exists":
+        assert isinstance(operand, bool)
+        return (runtime is not MISSING) is operand
+    if runtime is MISSING:
+        return False
+    if runtime is FOREIGN_ENTRY:
+        # A distinct entry equals, contains and belongs to no operand value.
+        return operator == "$ne"
+    if field.name in _KNOWN_ARRAY_FIELDS and not isinstance(runtime, (list, tuple)):
+        return False
+    if operator in {"$in", "$all", "$between"}:
+        assert isinstance(operand, tuple)
+        if operator == "$between":
+            scalar = _runtime_scalar(runtime, field=field)
+            return (
+                scalar is not None
+                and scalar.kind == operand[0].kind
+                and operand[0].value <= scalar.value <= operand[1].value  # type: ignore[operator]
+            )
+        if isinstance(runtime, (list, tuple)):
+            runtime_values = [
+                scalar
+                for item in runtime
+                if (scalar := _runtime_scalar(item, field=field)) is not None
+            ]
+            if operator == "$in":
+                return any(_same_scalar(actual, wanted) for actual in runtime_values for wanted in operand)
+            return all(any(_same_scalar(actual, wanted) for actual in runtime_values) for wanted in operand)
+        if operator == "$all":
+            return False
+        scalar = _runtime_scalar(runtime, field=field)
+        return scalar is not None and any(_same_scalar(scalar, wanted) for wanted in operand)
+    assert isinstance(operand, TypedScalar)
+    if operator == "$contains":
+        if isinstance(runtime, (list, tuple)):
+            return any(
+                scalar is not None and _same_scalar(scalar, operand)
+                for item in runtime
+                if (scalar := _runtime_scalar(item, field=field)) is not None
+            )
+        if isinstance(runtime, str) and operand.kind == "string":
+            actual = _runtime_scalar(runtime, field=field)
+            return (
+                actual is not None
+                and isinstance(actual.value, str)
+                and isinstance(operand.value, str)
+                and operand.value in actual.value
+            )
+        return False
+    scalar = _runtime_scalar(runtime, field=field)
+    if scalar is None:
+        return False
+    if operator == "$eq":
+        return _same_scalar(scalar, operand)
+    if operator == "$ne":
+        return scalar.kind == operand.kind and scalar.value != operand.value
+    if _is_temporal(scalar) and _is_temporal(operand):
+        matches, _ = _temporal_match(operator, scalar, operand)
+        return matches
+    if scalar.kind != operand.kind or scalar.kind not in {"number", "date", "datetime"}:
+        return False
+    if operator == "$gt":
+        return scalar.value > operand.value  # type: ignore[operator]
+    if operator == "$gte":
+        return scalar.value >= operand.value  # type: ignore[operator]
+    if operator == "$lt":
+        return scalar.value < operand.value  # type: ignore[operator]
+    if operator == "$lte":
+        return scalar.value <= operand.value  # type: ignore[operator]
+    raise AssertionError(f"unhandled operator: {operator}")
+
+
+def indeterminate_bounds(
+    page: Mapping[str, Any], *, shortcuts: FilterShortcuts
+) -> tuple[str, ...]:
+    """Which date bounds this page matched without the order being decidable.
+
+    A page recorded only as `2026-08-05` is genuinely unordered against a bound
+    of `2026-08-05T09:00:00Z`: the day denotes an unknown instant within it.
+    `evaluate_filter` returns such a page rather than dropping it, and this
+    reports which bounds could not actually be decided, so a caller can say so
+    instead of presenting a guess as a match.
+
+    Empty when every bound was decidable, when the bound is day-scoped (a
+    day-granular question is always answerable), or when the page records no
+    date at all — absent is not ambiguous.
+    """
+    moment = temporal.parse(page.get("updated"))
+    if moment is None:
+        return ()
+    marked: list[str] = []
+    for name, raw in (
+        ("updated_after", shortcuts.updated_after),
+        ("updated_before", shortcuts.updated_before),
+    ):
+        if raw is None:
+            continue
+        bound = temporal.parse(raw)
+        if bound is None or not bound.precise:
+            continue
+        if temporal.compare(moment, bound) is temporal.Order.INDETERMINATE:
+            marked.append(name)
+    return tuple(marked)
+
+
+_ORDERED_OPERATORS = ("$gt", "$gte", "$lt", "$lte")
+
+
+def _is_temporal(scalar: TypedScalar) -> bool:
+    return scalar.kind in {"date", "datetime"}
+
+
+def _as_moment(scalar: TypedScalar) -> temporal.Moment | None:
+    return temporal.parse(scalar.value)
+
+
+def _temporal_match(
+    operator: str, page: TypedScalar, bound: TypedScalar
+) -> tuple[bool, bool]:
+    """Compare a recorded value against a bound. Returns `(matches, indeterminate)`.
+
+    The **bound** decides the granularity, because precision is a property of
+    the question rather than of the data. "Updated on or after 2026-08-05?" is
+    fully answerable for a page recorded to the second, so a day-scoped bound
+    must not start reporting ambiguity just because some pages are precise. But
+    "updated after 09:00 on 2026-08-05?" is genuinely unanswerable for a page
+    recorded only as `2026-08-05`, because that day denotes an unknown instant.
+
+    An undecidable comparison reports `matches=True, indeterminate=True`:
+    excluding it silently is the defect this whole change exists to fix, and
+    including it silently would report a guess as a fact. The caller surfaces
+    the flag (see `indeterminate_bounds`).
+    """
+    page_moment, bound_moment = _as_moment(page), _as_moment(bound)
+    if page_moment is None or bound_moment is None:
+        return False, False
+    if operator not in _ORDERED_OPERATORS:
+        # `$eq`/`$ne` are handled before this point by exact scalar identity.
+        return False, False
+    if bound_moment.precise:
+        order = temporal.compare(page_moment, bound_moment)
+    else:
+        # Day-scoped question: compare whole days, which is always decidable.
+        order = temporal.compare(
+            temporal.Moment(page_moment.day), temporal.Moment(bound_moment.day)
+        )
+        if order is temporal.Order.INDETERMINATE:
+            order = temporal.Order.SAME
+    if order is temporal.Order.INDETERMINATE:
+        return True, True
+    if operator == "$gt":
+        return order is temporal.Order.AFTER, False
+    if operator == "$gte":
+        return order in (temporal.Order.AFTER, temporal.Order.SAME), False
+    if operator == "$lt":
+        return order is temporal.Order.BEFORE, False
+    return order in (temporal.Order.BEFORE, temporal.Order.SAME), False
+
+
+def _runtime_scalar(value: Any, *, field: FieldReference) -> TypedScalar | None:
+    if value is None:
+        return TypedScalar("null", None)
+    if type(value) is bool:
+        return TypedScalar("boolean", value)
+    if type(value) is int:
+        return TypedScalar("number", value)
+    if type(value) is float:
+        return TypedScalar("number", value) if math.isfinite(value) else None
+    if isinstance(value, datetime):
+        if value.tzinfo is None or value.utcoffset() is None:
+            return None
+        return TypedScalar("datetime", value.astimezone(UTC))
+    if isinstance(value, date):
+        return TypedScalar("date", value)
+    if isinstance(value, str):
+        return TypedScalar("string", _canonicalize_string(field.name, value))
+    return None
+
+
+def _same_scalar(left: TypedScalar, right: TypedScalar) -> bool:
+    return left.kind == right.kind and left.value == right.value
+
+
+def _all_of(children: Sequence[FilterNode | None]) -> FilterNode | None:
+    concrete = tuple(child for child in children if child is not None)
+    if not concrete:
+        return None
+    if len(concrete) == 1:
+        return concrete[0]
+    return AllOf(concrete)
+
+
+def _normalize_node(node: FilterNode | None) -> FilterNode | None:
+    if node is None or isinstance(node, Predicate):
+        return node
+    if isinstance(node, Not):
+        child = _normalize_node(node.child)
+        assert child is not None
+        return Not(child)
+    normalized_children: list[FilterNode] = []
+    same_type = AllOf if isinstance(node, AllOf) else AnyOf
+    for child in node.children:
+        normalized = _normalize_node(child)
+        assert normalized is not None
+        if isinstance(normalized, same_type):
+            normalized_children.extend(normalized.children)
+        else:
+            normalized_children.append(normalized)
+    unique = {_canonical_node(child): child for child in normalized_children}
+    ordered = tuple(unique[key] for key in sorted(unique))
+    if len(ordered) == 1:
+        return ordered[0]
+    return AllOf(ordered) if isinstance(node, AllOf) else AnyOf(ordered)
+
+
+def _node_to_dict(node: FilterNode | None) -> dict[str, Any]:
+    if node is None:
+        return {}
+    if isinstance(node, Predicate):
+        return {
+            node.field.name: {
+                operator: (
+                    [item.json_value() for item in operand]
+                    if isinstance(operand, tuple)
+                    else operand.json_value()
+                    if isinstance(operand, TypedScalar)
+                    else operand
+                )
+                for operator, operand in node.operators
+            }
+        }
+    if isinstance(node, AllOf):
+        return {"$and": [_node_to_dict(child) for child in node.children]}
+    if isinstance(node, AnyOf):
+        return {"$or": [_node_to_dict(child) for child in node.children]}
+    return {"$not": _node_to_dict(node.child)}
+
+
+def _canonical_node(node: FilterNode) -> str:
+    return json.dumps(
+        _node_to_dict(node),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _dedupe_scalars(values: tuple[TypedScalar, ...]) -> tuple[TypedScalar, ...]:
+    unique = {
+        json.dumps(
+            [value.kind, value.json_value()],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ): value
+        for value in values
+    }
+    return tuple(unique[key] for key in sorted(unique))
+
+
+def _has_unit_predicate(node: FilterNode | None) -> bool:
+    if node is None:
+        return False
+    if isinstance(node, Predicate):
+        return node.field.namespace == "unit"
+    if isinstance(node, Not):
+        return _has_unit_predicate(node.child)
+    return any(_has_unit_predicate(child) for child in node.children)
+
+
+def _register_leaf(state: _ParseState, *, path: str) -> None:
+    state.leaf_count += 1
+    if state.leaf_count > MAX_LEAF_PREDICATES:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            path,
+            "combined filter contains more than 32 leaf predicates",
+            f"at most {MAX_LEAF_PREDICATES} leaf predicates",
+            "Reduce or split the filter expression or its shortcuts.",
+        )
+
+
+def _validate_combined_structure(node: FilterNode | None, *, depth: int = 0) -> int:
+    if node is None:
+        return 0
+    if isinstance(node, Predicate):
+        return 1
+    if depth >= MAX_LOGICAL_DEPTH:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            "$",
+            "combined generic and shortcut plan exceeds four logical levels",
+            f"at most {MAX_LOGICAL_DEPTH} logical levels",
+            "Flatten the generic expression or remove independent shortcuts.",
+        )
+    if isinstance(node, Not):
+        return _validate_combined_structure(node.child, depth=depth + 1)
+    leaves = sum(
+        _validate_combined_structure(child, depth=depth + 1)
+        for child in node.children
+    )
+    if leaves > MAX_LEAF_PREDICATES:
+        raise _error(
+            "FILTER_TOO_COMPLEX",
+            "$",
+            "combined normalized plan exceeds 32 leaf predicates",
+            f"at most {MAX_LEAF_PREDICATES} leaf predicates",
+            "Reduce or split the filter expression or its shortcuts.",
+        )
+    return leaves
+
+
+def _validate_temporal_conjunctions(
+    node: FilterNode | None,
+) -> dict[str, tuple[set[int], str]]:
+    """Track date/date-time kinds across every possible conjunctive branch.
+
+    Bit 1 represents a date and bit 2 a date-time.  Each field has at most
+    four possible masks, so OR branches stay bounded instead of expanding to
+    disjunctive normal form.  A mask of 3 means one executable conjunction
+    mixes the two temporal types and is rejected.  A bare OR may retain
+    separate masks {1, 2} because its alternatives are not conjunctive.
+    """
+    if node is None:
+        return {}
+    if isinstance(node, Predicate):
+        mask = 0
+        for _operator, operand in node.operators:
+            scalars = operand if isinstance(operand, tuple) else (operand,)
+            for scalar in scalars:
+                if not isinstance(scalar, TypedScalar):
+                    continue
+                if scalar.kind == "date":
+                    mask |= 1
+                elif scalar.kind == "datetime":
+                    mask |= 2
+        if mask == 3:
+            raise _invalid_value(
+                node.field.path,
+                "one field predicate cannot mix dates and date-times",
+                "all temporal operands resolved to dates or all resolved to date-times",
+            )
+        return {node.field.name: ({mask}, node.field.path)} if mask else {}
+    if isinstance(node, Not):
+        _validate_temporal_conjunctions(node.child)
+        # A negated predicate does not impose its runtime type on siblings.
+        return {}
+
+    child_states = [_validate_temporal_conjunctions(child) for child in node.children]
+    fields = set().union(*(set(states) for states in child_states))
+    if isinstance(node, AnyOf):
+        alternatives: dict[str, tuple[set[int], str]] = {}
+        for field_name in fields:
+            states: set[int] = set()
+            paths: list[str] = []
+            for child in child_states:
+                if field_name in child:
+                    child_masks, child_path = child[field_name]
+                    states.update(child_masks)
+                    paths.append(child_path)
+                else:
+                    states.add(0)
+            alternatives[field_name] = (states, min(paths))
+        return alternatives
+
+    combined: dict[str, tuple[set[int], str]] = {}
+    for child in child_states:
+        for field_name in set(combined) | set(child):
+            prior_masks, prior_path = combined.get(field_name, ({0}, ""))
+            next_masks, next_path = child.get(field_name, ({0}, prior_path))
+            merged = {prior | following for prior in prior_masks for following in next_masks}
+            if 3 in merged:
+                raise _invalid_value(
+                    next_path or prior_path,
+                    f"conjunctive predicates for {field_name} mix dates and date-times",
+                    "all temporal operands for one conjunctive field resolved to one temporal type",
+                )
+            combined[field_name] = (merged, next_path or prior_path)
+    return combined
+
+
+def _bounded_json(value: Any, *, path: str, code: str) -> None:
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise _error(
+            "INVALID_FILTER_VALUE",
+            path,
+            "filters must contain finite JSON values",
+            "JSON object containing only finite JSON values",
+            "Remove non-JSON or non-finite values.",
+        ) from error
+    if len(encoded) > MAX_PLAN_BYTES:
+        raise _error(
+            code,
+            path,
+            f"encoded filter plan is {len(encoded)} bytes",
+            f"at most {MAX_PLAN_BYTES} UTF-8 bytes",
+            "Reduce the filter expression or shortcut values.",
+        )
+
+
+def _invalid_value(path: str, message: str, expected: str) -> FilterError:
+    return _error(
+        "INVALID_FILTER_VALUE",
+        path,
+        message,
+        expected,
+        "Use a value with the documented operator type and arity.",
+    )
+
+
+def _error(
+    code: str,
+    path: str,
+    message: str,
+    expected: str,
+    remediation: str,
+) -> FilterError:
+    return FilterError(
+        code,
+        path,
+        message,
+        expected=expected,
+        remediation=remediation,
+    )
+
+
+def _require_node(node: FilterNode | None) -> FilterNode:
+    assert node is not None
+    return node

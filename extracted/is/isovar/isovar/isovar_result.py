@@ -1,0 +1,1350 @@
+# Copyright (c) 2019. Mount Sinai School of Medicine
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+"""
+IsovarResult is a collection of all information gathered about a variant
+and any protein sequences which were successfully translated for it.
+"""
+
+from collections import OrderedDict
+from itertools import chain
+
+from functools import cached_property
+
+from .common import safediv
+from .alignment_score import alignment_score
+from .effect_prediction import effect_outcomes, effect_protein_comparisons, has_mutant_protein_sequence
+from .read_identity import count_reads, fragment_ids
+
+
+def _equivalent_indel_placements(reference, mutant):
+    """How far a length-changing edit can slide without changing ``mutant``.
+
+    A deletion of ``k`` residues at ``x`` is equivalent at every ``x`` where
+    ``reference[:x] == mutant[:x]`` and ``reference[x + k:] == mutant[x:]``;
+    insertions likewise. Equal-length changes and frameshifts don't slide.
+    """
+    if reference is None or len(reference) == len(mutant):
+        return 0
+    shorter = min(len(reference), len(mutant))
+    prefix = next((i for i in range(shorter) if reference[i] != mutant[i]), shorter)
+    suffix = next((i for i in range(shorter) if reference[-1 - i] != mutant[-1 - i]), shorter)
+    return max(0, prefix + suffix - shorter)
+
+
+def _positional_mismatches(protein, sequence, start):
+    """Residues of ``protein`` that differ from ``sequence`` placed at ``start``."""
+    return sum(start + i < 0 or start + i >= len(sequence) or sequence[start + i] != aa
+               for i, aa in enumerate(protein))
+
+
+class IsovarResult(object):
+    """
+    This object represents all information gathered about a variant,
+    which includes the AlleleReads supporting any allele at this variant's
+    locus and any protein sequences generated from an alt-allele cDNA
+    assembly.
+    """
+
+    # Results pickled before 1.38.0 lack this field; they have none.
+    germline_read_evidence = {}
+    phasing_settings = None
+    # Older results were not assessed for unframed RNA.
+    rna_assessment = None
+
+    # Varcode effect properties exported with a "predicted_effect_" prefix.
+    _PREDICTED_EFFECT_FIELDS = (
+        "gene_name",
+        "gene_id",
+        "transcript_id",
+        "transcript_name",
+        "modifies_protein_sequence",
+        "original_protein_sequence",
+        "aa_mutation_start_offset",
+        "aa_mutation_end_offset",
+        "mutant_protein_sequence",
+    )
+
+    # Record column names paired with fields of the top ProteinSequence.
+    _PROTEIN_SEQUENCE_FIELDS = (
+        ("protein_sequence", "amino_acids"),
+        ("protein_sequence_ends_with_stop_codon", "ends_with_stop_codon"),
+        ("protein_sequence_gene_names", "gene_names"),
+        ("protein_sequence_gene_ids", "gene_ids"),
+        ("protein_sequence_transcript_names", "transcript_names"),
+        ("protein_sequence_transcript_ids", "transcript_ids"),
+    )
+
+    def __init__(
+            self,
+            variant,
+            read_evidence,
+            predicted_effect,
+            sorted_protein_sequences=None,
+            filter_values=None,
+            phased_variants_in_supporting_reads=None,
+            phased_variants_in_protein_sequence=None,
+            phase_group_from_supporting_reads=None,
+            phase_group_from_protein_sequence=None,
+            protein_sequence_settings=None,
+            germline_read_evidence=None,
+            phasing_settings=None,
+            rna_assessment=None):
+        """
+        Parameters
+        ----------
+        variant : varcode.Variant
+            Somatic mutation.
+
+        read_evidence : ReadEvidence
+            Reads grouped by allele at the locus of this variant.
+
+        predicted_effect : varcode effect
+            Top predicted impact on protein sequence from DNA.
+
+        sorted_protein_sequences : list of ProteinSequence
+            Protein sequences sorted by degree of support.
+
+        filter_values : OrderedDict
+            Dictionary from names of filters to whether this IsovarResult
+            passed that filter.
+
+        phased_variants_in_supporting_reads : set of varcode.Variant
+            Other somatic variants which directly share enough alt-read support
+            with the variant associated with this IsovarResult.
+
+        phased_variants_in_protein_sequence : set of varcode.Variant
+            Other somatic variants which directly share enough protein-
+            sequence-supporting reads with the variant associated with this
+            IsovarResult.
+
+        phase_group_from_supporting_reads : PhaseGroup or None
+            Explicit phasing component inferred from all RNA reads supporting
+            this variant. This group may contain variants which are only
+            transitively connected through other variants. Read-only groups do
+            not necessarily carry assembled cDNA or transcript metadata.
+
+        phase_group_from_protein_sequence : PhaseGroup or None
+            Explicit phasing component inferred from reads used to construct the
+            top protein sequence for this variant. This group may contain
+            variants which are only transitively connected through other
+            variants. When available, this group also carries directly observed
+            cDNA, protein, and transcript metadata from the assembled protein
+            sequences in the group.
+
+        protein_sequence_settings : dict or None
+            ``ProteinSequenceCreator.settings()`` of the creator that produced
+            `sorted_protein_sequences`, recorded by `run_isovar`. None when
+            unknown, as for a result built by hand.
+
+        rna_assessment : VariantReadAssessment or None
+            Observed ALT RNA, including unframed paths and explicit frame states.
+            None means not assessed, including results from older versions.
+
+        phasing_settings : dict or None
+            Error calibration and thresholds used for phase annotation. Retained
+            when cloning/pickling so downstream read-phasing adapters inherit them.
+
+        germline_read_evidence : dict or None
+            For each matched germline variant
+            (``run_isovar(germline_variants=...)``) that this variant's alt
+            reads cover, its ReadEvidence from the fragments carrying this
+            variant's alt allele, for telling cis from trans.
+        """
+        self.rna_assessment = rna_assessment
+        self.phasing_settings = phasing_settings
+        self.variant = variant
+        self.read_evidence = read_evidence
+        self.predicted_effect = predicted_effect
+
+        if sorted_protein_sequences is None:
+            sorted_protein_sequences = []
+
+        self.sorted_protein_sequences = sorted_protein_sequences
+
+        if filter_values is None:
+            self.filter_values = OrderedDict()
+        else:
+            self.filter_values = filter_values
+
+        if phased_variants_in_supporting_reads is None:
+            self.phased_variants_in_supporting_reads = set()
+        else:
+            self.phased_variants_in_supporting_reads = \
+                phased_variants_in_supporting_reads
+
+        if phased_variants_in_protein_sequence is None:
+            self.phased_variants_in_protein_sequence = set()
+        else:
+            self.phased_variants_in_protein_sequence = \
+                phased_variants_in_protein_sequence
+
+        self.phase_group_from_supporting_reads = phase_group_from_supporting_reads
+        self.phase_group_from_protein_sequence = phase_group_from_protein_sequence
+        self.protein_sequence_settings = protein_sequence_settings
+        self.germline_read_evidence = {} if germline_read_evidence is None else germline_read_evidence
+
+    @property
+    def fields(self):
+        """
+        List of field names used to construct an IsovarResult instance.
+        """
+        return [
+            "variant",
+            "predicted_effect",
+            "read_evidence",
+            "sorted_protein_sequences",
+            "filter_values",
+            "phased_variants_in_supporting_reads",
+            "phased_variants_in_protein_sequence",
+            "phase_group_from_supporting_reads",
+            "phase_group_from_protein_sequence",
+            "protein_sequence_settings",
+            "germline_read_evidence",
+            "phasing_settings",
+            "rna_assessment",
+        ]
+
+    def __str__(self):
+        field_strings = ["%s=%s" % (k, v) for (k, v) in self.to_dict().items()]
+        return "%s(%s)" % (
+            self.__class__.__name__,
+            ", ".join(field_strings)
+        )
+
+    def __eq__(self, other):
+        for field_name in self.fields:
+            my_value = getattr(self, field_name)
+            other_value = getattr(other, field_name)
+            if my_value is None and other_value is not None:
+                return False
+            elif other_value is None and my_value is not None:
+                return False
+            elif my_value != other_value:
+                return False
+        return True
+
+    def __repr__(self):
+        return str(self)
+
+    def to_dict(self):
+        """
+        Dictionary representation of fields used to construct this IsovarResult
+
+        Returns dict
+        """
+        return OrderedDict([
+            (k, getattr(self, k))
+            for k in self.fields
+        ])
+
+    def clone_with_updates(self, **kwargs):
+        """
+        Create a copy of this IsovarResult object including any new
+        parameters in `kwargs`.
+
+        Returns IsovarResult
+        """
+        for (k, v) in self.to_dict().items():
+            if k not in kwargs:
+                kwargs[k] = v
+        return IsovarResult(**kwargs)
+
+    def clone(self):
+        """
+        Make a copy of this IsovarResult without updating any fields.
+
+        Returns IsovarResult
+        """
+        return self.clone_with_updates()
+
+    def to_record(self):
+        """
+        Create an OrderedDict of essential information from
+        this IsovarResult to be used for building a DataFrame across
+        variants.
+
+        Returns OrderedDict
+        """
+        d = OrderedDict([
+            ("variant", self.variant.short_description),
+            ("chr", self.variant.original_contig),
+            ("pos", self.variant.original_start),
+            ("ref", self.variant.original_ref),
+            ("alt", self.variant.original_alt),
+            ("overlapping_gene_names",
+                ";".join(self.overlapping_gene_names(only_coding=False))),
+            ("overlapping_gene_ids",
+                ";".join(self.overlapping_gene_ids(only_coding=False))),
+            ("overlapping_coding_gene_names",
+             ";".join(self.overlapping_gene_names(only_coding=True))),
+            ("overlapping_coding_gene_ids",
+             ";".join(self.overlapping_gene_ids(only_coding=True))),
+
+        ])
+
+        for key in self._record_property_names():
+            d[key] = getattr(self, key)
+
+        ########################################################################
+        # predicted protein changes without looking at RNA reads
+        ########################################################################
+        effect = self.predicted_effect
+
+        d["predicted_effect"] = effect.short_description
+        d["predicted_effect_class"] = effect.__class__.__name__
+        d["predicted_effect_modifies_protein_sequence"] = \
+            self.predicted_effect_modifies_protein_sequence
+
+        for field_name in self._PREDICTED_EFFECT_FIELDS:
+            # store effect fields with prefix 'predicted_effect_' and use
+            # getattr in case the field is not available for all effects
+            d["predicted_effect_%s" % field_name] = getattr(
+                effect,
+                field_name,
+                None)
+
+        ########################################################################
+        # get the top protein sequence, if one exists
+        ########################################################################
+        protein_sequence = self.top_protein_sequence
+
+        for (name, protein_sequence_field) in self._PROTEIN_SEQUENCE_FIELDS:
+            value = getattr(protein_sequence, protein_sequence_field, None)
+            if isinstance(value, (list, set, tuple)):
+                value = ";".join(value)
+            d[name] = value
+        d["protein_sequence_mutation_start_idx"] = \
+            self.protein_sequence_mutation_start_idx
+        d["protein_sequence_mutation_end_idx"] = \
+            self.protein_sequence_mutation_end_idx
+        d["num_mutant_amino_acids_in_protein_sequence"] = \
+            self.num_mutant_amino_acids_in_protein_sequence
+
+        d["trimmed_predicted_mutant_protein_sequence"] = self.trimmed_predicted_mutant_protein_sequence
+        d["trimmed_reference_protein_sequence"] = self.trimmed_reference_protein_sequence
+        d["protein_sequence_contains_mutation"] = self.protein_sequence_contains_mutation
+        d["protein_sequence_contains_deletion"] = self.protein_sequence_contains_deletion
+        d["protein_sequence_matches_predicted_mutation_effect"] = \
+            self.protein_sequence_matches_predicted_mutation_effect
+
+        ########################################################################
+        # filters
+        ########################################################################
+        for filter_name, filter_value in self.filter_values.items():
+            d["filter:%s" % filter_name] = filter_value
+        d["passes_all_filters"] = self.passes_all_filters
+        return d
+
+    @classmethod
+    def _record_property_names(cls):
+        """Numeric (num_/fraction_/ratio_) then boolean (has_) properties."""
+        names = dir(cls)
+        return ([key for key in names if key.startswith(("num_", "fraction_", "ratio_"))]
+                + [key for key in names if key.startswith("has_")])
+
+    @classmethod
+    def record_columns(cls):
+        """Columns of ``to_record`` other than per-filter ``filter:`` columns."""
+        columns = (
+            ["variant", "chr", "pos", "ref", "alt",
+             "overlapping_gene_names", "overlapping_gene_ids",
+             "overlapping_coding_gene_names", "overlapping_coding_gene_ids"]
+            + cls._record_property_names()
+            + ["predicted_effect", "predicted_effect_class",
+               "predicted_effect_modifies_protein_sequence"]
+            + ["predicted_effect_" + name for name in cls._PREDICTED_EFFECT_FIELDS]
+            + [name for name, _ in cls._PROTEIN_SEQUENCE_FIELDS]
+            + ["protein_sequence_mutation_start_idx", "protein_sequence_mutation_end_idx",
+               "num_mutant_amino_acids_in_protein_sequence",
+               "trimmed_predicted_mutant_protein_sequence", "trimmed_reference_protein_sequence",
+               "protein_sequence_contains_mutation", "protein_sequence_contains_deletion",
+               "protein_sequence_matches_predicted_mutation_effect", "passes_all_filters"])
+        # A repeated key keeps its first position, as in to_record's dictionary.
+        return list(dict.fromkeys(columns))
+
+    @cached_property
+    def passes_all_filters(self):
+        """
+        Does this IsovarResult have True for all the filter values in
+        self.filter_values?
+        """
+        if len(self.filter_values) == 0:
+            return True
+        else:
+            return all(list(self.filter_values.values()))
+
+    @cached_property
+    def top_gene_name(self):
+        """
+        If there is a single best gene name associated with this IsovarResult's
+        mutation, then return that gene name. Otherwise return all overlapping
+        gene names.
+
+        Returns
+        -------
+        str
+        """
+        if self.top_protein_sequence is not None:
+            return self.top_protein_sequence.gene_name
+
+        # if no protein sequence was determined from the RNA,
+        # see if the top predicted effect is associated with a gene
+        gene_name = getattr(self.predicted_effect, "gene_name", None)
+        if gene_name:
+            return gene_name
+        else:
+            # if nothing about the gene can be guessed from the predicted
+            # effect, then use all overlapping gene names
+            return ";".join(
+                self.overlapping_gene_names(only_coding=False))
+
+    @cached_property
+    def top_protein_sequence(self):
+        """
+        If any protein sequences were assembled for this variant then
+        return the first according to the configured protein selection
+        policy. By default this balances mutation-containing peptide
+        context with compatible RNA support; it is not necessarily the
+        candidate with the highest read-name count.
+
+        Returns ProteinSequence or None
+        """
+        if len(self.sorted_protein_sequences) > 0:
+            return self.sorted_protein_sequences[0]
+        else:
+            return None
+
+    @cached_property
+    def protein_sequence_mutation_start_idx(self):
+        """
+        Interbase start coordinate for mutated amino acids in top protein
+        sequence.
+
+        Returns
+        -------
+        int or None
+        """
+        if self.has_mutant_protein_sequence_from_rna:
+            return self.top_protein_sequence.mutation_start_idx
+        else:
+            return None
+
+    @cached_property
+    def protein_sequence_mutation_end_idx(self):
+        """
+        Interbase end coordinate for mutated amino acids in top protein
+        sequence.
+
+        Returns
+        -------
+        int or None
+        """
+        if self.has_mutant_protein_sequence_from_rna:
+            return self.top_protein_sequence.mutation_end_idx
+        else:
+            return None
+
+    @cached_property
+    def predicted_effect_modifies_protein_sequence(self):
+        """
+        Does the selected comparison change its baseline protein sequence?
+
+        This is the selected effect's own flag, not an aggregate over its
+        alternatives. ``None`` means unresolved; candidate availability and
+        RNA agreement are reported separately.
+
+        Returns bool or None
+        """
+        if self.predicted_effect is None:
+            return None
+        return self.predicted_effect.modifies_protein_sequence
+
+    @cached_property
+    def has_protein_changing_predicted_effect(self) -> bool | None:
+        """Whether any retained comparison predicts a protein change.
+
+        True requires a changed candidate. Otherwise an unresolved candidate
+        gives None; False requires every terminal comparison to be unchanged.
+        This aggregate is used by the default filter, while
+        ``predicted_effect_modifies_protein_sequence`` describes the selected
+        comparison only. RNA support and sequence agreement remain separate.
+        """
+        statuses = [getattr(effect, "modifies_protein_sequence", None)
+                    for effect in effect_outcomes(self.predicted_effect)]
+        if True in statuses:
+            return True
+        return None if not statuses or None in statuses else False
+
+    @cached_property
+    def num_cdna_mismatches_in_top_protein_sequence(self):
+        """
+        How many nucleotide positions aside from the variant location don't
+        match the reference transcript sequence in the cDNA sequence used
+        to translate the top protein sequence. When multiple cDNA sequences
+        were used then take the min across them.
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.num_mismatches
+
+    @cached_property
+    def num_cdna_mismatches_before_variant_in_top_protein_sequence(self):
+        """
+        How many nucleotide positions before the variant location don't
+        match the reference transcript sequence in the cDNA sequence used
+        to translate the top protein sequence. When multiple cDNA sequences
+        were used then take the min across them.
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.num_mismatches_before_variant
+
+    @cached_property
+    def num_cdna_mismatches_after_variant_in_top_protein_sequence(self):
+        """
+        How many nucleotide positions after the variant location don't
+        match the reference transcript sequence in the cDNA sequence used
+        to translate the top protein sequence. When multiple cDNA sequences
+        were used then take the min across them.
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.num_mismatches_after_variant
+
+    @cached_property
+    def num_reads_supporting_top_protein_sequence(self):
+        """
+        How many reads support the assembled protein sequence?
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return 0
+        return self.top_protein_sequence.num_supporting_reads
+
+    @cached_property
+    def num_fragments_supporting_top_protein_sequence(self):
+        """
+        How many fragments (read-group-scoped read names) support the
+        assembled protein sequence?
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return 0
+        return self.top_protein_sequence.num_supporting_fragments
+
+    @cached_property
+    def num_translations_from_top_protein_sequence(self):
+        """
+        How many distinct translations were used to create the top
+        protein sequence? These can arise either from different cDNA sequences
+        or different reading frames.
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return 0
+        return len(self.top_protein_sequence.translations)
+
+    @cached_property
+    def num_cdna_sequences_from_top_protein_sequence(self):
+        """
+        How many distinct cDNA sequences were used to create the top
+        protein sequence?
+
+        Returns int
+        """
+        if self.top_protein_sequence is None:
+            return 0
+        return self.top_protein_sequence.num_cdna_sequences
+
+    @cached_property
+    def _trimmed_predicted_protein_pairs(self):
+        """Candidate-specific mutant/reference windows, retaining unknowns.
+
+        An in-frame indel in a repeat has several equivalent placements, and
+        Varcode's (3'-shifted, as in HGVS) need not be the one marked in the
+        RNA protein. Windows are cut at the equivalent placement that best
+        matches the RNA protein, preferring Varcode's on ties.
+        """
+        p = self.top_protein_sequence
+        pairs = []
+        for e, reference_sequence, mutant_sequence in effect_protein_comparisons(
+                self.predicted_effect):
+            mutant = reference = None
+            offset = getattr(e, "aa_mutation_start_offset", None)
+            if p is not None and offset is not None:
+                start = offset - p.mutation_start_idx
+                n = len(p.amino_acids)
+                if mutant_sequence is not None and getattr(e, "aa_alt", None) is not None:
+                    slide = _equivalent_indel_placements(reference_sequence, mutant_sequence)
+                    start = min(
+                        range(start - slide, start + slide + 1),
+                        key=lambda s: (_positional_mismatches(p.amino_acids, mutant_sequence, s),
+                                       abs(s - start), s))
+                    mutant = mutant_sequence[max(start, 0):start + n]
+                if reference_sequence is not None:
+                    reference = reference_sequence[max(start, 0):start + n]
+            pairs.append((mutant, reference))
+        return tuple(pairs)
+
+    @cached_property
+    def trimmed_predicted_mutant_protein_sequence(self):
+        """The trimmed protein if every outcome agrees; otherwise None.
+
+        Matching uses all candidate windows even when this scalar is absent.
+        """
+        sequences = {mutant for mutant, _ in self._trimmed_predicted_protein_pairs}
+        return sequences.pop() if len(sequences) == 1 else None
+
+    @cached_property
+    def has_mutant_protein_sequence_from_rna(self):
+        """
+        Does this IsovarResult have an associated protein sequence
+        determined from RNA reads?
+
+        Returns bool
+        """
+        return self.top_protein_sequence is not None
+
+    @cached_property
+    def has_reference_protein_sequence_from_predicted_effect(self):
+        """
+        Does the variant for this IsovarResult affect a protein
+        whose reference sequence can be determined?
+
+        Returns bool
+        """
+        if self.predicted_effect is None:
+            return False
+        return self.predicted_effect.original_protein_sequence is not None
+
+    @cached_property
+    def has_mutant_protein_sequence_from_predicted_effect(self):
+        """
+        Does at least one predicted outcome have a mutant protein sequence?
+
+        Returns bool
+        """
+        return has_mutant_protein_sequence(self.predicted_effect)
+
+    @cached_property
+    def trimmed_reference_protein_sequence(self):
+        """
+        Trim reference proteins at each candidate's mutation offset. Return
+        the window only when all outcomes agree and none is unresolved.
+
+        Returns str or None
+        """
+        sequences = {reference for _, reference in self._trimmed_predicted_protein_pairs}
+        return sequences.pop() if len(sequences) == 1 else None
+
+    @cached_property
+    def _predicted_protein_mismatch_counts(self):
+        p = self.top_protein_sequence
+        return tuple(
+            alignment_score(p.amino_acids, mutant)
+            if p is not None and mutant is not None else None
+            for mutant, _ in self._trimmed_predicted_protein_pairs)
+
+    @cached_property
+    def num_amino_acid_mismatches_from_predicted_effect(self):
+        """
+        Compute the minimum mismatches across known candidate proteins
+        predicted by Varcode and the top-ranked sequence translated
+        from assembled RNA reads by Isovar. We're not allowing any
+        insertions or deletions in the middle of the sequences but do
+        allow a shorter sequence to start anywhere within a longer one.
+
+        Unresolved candidates are not scored. A nonzero value does not rule
+        out a match to one of them; use protein_sequence_matches_predicted_mutation_effect.
+
+        Returns int or None
+        """
+        counts = [n for n in self._predicted_protein_mismatch_counts if n is not None]
+        return min(counts) if counts else None
+
+    @cached_property
+    def protein_sequence_matches_predicted_mutation_effect(self):
+        """
+        Does the top protein sequence translated from RNA reads
+        match any predicted protein change determined by Varcode?
+
+        True means compatibility with at least one candidate, not proof of
+        its mechanism. False requires every candidate to be comparable and
+        nonmatching; unresolved candidates give None if no known one matches.
+
+        Returns bool or None
+        """
+        counts = self._predicted_protein_mismatch_counts
+        if 0 in counts:
+            return True
+        if not counts or None in counts:
+            return None
+        return False
+
+
+    @cached_property
+    def num_amino_acid_mismatches_from_reference(self):
+        """
+        Compute the number of mismatches between the original protein sequence
+        and the top-ranked sequence translated from assembled RNA reads by
+        Isovar. We're not allowing any insertions or deletions in the middle of
+        the sequences but do allow a shorter sequence to start anywhere
+        within a longer one.
+
+        Returns int
+        """
+        original_sequence = self.trimmed_reference_protein_sequence
+        if original_sequence is None:
+            return None
+
+        protein_sequence_object = self.top_protein_sequence
+        if protein_sequence_object is None:
+            return None
+        assembled_protein_sequence = protein_sequence_object.amino_acids
+
+        return alignment_score(
+            assembled_protein_sequence,
+            original_sequence)
+
+    @cached_property
+    def protein_sequence_contains_mutation(self):
+        """
+        Does the protein sequence assembled from RNA contain a mutation?
+
+        Returns bool
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.contains_mutation
+
+    @cached_property
+    def protein_sequence_contains_deletion(self):
+        """
+        Does the protein sequence assembled from RNA span both sides of a
+        deletion mutation?
+
+        Returns bool
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.contains_deletion
+
+    def _top_protein_source_variants(self, category):
+        if self.top_protein_sequence is None:
+            return set()
+        edits = self.top_protein_sequence._transcript_assembly_edits_by_category()[category]
+        return {edit.source_variant for edit in edits
+                if edit.source_variant is not None and edit.source_variant != self.variant}
+
+    @property
+    def co_somatic_variants_in_top_protein_sequence(self):
+        """
+        Other input somatic variants whose edits are in the assembled cDNA
+        of the top protein sequence, and so phased with this variant on
+        the same RNA.
+
+        Returns set of varcode.Variant
+        """
+        return self._top_protein_source_variants("known_somatic")
+
+    @property
+    def germline_variants_in_top_protein_sequence(self):
+        """
+        Matched germline variants (``run_isovar(germline_variants=...)``)
+        whose edits are in the assembled cDNA of the top protein sequence.
+
+        Returns set of varcode.Variant
+        """
+        return self._top_protein_source_variants("known_germline")
+
+    @property
+    def num_co_somatic_variants_in_top_protein_sequence(self):
+        """
+        Number of other input somatic variants in the top protein's cDNA.
+
+        Returns int or None
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return len(self.co_somatic_variants_in_top_protein_sequence)
+
+    @property
+    def num_germline_variants_in_top_protein_sequence(self):
+        """
+        Number of matched germline variants in the top protein's cDNA.
+
+        Returns int or None
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return len(self.germline_variants_in_top_protein_sequence)
+
+    @property
+    def num_unexplained_edits_in_top_protein_sequence(self):
+        """
+        Differences between the top protein's cDNA and a reference transcript
+        that are neither this variant nor any supplied somatic or germline
+        variant: the most on any one transcript.
+
+        Returns int or None
+        """
+        if self.top_protein_sequence is None:
+            return None
+        per_transcript = {}
+        for edit in self.top_protein_sequence.unexplained_transcript_edits:
+            per_transcript.setdefault(edit.transcript_id, set()).add(
+                (edit.cdna_start, edit.cdna_end, edit.alt_bases))
+        return max((len(edits) for edits in per_transcript.values()), default=0)
+
+    @cached_property
+    def num_mutant_amino_acids_in_protein_sequence(self):
+        """
+        Number of amino acids modified by mutation in the top protein sequence
+        from RNA.
+
+        Returns
+        -------
+        int or None
+        """
+        if self.top_protein_sequence is None:
+            return None
+        return self.top_protein_sequence.num_mutant_amino_acids
+
+    @cached_property
+    def protein_sequence_matches_reference(self):
+        """
+        Does the top protein sequence translated from RNA reads
+        match the reference protein sequence?
+
+        Returns bool
+        """
+        n_mismatches = self.num_amino_acid_mismatches_from_reference
+        if n_mismatches is None:
+            return None
+        return n_mismatches == 0
+
+    @cached_property
+    def protein_sequence_different_from_reference(self):
+        """
+        Does the top protein sequence translated from RNA reads
+        differ from the reference?
+
+        Returns bool
+        """
+        if self.protein_sequence_matches_reference is None:
+            return None
+        return not self.protein_sequence_matches_reference
+
+    @cached_property
+    def num_protein_sequences(self):
+        """
+        Number of distinct protein sequences which were translated from
+        assembled RNA reads.
+
+        Returns int
+        """
+        return len(self.sorted_protein_sequences)
+
+    def transcripts_from_protein_sequences(self, max_num_protein_sequences=None):
+        """
+        Ensembl transcript IDs of all transcripts which support the reading
+        frame used by protein sequences in this IsovarResult.
+
+        Parameters
+        ----------
+        max_num_protein_sequences : int or None
+            If supplied then only consider the top protein sequences up to
+            this number.
+
+        Returns list of pyensembl.Transcript
+        """
+        transcript_set = set([])
+        for p in self.sorted_protein_sequences[:max_num_protein_sequences]:
+            transcript_set.update(p.transcripts)
+        # Transcripts at one locus are tied; sorting by ID first keeps them
+        # in a stable order (sorted() is stable), not set iteration order.
+        return sorted(sorted(transcript_set, key=lambda t: t.id))
+
+    def transcript_ids_from_protein_sequences(self, max_num_protein_sequences=None):
+        """
+        Ensembl transcripts IDs which support the reading frame used by protein
+        sequences in this IsovarResult.
+
+        Parameters
+        ----------
+        max_num_protein_sequences : int or None
+            If supplied then only consider the top protein sequences up to
+            this number.
+
+        Returns list of str
+        """
+        return sorted({t.id for t in self.transcripts_from_protein_sequences(
+            max_num_protein_sequences=max_num_protein_sequences)})
+
+    @cached_property
+    def num_transcripts_from_protein_sequences(self):
+        """
+        Number of transcripts used by any translated protein sequence
+        associated with this IsovarResult.
+
+        Returns int
+        """
+        return len(self.transcript_ids_from_protein_sequences(
+            max_num_protein_sequences=None))
+
+    @cached_property
+    def num_transcripts_from_top_protein_sequence(self):
+        """
+        Number of transcripts used by the top protein sequence.
+
+        Returns int
+        """
+        return len(self.transcript_ids_from_protein_sequences(
+            max_num_protein_sequences=1))
+
+    def genes_from_protein_sequences(self, max_num_protein_sequences=None):
+        """
+        Ensembl genes which support the reading frame used by protein
+        sequences in this IsovarResult.
+
+        Parameters
+        ----------
+        max_num_protein_sequences : int or None
+            If supplied then only consider the top protein sequences up to
+            this number.
+
+        Returns list of pyensembl.Gene
+        """
+        transcripts = self.transcripts_from_protein_sequences(
+            max_num_protein_sequences=max_num_protein_sequences)
+        genes = [t.gene for t in transcripts]
+        return sorted(genes)
+
+    def gene_ids_from_protein_sequences(self, max_num_protein_sequences=None):
+        """
+        Ensembl genes IDs which support the reading frame used by protein
+        sequences in this IsovarResult.
+
+        Parameters
+        ----------
+        max_num_protein_sequences : int or None
+            If supplied then only consider the top protein sequences up to
+            this number.
+
+        Returns list of str
+        """
+        return sorted({
+            g.id
+            for g
+            in
+            self.genes_from_protein_sequences(
+                max_num_protein_sequences=max_num_protein_sequences)
+        })
+
+    @cached_property
+    def num_genes_from_protein_sequences(self):
+        """
+        Number of genes used by any translated protein sequence associated
+        with this IsovarResult.
+
+        Returns int
+        """
+        return len(self.gene_ids_from_protein_sequences(
+            max_num_protein_sequences=None))
+
+    @cached_property
+    def num_genes_from_top_protein_sequence(self):
+        """
+        Number of genes used by the top protein sequence.
+
+        Returns int
+        """
+        return len(self.gene_ids_from_protein_sequences(
+            max_num_protein_sequences=1))
+
+    def overlapping_transcripts(self, only_coding=True):
+        """
+        Transcripts which this variant overlaps.
+
+        Parameters
+        ----------
+        only_coding : bool
+            Only return transcripts which are annotated as coding for a
+            protein (default=True)
+
+        Returns set of pyensembl.Transcript objects
+        """
+        return {
+            t
+            for t in self.variant.transcripts
+            if not only_coding or t.is_protein_coding
+        }
+
+    def overlapping_transcript_ids(self, only_coding=True):
+        """
+        Transcript IDs which this variant overlaps.
+
+        Parameters
+        ----------
+        only_coding : bool
+            Only return transcripts which are annotated as coding for a
+            protein (default=True)
+        Returns set of str
+        """
+        return {
+            t.id
+            for t in self.variant.transcripts
+            if not only_coding or t.is_protein_coding
+        }
+
+    @cached_property
+    def num_overlapping_transcripts(self):
+        """
+        Number of transcripts overlapped by the variant
+
+        Returns int
+        """
+        return len(self.overlapping_transcript_ids(only_coding=False))
+
+    @cached_property
+    def num_overlapping_coding_transcripts(self):
+        """
+        Number of coding transcripts overlapped by the variant
+
+        Returns int
+        """
+        return len(self.overlapping_transcript_ids(only_coding=True))
+
+    def overlapping_genes(self, only_coding=True):
+        """
+        Genes which this variant overlaps.
+
+        Parameters
+        ----------
+        only_coding : bool
+            Only return genes which are annotated as coding for a
+            protein (default=True)
+
+        Returns list of pyensembl.Gene objects
+        """
+        return sorted({
+            g
+            for g in self.variant.genes
+            if not only_coding or g.is_protein_coding
+        })
+
+    def overlapping_gene_names(self, only_coding=True):
+        """
+        Names of genes which this variant overlaps.
+
+        Parameters
+        ----------
+        only_coding : bool
+           Only return genes which are annotated as coding for a
+           protein (default=True)
+
+        Returns list of str
+        """
+        return [
+            g.name for g in self.overlapping_genes(only_coding=only_coding)
+        ]
+
+    def overlapping_gene_ids(self, only_coding=True):
+        """
+        Gene IDs which this variant overlaps.
+
+        Parameters
+        ----------
+        only_coding : bool
+            Only return genes which are annotated as coding for a
+            protein (default=True)
+
+        Returns set of str
+        """
+        return {
+            g.id
+            for g in self.variant.genes
+            if not only_coding or g.is_protein_coding
+        }
+
+    @cached_property
+    def num_overlapping_genes(self):
+        """
+        Number of genes overlapped by the variant
+
+        Returns int
+        """
+        return len(self.overlapping_gene_ids(only_coding=False))
+
+    @cached_property
+    def num_overlapping_coding_genes(self):
+        """
+        Number of coding genes overlapped by the variant
+
+        Returns int
+        """
+        return len(self.overlapping_gene_ids(only_coding=True))
+
+    @cached_property
+    def ref_reads(self):
+        """
+        AlleleRead objects at this locus which support the reference allele
+        """
+        return self.read_evidence.ref_reads
+
+    @cached_property
+    def alt_reads(self):
+        """
+        AlleleRead objects at this locus which support the mutant allele
+        """
+        return self.read_evidence.alt_reads
+
+    @cached_property
+    def other_reads(self):
+        """
+        AlleleRead objects at this locus which support some allele other than
+        either the reference or alternate.
+        """
+        return self.read_evidence.other_reads
+
+    @cached_property
+    def ref_read_names(self):
+        """
+        Names of reference reads at this locus.
+        """
+        return {r.name for r in self.ref_reads}
+
+    @cached_property
+    def alt_read_names(self):
+        """
+        Names of alt reads at this locus.
+        """
+        return {r.name for r in self.alt_reads}
+
+    @cached_property
+    def ref_and_alt_read_names(self):
+        """
+        Names of reads which support either the ref or alt alleles.
+        """
+        return self.ref_read_names.union(self.alt_read_names)
+
+    @cached_property
+    def other_read_names(self):
+        """
+        Names of other (non-alt, non-ref) reads at this locus.
+        """
+        return {r.name for r in self.other_reads}
+
+    @cached_property
+    def all_read_names(self):
+        """
+        Names of all reads at this locus.
+        """
+        return self.ref_read_names.union(self.alt_read_names).union(self.other_read_names)
+
+    @cached_property
+    def num_total_reads(self):
+        """
+        Total number of reads at this locus, regardless of allele.
+        """
+        return count_reads(chain(self.ref_reads, self.alt_reads, self.other_reads))
+
+    @cached_property
+    def num_total_fragments(self):
+        """
+        Total distinct fragments at this locus, scoped by SAM read group.
+        """
+        return len(fragment_ids(chain(self.ref_reads, self.alt_reads, self.other_reads)))
+
+    @cached_property
+    def num_ref_reads(self):
+        """
+        Number of reads which support the reference allele.
+        """
+        return count_reads(self.ref_reads)
+
+    @cached_property
+    def num_ref_fragments(self):
+        """
+        Number of distinct fragments which support the reference allele.
+        """
+        return len(fragment_ids(self.ref_reads))
+
+    @cached_property
+    def num_alt_reads(self):
+        """
+        Number of reads which support the alt allele.
+        """
+        return count_reads(self.alt_reads)
+
+    @cached_property
+    def num_alt_fragments(self):
+        """
+        Number of distinct fragments which support the alt allele.
+        """
+        return len(fragment_ids(self.alt_reads))
+
+    @cached_property
+    def num_other_reads(self):
+        """
+        Number of reads which support neither the reference nor alt alleles.
+        """
+        return count_reads(self.other_reads)
+
+    @cached_property
+    def num_other_fragments(self):
+        """
+        Number of distinct fragments which support neither the reference nor
+        alt alleles.
+        """
+        return len(fragment_ids(self.other_reads))
+
+    @cached_property
+    def fraction_ref_reads(self):
+        """
+        Allelic fraction of the reference allele among all reads at this site.
+        """
+        return safediv(self.num_ref_reads, self.num_total_reads)
+
+    @cached_property
+    def fraction_ref_fragments(self):
+        """
+        Allelic fraction of the reference allele among all fragments at this site.
+        """
+        return safediv(self.num_ref_fragments, self.num_total_fragments)
+
+    @cached_property
+    def fraction_alt_reads(self):
+        """
+        Allelic fraction of the variant allele among all reads at this site.
+        """
+        return safediv(self.num_alt_reads, self.num_total_reads)
+
+    @cached_property
+    def fraction_alt_fragments(self):
+        """
+        Allelic fraction of the variant allele among all fragments at this site.
+        """
+        return safediv(self.num_alt_fragments, self.num_total_fragments)
+
+    @cached_property
+    def fraction_other_reads(self):
+        """
+        Allelic fraction of the "other" (non-ref, non-alt) alleles among all
+        reads at this site.
+        """
+        return safediv(self.num_other_reads, self.num_total_reads)
+
+    @cached_property
+    def fraction_other_fragments(self):
+        """
+        Allelic fraction of the "other" (non-ref, non-alt) alleles among all
+        fragments at this site.
+        """
+        return safediv(self.num_other_fragments, self.num_total_fragments)
+
+    @cached_property
+    def ratio_other_to_ref_reads(self):
+        """
+        Ratio of the number of reads which support alleles which are neither
+        ref/alt to the number of ref reads.
+        """
+        return safediv(self.num_other_reads, self.num_ref_reads)
+
+    @cached_property
+    def ratio_other_to_ref_fragments(self):
+        """
+        Ratio of the number of fragments which support alleles which are neither
+        ref/alt to the number of ref fragments.
+        """
+        return safediv(self.num_other_fragments, self.num_ref_fragments)
+
+    @cached_property
+    def ratio_other_to_alt_reads(self):
+        """
+        Ratio of the number of reads which support alleles which are neither
+        ref/alt to the number of alt reads.
+        """
+        return safediv(self.num_other_reads, self.num_alt_reads)
+
+    @cached_property
+    def ratio_other_to_alt_fragments(self):
+        """
+        Ratio of the number of fragments which support alleles which are neither
+        ref/alt to the number of alt fragments.
+        """
+        return safediv(self.num_other_fragments, self.num_alt_fragments)
+
+    @cached_property
+    def ratio_ref_to_other_reads(self):
+        """
+        Ratio of the number of reference reads to non-ref/non-alt reads
+        """
+        return safediv(self.num_ref_reads, self.num_other_reads)
+
+    @cached_property
+    def ratio_ref_to_other_fragments(self):
+        """
+        Ratio of the number of reference fragments to non-ref/non-alt fragments
+        """
+        return safediv(self.num_ref_fragments, self.num_other_fragments)
+
+    @cached_property
+    def ratio_alt_to_other_reads(self):
+        """
+        Ratio of alt allele reads to non-ref/non-alt reads
+        """
+        return safediv(self.num_alt_reads, self.num_other_reads)
+
+    @cached_property
+    def ratio_alt_to_other_fragments(self):
+        """
+        Ratio of the number of fragments which support the alt allele
+        to the number of non-alt/non-ref allele fragments.
+        """
+        return safediv(self.num_alt_fragments, self.num_other_fragments)
+
+
+    @cached_property
+    def num_phased_variants_from_reads(self):
+        """
+        Number of variants explicitly phased with the variant in this
+        IsovarResult by shared RNA fragments.
+
+        Returns int
+        """
+        return len(self.phased_variants_in_supporting_reads)
+
+    @cached_property
+    def num_phased_variants_in_protein_sequence(self):
+        """
+        Number of variants explicitly phased with the variant in this
+        IsovarResult by shared RNA fragments which were used to create
+        the top protein sequences for this variant and whatever it
+        gets phased with.
+
+        Returns int
+        """
+        return len(self.phased_variants_in_protein_sequence)

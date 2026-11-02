@@ -1,0 +1,454 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Literal
+
+import httpx
+
+from ..types import inbound_wire_transfer_list_params, inbound_wire_transfer_reverse_params
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..pagination import SyncPage, AsyncPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.inbound_wire_transfer import InboundWireTransfer
+
+__all__ = ["InboundWireTransfersResource", "AsyncInboundWireTransfersResource"]
+
+
+class InboundWireTransfersResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> InboundWireTransfersResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return InboundWireTransfersResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> InboundWireTransfersResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return InboundWireTransfersResourceWithStreamingResponse(self)
+
+    def retrieve(
+        self,
+        inbound_wire_transfer_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> InboundWireTransfer:
+        """
+        Retrieve an Inbound Wire Transfer
+
+        Args:
+          inbound_wire_transfer_id: The identifier of the Inbound Wire Transfer to get details for.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not inbound_wire_transfer_id:
+            raise ValueError(
+                f"Expected a non-empty value for `inbound_wire_transfer_id` but received {inbound_wire_transfer_id!r}"
+            )
+        return self._get(
+            path_template(
+                "/inbound_wire_transfers/{inbound_wire_transfer_id}", inbound_wire_transfer_id=inbound_wire_transfer_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=InboundWireTransfer,
+        )
+
+    def list(
+        self,
+        *,
+        account_id: str | Omit = omit,
+        account_number_id: str | Omit = omit,
+        created_at: inbound_wire_transfer_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: inbound_wire_transfer_list_params.Status | Omit = omit,
+        wire_drawdown_request_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[InboundWireTransfer]:
+        """
+        List Inbound Wire Transfers
+
+        Args:
+          account_id: Filter Inbound Wire Transfers to ones belonging to the specified Account.
+
+          account_number_id: Filter Inbound Wire Transfers to ones belonging to the specified Account Number.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          wire_drawdown_request_id: Filter Inbound Wire Transfers to ones belonging to the specified Wire Drawdown
+              Request.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/inbound_wire_transfers",
+            page=SyncPage[InboundWireTransfer],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "account_id": account_id,
+                        "account_number_id": account_number_id,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                        "status": status,
+                        "wire_drawdown_request_id": wire_drawdown_request_id,
+                    },
+                    inbound_wire_transfer_list_params.InboundWireTransferListParams,
+                ),
+            ),
+            model=InboundWireTransfer,
+        )
+
+    def reverse(
+        self,
+        inbound_wire_transfer_id: str,
+        *,
+        reason: Literal["duplicate", "creditor_request", "transaction_forbidden"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> InboundWireTransfer:
+        """
+        Reverse an Inbound Wire Transfer
+
+        Args:
+          inbound_wire_transfer_id: The identifier of the Inbound Wire Transfer to reverse.
+
+          reason: Reason for the reversal.
+
+              - `duplicate` - The inbound wire transfer was a duplicate.
+              - `creditor_request` - The recipient of the wire transfer requested the funds be
+                returned to the sender.
+              - `transaction_forbidden` - The account cannot currently receive inbound wires.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not inbound_wire_transfer_id:
+            raise ValueError(
+                f"Expected a non-empty value for `inbound_wire_transfer_id` but received {inbound_wire_transfer_id!r}"
+            )
+        return self._post(
+            path_template(
+                "/inbound_wire_transfers/{inbound_wire_transfer_id}/reverse",
+                inbound_wire_transfer_id=inbound_wire_transfer_id,
+            ),
+            body=maybe_transform(
+                {"reason": reason}, inbound_wire_transfer_reverse_params.InboundWireTransferReverseParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=InboundWireTransfer,
+        )
+
+
+class AsyncInboundWireTransfersResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncInboundWireTransfersResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncInboundWireTransfersResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncInboundWireTransfersResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return AsyncInboundWireTransfersResourceWithStreamingResponse(self)
+
+    async def retrieve(
+        self,
+        inbound_wire_transfer_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> InboundWireTransfer:
+        """
+        Retrieve an Inbound Wire Transfer
+
+        Args:
+          inbound_wire_transfer_id: The identifier of the Inbound Wire Transfer to get details for.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not inbound_wire_transfer_id:
+            raise ValueError(
+                f"Expected a non-empty value for `inbound_wire_transfer_id` but received {inbound_wire_transfer_id!r}"
+            )
+        return await self._get(
+            path_template(
+                "/inbound_wire_transfers/{inbound_wire_transfer_id}", inbound_wire_transfer_id=inbound_wire_transfer_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=InboundWireTransfer,
+        )
+
+    def list(
+        self,
+        *,
+        account_id: str | Omit = omit,
+        account_number_id: str | Omit = omit,
+        created_at: inbound_wire_transfer_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        status: inbound_wire_transfer_list_params.Status | Omit = omit,
+        wire_drawdown_request_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[InboundWireTransfer, AsyncPage[InboundWireTransfer]]:
+        """
+        List Inbound Wire Transfers
+
+        Args:
+          account_id: Filter Inbound Wire Transfers to ones belonging to the specified Account.
+
+          account_number_id: Filter Inbound Wire Transfers to ones belonging to the specified Account Number.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          wire_drawdown_request_id: Filter Inbound Wire Transfers to ones belonging to the specified Wire Drawdown
+              Request.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/inbound_wire_transfers",
+            page=AsyncPage[InboundWireTransfer],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "account_id": account_id,
+                        "account_number_id": account_number_id,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                        "status": status,
+                        "wire_drawdown_request_id": wire_drawdown_request_id,
+                    },
+                    inbound_wire_transfer_list_params.InboundWireTransferListParams,
+                ),
+            ),
+            model=InboundWireTransfer,
+        )
+
+    async def reverse(
+        self,
+        inbound_wire_transfer_id: str,
+        *,
+        reason: Literal["duplicate", "creditor_request", "transaction_forbidden"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> InboundWireTransfer:
+        """
+        Reverse an Inbound Wire Transfer
+
+        Args:
+          inbound_wire_transfer_id: The identifier of the Inbound Wire Transfer to reverse.
+
+          reason: Reason for the reversal.
+
+              - `duplicate` - The inbound wire transfer was a duplicate.
+              - `creditor_request` - The recipient of the wire transfer requested the funds be
+                returned to the sender.
+              - `transaction_forbidden` - The account cannot currently receive inbound wires.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not inbound_wire_transfer_id:
+            raise ValueError(
+                f"Expected a non-empty value for `inbound_wire_transfer_id` but received {inbound_wire_transfer_id!r}"
+            )
+        return await self._post(
+            path_template(
+                "/inbound_wire_transfers/{inbound_wire_transfer_id}/reverse",
+                inbound_wire_transfer_id=inbound_wire_transfer_id,
+            ),
+            body=await async_maybe_transform(
+                {"reason": reason}, inbound_wire_transfer_reverse_params.InboundWireTransferReverseParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=InboundWireTransfer,
+        )
+
+
+class InboundWireTransfersResourceWithRawResponse:
+    def __init__(self, inbound_wire_transfers: InboundWireTransfersResource) -> None:
+        self._inbound_wire_transfers = inbound_wire_transfers
+
+        self.retrieve = to_raw_response_wrapper(
+            inbound_wire_transfers.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            inbound_wire_transfers.list,
+        )
+        self.reverse = to_raw_response_wrapper(
+            inbound_wire_transfers.reverse,
+        )
+
+
+class AsyncInboundWireTransfersResourceWithRawResponse:
+    def __init__(self, inbound_wire_transfers: AsyncInboundWireTransfersResource) -> None:
+        self._inbound_wire_transfers = inbound_wire_transfers
+
+        self.retrieve = async_to_raw_response_wrapper(
+            inbound_wire_transfers.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            inbound_wire_transfers.list,
+        )
+        self.reverse = async_to_raw_response_wrapper(
+            inbound_wire_transfers.reverse,
+        )
+
+
+class InboundWireTransfersResourceWithStreamingResponse:
+    def __init__(self, inbound_wire_transfers: InboundWireTransfersResource) -> None:
+        self._inbound_wire_transfers = inbound_wire_transfers
+
+        self.retrieve = to_streamed_response_wrapper(
+            inbound_wire_transfers.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            inbound_wire_transfers.list,
+        )
+        self.reverse = to_streamed_response_wrapper(
+            inbound_wire_transfers.reverse,
+        )
+
+
+class AsyncInboundWireTransfersResourceWithStreamingResponse:
+    def __init__(self, inbound_wire_transfers: AsyncInboundWireTransfersResource) -> None:
+        self._inbound_wire_transfers = inbound_wire_transfers
+
+        self.retrieve = async_to_streamed_response_wrapper(
+            inbound_wire_transfers.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            inbound_wire_transfers.list,
+        )
+        self.reverse = async_to_streamed_response_wrapper(
+            inbound_wire_transfers.reverse,
+        )

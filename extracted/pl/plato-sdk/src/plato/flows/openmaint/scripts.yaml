@@ -1,0 +1,95 @@
+flows:
+- name: login
+  description: Complete login flow for OpenMaint with verification
+  steps:
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 5000
+    type: wait
+  - description: Wait for username field
+    selector: 'input[name="username"], input[name="user"], #username, input[type="text"]:first'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username field
+    selector: 'input[name="username"], input[name="user"], #username, input[type="text"]:first'
+    type: fill
+    value: admin
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: password
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary, button:contains("Login")
+    type: click
+  - description: Wait for login to process
+    duration: 5000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .error
+    - .alert-danger
+    - .alert-error
+    - .error-message
+    - .text-danger
+    - .invalid-feedback
+    - .login-error
+    - .auth-error
+    type: verify_no_errors
+  - description: Verify successful login by checking for main OpenMaint interface
+      elements
+    selector: .main-content, .dashboard, .header, .navigation, .menu
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username field
+    selector: 'input[name="username"], input[name="user"], #username, input[type="text"]:first'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username field with valid username
+    selector: 'input[name="username"], input[name="user"], #username, input[type="text"]:first'
+    type: fill
+    value: admin
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary, button:contains("Login")
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Verify error message is displayed
+    selector: .error, .alert-danger, .error-message, .invalid-feedback, .text-danger
+    type: verify
+    verify_type: element_exists

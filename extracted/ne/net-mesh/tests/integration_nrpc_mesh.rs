@@ -1,0 +1,1054 @@
+//! End-to-end nRPC integration test against real `MeshNode`s.
+//!
+//! Two `MeshNode` instances in one process, connected via direct
+//! handshake. Node A serves an "echo" RPC; node B issues calls.
+//! Asserts: round-trip, multiple sequential calls reuse the
+//! lazy reply subscription, server panic surfaces as `Internal`,
+//! deadline emits CANCEL and surfaces as `Timeout` to the caller.
+
+#![cfg(all(feature = "net", feature = "cortex"))]
+
+use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use bytes::Bytes;
+use net::adapter::net::cortex::{
+    RpcContext, RpcHandler, RpcHandlerError, RpcResponsePayload, RpcStatus, TraceContext,
+};
+use net::adapter::net::mesh_rpc::{CallOptions, RpcError};
+use net::adapter::net::{EntityKeypair, MeshNode, MeshNodeConfig, SocketBufferConfig};
+use parking_lot::Mutex;
+
+const TEST_BUFFER_SIZE: usize = 256 * 1024;
+const PSK: [u8; 32] = [0x42u8; 32];
+
+fn test_config() -> MeshNodeConfig {
+    let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let mut cfg = MeshNodeConfig::new(addr, PSK)
+        .with_heartbeat_interval(Duration::from_millis(200))
+        .with_session_timeout(Duration::from_secs(5))
+        .with_handshake(3, Duration::from_secs(2))
+        .with_capability_gc_interval(Duration::from_millis(250));
+    cfg.socket_buffers = SocketBufferConfig {
+        send_buffer_size: TEST_BUFFER_SIZE,
+        recv_buffer_size: TEST_BUFFER_SIZE,
+    };
+    cfg
+}
+
+async fn build_node() -> Arc<MeshNode> {
+    let cfg = test_config();
+    let keypair = EntityKeypair::generate();
+    Arc::new(MeshNode::new(keypair, cfg).await.expect("MeshNode::new"))
+}
+
+async fn handshake_pair(a: &Arc<MeshNode>, b: &Arc<MeshNode>) {
+    let a_id = a.node_id();
+    let b_id = b.node_id();
+    let b_pub = *b.public_key();
+    let b_addr = b.local_addr();
+    let b_clone = b.clone();
+    let accept = tokio::spawn(async move { b_clone.accept(a_id).await });
+    a.connect(b_addr, &b_pub, b_id)
+        .await
+        .expect("connect failed");
+    accept
+        .await
+        .expect("accept task panicked")
+        .expect("accept failed");
+    a.start();
+    b.start();
+}
+
+// ============================================================================
+// Test handlers.
+// ============================================================================
+
+struct EchoHandler;
+
+#[async_trait::async_trait]
+impl RpcHandler for EchoHandler {
+    async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+        Ok(RpcResponsePayload {
+            status: RpcStatus::Ok,
+            headers: vec![],
+            body: ctx.payload.body,
+        })
+    }
+}
+
+/// Counts handler invocations to confirm the server only ran the
+/// expected number of times (no double-dispatch from a misrouted
+/// fold).
+struct CountingHandler {
+    count: Arc<AtomicUsize>,
+}
+
+#[async_trait::async_trait]
+impl RpcHandler for CountingHandler {
+    async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+        self.count.fetch_add(1, Ordering::Relaxed);
+        Ok(RpcResponsePayload {
+            status: RpcStatus::Ok,
+            headers: vec![],
+            body: ctx.payload.body,
+        })
+    }
+}
+
+/// Sleeps long enough that the caller's deadline fires; pinned by
+/// the cancellation test.
+struct SlowHandler;
+
+#[async_trait::async_trait]
+impl RpcHandler for SlowHandler {
+    async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+        tokio::select! {
+            _ = ctx.cancellation.cancelled() => {
+                Err(RpcHandlerError::Internal("cancelled by caller".to_string()))
+            }
+            _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                Ok(RpcResponsePayload {
+                    status: RpcStatus::Ok,
+                    headers: vec![],
+                    body: bytes::Bytes::from_static(b"slept the full window"),
+                })
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Tests.
+// ============================================================================
+
+#[tokio::test]
+async fn rpc_large_response_preserves_packet_boundary_and_rejects_over_limit() {
+    struct SizedResponse(Arc<AtomicUsize>);
+    #[async_trait::async_trait]
+    impl RpcHandler for SizedResponse {
+        async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            let size = u32::from_le_bytes(ctx.payload.body[..4].try_into().unwrap()) as usize;
+            Ok(RpcResponsePayload {
+                status: RpcStatus::Ok,
+                headers: vec![],
+                body: Bytes::from(vec![b'x'; size]),
+            })
+        }
+    }
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let _serve = server
+        .serve_rpc("sized_response", Arc::new(SizedResponse(calls.clone())))
+        .unwrap();
+    let empty = RpcResponsePayload {
+        status: RpcStatus::Ok,
+        headers: vec![],
+        body: Bytes::new(),
+    };
+    let boundary = net_wire::protocol::MAX_EVENT_SIZE
+        - net::adapter::net::cortex::EVENT_META_SIZE
+        - net::adapter::net::cortex::RPC_ROUTE_V1_SIZE
+        - empty.encoded_len();
+    let maximum = 1024 * 1024 - empty.encoded_len();
+    for size in [boundary, boundary + 1, 22_000, maximum, maximum + 1] {
+        let result = caller
+            .call(
+                server.node_id(),
+                "sized_response",
+                Bytes::copy_from_slice(&(size as u32).to_le_bytes()),
+                CallOptions {
+                    deadline: Some(Instant::now() + Duration::from_secs(3)),
+                    ..Default::default()
+                },
+            )
+            .await;
+        if size <= maximum {
+            assert_eq!(result.unwrap().body, Bytes::from(vec![b'x'; size]));
+        } else {
+            match result.unwrap_err() {
+                RpcError::ServerError {
+                    status, message, ..
+                } => {
+                    assert_eq!(status, RpcStatus::Internal.to_wire());
+                    assert!(message.contains("1048576-byte limit"), "{message}");
+                    assert!(message.contains("handler may have completed"), "{message}");
+                    assert!(
+                        !message.contains("xxxxx"),
+                        "must not echo application bytes"
+                    );
+                }
+                other => panic!("expected explicit size error, not timeout: {other:?}"),
+            }
+        }
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 5, "no automatic retries");
+}
+
+#[tokio::test]
+async fn rpc_oversized_request_refuses_before_handler_and_next_small_call_works() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let _serve = server
+        .serve_rpc(
+            "bounded_request",
+            Arc::new(CountingHandler {
+                count: calls.clone(),
+            }),
+        )
+        .unwrap();
+    let error = caller
+        .call(
+            server.node_id(),
+            "bounded_request",
+            Bytes::from(vec![b'x'; 22_000]),
+            CallOptions {
+                deadline: Some(Instant::now() + Duration::from_secs(3)),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("single-packet limit"), "{error}");
+    assert!(error.to_string().contains("nothing was sent"));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let reply = caller
+        .call(
+            server.node_id(),
+            "bounded_request",
+            Bytes::from_static(b"small"),
+            CallOptions::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply.body, Bytes::from_static(b"small"));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn rpc_round_trip_two_meshes() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    // Server: register echo handler.
+    let _serve = server
+        .serve_rpc("echo", Arc::new(EchoHandler))
+        .expect("serve_rpc");
+
+    // Caller: issue one call.
+    let reply = caller
+        .call(
+            server.node_id(),
+            "echo",
+            Bytes::from_static(b"hello from caller"),
+            CallOptions::default(),
+        )
+        .await
+        .expect("call must succeed");
+    assert_eq!(reply.body.as_ref(), b"hello from caller");
+    assert!(reply.latency_ns > 0);
+}
+
+/// Multiple sequential calls reuse the lazy reply subscription —
+/// the second call shouldn't pay the subscribe round-trip cost.
+/// We don't directly assert subscription reuse (no public counter)
+/// but we do assert the handler ran exactly once per call.
+#[tokio::test]
+async fn rpc_multiple_calls_reuse_reply_subscription() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let _serve = server
+        .serve_rpc(
+            "counter",
+            Arc::new(CountingHandler {
+                count: count.clone(),
+            }),
+        )
+        .expect("serve_rpc");
+
+    for i in 0..5u64 {
+        let body = format!("call-{i}").into_bytes();
+        let reply = caller
+            .call(
+                server.node_id(),
+                "counter",
+                Bytes::from(body.clone()),
+                CallOptions::default(),
+            )
+            .await
+            .expect("call");
+        assert_eq!(reply.body.as_ref(), body.as_slice());
+    }
+    assert_eq!(
+        count.load(Ordering::Relaxed),
+        5,
+        "handler must run exactly once per call",
+    );
+}
+
+/// Server-side panic is caught by the fold's `catch_unwind` and
+/// surfaces to the caller as `Internal` rather than hanging.
+#[tokio::test]
+async fn rpc_server_panic_surfaces_as_internal() {
+    struct PanicHandler;
+    #[async_trait::async_trait]
+    impl RpcHandler for PanicHandler {
+        async fn call(&self, _ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            panic!("boom");
+        }
+    }
+
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let _serve = server
+        .serve_rpc("panicky", Arc::new(PanicHandler))
+        .expect("serve_rpc");
+
+    let err = caller
+        .call(
+            server.node_id(),
+            "panicky",
+            Bytes::from_static(b"trigger"),
+            CallOptions::default(),
+        )
+        .await
+        .expect_err("call must surface server panic as Err");
+    match err {
+        RpcError::ServerError {
+            status, message, ..
+        } => {
+            // RpcStatus::Internal = 0x0006.
+            assert_eq!(
+                status, 0x0006,
+                "expected Internal status, got {status:#06x}"
+            );
+            assert!(
+                message.contains("boom"),
+                "panic message must be in body, got {message:?}"
+            );
+        }
+        other => panic!("expected ServerError, got {other:?}"),
+    }
+}
+
+/// Caller deadline fires before the slow handler completes →
+/// caller emits CANCEL → caller surfaces `Timeout` → handler
+/// observes its `cancellation.cancelled()` token.
+#[tokio::test]
+async fn rpc_deadline_surfaces_as_timeout_and_emits_cancel() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let _serve = server
+        .serve_rpc("slow", Arc::new(SlowHandler))
+        .expect("serve_rpc");
+
+    let started = Instant::now();
+    let err = caller
+        .call(
+            server.node_id(),
+            "slow",
+            Bytes::from_static(b"hang"),
+            CallOptions {
+                deadline: Some(Instant::now() + Duration::from_millis(300)),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("call must time out");
+    let elapsed = started.elapsed();
+    match err {
+        RpcError::Timeout { elapsed_ms } => {
+            assert!(
+                elapsed_ms >= 250,
+                "elapsed_ms must reflect ~deadline window, got {elapsed_ms}"
+            );
+            assert!(
+                elapsed < Duration::from_secs(2),
+                "wall-clock elapsed should be near the deadline, got {elapsed:?}"
+            );
+        }
+        other => panic!("expected Timeout, got {other:?}"),
+    }
+}
+
+/// Regression for M22 — calling an unknown `target_node_id` (no
+/// session established) must surface as `RpcError::NoRoute`, NOT
+/// `RpcError::Transport`. The distinction matters because the
+/// retry helper retries Transport (would burn budget on a target
+/// that's structurally unreachable) and skips NoRoute. The
+/// publish path emits the no-session signal as
+/// `AdapterError::Connection("publish: no session for subscriber
+/// ...")`; `classify_publish_no_session` matches that string and
+/// remaps the surface error to NoRoute. This test pins the
+/// remap so a future change to the publish_to_peer error message
+/// doesn't silently revert callers to retrying dead targets.
+#[tokio::test]
+async fn rpc_unknown_target_surfaces_as_no_route_not_transport() {
+    // Build a single mesh — no peers, no sessions to anyone. Any
+    // call against an arbitrary node_id triggers the no-session
+    // path inside publish_to_peer.
+    let caller = build_node().await;
+    caller.start();
+
+    let unknown_target: u64 = 0xDEAD_BEEF_CAFE_BABE;
+    let err = caller
+        .call(
+            unknown_target,
+            "any_service",
+            Bytes::from_static(b""),
+            CallOptions::default(),
+        )
+        .await
+        .expect_err("call to unknown target must fail");
+
+    match err {
+        RpcError::NoRoute { target, ref reason } => {
+            assert_eq!(target, unknown_target, "NoRoute must carry the target id");
+            assert!(
+                reason.contains("no session"),
+                "NoRoute reason must surface the underlying \
+                 publish-no-session diagnostic, got: {reason:?}",
+            );
+        }
+        other => panic!(
+            "expected RpcError::NoRoute (so retry helpers skip the call); \
+             got {other:?} which would be retried as Transport"
+        ),
+    }
+}
+
+/// Regression for H16 — Phase 1 coverage gap. The previous
+/// `rpc_deadline_surfaces_as_timeout_and_emits_cancel` test only
+/// checked the caller's view (Timeout returned). It did NOT
+/// confirm the server-side handler actually observed the CANCEL
+/// event the caller's deadline-fire path is supposed to publish.
+///
+/// This test installs a handler that signals an `AtomicBool` when
+/// `ctx.cancellation.cancelled()` resolves, then verifies the
+/// signal fires after the caller's deadline elapses — proving
+/// the deadline path actually emits CANCEL across the wire (not
+/// just locally synthesizes a Timeout error).
+#[tokio::test]
+async fn rpc_deadline_actually_emits_cancel_to_server_handler() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    struct CancelObservingHandler {
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+    }
+    #[async_trait::async_trait]
+    impl RpcHandler for CancelObservingHandler {
+        async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            tokio::select! {
+                _ = ctx.cancellation.cancelled() => {
+                    self.cancelled.store(true, std::sync::atomic::Ordering::Release);
+                    Err(RpcHandlerError::Internal("cancelled".into()))
+                }
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                    Ok(RpcResponsePayload {
+                        status: RpcStatus::Ok,
+                        headers: vec![],
+                        body: bytes::Bytes::new(),
+                    })
+                }
+            }
+        }
+    }
+    let _serve = server
+        .serve_rpc(
+            "deadline_cancel",
+            Arc::new(CancelObservingHandler {
+                cancelled: cancelled.clone(),
+            }),
+        )
+        .expect("serve_rpc");
+
+    let err = caller
+        .call(
+            server.node_id(),
+            "deadline_cancel",
+            Bytes::from_static(b"hang"),
+            CallOptions {
+                deadline: Some(Instant::now() + Duration::from_millis(200)),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("call must time out");
+    assert!(matches!(err, RpcError::Timeout { .. }));
+
+    // Server-side handler must observe CANCEL within a generous
+    // window past the caller's deadline (network round-trip +
+    // CANCEL publish + handler's select! wake).
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while !cancelled.load(std::sync::atomic::Ordering::Acquire)
+        && std::time::Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(
+        cancelled.load(std::sync::atomic::Ordering::Acquire),
+        "deadline-fire path must publish CANCEL — server handler must \
+         observe ctx.cancellation within 3s of the caller timeout",
+    );
+}
+
+/// Caller drops the unary `call` future before it resolves
+/// (e.g. via `tokio::select!` losing) → the call's RAII
+/// `UnaryCallGuard` fires CANCEL → the server-side handler
+/// observes its `ctx.cancellation` token. Pins the cancel-on-
+/// drop semantics that `hedge` and other "race + take winner"
+/// callers depend on.
+///
+/// The drop waits for the handler to have ENTERED rather than for a
+/// timer. The first call to a target subscribes to its reply channel
+/// and awaits the membership ack before it publishes the REQUEST;
+/// when a datagram of that exchange is lost on a loaded runner the
+/// subscribe retransmits for up to the whole ack timeout. A timer
+/// that fired inside that window dropped a future that had sent
+/// nothing, so there was no handler to observe anything and the
+/// assertion failed for a reason unrelated to the property it pins
+/// (the same race took down the SDK's hedge-loser witness).
+#[tokio::test]
+async fn rpc_dropped_call_future_fires_cancel_to_server() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let entered = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    struct CancelObservingSlow {
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+        entered: Arc<std::sync::atomic::AtomicBool>,
+    }
+    #[async_trait::async_trait]
+    impl RpcHandler for CancelObservingSlow {
+        async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            self.entered.store(true, Ordering::SeqCst);
+            tokio::select! {
+                _ = ctx.cancellation.cancelled() => {
+                    self.cancelled.store(true, Ordering::SeqCst);
+                    Err(RpcHandlerError::Internal("cancelled by caller".into()))
+                }
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {
+                    Ok(RpcResponsePayload {
+                        status: RpcStatus::Ok,
+                        headers: vec![],
+                        body: bytes::Bytes::new(),
+                    })
+                }
+            }
+        }
+    }
+    let _serve = server
+        .serve_rpc(
+            "slow_observe",
+            Arc::new(CancelObservingSlow {
+                cancelled: cancelled.clone(),
+                entered: entered.clone(),
+            }),
+        )
+        .expect("serve_rpc");
+
+    // Issue the call inside a `select!` against "the handler is
+    // running": once it is, the REQUEST is provably on the far side,
+    // the call future is dropped, and the guard's Drop fires CANCEL.
+    let server_id = server.node_id();
+    let caller_clone = caller.clone();
+    let handler_running = async {
+        while !entered.load(Ordering::SeqCst) {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    };
+    tokio::select! {
+        _ = caller_clone.call(
+            server_id,
+            "slow_observe",
+            Bytes::from_static(b"go"),
+            CallOptions::default(),
+        ) => panic!("call should not complete while the handler sleeps"),
+        r = tokio::time::timeout(Duration::from_secs(10), handler_running) => {
+            r.expect("the handler must enter: the first call's reply subscribe never completed");
+        }
+    }
+
+    // Wait for the CANCEL to traverse the network and the
+    // handler's `select!` arm to fire. Generous because RTTs vary.
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while !cancelled.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(
+        cancelled.load(Ordering::SeqCst),
+        "server handler must observe ctx.cancellation after caller drops the call future",
+    );
+}
+
+/// The first call to a target subscribes to its reply channel and
+/// waits for the membership ack BEFORE it publishes the REQUEST. A
+/// call future dropped inside that wait — an nRPC hedge loser whose
+/// backup answered first, a `select!` loser, an aborted task — has
+/// sent nothing, so there is no handler to cancel and no reply to
+/// retire. What it must still do is leave the node as it found it:
+///
+/// - the caller-side `in_flight` gauge back at zero, with no outcome
+///   recorded for a call that never resolved;
+/// - no membership request left waiting for an ack that will never
+///   come (the slot used to be removed on the return paths only, so
+///   a drop mid-wait kept it, dead sender and all, for the node's
+///   lifetime);
+/// - the next call to the same target behaving as a plain first call.
+///
+/// The ack is withheld by partitioning the server at the caller: the
+/// caller's own outbound Subscribe is discarded, so the call is parked
+/// in the subscribe for the whole `membership_ack_timeout` and the
+/// drop lands inside it by construction, not by timing.
+#[tokio::test]
+async fn call_dropped_inside_reply_subscribe_leaves_no_trace() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let entered = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    struct EnteredHandler {
+        entered: Arc<std::sync::atomic::AtomicBool>,
+    }
+    #[async_trait::async_trait]
+    impl RpcHandler for EnteredHandler {
+        async fn call(&self, _ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            self.entered.store(true, Ordering::SeqCst);
+            Ok(RpcResponsePayload {
+                status: RpcStatus::Ok,
+                headers: vec![],
+                body: Bytes::from_static(b"served"),
+            })
+        }
+    }
+    let _serve = server
+        .serve_rpc(
+            "cold",
+            Arc::new(EnteredHandler {
+                entered: entered.clone(),
+            }),
+        )
+        .expect("serve_rpc");
+    assert_eq!(
+        caller.pending_membership_acks_for_test(),
+        0,
+        "precondition: no membership request in flight before the call"
+    );
+
+    let server_id = server.node_id();
+    let server_addr = server.local_addr();
+    caller.block_peer(server_addr);
+    let caller_clone = caller.clone();
+    tokio::select! {
+        r = caller_clone.call(
+            server_id,
+            "cold",
+            Bytes::from_static(b"go"),
+            CallOptions::default(),
+        ) => panic!("the call cannot resolve while its Subscribe is being discarded: {r:?}"),
+        _ = tokio::time::sleep(Duration::from_millis(300)) => {}
+    }
+    caller.unblock_peer(&server_addr);
+
+    // Nothing was published, so nothing can arrive: a REQUEST that
+    // reached the handler here would mean the drop did not land
+    // inside the subscribe and the rest of this test proves nothing.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !entered.load(Ordering::SeqCst),
+        "a call dropped before its REQUEST was published must not reach the handler"
+    );
+    assert_eq!(
+        caller.pending_membership_acks_for_test(),
+        0,
+        "a subscribe abandoned mid-wait must take its ack slot with it"
+    );
+    let cold = |caller: &Arc<MeshNode>| {
+        caller
+            .rpc_metrics_snapshot()
+            .services
+            .into_iter()
+            .find(|s| s.service == "cold")
+            .expect("the metrics guard registers the service before the subscribe")
+    };
+    let after_drop = cold(&caller);
+    assert_eq!(
+        after_drop.in_flight, 0,
+        "the dropped call must leave in_flight"
+    );
+    assert_eq!(
+        after_drop.calls_total, 0,
+        "a call that never resolved records no outcome"
+    );
+
+    // The next call to the same target is an ordinary first call:
+    // a fresh subscribe, the REQUEST, the reply.
+    let reply = caller
+        .call(
+            server_id,
+            "cold",
+            Bytes::from_static(b"again"),
+            CallOptions::default(),
+        )
+        .await
+        .expect("the call after an abandoned subscribe must succeed");
+    assert_eq!(reply.body.as_ref(), b"served");
+    assert!(
+        entered.load(Ordering::SeqCst),
+        "the follow-up call must reach the handler"
+    );
+    assert_eq!(caller.pending_membership_acks_for_test(), 0);
+    let after_reply = cold(&caller);
+    assert_eq!(after_reply.in_flight, 0);
+    assert_eq!(
+        after_reply.calls_total, 1,
+        "exactly the resolved call is counted"
+    );
+}
+
+/// Caller sets `CallOptions::trace_context` → server's
+/// `RpcContext::trace_context` is populated with the same values.
+/// Pin the W3C-trace-context propagation end-to-end through real
+/// network publish.
+#[tokio::test]
+async fn rpc_trace_context_propagates_to_server() {
+    struct CapturingTraceHandler {
+        captured: Arc<Mutex<Option<Option<TraceContext>>>>,
+    }
+    #[async_trait::async_trait]
+    impl RpcHandler for CapturingTraceHandler {
+        async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            *self.captured.lock() = Some(ctx.trace_context.clone());
+            Ok(RpcResponsePayload {
+                status: RpcStatus::Ok,
+                headers: vec![],
+                body: bytes::Bytes::new(),
+            })
+        }
+    }
+
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let captured = Arc::new(Mutex::new(None));
+    let _serve = server
+        .serve_rpc(
+            "echo",
+            Arc::new(CapturingTraceHandler {
+                captured: captured.clone(),
+            }),
+        )
+        .expect("serve_rpc");
+
+    // Caller sends with a trace context.
+    let tc = TraceContext {
+        traceparent: "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01".to_string(),
+        tracestate: "vendor=opaque-value".to_string(),
+    };
+    let _reply = caller
+        .call(
+            server.node_id(),
+            "echo",
+            Bytes::from_static(b""),
+            CallOptions {
+                trace_context: Some(tc.clone()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("call must succeed");
+
+    let observed = captured
+        .lock()
+        .clone()
+        .expect("handler must run")
+        .expect("trace context must be present");
+    assert_eq!(observed, tc);
+
+    // Sanity: a call WITHOUT trace_context leaves the server's
+    // RpcContext.trace_context as None.
+    *captured.lock() = None;
+    let _reply = caller
+        .call(
+            server.node_id(),
+            "echo",
+            Bytes::from_static(b""),
+            CallOptions::default(),
+        )
+        .await
+        .expect("call must succeed");
+    let observed = captured.lock().clone().expect("handler must run");
+    assert!(
+        observed.is_none(),
+        "no trace_context on the call → server gets None, got {observed:?}",
+    );
+}
+
+/// Regression for H8: dropping a `ServeHandle` while a request is
+/// being processed must NOT abort the bridge task — it must
+/// complete the in-flight handler and emit its RESPONSE.
+///
+/// Mechanism: the dispatcher closure owns the only `mpsc::Sender`
+/// for the bridge's incoming channel; `unregister_rpc_inbound`
+/// drops the dispatcher, which closes the channel; the bridge's
+/// `rx.recv()` then yields `None` after draining queued events
+/// and the task exits cleanly. Aborting the JoinHandle would race
+/// the in-flight `fold.lock().apply(...)` and orphan its handler
+/// task without emitting a RESPONSE.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn serve_handle_drop_does_not_abort_in_flight_request() {
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    // Slow handler so we have a clear window in which to drop the
+    // ServeHandle while the request is being processed.
+    struct SlowEcho;
+    #[async_trait::async_trait]
+    impl RpcHandler for SlowEcho {
+        async fn call(&self, ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            Ok(RpcResponsePayload {
+                status: RpcStatus::Ok,
+                headers: vec![],
+                body: ctx.payload.body,
+            })
+        }
+    }
+    let serve = server
+        .serve_rpc("slow_echo", Arc::new(SlowEcho))
+        .expect("serve_rpc");
+
+    // Issue the call from a spawned task so the test can drop
+    // `serve` while the call is mid-flight.
+    let caller_clone = caller.clone();
+    let server_id = server.node_id();
+    let call = tokio::spawn(async move {
+        caller_clone
+            .call(
+                server_id,
+                "slow_echo",
+                Bytes::from_static(b"hello"),
+                CallOptions {
+                    deadline: Some(Instant::now() + Duration::from_secs(2)),
+                    ..Default::default()
+                },
+            )
+            .await
+    });
+
+    // Give the call time to publish its REQUEST and the bridge
+    // time to forward it into the fold (which spawns the handler
+    // and parks in the 150ms sleep). 80ms is well past the
+    // network round-trip on loopback but well before the 150ms
+    // handler completes.
+    tokio::time::sleep(Duration::from_millis(80)).await;
+
+    // Drop the serve handle. The in-flight handler task should
+    // continue and its RESPONSE should still reach the caller.
+    drop(serve);
+
+    let reply = tokio::time::timeout(Duration::from_secs(3), call)
+        .await
+        .expect("call task must finish")
+        .expect("call task must not panic")
+        .expect("in-flight handler must complete and RESPONSE must arrive");
+    assert_eq!(reply.body.as_ref(), b"hello");
+}
+
+/// Error replies carry headers end-to-end. The response frame has
+/// always had a headers field regardless of status; the fold's
+/// `Ok(payload)` arm passes a handler-authored payload through
+/// verbatim — status, headers, and body — so a handler can attach a
+/// structured sidecar (e.g. a `net-failure-schematic` verdict) to an
+/// application error while the body stays the human diagnostic. The
+/// caller surfaces those headers on `RpcError::ServerError` instead
+/// of discarding them; the convenience channel
+/// (`Err(RpcHandlerError::Application)`) stays header-less, so a
+/// legacy-shaped error decodes to empty headers.
+#[tokio::test]
+async fn rpc_error_replies_carry_headers_to_the_caller() {
+    const SIDECAR: &[u8] = br#"{"object":"net.test.sidecar@1","reason":"pinned"}"#;
+
+    struct RefusingHandler;
+    #[async_trait::async_trait]
+    impl RpcHandler for RefusingHandler {
+        async fn call(&self, _ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            // The full-fidelity channel: an application error WITH a
+            // structured reply header.
+            Ok(RpcResponsePayload {
+                status: RpcStatus::Application(0x8123),
+                headers: vec![("net-failure-schematic".to_string(), SIDECAR.to_vec())],
+                body: Bytes::from_static(b"refused, humanly"),
+            })
+        }
+    }
+
+    struct LegacyRefusingHandler;
+    #[async_trait::async_trait]
+    impl RpcHandler for LegacyRefusingHandler {
+        async fn call(&self, _ctx: RpcContext) -> Result<RpcResponsePayload, RpcHandlerError> {
+            Err(RpcHandlerError::Application {
+                code: 0x8123,
+                message: "refused, plainly".to_string(),
+            })
+        }
+    }
+
+    let server = build_node().await;
+    let caller = build_node().await;
+    handshake_pair(&caller, &server).await;
+
+    let _serve = server
+        .serve_rpc("refuse-with-detail", Arc::new(RefusingHandler))
+        .expect("serve_rpc");
+    let _serve_legacy = server
+        .serve_rpc("refuse-plain", Arc::new(LegacyRefusingHandler))
+        .expect("serve_rpc");
+
+    let err = caller
+        .call(
+            server.node_id(),
+            "refuse-with-detail",
+            Bytes::from_static(b"x"),
+            CallOptions::default(),
+        )
+        .await
+        .expect_err("application status must surface as Err");
+    match err {
+        RpcError::ServerError {
+            status,
+            message,
+            headers,
+        } => {
+            assert_eq!(status, 0x8123);
+            assert_eq!(message, "refused, humanly");
+            let sidecar = headers
+                .iter()
+                .find(|(name, _)| name == "net-failure-schematic")
+                .map(|(_, value)| value.as_slice());
+            assert_eq!(sidecar, Some(SIDECAR), "header value must be byte-intact");
+        }
+        other => panic!("expected ServerError, got {other:?}"),
+    }
+
+    // The convenience channel stays header-less — a legacy-shaped
+    // error frame decodes to empty headers, never an error.
+    let err = caller
+        .call(
+            server.node_id(),
+            "refuse-plain",
+            Bytes::from_static(b"x"),
+            CallOptions::default(),
+        )
+        .await
+        .expect_err("application error must surface as Err");
+    match err {
+        RpcError::ServerError {
+            status,
+            message,
+            headers,
+        } => {
+            assert_eq!(status, 0x8123);
+            assert_eq!(message, "refused, plainly");
+            assert!(
+                headers.is_empty(),
+                "the fold's convenience arm attaches no headers"
+            );
+        }
+        other => panic!("expected ServerError, got {other:?}"),
+    }
+}
+
+/// A call naming a service the target does not serve is answered
+/// `NotFound` at once instead of waiting out the caller's deadline.
+///
+/// Before this, nothing on the server answered it: with no dispatcher
+/// for `<service>.requests` the REQUEST fell through to the
+/// application's shard queue as an ordinary event, and the caller sat
+/// on its pending entry until the deadline. On a node with no channel
+/// registry (this pair) the reply-channel subscribe is admitted, so
+/// nothing earlier fails fast either — that is how a Python
+/// `describe_a2a` against a free-path `serve_a2a` node took 30.02 s to
+/// raise.
+#[tokio::test]
+async fn rpc_unserved_service_is_answered_not_found_promptly() {
+    let a = build_node().await;
+    let b = build_node().await;
+    handshake_pair(&a, &b).await;
+
+    let opts = CallOptions {
+        deadline: Some(Instant::now() + Duration::from_secs(20)),
+        ..CallOptions::default()
+    };
+    let started = Instant::now();
+    let err = a
+        .call(
+            b.node_id(),
+            "nobody.serves.this",
+            Bytes::from_static(b"req"),
+            opts,
+        )
+        .await
+        .expect_err("an unserved service cannot answer Ok");
+    let elapsed = started.elapsed();
+    match err {
+        RpcError::ServerError {
+            status, message, ..
+        } => {
+            assert_eq!(
+                status,
+                RpcStatus::NotFound.to_wire(),
+                "expected NotFound, got status {status:#x}: {message}"
+            );
+            assert!(
+                message.contains("nobody.serves.this"),
+                "the refusal names the service: {message}"
+            );
+        }
+        other => panic!("expected ServerError(NotFound), got {other:?} after {elapsed:?}"),
+    }
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "NotFound must arrive promptly, not at the deadline: {elapsed:?}"
+    );
+
+    // A served service on the same node is unaffected.
+    let _serve = b
+        .serve_rpc("echo", Arc::new(EchoHandler))
+        .expect("serve echo");
+    let reply = a
+        .call(
+            b.node_id(),
+            "echo",
+            Bytes::from_static(b"still here"),
+            CallOptions {
+                deadline: Some(Instant::now() + Duration::from_secs(5)),
+                ..CallOptions::default()
+            },
+        )
+        .await
+        .expect("echo");
+    assert_eq!(&reply.body[..], b"still here");
+}

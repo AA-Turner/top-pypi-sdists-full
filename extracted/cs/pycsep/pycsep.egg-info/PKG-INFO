@@ -1,0 +1,151 @@
+Metadata-Version: 2.4
+Name: pycsep
+Version: 0.8.0
+Summary: Python tools from the Collaboratory for the Study of Earthquake Predictability
+Author-email: William Savran <wsavran@unr.edu>
+License: Copyright (c) 2021, The University of Southern California
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution.
+        
+        * Neither the name of the copyright holder nor the names of its
+          contributors may be used to endorse or promote products derived from
+          this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+        
+Project-URL: Homepage, https://github.com/SCECCode/pycsep
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: cartopy
+Requires-Dist: obspy
+Requires-Dist: pyproj
+Requires-Dist: python-dateutil
+Requires-Dist: rasterio
+Requires-Dist: mercantile
+Requires-Dist: shapely
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: vcrpy; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx-gallery; extra == "dev"
+Requires-Dist: sphinx-rtd-theme; extra == "dev"
+Requires-Dist: pillow; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Dynamic: license-file
+
+# pyCSEP: Collaboratory for the Study of Earthquake Predictability
+
+[![CSEP Logo](https://i.postimg.cc/Bb60rVQP/CSEP2-Logo-CMYK.png)](https://cseptesting.org)
+
+
+[![Python Version](https://gist.githubusercontent.com/wsavran/efce311162c32460336a4f9892218532/raw/1b9c060efd1c6e52eb53f82d4249107417d6a5ec/pycsep_python_badge.svg)](https://python.org)
+[![Downloads](https://anaconda.org/conda-forge/pycsep/badges/downloads.svg)](https://pypi.org/project/pycsep)
+[![Build Tests](https://github.com/SCECcode/pycsep/actions/workflows/build-test.yml/badge.svg)](https://github.com/SCECcode/pycsep/actions)
+[![Build Docs](https://github.com/SCECcode/pycsep/actions/workflows/build-sphinx.yml/badge.svg)](https://github.com/SCECcode/pycsep/actions)
+[![Coverage](https://codecov.io/gh/SCECcode/pycsep/branch/master/graph/badge.svg?token=HTMKM29MAU)](https://codecov.io/gh/SCECcode/pycsep)
+[![Zenodo](https://www.zenodo.org/badge/149362283.svg)](https://www.zenodo.org/badge/latestdoi/149362283)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.03658/status.svg)](https://doi.org/10.21105/joss.03658)
+
+
+
+# Description:
+The pyCSEP Toolkit helps earthquake forecast model developers evaluate their forecasts with the goal of understanding
+earthquake predictability.
+
+pyCSEP should:
+1. Help modelers become familiar with formats, procedures, and evaluations used in CSEP Testing Centers.
+2. Provide vetted software for model developers to use in their research.
+3. Provide quantitative and visual tools to assess earthquake forecast quality.
+4. Promote open-science ideas by ensuring transparency and availability of scientific code and results.
+5. Curate benchmark models and data sets for modelers to conduct retrospective experiments of their forecasts.
+
+# Table of Contents:
+1. [Software Documentation](https://docs.cseptesting.org)
+2. [CSEP Website](https://cseptesting.org)
+3. [Installation](#installation)
+4. [Usage](#usage)
+5. [Contributing](#contributing)
+6. [Change Log](https://github.com/SCECcode/pycsep/blob/master/CHANGELOG.md)
+7. [Credits](#credits)
+8. [License](#license)
+
+# Installation:
+pyCSEP can be installed in several ways. It can be installed using conda or pip package managers or from the 
+source code found in the pyCSEP github repo. Researchers interested in contributing to pyCSEP development should 
+install pyCSEP from source code. pyCSEP depends on the following software packages. 
+These which may be installed automatically, or manually, depending on the installation method used.
+* Python 3.9 or later (https://python.org)
+* NumPy 1.21.3 or later (https://numpy.org)
+* SciPy 1.7.1 or later (https://scipy.org)
+* pandas 1.3.4 or later (https://pandas.pydata.org)
+* cartopy 0.22.0 or later (https://scitools.org.uk/cartopy/docs/latest)
+
+Please see the [requirements file](https://github.com/SCECcode/pycsep/blob/master/requirements.yml) for a complete list 
+of requirements. These are installed automatically when using the `conda` distribution.
+
+Detailed pyCSEP [installation instructions](https://docs.cseptesting.org/getting_started/installing.html) can be found 
+in the online pyCSEP documentation.
+
+# Usage: 
+Once installed, pyCSEP methods can be invoked from python code by importing package csep. pyCSEP provides objects and 
+utilities related to several key concepts:
+* Earthquake Catalogs
+* Earthquake Forecasts
+* Earthquake Forecast Evaluations
+* Regions
+
+An simple example to download and plot an earthquake catalog from the USGS ComCat:
+<pre>
+import csep
+from csep.core import regions
+from csep.utils import time_utils
+start_time = time_utils.strptime_to_utc_datetime('2019-01-01 00:00:00.0')
+end_time = time_utils.utc_now_datetime()
+catalog = csep.query_comcat(start_time, end_time)
+catalog.plot(show=True)
+</pre>
+
+Please see [pyCSEP Getting Started](https://docs.cseptesting.org/getting_started/core_concepts) documentation for more examples and tutorials.
+
+# Software Support:
+Software support for pyCSEP is provided by that Southern California Earthquake Center (SCEC) Research Computing Group. 
+This group supports several research software distributions including UCVM. Users can report issues and feature requests 
+using the pyCSEP github-based issue tracking link below. Developers will also respond to emails sent to the SCEC software contact listed below.
+1. [pyCSEP Issues](https://github.com/SCECcode/pycsep/issues)
+2. Email Contact: software [at] scec [dot] org
+
+# Contributing:
+We welcome contributions to the pyCSEP Toolkit.  If you would like to contribute to this package, including software, tests, and documentation, 
+please visit the [contribution guidelines](https://github.com/SCECcode/pycsep/blob/master/CONTRIBUTING.md) for guidelines on how to contribute to pyCSEP development.
+pyCSEP contributors agree to abide by the code of conduct found in our [Code of Conduct](CODE_OF_CONDUCT.md) guidelines.
+
+# Credits:
+Development of pyCSEP is a group effort. A list of developers that have contributed to the PyCSEP Toolkit 
+are listed in the [credits](CREDITS.md) file in this repository.
+
+# License:
+The pyCSEP software is distributed under the BSD 3-Clause open-source license. Please see the [license](LICENSE) file for more information.

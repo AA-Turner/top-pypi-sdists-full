@@ -6,7 +6,7 @@ import os
 import socket
 import threading
 import uuid
-import warnings
+import warnings  # noqa: F401 -- served by the old `probe.sdk.client` door
 import weakref
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -22,6 +22,7 @@ from ..delivery.outbox.drain.credentials import (
     CredentialSource,
     credential_fingerprint)
 from ..delivery.journal.journal import Journal
+from ..delivery.outbox.drainer import export_interval_from_env, pick_drainer
 
 from ...foundation.request_identity.surface import Surface
 from ..delivery.transport.transport import Transport
@@ -79,7 +80,7 @@ class CoreMixin:
         self._credential_source: str | None = None
         if self._ambient_credentials and self.settings.token:
             self._credential_source = "config"
-            if os.environ.get("PROBE_TOKEN") and not self._is_the_login(
+            if os.environ.get(config_module.TOKEN_ENV) and not self._is_the_login(
                 config_module.current_context_name() or None
             ):
                 self._credential_source = "env"
@@ -224,18 +225,14 @@ class CoreMixin:
         # Parity F1/F2 (docs/2026-08-04-outbox-miles-parity.md): an async enqueue wakes a drainer.
         # Default (F1): the detached outbox worker, default-transport clients only (it resolves its
         # own transport). With ``drain_interval`` or PROBE_EXPORT_INTERVAL_SEC (F2): an in-process
-        # exporter delivers through THIS client: fork-free, works with any transport.
-        if drain_interval is None and async_writes:
-            raw = os.environ.get("PROBE_EXPORT_INTERVAL_SEC")
-            if raw:
-                try:
-                    drain_interval = float(raw)
-                except ValueError:
-                    warnings.warn(
-                        f"ignoring malformed PROBE_EXPORT_INTERVAL_SEC={raw!r}; "
-                        "expected seconds as a float",
-                        stacklevel=2,
-                    )
+        # exporter delivers through THIS client: fork-free, works with any transport. Never the env
+        # for a queue only `probe sync` drains: its exporter would send through a transport that
+        # refuses everything, and each refusal counts toward dead-lettering the run's writes.
+        if drain_interval is None and async_writes and not self._drains_by_hand:
+            drain_interval = export_interval_from_env()
+        # Named by the caller (argument or env), not a default below: it caps the collect window,
+        # so a writer that asked for delivery every N seconds gets it (review of #3785, I18).
+        named_interval = drain_interval
         if (
             drain_interval is None
             and async_writes
@@ -248,6 +245,8 @@ class CoreMixin:
             # in-process or writes wait for flush()/finish() (#2041: 0 of 5 delivered, stranded at exit).
             drain_interval = _CODE_TOKEN_EXPORT_INTERVAL_S
         self._drain_interval = drain_interval if async_writes else None
+        if named_interval is not None and self._drain_interval is not None:
+            self.journal.window_cap = float(named_interval)
         self._exporter = None
         self._exporter_lock = threading.Lock()
         # A worker fork suits default-transport clients only, but a FORCED kick (deferred finish, F3) works from sync ones too.
@@ -327,8 +326,8 @@ class CoreMixin:
         )
         # Explicit receipt enqueue is async even when ordinary entity writes are sync.
         self._delivery_auto_drain = auto_drain
-        self._drainer_kick_interval = 1.0
-        self._drainer_kicked_at = float("-inf")
+        # Who delivers this client's queue, picked ONCE (worker, thread or none).
+        self._drainer = pick_drainer(self)
         if (
             async_writes
             and transport is None

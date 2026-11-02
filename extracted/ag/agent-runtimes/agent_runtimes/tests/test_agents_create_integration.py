@@ -1,0 +1,600 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""Integration-style tests for dynamic agent creation route."""
+
+from types import SimpleNamespace
+
+import pytest
+
+from agent_runtimes.routes import agents as agents_route
+from agent_runtimes.routes.agents import CreateAgentRequest, create_agent
+from agent_runtimes.specs.models import DEFAULT_MODEL, AIModels
+
+
+class _DummyToolset:
+    pass
+
+
+class _DummyMcpManager:
+    def __init__(self) -> None:
+        self._servers: dict[str, object] = {}
+
+    def get_servers(self) -> list[object]:
+        return list(self._servers.values())
+
+    def get_server(self, _server_id: str) -> object | None:
+        return self._servers.get(_server_id)
+
+    def add_server(self, server: object) -> None:
+        server_id = getattr(server, "id", None)
+        if isinstance(server_id, str):
+            self._servers[server_id] = server
+
+    def load_servers(self, _servers: list[object]) -> None:
+        return None
+
+
+class _DummyRequest:
+    def __init__(self) -> None:
+        self.base_url = "http://localhost:8765/"
+        self.headers: dict[str, str] = {}
+        self.app = SimpleNamespace(
+            state=SimpleNamespace(
+                codemode_workspace_path="/tmp/workspace",
+                codemode_generated_path="/tmp/generated",
+                codemode_skills_path="/tmp/skills",
+                durable_lifecycle=None,
+            ),
+            mount=lambda *args, **kwargs: None,
+        )
+
+
+@pytest.fixture
+def creation_spy(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Patch heavy dependencies and return a spy dict with captured inputs."""
+    captured: dict[str, object] = {
+        "pydantic_model": None,
+        "pydantic_kwargs": None,
+        "tool_ids": None,
+        "adapter_kwargs": None,
+    }
+
+    class _DummyPydanticAgent:
+        def __init__(self, model: str, **kwargs: object) -> None:
+            captured["pydantic_model"] = model
+            captured["pydantic_kwargs"] = kwargs
+            self.model = model
+            self._function_tools: dict[str, object] = {}
+
+    class _DummyAdapter:
+        def __init__(self, **kwargs: object) -> None:
+            captured["adapter_kwargs"] = kwargs
+            self.agent = kwargs.get("agent")
+
+    async def _noop_async(*_args: object, **_kwargs: object) -> object:
+        return []
+
+    monkeypatch.setattr(agents_route, "PydanticAgent", _DummyPydanticAgent)
+    monkeypatch.setattr(agents_route, "PydanticAIAdapter", _DummyAdapter)
+    monkeypatch.setattr(
+        agents_route,
+        "register_agent_tools",
+        lambda _agent, tool_ids, **_kwargs: captured.__setitem__("tool_ids", tool_ids),
+    )
+    monkeypatch.setattr(agents_route, "register_agent", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        agents_route,
+        "register_agent_for_context",
+        lambda *_args, **_kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        agents_route, "register_agui_agent", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        agents_route, "register_vercel_agent", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        agents_route, "register_a2a_agent", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        agents_route, "register_mcp_ui_agent", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(agents_route, "get_agui_app", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        agents_route, "create_skills_toolset", lambda **_kwargs: _DummyToolset()
+    )
+    monkeypatch.setattr(
+        agents_route, "wire_skills_into_codemode", lambda *_args, **_kwargs: ""
+    )
+    monkeypatch.setattr(
+        agents_route,
+        "_build_codemode_toolset",
+        lambda *_args, **_kwargs: _DummyToolset(),
+    )
+    monkeypatch.setattr(agents_route, "initialize_codemode_toolset", _noop_async)
+    monkeypatch.setattr(agents_route, "initialize_config_mcp_servers", _noop_async)
+    monkeypatch.setattr(agents_route, "get_mcp_manager", lambda: _DummyMcpManager())
+
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_create_agent_from_library_spec_applies_full_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    spec = SimpleNamespace(
+        system_prompt="Spec system prompt",
+        goal="Spec goal",
+        system_prompt_codemode_addons="Use codemode tools.",
+        skills=["python-analyzer"],
+        backend_tools=["fetch_webpage", "run_in_terminal"],
+        description="Spec description",
+        model="openai:gpt-4.1",
+        sandbox_variant="jupyter-server",
+        protocol="a2a",
+        codemode={
+            "enabled": True,
+            "allowDirectToolCalls": True,
+            "enableToolReranker": True,
+        },
+        mcp_servers=[SimpleNamespace(id="filesystem")],
+        suggestions=[],
+    )
+    monkeypatch.setattr(agents_route, "get_library_agent_spec", lambda _id: spec)
+    monkeypatch.setattr(
+        agents_route, "_test_jupyter_sandbox", lambda _url: (True, None)
+    )
+
+    class _DummySandbox:
+        pass
+
+    class _DummySandboxManager:
+        variant = "jupyter-server"
+
+        def configure_from_url(self, _url: str) -> None:
+            pass
+
+        def get_sandbox(self) -> object:
+            return _DummySandbox()
+
+        def get_managed_sandbox(self) -> object:
+            return _DummySandbox()
+
+    monkeypatch.setattr(
+        "agent_runtimes.services.code_sandbox_manager.get_code_sandbox_manager",
+        lambda: _DummySandboxManager(),
+    )
+    monkeypatch.setattr(
+        agents_route,
+        "create_shared_sandbox",
+        lambda _url, _variant=None: _DummySandbox(),
+    )
+
+    request = CreateAgentRequest(
+        name="Spec Agent",
+        agent_spec_id="demo/spec",
+        jupyter_sandbox="http://localhost:8888?token=test",
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "spec-agent"
+    assert response.transport == "a2a"
+    assert creation_spy["pydantic_model"] == "openai:gpt-4.1"
+    assert creation_spy["tool_ids"] == ["fetch_webpage", "run_in_terminal"]
+
+    pydantic_kwargs = creation_spy["pydantic_kwargs"]
+    assert isinstance(pydantic_kwargs, dict)
+    assert "Spec system prompt" in str(pydantic_kwargs.get("instructions"))
+    assert "Use codemode tools." in str(pydantic_kwargs.get("instructions"))
+
+    adapter_kwargs = creation_spy["adapter_kwargs"]
+    assert isinstance(adapter_kwargs, dict)
+    selected = adapter_kwargs.get("selected_mcp_servers")
+    assert isinstance(selected, list)
+    assert selected[0].id == "filesystem"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_from_forwarded_agent_spec_payload(
+    creation_spy: dict[str, object],
+) -> None:
+    forwarded_model = AIModels.OPENAI_GPT_4_1.value
+
+    request = CreateAgentRequest(
+        name="Forwarded Spec Agent",
+        agent_spec={
+            "description": "Forwarded description",
+            "model": forwarded_model,
+            "systemPrompt": "Forwarded prompt",
+            "backendTools": ["fetch_webpage"],
+            "protocol": "vercel-ai",
+            "mcpServers": [{"id": "github", "origin": "catalog"}],
+        },
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "forwarded-spec-agent"
+    assert response.transport == "vercel-ai"
+    assert creation_spy["pydantic_model"] == forwarded_model
+    assert creation_spy["tool_ids"] == ["fetch_webpage"]
+
+    pydantic_kwargs = creation_spy["pydantic_kwargs"]
+    assert isinstance(pydantic_kwargs, dict)
+    assert pydantic_kwargs["instructions"][0] == "Forwarded prompt"
+
+    # Ensure model actually changed from request default.
+    assert creation_spy["pydantic_model"] != DEFAULT_MODEL.value
+
+
+@pytest.mark.asyncio
+async def test_create_agent_retries_without_usage_limits_when_unsupported(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class _StrictPydanticAgent:
+        def __init__(self, model: str, **kwargs: object) -> None:
+            calls.append(kwargs)
+            if "usage_limits" in kwargs:
+                raise RuntimeError("Unknown keyword arguments: `usage_limits`")
+            creation_spy["pydantic_model"] = model
+            creation_spy["pydantic_kwargs"] = kwargs
+            self.model = model
+            self._function_tools: dict[str, object] = {}
+
+    monkeypatch.setattr(agents_route, "PydanticAgent", _StrictPydanticAgent)
+    monkeypatch.setattr(
+        agents_route,
+        "build_usage_limits_from_agent_spec",
+        lambda _spec: object(),
+    )
+    monkeypatch.setattr(
+        agents_route,
+        "get_library_agent_spec",
+        lambda _spec_id: SimpleNamespace(
+            description="Strict usage limits compatibility",
+            goal=None,
+            model="bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            system_prompt="Strict prompt",
+            system_prompt_codemode_addons=None,
+            skills=[],
+            backend_tools=["fetch_webpage"],
+            sandbox_variant="eval",
+            protocol="vercel-ai",
+            codemode=None,
+            mcp_servers=[],
+            guardrails=[{"token_limits": {"per_run": "10K"}}],
+            frontend_tools=[],
+            trigger=None,
+            advanced=None,
+            suggestions=[],
+        ),
+    )
+
+    request = CreateAgentRequest(
+        name="Strict UsageLimits Agent",
+        agent_spec_id="demo/spec",
+        model="bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        system_prompt="Strict prompt",
+        backend_tools=["fetch_webpage"],
+        transport="vercel-ai",
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "strict-usagelimits-agent"
+    assert len(calls) >= 2
+    assert "usage_limits" in calls[0]
+    assert "usage_limits" not in calls[-1]
+
+
+@pytest.mark.asyncio
+async def test_sandbox_without_codemode_keeps_execute_code_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    captured_build_args: dict[str, object] = {}
+
+    def _capture_build_codemode_toolset(
+        *_args: object,
+        disable_mcp_servers: bool,
+        enable_discovery_tools: bool,
+        **_kwargs: object,
+    ) -> object:
+        captured_build_args["disable_mcp_servers"] = disable_mcp_servers
+        captured_build_args["enable_discovery_tools"] = enable_discovery_tools
+        return _DummyToolset()
+
+    async def _capture_initialize(_toolset: object) -> None:
+        captured_build_args["initialized"] = True
+
+    monkeypatch.setattr(
+        agents_route,
+        "_build_codemode_toolset",
+        _capture_build_codemode_toolset,
+    )
+    monkeypatch.setattr(
+        agents_route,
+        "initialize_codemode_toolset",
+        _capture_initialize,
+    )
+
+    request = CreateAgentRequest(
+        name="Sandbox Only Agent",
+        sandbox_variant="eval",
+        enable_codemode=False,
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "sandbox-only-agent"
+    assert captured_build_args["enable_discovery_tools"] is False
+    assert captured_build_args["disable_mcp_servers"] is True
+    assert captured_build_args.get("initialized") is True
+
+    adapter_kwargs = creation_spy["adapter_kwargs"]
+    assert isinstance(adapter_kwargs, dict)
+    non_mcp_toolsets = adapter_kwargs.get("non_mcp_toolsets")
+    assert isinstance(non_mcp_toolsets, list)
+    assert len(non_mcp_toolsets) >= 1
+
+
+@pytest.mark.asyncio
+async def test_an_agent_whose_sandbox_is_the_browser_is_refused_on_a_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    """The `browser` sandbox is Pyodide in the page: an agent that names it is
+    refused in a sentence (422), not failed (500, *Unknown sandbox variant:
+    browser*, drilled 2026-10-08 with `jupyter-notebook-reviewer`)."""
+    from fastapi import HTTPException
+
+    # The catalogue's own: its spec names the browser's sandbox.
+    request = CreateAgentRequest(
+        name="Reviewer", agent_spec_id="jupyter-notebook-reviewer"
+    )
+    with pytest.raises(HTTPException) as refused:
+        await create_agent(request, _DummyRequest())
+    assert refused.value.status_code == 422
+    assert refused.value.detail == (
+        "jupyter-notebook-reviewer runs its code in the browser: it is not "
+        "started on a runtime. Give it a sandbox a runtime has (eval, "
+        "jupyter-server), or run it in the page."
+    )
+    # Said for a request that names it as well.
+    with pytest.raises(HTTPException) as named:
+        await create_agent(
+            CreateAgentRequest(name="In Page", sandbox_variant="browser"),
+            _DummyRequest(),
+        )
+    assert named.value.status_code == 422
+    assert named.value.detail.startswith("in-page runs its code in the browser")
+
+
+@pytest.mark.asyncio
+async def test_create_agent_disable_tool_approvals_request_override(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    monkeypatch.setattr(
+        agents_route,
+        "tools_requiring_approval_ids",
+        lambda _tool_ids: ["runtime_sensitive_echo:runtime_sensitive_echo"],
+    )
+
+    request = CreateAgentRequest(
+        name="No Approval Agent",
+        backend_tools=["runtime-sensitive-echo"],
+        disableToolApprovals=True,
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "no-approval-agent"
+    pydantic_kwargs = creation_spy["pydantic_kwargs"]
+    assert isinstance(pydantic_kwargs, dict)
+    assert "output_type" not in pydantic_kwargs
+
+
+@pytest.mark.asyncio
+async def test_create_agent_disable_tool_approvals_from_library_spec(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    spec = SimpleNamespace(
+        system_prompt="Spec prompt",
+        goal=None,
+        system_prompt_codemode_addons=None,
+        skills=[],
+        backend_tools=["runtime-sensitive-echo"],
+        description="Spec description",
+        model=None,
+        sandbox_variant=None,
+        protocol="vercel-ai",
+        codemode=None,
+        mcp_servers=[],
+        disable_tool_approvals=True,
+        suggestions=[],
+    )
+    monkeypatch.setattr(agents_route, "get_library_agent_spec", lambda _id: spec)
+    monkeypatch.setattr(
+        agents_route,
+        "tools_requiring_approval_ids",
+        lambda _tool_ids: ["runtime-sensitive-echo:0.0.1"],
+    )
+
+    request = CreateAgentRequest(
+        name="Spec No Approval Agent",
+        agent_spec_id="demo/spec-no-approval",
+    )
+
+    response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "spec-no-approval-agent"
+    pydantic_kwargs = creation_spy["pydantic_kwargs"]
+    assert isinstance(pydantic_kwargs, dict)
+    assert "output_type" not in pydantic_kwargs
+
+
+@pytest.mark.asyncio
+async def test_create_agent_disable_tool_approvals_runtime_default(
+    monkeypatch: pytest.MonkeyPatch,
+    creation_spy: dict[str, object],
+) -> None:
+    monkeypatch.setattr(
+        agents_route,
+        "tools_requiring_approval_ids",
+        lambda _tool_ids: ["runtime_sensitive_echo:runtime_sensitive_echo"],
+    )
+
+    with monkeypatch.context() as env_ctx:
+        env_ctx.setenv("AGENT_RUNTIMES_DISABLE_TOOL_APPROVALS", "true")
+        request = CreateAgentRequest(
+            name="Env No Approval Agent",
+            backend_tools=["runtime-sensitive-echo"],
+        )
+        response = await create_agent(request, _DummyRequest())
+
+    assert response.id == "env-no-approval-agent"
+    pydantic_kwargs = creation_spy["pydantic_kwargs"]
+    assert isinstance(pydantic_kwargs, dict)
+    assert "output_type" not in pydantic_kwargs
+
+
+class _DummyHarnessAgent:
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        self.initialized = False
+        self.cleaned = False
+        self.name = str(kwargs.get("name") or "harness")
+
+    async def initialize(self) -> None:
+        self.initialized = True
+
+    async def cleanup(self) -> None:
+        self.cleaned = True
+
+
+@pytest.mark.asyncio
+async def test_create_agent_on_a_harness_launches_the_acp_agent(
+    monkeypatch: pytest.MonkeyPatch, creation_spy: dict[str, object]
+) -> None:
+    """SH-10: the route builds the ACP adapter, not a pydantic-ai agent."""
+    import agent_runtimes.adapters.acp_agent as acp_agent
+
+    made: list[_DummyHarnessAgent] = []
+
+    def harness_agent(
+        agent_id: str, harness_id: str, **kwargs: object
+    ) -> _DummyHarnessAgent:
+        agent = _DummyHarnessAgent(agent_id=agent_id, harness_id=harness_id, **kwargs)
+        made.append(agent)
+        return agent
+
+    monkeypatch.setattr(acp_agent, "harness_agent", harness_agent)
+    request = CreateAgentRequest(
+        name="Coder",
+        agent_spec={"id": "coder", "harness": "claude-code", "protocol": "a2a"},
+        transport="a2a",
+    )
+    http_request = _DummyRequest()
+    http_request.headers = {"Authorization": "Bearer person-token"}
+    response = await create_agent(request, http_request)
+    try:
+        assert response.id == "coder" and response.transport == "a2a"
+        [agent] = made
+        assert agent.initialized
+        assert (
+            agent.kwargs["agent_id"] == "coder"
+            and agent.kwargs["harness_id"] == "claude-code"
+        )
+        assert agent.kwargs["approvals"].config.agent_id == "coder"
+        assert agent.kwargs["approvals"].config.user_jwt_token == "person-token"
+        assert agent.kwargs["app"] is None and agent.kwargs["recorder"] is None
+        # Nothing of pydantic-ai was built in its place.
+        assert creation_spy["pydantic_model"] is None
+    finally:
+        agents_route._agents.pop("coder", None)
+        agents_route._agentspecs.pop("coder", None)
+
+
+@pytest.mark.asyncio
+async def test_create_agent_on_a_harness_refuses_vercel_ai_and_says_what_refused_it(
+    monkeypatch: pytest.MonkeyPatch, creation_spy: dict[str, object]
+) -> None:
+    from fastapi import HTTPException
+
+    import agent_runtimes.adapters.acp_agent as acp_agent
+
+    with pytest.raises(HTTPException) as refused:
+        await create_agent(
+            CreateAgentRequest(
+                name="Coder", agent_spec={"id": "coder", "harness": "codex"}
+            ),
+            _DummyRequest(),
+        )
+    assert refused.value.status_code == 422 and "SH-16" in refused.value.detail
+
+    def refusing(agent_id: str, harness_id: str, **kwargs: object) -> object:
+        raise acp_agent.HarnessRefused(
+            "Codex needs OPENAI_API_KEY in the environment, and it is not set."
+        )
+
+    monkeypatch.setattr(acp_agent, "harness_agent", refusing)
+    with pytest.raises(HTTPException) as refused:
+        await create_agent(
+            CreateAgentRequest(
+                name="Coder",
+                agent_spec={"id": "coder", "harness": "codex"},
+                transport="acp",
+            ),
+            _DummyRequest(),
+        )
+    assert refused.value.status_code == 422
+    assert (
+        refused.value.detail
+        == "Codex needs OPENAI_API_KEY in the environment, and it is not set."
+    )
+    assert "coder" not in agents_route._agents
+
+
+def test_an_applications_agent_never_defers_a_catalogue_tool_marked_for_approval() -> (
+    None
+):
+    """An application's Rules ask the person before a call runs: its
+    catalogue tools are not deferred to the websocket flow, whose
+    `DeferredToolRequests` output an application's agent does not take."""
+    deferred = agents_route._catalogue_tools_deferred
+    application = SimpleNamespace(id="slack-mail-approvals")
+    assert deferred(False, None) is True
+    assert deferred(True, None) is False
+    assert deferred(False, application) is False
+    assert deferred(True, application) is False
+
+
+def test_runtime_send_mail_is_registered_undeferred_when_approvals_are_the_rules() -> (
+    None
+):
+    from pydantic_ai import Agent
+    from pydantic_ai.models.test import TestModel
+
+    from agent_runtimes.services.runtime_tools import register_agent_tools
+
+    def tool_of(disabled: bool) -> object:
+        agent = Agent(TestModel())
+        names = register_agent_tools(
+            agent, ["runtime-send-mail:0.0.1"], disable_tool_approvals=disabled
+        )
+        assert names == ["runtime_send_mail"]
+        return agent._function_toolset.tools["runtime_send_mail"]
+
+    # Marked `approval: manual` in the catalogue: deferred outside an application.
+    assert getattr(tool_of(False), "requires_approval") is True
+    # An application's agent: run, its Rules having asked first.
+    assert getattr(tool_of(True), "requires_approval") is False

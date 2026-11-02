@@ -1,0 +1,171 @@
+system:
+  - SYSTEM
+
+algorithm:
+  - ALGO
+
+accuracy:
+  - PREC
+  - LREAL
+  - EDIFF
+  - ENCUT
+  - ADDGRID
+  - LASPH
+  - NELM
+  - NELMIN
+  - NELMDL
+  - ENAUG
+
+electronic structure:
+  - SCISSOR
+
+symmetry:
+  - ISYM
+  - SYMPREC
+
+ionic relaxation:
+  - ISIF
+  - IBRION
+  - EDIFFG
+  - NSW
+  - POTIM
+  - POMASS
+  - ZVAL
+  - PSTRESS
+
+fft related:
+  - NGX
+  - NGY
+  - NGZ
+
+occupation:
+  - ISMEAR
+  - SIGMA
+  - FERDO
+  - FERWE
+  - SMEARINGS
+
+spin:
+  - ISPIN
+  - MAGMOM
+  - NUPDOWN
+  - LNONCOLLINEAR
+  - LSORBIT
+  - GGA_COMPAT
+
+mixing parameter:
+  - MIX
+  - INIMIX
+  - MAXMIX
+  - AMIX
+  - BMIX
+  - AMIX_MAG
+  - BMIX_MAG
+  - AMIN
+  - MIXPRE
+  - WC
+  - IMIX
+
+IO control:
+  - LWAVE
+  - LCHARG
+  - ISTART
+  - ICHARG
+  - INIWAV
+  - NWRITE
+  - LAECHG
+  - LELF
+
+analyzer:
+  - NBANDS
+  - NEDOS
+  - EMAX
+  - EMIN
+  - LORBIT
+  - RWIGS
+
+dielectric:
+  - LEPSILON
+  - LOPTICS
+  - LCALCEPS
+  - CSHIFT
+  - LRPA
+  - EFIELD
+  - OMEGAMIN
+  - OMEGAMAX
+  - LNABLA
+  - LPEAD
+  - EFIELD_PEAD
+
+dft parameter:
+  - GGA
+  - IVDW
+  - VDW_S6
+  - VDW_A1
+  - VDW_S8
+  - VDW_A2
+  - METAGGA
+
+hybrid functional:
+  - LHFCALC
+  - PRECFOCK
+  - AEXX
+  - HFSCREEN
+  - NKRED
+  - TIME
+
+gw related:
+  - NBANDSGW
+  - NOMEGA
+  - ANTIRES
+  - MAXMEM
+  - NMAXFOCKAE
+  - NBANDSLF
+  - ENCUTGW
+
+hubbard u:
+  - LDAU
+  - LDAUTYPE
+  - LMAXMIX
+  - LDAUPRINT
+  - LDAUL
+  - LDAUU
+  - LDAUJ
+
+electrostatic:
+  - NELECT
+  - LOCPOT
+  - LVTOT
+  - LVHAR
+  - EPSILON
+  - DIPOL
+  - IDIPOL
+  - LMONO
+  - LDIPOL
+  - ICORELEVEL
+
+bse:
+  - LMODELHF
+
+md:
+  - SMASS
+  - NBLOCK
+
+parallel:
+  - KPAR
+  - NPAR
+  - NCORE
+  - LPLANE
+  - NSIM
+
+parchg:
+  - LPARD
+  - IBAND
+  - KPUSE
+  - EINT
+  - NBMOD
+  - LSEPB
+  - LSEPK
+
+wavefunction:
+  - LWSWQ

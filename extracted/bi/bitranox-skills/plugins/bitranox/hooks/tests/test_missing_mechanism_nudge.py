@@ -1,0 +1,338 @@
+"""A memory hook that asserts a mechanism is MISSING must be checked against the init path first.
+
+The fact `feedback-verify-a-missing-mechanism-premise-before-filing-or-documenting-it` sits at
+recurrence 5 with no endpoint. The enshrining moment is the `memory_engine add` that writes the
+claim into always-loaded context, and the claim is usually right there in the `--hook`, so that is
+where the check belongs - not a broad scan of every markdown file.
+"""
+import importlib.util
+import json
+import os
+import pathlib
+import shlex
+import subprocess
+import sys
+
+import pytest
+
+_HOOK = pathlib.Path(__file__).resolve().parent.parent / "missing-mechanism-nudge.py"
+_spec = importlib.util.spec_from_file_location("missing_mechanism_nudge", _HOOK)
+N = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(N)
+
+
+CLAIMS = [
+    'memory_engine.py add --hook "When X breaks, note the retry is missing entirely."',
+    'memory_engine.py add --hook "The opt-in defaults off, so nobody gets it."',
+    'memory_engine.py add --hook "When auditing, know the scrubber is not used anywhere."',
+    'memory_engine.py add --hook "That branch is never called - it is dead code."',
+    'memory_engine.py add --hook "The handler is not wired up at all."',
+    'memory_engine.py add --hook "There is no caller for this path."',
+]
+
+
+@pytest.mark.parametrize("command", CLAIMS)
+def test_a_missing_mechanism_claim_in_a_memory_hook_is_nudged(command):
+    notice = N.notice(command)
+    assert notice is not None
+    assert "initialization" in notice.lower() or "init path" in notice.lower()
+
+
+def test_an_ordinary_memory_add_is_untouched():
+    """The negative must be reachable, or every capture nags."""
+    assert N.notice('memory_engine.py add --hook "When a download times out, check the block table."') is None
+    assert N.notice('memory_engine.py add --hook "When committing, use a pathspec."') is None
+
+
+def test_the_same_words_outside_a_memory_add_are_not_this_hook_s_business():
+    """Scoped to the enshrining moment on purpose - a grep or an echo is not filing a claim."""
+    assert N.notice('grep -rn "is not used" src/') is None
+    assert N.notice('echo "the retry is missing entirely"') is None
+
+
+def test_a_claim_that_already_states_the_evidence_is_left_alone():
+    """Naming the init path IS the check this asks for - nagging then is pure noise."""
+    command = ('memory_engine.py add --hook "The opt-in defaults off: verified in '
+               'composition/__init__.py line 40, nothing sets it."')
+    assert N.notice(command) is None
+
+
+def test_junk_is_ignored():
+    assert N.notice("") is None
+    assert N.notice(None) is None
+
+
+def test_a_heredoc_body_is_not_a_memory_add():
+    """A heredoc body is stdin DATA. Writing a doc that QUOTES a memory_engine add command is not
+    running one, and firing there blocks the writing of the very guidance this nudge gives."""
+    cmd = ('cat > note.md <<"EOF"\n'
+           'Run: memory_engine.py add --hook "the retry is missing entirely"\n'
+           'EOF')
+    assert N.notice(cmd) is None
+
+
+def test_a_real_memory_add_after_a_heredoc_is_still_noticed():
+    """The direction where it must NOT apply: stripping the BODY must not swallow a real command
+    standing after the terminator."""
+    cmd = ('cat > note.md <<"EOF"\nprose\nEOF\n'
+           'memory_engine.py add --hook "the retry is missing entirely"')
+    assert N.notice(cmd) is not None
+
+
+# --- every spelling of the hook argument ------------------------------------------------
+
+_BASE = "python3 hooks/memory_engine.py add --proj . --title T {hook} --body-file /tmp/b"
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        "--hook 'the retry is missing entirely'",
+        '--hook="the retry is missing entirely"',
+        "--hook='the retry is missing entirely'",
+        '--hook "the retry is missing entirely"',
+    ],
+)
+def test_every_spelling_of_the_hook_argument_is_read(hook):
+    """The single-quoted form is the one the docs prescribe, and `--hook=` is argparse's own; a
+    regex that knew only `--hook "..."` let both through unread."""
+    assert N.notice(_BASE.format(hook=hook)) is not None
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        "--hook 'the retry is missing entirely, verified in engine.py line 40'",
+        "--hook='When committing, use a pathspec.'",
+    ],
+)
+def test_single_quoted_and_equals_forms_still_respect_the_negatives(hook):
+    assert N.notice(_BASE.format(hook=hook)) is None
+
+
+def test_a_single_quoted_hook_is_read_on_powershell():
+    """PowerShell strings are single-quoted too. The shared splitter reads them; before it did,
+    this hook kept a private re-join, and removing that against the old splitter turns this red."""
+    command = "python memory_engine.py add --title T --hook 'the retry is missing entirely'"
+    assert N.notice(command, tool_name="PowerShell") is not None
+
+
+def test_a_hook_argument_of_another_command_is_not_a_memory_add():
+    """The flag belongs to the statement it sits in: an echo QUOTING a memory add is not one."""
+    assert N.notice("echo 'memory_engine.py add --hook \"the retry is missing entirely\"'") is None
+
+
+# --- --hook-file ------------------------------------------------------------------------
+
+
+def _hook_file_command(path_arg, equals=False):
+    flag = f"--hook-file={path_arg}" if equals else f"--hook-file {path_arg}"
+    return f"python3 hooks/memory_engine.py add --proj . --title T {flag} --body-file b.txt"
+
+
+@pytest.mark.parametrize("equals", [False, True])
+def test_a_claim_in_a_hook_file_is_read(tmp_path, equals):
+    """memory-backend.md prescribes --hook-file for long hooks, so a claim routed through the file
+    was never checked at all."""
+    (tmp_path / "h.txt").write_text("the retry is missing entirely\n", encoding="utf-8")
+    assert N.notice(_hook_file_command("h.txt", equals), cwd=str(tmp_path)) is not None
+
+
+def test_a_hook_file_naming_its_evidence_is_left_alone(tmp_path):
+    (tmp_path / "h.txt").write_text("missing entirely, see engine.py line 40\n", encoding="utf-8")
+    assert N.notice(_hook_file_command("h.txt"), cwd=str(tmp_path)) is None
+
+
+def test_an_absolute_hook_file_is_read_whatever_the_cwd(tmp_path):
+    hook = tmp_path / "h.txt"
+    hook.write_text("the opt-in defaults off\n", encoding="utf-8")
+    # Quoted as bash needs it: a bare Windows path loses its backslashes to bash's escapes.
+    assert N.notice(_hook_file_command(shlex.quote(str(hook))), cwd="/") is not None
+
+
+def test_a_hook_file_that_does_not_exist_yet_is_silent(tmp_path):
+    """PreToolUse runs before the command, so a file the same command writes is not there yet."""
+    assert N.notice(_hook_file_command("h.txt"), cwd=str(tmp_path)) is None
+
+
+def test_an_oversized_hook_file_is_not_read(tmp_path):
+    """A hook is capped at 500 chars by the engine; anything far larger is not a hook, and reading
+    an arbitrary large file on every PreToolUse is not this nudge's business."""
+    (tmp_path / "h.txt").write_text("the retry is missing entirely\n" + "x" * 20000, encoding="utf-8")
+    assert N.notice(_hook_file_command("h.txt"), cwd=str(tmp_path)) is None
+
+
+def test_a_directory_named_as_the_hook_file_is_silent(tmp_path):
+    (tmp_path / "h.txt").mkdir()
+    assert N.notice(_hook_file_command("h.txt"), cwd=str(tmp_path)) is None
+
+
+# --- main(): the event envelope ---------------------------------------------------------
+
+_CLAIM_COMMAND = 'memory_engine.py add --proj . --title T --hook "the retry is missing entirely"'
+
+
+def _run(stdin):
+    return subprocess.run(
+        [sys.executable, str(_HOOK)], input=stdin, capture_output=True, text=True,
+        encoding="utf-8", check=False,
+    )
+
+
+@pytest.mark.parametrize("tool", ["Bash", "PowerShell"])
+def test_main_emits_the_notice_for_a_shell_tool(tool):
+    r = _run(json.dumps({"tool_name": tool, "tool_input": {"command": _CLAIM_COMMAND}}))
+    assert r.returncode == 0
+    payload = json.loads(r.stdout)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
+    assert "MISSING-MECHANISM" in payload["hookSpecificOutput"]["additionalContext"]
+
+
+def test_main_is_silent_for_a_non_shell_tool():
+    r = _run(json.dumps({"tool_name": "Read", "tool_input": {"command": _CLAIM_COMMAND}}))
+    assert r.returncode == 0 and r.stdout.strip() == ""
+
+
+@pytest.mark.parametrize("stdin", ["", "not json", "[1, 2]", '{"tool_name": "Bash", "tool_input": null}'])
+def test_main_exits_zero_and_says_nothing_on_junk(stdin):
+    r = _run(stdin)
+    assert r.returncode == 0 and r.stdout.strip() == ""
+
+
+def test_main_resolves_a_hook_file_against_the_event_cwd(tmp_path):
+    (tmp_path / "h.txt").write_text("the retry is missing entirely\n", encoding="utf-8")
+    event = {"tool_name": "Bash", "cwd": str(tmp_path),
+             "tool_input": {"command": _hook_file_command("h.txt")}}
+    r = _run(json.dumps(event))
+    assert r.returncode == 0
+    assert "MISSING-MECHANISM" in json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+# --- AskUserQuestion: every question gets the premise reminder (contrib #27, option A) -------------
+
+_QUESTION = {"questions": [{"question": "Which way?", "header": "Route",
+                            "options": [{"label": "A", "description": "X cannot do this"},
+                                        {"label": "B", "description": "use Y"}],
+                            "multiSelect": False}]}
+
+
+@pytest.mark.parametrize("tool_input", [_QUESTION, {}, {"questions": []}, None])
+def test_a_question_without_a_session_gets_the_premise_reminder(tool_input):
+    """No wording match, by the user's choice: whatever the input, the reminder rides on it.
+
+    A premise test on the option text would miss the shapes nobody listed ('X has no flag for',
+    'Y only runs as root'). Probe-verified on CLI 2.1.289: the context reaches the model WITH the
+    user's answer, so the text has to say what to do after the fact. These events carry no
+    session_id, so the refuse-first path below cannot key its flag and never refuses.
+    """
+    r = _run(json.dumps({"tool_name": "AskUserQuestion", "tool_input": tool_input}))
+    assert r.returncode == 0
+    payload = json.loads(r.stdout)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
+    text = payload["hookSpecificOutput"]["additionalContext"]
+    assert text == N.QUESTION_REMINDER
+    assert "\n" not in text.strip()
+    assert "unverified" in text and "instrument" in text
+
+
+def test_the_question_reminder_is_ascii_and_says_what_to_do_once_answered():
+    assert N.QUESTION_REMINDER.isascii()
+    assert "already answered" in N.QUESTION_REMINDER
+
+
+def test_a_shell_command_still_gets_only_the_memory_add_check():
+    """Control: the AskUserQuestion branch must not leak into the shell path."""
+    r = _run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "echo hi"}}))
+    assert r.returncode == 0 and r.stdout.strip() == ""
+
+
+# --- AskUserQuestion: refuse the first ask of each question ([200], user decision 2026-10-12) ------
+#
+# The reminder above reaches the model only WITH the user's answer, so an option built on an
+# unmeasured premise has already been chosen by the time it lands. A PreToolUse deny is the one
+# channel that reaches the model BEFORE the dialog is shown (probe, interactive CLI 2.1.296: the
+# hook fired, no dialog appeared, the model quoted the reason verbatim). The pass condition is
+# "the previous AskUserQuestion of this session was refused", not a hash of the question text: a
+# hash would refuse a REVISED re-send again, and revising is exactly what the refusal asks for.
+
+def _ask(home, session="sess-1", tool_input=None):
+    event = {"tool_name": "AskUserQuestion", "tool_input": tool_input or _QUESTION}
+    if session is not None:
+        event["session_id"] = session
+    env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home)}
+    return subprocess.run(
+        [sys.executable, str(_HOOK)], input=json.dumps(event), capture_output=True, text=True,
+        encoding="utf-8", check=False, env=env,
+    )
+
+
+def _decision(r):
+    assert r.returncode == 0
+    out = json.loads(r.stdout)["hookSpecificOutput"]
+    assert out["hookEventName"] == "PreToolUse"
+    return out
+
+
+def _refused(r):
+    out = _decision(r)
+    return out.get("permissionDecision") == "deny"
+
+
+def test_the_first_question_of_a_session_is_refused_with_the_premise_check(tmp_path):
+    out = _decision(_ask(tmp_path))
+    assert out.get("permissionDecision") == "deny"
+    reason = out["permissionDecisionReason"]
+    assert reason == N.QUESTION_REFUSAL
+    assert "premise" in reason and "unverified" in reason and "re-send" in reason
+
+
+def test_the_identical_resend_after_a_refusal_passes_with_the_reminder(tmp_path):
+    assert _refused(_ask(tmp_path))
+    out = _decision(_ask(tmp_path))
+    assert "permissionDecision" not in out
+    assert out["additionalContext"] == N.QUESTION_REMINDER
+
+
+def test_a_revised_resend_after_a_refusal_passes(tmp_path):
+    """Must NOT refuse the revision the refusal asked for (the reason a text hash was rejected)."""
+    assert _refused(_ask(tmp_path))
+    revised = {"questions": [{"question": "Which way, measured?", "header": "Route",
+                              "options": [{"label": "A", "description": "X cannot (unverified)"},
+                                          {"label": "B", "description": "use Y"}],
+                              "multiSelect": False}]}
+    assert not _refused(_ask(tmp_path, tool_input=revised))
+
+
+def test_the_next_new_question_is_refused_again_and_never_twice_in_a_row(tmp_path):
+    verdicts = [_refused(_ask(tmp_path)) for _ in range(5)]
+    assert verdicts == [True, False, True, False, True]
+
+
+def test_sessions_do_not_share_the_refusal_flag(tmp_path):
+    assert _refused(_ask(tmp_path, session="sess-a"))
+    assert _refused(_ask(tmp_path, session="sess-b"))
+    assert not _refused(_ask(tmp_path, session="sess-a"))
+
+
+def test_without_a_session_id_the_question_passes_with_the_reminder(tmp_path):
+    """No key, no flag: refusing here could never be followed by a pass, so it must not refuse."""
+    for _ in range(2):
+        out = _decision(_ask(tmp_path, session=None))
+        assert "permissionDecision" not in out
+        assert out["additionalContext"] == N.QUESTION_REMINDER
+
+
+def test_an_unwritable_state_store_passes_instead_of_refusing_forever(tmp_path):
+    """A refusal whose flag cannot be stored would refuse every re-send: fail open instead."""
+    home = tmp_path / "home-is-a-file"
+    home.write_text("not a directory\n", encoding="utf-8")
+    for _ in range(2):
+        assert not _refused(_ask(home))
+
+
+def test_hooks_json_registers_this_hook_for_askuserquestion():
+    groups = json.loads((_HOOK.parent / "hooks.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+    matchers = [set(g["matcher"].split("|")) for g in groups
+                for h in g["hooks"] if h["command"].endswith('/hooks/missing-mechanism-nudge.py"')]
+    assert any("AskUserQuestion" in m for m in matchers)
+    assert any({"Bash", "PowerShell"} <= m for m in matchers)

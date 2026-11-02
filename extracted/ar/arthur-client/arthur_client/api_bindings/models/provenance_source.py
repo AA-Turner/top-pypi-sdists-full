@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.agent_observations import AgentObservations
 from arthur_client.api_bindings.models.source_address import SourceAddress
 from arthur_client.api_bindings.models.source_class import SourceClass
 from typing import Optional, Set
@@ -33,10 +34,11 @@ class ProvenanceSource(BaseModel):
     source_id: Optional[StrictStr] = None
     vendor: Optional[StrictStr] = None
     address: Optional[SourceAddress] = None
+    observations: Optional[AgentObservations] = None
     last_seen: Optional[datetime] = None
     external_id: Optional[StrictStr] = None
     last_scanned: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address", "last_seen", "external_id", "last_scanned"]
+    __properties: ClassVar[List[str]] = ["source_class", "source_id", "vendor", "address", "observations", "last_seen", "external_id", "last_scanned"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,9 @@ class ProvenanceSource(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of address
         if self.address:
             _dict['address'] = self.address.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of observations
+        if self.observations:
+            _dict['observations'] = self.observations.to_dict()
         # set to None if source_id (nullable) is None
         # and model_fields_set contains the field
         if self.source_id is None and "source_id" in self.model_fields_set:
@@ -94,6 +99,11 @@ class ProvenanceSource(BaseModel):
         # and model_fields_set contains the field
         if self.address is None and "address" in self.model_fields_set:
             _dict['address'] = None
+
+        # set to None if observations (nullable) is None
+        # and model_fields_set contains the field
+        if self.observations is None and "observations" in self.model_fields_set:
+            _dict['observations'] = None
 
         # set to None if last_seen (nullable) is None
         # and model_fields_set contains the field
@@ -126,6 +136,7 @@ class ProvenanceSource(BaseModel):
             "source_id": obj.get("source_id"),
             "vendor": obj.get("vendor"),
             "address": SourceAddress.from_dict(obj["address"]) if obj.get("address") is not None else None,
+            "observations": AgentObservations.from_dict(obj["observations"]) if obj.get("observations") is not None else None,
             "last_seen": obj.get("last_seen"),
             "external_id": obj.get("external_id"),
             "last_scanned": obj.get("last_scanned")

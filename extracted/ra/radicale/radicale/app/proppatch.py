@@ -1,0 +1,264 @@
+# This file is part of Radicale - CalDAV and CardDAV server
+# Copyright © 2008 Nicolas Kandel
+# Copyright © 2008 Pascal Halter
+# Copyright © 2008-2017 Guillaume Ayoub
+# Copyright © 2017-2020 Unrud <unrud@outlook.com>
+# Copyright © 2020-2020 Tuna Celik <tuna@jakpark.com>
+# Copyright © 2025-2026 Peter Bieringer <pb@bieringer.de>
+#
+# This library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Radicale.  If not, see <http://www.gnu.org/licenses/>.
+
+import errno
+import re
+import socket
+import xml.etree.ElementTree as ET
+from http import client
+from typing import Dict, Optional, Union, cast
+from urllib.parse import quote
+
+import defusedxml.ElementTree as DefusedET
+
+import radicale.item as radicale_item
+from radicale import httputils, sharing, storage, types, xmlutils
+from radicale.app.base import Access, ApplicationBase
+from radicale.hook import HookNotificationItem, HookNotificationItemTypes
+from radicale.log import logger
+
+
+def xml_proppatch(base_prefix: str, path: str,
+                  xml_request: Optional[ET.Element],
+                  collection: Union[storage.BaseCollection, None], share: Union[dict, None] = None, share_overlay: bool = False, _sharing: Union[sharing.BaseSharing, None] = None) -> ET.Element:
+    """Read and answer PROPPATCH requests.
+
+    Read rfc4918-9.2 for info.
+
+    """
+    multistatus = ET.Element(xmlutils.make_clark("D:multistatus"))
+    response = ET.Element(xmlutils.make_clark("D:response"))
+    multistatus.append(response)
+    href = ET.Element(xmlutils.make_clark("D:href"))
+    href.text = xmlutils.make_href(base_prefix, path)
+    if share:
+        # backmap; quote so the encoded href and raw share path compare
+        href.text = href.text.replace(quote(share['PathMapped']), quote(str(share['PathOrToken'])))
+    response.append(href)
+    # Create D:propstat element for props with status 200 OK
+    propstat = ET.Element(xmlutils.make_clark("D:propstat"))
+    status = ET.Element(xmlutils.make_clark("D:status"))
+    status.text = xmlutils.make_response(200)
+    props_ok = ET.Element(xmlutils.make_clark("D:prop"))
+    propstat.append(props_ok)
+    propstat.append(status)
+    response.append(propstat)
+
+    props_with_remove = xmlutils.props_from_request(xml_request)
+    if share and share_overlay:
+        # PROPPATCH overlay adjustment
+        logger.trace("PROPPATCH/xml_proppatch: share+share_overlay is active: %r", share)
+        if share['Properties'] is not None:
+            all_props_with_remove = cast(Dict[str, Optional[str]], radicale_item.check_and_sanitize_props(share['Properties']))
+        else:
+            all_props_with_remove = {}
+        all_props_with_remove.update(props_with_remove)
+        all_props = radicale_item.check_and_sanitize_props(all_props_with_remove)
+        logger.trace("PROPPATCH/xml_proppatch: share+share_overlay result: %r", all_props)
+    else:
+        if collection is not None:
+            # always the case, but makes mypy happy
+            all_props_with_remove = cast(Dict[str, Optional[str]], dict(collection.get_meta()))
+    all_props_with_remove.update(props_with_remove)
+    all_props = radicale_item.check_and_sanitize_props(all_props_with_remove)
+    if share and share_overlay and _sharing is not None:
+        # _sharing is not None: always the case, but makes mypy happy
+        _sharing.sharing_collection_update(ShareType=share['ShareType'],
+                                           PathOrToken=share['PathOrToken'],
+                                           OwnerOrUser=share['User'],
+                                           Properties=cast(Dict[str, str], all_props))
+    else:
+        if collection is not None:
+            # always the case, but makes mypy happy
+            collection.set_meta(all_props)
+    for short_name in props_with_remove:
+        props_ok.append(ET.Element(xmlutils.make_clark(short_name)))
+
+    return multistatus
+
+
+class ApplicationPartProppatch(ApplicationBase):
+
+    def do_PROPPATCH(self, environ: types.WSGIEnviron, base_prefix: str,
+                     path: str, user: str, user_groups: set, request_info: dict) -> types.WSGIResponse:
+        """Manage PROPPATCH request."""
+        actor = user
+        permissions_filter = None
+        share = None
+        share_overlay = False
+        path_orig = path
+        if self._sharing._enabled:
+            # Sharing by token or map (if enabled)
+            share = self._sharing.sharing_collection_resolver(path, user, user_groups)
+            if share:
+                if path != share['PathMapped']:
+                    # overwrite and run through extended permission check
+                    path = share['PathMapped']
+                    user = share['Owner']
+                    permissions_filter = share['Permissions']
+                else:
+                    logger.trace("PROPPATCH/shares: skip overlap mapping: path=%r", path)
+        access = Access(self._rights, user, user_groups, path, permissions_filter)
+        raw_permissions = self._rights.authorization(user, user_groups, path)
+        if "l" in raw_permissions:
+            if share:
+                logger.notice("PROPPATCH request on shared %r: write-access disabled by permission 'l' of %r", path_orig, path)
+            else:
+                logger.notice("PROPPATCH request on %r: write-access disabled by permission 'l'", path)
+            return httputils.NOT_ALLOWED
+        if not access.check("w"):
+            logger.trace("PROPPATCH/xml_proppatch: no native write-access: %r", path)
+            if share:
+                # priority share->rights->global
+                logger.trace("PROPPATCH/share: raw_permissions=%r share[Permissions]=%r permit_properties_overlay=%s enforce_properties_overlay=%s", raw_permissions, share['Permissions'], self._sharing.permit_properties_overlay, self._sharing.enforce_properties_overlay)
+                if ("P" in share['Permissions'] or
+                        ("P" in raw_permissions and "p" not in share['Permissions']) or
+                        (self._sharing.permit_properties_overlay and "p" not in raw_permissions and "p" not in share['Permissions'])
+                    ) and not (
+                            "p" in share['Permissions'] or
+                            ("p" in raw_permissions and "P" not in share['Permissions']) or
+                            (not self._sharing.permit_properties_overlay and "P" not in raw_permissions and "P" not in share['Permissions'])):
+                    logger.info("PROPPATCH request on shared %r: write-access", path_orig)
+                    if permissions_filter is not None and "e" in permissions_filter:
+                        logger.notice("PROPPATCH request on shared %r: write-access, overlay enforced, but disabled by share permission 'e'", path_orig)
+                    elif "e" in raw_permissions:
+                        logger.notice("PROPPATCH request on shared %r: write-access, overlay enforced, but disabled by rights permission 'e'", path_orig)
+                    else:
+                        share_overlay = True
+                else:
+                    logger.notice("PROPPATCH request on shared %r: no write-access", path_orig)
+                    return httputils.NOT_ALLOWED
+            else:
+                return httputils.NOT_ALLOWED
+        else:
+            logger.trace("PROPPATCH/xml_proppatch: write-access: %r", path)
+            if share:
+                if "p" in share['Permissions']:
+                    logger.notice("PROPPATCH request on shared %r: write-permissions, but disabled by share permission 'p'", path_orig)
+                    return httputils.NOT_ALLOWED
+                elif "p" in raw_permissions:
+                    logger.notice("PROPPATCH request on shared %r: write-permissions, but disabled by rights permission 'p'", path_orig)
+                    return httputils.NOT_ALLOWED
+                # write access -> check for enforced properties overlay
+                logger.trace("PROPPATCH/xml_proppatch: write-access/sharing: %r", path_orig)
+                if self._sharing.enforce_properties_overlay:
+                    if permissions_filter is not None and "e" in permissions_filter:
+                        logger.notice("PROPPATCH request on shared %r: write-permissions, overlay enforced, but disabled by share permission 'e'", path_orig)
+                    elif "e" in raw_permissions:
+                        logger.notice("PROPPATCH request on shared %r: write-permissions, overlay enforced, but disabled by rights permission 'e'", path_orig)
+                    else:
+                        share_overlay = True
+                else:
+                    if permissions_filter is not None and "E" in permissions_filter:
+                        logger.info("PROPPATCH request on shared %r: write-permissions, overlay not enforced, but enforced by permission 'E'", path_orig)
+                        share_overlay = True
+        try:
+            xml_content = self._read_xml_request_body(environ, request_info)
+
+        except RuntimeError as e:
+            logger.warning(
+                "Bad PROPPATCH request on %r: %s", path, e, exc_info=True)
+            return httputils.BAD_REQUEST
+        except socket.timeout:
+            logger.debug("Client timed out", exc_info=True)
+            return httputils.REQUEST_TIMEOUT
+
+        if share_overlay:
+            # call API function internally and no not trigger any hook
+            headers = {"DAV": httputils.DAV_HEADERS,
+                       "Content-Type": "text/xml; charset=%s" % self._encoding}
+            try:
+                xml_answer = xml_proppatch(base_prefix, path, xml_content,
+                                           None, share, share_overlay, self._sharing)
+                if xml_content is not None:
+                    content = DefusedET.tostring(
+                        xml_content,
+                        encoding=self._encoding
+                    ).decode(encoding=self._encoding)
+            except ValueError as e:
+                # return better matching HTTP result in case errno is provided and catched
+                errno_match = re.search("\\[Errno ([0-9]+)\\]", str(e))
+                if errno_match:
+                    logger.error(
+                        "Failed PROPPATCH request on %r: %s", path, e, exc_info=True)
+                    errno_e = int(errno_match.group(1))
+                    if errno_e == errno.ENOSPC:
+                        return httputils.INSUFFICIENT_STORAGE
+                    elif errno_e in [errno.EPERM, errno.EACCES]:
+                        return httputils.FORBIDDEN
+                    else:
+                        return httputils.INTERNAL_SERVER_ERROR
+                else:
+                    logger.warning(
+                        "Bad PROPPATCH request on %r: %s", path, e, exc_info=True)
+                    return httputils.BAD_REQUEST
+            request_info["status"] = client.MULTI_STATUS
+            return client.MULTI_STATUS, headers, self._xml_response(xml_answer, request_info), xmlutils.pretty_xml(xml_content)
+
+        with self._storage.acquire_lock("w", user, path=path, request="PROPPATCH", actor=actor):
+            item = next(iter(self._storage.discover(path)), None)
+            if not item:
+                return httputils.NOT_FOUND
+            if not access.check("w", item):
+                return httputils.NOT_ALLOWED
+            if not isinstance(item, storage.BaseCollection):
+                return httputils.FORBIDDEN
+            headers = {"DAV": httputils.DAV_HEADERS,
+                       "Content-Type": "text/xml; charset=%s" % self._encoding}
+            try:
+                xml_answer = xml_proppatch(base_prefix, path, xml_content,
+                                           item, share)
+                if xml_content is not None:
+                    content = DefusedET.tostring(
+                        xml_content,
+                        encoding=self._encoding
+                    ).decode(encoding=self._encoding)
+                    if self._hook.enabled:
+                        hook_notification_item = HookNotificationItem(
+                            notification_item_type=HookNotificationItemTypes.CPATCH,
+                            path=access.path,
+                            content=content,
+                            content_type=None, # Can't easily determine content type, won't trigger email hook
+                            uid=None,
+                            old_content=None,
+                            new_content=content,
+                            actor=actor,
+                        )
+                        self._hook.notify(hook_notification_item)
+            except ValueError as e:
+                # return better matching HTTP result in case errno is provided and catched
+                errno_match = re.search("\\[Errno ([0-9]+)\\]", str(e))
+                if errno_match:
+                    logger.error(
+                        "Failed PROPPATCH request on %r: %s", path, e, exc_info=True)
+                    errno_e = int(errno_match.group(1))
+                    if errno_e == errno.ENOSPC:
+                        return httputils.INSUFFICIENT_STORAGE
+                    elif errno_e in [errno.EPERM, errno.EACCES]:
+                        return httputils.FORBIDDEN
+                    else:
+                        return httputils.INTERNAL_SERVER_ERROR
+                else:
+                    logger.warning(
+                        "Bad PROPPATCH request on %r: %s", path, e, exc_info=True)
+                    return httputils.BAD_REQUEST
+            request_info["status"] = client.MULTI_STATUS
+            return client.MULTI_STATUS, headers, self._xml_response(xml_answer, request_info), xmlutils.pretty_xml(xml_content)

@@ -32,7 +32,8 @@ from pathlib import Path
 import pytest
 
 from probe.foundation.skills import root_skills_core as core
-from probe.cli import root_skills, updater, upgrading
+from probe.cli.wizard.apply import root_skills
+from probe.cli.install import updater, upgrade as upgrading
 
 AGENT = Path(__file__).resolve().parents[1]
 FULL = AGENT / "plugins" / "probe-research"

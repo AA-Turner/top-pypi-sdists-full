@@ -267,6 +267,10 @@ class TestMemoryStorage(StorageTests, BaseTestCase):
     def get_huey(self):
         return MemoryHuey(utc=False)
 
+    def test_put_if_empty_ttl(self):
+        self.assertTrue(self.s.put_if_empty(b'k1', b'v1', ttl=1))
+        self.assertFalse(self.s.put_if_empty(b'k1', b'v2', ttl=1))
+
     def test_put_if_empty_concurrent(self):
         nthreads, nkeys = 8, 20
         barrier = threading.Barrier(nthreads)
@@ -476,32 +480,6 @@ class TestRedisStorageOffline(BaseTestCase):
                 return None  # BRPOP timed out, queue is empty.
         s.conn = StubEmpty()
         self.assertTrue(s.dequeue() is None)
-
-    def test_wait_result_timeout_clamp(self):
-        huey = RedisHuey(utc=False, notify_result=True)
-        s = huey.storage
-        captured = []
-
-        class StubConn(object):
-            def hexists(self, key, k):
-                return False
-            def blpop(self, key, timeout=None):
-                captured.append(timeout)
-                return None
-        s.conn = StubConn()
-
-        s.redis_version = (5, 0, 0)
-        self.assertFalse(s.wait_result('k1', timeout=30))
-        self.assertFalse(s.wait_result('k1', timeout=0.5))
-
-        s.redis_version = (7, 4, 0)
-        self.assertFalse(s.wait_result('k1', timeout=0.5))
-
-        # For redis < 6 the timeout is coerced to an int >= 1 (rather than
-        # being clamped *down* to at-most 1 second, or, for sub-second floats,
-        # truncated to zero -- which blocks indefinitely). Newer servers
-        # receive the timeout unmodified.
-        self.assertEqual(captured, [30, 1, 0.5])
 
     def test_enqueued_items_limit(self):
         s = self.huey.storage

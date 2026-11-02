@@ -17,8 +17,10 @@ import time
 
 import pytest
 
-from probe.service import client, paths
-from probe.service.protocol import Method, Mode
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.foundation.service_api.wire import Method
+from probe.foundation.service_api.vocabularies import Mode
 from tests.service_harness import (  # noqa: F401 -- service_home is a fixture
     kill_agent,
     pid_running,

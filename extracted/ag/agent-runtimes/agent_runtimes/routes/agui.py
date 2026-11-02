@@ -1,0 +1,352 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""AG-UI routes for agent-runtimes server."""
+
+import asyncio
+import logging
+from typing import Any, Optional
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from starlette.applications import Starlette
+from starlette.routing import Mount
+
+from ..transports import AGUITransport
+
+logger = logging.getLogger(__name__)
+
+# Router for AG-UI endpoints
+router = APIRouter(
+    prefix="/ag-ui",
+    tags=["ag-ui"],
+)
+
+# Global registry of AG-UI adapters by agent ID
+_agui_adapters: dict[str, AGUITransport] = {}
+_agui_apps: dict[str, Starlette] = {}
+
+# Track running requests per thread ID for termination
+# Maps thread_id to a cancellation event
+_running_threads: dict[str, asyncio.Event] = {}
+
+
+class TerminateRequest(BaseModel):
+    """Request to terminate a running agent thread."""
+
+    thread_id: Optional[str] = None
+
+
+class TerminateResponse(BaseModel):
+    """Response from terminate request."""
+
+    success: bool
+    message: str
+    thread_id: Optional[str] = None
+
+
+def register_thread(thread_id: str) -> asyncio.Event:
+    """
+    Register a running thread and return its cancellation event.
+
+    Args:
+        thread_id: The unique thread identifier.
+
+    Returns:
+        An asyncio.Event that can be set to signal cancellation.
+    """
+    cancel_event = asyncio.Event()
+    _running_threads[thread_id] = cancel_event
+    logger.debug(f"Registered AG-UI thread: {thread_id}")
+    return cancel_event
+
+
+def unregister_thread(thread_id: str) -> None:
+    """
+    Unregister a thread when it completes.
+
+    Args:
+        thread_id: The thread identifier to remove.
+    """
+    if thread_id in _running_threads:
+        del _running_threads[thread_id]
+        logger.debug(f"Unregistered AG-UI thread: {thread_id}")
+
+
+def cancel_thread(thread_id: str) -> bool:
+    """
+    Cancel a running thread and interrupt the sandbox.
+
+    Args:
+        thread_id: The thread identifier to cancel.
+
+    Returns:
+        True if the thread was found and cancelled, False otherwise.
+    """
+    if thread_id in _running_threads:
+        _running_threads[thread_id].set()
+        logger.info(f"Cancelled AG-UI thread: {thread_id}")
+        # Also interrupt the sandbox so running code stops immediately.
+        try:
+            from agent_runtimes.services.code_sandbox_manager import interrupt_sandbox
+
+            interrupt_sandbox()
+        except Exception:
+            pass
+        return True
+    return False
+
+
+def cancel_all_threads() -> int:
+    """
+    Cancel all running threads and interrupt the sandbox.
+
+    Returns:
+        Number of threads cancelled.
+    """
+    count = 0
+    for thread_id, cancel_event in _running_threads.items():
+        cancel_event.set()
+        count += 1
+        logger.info(f"Cancelled AG-UI thread: {thread_id}")
+    if count > 0:
+        try:
+            from agent_runtimes.services.code_sandbox_manager import interrupt_sandbox
+
+            interrupt_sandbox()
+        except Exception:
+            pass
+    return count
+
+
+def register_agui_agent(
+    agent_id: str,
+    adapter: AGUITransport,
+) -> None:
+    """
+    Register an AG-UI adapter.
+
+    Args:
+        agent_id: Unique identifier for the agent.
+        adapter: The AGUITransport instance.
+    """
+    _agui_adapters[agent_id] = adapter
+    _agui_apps[agent_id] = adapter.get_app()
+    logger.info(f"Registered AG-UI agent: {agent_id}")
+
+
+def unregister_agui_agent(agent_id: str) -> None:
+    """
+    Unregister an AG-UI adapter.
+
+    Args:
+        agent_id: The agent identifier.
+    """
+    if agent_id in _agui_adapters:
+        del _agui_adapters[agent_id]
+    if agent_id in _agui_apps:
+        del _agui_apps[agent_id]
+    try:
+        from ..streams.loop import purge_agent_stream_state
+
+        purge_agent_stream_state(agent_id)
+    except Exception as e:
+        logger.debug("Could not purge stream state for %s: %s", agent_id, e)
+    logger.info(f"Unregistered AG-UI agent: {agent_id}")
+
+
+def get_agui_app(agent_id: str) -> Starlette | None:
+    """
+    Get an AG-UI Starlette app by ID.
+
+    Args:
+        agent_id: The agent identifier.
+
+    Returns:
+        The Starlette app if found, None otherwise.
+    """
+    return _agui_apps.get(agent_id)
+
+
+class AGUIDispatch:
+    """The AG-UI app of an agent *as it is registered now*.
+
+    A mount holds the app it was given. An agent recreated under the same id
+    — `configure-from-spec` does that to `default` — registered a new app
+    that the old mount never reached: the runtime went on answering with the
+    agent it started with, without the application's rules, checks and
+    record. Mounted once, this finds the current app on every request.
+    """
+
+    def __init__(self, agent_id: str) -> None:
+        self.agent_id = agent_id
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        app = _agui_apps.get(self.agent_id)
+        if app is None:
+            from starlette.responses import JSONResponse
+
+            response = JSONResponse(
+                {"detail": f"No AG-UI agent '{self.agent_id}'."}, status_code=404
+            )
+            await response(scope, receive, send)
+            return
+        await app(scope, receive, send)
+
+
+def is_agui_mounted(routes: Any, path: str) -> bool:
+    """Whether an AG-UI dispatch is mounted at `path` already."""
+    return any(
+        getattr(route, "path", None) == path
+        and isinstance(getattr(route, "app", None), AGUIDispatch)
+        for route in routes
+    )
+
+
+def ensure_agui_dispatch(app: Any, path: str, agent_id: str) -> None:
+    """One mount at `path`: the dispatch to the agent registered now.
+
+    A mount holding an app of its own — made at startup, or by an older
+    registration — answers before any mounted after it, with the agent it
+    was given. It is taken away, so that the dispatch answers.
+    """
+    routes = app.router.routes
+    stale = [
+        route
+        for route in routes
+        if getattr(route, "path", None) == path
+        and not isinstance(getattr(route, "app", None), AGUIDispatch)
+    ]
+    for route in stale:
+        routes.remove(route)
+    if not is_agui_mounted(routes, path):
+        app.mount(path, AGUIDispatch(agent_id), name=f"agui-{agent_id}")
+
+
+def get_agui_adapter(agent_id: str) -> "AGUITransport | None":
+    """
+    Get an AG-UI adapter by ID.
+
+    Args:
+        agent_id: The agent identifier.
+
+    Returns:
+        The AGUITransport adapter if found, None otherwise.
+    """
+    return _agui_adapters.get(agent_id)
+
+
+def get_all_agui_adapters() -> dict[str, "AGUITransport"]:
+    """
+    Get all registered AG-UI adapters.
+
+    Returns:
+        Dictionary mapping agent IDs to their AGUITransport adapters.
+    """
+    return _agui_adapters.copy()
+
+
+def get_agui_mounts() -> list[Mount]:
+    """
+    Get all AG-UI mounts for the FastAPI app.
+
+    Returns:
+        List of Starlette Mount objects for each AG-UI agent.
+    """
+    mounts = []
+    for agent_id in _agui_apps:
+        # Mount each AG-UI agent at /api/v1/ag-ui/{agent_id}, by its id: the
+        # app answering is the one registered when the request comes.
+        mount = Mount(f"/{agent_id}", app=AGUIDispatch(agent_id))
+        mounts.append(mount)
+    return mounts
+
+
+@router.get("/agents")
+async def list_agents() -> dict[str, Any]:
+    """
+    List available AG-UI agents.
+
+    Returns:
+        Dictionary with list of agent IDs and their endpoints.
+    """
+    return {
+        "agents": [
+            {
+                "id": agent_id,
+                "endpoint": f"/api/v1/ag-ui/{agent_id}/",
+            }
+            for agent_id in _agui_adapters.keys()
+        ],
+        "count": len(_agui_adapters),
+    }
+
+
+@router.get("/")
+async def agui_info() -> dict[str, str]:
+    """
+    Get AG-UI service information.
+
+    Returns:
+        Information about the AG-UI service.
+    """
+    return {
+        "protocol": "ag-ui",
+        "description": "AG-UI (Agent UI) protocol for lightweight web interfaces",
+        "documentation": "https://ai.pydantic.dev/ui/ag-ui/",
+        "agents_endpoint": "/api/v1/ag-ui/agents",
+        "terminate_endpoint": "/api/v1/ag-ui/terminate",
+        "note": "Each agent is mounted at /api/v1/ag-ui/{agent_id}/ (trailing slash required)",
+    }
+
+
+@router.post("/terminate", response_model=TerminateResponse)
+async def terminate_agent(request: TerminateRequest) -> TerminateResponse:
+    """
+    Terminate a running agent thread or all threads.
+
+    This endpoint allows clients to stop running agent executions.
+    If thread_id is provided, only that thread is cancelled.
+    If thread_id is None, all running threads are cancelled.
+
+    Args:
+        request: Terminate request with optional thread_id.
+
+    Returns:
+        Result of the termination request.
+    """
+    if request.thread_id:
+        # Cancel specific thread
+        if cancel_thread(request.thread_id):
+            return TerminateResponse(
+                success=True,
+                message=f"Thread {request.thread_id} has been terminated",
+                thread_id=request.thread_id,
+            )
+        else:
+            return TerminateResponse(
+                success=False,
+                message=f"Thread {request.thread_id} not found or already completed",
+                thread_id=request.thread_id,
+            )
+    else:
+        # Cancel all threads
+        count = cancel_all_threads()
+        return TerminateResponse(
+            success=True,
+            message=f"Terminated {count} running thread(s)",
+        )
+
+
+@router.get("/threads")
+async def list_threads() -> dict[str, Any]:
+    """
+    List all running AG-UI threads.
+
+    Returns:
+        Dictionary with list of running thread IDs.
+    """
+    return {
+        "threads": list(_running_threads.keys()),
+        "count": len(_running_threads),
+    }

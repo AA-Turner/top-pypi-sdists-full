@@ -1,0 +1,54 @@
+version: "2"
+
+engines:
+  fixme:
+    enabled: true
+  pep8:
+    enabled: false
+  radon:
+    enabled: true
+ratings:
+  paths:
+  - "**.py"
+
+checks:
+  argument-count:
+    config:
+      threshold: 4
+  complex-logic:
+    config:
+      threshold: 4
+  file-lines:
+    config:
+      threshold: 2500
+  method-complexity:
+    config:
+      threshold: 15
+  method-count:
+    config:
+      threshold: 80
+  method-lines:
+    config:
+      threshold: 125
+  nested-control-flow:
+    config:
+      threshold: 4
+  return-statements:
+    config:
+      threshold: 4
+  similar-code:
+    config:
+      threshold: # language-specific defaults. an override will affect all languages.
+  identical-code:
+    config:
+      threshold: # language-specific defaults. an override will affect all languages.
+
+exclude_patterns:
+    - "pya2l/tests/**"
+    - "pya2l/model/__init__.py"
+    - "pya2l/classes.py"
+    - "pya2l/amlLexer.py"
+    - "pya2l/amlParser.py"
+    - "pya2l/a2lLexer.py"
+    - "pya2l/a2lParser.py"
+    - "pya2l/a2llg.py"

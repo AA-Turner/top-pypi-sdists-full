@@ -1,0 +1,547 @@
+"""Options of the SUMO traffic backend.
+
+Like :mod:`..config`, this module imports nothing heavier than the standard
+library, so the config layer and the editor can name the backend's options
+without SUMO installed.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping, Optional
+
+from ...constants import DEFAULT_TM_PORT
+from ..fidelity import MesoscopicConfig
+from ..parameters import BICYCLE_PARAMETER_BACKENDS
+
+__all__ = [
+    "AmbientTrafficConfig",
+    "BicycleConfig",
+    "DEFAULT_BICYCLE_BLUEPRINTS",
+    "PedestrianConfig",
+    "SumoBackendConfig",
+]
+
+_LIGHT_AUTHORITIES = ("carla", "sumo", "none")
+_SCENARIO_VEHICLE_DRIVERS = ("traffic_manager", "sumo")
+_SCENARIO_PEDESTRIAN_DRIVERS = ("traffic_manager", "sumo")
+_VEHICLE_CONTROLS = ("physics", "teleport")
+#: CARLA's bicycles, any of which a SUMO bicycle is mirrored as.
+DEFAULT_BICYCLE_BLUEPRINTS = (
+    "vehicle.bh.crossbike",
+    "vehicle.diamondback.century",
+    "vehicle.gazelle.omafiets",
+)
+
+
+def _check_count(key: str, value: Optional[int]) -> None:
+    """Refuse a limit on how many that is not a whole number >= 0 or null.
+
+    ``0`` is a limit like any other: none at all.  A negative one would slice
+    the farthest off a list, and a float or a bool is not a count.
+    """
+    if value is not None and (
+        isinstance(value, bool) or not isinstance(value, int) or value < 0
+    ):
+        raise ValueError(f"{key} must be an integer >= 0 or null (got {value!r})")
+
+
+def _check_positive(key: str, value: Optional[float]) -> None:
+    """Refuse a value that is not finite and > 0 (``None`` passes)."""
+    if value is not None and not (math.isfinite(value) and value > 0.0):
+        raise ValueError(f"{key} must be positive and finite or null (got {value!r})")
+
+
+def _check_positive_or_inf(key: str, value: Optional[float]) -> None:
+    """Refuse a value that is not > 0 (``None`` and ``inf`` pass).
+
+    For a distance where ``inf`` has a meaning -- no bound -- that SUMO's
+    tools and the backend read as such: NaN and 0 or below are refused.
+    """
+    if value is not None and not value > 0.0:
+        raise ValueError(f"{key} must be positive or null (got {value!r})")
+
+
+def _check_not_negative(key: str, value: float) -> None:
+    """Refuse a value that is not finite and >= 0."""
+    if not (math.isfinite(value) and value >= 0.0):
+        raise ValueError(f"{key} must be finite and not negative (got {value!r})")
+
+
+def _check_demand(
+    group: str, rate: str, per_hour: float, period_s: Optional[float], end_s: float
+) -> None:
+    """Refuse a generated demand's rate, period or end that is not a number
+    SUMO's ``randomTrips.py`` can use: a NaN rate would make a NaN period."""
+    _check_not_negative(f"{group}.{rate}", per_hour)
+    _check_positive(f"{group}.period_s", period_s)
+    _check_positive(f"{group}.end_s", end_s)
+
+
+@dataclass
+class AmbientTrafficConfig:
+    """SUMO's own traffic, generated with ``randomTrips.py``.
+
+    Attributes:
+        enabled: Generate any at all.  Off (the default), SUMO carries only
+            the scenario's vehicles, the background vehicles its traffic
+            sources add (``TrafficSourceAction``), and a ``route_path``
+            demand, when one is given: nothing joins the run that the run did
+            not ask for.
+        vehicles_per_hour: Trips generated per hour of simulated time.
+        period_s: Seconds between two trips; overrides ``vehicles_per_hour``.
+        end_s: Seconds of demand to generate.
+        fringe_factor: ``randomTrips.py``'s weight on trips starting and ending
+            at the edge of the network; used without ``use_safe_weights``.
+        use_safe_weights: Weight sources and sinks with the
+            ``network.safe.*`` files roadgen writes beside the network, which
+            keep trips off dead ends.
+    """
+
+    enabled: bool = False
+    vehicles_per_hour: float = 900.0
+    period_s: Optional[float] = None
+    end_s: float = 3600.0
+    fringe_factor: float = 5.0
+    use_safe_weights: bool = True
+
+    def __post_init__(self) -> None:
+        _check_demand(
+            "ambient",
+            "vehicles_per_hour",
+            self.vehicles_per_hour,
+            self.period_s,
+            self.end_s,
+        )
+        _check_not_negative("ambient.fringe_factor", self.fringe_factor)
+
+    def period(self) -> float:
+        """Seconds between two generated trips."""
+        if self.period_s is not None:
+            return float(self.period_s)
+        return 3600.0 / max(float(self.vehicles_per_hour), 1e-6)
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "AmbientTrafficConfig":
+        """Return a config built from a plain mapping (e.g. a Hydra node)."""
+        # Imported here: utils.config reads a dataclass's fields from its class,
+        # which Codon cannot express, and the library check compiles no import
+        # in a function it does not call (typecheck/library.py, UNCALLED).
+        from ...utils.config import checked_options  # noqa: PLC0415
+
+        return cls(**checked_options(cls, mapping))
+
+
+@dataclass
+class PedestrianConfig:
+    """SUMO's own pedestrians, generated with ``randomTrips.py --pedestrians``
+    and mirrored into CARLA as walkers.
+
+    Attributes:
+        enabled: Generate any at all.  They walk the network's footways, so a
+            network without any has none to walk.
+        persons_per_hour: Walks generated per hour of simulated time.
+        period_s: Seconds between two walks; overrides ``persons_per_hour``.
+        end_s: Seconds of demand to generate.
+        max_distance_m: The longest walk generated, metres; ``.inf`` for no
+            limit.
+        radius_m: Mirror only the pedestrians this close to the ego (or to a
+            vehicle CARLA drives) into CARLA, and remove one that walks more
+            than 1.25 times as far away; the rest walk on in SUMO only, where
+            SUMO's traffic still sees them.  ``None``: the radii of
+            ``mesoscopic`` when that is enabled, everywhere otherwise.
+        max_persons: Most pedestrians mirrored into CARLA at once, the nearest
+            first; ``None`` for no limit, ``0`` for none.
+        blueprint: CARLA blueprint of a mirrored pedestrian.
+    """
+
+    enabled: bool = False
+    persons_per_hour: float = 600.0
+    period_s: Optional[float] = None
+    end_s: float = 3600.0
+    max_distance_m: float = 500.0
+    radius_m: Optional[float] = None
+    max_persons: Optional[int] = None
+    blueprint: str = "walker.pedestrian.0015"
+
+    def __post_init__(self) -> None:
+        _check_demand(
+            "pedestrians",
+            "persons_per_hour",
+            self.persons_per_hour,
+            self.period_s,
+            self.end_s,
+        )
+        _check_positive_or_inf("pedestrians.max_distance_m", self.max_distance_m)
+        _check_positive("pedestrians.radius_m", self.radius_m)
+        _check_count("pedestrians.max_persons", self.max_persons)
+
+    def period(self) -> float:
+        """Seconds between two generated walks."""
+        if self.period_s is not None:
+            return float(self.period_s)
+        return 3600.0 / max(float(self.persons_per_hour), 1e-6)
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "PedestrianConfig":
+        """Return a config built from a plain mapping (e.g. a Hydra node)."""
+        from ...utils.config import checked_options  # noqa: PLC0415
+
+        return cls(**checked_options(cls, mapping))
+
+
+def _default_bicycle_blueprints() -> list[str]:
+    return list(DEFAULT_BICYCLE_BLUEPRINTS)
+
+
+@dataclass
+class BicycleConfig:
+    """SUMO's own bicycles, generated with ``randomTrips.py`` and mirrored
+    into CARLA as bicycles.
+
+    They ride wherever the network lets a bicycle: the carriageway's lanes and
+    cycle lanes, and the sidewalks too when the network is built with
+    ``cycle_on_sidewalks``.  How they ride is not here but in the parameters
+    every backend shares
+    (:class:`~autoware_carla_scenario.traffic.parameters.BicycleParameters`,
+    ``traffic.bicycles``); ``bicycles`` here is how many SUMO generates, and
+    how they reach CARLA.
+
+    Attributes:
+        enabled: Generate any at all.
+        bicycles_per_hour: Rides generated per hour of simulated time.
+        period_s: Seconds between two rides; overrides ``bicycles_per_hour``.
+        end_s: Seconds of demand to generate.
+        min_distance_m: The shortest ride generated, metres (between where it
+            starts and ends).
+        max_distance_m: The longest ride generated, metres; ``None`` for no
+            limit.
+        radius_m: Mirror only the bicycles this close to the ego into CARLA;
+            ``None``: ``spawn_radius_m``, the vehicles' radius.
+        max_bicycles: Most bicycles mirrored into CARLA at once, the nearest
+            first, apart from ``max_vehicles``; ``None`` for no limit, ``0``
+            for none.
+        blueprints: The CARLA blueprints a mirrored bicycle is one of, chosen
+            per bicycle.  Those the world lacks are left out; with none left,
+            bicycles ride in SUMO only, where its traffic still sees them.
+        vehicle_control: How a mirrored bicycle follows its SUMO bicycle, as
+            ``vehicle_control`` for a car.  ``teleport`` by default: a
+            bicycle changing between sidewalk and road crosses the kerb,
+            which CARLA's vehicle physics would trip on.
+    """
+
+    enabled: bool = False
+    bicycles_per_hour: float = 300.0
+    period_s: Optional[float] = None
+    end_s: float = 3600.0
+    min_distance_m: float = 0.0
+    max_distance_m: Optional[float] = 2000.0
+    radius_m: Optional[float] = None
+    max_bicycles: Optional[int] = None
+    blueprints: list[str] = field(default_factory=_default_bicycle_blueprints)
+    vehicle_control: str = "teleport"
+
+    def __post_init__(self) -> None:
+        if self.vehicle_control not in _VEHICLE_CONTROLS:
+            raise ValueError(
+                "bicycles.vehicle_control must be one of "
+                f"{', '.join(_VEHICLE_CONTROLS)} (got {self.vehicle_control!r})"
+            )
+        _check_demand(
+            "bicycles",
+            "bicycles_per_hour",
+            self.bicycles_per_hour,
+            self.period_s,
+            self.end_s,
+        )
+        _check_not_negative("bicycles.min_distance_m", self.min_distance_m)
+        _check_positive_or_inf("bicycles.max_distance_m", self.max_distance_m)
+        _check_positive("bicycles.radius_m", self.radius_m)
+        _check_count("bicycles.max_bicycles", self.max_bicycles)
+
+    def period(self) -> float:
+        """Seconds between two generated rides."""
+        if self.period_s is not None:
+            return float(self.period_s)
+        return 3600.0 / max(float(self.bicycles_per_hour), 1e-6)
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "BicycleConfig":
+        """Return a config built from a plain mapping (e.g. a Hydra node)."""
+        from ...utils.config import checked_options  # noqa: PLC0415
+
+        moved = sorted(set(mapping) & set(BICYCLE_PARAMETER_BACKENDS))
+        if moved:
+            raise ValueError(
+                f"traffic.options.bicycles.{moved[0]} is how bicycles ride: it "
+                "is traffic.bicycles now, with the vehicle and pedestrian "
+                "parameters every backend shares (BicycleParameters)"
+            )
+        checked = checked_options(cls, mapping)
+        if "blueprints" in checked:
+            checked["blueprints"] = [str(b) for b in checked["blueprints"] or []]
+        return cls(**checked)
+
+
+@dataclass
+class SumoBackendConfig:
+    """Options of the ``sumo`` traffic backend.
+
+    How SUMO's drivers behave -- their speed, gap, reaction and braking, and
+    whether they follow the visibility -- and how its pedestrians walk is not
+    here but in the parameters every backend shares
+    (:class:`~autoware_carla_scenario.traffic.parameters.VehicleParameters`,
+    ``traffic.vehicles``;
+    :class:`~autoware_carla_scenario.traffic.parameters.PedestrianParameters`,
+    ``traffic.pedestrians``).  ``pedestrians`` here is how many SUMO
+    generates, and how its bicycles ride is in
+    :class:`~autoware_carla_scenario.traffic.parameters.BicycleParameters`
+    (``traffic.bicycles``): ``bicycles`` here is how many it generates.
+
+    Attributes:
+        scenario_vehicles: What drives the scenario's own vehicles (its
+            authored NPCs, and an ego with ``ego.entity=autopilot``).
+            ``traffic_manager`` (the default): CARLA's TrafficManager, as under
+            the ``traffic_manager`` backend, so a scenario's NPCs behave the
+            same whichever backend fills the road -- they are published into
+            SUMO, whose traffic reacts to them.  ``sumo``: SUMO drives them, and
+            their manoeuvres become TraCI calls.
+        scenario_pedestrians: What walks the scenario's own pedestrians (the
+            ``PedestrianEntity`` it registers).  ``traffic_manager`` (the
+            default): CARLA's side, as under the ``traffic_manager`` backend
+            -- a ``WalkStraightAction`` walks the walker straight ahead with a
+            ``carla.WalkerControl`` -- and each is published into SUMO
+            (``publish_walkers``).  ``sumo``: each is a SUMO person, and its
+            CARLA walker follows it.  A ``WalkStraightAction`` walks the
+            person straight on through TraCI (``person.moveToXY`` each step,
+            onto the road where the line crosses it, so SUMO's traffic sees
+            it there), and the walker follows: the same walk as on CARLA's
+            side, with SUMO holding the pedestrian.
+        tm_port: TrafficManager port, for ``scenario_vehicles=traffic_manager``.
+        vehicle_control: How a CARLA vehicle SUMO drives follows its SUMO
+            vehicle.  ``physics`` (the default): with CARLA's vehicle physics,
+            steered along SUMO's path (pure pursuit, as TeraSim's
+            ``ackermann_physics`` mode does) and driven at SUMO's speed by a PI
+            throttle/brake controller.
+            ``teleport``: put where SUMO has it every tick, with SUMO's speed as
+            a constant velocity.
+        feedback_distance_m: With ``physics``, a car further than this from its
+            SUMO vehicle moves the SUMO vehicle to where the car really is, so
+            the gaps SUMO keeps are kept to the car CARLA has.  ``moveTo``
+            takes effect at once and leaves SUMO planning the vehicle's next
+            step; inside a junction nothing is corrected.  ``0`` never
+            corrects SUMO.
+        resync_distance_m: With ``physics``, a car further than this from its
+            SUMO vehicle (after a collision, say) is put back on it in CARLA;
+            ``.inf`` never puts it back.
+        traffic_light_authority: Which simulator's signals the other follows.
+            ``carla``: SUMO's signals take the states of CARLA's lights every
+            step, so SUMO traffic obeys the lights the ego sees and a scenario
+            that sets them (``TrafficSignalAction``) sets them for SUMO too.
+            ``sumo``: CARLA's lights follow SUMO's programs.  ``none``: each
+            keeps its own.
+        pedestrian_crossings: Build the network with a pedestrian crossing
+            across each road at a junction where footways meet it, and walking
+            areas joining them (netconvert's ``--crossings.guess``), so SUMO's
+            pedestrians cross roads on crossings, where SUMO's vehicles yield
+            to them.  At a signalised junction, with
+            ``traffic_light_authority=carla``, a crossing is green while every
+            vehicle movement into or out of a road it crosses is red.
+            Ignored with ``net_path``.
+        publish_walkers: Put CARLA's pedestrians into SUMO as persons where
+            they stand, every step, so SUMO traffic sees them: a SUMO vehicle
+            brakes for a pedestrian on its lane -- on a crossing or anywhere
+            else on the road -- or changes lanes round it.  Not the scenario's
+            pedestrians SUMO walks (``scenario_pedestrians=sumo``): those are
+            in SUMO already.
+        curve_lateral_acceleration: Lateral acceleration (m/s²) SUMO traffic is
+            held to in bends when the world's OpenDRIVE is converted: roadgen
+            cuts each edge at its bends and gives every piece, and every path
+            across a junction, the speed ``sqrt(a / curvature)`` its sharpest
+            point allows, where that is below the limit.  SUMO's models read no
+            curvature, so without it traffic takes Town10's bends at up to
+            ~10 m/s² sideways, which a car under ``physics`` cannot follow.
+            ``None`` converts the map as it is.  Ignored with ``net_path``.
+        cycle_on_sidewalks: Build the network with bicycles allowed on the
+            sidewalks, both ways, as well as on the carriageway (roadgen's
+            ``export_sumo(cycle_on_sidewalks=True)``): each sidewalk gets a
+            bicycle edge each way along it, and a bicycle may change between
+            sidewalk and road at every junction and every 50 m at most
+            between, ride across the road where a crossing is, and turn back
+            at a dead end.  At a signalised junction, with
+            ``traffic_light_authority=carla``, a bicycle coming onto the
+            road goes with the traffic of the road it comes off the sidewalk
+            beside, and one getting off the road with the traffic it leaves.
+            Off (the default), sidewalks are the pedestrians' and bicycles
+            keep to the carriageway.  Ignored with ``net_path``.
+        lateral_resolution_m: Width of a sublane, metres
+            (``--lateral-resolution``; 0.4 by default): SUMO's sublane model,
+            where a vehicle's lateral position is continuous -- it changes
+            lanes smoothly, at its own lateral speed and acceleration
+            (``traffic.vehicles.max_lateral_speed_mps`` and
+            ``max_lateral_accel``), never in one step.  ``None``: SUMO's
+            lane-based model, with ``lane_change_duration_s``.
+        lane_change_duration_s: With ``lateral_resolution_m: null`` only, how
+            long a lane change of SUMO's lane-based model takes, seconds
+            (``--lanechange.duration``; 3 s when unset): a vehicle moves
+            across continuously over this time, at no more than its
+            ``max_lateral_speed_mps``.  SUMO takes only one of the two.
+        step_length_s: SUMO's step, seconds (``--step-length``).  ``None``:
+            the world's ``fixed_delta_seconds``, one SUMO step per CARLA tick.
+            A shorter one must divide the tick in whole milliseconds (SUMO's
+            clock counts those): SUMO then makes that many steps per tick, so
+            movement within a tick, a lane change above all, is smoother.
+        net_path: An existing ``.net.xml`` to run on, instead of converting the
+            world's OpenDRIVE.  Its x/y must be OpenDRIVE's plus its
+            ``netOffset``, as netconvert writes a network built from it.
+        route_path: Explicit SUMO demand (``.rou.xml``), added to the ambient
+            traffic.
+        ambient: SUMO's own generated traffic.  Off by default.
+        pedestrians: SUMO's own generated pedestrians, mirrored into CARLA
+            near the ego.  Off by default.
+        bicycles: SUMO's own generated bicycles, mirrored into CARLA as
+            bicycles near the ego, and how they ride.  Off by default.
+        warmup_s: SUMO seconds simulated when the run starts, before the
+            scenario clock, so ambient traffic is already on the road; the
+            scenario's vehicles are held still meanwhile.
+        spawn_radius_m: Mirror only SUMO vehicles this close to the ego into
+            CARLA (positive); ``None`` mirrors them wherever they are.
+        max_vehicles: Most ambient vehicles mirrored into CARLA at once, the
+            nearest to the ego first; ``None`` for no limit, ``0`` for none
+            (they drive in SUMO only, where its traffic still sees them).
+        mesoscopic: Simulate SUMO's vehicles far from the ego (and from every
+            vehicle CARLA drives) in a mesoscopic queue model instead of in
+            SUMO, with no actor in CARLA, and put them back into SUMO -- and
+            CARLA -- when they come near
+            (:class:`~autoware_carla_scenario.traffic.fidelity.MesoscopicConfig`).
+            Off by default.
+        blueprint: CARLA blueprint of an ambient vehicle.
+        binary: SUMO executable, when not in-process (``sumo-gui`` to watch).
+        use_libsumo: Run SUMO in-process through libsumo (faster, no GUI);
+            otherwise as a TraCI subprocess running ``binary``.
+        cache_dir: Where converted networks are kept, keyed by the OpenDRIVE
+            they came from; ``~/.cache/autoware_carla_scenario/sumo`` by
+            default.
+        fcd_output: Record every SUMO vehicle's state each step (SUMO's
+            floating car data) to ``<output_dir>/sumo/fcd.xml``, for replaying
+            or plotting a run's traffic afterwards, and the SUMO time each CARLA
+            tick maps to in ``<output_dir>/sumo/clock.csv``.
+        sumo_args: Extra command-line arguments for SUMO.
+    """
+
+    scenario_vehicles: str = "traffic_manager"
+    scenario_pedestrians: str = "traffic_manager"
+    tm_port: int = DEFAULT_TM_PORT
+    vehicle_control: str = "physics"
+    feedback_distance_m: float = 0.0
+    resync_distance_m: float = 8.0
+    traffic_light_authority: str = "carla"
+    publish_walkers: bool = True
+    pedestrian_crossings: bool = True
+    cycle_on_sidewalks: bool = False
+    curve_lateral_acceleration: Optional[float] = 3.0
+    lateral_resolution_m: Optional[float] = 0.4
+    lane_change_duration_s: Optional[float] = None
+    step_length_s: Optional[float] = None
+    net_path: Optional[str] = None
+    route_path: Optional[str] = None
+    ambient: AmbientTrafficConfig = field(default_factory=AmbientTrafficConfig)
+    pedestrians: PedestrianConfig = field(default_factory=PedestrianConfig)
+    bicycles: BicycleConfig = field(default_factory=BicycleConfig)
+    warmup_s: float = 30.0
+    spawn_radius_m: Optional[float] = None
+    max_vehicles: Optional[int] = None
+    mesoscopic: MesoscopicConfig = field(default_factory=MesoscopicConfig)
+    blueprint: str = "vehicle.lincoln.mkz"
+    binary: str = "sumo"
+    use_libsumo: bool = True
+    cache_dir: Optional[str] = None
+    fcd_output: bool = False
+    sumo_args: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.traffic_light_authority not in _LIGHT_AUTHORITIES:
+            raise ValueError(
+                "traffic_light_authority must be one of "
+                f"{', '.join(_LIGHT_AUTHORITIES)} (got {self.traffic_light_authority!r})"
+            )
+        if self.vehicle_control not in _VEHICLE_CONTROLS:
+            raise ValueError(
+                "vehicle_control must be one of "
+                f"{', '.join(_VEHICLE_CONTROLS)} (got {self.vehicle_control!r})"
+            )
+        if (
+            isinstance(self.tm_port, bool)
+            or not isinstance(self.tm_port, int)
+            or not 1 <= self.tm_port <= 65535
+        ):
+            raise ValueError(
+                f"tm_port must be an integer within 1-65535 (got {self.tm_port!r})"
+            )
+        _check_not_negative("feedback_distance_m", self.feedback_distance_m)
+        _check_positive_or_inf("resync_distance_m", self.resync_distance_m)
+        _check_positive("curve_lateral_acceleration", self.curve_lateral_acceleration)
+        _check_positive("lateral_resolution_m", self.lateral_resolution_m)
+        _check_positive("lane_change_duration_s", self.lane_change_duration_s)
+        _check_positive("step_length_s", self.step_length_s)
+        _check_not_negative("warmup_s", self.warmup_s)
+        _check_positive("spawn_radius_m", self.spawn_radius_m)
+        _check_count("max_vehicles", self.max_vehicles)
+        if (
+            self.lane_change_duration_s is not None
+            and self.lateral_resolution_m is not None
+        ):
+            raise ValueError(
+                "lane_change_duration_s needs lateral_resolution_m: null: SUMO "
+                "changes lanes either over a duration, in its lane-based model, "
+                "or in its sublane model (the default), where "
+                "max_lateral_speed_mps and max_lateral_accel (traffic.vehicles) "
+                "say how fast"
+            )
+        if self.scenario_vehicles not in _SCENARIO_VEHICLE_DRIVERS:
+            raise ValueError(
+                "scenario_vehicles must be one of "
+                f"{', '.join(_SCENARIO_VEHICLE_DRIVERS)} (got {self.scenario_vehicles!r})"
+            )
+        if self.scenario_pedestrians not in _SCENARIO_PEDESTRIAN_DRIVERS:
+            raise ValueError(
+                "scenario_pedestrians must be one of "
+                f"{', '.join(_SCENARIO_PEDESTRIAN_DRIVERS)} "
+                f"(got {self.scenario_pedestrians!r})"
+            )
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "SumoBackendConfig":
+        """Return a config built from a plain mapping (e.g. a Hydra node)."""
+        from ...utils.config import checked_options  # noqa: PLC0415
+
+        if "follow_visibility" in mapping:
+            raise ValueError(
+                "traffic.options.follow_visibility has moved to "
+                "traffic.vehicles.follow_visibility, with the other vehicle "
+                "parameters every backend shares (VehicleParameters)"
+            )
+        checked = checked_options(cls, mapping)
+        if isinstance(checked.get("ambient"), Mapping):
+            checked["ambient"] = AmbientTrafficConfig.from_mapping(checked["ambient"])
+        if isinstance(checked.get("pedestrians"), Mapping):
+            checked["pedestrians"] = PedestrianConfig.from_mapping(
+                checked["pedestrians"]
+            )
+        if isinstance(checked.get("bicycles"), Mapping):
+            checked["bicycles"] = BicycleConfig.from_mapping(checked["bicycles"])
+        if isinstance(checked.get("mesoscopic"), Mapping):
+            checked["mesoscopic"] = MesoscopicConfig.from_mapping(checked["mesoscopic"])
+        if "sumo_args" in checked:
+            checked["sumo_args"] = [str(a) for a in checked["sumo_args"] or []]
+        if checked.get("tm_port") is None:
+            checked.pop("tm_port", None)  # `${oc.select:...,null}`: the default
+        return cls(**checked)
+
+    def resolved_cache_dir(self) -> Path:
+        """The directory converted networks are cached in."""
+        if self.cache_dir:
+            return Path(self.cache_dir).expanduser()
+        return Path.home() / ".cache" / "autoware_carla_scenario" / "sumo"

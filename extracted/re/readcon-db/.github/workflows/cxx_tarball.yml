@@ -1,0 +1,37 @@
+name: cxx source tarball
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cxx-tarball:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Assemble slim and vendor cxx tarballs
+        run: |
+          mkdir -p dist-cxx
+          bash scripts/package-cxx.sh dist-cxx
+          bash scripts/package-cxx.sh dist-cxx --vendor
+          ls -lh dist-cxx
+
+      - name: Upload tarballs to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-cxx/readcon-db-cxx-*.tar.gz
+            dist-cxx/readcon-db-cxx-*.tar.gz.sha256
+          fail_on_unmatched_files: true
+          append_body: true
+          body: |
+            C/C++ source tarballs: `readcon-db-cxx-$VERSION.tar.gz` (FetchContent / wrap default) and `readcon-db-cxx-$VERSION-vendor.tar.gz` (offline crates). Headers are shipped; cbindgen is not required.

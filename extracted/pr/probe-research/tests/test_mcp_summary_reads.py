@@ -381,7 +381,7 @@ def test_summary_history_refuses_another_branches_arguments(client, app):
 @pytest.mark.parametrize("version", [0, "0"])
 def test_version_zero_is_a_recorded_version(client, app, version):
     """Pages written before the counter existed sit at version 0 and the list
-    shows them (`app/overviews/history.py`); the read must open them too."""
+    shows them (`app/generation/overviews/summary/history.py`); the read must open them too."""
     entity = _anchor(client, "project")
     _seed_summary(app, "project", entity["id"], 2)
     app.summaries[("project", entity["id"])]["versions"].append(

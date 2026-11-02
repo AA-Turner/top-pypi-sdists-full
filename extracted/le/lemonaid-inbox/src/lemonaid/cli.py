@@ -1,0 +1,226 @@
+"""CLI entry point for lemonaid.
+
+Lemonaid is a toolkit for working with lemons (LLMs). Current features:
+- inbox: Attention management / notification inbox for tracking which lemons need you
+"""
+
+import argparse
+import sys
+
+import lemonaid.brief.archive_cli
+import lemonaid.brief.cli
+import lemonaid.claude.cli
+import lemonaid.codex.cli
+import lemonaid.groups.cli
+import lemonaid.grove.cli
+import lemonaid.home.cli
+import lemonaid.hooks.cli
+import lemonaid.inbox.cli
+import lemonaid.lineage.cli
+import lemonaid.messages.cli
+import lemonaid.openclaw.cli
+import lemonaid.opencode.cli
+import lemonaid.places.cli
+import lemonaid.restore.cli
+import lemonaid.skills.cli
+import lemonaid.terminal.cli
+import lemonaid.tmux.cli
+import lemonaid.tmux.label_host
+import lemonaid.usage.cli
+import lemonaid.watch.cli
+import lemonaid.watch.reconcile
+import lemonaid.watch.restart
+import lemonaid.watch.wait_cli
+import lemonaid.wezterm.cli
+
+from . import claude, errors, for_lemons, go, inbox
+from .config import ensure_config_exists, get_config_path
+from .launch import passthrough
+
+
+# Config commands (kept here since config isn't a package)
+def cmd_config_init(args: argparse.Namespace) -> None:
+    """Initialize config file with defaults."""
+    config_path = ensure_config_exists()
+    print(f"Config file at: {config_path}")
+
+
+def cmd_config_path(args: argparse.Namespace) -> None:
+    """Print config file path."""
+    print(get_config_path())
+
+
+def cmd_config_show(args: argparse.Namespace) -> None:
+    """Show current config."""
+    config_path = get_config_path()
+    if config_path.exists():
+        print(config_path.read_text())
+    else:
+        print(f"No config file at {config_path}")
+        print("Run 'lemonaid config init' to create one.")
+
+
+def cmd_mark_read(args: argparse.Namespace) -> None:
+    """Mark notifications as read by TTY."""
+    with inbox.db.connect() as conn:
+        count = inbox.db.mark_read_by_tty(conn, args.tty)
+    if count > 0:
+        print(f"Marked {count} notification(s) as read")
+    else:
+        print("No matching notifications")
+
+
+def cmd_mark_unread(args: argparse.Namespace) -> None:
+    """Mark notifications as unread by TTY."""
+    with inbox.db.connect() as conn:
+        count = inbox.db.mark_unread_by_tty(conn, args.tty)
+    if count > 0:
+        print(f"Marked {count} notification(s) as unread")
+    else:
+        print("No matching notifications")
+
+
+def setup_config_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Set up the config subcommand."""
+    config_parser = subparsers.add_parser(
+        "config",
+        help="Manage lemonaid configuration",
+    )
+    config_subparsers = config_parser.add_subparsers(dest="config_command")
+
+    # config init
+    init_parser = config_subparsers.add_parser("init", help="Create default config file")
+    init_parser.set_defaults(func=cmd_config_init)
+
+    # config path
+    path_parser = config_subparsers.add_parser("path", help="Print config file path")
+    path_parser.set_defaults(func=cmd_config_path)
+
+    # config show
+    show_parser = config_subparsers.add_parser("show", help="Show current config")
+    show_parser.set_defaults(func=cmd_config_show)
+
+    config_parser.set_defaults(func=cmd_config_show, config_command=None)
+
+
+def setup_mark_read_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Set up the mark-read command for tmux integration."""
+    parser = subparsers.add_parser(
+        "mark-read",
+        help="Mark notifications as read by TTY (for tmux keybindings)",
+        description="Mark all unread notifications from a specific TTY as read.",
+    )
+    parser.add_argument(
+        "--tty",
+        required=True,
+        help="The TTY device path (e.g., /dev/ttys005)",
+    )
+    parser.set_defaults(func=cmd_mark_read)
+
+
+def setup_mark_unread_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Set up the mark-unread command for tmux integration."""
+    parser = subparsers.add_parser(
+        "mark-unread",
+        help="Mark notifications as unread by TTY (for tmux keybindings)",
+        description="Return all read notifications from a specific TTY to unread.",
+    )
+    parser.add_argument(
+        "--tty",
+        required=True,
+        help="The TTY device path (e.g., /dev/ttys005)",
+    )
+    parser.set_defaults(func=cmd_mark_unread)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="lemonaid",
+        description="Toolkit for working with lemons (LLMs)",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    lemonaid.inbox.cli.setup_parser(subparsers)
+    lemonaid.messages.cli.add_tell_parser(subparsers)
+    go.setup_parser(subparsers)
+    lemonaid.lineage.cli.setup_parser(subparsers)
+    lemonaid.groups.cli.setup_parser(subparsers)
+    lemonaid.grove.cli.setup_parser(subparsers)
+    lemonaid.home.cli.setup_parser(subparsers)
+    lemonaid.hooks.cli.setup_parser(subparsers)
+    lemonaid.claude.cli.setup_parser(subparsers)
+    lemonaid.codex.cli.setup_parser(subparsers)
+    lemonaid.openclaw.cli.setup_parser(subparsers)
+    lemonaid.opencode.cli.setup_parser(subparsers)
+    lemonaid.places.cli.setup_parser(subparsers)
+    lemonaid.restore.cli.setup_parser(subparsers)
+    lemonaid.brief.cli.setup_parser(subparsers)
+    lemonaid.skills.cli.setup_parser(subparsers)
+    lemonaid.terminal.cli.setup_parser(subparsers)
+    lemonaid.tmux.cli.setup_parser(subparsers)
+    lemonaid.usage.cli.setup_parser(subparsers)
+    lemonaid.watch.wait_cli.setup_parser(subparsers)
+    lemonaid.watch.cli.setup_parser(subparsers, (lemonaid.tmux.label_host.service,))
+    lemonaid.wezterm.cli.setup_parser(subparsers)
+    setup_config_parser(subparsers)
+    setup_mark_read_parser(subparsers)
+    setup_mark_unread_parser(subparsers)
+    for_lemons.setup_parser(subparsers)
+
+    # Forward `lemonaid claude --flag ...` to the real claude CLI.
+    # Argparse can't forward unknown flags through a subparser, so this
+    # intercepts before parse_args when the first arg after "claude" is a flag.
+    claude.resume.maybe_intercept(sys.argv[1:])
+
+    args = passthrough.parse_args(parser, sys.argv[1:])
+    args.invocation = ["lemonaid", *sys.argv[1:]]
+    lemonaid.watch.restart.after_upgrade()
+    lemonaid.watch.reconcile.after_install()
+    if getattr(args, "brief_command", None) not in lemonaid.brief.archive_cli.COMMANDS:
+        lemonaid.brief.archive_cli.daily()
+
+    try:
+        if args.command is None:
+            parser.print_help()
+        elif hasattr(args, "func"):
+            args.func(args)
+        else:
+            parser.print_help()
+    except Exception as error:
+        errors.record(error, " ".join(sys.argv))
+        raise
+
+
+def inbox_main() -> None:
+    """Direct entry point for `lma` alias - goes straight to inbox TUI."""
+    import argparse
+    import os
+
+    from .inbox.tui import LemonaidApp, set_terminal_title
+
+    parser = argparse.ArgumentParser(prog="lma", description="Lemonaid attention inbox")
+    parser.add_argument(
+        "--scratch",
+        action="store_true",
+        help="Run as a scratch pane: auto-hide after selecting a notification",
+    )
+    args = parser.parse_args()
+
+    if not lemonaid.inbox.cli.has_terminal():
+        parser.print_help()
+
+        return
+
+    set_terminal_title("lma")
+    app = LemonaidApp(scratch_mode=args.scratch)
+    app.run()
+
+    # If the user chose to resume a session, exec it in this terminal
+    if app._exec_on_exit:
+        cwd, argv = app._exec_on_exit
+        os.chdir(cwd)
+        os.execvp(argv[0], argv)
+
+
+if __name__ == "__main__":
+    main()

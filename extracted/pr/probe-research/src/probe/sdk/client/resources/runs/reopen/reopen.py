@@ -14,6 +14,14 @@ from .....run.run import Run  # noqa: E402
 _TAKEOVER_DRAIN_SECONDS = 120.0
 
 
+def _is_waited_for(op: dict) -> bool:
+    """Whether the takeover barrier waits for ``op``, and sends it: not a non-blocking op on a lane
+    of its own (the open's code-bytes archive; multipart uploads have a queue no barrier reads).
+    Nothing of the run is ordered after one, no write epoch fences an upload, and a store that
+    never answers it must not spend the barrier's budget."""
+    return not (op.get("blocking") is False and isinstance(op.get("lane"), str) and op["lane"])
+
+
 class ReopenMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
 
@@ -175,23 +183,34 @@ class ReopenMixin:
         refs = {str(r) for r in (old.get("id"), old.get("slug")) if r}
         mine = str(self.journal.dir)
 
+        def _add_waiting(queue, where: str, out: dict) -> None:
+            for name, op_id, ref, readable, _blocking in queue._waiting_items():
+                if readable and ref in refs:
+                    out.setdefault((where, name), {"op_id": op_id, "run_ref": ref})
+
         def queued() -> dict[tuple[str, str], dict]:
             """The incumbent's queued ops, by (queue, name): this client's queue,
             and every other queue of the outbox whose own worker is running --
             writes of the run queued under another credential (#2035) that
             someone is delivering right now (#2041 round 5). One nobody can
-            send here is only named in the warning below."""
+            send here is only named in the warning below. The ops the barrier
+            does not wait for (`_is_waited_for`: the open's archive) are left out.
+            Uploads still in a waiting room count too, under the name their
+            promotion writes them as: promoted meanwhile (by a barrier pass, by
+            a worker), they are the same backlog, not a live writer's."""
             out: dict[tuple[str, str], dict] = {}
             try:
                 for path, op in self.journal.pending():
-                    if op.get("run_ref") in refs:
+                    if op.get("run_ref") in refs and _is_waited_for(op):
                         out[(mine, path.name)] = op
+                _add_waiting(self.journal, mine, out)
                 for queue in self.journal.other_queues():
                     if queue.receipt_enabled or not queue.worker_alive():
                         continue
                     for path, op in queue.pending():
-                        if op.get("run_ref") in refs:
+                        if op.get("run_ref") in refs and _is_waited_for(op):
                             out[(str(queue.dir), path.name)] = op
+                    _add_waiting(queue, str(queue.dir), out)
             except Exception:  # noqa: BLE001 -- an unreadable queue has nothing to barrier
                 return out
             return out
@@ -226,6 +245,8 @@ class ReopenMixin:
         from .....delivery.transport.deadlines import deadline_scope
 
         before = queued()
+        # Only what it waits for: a pass sending the open's archive could spend the budget on it.
+        waited_for = frozenset(op.get("op_id") for op in before.values() if op.get("op_id"))
         budget = _env_seconds("PROBE_TAKEOVER_DRAIN_SEC", _TAKEOVER_DRAIN_SECONDS)
         deadline = time.monotonic() + budget
         delays = backoff_delays(1_000_000, (0.5, 10.0))
@@ -240,6 +261,7 @@ class ReopenMixin:
                         report = drain(
                             self.journal,
                             run_ref=ref,
+                            only_ops=waited_for,
                             client_factory=self._outbox_client_factory(),
                             wait_for_lock=False,
                             promote_timeout=max(0.0, deadline - time.monotonic()),
@@ -249,6 +271,8 @@ class ReopenMixin:
                 except Exception:  # noqa: BLE001 -- the bound below decides, not one error
                     pass
                 else:
+                    # The run's own lane only: an upload on a lane of its own (the open's
+                    # archive) stalls on the store, which says nothing about the API.
                     stall = (report.stalled_runs or {}).get(ref)
                     if (
                         report.unreachable
@@ -316,7 +340,9 @@ class ReopenMixin:
             for queue in self.journal.other_queues():
                 if queue.receipt_enabled or queue.worker_alive():
                     continue
-                count += sum(1 for _path, op in queue.pending() if op.get("run_ref") in refs)
+                count += sum(
+                    1 for _path, op in queue.pending() if op.get("run_ref") in refs and _is_waited_for(op)
+                )
         except Exception:  # noqa: BLE001 -- best-effort: the warning is the point
             return count
         return count

@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: lzallright
+Version: 0.3.0
+License-File: LICENSE
+Summary: A Python 3.11+ LZO compression library in safe Rust, ported from LZ👌 (lzokay)
+Home-Page: https://vlaci.github.io/lzallright
+Author-email: László Vaskó <1771332+vlaci@users.noreply.github.com>
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://vlaci.github.io/lzallright
+Project-URL: Repository, https://github.com/vlaci/lzallright
+
+# lzallright
+
+A Python 3.11+ implementation of the
+[LZO compression format](http://www.oberhumer.com/opensource/lzo/) in safe Rust,
+ported from the C++ [LZ👌](https://github.com/jackoalan/lzokay) library.
+
+Licensed under the friendly MIT license.
+
+Wheels are built statically without any external dependencies.
+

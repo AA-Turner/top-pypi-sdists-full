@@ -1,0 +1,142 @@
+[project]
+name = "doped"
+version = "3.2.1"
+description = "Python package to setup, process and analyse solid-state defect calculations with VASP"
+authors = [{name = "Seán Kavanagh", email = "skavanagh@seas.harvard.edu"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    ]
+requires-python = ">=3.10"  # dictated by "pymatgen>=2025" requirement
+dependencies = [
+    "tabulate",
+    "matplotlib>=3.5.2",
+    "numpy>=1.21.0",
+    "pymatgen>=2025.10.7",  # breaking changes to LinearAssignment
+    # requires spglib >= 2.5
+    "pymatgen-analysis-defects>=2023.8.22",
+    "shakenbreak>=3.4.2",  # doped StructureMatcher efficiency updates (using ``StructureMatcher_scan_stol``)
+    "ase",  # required by ShakeNBreak anyway
+    "pandas",
+    "pydefect>=0.9.9",  # eigenvalue parsing updates
+    "filelock",
+    "vise>=0.9.0",  # for eigenvalue analysis, >=0.9.0 required for SOC compatibility
+    "cmcrameri>=1.4",  # for colour-maps; >=1.4 required for cmcrameri.cm.cmaps definition
+    "matplotlib-label-lines", # for labelling lines in matplotlib plots
+    "dscribe",  # for defect site guessing using SOAP analysis
+]
+
+# Reminder: Update docs pages when any new (sub)modules are added!
+[project.urls]
+Homepage = "https://doped.readthedocs.io/en/latest/"
+Documentation = "https://doped.readthedocs.io/en/latest/"
+Package = "https://pypi.org/project/doped/"
+Repository = "https://github.com/SMTG-Bham/doped"
+
+[project.optional-dependencies]
+tests = [
+    "pytest>=8.3",
+    "pytest-mpl>=0.16.1",
+    "py-sc-fermi",  # not required, but allows `FermiSolver` with `py-sc-fermi` backend to be tested
+    "pytest-split>=0.10.0",  # for test splitting
+]
+docs = [
+    "sphinx>7",
+    "myst-nb>=1.0",
+    "recommonmark",
+    "renku-sphinx-theme>=0.5.0",
+    "sphinx_rtd_theme>=2.0",
+    "sphinx_design",
+    "sphinx_click"
+]
+analysis = [
+    "easyunfold",
+    "py-sc-fermi",
+    "sumo",
+    "nonrad",
+    #"CarrierCapture.jl"
+]
+pdf = ["pycairo"]
+
+[tool.setuptools.packages.find]
+exclude = ["examples*", "*testing", "tests*", "docs*"]
+
+[tool.setuptools.package-data]
+"doped" = ["py.typed"]
+"doped.VASP_sets" = ["*.yaml"]
+"doped.utils" = ["*.dat", "*.mplstyle"]
+
+[tool.black]
+line-length = 107
+
+[tool.ruff]
+line-length = 107
+lint.pydocstyle.convention = "google"
+lint.isort.split-on-trailing-comma = false
+lint.select = [  # from pymatgen
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "D",   # pydocstyle
+  "E",   # pycodestyle error
+  "EXE", # flake8-executable
+  "F",   # pyflakes
+  "FLY", # flynt
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "ISC", # flake8-implicit-str-concat
+  "PD",  # pandas-vet
+  "PIE", # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "PYI", # flakes8-pyi
+  "Q",   # flake8-quotes
+  "RET", # flake8-return
+  "RSE", # flake8-raise
+  "RUF", # Ruff-specific rules
+  "SIM", # flake8-simplify
+  "TCH", # flake8-type-checking
+  "TID", # tidy imports
+  "TID", # flake8-tidy-imports
+  "UP",  # pyupgrade
+  "W",   # pycodestyle warning
+  "YTT", # flake8-2020
+]
+lint.ignore = [
+  "B028",    # No explicit stacklevel keyword argument found
+  "D101",    # Missing docstring in public class (docstring in init instead)
+  "D200",    # One-line docstring should fit on one line with quotes
+  "D205",    # 1 blank line required between summary line and description
+  "D212",    # Multi-line docstring summary should start at the first line
+  "PLR2004", # Magic number
+  "PLR",     # pylint refactor
+  "W605",    # Invalid escape sequence
+  "PT011",   # too broad pytest.raises()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D102"]
+
+[[tool.mypy.overrides]]
+module = ["tabulate.*"]
+ignore_missing_imports = true
+
+[tool.docformatter]
+recursive = true
+pre-summary-newline = true
+make-summary-multi-line = true
+wrap-summaries = 79
+wrap-descriptions = 79
+# can use force-wrap on CLI to wrap _all_ of the docstrings (not just first paragraphs), but also messes up
+# argument descriptions
+
+[tool.codespell]
+ignore-words-list = "titel,te,bu,aack,unx,nd,efect,vise,mater,sise,dscribe,smll,atomate,coo"  # lowercase!

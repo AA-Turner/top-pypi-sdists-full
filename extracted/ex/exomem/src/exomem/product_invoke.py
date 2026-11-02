@@ -1,0 +1,257 @@
+"""Shared in-process product-command invocation for CLI-family surfaces.
+
+The CLI (`__main__._core_op_main`) and the terminal UI (`exomem tui`) reach the
+unified command registry through this one seam so their semantics cannot drift:
+registry lookup, `Param` coercion, vault resolution (including the pre-init
+allowances for `browse_memory` and `adopt_vault` scan-only), conditional
+`source_schema` injection, and the writer-lease dispatcher.
+
+The `capabilities.active_surface` + owner-principal binding lives INSIDE
+`invoke_prepared`, not at call sites: ContextVars do not propagate into worker
+threads, and an unbound principal fails silently closed at the governance
+egress boundary (results scrub to empty — indistinguishable from "no knowledge
+found"). Owning the binding here makes an unbound invocation structurally
+impossible for every surface built on the seam.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+from . import cli_ops
+from .kbdir import kb_prefix
+
+
+def _expose_tier2(override: bool | None) -> bool:
+    if override is not None:
+        return override
+    return not os.environ.get("EXOMEM_DISABLE_TIER2")
+
+
+def product_command(op: str, *, expose_tier2: bool | None = None):
+    """Resolve one registry `Command` exposed on the CLI-family surface."""
+    from . import commands as commands_module
+
+    tier2 = _expose_tier2(expose_tier2)
+    from .command_surface import resolve_command
+
+    command = resolve_command(op, commands_module.product_commands_for("cli", expose_tier2=tier2))
+    if command is not None:
+        return command
+    raise cli_ops.OpError("UNKNOWN_OP", f"unknown product operation {op!r}")
+
+
+def cli_surface_descriptor(*, expose_tier2: bool | None = None):
+    """The trusted adapter descriptor bound by CLI-family surfaces."""
+    from . import capabilities
+    from . import commands as commands_module
+
+    tier2 = _expose_tier2(expose_tier2)
+    registered = commands_module.product_commands_for("cli", expose_tier2=tier2)
+    return capabilities.ActiveSurfaceDescriptor(
+        surface="cli",
+        profile="product",
+        tier2_enabled=tier2,
+        product_commands=tuple(command.public_name for command in registered),
+        compatibility_commands=tuple(command.name for command in registered if command.preferred_name),
+        exported_aliases=commands_module.simple_action_names(),
+    )
+
+
+def allows_uninitialized_vault(op: str, kwargs: dict) -> bool:
+    """First-run read allowances: browse/scan may run before the KB exists."""
+    if op == "browse_memory":
+        return True
+    if op == "adopt_vault":
+        return (kwargs.get("mode") or "scan-only") == "scan-only"
+    return False
+
+
+def resolve_vault_for(op: str, kwargs: dict, vault_root: Path | str | None) -> Path:
+    """Resolve the vault root, honoring the pre-init scan allowances.
+
+    ``vault_root=None`` reproduces the CLI behavior exactly (env-var resolution
+    with the uninitialized-dir escape for the allowed ops). An explicit root is
+    validated the same way, so a surface built on the seam cannot accidentally
+    run a write against a folder that is not a vault.
+    """
+    from . import vault as vault_module
+
+    if vault_root is not None:
+        root = Path(vault_root)
+        if vault_module._is_vault(root):
+            return root
+        if allows_uninitialized_vault(op, kwargs) and root.is_dir():
+            return root
+        raise RuntimeError(
+            f"{str(root)!r} does not look like a vault "
+            f"(no schema contract in .exomem/schema/ or {kb_prefix()}_Schema/)"
+        )
+    try:
+        return vault_module.resolve_vault()
+    except RuntimeError:
+        if not allows_uninitialized_vault(op, kwargs):
+            raise
+        override = os.environ.get("EXOMEM_VAULT_PATH")
+        if not override:
+            raise
+        path = Path(override)
+        if not path.is_dir():
+            raise
+        return path
+
+
+def invoke_prepared(
+    cmd,
+    kwargs: dict[str, Any],
+    *,
+    vault_root: Path | str | None = None,
+    principal=None,
+    expose_tier2: bool | None = None,
+    idempotency_key: str | None = None,
+):
+    """Invoke one already-coerced registry command under the shared bindings."""
+    from . import capabilities
+    from . import schema as schema_module
+    from .governance import principal as principal_module
+    from .writer_lease import invoke_command
+
+    # Domain-invalid mixed selectors must reach their stable public error
+    # before the lease/egress coverage classifier. This is input validation,
+    # not a branch registration.
+    if cmd.name == "process_media":
+        from .commands import validate_process_media_operation
+
+        validate_process_media_operation(kwargs.get("operation", "process"))
+
+    root = resolve_vault_for(cmd.name, kwargs, vault_root)
+    # Machine-local state placement admission (memoized per process+vault):
+    # ordinary invocation is read-only and refuses legacy or ambiguous
+    # placement until an explicit offline migration has completed.
+    from . import state_migration
+
+    if not allows_uninitialized_vault(cmd.name, kwargs):
+        state_migration.require_vault_state_ready(root)
+    if cmd.needs_schema:
+        injected = (root, schema_module.load_source_schema(root))
+    else:
+        injected = (root,)
+
+    descriptor = cli_surface_descriptor(expose_tier2=expose_tier2)
+    if principal is None:
+        from .governance.authorization_request import AuthorizationContextUnavailable
+
+        raise AuthorizationContextUnavailable
+    with capabilities.active_surface(descriptor), principal_module.request_scope(
+        principal
+    ):
+        # An in-process caller loses no reply, so with no key it still waits out ordinary
+        # contention; no key is minted, and so nothing is stored for a later call to replay.
+        return invoke_command(
+            cmd, *injected, idempotency_key=idempotency_key, absorb_unkeyed=True, **kwargs
+        )
+
+
+def prepare_local_authorization(
+    cmd,
+    raw: dict[str, Any],
+    *,
+    surface: str,
+    vault_root: Path | str | None = None,
+    authorization_session_fd: str | None = None,
+    authorization_carrier=None,
+):
+    """Resolve local owner and optional protected-FD capability before coercion."""
+    root, admission = verify_local_authorization_transport(
+        cmd,
+        raw_for_vault=raw,
+        surface=surface,
+        vault_root=vault_root,
+        authorization_session_fd=authorization_session_fd,
+        authorization_carrier=authorization_carrier,
+    )
+    principal = enforce_local_authorization_route(cmd, raw, admission)
+    return root, principal
+
+
+def verify_local_authorization_transport(
+    cmd,
+    *,
+    raw_for_vault: dict[str, Any],
+    surface: str,
+    vault_root: Path | str | None = None,
+    authorization_session_fd: str | None = None,
+    authorization_carrier=None,
+):
+    """Consume and verify the protected carrier before argument validation."""
+    import time
+
+    from .governance import authorization_request, authorization_transport
+    from .governance import principal as principal_module
+
+    root = resolve_vault_for(cmd.name, raw_for_vault, vault_root)
+    carrier = authorization_carrier
+    if carrier is None:
+        carrier = (
+            authorization_transport.CredentialCarrier.absent()
+            if authorization_session_fd is None
+            else authorization_transport.read_cli_authorization_fd(
+                authorization_session_fd
+            )
+        )
+    admission = authorization_request.verify_authorization_context(
+        root,
+        principal=principal_module.owner_principal(surface=surface),
+        credential=carrier.consume(),
+        now=int(time.time()),
+    )
+    return root, admission
+
+
+def enforce_local_authorization_route(cmd, raw: dict[str, Any], admission):
+    """Apply the closed route rule after argument parsing identifies the variant."""
+    from .governance import authorization_request
+
+    rule = authorization_request.credential_rule(cmd.name, raw)
+    return authorization_request.enforce_credential_rule(admission, rule)
+
+
+def invoke_product(
+    op: str,
+    raw: dict[str, Any] | None = None,
+    *,
+    vault_root: Path | str | None = None,
+    expose_tier2: bool | None = None,
+    idempotency_key: str | None = None,
+):
+    """Coerce raw arguments and invoke one product command end to end.
+
+    Coercion runs REST-strict (`cli=False`): in-process callers pass native
+    values, and only the argv-string CLI needs the bare-string JSON
+    relaxation (it coerces for itself before `invoke_prepared`).
+    """
+    cmd = product_command(op, expose_tier2=expose_tier2)
+    request = dict(raw or {})
+    root, principal = prepare_local_authorization(
+        cmd,
+        request,
+        surface="library",
+        vault_root=vault_root,
+    )
+    kwargs = cli_ops.coerce(
+        cmd.params,
+        request,
+        guarded_fields=cmd.guarded_fields,
+        tool=cmd.name,
+        cli=False,
+    )
+    return invoke_prepared(
+        cmd,
+        kwargs,
+        vault_root=root,
+        principal=principal,
+        expose_tier2=expose_tier2,
+        idempotency_key=idempotency_key,
+    )

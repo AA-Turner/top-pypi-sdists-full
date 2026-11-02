@@ -1,0 +1,270 @@
+import asyncio
+import datetime
+import time
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from opentelemetry import metrics
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.metrics import _Gauge
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+from rock import env_vars
+from rock.common.constants import StopReason
+from rock.deployments.abstract import AbstractDeployment
+from rock.deployments.config import DeploymentConfig, DockerDeploymentConfig
+from rock.deployments.docker import DockerDeployment
+from rock.logger import init_logger
+from rock.utils import get_uniagent_endpoint
+from rock.utils.system import get_host_name, get_instance_id
+
+logger = init_logger(__name__)
+
+
+class BaseActor:
+    _config: DeploymentConfig
+    _deployment: AbstractDeployment
+    _metrics_report_scheduler = None
+    _auto_clear_time_in_minutes: int = 30
+    _export_interval_millis: int = 10000  # Default value that can be overridden by subclasses
+    _stop_time: datetime.datetime = None
+    _gauges: dict
+    host: str = None  # Will be set by subclasses that need it
+    _role: str = "test"
+    _env: str = "dev"
+    _user_id: str = "default"
+    _experiment_id: str = "default"
+    _namespace = "default"
+    _metrics_endpoint = ""
+    _user_defined_tags: dict = {}
+    _created_time: float = None
+    _host_name: str = None
+    _max_cpus_used: float = 0.0
+
+    def __init__(
+        self,
+        config: DeploymentConfig,
+        deployment: AbstractDeployment,
+    ):
+        self._config = config
+        self._deployment = deployment
+        self._gauges: dict[str, _Gauge] = {}
+        if isinstance(config, DockerDeploymentConfig) and config.auto_clear_time:
+            self._auto_clear_time_in_minutes = config.auto_clear_time
+        self._created_time = time.monotonic()
+        self._max_cpus_used = 0.0
+        self._stop_time = datetime.datetime.now() + datetime.timedelta(minutes=self._auto_clear_time_in_minutes)
+        # Initialize the user and environment info - can be overridden by subclasses
+        self._role = "test"
+        self._env = "dev"
+        self._user_id = "default"
+        self._experiment_id = "default"
+        self._ip = get_instance_id()
+        self._host_name = get_host_name()
+
+    async def deployment_config(self) -> DeploymentConfig | None:
+        return self._config
+
+    def get_mount(self) -> str:
+        if isinstance(self._deployment, DockerDeployment):
+            v_commands: list[str] = self._deployment._prepare_volume_mounts()
+            return " ".join(v_commands)
+        return ""
+
+    async def _refresh_stop_time(self):
+        if isinstance(self._deployment, DockerDeployment):
+            await self._deployment.refresh_stop_time()
+
+        self._stop_time = datetime.datetime.now() + datetime.timedelta(minutes=self._auto_clear_time_in_minutes)
+        logger.info(f"refresh stop_time to {self._stop_time}")
+
+    def _init_monitor(self):
+        """
+        Initialize the metrics monitoring system using OTLP exporter.
+        This method sets up the metrics collection infrastructure and registers gauge metrics.
+        """
+        host, port = get_uniagent_endpoint()
+        env = self._env
+        role = self._role
+        self.host = host
+        logger.info(f"Initializing MetricsCollector with host={host}, port={port}, env={env}, role={role}")
+        endpoint = self._metrics_endpoint or f"http://{host}:{port}/v1/metrics"
+        self.otlp_exporter = OTLPMetricExporter(endpoint=endpoint)
+        self.metric_reader = PeriodicExportingMetricReader(
+            self.otlp_exporter,
+            export_interval_millis=self._export_interval_millis,
+        )
+        self.meter_provider = MeterProvider(metric_readers=[self.metric_reader])
+        metrics.set_meter_provider(self.meter_provider)
+        self.meter = metrics.get_meter("XRL_GATEWAY_CONFIG")
+
+        # register metrics
+        self._gauges["cpu"] = self.meter.create_gauge(name="xrl_gateway.system.cpu", description="CPU Usage", unit="1")
+        self._gauges["mem"] = self.meter.create_gauge(
+            name="xrl_gateway.system.memory", description="Memory Usage", unit="1"
+        )
+        self._gauges["disk"] = self.meter.create_gauge(
+            name="xrl_gateway.system.disk", description="Disk Usage", unit="1"
+        )
+        self._gauges["disk_log"] = self.meter.create_gauge(
+            name="xrl_gateway.system.disk.log", description="Sandbox log dir disk usage percent", unit="1"
+        )
+        self._gauges["disk_dind"] = self.meter.create_gauge(
+            name="xrl_gateway.system.disk.dind", description="Sandbox kata DinD disk usage percent", unit="1"
+        )
+        self._gauges["net"] = self.meter.create_gauge(
+            name="xrl_gateway.system.network", description="Network Usage", unit="1"
+        )
+        self._gauges["rt"] = self.meter.create_gauge(
+            name="xrl_gateway.system.lifespan_rt", description="Life Span Rt", unit="1"
+        )
+        self._gauges["cpus_used"] = self.meter.create_gauge(
+            name="xrl_gateway.system.cpus_used",
+            description="Sandbox actual CPU cores used (cpu_percent/100 * cpus_limit). "
+            "cpus_allocated and cpus_limit are reported as tags on this and every other gauge.",
+            unit="1",
+        )
+
+    async def _setup_monitor(self):
+        if not env_vars.ROCK_MONITOR_ENABLE:
+            return
+        self._init_monitor()
+        self._report_interval = 10
+        self._metrics_report_scheduler = AsyncIOScheduler(
+            timezone="UTC", job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 30}
+        )
+        self._metrics_report_scheduler.add_job(
+            func=self._collect_and_report_metrics,
+            trigger=IntervalTrigger(seconds=self._report_interval),
+            id="metrics_collection",
+            name="Sandbox Resource Metrics Collection",
+        )
+        self._metrics_report_scheduler.start()
+
+    def log_lifecycle_summary(self, reason: StopReason = StopReason.MANUAL) -> None:
+        """Emit a single line summarising CPU usage and lifespan for this sandbox."""
+        duration_seconds = time.monotonic() - self._created_time if self._created_time is not None else 0.0
+        logger.info(
+            f"[{self._config.container_name}] lifecycle summary: "
+            f"reason={reason.value}, "
+            f"image={self._config.image}, "
+            f"cpus={self._config.cpus}, "
+            f"limit_cpus={self._config.limit_cpus}, "
+            f"max_cpus_used={self._max_cpus_used:.4f}, "
+            f"duration={duration_seconds:.2f}s"
+        )
+
+    def stop_monitoring(self):
+        if env_vars.ROCK_MONITOR_ENABLE and self._metrics_report_scheduler and self._metrics_report_scheduler.running:
+            logger.info("Stopping APScheduler...")
+            self._metrics_report_scheduler.shutdown(wait=True)
+            logger.info("APScheduler stopped")
+
+    async def _collect_and_report_metrics(self):
+        start = time.perf_counter()
+        total_timeout = self._report_interval - 1
+
+        try:
+            # Wrap the entire method with a total timeout
+            await asyncio.wait_for(self._collect_sandbox_metrics(self._config.container_name), timeout=total_timeout)
+        except asyncio.TimeoutError:
+            duration = time.perf_counter() - start
+            logger.error(f"Metrics collection timed out after {duration:.2f}s (limit: {total_timeout}s)")
+
+    async def _collect_sandbox_metrics(self, sandbox_id: str):
+        """Collect metrics for a single sandbox and report them"""
+        start = time.perf_counter()
+        single_sandbox_timeout = 3
+        try:
+            try:
+                metrics = await asyncio.wait_for(self.get_sandbox_statistics(), timeout=single_sandbox_timeout)
+            except asyncio.TimeoutError:
+                duration = time.perf_counter() - start
+                logger.error(
+                    f"sandbox [{sandbox_id}] Metrics collection timed out after {duration:.4f}s (limit: {single_sandbox_timeout}s)"
+                )
+                return
+            logger.debug(f"sandbox [{sandbox_id}] metrics = {metrics}")
+
+            cpus = float(self._config.cpus)
+            limit_cpus_raw = self._config.limit_cpus
+            # When limit_cpus is None, treat it as equal to cpus (no overcommit).
+            effective_limit = float(limit_cpus_raw) if limit_cpus_raw is not None else cpus
+
+            attributes = {
+                "sandbox_id": sandbox_id,
+                "env": self._env,
+                "role": self._role,
+                "host": self.host,
+                "ip": self._ip,
+                "user_id": self._user_id,
+                "experiment_id": self._experiment_id,
+                "namespace": self._namespace,
+                "host_name": self._host_name,
+                # cpus_allocated / cpus_limit are static per-sandbox values; reported
+                # as tags on every gauge so dashboards can group/filter without
+                # needing dedicated time-series for them.
+                "cpus_allocated": f"{cpus:g}",
+                "cpus_limit": f"{effective_limit:g}",
+            }
+            if self._user_defined_tags is not None:
+                attributes.update(self._user_defined_tags)
+
+            if metrics.get("cpu") is not None:
+                self._gauges["cpu"].set(metrics["cpu"], attributes=attributes)
+                self._gauges["mem"].set(metrics["mem"], attributes=attributes)
+                self._gauges["disk"].set(metrics["disk"], attributes=attributes)
+                self._gauges["net"].set(metrics["net"], attributes=attributes)
+
+                if metrics.get("disk_log_percent"):
+                    self._gauges["disk_log"].set(metrics["disk_log_percent"], attributes=attributes)
+                if metrics.get("disk_dind_percent"):
+                    self._gauges["disk_dind"].set(metrics["disk_dind_percent"], attributes=attributes)
+
+                # cpus_used inherits the semantic of metrics["cpu"]: it is reported
+                # as a percentage of the sandbox's allocated CPU (see the legend of
+                # xrl_gateway.system.cpu in admin/metrics/monitor.py). Multiplying by
+                # effective_limit converts it back to absolute cores.
+                cpus_used = (metrics["cpu"] / 100.0) * effective_limit if effective_limit > 0 else 0.0
+                if cpus_used > self._max_cpus_used:
+                    self._max_cpus_used = cpus_used
+                self._gauges["cpus_used"].set(cpus_used, attributes=attributes)
+
+                logger.debug(f"Successfully reported metrics for sandbox: {sandbox_id}")
+            else:
+                logger.warning(f"No metrics returned for sandbox: {sandbox_id}")
+
+            life_span_rt = time.monotonic() - self._created_time
+            self._gauges["rt"].set(life_span_rt, attributes=attributes)
+            single_sandbox_report_rt = time.perf_counter() - start
+            logger.debug(f"Single sandbox report rt:{single_sandbox_report_rt:.4f}s")
+
+        except Exception as e:
+            logger.error(f"Error collecting metrics for sandbox {sandbox_id}: {e}")
+
+    def __del__(self):
+        """Destructor, ensure resource cleanup"""
+        try:
+            self.stop_monitoring()
+        except Exception as e:
+            logger.error(f"Error stopping monitoring: {e}")
+            pass
+
+    def set_metrics_endpoint(self, metrics_endpoint: str):
+        self._metrics_endpoint = metrics_endpoint
+
+    def get_metrics_endpoint(self) -> str:
+        return self._metrics_endpoint
+
+    def set_user_defined_tags(self, user_defined_tags: dict):
+        self._user_defined_tags = user_defined_tags
+
+    def get_user_defined_tags(self) -> dict:
+        return self._user_defined_tags
+
+    async def get_sandbox_statistics(self):
+        """Get sandbox statistics - default implementation returns None"""
+        if isinstance(self._deployment, DockerDeployment):
+            return await self._deployment.runtime.get_statistics()
+        return None

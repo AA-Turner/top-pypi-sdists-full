@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from probe.shared.updates import handoff, installs, uninstall_barrier
-from probe.cli import install_pipeline
+from probe.cli.install import install as install_pipeline
 from tests.reinstall_harness import Machine, reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the side-by-side layout is POSIX only")
@@ -97,7 +97,8 @@ def test_an_older_install_moves_to_the_version_asked_for_and_keeps_it_to_switch_
 def test_after_an_uninstall_the_keeper_may_come_back(uv_machine):
     """R1: `keeper-off`, written by an uninstall, survived every reinstall that
     found its plugins present: no lifeboat, no keeper timer after."""
-    from probe.service import keeper, paths
+    from probe.service import keeper
+    from probe.foundation.service_api import paths
 
     off = paths.root_dir() / keeper.OFF_NAME
     off.parent.mkdir(parents=True, exist_ok=True)
@@ -155,7 +156,7 @@ def test_a_plain_install_through_the_link_is_no_longer_what_npx_runs(uv_machine,
     """R2: `bootstrap.install_persistent` (npx, the wizard, `probe update` from
     a throwaway copy) ran a plain `uv tool install` THROUGH the link, which
     rewrote the ACTIVE env in place. Now it installs beside it."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     m = uv_machine
     _layout(m, "1.0.0")
@@ -241,7 +242,7 @@ def test_a_dangling_link_is_reinstalled(uv_machine):
 def test_the_uninstall_barrier_refuses_while_live_and_is_cleared_when_stale(uv_machine, monkeypatch):
     m = uv_machine
     barrier = uninstall_barrier.path()
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     def write(data: dict) -> None:
         barrier.parent.mkdir(parents=True, exist_ok=True)
@@ -316,7 +317,7 @@ def test_a_first_switch_cut_short_is_put_back_then_finished(uv_machine):
 def test_a_switch_whose_scripts_were_not_made_gets_them_next_run(uv_machine):
     """Killed after the switch, before the public scripts: the next run (or the
     cheap repair every wizard start makes) puts them back."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     m = uv_machine
     _layout(m, "1.0.0")
@@ -341,7 +342,7 @@ def test_the_daemon_extra_goes_in_a_generation_beside_the_running_env(uv_machine
     out = _install("1.0.0", mode=install_pipeline.Mode.DAEMON)
     assert out.ok and out.changed, out.problems
     assert installs.active(m.tools).parent.name == "1.0.0+g2"
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     assert "daemon" in updater.kept_from_uv_receipt(m.tool).extras
     assert "daemon" not in updater.kept_from_uv_receipt(running).extras, "the running env is as it was"
@@ -459,7 +460,7 @@ def test_a_pipx_install_moves_to_uv(uv_machine, tmp_path, monkeypatch):
 
 
 def test_a_pipx_install_this_process_runs_from_is_not_removed_under_it(monkeypatch):
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     monkeypatch.setattr(bootstrap, "_is_this_install", lambda binary: True)
     ran = []
@@ -473,8 +474,10 @@ def test_the_wizards_install_over_the_same_version_checks_and_repairs_it(uv_mach
     `--action configure` runs over a current CLI): a broken active env is
     rebuilt and switched to, the keeper may come back, runtime.json names the
     new env, and a service on the old one is restarted onto it."""
-    from probe.cli import bootstrap, repair
-    from probe.service import client, keeper, paths
+    from probe.cli.install import bootstrap, repair
+    from probe.foundation import service_api as client
+    from probe.service import keeper
+    from probe.foundation.service_api import paths
 
     m = uv_machine
     _layout(m, "1.0.1")
@@ -502,9 +505,9 @@ def test_the_real_adopt_switches_to_a_generation_and_prune_keeps_both(uv_machine
     the generation is active, the env it replaced stays to switch back to,
     runtime.json names the generation, and the service's restart check sees
     the env move although the version did not."""
-    from probe.cli import updater
+    from probe.cli.install import updater
     from probe.core import adopt
-    from probe.service import client
+    from probe.foundation import service_api as client
     from probe.service import updater as service_updater
 
     m = uv_machine
@@ -514,7 +517,7 @@ def test_the_real_adopt_switches_to_a_generation_and_prune_keeps_both(uv_machine
     assert target.parent.name == "1.0.0+g2" and installs.env_version(target) == "1.0.0"
     assert replaced.exists(), "the active env was never removed for the rebuild"
     monkeypatch.setattr(adopt, "_runs_from", lambda env: env == target)  # the exec'd release runs from it
-    monkeypatch.setattr(updater, "fetch_latest", lambda base_url: (_ for _ in ()).throw(OSError("offline")))
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base_url: (_ for _ in ()).throw(OSError("offline")))
     assert adopt._adopt(target, "", "1.0.0") is None  # noqa: SLF001 -- the switch itself
     assert installs.active(m.tools) == target.resolve()
     assert installs.previous(m.tools) == replaced

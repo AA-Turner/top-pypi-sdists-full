@@ -1,0 +1,85 @@
+- name: TV Licence full price in 2024-25.
+  period: 2024
+  input:
+    household_owns_tv: true
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 169.50
+
+- name: TV Licence full price in 2025-26.
+  period: 2025
+  input:
+    household_owns_tv: true
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 174.50
+
+- name: TV Licence full price - ineligible for aged or blind discount.
+  period: 2026
+  input:
+    household_owns_tv: true
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 180.00
+
+- name: TV Licence half price - eligible for blind discount but not aged.
+  period: 2026
+  input:
+    household_owns_tv: true
+    tv_licence_discount: 0.5
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 90.00
+
+- name: Free TV Licence - eligible for aged discount.
+  period: 2026
+  input:
+    household_owns_tv: true
+    tv_licence_discount: 1
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 0
+
+- name: TV licence required for BBC iPlayer without television ownership.
+  period: 2026
+  input:
+    household_owns_tv: false
+    tv_licence_required: true
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 180
+
+- name: Television ownership alone does not require a TV licence.
+  period: 2026
+  input:
+    household_owns_tv: true
+    tv_licence_required: false
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 0
+
+- name: Television ownership remains the fallback for existing inputs.
+  period: 2026
+  input:
+    household_owns_tv: false
+    tv_licence_discount: 0
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence: 0
+
+- name: Blind discount applies only after a partial-year free licence ends.
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    tv_licence_required: true
+    tv_licence_free_licence_share: 0.3205479452
+    is_blind: true
+    would_evade_tv_licence_fee: false
+  output:
+    tv_licence_discount: 0.6602739726
+    tv_licence: 53.51

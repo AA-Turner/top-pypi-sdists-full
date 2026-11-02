@@ -1,0 +1,161 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Functions used to annotate IsovarResult objects with filters.
+"""
+
+from collections import OrderedDict
+import operator
+
+
+def evaluate_threshold_filters(isovar_result, filter_thresholds):
+    """
+    Helper method used by apply_filters
+
+    Parameters
+    ----------
+    isovar_result : IsovarResult
+
+    filter_thresholds : dict or OrderedDict
+        Names like "min_num_alt_reads" or "max_fraction_other_fragments"
+        mapped to cutoffs. The text after "min_" or "max_" names a numeric
+        property of IsovarResult; "min" filters require value >= cutoff and
+        "max" filters require value <= cutoff. A property that is None, such
+        as a top-protein measure when there is no protein, fails the filter.
+
+    Returns OrderedDict
+    """
+    filter_values_dict = OrderedDict()
+    for name, threshold in filter_thresholds.items():
+        parts = name.split("_")
+        min_or_max = parts[0]
+        field_name = "_".join(parts[1:])
+        if min_or_max == "min":
+            comparison_fn = operator.ge
+        elif min_or_max == "max":
+            comparison_fn = operator.le
+        else:
+            raise ValueError(
+                "Invalid filter '%s', must start with 'min' or 'max'" % name)
+        if hasattr(isovar_result, field_name):
+            field_value = getattr(isovar_result, field_name)
+        else:
+            raise ValueError(
+                "Invalid filter '%s' IsovarResult does not have property '%s'" % (
+                    name,
+                    field_name))
+        filter_values_dict[name] = field_value is not None and comparison_fn(field_value, threshold)
+    return filter_values_dict
+
+
+def evaluate_boolean_filters(isovar_result, filter_flags):
+    """
+    Helper function used by apply_filters.
+
+    Parameters
+    ----------
+    isovar_result : IsovarResult
+
+    filter_flags : list of str
+        Every element should be a boolean property of IsovarResult
+        or "not_" and the name of a property to be negated.
+
+    Returns OrderedDict
+    """
+    filter_values = OrderedDict()
+    for boolean_filter_name in filter_flags:
+        if boolean_filter_name.startswith("not_"):
+            boolean_field_name = boolean_filter_name[4:]
+            negate = True
+        else:
+            boolean_field_name = boolean_filter_name
+            negate = False
+        if hasattr(isovar_result, boolean_field_name):
+            field_value = getattr(isovar_result, boolean_field_name)
+        else:
+            raise ValueError(
+                "IsovarResult does not have field name '%s'" % boolean_field_name)
+        if field_value is None:
+            field_value = False
+        elif field_value not in {True, False}:
+            raise ValueError("Expected filter '%s' to be boolean but got %s" % (
+                boolean_filter_name,
+                field_value))
+        filter_values[boolean_filter_name] = (
+            not field_value if negate else field_value
+        )
+    return filter_values
+
+
+def evaluate_filters(
+        isovar_result,
+        filter_thresholds,
+        filter_flags=None):
+    """
+    Creates a dictionary whose keys are the names of filter conditions and
+    whose values are True when the result passes that filter.
+
+    Parameters
+    ----------
+    isovar_result : IsovarResult
+
+    filter_thresholds : dict or OrderedDict
+        See ``evaluate_threshold_filters``.
+
+    filter_flags : list of str
+        See ``evaluate_boolean_filters``.
+
+    Returns
+    -------
+    Dictionary of filter names mapped to boolean value indicating
+    whether this locus passed the filter.
+    """
+    if filter_flags is None:
+        filter_flags = []
+    filter_values_dict = evaluate_boolean_filters(isovar_result, filter_flags)
+    filter_values_dict.update(
+        evaluate_threshold_filters(isovar_result, filter_thresholds))
+    return filter_values_dict
+
+
+def apply_filters(
+        isovar_result,
+        filter_thresholds=None,
+        filter_flags=None):
+    """
+    Given an IsovarResult object, evaluates given filters and returns a copy
+    of the IsovarResult with the new filter values added.
+
+    Parameters
+    ----------
+    isovar_result : IsovarResult
+
+    filter_thresholds : dict or OrderedDict
+        See ``evaluate_threshold_filters``.
+
+    filter_flags : list of str
+        See ``evaluate_boolean_filters``. None counts as False.
+
+    Returns IsovarResult
+    """
+    if filter_thresholds is None:
+        filter_thresholds = {}
+    if filter_flags is None:
+        filter_flags = []
+    filter_values = OrderedDict(isovar_result.filter_values.items())
+    new_filter_values = evaluate_filters(
+        isovar_result,
+        filter_thresholds=filter_thresholds,
+        filter_flags=filter_flags)
+    filter_values.update(new_filter_values)
+    return isovar_result.clone_with_updates(filter_values=filter_values)

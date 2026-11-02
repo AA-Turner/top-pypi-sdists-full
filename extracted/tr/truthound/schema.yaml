@@ -1,0 +1,10 @@
+version: '1.0'
+row_count: 0
+columns:
+  invalid csv content:
+    name: invalid csv content
+    dtype: String
+    nullable: false
+    unique: false
+    null_ratio: 0.0
+    unique_ratio: 0.0

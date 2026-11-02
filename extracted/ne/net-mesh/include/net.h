@@ -1,0 +1,636 @@
+/*
+ * Net C SDK
+ *
+ * Network Event Transport — a latency-first encrypted mesh protocol.
+ *
+ * The narrow event-bus surface: init / ingest / poll / stats / shutdown.
+ * It is one of eleven headers, NOT the entire C SDK — mesh, capabilities,
+ * nRPC, CortEX, MCP and the rest have their own headers. See include/README.md
+ * for the map. All eleven resolve against one shared library: libnet.so
+ * (Linux), libnet.dylib (macOS), or net.dll (Windows). Link `-lnet` and
+ * nothing else.
+ *
+ * `net.go.h` shares this header's NET_SDK_H guard, so only one of the two can
+ * be active per translation unit — and net.go.h is not a superset.
+ *
+ * Thread Safety: All functions are thread-safe. Handles can be shared across threads.
+ *
+ * Memory: Handles from net_init() must be freed with net_shutdown().
+ *         Poll results from net_poll_ex() must be freed with net_free_poll_result().
+ *         Strings from net_generate_keypair() must be freed with net_free_string().
+ */
+
+#ifndef NET_SDK_H
+#define NET_SDK_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ========================================================================= */
+/* Types                                                                     */
+/* ========================================================================= */
+
+/* Opaque handle to the event bus. */
+typedef void* net_handle_t;
+
+/*
+ * Error codes.
+ *
+ * Kept in sync with the Rust-side `NetError` enum and with the Go
+ * binding's copies at `include/net.go.h` and `go/net.h`. The library has a
+ * regression test that scans both headers to detect drift.
+ */
+typedef enum {
+    NET_SUCCESS              =  0,
+    NET_ERR_NULL_POINTER     = -1,
+    NET_ERR_INVALID_UTF8     = -2,
+    NET_ERR_INVALID_JSON     = -3,
+    NET_ERR_INIT_FAILED      = -4,
+    NET_ERR_INGESTION_FAILED = -5,
+    NET_ERR_POLL_FAILED      = -6,
+    NET_ERR_BUFFER_TOO_SMALL = -7,
+    NET_ERR_SHUTTING_DOWN    = -8,
+    /*
+     * Response byte count exceeds `c_int::MAX`. The data was already
+     * copied into the caller's buffer (so resizing won't help — that
+     * is BUFFER_TOO_SMALL); the caller's int counter just can't
+     * represent the count. Surfaced by net_poll / net_stats when
+     * their JSON output is multi-gigabyte.
+     */
+    NET_ERR_INT_OVERFLOW     = -9,
+    /*
+     * A stream handle was passed to a send-family FFI for a
+     * net_handle_t that did not create it. The FFI layer rejects
+     * such cross-handle traffic to prevent silent leaks between
+     * sessions when a caller bug crosses handles.
+     */
+    NET_ERR_MISMATCHED_HANDLES = -10,
+    /*
+     * `CString::new` failure: the input bytes are valid UTF-8 (by
+     * Rust's String invariant) but contain an interior NUL byte
+     * that the C ABI's NUL-terminated string can't carry. Pre-fix
+     * this was reported as NET_ERR_INVALID_UTF8, which was wrong:
+     * the input is UTF-8-valid; it just has a NUL where C expects
+     * none. Bindings that branch on the typed error get the right
+     * cause now.
+     */
+    NET_ERR_INTERIOR_NUL     = -11,
+    /*
+     * Input deserialized cleanly but is semantically unusable — e.g. a
+     * scope filter whose `kind` is unrecognized, or whose required
+     * selector is missing, empty, or an all-empty list.
+     *
+     * Distinct from NET_ERR_INVALID_JSON, which means the bytes were not
+     * valid JSON at all; reporting these as INVALID_JSON would send a
+     * caller hunting a syntax error that isn't there. Same reasoning that
+     * gave NET_ERR_INTERIOR_NUL its own code.
+     *
+     * These shapes previously resolved to the broadest scope filter
+     * (match every peer), so a query that could not narrow silently
+     * widened instead of failing.
+     */
+    NET_ERR_INVALID_ARGUMENT = -12,
+    NET_ERR_UNKNOWN          = -99
+} net_error_t;
+
+/* Ingestion receipt. */
+typedef struct {
+    uint16_t shard_id;
+    uint64_t timestamp;
+} net_receipt_t;
+
+/* A single stored event. */
+typedef struct {
+    const char* id;
+    size_t      id_len;
+    const char* raw;
+    size_t      raw_len;
+    uint64_t    insertion_ts;
+    uint16_t    shard_id;
+} net_event_t;
+
+/* Poll result containing events and cursor. */
+typedef struct {
+    net_event_t* events;
+    size_t       count;
+    char*        next_id;
+    int          has_more;
+} net_poll_result_t;
+
+/* Ingestion statistics. */
+typedef struct {
+    uint64_t events_ingested;
+    uint64_t events_dropped;
+    uint64_t batches_dispatched;
+} net_stats_t;
+
+/* ========================================================================= */
+/* Lifecycle                                                                 */
+/* ========================================================================= */
+
+/*
+ * Initialize a new node.
+ *
+ * @param config_json  JSON config string (null-terminated), or NULL for defaults.
+ * @return  Handle to the node, or NULL on failure.
+ *
+ * Example: net_init("{\"num_shards\": 4}")
+ * Example: net_init(NULL)  // defaults
+ */
+net_handle_t net_init(const char* config_json);
+
+/*
+ * Shut down the node and free all resources.
+ * The handle is invalid after this call.
+ *
+ * @return  0 on success, negative error code on failure.
+ */
+int net_shutdown(net_handle_t handle);
+
+/*
+ * Get the library version string (static, do not free).
+ */
+const char* net_version(void);
+
+/*
+ * Get the number of shards.
+ *
+ * @return  Number of shards, or 0 if handle is NULL.
+ */
+uint16_t net_num_shards(net_handle_t handle);
+
+/* ========================================================================= */
+/* Ingestion                                                                 */
+/* ========================================================================= */
+
+/*
+ * Ingest a raw JSON string (fastest path, no parsing).
+ *
+ * @param json  JSON string (not null-terminated — length is explicit).
+ * @param len   Length of the JSON string in bytes.
+ * @return  0 on success, negative error code on failure.
+ */
+int net_ingest_raw(net_handle_t handle, const char* json, size_t len);
+
+/*
+ * Ingest a raw JSON string and get a receipt.
+ *
+ * @param json  JSON string.
+ * @param len   Length of the JSON string in bytes.
+ * @param out   Receipt output (shard_id, timestamp). May be NULL.
+ * @return  0 on success, negative error code on failure.
+ */
+int net_ingest_raw_ex(net_handle_t handle, const char* json, size_t len, net_receipt_t* out);
+
+/*
+ * Ingest a single event (parses JSON for validation).
+ *
+ * @param event_json  JSON event string.
+ * @param len         Length of the event string in bytes.
+ * @return  0 on success, negative error code on failure.
+ */
+int net_ingest(net_handle_t handle, const char* event_json, size_t len);
+
+/*
+ * Ingest multiple raw JSON strings in a batch.
+ *
+ * @param jsons  Array of pointers to JSON strings.
+ * @param lens   Array of lengths for each string.
+ * @param count  Number of events.
+ * @return  Number of successfully ingested events, or negative error code.
+ */
+int net_ingest_raw_batch(
+    net_handle_t handle,
+    const char** jsons,
+    const size_t* lens,
+    size_t count
+);
+
+/*
+ * Ingest events from a JSON array string.
+ *
+ * @param events_json  JSON array (null-terminated).
+ * @return  Number of ingested events, or negative error code.
+ */
+int net_ingest_batch(net_handle_t handle, const char* events_json);
+
+/* ========================================================================= */
+/* Consumption                                                               */
+/* ========================================================================= */
+
+/*
+ * Poll events (JSON interface).
+ *
+ * @param request_json  JSON request, e.g. {"limit": 100}. NULL for defaults.
+ * @param out_buffer    Output buffer for JSON response.
+ * @param buffer_len    Size of output buffer.
+ * @return  Bytes written on success, negative error code on failure.
+ */
+int net_poll(
+    net_handle_t handle,
+    const char* request_json,
+    char* out_buffer,
+    size_t buffer_len
+);
+
+/*
+ * Poll events (structured interface, no JSON overhead).
+ *
+ * @param limit   Maximum number of events.
+ * @param cursor  Resume cursor (null-terminated), or NULL for start.
+ * @param out     Poll result output. Must be freed with net_free_poll_result().
+ * @return  0 on success, negative error code on failure.
+ */
+int net_poll_ex(
+    net_handle_t handle,
+    size_t limit,
+    const char* cursor,
+    net_poll_result_t* out
+);
+
+/*
+ * Free a poll result returned by net_poll_ex().
+ */
+void net_free_poll_result(net_poll_result_t* result);
+
+/* ========================================================================= */
+/* Statistics                                                                */
+/* ========================================================================= */
+
+/*
+ * Get statistics (JSON interface).
+ *
+ * @param out_buffer  Output buffer for JSON.
+ * @param buffer_len  Size of output buffer.
+ * @return  Bytes written on success, negative error code on failure.
+ */
+int net_stats(net_handle_t handle, char* out_buffer, size_t buffer_len);
+
+/*
+ * Get statistics (structured, no JSON overhead).
+ *
+ * @param out  Stats output.
+ * @return  0 on success, negative error code on failure.
+ */
+int net_stats_ex(net_handle_t handle, net_stats_t* out);
+
+/* ========================================================================= */
+/* Utilities                                                                 */
+/* ========================================================================= */
+
+/*
+ * Flush pending batches to the adapter.
+ *
+ * @return  0 on success, negative error code on failure.
+ */
+int net_flush(net_handle_t handle);
+
+/*
+ * Generate a new keypair for encrypted mesh transport.
+ *
+ * @return  JSON string with hex-encoded public_key and secret_key.
+ *          Caller must free with net_free_string(). NULL if not available.
+ */
+char* net_generate_keypair(void);
+
+/*
+ * Free a string returned by net_generate_keypair() or similar.
+ */
+void net_free_string(char* s);
+
+/* =========================================================================
+ * Redis Streams consumer-side dedup helper
+ * (compiled when the Rust cdylib has the `redis` feature on).
+ *
+ * The Net Redis adapter writes a stable `dedup_id` field on every
+ * XADD entry of the form
+ *
+ *     {producer_nonce:hex}:{shard_id}:{sequence_start}:{i}
+ *
+ * When the producer's MULTI/EXEC times out client-side but runs
+ * server-side anyway, the retry produces a duplicate stream entry
+ * with a distinct server-generated `*` id but the same `dedup_id`.
+ * This helper maintains an LRU-bounded set of seen ids and answers
+ * a test-and-insert query so consumers can filter at consume time.
+ *
+ * Each handle wraps an LRU-bounded set protected by an internal
+ * mutex; concurrent calls from multiple threads on the same handle
+ * are safe but serialize. Production callers typically instantiate
+ * one helper per consumer thread and key on the `dedup_id` field
+ * extracted from each XRANGE / XREAD entry. See `include/README.md`
+ * and the language-specific binding READMEs for runnable examples.
+ * ========================================================================= */
+
+typedef struct net_redis_dedup_s net_redis_dedup_t;
+
+/*
+ * Create a new dedup helper.
+ *
+ * @param capacity  LRU capacity. `0` selects the default (4096).
+ *                  Production callers should size to their dedup
+ *                  window — a consumer at ~10k events/sec with a
+ *                  1 min window wants ~600,000.
+ * @return  Heap-allocated handle. Never returns NULL. Free with
+ *          `net_redis_dedup_free`.
+ */
+net_redis_dedup_t* net_redis_dedup_new(size_t capacity);
+
+/*
+ * Free a helper handle. NULL is a no-op.
+ */
+void net_redis_dedup_free(net_redis_dedup_t* handle);
+
+/*
+ * Test-and-insert.
+ *
+ * @return   1 — duplicate (caller should skip the entry)
+ *           0 — new       (caller should process AND we've now
+ *                          marked it seen)
+ *          -1 — NULL handle or NULL dedup_id
+ *          -2 — invalid UTF-8 in dedup_id
+ */
+int net_redis_dedup_is_duplicate(net_redis_dedup_t* handle, const char* dedup_id);
+
+/*
+ * Number of distinct ids currently tracked. Returns 0 on NULL
+ * handle (mirrors the "no ids" semantic).
+ */
+size_t net_redis_dedup_len(net_redis_dedup_t* handle);
+
+/*
+ * Configured maximum capacity. Returns 0 on NULL handle.
+ */
+size_t net_redis_dedup_capacity(net_redis_dedup_t* handle);
+
+/*
+ * Returns 1 if no ids are tracked, 0 if the helper has at least
+ * one id, -1 on NULL handle.
+ */
+int net_redis_dedup_is_empty(net_redis_dedup_t* handle);
+
+/*
+ * Clear all tracked ids. Use after a consumer-group rebalance.
+ * NULL is a no-op.
+ */
+void net_redis_dedup_clear(net_redis_dedup_t* handle);
+
+/* ========================================================================= */
+/* Aggregator: registry RPC client + channel visibility setter.              */
+/* ========================================================================= */
+/*
+ * Stage 5 of SDK_AGGREGATOR_SUBNET_PLAN.md. Client surface for
+ * the daemon's `aggregator.registry` RPC service. All ops are
+ * blocking against the shared mesh-FFI tokio runtime — call
+ * from a non-tokio thread (CGo / cgo-fronted Go is fine).
+ */
+
+/* Opaque handle for a RegistryClient. */
+typedef struct net_registry_client_handle_t net_registry_client_handle_t;
+
+/* Error-kind discriminants. Stable across SDK releases. */
+#define NET_REGISTRY_OK                       0
+#define NET_REGISTRY_ERR_TRANSPORT            1
+#define NET_REGISTRY_ERR_CODEC                2
+#define NET_REGISTRY_ERR_UNKNOWN_TEMPLATE     3
+#define NET_REGISTRY_ERR_DUPLICATE_GROUP_NAME 4
+#define NET_REGISTRY_ERR_SPAWN_REJECTED       5
+#define NET_REGISTRY_ERR_SPAWN_NOT_SUPPORTED  6
+#define NET_REGISTRY_ERR_UNKNOWN_KIND         7
+#define NET_REGISTRY_ERR_UNKNOWN_GROUP        8
+#define NET_REGISTRY_ERR_SCALE_REJECTED       9
+#define NET_REGISTRY_ERR_SCALE_NOT_SUPPORTED  10
+#define NET_REGISTRY_ERR_UNAUTHORIZED         11
+/* The target does not serve fold.query.v2 (it answered NotFound for the
+ * service). Only from net_fold_query_client_query_group_*. Only a node
+ * without a channel registry answers that way, typically an aggregator
+ * daemon from before v2, which serves no v1 fold.query either: this is not
+ * a cue to retry the v1 calls. A node with a registry that lacks v2 fails
+ * as NET_REGISTRY_ERR_TRANSPORT, and so does one too old to answer. */
+#define NET_REGISTRY_ERR_SERVER_TOO_OLD       12
+#define NET_REGISTRY_ERR_INVALID_ARGS         99
+
+/* Visibility discriminants, mirroring the substrate's `Visibility` enum.
+ * Operator code referring to these by literal value (not just name)
+ * stays correct across SDK releases. */
+typedef enum {
+    NET_VISIBILITY_GLOBAL         = 0,
+    NET_VISIBILITY_PARENT_VISIBLE = 1,
+    NET_VISIBILITY_EXPORTED       = 2,
+    NET_VISIBILITY_SUBNET_LOCAL   = 3,
+} net_visibility_t;
+
+/*
+ * Build a RegistryClient from an existing net_mesh handle.
+ * Returns NULL on null input.
+ * Free with `net_registry_client_free`.
+ */
+net_registry_client_handle_t* net_registry_client_new(void* mesh_handle);
+
+/* Free a RegistryClient. Idempotent on NULL. */
+void net_registry_client_free(net_registry_client_handle_t* handle);
+
+/*
+ * Override the per-call deadline in milliseconds. `millis == 0`
+ * resets to the substrate default.
+ */
+void net_registry_client_set_deadline(
+    net_registry_client_handle_t* handle,
+    uint64_t millis);
+
+/*
+ * Enumerate groups registered on `target_node_id`. Returns a
+ * JSON-encoded `[RegistryGroupSummaryJson]` string — caller
+ * frees via `net_free_string`. On error, writes the error
+ * discriminant to `*out_error_kind` and returns NULL. The
+ * `out_error_kind` pointer is required (non-NULL).
+ *
+ * JSON shape:
+ *   [{"name": "...", "group_seed_hex": "...", "replicas": [
+ *      {"generation": N, "healthy": true|false,
+ *       "diagnostic": "..."|null, "placement_node_id": N|null}
+ *   ]}, ...]
+ */
+char* net_registry_client_list(
+    net_registry_client_handle_t* handle,
+    uint64_t target_node_id,
+    int* out_error_kind);
+
+/*
+ * Spawn a new group by referencing a daemon-side template by
+ * name. Returns a JSON-encoded `RegistryGroupSummaryJson` for
+ * the spawned group; caller frees via `net_free_string`.
+ *
+ * `template_name` and `group_name` are NUL-terminated UTF-8
+ * strings owned by the caller for the duration of the call.
+ */
+char* net_registry_client_spawn(
+    net_registry_client_handle_t* handle,
+    uint64_t target_node_id,
+    const char* template_name,
+    const char* group_name,
+    uint8_t replica_count,
+    int* out_error_kind);
+
+/*
+ * Tear down a registered group. Returns:
+ *   1 — group existed and was stopped
+ *   0 — no such group was registered
+ *  -1 — transport / codec / invalid-args failure (consult
+ *       `out_error_kind`)
+ */
+int net_registry_client_unregister(
+    net_registry_client_handle_t* handle,
+    uint64_t target_node_id,
+    const char* group_name,
+    int* out_error_kind);
+
+/*
+ * Operator-facing detail string for the most recent non-OK op.
+ * Returns a freshly-allocated, NUL-terminated C string that the
+ * CALLER OWNS and must free with `net_free_string`. Returns NULL
+ * when no error has been recorded. (The returned copy is
+ * independent of the handle, so it stays valid across other ops
+ * and a concurrent free.)
+ */
+char* net_registry_last_error_detail(net_registry_client_handle_t* handle);
+
+/*
+ * Register a channel with a specific visibility tier. Mirrors
+ * `Mesh::register_channel` at the C boundary. Returns
+ * `NET_REGISTRY_OK` on success or a typed error code. The
+ * mesh must have a ChannelConfigRegistry installed — true for
+ * any net_mesh built via `net_mesh_new`.
+ *
+ * `name` is a NUL-terminated UTF-8 channel name.
+ */
+int net_register_channel(
+    void* mesh_handle,
+    const char* name,
+    int visibility);
+
+/* ─── FoldQueryClient ────────────────────────────────────────────────────── */
+
+/* Opaque handle for a FoldQueryClient. */
+typedef struct net_fold_query_client_handle_t net_fold_query_client_handle_t;
+
+/*
+ * Build a FoldQueryClient from an existing net_mesh handle.
+ * Returns NULL on null input. Free with
+ * `net_fold_query_client_free`.
+ */
+net_fold_query_client_handle_t* net_fold_query_client_new(void* mesh_handle);
+
+/* Free a FoldQueryClient. Idempotent on NULL. */
+void net_fold_query_client_free(net_fold_query_client_handle_t* handle);
+
+/*
+ * Override the cache TTL in milliseconds. `millis == 0` disables
+ * the cache entirely.
+ */
+void net_fold_query_client_set_ttl(
+    net_fold_query_client_handle_t* handle,
+    uint64_t millis);
+
+/*
+ * Override the per-call deadline in milliseconds.
+ * `millis == 0` resets to the substrate default.
+ */
+void net_fold_query_client_set_deadline(
+    net_fold_query_client_handle_t* handle,
+    uint64_t millis);
+
+/*
+ * Query the aggregator's latest cached summaries. Cache hit
+ * returns immediately; miss issues a wire RPC, caches the
+ * response, and returns. Returns a JSON-encoded
+ * `[SummaryAnnouncementJson]` string — caller frees via
+ * `net_free_string`. On error, writes the error discriminant
+ * to `*out_error_kind` and returns NULL: UNKNOWN_KIND,
+ * UNAUTHORIZED (a daemon refused the caller: outside its summary
+ * visibility and not an operator), TRANSPORT, CODEC or INVALID_ARGS.
+ *
+ * JSON shape:
+ *   [{"fold_kind": N, "source_subnet": "...", "generation": N,
+ *     "buckets": [{"name": "...", "count": N}, ...]}, ...]
+ */
+char* net_fold_query_client_query_latest(
+    net_fold_query_client_handle_t* handle,
+    uint64_t target_node_id,
+    uint16_t kind,
+    int* out_error_kind);
+
+/*
+ * Force a fresh `SummarizeNow` query — never cached. Same JSON
+ * shape as `_query_latest`.
+ */
+char* net_fold_query_client_query_summarize_now(
+    net_fold_query_client_handle_t* handle,
+    uint64_t target_node_id,
+    uint16_t kind,
+    int* out_error_kind);
+
+/*
+ * fold.query.v2: latest summaries for `kind` from the group named by
+ * `group` (NUL-terminated UTF-8), or from every group on the target
+ * daemon aggregating `kind` when `group` is NULL. Cached like
+ * `_query_latest`. Returns a JSON array of records — caller frees via
+ * `net_free_string`. On error, writes the discriminant to
+ * `*out_error_kind` and returns NULL:
+ *   NET_REGISTRY_ERR_SERVER_TOO_OLD  the target answered NotFound for v2
+ *                                    (see the constant; not a v1 cue);
+ *   NET_REGISTRY_ERR_UNKNOWN_GROUP   `group` names no group there;
+ *   NET_REGISTRY_ERR_UNKNOWN_KIND    no queried group aggregates `kind`;
+ *   NET_REGISTRY_ERR_UNAUTHORIZED    the caller is outside the daemon's
+ *                                    summary visibility and not an operator;
+ *   otherwise TRANSPORT, CODEC or INVALID_ARGS.
+ *
+ * JSON shape (`summary` is the `_query_latest` object; the last three
+ * fields are null until the daemon fills them in):
+ *   [{"group": "...", "summary": {...}, "refresh_ms": N|null,
+ *     "boot_epoch": N|null, "stream_seq": N|null}, ...]
+ */
+char* net_fold_query_client_query_group_latest(
+    net_fold_query_client_handle_t* handle,
+    uint64_t target_node_id,
+    uint16_t kind,
+    const char* group,
+    int* out_error_kind);
+
+/*
+ * fold.query.v2 `SummarizeNow` — never cached. Same arguments, JSON
+ * shape and error kinds as `_query_group_latest`.
+ */
+char* net_fold_query_client_query_group_summarize_now(
+    net_fold_query_client_handle_t* handle,
+    uint64_t target_node_id,
+    uint16_t kind,
+    const char* group,
+    int* out_error_kind);
+
+/* Drop every cached entry. */
+void net_fold_query_client_invalidate_cache(
+    net_fold_query_client_handle_t* handle);
+
+/* Drop only cache entries matching `target_node_id`. */
+void net_fold_query_client_invalidate_target(
+    net_fold_query_client_handle_t* handle,
+    uint64_t target_node_id);
+
+/*
+ * Operator-facing detail string for the most recent non-OK
+ * fold-query op on this handle. Same caller-owned contract as
+ * `net_registry_last_error_detail`: free the returned string
+ * with `net_free_string`.
+ */
+char* net_fold_query_last_error_detail(
+    net_fold_query_client_handle_t* handle);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* NET_SDK_H */

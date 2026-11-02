@@ -1,0 +1,130 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# Team Specification: Analyze Campaign Performance
+# Auto-extracted from agent spec analyze-campaign-performance
+
+id: analyze-campaign-performance
+version: 0.0.1
+name: Analyze Campaign Performance Team
+description: 'A multi-agent team that unifies marketing data from Google Ads, Meta, TikTok, LinkedIn,
+  GA4, CRM, and email platforms. Normalises metrics into a unified view, detects performance anomalies
+  in real time, and generates budget reallocation recommendations to maximise ROAS.
+
+  '
+tags:
+- marketing
+- media
+- campaigns
+- analytics
+- advertising
+- social-media
+enabled: true
+icon: megaphone
+emoji: 📢
+color: purple
+agent_spec_id: analyze-campaign-performance:0.0.1
+orchestration_protocol: datalayer
+execution_mode: sequential
+supervisor:
+  name: Campaign Analytics Orchestrator Agent
+  model: openai:gpt-4.1
+routing_instructions: 'Start with Platform Connector to pull data from all ad platforms, then Metrics
+  Normaliser for unified KPIs, then Anomaly Detector for real-time performance monitoring, then Budget
+  Optimiser for reallocation recommendations. Escalate CPA spikes above 50% immediately.
+
+  '
+validation:
+  timeout: 300s
+  retry_on_failure: true
+  max_retries: 2
+agents:
+- id: cp-1
+  name: Platform Connector Agent
+  role: initiator
+  goal: Pull campaign data from Google Ads, Meta, TikTok, LinkedIn, GA4, and email platforms
+  model: openai:gpt-4.1
+  mcp_server: Ad Platforms MCP
+  tools:
+  - Google Ads Connector
+  - Meta Ads Connector
+  - TikTok Ads Connector
+  - LinkedIn Ads Connector
+  - GA4 Connector
+  trigger: 'Schedule: Every 4 hours'
+  approval: auto
+- id: cp-2
+  name: Metrics Normaliser Agent
+  role: contributor
+  goal: Normalise CPA, ROAS, CTR, and attribution across all platforms into unified view
+  model: openai:gpt-4.1
+  mcp_server: Analytics MCP
+  tools:
+  - Metric Unifier
+  - Currency Converter
+  - Attribution Mapper
+  - Naming Convention Resolver
+  depends_on:
+  - cp-1
+  approval: auto
+- id: cp-3
+  name: Anomaly Detector Agent
+  role: contributor
+  goal: Monitor all KPIs for CTR drops, CPA spikes, and budget pacing issues
+  model: anthropic:claude-sonnet-4-20250514
+  mcp_server: Monitoring MCP
+  tools:
+  - Anomaly Scanner
+  - Budget Pacer
+  - Alert Generator
+  - Campaign Pauser
+  depends_on:
+  - cp-2
+  approval: manual
+- id: cp-4
+  name: Budget Optimiser Agent
+  role: finalizer
+  goal: Generate budget reallocation recommendations to maximise ROAS across channels
+  model: openai:gpt-4.1
+  mcp_server: Optimisation MCP
+  tools:
+  - ROAS Calculator
+  - Budget Allocator
+  - Scenario Modeller
+  - Report Generator
+  depends_on:
+  - cp-3
+  approval: manual
+reaction_rules:
+- id: rr-camp-1
+  trigger: 'budget_threshold_exceeded'
+  action: pause_and_notify
+  auto: true
+  max_retries: 1
+  escalate_after_retries: 1
+  priority: high
+- id: rr-camp-2
+  trigger: 'data_quality_low'
+  action: retry_collection
+  auto: true
+  max_retries: 3
+  escalate_after_retries: 3
+  priority: medium
+health_monitoring:
+  heartbeat_interval: 30s
+  stale_threshold: 120s
+  unresponsive_threshold: 300s
+  stuck_threshold: 600s
+  max_restart_attempts: 3
+notifications:
+  on_start: true
+  on_completion: true
+  on_failure: true
+  on_escalation: true
+output:
+  formats:
+  - pdf
+  - csv
+  - json
+  template: Campaign Performance Report
+  storage: s3://reports/campaign-analytics/

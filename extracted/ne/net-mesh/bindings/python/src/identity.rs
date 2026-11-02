@@ -1,0 +1,507 @@
+//! PyO3 surface for the `Identity` handle — ed25519 keypair +
+//! token cache.
+//!
+//! Mirrors `bindings/node/src/identity.rs` one-for-one on the
+//! error-prefix convention (`"identity: ..."` /
+//! `"token: <kind>"`) and the opaque-bytes token boundary.
+//! Tokens cross as Python `bytes`; `CapabilitySet` / `SubnetId` /
+//! etc. live in sibling modules.
+
+use std::sync::Arc;
+
+use pyo3::exceptions::PyException;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+
+use net::adapter::net::identity::{
+    EntityId, EntityKeypair, IdentityState, IdentityStateError, PermissionToken, TokenCache,
+    TokenError as CoreTokenError, TokenScope,
+};
+
+// =========================================================================
+// Exceptions — matches TS `IdentityError` / `TokenError(kind)`
+// =========================================================================
+
+pyo3::create_exception!(
+    _net,
+    IdentityError,
+    PyException,
+    "Raised for malformed inputs at the identity layer (wrong seed \
+     length, invalid entity id, unknown scope, etc.). Token-validity \
+     failures raise `TokenError` instead."
+);
+
+pyo3::create_exception!(
+    _net,
+    TokenError,
+    PyException,
+    "Raised when a token fails validation. The message has the form \
+     `token: <kind>` where `<kind>` is one of `invalid_signature` | \
+     `not_yet_valid` | `expired` | `delegation_exhausted` | \
+     `delegation_not_allowed` | `not_authorized` | `invalid_format` | \
+     `read_only`."
+);
+
+pub(crate) fn token_error_kind(e: &CoreTokenError) -> &'static str {
+    match e {
+        CoreTokenError::InvalidSignature => "invalid_signature",
+        CoreTokenError::NotYetValid => "not_yet_valid",
+        CoreTokenError::Expired => "expired",
+        CoreTokenError::DelegationExhausted => "delegation_exhausted",
+        CoreTokenError::DelegationNotAllowed => "delegation_not_allowed",
+        CoreTokenError::NotAuthorized => "not_authorized",
+        CoreTokenError::Revoked => "revoked",
+        CoreTokenError::InvalidFormat => "invalid_format",
+        CoreTokenError::ReadOnly => "read_only",
+        CoreTokenError::ZeroTtl => "zero_ttl",
+        CoreTokenError::TtlTooLong => "ttl_too_long",
+    }
+}
+
+/// Encode a `CoreTokenError` as a Python-level `TokenError`. The
+/// `kind` discriminator is the message suffix after `"token: "`;
+/// programmatic callers parse it via
+/// `str(e).removeprefix("token: ")`.
+pub(crate) fn token_err(e: CoreTokenError) -> PyErr {
+    PyErr::new::<TokenError, _>(format!("token: {}", token_error_kind(&e)))
+}
+
+pub(crate) fn identity_err(msg: impl Into<String>) -> PyErr {
+    PyErr::new::<IdentityError, _>(format!("identity: {}", msg.into()))
+}
+
+/// Issuer-state failures get their own stable `kind` discriminators
+/// under the `identity:` prefix, matching the Node binding, so a
+/// caller can tell "you rotated backwards" from "that file is not
+/// identity state" without parsing prose.
+pub(crate) fn state_err(e: IdentityStateError) -> PyErr {
+    let kind = match e {
+        IdentityStateError::InvalidLength { .. } => "invalid_state_length",
+        IdentityStateError::UnsupportedVersion { .. } => "unsupported_state_version",
+        IdentityStateError::GenerationWentBackwards { .. } => "generation_went_backwards",
+        IdentityStateError::GenerationExhausted => "generation_exhausted",
+    };
+    identity_err(format!("{kind}: {e}"))
+}
+
+// =========================================================================
+// Scope parsing
+// =========================================================================
+
+fn parse_scope(scopes: &[String]) -> PyResult<TokenScope> {
+    let mut acc = TokenScope::NONE;
+    for s in scopes {
+        acc = acc.union(match s.as_str() {
+            "publish" => TokenScope::PUBLISH,
+            "subscribe" => TokenScope::SUBSCRIBE,
+            "admin" => TokenScope::ADMIN,
+            "delegate" => TokenScope::DELEGATE,
+            // WILDCARD authorizes the token's actions on *every*
+            // channel, regardless of its `channel_hash`. It was absent
+            // here, so a wildcard grant could not be issued from this
+            // binding at all, and a Rust-issued one crossing the wire
+            // had the bit dropped on parse — misrepresenting the
+            // credential's authority to the very caller deciding
+            // whether to trust it.
+            "wildcard" => TokenScope::WILDCARD,
+            other => {
+                return Err(identity_err(format!(
+                    "unknown scope {:?}; expected publish | subscribe | \
+                     admin | delegate | wildcard",
+                    other
+                )));
+            }
+        });
+    }
+    Ok(acc)
+}
+
+fn scope_to_strings(scope: TokenScope) -> Vec<String> {
+    let mut out = Vec::new();
+    if scope.contains(TokenScope::PUBLISH) {
+        out.push("publish".into());
+    }
+    if scope.contains(TokenScope::SUBSCRIBE) {
+        out.push("subscribe".into());
+    }
+    if scope.contains(TokenScope::ADMIN) {
+        out.push("admin".into());
+    }
+    if scope.contains(TokenScope::DELEGATE) {
+        out.push("delegate".into());
+    }
+    // Rendered last so the common scopes keep their existing order in
+    // fixtures; the set is what matters, not the sequence.
+    if scope.contains(TokenScope::WILDCARD) {
+        out.push("wildcard".into());
+    }
+    out
+}
+
+fn bytes_to_entity_id(bytes: &[u8]) -> PyResult<EntityId> {
+    if bytes.len() != 32 {
+        return Err(identity_err(format!(
+            "entity_id must be 32 bytes, got {}",
+            bytes.len()
+        )));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(bytes);
+    Ok(EntityId::from_bytes(arr))
+}
+
+fn channel_to_hash(channel: &str) -> PyResult<net::adapter::net::ChannelHash> {
+    let name = net::adapter::net::ChannelName::new(channel)
+        .map_err(|e| identity_err(format!("invalid channel name: {}", e)))?;
+    Ok(name.hash())
+}
+
+// =========================================================================
+// Identity pyclass
+// =========================================================================
+
+/// ed25519 keypair + local token cache. Cheap to clone (both
+/// inner members are `Arc`).
+#[pyclass(from_py_object)]
+#[derive(Clone)]
+pub struct Identity {
+    pub(crate) keypair: Arc<EntityKeypair>,
+    pub(crate) cache: Arc<TokenCache>,
+    /// This issuer's credential epoch, stamped onto every token
+    /// `issue_token` mints. Encoding is core's, shared with every
+    /// other binding — see `at_generation` for the rotation rules.
+    pub(crate) generation: u32,
+}
+
+impl Identity {
+    /// Key-only construction has no epoch to restore, so this starts
+    /// at zero. `from_state_bytes` is the path that carries one.
+    fn wrap(kp: EntityKeypair) -> Self {
+        Self::wrap_at(kp, 0)
+    }
+
+    fn wrap_at(kp: EntityKeypair, generation: u32) -> Self {
+        Self {
+            keypair: Arc::new(kp),
+            cache: Arc::new(TokenCache::new()),
+            generation,
+        }
+    }
+
+    /// Convert this Python `Identity` into the SDK `Identity` type
+    /// consumed by `net-sdk::compute`. Used by the compute feature's
+    /// `DaemonRuntime::spawn` / migration methods — the SDK reads
+    /// the 32-byte ed25519 seed through its own handle, so we hand
+    /// it a fresh `net_sdk::Identity` built from the seed bytes we
+    /// already hold.
+    #[cfg(feature = "compute")]
+    pub(crate) fn to_sdk_identity(&self) -> net_sdk::Identity {
+        let id = net_sdk::Identity::from_seed(*self.keypair.secret_bytes());
+        // Carry the epoch across. Handing the SDK a generation-zero
+        // copy of a rotated issuer would have it mint below its own
+        // published floor. From zero, `at_generation` cannot fail.
+        id.at_generation(self.generation).unwrap_or(id)
+    }
+}
+
+#[pymethods]
+impl Identity {
+    /// Generate a fresh ed25519 identity.
+    #[staticmethod]
+    fn generate() -> Self {
+        Self::wrap(EntityKeypair::generate())
+    }
+
+    /// Load from a caller-owned 32-byte ed25519 seed.
+    #[staticmethod]
+    fn from_seed(seed: &[u8]) -> PyResult<Self> {
+        if seed.len() != 32 {
+            return Err(identity_err(format!(
+                "seed must be 32 bytes, got {}",
+                seed.len()
+            )));
+        }
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(seed);
+        Ok(Self::wrap(EntityKeypair::from_bytes(arr)))
+    }
+
+    /// Alias for `from_seed` — the persisted form IS the 32-byte seed.
+    #[staticmethod]
+    fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        Self::from_seed(data)
+    }
+
+    /// Serialize as the 32-byte ed25519 seed. Treat as secret.
+    fn to_bytes(&self) -> Vec<u8> {
+        self.keypair.secret_bytes().to_vec()
+    }
+
+    /// Ed25519 public key. 32 bytes.
+    #[getter]
+    fn entity_id(&self) -> Vec<u8> {
+        self.keypair.entity_id().as_bytes().to_vec()
+    }
+
+    /// Derived 64-bit origin hash used in packet headers.
+    #[getter]
+    fn origin_hash(&self) -> u64 {
+        self.keypair.origin_hash()
+    }
+
+    /// Derived 64-bit node id used for routing/addressing.
+    #[getter]
+    fn node_id(&self) -> u64 {
+        self.keypair.node_id()
+    }
+
+    /// Sign arbitrary bytes. Returns 64 bytes (ed25519 signature).
+    fn sign(&self, message: &[u8]) -> Vec<u8> {
+        self.keypair.sign(message).to_bytes().to_vec()
+    }
+
+    /// Issue a scoped permission token to `subject`.
+    ///
+    /// `scope` is a list of `'publish' | 'subscribe' | 'admin' |
+    /// 'delegate'`. `delegation_depth = 0` forbids further
+    /// re-delegation.
+    #[pyo3(signature = (subject, scope, channel, ttl_seconds, delegation_depth=0))]
+    fn issue_token(
+        &self,
+        subject: &[u8],
+        scope: Vec<String>,
+        channel: &str,
+        ttl_seconds: u32,
+        delegation_depth: u8,
+    ) -> PyResult<Vec<u8>> {
+        let subject_id = bytes_to_entity_id(subject)?;
+        let scope_bits = parse_scope(&scope)?;
+        let channel_hash = channel_to_hash(channel)?;
+        // Route through `try_issue` so `ttl_seconds=0`
+        // surfaces as `TokenError::ZeroTtl` rather than minting a
+        // born-expired token.
+        let token = PermissionToken::try_issue_with_generation(
+            &self.keypair,
+            self.generation,
+            subject_id,
+            scope_bits,
+            channel_hash,
+            u64::from(ttl_seconds),
+            delegation_depth,
+        )
+        .map_err(token_err)?;
+        Ok(token.to_bytes())
+    }
+
+    /// This issuer's current credential epoch.
+    ///
+    /// Every token `issue_token` mints carries it, and a verifier
+    /// rejects that token once its revocation floor for this entity
+    /// exceeds it.
+    #[getter]
+    fn issuer_generation(&self) -> u32 {
+        self.generation
+    }
+
+    /// The same key at a later generation.
+    ///
+    /// Returns a **new** `Identity`; this one is unchanged. Rotation is
+    /// explicit at the call site rather than something that happens to
+    /// a caller mid-issuance.
+    ///
+    /// `next == issuer_generation` is accepted and idempotent, so
+    /// re-applying a persisted generation on restart is not an error.
+    /// Going backwards raises, and so does any rotation once the
+    /// generation reaches `2**32 - 1` — past that, rotate the key.
+    ///
+    /// Rotation order: build the generation-N identity, persist
+    /// `to_state_bytes()` atomically and durably, distribute verifier
+    /// floor N, then start issuing. Publishing floor N before the state
+    /// is durable leaves a crashed issuer announcing a floor it cannot
+    /// satisfy.
+    fn at_generation(&self, next: u32) -> PyResult<Self> {
+        let generation = IdentityState::check_rotation(self.generation, next).map_err(state_err)?;
+        Ok(Self {
+            keypair: self.keypair.clone(),
+            cache: self.cache.clone(),
+            generation,
+        })
+    }
+
+    /// Serialize the full issuer state — version, seed, generation.
+    ///
+    /// **Secret material**, exactly like `to_bytes`. Encrypt at rest
+    /// and write atomically; a torn write here is an issuer that cannot
+    /// come back.
+    fn to_state_bytes(&self) -> Vec<u8> {
+        IdentityState {
+            seed: *self.keypair.secret_bytes(),
+            generation: self.generation,
+        }
+        .to_bytes()
+        .to_vec()
+    }
+
+    /// Restore an issuer — key *and* generation — from
+    /// `to_state_bytes()`.
+    ///
+    /// The restart path for anything that rotates. `from_bytes` /
+    /// `from_seed` restore the key only and come back at generation
+    /// zero, which for a rotated issuer is below its own floor.
+    #[staticmethod]
+    fn from_state_bytes(data: &[u8]) -> PyResult<Self> {
+        let state = IdentityState::from_bytes(data).map_err(state_err)?;
+        Ok(Self::wrap_at(
+            EntityKeypair::from_bytes(state.seed),
+            state.generation,
+        ))
+    }
+
+    /// Install a token received from another issuer. Signature
+    /// verification happens on insert; malformed or tampered
+    /// tokens raise `TokenError`.
+    fn install_token(&self, token: &[u8]) -> PyResult<()> {
+        let parsed = PermissionToken::from_bytes(token).map_err(token_err)?;
+        self.cache.insert(parsed).map_err(token_err)
+    }
+
+    /// Look up a cached token by `(subject, channel)`. Returns
+    /// `None` if no exact-channel token is cached.
+    fn lookup_token(&self, subject: &[u8], channel: &str) -> PyResult<Option<Vec<u8>>> {
+        let subject_id = bytes_to_entity_id(subject)?;
+        let channel_hash = channel_to_hash(channel)?;
+        Ok(self
+            .cache
+            .get(&subject_id, channel_hash)
+            .map(|t| t.to_bytes()))
+    }
+
+    /// Number of cached tokens (testing aid).
+    #[getter]
+    fn token_cache_len(&self) -> u32 {
+        self.cache.len() as u32
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Identity(entity_id=0x{}, node_id={:#x})",
+            hex::encode(self.keypair.entity_id().as_bytes()),
+            self.keypair.node_id()
+        )
+    }
+}
+
+// =========================================================================
+// Module-level functions
+// =========================================================================
+
+/// Parse a serialized `PermissionToken`. Returns a dict with
+/// `issuer`, `subject`, `scope`, `channel_hash`, `not_before`,
+/// `not_after`, `delegation_depth`, `issuer_generation`, `nonce`,
+/// `signature`.
+/// Raises `TokenError(kind="invalid_format")` on bad length / layout.
+#[pyfunction]
+pub fn parse_token<'py>(py: Python<'py>, token: &[u8]) -> PyResult<Bound<'py, PyDict>> {
+    let parsed = PermissionToken::from_bytes(token).map_err(token_err)?;
+    let out = PyDict::new(py);
+    out.set_item("issuer", parsed.issuer.as_bytes().to_vec())?;
+    out.set_item("subject", parsed.subject.as_bytes().to_vec())?;
+    out.set_item("scope", scope_to_strings(parsed.scope))?;
+    out.set_item("channel_hash", parsed.channel_hash)?;
+    out.set_item("not_before", parsed.not_before)?;
+    out.set_item("not_after", parsed.not_after)?;
+    out.set_item("delegation_depth", parsed.delegation_depth)?;
+    // `RevocationRegistry` rejects tokens below the issuer's
+    // monotonic floor. Without this an operator could see a
+    // credential refused but not that its generation was the reason.
+    out.set_item("issuer_generation", parsed.issuer_generation)?;
+    out.set_item("nonce", parsed.nonce)?;
+    out.set_item("signature", parsed.signature.to_vec())?;
+    Ok(out)
+}
+
+/// Verify a detached ed25519 signature against a 32-byte entity id.
+///
+/// The verifying half of ``Identity.sign``. Every binding exposed signing
+/// and none exposed verification for an arbitrary message, so a
+/// signature produced here could only be checked from Rust — and the
+/// binding tests asserted the signature's *length* rather than a
+/// round trip, which passes for any 64 bytes.
+///
+/// Strict verification (`verify_strict`): the malleable `(R, S + L)`
+/// variant is rejected, so one logical message cannot appear under two
+/// byte encodings.
+///
+/// Returns ``True`` when the signature is valid for this exact
+/// ``(entity_id, message)`` pair, ``False`` when it is not. Raises
+/// only on a malformed argument, so ``False`` means "did not verify",
+/// never "called wrong".
+#[pyfunction]
+pub fn verify_signature(entity_id: &[u8], message: &[u8], signature: &[u8]) -> PyResult<bool> {
+    let id = bytes_to_entity_id(entity_id)?;
+    let sig: [u8; 64] = signature.try_into().map_err(|_| {
+        identity_err(format!(
+            "signature must be exactly 64 bytes, got {}",
+            signature.len()
+        ))
+    })?;
+    Ok(id.verify_bytes(message, &sig).is_ok())
+}
+
+/// Verify a serialized token's ed25519 signature. `True` on
+/// valid; `False` on tampered / wrong-subject. Time-bound validity
+/// is a separate check — use `token_is_expired` for that.
+#[pyfunction]
+pub fn verify_token(token: &[u8]) -> PyResult<bool> {
+    let parsed = PermissionToken::from_bytes(token).map_err(token_err)?;
+    Ok(parsed.verify().is_ok())
+}
+
+/// `True` if the token's `not_after` has passed (host wall-clock).
+/// Pure time check — a tampered-but-expired token still reports
+/// true. Use :func:`verify_token` for signature integrity.
+#[pyfunction]
+pub fn token_is_expired(token: &[u8]) -> PyResult<bool> {
+    let parsed = PermissionToken::from_bytes(token).map_err(token_err)?;
+    Ok(parsed.is_expired())
+}
+
+/// Delegate a token to a new subject. The `parent` token must
+/// include the `delegate` scope and have `delegation_depth > 0`;
+/// the `signer` must be the subject of the parent token.
+#[pyfunction]
+pub fn delegate_token(
+    signer: &Identity,
+    parent: &[u8],
+    new_subject: &[u8],
+    restricted_scope: Vec<String>,
+) -> PyResult<Vec<u8>> {
+    let parent_tok = PermissionToken::from_bytes(parent).map_err(token_err)?;
+    let subject_id = bytes_to_entity_id(new_subject)?;
+    let restricted = parse_scope(&restricted_scope)?;
+    let child = parent_tok
+        // The child is issued by `signer`, so it carries the signer's
+        // generation — not the parent's. The floor it is checked
+        // against is the signer's.
+        .delegate_with_generation(&signer.keypair, signer.generation, subject_id, restricted)
+        .map_err(token_err)?;
+    Ok(child.to_bytes())
+}
+
+/// Hash a channel name to its canonical 64-bit substrate identifier
+/// (used for ACL / config / storage keys; the wire `NetHeader`
+/// fast-path hint is the low 16 bits of this value). Python's
+/// `int` is arbitrary-precision so the full u64 round-trips
+/// without truncation.
+#[pyfunction]
+pub fn channel_hash(channel: &str) -> PyResult<u64> {
+    channel_to_hash(channel)
+}
+
+/// The stream id a label names — the same derivation the browser leaf
+/// uses, so a native node and a page that agree on a label open the same
+/// stream. Any string is a label; nothing is validated.
+#[pyfunction]
+pub fn stream_id_from_label(label: &str) -> u64 {
+    net::adapter::net::stream_id_from_label(label)
+}

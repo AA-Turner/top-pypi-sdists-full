@@ -1,0 +1,55 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "martian-linguafranca"
+version = "0.3.16"
+description = "LLM API format converter with Rust core and Python bindings"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+readme = "README.md"
+keywords = ["llm", "openai", "anthropic", "api", "converter"]
+authors = [
+    { name = "Artem Bakuta", email = "artem@withmartian.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/withmartian/linguafranca"
+Repository = "https://github.com/withmartian/linguafranca"
+Issues = "https://github.com/withmartian/linguafranca/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "maturin>=1.0,<2.0",
+    "ruff>=0.9",
+    "datamodel-code-generator==0.55.0",
+    "frfr>=0.1.1 ; python_full_version >= '3.12'",
+]
+
+[tool.maturin]
+manifest-path = "crates/python/Cargo.toml"
+module-name = "linguafranca._linguafranca"
+python-source = "python"
+strip = true
+include = [
+    { path = "LICENSE", format = "sdist" },
+]
+exclude = [
+    "python/scripts/**",
+    "python/linguafranca/schemas/**",
+    "tests/**",
+]

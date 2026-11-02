@@ -1,0 +1,71 @@
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+if TYPE_CHECKING:
+    from ..models.connect_remote_deploy_json_body_target import ConnectRemoteDeployJsonBodyTarget
+
+
+T = TypeVar("T", bound="ConnectRemoteDeployJsonBody")
+
+
+@_attrs_define
+class ConnectRemoteDeployJsonBody:
+    """
+    Attributes:
+        token (str):
+        target (ConnectRemoteDeployJsonBodyTarget):
+    """
+
+    token: str
+    target: "ConnectRemoteDeployJsonBodyTarget"
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        token = self.token
+        target = self.target.to_dict()
+
+        field_dict: Dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "token": token,
+                "target": target,
+            }
+        )
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.connect_remote_deploy_json_body_target import ConnectRemoteDeployJsonBodyTarget
+
+        d = src_dict.copy()
+        token = d.pop("token")
+
+        target = ConnectRemoteDeployJsonBodyTarget.from_dict(d.pop("target"))
+
+        connect_remote_deploy_json_body = cls(
+            token=token,
+            target=target,
+        )
+
+        connect_remote_deploy_json_body.additional_properties = d
+        return connect_remote_deploy_json_body
+
+    @property
+    def additional_keys(self) -> List[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

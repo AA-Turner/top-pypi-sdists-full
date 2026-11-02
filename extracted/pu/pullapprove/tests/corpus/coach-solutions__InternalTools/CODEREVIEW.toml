@@ -1,0 +1,77 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "backend"
+reviewers = ["$backend"]
+request = 1
+require = 1
+labels = ["backend"]
+ownership = "append"
+paths = [
+  "**/*",
+  "!src/InternalTools.ExternalServices.OnlineApi/Resources/nswag.json",
+  "!src/InternalTools.ExternalServices.OnlineApi/Resources/online-api-spec.json",
+  "!src/InternalTools.ExternalServices.OnlineApi/Clients/OnlineApiClients.cs",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Resources/nswag.json",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Resources/voyages-api-spec.json",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Clients/VoyagesApiClients.cs",
+  "!Dockerfile",
+  "!Dockerfile.dev",
+  "!docker-compose.yml",
+  "!pipeline.yml",
+  "!deployment.yml",
+]
+
+[[scopes]]
+name = "backend-interested"
+reviewers = ["$backend-interested"]
+request = 1
+require = 0
+paths = [
+  "**/*",
+  "!src/InternalTools.ExternalServices.OnlineApi/Resources/nswag.json",
+  "!src/InternalTools.ExternalServices.OnlineApi/Resources/online-api-spec.json",
+  "!src/InternalTools.ExternalServices.OnlineApi/Clients/OnlineApiClients.cs",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Resources/nswag.json",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Resources/voyages-api-spec.json",
+  "!src/InternalTools.ExternalServices.VoyagesApi/Clients/VoyagesApiClients.cs",
+  "!Dockerfile",
+  "!Dockerfile.dev",
+  "!docker-compose.yml",
+  "!pipeline.yml",
+  "!deployment.yml",
+]
+
+[[scopes]]
+name = "dev-ops"
+reviewers = ["$dev-ops"]
+request = 1
+require = 1
+labels = ["dev-ops"]
+ownership = "append"
+paths = ["Dockerfile", "Dockerfile.dev", "docker-compose.yml", "pipeline.yml", "deployment.yml"]
+
+[[scopes]]
+name = "dev-ops-interested"
+reviewers = ["$dev-ops-interested"]
+request = 1
+require = 0
+paths = ["Dockerfile", "Dockerfile.dev", "docker-compose.yml", "pipeline.yml", "deployment.yml"]
+
+[[scopes]]
+name = "api-spec-sync"
+reviewers = ["johannesmols"]
+alternates = ["$backend"]
+request = 1
+require = 1
+author_value = 1
+paths = [
+  "src/InternalTools.ExternalServices.OnlineApi/Resources/nswag.json",
+  "src/InternalTools.ExternalServices.OnlineApi/Resources/online-api-spec.json",
+  "src/InternalTools.ExternalServices.OnlineApi/Clients/OnlineApiClients.cs",
+  "src/InternalTools.ExternalServices.VoyagesApi/Resources/nswag.json",
+  "src/InternalTools.ExternalServices.VoyagesApi/Resources/voyages-api-spec.json",
+  "src/InternalTools.ExternalServices.VoyagesApi/Clients/VoyagesApiClients.cs",
+]

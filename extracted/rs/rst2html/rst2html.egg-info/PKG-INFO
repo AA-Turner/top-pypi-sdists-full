@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: rst2html
+Version: 2020.7.4
+Summary: reStructuredText to html
+Home-page: https://github.com/andrewp-as-is/rst2html.py
+License: Unlicense
+Description: <!--
+        https://readme42.com
+        -->
+        
+        
+        [![](https://img.shields.io/pypi/v/rst2html.svg?maxAge=3600)](https://pypi.org/project/rst2html/)
+        [![](https://img.shields.io/badge/License-Unlicense-blue.svg?longCache=True)](https://unlicense.org/)
+        
+        ### Installation
+        ```bash
+        $ [sudo] pip install rst2html
+        ```
+        
+        #### Examples
+        ```python
+        from rst2html import rst2html
+        
+        html, warning = rst2html('reStructuredText string')
+        ```
+        
+        `docutils` `report_level`
+        ```python
+        html, warning = rst2html('reStructuredText string',report_level=5)
+        ```
+        
+        <p align="center">
+            <a href="https://readme42.com/">readme42.com</a>
+        </p>
+Keywords: rts reStructuredText html
+Platform: UNKNOWN
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown

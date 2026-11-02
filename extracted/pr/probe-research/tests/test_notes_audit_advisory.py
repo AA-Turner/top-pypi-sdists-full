@@ -37,7 +37,7 @@ import pytest
 
 from pathlib import Path
 
-from probe.cli import agent_rules
+from probe.cli.wizard.apply import agent_rules
 from probe.shared.notes import team_note as tnf
 
 TODAY = dt.date(2026, 9, 3)

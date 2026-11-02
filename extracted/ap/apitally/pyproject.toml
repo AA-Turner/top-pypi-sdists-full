@@ -1,0 +1,174 @@
+[project]
+name = "apitally"
+description = "Simple API monitoring & analytics for REST APIs built with FastAPI, Flask, Django, Starlette, Litestar and BlackSheep."
+authors = [{ name = "Apitally", email = "hello@apitally.io" }]
+readme = "README.md"
+license = { text = "MIT License" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: FastAPI",
+    "Framework :: Flask",
+    "Framework :: OpenTelemetry",
+    "Framework :: OpenTelemetry :: Distros",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Topic :: Software Development",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "opentelemetry-api>=1.42.0,<2.0.0",
+    "opentelemetry-sdk>=1.42.0,<2.0.0",
+    "opentelemetry-instrumentation>=0.63b0",
+    "opentelemetry-instrumentation-logging>=0.63b0",
+    "opentelemetry-proto>=1.42.0,<2.0.0",
+    "psutil>=5.9.0",
+    "requests>=2.26.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+blacksheep = [
+    "blacksheep>=2.6.1",
+    "opentelemetry-instrumentation-asgi>=0.63b0",
+]
+django = [
+    "django>=3.2",
+    "opentelemetry-instrumentation-django[asgi]>=0.63b0",
+    "uritemplate>=3.0.0",                    # required for DRF schema generation
+    "inflection>=0.5.1",                     # required for DRF schema generation
+]
+fastapi = [
+    "fastapi>=0.108.0",
+    "starlette>=0.29.0,<2.0.0",
+    "opentelemetry-instrumentation-asgi>=0.63b0",
+]
+flask = [
+    "flask>=2.0.0",
+    "opentelemetry-instrumentation-flask>=0.63b0",
+]
+litestar = [
+    "litestar>=2.24.0",
+    "opentelemetry-instrumentation-asgi>=0.63b0",
+]
+starlette = [
+    "starlette>=0.29.0,<2.0.0",
+    "opentelemetry-instrumentation-asgi>=0.63b0",
+]
+
+[project.urls]
+Homepage = "https://apitally.io"
+Documentation = "https://docs.apitally.io"
+Repository = "https://github.com/apitally/apitally-py"
+
+[dependency-groups]
+dev = [
+    "ruff~=0.17.0",
+    "ty~=0.0.44",
+]
+test-base = [
+    "httpx",
+    "loguru",
+    "opentelemetry-exporter-otlp-proto-common>=1.42.0",
+    "opentelemetry-test-utils>=0.63b0",
+    "pytest~=8.4.0",
+    "pytest-asyncio~=0.21.2",
+    "pytest-cov~=7.1.0",
+    "pytest-mock~=3.16.0",
+]
+test = [
+    { include-group = "test-base" },
+    "blacksheep",
+    "django",
+    "django-ninja",
+    "djangorestframework",
+    "drf-spectacular",
+    "fastapi",
+    "flask",
+    "gunicorn",
+    "inflection",
+    "litestar",
+    "opentelemetry-instrumentation-asgi>=0.63b0",
+    "opentelemetry-instrumentation-django>=0.63b0",
+    "opentelemetry-instrumentation-fastapi>=0.63b0",
+    "opentelemetry-instrumentation-flask>=0.63b0",
+    "opentelemetry-instrumentation-starlette>=0.63b0",
+    "starlette",
+    "uritemplate",
+]
+types = [
+    "django-types",
+    "djangorestframework-types",
+]
+otel = [
+    "opentelemetry-instrumentation-asyncpg",
+    "opentelemetry-instrumentation-botocore",
+    "opentelemetry-instrumentation-httpx",
+    "opentelemetry-instrumentation-mysql",
+    "opentelemetry-instrumentation-psycopg",
+    "opentelemetry-instrumentation-psycopg2",
+    "opentelemetry-instrumentation-pymongo",
+    "opentelemetry-instrumentation-redis",
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-sqlalchemy",
+]
+sentry = ["sentry-sdk>=2.2.0"]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["apitally"]
+
+[tool.uv]
+default-groups = "all"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["E501"]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-p no:faker"
+filterwarnings = [
+    # Python 3.14 asyncio deprecations triggered inside pytest-asyncio, not our code
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
+    "ignore:'asyncio.get_event_loop_policy' is deprecated:DeprecationWarning",
+    # fastapi.testclient still imports starlette.testclient with httpx installed
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:Warning",
+]
+
+[tool.coverage.run]
+source = ["apitally"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING"]

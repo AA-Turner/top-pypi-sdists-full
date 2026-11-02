@@ -105,25 +105,10 @@ class ClosingMixin:
         checking first would make a spurious warning fire on data that is
         durable on disk and about to be delivered, not actually missing.
         """
-        # IDEMPOTENT (review of #2011). `with probe.init() as run:` closes the
-        # run in `Run.__exit__` and the atexit hook used to close it AGAIN --
-        # two full deadlines at exit during an outage, and two terminal PATCHes
-        # queued. A repeat returns what the first close returned. A close that
-        # raised before sending any verdict (strict) stays retryable.
-        #
-        # A close ALREADY RUNNING in another thread (a watchdog, a second
-        # `probe.finish()`) is waited for, up to what is left of its deadline,
-        # and its answer returned. Returning at once let `fluent.finish` close
-        # the client the first close was still sending through, and its
-        # terminal write then raised "the client has been closed" (re-review
-        # of #2011). The SAME thread re-entering (a signal handler that calls
-        # `probe.finish()` mid-close) cannot wait on itself: it gets
-        # ``{"finish_in_progress": True}`` and `fluent.finish` then leaves the
-        # client alone.
+        # IDEMPOTENT (#2011): a repeat returns the first close's answer; a close running in another thread
+        # is waited for; the same thread re-entering gets ``{"finish_in_progress": True}`` (DESIGN.md).
         lock = self.__dict__.setdefault("_finish_lock", threading.Lock())
-        # A SIGTERM is ending this process (`preempt`): whoever closes -- the
-        # handler's worker, a `with` block's exit, a `finally`, atexit -- the
-        # run ends `failed`, marked preempted, within the SIGTERM's budget.
+        # A SIGTERM (`preempt`): whoever closes, the run ends `failed`, marked preempted, in its budget.
         preempted = _preempt.ending()
         with lock:
             previous = getattr(self, "_finish_result", _UNSET)
@@ -151,12 +136,7 @@ class ClosingMixin:
         if preempted is not None:
             close_summary = _with_finish_accounting(close_summary, preempted.facts())
             if preempted.exit_code is not None:
-                # How the process is about to die, where the crash email and
-                # the killed-by-signal detector read it: a NEGATIVE code is
-                # "died on that signal" there (`-15` -> "stopped after
-                # receiving SIGTERM"), as for a launcher's child. The 143 a
-                # shell reports rides in `probe_finish`. Before the close, like
-                # every exit span.
+                # The exit code as the crash email reads it: negative means died on that signal (DESIGN.md).
                 from ... import fluent
 
                 fluent._write_exit_span(

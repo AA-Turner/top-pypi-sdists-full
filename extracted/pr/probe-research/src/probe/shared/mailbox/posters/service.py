@@ -34,7 +34,7 @@ def service_call(method: str, params: dict, *, wait: float) -> "dict | None":
         return None
     try:
         from probe import __version__
-        from probe.service import client
+        from probe.foundation import service_api as client
     except Exception:  # noqa: BLE001 -- the file is written here instead
         return None
     sent = None

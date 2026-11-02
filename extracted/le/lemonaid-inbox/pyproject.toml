@@ -1,0 +1,74 @@
+[project]
+name = "lemonaid-inbox"
+dynamic = ["version"]
+description = "Attention inbox for managing notifications from lemons and other background tools"
+readme = "docs/pypi.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6",
+    "textual>=0.89.0",
+    "wordybin==0.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/petergaultney/lemonaid"
+Repository = "https://github.com/petergaultney/lemonaid"
+Documentation = "https://github.com/petergaultney/lemonaid/tree/main/docs"
+Changelog = "https://github.com/petergaultney/lemonaid/tree/main/changes"
+Issues = "https://github.com/petergaultney/lemonaid/issues"
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest",
+    "pytest-xdist>=3.8.0",
+    "ruff",
+]
+
+[project.scripts]
+lemonaid = "lemonaid.cli:main"
+lma = "lemonaid.cli:inbox_main"
+lemonaid-tmux-window-status = "lemonaid.window_status:main"
+lemonaid-tmux-session-name = "lemonaid.window_status:session_main"
+lemonaid-claude-statusline = "lemonaid.claude.statusline:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# The version is the nearest v* tag, which the release workflow creates; a commit past it
+# gets a dev version. A tree without git history builds as 0.0.0.
+[tool.hatch.version]
+source = "vcs"
+raw-options = { fallback_version = "0.0.0" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lemonaid"]
+
+# Installed alongside the package so `lemonaid for-lemons` works from any
+# install, not only an editable one pointing back at a checkout.
+[tool.hatch.build.targets.wheel.force-include]
+"docs/for-lemons.md" = "lemonaid/docs/for-lemons.md"
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "SIM", # flake8-simplify
+  "RUF", # ruff-specific
+]
+ignore = [
+  "E501",   # line too long (handled by formatter)
+  "RUF012", # mutable class attrs - Textual uses this pattern
+  "RUF022", # __all__ not sorted - we organize by category
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lemonaid"]

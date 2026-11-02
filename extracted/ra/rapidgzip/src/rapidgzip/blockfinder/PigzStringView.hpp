@@ -41,9 +41,11 @@ public:
 
 public:
     explicit
-    PigzStringView( UniqueFileReader fileReader ) :
+    PigzStringView( UniqueFileReader fileReader,
+                    const size_t     readSize = BUFFER_SIZE ) :
         m_fileReader( std::move( fileReader ) ),
-        m_fileSize( m_fileReader->size() )
+        m_fileSize( m_fileReader->size() ),
+        m_readSize( std::clamp( readSize, size_t( 1 ), BUFFER_SIZE ) )
     {}
 
     /**
@@ -104,21 +106,25 @@ private:
 
         if ( checkBoundary ) {
             boundaryBufferSize = std::min( m_bufferSize, nBytesToRetain );
+            const auto boundaryStart = m_bufferSize - boundaryBufferSize;
             for ( std::size_t i = 0; i < boundaryBufferSize; ++i ) {
-                boundaryBuffer[i] = m_buffer[i + ( m_bufferSize - nBytesToRetain )];
+                boundaryBuffer[i] = m_buffer[boundaryStart + i];
             }
         }
 
         /* Always read chunks of BUFFER_SIZE in order to have aligned I/O and memory accesses. */
         const auto bufferOffset = m_fileReader->tell();
         const auto boundaryBufferOffset = bufferOffset - boundaryBufferSize;
-        m_bufferSize = m_fileReader->read( m_buffer.data(), BUFFER_SIZE );
+        m_bufferSize = m_fileReader->read( m_buffer.data(), m_readSize );
 
         if ( checkBoundary ) {
-            boundaryBufferSize += std::min( nBytesToRetain, m_bufferSize );
-            for ( std::size_t i = 0; i < std::min( nBytesToRetain, m_bufferSize ); ++i ) {
-                boundaryBuffer[nBytesToRetain + i] = m_buffer[i];
+            const auto nNewBytes = std::min( nBytesToRetain, m_bufferSize );
+            /* Append the new bytes directly after the retained previous bytes so that the view is contiguous
+             * even when the previous read returned fewer than nBytesToRetain bytes. */
+            for ( std::size_t i = 0; i < nNewBytes; ++i ) {
+                boundaryBuffer[boundaryBufferSize + i] = m_buffer[i];
             }
+            boundaryBufferSize += nNewBytes;
 
             findBlockOffsets( { boundaryBuffer.data(), boundaryBufferSize }, boundaryBufferOffset );
         }
@@ -129,7 +135,7 @@ private:
     void
     findFirstBlock()
     {
-        #if 0
+    #if 0
         /**
          * @todo This requires the buffer to be larger than the first gzip header may be.
          * Theoretically, the user could store arbitrary amount of data in the zero-terminated file name
@@ -138,13 +144,13 @@ private:
          */
         gzip::BitReader bitReader( m_fileReader->clone() );
 
-        #else
+    #else
 
         BufferedFileReader::AlignedBuffer buffer( BUFFER_SIZE );
         buffer.resize( m_fileReader->read( buffer.data(), buffer.size() ) );
         gzip::BitReader bitReader( std::make_unique<BufferedFileReader>( std::move( buffer ) ) );
 
-        #endif
+    #endif
 
         if ( ( rapidgzip::gzip::checkHeader( bitReader ) == rapidgzip::Error::NONE )
              && ( bitReader.tell() % CHAR_BIT == 0 ) ) {
@@ -167,6 +173,7 @@ private:
 
     alignas( 64 ) std::array<char, BUFFER_SIZE> m_buffer{};
     size_t m_bufferSize{ 0 };
+    const size_t m_readSize;
 
     bool foundFirstBlock{ false };
     std::vector<std::size_t> m_blockOffsets;

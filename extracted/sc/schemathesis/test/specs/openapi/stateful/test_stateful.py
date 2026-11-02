@@ -3,6 +3,7 @@ from collections import Counter
 from uuid import uuid4
 
 import pytest
+import requests
 from fastapi import FastAPI, Header, HTTPException
 from hypothesis import HealthCheck, Phase, settings
 from hypothesis.control import current_build_context
@@ -27,8 +28,8 @@ from schemathesis.specs.openapi.stateful import (
     match_status_code,
 )
 from test.apps.catalog.openapi import users as openapi_users
-from test.apps.catalog.openapi.modifiers.stateful import NoMergeBody
-from test.utils import run_given
+from test.apps.catalog.openapi.modifiers.stateful import NoMergeBody, SingleUseBearerTokens
+from test.utils import run_given, saved_example_keys
 
 
 @pytest.mark.parametrize(
@@ -645,6 +646,33 @@ def test_passing_transport_kwargs(ctx):
     assert [request.query for request in api.requests if "token" not in request.query] == [{"trace": "1"}]
 
 
+# Each expired token draws one 401, after which the step re-authenticates and later steps use the new token.
+def test_expired_token_is_refreshed(ctx):
+    api = ctx.openapi.apps.stateful_users(SingleUseBearerTokens())
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+
+    @schemathesis.auth()
+    class TokenAuth:
+        def get(self, case, context):
+            return requests.post(f"{api.base_url}/auth/token").json()["token"]
+
+        def set(self, case, data, context):
+            case.headers = case.headers or {}
+            case.headers["Authorization"] = f"Bearer {data}"
+
+    schema.as_state_machine().run(
+        settings=settings(
+            max_examples=5,
+            deadline=None,
+            database=None,
+            suppress_health_check=list(HealthCheck),
+            phases=[Phase.generate],
+        )
+    )
+    assert set(Counter(api.wsgi_app.config["expired_token_uses"]).values()) == {1}
+
+
 @pytest.mark.parametrize(
     ("disabled_op", "expected_rules"),
     [
@@ -1082,6 +1110,15 @@ def test_test_case_runs_in_process(ctx):
 
     QuickTestCase().runTest()
     assert {request.method for request in api.requests} >= {"POST"}
+
+
+# Replaying one API's saved scenarios into another API's state machine changes which failures it finds.
+def test_saved_scenarios_are_kept_per_schema(ctx):
+    users_crud = ctx.openapi.apps.users_crud().schema_url
+    keys = saved_example_keys(schemathesis.openapi.from_url(users_crud).as_state_machine())
+    assert keys == saved_example_keys(schemathesis.openapi.from_url(users_crud).as_state_machine())
+    linked_users = ctx.openapi.apps.linked_users().schema_url
+    assert keys.isdisjoint(saved_example_keys(schemathesis.openapi.from_url(linked_users).as_state_machine()))
 
 
 def test_rule_names_stay_unique_when_operation_labels_normalize_alike(ctx):

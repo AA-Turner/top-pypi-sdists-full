@@ -1,0 +1,763 @@
+"""OpenSearch Service tests.
+
+Covers the full management plane (13 ops) plus account isolation. The data
+plane (real ``opensearchproject/opensearch`` container per domain) is gated
+by ``OPENSEARCH_DATAPLANE=1`` and exercised separately when that env var
+is set.
+"""
+
+import json
+import os
+import time
+import urllib.request
+import uuid
+
+import boto3
+import pytest
+from botocore.exceptions import ClientError
+
+ENDPOINT = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566")
+REGION = "us-east-1"
+
+
+def _client(account="test", region=REGION):
+    return boto3.client(
+        "opensearch",
+        endpoint_url=ENDPOINT,
+        region_name=region,
+        aws_access_key_id=account,
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.fixture(scope="module")
+def os_client():
+    return _client()
+
+
+def _uid():
+    return uuid.uuid4().hex[:6]
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle
+# ---------------------------------------------------------------------------
+
+def test_opensearch_create_describe_delete(os_client):
+    name = f"d-{_uid()}"
+    rec = os_client.create_domain(DomainName=name, EngineVersion="OpenSearch_2.13")["DomainStatus"]
+    assert rec["DomainName"] == name
+    assert rec["EngineVersion"] == "OpenSearch_2.13"
+    assert rec["ARN"].startswith("arn:aws:es:")
+    assert rec["DomainEndpointOptions"]["EnforceHTTPS"] is True
+
+    desc = os_client.describe_domain(DomainName=name)["DomainStatus"]
+    assert desc["DomainName"] == name
+
+    deleted = os_client.delete_domain(DomainName=name)["DomainStatus"]
+    assert deleted["Deleted"] is True
+
+
+def test_opensearch_describe_missing(os_client):
+    with pytest.raises(ClientError) as exc:
+        os_client.describe_domain(DomainName="nope-xyz")
+    assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+def test_opensearch_create_duplicate(os_client):
+    name = f"dup-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        with pytest.raises(ClientError) as exc:
+            os_client.create_domain(DomainName=name)
+        assert exc.value.response["Error"]["Code"] == "ResourceAlreadyExistsException"
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_domains_are_region_scoped():
+    east = _client(region=REGION)
+    west = _client(region="us-west-2")
+    name = f"reg-{_uid()}"
+
+    east_rec = east.create_domain(DomainName=name)["DomainStatus"]
+    west_rec = west.create_domain(DomainName=name)["DomainStatus"]
+    try:
+        assert f":{REGION}:" in east_rec["ARN"]
+        assert ":us-west-2:" in west_rec["ARN"]
+        assert f".{REGION}.ministack.local" in east_rec["Endpoint"]
+        assert ".us-west-2.ministack.local" in west_rec["Endpoint"]
+
+        with pytest.raises(ClientError) as exc:
+            east.create_domain(DomainName=name)
+        assert exc.value.response["Error"]["Code"] == "ResourceAlreadyExistsException"
+    finally:
+        east.delete_domain(DomainName=name)
+        west.delete_domain(DomainName=name)
+
+
+def test_opensearch_invalid_name_rejected(os_client):
+    """AWS DomainName rules: lowercase, 3-28 chars, alphanumeric + hyphens,
+    first char must be a lowercase letter."""
+    with pytest.raises(ClientError) as exc:
+        os_client.create_domain(DomainName="UpperCase")
+    assert exc.value.response["Error"]["Code"] == "ValidationException"
+
+
+def test_opensearch_describe_domains_filters_unknown(os_client):
+    a = f"d-{_uid()}"
+    os_client.create_domain(DomainName=a)
+    try:
+        out = os_client.describe_domains(DomainNames=[a, "ghost-domain-xyz"])
+        names = [d["DomainName"] for d in out["DomainStatusList"]]
+        assert a in names
+        assert "ghost-domain-xyz" not in names
+    finally:
+        os_client.delete_domain(DomainName=a)
+
+
+# ---------------------------------------------------------------------------
+# ListDomainNames
+# ---------------------------------------------------------------------------
+
+def test_opensearch_list_domain_names_engine_filter(os_client):
+    es_name = f"es-{_uid()}"
+    os_name = f"os-{_uid()}"
+    os_client.create_domain(DomainName=es_name, EngineVersion="Elasticsearch_7.10")
+    os_client.create_domain(DomainName=os_name, EngineVersion="OpenSearch_2.11")
+    try:
+        es_only = {d["DomainName"]: d["EngineType"]
+                   for d in os_client.list_domain_names(EngineType="Elasticsearch")["DomainNames"]}
+        assert es_only.get(es_name) == "Elasticsearch"
+        assert os_name not in es_only
+    finally:
+        os_client.delete_domain(DomainName=es_name)
+        os_client.delete_domain(DomainName=os_name)
+
+
+def test_opensearch_list_and_describe_are_region_scoped():
+    east = _client(region=REGION)
+    west = _client(region="us-west-2")
+    east_name = f"east-{_uid()}"
+    west_name = f"west-{_uid()}"
+
+    east.create_domain(DomainName=east_name)
+    west.create_domain(DomainName=west_name)
+    try:
+        east_names = {d["DomainName"] for d in east.list_domain_names()["DomainNames"]}
+        west_names = {d["DomainName"] for d in west.list_domain_names()["DomainNames"]}
+        assert east_name in east_names
+        assert west_name not in east_names
+        assert west_name in west_names
+        assert east_name not in west_names
+
+        with pytest.raises(ClientError) as exc:
+            west.describe_domain(DomainName=east_name)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+    finally:
+        east.delete_domain(DomainName=east_name)
+        west.delete_domain(DomainName=west_name)
+
+
+# ---------------------------------------------------------------------------
+# DomainConfig (Update/Describe/Progress)
+# ---------------------------------------------------------------------------
+
+def test_opensearch_describe_domain_config_wraps_options_status(os_client):
+    name = f"cfg-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        cfg = os_client.describe_domain_config(DomainName=name)["DomainConfig"]
+        for key in ("EngineVersion", "ClusterConfig", "EBSOptions",
+                    "AccessPolicies", "DomainEndpointOptions"):
+            assert key in cfg, f"missing {key}"
+            entry = cfg[key]
+            assert "Options" in entry, f"{key} missing Options"
+            assert "Status" in entry, f"{key} missing Status"
+            assert entry["Status"]["State"] == "Active"
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_describe_omits_empty_vpc_options(os_client):
+    name = f"novpc-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        desc = os_client.describe_domain(DomainName=name)["DomainStatus"]
+        assert "VPCOptions" not in desc
+        assert desc["Endpoint"]
+        assert "Endpoints" not in desc
+
+        cfg = os_client.describe_domain_config(DomainName=name)["DomainConfig"]
+        assert "VPCOptions" not in cfg
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_describe_domain_config_skips_unset_vpc_options(os_client):
+    name = f"dcfg-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        cfg = os_client.describe_domain_config(DomainName=name)["DomainConfig"]
+        assert "VPCOptions" not in cfg
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_describe_with_vpc_returns_endpoints_map(os_client):
+    name = f"vpc-{_uid()}"
+    vpc_options = {
+        "SubnetIds": ["subnet-aaa", "subnet-bbb"],
+        "SecurityGroupIds": ["sg-1"],
+    }
+    rec = os_client.create_domain(DomainName=name, VPCOptions=vpc_options)["DomainStatus"]
+    try:
+        assert "Endpoint" not in rec
+        assert rec["Endpoints"]["vpc"]
+        assert rec["VPCOptions"]["SubnetIds"] == vpc_options["SubnetIds"]
+        assert rec["VPCOptions"]["SecurityGroupIds"] == vpc_options["SecurityGroupIds"]
+        assert rec["VPCOptions"]["VPCId"].startswith("vpc-")
+        assert rec["VPCOptions"]["AvailabilityZones"]
+
+        desc = os_client.describe_domain(DomainName=name)["DomainStatus"]
+        assert "Endpoint" not in desc
+        assert desc["Endpoints"]["vpc"] == rec["Endpoints"]["vpc"]
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_update_domain_to_vpc_swaps_endpoint_shape(os_client):
+    name = f"uvpc-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        before = os_client.describe_domain(DomainName=name)["DomainStatus"]
+        assert before["Endpoint"]
+        assert "Endpoints" not in before
+
+        vpc_options = {
+            "SubnetIds": ["subnet-upd"],
+            "SecurityGroupIds": ["sg-upd"],
+        }
+        os_client.update_domain_config(DomainName=name, VPCOptions=vpc_options)
+
+        after = os_client.describe_domain(DomainName=name)["DomainStatus"]
+        assert "Endpoint" not in after
+        assert after["Endpoints"]["vpc"] == before["Endpoint"]
+        assert after["VPCOptions"]["SubnetIds"] == vpc_options["SubnetIds"]
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_update_domain_config_persists(os_client):
+    name = f"upd-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        new_cluster = {
+            "InstanceType": "r5.large.search",
+            "InstanceCount": 3,
+            "DedicatedMasterEnabled": True,
+            "DedicatedMasterCount": 3,
+            "DedicatedMasterType": "m5.large.search",
+            "ZoneAwarenessEnabled": True,
+            "ZoneAwarenessConfig": {"AvailabilityZoneCount": 3},
+            "WarmEnabled": False,
+            "ColdStorageOptions": {"Enabled": False},
+        }
+        out = os_client.update_domain_config(DomainName=name, ClusterConfig=new_cluster)
+        assert out["DomainConfig"]["ClusterConfig"]["Options"]["InstanceCount"] == 3
+        assert out["DomainConfig"]["ClusterConfig"]["Options"]["InstanceType"] == "r5.large.search"
+
+        cfg = os_client.describe_domain_config(DomainName=name)["DomainConfig"]
+        assert cfg["ClusterConfig"]["Options"]["InstanceCount"] == 3
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_unsigned_update_domain_config_does_not_route_to_s3(os_client):
+    """CDK custom-resource REST requests route by path when SigV4 is unavailable."""
+    name = f"raw-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        policy = '{"Version":"2012-10-17","Statement":[]}'
+        request = urllib.request.Request(
+            f"{ENDPOINT}/2021-01-01/opensearch/domain/{name}/config",
+            data=json.dumps({"AccessPolicies": policy}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            assert response.headers.get_content_type() == "application/json"
+            result = json.load(response)
+        assert result["DomainConfig"]["AccessPolicies"]["Options"] == policy
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_describe_domain_change_progress(os_client):
+    name = f"prog-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        p0 = os_client.describe_domain_change_progress(DomainName=name)["ChangeProgressStatus"]
+        assert p0["Status"] == "COMPLETED"
+
+        os_client.update_domain_config(DomainName=name, AccessPolicies="{}")
+        p1 = os_client.describe_domain_change_progress(DomainName=name)["ChangeProgressStatus"]
+        assert p1["Status"] == "COMPLETED"
+        assert "AccessPolicies" in p1["CompletedProperties"]
+        assert p1["ChangeId"]
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+# ---------------------------------------------------------------------------
+# Versions
+# ---------------------------------------------------------------------------
+
+def test_opensearch_list_versions_includes_recent(os_client):
+    versions = os_client.list_versions()["Versions"]
+    assert "OpenSearch_2.15" in versions
+    assert "Elasticsearch_7.10" in versions
+
+
+def test_opensearch_list_versions_includes_current_aws_set(os_client):
+    """Engine versions AWS OpenSearch Service currently supports for new
+    domains, per the developer-guide ``what-is`` page."""
+    versions = os_client.list_versions()["Versions"]
+    for v in (
+        "OpenSearch_3.5", "OpenSearch_3.3", "OpenSearch_3.1",
+        "OpenSearch_2.19", "OpenSearch_2.17",
+    ):
+        assert v in versions, f"missing {v}"
+
+
+def test_opensearch_default_version_is_latest_opensearch(os_client):
+    """Domains created without an explicit EngineVersion get the latest
+    OpenSearch major.minor AWS currently ships."""
+    name = f"defver-{_uid()}"
+    os_client.create_domain(DomainName=name)
+    try:
+        d = os_client.describe_domain(DomainName=name)["DomainStatus"]
+        assert d["EngineVersion"] == "OpenSearch_3.5"
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_get_compatible_versions_for_domain(os_client):
+    name = f"compat-{_uid()}"
+    os_client.create_domain(DomainName=name, EngineVersion="OpenSearch_2.11")
+    try:
+        compat = os_client.get_compatible_versions(DomainName=name)["CompatibleVersions"]
+        assert len(compat) == 1
+        assert compat[0]["SourceVersion"] == "OpenSearch_2.11"
+        assert "OpenSearch_2.11" not in compat[0]["TargetVersions"]
+        assert all(v.startswith("OpenSearch") for v in compat[0]["TargetVersions"])
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_get_compatible_versions_no_domain_returns_matrix(os_client):
+    out = os_client.get_compatible_versions()["CompatibleVersions"]
+    sources = {entry["SourceVersion"] for entry in out}
+    assert "OpenSearch_2.15" in sources
+    assert "Elasticsearch_7.10" in sources
+
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+
+def test_opensearch_tag_lifecycle(os_client):
+    name = f"tag-{_uid()}"
+    rec = os_client.create_domain(DomainName=name)["DomainStatus"]
+    arn = rec["ARN"]
+    try:
+        os_client.add_tags(ARN=arn, TagList=[
+            {"Key": "Env", "Value": "Test"},
+            {"Key": "Owner", "Value": "ministack"},
+        ])
+        tags = {t["Key"]: t["Value"] for t in os_client.list_tags(ARN=arn)["TagList"]}
+        assert tags == {"Env": "Test", "Owner": "ministack"}
+
+        os_client.add_tags(ARN=arn, TagList=[{"Key": "Env", "Value": "Prod"}])
+        tags = {t["Key"]: t["Value"] for t in os_client.list_tags(ARN=arn)["TagList"]}
+        assert tags["Env"] == "Prod"
+        assert tags["Owner"] == "ministack"
+
+        os_client.remove_tags(ARN=arn, TagKeys=["Env"])
+        tags = {t["Key"]: t["Value"] for t in os_client.list_tags(ARN=arn)["TagList"]}
+        assert "Env" not in tags
+        assert tags["Owner"] == "ministack"
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+@pytest.mark.parametrize(
+    ("arn", "code"),
+    [
+        ("arn:aws:es:us-east-1:000000000000", "ValidationException"),
+        ("arn:aws:sqs:us-east-1:000000000000:domain/missing", "ValidationException"),
+        ("arn:aws:es:us-west-2:000000000000:domain/missing", "ValidationException"),
+        ("arn:aws:es:us-east-1:000000000000:domain/missing", "ResourceNotFoundException"),
+    ],
+)
+def test_opensearch_tags_require_local_domain_arn(os_client, arn, code):
+    with pytest.raises(ClientError) as exc:
+        os_client.add_tags(ARN=arn, TagList=[{"Key": "Env", "Value": "Test"}])
+
+    assert exc.value.response["Error"]["Code"] == code
+
+
+def test_opensearch_create_with_tag_list(os_client):
+    name = f"ctag-{_uid()}"
+    rec = os_client.create_domain(
+        DomainName=name,
+        TagList=[{"Key": "ProjectId", "Value": "X"}],
+    )["DomainStatus"]
+    try:
+        tags = {t["Key"]: t["Value"] for t in os_client.list_tags(ARN=rec["ARN"])["TagList"]}
+        assert tags == {"ProjectId": "X"}
+    finally:
+        os_client.delete_domain(DomainName=name)
+
+
+def test_opensearch_tag_arn_must_match_request_region():
+    east = _client(region=REGION)
+    west = _client(region="us-west-2")
+    name = f"tagreg-{_uid()}"
+    west_rec = west.create_domain(DomainName=name)["DomainStatus"]
+    try:
+        west.add_tags(ARN=west_rec["ARN"], TagList=[{"Key": "Env", "Value": "west"}])
+        west_tags = {t["Key"]: t["Value"] for t in west.list_tags(ARN=west_rec["ARN"])["TagList"]}
+        assert west_tags == {"Env": "west"}
+
+        with pytest.raises(ClientError) as exc:
+            east.list_tags(ARN=west_rec["ARN"])
+        assert exc.value.response["Error"]["Code"] == "ValidationException"
+    finally:
+        west.delete_domain(DomainName=name)
+
+
+# ---------------------------------------------------------------------------
+# Multi-tenant
+# ---------------------------------------------------------------------------
+
+def test_opensearch_account_isolation():
+    a = _client("111111111111")
+    b = _client("222222222222")
+    name = f"acct-{_uid()}"
+    a.create_domain(DomainName=name)
+    try:
+        a_listed = [d["DomainName"] for d in a.list_domain_names()["DomainNames"]]
+        b_listed = [d["DomainName"] for d in b.list_domain_names()["DomainNames"]]
+        assert name in a_listed
+        assert name not in b_listed
+        with pytest.raises(ClientError) as exc:
+            b.describe_domain(DomainName=name)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+    finally:
+        a.delete_domain(DomainName=name)
+
+
+# ---------------------------------------------------------------------------
+# Data plane (gated)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(
+    os.environ.get("OPENSEARCH_DATAPLANE") != "1",
+    reason="set OPENSEARCH_DATAPLANE=1 to run the real-cluster smoke",
+)
+@pytest.mark.data_plane
+def test_opensearch_dataplane_cluster_health():
+    """When OPENSEARCH_DATAPLANE=1 is set on the ministack server, CreateDomain
+    spawns a real opensearchproject/opensearch container and DescribeDomain
+    returns its endpoint. Verify cluster health responds."""
+    import json as _json
+    import urllib.request
+
+    o = _client()
+    name = f"dp-{_uid()}"
+    rec = o.create_domain(DomainName=name)["DomainStatus"]
+    try:
+        endpoint = rec["Endpoint"]
+        if "ministack.local" in endpoint:
+            pytest.skip("dataplane returned stub endpoint — Docker not available on test host")
+        url = f"http://{endpoint}/_cluster/health"
+        last_err = None
+        for _ in range(60):
+            try:
+                body = _json.loads(urllib.request.urlopen(url, timeout=1).read())
+                assert body["status"] in ("green", "yellow")
+                return
+            except Exception as e:
+                last_err = e
+                time.sleep(1)
+        pytest.fail(f"cluster never became healthy: {last_err!r}")
+    finally:
+        o.delete_domain(DomainName=name)
+
+
+# ---------------------------------------------------------------------------
+# Packages
+# ---------------------------------------------------------------------------
+
+
+def _pkg_source():
+    return {"S3BucketName": "my-bucket", "S3Key": "synonyms.txt"}
+
+
+def test_opensearch_package_create_describe_update(os_client):
+    name = f"pkg-{_uid()}"
+    created = os_client.create_package(
+        PackageName=name,
+        PackageType="TXT-DICTIONARY",
+        PackageDescription="synonyms",
+        PackageSource=_pkg_source(),
+    )["PackageDetails"]
+    pid = created["PackageID"]
+    try:
+        assert created["PackageStatus"] == "AVAILABLE"
+        assert created["AvailablePackageVersion"] == "1"
+        # PackageSource is input-only — AWS does not echo it from the API.
+        assert "PackageSource" not in created
+
+        described = os_client.describe_packages(
+            Filters=[{"Name": "PackageID", "Value": [pid]}]
+        )["PackageDetailsList"]
+        assert len(described) == 1
+        assert described[0]["PackageName"] == name
+        assert described[0]["PackageStatus"] == "AVAILABLE"
+
+        updated = os_client.update_package(
+            PackageID=pid,
+            PackageSource={"S3BucketName": "my-bucket", "S3Key": "synonyms-v2.txt"},
+        )["PackageDetails"]
+        assert updated["AvailablePackageVersion"] == "2"
+        assert updated["PackageStatus"] == "AVAILABLE"
+    finally:
+        os_client.delete_package(PackageID=pid)
+
+    # A deleted package no longer appears in DescribePackages.
+    assert os_client.describe_packages(
+        Filters=[{"Name": "PackageID", "Value": [pid]}]
+    )["PackageDetailsList"] == []
+
+
+def test_opensearch_package_associate_list_dissociate(os_client):
+    domain = f"pkgdom-{_uid()}"
+    name = f"pkg-{_uid()}"
+    os_client.create_domain(DomainName=domain)
+    pid = os_client.create_package(
+        PackageName=name, PackageType="TXT-DICTIONARY", PackageSource=_pkg_source(),
+    )["PackageDetails"]["PackageID"]
+    try:
+        assoc = os_client.associate_package(PackageID=pid, DomainName=domain)[
+            "DomainPackageDetails"
+        ]
+        assert assoc["DomainPackageStatus"] == "ACTIVE"
+        assert assoc["PackageID"] == pid
+        assert assoc["DomainName"] == domain
+
+        listed = os_client.list_packages_for_domain(DomainName=domain)[
+            "DomainPackageDetailsList"
+        ]
+        assert [d["PackageID"] for d in listed] == [pid]
+
+        dissoc = os_client.dissociate_package(PackageID=pid, DomainName=domain)[
+            "DomainPackageDetails"
+        ]
+        assert dissoc["DomainPackageStatus"] == "DISSOCIATING"
+        assert os_client.list_packages_for_domain(DomainName=domain)[
+            "DomainPackageDetailsList"
+        ] == []
+    finally:
+        os_client.delete_package(PackageID=pid)
+        os_client.delete_domain(DomainName=domain)
+
+
+def test_opensearch_packages_are_region_scoped():
+    east = _client(region=REGION)
+    west = _client(region="us-west-2")
+    east_domain = f"pkge-{_uid()}"
+    west_domain = f"pkgw-{_uid()}"
+    east.create_domain(DomainName=east_domain)
+    west.create_domain(DomainName=west_domain)
+    east_pid = east.create_package(
+        PackageName=f"pkge-{_uid()}",
+        PackageType="TXT-DICTIONARY",
+        PackageSource=_pkg_source(),
+    )["PackageDetails"]["PackageID"]
+    west_pid = west.create_package(
+        PackageName=f"pkgw-{_uid()}",
+        PackageType="TXT-DICTIONARY",
+        PackageSource=_pkg_source(),
+    )["PackageDetails"]["PackageID"]
+    try:
+        assert west.describe_packages(
+            Filters=[{"Name": "PackageID", "Value": [east_pid]}]
+        )["PackageDetailsList"] == []
+
+        with pytest.raises(ClientError) as exc:
+            west.associate_package(PackageID=east_pid, DomainName=east_domain)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+        east.associate_package(PackageID=east_pid, DomainName=east_domain)
+        west.associate_package(PackageID=west_pid, DomainName=west_domain)
+        east.delete_package(PackageID=east_pid)
+
+        assert east.list_packages_for_domain(DomainName=east_domain)["DomainPackageDetailsList"] == []
+        west_assoc = west.list_packages_for_domain(DomainName=west_domain)[
+            "DomainPackageDetailsList"
+        ]
+        assert [d["PackageID"] for d in west_assoc] == [west_pid]
+    finally:
+        for client, pid in ((east, east_pid), (west, west_pid)):
+            try:
+                client.delete_package(PackageID=pid)
+            except ClientError:
+                pass
+        east.delete_domain(DomainName=east_domain)
+        west.delete_domain(DomainName=west_domain)
+
+
+def test_opensearch_package_not_found_errors(os_client):
+    with pytest.raises(ClientError) as exc:
+        os_client.update_package(PackageID="Fmissing", PackageSource=_pkg_source())
+    assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+    with pytest.raises(ClientError) as exc:
+        os_client.delete_package(PackageID="Fmissing")
+    assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+    with pytest.raises(ClientError) as exc:
+        os_client.associate_package(PackageID="Fmissing", DomainName="missing-domain")
+    assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+def test_opensearch_reset_clears_all_regions():
+    from ministack.core.responses import get_region, set_request_region
+    from ministack.services import opensearch
+
+    original_region = get_region()
+    try:
+        set_request_region(REGION)
+        opensearch._domains["reset-east"] = {"DomainName": "reset-east"}
+        set_request_region("us-west-2")
+        opensearch._domains["reset-west"] = {"DomainName": "reset-west"}
+        opensearch._packages["pkg-west"] = {"PackageID": "pkg-west"}
+
+        opensearch.reset()
+
+        assert not opensearch._domains.has_any()
+        assert not opensearch._change_progress.has_any()
+        assert not opensearch._packages.has_any()
+        assert not opensearch._domain_packages.has_any()
+    finally:
+        opensearch.reset()
+        set_request_region(original_region)
+
+
+def test_opensearch_dataplane_names_include_account_and_region():
+    """Two accounts, or two regions, may each own a domain of the same name;
+    their containers must not collide, and the data container's name stays one
+    DNS label (Dashboards reaches it by name) for the longest domain name."""
+    from ministack.core.responses import (
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+    from ministack.services import opensearch
+
+    original_account, original_region = get_account_id(), get_region()
+    longest = "d" * 28
+    names = set()
+    try:
+        for account, region in (("111111111111", REGION), ("222222222222", REGION),
+                                ("111111111111", "ap-southeast-3")):
+            set_request_account_id(account)
+            set_request_region(region)
+            names.add((opensearch._container_name("same"),
+                       opensearch._dashboards_container_name("same")))
+            assert len(opensearch._container_name(longest)) <= 63
+        assert len(names) == 3
+    finally:
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+@pytest.mark.serial
+def test_opensearch_cold_image_publishes_the_real_endpoint(fake_docker, monkeypatch):
+    """`_Endpoint` is what readers prefer, so the finisher must update it.
+
+    Same defect @Areson reported against ElastiCache, found here by inventory:
+    create left `_Endpoint` at the `localhost:BASE_PORT` placeholder and the
+    deferred finisher updated only `Endpoint`, so Describe kept reporting an
+    address nothing listens on.
+    """
+    import threading
+
+    from ministack.core.responses import set_request_account_id, set_request_region
+    from ministack.services import opensearch as os_
+
+    set_request_account_id("000000000000")
+    set_request_region("us-east-1")
+    monkeypatch.setattr(os_, "_get_docker", lambda: fake_docker, raising=False)
+    monkeypatch.setattr(os_, "_image_is_local", lambda *_a: False, raising=False)
+    monkeypatch.setattr(os_, "DATAPLANE_ENABLED", True, raising=False)
+    monkeypatch.setattr(os_, "_spawn_dataplane",
+                        lambda name, ver: ("localhost", 19200, "cid-os", None, None))
+
+    done = threading.Event()
+    orig = os_.spawn_background
+
+    def tracked(fn, *a, **kw):
+        t = orig(fn, *a, **kw)
+        threading.Thread(target=lambda: (t.join(), done.set()), daemon=True).start()
+        return t
+    monkeypatch.setattr(os_, "spawn_background", tracked)
+
+    os_.create_domain_record({"DomainName": "cold-dom"})
+    assert done.wait(timeout=10), "deferred finisher never completed"
+
+    rec = os_._domains["cold-dom"]
+    assert rec["_Endpoint"] == "localhost:19200", (
+        f"readers prefer _Endpoint and it still says {rec['_Endpoint']!r}"
+    )
+    assert rec["Endpoint"] == "localhost:19200"
+
+
+def test_opensearch_engine_container_has_a_512m_heap(fake_docker, monkeypatch):
+    """Every engine container runs with a 512 MB heap rather than the image's 1 GB."""
+    from ministack.services import opensearch as os_
+
+    runs = []
+    run = fake_docker.containers.run
+    monkeypatch.setattr(
+        fake_docker.containers, "run", lambda **kw: (runs.append(kw), run(**kw))[1]
+    )
+
+    os_.start_engine_container(fake_docker, f"heap-{_uid()}", {}, 19203)
+
+    assert runs[0]["environment"]["OPENSEARCH_JAVA_OPTS"] == "-Xms512m -Xmx512m"
+
+
+@pytest.mark.serial
+def test_opensearch_reaper_spares_the_exited_engine_of_a_live_domain(fake_docker, monkeypatch):
+    """A live domain's engine is recorded under `_ContainerId`; the reaper must read that key."""
+    from ministack.core import container_reaper
+    from ministack.core.responses import set_request_account_id, set_request_region
+    from ministack.services import opensearch as os_
+
+    set_request_account_id("000000000000")
+    set_request_region("us-east-1")
+    monkeypatch.setattr(container_reaper, "EXITED_GRACE", 0)
+    monkeypatch.setattr(container_reaper, "_boot_nonce", "nonce-os")
+    name = f"reaped-{_uid()}"
+    c = fake_docker.containers.run(
+        name=os_._container_name(name), labels=container_reaper.own_labels("opensearch")
+    )
+    c.status = "exited"
+    c.attrs["State"] = {"FinishedAt": ""}
+    os_._domains[name] = {"DomainName": name, "Created": True, "_ContainerId": c.id}
+
+    assert container_reaper.reap_abandoned(fake_docker) == 0
+    assert os_._container_name(name) in fake_docker.live()
+    os_._domains.pop(name)

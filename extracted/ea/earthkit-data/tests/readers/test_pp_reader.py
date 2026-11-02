@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+# (C) Copyright 2020 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+#
+
+import pytest
+
+from earthkit.data import from_source
+from earthkit.data.core.field import Field
+from earthkit.data.utils.testing import NO_IRIS, earthkit_examples_file, earthkit_test_data_file
+
+
+@pytest.mark.skip(reason="Cannot handle date in metadata")
+@pytest.mark.skipif(NO_IRIS, reason="Iris or ncdata not installed")
+def test_pp_file_1():
+    ds = from_source("file", earthkit_examples_file("air_temp.pp"))
+    assert len(ds) == 1
+    assert isinstance(ds[0], Field)
+    assert ds[0].metadata("standard_name") == "air_temperature"
+
+
+@pytest.mark.skip(reason="Cannot handle date in metadata")
+@pytest.mark.skipif(NO_IRIS, reason="Iris or ncdata not installed")
+def test_pp_file_2():
+    ds = from_source("file", earthkit_test_data_file("wind_speed.pp"))
+    assert len(ds) == 2
+    assert isinstance(ds[0], Field)
+    assert isinstance(ds[1], Field)
+    assert ds[0].metadata("standard_name") == "x_wind"
+    assert ds[1].metadata("standard_name") == "y_wind"
+
+
+def test_invalid_kwargs():
+    with pytest.warns(UserWarning):
+        from_source("file", earthkit_examples_file("air_temp.pp"), grib_handle_policy=None)
+
+
+def test_pp_file_magic_detection_without_extension(tmp_path):
+    import shutil
+
+    from earthkit.data.data.pp import PPData
+
+    source_file = earthkit_examples_file("air_temp.pp")
+    dest_file = tmp_path / "air_temp_noext"
+    shutil.copy2(source_file, dest_file)
+
+    ds = from_source("file", dest_file)
+    assert isinstance(ds, PPData)
+
+
+if __name__ == "__main__":
+    from earthkit.data.utils.testing import main
+
+    main(__file__)

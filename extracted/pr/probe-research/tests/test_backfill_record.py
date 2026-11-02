@@ -30,14 +30,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_oplog as oplog
-from probe.cli import backfill_prompts as prompts
-from probe.cli import backfill_record as record
-from probe.cli import backfill_record_tool as tool
-from probe.cli import backfill_structure as structure
-from probe.cli.backfill_ledger import is_import_agent_cwd
-from probe.cli.import_agent_settings import Lane
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.record import oplog as oplog
+from probe.cli.imports.folder.agents import prompts as prompts
+from probe.cli.imports.folder.record import record as record
+from probe.cli.imports.folder.record import tool as tool
+from probe.cli.imports.folder import structure as structure
+from probe.cli.imports.folder.upload.ledger import is_import_agent_cwd
+from probe.cli.imports.agent_settings import Lane
 from probe.shared.notes.summary.summary import SERIES_ATTR, compose_draft
 from probe.sdk import errors
 from probe.sdk.client.client import Client
@@ -100,8 +100,7 @@ class Probe:
     def get_run(self, run_id):
         return dict(self.runs[run_id])
 
-    def list_runs(self, *, experiment_id=None, project_id=None, direct=False, tags=None,
-                  unfiled=False, **params):
+    def list_runs(self, *, experiment_id=None, project_id=None, direct=False, tags=None, **params):
         ids = sorted(self.runs)
         start = int(params.get("cursor") or 0)
         limit = 1  # one a page: paging is exercised
@@ -260,7 +259,7 @@ def test_the_session_reads_the_skills_verbatim_and_runs_on_the_record_lane(
     from probe.daemon.worker.bite.bite import SHARED_SKILLS, skills_text
 
     calls: list = []
-    monkeypatch.setattr(bf, "launch_agent", _fake_agent(lambda kw: [], calls))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _fake_agent(lambda kw: [], calls))
     record.run_sessions(listing, tmp_path / "folder", tmp_path / "root", agent=bf.Agent.CLAUDE)
     (call,) = calls
     assert skills_text(SHARED_SKILLS, reader=skill_versions.MAIN_AGENT) in call["prompt"]
@@ -277,11 +276,14 @@ def test_only_the_record_session_may_run_probe_and_codex_keeps_no_network(
     assert "Bash(probe:" not in bf.AGENT_TOOLS
     assert "Bash(probe:*)" in record.RECORD_TOOLS
     calls: list = []
-    monkeypatch.setattr(bf, "launch_agent", _fake_agent(lambda kw: [], calls))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _fake_agent(lambda kw: [], calls))
     record.run_sessions(listing, tmp_path / "f", tmp_path / "root", agent=bf.Agent.CODEX)
     assert calls[0]["tools"] is None
-    monkeypatch.setattr(bf, "supported_flags", lambda binary, agent: None)
-    monkeypatch.setattr(bf, "codex_features", lambda binary: None)
+    monkeypatch.setattr(bf.agents.flags, "supported_flags", lambda binary, agent: None)
+    monkeypatch.setattr(bf.agents.launch, "supported_flags", lambda binary, agent: None)
+    monkeypatch.setattr(bf.agents.argv, "supported_flags", lambda binary, agent: None)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.headless.codex_features", lambda binary: None)
+    monkeypatch.setattr(bf.agents.argv, "codex_features", lambda binary: None)
     argv = bf.agent_argv(bf.Agent.CODEX, "/bin/codex", Path("/f"), workdir=Path("/w"))
     assert not any("network" in part for part in argv)
 
@@ -670,14 +672,14 @@ def _name_runs(kwargs):
 
 def test_a_failed_session_never_fails_the_import_and_the_next_run_finishes(importing, monkeypatch):
     calls: list = []
-    monkeypatch.setattr(bf, "launch_agent", _fake_agent(_name_runs, calls, ok=False))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _fake_agent(_name_runs, calls, ok=False))
     lines = record.complete_record(importing.probe, importing.folder, importing.coverage,
                                    agent=bf.Agent.CLAUDE)
     assert any("did not finish" in line and "the next import finishes it" in line for line in lines)
     assert importing.coverage.meta(record.META_PREFIX + P)["state"] == "partial"
     # What the failed session staged is still applied: each write was checked.
     assert importing.probe.runs[R1]["name"] == "Grader passes"
-    monkeypatch.setattr(bf, "launch_agent", _fake_agent(lambda kw: [], calls, ok=True))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _fake_agent(lambda kw: [], calls, ok=True))
     lines = record.complete_record(importing.probe, importing.folder, importing.coverage,
                                    agent=bf.Agent.CLAUDE)
     assert len(calls) == 2
@@ -688,7 +690,7 @@ def test_a_failed_session_never_fails_the_import_and_the_next_run_finishes(impor
 def test_an_unchanged_project_is_not_recorded_twice_and_a_new_prompt_records_it_again(
         importing, monkeypatch):
     calls: list = []
-    monkeypatch.setattr(bf, "launch_agent", _fake_agent(_name_runs, calls))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _fake_agent(_name_runs, calls))
     for _ in range(2):
         record.complete_record(importing.probe, importing.folder, importing.coverage,
                                agent=bf.Agent.CLAUDE)

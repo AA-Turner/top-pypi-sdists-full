@@ -62,7 +62,7 @@ def test_the_sync_rewrites_only_the_caps_sentence():
 def test_the_recorder_copy_differs_from_the_lanes_in_the_approved_lines_only():
     """The lines the plans change (§3.8; custom artifact pages), plus the lane's own front-matter
     flag and its placeholders: everything else is the lane's text."""
-    lane = AGENT.parent / "app" / "generation" / "skills" / "overview-visuals" / "SKILL.md"
+    lane = AGENT.parent / "app" / "generation" / "overviews" / "visuals" / "SKILL.md"
     if not lane.is_file():
         pytest.skip("no server source beside the agent")
     ours = (

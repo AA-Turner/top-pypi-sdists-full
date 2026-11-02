@@ -1,0 +1,152 @@
+[project]
+name = "gridstatusio"
+version = "0.16.1"
+description = "Python client for the GridStatus.io API: normalized electricity market data (load, fuel mix, LMPs, forecasts) from every North American ISO through a single REST API."
+authors = [{ name = "Max Kanter", email = "kmax12@gmail.com" }]
+requires-python = ">=3.10, <4"
+readme = "README.md"
+license.file = "LICENSE"
+maintainers = [{ name = "Max Kanter", email = "kmax12@gmail.com" }]
+keywords = [
+    "energy",
+    "electricity",
+    "power grid",
+    "independent system operator",
+    "ISO",
+    "RTO",
+    "CAISO",
+    "ERCOT",
+    "PJM",
+    "MISO",
+    "SPP",
+    "NYISO",
+    "ISO-NE",
+    "IESO",
+    "AESO",
+    "EIA",
+    "LMP",
+    "electricity prices",
+    "energy markets",
+    "time series",
+    "grid data",
+    "API client",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "requests>=2.32.2,<3",
+    "termcolor>=3.2.0,<4",
+    "tabulate>=0.9.0,<0.11",
+    "pandas>=2.3.0,<4",
+    # Enables brotli content-negotiation: when a brotli decoder is installed,
+    # urllib3 adds "br" to the default Accept-Encoding and decodes responses
+    # transparently, so the large data payloads come back ~40% smaller than gzip
+    # with no client code changes. brotli is CPython-only; brotlicffi is its PyPy
+    # equivalent (this is the urllib3-recommended dependency split). 1.2.0 is the
+    # first release urllib3 can bound decompression output with; older versions
+    # emit a decompression-bomb DependencyWarning on every response.
+    "brotli>=1.2.0,<2; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.2.0,<2; platform_python_implementation != 'CPython'",
+]
+
+[project.optional-dependencies]
+polars = [
+    "polars>=1.36.1,<3",
+]
+notebooks = [
+    "notebook>=7.0.0,<8",
+    "plotly>=5.20.0,<7",
+]
+all = [
+    "polars>=1.36.1,<3",
+    "notebook>=7.0.0,<8",
+    "plotly>=5.20.0,<7",
+]
+
+[project.urls]
+"Homepage" = "https://www.gridstatus.io/"
+"Documentation" = "https://www.gridstatus.io/api"
+"Data Catalog" = "https://www.gridstatus.io/datasets"
+"Source Code" = "https://github.com/gridstatus/gridstatusio/"
+"Changes" = "https://github.com/gridstatus/gridstatusio/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/gridstatus/gridstatusio/issues"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=9.1.0",
+    "pytest-xdist>=3.8.0",
+    "pytest-rerunfailures>=16.3",
+    "pre-commit>=4.5.1",
+    "kaleido==0.2.1",
+    "nbformat>=5.10.4",
+    "ruff==0.16.0",
+    "pyright>=1.1.407,<2",
+    # Include optional dependencies for testing
+    "polars>=1.36.1",
+    "notebook>=7.6.0",
+    "plotly>=6.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["gridstatusio/tests/*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+line-length = 88
+# ruff >=0.16 ships a broad curated default rule set
+# (https://docs.astral.sh/ruff/default-rules/). We inherit it and use
+# extend-select for the families enforced here that are not part of it, rather
+# than pinning our own select and missing future default additions.
+lint.extend-select = [
+    # Pyflakes in full (the default set carries only a subset)
+    "F",
+    # Pycodestyle in full (the default set carries only E722/E902)
+    "E",
+    "W",
+    # flake8-quotes
+    "Q",
+    # isort
+    "I001",
+]
+lint.ignore = [
+    # Class-level mutable defaults here are declarative config, not the shared-state
+    # bug this targets.
+    "RUF012",
+    # Nested `with` blocks read better than one merged statement for these.
+    "SIM117",
+    # Introducing a custom exception hierarchy is a separate change from adopting
+    # the ruleset.
+    "TRY002",
+]
+src = ["gridstatusio"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gridstatusio"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402", "F403", "F405", "E501", "I001"]
+"Examples/*.ipynb" = ["E501"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+# typeCheckingMode = "strict" # Off for now, since it goes from 10 to 500+ errors, likely due to imports

@@ -1,0 +1,112 @@
+[project]
+name = "owasp-depscan"
+version = "6.3.0"
+description = "Fully open-source security audit for project dependencies based on known vulnerabilities and advisories."
+authors = [
+    {name = "Team AppThreat", email = "cloud@appthreat.com"},
+]
+dependencies = [
+    "appthreat-vulnerability-db[oras]~=6.7.2",
+    "custom-json-diff~=2.1.6",
+    "defusedxml>=0.7.1",
+    "httpx>=0.27",
+    "PyYAML>=6.0.2",
+    "rich~=15.0.0",
+    "Jinja2>=3.1.6",
+    "packageurl-python>=0.16.0",
+    "cvss>=3.4",
+    "tomli>=2.2.1; python_full_version <= '3.11'",
+    "ds-xbom-lib",
+    "ds-analysis-lib",
+    "ds-reporting-lib"
+]
+
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/owasp-dep-scan/dep-scan"
+Bug-Tracker = "https://github.com/owasp-dep-scan/dep-scan/issues"
+Funding = "https://owasp.org/donate/?reponame=www-project-dep-scan&title=OWASP+depscan"
+
+[project.scripts]
+depscan = "depscan.cli:main"
+depscan-vdb = "depscan.vdb_cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=6.0.0"
+]
+server = ["ds-server-lib"]
+ext = ["atom-tools>=0.7.8", "blint>=3.2.3"]
+all = ["atom-tools>=0.7.8", "blint>=3.2.3", "ds-server-lib", "PyGithub>=2.6.1"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["depscan", "depscan.lib", "depscan.lib.package_query", "vendor", "vendor.spdx.json"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-q -s --verbose --cov-append --cov-report term --cov depscan --cov packages/analysis-lib --cov packages/xbom-lib --cov packages/server-lib"
+testpaths = [
+    "test",
+    "packages/analysis-lib/tests",
+    "packages/server-lib/tests"
+]
+
+[tool.uv.sources]
+ds-xbom-lib = { workspace = true }
+ds-analysis-lib = { workspace = true }
+ds-reporting-lib = { workspace = true }
+ds-server-lib = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.13",
+]
+
+[tool.ruff]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "test",
+]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501", "F405", "F841"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

@@ -1,0 +1,864 @@
+"""Tests for block-masked-gate-exit.py (PreToolUse(Bash|PowerShell) masked-gate-status guard).
+
+Contract: reads a PreToolUse event JSON on stdin. Exit 2 (with stderr) blocks ONLY when a
+recognised gate runs inside a pipeline where it is not the last element (so a filter's status
+becomes the pipeline's), AND a later statement claims success (an OK-ish echo) or commits/pushes.
+Every other path exits 0, including each documented fix (pipefail, PIPESTATUS), a bare gate, a
+gate that ends its pipeline, and a pipe with no success claim.
+
+The allow-cases matter as much as the block-cases: this guard blocks a Bash call outright, so a
+false positive wedges legitimate work for everyone who installs the marketplace. The module's
+docstring promises "a pipeline whose status is handled correctly is never blocked" - these pin it.
+
+All content is ASCII.
+"""
+
+import io
+import json
+import os
+import sys
+
+import pytest
+
+import block_masked_gate_exit as B
+
+
+def run_main(monkeypatch, command):
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    return B.main()
+
+
+# ---------------------------------------------------------------------------
+# Blocks: a gate's status is masked, and a later statement claims it passed
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("fmt piped to head, then OK echo", 'cargo fmt -- --check 2>&1 | head -20 && echo "FMT-OK"'),
+        ("clippy piped to grep, then commit", 'cargo clippy -- -D warnings 2>&1 | grep -E "^error" ; git add -A && git commit -m x'),
+        ("pytest piped to tail, then commit", 'pytest -q | tail -3; git commit -m "wip"'),
+        ("ruff piped to wc, then PASS echo", 'ruff check . | wc -l && echo "PASS"'),
+        ("pyright piped to grep, then push", 'pyright | grep error; git push'),
+        ("make test piped to tail, then clean echo", 'make test 2>&1 | tail -5 && echo "all clean"'),
+    ],
+)
+def test_blocks_a_success_claim_on_a_masked_gate(monkeypatch, capsys, label, command):
+    assert run_main(monkeypatch, command) == 2, label
+    err = capsys.readouterr().err
+    assert "BLOCKED" in err
+    # The message must name the fixes, or it teaches nothing.
+    assert "PIPESTATUS" in err and "pipefail" in err
+
+
+# ---------------------------------------------------------------------------
+# Allows: the documented fixes, and ordinary correct usage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("set -o pipefail propagates the status", 'set -o pipefail; pytest -q | tail -3 && echo "OK"'),
+        ("PIPESTATUS is checked", 'pytest -q | tail -3; test ${PIPESTATUS[0]} -eq 0 && echo "OK"'),
+        ("gate runs bare, it sets the status", 'pytest -q && echo "OK"'),
+        ("gate is the last pipeline element", 'echo hi | pytest -q --stdin && echo "OK"'),
+        ("piped, but nothing claims success", "make test 2>&1 | tail -6"),
+        ("no gate involved at all", 'ls | head -3 && git commit -m x'),
+        ("gate piped, success claim comes BEFORE it", 'echo "OK so far" && pytest -q | tail -3'),
+        ("commit first, then an unrelated piped gate", 'git commit -m x && pytest -q | tail -3'),
+    ],
+)
+def test_allows_correct_or_unrelated_commands(monkeypatch, capsys, label, command):
+    assert run_main(monkeypatch, command) == 0, label
+    assert capsys.readouterr().err == ""
+
+
+# ---------------------------------------------------------------------------
+# The pure predicate
+# ---------------------------------------------------------------------------
+
+
+def test_masks_a_gate_requires_a_pipe():
+    assert B.masks_a_gate("pytest -q") is False
+
+
+def test_masks_a_gate_false_when_gate_is_last():
+    assert B.masks_a_gate("cat log | pytest -q") is False
+
+
+def test_masks_a_gate_false_without_a_swallowing_filter():
+    # A pipe into a non-filter still masks the status, but this guard deliberately
+    # scopes itself to the head/grep/tail shape it can recognise with confidence.
+    assert B.masks_a_gate("pytest -q | some-unknown-tool") is False
+
+
+def test_masks_a_gate_true_for_the_real_shape():
+    assert B.masks_a_gate("pytest -q 2>&1 | head -5") is True
+
+
+# ---------------------------------------------------------------------------
+# Fail-open: a broken guard must never wedge a turn
+# ---------------------------------------------------------------------------
+
+
+def test_bad_stdin_exits_clean(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json at all"))
+    assert B.main() == 0
+
+
+def test_missing_command_exits_clean(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"tool_name": "Bash", "tool_input": {}})))
+    assert B.main() == 0
+
+
+def test_non_bash_payload_exits_clean(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "x"}})))
+    assert B.main() == 0
+
+
+def test_block_message_is_ascii(monkeypatch, capsys):
+    run_main(monkeypatch, 'pytest -q | tail -3; git commit -m x')
+    capsys.readouterr().err.encode("ascii")  # raises if a non-ASCII char slipped in
+
+
+# ---- the VERIFICATION shape: a pipe, then a read of $? -----------------------------------------
+# The gate-then-action shape above did not cover measuring a command's OWN exit code. Measured
+# 2026-08-09: `tool verify ... | tail -5; echo "rc=$?"` printed rc=0 while the tool had exited 1,
+# so a working negative control read as broken - and a passing one would have been recorded as
+# proof. The command need not be a recognised gate for this to mislead.
+
+def test_reads_masked_status_catches_the_verification_shape():
+    assert B.reads_masked_status('mytool verify --sid 9 | tail -5; echo "rc=$?"') is True
+    assert B.reads_masked_status("uv run t.py check x | head -3; rc=$?") is True
+
+
+def test_a_quoted_substitution_holding_an_apostrophe_does_not_hide_the_status_read():
+    """OPEN-WORK [820]: the quotes inside `"$(echo "it's")"` belong to the substitution. A walk
+    toggling on every `"` read `it's` as opening a single-quoted string, blanked the `$?` after it
+    and let the masked status read through."""
+    assert B.reads_masked_status('mytool verify --sid 9 | tail -5; echo "$(echo "it\'s") rc=$?"') is True
+
+
+def test_reads_masked_status_ignores_a_pipe_with_no_status_read():
+    """The negative must be reachable, or every pipeline is blocked."""
+    assert B.reads_masked_status("ls -l | tail -5") is False
+    assert B.reads_masked_status("ls -l | tail -5; echo done") is False
+
+
+def test_reads_masked_status_ignores_a_status_read_with_no_pipe():
+    assert B.reads_masked_status('mytool verify; echo "rc=$?"') is False
+
+
+# ---- false positives found by the guard firing on its author, 2026-08-09 -----------------------
+
+def test_a_status_read_belonging_to_a_LATER_command_is_not_masked():
+    """`$?` refers to the IMMEDIATELY preceding command. Once another command has run, the
+    pipeline's status is gone and the read is about something else entirely - so only the
+    statement directly after the pipe can be the mistake. Measured: this fired on a command that
+    piped one check into `tail`, then ran a SECOND check redirected to a file (the correct form)
+    and read its `$?`, which is exactly the shape the guard tells you to use."""
+    correct = ('pwsh -File chk.ps1 good.ps1 2>&1 | tail -4; echo "=== control ==="; '
+               'pwsh -File chk.ps1 bad.ps1 > out 2>&1; echo "rc=$?"')
+    assert B.reads_masked_status(correct) is False
+
+
+def test_a_heredoc_body_is_data_here_too():
+    """Writing ABOUT the footgun is not committing it - the guard blocked its own documentation."""
+    documenting = ("cat > note.md <<'EOF'\n"
+                   "never write: mytool verify | tail -5; echo \"rc=$?\"\n"
+                   "EOF")
+    assert B.reads_masked_status(documenting) is False
+
+
+def test_the_real_shape_still_fires_after_both_fixes():
+    """The control: narrowing must not disarm the guard."""
+    assert B.reads_masked_status('mytool verify --sid 9 | tail -5; echo "rc=$?"') is True
+    assert B.reads_masked_status("uv run t.py check x | head -3; rc=$?") is True
+
+
+def test_reads_masked_status_respects_the_documented_fixes():
+    assert B.reads_masked_status('set -o pipefail; t | tail -1; echo "rc=$?"') is False
+    assert B.reads_masked_status('t | tail -1; echo "${PIPESTATUS[0]}"') is False
+
+
+def test_reads_masked_status_only_counts_a_read_AFTER_the_pipe():
+    """`rc=$?` before the pipeline reads something else entirely - not this bug."""
+    assert B.reads_masked_status('true; rc=$?; ls | tail -2') is False
+
+
+# --- inert regions: text that MENTIONS the footgun is not committing it -------------------
+#
+# Third false fire of this guard on the day it shipped, each on prose rather than a command.
+# The escaped case is the one that actually happened, reproduced here from the real command:
+# an echo label describing the rule, written after a `| sed`, was read as a status check.
+
+
+def test_escaped_dollar_question_is_prose_not_a_status_read():
+    """`\\$?` is passed through literally by bash, so it can never be reading a status."""
+    command = 'grep -c "x" f.py | sed \'s/^/n: /\'\necho "=== does it do the \\$?-after-pipe detection? ==="'
+    assert B.reads_masked_status(command) is False
+
+
+def test_a_comment_mentioning_the_footgun_does_not_fire():
+    assert B.reads_masked_status("grep x f | head -3\n# never read $? after a pipe") is False
+
+
+def test_single_quoted_prose_does_not_fire():
+    """No expansion happens inside single quotes, so the text is inert."""
+    assert B.reads_masked_status("grep x f | head -3\necho 'mentions $? literally'") is False
+
+
+def test_double_quoted_status_read_still_fires():
+    """The counterpart the narrowing must NOT cost: `$?` expands inside double quotes.
+
+    This is the whole point of the guard, and it is why double-quoted prose is knowingly left
+    as a false positive - to the shell the two are identical, so no scanner can separate them.
+    """
+    assert B.reads_masked_status('tool verify | tail -5; echo "rc=$?"') is True
+
+
+@pytest.mark.parametrize("command", [
+    'echo "x | head ; rc=$?"',
+    'echo "a | tail -3"; echo "rc=$?"',
+    'printf "%s\\n" "one | head -1 ; two $?"',
+])
+def test_a_separator_or_pipe_inside_double_quotes_is_not_structure(command):
+    """The status read is found where `$?` expands (double quotes kept), but STRUCTURE must come
+    from the masked text: split on the expansion view, `echo "x | head ; rc=$?"` - one echo - read
+    as a pipe into head followed by a status read."""
+    assert B.reads_masked_status('tool verify | head ; echo "rc=$?"') is True     # control
+    assert B.reads_masked_status(command) is False
+
+
+def test_a_quoted_separator_before_the_pipe_does_not_shift_the_adjacency():
+    assert B.reads_masked_status('echo "a;b" | tail -3; echo "rc=$?"') is True
+
+
+# The corpus replay of the structure fix (100,216 real commands) changed 9 verdicts. Five were
+# false positives removed - a pipe inside a `$(...)` that only builds an argument, whose `$?` then
+# reads the OUTER command. The other four pinned these two rules.
+
+@pytest.mark.parametrize("command", [
+    'o=$(tool --x 2>&1 </dev/null | head -c 4000)\nrc=$?',
+    'out=$(E --p x config 2>&1 >/dev/null | grep -iE "error" | head -1)\nrc=$?',
+])
+def test_an_assignment_from_a_piped_substitution_hands_on_the_filters_status(command):
+    """An assignment-only statement exits with its substitution's status, which is the inner
+    pipeline's LAST element - the filter. Two such loops in the corpus read `rc=$?` exactly so."""
+    assert B.reads_masked_status(command) is True
+
+
+@pytest.mark.parametrize("command", [
+    'tool --sha a$(git rev-parse x | cut -c9-) > log 2>&1; echo "RC=$?"',
+    'out=$(app $(env | grep -o X | sed s/^/-u/) 2>err); rc=$?',
+])
+def test_a_pipe_that_only_builds_an_argument_does_not_set_the_status(command):
+    assert B.reads_masked_status(command) is False
+
+
+def test_a_status_read_inside_a_later_substitution_reads_that_substitutions_command():
+    """`$(tool ...; echo $?)` reports tool's status, not the pipe's before it - the corpus shape
+    `... | tail -1; echo "exit=$(lsdsk ... >/dev/null 2>&1; echo $?)"`."""
+    assert B.reads_masked_status('x | tail -1; echo "exit=$(tool >/dev/null 2>&1; echo $?)"') is False
+    # A read that runs FIRST in its substitution still sees the pipe's status.
+    assert B.reads_masked_status('x | tail -1; echo "exit=$(echo $?)"') is True
+
+
+def test_a_filter_written_as_a_subshell_element_still_masks_the_gate(monkeypatch):
+    """`gate | (tail -3)` runs tail in a subshell, and the subshell's status is still tail's."""
+    assert B.masks_a_gate("pytest -q | tail -3") is True                          # control
+    assert B.masks_a_gate("pytest -q | (tail -3)") is True
+    assert run_main(monkeypatch, "pytest -q | ( tail -3 ) && git commit -m x") == 2
+
+
+def test_blanking_preserves_the_command_shape():
+    """Structure outside the inert regions must survive, or the pipeline split changes meaning."""
+    import shell_text
+
+    blanked = shell_text.blank_unexpanded_text("a | tail -2; b && c || d # note")
+    assert "|" in blanked and ";" in blanked and "&&" in blanked and "||" in blanked
+    assert "note" not in blanked
+
+
+def _rc(monkeypatch, command):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"tool_input": {"command": command}})))
+    return B.main()
+
+
+def test_a_heredoc_body_is_not_a_masked_gate(monkeypatch):
+    """main()'s BLOCKING path split the RAW command while the advisory path masked data first, so
+    a doc that WRITES an example of the footgun was blocked as being one. Measured live: this exact
+    shape blocked a real command while this guard was under investigation."""
+    body = ["C = [", "  'never write: pytest -q " + chr(124) + " tail -3',",
+            "  'grep -rn x . " + chr(124) + " head -20 && git commit -m y',", "]"]
+    cmd = "cat > claims.py <<'PYEOF'\n" + "\n".join(body) + "\nPYEOF\npython3 claims.py"
+    assert _rc(monkeypatch, cmd) == 0
+
+
+def test_a_gate_named_inside_a_quoted_argument_is_not_a_gate(monkeypatch):
+    """`grep -rn "npm test"` runs grep, not npm. The gate name was matched anywhere in the
+    statement rather than in command position."""
+    assert _rc(monkeypatch, 'grep -rn "npm test" . ' + chr(124) + ' head -20 && git commit -m x') == 0
+
+
+def test_a_real_masked_gate_is_still_blocked(monkeypatch):
+    """The direction where it must NOT apply, including one standing after a heredoc."""
+    assert _rc(monkeypatch, "pytest -q " + chr(124) + " tail -3 && echo OK") == 2
+    assert _rc(monkeypatch, "cat > n.md <<'EOF'\nprose\nEOF\npytest -q "
+               + chr(124) + " tail -3 && echo OK") == 2
+
+
+# ---------------------------------------------------------------------------
+# Blocks: a BACKGROUNDED gate that does not go through the jig
+# ---------------------------------------------------------------------------
+
+
+def run_main_bg(monkeypatch, command, background):
+    """Drive main() with run_in_background set, as the Bash tool_input carries it."""
+    payload = json.dumps(
+        {"tool_name": "Bash", "tool_input": {"command": command, "run_in_background": background}}
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    return B.main()
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("make test with the safe redirect", 'make test > log 2>&1; echo "RC=$?" >> log; tail log'),
+        ("gh run watch without --exit-status", "gh run watch 123"),
+        ("a pipe into tee", "pytest tests/ -q | tee out.log"),
+        ("an echo after &&", "make test && echo done"),
+        ("a newline, then tail", "make test > log 2>&1\ntail log"),
+        ("or-true", "make test || true"),
+        ("a trailing ampersand", "make test > log 2>&1 &"),
+        ("a second gate after the first", "make test; make lint"),
+        ("ci_wait then a status echo", 'uv run ci_wait.py --sha deadbeef; echo "RC=$?"'),
+        # repo-gate.py --ci runs the whole pytest suite itself, so tail's status is not its verdict.
+        ("repo-gate --ci then tail",
+         "env -u VIRTUAL_ENV python3 plugins/bitranox/hooks/repo-gate.py --ci > /s/g.log 2>&1; "
+         "tail -5 /s/g.log"),
+    ],
+)
+def test_a_backgrounded_gate_without_the_jig_is_blocked(monkeypatch, capsys, label, command):
+    """The completion notice reports the compound's last command, and that is what gets believed.
+
+    The safe-redirect case is deliberately in this list. It is the form the memory entry
+    recommends, and it is the exact command that produced the 2026-09-02 miss: written
+    correctly, then misreported from the notice before the log was ever opened. Backgrounding
+    is what makes the notice the thing you read, so the redirect does not rescue it. `gh run
+    watch` is here with nothing after it because it exits 0 whatever the run concluded unless
+    it is given --exit-status, so its own status is not a verdict either.
+    """
+    assert run_main_bg(monkeypatch, command, True) == 2
+    assert "BLOCKED: a backgrounded gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("label", "command", "background"),
+    [
+        ("the jig itself", 'python3 scripts/gate.py --gate "make test" --then "git push"', True),
+        # Wrongly launched, but still the jig: this guard is about the notice, not the launcher.
+        ("the jig under uv run", "uv run scripts/gate.py --gate 'make test' --then 'git push'",
+         True),
+        ("foreground gate", 'make test > log 2>&1; echo "RC=$?" >> log', False),
+        ("field absent entirely", "make test", None),
+        ("backgrounded non-gate", "rsync -a src/ dst/ > sync.log 2>&1", True),
+        # Nothing runs after the gate, so the task's exit code IS the gate's.
+        ("make push alone", "make push ARGS='fix: x'", True),
+        ("ci_wait alone, sha from a substitution",
+         'python3 /p/skills/compuse-toolbox/scripts/ci_wait.py --sha "$(git rev-parse --verify HEAD)"',
+         True),
+        ("ci_wait after a cd", "cd /some/dir && uv run /p/scripts/ci_wait.py --sha deadbeef", True),
+        ("gh run watch with --exit-status", "gh run watch 123 --exit-status", True),
+        ("repo-gate --ci alone, redirected",
+         "uv run --with pytest python plugins/bitranox/hooks/repo-gate.py --ci > /s/g.log 2>&1",
+         True),
+        ("repo-gate named as an operand", "cat plugins/bitranox/hooks/repo-gate.py; tail x", True),
+        ("a repo-gate lookup, not a gate run",
+         "D=$(python3 plugins/bitranox/hooks/repo-gate.py --print-test-deps); echo $D", True),
+        ("a lone redirected gate", "pytest tests/ -q > out.log 2>&1", True),
+        ("a gate continued over two lines", "pytest tests/ \\\n  -q > out.log 2>&1", True),
+        ("a trailing comment", "make test > log 2>&1  # the unit suite; slow", True),
+        ("a trailing newline", "make test > log 2>&1\n", True),
+    ],
+)
+def test_what_the_background_block_must_never_refuse(monkeypatch, label, command, background):
+    """The allow-cases, which matter more than the block-cases for a hook that denies.
+
+    `field absent entirely` pins the degradation direction: this guard reads a field that is
+    doc-verified rather than probed here, so if a harness stops sending it the guard must go
+    quiet, never start refusing every gate anyone runs.
+    """
+    assert run_main_bg(monkeypatch, command, background) == 0
+
+
+# ---------------------------------------------------------------------------
+# gate.py is the remedy, not an exemption: its status is the verdict only when nothing follows it
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        # The reported miss: the completion notice said exit code 0 (tail's) while the gate was
+        # RED, and only gate.py's [FAIL] line in the log carried the verdict.
+        ("the jig, then tail", 'python3 /p/scripts/gate.py --gate "make test" > f 2>&1; tail f'),
+        ("the jig, then echo", 'python3 gate.py --gate "make test" > f 2>&1; echo done'),
+        ("the jig piped into tee", 'python3 /p/scripts/gate.py --gate "pytest -q" | tee log'),
+        ("the jig detached", 'python3 /p/scripts/gate.py --gate "make test" > f 2>&1 &'),
+        ("the jig on a quoted path, then tail",
+         'python3 "$TB/scripts/gate.py" --gate "make test" > f 2>&1; tail f'),
+        # OPEN-WORK [540]: a gate named only in a QUOTED program path.
+        ("ci_wait on a quoted path, then echo", 'uv run "$X/ci_wait.py" --sha abc; echo x'),
+        ("a quoted gate binary, then tail", '"$VENV/bin/pytest" -q > log 2>&1; tail log'),
+        ("a quoted path behind timeout", 'timeout 900 "$X/ci_wait.py" --sha abc; tail log'),
+        ("an assignment, then the jig, then tail",
+         'S=/tmp/x && python3 /p/scripts/gate.py --gate "make test" > $S/o 2>&1; tail $S/o'),
+    ],
+)
+def test_a_backgrounded_jig_with_something_after_it_is_blocked(monkeypatch, capsys, label, command):
+    """gate.py returns the GATE's status, but the notice reports the LAST command's, so `; tail`
+    after the jig masks it exactly as after a bare gate. The jig used to exempt the whole command
+    on its name alone, and the quoted `--gate` text the masking blanks left nothing else to see."""
+    assert run_main_bg(monkeypatch, command, True) == 2, label
+    assert "BLOCKED: a backgrounded gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("label", "command", "background"),
+    [
+        ("the jig alone, redirected", 'python3 /p/scripts/gate.py --gate "make test" > f 2>&1', True),
+        ("the jig on a quoted path, alone",
+         'python3 "$TB/scripts/gate.py" --gate "make test" --then "git push"', True),
+        ("separators inside the quoted gate",
+         'cd /w && python3 /p/scripts/gate.py --gate "make test; tail x" --then "echo ok"', True),
+        ("the jig then tail, in the foreground",
+         'python3 /p/scripts/gate.py --gate "make test" > f 2>&1; tail f', False),
+        ("ci_wait on a quoted path, alone", 'uv run "$X/ci_wait.py" --sha abc', True),
+        # A quoted PATH is a command word only where a program goes; as an operand it is data.
+        ("a quoted jig path as an operand", 'cat "$X/gate.py" > copy.py; tail copy.py', True),
+        ("a quoted gate text as a script operand", 'python3 tool.py "make test"; tail log', True),
+        ("a quoted prose operand after an interpreter", 'python3 -c "print(1)"; tail log', True),
+        # Naming the jig in an assignment runs nothing; the jig runs last, alone.
+        ("the jig path in an assignment",
+         'G=/p/scripts/gate.py; S=/tmp/x; cd /w && python3 "$G" --log "$S/g.log" --gate "make test"',
+         True),
+        ("the jig path exported", 'export G=/p/gate.py\npython3 "$G" --gate "make test"', True),
+        # A gate BEFORE the jig keeps the exemption it always had; the miss was what runs AFTER.
+        ("a formatter before the jig",
+         'ruff format src > /dev/null && python3 /p/scripts/gate.py --gate "pytest -q"', True),
+    ],
+)
+def test_a_jig_whose_verdict_is_the_tasks_is_allowed(monkeypatch, label, command, background):
+    """The direction the fix must NOT reach: the jig alone (its status is the task's), the jig in
+    the foreground, and a quoted path that is an operand rather than the program."""
+    assert run_main_bg(monkeypatch, command, background) == 0, label
+
+
+# ---------------------------------------------------------------------------
+# The remedy the block names must be one that works
+# ---------------------------------------------------------------------------
+
+
+def _suggested_jig_line(err):
+    lines = [line.strip() for line in err.splitlines() if "gate.py" in line]
+    assert lines, err
+    return lines[0]
+
+
+def test_the_background_block_launches_the_jig_the_way_the_jig_says(monkeypatch, capsys):
+    """gate.py's own docstring: plain python3, NOT uv run - under uv run the gate inherits uv's
+    isolated interpreter, so a `python3 -m pytest` gate reads RED. The block told a reader to
+    run exactly that, as the one safe way out of the refusal it had just issued."""
+    assert run_main_bg(monkeypatch, "pytest tests/ -q > out.log; tail out.log", True) == 2
+    line = _suggested_jig_line(capsys.readouterr().err)
+    assert not line.startswith("uv run"), line
+    plain = "python" if os.name == "nt" else "python3"
+    assert line.startswith(plain + " "), line
+
+
+def test_the_background_block_and_the_nudge_name_the_same_launch(monkeypatch, capsys):
+    """Two hooks name the jig; the pin keeps them from drifting apart again."""
+    import toolbox_nudge as N  # noqa: PLC0415 - the sibling hook is the oracle for this test only
+
+    assert run_main_bg(monkeypatch, "pytest tests/ -q > out.log; tail out.log", True) == 2
+    line = _suggested_jig_line(capsys.readouterr().err)
+    nudge_cmd, _note = N.launch_command(N._shipped_dir() / "gate.py")
+    assert line.split()[0] == nudge_cmd.split()[0], (line, nudge_cmd)
+
+
+def test_the_background_block_quotes_the_gate_the_way_every_platform_splits(monkeypatch, capsys):
+    """gate.py: quote --gate with DOUBLE quotes - a Windows command line has no single-quoting, so
+    `--gate '<cmd>'` arrives as broken argv there."""
+    assert run_main_bg(monkeypatch, "pytest tests/ -q > out.log; tail out.log", True) == 2
+    err = capsys.readouterr().err
+    assert "--gate '" not in err and "--then '" not in err, err
+    assert '--gate "' in err, err
+
+
+def test_the_background_block_names_no_drive_relative_log_path(monkeypatch, capsys):
+    """`/tmp/...` is DRIVE-RELATIVE on Windows (gate.py says so), and a fixed shared log name is
+    the very hazard gate.py's fresh per-invocation default exists to remove."""
+    assert run_main_bg(monkeypatch, "pytest tests/ -q > out.log; tail out.log", True) == 2
+    err = capsys.readouterr().err
+    assert "/tmp/" not in err, err
+    assert "--log" not in _suggested_jig_line(err), err
+
+
+@pytest.mark.parametrize("background", [True, False])
+def test_the_jig_launched_under_uv_run_gets_an_advisory(monkeypatch, capsys, background):
+    """gate.py declares LAUNCH_WITH = python3: under `uv run` a child `python3 -m pytest` gate
+    resolves to uv's throwaway env and reads a false RED. Not a block - the result errs RED."""
+    rc = run_main_bg(monkeypatch, 'uv run /p/scripts/gate.py --gate "make test"', background)
+    assert rc == 0
+    context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "uv run" in context and "gate.py" in context
+
+
+@pytest.mark.parametrize("command", [
+    "make test > log 2>&1 && uv run --with pytest python plugins/bitranox/hooks/repo-gate.py --ci",
+    "uv run --with pytest python -m pytest tests/test_gate.py > log 2>&1; tail log",
+])
+def test_a_file_merely_ending_in_gate_py_is_not_the_jig(monkeypatch, capsys, command):
+    """`\\bgate\\.py` matched inside `repo-gate.py`, which both exempted a masked backgrounded
+    gate as if it ran through the jig and drew the uv-run advisory for a different program.
+
+    The first command tells the two readings apart by its exit: read as the jig, `repo-gate.py`
+    would decide the task and the `make test` before it keeps the jig's exemption (exit 0); read
+    as the program it is, `make test` is the first gate and the `&&` after it masks it (exit 2).
+    The `pytest` in `--with pytest` is an option's value, never a gate that runs."""
+    assert run_main_bg(monkeypatch, command, True) == 2
+    assert capsys.readouterr().out == ""
+
+
+def test_the_jig_under_a_plain_interpreter_gets_no_advisory(monkeypatch, capsys):
+    assert run_main_bg(monkeypatch, 'python3 /p/scripts/gate.py --gate "make test"', True) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_both_advisories_arrive_as_one_json_document(monkeypatch, capsys):
+    """Claude Code reads ONE JSON document from a hook's stdout; two lines of JSON is neither."""
+    command = 'foo | tail -3; echo "rc=$?"; uv run /p/scripts/gate.py --gate "make test"'
+    assert run_main_bg(monkeypatch, command, False) == 0
+    context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "MASKED EXIT STATUS" in context and "uv run" in context
+
+
+# ---------------------------------------------------------------------------
+# Comments, `|&`, and the handled-status evidence (rank-10 re-adjudication)
+# ---------------------------------------------------------------------------
+
+
+def test_a_comment_line_after_a_piped_gate_is_not_a_consumer(monkeypatch):
+    """A `#` comment is never executed, so `git commit` written in one commits nothing.
+
+    The statement split read the comment line as a statement and CONSUMER matched its prose.
+    """
+    command = "ruff check . 2>&1 " + chr(124) + " tail -5\n# after this, never git commit on a red gate"
+    assert _rc(monkeypatch, command) == 0
+
+
+def test_a_comment_holding_a_separator_is_not_split_into_a_consumer(monkeypatch):
+    command = "pytest -q " + chr(124) + " tail -3  # note; git commit when green"
+    assert _rc(monkeypatch, command) == 0
+
+
+def test_a_real_consumer_after_a_comment_still_blocks(monkeypatch):
+    """The control: the comment is ignored, the real commit on the next line is not."""
+    command = ("ruff check . 2>&1 " + chr(124) + " tail -5\n# after this, commit\n"
+               "git commit -m x")
+    assert _rc(monkeypatch, command) == 2
+
+
+@pytest.mark.parametrize("claim", ['echo "PASS"', "echo 'PASS'", 'echo "CLIPPY-OK"'])
+def test_a_quoted_success_claim_is_still_evidence(monkeypatch, claim):
+    """Only comments are masked for CONSUMER: the claim IS a quoted string, in either quote."""
+    assert _rc(monkeypatch, "cargo clippy 2>&1 " + chr(124) + " head -20 && " + claim) == 2
+
+
+def test_a_pipe_ampersand_masks_a_gate_too(monkeypatch):
+    """`|&` pipes stderr as well; the pipeline still exits with the filter's status."""
+    command = 'cargo clippy -- -D warnings ' + chr(124) + '& head -20 && echo "CLIPPY-OK"'
+    assert _rc(monkeypatch, command) == 2
+    assert B.masks_a_gate("pytest -q " + chr(124) + "& tail -3") is True
+
+
+def test_a_pipe_ampersand_into_the_gate_leaves_the_gate_last(monkeypatch):
+    """The control: `|&` INTO the gate means the gate sets the status, as with a plain pipe."""
+    assert B.masks_a_gate("echo hi " + chr(124) + "& pytest -q --stdin") is False
+
+
+def test_the_status_advisory_sees_a_pipe_ampersand(monkeypatch, capsys):
+    command = "mytool " + chr(124) + '& tail -5; echo "rc=$?"'
+    assert B.reads_masked_status(command) is True
+    assert run_main(monkeypatch, command) == 0
+    output = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert output["hookEventName"] == "PreToolUse"
+    assert "MASKED EXIT STATUS" in output["additionalContext"]
+
+
+@pytest.mark.parametrize("prose", [
+    'git commit -m "note: add pipefail later"',
+    'git commit -m "note: check PIPESTATUS later"',
+    "git commit -m x  # pipefail is on the todo list",
+])
+def test_the_word_pipefail_in_prose_is_not_the_fix(monkeypatch, prose):
+    """HANDLED was searched on the raw command, so the word in a commit message disabled the block."""
+    assert _rc(monkeypatch, "pytest -q " + chr(124) + " tail -3 && " + prose) == 2
+
+
+@pytest.mark.parametrize("fix", [
+    "set -o pipefail; pytest -q " + chr(124) + " tail -3 && git commit -m x",
+    "set -euo pipefail\npytest -q " + chr(124) + " tail -3 && git commit -m x",
+    "pytest -q " + chr(124) + ' tail -3; [ "${PIPESTATUS[0]}" -eq 0 ] && git commit -m x',
+    "pytest -q " + chr(124) + " tail -3; test $PIPESTATUS -eq 0 && git commit -m x",
+])
+def test_the_real_pipe_status_fixes_still_allow(monkeypatch, fix):
+    assert _rc(monkeypatch, fix) == 0
+
+
+def test_the_status_advisory_ignores_pipefail_prose(monkeypatch):
+    assert B.reads_masked_status('t ' + chr(124) + ' tail -1; echo "rc=$? (pipefail later)"') is True
+    assert B.reads_masked_status('t ' + chr(124) + ' tail -1; echo "${PIPESTATUS[0]}"') is False
+
+
+def test_advisory_json_names_the_pretooluse_event(monkeypatch, capsys):
+    """Claude Code routes additionalContext by hookEventName; a wrong name drops the advisory."""
+    assert run_main_bg(monkeypatch, 'uv run /p/scripts/gate.py --gate "make test"', False) == 0
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
+
+
+# ---------------------------------------------------------------------------
+# PowerShell reads its own escapes: a backslash is a path separator, a backtick escapes
+# ---------------------------------------------------------------------------
+
+
+def _rc_as(monkeypatch, tool_name, command):
+    payload = json.dumps({"tool_name": tool_name, "tool_input": {"command": command}})
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    return B.main()
+
+
+# `"C:\temp\"` closes under PowerShell, so the PIPESTATUS after it is SINGLE-quoted and expands
+# nothing. Read as Bash the backslash escaped the closing quote, the string ran on, and the
+# single-quoted word read as a genuine status check that disabled the block.
+_PS_PATH_THEN_QUOTED_PIPESTATUS = (
+    "pytest -q " + chr(124) + " tail -3; echo \"C:\\temp\\\" '${PIPESTATUS[0]}'; git commit -m x")
+
+
+def test_powershell_single_quoted_pipestatus_after_a_path_is_not_the_fix(monkeypatch):
+    assert B.handles_pipe_status(_PS_PATH_THEN_QUOTED_PIPESTATUS, "PowerShell") is False
+    assert _rc_as(monkeypatch, "PowerShell", _PS_PATH_THEN_QUOTED_PIPESTATUS) == 2
+
+
+def test_powershell_control_a_double_quoted_pipestatus_still_counts(monkeypatch):
+    command = ("pytest -q " + chr(124)
+               + ' tail -3; echo "C:\\temp\\" "${PIPESTATUS[0]}"; git commit -m x')
+    assert _rc_as(monkeypatch, "PowerShell", command) == 0
+
+
+# Same shape for the `$?` advisory: single-quoted after a closed path, nothing expands.
+_PS_PATH_THEN_QUOTED_STATUS = "tool verify " + chr(124) + " tail -5; echo \"C:\\x\\\" 'rc=$?'"
+
+
+def test_powershell_single_quoted_status_after_a_path_is_no_status_read(monkeypatch, capsys):
+    assert B.reads_masked_status(_PS_PATH_THEN_QUOTED_STATUS, "PowerShell") is False
+    assert _rc_as(monkeypatch, "PowerShell", _PS_PATH_THEN_QUOTED_STATUS) == 0
+    assert "MASKED EXIT STATUS" not in capsys.readouterr().out
+
+
+def test_powershell_backtick_escaped_quotes_leave_the_status_read_expanding(monkeypatch, capsys):
+    """`` `'rc=$?`' `` is no single-quoted string to PowerShell: the backtick escapes each quote,
+    so `$?` expands. Read as Bash it was a single-quoted string and the advisory stayed silent."""
+    command = "tool verify " + chr(124) + " tail -5; echo `'rc=$?`'"
+    assert B.reads_masked_status(command, "PowerShell") is True
+    assert _rc_as(monkeypatch, "PowerShell", command) == 0
+    assert "MASKED EXIT STATUS" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# A gate NAMED in text is not a gate RUN - the background block too
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("the reported backstop", 'sleep 1800; echo "BACKSTOP 3: fixer make test not reported by 15:15"'),
+        ("single-quoted mention", "sleep 60; echo 'waiting on make test, then tail the log'"),
+        ("unquoted echo operand", "sleep 60; echo waiting on make test; date"),
+        ("a heredoc body", "cat > note.md <<'EOF'\nrun make test then tail the log\nEOF\nsleep 5"),
+        ("a comment", "sleep 60  # then make test; tail log\ndate"),
+    ],
+)
+def test_a_backgrounded_command_that_only_names_a_gate_is_not_blocked(monkeypatch, label, command):
+    """No gate runs in any of these, so there is no gate verdict for the notice to misreport.
+    The gate name sat in a quoted argument, an echo operand, a heredoc body or a comment, and the
+    background block searched the RAW command for it, then treated a gate it could not find in
+    the masked text as a masked gate."""
+    assert run_main_bg(monkeypatch, command, True) == 0
+
+
+def test_a_backgrounded_real_gate_beside_a_quoted_mention_is_still_blocked(monkeypatch, capsys):
+    """The direction where the fix must NOT apply: a gate at command position is still a gate."""
+    assert run_main_bg(monkeypatch, "make test; echo done", True) == 2
+    assert run_main_bg(monkeypatch, 'echo "next: make test"; make test; tail log', True) == 2
+    assert "BLOCKED: a backgrounded gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'out=$(make test 2>&1); echo "$out" ' + chr(124) + " tail -5",
+        'echo "$(pytest -q)"; date',
+    ],
+)
+def test_a_backgrounded_gate_inside_a_substitution_still_runs_and_is_blocked(monkeypatch, command):
+    """A `$(...)` body RUNS, double quotes or not, so a gate there is a gate. Masking every quoted
+    region as one string erased it, and so did gluing the mask's filler onto the gate name, which
+    removed the word boundary the gate pattern starts with."""
+    assert run_main_bg(monkeypatch, command, True) == 2
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'bash -c "make test; tail x"',
+        "timeout 1500 ssh host \"cd /w && .venv/bin/python -m pytest -q > p.log 2>&1 & echo RC=$?\"",
+    ],
+)
+def test_a_backgrounded_gate_in_a_command_another_shell_runs_is_still_blocked(monkeypatch, command):
+    """The quoted operand of `ssh` or `bash -c` is not prose but a command, so a gate in it RUNS.
+    Its structure cannot be read here, so it stays blocked; the ssh shape is the one real firing
+    the corpus replay found the quoted-text exemption would otherwise have lost."""
+    assert run_main_bg(monkeypatch, command, True) == 2
+
+
+def test_a_backgrounded_lone_gate_assigned_from_a_substitution_is_allowed(monkeypatch):
+    """`x=$(make test)` exits with the substitution's status, which is the gate's own."""
+    assert run_main_bg(monkeypatch, "sleep 5; x=$(make test)", True) == 0
+
+
+# ---------------------------------------------------------------------------
+# A gate word that is an ARGUMENT is no gate: only the program word decides
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("grep for a gate word, then commit", "grep pytest docs/x.md | tail -5 && git commit -m x"),
+        ("grep -c for a gate word, then OK", "grep -c ruff CHANGELOG.md | head -1; echo OK"),
+        ("cat a gate's config file, then push", "cat pytest.ini | head; git push"),
+    ],
+)
+def test_a_gate_word_as_an_argument_is_not_a_masked_gate(monkeypatch, capsys, label, command):
+    """These pipe grep or cat, whose status the filter may mask without harm: no gate RAN. The
+    gate word was searched anywhere in the pipeline element, so the file name or search term
+    `pytest` read as pytest running, and a read-only look at a file blocked the commit after it."""
+    assert run_main(monkeypatch, command) == 0, label
+    assert capsys.readouterr().err == ""
+
+
+def test_a_backgrounded_read_of_a_gate_word_is_not_a_backgrounded_gate(monkeypatch):
+    """The background path searched the runnable text for a gate word the same way."""
+    assert run_main_bg(monkeypatch, "grep pytest docs/x.md | tail -5", True) == 0
+
+
+@pytest.mark.parametrize(
+    ("label", "command"),
+    [
+        ("env -u in front", "env -u X pytest -q | tail -3; git commit -m x"),
+        ("python3 -m", "python3 -m pytest | tail; git push"),
+        ("timeout with a duration", "timeout 900 make test | tail -5 && git push"),
+        ("grep -q as the filter", "pytest --co -q | grep -q 12 && git commit -m x"),
+        ("commit from a message file", "make test | tail -5 && git commit -F m.txt"),
+        ("uv run in front", "uv run pytest -q | tail -3; git commit -m x"),
+        ("a path-qualified gate", ".venv/bin/pytest -q | tail; git push"),
+        ("a gate in a subshell element", "( pytest -q ) | tail; git push"),
+    ],
+)
+def test_a_gate_at_the_program_word_is_still_a_masked_gate(monkeypatch, label, command):
+    """The direction the fix must not touch: a gate that RUNS, behind any launcher the guard
+    already saw through, is still a gate whose status the filter masks."""
+    assert run_main(monkeypatch, command) == 2, label
+
+
+def test_a_backgrounded_gate_at_the_program_word_is_still_blocked(monkeypatch):
+    assert run_main_bg(monkeypatch, "ruff check . | tail -3", True) == 2
+
+
+# ---------------------------------------------------------------------------
+# A state-changing STEP (not a gate) piped into a filter, then && into another state change
+# ---------------------------------------------------------------------------
+# `git commit ... | tail -1 && git push`: tail succeeds whether or not the commit did, so the push
+# publishes whatever was already there. The narrowed rule: the step must change state, the pipe
+# must end in tail/head/grep/wc, and only `&&` into another state change counts.
+
+@pytest.mark.parametrize("command", [
+    "git commit -q -F msg.txt 2>&1 | tail -1 && git push",
+    "git merge --ff-only origin/main 2>&1 | tail -2 && git push origin main",
+    "git rebase origin/master | head -5 && git push --force-with-lease",
+    "git cherry-pick abc1234 2>&1 | grep -v hint && git tag v1.2.3",
+    "make release 2>&1 | tail -3 && git push --tags",
+    "uv pip install -e . 2>&1 | tail -1 && rm -rf build",
+    "git push origin topic 2>&1 | tail -2 && ssh host 'deploy'",
+    "git bundle create x.bundle HEAD | wc -l && scp x.bundle host:/tmp/",
+    "git -C /repo commit -qm x | tail -1 && git -C /repo push",
+    # A tag that CREATES (an operand, or an annotate/message/force flag) and a make that builds
+    # past its options are still state changes.
+    "git tag v1.2.3 2>&1 | tail -1 && git push origin v1.2.3",
+    "git tag -a v1 -m rel | tail -1 && git push origin v1",
+    "git tag -f v1 | tail -1 && git push --force origin v1",
+    "git tag -d v1 | tail -1 && git push origin :v1",
+    "make -C /x release 2>&1 | tail -3 && git push --tags",
+    "make -j 4 install | tail -1 && rm -rf build",
+    # An ATTACHED option value is not a run of flags: the l/v of `Release` and the n of
+    # `frontend` are the value's letters, not a list or dry-run flag.
+    "make -Cfrontend build 2>&1 | tail -3 && git push",
+    "make -sCfrontend build | tail -1 && git push",
+    "git tag -mRelease v1 | tail -1 && git push origin v1",
+    "git tag -amlevel v1 | tail -1 && git push origin v1",
+])
+def test_blocks_a_masked_state_change_followed_by_another(monkeypatch, capsys, command):
+    assert run_main(monkeypatch, command) == 2
+    err = capsys.readouterr().err
+    assert "BLOCKED" in err and "PIPESTATUS" in err
+
+
+@pytest.mark.parametrize("command", [
+    "git log --oneline | head -5 && git push",                     # a read-only producer
+    "git status --porcelain | wc -l && git commit -qm x",          # a read-only producer
+    "git commit -qm x 2>&1 | tail -1; git log --oneline -1",       # `;` then a read
+    "git commit -qm x 2>&1 | tail -1 && git log --oneline -1",     # && then a read
+    "git commit -qm x | grep -q 'nothing to commit' && git push",  # a grep -q predicate
+    "set -o pipefail; git commit -qm x | tail -1 && git push",
+    'git commit -qm x | tail -1; [ "${PIPESTATUS[0]}" -eq 0 ] && git push',
+    "git commit -qm x > log 2>&1 && git push",                     # no pipe at all
+    "git commit -qm x | tail -1",                                  # nothing follows
+    "git commit -qm x | tee log.txt && git push",                  # tee is not in the narrowed set
+    "echo 'git commit | tail && git push' > notes.txt",            # quoted text
+    # `git tag` LISTS with no operand, or with a listing option; only an operand or a
+    # create/delete flag makes a tag.
+    "git tag --sort=-creatordate | head -3 && git push origin v1",
+    "git tag --sort=-v:refname | head -1 && ssh host true",
+    "git tag --merged HEAD | grep v1 && git push",
+    "git tag --format='%(refname)' | head && git push",
+    "git tag -l 'v1*' | tail -1 && git push",
+    "git tag -n5 | head && git push",
+    # A make that only prints help, past its options and -C's operand.
+    "make -C /x help | grep test && rm -f x",
+    "make -s help | grep test && rm -f x",
+    "make --directory /x -n release | tail && rm -f x",
+    # A cluster's own flags still count before its value-taking letter, and a cluster ENDING in
+    # one takes the next word as that value (`-sC docs` is a directory, not a target).
+    "make -sn release | tail && rm -f x",
+    "make -sC docs help | grep test && rm -f x",
+    "git tag -ln | head && git push",
+])
+def test_allows_what_the_narrowed_state_change_rule_leaves_alone(monkeypatch, capsys, command):
+    assert run_main(monkeypatch, command) == 0

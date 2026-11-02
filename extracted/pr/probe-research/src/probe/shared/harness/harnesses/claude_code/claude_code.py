@@ -17,7 +17,7 @@ def _run_plugin_command(args: list[str], timeout: float) -> binary.Result:
 
 def _get_marketplace_checkout(name: str) -> Path:
     """Its plugins folder (`capabilities.claude_plugin_ledger`), `marketplaces/<name>`."""
-    from probe.cli.capabilities import claude_plugin_ledger  # noqa: PLC0415 - it imports the plugin commands
+    from probe.shared.harness.harnesses.claude_code.plugin_ledger import claude_plugin_ledger  # noqa: PLC0415 - it imports the plugin commands
 
     return claude_plugin_ledger().parent / "marketplaces" / name
 

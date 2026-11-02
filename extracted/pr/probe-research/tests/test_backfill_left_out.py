@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import json
 
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as bp
-from probe.cli import backfill_prompts as prompts
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as bp
+from probe.cli.imports.folder.agents import prompts as prompts
 from probe.cli import backfill_run as br
-from probe.cli.backfill_coverage import Coverage, Scope
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.scope import Scope
 
 
 def _write(root, rel, text="x"):

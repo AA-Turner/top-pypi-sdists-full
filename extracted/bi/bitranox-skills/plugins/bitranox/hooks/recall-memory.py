@@ -1,0 +1,463 @@
+#!/usr/bin/env python3
+"""UserPromptSubmit hook: on each prompt, recall relevant memory from ANYWHERE into the session.
+
+The "look in my notebook before reinventing" reflex. Reuses the existing fast grep
+(meta-collect-knowledge/gather_scan.py): derive keywords from the prompt, grep across every OTHER
+project's memory + the global rules layer (the current project is excluded, so what is drawn in is
+de-duplicated against our own memory), and inject the top matches' bodies as advisory context - once
+per session. Read-only: it surfaces prior work, it does not copy/promote (that is meta-collect-knowledge).
+
+Pure standard library. Fail-open: every error path exits 0, so a broken or slow hook never wedges a turn.
+"""
+
+import json
+import os
+import re
+import sys
+import unicodedata
+from pathlib import Path
+
+_HOOKS_DIR = Path(__file__).resolve().parent
+_SKILL_DIR = _HOOKS_DIR.parent / "skills" / "meta-collect-knowledge"
+for _d in (str(_HOOKS_DIR), str(_SKILL_DIR)):
+    if _d not in sys.path:
+        sys.path.insert(0, _d)
+
+import gather_scan as gs  # noqa: E402  (the existing grep engine; also pulls in self_improve_signals)
+import self_improve_signals as sig  # noqa: E402
+import classifier  # noqa: E402
+import prompt_text  # noqa: E402
+import secret_patterns  # noqa: E402
+import transcript_turns  # noqa: E402
+
+MAX_HITS = 4
+MAX_BODY = 1800
+SHADOW_SHORTLIST = 30  # candidates the shadow classifier reranks, one pair request each
+SHADOW_NOTE = 600      # characters of each note shown to it
+SPECIFIC_MAX = 6  # a keyword matching <= this many candidate notes is a specific (strong) signal
+COMMON_FRACTION = 0.25  # a keyword in > this fraction of the whole store is a corpus-stopword (no signal)
+
+
+# A body carrying a live credential must never be injected into an unrelated session. Recall
+# reaches EVERY session whose prompt happens to match, and what it injects is written into that
+# session's transcript, so one note holding a service password spreads it silently and durably.
+# Measured on a real store: a note carried test AND production URLs with their passwords beside
+# them, and reached a session about an unrelated tool.
+#
+# The test is a VALUE, not a word. "never commit a password" names the concept and carries
+# nothing; `Password: <value>` and `scheme://user:pw@host` are the secret itself. The shapes that
+# matter are the ones a human writes in a runbook - a labelled value and URL userinfo - because
+# the token-shape patterns (ghp_..., AKIA...) are NOT what this leak looked like, though they are
+# matched too. The patterns live in secret_patterns, shared with repo-gate and the classifier's
+# egress redaction, so a shape added for one is never missing in the others.
+
+
+def holds_a_credential(body):
+    """True when this body carries a secret rather than merely discussing one.
+
+    Deliberately conservative: a false positive costs one withheld note, which the reader can
+    still open by name, while a false negative publishes a live credential into a transcript.
+    """
+    return secret_patterns.holds_a_credential(body)
+
+
+# What the LAST recall could not read: a file that failed to open or decode, or a directory the
+# walk could not list. Recall must stay silent on stdout, so without this record one bad file is
+# invisible - and before the scan skipped such files, one latin-1 note silenced recall entirely.
+SKIPPED_LOG = "recall-skipped.txt"
+
+
+def _log_skipped(skipped):
+    """Record `skipped` [(path, reason)] in the audit dir, replacing the previous record; remove
+    the record when nothing was skipped, so it never outlives the file it names. Never raises."""
+    path = sig._audit_dir() / SKIPPED_LOG
+    try:
+        if not skipped:
+            if path.exists():
+                path.unlink()
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = ["%s\t%s" % (p, reason) for p, reason in sorted(set(skipped))]
+        with open(path, "w", encoding="utf-8", errors="backslashreplace", newline="") as fh:
+            fh.write("\n".join(lines) + "\n")
+    except (OSError, ValueError):
+        pass
+
+
+def _state_file(cwd, sid):
+    """Per-project, per-session recall state. Both keys are confined by their shared helper:
+    `proj_key` hashes the project, `session_key` flattens the id to one filename component."""
+    return sig._audit_dir() / ("%s.recall-%s.txt" % (sig.proj_key(cwd), sig.session_key(sid)))
+
+
+def _label(path):
+    """A readable source label. A native topic file / curated `facts/<slug>.md` -> its stem; a
+    CLAUDE.md -> '<parent-dir>/CLAUDE.md'; a curated `index.md` -> '<project-dir>/memory' (every
+    curated index is named index.md, so name it by its owning project - same fix as CLAUDE.md)."""
+    p = Path(path)
+    if p.name == "CLAUDE.md":
+        return "%s/CLAUDE.md" % p.parent.name
+    if p.name == sig.CURATED_INDEX and p.parent.name == sig.CURATED_DIRNAME:
+        return "%s/memory" % p.parent.parent.name
+    # central UUID store body: `<tree>/.claude-memory/facts/<shard>/<uuid>.md` - the bare uuid stem is
+    # meaningless, so name it by the owning tree (parts[-4] == the anchor dir that holds the store).
+    if p.suffix == ".md" and ".claude-memory" in p.parts and "facts" in p.parts:
+        parts = p.parts
+        try:
+            return "%s/memory" % parts[parts.index(".claude-memory") - 1]
+        except (ValueError, IndexError):
+            pass
+    return p.stem
+
+
+def _first_match(text, keywords):
+    """Index in `text` (already NFC) of the earliest keyword occurrence, else -1.
+
+    An occurrence counts only at a word boundary, by the same rule scan() used to match the note
+    (gather_scan._WORD_CHAR may not touch the keyword on either side), so "test" is found in "the
+    test suite" and not inside an earlier "latest". A substring search stopped at the decoy and
+    centred the window, or chose the section, away from the text that actually matched.
+
+    The keywords arrive folded the way scan() matched them (gather_scan._fold: NFC, then casefold),
+    so the text is folded the same way here; a plain lower() leaves a sharp s as one character where
+    the keyword has "ss" and never finds it. Casefolding can lengthen the text (a sharp s becomes two
+    characters), so each folded character remembers the original character it came from and the
+    position returned indexes `text` itself. Case folding maps each code point on its own, so folding
+    character by character equals folding the whole string."""
+    folded, owner = [], []
+    for i, ch in enumerate(text):
+        f = ch.casefold()
+        folded.append(f)
+        owner.extend([i] * len(f))
+    low = "".join(folded)
+    hits = []
+    for k in keywords:
+        k = gs._fold(k) if k else ""
+        if not k:
+            continue
+        m = re.search("(?<!%s)%s(?!%s)" % (gs._WORD_CHAR, re.escape(k), gs._WORD_CHAR), low)
+        if m:
+            hits.append(m.start())
+    return owner[min(hits)] if hits else -1
+
+
+def _snippet(path, keywords, maxlen):
+    """Body to inject. Small files: the whole thing (trimmed). Large files (CLAUDE.md can be tens of
+    KB): a window CENTERED on the first matched keyword, so the relevant rule is shown, not just the
+    file head (which often would not contain the match at all)."""
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return ""
+    if Path(path).name == sig.CURATED_INDEX:      # strip the scope descriptor (meta, not a fact) from a curated index
+        text = sig._strip_scope(text)
+    text = unicodedata.normalize("NFC", text)
+    if len(text) <= maxlen:
+        return text.strip()
+    pos = _first_match(text, keywords)
+    if pos < 0:
+        return text.strip()[:maxlen]
+    start = max(0, pos - maxlen // 3)
+    end = start + maxlen
+    return ("..." if start > 0 else "") + text[start:end].strip() + ("..." if end < len(text) else "")
+
+
+# What the shadow classifier is shown of each shortlisted note, recorded in every log line so the
+# eval can tell rows judged on one view from rows judged on another.
+NOTE_VIEW = "summary-v1"
+
+
+def _frontmatter(text):
+    """{key: value} for the top-level scalar keys of a leading `---` block, else {}."""
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    if end < 0:
+        return {}
+    out = {}
+    for line in text[3:end].split("\n"):
+        if not line or line[0] in " \t#" or ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        out[key.strip()] = value
+    return out
+
+
+def _lines_keepends(text):
+    """Lines split on "\\n" only, each keeping its terminator. Not splitlines(): it also breaks on
+    \\f and U+2028, which would turn mid-line text into a fake "# heading" line."""
+    parts = text.split("\n")
+    return [p + "\n" for p in parts[:-1]] + ([parts[-1]] if parts[-1] else [])
+
+
+def _matched_section(text, keywords):
+    """(heading line, section body) of the section holding the first keyword match, else None.
+    The text is NFC-normalised first so the match offset and the line offsets count the same
+    characters."""
+    text = unicodedata.normalize("NFC", text)
+    pos = _first_match(text, keywords)
+    if pos < 0:
+        return None
+    lines = _lines_keepends(text)
+    offset, heading, start = 0, None, 0
+    for i, line in enumerate(lines):
+        if offset > pos:
+            break
+        if line.startswith("#"):
+            heading, start = line.strip(), i + 1
+        offset += len(line)
+    if heading is None:
+        return None
+    body = []
+    for line in lines[start:]:
+        if line.startswith("#"):
+            break
+        body.append(line)
+    return heading, "".join(body).strip()
+
+
+def _note_view(path, keywords, maxlen):
+    """What a note is ABOUT, for the shadow reranker: never the window centred on the matched
+    keyword, which makes the reranker repeat the keyword ranking's error.
+
+    A note with front matter is its `name: description`. Anything else (a CLAUDE.md, a curated
+    index) is the section holding the match, from its heading, since one of those files covers
+    many topics; with no match or no heading, the file head.
+    """
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return ""
+    if Path(path).name == sig.CURATED_INDEX:
+        text = sig._strip_scope(text)
+    meta = _frontmatter(text)
+    if meta.get("description"):
+        return "%s: %s" % (meta.get("name") or _label(path), meta["description"])
+    section = _matched_section(text, keywords)
+    if section:
+        return "%s > %s\n%s" % (_label(path), section[0], section[1][:maxlen].strip())
+    return "%s: %s" % (_label(path), text.strip()[:maxlen].strip())
+
+
+def _rerank_request(prompt, by_score, ranked, hits, keywords, transcript):
+    """(shortlist, regex, requests) for the classifier: one pair request per (prompt, note), each
+    with the reply the prompt answers, which settles a word that means different things in
+    different conversations. Shadow and decide both build it here, so they ask the same thing."""
+    shortlist = by_score[:SHADOW_SHORTLIST]
+    regex = {"shortlist": shortlist, "selected": ranked[:MAX_HITS], "note_view": NOTE_VIEW,
+             "context_view": classifier.CONTEXT_VIEW}
+    questions = classifier.recall_questions()
+    previous = transcript_turns.last_reply(transcript)
+    requests = [{"fields": classifier.with_previous(
+                    {"user_prompt": prompt,
+                     "memory_note": _note_view(p, hits.get(p, keywords), SHADOW_NOTE)},
+                    previous),
+                 "questions": questions} for p in shortlist]
+    return shortlist, regex, requests
+
+
+def _shadow_recall(prompt, sid, by_score, ranked, hits, keywords, transcript=""):
+    """Hand the keyword shortlist to the classifier's detached shadow child. Never changes what
+    is injected and never raises; a failure is logged as an error row."""
+    with classifier.shadow_guard("recall_rerank", sid):
+        if not classifier.shadow_enabled(sig.load_config(), "recall_rerank"):
+            return
+        _shortlist, regex, requests = _rerank_request(prompt, by_score, ranked, hits, keywords,
+                                                      transcript)
+        classifier.spawn_shadow("recall_rerank", sid, regex, requests, transcript=transcript)
+
+
+def _relevance(result):
+    """The `relevant` score of one logged result, or None when it carries none."""
+    value = (((result or {}).get("answers") or {}).get("relevant") or {}).get("value")
+    return value if isinstance(value, (int, float)) else None
+
+
+def _decide_recall(prompt, sid, by_score, ranked, hits, keywords, transcript, cfg):
+    """Decide mode: the notes to inject, best first - the shortlisted ones Jev scores at or above
+    the site threshold, whatever the keyword ranking thought of them.
+
+    A blind panel on 2026-10-06 found the keyword top 4 relevant 6% of the time and Jev at 0.8
+    44%, so Jev not answering injects NOTHING rather than falling back to the keywords. Every
+    note is asked at once: in waves of 8, 30 requests do not fit the hook's deadline. One row per
+    prompt is logged, naming the path: jev, none or fallback-<reason>."""
+    shortlist, regex, requests = _rerank_request(prompt, by_score, ranked, hits, keywords,
+                                                 transcript)
+    picks = []
+    try:
+        row = classifier.ask_in_hook("recall_rerank", sid, regex, requests, cfg,
+                                     transcript=transcript, workers=len(requests))
+    except Exception as exc:  # noqa: BLE001 - a failure to ask is a failure to answer
+        row = classifier.error_row("recall_rerank", sid, exc)
+        path = "fallback-error: %s" % type(exc).__name__
+    else:
+        scores = [_relevance(r) for r in row.get("results") or []]
+        if all(s is None for s in scores):
+            path = "fallback-%s" % (row.get("reason") or "no answer")
+        else:
+            threshold = classifier.SITE_THRESHOLDS["recall_rerank"]
+            kept = [(s, p) for s, p in zip(scores, shortlist) if s is not None and s >= threshold]
+            picks = [p for _s, p in sorted(kept, key=lambda sp: (-sp[0], sp[1]))]
+            path = "jev" if picks else "none"
+    row.update(mode="decide", decide_path=path, picks=picks)
+    classifier.append_row(row)
+    return picks
+
+
+def main():
+    try:
+        ev = json.load(sys.stdin)
+    except Exception:  # noqa: BLE001 - no/invalid stdin: do nothing
+        return 0
+    prompt = (ev.get("prompt") or ev.get("user_prompt") or "").strip()
+    if not prompt:
+        return 0
+    cwd = ev.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    sid = ev.get("session_id") or "default"
+
+    try:
+        # A CronCreate / ScheduleWakeup fire is the harness talking, not somebody asking; its
+        # payload looks typed, so the scheduling call in this session's transcript decides.
+        if transcript_turns.scheduled_by_the_session(prompt, ev.get("transcript_path")):
+            return 0
+        # "read handover and continue" / "what's next" is about THIS project's own backlog, which
+        # recall never reads; other projects' handover notes injected there were taken for the
+        # handover skill reading other projects' handovers.
+        if prompt_text.asks_for_own_backlog(prompt):
+            return 0
+        # Only the prose of a typed prompt: a path carries project and tool names, and a machine
+        # turn (a task notification, a slash-command echo) is not somebody asking for anything -
+        # the skill router had the same input and the same defect. An empty result recalls nothing.
+        keywords = gs.extract_keywords(prompt_text.scorable_prose(prompt), proj=cwd)
+        if not keywords:
+            return 0
+        # Queue any not-yet-classified keyword for the dream-time filler classifier (deterministic,
+        # no model here). Known filler is already dropped by extract_keywords; known-topical is skipped.
+        # Keyed to THIS project so its learned lists never leak into another project's recall.
+        sig.note_unknown_keywords(keywords, cwd)
+        # other projects' memory + global rules, PLUS other projects' CLAUDE.md across the workspace
+        # tree (lots of cross-project rules still live in CLAUDE.md). The current project's own memory
+        # and its ancestor-chain CLAUDE.md are excluded - they are already loaded in this session.
+        files = gs.discover_files(cwd) + gs.discover_claude_md(cwd) + gs.discover_curated(cwd, cwd)
+        # cross_tree_search=True (default): OTHER knowledge trees are invisible to the workspace
+        # walk above, so discover them via the configured discovery_roots (config list UNION
+        # $HOME) and scan their curated stores too - same mechanism as gather_scan's cross-tree
+        # gather. cross_tree_search=False walls recall into the CURRENT knowledge tree: only
+        # sources under this tree's anchor are scanned (independent trees - a marketing company
+        # and a bakery - share nothing). The native tier (under ~/.claude) has no reliable tree
+        # attribution by path, so it counts as outside and is excluded too. Cross-tree knowledge
+        # then moves only via the explicit paths (meta-collect-knowledge import, the crosstree
+        # dream). A cwd with NO resolvable anchor has no tree to wall into, so walled recall
+        # injects nothing at all for it, the native tier included (pinned by
+        # test_walled_recall_with_no_anchor_recalls_nothing_not_even_native_notes).
+        if sig.load_config().get("cross_tree_search", True):
+            for r in sig.discovery_roots():
+                files += gs._find_curated_stores(str(r))
+            files = sorted({str(f) for f in files})
+        else:
+            anchor = sig.resolve_anchor(cwd)
+            if anchor is None:
+                return 0
+            # Compared on resolved paths: the workspace walk returns symlink-free paths while the
+            # anchor keeps the cwd's spelling, so a plain prefix test dropped the cwd's own tree.
+            files = gs.within_tree(files, anchor)
+        skipped = []
+        hits = gs.scan(keywords, files, skipped=skipped)
+        _log_skipped(skipped + gs.take_walk_errors())
+    except Exception:  # noqa: BLE001 - scan must never wedge the session
+        return 0
+    if not hits:
+        return 0
+    # Precision by keyword RARITY (specificity), not a flat count: a keyword matching FEW notes is a
+    # strong/specific signal; one matching MANY is weak. df[k] = notes containing k (only matched notes
+    # contain a keyword, so this IS the corpus document-frequency).
+    df = {}
+    for ks in hits.values():
+        for k in set(ks):
+            df[k] = df.get(k, 0) + 1
+    ndocs = len(hits)
+    # CORPUS-stopword: a keyword present in a large FRACTION of the whole store carries no signal FOR
+    # THIS user (e.g. "memory" in a memory-centric store - 83%). A static filler list cannot catch a
+    # word that is common only in your corpus; this can. Such keywords neither count toward specificity
+    # nor score - so a note that matched ONLY corpus-common words is dropped.
+    # corpus-common = a LARGE fraction AND absolutely not-rare (> SPECIFIC_MAX); the absolute floor
+    # stops a tiny store - where any word is a big fraction - from treating a rare term as common.
+    total = max(len(files), 1)
+    common = {k for k, c in df.items() if c > SPECIFIC_MAX and c > COMMON_FRACTION * total}
+
+    def _useful(p):
+        return set(hits[p]) - common
+    # inverse-frequency score over the USEFUL (non-corpus-common) matches only.
+    def _score(p):
+        return sum(ndocs / df[k] for k in _useful(p))
+    # keep a note if its USEFUL matches are >= 2 distinct, or one that is SPECIFIC in absolute terms
+    # (df <= SPECIFIC_MAX - robust for tiny candidate sets). Corpus-common matches do not qualify it.
+    def _specific(p):
+        u = _useful(p)
+        return len(u) >= 2 or any(df[k] <= SPECIFIC_MAX for k in u)
+    ranked = sorted((p for p in hits if _specific(p)), key=lambda p: (-_score(p), p))
+    # The classifier's shortlist is taken from ALL hits, not only the ones that passed the
+    # specificity filter, so it can surface a note the keyword rules dropped. In decide mode its
+    # picks replace the keyword ranking; in shadow mode it is only logged (both off by default).
+    by_score = sorted(hits, key=lambda p: (-_score(p), p))
+    transcript = ev.get("transcript_path") or ""
+    cfg = sig.load_config()
+    if classifier.site_mode(cfg, "recall_rerank") == "decide":
+        ranked = _decide_recall(prompt, sid, by_score, ranked, hits, keywords, transcript, cfg)
+    else:
+        _shadow_recall(prompt, sid, by_score, ranked, hits, keywords, transcript)
+    if not ranked:
+        return 0
+
+    state = _state_file(cwd, sid)
+    try:
+        already = set(state.read_text(encoding="utf-8").split("\n")) if state.exists() else set()
+    except OSError:
+        already = set()
+    fresh = [p for p in ranked if p not in already][:MAX_HITS]
+    if not fresh:
+        return 0
+
+    blocks = []
+    for p in fresh:
+        body = _snippet(p, hits.get(p, keywords), MAX_BODY)
+        if not body:
+            continue
+        if holds_a_credential(body):
+            # Named, never quoted: the reader can open it deliberately if they truly need it.
+            blocks.append("### %s\n(body withheld - it looks credential-bearing. Open %s "
+                          "yourself if you need it.)" % (_label(p), p))
+            continue
+        blocks.append("### %s\n%s" % (_label(p), body))
+    if not blocks:
+        return 0
+
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        with state.open("a", encoding="utf-8") as f:
+            for p in fresh:
+                f.write(p + "\n")
+    except OSError:
+        pass
+
+    ctx = ("CROSS-PROJECT MEMORY (recall hook), not this project's handover or backlog: notes found in "
+           "your OTHER projects' memory / CLAUDE.md / global rules by keyword match on this prompt.\n"
+           "Draw on them before reinventing; verify any named file/flag still exists, and de-duplicate "
+           "against this project's own memory.\n\n" + "\n\n".join(blocks))
+    out = {
+        "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx},
+        "systemMessage": "Recalled %d related memory note(s) from elsewhere." % len(blocks),
+        "suppressOutput": True,
+    }
+    sys.stdout.write(json.dumps(out))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:  # noqa: BLE001 - a broken hook must never block a session
+        sys.exit(0)

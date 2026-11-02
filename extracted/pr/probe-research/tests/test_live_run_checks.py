@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import paths as service_paths
+from probe.foundation.service_api import paths as service_paths
 
 LIVE = Path(__file__).resolve().parent / "live"
 MAIN, TAP = "probe-research@research-os-agent", "probe-research-tap@research-os-agent"

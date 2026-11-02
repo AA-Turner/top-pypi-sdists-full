@@ -1,0 +1,22 @@
+// SPDX-FileCopyrightText: 2017-2022 Carl Zeiss Microscopy GmbH
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
+#pragma once
+
+#include "libCZI_Pixels.h"
+
+namespace libCZI
+{
+    namespace detail
+    {
+
+        class CSingleChannelTileCompositor
+        {
+        public:
+            static void Compose(libCZI::IBitmapData* dest, libCZI::IBitmapData* source, int x, int y, bool drawTileBorder);
+            static void ComposeMaskAware(libCZI::IBitmapData* dest, libCZI::IBitmapData* source, libCZI::IBitonalBitmapData* sourceMask, int x, int y, bool drawTileBorder);
+        };
+
+    }  // namespace detail
+} // namespace libCZI

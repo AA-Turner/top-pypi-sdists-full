@@ -1,0 +1,397 @@
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-public-methods
+"""Tmc220X stepper driver module.
+
+this module has two different functions:
+1. access register via tmc_com (UART, SPI)
+2. Enable motor control via tmc_ec (TOFF, PIN)
+3. move the motor via tmc_mc (STEP/DIR, STEP/REG, VACTUAL)
+"""
+
+from ._tmc_xxxx import *
+from .com._tmc_com import TmcCom
+from .tmc_logger import Loglevel
+from .reg._tmc220x_reg import *
+from ._tmc_validation import SUBMODULE_VALIDATION
+
+if SUBMODULE_VALIDATION:
+    from .com._tmc_com_uart_base import TmcComUartBase
+    from .motion_control._tmc_mc_step_reg import TmcMotionControlStepReg
+    from .motion_control._tmc_mc_step_pwm_dir import TmcMotionControlStepPwmDir
+    from .motion_control._tmc_mc_vactual import TmcMotionControlVActual
+    from .enable_control._tmc_ec_toff import TmcEnableControlToff
+    from .enable_control._tmc_ec_pin import TmcEnableControlPin
+
+
+class Tmc220x(TmcXXXX):
+    """Tmc220X."""
+
+    if SUBMODULE_VALIDATION:
+        SUPPORTED_COM_TYPES = (TmcComUartBase,)
+        SUPPORTED_EC_TYPES = (TmcEnableControlToff, TmcEnableControlPin)
+        SUPPORTED_MC_TYPES = (
+            TmcMotionControlStepDir,
+            TmcMotionControlStepReg,
+            TmcMotionControlStepPwmDir,
+            TmcMotionControlVActual,
+        )
+    DRIVER_FAMILY = "TMC220X"
+
+    # Constructor/Destructor
+    # ----------------------------
+    def __init__(
+        self,
+        tmc_ec: TmcEnableControl,
+        tmc_mc: TmcMotionControl,
+        tmc_com: TmcCom | None = None,
+        driver_address: int = 0,
+        gpio_mode=None,
+        loglevel: Loglevel = Loglevel.INFO,
+        logprefix: str | None = None,
+        log_handlers: list | None = None,
+        log_formatter: logging.Formatter | None = None,
+    ):
+        """constructor.
+
+        Args:
+            tmc_ec (TmcEnableControl): enable control object
+            tmc_mc (TmcMotionControl): motion control object
+            tmc_com (TmcCom, optional): communication object. Defaults to None.
+            driver_address (int, optional): driver address [0-3]. Defaults to 0.
+            gpio_mode (enum, optional): gpio mode. Defaults to None.
+            loglevel (enum, optional): loglevel. Defaults to None.
+            logprefix (str, optional): log prefix (name of the logger).
+                Defaults to None (standard TMC prefix).
+            log_handlers (list, optional): list of logging handlers.
+                Defaults to None (log to console).
+            log_formatter (logging.Formatter, optional): formatter for the log messages.
+                Defaults to None (messages are logged in the format
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s').
+        """
+        if logprefix is None:
+            logprefix = f"{self.DRIVER_FAMILY} {driver_address}"
+
+        super().__init__(
+            tmc_ec,
+            tmc_mc,
+            tmc_com,
+            driver_address,
+            gpio_mode,
+            loglevel,
+            logprefix,
+            log_handlers,
+            log_formatter,
+        )
+
+        if self.tmc_com is not None:
+            self.gconf: GConf = GConf(self.tmc_com)
+            self.gstat: GStat = GStat(self.tmc_com)
+            self.ifcnt: IfCnt = IfCnt(self.tmc_com)
+            self.ioin: Ioin = Ioin(self.tmc_com)
+            self.ihold_irun: IHoldIRun = IHoldIRun(self.tmc_com)
+            self.tpowerdown: TPowerDown = TPowerDown(self.tmc_com)
+            self.tstep: TStep = TStep(self.tmc_com)
+            self.tpwmthrs: TPwmThrs = TPwmThrs(self.tmc_com)
+            self.vactual: VActual = VActual(self.tmc_com)
+            self.mscnt: MsCnt = MsCnt(self.tmc_com)
+            self.chopconf: ChopConf = ChopConf(self.tmc_com)
+            self.pwmconf: PwmConf = PwmConf(self.tmc_com)
+            self.drvstatus: DrvStatus = DrvStatus(self.tmc_com)
+
+        super()._init()
+
+    # Register Access
+    # ----------------------------
+    def get_iscale_analog(self) -> bool:
+        """Return whether Vref (True) or 5V (False) is used for current scale.
+
+        Returns:
+            en (bool): whether Vref (True) or 5V (False) is used for current scale
+        """
+        self.gconf.read()
+        return self.gconf.i_scale_analog
+
+    def set_iscale_analog(self, en: bool):
+        """Sets Vref (True) or 5V (False) for current scale.
+
+        Args:
+            en (bool): True=Vref, False=5V
+        """
+        self.gconf.modify("i_scale_analog", en)
+
+    def get_vsense(self) -> bool:
+        """Returns which sense resistor voltage is used for current scaling.
+
+        False: Low sensitivity, high sense resistor voltage
+        True: High sensitivity, low sense resistor voltage
+
+        Returns:
+            bool: whether high sensitivity should is used
+        """
+        self.chopconf.read()
+        return self.chopconf.vsense
+
+    def set_vsense(self, en: bool):
+        """Sets which sense resistor voltage is used for current scaling.
+
+        False: Low sensitivity, high sense resistor voltage
+        True: High sensitivity, low sense resistor voltage
+
+        Args:
+            en (bool): whether high sensitivity should be used
+        """
+        self.chopconf.modify("vsense", en)
+
+    def get_internal_rsense(self) -> bool:
+        """Returns which sense resistor voltage is used for current scaling.
+
+        False: Operation with external sense resistors
+        True Internal sense resistors. Use current supplied into
+        VREF as reference for internal sense resistor. VREF
+        pin internally is driven to GND in this mode.
+
+        Returns:
+            bool: which sense resistor voltage is used
+        """
+        self.gconf.read()
+        return self.gconf.internal_rsense
+
+    def set_internal_rsense(self, en: bool):
+        """Sets which sense resistor voltage is used for current scaling.
+
+        False: Operation with external sense resistors
+        True: Internal sense resistors. Use current supplied into
+        VREF as reference for internal sense resistor. VREF
+        pin internally is driven to GND in this mode.
+
+        Args:
+        en (bool): which sense resistor voltage is used; true will propably destroy your tmc
+
+        """
+        if en:
+            self.tmc_logger.log("activated internal sense resistors.", Loglevel.INFO)
+            self.tmc_logger.log(
+                "VREF pin internally is driven to GND in this mode.", Loglevel.INFO
+            )
+            self.tmc_logger.log(
+                "This will most likely destroy your driver!!!", Loglevel.INFO
+            )
+            raise SystemExit
+
+        self.gconf.modify("internal_rsense", en)
+
+    def _set_irun_ihold(self, ihold: int, irun: int, iholddelay: int):
+        """Sets the current scale (CS) for Running and Holding and the delay.
+
+        Specifies when to be switched to Holding current.
+
+        Args:
+        ihold (int): multiplicator for current while standstill [0-31]
+        irun (int): current while running [0-31]
+        iholddelay (int): delay after standstill for switching to ihold [0-15]
+        """
+        self.ihold_irun.read()
+
+        self.ihold_irun.ihold = ihold
+        self.ihold_irun.irun = irun
+        self.ihold_irun.iholddelay = iholddelay
+
+        self.ihold_irun.write_check()
+
+    def _set_pdn_disable(self, pdn_disable: bool):
+        """Disables PDN on the UART pin.
+
+        False: PDN_UART controls standstill current reduction
+        True: PDN_UART input function disabled. Set this bit,
+        when using the UART interface!
+
+        Args:
+            pdn_disable (bool): whether PDN should be disabled
+        """
+        self.gconf.modify("pdn_disable", pdn_disable)
+
+    def set_current_peak(
+        self,
+        run_current: int,
+        hold_current_multiplier: float = 0.5,
+        hold_current_delay: int = 10,
+        pdn_disable: bool = True,
+    ) -> int:
+        """Sets the Peak current for the motor.
+
+        Args:
+            run_current (int): current during movement in mA
+            hold_current_multiplier (float):current multiplier during standstill (Default value = 0.5)
+            hold_current_delay (int): delay after standstill after which cur drops (Default value = 10)
+            pdn_disable (bool): disables PDN on the UART pin (Default value = True)
+
+        Returns:
+            int: theoretical final current in mA
+        """
+        self.tmc_logger.log(f"Desired peak current: {run_current} mA", Loglevel.DEBUG)
+
+        cs_irun = 0
+        rsense = 0.11
+        vfs = 0.325
+
+        self.set_iscale_analog(False)
+
+        def calc_cs_irun(run_current: int, rsense: float, vfs: float) -> float:
+            """Calculates the current scale value for a given current."""
+            return 32.0 * run_current / 1000.0 * (rsense + 0.02) / vfs - 1
+
+        def calc_run_current(cs_irun: float, rsense: float, vfs: float) -> float:
+            """Calculates the current for a given current scale value."""
+            return (cs_irun + 1) / 32.0 * vfs / (rsense + 0.02) * 1000
+
+        cs_irun = calc_cs_irun(run_current, rsense, vfs)
+
+        # If Current Scale is too low, turn on high sensitivity VSsense and calculate again
+        if cs_irun < 16:
+            self.tmc_logger.log("CS too low; switching to VSense True", Loglevel.INFO)
+            vfs = 0.180
+            cs_irun = calc_cs_irun(run_current, rsense, vfs)
+            self.set_vsense(True)
+        else:  # If CS >= 16, turn off high_senser
+            self.tmc_logger.log("CS in range; using VSense False", Loglevel.INFO)
+            self.set_vsense(False)
+
+        cs_irun = min(cs_irun, 31)
+        cs_irun = max(cs_irun, 0)
+
+        cs_ihold = hold_current_multiplier * cs_irun
+
+        cs_irun = round(cs_irun)
+        cs_ihold = round(cs_ihold)
+        hold_current_delay = round(hold_current_delay)
+
+        self.tmc_logger.log(f"cs_irun: {cs_irun}", Loglevel.INFO)
+        self.tmc_logger.log(f"CS_IHold: {cs_ihold}", Loglevel.INFO)
+        self.tmc_logger.log(f"Delay: {hold_current_delay}", Loglevel.INFO)
+
+        # return (float)(CS+1)/32.0 * (vsense() ? 0.180 : 0.325)/(rsense+0.02) / 1.41421 * 1000;
+        run_current_actual = calc_run_current(cs_irun, rsense, vfs)
+        self.tmc_logger.log(
+            f"Calculated theoretical peak current after gscaler: {run_current_actual} mA",
+            Loglevel.DEBUG,
+        )
+
+        self._set_irun_ihold(cs_ihold, cs_irun, hold_current_delay)
+
+        self._set_pdn_disable(pdn_disable)
+
+        return round(run_current_actual)
+
+    def set_current_rms(
+        self,
+        run_current: int,
+        hold_current_multiplier: float = 0.5,
+        hold_current_delay: int = 10,
+        pdn_disable: bool = True,
+    ) -> int:
+        """Sets the RMS current for the motor.
+
+        Args:
+            run_current (int): current during movement in mA
+            hold_current_multiplier (float):current multiplier during standstill (Default value = 0.5)
+            hold_current_delay (int): delay after standstill after which cur drops (Default value = 10)
+            pdn_disable (bool): disables PDN on the UART pin (Default value = True)
+
+        Returns:
+            int: theoretical final current in mA
+        """
+        peak_current = self.set_current_peak(
+            round(run_current * 1.41421),
+            hold_current_multiplier,
+            hold_current_delay,
+            pdn_disable,
+        )
+        return round(peak_current / 1.41421)
+
+    def get_spreadcycle(self) -> bool:
+        """Reads spreadcycle.
+
+        Returns:
+            bool: True = spreadcycle; False = stealthchop
+        """
+        self.gconf.read()
+        return self.gconf.en_spreadcycle
+
+    def set_spreadcycle(self, en: bool):
+        """Enables spreadcycle (1) or stealthchop (0).
+
+        Args:
+        en (bool): true to enable spreadcycle; false to enable stealthchop
+        """
+        self.gconf.modify("en_spreadcycle", en)
+
+    def set_microstepping_resolution(self, mres: int):
+        """Sets the current native microstep resolution (1-256).
+
+        Valid values: 1, 2, 4, 8, 16, 32, 64, 128, 256.
+
+        Args:
+            mres (int): µstep resolution; has to be a power of 2 or 1 for fullstep
+        """
+        super().set_microstepping_resolution(mres)
+        self.set_mstep_resolution_reg_select(True)
+
+    def set_mstep_resolution_reg_select(self, en: bool):
+        """Sets the register bit 'mstep_reg_select' to 1 or 0.
+
+        This is needed to set the microstep resolution via UART.
+        This method is called by 'set_microstepping_resolution'.
+
+        Args:
+            en (bool): true to set µstep resolution via UART
+        """
+        self.gconf.modify("mstep_reg_select", en)
+
+    def get_interface_transmission_counter(self) -> int:
+        """Reads the interface transmission counter from the TMC register.
+
+        This value is increased on every successful write access and
+        can be used to verify a write access.
+
+        Returns:
+            int: 8bit IFCNT Register
+        """
+        self.ifcnt.read()
+        ifcnt = self.ifcnt.ifcnt
+        self.tmc_logger.log(f"Interface Transmission Counter: {ifcnt}", Loglevel.INFO)
+        return ifcnt
+
+    def get_tstep(self) -> int:
+        """Reads the current tstep from the driver register.
+
+        Returns:
+            int: TStep time
+        """
+        self.tstep.read()
+        return self.tstep.tstep
+
+    def set_tpwmthrs(self, tpwmthrs: int):
+        """Sets the current tpwmthrs.
+
+        Args:
+            tpwmthrs (int): value for tpwmthrs
+        """
+        self.tpwmthrs.tpwmthrs = tpwmthrs
+        self.tpwmthrs.write_check()
+
+    def set_vactual(self, vactual: int):
+        """Sets the register bit 'VACTUAL' to a given value.
+
+        VACTUAL allows moving the motor by UART control.
+        It gives the motor velocity in +-(2^23)-1 [μsteps / t].
+        0: Normal operation. Driver reacts to STEP input.
+
+        Args:
+            vactual (int): value for VACTUAL
+        """
+        self.vactual.vactual = vactual
+        self.vactual.write_check()

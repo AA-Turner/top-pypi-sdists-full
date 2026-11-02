@@ -1,0 +1,102 @@
+"""
+This file is going to be imported by Debug.debug_shell() and available as interactive commands.
+"""
+
+from typing import Optional, Union
+import types
+import sys
+import numpy
+
+
+def find_obj_in_stack(cls, stack: Optional[Union[types.FrameType, types.TracebackType]] = None, all_threads=True):
+    """
+    :param type cls:
+    :param stack: current frame (or all threads) by default
+    :param bool all_threads:
+    :return: obj
+    """
+    if all_threads:
+        assert stack is None
+        # noinspection PyProtectedMember,PyUnresolvedReferences
+        for tid, thread_stack in sys._current_frames().items():
+            obj = find_obj_in_stack(cls=cls, stack=thread_stack, all_threads=False)
+            if obj is not None:
+                return obj
+        return None
+
+    assert not all_threads
+    if stack is None:
+        # noinspection PyProtectedMember,PyUnresolvedReferences
+        stack = sys._getframe()
+        assert stack, "could not get stack"
+
+    if isinstance(stack, types.FrameType):
+        frame: Optional[types.FrameType] = stack
+        while frame is not None:
+            for obj in frame.f_locals.values():
+                if isinstance(obj, cls):
+                    return obj
+            frame = frame.f_back
+    elif isinstance(stack, types.TracebackType):
+        _tb: Optional[types.TracebackType] = stack
+        while _tb is not None:
+            for obj in _tb.tb_frame.f_locals.values():
+                if isinstance(obj, cls):
+                    return obj
+            _tb = _tb.tb_next
+    else:
+        raise TypeError(f"find obj in stack: {stack=} invalid {type(stack)=}")
+
+    return None
+
+
+class SimpleHdf:
+    """
+    Simple HDF writer.
+    """
+
+    def __init__(self, filename):
+        import h5py
+
+        self.hdf = h5py.File(filename)
+        self.seq_tag_to_idx = {name: i for (i, name) in enumerate(self.hdf["seqTags"])}
+        self.num_seqs = len(self.hdf["seqTags"])
+        assert self.num_seqs == len(self.seq_tag_to_idx), "not unique seq tags"
+        seq_lens = self.hdf["seqLengths"]
+        if seq_lens.ndim == 2:
+            seq_lens = seq_lens[:, 0]
+        assert self.num_seqs == len(seq_lens)
+        self.seq_starts = [0] + list(numpy.cumsum(seq_lens))
+        total_len = self.seq_starts[-1]
+        inputs_len = self.hdf["inputs"].shape[0]
+        assert total_len == inputs_len, "time-dim does not match: %i vs %i" % (total_len, inputs_len)
+        assert self.seq_starts[-1] == self.hdf["targets/data/classes"].shape[0]
+
+    def get_seq_tags(self):
+        """
+        :rtype: list[str]
+        """
+        return self.hdf["seqTags"]
+
+    def get_data(self, seq_idx):
+        """
+        :param int seq_idx:
+        :rtype: numpy.ndarray
+        """
+        seq_t0, seq_t1 = self.seq_starts[seq_idx : seq_idx + 2]
+        return self.hdf["inputs"][seq_t0:seq_t1]
+
+    def get_targets(self, seq_idx):
+        """
+        :param int seq_idx:
+        :rtype: numpy.ndarray
+        """
+        seq_t0, seq_t1 = self.seq_starts[seq_idx : seq_idx + 2]
+        return self.hdf["targets/data/classes"][seq_t0:seq_t1]
+
+    def get_data_dict(self, seq_idx):
+        """
+        :param int seq_idx:
+        :rtype: dict[str,numpy.ndarray]
+        """
+        return {"data": self.get_data(seq_idx), "classes": self.get_targets(seq_idx)}

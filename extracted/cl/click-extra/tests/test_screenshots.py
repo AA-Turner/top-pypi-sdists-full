@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-"""Tests for `click_extra.screenshot` and the captures committed under `docs/`.
+"""Tests for `click_extra.capture` and the captures committed under `docs/`.
 
 A screenshot is CLI output that stopped re-running, so it rots the moment the
 command it pictures changes. A rendered capture is machine-readable, which is
@@ -36,55 +36,57 @@ import os
 import re
 import shutil
 import sys
-import warnings
+from dataclasses import fields, replace
 from html import escape, unescape
 from itertools import combinations, pairwise
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import pytest
 from extra_platforms.pytest import skip_windows
 
-from click_extra import SPINNERS, Spinner, Style, screenshot_presets, unstyle
-from click_extra.cli_capture import deliver_capture, screenshot_cmd
-from click_extra.execution import PROMPT
-from click_extra.layout import PADDING, cell_width, fit_columns, grid, number_lines
-from click_extra.output import STDOUT_SENTINEL
-from click_extra.recording import TerminalScreen, record_and_render
-from click_extra.screenshot import (
-    AUTO_COLUMNS,
+from click_extra import SPINNERS, Spinner, Style, style, unstyle
+from click_extra.capture.html import render_html
+from click_extra.capture.presets import (
+    BARE_CHROME,
     CAPTURE_BORDERS,
-    CAPTURE_HIDDEN_TERMINAL_VARS,
+    CAPTURE_PALETTES,
     CAPTURE_SHADOWS,
+    DEFAULT_RADIUS,
+    DEFAULT_WATERMARK,
+    NO_PAINT,
+    OPAQUE,
+    PRESETS,
+    WATERMARK_INK,
+    Chrome,
+    Cursor,
+    CursorShape,
+)
+from click_extra.capture.recording import TerminalScreen, record_and_render
+from click_extra.capture.screenshot import (
+    AUTO_COLUMNS,
+    AUTO_TRUNCATION,
+    AUTO_WRAP_MARKER,
+    CAPTURE_HIDDEN_TERMINAL_VARS,
     CAPTURE_TERMINAL_HINTS,
-    CHROME_FIELDS,
     DEFAULT_COLUMNS,
     MIN_COLUMNS,
     TRUNCATION_LABEL,
     TRUNCATION_RULE,
+    WRAP_MARKER_LABEL,
     CaptureFormat,
-    Chrome,
     append_prompt,
     auto_columns,
     capture,
     capture_environment,
     capture_output,
-    format_from_path,
     parse_columns,
-    parse_hold,
-    parse_pause,
     render,
+    resolve_wrap_marker,
     trim_lines,
 )
-from click_extra.screenshot_html import render_html
-from click_extra.screenshot_presets import (
-    CAPTURE_PALETTES,
-    PRESETS,
-    CaptureBackground,
-    Cursor,
-    CursorShape,
-)
-from click_extra.screenshot_svg import (
+from click_extra.capture.snippet import render_snippet
+from click_extra.capture.svg import (
     _COLUMN_GAP_RE,
     AUTO_HOLD,
     AUTO_HOLD_MAX,
@@ -93,15 +95,10 @@ from click_extra.screenshot_svg import (
     CELL_BLEED,
     CELL_WIDTH,
     CURSOR_THICKNESS,
-    DEFAULT_RADIUS,
-    DEFAULT_WATERMARK,
     LINE_HEIGHT,
-    NO_PAINT,
-    OPAQUE,
     REDUCED_MOTION_QUERY,
     TILE_RUN,
     TITLEBAR_HEIGHT,
-    WATERMARK_INK,
     WATERMARK_INSET,
     WATERMARK_URL,
     auto_hold,
@@ -112,12 +109,18 @@ from click_extra.screenshot_svg import (
     frame_animation_css,
     gradient_svg,
     palette_color,
+    parse_hold,
+    parse_pause,
     render_svg,
     style_rules,
     tile_runs,
     window_buttons,
 )
-from click_extra.snippet import render_snippet
+from click_extra.cli_capture import deliver_capture, screenshot_cmd
+from click_extra.color import TerminalBackground
+from click_extra.execution import PROMPT
+from click_extra.layout import PADDING, cell_width, fit_columns, grid, number_lines
+from click_extra.output import STDOUT_SENTINEL
 from click_extra.styling import split_ansi
 
 _TEXT_ELEMENT_RE = re.compile(r"<text(?P<attrs>[^>]*)>(?P<content>[^<]*)</text>")
@@ -164,7 +167,7 @@ class Capture(NamedTuple):
     head: int | None = None
     """Number of leading lines kept, or `None` when nothing was trimmed."""
 
-    background: CaptureBackground = CaptureBackground.DARK
+    background: TerminalBackground = TerminalBackground.DARK
     """Chrome it was drawn on, which is also the terminal it was told it ran in."""
 
     @property
@@ -189,7 +192,7 @@ COMMITTED_CAPTURES = (
     Capture(
         "auto-theme-light-screen.svg",
         ("--theme", "auto", "themes", "--help"),
-        background=CaptureBackground.LIGHT,
+        background=TerminalBackground.LIGHT,
     ),
     Capture("color-gradient-screen.svg", ("gradient",)),
     Capture("text-styles-screen.svg", ("styles",), columns=160, head=14),
@@ -203,8 +206,8 @@ by `tests/test_sphinx_crossrefs.py` instead.
 """
 
 
-DARK_PALETTE = CAPTURE_PALETTES[CaptureBackground.DARK]
-LIGHT_PALETTE = CAPTURE_PALETTES[CaptureBackground.LIGHT]
+DARK_PALETTE = CAPTURE_PALETTES[TerminalBackground.DARK]
+LIGHT_PALETTE = CAPTURE_PALETTES[TerminalBackground.LIGHT]
 
 SAMPLE_CAPTURE = (
     "\x1b[1mFruit\x1b[0m   Colour\nbanana  yellow\nkiwi    green\n\n2 fruits\n"
@@ -223,7 +226,7 @@ def svg_to_lines(svg: str) -> list[str]:
 
     Groups the `<text>` runs into lines by their shared `y` baseline, then lays
     each one back on its column: the capture is monospaced, so dividing a run's
-    `x` offset by {data}`~click_extra.screenshot_svg.CELL_WIDTH` gives the character
+    `x` offset by {data}`~click_extra.capture.svg.CELL_WIDTH` gives the character
     column it starts at.
 
     :param svg: source of a rendered capture.
@@ -244,6 +247,28 @@ def svg_to_lines(svg: str) -> list[str]:
         column = round(float(offset["value"]) / CELL_WIDTH)
         lines[y] = lines.get(y, "").ljust(column) + content
     return [line.rstrip() for line in lines.values()]
+
+
+def svg_box(svg: str) -> tuple[float, float]:
+    """The width and height of a rendered capture's own box."""
+    match = re.search(r'viewBox="0 0 (?P<width>[\d.]+) (?P<height>[\d.]+)"', svg)
+    assert match
+    return (float(match["width"]), float(match["height"]))
+
+
+def svg_window(svg: str) -> tuple[float, float]:
+    """The width and height of the terminal window drawn in a capture."""
+    match = re.search(
+        r'<rect [^>]*width="(?P<w>[\d.]+)" height="(?P<h>[\d.]+)" rx=', svg
+    )
+    assert match
+    return (float(match["w"]), float(match["h"]))
+
+
+def html_to_text(markup: str) -> str:
+    """Strip a capture's markup back off, leaving the terminal text."""
+    body = markup[markup.index("<pre") : markup.index("</pre>")]
+    return unescape(re.sub(r"<[^>]+>", "", body))
 
 
 @pytest.mark.parametrize(
@@ -267,10 +292,11 @@ def test_trim_lines(head, tail, expected):
     assert trimmed.splitlines() == expected
 
 
-def test_trim_lines_rules_the_default_marker_across_the_kept_width():
-    """The default marker is a rule, spanning the widest line the capture kept."""
+def test_trim_lines_rules_the_default_marker_across_the_picture():
+    """The default marker is a rule, spanning the width the picture is laid out
+    at: the widest kept line when the width is left to the command."""
     text = "\n".join(f"line {index} of the captured output" for index in range(1, 9))
-    trimmed = trim_lines(text, head=2, tail=1).splitlines()
+    trimmed = trim_lines(text, head=2, tail=1, columns=AUTO_COLUMNS).splitlines()
 
     marker = unstyle(trimmed[2])
     assert marker.startswith(TRUNCATION_RULE)
@@ -284,9 +310,176 @@ def test_trim_lines_rules_the_default_marker_across_the_kept_width():
     assert cell_width(marker) == max(cell_width(unstyle(line)) for line in trimmed)
 
 
+def test_trim_lines_caps_the_rule_at_the_terminal_width():
+    """A kept line wider than the capture draws a rule as wide as the capture.
+
+    The rule is measured on the kept lines, so a 150-cell log line among them
+    asked for a 150-cell rule in an 80-column image. The renderer folds any line
+    reaching past the width, so that rule came back as a row of dots plus its
+    tail alone on a second row, started outside the text column.
+    """
+    text = "\n".join((
+        "short first line",
+        "x" * 150,
+        "short last line",
+        "short line cut away",
+    ))
+    trimmed = trim_lines(text, head=2, tail=1, columns=80).splitlines()
+
+    assert len(trimmed) == 4, "the rule folded onto a row of its own"
+    marker = unstyle(trimmed[2])
+    assert f" {TRUNCATION_LABEL} " in marker
+    assert cell_width(marker) == 80
+
+
+@pytest.mark.parametrize(
+    ("columns", "width_floor", "expected"),
+    (
+        # Nothing folds when the width is left to the command, so the rule spans
+        # the widest line the picture draws: a kept one, or the prompt.
+        (AUTO_COLUMNS, 0, 150),
+        (AUTO_COLUMNS, 170, 170),
+        (80, 0, 80),
+        # A pinned width the kept lines all stop short of: the rule still crosses
+        # the whole window, as the cut does.
+        (200, 0, 200),
+        (200, 170, 200),
+    ),
+)
+def test_rule_marker_tracks_the_drawn_width(columns, width_floor, expected):
+    """The `auto` rule spans the text column the picture is drawn at."""
+    text = "\n".join((
+        "short first line",
+        "x" * 150,
+        "short last line",
+        "short line cut away",
+    ))
+    trimmed = trim_lines(
+        text, head=2, tail=1, columns=columns, width_floor=width_floor
+    ).splitlines()
+    assert cell_width(unstyle(trimmed[2])) == expected
+
+
+@pytest.mark.parametrize(
+    ("wrap_marker", "expected"),
+    (
+        (AUTO_WRAP_MARKER, WRAP_MARKER_LABEL),
+        (WRAP_MARKER_LABEL, WRAP_MARKER_LABEL),
+        ("\N{NOT SIGN}", "\N{NOT SIGN}"),
+        ("", ""),
+    ),
+)
+def test_resolve_wrap_marker(wrap_marker, expected):
+    """Only `auto` is replaced: any other marker, empty included, is taken as is."""
+    assert resolve_wrap_marker(wrap_marker) == expected
+
+
+def test_trim_lines_leaves_room_for_the_wrap_marker():
+    """A rule capped to the width gives up the cell a wrap marker takes.
+
+    Capped to `columns` alone, the rule filled the row the marker shortens, so it
+    folded on its last dot and closed its row on the marker, reading as a rule
+    that continues below.
+    """
+    text = "\n".join((
+        "short first line",
+        "x" * 150,
+        "short last line",
+        "short line cut away",
+    ))
+    trimmed = trim_lines(
+        text, head=2, tail=1, columns=80, wrap_marker=AUTO_WRAP_MARKER
+    ).splitlines()
+    assert cell_width(unstyle(trimmed[2])) == 79
+
+    lines = svg_to_lines(
+        render("\n".join(trimmed), columns=80, wrap_marker=AUTO_WRAP_MARKER)
+    )
+    rule_rows = [line for line in lines if TRUNCATION_LABEL in line]
+    assert len(rule_rows) == 1
+    assert not rule_rows[0].endswith(WRAP_MARKER_LABEL)
+    assert not any(set(line) <= {TRUNCATION_RULE} for line in lines if line)
+
+
+@pytest.mark.parametrize(
+    ("prompt", "head", "tail"),
+    (
+        # Five rows, one digit to number them with.
+        pytest.param("", 2, 2, id="one-digit"),
+        # Nine rows of output and the prompt above them: the tenth row is the
+        # one that widens the gutter by a digit.
+        pytest.param("basket", 4, 4, id="prompt-adds-a-digit"),
+    ),
+)
+def test_capture_leaves_room_for_line_numbers_on_the_rule(prompt, head, tail):
+    """A numbered capture rules its cut inside the text column the gutter leaves.
+
+    The gutter takes cells in front of every row, the rule's included, so a rule
+    as wide as `columns` would fold on its last dots and put them alone on a row
+    of their own.
+    """
+    command = [
+        sys.executable,
+        "-c",
+        "print('\\n'.join(f'kiwi {n}' for n in range(30)))",
+    ]
+    document, _ = capture(
+        command,
+        columns=40,
+        prompt=prompt,
+        head=head,
+        tail=tail,
+        line_numbers=True,
+        chrome=Chrome(watermark=""),
+    )
+    lines = svg_to_lines(document)
+
+    assert len(lines) == bool(prompt) + head + 1 + tail, "the rule folded"
+    rule_rows = [line for line in lines if TRUNCATION_LABEL in line]
+    assert len(rule_rows) == 1
+    assert cell_width(rule_rows[0]) == 40
+
+
+def test_render_draws_the_wrap_marker_at_each_fold():
+    """An SVG capture closes each folded row on the marker, and only those rows."""
+    text = "apple\n" + "kiwi " * 10
+    lines = svg_to_lines(render(text, columns=20, wrap_marker=AUTO_WRAP_MARKER))
+    folded = [line for line in lines if line.endswith(WRAP_MARKER_LABEL)]
+    assert len(folded) == 2
+    assert all(cell_width(line) <= 20 for line in lines)
+    assert lines[0] == "apple"
+    # The default leaves a fold the way a terminal leaves it.
+    assert WRAP_MARKER_LABEL not in "".join(svg_to_lines(render(text, columns=20)))
+
+
+@pytest.mark.parametrize("truncation", (AUTO_TRUNCATION, "<cut>"))
+def test_trim_lines_closes_a_style_the_cut_left_open(truncation):
+    """A cut between a style's opening and its reset does not style the marker.
+
+    A heading printed as `style("\\n● Step")` opens its style on the line above
+    the text and resets it on the text's own line. Cut between the two, the open
+    underline ran into the marker, and into the lines `tail` kept after it.
+    """
+    heading = style("\n\N{BLACK CIRCLE} Step", fg="bright_blue", underline=True)
+    text = f"apple\nbanana\n{heading}\ncherry\ndate"
+    trimmed = trim_lines(text, head=3, tail=1, truncation=truncation)
+
+    # Read whole, so the state the head leaves open reaches what follows it. The
+    # head keeps no underlined glyph: the heading's text is the line cut away.
+    underlined = [run for run_style, run in split_ansi(trimmed) if run_style.underline]
+    assert not any(run.strip() for run in underlined), underlined
+    assert unstyle(trimmed).splitlines()[-1] == "date"
+
+
+def test_trim_lines_adds_no_reset_after_a_closed_style():
+    """A head that closes every style it opens gets its marker untouched."""
+    text = "\n".join((style("apple", fg="green"), "banana", "cherry"))
+    assert trim_lines(text, head=1, truncation="<cut>").splitlines()[1] == "<cut>"
+
+
 def test_trim_lines_keeps_a_marker_too_wide_for_its_rule_bare():
     """A capture narrower than the frame gets the label alone, not a broken rule."""
-    marker = trim_lines("a\nb\nc", head=1, tail=1).splitlines()[1]
+    marker = trim_lines("a\nb\nc", head=1, tail=1, columns=AUTO_COLUMNS).splitlines()[1]
     assert unstyle(marker) == TRUNCATION_LABEL
 
 
@@ -373,7 +566,7 @@ def test_no_run_starts_on_padding():
     """
     pads = tuple(PADDING)
     captures = {
-        committed.filename: (ASSETS / committed.filename).read_text(encoding="utf-8")
+        committed.filename: (ASSETS / committed.filename).read_text(encoding="UTF-8")
         for committed in COMMITTED_CAPTURES
     }
     captures["<fresh>"] = render_svg(SAMPLE_CAPTURE, columns=40)
@@ -392,7 +585,7 @@ def test_capture_clip_holds_every_descender():
     committed capture, which is where such a crop would go unnoticed.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         clip = re.search(
             r'<clipPath id="[^"]+-clip"><rect x="[\d.]+" y="[\d.]+" '
             r'width="[\d.]+" height="(?P<height>[\d.]+)"',
@@ -417,7 +610,7 @@ def test_no_capture_references_a_missing_clip():
     strict SVG 1.1 renderer drops the whole element with it.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         defined = set(re.findall(r'<clipPath id="([^"]+)">', svg))
         referenced = set(re.findall(r'clip-path="url\(#([^)]+)\)"', svg))
         assert not referenced - defined, (
@@ -569,7 +762,12 @@ def test_emphasized_lines_are_banded_where_they_sit():
     # Two rows apart, so two line heights apart on the canvas.
     assert offsets[1] - offsets[0] == pytest.approx(2 * LINE_HEIGHT)
 
-    svg = render_svg(text, columns=20, emphasize=(1,), margin=40, padding=12)
+    svg = render_svg(
+        text,
+        columns=20,
+        emphasize=(1,),
+        chrome=replace(BARE_CHROME, margin=40, padding=12),
+    )
     window = re.search(
         r'<rect fill="#[0-9a-f]+" stroke="[^"]*"[^>]*x="([\d.]+)"'
         r'[^>]*width="([\d.]+)"',
@@ -584,7 +782,7 @@ def test_emphasis_is_mixed_from_the_chrome_it_is_drawn_on():
     """One ratio answers for both chromes: lighter on dark, darker on light."""
     text = "crate 1\ncrate 2"
     shades = {}
-    for background in CaptureBackground:
+    for background in TerminalBackground:
         svg = render_svg(
             text,
             columns=20,
@@ -594,7 +792,7 @@ def test_emphasis_is_mixed_from_the_chrome_it_is_drawn_on():
         ((fill, _),) = bands_of(svg)
         shades[background] = fill
 
-    assert shades[CaptureBackground.DARK] != shades[CaptureBackground.LIGHT]
+    assert shades[TerminalBackground.DARK] != shades[TerminalBackground.LIGHT]
     # Neither band is the background it sits on, or it would not read as one.
     for background, fill in shades.items():
         assert fill != CAPTURE_PALETTES[background].background
@@ -604,6 +802,35 @@ def test_emphasis_rejects_a_line_the_capture_does_not_have():
     """Naming a line past the end is an authoring error, not a silent no-op."""
     with pytest.raises(ValueError, match="emphasize line 7 of a capture 2 lines"):
         render_svg("crate 1\ncrate 2", columns=20, emphasize=(7,))
+
+
+def test_screenshot_reports_a_line_the_capture_does_not_have(invoke, tmp_path):
+    """The command reports the authoring error as one, not as a traceback.
+
+    The height of a capture is only known once its command has run, so the
+    renderer is the one to refuse a band past its end, and the command turns that
+    refusal into its own error message.
+    """
+    result = invoke(
+        screenshot_cmd,
+        [
+            "--emphasize-lines",
+            "99",
+            "--prompt",
+            "pantry",
+            "--output",
+            str(tmp_path / "shot.svg"),
+            "--",
+            sys.executable,
+            "-c",
+            "print('pear')",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error: Cannot emphasize line 99 of a capture 2 lines long." in (
+        result.output
+    )
+    assert not (tmp_path / "shot.svg").exists()
 
 
 FRAME_BAND_RE = re.compile(
@@ -751,7 +978,7 @@ def test_cursor_cell_reads_the_screen_it_is_given(picture, expected):
 def test_cursor_cell_matches_the_screen_that_wrote_it():
     """The derived column is the one the screen itself counted, not an estimate.
 
-    Locks the claim {func}`~click_extra.screenshot_svg.cursor_cell` rests on: a
+    Locks the claim {func}`~click_extra.capture.svg.cursor_cell` rests on: a
     recorded frame carries its cursor position implicitly, so nothing has to
     travel beside the text to say where the cursor was.
     """
@@ -840,15 +1067,9 @@ def test_a_shapeless_cursor_takes_the_terminal_its_preset_names(name):
 
 def test_a_cursor_under_the_output_grows_the_window_by_that_line():
     """Output closing on a newline leaves the cursor on the row underneath."""
-
-    def height(svg: str) -> float:
-        found = re.search(r'viewBox="0 0 [\d.]+ ([\d.]+)"', svg)
-        assert found, svg
-        return float(found.group(1))
-
     settled = render_svg("apricot", columns=20, unique_id="basket", cursor=Cursor())
     wrapped = render_svg("apricot\n", columns=20, unique_id="basket", cursor=Cursor())
-    assert height(wrapped) - height(settled) == pytest.approx(LINE_HEIGHT)
+    assert svg_box(wrapped)[1] - svg_box(settled)[1] == pytest.approx(LINE_HEIGHT)
 
 
 def test_a_cursor_does_not_move_what_emphasize_may_mark():
@@ -1101,6 +1322,19 @@ def test_auto_columns_leaves_room_for_a_cursor():
     assert auto_columns((f"{shelf}\n",), Cursor()) == len(shelf)
 
 
+@pytest.mark.parametrize("picture", ("", "\n\n"))
+def test_auto_columns_with_a_cursor_on_a_blank_screen(picture):
+    """A blank screen shows no cursor, and leaves the width to its floor.
+
+    No frame placing a cursor left `max()` with the width alone to compare,
+    which raised `TypeError: 'int' object is not iterable` for a command
+    printing nothing under `--prompt ""`.
+    """
+    assert auto_columns((picture,), Cursor()) == MIN_COLUMNS
+    svg = render(picture, columns=AUTO_COLUMNS, cursor=Cursor())
+    assert svg.startswith("<?xml")
+
+
 def test_a_closing_prompt_belongs_to_the_last_frame_alone():
     """Closing every frame would say the command exited before it had.
 
@@ -1159,12 +1393,9 @@ def test_a_closing_prompt_costs_no_height_beside_a_cursor():
     output = "shelved 4 crates\n"
 
     def height(text: str, cursor: Cursor | None) -> float:
-        found = re.search(
-            r'viewBox="0 0 [\d.]+ ([\d.]+)"',
-            render_svg(text, columns=40, unique_id="shelf", cursor=cursor),
-        )
-        assert found
-        return float(found.group(1))
+        return svg_box(render_svg(text, columns=40, unique_id="shelf", cursor=cursor))[
+            1
+        ]
 
     bare = height(output, None)
     with_cursor = height(output, Cursor())
@@ -1294,8 +1525,12 @@ def test_parse_pause_rejects_a_negative_one():
 
 
 def test_html_capture_does_not_animate():
-    """An HTML capture is selectable text, which has no frame to hide."""
-    with pytest.raises(ValueError, match="do not animate"):
+    """An HTML capture is selectable text, which has no frame to hide.
+
+    The refusal names the format the way a reader writes it, not as the
+    `CaptureFormat.HTML` member it is held in.
+    """
+    with pytest.raises(ValueError, match=r"^HTML captures do not animate\.$"):
         render(
             format=CaptureFormat.HTML,
             frames=("one pear", "two pears"),
@@ -1342,7 +1577,7 @@ def test_no_capture_places_a_column_by_its_padding():
     renderer for nothing but coordinates.
     """
     captures = {
-        committed.filename: (ASSETS / committed.filename).read_text(encoding="utf-8")
+        committed.filename: (ASSETS / committed.filename).read_text(encoding="UTF-8")
         for committed in COMMITTED_CAPTURES
     }
     captures["<fresh>"] = render_svg(SAMPLE_CAPTURE, columns=40)
@@ -1365,7 +1600,7 @@ def test_no_capture_clips_through_a_transform():
     does.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         for element in re.finditer(r"<g [^>]*clip-path=[^>]*>", svg):
             assert "transform=" not in element[0], (
                 f"{committed.filename}: clip resolved through a transform"
@@ -1382,7 +1617,7 @@ def test_no_capture_hangs_a_filter_on_its_window():
     ImageMagick both do with a capture built that way.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         palette = CAPTURE_PALETTES[committed.background]
         for element in re.finditer(r"<rect [^>]*/>", svg):
             if f'fill="{palette.background}"' in element[0]:
@@ -1399,7 +1634,7 @@ def test_capture_states_its_font_outside_the_stylesheet():
     which is a terminal capture with neither its grid nor its colors.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         matrix = re.search(r"<g class=\"[^\"]+-matrix\"[^>]*>", svg)
         assert matrix, f"{committed.filename}: no text group"
         for attribute in ("font-family", "font-size", "fill"):
@@ -1431,7 +1666,7 @@ def test_no_capture_fetches_a_font():
     requests, and by renderers that speak no `@font-face`.
     """
     for committed in COMMITTED_CAPTURES:
-        svg = (ASSETS / committed.filename).read_text(encoding="utf-8")
+        svg = (ASSETS / committed.filename).read_text(encoding="UTF-8")
         assert "@font-face" not in svg, f"{committed.filename}: embeds a webfont"
         # The XML namespace is a URI, not a request: only a fetched resource
         # reaches the network, and every one of those is spelled `url(...)`.
@@ -1488,7 +1723,7 @@ def test_capture_output_forces_color_and_pins_width(monkeypatch):
     assert os.environ["NO_COLOR"] == "1"
 
 
-@pytest.mark.parametrize("background", CaptureBackground)
+@pytest.mark.parametrize("background", TerminalBackground)
 def test_capture_output_states_the_terminal_it_simulates(background, monkeypatch):
     """The chrome reaches the command as the variables a terminal would set.
 
@@ -1568,7 +1803,7 @@ still check every committed capture, which is where the check belongs.
 def test_committed_capture_matches_cli(committed):
     """Every committed capture still pictures what its command prints today.
 
-    The capture is reshot through {func}`~click_extra.screenshot.capture`,
+    The capture is reshot through {func}`~click_extra.capture.screenshot.capture`,
     the very pipeline that produced the committed file, and the two are compared
     as terminal text. Going through the whole pipeline rather than against the
     command's raw output is what keeps the check honest on both counts the two
@@ -1584,7 +1819,7 @@ def test_committed_capture_matches_cli(committed):
 
     Only the text is compared, so restyling a theme does not redden this.
     """
-    source = (ASSETS / committed.filename).read_text(encoding="utf-8")
+    source = (ASSETS / committed.filename).read_text(encoding="UTF-8")
 
     fresh, returncode = capture(
         list(committed.command),
@@ -1613,33 +1848,33 @@ def test_committed_capture_matches_cli(committed):
         (STDOUT_SENTINEL, CaptureFormat.ANSI),
     ),
 )
-def test_format_from_path(filename, expected):
+def test_capture_format_from_path(filename, expected):
     """A capture's format is read off the file name it is written under."""
-    assert format_from_path(Path(filename)) == expected
+    assert CaptureFormat.from_path(Path(filename)) == expected
 
 
 @pytest.mark.parametrize("filename", ("shot.png", "shot", "shot.svg.bak"))
-def test_format_from_path_rejects_an_unknown_extension(filename):
+def test_capture_format_from_path_rejects_an_unknown_extension(filename):
     """An extension naming no format says which ones do."""
     with pytest.raises(ValueError, match=r"\.ansi, \.html, \.svg"):
-        format_from_path(Path(filename))
+        CaptureFormat.from_path(Path(filename))
 
 
-def test_format_from_path_reads_a_file_named_dash_as_a_file(tmp_path):
+def test_capture_format_from_path_reads_a_file_named_dash_as_a_file(tmp_path):
     """Only a bare `-` is the terminal: a file called `-` has an extension to lack.
 
     `--output ./-` reaches here resolved to an absolute path, and the file it
     names is as nameable as any other.
     """
     with pytest.raises(ValueError, match="Cannot tell the capture format of '-'"):
-        format_from_path(tmp_path / "-")
+        CaptureFormat.from_path(tmp_path / "-")
 
 
 def test_deliver_capture_writes_a_file_named_dash(tmp_path, capsys):
     """A resolved `-` is a file to write, not the terminal to print on."""
     target = tmp_path / "-"
     deliver_capture("one pear\n", target)
-    assert target.read_text(encoding="utf-8") == "one pear\n"
+    assert target.read_text(encoding="UTF-8") == "one pear\n"
     assert capsys.readouterr().out == f"Wrote {target}\n"
 
 
@@ -1659,12 +1894,12 @@ def test_screenshot_does_not_print_a_resolved_dash(invoke):
     ("background", "expected", "unwanted"),
     (
         (
-            CaptureBackground.DARK,
+            TerminalBackground.DARK,
             (DARK_PALETTE.background, DARK_PALETTE.foreground),
             (LIGHT_PALETTE.background,),
         ),
         (
-            CaptureBackground.LIGHT,
+            TerminalBackground.LIGHT,
             (LIGHT_PALETTE.background, LIGHT_PALETTE.foreground),
             (DARK_PALETTE.background,),
         ),
@@ -1685,23 +1920,7 @@ def test_render_draws_on_the_chrome_it_is_given(format, background, expected, un
         assert color not in document
 
 
-def svg_box(svg: str) -> tuple[float, float]:
-    """The width and height of a rendered capture's own box."""
-    match = re.search(r'viewBox="0 0 (?P<width>[\d.]+) (?P<height>[\d.]+)"', svg)
-    assert match
-    return (float(match["width"]), float(match["height"]))
-
-
-def svg_window(svg: str) -> tuple[float, float]:
-    """The width and height of the terminal window drawn in a capture."""
-    match = re.search(
-        r'<rect [^>]*width="(?P<w>[\d.]+)" height="(?P<h>[\d.]+)" rx=', svg
-    )
-    assert match
-    return (float(match["w"]), float(match["h"]))
-
-
-@pytest.mark.parametrize("background", CaptureBackground)
+@pytest.mark.parametrize("background", TerminalBackground)
 def test_render_frames_with_a_border_its_chrome_can_show(background):
     """Each chrome frames its window in something its own background shows.
 
@@ -1714,7 +1933,7 @@ def test_render_frames_with_a_border_its_chrome_can_show(background):
     assert f'flood-color="{CAPTURE_SHADOWS[background]}"' in svg
 
 
-@pytest.mark.parametrize("background", tuple(CaptureBackground))
+@pytest.mark.parametrize("background", tuple(TerminalBackground))
 def test_chrome_resolves_what_the_capture_draws(background):
     """`None` fields take the background's and the preset's own; stated ones stay."""
     resolved = Chrome().resolve(background, None)
@@ -1735,19 +1954,30 @@ def test_capture_functions_take_one_chrome(function):
     """The window is one `chrome` argument everywhere, with one default."""
     parameters = inspect.signature(function).parameters
     assert parameters["chrome"].default == Chrome()
-    assert not CHROME_FIELDS & set(parameters)
+    assert not {field.name for field in fields(Chrome)} & set(parameters)
 
 
-def test_render_window_arguments_are_deprecated():
-    """The window arguments still reach the capture, warning at the caller."""
-    with pytest.warns(
-        DeprecationWarning, match=r"Passing margin=, watermark= to render\(\)"
-    ) as record:
-        svg = render("kiwi", unique_id="fruit", margin=0, watermark="")
-    assert record[0].filename == __file__
-    assert svg == render(
-        "kiwi", unique_id="fruit", chrome=Chrome(margin=0, watermark="")
-    )
+@pytest.mark.parametrize("renderer", (render_svg, render_html))
+def test_renderers_take_one_resolved_chrome(renderer):
+    """The two renderers take the window as one chrome, bare unless stated.
+
+    A renderer draws the values it is given, so it refuses a chrome still
+    carrying a `None` that only {meth}`~click_extra.capture.presets.Chrome.resolve`
+    can fill.
+    """
+    parameters = inspect.signature(renderer).parameters
+    assert parameters["chrome"].default == BARE_CHROME
+    assert not {field.name for field in fields(Chrome)} & set(parameters)
+    width = {"columns": 20} if renderer is render_svg else {}
+    with pytest.raises(ValueError, match="border, radius, shadow, watermark_color"):
+        renderer("kiwi", chrome=Chrome(), **width)
+
+
+@pytest.mark.parametrize("background", tuple(TerminalBackground))
+def test_bare_chrome_is_resolved(background):
+    """The renderers' default draws as it stands: resolving it changes nothing."""
+    BARE_CHROME.check_resolved()
+    assert BARE_CHROME.resolve(background, None) == BARE_CHROME
 
 
 def test_render_rejects_an_unknown_argument():
@@ -1936,6 +2166,35 @@ def test_grid_wraps_at_the_terminal_edge():
     ]
 
 
+def test_grid_marks_each_fold_with_its_wrap_marker():
+    """A marked fold closes its row on the marker, painted as a mark of the layout.
+
+    The marker takes the last cell of the row it closes, so each folded row holds
+    one cell less of text, and the last row of the line carries none: nothing
+    continues past it.
+    """
+    rows = grid("fruit basket", 6, wrap_marker=WRAP_MARKER_LABEL)
+    assert [[(run, column) for _, run, column in row] for row in rows] == [
+        [("fruit", 0), (WRAP_MARKER_LABEL, 5)],
+        [(" bask", 0), (WRAP_MARKER_LABEL, 5)],
+        [("et", 0)],
+    ]
+    marker_style = rows[0][1][0]
+    assert marker_style != rows[0][0][0], "the marker reads as part of the output"
+    assert all(cell_width(unstyle(run)) <= 6 for row in rows for _, run, _ in row)
+
+
+def test_grid_without_a_wrap_marker_folds_a_full_row_silently():
+    """No marker means the terminal's own fold: a line exactly as wide fits."""
+    assert [[run for _, run, _ in row] for row in grid("banana", 6)] == [["banana"]]
+    # Asking for a marker costs the cell, so the same line now folds.
+    marked = grid("banana", 6, wrap_marker=WRAP_MARKER_LABEL)
+    assert [[run for _, run, _ in row] for row in marked] == [
+        ["banan", WRAP_MARKER_LABEL],
+        ["a"],
+    ]
+
+
 def test_grid_never_splits_a_wide_glyph():
     """A wide glyph straddling the last column moves down whole."""
     # The ideograph needs two cells and only one is left on the first row.
@@ -2002,12 +2261,7 @@ def test_titlebar_collapses_on_a_window_wearing_nothing():
         render("kiwi", unique_id="fruit", preset=PRESETS[name], title=title)
         for name, title in (("plain", ""), ("plain", "Pantry"), ("macos", ""))
     )
-    boxes = [
-        re.search(r'viewBox="0 0 [\d.]+ ([\d.]+)"', svg)
-        for svg in (bare, titled, decorated)
-    ]
-    assert all(boxes)
-    heights = [float(box[1]) for box in boxes if box]
+    heights = [svg_box(svg)[1] for svg in (bare, titled, decorated)]
     assert heights[0] == heights[1] - TITLEBAR_HEIGHT
     assert heights[1] == heights[2]
 
@@ -2037,7 +2291,7 @@ DRAWN_FORMATS = tuple(
 )
 """The formats that draw a document around the captured text.
 
-{attr}`~click_extra.screenshot.CaptureFormat.ANSI` is the one that does not: it
+{attr}`~click_extra.capture.screenshot.CaptureFormat.ANSI` is the one that does not: it
 hands a terminal the stream it was already carrying, so there is no margin to
 credit in and nothing a window option could describe. Everything below asking
 about a window therefore asks it of these two.
@@ -2104,11 +2358,11 @@ def test_watermark_is_not_terminal_text():
 def test_watermark_sits_where_the_margin_is():
     """It is drawn against the image's own corner, wherever the margin puts it."""
     svg = render("kiwi", unique_id="fruit", chrome=Chrome(margin=60))
-    box = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    width, height = svg_box(svg)
     mark = re.search(r'<text class="watermark" x="([\d.]+)" y="([\d.]+)"', svg)
-    assert box and mark
-    assert float(mark[1]) == pytest.approx(float(box[1]) - WATERMARK_INSET)
-    assert float(mark[2]) == pytest.approx(float(box[2]) - WATERMARK_INSET)
+    assert mark
+    assert float(mark[1]) == pytest.approx(width - WATERMARK_INSET)
+    assert float(mark[2]) == pytest.approx(height - WATERMARK_INSET)
 
 
 def test_render_draws_neither_when_asked_for_neither():
@@ -2169,9 +2423,7 @@ def test_render_html_round_trips_the_terminal_text():
     character, a mangled escape and a stray tag in one assertion.
     """
     html = render(SAMPLE_CAPTURE, format=CaptureFormat.HTML)
-    body = html[html.index("<pre") : html.index("</pre>")]
-    text = unescape(re.sub(r"<[^>]+>", "", body))
-    assert text == unstyle(SAMPLE_CAPTURE)
+    assert html_to_text(html) == unstyle(SAMPLE_CAPTURE)
 
 
 def test_render_html_fragment_is_self_contained():
@@ -2210,12 +2462,6 @@ def test_render_html_quotes_survive_the_style_attribute():
     opening = fragment[: fragment.index(">") + 1]
     assert opening.count('"') == 2, f"unbalanced quoting: {opening}"
     assert "monospace" in opening
-
-
-def html_to_text(markup: str) -> str:
-    """Strip a capture's markup back off, leaving the terminal text."""
-    body = markup[markup.index("<pre") : markup.index("</pre>")]
-    return unescape(re.sub(r"<[^>]+>", "", body))
 
 
 @pytest.mark.parametrize(
@@ -2322,8 +2568,8 @@ def test_screenshot_rejects_an_unusable_hold(invoke, tmp_path, value, message):
 )
 def test_capture_environment(columns, pinned):
     """The command is told the chrome, denied the terminal, and given its width."""
-    assert capture_environment(CaptureBackground.LIGHT, columns) == {
-        **CAPTURE_TERMINAL_HINTS[CaptureBackground.LIGHT],
+    assert capture_environment(TerminalBackground.LIGHT, columns) == {
+        **CAPTURE_TERMINAL_HINTS[TerminalBackground.LIGHT],
         **dict.fromkeys(CAPTURE_HIDDEN_TERMINAL_VARS),
         **pinned,
     }
@@ -2377,6 +2623,12 @@ def test_screenshot_pacing_needs_record(invoke, tmp_path, arguments, message):
             "shot.svg",
             "keeps whole screens",
             id="no-trimming",
+        ),
+        pytest.param(
+            ["--wrap-marker", "auto"],
+            "shot.svg",
+            "folds its own lines",
+            id="no-wrap-marker",
         ),
     ),
 )
@@ -2486,8 +2738,8 @@ def test_screenshot_wrap_matches_the_composition(invoke, tmp_path):
         == 0
     )
 
-    text = html_to_text(shortcut.read_text(encoding="utf-8"))
-    assert text == html_to_text(composed.read_text(encoding="utf-8"))
+    text = html_to_text(shortcut.read_text(encoding="UTF-8"))
+    assert text == html_to_text(composed.read_text(encoding="UTF-8"))
     # The prompt shows what a reader types, not the plumbing that ran. Its sigil
     # is the running platform's, so both captures draw the same one.
     assert (
@@ -2541,49 +2793,17 @@ def test_ansi_band_survives_a_reset_inside_the_row():
 
 def test_ansi_capture_does_not_animate():
     """There is no frame to hide in a stream a terminal paints as it arrives."""
-    with pytest.raises(ValueError, match="do not animate"):
+    with pytest.raises(ValueError, match=r"^ANSI captures do not animate\.$"):
         render("mango", format=CaptureFormat.ANSI, frames=("a", "b"), interval=1)
 
 
-@pytest.mark.parametrize(
-    ("name", "background", "field"),
-    (
-        ("CAPTURE_BACKGROUND", CaptureBackground.DARK, "background"),
-        ("CAPTURE_FOREGROUND", CaptureBackground.DARK, "foreground"),
-        ("LIGHT_CAPTURE_BACKGROUND", CaptureBackground.LIGHT, "background"),
-        ("LIGHT_CAPTURE_FOREGROUND", CaptureBackground.LIGHT, "foreground"),
-    ),
-)
-def test_retired_palette_constants_warn_and_resolve(name, background, field):
-    """Each retired color constant still answers, with a deprecation warning."""
-    with pytest.deprecated_call(
-        match=rf"click_extra\.screenshot_presets\.{name} is deprecated"
-    ):
-        value = getattr(screenshot_presets, name)
-    assert value == getattr(CAPTURE_PALETTES[background], field)
+def test_render_dresses_an_html_capture_in_the_preset_font_alone():
+    """A preset's font reaches an HTML capture, and its title bar stays the SVG's.
 
-
-def test_screenshot_presets_unknown_attribute_raises():
-    """A name the hook does not serve still raises a standard AttributeError."""
-    with pytest.raises(AttributeError, match="has no attribute 'DOES_NOT_EXIST'"):
-        _ = screenshot_presets.DOES_NOT_EXIST
-
-
-@pytest.mark.parametrize(
-    "argument", ("buttons", "buttons_color", "titlebar", "collapse_titlebar")
-)
-def test_render_html_warns_on_a_window_argument(argument):
-    """The window decorations are the SVG's: passing one to the HTML renderer warns."""
-    window: dict[str, Any] = {argument: None}
-    with pytest.deprecated_call(
-        match=rf"render_html\({argument}=\.\.\.\) is deprecated"
-    ):
-        html = render_html(SAMPLE_CAPTURE, **window)
-    assert html == render_html(SAMPLE_CAPTURE)
-
-
-def test_render_keeps_the_window_arguments_from_html():
-    """A preset dresses the SVG window, and leaves the HTML capture unwarned."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
-        render(SAMPLE_CAPTURE, format=CaptureFormat.HTML, preset=PRESETS["macos"])
+    The buttons and the strip they sit in are drawn by the SVG alone: an HTML
+    capture reflows with the page embedding it, and has no window to seat them.
+    """
+    html = render(SAMPLE_CAPTURE, format=CaptureFormat.HTML, preset=PRESETS["macos"])
+    assert PRESETS["macos"].font_stack in html
+    assert PRESETS["macos"].dark.titlebar not in html
+    assert "<circle" not in html

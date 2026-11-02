@@ -7,8 +7,11 @@ import pytest
 
 from backfill_plan_agent import filing
 
-from probe.cli import backfill as bf, backfill_import as imp, backfill_run as runner
-from probe.cli import import_jobs_ui, tui
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import flow as imp
+from probe.cli import backfill_run as runner
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
 from tests import test_backfill_background as fixtures
 
 background_harness = fixtures.background_harness
@@ -42,7 +45,7 @@ def test_back_returns_to_folder_choices_and_ctrl_c_still_quits(
         monkeypatch.setattr(imp.Coverage, "recovery_candidates", lambda *a, **kw: [
             {"source_id": "previous", "paths": ["/previous/folder"]},
         ])
-        monkeypatch.setattr(runner, "_index", lambda *a: pytest.fail("Back must precede scanning"))
+        monkeypatch.setattr("probe.cli.imports.folder.walk.traversal._index", lambda *a: pytest.fail("Back must precede scanning"))
     prompts = []
 
     def review(title, lines, choices):
@@ -50,8 +53,8 @@ def test_back_returns_to_folder_choices_and_ctrl_c_still_quits(
         assert title == titles[form]
         return selection
 
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(runner, "_run_transcript_lane", lambda **kw: pytest.fail("Do not advance imports"))
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr("probe.cli.imports.folder.flow.plan_run._run_transcript_lane", lambda **kw: pytest.fail("Do not advance imports"))
     before = len(h.created), len(h.manifested), len(h.remote.calls)
     options = dict(
         client_factory=lambda: nullcontext(h.client), folder=h.folder,
@@ -72,7 +75,7 @@ def test_returning_to_scanned_plan_reuses_analysis_but_still_requires_approval(
     background_harness, monkeypatch,
 ):
     h, queued = background_harness
-    monkeypatch.setattr(runner, "classify", _CLASSIFY)
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.classify", _CLASSIFY)
     reads, reviews = [], []
 
     def launch(folder, prompt, **kwargs):
@@ -87,9 +90,9 @@ def test_returning_to_scanned_plan_reuses_analysis_but_still_requires_approval(
         reviews.append(title)
         return tui.BACK if len(reviews) == 1 else "import"
 
-    monkeypatch.setattr(bf, "launch_agent", filing(launch))
-    monkeypatch.setattr(bf, "git_context", lambda *a: None)
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(launch))
+    monkeypatch.setattr(bf.walk.git, "git_context", lambda *a: None)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     options = dict(background=True, interactive=True, yes=False, back_to_selection=True)
     assert h.run(**options) is tui.BACK
@@ -112,8 +115,13 @@ def test_back_from_revision_text_returns_to_same_plan_without_rescanning(
         reviews.append(title)
         return "revise" if len(reviews) == 1 else "import"
 
-    monkeypatch.setattr(tui, "review", review)
-    monkeypatch.setattr(tui, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.forms, "review", review)
+    monkeypatch.setattr(tui.forms, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.choices, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.clipboard, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.layout, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.status_board, "text", lambda *a, **kw: tui.BACK)
+    monkeypatch.setattr(tui.terminal, "text", lambda *a, **kw: tui.BACK)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     assert isinstance(h.run(background=True, interactive=True, yes=False, back_to_selection=True), list)
     assert len(reviews) == 2 and len(h.classified) == len(queued) == 1
@@ -122,7 +130,7 @@ def test_back_from_revision_text_returns_to_same_plan_without_rescanning(
 
 def test_cancel_import_returns_to_choices_without_becoming_ctrl_c(background_harness, monkeypatch):
     h, queued = background_harness
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: "cancel")
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: "cancel")
     assert h.run(background=True, interactive=True, yes=False, back_to_selection=True) is tui.BACK
     assert queued == h.created == h.manifested == h.remote.calls == []
 
@@ -136,7 +144,7 @@ def test_wandb_back_returns_before_folder_delivery_is_enqueued(background_harnes
         assert title in {"Review the import plan", "Add W&B history"}
         return "import" if title == "Review the import plan" else tui.BACK
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     assert h.run(background=True, interactive=True, yes=False, back_to_selection=True) is tui.BACK
     assert prompts == ["Review the import plan", "Add W&B history"]
     assert queued == h.manifested == h.remote.calls == []

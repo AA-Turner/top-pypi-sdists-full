@@ -1,0 +1,57 @@
+[build-system]
+requires = ["maturin>=1.10.2,<2.0"]
+build-backend = "maturin"
+
+[project]
+# PyPI distribution name. The runtime import path stays `net`
+# (see `[tool.maturin].module-name` and `python-source` below) so
+# user code keeps `from net import ...` working.
+name = "net-mesh"
+version = "0.46.0"
+description = "High-performance, schema-agnostic event bus for AI runtime workloads"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+# In a `licenses/` subdirectory on purpose: maturin's sdist places
+# the workspace root (which is also the `net-mesh` crate root, with
+# its own LICENSE-* files) at the sdist root, and elevates this
+# project's license files to that same root — top-level copies here
+# collide with the workspace ones at the same archive path ("File
+# net_mesh-X/LICENSE-APACHE was already added"). A subdirectory keeps
+# byte-identical copies shipping in the wheel without the clash.
+license-files = ["licenses/LICENSE-APACHE", "licenses/LICENSE-MIT"]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Libraries",
+]
+keywords = ["event-bus", "high-performance", "streaming", "ai", "llm", "rust"]
+
+[project.optional-dependencies]
+test = ["pytest>=9.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/ai-2070/net"
+Repository = "https://github.com/ai-2070/net"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.maturin]
+# The cdylib must not link libpython (the importing interpreter
+# supplies the C-API symbols); the crate leaves `extension-module`
+# off so `cargo test` links normally, and wheel builds opt in here.
+# This line covers sdist installs and bare `maturin develop`; CI and
+# release-python.yml also pass the feature explicitly on the CLI
+# rather than relying on maturin merging these defaults.
+features = ["extension-module"]
+module-name = "net._net"
+manifest-path = "bindings/python/Cargo.toml"
+python-source = "python"

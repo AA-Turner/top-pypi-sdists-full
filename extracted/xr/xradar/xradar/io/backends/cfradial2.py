@@ -1,0 +1,862 @@
+#!/usr/bin/env python
+# Copyright (c) 2026, openradar developers.
+# Distributed under the MIT License. See LICENSE for more info.
+
+"""
+
+CfRadial2
+=========
+
+This sub-module contains the CfRadial2 reader for hierarchical radar datasets.
+
+The reader opens a grouped dataset via :py:func:`xarray.open_datatree` and applies
+best-effort compatibility normalization to common institutional variations so the
+result better matches xradar's FM301-oriented DataTree layout. Full FM301
+validation is not currently performed.
+
+Example::
+
+    import xradar as xd
+    dtree = xd.io.open_cfradial2_datatree(filename)
+
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+
+   {}
+
+"""
+
+__all__ = ["CfRadial2BackendEntrypoint", "open_cfradial2_datatree"]
+
+__doc__ = __doc__.format("\n   ".join(__all__))
+
+import warnings
+from collections.abc import Iterable
+from os import PathLike
+from typing import Any
+
+import numpy as np
+from xarray import DataTree, Variable, open_datatree
+from xarray.backends import BackendEntrypoint
+from xarray.backends.common import datatree_from_dict_with_io_cleanup
+
+from ...model import (
+    georeferencing_correction_subgroup,
+    get_altitude_attrs,
+    get_azimuth_attrs,
+    get_elevation_attrs,
+    get_latitude_attrs,
+    get_longitude_attrs,
+    get_moment_attrs,
+    get_range_attrs,
+    get_time_attrs,
+    optional_root_attrs,
+    optional_root_vars,
+    radar_calibration_subgroup,
+    radar_parameters_subgroup,
+    required_global_attrs,
+    required_root_vars,
+    sweep_vars_mapping,
+)
+from .common import (
+    _STATION_VARS,
+    _apply_site_as_coords,
+    _compose_docstring,
+    _deprecation_warning,
+    _external_stacklevel,
+    _input_kind,
+    _keep_close,
+    _open_legacy_datatree,
+    _read_nc_header,
+    _resolve_sweeps,
+)
+
+_ROOT_ATTR_RENAMES = {
+    "RadarName": "instrument_name",
+}
+
+_ROOT_VAR_FROM_ATTRS = {
+    "Latitude": "latitude",
+    "Longitude": "longitude",
+    "Height": "altitude",
+}
+
+_SWEEP_VAR_RENAMES = {
+    "time_us": "time",
+    "range_m": "range",
+    "azimuth_deg": "azimuth",
+    "elevation_deg": "elevation",
+    "fixed_angle": "sweep_fixed_angle",
+}
+
+_SUBGROUPS = {
+    "radar_parameters": radar_parameters_subgroup,
+    "georeferencing_correction": georeferencing_correction_subgroup,
+    "radar_calibration": radar_calibration_subgroup,
+}
+
+
+def _update_var_attrs(ds, name: str, attrs: dict[str, Any]):
+    if name in ds:
+        merged = dict(ds[name].attrs)
+        merged.update(attrs)
+        ds[name].attrs = merged
+    return ds
+
+
+def _fixed_angle_values_conflict(candidates):
+    normalized = [np.asarray(value).reshape(-1) for _, value in candidates]
+    first = normalized[0]
+    for other in normalized[1:]:
+        if first.shape != other.shape:
+            return True
+        try:
+            if not np.allclose(first, other, equal_nan=True):
+                return True
+        except TypeError:
+            if not np.array_equal(first, other):
+                return True
+    return False
+
+
+def _get_sweep_fixed_angle(sw, sweep_name: str):
+    candidates = []
+    explicit_candidates = []
+    if "sweep_fixed_angle" in sw:
+        candidate = ("sweep_fixed_angle", sw["sweep_fixed_angle"].values)
+        candidates.append(candidate)
+        explicit_candidates.append(candidate)
+    if "fixed_angle" in sw:
+        candidate = ("fixed_angle", sw["fixed_angle"].values)
+        candidates.append(candidate)
+        explicit_candidates.append(candidate)
+    if "elevation" in sw:
+        candidates.append(
+            ("elevation", np.asarray(sw["elevation"].median(skipna=True).values))
+        )
+    if "azimuth" in sw:
+        candidates.append(
+            ("azimuth", np.asarray(sw["azimuth"].median(skipna=True).values))
+        )
+
+    if len(explicit_candidates) > 1 and _fixed_angle_values_conflict(
+        explicit_candidates
+    ):
+        ordered = ", ".join(name for name, _ in candidates)
+        warnings.warn(
+            f"CfRadial2 sweep `{sweep_name}` contains multiple fixed-angle candidates "
+            f"({ordered}); using `{candidates[0][0]}`.",
+            UserWarning,
+            stacklevel=_external_stacklevel(),
+        )
+
+    if not candidates:
+        return np.nan
+
+    fixed = candidates[0][1]
+    return np.asarray(fixed).item() if np.asarray(fixed).ndim == 0 else fixed
+
+
+def _normalize_sweep_name(name: str) -> str:
+    if name.startswith("sweep_"):
+        suffix = name.split("_", 1)[1]
+        try:
+            return f"sweep_{int(suffix)}"
+        except ValueError:
+            return name
+    return name
+
+
+def _decode_name(value) -> str:
+    value = value.decode() if isinstance(value, bytes) else str(value)
+    return value.strip()
+
+
+def _sweep_number_key(name: str):
+    suffix = _normalize_sweep_name(name).split("_", 1)[-1]
+    return int(suffix) if suffix.isdigit() else np.inf
+
+
+def _available_sweeps(tree: DataTree) -> dict[str, str]:
+    """Map (normalized) sweep names to the group names in the file.
+
+    CfRadial2 lists the sweep groups in the root ``sweep_group_name`` variable
+    (CfRadial 2.1, Sections 3 and 5); group names need not be ``sweep_<n>``.
+    Without that variable, or if it holds no group names (some readers store the
+    sweep numbers), the ``sweep_*`` groups are used.
+    """
+    raw_names = []
+    if "sweep_group_name" in tree.ds:
+        listed = [_decode_name(v) for v in np.ravel(tree.ds["sweep_group_name"].values)]
+        raw_names = [name for name in listed if name in tree.children]
+        missing = [name for name in listed if name not in tree.children]
+        if raw_names and missing:
+            warnings.warn(
+                f"Sweep group(s) listed in `sweep_group_name` but missing: {missing}",
+                UserWarning,
+                stacklevel=_external_stacklevel(),
+            )
+    if not raw_names:
+        raw_names = sorted(
+            (child for child in tree.children if child.startswith("sweep_")),
+            key=_sweep_number_key,
+        )
+    return {_normalize_sweep_name(name): name for name in raw_names}
+
+
+def _iter_selected_sweeps(tree: DataTree, sweep: Any) -> list[str]:
+    available = list(_available_sweeps(tree))
+    if sweep is None:
+        return available
+    if isinstance(sweep, Iterable) and not isinstance(sweep, (str, list, tuple)):
+        # released in v0.12.0; every other engine takes only lists/tuples, and
+        # e.g. a set has no defined order
+        warnings.warn(
+            f"Passing sweep as {type(sweep).__name__} is deprecated and will be "
+            "removed in a future version, pass a list or tuple instead.",
+            FutureWarning,
+            stacklevel=_external_stacklevel(),
+        )
+        sweep = list(sweep)
+    selected = [
+        _normalize_sweep_name(name)
+        for name in _resolve_sweeps(sweep, lambda: available)
+    ]
+    if all(name.startswith("sweep_") for name in available):
+        return selected
+    # integers select by position if the groups are not named sweep_<n>
+    return [
+        (
+            available[int(name.split("_", 1)[1])]
+            if name not in available
+            and name.split("_", 1)[1].isdigit()
+            and int(name.split("_", 1)[1]) < len(available)
+            and not isinstance(sweep, str)
+            else name
+        )
+        for name in selected
+    ]
+
+
+def _coerce_scalar_dataarray(ds, name: str, value: Any):
+    if name in ds:
+        return ds
+    ds[name] = Variable((), value)
+    return ds
+
+
+def _normalize_root_dataset(
+    root, sweep_names: list[str], sweep_datasets: list, optional: bool
+):
+    ds = root.copy()
+
+    rename_attrs = {k: v for k, v in _ROOT_ATTR_RENAMES.items() if k in ds.attrs}
+    if rename_attrs:
+        ds.attrs.update({new: ds.attrs.pop(old) for old, new in rename_attrs.items()})
+
+    for attr_name, var_name in _ROOT_VAR_FROM_ATTRS.items():
+        if var_name not in ds and attr_name in ds.attrs:
+            ds[var_name] = ds.attrs.pop(attr_name)
+
+    ds = ds.drop_vars(["sweep_group_name", "sweep_fixed_angle"], errors="ignore")
+    ds["sweep_group_name"] = ("sweep", np.array(sweep_names, dtype=str))
+
+    fixed_angles = [
+        _get_sweep_fixed_angle(sw, sweep_names[idx])
+        for idx, sw in enumerate(sweep_datasets)
+    ]
+    ds["sweep_fixed_angle"] = ("sweep", np.asarray(fixed_angles, dtype="float32"))
+
+    if "time_coverage_start" not in ds or "time_coverage_end" not in ds:
+        times = [
+            sw["time"] for sw in sweep_datasets if "time" in sw.coords or "time" in sw
+        ]
+        if times:
+            start = min(t.min().values for t in times)
+            end = max(t.max().values for t in times)
+            ds = _coerce_scalar_dataarray(ds, "time_coverage_start", start)
+            ds = _coerce_scalar_dataarray(ds, "time_coverage_end", end)
+
+    defaults = {
+        "volume_number": 0,
+        "platform_type": "fixed",
+        "instrument_type": "radar",
+    }
+    for name, value in defaults.items():
+        ds = _coerce_scalar_dataarray(ds, name, value)
+
+    ds.attrs.setdefault("Conventions", "CF-1.8, WMO CF-1.0, ACDD-1.3")
+    ds.attrs.setdefault("wmo__cf_profile", "FM 301-XX")
+    ds.attrs.setdefault("platform_is_mobile", "false")
+    ds.attrs.setdefault("history", "")
+
+    allowed_attrs = (
+        set(required_global_attrs) | set(optional_root_attrs) | {"wmo__cf_profile"}
+    )
+    ds.attrs = {k: v for k, v in ds.attrs.items() if k in allowed_attrs}
+
+    for name in ("sweep_group_name", "sweep_fixed_angle"):
+        if name in ds and name in ds.coords:
+            ds = ds.reset_coords(name)
+
+    promote = _STATION_VARS & set(ds.data_vars)
+    if promote:
+        ds = ds.set_coords(list(promote))
+
+    root_vars = set(required_root_vars) | set(optional_root_vars)
+    keep_vars = (root_vars & set(ds.data_vars)) | (set(ds.coords) & _STATION_VARS)
+    drop_vars = set(ds.data_vars) - keep_vars
+    if drop_vars:
+        ds = ds.drop_vars(drop_vars)
+
+    if not optional:
+        removable = set(optional_root_vars) & set(ds.data_vars)
+        if removable:
+            ds = ds.drop_vars(removable)
+
+    ds = _normalize_root_attrs(ds)
+
+    return ds
+
+
+def _rename_using_mapping(ds, mapping: dict[str, str | None]):
+    rename_map = {}
+    for source, target in mapping.items():
+        if source in ds and target and source != target and target not in ds:
+            rename_map[source] = target
+    if rename_map:
+        ds = ds.rename_vars(rename_map)
+    return ds
+
+
+def _infer_sweep_mode(ds):
+    # CfRadial2 stores sweep_mode as variable (e.g. Radx), some files as attribute
+    if "sweep_mode" in ds.variables and ds["sweep_mode"].size == 1:
+        return _decode_name(np.ravel(ds["sweep_mode"].values)[0])
+    mode = ds.attrs.get("sweep_mode")
+    if mode is not None:
+        return str(mode)
+    scan_type = ds.attrs.get("ScanType")
+    if scan_type in {1, "1"}:
+        return "rhi"
+    return "azimuth_surveillance"
+
+
+def _derive_range_attrs(ds):
+    if "range" not in ds:
+        return ds
+    attrs = dict(ds["range"].attrs)
+    attrs.setdefault("units", "meters")
+    attrs.setdefault("standard_name", "projection_range_coordinate")
+    attrs.setdefault("long_name", "range_to_measurement_volume")
+    attrs.setdefault("axis", "radial_range_coordinate")
+    if ds["range"].size > 1:
+        spacing = float(np.diff(ds["range"].values[:2])[0])
+        attrs.setdefault("spacing_is_constant", "true")
+        attrs.setdefault("meters_to_center_of_first_gate", float(ds["range"].values[0]))
+        attrs.setdefault("meters_between_gates", spacing)
+    ds["range"].attrs = attrs
+    return ds
+
+
+def _normalize_root_attrs(ds):
+    time_attrs = get_time_attrs()
+    # time_coverage_* hold ISO strings in CfRadial files, a "units" attribute
+    # would make xarray try to decode them as numbers when read back
+    string_time_attrs = {k: v for k, v in time_attrs.items() if k != "units"}
+    for name, attrs in {
+        "latitude": get_latitude_attrs(),
+        "longitude": get_longitude_attrs(),
+        "altitude": get_altitude_attrs(),
+        "time_coverage_start": time_attrs,
+        "time_coverage_end": time_attrs,
+    }.items():
+        if name.startswith("time_coverage_") and name in ds:
+            if ds[name].dtype.kind in "USO":
+                attrs = string_time_attrs
+        ds = _update_var_attrs(ds, name, attrs)
+    return ds
+
+
+def _normalize_sweep_coord_attrs(ds):
+    ds = _update_var_attrs(ds, "time", get_time_attrs())
+    if "range" in ds:
+        ds = _update_var_attrs(ds, "range", get_range_attrs(ds["range"].values))
+    if "azimuth" in ds:
+        attrs = (
+            get_azimuth_attrs(ds["azimuth"].values)
+            if ds["azimuth"].size > 2
+            else get_azimuth_attrs()
+        )
+        ds = _update_var_attrs(ds, "azimuth", attrs)
+    if "elevation" in ds:
+        attrs = (
+            get_elevation_attrs(ds["elevation"].values)
+            if ds["elevation"].size > 2
+            else get_elevation_attrs()
+        )
+        ds = _update_var_attrs(ds, "elevation", attrs)
+    ds = _update_var_attrs(ds, "frequency", {"units": "s-1", "standard_name": ""})
+    return ds
+
+
+def _normalize_dataset_var_attrs(ds):
+    for name, da in ds.data_vars.items():
+        if name in {
+            "sweep_number",
+            "sweep_mode",
+            "follow_mode",
+            "prt_mode",
+            "sweep_fixed_angle",
+        }:
+            continue
+        if da.ndim == 2 and set(da.dims) == {"time", "range"}:
+            attrs = dict(da.attrs)
+            attrs.setdefault("coordinates", "elevation azimuth range")
+            # xarray moves the "coordinates" attribute of the file to the
+            # encoding, both together make the writer raise on re-export
+            da.encoding.pop("coordinates", None)
+            if name in sweep_vars_mapping:
+                moment_attrs = get_moment_attrs(name)
+                moment_attrs.update(attrs)
+                attrs = moment_attrs
+            da.attrs = attrs
+    return ds
+
+
+def _normalize_sweep_dataset(ds, sweep_name: str, first_dim: str, optional: bool):
+    ds = ds.copy()
+
+    rename_dims = {}
+    if "ntime" in ds.dims and "time" not in ds.dims:
+        rename_dims["ntime"] = "time"
+    if "nrange" in ds.dims and "range" not in ds.dims:
+        rename_dims["nrange"] = "range"
+    if rename_dims:
+        ds = ds.rename_dims(rename_dims)
+
+    rename_vars = {}
+    for source, target in _SWEEP_VAR_RENAMES.items():
+        if source in ds and target not in ds:
+            rename_vars[source] = target
+    if rename_vars:
+        ds = ds.rename_vars(rename_vars)
+
+    if "azimuth" in ds.dims and "time" not in ds.dims:
+        ds = ds.swap_dims({"azimuth": "time"})
+    if "elevation" in ds.dims and "time" not in ds.dims:
+        ds = ds.swap_dims({"elevation": "time"})
+
+    for coord in ["time", "range", "azimuth", "elevation"]:
+        if coord in ds and coord not in ds.coords:
+            ds = ds.set_coords(coord)
+
+    mode = _infer_sweep_mode(ds)
+    dim0 = "elevation" if mode == "rhi" else "azimuth"
+    fixed_coord = "azimuth" if mode == "rhi" else "elevation"
+
+    if "sweep_number" not in ds:
+        ds["sweep_number"] = Variable((), int(sweep_name.split("_", 1)[1]))
+    # store the decoded mode (files may hold it as bytes/char variable)
+    mode_attrs = ds["sweep_mode"].attrs if "sweep_mode" in ds else {}
+    ds["sweep_mode"] = Variable((), mode, mode_attrs)
+    if "follow_mode" not in ds:
+        ds["follow_mode"] = Variable((), "none")
+    if "prt_mode" not in ds:
+        ds["prt_mode"] = Variable((), "fixed")
+
+    if "sweep_fixed_angle" not in ds:
+        if "fixed_angle" in ds:
+            ds["sweep_fixed_angle"] = ds["fixed_angle"]
+        elif fixed_coord in ds:
+            ds["sweep_fixed_angle"] = ds[fixed_coord].median(skipna=True)
+        elif fixed_coord in ds.coords:
+            ds["sweep_fixed_angle"] = ds[fixed_coord].median(skipna=True)
+
+    if "frequency" not in ds:
+        if "carrier_frequency_hz" in ds:
+            carrier = ds["carrier_frequency_hz"]
+            value = carrier.isel(time=0) if "time" in carrier.dims else carrier
+            ds["frequency"] = ("frequency", np.atleast_1d(value.values))
+        else:
+            ds["frequency"] = ("frequency", np.array([np.nan], dtype="float32"))
+
+    for coord in ["time", "range", "azimuth", "elevation", "frequency"]:
+        if coord in ds and coord not in ds.coords:
+            ds = ds.set_coords(coord)
+
+    ds = _derive_range_attrs(ds)
+    ds = _normalize_sweep_coord_attrs(ds)
+    ds = _normalize_dataset_var_attrs(ds)
+    ds = _apply_site_as_coords(ds, True)
+
+    if first_dim == "auto" and dim0 in ds.coords and "time" in ds.dims:
+        ds = ds.swap_dims({"time": dim0}).sortby(dim0)
+    elif "time" in ds.dims:
+        ds = ds.sortby("time")
+
+    mandatory = {
+        "sweep_number",
+        "sweep_mode",
+        "follow_mode",
+        "prt_mode",
+        "sweep_fixed_angle",
+        "azimuth",
+        "elevation",
+    }
+    if optional:
+        keep_vars = set(ds.data_vars)
+    else:
+        keep_vars = mandatory | {
+            k
+            for k, v in ds.data_vars.items()
+            if any(d in v.dims for d in ["time", "range"])
+        }
+    drop_vars = set(ds.data_vars) - keep_vars
+    if drop_vars:
+        ds = ds.drop_vars(drop_vars)
+
+    return ds
+
+
+def _normalize_subgroup(node: DataTree, mapping: dict[str, str | None]):
+    ds = _rename_using_mapping(node.to_dataset(), mapping)
+    ds.attrs = {}
+    return ds
+
+
+def _build_cfradial2_dtree_dict(
+    filename_or_obj: str | PathLike[str],
+    *,
+    sweep: Any = None,
+    first_dim: str = "time",
+    optional: bool = True,
+    optional_groups: bool = False,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Build the dict[str, Dataset] of normalized CfRadial2 groups.
+
+    Used by :class:`CfRadial2BackendEntrypoint` to assemble the DataTree
+    before `DataTree.from_dict(...)` is applied.
+    """
+    kwargs.setdefault("decode_timedelta", False)
+
+    # keep the file open while the returned datasets are in use: closing it
+    # here makes xarray reopen it for every lazy read
+    tree = open_datatree(filename_or_obj, **kwargs)
+    try:
+        return _normalize_cfradial2_tree(
+            tree,
+            filename_or_obj,
+            sweep=sweep,
+            first_dim=first_dim,
+            optional=optional,
+            optional_groups=optional_groups,
+        )
+    except Exception:
+        # nothing holds the file yet (an invalid ``sweep``, a missing group),
+        # so close it here instead of leaving it to the garbage collector
+        tree.close()
+        raise
+
+
+def _normalize_cfradial2_tree(
+    tree: DataTree,
+    filename_or_obj: Any,
+    *,
+    sweep: Any,
+    first_dim: str,
+    optional: bool,
+    optional_groups: bool,
+) -> dict[str, Any]:
+    """Normalize the groups of an opened CfRadial2 ``tree``; the returned root
+    dataset takes over closing the file."""
+    available = _available_sweeps(tree)
+    if not available:
+        # the caller closes the tree on any error
+        raise ValueError(
+            f"No sweep groups found in `{filename_or_obj}`: expected groups "
+            "listed in the root `sweep_group_name` or named `sweep_<n>`."
+        )
+    raw_sweep_names = list(available.values())
+    selected = _iter_selected_sweeps(tree, sweep)
+    output_names = [f"sweep_{i}" for i in range(len(selected))]
+    sweep_nodes = {name: tree[raw] for name, raw in available.items()}
+    # fixed angles of the root group, indexed like sweep_group_name
+    root_fixed = {}
+    if "sweep_fixed_angle" in tree.ds and "sweep_group_name" in tree.ds:
+        listed = [_decode_name(v) for v in np.ravel(tree.ds["sweep_group_name"].values)]
+        values = np.ravel(tree.ds["sweep_fixed_angle"].values)
+        root_fixed = {
+            _normalize_sweep_name(name): value
+            for name, value in zip(listed, values, strict=False)
+        }
+
+    missing = [name for name in selected if name not in sweep_nodes]
+    if missing:
+        raise ValueError(
+            f"Sweep group(s) missing from file `{filename_or_obj}`: {missing}"
+        )
+
+    normalized_sweeps = []
+    for output_name, source_name in zip(output_names, selected):
+        sweep_ds = sweep_nodes[source_name].to_dataset(inherit=True)
+        if (
+            source_name in root_fixed
+            and "sweep_fixed_angle" not in sweep_ds
+            and "fixed_angle" not in sweep_ds
+        ):
+            sweep_ds["sweep_fixed_angle"] = Variable((), root_fixed[source_name])
+        ds = _normalize_sweep_dataset(
+            sweep_ds,
+            output_name,
+            first_dim=first_dim,
+            optional=optional,
+        )
+        normalized_sweeps.append(ds)
+
+    dtree = {
+        "/": _normalize_root_dataset(
+            tree["/"].to_dataset(),
+            output_names,
+            normalized_sweeps,
+            optional=optional,
+        )
+    }
+
+    if optional_groups:
+        for name, mapping in _SUBGROUPS.items():
+            if name in tree.children:
+                dtree[f"/{name}"] = _normalize_subgroup(tree[name], mapping)
+
+    for i, ds in enumerate(normalized_sweeps):
+        cleaned = ds.drop_vars(_STATION_VARS, errors="ignore")
+        cleaned.attrs = {}
+        dtree[f"sweep_{i}"] = cleaned
+
+    # copy _close to new dtree root
+    dtree["/"].set_close(tree._close)
+
+    renamed = selected != output_names or any(
+        name != _normalize_sweep_name(name) for name in raw_sweep_names
+    )
+    if renamed:
+        warnings.warn(
+            "CfRadial2 sweep groups were renumbered into sequential `sweep_<n>` order.",
+            UserWarning,
+            stacklevel=_external_stacklevel(),
+        )
+
+    missing_root = (
+        required_root_vars - set(dtree["/"].data_vars) - set(dtree["/"].coords)
+    )
+    if missing_root:
+        warnings.warn(
+            "CfRadial2 reader could not fully normalize FM301 root variables; "
+            f"missing {sorted(missing_root)}.",
+            UserWarning,
+            stacklevel=_external_stacklevel(),
+        )
+
+    return dtree
+
+
+class CfRadial2BackendEntrypoint(BackendEntrypoint):
+    """Xarray BackendEntrypoint for CfRadial2/FM301 grouped datasets.
+
+    Keyword Arguments
+    -----------------
+    sweep : int, str, iterable, optional
+        Sweep selection. Defaults to all available sweeps.
+    first_dim : str
+        Can be ``time`` or ``auto``. Defaults to ``time``.
+    optional : bool
+        Keep optional root variables when available. Defaults to ``True``.
+    optional_groups : bool
+        Include root metadata subgroups if present. Defaults to ``False``.
+    kwargs : dict
+        Additional kwargs are fed to :py:func:`xarray.open_datatree`.
+    """
+
+    description = "Open CfRadial2/FM301 grouped datasets in Xarray"
+    url = "https://xradar.rtfd.io/en/latest/io.html#cfradial2"
+    supports_groups = True
+
+    def guess_can_open(self, filename_or_obj):
+        """CfRadial2 file (netCDF/HDF5 with sweep groups, whose ``Conventions``
+        mention CF/Radial and whose root has ``sweep_group_name`` and
+        ``time_coverage_start``).
+
+        Files with ``sweep_start_ray_index`` (CfRadial1) and vendor files which
+        use the CfRadial2 layout without the time coverage (e.g. WindCube) are
+        not claimed.
+        """
+        if _input_kind(filename_or_obj) not in ("path", "bytes"):
+            return False
+        header = _read_nc_header(filename_or_obj)
+        if header is None:
+            return False
+        attrs, variables, groups = header
+        convention = " ".join(
+            str(attrs.get(name, "")) for name in ["Conventions", "conventions"]
+        ).lower()
+        return (
+            "radial" in convention
+            and bool(groups)
+            and {"sweep_group_name", "time_coverage_start"} <= variables
+            and "sweep_start_ray_index" not in variables
+        )
+
+    def open_dataset(
+        self,
+        filename_or_obj,
+        *,
+        mask_and_scale=True,
+        decode_times=True,
+        concat_characters=True,
+        decode_coords=True,
+        drop_variables=None,
+        use_cftime=None,
+        decode_timedelta=False,
+        group="sweep_0",
+        first_dim="time",
+        optional=True,
+    ):
+        with open_datatree(
+            filename_or_obj,
+            mask_and_scale=mask_and_scale,
+            decode_times=decode_times,
+            concat_characters=concat_characters,
+            decode_coords=decode_coords,
+            drop_variables=drop_variables,
+            use_cftime=use_cftime,
+            decode_timedelta=decode_timedelta,
+        ) as tree:
+            # Map canonical sweep names (`sweep_2`) to actual node names
+            # (`sweep_02`, `sweep2`, ...), matching the DataTree path.
+            sweep_lookup = {
+                _normalize_sweep_name(name): name
+                for name in tree.children
+                if name.startswith("sweep")
+            }
+            source = sweep_lookup.get(group, group)
+            if source != "/" and source not in tree.children:
+                raise ValueError(
+                    f"Group `{group}` missing from file `{filename_or_obj}`."
+                )
+            ds = tree[source].to_dataset(inherit=True)
+            if group.startswith("sweep_"):
+                ds = _normalize_sweep_dataset(
+                    ds,
+                    _normalize_sweep_name(source),
+                    first_dim=first_dim,
+                    optional=optional,
+                )
+            ds.load()
+        return ds
+
+    def open_groups_as_dict(
+        self,
+        filename_or_obj,
+        *,
+        sweep=None,
+        first_dim="time",
+        optional=True,
+        optional_groups=False,
+        site_coords=True,
+        netcdf_engine=None,
+        **kwargs,
+    ):
+        if netcdf_engine is not None:
+            # `engine` is taken by xarray for the backend itself
+            kwargs["engine"] = netcdf_engine
+        groups_dict = _build_cfradial2_dtree_dict(
+            filename_or_obj,
+            sweep=sweep,
+            first_dim=first_dim,
+            optional=optional,
+            optional_groups=optional_groups,
+            **kwargs,
+        )
+        # CfRadial2 places station coords at root by default. Honor
+        # site_coords=False by dropping them, matching the per-sweep
+        # contract used by odim/gamic/cfradial1.
+        if not site_coords:
+            root = groups_dict["/"]
+            # the root holds the file's close (#471, #502)
+            groups_dict["/"] = _keep_close(
+                root.drop_vars(_STATION_VARS, errors="ignore"), root
+            )
+        return groups_dict
+
+    def open_datatree(self, filename_or_obj, **kwargs):
+        groups_dict = self.open_groups_as_dict(filename_or_obj, **kwargs)
+        # pipe dictionary through xarray io cleanup machinery
+        return datatree_from_dict_with_io_cleanup(groups_dict)
+
+
+_CFRADIAL2_PARAMS_DOC = """
+    site_coords : bool, optional
+        Keep ``latitude``/``longitude``/``altitude`` as coordinates on
+        the root dataset. CfRadial2 stores station coords at root by
+        default; pass ``False`` to drop them. Defaults to ``True``.
+    netcdf_engine : str, optional
+        netCDF engine used to read the file (e.g. ``"netcdf4"`` or
+        ``"h5netcdf"``). Defaults to ``None`` (xarray's choice).
+"""
+
+CfRadial2BackendEntrypoint.open_groups_as_dict.__doc__ = _compose_docstring(
+    "Open a CfRadial2/FM301 grouped file as a dict of normalized group datasets.\n"
+    "    Best-effort normalization of common institutional variations is\n"
+    "    applied so the result matches xradar's FM301-oriented layout.",
+    _CFRADIAL2_PARAMS_DOC,
+)
+CfRadial2BackendEntrypoint.open_datatree.__doc__ = (
+    "Open a CfRadial2/FM301 grouped file as :py:class:`xarray.DataTree`. "
+    "See :meth:`open_groups_as_dict` for keyword arguments.\n"
+)
+
+
+def open_cfradial2_datatree(
+    filename_or_obj: str | PathLike[str], **kwargs: Any
+) -> DataTree:
+    """Open a CfRadial2-like grouped dataset as :py:class:`xarray.DataTree`.
+
+    .. deprecated::
+        Use ``xd.open_datatree(file, engine="cfradial2")`` or
+        ``xr.open_datatree(file, engine="cfradial2")`` instead.
+
+    Parameters
+    ----------
+    filename_or_obj : str or PathLike
+        Path or object understood by :py:func:`xarray.open_datatree`.
+
+    Keyword Arguments
+    -----------------
+    sweep : int, str, iterable, optional
+        Sweep selection. Defaults to all available sweeps.
+    first_dim : str
+        Can be ``time`` or ``auto``. Defaults to ``time``.
+    optional : bool
+        Keep optional root variables when available. Defaults to ``True``.
+    optional_groups : bool
+        Include root metadata subgroups if present. Defaults to ``False``.
+    **kwargs : dict
+        Additional keyword arguments passed to :py:func:`xarray.open_datatree`.
+
+    Returns
+    -------
+    xarray.DataTree
+        Normalized DataTree containing root metadata and sweep groups.
+    """
+    _deprecation_warning("open_cfradial2_datatree", "cfradial2")
+    # `engine` here is the inner netCDF engine, `netcdf_engine` in the backend
+    if "engine" in kwargs:
+        kwargs["netcdf_engine"] = kwargs.pop("engine")
+    backend_kwargs = kwargs.get("backend_kwargs") or {}
+    if "engine" in backend_kwargs:
+        backend_kwargs = dict(backend_kwargs)
+        backend_kwargs["netcdf_engine"] = backend_kwargs.pop("engine")
+        kwargs["backend_kwargs"] = backend_kwargs
+    return _open_legacy_datatree(CfRadial2BackendEntrypoint, filename_or_obj, kwargs)

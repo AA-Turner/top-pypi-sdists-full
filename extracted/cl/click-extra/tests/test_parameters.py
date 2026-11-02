@@ -30,8 +30,6 @@ from textwrap import dedent
 
 import click
 import pytest
-from boltons.iterutils import flatten, unique
-from boltons.strutils import strip_ansi
 from click.parser import _split_opt
 from extra_platforms import is_windows
 
@@ -67,12 +65,14 @@ from click_extra import (
     render_table,
     search_params,
     show_params_option,
+    strip_ansi,
     table_format_option,
 )
+from click_extra._utils import flatten
 from click_extra.commands import default_params
 from click_extra.config import NO_CONFIG
 from click_extra.logging import StreamHandler
-from click_extra.parameters import (
+from click_extra.param_tools import (
     canonical_param_name,
     iter_params_for_display,
     iter_subcommands,
@@ -80,7 +80,7 @@ from click_extra.parameters import (
     option_value_kind,
 )
 from click_extra.pytest import command_decorators
-from click_extra.table import SERIALIZATION_FORMATS, STYLED_FORMATS
+from click_extra.table import CSV_FORMATS, SERIALIZATION_FORMATS, STYLED_FORMATS
 from click_extra.theme import get_current_theme
 
 from .test_highlight import HashType
@@ -99,9 +99,8 @@ def _detect_click_help_param_name() -> str:
 CLICK_HELP_PARAM_NAME = _detect_click_help_param_name()
 """Click's internal ``.name`` for its built-in ``--help`` option.
 
-Detected at runtime instead of hardcoded as ``"help"``: Click's development branch
-renamed it to ``"_click_default_help"``, an internal identifier click-extra does not
-control and a version comparison alone cannot reliably predict.
+Detected at runtime instead of hard-coded: ``_click_default_help`` is an internal
+identifier of Click, which Click Extra does not control.
 """
 
 
@@ -192,16 +191,6 @@ def test_search_params_returns_the_one_match():
     assert search_params([city], FruitOption) is None
     with pytest.raises(RuntimeError, match="More than one FruitOption"):
         search_params([fruit, apple], FruitOption)
-
-
-def test_search_params_unique_is_deprecated():
-    """`unique=False` still returns every match as a list, warning at the caller."""
-    fruit = FruitOption(["--fruit"])
-    apple = AppleOption(["--apple"])
-    with pytest.warns(DeprecationWarning, match=r"search_params\(unique=") as record:
-        found = search_params([fruit, apple], FruitOption, unique=False)
-    assert found == [fruit, apple]
-    assert record[0].filename == __file__
 
 
 def test_last_param_keeps_the_last_exact_match():
@@ -357,9 +346,8 @@ def test_params_auto_types(invoke, option_decorator):
 def _sort_params_table(table: Sequence[Sequence]) -> list[Sequence]:
     """Sort rows like render_params_table() does: depth first, then alphabetically
     by path. Lets tests declare and mutate rows in any convenient order while still
-    matching the CLI's actual output order, which shifts whenever a row's
-    alphabetical position changes, like Click's help option gaining a leading
-    underscore on its development branch.
+    matching the CLI's actual output order, which follows the name Click gives its
+    help option.
     """
     return sorted(table, key=lambda row: (len(str(row[0]).split(".")), row[0]))
 
@@ -433,7 +421,7 @@ def test_standalone_show_params_option(
         (
             "show-params.params",
             "--params",
-            "click_extra.parameters.ShowParamsOption",
+            "click_extra.show_params.ShowParamsOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -458,8 +446,8 @@ def test_standalone_show_params_option(
     if result.stderr:
         assert_output_regex(
             result.stderr,
-            r"warning: Cannot extract parameters values: "
-            r"<(Group|Command) show-params> does not inherits from Command\.\n",
+            r"warning: Cannot extract parameter values: "
+            r"<(Group|Command) show-params> does not inherit from Command\.\n",
         )
 
     assert result.exit_code == 0
@@ -554,12 +542,12 @@ def test_integrated_show_params_option(invoke, create_config):
             # On Windows, backslashes are double-escaped in Path string repr.
             (
                 f"'{Path(get_app_dir('show-params-cli')).resolve()}{sep}"
-                f"{{{','.join(unique(flatten(f.patterns for f in ConfigFormat if f.enabled)))}}}'"
+                f"{{{','.join(dict.fromkeys(flatten(f.patterns for f in ConfigFormat if f.enabled)))}}}'"
             ).replace("\\", "\\\\")
             if is_windows
             else (
                 f"'{Path(get_app_dir('show-params-cli')).resolve()}{sep}"
-                f"{{{','.join(unique(flatten(f.patterns for f in ConfigFormat if f.enabled)))}}}'"
+                f"{{{','.join(dict.fromkeys(flatten(f.patterns for f in ConfigFormat if f.enabled)))}}}'"
             ),
             "✘",
             "",
@@ -637,7 +625,7 @@ def test_integrated_show_params_option(invoke, create_config):
         (
             "show-params-cli.export_config",
             "--export-config FORMAT",
-            "click_extra.config.option.ExportConfigOption",
+            "click_extra.config.export.ExportConfigOption",
             "click.types.Choice",
             "str",
             "✘",
@@ -847,7 +835,7 @@ def test_integrated_show_params_option(invoke, create_config):
         (
             "show-params-cli.params",
             "--params",
-            "click_extra.parameters.ShowParamsOption",
+            "click_extra.show_params.ShowParamsOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -868,7 +856,7 @@ def test_integrated_show_params_option(invoke, create_config):
         (
             "show-params-cli.table_format",
             "--table-format FORMAT",
-            "click_extra.table.TableFormatOption",
+            "click_extra.table_options.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
             "✘",
@@ -1110,9 +1098,9 @@ def test_show_params_native_types(invoke, table_format):
 def test_show_params_no_default_renders_none(invoke):
     """A parameter with no default renders as None, not the UNSET sentinel.
 
-    Regression guard for Click 8.4's ``UNSET`` sentinel leaking into the value
-    and default columns through the ``--params`` re-parse path. See the
-    RAW_ARGS dossier in ``click_extra.context``.
+    Regression guard for Click's ``UNSET`` sentinel leaking into the value and
+    default columns through the ``--params`` re-parse path. See the RAW_ARGS
+    notes in ``click_extra.context``.
     """
 
     @command
@@ -1159,7 +1147,7 @@ def test_show_params_config_file_cascade(invoke, tmp_path, monkeypatch):
             int_param = 1
             """
         ),
-        encoding="utf-8",
+        encoding="UTF-8",
     )
     parent_conf = tmp_path / "config.toml"
     parent_conf.write_text(
@@ -1172,7 +1160,7 @@ def test_show_params_config_file_cascade(invoke, tmp_path, monkeypatch):
             sub_param = "from_parent"
             """
         ),
-        encoding="utf-8",
+        encoding="UTF-8",
     )
 
     @group
@@ -1293,6 +1281,47 @@ def test_show_params_config_file_column_is_opt_in(invoke):
     result = invoke(provenance_cli, "--params", "--table-format", "csv", color=False)
     assert result.exit_code == 0
     assert "Config file" not in result.stdout
+
+
+def test_show_params_config_file_column_drawn_when_cascading(invoke):
+    """A cascading `--config` draws the `config_file` column without being asked.
+
+    Several files can then take part, so `Source` alone no longer tells which one
+    a value came from.
+    """
+
+    @command(config_cascade=True)
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    result = invoke(provenance_cli, "--params", "--table-format", "csv", color=False)
+    assert result.exit_code == 0
+    header = result.stdout.splitlines()[0].split(",")
+    assert header[-1] == "Config file"
+    assert "Help" not in header
+
+
+def test_show_params_projection_overrides_the_cascade_column(invoke):
+    """An explicit `--columns` projection is honored as given, cascade or not."""
+
+    @command(config_cascade=True)
+    @columns_option(columns=ShowParamsOption.TABLE_HEADERS)
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    result = invoke(
+        provenance_cli,
+        "--params",
+        "--table-format",
+        "csv",
+        "--columns",
+        "id,value",
+        color=False,
+    )
+    assert result.exit_code == 0
+    assert result.stdout.splitlines()[0] == "ID,Value"
 
 
 def test_show_params_subclass_widens_the_default_columns(invoke):
@@ -1425,6 +1454,77 @@ def test_columns_option_rejects_unknown_id(invoke):
     assert "Accepted:" in result.stderr
 
 
+@pytest.mark.parametrize("columns", ("id,spec", "spec,id"))
+def test_params_rows_keep_path_order_under_projection(invoke, columns):
+    """Rows follow their parameter path, whichever column comes first.
+
+    `--zulu` is declared under the `alpha` name: ordered by its spec, its row
+    would follow the one of `--beta`.
+    """
+
+    @command
+    @columns_option
+    @option("--zulu", "alpha")
+    @option("--beta")
+    def orchard(alpha, beta):
+        echo("ok")
+
+    result = invoke(
+        orchard,
+        "--table-format",
+        "json",
+        "--columns",
+        columns,
+        "--params",
+        color=False,
+    )
+    assert result.exit_code == 0
+    ids = [row["ID"] for row in json.loads(result.stdout)]
+    assert ids.index("orchard.alpha") < ids.index("orchard.beta")
+    assert ids == sorted(ids)
+
+
+def test_params_never_prompts(invoke):
+    """Introspecting an option that declares a prompt does not ask for its value.
+
+    The value of a parameter is replayed from the command line, which leaves the
+    one a user would type at the prompt missing.
+    """
+
+    @command
+    @columns_option
+    @option("--secret", prompt=True)
+    def vault(secret):
+        echo("ok")
+
+    result = invoke(
+        vault, "--table-format", "json", "--columns", "id,value,source", "--params"
+    )
+    assert result.exit_code == 0
+    assert "Secret" not in result.output
+    rows = {row["ID"]: row for row in json.loads(result.stdout)}
+    assert rows["vault.secret"]["Value"] is None
+    assert rows["vault.secret"]["Source"] == "DEFAULT"
+
+
+def test_params_confirmation_prompt_string_reads_as_set(invoke):
+    """A custom confirmation prompt asks for confirmation, like `True` does."""
+
+    @command
+    @columns_option
+    @option("--secret", prompt=True, confirmation_prompt="Repeat the secret:")
+    def vault(secret):
+        echo("ok")
+
+    result = invoke(
+        vault, "--no-color", "--columns", "id,confirmation_prompt", "--params"
+    )
+    assert result.exit_code == 0
+    (row,) = [line for line in result.stdout.splitlines() if "vault.secret" in line]
+    assert "✓" in row
+    assert "✘" not in row
+
+
 def test_recurse_subcommands(invoke):
     # ``help_command=False``: the auto-injected ``help`` subcommand is unrelated to
     # what this test covers (recursive parameter introspection) and is tested on its
@@ -1471,7 +1571,7 @@ def test_recurse_subcommands(invoke):
         [
             "show-params-cli-main.params",
             "--params",
-            "click_extra.parameters.ShowParamsOption",
+            "click_extra.show_params.ShowParamsOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -1662,7 +1762,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
         [
             "show-params.params",
             "--params",
-            "click_extra.parameters.ShowParamsOption",
+            "click_extra.show_params.ShowParamsOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -1683,7 +1783,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
         [
             "show-params.table_format",
             "--table-format FORMAT",
-            "click_extra.table.TableFormatOption",
+            "click_extra.table_options.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
             "✘",
@@ -1768,7 +1868,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
     else:
         # Styled formats translate the theme styling of cells and headers to
         # native markup instead of stripping it: reproduce the styling applied
-        # by format_param_row() and render_params_table() on the expected data.
+        # by _format_param_row() and render_params_table() on the expected data.
         theme = get_current_theme()
         glyphs = {"✓": theme.success("✓"), "✘": theme.error("✘")}
         column_styles = {
@@ -1815,12 +1915,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
     # "\r\n" are replaced by "\n" since the beginning of time:
     # https://github.com/pallets/click/commit/7360097ec25e89730f46b840aa050467c5a80e9e#diff-e52e4ddd58b7ef887ab03c04116e676f6280b824ab7469d5d3080e5cba4f2128R120
     # So we can't test the CSV dialects properly.
-    if table_format not in (
-        TableFormat.CSV,
-        TableFormat.CSV_EXCEL,
-        TableFormat.CSV_EXCEL_TAB,
-        TableFormat.CSV_UNIX,
-    ):
+    if table_format not in CSV_FORMATS:
         assert result.stdout == rendered_table
 
     assert result.exit_code == 0
@@ -1888,7 +1983,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
         [
             "show-params.params",
             "--params",
-            "click_extra.parameters.ShowParamsOption",
+            "click_extra.show_params.ShowParamsOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -1909,7 +2004,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
         [
             "show-params.table_format",
             "--table-format FORMAT",
-            "click_extra.table.TableFormatOption",
+            "click_extra.table_options.TableFormatOption",
             "click_extra.types.EnumChoice",
             "str",
             "✘",
@@ -1963,8 +2058,6 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
     expected_table[3][18] = "COMMANDLINE"
 
     # Serialization formats emit native types instead of styled glyphs.
-    from click_extra.table import SERIALIZATION_FORMATS
-
     if table_format in SERIALIZATION_FORMATS:
         for row in expected_table:
             # Replace glyph strings with native booleans.
@@ -2030,12 +2123,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
         line = output_lines[index]
         # XXX CSV dialects are not rendered with echo but with print and are not
         # sensitive to Click colorization settings.
-        if table_format in (
-            TableFormat.CSV,
-            TableFormat.CSV_EXCEL,
-            TableFormat.CSV_EXCEL_TAB,
-            TableFormat.CSV_UNIX,
-        ):
+        if table_format in CSV_FORMATS:
             line = strip_ansi(line)
         assert line == expected_lines[index]
 
@@ -2043,12 +2131,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
     # "\r\n" are replaced by "\n" since the beginning of time:
     # https://github.com/pallets/click/commit/7360097ec25e89730f46b840aa050467c5a80e9e#diff-e52e4ddd58b7ef887ab03c04116e676f6280b824ab7469d5d3080e5cba4f2128R120
     # So we can't test the CSV dialects properly.
-    if table_format not in (
-        TableFormat.CSV,
-        TableFormat.CSV_EXCEL,
-        TableFormat.CSV_EXCEL_TAB,
-        TableFormat.CSV_UNIX,
-    ):
+    if table_format not in CSV_FORMATS:
         assert result.stdout == rendered_table
     assert result.exit_code == 0
 
@@ -2466,9 +2549,8 @@ def test_params_lists_the_envvars_a_subcommand_reads(invoke):
     """A subcommand setting its own `auto_envvar_prefix` is listed under it.
 
     The walk behind `--params` builds each subcommand's context the way Click
-    does for a real invocation, context settings included. It used to derive the
-    prefix from the parent's, and listed `GARDEN_PLANT_CROP`, a variable the CLI
-    never reads.
+    does for a real invocation, context settings included. A prefix derived from
+    the parent's would list `GARDEN_PLANT_CROP`, a variable the CLI never reads.
     """
 
     @group(help_command=False)

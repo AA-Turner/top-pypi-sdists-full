@@ -1,0 +1,289 @@
+from __future__ import annotations
+
+"""Scene operations delegated from Plotter."""
+
+from typing import Any
+
+import vedo
+import vedo.vtkclasses as vtki
+from vedo import addons, utils
+from vedo.plotter.events import Event
+
+
+__docformat__ = "google"
+
+
+def _scene_object_from_prop(plotter, prop):
+    """Resolve a renderer prop back to its vedo wrapper when possible."""
+    try:
+        obj = prop.retrieve_object()
+    except AttributeError:
+        obj = None
+
+    if obj is not None:
+        return obj
+
+    for ob in plotter.objects:
+        if getattr(ob, "actor", None) is prop:
+            return ob
+    return None
+
+
+def add(plotter, *objs, at=None) -> Any:
+    """
+    Append the input objects to the internal list of objects to be shown.
+
+    Args:
+        at (int):
+            add the object at the specified renderer
+    """
+    ren = plotter.renderer if at is None else plotter.renderers[at]
+
+    objs = utils.flatten(objs)
+    widgets = []
+    plain_objs = []
+    for ob in objs:
+        if ob is not None and ob not in plotter.objects:
+            plotter.objects.append(ob)
+        if ren and hasattr(ob, "add_to") and hasattr(ob, "widget"):
+            widgets.append(ob)  # defer until after actors are in renderer
+        else:
+            plain_objs.append(ob)
+
+    acts = plotter._scan_input_return_acts(plain_objs)
+
+    for a in acts:
+        if ren:
+            if isinstance(a, vedo.addons.BaseCutter):
+                a.add_to(plotter)  # from cutters
+                continue
+
+            if isinstance(a, vtki.vtkLight):
+                ren.AddLight(a)
+                continue
+
+            try:
+                ren.AddActor(a)
+            except TypeError:
+                ren.AddActor(a.actor)
+
+            try:
+                ir = plotter.renderers.index(ren)
+                a.rendered_at.add(ir)  # might not have rendered_at
+            except (AttributeError, ValueError):
+                pass
+
+            if isinstance(a, vtki.vtkFollower):
+                a.SetCamera(plotter.camera)
+            elif isinstance(a, vedo.visual.LightKit):
+                a.lightkit.AddLightsToRenderer(ren)
+
+    # Activate widgets after all actors are in the renderer so that
+    # ComputeVisiblePropBounds() returns meaningful bounds for PlaceWidget.
+    for w in widgets:
+        w.add_to(plotter)
+
+    return plotter
+
+
+def remove(plotter, *objs, at=None) -> Any:
+    """
+    Remove input object from the internal list of objects to be shown.
+
+    Objects to be removed can be referenced by their assigned name,
+    or by passing the object instance itself.
+
+    Wildcards are supported in the names.
+    E.g. `Eleph*nt` or `Eleph?nt` or `Eleph[aio]nt` will match `Elephant`.
+
+    Args:
+        at (int):
+            remove the object at the specified renderer
+    """
+    ren = plotter.renderer if at is None else plotter.renderers[at]
+    if not ren:
+        return plotter
+    ir = plotter.renderers.index(ren)
+
+    on_scene_actors = plotter.get_actors(include_non_pickables=True)
+
+    # add to objs_to_remove the ones with string name and remove the rest
+    objs_to_remove = []
+    for ob in utils.flatten(objs):
+        if ob is None:
+            continue
+        if isinstance(ob, str):
+            name = ob
+            for a in on_scene_actors:
+                # print("->> checking", [a])
+                vobj = _scene_object_from_prop(plotter, a)
+                if vobj and utils.string_match(name, vobj.name):
+                    # print(" ->> found", [vobj], vobj.name)
+                    objs_to_remove.append(vobj)
+
+        elif isinstance(ob, vedo.addons.BaseCutter):
+            ob.remove_from(plotter)  # from cutters
+            continue
+
+        elif isinstance(ob, vedo.visual.LightKit):
+            ob.lightkit.RemoveLightsFromRenderer(ren)
+            objs_to_remove.append(ob)
+            continue
+
+        else:
+            objs_to_remove.append(ob)
+
+    # remove objs_to_remove actors from the scene
+    for ob in objs_to_remove:
+        if hasattr(ob, "rendered_at"):
+            ob.rendered_at.discard(ir)
+
+        try:  # vtk actor
+            ren.RemoveActor(ob)
+        except TypeError:
+            try:  # vedo object
+                ren.RemoveActor(ob.actor)
+                if hasattr(ob, "scalarbar") and ob.scalarbar:
+                    ren.RemoveActor(ob.scalarbar)
+                if hasattr(ob, "_caption") and ob._caption:
+                    ren.RemoveActor(ob._caption)
+                if hasattr(ob, "shadows") and ob.shadows:
+                    for sha in ob.shadows:
+                        ren.RemoveActor(sha.actor)
+                if hasattr(ob, "trail") and ob.trail:
+                    ren.RemoveActor(ob.trail.actor)
+                    ob.trail_points = []
+                    if hasattr(ob.trail, "shadows") and ob.trail.shadows:
+                        for sha in ob.trail.shadows:
+                            ren.RemoveActor(sha.actor)
+            except AttributeError:
+                pass
+
+    plotter.objects = [ele for ele in plotter.objects if ele not in objs_to_remove]
+    return plotter
+
+
+def actors(plotter):
+    """Return the list of actors."""
+    return [ob.actor for ob in plotter.objects if hasattr(ob, "actor")]
+
+
+def remove_lights(plotter) -> Any:
+    """Remove all the present lights in the current renderer."""
+    if plotter.renderer:
+        plotter.renderer.RemoveAllLights()
+    return plotter
+
+
+def pop(plotter, at=None) -> Any:
+    """
+    Remove the last added object from the rendering window.
+    This method is typically used in loops or callback functions.
+    """
+    if at is not None and not isinstance(at, int):
+        # wrong usage pitfall
+        vedo.logger.error("argument of pop() must be an integer")
+        raise RuntimeError()
+
+    if plotter.objects:
+        plotter.remove(plotter.objects[-1], at=at)
+    return plotter
+
+
+def get_meshes(
+    plotter, at=None, include_non_pickables=False, unpack_assemblies=True
+) -> list:
+    """
+    Return a list of Meshes from the specified renderer.
+
+    Args:
+        at (int):
+            specify which renderer to look at.
+        include_non_pickables (bool):
+            include non-pickable objects
+        unpack_assemblies (bool):
+            unpack assemblies into their components
+    """
+    if at is None:
+        renderer = plotter.renderer
+        at = plotter.renderers.index(renderer)
+    elif isinstance(at, int):
+        renderer = plotter.renderers[at]
+
+    has_global_axes = False
+    if isinstance(plotter.axes_instances[at], vedo.Assembly):
+        has_global_axes = True
+
+    if unpack_assemblies:
+        acs = renderer.GetActors()
+    else:
+        acs = renderer.GetViewProps()
+
+    objs = []
+    acs.InitTraversal()
+    for _ in range(acs.GetNumberOfItems()):
+        if unpack_assemblies:
+            a = acs.GetNextItem()
+        else:
+            a = acs.GetNextProp()
+
+        if isinstance(a, vtki.vtkVolume):
+            continue
+
+        if include_non_pickables or a.GetPickable():
+            if a == plotter.axes_instances[at]:
+                continue
+            if has_global_axes and a in plotter.axes_instances[at].actors:
+                continue
+            obj = _scene_object_from_prop(plotter, a)
+            if obj is not None:
+                objs.append(obj)
+    return objs
+
+
+def get_volumes(plotter, at=None, include_non_pickables=False) -> list:
+    """
+    Return a list of Volumes from the specified renderer.
+
+    Args:
+        at (int):
+            specify which renderer to look at
+        include_non_pickables (bool):
+            include non-pickable objects
+    """
+    renderer = plotter.renderer if at is None else plotter.renderers[at]
+
+    vols = []
+    acs = renderer.GetVolumes()
+    acs.InitTraversal()
+    for _ in range(acs.GetNumberOfItems()):
+        a = acs.GetNextItem()
+        if include_non_pickables or a.GetPickable():
+            obj = _scene_object_from_prop(plotter, a)
+            if obj is not None:
+                vols.append(obj)
+    return vols
+
+
+def get_actors(plotter, at=None, include_non_pickables=False) -> list:
+    """
+    Return a list of actors/props from the specified renderer.
+
+    Args:
+        at (int):
+            specify which renderer to look at
+        include_non_pickables (bool):
+            include non-pickable objects
+    """
+    renderer = plotter.renderer if at is None else plotter.renderers[at]
+    if renderer is None:
+        return []
+
+    acts = []
+    acs = renderer.GetViewProps()
+    acs.InitTraversal()
+    for _ in range(acs.GetNumberOfItems()):
+        a = acs.GetNextProp()
+        if include_non_pickables or a.GetPickable():
+            acts.append(a)
+    return acts

@@ -1,0 +1,143 @@
+Metadata-Version: 2.4
+Name: hugpy-core
+Version: 0.4.81
+Summary: Hugpy Core: a small fleet API, worker console, dispatch and consolidated history.
+Author-email: putkoff <support@hugpy.ai>
+License: Proprietary
+Project-URL: UI, https://www.npmjs.com/package/@hugpy/ui
+Project-URL: Homepage, https://hugpy.ai
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Flask
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: hugpy-resources<0.2,>=0.1.2.8
+Requires-Dist: hugpy-settings>=0.1.2
+Requires-Dist: aiohttp>=3.9
+Requires-Dist: flask>=2
+Requires-Dist: hugpy-storage>=0.2.17
+Requires-Dist: hugpy-engine>=0.3.14
+Requires-Dist: hugpy-wrapper>=0.1.183
+Requires-Dist: hugpy-terminal<0.2,>=0.1.23
+Requires-Dist: psycopg[binary]>=3
+Requires-Dist: abstract_toolserver>=0.0.106
+Requires-Dist: abstract_database>=0.0.2.199
+Requires-Dist: abstract_flask>=0.0.0.1071
+Requires-Dist: abstract_utilities>=0.2.2.794
+Requires-Dist: flask-sock>=0.7
+Provides-Extra: terminal
+Requires-Dist: hugpy-fleet>=0.1.0; extra == "terminal"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: legacy
+Requires-Dist: abstract_toolserver[db,server]>=0.0.95; extra == "legacy"
+Requires-Dist: hugpy-media>=0.3.8; extra == "legacy"
+Requires-Dist: hugpy-video>=0.3.9; extra == "legacy"
+Provides-Extra: video
+Requires-Dist: hugpy-video>=0.3.9; extra == "video"
+Provides-Extra: media
+Requires-Dist: hugpy-media>=0.3.8; extra == "media"
+
+# Hugpy Core
+
+Core is the Flask console, API and fleet coordinator. It registers Wrapper hosts,
+mirrors their inventory and execution evidence into PostgreSQL, and routes work.
+Wrapper owns execution, loading, memory admission, worker settings and local model
+copies. Core uses Wrapper's reported feasibility; it does not run a second sizing
+solver. See [model data ownership](docs/MODEL_DATA_OWNERSHIP.md) and the
+[fleet execution direction](docs/FLEET_EXECUTION_CONTRACT.md).
+
+The package metadata defines the source version. Check the installed distribution
+and running service separately when diagnosing an installation.
+
+## Start and install
+
+With the package and its dependencies installed and a prepared Core PostgreSQL
+DSN in `HUGPY_CORE_DB`, the HTTP entry point is:
+
+```sh
+hugpy-core serve --host 127.0.0.1 --port 7020
+```
+
+Startup checks migrations and initializes Core services; use an isolated database
+for development. `serve` uses the threaded Werkzeug server. A bare `hugpy-core`
+uses the older Flask startup sequence with additional startup jobs.
+
+Core currently depends on Wrapper, Storage, Abstract Toolserver and the shared
+Flask/database/utilities libraries as well as Flask, aiohttp, psycopg and
+Flask-Sock. Exact floors and optional extras are in [pyproject.toml](pyproject.toml).
+Media and Video are optional: their distributions own their APIs and UI assets.
+Toolserver provisions databases; Core queries PostgreSQL directly.
+
+## API, UI and operations
+
+- [Operator guide](docs/OPERATOR-GUIDE.md): configuration, intake, optional apps,
+  Identity readiness and verification boundaries.
+- [Documentation index](docs/README.md): current contracts and historical designs.
+- [Route convention](docs/ROUTES-CONVENTION.md): category catalogs, explicit addon
+  blueprints and UI middleware. `/routes` is not an exhaustive endpoint inventory.
+- [Console source and component API](../ui/README.md): app and library builds.
+- [Intake deployment](../installers/deploy/INTAKE.md): independent collection and
+  bounded model-fact exchange between registered workers.
+
+The retired Basic aiohttp server, console and training extension are preserved
+in [archive/basic-runtime](../archive/basic-runtime/), outside the installable
+package. The active Flask application uses native Core readers; the compatibility
+flag and Basic CLI dispatch were removed. Existing databases are not migrated or
+deleted merely by this source change.
+
+<!-- hugpy-public-downloads-gallery -->
+## Downloads and feature gallery
+
+Get the Debian packages, architecture details, SHA-256 checksums and installation commands from [Hugpy Downloads](https://hugpy.ai/downloads/). The [feature gallery](https://hugpy.ai/downloads/#features) shows the console, Agent, Station, Media and Video interfaces. Screenshots reflect the versions captured; the current interface may differ.
+
+<details>
+<summary>Compute resources</summary>
+
+Model placement, GPU process usage, memory plans and per-model controls.
+
+![Compute resources](https://hugpy.ai/downloads/gallery/hugpy/hugpy-console.png)
+
+</details>
+
+<details>
+<summary>Worker model plans</summary>
+
+Compare models, context windows and allocation modes across workers.
+
+![Worker model plans](https://hugpy.ai/downloads/gallery/hugpy/hugpy-console_1.png)
+
+</details>
+
+<details>
+<summary>Inference metrics</summary>
+
+Explore recorded model activity and throughput by worker.
+
+![Inference metrics](https://hugpy.ai/downloads/gallery/hugpy/hugpy-metrics.png)
+
+</details>
+
+<details>
+<summary>Built-in documentation</summary>
+
+Quickstarts and guides for models, workers, clients and integrations.
+
+![Built-in documentation](https://hugpy.ai/downloads/gallery/hugpy/hugpy-docs.png)
+
+</details>
+
+<details>
+<summary>The Hugpy overview</summary>
+
+The shared entry point for the console, media tools and fleet.
+
+![The Hugpy overview](https://hugpy.ai/downloads/gallery/hugpy/hugpy-home.png)
+
+</details>
+

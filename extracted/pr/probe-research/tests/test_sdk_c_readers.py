@@ -196,7 +196,7 @@ def _parquet_call_code(call: str, file: Path, root: Path, run_id: str | None) ->
         return "\n".join([*head, call, "print('ok')", *_EXIT]) + "\n"
     return "\n".join([
         *head,
-        "from probe.sdk import inputs",
+        "from probe.sdk.capture import lineage as inputs",
         f"assert inputs.start({run_id!r})",
         call,
         f"got = inputs.collect_all({run_id!r}, wait_s=10)",
@@ -442,7 +442,7 @@ def test_a_writer_imported_by_name_before_init_is_seen(tmp_path) -> None:
         "user = types.ModuleType('early_writer')\n"
         "user.safe_save_file = safe_save_file\n"
         "sys.modules['early_writer'] = user\n"
-        "from probe.sdk import inputs\n"
+        "from probe.sdk.capture import lineage as inputs\n"
         "assert inputs.start('run-early-write')\n"
         f"user.safe_save_file({{'w': np.arange(3, dtype='float32')}}, {str(weights)!r})\n"
         "got = inputs.collect_all('run-early-write', wait_s=5)\n"
@@ -549,7 +549,7 @@ def test_the_wrappers_install_only_when_the_library_is_imported(tmp_path) -> Non
     _lib("h5py")
     code = (
         "import sys\n"
-        "from probe.sdk import inputs\n"
+        "from probe.sdk.capture import lineage as inputs\n"
         "assert inputs.start('run-lazy')\n"
         "heavy = ('pyarrow', 'h5py', 'safetensors', 'torch')\n"
         "assert not [m for m in heavy if m in sys.modules], [m for m in heavy if m in sys.modules]\n"
@@ -579,7 +579,7 @@ def test_a_reader_imported_by_name_before_init_is_seen(tmp_path) -> None:
         "user = types.ModuleType('early_user')\n"
         "user.safe_open, user.safe_load_file = early_open, early_load\n"
         "sys.modules['early_user'] = user\n"
-        "from probe.sdk import inputs\n"
+        "from probe.sdk.capture import lineage as inputs\n"
         "assert inputs.start('run-early')\n"
         f"user.safe_open({str(weights)!r}, framework='np').keys()\n"
         "got = inputs.collect_all('run-early', wait_s=5)\n"

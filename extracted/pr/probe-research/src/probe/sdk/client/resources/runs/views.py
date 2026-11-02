@@ -1,5 +1,5 @@
 """RunViewsMixin, Client's methods: expression views and spans over a run's series (twin:
-app/metric_views)."""
+app/runs/metrics/expressions)."""
 
 from __future__ import annotations
 from typing import Any

@@ -1,7 +1,6 @@
-import six
-
 import ebooklib
 from ebooklib import epub
+from ebooklib.utils import guess_type
 
 FILENAME_TYPES = [
     ("images/image_my_123.jpg", ebooklib.ITEM_IMAGE, "image/jpeg"),
@@ -27,7 +26,7 @@ class TestEpubItemInitialization:
         assert item.id is None
         assert item.file_name == ""
         assert item.media_type == ""
-        assert item.content == six.b("")
+        assert item.content == b""
         assert item.is_linear is True
         assert item.manifest is True
         assert item.book is None
@@ -36,22 +35,22 @@ class TestEpubItemInitialization:
         item = epub.EpubItem(
             uid="my_uid",
             file_name="Document/index.xhtml",
-            content=six.b("THIS IS CONTENT"),
+            content=b"THIS IS CONTENT",
         )
 
         assert item.get_id() == "my_uid"
         assert item.get_name() == "Document/index.xhtml"
-        assert item.get_content() == six.b("THIS IS CONTENT")
+        assert item.get_content() == b"THIS IS CONTENT"
 
     def test_content(self):
         item = epub.EpubItem(
-            content=six.b("THIS IS CONTENT"),
+            content=b"THIS IS CONTENT",
         )
 
-        assert item.get_content() == six.b("THIS IS CONTENT")
+        assert item.get_content() == b"THIS IS CONTENT"
 
-        item.set_content(six.b("NEW CONTENT"))
-        assert item.get_content() == six.b("NEW CONTENT")
+        item.set_content(b"NEW CONTENT")
+        assert item.get_content() == b"NEW CONTENT"
 
     def test_get_type(self):
         """Test item.get_type() method."""
@@ -65,14 +64,38 @@ class TestEpubItemInitialization:
 
         for file_name, _, media_type in FILENAME_TYPES:
             item = epub.EpubItem(
-                uid="id-{file_name}".format(file_name=file_name),  # noqa: UP032
+                uid=f"id-{file_name}",
                 file_name=file_name,
                 media_type=media_type,
             )
             book.add_item(item)
-            assert book.get_item_with_id("id-{file_name}".format(file_name=file_name)) == item  # noqa: UP032
+            assert book.get_item_with_id(f"id-{file_name}") == item
             assert book.get_item_with_href(file_name) == item
 
         assert len(list(book.get_items_of_type(ebooklib.ITEM_IMAGE))) == 3
         assert len(list(book.get_items_of_media_type("image/jpeg"))) == 2
         assert len(list(book.get_items())) == len(FILENAME_TYPES)
+
+    def test_add_item_guesses_media_type(self):
+        """add_item() fills in a missing media type from the file name."""
+
+        book = epub.EpubBook()
+
+        def add(uid, file_name):
+            item = epub.EpubItem(uid=uid, file_name=file_name)
+            book.add_item(item)
+            return item
+
+        assert add("id-png", "images/cover.png").media_type == "image/png"
+        assert add("id-xhtml", "text/chapter.xhtml").media_type == "application/xhtml+xml"
+
+        # Nothing recognisable in the file name.
+        assert add("id-unknown", "data/blob.zzz").media_type == "application/octet-stream"
+
+        # A compressed file name: guess_type reports the content encoding
+        # ("gzip") alongside the media type, and only the media type belongs
+        # in the manifest.
+        for uid, file_name in (("id-svgz", "images/map.svgz"), ("id-gz", "text/notes.txt.gz")):
+            media_type, encoding = guess_type(file_name)
+            assert encoding is not None, f"{file_name} no longer carries a content encoding"
+            assert add(uid, file_name).media_type == media_type

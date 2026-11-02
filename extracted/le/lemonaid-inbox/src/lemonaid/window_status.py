@@ -1,0 +1,392 @@
+"""Deterministic color formatting for tmux window/tab titles.
+
+Generates tmux-format colored output based on directory names,
+using a hash to pick from a color palette for visual distinction.
+
+## tmux Configuration
+
+This tool expects both `#{pane_path}` (from OSC 7) and `#{pane_current_path}`
+(from process cwd) to be passed. It prefers `pane_path` when available.
+
+Required tmux settings for OSC 7 support:
+
+    set -as terminal-features 'xterm*:osc7'
+    set -g set-titles on
+
+For a complete window-status-format example, see docs/tmux.md. Its quoting
+preserves empty values such as a missing OSC 7 pane_path.
+
+For session name with inverted colors:
+
+    set -g status-left '#(lemonaid-tmux-session-name "#{session_name}")'
+
+## Shell Setup
+
+Shells must send OSC 7 on every prompt for reliable directory tracking.
+See: https://github.com/tmux/tmux/issues/3098
+
+The escape sequence format is: \\033]7;file://HOSTNAME/PATH\\033\\\\
+"""
+
+import os
+import re
+import subprocess
+import sys
+from collections.abc import Collection
+
+from . import palette
+from .config import load_config
+
+# Special overrides for known directory names
+DIR_COLORS: dict[str, str] = {
+    "apps": "#00FFFF",  # Cyan
+    "libs": "#F1FA8C",  # Yellow
+    "mops": "#50FA7B",  # Green
+}
+
+# Special colors for known processes
+PROCESS_COLORS: dict[str, str] = {
+    "codex": "#26A34A",  # Medium green (darker than Claude)
+    "emacs": "#FFB86C",  # Orange
+    "emacsclient": "#E0922D",  # Darker orange
+    "git": "#BB55FF",  # Purple
+    "python": "#F1FA8C",  # Yellow
+    "python3": "#F1FA8C",
+    "node": "#50FA7B",  # Green
+    "npm": "#50FA7B",
+    "claude": "#50FA7B",  # Green
+    "opencode": "#7DCFFF",  # Sky blue
+}
+
+ACTIVE_PROCESS_COLORS: dict[str, str] = {
+    "codex": "#2FBF5A",  # Brighter for current window, still darker than Claude
+    "opencode": "#9AEDFE",  # Brighter sky blue
+}
+
+# Shells/wrappers that shouldn't be shown (just show directory instead)
+HIDDEN_PROCESSES: set[str] = {
+    "xonsh",
+    "bash",
+    "zsh",
+    "fish",
+    "sh",
+    "starship",
+    "mise",
+}
+
+# Standalone apps that should show ONLY the process name (no directory)
+# These are apps where the launch directory isn't meaningful
+STANDALONE_PROCESSES: set[str] = {
+    "claude",
+    "codex",
+    "opencode",
+    "emacs",
+    "emacsclient",
+    "lma",
+    "vim",
+    "nvim",
+    "htop",
+    "top",
+}
+
+# Interpreters where we prefer pane_title over the interpreter name.
+# Exact names checked first; _INTERPRETER_RE covers versioned variants (python3.14, etc.)
+INTERPRETER_PROCESSES: set[str] = {
+    "python",
+    "python3",
+    "node",
+    "ruby",
+    "perl",
+}
+_INTERPRETER_RE = re.compile(r"^(?:python\d+(?:\.\d+)?|node\d+(?:\.\d+)?)$")
+
+# Interpreters that commonly act as interactive shells (e.g. python -> xonsh/ipython).
+# When these have no meaningful title, treat them as shell windows.
+# Non-Python interpreters (node, ruby, perl) are almost always running apps.
+_SHELL_INTERPRETERS_RE = re.compile(r"^python\d*(?:\.\d+)?$")
+
+_NODE_APP_NAMES = {"codex", "opencode"}
+
+
+def _detect_named_app(pane_pid: str, names: Collection[str]) -> str | None:
+    """Check if a pane is running one of the named entrypoints.
+
+    The pane PID belongs to its shell. Its foreground child retains the
+    console-script name even when a launcher such as mise or uv sits between
+    the shell and the eventual interpreter.
+    """
+    try:
+        result = subprocess.run(
+            ["pgrep", "-lfa", "-P", pane_pid],
+            capture_output=True,
+            text=True,
+            timeout=1,
+        )
+        for line in result.stdout.splitlines():
+            for name in names:
+                if re.search(rf"(?:^|[/\s]){re.escape(name)}(?:\s|$)", line):
+                    return name
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def get_color(name: str) -> str:
+    """Get a deterministic color for a directory/file name."""
+    return DIR_COLORS.get(name, palette.color_for(name))
+
+
+def format_path(path: str) -> str:
+    """Format a path with tmux color codes.
+
+    Args:
+        path: A filesystem path (can be file:// URL or regular path)
+
+    Returns:
+        Tmux-formatted string with color codes like #[fg=#FF5555]
+    """
+    # Normalize: strip file://hostname prefix (e.g., file://MBP-0097.local/Users/...)
+    if path.startswith("file://"):
+        path = path[7:]  # Remove "file://"
+        # Find the first "/" which starts the actual path (after hostname)
+        slash_idx = path.find("/")
+        if slash_idx != -1:
+            path = path[slash_idx:]  # Keep from "/" onwards
+
+    # Replace $HOME with ~
+    home = os.environ.get("HOME", "")
+    if home and path.startswith(home):
+        path = "~" + path[len(home) :]
+
+    # Get path components
+    parts = [p for p in path.split("/") if p]
+
+    # Show just the last directory (or ~ for home)
+    if not parts:
+        return "/"
+
+    # If we're exactly at ~, show ~
+    if path == "~" or path == "~/":
+        display = "~"
+    # If it's a root-level directory (like /tmp), keep the leading slash
+    elif len(parts) == 1 and path.startswith("/"):
+        display = "/" + parts[0]
+    else:
+        display = parts[-1]
+
+    color = get_color(display)
+    return f"#[fg={color}]{display}#[fg=default]"
+
+
+def extract_app_from_title(
+    title: str | None, path: str, named_processes: Collection[str] = ()
+) -> str | None:
+    """Extract a meaningful app name from the pane title.
+
+    Many shells/prompts set titles like "app - hostname" or "app user@host path".
+    We try to extract just the app name from the beginning.
+
+    Returns None if no meaningful app name found.
+    """
+    if not title or not title.strip():
+        return None
+
+    # Shells and terminal apps conventionally put the running command before
+    # " | ". Lemon harnesses use the same title field for task descriptions,
+    # so only trust that prefix when it is a single command-like token.
+    title = title.strip()
+    prefix = title.split(" | ", 1)[0].strip()
+    if len(prefix.split()) != 1:
+        return None
+    first_word = prefix
+
+    if not first_word:
+        return None
+
+    # A configured name is authoritative even when it is also the directory
+    # basename, which is otherwise indistinguishable from a generic shell title.
+    if first_word in named_processes:
+        return first_word
+
+    # Skip if it looks like a path
+    if first_word.startswith("/") or first_word.startswith("~"):
+        return None
+
+    # Skip if it looks like a hostname or user@host
+    if "@" in first_word:
+        return None
+
+    # Skip if it matches common shell defaults
+    if first_word in {"bash", "zsh", "fish", "xonsh", "-bash", "-zsh", "sh"}:
+        return None
+
+    # Skip if it's the same as the last path component (common default)
+    path_parts = [p for p in path.split("/") if p]
+    if path_parts and first_word == path_parts[-1]:
+        return None
+
+    return first_word
+
+
+def _get_process_color(process: str, active: bool) -> str:
+    if active:
+        return ACTIVE_PROCESS_COLORS.get(process, PROCESS_COLORS.get(process, get_color(process)))
+    return PROCESS_COLORS.get(process, get_color(process))
+
+
+def format_process(process: str, active: bool) -> str | None:
+    """Format a process name with tmux color codes.
+
+    Returns None if the process should be hidden (shells, wrappers).
+    """
+    if not process or process in HIDDEN_PROCESSES:
+        return None
+
+    # Version strings like "2.1.11" are likely Claude Code
+    if re.match(r"^\d+\.\d+\.\d+$", process):
+        process = "claude"
+
+    color = _get_process_color(process, active)
+    return f"#[fg={color}]{process}#[fg=default]"
+
+
+def format_window(
+    path: str,
+    process: str | None = None,
+    title: str | None = None,
+    active: bool = False,
+    pane_pid: str | None = None,
+    named_processes: Collection[str] = (),
+) -> str:
+    named_processes = frozenset(named_processes)
+
+    # Normalize version strings (like "2.1.12") to "claude"
+    if process and re.match(r"^\d+\.\d+\.\d+$", process):
+        process = "claude"
+
+    is_interpreter = process in INTERPRETER_PROCESSES or bool(
+        process and _INTERPRETER_RE.match(process)
+    )
+
+    # Look through an interpreter's command line before title extraction. Some
+    # apps leave the shell's generic title in place, so the title has no name to
+    # recover even though the Python/Node entrypoint does.
+    detectable_apps = set(named_processes)
+    if process and (process.startswith("node") or _SHELL_INTERPRETERS_RE.match(process)):
+        detectable_apps.update(_NODE_APP_NAMES)
+    if pane_pid and detectable_apps:
+        detected = _detect_named_app(pane_pid, detectable_apps)
+        if detected:
+            process = detected
+
+    # Standalone apps: show ONLY the process name, no directory
+    if process in STANDALONE_PROCESSES or process in named_processes:
+        color = _get_process_color(process, active)
+        return f"#[fg={color}]{process}#[fg=default]"
+
+    # Check if this is a shell window (process will be hidden)
+    is_shell = process in HIDDEN_PROCESSES
+
+    formatted_path = format_path(path)
+
+    # If we have a meaningful title and process is an interpreter, prefer title
+    if is_interpreter:
+        app_name = extract_app_from_title(title, path, named_processes)
+        if app_name:
+            process = app_name
+            if process in STANDALONE_PROCESSES or process in named_processes:
+                color = _get_process_color(process, active)
+                return f"#[fg={color}]{process}#[fg=default]"
+        else:
+            if process and _SHELL_INTERPRETERS_RE.match(process):
+                is_shell = True
+                process = None
+
+    formatted_process = format_process(process, active) if process else None
+
+    if formatted_process:
+        return f"{formatted_process}: {formatted_path}"
+
+    # Shell windows get a $ prefix
+    if is_shell:
+        return f"${formatted_path}"
+    return formatted_path
+
+
+# Session name background color - a nice dark purplish blue
+SESSION_BG_COLOR = "#5865F2"  # Discord-like purple/blue
+
+
+def format_session(name: str) -> str:
+    """Format a session name with inverted colors (colored background).
+
+    Args:
+        name: The tmux session name
+
+    Returns:
+        Tmux-formatted string with dark purple/blue background and white text
+    """
+    return f"#[bg={SESSION_BG_COLOR},fg=#FFFFFF,bold] {name} #[default]"
+
+
+def main() -> None:
+    """CLI entry point for window status formatting.
+
+    Usage: lemonaid-tmux-window-status <pane_path> <pane_current_path>
+           [process] [title] [active] [pane_pid]
+
+    pane_path: from OSC 7 (xonsh sends this on every prompt)
+    pane_current_path: from process cwd (works for fish, bash but not xonsh)
+
+    Prefers pane_path (OSC 7) when available, falls back to pane_current_path.
+    This works for xonsh; fish/bash may show stale paths until they send OSC 7.
+    """
+    if len(sys.argv) > 2:
+        pane_path = sys.argv[1]
+        pane_current_path = sys.argv[2]
+        process = sys.argv[3] if len(sys.argv) > 3 else None
+        title = sys.argv[4] if len(sys.argv) > 4 else None
+        active_flag = sys.argv[5] if len(sys.argv) > 5 else "0"
+        active = active_flag == "1"
+        pane_pid = sys.argv[6] if len(sys.argv) > 6 else None
+        named_processes = load_config().tmux_window.named_processes
+
+        # Prefer OSC 7 path when available (works for xonsh)
+        path = pane_path if pane_path else pane_current_path
+
+        print(
+            format_window(
+                path,
+                process,
+                title,
+                active,
+                pane_pid,
+                named_processes=named_processes,
+            )
+        )
+    else:
+        print(
+            "Usage: lemonaid-tmux-window-status <pane_path> <pane_current_path> "
+            "[process] [title] [active] [pane_pid]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def session_main() -> None:
+    """CLI entry point for session name formatting.
+
+    Usage: lemonaid-tmux-session-name <session_name>
+
+    Returns the session name with inverted colors (colored background, black text).
+    """
+    if len(sys.argv) > 1:
+        session_name = sys.argv[1]
+        print(format_session(session_name))
+    else:
+        print("Usage: lemonaid-tmux-session-name <session_name>", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

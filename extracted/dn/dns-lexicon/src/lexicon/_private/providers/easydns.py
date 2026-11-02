@@ -3,7 +3,6 @@
 import json
 import logging
 from argparse import ArgumentParser
-from typing import List
 
 import requests
 
@@ -17,7 +16,7 @@ class Provider(BaseProvider):
     """Provider class for EasyDNS"""
 
     @staticmethod
-    def get_nameservers() -> List[str]:
+    def get_nameservers() -> list[str]:
         return ["easydns.net"]
 
     @staticmethod
@@ -28,7 +27,7 @@ class Provider(BaseProvider):
         parser.add_argument("--auth-token", help="specify token for authentication")
 
     def __init__(self, config):
-        super(Provider, self).__init__(config)
+        super().__init__(config)
         self.domain_id = None
         self.api_endpoint = (
             self._get_provider_option("api_endpoint") or "https://rest.easydns.net"
@@ -38,7 +37,7 @@ class Provider(BaseProvider):
         payload = self._get(f"/domain/{self.domain}")
         if "error" in payload:
             raise AuthenticationError(
-                f'{payload["error"]["code"]} {payload["error"]["message"]}'
+                f"{payload['error']['code']} {payload['error']['message']}"
             )
 
         if payload["data"]["exists"] == "N":
@@ -52,12 +51,13 @@ class Provider(BaseProvider):
     # Create record. If record already exists with the same content, do nothing'
 
     def create_record(self, rtype, name, content):
+        priority, content = self._split_priority(rtype, content)
         record = {
             "type": rtype,
             "domain": self.domain_id,
             "host": self._relative_name(name),
             "ttl": self._get_lexicon_option("ttl"),
-            "prio": 0,
+            "prio": priority,
             "rdata": content,
         }
         try:
@@ -85,7 +85,7 @@ class Provider(BaseProvider):
                 "type": record["type"],
                 "name": f"{record['host']}.{record['domain']}",
                 "ttl": record["ttl"],
-                "content": record["rdata"],
+                "content": self._join_priority(record),
                 "id": record["id"],
             }
             records.append(processed_record)
@@ -110,7 +110,9 @@ class Provider(BaseProvider):
         if name:
             data["host"] = self._relative_name(name)
         if content:
-            data["rdata"] = content
+            priority, data["rdata"] = self._split_priority(rtype, content)
+            if rtype in ("MX", "SRV"):
+                data["prio"] = priority
 
         self._post(f"/zones/records/{identifier}", data)
 
@@ -137,6 +139,32 @@ class Provider(BaseProvider):
         return True
 
     # Helpers
+
+    # easyDNS keeps the priority of an MX or SRV record in "prio".  The content
+    # of such a record is its whole RDATA, with the priority in front, as in
+    # "10 mail.example.com.", unless --priority gives the priority.  The rdata
+    # of an MX is its target alone, but the rdata of an SRV is its whole RDATA,
+    # priority included, as the easyDNS console writes it.
+    def _split_priority(self, rtype, content):
+        priority = self._get_lexicon_option("priority")
+        if rtype == "SRV" and content:
+            if priority is not None:
+                return int(priority), f"{priority} {content}"
+            first = content.partition(" ")[0]
+            return int(first) if first.isdigit() else 0, content
+        if priority is None and rtype == "MX" and content:
+            first, _, rest = content.partition(" ")
+            if rest and first.isdigit():
+                return int(first), rest
+        return int(priority) if priority else 0, content
+
+    # The content of a record that easyDNS lists, with the priority of an MX
+    # in front again, so that the content reads as it was given.  The rdata of
+    # an SRV holds its priority already.
+    def _join_priority(self, record):
+        if record["type"] == "MX" and record.get("prio") is not None:
+            return f"{record['prio']} {record['rdata']}"
+        return record["rdata"]
 
     def _request(self, action="GET", url="/", data=None, query_params=None):
         if data is None:

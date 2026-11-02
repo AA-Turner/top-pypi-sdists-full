@@ -1,0 +1,441 @@
+# Project:   HyperI CI
+# File:      .github/workflows/ci.yml
+# Purpose:   Self-hosting CI - hyperi-ci dogfoods its own version-first pipeline
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# quality + test run the LOCAL working tree (uv run --no-sources), so hyperi-ci's
+# own code is exercised by itself, not by the published version. The publish half
+# (plan + build + release-tail) is the pipeline consumers get, wired to the local
+# predict-version action and _release-tail.yml so a workflow change is caught here
+# first.
+#
+# Publish trigger: a push to main whose HEAD commit carries a `Release: true`
+# trailer (written by `hyperi-ci push --release`) tags HEAD and publishes. Every
+# other push validates only.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # The merge queue runs required checks on a gh-readonly-queue/main/* branch
+  # and stalls without this trigger (issue #228). Its ref is not main, so Plan
+  # resolves will-release=false.
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        required: false
+        default: ""
+        description: "Existing tag to re-publish. Omit and set from-head to release HEAD."
+      from-head:
+        type: string
+        required: false
+        default: ""
+        description: "'true' to release/retry the current HEAD - the CI creates the tag (issue #35). Mutually exclusive with `tag`."
+      bump:
+        type: string
+        required: false
+        default: "auto"
+        description: "Version resolution for from-head: auto | patch | minor (forced) | X.Y.Z (exact version)."
+
+# A queue entry's github.ref is its own gh-readonly-queue/main/pr-<n>-<sha>
+# branch, so it shares a group with nothing. Cancelling one would eject the PR.
+# A release gets its own group and is never cancelled, as in the <lang>-ci.yml
+# workflows (issue #717).
+concurrency:
+  group: "${{ github.workflow }}-${{ inputs.tag || (inputs.from-head == 'true' || github.event_name == 'push' && (contains(github.event.head_commit.message, 'Release: true') || contains(github.event.head_commit.message, 'Release:true') || contains(github.event.head_commit.message, 'Publish: true') || contains(github.event.head_commit.message, 'Publish:true'))) && format('release-{0}', github.ref) || github.ref }}"
+  cancel-in-progress: "${{ !(inputs.tag != '' || inputs.from-head == 'true' || github.event_name == 'push' && (contains(github.event.head_commit.message, 'Release: true') || contains(github.event.head_commit.message, 'Release:true') || contains(github.event.head_commit.message, 'Publish: true') || contains(github.event.head_commit.message, 'Publish:true'))) }}"
+
+# Least-privilege default (CodeQL actions/missing-workflow-permissions). Two jobs
+# elevate: release-tail (passes write down to _release-tail.yml) and plan
+# (semantic-release push-access verify on a publish predict).
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    # semantic-release core verifies push access (`git push --dry-run`)
+    # on a publish predict, which needs write. A fork PR never reaches that
+    # (will-publish is false off main), so its read-only token resolves the gates.
+    permissions:
+      contents: write
+    outputs:
+      run-checks: ${{ steps.predict.outputs.run-checks }}
+      run-build: ${{ steps.predict.outputs.run-build }}
+      will-release: ${{ steps.predict.outputs.will-release }}
+      next-version: ${{ steps.predict.outputs.version }}
+      fork: ${{ steps.predict.outputs.fork }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+          fetch-depth: 0  # full history - semantic-release dry-run reads it
+      - name: Predict version + derive gates
+        id: predict
+        uses: ./.github/actions/predict-version
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ inputs.tag }}
+          from-head: ${{ inputs.from-head }}
+          bump: ${{ inputs.bump }}
+          branch-build: ${{ vars.HYPERCI_BRANCH_BUILD }}
+
+      - name: Install uv (preflight)
+        if: steps.predict.outputs.will-release == 'true'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Preflight publish credentials
+        # semantic-release's verifyConditions equivalent: prove the tokens exist
+        # before anything compiles.
+        if: steps.predict.outputs.will-release == 'true'
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: uv run hyperi-ci preflight
+
+  commit-check:
+    name: Commit messages
+    # Landing gate for conventional-commit messages, the same job the
+    # <lang>-ci.yml workflows ship. NOT gated on plan.outputs.run-checks: it must
+    # validate every merge, not only publish-worthy pushes. Fatal on push to main
+    # and on merge_group (the queue's squash commit, base_sha..head_sha), advisory
+    # on pull_request for branch commits, fatal for the line a squash would land.
+    # See docs/ci-job-contract.md, "Under a merge queue".
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    # pull-requests: read reads the PR title live. A job-level block replaces the
+    # workflow default, so contents: read is restated.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # Keeps the job token away from the code this job runs (issue #402).
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: false
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Install dependencies
+        run: uv sync --no-sources
+      - name: Validate commit messages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --no-sources hyperi-ci check-commits
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+          # Full history + tags: the interface gate diffs against the last release
+          # tag (issue #31).
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          # The one job per run that saves the uv cache. Every other job restores only,
+          # because parallel savers on one key warn "Unable to reserve cache".
+          enable-cache: true
+          save-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --no-sources
+
+      - name: Lint
+        run: uv run --no-sources ruff check src/ tests/
+
+      - name: Format check
+        run: uv run --no-sources ruff format --check src/ tests/
+
+      - name: Workflow interface compat gate (#31)
+        # A regressed reusable-workflow/composite interface fails a consumer pinned
+        # to an older caller at startup.
+        run: uv run --no-sources python scripts/check-workflow-interfaces.py
+
+      - name: Version SSOT gate
+        # versions.yaml is the SSOT for external CLI tools and runtimes. The
+        # pre-commit symlink that enforced it does not exist on a fresh clone or
+        # runner, so this is the only CI enforcement.
+        #
+        # Offline: --check reads local files only. It fails on drifted pins, a
+        # missing `# hyperi-ci:pin` marker, and a `pin:` path that does not exist.
+        run: uv run --no-sources python scripts/update-versions.py --check
+
+      - name: Install native dependencies
+        run: uv run --no-sources hyperi-ci install-native-deps python
+
+      - name: Run quality checks
+        # The gate set every consumer gets, so a tool hyperi-ci ships but nobody
+        # can install fails here too.
+        env:
+          GITLEAKS_GH_ACTIONS_KEY: ${{ secrets.GITLEAKS_GH_ACTIONS_KEY }}
+        run: uv run --no-sources hyperi-ci run quality
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --no-sources
+
+      - name: Install vulture + hyperi-ci as uv tools
+        # Real-binary tests skip without these. uv's tool bin dir is not on PATH.
+        run: |
+          echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
+          # hyperi-ci:pin tools.vulture
+          VULTURE_VERSION="2.16"
+          uv tool install "vulture==${VULTURE_VERSION}"
+          uv tool install .
+
+      - name: Install osv-scanner (real-binary test, Linux only)
+        # The pinned osv-scanner asset is Linux-only, so macOS keeps skipping these tests.
+        if: matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/setup-osv-scanner
+
+      - name: Install lychee + alint (real-binary tests, Linux only)
+        # The quality stage's own pinned installers fetch Linux assets only.
+        if: matrix.os == 'ubuntu-latest'
+        run: uv run --no-sources python scripts/install-test-tools.py
+
+      - name: Run tests
+        run: uv run --no-sources pytest tests/ -v --tb=short
+
+  rehearsal:
+    name: Fixture rehearsal
+    # ---------------------------------------------------------------------
+    # A workflow or composite-action change is live on every consumer the moment
+    # it merges, while the CLI waits for a PyPI release (issue #215).
+    #
+    # ALWAYS runs and decides internally: a `paths:` filter would skip the job,
+    # and GitHub counts a skipped required check as satisfied (#177).
+    #
+    # It VERIFIES a rehearsal rather than running one: pushing a rewritten
+    # workflow to a fixture needs a GitHub App with `workflows: write` and the
+    # install override needs `variables: write`, and hypersec-ci-bot has neither.
+    # A developer runs scripts/rehearse-branch.py and this holds the PR to the
+    # record it leaves.
+    #
+    # Skipped in the merge queue: the record names the PR head commit and the
+    # queue's squash commit is a new SHA nobody can rehearse. The fleet sweep
+    # covers what lands.
+    # ---------------------------------------------------------------------
+    if: always() && github.event_name != 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --no-sources
+
+      - name: Scope the token to the fleet
+        id: fleet
+        run: uv run --no-sources python scripts/fixture_fleet.py >> "$GITHUB_OUTPUT"
+
+      - name: Mint a fleet read token
+        # The fixtures are private, so reading their records needs more than
+        # GITHUB_TOKEN. A fork PR cannot mint one and the gate stays red rather
+        # than passing on an unreadable fleet.
+        # This repo is in the list because the gate reads the PR's changed
+        # files from it.
+        id: bot
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},${{ steps.fleet.outputs.repos }}
+          permission-actions: read
+          permission-pull-requests: read
+
+      - name: Hold the change to a fixture rehearsal
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "Not a pull request - the fleet sweep covers what lands on main."
+            exit 0
+          fi
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::No fleet token. The ci-test-* fixtures are private, so this gate cannot read them from a fork PR - a maintainer must rehearse and re-run."
+            exit 2
+          fi
+          uv run --no-sources python scripts/rehearse-gate.py \
+            --pr "$PR_NUMBER" --branch "$HEAD_REF" --head-sha "$HEAD_SHA"
+
+  build:
+    name: Build
+    needs: [plan, quality, test]
+    if: needs.plan.outputs.run-build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+
+      - name: Stamp predicted version
+        # Write the version about to be tagged into pyproject.toml + VERSION before
+        # building, so the wheel and importlib.metadata carry the published value.
+        # Push and from-head release HEAD (stale tree). A plain `tag` dispatch is
+        # skipped because the tag's tree is already correct.
+        if: github.event_name == 'push' || inputs.from-head == 'true'
+        run: |
+          version="${{ needs.plan.outputs.next-version }}"
+          if [[ -z "$version" ]]; then
+            echo "::error::next-version output empty"
+            exit 1
+          fi
+          echo "Stamping version: $version"
+          if [[ -f pyproject.toml ]] && grep -qE '^\[project\]' pyproject.toml; then
+            sed -i -E "/^\[project\]/,/^\[/ s/^version[[:space:]]*=[[:space:]]*\"[^\"]*\"/version = \"$version\"/" pyproject.toml
+            echo "Stamped pyproject.toml"
+          fi
+          if [[ -f VERSION ]]; then
+            echo "$version" > VERSION
+            echo "Stamped VERSION"
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Upload build artifacts
+        # Upload VERSION alongside dist/ so the artifact root is the workspace. A
+        # single `path: dist/` makes upload-artifact strip the dist/ prefix, so the
+        # publish job's `uv publish` (globs dist/*) finds nothing (v2.6.12).
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-dist-default
+          path: |
+            dist/
+            VERSION
+          if-no-files-found: error
+          retention-days: 1
+
+  release-tail:
+    name: Release tail
+    needs: [plan, build]
+    # Passed to _release-tail.yml: its tag-and-release job commits + tags
+    # (contents), pushes GHCR (packages) and runs the semantic-release GH plugin
+    # (issues + pull-requests). Capped by the caller's grant.
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+      pull-requests: write
+    # Local ref, so a change to the shared tail runs here before any consumer
+    # pins it. Its tag-and-release job is gated on will-publish == 'true', so a
+    # non-release run reaches it only when build ran (run-build == will-publish).
+    uses: ./.github/workflows/_release-tail.yml
+    with:
+      language: python
+      will-publish: ${{ needs.plan.outputs.will-release }}
+      next-version: ${{ needs.plan.outputs.next-version }}
+      fork: ${{ needs.plan.outputs.fork }}
+      tag: ${{ inputs.tag }}
+      from-head: ${{ inputs.from-head }}
+      bump: ${{ inputs.bump }}
+      publish-target: oss
+      # hyperi-ci:pin runtimes.python
+      python-version: "3.14"
+    secrets: inherit
+
+  # ---------------------------------------------------------------------------
+  # gate -- the terminal context branch protection should require.
+  #
+  # Requiring `ci / Quality` does not work: GitHub counts a SKIPPED required
+  # check as satisfied, so a deliberate skip and a gate that never fired look
+  # the same. This job ALWAYS runs, so a skip cannot satisfy its context
+  # (issue #177).
+  # ---------------------------------------------------------------------------
+  gate:
+    name: Gate
+    if: always()
+    # commit-check is deliberately absent: it is not run-checks-gated, so it
+    # already fires on every push and works as a required context by itself.
+    needs: [plan, quality, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: false
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Install dependencies
+        run: uv sync --no-sources
+      - name: Report what actually ran
+        env:
+          HYPERCI_GATE_RUN_CHECKS: ${{ needs.plan.outputs.run-checks }}
+          HYPERCI_GATE_RUN_BUILD: ${{ needs.plan.outputs.run-build }}
+          HYPERCI_GATE_PLAN: ${{ needs.plan.result }}
+          HYPERCI_GATE_QUALITY: ${{ needs.quality.result }}
+          HYPERCI_GATE_TEST: ${{ needs.test.result }}
+          HYPERCI_GATE_BUILD: ${{ needs.build.result }}
+        run: uv run --no-sources hyperi-ci gate-check

@@ -5,22 +5,24 @@ from schemathesis.core.failures import (
     ContentTypeServerError,
     CustomFailure,
     Failure,
+    IgnoredAuth,
     MalformedJson,
     ResponseTimeExceeded,
     ServerError,
 )
 from schemathesis.graphql.checks import (
     GraphQLClientError,
+    GraphQLDataMismatch,
     GraphQLSchemaViolation,
     GraphQLServerError,
     UnexpectedGraphQLResponse,
 )
+from schemathesis.grpc.checks import MalformedGrpcMessage, UndeclaredGrpcFields, UndecodableGrpcRequest
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
     ContentDeserializationError,
     DiscriminatorMismatch,
     EnsureResourceAvailability,
-    IgnoredAuth,
     JsonSchemaError,
     MalformedMediaType,
     MissingContentType,
@@ -51,6 +53,10 @@ FAILURE_CLASSES: tuple[type[Failure], ...] = (
     GraphQLServerError,
     GraphQLSchemaViolation,
     UnexpectedGraphQLResponse,
+    GraphQLDataMismatch,
+    MalformedGrpcMessage,
+    UndeclaredGrpcFields,
+    UndecodableGrpcRequest,
     AcceptedNegativeData,
     RejectedPositiveData,
     MissingHeaderNotRejected,

@@ -1,5 +1,5 @@
 """The lifeboat: a hand-off kept outside every release, and its frozen wrapper
-(plan fool-proof-updates B1, B2, B5; `probe.service.lifeboat`).
+(plan fool-proof-updates B1, B2, B5; `probe.service.updater.lifeboat`).
 
 What these hold:
   * the wrapper (`/bin/sh L/lifeboat.sh <trigger>`, run here under /bin/sh)
@@ -37,11 +37,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.service import keeper, lifeboat, paths
+from probe.service import keeper
+from probe.service.updater import lifeboat
+from probe.foundation.service_api import paths
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the lifeboat is POSIX-only (/bin/sh)")
 
-SHARED = Path(lifeboat.__file__).resolve().parent.parent / "shared" / "updates"
+SHARED = Path(lifeboat.__file__).resolve().parents[2] / "shared" / "updates"
 #: `keeper.wanted` as the suite has it: False (a test HOME, PROBE_SERVICE_KEEPER=0).
 _WANTED = keeper.wanted
 #: sha256(lifeboat.sh)[:16]. FROZEN: every keeper unit and every session start
@@ -526,7 +528,7 @@ def test_install_lifeboat_has_the_keepers_guards(release, monkeypatch):
     service runs), never under a test's HOME, never after an Uninstall."""
     assert keeper.install_lifeboat() == "not wanted"
     assert not lifeboat.root().exists()
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
     assert keeper.install_lifeboat({"UV_INDEX_URL": "https://pypi.internal/simple"}).startswith("installed")
     assert _slot("current").is_file() and _slot("known-good").is_file()
     paths.private_dir(paths.root_dir())
@@ -538,24 +540,28 @@ def test_install_lifeboat_has_the_keepers_guards(release, monkeypatch):
 def an_update(monkeypatch):
     """`perform_update(s)` with its halves stood in (as test_parallel_install_update's),
     the CLI's step answering `cli["ok"]`, and every lifeboat refresh counted."""
-    from probe.cli import updater, upgrading
+    from probe.cli.install import updater, upgrade as upgrading
 
     cli = {"ok": True}
     refreshed: list = []
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {})
-    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
-    monkeypatch.setattr(upgrading, "_report_attempt", lambda *a, **k: None)
-    monkeypatch.setattr(updater, "upgrade_cli", lambda install, current, target: updater.CliResult(
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {})
+    monkeypatch.setattr(updater.updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater.cli_install, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(upgrading.finish, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(upgrading.package_step, "_report_attempt", lambda *a, **k: None)
+    monkeypatch.setattr(updater.cli_install, "upgrade_cli", lambda install, current, target: updater.CliResult(
         ran=True, ok=cli["ok"], changed=False, before=current, after=current, message="cli step"))
-    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi current"]))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package", lambda: upgrading._PiUpdate(["pi current"]))
+    monkeypatch.setattr(upgrading.package_step, "_update_pi_package", lambda: upgrading._PiUpdate(["pi current"]))
     plugin = updater.PluginResult(attempted=True, confirmed=True, changed=False, before="1", after="1",
                                   message="plugin current")
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: plugin)
-    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: plugin)
-    monkeypatch.setattr(updater, "stale_tap_daemons", lambda *a, **k: ())
-    monkeypatch.setattr(updater, "follows_without_restart", lambda *a, **k: False)
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: plugin)
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", lambda *a: plugin)
+    monkeypatch.setattr(updater.tap_sessions, "stale_tap_daemons", lambda *a, **k: ())
+    monkeypatch.setattr(updater.tap_sessions, "follows_without_restart", lambda *a, **k: False)
+    monkeypatch.setattr(updater.tap_result, "follows_without_restart", lambda *a, **k: False)
     monkeypatch.setattr(upgrading.root_skills, "refresh", lambda source: [])
-    monkeypatch.setattr(keeper, "refresh_lifeboat", lambda: refreshed.append(1) or "current")
+    monkeypatch.setattr(keeper.keeper, "refresh_lifeboat", lambda: refreshed.append(1) or "current")
     return SimpleNamespace(cli=cli, refreshed=refreshed, upgrading=upgrading)
 
 
@@ -594,7 +600,7 @@ def test_a_refresh_asks_the_login_shell_with_a_clean_environment(monkeypatch):
     last index settings (`install_lifeboat(None)`)."""
     import asyncio
 
-    from probe.service import loginenv
+    from probe.service.actions import loginenv
 
     seen: dict = {}
 
@@ -607,9 +613,9 @@ def test_a_refresh_asks_the_login_shell_with_a_clean_environment(monkeypatch):
     assert lifeboat.login_env() is None
     assert "HTTPS_PROXY" not in seen["env"] and seen["env"]["HOME"] == os.environ["HOME"]
     asked: list = []
-    monkeypatch.setattr(keeper, "install_lifeboat", lambda login=None: asked.append(login) or "current")
+    monkeypatch.setattr(keeper.keeper, "install_lifeboat", lambda login=None: asked.append(login) or "current")
     assert keeper.refresh_lifeboat() == "not wanted" and asked == []
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
     assert keeper.refresh_lifeboat() == "current" and asked == [None]
     assert asyncio.run(read(env={})) is None
 
@@ -620,18 +626,20 @@ def test_probe_doctor_refreshes_the_lifeboat(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import capabilities, doctor, probe_config_cli, service_calls
+    from probe.cli.wizard import state as capabilities, doctor
+    from probe.cli.wizard.doctor import probe_config_check as probe_config_cli
+    from probe.cli.lifecycle import service_calls
 
     main = importlib.import_module("probe.cli.main")
     asked: list = []
-    monkeypatch.setattr(capabilities, "refresh_mcp_token_verdict", lambda: None)
-    monkeypatch.setattr(doctor, "collect", lambda: SimpleNamespace(outbox_status=None))
-    monkeypatch.setattr(doctor, "rescue_outbox", lambda: None)
-    monkeypatch.setattr(doctor, "render", lambda *args, **kwargs: "rendered")
-    monkeypatch.setattr(doctor, "codex_hook_rows", lambda caps: [])
+    monkeypatch.setattr(capabilities.mcp_checks, "refresh_mcp_token_verdict", lambda: None)
+    monkeypatch.setattr(doctor.doctor, "collect", lambda: SimpleNamespace(outbox_status=None))
+    monkeypatch.setattr(doctor.repairs, "rescue_outbox", lambda: None)
+    monkeypatch.setattr(doctor.report, "render", lambda *args, **kwargs: "rendered")
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.doctor.codex_hook_rows", lambda caps: [])
     monkeypatch.setattr(service_calls, "view", lambda: {})
     monkeypatch.setattr(probe_config_cli, "doctor_rows", lambda fix: [])
-    monkeypatch.setattr(keeper, "refresh_lifeboat", lambda: asked.append(1) or "current")
+    monkeypatch.setattr(keeper.keeper, "refresh_lifeboat", lambda: asked.append(1) or "current")
     result = CliRunner().invoke(main.app, ["doctor"])
     assert result.exit_code == 0, result.output
     assert asked == [1]
@@ -658,7 +666,7 @@ def placed(release, monkeypatch):
     _stub(_slot("current"), version=1)
     _stub(_slot("known-good"), version=1)
     lifeboat.install()
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
     return _slot("current")
 
 
@@ -713,7 +721,7 @@ def test_no_promotion_without_proof(placed, acted, ok, active, latest):
 
 
 def test_never_promoted_from_a_test_home(placed, monkeypatch):
-    monkeypatch.setattr(keeper, "wanted", _WANTED)  # as it is: the suite's HOME is not the account's own
+    monkeypatch.setattr(keeper.keeper, "wanted", _WANTED)  # as it is: the suite's HOME is not the account's own
     _acted(placed)
     assert keeper.wanted() is False
     assert lifeboat.promote(ok=True, active="0.330.0", latest="0.330.0") is False
@@ -900,7 +908,7 @@ def test_the_real_v3_replaces_a_deployed_current_and_keeps_known_good(home, tmp_
     assert _slot("current").read_bytes() == v3 and lifeboat.handoff_version(_slot("current")) == 3
     assert _slot("known-good").read_bytes() == _deployed(known_good)
     assert lifeboat.install() == "current", "a second install changes nothing"
-    monkeypatch.setattr(keeper, "wanted", lambda: True)
+    monkeypatch.setattr(keeper.keeper, "wanted", lambda: True)
     assert not lifeboat.promote(ok=True, active="0.330.0", latest="0.330.0"), "v3 has rescued nothing yet"
     assert _slot("known-good").read_bytes() == _deployed(known_good)
 

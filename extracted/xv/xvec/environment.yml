@@ -1,0 +1,29 @@
+name: xvec_dev
+channels:
+  - conda-forge
+dependencies:
+  - python
+  # required
+  - shapely=2
+  - xarray
+  - cf_xarray
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  # documentation
+  - sphinx<8.2
+  - myst-nb
+  - sphinx-copybutton
+  - numpydoc
+  - geopandas
+  - pyarrow
+  - xproj
+  # linting
+  - ruff
+  - black
+  - pip
+  - pip:
+      - sphinx_autosummary_accessors
+      - sphinx-book-theme
+      - geodatasets

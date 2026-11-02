@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: crunch64
+Version: 0.6.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Summary: A library for handling common compression formats for N64 games
+Requires-Python: >=3.7
+Project-URL: Bug Tracker, https://github.com/decompals/crunch64/issues
+Project-URL: Homepage, https://github.com/decompals/crunch64

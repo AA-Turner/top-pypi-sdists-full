@@ -1,0 +1,456 @@
+//! The oracle: what the core cannot decide alone, asked of whoever holds the
+//! objects.
+//!
+//! A class hierarchy and a concrete value are facts of the host, and the core
+//! cannot see it. Every relation that turns on one -- whether a literal is a
+//! member of a class, whether two classes share an instance, what kind a
+//! constant is of -- is asked through this trait, and the answer is a proof
+//! or `None`: an implementor that cannot say leaves the relation undecided,
+//! and the procedure stays sound by treating undecided as "not proved". The
+//! default oracle decides nothing, which is the core's own reading of every
+//! such question.
+//!
+//! Each question is a method rather than a callback so the shipped page can
+//! list what the core asks and the mutation sweep can name the arms an answer
+//! is allowed to take.
+//!
+//! The module sits **below both deciders**, beside `kind.rs` and `verdict.rs`,
+//! and for the same reason: three readings ask these questions and none of them
+//! owns the answer. `descr/` builds the set a schema denotes, `decision.rs`
+//! decides structurally, and the constructors in `ir.rs` apply the lattice laws
+//! while a schema is built -- a join carrying a member together with its
+//! complement is the top, whichever of the three is looking. A law stated inside
+//! one of them and imported by the others is the edge `tests/
+//! test_module_direction.py` refuses.
+
+use crate::descr::classes::Reach;
+use crate::descr::lower::Constants;
+use crate::ir::{ClassIx, ConstIx, Constraint, DefIx, OperandIx, Schema};
+use crate::kind::Kind;
+
+/// Resolve the leaf relations the structural subtyping decision cannot.
+///
+/// Those are the ones that depend on the Python class hierarchy (an `Instance`)
+/// or on a concrete value (a `Literal`). The bindings implement it with
+/// `issubclass` and membership; the core defaults to [`NoLeafRelations`].
+///
+/// It carries [`Constants`] because both are the same question asked twice: the
+/// object table lives in the bindings, and an implementor that can answer what a
+/// `Literal` is a subtype of can also say what it *names*. Requiring it here is
+/// what lets a relation lower its two schemas -- a descriptor holding a constant
+/// as a value decides `MultipleOf(4) ≤ MultipleOf(2)`, which no rule about
+/// constraints reaches -- rather than declining every schema that names one.
+pub trait LeafRelations: Constants {
+    /// Whether leaf schema `sub` is a subtype of `sup`, or `None` to leave the
+    /// relation conservatively undecided.
+    fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool>;
+
+    /// Order the two pool values behind refinement bounds at indices `left` and
+    /// `right`, or `None` when the core cannot or the values are not comparable.
+    /// The default decides nothing, so bound satisfiability stays conservative.
+    fn compare(&self, _left: OperandIx, _right: OperandIx) -> Option<core::cmp::Ordering> {
+        None
+    }
+
+    /// Whether two *sets* of literal constants share no value, or `None` to
+    /// leave it to the pairwise question.
+    ///
+    /// The same relation [`literals_disjoint`](Self::literals_disjoint) answers
+    /// for one pair, asked of every pair at once. The core walks members against
+    /// members, which is quadratic in the oracle for two wide literal unions --
+    /// a shape a contract really writes, since an enumeration of codes is one.
+    /// An implementor that can hash its constants answers in one pass; the
+    /// default declines, and the walk stands.
+    fn literal_sets_disjoint(&self, _left: &[ConstIx], _right: &[ConstIx]) -> Option<bool> {
+        None
+    }
+
+    /// Whether no integer lies between the pool values at `lo` and `hi`, under the
+    /// strictness of each bound (`lo_strict` excludes `lo`, `hi_strict` excludes
+    /// `hi`). The core asks this only for an integer-discrete refinement base, and
+    /// reads both answers: `Some(true)` proves the interval admits no integer and
+    /// the refinement is empty, and `Some(false)` names an integer in it, which is
+    /// a value of the refinement. `None` decides neither — the default, so a core
+    /// with no value oracle never decides on integer adjacency.
+    fn no_int_between(
+        &self,
+        _lo: OperandIx,
+        _lo_strict: bool,
+        _hi: OperandIx,
+        _hi_strict: bool,
+    ) -> Option<bool> {
+        None
+    }
+
+    /// Whether the pool value at `step` divides the one at `multiple`, or `None`
+    /// when the core cannot ask or the two do not divide.
+    ///
+    /// The relation between two moduli: every multiple of `m` is a multiple of
+    /// `s` when `s` divides `m`, and the size of either is beside the point --
+    /// which is what separates this from the residue representation, whose
+    /// period is bounded and whose answer therefore is not about the schema.
+    ///
+    /// That holds of numbers, and `%` holds it of a value only where it reads
+    /// the value and both steps as one kind of number. Python's `%` reads an
+    /// `int` as a float against a float step, and an `int` step past `2**53` as
+    /// the float nearest it against a float value, and a `Decimal` raises once
+    /// a quotient outgrows its precision. So the answer is about the steps
+    /// alone, and the rule that reads it asks [`operand_kind`](Self::operand_kind)
+    /// and the base before it trusts it.
+    ///
+    /// Asked of the *operands* rather than computed, for the reason
+    /// [`compare`](Self::compare) is: a step is whatever a caller wrote, and
+    /// `int`, `float`, `Decimal` and `Fraction` each divide by their own rules.
+    /// `%` is the operator the walk uses on a value, so it is the operator this
+    /// uses on a step.
+    ///
+    /// The default decides nothing, so a core with no value oracle leaves every
+    /// divisibility question conservative.
+    fn divides(&self, _step: OperandIx, _multiple: OperandIx) -> Option<bool> {
+        None
+    }
+
+    /// Whether an atom the core cannot read denotes a *set* -- the same values
+    /// however often it is asked -- or `None` when the bindings cannot say.
+    ///
+    /// Asked of a class: `isinstance` against a metaclass that overrides
+    /// `__instancecheck__` runs user code, so two occurrences of one class can
+    /// disagree and `A ∩ ¬A` is not empty. Telling a pure class from a hooked one
+    /// needs the class object, which only the bindings hold. The default decides
+    /// nothing, so a core with no oracle treats every such atom as one it cannot
+    /// reason about -- the conservative direction, which declines a law rather
+    /// than applying it where it does not hold.
+    fn atom_denotes_a_set(&self, _atom: &Schema) -> Option<bool> {
+        None
+    }
+
+    /// The kind of the pooled constant behind a [`Schema::Literal`], or `None`
+    /// when the bindings decline to kind it.
+    ///
+    /// A literal denotes `{x | type(x) is type(c) and x == c}`, so its kind is
+    /// the kind of `c`'s type and the core cannot read it. Answering places the
+    /// literal in the partition, which is what decides it against another kind.
+    /// The default declines, so a core with no value oracle stays conservative.
+    fn literal_kind(&self, _constant: ConstIx) -> Option<Kind> {
+        None
+    }
+
+    /// The kind of the pooled value behind a refinement operand, or `None` when
+    /// the bindings decline to kind it.
+    ///
+    /// The same reading as [`literal_kind`](Self::literal_kind), asked of a
+    /// bound or a step: an exact builtin type is a kind, and anything else --
+    /// a subclass, a `Decimal`, a `Fraction` -- is declined. What `%` does with
+    /// a step turns on its kind and not only on its value, so the rule relating
+    /// two steps asks this before [`divides`](Self::divides) and reads an `int`
+    /// of any size, which [`Constants::operand`] cannot carry.
+    /// The default declines, so a core with no value oracle stays conservative.
+    fn operand_kind(&self, _operand: OperandIx) -> Option<Kind> {
+        None
+    }
+
+    /// Whether a value of `kind` can be an instance of the class behind a
+    /// [`Schema::Instance`], or `None` when the bindings decline to say.
+    ///
+    /// A class is the one atom the core cannot read at all, and disjointness is
+    /// the question it most often needs answered about one: a value of a kind
+    /// the class cannot hold is a value the class's set does not contain. The
+    /// question is asked this way round, rather than as "what kind is this
+    /// class", because a class need not have one -- a class deriving from no
+    /// builtin lays down no kind, and *that* is the answer that decides, since
+    /// its instances are none of the kinds the partition names.
+    ///
+    /// `Some(false)` is the only answer that refutes, so an implementor may
+    /// answer `Some(true)` for every kind its class could conceivably hold. It
+    /// must decline for a class whose `isinstance` runs user code, where
+    /// membership is not a property of the value's type at all. The default
+    /// declines, so a core with no oracle keeps every class conservative.
+    fn class_admits_kind(&self, _class: ClassIx, _kind: Kind) -> Option<bool> {
+        None
+    }
+
+    /// Whether a value whose *type is* the pooled class has `kind`.
+    ///
+    /// The narrower question beside [`class_admits_kind`](Self::class_admits_kind),
+    /// and the one a refutation can stand on. That one reads the whole subtree
+    /// -- a subclass may derive from a builtin, so a plain class *admits* every
+    /// kind -- and declines for a plain class because a claim there would be
+    /// unsound. This one asks about `type(v) is C` alone, where no subclass can
+    /// interfere: a direct instance of a class laying down no builtin layout is
+    /// a plain object and has none of the kinds the partition names.
+    ///
+    /// Both answers are used, so an implementor must not widen either. It must
+    /// decline for a class whose `isinstance` runs user code, and for a class
+    /// it cannot read.
+    fn direct_instance_of_kind(&self, _class: ClassIx, _kind: Kind) -> Option<bool> {
+        None
+    }
+
+    /// Whether every value of `kind` is an instance of the pooled class.
+    ///
+    /// The dual of [`direct_instance_of_kind`](Self::direct_instance_of_kind),
+    /// asked of the kind's own builtin: a value of `kind` built as that builtin
+    /// has `type(v)` equal to it, so the order between the builtin and the
+    /// class settles `isinstance`. `Some(false)` refutes -- the kind holds a
+    /// value the class does not -- and it is the only answer that does.
+    ///
+    /// It must decline for a class whose `isinstance` runs user code. The
+    /// default declines, so a core with no oracle keeps every class
+    /// conservative.
+    fn kind_derives_from(&self, _kind: Kind, _class: ClassIx) -> Option<bool> {
+        None
+    }
+
+    /// What attribute `name` of a direct instance of the pooled class can be,
+    /// or `None` when the bindings cannot read the class.
+    ///
+    /// The question the rules ask before a class met with a record is read as
+    /// inhabited: the value that makes it so is a direct instance of the class
+    /// holding a witness in each field, and the class decides whether it can.
+    /// The descriptor asks the same of the snapshot [`Constants::class`] gives,
+    /// which is why the default reads that snapshot: one answer for both
+    /// deciders, or neither. `None` is read as [`Reach::Unread`], the
+    /// conservative direction.
+    fn attribute_reach(&self, class: ClassIx, name: &str) -> Option<Reach> {
+        Some(self.class(class)?.reach(name))
+    }
+
+    /// Whether the two pooled constants behind a pair of [`Schema::Literal`]s
+    /// denote disjoint singletons, or `None` when it cannot be settled soundly.
+    ///
+    /// Two literals share no value when their constants have different types --
+    /// a literal pins `type(x)` exactly, so `Literal[1]` and `Literal[True]` are
+    /// disjoint although `1 == True` -- or when the types are the same and the
+    /// values differ under an equality the bindings trust. They must decline for
+    /// a type carrying user-defined equality, where two distinct constants may
+    /// still admit one value. The default declines.
+    fn literals_disjoint(&self, _left: ConstIx, _right: ConstIx) -> Option<bool> {
+        None
+    }
+
+    /// Whether the pooled constant behind a [`Schema::Literal`] is the only
+    /// value its literal denotes; `false` where the bindings cannot say.
+    ///
+    /// A literal denotes the values of its constant's exact type that `==` it.
+    /// Where `==` joins no other value to the constant -- an `int`, a `bool`, a
+    /// `str`, `bytes`, `None`, a float or complex number with no zero part, an
+    /// instance of a type that compares by identity -- that is the constant
+    /// alone, and the constant's membership is the literal's. Where it joins
+    /// more -- `-0.0` to `0.0`, `Decimal("1.00")` to `Decimal("1.0")`, two
+    /// instances of a type whose `__eq__` is its own -- the constant speaks for
+    /// the literal only before atoms that answer equal values alike. The
+    /// default answers `false`, the reading that keeps a proof only where the
+    /// supertype tells no two equal values apart.
+    fn constant_is_alone(&self, _constant: ConstIx) -> bool {
+        false
+    }
+}
+
+/// The trivial [`LeafRelations`] that decides nothing — the core default, under
+/// which `Instance` and `Literal` relations stay conservative.
+pub struct NoLeafRelations;
+
+impl LeafRelations for NoLeafRelations {
+    fn leaf_subtype(&self, _sub: &Schema, _sup: &Schema) -> Option<bool> {
+        None
+    }
+}
+
+/// An oracle that decides nothing reads no pool either, so a schema naming a
+/// constant refuses to lower here and is decided by the rules alone.
+impl Constants for NoLeafRelations {}
+
+/// Whether the intersection contains a schema and its complement (`A ∩ ¬A = ∅`).
+///
+/// The law is a law **about sets**, and it is applied only where both sides are
+/// one. An atom that runs a callback is not: a predicate is arbitrary code
+/// evaluated once per occurrence, so nothing makes the two occurrences agree.
+/// A predicate that alternates puts a value in `A` and in `¬A` at once, and the
+/// law would report the meet empty with that value as a witness against it.
+///
+/// The emptiness decision's reading of the complement law, with no definitions,
+/// decided structurally on the (small) member list. The constructors read
+/// [`has_complementary_pair_within`] with the definitions they hold, so the two
+/// apply one statement of the law, and construction does not fold to `nothing`
+/// what the decision declines to call empty.
+///
+/// A member list here may be in any order -- a rule or a law builds a meet
+/// directly -- so a member is found by a scan rather than a search.
+pub(crate) fn has_complementary_pair(members: &[Schema], oracle: &dyn LeafRelations) -> bool {
+    has_complementary_pair_within(members, Connective::Meet, oracle, &[], |wanted| {
+        members.contains(wanted)
+    })
+}
+
+/// Which connective a member list belongs to, which decides the one compound
+/// shape the complement law also reads there.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Connective {
+    /// A union's members: `A | ~A` is the top.
+    Join,
+    /// A meet's members: `A & ~A` is the bottom.
+    Meet,
+}
+
+/// The same, with the definitions a reference in `members` may name, and with
+/// `holds` answering whether a schema is one of `members`.
+///
+/// A `Ref` is not a set on its own evidence -- what it names is elsewhere -- so
+/// with no definitions to read, the fold declines for every recursive schema and
+/// `json & ~json` stands. Given them, the reference is resolved and the law
+/// applies to a fixpoint like any other set, a set and its complement meeting
+/// in nothing and joining to everything [FCB08, Def. 4.1], where the fixpoint
+/// is contractive [Cas23, Def. 2.1].
+///
+/// **A schema of the connective's own kind is held as its members.** A
+/// constructor flattens a nested join into the join, so `A | ~A` with `A = int |
+/// str` is the list `int, str, ~(int | str)`, where no single member is `A`:
+/// asked of one member at a time the fold would decline, and the join would
+/// stand beside a page saying none does. So a complement of a union, in a
+/// join, pairs with the members of that union, each in the list, and a
+/// complement of a meet, in a meet, with the members of that meet. The inner
+/// schema is asked whether it is a set, which is the whole of what the law
+/// needs.
+///
+/// `holds` is the caller's because the caller knows the list's order: a
+/// constructor's list is sorted, and a search there keeps a join of `n`
+/// complements to `n log n` comparisons where a scan is `n^2` -- two thousand
+/// complements take 22 ms and eight thousand 326 ms that way, in a debug
+/// build.
+pub(crate) fn has_complementary_pair_within(
+    members: &[Schema],
+    connective: Connective,
+    oracle: &dyn LeafRelations,
+    definitions: &[Schema],
+    holds: impl Fn(&Schema) -> bool,
+) -> bool {
+    members.iter().any(|member| {
+        let Schema::Complement(inner) = member else {
+            return false;
+        };
+        let paired = holds(inner)
+            || match (connective, &**inner) {
+                (Connective::Join, Schema::Union(parts))
+                | (Connective::Meet, Schema::Intersection(parts)) => parts.iter().all(&holds),
+                _ => false,
+            };
+        paired && denotes_a_set_within(inner, oracle, definitions)
+    })
+}
+
+/// Whether a schema denotes a *set*: the same values however often it is asked.
+///
+/// Sound rather than complete, and conservative in the direction that declines.
+/// A callback is the atom this rules out: `Predicate` runs user code, so two
+/// occurrences of one schema can disagree, and a law that assumes they agree is
+/// not a law about this.
+///
+/// An atom with no callback is a set **under the trust base**
+/// (`docs/14-soundness.md`): an attribute is a reading of the value, and a
+/// constant's `==`, a bound's comparison, a length and a step's `%` are answers
+/// Python's rules make facts about the value. A value whose method answers two
+/// calls differently is outside the sets a law here is about, and the five
+/// known-unsound tests in `tests/test_decision_adversarial.py` pin what it is
+/// answered. Python asks nothing of a predicate, and correct code answers one
+/// differently on two calls, so it is declined rather than assumed.
+///
+/// A class is referred to the `oracle`: `isinstance` against a metaclass that
+/// overrides `__instancecheck__` is a callback too, and telling a pure class from
+/// a hooked one needs the class object, which only the bindings hold.
+///
+/// A **reference** is read where `definitions` holds what it names, and refused
+/// where it does not -- a callback may hide behind a body that is not in hand.
+/// Given the body, a reference met again while that body is being walked is
+/// *assumed* to be a set: the greatest-fixpoint reading the rest of the
+/// recursion uses, and the only one that terminates.
+///
+/// **That assumption is contractivity [Cas23, Def. 2.1], and this does not
+/// check it.** A
+/// contractive body denotes one set of finite values, by induction on the
+/// value (`docs/dev/10-theory.md`, Recursion), which is what makes "the set the
+/// reference denotes" a thing to speak of at all; a body whose reference is
+/// unguarded may have many fixpoints or none, and `t = ~t` has none. Read as
+/// a set anyway, such a reference lets a caller fold `t | ~t` to the top --
+/// a lattice law applied to a set that does not exist.
+///
+/// The precondition is discharged before any `Ref` reaches here from the
+/// frontend: `recursive` builds its body around a `SelfRef`, which the arm
+/// below refuses outright, and `occurs_unguarded_under` runs on the resolved
+/// body before the definition is handed to anything. A caller assembling a
+/// definitions table by hand owes the same check.
+pub(crate) fn denotes_a_set_within(
+    schema: &Schema,
+    oracle: &dyn LeafRelations,
+    definitions: &[Schema],
+) -> bool {
+    every_node_within(schema, definitions, |node| asks_no_callback(node, oracle))
+}
+
+/// Whether one node runs no user code to answer membership: no predicate, and
+/// no class whose `isinstance` the bindings cannot vouch for.
+///
+/// Only the bindings hold the class, so only they can tell a pure one from a
+/// hooked one, and no answer is the conservative answer.
+pub(crate) fn asks_no_callback(node: &Schema, oracle: &dyn LeafRelations) -> bool {
+    match node {
+        Schema::Instance(_) => oracle.atom_denotes_a_set(node) == Some(true),
+        Schema::Refine { constraints, .. } => !constraints
+            .iter()
+            .any(|constraint| matches!(constraint, Constraint::Predicate(_))),
+        _ => true,
+    }
+}
+
+/// Whether `admits` holds of every node `schema` reaches, through the
+/// definitions a reference names: the walk [`denotes_a_set_within`] takes,
+/// with the question asked of each node left to the caller.
+///
+/// A reference is read where `definitions` holds what it names and refused
+/// where it does not, and a reference met again inside its own body is not
+/// read twice. A `SelfRef` is refused outright: it is a build marker, and what
+/// it stands for is not in hand.
+pub(crate) fn every_node_within(
+    schema: &Schema,
+    definitions: &[Schema],
+    mut admits: impl FnMut(&Schema) -> bool,
+) -> bool {
+    // The root is held beside the worklist rather than inside it. A one-element
+    // `vec![...]` is a heap allocation, and most schemas asked this question
+    // answer from the root alone -- an atom has no children to defer, and a
+    // refusal returns before reaching any. Seeding the loop this way leaves the
+    // worklist empty until a node actually has children, so the common call
+    // allocates nothing; the order is the stack's either way, since the root is
+    // the only thing the vector held.
+    let mut pending: Vec<&Schema> = Vec::new();
+    let mut root = Some(schema);
+    let mut open: Vec<DefIx> = Vec::new();
+    while let Some(node) = root.take().or_else(|| pending.pop()) {
+        match node {
+            Schema::Ref(index) => {
+                if open.contains(index) {
+                    continue;
+                }
+                let Some(body) = definitions.get(index.get()) else {
+                    return false;
+                };
+                open.push(*index);
+                pending.push(body);
+            }
+            Schema::SelfRef(_) => return false,
+            // Every other node is asked, then searched through its children,
+            // which the term states once. Restating the child set here is how
+            // a variant added later hides a node from this walk while an
+            // exhaustive `match` reports nothing.
+            _ => {
+                if !admits(node) {
+                    return false;
+                }
+                node.push_children(&mut pending);
+            }
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+pub(crate) mod tests;

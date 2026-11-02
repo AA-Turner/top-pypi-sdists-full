@@ -708,6 +708,270 @@ def test_an_outage_stops_the_barrier_at_once(app, tmp_path, monkeypatch, sleeps)
     assert _time.monotonic() - started < 2.5
 
 
+def _queue_open_archive(pod, run_id: str, tmp_path) -> None:
+    """The open's code-bytes archive, as `CodeUploadMixin` queues it: staged, non-blocking, on
+    its own lane."""
+    archive = tmp_path / "code.tar.gz"
+    archive.write_bytes(b"\x1f\x8b" + b"x" * 64)
+    queued = pod.journal.append_upload(
+        anchor="run", anchor_id=run_id, name="code-bytes.gz", src_path=str(archive),
+        content_type="application/gzip", kind="code_bytes", run_ref=run_id,
+        require_staged=True, blocking=False, lane=f"code-bytes:{run_id}",
+    )
+    assert queued.get("staged"), queued
+
+
+def _hung_store(app, monkeypatch, *, metrics_busy=lambda: False) -> None:
+    import httpx
+
+    real = app.handler
+
+    def handler(request):
+        if request.method == "PUT":
+            raise httpx.ReadTimeout("the store took the bytes and never answered", request=request)
+        if request.method == "POST" and request.url.path.endswith("/metrics") and metrics_busy():
+            return httpx.Response(503, json={"detail": "busy"})
+        return real(request)
+
+    monkeypatch.setattr(app, "handler", handler)
+
+
+def test_a_store_that_never_answers_the_archive_never_holds_the_barrier(app, tmp_path, monkeypatch, sleeps):
+    """The open's code-bytes archive rides its own lane, so its stall never read as an outage,
+    and the barrier waited the whole budget for it (native adversarial, pass 1). It is not waited
+    for at all: non-blocking on a lane of its own, it is no write the new epoch refuses."""
+    import time as _time
+    import warnings
+
+    monkeypatch.setenv("PROBE_TAKEOVER_DRAIN_SEC", "5")
+    _hung_store(app, monkeypatch)
+    old, pod2 = _requeue_scenario(app, tmp_path)
+    _queue_open_archive(pod2, old.id, tmp_path)
+    started = _time.monotonic()
+    with warnings.catch_warnings(record=True) as said:
+        warnings.simplefilter("always")
+        _launch(pod2)
+    assert _time.monotonic() - started < 2.5
+    assert not [w for w in said if "not delivered" in str(w.message) or "could not be reached" in str(w.message)]
+    assert {p["step_index"] for p in app.metric_points_posted[old.id]} == set(range(50))
+    assert [op.get("lane") for _, op in pod2.journal.pending() if op.get("kind") == "upload"] == [f"code-bytes:{old.id}"]
+
+
+def test_a_store_timeout_on_the_archive_never_strands_the_runs_data(app, tmp_path, monkeypatch, sleeps):
+    """Pass 1 read any unanswered stall of the barrier's pass as the server being down: one storage
+    timeout on the open's archive ended the barrier while the run's own lane only backed off a
+    503, the reopen moved the epoch, and the dead attempt's metrics were refused as stale
+    (native adversarial, pass 2). Only the run's own lane says the API is down."""
+    from probe.sdk.delivery.outbox.drain import drain as drain_module
+    from probe.sdk.delivery.outbox.drain.report import LaneStall
+
+    monkeypatch.setenv("PROBE_TAKEOVER_DRAIN_SEC", "30")
+    real_drain = drain_module.drain
+    passes = {"n": 0}
+
+    def counting_drain(*args, **kwargs):
+        barrier = kwargs.get("wait_for_lock") is False  # the barrier's passes
+        if barrier:
+            passes["n"] += 1
+        report = real_drain(*args, **kwargs)
+        if barrier and passes["n"] == 1:
+            # What a storage timeout on the archive's lane reports (no answer at all). The barrier
+            # no longer sends the archive (`only_ops`), so it is put there by hand: the guard that
+            # reads only the run's own lane stays the thing under test.
+            report.stalled_runs[f"code-bytes:{old.id}"] = LaneStall("ReadTimeout: no answer")
+        return report
+
+    monkeypatch.setattr(drain_module, "drain", counting_drain)
+    _hung_store(app, monkeypatch, metrics_busy=lambda: passes["n"] <= 1)
+    old, pod2 = _requeue_scenario(app, tmp_path)
+    _queue_open_archive(pod2, old.id, tmp_path)
+    _launch(pod2)
+    assert passes["n"] >= 2, "the barrier stopped after its first pass"
+    assert {p["step_index"] for p in app.metric_points_posted[old.id]} == set(range(50))
+    assert app.fenced_writes == []
+
+
+def test_a_hung_store_on_the_archive_queued_at_open_never_spends_the_barrier(app, tmp_path, monkeypatch, sleeps):
+    """The open queues its archive before any metric, and the barrier's pass, which no longer
+    waited for the archive, still sent it first: a store that takes the bytes and never answers
+    spent the barrier's budget there, and the dead attempt's metrics were left to the new epoch
+    (red team, native and Codex adversarial, pass 3). The barrier sends only what it waits for."""
+    import threading
+    import time as _time
+
+    import httpx
+
+    monkeypatch.setenv("PROBE_TAKEOVER_DRAIN_SEC", "4")
+    real = app.handler
+
+    def handler(request):
+        if request.method == "PUT":
+            threading.Event().wait(1.5)
+            raise httpx.ReadTimeout("the store took the bytes and never answered", request=request)
+        return real(request)
+
+    monkeypatch.setattr(app, "handler", handler)
+    outbox = tmp_path / "pv-outbox"
+    pod1 = make_client(app, tmp_spool=outbox, async_writes=True)
+    pod1.create_project("takeover-lab", "Takeover Lab", kind="general")
+    old = _launch(pod1)
+    _queue_open_archive(pod1, old.id, tmp_path)  # at open: ahead of every metric
+    for step in range(50):
+        old.log({"loss": 1.0 / (step + 1)}, step=step)
+    _quiet(app, old.id, 1000.0)
+    pod2 = make_client(app, tmp_spool=outbox, async_writes=True)
+    started = _time.monotonic()
+    _launch(pod2)
+    assert _time.monotonic() - started < 3.0, "the barrier waited on the archive's store"
+    assert {p["step_index"] for p in app.metric_points_posted[old.id]} == set(range(50))
+    assert app.fenced_writes == []
+
+
+@pytest.mark.parametrize("worker_alive", [True, False], ids=["delivered-elsewhere", "stranded-elsewhere"])
+def test_the_open_archive_under_another_credential_is_neither_waited_for_nor_stranded(
+    app, tmp_path, monkeypatch, sleeps, worker_alive
+):
+    """`_is_waited_for` at the barrier's two other sites (testing specialist, pass 3): the open's
+    archive in another credential's queue is not waited for while that queue's worker runs, and
+    not reported stranded when none does."""
+    import time as _time
+    import types
+    import warnings
+
+    monkeypatch.setenv("PROBE_TAKEOVER_DRAIN_SEC", "3")
+    old, pod2 = _requeue_scenario(app, tmp_path)
+    archive = {
+        "op_id": "c0de", "kind": "upload", "run_ref": old.id, "blocking": False,
+        "lane": f"code-bytes:{old.id}", "upload": {"name": "code-bytes.gz"},
+    }
+    elsewhere = types.SimpleNamespace(
+        receipt_enabled=False, dir=tmp_path / "elsewhere", worker_alive=lambda: worker_alive,
+        pending=lambda: [(tmp_path / "elsewhere" / "op.json", archive)],
+    )
+    monkeypatch.setattr(pod2.journal, "other_queues", lambda: [elsewhere])
+    started = _time.monotonic()
+    with warnings.catch_warnings(record=True) as said:
+        warnings.simplefilter("always")
+        _launch(pod2)
+    assert _time.monotonic() - started < 2.0
+    assert not [w for w in said if "not delivered" in str(w.message)], [str(w.message) for w in said]
+
+
+def _queue_waiting_upload(pod, run_id: str, tmp_path) -> None:
+    """A file the dead attempt logged right before it died, still in the waiting room: copied,
+    its credential scan not run yet (`defer_scan`, as `Run.log_artifact` queues one)."""
+    src = tmp_path / "notes.txt"
+    src.write_text("checkpoint notes\n")
+    queued = pod.journal.append_upload(
+        anchor="run", anchor_id=run_id, name="notes.txt", src_path=str(src),
+        content_type="text/plain", run_ref=run_id, require_staged=True, defer_scan=True,
+    )
+    assert queued.get("waiting"), queued
+
+
+def test_a_dead_attempts_waiting_upload_is_its_backlog_not_a_live_writer(app, tmp_path, monkeypatch, sleeps):
+    """The barrier sends only the op ids it listed (`only_ops`), and its own pass promoted the
+    dead attempt's waiting upload into an op it had not listed: unsent, it read as a live
+    writer's append, and the barrier gave the dead attempt's close back instead of retiring it
+    (review of #3804's last five commits). Promoted before the list is taken, it is backlog."""
+    old, pod2 = _requeue_scenario(app, tmp_path, close="failed")
+    _queue_waiting_upload(pod2, old.id, tmp_path)
+
+    _launch(pod2)
+
+    assert _queued_status(pod2.journal) == [], "the dead attempt's close went back in the queue"
+    (dead,) = pod2.journal.failed()
+    assert dead[1]["body"]["status"] == "failed" and "takeover" in dead[1]["last_error"]
+    assert [op for _, op in pod2.journal.pending() if op.get("kind") == "upload"] == []
+    assert len({p["step_index"] for p in app.metric_points_posted[old.id]}) == 50
+
+
+def test_a_first_pass_503_beside_a_waiting_upload_still_lands_before_the_reopen(app, tmp_path, monkeypatch, sleeps):
+    """The same misreading after a first pass that could not land everything (one 503, its
+    lane backed off with the promoted upload behind it): the barrier stopped there, the reopen
+    moved the epoch, and the dead attempt's metrics were fenced, with no warning."""
+    import httpx
+
+    real = app.handler
+    seen = {"metrics": 0}
+
+    def handler(request):
+        if request.method == "POST" and request.url.path.endswith("/metrics"):
+            seen["metrics"] += 1
+            if seen["metrics"] == 1:
+                return httpx.Response(503, json={"detail": "busy"})
+        return real(request)
+
+    monkeypatch.setattr(app, "handler", handler)
+    old, pod2 = _requeue_scenario(app, tmp_path)
+    _queue_waiting_upload(pod2, old.id, tmp_path)
+
+    _launch(pod2)
+
+    assert {p["step_index"] for p in app.metric_points_posted.get(old.id, [])} == set(range(50))
+    assert app.fenced_writes == []
+
+
+def test_a_dead_attempts_completed_close_lands_behind_its_waiting_upload(app, tmp_path, monkeypatch, sleeps):
+    """A fail-open close queued while the run's last upload still waited for its scan: the
+    barrier sent the `completed` close and left the upload it had promoted, unlisted, behind it
+    (state-machines specialist). The upload goes first, in queue order."""
+    outbox = tmp_path / "pv-outbox"
+    pod1 = make_client(app, tmp_spool=outbox, async_writes=True)
+    pod1.create_project("takeover-lab", "Takeover Lab", kind="general")
+    old = _launch(pod1)
+    old.log({"loss": 1.0}, step=0)
+    _queue_waiting_upload(pod1, old.id, tmp_path)
+    waiting = pod1.journal.waiting(run_ref=old.id)
+    monkeypatch.setattr(pod1.journal, "promote_for_close", lambda run_ref, timeout: waiting)
+    old.set_status("completed")
+    _quiet(app, old.id, 1000.0)
+    pod2 = make_client(app, tmp_spool=outbox, async_writes=True)
+    start = len(app.requests)
+
+    with pytest.raises(errors.ConflictError, match="already completed"):
+        _launch(pod2)
+
+    sent = app.requests[start:]
+    close = next(i for i, r in enumerate(sent) if r.method == "PATCH" and b'"status"' in (r.content or b""))
+    assert any("upload" in r.url.path or r.method == "PUT" for r in sent[:close]), [
+        (r.method, r.url.path) for r in sent
+    ]
+
+
+def test_a_waiting_upload_a_worker_promotes_mid_barrier_is_still_backlog(app, tmp_path, monkeypatch, sleeps):
+    """The detached worker a relaunch starts can hold the dead attempt's waiting upload while the
+    barrier lists its backlog, then promote it between two passes (red team). The op it writes
+    keeps the name the waiting room reserved for it: the same backlog, not a live writer's."""
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.outbox.drain import drain as drain_module
+
+    old, pod2 = _requeue_scenario(app, tmp_path, close="failed")
+    _queue_waiting_upload(pod2, old.id, tmp_path)
+    real_drain, real_promote = drain_module.drain, Journal.promote_waiting
+    passes = {"n": 0}
+
+    def drain_beside_a_worker(*args, **kwargs):
+        if kwargs.get("wait_for_lock") is not False or passes["n"]:
+            return real_drain(*args, **kwargs)
+        passes["n"] += 1
+        monkeypatch.setattr(Journal, "promote_waiting", lambda self, **kw: 0)  # the worker holds it
+        try:
+            report = real_drain(*args, **kwargs)
+        finally:
+            monkeypatch.setattr(Journal, "promote_waiting", real_promote)
+        real_promote(pod2.journal, run_ref=old.id)  # ... and promotes it once that pass is over
+        return report
+
+    monkeypatch.setattr(drain_module, "drain", drain_beside_a_worker)
+
+    _launch(pod2)
+
+    assert _queued_status(pod2.journal) == [], "the dead attempt's close went back in the queue"
+    assert [op for _, op in pod2.journal.pending() if op.get("kind") == "upload"] == []
+    assert len({p["step_index"] for p in app.metric_points_posted[old.id]}) == 50
+
+
 def test_a_takeover_says_how_the_new_attempt_will_be_alive(lab, app, sleeps):
     """Review of #2049: the takeover resets the run's liveness mode; the new
     attempt's own signals let the server re-derive it (2.2's writer-gone

@@ -15,9 +15,11 @@ import time
 
 import pytest
 
-from probe.service import client, paths, procid
-from probe.service.protocol import ErrorCode, Method, Mode
-from probe.service.registry import Outcome, Registry
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths, procid
+from probe.foundation.service_api.wire import ErrorCode, Method
+from probe.foundation.service_api.vocabularies import Mode
+from probe.service.sessions.sessions import Outcome, Registry
 from tests.service_harness import (  # noqa: F401 -- service_home is a fixture
     kill_agent,
     service_home,

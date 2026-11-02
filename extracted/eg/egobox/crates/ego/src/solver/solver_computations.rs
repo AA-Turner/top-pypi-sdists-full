@@ -1,0 +1,838 @@
+use crate::criteria::InfillComposition;
+use crate::errors::Result;
+use crate::{types::*, utils};
+use egobox_moe::{XType, to_discrete_space};
+
+use crate::utils::{compute_cstr_scales, logpofs, logpofs_grad, pofs, pofs_grad};
+use crate::{EgorSolver, solver::coego};
+
+use basin::{CostFunction, Problem};
+
+use egobox_doe::{Lhs, LhsKind, SamplingMethod};
+use egobox_moe::MixtureGpSurrogate;
+
+use log::{debug, info, warn};
+use ndarray::{
+    Array, Array1, Array2, ArrayBase, ArrayView2, Axis, Data, Ix1, Ix2, Zip, concatenate, s, stack,
+};
+use ndarray_rand::rand::seq::SliceRandom;
+
+use ndarray_rand::rand::Rng;
+use ndarray_stats::QuantileExt;
+use rand_xoshiro::Xoshiro256Plus;
+use serde::de::DeserializeOwned;
+
+const CSTR_DOUBT: f64 = 3.;
+
+fn neutral_infill_val(composition: InfillComposition) -> f64 {
+    if composition.is_log() { 0.0 } else { -1.0 }
+}
+
+fn neutral_infill_grad(dim: usize) -> Array1<f64> {
+    Array1::zeros(dim)
+}
+
+fn neutral_infill(composition: InfillComposition, dim: usize) -> (f64, Array1<f64>) {
+    (neutral_infill_val(composition), neutral_infill_grad(dim))
+}
+
+/// LocalMultiStarter is a multistart strategy that samples points in the xlimits.
+#[allow(dead_code)]
+pub(crate) struct LhsMultiStarter<'a, R: Rng + Clone> {
+    xlimits: &'a Array2<f64>,
+    rng: R,
+}
+
+impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter for LhsMultiStarter<'_, R> {
+    fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64> {
+        let sampling = Lhs::new(&self.xbounds(active))
+            .kind(LhsKind::Maximin)
+            .with_rng(&mut self.rng);
+        sampling.sample(n_start)
+    }
+
+    fn xbounds(&self, active: &[usize]) -> Array2<f64> {
+        coego::get_active_x(Axis(0), self.xlimits, active)
+    }
+}
+
+impl<'a, R: Rng + Clone> LhsMultiStarter<'a, R> {
+    #[allow(dead_code)]
+    pub fn new(xlimits: &'a Array2<f64>, rng: R) -> Self {
+        LhsMultiStarter { xlimits, rng }
+    }
+}
+
+/// MiddlePickerMultiStarter is a multistart strategy where starting points
+/// are picked in the area in between the training data points where
+/// infill criterion is expected to be high
+pub(crate) struct MiddlePickerMultiStarter<'a, 'b, R: Rng + Clone> {
+    xlimits: &'a Array2<f64>,
+    xtrain: &'b Array2<f64>,
+    rng: R,
+}
+
+impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter
+    for MiddlePickerMultiStarter<'_, '_, R>
+{
+    fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64> {
+        let xlimits = coego::get_active_x(Axis(0), self.xlimits, active);
+
+        let nt = self.xtrain.nrows();
+        // Compute the maximum number of points n to consider to generate midpoints
+        // to avoid too much computation when large training set
+        // Consider one tenth of training points as midpoints nb will grow as (n * (n-1) / 2)
+        // and multistart rarely exceeds 50. We do not want to pick only midpoints
+        // but keep some diversity by adding LHS points (at least when nt is small < 50).
+        let n = (nt / 10).max(2);
+
+        let xt = self.xtrain;
+        let mut indices: Vec<usize> = (0..xt.nrows()).collect();
+        indices.shuffle(&mut self.rng);
+        let selected = indices
+            .iter()
+            .take(n)
+            .map(|&i| xt.slice(s![i, ..]))
+            .collect::<Vec<_>>();
+        let xt = stack(Axis(0), &selected).unwrap();
+
+        let xt = coego::get_active_x(Axis(1), &xt, active);
+        let midpoints =
+            utils::start_points(&xt, &xlimits.column(0), &xlimits.column(1), Some(n_start));
+        let n_midpoints = midpoints.nrows();
+        let missing_points: i32 = n_start as i32 - n_midpoints as i32;
+        if missing_points <= 0 {
+            debug!("MiddlePickerMultiStarter: pick {n_midpoints} pts");
+            midpoints
+        } else {
+            debug!(
+                "MiddlePickerMultiStarter: pick {n_midpoints} pt(s), add {missing_points} LHS pt(s)"
+            );
+            // complete with LHS
+            let sampling = Lhs::new(&xlimits)
+                .kind(LhsKind::Maximin)
+                .with_rng(&mut self.rng);
+            let missings = sampling.sample((missing_points as usize).max(3)); // sampling with at least 3 points
+            let missings = missings.slice(s![0..(missing_points as usize), ..]);
+            concatenate(Axis(0), &[midpoints.view(), missings]).unwrap()
+        }
+    }
+
+    fn xbounds(&self, active: &[usize]) -> Array2<f64> {
+        coego::get_active_x(Axis(0), self.xlimits, active)
+    }
+}
+
+impl<'a, 'b, R: Rng + Clone> MiddlePickerMultiStarter<'a, 'b, R> {
+    pub fn new(xlimits: &'a Array2<f64>, xtrain: &'b Array2<f64>, rng: R) -> Self {
+        MiddlePickerMultiStarter {
+            xlimits,
+            xtrain,
+            rng,
+        }
+    }
+}
+
+impl<SB, C> EgorSolver<SB, C>
+where
+    SB: SurrogateBuilder + DeserializeOwned,
+    C: CstrFn,
+{
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn compute_scaling(
+        &self,
+        sampling: &Lhs<f64, Xoshiro256Plus>,
+        obj_model: &dyn MixtureGpSurrogate,
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_tols: &Array1<f64>,
+        fcstrs: &[impl CstrFn],
+        fmin: f64,
+        sigma_weight: f64,
+    ) -> (f64, Array1<f64>, Array1<f64>, f64) {
+        let npts = (100 * self.xlimits.nrows()).min(1000);
+        debug!("Use {npts} points to evaluate scalings");
+        let scaling_points = sampling.sample(npts);
+
+        let scale_ic = if self.config.infill_criterion.uses_dynamic_scaling() {
+            let scale_ic = self.config.infill_criterion.scaling(
+                &scaling_points.view(),
+                obj_model,
+                fmin,
+                None,
+                None,
+                Some(sigma_weight),
+            );
+            info!(
+                "{} scaling factor = {scale_ic}",
+                self.config.infill_criterion.name()
+            );
+            scale_ic
+        } else {
+            1.
+        };
+
+        let scale_infill_obj = if !self.config.infill_criterion.composition().is_log() {
+            let scale = self.compute_infill_obj_scale(
+                &scaling_points.view(),
+                obj_model,
+                cstr_models,
+                cstr_tols,
+                fmin,
+                scale_ic,
+                sigma_weight,
+            );
+            info!(
+                "Infill criterion {} scaling is updated to {}",
+                self.config.infill_criterion.name(),
+                scale
+            );
+            scale
+        } else {
+            1.
+        };
+        let scale_cstr = if cstr_models.is_empty() {
+            Array1::zeros((0,))
+        } else {
+            let scale_cstr = compute_cstr_scales(&scaling_points.view(), cstr_models);
+            info!("Surrogated constraints scaling is updated to {scale_cstr}");
+            scale_cstr
+        };
+
+        let scale_fcstr = if fcstrs.is_empty() {
+            Array1::zeros((0,))
+        } else {
+            let fcstr_values = self.eval_fcstrs(fcstrs, &scaling_points).map(|v| v.abs());
+            let mut scale_fcstr = Array1::zeros(fcstr_values.ncols());
+            Zip::from(&mut scale_fcstr)
+                .and(fcstr_values.columns())
+                .for_each(|sc, vals| *sc = *vals.max().unwrap());
+            info!("Fonctional constraints scaling is updated to {scale_fcstr}");
+            scale_fcstr
+        };
+        (scale_infill_obj, scale_cstr, scale_fcstr, scale_ic)
+    }
+
+    /// Mean prediction of a constraint surrogate model scaled by scale_cstr
+    pub fn mean_cstr(
+        cstr_model: &dyn MixtureGpSurrogate,
+        x: &[f64],
+        gradient: Option<&mut [f64]>,
+        scale_cstr: f64,
+        active: &[usize],
+    ) -> f64 {
+        let x = Array::from_shape_vec((1, x.len()), x.to_vec()).unwrap();
+        if let Some(grad) = gradient {
+            let grd = cstr_model
+                .predict_gradients(&x.view())
+                .unwrap()
+                .row(0)
+                .mapv(|v| v / scale_cstr)
+                .to_vec();
+            let grd_coop = grd
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| active.contains(i))
+                .map(|(_, &g)| g)
+                .collect::<Vec<_>>();
+            grad[..].copy_from_slice(&grd_coop);
+        }
+        cstr_model.predict(&x.view()).unwrap()[0] / scale_cstr
+    }
+
+    /// Upper trust bound prediction of a constraint surrogate model scaled by scale_cstr
+    /// with a doubt factor CSTR_DOUBT
+    pub fn upper_trust_bound_cstr(
+        cstr_model: &dyn MixtureGpSurrogate,
+        x: &[f64],
+        gradient: Option<&mut [f64]>,
+        scale_cstr: f64,
+        active: &[usize],
+    ) -> f64 {
+        let x = Array::from_shape_vec((1, x.len()), x.to_vec()).unwrap();
+
+        let (pred, var) = cstr_model.predict_valvar(&x.view()).unwrap();
+        let sigma = var[0].sqrt();
+        let cstr_val = pred[0];
+
+        if let Some(grad) = gradient {
+            let (pred_grad, var_grad) = cstr_model.predict_valvar_gradients(&x.view()).unwrap();
+            let sigma_prime = if sigma < f64::EPSILON {
+                0.
+            } else {
+                var_grad[[0, 0]] / (2. * sigma)
+            };
+            let grd = pred_grad
+                .row(0)
+                .mapv(|v| (v + CSTR_DOUBT * sigma_prime) / scale_cstr)
+                .to_vec();
+            let grd_coop = grd
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| active.contains(i))
+                .map(|(_, &g)| g)
+                .collect::<Vec<_>>();
+            grad[..].copy_from_slice(&grd_coop);
+        }
+        (cstr_val + CSTR_DOUBT * sigma) / scale_cstr
+    }
+
+    /// Virtual output values of the point `xk` used to select the next points of a qEI batch
+    /// (layout of the surrogates: objective(s) then constraints), depending on the qEI strategy:
+    /// * Kriging believer: prediction of each objective model (`mean`, `mean - 3 std` or
+    ///   `mean + 3 std` for the lower/upper bound variants) and constraint model predictions,
+    /// * constant liar minimum: the row of `y_data` minimizing the first objective, or with one
+    ///   surrogate per objective (EIM, EHVI) the ideal point (minimum of each column).
+    pub(crate) fn compute_virtual_point(
+        &self,
+        xk: &ArrayBase<impl Data<Elem = f64>, Ix1>,
+        y_data: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+        obj_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+    ) -> Result<Vec<f64>> {
+        if self.config.qei_config.strategy == QEiStrategy::ConstantLiarMinimum {
+            if self.config.is_per_objective() {
+                // With one surrogate per objective, lie with the ideal point: minimum of each
+                // column (objectives and constraints) over the finite values
+                Ok(y_data
+                    .columns()
+                    .into_iter()
+                    .map(|col| {
+                        col.iter()
+                            .filter(|v| v.is_finite())
+                            .fold(f64::INFINITY, |m, &v| m.min(v))
+                    })
+                    .collect())
+            } else {
+                let index_min = y_data.slice(s![.., 0]).argmin().unwrap();
+                Ok(y_data.row(index_min).to_vec())
+            }
+        } else {
+            let mut res: Vec<f64> = vec![];
+
+            let x = &xk.view().insert_axis(Axis(0));
+            let conf = match self.config.qei_config.strategy {
+                QEiStrategy::KrigingBeliever => 0.,
+                QEiStrategy::KrigingBelieverLowerBound => -3.,
+                QEiStrategy::KrigingBelieverUpperBound => 3.,
+                _ => unreachable!(), // never used
+            };
+            for obj_model in obj_models {
+                let pred = obj_model.predict(x)?[0];
+                let var = obj_model.predict_var(x)?[0];
+                res.push(pred + conf * f64::sqrt(var));
+            }
+            for cstr_model in cstr_models {
+                res.push(cstr_model.predict(x)?[0]);
+            }
+            Ok(res)
+        }
+    }
+
+    /// Compute the values imputed to a failed point `xk` (failsafe imputation strategy):
+    /// a pessimistic objective prediction (mean + standard deviation) and the constraint
+    /// predictions, each clamped within the range of the finite values of `y_data`.
+    ///
+    /// Clamping keeps imputed values in the observed range: as they are fed back
+    /// to the surrogates, unbounded values would otherwise blow up iteration after iteration.
+    ///
+    /// See Forrester et al., Engineering Design via Surrogate Modelling (2008), section 5.5.1.
+    pub(crate) fn compute_penalized_point(
+        &self,
+        xk: &ArrayBase<impl Data<Elem = f64>, Ix1>,
+        obj_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+        y_data: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Array1<f64> {
+        let x = &xk.view().insert_axis(Axis(0));
+        let n_obj = obj_models.len();
+        let mut res = Array1::from_elem(n_obj + cstr_models.len(), f64::NAN);
+        for (i, obj_model) in obj_models.iter().enumerate() {
+            if let (Ok(pred), Ok(var)) = (obj_model.predict(x), obj_model.predict_var(x)) {
+                res[i] = pred[0] + var[0].max(0.).sqrt();
+            }
+        }
+        for (i, m) in cstr_models.iter().enumerate() {
+            if let Ok(pred) = m.predict(x) {
+                res[n_obj + i] = pred[0];
+            }
+        }
+
+        Zip::from(&mut res)
+            .and(y_data.columns())
+            .for_each(|v, col| {
+                let (lo, hi) = col
+                    .iter()
+                    .filter(|y| y.is_finite())
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &y| {
+                        (lo.min(y), hi.max(y))
+                    });
+                if lo <= hi {
+                    // Unknown value is taken as the worst observed one
+                    *v = if v.is_finite() {
+                        (*v).clamp(lo, hi)
+                    } else {
+                        hi
+                    };
+                } else if !v.is_finite() {
+                    *v = 1e10;
+                }
+            });
+        res
+    }
+
+    /// The infill criterion scaling is computed using x (n points of nx dim)
+    /// given the objective function surrogate
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn compute_infill_obj_scale(
+        &self,
+        x: &ArrayView2<f64>,
+        obj_model: &dyn MixtureGpSurrogate,
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_tols: &Array1<f64>,
+        fmin: f64,
+        scale_ic: f64,
+        sigma_weight: f64,
+    ) -> f64 {
+        // Log acquisition values already express relative improvements. Dividing
+        // by a remote negative tail can erase their gradients and make absolute
+        // objective tolerances stop the inner optimizer at its starting point.
+        if self.config.infill_criterion.composition().is_log() {
+            return 1.0;
+        }
+        let mut crit_vals = Array1::zeros(x.nrows());
+        let (mut nan_count, mut inf_count) = (0, 0);
+
+        // Filter out points that are NaN or Inf in the infill criterion evaluation
+        Zip::from(&mut crit_vals).and(x.rows()).for_each(|c, x| {
+            let val = self.eval_infill_obj(
+                &x.to_vec(),
+                obj_model,
+                fmin,
+                None,
+                None,
+                scale_ic,
+                sigma_weight,
+                1.0,
+            );
+            *c = if val.is_nan() {
+                nan_count += 1;
+                1.0
+            } else if val.is_infinite() {
+                inf_count += 1;
+                1.0
+            } else {
+                val
+            };
+        });
+        if self.config.cstr_infill {
+            Zip::from(&mut crit_vals).and(x.rows()).for_each(|c, x| {
+                *c *= pofs(&x.to_vec(), cstr_models, &cstr_tols.to_vec());
+            });
+        }
+
+        if inf_count > 0 || nan_count > 0 {
+            debug!(
+                "Criterion scale computation warning: ({nan_count} NaN + {inf_count} Inf) / {} points",
+                x.nrows()
+            );
+        }
+        let scale = *crit_vals.mapv(|v| v.abs()).max().unwrap_or(&1.0);
+        if scale < 100.0 * f64::EPSILON {
+            1.0
+        } else {
+            scale
+        }
+    }
+
+    /// Compute infill criterion objective expected to be minimized
+    /// meaning infill criterion objective is negative infill criterion
+    /// the latter is expected to be maximized
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn eval_infill_obj(
+        &self,
+        x: &[f64],
+        obj_model: &dyn MixtureGpSurrogate,
+        fmin: f64,
+        viability_model: Option<&dyn MixtureGpSurrogate>,
+        alpha: Option<f64>,
+        scale: f64,
+        scale_ic: f64,
+        sigma_weight: f64,
+    ) -> f64 {
+        let x_f = x.to_vec();
+        let obj = -(self.config.infill_criterion.value(
+            &x_f,
+            obj_model,
+            fmin,
+            viability_model,
+            alpha,
+            Some(sigma_weight),
+            Some(scale_ic),
+        ));
+        obj / scale
+    }
+
+    /// Compute gradient of infill criterion objective expected to be minimized
+    /// meaning infill criterion objective is negative infill criterion
+    #[allow(clippy::too_many_arguments)]
+    pub fn eval_grad_infill_obj(
+        &self,
+        x: &[f64],
+        obj_model: &dyn MixtureGpSurrogate,
+        fmin: f64,
+        viability_model: Option<&dyn MixtureGpSurrogate>,
+        alpha: Option<f64>,
+        scale: f64,
+        scale_ic: f64,
+    ) -> Vec<f64> {
+        let x_f = x.to_vec();
+        let grad = -(self.config.infill_criterion.grad(
+            &x_f,
+            obj_model,
+            fmin,
+            viability_model,
+            alpha,
+            None,
+            Some(scale_ic),
+        ));
+        (grad / scale).to_vec()
+    }
+
+    /// Compute infill criterion objective with constraints handling
+    /// expected to be minimized meaning infill criterion objective is negative infill criterion
+    #[allow(clippy::too_many_arguments)]
+    pub fn eval_infill_obj_with_cstrs(
+        &self,
+        x: &[f64],
+        obj_model: &dyn MixtureGpSurrogate,
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_tols: &Array1<f64>,
+        fmin: f64,
+        viability_model: Option<&dyn MixtureGpSurrogate>,
+        alpha: Option<f64>,
+        scale: f64,
+        scale_ic: f64,
+        feasibility: bool,
+        sigma_weight: f64,
+    ) -> f64 {
+        let composition = self.config.infill_criterion.composition();
+        let infill_obj = if feasibility {
+            self.eval_infill_obj(
+                x,
+                obj_model,
+                fmin,
+                viability_model,
+                alpha,
+                scale,
+                scale_ic,
+                sigma_weight,
+            )
+        } else {
+            // when no feasible point is found,
+            // make the infill criterion value a neutral factor
+            // that is -1 when CEI, 0 when logCEI
+            // in order to just use probability of feasibility for the infill criterion value
+            // and not penalize it more than that
+            neutral_infill_val(composition)
+        };
+        if composition.is_log() {
+            infill_obj - logpofs(x, cstr_models, &cstr_tols.to_vec())
+        } else {
+            infill_obj * pofs(x, cstr_models, &cstr_tols.to_vec())
+        }
+    }
+
+    /// Compute gradient of infill criterion objective with constraints handling
+    #[allow(clippy::too_many_arguments)]
+    pub fn eval_grad_infill_obj_with_cstrs(
+        &self,
+        x: &[f64],
+        obj_model: &dyn MixtureGpSurrogate,
+        cstr_models: &[Box<dyn MixtureGpSurrogate>],
+        cstr_tols: &Array1<f64>,
+        fmin: f64,
+        viability_model: Option<&dyn MixtureGpSurrogate>,
+        alpha: Option<f64>,
+        scale: f64,
+        scale_ic: f64,
+        feasibility: bool,
+        sigma_weight: f64,
+    ) -> Vec<f64> {
+        if cstr_models.is_empty() {
+            self.eval_grad_infill_obj(x, obj_model, fmin, viability_model, alpha, scale, scale_ic)
+        } else {
+            let composition = self.config.infill_criterion.composition();
+
+            if composition.is_log() {
+                let infill_grad = if feasibility {
+                    Array1::from_vec(self.eval_grad_infill_obj(
+                        x,
+                        obj_model,
+                        fmin,
+                        viability_model,
+                        alpha,
+                        scale,
+                        scale_ic,
+                    ))
+                } else {
+                    // when no feasible point is found,
+                    // make the infill criterion gradient a neutral factor
+                    neutral_infill_grad(x.len())
+                };
+
+                let logcei_grad = infill_grad - logpofs_grad(x, cstr_models, &cstr_tols.to_vec());
+                logcei_grad.to_vec()
+            } else {
+                let (infill, infill_grad) = if feasibility {
+                    (
+                        self.eval_infill_obj(
+                            x,
+                            obj_model,
+                            fmin,
+                            viability_model,
+                            alpha,
+                            scale,
+                            scale_ic,
+                            sigma_weight,
+                        ),
+                        Array1::from_vec(self.eval_grad_infill_obj(
+                            x,
+                            obj_model,
+                            fmin,
+                            viability_model,
+                            alpha,
+                            scale,
+                            scale_ic,
+                        )),
+                    )
+                } else {
+                    // when no feasible point is found, use the criterion neutral fallback
+                    neutral_infill(composition, x.len())
+                };
+
+                let pofs = pofs(x, cstr_models, &cstr_tols.to_vec());
+                let pofs_grad = pofs_grad(x, cstr_models, &cstr_tols.to_vec());
+
+                let cei_grad = infill_grad * pofs + pofs_grad * infill;
+                cei_grad.to_vec()
+            }
+        }
+    }
+
+    /// Evaluate the objective function at given x points
+    pub fn eval_obj<
+        O: CostFunction<Param = Array2<f64>, Output = Array2<f64>, Error = crate::EgoError>,
+    >(
+        &self,
+        pb: &mut Problem<O>,
+        x: &Array2<f64>,
+    ) -> Result<Array2<f64>> {
+        let x = if self.config.discrete() {
+            // We have to cast x to folded space as EgorSolver
+            // works internally in the continuous space while
+            // the objective function expects discrete variable in folded space
+            to_discrete_space(&self.config.xtypes, x)
+        } else {
+            x.to_owned()
+        };
+        match pb.cost(&x) {
+            Ok(y) => Ok(y),
+            Err(err) => {
+                warn!("Objective function evaluation failed at x = {x:?} with error: {err}");
+                if self.config.stop_on_error {
+                    match err {
+                        // Avoid wrapping an objective function error twice
+                        crate::EgoError::ObjectiveFunctionError(_) => Err(err),
+                        _ => Err(crate::EgoError::ObjectiveFunctionError(err.to_string())),
+                    }
+                } else {
+                    Ok(Array2::from_elem(
+                        (x.nrows(), self.config.ny_raw()),
+                        f64::NAN,
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Evaluate the constraints given as function at given x points
+    pub fn eval_fcstrs(
+        &self,
+        fcstrs: &[impl CstrFn],
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Array2<f64> {
+        let mut unused = InfillObjData::default();
+
+        let mut res = Array2::zeros((x.nrows(), fcstrs.len()));
+        Zip::from(res.rows_mut())
+            .and(x.rows())
+            .for_each(|mut r, xi| {
+                let cstr_vals = &fcstrs
+                    .iter()
+                    .map(|cstr| {
+                        let xuser = self.fcstr_input(xi.as_slice().unwrap_or(&xi.to_vec()));
+                        cstr(&xuser, None, &mut unused)
+                    })
+                    .collect::<Array1<_>>();
+                r.assign(cstr_vals)
+            });
+
+        res
+    }
+
+    /// Convert a point from the internal continuous (unfolded) space to the space
+    /// expected by function constraints (discrete variables in folded space)
+    pub(crate) fn fcstr_input(&self, x: &[f64]) -> Vec<f64> {
+        if self.config.discrete() {
+            let xary = ArrayView2::from_shape((1, x.len()), x).unwrap();
+            to_discrete_space(&self.config.xtypes, &xary)
+                .row(0)
+                .to_vec()
+        } else {
+            x.to_vec()
+        }
+    }
+
+    /// Map a function constraint gradient computed in folded space `gfold`
+    /// to the internal continuous (unfolded) space `g`.
+    /// Gradient components are passed through for Float, Int and Ord variables
+    /// while they are zeroed for Enum one-hot components.
+    pub(crate) fn unfold_fcstr_gradient(&self, gfold: &[f64], g: &mut [f64]) {
+        let mut unfold_index = 0;
+        for (j, xtype) in self.config.xtypes.iter().enumerate() {
+            match xtype {
+                XType::Float(_, _) | XType::Int(_, _) | XType::Ord(_) => {
+                    g[unfold_index] = gfold[j];
+                    unfold_index += 1;
+                }
+                XType::Enum(v) => {
+                    g[unfold_index..unfold_index + v].fill(0.);
+                    unfold_index += v;
+                }
+            }
+        }
+    }
+
+    /// Evaluate the constraints given as function at given x points
+    /// within the problem structure so that the function is taken from there
+    pub fn eval_problem_fcstrs<O: Constraints<C>>(
+        &self,
+        pb: &Problem<O>,
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Array2<f64> {
+        let problem = pb.inner();
+        let fcstrs = problem.constraints();
+        let fcstr_specs = problem.constraint_specs();
+
+        let res = self.eval_fcstrs(fcstrs, x);
+        if let Some(specs) = fcstr_specs {
+            crate::types::transform_function_constraints(&res, specs)
+        } else {
+            res
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{EgorConfig, MooStrategy, to_xtypes};
+    use egobox_moe::GpMixtureParams;
+    use ndarray::array;
+
+    fn solver(n_obj: usize, strategy: MooStrategy) -> EgorSolver<GpMixtureParams<f64>, Cstr> {
+        let config = EgorConfig::default()
+            .xtypes(&to_xtypes(&array![[0., 1.]]))
+            .n_obj(n_obj)
+            .n_cstr(1)
+            .configure_moo(|moo| moo.strategy(strategy))
+            .configure_qei(|qei| qei.batch(2).strategy(QEiStrategy::ConstantLiarMinimum))
+            .check()
+            .unwrap();
+        EgorSolver::new(config)
+    }
+
+    #[test]
+    fn test_default_moo_strategy() {
+        let strategy = |n_obj: usize| {
+            EgorConfig::default()
+                .xtypes(&to_xtypes(&array![[0., 1.]]))
+                .n_obj(n_obj)
+                .check()
+                .unwrap()
+                .moo_strategy()
+        };
+        assert_eq!(strategy(2), MooStrategy::Ehvi);
+        assert_eq!(strategy(3), MooStrategy::Ehvi);
+        assert_eq!(strategy(4), MooStrategy::ParEgo);
+        assert_eq!(strategy(6), MooStrategy::ParEgo);
+        // an explicit strategy takes precedence
+        let config = EgorConfig::default()
+            .xtypes(&to_xtypes(&array![[0., 1.]]))
+            .n_obj(2)
+            .configure_moo(|moo| moo.strategy(MooStrategy::ParEgo))
+            .check()
+            .unwrap();
+        assert_eq!(config.moo_strategy(), MooStrategy::ParEgo);
+    }
+
+    #[test]
+    fn test_imputed_rows_only_with_imputation() {
+        let x_data = array![[0.1], [0.5], [0.9]];
+        let x_fail = array![[0.5]];
+        for (strategy, expected) in [
+            (FailsafeStrategy::Imputation, vec![1]),
+            (FailsafeStrategy::Rejection, vec![]),
+            (FailsafeStrategy::Viability, vec![]),
+        ] {
+            let config = EgorConfig::default()
+                .xtypes(&to_xtypes(&array![[0., 1.]]))
+                .n_obj(2)
+                .configure_moo(|moo| moo.strategy(MooStrategy::Eim))
+                .failsafe_strategy(strategy)
+                .check()
+                .unwrap();
+            assert_eq!(config.imputed_rows(&x_data, Some(&x_fail)), expected);
+        }
+    }
+
+    #[test]
+    fn test_constant_liar_virtual_point() {
+        // [f1, f2, c] with minima in different rows (and a non finite value)
+        let y = array![
+            [1., 5., 0.3],
+            [3., 2., -0.5],
+            [2., 4., f64::NAN],
+            [4., 1., 0.1]
+        ];
+        let xk = array![0.5];
+        // per-objective strategies: ideal point
+        let virtual_point = solver(2, MooStrategy::Eim)
+            .compute_virtual_point(&xk, &y, &[], &[])
+            .unwrap();
+        assert_eq!(virtual_point, vec![1., 1., -0.5]);
+        // mono-objective: row minimizing the first column
+        let y = array![[1., 0.3], [3., -0.5], [2., 0.1]];
+        let virtual_point = solver(1, MooStrategy::ParEgo)
+            .compute_virtual_point(&xk, &y, &[], &[])
+            .unwrap();
+        assert_eq!(virtual_point, vec![1., 0.3]);
+    }
+
+    #[test]
+    fn test_infeasible_infill_obj_matches_composition() {
+        assert_eq!(neutral_infill_val(InfillComposition::Linear), -1.0);
+        assert_eq!(neutral_infill_val(InfillComposition::Log), 0.0);
+    }
+
+    #[test]
+    fn test_neutral_infill_matches_composition() {
+        let (linear_value, linear_grad) = neutral_infill(InfillComposition::Linear, 3);
+        assert_eq!(linear_value, -1.0);
+        assert_eq!(linear_grad, Array1::<f64>::zeros(3));
+
+        let (log_value, log_grad) = neutral_infill(InfillComposition::Log, 2);
+        assert_eq!(log_value, 0.0);
+        assert_eq!(log_grad, Array1::<f64>::zeros(2));
+    }
+}

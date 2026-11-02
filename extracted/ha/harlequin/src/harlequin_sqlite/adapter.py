@@ -1,0 +1,700 @@
+from __future__ import annotations
+
+import sqlite3
+from contextlib import suppress
+from itertools import cycle, zip_longest
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, Sequence
+from urllib.parse import unquote, urlparse
+
+from harlequin.adapter import HarlequinAdapter, HarlequinConnection, HarlequinCursor
+from harlequin.autocomplete.completion import HarlequinCompletion
+from harlequin.catalog import (
+    Catalog,
+    CatalogItem,
+    CatalogSearchKind,
+    CatalogSearchResult,
+)
+from harlequin.exception import (
+    HarlequinConfigError,
+    HarlequinConnectionError,
+    HarlequinQueryError,
+)
+from harlequin.options import HarlequinAdapterOption, HarlequinCopyFormat
+from harlequin.transaction_mode import HarlequinTransactionMode
+from harlequin_sqlite.catalog import (
+    ColumnCatalogItem,
+    DatabaseCatalogItem,
+    RelationCatalogItem,
+    TableCatalogItem,
+    ViewCatalogItem,
+)
+from harlequin_sqlite.cli_options import SQLITE_OPTIONS
+from harlequin_sqlite.completions import get_completion_data
+
+if TYPE_CHECKING:
+    from textual_fastdatatable.backend import AutoBackendType
+
+IN_MEMORY_CONN_STR = (":memory:",)
+
+_LIKE_ESCAPE = "\\"
+"""What escapes a LIKE metacharacter in a term the caller typed."""
+
+_SEARCH_DATABASES = """
+select name from pragma_database_list where name like ? escape '\\'
+"""
+"""The attached databases whose name matches, which is SQLite's top level.
+
+Its own query rather than a branch of the one below: the others are per
+database, and this one asks about all of them at once.
+"""
+
+_SEARCH_RELATIONS = """
+select m.name, m.type, null, null
+from {db}.sqlite_schema m
+where m.type in ('table', 'view') and m.name like ? escape '\\'
+"""
+
+_SEARCH_COLUMNS = """
+select m.name, m.type, p.name, p.type
+from {db}.sqlite_schema m
+join pragma_table_info(m.name, ?) p
+where m.type in ('table', 'view') and p.name like ? escape '\\'
+"""
+
+_SEARCH_BRANCHES = {
+    "relations": (_SEARCH_RELATIONS,),
+    "columns": (_SEARCH_COLUMNS,),
+    "all": (_SEARCH_RELATIONS, _SEARCH_COLUMNS),
+}
+"""Which levels each kind unions, both branches in the same four columns.
+
+The database level is not here: it is one query for all of them rather than
+one per database, so `_matched_databases()` asks it separately.
+`_search_parameters()` binds in this order.
+"""
+
+_SEARCH_SQL = {
+    # `nulls first` explicitly rather than on SQLite's default, so that both
+    # bundled adapters promise the same thing about their order.
+    kind: " union all ".join(branches) + " order by 1, 3 nulls first"
+    for kind, branches in _SEARCH_BRANCHES.items()
+}
+"""One query per kind, per attached database, which is what SQLite has.
+
+`pragma_table_info` is the table-valued form of the pragma, so every relation's
+columns come back in one query rather than one per relation. Ordered so that a
+relation arrives before its own columns.
+"""
+
+
+def _search_parameters(kind: CatalogSearchKind, db_name: str, term: str) -> list[str]:
+    """What `_SEARCH_SQL[kind]` binds, in the order it binds them."""
+    pattern = _contains_pattern(term)
+    relation_parameters = [pattern]
+    # the pragma's schema argument sits ahead of the pattern in the query text
+    column_parameters = [db_name, pattern]
+    if kind == "relations":
+        return relation_parameters
+    if kind == "columns":
+        return column_parameters
+    return [*relation_parameters, *column_parameters]
+
+
+def _contains_pattern(term: str) -> str:
+    """A term as the LIKE pattern that matches any label containing it."""
+    escaped = term
+    for character in (_LIKE_ESCAPE, "%", "_"):
+        escaped = escaped.replace(character, f"{_LIKE_ESCAPE}{character}")
+    return f"%{escaped}%"
+
+
+class HarlequinSqliteCursor(HarlequinCursor):
+    def __init__(self, conn: HarlequinSqliteConnection, cur: sqlite3.Cursor) -> None:
+        self.conn = conn
+        self.cur = cur
+        self._limit: int | None = None
+        try:
+            _first_row = cur.fetchone()
+        except sqlite3.Error:  # maybe canceled query here
+            _first_row = None
+        self.has_records = _first_row is not None
+        self._first_row: tuple[Any, ...] = _first_row or tuple(
+            [None] * len(cur.description)
+        )
+
+    def columns(self) -> list[tuple[str, str]]:
+        col_names = [col[0] for col in self.cur.description]
+        col_types = [
+            self.conn._short_column_type_from_python_object(value)
+            for value in self._first_row
+        ]
+        return list(zip_longest(col_names, col_types, fillvalue="?"))
+
+    def set_limit(self, limit: int) -> "HarlequinSqliteCursor":
+        self._limit = limit
+        return self
+
+    def fetchall(self) -> AutoBackendType | None:
+        if not self.has_records or self._limit == 0:
+            # A result with no rows still has columns, and a caller handed None
+            # has no way to learn what they were -- so an export or a headless
+            # render would lose the header. An Arrow table carries the names,
+            # duplicates included, which a dict of columns would not.
+            #
+            # pyarrow is deferred: it is a guaranteed dependency, but importing
+            # it at module scope would put ~100ms on every `import
+            # harlequin_sqlite`, which the adapter API is careful not to cost.
+            import pyarrow as pa
+
+            names = [col[0] for col in self.cur.description]
+            return pa.Table.from_arrays(
+                [pa.array([], type=pa.string()) for _ in names], names=names
+            )
+
+        try:
+            if self._limit is None:
+                remaining_rows = self.cur.fetchall()
+            elif self._limit > 1:
+                # the first row is already in hand, so one fewer is wanted here
+                remaining_rows = self.cur.fetchmany(self._limit - 1)
+            else:
+                # `fetchmany(0)` reads as "all of them" in sqlite3, so a limit
+                # of one row is a call that must not be made at all.
+                remaining_rows = []
+        except sqlite3.OperationalError:  # maybe canceled here
+            return None
+        except sqlite3.Error as e:
+            raise HarlequinQueryError(
+                msg=str(e),
+                title=("SQLite raised an error when fetching results for your query:"),
+            ) from e
+        return [self._first_row, *remaining_rows]
+
+    def fetchone(self) -> tuple | None:
+        return self._first_row
+
+
+class HarlequinSqliteConnection(HarlequinConnection):
+    def __init__(self, conn: sqlite3.Connection, init_message: str = "") -> None:
+        self.conn = conn
+        self.init_message = init_message
+        self._transaction_modes: list[HarlequinTransactionMode | None] = (
+            [
+                HarlequinTransactionMode(label="Auto"),
+                HarlequinTransactionMode(
+                    label="Manual", commit=self.conn.commit, rollback=self.conn.rollback
+                ),
+            ]
+            if hasattr(conn, "autocommit")
+            else [None]
+        )
+        self._transaction_mode_gen = cycle(self._transaction_modes)
+        self._transaction_mode = next(self._transaction_mode_gen)
+        self._sync_connection_transaction_mode()
+
+    def execute(self, query: str) -> HarlequinSqliteCursor | None:
+        # the behavior on manual mode is really counter-intuitive; if a
+        # transaction isn't explicitly began, it's basically the same as
+        # auto. By forcing an explicit begin, the behavior is more like
+        # manual mode on other databases.
+        if (
+            self.transaction_mode
+            and self.transaction_mode.label == "Manual"
+            and not self.conn.in_transaction
+        ):
+            with suppress(sqlite3.Error):
+                self.conn.execute("begin;")
+        try:
+            cur = self.conn.execute(query)
+        except sqlite3.Error as e:
+            # no-op if user ran a begin; statement, since we already started the txn
+            if (
+                isinstance(e, sqlite3.OperationalError)
+                and str(e) == "cannot start a transaction within a transaction"
+            ):
+                return None
+            raise HarlequinQueryError(
+                msg=str(e),
+                title="SQLite raised an error when compiling or running your query:",
+            ) from e
+
+        if cur.description is not None:
+            return HarlequinSqliteCursor(conn=self, cur=cur)
+        else:
+            return None
+
+    def cancel(self) -> None:
+        self.conn.interrupt()
+
+    def get_catalog(self) -> Catalog:
+        catalog_items: list[CatalogItem] = []
+        databases = self._get_databases()
+        for database_label in databases:
+            catalog_items.append(
+                DatabaseCatalogItem.from_label(label=database_label, connection=self)
+            )
+        return Catalog(items=catalog_items)
+
+    def search_catalog(
+        self, term: str, kind: CatalogSearchKind = "all"
+    ) -> list[CatalogSearchResult]:
+        results: list[CatalogSearchResult] = []
+        matched_databases = self._matched_databases(term) if kind == "all" else set()
+        for db_name in self._get_databases():
+            database_item = DatabaseCatalogItem.from_label(
+                label=db_name, connection=self
+            )
+            if db_name in matched_databases:
+                results.append(CatalogSearchResult(item=database_item))
+            relations: dict[str, RelationCatalogItem] = {}
+            quoted_db = '"' + db_name.replace('"', '""') + '"'
+            try:
+                found = self.conn.execute(
+                    _SEARCH_SQL[kind].format(db=quoted_db),
+                    _search_parameters(kind, db_name, term),
+                ).fetchall()
+            except sqlite3.Error as e:
+                raise HarlequinQueryError(
+                    msg=str(e),
+                    title="SQLite raised an error searching the catalog:",
+                ) from e
+            for relation, relation_type, column, column_type in found:
+                relation_item = relations.setdefault(
+                    relation,
+                    self._relation_item(database_item, relation, relation_type),
+                )
+                if column is None:
+                    results.append(
+                        CatalogSearchResult(item=relation_item, parents=(db_name,))
+                    )
+                else:
+                    results.append(
+                        CatalogSearchResult(
+                            item=ColumnCatalogItem.from_parent(
+                                parent=relation_item,
+                                label=column,
+                                type_label=self._short_column_type(column_type),
+                                # a column can be declared without a type, and
+                                # an empty string is not one
+                                type_name=column_type or None,
+                            ),
+                            parents=(db_name, relation),
+                        )
+                    )
+        return results
+
+    def _matched_databases(self, term: str) -> set[str]:
+        """The attached databases whose name contains term.
+
+        Asked in SQL rather than compared here, so that the top level matches a
+        term the same way every level below it does.
+        """
+        try:
+            found = self.conn.execute(
+                _SEARCH_DATABASES, [_contains_pattern(term)]
+            ).fetchall()
+        except sqlite3.Error as e:
+            raise HarlequinQueryError(
+                msg=str(e),
+                title="SQLite raised an error searching the catalog:",
+            ) from e
+        return {name for (name,) in found}
+
+    def get_completions(self) -> list[HarlequinCompletion]:
+        return get_completion_data(self.conn)
+
+    @property
+    def transaction_mode(self) -> HarlequinTransactionMode | None:
+        return self._transaction_mode
+
+    def toggle_transaction_mode(self) -> HarlequinTransactionMode | None:
+        new_mode = next(self._transaction_mode_gen)
+        self._transaction_mode = new_mode
+        self._sync_connection_transaction_mode()
+        return new_mode
+
+    def close(self) -> None:
+        self.conn.close()
+
+    def _sync_connection_transaction_mode(self) -> None:
+        if not self._transaction_mode or not hasattr(self.conn, "autocommit"):
+            return
+
+        if self.conn.in_transaction:
+            self.conn.commit()
+
+        if self.transaction_mode and self.transaction_mode.label == "Auto":
+            self.conn.autocommit = True
+        else:
+            self.conn.autocommit = False
+
+    def _get_databases(self) -> list[str]:
+        objects: list[tuple[str, str, str]] = self.conn.execute(
+            "pragma database_list"
+        ).fetchall()
+        return [db_name for _, db_name, _ in objects]
+
+    def _get_relations(self, db_name: str) -> list[tuple[str, str]]:
+        objects = self.conn.execute(
+            f'select type, name from "{db_name}".sqlite_schema'
+        ).fetchall()
+        relations = [(name, typ) for typ, name in objects if typ in ("table", "view")]
+        return relations
+
+    def _get_columns(self, db_name: str, rel_name: str) -> list[tuple[str, str, str]]:
+        return self.conn.execute(
+            f"pragma {db_name}.table_info('{rel_name}')"
+        ).fetchall()
+
+    @staticmethod
+    def _relation_item(
+        parent: DatabaseCatalogItem, label: str, relation_type: str
+    ) -> RelationCatalogItem:
+        """A relation of the class `fetch_children()` would have built for it."""
+        item_class = ViewCatalogItem if relation_type == "view" else TableCatalogItem
+        return item_class.from_parent(
+            parent=parent, label=label, type_name=relation_type
+        )
+
+    @staticmethod
+    def _short_column_type(raw_type: str) -> str:
+        # first get the storage affinity for a type decl
+        if raw_type is None or raw_type == "":
+            affinity = ""
+
+        typ = raw_type.lower()
+        if "int" in typ:
+            affinity = "INTEGER"
+        elif any([x in typ for x in ["char", "clob", "text"]]):
+            affinity = "TEXT"
+        elif "blob" in typ:
+            affinity = "BLOB"
+        elif any([x in typ for x in ["real", "floa", "doub"]]):
+            affinity = "REAL"
+        else:
+            affinity = "NUMERIC"
+
+        # then lookup the abbreviation for the affinity
+        mapping = {
+            "": "",
+            "TEXT": "s",
+            "NUMERIC": "#.#",
+            "INTEGER": "##",
+            "REAL": "#.#",
+            "BLOB": "b",
+        }
+        return mapping.get(affinity, "?")
+
+    @staticmethod
+    def _short_column_type_from_python_object(obj: object) -> str:
+        mapping: dict[type | None, str] = {
+            None: "",
+            str: "s",
+            float: "#.#",
+            int: "##",
+            object: "b",
+        }
+        return mapping.get(type(obj), "?")
+
+    @staticmethod
+    def _short_relation_type(raw_type: str) -> str:
+        mapping = {"table": "t", "view": "v"}
+        return mapping.get(raw_type, "?")
+
+    def copy(
+        self, query: str, path: Path, format_name: str, options: dict[str, Any]
+    ) -> None:
+        raise NotImplementedError
+
+    def validate_sql(self, text: str) -> str:
+        raise NotImplementedError
+
+
+class HarlequinSqliteAdapter(HarlequinAdapter):
+    ADAPTER_OPTIONS: list[HarlequinAdapterOption] | None = SQLITE_OPTIONS
+    COPY_FORMATS: list[HarlequinCopyFormat] | None = None
+    IMPLEMENTS_CANCEL = True
+    IMPLEMENTS_CATALOG_SEARCH = True
+    IMPLEMENTS_READ_ONLY = True
+    ADAPTER_DETAILS = "This is an SQLite adapter part of Harlequin core."
+
+    def __init__(
+        self,
+        conn_str: Sequence[str],
+        init_path: Path | str | None = None,
+        no_init: bool | str = False,
+        read_only: bool = False,
+        mode: Literal["ro", "rw", "rwc", "memory"] | None = None,
+        lock_timeout: str | float = 5.0,
+        detect_types: str | int = 0,
+        isolation_level: Literal["DEFERRED", "EXCLUSIVE", "IMMEDIATE"] = "DEFERRED",
+        cached_statements: str | int = 128,
+        extension: list[str] | None = None,
+        **_: Any,
+    ) -> None:
+        try:
+            self.conn_str = (
+                conn_str
+                if conn_str and conn_str != ("",) and mode != "memory"
+                else IN_MEMORY_CONN_STR
+            )
+            self.init_path = (
+                Path(init_path).expanduser().resolve()
+                if init_path is not None
+                else Path.home() / ".sqliterc"
+            )
+            self.no_init = bool(no_init)
+            self.read_only = bool(read_only)
+            self.mode = mode
+            self.lock_timeout = float(lock_timeout)
+            self.detect_types = int(detect_types)
+            self.isolation_level = isolation_level
+            self.cached_statements = int(cached_statements)
+            self.extensions = extension if extension is not None else []
+            self.can_load_extensions = hasattr(
+                sqlite3.Connection, "enable_load_extension"
+            )
+        except (ValueError, TypeError) as e:
+            raise HarlequinConfigError(
+                msg=f"SQLite adapter received bad config value: {e}",
+                title="Harlequin could not initialize the selected adapter.",
+            ) from e
+
+        if self.extensions and not self.can_load_extensions:
+            raise HarlequinConfigError(
+                title="Harlequin could not initialize the selected adapter.",
+                msg=(
+                    "SQLite adapter received --extension option, but extensions "
+                    "are disabled on this SQLite distribution. See "
+                    "https://harlequin.sh/docs/sqlite/extensions"
+                ),
+            )
+
+    @property
+    def connection_id(self) -> str | None:
+        if self.conn_str == IN_MEMORY_CONN_STR:
+            return ""
+        return ",".join(
+            [Path(conn).resolve().as_posix() for conn in sorted(self.conn_str)]
+        )
+
+    def connect(self) -> HarlequinSqliteConnection:
+        if self.read_only and self.mode is not None and self.mode != "ro":
+            raise HarlequinConnectionError(
+                "Cannot specify readonly flag and a connection mode."
+            )
+        elif self.read_only:
+            mode_str = "?mode=ro"
+        elif self.mode is not None:
+            mode_str = f"?mode={self.mode}"
+        else:
+            mode_str = ""
+
+        # build db strings
+        db_uris: list[str] = []
+        db_names: list[str] = []
+        for s in self.conn_str:
+            if s == ":memory:":
+                db_uris.append(s)
+                db_names.append("memory")
+            elif s.startswith("file:"):
+                db_uris.append(s)
+                db_names.append(Path(unquote(urlparse(s).path)).stem)
+            else:
+                try:
+                    p = Path(s).resolve()
+                    db = f"{p.as_uri()}{mode_str}"
+                    db_uris.append(db)
+                    db_names.append(p.stem)
+                except ValueError as e:
+                    raise HarlequinConnectionError(
+                        f"Cannot build URI from connection string {s}.",
+                        title="SQLite couldn't connect to your database.",
+                    ) from e
+        primary_db, *other_dbs = db_uris
+        try:
+            conn = sqlite3.connect(
+                database=primary_db,
+                timeout=self.lock_timeout,
+                detect_types=self.detect_types,
+                isolation_level=self.isolation_level,
+                cached_statements=self.cached_statements,
+                check_same_thread=False,
+                uri=True,
+            )
+            # sqlite won't error on connect if you open a file that isn't a sqlite db
+            # running pragma database_list will raise, though:
+            _ = conn.execute("pragma database_list")
+        except sqlite3.Error as e:
+            if "file is not a database" in (msg := str(e)):
+                msg = (
+                    "sqlite raised the following error when trying to open "
+                    f"{primary_db}:\n---\n{msg}\n---\n\n"
+                    "Did you mean to use Harlequin's DuckDB adapter instead? "
+                    f"Maybe try:\nharlequin -a duckdb {' '.join(self.conn_str)}\n"
+                    f"or:\nharlequin -P None {' '.join(self.conn_str)}"
+                )
+            raise HarlequinConnectionError(
+                msg=msg,
+                title="SQLite couldn't connect to your database.",
+            ) from e
+
+        # Python 3.12 added an autocommit attribute, which should be
+        # turned on by default
+        if hasattr(conn, "autocommit"):
+            conn.autocommit = True
+
+        for uri, name in zip(other_dbs, db_names[1:], strict=False):
+            try:
+                conn.execute(f"attach database '{uri}' as {name}")
+            except sqlite3.Error as e:
+                if "file is not a database" in (msg := str(e)):
+                    msg = (
+                        "sqlite raised the following error when trying to open "
+                        f"{uri}:\n---\n{msg}\n---\n\n"
+                        "Did you mean to use Harlequin's DuckDB adapter instead? "
+                        f"Maybe try:\nharlequin -a duckdb {' '.join(self.conn_str)}\n"
+                        f"or:\nharlequin -P None {' '.join(self.conn_str)}"
+                    )
+                raise HarlequinConnectionError(
+                    msg=msg, title="SQLite couldn't connect to your database."
+                ) from e
+
+        if self.can_load_extensions:
+            conn.enable_load_extension(True)
+
+        for extension in self.extensions:
+            try:
+                conn.load_extension(extension)
+            except sqlite3.Error as e:
+                raise HarlequinConnectionError(
+                    str(e), title="SQLite couldn't load your extension."
+                ) from e
+
+        init_msg = ""
+        if self.init_path is not None and not self.no_init:
+            init_script = self._read_init_script(self.init_path)
+            count = 0
+            for command in self._split_script(init_script):
+                rewritten_command = self._rewrite_init_command(command)
+                for cmd in rewritten_command.split(";"):
+                    if cmd.strip():
+                        try:
+                            conn.execute(cmd)
+                        except sqlite3.Error as e:
+                            msg = (
+                                f"Attempted to execute script at {self.init_path}. "
+                                f"Contents:\n{command}\nRewritten to:\n"
+                                f"{rewritten_command}\nCurrently executing:\n"
+                                f"{cmd}\nError:\n{e}"
+                            )
+                            if not self.can_load_extensions and isinstance(
+                                e, sqlite3.OperationalError
+                            ):
+                                msg += (
+                                    "\nWarning: Cannot load extensions with this "
+                                    "SQLite distribution. See "
+                                    "https://harlequin.sh/docs/sqlite/extensions"
+                                )
+                            raise HarlequinConnectionError(
+                                msg,
+                                title=(
+                                    "SQLite could not execute your initialization "
+                                    "script."
+                                ),
+                            ) from e
+                        else:
+                            count += 1
+            if count > 0:
+                init_msg = (
+                    f"Executed {count} {'command' if count == 1 else 'commands'} "
+                    f"from {self.init_path}"
+                )
+        self.ADAPTER_DRIVER_DETAILS = f"""
+Connected to database `{primary_db}`
+        """
+        return HarlequinSqliteConnection(conn=conn, init_message=init_msg)
+
+    @staticmethod
+    def _read_init_script(init_path: Path) -> str:
+        try:
+            with open(init_path.expanduser(), "r") as f:
+                init_script = f.read()
+        except OSError:
+            init_script = ""
+        return init_script
+
+    @staticmethod
+    def _split_script(script: str) -> list[str]:
+        """
+        SQLite init scripts can contain SQL queries or dot commands. The SQL
+        queries may contain newlines, but the dot commands are newline-terminated.
+        This takes a raw script and returns a list of executable commands
+        """
+        lines = script.splitlines()
+        commands: list[str] = []
+        i = 0
+        for j, line in enumerate(lines):
+            if line.startswith("."):
+                commands.append("\n".join(lines[i:j]))
+                commands.append(line)
+                i = j + 1
+            # queries can be terminated by / or "go" on a line
+            # by itself
+            elif line in ("/", "go"):
+                commands.append("\n".join(lines[i:j]))
+                i = j + 1
+        commands.append("\n".join(lines[i:]))
+        return [command.strip() for command in commands if command]
+
+    @classmethod
+    def _rewrite_init_command(cls, command: str) -> str:
+        """
+        SQLite init scripts can contain dot commands, which can only be executed
+        by the CLI, not the python API. Here, we rewrite some common ones into
+        SQL, and rewrite the others to be no-ops.
+        """
+        if not command.startswith("."):
+            return command
+        elif command.startswith(".open"):
+            return cls._rewrite_dot_open(command)
+        elif command.startswith(".load"):
+            return cls._rewrite_dot_load(command)
+        else:
+            return ""
+
+    @staticmethod
+    def _rewrite_dot_open(command: str) -> str:
+        """
+        Rewrites .open command into its approx SQL equivalent.
+        (This attaches databases instead of opening a new connection).
+
+        Options (--readonly, etc.) are not supported.
+        """
+        args = command.split()[1:]
+        if not args:
+            return "attach ''"
+        elif args[-1] == ":memory:":
+            return "attach ':memory:';"
+        else:
+            # options are not supported.
+            db_path = Path(args[-1])
+            return f"attach '{db_path}' as {db_path.stem};"
+
+    @staticmethod
+    def _rewrite_dot_load(command: str) -> str:
+        """
+        Rewrites .load command into its SQL equivalent, load_extension().
+        """
+        args = command.split()[1:]
+        if not args:
+            raise sqlite3.ProgrammingError("Could not execute .load with no args.")
+        elif len(args) == 1:
+            return f"select load_extension('{args[0]}');"
+        elif len(args) == 2:
+            return f"select load_extension('{args[0]}', '{args[1]}');"
+        else:
+            raise sqlite3.ProgrammingError(
+                f"Could not execute .load with following args: {args}"
+            )

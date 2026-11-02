@@ -28,9 +28,9 @@ pytest.importorskip("pydantic_ai")
 from probe.daemon.host import host as host_mod  # noqa: E402
 from probe.daemon.host import proxy as proxy_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.service import daemonhost  # noqa: E402
+from probe.service.sessions import daemon_host as daemonhost  # noqa: E402
 from probe.service import updater as updater_mod  # noqa: E402
-from probe.service import workers as workers_mod  # noqa: E402
+from probe.service.sessions import workers as workers_mod  # noqa: E402
 
 # Real hosts and real workers, several seconds each: nightly (`heavy`), and wherever
 # the daemon extra is installed (`importorskip` above).
@@ -212,7 +212,7 @@ def test_a_draining_run_moves_to_a_new_host_when_its_host_dies(manager, tmp_path
 
 
 def test_the_tools_a_dead_hosts_runs_left_are_ended(manager, tmp_path):
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     child = subprocess.Popen(["sleep", "300"], start_new_session=True)
     try:

@@ -1,0 +1,163 @@
+[package]
+name = "docling-pdf"
+description = "PDF/image backend for docling.rs: pure-Rust text layer and page renderer + ONNX layout/table/OCR pipeline."
+version = "2.62.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/docling-project/docling.rs"
+homepage = "https://github.com/docling-project/docling.rs"
+readme = "README.md"
+keywords = ["docling", "document", "pdf", "markdown", "converter"]
+categories = ["text-processing", "parser-implementations"]
+rust-version = "1.92.0"
+
+[features]
+default = ["ml"]
+# The full pipeline: the pure-Rust page renderer/raster + ONNX
+# layout/OCR/TableFormer/enrichment. Without it only the pure-Rust text-layer path remains
+# (`convert_text_layer` — lopdf content-stream parsing + the docling-parse
+# line sanitizer, the same extraction `--text-layer-only` uses), which compiles for
+# wasm32-unknown-unknown.
+# The ONNX-free OCR pre/post half (`ocr_prep`) alone — what the wasm build
+# (#79 phase 2) pulls: pure Rust + the `image` crate, no ort/pdfium.
+ocr-prep = ["dep:image"]
+# HEIC/HEIF image input (#211): decode via the system libheif (native
+# dependency — libde265 for HEVC), off by default so plain and wasm builds
+# stay pure Rust. Without it a .heic input fails with a targeted
+# "rebuild with --features heif" message.
+heif = ["dep:libheif-rs"]
+# pdfium (phase 5 of "Retiring pdfium", docs/PDF_CONFORMANCE.md): off by
+# default — the pipeline renders in pure Rust. On, `DOCLING_RS_RENDERER=pdfium`
+# renders with the library (docling's pypdfium2 chain), a file lopdf cannot
+# read still converts through it, and the raster / object-model oracle tests
+# run against it. Needs `libpdfium` at runtime (`PDFIUM_DYNAMIC_LIB_PATH`,
+# `.pdfium/lib`).
+pdfium = ["ml", "dep:pdfium-render"]
+# Named-entity detection for the PII redaction pass (#621): a BERT-class
+# token-classification ONNX model (`.models/ner/`) behind the same ort +
+# tokenizers stack the enrichment models use — no extra dependency, the
+# model is the optional part (missing → one warning, pattern-only).
+ner = ["ml", "dep:serde_json"]
+# Page rendering without the inference stack (#917): the pure-Rust renderer /
+# raster (`render_pages`, `RenderedPage`, `render`, `raster`, `PdfDocument`)
+# needs no model, so a consumer that only draws pages keeps ort and
+# docling-onnx out of its dependency graph. `ml` implies it.
+render = [
+    "ocr-prep",
+    "dep:image",
+    "dep:fast_image_resize",
+    "dep:weezl",
+    "dep:flate2",
+    "dep:regex",
+    "dep:libloading",
+    "dep:tiny-skia",
+    "dep:skrifa",
+    "dep:read-fonts",
+    "dep:hayro-jpeg2000",
+    "dep:hayro-jbig2",
+]
+ml = [
+    "render",
+    "dep:ort",
+    "dep:tokenizers",
+    "dep:tar",
+    "dep:docling-onnx",
+]
+# GPU execution providers (#74). Each feature makes `ort` link/download an
+# ONNX Runtime binary that contains that provider; which provider actually
+# runs is chosen at startup via DOCLING_RS_EP (default: cpu). CPU stays the
+# default build with zero GPU dependencies. directml is Windows-only and
+# coreml is macOS-only (the underlying ONNX Runtime binaries only exist
+# there); cuda/tensorrt are Linux + Windows.
+cuda = ["ml", "docling-onnx/cuda"]
+tensorrt = ["ml", "docling-onnx/tensorrt"]
+directml = ["ml", "docling-onnx/directml"]
+coreml = ["ml", "docling-onnx/coreml"]
+# CPU-class XNNPACK (#324) — see docling-onnx's note: self-built ONNX Runtime
+# only, never in a download-binaries CI matrix.
+xnnpack = ["ml", "docling-onnx/xnnpack"]
+# ONNX Runtime loaded at run time instead of linked (#504): targets without
+# pyke's prebuilt binaries (s390x) or a self-built runtime; see docling-onnx.
+ort-load-dynamic = ["ml", "docling-onnx/load-dynamic", "ort/load-dynamic"]
+
+[dependencies]
+# The NER model's `config.json` (`id2label`), behind the `ner` feature.
+serde_json = { version = "1", optional = true }
+# ~1.0: keeps libheif-sys on the 2.x line, which links libheif 1.16–1.17 —
+# what current LTS distros ship (Ubuntu 24.04 = 1.17). Newer libheif-rs
+# requires libheif >= 1.18 and can be selected once baselines move.
+libheif-rs = { version = "~1.0", default-features = false, optional = true }
+docling-core = { path = "../docling-core", version = "2.62.0" }
+# Shared ONNX execution-provider selection (DOCLING_RS_EP, #74/#288);
+# re-exported as `docling_pdf::ep`.
+docling-onnx = { path = "../docling-onnx", version = "2.62.0", optional = true }
+pdfium-render = { version = "0.8", optional = true }
+# Runtime loading of the opt-in docling-parse renderer plugin (#478,
+# `dparse_render.rs`) — the same mechanism pdfium-render uses for libpdfium.
+libloading = { version = "0.8", optional = true }
+ort = { version = "2.0.0-rc.14", default-features = false, features = ["std", "download-binaries", "tls-rustls"], optional = true }
+# The formats the image input accepts (docling's `format.rs` list; HEIC goes
+# through libheif behind `heif`), not `image`'s default set: the defaults also
+# pull the OpenEXR and AVIF codecs (`exr` → `pulp`, `ravif` → `rav1e`) — two
+# routes to the unmaintained `paste` proc-macro (RUSTSEC-2024-0436, #952) and
+# rav1e's minutes of compile time, for formats nothing here decodes.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp"], optional = true }
+flate2 = { version = "1", optional = true }
+tar = { version = "0.4", optional = true }
+regex = { version = "1.11", optional = true }
+lopdf = "0.45"
+fast_image_resize = { version = "5.1.4", optional = true }
+# `/LZWDecode` image data for the pure-Rust raster of image-only pages
+# (`raster/filters.rs`) — lopdf's own LZW crate. (The raster's JPEG decoder
+# is in-tree, `raster/jpeg.rs`: neither zune-jpeg nor jpeg-decoder reproduces
+# libjpeg's bytes.)
+weezl = { version = "0.2", optional = true }
+# The pure-Rust page renderer (`render/`, phase 3 of retiring pdfium): the
+# anti-aliased path rasterizer, masks, gradients and image blits are
+# tiny-skia's (a Skia port, already in the tree through resvg), the TrueType /
+# OpenType / bare-CFF glyph outlines skrifa's (below); Type 1 programs are
+# read in `render/font/type1.rs`.
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"], optional = true }
+# `JPXDecode` images for the page renderer (`render/jpx.rs`, #598): a photo
+# stored as JPEG 2000 used to draw as a mid-gray block, and the layout model
+# then saw a blank rectangle where docling(-parse) shows it the picture.
+# Memory-safe (`forbid(unsafe_code)`), within ±1 of OpenJPEG on the NASA
+# scans; the `image` feature (its own PNG/ICC glue) is not needed.
+hayro-jpeg2000 = { version = "0.4.1", default-features = false, features = ["simd"], optional = true }
+# `JBIG2Decode` images for the page renderer and the scan raster
+# (`render/jbig2.rs`, #811): the text of a scanned page is often a JBIG2
+# stencil over a JPEG background, and without a decoder such a page rendered
+# blank (a stencil drew nothing, not even the placeholder). The same
+# project's decoder as the JPEG 2000 one, memory-safe (`forbid(unsafe_code)`
+# in the crate; `simd` only speeds up halftone regions), its `image` glue not
+# needed.
+hayro-jbig2 = { version = "0.3.1", default-features = false, features = ["std", "simd"], optional = true }
+# Font programs for the page renderer (#952): skrifa / read-fonts — Google
+# Fonts' `fontations`, the advisory's own successor to the unmaintained
+# ttf-parser (RUSTSEC-2026-0192) — read the embedded TrueType / OpenType and
+# bare CFF (Type1C) programs: cmap subtables by platform, post / charset
+# glyph names, CID charsets, the built-in CFF encoding, and the outlines with
+# the CFF FontMatrix folded into the em (FreeType's normalization).
+skrifa = { version = "0.49", default-features = false, features = ["std"], optional = true }
+read-fonts = { version = "0.46", default-features = false, features = ["std"], optional = true }
+# CodeFormula enrichment decodes its VLM output with the HF tokenizer
+# (.models/code_formula/tokenizer.json) — same crate/features as docling-core's
+# chunking tokenizer.
+tokenizers = { version = "0.20", default-features = false, features = ["onig"], optional = true }
+
+# lopdf 0.44 compiles its PDF-encryption support unconditionally, pulling in a
+# non-optional `getrandom`. On wasm32-unknown-unknown getrandom needs an
+# explicit backend, so enable lopdf's `wasm_js` feature there (JS crypto) —
+# the text-layer path never draws randomness, but the code must still compile.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+lopdf = { version = "0.45", features = ["wasm_js"] }
+
+# The text-layer diagnostic example reaches for lopdf directly to tell a load
+# failure apart from "loaded, but no text came out".
+[dev-dependencies]
+# Decodes the corpus figures the picture-classifier test (#517) feeds the model.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp"] }
+lopdf = "0.45"
+
+[lib]
+name = "docling_pdf"

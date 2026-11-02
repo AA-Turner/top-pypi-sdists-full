@@ -261,7 +261,7 @@ def test_the_host_leaves_when_its_service_is_gone_or_its_dispatcher_changes(tmp_
 
 
 def test_the_service_hosts_only_a_probe_plugin_folder(tmp_path, monkeypatch):
-    from probe.service import hookhosts
+    from probe.service.hooks import hooks as hookhosts
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     hosts = hookhosts.HookHosts(lambda message: None)
@@ -288,7 +288,7 @@ def test_a_host_that_dies_on_its_own_is_an_incident_and_one_the_service_stopped_
     """`hook_host` (crash-report plan B2): a host that exited with an error or a
     signal the service did not send is one event; an idle host's exit 0 and the
     SIGTERM the service sends one it evicts or closes are none."""
-    from probe.service import hookhosts
+    from probe.service.hooks import hooks as hookhosts
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     notes: list = []
@@ -567,7 +567,7 @@ def test_a_newer_dispatcher_is_still_hosted_by_an_older_host(tmp_path, host):
 
 
 def test_the_dispatcher_and_the_service_name_the_same_key(tmp_path):
-    from probe.service import hookhosts
+    from probe.service.hooks import hooks as hookhosts
 
     sys.path.insert(0, str(HOOKS))
     try:
@@ -583,7 +583,7 @@ def test_a_fifo_at_the_key_never_hangs_a_hook(tmp_path, host):
     """Whatever sits at the key's path, a hook never waits on it: a FIFO there
     (no writer) reads as no key, so the event runs here at once, and the
     service's reader and the host's own exit do not block either."""
-    from probe.service import hookhosts
+    from probe.service.hooks import hooks as hookhosts
 
     root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
     proc = host(root)

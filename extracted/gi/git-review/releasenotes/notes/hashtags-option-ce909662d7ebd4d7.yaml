@@ -1,6 +1,0 @@
----
-features:
-  - |
-    A new ``--hashtags`` option allows specifying a list of one or more Gerrit
-    hashtag strings, separated by commas. Note that spaces are not allowed
-    either within a hashtag or between separators.

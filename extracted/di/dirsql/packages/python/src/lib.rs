@@ -1,0 +1,682 @@
+//! PyO3 binding for `dirsql`. Intentionally thin: all orchestration lives in
+//! `dirsql::DirSQL`. This layer only:
+//!
+//! - wraps a Python `on_file` callable in a Rust closure (acquiring the GIL as
+//!   needed) so it can be handed to [`dirsql::Table`]
+//! - converts row dicts, values, and events between Python and Rust
+//! - forwards `new` / `query` / `_start_watcher` / `_poll_events` to the
+//!   corresponding `DirSQL` methods
+//!
+//! The Python-side async wrapper (`dirsql._async.DirSQL`) drives this binding
+//! via `asyncio.to_thread`.
+
+#[cfg(feature = "extension-module")]
+mod python {
+    use ::dirsql::extension_resolution::{self, ConfigSource, PlanEntry};
+    use ::dirsql::{DirSQL, Extension, Row, RowEvent, Table, Value, flatten_row_event};
+    use pyo3::exceptions::{PyOverflowError, PyRuntimeError, PyValueError};
+    use pyo3::prelude::*;
+    use pyo3::types::{PyBool, PyByteArray, PyBytes, PyDict, PyInt, PyList};
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+    use std::time::Duration;
+
+    /// A table definition. Mirrors `dirsql::Table` but holds a Python
+    /// callable for `on_file`.
+    #[pyclass(name = "Table", frozen)]
+    struct PyTable {
+        /// The table's SQL name, declared rather than derived from `ddl`.
+        #[pyo3(get)]
+        name: String,
+        #[pyo3(get)]
+        ddl: String,
+        #[pyo3(get)]
+        glob: String,
+        #[pyo3(get)]
+        on_file: Py<PyAny>,
+        #[pyo3(get)]
+        strict: bool,
+    }
+
+    #[pymethods]
+    impl PyTable {
+        #[new]
+        #[pyo3(signature = (*, name, ddl, glob, on_file, strict=false))]
+        fn new(name: String, ddl: String, glob: String, on_file: Py<PyAny>, strict: bool) -> Self {
+            PyTable {
+                name,
+                ddl,
+                glob,
+                on_file,
+                strict,
+            }
+        }
+    }
+
+    /// Marshals a Python `{"path": str, "entrypoint"?: str}` mapping from the
+    /// `extensions=` constructor argument into a [`dirsql::Extension`]. Paths
+    /// are taken verbatim; the programmatic surface does not resolve relative
+    /// paths.
+    #[derive(FromPyObject)]
+    struct PyExtensionSpec {
+        #[pyo3(item)]
+        path: String,
+        #[pyo3(item, default)]
+        entrypoint: Option<String>,
+    }
+
+    /// A row event produced by the watch loop.
+    ///
+    /// `table` is `Optional[str]` because error events may occur before a
+    /// file has been attributed to any table (e.g. a watch-channel failure).
+    /// For insert / update / delete events it is always set.
+    #[pyclass(name = "RowEvent", frozen)]
+    struct PyRowEvent {
+        #[pyo3(get)]
+        table: Option<String>,
+        #[pyo3(get)]
+        action: String,
+        #[pyo3(get)]
+        row: Option<Py<PyDict>>,
+        #[pyo3(get)]
+        old_row: Option<Py<PyDict>>,
+        #[pyo3(get)]
+        error: Option<String>,
+        #[pyo3(get)]
+        file_path: Option<String>,
+    }
+
+    #[pymethods]
+    impl PyRowEvent {
+        fn __repr__(&self) -> String {
+            format!("RowEvent(table={:?}, action={:?})", self.table, self.action)
+        }
+    }
+
+    /// One file the initial scan could not index, with the hook's own error.
+    ///
+    /// A scan failure is not a scan *error*: the other files are indexed and
+    /// the database is usable. This is how a caller learns the index is
+    /// incomplete, and which files are missing from it.
+    #[pyclass(name = "ScanFailure", frozen)]
+    struct PyScanFailure {
+        /// Path relative to the scan root.
+        #[pyo3(get)]
+        path: String,
+        /// The hook's error, as it rendered it.
+        #[pyo3(get)]
+        message: String,
+    }
+
+    #[pymethods]
+    impl PyScanFailure {
+        fn __repr__(&self) -> String {
+            format!(
+                "ScanFailure(path={:?}, message={:?})",
+                self.path, self.message
+            )
+        }
+    }
+
+    /// Synchronous binding class. `dirsql._async.DirSQL` wraps it with
+    /// `asyncio.to_thread` to produce the async public API.
+    #[pyclass(name = "DirSQL")]
+    struct PyDirSQL {
+        inner: DirSQL,
+    }
+
+    #[pymethods]
+    impl PyDirSQL {
+        /// `suppress_config_extensions` skips the core's own loading of the
+        /// config's `[[dirsql.extension]]` entries; the SDK sets it after
+        /// resolving those entries itself (package names need `importlib`,
+        /// which the core lacks) and passing the resolved literal paths via
+        /// `extensions`, so the entries are not loaded twice.
+        #[new]
+        #[pyo3(signature = (root=None, *, tables=None, ignore=None, no_ignore=false, config=None, persist=false, persist_path=None, extensions=None, suppress_config_extensions=false))]
+        fn new(
+            py: Python<'_>,
+            root: Option<String>,
+            tables: Option<Vec<PyRef<'_, PyTable>>>,
+            ignore: Option<Vec<String>>,
+            no_ignore: bool,
+            config: Option<Vec<String>>,
+            persist: bool,
+            persist_path: Option<PathBuf>,
+            extensions: Option<Vec<PyExtensionSpec>>,
+            suppress_config_extensions: bool,
+        ) -> PyResult<Self> {
+            let rust_tables: Vec<Table> = tables
+                .as_deref()
+                .map(|ts| ts.iter().map(|t| build_table(py, t)).collect())
+                .unwrap_or_default();
+
+            let rust_extensions: Vec<Extension> = extensions
+                .unwrap_or_default()
+                .into_iter()
+                .map(|e| Extension {
+                    path: PathBuf::from(e.path),
+                    entrypoint: e.entrypoint,
+                })
+                .collect();
+
+            let inner = py
+                .detach(move || {
+                    let mut builder = DirSQL::builder();
+                    if let Some(r) = root {
+                        builder = builder.root(r);
+                    }
+                    if !rust_tables.is_empty() {
+                        builder = builder.tables(rust_tables);
+                    }
+                    if let Some(ig) = ignore {
+                        builder = builder.ignore(ig);
+                    }
+                    builder = builder.no_ignore(no_ignore);
+                    for c in config.into_iter().flatten() {
+                        builder = builder.config(c);
+                    }
+                    if persist {
+                        builder = builder.persist(persist_path);
+                    }
+                    if !rust_extensions.is_empty() {
+                        builder = builder.extensions(rust_extensions);
+                    }
+                    builder
+                        .suppress_config_extensions(suppress_config_extensions)
+                        .build()
+                })
+                .map_err(to_py_err)?;
+
+            Ok(Self { inner })
+        }
+
+        fn query(&self, py: Python<'_>, sql: String) -> PyResult<Py<PyList>> {
+            let db = self.inner.clone();
+            let result = py
+                .detach(move || db.query_ordered(&sql))
+                .map_err(to_py_err)?;
+
+            let list = PyList::empty(py);
+            for row in &result.rows {
+                list.append(ordered_row_to_py_dict(py, &result.columns, row)?)?;
+            }
+            Ok(list.unbind())
+        }
+
+        fn scan_failures(&self) -> Vec<PyScanFailure> {
+            self.inner
+                .scan_failures()
+                .iter()
+                .map(|f| PyScanFailure {
+                    path: f.path.clone(),
+                    message: f.message.clone(),
+                })
+                .collect()
+        }
+
+        fn _start_watcher(&self, py: Python<'_>) -> PyResult<()> {
+            let db = self.inner.clone();
+            py.detach(move || db.start_watching()).map_err(to_py_err)
+        }
+
+        fn _poll_events(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<Vec<PyRowEvent>> {
+            let db = self.inner.clone();
+            let events = py
+                .detach(move || db.poll_events(Duration::from_millis(timeout_ms)))
+                .map_err(to_py_err)?;
+
+            events.iter().map(|e| row_event_to_py(py, e)).collect()
+        }
+    }
+
+    fn build_table(py: Python<'_>, t: &PyTable) -> Table {
+        let on_file_ref = t.on_file.clone_ref(py);
+        let mut table = Table::try_new(
+            t.name.clone(),
+            t.ddl.clone(),
+            t.glob.clone(),
+            make_on_file_closure(on_file_ref),
+        );
+        table.strict = t.strict;
+        table
+    }
+
+    type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+    fn make_on_file_closure(
+        on_file: Py<PyAny>,
+    ) -> impl Fn(&str) -> std::result::Result<Vec<Row>, BoxError> + Send + Sync + 'static {
+        move |path: &str| {
+            Python::attach(|py| -> std::result::Result<Vec<Row>, BoxError> {
+                let result = on_file
+                    .call1(py, (path,))
+                    .map_err(|e| -> BoxError { Box::new(OnFileError(e.to_string())) })?;
+                let raw: Vec<HashMap<String, Py<PyAny>>> = result
+                    .extract(py)
+                    .map_err(|e: PyErr| -> BoxError { Box::new(OnFileError(e.to_string())) })?;
+
+                let mut rows = Vec::with_capacity(raw.len());
+                for r in &raw {
+                    rows.push(
+                        convert_py_row(py, r)
+                            .map_err(|e| -> BoxError { Box::new(OnFileError(e.to_string())) })?,
+                    );
+                }
+                Ok(rows)
+            })
+        }
+    }
+
+    #[derive(Debug)]
+    struct OnFileError(String);
+    impl std::fmt::Display for OnFileError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(&self.0)
+        }
+    }
+    impl std::error::Error for OnFileError {}
+
+    fn to_py_err<E: std::fmt::Display>(e: E) -> PyErr {
+        PyRuntimeError::new_err(e.to_string())
+    }
+
+    fn row_event_to_py(py: Python<'_>, event: &RowEvent) -> PyResult<PyRowEvent> {
+        let flat = flatten_row_event(event);
+        Ok(PyRowEvent {
+            table: flat.table,
+            action: flat.action.to_string(),
+            row: flat.row.map(|r| value_row_to_py_dict(py, r)).transpose()?,
+            old_row: flat
+                .old_row
+                .map(|r| value_row_to_py_dict(py, r))
+                .transpose()?,
+            error: flat.error,
+            file_path: Some(flat.file_path),
+        })
+    }
+
+    fn value_row_to_py_dict(py: Python<'_>, row: &Row) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, value) in row {
+            dict.set_item(key, value_to_py(py, value))?;
+        }
+        Ok(dict.unbind())
+    }
+
+    fn ordered_row_to_py_dict(
+        py: Python<'_>,
+        columns: &[String],
+        row: &Row,
+    ) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for column in columns {
+            dict.set_item(column, value_to_py(py, &row[column]))?;
+        }
+        Ok(dict.unbind())
+    }
+
+    fn convert_py_row(
+        py: Python<'_>,
+        py_row: &HashMap<String, Py<PyAny>>,
+    ) -> PyResult<HashMap<String, Value>> {
+        let mut row = HashMap::new();
+        for (key, val) in py_row {
+            row.insert(key.clone(), py_to_value(py, val)?);
+        }
+        Ok(row)
+    }
+
+    fn py_to_value(py: Python<'_>, obj: &Py<PyAny>) -> PyResult<Value> {
+        let bound = obj.bind(py);
+
+        if bound.is_none() {
+            return Ok(Value::Null);
+        }
+
+        // bool must precede int (bool is a subclass of int in Python).
+        if bound.is_instance_of::<PyBool>() {
+            let b: bool = bound.extract()?;
+            return Ok(Value::Integer(if b { 1 } else { 0 }));
+        }
+
+        // A Python int must round-trip losslessly or fail loudly. Falling
+        // through to f64/str would silently corrupt an out-of-i64 value
+        // (lossy Real, or a TEXT repr).
+        if bound.is_instance_of::<PyInt>() {
+            return match bound.extract::<i64>() {
+                Ok(i) => Ok(Value::Integer(i)),
+                Err(_) => Err(PyOverflowError::new_err(int_overflow_message(
+                    &bound.str()?.to_string(),
+                ))),
+            };
+        }
+
+        if let Ok(f) = bound.extract::<f64>() {
+            return Ok(Value::Real(f));
+        }
+        if let Ok(s) = bound.extract::<String>() {
+            return Ok(Value::Text(s));
+        }
+        // Only genuine binary types map to BLOB. A list/tuple of ints must
+        // NOT be probed as bytes (that turned `[1,2,3]` into a BLOB by
+        // magnitude); it falls through to the repr like any other sequence.
+        if bound.is_instance_of::<PyBytes>() || bound.is_instance_of::<PyByteArray>() {
+            let b: Vec<u8> = bound.extract()?;
+            return Ok(Value::Blob(b));
+        }
+
+        // Fall back to the Python repr.
+        Ok(Value::Text(bound.str()?.to_string()))
+    }
+
+    /// The range-error message for a Python int that does not fit `i64`.
+    fn int_overflow_message(repr: &str) -> String {
+        format!("integer {repr} exceeds the 64-bit signed range dirsql can store")
+    }
+
+    fn value_to_py(py: Python<'_>, value: &Value) -> Py<PyAny> {
+        match value {
+            Value::Null => py.None(),
+            Value::Integer(i) => i.into_pyobject(py).unwrap().into_any().unbind(),
+            Value::Real(f) => f.into_pyobject(py).unwrap().into_any().unbind(),
+            Value::Text(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
+            Value::Blob(b) => b.into_pyobject(py).unwrap().unbind(),
+        }
+    }
+
+    /// Run the `dirsql` CLI in this process and return its exit code.
+    ///
+    /// The console script calls this instead of exec'ing a bundled binary, so
+    /// the wheel ships one copy of the core rather than two (#738). `argv`
+    /// excludes the program name; the core prepends it for clap.
+    ///
+    /// Returns rather than exiting — the caller (bin-shim) owns the process
+    /// exit. Codes are ordinary status codes, never 130/143 (#737).
+    ///
+    /// The GIL is released for the duration: the CLI can run a long-lived
+    /// server, and holding the GIL would wedge every other Python thread in
+    /// the host for its lifetime.
+    #[pyfunction]
+    fn run_cli(py: Python<'_>, argv: Vec<String>) -> i32 {
+        let mut full = Vec::with_capacity(argv.len() + 1);
+        full.push("dirsql".to_string());
+        full.extend(argv);
+        py.detach(|| dirsql::cli::run_cli(full))
+    }
+
+    /// The config paths a launcher must inspect for package-name extensions;
+    /// see [`dirsql::launcher::config_paths_from_argv`].
+    #[pyfunction]
+    fn config_paths_from_argv(argv: Vec<String>) -> Vec<String> {
+        dirsql::launcher::config_paths_from_argv(&argv)
+    }
+
+    /// The loadable-file suffixes a CPython host recognizes.
+    const PY_SUFFIXES: &[&str] = &[".so", ".dylib", ".dll", ".pyd"];
+
+    /// The subset this platform actually builds, used when picking a
+    /// package's loadable out of everything installed beside it.
+    #[cfg(target_os = "macos")]
+    const PLATFORM_SUFFIXES: &[&str] = &[".dylib"];
+    #[cfg(target_os = "windows")]
+    const PLATFORM_SUFFIXES: &[&str] = &[".dll", ".pyd"];
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    const PLATFORM_SUFFIXES: &[&str] = &[".so"];
+
+    /// One planned `[[dirsql.extension]]` entry.
+    ///
+    /// Exactly one of `path` and `package` is set: a `path` is ready to load,
+    /// a `package` must be located with `importlib` first — unless `shadow`
+    /// names an existing file, which takes precedence over the package.
+    #[pyclass(name = "ExtensionPlanEntry", frozen)]
+    struct PyExtensionPlanEntry {
+        #[pyo3(get)]
+        path: Option<String>,
+        #[pyo3(get)]
+        package: Option<String>,
+        #[pyo3(get)]
+        shadow: Option<String>,
+        #[pyo3(get)]
+        entrypoint: Option<String>,
+    }
+
+    #[pymethods]
+    impl PyExtensionPlanEntry {
+        fn __repr__(&self) -> String {
+            format!(
+                "ExtensionPlanEntry(path={:?}, package={:?}, shadow={:?}, entrypoint={:?})",
+                self.path, self.package, self.shadow, self.entrypoint
+            )
+        }
+    }
+
+    fn plan_entry_to_py(entry: PlanEntry) -> PyExtensionPlanEntry {
+        match entry {
+            PlanEntry::Literal { path, entrypoint } => PyExtensionPlanEntry {
+                path: Some(display(&path)),
+                package: None,
+                shadow: None,
+                entrypoint,
+            },
+            PlanEntry::Package {
+                name,
+                shadow,
+                entrypoint,
+            } => PyExtensionPlanEntry {
+                path: None,
+                package: Some(name),
+                shadow: Some(display(&shadow)),
+                entrypoint,
+            },
+        }
+    }
+
+    fn display(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
+    }
+
+    /// Plan several configs' `[[dirsql.extension]]` entries.
+    ///
+    /// `configs` pairs each config's absolute path with its contents, or
+    /// `None` when the launcher could not read it. `None` back means no entry
+    /// names a package, so the core's own config loading handles them all.
+    #[pyfunction]
+    fn plan_config_extensions(
+        configs: Vec<(String, Option<String>)>,
+    ) -> Option<Vec<PyExtensionPlanEntry>> {
+        let sources: Vec<ConfigSource<'_>> = configs
+            .iter()
+            .map(|(path, contents)| ConfigSource {
+                path: Path::new(path),
+                contents: contents.as_deref(),
+            })
+            .collect();
+        let plan = extension_resolution::plan_config_extensions(&sources, PY_SUFFIXES)?;
+        Some(plan.into_iter().map(plan_entry_to_py).collect())
+    }
+
+    /// Pick package `name`'s single loadable file out of `candidates`.
+    #[pyfunction]
+    fn select_loadable(name: &str, dirs: Vec<String>, candidates: Vec<String>) -> PyResult<String> {
+        selected_loadable(name, dirs, candidates).map_err(PyValueError::new_err)
+    }
+
+    /// The interpreter-free half of [`select_loadable`], so it stays unit-testable.
+    fn selected_loadable(
+        name: &str,
+        dirs: Vec<String>,
+        candidates: Vec<String>,
+    ) -> Result<String, String> {
+        let dirs: Vec<PathBuf> = dirs.into_iter().map(PathBuf::from).collect();
+        let candidates: Vec<PathBuf> = candidates.into_iter().map(PathBuf::from).collect();
+        extension_resolution::select_loadable(name, &dirs, &candidates, PLATFORM_SUFFIXES)
+            .map(|path| display(&path))
+            .map_err(|err| err.to_string())
+    }
+
+    /// Plan one extension path given outside a config file.
+    ///
+    /// `base` is the directory a relative path and the bare-name shadow probe
+    /// resolve against; `resolve_relative` makes a relative path-looking value
+    /// absolute against it (config semantics) rather than verbatim.
+    #[pyfunction]
+    fn plan_extension_path(path: &str, base: &str, resolve_relative: bool) -> PyExtensionPlanEntry {
+        plan_entry_to_py(extension_resolution::plan_extension_path(
+            path,
+            Path::new(base),
+            resolve_relative,
+            PY_SUFFIXES,
+        ))
+    }
+
+    #[pymodule]
+    #[pyo3(name = "_dirsql")]
+    fn py_dirsql_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+        m.add_class::<PyTable>()?;
+        m.add_class::<PyDirSQL>()?;
+        m.add_class::<PyRowEvent>()?;
+        m.add_class::<PyScanFailure>()?;
+        m.add_function(wrap_pyfunction!(run_cli, m)?)?;
+        m.add_function(wrap_pyfunction!(config_paths_from_argv, m)?)?;
+        m.add_function(wrap_pyfunction!(plan_config_extensions, m)?)?;
+        m.add_function(wrap_pyfunction!(select_loadable, m)?)?;
+        m.add_function(wrap_pyfunction!(plan_extension_path, m)?)?;
+        m.add_class::<PyExtensionPlanEntry>()?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn on_file_error_displays_inner() {
+            assert_eq!(OnFileError("bad".to_string()).to_string(), "bad");
+        }
+
+        #[test]
+        fn planning_returns_none_when_no_entry_names_a_package() {
+            let plan = plan_config_extensions(vec![(
+                "/cfg/.dirsql.toml".into(),
+                Some("[[dirsql.extension]]\npath = \"vec0.so\"\n".into()),
+            )]);
+            assert!(plan.is_none());
+        }
+
+        #[test]
+        fn planning_marshals_a_literal_against_its_own_config_directory() {
+            let plan = plan_config_extensions(vec![(
+                "/cfg/.dirsql.toml".into(),
+                Some(
+                    "[[dirsql.extension]]\npath = \"ext/vec0.so\"\nentrypoint = \"init\"\n\n[[dirsql.extension]]\npath = \"sqlite_vec\"\n"
+                        .into(),
+                ),
+            )])
+            .expect("a bare name makes the SDK intervene");
+
+            assert_eq!(plan[0].path.as_deref(), Some("/cfg/ext/vec0.so"));
+            assert_eq!(plan[0].package, None);
+            assert_eq!(plan[0].shadow, None);
+            assert_eq!(plan[0].entrypoint.as_deref(), Some("init"));
+        }
+
+        #[test]
+        fn planning_marshals_a_package_with_its_shadow_probe() {
+            let plan = plan_config_extensions(vec![(
+                "/cfg/.dirsql.toml".into(),
+                Some("[[dirsql.extension]]\npath = \"sqlite_vec\"\n".into()),
+            )])
+            .expect("a bare name makes the SDK intervene");
+
+            assert_eq!(plan[0].path, None);
+            assert_eq!(plan[0].package.as_deref(), Some("sqlite_vec"));
+            assert_eq!(plan[0].shadow.as_deref(), Some("/cfg/sqlite_vec"));
+            assert_eq!(plan[0].entrypoint, None);
+        }
+
+        #[test]
+        fn an_unreadable_config_is_skipped_rather_than_reported() {
+            assert!(plan_config_extensions(vec![("/cfg/.dirsql.toml".into(), None)]).is_none());
+        }
+
+        #[test]
+        fn plan_entry_repr_names_every_field() {
+            let entry = plan_entry_to_py(PlanEntry::Package {
+                name: "vec".into(),
+                shadow: "/cfg/vec".into(),
+                entrypoint: Some("init".into()),
+            });
+            assert_eq!(
+                entry.__repr__(),
+                "ExtensionPlanEntry(path=None, package=Some(\"vec\"), shadow=Some(\"/cfg/vec\"), entrypoint=Some(\"init\"))"
+            );
+        }
+
+        #[cfg(target_os = "macos")]
+        const EXPECTED_PATTERNS: &str = "*.dylib";
+        #[cfg(target_os = "windows")]
+        const EXPECTED_PATTERNS: &str = "*.dll / *.pyd";
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        const EXPECTED_PATTERNS: &str = "*.so";
+
+        #[test]
+        fn select_loadable_returns_the_single_match() {
+            let found = selected_loadable(
+                "vec",
+                vec!["/pkg".into()],
+                vec!["/pkg/__init__.py".into(), "/pkg/vec0.so".into()],
+            );
+            assert_eq!(found, Ok("/pkg/vec0.so".to_string()));
+        }
+
+        #[test]
+        fn select_loadable_carries_the_cores_message_verbatim() {
+            let err = selected_loadable("vec", vec!["/pkg".into()], vec![])
+                .expect_err("no loadable file");
+            assert_eq!(
+                err,
+                format!(
+                    "no loadable extension file ({EXPECTED_PATTERNS}) found in package 'vec' (searched /pkg)"
+                )
+            );
+        }
+
+        #[test]
+        fn a_programmatic_path_marshals_as_a_literal_entry() {
+            let entry = plan_extension_path("ext/vec0.so", "/cwd", false);
+            assert_eq!(entry.path.as_deref(), Some("ext/vec0.so"));
+            assert_eq!(entry.package, None);
+            assert_eq!(
+                plan_extension_path("ext/vec0.so", "/cwd", true)
+                    .path
+                    .as_deref(),
+                Some("/cwd/ext/vec0.so")
+            );
+        }
+
+        #[test]
+        fn a_programmatic_entry_applies_the_cpython_suffix_list() {
+            let entry = plan_extension_path("vec0.node", "/cwd", false);
+            assert_eq!(entry.package.as_deref(), Some("vec0.node"));
+            assert_eq!(entry.shadow.as_deref(), Some("/cwd/vec0.node"));
+            assert_eq!(plan_extension_path("vec0.pyd", "/cwd", false).package, None);
+        }
+
+        #[test]
+        fn config_paths_from_argv_forwards_to_the_core_scan() {
+            assert_eq!(
+                config_paths_from_argv(vec!["-c".into(), "a.toml".into()]),
+                ["a.toml"]
+            );
+        }
+
+        #[test]
+        fn int_overflow_message_names_the_value() {
+            let m = int_overflow_message("9223372036854775808");
+            assert!(m.contains("9223372036854775808"));
+            assert!(m.contains("exceeds"));
+        }
+    }
+}

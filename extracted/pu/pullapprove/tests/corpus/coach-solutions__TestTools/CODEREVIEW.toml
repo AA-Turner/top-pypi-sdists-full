@@ -1,0 +1,11 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "backend"
+reviewers = ["$backend"]
+request = 1
+require = 0
+labels = ["backend"]
+paths = ["**/*"]

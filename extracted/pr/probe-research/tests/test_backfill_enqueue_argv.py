@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 
 
-from probe.cli import backfill_ledger as bl
+from probe.cli.imports.folder.upload import ledger as bl
 from probe.cli import backfill_run as br
 
 

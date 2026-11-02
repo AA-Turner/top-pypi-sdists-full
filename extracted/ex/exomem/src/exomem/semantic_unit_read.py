@@ -1,0 +1,235 @@
+"""Exact, bounded reads for first-class semantic-unit references."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from . import lifecycle_statuses, semantic_index, semantic_units, vault
+from .get_page import GetResult
+
+PARENT_CONTEXT_MAX_CHARS = 2400
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticUnitParentCitation:
+    path: str
+    ref: str | None
+    title: str
+    page_type: str | None
+    status: str | None
+    updated: str
+    superseded_by: tuple[str, ...]
+    content_hash: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "ref": self.ref,
+            "title": self.title,
+            "type": self.page_type,
+            "status": self.status,
+            "updated": self.updated,
+            "superseded_by": list(self.superseded_by),
+            "content_hash": self.content_hash,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticUnitParentContext:
+    markdown: str
+    start_offset: int
+    end_offset: int
+    start_line: int
+    end_line: int
+    truncated_before: bool
+    truncated_after: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "markdown": self.markdown,
+            "start_offset": self.start_offset,
+            "end_offset": self.end_offset,
+            "start_line": self.start_line,
+            "end_line": self.end_line,
+            "truncated_before": self.truncated_before,
+            "truncated_after": self.truncated_after,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticUnitReadResponse:
+    status: str
+    unit_ref: str
+    parent: SemanticUnitParentCitation
+    unit: semantic_units.SemanticUnit | None = None
+    parent_context: SemanticUnitParentContext | None = None
+    expected_fingerprint: str | None = None
+    actual_fingerprint: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "status": self.status,
+            "unit_ref": self.unit_ref,
+            "parent": self.parent.as_dict(),
+        }
+        if self.unit is not None:
+            out["unit"] = self.unit.to_dict()
+        if self.parent_context is not None:
+            out["parent_context"] = self.parent_context.as_dict()
+        if self.expected_fingerprint is not None:
+            out["expected_fingerprint"] = self.expected_fingerprint
+        if self.actual_fingerprint is not None:
+            out["actual_fingerprint"] = self.actual_fingerprint
+        return out
+
+
+def read_semantic_unit(
+    vault_root: Path,
+    *,
+    page: GetResult,
+    unit_ref: str,
+    frontmatter: Mapping[str, Any] | None = None,
+    withheld_spans: tuple[tuple[int, int], ...] = (),
+    lifecycle_disposition: bool = True,
+    status_basis: lifecycle_statuses.Basis | None = None,
+) -> SemanticUnitReadResponse:
+    """Resolve one current unit exactly; never substitute a nearby unit.
+
+    `frontmatter`, when given, is the frontmatter released to the caller and
+    is what the parent citation is built from, so a provenance field the
+    release plane stripped does not come back through the citation.
+    `withheld_spans` are body ranges the release removed: a unit inside one is
+    missing, and the parent context stops short of them.
+    Prior-binding disclosure disables lifecycle disposition: `found` then means
+    the exact retained unit resolves, not that its parent is currently live.
+    """
+    state = semantic_index.selected_parent_index_state(
+        vault_root,
+        page.path,
+        source=page.content,
+    )
+    parsed_frontmatter, body, _ = vault.parse_frontmatter(page.content)
+    resolution = state.document.resolve_unit(unit_ref)
+    parent = _parent_citation(
+        page,
+        state.document.parent_ref,
+        frontmatter=dict(frontmatter) if frontmatter is not None else parsed_frontmatter,
+    )
+    if resolution.unit is not None and any(
+        start < resolution.unit.span.end_offset and resolution.unit.span.start_offset < end
+        for start, end in withheld_spans
+    ):
+        resolution = semantic_units.SemanticUnitResolution(
+            status="missing", unit_ref=resolution.unit_ref
+        )
+    if resolution.unit is None:
+        return SemanticUnitReadResponse(
+            status="unavailable" if state.definitions_unavailable else resolution.status,
+            unit_ref=resolution.unit_ref,
+            parent=parent,
+            expected_fingerprint=resolution.expected_fingerprint,
+            actual_fingerprint=resolution.actual_fingerprint,
+        )
+
+    status = (
+        "superseded"
+        if lifecycle_disposition
+        and (status_basis or lifecycle_statuses.Basis(vault_root))
+        .classify(parsed_frontmatter.get("status"), path=page.path, frontmatter=parsed_frontmatter)
+        .require()
+        == "superseded"
+        else "found"
+    )
+    return SemanticUnitReadResponse(
+        status=status,
+        unit_ref=resolution.unit_ref,
+        parent=parent,
+        unit=resolution.unit,
+        parent_context=_bounded_parent_context(body, resolution.unit.span, withheld_spans),
+        expected_fingerprint=resolution.expected_fingerprint,
+        actual_fingerprint=resolution.actual_fingerprint,
+    )
+
+
+def _parent_citation(
+    page: GetResult,
+    parsed_parent_ref: str | None,
+    *,
+    frontmatter: dict[str, Any],
+) -> SemanticUnitParentCitation:
+    return SemanticUnitParentCitation(
+        path=page.path,
+        ref=parsed_parent_ref,
+        title=str(frontmatter.get("title") or page.path),
+        page_type=_optional_text(frontmatter.get("type")),
+        status=_optional_text(frontmatter.get("status")),
+        updated=_date_text(frontmatter.get("updated")),
+        superseded_by=tuple(_string_list(frontmatter.get("superseded_by"))),
+        content_hash=page.content_hash,
+    )
+
+
+def _bounded_parent_context(
+    body: str,
+    span: semantic_units.SourceSpan,
+    withheld_spans: tuple[tuple[int, int], ...] = (),
+) -> SemanticUnitParentContext:
+    length = len(body)
+    unit_start = min(max(0, span.start_offset), length)
+    unit_end = min(max(unit_start, span.end_offset), length)
+    # The window is chosen within the released stretch around the unit.
+    floor, ceiling = 0, length
+    for withheld_start, withheld_end in withheld_spans:
+        if withheld_end <= unit_start:
+            floor = max(floor, withheld_end)
+        elif withheld_start >= unit_end:
+            ceiling = min(ceiling, withheld_start)
+    available = ceiling - floor
+    unit_length = unit_end - unit_start
+
+    if available <= PARENT_CONTEXT_MAX_CHARS:
+        start, end = floor, ceiling
+    elif unit_length >= PARENT_CONTEXT_MAX_CHARS:
+        start = unit_start
+        end = min(ceiling, start + PARENT_CONTEXT_MAX_CHARS)
+    else:
+        remaining = PARENT_CONTEXT_MAX_CHARS - unit_length
+        start = max(floor, unit_start - remaining // 2)
+        end = min(ceiling, unit_end + (remaining - (unit_start - start)))
+        if end - start < PARENT_CONTEXT_MAX_CHARS:
+            start = max(floor, end - PARENT_CONTEXT_MAX_CHARS)
+
+    markdown = body[start:end]
+    start_line = body.count("\n", 0, start) + 1
+    end_line = start_line + markdown.count("\n")
+    return SemanticUnitParentContext(
+        markdown=markdown,
+        start_offset=start,
+        end_offset=end,
+        start_line=start_line,
+        end_line=end_line,
+        truncated_before=start > 0,
+        truncated_after=end < length,
+    )
+
+
+def _optional_text(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+def _date_text(value: Any) -> str:
+    if value is None:
+        return ""
+    isoformat = getattr(value, "isoformat", None)
+    return str(isoformat()) if callable(isoformat) else str(value)
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item is not None]
+    return [str(value)]

@@ -1,0 +1,242 @@
+Metadata-Version: 2.4
+Name: instance-repo
+Version: 1.4.0
+Summary: InstanceRepo SDK — 评测 Instance 统一存储客户端（SDK-only；控制面由 apiserver 承载）
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: irepo-artifact<0.3.0,>=0.1.1
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
+Provides-Extra: oss
+Requires-Dist: oss2>=2.19; extra == "oss"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: coverage>=7; extra == "dev"
+
+# instance-repo
+
+InstanceRepo Python SDK 与 `irepo` 命令行工具——评测 Instance 的统一存储客户端。
+
+SDK 只负责客户端逻辑；控制面（元数据、鉴权、STS 凭据签发）由 apiserver 承载，数据面
+（OSS 读写、镜像推拉）经 apiserver 下发的临时凭据直连。SDK **不内置**任何 apiserver
+域名、环境名、OSS bucket / endpoint / region、ACR registry / namespace 等基础设施信息，
+这些值一律在运行时由调用方通过环境变量或构造参数注入（见下文“配置”）。
+
+Python SDK 与 Go SDK 功能、错误码、行为逐字对齐。
+
+## 安装
+
+```bash
+pip install instance-repo            # SDK + irepo CLI（Python ≥ 3.10）
+pip install "instance-repo[oss]"     # 需要数据面 OSS 读写时，附带 oss2
+```
+
+镜像推拉依赖外部二进制 `skopeo`；未安装时相关操作会被跳过（`push_image=False` / `--no-image`）。
+
+## 配置（0.8 起「三参数起步」）
+
+日常只需三个（规范主变量，旧名仅作兼容别名保留，见下方别名表）：
+
+- `AP_API_KEY`：身份 token（`X-API-Key`）。旧名 `INSTANCEREPO_TOKEN` 仍兼容
+- `IR_API_ENV`：下发的 `Env` 请求头值，apiserver 据此路由（原样下发，无别名映射；**本变量名不变**，
+  与数据面的 `AP_CLUSTER` 正交）
+- `INSTANCE_REPO_STORAGE_ENV`：数据面存储环境（旧名 `IR_STORAGE_ENV` 仍兼容）。`Repo()` 构造时据此向
+  `GET /apis/v1/repo-config?storage_env=<env>` 自动拉取 OSS bucket/prefix 与 ACR registry/namespace，
+  校验后缓存
+
+按需覆盖：
+
+- `AP_CLUSTER`：可选默认集群选择器（`Repo(cluster=...)` / `--cluster` 同源）。构造期自动发现优先
+  `GET /apis/v1/repo-config?cluster=<cluster>`，响应中的 `storage_env`、OSS/ACR 寻址写回 profile；
+  若同时显式配置 `INSTANCE_REPO_STORAGE_ENV` 且与服务端解析结果不同，SDK 抛配置冲突错误
+- `AP_BASE_URL`：apiserver 根地址（旧名 `INSTANCEREPO_API_BASE` 仍兼容），**有内置默认值**，只在指向
+  非默认部署时才配（内网渠道包构建期注入站点默认值，公网 PyPI 包为空）
+- `IR_OSS_PREFIX`：bucket 内对象目录前缀，协议常量，默认 `swe/datasets`
+- `IR_SCAFFOLD_BUCKET`、`IR_SCAFFOLD_ROOT`：scaffold 包存储位置（不在 `repo-config` 返回范围内）
+
+**已弃用**（保留一版，命中时提示一次）：`IR_OSS_BUCKET`、`IR_ACR_HOST`、`IR_ACR_NAMESPACE`。
+需要覆盖自动发现结果时改用 `Repo(profile_overrides={"oss_bucket": ...})`（ACR namespace 覆盖用
+`profile_overrides={"acr_namespace": ...}`；默认 namespace 由 repo-config 返回，但**必须由部署方
+在 ACR 企业版实例中预建**，SDK 不会创建）。
+
+**公网 ACR registry（runner 不在 VPC 内网时）**：默认使用 repo-config 返回的 `registry`
+（VPC 内网域名）。runner 不在对应 VPC 内时，设环境变量 `IR_ACR_PREFER_PUBLIC=1`（或
+`Repo(profile_overrides={"prefer_public_registry": True})`），SDK 会改走 `public_registry`
+（公网域名）；公网值缺失时静默回落到 VPC 值。也可用 `IR_ACR_PUBLIC_HOST` /
+`profile_overrides={"acr_public_host": ...}` 显式指定公网 registry。
+
+兼容别名表：
+
+| 旧名 | 新名或状态 | 优先级 | 告警 |
+| --- | --- | --- | --- |
+| `INSTANCEREPO_TOKEN` | `AP_API_KEY` | 新变量优先；新旧冲突用新值 | `FutureWarning` 一次（每进程每变量）；冲突时注明"将使用新变量"，不回显密钥 |
+| `INSTANCEREPO_API_BASE` | `AP_BASE_URL` | 同上 | 同上 |
+| `IR_STORAGE_ENV` | `INSTANCE_REPO_STORAGE_ENV` | 同上 | 同上 |
+| `IR_OSS_BUCKET` / `IR_ACR_HOST` / `IR_ACR_NAMESPACE` | 改用自动发现；覆盖用 `profile_overrides` | 数据面字段：`profile_overrides` > 环境变量 > 自动发现 | `DeprecationWarning` 一次 |
+| `IR_NETWORK` | 已移除（v0.8）：网络路由由 SDK 按操作语义决定 | 不再解析 | 无 |
+
+优先级：显式构造参数 > 新环境变量 > 旧别名 > 站点默认值。`profile` 名仅作标签，不对应任何内置取值。
+
+自动发现失败**不在构造期抛错**——纯控制面操作（list/get/create/claim/whoami）不需要数据面寻址。
+报错延迟到首次真正用到缺失字段时，消息里说明缺哪个字段、按哪个 `storage_env` 向哪个地址查过、
+以及两条出路（配 `INSTANCE_REPO_STORAGE_ENV` 或显式 `profile_overrides`）。寻址结果按
+`(api_base, api_env, selector_type, selector_value)` 四元组缓存（selector 为 `cluster` 或
+`storage_env`），默认 1 小时，`repo.refresh_config()` 可强制刷新。
+
+## 元数据模型（0.8 默认 `split_first`）
+
+0.8 把标识口径翻转为「**split 必填、version 选填**」，空 version 表示**确实无版本**（不是 latest、
+不是 default）。旧数据集显式传 `Repo(metadata_model="version_first")`，其对象布局与镜像 tag
+**逐字节不变**，存量数据无需迁移。
+
+服务端把空 `metadata_model` 归一为 `version_first`。数据面与读路径仍按 profile 的模型工作；
+但 `repo.versions.create(...)` 的 `metadata_model` 仅在调用方显式传入非空值时下发，不从
+profile 自动注入。显式 `split_first` 仍由服务端拒绝；创建 split 应使用 `repo.splits.create(...)`。
+
+| | `split_first`（默认） | `version_first`（旧） |
+| --- | --- | --- |
+| 元数据 | `{prefix}/{L1}/{L2}/[{version}/]{split}/{id}.json` | `{prefix}/{L1}/{L2}/{version}/[{split}/]{id}.json` |
+| 内容 | `…/[{version}/]{split}-assets/{id}/content.tgz` | `…/{version}[/{split}]-assets/{id}/content.tgz` |
+| 镜像 tag | `{split}-{id}` | `{version}-{id}` |
+| `"default"` | 普通 split 名，会真的建目录 | 哨兵，与「无 split」等价并折叠层级 |
+
+`split_first` 且不指定 version 时，`ingest` **要求显式给出 `splits`**：服务端靠对象相对深度推断
+布局，而 dataset 根下的质检报告目录（`{split}-report/…`）与存量版本目录都会污染推断并触发
+92005 ambiguous。显式给 splits 时服务端只列举 `{split}/` 与 `{split}-assets/`，推断被完全绕过。
+确需推断时传 `allow_layout_inference=True`。
+
+## Split 创建
+
+`repo.splits.create(dataset, split, *, version=None, run_type=None, storage_path=None,
+environment=None)` 直接调用 `POST /apis/v1/datasets/splits`，body 固定为
+`{"splits":["<split>"]}`。`version` 可选；省略即创建 unversioned split，query 中不会发送
+`version=`。存储路径由服务端根据 dataset/version/split 推导。
+
+`storage_path` 只为 1.2.1 调用兼容保留（计划 1.3.0 删除）：空值允许，非空值在网络请求前抛
+`SchemaError`。提供 `run_type` 时，创建后通过 `PATCH /apis/v1/datasets/splits/detail` 更新，
+不会调用 Version PATCH；最后 GET 读回权威 Split 记录。
+
+```python
+repo.splits.create("alibaba/mybench", "test")
+repo.splits.create("alibaba/mybench", "test", version="v1", run_type="eval")
+```
+
+对应 CLI 的 `--version` 也是可选项；`--storage-path` 仅兼容旧脚本，非空值会失败：
+
+```bash
+irepo split create alibaba/mybench/test --run-type eval
+irepo split create alibaba/mybench/test --version v1
+```
+
+## 独立镜像能力（`repo.images`，0.8 新增）
+
+```python
+ref = repo.images.ref_for("alibaba/mybench", "inst-1", split="test")
+repo.images.push("./image.tar.gz", ref)
+repo.images.exists(ref, retries=3)          # 刚推完 manifest 有秒级一致性延迟
+pinned = repo.images.pull(ref, "./out.tar")  # 返回 digest 固定引用
+repo.images.copy(ref, dst_ref)
+```
+
+`pull` 归类为**下载**：强制私网、以 digest 固定源、不回退公网；`push`/`copy` 默认不覆盖已存在目标
+（tag 承载实例身份）。
+
+## 0.8 迁移：移除网络选择参数
+
+升级到 0.8 时，请删除 Python 构造参数 `network=...`、Go option `WithNetwork(...)` 和环境变量 `IR_NETWORK`。前两者已从公开 API 移除；`IR_NETWORK` 不再参与路由。网络路由改由 SDK 按操作语义自动决定，调用方不能覆盖：
+
+- **下载、私网限定**：instance pull、report get/assemble、user-data get、scaffold download/get-latest，以及这些流程需要的探测，只访问已确认的标准私网 OSS HTTPS 端点；不可达时返回 `E_PRIVATE_NETWORK_REQUIRED`，不访问公网。
+- **非下载、私网优先**：上传/分片上传、LIST、通用 HEAD/校验和 ACR exists/push/copy 先访问私网。只有 DNS、连接超时、拒绝/重置、无路由或 host unreachable 等明确连通失败才尝试一次公网候选；HTTP 响应、鉴权/业务错误、证书校验失败与未知 skopeo 错误均不回退。
+- **自定义端点**：非下载操作把它视为权威单一候选；下载因无法确认私网属性而拒绝并返回 `E_PRIVATE_NETWORK_REQUIRED`。
+- **传输边界**：默认 OSS 下载 adapter 强制 HTTPS、禁用环境代理、拒绝跨 host 重定向。注入的 ContentStore/ImageStore、`bucket_factory` 或 `runner` 不在这项保证内。
+- **ACR 写入**：在真正写入前用只读 inspect 选定路由；`skopeo copy` 一旦启动便不切网、不自动重放，无法确认结果时返回 `E_WRITE_OUTCOME_UNKNOWN`。
+
+Scaffold 遵循相同下载规则，但只提供 SDK API；CLI 不提供 scaffold 子命令。
+
+## 快速开始
+
+```python
+from instance_repo import Repo
+
+repo = Repo()  # 读 AP_API_KEY + IR_API_ENV + INSTANCE_REPO_STORAGE_ENV，数据面寻址自动发现
+
+# 控制面元数据操作（不需要数据面配置）
+datasets = repo.datasets.list()
+versions = repo.versions.list("alibaba/mybench")
+state = repo.versions.status("alibaba/mybench", "v1")
+
+# 身份自查：返回当前 token 对应工号，用于拼 user-data 前缀 swe/user-data/users/{uid}/
+uid = repo.whoami()
+
+# 用户输入数据（插件 / 数据合成输入）
+repo.upload_user_data(uid, "plugin.bin", "plugins/plugin.bin")
+keys = repo.list_user_data(uid)
+```
+
+数据面操作在真正用到某字段（如 `oss_bucket`）时才校验，纯控制面操作不受影响。
+
+## CLI
+
+```bash
+irepo --help
+# 全局参数：--api-env / --api-base / --cluster / --storage-env / --metadata-model / --profile
+# 无 --api-key：凭据只从 AP_API_KEY（旧别名 INSTANCEREPO_TOKEN）读取，避免进 shell history
+# 20 个子命令：validate / push / push-many / deliver / pull / list / get
+#              publish / grant / feedback / report / whoami / user-data
+#              repo-config / create / claim / version / image
+#              split（list/get/create/set-run-type；create 的 --version 可选，--storage-path 非空即拒绝）
+#              dataset（list/get/update/access/revoke/benchmarks/workflows）
+irepo image ref --dataset alibaba/mybench --instance-id inst-1 --split test
+irepo image pull '<acr>/<ns>/mybench:test-inst-1' ./out.tar
+```
+
+跨环境上架的目标数据面地址通过参数显式提供（SDK 不内置任何桶/仓地址）：
+
+```bash
+irepo publish alibaba/mybench/v1 --split test \
+  --target-bucket <your-oss-bucket> \
+  --target-acr <your-registry-host> --target-acr-namespace <your-namespace>
+```
+
+`--target-acr-namespace` 自 0.8 起真正生效（此前被解析却从未使用，只换了 host）。注意上架搬运
+镜像层但**不改写**已入库的 `docker_image` 字段——这是服务端行为（`benchmark-release` 全链路对该
+字段零改写）。SDK 把「源→目标」映射写进实例 `extend_meta`（`image_release_source` /
+`image_release_target` / `image_on_source_acr`）使其可追溯，但那不等于元数据改写。
+
+## 版本与文档
+
+版本号在 `pyproject.toml` / `instance_repo.__version__` / Go `version.go` /
+conformance golden 四处保持一致。各环境的真实配置取值、端到端示例与错误码对照，见团队内部
+部署文档。
+
+## 产物下载改造（开发版）
+
+产物下载现在委托独立 `irepo-artifact` 包，通过 AP 签发的 HTTP 链接下载，
+不再要求 OSS SDK、STS 或 artifact bucket/prefix 配置；其他存储功能的 OSS 依赖不变。
+本地开发需同时安装两个包：
+
+```bash
+python -m pip install -e ./sdk/python-artifact -e ./sdk/python
+```
+
+保留 `irepo artifact download`、`download-many`、`download-group`。三个命令均支持
+`--include-files`、`--exclude-files`（可重复、可逗号分隔）和 `--extract`。
+
+```bash
+irepo artifact download --job-id job-a --output-dir out/job-a
+irepo artifact download-many --job-ids job-a,job-b --output-dir out --extract
+irepo artifact download-group --group-id group-a --output-dir out \
+  --include-files logs,result.json --exclude-files debug.log,tmp
+```
+
+默认不解压；`--extract` 与文件筛选冲突。筛选通过 manifest 得到最终文件列表，再向 AP 获取
+各文件 URL。不开启筛选时优先 OSS，网络不可达或中断时回退 dataplane。
+
+**路径迁移：** 单 Job 的输出目录就是 Job 目录，包为 `<output_dir>/result.tgz`；
+批量／Group 为 `<output_dir>/jobs/<job_id>/result.tgz`。解压或筛选内容位于 Job 目录的
+`artifacts/output/`。旧 `<job_id>.tgz` 文件名统一为 `result.tgz`，旧脚本应使用 SDK 返回路径。
+旧 SDK 单 Job 仍返回字符串，批量仍返回路径或异常字典；旧入口维持覆盖意图，新独立客户端
+默认拒绝覆盖。请勿在旧目录尚有需保留文件时直接覆盖迁移。
+
+权限由 AP artifact 接口统一校验，SDK 不再执行 Job 详情预检查。
+更多行为与安装说明见 [独立包 README](../python-artifact/README.md)。
+独立包尚为开发版本，正式发布完整 SDK 前必须先发布可安装的独立包版本。

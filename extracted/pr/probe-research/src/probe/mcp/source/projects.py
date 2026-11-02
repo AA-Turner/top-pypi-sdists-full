@@ -139,12 +139,12 @@ class ProjectReadsMixin:
         """The team's Shared folder (``GET /v1/shared/files``) or one workspace's
         files (``GET /v1/workspaces/{id}/files``), name-ordered. Neither route
         takes a cursor; ``prefix`` is a FOLDER filter, not a name match."""
-        params: dict[str, Any] = {"limit": limit}
+        parameters: dict[str, Any] = {"limit": limit}
         if prefix:
-            params["prefix"] = prefix
+            parameters["prefix"] = prefix
         if workspace_id is not None:
-            return self.client.list_anchored(Anchor.WORKSPACE, workspace_id, **params) or []
-        return self.client.list_anchored(Anchor.SHARED, **params) or []
+            return self.client.list_anchored(Anchor.WORKSPACE, workspace_id, **parameters) or []
+        return self.client.list_anchored(Anchor.SHARED, **parameters) or []
 
     def experiment_groups(self, experiment_id: str) -> list[dict]:
         return self.client.list_groups(experiment_id)

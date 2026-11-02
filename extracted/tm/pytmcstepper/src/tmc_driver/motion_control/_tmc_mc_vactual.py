@@ -1,0 +1,204 @@
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-public-methods
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-positional-arguments
+"""VActual Motion Control module."""
+
+import time
+from ._tmc_mc import TmcMotionControl, MovementAbsRel, StopMode
+from ..tmc_logger import Loglevel
+from .. import _tmc_math as tmc_math
+from ..reg import _tmc_shared_regs as tmc_shared_reg
+from ..platform_utils import get_time_us
+
+
+class TmcMotionControlVActual(TmcMotionControl):
+    """VActual Motion Control class."""
+
+    def __init__(self):
+        """constructor."""
+        super().__init__()
+        self._starttime: int = 0
+
+    def make_a_step(self):
+        """Method that makes on step."""
+        raise NotImplementedError
+
+    def stop(self, stop_mode=StopMode.HARDSTOP):
+        """Stop the current movement.
+
+        Args:
+            stop_mode (enum): whether the movement should be stopped immediately or softly
+                (Default value = StopMode.HARDSTOP)
+        """
+        super().stop(stop_mode)
+        self.set_vactual(0)
+
+    def run_to_position_steps(
+        self, steps, movement_abs_rel: MovementAbsRel | None = None
+    ) -> StopMode:
+        """Runs to a given position in steps."""
+        self._tmc_logger.log(
+            f"cur: {self._current_pos} | tar: {self._target_pos}", Loglevel.MOVEMENT
+        )
+
+        self._stop = StopMode.NO
+        if movement_abs_rel is None:
+            movement_abs_rel = self._movement_abs_rel
+
+        if movement_abs_rel == MovementAbsRel.ABSOLUTE:
+            steps = steps - self.current_pos
+
+        rps = tmc_math.steps_to_rps(self.max_speed_fullstep, self.steps_per_rev)
+        self.set_vactual_rps(rps, revolutions=round(steps / self.steps_per_rev))
+
+        self.current_pos += steps
+        return self._stop
+
+    def set_vactual(self, vactual: int):
+        """Sets the register bit 'VACTUAL' to a given value.
+
+        VACTUAL allows moving the motor by UART control.
+        It gives the motor velocity in +-(2^23)-1 [μsteps / t].
+        0: Normal operation. Driver reacts to STEP input.
+
+        Args:
+            vactual (int): value for VACTUAL
+        """
+        vactual_reg: tmc_shared_reg.VActual = self.get_register("vactual")
+        vactual_reg.modify("vactual", vactual)
+
+    def set_vactual_dur(
+        self,
+        vactual,
+        duration=0,
+        acceleration=0,
+        show_stallguard_result=False,
+        show_tstep=False,
+    ) -> StopMode:
+        """Sets the register bit 'VACTUAL' to a given value with duration.
+
+        VACTUAL allows moving the motor by UART control.
+        It gives the motor velocity in +-(2^23)-1 [μsteps / t].
+        0: Normal operation. Driver reacts to STEP input.
+
+        Args:
+            vactual (int): value for VACTUAL
+            duration (int): after this vactual will be set to 0 (Default value = 0)
+            acceleration (int): use this for a velocity ramp (Default value = 0)
+            show_stallguard_result (bool): prints StallGuard Result during movement
+                (Default value = False)
+            show_tstep (bool): prints TStep during movement (Default value = False)
+
+        Returns:
+            stop (enum): how the movement was finished
+        """
+        self._stop = StopMode.NO
+        current_vactual = 0
+        sleeptime = 0.05
+        time_to_stop = 0
+        if vactual < 0:
+            acceleration = -acceleration
+
+        if duration != 0:
+            self._tmc_logger.log(
+                f"vactual: {vactual} for {duration} sec", Loglevel.INFO
+            )
+        else:
+            self._tmc_logger.log(f"vactual: {vactual}", Loglevel.INFO)
+        self._tmc_logger.log(str(bin(vactual)), Loglevel.INFO)
+
+        self._tmc_logger.log("writing vactual", Loglevel.INFO)
+        if acceleration == 0:
+            self.set_vactual(int(round(vactual)))
+
+        if duration == 0:
+            return self._stop
+        duration_us = duration * 1000 * 1000
+
+        self._starttime = get_time_us()
+        current_time = get_time_us()
+        while current_time < self._starttime + duration_us:
+            if self._stop == StopMode.HARDSTOP:
+                break
+            if acceleration != 0:
+                time_to_stop = (
+                    self._starttime + duration_us - abs(current_vactual / acceleration)
+                )
+                if self._stop == StopMode.SOFTSTOP:
+                    time_to_stop = current_time - 1
+            if acceleration != 0 and current_time > time_to_stop:
+                current_vactual -= acceleration * sleeptime
+                self.set_vactual(int(round(current_vactual)))
+                time.sleep(sleeptime)
+            elif acceleration != 0 and abs(current_vactual) < abs(vactual):
+                current_vactual += acceleration * sleeptime
+                self.set_vactual(int(round(current_vactual)))
+                time.sleep(sleeptime)
+            if show_stallguard_result:
+                # self._tmc_logger.log(f"StallGuard result: {self.get_stallguard_result()}",
+                #                     Loglevel.INFO)
+                time.sleep(0.1)
+            if show_tstep:
+                # self._tmc_logger.log(f"TStep result: {self.get_tstep()}",
+                #                     Loglevel.INFO)
+                time.sleep(0.1)
+            current_time = get_time_us()
+        self.set_vactual(0)
+        return self._stop
+
+    def set_vactual_rps(
+        self, rps, duration=0, revolutions=0, acceleration=0
+    ) -> StopMode:
+        """Converts the rps parameter to a vactual value.
+
+        Represents rotation speed in revolutions per second.
+        With internal oscillator:
+        VACTUAL[2209] = v[Hz] / 0.715Hz
+
+        Args:
+            rps (int): value for vactual in rps
+            duration (int): after this vactual will be set to 0 (Default value = 0)
+            revolutions (int): after this vactual will be set to 0 (Default value = 0)
+            acceleration (int): use this for a velocity ramp (Default value = 0)
+
+        Returns:
+            stop (enum): how the movement was finished
+        """
+        vactual = tmc_math.rps_to_vactual(rps, self._steps_per_rev)
+        if revolutions != 0:
+            duration = abs(revolutions / rps)
+        if revolutions < 0:
+            vactual = -vactual
+        return self.set_vactual_dur(vactual, duration, acceleration=acceleration)
+
+    def set_vactual_rpm(
+        self, rpm, duration=0, revolutions=0, acceleration=0
+    ) -> StopMode:
+        """Converts the rpm parameter to a vactual value.
+
+        Represents rotation speed in revolutions per minute.
+
+        Args:
+            rpm (int): value for vactual in rpm
+            duration (int): after this vactual will be set to 0 (Default value = 0)
+            revolutions (int): after this vactual will be set to 0 (Default value = 0)
+            acceleration (int): use this for a velocity ramp (Default value = 0)
+
+        Returns:
+            stop (enum): how the movement was finished
+        """
+        return self.set_vactual_rps(rpm / 60, duration, revolutions, acceleration)
+
+    def run_speed(self, speed: int):
+        """Runs the motor does not block the code.
+
+        Args:
+            speed (int): speed in µsteps per second
+        """
+        self.set_vactual(round(speed / 0.715))
+
+    def run_speed_fullstep(self, speed: int):
+        """Runs the motor at a given speed in fullsteps per second."""
+        self.run_speed(speed * self.mres)

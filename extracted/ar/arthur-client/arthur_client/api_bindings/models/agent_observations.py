@@ -28,6 +28,7 @@ class AgentObservations(BaseModel):
     """ # noqa: E501
     install_path: Optional[StrictStr] = None
     version: Optional[StrictStr] = None
+    previous_version: Optional[StrictStr] = None
     host_name: Optional[StrictStr] = None
     host_group: Optional[StrictStr] = None
     os_version: Optional[StrictStr] = None
@@ -35,7 +36,7 @@ class AgentObservations(BaseModel):
     permissions: Optional[List[StrictStr]] = Field(default=None, description="Capabilities the agent declared for itself, e.g. a browser extension's manifest permissions ('tabs', 'nativeMessaging', '<all_urls>'). A cloud agent's action groups or service-account scopes answer the same question, which is why this is shared rather than endpoint-only.")
     service_names: Optional[List[StrictStr]] = Field(default=None, description="Service names this agent emits telemetry under. What links a discovered agent to traces already arriving.")
     classification: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["install_path", "version", "host_name", "host_group", "os_version", "assigned_user", "permissions", "service_names", "classification"]
+    __properties: ClassVar[List[str]] = ["install_path", "version", "previous_version", "host_name", "host_group", "os_version", "assigned_user", "permissions", "service_names", "classification"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +87,11 @@ class AgentObservations(BaseModel):
         if self.version is None and "version" in self.model_fields_set:
             _dict['version'] = None
 
+        # set to None if previous_version (nullable) is None
+        # and model_fields_set contains the field
+        if self.previous_version is None and "previous_version" in self.model_fields_set:
+            _dict['previous_version'] = None
+
         # set to None if host_name (nullable) is None
         # and model_fields_set contains the field
         if self.host_name is None and "host_name" in self.model_fields_set:
@@ -125,6 +131,7 @@ class AgentObservations(BaseModel):
         _obj = cls.model_validate({
             "install_path": obj.get("install_path"),
             "version": obj.get("version"),
+            "previous_version": obj.get("previous_version"),
             "host_name": obj.get("host_name"),
             "host_group": obj.get("host_group"),
             "os_version": obj.get("os_version"),

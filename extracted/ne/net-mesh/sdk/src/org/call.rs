@@ -1,0 +1,2112 @@
+//! OSDK S1 — `org.call`: the caller verb.
+//!
+//! One method, no options object. The SDK owns the proof TTL, grant matching,
+//! provider selection, provider pinning, the retry prohibition, the codec, and
+//! the timeout; an advanced caller who needs to tune any of those already has
+//! the low-level [`OrgProofIntent`](super::types::OrgProofIntent) seam.
+//!
+//! ```text
+//! derive capability            for_tag("nrpc:<service>")
+//! → private verified discovery owner plane (SameOrg) + granted planes
+//! → classify by plane          same-org ⇒ no grant; cross-org ⇒ grant required
+//! → exact grant matching       the complete authority relation, INVOKE
+//! → deterministic selection    lowest provider EntityId
+//! → canonical OrgProofIntent   all nine fields
+//! → exact-target protected call  core call() pins/mints/digests/signs
+//! → coarse denial decoding     0x0009 → OrgSdkError::AdmissionDenied
+//! ```
+//!
+//! # Two caller verbs, two discovery planes
+//!
+//! [`OrgClient::call`] discovers ONLY the private planes — the verbs are
+//! symmetric: `serve_org` emits privately, `call` discovers privately.
+//!
+//! [`OrgClient::call_exported`] is the public-plane counterpart
+//! (SUBNET_AUTH_SDK_PLAN.md §3.6): a subnet-exported registration announces
+//! plaintext, so its callers derive the authority relation from the VERIFIED
+//! owner projection sampled with the candidate in one fold snapshot
+//! ([`MeshNode::public_owned_service_providers`]). Everything after discovery —
+//! credential currency, dispatcher scope, grant matching, deterministic
+//! selection, the canonical proof, the no-retry rule — is the same shared
+//! pipeline, deliberately not forked. The name is `call_exported`, not
+//! `call_subnet`: the caller invokes a publicly discoverable organization
+//! service and neither names nor joins a subnet; the subnet is provider-local
+//! execution authority.
+//!
+//! [`MeshNode::public_owned_service_providers`]: net::adapter::net::MeshNode::public_owned_service_providers
+//!
+//! # Never a second attempt
+//!
+//! A signed proof is never resent and the facade never retries: the replay guard
+//! is volatile and keyed on `(caller, call_id)`, so every attempt must be a
+//! fresh call id and a fresh signature. Cross-call idempotency is the
+//! application's.
+
+use std::time::{Duration, Instant};
+
+use bytes::Bytes;
+use serde::{de::DeserializeOwned, Serialize};
+
+use net::adapter::net::behavior::org_admission::CoarseAdmissionReason;
+use net::adapter::net::behavior::org_cold_plan::{
+    OrgColdAuthority, OrgColdDiscovery, OrgColdRefusal,
+};
+use net::adapter::net::behavior::org_scoped_store::PrivateCapabilityProvider;
+use net::adapter::net::behavior::org_sensing_demand::org_sensed_bucket_permutation;
+use net::adapter::net::behavior::sensing::ConsumerLatencyBudget;
+use net::adapter::net::identity::EntityId;
+use net::adapter::net::mesh_rpc::{
+    CallOptions, ClientStreamCallRaw, DuplexCallRaw, RpcError, RpcStream,
+};
+
+use super::error::{hex32, hex_capability, OrgCredentialError, OrgDiscoveryError, OrgSdkError};
+use super::types::{CapabilityAuthorityId, OrgCapabilityGrant, OrgProofIntent};
+use super::OrgClient;
+use crate::mesh_rpc::{
+    ClientStreamCallTyped, Codec, DuplexCallTyped, DuplexSinkTyped, DuplexStreamTyped,
+    RpcStreamTyped,
+};
+
+/// The wire status a provider's admission denial carries (OA2-E2).
+const RPC_STATUS_ADMISSION_DENIED: u16 = 0x0009;
+
+/// How a selected provider is authorized — derived from the discovery plane and
+/// the org relation, never chosen by the caller.
+///
+/// The grant is boxed because it is by far the larger variant (a signed grant
+/// with its discovery binding), and the same-org arm carries nothing: an
+/// unboxed enum would make every candidate in the selection vector pay the
+/// cross-org size.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Mode {
+    /// Same organization: the provider's owner org IS the acting org. No
+    /// capability grant is attached — admission refuses an unexpected one.
+    SameOrg,
+    /// Cross-organization: authorized by exactly one held grant.
+    Granted(Box<OrgCapabilityGrant>),
+}
+
+/// A discovered provider plus the plane that produced it.
+struct Candidate {
+    provider: EntityId,
+    owner_org: net::adapter::net::behavior::org::OrgId,
+    same_org: bool,
+    /// Discovered on the OWNER-PRIVATE plane, as opposed to under a held
+    /// DISCOVER grant or on the public exported plane.
+    ///
+    /// Distinct from [`Self::same_org`], and deliberately so: a grant issued
+    /// by this organization to itself is valid, and its provider is same-org —
+    /// but it was never in owner-private discovery, which is the ONLY domain
+    /// core's sensed population is derived from
+    /// (`MeshNode::org_sensing_authorized_population`). Classifying by owner
+    /// org alone made the sensing expectation ask for a provider core cannot
+    /// publish, so the two sides never agreed and every call past the floor
+    /// reconverged the same unchanged owner population.
+    owner_plane: bool,
+}
+
+/// A discovered provider this credential set is authorized to invoke
+/// `capability` on, carrying the authority relation and current direct
+/// reachability. The whole pre-network authority decision, factored out of
+/// selection (OLB-1) so `plan` — and later the sensed selector — composes over
+/// it rather than re-deriving it.
+///
+/// Internal only; nothing here is re-exported.
+#[derive(Debug, Clone)]
+pub(crate) struct AuthorizedOrgCandidate {
+    /// The provider entity to target.
+    pub(crate) provider: EntityId,
+    /// The provider's owner organization as it rides the proof: the acting org
+    /// for [`Mode::SameOrg`], the grant issuer for [`Mode::Granted`].
+    pub(crate) provider_owner_org: net::adapter::net::behavior::org::OrgId,
+    /// How invoking this provider is authorized.
+    pub(crate) mode: Mode,
+    /// Whether a live direct session to this provider exists right now
+    /// (OA2-E0.3: protected RPC is direct-session-only). Annotated here, never
+    /// a filter on authorization.
+    pub(crate) direct: bool,
+    /// Whether owner-private discovery produced this candidate — the SENSING
+    /// domain, carried forward from [`Candidate::owner_plane`]. Never an
+    /// authorization input: a granted candidate is invoked exactly as before.
+    pub(crate) owner_plane: bool,
+    /// The capability being invoked.
+    pub(crate) capability: CapabilityAuthorityId,
+}
+
+/// The outcome of one cold-plan derivation over one capture (OLB-2B.3d-pre).
+///
+/// `Superseded` is not an error: nothing was sent, nothing was signed, and the
+/// caller re-derives from a fresh capture. It is a value rather than a bool so a
+/// superseded attempt cannot be mistaken for "no candidates".
+#[derive(Debug)]
+pub(crate) enum PlanAttempt {
+    /// The captured authority still held, so exactly one proof intent exists.
+    ///
+    /// Boxed for the reason [`Mode::Granted`] is: the intent carries the whole
+    /// credential set, and the superseded arm carries a `usize`.
+    Minted(Box<OrgProofIntent>),
+    /// The captured authority moved before the mint. Carries the count this
+    /// derivation examined, so the eventual refusal reports a real number.
+    Superseded {
+        /// Private candidates examined before authority filtering.
+        considered: usize,
+    },
+}
+
+// ===========================================================================
+// OSDK §3 — the streaming call surface (§4.3's caller rows).
+//
+// One plan per call: every verb resolves the provider ONCE and pins it for
+// the call's whole life. The typed verbs are the bytes seams plus JSON (one
+// authority path), and every error surface is the unary verb's own
+// `map_rpc_error` — `OrgSdkError` gains nothing.
+// ===========================================================================
+
+/// The facade's default protected-call lifetime (Owner Q1): 300 s, applied
+/// whenever a binding seam receives `deadline_ms == 0`. A protected call's
+/// lifetime is finite BY CONTRACT (D3), so `0` means THIS default and never
+/// "no deadline".
+const DEFAULT_LIFETIME_MS: u64 = 300_000;
+
+/// Execution control → [`CallOptions`] for the streaming shapes. The pinned
+/// intent rides along; `deadline_ms == 0` becomes [`DEFAULT_LIFETIME_MS`]
+/// (never "none"); `cancel_token == 0` means uncancellable. Neither argument
+/// is an authorization input — they select no grant and no authority.
+fn streaming_options(intent: OrgProofIntent, deadline_ms: u64, cancel_token: u64) -> CallOptions {
+    protected_call_options(intent, deadline_ms, cancel_token)
+}
+
+/// A protected call's lifetime: `deadline_ms`, or [`DEFAULT_LIFETIME_MS`] for
+/// `0` — never "no deadline".
+fn protected_lifetime(deadline_ms: u64) -> Duration {
+    Duration::from_millis(if deadline_ms == 0 {
+        DEFAULT_LIFETIME_MS
+    } else {
+        deadline_ms
+    })
+}
+
+/// Execution control → [`CallOptions`] for every protected call shape, unary
+/// and streaming alike. The unary seams used to set a deadline only for
+/// `deadline_ms > 0`, so `0` meant NO deadline there — a hung provider held
+/// the call (and a Go `net_org_call` thread) forever, while the streaming
+/// twin timed out after 300 s (SDK audit 2026-10-11).
+fn protected_call_options(
+    intent: OrgProofIntent,
+    deadline_ms: u64,
+    cancel_token: u64,
+) -> CallOptions {
+    let mut opts = CallOptions {
+        org_proof_intent: Some(intent),
+        ..CallOptions::default()
+    };
+    opts.deadline = Some(Instant::now() + protected_lifetime(deadline_ms));
+    if cancel_token != 0 {
+        opts.cancel_token = Some(cancel_token);
+    }
+    opts
+}
+
+/// [`OrgClient::call_streaming`]'s handle: the typed response stream with the
+/// facade's error vocabulary — `Stream<Item = Result<Resp, OrgSdkError>>`.
+///
+/// Wraps [`RpcStreamTyped`] (the facade's JSON codec decodes each chunk) and
+/// maps every wire error through the unary verb's own `map_rpc_error`: an
+/// opening refusal arrives as `Err(AdmissionDenied(coarse))`, a midstream
+/// revocation as the stream's final `Err(AdmissionDenied(Denied))`, and
+/// deadline/cancel retirement as `Err(Rpc(Timeout))` / `Err(Rpc(Cancelled))`.
+///
+/// Dropping the stream — drained or not — emits exactly one CANCEL to the
+/// provider: the wrapped [`RpcStream`]'s drop contract, unchanged.
+///
+/// [`RpcStream`]: net::adapter::net::mesh_rpc::RpcStream
+pub struct OrgStream<Resp> {
+    inner: RpcStreamTyped<Resp>,
+}
+
+impl<Resp: DeserializeOwned + Unpin> futures::Stream for OrgStream<Resp> {
+    type Item = Result<Resp, OrgSdkError>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
+            std::task::Poll::Ready(Some(Ok(value))) => std::task::Poll::Ready(Some(Ok(value))),
+            std::task::Poll::Ready(Some(Err(e))) => {
+                std::task::Poll::Ready(Some(Err(map_rpc_error(e))))
+            }
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+/// [`OrgClient::call_streaming_bytes`]'s handle: raw response chunks with the
+/// facade's error vocabulary — `Stream<Item = Result<Bytes, OrgSdkError>>`.
+///
+/// Wraps the raw core stream; drop emits exactly one CANCEL (the core's
+/// contract, unchanged).
+pub struct OrgStreamRaw {
+    inner: RpcStream,
+}
+
+impl futures::Stream for OrgStreamRaw {
+    type Item = Result<Bytes, OrgSdkError>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
+            std::task::Poll::Ready(Some(Ok(bytes))) => std::task::Poll::Ready(Some(Ok(bytes))),
+            std::task::Poll::Ready(Some(Err(e))) => {
+                std::task::Poll::Ready(Some(Err(map_rpc_error(e))))
+            }
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+/// One client-streaming call's PINNED opening: the plan resolved once at the
+/// verb (the intent and the provider), plus the execution control the call
+/// will open under.
+///
+/// The wire opening is LAZY — core's contract: the initial REQUEST "is emitted
+/// by the first `send` (or by `finish` for the zero-item degenerate path)" —
+/// so the core handle is built at that first mutation against THIS provider
+/// and no other. Resolving a provider there again would be exactly the
+/// mid-call re-resolution the pin exists to forbid.
+struct PinnedOpening {
+    client: OrgClient,
+    service: String,
+    provider: EntityId,
+    /// The opening options, with the signed intent already inside. Cloned into
+    /// the one open the call makes; never spent, so a LOCAL open refusal (no
+    /// route, binding refusal — nothing sent, nothing signed) can be reported
+    /// again by `finish` without inventing a second plan.
+    opening: CallOptions,
+}
+
+/// [`OrgClient::call_client_stream`]'s handle: `send` pushes one request item;
+/// `finish` closes the upload and awaits the typed terminal response.
+///
+/// Wraps [`ClientStreamCallTyped`]; every error surface maps through
+/// `map_rpc_error`. The provider is pinned at the verb (see
+/// `PinnedOpening`) — each `send` writes into the one pinned call and never
+/// re-resolves anything.
+pub struct OrgClientStreamCall<Req, Resp> {
+    pinned: PinnedOpening,
+    inner: Option<ClientStreamCallTyped<Req, Resp>>,
+}
+
+impl<Req: Serialize, Resp: DeserializeOwned> OrgClientStreamCall<Req, Resp> {
+    /// Build the core handle against the pinned provider — once, at the first
+    /// `send`/`finish`. Idempotent; a later call reuses the open handle.
+    async fn ensure_opened(&mut self) -> Result<(), OrgSdkError> {
+        if self.inner.is_some() {
+            return Ok(());
+        }
+        // The PINNED opening, never the bytes seam (which plans): this call's
+        // provider was resolved once, at the verb.
+        let inner = self
+            .pinned
+            .client
+            .node
+            .call_client_stream(
+                self.pinned.provider.node_id(),
+                &self.pinned.service,
+                self.pinned.opening.clone(),
+            )
+            .await
+            .map_err(map_rpc_error)?;
+        self.inner = Some(ClientStreamCallTyped::from_raw(inner, Codec::Json));
+        Ok(())
+    }
+
+    /// Encode `value` and publish it as the next request item. The first
+    /// `send` IS the call's signed opening (core's lazy initial REQUEST): the
+    /// proof is minted over this finalized first chunk, at the pinned
+    /// provider.
+    pub async fn send(&mut self, value: &Req) -> Result<(), OrgSdkError> {
+        self.ensure_opened().await?;
+        self.inner
+            .as_mut()
+            .expect("ensure_opened populated the handle")
+            .send(value)
+            .await
+            .map_err(map_rpc_error)
+    }
+
+    /// Close the upload and await the typed terminal response. With zero
+    /// items sent this is the call's opening (core's degenerate path).
+    pub async fn finish(mut self) -> Result<Resp, OrgSdkError> {
+        self.ensure_opened().await?;
+        self.inner
+            .take()
+            .expect("ensure_opened populated the handle")
+            .finish()
+            .await
+            .map_err(map_rpc_error)
+    }
+}
+
+/// [`OrgClient::call_duplex`]'s handle: `send` pushes one request item,
+/// `finish_sending` half-closes the upload, `into_split` peels independent
+/// typed halves, and the handle itself is the response `Stream`.
+///
+/// Wraps [`DuplexCallTyped`]; every error surface maps through
+/// `map_rpc_error`. Opened at the verb (`into_split` and `Stream` are
+/// synchronous) against the pinned provider.
+pub struct OrgDuplexCall<Req, Resp> {
+    inner: DuplexCallTyped<Req, Resp>,
+}
+
+impl<Req: Serialize, Resp: DeserializeOwned + Unpin> OrgDuplexCall<Req, Resp> {
+    /// Encode and publish one request item.
+    pub async fn send(&mut self, value: &Req) -> Result<(), OrgSdkError> {
+        self.inner.send(value).await.map_err(map_rpc_error)
+    }
+
+    /// Close the upload direction. The response stream stays open.
+    pub async fn finish_sending(&mut self) -> Result<(), OrgSdkError> {
+        self.inner.finish_sending().await.map_err(map_rpc_error)
+    }
+
+    /// Split into independent typed halves (upload sink + response stream).
+    /// CANCEL fires only when BOTH halves drop without a clean close — the
+    /// wrapped call's contract, unchanged.
+    pub fn into_split(self) -> (OrgDuplexSink<Req>, OrgDuplexStream<Resp>) {
+        let (sink, stream) = self.inner.into_split();
+        (
+            OrgDuplexSink { inner: sink },
+            OrgDuplexStream { inner: stream },
+        )
+    }
+}
+
+impl<Req, Resp: DeserializeOwned + Unpin> futures::Stream for OrgDuplexCall<Req, Resp> {
+    type Item = Result<Resp, OrgSdkError>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
+            std::task::Poll::Ready(Some(Ok(value))) => std::task::Poll::Ready(Some(Ok(value))),
+            std::task::Poll::Ready(Some(Err(e))) => {
+                std::task::Poll::Ready(Some(Err(map_rpc_error(e))))
+            }
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+/// The upload half of a split [`OrgDuplexCall`] — the facade's typed sink.
+pub struct OrgDuplexSink<Req> {
+    inner: DuplexSinkTyped<Req>,
+}
+
+impl<Req: Serialize> OrgDuplexSink<Req> {
+    /// Encode and publish one request item.
+    pub async fn send(&mut self, value: &Req) -> Result<(), OrgSdkError> {
+        self.inner.send(value).await.map_err(map_rpc_error)
+    }
+
+    /// Close the upload direction.
+    pub async fn finish_sending(self) -> Result<(), OrgSdkError> {
+        self.inner.finish_sending().await.map_err(map_rpc_error)
+    }
+}
+
+/// The response half of a split [`OrgDuplexCall`] — `Stream<Item =
+/// Result<Resp, OrgSdkError>>`.
+pub struct OrgDuplexStream<Resp> {
+    inner: DuplexStreamTyped<Resp>,
+}
+
+impl<Resp: DeserializeOwned + Unpin> futures::Stream for OrgDuplexStream<Resp> {
+    type Item = Result<Resp, OrgSdkError>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
+            std::task::Poll::Ready(Some(Ok(value))) => std::task::Poll::Ready(Some(Ok(value))),
+            std::task::Poll::Ready(Some(Err(e))) => {
+                std::task::Poll::Ready(Some(Err(map_rpc_error(e))))
+            }
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+impl OrgClient {
+    /// Call a protected service (OSDK §2).
+    ///
+    /// Discovers privately, selects one authorized provider, mints a canonical
+    /// request-bound proof, and issues one exact-target call.
+    ///
+    /// Errors distinguish local refusal ([`OrgSdkError::Credentials`],
+    /// [`OrgSdkError::Discovery`] — nothing was sent) from provider refusal
+    /// ([`OrgSdkError::AdmissionDenied`]) and transport
+    /// ([`OrgSdkError::Rpc`]).
+    pub async fn call<Req, Resp>(&self, service: &str, request: &Req) -> Result<Resp, OrgSdkError>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned,
+    {
+        let body = Codec::Json.encode(request).map_err(|e| RpcError::Codec {
+            direction: net::adapter::net::mesh_rpc::CodecDirection::Encode,
+            message: format!("org call encode: {e}"),
+        })?;
+
+        let reply = self.call_bytes(service, Bytes::from(body)).await?;
+
+        Codec::Json.decode(&reply).map_err(|e| {
+            OrgSdkError::Rpc(RpcError::Codec {
+                direction: net::adapter::net::mesh_rpc::CodecDirection::Decode,
+                message: format!("org call decode: {e}"),
+            })
+        })
+    }
+
+    /// [`call`](Self::call) without the codec — bytes in, bytes out (OSDK-L R1).
+    ///
+    /// The typed verb IS this plus JSON, so there is one authority path and the
+    /// typed layer is provably just marshaling. Exists because language
+    /// bindings cannot cross an FFI boundary with a generic: `call<Req, Resp>`
+    /// is unwrappable by napi, PyO3, or cgo, and this is what they call.
+    ///
+    /// Every guarantee of the typed verb holds here unchanged: private-only
+    /// discovery, inferred admission mode, exact grant matching, deterministic
+    /// selection, one canonical request-bound proof, and no retry.
+    pub async fn call_bytes(&self, service: &str, request: Bytes) -> Result<Bytes, OrgSdkError> {
+        // `0` deadline = the facade's default; `0` token = uncancellable.
+        self.call_bytes_deadline(service, request, 0, 0).await
+    }
+
+    /// [`call_bytes`](Self::call_bytes) with execution control — a deadline and
+    /// a pre-reserved cancel token (OSDK-L §D6a).
+    ///
+    /// This is the seam the C ABI's `net_org_call` reaches so a Go `Call(ctx,
+    /// ..)` can carry a real deadline and cancel a call **in flight**, rather
+    /// than only abandoning its own wait while an authorized side effect keeps
+    /// executing. Neither argument is an AUTHORIZATION input: they select no
+    /// grant and no authority, and they can never widen what this caller may
+    /// invoke.
+    ///
+    /// `deadline_ms` is nonetheless a SELECTION input, and deliberately so:
+    /// `plan()` turns it into a [`ConsumerLatencyBudget`], which is what lets
+    /// the sensed order prefer a provider that can actually start in time. So
+    /// the same call issued with a tight deadline and with none can land on
+    /// DIFFERENT providers whenever a sensed-viable provider's route estimate
+    /// plus start estimate straddles the budget. That is the point of sensing,
+    /// not a leak — but it does mean a caller cannot predict the target from
+    /// the request alone, which matters when it has pre-reserved a cancel
+    /// token. Authorization, admission mode, grant matching and the
+    /// request-bound proof are all unchanged either way.
+    ///
+    /// `deadline_ms == 0` means the facade
+    /// default; `cancel_token == 0` means uncancellable. Reserve the token with
+    /// [`reserve_cancel_token`](Self::reserve_cancel_token) BEFORE calling.
+    ///
+    /// `#[doc(hidden)]` — applications use `call`/`call_bytes`; execution control
+    /// is a binding concern, exposed for the cancellable C ABI only.
+    #[doc(hidden)]
+    pub async fn call_bytes_deadline(
+        &self,
+        service: &str,
+        request: Bytes,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<Bytes, OrgSdkError> {
+        let intent = self.plan(service, deadline_ms)?;
+        let provider = intent.provider.clone();
+        // Instrumented builds only: record WHICH provider planning selected,
+        // so a witness can attribute an outcome even when the send fails and
+        // no reply names anyone.
+        #[cfg(all(feature = "cortex", any(test, feature = "fixtures")))]
+        {
+            *self.selected.lock() = Some(provider.clone());
+        }
+
+        // Execution control only — never an authority input.
+        let opts = protected_call_options(intent, deadline_ms, cancel_token);
+
+        // The core call mints the call id, computes the canonical request
+        // digest, signs the proof, appends exactly one admission header, and
+        // pins `peer_entity_id(target) == intent.provider` before sending.
+        let reply = self
+            .node
+            .call(provider.node_id(), service, request, opts)
+            .await
+            .map_err(map_rpc_error)?;
+
+        Ok(reply.body)
+    }
+
+    /// Call a subnet-exported service (SUBNET_AUTH_SDK_PLAN.md §3.6).
+    ///
+    /// Discovers on the PUBLIC plane through the verified ownership
+    /// projection, derives the same-org / granted relation from the
+    /// verified owner, selects deterministically, mints the same canonical
+    /// request-bound proof as [`call`](Self::call), and sends exactly once.
+    ///
+    /// Deliberately `call_exported`, not `call_subnet`: this invokes a
+    /// publicly discoverable organization service. The caller presents
+    /// organization authority only — it never supplies a subnet
+    /// credential, an export binding, or any subnet coordinate, it never
+    /// joins the provider's subnet, and it receives no provider-local
+    /// subnet context. Whether the export exists is decided provider-side,
+    /// per call, against the provider's own live authority; provider-side
+    /// authority movement surfaces as one coarse
+    /// [`AdmissionDenied`](OrgSdkError::AdmissionDenied) and is NEVER
+    /// retried by the facade — a signed proof is never resent, and
+    /// rediscovery/retry policy belongs to the application.
+    pub async fn call_exported<Req, Resp>(
+        &self,
+        service: &str,
+        request: &Req,
+    ) -> Result<Resp, OrgSdkError>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned,
+    {
+        let body = Codec::Json.encode(request).map_err(|e| RpcError::Codec {
+            direction: net::adapter::net::mesh_rpc::CodecDirection::Encode,
+            message: format!("org call_exported encode: {e}"),
+        })?;
+
+        let reply = self.call_exported_bytes(service, Bytes::from(body)).await?;
+
+        Codec::Json.decode(&reply).map_err(|e| {
+            OrgSdkError::Rpc(RpcError::Codec {
+                direction: net::adapter::net::mesh_rpc::CodecDirection::Decode,
+                message: format!("org call_exported decode: {e}"),
+            })
+        })
+    }
+
+    /// [`call_exported`](Self::call_exported) without the codec — bytes in,
+    /// bytes out. The typed verb IS this plus JSON; language bindings call
+    /// this.
+    pub async fn call_exported_bytes(
+        &self,
+        service: &str,
+        request: Bytes,
+    ) -> Result<Bytes, OrgSdkError> {
+        self.call_exported_bytes_deadline(service, request, 0, 0)
+            .await
+    }
+
+    /// [`call_exported_bytes`](Self::call_exported_bytes) with execution
+    /// control — a deadline and a pre-reserved cancel token, the same
+    /// binding seam contract as
+    /// [`call_bytes_deadline`](Self::call_bytes_deadline): neither argument
+    /// is an authorization input, and the `plan_exported()` decision is
+    /// byte-for-byte identical to `call_exported_bytes`.
+    ///
+    /// `#[doc(hidden)]` — applications use `call_exported`; execution
+    /// control is a binding concern.
+    #[doc(hidden)]
+    pub async fn call_exported_bytes_deadline(
+        &self,
+        service: &str,
+        request: Bytes,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<Bytes, OrgSdkError> {
+        let intent = self.plan_exported(service)?;
+        let provider = intent.provider.clone();
+
+        // Execution control only — never an authority input.
+        let opts = protected_call_options(intent, deadline_ms, cancel_token);
+
+        // One send, ever: the core call mints the call id, digests, signs,
+        // pins the peer entity, and the facade never launches a second
+        // attempt on any outcome.
+        let reply = self
+            .node
+            .call(provider.node_id(), service, request, opts)
+            .await
+            .map_err(map_rpc_error)?;
+
+        Ok(reply.body)
+    }
+
+    /// Reserve a cancel token from this client's node for a subsequent
+    /// [`call_bytes_deadline`](Self::call_bytes_deadline) (OSDK-L §D6a).
+    ///
+    /// Reserve BEFORE the call so a cancel that races the call's registration is
+    /// still delivered — the doctrine [`MeshNode::reserve_cancel_token`] already
+    /// establishes. Scoped to this client's node so the substrate's per-mesh
+    /// `CancelRegistry` stays the single source of truth.
+    ///
+    /// `#[doc(hidden)]` — a binding-only execution-control seam.
+    ///
+    /// [`MeshNode::reserve_cancel_token`]: net::adapter::net::MeshNode::reserve_cancel_token
+    #[doc(hidden)]
+    pub fn reserve_cancel_token(&self) -> u64 {
+        self.node.reserve_cancel_token()
+    }
+
+    /// Cancel the one in-flight call bound to `token` (OSDK-L §D6a). Idempotent;
+    /// a no-op for `0` or a token no call reserved. It never launches a second
+    /// attempt — a signed proof is never resent (the facade's no-retry rule).
+    ///
+    /// `#[doc(hidden)]` — a binding-only execution-control seam.
+    #[doc(hidden)]
+    pub fn cancel(&self, token: u64) {
+        self.node.cancel(token);
+    }
+
+    /// Everything every streaming verb shares before the wire: ONE
+    /// [`Self::plan`] — the provider is PINNED for the call — the
+    /// instrumented attribution record, and the execution-control options
+    /// (the Q1 default deadline when `deadline_ms == 0`, never "none").
+    fn streaming_opening(
+        &self,
+        service: &str,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<(EntityId, CallOptions), OrgSdkError> {
+        let intent = self.plan(service, deadline_ms)?;
+        let provider = intent.provider.clone();
+        // Instrumented builds only: record WHICH provider planning selected,
+        // so a witness can attribute an outcome even when the send fails and
+        // no reply names anyone.
+        #[cfg(all(feature = "cortex", any(test, feature = "fixtures")))]
+        {
+            *self.selected.lock() = Some(provider.clone());
+        }
+        Ok((
+            provider,
+            streaming_options(intent, deadline_ms, cancel_token),
+        ))
+    }
+
+    /// Call a protected service whose response is a STREAM (OSDK §3; §4.3).
+    ///
+    /// One request in — the signed opening binds it — and typed items out.
+    /// The provider is pinned for the whole stream: one `plan()`, one
+    /// exact-target opening, never re-resolved while the stream lives. An
+    /// opening refusal is `Err(AdmissionDenied(coarse))`; midstream retirement
+    /// arrives as the stream's final item (`Err(AdmissionDenied(Denied))` on
+    /// revocation, `Err(Rpc(Timeout))` / `Err(Rpc(Cancelled))` otherwise).
+    /// Dropping the stream emits exactly one CANCEL. The lifetime defaults to
+    /// the facade's 300 s (Owner Q1); bindings needing execution control use
+    /// [`call_streaming_bytes_deadline`](Self::call_streaming_bytes_deadline).
+    pub async fn call_streaming<Req, Resp>(
+        &self,
+        service: &str,
+        request: &Req,
+    ) -> Result<OrgStream<Resp>, OrgSdkError>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned + Unpin,
+    {
+        // The typed verb IS the bytes seam plus JSON: one authority path,
+        // one plan (inside the seam), and the codec layer is just marshaling.
+        let body = Codec::Json.encode(request).map_err(|e| RpcError::Codec {
+            direction: net::adapter::net::mesh_rpc::CodecDirection::Encode,
+            message: format!("org call_streaming encode: {e}"),
+        })?;
+        let inner = self
+            .call_streaming_bytes_deadline(service, Bytes::from(body), 0, 0)
+            .await?;
+        Ok(OrgStream {
+            inner: RpcStreamTyped::from_raw(inner, Codec::Json),
+        })
+    }
+
+    /// [`call_streaming`](Self::call_streaming) without the codec — bytes in,
+    /// raw chunks out (OSDK-L R1). The typed verb IS this plus JSON: one
+    /// authority path, and the codec layer is provably just marshaling.
+    pub async fn call_streaming_bytes(
+        &self,
+        service: &str,
+        request: Bytes,
+    ) -> Result<OrgStreamRaw, OrgSdkError> {
+        let inner = self
+            .call_streaming_bytes_deadline(service, request, 0, 0)
+            .await?;
+        Ok(OrgStreamRaw { inner })
+    }
+
+    /// [`call_streaming_bytes`](Self::call_streaming_bytes) with execution
+    /// control — a deadline and a pre-reserved cancel token, the same binding
+    /// seam contract as [`call_bytes_deadline`](Self::call_bytes_deadline):
+    /// neither argument is an authorization input. `deadline_ms == 0` is the
+    /// facade's default lifetime (Owner Q1, 300 s) and NEVER "no deadline" —
+    /// a protected call's lifetime is finite by contract (D3).
+    ///
+    /// Returns the EXISTING raw stream (§4.4: "the existing public stream/sink
+    /// handle types, no new stream wrapper per binding"); midstream errors
+    /// stay `RpcError` on it and the binding classifies them into its own org
+    /// vocabulary.
+    ///
+    /// `#[doc(hidden)]` — applications use `call_streaming` /
+    /// `call_streaming_bytes`; execution control is a binding concern.
+    #[doc(hidden)]
+    pub async fn call_streaming_bytes_deadline(
+        &self,
+        service: &str,
+        request: Bytes,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<RpcStream, OrgSdkError> {
+        let (provider, opening) = self.streaming_opening(service, deadline_ms, cancel_token)?;
+        self.node
+            .call_streaming(provider.node_id(), service, request, opening)
+            .await
+            .map_err(map_rpc_error)
+    }
+
+    /// Call a protected service with a STREAM OF REQUESTS and one typed
+    /// response (OSDK §3; §4.3).
+    ///
+    /// The provider is pinned HERE — one `plan()`, one intent, resolved once
+    /// and never re-resolved at any later `send`. The wire opening rides the
+    /// first `send` (core's lazy initial REQUEST — the signed opening binds
+    /// the finalized first chunk) or `finish` for the zero-item path, against
+    /// the pinned provider only. The lifetime defaults to the facade's 300 s
+    /// (Owner Q1); bindings needing execution control use
+    /// [`call_client_stream_bytes_deadline`](Self::call_client_stream_bytes_deadline).
+    pub async fn call_client_stream<Req, Resp>(
+        &self,
+        service: &str,
+    ) -> Result<OrgClientStreamCall<Req, Resp>, OrgSdkError>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned,
+    {
+        let (provider, opening) = self.streaming_opening(service, 0, 0)?;
+        Ok(OrgClientStreamCall {
+            pinned: PinnedOpening {
+                client: self.clone(),
+                service: service.to_string(),
+                provider,
+                opening,
+            },
+            inner: None,
+        })
+    }
+
+    /// [`call_client_stream`](Self::call_client_stream) with execution control
+    /// at the byte level (§4.3's binding seam; the same contract as
+    /// [`call_streaming_bytes_deadline`](Self::call_streaming_bytes_deadline):
+    /// `deadline_ms == 0` ⇒ the facade default, never "none"; `cancel_token ==
+    /// 0` ⇒ uncancellable). Returns the EXISTING raw call handle for the
+    /// binding to wrap.
+    ///
+    /// `#[doc(hidden)]` — execution control is a binding concern.
+    #[doc(hidden)]
+    pub async fn call_client_stream_bytes_deadline(
+        &self,
+        service: &str,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<ClientStreamCallRaw, OrgSdkError> {
+        let (provider, opening) = self.streaming_opening(service, deadline_ms, cancel_token)?;
+        self.node
+            .call_client_stream(provider.node_id(), service, opening)
+            .await
+            .map_err(map_rpc_error)
+    }
+
+    /// Call a protected service BIDIRECTIONALLY (OSDK §3; §4.3): `send`
+    /// pushes request items, `finish_sending` half-closes the upload,
+    /// `into_split` peels independent typed halves, and the handle itself is
+    /// the response `Stream`.
+    ///
+    /// The provider is pinned HERE (one `plan()`), and the handle opens at the
+    /// verb because `into_split` and `Stream` are synchronous. The lifetime
+    /// defaults to the facade's 300 s (Owner Q1); bindings needing execution
+    /// control use
+    /// [`call_duplex_bytes_deadline`](Self::call_duplex_bytes_deadline).
+    pub async fn call_duplex<Req, Resp>(
+        &self,
+        service: &str,
+    ) -> Result<OrgDuplexCall<Req, Resp>, OrgSdkError>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned + Unpin,
+    {
+        // The typed verb IS the bytes seam plus JSON (one authority path).
+        let inner = self.call_duplex_bytes_deadline(service, 0, 0).await?;
+        Ok(OrgDuplexCall {
+            inner: DuplexCallTyped::from_raw(inner, Codec::Json),
+        })
+    }
+
+    /// [`call_duplex`](Self::call_duplex) with execution control at the byte
+    /// level (§4.3's binding seam; the same contract as
+    /// [`call_streaming_bytes_deadline`](Self::call_streaming_bytes_deadline)).
+    /// Returns the EXISTING raw call handle for the binding to wrap.
+    ///
+    /// `#[doc(hidden)]` — execution control is a binding concern.
+    #[doc(hidden)]
+    pub async fn call_duplex_bytes_deadline(
+        &self,
+        service: &str,
+        deadline_ms: u64,
+        cancel_token: u64,
+    ) -> Result<DuplexCallRaw, OrgSdkError> {
+        let (provider, opening) = self.streaming_opening(service, deadline_ms, cancel_token)?;
+        self.node
+            .call_duplex(provider.node_id(), service, opening)
+            .await
+            .map_err(map_rpc_error)
+    }
+
+    /// Everything `call` does before touching the network: the coherent
+    /// authority/discovery capture, the stage-3 temporal recheck, mode
+    /// classification, exact grant matching, deterministic selection, the final
+    /// coherent authority comparison, and the canonical proof intent.
+    ///
+    /// Split out so the whole authority decision is witnessable without a
+    /// provider: `call` is exactly this plus encode → `MeshNode::call` → decode.
+    ///
+    /// **The coherent cold plan** (OLB-2B.3d-pre,
+    /// `docs/internal/plans/OLB_2B3B_WARMED_CALL_BOUNDARY_DESIGN.md` §10). Every
+    /// step below reads ONE captured observation of the node's private-discovery
+    /// authority — one instant, one revocation view, one consumer-grant view,
+    /// one scoped-store critical section — instead of re-sampling per credential
+    /// and per plane. Then, before the proof exists, it compares that authority
+    /// identity again and re-derives rather than minting under an identity that
+    /// has moved.
+    ///
+    /// The loop is bounded, and it is not a retry of anything: nothing has been
+    /// sent, no proof has been signed, and no provider has been contacted. A
+    /// re-derivation happens only on node-mediated authority movement (an
+    /// authority or store installation, a floor raise, a poison transition, a
+    /// consumer-grant install/remove/replacement), never on announcement
+    /// traffic — captured rows are values, already filtered per row.
+    ///
+    /// Exhausting the attempts is a LOCAL refusal reported as
+    /// [`OrgDiscoveryError::NoAuthorizedProvider`] with the last derivation's
+    /// considered count: the plan examined that many candidates and could not
+    /// establish an authorized provider under one coherent authority. It never
+    /// falls through to a send under a superseded capture.
+    pub(crate) fn plan(
+        &self,
+        service: &str,
+        deadline_ms: u64,
+    ) -> Result<OrgProofIntent, OrgSdkError> {
+        let tag = nrpc_tag(service);
+        let capability = CapabilityAuthorityId::for_tag(&tag);
+        let sensed = SensedSelection::new(&tag, deadline_ms);
+        self.plan_over(&capability, &sensed, || self.capture_private(&capability))
+    }
+
+    /// [`Self::plan`]'s bounded loop over an injectable capture.
+    ///
+    /// `pub(crate)` with the capture as a parameter because the loop's own
+    /// properties — that exhaustion refuses locally with the last considered
+    /// count, that the budget is bounded, and that each refusal class maps to the
+    /// existing vocabulary — are otherwise only reachable by racing authority
+    /// movement against three consecutive derivations.
+    pub(crate) fn plan_over(
+        &self,
+        capability: &CapabilityAuthorityId,
+        sensed: &SensedSelection<'_>,
+        mut capture: impl FnMut() -> Result<OrgColdDiscovery, OrgColdRefusal>,
+    ) -> Result<OrgProofIntent, OrgSdkError> {
+        let mut considered = 0usize;
+        for _ in 0..COLD_PLAN_ATTEMPTS {
+            let capture = match capture() {
+                Ok(capture) => capture,
+                Err(refusal) => return Err(cold_refusal_error(capability, refusal, considered)),
+            };
+            match self.plan_attempt(capability, &capture, sensed)? {
+                PlanAttempt::Minted(intent) => return Ok(*intent),
+                PlanAttempt::Superseded { considered: seen } => considered = seen,
+            }
+        }
+        Err(OrgDiscoveryError::NoAuthorizedProvider {
+            capability: hex_capability(capability),
+            considered,
+        }
+        .into())
+    }
+
+    /// ONE derivation over ONE capture: candidates, selection, the final
+    /// coherent authority comparison, and — only if that comparison holds — the
+    /// derivation's result.
+    ///
+    /// The comparison sits between selection and the RELEASE of the result
+    /// deliberately (design §10): the rows, the grant matching and the chosen
+    /// provider all rest on the captured authority, so a moved authority
+    /// invalidates the whole derivation rather than just its last step.
+    ///
+    /// **HOLD-3 (independent review, 2026-08-29): that includes the NEGATIVE
+    /// outcomes.** The derivation is computed into a value FIRST, and the
+    /// comparison gates it: `?` on candidate derivation or selection would have
+    /// let a stale `NoAuthorizedProvider`, `ProviderNotDirect`,
+    /// `AmbiguousCapabilityGrant` or credential refusal escape from a view the
+    /// node had already superseded — a wrong exact refusal, reported with
+    /// authority, and outside the bounded re-derivation budget. Movement can
+    /// CAUSE all four: a removed consumer grant empties a plane, a raised floor
+    /// retracts the only direct provider, and an installed grant can make two
+    /// grants match at once.
+    ///
+    /// When the capture is still current the exact error is preserved verbatim.
+    pub(crate) fn plan_attempt(
+        &self,
+        capability: &CapabilityAuthorityId,
+        capture: &OrgColdDiscovery,
+        sensed: &SensedSelection<'_>,
+    ) -> Result<PlanAttempt, OrgSdkError> {
+        // Derive and select into an INERT value — never `?`, and never a proof.
+        // The selected candidate is the whole outcome of the derivation; the
+        // intent does not exist yet, because §10 puts the comparison BETWEEN
+        // selection and the mint and F2 found this path minting before it.
+        let (candidates, considered) = self.derive_captured(capability, capture);
+        let selected: Result<AuthorizedOrgCandidate, OrgSdkError> =
+            candidates.and_then(|mut candidates| {
+                // ADVISORY sensed ORDER, between derivation and selection.
+                // It permutes an already-authorized list: it cannot add,
+                // remove or authorize a candidate, it mints nothing, and it
+                // runs strictly BEFORE the final currentness comparison below,
+                // which still gates the mint.
+                self.apply_sensed_order(capability, sensed, capture.authority(), &mut candidates);
+                self.select_candidate(capability, &candidates, considered)
+                    .cloned()
+            });
+        if !self.node.org_cold_authority_is_current(capture.authority()) {
+            return Ok(PlanAttempt::Superseded { considered });
+        }
+        // Current: NOW the proof intent may exist.
+        selected.map(|candidate| PlanAttempt::Minted(Box::new(self.intent_for(&candidate))))
+    }
+
+    /// [`Self::plan`] over the public exported plane — the same selection rule,
+    /// the same captured instant, the same final comparison, and the same
+    /// negative-outcome gating applied to
+    /// [`Self::authorized_exported_candidates`].
+    ///
+    /// The capture is the AUTHORITY half only: exported candidates come from the
+    /// plaintext fold, so there is no private plane to query. The temporal and
+    /// authority coherence is identical.
+    pub(crate) fn plan_exported(&self, service: &str) -> Result<OrgProofIntent, OrgSdkError> {
+        let capability = CapabilityAuthorityId::for_tag(&nrpc_tag(service));
+        self.plan_exported_over(&capability, service, || self.node.org_cold_authority())
+    }
+
+    /// [`Self::plan_exported`]'s bounded loop over an injectable capture — the
+    /// exported twin of [`Self::plan_over`], for the same reason.
+    pub(crate) fn plan_exported_over(
+        &self,
+        capability: &CapabilityAuthorityId,
+        service: &str,
+        mut capture: impl FnMut() -> Result<OrgColdAuthority, OrgColdRefusal>,
+    ) -> Result<OrgProofIntent, OrgSdkError> {
+        let mut considered = 0usize;
+        for _ in 0..COLD_PLAN_ATTEMPTS {
+            let authority = match capture() {
+                Ok(authority) => authority,
+                Err(refusal) => return Err(cold_refusal_error(capability, refusal, considered)),
+            };
+            match self.plan_exported_attempt(capability, service, &authority)? {
+                PlanAttempt::Minted(intent) => return Ok(*intent),
+                PlanAttempt::Superseded { considered: seen } => considered = seen,
+            }
+        }
+        Err(OrgDiscoveryError::NoAuthorizedProvider {
+            capability: hex_capability(capability),
+            considered,
+        }
+        .into())
+    }
+
+    /// ONE exported derivation over ONE authority capture — the exported twin of
+    /// [`Self::plan_attempt`], including its negative-outcome gating (HOLD-3).
+    pub(crate) fn plan_exported_attempt(
+        &self,
+        capability: &CapabilityAuthorityId,
+        service: &str,
+        authority: &OrgColdAuthority,
+    ) -> Result<PlanAttempt, OrgSdkError> {
+        let (candidates, considered) = self.derive_exported(capability, service, authority);
+        let selected: Result<AuthorizedOrgCandidate, OrgSdkError> =
+            candidates.and_then(|candidates| {
+                self.select_candidate(capability, &candidates, considered)
+                    .cloned()
+            });
+        if !self.node.org_cold_authority_is_current(authority) {
+            return Ok(PlanAttempt::Superseded { considered });
+        }
+        selected.map(|candidate| PlanAttempt::Minted(Box::new(self.intent_for(&candidate))))
+    }
+
+    /// Permute an already-authorized candidate list into the SENSED order,
+    /// reconciling this capability's retained demand first when the call's own
+    /// authorized population says it must be.
+    ///
+    /// Advisory, and bounded by that word in every direction: it never adds,
+    /// removes, filters or authorizes a candidate, it never mints, it produces
+    /// no error, and every input it uses is either the caller's own request
+    /// (the budget) or evidence this node already holds. Every failure mode -
+    /// an inert binding, a refused acquisition, a rotated sensing authority, an
+    /// empty population, no observations at all - lands on the SAME outcome:
+    /// the deterministic unsensed order the caller would have had anyway.
+    ///
+    /// # The reconciliation trigger, and why it is the candidate list
+    ///
+    /// `authority_is_current()` covers SECURITY-authority publication, not
+    /// discovery rows, pins, or holder liveness. Reusing demand on that stamp
+    /// alone froze ordinary churn: a provider discovered after the first call
+    /// never entered the population, a departed one never left it, and a
+    /// provider whose acquisition was transiently refused stayed without a
+    /// holder forever.
+    ///
+    /// The trigger is therefore the thing this call already derived under one
+    /// coherent capture: its own pinned same-organization candidates. That set
+    /// IS what the demand should be retained over, so comparing it against
+    /// what the last convergence CERTIFIED detects an addition, a removal and
+    /// a pin change alike, with no extra query and no clock.
+    ///
+    /// # What the record certifies, and what bounds it
+    ///
+    /// A record is only reusable while it still describes the demand that is
+    /// actually installed. It therefore carries the demand's IDENTITY and the
+    /// population core published, and a reuse decision re-checks:
+    ///
+    /// * the expectation this call derived, against the one recorded;
+    /// * the installed demand's identity, so a demand replaced or retired by
+    ///   any other caller is never certified by an older record;
+    /// * that the population core published still covers this expectation -
+    ///   a discovery row that expired between the SDK's capture and core's own
+    ///   query yields a demand narrower than the expectation, which must not
+    ///   be recorded as settled;
+    /// * that every retained holder is still the installation it was committed
+    ///   with, because ownership can die AFTER a successful convergence;
+    /// * the sensing authority stamp.
+    ///
+    /// Two bounds, because an unbounded record set is its own defect: nothing
+    /// is recorded for a capability with an EMPTY expectation (an unknown or
+    /// undiscovered service acquires nothing, so it strands no capacity), and
+    /// the record set itself is capped, evicting the least recently attempted
+    /// entry - which only costs one later convergence.
+    ///
+    /// The decision, the convergence and the record are one bounded critical
+    /// section per capability, so two clones of one binding cannot both decide
+    /// to converge the same change. Everything inside it is synchronous: no
+    /// `.await`, no I/O, no user code.
+    fn apply_sensed_order(
+        &self,
+        capability: &CapabilityAuthorityId,
+        sensed: &SensedSelection<'_>,
+        authority: &OrgColdAuthority,
+        candidates: &mut Vec<AuthorizedOrgCandidate>,
+    ) {
+        // The authority observation THIS attempt derives under. A refusal
+        // records it, and a later decision asks the node whether it is still
+        // the one in force - which is how a restored authority stops being
+        // paced by the failure that preceded it.
+        let context = super::client::RefusalContext::new(&self.node, authority);
+        let Some(acquisition) = self._sensing.acquisition() else {
+            return; // Inert: the deterministic unsensed order, no work at all.
+        };
+        let family = acquisition.family();
+
+        // What this capability's demand SHOULD be retained over: the pinned
+        // OWNER-PLANE candidates of this very derivation, plus this node
+        // itself when it is its own authorized provider - core's population
+        // rule includes the self-provider, and an expectation that omitted it
+        // could never agree with what core publishes.
+        //
+        // The domain is provenance, not owner org. Core derives the sensed
+        // population from owner-private discovery alone
+        // (`org_sensing_authorized_population`), so a provider discovered only
+        // under a held DISCOVER grant is outside it even when that grant was
+        // issued by this organization to itself and the candidate is therefore
+        // `Mode::SameOrg`. Asking for one made agreement unreachable: the two
+        // sides differed by a provider core can never publish, so every call
+        // past the retry floor reconverged an owner population that had not
+        // changed. Invocation authority is untouched - the granted candidate
+        // is still authorized, still ordered and still callable.
+        let mut expected: Vec<u64> = candidates
+            .iter()
+            .filter(|candidate| candidate.owner_plane && candidate.direct)
+            .map(|candidate| candidate.provider.node_id())
+            .collect();
+        if candidates
+            .iter()
+            .any(|candidate| candidate.owner_plane && candidate.provider == *self.node.entity_id())
+        {
+            expected.push(self.node.node_id());
+        }
+        expected.sort_unstable();
+        expected.dedup();
+        // Instrumented: the expectation THIS attempt derived from its own
+        // capture, recorded before anything acts on it.
+        acquisition.schedule().note_expectation(&expected);
+
+        let now = Instant::now();
+        // ONE section: decide, converge, record. `retain` is synchronous and
+        // takes core's own transaction lock inside; nothing here awaits.
+        {
+            // Instrumented: this caller has ARRIVED at the section's door. It
+            // is counted before the lock, so a witness can tell contention
+            // from mere spawning; the lock itself counts the callers that
+            // found it HELD, which is contention observed at acquisition.
+            acquisition.schedule().note_arrival();
+            // DECLINE rather than block: see `try_reconcile_lock`. The holder
+            // is converging this same capability and publishes for everyone, so
+            // waiting would only buy this caller the state it can already see -
+            // at the price of blocking the runtime inside a synchronous
+            // section that authors and sends per provider.
+            let Some(_txn) = acquisition.try_reconcile_lock() else {
+                return;
+            };
+            // The hold's own ticket, copied out so the steps below can ask
+            // whether they are STILL running under it. Losing the hold - to an
+            // early release or to another caller - is then observable at the
+            // exact boundary that must be protected, with no second caller and
+            // no overlap needed to expose it.
+            let held = _txn.ticket();
+            // Declared AFTER the guard, so its drop - the end of the whole
+            // transaction - runs while the guard is still held. Two callers
+            // inside this span at once means the transaction was not
+            // serialized, whatever the observer hook below saw.
+            let _span = acquisition.schedule().section_span();
+            acquisition.schedule().fire_in_section();
+            let installed = family.demand(capability);
+            if expected.is_empty() {
+                // Nothing to sense for this capability. An installed demand is
+                // a DEPARTURE to zero and is retired; nothing is recorded, so
+                // an unknown service leaves no state behind and a capability
+                // whose providers appear later still converges on that call.
+                acquisition.schedule().verify_holding(held);
+                if installed.is_some() {
+                    family.retire(sensed.tag);
+                }
+                acquisition.schedule().forget(capability);
+                return;
+            }
+            // THE DECISION - read under this caller's own hold.
+            acquisition.schedule().verify_holding(held);
+            if acquisition.schedule().needs_convergence(
+                capability,
+                &expected,
+                installed.as_ref(),
+                now,
+                RECONCILE_RETRY_FLOOR,
+                &context,
+            ) {
+                acquisition.schedule().note_convergence();
+                match family.retain(sensed.tag) {
+                    Ok(demand) => {
+                        acquisition
+                            .schedule()
+                            .certify(*capability, expected, &demand, now);
+                        // ...and THE PUBLICATION, likewise.
+                        acquisition.schedule().verify_holding(held);
+                    }
+                    // A refused convergence records the ATTEMPT against the
+                    // demand it could not replace, so a persistent refusal
+                    // cannot turn every later call into another attempt.
+                    Err(_refusal) => {
+                        acquisition.schedule().record_refusal(
+                            *capability,
+                            expected,
+                            installed.as_ref(),
+                            &context,
+                            now,
+                        );
+                        acquisition.schedule().verify_holding(held);
+                        return;
+                    }
+                }
+            }
+        }
+
+        #[cfg(test)]
+        sensing_planning_seam();
+
+        let Some(demand) = family.demand(capability) else {
+            return;
+        };
+        if candidates.len() < 2 || demand.population().is_empty() {
+            // Nothing an order could change - but the reconciliation above
+            // still ran, so a departure that leaves one candidate is still
+            // applied to the retained demand rather than skipped.
+            return;
+        }
+        let projection = demand.project_sensed_order(now, &sensed.budget);
+        let permutation = org_sensed_candidate_permutation(
+            candidates,
+            projection.viable(),
+            projection.non_viable(),
+        );
+        apply_permutation(candidates, permutation);
+    }
+
+    /// The shared selection rule (OA2-E0.3): org-protected RPC is
+    /// direct-session-only, so select the first authorized provider
+    /// (deterministic order) with a live direct session; if some are
+    /// authorized but none is directly reachable, tell the caller which of
+    /// the two it hit.
+    ///
+    /// Returns the CHOSEN CANDIDATE rather than a proof intent: the cold plan's
+    /// final coherent authority comparison sits between selection and the mint
+    /// (design §10), so selection must not be the thing that mints.
+    pub(crate) fn select_candidate<'a>(
+        &self,
+        capability: &CapabilityAuthorityId,
+        candidates: &'a [AuthorizedOrgCandidate],
+        considered: usize,
+    ) -> Result<&'a AuthorizedOrgCandidate, OrgSdkError> {
+        if let Some(candidate) = candidates.iter().find(|c| c.direct) {
+            return Ok(candidate);
+        }
+        if let Some(candidate) = candidates.first() {
+            return Err(OrgDiscoveryError::ProviderNotDirect {
+                provider: candidate.provider.clone(),
+            }
+            .into());
+        }
+        Err(OrgDiscoveryError::NoAuthorizedProvider {
+            capability: hex_capability(capability),
+            considered,
+        }
+        .into())
+    }
+
+    /// Plan a proof intent for an **exact provider node**, instead of for
+    /// whichever authorized provider selection prefers.
+    ///
+    /// The A2A verbs are direct-addressed by node id and cannot be
+    /// re-routed: a reservation, the quote computed against it and the
+    /// payment that settled it all belong to one provider and are worth
+    /// nothing anywhere else. "The lowest authorized provider id" is
+    /// therefore the wrong question for them, and
+    /// [`Self::plan`]'s deterministic selection would happily mint a
+    /// proof for a *different* provider of the same service.
+    ///
+    /// Everything else is that pipeline unchanged and deliberately not
+    /// forked: one coherent capture, the stage-3 temporal recheck, mode
+    /// classification, exact grant matching, and the final currentness
+    /// comparison standing between selection and the mint. Nothing is
+    /// sent here.
+    pub(crate) fn plan_for_node(
+        &self,
+        service: &str,
+        target_node_id: u64,
+    ) -> Result<OrgProofIntent, OrgSdkError> {
+        let capability = CapabilityAuthorityId::for_tag(&nrpc_tag(service));
+        let mut considered = 0usize;
+        for _ in 0..COLD_PLAN_ATTEMPTS {
+            let capture = match self.capture_private(&capability) {
+                Ok(capture) => capture,
+                Err(refusal) => return Err(cold_refusal_error(&capability, refusal, considered)),
+            };
+            // HOLD-3: derive into an INERT value, never `?`, so a stale
+            // negative cannot escape a superseded view either.
+            let (candidates, seen) = self.derive_captured(&capability, &capture);
+            let selected: Result<AuthorizedOrgCandidate, OrgSdkError> =
+                candidates.and_then(|candidates| {
+                    self.select_node_candidate(&capability, &candidates, target_node_id, seen)
+                        .cloned()
+                });
+            if !self.node.org_cold_authority_is_current(capture.authority()) {
+                considered = seen;
+                continue;
+            }
+            return selected.map(|candidate| self.intent_for(&candidate));
+        }
+        Err(OrgDiscoveryError::NoAuthorizedProvider {
+            capability: hex_capability(&capability),
+            considered,
+        }
+        .into())
+    }
+
+    /// [`Self::select_candidate`] narrowed to one transport target: the
+    /// same direct-session rule, applied to the provider the caller
+    /// named rather than to the first authorized one.
+    fn select_node_candidate<'a>(
+        &self,
+        capability: &CapabilityAuthorityId,
+        candidates: &'a [AuthorizedOrgCandidate],
+        target_node_id: u64,
+        considered: usize,
+    ) -> Result<&'a AuthorizedOrgCandidate, OrgSdkError> {
+        match candidates
+            .iter()
+            .find(|c| c.provider.node_id() == target_node_id)
+        {
+            Some(candidate) if candidate.direct => Ok(candidate),
+            Some(candidate) => Err(OrgDiscoveryError::ProviderNotDirect {
+                provider: candidate.provider.clone(),
+            }
+            .into()),
+            None => Err(OrgDiscoveryError::NoAuthorizedProvider {
+                capability: hex_capability(capability),
+                considered,
+            }
+            .into()),
+        }
+    }
+
+    /// One coherent capture of the private planes for `capability`, over exactly
+    /// the audiences this credential set holds DISCOVER on.
+    ///
+    /// The grant ids are derived here, in HELD-GRANT ORDER, and the capture
+    /// answers per grant id in that same order — so the discovery order the
+    /// authority pipeline depends on is the facade's, not the node's.
+    pub(crate) fn capture_private(
+        &self,
+        capability: &CapabilityAuthorityId,
+    ) -> Result<OrgColdDiscovery, OrgColdRefusal> {
+        let discover_grant_ids: Vec<[u8; 32]> = self
+            .grants
+            .iter()
+            .filter(|g| &g.capability == capability && g.permits_discover())
+            .map(|g| g.grant_id)
+            .collect();
+        self.node
+            .org_cold_discovery(capability, &discover_grant_ids)
+    }
+
+    /// The authorized candidate set: which discovered providers this credential
+    /// set may invoke `capability` on, each annotated with its authority
+    /// relation and current direct reachability, in deterministic order.
+    ///
+    /// Authority and reachability stay distinct in meaning even though both now
+    /// ride the candidate: no transport state can make an unauthorized provider
+    /// eligible or an authorized one ineligible — `direct` is annotated here,
+    /// never a filter. Selection (`plan`, and later the sensed selector)
+    /// composes over this set. Returns the ordered candidates and how many
+    /// private candidates were considered (the count `NoAuthorizedProvider`
+    /// reports).
+    ///
+    /// Takes its own coherent capture. `plan` does NOT go through here — it
+    /// keeps its capture so the final comparison can name the exact authority the
+    /// candidates were derived under.
+    ///
+    /// Compiled only where its callers are (the `cortex`-gated call witnesses):
+    /// after OLB-2B.3d-pre the ONE production entry into the authority decision
+    /// is `plan`, and a seam kept alive by an `allow(dead_code)` would claim a
+    /// production consumer that does not exist.
+    #[cfg(all(test, feature = "cortex"))]
+    pub(crate) fn authorized_candidates(
+        &self,
+        capability: &CapabilityAuthorityId,
+    ) -> Result<(Vec<AuthorizedOrgCandidate>, usize), OrgSdkError> {
+        let capture = self
+            .capture_private(capability)
+            .map_err(|refusal| cold_refusal_error(capability, refusal, 0))?;
+        self.authorized_captured_candidates(capability, &capture)
+    }
+
+    /// The candidate derivation over an already-captured observation — the
+    /// PURE half: no clock sample, no store query, no authority read.
+    #[cfg(all(test, feature = "cortex"))]
+    fn authorized_captured_candidates(
+        &self,
+        capability: &CapabilityAuthorityId,
+        capture: &OrgColdDiscovery,
+    ) -> Result<(Vec<AuthorizedOrgCandidate>, usize), OrgSdkError> {
+        let (candidates, considered) = self.derive_captured(capability, capture);
+        candidates.map(|candidates| (candidates, considered))
+    }
+
+    /// [`Self::authorized_captured_candidates`] as a VALUE plus the count
+    /// discovery examined — the shape [`Self::plan_attempt`] needs.
+    ///
+    /// The count rides beside the result rather than inside the `Ok` arm because
+    /// it is a property of DISCOVERY, which succeeded even when authorization
+    /// then refused: an ambiguity examined its candidate. A credential or
+    /// authority refusal precedes discovery and therefore examined none (HOLD-3).
+    fn derive_captured(
+        &self,
+        capability: &CapabilityAuthorityId,
+        capture: &OrgColdDiscovery,
+    ) -> (Result<Vec<AuthorizedOrgCandidate>, OrgSdkError>, usize) {
+        // Stage 3 of the validity contract: the credentials backing EVERY call,
+        // at the captured instant.
+        if let Err(refusal) = self.check_current_at(capture.now_secs()) {
+            return (Err(refusal.into()), 0);
+        }
+        // Per-call authority currentness. Bind proved this relation once; a call
+        // is where it must still hold, and a plan against another org's authority
+        // would search private state this credential set cannot own.
+        //
+        // Fail-closed rather than reachable today: `install_node_authority`
+        // refuses replacement by a different owner org and there is no
+        // uninstall, so a bound client's authority cannot change org. No witness
+        // claims the end-to-end transition; the capture-level refusals are
+        // witnessed directly.
+        if capture.authority_org() != self.acting_org {
+            return (
+                Err(OrgCredentialError::NodeAuthorityOrgMismatch {
+                    authority_org: capture.authority_org(),
+                    membership_org: self.acting_org,
+                }
+                .into()),
+                0,
+            );
+        }
+        if !self.dispatcher.covers_capability(capability) {
+            return (
+                Err(OrgCredentialError::DispatcherScopeExcludesCapability {
+                    capability: hex_capability(capability),
+                }
+                .into()),
+                0,
+            );
+        }
+
+        let discovered = self.discover_private_captured(capability, capture);
+        let considered = discovered.len();
+        (
+            self.authorize_discovered(capability, discovered, capture.now_secs()),
+            considered,
+        )
+    }
+
+    /// The exported-plane counterpart of the private derivation
+    /// (SUBNET_AUTH_SDK_PLAN.md §3.6): candidates come from the public
+    /// verified-ownership query instead of the private planes; the
+    /// credential checks and the whole authority pipeline are the SAME
+    /// code, deliberately not forked.
+    ///
+    /// Derives over an already-captured authority observation, so the exported
+    /// path shares the private path's one instant and one authority identity —
+    /// and, like [`Self::derive_captured`], yields a VALUE plus the count so the
+    /// final comparison can gate a refusal (HOLD-3).
+    fn derive_exported(
+        &self,
+        capability: &CapabilityAuthorityId,
+        service: &str,
+        authority: &OrgColdAuthority,
+    ) -> (Result<Vec<AuthorizedOrgCandidate>, OrgSdkError>, usize) {
+        if let Err(refusal) = self.check_current_at(authority.now_secs()) {
+            return (Err(refusal.into()), 0);
+        }
+        if authority.authority_org() != self.acting_org {
+            return (
+                Err(OrgCredentialError::NodeAuthorityOrgMismatch {
+                    authority_org: authority.authority_org(),
+                    membership_org: self.acting_org,
+                }
+                .into()),
+                0,
+            );
+        }
+        if !self.dispatcher.covers_capability(capability) {
+            return (
+                Err(OrgCredentialError::DispatcherScopeExcludesCapability {
+                    capability: hex_capability(capability),
+                }
+                .into()),
+                0,
+            );
+        }
+
+        let discovered = self.discover_public_owned(service);
+        let considered = discovered.len();
+        (
+            self.authorize_discovered(capability, discovered, authority.now_secs()),
+            considered,
+        )
+    }
+
+    /// Phases 1–3 of the authority pipeline, shared verbatim by the
+    /// private and exported paths — grant matching and proof-relevant
+    /// classification must not fork per discovery plane.
+    ///
+    /// `now_secs` is the plan's captured instant: every grant window in phase 1
+    /// is evaluated at exactly it, so two candidates can never be authorized
+    /// against two different "now"s (OLB-2B.3d-pre).
+    fn authorize_discovered(
+        &self,
+        capability: &CapabilityAuthorityId,
+        discovered: Vec<Candidate>,
+        now_secs: u64,
+    ) -> Result<Vec<AuthorizedOrgCandidate>, OrgSdkError> {
+        // Phase 1 — authority construction in DISCOVERY order. Grant matching
+        // (and its `AmbiguousCapabilityGrant` error) must run in this order, so
+        // the first independently-ambiguous discovered candidate is the one that
+        // surfaces, exactly as before the factoring. `direct` is a placeholder
+        // here; it is annotated in phase 3 so reachability is never observed in
+        // discovery order.
+        let mut candidates: Vec<AuthorizedOrgCandidate> = Vec::new();
+        for candidate in discovered {
+            // `provider_owner_org` is derived exactly as the proof needs it: the
+            // acting org for same-org, the grant issuer for granted — never the
+            // raw record's owner org.
+            let (mode, provider_owner_org) = if candidate.same_org {
+                (Mode::SameOrg, self.acting_org)
+            } else {
+                match self.match_invoke_grant(capability, &candidate, now_secs)? {
+                    Some(grant) => {
+                        let issuer_org = grant.issuer_org;
+                        (Mode::Granted(Box::new(grant)), issuer_org)
+                    }
+                    None => continue,
+                }
+            };
+            candidates.push(AuthorizedOrgCandidate {
+                provider: candidate.provider,
+                provider_owner_org,
+                mode,
+                direct: false,
+                owner_plane: candidate.owner_plane,
+                capability: *capability,
+            });
+        }
+        // Phase 2 — deterministic, load-blind ordering. A stable choice is
+        // debuggable, and spreading load is a policy this stage has no basis to
+        // invent — sensed selection arrives above this layer in OLB-3.
+        candidates.sort_by(|a, b| a.provider.as_bytes().cmp(b.provider.as_bytes()));
+        // Phase 3 — annotate OA2-E0.3 direct reachability in SORTED order, the
+        // exact order the pre-factoring selection loop queried sessions in.
+        // Discovery order is not provider-EntityId order across the owner and
+        // grant planes, so sampling before the sort could, under concurrent
+        // session churn, observe reachability in a different order and select a
+        // different provider. Reachability is annotated, never a filter: reading
+        // providers after the first direct one cannot change which earlier
+        // candidate `plan` selects.
+        for candidate in &mut candidates {
+            candidate.direct = self
+                .node
+                .peer_entity_id(candidate.provider.node_id())
+                .as_ref()
+                == Some(&candidate.provider);
+        }
+        Ok(candidates)
+    }
+
+    /// Assemble the canonical nine-field proof intent for a chosen candidate.
+    /// Pure construction — the authority decision already happened in
+    /// [`Self::plan_attempt`], which calls this ONLY after its final currentness
+    /// comparison holds.
+    ///
+    /// That ordering is witnessed rather than asserted: under `cfg(test)` every
+    /// construction bumps a thread-local counter, and the compare-before-mint
+    /// witnesses prove a superseded attempt leaves it untouched (independent
+    /// review F2).
+    pub(crate) fn intent_for(&self, candidate: &AuthorizedOrgCandidate) -> OrgProofIntent {
+        #[cfg(test)]
+        INTENTS_CONSTRUCTED.with(|count| count.set(count.get() + 1));
+        OrgProofIntent {
+            caller: self.caller.clone(),
+            membership: self.membership.clone(),
+            dispatcher: self.dispatcher.clone(),
+            capability_grant: match &candidate.mode {
+                Mode::SameOrg => None,
+                Mode::Granted(grant) => Some((**grant).clone()),
+            },
+            acting_org: self.acting_org,
+            provider_owner_org: candidate.provider_owner_org,
+            provider: candidate.provider.clone(),
+            capability: candidate.capability,
+            proof_ttl_secs: DEFAULT_PROOF_TTL_SECS,
+        }
+    }
+
+    /// The public exported plane, as one candidate list: every plaintext
+    /// `nrpc:<service>` candidate carrying a verified owner projection,
+    /// candidate and owner from ONE fold snapshot. Same-org is derived by
+    /// comparing the VERIFIED owner org against the acting org — an
+    /// unsigned or unowned public candidate never reaches authority
+    /// construction because the query cannot return one.
+    ///
+    /// No DISCOVER right is involved: the announcement is public. The
+    /// grant question (INVOKE) is [`Self::match_invoke_grant`]'s, shared
+    /// with the private path.
+    fn discover_public_owned(&self, service: &str) -> Vec<Candidate> {
+        let mut out: Vec<Candidate> = Vec::new();
+        for p in self.node.public_owned_service_providers(service) {
+            push_unique(
+                &mut out,
+                Candidate {
+                    same_org: p.owner_org == self.acting_org,
+                    provider: p.provider,
+                    owner_org: p.owner_org,
+                    // The public exported plane is not owner-private
+                    // discovery, and the exported path never senses anyway.
+                    owner_plane: false,
+                },
+            );
+        }
+        out
+    }
+
+    /// The two private planes of ONE capture, in one candidate list.
+    ///
+    /// Owner-plane records are same-org by construction (ingest requires the
+    /// envelope's owner org to be this node's own); granted-plane records come
+    /// from grants this client holds DISCOVER on. The plane order — owner first,
+    /// then held grants in held order — and the dedup rule are unchanged: an
+    /// owner-plane duplicate wins, so a provider visible on both planes is
+    /// classified same-org exactly as before, and now also keeps the owner
+    /// plane's PROVENANCE — which is what sensing may derive an expectation
+    /// from.
+    ///
+    /// Pure over the capture (OLB-2B.3d-pre): no query, no clock, no lock. The
+    /// grant loop still walks `self.grants` rather than the capture's rows, so
+    /// the facade's own grant order decides discovery order.
+    fn discover_private_captured(
+        &self,
+        capability: &CapabilityAuthorityId,
+        capture: &OrgColdDiscovery,
+    ) -> Vec<Candidate> {
+        let mut out: Vec<Candidate> = Vec::new();
+
+        for c in capture.owner_providers() {
+            push_unique(
+                &mut out,
+                Candidate {
+                    provider: c.provider.clone(),
+                    owner_org: c.owner_org,
+                    same_org: true,
+                    owner_plane: true,
+                },
+            );
+        }
+
+        for grant in &self.grants {
+            if &grant.capability != capability || !grant.permits_discover() {
+                continue;
+            }
+            for c in capture.granted_providers(&grant.grant_id) {
+                let PrivateCapabilityProvider {
+                    provider,
+                    owner_org,
+                    ..
+                } = c;
+                let same_org = *owner_org == self.acting_org;
+                push_unique(
+                    &mut out,
+                    Candidate {
+                        provider: provider.clone(),
+                        owner_org: *owner_org,
+                        same_org,
+                        // Same-org or not, a grant-plane record is invisible
+                        // to core's owner-private population query.
+                        owner_plane: false,
+                    },
+                );
+            }
+        }
+        out
+    }
+
+    /// The complete authority relation for invoking `capability` on this
+    /// candidate: grantee org, issuer org, capability, INVOKE, target scope, and
+    /// a current window — evaluated with the provider's OWN predicates
+    /// (`permits_invoke`, `GrantTargetScope::covers`,
+    /// `is_valid_at_with_skew`), never a reimplementation.
+    ///
+    /// The window is evaluated at the plan's captured instant rather than at a
+    /// fresh sample per grant per candidate, which is what let one plan mix
+    /// grants that were never simultaneously valid (OLB-2B.3d-pre).
+    ///
+    /// Zero matches is not an error here (another candidate may match);
+    /// ambiguity is, and is never resolved silently.
+    fn match_invoke_grant(
+        &self,
+        capability: &CapabilityAuthorityId,
+        candidate: &Candidate,
+        now_secs: u64,
+    ) -> Result<Option<OrgCapabilityGrant>, OrgSdkError> {
+        let mut matches: Vec<&OrgCapabilityGrant> = self
+            .grants
+            .iter()
+            .filter(|g| {
+                g.grantee_org == self.acting_org
+                    && g.issuer_org == candidate.owner_org
+                    && &g.capability == capability
+                    && g.permits_invoke()
+                    && g.target_scope
+                        .covers(&candidate.provider, Some(&candidate.owner_org))
+                    && g.is_valid_at_with_skew(now_secs, self.skew_secs).is_ok()
+            })
+            .collect();
+
+        match matches.len() {
+            0 => Ok(None),
+            1 => Ok(Some(matches.remove(0).clone())),
+            _ => Err(OrgCredentialError::AmbiguousCapabilityGrant {
+                capability: hex_capability(capability),
+                grant_ids: matches.iter().map(|g| hex32(&g.grant_id)).collect(),
+            }
+            .into()),
+        }
+    }
+}
+
+/// The shared proof TTL (`MAX_ORG_PROOF_TTL_SECS`). Owned by the SDK: it must be
+/// long enough to survive one network round trip and short enough that a
+/// captured proof is worthless, and there is no per-call knowledge that improves
+/// on the substrate's frozen value.
+const DEFAULT_PROOF_TTL_SECS: u64 = net::adapter::net::behavior::org_call::MAX_ORG_PROOF_TTL_SECS;
+
+// Test-only: proof intents constructed on THIS thread.
+//
+// Plain comments, not `///`: rustdoc cannot document a macro invocation, so a
+// doc comment here is `unused_doc_comments` under `-D warnings`.
+//
+// Thread-local rather than global: the witnesses run their attempts inline on
+// the test's own thread, so a per-thread count is exact and cannot be raced by
+// a sibling test. It exists to make "no intent is constructed under a superseded
+// capture" observable instead of merely stated (independent review F2).
+#[cfg(test)]
+thread_local! {
+    static INTENTS_CONSTRUCTED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// Test-only: the current thread's proof-intent construction count.
+#[cfg(test)]
+pub(crate) fn intents_constructed_on_this_thread() -> u64 {
+    INTENTS_CONSTRUCTED.with(std::cell::Cell::get)
+}
+
+/// How many times the cold plan re-derives from a fresh capture when the
+/// authority it derived under moved before the intent was minted
+/// (OLB-2B.3d-pre).
+///
+/// Bounded rather than looped, matching `MeshNode::sample_routing_authority`'s
+/// discipline: authority movement is node-mediated and rare, so exhausting the
+/// attempts means the node is genuinely churning and the honest answer is a
+/// local refusal. Never a retry of an ATTEMPTED call — no proof has been signed
+/// and nothing has been sent at the point this loops.
+const COLD_PLAN_ATTEMPTS: usize = 3;
+
+/// Map a capture refusal onto the facade's EXISTING local vocabulary — both arms
+/// are refusals where nothing was sent.
+///
+/// No new error kind: the cross-language error vocabulary is frozen with its
+/// golden fixture, and neither condition is a new KIND of failure. A node with no
+/// installed authority is exactly `NodeAuthorityRequired` (the bind-time
+/// refusal, now also checked per call); an authority view that could not be
+/// observed coherently established no authorized provider, which is what
+/// `NoAuthorizedProvider` says, with the count of candidates the last derivation
+/// examined.
+fn cold_refusal_error(
+    capability: &CapabilityAuthorityId,
+    refusal: OrgColdRefusal,
+    considered: usize,
+) -> OrgSdkError {
+    match refusal {
+        OrgColdRefusal::NoNodeAuthority => OrgCredentialError::NodeAuthorityRequired.into(),
+        OrgColdRefusal::IncoherentAuthority => OrgDiscoveryError::NoAuthorizedProvider {
+            capability: hex_capability(capability),
+            considered,
+        }
+        .into(),
+    }
+}
+
+/// The capability tag an nRPC service registers under.
+fn nrpc_tag(service: &str) -> String {
+    format!("nrpc:{service}")
+}
+
+/// Keep one entry per provider — the same provider can surface on both planes
+/// (owner-private and under a grant) without becoming two candidates.
+/// The floor between two convergence attempts for one capability whose
+/// expected population has NOT changed.
+///
+/// It exists for exactly one case: the last convergence could not acquire a
+/// holder it wanted (a per-provider refusal is skipped, not fatal), so the
+/// missing holder must be retryable — but a retry on every call would turn a
+/// persistent refusal into per-call acquisition traffic. Any CHANGE in the
+/// expected population bypasses this floor entirely; only the retry is floored.
+const RECONCILE_RETRY_FLOOR: Duration = Duration::from_secs(2);
+
+// Test-only seam, fired inside `apply_sensed_order` after reconciliation and
+// before the projection.
+//
+// It is how a witness parks authority movement INSIDE the sensed window: the
+// final currentness comparison sits after this whole step, and a comparison
+// moved before it would let a plan minted here escape. `#[cfg(test)]` only -
+// no fixtures build, no production surface.
+#[cfg(test)]
+thread_local! {
+    static SENSING_PLANNING_SEAM: std::cell::RefCell<Option<std::sync::Arc<dyn Fn()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Install the planning seam on THIS thread; returns the previous one.
+#[cfg(test)]
+pub(crate) fn set_sensing_planning_seam(
+    hook: Option<std::sync::Arc<dyn Fn()>>,
+) -> Option<std::sync::Arc<dyn Fn()>> {
+    SENSING_PLANNING_SEAM.with(|slot| std::mem::replace(&mut *slot.borrow_mut(), hook))
+}
+
+#[cfg(test)]
+fn sensing_planning_seam() {
+    let hook = SENSING_PLANNING_SEAM.with(|slot| slot.borrow().clone());
+    if let Some(hook) = hook {
+        hook();
+    }
+}
+
+/// The request-relative half of one planning attempt.
+///
+/// Exactly one input here is request-relative, by design (D7.5): the latency
+/// budget, derived from THIS call's deadline. Everything else about the sensed
+/// interest is fixed internal policy owned by core. The capability tag rides
+/// along because acquisition is keyed by it.
+///
+/// Neither field is an authorization input: they select no provider, no grant
+/// and no authority, and an empty budget is not an error.
+pub(crate) struct SensedSelection<'a> {
+    /// The nRPC capability tag this call plans over.
+    tag: &'a str,
+    /// This call's own end-to-end budget, or unbounded when the caller gave no
+    /// deadline.
+    budget: ConsumerLatencyBudget,
+}
+
+impl<'a> SensedSelection<'a> {
+    /// Derive the budget from the caller's deadline. `0` = the facade default,
+    /// which is an UNBOUNDED budget: no deadline means no viability bound, not
+    /// a zero one.
+    pub(crate) fn new(tag: &'a str, deadline_ms: u64) -> Self {
+        Self {
+            tag,
+            budget: ConsumerLatencyBudget {
+                end_to_end_within: (deadline_ms > 0).then(|| Duration::from_millis(deadline_ms)),
+            },
+        }
+    }
+}
+
+/// The SDK's whole share of the sensed ordering rule: project candidates onto
+/// the two plain-data slices core's rule takes, and apply it.
+///
+/// The rule itself lives once, in core
+/// ([`org_sensed_bucket_permutation`]) - a stable class permutation of the
+/// COMPLETE list. This adapter deliberately adds nothing to it: no comparison
+/// sort over the candidate list, no ordering structure, no second rule to
+/// diverge from the first. `Mode::Granted` maps to `false`, which is what
+/// keeps a granted candidate unsensed and unpruned.
+pub(crate) fn org_sensed_candidate_permutation(
+    cands: &[AuthorizedOrgCandidate],
+    ranked: &[u64],
+    pruned: &[u64],
+) -> Vec<usize> {
+    let mut providers: Vec<u64> = Vec::with_capacity(cands.len());
+    let mut same_org: Vec<bool> = Vec::with_capacity(cands.len());
+    for candidate in cands {
+        providers.push(candidate.provider.node_id());
+        same_org.push(matches!(candidate.mode, Mode::SameOrg));
+    }
+    org_sensed_bucket_permutation(&same_org, &providers, ranked, pruned)
+}
+
+/// Reorder `items` by `permutation`, losing nothing.
+///
+/// Written by MOVE, not by clone, and defensively total: any index the
+/// permutation failed to name is appended in its original relative order, so a
+/// malformed permutation can degrade the ORDER but can never drop an
+/// authorized candidate. A duplicate index takes the slot once and is then
+/// vacant, so no candidate is emitted twice either.
+pub(crate) fn apply_permutation<T>(items: &mut Vec<T>, permutation: Vec<usize>) {
+    let mut slots: Vec<Option<T>> = items.drain(..).map(Some).collect();
+    let mut ordered: Vec<T> = Vec::with_capacity(slots.len());
+    for index in permutation {
+        if let Some(item) = slots.get_mut(index).and_then(Option::take) {
+            ordered.push(item);
+        }
+    }
+    for slot in slots.iter_mut() {
+        if let Some(item) = slot.take() {
+            ordered.push(item);
+        }
+    }
+    *items = ordered;
+}
+
+fn push_unique(out: &mut Vec<Candidate>, candidate: Candidate) {
+    if out.iter().any(|c| c.provider == candidate.provider) {
+        return;
+    }
+    out.push(candidate);
+}
+
+/// Decode a provider admission denial into the facade's own variant; everything
+/// else stays transport/server error.
+///
+/// The body is the single coarse reason byte (OA2-E2). A body that does not
+/// decode maps to the least-informative bucket rather than an
+/// error-about-an-error — the caller still learns it was denied.
+///
+/// SDK-1 — the retirement classification reaches the facade HERE as the
+/// documented `Rpc(Timeout)` / `Rpc(Cancelled)`: the core's per-cause
+/// terminal seams produce the typed [`RpcError::Timeout`] /
+/// [`RpcError::Cancelled`], and this seam passes them through untouched.
+/// A genuine remote [`RpcError::ServerError`] — including one whose wire
+/// status happens to be the retirement codes (0x0003/0x0005) — stays
+/// `Rpc(ServerError)`; this seam never manufactures a typed variant from a
+/// wire status.
+fn map_rpc_error(e: RpcError) -> OrgSdkError {
+    match &e {
+        RpcError::ServerError { status, .. } if *status == RPC_STATUS_ADMISSION_DENIED => {
+            let coarse = admission_reason_of(&e).unwrap_or(CoarseAdmissionReason::Denied);
+            OrgSdkError::AdmissionDenied(coarse)
+        }
+        _ => OrgSdkError::Rpc(e),
+    }
+}
+
+/// The coarse reason carried by a `0x0009` response, if it decodes.
+///
+/// `emit_admission_denial` ships the reason as a one-byte BODY; the caller-side
+/// `RpcError::ServerError` renders that body lossily into `message`, so the byte
+/// is recovered from the message's single char rather than re-read from the
+/// wire.
+fn admission_reason_of(e: &RpcError) -> Option<CoarseAdmissionReason> {
+    let RpcError::ServerError { message, .. } = e else {
+        return None;
+    };
+    let mut chars = message.chars();
+    let (Some(c), None) = (chars.next(), chars.next()) else {
+        return None;
+    };
+    let byte = u8::try_from(u32::from(c)).ok()?;
+    CoarseAdmissionReason::from_wire(byte)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SDK audit 2026-10-11: `0` is the 300 s facade default on EVERY
+    /// protected shape (the unary seams used to read it as "no deadline").
+    #[test]
+    fn a_zero_deadline_is_the_facade_default_never_unbounded() {
+        assert_eq!(
+            protected_lifetime(0),
+            Duration::from_millis(DEFAULT_LIFETIME_MS)
+        );
+        assert_eq!(protected_lifetime(1_500), Duration::from_millis(1_500));
+    }
+
+    /// Exactly how the provider ships a denial: status `0x0009`, no headers,
+    /// and a one-byte body carrying the coarse reason.
+    fn denial(coarse: CoarseAdmissionReason) -> RpcError {
+        RpcError::ServerError {
+            status: RPC_STATUS_ADMISSION_DENIED,
+            message: String::from_utf8(vec![coarse.to_wire()]).expect("coarse bytes are ascii"),
+            headers: vec![],
+        }
+    }
+
+    /// Every coarse reason round-trips into the facade's own variant — the byte
+    /// OA2-E2 put on the wire finally has a caller-side consumer.
+    #[test]
+    fn every_coarse_reason_decodes_from_an_admission_denial() {
+        for coarse in [
+            CoarseAdmissionReason::Denied,
+            CoarseAdmissionReason::NotSupported,
+            CoarseAdmissionReason::Unavailable,
+        ] {
+            match map_rpc_error(denial(coarse)) {
+                OrgSdkError::AdmissionDenied(got) => assert_eq!(got, coarse),
+                other => panic!("expected AdmissionDenied, got {other:?}"),
+            }
+        }
+    }
+
+    /// An undecodable body still reports a denial — the least-informative
+    /// bucket, never an error about the error. A caller must not be told
+    /// "transport failed" when the provider refused it.
+    #[test]
+    fn an_undecodable_denial_body_falls_back_to_denied() {
+        let e = RpcError::ServerError {
+            status: RPC_STATUS_ADMISSION_DENIED,
+            message: "<3 bytes of non-utf8 body>".to_string(),
+            headers: vec![],
+        };
+        match map_rpc_error(e) {
+            OrgSdkError::AdmissionDenied(CoarseAdmissionReason::Denied) => {}
+            other => panic!("expected AdmissionDenied(Denied), got {other:?}"),
+        }
+    }
+
+    /// A reason byte outside the known set is still a denial, not a decode
+    /// failure — a provider that learns a new bucket cannot make old callers
+    /// misreport the outcome.
+    #[test]
+    fn an_unknown_reason_byte_is_still_a_denial() {
+        let e = RpcError::ServerError {
+            status: RPC_STATUS_ADMISSION_DENIED,
+            message: String::from_utf8(vec![0x7F]).expect("ascii"),
+            headers: vec![],
+        };
+        match map_rpc_error(e) {
+            OrgSdkError::AdmissionDenied(CoarseAdmissionReason::Denied) => {}
+            other => panic!("expected AdmissionDenied(Denied), got {other:?}"),
+        }
+    }
+
+    /// Any other server status stays a transport/server error — the facade
+    /// never manufactures an admission denial.
+    #[test]
+    fn other_server_errors_are_not_admission_denials() {
+        let e = RpcError::ServerError {
+            status: 0x8001,
+            message: "handler said no".to_string(),
+            headers: vec![],
+        };
+        match map_rpc_error(e) {
+            OrgSdkError::Rpc(RpcError::ServerError { status, .. }) => assert_eq!(status, 0x8001),
+            other => panic!("expected Rpc, got {other:?}"),
+        }
+    }
+
+    /// SDK-1 — the core's typed deadline retirement surfaces as the
+    /// documented `Rpc(Timeout)`, never a `ServerError` in the 0x0003
+    /// clothing the pre-fix folds delivered.
+    #[test]
+    fn deadline_retirement_surfaces_as_rpc_timeout() {
+        match map_rpc_error(RpcError::Timeout { elapsed_ms: 5000 }) {
+            OrgSdkError::Rpc(RpcError::Timeout { elapsed_ms }) => assert_eq!(elapsed_ms, 5000),
+            other => panic!("expected Rpc(Timeout), got {other:?}"),
+        }
+    }
+
+    /// SDK-1 — the core's typed cancellation terminal surfaces as the
+    /// documented `Rpc(Cancelled)`.
+    #[test]
+    fn cancellation_surfaces_as_rpc_cancelled() {
+        match map_rpc_error(RpcError::Cancelled) {
+            OrgSdkError::Rpc(RpcError::Cancelled) => {}
+            other => panic!("expected Rpc(Cancelled), got {other:?}"),
+        }
+    }
+
+    /// SDK-1 — a genuine remote `ServerError` stays `Rpc(ServerError)` even
+    /// when its wire status is a retirement code (0x0003/0x0005): the typed
+    /// classes come from core's retirement classification, and this seam
+    /// never rewrites a `ServerError` into one.
+    #[test]
+    fn genuine_remote_retirement_codes_stay_server_error() {
+        for status in [0x0003u16, 0x0005] {
+            let e = RpcError::ServerError {
+                status,
+                message: "remote said so".to_string(),
+                headers: vec![],
+            };
+            match map_rpc_error(e) {
+                OrgSdkError::Rpc(RpcError::ServerError { status: got, .. }) => {
+                    assert_eq!(got, status);
+                }
+                other => panic!("expected Rpc(ServerError), got {other:?}"),
+            }
+        }
+    }
+}

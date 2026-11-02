@@ -1,0 +1,231 @@
+"""Tests for warn-inline-powershell.py. ASCII only.
+
+Both directions matter equally: the nudge must fire on the mangling shape, and must stay silent on
+the `-File` form it asks for - otherwise it nags the person who already complied.
+"""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+import warn_inline_powershell as W
+
+HOOK = Path(__file__).resolve().parent.parent / "warn-inline-powershell.py"
+
+
+# ---- when it must fire -------------------------------------------------------------------------
+
+def test_fires_on_inline_command_over_ssh():
+    notice = W.build_notice('ssh win-host \'powershell -Command "Get-Process | Select Name"\'')
+    assert notice and "INLINE REMOTE POWERSHELL" in notice
+
+
+def test_fires_for_pwsh_and_for_the_exe_suffix():
+    assert W.build_notice('ssh host \'pwsh -Command "ls | more"\'')
+    assert W.build_notice('ssh host \'powershell.exe -Command "ls | more"\'')
+
+
+def test_fires_on_the_short_and_abbreviated_command_flags():
+    for flag in ("-c", "-Com", "-Comm", "-Command"):
+        assert W.build_notice('ssh host \'powershell %s "a | b"\'' % flag), flag
+
+
+def test_explains_that_more_escaping_will_not_help():
+    notice = W.build_notice('ssh host \'powershell -Command "a | b"\'')
+    assert "cmd.exe" in notice
+    assert "-File" in notice
+
+
+# ---- when it must stay silent ------------------------------------------------------------------
+
+def test_silent_on_the_file_form_it_asks_for():
+    assert W.build_notice("ssh host 'powershell -File C:\\tmp\\job.ps1'") is None
+    assert W.build_notice("ssh host 'pwsh -f C:\\tmp\\job.ps1'") is None
+
+
+def test_silent_without_ssh():
+    """Local PowerShell has no cmd.exe layer in between, so the mangling does not apply."""
+    assert W.build_notice('powershell -Command "Get-Process | Select Name"') is None
+
+
+def test_silent_without_powershell():
+    assert W.build_notice("ssh host 'ls -la | wc -l'") is None
+
+
+def test_silent_when_no_command_string_is_passed():
+    assert W.build_notice("ssh host 'powershell'") is None
+    assert W.build_notice("ssh host 'powershell -NoProfile'") is None
+
+
+def test_flag_matching_does_not_trip_on_a_longer_word():
+    """-Comparison / --command-file are not the flag; a naive substring match would fire."""
+    assert W.build_notice("ssh host 'powershell -Comparison foo'") is None
+    assert W.build_notice("ssh host 'powershell --command-file x'") is None
+
+
+def test_empty_command_is_silent():
+    assert W.build_notice("") is None
+    assert W.build_notice(None) is None
+
+
+# ---- the hook contract -------------------------------------------------------------------------
+
+def _run(payload):
+    return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload),
+                          capture_output=True, text=True)
+
+
+def test_hook_emits_additional_context():
+    r = _run({"tool_input": {"command": 'ssh host \'powershell -Command "a | b"\''}})
+    assert r.returncode == 0
+    payload = json.loads(r.stdout)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
+    assert "INLINE REMOTE POWERSHELL" in payload["hookSpecificOutput"]["additionalContext"]
+
+
+def test_hook_is_silent_on_the_file_form():
+    r = _run({"tool_input": {"command": "ssh host 'powershell -File job.ps1'"}})
+    assert r.returncode == 0 and r.stdout.strip() == ""
+
+
+def test_hook_never_wedges_a_turn_on_bad_input():
+    for bad in ("", "garbage", "[]"):
+        r = subprocess.run([sys.executable, str(HOOK)], input=bad, capture_output=True, text=True)
+        assert r.returncode == 0, bad
+
+
+# ---- the nudge must name the SAFE FORM, not only the failure -----------------------------------
+# The fact `remote-powershell-file-not-inline` reached recurrence 3 with this hook already in
+# place, and named the reason: a nudge that describes the failure without naming the safe FORM
+# leaves its reader to hand-roll the fix, and they hand-roll it wrong.
+#
+# It must name the form, NOT a particular script. An earlier version named `runps.sh`, which
+# ships nowhere in this plugin - it exists only on the maintainer's own machine - so every
+# other user was pointed at a command they do not have. Assert on `-File`, the part that is
+# true on every install.
+
+def test_the_notice_names_the_safe_form():
+    notice = W.build_notice("ssh host powershell -Command \"Get-Process | Select Name\"")
+    assert notice is not None
+    assert "-File" in notice, "a guard that does not name the safe form gets routed around"
+    assert "runps.sh" not in notice, "names a script this plugin does not ship"
+
+
+def test_a_heredoc_body_is_data_not_a_command():
+    """A heredoc that WRITES an example of the wrong form is not an instance of it."""
+    writing_a_fixture = (
+        "cat >> t.py <<'EOF'\n"
+        "assert build_notice('ssh h powershell -Command \"a | b\"') is not None\n"
+        "EOF"
+    )
+    assert W.build_notice(writing_a_fixture) is None
+
+
+def test_a_real_inline_invocation_still_fires():
+    """The control: stripping data regions must not disarm the guard."""
+    assert W.build_notice('ssh host powershell -Command "Get-Process | Select Name"') is not None
+
+
+def test_a_heredoc_body_writing_the_wrong_form_is_not_the_wrong_form():
+    """A heredoc body is DATA. Documenting the footgun must not trip the hook that warns about it."""
+    assert W.build_notice('cat > doc.md <<EOF\nssh host powershell -command "x"\nEOF') is None
+
+
+def test_a_real_inline_powershell_is_still_warned():
+    """The direction where it must NOT apply, and the reason this hook must NOT mask quoted
+    strings: in the ssh form the command IS a quoted argument, and it DOES run."""
+    assert W.build_notice('ssh host powershell -command "Get-Process"') is not None
+    assert W.build_notice("""ssh host 'powershell -command "Get-Process"'""") is not None
+
+
+def test_a_command_flag_from_another_statement_is_not_powershells():
+    """`ssh win 'powershell.exe C:/tmp/job.ps1' && wc -c out.txt` runs a .ps1 BY PATH - there is no
+    -Command anywhere in the PowerShell call. The `-c` was taken from `wc -c` on the other side of
+    the &&, so the nudge described a footgun nobody wrote."""
+    assert W.build_notice("ssh win 'powershell.exe C:/tmp/job.ps1' && wc -c out.txt") is None
+
+
+def test_an_ssh_backgrounding_flag_is_not_powershells_file_flag():
+    """`ssh -f` backgrounds ssh. Reading it as PowerShell's -File made the hook SILENT on the exact
+    inline -Command footgun it exists to catch - a miss, which is the worse direction."""
+    assert W.build_notice("""ssh -f win 'powershell -Command "Get-Process"'""") is not None
+
+
+# ---- a mention is not an instance ---------------------------------------------------------------
+
+def test_an_echo_of_the_footgun_is_quiet():
+    assert W.build_notice("echo 'ssh win powershell -Command \"Get-Process\"'") is None
+
+
+def test_a_commit_message_describing_the_footgun_is_quiet():
+    assert W.build_notice("git commit -m 'ssh win powershell -Command x is mangled by cmd.exe'") is None
+
+
+def test_a_real_invocation_after_an_echo_of_one_still_fires():
+    assert W.build_notice(
+        "echo 'do not do this' && ssh win 'powershell -Command \"Get-Process\"'") is not None
+
+
+# ---- D7: every abbreviated prefix answers the same as its full-length flag ----------------------
+# COVERAGE gap: only the extremes (-c/-Com/-Comm/-Command and -File/-f) had a test; the middle
+# prefixes -fi/-fil (silent, like -File) and -com/-comm (fires, like -Command) did not, and a
+# non-prefix lookalike like -filex must stay silent (it is not a valid abbreviation at all).
+
+@pytest.mark.parametrize("flag", ["-fi", "-fil", "-File"])
+def test_file_flag_prefixes_are_all_silent(flag):
+    assert W.build_notice("ssh win 'powershell %s C:\\t\\x.ps1'" % flag) is None, flag
+
+
+@pytest.mark.parametrize("flag", ["-com", "-comm", "-Command"])
+def test_command_flag_prefixes_all_fire(flag):
+    notice = W.build_notice('ssh win \'powershell %s "Get-Process | Select -First 1"\'' % flag)
+    assert notice and "INLINE REMOTE POWERSHELL" in notice, flag
+
+
+def test_filex_is_not_a_flag_prefix_and_stays_silent():
+    """-filex is not a valid abbreviation of -File (extra trailing letters); with no other command
+    flag in the invocation, the whole thing must be silent, not treated as -File OR as a hit."""
+    assert W.build_notice("ssh win 'powershell -filex \"Get-Process\"'") is None
+
+
+@pytest.mark.parametrize("flag", ["-fi", "-fil", "-File"])
+def test_file_flag_regex_matches_every_prefix_directly(flag):
+    """build_notice cannot discriminate a -fi/-fil MATCH from a no-match here (both end up
+    silent, since neither has a command flag either) - a narrowed regex would be an equivalent
+    mutant at the build_notice level. Assert the regex hit directly so that narrowing IS caught."""
+    assert W._FILE_FLAG_RX.search(flag), flag
+
+
+# ---- D7: direct tests for the two helpers, not only through build_notice ------------------------
+
+def test_strip_data_regions_removes_a_heredoc_body():
+    stripped = W._strip_data_regions("cat <<'EOF' > n.md\nssh host powershell -Command x\nEOF\nls")
+    assert "powershell" not in stripped
+    assert "ls" in stripped
+
+
+def test_strip_data_regions_keeps_the_ssh_argument_the_hook_exists_to_find():
+    """The ssh argument stays quoted-but-present: ssh RUNS its argument, so masking it here would
+    delete the exact thing this hook exists to detect."""
+    command = "ssh host 'powershell -Command x'"
+    assert W._strip_data_regions(command) == command
+
+
+def test_strip_data_regions_masks_a_sink_statements_argument():
+    """echo stores/prints its argument rather than running it, so the footgun text inside it is
+    data, not an instance of the footgun."""
+    stripped = W._strip_data_regions("echo 'ssh host powershell -command x'")
+    assert "powershell" not in stripped
+
+
+def test_powershell_invocation_stops_at_the_statement_boundary():
+    """Only `wc`'s -c is after &&, not PowerShell's; the returned span must end before it."""
+    invocation = W._powershell_invocation("ssh win 'powershell job.ps1' && wc -c out.txt")
+    assert invocation is not None
+    assert "wc" not in invocation
+
+
+def test_powershell_invocation_is_none_without_a_shell_name():
+    assert W._powershell_invocation("ssh win 'Get-Date'") is None

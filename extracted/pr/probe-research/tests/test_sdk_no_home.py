@@ -304,7 +304,7 @@ def test_home_slash_still_captures_the_run_log_and_reads(app, tmp_path):
 
 _RECORDER_CHILD = """
 import json, os, subprocess, sys
-from probe.sdk import inputs
+from probe.sdk.capture import lineage as inputs
 
 data, out, worker_read = sys.argv[1:4]
 assert inputs.start("run-homeless") and inputs.bind_workers("run-homeless")

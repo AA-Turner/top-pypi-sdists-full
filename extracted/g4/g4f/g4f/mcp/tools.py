@@ -15,17 +15,21 @@ This module provides MCP tool implementations that wrap gpt4free capabilities:
 - BrowserNavigateTool / BrowserEvaluateTool / BrowserScreenshotTool / BrowserCloseTool:
   Browser automation over a shared Chrome DevTools Protocol session that is
   closed automatically after an idle period
+- PolliPublishAppTool: Publish a static app from the workspace to
+  ``https://<name>.pollinations.app`` through the Pollinations CLI
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
 import asyncio
 import base64
 import fnmatch
+import json
 import os
 import re
+import shutil
 import time
 import urllib.parse
 
@@ -634,6 +638,222 @@ class ShellExecuteTool(MCPTool):
         }
 
 
+#: Maximum wall-clock seconds a Pollinations site deploy may run.
+POLLI_MAX_TIMEOUT = 900.0
+#: Default wall-clock seconds before a Pollinations site deploy is killed.
+POLLI_DEFAULT_TIMEOUT = 300.0
+#: Maximum characters kept from polli stdout / stderr each.
+POLLI_MAX_OUTPUT = 40_000
+
+
+def _truncate_output(text: str, limit: int = POLLI_MAX_OUTPUT) -> str:
+    if len(text) <= limit:
+        return text
+    omitted = len(text) - limit
+    return text[:limit] + f"\n… [{omitted} characters truncated]"
+
+
+class PolliPublishAppTool(MCPTool):
+    """Publish a static app from the workspace with the Pollinations CLI.
+
+    Wraps ``polli sites deploy <dir> --name <name>`` so agents can publish a
+    built app from the workspace without using the general shell tool. The
+    folder must live inside the workspace and contain an ``index.html``.
+    """
+
+    @property
+    def description(self) -> str:
+        return (
+            "Publish a static app/website from a folder inside the workspace "
+            "to https://<name>.pollinations.app using the Pollinations CLI. "
+            "The folder must contain an index.html. Requires the 'polli' CLI "
+            "to be installed and authenticated (run 'polli auth login'). "
+            "Returns the public site URL; publishing the same name replaces "
+            "the existing site."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": (
+                        "Site name: 3-32 lowercase letters, digits and hyphens, "
+                        "starting with a letter"
+                    ),
+                },
+                "path": {
+                    "type": "string",
+                    "description": (
+                        "Folder to publish, relative to the workspace root "
+                        "(default: the workspace root)"
+                    ),
+                    "default": ".",
+                },
+                "verify": {
+                    "type": "boolean",
+                    "description": (
+                        "Check every published file against the local build "
+                        "after deploying (default: false)"
+                    ),
+                    "default": False,
+                },
+                "timeout": {
+                    "type": "number",
+                    "description": (
+                        "Wall-clock seconds to allow before the deploy is "
+                        f"killed (max {POLLI_MAX_TIMEOUT:.0f}s; "
+                        f"default {POLLI_DEFAULT_TIMEOUT:.0f}s)"
+                    ),
+                },
+            },
+            "required": ["name"],
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from .pa_provider import get_workspace_dir
+
+        name = str(arguments.get("name", "") or "").strip()
+        if not name:
+            return {"error": "name parameter is required"}
+        if not re.fullmatch(r"[a-z][a-z0-9-]{2,31}", name):
+            return {
+                "error": (
+                    "Invalid site name. Use 3-32 lowercase letters, digits and "
+                    "hyphens, starting with a letter."
+                )
+            }
+
+        rel_path = str(arguments.get("path", ".") or ".").strip() or "."
+        workspace = get_workspace_dir().resolve()
+        try:
+            target = (workspace / rel_path).resolve()
+            target.relative_to(workspace)
+        except (ValueError, OSError):
+            return {"error": "Access outside the workspace is not allowed"}
+        if not target.is_dir():
+            return {"error": f"Directory not found: {rel_path}"}
+        if not (target / "index.html").is_file():
+            return {
+                "error": (
+                    f"No index.html found in {rel_path!r}. Publish a folder "
+                    "that contains the built app entry point."
+                )
+            }
+
+        polli_bin = os.environ.get("POLLI_BIN", "").strip() or shutil.which("polli")
+        if not polli_bin:
+            return {
+                "error": (
+                    "The 'polli' CLI was not found. Install it with "
+                    "'npm i -g @pollinations/cli@latest' and run "
+                    "'polli auth login'."
+                )
+            }
+
+        timeout = POLLI_DEFAULT_TIMEOUT
+        requested_timeout = arguments.get("timeout")
+        if requested_timeout is not None:
+            try:
+                timeout = min(
+                    max(float(requested_timeout), 0.1), POLLI_MAX_TIMEOUT
+                )
+            except (TypeError, ValueError):
+                return {"error": "timeout must be a number"}
+
+        verify = bool(arguments.get("verify", False))
+        command = [
+            polli_bin,
+            "--json",
+            "sites",
+            "deploy",
+            str(target),
+            "--name",
+            name,
+        ]
+        if verify:
+            command.append("--verify")
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                cwd=str(target),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,
+            )
+        except (OSError, ValueError) as exc:
+            return {"error": f"Failed to start polli: {exc}"}
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+                await process.wait()
+            except OSError:
+                pass
+            return {
+                "error": (
+                    f"polli sites deploy timed out after {timeout:g}s "
+                    "and was killed"
+                ),
+                "name": name,
+                "path": rel_path,
+                "timed_out": True,
+            }
+        except Exception as exc:
+            try:
+                process.kill()
+                await process.wait()
+            except OSError:
+                pass
+            return {"error": f"polli sites deploy failed: {exc}"}
+
+        stdout_text = _truncate_output(
+            (stdout or b"").decode("utf-8", errors="replace")
+        )
+        stderr_text = _truncate_output(
+            (stderr or b"").decode("utf-8", errors="replace")
+        )
+
+        site: Any = None
+        if stdout_text.strip():
+            try:
+                site = json.loads(stdout_text)
+            except (json.JSONDecodeError, ValueError):
+                site = None
+
+        result: Dict[str, Any] = {
+            "name": name,
+            "path": rel_path,
+            "verified": verify,
+            "exit_code": process.returncode,
+        }
+        if isinstance(site, dict):
+            result["site"] = site
+            if site.get("url"):
+                result["url"] = site["url"]
+        elif stdout_text.strip():
+            result["stdout"] = stdout_text
+        if stderr_text.strip():
+            result["stderr"] = stderr_text
+
+        if process.returncode != 0:
+            result["error"] = (
+                stderr_text.strip()
+                or (stdout_text.strip() if not isinstance(site, dict) else "")
+                or f"polli exited with code {process.returncode}"
+            )
+            if "auth" in result["error"].lower():
+                result["error"] += " (run `polli auth login` and retry)"
+        return result
+
+
 class FileReadTool(MCPTool):
     """Read a file from the workspace directory."""
 
@@ -1204,6 +1424,54 @@ class FetchWebpageTool(MCPTool):
         return {"query": query, "results": results}
 
 
+#: Directories that recursive workspace searches never descend into.  They
+#: are dependency, cache, and tool directories that can contain hundreds of
+#: thousands of files without holding anything a workspace search looks for.
+#: Walking them made ``file_search_glob`` take minutes on large workspaces.
+SKIP_SCAN_DIRS = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        "__pycache__",
+        "node_modules",
+        ".venv",
+        "venv",
+        "site-packages",
+        ".toolchain",
+        ".cache",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+    }
+)
+
+#: Maximum wall-clock seconds a single workspace glob search may run before
+#: returning the matches found so far.  Prevents an MCP call from hanging on
+#: very large trees (for example a 20 GB media directory).
+GLOB_SEARCH_TIMEOUT = 10.0
+
+_GLOB_META = re.compile(r"[*?[]")
+
+
+def _static_glob_prefix(pattern: str) -> str:
+    """Return the leading, glob-free directory part of *pattern*.
+
+    ``src/**/*.py`` has the prefix ``src`` so the walk can start there instead
+    of at the workspace root.  Returns ``""`` when the pattern starts with a
+    wildcard (for example ``**/*.py``).
+    """
+    prefix = []
+    for part in pattern.replace("\\", "/").split("/"):
+        if not part:
+            continue
+        if _GLOB_META.search(part):
+            break
+        prefix.append(part)
+    return "/".join(prefix)
+
+
 class FileSearchGlobTool(MCPTool):
     """Search for files in the workspace by glob pattern."""
 
@@ -1229,39 +1497,141 @@ class FileSearchGlobTool(MCPTool):
                     "description": "The maximum number of results to return (default: 50)",
                     "default": 50,
                 },
+                "recursive": {
+                    "type": "boolean",
+                    "description": "If true, search subdirectories as well (default: true)",
+                    "default": True,
+                },
             },
             "required": ["query"],
         }
+
+    def _search(
+        self,
+        workspace: "Path",
+        pattern: str,
+        max_results: int,
+        recursive: bool = True,
+    ) -> Dict[str, Any]:
+        """Walk *workspace* and collect matching relative paths.
+
+        Uses :func:`os.walk` (which does not ``stat`` regular files) and only
+        stats the patterns that actually match.  The previous implementation
+        called ``Path.is_file()`` on every entry, which is very slow on large
+        or network-backed workspaces.
+        """
+        from pathlib import Path
+
+        workspace = Path(workspace)
+        matches = []
+        scanned = 0
+
+        start = workspace
+        prefix = _static_glob_prefix(pattern)
+        if prefix:
+            candidate = (workspace / prefix).resolve()
+            try:
+                candidate.relative_to(workspace)
+                if candidate.is_dir():
+                    start = candidate
+            except (ValueError, OSError):
+                pass
+
+        deadline = time.monotonic() + GLOB_SEARCH_TIMEOUT
+        timed_out = False
+
+        for dirpath, dirnames, filenames in os.walk(start, followlinks=False):
+            # Prune heavy directories instead of descending into them.
+            dirnames[:] = [
+                name
+                for name in dirnames
+                if name not in SKIP_SCAN_DIRS
+                and not (self.safe_mode and name.startswith("."))
+            ]
+
+            rel_dir = os.path.relpath(dirpath, workspace)
+            for name in filenames:
+                scanned += 1
+                # Also honor the deadline inside very large flat directories.
+                if scanned % 2048 == 0 and time.monotonic() >= deadline:
+                    timed_out = True
+                    break
+                rel_str = (
+                    name
+                    if rel_dir == "."
+                    else f"{rel_dir.replace(os.sep, '/')}/{name}"
+                )
+                if not (
+                    fnmatch.fnmatch(rel_str, pattern)
+                    or fnmatch.fnmatch(name, pattern)
+                ):
+                    continue
+                if self.is_hidden_file(rel_str):
+                    continue
+                if not os.path.isfile(os.path.join(dirpath, name)):
+                    continue
+                matches.append(rel_str)
+                if len(matches) >= max_results:
+                    return self._result(
+                        pattern, matches, scanned, timed_out=False
+                    )
+
+            if not recursive:
+                break
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
+
+        return self._result(pattern, matches, scanned, timed_out)
+
+    @staticmethod
+    def _result(
+        pattern: str,
+        matches: List[str],
+        scanned: int,
+        timed_out: bool,
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "pattern": pattern,
+            "matches": matches,
+            "count": len(matches),
+        }
+        if timed_out:
+            result["truncated"] = True
+            result["scanned"] = scanned
+        return result
 
     async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         from .pa_provider import get_workspace_dir, get_secret_workspace_dir
 
         pattern = arguments.get("query", "")
-        max_results = int(arguments.get("maxResults", 50))
+        # Accept both the schema name and the snake_case variant used by some
+        # clients; the latter used to be silently ignored.
+        raw_max_results = arguments.get(
+            "maxResults", arguments.get("max_results", 50)
+        )
+        try:
+            max_results = int(raw_max_results)
+        except (TypeError, ValueError):
+            return {"error": "maxResults must be a number"}
+        max_results = max(0, max_results)
+        recursive = bool(arguments.get("recursive", True))
 
         if not pattern:
             return {"error": "query parameter is required"}
+        if max_results == 0:
+            return {"pattern": pattern, "matches": [], "count": 0}
 
         user_id = arguments.get("user_id")
         workspace_secret = arguments.get("workspace_secret")
         root = get_workspace_dir().resolve()
         workspace = get_secret_workspace_dir(user_id).resolve() if (workspace_secret and user_id) else root
         try:
-            matches = []
-            for entry in workspace.rglob("*"):
-                if not entry.is_file():
-                    continue
-                rel = entry.relative_to(workspace)
-                rel_str = rel.as_posix()
-                if self.is_hidden_file(rel_str):
-                    continue
-                if fnmatch.fnmatch(rel_str, pattern) or fnmatch.fnmatch(
-                    entry.name, pattern
-                ):
-                    matches.append(rel_str)
-                if len(matches) >= max_results:
-                    break
-            return {"pattern": pattern, "matches": matches, "count": len(matches)}
+            # Filesystem walking is blocking: keep it off the event loop so the
+            # MCP server can still answer other requests while it runs.
+            return await asyncio.to_thread(
+                self._search, workspace, pattern, max_results, recursive
+            )
         except Exception as exc:
             return {"error": f"File search failed: {exc}"}
 
@@ -2380,3 +2750,308 @@ class NotebookListTool(MCPTool):
             return {"notebooks": notebooks, "count": len(notebooks)}
         except Exception as exc:
             return {"error": f"Notebook listing failed: {exc}"}
+
+
+class BrowsingSearchTool(MCPTool):
+    """Search free and paid browsing APIs through the g4f browsing catalog."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "Search the web across keyless and configured paid APIs (Wikipedia, Hacker News, "
+            "DuckDuckGo, Brave, Tavily, SearXNG, arXiv, GitHub, ...). Returns titles, URLs, "
+            "snippets and per-API errors. No API key is required unless a paid API is selected."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query."},
+                "apis": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional API ids from the browsing catalog (e.g. wikipedia, brave).",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of results (default: 8).",
+                    "default": 8,
+                },
+            },
+            "required": ["query"],
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import search
+
+        query = (arguments.get("query") or "").strip()
+        if not query:
+            return {"error": "query parameter is required"}
+        try:
+            return await search(
+                query,
+                apis=arguments.get("apis") or [],
+                limit=int(arguments.get("limit") or 8),
+            )
+        except Exception as exc:
+            return {"error": f"Browsing search failed: {exc}"}
+
+
+class LiveFeedTool(MCPTool):
+    """Read an RSS/Atom feed as a live conversation."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "Read any public RSS or Atom feed. Returns the feed metadata and entries; set "
+            "as_conversation=true to receive the same chat message format used by the live "
+            "feed conversation list in the UI."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Absolute RSS/Atom feed URL."},
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of entries (default: 20).",
+                    "default": 20,
+                },
+                "as_conversation": {
+                    "type": "boolean",
+                    "description": "Return a conversation object instead of the raw feed.",
+                    "default": False,
+                },
+            },
+            "required": ["url"],
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import feed_to_conversation, fetch_feed
+
+        url = (arguments.get("url") or "").strip()
+        if not url:
+            return {"error": "url parameter is required"}
+        try:
+            feed = await fetch_feed(url, limit=int(arguments.get("limit") or 20))
+            if arguments.get("as_conversation"):
+                return feed_to_conversation(feed)
+            return feed
+        except Exception as exc:
+            return {"error": f"Feed request failed: {exc}"}
+
+
+class BrowsingTriggerTool(MCPTool):
+    """Create, list, run and delete prompt-created browsing triggers."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "Manage browsing triggers. Use action=create with a natural-language prompt "
+            "(optionally a source url/query) to parse a trigger; action=list, action=run "
+            "(id required) or action=delete (id required). Run returns new matching items "
+            "and notifications with an action_prompt ready to send to a model."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["create", "list", "run", "delete"],
+                    "description": "Operation to perform (default: list).",
+                    "default": "list",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Natural-language trigger description for action=create.",
+                },
+                "source": {
+                    "type": "object",
+                    "description": "Optional source: {type: rss|web|search, url, query, api}.",
+                },
+                "id": {"type": "string", "description": "Trigger id for run/delete."},
+                "save": {
+                    "type": "boolean",
+                    "description": "When false, only parse a create prompt and return the draft.",
+                    "default": True,
+                },
+            },
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import (
+            create_trigger,
+            delete_trigger,
+            list_triggers,
+            parse_trigger_prompt,
+            run_trigger,
+        )
+
+        action = (arguments.get("action") or "list").lower()
+        try:
+            if action == "list":
+                triggers = list_triggers()
+                return {"triggers": triggers, "count": len(triggers)}
+            if action == "create":
+                prompt = (arguments.get("prompt") or "").strip()
+                if not prompt:
+                    return {"error": "prompt parameter is required"}
+                draft = parse_trigger_prompt(prompt, arguments.get("source"))
+                if arguments.get("save", True):
+                    return create_trigger(draft)
+                return {"trigger": draft, "saved": False}
+            if action == "run":
+                trigger_id = arguments.get("id")
+                if not trigger_id:
+                    return {"error": "id parameter is required"}
+                return await run_trigger(trigger_id)
+            if action == "delete":
+                trigger_id = arguments.get("id")
+                if not trigger_id:
+                    return {"error": "id parameter is required"}
+                return {"deleted": delete_trigger(trigger_id), "id": trigger_id}
+            return {"error": f"Unknown action '{action}'"}
+        except Exception as exc:
+            return {"error": f"Trigger operation failed: {exc}"}
+
+
+class BrowsingCatalogTool(MCPTool):
+    """List the free and paid browsing APIs known to g4f."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "List browsing APIs, their pricing tier, capabilities and whether their credential "
+            "is configured. Use the returned ids with BrowsingSearchTool."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "Optional category filter."},
+                "capability": {"type": "string", "description": "search, feed or fetch."},
+                "available_only": {
+                    "type": "boolean",
+                    "description": "Only return APIs usable in the current environment.",
+                    "default": False,
+                },
+            },
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import list_apis
+
+        apis = list_apis(
+            category=arguments.get("category"),
+            capability=arguments.get("capability"),
+            include_unavailable=not arguments.get("available_only", False),
+        )
+        return {"apis": apis, "count": len(apis), "available": sum(1 for api in apis if api["available"])}
+
+
+class FastBrowseTool(MCPTool):
+    """Fetch several URLs concurrently with fast browsing."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "Fetch up to several URLs in parallel, extract readable text and return status, "
+            "content type, title and per-URL errors. Useful for quick research without a browser."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "URLs to fetch in parallel.",
+                },
+                "max_words": {
+                    "type": "integer",
+                    "description": "Maximum words extracted per page (default: 800).",
+                    "default": 800,
+                },
+                "concurrency": {
+                    "type": "integer",
+                    "description": "Maximum parallel requests (default: 6).",
+                    "default": 6,
+                },
+            },
+            "required": ["urls"],
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import fast_browse
+
+        urls = arguments.get("urls") or []
+        if isinstance(urls, str):
+            urls = [urls]
+        if not urls:
+            return {"error": "urls parameter is required"}
+        try:
+            results = await fast_browse(
+                urls,
+                max_words=int(arguments.get("max_words") or 800),
+                concurrency=int(arguments.get("concurrency") or 6),
+            )
+            return {"results": results, "count": len(results)}
+        except Exception as exc:
+            return {"error": f"Fast browse failed: {exc}"}
+
+
+class BrowsingExecuteTool(MCPTool):
+    """Execute an allow-listed operation from the browsing API catalog."""
+
+    @property
+    def description(self) -> str:
+        return (
+            "Execute a browsing catalog API operation. Examples: api=rss operation=feed url=...; "
+            "api=wikipedia operation=search query=...; api=jina-reader operation=fetch url=..."
+        )
+
+    @property
+    def input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "api": {
+                    "type": "string",
+                    "description": "Catalog id, e.g. rss, wikipedia, arxiv, brave.",
+                },
+                "operation": {
+                    "type": "string",
+                    "description": "search, feed or fetch. Defaults to search unless a url is given.",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Operation parameters: query, url, limit, max_words.",
+                },
+            },
+            "required": ["api"],
+        }
+
+    async def execute(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        from ..browsing import execute_api
+
+        api_id = arguments.get("api")
+        if not api_id:
+            return {"error": "api parameter is required"}
+        params = dict(arguments.get("params") or {})
+        if arguments.get("operation"):
+            params["operation"] = arguments["operation"]
+        try:
+            return {"api": api_id, "result": await execute_api(api_id, params=params)}
+        except Exception as exc:
+            return {"error": f"Browsing execute failed: {exc}"}

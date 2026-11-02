@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import sys
+from importlib.metadata import entry_points
+from typing import Literal, Sequence, cast, overload
+
+from harlequin.adapter import HarlequinAdapter
+from harlequin.exception import HarlequinConfigError
+from harlequin.keymap import HarlequinKeyMap
+
+
+def adapter_names() -> list[str]:
+    """
+    The name of every installed adapter, without importing any of them.
+    """
+    return sorted({ep.name for ep in entry_points(group="harlequin.adapter")})
+
+
+def adapter_versions() -> dict[str, str | None]:
+    """
+    The version of the distribution behind each installed adapter, importing
+    none of them.
+
+    Reading the distribution costs ~5ms over reading the names alone, where
+    importing the adapters to ask them costs hundreds -- so what is installed,
+    and which release of it, is answerable without loading any of it. None
+    where the entry point has no distribution behind it, which is what an
+    adapter installed from a source checkout can look like.
+    """
+    versions: dict[str, str | None] = {}
+    for ep in entry_points(group="harlequin.adapter"):
+        # last one wins, to agree with load_adapter() and load_adapter_plugins()
+        versions[ep.name] = None if ep.dist is None else ep.dist.version
+    return versions
+
+
+def adapter_distributions() -> dict[str, str | None]:
+    """
+    The name of the distribution behind each installed adapter, importing
+    none of them.
+
+    None where the entry point has no distribution behind it, which is what an
+    adapter installed from a source checkout can look like.
+    """
+    distributions: dict[str, str | None] = {}
+    for ep in entry_points(group="harlequin.adapter"):
+        # last one wins, to agree with load_adapter() and load_adapter_plugins()
+        distributions[ep.name] = None if ep.dist is None else ep.dist.name
+    return distributions
+
+
+def load_adapter(name: str) -> type[HarlequinAdapter]:
+    """
+    Import exactly one installed adapter, by its entry point name.
+
+    Raises HarlequinConfigError, where load_adapter_plugins() only warns,
+    because a caller that named an adapter has nothing to fall back to.
+    """
+    matches = [ep for ep in entry_points(group="harlequin.adapter") if ep.name == name]
+    if not matches:
+        installed = ", ".join(adapter_names())
+        raise HarlequinConfigError(
+            f"Could not load an adapter named {name}, because no installed "
+            "plug-in provides one with that name. Installed adapters: "
+            f"{installed if installed else '(none)'}.",
+            title="Harlequin could not load your adapter.",
+        )
+    ep = matches[-1]  # last one wins, to agree with load_adapter_plugins()
+    try:
+        return cast("type[HarlequinAdapter]", ep.load())
+    except ImportError as e:
+        raise HarlequinConfigError(
+            f"Could not load the installed plug-in named {ep.name}.\n\n{e}",
+            title="Harlequin could not load your adapter.",
+        ) from e
+
+
+def load_adapter_plugins() -> dict[str, type[HarlequinAdapter]]:
+    return _load_plugins(group="harlequin.adapter")
+
+
+def load_keymap_plugins(
+    user_defined_keymaps: Sequence[HarlequinKeyMap],
+) -> dict[str, HarlequinKeyMap]:
+    keymaps = _load_plugins(group="harlequin.keymap")
+    for keymap in user_defined_keymaps:
+        if keymap.name in keymaps:
+            raise HarlequinConfigError(
+                title="Harlequin could not load your keymap config",
+                msg=(
+                    "Your Harlequin config files define a keymap named "
+                    f"{keymap.name}, but that name is already defined by "
+                    "a plug-in keymap. To extend a plug-in keymap, define "
+                    "a keymap with a new name, and configure your profile to "
+                    "load both keymaps."
+                ),
+            )
+        keymaps[keymap.name] = keymap
+    return keymaps
+
+
+@overload
+def _load_plugins(
+    group: Literal["harlequin.adapter"],
+) -> dict[str, type[HarlequinAdapter]]: ...
+
+
+@overload
+def _load_plugins(group: Literal["harlequin.keymap"]) -> dict[str, HarlequinKeyMap]: ...
+
+
+def _load_plugins(
+    group: str,
+) -> dict[str, HarlequinKeyMap] | dict[str, type[HarlequinAdapter]]:
+    eps = entry_points(group=group)
+    plugins: dict[str, HarlequinKeyMap] | dict[str, type[HarlequinAdapter]] = {}
+    for ep in eps:
+        try:
+            ep_class = ep.load()
+        except ImportError as e:
+            # stderr, not stdout: a plug-in failing to load must not end up in
+            # piped output.
+            print(
+                f"Harlequin could not load the installed plug-in named "
+                f"{e.name}.\n\n{e}",
+                file=sys.stderr,
+            )
+        else:
+            plugins[ep.name] = ep_class
+    return plugins

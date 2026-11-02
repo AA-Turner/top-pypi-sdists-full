@@ -1,0 +1,13 @@
+from enum import Enum
+
+
+class StarJsonBodyFavoriteKind(str, Enum):
+    AGENT = "agent"
+    APP = "app"
+    ASSET = "asset"
+    FLOW = "flow"
+    RAW_APP = "raw_app"
+    SCRIPT = "script"
+
+    def __str__(self) -> str:
+        return str(self.value)

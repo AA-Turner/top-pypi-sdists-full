@@ -1,0 +1,201 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import numpy as np
+import pandas as pd
+from chainladder import options
+from chainladder.development.learning import DevelopmentML
+from chainladder.development.glm import TweedieGLM
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
+from chainladder.utils.utility_functions import PatsyFormula, PTF_formula
+
+
+class BarnettZehnwirth(TweedieGLM):
+    """This estimator enables modeling from the Probabilistic Trend Family as
+    described by Barnett and Zehnwirth.
+
+    The model is fit on log-incremental losses and produces multiplicative
+    ``ldf_`` patterns for use with IBNR estimators. Specify the regression
+    structure either with a patsy ``formula`` or with PTF period groupings
+    (``alpha``, ``gamma``, ``iota``) that define origin, trend, and
+    final-period cohorts.
+
+    .. versionadded:: 0.8.2
+
+    Parameters
+    ----------
+    drop: tuple or list of tuples
+        Drops specific origin/development combination(s)
+    drop_valuation: str or list of str (default = None)
+        Drops specific valuation periods. str must be date convertible.
+    formula: formula-like
+        A patsy formula describing the independent variables, X of the GLM
+    response:  str
+        Column name for the reponse variable of the GLM.  If ommitted, then the
+        first column of the Triangle will be used.
+    alpha: list of int
+        List of origin periods denoting the first indices of each group
+    gamma: list of int
+    iota: list of int
+
+    Examples
+    --------
+    When many accident years are available but you want a smaller number of
+    origin cohorts, specify ``alpha``, ``gamma``, and ``iota`` instead of a
+    separate factor for every year. The fitted design has fewer parameters than
+    a fully saturated origin-by-development formula on the same triangle.
+
+    .. testsetup::
+
+        import chainladder as cl
+
+    .. testcode::
+
+        tri = cl.load_sample("abc")
+        m_ptf = cl.BarnettZehnwirth(
+            alpha=[0, 5], gamma=[0, 2, 5], iota=[0, 7, 11]
+        ).fit(tri)
+        m_full = cl.BarnettZehnwirth(
+            formula="C(origin)+C(development)"
+        ).fit(tri)
+        print(len(m_ptf.coef_.values.flatten()))
+        print(len(m_full.coef_.values.flatten()))
+
+    .. testoutput::
+
+        6
+        21
+
+    Use a patsy ``formula`` when the reserving structure needs explicit terms
+    (for example separate origin and development factors) rather than the PTF
+    cohort shorthand. Comparing the full ``ldf_`` patterns of the two models
+    shows the difference in structure: the formula model produces a single
+    pattern shared across all accident years, while the PTF model allows the
+    pattern to shift gradually from the earliest to the latest accident year
+    due to the calendar trend captured in ``iota``.
+
+    .. testcode::
+
+        import numpy as np
+
+        tri = cl.load_sample("abc")
+        m_formula = cl.BarnettZehnwirth(
+            formula="C(origin)+C(development)"
+        ).fit(tri)
+        m_ptf = cl.BarnettZehnwirth(
+            alpha=[0, 5], gamma=[0, 2, 5], iota=[0, 7, 11]
+        ).fit(tri)
+        ldf_f = m_formula.ldf_.to_frame(origin_as_datetime=False)
+        ldf_p = m_ptf.ldf_.to_frame(origin_as_datetime=False)
+        print(np.round(ldf_f.values[0], 4))   # formula: earliest origin
+        print(np.round(ldf_f.values[-1], 4))  # formula: latest origin
+        print(np.round(ldf_p.values[0], 4))   # PTF: earliest origin
+        print(np.round(ldf_p.values[-1], 4))  # PTF: latest origin
+
+    .. testoutput::
+
+        [2.2854 1.4138 1.1976 1.1128 1.0721 1.048  1.0342 1.0264 1.0208 1.0168]
+        [2.2854 1.4138 1.1976 1.1128 1.0721 1.048  1.0342 1.0264 1.0208 1.0168]
+        [1.9716 1.4788 1.1794 1.0843 1.0431 1.0428 1.0425 1.0423 1.0421 1.0419]
+        [1.9727 1.4625 1.1692 1.0774 1.0384 1.037  1.0357 1.0345 1.0333 1.0322]
+
+    """
+
+    def __init__(
+        self,
+        drop=None,
+        drop_valuation=None,
+        formula=None,
+        response=None,
+        alpha=None,
+        gamma=None,
+        iota=None,
+    ):
+        self.drop = drop
+        self.drop_valuation = drop_valuation
+
+        self.response = response
+        if formula and (alpha or gamma or iota):
+            raise ValueError(
+                "Model can only be specified by either a formula or some combination of alpha, gamma and iota."
+            )
+        if not (formula or alpha or gamma or iota):
+            raise ValueError(
+                "Model must be specified, either a formula or some combination of alpha, gamma and iota."
+            )
+        for Greek in [alpha, gamma, iota]:
+            if Greek:
+                if not (
+                    (type(Greek) is list) and all(type(bound) is int for bound in Greek)
+                ):
+                    raise ValueError(
+                        "Alpha, gamma and iota must be given as lists of integers, specifying periods."
+                    )
+        self.formula = formula
+        self.alpha = alpha
+        self.gamma = gamma
+        self.iota = iota
+
+    def fit(self, X, y=None, sample_weight=None):
+        if max(X.shape[:2]) > 1:
+            raise ValueError("Only single index/column triangles are supported")
+        tri = X.cum_to_incr().log()
+        response = X.columns[0] if not self.response else self.response
+        if not self.formula:
+            self.formula = PTF_formula(
+                self.alpha, self.gamma, self.iota, dgrain=min(tri.development)
+            )
+        self.model_ = DevelopmentML(
+            Pipeline(
+                steps=[
+                    ("design_matrix", PatsyFormula(self.formula)),
+                    ("model", LinearRegression(fit_intercept=False)),
+                ]
+            ),
+            y_ml=response,
+            fit_incrementals=True,
+            drop=self.drop,
+            drop_valuation=self.drop_valuation,
+            weighted_step="model",
+        ).fit(X=tri, sample_weight=sample_weight)
+        resid = (
+            tri
+            - self.model_.triangle_ml_[
+                self.model_.triangle_ml_.valuation <= tri.valuation_date
+            ]
+        )
+        self.mse_resid_ = (resid**2).sum(0).sum(1).sum(2).sum() / (
+            np.nansum(tri.nan_triangle)
+            - len(self.model_.estimator_ml.named_steps.model.coef_)
+        )
+        self.std_residuals_ = (resid / np.sqrt(self.mse_resid_)).fillzero()
+        self.model_.triangle_ml_ = self.model_.triangle_ml_.exp()
+        self.model_.triangle_ml_.is_cumulative = False
+        return self
+
+    def transform(self, X):
+        """If X and self are of different shapes, align self to X, else
+        return self.
+
+        Parameters
+        ----------
+        X : Triangle
+            The triangle to be transformed
+
+        Returns
+        -------
+            X_new : New triangle with transformed attributes.
+        """
+        X_new = X.copy()
+        X_ml = self.model_._prep_X_ml(X.cum_to_incr().log())
+        y_ml = self.model_.estimator_ml.predict(X_ml)
+        triangle_ml, predicted_data = self.model_._get_triangle_ml(X_ml, y_ml)
+        backend = "cupy" if X.array_backend == "cupy" else "numpy"
+        triangle_ml.is_cumulative = False
+        X_new.ldf_ = triangle_ml.exp().incr_to_cum().link_ratio.set_backend(backend)
+        X_new.ldf_.valuation_date = pd.to_datetime(options.ULT_VAL)
+        X_new._set_slicers()
+        X_new.predicted_data_ = predicted_data
+        return X_new

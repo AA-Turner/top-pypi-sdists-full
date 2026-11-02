@@ -1,15 +1,23 @@
 import dataclasses
 import http.cookies
+import inspect
+import itertools
+import json
+import pathlib
 import re
 import sys
 import tempfile
+import threading
+import time as time_module
 import typing
-from collections.abc import Callable, Coroutine, Iterator
+from collections import OrderedDict
+from collections.abc import Callable, Coroutine, Iterable, Iterator
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from io import BytesIO, RawIOBase, StringIO, UnsupportedOperation
+from types import MappingProxyType
 from typing import Annotated, Any, Literal, Optional, Union, cast
 from uuid import UUID
 
@@ -51,6 +59,7 @@ from pydantic import (
     PlainValidator,
     RootModel,
     Strict,
+    StringConstraints,
     ValidationError,
     WrapSerializer,
     WrapValidator,
@@ -91,8 +100,11 @@ from cadwyn.structure.versions import Version, VersionBundle
 from tests._resources.utils import (
     FASTAPI_DISTINGUISHES_NULL_BODIES,
     FASTAPI_KEEPS_POSITIONS_OF_BYTES_FILES,
+    FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
     FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS,
     FASTAPI_VALIDATES_FORM_FIELDS_OF_OVERRIDES,
+    FASTAPI_VALIDATES_FORM_MODEL_UNIONS_AS_FORM_DATA,
 )
 from tests.conftest import (
     CreateVersionedApp,
@@ -1777,6 +1789,365 @@ def test__request_body_migration__with_optional_form_model__head_should_get_the_
         )
 
 
+async def _optional_form_model(body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None):
+    return None if body is None else body.value
+
+
+async def _optional_form_model_from_dependency(
+    body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None,
+) -> Optional[int]:
+    return None if body is None else body.value
+
+
+async def _optional_form_model_shared_by_dependency(
+    body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None,
+    from_dependency: Optional[int] = Depends(_optional_form_model_from_dependency),
+):
+    return [None if body is None else body.value, from_dependency]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "data"),
+    [
+        pytest.param(_optional_form_model, None, id="without_form_data"),
+        pytest.param(_optional_form_model, {"unrelated": "1"}, id="with_unrelated_form_data"),
+        pytest.param(_optional_form_model, {"v": "1", "unrelated": "1"}, id="with_its_form_data"),
+        pytest.param(_optional_form_model_shared_by_dependency, None, id="shared_by_dependency_without_form_data"),
+        pytest.param(
+            _optional_form_model_shared_by_dependency, {"v": "1"}, id="shared_by_dependency_with_its_form_data"
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model__head_should_get_it_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    data: Optional[dict[str, str]],
+):
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change())
+
+    expected = TestClient(fastapi_app).post(test_path, data=data)
+    for version_client in clients.values():
+        response = version_client.post(test_path, data=data)
+        assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+async def _get_current_user() -> str:
+    raise NotImplementedError
+
+
+async def _get_fake_user() -> str:
+    return "fake"
+
+
+async def _get_optional_form_model_value_in_override(
+    body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None,
+) -> Optional[int]:
+    return None if body is None else body.value
+
+
+async def _optional_form_model_next_to_overridden_dependency(
+    body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None,
+    from_dependency: Any = Depends(_get_current_user),
+):
+    return [None if body is None else body.value, from_dependency]
+
+
+@pytest.mark.parametrize(
+    ("override", "data"),
+    [
+        pytest.param(_get_fake_user, None, id="override_without_params_and_no_form_data"),
+        pytest.param(_get_fake_user, {"unrelated": "1"}, id="override_without_params_and_unrelated_form_data"),
+        pytest.param(
+            _get_optional_form_model_value_in_override, None, id="override_sharing_form_model_and_no_form_data"
+        ),
+        pytest.param(
+            _get_optional_form_model_value_in_override, {"v": "1"}, id="override_sharing_form_model_and_its_form_data"
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_and_dependency_override__head_should_get_it_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    override: Callable[..., Coroutine[Any, Any, Any]],
+    data: Optional[dict[str, str]],
+):
+    router.post(test_path)(_optional_form_model_next_to_overridden_dependency)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(_optional_form_model_next_to_overridden_dependency)
+    fastapi_app.dependency_overrides[_get_current_user] = override
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_current_user] = override
+
+    expected = TestClient(fastapi_app).post(test_path, data=data)
+    for version_client in clients.values():
+        response = version_client.post(test_path, data=data)
+        assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, migrations get the form of the request"
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply__migration_should_get_none(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_optional_form_model)
+    bodies_seen_by_migration: list[Any] = []
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        bodies_seen_by_migration.append(request.body)
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    response = clients["2000-01-01"].post(test_path, data={"unrelated": "1"})
+    assert (response.status_code, response.json()) == (200, None)
+    assert bodies_seen_by_migration == [None]
+
+
+class _RequiredFormModelThatWrapsEmptyFormsAsNone(RootModel[Optional[dict[str, str]]]):
+    @model_validator(mode="wrap")
+    @classmethod
+    def _empty_form_as_none(  # pragma: no cover # FastAPI >= 0.158.2
+        cls, value: Any, handler: Callable[[Any], Any]
+    ) -> Any:
+        return None if value in ({}, None) else handler(value)
+
+
+class _FormModelWithExtraFields(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    value: Optional[int] = Field(default=None, validation_alias="v")
+
+
+def _none_for_zero(  # pragma: no cover # FastAPI >= 0.158.2
+    value: Optional[InnerSchemaWithValidationAlias],
+) -> Optional[InnerSchemaWithValidationAlias]:
+    return None if value is not None and value.value == 0 else value
+
+
+def _none_without_value(  # pragma: no cover # FastAPI >= 0.158.2
+    value: Optional[_FormModelWithExtraFields],
+) -> Optional[_FormModelWithExtraFields]:
+    return None if value is not None and value.value is None else value
+
+
+async def _none_dependency() -> None:  # pragma: no cover # FastAPI >= 0.158.2
+    return None
+
+
+async def _get_extra_from_form(
+    extra: Optional[str] = Form(None),
+) -> Optional[str]:  # pragma: no cover # FastAPI >= 0.158.2
+    return extra
+
+
+def _add_required_form_model_that_validates_to_none_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(body: Annotated[_RequiredFormModelThatWrapsEmptyFormsAsNone, Form()]):
+        raise NotImplementedError
+
+
+def _add_form_model_that_validates_to_none_with_non_none_default_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(
+        body: Annotated[Optional[InnerSchemaWithValidationAlias], Form(), AfterValidator(_none_for_zero)] = (
+            InnerSchemaWithValidationAlias(v=1)
+        ),
+    ):
+        raise NotImplementedError
+
+
+def _add_form_model_with_extra_fields_that_validates_to_none_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(
+        body: Annotated[Optional[_FormModelWithExtraFields], Form(), AfterValidator(_none_without_value)] = None,
+    ):
+        raise NotImplementedError
+
+
+class _FormModelWithDefaults(BaseModel):
+    value: int = Field(default=0, validation_alias="v")
+
+
+def _always_none(value: Any) -> None:  # pragma: no cover # FastAPI >= 0.158.2
+    return None
+
+
+def _add_non_nullable_form_model_that_validates_to_none_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(
+        body: Annotated[_FormModelWithDefaults, Form(), AfterValidator(_always_none)] = _FormModelWithDefaults(v=7),
+    ):
+        raise NotImplementedError
+
+
+def _add_form_model_next_to_form_field_of_dependency_override_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(
+        body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None,
+        extra: Optional[str] = Depends(_none_dependency),
+    ):
+        raise NotImplementedError
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, Cadwyn takes the same path as before"
+)
+@pytest.mark.parametrize(
+    ("add_endpoint", "data", "dependency_overrides"),
+    [
+        pytest.param(_add_required_form_model_that_validates_to_none_endpoint, None, {}, id="required_form_model"),
+        pytest.param(
+            _add_form_model_that_validates_to_none_with_non_none_default_endpoint,
+            {"v": "0"},
+            {},
+            id="form_model_with_its_form_data_and_non_none_default",
+        ),
+        pytest.param(
+            _add_form_model_with_extra_fields_that_validates_to_none_endpoint,
+            {"unrelated": "1"},
+            {},
+            id="form_model_with_extra_fields",
+        ),
+        pytest.param(
+            _add_non_nullable_form_model_that_validates_to_none_endpoint,
+            None,
+            {},
+            id="non_nullable_form_model_without_form_data",
+        ),
+        pytest.param(
+            _add_non_nullable_form_model_that_validates_to_none_endpoint,
+            {"unrelated": "1"},
+            {},
+            id="non_nullable_form_model_with_unrelated_form_data",
+        ),
+        pytest.param(
+            _add_form_model_next_to_form_field_of_dependency_override_endpoint,
+            {"extra": "1"},
+            {_none_dependency: _get_extra_from_form},
+            id="optional_form_model_next_to_form_field_of_dependency_override",
+        ),
+    ],
+)
+def test__request_body_migration__with_form_model_that_fastapi_validates_to_none__should_fail_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    add_endpoint: Callable[[VersionedAPIRouter, str], None],
+    data: Optional[dict[str, str]],
+    dependency_overrides: dict[Any, Any],
+):
+    add_endpoint(router, test_path)
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides.update(dependency_overrides)
+
+    # FastAPI has validated the form, so the head doesn't get an omitted body that would lose the form's values
+    for version_client in clients.values():
+        with pytest.raises(CadwynHeadRequestValidationError):
+            version_client.post(test_path, data=data)
+
+
+class _FormModelThatValidatesEmptyFormsAsNone(RootModel[Optional[dict[str, str]]]):
+    @model_validator(mode="before")
+    @classmethod
+    def _empty_form_as_none(cls, value: Any) -> Any:  # pragma: no cover # FastAPI >= 0.151
+        return None if value == {} else value
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.151
+    not FASTAPI_DISTINGUISHES_NULL_BODIES, reason="Before FastAPI 0.151.0, a body that is None is an omitted one"
+)
+def test__request_body_migration__with_supplied_form_model_that_dumps_to_none__head_should_get_it_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(body: Annotated[_FormModelThatValidatesEmptyFormsAsNone, Form()]):
+        return body.root
+
+    clients = create_versioned_clients(version_change())
+
+    for version_client in clients.values():
+        response = version_client.post(test_path)
+        assert (response.status_code, response.json()) == (200, None)
+
+
+def _add_optional_file_next_to_query_param_named_body_endpoint(  # pragma: no cover # FastAPI >= 0.151
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(upload: Optional[bytes] = File(None), body: Optional[str] = Query(None)):
+        raise NotImplementedError
+
+
+def _add_optional_form_model_aliased_as_dependency_named_body_endpoint(  # pragma: no cover # FastAPI >= 0.158.2
+    router: VersionedAPIRouter, path: str
+) -> None:
+    @router.post(path)
+    async def endpoint(
+        payload: Annotated[Optional[InnerSchemaWithValidationAlias], Form(alias="body")] = None,
+        body: None = Depends(_none_dependency),
+    ):
+        raise NotImplementedError
+
+
+@pytest.mark.parametrize(  # pragma: no cover # FastAPI >= 0.151
+    ("add_endpoint", "request_kwargs"),
+    [
+        pytest.param(
+            _add_optional_file_next_to_query_param_named_body_endpoint,
+            {"files": {"upload": ("file.txt", b"content")}},
+            id="optional_file_next_to_query_param_named_body",
+            marks=pytest.mark.skipif(
+                not FASTAPI_DISTINGUISHES_NULL_BODIES,
+                reason="Before FastAPI 0.151.0, a body that is None is an omitted one",
+            ),
+        ),
+        pytest.param(
+            _add_optional_form_model_aliased_as_dependency_named_body_endpoint,
+            {"data": {"v": "1"}},
+            id="optional_form_model_aliased_as_dependency_named_body",
+            marks=pytest.mark.skipif(
+                not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS,
+                reason="Before FastAPI 0.158.2, FastAPI embeds `Optional` form models",
+            ),
+        ),
+    ],
+)
+def test__request_body_migration__with_none_kwarg_named_body_that_is_not_the_body__should_not_drop_the_body(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    add_endpoint: Callable[[VersionedAPIRouter, str], None],
+    request_kwargs: dict[str, Any],
+):
+    add_endpoint(router, test_path)
+    clients = create_versioned_clients(version_change())
+
+    # Cadwyn takes the kwarg for the body, so it fails as before instead of passing the head no body
+    for version_client in clients.values():
+        with pytest.raises(CadwynHeadRequestValidationError):
+            version_client.post(test_path, **request_kwargs)
+
+
 @pytest.mark.parametrize(
     "alias_choices",
     [AliasChoices("p", "q"), AliasChoices("p", AliasPath("q", "r"))],
@@ -1878,6 +2249,1226 @@ def test__request_body_migration__with_form_model_and_form_field_of_dependency_o
                 ]
             }
         )
+
+
+class SchemaWithText(BaseModel):
+    text: str
+
+
+async def _get_text() -> str:
+    raise NotImplementedError
+
+
+async def _get_text_from_form_field(text: str = Form()) -> str:
+    return text  # pragma: no cover # FastAPI >= 0.158
+
+
+@pytest.mark.parametrize(
+    "form_model_param",
+    [Form(), Form(validation_alias=AliasChoices("other", "text"))],
+    ids=["name", "alias_choices"],
+)
+def test__request_body_migration__with_form_field_of_dependency_override_named_like_form_model__head_should_get_both(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    form_model_param: Any,
+):
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithText, form_model_param], from_dependency: str = Depends(_get_text)):
+        return [text.text, from_dependency]  # pragma: no cover # FastAPI >= 0.158
+
+    @convert_request_to_next_version_for(SchemaWithText)
+    def migrator(request: RequestInfo):
+        request.body["text"] = "migrated"  # pragma: no cover # FastAPI >= 0.158
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = _get_text_from_form_field
+
+    error = {"type": "string_type", "loc": ["body"], "msg": "Input should be a valid string", "input": {"text": "sent"}}
+    assert {version: client.post(test_path, data={"text": "sent"}).json() for version, client in clients.items()} == (
+        {"2000-01-01": ["migrated", "migrated"], "2001-01-01": ["sent", "sent"]}
+        if FASTAPI_VALIDATES_FORM_FIELDS_OF_OVERRIDES
+        else {"2000-01-01": {"detail": [error]}, "2001-01-01": {"detail": [error]}}
+    )
+
+
+async def _get_text_from_embedded_body(text: str = Body(embed=True)) -> str:
+    return text  # pragma: no cover # FastAPI >= 0.158
+
+
+def test__request_body_migration__with_embedded_body_param_of_override_named_like_form_model__head_should_get_both(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithText, Form()], from_dependency: str = Depends(_get_text)):
+        return [text.text, from_dependency]  # pragma: no cover # FastAPI >= 0.158
+
+    @convert_request_to_next_version_for(SchemaWithText)
+    def migrator(request: RequestInfo):
+        request.body["text"] = "migrated"  # pragma: no cover # FastAPI >= 0.158
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = _get_text_from_embedded_body
+
+    error = {"type": "string_type", "loc": ["body"], "msg": "Input should be a valid string", "input": {"text": "sent"}}
+    assert {version: client.post(test_path, data={"text": "sent"}).json() for version, client in clients.items()} == (
+        {"2000-01-01": ["migrated", "migrated"], "2001-01-01": ["sent", "sent"]}
+        if FASTAPI_VALIDATES_FORM_FIELDS_OF_OVERRIDES
+        else {"2000-01-01": {"detail": [error]}, "2001-01-01": {"detail": [error]}}
+    )
+
+
+class OtherSchemaWithText(BaseModel):
+    other_text: str
+
+
+async def _get_text_from_form_model_union(
+    text: Annotated[Union[SchemaWithText, OtherSchemaWithText], Form()],
+) -> dict[str, str]:
+    return text.model_dump()
+
+
+@pytest.mark.skipif(
+    FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS and not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
+    reason="On FastAPI 0.158.2 to 0.160, a union of form models isn't a form model, so it can't get the dict body",
+)
+def test__request_body_migration__with_form_model_union_of_override_named_like_form_model__head_should_get_it(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithText, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.text, from_dependency]
+
+    @convert_request_to_next_version_for(SchemaWithText)
+    def migrator(request: RequestInfo):
+        request.body["text"] = "migrated"
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = _get_text_from_form_model_union
+
+    assert {version: client.post(test_path, data={"text": "sent"}).json() for version, client in clients.items()} == {
+        "2000-01-01": ["migrated", {"text": "migrated"}],
+        "2001-01-01": ["sent", {"text": "sent"}],
+    }
+
+
+async def _form_model_union(text: Annotated[Union[SchemaWithText, OtherSchemaWithText], Form()]):
+    return text.model_dump()
+
+
+async def _optional_form_model_union(
+    text: Annotated[Optional[Union[SchemaWithText, OtherSchemaWithText]], Form()] = None,
+):
+    return None if text is None else text.model_dump()
+
+
+class _FormModelWithFile(BaseModel):
+    value: str
+    file: Optional[UploadFile] = None
+
+
+async def _optional_form_model_with_file(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[_FormModelWithFile], Form()] = None,
+):
+    return None if body is None else [body.value, body.file is None]
+
+
+_SKIP_IF_FORM_MODEL_UNIONS_ARE_NOT_FORM_MODELS = pytest.mark.skipif(
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS, reason="Before FastAPI 0.161.0, a union of form models isn't a form model"
+)
+
+# Since FastAPI 0.153.0, FastAPI validates the members of a union of form models from the body as if it were form data
+_SKIP_IF_CADWYN_PASSES_FORM_MODEL_UNION_DUMPS_AS_THEY_ARE = pytest.mark.skipif(
+    FASTAPI_VALIDATES_FORM_MODEL_UNIONS_AS_FORM_DATA and not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
+    reason="On FastAPI 0.153 to 0.160, Cadwyn passes the dump of the union member to FastAPI as it is",
+)
+
+
+class SchemaWithCollections(BaseModel):
+    tags: set[str]
+    frozen_tags: frozenset[str]
+    numbers: tuple[int, ...]
+
+
+async def _form_model_union_with_collections(
+    body: Annotated[Union[SchemaWithCollections, OtherSchemaWithText], Form()],
+):
+    return body.model_dump(mode="json")
+
+
+def _split_by_commas(value: Any) -> Any:
+    return value.split(",") if isinstance(value, str) else value  # pragma: no cover # FastAPI >= 0.161
+
+
+class SchemaWithSplitValue(BaseModel):
+    value: Annotated[Any, BeforeValidator(_split_by_commas)]
+
+
+# The head rejects the bodies that these endpoints get in the tests
+async def _form_model_union_with_split_value(
+    body: Annotated[Union[SchemaWithSplitValue, OtherSchemaWithText], Form()],
+):
+    return body.model_dump()  # pragma: no cover
+
+
+class SchemaWithListValue(BaseModel):
+    kind: Literal["list"]
+    value: list[str]
+
+
+class SchemaWithSplitValueOfKind(SchemaWithSplitValue):
+    kind: Literal["split"]
+
+
+async def _form_model_union_with_list_and_split_value(
+    body: Annotated[Union[SchemaWithListValue, SchemaWithSplitValueOfKind], Form()],
+):
+    return body.model_dump()  # pragma: no cover
+
+
+class SchemaWithExtraValue(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    kind: Literal["extra"]
+
+    @model_validator(mode="before")
+    @classmethod
+    def split_value(cls, data: Any) -> Any:  # pragma: no cover # FastAPI >= 0.161
+        value = data.get("value") if isinstance(data, dict) else None
+        if isinstance(value, str):
+            return {**data, "value": tuple(value.split(","))}
+        if isinstance(value, list):
+            return {**data, "value": f"repeated:{','.join(value)}"}
+        return data
+
+
+class SchemaWithTupleValue(BaseModel):
+    kind: Literal["tuple"]
+    value: tuple[str, ...]
+
+
+async def _form_model_union_with_extra_and_tuple_value(
+    body: Annotated[Union[SchemaWithExtraValue, SchemaWithTupleValue], Form()],
+):
+    return body.model_dump()  # pragma: no cover
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "data"),
+    [
+        pytest.param(_form_model_union, {"text": "1"}, id="with_form_data_of_first_member"),
+        pytest.param(_form_model_union, {"other_text": "1"}, id="with_form_data_of_second_member"),
+        pytest.param(_optional_form_model_union, {"text": "1"}, id="optional_with_form_data_of_first_member"),
+        pytest.param(_optional_form_model_union, {"other_text": "1"}, id="optional_with_form_data_of_second_member"),
+        pytest.param(
+            _form_model_union_with_collections,
+            {"tags": ["x", "y"], "frozen_tags": ["x", "y"], "numbers": ["1", "2"]},
+            id="with_set_frozenset_and_tuple_fields",
+            marks=_SKIP_IF_CADWYN_PASSES_FORM_MODEL_UNION_DUMPS_AS_THEY_ARE,
+        ),
+        pytest.param(_optional_form_model_union, None, id="optional_without_form_data"),
+        pytest.param(_optional_form_model_union, {"unrelated": "1"}, id="optional_with_unrelated_form_data"),
+    ],
+)
+def test__request_body_migration__with_form_model_union__head_should_get_it_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    data: Optional[dict[str, str]],
+):
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change())
+
+    expected = TestClient(fastapi_app).post(test_path, data=data)
+    for version_client in clients.values():
+        response = version_client.post(test_path, data=data)
+        assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize("data", [None, {"unrelated": "1"}], ids=["without_form_data", "with_unrelated_form_data"])
+@pytest.mark.parametrize(
+    ("endpoint", "migrated_body"),
+    [
+        pytest.param(_optional_form_model, {"v": "2"}, id="form_model"),
+        pytest.param(_optional_form_model_shared_by_dependency, {"v": "2"}, id="form_model_shared_by_dependency"),
+        pytest.param(_optional_form_model_with_file, {"value": "2"}, id="form_model_with_file_field"),
+        pytest.param(_optional_form_model, OrderedDict({"v": "2"}), id="form_model_with_dict_subclass"),
+        pytest.param(
+            _optional_form_model_union,
+            {"other_text": "2"},
+            id="union",
+            marks=_SKIP_IF_FORM_MODEL_UNIONS_ARE_NOT_FORM_MODELS,
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply__head_should_get_the_body_set_by_migration(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    data: Optional[dict[str, str]],
+    migrated_body: dict[str, str],
+):
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    expected = TestClient(fastapi_app).post(test_path, data=migrated_body)
+    response = clients["2000-01-01"].post(test_path, data=data)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+    expected = TestClient(fastapi_app).post(test_path, data=data)
+    response = clients["2001-01-01"].post(test_path, data=data)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    ("endpoint", "alias"),
+    [
+        pytest.param(_optional_form_model, "body", id="form_model"),
+        pytest.param(_optional_form_model_shared_by_dependency, "body", id="form_model_shared_by_dependency"),
+        pytest.param(
+            _optional_form_model_union, "text", id="union", marks=_SKIP_IF_FORM_MODEL_UNIONS_ARE_NOT_FORM_MODELS
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply__head_should_get_the_body_that_migration_has_embedded_under_its_alias(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    alias: str,
+):
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+    form_model_body = {"text": "2"} if alias == "text" else {"v": "2"}
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {alias: form_model_body}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    expected = TestClient(fastapi_app).post(test_path, data=form_model_body)
+    response = clients["2000-01-01"].post(test_path)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+class _OtherFormModelWithDefault(BaseModel):
+    number: int = 5
+
+
+class _OtherFormModelWithRequiredField(BaseModel):
+    number: int
+
+
+async def _get_other_optional_form_model_in_override(  # pragma: no cover # FastAPI >= 0.158.2
+    other: Annotated[Optional[_OtherFormModelWithDefault], Form()] = None,
+) -> Optional[int]:
+    return None if other is None else other.number
+
+
+async def _get_other_optional_form_model_with_required_field_in_override(  # pragma: no cover # FastAPI >= 0.158.2
+    other: Annotated[Optional[_OtherFormModelWithRequiredField], Form()] = None,
+) -> Optional[int]:
+    return None if other is None else other.number
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    "override",
+    [
+        pytest.param(_get_fake_user, id="override_without_params"),
+        pytest.param(_get_optional_form_model_value_in_override, id="override_sharing_form_model"),
+        pytest.param(_get_other_optional_form_model_in_override, id="override_with_other_form_model"),
+        pytest.param(
+            _get_other_optional_form_model_with_required_field_in_override,
+            id="override_with_other_form_model_with_required_field",
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_dependency_override__head_should_get_the_body_set_by_migration(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    override: Callable[..., Coroutine[Any, Any, Any]],
+):
+    router.post(test_path)(_optional_form_model_next_to_overridden_dependency)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(_optional_form_model_next_to_overridden_dependency)
+    fastapi_app.dependency_overrides[_get_current_user] = override
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {"v": "2"}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_current_user] = override
+
+    expected = TestClient(fastapi_app).post(test_path, data={"v": "2"})
+    response = clients["2000-01-01"].post(test_path)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+async def _optional_form_model_union_next_to_overridden_dependency(  # pragma: no cover # FastAPI >= 0.161
+    text: Annotated[Optional[Union[SchemaWithText, OtherSchemaWithText]], Form()] = None,
+    from_dependency: Any = Depends(_get_current_user),
+):
+    return [None if text is None else text.model_dump(), from_dependency]
+
+
+async def _get_optional_form_model_union_in_other_order_in_override(  # pragma: no cover # FastAPI >= 0.161
+    text: Annotated[Optional[Union[OtherSchemaWithText, SchemaWithText]], Form()] = None,
+):
+    return None if text is None else text.model_dump()
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS, reason="Before FastAPI 0.161.0, a union of form models isn't a form model"
+)
+def test__request_body_migration__with_optional_form_model_union_that_the_form_does_not_supply_and_override_with_union_in_other_order__head_should_get_the_body_set_by_migration(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_optional_form_model_union_next_to_overridden_dependency)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(_optional_form_model_union_next_to_overridden_dependency)
+    override = _get_optional_form_model_union_in_other_order_in_override
+    fastapi_app.dependency_overrides[_get_current_user] = override
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {"other_text": "2"}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_current_user] = override
+
+    expected = TestClient(fastapi_app).post(test_path, data={"other_text": "2"})
+    response = clients["2000-01-01"].post(test_path)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+async def _get_other_optional_form_model_under_same_alias_in_override(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[_OtherFormModelWithDefault], Form()] = None,
+) -> Optional[int]:
+    return None if body is None else body.number
+
+
+# In these cases, Cadwyn can't tell where the head would look the body up, so it passes the body as the last release did
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    ("override", "migrated_body", "expected"),
+    [
+        pytest.param(
+            _get_other_optional_form_model_under_same_alias_in_override,
+            {"v": "2"},
+            [None, None],
+            id="override_with_other_form_model_under_same_alias",
+        ),
+        pytest.param(
+            _get_other_optional_form_model_in_override,
+            MappingProxyType({"v": "2", "other": {"number": "3"}}),
+            [None, 3],
+            id="mapping_that_is_not_a_dict",
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_body_that_cadwyn_cannot_embed__head_should_get_the_body_as_it_is(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    override: Callable[..., Coroutine[Any, Any, Any]],
+    migrated_body: Any,
+    expected: list[Any],
+):
+    router.post(test_path)(_optional_form_model_next_to_overridden_dependency)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_current_user] = override
+
+    assert clients["2000-01-01"].post(test_path).json() == expected
+
+
+async def _dependency_of_head_only() -> None:
+    raise NotImplementedError
+
+
+async def _read_whole_body_in_override(  # pragma: no cover # FastAPI >= 0.158.2
+    request: Request, payload: dict[str, Any] = Body()
+) -> None:
+    request.state.payload = payload
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_override_of_head_only_dependency_that_reads_whole_body__override_should_get_the_body_as_it_is(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path, dependencies=[Depends(_dependency_of_head_only)])
+    async def endpoint(request: Request, body: Annotated[Optional[InnerSchemaWithValidationAlias], Form()] = None):
+        return [None if body is None else body.value, request.state.payload]
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {"v": "2"}
+
+    clients = create_versioned_clients(
+        version_change(cadwyn_endpoint(test_path, ["POST"]).had(dependencies=[]), migrator=migrator)
+    )
+    clients["2000-01-01"].app.dependency_overrides[_dependency_of_head_only] = _read_whole_body_in_override
+
+    assert clients["2000-01-01"].post(test_path).json() == [None, {"v": "2"}]
+
+
+async def _read_form_field_in_override(  # pragma: no cover # FastAPI >= 0.158.2
+    request: Request, number: int = Form(0)
+) -> None:
+    request.state.number = number
+
+
+class _FormModelThatForbidsExtraFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: str = "default"
+
+
+class _FormModelThatAllowsExtraFields(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    value: str = "default"
+
+
+# The model would take the field of the override as an extra field, which FastAPI doesn't do for a form before 0.160.0
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    "model", [_FormModelThatForbidsExtraFields, _FormModelThatAllowsExtraFields], ids=["forbids", "allows"]
+)
+@pytest.mark.parametrize(
+    "migrated_body",
+    [{"number": "3"}, {"number": "3", "value": "2"}],
+    ids=["field_of_override", "fields_of_override_and_of_model"],
+)
+def test__request_body_migration__with_optional_form_model_with_extra_fields_that_the_form_does_not_supply_and_override_of_head_only_dependency_with_form_field__head_should_get_the_body_as_it_is(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    model: type[BaseModel],
+    migrated_body: dict[str, str],
+):
+    @router.post(test_path, dependencies=[Depends(_dependency_of_head_only)])
+    async def endpoint(request: Request, body: Annotated[Optional[model], Form()] = None):  # ty: ignore[invalid-type-form]
+        return [None if body is None else body.model_dump(), request.state.number]
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(
+        version_change(cadwyn_endpoint(test_path, ["POST"]).had(dependencies=[]), migrator=migrator)
+    )
+    clients["2000-01-01"].app.dependency_overrides[_dependency_of_head_only] = _read_form_field_in_override
+
+    assert clients["2000-01-01"].post(test_path).json() == [None, 3]
+
+
+class _FormModelOfKindWithExtraFields(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    kind: Literal["with_extra_fields"]
+    label: str = "default"
+
+
+class _FormModelOfOtherKind(BaseModel):
+    kind: Literal["other"]
+
+
+async def _optional_form_model_union_with_extra_fields(  # pragma: no cover # FastAPI >= 0.161
+    body: Annotated[Optional[Union[_FormModelOfKindWithExtraFields, _FormModelOfOtherKind]], Form()] = None,
+):
+    return None if body is None else body.model_dump()
+
+
+class _FormModelOfKindWithAliasPath(BaseModel):
+    kind: Literal["with_alias_path"]
+    value: str = Field("default", validation_alias=AliasPath("names", 0))
+
+
+async def _optional_form_model_union_with_alias_path(  # pragma: no cover # FastAPI >= 0.161
+    body: Annotated[Optional[Union[_FormModelOfKindWithAliasPath, _FormModelOfOtherKind]], Form()] = None,
+):
+    return None if body is None else body.model_dump()
+
+
+async def _optional_form_model_union_with_root_model(  # pragma: no cover # FastAPI >= 0.161
+    body: Annotated[Optional[Union[RootModel[dict[str, Any]], _FormModelOfOtherKind]], Form()] = None,
+):
+    return None if body is None else body.model_dump()
+
+
+# FastAPI would validate the models of the union from a changed body, so Cadwyn passes the body as the last release did
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS, reason="Before FastAPI 0.161.0, a union of form models isn't a form model"
+)
+@pytest.mark.parametrize(
+    ("endpoint", "migrated_body"),
+    [
+        pytest.param(
+            _optional_form_model_union_with_extra_fields,
+            {"kind": "with_extra_fields", "tags": ["one"]},
+            id="single_item_list_in_extra_field",
+        ),
+        pytest.param(
+            _optional_form_model_union_with_extra_fields,
+            {"kind": "with_extra_fields", "label": ""},
+            id="empty_string_in_field_with_default",
+        ),
+        pytest.param(
+            _optional_form_model_union_with_alias_path,
+            {"kind": "with_alias_path", "names": ["migrated"]},
+            id="single_item_list_under_alias_path",
+        ),
+        pytest.param(_optional_form_model_union_with_root_model, {"raw": ["migrated"]}, id="root_model"),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_union_that_the_form_does_not_supply_and_body_that_fastapi_would_change__head_should_get_the_body_as_it_is(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    migrated_body: dict[str, Any],
+):
+    router.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert clients["2000-01-01"].post(test_path).json() is None
+
+
+class _DictWithOwnLookup(dict[str, Any]):
+    @override
+    def get(self, key: object, default: Any = None, /) -> Any:  # pragma: no cover # FastAPI >= 0.158.2
+        return {"v": "1"} if key == "body" else super().get(key, default)
+
+
+# Cadwyn can't tell what the lookups of such a dict return, so it passes the body as the last release did
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_dict_subclass_with_own_lookup_set_by_migration__head_should_get_the_body_as_it_is(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_optional_form_model)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = _DictWithOwnLookup(v="2")
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert clients["2000-01-01"].post(test_path).json() == 1
+
+
+class _FormModelFromString(BaseModel):
+    value: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_string(cls, data: Any) -> Any:  # pragma: no cover # FastAPI >= 0.158.2
+        return {"value": data} if isinstance(data, str) else data
+
+
+class _FormModelFromAttributes(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    value: str
+
+
+@dataclasses.dataclass
+class _ObjectWithValue:
+    value: str
+
+
+async def _optional_form_model_from_string(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[_FormModelFromString], Form()] = None,
+):
+    return None if body is None else body.value
+
+
+async def _optional_root_form_model(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[RootModel[str]], Form()] = None,
+):
+    return None if body is None else body.root
+
+
+async def _optional_form_model_from_attributes(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[_FormModelFromAttributes], Form()] = None,
+):
+    return None if body is None else body.value
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    ("endpoint", "value"),
+    [
+        pytest.param(_optional_form_model_from_string, "2", id="string_for_model_with_before_validator"),
+        pytest.param(_optional_root_form_model, "2", id="string_for_root_model"),
+        pytest.param(
+            _optional_form_model_from_attributes, _ObjectWithValue("2"), id="object_for_model_from_attributes"
+        ),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_value_under_its_alias_set_by_migration__head_should_validate_the_value(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    value: Any,
+):
+    router.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {"body": value}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert clients["2000-01-01"].post(test_path).json() == "2"
+
+
+class _FormModelWithRenamedField(BaseModel):
+    kind: str
+    value: int = Field(alias="x", validation_alias="v")
+
+
+async def _optional_form_model_with_renamed_field(  # pragma: no cover # FastAPI >= 0.158.2
+    body: Annotated[Optional[_FormModelWithRenamedField], Form()] = None,
+):
+    return None if body is None else body.value
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    ("endpoint", "migrated_body"),
+    [
+        pytest.param(_optional_form_model, {"v": "not a number"}, id="with_value_that_it_rejects"),
+        # Unlike the dump of a supplied form model, the body of a migration doesn't get its validation aliases restored
+        pytest.param(
+            _optional_form_model_with_renamed_field,
+            {"kind": "2", "x": "2"},
+            id="with_serialization_alias_instead_of_validation_alias",
+        ),
+        pytest.param(_optional_form_model, {"body": "2"}, id="with_value_under_its_alias_that_it_rejects"),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_invalid_body_set_by_migration__should_raise_error(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    migrated_body: dict[str, str],
+):
+    router.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError):
+        clients["2000-01-01"].post(test_path)
+
+
+# The body may have the value of the param under its alias, so Cadwyn passes it as it is, as the last release did
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS, reason="Before FastAPI 0.161.0, a union of form models isn't a form model"
+)
+def test__request_body_migration__with_optional_form_model_union_that_the_form_does_not_supply_and_body_with_field_named_like_its_alias__should_raise_error(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_optional_form_model_union)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = {"text": "2"}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError):
+        clients["2000-01-01"].post(test_path)
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS, reason="Before FastAPI 0.158.2, FastAPI doesn't omit form models"
+)
+@pytest.mark.parametrize(
+    ("model", "migrated_body"),
+    [
+        pytest.param(_OtherFormModelWithDefault, {}, id="empty_for_model_with_default"),
+        pytest.param(_OtherFormModelWithRequiredField, {}, id="empty_for_model_with_required_field"),
+        pytest.param(_OtherFormModelWithDefault, {"unrelated": "2"}, id="unrelated_fields_for_model_with_default"),
+        pytest.param(
+            _OtherFormModelWithRequiredField, {"unrelated": "2"}, id="unrelated_fields_for_model_with_required_field"
+        ),
+        # FastAPI looks the field up by its validation alias only
+        pytest.param(InnerSchemaWithValidationAlias, {"x": "2"}, id="serialization_alias_instead_of_validation_alias"),
+    ],
+)
+def test__request_body_migration__with_optional_form_model_that_the_form_does_not_supply_and_body_without_its_fields_set_by_migration__head_should_get_none(  # noqa: E501
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    model: type[BaseModel],
+    migrated_body: dict[str, str],
+):
+    # Like FastAPI does for a form, Cadwyn gives the param its default if the body supplies none of the model's fields
+    @router.post(test_path)
+    async def endpoint(body: Annotated[Optional[model], Form()] = None):  # ty: ignore[invalid-type-form]
+        return None if body is None else body.model_dump()
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body = migrated_body
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert clients["2000-01-01"].post(test_path).json() is None
+
+
+@pytest.mark.parametrize("field_name", ["text", "other_text"])
+def test__request_body_migration__with_form_model_union__migration_should_change_the_supplied_member(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    field_name: str,
+):
+    router.post(test_path)(_form_model_union)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body[field_name] = "migrated"
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert {
+        version: client.post(test_path, data={field_name: "sent"}).json() for version, client in clients.items()
+    } == {
+        "2000-01-01": {field_name: "migrated"},
+        "2001-01-01": {field_name: "sent"},
+    }
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
+    reason="Before FastAPI 0.161.0, a union of form models isn't a form model",
+)
+@pytest.mark.parametrize(
+    ("endpoint", "data", "migrated_body"),
+    [
+        pytest.param(_form_model_union_with_split_value, {"value": "a,b"}, {}, id="list_from_validator"),
+        pytest.param(
+            _form_model_union_with_split_value, {"value": "a"}, {"value": ["p", "q"]}, id="list_from_migration"
+        ),
+        pytest.param(_form_model_union_with_split_value, {"value": "a"}, {"value": (1, 2)}, id="tuple_from_migration"),
+        pytest.param(
+            _form_model_union_with_list_and_split_value,
+            {"kind": "split", "value": "a,b"},
+            {},
+            id="list_in_member_whose_field_takes_any_value",
+        ),
+        pytest.param(
+            _form_model_union_with_list_and_split_value,
+            {"kind": "list", "value": ["a", "b"]},
+            {},
+            id="list_in_member_whose_field_takes_lists",
+        ),
+        pytest.param(
+            _form_model_union_with_list_and_split_value,
+            {"kind": "split", "value": "a"},
+            {"kind": "list", "value": ["p", "q"]},
+            id="migration_that_switches_member",
+        ),
+        pytest.param(
+            _form_model_union_with_extra_and_tuple_value,
+            {"kind": "extra", "value": "p,q"},
+            {},
+            id="tuple_in_extra_field_that_another_member_has_as_tuple",
+        ),
+    ],
+)
+def test__request_body_migration__with_form_model_union_and_collection_in_field_that_takes_any_value__should_fail(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    data: dict[str, str],
+    migrated_body: dict[str, Any],
+):
+    router.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body.update(migrated_body)
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    # FastAPI would give only one of the values of the collection to a member whose field takes a single value,
+    # so we pass the body as the last release does, which fails
+    with pytest.raises(CadwynHeadRequestValidationError):
+        clients["2000-01-01"].post(test_path, data=data)
+
+
+class SchemaWithTextDumpedAsString(BaseModel):
+    text: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def from_string(cls, value: Any) -> Any:
+        return {"text": value} if isinstance(value, str) else value  # pragma: no cover # FastAPI >= 0.158.2
+
+    @model_serializer
+    def to_string(self) -> str:
+        return self.text  # pragma: no cover # FastAPI >= 0.158.2
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so form fields can't look values up in it",
+)
+def test__request_body_migration__with_scalar_form_model_and_form_field_of_override_named_like_it__head_should_get_both(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(
+        text: Annotated[SchemaWithTextDumpedAsString, Form()], from_dependency: str = Depends(_get_text)
+    ):
+        return [text.text, from_dependency]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = _get_text_from_form_field
+
+    assert {version: client.post(test_path, data={"text": "sent"}).json() for version, client in clients.items()} == {
+        "2000-01-01": ["sent", "sent"],
+        "2001-01-01": ["sent", "sent"],
+    }
+
+
+async def _get_body() -> Any:
+    raise NotImplementedError
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_whole_body_param_of_override_and_clashing_body_param__should_stay_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_text_from_embedded_body(text: Union[str, dict[str, str]] = Body(embed=True)) -> Any:
+        return text
+
+    async def get_body_keys(body: dict[str, Any] = Body()) -> list[str]:
+        return sorted(body)
+
+    @router.post(test_path)
+    async def endpoint(
+        text: Annotated[SchemaWithText, Form()],
+        from_dependency: Any = Depends(_get_text),
+        body_keys: Any = Depends(_get_body),
+    ):
+        return [text.text, from_dependency, body_keys]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides.update(
+        {_get_text: get_text_from_embedded_body, _get_body: get_body_keys}
+    )
+
+    for version_client in clients.values():
+        assert version_client.post(test_path, data={"text": "sent"}).json() == ["sent", {"text": "sent"}, ["text"]]
+
+
+class SchemaWithOptionalText(BaseModel):
+    text: Optional[str] = None
+    other: str
+
+
+class SchemaWithDefaultText(BaseModel):
+    text: str = "model default"
+    other: str
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+@pytest.mark.parametrize(
+    ("form_model", "form_field_default", "expected"),
+    [
+        (SchemaWithOptionalText, None, [None, None]),
+        (SchemaWithDefaultText, "dependency default", ["model default", "dependency default"]),
+    ],
+    ids=["optional", "default"],
+)
+def test__request_body_migration__with_form_field_of_override_named_like_unset_form_model_field__should_get_default(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    form_model: Any,
+    form_field_default: Optional[str],
+    expected: list[Optional[str]],
+):
+    async def get_text_from_form_field(text: Optional[str] = Form(form_field_default)) -> Optional[str]:
+        return text
+
+    @router.post(test_path)
+    async def endpoint(text: Annotated[form_model, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.text, from_dependency]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = get_text_from_form_field
+
+    for version_client in clients.values():
+        assert version_client.post(test_path, data={"other": "sent"}).json() == expected
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_form_field_of_override_with_alias_choices_of_unset_field__should_get_next_one(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_value_from_form_field(value: str = Form(validation_alias=AliasChoices("text", "other"))) -> str:
+        return value
+
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithOptionalText, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.text, from_dependency]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = get_value_from_form_field
+
+    for version_client in clients.values():
+        assert version_client.post(test_path, data={"other": "sent"}).json() == [None, "sent"]
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_required_form_field_of_override_named_like_removed_field__should_stay_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_any_from_form_field(text: Any = Form()) -> Any:
+        return text
+
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithOptionalText, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.text, from_dependency]
+
+    @convert_request_to_next_version_for(SchemaWithOptionalText)
+    def migrator(request: RequestInfo):
+        del request.body["text"]
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = get_any_from_form_field
+
+    assert clients["2000-01-01"].post(test_path, data={"text": "sent", "other": "y"}).json() == [None, {"other": "y"}]
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_form_field_of_override_sent_outside_of_form_model__should_fail_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_text_from_form_field(text: str = Form("dependency default")) -> str:
+        return text
+
+    @router.post(test_path)
+    async def endpoint(text: Annotated[OtherSchemaWithText, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.other_text, from_dependency]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = get_text_from_form_field
+
+    # The form model can't carry the value of the form field, so it would silently get its default instead
+    for version_client in clients.values():
+        with pytest.raises(CadwynHeadRequestValidationError):
+            version_client.post(test_path, data={"other_text": "x", "text": "sent"})
+
+
+class SchemaWithBody(BaseModel):
+    body: str
+    b: str
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
+    reason="Before FastAPI 0.161.0, a union of form models isn't a form model",
+)
+def test__request_body_migration__with_form_field_of_override_that_matched_union_member_lacks__should_fail_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_body_from_form_field(body: str = Form("dependency default")) -> str:
+        return body
+
+    @router.post(test_path)
+    async def endpoint(
+        body: Annotated[Union[OtherSchemaWithText, SchemaWithBody], Form()], from_dependency: Any = Depends(_get_body)
+    ):
+        return [body.model_dump(), from_dependency]
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[_get_body] = get_body_from_form_field
+
+    # The member that the request matches can't carry the value of the form field, unlike the other member
+    for version_client in clients.values():
+        with pytest.raises(CadwynHeadRequestValidationError):
+            version_client.post(test_path, data={"other_text": "x", "body": "sent"})
+
+
+class SchemaWithOptionalBody(BaseModel):
+    a: str
+    body: Optional[str] = None
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_form_field_of_override_that_older_form_model_lacks__should_fail_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_body_from_form_field(body: str = Form("dependency default")) -> str:
+        return body
+
+    @router.post(test_path)
+    async def endpoint(body: Annotated[SchemaWithOptionalBody, Form()], from_dependency: Any = Depends(_get_body)):
+        return [body.body, from_dependency]
+
+    clients = create_versioned_clients(version_change(schema(SchemaWithOptionalBody).field("body").didnt_exist))
+    clients["2000-01-01"].app.dependency_overrides[_get_body] = get_body_from_form_field
+
+    data = {"a": "x", "body": "sent"}
+    assert clients["2001-01-01"].post(test_path, data=data).json() == ["sent", "sent"]
+    # The older form model can't carry the value of the form field, so it would silently get its default instead
+    with pytest.raises(CadwynHeadRequestValidationError):
+        clients["2000-01-01"].post(test_path, data=data)
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.158.2
+    not FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS,
+    reason="Before FastAPI 0.158.2, Cadwyn passes the dump on as it is, so no param looks values up in it",
+)
+def test__request_body_migration__with_alias_choices_of_override_form_field_and_removed_field__should_get_default(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    async def get_value_from_form_field(
+        value: str = Form("dependency default", validation_alias=AliasChoices("text", "external")),
+    ) -> str:
+        return value
+
+    @router.post(test_path)
+    async def endpoint(text: Annotated[SchemaWithOptionalText, Form()], from_dependency: Any = Depends(_get_text)):
+        return [text.text, from_dependency]
+
+    @convert_request_to_next_version_for(SchemaWithOptionalText)
+    def migrator(request: RequestInfo):
+        del request.body["text"]
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = get_value_from_form_field
+
+    # Like FastAPI, the form field takes the value of its first alias that the form has, which the migration removes
+    data = {"text": "sent", "other": "y", "external": "ignored"}
+    assert clients["2000-01-01"].post(test_path, data=data).json() == [None, "dependency default"]
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.161
+    not FASTAPI_SUPPORTS_FORM_MODEL_UNIONS,
+    reason="Before FastAPI 0.161.0, a union of form models isn't a form model",
+)
+def test__request_body_migration__with_form_model_union_and_form_field_of_override_named_like_it__head_should_get_both(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(
+        text: Annotated[Union[SchemaWithText, OtherSchemaWithText], Form()], from_dependency: str = Depends(_get_text)
+    ):
+        return [text.model_dump(), from_dependency]
+
+    @convert_request_to_next_version_for(test_path, ["POST"])
+    def migrator(request: RequestInfo):
+        request.body["text"] = "migrated"
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[_get_text] = _get_text_from_form_field
+
+    assert {version: client.post(test_path, data={"text": "sent"}).json() for version, client in clients.items()} == {
+        "2000-01-01": [{"text": "migrated"}, "migrated"],
+        "2001-01-01": [{"text": "sent"}, "sent"],
+    }
 
 
 class SchemaWithUpload(BaseModel):
@@ -5537,6 +7128,1867 @@ def test__request_body_migration__with_json_form_field__should_stay_as_before(
 
     for version_client in clients.values():
         assert version_client.post(test_path, data={"v": "[1,2]"}).json() == []
+
+
+class SchemaWithJsonDict(BaseModel):
+    data: Json[dict[str, Any]]
+
+
+class SchemaWithNestedJsonDicts(BaseModel):
+    inner: SchemaWithJsonDict
+    items: list[SchemaWithJsonDict]
+    by_key: dict[str, SchemaWithJsonDict] = {}
+    plain: Optional["InnerOfJson"] = None
+    pair: tuple[int, int] = (0, 0)
+    tag: Union[int, str] = 0
+
+
+class SchemaWithOptionalJsonDict(BaseModel):
+    data: Optional[Json[dict[str, Any]]] = None
+
+
+class SchemaWithJsonDatetimes(BaseModel):
+    data: Json[dict[str, datetime]]
+
+
+class OtherSchemaWithJsonList(BaseModel):
+    data: Json[list[int]]
+
+
+class InnerOfJson(BaseModel):
+    x: int = 0
+    tags: list[str] = []
+    labels: list[str] = Field(default_factory=list)
+
+
+class InnerOfJsonWithComputedField(BaseModel):
+    x: int = 0
+
+    @computed_field
+    @property
+    def double(self) -> int:
+        return self.x * 2
+
+
+class _PlainJsonEnum(Enum):
+    LOW = "low"
+    HIGH = "high"
+
+
+class SchemaWithJsonModels(BaseModel):
+    one: Json[InnerOfJson]
+    many: Json[list[InnerOfJson]]
+    by_key: Json[dict[str, InnerOfJson]] = {}
+    maybe: Json[Optional[InnerOfJson]] = None
+    root: Json[RootModel[list[int]]] = RootModel[list[int]]([])
+    values: Json[dict[str, Union[int, str]]] = {}
+    level: Json[_PlainJsonEnum] = _PlainJsonEnum.LOW
+    choice: Json[Literal[1, 2]] = 1
+    mixed: Json[dict[str, Union[int, Any]]] = {}
+    anything: Json[Any] = None
+    untyped: Json[dict] = {}
+
+
+class SchemaWithJsonByAlias(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    data: Json[dict[str, Any]] = Field(alias="d")
+
+
+class JsonTree(BaseModel):
+    data: Json[dict[str, Any]]
+    children: list["JsonTree"] = []
+
+
+class IntTree(BaseModel):
+    x: int = 0
+    children: list["IntTree"] = []
+
+
+class SchemaWithJsonDictAndTree(BaseModel):
+    data: Json[dict[str, Any]]
+    tree: Optional["IntTree"] = None
+
+
+class JsonRootModel(RootModel[list[SchemaWithJsonDict]]):
+    pass
+
+
+class InnerOfJsonWithEmptyAlias(BaseModel):
+    x: int = Field(default=0, alias="")
+
+
+class SchemaWithJsonDictAndComplexNumber(BaseModel):
+    data: Json[dict[str, Any]]
+    number: complex = 0j
+
+
+class SchemaWithOptionalJsonDictAndTupleKeys(BaseModel):
+    data: Optional[Json[dict[str, Any]]] = None
+    other: dict[tuple[int, int], int] = {(1, 2): 3}
+    extra: Any = frozenset({1})
+
+
+class SchemaWithSerializedJsonDict(BaseModel):
+    data: Annotated[Json[dict[str, Any]], PlainSerializer(lambda value: json.dumps(value))]
+
+
+async def _json_form_model_endpoint(body: Annotated[SchemaWithJsonDict, Form()]):
+    return body
+
+
+async def _json_body_endpoint(body: SchemaWithJsonDict):
+    return body
+
+
+async def _nested_json_body_endpoint(body: SchemaWithNestedJsonDicts):
+    return body
+
+
+async def _optional_json_body_endpoint(body: SchemaWithOptionalJsonDict):
+    return body
+
+
+async def _json_datetimes_body_endpoint(body: SchemaWithJsonDatetimes):
+    return body
+
+
+async def _union_of_json_bodies_endpoint(body: Union[OtherSchemaWithJsonList, SchemaWithJsonDict]):
+    raise NotImplementedError
+
+
+async def _raw_json_body_endpoint(body: Annotated[Json[dict[str, Any]], Body()]):
+    return body
+
+
+async def _json_models_body_endpoint(body: SchemaWithJsonModels):
+    return body
+
+
+async def _json_by_alias_body_endpoint(body: SchemaWithJsonByAlias):
+    return body.data
+
+
+def _read_json_body_model(body: SchemaWithJsonDict) -> dict[str, Any]:
+    return body.data
+
+
+async def _json_body_with_dependency_of_the_same_model_endpoint(
+    body: SchemaWithJsonDict, from_dependency: Annotated[dict[str, Any], Depends(_read_json_body_model)]
+):
+    return {"endpoint": body.data, "dependency": from_dependency}
+
+
+async def _json_tree_body_endpoint(body: JsonTree):
+    raise NotImplementedError
+
+
+async def _json_with_tree_endpoint(body: SchemaWithJsonDictAndTree):
+    return body
+
+
+async def _json_root_model_body_endpoint(body: JsonRootModel):
+    return body
+
+
+async def _json_with_complex_number_endpoint(body: SchemaWithJsonDictAndComplexNumber):
+    raise NotImplementedError
+
+
+async def _optional_json_and_tuple_keys_endpoint(body: SchemaWithOptionalJsonDictAndTupleKeys):
+    return {"data": body.data, "other": sorted(body.other.values())}
+
+
+async def _serialized_json_body_endpoint(body: SchemaWithSerializedJsonDict):
+    return body.data
+
+
+async def _json_model_with_empty_alias_endpoint(body: Annotated[Json[InnerOfJsonWithEmptyAlias], Body()]):
+    return body
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "request_kwargs"),
+    [
+        pytest.param(_json_form_model_endpoint, {"data": {"data": '{"a": 1}'}}, id="form_model"),
+        pytest.param(_json_body_endpoint, {"json": {"data": '{"a": 1}'}}, id="json_body"),
+        # A dependency that reads the body into the same model validates it as the endpoint does
+        pytest.param(
+            _json_body_with_dependency_of_the_same_model_endpoint,
+            {"json": {"data": '{"a": 1}'}},
+            id="dependency_with_the_same_body_model",
+        ),
+        pytest.param(
+            _nested_json_body_endpoint,
+            {
+                "json": {
+                    "inner": {"data": '{"a": 1}'},
+                    "items": [{"data": '{"b": 2}'}, {"data": '{"c": 3}'}],
+                    "by_key": {"k": {"data": '{"d": 4}'}},
+                    "tag": "x",
+                }
+            },
+            id="nested_models",
+        ),
+        pytest.param(_optional_json_body_endpoint, {"json": {"data": '{"a": 1}'}}, id="optional_with_value"),
+        pytest.param(_optional_json_body_endpoint, {"json": {"data": None}}, id="optional_with_none"),
+        pytest.param(
+            _json_datetimes_body_endpoint, {"json": {"data": '{"at": "2000-01-01T00:00:00"}'}}, id="datetimes"
+        ),
+        pytest.param(_raw_json_body_endpoint, {"json": '{"a": 1}'}, id="raw_body"),
+        pytest.param(
+            _json_models_body_endpoint,
+            {
+                "json": {
+                    "one": '{"x": 1, "tags": ["a"]}',
+                    "many": '[{"x": 2}, {}]',
+                    "by_key": '{"k": {"x": 3}}',
+                    "maybe": '{"x": 9}',
+                    "root": "[5]",
+                    "values": '{"a": 6, "b": "c"}',
+                    "level": '"high"',
+                    "choice": "2",
+                    "mixed": '{"a": 1, "b": [2]}',
+                    "anything": '{"a": [1, 2.5, true, null, "s"]}',
+                    "untyped": '{"a": {"b": 1}}',
+                }
+            },
+            id="models_in_json",
+        ),
+        # The plan has the fields that the request leaves out too
+        pytest.param(
+            _json_models_body_endpoint, {"json": {"one": '{"x": 1}', "many": "[]"}}, id="models_in_json_with_defaults"
+        ),
+        pytest.param(_json_root_model_body_endpoint, {"json": [{"data": '{"a": 1}'}]}, id="root_model"),
+        pytest.param(
+            _json_with_tree_endpoint,
+            {"json": {"data": '{"a": 1}', "tree": {"x": 1, "children": [{"x": 2}]}}},
+            id="self_referencing_model_without_json",
+        ),
+        # Serializers that dump the value as JSON are a workaround that works as before
+        pytest.param(_serialized_json_body_endpoint, {"json": {"data": '{"a": 1}'}}, id="value_dumped_as_json"),
+        pytest.param(_json_model_with_empty_alias_endpoint, {"json": '{"": 5}'}, id="empty_alias_in_json"),
+        pytest.param(_optional_json_and_tuple_keys_endpoint, {"json": {"other": {}}}, id="default_with_tuple_keys"),
+        pytest.param(_json_by_alias_body_endpoint, {"json": {"d": '{"a": 1}'}}, id="alias"),
+        pytest.param(_json_by_alias_body_endpoint, {"json": {"data": '{"a": 1}'}}, id="name"),
+    ],
+)
+def test__request_body_migration__with_json_fields__should_be_the_same_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    request_kwargs: dict[str, Any],
+):
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change(), router=router)
+
+    expected = TestClient(fastapi_app).post(test_path, **request_kwargs)
+    assert expected.status_code == 200
+    for version_client in clients.values():
+        response = version_client.post(test_path, **request_kwargs)
+        assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+def test__request_body_migration__with_json_field__should_solve_the_head_once(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    solvers: list[str] = []
+
+    async def dependency(solver: str = Depends(current_dependency_solver)) -> None:
+        solvers.append(solver)
+
+    @router.post(test_path, dependencies=[Depends(dependency, use_cache=False)])
+    async def endpoint(body: SchemaWithJsonDict):
+        return body.data
+
+    clients = create_versioned_clients(version_change())
+
+    assert clients["2000-01-01"].post(test_path, json={"data": '{"a": 1}'}).json() == {"a": 1}
+    assert solvers == ["fastapi", "cadwyn"]
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        # A migration that encodes the value itself keeps working as before
+        pytest.param('{"a": 1}', {"encoded_by_migration": True}, id="value_that_the_migration_encodes"),
+        pytest.param('{"b": 2}', {"set_by_migration": True}, id="value_that_the_migration_sets"),
+        pytest.param('{"c": 3}', {"c": 3}, id="value_that_the_migration_keeps"),
+    ],
+)
+def test__request_body_migration__with_json_field__should_get_its_parsed_value_and_keep_the_value_it_sets(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    data: str,
+    expected: dict[str, Any],
+):
+    seen_bodies = []
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonDict):
+        return body.data
+
+    @convert_request_to_next_version_for(SchemaWithJsonDict)
+    def migrator(request: RequestInfo):
+        seen_bodies.append(dict(request.body))
+        if request.body["data"] == {"a": 1}:
+            request.body["data"] = '{"encoded_by_migration": true}'
+        elif request.body["data"] == {"b": 2}:
+            request.body["data"] = {"set_by_migration": True}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    assert clients["2000-01-01"].post(test_path, json={"data": data}).json() == expected
+    assert seen_bodies == [{"data": json.loads(data)}]
+
+
+class _NotJsonSerializable:
+    pass
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_error_type"),
+    [
+        pytest.param(["not", "a", "dict"], "json_type", id="value_of_another_type"),
+        # Encoded, the keys would collide, and the decimal would turn into a string
+        pytest.param({1: "integer", "1": "text"}, "json_type", id="key_of_another_type"),
+        pytest.param({"a": Decimal("1.2300")}, "json_type", id="value_that_isnt_json_in_any"),
+        pytest.param({"a": {1: "integer"}}, "json_type", id="key_that_isnt_a_string_in_any"),
+        pytest.param(_NotJsonSerializable(), "json_type", id="value_that_cant_be_encoded"),
+        pytest.param("not json", "json_invalid", id="string"),
+    ],
+)
+def test__request_body_migration__with_json_field_that_the_head_rejects__should_raise_head_validation_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    value: Any,
+    expected_error_type: str,
+):
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonDict):
+        raise NotImplementedError
+
+    @convert_request_to_next_version_for(SchemaWithJsonDict)
+    def migrator(request: RequestInfo):
+        request.body["data"] = value
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": '{"a": 1}'})
+    assert [(error["type"], error["loc"]) for error in exc_info.value.errors] == [
+        (expected_error_type, ("body", "data"))
+    ]
+
+
+class SchemaWithJsonDictCopiedBeforeValidation(BaseModel):
+    data: Annotated[
+        Json[dict[str, Any]], BeforeValidator(lambda value: dict(value) if isinstance(value, dict) else value)
+    ]
+
+
+class SchemaWithBase64JsonBytes(BaseModel):
+    model_config = ConfigDict(val_json_bytes="base64", ser_json_bytes="base64")
+
+    data: Json[dict[str, bytes]]
+
+
+class SchemaWithJsonDictOrInt(BaseModel):
+    data: Union[Json[dict[str, Any]], int]
+
+
+class SchemaWithJsonDictOrSchemaWithJsonDict(BaseModel):
+    data: Union[Json[dict[str, Any]], SchemaWithJsonDict]
+
+
+class InnerOfJsonWithSerializationAlias(BaseModel):
+    x: int = Field(default=0, serialization_alias="x_out")
+
+
+class InnerOfJsonWithExcludedField(BaseModel):
+    x: int = Field(default=0, exclude=True)
+
+
+class SchemaWithJsonModelWithSerializationAlias(BaseModel):
+    data: Json[InnerOfJsonWithSerializationAlias]
+    also: Optional[Json[InnerOfJsonWithSerializationAlias]] = None
+
+
+class SchemaWithJsonModelWithExcludedField(BaseModel):
+    data: Json[InnerOfJsonWithExcludedField]
+
+
+class InnerOfJsonWithFieldSerializer(BaseModel):
+    x: int = 0
+
+    @field_serializer("x")
+    def serialize_x(self, value: int) -> int:
+        return value * 10
+
+
+class InnerOfJsonWithBeforeValidator(BaseModel):
+    x: int = 0
+
+    @field_validator("x", mode="before")
+    @classmethod
+    def validate_x(cls, value: Any) -> Any:
+        return value
+
+
+class InnerOfJsonWithFieldsDumpedToTheSameKey(BaseModel):
+    a: int = Field(default=0, alias="s")
+    b: int = Field(default=0, alias="s")
+
+
+class InnerOfJsonWithComputedFieldForbiddingExtra(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = 0
+
+    @computed_field
+    @property
+    def double(self) -> int:
+        return self.x * 2
+
+
+class SchemaWithJsonDictShadowedByComputedField(BaseModel):
+    data: Json[dict[str, Any]] = Field(validation_alias="raw", serialization_alias="raw_out")
+
+    @computed_field(alias="raw")
+    @property
+    def computed(self) -> dict[str, Any]:
+        return {"computed": True}
+
+
+class InnerOfJsonWithDoublingFieldValidator(BaseModel):
+    x: int = 0
+
+    @field_validator("x")
+    @classmethod
+    def double_x(cls, value: int) -> int:
+        return value * 2
+
+
+class InnerOfJsonWithDoublingModelValidator(BaseModel):
+    x: int = 0
+
+    @model_validator(mode="after")
+    def double_x(self) -> Self:
+        self.x *= 2
+        return self
+
+
+class InnerOfJsonWithDoublingPostInit(BaseModel):
+    x: int = 0
+
+    @override
+    def model_post_init(self, context: Any, /) -> None:
+        self.x *= 2
+
+
+class SchemaWithJsonDictBehindDoublingValidator(BaseModel):
+    data: Annotated[Json[dict[str, int]], AfterValidator(lambda value: {key: item * 2 for key, item in value.items()})]
+
+
+class SchemaWithJsonDictUnderEmptyAlias(BaseModel):
+    data: Json[dict[str, Any]] = Field(validation_alias="")
+    other: dict[str, Any] = Field(default_factory=dict, serialization_alias="")
+
+
+class SchemaWithJsonDictAllowingExtra(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: Json[dict[str, Any]] = Field(validation_alias=AliasChoices("raw", "out"), serialization_alias="out")
+
+
+class SchemaWithJsonDictAndAliasedSibling(BaseModel):
+    data: Json[dict[str, Any]]
+    x: int = Field(default=0, serialization_alias="out")
+
+
+class SchemaWithOptionalJsonDictWithoutDefault(BaseModel):
+    data: Json[Optional[dict[str, Any]]]
+
+
+_json_default_counter = itertools.count(1)
+
+
+class InnerOfJsonWithCountingDefaultFactory(BaseModel):
+    x: int = Field(default_factory=lambda: next(_json_default_counter))
+
+
+class InnerOfJsonWithStrOrDecimal(BaseModel):
+    amount: Union[str, Decimal]
+
+
+class SchemaWithJsonDictAndValidatedSibling(BaseModel):
+    data: Json[dict[str, Any]]
+    name: Annotated[str, AfterValidator(lambda value: value + "!")]
+
+
+class SchemaWithJsonDictAndPathSibling(BaseModel):
+    data: Json[dict[str, Any]]
+    path: pathlib.Path
+
+
+class SchemaWithJsonDictAndCountingSibling(BaseModel):
+    data: Json[dict[str, Any]]
+    number: int = Field(default_factory=lambda: next(_json_default_counter))
+
+
+class SchemaWithJsonDictAndJsonStrOrDecimal(BaseModel):
+    data: Json[dict[str, Any]]
+    value: Json[Union[str, Decimal]]
+
+
+class SchemaWithJsonDictAndJsonInUnion(BaseModel):
+    data: Json[dict[str, Any]]
+    value: Union[Json[Union[str, int]], int]
+
+
+class SchemaWithJsonDictAndJsonAny(BaseModel):
+    data: Json[dict[str, Any]]
+    value: Json[Any]
+
+
+class JsonNode(BaseModel):
+    value: Json[Union[str, int]]
+    children: list["JsonNode"] = []
+
+
+_UpperString = Annotated[str, StringConstraints(pattern="^a", to_upper=True)]
+_LowerString = Annotated[str, StringConstraints(to_lower=True)]
+
+
+class SchemaWithJsonUnionOfConstrainedStrings(BaseModel):
+    data: Json[list[Union[_UpperString, _LowerString]]]
+
+
+class SchemaWithJsonDictAndUnionOfConstrainedStrings(BaseModel):
+    data: Json[dict[str, Any]]
+    tag: Union[_UpperString, _LowerString]
+
+
+class _MemberWithA(BaseModel):
+    a: int = 0
+    b: str = "A"
+
+
+class _MemberWithAliasA(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    x: int = Field(default=0, alias="a")
+    b: str = "B"
+
+
+class SchemaWithJsonDictAndUnionOfModels(BaseModel):
+    data: Json[dict[str, Any]]
+    item: Union[_MemberWithA, _MemberWithAliasA]
+
+
+class SchemaWithJsonDictAndUnionInUpperCaseModel(BaseModel):
+    model_config = ConfigDict(str_to_upper=True)
+
+    data: Json[dict[str, Any]]
+    tag: Union[str, int]
+
+
+class SchemaWithJsonDictAndIterableOfUnion(BaseModel):
+    data: Json[dict[str, Any]]
+    values: Iterable[Union[_UpperString, _LowerString]]
+
+
+class SchemaWithJsonDictAndIterable(BaseModel):
+    data: Json[dict[str, Any]]
+    values: Iterable[int]
+
+
+class SchemaWithJsonKeys(BaseModel):
+    keys: dict[Json[Any], int]
+    data: Json[dict[str, Any]]
+
+
+class _EnumWithCollidingValues(Enum):
+    NUMBER = Decimal(1)
+    TEXT = "1"
+
+
+class SchemaWithJsonEnumWithCollidingValues(BaseModel):
+    data: Json[_EnumWithCollidingValues]
+
+
+class SchemaWithJsonFrozenset(BaseModel):
+    data: Json[frozenset[str]]
+
+
+class SchemaWithJsonDictAndSet(BaseModel):
+    data: Json[dict[str, Any]]
+    tags: set[str]
+
+
+class _ReusedModelWithJson(BaseModel):
+    value: Json[Any]
+
+
+class SchemaReferringToItselfWithReusedJsonModel(BaseModel):
+    first: Optional[_ReusedModelWithJson] = None
+    second: Optional[_ReusedModelWithJson] = None
+    children: list["SchemaReferringToItselfWithReusedJsonModel"] = []
+
+
+class SchemaWithJsonLiteralOfDecimalOrString(BaseModel):
+    data: Json[Literal[Decimal("1.5"), "1.5"]]  # ty: ignore[invalid-type-form]
+
+
+_computed_field_counter = itertools.count(1)
+
+
+class SchemaWithJsonDictAndCountingComputedField(BaseModel):
+    data: Json[dict[str, Any]]
+
+    @computed_field
+    @property
+    def number(self) -> int:
+        return next(_computed_field_counter)
+
+
+class SchemaWithJsonModelWithComputedField(BaseModel):
+    data: Json[InnerOfJsonWithComputedField]
+
+
+class SchemaWithJsonFloat(BaseModel):
+    data: Json[float]
+
+
+class SchemaWithJsonDictOfFloatKeys(BaseModel):
+    data: Json[dict[float, int]]
+
+
+class SchemaWithJsonDictBehindModelValidator(BaseModel):
+    data: Json[dict[str, Any]]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_model(cls, value: Any) -> Any:
+        return value
+
+
+async def _json_dict_copied_before_validation_endpoint(body: SchemaWithJsonDictCopiedBeforeValidation):
+    raise NotImplementedError
+
+
+async def _base64_json_bytes_endpoint(body: SchemaWithBase64JsonBytes):
+    raise NotImplementedError
+
+
+async def _json_or_int_body_endpoint(body: SchemaWithJsonDictOrInt):
+    raise NotImplementedError
+
+
+async def _json_or_schema_with_json_body_endpoint(body: SchemaWithJsonDictOrSchemaWithJsonDict):
+    raise NotImplementedError
+
+
+async def _json_model_with_serialization_alias_endpoint(body: SchemaWithJsonModelWithSerializationAlias):
+    raise NotImplementedError
+
+
+async def _json_model_with_excluded_field_endpoint(body: SchemaWithJsonModelWithExcludedField):
+    raise NotImplementedError
+
+
+async def _json_model_with_field_serializer_endpoint(body: Annotated[Json[InnerOfJsonWithFieldSerializer], Body()]):
+    raise NotImplementedError
+
+
+async def _json_model_with_before_validator_endpoint(body: Annotated[Json[InnerOfJsonWithBeforeValidator], Body()]):
+    raise NotImplementedError
+
+
+async def _json_model_with_fields_dumped_to_the_same_key_endpoint(
+    body: Annotated[Json[InnerOfJsonWithFieldsDumpedToTheSameKey], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_union_with_model_endpoint(body: Annotated[Json[Union[InnerOfJson, int]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_model_with_computed_field_forbidding_extra_endpoint(
+    body: Annotated[Json[InnerOfJsonWithComputedFieldForbiddingExtra], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_shadowed_by_computed_field_endpoint(body: SchemaWithJsonDictShadowedByComputedField):
+    raise NotImplementedError
+
+
+async def _json_model_with_doubling_field_validator_endpoint(
+    body: Annotated[Json[InnerOfJsonWithDoublingFieldValidator], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_model_with_doubling_model_validator_endpoint(
+    body: Annotated[Json[InnerOfJsonWithDoublingModelValidator], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_model_with_doubling_post_init_endpoint(body: Annotated[Json[InnerOfJsonWithDoublingPostInit], Body()]):
+    raise NotImplementedError
+
+
+async def _json_list_with_doubling_item_validator_endpoint(
+    body: Annotated[Json[list[Annotated[int, AfterValidator(lambda value: value * 2)]]], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_behind_doubling_validator_endpoint(body: SchemaWithJsonDictBehindDoublingValidator):
+    raise NotImplementedError
+
+
+async def _json_under_empty_alias_endpoint(body: SchemaWithJsonDictUnderEmptyAlias):
+    raise NotImplementedError
+
+
+async def _json_allowing_extra_endpoint(body: SchemaWithJsonDictAllowingExtra):
+    raise NotImplementedError
+
+
+async def _json_with_aliased_sibling_endpoint(body: SchemaWithJsonDictAndAliasedSibling):
+    raise NotImplementedError
+
+
+async def _optional_json_without_default_endpoint(body: SchemaWithOptionalJsonDictWithoutDefault):
+    raise NotImplementedError
+
+
+async def _json_model_with_counting_default_factory_endpoint(
+    body: Annotated[Json[InnerOfJsonWithCountingDefaultFactory], Body()],
+):
+    raise NotImplementedError
+
+
+async def _json_model_with_str_or_decimal_endpoint(body: Annotated[Json[InnerOfJsonWithStrOrDecimal], Body()]):
+    raise NotImplementedError
+
+
+async def _json_list_of_str_or_timedelta_endpoint(body: Annotated[Json[list[Union[str, timedelta]]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_str_or_datetime_endpoint(body: Annotated[Json[Union[str, datetime]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_literal_or_decimal_endpoint(body: Annotated[Json[Union[Literal["1.5"], Decimal]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_with_validated_sibling_endpoint(body: SchemaWithJsonDictAndValidatedSibling):
+    raise NotImplementedError
+
+
+async def _json_with_path_sibling_endpoint(body: SchemaWithJsonDictAndPathSibling):
+    raise NotImplementedError
+
+
+async def _json_with_counting_sibling_endpoint(body: SchemaWithJsonDictAndCountingSibling):
+    raise NotImplementedError
+
+
+async def _json_in_json_endpoint(body: Annotated[Json[list[Json[int]]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_tuple_with_model_endpoint(body: Annotated[Json[tuple[InnerOfJson, int]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_and_json_str_or_decimal_endpoint(body: SchemaWithJsonDictAndJsonStrOrDecimal):
+    raise NotImplementedError
+
+
+async def _json_and_json_in_union_endpoint(body: SchemaWithJsonDictAndJsonInUnion):
+    raise NotImplementedError
+
+
+async def _json_and_json_any_endpoint(body: SchemaWithJsonDictAndJsonAny):
+    raise NotImplementedError
+
+
+async def _json_node_endpoint(body: JsonNode):
+    raise NotImplementedError
+
+
+async def _json_union_of_constrained_strings_endpoint(body: SchemaWithJsonUnionOfConstrainedStrings):
+    raise NotImplementedError
+
+
+async def _json_and_union_of_constrained_strings_endpoint(body: SchemaWithJsonDictAndUnionOfConstrainedStrings):
+    raise NotImplementedError
+
+
+async def _json_and_union_of_models_endpoint(body: SchemaWithJsonDictAndUnionOfModels):
+    raise NotImplementedError
+
+
+async def _json_and_union_in_upper_case_model_endpoint(body: SchemaWithJsonDictAndUnionInUpperCaseModel):
+    raise NotImplementedError
+
+
+async def _json_and_iterable_of_union_endpoint(body: SchemaWithJsonDictAndIterableOfUnion):
+    raise NotImplementedError
+
+
+async def _json_and_iterable_endpoint(body: SchemaWithJsonDictAndIterable):
+    raise NotImplementedError
+
+
+async def _json_dict_with_optional_keys_endpoint(body: Annotated[Json[dict[Optional[str], int]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_union_with_list_endpoint(body: Annotated[Json[Union[int, list[int]]], Body()]):
+    raise NotImplementedError
+
+
+async def _json_keys_endpoint(body: SchemaWithJsonKeys):
+    raise NotImplementedError
+
+
+async def _json_enum_with_colliding_values_endpoint(body: SchemaWithJsonEnumWithCollidingValues):
+    raise NotImplementedError
+
+
+async def _json_frozenset_endpoint(body: SchemaWithJsonFrozenset):
+    raise NotImplementedError
+
+
+async def _json_and_set_endpoint(body: SchemaWithJsonDictAndSet):
+    raise NotImplementedError
+
+
+async def _self_reference_with_reused_json_model_endpoint(body: SchemaReferringToItselfWithReusedJsonModel):
+    raise NotImplementedError
+
+
+async def _json_literal_of_decimal_or_string_endpoint(body: SchemaWithJsonLiteralOfDecimalOrString):
+    raise NotImplementedError
+
+
+async def _json_and_counting_computed_field_endpoint(body: SchemaWithJsonDictAndCountingComputedField):
+    raise NotImplementedError
+
+
+async def _json_model_with_computed_field_endpoint(body: SchemaWithJsonModelWithComputedField):
+    raise NotImplementedError
+
+
+async def _json_float_endpoint(body: SchemaWithJsonFloat):
+    raise NotImplementedError
+
+
+async def _json_dict_of_float_keys_endpoint(body: SchemaWithJsonDictOfFloatKeys):
+    raise NotImplementedError
+
+
+async def _json_behind_model_validator_endpoint(body: SchemaWithJsonDictBehindModelValidator):
+    raise NotImplementedError
+
+
+async def _int_tree_in_json_endpoint(body: Annotated[Json[IntTree], Body()]):
+    raise NotImplementedError
+
+
+async def _json_tree_with_children_endpoint(body: JsonTree):
+    raise NotImplementedError
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "payload"),
+    [
+        pytest.param(
+            _json_dict_copied_before_validation_endpoint,
+            {"data": '{"a": 1}'},
+            id="value_that_a_validator_gets_before_json",
+        ),
+        pytest.param(_base64_json_bytes_endpoint, {"data": '{"k": "dGVzdA=="}'}, id="bytes"),
+        pytest.param(_json_or_int_body_endpoint, {"data": '{"a": 1}'}, id="union_with_a_member_without_json"),
+        pytest.param(
+            _json_or_schema_with_json_body_endpoint, {"data": '{"data": {"a": 1}}'}, id="json_member_of_union"
+        ),
+        pytest.param(
+            _json_or_schema_with_json_body_endpoint, {"data": {"data": '{"a": 1}'}}, id="model_member_of_union"
+        ),
+        # The head would give the fields their defaults instead of the values that the client has sent
+        pytest.param(_json_model_with_serialization_alias_endpoint, {"data": '{"x": 5}'}, id="serialization_alias"),
+        pytest.param(_json_model_with_excluded_field_endpoint, {"data": '{"x": 5}'}, id="excluded_field"),
+        pytest.param(_json_model_with_field_serializer_endpoint, '{"x": 5}', id="field_serializer"),
+        pytest.param(_json_model_with_before_validator_endpoint, '{"x": 5}', id="before_validator_in_json"),
+        pytest.param(_json_model_with_fields_dumped_to_the_same_key_endpoint, '{"s": 5}', id="same_dumped_key"),
+        pytest.param(_json_union_with_model_endpoint, '{"x": 5}', id="union_with_model_in_json"),
+        pytest.param(_json_behind_model_validator_endpoint, {"data": '{"a": 1}'}, id="model_validator"),
+        # The head would decode the strings of the other `Json[...]` values once more
+        pytest.param(
+            _json_and_json_str_or_decimal_endpoint, {"data": "{}", "value": '"5"'}, id="string_in_json_we_cant_encode"
+        ),
+        pytest.param(_json_and_json_in_union_endpoint, {"data": "{}", "value": '"5"'}, id="string_in_json_in_union"),
+        pytest.param(_json_and_json_any_endpoint, {"data": "{}", "value": '"123"'}, id="string_in_json_we_encode"),
+        pytest.param(
+            _json_node_endpoint, {"value": "1", "children": [{"value": '"5"'}]}, id="string_in_json_of_self_reference"
+        ),
+        # The head would pick another member for the dump than the request's version has picked
+        pytest.param(_union_of_json_bodies_endpoint, {"data": '{"a": 1}'}, id="union_of_models_with_json"),
+        pytest.param(_json_tree_body_endpoint, {"data": '{"a": 1}'}, id="self_referencing_model"),
+        pytest.param(
+            _json_union_of_constrained_strings_endpoint, {"data": '["abc"]'}, id="union_of_constrained_strings_in_json"
+        ),
+        pytest.param(
+            _json_and_union_of_constrained_strings_endpoint,
+            {"data": "{}", "tag": "abc"},
+            id="union_of_constrained_strings",
+        ),
+        pytest.param(_json_and_union_of_models_endpoint, {"data": "{}", "item": {"x": 7}}, id="union_of_models"),
+        # We don't walk into the types of pydantic that we don't know, e.g. their unions
+        pytest.param(
+            _json_and_iterable_of_union_endpoint, {"data": "{}", "values": ["abc"]}, id="union_in_unknown_type"
+        ),
+        pytest.param(_json_and_iterable_endpoint, {"data": "{}", "values": [1]}, id="unknown_type"),
+        # Encoding changes these values, so the head would read other values than the client has sent
+        pytest.param(_json_keys_endpoint, {"keys": {'"123"': 1}, "data": "{}"}, id="json_in_dict_keys"),
+        pytest.param(_json_dict_with_optional_keys_endpoint, '{"a": 1}', id="keys_we_cant_check_in_json"),
+        pytest.param(_json_union_with_list_endpoint, "[1]", id="union_with_list_in_json"),
+        # The head builds sets anew from the order of the dumped sets, so their order might differ from FastAPI's
+        pytest.param(_json_frozenset_endpoint, {"data": '["a", "f", "h"]'}, id="set_in_json"),
+        # JSON loses the sign of NaN
+        pytest.param(_json_float_endpoint, {"data": '"-nan"'}, id="negative_nan"),
+        pytest.param(_json_dict_of_float_keys_endpoint, {"data": '{"-nan": 1}'}, id="negative_nan_key"),
+        # The model with the `Json[...]` value is a definition of its own below the model that refers to itself
+        pytest.param(
+            _self_reference_with_reused_json_model_endpoint,
+            {"first": {"value": '{"x": 1}'}, "children": [{"first": {"value": '"[1]"'}}]},
+            id="self_referencing_model_with_reused_json_model",
+        ),
+        # Encoded, the decimal would be a string, which is the other value
+        pytest.param(_json_literal_of_decimal_or_string_endpoint, {"data": "1.5"}, id="literal_of_decimal_or_string"),
+        # The dump computes the computed fields once more
+        pytest.param(_json_and_counting_computed_field_endpoint, {"data": "{}"}, id="computed_field"),
+        pytest.param(_json_model_with_computed_field_endpoint, {"data": '{"x": 4}'}, id="computed_field_in_json"),
+        pytest.param(_json_and_set_endpoint, {"data": "{}", "tags": ["a", "f", "h"]}, id="set"),
+        pytest.param(_json_enum_with_colliding_values_endpoint, {"data": "1"}, id="enum_with_colliding_values"),
+        pytest.param(_json_with_complex_number_endpoint, {"data": '{"a": 1}', "number": "-0-0j"}, id="complex_number"),
+        pytest.param(
+            _json_and_union_in_upper_case_model_endpoint, {"data": "{}", "tag": "abc"}, id="union_in_upper_case_model"
+        ),
+        # The head would apply the validator of the sibling once more
+        pytest.param(_json_with_validated_sibling_endpoint, {"data": "{}", "name": "a"}, id="validator_of_sibling"),
+        pytest.param(
+            _json_with_path_sibling_endpoint, {"data": "{}", "path": "/a"}, id="pydantic_validator_of_sibling"
+        ),
+        pytest.param(_json_with_counting_sibling_endpoint, {"data": "{}"}, id="default_factory_of_sibling"),
+        pytest.param(_json_in_json_endpoint, '["1"]', id="json_in_json"),
+        pytest.param(_json_tuple_with_model_endpoint, '[{"x": 1}, 2]', id="model_in_tuple_in_json"),
+        # The dumped extra key overwrites the dumped field
+        pytest.param(
+            _json_allowing_extra_endpoint, {"raw": '{"client": 1}', "out": {"other": 2}}, id="model_allowing_extra"
+        ),
+        # The head would give the sibling its default instead of the client's value
+        pytest.param(_json_with_aliased_sibling_endpoint, {"data": "{}", "x": 5}, id="sibling_dumped_to_another_key"),
+        pytest.param(_optional_json_without_default_endpoint, {"data": "null"}, id="null"),
+        # The head would call the default factory once more
+        pytest.param(_json_model_with_counting_default_factory_endpoint, "{}", id="default_factory_in_json"),
+        # The encoded JSON has strings where the client has sent numbers, so the head would pick another member
+        pytest.param(_json_model_with_str_or_decimal_endpoint, '{"amount": 9.99}', id="union_with_decimal_in_json"),
+        pytest.param(_json_list_of_str_or_timedelta_endpoint, "[86400]", id="union_with_timedelta_in_json"),
+        pytest.param(_json_str_or_datetime_endpoint, "1700000000", id="union_with_datetime_in_json"),
+        pytest.param(_json_literal_or_decimal_endpoint, "1.5", id="union_with_literal_and_decimal_in_json"),
+        # The dump of the request's version has the validated values, which the head would transform once more
+        pytest.param(_json_model_with_doubling_field_validator_endpoint, '{"x": 3}', id="field_validator_in_json"),
+        pytest.param(_json_model_with_doubling_model_validator_endpoint, '{"x": 3}', id="model_validator_in_json"),
+        pytest.param(_json_model_with_doubling_post_init_endpoint, '{"x": 3}', id="post_init_in_json"),
+        pytest.param(_json_list_with_doubling_item_validator_endpoint, "[3]", id="item_validator_in_json"),
+        pytest.param(_json_behind_doubling_validator_endpoint, {"data": '{"a": 3}'}, id="after_validator_of_json"),
+        # The head would read the dumped value of `other` for `data`, because an empty alias is still an alias
+        pytest.param(_json_under_empty_alias_endpoint, {"": '{"client": 1}', "other": {"shadow": 2}}, id="empty_alias"),
+        pytest.param(
+            _json_model_with_computed_field_forbidding_extra_endpoint,
+            '{"x": 5}',
+            id="computed_field_of_model_forbidding_extra",
+        ),
+        # The head would read the dumped computed field instead of the client's value
+        pytest.param(_json_shadowed_by_computed_field_endpoint, {"raw": '{"a": 1}'}, id="key_of_computed_field"),
+        pytest.param(
+            _int_tree_in_json_endpoint, '{"x": 1, "children": [{"x": 2}]}', id="self_referencing_model_in_json"
+        ),
+        pytest.param(
+            _json_tree_with_children_endpoint,
+            {"data": '{"a": 1}', "children": [{"data": '{"b": 2}'}]},
+            id="self_referencing_model_below_its_top",
+        ),
+    ],
+)
+def test__request_body_migration__with_json_value_cadwyn_cant_encode__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+    payload: Any,
+):
+    router.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change(), router=router)
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json=payload)
+    assert "json_type" in {error["type"] for error in exc_info.value.errors}
+
+
+def test__request_body_migration__with_json_field_below_wide_and_deep_models__should_plan_it_quickly(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    # Each of the 6 levels refers to the next one 20 times, so walking every path would take 20 ** 6 steps
+    model: type[BaseModel] = SchemaWithJsonDict
+    for level in range(6):
+        fields: dict[str, Any] = {f"field{i}": (Optional[model], None) for i in range(20)}  # ty: ignore[invalid-type-form]
+        model = create_model(f"WideSchemaWithJsonDict{level}", **fields)
+
+    async def endpoint(body: model):  # ty: ignore[invalid-type-form]
+        return body
+
+    router.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change())
+
+    started = time_module.perf_counter()
+    response = clients["2000-01-01"].post(test_path, json={"field0": None})
+    # The first request plans the body. It takes milliseconds, so this only fails if planning isn't linear.
+    assert time_module.perf_counter() - started < 5
+    assert response.status_code == 200
+
+
+def _make_model_chain(model: type[BaseModel], payload: Any, depth: int) -> tuple[type[BaseModel], Any]:
+    for i in range(depth):
+        model = create_model(f"{model.__name__}Wrapper{i}", child=(model, ...))
+        payload = {"child": payload}
+    return model, payload
+
+
+def _make_json_model_chain(depth: int, *, is_in_json: bool) -> tuple[type[BaseModel], Any]:
+    """Return a model whose `Json[...]` field is `depth` models deep, or which has a `Json[...]` value that deep"""
+    if not is_in_json:
+        return _make_model_chain(SchemaWithJsonDict, {"data": '{"a": 1}'}, depth)
+    inner_model, inner_payload = _make_model_chain(InnerOfJson, {"x": 1}, depth)
+    model = create_model(f"JsonOf{inner_model.__name__}", data=(Json[inner_model], ...))  # ty: ignore[invalid-type-form]
+    return model, {"data": json.dumps(inner_payload)}
+
+
+@pytest.mark.parametrize("is_in_json", [False, True])
+def test__request_body_migration__with_json_field_as_deep_as_cadwyn_plans__should_be_the_same_as_in_fastapi(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    is_in_json: bool,
+):
+    model, payload = _make_json_model_chain(7, is_in_json=is_in_json)
+
+    async def endpoint(body: model):  # ty: ignore[invalid-type-form]
+        return body
+
+    router.post(test_path)(endpoint)
+    fastapi_app = fastapi.FastAPI()
+    fastapi_app.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change())
+
+    expected = TestClient(fastapi_app).post(test_path, json=payload)
+    response = clients["2000-01-01"].post(test_path, json=payload)
+    assert (response.status_code, response.json()) == (expected.status_code, expected.json())
+
+
+@pytest.mark.parametrize("is_in_json", [False, True])
+def test__request_body_migration__with_json_field_deeper_than_cadwyn_plans__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    is_in_json: bool,
+):
+    model, payload = _make_json_model_chain(8, is_in_json=is_in_json)
+
+    @router.post(test_path)
+    async def endpoint(body: model):  # ty: ignore[invalid-type-form]
+        raise NotImplementedError
+
+    clients = create_versioned_clients(version_change())
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json=payload)
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_error_type"),
+    [
+        pytest.param("inner", "model_attributes_type", id="model"),
+        pytest.param("items", "list_type", id="list"),
+        pytest.param("by_key", "dict_type", id="dict"),
+    ],
+)
+def test__request_body_migration__with_json_container_replaced_by_migration__should_fail_with_its_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    key: str,
+    expected_error_type: str,
+):
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithNestedJsonDicts):
+        raise NotImplementedError
+
+    @convert_request_to_next_version_for(SchemaWithNestedJsonDicts)
+    def migrator(request: RequestInfo):
+        request.body[key] = "not a container"
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(
+            test_path, json={"inner": {"data": "{}"}, "items": [{"data": "{}"}], "by_key": {"k": {"data": "{}"}}}
+        )
+    assert (expected_error_type, ("body", key)) in [(error["type"], error["loc"]) for error in exc_info.value.errors]
+
+
+async def _raw_optional_json_body_with_default_endpoint(body: Annotated[Json[Optional[int]], Body()] = 23):
+    return {"body": body}
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI < 0.151
+    FASTAPI_DISTINGUISHES_NULL_BODIES, reason="Since FastAPI 0.151.0, a body that is None isn't an omitted one"
+)
+def test__request_body_migration__with_raw_json_body_that_is_null__should_get_its_default_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_raw_optional_json_body_with_default_endpoint)
+    clients = create_versioned_clients(version_change(), router=router)
+
+    assert clients["2000-01-01"].post(test_path, json="null").json() == {"body": 23}
+
+
+@pytest.mark.skipif(  # pragma: no cover # FastAPI >= 0.151
+    not FASTAPI_DISTINGUISHES_NULL_BODIES, reason="Before FastAPI 0.151.0, a body that is None is an omitted one"
+)
+def test__request_body_migration__with_raw_json_body_that_is_null__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    router.post(test_path)(_raw_optional_json_body_with_default_endpoint)
+    clients = create_versioned_clients(version_change(), router=router)
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json="null")
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class SchemaWithJsonAny(BaseModel):
+    value: Json[Any]
+
+
+class SchemaWithJsonAnyItemsAndJsonDict(BaseModel):
+    items: list[Json[Any]]
+    inner: SchemaWithJsonAny
+    data: Json[dict[str, Any]]
+
+
+@pytest.mark.parametrize(
+    ("replace", "payload"),
+    [
+        # The only string is in the container that the migration replaces, so it's the only one we could miss
+        pytest.param(
+            lambda body: {**body, "items": tuple(body["items"])},
+            {"items": ['"123"'], "inner": {"value": "1"}, "data": "{}"},
+            id="list_with_tuple",
+        ),
+        pytest.param(
+            lambda body: {**body, "inner": MappingProxyType(body["inner"])},
+            {"items": ["1"], "inner": {"value": '"123"'}, "data": "{}"},
+            id="dict_with_mapping",
+        ),
+    ],
+)
+def test__request_body_migration__with_json_container_of_another_type__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    replace: Callable[[dict[str, Any]], dict[str, Any]],
+    payload: dict[str, Any],
+):
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonAnyItemsAndJsonDict):
+        raise NotImplementedError
+
+    @convert_request_to_next_version_for(SchemaWithJsonAnyItemsAndJsonDict)
+    def migrator(request: RequestInfo):
+        request.body = replace(request.body)
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    # The head would decode the string in the replaced container once more if we encoded the other values
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json=payload)
+    assert ("json_type", ("body", "data")) in [(error["type"], error["loc"]) for error in exc_info.value.errors]
+
+
+async def _raw_json_list_of_ints_body_with_default_endpoint(
+    body: Annotated[Json[list[int]], Body()] = ["1"],  # noqa: B006  # ty: ignore[invalid-parameter-default]
+):
+    raise NotImplementedError
+
+
+async def _raw_json_any_body_with_default_endpoint(
+    body: Annotated[Json[Any], Body()] = {1: "integer", "1": "text"},  # noqa: B006
+):
+    raise NotImplementedError
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        pytest.param(_raw_json_list_of_ints_body_with_default_endpoint, id="default_of_another_type"),
+        pytest.param(_raw_json_any_body_with_default_endpoint, id="default_that_isnt_json"),
+    ],
+)
+def test__request_body_migration__with_json_body_default__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    endpoint: Callable[..., Coroutine[Any, Any, Any]],
+):
+    router.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change(), router=router)
+
+    # FastAPI gives the param its default without validating it, so we don't know what the head would read from it
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path)
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class _MixedEnum(Enum):
+    A = 1
+    B = "1"
+
+
+class _Color(Enum):
+    DARK = "dark"
+
+
+class _Shade(Enum):
+    DARK = "dark"
+
+
+_self_referencing_list: list[Any] = []
+_self_referencing_list.append(_self_referencing_list)
+
+
+@pytest.mark.parametrize(
+    ("annotation", "payload", "value"),
+    [
+        # JSON keys are strings, so these keys collapse into each other
+        pytest.param(dict[_MixedEnum, int], '{"1": 5}', {_MixedEnum.A: 5}, id="keys_of_enum_with_mixed_types"),
+        pytest.param(dict[Union[int, str], int], '{"1": 5}', {1: 5, "1": 6}, id="keys_of_union"),
+        pytest.param(dict[Union[bool, int], int], '{"1": 5}', {1: 5}, id="keys_of_bool_or_int"),
+        pytest.param(
+            dict[Literal[1, "1"], str], '{"1": "a"}', {1: "integer", "1": "string"}, id="keys_of_mixed_literal"
+        ),
+        pytest.param(dict[float, int], '{"1.5": 5}', {float("nan"): 1, float("-nan"): 2}, id="keys_that_collide"),
+        # The head would look up a member of its own enum
+        pytest.param(list[_Color], '["dark"]', [_Shade.DARK], id="member_of_another_enum"),
+        # JSON offsets only have minutes, and JSON has no folds or time zones of other types
+        pytest.param(
+            dict[str, datetime],
+            '{"a": "2020-01-01T00:00:00Z"}',
+            {"a": datetime(2020, 1, 1, tzinfo=timezone(timedelta(seconds=561)))},
+            id="datetime_with_offset_in_seconds",
+        ),
+        pytest.param(
+            dict[str, datetime],
+            '{"a": "2020-01-01T00:00:00Z"}',
+            {"a": datetime(2020, 1, 1, tzinfo=timezone.utc)},
+            id="datetime_with_time_zone_of_another_type",
+        ),
+        pytest.param(
+            dict[str, datetime],
+            '{"a": "2020-01-01T00:00:00"}',
+            {"a": datetime(2020, 1, 1, fold=1)},  # noqa: DTZ001
+            id="fold",
+        ),
+        pytest.param(
+            dict[str, time],
+            '{"a": "12:00:00Z"}',
+            {"a": time(12, tzinfo=timezone(timedelta(seconds=561)))},
+            id="time_with_offset_in_seconds",
+        ),
+        # Walking it must not hang
+        pytest.param(Any, "[]", _self_referencing_list, id="self_referencing_value"),
+        # JSON can't have lone surrogates, so encoding fails
+        pytest.param(Any, "[]", ["\ud800"], id="lone_surrogate"),
+        pytest.param(dict[str, int], '{"a": 1}', {"\ud800": 1}, id="key_with_lone_surrogate"),
+    ],
+)
+def test__request_body_migration__with_json_value_that_encoding_would_change__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    annotation: Any,
+    payload: str,
+    value: Any,
+):
+    model = create_model("SchemaWithJsonValueSetByMigration", data=(Json[annotation], ...))
+
+    async def endpoint(body: model):  # ty: ignore[invalid-type-form]
+        raise NotImplementedError
+
+    router.post(test_path)(endpoint)
+
+    @convert_request_to_next_version_for(model)
+    def migrator(request: RequestInfo):
+        request.body["data"] = value
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": payload})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class SchemaWithJsonBytes(BaseModel):
+    data: Json[dict[str, bytes]]
+
+
+def test__request_body_migration__with_json_bytes_that_cant_be_encoded__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonBytes):
+        raise NotImplementedError
+
+    @convert_request_to_next_version_for(SchemaWithJsonBytes)
+    def migrator(request: RequestInfo):
+        request.body["data"] = {"k": b"\xff"}
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": '{"k": "a"}'})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class SchemaWithJsonDictOfInts(BaseModel):
+    data: Json[dict[str, int]]
+
+
+def _read_body_as_dict(body: dict[str, Any] = Body()) -> dict[str, Any]:
+    return body
+
+
+def test__request_body_migration__with_json_field_and_dependency_that_reads_the_body__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(
+        body: SchemaWithJsonDictOfInts, from_dependency: Annotated[dict[str, Any], Depends(_read_body_as_dict)]
+    ):
+        raise NotImplementedError
+
+    clients = create_versioned_clients(version_change())
+
+    # The dependency would get the JSON that we encode, `{"a":1}`, instead of the client's
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": '{"a": "1"}'})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+# Cadwyn compares the defaults when it generates the versions, so we only make the comparisons raise after that
+_comparisons_of_ints_raise = threading.Event()
+
+
+class _IntThatCantBeCompared(int):
+    @override
+    def __eq__(self, other: object) -> bool:
+        if _comparisons_of_ints_raise.is_set():
+            raise RuntimeError("Can't compare")
+        return super().__eq__(other)
+
+    __hash__ = int.__hash__
+
+
+class SchemaWithJsonDictAndDefaultThatCantBeCompared(BaseModel):
+    data: Json[dict[str, Any]]
+    other: int = _IntThatCantBeCompared(1)
+
+
+def test__request_body_migration__with_json_field_whose_planning_fails__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonDictAndDefaultThatCantBeCompared):
+        raise NotImplementedError
+
+    # Comparing the core schemas of the versions compares the defaults, which raises
+    clients = create_versioned_clients(
+        version_change(
+            schema(SchemaWithJsonDictAndDefaultThatCantBeCompared).field("other").had(default=_IntThatCantBeCompared(2))
+        )
+    )
+
+    _comparisons_of_ints_raise.set()
+    try:
+        with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+            clients["2000-01-01"].post(test_path, json={"data": '{"a": 1}'})
+    finally:
+        _comparisons_of_ints_raise.clear()
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+def _make_int_that_counts_its_schemas(make_schema: Callable[[int], core_schema.CoreSchema]) -> Any:
+    """Return an int type whose core schema `make_schema` makes from the number of schemas made since the reset"""
+    builds = itertools.count(1)
+
+    class IntThatCountsItsSchemas(int):
+        @classmethod
+        def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> core_schema.CoreSchema:
+            return make_schema(next(builds))
+
+        @classmethod
+        def reset(cls) -> None:
+            nonlocal builds
+            builds = itertools.count(1)
+
+    return IntThatCountsItsSchemas
+
+
+def _raise_on_second_build(build: int) -> core_schema.CoreSchema:
+    if build == 2:
+        raise HTTPException(status_code=503)
+    return core_schema.int_schema()
+
+
+@pytest.mark.parametrize(
+    ("make_schema", "expected_status_code"),
+    [
+        # Each override is solved once per pass, so the schemas have `gt=1` and `gt=2`, and 3 passes both
+        pytest.param(lambda build: core_schema.int_schema(gt=build), 200, id="schema_that_changes_per_build"),
+        pytest.param(_raise_on_second_build, 503, id="schema_that_raises_on_second_build"),
+    ],
+)
+def test__request_body_migration__with_omitted_json_field_and_overridden_dependency__should_solve_it_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    make_schema: Callable[[int], core_schema.CoreSchema],
+    expected_status_code: int,
+):
+    """Nothing is encoded, so building the overrides once more to check the readers of the body would change them"""
+    counted_int = _make_int_that_counts_its_schemas(make_schema)
+
+    def get_limit(limit: int) -> int:
+        raise NotImplementedError
+
+    def get_overridden_limit(limit: counted_int) -> int:  # ty: ignore[invalid-type-form]
+        return limit
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithOptionalJsonDict, limit: Annotated[int, Depends(get_limit)]):
+        return {"data": body.data, "limit": limit}
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[get_limit] = get_overridden_limit
+    counted_int.reset()
+
+    response = clients["2000-01-01"].post(test_path, params={"limit": 3}, json={})
+    assert response.status_code == expected_status_code
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_builds"),
+    [
+        # Each request solves the override in both passes, and checking the readers of the body builds it once more
+        pytest.param('{"a": 1}', 3, id="value_to_encode"),
+        pytest.param(None, 2, id="nothing_to_encode"),
+    ],
+)
+def test__request_body_migration__with_json_field_and_overridden_dependency__should_build_it_once_more_if_it_encodes(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    data: Optional[str],
+    expected_builds: int,
+):
+    builds: list[int] = []
+
+    def make_schema(build: int) -> core_schema.CoreSchema:
+        builds.append(build)
+        return core_schema.int_schema()
+
+    counted_int = _make_int_that_counts_its_schemas(make_schema)
+
+    def get_limit(limit: int) -> int:
+        raise NotImplementedError
+
+    def get_overridden_limit(limit: counted_int) -> int:  # ty: ignore[invalid-type-form]
+        return limit
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithOptionalJsonDict, limit: Annotated[int, Depends(get_limit)]):
+        return {"data": body.data, "limit": limit}
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[get_limit] = get_overridden_limit
+    counted_int.reset()
+
+    for _ in range(2):
+        builds.clear()
+        response = clients["2000-01-01"].post(test_path, params={"limit": 3}, json={"data": data})
+        assert response.json() == {"data": None if data is None else json.loads(data), "limit": 3}
+        assert len(builds) == expected_builds
+
+
+def test__request_body_migration__with_override_that_reads_the_body_later__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    def get_value(value: int = 0) -> Any:
+        raise NotImplementedError
+
+    def get_overridden_value(**kwargs: Any) -> Any:
+        return kwargs
+
+    get_overridden_value.__signature__ = inspect.signature(get_value)  # ty: ignore[unresolved-attribute]
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonDictOfInts, from_dependency: Annotated[Any, Depends(get_value)]):
+        return from_dependency
+
+    clients = create_versioned_clients(version_change())
+    clients["2000-01-01"].app.dependency_overrides[get_value] = get_overridden_value
+    assert clients["2000-01-01"].post(test_path, json={"data": '{"a": 1}'}).json() == {"value": 0}
+
+    # FastAPI builds the override from its new signature, so it reads the body now, which we must check again
+    get_overridden_value.__signature__ = inspect.signature(_read_body_as_dict)  # ty: ignore[unresolved-attribute]
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": '{"a": "1"}'})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class _KeyThatCountsItsHashes(str, Enum):
+    A = "a"
+
+    @override
+    def __hash__(self) -> int:
+        _key_hashes.append(self)
+        return str.__hash__(self)
+
+
+_key_hashes: list[_KeyThatCountsItsHashes] = []
+
+
+class SchemaWithDictOfOptionalJsonInts(BaseModel):
+    data: dict[_KeyThatCountsItsHashes, Optional[Json[int]]]
+
+
+class SchemaWithDictOfOptionalInts(BaseModel):
+    data: dict[_KeyThatCountsItsHashes, Optional[int]]
+
+
+def test__request_body_migration__with_json_values_to_encode_none_of__should_use_the_body_as_without_them(
+    create_versioned_clients: CreateVersionedClients,
+    router: VersionedAPIRouter,
+):
+    """Nothing is encoded, so we must read the body without hashing its keys or calling anything else of users"""
+
+    @router.post("/json")
+    async def json_endpoint(body: SchemaWithDictOfOptionalJsonInts):
+        return body
+
+    @router.post("/plain")
+    async def plain_endpoint(body: SchemaWithDictOfOptionalInts):
+        return body
+
+    clients = create_versioned_clients(version_change())
+
+    hashes_by_path = {}
+    for path in ("/json", "/plain"):
+        _key_hashes.clear()
+        assert clients["2000-01-01"].post(path, json={"data": {"a": None}}).json() == {"data": {"a": None}}
+        hashes_by_path[path] = len(_key_hashes)
+    assert hashes_by_path["/json"] == hashes_by_path["/plain"]
+
+
+class SchemaWithJsonAnyData(BaseModel):
+    data: Json[Any]
+
+
+class SchemaWithOptionalJsonInt(BaseModel):
+    data: Optional[Json[int]] = None
+
+
+def test__request_body_migration__with_override_that_changes_the_body_when_built__should_get_the_body_it_changes(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    """Checking the dependencies builds the override, whose schema hook changes the body before we encode it"""
+    migrated_bodies: list[dict[str, Any]] = []
+
+    class IntThatChangesTheBody(int):
+        @classmethod
+        def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> core_schema.CoreSchema:
+            if migrated_bodies:
+                migrated_bodies[-1]["data"] = '{"a": 1}'
+            return core_schema.int_schema()
+
+    def get_limit(limit: int = 1) -> int:
+        raise NotImplementedError
+
+    def get_overridden_limit(limit: IntThatChangesTheBody = 1) -> int:  # ty: ignore[invalid-parameter-default]
+        return limit
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonAnyData, limit: Annotated[int, Depends(get_limit)]):
+        return {"data": body.data, "type": type(body.data).__name__}
+
+    @convert_request_to_next_version_for(SchemaWithJsonAnyData)
+    def migrator(request: RequestInfo):
+        migrated_bodies.append(request.body)
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[get_limit] = get_overridden_limit
+
+    # The head parses the JSON that the hook has set, as it does without the fix, instead of the JSON that we encode
+    response = clients["2000-01-01"].post(test_path, json={"data": '{"b": 2}'})
+    assert response.json() == {"data": {"a": 1}, "type": "dict"}
+
+
+def test__request_body_migration__with_key_whose_equality_runs_code__should_compare_it_as_before(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    """Looking up the keys of a model compares them to the keys of the data, which can run code of users"""
+    equalities: list[object] = []
+
+    class StringThatCountsItsEqualities(str):
+        __slots__ = ()
+        __hash__ = str.__hash__
+
+        @override
+        def __eq__(self, other: object) -> bool:
+            equalities.append(other)
+            return str.__eq__(self, other)
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithOptionalJsonInt):
+        return {"data": body.data}
+
+    @convert_request_to_next_version_for(SchemaWithOptionalJsonInt)
+    def migrator(request: RequestInfo):
+        request.body = {StringThatCountsItsEqualities("data"): None}
+        equalities.clear()
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+
+    # The head looks the key up at most once, as it does without the fix, and we don't look it up at all
+    assert clients["2000-01-01"].post(test_path, json={}).json() == {"data": None}
+    assert len(equalities) <= 1
+
+
+class _InnerWithX(BaseModel):
+    x: int
+
+
+class SchemaWithJsonModelAndMarker(BaseModel):
+    data: Json[_InnerWithX]
+    marker: int
+
+
+def test__request_body_migration__with_json_model_whose_keys_compare_with_code__should_fail_without_comparing_them(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    """Checking the value of a `Json[Model]` compares its keys, which could run code of users that changes the body"""
+    migrated_bodies: list[dict[str, Any]] = []
+
+    class KeyThatChangesTheBody(str):
+        __slots__ = ()
+        __hash__ = str.__hash__
+
+        @override
+        def __eq__(self, other: object) -> bool:  # pragma: no cover # Cadwyn mustn't compare the key
+            migrated_bodies[-1]["marker"] = 99
+            return str.__eq__(self, other)
+
+    class IntThatChangesTheBody(int):
+        @classmethod
+        def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> core_schema.CoreSchema:
+            if migrated_bodies:
+                migrated_bodies[-1]["data"] = {KeyThatChangesTheBody("x"): 7}
+            return core_schema.int_schema()
+
+    def get_limit(limit: int = 1) -> int:
+        raise NotImplementedError
+
+    def get_overridden_limit(limit: IntThatChangesTheBody = 1) -> int:  # ty: ignore[invalid-parameter-default]
+        return limit
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithJsonModelAndMarker, limit: Annotated[int, Depends(get_limit)]):
+        raise NotImplementedError
+
+    @convert_request_to_next_version_for(SchemaWithJsonModelAndMarker)
+    def migrator(request: RequestInfo):
+        migrated_bodies.append(request.body)
+
+    clients = create_versioned_clients(version_change(migrator=migrator))
+    clients["2000-01-01"].app.dependency_overrides[get_limit] = get_overridden_limit
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": '{"x": 1}', "marker": 1})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+    assert migrated_bodies[-1]["marker"] == 1
+
+
+class SchemaWithDictOfJsonIntsByKeysThatCountTheirHashes(BaseModel):
+    data: dict[_KeyThatCountsItsHashes, Json[int]]
+
+
+def test__request_body_migration__with_json_values_by_keys_that_hash_with_code__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+):
+    """Copying the dict to encode its values would hash its keys once more, which runs their code"""
+
+    @router.post(test_path)
+    async def endpoint(body: SchemaWithDictOfJsonIntsByKeysThatCountTheirHashes):
+        raise NotImplementedError
+
+    clients = create_versioned_clients(version_change())
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json={"data": {"a": "1"}})
+    assert [error["type"] for error in exc_info.value.errors] == ["json_type"]
+
+
+class SchemaWithJsonModel(BaseModel):
+    data: Json[InnerOfJson]
+
+
+class SchemaWithJsonDictAndOtherDict(BaseModel):
+    data: Json[dict[str, Any]]
+    other: dict[str, Any] = {}
+
+
+class SchemaWithJsonDictAndBoolOrOne(BaseModel):
+    data: Json[dict[str, Any]]
+    other: Union[bool, Literal[1]] = False
+
+
+class SchemaWithJsonDictOfLowerStrings(BaseModel):
+    data: Json[dict[str, Annotated[str, StringConstraints(to_lower=True)]]]
+
+
+@pytest.mark.parametrize(
+    ("model", "instruction", "payload"),
+    [
+        # Without migrations, the head would give `x` its default instead of the client's value
+        pytest.param(
+            SchemaWithJsonModel,
+            schema(InnerOfJson).field("x").had(name="old_x"),
+            {"data": '{"old_x": 5}'},
+            id="renamed_field_in_json",
+        ),
+        pytest.param(
+            SchemaWithJsonModel,
+            schema(InnerOfJson).field("x").had(exclude=True),
+            {"data": '{"x": 5}'},
+            id="excluded_field_in_json",
+        ),
+        pytest.param(
+            SchemaWithJsonModel,
+            schema(InnerOfJson).field("x").had(serialization_alias="y"),
+            {"data": '{"x": 5}'},
+            id="serialization_alias_in_json",
+        ),
+        # The head would read the dumped value of `other` for `data`
+        pytest.param(
+            SchemaWithJsonDictAndOtherDict,
+            schema(SchemaWithJsonDictAndOtherDict).field("other").had(serialization_alias="data"),
+            {"data": '{"a": 1}', "other": {"b": 2}},
+            id="serialization_alias_of_another_field",
+        ),
+        # `True == 1` in Python, but the older version validates `1` into `True`
+        pytest.param(
+            SchemaWithJsonDictAndBoolOrOne,
+            schema(SchemaWithJsonDictAndBoolOrOne).field("other").had(type=Union[bool, Literal[True]]),  # noqa: PYI051
+            {"data": "{}", "other": 1},
+            id="literal_of_another_type",
+        ),
+        # The older version changes the strings, and the head changes them once more
+        pytest.param(
+            SchemaWithJsonDictOfLowerStrings,
+            schema(SchemaWithJsonDictOfLowerStrings)
+            .field("data")
+            .had(type=Json[dict[str, Annotated[str, StringConstraints(to_upper=True, strip_whitespace=True)]]]),
+            {"data": '{"k": " aBc "}'},
+            id="constraint_of_string_in_json",
+        ),
+        # The head would give the sibling its default instead of the client's value
+        pytest.param(
+            SchemaWithJsonDictAndOtherDict,
+            schema(SchemaWithJsonDictAndOtherDict).field("other").had(exclude=True),
+            {"data": '{"a": 1}', "other": {"b": 2}},
+            id="excluded_sibling",
+        ),
+    ],
+)
+def test__request_body_migration__with_json_field_dumped_differently_in_older_version__should_fail_with_json_type_error(
+    create_versioned_clients: CreateVersionedClients,
+    test_path: Literal["/test"],
+    router: VersionedAPIRouter,
+    model: type[BaseModel],
+    instruction: Any,
+    payload: dict[str, Any],
+):
+    async def endpoint(body: model):  # ty: ignore[invalid-type-form]
+        raise NotImplementedError
+
+    router.post(test_path)(endpoint)
+    clients = create_versioned_clients(version_change(instruction))
+
+    with pytest.raises(CadwynHeadRequestValidationError) as exc_info:
+        clients["2000-01-01"].post(test_path, json=payload)
+    assert [(error["type"], error["loc"]) for error in exc_info.value.errors] == [("json_type", ("body", "data"))]
 
 
 class OptionalOuterWithRequiredInner(BaseModel):

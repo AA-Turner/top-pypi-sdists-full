@@ -1,9 +1,0 @@
-[[messages]]
-description = "A greeting"
-id = "hello"
-message = "Ahoj"
-
-[[messages]]
-description = "A farewell"
-id = "goodbye"
-message = "Sbohem"

@@ -1,0 +1,558 @@
+/*******************************************************************************
+Copyright (c) 1998-2009 by Text Analysis International, Inc.
+All rights reserved.
+*******************************************************************************/
+/****************************************
+Copyright � 1995 by Conceptual Systems.
+Copyright (c) 1995 by Conceptual Systems.
+All rights reserved.
+*****************************************/ 
+/*******************************************************************************
+*
+*									ARG.C
+*
+* FILE:	conch./arg.c (1995)
+* FILE:	libconsh/arg.c
+* SUBJ:	Argument parser.
+* CR:	8/26/95 AM.
+* NOTE:	Parse arguments, C-style.
+*
+*******************************************************************************/
+
+#include "StdAfx.h"			// 04/29/99 AM.
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <iostream>											// Upgrade	// 01/24/01 AM.
+#include <fstream>											// Upgrade	// 01/24/01 AM.
+
+#include "u_out.h"					// 01/13/06 AM.
+#include "prim/libprim.h"
+#include "prim/unicode.h"			// 01/24/06 AM.
+#include "prim/prim.h"
+#include "prim/str.h"
+//#include "prim/mach.h"
+#include "prim/list_s.h"
+#include "prim/list.h"
+//#include "prim/io.h"
+
+#include "consh/libconsh.h"				// 04/29/99 AM.
+#include "consh/arg.h"
+_TCHAR skip_b(_TCHAR cc, std::_t_istream *fp);		// 04/20/99 AM.
+
+
+
+/**************************************************
+*						ARGS_PP
+* FUN:	args_pp
+* SUBJ:	Pretty-print args list.
+* NOTE:	Not a complete reverse of args_read.
+* CR:	8/27/95 AM.
+*
+**************************************************/
+
+LIBCONSH_API void
+args_pp(
+	LIST *args,
+	std::_t_ostream *out,
+    _TCHAR *buf
+	)
+{
+_TCHAR *str;
+
+#ifdef UNICODE
+char *lpstr8;
+#endif
+
+while ((str = ALIST::list_pop_buf(&args,buf)))						// 08/14/02 AM.
+   {
+#ifdef UNICODE
+	u_to_mbcs((LPCWSTR)str, CP_UTF8, (LPCTSTR*&)lpstr8);
+   if (_tcschr(str, ' '))
+      *out << _T("\"") << lpstr8 << _T("\" ");
+   else
+      *out << lpstr8 << _T(" ");
+	u_delete((LPCTSTR*&)lpstr8);
+#else
+   if (_tcschr(str, ' '))
+      *out << _T("\"") << str << _T("\" ");
+   else
+      *out << str << _T(" ");
+#endif
+   }
+*out << std::endl;
+}
+
+
+
+/**************************************************
+*						ARGS_READ
+* FUN:	args_read
+* SUBJ:	Read a line of arguments from input stream.
+* CR:	8/26/95 AM.
+* NOTE:	As in C, backslash escapes next char, double quotes enclose strings,
+*		whitespace delimits arguments.  Double quotes surrounding string
+*		are not part of string. (Nice to allow backslash <cr> as well, to
+*		escape newline.  Also, allowing newline within string.)
+*		Implementing arg list as simply a buffer, with each arg ending with
+*		a '\0' char.  Eliminates overhead of managing list-objects.
+*		Not checking for control chars, for now.  iscntrl() gives true for '\n',
+*		probably EOF, so watch it.
+*		10/15/95 AM. Semicolon starts a comment.
+* RET:	True if successful read.  False if failure due to bad input.
+*		UP buf - Arg strings stored here.
+*		UP args - List of args read.
+*
+**************************************************/
+
+LIBCONSH_API bool
+args_read(
+	std::_t_istream *fp,						/* Stream to read.			*/
+	std::_t_ostream *out,						/* Stream to echo to.		*/
+	bool silent_f,					/* True if not echoing.		*/
+	ALIST *alist,		// List manager.									// 08/14/02 AM.
+	_TCHAR *buf,						/* Buffer for args.			*/
+	long bufsiz,		// Length of buffer.								// 07/22/04 AM.
+	/*DU*/
+	LIST **args					/* List of ptrs to args.	*/
+	)
+{
+_TCHAR cc;						/* Char to process. 		*/
+bool ok;						/* Successful read.			*/
+LIST *end;						/* End of args list.		*/
+int len = 0;
+int ci = 0;
+
+*args = end = LNULL;
+alist->list_add_buf(buf);
+
+cc = fp->get();
+
+if (fp->eof())																	// 12/18/01 AM.
+	return true;	// EOF is ok.											// 12/18/01 AM.
+ok = true;						/* Everything good so far.	*/
+for (;;)						/* While getting args.		*/
+   {
+   *buf = '\0';					/* Initialize current arg.	*/
+   //cc = skip_blanks(cc, fp);	/* Skip leading blanks.		*/
+	cc = skip_b(cc, fp);				// 04/21/99 AM.
+   switch (cc)
+      {
+		case '\0':	// Using this in case skip_b found EOF.		// 12/16/01 AM.
+//    case EOF:	// Matches ANSI y-umlaut, so not using.		// 12/16/01 AM.
+         if (!silent_f)		/* If echoing input. */
+            args_pp(*args, out, buf);
+         return(false);		// 05/02/99 AM. Unexpected eof.
+      case '\n':
+		case '\r':				// FIX.  04/21/99 AM.
+			while (cc == '\r')	// 10/31/06 AM.
+				cc = fp->get();	// 10/31/06 AM.
+         if (!silent_f)		/* If echoing input. */
+            args_pp(*args, out, buf);
+         return(true);
+      case ';':					/* Get comment.				*/
+			cc = fp->get();
+            ok = arg_get_comment(fp, &cc);
+         break;
+      case '/':					/* Maybe a block comment.	*/	// 07/31/26 DD.
+			if (fp->peek() != '*')
+				{
+				// A lone '/' starts an ordinary arg (eg an unquoted path).
+				ok = arg_get(fp, alist, &cc, &buf, args, &end, len);
+				break;
+				}
+			{
+			bool crossedEol = false;
+			fp->get();				// Consume the '*'.
+			cc = fp->get();
+			ok = arg_get_block_comment(fp, &cc, crossedEol);
+			if (ok && crossedEol)
+				{
+				// A .kb command file is line-oriented: one command per line.
+				// A comment that spanned a newline has to end the command it
+				// was written after, or the next line's words would be read
+				// as extra args of this one.
+				// Push the lookahead back first: returning here drops cc, and
+				// the next args_read starts with its own get(). Without the
+				// unget, "*/add hier ..." would lose the 'a' and try to run
+				// "dd hier ...".
+				if (!fp->eof())
+					fp->unget();
+				if (!silent_f)
+					args_pp(*args, out, buf);
+				return(true);
+				}
+			}
+         break;
+      case '"':					/* Get string arg.			*/
+         ci = fp->get();
+         ok = arg_get_str(fp, alist, out,								// 06/21/03 AM.
+													ci, &cc, &buf, args, &end, len);	// 08/14/02 AM.
+         break;
+      default:					/* Get regular arg.			*/
+         ok = arg_get(fp, alist, &cc, &buf, args, &end, len);			// 08/14/02 AM.
+         break;
+      }
+      
+   if (!ok)
+      return(false);
+   }
+
+if (!silent_f)		/* If echoing input. */
+   args_pp(*args, out, buf);
+return(ok);
+}
+
+
+/**************************************************
+*						ARG_GET
+* FUN:	arg_get
+* SUBJ:	Read a non-string argument from a stream.
+* ASS:	First char is nonwhite.
+* CR:	8/26/95 AM.
+* RET:	Lookahead char.
+*
+**************************************************/
+
+LIBCONSH_API bool
+arg_get(
+	std::_t_istream *fp,			/* Stream to read from.				*/
+	ALIST *alist,		// List manager.									// 08/14/02 AM.
+	/*DU*/
+	_TCHAR *cup,			/* Lookahead char.					*/
+	_TCHAR **pos,			/* Buffer for placing arg.			*/
+	LIST **args,
+	LIST **end,			/* Args to add to.					*/
+    int &len
+	)
+{
+_TCHAR cc;			/* Lookahead char.					*/
+_TCHAR *buf;			/* Buffer pointer.	*/
+int f_esc;			/* If backslash escape pending.		*/
+bool ok;			/* If successful read.				*/
+
+ok = true;
+cc = *cup;
+if (fp->eof())																	// 12/18/01 AM.
+	cc = '\0';																	// 12/18/01 AM.
+buf = *pos;
+f_esc = 0;
+int lenIn = len;
+
+for (;;)			/* While getting arg */
+   {
+   if (f_esc)			/* Add to current arg. */
+      {
+		if (!cc)																	// 12/16/01 AM.
+//      if (cc == EOF)														// 12/16/01 AM.
+         {
+         std::_t_cerr << _T("[arg_get: Can't escape EOF.]") << std::endl;
+         return(false);
+         }
+
+      *buf++ = cc;		/* Add char to current arg. */
+      f_esc = 0;
+      cc = fp->get();
+		if (fp->eof())															// 12/18/01 AM.
+			cc = '\0';															// 12/18/01 AM.
+      continue;
+      }
+      
+   switch (cc)
+      {
+		case '\0':																// 12/16/01 AM.
+ //     case EOF:																// 12/16/01 AM.
+         *buf++ = '\0';
+         //*args = alist->list_add(*args, (long) *pos, end);		// 08/14/02 AM.
+         *args = alist->list_add(*args, lenIn, end);		// 08/14/02 AM.
+         *cup = cc;
+         *pos = buf;
+         return(ok);
+      case '\\':
+         f_esc = 1;
+         break;
+      case ' ':
+      case '\n':
+      case '\t':
+      case '\r':
+         *buf++ = '\0';
+         //*args = alist->list_add(*args, (long) *pos, end);
+         *args = alist->list_add(*args, lenIn, end);
+         while (cc == '\r')	// In case of cr-lf format.	// 10/31/06 AM.
+            cc = fp->get();
+         *cup = cc;
+         *pos = buf;
+         len++;
+         return(ok);
+      default:
+         *buf++ = cc;	/* Add char to current arg. */
+         len++;
+         break;
+      }
+   cc = fp->get();
+   if (fp->eof())																// 12/18/01 AM.
+		cc = '\0';																// 12/18/01 AM.
+   }
+std::_t_cerr << _T("[arg_get: Program error.]") << std::endl;
+return(false);
+}
+
+
+/**************************************************
+*						ARG_GET_COMMENT
+* FUN:	arg_get_comment
+* SUBJ:	Skip over a comment in input command line.
+* ASS:	First char is nonwhite.
+* CR:	10/15/95 AM.
+* RET:	True if ok read from stream.
+*		(up) Lookahead char.
+*
+**************************************************/
+
+LIBCONSH_API bool
+arg_get_comment(
+	std::_t_istream *fp,			/* Stream to read from.				*/
+	/*DU*/
+	_TCHAR *cup			/* Lookahead char.					*/
+	)
+{
+_TCHAR cc;			/* Lookahead char.					*/
+bool ok;			/* If successful read.				*/
+
+ok = true;
+cc = *cup;
+if (fp->eof())																	// 12/18/01 AM.
+	cc = '\0';																	// 12/18/01 AM.
+for (;;)			/* While getting arg */
+   { 
+   switch (cc)
+      {
+		case '\0':	// Using this for EOF.								// 12/16/01 AM.
+//    case EOF:																// 12/16/01 AM.
+         *cup = cc;
+         return(ok);
+      case '\n':
+      case '\r':
+			while (cc == '\r')	// 10/31/06 AM.
+            cc = fp->get();	// 10/31/06 AM.
+         *cup = cc;
+         return(ok);
+      default:
+         break;
+      }
+   cc = fp->get();
+   if (fp->eof())																// 12/18/01 AM.
+		cc = '\0';																// 12/18/01 AM.
+   }
+std::_t_cerr << _T("[arg_get_comment: Program error.]") << std::endl;
+return(false);
+}
+
+
+/**************************************************
+*					ARG_GET_BLOCK_COMMENT
+* FUN:	arg_get_block_comment
+* SUBJ:	Skip over a C-style block comment in an input command file.
+* ASS:	Both chars of the opening "/*" are already consumed; cup holds the
+*		first char inside the comment.
+* CR:	07/31/26 DD.
+* RET:	True if ok read from stream. False on EOF inside the comment -- an
+*		unterminated "/*" is always a mistake, so it is reported rather than
+*		silently swallowing the rest of the file.
+*		(up) Lookahead char, one past the closing "* /".
+*		(up) crossedEol - true if the comment spanned a newline.
+* NOTE:	Comments do not nest, as in C: the first "* /" closes.
+*
+**************************************************/
+
+LIBCONSH_API bool
+arg_get_block_comment(
+	std::_t_istream *fp,			/* Stream to read from.				*/
+	/*DU*/
+	_TCHAR *cup,			/* Lookahead char.					*/
+	bool &crossedEol		/* True if the comment spanned a newline.	*/
+	)
+{
+_TCHAR cc;			/* Lookahead char.					*/
+
+crossedEol = false;
+cc = *cup;
+if (fp->eof())
+	cc = '\0';
+
+for (;;)
+   {
+   if (!cc)			/* EOF inside the comment. */
+      {
+      std::_t_cerr << _T("[arg_get_block_comment: Unterminated block comment.]")
+                   << std::endl;
+      *cup = cc;
+      return(false);
+      }
+   if (cc == '\n')
+      crossedEol = true;
+   if (cc == '*' && fp->peek() == '/')
+      {
+      fp->get();			/* Consume the '/'. */
+      cc = fp->get();		/* Lookahead, one past the comment. */
+      if (fp->eof())
+         cc = '\0';
+      *cup = cc;
+      return(true);
+      }
+   cc = fp->get();
+   if (fp->eof())
+      cc = '\0';
+   }
+}
+
+
+/**************************************************
+*						ARG_GET_STR
+* FUN:	arg_get_str
+* SUBJ:	Read a string argument from a stream.
+* ASS:	First char is one past double-quote; looking for end double-quote.
+* CR:	8/26/95 AM.
+* RET:	Lookahead char.
+*
+**************************************************/
+
+LIBCONSH_API bool
+arg_get_str(
+	std::_t_istream *fp,			/* Stream to read from.			*/
+	ALIST *alist,		// List manager.									// 08/14/02 AM.
+	std::_t_ostream *out,		// Stream to echo to.							// 06/21/03 AM.
+	/*DU*/
+   int ci,
+	_TCHAR *cup,			/* Lookahead char.				*/
+	_TCHAR **pos,			/* Buffer for arg.				*/
+	LIST **args,
+	LIST **end,		/* Args to add to.					*/
+    int &len
+	)
+{
+_TCHAR cc;			/* Lookahead char.				*/
+_TCHAR *buf;			/* Buffer pointer.				*/
+int f_esc;			/* If backslash escape pending. */
+bool ok;			/* If successful read.			*/
+
+ok = true;
+cc = (_TCHAR)ci;
+if (fp->eof())																	// 12/18/01 AM.
+	cc = '\0';																	// 12/18/01 AM.
+buf = *pos;
+f_esc = 0;
+int lenIn = len;
+int extras = getutf8(fp,ci);
+
+for (;;)			/* While getting arg */
+   {
+   if (f_esc)			/* Add to current arg. */
+      {
+		if (!cc)																	// 12/16/01 AM.
+//      if (cc == EOF)														// 12/16/01 AM.
+         {
+         *out << _T("[arg_get_str: Can't escape EOF.]") << std::endl;	// 06/21/03 AM.
+         return(false);
+         }
+
+      *buf++ = cc;		/* Add char to current arg. */
+      f_esc = 0;
+      cc = fp->get();
+		if (fp->eof())															// 12/18/01 AM.
+			cc = '\0';															// 12/18/01 AM.
+      continue;
+      }
+      
+   switch (cc)
+      {
+		case '\0':																// 12/16/01 AM.
+//    case EOF:																// 12/16/01 AM.
+         *buf++ = '\0';
+          *out																	// 06/21/03 AM.
+				<< _T("[arg_get_str: Error. EOF in middle of string.]") << std::endl;
+			*out << _T("[str=") << *pos << _T("]") << std::endl;						// 06/21/03 AM.
+         //*args = alist->list_add(*args, (long)*pos, end);
+         *args = alist->list_add(*args, lenIn, end);
+         *cup = cc;
+         *pos = buf;
+         len++;                 //01/25/21 Dd.
+         return(false);
+      case '\\':
+         f_esc = 1;
+         break;
+      case '"':			/* Found end of string.		*/
+			cc = fp->get();
+			if (fp->eof())														// 12/18/01 AM.
+				cc = '\0';														// 12/18/01 AM.
+         if (!_istspace((_TUCHAR)cc))
+            {
+            *out << _T("[arg_get_str: Arg glommed to end of string.]") << std::endl;
+            return(false);
+            }
+         *buf++ = '\0';
+         //*args = alist->list_add(*args, (long)*pos, end);
+         *args = alist->list_add(*args, lenIn, end);
+         *cup = cc;
+         *pos = buf;
+         len++;
+         return(ok);
+      default:
+         int i = 0;
+         *buf++ = cc;
+         len++;
+         while (i++ < extras) {
+            cc = fp->get();
+            *buf++ = cc;
+            len++;
+         }
+         extras = 0;
+         break;
+      }
+   ci = fp->get();
+   cc = (_TCHAR)ci;
+   extras = getutf8(fp,ci);
+   if (fp->eof())																// 12/18/01 AM.
+		cc = '\0';																// 12/18/01 AM.
+   }
+*out << _T("arg_get_str: Program error.") << std::endl;
+return(false);
+}
+
+
+/**************************************************
+*						SKIP_B
+* FUN:	skip_b
+* SUBJ:	Skip whitespace in input stream.
+* ASS:	Look at given char.  Don't skip newlines.
+* CR:	04/21/99 AM.
+* RET:	char after whitespace.
+* NOTE:	Calling skip_blanks from libprim results in access
+*			violation.  Not sure why.
+*	12/16/01 AM. Assuming that get() returns null if EOF found.
+*
+**************************************************/
+
+_TCHAR
+skip_b(_TCHAR cc, std::_t_istream *fp)		// 04/20/99 AM.
+{
+if (fp->eof())																	// 12/18/01 AM.
+	return '\0';																// 12/18/01 AM.
+for (;;)
+   {
+   switch (cc)
+      {
+      case ' ':			/* Whitespace.		*/
+      case '\t':
+			// 04/16/99 AM. Problems with macros in DLL libraries.
+         //cc = getc(fp);		// 04/16/99 AM.
+			//cc = fgetc(fp);		// 04/16/99 AM.
+			cc = fp->get();
+			if (fp->eof())														// 12/18/01 AM.
+				cc = '\0';														// 12/18/01 AM.
+         break;
+      default:			/* Newline,EOF,nonwhite. */
+         return(cc);
+      }
+   }
+}

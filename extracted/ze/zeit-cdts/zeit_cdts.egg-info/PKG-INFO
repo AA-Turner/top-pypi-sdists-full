@@ -1,0 +1,536 @@
+Metadata-Version: 2.4
+Name: zeit-cdts
+Version: 2.5.0
+Summary: Change detection and time series analysis of Earth observation data cubes: LandTrendr, CCDC, BFAST, TWDTW, phenology, accuracy assessment, embeddings and deep learning
+License-Expression: GPL-2.0-or-later
+Project-URL: Homepage, https://github.com/sacridini/zeit-cdts
+Project-URL: Documentation, https://sacridini.github.io/zeit-cdts/
+Project-URL: Issues, https://github.com/sacridini/zeit-cdts/issues
+Keywords: remote sensing,earth observation,change detection,time series,landtrendr,ccdc,bfast,xarray,stac
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: THIRD_PARTY_NOTICES.md
+Requires-Dist: numpy
+Requires-Dist: numba>=0.53.0
+Requires-Dist: rasterio
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
+Requires-Dist: dask[array]
+Requires-Dist: xarray
+Requires-Dist: pystac-client
+Requires-Dist: stackstac
+Requires-Dist: geopandas
+Requires-Dist: planetary-computer
+Requires-Dist: earthengine-api
+Requires-Dist: requests
+Requires-Dist: cryptography
+Requires-Dist: zarr
+Requires-Dist: pyarrow
+Requires-Dist: rioxarray
+Requires-Dist: geotessera>=0.11; python_version >= "3.12"
+Provides-Extra: ai
+Requires-Dist: torch; extra == "ai"
+Provides-Extra: plot
+Requires-Dist: matplotlib; extra == "plot"
+Requires-Dist: anywidget>=0.9; extra == "plot"
+Provides-Extra: dev
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pymannkendall; extra == "dev"
+Requires-Dist: minisom==2.3.6; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: anywidget>=0.9; extra == "dev"
+Dynamic: license-file
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/sacridini/zeit-cdts/refs/heads/main/docs/assets/logo-wide-dark.png">
+    <img src="https://raw.githubusercontent.com/sacridini/zeit-cdts/refs/heads/main/docs/assets/logo-wide.png" alt="Zeit Logo" width="420">
+  </picture>
+</p>
+
+# Zeit: Change Detection and Time Series for Python
+
+[![Build Wheels](https://github.com/sacridini/zeit-cdts/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/sacridini/zeit-cdts/actions/workflows/build_wheels.yml)
+[![Tests](https://github.com/sacridini/zeit-cdts/actions/workflows/tests.yml/badge.svg)](https://github.com/sacridini/zeit-cdts/actions/workflows/tests.yml)
+[![Docs](https://github.com/sacridini/zeit-cdts/actions/workflows/docs.yml/badge.svg)](https://github.com/sacridini/zeit-cdts/actions/workflows/docs.yml)
+[![PyPI version](https://badge.fury.io/py/zeit-cdts.svg)](https://badge.fury.io/py/zeit-cdts)
+
+**Zeit** is a high-performance Python package for Earth Observation (EO) data cube processing and time series analysis. It bridges the gap between modern cloud-native data formats (STAC, Xarray, Dask) and state-of-the-art pixel-based trajectory algorithms (TWDTW, CCDC, LandTrendr). 
+
+Built on a compiled core written in Rust (parallel across all cores, outside the Python GIL) and bound to Python via PyO3, Zeit is designed to handle massive multi-spectral satellite image time series efficiently while keeping memory footprints strictly bounded.
+
+---
+
+## Key Capabilities
+
+- **ARD Data Cube Ingestion:** Fetch cloud-native STAC catalogs (via MGRS/WRS tiles or Bounding Boxes) or parse local TIFF directories into lazy Dask-backed `xarray` Datacubes.
+- **Semantic Cloud Masking:** Automated extraction and translation of Quality Assessment (QA) bands for Landsat and Sentinel-2 directly inside the query pipeline, plus a temporal **Tmask** harmonic baseline model to catch clouds/shadows missed by the native QA mask.
+- **Landsat and Sentinel-2 in one series:** `build_time_series` reads NASA's HLS (Harmonized Landsat Sentinel-2) products as reflectance, both in one call with the bands named by role and the Fmask cloud mask; for Sentinel-2 L2A and Landsat Collection 2 cubes, `bandpass_adjust` applies HLS's bandpass step (each Sentinel-2 unit's lines, and optionally Roy et al. 2016 for Landsat 5/7).
+- **Temporal Regularization:** Mathematical composite generation (e.g., Medoid, Median) to align irregular satellite acquisitions into uniform time steps (crucial for Deep Learning and DTW).
+- **High-Performance Rust Algorithms:**
+  - **TWDTW** (Time-Weighted Dynamic Time Warping): Highly optimized with LB_Keogh lower bounding, early abandonment, Sakoe-Chiba constraints, and multivariate vectorized distances.
+  - **Batch SOM** (Self-Organizing Maps): Unsupervised multi-threaded clustering of massive spectral-temporal arrays.
+  - **CCDC / COLD**: Continuous Change Detection and Classification via robust harmonic modeling.
+  - **S-CCD**: `sccd`, Stochastic Continuous Change Detection (Ye et al. 2021), written from the paper: CCDC's harmonic models carried forward by a Kalman filter, one update per new image instead of a refit (ten times faster than CCDC on 35 years of observations), with the near-real-time state of every pixel (how many of its latest observations already depart from the model, and since when); checked against pyxccd, the authors' package.
+  - **LandTrendr**: Trajectory-based disturbance and recovery detection.
+  - **Recovery metrics**: `recovery_metrics` measures how each pixel recovered after its disturbance (years to recovery, R80P, RRI, ARI, year-on-year recovery; White et al. 2017, Frazier et al. 2018), from LandTrendr or any annual series.
+  - **BFAST, BFAST Monitor & BFAST Lite**: Classic iterative trend+season break detection, near-real-time monitoring, and single-pass multiple-breakpoint detection (ported from R's `bfast`/`strucchangeRcpp`).
+  - **BEAST**: `beast`, the Bayesian estimator of abrupt change, seasonal change and trend (Zhao et al. 2019), a port of Rbeast's C code: the trend and season of each series averaged over the models of a reversible-jump MCMC, with the probability of a changepoint at each date, of each number of changepoints, and credible intervals; from the same seed, the same float32 results as Rbeast's `beast()`, and 1.5 to 1.9 times faster than its `beast123()` on a cube.
+  - **EWMACD**: monitoring of every observation, irregular and cloudy dates welcome, with EWMA control charts on the residuals of a harmonic model (Brooks et al. 2014): disturbances, gains, their severity and recoveries, the same flags as Brooks' script.
+  - **One map of events for every algorithm**: `extract_events` turns the result of LandTrendr, CCDC or any BFAST into the same maps (year, date, magnitude, DSNR of the change per pixel), and `agreement` shows where and when the algorithms agree.
+  - **Phenology Extraction**: 19 simultaneous phenological metrics from optimized curve-fitting models (Beck, Elmore, Gu, Zhang, Asymmetric Gaussian, Double Logistic), with QA-based per-observation weighting.
+  - **Spectral unmixing**: `unmix` gives the fraction of each endmember (your own, or Souza et al. 2005's) in every pixel and date, fully constrained, non-negative or free, with the RMSE of the rebuilt spectrum.
+  - **CODED**: forest degradation and deforestation from the NDFI of a spectral unmixing (`unmix`, Souza et al. 2005) of every Landsat observation.
+  - **Mann-Kendall / Theil-Sen**: Pixel-wise non-parametric trend test and slope estimation for detecting statistically significant greening/browning trends.
+  - **remotePARTS (AR(1) trends and PARTS)**: Pixel-wise trends with AR(1) errors, and the regional test of them (is the mean trend of a region, or of each land-cover class, different from 0? do covariates explain it?) that accounts for the spatial correlation of the pixels, after Ives et al. (2021); 20 to 100 times faster than the R package.
+  - **Emerging hot spots**: `emerging_hotspots`, ESRI's Space Time Pattern Mining: the Getis-Ord Gi* of every date (R sfdep's to 1e-14), the trend of each pixel's Gi* and its pattern (new, consecutive, intensifying, persistent, diminishing, sporadic, oscillating, historical hot or cold spot).
+  - **SNIC Segmentation**: Superpixel segmentation of images and whole time series cubes (one segment = similar trajectories), matching the original SNIC's labels pixel for pixel, with tile-parallel processing for large scenes.
+- **Post-processing and the area of applicability:** `smooth_probs` (sits' Bayesian smoothing of class probabilities), `mmu_sieve`, a majority filter and `desawtooth_classes` clean a class map; `aoa` and `train_di` map where a model can be applied (Meyer & Pebesma 2021, CAST's DI to 1e-13).
+- **Checked against the originals, for speed too:** `benchmarks/vs_originals/` runs each ported method and its original (R packages, the authors' scripts) on the same data and times both; the results are in the documentation's Benchmarks.
+- **Validation:** `sampling_design`, `stratified_sample` and `accuracy` follow the good practices of Olofsson et al. (2014): a stratified random sample of any map, then its accuracies and error-adjusted areas with confidence intervals (checked against the paper's example and R's `sits`). `interpret` labels the sample by eye, point after point, with yearly image chips, the pixel's series, the keyboard, and a review of the error matrix.
+- **Foundation-model embeddings:** `load_embeddings` reads the yearly embeddings of TESSERA (128 dimensions) and Google's AlphaEarth Foundations (64) at 10 m as a `(time, band, y, x)` cube, on the products' own grids, lazily. Classify them from few samples, cluster or segment them as any cube; `similarity` finds places like a sample, and `embedding_change` follows each pixel from year to year into the same events as LandTrendr or CCDC. In `zeit.plot` the vectors themselves go to the GPU: hover any pixel to see how much every other one looks like it, pin it to follow it across the years, or see what changed from one year to the next. The cube remembers which embeddings it holds, and a model refuses another product's.
+- **Deep Learning (`zeit.ai`):** PyTorch architectures for spatio-temporal Earth Observation (U-TAE, LightTAE, TempCNN, the pretrained Presto, a Siamese change detector) and a wrapper for Geospatial Foundation Models (ViT), with `samples`, `train` and `predict` to go from a cube and labelled samples to a georeferenced map.
+- **Visualisation (`zeit.plot`):** One function to look at any cube, map or result: an interactive viewer in Jupyter (or its own window from a script) that pages through dense time series at the display's frame rate, with a click-a-pixel inspector showing each algorithm's fit, satellite basemaps and vector outlines; or a matplotlib figure for reports.
+- **Command-Line Interface:** Every core algorithm is also available as a `zeit` subcommand, for running change detection on GeoTIFF stacks from bash scripts, cron jobs, or HPC environments without writing Python.
+
+---
+
+## Installation
+
+```bash
+pip install zeit-cdts
+```
+*(Note: Wheels are provided for Windows, Linux (x86_64 and aarch64), and macOS, Python 3.9 and newer, multi-threaded on all three. Building from source needs a Rust toolchain; see [Installation](https://sacridini.github.io/zeit-cdts/getting-started/installation/).)*
+
+**New in 2.3:** PyTorch is optional. `zeit.ai` needs `pip install "zeit-cdts[ai]"`; everything else installs without its gigabytes. And zeit on a cluster: a Slurm job uses every processor it is given without `--jobs`, `zeit slurm` writes a job array over a folder of tiles (resubmitting what failed, requeueing at the time limit), `zeit fetch` downloads beforehand for nodes without internet access, `zeit doctor` says what zeit finds, and container images for Apptainer are published at each version. See [Zeit on a Cluster](https://sacridini.github.io/zeit-cdts/tutorials/hpc-slurm/).
+
+**New in 2.0:** the compiled core is written in Rust; up to 1.7 it was C++. Every function takes the same arguments and returns the same results (bit for bit in the tests each algorithm went through against the C++ one, on Windows, Linux and macOS, before the C++ was removed), and most run faster. Nothing changes in your code.
+
+For `zeit.ai` (PyTorch), install the `ai` extra: `pip install "zeit-cdts[ai]"`. For `zeit.plot` (matplotlib and anywidget), the `plot` extra: `pip install zeit-cdts[plot]`. The TESSERA and AlphaEarth embeddings need nothing extra (TESSERA's reader, `geotessera`, comes with zeit on Python 3.12+).
+
+---
+
+## Quickstart: load, run, export
+
+Every algorithm is one function that understands its input, and the dates and georeferencing travel with the data:
+
+```python
+import zeit
+
+ndvi = zeit.load_raster("LT_Stack_NDVI_Rondonia.tif")   # (time, y, x) cube, years from the band names
+lt = zeit.landtrendr(ndvi)                               # or zeit.ccdc, zeit.bfast_monitor, zeit.mann_kendall, zeit.phenology...
+loss = zeit.extract_events(lt)                           # greatest NDVI loss per pixel
+zeit.save_raster(loss, "lt_rondonia")                    # one georeferenced GeoTIFF per metric
+zeit.plot(ndvi, fit=lt)                                  # look: page through the years, click a pixel to see its fit
+```
+
+## Visualisation
+
+`zeit.plot` shows any cube, map, result `Dataset` or pixel's series. In a notebook (JupyterLab, VS Code, Colab) it returns an interactive viewer; in a script it opens the same viewer in its own window; with `static=True` or `save=` it draws a matplotlib figure.
+
+```python
+ndvi = zeit.load_raster("LT_Stack_NDVI_Rondonia.tif")
+zeit.plot(ndvi)                                          # space plays the 40 years, wheel zooms, hover reads values
+zeit.plot(ndvi, fit=zeit.landtrendr(ndvi))               # click a pixel: its series and LandTrendr's segments
+zeit.plot(zeit.extract_events(zeit.landtrendr(ndvi)), basemap="satellite", vector="aoi.gpkg")
+zeit.plot(ndvi, time=["1985", "2000", "2024"], save="ndvi.png")   # a figure for a report
+```
+
+It is fast because each frame travels to the browser once, as one byte per cell, and is coloured by the GPU: paging through time then runs at the display's refresh rate without touching Python, and the cube is only ever read at screen resolution. See the [plotting tutorial](https://sacridini.github.io/zeit-cdts/tutorials/plotting/).
+
+## Cloud-Native ARD Cubes (STAC)
+
+Fetch lazy evaluated, Dask-backed analysis-ready data cubes directly from STAC providers (e.g., Earth Search, Planetary Computer, Brazil Data Cube).
+
+```python
+import zeit
+
+# Build a lazy DataArray using MGRS/WRS tiles or Bounding Boxes
+cube = zeit.build_time_series(
+    source="earth_search",
+    collection="sentinel-2-l2a",
+    tiles=["22JFQ"], # Sentinel-2 MGRS or Landsat WRS-2 (e.g., "215065")
+    start_date="2022-01-01",
+    end_date="2022-12-31",
+    bands=["red", "green", "blue", "nir"],
+    apply_cloud_mask=True # Automatically fetches QA band and natively masks clouds/shadows
+)
+
+print(cube) # Returns an xarray.DataArray (Time, Band, Y, X)
+```
+
+## Landsat and Sentinel-2 in one series
+
+A dense series that mixes Landsat and Sentinel-2 has a step wherever the sensor changes, which CCDC or BFAST read as a break. NASA's HLS products remove it (both sensors processed alike from level 1, on one grid), and `build_time_series` reads both as one series, the bands named by role:
+
+```python
+hls = zeit.build_time_series(source="planetary_computer", collection=["hls2-l30", "hls2-s30"], bbox=bbox,
+                             start_date="2019-01-01", end_date="2024-12-31", apply_cloud_mask=True,
+                             bands=["blue", "green", "red", "nir", "swir1", "swir2"], resolution=30, epsg=32722)
+```
+
+For Sentinel-2 L2A and Landsat Collection 2 cubes, `zeit.bandpass_adjust([s2, landsat])` applies HLS's bandpass step only. Over a stable desert site Sentinel-2 stayed 5-13 % brighter than Landsat after it, where HLS agreed within 1.4 %; see the [reference](https://sacridini.github.io/zeit-cdts/api/preprocessing/#landsat-and-sentinel-2-in-one-series).
+
+## Temporal Regularization
+
+Algorithms like TWDTW, SOM, and Deep Learning expect temporally aligned data. `zeit` natively regularizes irregular STAC acquisitions.
+
+```python
+from zeit import regularize_time_series
+
+# Aggregate observations into 16-day Medoid composites 
+# (Maintains xarray lazy evaluation via Dask graphs)
+cube_16d = regularize_time_series(cube, freq="16D", method="medoid")
+```
+
+## Change Detection (LandTrendr & CCDC)
+
+Continuous structural monitoring using robust breakpoint and harmonic regression models directly on xarray Datacubes (`zeit.landtrendr(cube)`, `zeit.ccdc(cube)`, or pandas-like accessors such as `cube.zeit.ccdc(...)`).
+
+### LandTrendr (Trajectory-based Disturbance)
+Identify structural breakpoints in time-series (e.g., detecting exactly when deforestation occurred). One function, `zeit.landtrendr`, takes a raster file, an in-memory or Dask cube, a NumPy stack or a single pixel's series, and scales LandTrendr to massive datasets using the multi-threaded Rust core and Dask.
+
+```python
+import zeit
+
+# 1. An annual index stack: one band per year (years read from band names such as yr1985)
+ndvi = zeit.load_raster("LT_Stack_NDVI_Rondonia.tif")   # georeferenced (time, y, x) cube
+
+# 2. Segment every pixel. direction="loss" (the default) looks for drops of the index
+#    (NDVI/NBR vegetation loss); use direction="gain" for indices that rise (e.g. SWIR).
+lt = zeit.landtrendr(ndvi, max_segments=6)
+# xarray.Dataset: vertex_year, vertex_value (vertex, y, x), n_vertices, rmse (y, x)
+# Dask cubes stay lazy; zeit.landtrendr("big.tif", chunks="auto") works block by block.
+
+# 3. Analyze disturbances (e.g., finding the biggest drop in NDVI)
+loss = zeit.extract_events(
+    lt,
+    sort_by="greatest",     # Get the segment with the largest magnitude
+    min_magnitude=1500      # Optional noise filter (NDVI x 10000)
+)
+
+# Georeferenced maps, ready to be exported to GeoTIFF
+yod_map = loss["yod"]         # Year of Disturbance (YOD)
+mag_map = loss["magnitude"]   # Magnitude of the disturbance
+dur_map = loss["duration"]    # How many years the disturbance took
+zeit.save_raster(loss, "lt_rondonia")   # one GeoTIFF per map: yod.tif, magnitude.tif, ...
+```
+
+### CCDC / COLD (Harmonic Modeling)
+Extracts harmonic coefficients (Intercept, Slopes, Sine, Cosine) and detects intra-annual changes by fitting mathematical curves to multi-spectral data. Like LandTrendr, one function, `zeit.ccdc`, takes a raster file, an in-memory or Dask cube, a NumPy stack or a single pixel's series.
+
+```python
+import zeit
+
+# 1. A dense multi-band stack: surface reflectance x 10000 (Blue, Green, Red, NIR, SWIR1, SWIR2)
+#    plus a band of Fmask codes (0 clear, 1 water, 2 shadow, 3 snow, 4 cloud, 255 fill)
+cube = zeit.load_raster("landsat_sr.tif")   # (time, band, y, x); dates from band names 2020-01-15_blue ...
+
+# 2. Run CCDC on every pixel; the QA band is named, and left out of the spectral bands
+segments = zeit.ccdc(cube, qa="fmask", max_segments=6)
+# xarray.Dataset: t_start, t_end, t_break (segment, y, x), n_segments (y, x),
+# rmse (segment, band, y, x), coefs (segment, band, coef, y, x)
+# Dask cubes stay lazy; zeit.ccdc("big.tif", qa="fmask", chunks="auto") works block by block.
+
+first_break = segments.t_break.isel(segment=0)   # date of the first change (NaT = none)
+zeit.save_raster(segments, "ccdc_out")           # one GeoTIFF per variable, dates as decimal years
+
+# 3. Generate Synthetic Images (Harmonic Reconstruction)
+# Predict what the surface should look like on any arbitrary date without clouds!
+synthetic_image = zeit.predict_synthetic_image(segments, "2020-07-15")   # (band, y, x)
+
+# 4. Land Cover Classification using the harmonic models
+# Each pixel's model on a date (coefficients and RMSE) as features, a Random Forest
+# trained at labelled points, and every pixel classified
+rf_model = zeit.train_classifier(segments, "samples.gpkg", label="class", date="2020-07-01")
+land_cover = zeit.classify(segments, rf_model, date="2020-07-01")
+zeit.save_raster(land_cover, "output/land_cover")     # label.tif; class names in label's flag_meanings
+
+# 5. Where the model can be trusted: its area of applicability (Meyer & Pebesma 2021, CAST's aoa),
+# the pixels no more unlike the training data than they are to each other
+applicable = zeit.aoa(segments, model=rf_model, date="2020-07-01")   # DI and AOA maps
+```
+
+## Phenology Extraction
+
+Extract 19 simultaneous phenological metrics (Gu, Zhang, Thresholds, Derivatives, LOS, POP) across massive datasets using optimized curve-fitting models (Beck, Elmore, Gu, Zhang, Asymmetric Gaussian, Double Logistic) over Dask clusters.
+
+> The smoothing, curve-fitting, and metric-extraction methodology is based on the R package [`phenofit`](https://github.com/eco-hydro/phenofit) (Kong *et al.*, 2022, *Methods in Ecology and Evolution*, [doi:10.1111/2041-210X.13870](https://doi.org/10.1111/2041-210X.13870)), reimplemented in Rust. See the [Phenology tutorial](https://sacridini.github.io/zeit-cdts/tutorials/phenology/#7-references) for the full reference list and a real-world walkthrough.
+
+```python
+import zeit
+
+# cube_16d: (time, y, x) DataArray of 16-day NDVI composites; the day numbering
+# and the years are read from its dates
+pheno = zeit.phenology(
+    cube_16d,
+    curve="beck",                   # Beck's double logistic
+    annual=False,                   # one value per detected season, not per calendar year
+    max_seasons=2,                  # up to 2 growing seasons per pixel
+
+    # Smoothing Configuration
+    apply_whittaker=False,          # Turn off Whittaker
+    apply_hants=True,               # Use HANTS (Fourier-based) instead
+    hants_frequencies=3,
+
+    # Fine-Grained Season Control
+    min_season_length=90,           # Ignore noisy peaks shorter than 90 days
+    min_amplitude=0.2,              # Ignore seasons with less than 0.2 NDVI growth
+
+    n_jobs=-1                       # threads of the compiled core (leave a core for the OS)
+)
+
+# An xarray.Dataset: 19 metrics + R2 + RMSE, each (season, y, x).
+# Lazy for a Dask cube: computed by .compute() or while save_raster writes it.
+greenup_map = pheno["Greenup"].sel(season=1)    # Zhang's Greenup, first season
+zeit.save_raster(pheno, "output/phenology")      # one GeoTIFF per metric
+```
+
+**Down-weighting cloud/snow-contaminated observations:** `zeit.qc` decodes a sensor's QA/QC band into per-observation reliability weights in `[0, 1]` (ported from phenofit's `qcFUN.R`), which feed the Whittaker/HANTS smoothing and the iterative curve fit instead of trusting every observation equally:
+
+```python
+from zeit.qc import qc_modis_summary
+
+# qa_cube: (time, y, x) MOD13 SummaryQA band, aligned with cube_16d
+weights = qc_modis_summary(qa_cube)  # 0=good, 1=marginal, 2=snow/ice, 3=cloudy -> [1.0, 0.5, 0.2, 0.2]
+
+pheno = zeit.phenology(
+    cube_16d,
+    weights=weights,       # down-weights unreliable observations during smoothing/fitting
+    season_retry=True,     # relax the trough threshold once if a pixel finds no season at all
+)
+```
+
+## Trend Analysis (Mann-Kendall)
+
+Pixel-wise Mann-Kendall trend test + Theil-Sen slope, ported from [`pymannkendall`](https://github.com/mmhs013/pymannkendall) (Hussain & Mahmud, 2019) to a parallel Rust backend, with the same Dask distribution strategy as Phenology Extraction. Useful for "is there a statistically significant greening/browning trend at this pixel?" questions on multi-year composite stacks. See the [Mann-Kendall tutorial](https://sacridini.github.io/zeit-cdts/tutorials/mann_kendall/) for the full method comparison (autocorrelation-corrected variants, seasonal test) and a real-world walkthrough.
+
+```python
+# annual_ndvi: (time, y, x) DataArray, one max-NDVI composite per year (or a GeoTIFF path)
+result = zeit.mann_kendall(
+    annual_ndvi,
+    method="hamed_rao",  # autocorrelation-corrected (recommended for annual composites)
+    alpha=0.05,
+)
+
+slope_map = result.slope                      # NDVI change per year
+significant = result.h == 1.0                 # statistically significant at alpha=0.05
+declining = (result.trend == -1) & significant
+zeit.save_raster(result, "output/mann_kendall")   # one GeoTIFF per metric
+
+# Emerging hot spots (ESRI's Space Time Pattern Mining, sfdep's Gi* exactly): where the values
+# cluster high or low, and how that changed: new, intensifying, persistent, sporadic... hot spots
+ehs = zeit.emerging_hotspots(-annual_ndvi, radius=3, shape="circle")
+```
+
+## Recovery After a Disturbance
+
+`recovery_metrics` measures how each pixel came back after its disturbance (LandTrendr's event, or any event of `extract_events`): the years to recovery (Y2R) and R80P of White et al. (2017), the relative recovery indicator (RRI, Kennedy et al. 2012), the absolute and year-on-year recovery, with the post-disturbance value taken as the best of years 4 and 5 (Frazier et al. 2018).
+
+```python
+lt = zeit.landtrendr(nbr, direction="loss")
+rec = zeit.recovery_metrics(lt)                 # y2r, r80p, rri, ari, yryr, ... after the greatest loss
+```
+
+## Regional Trends (remotePARTS)
+
+`ar_trend` fits each pixel's series to a linear trend with AR(1) errors by REML, and `parts` tests the trends of a whole region with PARTS (Ives et al., 2021, *Remote Sensing of Environment* 266, 112678): the mean trend, the trend of each class, the effect of covariates, with p-values that account for the spatial correlation of the pixels, which counting significant pixels does not. Both are implemented from the paper on the Rust core and checked against the R package [`remotePARTS`](https://github.com/morrowcj/remotePARTS).
+
+```python
+trend = zeit.ar_trend(annual_ndvi)                        # slope, slope_se, slope_p, rho, ... per pixel
+res = zeit.parts(annual_ndvi, trend=trend, classes=landcover)
+print(res)          # mean trend per class (correlated t-test) and whether they differ (chi-square)
+```
+
+## Change Monitoring (BFAST Monitor)
+
+Pixel-wise near-real-time structural change monitoring, ported from the R package [`bfast`](https://github.com/bfast2/bfast) (Verbesselt *et al.*) to a parallel Rust backend, with the same Dask distribution strategy as Mann-Kendall. Unlike LandTrendr/CCDC (retrospective, whole-series segmentation), `bfastmonitor` fits a trend+harmonic model on a stable history period and asks "is a disturbance happening *right now*, in the most recent observations?" — verified bit-for-bit-scale accurate against R's `bfastmonitor()`. See the [BFAST Monitor tutorial](https://sacridini.github.io/zeit-cdts/tutorials/bfast_monitor/) for the full method background and scope (only `type="OLS-MOSUM"` + `history="all"` are ported so far).
+
+```python
+# ndvi_16d: (time, y, x) DataArray of 16-day composites from 2010 (or a GeoTIFF path);
+# start_time=2010.0 and frequency=23 are read from its dates
+result = zeit.bfast_monitor(ndvi_16d, "2022-01-01")   # monitor everything from 2022 onward
+
+disturbed = result.has_break == 1.0
+break_time = result.breakpoint  # fractional-year time of the first detected break
+```
+
+## Change Monitoring (EWMACD)
+
+`ewmacd` monitors every observation of an index, with its irregular and cloudy dates, against a harmonic model of its training years. It uses the EWMA control charts of Brooks et al. (2014): X-bar charts screen out the clouds, and a disturbance is signalled when the EWMA of the residuals stays beyond its control limits. The result gives the first disturbance, its severity, when it recovered, the first gain and the state now. The flags are those of Brooks' script (v1.3.0, the paper's; Earth Engine's `Ewmacd`).
+
+```python
+res = zeit.ewmacd(ndvi, train_end=2017)         # trained on the years before 2017
+res.break_time.plot()                           # first disturbance; res.state: 0 stable, 1 disturbed, 2 recovered, 3 gain
+```
+
+## Change Detection (BFAST Lite)
+
+Pixel-wise, single-pass multiple-breakpoint detection, ported from the R package `bfast`'s `bfastlite()` and its `strucchangeRcpp` dependency's `breakpoints()` (the Bai & Perron optimal multiple-breakpoint dynamic program) to a parallel Rust backend. Unlike `bfastmonitor` above (single break, near-real-time), this retrospectively segments the *whole* series into the optimal number of pieces (via the LWZ model-selection criterion) — no STL decomposition needed. Verified exactly against R's `bfastlite()` across 6 scenarios (~3.1x faster single-threaded than R; `n_jobs=-1` adds a further ~5.5x on top of that by reserving one CPU core and parallelizing across the rest — a smaller gap than `bfastmonitor`'s, since this workload is genuinely CPU-bound dynamic programming on both sides, not dominated by R's per-call overhead). See the [BFAST Lite tutorial](https://sacridini.github.io/zeit-cdts/tutorials/bfast_lite/) for the full method background, scope, and validation details (including two real numerical bugs caught and fixed along the way).
+
+```python
+# ndvi_16d: (time, y, x) DataArray of 16-day composites
+result = zeit.bfast_lite(ndvi_16d, max_breaks=5)
+
+n_breaks = result.n_breaks
+first_break_idx = result.breakpoint_idx_1  # NaN where n_breaks == 0
+```
+
+## Time-Series Classification (TWDTW)
+
+Classify pixels by their likeness to a few reference series, one per class, with Time-Weighted Dynamic Time Warping. The distances are those of the R package twdtw (checked to 1e-12), computed in Rust, every pixel in parallel; a pattern of one year matches the same season of any year, and cloudy dates are left out of each pixel's series.
+
+```python
+import pandas as pd
+import zeit
+
+# Patterns: a typical series per class, indexed by dates (a DataFrame for several bands)
+patterns = {"Forest": forest_ndvi, "Soy": soy_ndvi, "Pasture": pasture_ndvi}
+
+ndvi = zeit.load_raster("S2_ndvi_2022.tif")          # (time, y, x)
+classes = zeit.twdtw(ndvi, patterns)                  # label, distance, distances
+
+# Pixels that matched poorly with every pattern: unknown (0)
+known = classes.label.where(classes.distance < 15, 0)
+classes.label.zeit.plot()                             # legend: Forest, Soy, Pasture
+zeit.plot(ndvi, fit=classes)                          # click a pixel: its series and best match
+```
+
+## Unsupervised Clustering (SOM)
+
+Unsupervised classification of whole trajectories: `zeit.som` trains a self-organizing map on a sample of the pixels and puts every pixel in its best-matching neuron. The engine is a Rust port of Python `minisom` (online and Batch SOM) that reproduces its results bit-for-bit, 30-190x faster.
+
+```python
+ndvi = zeit.load_raster("LT_Stack_NDVI_Rondonia.tif")
+clusters = zeit.som(ndvi, x=3, y=3, sample=50_000)   # label, distance, prototypes (neuron, time)
+clusters.prototypes.sel(neuron=1).plot()              # a typical trajectory
+zeit.plot(ndvi, fit=clusters)                         # click a pixel: its series and its prototype
+
+# Before training a classifier: flag samples whose class is not their neuron's
+checked = zeit.clean_samples(cube, "samples.gpkg", label="class")
+```
+
+## Foundation-Model Embeddings (TESSERA, AlphaEarth)
+
+TESSERA and Google's AlphaEarth Foundations turn a year of Sentinel-1/2 (and, for AlphaEarth, Landsat and more) into one vector per 10 m pixel, every year since 2017. `zeit.load_embeddings` reads them as a cube on their own UTM grids (the two products line up cell by cell), and the rest of zeit takes it as it is:
+
+```python
+emb = zeit.load_embeddings("aoi.gpkg", source="tessera", years=range(2017, 2026))     # or source="alphaearth"
+zeit.plot(emb)                                                 # the first 3 principal components, the same colours every year
+rf = zeit.train_classifier(emb.sel(time="2024"), "samples.gpkg")
+classes = zeit.classify(emb.sel(time="2024"), rf)              # refuses another product's embeddings
+like_these = zeit.similarity(emb, "known_mines.gpkg", year=2024)
+events = zeit.extract_events(zeit.embedding_change(emb), min_magnitude=0.3)   # yod, date, magnitude, dsnr
+```
+
+## Deep Learning (`zeit.ai`)
+
+PyTorch models for satellite image time series (TempCNN, LightTAE, U-TAE, the pretrained Presto, a Siamese change detector and a foundation-model wrapper), with the path from a cube to a map: samples from labelled points or polygons (validated in spatial blocks), a ready-made training loop, and prediction over the whole cube, lazily and without seams between windows.
+
+```python
+from zeit import ai
+
+samples = ai.samples(cube, "samples.gpkg", label="class")   # pixels; patch=64 for U-TAE
+model = ai.train(ai.TempCNN, samples, epochs=50)
+classes = ai.predict(model, cube)                          # label (y, x), georeferenced
+ai.save(model, "tempcnn.pt")
+```
+
+## Pre and Post-Processing
+
+Before classifying, it is highly recommended to smooth temporal trajectories. After classifying, pixel-based maps often suffer from noise. Zeit provides fast functions to regularize your data in both dimensions:
+
+```python
+import zeit
+from zeit import apply_majority_filter, apply_mmu_filter, save_raster
+
+# Temporal smoothing: Whittaker (uneven dates, NaN gaps filled, per-observation weights)...
+smoothed = zeit.smooth(cube, lmbda=10.0, weights=clear_sky_weights)
+
+# ...or Savitzky-Golay, for evenly spaced series
+smoothed = zeit.smooth(cube, method="savgol", window=5, polyorder=2)
+
+# Spatial Regularization (Mode filter): maps in, maps out, georeferencing kept
+regularized_map = apply_majority_filter(land_cover.label, size=3)
+
+# Minimum Mapping Unit (MMU): erase isolated patches smaller than 11 pixels
+final_map = apply_mmu_filter(regularized_map, mmu_pixels=11)
+save_raster(final_map, "results/classified_final.tif")
+
+# Or, as sits: Bayesian smoothing of the probabilities (sits_smooth, the same values),
+# the small patches merged into their neighbours, and yearly maps made consistent
+probs = zeit.smooth_probs(land_cover.probability, window_size=9, smoothness=20)
+label = zeit.mmu_sieve(probs.argmax("class") + 1, min_size=11)
+yearly = zeit.desawtooth_classes(yearly_maps)          # forest, pasture, forest -> forest x3
+```
+
+## Exporting Geospatial Data
+
+`save_raster` writes any map, stack or result back to disk with its georeferencing, NoData, band names and dates, so GIS software and `load_raster` read it back as it was.
+
+```python
+from zeit import save_raster
+
+save_raster(final_map, "output/land_cover.tif", like=cube, nodata=255)   # numpy: CRS and transform from cube
+save_raster(ndvi_cube, "output/ndvi.tif")      # a DataArray brings its own georeferencing and dates
+save_raster(events, "output/loss")             # a dict/Dataset of maps: one GeoTIFF per map
+```
+
+## Command-Line Interface
+
+Every core algorithm is also available as a `zeit` subcommand, so you can run change detection directly on GeoTIFF stacks from bash scripts, cron jobs, or HPC batch systems without writing any Python:
+
+```bash
+zeit landtrendr input_stack.tif output_dir/ --max-segments 6 --jobs -1   # years from the band names, or --start-year
+```
+
+See the [CLI reference](https://sacridini.github.io/zeit-cdts/cli/) for the full list of subcommands and options.
+
+## Many Tiles on Several Computers
+
+A folder of tiles runs on this computer and on any computer of the local network that lends itself, with one command on each and no cluster to set up. Finished tiles are kept, so an interrupted run continues where it stopped.
+
+```bash
+zeit helpers invite                                  # once, on the computer with the tiles: shows a code
+zeit worker --join K7QM-2XDP                         # once, on each helper; from then on just `zeit worker`
+
+zeit landtrendr nbr_tiles/ lt_out/ --helpers         # here and on the helpers
+zeit landtrendr nbr_tiles/ lt_out/ --helpers --no-local   # only on the helpers: this computer stays free
+```
+
+```python
+zeit.run_tiles("landtrendr", "nbr_tiles/", "lt_out/", helpers=True, max_segments=6)
+```
+
+Helpers pull tiles as they free up (fetching the next while processing one), read them straight from a NAS when they see the same file (and write their results there), receive the others compressed, keep what they received for the next run, and only run zeit's own commands over an authenticated, encrypted connection. Tiles can also be recipes that every computer downloads or builds for itself: `zeit.tile_urls`, `zeit.stac_tiles` (annual composites from STAC), `zeit.gee_tiles` (from Earth Engine). The run says when the network, not the processors, is what limits it. See [Many tiles on several computers](https://sacridini.github.io/zeit-cdts/tutorials/parallel-cloud-processing/#many-tiles-on-several-computers).
+
+---
+
+## Architecture & Threading Safety
+
+Zeit safely blends Python-based distributed workflows (Dask) with highly parallel Rust routines:
+- **Multi-core CPU Scaling**: All compiled algorithms expose the `n_jobs` parameter, and default to it (`n_jobs=-1`) in their Python entry points. One rule counts the threads of `n_jobs=-1`, in Python and in the core alike: `ZEIT_NUM_THREADS` when it is set, else `OMP_NUM_THREADS`, else the processors this process may run on (its affinity and the cgroup quota a scheduler or container sets, with the job's `SLURM_CPUS_PER_TASK`, `SLURM_CPUS_ON_NODE`, `NCPUS` or `LSB_DJOB_NUMPROC` where a cluster does not confine its jobs). On a desktop one of them is kept free so the system stays responsive; in a job of Slurm, PBS or LSF, or when the process is confined to fewer than the machine has, all of them are used; on a machine several users are logged in to at once (Remote Desktop, SSH), they are divided among them, and a cluster's login node gets at most 4. `zeit config threads N` keeps a count for the user without an environment variable. A cluster's modules often export `OMP_NUM_THREADS=1`: zeit warns once when it leaves a job's processors idle. Pass an explicit positive integer to use a specific thread count instead. `zeit doctor` prints the count and where it comes from.
+- **Memory Footprint**: Algorithms like TWDTW are strictly optimized via a 2-Row Dynamic Programming algorithm, restricting mathematical matrices to the CPU's L1 cache and avoiding heavy allocations.
+- **Cross-Platform Compatibility**: The same Rust core, multi-threaded, on Windows, Linux and macOS. Its threads are its own (rayon and teams kept between calls), so it needs no OpenMP runtime and does not clash with PyTorch's.
+
+---
+
+## Versioning
+
+From 1.0, Zeit follows [semantic versioning](https://semver.org/): a minor version adds features, a patch fixes bugs, and neither changes what an existing call returns. A function or argument to be removed first warns with a `DeprecationWarning` for at least one minor version, and only goes in the next major version.
+
+---
+
+## License
+
+Zeit is free software, licensed under the [GNU General Public License v2.0 or later](https://github.com/sacridini/zeit-cdts/blob/main/LICENSE) (`GPL-2.0-or-later`). Several algorithms are ports of existing open-source implementations (bfast, strucchangeRcpp, GLMnet, pymannkendall, GERSL/CCDC, ...); their origins, licenses and copyright notices are listed in [THIRD_PARTY_NOTICES.md](https://github.com/sacridini/zeit-cdts/blob/main/THIRD_PARTY_NOTICES.md). Because the CCDC lasso solver derives from GPL-2.0-only code, the compiled extension as a whole is distributed under GPL version 2.

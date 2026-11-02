@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli.capabilities import UnrecognizedAgentSourceWarning, agent_source
+from probe.cli.wizard.state.agent_identity import UnrecognizedAgentSourceWarning, agent_source
 
 ENV = "PROBE_AGENT"
 

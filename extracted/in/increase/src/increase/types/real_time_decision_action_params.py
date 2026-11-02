@@ -1,0 +1,339 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Literal, Required, TypedDict
+
+__all__ = [
+    "RealTimeDecisionActionParams",
+    "CardAuthentication",
+    "CardAuthenticationChallenge",
+    "CardAuthenticationChallengeSuccess",
+    "CardAuthorization",
+    "CardAuthorizationApproval",
+    "CardAuthorizationApprovalCardholderAddressVerificationResult",
+    "CardAuthorizationDecline",
+    "CardBalanceInquiry",
+    "CardBalanceInquiryApproval",
+    "DigitalWalletAuthentication",
+    "DigitalWalletAuthenticationSuccess",
+    "DigitalWalletToken",
+    "DigitalWalletTokenApproval",
+    "DigitalWalletTokenDecline",
+]
+
+
+class RealTimeDecisionActionParams(TypedDict, total=False):
+    card_authentication: CardAuthentication
+    """
+    If the Real-Time Decision relates to a 3DS card authentication attempt, this
+    object contains your response to the authentication.
+    """
+
+    card_authentication_challenge: CardAuthenticationChallenge
+    """
+    If the Real-Time Decision relates to 3DS card authentication challenge delivery,
+    this object contains your response.
+    """
+
+    card_authorization: CardAuthorization
+    """
+    If the Real-Time Decision relates to a card authorization attempt, this object
+    contains your response to the authorization.
+    """
+
+    card_balance_inquiry: CardBalanceInquiry
+    """
+    If the Real-Time Decision relates to a card balance inquiry attempt, this object
+    contains your response to the inquiry.
+    """
+
+    digital_wallet_authentication: DigitalWalletAuthentication
+    """
+    If the Real-Time Decision relates to a digital wallet authentication attempt,
+    this object contains your response to the authentication.
+    """
+
+    digital_wallet_token: DigitalWalletToken
+    """
+    If the Real-Time Decision relates to a digital wallet token provisioning
+    attempt, this object contains your response to the attempt.
+    """
+
+
+class CardAuthentication(TypedDict, total=False):
+    """
+    If the Real-Time Decision relates to a 3DS card authentication attempt, this object contains your response to the authentication.
+    """
+
+    decision: Required[Literal["approve", "challenge", "deny"]]
+    """Whether the card authentication attempt should be approved or declined.
+
+    - `approve` - Approve the authentication attempt without triggering a challenge.
+    - `challenge` - Request further validation before approving the authentication
+      attempt.
+    - `deny` - Deny the authentication attempt.
+    """
+
+
+class CardAuthenticationChallengeSuccess(TypedDict, total=False):
+    """
+    If your application was able to deliver the one-time code, this contains metadata about the delivery.
+    """
+
+    email: str
+    """The email address that was used to deliver the one-time code to the cardholder."""
+
+    phone: str
+    """
+    The phone number that was used to deliver the one-time code to the cardholder
+    via SMS.
+    """
+
+
+class CardAuthenticationChallenge(TypedDict, total=False):
+    """
+    If the Real-Time Decision relates to 3DS card authentication challenge delivery, this object contains your response.
+    """
+
+    result: Required[Literal["success", "failure"]]
+    """
+    Whether the card authentication challenge was successfully delivered to the
+    cardholder.
+
+    - `success` - Your application successfully delivered the one-time code to the
+      cardholder.
+    - `failure` - Your application was unable to deliver the one-time code to the
+      cardholder.
+    """
+
+    success: CardAuthenticationChallengeSuccess
+    """
+    If your application was able to deliver the one-time code, this contains
+    metadata about the delivery.
+    """
+
+
+class CardAuthorizationApprovalCardholderAddressVerificationResult(TypedDict, total=False):
+    """Your decisions on whether or not each provided address component is a match.
+
+    Your response here is evaluated against the customer's provided `postal_code` and `line1`, and an appropriate network response is generated. For more information, see our [Address Verification System Codes and Overrides](https://increase.com/documentation/address-verification-system-codes-and-overrides) guide.
+    """
+
+    line1: Required[Literal["match", "no_match"]]
+    """Your decision on the address line of the provided address.
+
+    - `match` - The cardholder address verification result matches the address
+      provided by the merchant.
+    - `no_match` - The cardholder address verification result does not match the
+      address provided by the merchant.
+    """
+
+    postal_code: Required[Literal["match", "no_match"]]
+    """Your decision on the postal code of the provided address.
+
+    - `match` - The cardholder address verification result matches the address
+      provided by the merchant.
+    - `no_match` - The cardholder address verification result does not match the
+      address provided by the merchant.
+    """
+
+
+class CardAuthorizationApproval(TypedDict, total=False):
+    """
+    If your application approves the authorization, this contains metadata about your decision to approve. Your response here is advisory to the acquiring bank. The bank may choose to reverse the authorization if you approve the transaction but indicate the address does not match.
+    """
+
+    cardholder_address_verification_result: CardAuthorizationApprovalCardholderAddressVerificationResult
+    """Your decisions on whether or not each provided address component is a match.
+
+    Your response here is evaluated against the customer's provided `postal_code`
+    and `line1`, and an appropriate network response is generated. For more
+    information, see our
+    [Address Verification System Codes and Overrides](https://increase.com/documentation/address-verification-system-codes-and-overrides)
+    guide.
+    """
+
+    partial_amount: int
+    """
+    If the transaction supports partial approvals
+    (`partial_approval_capability: supported`) the `partial_amount` can be provided
+    in the transaction's settlement currency to approve a lower amount than was
+    requested.
+    """
+
+
+class CardAuthorizationDecline(TypedDict, total=False):
+    """
+    If your application declines the authorization, this contains details about the decline.
+    """
+
+    reason: Required[
+        Literal[
+            "insufficient_funds",
+            "transaction_never_allowed",
+            "exceeds_approval_limit",
+            "card_temporarily_disabled",
+            "suspected_fraud",
+            "additional_customer_authentication_required",
+            "other",
+        ]
+    ]
+    """The reason the card authorization was declined.
+
+    This translates to a specific decline code that is sent to the card network.
+
+    - `insufficient_funds` - The cardholder does not have sufficient funds to cover
+      the transaction. The merchant may attempt to process the transaction again.
+    - `transaction_never_allowed` - This type of transaction is not allowed for this
+      card. This transaction should not be retried.
+    - `exceeds_approval_limit` - The transaction amount exceeds the cardholder's
+      approval limit. The merchant may attempt to process the transaction again.
+    - `card_temporarily_disabled` - The card has been temporarily disabled or not
+      yet activated. The merchant may attempt to process the transaction again.
+    - `suspected_fraud` - The transaction is suspected to be fraudulent. The
+      merchant may attempt to process the transaction again.
+    - `additional_customer_authentication_required` - Additional customer
+      authentication is required to complete the transaction, such as 3DS.
+    - `other` - The transaction was declined for another reason. The merchant may
+      attempt to process the transaction again. This should be used sparingly.
+    """
+
+
+class CardAuthorization(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    If the Real-Time Decision relates to a card authorization attempt, this object contains your response to the authorization.
+    """
+
+    decision: Required[Literal["approve", "decline"]]
+    """Whether the card authorization should be approved or declined.
+
+    - `approve` - Approve the authorization.
+    - `decline` - Decline the authorization.
+    """
+
+    approval: CardAuthorizationApproval
+    """
+    If your application approves the authorization, this contains metadata about
+    your decision to approve. Your response here is advisory to the acquiring bank.
+    The bank may choose to reverse the authorization if you approve the transaction
+    but indicate the address does not match.
+    """
+
+    decline: CardAuthorizationDecline
+    """
+    If your application declines the authorization, this contains details about the
+    decline.
+    """
+
+
+class CardBalanceInquiryApproval(TypedDict, total=False):
+    """
+    If your application approves the balance inquiry, this contains metadata about your decision to approve.
+    """
+
+    balance: Required[int]
+    """The balance on the card in the settlement currency of the transaction."""
+
+
+class CardBalanceInquiry(TypedDict, total=False):
+    """
+    If the Real-Time Decision relates to a card balance inquiry attempt, this object contains your response to the inquiry.
+    """
+
+    decision: Required[Literal["approve", "decline"]]
+    """Whether the card balance inquiry should be approved or declined.
+
+    - `approve` - Approve the authorization.
+    - `decline` - Decline the authorization.
+    """
+
+    approval: CardBalanceInquiryApproval
+    """
+    If your application approves the balance inquiry, this contains metadata about
+    your decision to approve.
+    """
+
+
+class DigitalWalletAuthenticationSuccess(TypedDict, total=False):
+    """
+    If your application was able to deliver the one-time passcode, this contains metadata about the delivery. Exactly one of `phone` or `email` must be provided.
+    """
+
+    email: str
+    """The email address that was used to verify the cardholder via one-time passcode."""
+
+    phone: str
+    """
+    The phone number that was used to verify the cardholder via one-time passcode
+    over SMS.
+    """
+
+
+class DigitalWalletAuthentication(TypedDict, total=False):
+    """
+    If the Real-Time Decision relates to a digital wallet authentication attempt, this object contains your response to the authentication.
+    """
+
+    result: Required[Literal["success", "failure"]]
+    """Whether your application was able to deliver the one-time passcode.
+
+    - `success` - Your application successfully delivered the one-time passcode to
+      the cardholder.
+    - `failure` - Your application failed to deliver the one-time passcode to the
+      cardholder.
+    """
+
+    success: DigitalWalletAuthenticationSuccess
+    """
+    If your application was able to deliver the one-time passcode, this contains
+    metadata about the delivery. Exactly one of `phone` or `email` must be provided.
+    """
+
+
+class DigitalWalletTokenApproval(TypedDict, total=False):
+    """
+    If your application approves the provisioning attempt, this contains metadata about the digital wallet token that will be generated.
+    """
+
+    email: str
+    """
+    An email address that can be used to verify the cardholder via one-time
+    passcode.
+    """
+
+    phone: str
+    """
+    A phone number that can be used to verify the cardholder via one-time passcode
+    over SMS.
+    """
+
+
+class DigitalWalletTokenDecline(TypedDict, total=False):
+    """
+    If your application declines the provisioning attempt, this contains details about the decline.
+    """
+
+    reason: str
+    """Why the tokenization attempt was declined.
+
+    This is for logging purposes only and is not displayed to the end-user.
+    """
+
+
+class DigitalWalletToken(TypedDict, total=False):
+    """
+    If the Real-Time Decision relates to a digital wallet token provisioning attempt, this object contains your response to the attempt.
+    """
+
+    approval: DigitalWalletTokenApproval
+    """
+    If your application approves the provisioning attempt, this contains metadata
+    about the digital wallet token that will be generated.
+    """
+
+    decline: DigitalWalletTokenDecline
+    """
+    If your application declines the provisioning attempt, this contains details
+    about the decline.
+    """

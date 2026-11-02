@@ -137,6 +137,14 @@ class DrainReport:
     #: kept in ``dead_letters.json`` (`Journal.recent_dead_letters`) so a
     #: training process can say so while it runs (plan 1.7).
     dead_letter_records: list = field(default_factory=list)
+    #: Ops a drainer's collect window held this pass (`window.CollectWindow`): queued until
+    #: their run's `send_after`, never attempted, never failed. Counted in ``remaining``.
+    deferred: int = 0
+    #: Seconds until the soonest held run may send, or None when the window held nothing.
+    send_in: float | None = None
+    #: What each held run holds, by lane: a `LaneLoad`, so a drainer's sleep wakes early once
+    #: new writes fill a POST (`CollectWindow.wait`).
+    deferred_loads: dict = field(default_factory=dict)
 
     @property
     def clean(self) -> bool:
@@ -151,18 +159,9 @@ class DrainReport:
 
 
 class CredentialNotHere(OpHeldHere):
-    """This drainer holds no credential it may deliver the op with.
-
-    Not a failure of the op: it stays queued, untouched, for a process that holds that
-    credential (the writer's own ``flush()``/``finish()`` or exporter, or a worker started with
-    the same ``PROBE_TOKEN``). Delivering it with whatever credential IS here would write it as
-    someone else (#2035).
-
-    ``permanent``: no credential on this machine will match it as things stand (a stored
-    login's write whose account is unknown, or another account's, #2041 round 4). Only those
-    are dropped by `probe outbox discard --held`; another job's `PROBE_TOKEN` writes are that
-    job's to send.
-    """
+    """This drainer holds no credential it may send the op with (#2035): the op stays queued,
+    untouched, for a process that does. ``permanent``: none on this machine will match it as things
+    stand (#2041 round 4); only those go with `probe outbox discard --held`."""
 
     def __init__(self, message: str = "", *, permanent: bool = False):
         super().__init__(message)

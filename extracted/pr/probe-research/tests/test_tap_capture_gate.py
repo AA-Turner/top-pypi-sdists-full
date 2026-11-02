@@ -122,7 +122,7 @@ def test_a_switch_that_is_there_and_cannot_be_read_now_reads_off(state, tmp_path
 
 def test_the_session_marker_and_this_gate_name_the_same_gap_file_and_format(state):
     from probe.sdk import session_marker
-    from probe.service import capture_gate as service_gate
+    from probe.service.sessions import capture_gate as service_gate
 
     assert tg.GAP_FILE_SUFFIX == session_marker.GAPS_SUFFIX == service_gate.GAP_FILE_SUFFIX
     assert tg.GAP_FILE_VERSION == service_gate.GAP_FILE_VERSION and tg.MAX_GAPS == service_gate.MAX_GAPS

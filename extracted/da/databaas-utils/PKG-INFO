@@ -1,0 +1,134 @@
+Metadata-Version: 2.4
+Name: databaas-utils
+Version: 0.6.0
+Summary: Lakekeeper/Iceberg lakehouse access for Databaas: catalog, remote-signed object storage, and Airflow integration.
+Keywords: iceberg,lakekeeper,airflow,lakehouse,pyiceberg
+Author: databaas-application-team
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Dist: requests>=2.32,<3
+Requires-Dist: pylakekeeper>=0.1,<1
+Requires-Dist: databaas-utils[iceberg,obstore,jwt] ; extra == 'airflow'
+Requires-Dist: databaas-utils[iceberg,obstore,zarr,jwt,login,deploy] ; extra == 'all'
+Requires-Dist: pyyaml>=6,<7 ; extra == 'deploy'
+Requires-Dist: boto3>=1.35,<2 ; extra == 'deploy'
+Requires-Dist: pyiceberg[pyarrow,s3fs]>=0.11,<0.12 ; extra == 'iceberg'
+Requires-Dist: pyjwt[crypto]>=2.9,<3 ; extra == 'jwt'
+Requires-Dist: databaas-utils[iceberg,obstore,zarr,login] ; extra == 'local'
+Requires-Dist: keyring>=25,<26 ; extra == 'login'
+Requires-Dist: filelock>=3.13,<4 ; extra == 'login'
+Requires-Dist: obstore-databaas>=0.12.1,<0.13 ; extra == 'obstore'
+Requires-Dist: databaas-utils[obstore] ; extra == 'zarr'
+Requires-Dist: zarr>=3.3,<4 ; extra == 'zarr'
+Requires-Python: >=3.12
+Provides-Extra: airflow
+Provides-Extra: all
+Provides-Extra: deploy
+Provides-Extra: iceberg
+Provides-Extra: jwt
+Provides-Extra: local
+Provides-Extra: login
+Provides-Extra: obstore
+Provides-Extra: zarr
+Description-Content-Type: text/markdown
+
+# databaas-utils
+
+Lakekeeper/Iceberg lakehouse access for Databaas: catalog, remote-signed object storage,
+an Airflow integration, and user access from notebooks — in JupyterHub or on a laptop.
+
+## Notebooks
+
+```python
+from databaas_utils.user import get_catalog, get_store, get_zarr_group
+
+catalog = get_catalog()
+catalog.load_table("open_meteo.daily_summary").scan(limit=10).to_arrow()
+
+group = get_zarr_group("harmonie_zarr", namespace="knmi", read_only=True)
+```
+
+`databaas_utils.user` authenticates as the person running the code and picks how by
+itself (`databaas_utils.notebook`, its former name, still works):
+
+- **In a Databaas JupyterHub pod** it asks the hub for the logged-in user's access token
+  (`GET /hub/api/oauth-token`, using the `JUPYTERHUB_API_URL`/`JUPYTERHUB_API_TOKEN` every
+  singleuser pod has). The catalog is `CATALOG_URI` (default `http://lakekeeper:8181`) and
+  the warehouse `LAKEKEEPER_WAREHOUSE` (default `databaas-lakehouse`).
+- **Anywhere else** it uses the session saved by `databaas login` (below).
+
+So the same notebook runs on the platform and on a laptop. Pass `profile=` to force a
+`databaas login` profile, or `warehouse=` to override the warehouse. DAGs must not use this
+module — a task authenticates through its Airflow connection (`databaas_utils.airflow`).
+
+## Local (analyst) quickstart
+
+```bash
+pip install "databaas-utils[local]"
+databaas login https://<your-databaas-domain> --profile <name>
+```
+
+The URL is the portal's address; the Zitadel (`auth.`) and catalog (`catalog.`) addresses
+are derived from it, and the portal serves the client id. `databaas login` opens a browser
+to sign in with your own identity and saves the profile, with the session in your OS
+keychain. [Laptop login](docs/local-login.md) explains every flag.
+
+```python
+from databaas_utils import LakehouseSettings, rest_catalog
+
+settings = LakehouseSettings.from_profile()  # picks up the login from `databaas login`
+catalog = rest_catalog(settings)
+catalog.list_namespaces()
+```
+
+`resolve()`/`GenericTableStore`/`open_zarr_group()` work the same way once you have
+`settings` — see their docstrings. An admin still has to grant your Lakekeeper user
+(`databaas whoami` shows its id, `oidc~<sub>`) access to a warehouse before any of this
+returns data.
+
+Useful commands:
+
+| Command | What it does |
+|---|---|
+| `databaas login URL` | Log in and save a profile |
+| `databaas whoami` | Show the signed-in email and Lakekeeper user id |
+| `databaas token` | Print a fresh access token (e.g. for `curl`, DuckDB) |
+| `databaas logout` | Revoke and forget the cached login |
+| `databaas profile list` / `databaas profile use NAME` | Manage saved profiles |
+
+Several environments can be configured at once as named profiles in
+`~/.config/databaas/config.toml`; select one with `--profile NAME` or `DATABAAS_PROFILE`.
+
+## Deploying DAGs
+
+CI deploys a repo's Airflow code with `databaas dag deploy`, driven by the repo's
+`databaas.yml`. It uses the environment's DAG deployment key from the repository secrets,
+so it needs no login:
+
+```bash
+pip install "databaas-utils[deploy]"
+AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
+AWS_ENDPOINT_URL=https://s3.nl-ams.scw.cloud DATABAAS_DAGS_BUCKET=<metadata bucket> \
+  databaas dag deploy -t prod
+```
+
+`databaas dag validate -t prod` parses the DAGs with Airflow first, exactly as they
+would be deployed. It needs Airflow installed, not the key.
+
+A `development` target deploys under the branch name, with the repo's top-level packages
+renamed so two branches cannot collide. `databaas dag destroy -t dev` removes it again.
+Deploying with your own `databaas login`, through Lakekeeper and without S3 keys, is coming.
+[Deploying DAGs](docs/dags.md) has the config, the variables and CI examples.
+
+## Documentation
+
+Guides and the full API reference live in [`docs/`](docs/index.md). Setting up a
+pipeline's Airflow connection is covered in the Databaas documentation:
+[Creating an Airflow service account](https://docs.databaas.eu/pipelines/service-account). Preview the package docs with:
+
+```bash
+uv run --group docs --all-extras mkdocs serve
+```
+
+Every public function and class also carries a docstring with arguments, errors and an
+example, so your editor shows the same content on hover and `help(...)` works in a notebook.

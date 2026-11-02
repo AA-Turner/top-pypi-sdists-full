@@ -1,0 +1,718 @@
+"""The `delete_file` Tier 2 op: trash a file with safety rails.
+
+Deletes are NEVER permanent at this layer. The file is moved to
+`Knowledge Base/_trash/YYYY-MM-DD/HHMMSS-<sanitized-original-path>.md`
+alongside a `.meta.json` sidecar capturing the original location,
+timestamp, inbound link count at trash, and which force-flags were used.
+Recovery is `move_file` from the trash path back to the original.
+Permanent removal happens desk-side via `rm Knowledge Base/_trash/...`.
+
+The trash semantics are deliberate: an LLM-driven workflow shouldn't be
+able to lose data even when it's persuaded (or confused) into pressing
+"delete". The guards (`confirm=true`, `force_orphan`, `force_superseded`,
+`allow_curated`) stay — they still mark the action as deliberate even
+when it's reversible.
+
+Refuses Sources/ and Evidence/ (append-only). Curated trees need
+`allow_curated=true`. Trash items themselves can't be re-deleted via
+this op (they're already trashed); use the filesystem.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import hashlib
+import json
+import logging
+import time
+from contextlib import ExitStack
+from dataclasses import dataclass
+from pathlib import Path
+
+from . import held_fs, media_types, originals, reserved_paths, semantic_contract, trash_metadata
+from .governance import catalog_publication, graph_producer, lifecycle
+from .kbdir import kb_dirname, kb_prefix
+from .trash_metadata import METADATA_SUFFIX, TRASH_SUBPATH
+from .vault import (
+    VaultPathError,
+    batch_atomic_write,
+    find_inbound_wikilinks,
+    in_append_only_tree,
+    in_curated_tree,
+    kb_root,
+    parse_frontmatter,
+    plan_log_entry,
+    resolve_under_vault,
+    write_log_entry,
+)
+
+log = logging.getLogger(__name__)
+
+
+
+@dataclass
+class DeleteFileResult:
+    path: str
+    trash_path: str
+    trash_meta_path: str
+    inbound_link_count: int
+    inbound_ignored_count: int
+    warnings: list[str]
+    index: dict | None = None
+
+    def as_dict(self) -> dict:
+        return {
+            "path": self.path,
+            "trash_path": self.trash_path,
+            "trash_meta_path": self.trash_meta_path,
+            "inbound_link_count": self.inbound_link_count,
+            "inbound_ignored_count": self.inbound_ignored_count,
+            "warnings": self.warnings,
+            "index": self.index,
+        }
+
+
+@dataclass
+class DeleteFileError(Exception):
+    code: str
+    reason: str
+
+    def as_dict(self) -> dict:
+        return {"code": self.code, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class DeleteFileValidation:
+    """Private exact rename manifest from the canonical delete guard path."""
+
+    result: DeleteFileResult
+    content_hash: str
+
+
+def delete_file(
+    vault_root: Path,
+    *,
+    path: str,
+    confirm: bool,
+    force_orphan: bool = False,
+    force_superseded: bool = False,
+    allow_curated: bool = False,
+    expected_dead_inbound: list[str] | None = None,
+    today: dt.date | None = None,
+    now: dt.datetime | None = None,
+    validate_only: bool = False,
+    expected_hash: str | None = None,
+) -> DeleteFileResult | DeleteFileValidation:
+    with ExitStack() as originals_context:
+        return _delete_file_local(vault_root, path=path, confirm=confirm, force_orphan=force_orphan, force_superseded=force_superseded, allow_curated=allow_curated, expected_dead_inbound=expected_dead_inbound, today=today, now=now, validate_only=validate_only, expected_hash=expected_hash, originals_context=originals_context)
+
+
+def _delete_file_local(
+    vault_root: Path,
+    *,
+    path: str,
+    confirm: bool,
+    force_orphan: bool = False,
+    force_superseded: bool = False,
+    allow_curated: bool = False,
+    expected_dead_inbound: list[str] | None = None,
+    today: dt.date | None = None,
+    now: dt.datetime | None = None,
+    validate_only: bool = False,
+    expected_hash: str | None = None,
+    originals_context: ExitStack,
+) -> DeleteFileResult | DeleteFileValidation:
+    if not confirm:
+        raise DeleteFileError(
+            code="UNCONFIRMED",
+            reason=(
+                "delete_file requires `confirm=true` explicitly. "
+                f"Deletes go to {kb_prefix()}_trash/ (recoverable) but the "
+                "action is still deliberate. Supersession via `replace` is "
+                "the preferred path for compiled material (SKILL.md rule 6)."
+            ),
+        )
+
+    evicted_original = None
+    try:
+        abs_path, rel_path = resolve_under_vault(
+            vault_root, path, must_exist=True, must_be_file=True, refuse_withheld=True
+        )
+    except VaultPathError as e:
+        if e.code != "NOT_FOUND" or originals.binding_for(vault_root) is None:
+            raise DeleteFileError(code=e.code, reason=e.reason) from e
+        try:
+            abs_path, rel_path = resolve_under_vault(vault_root, path, must_be_file=True)
+            evicted_original = originals.original_state(vault_root, abs_path)
+        except (VaultPathError, reserved_paths.ReservedPathLeafError):
+            raise DeleteFileError(code=e.code, reason=e.reason) from None
+        from .governance import egress
+
+        visible = egress.restricted_release_filter(vault_root)
+        if evicted_original.state != "evicted" or (visible is not None and not visible(rel_path)):
+            raise DeleteFileError(code=e.code, reason=e.reason) from e
+    try:
+        if evicted_original is None:
+            reserved_paths.inspect_generic_file(vault_root, rel_path)
+    except reserved_paths.ReservedPathLeafError as error:
+        if error.code in {
+            "CAPABILITY_UNAVAILABLE",
+            "IDENTITY_CHANGED",
+            "RESERVED_PATH",
+            "UNSAFE_PATH",
+        }:
+            raise DeleteFileError(
+                "RESERVED_PATH",
+                "path is reserved for its owning subsystem",
+            ) from None
+        raise DeleteFileError(
+            "DELETE_FAILED", "held file acquisition was refused"
+        ) from None
+    from .collection_store import authority as collection_authority
+
+    collection_authority.refuse_view_paths(vault_root, (rel_path,), DeleteFileError)
+
+    try:
+        lifecycle.assert_not_protected(vault_root, rel_path)
+    except lifecycle.LifecycleError as error:
+        raise DeleteFileError(code=error.code, reason=error.reason) from error
+
+    # Trash items can't be re-trashed.
+    parts = rel_path.split("/")
+    if len(parts) >= 2 and parts[0] == kb_dirname() and parts[1] == TRASH_SUBPATH:
+        raise DeleteFileError(
+            code="ALREADY_TRASHED",
+            reason=(
+                f"{rel_path} is already in {TRASH_SUBPATH}/. To recover, "
+                f"use `move_file`. To permanently remove, do it filesystem-side."
+            ),
+        )
+
+    append_only = in_append_only_tree(rel_path)
+    if append_only:
+        raise DeleteFileError(
+            code="APPEND_ONLY",
+            reason=(
+                f"{rel_path} is in {append_only}/ which is append-only "
+                f"(SKILL.md rule 2). Deletions are forbidden — supersede instead."
+            ),
+        )
+
+    curated = in_curated_tree(rel_path)
+    if curated and not allow_curated:
+        raise DeleteFileError(
+            code="CURATED_PROTECTED",
+            reason=(
+                f"{rel_path} is in curated tree {curated!r} (desk-managed). "
+                f"Pass `allow_curated=true` only if you really mean it."
+            ),
+        )
+
+    stored_original = None
+    if originals.binding_for(vault_root) is not None and not originals.is_note_path(rel_path):
+        candidate = originals.original_state(vault_root, rel_path)
+        if candidate.reference is not None:
+            stored_original = candidate
+
+    # Supersession history check.
+    fm: dict = {}
+    fm_warn: str | None = None
+    catalog_before_hash: str | None = None
+    # The page as it stood, so the Sources it cited are re-judged once it is gone.
+    prior_markdown: str | None = None
+    if rel_path.lower().endswith(".md"):
+        try:
+            snapshot = reserved_paths.read_generic_bytes(vault_root, rel_path)
+            catalog_before_hash = hashlib.sha256(snapshot.data).hexdigest()
+            text = snapshot.data.decode("utf-8")
+            prior_markdown = text
+            fm, _, _ = parse_frontmatter(text)
+            if fm.get("superseded_by") and not force_superseded:
+                raise DeleteFileError(
+                    code="SUPERSEDED_HISTORY",
+                    reason=(
+                        f"{rel_path} has `superseded_by:` set — it's part of "
+                        f"the supersession chain. Trashing it breaks the "
+                        f"chain. Pass `force_superseded=true` to override."
+                    ),
+                )
+            if fm.get("status") == "active" and fm.get("type") == "entity":
+                fm_warn = (
+                    f"trashed active entity {rel_path!r} — consider "
+                    f"archiving via supersession instead."
+                )
+        except reserved_paths.ReservedPathLeafError as error:
+            if error.code == "MISSING":
+                raise DeleteFileError(
+                    "NOT_FOUND",
+                    "path disappeared before it could be parsed",
+                ) from None
+            if error.code in {
+                "CAPABILITY_UNAVAILABLE",
+                "IDENTITY_CHANGED",
+                "RESERVED_PATH",
+                "UNSAFE_PATH",
+            }:
+                raise DeleteFileError(
+                    "RESERVED_PATH",
+                    "path is reserved for its owning subsystem",
+                ) from None
+            raise DeleteFileError(
+                "DELETE_FAILED",
+                "held file acquisition was refused",
+            ) from None
+        except UnicodeDecodeError:
+            pass
+
+    # Normalize expected_dead_inbound for filtering.
+    expected_set: set[str] = set()
+    if expected_dead_inbound:
+        for raw in expected_dead_inbound:
+            n = str(raw).strip().replace("\\", "/").lstrip("/")
+            if not n.endswith(".md"):
+                n = n + ".md"
+            if not n.startswith(kb_prefix()):
+                n = kb_prefix() + n
+            expected_set.add(n)
+
+    # Inbound-link check (with `expected_dead_inbound` filtering). For a
+    # writer other than the owner, only links from pages it may see are
+    # counted, listed and logged: a link from a page withheld from it, by a
+    # policy or by RAW, is orphaned as `force_orphan` would, and the owner's
+    # audit reports it.
+    from .governance import egress
+
+    visible = egress.restricted_release_filter(vault_root)
+    inbound_all = [
+        match
+        for match in find_inbound_wikilinks(vault_root, rel_path)
+        if visible is None or visible(match.path)
+    ]
+    inbound_ignored = [m for m in inbound_all if m.path in expected_set]
+    inbound = [m for m in inbound_all if m.path not in expected_set]
+
+    if inbound and not force_orphan:
+        sample = ", ".join(
+            f"{m.path}:{m.line_number}" for m in inbound[:3]
+        )
+        more = f" (+{len(inbound) - 3} more)" if len(inbound) > 3 else ""
+        raise DeleteFileError(
+            code="INBOUND_LINKS",
+            reason=(
+                f"{rel_path} has {len(inbound)} inbound wikilink(s) "
+                f"(after filtering {len(inbound_ignored)} expected-dead): "
+                f"{sample}{more}. Trashing would orphan those links. "
+                f"Pass `force_orphan=true` to override, or add the source "
+                f"file(s) to `expected_dead_inbound` if you're trashing "
+                f"them as part of the same workflow."
+            ),
+        )
+
+    warnings: list[str] = []
+    if fm_warn:
+        warnings.append(fm_warn)
+    if force_orphan and inbound:
+        warnings.append(
+            f"force_orphan=true: trashed with {len(inbound)} inbound link(s) "
+            f"still pointing here. Run `audit` to surface the new broken links."
+        )
+
+    # Move to trash.
+    now = now or dt.datetime.now()
+    today = today or now.date()
+    date_dir = now.strftime("%Y-%m-%d")
+    time_prefix = now.strftime("%H%M%S")
+    sanitized = rel_path.replace(kb_prefix(), "", 1).replace("/", "__")
+    trash_filename = trash_metadata.preserve_floor(rel_path, f"{time_prefix}-{sanitized}")
+    trash_dir = kb_root(vault_root) / TRASH_SUBPATH / date_dir
+    trash_abs = trash_dir / trash_filename
+
+    def trash_destination_exists(candidate: Path) -> bool:
+        relative = candidate.relative_to(vault_root).as_posix()
+        try:
+            reserved_paths.inspect_generic_path(vault_root, relative)
+        except reserved_paths.ReservedPathLeafError as error:
+            if error.code == "MISSING":
+                return False
+            if error.code in {
+                "CAPABILITY_UNAVAILABLE",
+                "IDENTITY_CHANGED",
+                "RESERVED_PATH",
+                "UNSAFE_PATH",
+            }:
+                raise DeleteFileError(
+                    "RESERVED_PATH",
+                    "trash destination is reserved for its owning subsystem",
+                ) from None
+            raise DeleteFileError(
+                "DELETE_FAILED", "trash destination could not be acquired safely"
+            ) from None
+        return True
+
+    def destination_taken(candidate: Path) -> bool:
+        return any(trash_destination_exists(slot) for slot in trash_metadata.destination_paths(candidate))
+
+    # Collision: never overwrite an existing ordinary trash entry, and never
+    # route around a private physical alias by selecting a different suffix.
+    if destination_taken(trash_abs):
+        i = 2
+        while True:
+            stem, dot, ext = trash_filename.rpartition(".")
+            if dot:
+                alt = f"{stem}-{i}.{ext}"
+            else:
+                alt = f"{trash_filename}-{i}"
+            alt_abs = trash_dir / alt
+            if not destination_taken(alt_abs):
+                trash_abs = alt_abs
+                trash_filename = alt
+                break
+            i += 1
+
+    trash_rel = trash_abs.relative_to(vault_root).as_posix()
+    meta_abs = trash_dir / f"{trash_filename}{METADATA_SUFFIX}"
+    meta_rel = meta_abs.relative_to(vault_root).as_posix()
+
+    if validate_only or expected_hash is not None:
+        try:
+            source_hash = (evicted_original.binary_sha256 if evicted_original is not None
+                           else hashlib.sha256(reserved_paths.read_generic_bytes(vault_root, rel_path).data).hexdigest())
+        except reserved_paths.ReservedPathLeafError as error:
+            raise DeleteFileError(
+                "DELETE_FAILED", "delete source changed during canonical validation"
+            ) from error
+        if expected_hash is not None and source_hash != expected_hash:
+            raise DeleteFileError("STALE_DELETE", "delete source changed since its preview")
+    if validate_only:
+        return DeleteFileValidation(
+            DeleteFileResult(
+                path=rel_path,
+                trash_path=trash_rel,
+                trash_meta_path=meta_rel,
+                inbound_link_count=len(inbound),
+                inbound_ignored_count=len(inbound_ignored),
+                warnings=list(warnings),
+            ),
+            source_hash,
+        )
+
+    today_iso = today.isoformat()
+    rel_no_ext = rel_path.removesuffix(".md") if rel_path.endswith(".md") else rel_path
+    log_body = (
+        f"Trashed {rel_path!r} → {trash_rel!r} via exomem Tier 2. "
+        f"inbound_links_at_trash={len(inbound_all)} "
+        f"(ignored={len(inbound_ignored)}, remaining={len(inbound)})."
+    )
+    if force_orphan:
+        log_body += " force_orphan=true."
+    if force_superseded:
+        log_body += " force_superseded=true."
+    if curated and allow_curated:
+        log_body += f" allow_curated=true (target tree: {curated})."
+    log_plan = plan_log_entry(
+        vault_root,
+        date_iso=today_iso,
+        op="delete_file (trash)",
+        rel_path_no_ext=rel_no_ext,
+        body=log_body,
+    )
+    def graph_replacement_provider():
+        graph_before_corpus = semantic_contract.build_corpus_context(vault_root)
+        return graph_producer.replacements_for_removed_markdown(
+            vault_root,
+            before_corpus=graph_before_corpus,
+            removed_paths=(rel_path,),
+            writes=log_plan.writes,
+        )
+
+    try:
+        catalog_target = catalog_publication.prepare_catalog_membership_batch(
+            vault_root,
+            writes=log_plan.writes,
+            removals=(
+                catalog_publication.CatalogRemoval(
+                    rel_path,
+                    catalog_before_hash,
+                ),
+            ),
+            graph_replacement_provider=(
+                graph_replacement_provider
+                if rel_path.lower().endswith(".md")
+                else None
+            ),
+            now=int(time.time()),
+        )
+    except catalog_publication.CatalogPublicationError as error:
+        raise DeleteFileError(
+            code="GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+            reason=str(error),
+        ) from error
+    from .media_store import local_originals
+
+    originals_context.enter_context(local_originals(vault_root, (rel_path,)))
+    from . import graph_sync
+
+    try:
+        transition = graph_sync.begin_deletion_transition(
+            vault_root,
+            source_rel=rel_path,
+            trash_rel=trash_rel,
+            removed_rel_paths=[rel_path] if rel_path.lower().endswith(".md") else [],
+        )
+    except lifecycle.LifecycleError as error:
+        raise DeleteFileError(code=error.code, reason=error.reason) from error
+    except graph_sync.GraphLifecycleEpochSetupError as error:
+        raise DeleteFileError(
+            code="GRAPH_SYNC_EPOCH_FAILED",
+            reason="could not establish the graph deletion epoch",
+        ) from error
+    except graph_sync.GraphLifecycleRollbackError as error:
+        raise DeleteFileError(
+            code="GRAPH_SYNC_DELETION_ROLLBACK_FAILED",
+            reason="the staged trash transition could not be restored",
+        ) from error
+    lifecycle_operation = transition.operation
+
+    # A preview of one object cannot authorize deleting a replacement; rename rechecks this manifest.
+    if expected_hash is not None and not any(
+        item.source_path == rel_path and item.content_hash == expected_hash
+        for item in lifecycle_operation.manifest
+    ):
+        transition.abort()
+        raise DeleteFileError("STALE_DELETE", "delete source changed since its preview")
+
+    # A removed CLIP-relevant media binary (image/video — the only kinds with
+    # derived-index residue: CLIP rows, and for a video, scene-frame children)
+    # also drops its scene-frame sidecar children (if any) via the same
+    # fan-out below — discover them now, before the fan-out physically removes
+    # them, so the self-delete suppression can cover them too. Other
+    # extractable-but-not-visual kinds (audio/pdf/docx/text/email/calendar)
+    # keep the prior behavior: their OCR/ASR text lives in a separate `.md`
+    # sidecar, not the binary, so deleting the binary alone leaves no CLIP or
+    # scene-frame residue to purge.
+    is_media = media_types.media_type_for(rel_path) in {"image", "video"}
+    frame_children: list[str] = []
+    if is_media:
+        from . import scene_frames
+
+        frame_children = scene_frames.list_scene_frame_children(vault_root, abs_path)
+
+    # Register the self-authored removal BEFORE the move so the watcher's
+    # delete event for the KB path is dropped (we purge the sidecar ourselves
+    # below). Harmless if the move then fails — the entry TTLs out.
+    # register_self_delete itself filters to `.md` paths, so a non-md binary
+    # rel_path here is a harmless no-op; the frame `.md` sidecars are what need
+    # suppressing.
+    suppress_rels = (
+        [rel_path] if rel_path.lower().endswith(".md") else []
+    ) + frame_children
+    if suppress_rels:
+        try:
+            from . import file_watcher
+
+            file_watcher.register_self_delete(vault_root, suppress_rels)
+        except Exception:  # noqa: BLE001 — suppression is best-effort
+            log.debug("self-delete suppression registration failed", exc_info=True)
+
+    meta = {
+        "original_path": rel_path,
+        "trashed_at": now.isoformat(),
+        "deleted_by": "exomem",
+        "inbound_link_count_at_trash": len(inbound_all),
+        "inbound_ignored_at_trash": [m.as_dict() for m in inbound_ignored],
+        "inbound_remaining_at_trash": [m.as_dict() for m in inbound],
+        "force_orphan_used": bool(force_orphan and inbound),
+        "force_superseded_used": bool(force_superseded and fm.get("superseded_by")),
+        "allow_curated_used": bool(curated and allow_curated),
+        "frontmatter_snapshot": _make_json_safe(fm),
+    }
+    metadata_bytes = json.dumps(meta, indent=2, default=str).encode("utf-8")
+    binary_placement_required = stored_original is not None and any(
+        item.source_path == rel_path and item.content_hash == stored_original.binary_sha256
+        and item.size == stored_original.binary_size for item in lifecycle_operation.manifest
+    )
+    # A stored companion needs durable placement to resolve its historical binary path in Trash.
+    placement_required = binary_placement_required or "stored_object" in fm
+    placement_files: list[tuple[str, bytes]] = [(meta_rel, metadata_bytes)] if placement_required else []
+    if binary_placement_required:
+        assert stored_original is not None and stored_original.reference is not None
+        assert stored_original.binary_sha256 is not None and stored_original.binary_size is not None
+        from .vault import render_frontmatter_document, serialize_frontmatter
+
+        # Only the exact bytes pinned by this reference can retain that version in Trash.
+        binding = originals.BinaryBinding(trash_rel, stored_original.binary_sha256, stored_original.binary_size)
+        fields = originals.reference_companion_fields(binding, stored_original.reference)
+        companion = originals.sidecar_path(Path(trash_rel)).as_posix()
+        companion_bytes = render_frontmatter_document(serialize_frontmatter(fields), "").encode("utf-8")
+        placement_files.append((companion, companion_bytes))
+    try:
+        with trash_metadata.preserve_placement(vault_root, transition, placement_files):
+            try:
+                transition.rename()
+            except lifecycle.LifecycleError as e:
+                try:
+                    transition.abort()
+                except graph_sync.GraphLifecycleRollbackError as rollback_error:
+                    raise DeleteFileError(
+                        code="GRAPH_SYNC_DELETION_ROLLBACK_FAILED",
+                        reason="the staged trash transition could not be restored",
+                    ) from rollback_error
+                raise DeleteFileError(
+                    code=e.code,
+                    reason=e.reason,
+                ) from e
+
+            try:
+                transition.publish_checkpoint()
+            except Exception as error:  # noqa: BLE001 - reverse caught transition
+                try:
+                    transition.abort()
+                except graph_sync.GraphLifecycleRollbackError as rollback_error:
+                    raise DeleteFileError(
+                        code="GRAPH_SYNC_DELETION_ROLLBACK_FAILED",
+                        reason="graph checkpoint failed and the trash transition could not be restored",
+                    ) from rollback_error
+                raise DeleteFileError(
+                    code="GRAPH_SYNC_CHECKPOINT_FAILED",
+                    reason="graph checkpoint failed; the trash transition was restored",
+                ) from error
+    except graph_sync.GraphLifecycleRollbackError as error:
+        raise DeleteFileError("GRAPH_SYNC_DELETION_ROLLBACK_FAILED", "Trash placement could not be restored") from error
+    except (OSError, held_fs.HeldFsError, reserved_paths.ReservedPathLeafError) as error:
+        raise DeleteFileError("DELETE_FAILED", "Trash placement could not be published") from error
+    from .writer_lease import mark_active_mutation_committed
+
+    mark_active_mutation_committed()
+
+    from .media_store import forget_original
+
+    # Explicit deletion retires the binding; cache eviction never calls here.
+    forget_original(vault_root, rel_path)
+
+    if prior_markdown is not None:
+        from . import due_state
+
+        due_state.refresh_after_writes(
+            vault_root, [due_state.PageWrite(rel_path, prior_markdown=prior_markdown)]
+        )
+
+    # Drop Markdown rows from the semantic index sidecars. A removed media
+    # binary (detected via media_types) also enters the fan-out — it purges
+    # the binary's own CLIP rows and (for a video) its scene-frame derivatives
+    # (index_sync.delete_after_remove). A non-.md, non-media path has an exact
+    # affected Markdown set of zero and must not enter fan-out.
+    index_feedback: dict | None = None
+    if rel_path.lower().endswith(".md") or is_media:
+        fanout_unverified = False
+        try:
+            from . import index_sync
+            raw_report = index_sync.delete_after_remove(vault_root, [rel_path])
+            report = (
+                raw_report
+                if isinstance(raw_report, index_sync.IndexSyncReport)
+                else index_sync.observed_delete_report([rel_path], degraded=False)
+            )
+            fanout_unverified = not isinstance(raw_report, index_sync.IndexSyncReport)
+        except Exception:  # noqa: BLE001 — sidecars are best-effort
+            log.exception("index delete failed for %s; sidecar may be stale", rel_path)
+            try:
+                graph_sync.register_outer_fanout_failure(vault_root)
+            except Exception:  # noqa: BLE001 - retain the canonical deletion and report reconcile
+                log.exception("graph fanout failure handoff could not be registered")
+            warnings.append(
+                "trash succeeded but derived-index cleanup failed; run reconcile"
+            )
+            report = index_sync.observed_delete_report([rel_path], degraded=True)
+        index_feedback = report.as_dict()
+        if fanout_unverified:
+            index_feedback["derived_work"] = "unverified"
+    else:
+        index_feedback = lifecycle.exact_no_derived_index_report(lifecycle_operation)
+
+    from .writer_lease import active_mutation_request_id
+
+    if active_mutation_request_id() is None:
+        from . import graph_sync
+
+        if graph_sync.registered_checkpoint(vault_root) is not None:
+            try:
+                if not graph_sync.join_registered_within_budget(vault_root):
+                    # Bounded like every other standalone join (D4). The
+                    # deletion is committed and the rebuild is still running;
+                    # saying so is not the same as saying it failed, and only
+                    # the second earns a reconcile.
+                    warnings.append(
+                        "trash succeeded; derived graph repair is still running in the background"
+                    )
+            except Exception:  # noqa: BLE001 - preserve committed deletion for reconcile
+                warnings.append("trash succeeded but graph publication failed; run reconcile")
+
+    if not placement_required:
+        try:
+            reserved_paths.publish_generic_bytes(vault_root, meta_rel, metadata_bytes, expected_identity=None)
+        except (OSError, reserved_paths.ReservedPathLeafError) as error:
+            warnings.append(f"trashed file ok but meta sidecar write failed: {error}")
+
+    if not lifecycle.finish_deletion(
+        lifecycle_operation, index_report=index_feedback
+    ):
+        warnings.append(
+            "trash succeeded but governed derived state is not exact; "
+            "content remains tombstoned until reconcile"
+        )
+
+    if catalog_target is not None:
+        try:
+            if log_plan.writes:
+                batch_atomic_write(log_plan.writes, vault_root=vault_root)
+            catalog_publication.publish_markdown_batch(catalog_target)
+        except Exception as error:  # noqa: BLE001 - canonical removal already committed
+            raise DeleteFileError(
+                code="GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+                reason=(
+                    "the file was trashed but its active catalog publication "
+                    "did not reach a verified terminal"
+                ),
+            ) from error
+
+    log_warning = log_plan.warning
+    if catalog_target is None:
+        log_warning = write_log_entry(
+            vault_root,
+            date_iso=today_iso,
+            op="delete_file (trash)",
+            rel_path_no_ext=rel_no_ext,
+            body=log_body,
+        )
+    if log_warning:
+        warnings.append(log_warning)
+
+    try:
+        trash_meta_rel = meta_abs.resolve().relative_to(vault_root.resolve()).as_posix()
+    except (ValueError, OSError):
+        trash_meta_rel = ""
+
+    return DeleteFileResult(
+        path=rel_path,
+        trash_path=trash_rel,
+        trash_meta_path=trash_meta_rel,
+        inbound_link_count=len(inbound),
+        inbound_ignored_count=len(inbound_ignored),
+        warnings=warnings,
+        index=index_feedback,
+    )
+
+
+def _make_json_safe(obj):
+    """Convert a frontmatter dict into something json.dumps can handle.
+
+    YAML loads date/datetime as native types; JSON doesn't serialize those
+    without a custom encoder. We coerce to ISO strings recursively.
+    """
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_make_json_safe(v) for v in obj]
+    if isinstance(obj, (dt.date, dt.datetime)):
+        return obj.isoformat()
+    return obj

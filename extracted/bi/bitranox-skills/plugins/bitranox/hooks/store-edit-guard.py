@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+"""PreToolUse(Edit|Write|MultiEdit|NotebookEdit) guard: the memory store is written ONLY by the engine.
+
+Two protected surfaces:
+  1. ANY path inside a store dir - the live `.claude-memory/` (slug-named bodies + .archive) or the
+     legacy `.claude-bx-selflearning/` (kept for downstream installs mid-transition) - except
+     `<live store>/OPEN-WORK.md`, the store's own backlog, which no engine verb writes.
+  2. The managed POINTER BLOCK inside any `CLAUDE.local.md` (both fence generations). The rest of a
+     `CLAUDE.local.md` is the user's own text and stays freely editable - the guard denies only an
+     edit that touches the fenced region, a write that changes/deletes it, or an edit/write that
+     injects fence markers by hand.
+
+The write path is `memory_engine.py` (via `run-python.sh`): add / amend-pinned / heal / set-scope /
+move / relocate / rename / retitle. It
+upserts by slug, enforces tree-unique slugs, renders the block canonically (recipe + pinned-first),
+takes a lock, and is mtime-neutral. A hand-write bypasses all of that AND makes the PostToolUse
+hooks churn the file every turn. The standing "engine, never a hand-write" rule is advisory prose
+that loses under momentum; this is the deterministic backstop. Denies apply to Task subagents too
+(PreToolUse fires on their tool calls - probe-verified), which is the dream-safety guarantee.
+
+Decision: BLOCK (exit 2; stderr reason feeds back to the MODEL, the user is not prompted) - UNLESS
+the env `BITRANOX_MEMORY_ENGINE` is set (a deliberate store-maintenance session opts out; the
+engine itself writes via Python `open()`, never Claude's tools, so it is never caught regardless.
+A shell `export` in a Bash call does NOT reach this hook - set the env at session launch).
+
+Fail-open: any parse/IO error -> allow (a broken guard must never wedge a turn). Pure standard
+library; launched via run-python.sh so it works on Windows too.
+"""
+import json
+import os
+import posixpath
+import re
+import sys
+from pathlib import Path
+
+try:
+    import uuid_store as _us
+    _FENCES = ((_us.INDEX_BEGIN, _us.INDEX_END),
+               (_us.LEGACY_INDEX_BEGIN, _us.LEGACY_INDEX_END))
+except Exception:  # noqa: BLE001 - keep guarding even if the sibling module cannot load
+    _FENCES = (
+        ("<!-- BITRANOX-MEMORY-INDEX:BEGIN managed by bitranox self-improve; do not hand-edit. -->",
+         "<!-- BITRANOX-MEMORY-INDEX:END -->"),
+        ("<!-- BITRANOX-UUID-INDEX:BEGIN managed by bitranox self-improve; do not hand-edit. -->",
+         "<!-- BITRANOX-UUID-INDEX:END -->"),
+    )
+# marker STEMS: an injected fence is denied even if hand-typed with different trailing prose
+_MARKER_STEMS = ("BITRANOX-MEMORY-INDEX:", "BITRANOX-UUID-INDEX:")
+
+# any path segment `.claude-memory/` (live store) or `.claude-bx-selflearning/` (legacy store)
+_STORE = re.compile(r"(?:^|/)(?:\.claude-memory|\.claude-bx-selflearning)/")
+_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+# the one hand-editable file in a store: the live store's own backlog (see _is_store_backlog)
+_LIVE_STORE = ".claude-memory"
+_BACKLOG = "OPEN-WORK.md"
+# a Windows drive-letter path is absolute even when this runs on POSIX
+_DRIVE = re.compile(r"^[A-Za-z]:/")
+_BYPASS_ENV = "BITRANOX_MEMORY_ENGINE"
+
+_DENY = (
+    "The memory store is written ONLY by the engine (hooks/memory_engine.py via run-python.sh): "
+    "capture with `add --proj <dir> --title ... --hook ... --body-file ...`, repair with `heal`, "
+    "re-level with `move`, rename a wrong slug with `rename`, fix a stale title with "
+    "`retitle`, set a descriptor with `set-scope`. "
+    "To rewrite an existing fact's hook or body use "
+    "`skills/meta-dream-tree/factedit.py apply --slug <slug> --body-file <f> [--hook-file <f>]`; "
+    "for several facts at once (a re-point across N facts) use "
+    "`skills/meta-dream-tree/factedit.py apply --batch <file.jsonl>` (one JSON object per line: "
+    "slug, body_file, hook_file, title, type, level), which validates every entry before writing "
+    "any - never a script that writes the store files directly. "
+    "Hand-editing %s bypasses the lock, "
+    "the canonical render, and tree-unique slug enforcement, and makes the PostToolUse hooks churn "
+    "the file. For a deliberate hand-repair session, relaunch with %s=1 set at session start "
+    "(a Bash `export` does not reach this hook). File: %s"
+)
+_UNPLACEABLE = (
+    "This CLAUDE.local.md is not valid UTF-8 and the edit's old_string cannot be located in it, so "
+    "the guard cannot tell whether the edit reaches the managed pointer block. Convert the file to "
+    "UTF-8, then retry the edit. File: %s"
+)
+
+
+def _block_spans(text):
+    """[(start, end)] of every managed pointer-block region in `text` (both fence generations).
+    A BEGIN without its END spans to the end of text (malformed blocks stay protected)."""
+    spans = []
+    for begin, end in _FENCES:
+        pos = 0
+        while True:
+            b = text.find(begin, pos)
+            if b < 0:
+                break
+            e = text.find(end, b)
+            e = len(text) if e < 0 else e + len(end)
+            spans.append((b, e))
+            pos = e
+    return spans
+
+
+def _block_region(text):
+    """The concatenated managed-block bytes of `text` (order-stable) - the invariant a Write must
+    preserve."""
+    return "\n".join(text[b:e] for b, e in sorted(_block_spans(text)))
+
+
+def _injects_marker(s):
+    return any(stem in (s or "") for stem in _MARKER_STEMS)
+
+
+def _overlaps_block(current, needle, spans):
+    """True when any occurrence of `needle` in `current` intersects a managed-block span."""
+    if not needle:
+        return False
+    pos = 0
+    while True:
+        i = current.find(needle, pos)
+        if i < 0:
+            return False
+        j = i + len(needle)
+        if any(b < j and i < e for b, e in spans):
+            return True
+        pos = i + 1
+
+
+def _read(path):
+    """(text, exact) of the file at `path`. A file that is not valid UTF-8 is decoded with
+    replacement characters and exact=False: the fence markers are ASCII and survive that, so the
+    block stays locatable, whereas treating the file as unreadable would drop every deny on it.
+    A UTF-16 BOM is honoured because the Edit/Write tools read and write UTF-16LE files too.
+
+    UTF-16 WITHOUT a BOM is deliberately not sniffed. Claude Code (2.1.289, every decode site)
+    reads FF FE as UTF-16LE and everything else as UTF-8, and the engine reads CLAUDE.local.md as
+    strict UTF-8, so in a BOM-less UTF-16 file no reader ever sees a block: Edit cannot match an
+    ASCII old_string against the NUL-interleaved text, and the engine and the context loader find
+    no pointers. Guessing the encoding here would protect bytes the rest of the system cannot read,
+    and steer the model to an engine that cannot see them either."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return "", True
+    codec = "utf-16" if data[:2] in (b"\xff\xfe", b"\xfe\xff") else "utf-8"
+    try:
+        text, exact = data.decode(codec), True
+    except UnicodeDecodeError:
+        text, exact = data.decode(codec, errors="replace"), False
+    # Reading bytes skips the newline translation a text-mode read does, and the tools hand the
+    # hook LF text: a CRLF file judged raw never matches an old_string or its own block, which
+    # turns an allowed Write into a deny and a block-deleting MultiEdit into an allow.
+    return text.replace("\r\n", "\n").replace("\r", "\n"), exact
+
+
+def _resolve(raw, cwd):
+    """`raw` (forward slashes) as a normalised absolute path: a relative path is joined to the
+    event cwd BEFORE any store check, so `facts/f.md` from inside a store is judged as the store
+    file it is, and a `..` that leaves the store is judged by where it lands."""
+    if not (raw.startswith("/") or _DRIVE.match(raw)):
+        raw = (cwd or ".").replace("\\", "/").rstrip("/") + "/" + raw
+    return posixpath.normpath(raw)
+
+
+def _is_store_backlog(resolved):
+    """True for exactly `<live store>/OPEN-WORK.md`: the store's own standing backlog.
+
+    It is not a fact and not a pointer block, and no engine verb writes it, so denying it left a
+    work session no way to file or move a store item at all. Only the file DIRECTLY in the one
+    `.claude-memory/` segment of the path qualifies, and it must still be that file once symlinks
+    are resolved: the edit lands wherever a link points, which can be a fact body."""
+    if posixpath.basename(resolved) != _BACKLOG:
+        return False
+    if posixpath.basename(posixpath.dirname(resolved)) != _LIVE_STORE:
+        return False
+    if len(_STORE.findall(resolved)) != 1:
+        return False                                   # a store nested inside a store
+    real = os.path.realpath(resolved)
+    return (os.path.basename(real) == _BACKLOG
+            and os.path.basename(os.path.dirname(real)) == _LIVE_STORE)
+
+
+def _apply(text, old_s, new_s, replace_all):
+    return text.replace(old_s, new_s) if replace_all else text.replace(old_s, new_s, 1)
+
+
+# The Edit tool does not match old_string literally. Probed on Claude Code 2.1.289 and read from
+# its validateInput: when the verbatim string is absent it retries with the four curly quotes
+# folded to straight ones on BOTH sides (a straight-quote old_string edits curly text and the
+# reverse), then with `\uXXXX` escapes in old_string swapped for their characters, then with the
+# old_string's non-ASCII characters looked up as `\uXXXX` escapes in the file. Each retry yields
+# the file's OWN substring, which is what the tool replaces. Judging only the verbatim string let
+# an edit the tool then applied inside the block through as "not found".
+_QUOTE_FOLD = str.maketrans({0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"'})
+_ESCAPE = re.compile(r"(\\\\)|\\u([0-9a-fA-F]{4})")
+
+
+def _unescape(s):
+    """`s` with each `\\uXXXX` turned into its character; an escaped backslash is left alone."""
+    return _ESCAPE.sub(lambda m: m.group(0) if m.group(1) else chr(int(m.group(2), 16)), s)
+
+
+def _escaped_form(needle):
+    """A regex matching `needle` with every non-ASCII UTF-16 unit spelled as a `\\uXXXX` escape."""
+    units = needle.encode("utf-16-le")
+    parts = []
+    for i in range(0, len(units), 2):
+        unit = int.from_bytes(units[i:i + 2], "little")
+        if unit < 0x80:
+            parts.append(re.escape(chr(unit)))
+        else:
+            parts.append(r"\\u" + "".join(f"[{d}{d.upper()}]" if d.isalpha() else d
+                                           for d in f"{unit:04x}"))
+    return "".join(parts)
+
+
+def _locate(text, needle):
+    """The substring of `text` the Edit tool would edit for old_string `needle`, or None."""
+    if needle in text:
+        return needle
+    at = text.translate(_QUOTE_FOLD).find(needle.translate(_QUOTE_FOLD))
+    if at >= 0:
+        return text[at:at + len(needle)]
+    unescaped = _unescape(needle)
+    if unescaped != needle and unescaped in text:
+        return unescaped
+    if needle.isascii() or "\\u" not in text:
+        return None
+    try:
+        found = re.search(_escaped_form(needle), text)
+    except re.error:
+        return None
+    return None if found is None else found.group(0)
+
+
+def decide(event, env):
+    """Pure: (event, env) -> a deny-reason string, or None to allow silently. Never raises to the
+    caller (main wraps it); a missing or unreadable file reads as ''."""
+    if (event.get("tool_name") or "") not in _TOOLS:
+        return None
+    tool_input = event.get("tool_input") or {}
+    # NotebookEdit names its target notebook_path, never file_path
+    raw = (tool_input.get("file_path") or tool_input.get("notebook_path") or "").replace("\\", "/")
+    if not raw:
+        return None
+    if env.get(_BYPASS_ENV):
+        return None                                    # deliberately-declared maintenance session
+
+    resolved = _resolve(raw, event.get("cwd"))
+    if _STORE.search(resolved):
+        if _is_store_backlog(resolved):
+            return None
+        return _DENY % ("a store file", _BYPASS_ENV, raw)
+    if posixpath.basename(resolved) != "CLAUDE.local.md":
+        return None
+
+    current, exact = _read(Path(resolved))
+    tool = event["tool_name"]
+    deny = _DENY % ("the managed pointer block in CLAUDE.local.md", _BYPASS_ENV, raw)
+
+    if tool == "Write":
+        new = tool_input.get("content") or ""
+        if _block_region(new) != _block_region(current):
+            return deny                                # block added, altered, or deleted by hand
+        return None
+
+    # MultiEdit applies its edits in order, each to the result of the previous one, so every edit
+    # is judged against that working copy: judged against the original, a later edit whose target
+    # only exists after an earlier one is never found and can remove the block unseen.
+    working = current
+    edits = tool_input.get("edits") if tool == "MultiEdit" else [tool_input]
+    for e in edits or []:
+        old_s = e.get("old_string") or ""
+        new_s = e.get("new_string") or ""
+        # the tool unescapes new_string too when it matched through an escape swap
+        adds_marker = _injects_marker(new_s) or _injects_marker(_unescape(new_s))
+        if adds_marker and not _injects_marker(old_s):
+            return deny                                # hand-injecting a fence marker
+        if not old_s:
+            # Edit refuses an empty old_string on a file whose content is not blank ("Cannot
+            # create new file - file already exists.", probed on Claude Code 2.1.289; its
+            # validateInput tests content.trim() !== ""), and a blank file holds no block. A
+            # marker the new_string would add is caught above.
+            continue
+        spans = _block_spans(working)
+        target = _locate(working, old_s)
+        if target is None:
+            if not exact and spans:
+                return _UNPLACEABLE % raw              # the undecodable bytes may hide the match
+            continue                                   # the tool rejects a target it cannot find
+        if _overlaps_block(working, target, spans):
+            return deny                                # the edit target sits inside the block
+        working = _apply(working, target, new_s, e.get("replace_all"))
+    if _block_region(working) != _block_region(current):
+        return deny                                    # the edits together change the block
+    return None
+
+
+def main():
+    try:
+        event = json.load(sys.stdin)
+    except Exception:  # noqa: BLE001 - no/invalid stdin: do nothing
+        return 0
+    try:
+        reason = decide(event, os.environ)
+    except Exception:  # noqa: BLE001 - a broken guard must never wedge a turn
+        return 0
+    if reason is not None:
+        sys.stderr.write("STORE-EDIT GUARD: " + reason + "\n")
+        return 2  # PreToolUse: non-zero blocks the tool call and feeds stderr back to the model
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:  # noqa: BLE001 - a broken guard must never wedge a turn
+        sys.exit(0)

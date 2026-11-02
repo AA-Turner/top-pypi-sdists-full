@@ -1,0 +1,710 @@
+"""Tests for adjudicate.py. ASCII only.
+
+The three-bucket verdict is the whole point of the tool, so it gets the most cases: a harness that
+folds "the control did not discriminate" into "refuted" reports a clean sweep over broken controls,
+which is what this replaces.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+import adjudicate as A
+
+SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "adjudicate.py"
+
+
+# ---- the three buckets -------------------------------------------------------------------------
+
+def test_probe_fires_and_control_does_not_is_confirmed():
+    assert A.verdict_for(probe_fired=True, control_fired=False) == "CONFIRMED"
+
+
+def test_probe_does_not_fire_is_refuted():
+    assert A.verdict_for(probe_fired=False, control_fired=False) == "REFUTED"
+
+
+def test_both_fire_is_unusable_not_refuted():
+    """The distinction the harness exists to keep. Folding this into REFUTED reported 10 refuted
+    where the truth was 7 refuted plus 3 unusable."""
+    assert A.verdict_for(probe_fired=True, control_fired=True) == "UNUSABLE"
+
+
+def test_a_control_that_fires_while_the_probe_does_not_is_still_refuted():
+    """The claim said the probe fires. It did not, so the claim is wrong whatever the control did."""
+    assert A.verdict_for(probe_fired=False, control_fired=True) == "REFUTED"
+
+
+# ---- what counts as FIRED ----------------------------------------------------------------------
+
+def test_output_mode_counts_any_stream():
+    assert A.fired(A.Run(0, "something", ""), "output", None) is True
+    assert A.fired(A.Run(0, "", "something"), "output", None) is True
+    assert A.fired(A.Run(0, "", ""), "output", None) is False
+
+
+def test_output_mode_ignores_whitespace_only_output():
+    assert A.fired(A.Run(0, "  \n ", ""), "output", None) is False
+
+
+def test_nonzero_mode_reads_the_exit_code_only():
+    assert A.fired(A.Run(2, "", ""), "nonzero", None) is True
+    assert A.fired(A.Run(0, "loud but allowed", ""), "nonzero", None) is False
+
+
+def test_match_mode_searches_both_streams():
+    assert A.fired(A.Run(0, "BLOCKED: nope", ""), "match", "BLOCKED") is True
+    assert A.fired(A.Run(2, "", "BLOCKED: nope"), "match", "BLOCKED") is True
+    assert A.fired(A.Run(2, "other text", ""), "match", "BLOCKED") is False
+
+
+# ---- driving a real subject --------------------------------------------------------------------
+
+def _fake_hook(tmp_path, body):
+    p = tmp_path / "fake_hook.py"
+    p.write_text("import sys\n" + body, encoding="utf-8")
+    return p
+
+
+def test_a_discriminating_subject_confirms(tmp_path):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    claim = A.Claim(name="c1", probe="has TRAP here", control="has nothing here")
+    result = A.adjudicate(A.subject_for_hook(hook), [claim], "output", None)[0]
+    assert result.verdict == "CONFIRMED"
+
+
+def test_a_subject_that_never_fires_refutes(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    claim = A.Claim(name="c1", probe="has TRAP here", control="has nothing here")
+    assert A.adjudicate(A.subject_for_hook(hook), [claim], "output", None)[0].verdict == "REFUTED"
+
+
+def test_a_subject_that_always_fires_is_unusable_not_refuted(tmp_path):
+    """A guard that fires on everything looks CONFIRMED to a two-bucket harness."""
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\nprint("fired")\n')
+    claim = A.Claim(name="c1", probe="has TRAP here", control="has nothing here")
+    assert A.adjudicate(A.subject_for_hook(hook), [claim], "output", None)[0].verdict == "UNUSABLE"
+
+
+def test_per_claim_args_reach_the_subject(tmp_path):
+    hook = _fake_hook(tmp_path, 'if "TRAP" in " ".join(sys.argv[1:]): print("fired")\n')
+    claim = A.Claim(name="c1", probe="", control="", probe_args=["TRAP"], control_args=["clean"])
+    assert A.adjudicate(A.subject_for_hook(hook), [claim], "output", None)[0].verdict == "CONFIRMED"
+
+
+# ---- summary and exit codes --------------------------------------------------------------------
+
+def test_summary_counts_each_bucket_separately():
+    results = [
+        A.Adjudication("a", "CONFIRMED", A.Run(0), A.Run(0), True, False),
+        A.Adjudication("b", "REFUTED", A.Run(0), A.Run(0), False, False),
+        A.Adjudication("c", "UNUSABLE", A.Run(0), A.Run(0), True, True),
+    ]
+    s = A.summarize(results)
+    assert (s["confirmed"], s["refuted"], s["unusable"], s["total"]) == (1, 1, 1, 3)
+    assert s["unusable_names"] == ["c"]
+
+
+def test_an_unusable_claim_makes_the_run_not_ok():
+    results = [A.Adjudication("c", "UNUSABLE", A.Run(0), A.Run(0), True, True)]
+    assert A.summarize(results)["ok"] is False
+
+
+def test_all_refuted_is_still_ok_because_the_instrument_worked():
+    results = [A.Adjudication("b", "REFUTED", A.Run(0), A.Run(0), False, False)]
+    assert A.summarize(results)["ok"] is True
+
+
+def test_cli_exits_2_when_a_control_did_not_discriminate(tmp_path):
+    """UNUSABLE means the run could not answer (R-a), the same class as claim_check BROKEN."""
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\nprint("always")\n')
+    rc = A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean"])
+    assert rc == 2
+
+
+def test_cli_exits_0_when_every_claim_was_adjudicable(tmp_path):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    rc = A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean"])
+    assert rc == 0
+
+
+def test_cli_exits_2_without_a_subject():
+    assert A.main(["--name", "c1", "--probe", "x", "--control", "y"]) == 2
+
+
+def test_cli_exits_2_on_an_unreadable_claim_file(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    assert A.main(["--hook", str(hook), "--claim-file", str(tmp_path / "nope.jsonl")]) == 2
+
+
+def test_cli_exits_2_when_no_claims_were_given(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    assert A.main(["--hook", str(hook)]) == 2
+
+
+def test_match_mode_requires_a_pattern(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    rc = A.main(["--hook", str(hook), "--name", "c", "--probe", "a", "--control", "b",
+                 "--fired-when", "match"])
+    assert rc == 2
+
+
+# ---- claim files -------------------------------------------------------------------------------
+
+def test_a_claim_file_is_read_as_jsonl(tmp_path):
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"one","probe":"TRAP","control":"clean"}\n'
+                 '\n'
+                 '{"name":"two","probe":"TRAP2","control":"clean"}\n', encoding="utf-8")
+    claims = A.load_claims(str(f), None, None, None)
+    assert [c.name for c in claims] == ["one", "two"]
+
+
+def test_a_claim_file_line_missing_control_is_rejected(tmp_path):
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"one","probe":"TRAP"}\n', encoding="utf-8")
+    with pytest.raises(ValueError):
+        A.load_claims(str(f), None, None, None)
+
+
+# ---- the machine-readable envelope ---------------------------------------------------------------
+
+def test_json_envelope_shape(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "adjudicate"
+    assert payload["ok"] is True
+    assert payload["data"]["summary"]["confirmed"] == 1
+    assert payload["data"]["results"][0]["verdict"] == "CONFIRMED"
+
+
+def test_json_still_emitted_on_failure(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\nprint("always")\n')
+    rc = A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean",
+                 "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2 and payload["ok"] is False
+    assert payload["data"]["summary"]["unusable"] == 1
+
+
+def test_the_unusable_warning_goes_to_stderr_not_stdout(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\nprint("always")\n')
+    A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean", "--json"])
+    captured = capsys.readouterr()
+    json.loads(captured.out)                      # stdout stays a clean envelope
+    assert "UNUSABLE" in captured.err
+
+
+# ---- runs as a program -------------------------------------------------------------------------
+
+def test_runs_as_a_subprocess(tmp_path):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    res = subprocess.run([sys.executable, str(SCRIPT), "--hook", str(hook), "--name", "c",
+                          "--probe", "TRAP", "--control", "clean"],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert res.returncode == 0
+    assert "CONFIRMED" in res.stdout
+
+
+# ---- telling a broken control from a chatty subject ---------------------------------------------
+#
+# Both produce UNUSABLE, and the original message named only the first, which would send a reader to
+# fix a control that was never wrong. The distinguishing signal is already in hand: one broken
+# control is a control problem, EVERY claim unusable is the subject firing on everything.
+
+def test_one_unusable_among_several_blames_the_control():
+    results = [
+        A.Adjudication("a", "CONFIRMED", A.Run(0), A.Run(0), True, False),
+        A.Adjudication("b", "UNUSABLE", A.Run(0), A.Run(0), True, True),
+    ]
+    assert A.unusable_cause(A.summarize(results)) == "control"
+
+
+def test_every_claim_unusable_blames_the_subject():
+    results = [
+        A.Adjudication("a", "UNUSABLE", A.Run(0), A.Run(0), True, True),
+        A.Adjudication("b", "UNUSABLE", A.Run(0), A.Run(0), True, True),
+    ]
+    assert A.unusable_cause(A.summarize(results)) == "subject"
+
+
+def test_a_single_claim_that_is_unusable_blames_the_control_not_the_subject():
+    """One claim is not evidence of a pattern - with n=1 there is nothing to distinguish."""
+    results = [A.Adjudication("a", "UNUSABLE", A.Run(0), A.Run(0), True, True)]
+    assert A.unusable_cause(A.summarize(results)) == "control"
+
+
+def test_no_unusable_has_no_cause():
+    results = [A.Adjudication("a", "CONFIRMED", A.Run(0), A.Run(0), True, False)]
+    assert A.unusable_cause(A.summarize(results)) is None
+
+
+def test_the_all_unusable_warning_names_the_subject_and_the_fired_when_flag(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\nprint("banner on every run")\n')
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"one","probe":"TRAP","control":"clean"}\n'
+                 '{"name":"two","probe":"TRAP2","control":"clean"}\n', encoding="utf-8")
+    A.main(["--hook", str(hook), "--claim-file", str(f)])
+    err = capsys.readouterr().err
+    assert "subject" in err
+    assert "--fired-when" in err
+
+
+def test_the_partial_unusable_warning_still_points_at_the_control(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data or "BOTH" in data: print("f")\n')
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"good","probe":"TRAP","control":"clean"}\n'
+                 '{"name":"bad","probe":"TRAP","control":"BOTH"}\n', encoding="utf-8")
+    A.main(["--hook", str(hook), "--claim-file", str(f)])
+    err = capsys.readouterr().err
+    # The control-branch wording, and the claim it names: a bare "control" also appears in the
+    # subject-branch message ("including every control"), so it could not tell the two apart.
+    assert "the control fired too" in err
+    assert "bad" in err
+    assert "the subject fired on every input" not in err
+
+
+# ---- a harness failure is its own bucket, never "fired" ----------------------------------------
+
+def _hanging_hook(tmp_path):
+    return _fake_hook(tmp_path, 'import time\ndata = sys.stdin.read()\n'
+                                'if "HANG" in data: time.sleep(30)\n')
+
+
+def test_a_timed_out_probe_is_error_not_confirmed(tmp_path):
+    claim = A.Claim(name="c", probe="HANG", control="clean")
+    result = A.adjudicate(A.subject_for_hook(_hanging_hook(tmp_path)), [claim], "output", None,
+                          timeout=1)[0]
+    assert result.verdict == "ERROR"
+    assert result.probe_fired is False
+
+
+@pytest.mark.parametrize("mode", ["output", "nonzero"])
+def test_cli_exits_2_when_the_probe_times_out(tmp_path, capsys, mode):
+    rc = A.main(["--hook", str(_hanging_hook(tmp_path)), "--name", "c", "--probe", "HANG",
+                 "--control", "clean", "--timeout", "1", "--fired-when", mode])
+    cap = capsys.readouterr()
+    assert rc == 2
+    assert "CONFIRMED" not in cap.out
+    assert "ERROR" in cap.out and "timed out" in cap.err
+
+
+def test_a_timed_out_control_is_error_too(tmp_path):
+    hook = _fake_hook(tmp_path, 'import time\ndata = sys.stdin.read()\n'
+                                'if "TRAP" in data: print("f")\nif "HANG" in data: time.sleep(30)\n')
+    claim = A.Claim(name="c", probe="TRAP", control="HANG")
+    result = A.adjudicate(A.subject_for_hook(hook), [claim], "output", None, timeout=1)[0]
+    assert result.verdict == "ERROR"
+
+
+def test_a_subject_that_cannot_be_launched_is_error(tmp_path):
+    claim = A.Claim(name="c", probe="x", control="y")
+    result = A.adjudicate([str(tmp_path / "no-such-interpreter")], [claim], "nonzero", None)[0]
+    assert result.verdict == "ERROR"
+    assert "cannot run subject" in result.probe_run.harness_error
+
+
+def test_a_subject_that_itself_exits_124_is_still_scored(tmp_path):
+    """Only the HARNESS failing is an error; a subject's own exit code is data."""
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: sys.exit(124)\n')
+    claim = A.Claim(name="c", probe="TRAP", control="clean")
+    assert A.adjudicate(A.subject_for_hook(hook), [claim], "nonzero", None)[0].verdict == "CONFIRMED"
+
+
+def test_summary_counts_errors_and_is_not_ok():
+    results = [A.Adjudication("e", "ERROR", A.Run(124, harness_error="timed out"), A.Run(0),
+                              False, False)]
+    s = A.summarize(results)
+    assert (s["error"], s["error_names"], s["ok"]) == (1, ["e"], False)
+
+
+# ---- claim-file validation ---------------------------------------------------------------------
+
+def test_an_object_valued_probe_is_serialised_as_json(tmp_path):
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"o","probe":{"tool_input":{"command":"TRAP"}},"control":"clean"}\n',
+                 encoding="utf-8")
+    claim = A.load_claims(str(f), None, None, None)[0]
+    assert json.loads(claim.probe) == {"tool_input": {"command": "TRAP"}}
+
+
+def test_an_object_valued_probe_runs_end_to_end(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"o","probe":{"tool_input":{"command":"TRAP"}},'
+                 '"control":{"tool_input":{"command":"x"}}}\n', encoding="utf-8")
+    assert A.main(["--hook", str(hook), "--claim-file", str(f)]) == 0
+    assert "CONFIRMED" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("bad", ["42", "null", "true", "[1]"])
+def test_a_non_string_non_object_probe_is_rejected(tmp_path, bad):
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"o","probe":' + bad + ',"control":"clean"}\n', encoding="utf-8")
+    with pytest.raises(ValueError):
+        A.load_claims(str(f), None, None, None)
+
+
+@pytest.mark.parametrize("bad", ['"--flag"', '["--flag", 3]', '{"a": 1}'])
+def test_probe_args_must_be_a_list_of_strings(tmp_path, bad):
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"s","probe":"","control":"","probe_args":' + bad + '}\n',
+                 encoding="utf-8")
+    with pytest.raises(ValueError):
+        A.load_claims(str(f), None, None, None)
+
+
+def test_a_string_probe_args_exits_2_not_a_silent_refuted(tmp_path):
+    hook = _fake_hook(tmp_path, 'if "--flag" in sys.argv: print("fired")\n')
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name":"s","probe":"","control":"","probe_args":"--flag"}\n', encoding="utf-8")
+    assert A.main(["--hook", str(hook), "--claim-file", str(f)]) == 2
+
+
+def test_a_claim_file_with_a_utf8_bom_is_read(tmp_path):
+    f = tmp_path / "claims.jsonl"
+    f.write_bytes(b"\xef\xbb\xbf" + b'{"name":"b","probe":"TRAP","control":"clean"}\n')
+    assert [c.name for c in A.load_claims(str(f), None, None, None)] == ["b"]
+
+
+def test_a_malformed_claim_file_exits_2(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    f = tmp_path / "claims.jsonl"
+    f.write_text('{"name": not json}\n', encoding="utf-8")
+    assert A.main(["--hook", str(hook), "--claim-file", str(f)]) == 2
+
+
+def test_probe_without_control_exits_2(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    assert A.main(["--hook", str(hook), "--name", "c", "--probe", "x"]) == 2
+
+
+# ---- argument validation happens BEFORE any subject runs ---------------------------------------
+
+def test_an_invalid_fired_pattern_exits_2_before_running_the_subject(tmp_path):
+    marker = tmp_path / "ran"
+    hook = _fake_hook(tmp_path, f"open({str(marker)!r}, 'w').close()\n")
+    rc = A.main(["--hook", str(hook), "--name", "c", "--probe", "a", "--control", "b",
+                 "--fired-when", "match", "--fired-pattern", "("])
+    assert rc == 2
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("mode", [["--fired-when", "match", "--fired-pattern", "BLOCKED"], []])
+def test_a_missing_hook_path_exits_2(tmp_path, mode):
+    rc = A.main(["--hook", str(tmp_path / "typo.py"), "--name", "c", "--probe", "a",
+                 "--control", "b", *mode])
+    assert rc == 2
+
+
+# ---- --json emits the envelope on every exit-2 path -------------------------------------------
+
+@pytest.mark.parametrize("argv", [
+    ["--name", "c", "--probe", "x", "--control", "y"],                    # no --hook
+    ["--hook", "does-not-exist.py", "--name", "c", "--probe", "x", "--control", "y"],
+])
+def test_json_envelope_on_usage_errors(argv, capsys):
+    assert A.main([*argv, "--json"]) == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False and payload["command"] == "adjudicate"
+    assert payload["data"]["reason"]
+
+
+def test_json_envelope_on_an_argparse_error(capsys):
+    with pytest.raises(SystemExit) as exc:
+        A.main(["--hook", "x.py", "--fired-when", "bogus", "--json"])
+    assert exc.value.code == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False and "bogus" in payload["data"]["reason"]
+
+
+def test_json_envelope_when_a_subject_times_out(tmp_path, capsys):
+    rc = A.main(["--hook", str(_hanging_hook(tmp_path)), "--name", "c", "--probe", "HANG",
+                 "--control", "clean", "--timeout", "1", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2 and payload["ok"] is False
+    assert payload["data"]["summary"]["error"] == 1
+
+
+def test_a_non_cp1252_claim_name_does_not_crash_a_cp1252_stdout(tmp_path):
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    res = subprocess.run([sys.executable, str(SCRIPT), "--hook", str(hook), "--name", "c \u2717",
+                          "--probe", "TRAP", "--control", "clean"], capture_output=True,
+                         env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=60)
+    assert res.returncode == 0, res.stderr
+    assert b"CONFIRMED" in res.stdout
+
+
+# ---- LOW batch (rank-8 review follow-up) --------------------------------------------------------
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf", "0", "-1"])
+def test_a_timeout_that_is_not_a_positive_finite_number_is_a_usage_error(tmp_path, value):
+    """nan/inf crashed inside subprocess with a traceback and exit 1 - the UNUSABLE code - and
+    0/-1 ran both sides into an instant timeout reported as ERROR claims."""
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nif "TRAP" in data: print("fired")\n')
+    res = subprocess.run([sys.executable, str(SCRIPT), "--hook", str(hook), "--name", "c",
+                          "--probe", "TRAP", "--control", "clean", "--timeout", value],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         env={**os.environ}, timeout=60, check=False)
+    assert res.returncode == 2, res.stderr
+    assert "Traceback" not in res.stderr
+    assert "--timeout" in res.stderr
+
+
+def test_the_subject_gets_the_utf8_environment_the_production_shim_exports(tmp_path):
+    """hooks/run-python.sh exports PYTHONUTF8=1 and PYTHONIOENCODING=utf-8 before exec'ing a
+    hook; a subject judged without them runs under a different codec than it ships under."""
+    hook = _fake_hook(tmp_path, "import os\nprint(os.environ.get('PYTHONUTF8'), "
+                                "os.environ.get('PYTHONIOENCODING'))\n")
+    run = A.run_once(A.subject_for_hook(hook), "", [])
+    assert run.stdout.split() == ["1", "utf-8"]
+
+
+def test_adjudicate_asks_to_be_launched_with_a_plain_interpreter():
+    """The subject runs on sys.executable. Under `uv run` that is uv's throwaway env, where a
+    hook's optional imports (PyYAML, lxml) are missing and it degrades unlike production;
+    toolbox-nudge reads LAUNCH_WITH to suggest the right launch."""
+    assert A.LAUNCH_WITH == "python3"
+    assert "uv run scripts/adjudicate.py" not in (A.__doc__ or "")
+
+
+# ---- stdin goes over as BYTES (rank 181, L3b) ----------------------------------------------------
+
+def test_the_subject_is_fed_stdin_as_bytes_never_through_a_text_wrapper(tmp_path, monkeypatch):
+    """A text-mode stdin translates every \\n to os.linesep, so on Windows the subject reads
+    "a\\r" where "a" was written and a line-fed subject matches nothing - no error, just a
+    different answer. Only a byte payload is immune on every platform; this pins that the
+    payload never goes through the translating wrapper, which a Linux run cannot otherwise see."""
+    seen = {}
+    real = A.subprocess.run
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(A.subprocess, "run", spy)
+    hook = _fake_hook(tmp_path, "print('ok')\n")
+    A.run_once(A.subject_for_hook(hook), "line one\nline two\n", [])
+    assert isinstance(seen["input"], bytes), type(seen["input"])
+    assert not seen.get("text") and "encoding" not in seen
+
+
+def test_the_subject_receives_exactly_the_bytes_written(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdout.write(repr(sys.stdin.buffer.read()))\n")
+    payload = "a\nb\n" + chr(0xE9)
+    run = A.run_once(A.subject_for_hook(hook), payload, [])
+    assert run.stdout == repr(payload.encode("utf-8"))
+
+
+def test_the_subjects_output_keeps_universal_newlines_and_survives_bad_utf8(tmp_path):
+    """What text=True gave the CAPTURE side is kept: CRLF and CR read as LF, and an undecodable
+    byte becomes U+FFFD instead of a crash."""
+    hook = _fake_hook(tmp_path, "sys.stdout.buffer.write(b'x\\r\\ny\\rz\\xff\\n')\n")
+    run = A.run_once(A.subject_for_hook(hook), "", [])
+    assert run.stdout == "x\ny\nz" + chr(0xFFFD) + "\n"
+
+
+# ---- wave D: unified exit codes and the D2 envelope ---------------------------------------------
+
+def test_all_refuted_is_exit_0_with_ok_true(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\n')
+    rc = A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean",
+                 "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0 and payload["ok"] is True
+    assert payload["data"]["summary"]["refuted"] == 1
+
+
+def test_a_crash_under_json_is_exit_2_with_an_envelope(tmp_path, monkeypatch, capsys):
+    def boom(*_a, **_k):
+        raise RuntimeError("harness broke")
+    monkeypatch.setattr(A, "adjudicate", boom)
+    hook = _fake_hook(tmp_path, 'sys.stdin.read()\n')
+    rc = A.main(["--hook", str(hook), "--name", "c1", "--probe", "TRAP", "--control", "clean",
+                 "--json"])
+    cap = capsys.readouterr()
+    assert rc == 2
+    payload = json.loads(cap.out)
+    assert payload["ok"] is False and "harness broke" in payload["error"]
+    assert "Traceback" not in cap.err
+
+
+
+# ---- path mode: a file-walking detector run on a planted path and a clean path -------------------
+#
+# A detector or scan hand-rolled during a review takes a PATH, not stdin. Without a control path,
+# "it found the planted file" and "it reports every tree" are the same observation.
+
+_WALKER = ('import os, sys\n'
+           'root = sys.argv[-1]\n'
+           'for d, _, fs in os.walk(root):\n'
+           '    for f in fs:\n'
+           '        if "TRAP" in open(os.path.join(d, f), encoding="utf-8").read(): print(f)\n')
+
+
+def _trees(tmp_path):
+    planted, clean = tmp_path / "planted", tmp_path / "clean"
+    planted.mkdir()
+    clean.mkdir()
+    (planted / "a.txt").write_text("has TRAP in it", encoding="utf-8")
+    (clean / "a.txt").write_text("nothing here", encoding="utf-8")
+    return planted, clean
+
+
+def test_a_detector_that_finds_only_the_planted_tree_confirms(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = _trees(tmp_path)
+    rc = A.main(["--hook", str(hook), "--name", "walk", "--probe-path", str(planted),
+                 "--control-path", str(clean), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["data"]["results"][0]["verdict"] == "CONFIRMED"
+
+
+def test_a_scan_that_flags_both_trees_is_unusable(tmp_path):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, _ = _trees(tmp_path)
+    dirty = tmp_path / "dirty"
+    dirty.mkdir()
+    (dirty / "b.txt").write_text("TRAP again", encoding="utf-8")
+    rc = A.main(["--hook", str(hook), "--name", "walk", "--probe-path", str(planted),
+                 "--control-path", str(dirty)])
+    assert rc == 2
+
+
+def test_a_template_after_the_separator_puts_the_path_at_the_placeholder(tmp_path, capsys):
+    """A detector taking `--root <path> --json` needs the path in the middle, not appended."""
+    body = ('import argparse, os\n'
+            'p = argparse.ArgumentParser(); p.add_argument("--root", required=True)\n'
+            'p.add_argument("--json", action="store_true"); a = p.parse_args()\n'
+            'assert a.json\n'
+            'if os.path.exists(os.path.join(a.root, "a.txt")) and "TRAP" in '
+            'open(os.path.join(a.root, "a.txt"), encoding="utf-8").read(): print("hit")\n')
+    hook = _fake_hook(tmp_path, body)
+    planted, clean = _trees(tmp_path)
+    rc = A.main(["--hook", str(hook), "--name", "t", "--probe-path", str(planted),
+                 "--control-path", str(clean), "--fired-when", "match", "--fired-pattern", "^hit",
+                 "--json", "--", "--root", "{path}", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0, payload
+    assert payload["data"]["results"][0]["verdict"] == "CONFIRMED"
+
+
+def test_a_template_without_a_placeholder_is_a_usage_error(tmp_path):
+    """The path would be dropped and both sides would run identically - an UNUSABLE or REFUTED
+    that measured nothing about the path."""
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = _trees(tmp_path)
+    rc = A.main(["--hook", str(hook), "--probe-path", str(planted), "--control-path", str(clean),
+                 "--", "--json"])
+    assert rc == 2
+
+
+def test_a_placeholder_template_with_stdin_claims_only_is_a_usage_error(tmp_path):
+    hook = _fake_hook(tmp_path, "sys.stdin.read()\n")
+    rc = A.main(["--hook", str(hook), "--probe", "a", "--control", "b", "--", "{path}"])
+    assert rc == 2
+
+
+@pytest.mark.parametrize("missing_side", ["probe", "control"])
+def test_a_missing_path_is_a_usage_error_not_a_fired_side(tmp_path, capsys, missing_side):
+    """A detector that exits non-zero on a missing path would otherwise score that side as FIRED,
+    so a typo in the probe path reads as CONFIRMED under --fired-when nonzero."""
+    hook = _fake_hook(tmp_path, 'import os\nsys.exit(0 if os.path.isdir(sys.argv[-1]) else 3)\n')
+    planted, clean = _trees(tmp_path)
+    paths = {"probe": str(planted), "control": str(clean)}
+    paths[missing_side] = str(tmp_path / "no-such-dir")
+    rc = A.main(["--hook", str(hook), "--probe-path", paths["probe"],
+                 "--control-path", paths["control"], "--fired-when", "nonzero", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert payload["data"]["reason"] == (f"claim 'claim': {missing_side} path does not exist: "
+                                         f"{paths[missing_side]}")
+
+
+def test_the_same_path_on_both_sides_is_refused_before_the_subject_runs(tmp_path, capsys):
+    """Run, it would score UNUSABLE - also exit 2, but blaming a control that was never a
+    control. Refused, it names the real mistake and the subject never runs."""
+    marker = tmp_path / "ran"
+    hook = _fake_hook(tmp_path, f"open({str(marker)!r}, 'w').close()\n" + _WALKER)
+    planted, _ = _trees(tmp_path)
+    rc = A.main(["--hook", str(hook), "--probe-path", str(planted),
+                 "--control-path", str(planted / ".." / "planted"), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert "same place" in payload["data"]["reason"]
+    assert not marker.exists()
+
+
+def test_probe_path_without_control_path_exits_2(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, _ = _trees(tmp_path)
+    assert A.main(["--hook", str(hook), "--probe-path", str(planted), "--json"]) == 2
+    reason = json.loads(capsys.readouterr().out)["data"]["reason"]
+    assert reason == ("--probe-path/--control-path: a probe path and a control path must be "
+                      "given together")
+
+
+def test_a_claim_file_can_carry_paths(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = _trees(tmp_path)
+    f = tmp_path / "claims.jsonl"
+    f.write_text(json.dumps({"name": "walk", "probe_path": str(planted),
+                             "control_path": str(clean)}) + "\n", encoding="utf-8")
+    rc = A.main(["--hook", str(hook), "--claim-file", str(f), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["data"]["summary"]["confirmed_names"] == ["walk"]
+
+
+def test_a_claim_file_line_with_only_a_probe_path_is_rejected(tmp_path, capsys):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, _ = _trees(tmp_path)
+    f = tmp_path / "claims.jsonl"
+    f.write_text(json.dumps({"name": "walk", "probe_path": str(planted)}) + "\n", encoding="utf-8")
+    assert A.main(["--hook", str(hook), "--claim-file", str(f), "--json"]) == 2
+    reason = json.loads(capsys.readouterr().out)["data"]["reason"]
+    assert reason.endswith("a probe path and a control path must be given together")
+
+
+def test_subject_is_an_alias_for_hook(tmp_path):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = _trees(tmp_path)
+    rc = A.main(["--subject", str(hook), "--probe-path", str(planted),
+                 "--control-path", str(clean)])
+    assert rc == 0
+
+
+def test_a_path_with_spaces_and_non_ascii_reaches_the_subject_intact(tmp_path):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = tmp_path / "pl anted äö", tmp_path / "cl ean ß"
+    planted.mkdir()
+    clean.mkdir()
+    (planted / "a.txt").write_text("TRAP", encoding="utf-8")
+    (clean / "a.txt").write_text("none", encoding="utf-8")
+    rc = A.main(["--hook", str(hook), "--probe-path", str(planted), "--control-path", str(clean)])
+    assert rc == 0
+
+
+def test_a_subjects_own_json_flag_after_the_separator_does_not_switch_on_the_envelope(
+        tmp_path, capsys):
+    hook = _fake_hook(tmp_path, _WALKER)
+    planted, clean = _trees(tmp_path)
+    rc = A.main(["--hook", str(hook), "--probe-path", str(planted), "--control-path", str(clean),
+                 "--", "--json", "{path}"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "CONFIRMED" in out and not out.lstrip().startswith("{")
+
+
+def test_stdin_claims_are_unchanged_when_no_path_is_given(tmp_path):
+    """The existing mode must not regress: no path, no template, stdin carries the probe."""
+    hook = _fake_hook(tmp_path, 'data = sys.stdin.read()\nprint(len(sys.argv))\n'
+                                'sys.exit(3 if "TRAP" in data else 0)\n')
+    rc = A.main(["--hook", str(hook), "--probe", "TRAP", "--control", "clean",
+                 "--fired-when", "nonzero"])
+    assert rc == 0

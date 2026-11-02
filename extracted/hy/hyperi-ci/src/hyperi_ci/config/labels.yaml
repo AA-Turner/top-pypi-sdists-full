@@ -1,0 +1,119 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/config/labels.yaml
+# Purpose:   The org issue label manifest, read through hyperi_ci.labels
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# The neutral default: what applies when the org's `.github` repo has no
+# `issues.labels.path` file, or that file cannot be used. An org's own file
+# takes this shape and replaces it whole, programs, retired and allowed labels
+# included. Colours are hex without `#`. Descriptions are the exact text to
+# create, and GitHub caps a label description at 100 characters.
+
+# Manifest format version. A file declaring a version this reader does not
+# understand falls back to this default.
+schema: 1
+
+# Org issue types. Exactly one per issue, set natively, never as a label.
+types:
+  - name: Bug
+    use_for: Shipped behaviour or a shipped doc is wrong
+    not_for: A defect only in tests or fixtures (Task)
+  - name: Feature
+    use_for: A consumer can now do something significant at a contract boundary
+    not_for: Internal plumbing, a flag on existing behaviour
+  - name: Task
+    use_for: >-
+      Everything else: chore, refactor, test, CI, dead-code removal,
+      dependency work, docs that add
+    not_for: ""
+  - name: Epic
+    use_for: Multi-week work with named sub-issues
+    not_for: A big Task with no sub-issues
+
+# Release gate, exactly one per issue, STRICTEST FIRST. The order is the
+# precedence when an issue carries more than one. No gate label = untriaged.
+# These names are the one horizon vocabulary, programs included.
+# `set_by`: anyone, release-owner (agents never set it), or hand (a deliberate
+# `gh issue edit` with a comment, never a tool's default).
+gate:
+  - name: release-blocker
+    color: b60205
+    description: The next release cut does not ship while this is open
+    set_by: hand
+  - name: next-patch
+    color: 1d76db
+    description: Wanted in an upcoming patch release. Does not hold a cut
+    set_by: anyone
+  - name: next-minor
+    color: 5319e7
+    description: Waits for the next minor release. Placed by the release owner
+    set_by: release-owner
+  - name: next-major
+    color: 3b0a8c
+    description: Waits for the next major release. Set by the release owner only, never proposed by agents
+    set_by: release-owner
+  - name: backlog
+    color: d4c5f9
+    description: Captured future work, not scheduled now
+    set_by: anyone
+
+# Release trains that span repos, each taking the next-* horizons as
+# `<program>:<horizon>` labels. None by default: an org declares its own.
+programs: {}
+
+# At most one per issue, with the decider as assignee.
+waiting:
+  - name: needs-decision
+    color: fbca04
+    description: Waiting on a decision. The assignee decides, the last comment names it
+
+# Zero or more per issue.
+flags:
+  - name: security
+    color: ee0701
+    description: Security consequence. Grade reachability before severity
+  - name: regression
+    color: e99695
+    description: Worked in an earlier release of this train and no longer does
+
+# GitHub's own defaults, kept because GitHub surfaces them. Optional per repo.
+community:
+  - name: good first issue
+    color: 7057ff
+    description: Good for newcomers
+  - name: help wanted
+    color: "008672"
+    description: Extra attention is needed
+
+# Created and applied by bots: Dependabot's ecosystem labels, semantic-release's
+# released labels, and hyperi-ci's own release notifications. Never applied by
+# hand, and the colours are the bot's.
+bot_owned:
+  - released
+  - released on @main
+  - release-failure
+  - release-commit-back
+  - dependencies
+  - rust
+  - javascript
+  - github_actions
+
+# Labels another standard declares. `labels --check` accepts them and the
+# reconcile never creates them. Patterns are Python `re`, matched against the
+# whole name. None by default.
+allowed:
+  patterns: []
+  literals: []
+
+# Per-repo areas come from `.hyperi-ci.yaml` `issues.areas`, one label each.
+area:
+  prefix: area/
+  color: bfdadc
+
+# Retired labels stay on the repo with this description, because deleting a
+# label strips it from closed issues too. `{replacement}` is the map's value.
+# None by default: an org lists the ones it retired.
+retired_description: "RETIRED: use {replacement}"
+retired: {}

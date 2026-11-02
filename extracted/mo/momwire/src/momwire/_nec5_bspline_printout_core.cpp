@@ -43,8 +43,8 @@ class SplineSampler final : public CurrentSampler {
 
 }  // namespace
 
-Solved BSplinePrintoutEngine::solve(const Prepared &p, const NumpyLinalg &np) {
-    const BSplineFront &fr = front_of(p);
+Solved bspline_solve_front(const BSplineFront &fr, const razor::Lapack &lapack, const bspline::SymLapack &sym,
+                           const NumpyLinalg &np, std::vector<cd> *Z_out, std::vector<double> *B_out) {
     if (np.dsyrk == nullptr) throw PrintoutDecline{"bspline: no dsyrk for the assembler"};
     if (np.host.zgemm != nullptr) throw PrintoutDecline{"bspline: the host BLAS route is not ported"};
     bspline::FillParams fp;
@@ -60,8 +60,9 @@ Solved BSplinePrintoutEngine::solve(const Prepared &p, const NumpyLinalg &np) {
     // (`BURIED_N_QP_PAIR`, `BURIED_PAIR_ORDER_LADDER`)
     std::vector<cd> Z;
     if (fr.buried) {
-        fp.n_qp_pair = 32;
-        fp.ladder = {{2.0, 8}, {16.0, 4}};
+        // `BURIED_N_QP_PAIR` / `BURIED_PAIR_ORDER_LADDER` (momwire#1752 S2)
+        fp.n_qp_pair = 128;
+        fp.ladder = {{0.1, 32}, {1.5, 16}, {2.0, 8}, {4.0, 4}};
         try {
             Z = bspline::fill_buried(fr.geom, fr.basis, fr.radii, fp, fr.omega, BSPLINE_EPS, BSPLINE_MU, fr.ground_z,
                                      fr.ground_eps_r, fr.ground_sigma, 3, 256, np);
@@ -112,9 +113,11 @@ Solved BSplinePrintoutEngine::solve(const Prepared &p, const NumpyLinalg &np) {
     if (fr.exact_kernel && fr.buried)
         bspline::add_exact_correction(Z, fr.geom, fr.basis, fr.radii, fp, fr.omega, BSPLINE_EPS, BSPLINE_MU, 256.0,
                                       &fr.basis.below_wire);
+    if (Z_out) *Z_out = Z;
+    if (B_out) *B_out = fr.B;
     const bspline::PortSolve ps =
-        bspline::solve_ports(Z, fr.basis.n_basis, fr.B, fr.n_ports, fr.basis.kcl_A, fr.basis.n_kcl, lapack_, np,
-                             &sym_);
+        bspline::solve_ports(Z, fr.basis.n_basis, fr.B, fr.n_ports, fr.basis.kcl_A, fr.basis.n_kcl, lapack, np,
+                             &sym);
     // A singular system: SciPy warns or raises in its own words, per solver
     if (ps.info != 0) throw PrintoutDecline{"bspline: a singular system"};
     Solved s;
@@ -125,6 +128,10 @@ Solved BSplinePrintoutEngine::solve(const Prepared &p, const NumpyLinalg &np) {
     s.y = CMat(s.n_ports, s.n_ports);
     s.y.v = ps.Y;
     return s;
+}
+
+Solved BSplinePrintoutEngine::solve(const Prepared &p, const NumpyLinalg &np) {
+    return bspline_solve_front(front_of(p), lapack_, sym_, np);
 }
 
 void BSplinePrintoutEngine::release(Prepared &p) { bspline_part(p).front.reset(); }

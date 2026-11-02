@@ -1,0 +1,174 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/versions.py
+# Purpose:   The single reader for the pinned-version SSOT
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Read pinned third-party versions and digests from the shipped SSOT.
+
+``config/versions.yaml`` ships inside the package, so runtime reads a pin from
+it rather than from a constant copied into source. A version literal in a
+module is a bug and ``tests/unit/test_versions.py`` fails on one.
+
+- It pins THIRD-PARTY things only. hyperi-ci's own version comes from git tags
+  via :mod:`hyperi_ci.version_source`, because the build back-end would
+  otherwise read a file inside the package it is building.
+- It imports stdlib and ``yaml`` only, so nothing can import-cycle through it.
+
+The only copies are files GitHub parses before our code runs (a workflow
+input's or a composite action's ``default:``), which
+``scripts/update-versions.py`` rewrites from this SSOT. Renovate pins and bumps
+GitHub Actions ``uses:`` refs.
+"""
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+VERSIONS_FILE = Path(__file__).resolve().parent / "config" / "versions.yaml"
+
+
+@lru_cache(maxsize=1)
+def _data() -> dict[str, Any]:
+    """Parse the SSOT once per process."""
+    with open(VERSIONS_FILE, encoding="utf-8") as fh:
+        return yaml.safe_load(fh) or {}
+
+
+def _tool(name: str) -> dict[str, Any]:
+    tools = _data().get("tools") or {}
+    spec = tools.get(name)
+    if not isinstance(spec, dict):
+        raise KeyError(
+            f"{name!r} is not in {VERSIONS_FILE.name} under `tools:` - "
+            "add the pin there rather than hardcoding it"
+        )
+    return spec
+
+
+def tool_version(name: str) -> str:
+    """Return the pinned version string for ``name``, verbatim.
+
+    Verbatim because the download URL is built from it (cargo-deny's tags carry
+    no leading ``v``).
+
+    Raises:
+        KeyError: No such tool, or no version on it.
+
+    """
+    version = _tool(name).get("version")
+    if not isinstance(version, str) or not version:
+        raise KeyError(f"`tools.{name}.version` is missing from {VERSIONS_FILE.name}")
+    return version
+
+
+def _sha256(spec: object, key: str, arch: str) -> str:
+    """Return ``spec``'s ``sha256.<arch>``, or raise naming ``key`` (fail closed)."""
+    digests = spec.get("sha256") if isinstance(spec, dict) else None
+    if not isinstance(digests, dict) or arch not in digests:
+        raise KeyError(f"`{key}.sha256.{arch}` is missing from {VERSIONS_FILE.name}")
+    return str(digests[arch])
+
+
+def tool_sha256(name: str, arch: str) -> str:
+    """Return the pinned sha256 of ``name``'s release asset for ``arch``.
+
+    The digest covers the RAW download (the binary, or the ``.tar.gz`` before
+    extraction).
+
+    Args:
+        name: Tool key under ``tools:``.
+        arch: Key under that tool's ``sha256:``, spelled as the tool's own
+            asset names spell it (``x64`` for gitleaks, ``x86_64`` for alint).
+
+    Raises:
+        KeyError: No digest for that tool/arch (fail closed).
+
+    """
+    return _sha256(_tool(name), f"tools.{name}", arch)
+
+
+def runtime_sha256(name: str, arch: str) -> str:
+    """Return the pinned sha256 of a runtime's download for ``arch``.
+
+    Only a runtime hyperi-ci downloads itself carries one (``go``, for the
+    runner-image bake).
+
+    Args:
+        name: Runtime key under ``runtimes:``.
+        arch: Key under that runtime's ``sha256:``.
+
+    Raises:
+        KeyError: No digest for that runtime/arch (fail closed).
+
+    """
+    runtimes = _data().get("runtimes") or {}
+    return _sha256(runtimes.get(name), f"runtimes.{name}", arch)
+
+
+def static_libs() -> dict[str, dict[str, str]]:
+    """Return the ``static_libs:`` pins in build order, each with its fields as strings.
+
+    Raises:
+        KeyError: The section is missing, or an entry lacks a version, url or
+            sha256.
+
+    """
+    section = _data().get("static_libs")
+    if not isinstance(section, dict) or not section:
+        raise KeyError(f"`static_libs` is missing from {VERSIONS_FILE.name}")
+    pins: dict[str, dict[str, str]] = {}
+    for name, spec in section.items():
+        fields = spec if isinstance(spec, dict) else {}
+        for field in ("version", "url", "sha256"):
+            if not fields.get(field):
+                raise KeyError(
+                    f"`static_libs.{name}.{field}` is missing from {VERSIONS_FILE.name}"
+                )
+        pins[name] = {key: str(value) for key, value in fields.items()}
+    return pins
+
+
+def static_libs_release() -> tuple[str, dict[str, str]]:
+    """Return the pinned static-libs release tag and its archive sha256 per target triple.
+
+    Raises:
+        KeyError: The ``static_libs_release`` tag or digests are missing.
+
+    """
+    spec = _data().get("static_libs_release")
+    tag = spec.get("tag") if isinstance(spec, dict) else None
+    if not isinstance(tag, str) or not tag:
+        raise KeyError(
+            f"`static_libs_release.tag` is missing from {VERSIONS_FILE.name}"
+        )
+    digests = spec.get("sha256") if isinstance(spec, dict) else None
+    if not isinstance(digests, dict) or not digests:
+        raise KeyError(
+            f"`static_libs_release.sha256` is missing from {VERSIONS_FILE.name}"
+        )
+    return tag, {str(k): str(v) for k, v in digests.items()}
+
+
+def runtime_version(name: str) -> str:
+    """Return a language runtime pin (``python``, ``node``, ``rust``, ``go``).
+
+    An entry is a bare value, or a mapping that also lists the files mirroring
+    it.
+
+    Raises:
+        KeyError: No such runtime, or no version on it.
+
+    """
+    runtimes = _data().get("runtimes") or {}
+    if name not in runtimes:
+        raise KeyError(f"`runtimes.{name}` is missing from {VERSIONS_FILE.name}")
+    spec = runtimes[name]
+    version = spec.get("version") if isinstance(spec, dict) else spec
+    if not version:
+        raise KeyError(
+            f"`runtimes.{name}.version` is missing from {VERSIONS_FILE.name}"
+        )
+    return str(version)

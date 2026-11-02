@@ -1,0 +1,89 @@
+# PyPI distribution name: `docling-rs`. Released manually via the
+# `.github/workflows/pypi-publish.yml` workflow (workflow_dispatch), which builds
+# the abi3 wheels + sdist and uploads them; local builds use maturin (see
+# README.md).
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "docling-rs"
+# Fallback for local maturin builds — pypi-publish.yml overwrites this with the
+# workspace version (root Cargo.toml) on every release.
+version = "2.62.0"
+# PyPI search weighs the summary and keywords: say what it does, for whom, and
+# that it speaks docling's, MarkItDown's, Marker's and MinerU's Python APIs.
+description = "Fast, local document-to-Markdown for LLMs and RAG: docling in Rust, with docling's, MarkItDown's, Marker's and MinerU's Python APIs. PDF (layout, tables, OCR), DOCX, PPTX, XLSX, HTML, EPUB, email and more."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+keywords = [
+    "markitdown", "marker", "marker-pdf", "mineru", "docling", "markdown", "pdf-to-markdown", "docx-to-markdown",
+    "document-conversion", "document-parsing", "pdf", "docx", "pptx", "xlsx",
+    "ocr", "table-extraction", "rag", "llm", "rust",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# The document *model* and its serializers/chunkers are docling's own Python
+# code: the Rust engine only produces the JSON wire format, which this package
+# validates into a genuine `docling_core.types.doc.DoclingDocument`.
+dependencies = [
+    "docling-core>=2.0",
+    "pydantic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+# docling_rs.langchain — the port of docling-project/docling-langchain
+# (DoclingLoader + picture description with LangChain chat models).
+langchain = [
+    "langchain-core>=0.3",
+]
+# docling_rs.llamaindex — the port of llama-index-readers-docling
+# (DoclingReader: one LlamaIndex Document per input, Markdown or docling JSON).
+llamaindex = [
+    "llama-index-core>=0.12",
+]
+# docling_rs.autogen — DoclingIndexer (documents into an AutoGen memory) and
+# DoclingConvertTool (a document-reading FunctionTool).
+autogen = [
+    "autogen-core>=0.4",
+]
+# docling_rs.agent_framework — the Microsoft Agent Framework integration,
+# AutoGen's successor: DoclingIndexer (documents into a vector collection),
+# DoclingContextProvider / docling_search_tool (retrieval) and
+# DoclingConvertTool. Agent Framework needs Python 3.10+ and ships breaking
+# changes in minor releases, hence the bounds (1.23 is what is tested).
+agent-framework = [
+    "agent-framework-core>=1.23,<2; python_version >= '3.10'",
+]
+
+[project.urls]
+Homepage = "https://github.com/docling-project/docling.rs"
+Repository = "https://github.com/docling-project/docling.rs"
+Documentation = "https://github.com/docling-project/docling.rs/blob/master/crates/docling-py/README.md"
+"Coming from MarkItDown" = "https://github.com/docling-project/docling.rs/blob/master/docs/MARKITDOWN.md"
+"Coming from Marker" = "https://github.com/docling-project/docling.rs/blob/master/docs/MARKER.md"
+"Coming from MinerU" = "https://github.com/docling-project/docling.rs/blob/master/docs/MINERU.md"
+Demo = "https://docling-project.github.io/docling.rs/"
+Issues = "https://github.com/docling-project/docling.rs/issues"
+Changelog = "https://github.com/docling-project/docling.rs/releases"
+
+[tool.maturin]
+module-name = "docling_rs._native"
+# The CUDA wheel job (pypi-publish.yml, `cuda_wheel` input) copies ONNX
+# Runtime's provider libraries into python/docling_rs/ before `maturin build
+# --features cuda` and seds `name` above to `docling-rs-cuda`; this include
+# ships them inside that wheel (absent files match nothing on CPU builds).
+include = [{ path = "python/docling_rs/libonnxruntime_providers_*.so", format = "wheel" }]
+manifest-path = "docling-py/Cargo.toml"
+python-source = "python"

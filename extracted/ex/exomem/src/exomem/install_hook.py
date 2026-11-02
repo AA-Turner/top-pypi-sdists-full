@@ -1,0 +1,2834 @@
+"""install-hook: wire the KB capture + retrieval hooks into supported agents.
+
+Ships two bundled hooks (each a Python script + a bash wrapper) and registers them
+in the target client's hook config, so a friend gets the full reliable KB loop
+with one command:
+
+- `_hooks/exomem_capture_nudge.py`  (via `exomem-capture-nudge.sh`)  → a `Stop` hook (WRITE):
+  captures durable conclusions at stepping-stones instead of waiting to be told.
+- `_hooks/exomem_retrieve_nudge.py` (via `exomem-retrieve-nudge.sh`) → a `UserPromptSubmit`
+  hook (READ): reminds the agent to consult the KB before answering.
+
+The registered command is **machine-agnostic** — `bash ~/.claude/hooks/<name>.sh`,
+matching the convention of other Claude Code hooks; Codex gets the same Python
+scripts directly with `command` + `commandWindows` entries in `~/.codex/hooks.json`.
+
+Both gates are language-agnostic (structural + cooldown, no English keywords). By
+default this copies the scripts AND merges settings.json; `wire=False`
+(`--print-only`) copies them and returns the snippet to paste instead.
+
+The retrieve hook's payload is chosen by one environment variable, unwired and
+off by default — wiring the hook does not turn either mode on:
+
+- unset (or any falsy value) → the reminder alone, the cheap default.
+- any other truthy value → stub mode: up to three `ask_memory` routing stubs
+  appended to the reminder, additionally over the CLI when
+  `EXOMEM_RETRIEVE_INJECT_CLI` is truthy.
+- `EXOMEM_RETRIEVE_INJECT=working_set` → working-set mode: one
+  `activate_context` call, whose compiled packet REPLACES the reminder under a
+  fixed data header, bounded by `EXOMEM_RETRIEVE_INJECT_MAX_CHARS` (default
+  4,000 characters, whole items only). The packet's continuity token is kept per
+  client and session beside the continuation checkpoint and dropped by that hook
+  on each session lifecycle event. A standalone hook copy older than this mode
+  reads `working_set` as merely truthy and runs stub mode, which is why the two
+  modes share one variable rather than taking one each.
+
+Explicit `activation_mode="mcp"` or `"working-set"` binds the installed commands
+to the client/config profile home. Native-MCP activation delegates bootstrap and
+activation to the admitted client tools without hook transport or credentials;
+it bypasses reminder cooldowns. Working-set transport failure requests that same
+native activation. No-option installs retain the legacy reminder/stub behaviour.
+"""
+
+from __future__ import annotations
+
+import errno
+import hashlib
+import json
+import os
+import re
+import secrets
+import shlex
+import stat
+import subprocess
+import sys
+import time
+from functools import cache
+from pathlib import Path
+
+_HOOK_DIR_SRC = Path(__file__).parent / "_hooks"
+# (python script, bash wrapper, hook event) — the hooks this installs.
+_HOOK_SPECS = (
+    ("exomem_capture_nudge.py", "exomem-capture-nudge.sh", "Stop"),
+    ("exomem_retrieve_nudge.py", "exomem-retrieve-nudge.sh", "UserPromptSubmit"),
+)
+_CONTINUATION_SCRIPT = "exomem_continuation_checkpoint.py"
+_LOCAL_CREDENTIAL_SCRIPT = "exomem_local_credentials.py"
+_CONTINUATION_WRAPPER = "exomem-continuation-checkpoint.sh"
+_CONTINUATION_LEGACY = (
+    "kb_continuation_checkpoint.py",
+    "kb-continuation-checkpoint.sh",
+)
+_CONTINUATION_EVENTS = {
+    "claude": (
+        ("PreCompact", "manual|auto"),
+        ("SessionEnd", None),
+        ("SessionStart", "compact|resume"),
+    ),
+    "codex": (
+        ("PreCompact", "manual|auto"),
+        ("SessionStart", "compact|resume"),
+    ),
+}
+DEFAULT_CLIENT = "claude"
+SUPPORTED_CLIENTS = ("claude", "codex")
+SUPPORTED_ACTIVATION_MODES = ("mcp", "working-set")
+# Resolved on attribute access rather than at import. `Path.home()` raises
+# when the environment names no home -- a service account, a container
+# started without `HOME`, a child handed a minimal environment -- and these
+# were four import-time calls, so merely importing this module failed there.
+# The names and values are unchanged for every caller that reads them.
+_DEFAULT_PATHS = {
+    "DEFAULT_CLAUDE_HOOK_DIR": (".claude", "hooks"),
+    "DEFAULT_CLAUDE_SETTINGS": (".claude", "settings.json"),
+    "DEFAULT_CODEX_HOOK_DIR": (".codex", "hooks"),
+    "DEFAULT_CODEX_SETTINGS": (".codex", "hooks.json"),
+    # Back-compat for existing tests and callers.
+    "DEFAULT_HOOK_DIR": (".claude", "hooks"),
+    "DEFAULT_SETTINGS": (".claude", "settings.json"),
+}
+
+
+def __getattr__(name: str) -> Path:
+    parts = _DEFAULT_PATHS.get(name)
+    if parts is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return Path.home().joinpath(*parts)
+
+
+def _is_conventional_hook_dir(hook_dir: Path, client: str) -> bool:
+    """True when *hook_dir* is the one `~` would name for *client*.
+
+    Only ever used to decide whether the rendered command may say `~` instead
+    of an absolute path. Where the environment names no home there is no `~`
+    to abbreviate to, so the answer is no and the absolute form is rendered --
+    rather than raising out of a command renderer.
+    """
+    try:
+        home = Path.home()
+    except RuntimeError:
+        return False
+    return hook_dir == home / (".codex" if client == "codex" else ".claude") / "hooks"
+
+# Substrings identifying a previously-installed nudge entry, so re-running is
+# idempotent and supersedes older entries (incl. the absolute-python-path form).
+# BOTH the legacy `kb_*`/`kb-*` names AND the current `exomem_*`/`exomem-*` names are
+# listed, so re-running install-hook cleanly migrates a machine off the old kb entry.
+_MARKERS = (
+    "kb_capture_nudge",
+    "kb_retrieve_nudge",
+    "kb-capture-nudge",
+    "kb-retrieve-nudge",
+    "exomem_capture_nudge",
+    "exomem_retrieve_nudge",
+    "exomem-capture-nudge",
+    "exomem-retrieve-nudge",
+)
+_LEGACY_MARKERS = ("kb_capture_nudge", "kb_retrieve_nudge", "kb-capture-nudge", "kb-retrieve-nudge")
+
+
+def _normalize_client(client: str) -> str:
+    value = (client or DEFAULT_CLIENT).strip().lower()
+    if value not in SUPPORTED_CLIENTS:
+        raise ValueError(f"unsupported hook client {client!r}; expected one of {SUPPORTED_CLIENTS}")
+    return value
+
+
+def _default_hook_dir(client: str) -> Path:
+    return _default_home(client) / "hooks"
+
+
+def _default_settings(client: str) -> Path:
+    client = _normalize_client(client)
+    return _default_home(client) / ("hooks.json" if client == "codex" else "settings.json")
+
+
+def _default_home(client: str) -> Path:
+    client = _normalize_client(client)
+    shared = os.environ.get("EXOMEM_HOOK_HOME")
+    if shared:
+        return Path(shared).expanduser()
+    if client == "codex":
+        return Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude")).expanduser()
+
+
+def _windows_python_command(script: Path) -> str:
+    return f'python "{script}"'
+
+
+def _quote_unix(value: str) -> str:
+    return '"' + re.sub(r'([\\"$`])', r'\\\1', value) + '"'
+
+
+def _quote_windows(value: str) -> str:
+    # cmd.exe expands percent/exclamation even inside quotes. Native Windows
+    # filenames cannot contain quotes or line breaks; never interpolate them.
+    if any(char in value for char in '\x00\r\n"%!'):
+        raise ValueError("hook path cannot be represented safely by Windows cmd.exe")
+    return '"' + re.sub(r"(\\+)$", r"\1\1", value) + '"'
+
+
+def _activation_mode(value: str | None) -> str | None:
+    if value is not None and value not in SUPPORTED_ACTIVATION_MODES:
+        raise ValueError(f"unsupported activation mode {value!r}; expected {SUPPORTED_ACTIVATION_MODES}")
+    return value
+
+
+def _profile_home(client: str, settings_path: Path | None) -> Path:
+    if settings_path is not None:
+        return Path(settings_path).expanduser().absolute().parent
+    variable, directory = (
+        ("CODEX_HOME", ".codex")
+        if client == "codex"
+        else ("CLAUDE_CONFIG_DIR", ".claude")
+    )
+    return Path(os.environ.get(variable) or (Path.home() / directory)).expanduser().absolute()
+
+
+def _command_for(
+    wrapper: str,
+    hook_dir: Path,
+    *,
+    client: str = DEFAULT_CLIENT,
+    script: str | None = None,
+    hook_home: Path | None = None,
+    activation_mode: str | None = None,
+) -> str:
+    """Machine-agnostic `bash` invocation of the wrapper. For the default location
+    use the `~`-relative form so the SAME settings.json works on every machine
+    (yadm-synced); for a custom dir (tests) use a POSIX absolute path.
+
+    Codex runs the same bundled Python hook directly. On Unix-like hosts `command`
+    uses `python3`; on Windows the sibling `commandWindows` entry carries the
+    native `python` invocation.
+    """
+    client = _normalize_client(client)
+    hook_dir = Path(hook_dir).expanduser()
+    if activation_mode is not None:
+        name = script or wrapper.removesuffix(".sh").replace("-", "_") + ".py"
+        command = (
+            f"python3 {shlex.quote((hook_dir / name).absolute().as_posix())}"
+            if client == "codex"
+            else f"bash {shlex.quote((hook_dir / wrapper).absolute().as_posix())}"
+        )
+        command += f" --client {client} --hook-home {shlex.quote(str(hook_home))}"
+        if name != _CONTINUATION_SCRIPT:
+            command += f" --activation-mode {activation_mode}"
+        return command
+    if client == "codex":
+        py_name = script or wrapper.removesuffix(".sh").replace("-", "_") + ".py"
+        if _is_conventional_hook_dir(hook_dir, "codex"):
+            return f"python3 ~/.codex/hooks/{py_name}"
+        return f'python3 {_quote_unix((hook_dir / py_name).as_posix())}'
+    if _is_conventional_hook_dir(hook_dir, "claude"):
+        return f"bash ~/.claude/hooks/{wrapper}"
+    return f'bash {_quote_unix((hook_dir / wrapper).as_posix())}'
+
+
+def _command_windows_for(
+    script: str,
+    hook_dir: Path,
+    *,
+    client: str = DEFAULT_CLIENT,
+    hook_home: Path | None = None,
+    activation_mode: str | None = None,
+) -> str | None:
+    if _normalize_client(client) != "codex":
+        return None
+    if activation_mode is not None:
+        try:
+            script_arg = _quote_windows(str((Path(hook_dir).expanduser() / script).absolute()))
+            home_arg = _quote_windows(str(hook_home))
+        except ValueError:
+            if os.name == "nt":
+                raise
+            return None
+        command = f"python {script_arg} --client {client} --hook-home {home_arg}"
+        if script != _CONTINUATION_SCRIPT:
+            command += f" --activation-mode {activation_mode}"
+        return command
+    return _windows_python_command(Path(hook_dir).expanduser() / script)
+
+
+def _hook_entry(item: dict, timeout: int) -> dict:
+    entry = {
+        "type": "command",
+        "command": item["command"],
+        "timeout": item.get("timeout", timeout),
+    }
+    if item.get("commandWindows"):
+        entry["commandWindows"] = item["commandWindows"]
+    return entry
+
+
+def _is_private_group(gid: int) -> bool:
+    return _private_group_for_user(os.geteuid(), gid)
+
+
+@cache
+def _private_group_for_user(euid: int, gid: int) -> bool:
+    """Require the user-private-group convention and no other known members."""
+    # A cached private answer lasts for the process lifetime unless explicitly cleared.
+    try:
+        import grp
+        import pwd
+
+        user = pwd.getpwuid(euid)
+        if gid != user.pw_gid:
+            return False
+        group = grp.getgrgid(gid)
+        if group.gr_name != user.pw_name:
+            return False
+        if any(member != user.pw_name for member in group.gr_mem):
+            return False
+        # gr_mem omits primary-group users, so an empty list can still be shared.
+        members = pwd.getpwall()
+        # NSS may return only local users. Refuse an enumeration missing this user.
+        if not any(
+            member.pw_name == user.pw_name and member.pw_uid == user.pw_uid
+            for member in members
+        ):
+            return False
+        return not any(
+            member.pw_gid == gid and member.pw_name != user.pw_name
+            for member in members
+        )
+    except (ImportError, KeyError, OSError):
+        return False
+
+
+def _has_untrusted_writers(info: os.stat_result, target: int | Path) -> bool:
+    mode = stat.S_IMODE(info.st_mode)
+    if mode & 0o002:
+        return True
+    if not mode & 0o020:
+        return False
+    if (
+        sys.platform != "linux"
+        or info.st_uid != os.geteuid()
+        or not _is_private_group(info.st_gid)
+    ):
+        return True
+    # ACLs can grant writers beyond the private group described by the mode bits.
+    try:
+        attrs = (
+            os.listxattr(target) if isinstance(target, int)
+            else os.listxattr(target, follow_symlinks=False)
+        )
+        return bool({"system.posix_acl_access", "system.nfs4_acl", "system.cifs_acl"}.intersection(attrs))
+    except OSError as error:
+        return error.errno not in {errno.ENOTSUP, errno.EOPNOTSUPP}
+
+
+def _require_trusted_directory(directory) -> None:
+    """Keep the secure ancestor walk, accepting only the owner's private group.
+
+    This is installer policy. The standalone continuation hook retains its
+    stricter directory rule for private checkpoint state.
+    """
+    if os.name == "nt":
+        return
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    absolute = directory.path.absolute()
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    handles: list[int] = []
+    offenders: list[tuple[str, str]] = []
+    try:
+        current = os.open(absolute.anchor or "/", flags)
+        handles.append(current)
+        walked = Path(absolute.anchor or "/")
+        parts = absolute.parts[1:]
+        for index, part in enumerate(parts):
+            current = os.open(part, flags, dir_fd=current)
+            handles.append(current)
+            walked /= part
+            info = os.fstat(current)
+            mode = stat.S_IMODE(info.st_mode)
+            if index == len(parts) - 1:
+                if info.st_uid != os.geteuid():
+                    offenders.append((str(walked), "owned by another user"))
+                elif _has_untrusted_writers(info, current):
+                    offenders.append((str(walked), f"group/other-writable ({mode:04o})"))
+            else:
+                sticky_trusted = bool(mode & stat.S_ISVTX) and info.st_uid in {0, os.geteuid()}
+                if _has_untrusted_writers(info, current) and not sticky_trusted:
+                    offenders.append((str(walked), f"group/other-writable ({mode:04o})"))
+        if offenders:
+            detail = "; ".join(f"{path} ({reason})" for path, reason in offenders)
+            leaf = str(absolute)
+            scope = detail if offenders[-1][0] == leaf else f"{detail} (ancestor(s) of {leaf})"
+            raise OSError(
+                errno.EPERM,
+                f"unsafe writable or foreign-owned directory: {scope}; "
+                f"fix: {safe.trusted_directory_remediation(offenders)}",
+            )
+        retained = os.fstat(directory.fd)
+        reopened = os.fstat(current)
+        if (retained.st_dev, retained.st_ino) != (reopened.st_dev, reopened.st_ino):
+            raise OSError(errno.EPERM, "trusted directory identity changed")
+    finally:
+        while handles:
+            os.close(handles.pop())
+
+
+def _safe_file_status(path: Path) -> dict:
+    safe_regular = False
+    mode_ok = False
+    digest = None
+    try:
+        listed = os.lstat(path)
+        safe_regular = stat.S_ISREG(listed.st_mode) and not stat.S_ISLNK(listed.st_mode)
+        mode_ok = safe_regular and (
+            os.name == "nt" or not _has_untrusted_writers(listed, path)
+        )
+        if not safe_regular:
+            raise OSError("not a safe regular file")
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        if os.name != "nt":
+            flags |= getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(path, flags)
+        h = hashlib.sha256()
+        try:
+            opened = os.fstat(fd)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_dev != listed.st_dev
+                or opened.st_ino != listed.st_ino
+            ):
+                raise OSError("deployed file identity changed")
+            with os.fdopen(fd, "rb", closefd=False) as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    h.update(chunk)
+            digest = h.hexdigest()
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+    return {
+        "exists": path.exists() or path.is_symlink(),
+        "safe_regular": safe_regular,
+        "mode_ok": mode_ok,
+        "sha256": digest,
+    }
+
+
+def _is_alternate_link_value(name: str, value: str) -> bool:
+    """True for the one link shape yadm's alternate mechanism produces.
+
+    A hook config names commands the agent executes, so a symlink is a redirect
+    that decides what runs, and following an arbitrary one would hand that
+    decision to anything able to create a link in the config directory.
+
+    yadm produces exactly one shape and it is not attacker-shaped: the deployed
+    name points at a sibling in the same directory whose name is the deployed
+    name plus a `##`-prefixed suffix (`settings.json -> settings.json##os.WSL`).
+    Requiring a bare child name is what keeps the target inside the directory
+    that was already trusted, so an absolute value, a parent-directory value,
+    and any other separator are all rejected here rather than resolved.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    try:
+        safe._validate_child_name(value)
+    except OSError:
+        return False
+    prefix = f"{name}##"
+    return value.startswith(prefix) and len(value) > len(prefix)
+
+
+def _resolved_config_name(directory, name: str, display_path: Path) -> str:
+    """The child name a read or write of *name* must actually use.
+
+    Returns *name* unchanged for anything that is not a symlink, so the guard
+    behind this is reached exactly as before. For a yadm alternate link it
+    returns the sibling the link names, and the unchanged ownership,
+    group/other-writability and regular-file checks then apply to that sibling.
+
+    Every other symlink raises, including a link whose target is absolute, in a
+    parent directory, not `##`-suffixed, missing, or itself a link -- the last
+    because `_existing_kind` reports the link rather than what it points at.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    kind = safe._existing_kind(directory, name)
+    if kind is None or not stat.S_ISLNK(kind):
+        return name
+    try:
+        value = (
+            os.readlink(directory.path / name)
+            if os.name == "nt"
+            else os.readlink(name, dir_fd=directory.fd)
+        )
+    except OSError as error:
+        raise OSError(f"unsafe hook config file: {display_path}") from error
+    if not _is_alternate_link_value(name, value):
+        raise OSError(f"unsafe hook config file: {display_path}")
+    target = safe._existing_kind(directory, value)
+    if target is None or not stat.S_ISREG(target):
+        raise OSError(f"unsafe hook config file: {display_path}")
+    return value
+
+
+def _read_json(path: Path) -> tuple[dict | None, str | None]:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    try:
+        with safe._open_secure_directory(path.parent, create=False) as directory:
+            _require_trusted_directory(directory)
+            name = _resolved_config_name(directory, path.name, path)
+            kind = safe._existing_kind(directory, name)
+            if kind is None or not stat.S_ISREG(kind):
+                raise OSError(f"unsafe hook config file: {path}")
+            fd = safe._open_secure_file_at(directory, name, os.O_RDONLY)
+            try:
+                info = os.fstat(fd)
+                if os.name != "nt" and (
+                    info.st_uid != os.geteuid() or _has_untrusted_writers(info, fd)
+                ):
+                    raise OSError(
+                        f"unsafe writable hook config file: {path}; fix: chmod g-w,o-w {path}"
+                    )
+                chunks: list[bytes] = []
+                total = 0
+                while total <= 8 * 1024 * 1024:
+                    chunk = os.read(fd, min(1024 * 1024, 8 * 1024 * 1024 + 1 - total))
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    total += len(chunk)
+                if total > 8 * 1024 * 1024:
+                    raise OSError(f"hook config is too large: {path}")
+            finally:
+                os.close(fd)
+        loaded = json.loads(b"".join(chunks).decode("utf-8"))
+    except Exception as e:  # noqa: BLE001 - diagnostic boundary
+        return None, str(e)
+    return (loaded, None) if isinstance(loaded, dict) else (None, "top-level JSON is not an object")
+
+
+def _commands_for_event(data: dict | None, event: str) -> list[dict]:
+    if not isinstance(data, dict):
+        return []
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return []
+    groups = hooks.get(event)
+    if not isinstance(groups, list):
+        return []
+    entries: list[dict] = []
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        for hook in group.get("hooks", []):
+            if isinstance(hook, dict):
+                entries.append(hook)
+    return entries
+
+
+def _contains_any(hook: dict, markers: tuple[str, ...]) -> bool:
+    haystack = f"{hook.get('command', '')} {hook.get('commandWindows', '')}"
+    return any(marker in haystack for marker in markers)
+
+
+def _continuation_command(
+    hook_dir: Path,
+    client: str,
+    hook_home: Path | None = None,
+    activation_mode: str | None = None,
+) -> tuple[str, str | None]:
+    if activation_mode is not None:
+        return (
+            _command_for(
+                _CONTINUATION_WRAPPER, hook_dir, client=client,
+                script=_CONTINUATION_SCRIPT, hook_home=hook_home,
+                activation_mode=activation_mode,
+            ),
+            _command_windows_for(
+                _CONTINUATION_SCRIPT, hook_dir, client=client,
+                hook_home=hook_home, activation_mode=activation_mode,
+            ),
+        )
+    if client == "codex":
+        command = _command_for(
+            _CONTINUATION_WRAPPER,
+            hook_dir,
+            client=client,
+            script=_CONTINUATION_SCRIPT,
+        )
+        windows = _command_windows_for(_CONTINUATION_SCRIPT, hook_dir, client=client)
+        return f"{command} --client codex", f"{windows} --client codex"
+    command = _command_for(_CONTINUATION_WRAPPER, hook_dir, client=client)
+    return f"{command} --client claude", None
+
+
+def _continuation_items(
+    hook_dir: Path,
+    client: str,
+    hook_home: Path | None = None,
+    activation_mode: str | None = None,
+) -> list[dict]:
+    command, command_windows = _continuation_command(hook_dir, client, hook_home, activation_mode)
+    return [
+        {
+            "kind": "continuation",
+            "client": client,
+            "event": event,
+            "matcher": matcher,
+            "script": str(hook_dir / _CONTINUATION_SCRIPT),
+            "wrapper": str(hook_dir / _CONTINUATION_WRAPPER),
+            "command": command,
+            "commandWindows": command_windows,
+            "timeout": 5,
+        }
+        for event, matcher in _CONTINUATION_EVENTS[client]
+    ]
+
+
+def _nudge_item(
+    script: str,
+    wrapper: str,
+    event: str,
+    hook_dir: Path,
+    client: str,
+    hook_home: Path | None,
+    activation_mode: str | None,
+    timeout: int = 10,
+) -> dict:
+    return {
+        "kind": "nudge",
+        "event": event,
+        "script": str(hook_dir / script),
+        "wrapper": str(hook_dir / wrapper),
+        "command": _command_for(
+            wrapper, hook_dir, client=client, script=script,
+            hook_home=hook_home, activation_mode=activation_mode,
+        ),
+        "commandWindows": _command_windows_for(
+            script, hook_dir, client=client,
+            hook_home=hook_home, activation_mode=activation_mode,
+        ),
+        "timeout": timeout,
+    }
+
+
+def _refresh_items(hook_dir: Path, client: str, home: Path) -> list[dict]:
+    from ._hooks import exomem_retrieve_nudge as retrieve
+
+    items = []
+    for event in retrieve.REFRESH_HOST_CONTRACTS[client]["events"]:
+        item = _nudge_item(
+            "exomem_retrieve_nudge.py",
+            "exomem-retrieve-nudge.sh",
+            event,
+            hook_dir,
+            client,
+            home,
+            "mcp",
+            10 if event == "UserPromptSubmit" else 5,
+        )
+        item.update(kind="refresh", activation_mode="mcp")
+        item["command"] += f" --refresh-event {event}"
+        if item.get("commandWindows"):
+            item["commandWindows"] += f" --refresh-event {event}"
+        if event == "PreCompact":
+            item["matcher"] = "manual|auto"
+        elif event == "SessionStart":
+            item["matcher"] = "compact|resume"
+        items.append(item)
+    return items
+
+
+def _command_basenames(command: str) -> set[str]:
+    return set(re.findall(r"[A-Za-z0-9_.-]+(?:\.py|\.sh)(?=[\"'\s]|$)", command))
+
+
+def _has_client_arg(command: str, client: str) -> bool:
+    return bool(re.search(rf"(?:^|\s)--client(?:=|\s+){re.escape(client)}(?:\s|$)", command))
+
+
+def _is_matching_entry(hook: dict, item: dict) -> bool:
+    command = f"{hook.get('command', '')} {hook.get('commandWindows', '')}"
+    if item.get("kind") != "continuation":
+        # Closed installed script names distinguish retrieval from capture on shared events.
+        stem = Path(item["script"]).stem.removeprefix("exomem_")
+        return any(
+            marker in command
+            for marker in _MARKERS
+            if stem.replace("_", "-") in marker.replace("_", "-")
+        )
+    names = _command_basenames(command)
+    if names.intersection(_CONTINUATION_LEGACY):
+        return True
+    current = {_CONTINUATION_SCRIPT, _CONTINUATION_WRAPPER}
+    return bool(current.intersection(names)) and _has_client_arg(command, item["client"])
+
+
+def _configured_item(data: dict | None, item: dict) -> bool:
+    if not isinstance(data, dict):
+        return False
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return False
+    groups = hooks.get(item["event"])
+    if not isinstance(groups, list):
+        return False
+    if item.get("kind") != "continuation" and not item.get("activation_mode"):
+        return any(
+            isinstance(group, dict)
+            and group.get("matcher") == item.get("matcher")
+            and (item.get("matcher") is not None or "matcher" not in group)
+            and isinstance(group.get("hooks"), list)
+            and any(
+                isinstance(entry, dict) and _is_matching_entry(entry, item)
+                for entry in group["hooks"]
+            )
+            for group in groups
+        )
+    if "command" not in item:
+        return any(
+            isinstance(group, dict)
+            and isinstance(group.get("hooks"), list)
+            and any(
+                isinstance(entry, dict) and _is_matching_entry(entry, item)
+                for entry in group["hooks"]
+            )
+            for group in groups
+        )
+    owned = 0
+    exact = 0
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        entries = group.get("hooks")
+        if not isinstance(entries, list):
+            continue
+        matcher_exact = group.get("matcher") == item.get("matcher") and (
+            item.get("matcher") is not None or "matcher" not in group
+        )
+        for entry in entries:
+            if not isinstance(entry, dict) or not _is_matching_entry(entry, item):
+                continue
+            owned += 1
+            command_windows_exact = entry.get("commandWindows") == item.get("commandWindows")
+            if item.get("commandWindows") is None:
+                command_windows_exact = command_windows_exact and "commandWindows" not in entry
+            if (
+                matcher_exact
+                and entry.get("type") == "command"
+                and entry.get("command") == item.get("command")
+                and command_windows_exact
+                and entry.get("timeout") == item.get("timeout")
+            ):
+                exact += 1
+    return owned == 1 and exact == 1
+
+
+def _fmt_age(ts: float | None) -> str | None:
+    if ts is None:
+        return None
+    age = max(0, int(time.time() - ts))
+    if age < 60:
+        return f"{age}s ago"
+    if age < 3600:
+        return f"{age // 60}m ago"
+    if age < 86400:
+        return f"{age // 3600}h ago"
+    return f"{age // 86400}d ago"
+
+
+def _file_mtime(path: Path) -> float | None:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _cache_summary(client: str, home: Path | None = None) -> dict:
+    cache = (home or _default_home(client)) / ".cache" / "exomem-nudge"
+    entries: list[Path] = []
+    try:
+        if cache.exists():
+            entries = [p for p in cache.iterdir() if p.is_file()]
+    except OSError:
+        entries = []
+    latest = max((_file_mtime(p) for p in entries), default=None)
+    return {
+        "path": str(cache),
+        "exists": cache.exists(),
+        "entries": len(entries),
+        "latest_age": _fmt_age(latest),
+    }
+
+
+def _log_summary(client: str, kind: str, home: Path | None = None) -> dict:
+    home = home or _default_home(client)
+    path = home / f"exomem-{kind}-nudge.log"
+    mtime = _file_mtime(path)
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "last_trigger_age": _fmt_age(mtime),
+    }
+
+
+def _script_status(hook_dir: Path, script: str, wrapper: str) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    items = {}
+    directory = None
+    directory_context = None
+    try:
+        directory_context = safe._open_secure_directory(hook_dir, create=False)
+        directory = directory_context.__enter__()
+        _require_trusted_directory(directory)
+    except OSError:
+        if directory_context is not None:
+            directory_context.__exit__(None, None, None)
+        directory_context = None
+        directory = None
+    names = (script, wrapper)
+    if any(script == spec[0] for spec in _HOOK_SPECS):
+        names += (_LOCAL_CREDENTIAL_SCRIPT,)
+    for name in names:
+        src = _HOOK_DIR_SRC / name
+        dst = hook_dir / name
+        source = _safe_file_status(src)
+        deployed = (
+            _safe_file_status_at(directory, name, dst)
+            if directory is not None
+            else {
+                "exists": dst.exists() or dst.is_symlink(),
+                "safe_regular": False,
+                "mode_ok": False,
+                "sha256": None,
+            }
+        )
+        src_hash = source["sha256"]
+        dst_hash = deployed["sha256"]
+        items[name] = {
+            "path": str(dst),
+            "exists": deployed["exists"],
+            "safe_regular": deployed["safe_regular"],
+            "mode_ok": deployed["mode_ok"],
+            "matches_bundle": bool(
+                source["safe_regular"]
+                and deployed["safe_regular"]
+                and deployed["mode_ok"]
+                and src_hash
+                and dst_hash
+                and src_hash == dst_hash
+            ),
+            "bundle_hash": src_hash,
+            "deployed_hash": dst_hash,
+        }
+    if directory_context is not None:
+        directory_context.__exit__(None, None, None)
+    return items
+
+
+def _safe_file_status_at(directory, name: str, display_path: Path) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    safe_regular = False
+    mode_ok = False
+    digest = None
+    try:
+        kind = safe._existing_kind(directory, name)
+        if kind is None or not stat.S_ISREG(kind):
+            raise OSError("not a safe regular file")
+        fd = safe._open_secure_file_at(directory, name, os.O_RDONLY)
+        try:
+            info = os.fstat(fd)
+            safe_regular = stat.S_ISREG(info.st_mode)
+            mode_ok = safe_regular and (
+                os.name == "nt"
+                or (info.st_uid == os.geteuid() and not _has_untrusted_writers(info, fd))
+            )
+            h = hashlib.sha256()
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                h.update(chunk)
+            digest = h.hexdigest()
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+    return {
+        "exists": display_path.exists() or display_path.is_symlink(),
+        "safe_regular": safe_regular,
+        "mode_ok": mode_ok,
+        "sha256": digest,
+    }
+
+
+def _path_mode_ok(path: Path, expected: int, *, directory: bool) -> bool:
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    expected_type = stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)
+    return (
+        expected_type
+        and not stat.S_ISLNK(info.st_mode)
+        and (os.name == "nt" or stat.S_IMODE(info.st_mode) == expected)
+    )
+
+
+def _metadata_log_runtime_summary(root: Path) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    path = root / "events.log"
+    if not path.exists() and not path.is_symlink():
+        return {"path": str(path), "exists": False, "status": "missing", "mode_ok": True}
+    mode_ok = _path_mode_ok(path, 0o600, directory=False)
+    if not mode_ok:
+        return {"path": str(path), "exists": True, "status": "unsafe", "mode_ok": False}
+    try:
+        with safe._open_secure_directory(root, create=False) as root_handle:
+            fd = safe._open_secure_file_at(root_handle, "events.log", os.O_RDONLY, 0o600)
+            try:
+                raw = os.read(fd, 1024 * 1024 + 1)
+            finally:
+                os.close(fd)
+    except OSError:
+        return {"path": str(path), "exists": True, "status": "unsafe", "mode_ok": mode_ok}
+    valid = bool(raw) and len(raw) <= safe.MAX_METADATA_LOG_BYTES and raw.endswith(b"\n")
+    for line in raw.splitlines():
+        try:
+            row = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            valid = False
+            break
+        if not safe._valid_metadata_record(row):
+            valid = False
+            break
+    return {
+        "path": str(path),
+        "exists": True,
+        "status": "valid" if valid else "corrupt",
+        "mode_ok": mode_ok,
+    }
+
+
+def _continuation_runtime_summary(client: str, home: Path | None = None) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    home = home or _default_home(client)
+    root = home / ".cache" / "exomem-continuation" / client
+    sessions: list[Path] = []
+    permission_violations: list[str] = []
+    root_exists = root.exists() or root.is_symlink()
+    try:
+        root_info = os.lstat(root)
+        root_safe_directory = stat.S_ISDIR(root_info.st_mode) and not stat.S_ISLNK(
+            root_info.st_mode
+        )
+    except OSError:
+        root_safe_directory = False
+    if root_exists and not _path_mode_ok(root, 0o700, directory=True):
+        permission_violations.append("root")
+    try:
+        if root_safe_directory:
+            sessions = [
+                item
+                for item in root.iterdir()
+                if not item.is_symlink() and item.is_dir() and not item.name.startswith(".")
+            ]
+    except OSError:
+        sessions = []
+    root_lock = root / ".root.lock"
+    if root_lock.exists() or root_lock.is_symlink():
+        if not _path_mode_ok(root_lock, 0o600, directory=False):
+            permission_violations.append(".root.lock")
+    observed_times: list[int] = []
+    session_states: list[dict] = []
+    now = time.time_ns()
+    for session in sessions:
+        state_name = session.name
+        if not _path_mode_ok(session, 0o700, directory=True):
+            permission_violations.append("session")
+        lock = session / ".lock"
+        if not _path_mode_ok(lock, 0o600, directory=False):
+            permission_violations.append(".lock")
+        for name in ("current.json", "previous.json"):
+            path = session / name
+            if (path.exists() or path.is_symlink()) and not _path_mode_ok(
+                path, 0o600, directory=False
+            ):
+                permission_violations.append(name)
+        try:
+            with safe._open_secure_directory(session, create=False) as state_handle:
+                current, current_raw = safe.load_checkpoint_status_at(state_handle, "current.json")
+                previous, previous_raw = safe.load_checkpoint_status_at(
+                    state_handle, "previous.json"
+                )
+                manifest, manifest_status = safe.load_session_manifest_at(
+                    state_handle, home, client, state_name
+                )
+        except OSError:
+            current = previous = None
+            current_raw = previous_raw = "corrupt"
+            manifest = None
+            manifest_status = "corrupt"
+
+        def generation_status(
+            value: dict | None,
+            raw_status: str,
+            expected_name: str = state_name,
+        ) -> str:
+            if raw_status != "valid" or value is None:
+                return raw_status
+            if not safe._prune_candidate_authorized(
+                value, home, client, expected_name
+            ):
+                return "binding_invalid"
+            observed = value.get("observed_at_ns")
+            if not isinstance(observed, int):
+                return "corrupt"
+            observed_times.append(observed)
+            return "stale" if now - observed > safe.RETENTION_NS else "valid"
+
+        current_status = generation_status(current, current_raw)
+        previous_status = generation_status(previous, previous_raw)
+        if (
+            current_raw == "valid"
+            and previous_raw == "valid"
+            and current is not None
+            and previous is not None
+            and not safe._generation_pair_ordered(current, previous)
+        ):
+            current_status = "generation_invalid"
+        history = (
+            "stale_previous"
+            if (current_status == "valid" and previous_status == "stale")
+            else "clean"
+        )
+        if current_status == "valid":
+            selection = "valid_current"
+        elif current_status == "stale":
+            selection = "stale"
+        elif current_status in {"missing", "corrupt"} and previous_status == "valid":
+            selection = "rollback_previous"
+        elif current_status in {"corrupt", "binding_invalid", "generation_invalid"} or (
+            previous_status in {"corrupt", "binding_invalid"}
+        ):
+            selection = "corrupt"
+        elif previous_status == "stale":
+            selection = "stale"
+        elif (
+            current_status == "missing"
+            and previous_status == "missing"
+            and manifest_status == "valid"
+            and manifest is not None
+            and now - int(manifest["created_at_ns"]) > safe.RETENTION_NS
+        ):
+            selection = "stale_incomplete"
+        else:
+            selection = "missing"
+        session_states.append(
+            {
+                "name": state_name,
+                "current": current_status,
+                "previous": previous_status,
+                "selection": selection,
+                "history": history,
+                "manifest": manifest_status,
+            }
+        )
+    metadata_log = (
+        _metadata_log_runtime_summary(root)
+        if root_safe_directory
+        else {
+            "path": str(root / "events.log"),
+            "exists": False,
+            "status": "missing" if not root_exists else "unsafe",
+            "mode_ok": not root_exists,
+        }
+    )
+    if metadata_log["exists"] and not metadata_log["mode_ok"]:
+        permission_violations.append("events.log")
+    events_lock = root / ".events.lock"
+    if events_lock.exists() or events_lock.is_symlink():
+        if not _path_mode_ok(events_lock, 0o600, directory=False):
+            permission_violations.append(".events.lock")
+    state_counts: dict[str, int] = {}
+    for row in session_states:
+        state_counts[row["selection"]] = state_counts.get(row["selection"], 0) + 1
+    return {
+        "path": str(root),
+        "exists": root_exists,
+        "sessions": len(sessions),
+        "latest_age": _fmt_age(max(observed_times, default=None) / 1_000_000_000)
+        if observed_times
+        else None,
+        "permissions_ok": not permission_violations,
+        "permission_violations": sorted(set(permission_violations)),
+        "session_states": session_states,
+        "state_counts": state_counts,
+        "metadata_log": metadata_log,
+    }
+
+
+def check_hooks(
+    *,
+    clients: tuple[str, ...] = SUPPORTED_CLIENTS,
+    hook_dir: Path | None = None,
+    settings_path: Path | None = None,
+    activation_mode: str | None = None,
+    hook_home: Path | None = None,
+) -> dict:
+    """Read-only hook health report.
+
+    Checks deployed hook copies against bundled source, verifies client configs point
+    at current `exomem_*` hooks instead of legacy `kb_*` hooks, and reports where
+    logs/cooldown state land. Returns a JSON-serializable report.
+    """
+    _private_group_for_user.cache_clear()
+    activation_mode = _activation_mode(activation_mode)
+    normalized = tuple(_normalize_client(c) for c in clients)
+    if len(normalized) != len(set(normalized)):
+        raise ValueError(f"duplicate clients requested: {clients!r}")
+    if (hook_dir or settings_path or hook_home) and len(normalized) != 1:
+        raise ValueError("hook_dir/settings_path/hook_home overrides require exactly one client")
+    if hook_home is not None and activation_mode is None:
+        raise ValueError("hook_home requires an explicit activation_mode")
+
+    reports = []
+    strict_single_client = len(normalized) == 1
+    for client in normalized:
+        home = _profile_home(client, settings_path) if activation_mode else _default_home(client)
+        if hook_home is not None:
+            home = Path(hook_home).expanduser().absolute()
+        hd = Path(hook_dir).expanduser() if hook_dir else (
+            home / "hooks" if activation_mode else _default_hook_dir(client)
+        )
+        sp = Path(settings_path).expanduser() if settings_path else (
+            home / ("hooks.json" if client == "codex" else "settings.json")
+            if activation_mode else _default_settings(client)
+        )
+        has_client_footprint = sp.exists() or hd.exists() or sp.parent.exists()
+        if not has_client_footprint and not strict_single_client:
+            reports.append(
+                {
+                    "client": client,
+                    "status": "skipped",
+                    "success": True,
+                    "hook_dir": str(hd),
+                    "settings_path": str(sp),
+                    "scripts": {},
+                    "logs": {},
+                    "cache": {},
+                    "checks": [
+                        {
+                            "id": "client.installation",
+                            "status": "skip",
+                            "message": f"{client} is not installed; hook checks skipped",
+                        }
+                    ],
+                }
+            )
+            continue
+        data, parse_error = (None, "file does not exist")
+        if sp.exists():
+            data, parse_error = _read_json(sp)
+
+        checks: list[dict] = []
+
+        def add(
+            id_: str,
+            status: str,
+            message: str,
+            details: dict | None = None,
+            _checks: list[dict] = checks,
+        ) -> None:
+            row = {"id": id_, "status": status, "message": message}
+            if details is not None:
+                row["details"] = details
+            _checks.append(row)
+
+        # A condition whose input could not be read has nowhere to go in a
+        # pass/fail report and lands on pass, so `--check` reported "no legacy
+        # kb_* hook entries configured" for a config it never opened -- on a
+        # machine holding four of them. Unevaluated is its own state, it names
+        # the path and the read error, and it fails the run.
+        def unevaluated(
+            id_: str,
+            _path: Path = sp,
+            _error: str | None = parse_error,
+        ) -> None:
+            add(
+                id_,
+                "unevaluated",
+                f"not evaluated: hook config unavailable at {_path}: {_error}",
+                {"path": str(_path), "error": _error},
+            )
+
+        if activation_mode is not None:
+            from ._hooks import exomem_continuation_checkpoint as safe
+
+            try:
+                safe.validate_nudge_home(home, client)
+            except OSError as error:
+                add("state.home", "fail", f"unsafe selected hook state home {home}: {error}")
+            else:
+                add("state.home", "pass", f"selected hook state home is safe at {home}")
+
+        add(
+            "config.file",
+            "pass" if data is not None else "fail",
+            (
+                f"hook config readable at {sp}"
+                if data is not None
+                else f"hook config unavailable at {sp}: {parse_error}"
+            ),
+            {"path": str(sp), "exists": sp.exists(), "parse_error": parse_error},
+        )
+
+        if data is None:
+            unevaluated("config.legacy")
+        else:
+            any_legacy = False
+            for _py, _sh, event in _HOOK_SPECS:
+                for hook in _commands_for_event(data, event):
+                    if _contains_any(hook, _LEGACY_MARKERS):
+                        any_legacy = True
+            if isinstance(data.get("hooks"), dict):
+                for event in data["hooks"]:
+                    for hook in _commands_for_event(data, event):
+                        command = f"{hook.get('command', '')} {hook.get('commandWindows', '')}"
+                        if _command_basenames(command).intersection(_CONTINUATION_LEGACY):
+                            any_legacy = True
+            add(
+                "config.legacy",
+                "fail" if any_legacy else "pass",
+                (
+                    "legacy kb_* hook entries are still configured"
+                    if any_legacy
+                    else "no legacy kb_* hook entries configured"
+                ),
+            )
+
+        scripts = {}
+        if activation_mode is not None and activation_mode != "mcp":
+            from ._hooks import exomem_retrieve_nudge as retrieve
+
+            refresh = retrieve.refresh_capabilities(client, "disabled")
+        else:
+            refresh = _refresh_check(hd, home, client, data)
+        for script, wrapper, event in _HOOK_SPECS:
+            if data is None:
+                unevaluated(f"config.{event}")
+            else:
+                entries = _commands_for_event(data, event)
+                expected = _nudge_item(script, wrapper, event, hd, client, home, activation_mode)
+                if event == "UserPromptSubmit" and refresh["classification"] == "available":
+                    expected = _refresh_items(hd, client, home)[0]
+                expected["activation_mode"] = activation_mode
+                configured = (
+                    _configured_item(data, expected)
+                    if activation_mode
+                    else any(_contains_any(h, (script, wrapper)) for h in entries)
+                )
+
+                legacy = [h for h in entries if _contains_any(h, _LEGACY_MARKERS)]
+                add(
+                    f"config.{event}",
+                    "pass" if configured and not legacy else "fail",
+                    (
+                        f"{event} points at current Exomem hook"
+                        if configured and not legacy
+                        else f"{event} does not point cleanly at current Exomem hook"
+                    ),
+                    {"entries": entries},
+                )
+
+            status = _script_status(hd, script, wrapper)
+            scripts.update(status)
+            stale = [name for name, row in status.items() if not row["matches_bundle"]]
+            missing = [name for name, row in status.items() if not row["exists"]]
+            if missing:
+                add(
+                    f"scripts.{event}",
+                    "fail",
+                    f"{event} deployed hook file(s) missing: {', '.join(missing)}",
+                    status,
+                )
+            elif stale:
+                add(
+                    f"scripts.{event}",
+                    "fail",
+                    f"{event} deployed hook file(s) differ from bundled source: {', '.join(stale)}",
+                    status,
+                )
+            else:
+                add(
+                    f"scripts.{event}",
+                    "pass",
+                    f"{event} deployed hook files match bundled source",
+                    status,
+                )
+
+        if refresh["classification"] == "available":
+            for item in _refresh_items(hd, client, home):
+                if item["event"] != "UserPromptSubmit":
+                    configured = _configured_item(data, item)
+                    add(
+                        f"config.refresh.{item['event']}",
+                        "pass" if configured else "fail",
+                        f"{item['event']} checkpoint interception is {'configured' if configured else 'unavailable'}",
+                    )
+
+        continuation_items = _continuation_items(hd, client, home, activation_mode)
+        for item in continuation_items:
+            if data is None:
+                unevaluated(f"config.{item['event']}")
+                continue
+            configured = _configured_item(data, item)
+            add(
+                f"config.{item['event']}",
+                "pass" if configured else "fail",
+                (
+                    f"{item['event']} matches the pinned {client} continuation contract"
+                    if configured
+                    else f"{item['event']} does not match the pinned {client} continuation contract"
+                ),
+                {"matcher": item.get("matcher")},
+            )
+        if client == "codex":
+            if data is None:
+                unevaluated("config.SessionEnd")
+            else:
+                unsupported = {
+                    "kind": "continuation",
+                    "client": "codex",
+                    "event": "SessionEnd",
+                    "matcher": None,
+                }
+                configured = _configured_item(data, unsupported)
+                add(
+                    "config.SessionEnd",
+                    "fail" if configured else "pass",
+                    (
+                        "Codex SessionEnd must remain unsupported for pinned 0.144.3"
+                        if configured
+                        else "Codex 0.144.3 has no Exomem SessionEnd registration"
+                    ),
+                )
+
+        continuation_status = _script_status(hd, _CONTINUATION_SCRIPT, _CONTINUATION_WRAPPER)
+        scripts.update(continuation_status)
+        continuation_stale = [
+            name for name, row in continuation_status.items() if not row["matches_bundle"]
+        ]
+        add(
+            "scripts.continuation",
+            "fail" if continuation_stale else "pass",
+            (
+                "continuation deployed hook files differ or are missing: "
+                + ", ".join(continuation_stale)
+                if continuation_stale
+                else "continuation deployed hook files match bundled source"
+            ),
+            continuation_status,
+        )
+
+        logs = {
+            "capture": _log_summary(client, "capture", home),
+            "retrieve": _log_summary(client, "retrieve", home),
+        }
+        for kind, row in logs.items():
+            add(
+                f"log.{kind}",
+                "pass" if row["exists"] else "warn",
+                (
+                    f"{kind} hook log exists at {row['path']}"
+                    if row["exists"]
+                    else f"{kind} hook log has not been created yet at {row['path']}"
+                ),
+                row,
+            )
+
+        cache = _cache_summary(client, home)
+        add(
+            "cache.cooldown",
+            "pass" if cache["exists"] else "warn",
+            (
+                f"cooldown cache exists with {cache['entries']} entries"
+                if cache["exists"]
+                else f"cooldown cache has not been created yet at {cache['path']}"
+            ),
+            cache,
+        )
+
+        continuation_runtime = _continuation_runtime_summary(client, home)
+        corrupt_state = any(
+            row["current"] in {"corrupt", "binding_invalid", "generation_invalid"}
+            or row["previous"] in {"corrupt", "binding_invalid"}
+            for row in continuation_runtime["session_states"]
+        )
+        degraded_state = any(
+            row["selection"] in {"stale", "missing", "stale_incomplete"}
+            or row.get("history") == "stale_previous"
+            for row in continuation_runtime["session_states"]
+        )
+        invalid_log = continuation_runtime["metadata_log"]["status"] in {"corrupt", "unsafe"}
+        if not continuation_runtime["permissions_ok"]:
+            runtime_status = "fail"
+            runtime_message = "continuation checkpoint permissions are too broad"
+        elif corrupt_state or invalid_log:
+            runtime_status = "fail"
+            runtime_message = "continuation runtime state or metadata log is invalid"
+        elif not continuation_runtime["exists"] or continuation_runtime["sessions"] == 0:
+            runtime_status = "warn"
+            runtime_message = "no continuation checkpoint exists yet; first write event has not run"
+        elif degraded_state:
+            runtime_status = "warn"
+            runtime_message = "continuation runtime state is stale or incomplete"
+        else:
+            runtime_status = "pass"
+            runtime_message = "continuation runtime state is valid and permissioned"
+        add(
+            "runtime.continuation",
+            runtime_status,
+            runtime_message,
+            continuation_runtime,
+        )
+
+        unhealthy = any(c["status"] in {"fail", "unevaluated"} for c in checks)
+        reports.append(
+            {
+                "client": client,
+                "status": "failed" if unhealthy else "healthy",
+                "success": not unhealthy,
+                "hook_dir": str(hd),
+                "settings_path": str(sp),
+                "hook_home": str(home),
+                "activation_mode": activation_mode or "legacy",
+                "runtime_activation": "unverified",
+                "refresh": refresh,
+                "windows_command_supported": all(item.get("commandWindows") is not None for item in continuation_items) if client == "codex" else None,
+                "scripts": scripts,
+                "logs": logs,
+                "cache": cache,
+                "continuation": continuation_runtime,
+                "checks": checks,
+            }
+        )
+
+    return {
+        "success": not any(not c["success"] for c in reports),
+        "clients": reports,
+    }
+
+
+def render_check_human(report: dict) -> str:
+    lines = [
+        "exomem hook check",
+        f"overall: {'PASS' if report.get('success') else 'FAIL'}",
+    ]
+    for client in report.get("clients", []):
+        lines.append("")
+        lines.append(client["client"].upper())
+        if client.get("status") == "skipped":
+            lines.append("- SKIP client.installation: client is not installed")
+            continue
+        lines.append(f"- config: {client['settings_path']}")
+        lines.append(f"- hooks:  {client['hook_dir']}")
+        lines.append(f"- activation: {client['activation_mode']}; runtime activation unverified")
+        if client.get("windows_command_supported") is False:
+            lines.append("- Windows command unavailable: profile paths cannot be represented safely")
+        for check in client.get("checks", []):
+            label = check["status"].upper()
+            lines.append(f"- {label} {check['id']}: {check['message']}")
+    return "\n".join(lines)
+
+
+def snippet(installed: list[dict], timeout: int = 10) -> str:
+    """The hook config fragment to merge by hand (for --print-only)."""
+    hooks: dict[str, list] = {}
+    for item in installed:
+        group = {"hooks": [_hook_entry(item, timeout)]}
+        if item.get("matcher") is not None:
+            group["matcher"] = item["matcher"]
+        hooks.setdefault(item["event"], []).append(group)
+    return json.dumps({"hooks": hooks}, indent=2)
+
+
+def _deploy_file(source: Path, destination: Path) -> None:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    with safe._open_secure_directory(destination.parent, create=True) as parent:
+        _require_trusted_directory(parent)
+        existing = safe._existing_kind(parent, destination.name)
+        if existing is not None and not stat.S_ISREG(existing):
+            raise OSError(f"refusing unsafe hook destination {destination.name}")
+        temporary = f".{destination.name}.tmp-{os.getpid()}-{secrets.token_hex(6)}"
+        source_mode = stat.S_IMODE(source.stat().st_mode)
+        mode = 0o700 if source_mode & 0o111 else 0o600
+        fd = safe._open_secure_file_at(
+            parent,
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            mode,
+        )
+        try:
+            with source.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    safe._write_all(fd, chunk)
+            os.fsync(fd)
+        except BaseException:
+            os.close(fd)
+            try:
+                safe._unlink_at(parent, temporary)
+            except OSError:
+                pass
+            raise
+        os.close(fd)
+        safe._replace_at(parent, temporary, destination.name)
+
+
+def _snapshot_config_at(directory, name: str, display_path: Path) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    kind = safe._existing_kind(directory, name)
+    if kind is None:
+        return {
+            "exists": False,
+            "raw": b"",
+            "data": {},
+            "mode": 0o600,
+            "identity": None,
+            "digest": hashlib.sha256(b"").hexdigest(),
+        }
+    if not stat.S_ISREG(kind):
+        raise OSError(f"hook config is not a regular file: {display_path}")
+    fd = safe._open_secure_file_at(directory, name, os.O_RDONLY, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(f"hook config is not a regular file: {display_path}")
+        if os.name != "nt" and (info.st_uid != os.geteuid() or _has_untrusted_writers(info, fd)):
+            raise OSError(
+                f"hook config is unsafe or writable: {display_path}; "
+                f"fix: chmod g-w,o-w {display_path}"
+            )
+        chunks = []
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+    finally:
+        os.close(fd)
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"invalid hook config at {display_path}: {error}") from error
+    if not isinstance(data, dict):
+        raise ValueError(f"invalid hook config at {display_path}: top-level JSON is not an object")
+    return {
+        "exists": True,
+        "raw": raw,
+        "data": data,
+        "mode": info.st_mode & 0o777,
+        "identity": (
+            info.st_dev,
+            info.st_ino,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
+        ),
+        "digest": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def _snapshot_config(path: Path) -> dict:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    try:
+        with safe._open_secure_directory(path.parent, create=False) as directory:
+            _require_trusted_directory(directory)
+            return _snapshot_config_at(directory, path.name, path)
+    except FileNotFoundError:
+        return {
+            "exists": False,
+            "raw": b"",
+            "data": {},
+            "mode": 0o600,
+            "identity": None,
+            "digest": hashlib.sha256(b"").hexdigest(),
+        }
+
+
+def _same_snapshot(left: dict, right: dict) -> bool:
+    return (
+        left["exists"] == right["exists"]
+        and left["identity"] == right["identity"]
+        and left["digest"] == right["digest"]
+    )
+
+
+def _merged_config(source: dict, installed: list[dict], timeout: int) -> dict:
+    data = json.loads(json.dumps(source))
+    existing_hooks = data.get("hooks")
+    if existing_hooks is None:
+        hooks = data["hooks"] = {}
+    elif not isinstance(existing_hooks, dict):
+        raise ValueError("invalid hook config: 'hooks' is not an object")
+    else:
+        hooks = existing_hooks
+
+    for item in installed:
+        event = item["event"]
+        existing = hooks.get(event)
+        if existing is None:
+            groups = []
+        elif not isinstance(existing, list):
+            raise ValueError(f"invalid hook config: hooks.{event} is not a list")
+        else:
+            groups = existing
+        kept: list = []
+        inserted = False
+        replacement: dict = {"hooks": [_hook_entry(item, timeout)]}
+        if item.get("matcher") is not None:
+            replacement["matcher"] = item["matcher"]
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                kept.append(group)
+                continue
+            original = group["hooks"]
+            remaining = [
+                hook
+                for hook in original
+                if not (isinstance(hook, dict) and _is_matching_entry(hook, item))
+            ]
+            removed = len(remaining) != len(original)
+            if remaining:
+                kept.append({**group, "hooks": remaining})
+            if removed and not inserted:
+                kept.append(replacement)
+                inserted = True
+        if not inserted:
+            kept.append(replacement)
+        hooks[event] = kept
+    return data
+
+
+# One place decides what a config backup is called. The predicate below has to
+# recognise exactly what the generator above it mints, and a hand-restated
+# pattern can drift from the format string it copies -- blessing the very
+# backup-of-a-backup growth it exists to prevent. Both read the same constants,
+# and a round-trip test pins them to each other.
+_BACKUP_INFIX = ".backup-"
+_BACKUP_STAMP = "%Y%m%dT%H%M%S"
+_BACKUP_TOKEN_BYTES = 6
+_BACKUP_TOKEN_ALPHABET = "0123456789abcdef"
+
+
+def _backup_name(name: str) -> str:
+    stamp = time.strftime(_BACKUP_STAMP, time.gmtime())
+    return f"{name}{_BACKUP_INFIX}{stamp}-{secrets.token_hex(_BACKUP_TOKEN_BYTES)}"
+
+
+def _is_backup_name(name: str) -> bool:
+    """True for a name `_backup_name` could have produced, and nothing else.
+
+    Deliberately stricter than the shape it parses: the stamp has to be a real
+    time under the same format string the generator uses, so a `##` condition
+    that merely looks timestamped is not mistaken for our own residue. Getting
+    this too wide is the dangerous direction -- an excluded source is dropped
+    from the merge and never reported, which is the one thing the source list
+    must not do.
+    """
+    head, infix, tail = name.rpartition(_BACKUP_INFIX)
+    if not infix or not head:
+        return False
+    stamp, dash, token = tail.rpartition("-")
+    if not dash or len(token) != _BACKUP_TOKEN_BYTES * 2:
+        return False
+    if token.strip(_BACKUP_TOKEN_ALPHABET):
+        return False
+    try:
+        time.strptime(stamp, _BACKUP_STAMP)
+    except ValueError:
+        return False
+    return True
+
+
+def _write_unique_at(directory, name: str, raw: bytes, mode: int) -> None:
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    fd = safe._open_secure_file_at(
+        directory,
+        name,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        mode,
+    )
+    try:
+        info = os.fstat(fd)
+        if os.name != "nt" and (info.st_uid != os.geteuid() or _has_untrusted_writers(info, fd)):
+            raise OSError(f"created hook config is unsafe or writable: {directory.path / name}")
+        safe._write_all(fd, raw)
+        os.fsync(fd)
+    except BaseException:
+        safe._unlink_at(directory, name)
+        raise
+    finally:
+        os.close(fd)
+
+
+def _rewrite_hooks(path: Path, transform, *, create: bool = True) -> dict:
+    """Fail-closed, drift-aware, same-directory atomic hook-config migration.
+
+    `transform` maps the config read from disk to the config to write, and
+    returning it unchanged is how "nothing to do" is reported. Install merges
+    its entries in and uninstall prunes them out, but both need precisely this
+    loop -- the retry on concurrent drift, the backup, the same-directory
+    atomic replace -- and a second copy of it would be a second place for
+    those windows to be got wrong.
+
+    Where the deployed name is a yadm alternate link, every step operates on the
+    sibling it names instead. The link is only the deployed view of that source,
+    so replacing the link itself would destroy the deployment and be undone by
+    the next alternate selection anyway. `path` in the returned report is
+    therefore the file that was actually written.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    path = Path(path).expanduser()
+    with safe._open_secure_directory(path.parent, create=create) as parent:
+        _require_trusted_directory(parent)
+        name = _resolved_config_name(parent, path.name, path)
+        written = path if name == path.name else path.parent / name
+        for _attempt in range(3):
+            initial = _snapshot_config_at(parent, name, written)
+            merged = transform(initial["data"])
+            if merged == initial["data"]:
+                return {"changed": False, "backup": None, "path": str(written)}
+            observed = _snapshot_config_at(parent, name, written)
+            if not _same_snapshot(initial, observed):
+                continue
+            raw = (json.dumps(merged, indent=2) + "\n").encode("utf-8")
+            temporary = f".{name}.tmp-{os.getpid()}-{secrets.token_hex(6)}"
+            write_mode = initial["mode"] & ~0o022
+            _write_unique_at(parent, temporary, raw, write_mode)
+            latest = _snapshot_config_at(parent, name, written)
+            if not _same_snapshot(initial, latest):
+                safe._unlink_at(parent, temporary)
+                continue
+            backup_name: str | None = None
+            if initial["exists"]:
+                backup_name = _backup_name(name)
+                _write_unique_at(parent, backup_name, initial["raw"], write_mode)
+            final = _snapshot_config_at(parent, name, written)
+            if not _same_snapshot(initial, final):
+                safe._unlink_at(parent, temporary)
+                if backup_name:
+                    safe._unlink_at(parent, backup_name)
+                continue
+            try:
+                safe._replace_at(parent, temporary, name)
+            except BaseException:
+                committed: bool | None = None
+                try:
+                    replacement = _snapshot_config_at(parent, name, written)
+                    committed = replacement["raw"] == raw
+                    if not committed and not _same_snapshot(initial, replacement):
+                        committed = None
+                except (OSError, ValueError):
+                    committed = None
+                try:
+                    safe._unlink_at(parent, temporary)
+                    if backup_name and committed is False:
+                        safe._unlink_at(parent, backup_name)
+                except OSError:
+                    pass
+                raise
+            backup = path.parent / backup_name if backup_name else None
+            return {
+                "changed": True,
+                "backup": str(backup) if backup else None,
+                "path": str(written),
+            }
+    raise RuntimeError(f"concurrent hook config changes persisted at {path}")
+
+
+def _merge_hooks(
+    path: Path, installed: list[dict], timeout: int, *, refresh_items: list[dict] | None = None
+) -> dict:
+    return _rewrite_hooks(
+        path,
+        lambda data: _merged_config(
+            _pruned_config(data, matches=lambda hook: _is_refresh_entry(hook, refresh_items))[0]
+            if refresh_items else data,
+            installed,
+            timeout,
+        ),
+    )
+
+
+def _merge_one_config(
+    path: Path, installed: list[dict], timeout: int, *, refresh_items: list[dict] | None = None
+) -> dict:
+    """Merge into one alternate source, reporting rather than raising on failure.
+
+    A yadm alternate may be a Jinja template rather than JSON, so parseability
+    is decided by trying -- the same way the prune path decides it. A source
+    that will not parse is a thing to name, because the user still has to go and
+    edit it by hand, and never a reason to fail an install that has already
+    landed on the deployed config and on every source beside this one.
+    """
+    report: dict = {
+        "path": str(path),
+        "changed": False,
+        "backup": None,
+        "skipped": False,
+        "error": None,
+    }
+    try:
+        migration = _rewrite_hooks(
+            path,
+            lambda data: _merged_config(
+                _pruned_config(data, matches=lambda hook: _is_refresh_entry(hook, refresh_items))[0]
+                if refresh_items else data,
+                installed,
+                timeout,
+            ),
+            create=False,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        report["skipped"] = True
+        report["error"] = str(error)
+        return report
+    report["changed"] = migration["changed"]
+    report["backup"] = migration["backup"]
+    return report
+
+
+def _mark_restart_pending(hook_dir: Path) -> None:
+    """Record that hooks are live but the MCP server is not loaded yet.
+
+    Installing hooks takes effect for the CURRENT session; the MCP server they
+    were just registered alongside does not, until the client restarts. So on a
+    fresh install the Stop nudge fires immediately and asks for `remember`,
+    `edit_memory` and `connect_memory` — all MCP-only, none of which exist yet,
+    and the write side has no CLI fallback. The nudge reads this marker and
+    stays silent until an exomem tool proves the server is loaded.
+
+    Best-effort: a marker that cannot be written costs a premature nudge, never
+    a failed install, so this must not raise into the install path.
+    """
+    marker = hook_dir.parent / ".cache" / "exomem-nudge" / "pending-restart"
+    try:
+        from ._hooks import exomem_continuation_checkpoint as safe
+
+        safe.write_nudge_file(marker, str(time.time()).encode("utf-8"))
+    except OSError:
+        pass
+
+
+def _refresh_check(hook_dir: Path, home: Path, client: str, data: dict | None) -> dict:
+    from ._hooks import exomem_retrieve_nudge as retrieve
+
+    metadata, classification = retrieve.refresh_metadata(hook_dir, client, home)
+    report = retrieve.refresh_capabilities(client, classification)
+    if metadata is not None:
+        report["limits"] = metadata["limits"]
+        report["producing_package_version"] = metadata["package_version"]
+        report["descriptor_hash"] = metadata["descriptor_hash"]
+        report["configured_events"] = [
+            item["event"]
+            for item in _refresh_items(hook_dir, client, home)
+            if _configured_item(data, item)
+        ]
+        if "PreToolUse" not in report["configured_events"]:
+            report["accounting"] = "unavailable"
+    return report
+
+
+def _refresh_metadata(
+    client: str,
+    home: Path,
+    bindings: tuple[str, ...],
+    max_operations: int | None,
+    max_activation_chars: int | None,
+) -> dict:
+    """Generate the static bridge from the maintained command and compiler sources."""
+    from . import __version__, commands, working_set
+    from ._hooks import exomem_continuation_checkpoint as safe
+    from ._hooks import exomem_retrieve_nudge as retrieve
+
+    prefixes = []
+    for binding in bindings:
+        if not isinstance(binding, str):
+            raise ValueError("checkpoint binding must be a native MCP name or prefix")
+        prefix = binding if binding.startswith("mcp__") else f"mcp__{binding}__"
+        if not retrieve._REFRESH_PREFIX.fullmatch(prefix):
+            raise ValueError("invalid native MCP binding prefix")
+        prefixes.append(prefix)
+    if (
+        not 1 <= len(prefixes) <= 8
+        or len(set(prefixes)) != len(prefixes)
+        or any(left != right and left.startswith(right) for left in prefixes for right in prefixes)
+    ):
+        raise ValueError("checkpoint bindings must be distinct, bounded and non-overlapping")
+    operation_limit = 8 if max_operations is None else max_operations
+    character_limit = (
+        3 * working_set.DEFAULT_BUDGET_CHARS
+        if max_activation_chars is None
+        else max_activation_chars
+    )
+    if (
+        not retrieve._refresh_uint(operation_limit, retrieve._REFRESH_MAX_OPERATIONS)
+        or operation_limit < 1
+        or not retrieve._refresh_uint(character_limit, 128_000_000)
+        or character_limit < 1
+    ):
+        raise ValueError("invalid checkpoint allowance")
+    operations = {
+        name: command.read_only
+        for command in commands.product_commands_for("mcp")
+        for name in command.callable_names
+    }
+    source_paths = {
+        "commands.py": Path(commands.__file__),
+        "working_set.py": Path(working_set.__file__),
+        "exomem_retrieve_nudge.py": _HOOK_DIR_SRC / "exomem_retrieve_nudge.py",
+        "exomem_continuation_checkpoint.py": _HOOK_DIR_SRC / _CONTINUATION_SCRIPT,
+    }
+    return {
+        "schema_version": 1,
+        "client": client,
+        "profile_binding": safe._state_root_binding(home, client),
+        "bindings": prefixes,
+        "operations": operations,
+        "activation": {
+            "operation": "activate_context",
+            "default": working_set.DEFAULT_BUDGET_CHARS,
+            "minimum": working_set.MIN_BUDGET_CHARS,
+            "maximum": working_set.MAX_BUDGET_CHARS,
+        },
+        "limits": {"operations": operation_limit, "activation_chars": character_limit},
+        "package_version": __version__,
+        "source_hashes": {
+            name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for name, path in source_paths.items()
+        },
+        "descriptor_hash": safe._sha256_bytes(safe._canonical_bytes(operations)),
+    }
+
+
+def install_hook(
+    *,
+    hook_dir: Path | None = None,
+    settings_path: Path | None = None,
+    wire: bool = True,
+    timeout: int = 10,
+    specs: tuple = _HOOK_SPECS,
+    client: str = DEFAULT_CLIENT,
+    activation_mode: str | None = None,
+    hook_home: Path | None = None,
+    refresh_bindings: tuple[str, ...] | None = None,
+    refresh_max_operations: int | None = None,
+    refresh_max_activation_chars: int | None = None,
+) -> dict:
+    """Install the bundled hook scripts + wrappers and (optionally) wire config.
+
+    Returns {"installed": [{event, script, wrapper, command}], "wired", "settings",
+    "client"}. Raises FileNotFoundError if a bundled hook file is missing.
+    """
+    _private_group_for_user.cache_clear()
+    client = _normalize_client(client)
+    activation_mode = _activation_mode(activation_mode)
+    if refresh_bindings is not None and (activation_mode != "mcp" or specs is not _HOOK_SPECS):
+        raise ValueError("native checkpoint bindings require the full MCP hook installation")
+    if refresh_bindings is None and (
+        refresh_max_operations is not None or refresh_max_activation_chars is not None
+    ):
+        raise ValueError("checkpoint allowances require explicit native MCP bindings")
+    home = _profile_home(client, settings_path) if activation_mode else _default_home(client)
+    if hook_home is not None:
+        if activation_mode is None:
+            raise ValueError("hook_home requires an explicit activation_mode")
+        home = Path(hook_home).expanduser().absolute()
+    source_specs = list(specs)
+    bundled = {name for py_name, sh_name, _event in source_specs for name in (py_name, sh_name)}
+    if specs is _HOOK_SPECS:
+        bundled.update({_CONTINUATION_SCRIPT, _CONTINUATION_WRAPPER, _LOCAL_CREDENTIAL_SCRIPT})
+    for name in bundled:
+        if not (_HOOK_DIR_SRC / name).exists():
+            raise FileNotFoundError(
+                f"bundled hook file missing at {_HOOK_DIR_SRC / name} — "
+                "is the exomem install intact?"
+            )
+    hook_dir = (
+        Path(hook_dir).expanduser()
+        if hook_dir
+        else (home / "hooks" if activation_mode else _default_hook_dir(client))
+    )
+    if activation_mode is not None and client == "codex" and os.name == "nt":
+        for name in bundled:
+            _quote_windows(str((hook_dir / name).absolute()))
+        _quote_windows(str(home))
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    if activation_mode is not None:
+        safe.validate_nudge_home(home, client)
+    refresh_report = {"classification": "disabled"}
+    metadata = None
+    if activation_mode == "mcp" and specs is _HOOK_SPECS:
+        from ._hooks import exomem_retrieve_nudge as retrieve
+
+        # Reinstallation preserves a prior explicit profile-local selection. It
+        # never discovers bindings from tool names or enables a legacy profile.
+        if refresh_bindings is None:
+            prior, prior_status = retrieve.refresh_metadata(hook_dir, client, home)
+            refresh_report = retrieve.refresh_capabilities(client, prior_status)
+            if prior is not None:
+                refresh_bindings = tuple(prior["bindings"])
+                refresh_max_operations = prior["limits"]["operations"]
+                refresh_max_activation_chars = prior["limits"]["activation_chars"]
+        if refresh_bindings is not None:
+            metadata = _refresh_metadata(
+                client, home, refresh_bindings, refresh_max_operations, refresh_max_activation_chars
+            )
+    hook_fd = safe._ensure_secure_dir(hook_dir)
+    if hook_fd is not None:
+        os.close(hook_fd)
+
+    installed: list[dict] = []
+    for py_name, sh_name, event in source_specs:
+        _deploy_file(_HOOK_DIR_SRC / py_name, hook_dir / py_name)
+        _deploy_file(_HOOK_DIR_SRC / sh_name, hook_dir / sh_name)
+        installed.append(
+            _nudge_item(py_name, sh_name, event, hook_dir, client, home, activation_mode, timeout)
+        )
+    if specs is _HOOK_SPECS:
+        _deploy_file(_HOOK_DIR_SRC / _LOCAL_CREDENTIAL_SCRIPT, hook_dir / _LOCAL_CREDENTIAL_SCRIPT)
+        _deploy_file(_HOOK_DIR_SRC / _CONTINUATION_SCRIPT, hook_dir / _CONTINUATION_SCRIPT)
+        _deploy_file(_HOOK_DIR_SRC / _CONTINUATION_WRAPPER, hook_dir / _CONTINUATION_WRAPPER)
+        installed.extend(_continuation_items(hook_dir, client, home, activation_mode))
+
+    if metadata is not None:
+        safe.write_nudge_file(
+            hook_dir / retrieve.REFRESH_METADATA_NAME, safe.encode_checkpoint(metadata)
+        )
+        installed = [item for item in installed if item["event"] != "UserPromptSubmit"]
+        installed.extend(_refresh_items(hook_dir, client, home))
+        refresh_report = retrieve.refresh_capabilities(client, "available")
+
+    remove_refresh = activation_mode != "mcp" and specs is _HOOK_SPECS
+    prior_refresh_items = None
+    if remove_refresh:
+        from ._hooks import exomem_retrieve_nudge as retrieve
+
+        # Legacy mode uses a different home; ownership still follows the prior MCP profile.
+        refresh_home = home if activation_mode is not None else _profile_home(client, settings_path)
+        prior_refresh_items = _refresh_items(hook_dir, client, refresh_home)
+        try:
+            safe.unlink_nudge_file(hook_dir / retrieve.REFRESH_METADATA_NAME)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            # The selected mode disables leftover metadata even when safe removal is unavailable.
+            refresh_report["metadata_cleanup"] = "unavailable"
+
+    if activation_mode != "mcp":
+        _mark_restart_pending(home / "hooks" if activation_mode else hook_dir)
+
+    result = {
+        "installed": installed,
+        "wired": False,
+        "settings": None,
+        "client": client,
+        "hook_home": str(home),
+        "activation_mode": activation_mode or "legacy",
+        "refresh": refresh_report,
+        "config_changed": False,
+        "backup": None,
+        "alternates": [],
+    }
+    if wire:
+        sp = (
+            Path(settings_path).expanduser()
+            if settings_path
+            else (
+                home / ("hooks.json" if client == "codex" else "settings.json")
+                if activation_mode
+                else _default_settings(client)
+            )
+        )
+        migration = _merge_hooks(sp, installed, timeout, refresh_items=prior_refresh_items)
+        result["wired"] = True
+        result["settings"] = str(sp)
+        result["config_changed"] = migration["changed"]
+        result["backup"] = migration["backup"]
+        # The deployed config is written first and may itself be an alternate
+        # source, where yadm links rather than copies; writing it twice would
+        # report the same file as both. Every remaining source is merged too,
+        # because a copy deployment regenerates the deployed file from whichever
+        # of them matches the machine.
+        written = Path(migration["path"]).name
+        result["alternates"] = [
+            _merge_one_config(source, installed, timeout, refresh_items=prior_refresh_items)
+            for source in _alternate_sources(sp)
+            if source.name != written
+        ]
+    return result
+
+
+def install_all_hooks(
+    *, wire: bool = True, timeout: int = 10, activation_mode: str | None = None
+) -> dict:
+    _private_group_for_user.cache_clear()
+    reports: list[dict] = []
+    for client in SUPPORTED_CLIENTS:
+        try:
+            result = install_hook(
+                client=client, wire=wire, timeout=timeout, activation_mode=activation_mode
+            )
+            reports.append({"client": client, "success": True, "result": result})
+        except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
+            reports.append(
+                {
+                    "client": client,
+                    "success": False,
+                    "error": str(error),
+                    "error_class": type(error).__name__,
+                }
+            )
+    return {"success": all(row["success"] for row in reports), "clients": reports}
+
+
+#: Marks a `UserPromptSubmit` entry as the retrieve nudge, for deciding whether
+#: a profile already wires hooks at all -- narrower than `_MARKERS`, which also
+#: matches the capture/continuation hooks a profile could have without this one.
+_RETRIEVE_HOOK_MARKERS = ("exomem-retrieve-nudge", "exomem_retrieve_nudge")
+_UPGRADE_REFRESH_BUDGET_SECONDS = 30.0
+_UPGRADE_REFRESH_MAX_PROFILES = 32
+
+
+def _candidate_claude_profiles(
+    home: Path, *, deadline: float | None = None, status: dict | None = None
+):
+    """Every local Claude Code profile a managed upgrade should consider.
+
+    The default `~/.claude` plus any sibling `~/.claude-*` profile directory --
+    multiple named Claude Code profiles under one home is an ordinary setup,
+    not something this project invented.
+    """
+    yield home / ".claude"
+    try:
+        for path in home.iterdir():
+            if deadline is not None and time.monotonic() >= deadline:
+                if status is not None:
+                    status["deferred_reason"] = "time_budget"
+                break
+            if path.name.startswith(".claude-") and path.is_dir():
+                yield path
+    except OSError:
+        pass
+
+
+def _resolve_profile_settings(profile_dir: Path) -> Path:
+    """The real file a profile's `settings.json` names, symlink or not.
+
+    The installer's own secure file operations refuse to follow a symlink at
+    the final path component -- correct hardening against a swapped target in
+    a shared directory -- so a profile whose `settings.json` is itself a
+    symlink (a yadm-managed dotfile is the common case) must be handed the
+    resolved path, or a refresh would refuse every such profile outright.
+    """
+    settings = profile_dir / "settings.json"
+    if settings.is_symlink():
+        try:
+            return settings.resolve(strict=True)
+        except OSError:
+            return settings
+    return settings
+
+
+def _profile_wires_retrieve_hook(settings_path: Path) -> bool:
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(settings_path, flags)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return False
+            raw = os.read(fd, 8 * 1024 * 1024 + 1)
+            if len(raw) > 8 * 1024 * 1024:
+                return False
+        finally:
+            os.close(fd)
+        data = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    try:
+        return any(
+            _contains_any(hook, _RETRIEVE_HOOK_MARKERS)
+            for hook in _commands_for_event(data, "UserPromptSubmit")
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def discover_wired_profiles(
+    home: Path | None = None,
+    *,
+    deadline: float | None = None,
+    limit: int | None = None,
+    status: dict | None = None,
+) -> list[dict]:
+    """Local Claude Code profiles already wired to the retrieve nudge hook.
+
+    Only a profile whose settings already point at `exomem-retrieve-nudge.sh`
+    is returned: a managed upgrade refreshes hooks a profile already wired,
+    never one that never asked for them.
+    """
+    try:
+        resolved_home = Path(home).expanduser() if home is not None else Path.home()
+    except RuntimeError:
+        return []
+    wired: list[dict] = []
+    for profile_dir in _candidate_claude_profiles(resolved_home, deadline=deadline, status=status):
+        if deadline is not None and time.monotonic() >= deadline:
+            if status is not None:
+                status["deferred_reason"] = "time_budget"
+            break
+        if limit is not None and len(wired) >= limit:
+            if status is not None:
+                status["deferred_reason"] = "profile_limit"
+            break
+        settings_path = _resolve_profile_settings(profile_dir)
+        if not settings_path.exists() or not _profile_wires_retrieve_hook(settings_path):
+            continue
+        wired.append({"hook_dir": profile_dir / "hooks", "settings_path": settings_path})
+    return wired
+
+
+def _upgrade_refresh_report_path(home: Path) -> Path:
+    return home / ".cache" / "exomem-nudge" / "upgrade-refresh.json"
+
+
+def _write_upgrade_refresh_report(home: Path, report: dict) -> None:
+    """Best-effort: a report that fails to persist costs `doctor` a stale view
+    of the last refresh, never the managed upgrade that triggered it."""
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    path = _upgrade_refresh_report_path(home)
+    try:
+        with safe._open_secure_directory(path.parent, create=True) as directory:
+            _require_trusted_directory(directory)
+            existing = safe._existing_kind(directory, path.name)
+            if existing is not None:
+                if not stat.S_ISREG(existing):
+                    raise OSError("unsafe upgrade refresh report")
+                fd = safe._open_secure_file_at(directory, path.name, os.O_RDONLY)
+                try:
+                    if os.name != "nt" and os.fstat(fd).st_nlink != 1:
+                        raise OSError("linked upgrade refresh report")
+                finally:
+                    os.close(fd)
+            temporary = f".{path.name}.tmp-{os.getpid()}-{secrets.token_hex(6)}"
+            try:
+                _write_unique_at(directory, temporary, json.dumps(report).encode("utf-8"), 0o600)
+                safe._replace_at(directory, temporary, path.name)
+            finally:
+                safe._unlink_at(directory, temporary)
+    except Exception:  # noqa: BLE001 - report failure must not affect a promoted release
+        pass
+
+
+def _refresh_error_tail(value: str | bytes) -> str:
+    from .service_upgrade import _uv_stderr_tail
+
+    raw = value if isinstance(value, bytes) else value.encode("utf-8", errors="replace")
+    return _uv_stderr_tail(raw)[-2000:]
+
+
+def refresh_wired_profiles(
+    python_executable: str,
+    *,
+    home: Path | None = None,
+    timeout: float = 60.0,
+) -> dict:
+    """Re-run `install-hook` for every already-wired Claude Code profile.
+
+    Called after a managed upgrade promotes a new release, using the NEW
+    release's own `install-hook` (*python_executable* is the staged target's
+    interpreter) so a profile's hooks track the release that just went live
+    instead of going stale behind it. Skips any profile that never wired the
+    retrieve hook, and never raises: a per-profile failure -- a
+    group-writable config the installer refuses, for instance -- is reported
+    and does not stop the remaining profiles or fail the upgrade that
+    triggered this. Set `EXOMEM_DISABLE_UPGRADE_HOOK_REFRESH` to opt out.
+    Owner capture-gate compositions are skipped without rewiring; explicit
+    activation/profile bindings are retained only within the discovered home.
+    """
+    if os.environ.get("EXOMEM_DISABLE_UPGRADE_HOOK_REFRESH"):
+        report = {
+            "skipped": True,
+            "reason": "EXOMEM_DISABLE_UPGRADE_HOOK_REFRESH is set",
+            "profiles": [],
+            "success": True,
+        }
+        try:
+            resolved_home = Path(home).expanduser() if home is not None else Path.home()
+        except RuntimeError:
+            return report
+        _write_upgrade_refresh_report(resolved_home, report)
+        return report
+
+    try:
+        resolved_home = Path(home).expanduser() if home is not None else Path.home()
+    except RuntimeError:
+        return {"skipped": True, "reason": "no home directory", "profiles": [], "success": True}
+
+    deadline = time.monotonic() + _UPGRADE_REFRESH_BUDGET_SECONDS
+    discovery: dict = {}
+    profiles = discover_wired_profiles(
+        resolved_home,
+        deadline=deadline,
+        limit=_UPGRADE_REFRESH_MAX_PROFILES,
+        status=discovery,
+    )
+    reports: list[dict] = []
+    for profile in profiles:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            discovery["deferred_reason"] = "time_budget"
+            break
+        entry: dict = {
+            "hook_dir": str(profile["hook_dir"]),
+            "settings_path": str(profile["settings_path"]),
+            "success": False,
+            "error": None,
+            "skipped": False,
+            "reason": None,
+        }
+        try:
+            data, _error = _read_json(profile["settings_path"])
+            gated = any(
+                name.endswith(("capture_gate.py", "capture-gate.py", "capture_gate.sh", "capture-gate.sh"))
+                for hook in _commands_for_event(data, "Stop")
+                for name in _command_basenames(f"{hook.get('command', '')} {hook.get('commandWindows', '')}")
+            )
+            if gated:
+                entry.update(success=True, skipped=True, reason="owner_managed_capture")
+                reports.append(entry)
+                continue
+            bindings: set[tuple[str, str]] = set()
+            for hook in _commands_for_event(data, "UserPromptSubmit"):
+                if not _contains_any(hook, _RETRIEVE_HOOK_MARKERS):
+                    continue
+                command = hook.get("command", "")
+                if "--activation-mode" not in command:
+                    continue
+                try:
+                    args = shlex.split(command)
+                    mode = args[args.index("--activation-mode") + 1]
+                    # Legacy commands omit the state home; explicit home options must still validate.
+                    if not any(arg.startswith("--hook-home") for arg in args):
+                        args.extend(["--hook-home", str(profile["hook_dir"].parent.absolute())])
+                    bound_home = args[args.index("--hook-home") + 1]
+                except (ValueError, IndexError) as error:
+                    raise ValueError("invalid installed hook activation/profile binding") from error
+                _activation_mode(mode)
+                if Path(bound_home).expanduser().absolute() != profile["hook_dir"].parent.absolute():
+                    raise ValueError("installed hook state home does not match its discovered profile")
+                bindings.add((mode, bound_home))
+            if len(bindings) > 1:
+                raise ValueError("conflicting installed hook activation/profile bindings")
+            activation_args = []
+            if bindings:
+                mode, bound_home = bindings.pop()
+                activation_args = ["--activation-mode", mode, "--hook-home", bound_home]
+            result = subprocess.run(
+                [
+                    python_executable,
+                    "-m",
+                    "exomem",
+                    "install-hook",
+                    "--client",
+                    "claude",
+                    "--hook-dir",
+                    str(profile["hook_dir"]),
+                    "--settings",
+                    str(profile["settings_path"]),
+                    *activation_args,
+                    "--json",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=min(timeout, remaining),
+                check=False,
+            )
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            output = getattr(error, "stderr", None) or getattr(error, "stdout", None) or str(error)
+            entry["error"] = _refresh_error_tail(output)
+        else:
+            if result.returncode == 0:
+                entry["success"] = True
+            else:
+                output = result.stderr or result.stdout or f"install-hook exited {result.returncode}"
+                entry["error"] = _refresh_error_tail(output)
+        reports.append(entry)
+
+    report = {
+        "skipped": False,
+        "reason": None,
+        "profiles": reports,
+        "success": not discovery and all(p["success"] for p in reports),
+        "refreshed_profiles": sum(p["success"] and not p["skipped"] for p in reports),
+        "skipped_profiles": sum(p["skipped"] for p in reports),
+    }
+    if discovery:
+        report.update({"deferred": True, "deferred_reason": discovery["deferred_reason"]})
+    _write_upgrade_refresh_report(resolved_home, report)
+    return report
+
+
+def read_last_upgrade_refresh(home: Path | None = None) -> dict | None:
+    """The persisted outcome of the most recent managed-upgrade hook refresh.
+
+    Read-only, for `doctor`. Returns `None` when no managed upgrade has ever
+    refreshed hooks on this machine (nothing to report, not a failure).
+    """
+    try:
+        resolved_home = Path(home).expanduser() if home is not None else Path.home()
+    except RuntimeError:
+        return None
+    try:
+        from ._hooks import exomem_continuation_checkpoint as safe
+
+        path = _upgrade_refresh_report_path(resolved_home)
+        with safe._open_secure_directory(path.parent, create=False) as directory:
+            _require_trusted_directory(directory)
+            if not stat.S_ISREG(safe._existing_kind(directory, path.name) or 0):
+                return None
+            fd = safe._open_secure_file_at(directory, path.name, os.O_RDONLY)
+            try:
+                info = os.fstat(fd)
+                if os.name != "nt" and (
+                    info.st_nlink != 1
+                    or info.st_uid != os.geteuid()
+                    or stat.S_IMODE(info.st_mode) != 0o600
+                ):
+                    return None
+                raw = os.read(fd, 128 * 1024 + 1)
+                if len(raw) > 128 * 1024:
+                    return None
+            finally:
+                os.close(fd)
+        data = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError, UnicodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+# Every file name install-hook has ever deployed, current and legacy. Uninstall
+# has to know the legacy names too: a machine installed before the kb -> exomem
+# rename still has those scripts on disk and those entries in its config, and an
+# uninstall that leaves them behind has not uninstalled anything the user can see.
+_DEPLOYED_NAMES = (
+    *(name for py_name, sh_name, _event in _HOOK_SPECS for name in (py_name, sh_name)),
+    _CONTINUATION_SCRIPT,
+    _CONTINUATION_WRAPPER,
+    _LOCAL_CREDENTIAL_SCRIPT,
+    "exomem_refresh_metadata.v1.json",
+    *_CONTINUATION_LEGACY,
+    "kb_capture_nudge.py",
+    "kb-capture-nudge.sh",
+    "kb_retrieve_nudge.py",
+    "kb-retrieve-nudge.sh",
+)
+
+
+def _is_exomem_entry(hook: dict) -> bool:
+    """True for an entry install-hook wrote, in any shape it has ever written.
+
+    Deliberately wider than `_is_matching_entry`, which asks "is this the entry
+    I am about to replace?" and so requires the client argument to agree.
+    Uninstall asks a different question -- "did we put this here?" -- and an
+    entry naming our own continuation script is ours whichever client wired it.
+    Narrowing it to one client would strand the other client's entry in a file
+    the user asked to be cleaned out.
+    """
+    if _contains_any(hook, _MARKERS):
+        return True
+    command = f"{hook.get('command', '')} {hook.get('commandWindows', '')}"
+    continuation = {_CONTINUATION_SCRIPT, _CONTINUATION_WRAPPER, *_CONTINUATION_LEGACY}
+    return bool(_command_basenames(command).intersection(continuation))
+
+
+def _is_refresh_entry(hook: dict, expected: list[dict]) -> bool:
+    if hook.get("type") != "command":
+        return False
+    commands = {}
+    # These native command fields are closed; complete renderer-produced argv defines ownership.
+    for field in ("command", "commandWindows"):
+        if field not in hook:
+            continue
+        command = hook[field]
+        if not isinstance(command, str):
+            return False
+        try:
+            commands[field] = shlex.split(command)
+        except ValueError:
+            return False
+        if not commands[field]:
+            return False
+    return "command" in commands and any(
+        all(
+            isinstance(item.get(field), str) and argv == shlex.split(item[field])
+            for field, argv in commands.items()
+        )
+        for item in expected
+    )
+
+
+def _pruned_config(source: dict, *, matches=_is_exomem_entry) -> tuple[dict, int]:
+    """Drop every entry we own, and only the containers that became ours-only.
+
+    Walks every event rather than the events the current specs name, because a
+    config wired by an older exomem carries events this build no longer
+    installs -- Claude's `SessionEnd`, the legacy `kb_*` nudges -- and those are
+    exactly the entries a user uninstalling cannot find by hand.
+
+    A group emptied by that removal goes with it, and an event left with no
+    groups goes too: both only existed to hold our entry. A group that was
+    already empty stays, because it was not ours to remove.
+    """
+    data = json.loads(json.dumps(source))
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return data, 0
+    removed = 0
+    for event in list(hooks):
+        groups = hooks[event]
+        if not isinstance(groups, list):
+            continue
+        kept: list = []
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                kept.append(group)
+                continue
+            original = group["hooks"]
+            remaining = [
+                hook
+                for hook in original
+                if not (isinstance(hook, dict) and matches(hook))
+            ]
+            removed += len(original) - len(remaining)
+            if len(remaining) == len(original):
+                kept.append(group)
+            elif remaining:
+                kept.append({**group, "hooks": remaining})
+        if kept:
+            hooks[event] = kept
+        else:
+            del hooks[event]
+    return data, removed
+
+
+def _alternate_sources(path: Path) -> list[Path]:
+    """The yadm alternate sources a deployed config is regenerated from.
+
+    `yadm alt` re-runs alternate selection after ordinary commands -- `yadm
+    status` is enough -- and rewrites the deployed file from these, so an
+    uninstall that edits only the deployed file is silently undone with no
+    visible trigger (#580). Editing the source is the edit that survives.
+
+    Detection is by name (`settings.json##os.Msys`) plus, where yadm links
+    rather than copies, the link target. Whether a source is plain JSON or a
+    template is decided later by trying to parse it, so this does not have to
+    encode yadm's condition grammar to stay correct.
+
+    The suffix has to name something: a bare `settings.json##` names no yadm
+    condition and is not a source. A backup of a source, on the other hand, is
+    named after the source and so does match the name test
+    (`settings.json##os.WSL.backup-...`); treating one as a source of its own
+    would make every run write a backup of the previous run's backup, so the
+    names this module mints are excluded too.
+    """
+    sources: list[Path] = []
+    prefix = f"{path.name}##"
+    try:
+        for item in sorted(path.parent.iterdir()):
+            if (
+                item.name.startswith(prefix)
+                and len(item.name) > len(prefix)
+                and not _is_backup_name(item.name)
+                and not item.is_symlink()
+            ):
+                sources.append(item)
+    except OSError:
+        return []
+    if path.is_symlink():
+        try:
+            target = path.resolve(strict=True)
+        except OSError:
+            target = None
+        if target is not None and "##" in target.name and target not in sources:
+            sources.append(target)
+    return [item for item in sources if item.is_file()]
+
+
+def _prune_one_config(path: Path) -> dict:
+    """Prune one config file, reporting rather than raising on its own failure.
+
+    An uninstall spanning a deployed file and two alternate sources must not
+    stop at the first unreadable one: the whole point is to leave nothing
+    behind, and a template source that cannot be parsed is a thing to name, not
+    a reason to abandon the sources beside it.
+    """
+    counted = {"removed": 0}
+
+    def prune(data: dict) -> dict:
+        pruned, removed = _pruned_config(data)
+        counted["removed"] = removed
+        return pruned
+
+    report: dict = {
+        "path": str(path),
+        "changed": False,
+        "backup": None,
+        "removed": 0,
+        "error": None,
+    }
+    try:
+        migration = _rewrite_hooks(path, prune, create=False)
+    except FileNotFoundError:
+        return report
+    except (OSError, RuntimeError, ValueError) as error:
+        report["error"] = str(error)
+        return report
+    report["changed"] = migration["changed"]
+    report["backup"] = migration["backup"]
+    report["removed"] = counted["removed"]
+    return report
+
+
+def _remove_deployed_scripts(hook_dir: Path) -> list[dict]:
+    """Remove the scripts we deployed, one name at a time, never the directory.
+
+    The hook directory is shared with every other hook the user runs, so this
+    unlinks only names this installer writes. `_unlink_at` refuses anything that
+    is not a regular file, which also means a yadm-linked hook tree is reported
+    rather than broken.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    removed: list[dict] = []
+    try:
+        with safe._open_secure_directory(hook_dir, create=False) as directory:
+            for name in _DEPLOYED_NAMES:
+                if safe._existing_kind(directory, name) is None:
+                    continue
+                entry: dict = {
+                    "path": str(hook_dir / name),
+                    "removed": False,
+                    "error": None,
+                }
+                try:
+                    safe._unlink_at(directory, name)
+                    entry["removed"] = True
+                except OSError as error:
+                    entry["error"] = str(error)
+                removed.append(entry)
+    except OSError:
+        # A hook directory that is gone, or that the secure-open refuses, is a
+        # thing to report through the config side of the report rather than a
+        # reason to fail the unwiring that already succeeded.
+        return removed
+    return removed
+
+
+def uninstall_hook(
+    *,
+    hook_dir: Path | None = None,
+    settings_path: Path | None = None,
+    client: str = DEFAULT_CLIENT,
+    remove_scripts: bool = True,
+) -> dict:
+    """Undo `install_hook`: unwire our entries, then remove our scripts.
+
+    Removes only what this installer wrote -- recognised the same way the
+    idempotent install recognises its own entries -- so a hand-written hook
+    sitting in the same group survives, and so does the rest of the config.
+
+    Returns {"client", "settings", "config_changed", "removed_entries",
+    "backup", "settings_error", "alternates", "hook_dir", "scripts", "success"}.
+    Never raises for a config it could not read: an uninstall reports what it
+    could not reach, because the user still has to go and finish it by hand.
+    """
+    _private_group_for_user.cache_clear()
+    client = _normalize_client(client)
+    hook_dir = Path(hook_dir).expanduser() if hook_dir else _default_hook_dir(client)
+    settings = Path(settings_path).expanduser() if settings_path else _default_settings(client)
+
+    deployed = _prune_one_config(settings)
+    alternates = [_prune_one_config(source) for source in _alternate_sources(settings)]
+    scripts = _remove_deployed_scripts(hook_dir) if remove_scripts else []
+    return {
+        "client": client,
+        "settings": str(settings),
+        "config_changed": deployed["changed"],
+        "removed_entries": deployed["removed"],
+        "backup": deployed["backup"],
+        "settings_error": deployed["error"],
+        "alternates": alternates,
+        "hook_dir": str(hook_dir),
+        "scripts": scripts,
+        "success": deployed["error"] is None
+        and all(row["error"] is None for row in alternates)
+        and all(row["error"] is None for row in scripts),
+    }
+
+
+def uninstall_all_hooks(*, remove_scripts: bool = True) -> dict:
+    reports: list[dict] = []
+    for client in SUPPORTED_CLIENTS:
+        try:
+            result = uninstall_hook(client=client, remove_scripts=remove_scripts)
+            reports.append({"client": client, "success": result["success"], "result": result})
+        except (OSError, RuntimeError, ValueError) as error:
+            reports.append(
+                {
+                    "client": client,
+                    "success": False,
+                    "error": str(error),
+                    "error_class": type(error).__name__,
+                }
+            )
+    return {"success": all(row["success"] for row in reports), "clients": reports}
+
+
+def render_uninstall_human(report: dict) -> str:
+    """The uninstall summary, including the part a user cannot infer.
+
+    An edited alternate source is not yet an uninstall that sticks: yadm
+    regenerates the deployed file from its committed copy, so an uncommitted
+    source edit is undone by the next sync. Saying so here is the difference
+    between this landing and the hooks quietly reappearing later (#580).
+    """
+    lines: list[str] = []
+    label = "Codex" if report["client"] == "codex" else "Claude Code"
+    count = report["removed_entries"]
+    if report["config_changed"]:
+        noun = "entry" if count == 1 else "entries"
+        lines.append(f"Removed {count} exomem hook {noun} from {report['settings']}.")
+    elif report["settings_error"]:
+        lines.append(f"Could not update {report['settings']}: {report['settings_error']}")
+    else:
+        lines.append(f"No exomem hook entries were wired in {report['settings']}.")
+    for row in report["alternates"]:
+        if row["error"]:
+            lines.append(f"  ! yadm alternate {row['path']}: {row['error']}")
+        elif row["changed"]:
+            lines.append(f"  also removed from yadm alternate source {row['path']}")
+        else:
+            lines.append(f"  yadm alternate source {row['path']} had none")
+    if report["alternates"]:
+        lines.append(
+            "Those are yadm alternate sources: commit them, or the next alternate "
+            "selection (an ordinary yadm status triggers one) regenerates the "
+            "deployed file from the committed copy and the hooks come back."
+        )
+    gone = [row for row in report["scripts"] if row["removed"]]
+    stuck = [row for row in report["scripts"] if not row["removed"]]
+    if gone:
+        noun = "script" if len(gone) == 1 else "scripts"
+        lines.append(f"Removed {len(gone)} hook {noun} from {report['hook_dir']}.")
+    for row in stuck:
+        lines.append(f"  ! left {row['path']}: {row['error']}")
+    lines.append(f"Restart {label} to stop running the hooks it already loaded.")
+    return "\n".join(lines)
+
+def _continuation_root(client: str) -> Path:
+    """The one place the checkpoint-store layout rule lives for readers."""
+    return _default_home(client) / ".cache" / "exomem-continuation" / client
+
+
+def list_continuation_checkpoints(
+    clients: tuple[str, ...] = SUPPORTED_CLIENTS,
+) -> list[dict]:
+    """Read-only listing of local continuation checkpoints for UI surfaces.
+
+    One entry per session state whose `current.json` loads: `{client, session,
+    observed_at_ns, status, checkpoint}`, newest first. Unsafe or corrupt state
+    directories are skipped rather than raised — this is a viewer for the
+    Continue surface, not an auditor (`install-hook --check` owns auditing),
+    and it never writes to the checkpoint store.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    entries: list[dict] = []
+    for client in clients:
+        root = _continuation_root(client)
+        try:
+            sessions = [
+                item
+                for item in root.iterdir()
+                if not item.is_symlink() and item.is_dir() and not item.name.startswith(".")
+            ]
+        except OSError:
+            continue
+        for session in sessions:
+            try:
+                with safe._open_secure_directory(session, create=False) as handle:
+                    checkpoint, status = safe.load_checkpoint_status_at(handle, "current.json")
+            except OSError:
+                continue
+            if not isinstance(checkpoint, dict):
+                continue
+            observed = checkpoint.get("observed_at_ns")
+            entries.append(
+                {
+                    "client": client,
+                    "session": session.name,
+                    "observed_at_ns": observed if isinstance(observed, int) else None,
+                    "status": status,
+                    "checkpoint": checkpoint,
+                }
+            )
+    entries.sort(key=lambda entry: entry.get("observed_at_ns") or 0, reverse=True)
+    return entries
+
+
+def render_continuation_packet(entry: dict) -> str:
+    """Render one listed checkpoint as the same packet the hooks emit.
+
+    Fails soft on malformed entries — a viewer surface must degrade to a
+    message, never a traceback.
+    """
+    from ._hooks import exomem_continuation_checkpoint as safe
+
+    checkpoint = entry.get("checkpoint")
+    if not isinstance(checkpoint, dict) or "structural" not in checkpoint:
+        return "This checkpoint could not be rendered (missing structural data)."
+    try:
+        return safe.render_continuation(
+            checkpoint, status=str(entry.get("status") or "valid")
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        return f"This checkpoint could not be rendered ({error})."

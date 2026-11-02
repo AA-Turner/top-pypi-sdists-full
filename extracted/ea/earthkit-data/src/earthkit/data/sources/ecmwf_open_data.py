@@ -1,0 +1,51 @@
+# (C) Copyright 2020 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+#
+
+
+try:
+    import ecmwf.opendata
+except ImportError:
+    raise ImportError("ECMWF Open Data access requires 'ecmwf-opendata' to be installed")
+
+from earthkit.data.utils.request import FileRequestRetriever, RequestBuilder
+
+from .file import FileSource
+
+
+class EODRetriever(FileSource):
+    sphinxdoc = """
+    EODRetriever
+    """
+
+    def __init__(self, *args, source="ecmwf", model="ifs", request=None, **kwargs):
+        super().__init__()
+
+        request_builder = RequestBuilder(self, *args, request=request, **kwargs)
+        self.request = request_builder.requests
+
+        # self.source_kwargs = self.request(**kwargs)
+
+        self.client = ecmwf.opendata.Client(source=source, model=model, preserve_request_order=True)
+
+        # Download each request in parallel when the config allows it
+        retriever = FileRequestRetriever(self, retriever=self._retrieve_one)
+        self.path = retriever.retrieve(self.request)
+
+    def _retrieve_one(self, request, *args):
+        def retrieve(target, request):
+            self.client.retrieve(request, target)
+
+        # we use hash_extra here to ensure that two ecmwf-open-data requests that differ only by model
+        # or by source resolve to different cache file
+        return self._cache_file(
+            retrieve, request, hash_extra={"model": self.client.model, "source_url": self.client.source.url}
+        )
+
+
+source = EODRetriever

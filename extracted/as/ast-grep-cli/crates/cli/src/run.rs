@@ -190,7 +190,10 @@ impl RunArg {
 
 // Every run will include Search or Replace
 // Search or Replace by arguments `pattern` and `rewrite` passed from CLI
-pub fn run_with_pattern(arg: RunArg, project: Result<ProjectConfig>) -> Result<ExitCode> {
+pub fn run_with_pattern(mut arg: RunArg, project: Result<ProjectConfig>) -> Result<ExitCode> {
+  if let Ok(config) = &project {
+    arg.input.apply_config(config);
+  }
   let proj = arg.output.inspect.project_trace();
   proj.print_project(&project)?;
   let context = arg.context.get();
@@ -256,6 +259,9 @@ impl PathWorker for RunWithInferredLang {
   fn get_trace(&self) -> &FileTrace {
     &self.trace.inner
   }
+  fn print_skip(&self, path: &Path, err: &anyhow::Error) -> Result<()> {
+    self.trace.print_skip(path, err)
+  }
 
   fn produce_item<P: Printer>(
     &self,
@@ -265,7 +271,6 @@ impl PathWorker for RunWithInferredLang {
     let Some(lang) = SgLang::from_path(path) else {
       return Ok(vec![]);
     };
-    self.trace.print_file(path, lang)?;
     let matcher = self.arg.build_matcher(lang)?;
     // match sub region
     let sub_langs = lang.injectable_sg_langs().into_iter().flatten();
@@ -277,6 +282,7 @@ impl PathWorker for RunWithInferredLang {
       .collect::<Vec<_>>();
 
     let items = filter_file_pattern(path, lang, Some(&matcher), &sub_matchers)?;
+    self.trace.print_file(path, lang)?;
     let mut ret = Vec::with_capacity(items.len());
     let rewrite_str = self.arg.rewrite.as_ref();
 
@@ -358,6 +364,9 @@ impl PathWorker for RunWithSpecificLang {
   fn get_trace(&self) -> &FileTrace {
     &self.stats.inner
   }
+  fn print_skip(&self, path: &Path, err: &anyhow::Error) -> Result<()> {
+    self.stats.print_skip(path, err)
+  }
   fn produce_item<P: Printer>(
     &self,
     path: &Path,
@@ -369,7 +378,6 @@ impl PathWorker for RunWithSpecificLang {
     let Some(path_lang) = SgLang::from_path(path) else {
       return Ok(vec![]);
     };
-    self.stats.print_file(path, path_lang)?;
     let (root_matcher, sub_matchers) = if path_lang == lang {
       (Some(pattern), vec![])
     } else {
@@ -378,6 +386,7 @@ impl PathWorker for RunWithSpecificLang {
       (None, vec![(lang, rule)])
     };
     let filtered = filter_file_pattern(path, path_lang, root_matcher, &sub_matchers)?;
+    self.stats.print_file(path, path_lang)?;
     let mut ret = Vec::with_capacity(filtered.len());
     for unit in filtered {
       let Some(processed) = match_one_file(processor, &unit, &self.rewrite)? else {

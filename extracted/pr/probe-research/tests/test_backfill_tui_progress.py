@@ -4,7 +4,9 @@ from copy import deepcopy
 
 import pytest
 
-from probe.cli import backfill_import, import_jobs as jobs, import_jobs_ui as ui, import_progress
+from probe.cli.imports.folder import flow as backfill_import
+from probe.cli.imports import jobs as jobs, progress as import_progress
+from probe.cli.imports.jobs import ui as ui
 from tests.test_backfill_auto_import import automatic, queued, _enqueue  # noqa: F401
 from tests.test_backfill_background import background_harness, enqueue_job  # noqa: F401
 
@@ -20,7 +22,8 @@ def test_final_file_verification_keeps_approved_completion_in_the_live_tui(
         h, requests = request.getfixturevalue("background_harness")
         h.run(background=True)
         monkeypatch.setenv("XDG_STATE_HOME", str(h.root / "jobs"))
-        monkeypatch.setattr(jobs, "_launch", lambda folder: jobs._read(folder))
+        monkeypatch.setattr(jobs.workers, "_launch", lambda folder: jobs._read(folder))
+        monkeypatch.setattr(jobs.jobs, "_launch", lambda folder: jobs._read(folder))
         job = enqueue_job("folder", requests[0], "Approved folder")
 
     # The final census sees new work too. Its denominator must not replace the
@@ -33,7 +36,9 @@ def test_final_file_verification_keeps_approved_completion_in_the_live_tui(
         save(folder, value)
         saved.append(deepcopy(value))
 
-    monkeypatch.setattr(jobs, "_save", observe)
+    monkeypatch.setattr(jobs.store, "_save", observe)
+    monkeypatch.setattr(jobs.jobs, "_save", observe)
+    monkeypatch.setattr(jobs.workers, "_save", observe)
     assert jobs.run_worker(job["id"]) == 0
     rechecks = [value for value in saved if
                 value["progress"]["message"].startswith("Re-checking file contents")]

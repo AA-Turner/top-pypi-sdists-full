@@ -1,0 +1,73 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from ..default_parameters import (
+    MIN_VARIANT_SEQUENCE_COVERAGE,
+    VARIANT_SEQUENCE_ASSEMBLY,
+    VARIANT_SEQUENCE_LENGTH,
+)
+from .rna_args import make_rna_reads_arg_parser
+from .validation import non_negative_int, positive_int
+
+
+def add_variant_sequence_args(
+        parser,
+        add_sequence_length_arg=False):
+    rna_sequence_group = parser.add_argument_group(
+        "Determine coding sequence from RNA")
+
+    rna_sequence_group.add_argument(
+        "--min-variant-sequence-coverage",
+        type=non_negative_int,
+        default=MIN_VARIANT_SEQUENCE_COVERAGE,
+        help="Minimum RNA read objects covering every retained cDNA base (default %(default)s). "
+             "An absolute floor, independent of the protein read-name support fraction.")
+
+    rna_sequence_group.add_argument(
+        "--disable-variant-sequence-assembly",
+        dest="variant_sequence_assembly",
+        default=VARIANT_SEQUENCE_ASSEMBLY,
+        action="store_false",
+        help="Disable assembly of variant cDNA sequences from overlapping reads")
+
+    # when cDNA sequence length can be inferred from a protein length then
+    # we may want to omit this arg
+    if add_sequence_length_arg:
+        rna_sequence_group.add_argument(
+            "--variant-sequence-length",
+            default=VARIANT_SEQUENCE_LENGTH,
+            type=positive_int,
+            help="Preferred cDNA sequence length in nucleotides (default %(default)s).")
+    return parser
+
+
+def make_variant_sequences_arg_parser(add_sequence_length_arg=False, **kwargs):
+    """
+    Parameters
+    ----------
+    add_sequence_length_arg : bool
+        If True then add the `--variant-sequence-length` argument. This may be
+        omitted if the cDNA sequence length is inferred from a protein length.
+
+    **kwargs : dict
+        Passed directly to argparse.ArgumentParser
+
+    Creates argparse.ArgumentParser instance with all of the options
+    needed to assemble variant cDNA sequences from variants & RNAseq,
+    including those from ``rna_args``.
+    """
+    parser = make_rna_reads_arg_parser(**kwargs)
+    add_variant_sequence_args(
+        parser=parser,
+        add_sequence_length_arg=add_sequence_length_arg)
+    return parser

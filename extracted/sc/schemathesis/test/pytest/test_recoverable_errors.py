@@ -63,8 +63,39 @@ def test_(case):
             r".*test_\[GET /bar\] SUBPASSED",
             # Operation-level error
             r".*test_\[POST /bar\] SUBFAILED",
+            # pytest 8 headings carry no subtest label
+            r"_+ test_( \(label='/foo'\))? _+",
+            r"_+ test_( \(label='POST /bar'\))? _+",
             # The error in both failing cases
             ".*Unresolvable reference in the schema.*",
+        ]
+    )
+
+
+def test_schema_without_paths(ctx, testdir):
+    testdir.make_test(
+        """
+lazy_schema = schemathesis.pytest.from_fixture("simple_schema")
+
+@schema.parametrize()
+def test_(case):
+    pass
+
+@lazy_schema.parametrize()
+def test_lazy(case):
+    pass
+    """,
+        schema=ctx.openapi.build_schema(None, version="2.0"),
+    )
+    result = testdir.runpytest("-v")
+    result.assert_outcomes(passed=1, failed=2)
+    result.stdout.re_match_lines(
+        [
+            r".*::test_\[schema\] FAILED",
+            r".*::test_lazy\[schema\] SUBFAILED",
+            r".*::test_lazy PASSED",
+            r"_+ test_lazy( \(label='schema'\))? _+",
+            r'.*"paths" is a required property',
         ]
     )
 

@@ -1,0 +1,394 @@
+# PullApprove v5 Configuration for Zephyr Project
+#
+# This config demonstrates how PullApprove can address Zephyr's code review challenges:
+#
+# PROBLEM 1: Too many reviewers assigned (diffusion of responsibility)
+# SOLUTION: Use `request = 2` to only request 2 reviewers, while `reviewers` lists
+#           everyone who CAN review. This focuses responsibility.
+#
+# PROBLEM 2: Single points of failure when maintainers are unavailable
+# SOLUTION: Use `alternates` to specify fallback reviewers who can approve
+#           if primary reviewers are unavailable.
+#
+# PROBLEM 3: No distinction between observers and required reviewers
+# SOLUTION: Use `cc` for notification-only (observers), `reviewers` for approvers.
+#           Or use separate scopes with `require = 0` for observer groups.
+#
+# PROBLEM 4: Unclear ownership when PRs touch multiple areas
+# SOLUTION: Use `ownership = "append"` for additive scopes that layer on top,
+#           vs default behavior where the most specific scope wins.
+
+
+# =============================================================================
+# ALIASES
+# Define groups of users that can be referenced with $alias-name
+# This maps cleanly to your MAINTAINERS.yml maintainers/collaborators lists
+# =============================================================================
+
+[aliases]
+# TSC members for governance changes
+tsc = ["nashif", "galak", "carlescufi", "erwango"]
+
+# Kernel team
+kernel-maintainers = ["andyross", "peter-mitsis"]
+kernel-collaborators = ["nashif", "ceolin", "dcpleung", "cfriedt", "npitre", "TaiJuWu"]
+
+# ARM architecture team
+arm-maintainers = ["wearyzen"]
+arm-collaborators = ["MaureenHelm", "stephanosio", "ithinuel"]
+
+# RISC-V architecture team
+riscv-maintainers = ["soburi"]
+riscv-collaborators = ["frasercadger", "kgugala", "tgorochowik"]
+
+# Nordic platforms team
+nordic-maintainers = ["anangl"]
+nordic-collaborators = ["carlescufi", "lemrey", "rlubos", "jhedberg"]
+
+# NXP platforms team
+nxp-maintainers = ["dleach02"]
+nxp-collaborators = ["DerekSnell", "mmahadevan108", "mcux-sdk-bot"]
+nxp-alternates = ["MaureenHelm", "wearyzen"]
+
+# STM32 platforms team
+stm32-maintainers = ["erwango"]
+stm32-collaborators = ["FRASTM", "gautierg"]
+
+# Networking team
+networking-maintainers = ["jukkar"]
+networking-collaborators = ["tbursztyka", "rlubos"]
+
+# Bluetooth team
+bluetooth-maintainers = ["jhedberg"]
+bluetooth-collaborators = ["Vudentz", "alwa-nordic"]
+
+# Documentation team
+docs-maintainers = ["kartben"]
+docs-collaborators = ["gmarull"]
+
+# Build system team
+build-maintainers = ["tejlmand"]
+build-collaborators = ["gmarull", "nashif"]
+
+# CI/Automation team
+ci-team = ["nashif", "galak", "stephanosio"]
+
+
+# =============================================================================
+# LARGE SCALE CHANGE HANDLING
+# For PRs that touch many files, use this simplified review process
+# =============================================================================
+
+[large_scale_change]
+reviewers = ["$tsc"]
+require = 1
+labels = ["Large Scale Change"]
+
+
+# =============================================================================
+# CORE SUBSYSTEMS
+# These are the main areas of the codebase requiring maintainer review
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Kernel
+# The most critical subsystem - requires maintainer approval
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "kernel"
+description = "Zephyr kernel and core scheduling"
+paths = [
+  "kernel/**/*",
+  "include/zephyr/kernel*.h",
+  "include/zephyr/kernel/**/*",
+  "include/zephyr/spinlock.h",
+  "include/zephyr/fatal.h",
+  "include/zephyr/sys_clock.h",
+  "tests/kernel/**/*",
+  "samples/kernel/**/*",
+  "doc/kernel/**/*",
+  "!tests/kernel/mem_protect/**/*", # Excluded - handled by separate scope
+]
+reviewers = ["$kernel-maintainers", "$kernel-collaborators"]
+alternates = ["$tsc"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: Kernel"]
+
+# Kernel memory protection - additional review requirement
+[[scopes]]
+name = "kernel-mem-protect"
+description = "Memory protection subsystem requiring additional scrutiny"
+paths = ["tests/kernel/mem_protect/**/*"]
+ownership = "append"
+reviewers = ["$kernel-maintainers"]
+require = 1
+request = 1
+
+
+# =============================================================================
+# ARCHITECTURE SUPPORT
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ARM Architecture
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "arm-arch"
+description = "ARM Cortex-M architecture support"
+paths = [
+  "arch/arm/**/*",
+  "include/zephyr/arch/arm/**/*",
+  "tests/arch/arm/**/*",
+  "doc/hardware/arch/arm_cortex_m.rst",
+  "boards/qemu/cortex_m0/**/*",
+]
+reviewers = ["$arm-maintainers", "$arm-collaborators"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: ARM"]
+
+# -----------------------------------------------------------------------------
+# ARM64 Architecture (odd fixes - no dedicated maintainer)
+# Note: Still requires review but from collaborator pool
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "arm64-arch"
+description = "ARM64 architecture support"
+paths = [
+  "arch/arm64/**/*",
+  "include/zephyr/arch/arm64/**/*",
+  "tests/arch/arm64/**/*",
+  "dts/arm64/**/*",
+  "boards/qemu/kvm_arm64/**/*",
+  "boards/qemu/cortex_a53/**/*",
+]
+# No dedicated maintainer - use collaborators
+reviewers = ["npitre", "wearyzen", "ithinuel", "JiafeiPan"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: ARM64"]
+
+# -----------------------------------------------------------------------------
+# RISC-V Architecture
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "riscv-arch"
+description = "RISC-V architecture support"
+paths = [
+  "arch/riscv/**/*",
+  "include/zephyr/arch/riscv/**/*",
+  "tests/arch/riscv/**/*",
+  "dts/riscv/**/*",
+]
+reviewers = ["$riscv-maintainers", "$riscv-collaborators"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: RISC-V"]
+
+
+# =============================================================================
+# PLATFORM SUPPORT
+# Uses alternates to handle the "single point of failure" problem
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Nordic Platforms
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "nordic-platforms"
+description = "Nordic Semiconductor platform support"
+paths = [
+  "soc/nordic/**/*",
+  "boards/nordic/**/*",
+  "dts/arm/nordic/**/*",
+  "drivers/*/*nrf*",
+  "drivers/*/*/*nrf*",
+]
+reviewers = ["$nordic-maintainers", "$nordic-collaborators"]
+alternates = ["$arm-maintainers"]
+require = 1
+request = 2
+author_value = 1
+labels = ["platform: Nordic"]
+
+# -----------------------------------------------------------------------------
+# NXP Platforms
+# Demonstrates alternates for backup reviewers
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "nxp-platforms"
+description = "NXP platform support"
+paths = [
+  "soc/nxp/**/*",
+  "boards/nxp/**/*",
+  "dts/arm/nxp/**/*",
+  "drivers/*/*nxp*",
+  "drivers/*/*/*nxp*",
+]
+reviewers = ["$nxp-maintainers", "$nxp-collaborators"]
+alternates = ["$nxp-alternates"]
+require = 1
+request = 2
+author_value = 1
+labels = ["platform: NXP"]
+
+# -----------------------------------------------------------------------------
+# STMicro Platforms
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "stm32-platforms"
+description = "STMicroelectronics STM32 platform support"
+paths = [
+  "soc/st/**/*",
+  "boards/st/**/*",
+  "dts/arm/st/**/*",
+  "drivers/*/*stm32*",
+  "drivers/*/*/*stm32*",
+]
+reviewers = ["$stm32-maintainers", "$stm32-collaborators"]
+alternates = ["$arm-maintainers"]
+require = 1
+request = 2
+author_value = 1
+labels = ["platform: STM32"]
+
+
+# =============================================================================
+# NETWORKING & CONNECTIVITY
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Networking Subsystem
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "networking"
+description = "Networking stack (TCP/IP, sockets, etc.)"
+paths = [
+  "subsys/net/**/*",
+  "include/zephyr/net/**/*",
+  "tests/net/**/*",
+  "samples/net/**/*",
+  "doc/connectivity/networking/**/*",
+]
+reviewers = ["$networking-maintainers", "$networking-collaborators"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: Networking"]
+
+# -----------------------------------------------------------------------------
+# Bluetooth
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "bluetooth"
+description = "Bluetooth Host and Controller"
+paths = [
+  "subsys/bluetooth/**/*",
+  "include/zephyr/bluetooth/**/*",
+  "tests/bluetooth/**/*",
+  "samples/bluetooth/**/*",
+  "doc/connectivity/bluetooth/**/*",
+]
+reviewers = ["$bluetooth-maintainers", "$bluetooth-collaborators"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: Bluetooth"]
+
+
+# =============================================================================
+# DOCUMENTATION & BUILD SYSTEM
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "documentation"
+description = "Project documentation"
+paths = ["doc/**/*", "**/*.rst", "!MAINTAINERS.yml"]
+reviewers = ["$docs-maintainers", "$docs-collaborators"]
+require = 1
+request = 1
+author_value = 1
+labels = ["area: Documentation"]
+
+# -----------------------------------------------------------------------------
+# Build System
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "build-system"
+description = "CMake build system and Kconfig"
+paths = ["cmake/**/*", "CMakeLists.txt", "scripts/build/**/*", "Kconfig*"]
+reviewers = ["$build-maintainers", "$build-collaborators"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: Build System"]
+
+
+# =============================================================================
+# SPECIAL GOVERNANCE SCOPES
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# MAINTAINERS.yml Changes
+# Requires TSC approval per project governance
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "maintainers-file"
+description = "Changes to maintainer assignments require TSC approval"
+paths = ["MAINTAINERS.yml"]
+reviewers = ["$tsc"]
+require = 1
+request = 2
+labels = ["Process"]
+
+# -----------------------------------------------------------------------------
+# CI/Workflow Changes
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "ci-automation"
+description = "CI/CD workflows and automation"
+paths = [".github/**/*", "scripts/ci/**/*"]
+reviewers = ["$ci-team"]
+require = 1
+request = 2
+author_value = 1
+labels = ["area: Continuous Integration"]
+
+# -----------------------------------------------------------------------------
+# Code Review Configuration
+# Changes to this file need careful review
+# -----------------------------------------------------------------------------
+[[scopes]]
+name = "codereview-config"
+description = "PullApprove configuration changes"
+paths = ["CODEREVIEW.toml"]
+reviewers = ["$tsc", "$ci-team"]
+require = 1
+request = 2
+labels = ["Process"]
+
+
+# =============================================================================
+# OBSERVER/NOTIFICATION SCOPES
+# These don't block merging (require = 0) but ensure visibility
+# This addresses the "observers vs reviewers" distinction
+# =============================================================================
+
+# Example: Security team wants visibility on crypto changes but doesn't block
+[[scopes]]
+name = "security-observers"
+description = "Security team notification for sensitive areas"
+paths = ["subsys/random/**/*", "include/zephyr/random/**/*", "drivers/entropy/**/*"]
+ownership = "append"
+reviewers = ["$tsc"]
+require = 0
+request = 0
+# cc = ["$security-team"]  # Uncomment when security-team alias is defined

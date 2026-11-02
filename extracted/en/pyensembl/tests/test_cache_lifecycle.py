@@ -1,0 +1,193 @@
+import gc
+from os.path import exists
+import sqlite3
+from tempfile import TemporaryDirectory
+import warnings
+import weakref
+
+import pytest
+
+from pyensembl import Genome
+from pyensembl.database import Database
+
+from .data import (
+    MOUSE_ENSMUSG00000017167_PATH,
+    MOUSE_ENSMUSG00000017167_PROTEIN_FASTA_PATH,
+    MOUSE_ENSMUSG00000017167_TRANSCRIPT_FASTA_PATH,
+)
+
+
+def make_genome(cache_directory_path):
+    return Genome(
+        reference_name="GRCm38",
+        annotation_name="_test_cache_lifecycle",
+        gtf_path_or_url=MOUSE_ENSMUSG00000017167_PATH,
+        transcript_fasta_paths_or_urls=[
+            MOUSE_ENSMUSG00000017167_TRANSCRIPT_FASTA_PATH
+        ],
+        protein_fasta_paths_or_urls=[
+            MOUSE_ENSMUSG00000017167_PROTEIN_FASTA_PATH
+        ],
+        cache_directory_path=cache_directory_path,
+    )
+
+
+def index_paths(genome):
+    return [
+        genome.db.local_db_path,
+        *genome.transcript_sequences.fasta_dictionary_pickle_paths,
+        *genome.protein_sequences.fasta_dictionary_pickle_paths,
+    ]
+
+
+def test_clear_cache_only_clears_in_memory_values():
+    with TemporaryDirectory() as cache_directory_path:
+        genome = make_genome(cache_directory_path)
+        genome.index()
+        paths = index_paths(genome)
+
+        genome.gene_by_id("ENSMUSG00000017167")
+        genome.transcript_by_id("ENSMUST00000103109")
+        genome.exon_by_id("ENSMUSE00000243064")
+        first_query_result = genome.db.query(
+            select_column_names=["gene_id"],
+            filter_column="gene_name",
+            filter_value="Cntnap1",
+            feature="gene",
+        )
+        genome.transcript_sequences.get("ENSMUST00000103109")
+        genome.protein_sequences.get("ENSMUSP00000099398")
+
+        assert genome._genes
+        assert genome._transcripts
+        assert genome._exons
+        assert all(exists(path) for path in paths)
+
+        genome.clear_cache()
+
+        assert not genome._genes
+        assert not genome._transcripts
+        assert not genome._exons
+        assert genome.transcript_sequences._fasta_dictionary is None
+        assert genome.protein_sequences._fasta_dictionary is None
+        assert all(exists(path) for path in paths)
+        second_query_result = genome.db.query(
+            select_column_names=["gene_id"],
+            filter_column="gene_name",
+            filter_value="Cntnap1",
+            feature="gene",
+        )
+        assert second_query_result == first_query_result
+        assert second_query_result is not first_query_result
+        genome.db.close()
+
+
+def test_delete_index_files_preserves_sources_and_allows_reindexing():
+    with TemporaryDirectory() as cache_directory_path:
+        genome = make_genome(cache_directory_path)
+        genome.index()
+        paths = index_paths(genome)
+        source_paths = [
+            MOUSE_ENSMUSG00000017167_PATH,
+            MOUSE_ENSMUSG00000017167_TRANSCRIPT_FASTA_PATH,
+            MOUSE_ENSMUSG00000017167_PROTEIN_FASTA_PATH,
+        ]
+        assert all(exists(path) for path in paths)
+
+        genome.delete_index_files()
+
+        assert not any(exists(path) for path in paths)
+        assert all(exists(path) for path in source_paths)
+        assert genome.db._connection is None
+
+        genome.index()
+        assert all(exists(path) for path in paths)
+        genome.db.close()
+
+
+def test_memoized_methods_do_not_keep_genome_alive():
+    with TemporaryDirectory() as cache_directory_path:
+        genome = make_genome(cache_directory_path)
+        genome.index()
+        transcript = genome.transcript_by_id("ENSMUST00000103109")
+        assert transcript.contains_start_codon
+        genome_reference = weakref.ref(genome)
+        genome.db.close()
+
+        del transcript
+        del genome
+        gc.collect()
+
+        assert genome_reference() is None
+
+
+def test_genome_and_database_context_managers_close_connections():
+    with TemporaryDirectory() as cache_directory_path:
+        with make_genome(cache_directory_path) as genome:
+            genome.index()
+            first_connection = genome.db.connection
+            assert first_connection.execute("SELECT 1").fetchone() == (1,)
+
+        assert genome.db._connection is None
+        with pytest.raises(sqlite3.ProgrammingError):
+            first_connection.execute("SELECT 1")
+
+        with genome.db as database:
+            second_connection = database.connection
+            assert second_connection is not first_connection
+            assert second_connection.execute("SELECT 1").fetchone() == (1,)
+
+        assert genome.db._connection is None
+        genome.close()
+
+
+def test_database_collection_closes_connection_without_resource_warning():
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always", ResourceWarning)
+        database = Database("unused.gtf")
+        database._connection = sqlite3.connect(":memory:")
+        database_reference = weakref.ref(database)
+
+        del database
+        gc.collect()
+
+    assert database_reference() is None
+    resource_warnings = [
+        warning
+        for warning in caught_warnings
+        if issubclass(warning.category, ResourceWarning)
+    ]
+    assert not resource_warnings
+
+
+OVERWRITE_GTF = (
+    '1\ttest\tgene\t1\t12\t.\t+\t.\tgene_id "g"; gene_name "g";\n'
+    '1\ttest\ttranscript\t1\t12\t.\t+\t.\tgene_id "g"; transcript_id "t";\n'
+    '1\ttest\texon\t1\t12\t.\t+\t.\tgene_id "g"; transcript_id "t"; exon_id "e";\n'
+)
+
+
+def test_index_overwrite_rebuilds_the_database(tmp_path):
+    gtf = tmp_path / "annotation.gtf"
+    gtf.write_text(OVERWRITE_GTF)
+
+    def genome():
+        return Genome(
+            "synthetic", "overwrite",
+            gtf_path_or_url=str(gtf),
+            cache_directory_path=str(tmp_path / "cache"),
+        )
+
+    first = genome()
+    first.index()
+    assert first.gene_names() == ["g"]
+    first.close()
+    gtf.write_text(OVERWRITE_GTF.replace('gene_name "g"', 'gene_name "renamed"'))
+    second = genome()
+    second.index()  # Changed GTFs now rebuild automatically.
+    assert second.gene_names() == ["renamed"]
+    with sqlite3.connect(second.db.local_db_path) as connection:
+        connection.execute('UPDATE gene SET gene_name = "tampered"')
+    second.index(overwrite=True)  # #412: explicit overwrite still rebuilds.
+    assert second.gene_names() == ["renamed"]
+    second.close()

@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from types import MappingProxyType
+from typing import TYPE_CHECKING
+
+from sarj_iac_lint.rules.no_comment_cruft import NoCommentCruft
+from sarj_iac_lint.rules.no_dead_environment_input import NoDeadEnvironmentInput
+from sarj_iac_lint.rules.no_environment_conditional import NoEnvironmentConditional
+from sarj_iac_lint.rules.no_managed_service_account_key import NoManagedServiceAccountKey
+from sarj_iac_lint.rules.no_mocked_terraform_test_oracle import NoMockedTerraformTestOracle
+from sarj_iac_lint.rules.no_nested_conditional import NoNestedConditional
+from sarj_iac_lint.rules.no_plaintext_secret_env import NoPlaintextSecretEnv
+from sarj_iac_lint.rules.no_project_basic_privilege import NoProjectBasicPrivilege
+from sarj_iac_lint.rules.no_project_secret_access_for_service_account import NoProjectSecretAccessForServiceAccount
+from sarj_iac_lint.rules.no_redundant_variable_validation import NoRedundantVariableValidation
+from sarj_iac_lint.rules.no_restated_comment import NoRestatedComment
+from sarj_iac_lint.rules.no_terraform_data_condition import NoTerraformDataCondition
+from sarj_iac_lint.rules.require_deletion_protection import RequireDeletionProtection
+from sarj_iac_lint.rules.require_prevent_destroy import RequirePreventDestroyOnIrreplaceable
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from sarj_iac_lint.rule_base import Rule
+
+
+REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
+    {
+        NoPlaintextSecretEnv.id: NoPlaintextSecretEnv,
+        NoProjectSecretAccessForServiceAccount.id: NoProjectSecretAccessForServiceAccount,
+        RequireDeletionProtection.id: RequireDeletionProtection,
+        RequirePreventDestroyOnIrreplaceable.id: RequirePreventDestroyOnIrreplaceable,
+        NoCommentCruft.id: NoCommentCruft,
+        NoEnvironmentConditional.id: NoEnvironmentConditional,
+        NoDeadEnvironmentInput.id: NoDeadEnvironmentInput,
+        NoMockedTerraformTestOracle.id: NoMockedTerraformTestOracle,
+        NoNestedConditional.id: NoNestedConditional,
+        NoRedundantVariableValidation.id: NoRedundantVariableValidation,
+        NoRestatedComment.id: NoRestatedComment,
+        NoTerraformDataCondition.id: NoTerraformDataCondition,
+        NoManagedServiceAccountKey.id: NoManagedServiceAccountKey,
+        NoProjectBasicPrivilege.id: NoProjectBasicPrivilege,
+    }
+)

@@ -160,6 +160,9 @@ _HOMES = {
     "commit_on_remote": "probe.sdk.capture.code.git_remote",
     "lru_cache": "probe.sdk.capture.code.git_remote",
     "pushed_base": "probe.sdk.capture.code.git_remote",
+    "start_pushed_base": "probe.sdk.capture.code.git_remote",
+    "LS_REMOTE_OPEN_CAP": "probe.sdk.capture.code.git_remote",
+    "_ls_remote_env": "probe.sdk.capture.code.git_remote",
     "tempfile": "probe.sdk.capture.code.git_remote",
     # probe.sdk.capture.code.scanners.source_code
     "Counter": "probe.sdk.capture.code.scanners.source_code",

@@ -21,17 +21,17 @@ import stat
 import sys
 import unittest
 
-from pyfakefs import fake_filesystem, fake_os, fake_open, fake_file
+from pyfakefs import fake_file, fake_filesystem, fake_open, fake_os
 from pyfakefs.fake_filesystem import (
     FakeFileOpen,
     is_root,
-    set_uid,
     set_gid,
+    set_uid,
 )
-from pyfakefs.helpers import IN_DOCKER, IS_PYPY, get_uid, get_gid, reset_ids, IS_WIN
+from pyfakefs.helpers import IN_DOCKER, IS_PYPY, IS_WIN, get_gid, get_uid, reset_ids
 from pyfakefs.tests.test_utils import (
-    TestCase,
     RealFsTestCase,
+    TestCase,
     skip_if_symlink_not_supported,
 )
 
@@ -315,7 +315,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         file_path = self.make_path("foo")
         self.create_file(file_path, contents=b"")
         with self.assertRaises(AttributeError):
-            self.os.stat(file_path).st_blocks
+            _ = self.os.stat(file_path).st_blocks
 
     def test_stat_with_unc_path(self):
         self.skip_real_fs()
@@ -645,31 +645,16 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.check_macos_only()
         file_path = self.make_path("foo")
         self.os.symlink(file_path, file_path)
-        self.assertTrue(self.os.path.lexists(file_path + self.os.sep))
+        self.assertFalse(self.os.path.lexists(file_path + self.os.sep))
 
-    def test_islink_with_trailing_separator_linux_windows(self):
-        self.check_linux_and_windows()
+    def test_islink_with_trailing_separator(self):
         skip_if_symlink_not_supported()
+        self.check_linux_and_windows()  # unstable behavior under macOS
         file_path = self.make_path("foo")
         self.os.symlink(file_path, file_path)
         self.assertFalse(self.os.path.islink(file_path + self.os.sep))
 
-    def test_islink_with_trailing_separator_macos(self):
-        # regression test for #373
-        self.check_macos_only()
-        file_path = self.make_path("foo")
-        self.os.symlink(file_path, file_path)
-        self.assertTrue(self.os.path.islink(file_path + self.os.sep))
-
-    def test_isfile_with_trailing_separator_linux_windows(self):
-        self.check_linux_and_windows()
-        file_path = self.make_path("foo")
-        self.create_file(file_path)
-        self.assertFalse(self.os.path.isfile(file_path + self.os.sep))
-
-    def test_isfile_with_trailing_separator_macos(self):
-        # regression test for #374
-        self.check_macos_only()
+    def test_isfile_with_trailing_separator(self):
         file_path = self.make_path("foo")
         self.create_file(file_path)
         self.assertFalse(self.os.path.isfile(file_path + self.os.sep))
@@ -743,54 +728,36 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         with self.assertRaises(TypeError):
             self.os.readlink(None)
 
-    def test_broken_symlink_with_trailing_separator_linux(self):
-        self.check_linux_only()
+    def check_broken_symlink_with_trailing_separator(self, subtype):
         file_path = self.make_path("foo")
         link_path = self.make_path("link")
         self.os.symlink(file_path, link_path)
-        self.assert_raises_os_error(
-            errno.EEXIST,
-            self.os.symlink,
-            link_path + self.os.sep,
-            link_path + self.os.sep,
-        )
+        with self.raises_os_error(subtype):
+            self.os.symlink(link_path + self.os.sep, link_path + self.os.sep)
 
+    def test_broken_symlink_with_trailing_separator_linux(self):
+        self.check_linux_only()
+        self.check_broken_symlink_with_trailing_separator(errno.EEXIST)
+
+    @unittest.skip(reason="Unstable behavior in newer macOS versions")
     def test_broken_symlink_with_trailing_separator_macos(self):
         # regression test for #371
         self.check_macos_only()
-        file_path = self.make_path("foo")
-        link_path = self.make_path("link")
-        self.os.symlink(file_path, link_path)
-        self.os.symlink(link_path + self.os.sep, link_path + self.os.sep)
+        self.check_broken_symlink_with_trailing_separator(errno.ENOENT)
 
     def test_broken_symlink_with_trailing_separator_windows(self):
         self.check_windows_only()
         skip_if_symlink_not_supported()
-        file_path = self.make_path("foo")
-        link_path = self.make_path("link")
-        self.os.symlink(file_path, link_path)
-        self.assert_raises_os_error(
-            errno.ENOTDIR,
-            self.os.symlink,
-            link_path + self.os.sep,
-            link_path + self.os.sep,
-        )
+        self.check_broken_symlink_with_trailing_separator(errno.ENOTDIR)
 
-    def test_circular_readlink_with_trailing_separator_linux(self):
+    def test_circular_readlink_with_trailing_separator_posix(self):
         # Regression test for #372
-        self.check_linux_only()
+        self.check_linux_only()  # behavior unstable under macOS
         file_path = self.make_path("foo")
         self.os.symlink(file_path, file_path)
         self.assert_raises_os_error(
             errno.ELOOP, self.os.readlink, file_path + self.os.sep
         )
-
-    def test_circular_readlink_with_trailing_separator_macos(self):
-        # Regression test for #372
-        self.check_macos_only()
-        file_path = self.make_path("foo")
-        self.os.symlink(file_path, file_path)
-        self.os.readlink(file_path + self.os.sep)
 
     def test_circular_readlink_with_trailing_separator_windows(self):
         # Regression test for #372
@@ -858,7 +825,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         # regression test for issue #337
         self.check_windows_only()
         self.skip_real_fs()
-        dir_path = self.os.path.join("C:", "test")
+        dir_path = self.os.path.join("C:/", "test")
         self.filesystem.create_dir(dir_path)
         self.assert_raises_os_error(errno.EACCES, self.os.remove, dir_path)
 
@@ -1353,12 +1320,14 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def check_append_mode_tell_after_truncate(self, tell_result):
         file_path = self.make_path("baz")
-        with self.open(file_path, "w", encoding="utf8") as f0:
-            with self.open(file_path, "a", encoding="utf8") as f1:
-                f1.write("abcde")
-                f0.seek(2)
-                f0.truncate()
-                self.assertEqual(tell_result, f1.tell())
+        with (
+            self.open(file_path, "w", encoding="utf8") as f0,
+            self.open(file_path, "a", encoding="utf8") as f1,
+        ):
+            f1.write("abcde")
+            f0.seek(2)
+            f0.truncate()
+            self.assertEqual(tell_result, f1.tell())
         with self.open(file_path, mode="rb") as f:
             self.assertEqual(b"\0\0abcde", f.read())
 
@@ -1582,10 +1551,10 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.create_dir(directory)
         self.assertTrue(self.os.path.exists(directory))
         self.assert_raises_os_error(errno.EBUSY, self.os.removedirs, directory)
-        head, unused_tail = self.os.path.split(directory)
+        head, _ = self.os.path.split(directory)
         while self.os.path.splitdrive(head)[1] != self.os.path.sep:
             self.assertFalse(self.os.path.exists(directory))
-            head, unused_tail = self.os.path.split(head)
+            head, _ = self.os.path.split(head)
 
     def test_removedirs_with_trailing_slash(self):
         """removedirs works on directory names with trailing slashes."""
@@ -1624,13 +1593,13 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         directory = "xyzzy"
         self.assertFalse(self.filesystem.exists(directory))
         self.os.mkdir(directory)
-        self.assertTrue(self.filesystem.exists("/%s" % directory))
+        self.assertTrue(self.filesystem.exists(f"/{directory}"))
         self.os.chdir(directory)
         self.os.mkdir(directory)
         self.assertTrue(self.filesystem.exists(f"/{directory}/{directory}"))
         self.os.chdir(directory)
         self.os.mkdir("../abccb")
-        self.assertTrue(self.os.path.exists("/%s/abccb" % directory))
+        self.assertTrue(self.os.path.exists(f"/{directory}/abccb"))
 
     def test_mkdir_with_trailing_slash(self):
         """mkdir can create a directory named with a trailing slash."""
@@ -2261,9 +2230,11 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.chown(ro_dir, 0, 0)
 
         # adding a new entry to the readonly subdirectory should fail
-        with self.assertRaises(PermissionError):
-            with self.open(f"{ro_dir}/file.txt", "w", encoding="utf8"):
-                pass
+        with (
+            self.assertRaises(PermissionError),
+            self.open(f"{ro_dir}/file.txt", "w", encoding="utf8"),
+        ):
+            pass
         file_path = self.make_path("file.txt")
         self.create_file(file_path)
         with self.assertRaises(PermissionError):
@@ -2441,7 +2412,10 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         path = self.make_path("foo")
         self.os.symlink(self.base_path, path)
         self.assert_raises_os_error(
-            errno.ENOTDIR, self.os.rename, path + self.os.sep, self.base_path
+            (errno.ENOTDIR, errno.ENOTEMPTY),
+            self.os.rename,
+            path + self.os.sep,
+            self.base_path,
         )
 
     def test_rename_symlink_with_trailing_sep_macos(self):
@@ -2676,13 +2650,15 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.assert_raises_os_error(errno.ELOOP, self.os.readlink, path0 + self.os.sep)
 
     def test_readlink_circular_link_with_trailing_sep_macos(self):
-        # Regression test for #392
+        # real behavior under macOS is inconsistent, exception is sometimes not raised
+        self.skip_real_fs()
         self.check_macos_only()
         path1 = self.make_path("foo")
         path0 = self.make_path("bar")
         self.os.symlink(path0, path1)
         self.os.symlink(path1, path0)
-        self.assertEqual(path0, self.os.readlink(path0 + self.os.sep))
+        with self.raises_os_error(errno.ELOOP):
+            self.os.readlink(path0 + self.os.sep)
 
     def test_readlink_circular_link_with_trailing_sep_windows(self):
         self.check_windows_only()
@@ -2691,9 +2667,8 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         path0 = self.make_path("bar")
         self.os.symlink(path0, path1)
         self.os.symlink(path1, path0)
-        self.assert_raises_os_error(
-            errno.ENOTDIR, self.os.readlink, path0 + self.os.sep
-        )
+        with self.raises_os_error(errno.ENOTDIR):
+            self.os.readlink(path0 + self.os.sep)
 
     # hard link related tests
     def test_link_bogus(self):
@@ -2800,7 +2775,10 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.unlink(file1_path)
         self.assertEqual(self.os.stat(file2_path).st_nlink, 1)
 
-    @unittest.skipIf(IS_PYPY, "follow_symlinks not supported in PyPi")
+    @unittest.skipIf(
+        IS_PYPY and sys.version_info < (3, 11),
+        "follow_symlinks not supported in PyPy before Python 3.11",
+    )
     def test_link_no_follow_symlink(self):
         skip_if_symlink_not_supported()
         target_path = self.make_path("target_path")
@@ -2811,8 +2789,10 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.link(symlink_path, link_path, follow_symlinks=False)
         self.assertTrue(self.os.path.islink(link_path))
 
-    @unittest.skipIf(not IS_PYPY, "follow_symlinks only not supported in PyPi")
-    @unittest.skipIf(IS_WIN, "supported in PyPy 3.11 under Windows")
+    @unittest.skipIf(
+        not IS_PYPY or IS_WIN or sys.version_info >= (3, 11),
+        "follow_symlinks only unsupported in PyPy before Python 3.11 on POSIX",
+    )
     def test_link_follow_symlink_not_supported_inPypy(self):
         skip_if_symlink_not_supported()
         target_path = self.make_path("target_path")
@@ -3002,7 +2982,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.create_file(file_path, contents="0123456789012345")
 
         fd = self.os.open(file_path, os.O_RDWR)
-        self.os.truncate(fd, 10)
+        self.os.ftruncate(fd, 10)
         self.assertEqual(10, self.os.stat(file_path).st_size)
         with self.open(file_path, encoding="utf8") as f:
             self.assertEqual("0123456789", f.read())
@@ -3161,9 +3141,11 @@ class FakeOsModuleTestCaseInsensitiveFS(FakeOsModuleTestBase):
         # even if we have read access to the file
         with self.assertRaises(PermissionError):
             self.os.stat(file_path)
-        with self.assertRaises(PermissionError):
-            with self.open(file_path, encoding="utf8") as f:
-                f.read()
+        with (
+            self.assertRaises(PermissionError),
+            self.open(file_path, encoding="utf8") as f,
+        ):
+            f.read()
 
     def test_listdir_impossible_without_read_permission(self):
         # regression test for #960
@@ -4709,9 +4691,7 @@ class FakeOsModuleWalkTest(FakeOsModuleTestBase):
     def assertWalkResults(self, expected, top, topdown=True, followlinks=False):
         # as the result of walk is unsorted, we have to check against
         # sorted results
-        result = list(
-            step for step in self.os.walk(top, topdown=topdown, followlinks=followlinks)
-        )
+        result = [*self.os.walk(top, topdown=topdown, followlinks=followlinks)]
         result = sorted(result, key=lambda lst: lst[0])
         expected = sorted(expected, key=lambda lst: lst[0])
         self.assertEqual(len(expected), len(result))
@@ -4876,6 +4856,29 @@ class FakeOsModuleWalkTest(FakeOsModuleTestBase):
             expected,
             self.os.path.join(base_dir, "created_link"),
             followlinks=True,
+        )
+
+    @unittest.skipIf(
+        not hasattr(os, "_walk_symlinks_as_files"),
+        "os._walk_symlinks_as_files not available",
+    )
+    def test_walk_symlinks_as_files(self):
+        # os._walk_symlinks_as_files is used by shutil.rmtree()
+        self.check_posix_only()
+        base_dir = self.make_path("foo")
+        link_dir = self.make_path("linked")
+        self.create_file(self.os.path.join(link_dir, "subfile"))
+        self.create_file(self.os.path.join(base_dir, "bar", "baz"))
+        self.create_symlink(self.os.path.join(base_dir, "created_link"), link_dir)
+
+        expected = [
+            (base_dir, ["bar"], ["created_link"]),
+            (self.os.path.join(base_dir, "bar"), [], ["baz"]),
+        ]
+        followlinks = os._walk_symlinks_as_files  # type: ignore[attr-defined]
+        self.assertWalkResults(expected, base_dir, followlinks=followlinks)
+        self.assertWalkResults(
+            expected, base_dir, topdown=False, followlinks=followlinks
         )
 
     def test_walk_linked_file_in_subdir(self):
@@ -5697,6 +5700,22 @@ class FakeOsUnreadableDirTest(FakeOsModuleTestBase):
         self.assertEqual(gid + 10, get_gid())
         reset_ids()
         self.assertEqual(gid, self.os.getgid())
+
+    def test_rename_in_dir_of_other_user_as_root(self):
+        # regression test for #1341
+        self.skip_real_fs()  # won't change user in real fs
+        self.check_posix_only()
+        self.addCleanup(reset_ids)
+        dir_path = self.make_path("other_user_dir")
+        file_path = self.os.path.join(dir_path, "some_file")
+        self.create_file(file_path)
+        self.os.chmod(dir_path, 0o700)
+        self.os.chown(dir_path, get_uid() + 1, get_gid() + 1)
+        new_path = self.os.path.join(dir_path, "new_file")
+        set_uid(0)
+        # root ignores the directory permissions
+        self.os.rename(file_path, new_path)
+        self.assertTrue(self.os.path.exists(new_path))
 
     def test_listdir_unreadable_dir(self):
         if not is_root():

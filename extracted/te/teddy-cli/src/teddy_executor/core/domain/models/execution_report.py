@@ -1,0 +1,67 @@
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Sequence
+
+from teddy_executor.core.domain.models.plan import ActionData
+
+
+class RunStatus(str, Enum):
+    """Overall status for an entire plan execution."""
+
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    VALIDATION_FAILED = "VALIDATION_FAILED"
+    SKIPPED = "SKIPPED"
+    ABORTED = "ABORTED"
+    INTERRUPTED = "INTERRUPTED"
+
+
+class ActionStatus(str, Enum):
+    """Status for a single action within a plan."""
+
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    SKIPPED = "SKIPPED"
+    PENDING = "PENDING"
+    INTERRUPTED = "INTERRUPTED"
+
+
+@dataclass(frozen=True)
+class ActionLog:
+    """Logs the result of a single action execution."""
+
+    status: ActionStatus
+    action_type: str
+    params: dict[str, Any]
+    details: Any | None = None
+    modified: bool = False
+    modified_fields: list[str] = field(default_factory=list)
+    failed_command: str | None = None
+
+
+@dataclass(frozen=True)
+class RunSummary:
+    """Summarizes the overall result of a plan execution."""
+
+    status: RunStatus
+    start_time: datetime
+    end_time: datetime
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecutionReport:
+    """The comprehensive report of a plan execution."""
+
+    run_summary: RunSummary
+    plan_title: str | None = None
+    rationale: str | None = None
+    user_request: str | None = None
+    is_session: bool = False
+    metadata: dict[str, str] = field(default_factory=dict)
+    original_actions: Sequence[ActionData] = field(default_factory=list)
+    action_logs: Sequence[ActionLog] = field(default_factory=list)
+    validation_result: Sequence[str] | None = None
+    validation_ast: str | None = None
+    failed_resources: dict[str, str] | None = None

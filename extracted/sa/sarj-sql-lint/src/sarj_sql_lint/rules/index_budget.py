@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import PurePosixPath
+from typing import TYPE_CHECKING, final, override
+
+from sarj_sql_lint.rule_base import (
+    AutofixPolicy,
+    DefaultLevel,
+    Diagnostic,
+    ExampleFile,
+    ExampleOutcome,
+    Rule,
+    RuleCategory,
+    RuleDocumentation,
+    RuleExample,
+)
+from sarj_sql_lint.rules._index_analysis import IndexDefinition, IndexSignature, authored_indexes, index_namespace_key
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+_MIGRATION_INDEX_LIMIT = 8
+_TABLE_INDEX_LIMIT = 3
+
+
+@final
+class IndexBudget(Rule):
+    id = "excess-migration-index-requires-justification"
+    code = "SARJ116"
+    documentation = RuleDocumentation(
+        default_level=DefaultLevel.ERROR,
+        summary="Limit explicit indexes to three per table and eight per authored migration.",
+        rationale=(
+            "Every explicit index adds write amplification, storage, vacuum work, and planner surface; bursts of indexes "
+            "often encode unmeasured read paths in the transactional database."
+        ),
+        remediation=(
+            "Keep at most three explicit indexes per table and eight per migration. Remove redundant indexes, "
+            "express data uniqueness with inline UNIQUE constraints, and review the workload before adding indexes. "
+            "Evaluate ClickHouse for reporting, historical analysis, and broad aggregations."
+        ),
+        category=RuleCategory.PERFORMANCE,
+        autofix=AutofixPolicy.NONE,
+        aliases=("index-budget",),
+        limitations=(
+            "Only authored production migrations are checked; tests, dumps, fixtures, and recognized generator-owned migrations are excluded.",
+            "Duplicate index shapes and same-name replacement statements do not consume this budget; SARJ117 reports structural duplicates.",
+            "Index declarations inside dollar-quoted stored or anonymous program bodies are not inferred.",
+            "The policy budgets distinct explicit index definitions in one file; it does not dereference query or EXPLAIN links, estimate workload selectivity, or reconstruct fleet-wide index state.",
+            "Comment-based index justifications do not waive the budget. The historical rule ID is retained for configuration compatibility.",
+        ),
+        examples=(
+            RuleExample(
+                example_id="excess-index-burst",
+                title="A fourth explicit index exceeds the table budget",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.sql(
+                        "migrations/004_indexes.sql",
+                        "CREATE INDEX a_idx ON event(a);\nCREATE INDEX b_idx ON event(b);\n"
+                        "CREATE INDEX c_idx ON event(c);\nCREATE INDEX d_idx ON event(d);\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("migrations/004_indexes.sql"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="within-index-budget",
+                title="Three explicit indexes stay within the table budget",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.sql(
+                        "migrations/004_indexes.sql",
+                        "CREATE INDEX a_idx ON event(a);\nCREATE INDEX b_idx ON event(b);\n"
+                        "CREATE INDEX c_idx ON event(c);\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("migrations/004_indexes.sql"),
+                expected_count=0,
+                public=True,
+            ),
+        ),
+    )
+    description = documentation.summary
+
+    @override
+    def check(self, path: Path, source: str) -> list[Diagnostic]:
+        indexes = authored_indexes(path, source)
+        table_positions: Counter[str] = Counter()
+        findings: list[Diagnostic] = []
+        distinct_indexes = _distinct_indexes(indexes)
+        for total_position, index in enumerate(distinct_indexes, start=1):
+            table_positions[index.table] += 1
+            exceeds_total = total_position > _MIGRATION_INDEX_LIMIT
+            exceeds_table = table_positions[index.table] > _TABLE_INDEX_LIMIT
+            if not (exceeds_total or exceeds_table):
+                continue
+            limits: list[str] = []
+            if exceeds_table:
+                limits.append(f"Index {table_positions[index.table]} for table `{index.table}` exceeds limit 3")
+            if exceeds_total:
+                lead = "distinct" if limits else "Distinct"
+                limits.append(f"{lead} index {total_position} in this migration exceeds limit 8")
+            findings.append(
+                Diagnostic(
+                    path,
+                    index.line,
+                    index.column,
+                    self.code,
+                    "; ".join(limits)
+                    + ". Remove redundant indexes, express uniqueness with inline UNIQUE constraints, "
+                    "and review the workload. Evaluate ClickHouse for reporting, historical analysis, "
+                    "and broad aggregations.",
+                )
+            )
+        return findings
+
+
+def _distinct_indexes(indexes: tuple[IndexDefinition, ...]) -> list[IndexDefinition]:
+    seen_names: set[str] = set()
+    seen_signatures: set[IndexSignature] = set()
+    distinct_indexes: list[IndexDefinition] = []
+    for index in indexes:
+        namespace_key = index_namespace_key(index)
+        has_reused_name = namespace_key is not None and namespace_key in seen_names
+        if has_reused_name or index.signature in seen_signatures:
+            continue
+        if namespace_key is not None:
+            seen_names.add(namespace_key)
+        seen_signatures.add(index.signature)
+        distinct_indexes.append(index)
+    return distinct_indexes

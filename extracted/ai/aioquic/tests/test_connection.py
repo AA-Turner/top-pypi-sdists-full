@@ -3,6 +3,7 @@ import contextlib
 import io
 import os
 import time
+from collections.abc import Iterator
 from typing import Optional
 from unittest import TestCase, skipIf
 
@@ -320,23 +321,40 @@ class QuicConnectionTestCase(TestCase):
                 break
         self.assertEqual(types, expected)
 
-    def assertPacketDropped(self, connection: QuicConnection, trigger: str):
-        log = connection.configuration.quic_logger.to_dict()
-        found_trigger = None
-        for event in log["traces"][0]["events"]:
-            if event["name"] == "transport:packet_dropped":
-                found_trigger = event["data"]["trigger"]
-                break
-        self.assertEqual(found_trigger, trigger)
+    @contextlib.contextmanager
+    def assertPacketsDropped(
+        self, connection: QuicConnection, triggers: list[str]
+    ) -> Iterator[None]:
+        """
+        Check the packets `connection` drops while the block runs.
+
+        `triggers` lists the reason ("trigger") of every `transport:packet_dropped`
+        event that `connection` logs inside the block, in order. Packets dropped
+        before the block, for instance during the handshake, are ignored. An empty
+        list checks that no packet is dropped.
+        """
+
+        def dropped() -> list[str]:
+            log = connection.configuration.quic_logger.to_dict()
+            return [
+                event["data"]["trigger"]
+                for event in log["traces"][0]["events"]
+                if event["name"] == "transport:packet_dropped"
+            ]
+
+        before = len(dropped())
+        yield
+        self.assertEqual(dropped()[before:], triggers)
 
     def assertSentPackets(self, connection: QuicConnection, expected: list[int]):
         counts = [len(space.sent_packets) for space in connection._loss.spaces]
         self.assertEqual(counts, expected)
 
 
-class QuicConnectionLossTest(QuicConnectionTestCase):
+class QuicConnectionTimelineTest(QuicConnectionTestCase):
     """
-    Check how connections recover when packets are lost or delayed.
+    Step connections through simulated time one network hop at a time, checking
+    datagrams, timers and sent packets after each step.
     """
 
     def acked_ranges(self, connection: QuicConnection) -> list[list[list[int]]]:
@@ -600,6 +618,109 @@ class QuicConnectionLossTest(QuicConnectionTestCase):
             self.assertSentPackets(server, [1, 1, 6])
             self.assertEvents(server, [])
             self.assertEqual(self.acked_ranges(server), [[[0, 0]], [[1, 1]]])
+
+    def test_connect_with_0rtt_and_late_0rtt_packet(self):
+        """
+        Check clients discard 0-RTT keys once they install 1-RTT keys, and servers
+        once they receive a 1-RTT packet (RFC 9001 section 4.9.3).
+
+        A 0-RTT packet which arrives after that is dropped, and the client resends
+        its data in a 1-RTT packet once it detects the loss.
+        """
+        client_ticket, ticket_store = self.create_session_ticket()
+
+        with client_and_server(
+            client_options={"session_ticket": client_ticket},
+            handshake=False,
+            server_kwargs={"session_ticket_fetcher": ticket_store.pop},
+        ) as (client, server):
+            self.watch_timers(client, server)
+
+            # Client sends INITIAL + 0-RTT data.
+            now = 0.0
+            client.connect(SERVER_ADDR, now=now)
+            stream_id = client.get_next_available_stream_id()
+            client.send_stream_data(stream_id, b"hello", end_stream=True)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertEqual(client.get_timer(), 0.2)
+            self.assertSentPackets(client, [1, 0, 1])
+            self.assertEvents(client, [])
+
+            # Client sends more 0-RTT data, which is delayed.
+            stream_id = client.get_next_available_stream_id()
+            client.send_stream_data(stream_id, b"world", end_stream=True)
+            late_items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(late_items), [52])
+            header = pull_quic_header(Buffer(data=late_items[0][0]), host_cid_length=8)
+            self.assertEqual(header.packet_type, QuicPacketType.ZERO_RTT)
+            self.assertEqual(client.get_timer(), 0.2)
+            self.assertSentPackets(client, [1, 0, 2])
+            self.assertEvents(client, [])
+
+            # Server receives INITIAL + 0-RTT data, sends INITIAL + HANDSHAKE and
+            # an ACK for the 0-RTT data.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(server.get_timer(), 0.25)
+            self.assertSentPackets(server, [1, 1, 1])
+            self.assertEvents(
+                server, [events.ProtocolNegotiated, events.StreamDataReceived]
+            )
+            self.assertTrue(server._cryptos[tls.Epoch.ZERO_RTT].recv.is_valid())
+
+            # Client receives INITIAL + HANDSHAKE and the ACK, installs 1-RTT keys
+            # and discards its 0-RTT keys, sends FINISHED and 1-RTT data.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200])
+            self.assertAlmostEqual(client.get_timer(), 0.35)
+            self.assertSentPackets(client, [0, 1, 2])
+            self.assertEvents(
+                client, [events.ProtocolNegotiated] + HANDSHAKE_COMPLETED_EVENTS
+            )
+            self.assertFalse(client._cryptos[tls.Epoch.ZERO_RTT].send.is_valid())
+
+            # Server receives FINISHED and 1-RTT data, discards its 0-RTT keys,
+            # sends HANDSHAKE_DONE.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [231])
+            self.assertAlmostEqual(server.get_timer(), 0.425)
+            self.assertSentPackets(server, [0, 0, 2])
+            self.assertEvents(server, HANDSHAKE_COMPLETED_EVENTS)
+            self.assertFalse(server._cryptos[tls.Epoch.ZERO_RTT].recv.is_valid())
+
+            # Server then receives the delayed 0-RTT data, which it drops.
+            with self.assertPacketsDropped(server, ["key_unavailable"]):
+                server.receive_datagram(late_items[0][0], CLIENT_ADDR, now=now)
+            self.assertEqual(datagram_sizes(server.datagrams_to_send(now=now)), [])
+            self.assertAlmostEqual(server.get_timer(), 0.425)
+            self.assertSentPackets(server, [0, 0, 2])
+            self.assertEvents(server, [])
+
+            # Client receives HANDSHAKE_DONE, detects the loss of the delayed 0-RTT
+            # data and resends it in 1-RTT.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [41])
+            self.assertAlmostEqual(client.get_timer(), 0.4375)
+            self.assertSentPackets(client, [0, 0, 1])
+            self.assertEvents(client, [])
+
+            # Server receives the 1-RTT data, sends ACK.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [32])
+            self.assertAlmostEqual(server.get_timer(), 60.25)  # idle timeout
+            self.assertSentPackets(server, [0, 0, 1])
+            self.assertEvents(server, [events.StreamDataReceived])
 
     def test_connect_with_0rtt_and_lost_client_first_flight(self):
         """
@@ -1430,14 +1551,13 @@ class QuicConnectionLossTest(QuicConnectionTestCase):
             # Client only receives the second datagram, which it cannot decrypt,
             # and retransmits INITIAL.
             now = self.advance_by_tick(now)
-            client.receive_datagram(items[1][0], SERVER_ADDR, now=now)
+            with self.assertPacketsDropped(client, ["key_unavailable"]):
+                client.receive_datagram(items[1][0], SERVER_ADDR, now=now)
             items = client.datagrams_to_send(now=now)
             self.assertEqual(datagram_sizes(items), [1200])
             self.assertAlmostEqual(client.get_timer(), 0.3)
             self.assertSentPackets(client, [1, 0, 0])
             self.assertEvents(client, [])
-
-            self.assertPacketDropped(client, "key_unavailable")
 
             # Server receives duplicate INITIAL, retransmits INITIAL + HANDSHAKE.
             now = self.advance_by_tick(now)
@@ -2561,6 +2681,72 @@ class QuicConnectionLossTest(QuicConnectionTestCase):
             self.assertEqual(len(server._network_paths[1].remote_challenges), 1)
             self.assertEqual(self.path_challenges(server), [])
 
+    def test_send_fin_without_data_after_full_packet(self):
+        """
+        Check a FIN without data which finds the packet full is sent in the
+        next packet.
+        """
+        with client_and_server(handshake=False) as (client, server):
+            self.watch_timers(client, server)
+            now = self.handshake(client, server, now=0.0)
+
+            # Client opens stream 0 so it is served before stream 4, sends data
+            # on stream 4.
+            client.send_stream_data(0, b"")
+            client.send_stream_data(4, b"hello")
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [36])
+            self.assertAlmostEqual(client.get_timer(), 0.625)
+            self.assertSentPackets(client, [0, 0, 2])
+
+            # Server receives stream data, sends ACK.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            self.assertEvents(server, [events.StreamDataReceived])
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [32])
+            self.assertAlmostEqual(server.get_timer(), 60.4)  # idle timeout
+            self.assertSentPackets(server, [0, 0, 1])
+
+            # Client receives ACK, nothing remains in flight.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            self.assertEqual(client.datagrams_to_send(now=now), [])
+            self.assertAlmostEqual(client.get_timer(), 60.45)  # idle timeout
+            self.assertSentPackets(client, [0, 0, 0])
+
+            # Client fills a packet with data on stream 0, then ends stream 4.
+            # The FIN does not fit, it goes in the second packet.
+            client.send_stream_data(0, bytes(1200))
+            client.send_stream_data(4, b"", end_stream=True)
+            items = client.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [1200, 69])
+            self.assertAlmostEqual(client.get_timer(), 0.6875)
+            self.assertSentPackets(client, [0, 0, 2])
+
+            # Server receives both packets, stream 4 ends, sends ACK.
+            now = self.advance_by_tick(now)
+            server.receive_datagram(items[0][0], CLIENT_ADDR, now=now)
+            server.receive_datagram(items[1][0], CLIENT_ADDR, now=now)
+            self.assertEqual(
+                [
+                    (event.stream_id, len(event.data), event.end_stream)
+                    for event in iter(server.next_event, None)
+                ],
+                [(0, 1169, False), (4, 0, True), (0, 31, False)],
+            )
+            items = server.datagrams_to_send(now=now)
+            self.assertEqual(datagram_sizes(items), [32])
+            self.assertAlmostEqual(server.get_timer(), 60.5)  # idle timeout
+            self.assertSentPackets(server, [0, 0, 2])
+
+            # Client receives ACK, nothing remains in flight.
+            now = self.advance_by_tick(now)
+            client.receive_datagram(items[0][0], SERVER_ADDR, now=now)
+            self.assertEqual(client.datagrams_to_send(now=now), [])
+            self.assertAlmostEqual(client.get_timer(), 60.55)  # idle timeout
+            self.assertSentPackets(client, [0, 0, 0])
+
     def watch_timers(self, *connections: QuicConnection) -> None:
         """
         Register the connections whose timers the advance_* helpers check.
@@ -2911,11 +3097,9 @@ class QuicConnectionTest(QuicConnectionTestCase):
         buf = builder.start_frame(QuicFrameType.PADDING)
         buf.push_bytes(bytes(builder.remaining_flight_space))
 
-        for datagram in builder.flush()[0]:
-            server.receive_datagram(datagram, SERVER_ADDR, now=time.time())
-
-        # Look for the drop event.
-        self.assertPacketDropped(server, "initial_packet_datagram_too_small")
+        with self.assertPacketsDropped(server, ["initial_packet_datagram_too_small"]):
+            for datagram in builder.flush()[0]:
+                server.receive_datagram(datagram, SERVER_ADDR, now=time.time())
 
     def test_connect_with_no_crypto_frame(self):
         def patch(client):
@@ -3362,8 +3546,8 @@ class QuicConnectionTest(QuicConnectionTestCase):
         self.assertEqual(client._remote_initial_source_connection_id, bytes(8))
 
         # A packet with a different Source Connection ID is discarded.
-        send_initial(source_cid=bytes([1] * 8), packet_number=1)
-        self.assertPacketDropped(client, "unexpected_source_connection_id")
+        with self.assertPacketsDropped(client, ["unexpected_source_connection_id"]):
+            send_initial(source_cid=bytes([1] * 8), packet_number=1)
         self.assertNotIn(1, client._spaces[tls.Epoch.INITIAL].received_packets)
 
     def test_receive_datagram_duplicate(self):
@@ -3382,34 +3566,20 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertIsNone(server.next_event())
 
             # the same datagrams are replayed
-            for data in datagrams:
-                server.receive_datagram(data, CLIENT_ADDR, now=time.time())
+            with self.assertPacketsDropped(server, ["duplicate"] * len(datagrams)):
+                for data in datagrams:
+                    server.receive_datagram(data, CLIENT_ADDR, now=time.time())
 
             # the duplicates are discarded
             self.assertIsNone(server.next_event())
-            log = server.configuration.quic_logger.to_dict()
-            triggers = [
-                event["data"]["trigger"]
-                for event in log["traces"][0]["events"]
-                if event["name"] == "transport:packet_dropped"
-            ]
-            self.assertEqual(triggers.count("duplicate"), len(datagrams))
 
     def test_receive_datagram_first_not_initial(self):
         server = create_standalone_server(self)
 
         # Server receives a 1-RTT packet before any INITIAL packet.
-        datagram = bytes([0x40]) + bytes(8) + bytes(40)
-        server.receive_datagram(datagram, CLIENT_ADDR, now=time.time())
-
-        # The packet is dropped.
-        log = server.configuration.quic_logger.to_dict()
-        triggers = [
-            event["data"]["trigger"]
-            for event in log["traces"][0]["events"]
-            if event["name"] == "transport:packet_dropped"
-        ]
-        self.assertEqual(triggers, ["key_unavailable"])
+        datagram = bytes([0x40]) + server.host_cid + bytes(40)
+        with self.assertPacketsDropped(server, ["key_unavailable"]):
+            server.receive_datagram(datagram, CLIENT_ADDR, now=time.time())
 
     def test_receive_datagram_garbage(self):
         client = create_standalone_client(self)
@@ -3458,6 +3628,34 @@ class QuicConnectionTest(QuicConnectionTestCase):
             ),
         )
 
+    def test_receive_datagram_retired_connection_id(self):
+        """
+        A server drops 1-RTT packets sent to a connection ID the client retired
+        (RFC 9000 section 5.1.2).
+        """
+        with client_and_server() as (client, server):
+            retired_cid = server.host_cid
+
+            # The client sends a PING, which is delayed.
+            client.send_ping(1)
+            delayed = [data for data, addr in client.datagrams_to_send(now=time.time())]
+            self.assertEqual(len(delayed), 1)
+
+            # The client changes connection ID and retires the old one.
+            client.change_connection_id()
+            client.send_ping(2)
+            self.assertEqual(transfer(client, server), 1)
+            self.assertNotEqual(server.host_cid, retired_cid)
+            self.assertNotIn(retired_cid, [c.cid for c in server._host_cids])
+            current_cid = server.host_cid
+            self.assertEqual(transfer(server, client), 1)
+
+            # The delayed PING arrives on the retired connection ID and is dropped.
+            with self.assertPacketsDropped(server, ["unknown_connection_id"]):
+                server.receive_datagram(delayed[0], CLIENT_ADDR, now=time.time())
+            self.assertEqual(server.host_cid, current_cid)
+            self.assertEqual(drop(server), 0)
+
     def test_receive_datagram_unknown_server_address(self):
         with client_and_server() as (client, server):
             while client.next_event() is not None:
@@ -3470,21 +3668,17 @@ class QuicConnectionTest(QuicConnectionTestCase):
             ]
 
             # The datagrams are received from an unknown server address.
-            for data in datagrams:
-                client.receive_datagram(data, ("6.7.8.9", 4433), now=time.time())
+            with self.assertPacketsDropped(
+                client, ["unknown_server_address"] * len(datagrams)
+            ):
+                for data in datagrams:
+                    client.receive_datagram(data, ("6.7.8.9", 4433), now=time.time())
 
             # The datagrams are discarded.
             self.assertIsNone(client.next_event())
             self.assertEqual(
                 [path.addr for path in client._network_paths], [SERVER_ADDR]
             )
-            log = client.configuration.quic_logger.to_dict()
-            triggers = [
-                event["data"]["trigger"]
-                for event in log["traces"][0]["events"]
-                if event["name"] == "transport:packet_dropped"
-            ]
-            self.assertEqual(triggers.count("unknown_server_address"), len(datagrams))
 
             # The same datagrams are received from the known server address.
             for data in datagrams:
@@ -3509,13 +3703,16 @@ class QuicConnectionTest(QuicConnectionTestCase):
         buf = builder.start_frame(QuicFrameType.PADDING)
         buf.push_bytes(bytes(builder.remaining_flight_space))
 
-        for datagram in builder.flush()[0]:
-            client.receive_datagram(datagram, SERVER_ADDR, now=time.time())
+        with self.assertPacketsDropped(client, ["unsupported_version"]):
+            for datagram in builder.flush()[0]:
+                client.receive_datagram(datagram, SERVER_ADDR, now=time.time())
         self.assertEqual(drop(client), 0)
 
-        self.assertPacketDropped(client, "unsupported_version")
-
     def test_receive_datagram_retry(self):
+        """
+        A client acts upon a Retry packet by sending a new Initial packet (RFC 9000
+        section 17.2.5.2).
+        """
         client = create_standalone_client(self)
 
         client.receive_datagram(
@@ -3531,59 +3728,121 @@ class QuicConnectionTest(QuicConnectionTestCase):
         )
         self.assertEqual(drop(client), 1)
 
-    def test_receive_datagram_retry_same_source_cid(self):
+    def test_receive_datagram_retry_after_server_initial(self):
+        """
+        A client discards a Retry packet once it has processed a packet from the
+        server (RFC 9000 section 17.2.5.2).
+        """
+        with client_and_server(handshake=False) as (client, server):
+            # Client sends INITIAL, server sends INITIAL and HANDSHAKE.
+            client.connect(SERVER_ADDR, now=time.time())
+            self.assertEqual(roundtrip(client, server), (1, 2))
+            self.assertEqual(client._state, QuicConnectionState.CONNECTED)
+            self.assertFalse(client._handshake_confirmed)
+            peer_cid = client._peer_cid.cid
+
+            with self.assertPacketsDropped(client, ["unexpected_packet"]):
+                client.receive_datagram(
+                    encode_quic_retry(
+                        version=client._version,
+                        source_cid=binascii.unhexlify("85abb547bf28be97"),
+                        destination_cid=client.host_cid,
+                        original_destination_cid=peer_cid,
+                        retry_token=bytes(16),
+                    ),
+                    SERVER_ADDR,
+                    now=time.time(),
+                )
+            self.assertEqual(client._peer_cid.cid, peer_cid)
+            self.assertEqual(client._retry_count, 0)
+
+            # The handshake completes.
+            roundtrip_until_done(client, server)
+            self.assertTrue(client._handshake_confirmed)
+
+    def test_receive_datagram_retry_empty_token(self):
+        """
+        A client discards a Retry packet with an empty Retry Token field (RFC 9000
+        section 17.2.5.2).
+        """
         client = create_standalone_client(self)
 
-        # The client discards a retry whose source CID is its original destination CID.
-        client.receive_datagram(
-            encode_quic_retry(
-                version=client._version,
-                source_cid=client._peer_cid.cid,
-                destination_cid=client.host_cid,
-                original_destination_cid=client._peer_cid.cid,
-                retry_token=bytes(16),
-            ),
-            SERVER_ADDR,
-            now=time.time(),
-        )
+        with self.assertPacketsDropped(client, ["unexpected_packet"]):
+            client.receive_datagram(
+                encode_quic_retry(
+                    version=client._version,
+                    source_cid=binascii.unhexlify("85abb547bf28be97"),
+                    destination_cid=client.host_cid,
+                    original_destination_cid=client._peer_cid.cid,
+                    retry_token=b"",
+                ),
+                SERVER_ADDR,
+                now=time.time(),
+            )
         self.assertEqual(drop(client), 0)
 
-        self.assertPacketDropped(client, "unexpected_packet")
+    def test_receive_datagram_retry_same_source_cid(self):
+        """
+        A client discards a Retry packet whose Source Connection ID is the Destination
+        Connection ID of its Initial packet (RFC 9000 section 17.2.5.1).
+        """
+        client = create_standalone_client(self)
+
+        with self.assertPacketsDropped(client, ["unexpected_packet"]):
+            client.receive_datagram(
+                encode_quic_retry(
+                    version=client._version,
+                    source_cid=client._peer_cid.cid,
+                    destination_cid=client.host_cid,
+                    original_destination_cid=client._peer_cid.cid,
+                    retry_token=bytes(16),
+                ),
+                SERVER_ADDR,
+                now=time.time(),
+            )
+        self.assertEqual(drop(client), 0)
 
     def test_receive_datagram_retry_wrong_destination_cid(self):
+        """
+        A client discards a Retry packet whose Destination Connection ID is not one
+        it selected (RFC 9000 section 5.2.1).
+        """
         client = create_standalone_client(self)
 
-        # The client does not reply to a retry packet with a wrong destination CID.
-        client.receive_datagram(
-            encode_quic_retry(
-                version=client._version,
-                source_cid=binascii.unhexlify("85abb547bf28be97"),
-                destination_cid=binascii.unhexlify("c98343fe8f5f0ff4"),
-                original_destination_cid=client._peer_cid.cid,
-                retry_token=bytes(16),
-            ),
-            SERVER_ADDR,
-            now=time.time(),
-        )
+        with self.assertPacketsDropped(client, ["unknown_connection_id"]):
+            client.receive_datagram(
+                encode_quic_retry(
+                    version=client._version,
+                    source_cid=binascii.unhexlify("85abb547bf28be97"),
+                    destination_cid=binascii.unhexlify("c98343fe8f5f0ff4"),
+                    original_destination_cid=client._peer_cid.cid,
+                    retry_token=bytes(16),
+                ),
+                SERVER_ADDR,
+                now=time.time(),
+            )
         self.assertEqual(drop(client), 0)
 
-        self.assertPacketDropped(client, "unknown_connection_id")
-
     def test_receive_datagram_retry_wrong_integrity_tag(self):
+        """
+        A client discards a Retry packet whose integrity tag cannot be validated
+        (RFC 9000 section 17.2.5.2).
+        """
         client = create_standalone_client(self)
 
-        client.receive_datagram(
-            encode_quic_retry(
-                version=client._version,
-                source_cid=binascii.unhexlify("85abb547bf28be97"),
-                destination_cid=client.host_cid,
-                original_destination_cid=client._peer_cid.cid,
-                retry_token=bytes(16),
-            )[0:-16]
-            + bytes(16),
-            SERVER_ADDR,
-            now=time.time(),
-        )
+        with self.assertPacketsDropped(client, ["unexpected_packet"]):
+            client.receive_datagram(
+                encode_quic_retry(
+                    version=client._version,
+                    source_cid=binascii.unhexlify("85abb547bf28be97"),
+                    destination_cid=client.host_cid,
+                    original_destination_cid=client._peer_cid.cid,
+                    retry_token=bytes(16),
+                )[0:-16]
+                + bytes(16),
+                SERVER_ADDR,
+                now=time.time(),
+            )
         self.assertEqual(drop(client), 0)
 
     def test_request_key_update_before_handshake(self):
@@ -4460,6 +4719,38 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertEqual(event.error_code, QuicErrorCode.INTERNAL_ERROR)
             self.assertEqual(event.stream_id, stream_id)
 
+    def test_handle_reset_stream_frame_below_received_data(self):
+        stream_id = 1
+        with client_and_server() as (client, server):
+            # The client receives 8 bytes of data.
+            client._handle_stream_frame(
+                client_receive_context(client),
+                QuicFrameType.STREAM_BASE | 6,
+                Buffer(
+                    data=encode_uint_var(stream_id)
+                    + encode_uint_var(0)
+                    + encode_uint_var(8)
+                    + b"01234567"
+                ),
+            )
+
+            # The client receives RESET_STREAM at offset 5.
+            with self.assertRaises(QuicConnectionError) as cm:
+                client._handle_reset_stream_frame(
+                    client_receive_context(client),
+                    QuicFrameType.RESET_STREAM,
+                    Buffer(
+                        data=encode_uint_var(stream_id)
+                        + encode_uint_var(QuicErrorCode.NO_ERROR)
+                        + encode_uint_var(5)
+                    ),
+                )
+            self.assertEqual(cm.exception.error_code, QuicErrorCode.FINAL_SIZE_ERROR)
+            self.assertEqual(cm.exception.frame_type, QuicFrameType.RESET_STREAM)
+            self.assertEqual(
+                cm.exception.reason_phrase, "Data received beyond final size"
+            )
+
     def test_handle_reset_stream_frame_final_size_error(self):
         stream_id = 0
         with client_and_server() as (client, server):
@@ -4609,7 +4900,7 @@ class QuicConnectionTest(QuicConnectionTestCase):
             encode_uint_var(QuicFrameType.RESET_STREAM)
             + encode_uint_var(stream_id)
             + encode_uint_var(QuicErrorCode.INTERNAL_ERROR)
-            + encode_uint_var(0)
+            + encode_uint_var(5)
         )
         with client_and_server() as (client, server):
             # server creates unidirectional stream
@@ -4752,6 +5043,39 @@ class QuicConnectionTest(QuicConnectionTestCase):
             self.assertEqual(cm.exception.error_code, QuicErrorCode.STREAM_STATE_ERROR)
             self.assertEqual(cm.exception.frame_type, QuicFrameType.STOP_SENDING)
             self.assertEqual(cm.exception.reason_phrase, "Stream is receive-only")
+
+    def test_handle_stream_frame_fin_below_received_data(self):
+        stream_id = 1
+        with client_and_server() as (client, server):
+            # The client receives 8 bytes of data.
+            client._handle_stream_frame(
+                client_receive_context(client),
+                QuicFrameType.STREAM_BASE | 6,
+                Buffer(
+                    data=encode_uint_var(stream_id)
+                    + encode_uint_var(0)
+                    + encode_uint_var(8)
+                    + b"01234567"
+                ),
+            )
+
+            # The client receives FIN at offset 5.
+            frame_type = QuicFrameType.STREAM_BASE | 7
+            with self.assertRaises(QuicConnectionError) as cm:
+                client._handle_stream_frame(
+                    client_receive_context(client),
+                    frame_type,
+                    Buffer(
+                        data=encode_uint_var(stream_id)
+                        + encode_uint_var(5)
+                        + encode_uint_var(0)
+                    ),
+                )
+            self.assertEqual(cm.exception.error_code, QuicErrorCode.FINAL_SIZE_ERROR)
+            self.assertEqual(cm.exception.frame_type, frame_type)
+            self.assertEqual(
+                cm.exception.reason_phrase, "Data received beyond final size"
+            )
 
     def test_handle_stream_frame_fin_only(self):
         frame_type = QuicFrameType.STREAM_BASE | 1
@@ -6223,16 +6547,16 @@ class QuicConnectionTest(QuicConnectionTestCase):
         server = create_standalone_server(self)
 
         # Servers do not expect version negotiation packets.
-        server.receive_datagram(
-            encode_quic_version_negotiation(
-                source_cid=server._peer_cid.cid,
-                destination_cid=server.host_cid,
-                supported_versions=[QuicProtocolVersion.VERSION_1],
-            ),
-            CLIENT_ADDR,
-            now=time.time(),
-        )
-        self.assertPacketDropped(server, "unexpected_packet")
+        with self.assertPacketsDropped(server, ["unexpected_packet"]):
+            server.receive_datagram(
+                encode_quic_version_negotiation(
+                    source_cid=server._peer_cid.cid,
+                    destination_cid=server.host_cid,
+                    supported_versions=[QuicProtocolVersion.VERSION_1],
+                ),
+                CLIENT_ADDR,
+                now=time.time(),
+            )
 
     def test_version_negotiation_ok(self):
         client = create_standalone_client(

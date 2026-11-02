@@ -1,0 +1,4301 @@
+"""
+Export parsed data to the Allotrope Simple Model (ASM).
+
+ASM is an open, JSON-based community standard for analytical data, published by
+the Allotrope Foundation. Where *rainbow* frees data from a vendor's binary
+format, ASM frees it from *rainbow*: a document any ASM-aware tool can read.
+
+This module builds an ASM liquid- or gas-chromatography document from a parsed
+DataDirectory (one run, a single injection) or DataSequence (a whole sequence
+of runs). The technique is
+read from the acquisition method (the sample inlet rainbow records as
+``metadata['technique']``); absent that, a run with an FID channel is taken as
+gas chromatography, and the caller can force either with ``technique=``. rainbow
+targets Allotrope revision REC/2026/06, whose gas-chromatography ADM admits the
+FID, MS, and UV cubes together, so a gas-chromatography run exports losslessly.
+rainbow's data model already is an ASM data cube:
+
+    single-wavelength UV channel  ->  chromatogram data cube
+        DataFile.xlabels  ->  dimension "retention time" (minutes -> s)
+        DataFile.data     ->  measure   "absorbance"
+
+    multi-wavelength DAD spectrum ->  three-dimensional UV spectrum data cube
+        DataFile.xlabels  ->  dimension "retention time" (minutes -> s)
+        DataFile.ylabels  ->  dimension "wavelength" (nm)
+        DataFile.data     ->  measure   "absorbance" (the flattened grid)
+
+    directory/file metadata  ->  the surrounding measurement envelope
+
+Where the metadata supports it, the envelope is filled in: the instrument and
+its modules become the device system document, the injection volume an
+injection document, and (for a sequence read with peaks) the integrated peaks a
+processed data aggregate document. The `sample_name` and `sample_custom` keys
+are inputs as much as outputs: set either on a run read from a vendor file and
+the export carries it. A DataSequence becomes one aggregate document with one
+chromatography document per injection.
+
+Most detectors are exported faithfully: UV as absorbance, CAD and FID as
+electric current, ELSD as light intensity, FLD as fluorescence, each a 1-D
+chromatogram cube with its real measure concept and a truthful device type, and
+each one's peaks in its own unit. RID alone is an interim, riding
+the absorbance cube because the published schema has no refractive-index measure.
+SIM MS is exported faithfully and in full: every
+monitored ion becomes a mass chromatogram data cube (ion count over retention
+time). Full-scan MS is a 2D retention-by-m/z grid that the published schema
+has no faithful home for; rather than fabricate one, the caller can name the
+``ions`` of interest and each is pulled from the grid as its own mass
+chromatogram (the same cube SIM uses). SIM and scan are told apart by the
+channel's acquisition mode, read from the acquisition method. FID is faithful
+too: it routes the run to a gas-chromatography document, where it becomes an
+electric-current (pA) chromatogram, the FID's real quantity. A per-scan HRMS
+profile is out of scope (it has no single shared m/z axis).
+
+Strict JSON-Schema validation against the published schema is a separate step,
+so the controlled-vocabulary terms and the manifests below, while drawn from the
+schema and the Allotrope Foundation Ontology, are not pinned here.
+
+Target schemas:
+http://purl.allotrope.org/json-schemas/adm/liquid-chromatography/
+http://purl.allotrope.org/json-schemas/adm/gas-chromatography/
+
+"""
+import json
+import math
+import os
+import re
+import warnings
+
+import numpy as np
+
+from rainbow._optics import excitation_emission
+
+# Each ASM document declares the manifest for its technique and schema revision.
+# rainbow targets REC/2026/06: unlike 2023/09, its gas-chromatography ADM carries
+# cubes for FID, MS, and UV together, so a gas-chromatography run exports
+# losslessly. The exact manifest must match the schema this output is validated
+# against; see the module note and tests/test_asm_schema.py.
+_LC_MANIFEST = (
+    "http://purl.allotrope.org/manifests/"
+    "liquid-chromatography/REC/2026/06/liquid-chromatography.manifest")
+_GC_MANIFEST = (
+    "http://purl.allotrope.org/manifests/"
+    "gas-chromatography/REC/2026/06/gas-chromatography.tabular.manifest")
+
+# A run is exported as one technique's document. FID is a gas-chromatography
+# detector, so any run that has an FID channel becomes a gas chromatography
+# document (which on 2026/06 also admits the run's UV and MS cubes); every other
+# run stays a liquid chromatography document. The two differ only in the manifest
+# and the aggregate/document wrapper keys; the measurement documents are shared.
+_LC = {
+    "manifest": _LC_MANIFEST,
+    "aggregate": "liquid chromatography aggregate document",
+    "document": "liquid chromatography document",
+}
+_GC = {
+    "manifest": _GC_MANIFEST,
+    "aggregate": "gas chromatography aggregate document",
+    "document": "gas chromatography document",
+}
+
+# The controlled-vocabulary terms below are verified to be real classes in the
+# Allotrope Foundation Ontology (AFO); see tests/test_asm_ontology.py. The JSON
+# schema types these fields as free strings, so the ontology is the only thing
+# that catches an invented label.
+#   concepts:     retention time AFR_0001089, wavelength AFR_0001159,
+#                 absorbance AFR_0001157
+#   device types: liquid chromatograph AFE_0000808, gas chromatograph
+#                 AFE_0000024, pump AFE_0000499, autosampler AFE_0000073,
+#                 column compartment AFE_0002198
+#   detectors:    detector AFE_0000317 > chromatographic detector AFE_0000246 >
+#                 {liquid chromatography detector AFE_0002200 >
+#                    ultraviolet detector AFE_0000711,
+#                    diode array detector AFE_0000090,
+#                    refractive index detector AFE_0000363,
+#                    fluorescence detector AFE_0000567;
+#                  gas chromatography detector AFE_0002188 >
+#                    flame ionization detector AFE_0000209,
+#                    thermal conductivity detector AFE_0000316,
+#                    electron capture detector AFE_0000534}
+#                 evaporative light scattering detector AFE_0002277 hangs
+#                 directly off detector, under neither technique.
+
+_SECONDS_PER_MINUTE = 60.0
+
+# How close (in Da) a requested ion must lie to a grid m/z to count as a match
+# when extracting ions from a full-scan MS cube. Loose enough to map a unit-mass
+# request onto a calibrated-float grid, tight enough not to grab the wrong peak.
+_ION_MATCH_TOLERANCE = 0.5
+
+# The data-cube keys, shared by the forward and reverse mappings.
+_CHROMATOGRAM_CUBE = "chromatogram data cube"
+_SPECTRUM_CUBE = "three-dimensional ultraviolet spectrum data cube"
+_MASS_CHROMATOGRAM_CUBE = "mass chromatogram data cube"
+_PROCESSED_DATA = "processed data aggregate document"
+
+# Maps an instrument module's type to its AFO device-type class. A module whose
+# type is not mapped is emitted without a device type rather than with a guess.
+_MODULE_DEVICE_TYPES = {
+    "pump": "pump",
+    "auto sampler": "autosampler",
+    "autosampler": "autosampler",
+    "column compartment": "column compartment",
+}
+
+# Detector typing follows the AFO equipment hierarchy. Under `detector`
+# (AFE_0000317) sits `chromatographic detector` (AFE_0000246), and under that
+# `liquid chromatography detector` (AFE_0002200) and `gas chromatography
+# detector` (AFE_0002188) are disjoint siblings. So the two matter separately:
+#
+#   * An exact class is used whenever the module names one AND the document
+#     agrees with the side of the split that class sits on. FID/TCD/ECD are gas
+#     chromatography detectors and UV/DAD/RID/FLD liquid chromatography ones, so
+#     a DAD on a gas chromatograph cannot be called a diode array detector
+#     without the document asserting it is part of an LC system. Where they
+#     disagree the nearest class making no technique claim is used instead (see
+#     _DETECTOR_TECHNIQUES). ELSD and mass spectrometer claim neither technique,
+#     so they are unaffected.
+#   * A detector that cannot be named falls back to the generic class for the
+#     document's own technique, never to a fixed one: calling a detector in a
+#     gas chromatography document a liquid chromatography detector asserts a
+#     class the document contradicts.
+#
+# Vendors write a module's name with any separator at hand (DAD1A, FID_2,
+# RID-1A, "Analog/Digital Converter"), and an underscore is a word character, so
+# the text is normalized to spaced words before matching. Acronyms are matched
+# as whole words with an optional module index, so "rid" stays out of "hybrid"
+# and "cad" out of "cascade".
+#
+# Ordered most specific first, after the two read-back rules below, which have
+# to come before the named classes to keep rainbow's own generic output from
+# being re-specialized. That ordering means a foreign document naming a
+# detector "chromatographic detector" keeps that class even if the channel is
+# called DAD1A: the document's own claim about its detector wins over the
+# vendor's name for the module, which is the safer way round.
+#
+# Every value is a checked AFO class label; a detector with no AFO class of its
+# own (charged aerosol, and whatever is wired into an analog input) is
+# deliberately absent and takes the generic fallback.
+_NEUTRAL_ABSORBANCE = "electronic absorbance detector"   # AFE_0000734
+_DETECTOR_RULES = (
+    # rainbow writes both of these itself, for a detector in a document whose
+    # technique contradicts the detector's own class, so both have to read back
+    # as themselves. Without the first, the "absorbance" phrase below would
+    # re-specialize it to UV; without the second, `chromatographic detector`
+    # matches no rule, falls through to the bare "detector" test, and comes
+    # back as the generic class for the document's technique, which is the
+    # false claim the substitution exists to avoid.
+    ("electronic absorbance", (), _NEUTRAL_ABSORBANCE),
+    ("chromatographic", (), "chromatographic detector"),
+    ("diode array|photodiode array", ("dad", "pda"), "diode array detector"),
+    # VWD, MWD, and TUV are the vendor names for variable-, multiple-, and
+    # tunable-wavelength ultraviolet detectors.
+    ("ultraviolet|variable wavelength|multiple wavelength|multi wavelength"
+     "|tunable wavelength|absorbance",
+     ("uv", "vwd", "mwd", "tuv"), "ultraviolet detector"),
+    ("flame ionization", ("fid",), "flame ionization detector"),
+    ("thermal conductivity", ("tcd",), "thermal conductivity detector"),
+    # Agilent's micro-ECD is written with a micro sign, which normalizes away
+    # to leave "ecd", but also plainly as "uECD", where it does not.
+    ("electron capture", ("ecd", "uecd"), "electron capture detector"),
+    # FLR is the Waters spelling, FLD the Agilent one.
+    ("fluorescence", ("fld", "flr"), "fluorescence detector"),
+    ("refractive index", ("rid", "ri"), "refractive index detector"),
+    # A word boundary does not span "els" into "elsd", so both are listed.
+    ("evaporative light scattering", ("elsd", "els"),
+     "evaporative light scattering detector"),
+    ("mass spectrometer|mass selective", ("msd", "qqq", "qtof"),
+     "mass spectrometer"),
+)
+
+# Detectors AFO has no class for. They are recognized so that they are typed by
+# the document's technique rather than by whatever else their name happens to
+# contain: an analog input channel is how a vendor exposes a detector it does
+# not model (red.D's charged-aerosol detector arrives as one), and what is wired
+# into it is not knowable from the name.
+_GENERIC_DETECTOR_RULE = (
+    "charged aerosol|analog digital converter|analog to digital converter",
+    ("cad", "adc"))
+
+
+def _acronyms(words):
+    """A pattern matching any of ``words`` as a whole word plus module index.
+
+    A vendor's index may carry a trailing letter or several (DAD1A, VWD-3400RS,
+    DAD3000RS), so the whole index is consumed rather than one letter of it.
+    """
+    return "|".join(r"\b{}(\d+[a-z]*)?\b".format(word) for word in words)
+
+
+def _detector_pattern(phrases, words):
+    # An empty acronym list must not contribute an empty alternative, which
+    # would match anywhere at all.
+    return re.compile("|".join(filter(None, (phrases, _acronyms(words)))))
+
+
+_DETECTOR_PATTERNS = tuple(
+    (_detector_pattern(phrases, words), device_type)
+    for phrases, words, device_type in _DETECTOR_RULES)
+_GENERIC_DETECTOR_PATTERN = _detector_pattern(*_GENERIC_DETECTOR_RULE)
+
+# Each single-signal detector becomes a 1-D chromatogram cube. The table gives
+# the AFO device type and the cube's measure concept and unit:
+#   UV    faithful absorbance (the source unit normalized to mAU).
+#   FID   faithful electric current; its presence also routes the run to a gas
+#         chromatography document (see :func:`_technique`).
+#   CAD   faithful electric current: a charged-aerosol detector measures a
+#         current. AFO has no charged-aerosol class, so it takes the generic
+#         detector class for the document's technique ("generic": True below).
+#   ELSD  faithful light intensity.
+#   RID   interim: a refractive-index detector has no measure concept in the
+#         published schema, so it alone still rides the absorbance cube. Its
+#         device type stays truthful.
+# A named class is kept only where the document's technique agrees with it. AFO
+# puts UV and DAD under `liquid chromatography detector` and FID under `gas
+# chromatography detector`, and those are disjoint, so a UV channel riding along
+# in a gas chromatography document is typed by the nearest class that claims
+# neither technique rather than one the document contradicts.
+# Values are the vendor's own, unscaled, except UV absorbance (normalized
+# AU->mAU). MS is handled separately (mass chromatograms). See the ASM detectors
+# documentation.
+_DETECTOR_CUBES = {
+    "UV": {"device_type": "ultraviolet detector",
+           "concept": "absorbance", "unit": "mAU"},
+    "RID": {"device_type": "refractive index detector",
+            "concept": "absorbance", "unit": "mAU"},
+    "CAD": {"generic": True, "concept": "electric current", "unit": "pA"},
+    "ELSD": {"device_type": "evaporative light scattering detector",
+             "concept": "intensity", "unit": "RLU"},
+    "FID": {"device_type": "flame ionization detector",
+            "concept": "electric current", "unit": "pA",
+            "detection_type": "flame ionization"},
+    "FLD": {"device_type": "fluorescence detector",
+            "concept": "fluorescence", "unit": "RFU"},
+}
+
+# The (concept, unit) of every chromatogram measure the REC/2026/06 LC and GC
+# schemas define a processed-data peak list for, and the unit each pins the
+# peak area to. The height is in the measure's own unit. A peak list on any of
+# these is written against the cube it belongs to. A measure outside the set
+# (a current in nA, a voltage in V) has nowhere in the schema to carry peaks,
+# and is relabeled to absorbance to keep them; see
+# :func:`_detector_measurement`. Only the measures rainbow's exporter writes a
+# chromatogram cube in are listed. The schemas also give charge (nC), angle
+# (m°), conductance (S), conductivity (S/m, area "[S/m].s") and counts their
+# own peak lists, but no rainbow detector exports one: a channel read in any
+# of them is detector None and is not exported.
+_PEAK_MEASURES = {
+    ("absorbance", "mAU"): "mAU.s",
+    ("electric current", "pA"): "pA.s",
+    ("intensity", "RLU"): "RLU.s",
+    ("voltage", "mV"): "mV.s",
+    ("fluorescence", "RFU"): "RFU.s",
+}
+
+
+def _area_unit(unit):
+    """The unit a peak area is written in beside a cube in ``unit``."""
+    for (_, measure_unit), area_unit in _PEAK_MEASURES.items():
+        if measure_unit == unit:
+            return area_unit
+    return unit + ".s"
+
+
+def to_asm(datadir, *, export_dad_cube=True, wavelengths=None, ions=None,
+           decimal_places=None, technique=None, utc_offset=None):
+    """
+    Builds an ASM liquid- or gas-chromatography document from a DataDirectory.
+
+    Each single-wavelength UV channel becomes a measurement carrying a
+    chromatogram data cube. Each multi-wavelength DAD spectrum becomes a
+    three-dimensional UV spectrum data cube unless ``export_dad_cube`` is False.
+    Returns a plain ``dict`` ready for ``json.dump``.
+
+    Args:
+        datadir (DataDirectory): A parsed directory (e.g. from ``rb.read``).
+        export_dad_cube (bool, optional): Include multi-wavelength DAD spectra
+            as 3D UV spectrum cubes. On by default. The DAD cube is by far the
+            largest part of a document, so turning it off (single-wavelength
+            channels still export) shrinks the output dramatically.
+        wavelengths (float/list, optional): Restrict the DAD spectrum cube to
+            these wavelengths (nearest available, in nm); the default keeps
+            every wavelength. A request with no wavelength within 1 nm is
+            dropped with a warning.
+        ions (float/list, optional): m/z value(s) to extract from full-scan MS
+            data, each exported as its own mass chromatogram. Single-ion (SIM)
+            MS is always exported regardless of this argument.
+        decimal_places (int, optional): Round emitted numeric values (signals,
+            retention times, peak metrics) to this many decimal places. The
+            default keeps full precision. Fewer places yield a smaller document.
+        technique (str, optional): Force the export technique, ``"GC"`` or
+            ``"LC"``, overriding what the method declares and the FID-presence
+            fallback. By default the technique is read from the acquisition
+            method (see :func:`_technique`).
+        utc_offset (str, optional): UTC offset such as
+            ``"-05:00"`` or ``"Z"``, stamped on timestamps the
+            instrument recorded without one. A usable offset the
+            source did record is never overridden; an unusable one
+            warns and gives way to this.
+
+    Returns:
+        dict: The ASM document.
+
+    """
+    options = _Options(export_dad_cube, wavelengths, ions, decimal_places,
+                       utc_offset)
+    metadata = datadir.metadata
+    technique = _technique(datadir.datafiles, metadata, technique)
+    return _aggregate_document(
+        technique,
+        _device_system(metadata, technique),
+        [_injection_document(datadir, metadata, options, technique)],
+        _record_documents(metadata, options,
+                          _injection_filename(datadir.name)))
+
+
+def sequence_to_asm(datasequence, *, export_dad_cube=True, wavelengths=None,
+                    ions=None, decimal_places=None, technique=None,
+                    utc_offset=None):
+    """
+    Builds one ASM document from a DataSequence.
+
+    The aggregate document carries a single device system document (the
+    instrument shared by the sequence) and one liquid chromatography document
+    per injection, in acquisition order. Peaks read with the sequence become each
+    injection's processed data.
+
+    Args:
+        datasequence (DataSequence): A parsed sequence (from
+            ``rb.read_sequence``).
+        export_dad_cube (bool, optional): Include multi-wavelength DAD spectra
+            as 3D UV spectrum cubes. On by default. The dominant size driver of
+            a sequence document, so turning it off shrinks the output sharply.
+        wavelengths (float/list, optional): Restrict the DAD spectrum cube to
+            these wavelengths (nearest available, in nm); the default keeps
+            every wavelength.
+        ions (float/list, optional): m/z value(s) to extract from full-scan MS
+            data, each exported as its own mass chromatogram. Single-ion (SIM)
+            MS is always exported regardless of this argument.
+        decimal_places (int, optional): Round emitted numeric values
+            to this many decimal places. The default keeps full
+            precision.
+        technique (str, optional): Force the export technique, ``"GC"`` or
+            ``"LC"``, overriding the method's declaration and the FID-presence
+            fallback.
+        utc_offset (str, optional): UTC offset such as
+            ``"-05:00"`` or ``"Z"``, stamped on timestamps the
+            instrument recorded without one. A usable offset the
+            source did record is never overridden; an unusable one
+            warns and gives way to this.
+
+    Returns:
+        dict: The ASM document.
+
+    """
+    options = _Options(export_dad_cube, wavelengths, ions, decimal_places,
+                       utc_offset)
+    metadata = _sequence_metadata(datasequence)
+    technique = _technique(
+        _sequence_datafiles(datasequence), metadata, technique)
+    return _aggregate_document(
+        technique,
+        _device_system(metadata, technique),
+        [_injection_document(injection, injection.metadata, options, technique)
+         for injection in datasequence.injections],
+        _record_documents(metadata, options,
+                          _injection_filename(datasequence.name)))
+
+
+def _sequence_metadata(datasequence):
+    """The sequence-level metadata for a sequence's device system + technique.
+
+    Falls back to a per-injection value when the sequence has none of its own
+    (no top-level sequence.acaml): an injection's modules name the hardware, and
+    an injection's recorded technique routes the whole sequence.
+    """
+    metadata = dict(datasequence.metadata)
+    if "instrument" not in metadata and "modules" not in metadata:
+        for injection in datasequence.injections:
+            if injection.metadata.get("modules"):
+                metadata["modules"] = injection.metadata["modules"]
+                break
+    if "technique" not in metadata:
+        for injection in datasequence.injections:
+            if injection.metadata.get("technique"):
+                metadata["technique"] = injection.metadata["technique"]
+                break
+    return metadata
+
+
+def _sequence_datafiles(datasequence):
+    """Every datafile across the sequence, for technique detection."""
+    return [datafile for injection in datasequence.injections
+            for datafile in injection.datafiles]
+
+
+def _aggregate_document(technique, device_system, documents, records=None):
+    """Wraps per-injection documents in the technique's aggregate document.
+
+    ``records`` are the once-per-file records (see :func:`_record_documents`),
+    written beside the device system document.
+    """
+    aggregate = {"device system document": device_system}
+    aggregate.update(records or {})
+    aggregate[technique["document"]] = documents
+    return {
+        "$asm.manifest": technique["manifest"],
+        technique["aggregate"]: aggregate,
+    }
+
+
+# The fields REC/2026/06 defines for each once-per-file record, and the ones
+# it requires, as (metadata key, record, fields, required).
+_RECORD_FIELDS = (
+    ("data_system", "data system document",
+     ("ASM conversion time", "ASM converter name", "ASM converter version",
+      "ASM file identifier", "UNC path", "data system instance identifier",
+      "database primary key", "file name", "software name",
+      "software version"),
+     ("ASM file identifier", "data system instance identifier")),
+    ("analysis_sequence", "analysis sequence document",
+     ("UNC path", "end time", "file name", "identifier",
+      "method identifier", "method name", "start time", "version number",
+      "written name"),
+     ("written name",)),
+    ("project", "electronic project record",
+     ("description", "start time", "written name"),
+     ("written name",)),
+)
+
+
+# The data system fields that say who made the ASM document, as opposed to
+# where its data came from. A re-export is a new document made by rainbow, so
+# these are rainbow's own on the way out; the source's are kept beside them
+# as custom information under the same labels prefixed "source".
+_CONVERTER_FIELDS = ("ASM converter name", "ASM converter version",
+                     "ASM conversion time", "ASM file identifier")
+
+# The source converter's time, written as custom information as read.
+_SOURCE_TIMES = ("source ASM conversion time",)
+
+# The record fields typed as date-times, stamped like every other timestamp.
+_RECORD_TIMES = ("start time", "end time", "ASM conversion time")
+
+
+def _rainbow_version():
+    """This rainbow-api's version (see rainbow._version)."""
+    from rainbow._version import __version__
+    return __version__
+
+
+def _record_documents(metadata, options, file_identifier=None):
+    """The once-per-file records ``metadata`` holds, as aggregate entries.
+
+    The inverse of :func:`_absorb_records`. A field the schema defines for the
+    record is written as read, its times stamped with ``utc_offset`` like any
+    other; any other field goes under the record's custom information (the
+    project record has none, so there it is dropped, said). A record missing
+    a field the schema requires cannot validate, and is left out, said,
+    rather than written incomplete.
+
+    The data system document is rewritten as this document's: rainbow-api is
+    its converter, now its conversion time and ``file_identifier`` its file
+    identifier (the file written, else one named for the run), while the
+    fields naming where the data came from (software, instance, database key,
+    UNC path, file name) are kept, and the source converter's own go under
+    its custom information.
+    """
+    from datetime import datetime, timezone
+
+    documents = {}
+    for key, name, fields, required in _RECORD_FIELDS:
+        record = metadata.get(key)
+        if not isinstance(record, dict) or not record:
+            continue
+        record = dict(record)
+        others = {}
+        source = {}
+        if name == "data system document":
+            for field in _CONVERTER_FIELDS:
+                if field in record:
+                    source["source " + field] = record.pop(field)
+            if any(field.startswith("source ") for field in record) or \
+                    source.get("source ASM converter name") == "rainbow-api":
+                # Read back from an earlier re-export: what was just popped is
+                # that export's own (rainbow's), never a source, and its
+                # source fields, if any, name the original converter already.
+                # Promoting rainbow's would invent source fields the original
+                # record never had.
+                source = {}
+            record.update({
+                "ASM converter name": "rainbow-api",
+                "ASM converter version": _rainbow_version(),
+                "ASM conversion time": datetime.now(timezone.utc).isoformat(
+                    timespec="seconds"),
+                "ASM file identifier": file_identifier or "unknown",
+            })
+        if name == "data system document" and "database primary key" in \
+                record and "UNC path" in record and "file name" in record:
+            # The schema admits exactly one way of naming the source; a
+            # record naming both keeps the database row and carries the file
+            # as custom information rather than being dropped whole.
+            others["UNC path"] = record.pop("UNC path")
+            others["file name"] = record.pop("file name")
+        missing = [field for field in required if field not in record]
+        if name == "data system document":
+            # And exactly one way of naming the source: a file (both its UNC
+            # path and its name) or a database row.
+            ways = [all(field in record for field in way)
+                    for way in (("UNC path", "file name"),
+                                ("database primary key",))]
+            if ways.count(True) != 1:
+                missing.append("UNC path and file name, or database primary "
+                               "key (exactly one)")
+        if missing:
+            _warn_once_per_run(
+                options, "record-missing:{}".format(name),
+                "metadata[{!r}] lacks {}, which the schema requires of a {}; "
+                "the record is not written.".format(
+                    key, ", ".join(missing), name))
+            continue
+        document = {}
+        for field, value in record.items():
+            if field not in fields:
+                others[field] = value
+            elif field in _RECORD_TIMES:
+                stamped = options.timestamp(value)
+                if stamped is not None:
+                    document[field] = stamped
+            else:
+                document[field] = value
+        if others and name == "electronic project record":
+            _warn_once_per_run(
+                options, "record-dropped:{}".format(name),
+                "the {} has no place for {}; they are not written.".format(
+                    name, ", ".join(repr(field) for field in others)))
+        elif others or source:
+            # A source field read back from an earlier re-export's custom
+            # information names the original converter, and outranks the
+            # rainbow export that the record's own fields now name.
+            for field, value in source.items():
+                others.setdefault(field, value)
+            # A source time is a timestamp datum, as it was a date-time field,
+            # and is kept exactly as the source wrote it rather than
+            # re-serialized (a .NET writer's seven fractional digits).
+            times = {field: others.pop(field) for field in list(others)
+                     if field in _SOURCE_TIMES
+                     and isinstance(others[field], str)}
+            custom = _custom_information_document(others, options) or {
+                "custom information document": []}
+            entries = custom["custom information document"]
+            for field, value in times.items():
+                entries.append({"@index": len(entries) + 1,
+                                "datum label": field,
+                                "scalar timestamp datum": value})
+            if entries:
+                document["custom information aggregate document"] = custom
+        documents[name] = document
+    return documents
+
+
+def asm_technique(run):
+    """
+    The technique a run or sequence is exported as: ``"LC"`` or ``"GC"``.
+
+    The same decision :func:`to_asm` and :func:`sequence_to_asm` make when no
+    ``technique=`` is passed: the technique the acquisition method declares
+    (``metadata['technique']``), and only without one, gas chromatography for
+    a run with an FID channel. Asking it here gives a caller the answer the
+    export will act on, rather than a second opinion that can disagree.
+
+    Args:
+        run (DataDirectory or DataSequence): A parsed run.
+
+    Returns:
+        str: ``"LC"`` or ``"GC"``.
+
+    """
+    from rainbow.datasequence import DataSequence
+    if isinstance(run, DataSequence):
+        found = _technique(_sequence_datafiles(run), _sequence_metadata(run))
+    else:
+        found = _technique(run.datafiles, run.metadata)
+    return "GC" if found is _GC else "LC"
+
+
+def _technique(datafiles, metadata, override=None):
+    """The ASM technique (``_LC`` or ``_GC``) a run or sequence is exported as.
+
+    Resolved in order of authority: an explicit ``override`` ("GC"/"LC") wins;
+    then the technique the method recorded (``metadata['technique']``, read from
+    the acquisition method's sample inlet); then, only when neither is present, a
+    fallback to detector evidence, where an FID channel (a gas-chromatography
+    detector) marks a gas-chromatography run. On 2026/06 the gas-chromatography
+    document also admits the run's UV and MS cubes, so a mixed GC-MS or
+    UV-plus-FID run stays lossless.
+    """
+    # The caller's override is judged on being given, not on being truthy: ""
+    # and 0 are wrong answers to "which technique", and letting them fall
+    # through to auto-detection answered a different question than the one
+    # asked, silently, while "XX" raised. An empty value in the metadata is
+    # different: it means the method recorded nothing, so it does fall through.
+    declared = override
+    if declared is None:
+        declared = metadata.get("technique") or None
+    if declared is not None:
+        normalized = str(declared).upper()
+        if normalized == "GC":
+            return _GC
+        if normalized == "LC":
+            return _LC
+        raise ValueError(
+            "technique must be 'GC' or 'LC', not {!r}".format(declared))
+    if any(datafile.detector == 'FID' for datafile in datafiles):
+        return _GC
+    return _LC
+
+
+def to_asm_str(datadir, *, export_dad_cube=True, wavelengths=None, ions=None,
+               decimal_places=None, technique=None, utc_offset=None, indent=2):
+    """Returns the DataDirectory ASM document as a JSON string."""
+    return json.dumps(
+        to_asm(datadir, export_dad_cube=export_dad_cube,
+               wavelengths=wavelengths, ions=ions,
+               decimal_places=decimal_places, technique=technique,
+               utc_offset=utc_offset),
+        indent=indent, ensure_ascii=False, allow_nan=False)
+
+
+def sequence_to_asm_str(datasequence, *, export_dad_cube=True, wavelengths=None,
+                        ions=None, decimal_places=None, technique=None,
+                        utc_offset=None, indent=2):
+    """Returns the DataSequence ASM document as a JSON string."""
+    return json.dumps(
+        sequence_to_asm(datasequence, export_dad_cube=export_dad_cube,
+                        wavelengths=wavelengths, ions=ions,
+                        decimal_places=decimal_places, technique=technique,
+                        utc_offset=utc_offset),
+        indent=indent, ensure_ascii=False, allow_nan=False)
+
+
+# A placeholder for the per-injection document array, swapped out for a streamed
+# array so the whole sequence never lives in memory at once. Chosen to never
+# collide with real envelope metadata (device system / manifest strings).
+_DOCUMENTS_PLACEHOLDER = "@@RAINBOW_INJECTION_DOCUMENTS@@"
+
+
+def _handles_unicode(fileobj):
+    """Whether ``fileobj`` can encode any character the document may hold.
+
+    A text handle carries the codec it was opened with. Only the UTF family
+    covers the whole of Unicode; a handle opened as cp1252 or latin-1 raises
+    partway through a write it cannot make, which is worse than escaping. A
+    handle that declares no encoding (io.StringIO, and anything file-like the
+    caller wrote) holds str and is not encoding anything, so it is fine.
+    """
+    encoding = getattr(fileobj, "encoding", None)
+    if not encoding:
+        return True
+    normalized = str(encoding).lower().replace("_", "-")
+    return normalized.startswith("utf") or normalized in ("u8", "utf8")
+
+
+def export_asm(datadir, fileobj, *, export_dad_cube=True, wavelengths=None,
+               ions=None, decimal_places=None, technique=None,
+               utc_offset=None, indent=2):
+    """Streams a DataDirectory ASM document to an open text file.
+
+    Equivalent to writing :func:`to_asm_str`, but the (potentially large) data
+    cubes are serialized one injection document at a time so the whole JSON
+    string is never held in memory. See :func:`to_asm` for the arguments.
+    """
+    options = _Options(export_dad_cube, wavelengths, ions, decimal_places,
+                       utc_offset)
+    metadata = datadir.metadata
+    technique = _technique(datadir.datafiles, metadata, technique)
+    _stream_aggregate(fileobj, technique, _device_system(metadata, technique),
+                       [(datadir, metadata)], options, indent, metadata,
+                       _file_identifier(fileobj, datadir.name))
+
+
+def sequence_export_asm(datasequence, fileobj, *, export_dad_cube=True,
+                        wavelengths=None, ions=None, decimal_places=None,
+                        technique=None, utc_offset=None, indent=2):
+    """Streams a DataSequence ASM document to an open text file.
+
+    Like :func:`sequence_to_asm_str`, but each injection document is built and
+    written in turn, so a long sequence of large spectra never materializes the
+    whole multi-gigabyte document at once. See :func:`sequence_to_asm` for the
+    arguments.
+    """
+    options = _Options(export_dad_cube, wavelengths, ions, decimal_places,
+                       utc_offset)
+    metadata = _sequence_metadata(datasequence)
+    technique = _technique(
+        _sequence_datafiles(datasequence), metadata, technique)
+    specs = [(injection, injection.metadata)
+             for injection in datasequence.injections]
+    _stream_aggregate(fileobj, technique, _device_system(metadata, technique),
+                       specs, options, indent, metadata,
+                       _file_identifier(fileobj, datasequence.name))
+
+
+def sequence_export_asm_per_injection(datasequence, directory, *,
+                                      export_dad_cube=True, wavelengths=None,
+                                      ions=None, decimal_places=None,
+                                      technique=None, utc_offset=None,
+                                      indent=2):
+    """Streams one standalone ASM document per injection into ``directory``.
+
+    Instead of bundling a long run into a single multi-gigabyte file, each
+    injection becomes its own complete document: its own manifest, the run's
+    shared device system, and that one injection's chromatography document,
+    written to ``<directory>/<injection name>.asm.json``. The directory is
+    created if needed. Returns the list of paths written, in injection order.
+    """
+    options = _Options(export_dad_cube, wavelengths, ions, decimal_places,
+                       utc_offset)
+    metadata = _sequence_metadata(datasequence)
+    technique = _technique(
+        _sequence_datafiles(datasequence), metadata, technique)
+    device_system = _device_system(metadata, technique)
+    os.makedirs(directory, exist_ok=True)
+    paths = []
+    taken = set()
+    for injection in datasequence.injections:
+        # Injection names are not unique (re-injected blanks/standards often
+        # share one), so suffix collisions rather than silently overwrite.
+        filename = _unique_filename(_injection_filename(injection.name), taken)
+        taken.add(filename)
+        path = os.path.join(directory, filename)
+        with open(path, "w", encoding="utf-8") as fileobj:
+            _stream_aggregate(fileobj, technique, device_system,
+                              [(injection, injection.metadata)], options,
+                              indent, metadata, filename)
+        paths.append(path)
+    return paths
+
+
+def _injection_filename(name):
+    """A per-injection ASM filename from an injection (directory) name."""
+    base = name.replace(os.sep, "_")
+    if os.altsep:
+        base = base.replace(os.altsep, "_")
+    for extension in (".D", ".d", ".raw"):
+        if base.endswith(extension):
+            base = base[:-len(extension)]
+            break
+    # Collapse anything not filename-safe (e.g. ':' '*' on other platforms) to
+    # an underscore, and never yield an empty or hidden name.
+    base = "".join(c if (c.isalnum() or c in "._-") else "_" for c in base)
+    base = base.strip(". ") or "injection"
+    return base + ".asm.json"
+
+
+def _unique_filename(filename, taken):
+    """``filename`` if free, else suffixed ``_2``, ``_3``, ... to avoid clobber."""
+    if filename not in taken:
+        return filename
+    stem = filename[:-len(".asm.json")]
+    index = 2
+    while "{}_{}.asm.json".format(stem, index) in taken:
+        index += 1
+    return "{}_{}.asm.json".format(stem, index)
+
+
+def _file_identifier(fileobj, name):
+    """The name of the file being written, else one made from ``name``."""
+    path = getattr(fileobj, "name", None)
+    if isinstance(path, str) and path:
+        return os.path.basename(path)
+    return _injection_filename(name)
+
+
+def _stream_aggregate(fileobj, technique, device_system, specs, options,
+                      indent, metadata=None, file_identifier=None):
+    """Writes the aggregate document, materializing one injection at a time.
+
+    The envelope (manifest + device system) is rendered once with a placeholder
+    where the injection-document array goes; the placeholder is then replaced by
+    a streamed JSON array whose elements are each built, written, and released
+    before the next. Peak memory is one injection document, not the whole
+    sequence.
+    """
+    # Each call writes one standalone document. Warnings said once per document
+    # are scoped here rather than to the _Options object, which
+    # sequence_export_asm_per_injection reuses across every file it writes: a
+    # single warning then stood for N separate documents and named an injection
+    # that was not in most of them.
+    options.start_document()
+    # Non-ASCII is written as itself only where the handle can encode it. The
+    # document holds micro signs, degree signs and whatever the vendor put in
+    # the sample name, and a handle the caller opened as cp1252 or latin-1
+    # raises UnicodeEncodeError partway through, leaving a truncated file that
+    # looks like a completed export. Escaping is valid JSON in either case, so
+    # the fallback costs only legibility.
+    ensure_ascii = not _handles_unicode(fileobj)
+    envelope = _aggregate_document(
+        technique, device_system, _DOCUMENTS_PLACEHOLDER,
+        _record_documents(metadata or {}, options, file_identifier))
+    rendered = json.dumps(envelope, indent=indent, ensure_ascii=ensure_ascii,
+                          allow_nan=False)
+    # The placeholder is the injection-array slot, emitted after the device
+    # system, so it is the LAST occurrence of the sentinel; splitting there
+    # (rpartition) keeps a device-system field that happens to contain the
+    # sentinel text from corrupting the split.
+    head, _, tail = rendered.rpartition(json.dumps(_DOCUMENTS_PLACEHOLDER))
+    # Indent each streamed injection document to sit where the placeholder did,
+    # so the pretty-printed array nests correctly under the aggregate document.
+    # Every indent json.dumps treats as multi-line, which is every one but
+    # None: indent=0 and indent="" still put each element on its own line, at
+    # no depth. Only None renders an array on one line.
+    pretty = indent is not None
+    key_line = head.rsplit("\n", 1)[-1]
+    # The line's own leading whitespace, taken as written rather than counted
+    # in spaces: json.dumps takes a string indent as well as a number, and
+    # to_asm_str accepts one, so with indent="\t" there are no spaces to count
+    # and every streamed injection nested at the top level regardless of depth.
+    base = key_line[:len(key_line) - len(key_line.lstrip())] if pretty else ""
+    # One level of a string indent is the string itself.
+    one_level = indent if isinstance(indent, str) else " " * (indent or 0)
+    pad = base + one_level if pretty else ""
+    # json.dumps separates compactly rendered items with ", ", so the streamed
+    # array has to as well or the file is not the one to_asm_str would write.
+    separator = "," if pretty else ", "
+    fileobj.write(head)
+    fileobj.write("[")
+    for index, (datadir, metadata) in enumerate(specs):
+        document = _injection_document(datadir, metadata, options, technique)
+        chunk = json.dumps(document, indent=indent,
+                           ensure_ascii=ensure_ascii, allow_nan=False)
+        if pretty:
+            chunk = "\n".join(pad + line for line in chunk.split("\n"))
+            fileobj.write((separator if index else "") + "\n" + chunk)
+        else:
+            fileobj.write((separator if index else "") + chunk)
+        del document, chunk
+    if specs and pretty:
+        fileobj.write("\n" + base)
+    fileobj.write("]")
+    fileobj.write(tail)
+
+
+# The largest tolerance, in nanometres, between a requested export wavelength
+# and an available DAD column for them to be considered the same wavelength.
+_WAVELENGTH_TOLERANCE = 1.0
+
+
+# The wall-clock spellings the vendor parsers hand back. Only the ChemStation
+# MS-file form carries a UTC offset, and not always; the rest record local time
+# with no zone at all, which is the whole reason `utc_offset=` exists.
+#
+#   27-Feb-18, 10:11:50         ChemStation .ch/.uv header
+#   06-Aug-2021 10:52:20        Waters _HEADER.TXT
+#   3 Feb 22  11:22 am -0500    ChemStation .ms (the one with an offset)
+#   17 Dec 19  10:04 am         ChemStation .ms, offset absent
+#
+# An Agilent OpenLab .dx already stores ISO 8601 and is handled separately.
+_MONTHS = {name: number for number, name in enumerate(
+    ("jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+
+# One pattern covers all four spellings above. strptime would be the obvious
+# tool, but its %b and %p read the process locale: under a non-English LC_TIME
+# every vendor timestamp fails to parse, and rainbow is a library that does not
+# control the locale of the application embedding it. Matching the month name
+# here keeps the parse independent of that.
+_VENDOR_TIMESTAMP = re.compile(r"""
+    # Two or four digits of year, never three: a truncated one would otherwise
+    # read as a plausible timestamp some eighteen centuries off.
+    ^(?P<day>[0-9]{1,2})[-\s]+(?P<month>[A-Za-z]{3,9})[-\s]+
+    (?P<year>[0-9]{4}|[0-9]{2})
+    [\s,]+(?P<hour>[0-9]{1,2}):(?P<minute>[0-9]{2})(?::(?P<second>[0-9]{2}))?
+    (?:\s*(?P<meridiem>[AaPp])\.?[Mm]\.?)?
+    (?:\s*(?P<offset>[+-][0-9]{2}:?[0-9]{2}))?$
+""", re.VERBOSE)
+
+# A .NET timestamp carries 7 fractional digits, and older Pythons accept exactly
+# 3 or 6 (and no trailing Z), so an ISO string is normalized before it is parsed.
+_ISO_FRACTION = re.compile(r"\.([0-9]+)")
+_UTC_OFFSET = re.compile(r"[+-][0-9]{2}:?[0-9]{2}\Z")
+
+# Whether a timestamp about to be written carries a UTC offset. Every offset
+# reaching a document is normalized to +HH:MM first (see _normalize_offset),
+# and datetime.isoformat writes an aware value the same way, so the trailing
+# +HH:MM is the whole question. A date with no time ("2018-02-27") has no
+# colon in its last six characters and does not match.
+_HAS_OFFSET = re.compile(r"[+-][0-9]{2}:[0-9]{2}\Z")
+
+
+def _offset_in_range(hours, minutes):
+    """Whether an hours/minutes pair is a UTC offset that really exists.
+
+    The shape of an offset is not enough. It is written into the document
+    verbatim, so an out-of-range one produces a timestamp no RFC 3339 reader
+    will accept, and schema validation is opt-in so nothing else would catch
+    it. The widest offset in use is +14:00.
+    """
+    return minutes <= 59 and (hours < 14 or (hours == 14 and not minutes))
+
+
+def _normalize_offset(utc_offset):
+    """A UTC offset normalized to ``+HH:MM``, or None if it is not one.
+
+    The single place the rule lives, so an offset reaching a document through
+    the caller's ``utc_offset`` and one harvested from a vendor file are held to
+    the same standard. Callers that must reject rather than ignore a bad value
+    raise on the None (see :func:`_utc_offset`).
+    """
+    if not isinstance(utc_offset, str):
+        return None
+    # An offset arriving from a config file or a shell capture keeps its
+    # trailing newline, and the offset is concatenated onto every timestamp in
+    # the document, so a stray one would corrupt all of them at once.
+    utc_offset = utc_offset.strip()
+    if utc_offset in ("Z", "z"):
+        return "+00:00"
+    if not _UTC_OFFSET.fullmatch(utc_offset):
+        return None
+    normalized = (utc_offset if ":" in utc_offset
+                  else utc_offset[:3] + ":" + utc_offset[3:])
+    if not _offset_in_range(int(normalized[1:3]), int(normalized[4:6])):
+        return None
+    return normalized
+
+
+def _utc_offset(utc_offset):
+    """Validates a ``utc_offset`` export option, returning an offset string."""
+    if utc_offset is None:
+        return None
+    normalized = _normalize_offset(utc_offset)
+    if normalized is None:
+        raise Exception(
+            "utc_offset must be a UTC offset such as '+00:00', '-05:00', or "
+            "'Z', not {!r}.".format(utc_offset))
+    return normalized
+
+
+def _parse_vendor(value):
+    """Parses a vendor wall-clock spelling, independent of the locale."""
+    from datetime import datetime, timedelta, timezone as _timezone
+
+    match = _VENDOR_TIMESTAMP.match(value)
+    if match is None:
+        return None
+    month = _MONTHS.get(match.group("month")[:3].lower())
+    if month is None:
+        return None
+    year = int(match.group("year"))
+    if len(match.group("year")) <= 2:
+        # The same pivot strptime's %y uses, so no vendor's two-digit year
+        # changes meaning: 69-99 is last century, 00-68 is this one.
+        year += 1900 if year >= 69 else 2000
+    hour = int(match.group("hour"))
+    meridiem = match.group("meridiem")
+    if meridiem:
+        # A 12-hour clock runs 1 to 12. Hour 0 is exactly as impossible as
+        # hour 13, and reading it as noon would be a 12-hour error.
+        if not 1 <= hour <= 12:
+            return None
+        hour = hour % 12 + (12 if meridiem.lower() == "p" else 0)
+    offset = match.group("offset")
+    tzinfo = None
+    if offset:
+        digits = offset[1:].replace(":", "")
+        hours, minutes = int(digits[:2]), int(digits[2:])
+        # Held to the same rule as the caller's `utc_offset`. Without this an
+        # offset of 24 hours or more raises out of datetime.timezone, taking down an
+        # export whose contract is to return None, and minutes of 60 or more
+        # would silently roll over into a different instant.
+        if not _offset_in_range(hours, minutes):
+            return None
+        sign = -1 if offset[0] == "-" else 1
+        tzinfo = _timezone(sign * timedelta(hours=hours, minutes=minutes))
+    try:
+        return datetime(year, month, int(match.group("day")), hour,
+                        int(match.group("minute")),
+                        int(match.group("second") or 0), tzinfo=tzinfo)
+    except ValueError:
+        return None                        # a day or time the calendar rejects
+
+
+def _parse_iso(value):
+    """Parses an ISO 8601 timestamp, tolerating 'Z' and .NET's 7 digits."""
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    match = _ISO_FRACTION.search(text)
+    if match and len(match.group(1)) != 6:
+        # Pythons before 3.11 accept exactly 3 or 6 fractional digits. .NET
+        # writes 7 and trims trailing zeros, so both padding and truncating are
+        # needed for the same .dx to read on every interpreter rainbow supports.
+        text = (text[:match.start()] + "." + match.group(1)[:6].ljust(6, "0")
+                + text[match.end():])
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _iso_timestamp(value, utc_offset=None):
+    """
+    A vendor timestamp as ISO 8601, or None if it cannot be read.
+
+    ASM types every timestamp as ISO 8601, but the vendors write wall clock in
+    their own formats, and most of them record no UTC offset at all. Where the
+    source has one it is kept. Where it does not, the timestamp is emitted
+    without one rather than with an invented one: a fabricated offset would
+    move the recorded instant by up to a day, and rainbow does not know where
+    the instrument was. A caller who does know can supply ``utc_offset``.
+
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    parsed = _parse_vendor(value.strip()) or _parse_iso(value)
+    if parsed is None:
+        return None                            # a shape rainbow cannot read
+    if parsed.tzinfo is None and utc_offset is not None:
+        return parsed.isoformat() + utc_offset
+    return parsed.isoformat()
+
+
+def iso_timestamp(value, utc_offset=None):
+    """
+    Converts a vendor timestamp to ISO 8601, returning None if it cannot be read.
+
+    The vendors each spell wall clock their own way (``'27-Feb-18, 10:11:50'``,
+    ``'3 Feb 22 11:22 am -0500'``, ``'10-May-2022 15:39:24'``), and rainbow
+    passes those strings through to ``metadata['date']`` unchanged. They are
+    day-first and name the month, so sorting them as text does not put runs in
+    the order they were acquired. This is the conversion the ASM export uses,
+    and what it returns does sort as text.
+
+    Args:
+        value (str): A timestamp in whatever spelling the vendor recorded.
+        utc_offset (str, optional): UTC offset such as ``'-05:00'`` or ``'Z'``
+            to stamp on a value that records none. A recorded offset is kept
+            and never overridden.
+
+    Returns:
+        The timestamp as an ISO 8601 string, or None if the spelling is one
+        rainbow cannot read.
+
+    """
+    return _iso_timestamp(value, _utc_offset(utc_offset))
+
+
+class _Options:
+    """The caller's export controls, threaded through the document builders.
+
+    Attributes:
+        export_dad_cube (bool): include the multi-wavelength DAD spectrum cube.
+        wavelengths (list or None): when set, the DAD spectrum cube is
+            restricted to these wavelengths (nearest available, in nm).
+        ions (float/list or None): m/z trace(s) to extract from full-scan MS.
+        decimals (int or None): round emitted numeric values to this
+            many decimal places; ``None`` keeps full precision.
+        utc_offset (str or None): UTC offset to stamp on timestamps the source
+            recorded without one.
+    """
+
+    def __init__(self, export_dad_cube=True, wavelengths=None, ions=None,
+                 decimal_places=None, utc_offset=None):
+        self.export_dad_cube = export_dad_cube
+        self.wavelengths = _wavelength_list(wavelengths)
+        self.ions = None if ions is None else _finite_number_list(ions, "ions")
+        self.decimals = _check_decimal_places(decimal_places)
+        self.utc_offset = _utc_offset(utc_offset)
+        self._warned = set()
+
+    def start_document(self):
+        """Begins a new output document, for warnings said once per document."""
+        self._warned = set()
+
+    def timestamp(self, value, required=False, recorded_offset=None):
+        """
+        ``value`` as an ISO 8601 timestamp, or None if it cannot be read.
+
+        An unreadable vendor spelling is normally dropped: ASM types every
+        timestamp as ISO 8601, so passing the vendor string through would put a
+        value there that no reader can parse. Where the schema makes the field
+        required that trade goes the other way, because omitting it breaks the
+        document's structure rather than one field's format, and it throws away
+        the only copy of the acquisition time. Such a field keeps the vendor
+        string, and either way the caller is told.
+
+        """
+        # An offset another file in the same run recorded outranks the
+        # caller's: it is what the instrument said, and `utc_offset` is only
+        # meant to fill in a zone nothing recorded. It is held to the same
+        # rule as the caller's, since it is concatenated into the document the
+        # same way, and a vendor file is not a more trustworthy source than a
+        # keyword argument. An unusable one is ignored, not fatal: it arrived
+        # with the data rather than from the caller.
+        recorded = _normalize_offset(recorded_offset)
+        if recorded_offset is not None and recorded is None:
+            warnings.warn(
+                f"ignoring {recorded_offset!r}, which the run recorded as a "
+                "UTC offset but is not one.")
+        stamped = _iso_timestamp(value, recorded or self.utc_offset)
+        if stamped is not None:
+            # ASM types every timestamp `format: date-time`, which is RFC 3339,
+            # which requires an offset. Emitting local wall clock without one
+            # is the deliberate choice above, but it is also the single reason
+            # a default export of most ChemStation and Waters runs does not
+            # validate, so the document says so rather than leaving it to be
+            # discovered by a schema checker. Said once however many timestamps
+            # the document holds, and never when an offset was found or given.
+            if not _HAS_OFFSET.search(stamped):
+                _warn_once_per_run(
+                    self, "naive-timestamp",
+                    "{!r} records no UTC offset and rainbow will not invent "
+                    "one, so the timestamps are written as local wall clock. "
+                    "The schema's date-time format requires an offset, so the "
+                    "document will not validate until one is supplied: pass "
+                    "utc_offset= to name the instrument's offset.".format(value))
+            return stamped
+        if not isinstance(value, str) or not value.strip():
+            return stamped
+        if required:
+            warnings.warn(
+                f"cannot read {value!r} as a timestamp; writing it through "
+                "unchanged, because the schema requires the field. The "
+                "document will not validate until the value is corrected.")
+            return value
+        warnings.warn(
+            f"cannot read {value!r} as a timestamp; omitting the field.")
+        return None
+
+    def array(self, values):
+        """The values as a Python list, rounded if a precision was set."""
+        result = np.asarray(values, dtype=float)
+        if self.decimals is not None:
+            result = np.round(result, self.decimals)
+        return result.tolist()
+
+    def scalar(self, value):
+        """One float, rounded if a precision was set."""
+        value = float(value)
+        return round(value, self.decimals) if self.decimals is not None \
+            else value
+
+
+def _finite_number_list(values, name):
+    """Normalizes a numeric selection argument to a list of finite floats.
+
+    A selection is matched by nearest-value-within-tolerance, and every
+    comparison against a NaN is False: an unchecked NaN selects index 0 and
+    passes the tolerance test, so the caller silently gets the wrong trace
+    rather than an error. A bare string is rejected for the same reason, since
+    iterating "254" yields the characters and drops the whole channel.
+    """
+    if isinstance(values, str):
+        raise TypeError(
+            "{0} must be a number or a list of numbers, not a string: "
+            "{1!r} would be read one character at a time. Use "
+            "{0}=[{1}] instead.".format(name, values))
+    if isinstance(values, bool):
+        # bool is an int, and True would otherwise fall through to the loop
+        # below and fail there with "'bool' object is not iterable", which
+        # names neither the argument nor what it should have been.
+        raise TypeError(
+            "{0} must be a number or a list of numbers, not a boolean. "
+            "There is no {0}={1} to select; omit it, or name the values "
+            "you want.".format(name, values))
+    if isinstance(values, (int, float)):
+        values = [values]
+    numbers = []
+    try:
+        iterator = iter(values)
+    except TypeError:
+        raise TypeError(
+            "{} must be a number or a list of numbers; {!r} is neither.".format(
+                name, values))
+    for value in iterator:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            raise TypeError(
+                "{} must contain numbers; cannot read {!r} as one.".format(
+                    name, value))
+        if not math.isfinite(number):
+            raise ValueError(
+                "{} must contain finite numbers; {!r} matches nothing and "
+                "would silently select the first available trace.".format(
+                    name, value))
+        numbers.append(number)
+    return numbers
+
+
+def _wavelength_list(wavelengths):
+    """Normalizes the ``wavelengths`` argument to a list of floats, or None."""
+    if wavelengths is None:
+        return None
+    return _finite_number_list(wavelengths, "wavelengths")
+
+
+def _check_decimal_places(decimal_places):
+    """Rejects a ``decimal_places`` that would quietly destroy the document.
+
+    ``round`` and :func:`numpy.round` accept a negative precision, so
+    ``decimal_places=-3`` rounds every signal value, retention time and peak in
+    the document to zero and still emits a schema-valid file. ``read`` holds
+    ``display_precision`` to the same rule.
+    """
+    if decimal_places is None:
+        return decimal_places
+    if (isinstance(decimal_places, bool)
+            or not isinstance(decimal_places, int)
+            or decimal_places < 0):
+        raise ValueError(
+            f"Invalid decimal_places: {decimal_places!r}. Use None to keep "
+            "full precision, or a non-negative integer.")
+    return decimal_places
+
+
+def _select_wavelengths(ylabels, wavelengths):
+    """The DAD column indices to keep, or None to keep every wavelength.
+
+    Each requested wavelength selects the nearest available column, provided it
+    is within :data:`_WAVELENGTH_TOLERANCE`; a request with no column that close
+    is dropped with a warning. The kept indices are returned in ascending
+    wavelength order, de-duplicated.
+    """
+    if wavelengths is None:
+        return None
+    labels = ylabels.astype(float)
+    indices = []
+    for wanted in wavelengths:
+        index = int(np.argmin(np.abs(labels - wanted)))
+        if abs(labels[index] - wanted) > _WAVELENGTH_TOLERANCE:
+            warnings.warn(
+                "no DAD wavelength within {:g} nm of {:g} nm; skipping".format(
+                    _WAVELENGTH_TOLERANCE, wanted))
+            continue
+        indices.append(index)
+    return sorted(set(indices))
+
+
+def _injection_document(datadir, metadata, options, technique):
+    """The liquid- or gas-chromatography document for one injection."""
+    document = {
+        "analyst": metadata.get("operator", "unknown"),
+        "measurement aggregate document": {
+            "measurement document": _measurements(
+                datadir, options, technique),
+        },
+    }
+    # A gas chromatography document requires a device method identifier.
+    if technique is _GC:
+        document["device method identifier"] = \
+            metadata.get("acq_method") or "unknown"
+    return document
+
+
+def _device_system(metadata, technique=None):
+    """The instrument-level device system document."""
+    manufacturer = metadata.get("vendor")
+    instrument = metadata.get("instrument")
+    if isinstance(instrument, dict) and instrument.get("modules"):
+        return {
+            "asset management identifier": instrument.get("name") or "unknown",
+            "device document": [
+                _module_device(i + 1, module, manufacturer, technique)
+                for i, module in enumerate(instrument["modules"])
+            ],
+        }
+    modules = metadata.get("modules")
+    if modules:
+        return {
+            "asset management identifier": "unknown",
+            "device document": [
+                _module_device(i + 1, module, manufacturer, technique)
+                for i, module in enumerate(modules)
+            ],
+        }
+    asset = metadata.get("instrument")
+    return {
+        "asset management identifier": asset if isinstance(asset, str)
+        else "unknown",
+        # With no module inventory, the only thing known about the instrument is
+        # what the document itself declares it to be.
+        "device document": [
+            {"device type": "gas chromatograph" if technique is _GC
+             else "liquid chromatograph"},
+        ],
+    }
+
+
+def _module_device(index, module, manufacturer=None, technique=None):
+    """One device document entry for an instrument module."""
+    entry = {"@index": index}
+    name = module.get("name")
+    if name:
+        entry["device identifier"] = name
+    # device type is schema-required; fall back to the generic AFO device class
+    # ("device", AFE_0000354) when the specific type cannot be determined, so an
+    # unrecognized module still yields a valid device document entry.
+    entry["device type"] = _module_device_type(module, technique) or "device"
+    model = module.get("part_no") or module.get("model")
+    if model:
+        entry["model number"] = model
+        if manufacturer:
+            entry["product manufacturer"] = manufacturer
+    serial = module.get("serial_no")
+    if serial:
+        entry["equipment serial number"] = serial
+    firmware = module.get("firmware")
+    if firmware:
+        entry["firmware version"] = firmware
+    return entry
+
+
+def _normalize_module_text(text):
+    """Lowercases ``text`` and reduces every separator to a single space.
+
+    Vendors join a module's name to its index with whatever is at hand (DAD1A,
+    FID_2, RID-1A, "Analog/Digital Converter"). An underscore is a word
+    character, so a word-boundary match would not see one in "FID_2".
+    """
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _module_device_type(module, technique=None):
+    """The AFO device type for a module, or None if it cannot be mapped."""
+    name = _normalize_module_text(module.get("name") or "")
+    module_type = _normalize_module_text(module.get("type") or "")
+    text = f"{name} {module_type}"
+    # A detector that can be named must be recognized before anything below
+    # falls back to a generic class.
+    specific = _specific_detector_type(text, technique)
+    if specific:
+        return specific
+    # A declared non-detector type is unambiguous, so it wins over the name.
+    if module_type in _MODULE_DEVICE_TYPES:
+        return _MODULE_DEVICE_TYPES[module_type]
+    # When the module carries no type (the per-injection modules read from a
+    # method's section headers), infer it from the name. Every term below is a
+    # checked AFO class.
+    if "pump" in name:
+        return "pump"
+    if "sampler" in name:
+        return "autosampler"
+    if "column" in name:
+        return "column compartment"
+    # Plainly a detector, but not one AFO has a class for. The generic class for
+    # the document's technique says that much without asserting a measurement
+    # the module may not make: an inventory entry that contradicts the cube it
+    # describes is worse than one that is merely unspecific.
+    if _GENERIC_DETECTOR_PATTERN.search(text) or "detector" in text:
+        return _generic_detector(technique)
+    return None
+
+
+def _generic_detector(technique):
+    """The AFO detector class for a technique, for a detector AFO cannot name.
+
+    ``liquid chromatography detector`` and ``gas chromatography detector`` are
+    disjoint siblings in AFO, so the generic fallback has to follow the document
+    the device system belongs to.
+    """
+    return ("gas chromatography detector" if technique is _GC
+            else "liquid chromatography detector")
+
+
+# The named classes are not technique-neutral: AFO asserts
+# `liquid chromatography detector` as a direct parent of the UV, DAD, RID and
+# FLD classes, and `gas chromatography detector` of FID, TCD and ECD, each
+# defined as a component of that kind of system. So naming a detector places it
+# on one side of the split whether or not the document agrees, and a DAD bolted
+# to a gas chromatograph would have its document assert it is part of an LC
+# system. Where the document contradicts the class, the nearest ancestor that
+# makes no technique claim is used instead. AFO has a real one for the
+# absorbance detectors; the rest fall back to `chromatographic detector`.
+_DETECTOR_TECHNIQUES = {
+    "ultraviolet detector": (_LC, _NEUTRAL_ABSORBANCE),
+    "diode array detector": (_LC, _NEUTRAL_ABSORBANCE),
+    "refractive index detector": (_LC, "chromatographic detector"),
+    "fluorescence detector": (_LC, "chromatographic detector"),
+    "flame ionization detector": (_GC, "chromatographic detector"),
+    "thermal conductivity detector": (_GC, "chromatographic detector"),
+    "electron capture detector": (_GC, "chromatographic detector"),
+}
+
+
+def _for_technique(device_type, technique):
+    """``device_type``, or a neutral ancestor if the document contradicts it.
+
+    An unknown technique contradicts nothing, so the named class is kept. That
+    differs from :func:`_generic_detector`, which has to name some class and
+    defaults to the far more common liquid chromatography; here the honest
+    answer to "which document is this in?" being unknown is to leave the
+    detector's own class alone.
+    """
+    claim = _DETECTOR_TECHNIQUES.get(device_type)
+    if claim is None or technique is None:
+        return device_type            # ELSD and mass spectrometer claim neither
+    claimed, neutral = claim
+    return device_type if claimed is technique else neutral
+
+
+def _specific_detector_type(text, technique=None):
+    """The AFO class for the detector named in ``text``, or None.
+
+    ``text`` must already be normalized (see :func:`_normalize_module_text`).
+    """
+    for pattern, device_type in _DETECTOR_PATTERNS:
+        if pattern.search(text):
+            return _for_technique(device_type, technique)
+    return None
+
+
+def _measurements(datadir, options, technique):
+    """The measurement documents for a directory's exported channels."""
+    metadata = datadir.metadata
+    peak_groups = _peak_groups_by_channel(getattr(datadir, "peaks", None))
+    measurements = []
+    omitted = []
+    carried = set()
+    for datafile in datadir.datafiles:
+        key = _channel_key(datafile.name)
+        group = peak_groups.get(key)
+        has_peaks = bool(group and group.get("peaks"))
+        built = _build_measurements(
+            datafile, metadata, options, has_peaks, technique)
+        if not built:
+            omitted.append(datafile)
+        for measurement in built:
+            _add_injection_document(
+                measurement, metadata, datadir.name, technique, options)
+            if group and _admits_peaks(measurement):
+                _add_processed_data(
+                    measurement, group, options,
+                    _cube_measure(measurement)[1],
+                    _reported_measure(measurement) is not None,
+                    measurement.get("measurement identifier"))
+                carried.add(key)
+            measurements.append(measurement)
+    _warn_peaks_not_carried(datadir, peak_groups, carried, options)
+    if not measurements:
+        _warn_nothing_to_export(datadir, options)
+    elif omitted:
+        _warn_channels_omitted(datadir, omitted, options)
+    return measurements
+
+
+def _warn_peaks_not_carried(datadir, peak_groups, carried, options):
+    """Warns, once per group, of peaks no exported measurement carries.
+
+    A peak list rides the measurement of the channel it was integrated on, so
+    a group whose channel is not exported has nowhere to go: one read from an
+    ASM measurement whose cube had no values (an index document), one on an
+    analog channel rainbow has no detector name for, one on a channel the
+    exporter skips. Dropping it in silence made a document with fewer peaks
+    than the run look complete.
+    """
+    for key, group in peak_groups.items():
+        if key in carried or not group.get("peaks"):
+            continue
+        _warn_once_per_run(
+            options, "peaks-not-carried:{}:{}".format(datadir.name, key),
+            "{} peaks on {} in {} are not in the ASM document: no exported "
+            "channel carries them (its trace was not read, or is not one the "
+            "exporter writes).".format(
+                len(group["peaks"]), group.get("channel_file") or key,
+                datadir.name))
+
+
+def _omission_remedy(datafile, options):
+    """Why a channel exported nothing, and what would export it.
+
+    Returns None for a channel the caller deliberately excluded, which is a
+    choice rather than something to report back to them.
+    """
+    if datafile.detector == 'MS':
+        try:
+            datafile.ylabels
+        except Exception:
+            # A per-scan profile or centroid: every scan has its own m/z axis,
+            # so there is no grid to pull an ion out of. ions= cannot reach it;
+            # only re-reading onto a shared axis can.
+            return ("has a separate m/z axis for every scan, so it has no "
+                    "grid to extract ions from: re-read with bin_width= to "
+                    "put the scans on a shared axis")
+        return ("is a full-scan MS channel, which becomes a mass chromatogram "
+                "only for the ions you ask for: pass ions=[...] to export it")
+    if datafile.detector == 'UV' and not options.export_dad_cube:
+        data = getattr(datafile, "data", None)
+        if data is not None and data.shape[1] > 1:
+            return None  # export_dad_cube=False is the caller's own choice
+    return "is not a channel shape this exporter can carry"
+
+
+def _warn_channels_omitted(datadir, omitted, options):
+    """Warns that some channels are missing from a document that has others.
+
+    The all-or-nothing warning below never fired for these: a GC-MS or LC-MS
+    run exports its UV channels and drops its MS channel, which is the common
+    case and the quiet one.
+    """
+    reasons = {}
+    for datafile in omitted:
+        remedy = _omission_remedy(datafile, options)
+        if remedy is not None:
+            reasons.setdefault(remedy, []).append(datafile.name)
+    for remedy, names in reasons.items():
+        _warn_once_per_run(
+            options, "omitted:{}:{}".format(datadir.name, remedy),
+            "{} is not in the ASM document for {}; it {} (see "
+            "rainbow.DataDirectory.to_asm).".format(
+                ", ".join(sorted(names)), datadir.name, remedy))
+
+
+def _warn_nothing_to_export(datadir, options=None):
+    """Warns that a directory produced no measurements, and says why.
+
+    The schema requires a non-empty measurement document, so this document
+    will not validate. Silence was the worse failure: a full-scan MS run is
+    the ordinary case that exports nothing without ``ions=``, and its owner
+    got a well-formed file with an empty list in it and no indication that
+    anything had been left out.
+    """
+    if not datadir.datafiles:
+        warnings.warn(
+            f"{datadir.name} has no parsed channels, so its ASM document has "
+            "no measurements and will not validate. An Agilent HRMS profile "
+            "or centroid run is only parsed when read with hrms=True or "
+            "centroid=True.")
+        return
+    skipped = ", ".join(sorted(f.name for f in datadir.datafiles))
+    remedies = []
+    if options is not None:
+        for datafile in datadir.datafiles:
+            remedy = _omission_remedy(datafile, options)
+            if remedy is not None and remedy not in remedies:
+                remedies.append(remedy)
+    if options is not None and not remedies:
+        # Every channel was excluded by the caller's own export options, so
+        # there is nothing to advise: saying "pass ions=[...]" about a
+        # spectrum they switched off with export_dad_cube=False is noise.
+        warnings.warn(
+            f"{datadir.name} exported no measurements, so its ASM document "
+            f"will not validate: the export options exclude every channel it "
+            f"has ({skipped}).")
+        return
+    detail = ("; ".join(remedies) if remedies
+              else "a full-scan MS channel becomes a mass chromatogram only "
+                   "for the ions you ask for, so pass ions=[...] to export it")
+    warnings.warn(
+        f"{datadir.name} exported no measurements, so its ASM document will "
+        f"not validate. Nothing in {skipped} is exported by default: "
+        f"{detail} (see rainbow.DataDirectory.to_asm).")
+
+
+def _admits_peaks(measurement):
+    """Whether the measurement's cube can carry a peak list.
+
+    See :data:`_PEAK_MEASURES`.
+    """
+    return _cube_measure(measurement) in _PEAK_MEASURES
+
+
+def _cube_measure(measurement):
+    """The ``(concept, unit)`` of a cube rainbow built, or None."""
+    cube = measurement.get(_CHROMATOGRAM_CUBE)
+    if not cube:
+        return None
+    measures = cube.get("cube-structure", {}).get("measures", [])
+    if not measures:
+        return None
+    return measures[0].get("concept"), measures[0].get("unit")
+
+
+def _channel_device_type(descriptor, technique):
+    """The AFO device type for a channel's detector.
+
+    A detector AFO has a class for keeps it in any document; one it does not
+    (charged aerosol) takes the generic class for the document's technique.
+    """
+    if descriptor.get("generic"):
+        return _generic_detector(technique)
+    return _for_technique(descriptor["device_type"], technique)
+
+
+def _build_measurements(datafile, metadata, options, has_peaks=False,
+                        technique=None):
+    """The measurements for one datafile: zero, one, or several."""
+    descriptor = _DETECTOR_CUBES.get(datafile.detector)
+    if descriptor is not None:
+        # A diode-array acquisition is the only multi-column case (a 2-D
+        # spectrum). Every other detector here is single-signal; an unexpected
+        # multi-column grid is skipped rather than silently flattened.
+        if datafile.detector == 'UV' and datafile.data.shape[1] > 1:
+            if not options.export_dad_cube:
+                return []
+            measurement = _spectrum_measurement(
+                datafile, metadata,
+                _channel_device_type(descriptor, technique), options)
+            return [measurement] if measurement is not None else []
+        if datafile.data.shape[1] == 1:
+            return [_detector_measurement(
+                datafile, metadata, descriptor, options, has_peaks,
+                technique)]
+        return []
+    if datafile.detector == 'MS':
+        return _mass_chromatogram_measurements(datafile, metadata, options)
+    return []
+
+
+# The measure a channel is relabeled to so its peak list can be carried, when
+# the schema gives its own measure no peak list (see _PEAK_MEASURES).
+_ABSORBANCE_DESCRIPTOR = {"concept": "absorbance", "unit": "mAU"}
+
+
+# The ASM measure a vendor's own unit is, for the units the schema has a term
+# for. A detector class does not fix the quantity it reads out: a charged
+# aerosol detector reports pA on one instrument and mV on another, and rainbow
+# reads one .D whose CAD channel is in mAU. Publishing mV under "electric
+# current in pA" renames the quantity rather than converting it, and the
+# renamed document validates, so nothing downstream can catch it.
+#
+# Absorbance is deliberately absent. Chemstation labels a generic analog input
+# mAU whatever is wired into it, so "mAu" on a bare ADC1 channel is its default
+# scaling and not the channel claiming to measure absorbance. Taking it at its
+# word turned a CAD channel into an absorbance cube, which from_asm then
+# reconstructed as a UV trace.
+_SOURCE_UNIT_MEASURES = {
+    "pa": ("electric current", "pA"),
+    "na": ("electric current", "nA"),
+    "mv": ("voltage", "mV"),
+    "v": ("voltage", "V"),
+}
+
+
+def _warn_relabeled_unit(datafile, unit, descriptor, options):
+    """Says that a channel's values went out under a quantity they are not in.
+
+    The one message for every detector that reaches it, so no detector class is
+    quietly exempt from an explanation the others give.
+    """
+    _warn_once_per_run(
+        options, "source-unit:{}:{}".format(datafile.name, unit),
+        "{} records its signal in {!r}, which the schema does not offer "
+        "for {}; it is published as {} in {}, relabeled and not "
+        "converted.".format(
+            datafile.name, unit, descriptor["concept"],
+            descriptor["concept"], descriptor["unit"]))
+
+
+def _measure_from_source(datafile, descriptor, options):
+    """The descriptor to export a channel with, preferring the source's unit.
+
+    A detector class does not fix the quantity it reads out, so a unit the
+    schema has a term for and the detector could plausibly produce (a voltage,
+    a current) is carried through rather than renamed. The detector's default
+    stands otherwise, and where that default is a relabel it is said out loud,
+    and the returned descriptor's ``reported`` names the unit the values are
+    really in, for the measurement's note.
+    """
+    unit = datafile.metadata.get("unit")
+    if not unit:
+        return descriptor
+    if descriptor["concept"] == "absorbance":
+        # Absorbance has its own normalization, which scales the values to the
+        # mAU the ADM pins; see _absorbance_unit_and_scale. That covers the
+        # absorbance spellings and nothing else, so a unit it cannot place is
+        # relabeled exactly like every other one: the values go out unscaled
+        # under mAU. The RID interim is the case that reaches here, recording
+        # nRIU, and it was the one relabeled detector that said nothing, while
+        # the detector documentation promised it warned alongside CAD and ELSD.
+        if _absorbance_unit_key(unit) in _ABSORBANCE_TO_MAU:
+            return descriptor
+        _warn_relabeled_unit(datafile, unit, descriptor, options)
+        return dict(descriptor, reported=unit)
+    key = str(unit).strip().lower().replace("µ", "u").replace("μ", "u")
+    if key == descriptor["unit"].lower():
+        # Already the unit the descriptor publishes (an FLD channel's RFU, an
+        # ELSD's RLU), so there is nothing to relabel or say.
+        return descriptor
+    measure = _SOURCE_UNIT_MEASURES.get(key)
+    if measure is None:
+        # A Chemstation analog channel labeled mAU is not published as
+        # absorbance, for the reason above, but the values still go out under a
+        # quantity they are not in, and that is the same fact the ELSD's LSU
+        # gets told about. Suppressing it here made the one channel most likely
+        # to be misread the quiet one.
+        _warn_relabeled_unit(datafile, unit, descriptor, options)
+        return dict(descriptor, reported=unit)
+    concept, asm_unit = measure
+    if concept == descriptor["concept"] and asm_unit == descriptor["unit"]:
+        return descriptor
+    return dict(descriptor, concept=concept, unit=asm_unit)
+
+
+def _detector_measurement(datafile, metadata, descriptor, options,
+                          has_peaks=False, technique=None):
+    """A measurement for a single-signal detector channel (1-D chromatogram).
+
+    The cube's measure concept and unit come from the detector descriptor
+    (:data:`_DETECTOR_CUBES`). Most detectors get their faithful quantity (UV
+    absorbance, FID and CAD electric current, ELSD intensity); RID alone keeps
+    the absorbance-cube interim. An FID also carries its detection type, and a
+    UV channel its detector wavelength setting.
+
+    One exception: the schema models a processed-data peak list only on the
+    measures in :data:`_PEAK_MEASURES`. So a channel outside them that carries
+    integrated peaks (a current in nA, a voltage in V) is relabeled to
+    absorbance (the device type stays truthful) so the peaks survive, with a
+    note recording the real quantity. Dropping the peaks would lose more than
+    the imprecise unit does, and the published model is still being refined.
+    """
+    # The detector's own name rides beside its class, as custom information
+    # where _detector_of reads it back: the class alone cannot say it for a
+    # CAD (the generic class) or for a detector in the other technique's
+    # document (a neutral class), and without it such a channel read back as
+    # an analog trace. The device identifier is the source's, which names the
+    # module in its device system document ("DAD", "ACQ-FLR"), and the
+    # detector's name only where the source had none.
+    control = {"device type": _channel_device_type(descriptor, technique),
+               "device identifier": datafile.metadata.get("device_identifier")
+               or datafile.detector}
+    _append_custom(control, _RAINBOW_DETECTOR, datafile.detector)
+    descriptor = _measure_from_source(datafile, descriptor, options)
+    detection_type = descriptor.get("detection_type")
+    if detection_type:
+        control["detection type"] = detection_type
+    relabel = has_peaks and (descriptor["concept"], descriptor["unit"]) \
+        not in _PEAK_MEASURES
+    cube_descriptor = _ABSORBANCE_DESCRIPTOR if relabel else descriptor
+    # Settings the schema declares only for the detector variant the cube is
+    # not: the reference wavelength (the spectrum detector's), and an FLD's
+    # excitation when its cube is a voltage or a current rather than
+    # fluorescence. Written as the device control's custom information.
+    undeclared = set(_SPECTRUM_ONLY_SETTINGS)
+    if cube_descriptor["concept"] != "fluorescence":
+        undeclared |= _FLUORESCENCE_ONLY_SETTINGS
+    if datafile.detector == 'UV':
+        settings = _UV_SETTINGS
+    elif datafile.detector == 'FLD':
+        # The fluorescence cube names the emission the detector wavelength
+        # setting, which is how from_asm reads it back.
+        settings = _FLD_SETTINGS
+    else:
+        settings = ()
+    for key, field in settings:
+        value = datafile.metadata.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        if field in undeclared:
+            # Under the same name, read back from there by _channel_metadata.
+            custom = control.setdefault(
+                "custom information aggregate document",
+                {"custom information document": []})
+            entries = custom["custom information document"]
+            entries.append({"@index": len(entries) + 1, "datum label": field,
+                            "scalar double datum": options.scalar(value),
+                            "unit": "nm"})
+            continue
+        control[field] = _quantity(value, "nm", options)
+    if settings is _UV_SETTINGS and "reference_wavelength" in \
+            datafile.metadata and datafile.metadata["reference_wavelength"] \
+            is None:
+        # Ref=off: the schema has a reference wavelength setting but no way to
+        # say there is none, so it is said as custom information.
+        _append_custom(control, _REFERENCE, "off")
+    measurement = _measurement(
+        datafile, metadata, control, _CHROMATOGRAM_CUBE,
+        _detector_cube(datafile, cube_descriptor, options), options)
+    # The unit the values are really in: the source's, where the descriptor
+    # published them under another's name, else the descriptor's own.
+    real = dict(descriptor, unit=descriptor.get("reported") or
+                descriptor["unit"])
+    if relabel:
+        _note_relabeled_measure(measurement, real)
+    elif descriptor.get("reported"):
+        _note_relabeled_measure(
+            measurement, real,
+            "This channel records its signal in {}; its values are "
+            "published as {} in {}, relabeled and not converted, the schema "
+            "having no term for that unit.".format(
+                real["unit"], descriptor["concept"], descriptor["unit"]))
+    return measurement
+
+
+def _warn_once(seen):
+    """A warn function that says each distinct message once within ``seen``."""
+    def warn(message):
+        if message in seen:
+            return
+        seen.add(message)
+        warnings.warn(message)
+    return warn
+
+
+def _warn_custom_write(options, label, complaint):
+    """Reports a custom field that cannot be written, once per document.
+
+    One ``sample_custom`` mapping is written into every measurement, so keyed by
+    label and complaint rather than warned as each is built: otherwise a PDA run
+    says the same thing four times, and two bad fields collapse into one.
+    """
+    _warn_once_per_run(options, ("custom-write", label, complaint),
+                       "custom field {!r} {}".format(label, complaint))
+
+
+def _custom_datum_entry(label, value, options):
+    """One custom information document, or None if the value cannot be written.
+
+    The datum type follows the Python type, which is all a plain mapping records:
+    a string, a bool, a datetime and a number each have exactly one of the four
+    scalar spellings the schema admits. A value of no recognised type is reported
+    rather than coerced -- ``str()`` on it would publish a number or a date as
+    text and change what a reader gets back.
+    """
+    from datetime import datetime
+
+    unit = None
+    if isinstance(value, dict):
+        # The {"value", "unit"} shape a double with a unit is read back as. Only
+        # a double may carry a unit, so one arriving beside anything else is said
+        # out loud rather than quietly thrown away with the rest of the dict.
+        unit = _text(value.get("unit"))
+        if value.get("value") is None:
+            _warn_custom_write(
+                options, label,
+                "holds a mapping with no usable 'value' member ({!r}); it is "
+                "dropped.".format(value))
+            return None
+        value = value["value"]
+    if isinstance(value, bool):
+        # Tested before the number branch: a bool is an int in Python and would
+        # otherwise be written as 1.0, which is not what was recorded.
+        datum = {"scalar boolean datum": value}
+    elif isinstance(value, str):
+        datum = {"scalar string datum": value}
+    elif isinstance(value, datetime):
+        # Through the same gate as every other timestamp rather than
+        # isoformat() direct, so that a naive one picks up the caller's
+        # utc_offset and warns once when there is none. The schema's date-time
+        # format is RFC 3339 and requires an offset, so writing a naive
+        # datetime's isoformat() emitted a value the document then failed to
+        # validate on. A plain `date` is not handled at all: its isoformat() is
+        # a date, not a date-time, and midnight in an invented zone is the kind
+        # of guess this reader refuses elsewhere.
+        stamped = options.timestamp(value.isoformat())
+        if stamped is None:
+            return None
+        datum = {"scalar timestamp datum": stamped}
+    elif isinstance(value, (int, float)):
+        if isinstance(value, int):
+            # Before isfinite, not after: JSON integer literals are unbounded and
+            # math.isfinite raises OverflowError on one too large for a float,
+            # out of the middle of the export, instead of reporting it.
+            try:
+                float(value)
+            except OverflowError:
+                _warn_custom_write(
+                    options, label,
+                    "holds an integer too large to carry as a double; it is "
+                    "dropped.")
+                return None
+        if not math.isfinite(value):
+            # json.dumps writes NaN and Infinity as bare literals no conforming
+            # reader accepts, so to_asm_str would raise after to_asm looked fine.
+            _warn_custom_write(
+                options, label,
+                "holds {!r}, which is not a value JSON can carry; it is "
+                "dropped.".format(value))
+            return None
+        # Rounded only when a precision was asked for, so an int stays an int
+        # by default the way every other number rainbow reads back does.
+        if options.decimals is not None:
+            value = options.scalar(value)
+        datum = {"scalar double datum": value}
+        if unit:
+            datum["unit"] = unit
+        return datum
+    else:
+        _warn_custom_write(
+            options, label,
+            "holds {}, which rainbow cannot write as an ASM scalar datum; it "
+            "is dropped rather than coerced to text."
+            .format(type(value).__name__))
+        return None
+    if unit:
+        # Reached only by the string, bool and timestamp branches, none of which
+        # the schema lets carry a unit.
+        _warn_custom_write(
+            options, label,
+            "carries the unit {!r} beside a {}, which only a double may do; "
+            "the unit is dropped.".format(unit, next(iter(datum))))
+    return datum
+
+
+def _custom_information_document(fields, options):
+    """A ``{label: value}`` mapping as a custom information aggregate document.
+
+    The inverse of :func:`_custom_fields`. ``@index`` is written 1..n in the
+    mapping's order, which is the order the fields were read in.
+    """
+    if fields is None:
+        return None
+    if not isinstance(fields, dict):
+        _warn_once_per_run(
+            options, "custom-not-a-mapping",
+            "metadata['sample_custom'] holds {}, not a mapping of labels to "
+            "values; no custom fields are written."
+            .format(type(fields).__name__))
+        return None
+    entries = []
+    for label, value in fields.items():
+        if not isinstance(label, str) or not label:
+            _warn_once_per_run(
+                options, ("custom-label", repr(label)),
+                "custom field labelled {!r} is not a usable datum label; the "
+                "field is dropped.".format(label))
+            continue
+        datum = _custom_datum_entry(label, value, options)
+        if datum is None:
+            continue
+        entries.append(dict({"@index": len(entries) + 1,
+                             "datum label": label}, **datum))
+    if not entries:
+        return None
+    return {"custom information document": entries}
+
+
+# The custom information labels a relabeled channel's real measure is written
+# under, beside the sentence a person reads, so from_asm can put the channel
+# back in the quantity its values are in.
+_REPORTED_CONCEPT = "reported measure concept"
+_REPORTED_UNIT = "reported measure unit"
+
+
+_INJECTION_TIME = "injection time"
+
+# The optics settings written to a channel's device control document, as
+# (metadata key, field); the inverse of _OPTICS_SETTINGS.
+_UV_SETTINGS = (
+    ("wavelength", "detector wavelength setting"),
+    ("bandwidth", "detector bandwidth setting"),
+    ("reference_wavelength",
+     "electronic absorbance reference wavelength setting"),
+    ("reference_bandwidth",
+     "electronic absorbance reference bandwidth setting"),
+)
+_FLD_SETTINGS = (
+    ("excitation_wavelength", "excitation wavelength setting"),
+    ("excitation_bandwidth", "excitation bandwidth setting"),
+    ("emission_wavelength", "detector wavelength setting"),
+    ("bandwidth", "detector bandwidth setting"),
+)
+_REFERENCE = "reference"
+_RAINBOW_DETECTOR = "rainbow detector"
+# Settings REC/2026/06 defines for the absorbance spectrum detector but not
+# for the single-wavelength one.
+_SPECTRUM_ONLY_SETTINGS = frozenset({
+    "electronic absorbance reference wavelength setting"})
+# Settings it defines for the fluorescence detector alone.
+_FLUORESCENCE_ONLY_SETTINGS = frozenset({
+    "excitation wavelength setting", "excitation bandwidth setting"})
+_ACQUISITION_METHOD = "device acquisition method"
+
+
+def _append_custom(document, label, value):
+    """Adds one string field to a document's custom information."""
+    custom = document.setdefault("custom information aggregate document",
+                                 {"custom information document": []})
+    entries = custom["custom information document"]
+    entries.append({"@index": len(entries) + 1, "datum label": label,
+                    "scalar string datum": value})
+
+
+def _note_relabeled_measure(measurement, descriptor, sentence=None):
+    """Records the real quantity of a relabeled channel.
+
+    ``descriptor`` names the quantity the values are really in. The default
+    sentence is the absorbance relabel's; a unit published under another
+    unit's name passes its own. Either way the concept and unit are written
+    as structured fields beside it, which is what from_asm reads back.
+
+    Put first in the measurement's custom information, ahead of anything
+    already there (its acquisition method), and the whole renumbered.
+    """
+    existing = _first(measurement.get(
+        "custom information aggregate document")).get(
+            "custom information document") or []
+    if sentence is None:
+        sentence = (
+            "This channel measures {} (in {}); its values are reported as "
+            "absorbance in mAU so the integrated peak list can be carried, "
+            "which the schema does not model on that measure."
+            .format(descriptor["concept"], descriptor["unit"]))
+    note = {
+        "custom information document": [{
+            "@index": 1,
+            "datum label": "reported measure",
+            "scalar string datum": sentence,
+        }, {
+            "@index": 2,
+            "datum label": _REPORTED_CONCEPT,
+            "scalar string datum": descriptor["concept"],
+        }, {
+            "@index": 3,
+            "datum label": _REPORTED_UNIT,
+            "scalar string datum": descriptor["unit"],
+        }],
+    }
+    entries = note["custom information document"] + list(existing)
+    for index, entry in enumerate(entries):
+        entry["@index"] = index + 1
+    note["custom information document"] = entries
+    measurement["custom information aggregate document"] = note
+
+
+# The sentence 1.5.4 wrote as its only record of a relabel. Its documents
+# carry nothing else, so it is read for the concept and unit it names.
+_REPORTED_MEASURE_RE = re.compile(
+    r"This channel measures (.+?) \(in ([^)]+)\); its values are reported as "
+    r"absorbance in mAU")
+
+
+def _reported_measure(measurement):
+    """The real ``(concept, unit)`` of a relabeled channel, or None.
+
+    Read from the structured note rainbow writes, else from the sentence an
+    older export wrote alone. A measurement no one relabeled has neither.
+    """
+    entries = _as_documents(_first(measurement.get(
+        "custom information aggregate document")).get(
+            "custom information document"))
+    found = {}
+    for entry in entries:
+        if isinstance(entry, dict):
+            label = _text(entry.get("datum label"))
+            value = _text(entry.get("scalar string datum"))
+            if label and value:
+                found.setdefault(label, value)
+    if found.get(_REPORTED_CONCEPT) and found.get(_REPORTED_UNIT):
+        return found[_REPORTED_CONCEPT], found[_REPORTED_UNIT]
+    match = _REPORTED_MEASURE_RE.match(found.get("reported measure") or "")
+    if match:
+        return match.group(1), match.group(2)
+    return None
+
+
+def _mass_chromatogram_measurements(datafile, metadata, options):
+    """Mass chromatogram measurements for an MS channel.
+
+    A SIM channel (its monitored ions) is always exported: every ion becomes a
+    mass chromatogram (ion count over retention time). A full scan is a 2D
+    retention-by-m/z grid that the published schema cannot hold faithfully, so
+    it is exported only ion by ion: each requested m/z in ``ions`` is pulled
+    from the grid as its own mass chromatogram. SIM and scan are told apart by
+    the channel's ``acquisition_mode`` (read from the acquisition method);
+    absent that, only a single-ion channel is taken as SIM. A per-scan HRMS
+    profile has no single shared m/z axis (reading ``ylabels`` raises), so it is
+    skipped. See the ASM detectors documentation.
+    """
+    try:
+        ylabels = datafile.ylabels
+    except Exception:
+        return []  # per-scan HRMS, out of scope
+    if _is_sim(datafile):
+        return [_extracted_ion(datafile, metadata, ylabels, index, options,
+                               single=datafile.data.shape[1] == 1)
+                for index in range(datafile.data.shape[1])]
+    measurements = []
+    for requested in _normalize_ions(options.ions):
+        index = _nearest_ion(ylabels, requested)
+        if index is None:
+            warnings.warn(
+                f"No m/z within {_ION_MATCH_TOLERANCE} of {requested:g} in "
+                f"{datafile.name}; skipping that ion.")
+            continue
+        measurements.append(
+            _extracted_ion(datafile, metadata, ylabels, index, options))
+    return measurements
+
+
+def _is_sim(datafile):
+    """Whether an MS channel is SIM (all ions exported) rather than a scan.
+
+    Trusts the ``acquisition_mode`` tag set from the acquisition method. With no
+    tag, a single-ion channel is SIM and a multi-column grid is treated as a
+    scan (exported only on request) rather than guessed.
+    """
+    mode = datafile.metadata.get("acquisition_mode")
+    if mode == "SIM":
+        return True
+    if mode == "Scan":
+        return False
+    return datafile.data.shape[1] == 1
+
+
+def _extracted_ion(datafile, metadata, ylabels, index, options, single=False):
+    """One ion's mass chromatogram, taken from column ``index`` of the grid."""
+    mz = float(ylabels[index]) if len(ylabels) > index else None
+    # A single-ion channel keeps the file's own name; for one of several ions the
+    # m/z disambiguates the identifier, unless the ylabel is missing (no m/z).
+    identifier = datafile.name if (single or mz is None) \
+        else "{} m/z {:g}".format(datafile.name, mz)
+    return _mass_chromatogram_measurement(
+        datafile, metadata, datafile.data[:, index], mz, identifier, options)
+
+
+def _mass_chromatogram_measurement(datafile, metadata, intensities, mz,
+                                   identifier, options):
+    """One mass chromatogram measurement for a monitored or extracted ion."""
+    control = {"device type": "mass spectrometer"}
+    return _measurement(
+        datafile, metadata, control,
+        _MASS_CHROMATOGRAM_CUBE,
+        _mass_chromatogram_cube(intensities, mz, datafile, options), options,
+        identifier=identifier)
+
+
+def _normalize_ions(ions):
+    """The requested ions as a list, accepting a single number or None."""
+    if ions is None:
+        return []
+    if isinstance(ions, (int, float)) and not isinstance(ions, bool):
+        return [ions]
+    return list(ions)
+
+
+def _nearest_ion(ylabels, mz):
+    """Index of the grid m/z nearest ``mz`` within tolerance, or None."""
+    import numpy as np
+    labels = np.asarray(ylabels, dtype=float)
+    if labels.size == 0:
+        return None
+    index = int(np.argmin(np.abs(labels - mz)))
+    if abs(labels[index] - mz) > _ION_MATCH_TOLERANCE:
+        return None
+    return index
+
+
+def _measurement(datafile, metadata, control, cube_key, cube, options,
+                 identifier=None):
+    """Wraps a data cube in the shared measurement envelope."""
+    sample = {"sample identifier": metadata.get("sample", "unknown")}
+    name = metadata.get("sample_name")
+    if isinstance(name, str) and name:
+        sample["written name"] = name
+    custom = _custom_information_document(
+        metadata.get("sample_custom"), options)
+    if custom:
+        sample["custom information aggregate document"] = custom
+    if "vialpos" in metadata:
+        sample["location identifier"] = str(metadata["vialpos"])
+    # Read from a sample document by from_asm, and written back as it was
+    # read. A vendor run records none. The well plate identifier is not a
+    # sample document property in REC/2026/06, so it goes under its custom
+    # information, which _custom_fields reads back from either place.
+    # The role is a class from the schema's enumeration; one outside it is
+    # kept as custom information, like the plate, rather than published as a
+    # role the schema rejects.
+    role = metadata.get("sample_role")
+    extra = []
+    if isinstance(role, str) and role:
+        if role in _SAMPLE_ROLES:
+            sample["sample role type"] = role
+        else:
+            extra.append((_SAMPLE_ROLE, role))
+    plate = metadata.get("well_plate_id")
+    if isinstance(plate, str) and plate:
+        extra.append((_WELL_PLATE, plate))
+    if extra:
+        custom = sample.setdefault(
+            "custom information aggregate document",
+            {"custom information document": []})
+        entries = custom["custom information document"]
+        for label, value in extra:
+            if not any(entry.get("datum label") == label
+                       for entry in entries):
+                entries.append({"@index": len(entries) + 1,
+                                "datum label": label,
+                                "scalar string datum": value})
+    measurement = {
+        "measurement identifier": identifier or datafile.name,
+        "sample document": sample,
+        "device control aggregate document": {
+            "device control document": [control],
+        },
+        "chromatography column document": {},
+        cube_key: cube,
+    }
+    # Optional in both ADMs, so an unreadable vendor spelling is dropped rather
+    # than passed through: ASM types this as ISO 8601, and a vendor-format
+    # string here would be a value no reader can parse.
+    timestamp = options.timestamp(
+        metadata.get("date"), recorded_offset=metadata.get("utc_offset"))
+    if timestamp:
+        measurement["measurement time"] = timestamp
+    # The method the channel was acquired by. REC/2026/06 has no device
+    # control property for it, so it is the measurement's custom information,
+    # under the 2025/03 name, which _acquisition_method reads from either
+    # place. (A gas chromatography document also names it on the
+    # chromatography document, as its device method identifier.)
+    method = datafile.metadata.get("acq_method") or metadata.get("acq_method")
+    if isinstance(method, str) and method:
+        _append_custom(measurement, _ACQUISITION_METHOD, method)
+    return measurement
+
+
+def _spectrum_measurement(datafile, metadata, device_type, options):
+    """A measurement for a multi-wavelength DAD spectrum.
+
+    Returns ``None`` when ``options.wavelengths`` selects none of the grid's
+    wavelengths, so the caller emits no spectrum rather than an empty cube.
+    """
+    cube = _spectrum_cube(datafile, options)
+    if cube is None:
+        return None
+    control = {"device type": device_type}
+    return _measurement(
+        datafile, metadata, control, _SPECTRUM_CUBE, cube, options)
+
+
+def _warn_once_per_run(options, key, message):
+    """Warns once per document, however many measurements share the cause.
+
+    Scoped to the document rather than the export call: a per-injection export
+    writes many standalone documents from one _Options, and each one deserves
+    to carry its own warnings, since each is validated on its own.
+    """
+    seen = getattr(options, "_warned", None)
+    if seen is None:
+        seen = options._warned = set()
+    if key in seen:
+        return
+    seen.add(key)
+    warnings.warn(message)
+
+
+# Injection volume units, normalized to microlitres. Both ADMs want one
+# specific unit and 1 uL == 1 mm^3 exactly, so a single conversion serves both.
+# The vendor sources pass their own unit string through verbatim (the ACAML
+# <Unit> element, the OpenLab InjectionVolumeUnits field), so the value cannot
+# be assumed to already be in microlitres: publishing 2 mL as 2 mm^3 is off by
+# a thousand and validates cleanly.
+_VOLUME_TO_MICROLITRES = {
+    "l": 1e6,
+    "ml": 1e3, "cm^3": 1e3, "cm3": 1e3, "cc": 1e3,
+    "ul": 1.0, "mm^3": 1.0, "mm3": 1.0, "microlitre": 1.0, "microliter": 1.0,
+    "nl": 1e-3,
+    "pl": 1e-6,
+}
+
+
+def _volume_unit_key(unit):
+    """A volume unit reduced to the spelling :data:`_VOLUME_TO_MICROLITRES`
+    keys on: case-folded, unspaced, with either mu and the cubed sign
+    normalized."""
+    key = str(unit).strip().lower().replace("µ", "u").replace("μ", "u")
+    return key.replace(" ", "").replace("³", "^3")
+
+
+def _volume_in_microlitres(volume, options, identifier):
+    """The recorded injection volume in microlitres, or None.
+
+    Returns None for a volume whose unit rainbow cannot place, having warned:
+    an unconvertible number is worse than an absent one, because the schema
+    accepts it. A volume with no unit at all is taken as microlitres, which is
+    what every vendor path rainbow reads records.
+    """
+    value = volume.get("value")
+    unit = volume.get("unit")
+    if unit is None or unit == "":
+        return value
+    factor = _VOLUME_TO_MICROLITRES.get(_volume_unit_key(unit))
+    if factor is None:
+        _warn_once_per_run(
+            options, "injection-volume-unit:{}".format(unit),
+            "{} records its injection volume in {!r}, which rainbow cannot "
+            "convert to the unit the schema requires; the volume is omitted "
+            "rather than published under the wrong unit.".format(
+                identifier or "this run", unit))
+        return None
+    if factor == 1.0:
+        return value
+    return value * factor
+
+
+def _add_injection_document(measurement, metadata, identifier, technique,
+                            options):
+    """Adds an injection document, per the technique's rules.
+
+    Liquid chromatography makes the injection document optional, so it is
+    emitted only when the injection volume is known, carrying the identifier,
+    the volume (in mm^3, the LC ADM's unit), and the injection time. Gas
+    chromatography requires an injection document on every measurement, so it
+    is always emitted there, carrying the identifier and time and the volume
+    (in uL, the GC ADM's unit) when the source records it. A GC run that does
+    not record an injection volume cannot fully satisfy the schema, which
+    requires that field; the document is still emitted with what is known.
+    """
+    volume = metadata.get("injection_volume")
+    microlitres = None
+    if isinstance(volume, dict) and volume.get("value") is not None:
+        microlitres = _volume_in_microlitres(volume, options, identifier)
+    has_volume = microlitres is not None
+    if technique is _LC:
+        if not has_volume:
+            # No injection document to carry an injection time a document
+            # read by from_asm recorded, so it rides the measurement's custom
+            # information, which _absorb_envelope reads it back from.
+            injection_time = metadata.get("injection_time")
+            if isinstance(injection_time, str) and injection_time:
+                _append_custom(measurement, _INJECTION_TIME, injection_time)
+            return
+        document = {
+            "injection identifier": identifier or "unknown",
+            # The LC ADM expresses injection volume in mm^3; 1 uL == 1 mm^3.
+            "autosampler injection volume setting (chromatography)": {
+                "value": options.scalar(microlitres),
+                "unit": "mm^3",
+            },
+        }
+    else:
+        document = {"injection identifier": identifier or "unknown"}
+        if not has_volume:
+            # Required by the GC ADM, so the document will not validate
+            # without it. Said once per run rather than once per measurement,
+            # because it is a property of the run's metadata.
+            _warn_once_per_run(
+                options, "gc-injection-volume",
+                "{} records no injection volume, which the gas chromatography "
+                "schema requires: the exported document will not validate. "
+                "Set metadata['injection_volume'] to {{'value': ..., 'unit': "
+                "'uL'}} to supply it.".format(identifier or "this run"))
+        if has_volume:
+            # The GC ADM expresses injection volume in microlitres. The schema
+            # pins the Greek small mu (U+03BC), not the micro sign (U+00B5).
+            document["injection volume setting"] = {
+                "value": options.scalar(microlitres),
+                "unit": "μL",
+            }
+    # Required by both ADMs, so an unreadable vendor spelling is written
+    # through rather than dropped; see _Options.timestamp.
+    # The injection time a document read by from_asm recorded, else the run's
+    # date, which is when a vendor file says the run was injected.
+    timestamp = options.timestamp(
+        metadata.get("injection_time") or metadata.get("date"),
+        required=True, recorded_offset=metadata.get("utc_offset"))
+    if timestamp:
+        document["injection time"] = timestamp
+    measurement["injection document"] = document
+
+
+def _add_processed_data(measurement, group, options, unit="mAU",
+                        relabeled=False, channel=None):
+    """Adds the processed data documents carrying the channel's peak lists.
+
+    A channel read back from a document that integrated the same run more than
+    once keeps the extra integrations in ``group["alternates"]``; they are
+    written out alongside the one in ``group["peaks"]``, in the order they were
+    read, so a round trip does not quietly reduce six result versions to one.
+
+    ``unit`` is the unit of the cube the peaks were integrated on, which is
+    what a vendor's peak height is in and its area is in per second.
+    ``relabeled`` says the cube was relabeled to carry them, which the export
+    has already said, so the peaks do not say it again.
+    """
+    documents = [(group.get("processing"), group["peaks"])]
+    for alternate in group.get("alternates") or []:
+        documents.append((alternate.get("processing"), alternate["peaks"]))
+    measurement[_PROCESSED_DATA] = {
+        "processed data document": [
+            _asm_processed_data(index + 1, processing, peaks, options, unit,
+                                relabeled, channel)
+            for index, (processing, peaks) in enumerate(documents)
+        ],
+    }
+
+
+# What a processed data document records about the integration that produced
+# it, and the key each field is written under.
+# REC/2026/06 puts the processing time in the data processing document, with
+# the method; documents written to 2025/03, Empower's among them, put it on
+# the processed data document, where it is read from too.
+_PROCESSING_FIELDS = (
+    ("identifier", "processed data identifier"),
+    ("group_identifier", "group identifier"),
+)
+_PROCESSING_METHOD_FIELDS = (
+    ("method_name", "method name"),
+    ("method_version", "method version"),
+    ("type", "data processing type"),
+    ("time", "data processing time"),
+)
+# REC/2026/06 renamed the 2025/03 "processed data description" to
+# "description" (AFR_0000922). It is written under the new name and read
+# from the new one, the old one, or custom information.
+_PROCESSING_DESCRIPTION = "processed data description"
+
+
+def _asm_processed_data(index, processing, peaks, options, unit="mAU",
+                        relabeled=False, channel=None):
+    """One processed data document: a peak list and where it came from."""
+    document = {"@index": index}
+    for source, target in _PROCESSING_FIELDS:
+        value = (processing or {}).get(source)
+        if isinstance(value, str) and value:
+            document[target] = value
+    method = {}
+    custom = []
+    for source, target in _PROCESSING_METHOD_FIELDS:
+        value = (processing or {}).get(source)
+        if not (isinstance(value, str) and value):
+            continue
+        if source == "time":
+            # A dateTimeStamp there, so it takes the offset the caller gave,
+            # like every other timestamp; one that still has none is a time
+            # the schema cannot hold in that field, and is kept as custom
+            # information rather than dropped or published invalid.
+            stamped = options.timestamp(value) if options is not None \
+                else value
+            if stamped and _HAS_OFFSET.search(stamped):
+                method[target] = stamped
+            else:
+                custom.append((target, stamped or value))
+            continue
+        method[target] = value
+    if method:
+        document["data processing document"] = method
+    description = (processing or {}).get("description")
+    if isinstance(description, str) and description:
+        document["description"] = description
+    if custom:
+        document["custom information aggregate document"] = {
+            "custom information document": [
+                {"@index": i + 1, "datum label": label,
+                 "scalar string datum": value}
+                for i, (label, value) in enumerate(custom)]}
+    document["peak list"] = {
+        "peak": [_asm_peak(i + 1, peak, options, unit, relabeled, channel)
+                 for i, peak in enumerate(peaks)],
+    }
+    return document
+
+
+def _asm_peak(index, peak, options=None, unit="mAU", relabeled=False,
+              channel=None):
+    """One ASM peak, with retention/start/end times in seconds.
+
+    The height and the edge heights are in ``unit``, the unit of the cube the
+    peak was integrated on, and the area in that unit's area unit (see
+    :data:`_PEAK_MEASURES`), which are the only units the schema admits beside
+    that cube. A vendor's peak table states no unit, and its values are the
+    channel's: an FID's area is in pA.s, which writing it as mAU.s
+    misreported. A peak read in another unit is relabeled, and said to be.
+    """
+    entry = {"@index": index}
+    for source, target in (("identifier", "identifier"),
+                           ("name", "written name")):
+        value = peak.get(source)
+        if isinstance(value, str) and value:
+            entry[target] = value
+    # Always the cube's: the schema pins a peak list's units to the measure it
+    # sits on, so a peak read in another unit cannot be written in its own
+    # beside this cube and still validate. Beside an absorbance cube, which
+    # is itself written in mAU, a peak in AU, mAU or µV is converted as the
+    # cube was; any other is relabeled, not converted, and said once.
+    area_unit, height_unit = _area_unit(unit), unit
+    scales = {}
+    for key, expected, per in (("area_unit", area_unit, ".s"),
+                               ("height_unit", height_unit, "")):
+        stated = peak.get(key)
+        scales[key] = 1.0
+        if not (isinstance(stated, str) and stated) or stated == expected:
+            continue
+        if per and not relabeled:
+            # An area per minute, in the cube's unit, is the same area in
+            # seconds times sixty, whatever the cube measures.
+            scale, converted = _peak_measure(
+                {"value": 1.0, "unit": stated}, per, False)
+            if converted == expected:
+                scales[key] = scale
+                continue
+        if unit == "mAU" and not relabeled:
+            scale, converted = _peak_measure(
+                {"value": 1.0, "unit": stated}, per, True)
+            if converted == expected:
+                scales[key] = scale
+                continue
+        if options is not None and not relabeled:
+            _warn_once_per_run(
+                options,
+                "peak-unit:{}:{}:{}".format(channel, stated, expected),
+                "{}: a peak read in {!r} is written beside a cube in {!r}, "
+                "as {!r}, relabeled and not converted.".format(
+                    channel or "a channel", stated, unit, expected))
+    mapping = (
+        ("retention_time", "retention time", "s", _SECONDS_PER_MINUTE),
+        ("start_time", "peak start", "s", _SECONDS_PER_MINUTE),
+        ("end_time", "peak end", "s", _SECONDS_PER_MINUTE),
+        ("area", "peak area", area_unit, scales["area_unit"]),
+        ("area_percent", "relative peak area", "%", 1.0),
+        ("height", "peak height", height_unit, scales["height_unit"]),
+        ("height_percent", "relative peak height", "%", 1.0),
+        ("symmetry", "asymmetry factor measured at 5 % height",
+         "(unitless)", 1.0),
+        ("start_height", "peak value at start", height_unit,
+         scales["height_unit"]),
+        ("end_height", "peak value at end", height_unit,
+         scales["height_unit"]),
+    )
+    for source, target, unit, scale in mapping:
+        value = peak.get(source)
+        # A malformed val attribute can arrive as a non-numeric string; skip it
+        # rather than fail the whole export.
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            entry[target] = _quantity(value * scale, unit, options)
+    custom = _peak_baseline_custom(peak, options)
+    if custom:
+        entry["custom information aggregate document"] = {
+            "custom information document": custom}
+    return entry
+
+
+# A peak's baseline fields the schema has no place for, as ``(key, label)``.
+# Empower writes them on the peak itself under these labels; rainbow writes
+# them as custom information under the same labels, so a document it exports
+# validates, and reads them from either place.
+_PEAK_BASELINE_CODES = (
+    ("baseline_start_code", "peak baseline start code"),
+    ("baseline_end_code", "peak baseline end code"),
+)
+_PEAK_BASELINE_TIMES = (
+    ("baseline_start_time", "baseline value at start of peak"),
+    ("baseline_end_time", "baseline value at end of peak"),
+)
+
+
+def _peak_baseline_custom(peak, options):
+    """A peak's baseline codes and times as custom information documents."""
+    entries = []
+    for key, label in _PEAK_BASELINE_CODES:
+        code = peak.get(key)
+        if isinstance(code, str) and code.strip():
+            entries.append({"datum label": label,
+                            "scalar string datum": code.strip()})
+    for key, label in _PEAK_BASELINE_TIMES:
+        time = peak.get(key)
+        if isinstance(time, (int, float)) and not isinstance(time, bool):
+            seconds = _quantity(time * _SECONDS_PER_MINUTE, "s", options)
+            entries.append({"datum label": label,
+                            "scalar double datum": seconds["value"],
+                            "unit": "s"})
+    return [dict({"@index": i + 1}, **e) for i, e in enumerate(entries)]
+
+
+def _peak_groups_by_channel(peaks):
+    """Indexes an injection's peak groups by channel (e.g. ``DAD1A``)."""
+    groups = {}
+    for group in (peaks or []):
+        if group.get("channel_file"):
+            groups[_channel_key(group["channel_file"])] = group
+        elif group.get("signal"):
+            # Match the channel-name normalization used on the lookup side.
+            groups[group["signal"].replace(" ", "").upper()] = group
+    return groups
+
+
+def _channel_key(name):
+    """A channel name normalized for matching (no extension, upper case)."""
+    return os.path.splitext(name)[0].upper()
+
+
+# The ultraviolet-absorbance cube measure is pinned to mAU in the ADM, so a
+# source unit is normalized to mAU on the way out, scaling the values to match.
+# ChemStation already reports mAU; Waters UV chromatograms report AU (1 AU =
+# 1000 mAU). An unrecognized unit is labeled mAU unscaled, as before.
+#
+# Keyed on a case-folded, stripped spelling, the way the measure table and the
+# volume table are. The unit is whatever text the vendor file carried (Waters
+# takes it verbatim from field 5 of _CHROMS.INF), so its case is the
+# instrument's choice, and matching "AU" but not "au" is the difference between
+# the right answer and one a thousand times too small, written into a document
+# that then passes strict validation.
+_ABSORBANCE_TO_MAU = {"au": 1000.0, "mau": 1.0}
+
+
+def _absorbance_unit_key(unit):
+    """An absorbance unit reduced to the spelling :data:`_ABSORBANCE_TO_MAU`
+    keys on: case-folded and unspaced, with a product written ``*``, ``·`` or
+    a space before the time as ``.``, and ``sec`` as ``s`` ("µV*sec" and
+    "µV s" are "µv.s")."""
+    key = str(unit).strip().lower()
+    key = re.sub(r"\s*[*\u00b7.]\s*", ".", key)
+    # A space before the time is a product too; any other space is dropped.
+    key = re.sub(r"\s+(?=(?:s|sec|min)\Z)", ".", key).replace(" ", "")
+    return key[:-3] + "s" if key.endswith(".sec") else key
+
+
+def _absorbance_unit_and_scale(datafile):
+    """The schema absorbance unit (mAU) and the value multiplier to reach it."""
+    key = _absorbance_unit_key(datafile.metadata.get("unit"))
+    return "mAU", _ABSORBANCE_TO_MAU.get(key, 1.0)
+
+
+def _detector_cube(datafile, descriptor, options):
+    """Lays a single-signal trace into a 1-D (retention time) data cube.
+
+    The measure concept and unit come from the detector descriptor. Absorbance
+    (UV and the RID interim) is normalized to the schema's mAU, scaling the
+    values; every other detector's values are the vendor's own, unscaled.
+    """
+    concept, unit = descriptor["concept"], descriptor["unit"]
+    values = datafile.data[:, 0]
+    if concept == "absorbance":
+        unit, scale = _absorbance_unit_and_scale(datafile)
+        values = values * scale
+    return {
+        "label": datafile.name,
+        "cube-structure": {
+            "dimensions": [_component("retention time", "s")],
+            "measures": [_component(concept, unit)],
+        },
+        "data": {
+            "dimensions": [_retention_seconds(datafile, options)],
+            "measures": [options.array(values)],
+        },
+    }
+
+
+def _spectrum_cube(datafile, options):
+    """
+    Lays a DAD spectrum into a 2D (retention time x wavelength) data cube.
+
+    ASM measure arrays are flat, so the (retention time, wavelength) grid is
+    flattened with wavelength varying fastest, which is numpy's C order. When
+    ``options.wavelengths`` is set, only those wavelengths' columns are kept;
+    if none match, the cube is omitted (``None``).
+    """
+    unit, scale = _absorbance_unit_and_scale(datafile)
+    labels = datafile.ylabels.astype(float)
+    data = datafile.data
+    indices = _select_wavelengths(datafile.ylabels, options.wavelengths)
+    if indices is not None:
+        if not indices:
+            return None
+        labels = labels[indices]
+        data = data[:, indices]
+    return {
+        "label": datafile.name,
+        "cube-structure": {
+            "dimensions": [
+                _component("retention time", "s"),
+                _component("wavelength", "nm"),
+            ],
+            "measures": [_component("absorbance", unit)],
+        },
+        "data": {
+            "dimensions": [
+                _retention_seconds(datafile, options),
+                options.array(labels),
+            ],
+            "measures": [options.array(data.flatten() * scale)],
+        },
+    }
+
+
+def _mass_chromatogram_cube(intensities, mz, datafile, options):
+    """Lays a single ion's trace into a 1D (retention time) data cube.
+
+    The measure is ion count. ``intensities`` is the trace at the monitored or
+    extracted m/z. That m/z has no dimension of its own in a mass chromatogram,
+    so it is recorded in the cube label.
+    """
+    label = datafile.name
+    if mz is not None:
+        label = "{} (m/z {:g})".format(datafile.name, mz)
+    return {
+        "label": label,
+        "cube-structure": {
+            "dimensions": [_component("retention time", "s")],
+            "measures": [_component("count", "Counts")],
+        },
+        "data": {
+            "dimensions": [_retention_seconds(datafile, options)],
+            "measures": [options.array(intensities)],
+        },
+    }
+
+
+def _retention_seconds(datafile, options):
+    """Retention times in seconds (rainbow stores minutes)."""
+    return options.array(datafile.xlabels * _SECONDS_PER_MINUTE)
+
+
+def _component(concept, unit):
+    """A cube-structure dimension/measure descriptor."""
+    return {"concept": concept, "unit": unit, "@componentDatatype": "double"}
+
+
+def _quantity(value, unit, options=None):
+    """An ASM quantity value, rounded when ``options`` sets a precision."""
+    value = options.scalar(value) if options is not None else float(value)
+    return {"value": value, "unit": unit}
+
+
+# --- Reverse mapping: ASM document -> rainbow objects ---
+
+
+def from_asm(document, name="asm"):
+    """
+    Reconstructs a DataDirectory from an ASM liquid- or gas-chromatography
+    document.
+
+    The inverse of :func:`to_asm`: each measurement's data cube becomes a
+    DataFile (retention time back from seconds to minutes, the measure back to
+    the data array) and the shared envelope becomes directory metadata. Every
+    chromatogram cube with inlined values is reconstructed, under the detector
+    its device type names (see :func:`_detector_of`), and every measurement's
+    peaks are read into ``DataDirectory.peaks``, whether or not its trace
+    could be rebuilt. A mass chromatogram is not reconstructed. Use
+    :func:`sequence_from_asm` to recover a per-injection sequence.
+
+    Args:
+        document (dict): An ASM document (e.g. from ``json.load``).
+        name (str, optional): Name for the reconstructed DataDirectory.
+
+    Returns:
+        DataDirectory.
+
+    """
+    aggregate, documents = _aggregate_and_documents(document)
+    metadata = {}
+    instrument = _instrument_from_device_system(
+        aggregate.get("device system document"))
+    if instrument:
+        metadata["instrument"] = instrument
+    _absorb_records(aggregate, documents, metadata)
+    # The technique the document declares, so a re-export writes the same
+    # one: a gas chromatography document with no FID channel otherwise came
+    # back as liquid chromatography, the fallback _technique has no FID for.
+    metadata["technique"] = _technique_of(document)
+
+    if len(documents) > 1:
+        # Every injection's channels land in one directory, where channels
+        # sharing a name across injections collapse in by_name and get_file
+        # returns whichever came last. The docstring points at
+        # sequence_from_asm; saying so here costs nothing and catches the
+        # caller who did not read it.
+        warnings.warn(
+            "This document holds {} injections; from_asm merges them into one "
+            "directory, where channels that share a name across injections "
+            "overwrite each other. Use rainbow.sequence_from_asm to keep them "
+            "apart.".format(len(documents)))
+
+    datafiles = []
+    peak_groups = []
+    # Over every injection at once, not one at a time: this directory holds the
+    # merge of all of them, so the sample has to be chosen with all of them in
+    # view. Choosing per injection and keeping the first answer lost the
+    # identifier whenever an earlier injection supplied only a name.
+    _absorb_samples(_measurements_of(documents), metadata)
+    said = set()
+    for lc_document in documents:
+        _absorb_lc_document(lc_document, metadata, datafiles, peak_groups,
+                            said)
+    return _directory(name, datafiles, metadata, peak_groups)
+
+
+def _first(value):
+    """
+    The first entry of a field the schema declares as a list, or ``{}``.
+
+    Documents rainbow did not write are shaped more freely than its own: a
+    writer may emit a lone object where a list is declared, or an empty list
+    where rainbow assumes one entry. Callers want whichever object is there, or
+    nothing, never an IndexError on someone else's document.
+
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, list) and value and isinstance(value[0], dict):
+        return value[0]
+    return {}
+
+
+def _as_documents(value):
+    """A schema list field normalized to a list, tolerating a lone object."""
+    if isinstance(value, dict):
+        return [value]
+    return value if isinstance(value, list) else []
+
+
+def _text(value):
+    """
+    A schema string field as a string, or None.
+
+    A value datum may be written either bare or as a ``{"value": ...}`` object,
+    and a document rainbow did not write may put anything at all in a field it
+    declares as text. rainbow's own objects take strings, so a non-string here
+    has to become None rather than propagate to a constructor that rejects it.
+
+    """
+    if isinstance(value, dict):
+        value = value.get("value")
+    return value if isinstance(value, str) else None
+
+
+def _number(value):
+    """
+    A schema numeric field as a number, or None.
+
+    The counterpart to :func:`_text`. A foreign writer routinely spells a
+    number as the string ``"1.5"``, and rainbow tolerates that inside a cube
+    because numpy coerces it. Everywhere else the value reaches arithmetic or
+    user code directly, so a non-number has to become None here rather than
+    surface as a TypeError halfway through a read.
+
+    JSON integer literals are unbounded while Python floats are not, so an int
+    too large to convert is dropped rather than returned. Returning it would
+    raise OverflowError out of the first arithmetic that touched it: dividing a
+    peak time to minutes on the way in, or scaling one back to seconds on the
+    way out, which would leave a value that reads but cannot be re-exported.
+
+    """
+    if isinstance(value, dict):
+        value = value.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if isinstance(value, int):
+        # Dropped, not converted: an ordinary int is returned as it came in, so
+        # a wavelength of 254 stays 254 in the metadata and in a CSV header
+        # rather than becoming 254.0.
+        try:
+            float(value)
+        except OverflowError:
+            return None
+    return value
+
+
+def _cube_data(cube):
+    """
+    A cube's inlined ``(dimensions, measures)``, or None when it has none.
+
+    The published cube structure does not require the ``data`` member, so a
+    conforming document may describe a cube's shape while carrying its values
+    somewhere rainbow cannot follow. Such a cube is skipped the way an
+    unrepresentable one is, rather than taking the whole read down.
+
+    """
+    if not isinstance(cube, dict):
+        return None
+    data = cube.get("data")
+    if not isinstance(data, dict):
+        return None
+    dimensions = data.get("dimensions")
+    measures = data.get("measures")
+    if not isinstance(dimensions, list) or not dimensions:
+        return None
+    if not isinstance(measures, list) or not measures:
+        return None
+    return dimensions, measures
+
+
+def _technique_of(document):
+    """``"GC"`` for a gas chromatography document, else ``"LC"``."""
+    return "GC" if isinstance(document.get(_GC["aggregate"]), dict) else "LC"
+
+
+def _aggregate_and_documents(document):
+    """The aggregate document and its per-injection documents, either technique.
+
+    Reads a liquid- or gas-chromatography document, so a gas-chromatography
+    export round-trips its FID and UV channels too (the mass chromatograms
+    are export-only; see the round-trip caveat).
+    """
+    if not isinstance(document, dict):
+        raise TypeError(
+            f"ASM document must be a dict, not {type(document).__name__}. "
+            "Parse the file first, e.g. json.load(open(path)).")
+    for technique in (_LC, _GC):
+        aggregate = document.get(technique["aggregate"])
+        if isinstance(aggregate, dict):
+            return aggregate, _as_documents(aggregate.get(technique["document"]))
+    # ValueError, not KeyError: the document is the wrong shape, the same
+    # complaint the guard above makes, and a KeyError would render its message
+    # wrapped in quotes and read as a lookup that missed.
+    raise ValueError(
+        "document has no liquid- or gas-chromatography aggregate document")
+
+
+def sequence_from_asm(document, name="asm"):
+    """
+    Reconstructs a DataSequence from an ASM liquid- or gas-chromatography
+    document.
+
+    The inverse of :func:`sequence_to_asm`: each liquid chromatography document
+    becomes one injection (a DataDirectory), the device system document becomes
+    the sequence's instrument, and any processed-data peaks are reattached to
+    the injections they belong to.
+
+    Round-trip caveat: only what :func:`sequence_to_asm` writes is recoverable.
+    Injections are named from the ``injection identifier`` the document
+    carries, which is the .D folder name rainbow exported them under, falling
+    back to the sample identifier and then to position. A liquid chromatography
+    run that records no injection volume has no injection document at all (the
+    schema requires the volume in the same document as the identifier), so such
+    a run comes back under its sample identifier. Metadata rainbow reads but
+    does not export (column temperature, flow rate, dilution) is not restored.
+
+    Args:
+        document (dict): An ASM document (e.g. from ``json.load``).
+        name (str, optional): Name for the reconstructed DataSequence.
+
+    Returns:
+        DataSequence.
+
+    """
+    from rainbow.datasequence import DataSequence
+
+    aggregate, documents = _aggregate_and_documents(document)
+    metadata = {}
+    instrument = _instrument_from_device_system(
+        aggregate.get("device system document"))
+    if instrument:
+        metadata["instrument"] = instrument
+    _absorb_records(aggregate, documents, metadata)
+    # The technique the document declares, so a re-export writes the same
+    # one: a gas chromatography document with no FID channel otherwise came
+    # back as liquid chromatography, the fallback _technique has no FID for.
+    metadata["technique"] = _technique_of(document)
+
+    injections = []
+    taken = set()
+    said = set()
+    for index, lc_document in enumerate(documents):
+        injection_metadata = {"technique": metadata["technique"]}
+        datafiles = []
+        peak_groups = []
+        _absorb_samples(_measurements_of([lc_document]), injection_metadata)
+        _absorb_lc_document(
+            lc_document, injection_metadata, datafiles, peak_groups, said)
+        # The injection identifier is the name the injection was exported
+        # under, so it restores the caller's own name. The sample identifier is
+        # the fallback because a sequence's replicates share one, which used to
+        # collapse three injections into "usp", "usp_2", "usp_3" while the real
+        # names sat unread in the document.
+        injection_name = _unique_injection_name(
+            injection_metadata.get("injection_identifier")
+            or injection_metadata.get("sample")
+            or f"injection_{index + 1}",
+            taken)
+        taken.add(injection_name)
+        injections.append(_directory(
+            injection_name, datafiles, injection_metadata, peak_groups))
+
+    metadata["injection_count"] = len(injections)
+    operators = {inj.metadata.get("operator") for inj in injections} - {None}
+    if len(operators) == 1:
+        metadata["operator"] = operators.pop()
+    return DataSequence(name, injections, metadata)
+
+
+# The once-per-file records an aggregate document carries beside the device
+# system, as (metadata key, field): which software wrote the data and which
+# converter turned it into ASM, the sample set the injections ran in, and the
+# project they were filed under.
+_RECORDS = (
+    ("data_system", "data system document"),
+    ("analysis_sequence", "analysis sequence document"),
+    ("project", "electronic project record"),
+)
+
+
+def _absorb_records(aggregate, documents, metadata):
+    """Lifts the aggregate's once-per-file records up to metadata.
+
+    Each is kept as the document wrote it, field by field (see
+    :func:`_record`), because rainbow has no model of these records to map
+    them into, and a name it chose for a converter's field would be one a
+    reader has to translate back. A converter that hangs the project record
+    off the chromatography document instead is read there too.
+    """
+    for key, field in _RECORDS:
+        record = _record(aggregate.get(field))
+        for lc_document in documents:
+            if record:
+                break
+            if not isinstance(lc_document, dict):
+                continue
+            record = _record(lc_document.get(field))
+        if record:
+            metadata[key] = record
+
+
+def _record(document):
+    """A record's plain fields as ``{field: value}``, as written, or None.
+
+    A string, a number or a bool is kept as it is, a value datum is unwrapped,
+    and a quantity keeps its unit as ``{"value", "unit"}``. The record's own
+    custom information is read in too, each field under its label (a
+    timestamp datum as a datetime, the source conversion time as written), so
+    a re-export keeps what the source converter said beside it. Other nested
+    documents are left out: a record is read for what it says of itself.
+    """
+    document = _first(document)
+    fields = {}
+    if "custom information aggregate document" in document:
+        fields.update(_custom_fields(document, set()))
+        # A source time is kept as the text it was written as, so a second
+        # re-export writes it unchanged.
+        for entry in _as_documents(_first(document.get(
+                "custom information aggregate document")).get(
+                    "custom information document")):
+            if isinstance(entry, dict) and \
+                    _text(entry.get("datum label")) in _SOURCE_TIMES and \
+                    _text(entry.get("scalar timestamp datum")):
+                fields[entry["datum label"]] = _text(
+                    entry["scalar timestamp datum"])
+    for field, value in document.items():
+        if isinstance(value, dict):
+            number = _number(value)
+            unit = _quantity_unit(value)
+            if number is not None and unit:
+                fields[field] = {"value": number, "unit": unit}
+                continue
+            value = value.get("value")
+        if isinstance(value, (str, int, float, bool)) and value is not None:
+            fields[field] = value
+    return fields or None
+
+
+def _unique_injection_name(name, taken):
+    """``name`` if free, else suffixed ``_2``, ``_3``, ... within a sequence.
+
+    Injections are named after their sample, and a sequence of replicates is
+    many injections of one sample: a stability study or a bracketed standard
+    gives every document the same sample identifier. DataSequence.by_name is a
+    dict, so identical names silently collapse to the last one, leaving len()
+    and iteration reporting every injection while get_injection reaches only
+    one of them. The exporter already suffixes its per-injection filenames for
+    the same reason.
+    """
+    if name not in taken:
+        return name
+    index = 2
+    while f"{name}_{index}" in taken:
+        index += 1
+    return f"{name}_{index}"
+
+
+def _directory(name, datafiles, metadata, peak_groups):
+    """Builds a DataDirectory and attaches any reconstructed peaks."""
+    from rainbow.datadirectory import DataDirectory
+    datadir = DataDirectory(name, datafiles, metadata)
+    if peak_groups:
+        datadir.peaks = peak_groups
+    return datadir
+
+
+def _measurements_of(lc_documents):
+    """Every measurement document across ``lc_documents``, in document order."""
+    measurements = []
+    for lc_document in lc_documents:
+        if not isinstance(lc_document, dict):
+            continue
+        measurements += _as_documents(
+            _first(lc_document.get("measurement aggregate document"))
+            .get("measurement document"))
+    return measurements
+
+
+def _absorb_lc_document(lc_document, metadata, datafiles, peak_groups,
+                        said=None):
+    """Reads one liquid chromatography document into datafiles and metadata.
+
+    ``said`` collects the read's warnings about peaks' custom information, so
+    one complaint repeated across peaks and documents is made once.
+    """
+    if not isinstance(lc_document, dict):
+        return
+    analyst = _text(lc_document.get("analyst"))
+    if analyst and analyst != "unknown":
+        metadata.setdefault("operator", analyst)
+    # Gas chromatography names the method on the document, which is where
+    # rainbow writes it; see _injection_document.
+    method = _text(lc_document.get("device method identifier"))
+    if method and method != "unknown":
+        metadata.setdefault("acq_method", method)
+    # A document rainbow did not write may carry neither key, or emit a single
+    # measurement where a list is declared. Absorbing what is there beats
+    # raising on a document that is merely shaped differently.
+    measurements = _as_documents(
+        _first(lc_document.get("measurement aggregate document"))
+        .get("measurement document"))
+    for measurement in measurements:
+        if not isinstance(measurement, dict):
+            continue
+        # Before the datafile, not after it. The envelope describes the
+        # injection, not the channel, and a measurement can carry one without
+        # the other: an index document's cubes carry no values, so skipping
+        # the envelope with the channel would lose the run its sample, its
+        # date and its injection volume.
+        _absorb_envelope(measurement, metadata)
+        datafile = _datafile_from_measurement(measurement)
+        if datafile is not None:
+            datafiles.append(datafile)
+        # Whether or not the trace was rebuilt. A peak list belongs to the
+        # measurement, not to the cube's values: an index document carries the
+        # cube's structure and none of its data, and a detector rainbow has no
+        # name for still had its peaks integrated. Reading them only beside a
+        # rebuilt trace dropped three in four of the peaks in a real Empower
+        # study, every one on its fluorescence channel.
+        group = _peaks_from_measurement(measurement, said)
+        if group:
+            peak_groups.append(group)
+
+
+# The three metadata keys one sample document supplies. They are taken together
+# or not at all, so they always describe the same sample.
+_SAMPLE_KEYS = ("sample", "sample_name", "sample_custom")
+
+
+def _absorb_samples(measurements, metadata):
+    """Lifts ONE measurement's sample document up to directory metadata.
+
+    rainbow's own writer puts everything it knows about a sample in the
+    identifier, so reading only that was enough to round trip its own output. A
+    foreign writer distinguishes the two: an Empower export names the injection
+    in ``written name`` ("NB5-P1A11") and keys it in ``sample identifier``
+    ("133872"). Dropping the name loses the only human-readable handle the
+    document carries on its sample, and the custom fields go with it.
+
+    The sample document is read as a unit: identifier, name, custom fields and
+    vial position all come from one of them or from none. Reading them field by
+    field as each measurement went past composed them instead: :func:`from_asm`
+    merges every injection in a document into one directory, so an identifier
+    from the first injection could end up beside a name and a
+    ``MaterialIdentifier`` from the second. A ``MaterialIdentifier`` is a join
+    key, and one silently attached to the wrong sample is worse than the absent
+    one it replaces -- and so is a vial position, which is what a plate map is
+    looked up by. Hence one pass here, over a list, rather than a field at a
+    time as each measurement is read.
+
+    Which document: the first that carries a *sample identifier*, since that is
+    what everything downstream falls back to, else the first that carries
+    anything at all. A run whose opening channel records a name against an
+    "unknown" identifier would otherwise lose the identifier a later channel had.
+
+    Called once per directory, over every measurement that directory will hold.
+    :func:`from_asm` merges a file's injections into one directory and so passes
+    all of them; :func:`sequence_from_asm` builds one directory per injection and
+    passes one at a time. Running it per injection and keeping the first answer
+    reintroduced the same loss one level up: an opening injection with only a
+    name suppressed the identifier a later one carried.
+    """
+    documents = [_first(measurement.get("sample document"))
+                 for measurement in measurements
+                 if isinstance(measurement, dict)]
+    identified = [sample for sample in documents
+                  if (_text(sample.get("sample identifier")) or "unknown")
+                  != "unknown"]
+    said = set()
+    chosen = None
+    for sample in identified[:1] or documents:
+        identifier = _text(sample.get("sample identifier"))
+        name = _text(sample.get("written name"))
+        custom = _custom_fields(sample, said)
+        if identifier and identifier != "unknown":
+            metadata["sample"] = identifier
+        if name:
+            metadata["sample_name"] = name
+        if custom:
+            metadata["sample_custom"] = custom
+        # Keyed on what was actually absorbed, not on what the document held: a
+        # sample document carrying only the placeholder "unknown" identifier
+        # says something without supplying anything, and stopping on it left the
+        # run with no sample at all.
+        if any(key in metadata for key in _SAMPLE_KEYS):
+            chosen = sample
+            break
+    if chosen is None:
+        # Nothing identified the sample anywhere. The vial position is still
+        # worth having, so it comes from the first document that records one.
+        chosen = next((sample for sample in documents
+                       if _text(sample.get("location identifier"))), None)
+    if chosen is not None:
+        # The rest of what places and classifies the sample comes from the
+        # same document as everything above, for the same reason the vial
+        # position does: a plate and a well from two injections name no well.
+        for key, field in _SAMPLE_PLACEMENT:
+            value = _text(chosen.get(field))
+            if value:
+                metadata[key] = value
+    # rainbow writes the well plate identifier as custom information, since
+    # REC/2026/06 has no sample document property for it, and reads it back
+    # from there into the same key.
+    custom = metadata.get("sample_custom") or {}
+    for key, label in (("well_plate_id", _WELL_PLATE),
+                       ("sample_role", _SAMPLE_ROLE)):
+        value = custom.get(label)
+        if isinstance(value, str) and value:
+            metadata.setdefault(key, value)
+            del custom[label]
+    if "sample_custom" in metadata and not custom:
+        del metadata["sample_custom"]
+
+
+# What a sample document says of where the sample sat and what it was, as
+# (metadata key, field). Read as written: "unknown sample role" is the
+# document's own statement that it recorded no role, and saying so is the
+# document's business, not rainbow's to translate.
+_WELL_PLATE = "well plate identifier"
+_SAMPLE_ROLE = "sample role type"
+
+# The sample role classes REC/2026/06 enumerates, for the LC and GC schemas
+# alike.
+_SAMPLE_ROLES = frozenset({
+    "control sample role", "standard sample role", "validation sample role",
+    "experiment sample role", "sample role", "spiked sample role",
+    "blank role", "unknown sample role", "calibration sample role",
+    "unspiked sample role", "specimen role", "quality control sample role",
+    "reference sample role",
+})
+_SAMPLE_PLACEMENT = (
+    ("vialpos", "location identifier"),
+    ("well_plate_id", "well plate identifier"),
+    ("sample_role", "sample role type"),
+)
+
+
+def _absorb_envelope(measurement, metadata):
+    """Lifts a measurement's envelope fields up to directory metadata.
+
+    The sample document is not read here, vial position included: it is taken as
+    a unit by :func:`_absorb_samples`, once per directory, before this runs.
+    """
+    date = _text(measurement.get("measurement time"))
+    if date:
+        metadata.setdefault("date", date)
+    injection = _first(measurement.get("injection document"))
+    # When the sample went onto the column, as distinct from the measurement
+    # time, which a converter may set to when a channel started recording or
+    # leave out. Kept as written, like `date`.
+    injection_time = _text(injection.get("injection time"))
+    if not injection_time and \
+            "custom information aggregate document" in measurement:
+        injection_time = _text(_custom_fields(measurement, set()).get(
+            _INJECTION_TIME))
+    if injection_time:
+        metadata.setdefault("injection_time", injection_time)
+    method = _acquisition_method(measurement)
+    if method:
+        metadata.setdefault("acq_method", method)
+    # The name the injection was exported under. rainbow writes the .D folder
+    # name here, so a round trip can put the injection back under the name the
+    # caller knows it by instead of falling back to the sample identifier,
+    # which several injections in a sequence routinely share.
+    injection_identifier = _text(injection.get("injection identifier"))
+    if injection_identifier and injection_identifier != "unknown":
+        metadata.setdefault("injection_identifier", injection_identifier)
+    volume = _injection_volume_in_microlitres(injection)
+    if volume is not None:
+        metadata.setdefault(
+            "injection_volume", {"value": volume, "unit": "µL"})
+
+
+# A date-time has a time of day; a date does not. ASM types every timestamp as a
+# full date-time, so the separator is what tells a usable value from a date. The
+# case is not fixed: RFC 3339 permits a lowercase `t`, and _parse_iso already
+# goes out of its way to accept a lowercase `z` for the same reason. A space is
+# accepted too -- the schema's format does not allow one, but _parse_iso reads it
+# and the re-export writes it back as `T`, so taking it in normalizes it. The
+# digits either side are what keep a bare date out.
+_HAS_TIME_OF_DAY = re.compile(r"\d[Tt ]\d")
+
+
+# A custom information document carries its value under a key naming the datum's
+# type, and the schema admits the first four. An entry declaring none of them,
+# or more than one, is reported rather than guessed at: the schema makes them a
+# `oneOf`, so more than one is malformed, and picking one of two conflicting
+# values would publish a number rainbow invented a preference for. The fifth is
+# not in the schema, but converters write it for a count, and reading it as an
+# int is what the name says; it is written back as a double, which is.
+_CUSTOM_DATUM_KEYS = (
+    "scalar string datum",
+    "scalar double datum",
+    "scalar boolean datum",
+    "scalar timestamp datum",
+    "scalar integer datum",
+)
+
+# Returned instead of a value when a datum was recognised but unreadable, so a
+# field dropped after its own warning is not warned about a second time.
+_UNREADABLE = object()
+
+
+def _custom_datum_value(key, entry, label, warn):
+    """One custom entry's value, in the Python type its datum type calls for.
+
+    The datum type is what distinguishes a timestamp from the string it is
+    spelled as, so it has to survive into the mapping or a round trip cannot put
+    it back. A double carrying a ``unit`` sibling becomes ``{"value", "unit"}``,
+    the shape rainbow already uses for ``injection_volume``.
+    """
+    raw = entry[key]
+    unit = _text(entry.get("unit"))
+    if key == "scalar string datum":
+        value = _text(raw)
+    elif key == "scalar boolean datum":
+        value = raw.get("value") if isinstance(raw, dict) else raw
+        # Not bool(raw): "false" and 0 are both truthy-or-falsy in ways that
+        # have nothing to do with what the document recorded.
+        value = value if isinstance(value, bool) else None
+    elif key == "scalar timestamp datum":
+        # Read as a datetime, which is what tells it apart from a string datum
+        # on the way back out. A date with no time of day is refused rather
+        # than parsed: _parse_iso would return midnight, a value the document
+        # never carried, and re-exporting it would publish that invention under
+        # a datum type the schema requires to be a full date-time. The write
+        # side refuses a Python `date` for the same reason.
+        text = _text(raw)
+        value = _parse_iso(text) if text and _HAS_TIME_OF_DAY.search(text) \
+            else None
+    elif key == "scalar integer datum":
+        # A whole number, and only one: 2.5 under an integer datum is a
+        # contradiction rather than a count, and rounding it would invent one.
+        value = _number(raw)
+        if isinstance(value, float):
+            value = int(value) if value.is_integer() else None
+        if value is not None and unit:
+            value = {"value": value, "unit": unit}
+        unit = None                       # consumed
+    else:
+        # _number unwraps the object form, rejects a bool spelled as a number,
+        # and drops an integer too large for a float rather than handing back a
+        # value that reads but raises OverflowError on re-export.
+        value = _number(raw)
+        if value is not None and unit:
+            value = {"value": value, "unit": unit}
+        unit = None                       # consumed
+    if unit and value is not None:
+        # No subschema forbids it, so a conforming document may put a unit beside
+        # a string, a bool or a timestamp. Only a double has anywhere to keep it.
+        warn(
+            "custom field {!r} carries the unit {!r} beside a {}, which only a "
+            "double may do; the unit is dropped.".format(label, unit, key))
+    if value is None:
+        warn(
+            "custom field {!r} holds a {} rainbow cannot read ({!r}); the "
+            "field is dropped.".format(label, key, raw))
+        return _UNREADABLE
+    return value
+
+
+def _custom_fields(document, seen):
+    """A document's custom information fields as a ``{label: value}`` dict.
+
+    ASM lets a writer hang arbitrary named values off a sample or measurement in
+    a *custom information aggregate document*. Empower uses it for the fields
+    that have no home in the schema proper -- `Notebook`, `MaterialIdentifier`,
+    `SampleWeight` -- and `MaterialIdentifier` is how an Empower injection is
+    matched to a registered sample downstream, so these are not decoration.
+    """
+    aggregate = _first(document.get("custom information aggregate document"))
+    entries = _as_documents(aggregate.get("custom information document"))
+    # One sample document is repeated in every measurement of an injection, so a
+    # complaint about it would otherwise be made once per candidate channel. The
+    # caller passes a set to say the complaints share one scope, as the write
+    # side does through _warn_once_per_run.
+    warn = _warn_once(seen)
+    read = []
+    for position, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        label = _text(entry.get("datum label"))
+        if not label:
+            # `datum label` is required, so an entry without a usable one is
+            # malformed. The write side says so for the mirror case, and a
+            # mapping has nowhere to put an unlabelled value, so it is dropped
+            # out loud rather than quietly.
+            # Positioned, because the message is otherwise identical for every
+            # unlabelled entry and the dedupe would report only the first.
+            warn("the custom field at position {} carries {!r} as its datum "
+                 "label, which cannot key a value; the field is dropped."
+                 .format(position + 1, entry.get("datum label")))
+            continue
+        spellings = [key for key in _CUSTOM_DATUM_KEYS if key in entry]
+        if len(spellings) != 1:
+            _warn_custom_datum_type(label, entry, spellings, warn)
+            continue
+        value = _custom_datum_value(spellings[0], entry, label, warn)
+        if value is _UNREADABLE:
+            continue
+        read.append((_number(entry.get("@index")), label, value))
+    fields = {}
+    for _, label, value in _in_declared_order(read):
+        if label in fields:
+            # Duplicate labels are legal and a mapping cannot hold both. Keeping
+            # the first matches how the rest of a read merges, but silently
+            # discarding a value is the thing this reader otherwise refuses to
+            # do, so it is said out loud.
+            warn("custom field {!r} appears more than once; the first "
+                 "value is kept and the rest dropped.".format(label))
+            continue
+        fields[label] = value
+    return fields
+
+
+def _warn_custom_datum_type(label, entry, spellings, warn):
+    """Reports an entry declaring no datum type rainbow reads, or several."""
+    if spellings:
+        warn(
+            "custom field {!r} declares {} datum types ({}), which the schema "
+            "admits only one of; the field is dropped rather than picking one "
+            "of its values.".format(
+                label, len(spellings),
+                ", ".join(repr(key) for key in spellings)))
+        return
+    unknown = sorted(key for key in entry
+                     if key not in ("@index", "datum label", "unit"))
+    warn(
+        "custom field {!r} records its value under {}, which rainbow does not "
+        "read; the field is dropped rather than reported under a datum type "
+        "that would change its meaning.".format(
+            label, ", ".join(repr(key) for key in unknown) or "nothing"))
+
+
+def _in_declared_order(read):
+    """``read`` ordered by ``@index`` when every entry declares one.
+
+    ``@index`` is 1-based and need not be dense; document position is 0-based
+    and always is. Sorting a mix of the two puts an unindexed entry wherever its
+    position happens to fall among someone else's indices -- three fields
+    indexed 5, 6 and (none) came back as (none), 5, 6. Since the schema does not
+    require ``@index``, a partially indexed document is reachable, so the two
+    are never mixed: either the document orders every entry or its own order
+    stands.
+    """
+    if all(index is not None for index, _, _ in read):
+        return sorted(read, key=lambda item: item[0])
+    return read
+
+
+# The two ADMs neither name nor measure the injection volume the same way.
+_INJECTION_VOLUME_KEYS = (
+    # Liquid chromatography, in mm^3.
+    "autosampler injection volume setting (chromatography)",
+    # Gas chromatography, in microlitres.
+    "injection volume setting",
+)
+
+
+def _injection_volume_in_microlitres(injection):
+    """The volume an ASM injection document records, in microlitres, or None.
+
+    Reading only the liquid chromatography spelling meant a gas chromatography
+    document rainbow had just written came back without the volume it plainly
+    carried, and re-exporting it then warned that the run recorded none. Both
+    spellings are read, and the unit each declares is honoured rather than
+    assumed: mm^3 and uL are the same number of microlitres, but a foreign
+    writer is free to use neither.
+    """
+    for key in _INJECTION_VOLUME_KEYS:
+        field = injection.get(key)
+        value = _number(field)
+        if value is None:
+            continue
+        unit = field.get("unit") if isinstance(field, dict) else None
+        if not unit:
+            return value
+        factor = _VOLUME_TO_MICROLITRES.get(_volume_unit_key(unit))
+        if factor is None:
+            # Publishing the number under rainbow's unit would misreport it by
+            # whatever the two units differ by, silently.
+            warnings.warn(
+                "This document records its injection volume in {!r}, which "
+                "rainbow cannot convert to microlitres; it is dropped rather "
+                "than reported under the wrong unit.".format(unit))
+            continue
+        return value if factor == 1.0 else value * factor
+    return None
+
+
+def _datafile_from_measurement(measurement):
+    """Reconstructs one DataFile from an ASM measurement document, or None.
+
+    Every chromatogram cube with inlined values is rebuilt, whatever it
+    measures, under the detector :func:`_detector_of` names; the DAD spectrum
+    cube is rebuilt as UV. A mass chromatogram, a cube with no inlined values
+    (an index document's), and anything else are not.
+    """
+    import numpy as np
+    from rainbow.datafile import DataFile
+
+    identifier = measurement.get("measurement identifier")
+    name = _text(identifier)
+    if name is None:
+        if identifier is not None:
+            # Present but unusable: the channel keeps its data under the
+            # fallback name, where it can collide with another such channel,
+            # so say so rather than let one quietly replace the other.
+            warnings.warn(
+                "measurement identifier is not text "
+                f"({type(identifier).__name__}); naming the channel 'trace'.")
+        name = "trace"
+    file_metadata = _channel_metadata(measurement)
+    detector = _detector_of(measurement)
+
+    # A cube's inlined values are declared numeric, but nothing stops another
+    # writer putting text (or nulls) there. The channel is skipped the way an
+    # unrepresentable one is, rather than failing the whole read.
+    try:
+        if _SPECTRUM_CUBE in measurement:
+            cube = _cube_data(measurement[_SPECTRUM_CUBE])
+            if cube is None or len(cube[0]) < 2:
+                return None  # no inlined grid to rebuild
+            dimensions, measures = cube
+            times, wavelengths = dimensions[0], dimensions[1]
+            xlabels = np.array(times, dtype=float) / _SECONDS_PER_MINUTE
+            ylabels = np.array(wavelengths, dtype=float)
+            # Un-flatten the grid (wavelength varied fastest, i.e. C order).
+            data = np.array(measures[0], dtype=float).reshape(
+                len(times), len(wavelengths))
+            # The y-axis is the wavelength grid, so a single wavelength would
+            # contradict it, and the spectrum cube can only be absorbance.
+            file_metadata.pop("wavelength", None)
+            detector = "UV"
+        elif _CHROMATOGRAM_CUBE in measurement:
+            cube = _cube_data(measurement[_CHROMATOGRAM_CUBE])
+            if cube is None:
+                return None  # no inlined values to rebuild
+            dimensions, measures = cube
+            xlabels = np.array(dimensions[0], dtype=float) / _SECONDS_PER_MINUTE
+            data = np.array(measures[0], dtype=float).reshape(-1, 1)
+            # reshape(-1, 1) accepts any length, so a measure array that does
+            # not match its time axis would pair every later point with the
+            # wrong retention time. Nothing downstream rechecks this.
+            if xlabels.ndim == 1 and data.shape[0] != xlabels.size:
+                warnings.warn(
+                    f"{name}: chromatogram cube has {data.shape[0]} values for "
+                    f"{xlabels.size} retention times; skipping the channel.")
+                return None
+            # The y-axis label is the wavelength the trace is measured at: the
+            # absorbance wavelength, or a fluorescence detector's emission.
+            # dtype=float like every other array here. Left to infer, a
+            # wavelength of 2**63 gives a uint64 label array and a larger
+            # one an object array, either of which reads back fine and then
+            # fails inside extract_traces with "Invalid type for labels."
+            measured = file_metadata.get("wavelength")
+            if measured is None:
+                measured = file_metadata.get("emission_wavelength")
+            ylabels = np.array([measured], dtype=float) \
+                if measured is not None else np.array([''])
+        else:
+            # A mass chromatogram is export-only: one ion's trace has no m/z
+            # axis to hang a DataFile's ylabels on.
+            return None
+        # A time axis that is not a flat list of numbers still converts under
+        # numpy, just to the wrong number of axes. Checking here skips the one
+        # bad channel; leaving it to DataFile would raise its internal argument
+        # error and take down every other channel in the document with it.
+        if xlabels.ndim != 1 or ylabels.ndim != 1 or data.ndim != 2:
+            warnings.warn(
+                f"{name}: cube axes are not the flat lists of numbers the "
+                "cube declares; skipping the channel.")
+            return None
+        data = _absorbance_in_mau(data, measurement)
+        return DataFile(name, detector, xlabels, ylabels, data, file_metadata)
+    except (TypeError, ValueError, OverflowError) as error:
+        # OverflowError: JSON integer literals are unbounded, so a 400-digit
+        # one raises here rather than converting to a float.
+        warnings.warn(
+            f"{name}: cube values are not the numbers the cube declares "
+            f"({error}); skipping the channel.")
+        return None
+
+
+# The rainbow detector each AFO detector class reads back as. A class with no
+# rainbow detector (thermal conductivity, electron capture, the generic
+# classes) reads as None, so the channel joins the directory's analog traces:
+# rainbow's existing word for a signal it holds but cannot name, rather than a
+# name it would be guessing at. The neutral classes rainbow itself writes for a
+# detector in the other technique's document read back as what they stand for.
+_RAINBOW_DETECTORS = {
+    "diode array detector": "UV",
+    "ultraviolet detector": "UV",
+    _NEUTRAL_ABSORBANCE: "UV",
+    "refractive index detector": "RID",
+    "fluorescence detector": "FLD",
+    "evaporative light scattering detector": "ELSD",
+    "flame ionization detector": "FID",
+}
+
+# The detector names a DataFile takes, as rainbow writes them back.
+_DETECTOR_NAMES = frozenset({"UV", "FID", "CAD", "ELSD", "RID", "FLD"})
+
+# Classes the detector rules recognize that rainbow has no detector name for.
+# The neutral and generic classes are not among them: they name no detector,
+# so the label and the measure still get their say.
+_UNNAMED_DETECTORS = frozenset({
+    "thermal conductivity detector", "electron capture detector",
+    "mass spectrometer"})
+
+# The detector a measure concept implies when the device type names none. Only
+# a measure one detector alone reports is here: an electric current is an FID's
+# and a charged-aerosol detector's alike, so it implies neither.
+_MEASURE_DETECTORS = {
+    "absorbance": "UV",
+    "fluorescence": "FLD",
+    "refractive index": "RID",
+}
+
+
+def _real_measure(measurement):
+    """The ``(concept, unit)`` a measurement's values are really in.
+
+    The cube's, unless the export relabeled it (to absorbance, to carry
+    peaks, or under another unit's name), in which case the note's: the
+    values are in the real unit, unconverted.
+    """
+    reported = _reported_measure(measurement)
+    if reported is not None:
+        return reported[0].strip().lower(), reported[1]
+    return _measure_of(measurement)
+
+
+def _absorbance_scale(concept, unit):
+    """The factor taking an absorbance in ``unit`` to mAU, or None."""
+    if concept != "absorbance" or not unit:
+        return None
+    return _PEAK_VALUE_TO_MAU.get(_absorbance_unit_key(unit))
+
+
+def _absorbance_in_mau(data, measurement):
+    """An absorbance trace's values in mAU.
+
+    rainbow holds UV data in mAU, and to_asm writes it in mAU, so a cube in AU
+    (or in Empower's microvolts, its microabsorbance unit) is scaled on the way
+    in, the same conversion its peaks' heights and areas get. Left in AU, a
+    trace sat a thousand times below the edge heights subtracted from it. The
+    channel's metadata says mAU to match (see :func:`_channel_metadata`). Any
+    other measure, or a unit rainbow cannot place, is returned unchanged.
+
+    The scale is the cube's own unit's. A relabeled cube's note names the
+    unit its values are in, unconverted, and they stay in it, as its peaks
+    do: scaling the trace and not the peaks put them a thousand times apart.
+    """
+    if _reported_measure(measurement) is not None:
+        return data
+    scale = _absorbance_scale(*_measure_of(measurement))
+    if scale is None or scale == 1.0:
+        return data
+    return data * scale
+
+
+def _detector_of(measurement):
+    """The rainbow detector a measurement's channel is, or None.
+
+    The device type says which detector made the measurement, and is read
+    first: rainbow's own export relabels a channel's measure where the schema
+    gives its peak list no other home, and a foreign one may do the same, but
+    neither changes the device type. The device control's device identifier
+    names the module next (Empower's "ACQ-FLR"; rainbow writes a CAD's name
+    there, since its class is the generic one), then the cube label (Waters'
+    "ACQUITY FLR ChA", Chemstation's "ADC1A"), and the measure concept last.
+    The measurement identifier is not read: it is a key, often a GUID or a
+    database number, and a segment of one such as "adc4" is not a claim
+    about the detector.
+    """
+    control = _device_control(measurement)
+    if "custom information aggregate document" in control:
+        named = _text(_custom_fields(control, set()).get(_RAINBOW_DETECTOR))
+        if named in _DETECTOR_NAMES:
+            # rainbow's own export, naming the detector it was read as.
+            return named
+    texts = [
+        _text(control.get("device type")),
+        _text(control.get("device identifier")),
+        _text(_first(measurement.get(_CHROMATOGRAM_CUBE)).get("label")),
+    ]
+    for text in texts:
+        if not text:
+            continue
+        text = _normalize_module_text(text)
+        device_type = _specific_detector_type(text)
+        if device_type in _RAINBOW_DETECTORS:
+            return _RAINBOW_DETECTORS[device_type]
+        if device_type in _UNNAMED_DETECTORS:
+            # A detector the text names for certain, which rainbow has no
+            # name for: nothing later in the label can make it one.
+            return None
+        if _GENERIC_DETECTOR_PATTERN.search(text) and \
+                _real_measure(measurement)[0] not in _MEASURE_DETECTORS:
+            # A charged-aerosol detector, or the analog input Chemstation
+            # brings one in on. rainbow names those channels CAD on read,
+            # unless the measure names another detector: "adc" in an
+            # identifier is no reason to call an absorbance trace CAD.
+            return "CAD"
+    reported = _reported_measure(measurement)
+    concept = reported[0].strip().lower() if reported \
+        else _measure_of(measurement)[0]
+    return _MEASURE_DETECTORS.get(concept)
+
+
+def _device_control(measurement):
+    """A measurement's first device control document, or ``{}``."""
+    return _first(_first(measurement.get(
+        "device control aggregate document")).get("device control document"))
+
+
+def _measure_of(measurement):
+    """The ``(concept, unit)`` of a measurement's cube, as written.
+
+    Either is None when the cube does not say. The concept is case-folded for
+    matching; the unit is kept exactly as written, since it is a value the
+    caller reads and the case of "mAU" against "MAU" is the writer's.
+    """
+    cube = _first(measurement.get(_CHROMATOGRAM_CUBE)) \
+        or _first(measurement.get(_SPECTRUM_CUBE))
+    measure = _first(_first(cube.get("cube-structure")).get("measures"))
+    concept = _text(measure.get("concept"))
+    return (concept.strip().lower() if concept else None,
+            _text(measure.get("unit")))
+
+
+def _acquisition_method(measurement):
+    """The acquisition method a measurement names, or None.
+
+    Read from the device control documents, where a 2025/03 converter writes
+    it, else from the measurement's custom information, where rainbow does.
+    """
+    controls = _first(measurement.get(
+        "device control aggregate document")).get("device control document")
+    for control in _as_documents(controls):
+        if isinstance(control, dict):
+            method = _text(control.get(_ACQUISITION_METHOD))
+            if method and method.strip():
+                return method.strip()
+    if "custom information aggregate document" in measurement:
+        method = _text(_custom_fields(measurement, set()).get(
+            _ACQUISITION_METHOD))
+        if method and method.strip():
+            return method.strip()
+    return None
+
+
+# The device control settings a channel's metadata takes, as (key, fields),
+# each in nm. The first field present wins. A fluorescence detector records its
+# emission as the detector wavelength setting, which is how the schema's
+# fluorescence cube names it, so for that measure the setting is read as the
+# emission and not as an absorbance wavelength.
+_OPTICS_SETTINGS = (
+    ("wavelength", ("detector wavelength setting",
+                    "electronic absorbance wavelength setting")),
+    ("bandwidth", ("detector bandwidth setting",
+                   "electronic absorbance bandwidth setting")),
+    ("reference_wavelength",
+     ("electronic absorbance reference wavelength setting",)),
+    ("reference_bandwidth",
+     ("electronic absorbance reference bandwidth setting",)),
+    ("excitation_wavelength", ("excitation wavelength setting",)),
+    ("excitation_bandwidth", ("excitation bandwidth setting",)),
+)
+
+
+def _channel_metadata(measurement):
+    """What a measurement says of its channel, as DataFile metadata.
+
+    The keys are the ones the vendor readers use for the same facts where they
+    have them (``wavelength``, ``bandwidth``, ``reference_wavelength``,
+    ``reference_bandwidth``, ``unit``, ``description``), plus the ones only ASM
+    states: ``measure``, the cube's measure concept; ``device_type``, the
+    detector's class as written; ``excitation_wavelength``,
+    ``excitation_bandwidth`` and ``emission_wavelength`` for a fluorescence
+    channel; and ``acq_method``.
+
+    A device control setting is read first, then what the cube label names,
+    then the processed data's description of the signal (an index document's
+    cube may be the only place its label is not). A reference written as
+    ``Ref=off`` reads as ``reference_wavelength`` None: present, and off.
+    """
+    metadata = {}
+    label = _text(_first(measurement.get(_CHROMATOGRAM_CUBE)).get("label")) \
+        or _text(_first(measurement.get(_SPECTRUM_CUBE)).get("label"))
+    if label:
+        metadata["description"] = label
+    concept, unit = _real_measure(measurement)
+    if _reported_measure(measurement) is None and \
+            _absorbance_scale(*_measure_of(measurement)) is not None:
+        # The trace is rebuilt in mAU (see _absorbance_in_mau), and its peaks
+        # read in mAU, so the channel says mAU too. A unit from a relabel
+        # note is the one the values are in, unconverted, and stays.
+        unit = "mAU"
+    if concept:
+        metadata["measure"] = concept
+    if unit:
+        metadata["unit"] = unit
+    control = _device_control(measurement)
+    device_type = _text(control.get("device type"))
+    if device_type and device_type.strip():
+        metadata["device_type"] = " ".join(device_type.split())
+    # Kept so a re-export names the same module the device system does.
+    device_identifier = _text(control.get("device identifier"))
+    if device_identifier and device_identifier.strip():
+        metadata["device_identifier"] = device_identifier.strip()
+    method = _acquisition_method(measurement)
+    if method:
+        metadata["acq_method"] = method
+
+    optics = {}
+    for text in (_signal_description(measurement), label):
+        # Later texts override earlier ones, so the label wins over the
+        # processed data's description and the settings over both.
+        optics.update(_optics_from_label(text))
+    settings = {}
+    control_custom = _custom_fields(control, set()) \
+        if "custom information aggregate document" in control else {}
+    for key, fields in _OPTICS_SETTINGS:
+        for field in fields:
+            # A setting rainbow had to write as custom information is read
+            # from there, as {"value", "unit"}.
+            quantity = control.get(field, control_custom.get(field))
+            value = _number(quantity)
+            unit = _quantity_unit(quantity)
+            if value is not None and unit in (None, "nm"):
+                settings[key] = value
+                break
+    if "reference_wavelength" not in settings and \
+            _text(control_custom.get(_REFERENCE)) == "off":
+        settings["reference_wavelength"] = None
+    if concept == "fluorescence" or "excitation_wavelength" in settings \
+            or _detector_of(measurement) == "FLD":
+        # A fluorescence detector's wavelength setting is its emission, and a
+        # setting outranks what a label names, here as everywhere else. Keyed
+        # on the detector as well as the measure: an FLD read out in mV or pA
+        # still has an emission, not an absorbance wavelength.
+        if "wavelength" in settings:
+            settings["emission_wavelength"] = settings.pop("wavelength")
+        label_wavelength = optics.pop("wavelength", None)
+        if label_wavelength is not None:
+            optics.setdefault("emission_wavelength", label_wavelength)
+    optics.update(settings)
+    metadata.update(optics)
+    return metadata
+
+
+def _quantity_unit(quantity):
+    """The unit a quantity value is written in, or None."""
+    return _text(quantity.get("unit")) if isinstance(quantity, dict) else None
+
+
+def _signal_description(measurement):
+    """The first processed data description of a measurement's signal."""
+    processed = _first(measurement.get(_PROCESSED_DATA))
+    for document in _as_documents(processed.get("processed data document")):
+        if isinstance(document, dict):
+            description = _processing_document(document)["description"]
+            if description:
+                return description
+    return None
+
+
+def _processing_document(processed_data):
+    """The provenance of one processed data document: which integration ran."""
+    processing = _first(processed_data.get("data processing document"))
+    custom = {}
+    if "custom information aggregate document" in processed_data:
+        custom = _custom_fields(processed_data, set())
+    description = _text(processed_data.get("description")) \
+        or _text(processed_data.get(_PROCESSING_DESCRIPTION)) \
+        or _text(custom.get(_PROCESSING_DESCRIPTION))
+    return {
+        "identifier": _text(processed_data.get("processed data identifier")),
+        "group_identifier": _text(processed_data.get("group identifier")),
+        "time": _text(processed_data.get("data processing time"))
+        or _text(processing.get("data processing time"))
+        or _text(custom.get("data processing time")),
+        "method_name": _text(processing.get("method name")),
+        "method_version": _text(processing.get("method version")),
+        "type": _text(processing.get("data processing type")),
+        # Which signal the integration was run on, in the processing
+        # software's words ("DAD: Signal A, 246.0 nm/Bw:4.0 nm"), which need
+        # not be the cube label's.
+        "description": description,
+    }
+
+
+def _peak_lists(measurement, said=None):
+    """Every non-empty ``(processing, peaks)`` a measurement carries, in order.
+
+    A measurement may hold more than one processed data document: an Empower or
+    OpenLab export writes one per result version, so a single channel arrives
+    with the same run integrated several times, under different processing
+    methods and at different times. They are not interchangeable, and they are
+    not ordered by date, so the caller has to be able to see all of them.
+    """
+    processed = _first(measurement.get(_PROCESSED_DATA))
+    reported = _reported_measure(measurement)
+    # Which measure the peaks were integrated on: the relabeled channel's real
+    # one, else the cube's. A measurement that names none is taken as
+    # absorbance, the measure a peak list was read in before rainbow read
+    # any other.
+    concept = reported[0].strip().lower() if reported \
+        else _measure_of(measurement)[0]
+    absorbance = concept in (None, "absorbance")
+    lists = []
+    for document in _as_documents(processed.get("processed data document")):
+        if not isinstance(document, dict):
+            continue
+        asm_peaks = [peak for peak
+                     in _as_documents(
+                         _first(document.get("peak list")).get("peak"))
+                     if isinstance(peak, dict)]
+        if asm_peaks:
+            peaks = [_peak_from_asm(peak, said, absorbance)
+                     for peak in asm_peaks]
+            if reported is not None:
+                _restore_peak_units(peaks, reported[1],
+                                    _measure_of(measurement)[1] or "mAU")
+            lists.append((_processing_document(document), peaks))
+    return lists
+
+
+def _restore_peak_units(peaks, unit, cube_unit="mAU"):
+    """Puts a relabeled channel's peaks back in the unit their values are in.
+
+    The relabel wrote them in the cube's units (mAU and mAU.s beside an
+    absorbance cube, pA and pA.s beside a current a CAD in mAu was published
+    as) without converting them, so the numbers are the channel's own.
+    """
+    for peak in peaks:
+        if peak["area_unit"] == _area_unit(cube_unit):
+            peak["area_unit"] = _area_unit(unit)
+        if peak["height_unit"] == cube_unit:
+            peak["height_unit"] = unit
+
+
+def peaks_from_asm(measurement):
+    """
+    Reads the integrated peaks of one ASM measurement document.
+
+    The reader :func:`from_asm` and :func:`sequence_from_asm` use for each
+    measurement, for a caller holding a measurement document of its own: one
+    channel of one injection, walked out of a document it read itself, or an
+    index document whose cubes carry no values. The peaks are read whether or
+    not the measurement's trace could be rebuilt.
+
+    Args:
+        measurement (dict): One ``measurement document`` of an ASM liquid- or
+            gas-chromatography document.
+
+    Returns:
+        dict: The peak group, the shape of an entry of
+        ``DataDirectory.peaks``: ``signal``, ``wavelength``, ``description``
+        and ``channel_file`` name the channel, ``detector`` and ``metadata``
+        describe it as its DataFile would, ``peaks`` holds the first
+        integration's peaks and ``processing`` its provenance, and
+        ``alternates`` holds every further integration, in document order.
+        None when the measurement carries no peaks.
+
+    """
+    if not isinstance(measurement, dict):
+        raise TypeError(
+            "measurement must be a dict, not {}".format(
+                type(measurement).__name__))
+    if "$asm.manifest" in measurement or any(
+            key.endswith("chromatography aggregate document")
+            for key in measurement):
+        raise ValueError(
+            "peaks_from_asm reads one measurement document, and this is a "
+            "whole ASM document: rb.from_asm or rb.sequence_from_asm read "
+            "every measurement's peaks.")
+    return _peaks_from_measurement(measurement)
+
+
+def _peaks_from_measurement(measurement, said=None):
+    """Reconstructs a peak group from a measurement's processed data, or None."""
+    lists = _peak_lists(measurement, said)
+    if not lists:
+        return None
+    processing, peaks = lists[0]
+
+    channel = _text(measurement.get("measurement identifier"))
+    if channel is None:
+        # An unkeyed group is dropped by _peak_groups_by_channel on the way
+        # back out, so these peaks are read and then silently discarded.
+        warnings.warn(
+            f"a peak list of {len(peaks)} peaks has no usable measurement "
+            "identifier; it cannot be joined to a channel and will be lost on "
+            "re-export.")
+    # The same reading of the channel its DataFile gets, so a peak group from
+    # a measurement whose trace could not be rebuilt still says which channel
+    # it was integrated on: its detector, its unit, and the wavelength(s) that
+    # tell one channel of a multi-signal run from another.
+    metadata = _channel_metadata(measurement)
+    if len(lists) > 1:
+        warnings.warn(
+            f"{channel or 'a channel'} carries {len(lists)} processed data "
+            "documents (the same run integrated more than once). The first is "
+            "used; the rest are in the group's 'alternates'. Document order "
+            "is not processing order, so check 'processing' to see which "
+            "integration these peaks came from.")
+    return {
+        "signal": _channel_key(channel) if channel else None,
+        "wavelength": metadata.get("wavelength"),
+        "description": metadata.get("description"),
+        "channel_file": channel,
+        "detector": _detector_of(measurement),
+        "metadata": metadata,
+        "peaks": peaks,
+        "processing": processing,
+        "alternates": [{"processing": other, "peaks": other_peaks}
+                       for other, other_peaks in lists[1:]],
+    }
+
+
+# A cube label names a channel's optics in the vendor's own spelling:
+#   "DAD.0.0, DAD: Signal A, 246.0 nm/Bw:4.0 nm Ref 360.0 nm/Bw:100.0 nm"
+#   "DAD1A,Sig=210.0,4.0  Ref=off"         (ChemStation)
+#   "PDA Ch1 280nm@4.8nm", "ACQUITY TUV ChA 214nm"   (Empower)
+#   "ACQUITY FLR ChA Ex280,Em340 nm"        (a fluorescence channel)
+# The signal is written first and the reference after it, so the reference is
+# cut off before the signal and its bandwidth are looked for: otherwise a
+# label's leftmost bandwidth could be the reference's. A fluorescence label's
+# two wavelengths are its excitation and emission, never an absorbance one.
+_NUMBER = r"(\d+(?:\.\d+)?)"
+_LABEL_REFERENCE_RE = re.compile(
+    r"\bRef\s*[=:]?\s*(?:(off)\b|" + _NUMBER
+    + r"\s*(?:nm)?(?:\s*(?:,|/\s*Bw\s*:?)\s*" + _NUMBER + r")?)",
+    re.IGNORECASE)
+_LABEL_SIG_RE = re.compile(
+    r"\bSig\s*=\s*" + _NUMBER + r"\s*,\s*" + _NUMBER, re.IGNORECASE)
+_LABEL_WAVELENGTH_RE = re.compile(_NUMBER + r"\s*nm", re.IGNORECASE)
+_LABEL_BANDWIDTH_RE = re.compile(
+    r"(?:\bBw\s*:?\s*|@\s*)" + _NUMBER, re.IGNORECASE)
+
+
+def _optics_from_label(label):
+    """The optics a cube label names, in nm, as channel metadata keys.
+
+    Any of ``wavelength``, ``bandwidth``, ``reference_wavelength`` (None for
+    ``Ref=off``), ``reference_bandwidth``, ``excitation_wavelength`` and
+    ``emission_wavelength``; a key the label does not state is absent.
+    """
+    optics = {}
+    if not label:
+        return optics
+    pair = excitation_emission(label)
+    if pair:
+        optics["excitation_wavelength"], optics["emission_wavelength"] = pair
+        return optics
+    reference = _LABEL_REFERENCE_RE.search(label)
+    signal = label[:reference.start()] if reference else label
+    sig = _LABEL_SIG_RE.search(signal)
+    if sig:
+        optics["wavelength"] = float(sig.group(1))
+        optics["bandwidth"] = float(sig.group(2))
+    else:
+        wavelength = _LABEL_WAVELENGTH_RE.search(signal)
+        if wavelength:
+            optics["wavelength"] = float(wavelength.group(1))
+            bandwidth = _LABEL_BANDWIDTH_RE.search(signal, wavelength.end())
+            if bandwidth:
+                optics["bandwidth"] = float(bandwidth.group(1))
+    if reference and reference.group(1):
+        optics["reference_wavelength"] = None
+    elif reference:
+        optics["reference_wavelength"] = float(reference.group(2))
+        if reference.group(3):
+            optics["reference_bandwidth"] = float(reference.group(3))
+    return optics
+
+
+def _peak_from_asm(peak, said=None, absorbance=True):
+    """Reconstructs a peak's measures, times back from seconds to minutes.
+
+    ``absorbance`` says the peak was integrated on an absorbance channel, the
+    only kind whose units are converted (see :func:`_peak_measure`).
+    """
+    def value(key):
+        # A foreign writer may spell a measure as text, or as something else
+        # entirely. These go straight into user code and into arithmetic just
+        # below, so anything that is not a number has to drop out here.
+        return _number(peak.get(key))
+
+    def minutes(key):
+        seconds = value(key)
+        return seconds / _SECONDS_PER_MINUTE if seconds is not None else None
+
+    area, area_unit = _peak_measure(peak.get("peak area"), ".s", absorbance)
+    height, height_unit = _peak_measure(peak.get("peak height"), "",
+                                        absorbance)
+    return {
+        # The compound the integration assigned this peak to, when the
+        # processing method identified one. Without it a peak list is a set of
+        # anonymous retention times, and there is no way to follow one
+        # component across the injections of a study.
+        "name": _text(peak.get("written name")),
+        # How the document itself keys and orders the peak. Neither is the
+        # compound: an identifier is the processing software's row key, and
+        # the index the peak's place in its list.
+        "identifier": _text(peak.get("identifier")),
+        "index": value("@index"),
+        "retention_time": minutes("retention time"),
+        "start_time": minutes("peak start"),
+        "end_time": minutes("peak end"),
+        "area": area,
+        "area_unit": area_unit,
+        "area_percent": value("relative peak area"),
+        "height": height,
+        "height_unit": height_unit,
+        "height_percent": value("relative peak height"),
+        "symmetry": value("asymmetry factor measured at 5 % height"),
+        # How the integration drew the baseline under this peak. A height is
+        # how far the trace sits above the baseline at that edge, in the
+        # peak height's unit, so the line runs from (start, trace - start
+        # height) to (end, trace - end height).
+        "start_height": _edge_height(
+            peak.get("peak value at start"), height_unit, absorbance),
+        "end_height": _edge_height(
+            peak.get("peak value at end"), height_unit, absorbance),
+        **_peak_baseline_fields(peak, said),
+    }
+
+
+# The units a peak's height, edge heights and area are converted from, as mAU
+# per unit (an area's unit is one of these times seconds). Empower's own unit
+# for a UV height is the microvolt, one of which is one microabsorbance unit.
+# Kept apart from _ABSORBANCE_TO_MAU so that a cube labelled in microvolts
+# exports as it did before. The micro sign and the Greek mu are both in use.
+_PEAK_VALUE_TO_MAU = dict(_ABSORBANCE_TO_MAU, **{"\u00b5v": 0.001,
+                                                 "\u03bcv": 0.001})
+
+
+def _peak_measure(quantity, per="", absorbance=True):
+    """
+    A peak's height (or, with ``per=".s"``, its area) and its unit.
+
+    Returns ``(value, unit)``. On an absorbance channel (``absorbance``), a
+    value in AU or mAU or Empower's microvolts is converted to mAU (``mAU.s``
+    for an area), since the trace is read in mAU and the two are subtracted
+    and compared; Empower's microvolt is a microabsorbance unit only there.
+    On any other channel the unit is the detector's own, and is kept as
+    written beside the number it measures: a fluorescence peak in RFU, an FID
+    peak in pA, an ELSD peak in µV. An area in a unit per minute is converted
+    to per second. On an absorbance channel, an area in a time unit rainbow
+    does not know (neither ``.s`` nor ``.min``) reads as None, since it would
+    be written back as ``mAU.s`` whatever it was. The unit is None only when
+    the document wrote none, and the value then is the number as written.
+
+    """
+    number = _number(quantity)
+    if number is None:
+        return None, None
+    unit = _quantity_unit(quantity)
+    if unit is not None and per and \
+            _absorbance_unit_key(unit).endswith(".min"):
+        # An area per minute, which every writer of the schema's own units
+        # spells per second: converted, so its number matches the unit it is
+        # written back in.
+        number = number * _SECONDS_PER_MINUTE
+        unit = _TIME_SUFFIX_RE.sub(".s", unit)
+    if unit is None or not absorbance:
+        return number, unit
+    key = _absorbance_unit_key(unit)
+    if per and not key.endswith(per) and \
+            key.split(".", 1)[0] in _PEAK_VALUE_TO_MAU:
+        # An absorbance area per some time rainbow cannot convert to seconds.
+        return None, None
+    scale = _PEAK_VALUE_TO_MAU.get(key[:len(key) - len(per)]) \
+        if key.endswith(per) else None
+    if scale is None:
+        return number, unit
+    # Unscaled when already mAU, so an integer stays the integer it was.
+    return (number if scale == 1.0 else number * scale), "mAU" + per
+
+
+# A unit's per-minute suffix, however the product is spelled.
+_TIME_SUFFIX_RE = re.compile(r"(?:\s*[.*\u00b7]\s*|\s+)min\Z",
+                             re.IGNORECASE)
+
+
+def _edge_height(quantity, height_unit, absorbance=True):
+    """A peak's height at one edge, in its height's unit, or None.
+
+    An edge height is converted like the height (absorbance to mAU) and
+    reported in the height's unit, as the peak has one unit key for both. One
+    written in another unit than the height's, which no peak should do, has
+    no unit to be reported in and reads as None. One with no unit is taken as
+    written.
+    """
+    number, unit = _peak_measure(quantity, "", absorbance)
+    if unit is not None and height_unit is not None and unit != height_unit:
+        return None
+    return number
+
+
+# The units a baseline time is read in, as units per minute. Any other unit,
+# or none, gives None: the field's name reads as a signal value, and the unit
+# is the only thing that says a writer filled it with a time.
+_TIME_UNITS_PER_MINUTE = {"s": _SECONDS_PER_MINUTE, "min": 1.0}
+
+
+def _peak_baseline_fields(peak, said=None):
+    """
+    A peak's baseline codes and times, read from the peak or its custom
+    information.
+
+    A code is the integration type at each edge (B, V, S, T, ..., lowercase
+    where the edge was moved by hand; Empower splits a group's "Gp" into "G"
+    and "p"). A time is where the baseline under the peak's cluster begins or
+    ends, in minutes like the peak's other times. Empower writes both on the
+    peak, where the schema does not define them; rainbow writes them as custom
+    information, where it does.
+
+    """
+    custom = {}
+    if "custom information aggregate document" in peak:
+        custom = _custom_fields(peak, set() if said is None else said)
+
+    def field(label):
+        value = peak.get(label)
+        return value if value is not None else custom.get(label)
+
+    fields = {}
+    for key, label in _PEAK_BASELINE_CODES:
+        fields[key] = (_text(field(label)) or "").strip() or None
+    for key, label in _PEAK_BASELINE_TIMES:
+        quantity = field(label)
+        number = _number(quantity)
+        unit = quantity.get("unit") if isinstance(quantity, dict) else None
+        per_minute = _TIME_UNITS_PER_MINUTE.get(unit) \
+            if isinstance(unit, str) else None
+        fields[key] = number / per_minute \
+            if number is not None and per_minute else None
+    return fields
+
+
+def _instrument_from_device_system(device_system):
+    """Reconstructs the instrument dict from a device system document, or None."""
+    if not isinstance(device_system, dict):
+        return None
+    modules = []
+    for device in _as_documents(device_system.get("device document")):
+        if not isinstance(device, dict):
+            continue
+        if "model number" not in device \
+                and "equipment serial number" not in device:
+            continue  # the bare chromatograph fallback entry
+        modules.append({
+            "name": _text(device.get("written name"))
+            or _text(device.get("device identifier")),
+            "type": _text(device.get("device type")),
+            "part_no": _text(device.get("model number")),
+            "serial_no": _text(device.get("equipment serial number")),
+            "firmware": _text(device.get("firmware version")),
+        })
+    if not modules:
+        return None
+    return {
+        "name": _text(device_system.get("asset management identifier")),
+        "modules": modules,
+    }

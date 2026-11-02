@@ -1,0 +1,108 @@
+Metadata-Version: 2.4
+Name: pylife
+Version: 2.3.1
+Summary: General Fatigue library
+Author-email: "pyLife developer team @ Bosch Research" <johannes.mueller4@de.bosch.com>
+License: Apache-2
+Project-URL: Homepage, https://github.com/boschresearch/pylife/
+Project-URL: Documentation, https://pylife.readthedocs.io
+Project-URL: Source, https://github.com/boschresearch/pylife/
+Project-URL: Changelog, https://pylife.readthedocs.io/en/stable/CHANGELOG.html
+Project-URL: Tracker, https://github.com/boschresearch/pylife/issues
+Project-URL: Download, https://pypi.org/project/pylife/#files
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: numpy>=1.23.5
+Requires-Dist: scipy
+Requires-Dist: pandas>=2.2
+Requires-Dist: h5py!=3.7.0
+Requires-Dist: pickleshare>=0.7.5; python_full_version < "3.11"
+Provides-Extra: tsfresh
+Requires-Dist: tsfresh>=0.21.0; extra == "tsfresh"
+Requires-Dist: numba>=0.60; extra == "tsfresh"
+Provides-Extra: all
+Requires-Dist: tsfresh>=0.21.0; extra == "all"
+Requires-Dist: numba>=0.60; extra == "all"
+Provides-Extra: extras
+Requires-Dist: jupyter; extra == "extras"
+Requires-Dist: matplotlib; extra == "extras"
+Requires-Dist: pyvista; extra == "extras"
+Requires-Dist: plotly; extra == "extras"
+Requires-Dist: ansys-mapdl-reader; extra == "extras"
+Dynamic: license-file
+
+# pyLife – a general library for fatigue and reliability
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/boschresearch/pylife/develop?labpath=demos%2Findex.ipynb)
+[![Documentation Status](https://readthedocs.org/projects/pylife/badge/?version=latest)](https://pylife.readthedocs.io/en/latest/?badge=latest)
+[![PyPI](https://img.shields.io/pypi/v/pylife)](https://pypi.org/project/pylife/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pylife)
+[![Testsuite](https://github.com/boschresearch/pylife/actions/workflows/pytest.yml/badge.svg)](https://github.com/boschresearch/pylife/actions/workflows/pytest.yml)
+
+pyLife is an Open Source Python library for state of the art algorithms used in
+lifetime assessment of mechanical components subjected to fatigue.
+
+
+## Purpose of the project
+
+This library was originally compiled at [Bosch
+Research](https://www.bosch.com/research/) to collect algorithms needed by
+different in house software projects, that deal with lifetime prediction and
+material fatigue on a component level. In order to further extent and
+scrutinize it we decided to release it as Open Source.  Read [this
+article](https://www.bosch.com/stories/bringing-open-source-to-mechanical-engineering/)
+about pyLife's origin.
+
+So we are welcoming collaboration not only from science and education but also
+from other commercial companies dealing with the topic. We commend this library
+to university teachers to use it for education purposes.
+
+The company [Viktor](https://viktor.ai) has set up a [web application for Wöhler
+test analysis](https://cloud.viktor.ai/public/wohler-fatigue-test-analysis)
+based on pyLife code.
+
+
+## Contents
+
+There are/will be the following subpackages:
+
+* `stress` everything related to stress calculation
+	* equivalent stress
+	* stress gradient calculation
+	* rainflow counting
+	* ...
+* `strength` everything related to strength calculation
+	* failure probability estimation
+	* S-N-calculations
+	* local strain concept: FKM guideline nonlinear
+	* ...
+* `mesh` FEM mesh related stuff
+    * stress gradients
+	* FEM-mapping
+	* hotspot detection
+* `util` all the more general utilities
+	* ...
+* `materialdata` analysis of material testing data
+    * Wöhler (SN-curve) data analysis
+
+* `materiallaws` modeling material behavior
+    * Ramberg Osgood
+    * Wöhler curves
+
+* `vmap` a interface to [VMAP](https://www.vmap.eu.com/)
+
+
+## License
+
+pyLife is open-sourced under the Apache-2.0 license. See the
+[LICENSE](LICENSE) file for details.
+
+For a list of other open source components included in pyLife, see the
+file [3rd-party-licenses.txt](3rd-party-licenses.txt).

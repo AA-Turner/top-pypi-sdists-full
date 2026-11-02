@@ -1,0 +1,113 @@
+[project]
+name = "trame-vtklocal"
+version = "1.8.1"
+description = "VTK Local Rendering using WASM"
+authors = [
+    {name = "Kitware Inc."},
+]
+dependencies = [
+    "trame",
+    "trame-common",
+    "packaging",
+]
+requires-python = ">=3.10"
+readme = "README.rst"
+license = {text = "Apache Software License"}
+keywords = ["Python", "Interactive", "Web", "Application", "Framework"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+vtk = [
+    "vtk>=9.6.1",
+]
+dev = [
+    "pre-commit",
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov >=3",
+    "coverage",
+    "pytest-playwright",
+    "trame-client[test]",
+    "trame-vuetify",
+    # Dev wheel from wheels.vtk.org (see [tool.uv] below)
+    "vtk==9.7.20260913.dev0",
+]
+
+# Resolve the pinned vtk dev build from the VTK nightly wheel index instead of
+# PyPI. `explicit = true` keeps every other dependency on PyPI; only packages
+# mapped in [tool.uv.sources] use this index.
+[[tool.uv.index]]
+name = "vtk-wheels"
+url = "https://wheels.vtk.org"
+explicit = true
+
+[tool.uv.sources]
+vtk = { index = "vtk-wheels" }
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+  "/src/trame_vtklocal/**/*.py",
+  "/src/trame_vtklocal/module/serve/**",
+  "/src/trame/**/*.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/trame_vtklocal",
+    "src/trame",
+]
+
+
+[tool.semantic_release]
+version_toml = [
+    "pyproject.toml:project.version",
+]
+build_command = "uv build"
+commit_parser = "conventional"
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "W", "F"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
+
+[lint.pydocstyle]
+convention = "google"

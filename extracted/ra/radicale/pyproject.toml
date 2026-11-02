@@ -1,0 +1,323 @@
+[project]
+name = "Radicale"
+# When the version is updated, a new section in the CHANGELOG.md file must be
+# added too.
+readme = "README.md"
+version = "3.9.0"
+authors = [{name = "Guillaume Ayoub", email = "guillaume.ayoub@kozea.fr"}, {name = "Unrud", email = "unrud@outlook.com"}, {name = "Peter Bieringer", email = "pb@bieringer.de"}]
+license = {text = "GNU GPL v3"}
+description = "CalDAV and CardDAV Server"
+keywords = ["calendar", "addressbook", "CalDAV", "CardDAV"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Office/Business :: Groupware",
+]
+urls = {Homepage = "https://radicale.org/"}
+requires-python = ">=3.9.0"
+# Hint: passlib(libpass) dependency can be downgraded/reverted by: sed -i 's|libpass[^"]*|passlib|' pyproject.toml
+dependencies = [
+    "defusedxml",
+    "libpass>=1.9.3",
+    "vobject>=0.9.6",
+    "pika>=1.1.0",
+    "requests",
+]
+
+
+[project.optional-dependencies]
+test = ["pytest>=7", "waitress", "bcrypt", "argon2-cffi", "pam", "ldap3", "hypercorn>=0.17"]
+h2 = ["hypercorn>=0.17"]
+bcrypt = ["bcrypt"]
+argon2 = ["argon2-cffi"]
+ldap = ["ldap3"]
+pam = ["pam"]
+dev = ["flake8", "isort", "mypy", "pytest", "pytest-playwright", "html5validator"]
+# Exact pins: the observed feature report depends on the client libraries
+# (feature model, search matching, recurrence expansion), not only on
+# caldav-server-tester, so they are all frozen together. This is the single
+# place to bump them, see caldav_compat_tests/README.md.
+caldav_test = [
+    "pytest>=7",
+    "caldav==3.5.0; python_version >= '3.10'",
+    "caldav-server-tester==1.4.0; python_version >= '3.10'",
+    "icalendar==7.3.0; python_version >= '3.10'",
+    "icalendar-searcher==1.2.0; python_version >= '3.10'",
+    "recurring-ical-events==3.8.2; python_version >= '3.10'",
+]
+
+[project.scripts]
+radicale = "radicale.__main__:run"
+
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.tox]
+min_version = "4.0"
+envlist = ["flake8", "isort", "mypy", "py_loglevel_info", "py_radicale_loglevel_info", "py_radicale_loglevel_trace", "py", "integ_test", "caldav_compat_test", "html5validator"]
+
+[tool.tox.env.py]
+description = "Server: run 'pytest' (incl. coverage report)"
+extras = ["test"]
+deps = [
+    "pytest",
+    "pytest-cov"
+]
+commands = [["pytest", "-r", "s", "--cov", "--cov-report=term", "--cov-report=xml", "."]]
+
+[tool.tox.env.py_loglevel_info]
+description = "Server: run 'pytest' with log level 'INFO'"
+extras = ["test"]
+deps = [
+    "pytest"
+]
+commands = [["pytest", "-r", "s", "--log-level", "INFO", "."]]
+
+[tool.tox.env.py_radicale_loglevel_info]
+description = "Server: run 'pytest' with radicale  on log level 'INFO'"
+extras = ["test"]
+setenv = { PYTEST_RADICALE_LOGLEVEL = "info" }
+deps = [
+    "pytest"
+]
+commands = [["pytest", "-r", "s", "--log-level", "INFO", "."]]
+
+[tool.tox.env.py_radicale_loglevel_trace]
+description = "Server: run 'pytest' with radicale  on log level 'TRACE'"
+extras = ["test"]
+setenv = { PYTEST_RADICALE_LOGLEVEL = "trace" }
+deps = [
+    "pytest"
+]
+commands = [["pytest", "-r", "s", "--log-level", "5", "."]]
+
+[tool.tox.env.py_filesystem_vfat]
+description = "Server: run 'pytest' with collection storage filesystem 'vfat' (on Linux)"
+allowlist_externals = [ "sudo", "dd", "mkfs.vfat", "mkdir", "rm", "rmdir", "chmod" ]
+extras = ["test"]
+deps = [
+    "pytest"
+]
+commands_pre = [
+    # create 64 MByte disk image
+    ["dd", "if=/dev/zero", "of=/tmp/vfat.img", "bs=1M", "count=64"],
+    # create file system
+    ["mkfs.vfat", "/tmp/vfat.img", "-n", "VFAT"],
+    # unconditionally create mount point
+    ["mkdir", "-p", "/tmp/vfat"],
+    # mount image
+    ["sudo", "/usr/bin/mount", "-o", "loop,umask=000,utf8=no", "/tmp/vfat.img", "/tmp/vfat"],
+]
+setenv = { TEMP = "/tmp/vfat" }
+commands = [["pytest", "-r", "s", "."]]
+commands_post = [
+    # umount image
+    ["sudo", "/usr/bin/umount", "-d", "/tmp/vfat"],
+    # remove mount point
+    ["rmdir", "/tmp/vfat"],
+    # remove image
+    ["rm", "/tmp/vfat.img"]
+]
+
+[tool.tox.env.py_filesystem_vfat_utf8]
+description = "Server: run 'pytest' with collection storage filesystem 'vfat+utf8' (on Linux)"
+allowlist_externals = [ "sudo", "dd", "mkfs.vfat", "mkdir", "rm", "rmdir", "chmod" ]
+extras = ["test"]
+deps = [
+    "pytest"
+]
+commands_pre = [
+    # create 64 MByte disk image
+    ["dd", "if=/dev/zero", "of=/tmp/vfat-utf8.img", "bs=1M", "count=64"],
+    # create file system
+    ["mkfs.vfat", "/tmp/vfat-utf8.img", "-n", "VFAT"],
+    # unconditionally create mount point
+    ["mkdir", "-p", "/tmp/vfat-utf8"],
+    # mount image
+    ["sudo", "/usr/bin/mount", "-o", "loop,umask=000,utf8", "/tmp/vfat-utf8.img", "/tmp/vfat-utf8"],
+]
+setenv = { TEMP = "/tmp/vfat-utf8" }
+commands = [["pytest", "-r", "s", "."]]
+commands_post = [
+    # umount image
+    ["sudo", "/usr/bin/umount", "-d", "/tmp/vfat-utf8"],
+    # remove mount point
+    ["rmdir", "/tmp/vfat-utf8"],
+    # remove image
+    ["rm", "/tmp/vfat-utf8.img"]
+]
+
+[tool.tox.env.py_filesystem_hfsplus]
+description = "Server: run 'pytest' with collection storage filesystem 'hfsplus' (on Linux)"
+# Fedora
+allowlist_externals = [ "sudo", "dd", "mkfs.hfsplus", "mkdir", "rm", "rmdir", "chmod" ]
+extras = ["test"]
+deps = [
+    "pytest"
+]
+commands_pre = [
+    # create 64 MByte disk image
+    ["dd", "if=/dev/zero", "of=/tmp/hfsp.img", "bs=1M", "count=64"],
+    # create file system
+    ["mkfs.hfsplus", "/tmp/hfsp.img", "-v", "HFSP"],
+    # unconditionally create mount point
+    ["mkdir", "-p", "/tmp/hfsp"],
+    # mount image
+    ["sudo", "/usr/bin/mount", "-o", "loop,umask=000", "/tmp/hfsp.img", "/tmp/hfsp", "-t", "hfsplus"],
+]
+setenv = { TEMP = "/tmp/hfsp" }
+commands = [["pytest", "-r", "s", "."]]
+commands_post = [
+    # umount image
+    ["sudo", "/usr/bin/umount", "-d", "/tmp/hfsp"],
+    # remove mount point
+    ["rmdir", "/tmp/hfsp"],
+    # remove image
+    ["rm", "/tmp/hfsp.img"]
+]
+
+[tool.tox.env.py_filesystem_ntfs]
+description = "Server: run 'pytest' with collection storage filesystem 'ntfs' (on Linux)"
+allowlist_externals = [ "sudo", "dd", "mkfs.ntfs", "mkdir", "rm", "rmdir", "chmod" ]
+extras = ["test"]
+deps = [
+    "pytest"
+]
+commands_pre = [
+    # create 64 MByte disk image
+    ["dd", "if=/dev/zero", "of=/tmp/ntfs.img", "bs=1M", "count=64"],
+    # create file system
+    ["mkfs.ntfs", "/tmp/ntfs.img", "-L", "NTFS", "-F"],
+    # unconditionally create mount point
+    ["mkdir", "-p", "/tmp/ntfs"],
+    # mount image
+    ["sudo", "/usr/bin/mount", "-o", "loop,umask=0000", "/tmp/ntfs.img", "/tmp/ntfs"],
+]
+setenv = { TEMP = "/tmp/ntfs" }
+commands = [["pytest", "-r", "s", "."]]
+commands_post = [
+    # umount image
+    ["sudo", "/usr/bin/umount", "-d", "/tmp/ntfs"],
+    # remove mount point
+    ["rmdir", "/tmp/ntfs"],
+    # remove image
+    ["rm", "/tmp/ntfs.img"]
+]
+
+[tool.tox.env.flake8]
+description = "Server: test code style"
+deps = ["flake8==7.1.0"]
+commands = [["flake8", "."]]
+skip_install = true
+
+[tool.tox.env.isort]
+description = "Server: test import sort order"
+deps = ["isort==5.13.2"]
+commands = [["isort", "--check", "--diff", "."]]
+skip_install = true
+
+[tool.tox.env.mypy]
+description = "Server: test static types"
+deps = ["mypy==1.11.0"]
+commands = [["mypy", "--install-types", "--non-interactive", "."]]
+skip_install = true
+
+[tool.tox.env.integ_test]
+description = "Server+WebUI: run 'playwright' integration tests (with 'chromium', may require additional system libs, check with 'ldd `find .tox/ -name chrome-headless-shell` | grep found')"
+deps = ["pytest", "pytest-playwright"]
+# Store Playwright browsers inside .tox for better caching
+setenv = { PLAYWRIGHT_BROWSERS_PATH = "{toxworkdir}/.playwright" }
+commands_pre = [["playwright", "install", "chromium"]]
+commands = [["pytest", "integ_tests"]]
+
+[tool.tox.env.caldav_compat_test]
+description = "Server: run caldav compatibility tests"
+# versions are pinned in project.optional-dependencies.caldav_test
+extras = ["caldav_test"]
+deps = "{[project.optional-dependencies]caldav_test}"
+allowlist_externals = [ "pytest" ]
+commands = [["pytest", "caldav_compat_tests"]]
+
+[tool.tox.env.js]
+# for optional local test as of now, copied from .github/workflows/test.yml
+# Fedora (will install nodejs): yum install npx
+description = "WebUI: validate JavaScript"
+allowlist_externals = [ "npx" ]
+commands = [["npx", "-y", "-p", "typescript@7.0.2", "tsc", "-p", "radicale/web/jsconfig.json"]]
+skip_install = true
+
+[tool.tox.env.html5validator]
+description = "WebUI: validate HTML (requires 'java', e.g. 'java-latest-openjdk-headless')"
+deps = ["html5validator-2"]
+commands = [["html5validator", "--root", "radicale/web/internal_data/", "--also-check-css"]]
+
+
+[tool.pytest.ini_options]
+norecursedirs = ["integ_tests", "caldav_compat_tests"]
+
+
+[tool.setuptools]
+platforms = ["Any"]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+exclude = ["*.tests", "integ_tests", "caldav_compat_tests"] # *.tests.*; tests.*; tests
+namespaces = false
+
+[tool.setuptools.package-data]
+radicale = [
+    "web/internal_data/css/icon.png",
+    "web/internal_data/css/loading.svg",
+    "web/internal_data/css/logo.svg",
+    "web/internal_data/css/main.css",
+    "web/internal_data/css/icons/*.svg",
+    "web/internal_data/*.js",
+    "web/internal_data/js/*.js",
+    "web/internal_data/js/api/*.js",
+    "web/internal_data/js/models/*.js",
+    "web/internal_data/js/scenes/*.js",
+    "web/internal_data/js/utils/*.js",
+    "web/internal_data/index.html",
+    "py.typed",
+]
+
+[tool.isort]
+known_standard_library = "_dummy_thread,_thread,abc,aifc,argparse,array,ast,asynchat,asyncio,asyncore,atexit,audioop,base64,bdb,binascii,binhex,bisect,builtins,bz2,cProfile,calendar,cgi,cgitb,chunk,cmath,cmd,code,codecs,codeop,collections,colorsys,compileall,concurrent,configparser,contextlib,contextvars,copy,copyreg,crypt,csv,ctypes,curses,dataclasses,datetime,dbm,decimal,difflib,dis,distutils,doctest,dummy_threading,email,encodings,ensurepip,enum,errno,faulthandler,fcntl,filecmp,fileinput,fnmatch,formatter,fpectl,fractions,ftplib,functools,gc,getopt,getpass,gettext,glob,grp,gzip,hashlib,heapq,hmac,html,http,imaplib,imghdr,imp,importlib,inspect,io,ipaddress,itertools,json,keyword,lib2to3,linecache,locale,logging,lzma,macpath,mailbox,mailcap,marshal,math,mimetypes,mmap,modulefinder,msilib,msvcrt,multiprocessing,netrc,nis,nntplib,ntpath,numbers,operator,optparse,os,ossaudiodev,parser,pathlib,pdb,pickle,pickletools,pipes,pkgutil,platform,plistlib,poplib,posix,posixpath,pprint,profile,pstats,pty,pwd,py_compile,pyclbr,pydoc,queue,quopri,random,re,readline,reprlib,resource,rlcompleter,runpy,sched,secrets,select,selectors,shelve,shlex,shutil,signal,site,smtpd,smtplib,sndhdr,socket,socketserver,spwd,sqlite3,sre,sre_compile,sre_constants,sre_parse,ssl,stat,statistics,string,stringprep,struct,subprocess,sunau,symbol,symtable,sys,sysconfig,syslog,tabnanny,tarfile,telnetlib,tempfile,termios,test,textwrap,threading,time,timeit,tkinter,token,tokenize,trace,traceback,tracemalloc,tty,turtle,turtledemo,types,typing,unicodedata,unittest,urllib,uu,uuid,venv,warnings,wave,weakref,webbrowser,winreg,winsound,wsgiref,xdrlib,xml,xmlrpc,zipapp,zipfile,zipimport,zlib"
+known_third_party = "defusedxml,libpass,pkg_resources,pytest,vobject"
+
+[tool.mypy]
+ignore_missing_imports = true
+show_error_codes = true
+exclude = "(^|/)build($|/)"
+
+[tool.coverage.run]
+branch = true
+source = ["radicale"]
+omit = ["tests/*", "*/tests/*", "integ_tests/*", "*/integ_tests/*", "caldav_compat_tests/*", "*/caldav_compat_tests/*"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+]

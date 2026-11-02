@@ -1,0 +1,106 @@
+[tool.poetry]
+name = "trycast"
+version = "2.0.0"  # publish: version
+description = ""
+authors = ["David Foster <david@dafoster.net>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://dafoster.net/projects/trycast/"
+repository = "https://github.com/davidfstr/trycast"
+# TODO: Create a dedicated documentation site for the trycast project
+documentation = "https://dafoster.net/projects/trycast/"
+classifiers = [  # https://pypi.org/classifiers/
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development",
+    "Typing :: Typed"
+]
+
+[tool.poetry.urls]
+"Release notes" = "https://github.com/davidfstr/trycast#changelog"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+
+[tool.poetry.group.dev.dependencies]
+mypy = ">=2.2.0"  # first version with TypeForm support enabled by default
+pyright = ">=1.1.412"  # first version with TypeForm support enabled by default
+pyrefly = "*"
+tox = ">=4.0.0,<5.0.0"
+black = "==24.3.0"
+isort = "^5.9.1"
+flake8 = ">=6.0,<7.0"
+coverage = "*"
+# NOTE: Duplicated in: [tool.tox] > legacy_tox_ini > [testenv] > deps
+typing-extensions = ">=4.13.0"  # for TypeForm, and get_type_hints() that supports ReadOnly
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Type Checker: Mypy
+# 
+# Config Syntax Reference:
+# https://mypy.readthedocs.io/en/latest/config_file.html#using-a-pyproject-toml-file
+[tool.mypy]
+files = "trycast/__init__.py,tests.py"
+mypy_path = "."
+strict_optional = true
+show_error_codes = true
+
+# Type Checker: Pyright
+# 
+# Config Syntax Reference:
+[tool.pyright]
+include = ["trycast", "tests.py"]
+pythonPlatform = "All"
+#typeCheckingMode = "strict"  # TODO: try this
+
+# Type Checker: Pyrefly
+# 
+# Config Syntax Reference:
+# https://pyrefly.org/en/docs/configuration/
+[tool.pyrefly]
+project-includes = ["trycast", "tests.py"]
+
+# Formatter: Isort
+[tool.isort]
+profile = "black"
+atomic = true
+line_length = 88
+skip_glob = [
+    "test_data/forwardrefs_example*.py",
+    "test_data/type_statement_example.py",
+    "venv*",
+]
+
+# Formatter: Black
+[tool.black]
+line-length = 88
+
+# Tests
+[tool.tox]
+legacy_tox_ini = """
+
+[tox]
+envlist = py310,py311,py312,py313,py314,py315
+isolated_build = True
+
+[testenv]
+deps =
+    mypy
+    typing-extensions >= 4.13.0
+commands =
+    python3 -m unittest
+
+"""

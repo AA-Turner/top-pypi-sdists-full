@@ -31,9 +31,15 @@ from pathlib import Path
 import pytest
 
 from probe.analytics import report_policy
-from probe.service import background, hookqueue, paths, protocol, watch, workers
-from probe.service.registry import Registry
-from probe.service.watch import Family, Watch
+from probe.service.jobs.background import background
+from probe.service.hooks import queue as hookqueue
+from probe.foundation.service_api import paths
+from probe.foundation import service_api as protocol
+from probe.service import watch
+from probe.service.sessions import workers
+from probe.service.sessions.sessions import Registry
+from probe.service.watch.incident import Family
+from probe.service.watch.watch import Watch
 
 # The watch runs wherever the service does, Windows included (R3).
 
@@ -394,7 +400,7 @@ def test_the_report_child_is_the_report_read_killed_at_60_s(monkeypatch):
         seen.update(action=action, request=request, timeout=timeout, env_extra=env_extra)
         return None, None
 
-    from probe.service import children
+    from probe.service.actions import children
 
     monkeypatch.setattr(children, "run_read", run_read)
     assert asyncio.run(watch._run_report({"family": "hook"})) == (None, None)
@@ -633,7 +639,7 @@ def test_an_unknown_boot_is_never_called_a_reboot(boot):
 
 
 def test_a_recorded_crash_is_reported_with_its_traceback_once(boot, monkeypatch):
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     # A context of its own: undoing the whole monkeypatch would undo the HOME
     # this file's fixture set, and the next write would land in the real one.
@@ -734,7 +740,7 @@ def test_a_background_child_that_fails_early_is_a_background_report():
     for code, key in ((1, "/outbox"), (0, "/outbox2")):
         child = background._Child(key, subprocess.Popen([sys.executable, "-c", f"import sys; sys.exit({code})"]))
         host._live[child.pid] = child
-        host._wait(child)
+        host._wait_for_exit(child)
     (call,) = notes.calls
     assert call["family"] == "background" and call["reason"] == "early_exit" and call["facts"]["code"] == 1
 
@@ -746,14 +752,14 @@ def test_a_background_child_s_report_carries_its_caller_s_opt_outs():
     popen = subprocess.Popen([sys.executable, "-c", "import sys; sys.exit(1)"])
     child = background._Child("/outbox", popen, {"PROBE_TELEMETRY": "off", "PATH": "/usr/bin", "PROBE_X": "1"})
     host._live[child.pid] = child
-    host._wait(child)
+    host._wait_for_exit(child)
     (call,) = notes.calls
     assert call["env"] == {"PROBE_TELEMETRY": "off"}, "its consent variables, never the rest"
 
 
 @pytest.fixture
 def service(tmp_path):
-    from probe.service.server import Service
+    from probe.service.server.server import Service
 
     svc = Service(registry=Registry(tmp_path / "sessions.json"), discovery_s=0)
     notes = Notes()
@@ -780,7 +786,21 @@ def test_the_loop_s_and_a_thread_s_unhandled_exceptions_are_logged_and_counted(s
     from probe.service import server
 
     lines: list = []
-    monkeypatch.setattr(server, "log", lines.append)
+    monkeypatch.setattr(server.policy, "log", lines.append)
+    monkeypatch.setattr(server.connections.connections, "log", lines.append)
+    monkeypatch.setattr(server.connections.pid_waiter, "log", lines.append)
+    monkeypatch.setattr(server.handlers.jobs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.callers, "log", lines.append)
+    monkeypatch.setattr(server.handlers.hooks, "log", lines.append)
+    monkeypatch.setattr(server.handlers.runs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.session, "log", lines.append)
+    monkeypatch.setattr(server.legacy_door, "log", lines.append)
+    monkeypatch.setattr(server.lifecycle, "log", lines.append)
+    monkeypatch.setattr(server.main, "log", lines.append)
+    monkeypatch.setattr(server.outbox, "log", lines.append)
+    monkeypatch.setattr(server.server, "log", lines.append)
+    monkeypatch.setattr(server.tracking, "log", lines.append)
+    monkeypatch.setattr(server.update_followup, "log", lines.append)
     try:
         raise ValueError("boom")
     except ValueError as exc:
@@ -800,7 +820,21 @@ def test_a_handler_s_own_exception_is_logged_with_its_traceback_and_counted(serv
     from probe.service import server
 
     lines: list = []
-    monkeypatch.setattr(server, "log", lines.append)
+    monkeypatch.setattr(server.policy, "log", lines.append)
+    monkeypatch.setattr(server.connections.connections, "log", lines.append)
+    monkeypatch.setattr(server.connections.pid_waiter, "log", lines.append)
+    monkeypatch.setattr(server.handlers.jobs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.callers, "log", lines.append)
+    monkeypatch.setattr(server.handlers.hooks, "log", lines.append)
+    monkeypatch.setattr(server.handlers.runs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.session, "log", lines.append)
+    monkeypatch.setattr(server.legacy_door, "log", lines.append)
+    monkeypatch.setattr(server.lifecycle, "log", lines.append)
+    monkeypatch.setattr(server.main, "log", lines.append)
+    monkeypatch.setattr(server.outbox, "log", lines.append)
+    monkeypatch.setattr(server.server, "log", lines.append)
+    monkeypatch.setattr(server.tracking, "log", lines.append)
+    monkeypatch.setattr(server.update_followup, "log", lines.append)
     try:
         {}["missing"]
     except KeyError as exc:
@@ -911,7 +945,7 @@ def test_on_windows_a_service_that_left_no_stop_record_is_no_crash(boot, monkeyp
     _run(4242, "777", "boot-a")
     assert watch.last_run((4242, "777"), "2.0.0") is None
     with monkeypatch.context() as crashing:
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         crashing.setattr(watch.os, "getpid", lambda: 4343)
         crashing.setattr(procid, "start_time", lambda pid: "888")
@@ -971,7 +1005,7 @@ def test_a_once_incident_is_tried_for_a_day_at_most(rig):
 def test_the_keeper_s_report_child_opens_no_window_on_windows(monkeypatch):
     """Review #6: the keeper runs as pythonw (no console); a python.exe child
     without CREATE_NO_WINDOW opens a console window for up to 60 s."""
-    from probe.service import children
+    from probe.service.actions import children
 
     seen: dict = {}
 
@@ -981,7 +1015,8 @@ def test_the_keeper_s_report_child_opens_no_window_on_windows(monkeypatch):
 
     monkeypatch.setattr(watch.subprocess, "run", run)
     monkeypatch.setattr(children, "core_argv", lambda action: ["python.exe", "-I", "-m", "probe.core.run", action])
-    monkeypatch.setattr(watch, "os", types.SimpleNamespace(name="nt", environ=os.environ, getpid=os.getpid))
+    windows_os = types.SimpleNamespace(name="nt", environ=os.environ, getpid=os.getpid)
+    monkeypatch.setattr(watch, "os", windows_os)
     # Windows-only in `subprocess`: its value there, set here.
     monkeypatch.setattr(watch.subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
     assert watch.report_blocking({"family": "service_down"}) == (0, {"sent": True, "id": "r-1"})
@@ -1028,7 +1063,7 @@ def test_the_watch_s_status_names_its_last_five_reports(rig):
 def test_a_hosted_recorder_whose_beat_stopped_while_its_agent_runs_is_stalled(rig):
     """Review #12 (plan rev 3, Codex #6): its thread is alive and not paused,
     its last beat more than 5 min old: nothing else would see it."""
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     owner = {"pid": os.getpid(), "start_time": procid.start_time(os.getpid())}
     rig.sessions = [Session(SID)]
@@ -1127,7 +1162,21 @@ def test_a_repeating_exception_logs_its_traceback_three_times_in_15_minutes_then
     from probe.service import server
 
     lines: list = []
-    monkeypatch.setattr(server, "log", lines.append)
+    monkeypatch.setattr(server.policy, "log", lines.append)
+    monkeypatch.setattr(server.connections.connections, "log", lines.append)
+    monkeypatch.setattr(server.connections.pid_waiter, "log", lines.append)
+    monkeypatch.setattr(server.handlers.jobs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.callers, "log", lines.append)
+    monkeypatch.setattr(server.handlers.hooks, "log", lines.append)
+    monkeypatch.setattr(server.handlers.runs, "log", lines.append)
+    monkeypatch.setattr(server.handlers.session, "log", lines.append)
+    monkeypatch.setattr(server.legacy_door, "log", lines.append)
+    monkeypatch.setattr(server.lifecycle, "log", lines.append)
+    monkeypatch.setattr(server.main, "log", lines.append)
+    monkeypatch.setattr(server.outbox, "log", lines.append)
+    monkeypatch.setattr(server.server, "log", lines.append)
+    monkeypatch.setattr(server.tracking, "log", lines.append)
+    monkeypatch.setattr(server.update_followup, "log", lines.append)
 
     def fail(method: str) -> None:
         try:
@@ -1148,7 +1197,7 @@ def test_the_service_hands_the_watch_each_recorder_s_beat(service):
     """Review #12: the age of a hosted recorder's last beat, only for one inside
     `hosted.record` that beat in this run of it (a tap from before `beat`, or a
     thread not yet in its loop, says nothing)."""
-    from probe.service.recorders import Recording
+    from probe.service.sessions.recorders.recording import Recording
 
     done = threading.Event()
     thread = threading.Thread(target=done.wait)
@@ -1195,7 +1244,7 @@ def test_the_service_hands_the_watch_the_receipts_of_live_sessions_asked_as_sess
 
 
 def test_the_recorder_host_marks_each_run_of_hosted_record(monkeypatch):
-    from probe.service import recorders
+    from probe.service.sessions import recorders
 
     seen: list = []
     host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
@@ -1405,7 +1454,7 @@ def test_start_reads_the_barrier_and_the_once_record_before_any_note(home):
 
 def test_stalled_and_gone_are_counted_apart_from_failing(rig):
     """Delta review #6: two earlier `failing` events are not a `stalled` report's."""
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     owner = {"pid": os.getpid(), "start_time": procid.start_time(os.getpid())}
     rig.sessions = [Session(SID)]

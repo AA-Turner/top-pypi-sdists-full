@@ -1,0 +1,101 @@
+id: "caller-controlled-value-formatting"
+title: "Make time formatting caller-controlled via value_formatter callback"
+worktree: "main"
+priority: "Medium-High"
+status: "Completed"
+completed_date: "2026-03-08"
+description: |
+  stacked_bar.py and summary_box.py each contain a _format_time() method that
+  hardcodes ms→s→min conversion. This assumes the input is milliseconds. When
+  metric_label is anything other than "ms" (e.g., "ops/s", "bytes", "requests"),
+  this formatting produces wrong output like "1.2s" for 1200 requests.
+
+  Add a value_formatter parameter (optional callback) to both chart classes.
+  When provided, use it instead of _format_time(). When not provided AND
+  metric_label is empty or "ms", fall back to existing _format_time() for
+  backward compatibility.
+category: "Core Functionality"
+work:
+  - id: w1
+    summary: "Add value_formatter callback to ASCIIStackedBar._format_total() and add tests"
+    status: done
+    notes: |
+      _format_total() already dispatches: _format_time() when metric_label is
+      "ms", _format_value() + metric_label otherwise. Add value_formatter:
+      Callable[[float], str] | None = None to __init__. In _format_total(),
+      check value_formatter first before the existing dispatch.
+
+      Add tests: custom formatter lambda produces expected output, default
+      behavior unchanged.
+
+  - id: w2
+    summary: "Add value_formatter to SummaryStats and fix total_time/best_queries to respect metric_label"
+    status: done
+    notes: |
+      SummaryStats already has metric_label: str = "ms". Geo mean and median
+      already use _format_value() + metric_label (lines 396, 401, 421, 423,
+      438). But total_time (lines 370-371, 406, 425, 441) and best_queries in
+      non-comparison mode (line 330) always call _format_time() regardless of
+      metric_label — this is the actual bug.
+
+      Add value_formatter: Callable[[float], str] | None = None to SummaryStats.
+      Create a _format_metric() dispatch method: value_formatter → _format_time()
+      (when metric_label is "ms") → _format_value() + metric_label. Route all
+      _format_time() call sites through _format_metric().
+
+      Add tests: metric_label="reqs" produces no "ms"/"s"/"min" in total_time
+      output; custom formatter lambda works; default "ms" behavior unchanged.
+metadata:
+  owners:
+    - "joe"
+  tags:
+    - "api"
+    - "de-benchbox"
+    - "formatting"
+  estimated_effort: "Small"
+  created_date: "2026-03-08"
+  last_updated: "2026-03-08T00:00:00"
+deps:
+  needs:
+    - "neutralize-default-labels-and-titles"
+impact:
+  business_value: |
+    Enables textcharts to display non-time values correctly, which is required
+    for any caller working with throughput, counts, bytes, or other units.
+  user_impact: |
+    Callers with non-millisecond data no longer see incorrect "ms"/"s"/"min"
+    suffixes on their values.
+files_affected:
+  modified:
+    - "src/textcharts/stacked_bar.py"
+    - "src/textcharts/summary_box.py"
+    - "tests/test_stacked_bar.py"
+    - "tests/test_summary_box.py"
+must_preserve:
+  - "Default formatting behavior unchanged when metric_label is empty or 'ms'"
+  - "Existing stacked_bar and summary_box tests pass without modification"
+approach: |
+  stacked_bar already has _format_total() that dispatches between _format_time()
+  and _format_value() + metric_label — just add the callback check at the top.
+
+  summary_box is the harder case: _format_value() + metric_label is already used
+  for geo_mean/median, but total_time and best_queries always call _format_time().
+  Create a single _format_metric() dispatch that unifies all formatting call
+  sites: value_formatter → _format_time() (when metric_label == "ms") →
+  _format_value() + metric_label.
+anti_patterns:
+  - "DO NOT remove _format_time() — because it's the correct default for ms data — add a dispatch layer above it"
+  - "DO NOT make value_formatter required — because that breaks every existing caller — keep it optional with None default"
+verification:
+  - description: "Existing tests pass without modification"
+    command: "uv run python -m pytest tests/test_stacked_bar.py tests/test_summary_box.py -v"
+    expected_output: "all tests pass"
+  - description: "Custom formatter test verifies callback output"
+    command: "uv run python -m pytest tests/ -k 'value_formatter' -v"
+    expected_output: "tests pass"
+scope_limit:
+  only_modify:
+    - "src/textcharts/stacked_bar.py"
+    - "src/textcharts/summary_box.py"
+    - "tests/test_stacked_bar.py"
+    - "tests/test_summary_box.py"

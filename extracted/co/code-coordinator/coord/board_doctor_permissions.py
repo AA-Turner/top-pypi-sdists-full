@@ -93,7 +93,9 @@ from coord.drive_queue import HOLD_RELEASED
 if TYPE_CHECKING:  # pragma: no cover — typing only
     from coord.config import Config
     from coord.drive_queue import QueueEntry
-    from coord.models import Board
+    from coord.merge_queue import QueuedMerge
+    from coord.models import Assignment, Board
+    from coord.review import ProposedFix, ReviewFindings
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +148,19 @@ class SweepWriteNotConfirmedError(RuntimeError):
 #: (#2244) clears a smoke leg's `test_state`/`test_reason` so it re-enters
 #: the ordinary dispatch scan — it never mutates the drive queue or spawns
 #: anything, so it is strictly narrower than any other name on this list.
+#: ``"dispatch_finisher_leg"`` spawns a leg the same way
+#: ``"dispatch_fixit_leg"`` does, with the same tool-scope bound — but a
+#: finisher leg may ALSO, on its own authority, overwrite a review
+#: assignment's verdict fields (``review_verdict``, ``verdict_source``, ...)
+#: and advance it to the merge queue. That bounded self-bless is still
+#: safe-tier because it is gated, every time, on the leg's own diff (taken
+#: over the already-reviewed SHA) passing
+#: :func:`coord.review.classify_finding_nit_class` — never on the leg's own
+#: say-so — and it has no path to ``force_merge`` or
+#: ``override_human_required``: it only ever calls
+#: :func:`coord.auto_loop.propagate_review_verdict`, the same bookkeeping
+#: hand-off to the ordinary merge queue a human-approved review uses, never
+#: a merge-execution primitive of its own.
 SAFE_TIER_ACTIONS: frozenset[str] = frozenset(
     {
         "merge_approved_green",
@@ -154,6 +169,7 @@ SAFE_TIER_ACTIONS: frozenset[str] = frozenset(
         "drive_queue_requeue",
         "ci_rerun",
         "dispatch_fixit_leg",
+        "dispatch_finisher_leg",
         "smoke_requeue",
     }
 )
@@ -861,6 +877,634 @@ def sweep_dispatch_fixit_leg(
     )
 
 
+def _finisher_leg_briefing(
+    *, cause: str, evidence: tuple[str, ...], nits: tuple[str, ...] = ()
+) -> str:
+    """The briefing text handed to a finisher leg — the same sweep *cause*/
+    *evidence* shape :func:`_fixit_leg_briefing` hands a fix-it leg, plus the
+    bounded self-bless contract spelled out explicitly so the leg itself
+    knows the limits of its own authority before it starts. *nits*, when the
+    caller has the reviewer's actual nit findings on hand (as Trigger A's
+    `coord.auto_loop.process_review_completion` call site does, via
+    `coord.review.extract_nits_section`), is listed explicitly; any other
+    caller that does not have that text on hand leaves it empty.
+
+    A finisher leg runs like any other fix round right up until it pushes —
+    same worker tool-scope, same `git`/edit/push primitives, no
+    `--dangerously-skip-permissions`. The one thing that differs is what
+    happens to *its own* diff afterward: it is graded against
+    `coord.review.classify_finding_nit_class` over the already-reviewed SHA,
+    and only a diff that passes gets to re-bless the prior review and advance
+    to merge on its own say-so. Anything else — behavioral, touches a public
+    API, touches a sealed path, or too large — falls back to an ordinary
+    full-review fix round exactly like a fix-it leg's output would.
+    """
+    lines = [
+        "The board-doctor sweep dispatched this finisher leg automatically "
+        "to apply reviewer nits directly, rather than bounce the review "
+        "back for a full fix round.",
+        "",
+        f"Cause: {cause}",
+    ]
+    if evidence:
+        lines.append("Evidence:")
+        lines.extend(f"- {item}" for item in evidence)
+    if nits:
+        lines.append("Reviewer's nits to apply:")
+        lines.extend(f"- {item}" for item in nits)
+    lines.extend([
+        "",
+        "You will NOT use `--dangerously-skip-permissions`, `gh`, "
+        "`--force-merge`, or `--override-human-required` — this leg runs at "
+        "ordinary worker tool-scope (edit/push/git) only, same as any other "
+        "fix round.",
+        "",
+        "Your own authority is bounded: once you push, your diff (taken over "
+        "the SHA the prior review actually reviewed) is graded against the "
+        "same nit-class test a reviewer would apply — non-behavioral, no "
+        "public-API surface, no sealed path, small. Only a diff that passes "
+        "re-blesses the prior review and advances it to merge. Anything "
+        "larger or more substantive falls back to an ordinary fix round and "
+        "waits for a fresh human-or-reviewer approval — you have no merge "
+        "authority of your own beyond that bound, and nothing you do here "
+        "can reach `force_merge` or `override_human_required`.",
+    ])
+    return "\n".join(lines)
+
+
+class FinisherLegDispatch(TypedDict):
+    """:func:`sweep_dispatch_finisher_leg`'s return shape.
+
+    ``dispatched`` is the one answer to "did a new finisher leg actually
+    start", set from `_dispatch_fix`'s own confirmed return value — never
+    from the mere absence of an exception (#2096). ``detail`` explains a
+    ``False`` result so a caller can tell a lock-blocked no-op from a
+    no-work-found no-op from a declined dispatch without inspecting
+    exceptions.
+    """
+
+    dispatched: bool
+    assignment_id: str | None
+    machine: str | None
+    detail: str
+
+
+def sweep_dispatch_finisher_leg(
+    repo_name: str,
+    issue_number: int,
+    board: "Board",
+    config: "Config",
+    *,
+    cause: str,
+    evidence: tuple[str, ...] = (),
+    nits: tuple[str, ...] = (),
+    http_client: Any | None = None,
+) -> FinisherLegDispatch:
+    """Daemon-internal "dispatch one autonomous finisher leg", authorized for
+    the sweep context.
+
+    Mirrors :func:`sweep_dispatch_fixit_leg` exactly for the dispatch half —
+    same in-flight lock (no second leg while a work-like assignment is
+    ``running``/``pending`` or a live `coord drive` session already exists
+    for this issue), same `_dispatch_fix` primitive, same fresh fix-round
+    number via `coord.auto_loop.next_fix_iteration`. The only difference is
+    the briefing (:func:`_finisher_leg_briefing`, carrying the bounded
+    self-bless contract) and the audit `event_type`. What the leg's *own*
+    diff is later allowed to do on its own authority — self-bless versus fall
+    back to a full review — is decided by :func:`finisher_self_bless`, not by
+    this dispatch step; this function only ever starts the leg.
+
+    Returns a :class:`FinisherLegDispatch` with ``dispatched=False`` — never
+    raises — for: no originating work-like assignment found for this issue,
+    a leg already in flight, or an underlying `_dispatch_fix` call that
+    declined. Only an observed, confirmed `Assignment` back from
+    `_dispatch_fix` is reported as ``dispatched=True``.
+
+    *nits* is forwarded straight to :func:`_finisher_leg_briefing` — the
+    reviewer's actual nit/non-blocking findings text, when the caller has
+    it, so the leg's briefing names what to apply instead of just a count.
+    """
+    authorize_sweep_action("dispatch_finisher_leg")
+
+    from coord.gates import _select_winning_work_assignment, assignments_for_issue  # noqa: PLC0415
+    from coord.models import WORK_LIKE_TYPES  # noqa: PLC0415
+
+    work_like = [
+        a
+        for a in assignments_for_issue(board, repo_name, issue_number)
+        if a.type in WORK_LIKE_TYPES
+    ]
+    if not work_like:
+        return FinisherLegDispatch(
+            dispatched=False,
+            assignment_id=None,
+            machine=None,
+            detail=(
+                f"{repo_name}#{issue_number} has no originating work "
+                "assignment on the board — nothing to dispatch a finisher "
+                "leg against"
+            ),
+        )
+
+    if any(a.status in ("running", "pending") for a in work_like):
+        return FinisherLegDispatch(
+            dispatched=False,
+            assignment_id=None,
+            machine=None,
+            detail=(
+                f"{repo_name}#{issue_number} already has a running or "
+                "pending assignment — a finisher leg is already in flight, "
+                "not dispatching a second one"
+            ),
+        )
+
+    from coord.drive import list_drive_sessions  # noqa: PLC0415
+
+    live_sessions = [
+        s
+        for s in list_drive_sessions()
+        if s.get("repo") == repo_name and s.get("issue") == issue_number
+    ]
+    if live_sessions:
+        return FinisherLegDispatch(
+            dispatched=False,
+            assignment_id=None,
+            machine=None,
+            detail=(
+                f"{repo_name}#{issue_number} has a live `coord drive` "
+                f"session ({live_sessions[0].get('session_name')}) — a "
+                "finisher leg is already in flight, not dispatching a second "
+                "one"
+            ),
+        )
+
+    work = _select_winning_work_assignment(work_like)
+
+    from coord.auto_loop import _dispatch_fix, next_fix_iteration  # noqa: PLC0415
+
+    iteration = next_fix_iteration(board, work)
+    briefing = _finisher_leg_briefing(cause=cause, evidence=evidence, nits=nits)
+
+    fix = _dispatch_fix(
+        work, briefing, board, config, iteration, http_client=http_client,
+    )
+    if fix is None:
+        return FinisherLegDispatch(
+            dispatched=False,
+            assignment_id=None,
+            machine=None,
+            detail=(
+                f"{repo_name}#{issue_number} finisher leg dispatch could not "
+                "be confirmed started — no capable machine, an unreachable "
+                "agent, or a declined dispatch"
+            ),
+        )
+
+    from coord.audit import record_audit  # noqa: PLC0415
+
+    record_audit(
+        tier="operational",
+        category="board_doctor",
+        event_type="finisher_leg_dispatched",
+        actor="daemon",
+        summary=(
+            f"board-doctor dispatched a finisher leg for {repo_name}#"
+            f"{issue_number} (cause={cause}) -> {fix.machine_name}"
+        ),
+        repo=repo_name,
+        issue=issue_number,
+        assignment_id=fix.assignment_id,
+        machine=fix.machine_name,
+        details={"cause": cause, "evidence": list(evidence)},
+    )
+
+    return FinisherLegDispatch(
+        dispatched=True,
+        assignment_id=fix.assignment_id,
+        machine=fix.machine_name,
+        detail=(
+            f"{repo_name}#{issue_number} finisher leg dispatched to "
+            f"{fix.machine_name} (iteration {iteration})"
+        ),
+    )
+
+
+#: The one `coord.auto_loop._dispatch_fix_for_review` action kind that means
+#: a fix round actually went out. Every other kind it can yield
+#: (``no_work_found``, ``terminal_skip``, ``max_iterations``,
+#: ``fix_round_ceiling_blocked``, ``needs_redesign``) is a refusal, so a
+#: decline detail must not call it a fix round.
+_FIX_DISPATCHED_KIND = "fix_dispatched"
+
+
+class FinisherSelfBlessResult(TypedDict):
+    """:func:`finisher_self_bless`'s return shape.
+
+    ``blessed`` is the one answer to "did this diff re-bless the prior
+    review on its own authority" — ``True`` means a PENDING merge-queue
+    entry keyed to the parent work assignment was **read back** afterwards
+    (:func:`_observed_merge_queue_entry`), not merely that nothing raised.
+    ``False`` means either the normal full-review fix path
+    (:func:`coord.auto_loop._dispatch_fix_for_review`) ran instead, or the
+    override was recorded but nothing reached the merge queue. ``actions``
+    carries that fallback path's own `LoopAction` list when the fallback
+    ran, empty otherwise.
+    """
+
+    blessed: bool
+    actions: list[Any]
+    detail: str
+
+
+def finisher_self_bless(
+    review: "Assignment",
+    findings: "ReviewFindings",
+    board: "Board",
+    config: "Config",
+    *,
+    fix: "ProposedFix",
+    new_head_sha: str,
+    new_patch_id: str | None = None,
+    applied_nits: tuple[str, ...] = (),
+    waived_nits: tuple[str, ...] = (),
+    http_client: Any | None = None,
+) -> FinisherSelfBlessResult:
+    """Decide whether a finisher leg's own diff may re-bless *review* — the
+    bounded-authority core of a finisher leg.
+
+    A nit fix changes the patch-id, which voids the prior review's approval.
+    Something has to re-bless the new SHA. This is the one thing in the
+    codebase authorized to do that *for nit-class deltas specifically* —
+    never for anything larger — and it is authorized the same way every
+    other daemon-internal mutation here is: gated on
+    :func:`authorize_sweep_action`, and gated, every single call, on *fix*
+    actually passing `coord.review.classify_finding_nit_class` over
+    *findings* **and** on `coord.review.classify_blocking_evidence` over
+    the same body confirming no blocking finding survives — never on the
+    leg's own say-so.
+
+    *fix* is a caller attestation, not a mechanically-derived property:
+    whoever calls this (the finisher leg itself, reporting on its own diff)
+    asserts `fix.behavioral` and `fix.touches_public_api` at exactly the
+    trust level a human reviewer's own attestation carries today — this
+    function does not and cannot independently verify either beyond the
+    mechanical size/sealed-path checks `classify_finding_nit_class` already
+    does from `fix.diff_text`.
+
+    On a passing (nit-class, confirmed-blocking-free) *fix*: overwrites
+    *review*'s verdict fields — preserving the original verdict and reason,
+    same shape #476's approve-with-nits override uses
+    (`review_verdict_original`, `review_verdict_override_reason`,
+    `verdict_source="overridden"`) — re-points the review's staleness
+    anchors onto *new_head_sha*/*new_patch_id* both in-memory and durably
+    via `coord.state.record_review_reaffirm` (so a merge-queue scan in this
+    process or a later one both see the new SHA as approved, not stale),
+    then hands off to `coord.auto_loop.propagate_review_verdict` with
+    ``refresh_merge_queue=True`` to advance to the merge queue. That handoff
+    is the *only* merge-queue primitive this function ever calls; it has no
+    path to `force_merge` or `override_human_required`, and neither name is
+    ever referenced here.
+
+    ``blessed`` is then decided by **reading the merge queue back**
+    (:func:`_observed_merge_queue_entry`), never by that handoff returning
+    without raising. ``propagate_review_verdict`` returns the parent work
+    row whenever the row is on the board, which says nothing about its
+    merge-queue refresh: the refresh is skipped outright for a row with no
+    branch, and its failures are logged rather than propagated. So a
+    missing parent row, a branchless parent row and a refresh that threw
+    all report ``blessed=False`` with the reason in ``detail`` — the review
+    row's override stands either way, but the claim "advanced it to the
+    merge queue" is only ever made about an entry that was observed to
+    exist.
+
+    On a failing fix — either not nit-class, or nit-class but the review
+    body still carries a confirmed blocking finding — records why, then
+    falls back WHOLESALE to `coord.auto_loop._dispatch_fix_for_review` — the
+    same full-review fix path any other request-changes verdict takes — and
+    reports ``blessed=False``. This function never merges or approves on
+    that path.
+
+    Records an audit row on both branches, and a PR comment (recording which
+    nits were applied versus waived) on the self-bless branch, so the
+    decision is visible both as a structured audit trail and on the PR
+    itself.
+    """
+    authorize_sweep_action("dispatch_finisher_leg")
+
+    if review.type != "review":
+        raise ValueError(
+            f"finisher_self_bless requires a review assignment, got "
+            f"assignment_id={review.assignment_id!r} with "
+            f"type={review.type!r}"
+        )
+
+    from coord.review import classify_blocking_evidence, classify_finding_nit_class  # noqa: PLC0415
+
+    sealed_paths = config.acceptance.sealed_paths(review.repo_name)
+    blocking_evidence = classify_blocking_evidence(
+        findings.body, assignment_id=review.assignment_id,
+    )
+    is_nit_class = (
+        classify_finding_nit_class(
+            findings.body,
+            assignment_id=review.assignment_id,
+            fix=fix,
+            sealed_paths=sealed_paths,
+        )
+        and blocking_evidence.confirmed_absent
+    )
+
+    from coord.audit import record_audit  # noqa: PLC0415
+
+    if not is_nit_class:
+        record_audit(
+            tier="business",
+            category="review",
+            event_type="finisher_self_bless_declined",
+            actor="daemon",
+            summary=(
+                f"finisher leg diff for {review.repo_name}#"
+                f"{review.issue_number} is not nit-class — falling back to "
+                "a full-review fix round, not self-blessing"
+            ),
+            repo=review.repo_name,
+            issue=review.issue_number,
+            assignment_id=review.assignment_id,
+            machine=review.machine_name,
+            details={
+                "behavioral": fix.behavioral,
+                "touches_public_api": fix.touches_public_api,
+                "blocking_confirmed_absent": blocking_evidence.confirmed_absent,
+            },
+        )
+
+        from coord.auto_loop import _dispatch_fix_for_review  # noqa: PLC0415
+
+        actions = list(_dispatch_fix_for_review(
+            review, findings, board, config, http_client=http_client,
+        ))
+        if actions and actions[0].kind == _FIX_DISPATCHED_KIND:
+            fallback_detail = f"fell back to a full-review fix round ({actions[0].detail})"
+        elif actions:
+            fallback_detail = (
+                "fell back to the full-review path, which dispatched no fix "
+                f"round ({actions[0].kind}: {actions[0].detail})"
+            )
+        else:
+            fallback_detail = "fell back to the full-review path, but no fix round was dispatched"
+        return FinisherSelfBlessResult(
+            blessed=False,
+            actions=actions,
+            detail=(
+                f"{review.repo_name}#{review.issue_number}: finisher leg "
+                f"diff is not nit-class — {fallback_detail}"
+            ),
+        )
+
+    original_verdict = findings.verdict
+    override_reason = (
+        "finisher self-bless: own diff passed classify_finding_nit_class "
+        "with confirmed-absent blocking findings "
+        f"(applied={list(applied_nits)}, waived={list(waived_nits)})"
+    )
+    review.review_verdict_original = original_verdict
+    review.review_verdict_override_reason = override_reason
+    review.review_verdict = "approve"
+    review.verdict_source = "overridden"
+    review.verdict_source_reason = override_reason
+    review.review_head_sha = new_head_sha
+    review.review_patch_id = new_patch_id
+
+    from coord.state import record_review_reaffirm  # noqa: PLC0415
+
+    record_review_reaffirm(
+        review_assignment_id=review.assignment_id,
+        new_head_sha=new_head_sha,
+        new_patch_id=new_patch_id,
+        reason=(
+            "finisher leg self-bless re-pointed staleness anchors after "
+            "pushing a nit-class fix over the reviewed SHA"
+        ),
+        actor="daemon",
+        conflict_fix_only=None,
+    )
+
+    record_audit(
+        tier="business",
+        category="review",
+        event_type="finisher_self_bless_approved",
+        actor="daemon",
+        summary=(
+            f"Finisher leg self-blessed its own nit-class diff for "
+            f"{review.repo_name}#{review.issue_number}, overriding "
+            f"{original_verdict!r} -> approve"
+        ),
+        repo=review.repo_name,
+        issue=review.issue_number,
+        assignment_id=review.assignment_id,
+        machine=review.machine_name,
+        details={
+            "original_verdict": original_verdict,
+            "applied_nits": list(applied_nits),
+            "waived_nits": list(waived_nits),
+            "new_head_sha": new_head_sha,
+            "new_patch_id": new_patch_id,
+        },
+    )
+
+    _post_finisher_self_bless_notice(
+        review, board, config,
+        original_verdict=original_verdict,
+        applied_nits=applied_nits,
+        waived_nits=waived_nits,
+    )
+
+    from coord.auto_loop import propagate_review_verdict  # noqa: PLC0415
+
+    work = propagate_review_verdict(review, board, config, refresh_merge_queue=True)
+    if work is None:
+        return _self_bless_not_advanced(
+            review,
+            reason=(
+                "the parent work assignment could not be found on the board"
+            ),
+            work_assignment_id=None,
+        )
+
+    entry = _observed_merge_queue_entry(work)
+    if entry is None:
+        return _self_bless_not_advanced(
+            review,
+            reason=(
+                "no pending merge-queue entry is keyed to parent work "
+                f"assignment {work.assignment_id!r} "
+                f"(branch={work.branch!r}) afterwards"
+            ),
+            work_assignment_id=work.assignment_id,
+        )
+
+    return FinisherSelfBlessResult(
+        blessed=True,
+        actions=[],
+        detail=(
+            f"{review.repo_name}#{review.issue_number}: finisher leg "
+            "self-blessed a nit-class diff and advanced it to the merge "
+            f"queue (pending entry on {entry.branch!r} keyed to "
+            f"{entry.assignment_id!r})"
+        ),
+    )
+
+
+def _observed_merge_queue_entry(work: "Assignment") -> "QueuedMerge | None":
+    """Read the merge queue back and return the PENDING entry keyed to
+    *work*, or ``None`` when there isn't one.
+
+    This is the observation that decides :func:`finisher_self_bless`'s
+    ``blessed`` (#2096: never derive success from the absence of an
+    exception). :func:`coord.auto_loop.propagate_review_verdict` cannot
+    answer the question itself — it returns the parent work row whenever
+    that row is on the board, while its merge-queue refresh is skipped for
+    a branchless row and swallows its own failures into a log line. Only a
+    read-back distinguishes "an entry the merge gate can pick up now
+    exists" from "the review row was rewritten and nothing else happened".
+
+    A terminal entry (MERGED, CONFLICT, ...) does not count:
+    `coord.merge_queue.refresh_entry_assignment` deliberately leaves those
+    untouched rather than re-keying them, so one is evidence that nothing
+    was advanced, not that something was.
+    """
+    if not work.assignment_id:
+        return None
+    try:
+        from coord.merge_queue import PENDING, load_queue  # noqa: PLC0415
+
+        items = load_queue()
+    except Exception:  # noqa: BLE001 — an unreadable queue is an unobserved advance
+        log.warning(
+            "finisher self-bless: could not read the merge queue back for %s",
+            work.assignment_id, exc_info=True,
+        )
+        return None
+    return next(
+        (
+            x for x in items
+            if x.assignment_id == work.assignment_id and x.state == PENDING
+        ),
+        None,
+    )
+
+
+def _self_bless_not_advanced(
+    review: "Assignment",
+    *,
+    reason: str,
+    work_assignment_id: str | None,
+) -> FinisherSelfBlessResult:
+    """Report a self-bless whose override landed but whose merge-queue
+    advance was not observed, and record it as an audit row.
+
+    The review row keeps its override — it describes the new SHA truthfully
+    — but ``blessed`` is ``False`` and *reason* names what was missing, so
+    the stuck row stays visible to the next board-doctor sweep instead of
+    being reported as a merge that is on its way.
+    """
+    from coord.audit import record_audit  # noqa: PLC0415
+
+    record_audit(
+        tier="business",
+        category="review",
+        event_type="finisher_self_bless_advance_unconfirmed",
+        actor="daemon",
+        summary=(
+            f"finisher leg recorded a self-bless override for "
+            f"{review.repo_name}#{review.issue_number} but could not "
+            f"confirm the merge-queue advance — {reason}"
+        ),
+        repo=review.repo_name,
+        issue=review.issue_number,
+        assignment_id=review.assignment_id,
+        machine=review.machine_name,
+        details={"reason": reason, "work_assignment_id": work_assignment_id},
+    )
+    return FinisherSelfBlessResult(
+        blessed=False,
+        actions=[],
+        detail=(
+            f"{review.repo_name}#{review.issue_number}: finisher leg "
+            f"recorded the self-bless override, but {reason} — nothing was "
+            "advanced to the merge queue"
+        ),
+    )
+
+
+def _post_finisher_self_bless_notice(
+    review: "Assignment",
+    board: "Board",
+    config: "Config",
+    *,
+    original_verdict: str,
+    applied_nits: tuple[str, ...],
+    waived_nits: tuple[str, ...],
+) -> None:
+    """Post the audit-trail PR comment for a finisher self-bless.
+
+    Mirrors `coord.auto_loop._post_advisory_nits_notice`'s shape exactly —
+    looks up the parent work assignment via *board* and no-ops if it can't
+    be found, uses the parent work's assignment id in the marker (not the
+    review's own), and is best-effort: a `github_ops` failure must never
+    block the pipeline. Names which nits were actually applied versus
+    waived, since that (not a blocking/nonblocking count) is what this
+    override is actually attesting to.
+    """
+    work = (
+        board.find_by_id(review.review_of_assignment_id)
+        if review.review_of_assignment_id
+        else None
+    )
+    if work is None:
+        return
+    repo = config.repo(work.repo_name)
+    if repo is None:
+        return
+    from coord import github_ops  # noqa: PLC0415
+
+    applied_lines = (
+        "\n".join(f"- {item}" for item in applied_nits)
+        if applied_nits
+        else "- (none recorded)"
+    )
+    waived_lines = (
+        "\n".join(f"- {item}" for item in waived_nits)
+        if waived_nits
+        else "- (none)"
+    )
+    body = (
+        f"<!-- coord:event=finisher_self_bless assignment={work.assignment_id} "
+        f"original_verdict={original_verdict} override_verdict=approve -->\n"
+        f"## 🤖 Finisher leg self-blessed this nit-class fix\n\n"
+        f"- **Reviewer's verdict:** `{original_verdict}`\n"
+        f"- **Finisher's override:** `approve`\n\n"
+        f"A board-doctor finisher leg applied reviewer nits directly and "
+        f"its own diff passed the nit-class bound "
+        f"(`coord.review.classify_finding_nit_class`) — non-behavioral, no "
+        f"public-API surface, no sealed path, small, and with no confirmed "
+        f"blocking finding left in the review. That is enough authority for "
+        f"the finisher to re-bless this review's verdict and advance it to "
+        f"merge on its own; the reviewer's own verdict is preserved on the "
+        f"assignment (`review_verdict_original`), not erased.\n\n"
+        f"**Nits applied:**\n{applied_lines}\n\n"
+        f"**Nits waived:**\n{waived_lines}\n"
+    )
+    try:
+        github_ops.post_issue_comment(repo.github, work.issue_number, body)
+    except Exception as exc:  # noqa: BLE001 — best-effort notice
+        log.warning(
+            "board_doctor_permissions: failed to post finisher self-bless "
+            "notice for %s: %s",
+            review.assignment_id, exc,
+        )
+
+
 class SmokeRequeue(TypedDict):
     """:func:`sweep_smoke_requeue`'s return shape.
 
@@ -1022,6 +1666,7 @@ _HANDLERS: dict[str, Callable[..., Any]] = {
     "drive_queue_remove": sweep_drive_queue_remove,
     "drive_queue_requeue": sweep_drive_queue_requeue,
     "dispatch_fixit_leg": sweep_dispatch_fixit_leg,
+    "dispatch_finisher_leg": sweep_dispatch_finisher_leg,
     "smoke_requeue": sweep_smoke_requeue,
 }
 

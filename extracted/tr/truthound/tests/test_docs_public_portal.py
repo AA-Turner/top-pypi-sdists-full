@@ -1,0 +1,460 @@
+from __future__ import annotations
+
+import importlib.util
+import re
+import struct
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _korean_checker():
+    path = REPO_ROOT / "docs/scripts/verify_korean_docs.py"
+    spec = importlib.util.spec_from_file_location("truthound_korean_checker", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _check_korean_site(tmp_path, monkeypatch, body: str, surface: str) -> int:
+    page = tmp_path / "dashboard/index.html"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("<p>" + "한국어 기능 설명과 사용상 제약을 확인합니다. " * 30 + "</p>" + body, encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["verify_korean_docs", "--site-dir", str(tmp_path), "--surface", surface])
+    return _korean_checker().main()
+
+
+def test_full_korean_gate_accepts_only_actual_core_ui_links(tmp_path, monkeypatch):
+    body = '''<link rel="canonical" href="https://truthound.netlify.app/dashboard/">
+    <link rel="alternate" href="../en/dashboard/" hreflang="en">
+    <a href="../cli/dashboard/">명령어</a>
+    <a href="../guides/datadocs/dashboard/">사용법</a>
+    <a href="https://github.com/seadonggyun4/Truthound/edit/main/docs/ko/dashboard/index.md">편집</a>'''
+    assert _check_korean_site(tmp_path, monkeypatch, body, "full") == 0
+
+
+@pytest.mark.parametrize("surface,body", [
+    ("public", '<a href="https://truthound.netlify.app/dashboard/">UI</a>'),
+    ("full", '<a href="https://evil.example/dashboard/">외부</a>'),
+    ("full", '<a href="https://[invalid/dashboard/">잘못된 URL</a>'),
+    ("full", '<a href="https://truthound.netlify.app/other/dashboard/">미등록</a>'),
+    ("full", '<a href="https://truthound.netlify.app/dashboard/?redirect=external">질의</a>'),
+    ("full", '<p>/dashboard/</p>'),
+    ("full", '<script>const copied = \'<a href="https://truthound.netlify.app/dashboard/">UI</a>\';</script>'),
+    ("full", '<!-- <a href="https://truthound.netlify.app/dashboard/">UI</a> -->'),
+    ("full", '<a data-href="https://truthound.netlify.app/dashboard/">속성</a>'),
+    ("full", '''<a title="href='https://truthound.netlify.app/dashboard/'">제목</a>'''),
+    ("full", '''<a href="https://truthound.netlify.app/dashboard/" title="href='https://truthound.netlify.app/dashboard/'">제목</a>'''),
+    ("full", '<a href="https://truthound.netlify.app/dashboard/">허용</a><p>truthound-dashboard</p>'),
+    ("full", '<a href="https://truthound.netlify.app/depot/">차단</a>'),
+])
+def test_korean_route_policy_still_rejects_removed_or_untrusted_surfaces(tmp_path, monkeypatch, surface, body):
+    assert _check_korean_site(tmp_path, monkeypatch, body, surface) == 1
+
+
+def test_core_ui_link_permission_does_not_bypass_language_gate(tmp_path, monkeypatch):
+    page = tmp_path / "dashboard/index.html"
+    page.parent.mkdir()
+    page.write_text('<a href="https://truthound.netlify.app/dashboard/">English only</a>' * 40, encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["verify_korean_docs", "--site-dir", str(tmp_path), "--surface", "full"])
+    assert _korean_checker().main() == 1
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_korean_gate_rejects_empty_or_missing_site(tmp_path, monkeypatch, missing):
+    site_dir = tmp_path / "missing" if missing else tmp_path
+    monkeypatch.setattr(sys, "argv", ["verify_korean_docs", "--site-dir", str(site_dir)])
+    assert _korean_checker().main() == 1
+
+
+def _load_public_manifest_module():
+    module_path = REPO_ROOT / "docs" / "scripts" / "public_manifest.py"
+    spec = importlib.util.spec_from_file_location("truthound_docs_public_manifest", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_external_docs_module():
+    module_path = REPO_ROOT / "docs" / "scripts" / "external_docs.py"
+    spec = importlib.util.spec_from_file_location("truthound_docs_external_docs", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_fetch_external_docs_module():
+    module_path = REPO_ROOT / "docs" / "scripts" / "fetch_external_docs.py"
+    spec = importlib.util.spec_from_file_location("truthound_docs_fetch_external_docs", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _external_source_available(name: str) -> bool:
+    manifest_module = _load_public_manifest_module()
+    external_module = _load_external_docs_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+    sources = external_module.load_external_sources(manifest)
+    source = next(item for item in sources if item.name == name)
+    return external_module.discover_external_source_root(REPO_ROOT, source) is not None
+
+
+def _load_mkdocs(path: Path) -> dict:
+    raw_text = path.read_text(encoding="utf-8")
+    sanitized = re.sub(r"!!python/name:[^\s]+", "python-ref", raw_text)
+    return yaml.safe_load(sanitized) or {}
+
+
+def _png_dimensions(path: Path) -> tuple[int, int]:
+    with path.open("rb") as handle:
+        header = handle.read(24)
+    assert header.startswith(b"\x89PNG\r\n\x1a\n")
+    return struct.unpack(">II", header[16:24])
+
+
+def _nav_labels(node) -> list[str]:
+    labels: list[str] = []
+    if isinstance(node, list):
+        for item in node:
+            labels.extend(_nav_labels(item))
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            labels.append(key)
+            labels.extend(_nav_labels(value))
+    return labels
+
+
+def _top_level_nav_labels(config: dict) -> list[str]:
+    labels: list[str] = []
+    for entry in config.get("nav", []):
+        if isinstance(entry, dict):
+            labels.extend(entry.keys())
+    return labels
+
+
+def test_public_docs_manifest_exposes_full_portal():
+    manifest_module = _load_public_manifest_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+    docs = manifest_module.resolve_public_docs(manifest, REPO_ROOT / "docs")
+
+    assert "index.md" in docs
+    assert "ai/index.md" in docs
+    assert "ai/system-boundary.md" in docs
+    assert "tutorials/index.md" in docs
+    assert "cli/index.md" in docs
+    assert "python-api/index.md" in docs
+    assert "reference/index.md" in docs
+    assert "guides/checkpoint/index.md" in docs
+    assert "guides/validators/index.md" in docs
+    assert "dashboard/index.md" not in docs
+    assert "guides/datadocs/dashboard.md" not in docs
+    assert "cli/dashboard.md" not in docs
+    assert "concepts/depot-engine-primitives.md" not in docs
+    assert "orchestration/depot-pipelines.md" not in docs
+    assert "concepts/API_REFERENCE.md" not in docs
+    assert "guides/datasources/ARCHITECTURE.md" not in docs
+
+
+def test_public_docs_expected_page_count_matches_manifest():
+    manifest_module = _load_public_manifest_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+    docs = manifest_module.resolve_public_docs(manifest, REPO_ROOT / "docs")
+
+    public_urls = {f"/{Path(path).with_suffix('').as_posix()}/" for path in docs if not path.endswith("index.md")}
+    public_urls.update(
+        "/"
+        if path == "index.md"
+        else f"/{Path(path).parent.as_posix()}/"
+        for path in docs
+        if path.endswith("index.md")
+    )
+
+    assert manifest["expected_page_count"] == len(public_urls)
+    assert manifest["expected_markdown_count"] == len(docs)
+    assert len(docs) > 36
+
+
+def test_language_redirect_matches_static_i18n_output_layout() -> None:
+    redirect_js = (
+        REPO_ROOT / "docs" / "javascripts" / "language-redirect.js"
+    ).read_text(encoding="utf-8")
+    redirects = (REPO_ROOT / "docs" / "_redirects").read_text(encoding="utf-8")
+
+    assert 'if (lang === "ko")' in redirect_js
+    assert 'var nextPath = "/en" + (path === "/" ? "/" : path);' in redirect_js
+    assert '"/" + lang + "/"' not in redirect_js
+    assert "/ko/* /:splat 301!" in redirects
+    assert "/ko/ / 301!" in redirects
+
+
+def test_public_docs_have_real_korean_locale_overlays() -> None:
+    manifest_module = _load_public_manifest_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+    docs = manifest_module.resolve_public_docs(manifest, REPO_ROOT / "docs")
+    prepare_script = (REPO_ROOT / "docs" / "scripts" / "prepare_public_docs.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "_render_korean_mirror" not in prepare_script
+    assert "한국어 미러" not in prepare_script
+    for doc_path in docs:
+        overlay = REPO_ROOT / "docs" / "locales" / "ko" / doc_path
+        assert overlay.exists(), doc_path
+        text = overlay.read_text(encoding="utf-8")
+        assert "한국어 미러" not in text
+        assert len(re.findall(r"[가-힣]", text)) >= 40, doc_path
+
+
+def test_public_docs_manifest_keeps_orchestration_counts_without_external_checkout():
+    manifest_module = _load_public_manifest_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+
+    original = manifest_module._optional_external_nav_doc_paths
+    try:
+        manifest_module._optional_external_nav_doc_paths = (
+            lambda repo_root, source: []
+            if source.name == "orchestration"
+            else original(repo_root, source)
+        )
+        docs = manifest_module.resolve_public_docs(manifest, REPO_ROOT / "docs")
+    finally:
+        manifest_module._optional_external_nav_doc_paths = original
+
+    public_urls = {f"/{Path(path).with_suffix('').as_posix()}/" for path in docs if not path.endswith("index.md")}
+    public_urls.update(
+        "/"
+        if path == "index.md"
+        else f"/{Path(path).parent.as_posix()}/"
+        for path in docs
+        if path.endswith("index.md")
+    )
+
+    assert "orchestration/testing-ci-ownership.md" in docs
+    assert manifest["expected_markdown_count"] == len(docs)
+    assert manifest["expected_page_count"] == len(public_urls)
+
+
+def test_mkdocs_nav_exposes_major_hubs_in_main_and_public_configs():
+    expected_labels = [
+        "Core",
+        "AI",
+        "Orchestration",
+        "Release Notes",
+        "ADRs",
+        "Legacy / Archive",
+    ]
+
+    for config_path in [REPO_ROOT / "mkdocs.yml", REPO_ROOT / "mkdocs.public.yml"]:
+        config = _load_mkdocs(config_path)
+        labels = _top_level_nav_labels(config)
+        for label in expected_labels:
+            assert label in labels
+        assert "Experimental" not in labels
+
+
+def test_mkdocs_core_nav_exposes_major_subsections() -> None:
+    expected_core_labels = [
+        "Core Overview",
+        "Getting Started",
+        "Tutorials",
+        "Guides",
+        "Reference",
+        "Concepts & Architecture",
+    ]
+
+    for config_path in [REPO_ROOT / "mkdocs.yml", REPO_ROOT / "mkdocs.public.yml"]:
+        config = _load_mkdocs(config_path)
+        nav = config.get("nav", [])
+        core_entry = next(
+            (entry["Core"] for entry in nav if isinstance(entry, dict) and "Core" in entry),
+            None,
+        )
+        assert core_entry is not None
+        labels = _nav_labels(core_entry)
+        for label in expected_core_labels:
+            assert label in labels
+        assert "Data Docs Dashboard UI" not in labels
+
+
+def test_mkdocs_depot_nav_is_removed() -> None:
+    for config_path in [REPO_ROOT / "mkdocs.yml", REPO_ROOT / "mkdocs.public.yml"]:
+        config = _load_mkdocs(config_path)
+        assert "Depot" not in _top_level_nav_labels(config)
+
+
+def test_korean_nav_translations_are_configured_for_main_hubs():
+    for config_path in (REPO_ROOT / "mkdocs.yml", REPO_ROOT / "mkdocs.public.yml"):
+        config = _load_mkdocs(config_path)
+        languages = config["plugins"][1]["i18n"]["languages"]
+        ko = next(language for language in languages if language["locale"] == "ko")
+        translations = ko["nav_translations"]
+
+        assert ko["site_description"].startswith("Polars 기반")
+        assert translations["Home"] == "홈"
+        assert translations["Orchestration"] == "오케스트레이션"
+        assert translations["Release Notes"] == "릴리스 노트"
+        assert translations["Legacy / Archive"] == "레거시 / 아카이브"
+
+
+def test_mkdocs_ai_nav_exposes_major_subsections() -> None:
+    expected_ai_labels = [
+        "Overview",
+        "System Boundary",
+        "Proposal Compiler",
+        "Run Analysis Evidence Model",
+        "Artifact Schema",
+        "Approval and Apply Semantics",
+        "Privacy and Redaction",
+        "Provider Contract",
+        "Prompt Hardening",
+        "Smoke and Release Gates",
+    ]
+
+    for config_path in [REPO_ROOT / "mkdocs.yml", REPO_ROOT / "mkdocs.public.yml"]:
+        config = _load_mkdocs(config_path)
+        nav = config.get("nav", [])
+        ai_entry = next(
+            (entry["AI"] for entry in nav if isinstance(entry, dict) and "AI" in entry),
+            None,
+        )
+        assert ai_entry is not None
+        labels = _nav_labels(ai_entry)
+        for label in expected_ai_labels:
+            assert label in labels
+
+
+def test_mkdocs_brand_assets_are_preserved():
+    main_config = _load_mkdocs(REPO_ROOT / "mkdocs.yml")
+    public_config = _load_mkdocs(REPO_ROOT / "mkdocs.public.yml")
+
+    for config in [main_config, public_config]:
+        theme = config["theme"]
+        assert "logo" not in theme
+        assert "favicon" not in theme
+        assert theme["palette"][0]["primary"] == "custom"
+        assert theme["palette"][0]["accent"] == "custom"
+        assert theme["palette"][1]["primary"] == "custom"
+        assert theme["palette"][1]["accent"] == "custom"
+        assert config["extra_css"] == ["stylesheets/extra.css"]
+
+    assert _png_dimensions(REPO_ROOT / "docs" / "assets" / "truthound_icon.png") == (256, 256)
+
+
+def test_mkdocs_palette_matches_logo_brand_colors():
+    css = (REPO_ROOT / "docs" / "stylesheets" / "extra.css").read_text(encoding="utf-8").lower()
+
+    for expected in (
+        "#151f27",
+        "#334155",
+        "#0b1117",
+        "#111827",
+        "#c2410c",
+        "#ff8a3d",
+        "#f7efea",
+        "rgba(249, 103, 19, 0.22)",
+        "rgba(254, 133, 37, 0.28)",
+    ):
+        assert expected in css
+
+    for stale in (
+        "#d4854a",
+        "#e2a06e",
+        "#b76b34",
+        "#8b4c1a",
+        "#7a4218",
+        "#6b3a15",
+        "-webkit-text-stroke",
+        "text-transform: uppercase",
+    ):
+        assert stale not in css
+
+
+def test_external_source_banner_markup_uses_generic_upstream_contract() -> None:
+    manifest_module = _load_public_manifest_module()
+    external_module = _load_external_docs_module()
+    manifest = manifest_module.load_manifest(REPO_ROOT / "docs" / "public_docs.yml")
+    sources = external_module.load_external_sources(manifest)
+    orchestration = next(source for source in sources if source.name == "orchestration")
+
+    banner = external_module.build_source_banner(
+        Path("orchestration/index.md"),
+        orchestration,
+    )
+
+    assert "dashboard-external-banner" not in banner
+    assert "/assets/dashboard/" not in banner
+    assert '!!! note "Upstream Source"' in banner
+
+
+def test_docs_deployment_verification_excludes_dashboard_and_depot_surface() -> None:
+    verification_doc = (
+        REPO_ROOT / "docs" / "guides" / "docs-deployment-verification.md"
+    ).read_text(encoding="utf-8")
+
+    assert "https://truthound.netlify.app/" in verification_doc
+    assert "dashboard and Depot pages are not hosted inside the Netlify site" in verification_doc
+    assert "dashboard and Depot docs remain outside the public MkDocs surface" in verification_doc
+    assert "docs/dashboard/index.md" not in verification_doc
+    assert "docs/ai/" in verification_doc
+
+
+def _init_git_repo(repo_path: Path, *, branch: str = "main") -> None:
+    subprocess.run(["git", "init", "-b", branch, str(repo_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_path), "config", "user.email", "docs@example.com"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo_path), "config", "user.name", "Docs Test"],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(repo_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repo_path), "commit", "-m", "init"], check=True)
+
+
+def test_fetch_external_docs_clones_missing_sources_into_dot_external(tmp_path: Path) -> None:
+    fetch_module = _load_fetch_external_docs_module()
+
+    repo_root = tmp_path / "workspace" / "repo"
+    repo_root.mkdir(parents=True)
+
+    source_repo = tmp_path / "sources" / "truthound-orchestration-source"
+    (source_repo / "docs").mkdir(parents=True)
+    (source_repo / "docs" / "index.md").write_text("# Orchestration\n", encoding="utf-8")
+    _init_git_repo(source_repo)
+
+    manifest = {
+        "external_sources": {
+            "orchestration": {
+                "prefix": "orchestration",
+                "label": "Truthound Orchestration 3.x",
+                "repo_url": source_repo.resolve().as_posix(),
+                "repo_name": "local/truthound-orchestration-source",
+                "branch": "main",
+                "docs_root": "docs",
+            }
+        }
+    }
+
+    fetched = fetch_module.ensure_external_sources(repo_root=repo_root, manifest=manifest)
+    assert fetched == 1
+    assert (repo_root / ".external" / "truthound-orchestration-source" / "docs" / "index.md").exists()
+
+    fetched_again = fetch_module.ensure_external_sources(repo_root=repo_root, manifest=manifest)
+    assert fetched_again == 0

@@ -238,10 +238,11 @@ class BaseStorage(object):
 
         :param bytes key: Key to check/set.
         :param bytes value: Arbitrary data.
-        :param int ttl: Seconds until the key expires. Supported by the memory
-            and redis storages, others raise ``NotImplementedError``. With
-            ``RedisStorage`` the server must support hash-field TTL (redis
-            7.4+ or valkey 9+). ``RedisExpireStorage`` works on any version.
+        :param int ttl: Seconds until the key expires. Supported by the redis
+            storages and ignored by memory storage. Others raise
+            ``NotImplementedError``. With ``RedisStorage`` the server must
+            support hash-field TTL (redis 7.4+ or valkey 9+).
+            ``RedisExpireStorage`` works on any version.
         :return: Boolean whether key/value was set.
         """
         if ttl is not None:
@@ -337,7 +338,6 @@ class MemoryStorage(BaseStorage):
         self._c = 0  # Counter to ensure FIFO behavior for queue.
         self._queue = []
         self._results = {}
-        self._expires = {}
         self._schedule = []
         self._counters = {}
         self._lock = threading.RLock()
@@ -398,36 +398,23 @@ class MemoryStorage(BaseStorage):
     def flush_schedule(self):
         self._schedule = []
 
-    def _expire(self, key):
-        if self._expires.get(key, float('inf')) <= time.monotonic():
-            del self._expires[key]
-            self._results.pop(key, None)
-
     def put_data(self, key, value, is_result=False):
         self._results[key] = value
-        self._expires.pop(key, None)
 
     def peek_data(self, key):
-        self._expire(key)
         return self._results.get(key, EmptyData)
 
     def pop_data(self, key):
-        self._expire(key)
-        self._expires.pop(key, None)
         return self._results.pop(key, EmptyData)
 
     def has_data_for_key(self, key):
-        self._expire(key)
         return key in self._results
 
     def put_if_empty(self, key, value, ttl=None):
         with self._lock:
-            self._expire(key)
             if key in self._results:
                 return False
-            self.put_data(key, value)
-            if ttl is not None:
-                self._expires[key] = time.monotonic() + ttl
+            self._results[key] = value
             return True
 
     def incr(self, key, amount=1):
@@ -447,7 +434,6 @@ class MemoryStorage(BaseStorage):
 
     def flush_results(self):
         self._results = {}
-        self._expires = {}
 
     def flush_counters(self):
         self._counters = {}
@@ -505,7 +491,7 @@ class RedisStorage(BaseStorage):
         self.result_key = 'huey.results.%s' % self.name
         self.counter_key = 'huey.counters.%s' % self.name
         self.notify_prefix = 'huey.notify.%s.' % self.name
-        self.notify_result = notify_result  # Use result notification.
+        self.notify_result = notify_result
         self.notify_result_ttl = notify_result_ttl
 
         if client_name is not None:
@@ -515,19 +501,8 @@ class RedisStorage(BaseStorage):
         self.read_timeout = read_timeout
 
     @cached_property
-    def redis_version(self):
-        # Server version, used only to clamp BLPOP timeouts for redis < 6.
-        try:
-            version = str(self.conn.info()['redis_version'])
-        except Exception:
-            version = '0.0.0'  # Assume old, int timeouts always work.
-        return tuple(int(i) if i.isdigit() else 999
-                     for i in version.split('.'))
-
-    @cached_property
     def supports_hash_ttl(self):
-        # HEXPIRE needs redis 7.4+ or valkey 9+. Valkey reports redis_version
-        # 7.2, so its own version field is checked separately.
+        # HEXPIRE needs redis 7.4+ or valkey 9+ (which reports redis 7.2).
         if not hasattr(self.conn, 'hexpire'):
             return False
         info = self.conn.info('server')
@@ -560,10 +535,7 @@ class RedisStorage(BaseStorage):
                     self.queue_key,
                     timeout=self.read_timeout)[1]
             except (TimeoutError, TypeError, IndexError):
-                # Unfortunately, there is no way to differentiate a socket
-                # timing out and a host being unreachable. ConnectionError is
-                # allowed to propagate, however, so the worker logs the error
-                # and applies backoff, rather than busy-looping silently.
+                # Empty or timed out. ConnectionError propagates for backoff.
                 return None
         else:
             return self.conn.rpop(self.queue_key)
@@ -573,8 +545,7 @@ class RedisStorage(BaseStorage):
 
     def enqueued_items(self, limit=None):
         if limit:
-            # Take items from the consumption end of the list, e.g. the next
-            # `limit` tasks to be dequeued.
+            # The next `limit` tasks to be dequeued.
             return self.conn.lrange(self.queue_key, -limit, -1)[::-1]
         return self.conn.lrange(self.queue_key, 0, -1)[::-1]
 
@@ -641,11 +612,8 @@ class RedisStorage(BaseStorage):
         if self.has_data_for_key(key):
             return True
         nkey = self.notify_prefix + key
-        timeout = timeout or 0
-        if timeout > 0 and self.redis_version[0] < 6:
-            timeout = max(1, int(timeout))  # Timeout must be int for R < 6.
         try:
-            result = self.conn.blpop(nkey, timeout=timeout)
+            result = self.conn.blpop(nkey, timeout=timeout or 0)
         except (ConnectionError, TimeoutError):
             return False
 
@@ -796,10 +764,7 @@ class RedisPriorityQueue(object):
                     self.queue_key,
                     timeout=self.read_timeout)
             except (TimeoutError, TypeError, IndexError):
-                # Unfortunately, there is no way to differentiate a socket
-                # timing out and a host being unreachable. ConnectionError is
-                # allowed to propagate, however, so the worker logs the error
-                # and applies backoff, rather than busy-looping silently.
+                # Empty or timed out. ConnectionError propagates for backoff.
                 return
             else:
                 return res[8:]
@@ -887,7 +852,6 @@ class SqliteStorage(BaseSqlStorage):
     begin_sql = 'begin exclusive'
     integrity_error = getattr(sqlite3, 'IntegrityError', None)
     operational_error = getattr(sqlite3, 'OperationalError', None)
-    sqlite_version_info = getattr(sqlite3, 'sqlite_version_info', None)
     table_kv = ('create table if not exists kv ('
                 'queue text not null, key text not null, value blob not null, '
                 'primary key(queue, key))')
@@ -1049,32 +1013,21 @@ class SqliteStorage(BaseSqlStorage):
         return res[0][0] if res else EmptyData
 
     def peek_many(self, keys):
-        accum = {}
-        for i in range(0, len(keys), 500):
-            chunk = keys[i:i + 500]
-            accum.update(self.sql(
-                'select key, value from kv where queue = ? and key in (%s)' %
-                ','.join('?' * len(chunk)), (self.name,) + tuple(chunk),
-                results=True))
-        return accum
+        return dict(self.sql(
+            'select key, value from kv where queue = ? and key in (%s)' %
+            ','.join('?' * len(keys)), (self.name,) + tuple(keys),
+            results=True))
 
     def pop_data(self, key):
         with self.db(commit=True) as curs:
-            if self.sqlite_version_info >= (3, 35, 0):
-                curs.execute('delete from kv where queue = ? and key = ? '
-                             'returning value', (self.name, key))
-                result = curs.fetchone()
-                if result is not None:
-                    return result[0]
-            else:
-                curs.execute('select value from kv where queue = ? and key = ?',
+            curs.execute('select value from kv where queue = ? and key = ?',
+                         (self.name, key))
+            result = curs.fetchone()
+            if result is not None:
+                curs.execute('delete from kv where queue=? and key=?',
                              (self.name, key))
-                result = curs.fetchone()
-                if result is not None:
-                    curs.execute('delete from kv where queue=? and key=?',
-                                 (self.name, key))
-                    if curs.rowcount == 1:
-                        return result[0]
+                if curs.rowcount == 1:
+                    return result[0]
             return EmptyData
 
     def has_data_for_key(self, key):
@@ -1096,26 +1049,13 @@ class SqliteStorage(BaseSqlStorage):
 
     def incr(self, key, amount=1):
         with self.db(commit=True) as curs:
-            if self.sqlite_version_info >= (3, 35, 0):
-                curs.execute('insert into counter (queue, key, value) '
-                             'values (?, ?, ?) on conflict (queue, key) '
-                             'do update set value = value + ? '
-                             'returning value',
-                             (self.name, key, amount, amount))
-                value, = curs.fetchone()
-            elif self.sqlite_version_info >= (3, 24, 0):
-                curs.execute('insert into counter (queue, key, value) '
-                             'values (?, ?, ?) on conflict (queue, key) '
-                             'do update set value = value + ?',
-                             (self.name, key, amount, amount))
-                curs.execute('select value from counter '
-                             'where queue = ? and key = ?',
-                             (self.name, key))
-                value, = curs.fetchone()
-            else:
-                raise NotImplementedError('SQLite 3.24 or newer is required.')
-
-        return value
+            curs.execute('insert into counter (queue, key, value) '
+                         'values (?, ?, ?) on conflict (queue, key) '
+                         'do update set value = value + ?',
+                         (self.name, key, amount, amount))
+            curs.execute('select value from counter '
+                         'where queue = ? and key = ?', (self.name, key))
+            return curs.fetchone()[0]
 
     def delete_counter(self, key):
         self.sql('delete from counter where queue = ? and key = ?',
@@ -1145,16 +1085,12 @@ class CySqliteStorage(SqliteStorage):
                                      'cysqlite" to install.')
         self.integrity_error = cysqlite.IntegrityError
         self.operational_error = cysqlite.OperationalError
-        self.sqlite_version_info = cysqlite.sqlite_version_info
 
-        # Normalize hard-coded params to generic pragmas.
         pragmas = dict(pragmas or {})
         if 'cache_mb' in kwargs:
             pragmas['cache_size'] = kwargs.pop('cache_mb') * -1000
         if 'fsync' in kwargs:
             pragmas['synchronous'] = 2 if kwargs.pop('fsync') else 0
-
-        # Handle journal_mode through the normal path.
         kwargs.setdefault('journal_mode', pragmas.pop('journal_mode', 'wal'))
 
         super(CySqliteStorage, self).__init__(
@@ -1228,10 +1164,8 @@ class PostgresStorage(BaseSqlStorage):
             'queue text not null, key text not null, '
             'value bigint not null default 0, primary key(queue, key))')]
 
-        # Each worker thread gets its own LISTEN connection on first
-        # dequeue. A dead thread's connection is released by GC: psycopg
-        # only sends the protocol Terminate from the creating process, so
-        # this is safe on both sides of a fork.
+        # Per-thread LISTEN conns, left to GC. Fork-safe, as psycopg only
+        # sends Terminate from the process that created the conn.
         self._listen_local = threading.local()
 
         super(PostgresStorage, self).__init__(name, create_tables=create_tables)
@@ -1605,7 +1539,7 @@ class FileStorage(BaseStorage):
             self._put_data(key, value)
 
     def _put_data(self, key, value):
-        # Write a key/value pair. The lock must already be held.
+        # Caller holds the lock.
         if isinstance(key, str):
             key = key.encode('utf8')
 

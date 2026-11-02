@@ -2,6 +2,7 @@ import collections.abc
 import contextlib
 import copy
 import dataclasses
+import decimal
 import functools
 import inspect
 import itertools
@@ -10,10 +11,11 @@ import sys
 import threading
 import types
 import typing
+import uuid
 import warnings
 from collections.abc import Callable, Generator, Sequence
-from datetime import date
-from enum import Enum, auto
+from datetime import date, datetime, time, timedelta
+from enum import Enum, Flag, auto
 from functools import cache
 from typing import (
     TYPE_CHECKING,
@@ -106,6 +108,9 @@ from ._utils import iscoroutinefunction
 
 if TYPE_CHECKING:
     from cadwyn.structure.versions import HeadVersion, Version
+
+if sys.version_info >= (3, 11):
+    from enum import FlagBoundary
 
 
 _Call = TypeVar("_Call", bound=Callable[..., Any])
@@ -1190,6 +1195,8 @@ class _AnnotationTransformer:
         # The ids of the type aliases, callables and containers that we are recording, to detect the ones that
         # lead back to themselves (e.g. a default factory whose default argument is a registry that contains it)
         self._ids_being_recorded: set[int] = set()
+        # The ids of the type aliases that we are copying right now, to detect the ones that refer to themselves
+        self._type_aliases_being_copied: set[int] = set()
         # Whether we are recording the routes, whose endpoints and dependencies copying reads like _get_signature
         self._records_routes = False
         # How many positions that need the classes themselves we are in right now (see is_in_hard_position)
@@ -1317,9 +1324,7 @@ class _AnnotationTransformer:
                 if self.record_only:
                     self._record_type_alias(annotation)
                     return annotation
-                value = self.change_version_of_annotation(_get_type_alias_value(annotation))
-                type_params = self.change_version_of_annotation(annotation.__type_params__)
-            return type(annotation)(name=annotation.__name__, value=value, type_params=type_params)
+                return self._copy_type_alias(annotation)
         elif isinstance(annotation, fastapi.params.Depends):
             with self.hard_position():
                 if self.record_only:
@@ -1346,6 +1351,35 @@ class _AnnotationTransformer:
             return self._change_version_of_callable(annotation, callable_kind=callable_kind)
         else:
             return annotation
+
+    def _copy_type_alias(self, alias: Any) -> Any:
+        """Return the copy of the type alias whose value refers to this version's copies of models.
+
+        A type alias that refers to itself (e.g. `type Json = dict[str, Json] | int`), directly or through other type
+        aliases, cannot be copied because its copy would have to exist before its value. So we use the type alias
+        itself if it only contains builtin types (see _contains_only_builtin_types), which are the same in every
+        version, and fail otherwise.
+        """
+        if id(alias) in self._type_aliases_being_copied:
+            raise _TypeAliasRefersToItselfError(alias)
+        self._type_aliases_being_copied.add(id(alias))
+        try:
+            value = self.change_version_of_annotation(_get_type_alias_value(alias))
+            type_params = self.change_version_of_annotation(alias.__type_params__)
+        except _TypeAliasRefersToItselfError as error:
+            if error.alias is not alias:
+                raise
+            if _contains_only_builtin_types(alias, visited_aliases=set()):
+                return alias
+            raise SchemaGenerationError(
+                f"Cadwyn cannot generate the versioned copies of the type alias {alias.__name__} because it refers "
+                "to itself. Type aliases that refer to themselves are only supported when they only contain builtin "
+                "types (e.g. `type JsonData = dict[str, JsonData] | list[JsonData] | str | int | None`) and other "
+                "such type aliases. Classes (e.g. models and enums), forward refs, and Annotated are not supported."
+            ) from None
+        finally:
+            self._type_aliases_being_copied.discard(id(alias))
+        return type(alias)(name=alias.__name__, value=value, type_params=type_params)
 
     def _change_version_of_callable(self, annotation: Callable[..., Any], *, callable_kind: _CallableKind) -> Any:
         # Callables, such as default factories, are called with the classes themselves and their annotations are
@@ -3289,6 +3323,58 @@ def _get_module_globals(cls: type) -> dict[str, Any]:
     return {} if module is None else vars(module)
 
 
+_BUILTIN_TYPES_OF_RECURSIVE_TYPE_ALIASES: "tuple[Any, ...]" = (
+    *(str, int, float, bool, bytes, None, type(None), Ellipsis),
+    *(decimal.Decimal, datetime, date, time, timedelta, uuid.UUID),
+)
+_BUILTIN_GENERICS_OF_RECURSIVE_TYPE_ALIASES: "tuple[Any, ...]" = (
+    *(list, dict, set, frozenset, tuple, typing.Union, types.UnionType),
+)
+
+
+def _contains_only_builtin_types(annotation: Any, *, visited_aliases: "set[int]", alias_name: str = "") -> bool:
+    """Whether the annotation only contains builtin types and type aliases whose values only contain them too.
+
+    This is an allow-list: everything else (e.g. classes, Annotated metadata, or forward refs to anything but the
+    type alias that contains them) could refer to models or enums that the versions change.
+    """
+    from typing_inspection.typing_objects import is_any, is_literal, is_typealiastype
+
+    if is_typealiastype(annotation):
+        if id(annotation) in visited_aliases:
+            return True
+        visited_aliases.add(id(annotation))
+        value = _evaluate_user_annotations(lambda: _get_type_alias_value(annotation))
+        return value is not _UNRESOLVED and _contains_only_builtin_types(
+            value, visited_aliases=visited_aliases, alias_name=annotation.__name__
+        )
+    if isinstance(annotation, (str, ForwardRef)):
+        # Pydantic resolves the name of a type alias within its value to the type alias itself
+        return (annotation if isinstance(annotation, str) else annotation.__forward_arg__) == alias_name
+    if is_any(annotation) or _is_one_of(annotation, _BUILTIN_TYPES_OF_RECURSIVE_TYPE_ALIASES):
+        return True
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if is_literal(origin):
+        return all(type(arg) in (str, int, bool, bytes, type(None)) for arg in args)
+    return _is_one_of(origin, _BUILTIN_GENERICS_OF_RECURSIVE_TYPE_ALIASES) and all(
+        _contains_only_builtin_types(arg, visited_aliases=visited_aliases, alias_name=alias_name) for arg in args
+    )
+
+
+def _is_one_of(value: Any, members: "tuple[Any, ...]") -> bool:
+    # By identity because the annotations can be anything, e.g. unhashable or with an __eq__ that raises
+    return any(value is member for member in members)
+
+
+class _TypeAliasRefersToItselfError(Exception):
+    """Raised within the copy of a type alias that refers to itself, up to where we started copying it"""
+
+    def __init__(self, alias: Any) -> None:
+        super().__init__(alias)
+        self.alias = alias
+
+
 class _TypeAliasValue(NamedTuple):
     alias: Any
     args: tuple[Any, ...]
@@ -3977,6 +4063,17 @@ class _DummyEnum(Enum):
     pass
 
 
+class _DummyFlag(Flag):
+    pass
+
+
+# The attributes such as `_flag_mask_` that the enum machinery puts on every Flag on Python 3.11+.
+# It computes them for the copy again and doesn't accept them in a class body
+_FLAG_INTERNAL_ATTRIBUTES = frozenset(
+    name for name in _DummyFlag.__dict__ if name.startswith("_") and not name.startswith("__") and name.endswith("_")
+)
+
+
 @final
 class _EnumWrapper(Generic[_T_ENUM]):
     __slots__ = "cls", "members", "name"
@@ -4000,7 +4097,15 @@ class _EnumWrapper(Generic[_T_ENUM]):
         for attr_name, attr in initialization_namespace.items():
             enum_dict[attr_name] = attr
         enum_dict["__doc__"] = self.cls.__doc__
-        model_copy = cast("type[_T_ENUM]", type(self.name, self.cls.__bases__, enum_dict))
+        class_kwargs: dict[str, Any] = {}
+        # A Flag's boundary is a class keyword, not an attribute of its body
+        if (
+            sys.version_info >= (3, 11)
+            and issubclass(self.cls, Flag)
+            and isinstance(boundary := getattr(self.cls, "_boundary_", None), FlagBoundary)
+        ):
+            class_kwargs["boundary"] = boundary
+        model_copy = cast("type[_T_ENUM]", type(self.name, self.cls.__bases__, enum_dict, **class_kwargs))
         model_copy.__cadwyn_original_model__ = self.cls  # ty: ignore[unresolved-attribute]
         return model_copy
 
@@ -4017,6 +4122,7 @@ class _EnumWrapper(Generic[_T_ENUM]):
             for k, v in enum_cls.__dict__.items()
             if k not in enum_cls._member_names_
             and k not in _DummyEnum.__dict__
+            and k not in _FLAG_INTERNAL_ATTRIBUTES
             and (k not in mro_dict or mro_dict[k] is not v)
         }
 

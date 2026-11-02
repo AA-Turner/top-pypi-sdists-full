@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "http-router"
+version = "10.1.0"
+description = "A simple router system for HTTP applications"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { "text" = "MIT License" }
+authors = [{ name = "Kirill Klenov", email = "horneds@gmail.com" }]
+keywords = ["http", "router", "web", "framework"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Cython",
+  "Topic :: Internet :: WWW/HTTP",
+]
+
+[project.urls]
+homepage = "https://github.com/klen/http-router"
+repository = "https://github.com/klen/http-router"
+documentation = "https://github.com/klen/http-router"
+
+[project.optional-dependencies]
+tests = ["ruff", "pytest", "pytest-benchmark", "pytest-mypy; implementation_name == 'cpython'"]
+dev = ["bump2version", "pre-commit", "cython", "setuptools", "wheel"]
+
+[tool.setuptools]
+packages = ['http_router']
+include-package-data = false
+
+[tool.setuptools.package-data]
+http_router = ["py.typed", "router.pxd", "routes.pxd"]
+
+[tool.bumpversion]
+current_version = "10.1.0"
+commit = false
+tag = false
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = '(?m)^version = "{current_version}"$'
+replace = 'version = "{new_version}"'
+regex = true
+
+[tool.pytest.ini_options]
+addopts = "-xsv"
+testpaths = "tests"
+
+[tool.pylama]
+ignore = "D"
+
+[tool.mypy]
+packages = ["http_router"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+preview = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "docs", "examples"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "UP", "ANN", "CPY001", "DJ", "EM", "RSE", "SLF", "S101", "PLR2004"]
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"setup.py" = ["T201"]

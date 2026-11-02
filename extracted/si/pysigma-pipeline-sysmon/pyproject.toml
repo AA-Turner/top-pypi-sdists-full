@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pysigma-pipeline-sysmon"
-version = "2.0.0"
+version = "3.0.0"
 description = "pySigma Sysmon processing pipelines"
 readme = "README.md"
 authors = ["Thomas Patzke <thomas@patzke.org>"]
@@ -11,10 +11,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-pysigma = "^1.0.0"
+python = "^3.11"
+pysigma = "^2.0.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = "^24.10"
 pytest = "^8.3"
 pytest-cov = "^6.0"

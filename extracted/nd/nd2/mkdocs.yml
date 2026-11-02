@@ -1,0 +1,90 @@
+site_name: nd2
+site_author: Talley Lambert
+repo_name: tlambert03/nd2
+repo_url: https://github.com/tlambert03/nd2
+edit_uri: edit/main/docs/
+site_description: A Python package for reading Nikon ND2 files
+copyright: 'Talley Lambert &copy; 2021'
+strict: true
+
+watch:
+  - src
+
+theme:
+  name: material
+  icon:
+    logo: material/camera-iris
+    repo: fontawesome/brands/github
+    admonition:
+      tip: octicons/sparkles-fill-16
+  features:
+    - navigation.sections
+    - navigation.indexes
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: yellow
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: black
+      accent: yellow
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - autorefs:
+      resolve_closest: true
+  - api-autonav:
+      modules: ['src/nd2']
+      exclude: ['nd2.readers', 'nd2.nd2file']
+  - mkdocstrings:
+      handlers:
+        python:
+          inventories:
+            - https://numpy.org/doc/stable/objects.inv
+            - https://docs.python.org/3/objects.inv
+            - https://docs.xarray.dev/en/stable/objects.inv
+            - https://docs.dask.org/en/stable/objects.inv
+            - https://ome-types.readthedocs.io/en/latest/objects.inv
+            - https://filesystem-spec.readthedocs.io/en/latest/objects.inv
+          options:
+
+            docstring_section_style: list # or "table"
+            docstring_style: "numpy"
+            filters: ["!^_", "!^__"]
+            heading_level: 1
+            merge_init_into_class: true
+            parameter_headings: true
+            separate_signature: true
+            show_root_heading: true
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            summary: true
+
+            show_bases: false
+            show_source: true
+            show_root_toc_entry: false
+            signature_crossrefs: true
+
+
+extra_css:
+  - styles/extra.css

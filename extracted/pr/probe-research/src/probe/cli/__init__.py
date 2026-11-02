@@ -21,12 +21,15 @@ def main(argv: list[str] | None = None) -> int:
     # client loads every wire model (~0.5 s), so a command imports it when it
     # builds one (`main._client_class`).
     implementation = _implementation()
-    previous = implementation.Client
-    implementation.Client = globals().get("Client")
+    # Set on the piece that reads it (`_client_class`), not through the door: a write there
+    # loads every piece the door defers, on every command.
+    connection = importlib.import_module(f"{__name__}.connection")
+    previous = connection.Client
+    connection.Client = globals().get("Client")
     try:
         return implementation.main(argv)
     finally:
-        implementation.Client = previous
+        connection.Client = previous
 
 
 def _implementation():

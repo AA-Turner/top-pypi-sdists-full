@@ -1,0 +1,2385 @@
+"""Validation of a :class:`ScenarioDocument` against the primitive metadata.
+
+Validation is metadata-driven for the same reason the GUI is: every rule below
+is expressed in terms of :mod:`autoware_carla_scenario.authoring.registry`
+specs, so a newly registered primitive is validated without touching this file.
+
+Like the rest of :mod:`autoware_carla_scenario.authoring`, this module imports
+neither CARLA nor lanelet2 -- the editor validates on every keystroke.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from typing import Any, Literal, Optional
+
+from .models import (
+    AUTO_MODEL,
+    SIGNAL_STATE_NAMES,
+    ActionNode,
+    BindingRef,
+    ConditionNode,
+    ConstraintNode,
+    Entity,
+    LaneletSlot,
+    ScenarioDocument,
+    condition_refs,
+)
+from ..route.model import anchor_problem, parse_route_search
+from ..trajectory.authoring import (
+    parse_relative_vertices,
+    parse_route_vertices,
+    parse_vertices,
+    relative_vertex_problems,
+    vertex_problems,
+)
+from ..constants import MIN_BACKGROUND_SPEED_KMH
+from ._builders_generated import ONCE_ACTIONS, OVERRIDING_ACTIONS
+from .registry import (
+    EQUAL_TO_DEFAULT_TOLERANCE,
+    INT_KINDS,
+    INT_LIST_KINDS,
+    ActionSpec,
+    ConditionSpec,
+    FieldSpec,
+    get_action_spec,
+    get_binding_spec,
+    get_condition_spec,
+    get_constraint_spec,
+)
+
+__all__ = ["Issue", "Severity", "ValidationReport", "validate_document"]
+
+Severity = Literal["error", "warning"]
+
+#: Value accepted by ``in_set`` in place of a literal list, resolved from the
+#: map config exactly as the existing sweep YAML does.
+MAP_EXCLUSION_REF = "${map.no_3d_model_lanelet_ids}"
+
+#: The signal states that let traffic through.  Amber is one of them: a junction
+#: showing amber to one movement still has vehicles in it, which is exactly why
+#: a real one never shows amber to a movement that crosses it either.
+PERMISSIVE_SIGNAL_STATES = frozenset({"green", "yellow"})
+
+
+@dataclass(frozen=True)
+class Issue:
+    """One validation finding.
+
+    Attributes:
+        severity: ``error`` blocks compilation and export; ``warning`` does not.
+        path: Dotted location inside the document (e.g. ``actions[0].trigger``).
+        message: What is wrong, phrased for the person editing the scenario.
+        object_id: Id of the offending object, so the canvas can highlight it.
+    """
+
+    severity: Severity
+    path: str
+    message: str
+    object_id: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+    """The result of validating one document."""
+
+    issues: tuple[Issue, ...] = ()
+
+    @property
+    def errors(self) -> tuple[Issue, ...]:
+        """Only the blocking issues."""
+        return tuple(i for i in self.issues if i.severity == "error")
+
+    @property
+    def warnings(self) -> tuple[Issue, ...]:
+        """Only the non-blocking issues."""
+        return tuple(i for i in self.issues if i.severity == "warning")
+
+    @property
+    def ok(self) -> bool:
+        """Whether the document can be compiled and exported."""
+        return not self.errors
+
+    def summary(self) -> str:
+        """Return a one-line human summary."""
+        if self.ok and not self.warnings:
+            return "Valid."
+        parts = []
+        if self.errors:
+            parts.append(f"{len(self.errors)} error(s)")
+        if self.warnings:
+            parts.append(f"{len(self.warnings)} warning(s)")
+        return ", ".join(parts)
+
+
+class _Collector:
+    """Accumulates issues while walking a document."""
+
+    def __init__(self) -> None:
+        self.issues: list[Issue] = []
+
+    def error(self, path: str, message: str, object_id: str | None = None) -> None:
+        self.issues.append(Issue("error", path, message, object_id))
+
+    def warn(self, path: str, message: str, object_id: str | None = None) -> None:
+        self.issues.append(Issue("warning", path, message, object_id))
+
+
+# ---------------------------------------------------------------------------
+# Field checking
+# ---------------------------------------------------------------------------
+
+
+def _is_blank(value: Any) -> bool:
+    """Return ``True`` for values a form submits when nothing was entered."""
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+@dataclass(frozen=True)
+class _Refs:
+    """Ids a node is allowed to point at.
+
+    Both sets are complete before any node is checked, so a trigger may name an
+    action declared later in the document -- an ego reaction to an NPC's
+    manoeuvre is written exactly that way.
+    """
+
+    entities: set[str]
+    actions: set[str]
+    #: Entity id -> its kind, so an action can be held to the kinds its spec
+    #: names.  Kept beside the id set rather than replacing it: every existing
+    #: check asks only whether an id exists, and a dict would have made each
+    #: of them read as though it cared which kind it was.
+    entity_kinds: dict[str, str] = field(default_factory=dict)
+
+
+#: Spawn constraints and offset bindings describe lanelets, never entities or
+#: actions, so nothing in them may point at either.
+_NO_REFS = _Refs(entities=set(), actions=set(), entity_kinds={})
+
+
+def _check_field(
+    out: _Collector,
+    path: str,
+    spec: FieldSpec,
+    params: dict[str, Any],
+    refs: _Refs,
+    object_id: str | None,
+) -> None:
+    """Validate one parameter against its :class:`FieldSpec`."""
+    value = params.get(spec.name, spec.default)
+
+    # A record list with no records is blank too: an empty list is what an
+    # unset one holds, so a required one needs a record.
+    if _is_blank(value) or (spec.kind == "record_list" and value in ([], ())):
+        if spec.required:
+            out.error(f"{path}.{spec.name}", f"{spec.label} is required.", object_id)
+        return
+
+    if spec.kind in INT_KINDS:
+        if not _coercible_int(value):
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} must be a whole number.",
+                object_id,
+            )
+        else:
+            # Compared as an int: a whole number too large for a float is
+            # still one, and float() of it would raise.
+            _check_bounds(out, path, spec, int(str(value).strip()), object_id)
+    elif spec.kind == "number":
+        if not _coercible_float(value):
+            out.error(
+                f"{path}.{spec.name}", f"{spec.label} must be a number.", object_id
+            )
+        else:
+            _check_bounds(out, path, spec, float(str(value).strip()), object_id)
+    elif spec.kind == "select":
+        allowed = {o.value for o in spec.options}
+        if str(value) not in allowed:
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} must be one of {sorted(allowed)}, got {value!r}.",
+                object_id,
+            )
+    elif spec.kind == "entity":
+        if str(value) not in refs.entities:
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} references unknown entity {value!r}.",
+                object_id,
+            )
+    elif spec.kind == "action":
+        if str(value) not in refs.actions:
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} references unknown action {value!r}.",
+                object_id,
+            )
+    elif spec.kind in INT_LIST_KINDS:
+        if not _is_int_list(value):
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} must be a list of whole numbers.",
+                object_id,
+            )
+    elif spec.kind == "trajectory":
+        try:
+            parse_vertices(value)
+        except ValueError as exc:
+            out.error(f"{path}.{spec.name}", f"{spec.label}: {exc}.", object_id)
+    elif spec.kind == "relative_lane_trajectory":
+        try:
+            parse_relative_vertices(value)
+        except ValueError as exc:
+            out.error(f"{path}.{spec.name}", f"{spec.label}: {exc}.", object_id)
+    elif spec.kind == "route_trajectory":
+        try:
+            parse_route_vertices(value)
+        except ValueError as exc:
+            out.error(f"{path}.{spec.name}", f"{spec.label}: {exc}.", object_id)
+    elif spec.kind == "record_list":
+        _check_records(out, f"{path}.{spec.name}", spec, value, refs, object_id)
+    elif spec.kind == "int_list_or_ref":
+        if value != MAP_EXCLUSION_REF and not _is_int_list(value):
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} must be a list of whole numbers or {MAP_EXCLUSION_REF}.",
+                object_id,
+            )
+
+
+def _check_bounds(
+    out: _Collector,
+    path: str,
+    spec: FieldSpec,
+    number: float,
+    object_id: str | None,
+) -> None:
+    """Refuse a number outside the bounds its :class:`FieldSpec` declares.
+
+    The bounds are the runtime constructor's, so a value it would raise for
+    at scenario setup is a document error here instead (#1111).  The message
+    says it as the constructor does: "must be positive" for a bound above 0,
+    "must not be negative" for one at 0.
+    """
+    low, high = spec.exclusive_minimum, spec.maximum
+    inclusive = spec.minimum
+    if (
+        (low is None or number > low)
+        and (inclusive is None or number >= inclusive)
+        and (high is None or number <= high)
+    ):
+        return
+    out.error(f"{path}.{spec.name}", f"{spec.label} {_bounds_text(spec)}.", object_id)
+
+
+def _bounds_text(spec: FieldSpec) -> str:
+    """What :func:`_check_bounds` asks of *spec*'s value, as a predicate."""
+    low, inclusive, high = spec.exclusive_minimum, spec.minimum, spec.maximum
+    if high is not None and (low is not None or inclusive is not None):
+        opening = f"({low:g}" if low is not None else f"[{inclusive:g}"
+        return f"must be in {opening}, {high:g}]"
+    if high is not None:
+        return f"must be at most {high:g}"
+    if low is not None:
+        return "must be positive" if low == 0 else f"must be above {low:g}"
+    assert inclusive is not None  # noqa: S101 -- only called out of bounds
+    return (
+        "must not be negative" if inclusive == 0 else f"must be at least {inclusive:g}"
+    )
+
+
+def _check_records(
+    out: _Collector,
+    path: str,
+    spec: FieldSpec,
+    value: Any,
+    refs: _Refs,
+    object_id: str | None,
+) -> None:
+    """Validate a ``record_list``: a list of mappings, each checked against
+    the field's :attr:`~FieldSpec.item_fields` as a node's params are."""
+    if not isinstance(value, (list, tuple)) or not all(
+        isinstance(row, dict) for row in value
+    ):
+        out.error(path, f"{spec.label} must be a list of records.", object_id)
+        return
+    for index, row in enumerate(value):
+        row_path = f"{path}[{index}]"
+        for item in spec.item_fields:
+            _check_field(out, row_path, item, row, refs, object_id)
+        _check_unknown_params(out, row_path, spec.item_fields, row, object_id)
+
+
+def _coercible_int(value: Any) -> bool:
+    try:
+        int(str(value).strip())
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _coercible_float(value: Any) -> bool:
+    """Whether *value* reads as a finite float.
+
+    ``nan`` and ``inf`` parse, but no parameter means them: a speed, distance,
+    duration or probability that is not finite fails every comparison the
+    checks below make, and the run then never reaches what it waits for.
+    """
+    try:
+        number = float(str(value).strip())
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number)
+
+
+def _is_int_list(value: Any) -> bool:
+    if not isinstance(value, (list, tuple)):
+        return False
+    return all(_coercible_int(v) for v in value)
+
+
+def _check_unknown_params(
+    out: _Collector,
+    path: str,
+    fields: "tuple[FieldSpec, ...]",
+    params: dict[str, Any],
+    object_id: str | None,
+) -> None:
+    """Warn about parameters no field spec claims (usually a stale rename)."""
+    known = {f.name for f in fields}
+    for key in params:
+        if key not in known:
+            out.warn(
+                f"{path}.{key}",
+                f"Parameter {key!r} is not used by this type and will be dropped.",
+                object_id,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Node checking
+# ---------------------------------------------------------------------------
+
+
+def _check_condition(
+    out: _Collector,
+    path: str,
+    node: ConditionNode,
+    refs: _Refs,
+    owner: str | None = None,
+    *,
+    departure: bool = False,
+) -> None:
+    """Validate one condition subtree.
+
+    *owner* is the id of the action this subtree triggers, when it is a trigger
+    at all.  An action whose trigger waits on its own completion can never fire,
+    so that is an error rather than a scenario that quietly does nothing.
+
+    *departure* says the subtree is a vertex's whole waypoint condition, the
+    one place a ``trajectory_time`` means the trajectory's clock: anywhere
+    else -- inside a composition, a trigger, an assertion -- it would quietly
+    read the scenario clock instead, so it is refused there.
+    """
+    spec: ConditionSpec | None = get_condition_spec(node.type)
+    if spec is None:
+        out.error(path, f"Unknown condition type {node.type!r}.", node.id)
+        return
+    if node.type == "trajectory_time" and not departure:
+        out.error(
+            path,
+            "Trajectory time is a vertex's departure time: it only goes on a "
+            "Set Goal card's waypoint condition, as the whole of it.",
+            node.id,
+        )
+
+    for field_spec in spec.fields:
+        _check_field(out, path, field_spec, node.params, refs, node.id)
+    _check_unknown_params(out, path, spec.fields, node.params, node.id)
+
+    if owner is not None and owner in condition_refs(node, "action"):
+        out.error(
+            f"{path}.action",
+            f"{spec.title} waits on the action it triggers, which can never fire.",
+            node.id,
+        )
+
+    count = len(node.children)
+    if count < spec.min_children:
+        out.error(
+            path,
+            f"{spec.title} needs at least {spec.min_children} child condition(s), "
+            f"has {count}.",
+            node.id,
+        )
+    if spec.max_children is not None and count > spec.max_children:
+        out.error(
+            path,
+            f"{spec.title} accepts at most {spec.max_children} child condition(s), "
+            f"has {count}.",
+            node.id,
+        )
+
+    _check_collision_names_one_target(out, path, node)
+    _check_filter_ranges(out, path, node)
+    _check_condition_frame(out, path, node)
+    _check_equal_tolerance(out, path, spec, node)
+
+    for index, child in enumerate(node.children):
+        _check_condition(out, f"{path}.children[{index}]", child, refs, owner)
+
+
+def _check_collision_names_one_target(
+    out: _Collector, path: str, node: ConditionNode
+) -> None:
+    """Reject a collision condition that names an entity *and* a type.
+
+    The runtime refuses the pair too, but it refuses at construction -- which
+    happens inside ``DeclarativeScenario.setup``, against a live CARLA world.
+    Everything before that point succeeds: the document saves, compiles and
+    exports, and the exported package's own tests pass.  The scenario then
+    fails on the simulator for a mistake that was visible while it was being
+    written.
+    """
+    if node.type != "collision":
+        return
+    named_entity = not _is_blank(node.params.get("target"))
+    named_type = str(node.params.get("target_type", "ANY")) != "ANY"
+    if named_entity and named_type:
+        out.error(
+            f"{path}.target",
+            "A collision condition names an entity or a class of object, not "
+            "both: they are two ways of saying what was hit, so one of them "
+            "would have to be ignored.",
+            node.id,
+        )
+
+
+#: An entity filter's bounds, in pairs: the runtime's EntityFilter refuses a
+#: lower bound above its upper one.
+_FILTER_RANGES = ("distance", "ahead", "left")
+
+
+def _check_filter_ranges(out: _Collector, path: str, node: ConditionNode) -> None:
+    """An entity filter's lower bound is not above its upper one, as
+    :class:`~..conditions.EntityFilter` asks (#1111)."""
+    for what in _FILTER_RANGES:
+        low = _number(node.params, f"min_{what}_m")
+        high = _number(node.params, f"max_{what}_m")
+        if low is not None and high is not None and low > high:
+            out.error(
+                f"{path}.min_{what}_m",
+                f"min_{what}_m ({low:g}) is above max_{what}_m ({high:g}).",
+                node.id,
+            )
+
+
+def _check_constraint(out: _Collector, path: str, node: ConstraintNode) -> None:
+    """Validate one spawn-constraint subtree."""
+    spec = get_constraint_spec(node.type)
+    if spec is None:
+        out.error(path, f"Unknown constraint type {node.type!r}.", node.id)
+        return
+
+    for field_spec in spec.fields:
+        _check_field(out, path, field_spec, node.params, _NO_REFS, node.id)
+    _check_unknown_params(out, path, spec.fields, node.params, node.id)
+
+    count = len(node.constraints)
+    limit = spec.max_children
+    if limit == 0:
+        if count:
+            out.error(path, f"{spec.title} does not take child constraints.", node.id)
+    elif not count:
+        out.error(path, f"{spec.title} needs at least one child constraint.", node.id)
+    elif limit is not None and count > limit:
+        out.error(
+            path, f"{spec.title} takes at most {limit} child constraint(s).", node.id
+        )
+
+    if node.type == "lanelet_length" and str(node.params.get("rule")) == "equal_to":
+        # The sweeper's LaneletLengthConstraint has no tolerance to give it, and
+        # a measured centerline length is never a round number: the "=" rule
+        # matches no lanelet.  A warning, so a document that used it still loads.
+        out.warn(
+            f"{path}.rule",
+            'A lanelet length "=" a value matches within 1e-6 m, so it matches '
+            "practically no lanelet: bound the length with ≥ and ≤ "
+            "(an And of two Lanelet length constraints) instead.",
+            node.id,
+        )
+
+    for index, child in enumerate(node.constraints):
+        _check_constraint(out, f"{path}.constraints[{index}]", child)
+
+
+def _check_action(out: _Collector, path: str, node: ActionNode, refs: _Refs) -> None:
+    """Validate one action and its trigger."""
+    spec = get_action_spec(node.type)
+    if spec is None and node.type == "follow_trajectory":
+        out.error(
+            path,
+            "Follow Trajectory (follow_trajectory, FollowTrajectoryAction) was "
+            "removed: a Set Goal card (routing, RoutingAction) does what it did. "
+            "Change the type to routing and rename following_mode to mode "
+            "(follow or position as before, or driver to let the entity's own "
+            "driver keep the waypoints' times); see docs/trajectory.md.",
+            node.id,
+        )
+        return
+    if spec is None:
+        out.error(path, f"Unknown action type {node.type!r}.", node.id)
+        return
+
+    if spec.actor_required:
+        if _is_blank(node.actor):
+            out.error(f"{path}.actor", f"{spec.title} needs an actor.", node.id)
+        elif node.actor not in refs.entities:
+            out.error(
+                f"{path}.actor",
+                f"{spec.title} references unknown entity {node.actor!r}.",
+                node.id,
+            )
+        else:
+            kind = refs.entity_kinds.get(str(node.actor), "")
+            if kind and kind not in spec.actor_kinds:
+                out.error(
+                    f"{path}.actor",
+                    f"{spec.title} cannot be performed by a {kind}; it is for "
+                    f"{' or '.join(spec.actor_kinds)}.",
+                    node.id,
+                )
+    elif node.actor is not None and node.actor not in refs.entities:
+        out.error(
+            f"{path}.actor",
+            f"Action references unknown entity {node.actor!r}.",
+            node.id,
+        )
+    if node.overrides and node.type not in OVERRIDING_ACTIONS:
+        # A document written by hand: the editor offers it only where it means
+        # something, and the builder would drop it without a word.
+        out.error(
+            f"{path}.overrides",
+            f"{spec.title} commands no entity's speed, steering or lights, so "
+            "there is no running action for it to override.",
+            node.id,
+        )
+    if not node.once and node.type not in ONCE_ACTIONS:
+        # Likewise: its constructor takes no ``once``, so it fires once
+        # whatever the card says, and the builder would drop the request.
+        out.error(
+            f"{path}.once",
+            f"{spec.title} ({node.type}) fires only once; it cannot be set to "
+            "fire again (once: false).",
+            node.id,
+        )
+
+    for field_spec in spec.fields:
+        _check_field(out, path, field_spec, node.params, refs, node.id)
+    _check_unknown_params(out, path, spec.fields, node.params, node.id)
+    if node.type == "routing":
+        _check_routing(out, path, node)
+    if node.type == "spawn":
+        _check_spawn(out, path, node)
+    if node.type in ("spawn", "despawn"):
+        _check_spawn_target(out, path, node)
+    if node.type in ("construction_zone", "urban_construction_zone", "stalled_object"):
+        _check_spans(out, path, node)
+    if node.type in ("traffic_parameters", "vehicle_parameters"):
+        _check_traffic_parameters(out, path, node)
+    if node.type in ("traffic_source", "traffic_sink"):
+        _check_traffic_constraints(out, path, node)
+    if node.type == "traffic_source":
+        _check_traffic_source(out, path, node)
+
+    if node.trigger is not None:
+        _check_condition(out, f"{path}.trigger", node.trigger, refs, node.id)
+    _check_advance_conditions(out, path, node, spec.vertex_conditions, refs)
+
+
+def _check_advance_conditions(
+    out: _Collector, path: str, node: ActionNode, accepted: bool, refs: _Refs
+) -> None:
+    """Check an action's waypoint conditions: where they sit, and what they say.
+
+    Each condition tree is checked as a trigger is, and one that waits for
+    its own action to leave the running state is refused: the action is
+    running for as long as the entity waits, so it would wait for ever.
+    Where it sits is checked against the vertices the card lists: a vertex
+    it does not have, or one named twice -- a vertex departs on one
+    condition, its time included -- and the times the card's
+    ``trajectory_time`` conditions state follow the trajectory rules.  A lanelet
+    path's vertices are made by the map, every two metres, so they are
+    nothing an author could count; it takes none.
+    """
+    gates = node.advance_conditions
+    if not gates:
+        return
+    if not accepted:
+        out.error(
+            f"{path}.advance_conditions",
+            f"{node.type!r} follows no vertices, so it takes no waypoint conditions.",
+            node.id,
+        )
+        return
+    count = _vertex_count(node)
+    seen: set[int] = set()
+    for index, gate in enumerate(gates):
+        where = f"{path}.advance_conditions[{index}]"
+        if gate.vertex in seen:
+            out.error(
+                f"{where}.vertex",
+                f"Vertex {gate.vertex} has two waypoint conditions; combine them "
+                "into one (All or Any).",
+                node.id,
+            )
+        seen.add(gate.vertex)
+        if count is None:
+            out.error(
+                f"{where}.vertex",
+                "Waypoint conditions need vertices written in the card (map "
+                "frame or relative); a lanelet path's vertices are generated.",
+                node.id,
+            )
+        elif count >= 2 and gate.vertex > count:
+            out.error(
+                f"{where}.vertex",
+                f"There is no vertex {gate.vertex}: the trajectory has {count}.",
+                node.id,
+            )
+        _check_condition(
+            out, f"{where}.condition", gate.condition, refs, departure=True
+        )
+        # Deliberately conservative: any reference to the card's own action
+        # but "is running" is refused, wherever it sits in the tree -- under
+        # a Not as well, where it could not deadlock.  Telling the two apart
+        # means reasoning about the composition, and a waypoint condition
+        # that waits on its own card is never needed: the card is running
+        # for as long as the entity waits.
+        for child in gate.condition.walk():
+            if node.id not in condition_refs(child, "action"):
+                continue
+            state = str(child.params.get("state", ""))
+            if child.type == "action_state" and state == "runningState":
+                continue
+            out.error(
+                f"{where}.condition",
+                f"Vertex {gate.vertex}'s condition waits for its own action to "
+                f"reach {state or 'another state'}, which it cannot while the "
+                "entity waits at the vertex: the action is running all that "
+                "time. Wait on another action, or end the run with until.",
+                child.id,
+            )
+
+    _check_vertex_times(out, path, node, count or 0)
+
+
+def _vertex_times(node: ActionNode) -> dict[int, Any]:
+    """Vertex (from 1) -> the time its ``trajectory_time`` condition states."""
+    return {
+        gate.vertex: gate.condition.params.get("time")
+        for gate in node.advance_conditions
+        if gate.condition.type == "trajectory_time"
+    }
+
+
+def _check_vertex_times(
+    out: _Collector, path: str, node: ActionNode, count: int
+) -> None:
+    """The timing rules of a trajectory, on the card's time conditions.
+
+    Once any vertex departs at a time, every vertex departs on a condition
+    (a time or another), and the times do not decrease along the path.
+    """
+    times = _vertex_times(node)
+    if not times or count < 2:
+        return
+    gated = {gate.vertex for gate in node.advance_conditions}
+    bare = [vertex for vertex in range(1, count + 1) if vertex not in gated]
+    if bare:
+        out.error(
+            f"{path}.advance_conditions",
+            "Either every vertex has a time or none has (a vertex with another "
+            f"waypoint condition counts as having one): vertex {bare[0]} has "
+            "none.",
+            node.id,
+        )
+    ordered = [
+        float(times[vertex])
+        for vertex in sorted(times)
+        if vertex <= count and _coercible_float(times[vertex])
+    ]
+    if any(later < earlier for earlier, later in zip(ordered, ordered[1:])):
+        out.error(
+            f"{path}.advance_conditions",
+            "The vertex times decrease along the path.",
+            node.id,
+        )
+
+
+def _vertex_count(node: ActionNode) -> Optional[int]:
+    """How many vertices a vertex-listing card has; ``None`` if it lists none.
+
+    A count that cannot be read -- a malformed line -- is reported against
+    its own field, and comes back as ``0`` here so nothing is said twice.
+    """
+    params = node.params
+    source = params.get("path_source", "goal")
+    try:
+        if source == "vertices":
+            return len(parse_vertices(params.get("vertices")))
+        if source == "relative_lane":
+            return len(parse_relative_vertices(params.get("relative_vertices")))
+        if source == "route":
+            return len(parse_route_vertices(params.get("route_vertices")))
+    except ValueError:
+        return 0
+    return None
+
+
+def _check_routing(out: _Collector, path: str, node: ActionNode) -> None:
+    """Check what the *Set Goal* card's fields only mean together.
+
+    Each field is checked on its own by its kind; this is the part no single
+    field can say: which source needs what, and which time reference and mode
+    the hiding needs.  Stated here, a card that would raise at scenario setup
+    is a document error the editor shows instead.
+    """
+    params = node.params
+    source = params.get("path_source", "goal")
+    domain = params.get("time_domain", "none")
+    timed = domain != "none"
+    if source == "goal":
+        if _is_blank(params.get("goal_lanelet_id")):
+            out.error(
+                f"{path}.goal_lanelet_id",
+                "A route to a goal needs its goal lanelet.",
+                node.id,
+            )
+        if timed:
+            out.error(
+                f"{path}.time_domain",
+                "A route to a goal has no waypoint times for a time reference "
+                "to apply to: write the waypoints out, or choose None.",
+                node.id,
+            )
+        if params.get("mode", "driver") != "driver":
+            # The trajectory a goal stands for is only stops for a driver to
+            # route between: no legs to follow or to place the entity on.
+            out.error(
+                f"{path}.mode",
+                "A route to a goal is driven by the entity's own driver: "
+                "write the waypoints out to have it followed or placed, or "
+                "choose Driver.",
+                node.id,
+            )
+        offset = params.get("initial_distance_offset")
+        if (
+            not _is_blank(offset)
+            and _coercible_float(offset)
+            and float(str(offset)) > 0.0
+        ):
+            out.error(
+                f"{path}.initial_distance_offset",
+                "A route to a goal has no trajectory to start along: write "
+                "the waypoints out, or set Start this far along to 0.",
+                node.id,
+            )
+    elif params.get("waypoint_lanelet_ids"):
+        out.error(
+            f"{path}.waypoint_lanelet_ids",
+            "Via lanelets go with a goal lanelet; written-out waypoints are "
+            "the route's whole way.",
+            node.id,
+        )
+    if source == "vertices":
+        try:
+            rows = parse_vertices(params.get("vertices"))
+        except ValueError:
+            return  # already reported against the field
+        for problem in vertex_problems(rows):
+            out.error(f"{path}.vertices", f"Vertices: {problem}.", node.id)
+        _check_times_for_reference(out, path, node, timed and bool(rows))
+    elif source == "relative_lane":
+        # Types and counts only: whether the lanes the vertices name exist
+        # depends on where the reference entity is when the action starts.
+        try:
+            relative_rows = parse_relative_vertices(params.get("relative_vertices"))
+        except ValueError:
+            return  # already reported against the field
+        for problem in relative_vertex_problems(relative_rows):
+            out.error(
+                f"{path}.relative_vertices", f"Relative vertices: {problem}.", node.id
+            )
+        _check_times_for_reference(out, path, node, timed and bool(relative_rows))
+    elif source == "route":
+        # Whether the route has what the vertices name -- an opposite lane, a
+        # crosswalk -- depends on the map, so only the shape and the anchors
+        # (checked against the route search) are known here.
+        try:
+            route_rows = parse_route_vertices(params.get("route_vertices"))
+        except ValueError:
+            return  # already reported against the field
+        for problem in vertex_problems(route_rows):
+            out.error(f"{path}.route_vertices", f"Route vertices: {problem}.", node.id)
+        _check_times_for_reference(out, path, node, timed and bool(route_rows))
+    elif source == "lanelets":
+        if not params.get("lanelet_ids"):
+            out.error(
+                f"{path}.lanelet_ids",
+                "A lanelet path needs at least one lanelet.",
+                node.id,
+            )
+        if timed and not _positive(params.get("speed_kmh")):
+            out.error(
+                f"{path}.speed_kmh",
+                "A time reference needs a speed to time the lanelet path by.",
+                node.id,
+            )
+    speed = params.get("speed_ms")
+    if not _is_blank(speed) and _coercible_float(speed) and float(str(speed)) < 0.0:
+        out.error(f"{path}.speed_ms", "Speed must not be negative.", node.id)
+    cross = params.get("cross_factor")
+    if (
+        not _is_blank(cross)
+        and _coercible_float(cross)
+        and not 0.0 <= float(str(cross)) <= 1.0
+    ):
+        out.error(
+            f"{path}.cross_factor",
+            "Crossing away from crossings is a probability, 0 to 1.",
+            node.id,
+        )
+    if not _positive(params.get("time_scale", 1.0)):
+        out.error(f"{path}.time_scale", "Time scale must be positive.", node.id)
+
+
+def _check_spawn(out: _Collector, path: str, node: ActionNode) -> None:
+    """A Spawn card's shift and speed are distances and speeds: not negative."""
+    params = node.params
+    for key, what in (("shift_max", "How far on"), ("speed_ms", "The speed")):
+        value = params.get(key)
+        if not _is_blank(value) and _coercible_float(value) and float(str(value)) < 0.0:
+            out.error(f"{path}.{key}", f"{what} must not be negative.", node.id)
+
+
+def _check_spawn_target(out: _Collector, path: str, node: ActionNode) -> None:
+    """A Spawn or Despawn card acts on a declared entity (its actor) or on a
+    prop (its name), exactly one of the two, as SpawnAction and DespawnAction
+    ask (#1021).  A prop Spawn card also needs a place of its own: a route
+    pose, or a lanelet -- lanelet 0 means an entity's declared spawn, which a
+    prop does not have.
+    """
+    params = node.params
+    named = not _is_blank(params.get("name"))
+    verb = "Spawn" if node.type == "spawn" else "Despawn"
+    if node.actor is not None and named:
+        out.error(
+            f"{path}.name",
+            f"A {verb} card acts on an entity (its actor) or on a prop (its "
+            "name), not both: clear the prop name to act on the entity, or "
+            "the actor to act on the prop.",
+            node.id,
+        )
+    elif node.actor is None and not named:
+        out.error(
+            f"{path}.actor",
+            f"A {verb} card needs an entity (an actor) or a prop (a prop "
+            "name), exactly one of the two.",
+            node.id,
+        )
+    if node.type != "spawn" or node.actor is not None or not named:
+        return
+    if not _has_place(node):
+        out.error(
+            f"{path}.lanelet_id",
+            "A prop needs a place: give it a lanelet (and s) or a route pose. "
+            "No lanelet means an entity's declared spawn, which a prop does "
+            "not have.",
+            node.id,
+        )
+
+
+def _has_place(node: ActionNode | ConditionNode) -> bool:
+    """Whether a card's place fields (``route_pose``, ``lanelet_id``) name a
+    place: a route pose, a lanelet above 0 (0 is the empty field), or a
+    lanelet the sweep searches for or derives (a missing default is
+    :func:`_check_lanelet_slots`'s warning)."""
+    params = node.params
+    route = params.get("route_pose")
+    if route and not _is_blank(route):
+        return True
+    choice = node.searches.get("lanelet_id")
+    if choice is not None and (choice.searching or choice.deriving):
+        return True
+    lanelet = params.get("lanelet_id")
+    if _is_blank(lanelet) or not _coercible_float(lanelet):
+        return False
+    return int(float(str(lanelet))) > 0
+
+
+def _number(params: dict[str, Any], key: str) -> Optional[float]:
+    """The finite number a field holds; ``None`` when blank or not a number
+    (the field check's to report)."""
+    value = params.get(key)
+    if _is_blank(value) or not _coercible_float(value):
+        return None
+    return float(str(value).strip())
+
+
+def _check_spans(out: _Collector, path: str, node: ActionNode) -> None:
+    """A construction zone ends after it starts, along its lane and in time;
+    a stalled object is taken away after it is put down, as the actions ask
+    (an end of ``1e9`` s or more is "never", which the empty field says)."""
+    params = node.params
+    if node.type != "stalled_object":
+        start_s, end_s = _number(params, "start_s"), _number(params, "end_s")
+        if start_s is not None and end_s is not None and not end_s > start_s:
+            out.error(
+                f"{path}.end_s",
+                "The zone's end (end_s) must be further along than its start "
+                "(start_s).",
+                node.id,
+            )
+    start, end = _number(params, "start_time"), _number(params, "end_time")
+    if start is None or end is None:
+        return
+    if not end > start:
+        out.error(
+            f"{path}.end_time",
+            "The end time must be after the start time; leave it empty for never.",
+            node.id,
+        )
+    elif node.type == "stalled_object" and end > _stalled_forever_s():
+        out.error(
+            f"{path}.end_time",
+            f"An end time past {_stalled_forever_s():g} s is never: leave it empty.",
+            node.id,
+        )
+
+
+def _stalled_forever_s() -> float:
+    from ..actions.stalled_object import FOREVER_S  # noqa: PLC0415
+
+    return FOREVER_S
+
+
+def _check_traffic_parameters(out: _Collector, path: str, node: ActionNode) -> None:
+    """A Traffic/Vehicle Parameters card sets at least one parameter (a mean,
+    or a yes/no field), and gives a std only with its mean, as
+    TrafficParametersAction and its spreads ask."""
+    params = node.params
+    spec = get_action_spec(node.type)
+    names = [f.name for f in spec.fields] if spec is not None else []
+    sets_one = False
+    for name in names:
+        if _is_blank(params.get(name)) or name.endswith("_std"):
+            continue
+        sets_one = True
+    for name in names:
+        if not name.endswith("_std") or _is_blank(params.get(name)):
+            continue
+        mean = name[: -len("_std")] + "_mean"
+        if _is_blank(params.get(mean)):
+            out.error(
+                f"{path}.{name}",
+                f"A std is the spread around a mean: give {mean} too.",
+                node.id,
+            )
+    if not sets_one:
+        out.error(
+            path,
+            "The card sets no parameter: give at least one mean or yes/no "
+            "value, or remove the card.",
+            node.id,
+        )
+    bounds = _traffic_mean_bounds()
+    labels = {f.name: f.label for f in spec.fields} if spec is not None else {}
+    for name in names:
+        given = _number(params, name)
+        if given is None or name not in bounds:
+            continue
+        low, high = bounds[name]
+        if low <= given <= high:
+            continue
+        wanted = (
+            f"at least {low:g}" if math.isinf(high) else f"within [{low:g}, {high:g}]"
+        )
+        out.error(f"{path}.{name}", f"{labels[name]} must be {wanted}.", node.id)
+
+
+def _traffic_mean_bounds() -> dict[str, tuple[float, float]]:
+    """``*_mean`` field of a Traffic/Vehicle Parameters card -> the
+    ``(low, high)`` its parameter's mean must lie in.
+
+    The bounds are the runtime's own tables (``VEHICLE_BOUNDS`` and the
+    rest), which the parameter classes check every mean against when the
+    action is built; the field names are what ``traffic.authoring`` maps
+    onto them (a pedestrian's gap is ``pedestrian_min_gap_m``, every bicycle
+    field ``bicycle_*``).
+    """
+    from ..traffic.parameters import (  # noqa: PLC0415
+        BICYCLE_BOUNDS,
+        PEDESTRIAN_BOUNDS,
+        VEHICLE_BOUNDS,
+    )
+
+    bounds = {f"{name}_mean": span for name, span in VEHICLE_BOUNDS.items()}
+    for name, span in PEDESTRIAN_BOUNDS.items():
+        field_name = "pedestrian_min_gap_m" if name == "min_gap_m" else name
+        bounds[f"{field_name}_mean"] = span
+    for name, span in BICYCLE_BOUNDS.items():
+        bounds[f"bicycle_{name}_mean"] = span
+    return bounds
+
+
+def _check_traffic_constraints(out: _Collector, path: str, node: ActionNode) -> None:
+    """A Traffic Source's or Sink's constraints parse as the action parses
+    them: a YAML list (or one mapping) of sweep constraints it knows.  A
+    blank one is the field check's."""
+    value = node.params.get("constraints")
+    if _is_blank(value):
+        return
+    from ..actions.background_traffic import constraints_from_text  # noqa: PLC0415
+
+    try:
+        constraints_from_text(str(value))
+    except Exception as exc:  # noqa: BLE001 -- yaml's and the parser's errors alike
+        out.error(
+            f"{path}.constraints",
+            f"The constraints do not parse: {exc}",
+            node.id,
+        )
+
+
+def _check_equal_tolerance(
+    out: _Collector, path: str, spec: ConditionSpec, node: ConditionNode
+) -> None:
+    """An ``=`` rule needs a tolerance it can be met within (#1091).
+
+    A negative tolerance is refused when the condition is built, so it is an
+    error here.  An ``=`` left at the runtime's 1e-6 on a card measuring a
+    physical quantity (its tolerance field has a unit) is only a warning: a
+    document written before the field existed must still load and run as it
+    did, but a measured speed or distance practically never lands that close
+    to the threshold, so the rule would never fire.
+    """
+    field_spec = next((f for f in spec.fields if f.name == "tolerance"), None)
+    if field_spec is None:
+        return
+    tolerance = _number(node.params, "tolerance")
+    if tolerance is not None and tolerance < 0:
+        out.error(
+            f"{path}.tolerance",
+            f"{field_spec.label} must not be negative.",
+            node.id,
+        )
+        return
+    if str(node.params.get("rule")) != "equal_to" or not field_spec.unit:
+        return
+    if tolerance is None or tolerance <= EQUAL_TO_DEFAULT_TOLERANCE:
+        out.warn(
+            f"{path}.tolerance",
+            f'{spec.title} "=" compares within {EQUAL_TO_DEFAULT_TOLERANCE:g} '
+            f"{field_spec.unit}, which a measured value practically never "
+            f"lands in, so the rule would never fire: give a tolerance "
+            f"(say 0.1 {field_spec.unit}), or use ≤ or ≥.",
+            node.id,
+        )
+
+
+def _check_condition_frame(out: _Collector, path: str, node: ConditionNode) -> None:
+    """A Distance condition measures to a place it names (a route pose or a
+    lanelet: lanelet 0 is the empty field); an Entity Distance's signed
+    distance is ahead or behind along the road, so it is measured in the lane
+    frame.  Along the road, a distance is one-dimensional (no lateral
+    component) and neither it nor a TTC can be taken between bounding boxes
+    (#1097).  All are refused when the condition is built, at setup."""
+    params = node.params
+    if node.type == "temporary_stop" and params.get("stop_lanelets", []) in ([], ()):
+        out.error(
+            f"{path}.stop_lanelets",
+            "Temporary Stop needs at least one lanelet to stop on.",
+            node.id,
+        )
+    if node.type == "distance" and not _has_place(node):
+        out.error(
+            f"{path}.lanelet_id",
+            "A distance needs a place to measure to: give a lanelet (and s) "
+            "or a route pose.",
+            node.id,
+        )
+    if (
+        node.type == "entity_distance"
+        and params.get("signed") is True
+        and str(params.get("measure", "entity")) != "lane"
+    ):
+        out.error(
+            f"{path}.signed",
+            "A signed distance is ahead or behind along the road: measure it "
+            "in the lane frame (measure: lane), or clear signed.",
+            node.id,
+        )
+    in_lane = str(params.get("measure", "entity")) == "lane"
+    if (
+        node.type == "entity_distance"
+        and in_lane
+        and str(params.get("distance_type", "EUCLIDEAN")) == "LATERAL"
+    ):
+        out.error(
+            f"{path}.distance_type",
+            "Along the road a distance is one-dimensional, so it has no "
+            "lateral component: measure the lateral offset in a straight "
+            "line, or choose another component.",
+            node.id,
+        )
+    if (
+        node.type in ("entity_distance", "ttc")
+        and in_lane
+        and params.get("edge_to_edge") is True
+    ):
+        out.error(
+            f"{path}.edge_to_edge",
+            "Between bounding boxes cannot be measured along the road: "
+            "measure in a straight line, or clear Between bounding boxes.",
+            node.id,
+        )
+
+
+def _check_traffic_source(out: _Collector, path: str, node: ActionNode) -> None:
+    """A Traffic Source's speed is the most its vehicles drive at: at least
+    :data:`~..constants.MIN_BACKGROUND_SPEED_KMH`, as TrafficSourceAction
+    asks (#967).  0 would be traffic that never moves.  A blank or non-finite
+    one is the field check's."""
+    value = node.params.get("speed_kmh")
+    if _is_blank(value) or not _coercible_float(value):
+        return
+    if float(str(value).strip()) < MIN_BACKGROUND_SPEED_KMH:
+        out.error(
+            f"{path}.speed_kmh",
+            f"Speed must be at least {MIN_BACKGROUND_SPEED_KMH:g} km/h: it is the "
+            "most the vehicles drive at, and traffic that never moves is no "
+            "traffic.",
+            node.id,
+        )
+
+
+def _check_times_for_reference(
+    out: _Collector, path: str, node: ActionNode, timed: bool
+) -> None:
+    """A time reference applies to vertex times, so the card needs some."""
+    if timed and not _vertex_times(node):
+        out.error(
+            f"{path}.time_domain",
+            "A time reference needs a time on every vertex: give them "
+            "Trajectory time waypoint conditions, or choose None.",
+            node.id,
+        )
+
+
+def _positive(value: Any) -> bool:
+    return _coercible_float(value) and float(str(value).strip()) > 0.0
+
+
+def _check_entity(
+    out: _Collector,
+    path: str,
+    entity: Entity,
+    *,
+    routed: bool = False,
+    routed_goal: bool = False,
+) -> None:
+    """Validate one entity, its spawn definition and its goal.
+
+    *routed* says the document's route search places the ego, so the ego's own
+    spawn lanelet is only a placeholder; *routed_goal* that it gives the ego
+    its goal as well.
+    """
+    _check_entity_numbers(out, path, entity)
+    _check_goal(out, path, entity, routed=routed_goal)
+    _check_model(out, path, entity)
+    _check_unread_fields(out, path, entity)
+    spawn = entity.spawn
+    if routed and (entity.kind == "ego" or spawn.hidden):
+        # Placed by the route search, or parked out of the world until an
+        # action brings it in: no lanelet of one particular map is needed.
+        return
+    if routed and spawn.mode == "fixed":
+        out.warn(
+            f"{path}.spawn",
+            f"{entity.display_name} spawns on lanelet {spawn.lanelet_id}, which "
+            "names a lanelet of one map, in a scenario whose route is found on "
+            "any map. Spawn it hidden and bring it in with a route trajectory.",
+            entity.id,
+        )
+    # The search itself -- its constraints, and the default it falls back to --
+    # is checked with every other searched lanelet in `_check_lanelet_slots`,
+    # so a spawn, a goal and a condition's lanelet are held to one rule.
+    if spawn.mode == "fixed" and spawn.lanelet_id <= 0:
+        out.error(
+            f"{path}.spawn.lanelet_id",
+            "A fixed spawn needs a positive lanelet ID.",
+            entity.id,
+        )
+
+    if spawn.s.mode == "derived":
+        _check_binding(out, f"{path}.spawn.s.binding", spawn.s.binding, "s", entity.id)
+
+
+def _check_binding(
+    out: _Collector,
+    path: str,
+    binding: Optional[BindingRef],
+    produces: str,
+    owner_id: str,
+) -> None:
+    """Check a binding exists, is known, works out a *produces*, and is filled in."""
+    noun = "offset" if produces == "s" else produces
+    if binding is None:
+        out.error(path, f"A derived {noun} needs a binding.", owner_id)
+        return
+    binding_spec = get_binding_spec(binding.type)
+    if binding_spec is None:
+        out.error(path, f"Unknown binding type {binding.type!r}.", owner_id)
+        return
+    if binding_spec.produces != produces:
+        out.error(
+            path,
+            f"{binding_spec.title} works out a {binding_spec.produces}, not a {noun}.",
+            owner_id,
+        )
+        return
+    for field_spec in binding_spec.fields:
+        _check_field(out, path, field_spec, binding.params, _NO_REFS, owner_id)
+
+
+def _check_entity_numbers(out: _Collector, path: str, entity: Entity) -> None:
+    """Reject a NaN or infinite speed, offset, heading or size.
+
+    The model accepts them (a Pydantic float does), and the runtime would
+    place the actor at no position, or drive it at no speed.
+    """
+    numbers: list[tuple[str, float]] = [
+        ("initial_speed_kmh", entity.initial_speed_kmh),
+        ("spawn.s.value", entity.spawn.s.value),
+        ("spawn.t", entity.spawn.t),
+        ("spawn.heading", entity.spawn.heading),
+    ]
+    if entity.goal is not None:
+        numbers.append(("goal.s", entity.goal.s))
+    if entity.size is not None:
+        numbers.append(("size.length", entity.size.length))
+        numbers.append(("size.width", entity.size.width))
+    for key, number in numbers:
+        if not math.isfinite(number):
+            out.error(f"{path}.{key}", "This must be a finite number.", entity.id)
+
+
+def _check_unread_fields(out: _Collector, path: str, entity: Entity) -> None:
+    """Refuse a value the runtime has no way to honour for this entity.
+
+    The model holds every field for every kind, but not every kind reads every
+    field; a value set where nothing reads it would be dropped in silence, as
+    a goal on a vehicle other than the ego would (:func:`_check_goal`).
+
+    * A pedestrian has no initial speed.  It stands until a walk tells it how
+      fast to go, and a walker told to move at spawn would walk on, in a
+      straight line, for the whole run -- a behaviour nothing asked for.
+    * Only the ego is driven by what the document chooses; every other
+      vehicle is the TrafficManager's.
+    """
+    if entity.kind == "pedestrian" and entity.initial_speed_kmh != 0.0:
+        out.error(
+            f"{path}.initial_speed_kmh",
+            "A pedestrian has no initial speed: it stands until a walk card "
+            "tells it how fast to go. Set it to 0 and give the walk a speed.",
+            entity.id,
+        )
+    if entity.kind != "ego" and entity.driven_by != "autopilot":
+        out.error(
+            f"{path}.driven_by",
+            f"Only the ego is driven by the stack the document names; this "
+            f"{entity.kind} would ignore driven_by: {entity.driven_by}.",
+            entity.id,
+        )
+
+
+def _check_model(out: _Collector, path: str, entity: Entity) -> None:
+    """Check the blueprint belongs to the family this kind spawns from.
+
+    A pedestrian is not a vehicle with a different model: the two come from
+    different CARLA blueprint families, and a document that names the wrong one
+    is one the editor accepted and the runtime cannot spawn.  Caught here so
+    the answer arrives while the scenario is being written rather than as a
+    failed spawn against a live server.
+    """
+    wanted = "walker." if entity.kind == "pedestrian" else "vehicle."
+    if entity.vehicle_type == AUTO_MODEL:
+        if entity.kind != "vehicle":
+            out.error(
+                f"{path}.vehicle_type",
+                f"Only a vehicle other than the ego is chosen by its size "
+                f"(vehicle_type: {AUTO_MODEL}); a {entity.kind} names its blueprint.",
+                entity.id,
+            )
+        elif entity.size is None:
+            out.error(
+                f"{path}.size",
+                f"vehicle_type: {AUTO_MODEL} is the vehicle nearest the entity's "
+                "size, and this one has none.",
+                entity.id,
+            )
+        return
+    if entity.size is not None:
+        # The size is read only to choose an ``auto`` vehicle.
+        out.error(
+            f"{path}.size",
+            f"A size chooses the vehicle of vehicle_type: {AUTO_MODEL}; this "
+            f"{entity.kind} names its blueprint, so the size would be ignored. "
+            f"Remove it, or set vehicle_type: {AUTO_MODEL}.",
+            entity.id,
+        )
+    if not entity.vehicle_type.startswith(wanted):
+        out.error(
+            f"{path}.vehicle_type",
+            f"A {entity.kind} spawns from a {wanted}* blueprint, "
+            f"but this one names {entity.vehicle_type!r}.",
+            entity.id,
+        )
+
+
+def _check_goal(
+    out: _Collector, path: str, entity: Entity, *, routed: bool = False
+) -> None:
+    """Check the entity's goal: the ego may have one, and an Autoware ego must.
+
+    A goal is read by a vehicle that plans its own route, and the ego is the
+    only one that can have such a stack behind it -- the export renders the
+    ego's goal and nothing else.  A goal stored on another vehicle would
+    therefore be dropped in silence, so it is reported instead.
+
+    Whether the ego needs one follows what drives it.  Autoware localizes at the
+    spawn, plans a route to the goal and only then engages, so an ``autoware``
+    ego without a goal never moves and the document is wrong.  An ego the
+    TrafficManager drives reads no goal at all, and a scenario about what
+    happens on the way -- a cut-in, a red light -- may legitimately name no
+    destination.
+    """
+    if entity.kind != "ego":
+        if entity.goal is not None:
+            out.error(
+                f"{path}.goal",
+                "Only the ego is routed to a goal; this vehicle would ignore "
+                "it. Use a Set Goal card if something should act on it during "
+                "the run.",
+                entity.id,
+            )
+        return
+    if entity.goal is None:
+        if entity.driven_by == "autoware" and not routed:
+            out.error(
+                f"{path}.goal",
+                "An Autoware ego has no goal. Pick one in the Goal section of "
+                "its inspector: Autoware plans its route to it and will not "
+                "move without one.",
+                entity.id,
+            )
+    elif entity.goal.lanelet_id <= 0 and entity.goal.mode == "fixed":
+        out.error(
+            f"{path}.goal.lanelet_id",
+            "A goal needs a positive lanelet ID.",
+            entity.id,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def _check_untriggered_actions(out: _Collector, document: ScenarioDocument) -> None:
+    """Warn about an action drawn late that in fact fires on the first tick.
+
+    An action with no trigger gets ``AlwaysTrueCondition``, and every action is
+    armed from the first tick -- so a card in step 5 with an empty trigger runs
+    immediately, while its position says otherwise.  The canvas writes "fires
+    immediately" under the card, but the step number is louder.
+
+    Only actions drawn past the first step are worth saying this about: one in
+    step 1 with no trigger is doing exactly what it looks like.  An init action
+    is not drawn in a step at all -- its phase runs once, before the loop -- so
+    firing without a trigger is what it is for, not a discrepancy.
+    """
+    for index, action in enumerate(document.actions):
+        if action.trigger is not None or action.phase == "init":
+            continue
+        column = document.ui.column_of(action.id)
+        if column <= 0:
+            continue
+        out.warn(
+            f"actions[{index}].trigger",
+            f"{action.title or action.type!r} has no trigger, so it fires on the "
+            f"first tick even though it is drawn in step {column + 1}. Give it a "
+            f"trigger, or move it to step 1.",
+            action.id,
+        )
+
+
+def _check_init_triggers(out: _Collector, document: ScenarioDocument) -> None:
+    """An init action must not be gated by a trigger.
+
+    An error and not a warning: `run_init` evaluates a trigger once, at elapsed
+    0.0, so an action whose trigger is not already true at that instant never
+    runs at all.  A document that says "do this during initialization, but only
+    once X" describes something the phase cannot do, and exporting it would
+    ship a scenario with a step that quietly does not happen.
+    """
+    for index, action in enumerate(document.actions):
+        if action.trigger is None or action.takes_trigger:
+            continue
+        out.error(
+            f"actions[{index}].trigger",
+            f"{action.title or action.type!r} is in the initialization phase, "
+            "which runs once and begins immediately, so it cannot wait for a "
+            "condition. Remove the trigger, or move the action onto the tick "
+            "loop.",
+            action.id,
+        )
+
+
+def _check_duplicate_ego_routing(out: _Collector, document: ScenarioDocument) -> None:
+    """Warn when an init Set Goal card repeats the goal the ego already carries.
+
+    The ego is routed to :attr:`~...models.Entity.goal` during initialization
+    whether or not a card says so, so an init ``routing`` card owned by the ego
+    sends it a second destination in the same phase.  The ego's own goal is
+    registered first (as the ego is spawned) and the document's cards after it,
+    and ``run_init`` performs them in that order, each giving the ego back
+    before the next fires: both are delivered and the card's goal is the one
+    the ego keeps.  A warning rather than an error: the run is well defined,
+    it just says one thing twice.
+    """
+    ego = document.ego
+    if ego is None or ego.goal is None:
+        return
+    for index, action in enumerate(document.actions):
+        if action.type != "routing" or action.actor != ego.id or action.phase != "init":
+            continue
+        out.warn(
+            f"actions[{index}].phase",
+            f"{action.title or 'Set Goal'} routes the ego during initialization, "
+            "where its own goal is already delivered; this card's goal replaces "
+            "it before the run starts. Move this card onto the tick loop to "
+            "change the destination mid-run.",
+            action.id,
+        )
+
+
+def _check_step_order(out: _Collector, document: ScenarioDocument) -> None:
+    """Warn when a stored layout draws an order the runtime cannot honour.
+
+    A step is a set of actions that nothing orders -- they are all armed from
+    the first tick -- so an action level with, or ahead of, its own dependency
+    is a picture of a sequence that does not exist.  The editor repairs this on
+    every save; this catches a hand-edited ``ui`` block that says otherwise.
+
+    A **warning**, never an error, and only for actions whose column the
+    document actually states.  ``ui`` is presentation: deleting the block must
+    not change what the scenario does, and :func:`compile_document` and
+    :func:`export_package` both validate without normalising the layout first,
+    so an error here would stop a perfectly good scenario from being exported
+    for saying nothing about where to draw it.
+    """
+    stated = {
+        action.id: document.ui.nodes[action.id].column_hint
+        for action in document.actions
+        if action.id in document.ui.nodes
+    }
+    titles = {a.id: a.title or a.type for a in document.actions}
+    for action_id, needs in document.action_dependencies().items():
+        if action_id not in stated:
+            continue
+        for need in sorted(needs):
+            if need not in stated or stated[action_id] > stated[need]:
+                continue
+            out.warn(
+                f"ui.nodes.{action_id}.column_hint",
+                f"{titles[action_id]!r} waits on {titles[need]!r} but is drawn "
+                f"in step {stated[action_id] + 1}, not after step "
+                f"{stated[need] + 1}. Nothing inside a step is ordered; the "
+                f"canvas repairs this on the next save.",
+                action_id,
+            )
+
+
+def _check_hidden_spawns(out: _Collector, document: ScenarioDocument) -> None:
+    """An entity spawned out of the world needs something to bring it in.
+
+    Only a *Spawn* card brings it in; without one the entity stays under the
+    map for the whole run -- allowed, but surely not what was meant.  The ego
+    is never hidden: the run is measured on it from the first tick.
+    """
+    brought_in = {
+        str(action.actor) for action in document.actions if action.type == "spawn"
+    }
+    appearing = brought_in
+    for index, entity in enumerate(document.entities):
+        if entity.id in appearing and not entity.spawn.hidden and entity.kind != "ego":
+            out.warn(
+                f"entities[{index}].spawn.hidden",
+                f"{entity.display_name} is brought in by a Spawn card, but is "
+                "not spawned out of the world, so it stands at its spawn until "
+                "then. Spawn it hidden.",
+                entity.id,
+            )
+        if not entity.spawn.hidden:
+            continue
+        path = f"entities[{index}].spawn.hidden"
+        if entity.kind == "ego":
+            out.error(path, "The ego cannot spawn out of the world.", entity.id)
+        elif entity.id not in brought_in:
+            out.warn(
+                path,
+                f"{entity.display_name} spawns out of the world and no Spawn "
+                "card brings it in, so it stays there for the run.",
+                entity.id,
+            )
+
+
+def validate_document(document: ScenarioDocument) -> ValidationReport:
+    """Return every problem found in *document*.
+
+    Errors block compilation and package export; warnings are advisory (an
+    incomplete draft is still saveable).
+    """
+    out = _Collector()
+
+    entity_ids: set[str] = set()
+    for index, entity in enumerate(document.entities):
+        path = f"entities[{index}]"
+        if entity.id in entity_ids:
+            out.error(path, f"Duplicate entity id {entity.id!r}.", entity.id)
+        entity_ids.add(entity.id)
+        _check_entity(
+            out,
+            path,
+            entity,
+            routed=document.route is not None,
+            routed_goal=_route_sets_goal(document),
+        )
+
+    egos = [e for e in document.entities if e.kind == "ego"]
+    if not egos:
+        out.error("entities", "The scenario needs exactly one ego entity.")
+    elif len(egos) > 1:
+        out.error(
+            "entities",
+            f"Only one ego entity is allowed, found {len(egos)}: "
+            f"{[e.id for e in egos]}.",
+        )
+
+    # Every id is gathered before anything is checked, so a forward reference
+    # to an action declared further down is not a validation error.
+    refs = _Refs(
+        entities=entity_ids,
+        actions={a.id for a in document.actions},
+        entity_kinds={e.id: e.kind for e in document.entities},
+    )
+
+    seen_actions: set[str] = set()
+    for index, action in enumerate(document.actions):
+        path = f"actions[{index}]"
+        if action.id in seen_actions:
+            out.error(path, f"Duplicate action id {action.id!r}.", action.id)
+        seen_actions.add(action.id)
+        _check_action(out, path, action, refs)
+
+    _check_step_order(out, document)
+    _check_untriggered_actions(out, document)
+    _check_init_triggers(out, document)
+    _check_duplicate_ego_routing(out, document)
+    _check_hidden_spawns(out, document)
+
+    for index, condition in enumerate(document.assertions.pass_conditions):
+        _check_condition(out, f"assertions.pass[{index}]", condition, refs)
+    for index, condition in enumerate(document.assertions.fail_conditions):
+        _check_condition(out, f"assertions.fail[{index}]", condition, refs)
+
+    if not document.assertions.pass_conditions:
+        out.error(
+            "assertions.pass",
+            "The scenario needs at least one PASS condition, or it can never succeed.",
+        )
+    if not document.assertions.fail_conditions:
+        out.warn(
+            "assertions.fail",
+            "No FAIL condition: without a timeout the scenario can run forever.",
+        )
+
+    if not math.isfinite(document.timeout_seconds) or document.timeout_seconds <= 0:
+        # NaN fails every comparison: a NaN timeout never fires.
+        out.error(
+            "timeout_seconds", "The scenario timeout must be positive and finite."
+        )
+
+    _check_lanelet_slots(out, document)
+    _check_required_lanelets(out, document)
+    _check_sweep_shape(out, document)
+    _check_signal_controllers(out, document)
+    _check_route(out, document)
+
+    return ValidationReport(issues=tuple(out.issues))
+
+
+def _route_sets_goal(document: ScenarioDocument) -> bool:
+    """Whether the document's route search places the ego and gives it its goal."""
+    return document.route is not None and document.route.ego_goal
+
+
+def _check_route(out: _Collector, document: ScenarioDocument) -> None:
+    """Check a logical scenario's route search, and everything measured on it.
+
+    The search is checked as the route search will read it; what the map has
+    is only known when it runs.  Every route vertex and ``route_progress``
+    condition needs a route search to be measured on, and every anchor and
+    junction index they name has to exist in its pattern -- which, unlike the
+    map, is known here.
+    """
+    route = document.route
+    if route is not None:
+        if not route.segments:
+            out.error("route.segments", "A route search needs at least one segment.")
+        else:
+            try:
+                parse_route_search(route.to_sweep_dict())
+            except ValueError as exc:
+                out.error("route", f"Route search: {exc}.")
+        if route.match_index >= route.max_matches:
+            out.error(
+                "route.match_index",
+                f"match_index {route.match_index} can never be taken: the "
+                f"search returns at most max_matches={route.max_matches} "
+                "matches, counted from 0.",
+            )
+        for slot in document.searched_lanelet_slots():
+            out.error(
+                slot.key,
+                f"{slot.label} is searched for, but the scenario's route search "
+                "already decides what it is expanded over. Pin the lanelet, or "
+                "drop the route search.",
+                slot.owner_id,
+            )
+        ego = document.ego
+        if ego is not None and ego.goal is not None and route.ego_goal:
+            out.error(
+                f"entities[{document.entities.index(ego)}].goal",
+                "The route search sends the ego to the route's end, and the ego "
+                "names a goal of its own. Drop the ego's goal, or set "
+                "route.ego_goal to false to keep it.",
+                ego.id,
+            )
+    segments = len(route.segments) if route is not None else 0
+    junctions = route.junction_count if route is not None else 0
+
+    def route_rows(where: str, owner: str, value: Any, what: str) -> None:
+        """Check route vertices *value* against the route search: there is
+        one, and it has the anchors and junctions they name."""
+        if route is None:
+            out.error(
+                where,
+                f"{what} placed on the scenario's route, and this scenario has "
+                "no route search.",
+                owner,
+            )
+            return
+        try:
+            rows = parse_route_vertices(value)
+        except ValueError:
+            return  # already reported against the field
+        for number, row in enumerate(rows, start=1):
+            problem = anchor_problem(row.get("anchor"), segments, junctions)
+            if problem is None and "junction" in row and row["junction"] >= junctions:
+                problem = (
+                    f"junction {row['junction']}: the route search has "
+                    f"{junctions} junction segment(s)"
+                )
+            if problem is not None:
+                out.error(where, f"Route vertex {number}: {problem}.", owner)
+
+    for index, action in enumerate(document.actions):
+        params = action.params
+        if action.type == "routing" and params.get("path_source") == "route":
+            route_rows(
+                f"actions[{index}].route_vertices",
+                action.id,
+                params.get("route_vertices"),
+                "Route vertices are",
+            )
+        if action.type == "traffic_signal" and params.get("target") == "route":
+            where = f"actions[{index}].route_junction"
+            junction = int(params.get("route_junction") or 0)
+            if route is None:
+                out.error(
+                    where,
+                    "A route junction's traffic lights are found on the scenario's "
+                    "route, and this scenario has no route search.",
+                    action.id,
+                )
+            elif junction >= junctions:
+                out.error(
+                    where,
+                    f"Route junction {junction}: the route search has {junctions} "
+                    "junction segment(s).",
+                    action.id,
+                )
+        if action.type == "spawn" and params.get("route_pose"):
+            route_rows(
+                f"actions[{index}].route_pose",
+                action.id,
+                params.get("route_pose"),
+                "A route pose is",
+            )
+
+    for root in document.condition_roots():
+        for node in root.walk():
+            if node.type in ("place_clear", "distance") and node.params.get(
+                "route_pose"
+            ):
+                route_rows(
+                    node.id, node.id, node.params.get("route_pose"), "A route pose is"
+                )
+
+    for root in document.condition_roots():
+        for node in root.walk():
+            if node.type != "route_progress":
+                continue
+            if route is None:
+                out.error(
+                    node.id,
+                    "Route progress is measured on the scenario's route, and "
+                    "this scenario has no route search.",
+                    node.id,
+                )
+                continue
+            problem = anchor_problem(node.params.get("anchor"), segments, junctions)
+            if problem is not None:
+                out.error(node.id, f"Route progress: {problem}.", node.id)
+
+
+def _check_lanelet_slots(out: _Collector, document: ScenarioDocument) -> None:
+    """Check every searched lanelet in the document, wherever it is named.
+
+    A spawn, a goal and a condition's lanelet ask the same two questions of a
+    search -- does it constrain anything, and does it leave a default behind for
+    a run that does not sweep -- so they are asked once here rather than at each
+    of the three sites, which is how the goal came to have no answer at all.
+    """
+    slots = document.lanelet_slots()
+    searched = any(slot.searching for slot in slots)
+    for slot in slots:
+        choice = slot.choice
+        if choice.deriving:
+            _check_derived_slot(out, slot, searched=searched)
+            continue
+        if not choice.searching:
+            continue
+        if not choice.constraints:
+            out.error(
+                f"{slot.key}.constraints",
+                f"The search for {slot.label} has no constraints: every lanelet "
+                "matches. Add one, or pin the lanelet instead.",
+                slot.owner_id,
+            )
+        if slot.lanelet_id <= 0:
+            out.warn(
+                f"{slot.key}.lanelet_id",
+                f"No default lanelet for {slot.label}: a run that does not "
+                "sweep has nothing to fall back to.",
+                slot.owner_id,
+            )
+        for index, constraint in enumerate(choice.constraints):
+            _check_constraint(out, f"{slot.key}.constraints[{index}]", constraint)
+
+
+def _check_required_lanelets(out: _Collector, document: ScenarioDocument) -> None:
+    """A required lanelet parameter of a card holds a lanelet: 0 (or less) is
+    the empty field, which the action or condition cannot be built on
+    (#1021).  A searched or derived one is :func:`_check_lanelet_slots`'s,
+    and a blank or non-numeric one the field check's."""
+    for slot in document.lanelet_slots():
+        holder = slot.holder
+        spec: ActionSpec | ConditionSpec | None = None
+        if isinstance(holder, ActionNode):
+            spec = get_action_spec(holder.type)
+        elif isinstance(holder, ConditionNode):
+            spec = get_condition_spec(holder.type)
+        if spec is None or slot.searching or slot.deriving:
+            continue
+        field_spec = next((f for f in spec.fields if f.name == slot.field), None)
+        if (
+            field_spec is None
+            or not field_spec.required
+            or field_spec.kind != "lanelet"
+        ):
+            continue
+        raw = holder.params.get(slot.field, field_spec.default)
+        if _is_blank(raw) or not _coercible_int(raw) or int(str(raw).strip()) > 0:
+            continue
+        out.error(
+            slot.key,
+            f"{field_spec.label} is required: pick a lanelet ({spec.title}).",
+            slot.owner_id,
+        )
+
+
+def _check_derived_slot(out: _Collector, slot: LaneletSlot, *, searched: bool) -> None:
+    """Check a lanelet worked out from the sweep's pick.
+
+    It follows the search, so it needs one to follow; and like a searched slot
+    it keeps a default for a run that does not sweep.
+    """
+    _check_binding(
+        out,
+        f"{slot.key}.binding",
+        slot.choice.binding,
+        "lanelet",
+        slot.owner_id,
+    )
+    if not searched:
+        out.error(
+            f"{slot.key}.binding",
+            f"{slot.label} is derived from the searched lanelet, but nothing is "
+            "searched for. Search for a lanelet, or pin this one.",
+            slot.owner_id,
+        )
+    if slot.lanelet_id <= 0:
+        out.warn(
+            f"{slot.key}.lanelet_id",
+            f"No default lanelet for {slot.label}: a run that does not sweep "
+            "has nothing to fall back to.",
+            slot.owner_id,
+        )
+
+
+def _check_sweep_shape(out: _Collector, document: ScenarioDocument) -> None:
+    """Check the document against the lanelet-constraint sweeper's limits.
+
+    The sweeper enumerates one target key per run, so a scenario can search for
+    one lanelet -- whichever slot names it -- and only the searched entity's
+    spawn offset can be derived from a binding.  Both are warnings rather than
+    errors: the scenario still runs, it just runs with everything else pinned to
+    its default.
+    """
+    searched = document.searched_lanelet_slots()
+    for slot in searched[1:]:
+        out.warn(
+            slot.key,
+            "The sweeper searches one lanelet per run; "
+            f"{searched[0].label} is used and {slot.label} keeps its default.",
+            slot.owner_id,
+        )
+
+    swept = searched[0] if searched else None
+    swept_spawn = (
+        swept.owner_id if swept is not None and swept.field == "spawn" else None
+    )
+    for entity in document.entities:
+        if entity.spawn.s.mode != "derived":
+            continue
+        if entity.id != swept_spawn:
+            out.warn(
+                f"entities[{document.entities.index(entity)}].spawn.s",
+                f"A derived offset only resolves for the searched spawn; "
+                f"{entity.id!r} keeps its fixed value of {entity.spawn.s.value}.",
+                entity.id,
+            )
+
+
+def _check_signal_controllers(out: _Collector, document: ScenarioDocument) -> None:
+    """Check the map's signal groups, the cycles run on them, and every use.
+
+    A phase table is the one part of a scenario whose mistakes are invisible at
+    runtime: a misspelt phase name leaves the junction cycling normally, and a
+    scenario that waits for that phase simply never fires.  So the names are
+    checked against each other here, while the document is being written,
+    rather than discovered as a run that timed out for no stated reason.
+
+    The groups come first because the phases are checked against them -- both
+    for a name that resolves and for the one rule the grouping exists to make
+    checkable: that no phase lets two crossing movements through at once.
+    """
+    groups = _check_signal_groups(out, document)
+    declared = document.map.traffic_signal_controllers
+    by_name: dict[str, Any] = {}
+
+    for index, controller in enumerate(declared):
+        path = f"map.traffic_signal_controllers[{index}]"
+        name = (controller.name or "").strip()
+        if not name:
+            out.error(path, "A signal controller needs a name.")
+        elif name in by_name:
+            out.error(path, f"Duplicate signal controller name {name!r}.")
+        else:
+            by_name[name] = controller
+
+        _check_signal_phases(out, path, controller, groups)
+        _check_signal_offset(out, path, controller)
+
+    _check_signal_reference_targets(out, declared, by_name)
+    _check_signal_reference_cycles(out, declared, by_name)
+    _check_signal_uses(out, document, by_name)
+
+
+@dataclass(frozen=True)
+class _SignalGroups:
+    """The map's signal groups, resolved for the phase checks that follow.
+
+    Attributes:
+        members: Group name -> the regulatory element ids it drives.
+        conflicts: Group name -> the groups whose movements cross it.  Closed
+            symmetrically, so a crossing declared on one side only is still
+            caught from the other.
+    """
+
+    members: "dict[str, set[int]]" = field(default_factory=dict)
+    conflicts: "dict[str, set[str]]" = field(default_factory=dict)
+
+
+def _check_signal_groups(out: _Collector, document: ScenarioDocument) -> _SignalGroups:
+    """Check ``map.signal_groups`` and return it resolved.
+
+    A group is a claim about the road -- these signals change together, those
+    two movements cross -- so the mistakes worth catching here are the ones that
+    make the claim incoherent.  The one that matters most is a signal in two
+    groups: a phase could then ask for two colours on one light, and which it
+    ended up showing would depend on the order the states happened to be written
+    in.
+    """
+    declared = document.map.signal_groups
+    members: "dict[str, set[int]]" = {}
+    #: Which declaration each name came from, so the conflicts pass can tell a
+    #: duplicate's entries from the ones belonging to the group that kept it.
+    declared_at: "dict[str, int]" = {}
+    owner_of: "dict[int, str]" = {}
+
+    for index, group in enumerate(declared):
+        path = f"map.signal_groups[{index}]"
+        name = (group.name or "").strip()
+        if not name:
+            out.error(path, "A signal group needs a name, since phases call it by one.")
+            continue
+        if name in members:
+            out.error(
+                path,
+                f"Duplicate signal group name {name!r}; a phase naming it would "
+                "be ambiguous.",
+            )
+            continue
+
+        ids = set(group.lanelet2_regulatory_element_ids)
+        if not ids:
+            out.error(
+                f"{path}.lanelet2_regulatory_element_ids",
+                f"Signal group {name!r} drives no signal, so a phase naming it "
+                "would set nothing.",
+            )
+        if len(ids) != len(group.lanelet2_regulatory_element_ids):
+            out.warn(
+                f"{path}.lanelet2_regulatory_element_ids",
+                f"Signal group {name!r} names the same regulatory element more "
+                "than once.",
+            )
+        for signal in sorted(ids):
+            existing = owner_of.get(signal)
+            if existing is not None:
+                out.error(
+                    f"{path}.lanelet2_regulatory_element_ids",
+                    f"Regulatory element {signal} is in both signal group "
+                    f"{existing!r} and {name!r}. A signal shows one colour, so "
+                    "a phase naming both groups would not say which.",
+                )
+                continue
+            owner_of[signal] = name
+        members[name] = ids
+        declared_at[name] = index
+
+    conflicts = _check_signal_group_conflicts(out, declared, members, declared_at)
+    return _SignalGroups(members=members, conflicts=conflicts)
+
+
+def _check_signal_group_conflicts(
+    out: _Collector,
+    declared: "list[Any]",
+    members: "dict[str, set[int]]",
+    declared_at: "dict[str, int]",
+) -> "dict[str, set[str]]":
+    """Resolve ``conflicts_with`` into a symmetric relation, reporting bad names.
+
+    Symmetric because a crossing is not directional: an author who wrote it once
+    has said everything there is to say, and demanding the mirror entry would
+    only create a second place for it to be forgotten.
+    """
+    conflicts: "dict[str, set[str]]" = {name: set() for name in members}
+    for index, group in enumerate(declared):
+        name = (group.name or "").strip()
+        if declared_at.get(name) != index:
+            # Nameless, or a duplicate that lost the name.  Already reported, and
+            # its conflicts are not the surviving group's to inherit.
+            continue
+        for other in group.conflicts_with:
+            other = str(other).strip()
+            path = f"map.signal_groups[{index}].conflicts_with"
+            if other == name:
+                out.error(
+                    path,
+                    f"Signal group {name!r} conflicts with itself, which would "
+                    "leave no phase able to let it through.",
+                )
+                continue
+            if other not in members:
+                out.error(
+                    path,
+                    f"Signal group {name!r} conflicts with {other!r}, which this "
+                    "map does not declare.",
+                )
+                continue
+            conflicts[name].add(other)
+            conflicts[other].add(name)
+    return conflicts
+
+
+def _check_signal_phases(
+    out: _Collector, path: str, controller: Any, groups: _SignalGroups
+) -> None:
+    """Check one controller's cycle: its phases, their durations and states."""
+    if not controller.phases:
+        out.error(
+            f"{path}.phases",
+            f"Signal controller {controller.name!r} declares no phases, so it "
+            "would never show anything.",
+        )
+        return
+
+    seen: set[str] = set()
+    for index, phase in enumerate(controller.phases):
+        phase_path = f"{path}.phases[{index}]"
+        name = (phase.name or "").strip()
+        if not name:
+            out.error(phase_path, "A phase needs a name, since actions call it by one.")
+        elif name in seen:
+            out.error(
+                phase_path,
+                f"Signal controller {controller.name!r} declares two phases "
+                f"named {name!r}; an action naming it would be ambiguous.",
+            )
+        seen.add(name)
+
+        if not math.isfinite(phase.duration_seconds) or phase.duration_seconds < 0:
+            out.error(
+                f"{phase_path}.duration_seconds",
+                "A phase duration cannot be negative, and must be finite.",
+            )
+
+        if not phase.states:
+            # Not an error: a phase that holds the junction unchanged for a
+            # while is a legitimate thing to write, even if it is rarely what
+            # was meant.
+            out.warn(
+                f"{phase_path}.states",
+                f"Phase {phase.name!r} sets no signal, so it only spends time.",
+            )
+
+        for state_index, entry in enumerate(phase.states):
+            if str(entry.state).lower() not in SIGNAL_STATE_NAMES:
+                out.error(
+                    f"{phase_path}.states[{state_index}].state",
+                    f"Unknown signal state {entry.state!r}; expected one of "
+                    + ", ".join(sorted(SIGNAL_STATE_NAMES)),
+                )
+            _check_signal_phase_subject(
+                out, f"{phase_path}.states[{state_index}]", phase, entry, groups
+            )
+
+        _check_signal_phase_agrees_with_itself(out, phase_path, phase, groups)
+        _check_signal_phase_lets_no_conflict_through(out, phase_path, phase, groups)
+
+
+def _check_signal_phase_subject(
+    out: _Collector, path: str, phase: Any, entry: Any, groups: _SignalGroups
+) -> None:
+    """Every state names exactly one subject, and a named group must exist.
+
+    Both at once is refused rather than resolved by precedence: a rule about
+    which of the two wins is a rule nobody reading the document would know, and
+    the author who wrote both did not have one in mind either.
+    """
+    # A blank is what a form submits for an untouched field, so it reads as
+    # "not named" rather than as a group called "".
+    group = (entry.group or "").strip()
+    signal = entry.lanelet2_regulatory_element_id
+
+    if group and signal is not None:
+        out.error(
+            path,
+            f"Phase {phase.name!r} names both signal group {group!r} and "
+            f"regulatory element {signal} in one state. Name one: the group for "
+            "the movement, the element for a single light.",
+        )
+        return
+    if not group and signal is None:
+        out.error(
+            path,
+            f"Phase {phase.name!r} has a state that names no signal -- give it "
+            "either a signal group or a regulatory element id.",
+        )
+        return
+    if group and group not in groups.members:
+        out.error(
+            f"{path}.group",
+            f"Phase {phase.name!r} names signal group {group!r}, which "
+            "map.signal_groups does not declare."
+            + (
+                " Declared: " + ", ".join(repr(n) for n in sorted(groups.members))
+                if groups.members
+                else " This map declares none."
+            ),
+        )
+
+
+def _check_signal_phase_agrees_with_itself(
+    out: _Collector, path: str, phase: Any, groups: _SignalGroups
+) -> None:
+    """One phase must not ask for two colours on the same signal.
+
+    Applying a phase walks its states in order, so a repeat is not ambiguous at
+    runtime -- the last one wins.  It is ambiguous to the reader, which is the
+    problem: a phase is meant to be readable as the junction's whole state.
+    """
+    seen_groups: set[str] = set()
+    seen_signals: set[int] = set()
+    for entry in phase.states:
+        group = (entry.group or "").strip()
+        if group:
+            if group in seen_groups:
+                out.error(
+                    f"{path}.states",
+                    f"Phase {phase.name!r} sets signal group {group!r} twice.",
+                )
+            seen_groups.add(group)
+            continue
+        if entry.lanelet2_regulatory_element_id is None:
+            continue
+        signal = int(entry.lanelet2_regulatory_element_id)
+        if signal in seen_signals:
+            out.error(
+                f"{path}.states",
+                f"Phase {phase.name!r} sets regulatory element {signal} twice.",
+            )
+        seen_signals.add(signal)
+
+    # A bare element that one of the named groups also covers is the one overlap
+    # that is legitimate: overriding a single light out of a movement.  It is
+    # worth saying out loud, because it only works in the order it is written.
+    covered = {
+        signal for group in seen_groups for signal in groups.members.get(group, set())
+    }
+    for signal in sorted(seen_signals & covered):
+        out.warn(
+            f"{path}.states",
+            f"Phase {phase.name!r} sets regulatory element {signal} on its own "
+            "as well as through a signal group that covers it; whichever is "
+            "written last is what the light shows.",
+        )
+
+
+def _check_signal_phase_lets_no_conflict_through(
+    out: _Collector, path: str, phase: Any, groups: _SignalGroups
+) -> None:
+    """No phase may let two conflicting movements through at once.
+
+    This is the rule the whole grouping exists for.  Two conflicting approaches
+    green is the state a junction assembled one light at a time can reach and a
+    real road cannot, and until the map said which movements cross, nothing
+    could check it -- an author listing twelve regulatory elements per phase had
+    only their own care to rely on.
+
+    It reads the groups a phase names, not the signals it ends up setting, and
+    that is deliberate: naming a group is how an author invokes the map's
+    statement about that movement, including this rule.  A scenario whose
+    subject *is* a junction in an impossible state names the regulatory elements
+    directly and is left alone.
+    """
+    permissive: "dict[str, str]" = {}
+    for entry in phase.states:
+        group = (entry.group or "").strip()
+        if not group or group not in groups.members:
+            continue
+        state = str(entry.state).lower()
+        if state in PERMISSIVE_SIGNAL_STATES:
+            permissive.setdefault(group, state)
+
+    reported: "set[tuple[str, str]]" = set()
+    for group in sorted(permissive):
+        for other in sorted(groups.conflicts.get(group, set())):
+            if other not in permissive:
+                continue
+            first, second = sorted((group, other))
+            if (first, second) in reported:
+                continue
+            reported.add((first, second))
+            out.error(
+                f"{path}.states",
+                f"Phase {phase.name!r} shows {permissive[first]} to signal group "
+                f"{first!r} and {permissive[second]} to {second!r} at the same "
+                "time, but the map declares their movements as crossing. Real "
+                "junctions put an all-red clearance between them. If a junction "
+                "in this state is what the scenario tests, name the regulatory "
+                "elements directly instead of the groups.",
+            )
+
+
+def _check_signal_offset(out: _Collector, path: str, controller: Any) -> None:
+    """Check the controller's offset from another one.
+
+    A delay measures from the moment its reference started, so a delay with
+    nothing to measure from is not a controller that starts late -- it is one
+    whose author expected an offset that silently does not exist.
+    """
+    if not math.isfinite(controller.delay_seconds) or controller.delay_seconds < 0:
+        out.error(
+            f"{path}.delay_seconds",
+            "A start delay cannot be negative, and must be finite.",
+        )
+    if controller.delay_seconds and controller.reference is None:
+        out.error(
+            f"{path}.delay_seconds",
+            f"Signal controller {controller.name!r} declares a start delay but "
+            "no reference controller to measure it from.",
+        )
+
+
+def _check_signal_reference_targets(
+    out: _Collector, declared: "list[Any]", by_name: "dict[str, Any]"
+) -> None:
+    """Every ``reference`` must name a controller this map declares."""
+    for index, controller in enumerate(declared):
+        reference = controller.reference
+        if reference is None:
+            continue
+        if reference == controller.name:
+            out.error(
+                f"map.traffic_signal_controllers[{index}].reference",
+                f"Signal controller {controller.name!r} is offset from itself.",
+            )
+        elif reference not in by_name:
+            out.error(
+                f"map.traffic_signal_controllers[{index}].reference",
+                f"Signal controller {controller.name!r} is offset from "
+                f"{reference!r}, which this scenario does not declare.",
+            )
+
+
+def _check_signal_reference_cycles(
+    out: _Collector, declared: "list[Any]", by_name: "dict[str, Any]"
+) -> None:
+    """Reject controllers that wait on each other.
+
+    Each controller starts once the one it references has, so a loop is a set
+    of junctions none of which can ever begin -- a run where every light in the
+    corridor stays on CARLA's own cycle and nothing says why.
+    """
+    reported: set[str] = set()
+    for controller in declared:
+        walked: list[str] = []
+        current = controller
+        while current is not None and current.reference is not None:
+            if current.name in walked:
+                loop = walked[walked.index(current.name) :]
+                key = " -> ".join(sorted(loop))
+                if key not in reported:
+                    reported.add(key)
+                    out.error(
+                        "map.traffic_signal_controllers",
+                        "These signal controllers are offset from each other in "
+                        "a loop, so none of them can start: "
+                        + " -> ".join(loop + [current.name]),
+                    )
+                break
+            walked.append(current.name)
+            current = by_name.get(current.reference)
+
+
+def _check_signal_uses(
+    out: _Collector, document: ScenarioDocument, by_name: "dict[str, Any]"
+) -> None:
+    """Every action and condition naming a controller and phase must resolve."""
+    for path, node in _signal_controller_nodes(document):
+        controller_name = str(node.params.get("controller") or "").strip()
+        phase_name = str(node.params.get("signal_phase") or "").strip()
+        controller = by_name.get(controller_name)
+        if controller is None:
+            out.error(
+                f"{path}.controller",
+                f"No signal controller named {controller_name!r} is declared "
+                "under map.traffic_signal_controllers."
+                if controller_name
+                else "This card needs the name of a signal controller.",
+                node.id,
+            )
+            continue
+        if not phase_name:
+            out.error(
+                f"{path}.signal_phase",
+                "This card needs the name of a signal phase.",
+                node.id,
+            )
+            continue
+        if phase_name not in {p.name for p in controller.phases}:
+            out.error(
+                f"{path}.signal_phase",
+                f"Signal controller {controller_name!r} has no phase named "
+                f"{phase_name!r}; it has "
+                + (
+                    ", ".join(repr(p.name) for p in controller.phases)
+                    or "no phases at all"
+                ),
+                node.id,
+            )
+
+
+def _signal_controller_nodes(
+    document: ScenarioDocument,
+) -> "list[tuple[str, Any]]":
+    """Every action and condition in *document* of the controller type.
+
+    Conditions are reached wherever they are written -- a trigger, a nested
+    composition, an assertion -- because a phase name is just as wrong in each.
+    """
+    found: "list[tuple[str, Any]]" = []
+
+    def walk_condition(path: str, node: ConditionNode) -> None:
+        if node.type == "traffic_signal_controller":
+            found.append((path, node))
+        for index, child in enumerate(node.children):
+            walk_condition(f"{path}.children[{index}]", child)
+
+    for index, action in enumerate(document.actions):
+        path = f"actions[{index}]"
+        if action.type == "traffic_signal_controller":
+            found.append((path, action))
+        if action.trigger is not None:
+            walk_condition(f"{path}.trigger", action.trigger)
+        for gate_index, gate in enumerate(action.advance_conditions):
+            walk_condition(
+                f"{path}.advance_conditions[{gate_index}].condition", gate.condition
+            )
+
+    for index, condition in enumerate(document.assertions.pass_conditions):
+        walk_condition(f"assertions.pass[{index}]", condition)
+    for index, condition in enumerate(document.assertions.fail_conditions):
+        walk_condition(f"assertions.fail[{index}]", condition)
+
+    return found

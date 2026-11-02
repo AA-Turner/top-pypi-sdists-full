@@ -1,21 +1,5 @@
-"""Artifacts over 64 MiB: staged, then uploaded in parts (plan item (g)).
-
-Why: the credential gate and the server relay refuse files over 64 MiB, so a
-server declaring ``artifact_multipart`` takes them in parts, each PUT straight to
-object storage; its verifier proves the whole sha256 before the artifact goes live.
-The file is staged first (hardlink, reflink or copy, within the outbox's disk
-budget) because ``log_artifact`` returns before the upload runs. The staged copy's
-identity (device, inode, size, mtime) is checked around every step. The op
-``multipart_upload`` has its own queue (`<outbox>/multipart/ops/`) that no older
-release reads, one upload moves at a time, and `finish()` settles in-process when no
-durable worker will. Parts bypass the local credential gate (the server's verifier
-records findings on the artifact; a credential in the PATH is still refused).
-Anchors (0333): the op's ``upload.anchor`` names run, project, experiment,
-workspace or Shared; every path is spelled per anchor, literally (the parity guard
-reads call sites).
-
-Full rationale, the four callers and the failure handling: DESIGN.md in this folder.
-"""
+"""Artifacts over 64 MiB: staged within the outbox's disk budget, then uploaded in parts straight
+to object storage (plan item (g)); rationale, callers and failure handling in DESIGN.md."""
 
 from __future__ import annotations
 

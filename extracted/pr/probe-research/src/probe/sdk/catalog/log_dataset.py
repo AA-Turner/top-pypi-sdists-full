@@ -278,9 +278,9 @@ def _register_bounded(
             # One bound for the registration AND what follows (finding the run file, the preview).
             with deadline_scope(time.monotonic() + REGISTER_DEADLINE_SECONDS):
                 if queue:
-                    answer = client.write("POST", "/v1/catalog/datasets", body, sync=True, raise_permanent=True)
+                    answer = client.send("POST", "/v1/catalog/datasets", body, raise_permanent=True)
                 else:
-                    answer = client.write("POST", "/v1/catalog/datasets", body, sync=True, strict=True)
+                    answer = client.send("POST", "/v1/catalog/datasets", body, strict=True)
                 if isinstance(answer, dict):
                     out._fill(answer)
                     if callable(after):

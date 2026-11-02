@@ -1,0 +1,339 @@
+from dataclasses import dataclass
+from typing import Protocol, Type, Union
+
+from tapo import (
+    CameraHandler,
+    CameraHubHandler,
+    CameraPtzHandler,
+    ColorLightHandler,
+    HubHandler,
+    HubIrHandler,
+    LightHandler,
+    PlugEnergyMonitoringHandler,
+    PlugHandler,
+    PowerStripEnergyMonitoringHandler,
+    PowerStripHandler,
+    RgbicLightStripHandler,
+    RgbLightStripHandler,
+)
+from tapo.device_type import DeviceType
+from tapo.responses import (
+    DeviceInfoBasicResult,
+    DeviceInfoCameraHubResult,
+    DeviceInfoCameraResult,
+    DeviceInfoColorLightResult,
+    DeviceInfoHubResult,
+    DeviceInfoLightResult,
+    DeviceInfoPlugEnergyMonitoringResult,
+    DeviceInfoPlugResult,
+    DeviceInfoPowerStripResult,
+    DeviceInfoRgbicLightStripResult,
+    DeviceInfoRgbLightStripResult,
+)
+
+class DiscoveryResultExt(Protocol):
+    """Common properties available on all discovery result variants."""
+
+    @property
+    def device_type(self) -> DeviceType:
+        """Returns the device type category."""
+
+    @property
+    def model(self) -> str:
+        """Returns the model string (e.g. "L530", "P110")."""
+
+    @property
+    def address(self) -> tuple[str, int]:
+        """Returns the IP address and the port that the device was reached at
+        during discovery. Pass them to an `ApiClient` method as
+        `f"{ip}:{port}"` to reach the device again."""
+
+    @property
+    def device_id(self) -> str:
+        """Returns the device ID."""
+
+    @property
+    def nickname(self) -> str:
+        """Returns the device nickname.
+
+        PowerStrip variants return a descriptive name since they lack a nickname field.
+        """
+
+@dataclass
+class Other(DiscoveryResultExt):
+    """A Tapo device without a specific handler implementation.
+
+    If you believe that this device is already supported through one of the existing handlers, or would like to explore adding support for a currently
+    unsupported model, please [open an issue on GitHub](https://github.com/mihai-dinculescu/tapo/issues)
+    to start the discussion.
+    """
+
+    device_info: DeviceInfoBasicResult
+    """Device info of a Tapo device without a specific handler implementation.
+
+    If you believe that this device is already supported through one of the existing handlers, or would like to explore adding support for a currently
+    unsupported model, please [open an issue on GitHub](https://github.com/mihai-dinculescu/tapo/issues)
+    to start the discussion.
+    """
+
+    address: tuple[str, int]
+    """The IP address and the port that the device was reached at during discovery."""
+
+    __match_args__ = ("device_info", "address")
+
+@dataclass
+class Light(DiscoveryResultExt):
+    """Tapo L510, L520 and L610 devices."""
+
+    device_info: DeviceInfoLightResult
+    """Device info of Tapo L510, L520 and L610."""
+
+    handler: LightHandler
+    """Handler for the [L510](https://www.tapo.com/en/search/?q=L510),
+    [L520](https://www.tapo.com/en/search/?q=L520) and
+    [L610](https://www.tapo.com/en/search/?q=L610) devices.
+    """
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class ColorLight(DiscoveryResultExt):
+    """Tapo L430C, L430P, L530, L535 and L630 devices."""
+
+    device_info: DeviceInfoColorLightResult
+    """Device info of Tapo L430C, L430P, L530, L535 and L630."""
+
+    handler: ColorLightHandler
+    """Handler for the [L430C](https://www.tapo.com/en/search/?q=L430C),
+    [L430P](https://www.tapo.com/en/search/?q=L430P),
+    [L530](https://www.tapo.com/en/search/?q=L530),
+    [L535](https://www.tapo.com/en/search/?q=L535) and
+    [L630](https://www.tapo.com/en/search/?q=L630) devices.
+    """
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class RgbLightStrip(DiscoveryResultExt):
+    """Tapo L900 devices."""
+
+    device_info: DeviceInfoRgbLightStripResult
+    """Device info of Tapo L900."""
+
+    handler: RgbLightStripHandler
+    """Handler for the [L900](https://www.tapo.com/en/search/?q=L900) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class RgbicLightStrip(DiscoveryResultExt):
+    """Tapo L920 and L930 devices."""
+
+    device_info: DeviceInfoRgbicLightStripResult
+    """Device info of Tapo L920 and L930."""
+
+    handler: RgbicLightStripHandler
+    """Handler for the [L920](https://www.tapo.com/en/search/?q=L920) and
+    [L930](https://www.tapo.com/en/search/?q=L930) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class Plug(DiscoveryResultExt):
+    """Tapo P100, P105, P125, P125M and TP10 devices."""
+
+    device_info: DeviceInfoPlugResult
+    """Device info of Tapo P100, P105, P125, P125M and TP10."""
+
+    handler: PlugHandler
+    """Handler for the [P100](https://www.tapo.com/en/search/?q=P100),
+    [P105](https://www.tapo.com/en/search/?q=P105), [P125](https://www.tapo.com/en/search/?q=P125),
+    [P125M](https://www.tapo.com/en/search/?q=P125M) and
+    [TP10](https://www.tapo.com/en/search/?q=TP10) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class PlugEnergyMonitoring(DiscoveryResultExt):
+    """Tapo P110, P110M and P115 devices."""
+
+    device_info: DeviceInfoPlugEnergyMonitoringResult
+    """Device info of Tapo P110, P110M and P115."""
+
+    handler: PlugEnergyMonitoringHandler
+    """Handler for the [P110](https://www.tapo.com/en/search/?q=P110),
+    [P110M](https://www.tapo.com/en/search/?q=P110M) and
+    [P115](https://www.tapo.com/en/search/?q=P115) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class PowerStrip(DiscoveryResultExt):
+    """Tapo P300 and P306 devices."""
+
+    device_info: DeviceInfoPowerStripResult
+    """Device info of Tapo P300 and P306."""
+
+    handler: PowerStripHandler
+    """Handler for the [P300](https://www.tp-link.com/en/search/?q=P300) and
+    [P306](https://www.tp-link.com/us/search/?q=P306) devices.
+    """
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class PowerStripEnergyMonitoring(DiscoveryResultExt):
+    """Tapo P304M and P316M devices."""
+
+    device_info: DeviceInfoPowerStripResult
+    """Device info of Tapo P304M and P316M."""
+
+    handler: PowerStripEnergyMonitoringHandler
+    """Handler for the [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
+    [P316M](https://www.tp-link.com/us/search/?q=P316M) devices.
+    """
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class Hub(DiscoveryResultExt):
+    """Tapo H100 devices."""
+
+    device_info: DeviceInfoHubResult
+    """Device info of Tapo H100."""
+
+    handler: HubHandler
+    """Handler for the [H100](https://www.tapo.com/en/search/?q=H100) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class HubIr(DiscoveryResultExt):
+    """Tapo H110 devices."""
+
+    device_info: DeviceInfoHubResult
+    """Device info of Tapo H110."""
+
+    handler: HubIrHandler
+    """Handler for the [H110](https://www.tapo.com/en/search/?q=H110) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class CameraHub(DiscoveryResultExt):
+    """Tapo H200 and H500 devices."""
+
+    device_info: DeviceInfoCameraHubResult
+    """Device info of Tapo H200 and H500."""
+
+    handler: CameraHubHandler
+    """Handler for the [H200](https://www.tapo.com/en/search/?q=H200) and
+    [H500](https://www.tapo.com/en/search/?q=H500) devices."""
+
+    __match_args__ = (
+        "device_info",
+        "handler",
+    )
+
+@dataclass
+class Camera(DiscoveryResultExt):
+    """Tapo cameras without PTZ (C120)."""
+
+    device_info: DeviceInfoCameraResult
+    """Device info of Tapo cameras without PTZ (C120)."""
+
+    handler: CameraHandler
+    """Handler for Tapo cameras without PTZ, such as the
+    [C120](https://www.tapo.com/en/search/?q=C120).
+    """
+
+    __match_args__ = ("device_info", "handler")
+
+@dataclass
+class CameraPtz(DiscoveryResultExt):
+    """Tapo cameras with PTZ (C210, C220, C225, C325WB, C520WS, TC40, TC70)."""
+
+    device_info: DeviceInfoCameraResult
+    """Device info of Tapo cameras (C210, C220, C225, C325WB, C520WS, TC40, TC70)."""
+
+    handler: CameraPtzHandler
+    """Handler for Tapo cameras with PTZ, such as the
+    [C210](https://www.tapo.com/en/search/?q=C210),
+    [C220](https://www.tapo.com/en/search/?q=C220),
+    [C225](https://www.tapo.com/en/search/?q=C225),
+    [C325WB](https://www.tapo.com/en/search/?q=C325WB),
+    [C520WS](https://www.tapo.com/en/search/?q=C520WS),
+    [TC40](https://www.tapo.com/en/search/?q=TC40),
+    and [TC70](https://www.tapo.com/en/search/?q=TC70).
+    """
+
+    __match_args__ = ("device_info", "handler")
+
+class MaybeDiscoveryResult:
+    """Potential result of the device discovery process. Using `get` will return the actual result or raise an exception."""
+
+    def get(self) -> Union[
+        Light,
+        ColorLight,
+        RgbLightStrip,
+        RgbicLightStrip,
+        Plug,
+        PlugEnergyMonitoring,
+        PowerStrip,
+        PowerStripEnergyMonitoring,
+        Hub,
+        HubIr,
+        CameraHub,
+        Camera,
+        CameraPtz,
+        Other,
+    ]:
+        """Retrieves the actual discovery result or raises an exception."""
+
+class DiscoveryResult(DiscoveryResultExt):
+    """Result of the device discovery process."""
+
+    Light: Type[Light] = Light
+    ColorLight: Type[ColorLight] = ColorLight
+    RgbLightStrip: Type[RgbLightStrip] = RgbLightStrip
+    RgbicLightStrip: Type[RgbicLightStrip] = RgbicLightStrip
+    Plug: Type[Plug] = Plug
+    PlugEnergyMonitoring: Type[PlugEnergyMonitoring] = PlugEnergyMonitoring
+    PowerStrip: Type[PowerStrip] = PowerStrip
+    PowerStripEnergyMonitoring: Type[PowerStripEnergyMonitoring] = PowerStripEnergyMonitoring
+    Hub: Type[Hub] = Hub
+    HubIr: Type[HubIr] = HubIr
+    CameraHub: Type[CameraHub] = CameraHub
+    Camera: Type[Camera] = Camera
+    CameraPtz: Type[CameraPtz] = CameraPtz
+    Other: Type[Other] = Other

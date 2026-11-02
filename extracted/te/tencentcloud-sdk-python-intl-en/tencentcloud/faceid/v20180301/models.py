@@ -1,0 +1,15119 @@
+# -*- coding: utf8 -*-
+# Copyright (c) 2017-2025 Tencent. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import warnings
+
+from tencentcloud.common.abstract_model import AbstractModel
+
+
+class Address(AbstractModel):
+    r"""Overseas document address
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Country: Country
+        :type Country: str
+        :param _PostalCode: Postal code
+        :type PostalCode: str
+        :param _Subdivision: Sub-region
+        :type Subdivision: str
+        :param _City: city
+        :type City: str
+        :param _FormattedAddress: Complete address
+        :type FormattedAddress: str
+        :param _LineOne: First line of the address bar
+        :type LineOne: str
+        :param _LineTwo: Second line of the address bar
+        :type LineTwo: str
+        :param _LineThree: Third line of the address bar
+        :type LineThree: str
+        :param _LineFour: Fourth line of the address bar
+        :type LineFour: str
+        :param _LineFive: Fifth line of the address bar
+        :type LineFive: str
+        """
+        self._Country = None
+        self._PostalCode = None
+        self._Subdivision = None
+        self._City = None
+        self._FormattedAddress = None
+        self._LineOne = None
+        self._LineTwo = None
+        self._LineThree = None
+        self._LineFour = None
+        self._LineFive = None
+
+    @property
+    def Country(self):
+        r"""Country
+        :rtype: str
+        """
+        return self._Country
+
+    @Country.setter
+    def Country(self, Country):
+        self._Country = Country
+
+    @property
+    def PostalCode(self):
+        r"""Postal code
+        :rtype: str
+        """
+        return self._PostalCode
+
+    @PostalCode.setter
+    def PostalCode(self, PostalCode):
+        self._PostalCode = PostalCode
+
+    @property
+    def Subdivision(self):
+        r"""Sub-region
+        :rtype: str
+        """
+        return self._Subdivision
+
+    @Subdivision.setter
+    def Subdivision(self, Subdivision):
+        self._Subdivision = Subdivision
+
+    @property
+    def City(self):
+        r"""city
+        :rtype: str
+        """
+        return self._City
+
+    @City.setter
+    def City(self, City):
+        self._City = City
+
+    @property
+    def FormattedAddress(self):
+        r"""Complete address
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+    @property
+    def LineOne(self):
+        r"""First line of the address bar
+        :rtype: str
+        """
+        return self._LineOne
+
+    @LineOne.setter
+    def LineOne(self, LineOne):
+        self._LineOne = LineOne
+
+    @property
+    def LineTwo(self):
+        r"""Second line of the address bar
+        :rtype: str
+        """
+        return self._LineTwo
+
+    @LineTwo.setter
+    def LineTwo(self, LineTwo):
+        self._LineTwo = LineTwo
+
+    @property
+    def LineThree(self):
+        r"""Third line of the address bar
+        :rtype: str
+        """
+        return self._LineThree
+
+    @LineThree.setter
+    def LineThree(self, LineThree):
+        self._LineThree = LineThree
+
+    @property
+    def LineFour(self):
+        r"""Fourth line of the address bar
+        :rtype: str
+        """
+        return self._LineFour
+
+    @LineFour.setter
+    def LineFour(self, LineFour):
+        self._LineFour = LineFour
+
+    @property
+    def LineFive(self):
+        r"""Fifth line of the address bar
+        :rtype: str
+        """
+        return self._LineFive
+
+    @LineFive.setter
+    def LineFive(self, LineFive):
+        self._LineFive = LineFive
+
+
+    def _deserialize(self, params):
+        self._Country = params.get("Country")
+        self._PostalCode = params.get("PostalCode")
+        self._Subdivision = params.get("Subdivision")
+        self._City = params.get("City")
+        self._FormattedAddress = params.get("FormattedAddress")
+        self._LineOne = params.get("LineOne")
+        self._LineTwo = params.get("LineTwo")
+        self._LineThree = params.get("LineThree")
+        self._LineFour = params.get("LineFour")
+        self._LineFive = params.get("LineFive")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplyLivenessTokenRequest(AbstractModel):
+    r"""ApplyLivenessToken request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SecureLevel: Enumerated value. Valid values: `1`, `2`, `3`, and `4`.
+Their meanings are as follows:
+1 - silent
+2 - blinking
+3 - light
+4 - blinking + light (default)
+        :type SecureLevel: str
+        """
+        self._SecureLevel = None
+
+    @property
+    def SecureLevel(self):
+        r"""Enumerated value. Valid values: `1`, `2`, `3`, and `4`.
+Their meanings are as follows:
+1 - silent
+2 - blinking
+3 - light
+4 - blinking + light (default)
+        :rtype: str
+        """
+        return self._SecureLevel
+
+    @SecureLevel.setter
+    def SecureLevel(self, SecureLevel):
+        self._SecureLevel = SecureLevel
+
+
+    def _deserialize(self, params):
+        self._SecureLevel = params.get("SecureLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplyLivenessTokenResponse(AbstractModel):
+    r"""ApplyLivenessToken response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: The token used to identify an SDK-based verification process. It is valid for 10 minutes and can be used to get the verification result after the process is completed.
+        :type SdkToken: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._SdkToken = None
+        self._RequestId = None
+
+    @property
+    def SdkToken(self):
+        r"""The token used to identify an SDK-based verification process. It is valid for 10 minutes and can be used to get the verification result after the process is completed.
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        self._RequestId = params.get("RequestId")
+
+
+class ApplySdkVerificationTokenRequest(AbstractModel):
+    r"""ApplySdkVerificationToken request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CheckMode: The verification mode. Valid values:
+1: OCR + liveness detection + face comparison
+2: Liveness detection + face comparison
+3: Liveness detection
+Default value: 1
+        :type CheckMode: int
+        :param _SecurityLevel: The security level of the verification. Valid values:
+1: Video-based liveness detection
+2: Motion-based liveness detection
+3: Reflection-based liveness detection
+4: Motion- and reflection-based liveness detection
+Default value: 4
+        :type SecurityLevel: int
+        :param _IdCardType: Specifies the identity document type used for authentication. Valid values:
+
+1. HK (default): Hong Kong (China) Identity Card.
+2. ML: Malaysia Identity Card.
+3. IndonesiaIDCard: Indonesia Identity Card.
+4. PhilippinesVoteID: Philippines Voter's ID.
+5. PhilippinesDrivingLicense: Philippines Driving License.
+6. PhilippinesTinID: Philippines TIN ID.
+7. PhilippinesSSSID: Philippines SSS ID.
+8. PhilippinesUMID: Philippines UMID.
+9. MLIDPassport: Passports of Hong Kong (China), Macao (China), and Taiwan (China), as well as overseas regions.
+10. ThailandIDCard: Thailand Identity Card.
+11. MainlandIDCard: Chinese Mainland Identity Card.
+12. SingaporeIDCard: Singapore Identity Card.
+13. HMTPermit: Travel Permit for Hong Kong (China), Macao (China), and Taiwan (China).
+        :type IdCardType: str
+        :param _CompareImage: The Base64-encoded value of the photo to compare, which is required only when `CheckMode` is set to `2`.
+        :type CompareImage: str
+        :param _NeedVerifyIdCard: Whether ID card authentication is required. If not, only document OCR will be performed. Currently, authentication is available only when the value of `IdCardType` is `HK`.
+        :type NeedVerifyIdCard: bool
+        :param _DisableChangeOcrResult: Whether to forbid the modification of the OCR result by users. Default value: `false` (modification allowed). 
+        :type DisableChangeOcrResult: bool
+        :param _DisableCheckOcrWarnings: Whether to disable the OCR warnings. Default value: `false` (not disable), where OCR warnings are enabled and the OCR result will not be returned if there is a warning.
+        :type DisableCheckOcrWarnings: bool
+        :param _SelectedWarningCodes: Customize which alarm codes to block. If left blank, all alarm codes will be blocked by default.
+Optional alarm codes are: -9101 (occlusion or incomplete border), -9102 (photocopying), -9103 (screen capture by camera), -9104 (image editing/PS modification), -9107 (glare/reflection), -9108 (blurriness), -8101 (information format check),-8102(information consistency check).
+        :type SelectedWarningCodes: list of int
+        :param _Extra: A passthrough field, which is returned together with the verification result and can contain up to 1,024 bits.
+        :type Extra: str
+        :param _SdkVersion: BASIC: Basic version (Default).
+ENHANCED: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
+        :type SdkVersion: str
+        :param _ActionList: This interface is used to control th action sequences.
+Action types are as follows:
+"blink"
+"mouth"
+"nod"
+"shake"
+You can choose 1-2 actions out of the four.
+Single action example: "blink"
+Multiple action example: "blink,mouth"
+The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2 or 4; otherwise, the interface reports an error.
+        :type ActionList: str
+        :param _AllowExpiredDocument: Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :type AllowExpiredDocument: bool
+        :param _SkipResultPage: <p>Controls visibility of the final result page</p><p>Enumeration values:</p><ul><li>true: Do not display the result page</li><li>false: Display the result page</li></ul><p>Default value: false</p>
+        :type SkipResultPage: bool
+        :param _CardOcrDisplayFields: <p>Identified fields displayed during document OCR</p><p>Parameter format: ["ChineseName","FullName"]</p><p>Input constraints: <strong>Supported field names by document type:</strong><br><strong>HK (Hong Kong Identity Card):</strong> "ChineseName","FullName","LicenseNumber","Birthday","Sex", "IssuedDate", "Permanent", "Symbol", "CurrentIssueDate"<br><strong>ML (Malaysia Identity Card):</strong> "FullName","LicenseNumber","Sex", "Birthday", "Type", "FormattedAddress"<br><strong>IndonesiaIDCard (Indonesia Identity Card):</strong> "LicenseNumber","FullName","Sex", "Birthday", "FormattedAddress", "Nationality", "DueDate", "IssuedDate", "Street", "Village","Area","Province","City","MaritalStatus", "BloodType", "Religion", "Occupation"<br><strong>PhilippinesVoteID (Philippines Voter's ID):</strong> "FirstName","LastName","Birthday"<br><strong>PhilippinesDrivingLicense (Philippines Driving License):</strong> "LastName","FirstName","MiddleName","Sex","Birthday"<br><strong>PhilippinesTinID (Philippines TIN ID):</strong> "LicenseNumber", "FullName", "Birthday"<br><strong>PhilippinesSSSID (Philippines SSS ID):</strong> "LicenseNumber", "FullName", "Birthday"<br><strong>PhilippinesUMID (Philippines UMID):</strong> "Surname", "MiddleName", "GivenName", "Sex", "Birthday"<br><strong>MLIDPassport (Passports of Hong Kong, Macao, Taiwan and overseas regions):</strong> "LicenseNumber","FullName", "Surname", "GivenName", "Birthday", "Sex","DateOfExpiration","IssuingCountry"<br><strong>ThailandIDCard (Thailand Identity Card):</strong> "FullName", "LastName", "FirstName", "FormattedAddress", "LicenseNumber", "Birthday", "ExpirationDate", "IssuedDate", "RegistrationNumber", "Religion", "ThaiBirthday", "ThaiExpirationDate", "ThaiIssueDate"<br><strong>MainlandIDCard (Chinese Mainland Identity Card):</strong> "LicenseNumber", "FullName", "Sex", "Nation", "Birthday", "FormattedAddress"<br><strong>SingaporeIDCard (Singapore Identity Card):</strong> "ChineseName","Sex","Birthday","LicenseNumber","Nationality","FullName","Address"<br><strong>HMTPermit (Mainland Travel Permit for Hong Kong and Macao Residents / Mainland Travel Permit for Taiwan Residents):</strong> "Name", "EnglishName", "Sex", "Number", "ValidDate", "Birthday"</p><p>If no fields are specified, all identified fields will be displayed by default.</p>
+
+        :type CardOcrDisplayFields: list of str
+        :param _RetryLimit: <p>Liveness retry attempts</p><p>Value range: [1, 5]</p><p>Default value: 5</p>
+        :type RetryLimit: int
+        :param _EnableForgeryDetectionImages: <p>Enable multi-image anti-spoofing for single-angle Identity Document Recognition</p><p>Default value: false</p><p>true - Enabled; false - Disabled</p>
+        :type EnableForgeryDetectionImages: bool
+        :param _MetaData: Encrypted metadata generated by the SDK
+        :type MetaData: str
+        :param _SkipLaunchPage: <p>Controls visibility of the launch page</p><p>Enumeration values:</p><ul><li>true: Do not display the launch page</li><li>false: Display the launch page</li></ul><p>Default value: false</p>
+        :type SkipLaunchPage: bool
+        :param _SkipOcrConfirmPage: <p>Controls visibility of the information confirmation page </p><p>Enumeration values:</p><ul><li>true: Do not display the information confirmation page</li><li>false: Display the information confirmation page</li></ul><p>Default value: false</p>
+        :type SkipOcrConfirmPage: bool
+        :param _HideProgressBar: <p>Controls whether to hide the top progress bar across all pages of the entire process </p><p>Enumeration values:</p><ul><li>true: Do not display the progress bar</li><li>false: Display the progress bar</li></ul><p>Default value: false</p>
+        :type HideProgressBar: bool
+        :param _AllowUploadPhoto: <p>Whether uploading photos from the album is permitted for verification during the ID validation phase (prohibited when single-angle multi-image forgery detection is enabled)
+ </p><p>Enumeration values:</p><ul><li>true: Album photo upload for verification enabled</li><li>false: Album photo upload for verification disabled</li></ul><p>Default value: false</p>
+        :type AllowUploadPhoto: bool
+        :param _EnableBotBgDetection: <p>Whether to enable Bank of Thailand-specific background detection.<br>This parameter requires whitelist activation; please contact us to request access before it can take effect.</p><p>Default value: false
+
+        :type EnableBotBgDetection: bool
+        :param _OcrAutoDetectTimeout: OCR Auto Capture Mode Timeout (ms)
+Value Range: [5000, 180000]
+Default Value: 20000
+Values less than 5000 will be clamped to 5000; values greater than 180000 will be clamped to 180000
+        :type OcrAutoDetectTimeout: int
+        :param _OcrModeType: OCR Capture Mode
+Enum Values:
+<li>OCR_DETECT_MANUAL: Manual capture mode. Recognition starts after the user taps to take a photo.</li>
+<li>OCR_DETECT_AUTO_MANUAL: Auto recognition mode. The system performs automatic recognition; fallback to manual photo capture is available upon recognition timeout.</li>
+<li>OCR_DETECT_AUTO: Auto-only recognition mode. The system performs automatic recognition; no fallback to manual photo capture upon recognition timeout.</li>
+<li>OCR_DETECT_AUTO_MULTI: Multi-shot auto-only recognition mode. The system automatically captures multiple document images with flash enabled.
+Default Value: OCR_DETECT_AUTO_MANUAL
+        :type OcrModeType: str
+        """
+        self._CheckMode = None
+        self._SecurityLevel = None
+        self._IdCardType = None
+        self._CompareImage = None
+        self._NeedVerifyIdCard = None
+        self._DisableChangeOcrResult = None
+        self._DisableCheckOcrWarnings = None
+        self._SelectedWarningCodes = None
+        self._Extra = None
+        self._SdkVersion = None
+        self._ActionList = None
+        self._AllowExpiredDocument = None
+        self._SkipResultPage = None
+        self._CardOcrDisplayFields = None
+        self._RetryLimit = None
+        self._EnableForgeryDetectionImages = None
+        self._MetaData = None
+        self._SkipLaunchPage = None
+        self._SkipOcrConfirmPage = None
+        self._HideProgressBar = None
+        self._AllowUploadPhoto = None
+        self._EnableBotBgDetection = None
+        self._OcrAutoDetectTimeout = None
+        self._OcrModeType = None
+
+    @property
+    def CheckMode(self):
+        r"""The verification mode. Valid values:
+1: OCR + liveness detection + face comparison
+2: Liveness detection + face comparison
+3: Liveness detection
+Default value: 1
+        :rtype: int
+        """
+        return self._CheckMode
+
+    @CheckMode.setter
+    def CheckMode(self, CheckMode):
+        self._CheckMode = CheckMode
+
+    @property
+    def SecurityLevel(self):
+        r"""The security level of the verification. Valid values:
+1: Video-based liveness detection
+2: Motion-based liveness detection
+3: Reflection-based liveness detection
+4: Motion- and reflection-based liveness detection
+Default value: 4
+        :rtype: int
+        """
+        return self._SecurityLevel
+
+    @SecurityLevel.setter
+    def SecurityLevel(self, SecurityLevel):
+        self._SecurityLevel = SecurityLevel
+
+    @property
+    def IdCardType(self):
+        r"""Specifies the identity document type used for authentication. Valid values:
+
+1. HK (default): Hong Kong (China) Identity Card.
+2. ML: Malaysia Identity Card.
+3. IndonesiaIDCard: Indonesia Identity Card.
+4. PhilippinesVoteID: Philippines Voter's ID.
+5. PhilippinesDrivingLicense: Philippines Driving License.
+6. PhilippinesTinID: Philippines TIN ID.
+7. PhilippinesSSSID: Philippines SSS ID.
+8. PhilippinesUMID: Philippines UMID.
+9. MLIDPassport: Passports of Hong Kong (China), Macao (China), and Taiwan (China), as well as overseas regions.
+10. ThailandIDCard: Thailand Identity Card.
+11. MainlandIDCard: Chinese Mainland Identity Card.
+12. SingaporeIDCard: Singapore Identity Card.
+13. HMTPermit: Travel Permit for Hong Kong (China), Macao (China), and Taiwan (China).
+        :rtype: str
+        """
+        return self._IdCardType
+
+    @IdCardType.setter
+    def IdCardType(self, IdCardType):
+        self._IdCardType = IdCardType
+
+    @property
+    def CompareImage(self):
+        r"""The Base64-encoded value of the photo to compare, which is required only when `CheckMode` is set to `2`.
+        :rtype: str
+        """
+        return self._CompareImage
+
+    @CompareImage.setter
+    def CompareImage(self, CompareImage):
+        self._CompareImage = CompareImage
+
+    @property
+    def NeedVerifyIdCard(self):
+        warnings.warn("parameter `NeedVerifyIdCard` is deprecated", DeprecationWarning) 
+
+        r"""Whether ID card authentication is required. If not, only document OCR will be performed. Currently, authentication is available only when the value of `IdCardType` is `HK`.
+        :rtype: bool
+        """
+        return self._NeedVerifyIdCard
+
+    @NeedVerifyIdCard.setter
+    def NeedVerifyIdCard(self, NeedVerifyIdCard):
+        warnings.warn("parameter `NeedVerifyIdCard` is deprecated", DeprecationWarning) 
+
+        self._NeedVerifyIdCard = NeedVerifyIdCard
+
+    @property
+    def DisableChangeOcrResult(self):
+        r"""Whether to forbid the modification of the OCR result by users. Default value: `false` (modification allowed). 
+        :rtype: bool
+        """
+        return self._DisableChangeOcrResult
+
+    @DisableChangeOcrResult.setter
+    def DisableChangeOcrResult(self, DisableChangeOcrResult):
+        self._DisableChangeOcrResult = DisableChangeOcrResult
+
+    @property
+    def DisableCheckOcrWarnings(self):
+        r"""Whether to disable the OCR warnings. Default value: `false` (not disable), where OCR warnings are enabled and the OCR result will not be returned if there is a warning.
+        :rtype: bool
+        """
+        return self._DisableCheckOcrWarnings
+
+    @DisableCheckOcrWarnings.setter
+    def DisableCheckOcrWarnings(self, DisableCheckOcrWarnings):
+        self._DisableCheckOcrWarnings = DisableCheckOcrWarnings
+
+    @property
+    def SelectedWarningCodes(self):
+        r"""Customize which alarm codes to block. If left blank, all alarm codes will be blocked by default.
+Optional alarm codes are: -9101 (occlusion or incomplete border), -9102 (photocopying), -9103 (screen capture by camera), -9104 (image editing/PS modification), -9107 (glare/reflection), -9108 (blurriness), -8101 (information format check),-8102(information consistency check).
+        :rtype: list of int
+        """
+        return self._SelectedWarningCodes
+
+    @SelectedWarningCodes.setter
+    def SelectedWarningCodes(self, SelectedWarningCodes):
+        self._SelectedWarningCodes = SelectedWarningCodes
+
+    @property
+    def Extra(self):
+        r"""A passthrough field, which is returned together with the verification result and can contain up to 1,024 bits.
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def SdkVersion(self):
+        r"""BASIC: Basic version (Default).
+ENHANCED: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
+        :rtype: str
+        """
+        return self._SdkVersion
+
+    @SdkVersion.setter
+    def SdkVersion(self, SdkVersion):
+        self._SdkVersion = SdkVersion
+
+    @property
+    def ActionList(self):
+        r"""This interface is used to control th action sequences.
+Action types are as follows:
+"blink"
+"mouth"
+"nod"
+"shake"
+You can choose 1-2 actions out of the four.
+Single action example: "blink"
+Multiple action example: "blink,mouth"
+The default value is blink. The different action types passed in this parameter take effect only when the SecurityLevel is 2 or 4; otherwise, the interface reports an error.
+        :rtype: str
+        """
+        return self._ActionList
+
+    @ActionList.setter
+    def ActionList(self, ActionList):
+        self._ActionList = ActionList
+
+    @property
+    def AllowExpiredDocument(self):
+        r"""Whether expired identity documents are permitted to proceed to the liveness detection process. This parameter only takes effect when the document type is Hong Kong Identity Card (HKID).
+true (default value): Expired HKID is allowed to enter the liveness process.
+false : Expired HKID is rejected and cannot enter the liveness process.
+        :rtype: bool
+        """
+        return self._AllowExpiredDocument
+
+    @AllowExpiredDocument.setter
+    def AllowExpiredDocument(self, AllowExpiredDocument):
+        self._AllowExpiredDocument = AllowExpiredDocument
+
+    @property
+    def SkipResultPage(self):
+        r"""<p>Controls visibility of the final result page</p><p>Enumeration values:</p><ul><li>true: Do not display the result page</li><li>false: Display the result page</li></ul><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._SkipResultPage
+
+    @SkipResultPage.setter
+    def SkipResultPage(self, SkipResultPage):
+        self._SkipResultPage = SkipResultPage
+
+    @property
+    def CardOcrDisplayFields(self):
+        r"""<p>Identified fields displayed during document OCR</p><p>Parameter format: ["ChineseName","FullName"]</p><p>Input constraints: <strong>Supported field names by document type:</strong><br><strong>HK (Hong Kong Identity Card):</strong> "ChineseName","FullName","LicenseNumber","Birthday","Sex", "IssuedDate", "Permanent", "Symbol", "CurrentIssueDate"<br><strong>ML (Malaysia Identity Card):</strong> "FullName","LicenseNumber","Sex", "Birthday", "Type", "FormattedAddress"<br><strong>IndonesiaIDCard (Indonesia Identity Card):</strong> "LicenseNumber","FullName","Sex", "Birthday", "FormattedAddress", "Nationality", "DueDate", "IssuedDate", "Street", "Village","Area","Province","City","MaritalStatus", "BloodType", "Religion", "Occupation"<br><strong>PhilippinesVoteID (Philippines Voter's ID):</strong> "FirstName","LastName","Birthday"<br><strong>PhilippinesDrivingLicense (Philippines Driving License):</strong> "LastName","FirstName","MiddleName","Sex","Birthday"<br><strong>PhilippinesTinID (Philippines TIN ID):</strong> "LicenseNumber", "FullName", "Birthday"<br><strong>PhilippinesSSSID (Philippines SSS ID):</strong> "LicenseNumber", "FullName", "Birthday"<br><strong>PhilippinesUMID (Philippines UMID):</strong> "Surname", "MiddleName", "GivenName", "Sex", "Birthday"<br><strong>MLIDPassport (Passports of Hong Kong, Macao, Taiwan and overseas regions):</strong> "LicenseNumber","FullName", "Surname", "GivenName", "Birthday", "Sex","DateOfExpiration","IssuingCountry"<br><strong>ThailandIDCard (Thailand Identity Card):</strong> "FullName", "LastName", "FirstName", "FormattedAddress", "LicenseNumber", "Birthday", "ExpirationDate", "IssuedDate", "RegistrationNumber", "Religion", "ThaiBirthday", "ThaiExpirationDate", "ThaiIssueDate"<br><strong>MainlandIDCard (Chinese Mainland Identity Card):</strong> "LicenseNumber", "FullName", "Sex", "Nation", "Birthday", "FormattedAddress"<br><strong>SingaporeIDCard (Singapore Identity Card):</strong> "ChineseName","Sex","Birthday","LicenseNumber","Nationality","FullName","Address"<br><strong>HMTPermit (Mainland Travel Permit for Hong Kong and Macao Residents / Mainland Travel Permit for Taiwan Residents):</strong> "Name", "EnglishName", "Sex", "Number", "ValidDate", "Birthday"</p><p>If no fields are specified, all identified fields will be displayed by default.</p>
+
+        :rtype: list of str
+        """
+        return self._CardOcrDisplayFields
+
+    @CardOcrDisplayFields.setter
+    def CardOcrDisplayFields(self, CardOcrDisplayFields):
+        self._CardOcrDisplayFields = CardOcrDisplayFields
+
+    @property
+    def RetryLimit(self):
+        r"""<p>Liveness retry attempts</p><p>Value range: [1, 5]</p><p>Default value: 5</p>
+        :rtype: int
+        """
+        return self._RetryLimit
+
+    @RetryLimit.setter
+    def RetryLimit(self, RetryLimit):
+        self._RetryLimit = RetryLimit
+
+    @property
+    def EnableForgeryDetectionImages(self):
+        r"""<p>Enable multi-image anti-spoofing for single-angle Identity Document Recognition</p><p>Default value: false</p><p>true - Enabled; false - Disabled</p>
+        :rtype: bool
+        """
+        return self._EnableForgeryDetectionImages
+
+    @EnableForgeryDetectionImages.setter
+    def EnableForgeryDetectionImages(self, EnableForgeryDetectionImages):
+        self._EnableForgeryDetectionImages = EnableForgeryDetectionImages
+
+    @property
+    def MetaData(self):
+        r"""Encrypted metadata generated by the SDK
+        :rtype: str
+        """
+        return self._MetaData
+
+    @MetaData.setter
+    def MetaData(self, MetaData):
+        self._MetaData = MetaData
+
+    @property
+    def SkipLaunchPage(self):
+        r"""<p>Controls visibility of the launch page</p><p>Enumeration values:</p><ul><li>true: Do not display the launch page</li><li>false: Display the launch page</li></ul><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._SkipLaunchPage
+
+    @SkipLaunchPage.setter
+    def SkipLaunchPage(self, SkipLaunchPage):
+        self._SkipLaunchPage = SkipLaunchPage
+
+    @property
+    def SkipOcrConfirmPage(self):
+        r"""<p>Controls visibility of the information confirmation page </p><p>Enumeration values:</p><ul><li>true: Do not display the information confirmation page</li><li>false: Display the information confirmation page</li></ul><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._SkipOcrConfirmPage
+
+    @SkipOcrConfirmPage.setter
+    def SkipOcrConfirmPage(self, SkipOcrConfirmPage):
+        self._SkipOcrConfirmPage = SkipOcrConfirmPage
+
+    @property
+    def HideProgressBar(self):
+        r"""<p>Controls whether to hide the top progress bar across all pages of the entire process </p><p>Enumeration values:</p><ul><li>true: Do not display the progress bar</li><li>false: Display the progress bar</li></ul><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._HideProgressBar
+
+    @HideProgressBar.setter
+    def HideProgressBar(self, HideProgressBar):
+        self._HideProgressBar = HideProgressBar
+
+    @property
+    def AllowUploadPhoto(self):
+        r"""<p>Whether uploading photos from the album is permitted for verification during the ID validation phase (prohibited when single-angle multi-image forgery detection is enabled)
+ </p><p>Enumeration values:</p><ul><li>true: Album photo upload for verification enabled</li><li>false: Album photo upload for verification disabled</li></ul><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._AllowUploadPhoto
+
+    @AllowUploadPhoto.setter
+    def AllowUploadPhoto(self, AllowUploadPhoto):
+        self._AllowUploadPhoto = AllowUploadPhoto
+
+    @property
+    def EnableBotBgDetection(self):
+        r"""<p>Whether to enable Bank of Thailand-specific background detection.<br>This parameter requires whitelist activation; please contact us to request access before it can take effect.</p><p>Default value: false
+
+        :rtype: bool
+        """
+        return self._EnableBotBgDetection
+
+    @EnableBotBgDetection.setter
+    def EnableBotBgDetection(self, EnableBotBgDetection):
+        self._EnableBotBgDetection = EnableBotBgDetection
+
+    @property
+    def OcrAutoDetectTimeout(self):
+        r"""OCR Auto Capture Mode Timeout (ms)
+Value Range: [5000, 180000]
+Default Value: 20000
+Values less than 5000 will be clamped to 5000; values greater than 180000 will be clamped to 180000
+        :rtype: int
+        """
+        return self._OcrAutoDetectTimeout
+
+    @OcrAutoDetectTimeout.setter
+    def OcrAutoDetectTimeout(self, OcrAutoDetectTimeout):
+        self._OcrAutoDetectTimeout = OcrAutoDetectTimeout
+
+    @property
+    def OcrModeType(self):
+        r"""OCR Capture Mode
+Enum Values:
+<li>OCR_DETECT_MANUAL: Manual capture mode. Recognition starts after the user taps to take a photo.</li>
+<li>OCR_DETECT_AUTO_MANUAL: Auto recognition mode. The system performs automatic recognition; fallback to manual photo capture is available upon recognition timeout.</li>
+<li>OCR_DETECT_AUTO: Auto-only recognition mode. The system performs automatic recognition; no fallback to manual photo capture upon recognition timeout.</li>
+<li>OCR_DETECT_AUTO_MULTI: Multi-shot auto-only recognition mode. The system automatically captures multiple document images with flash enabled.
+Default Value: OCR_DETECT_AUTO_MANUAL
+        :rtype: str
+        """
+        return self._OcrModeType
+
+    @OcrModeType.setter
+    def OcrModeType(self, OcrModeType):
+        self._OcrModeType = OcrModeType
+
+
+    def _deserialize(self, params):
+        self._CheckMode = params.get("CheckMode")
+        self._SecurityLevel = params.get("SecurityLevel")
+        self._IdCardType = params.get("IdCardType")
+        self._CompareImage = params.get("CompareImage")
+        self._NeedVerifyIdCard = params.get("NeedVerifyIdCard")
+        self._DisableChangeOcrResult = params.get("DisableChangeOcrResult")
+        self._DisableCheckOcrWarnings = params.get("DisableCheckOcrWarnings")
+        self._SelectedWarningCodes = params.get("SelectedWarningCodes")
+        self._Extra = params.get("Extra")
+        self._SdkVersion = params.get("SdkVersion")
+        self._ActionList = params.get("ActionList")
+        self._AllowExpiredDocument = params.get("AllowExpiredDocument")
+        self._SkipResultPage = params.get("SkipResultPage")
+        self._CardOcrDisplayFields = params.get("CardOcrDisplayFields")
+        self._RetryLimit = params.get("RetryLimit")
+        self._EnableForgeryDetectionImages = params.get("EnableForgeryDetectionImages")
+        self._MetaData = params.get("MetaData")
+        self._SkipLaunchPage = params.get("SkipLaunchPage")
+        self._SkipOcrConfirmPage = params.get("SkipOcrConfirmPage")
+        self._HideProgressBar = params.get("HideProgressBar")
+        self._AllowUploadPhoto = params.get("AllowUploadPhoto")
+        self._EnableBotBgDetection = params.get("EnableBotBgDetection")
+        self._OcrAutoDetectTimeout = params.get("OcrAutoDetectTimeout")
+        self._OcrModeType = params.get("OcrModeType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplySdkVerificationTokenResponse(AbstractModel):
+    r"""ApplySdkVerificationToken response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: A token that identifies an SDK verification process. the validity time is 10 minutes. after the process is complete, the token can be used to retrieve the verification result
+        :type SdkToken: str
+        :param _ServerParamInfo: Encrypted string of server-side parameters
+        :type ServerParamInfo: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._SdkToken = None
+        self._ServerParamInfo = None
+        self._RequestId = None
+
+    @property
+    def SdkToken(self):
+        r"""A token that identifies an SDK verification process. the validity time is 10 minutes. after the process is complete, the token can be used to retrieve the verification result
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+    @property
+    def ServerParamInfo(self):
+        r"""Encrypted string of server-side parameters
+        :rtype: str
+        """
+        return self._ServerParamInfo
+
+    @ServerParamInfo.setter
+    def ServerParamInfo(self, ServerParamInfo):
+        self._ServerParamInfo = ServerParamInfo
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        self._ServerParamInfo = params.get("ServerParamInfo")
+        self._RequestId = params.get("RequestId")
+
+
+class ApplyWebVerificationBizTokenIntlRequest(AbstractModel):
+    r"""ApplyWebVerificationBizTokenIntl request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RedirectURL: Web callback URL to redirect to after the verification is completed, including the protocol, hostname, and path. 
+After the verification process is completed, the BizToken of this process will be spliced to the callback URL in the format of `https://www.tencentcloud.com/products/faceid?token={BizToken}` before redirect.
+Example: `https://www.tencentcloud.com/products/faceid.`
+        :type RedirectURL: str
+        :param _CompareImageBase64: The Base64-encoded string (max 8 MB in size) of the photo to be compared.The Data URI scheme header needs to be removed from the encoded string
+Example: xhBQAAACBjSFJNAAB6****AAAASUVORK5CYII=
+        :type CompareImageBase64: str
+        :param _Extra: The passthrough parameter of the business, max 1,000 characters, which will be returned in GetWebVerificationResultIntl.
+        :type Extra: str
+        :param _RuleId: The business process ID generated by the console.
+        :type RuleId: str
+        :param _Config: The parameter control the page configuration.
+Example: {"AutoSkip": true,"CheckMode": 1,"IdCardType": "HKIDCard"}
+        :type Config: :class:`tencentcloud.faceid.v20180301.models.WebVerificationConfigIntl`
+        """
+        self._RedirectURL = None
+        self._CompareImageBase64 = None
+        self._Extra = None
+        self._RuleId = None
+        self._Config = None
+
+    @property
+    def RedirectURL(self):
+        r"""Web callback URL to redirect to after the verification is completed, including the protocol, hostname, and path. 
+After the verification process is completed, the BizToken of this process will be spliced to the callback URL in the format of `https://www.tencentcloud.com/products/faceid?token={BizToken}` before redirect.
+Example: `https://www.tencentcloud.com/products/faceid.`
+        :rtype: str
+        """
+        return self._RedirectURL
+
+    @RedirectURL.setter
+    def RedirectURL(self, RedirectURL):
+        self._RedirectURL = RedirectURL
+
+    @property
+    def CompareImageBase64(self):
+        r"""The Base64-encoded string (max 8 MB in size) of the photo to be compared.The Data URI scheme header needs to be removed from the encoded string
+Example: xhBQAAACBjSFJNAAB6****AAAASUVORK5CYII=
+        :rtype: str
+        """
+        return self._CompareImageBase64
+
+    @CompareImageBase64.setter
+    def CompareImageBase64(self, CompareImageBase64):
+        self._CompareImageBase64 = CompareImageBase64
+
+    @property
+    def Extra(self):
+        r"""The passthrough parameter of the business, max 1,000 characters, which will be returned in GetWebVerificationResultIntl.
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def RuleId(self):
+        r"""The business process ID generated by the console.
+        :rtype: str
+        """
+        return self._RuleId
+
+    @RuleId.setter
+    def RuleId(self, RuleId):
+        self._RuleId = RuleId
+
+    @property
+    def Config(self):
+        r"""The parameter control the page configuration.
+Example: {"AutoSkip": true,"CheckMode": 1,"IdCardType": "HKIDCard"}
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.WebVerificationConfigIntl`
+        """
+        return self._Config
+
+    @Config.setter
+    def Config(self, Config):
+        self._Config = Config
+
+
+    def _deserialize(self, params):
+        self._RedirectURL = params.get("RedirectURL")
+        self._CompareImageBase64 = params.get("CompareImageBase64")
+        self._Extra = params.get("Extra")
+        self._RuleId = params.get("RuleId")
+        if params.get("Config") is not None:
+            self._Config = WebVerificationConfigIntl()
+            self._Config._deserialize(params.get("Config"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplyWebVerificationBizTokenIntlResponse(AbstractModel):
+    r"""ApplyWebVerificationBizTokenIntl response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VerificationUrl: The token identifying this web-based verification process, valid for 7,200s after issuance. It is required for getting the result after the verification process is completed.
+Example: `https://intl.faceid.qq.com/reflect/?token=81EEF678-28EE-4759-A82E-6CBBBE6BC442`
+        :type VerificationUrl: str
+        :param _BizToken: A token that identifies a Web verification process, with a validity time of 10 minutes. after the process is complete, the token can be used to obtain the verification result.
+        :type BizToken: str
+        :param _VerificationURL: The verification URL to be opened with a browser to start the verification process.
+Example: https://intl.faceid.qq.com/reflect/?token=81EEF678-28EE-4759-A82E-6CBBBE6BC442
+        :type VerificationURL: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._VerificationUrl = None
+        self._BizToken = None
+        self._VerificationURL = None
+        self._RequestId = None
+
+    @property
+    def VerificationUrl(self):
+        warnings.warn("parameter `VerificationUrl` is deprecated", DeprecationWarning) 
+
+        r"""The token identifying this web-based verification process, valid for 7,200s after issuance. It is required for getting the result after the verification process is completed.
+Example: `https://intl.faceid.qq.com/reflect/?token=81EEF678-28EE-4759-A82E-6CBBBE6BC442`
+        :rtype: str
+        """
+        return self._VerificationUrl
+
+    @VerificationUrl.setter
+    def VerificationUrl(self, VerificationUrl):
+        warnings.warn("parameter `VerificationUrl` is deprecated", DeprecationWarning) 
+
+        self._VerificationUrl = VerificationUrl
+
+    @property
+    def BizToken(self):
+        r"""A token that identifies a Web verification process, with a validity time of 10 minutes. after the process is complete, the token can be used to obtain the verification result.
+        :rtype: str
+        """
+        return self._BizToken
+
+    @BizToken.setter
+    def BizToken(self, BizToken):
+        self._BizToken = BizToken
+
+    @property
+    def VerificationURL(self):
+        r"""The verification URL to be opened with a browser to start the verification process.
+Example: https://intl.faceid.qq.com/reflect/?token=81EEF678-28EE-4759-A82E-6CBBBE6BC442
+        :rtype: str
+        """
+        return self._VerificationURL
+
+    @VerificationURL.setter
+    def VerificationURL(self, VerificationURL):
+        self._VerificationURL = VerificationURL
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._VerificationUrl = params.get("VerificationUrl")
+        self._BizToken = params.get("BizToken")
+        self._VerificationURL = params.get("VerificationURL")
+        self._RequestId = params.get("RequestId")
+
+
+class AttackRiskDetail(AbstractModel):
+    r"""Suspected attack detail
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: <p>Suspected attack trace type, specific type as follows:<br>SuspectedSpoofingAttack: Re-photography Attack<br>SuspectedSynthesisImage: Suspected synthesized image<br>SuspectedSynthesisVideo: Suspected synthesized video<br>SuspectedAnomalyAttack: Facial features suspected of not being real<br>SuspectedAdversarialAttack: Suspected adversarial sample attack<br>SuspectedBlackIndustry: Suspected black industry batch Template attack<br>SuspectedWatermark: Suspected watermark</p>
+        :type Type: str
+        """
+        self._Type = None
+
+    @property
+    def Type(self):
+        r"""<p>Suspected attack trace type, specific type as follows:<br>SuspectedSpoofingAttack: Re-photography Attack<br>SuspectedSynthesisImage: Suspected synthesized image<br>SuspectedSynthesisVideo: Suspected synthesized video<br>SuspectedAnomalyAttack: Facial features suspected of not being real<br>SuspectedAdversarialAttack: Suspected adversarial sample attack<br>SuspectedBlackIndustry: Suspected black industry batch Template attack<br>SuspectedWatermark: Suspected watermark</p>
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BangladeshIDCard(AbstractModel):
+    r"""Bangladesh ID card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssuedCountry: City of issuance
+        :type IssuedCountry: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._IssuedCountry = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssuedCountry(self):
+        r"""City of issuance
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._IssuedCountry = params.get("IssuedCountry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BankCard2EVerificationRequest(AbstractModel):
+    r"""BankCard2EVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _BankCard: Bank card.
+        :type BankCard: str
+        :param _Encryption: Sensitive data encryption info.
+- Users with encryption requirements for incoming information (name, bank card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._Name = None
+        self._BankCard = None
+        self._Encryption = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def BankCard(self):
+        r"""Bank card.
+        :rtype: str
+        """
+        return self._BankCard
+
+    @BankCard.setter
+    def BankCard(self, BankCard):
+        self._BankCard = BankCard
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+- Users with encryption requirements for incoming information (name, bank card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._BankCard = params.get("BankCard")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BankCard2EVerificationResponse(AbstractModel):
+    r"""BankCard2EVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code.
+-Billing result code:
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-4': 'Cardholder information is incorrect'.
+'-5': 'Cardless payment not enabled'.
+'-6': 'Card confiscated'.
+'-7': 'Invalid card number'.
+'-8': 'No corresponding issuing bank for this card'.
+'-9': 'The card is uninitialized or a Sleep Card'.
+'-10': 'Cheat card, card confiscation'.
+'-11': 'Reported lost'.
+'-12': 'The card has expired'.
+'-13': 'Restricted card'.
+'-14': 'Number of password errors exceeds the limit'.
+'-15': 'Issuer does not support this transaction'.
+'-18': 'Card status exception or card number error'.
+
+-Non-billing Result Code:
+'-2': 'Name verification failed'.
+'-3': 'Incorrect bank card number format'.
+'-16': 'Verification Center Service busy'.
+'-17': 'Verification attempts exceeded. Please retry the next day.'
+
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code.
+-Billing result code:
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-4': 'Cardholder information is incorrect'.
+'-5': 'Cardless payment not enabled'.
+'-6': 'Card confiscated'.
+'-7': 'Invalid card number'.
+'-8': 'No corresponding issuing bank for this card'.
+'-9': 'The card is uninitialized or a Sleep Card'.
+'-10': 'Cheat card, card confiscation'.
+'-11': 'Reported lost'.
+'-12': 'The card has expired'.
+'-13': 'Restricted card'.
+'-14': 'Number of password errors exceeds the limit'.
+'-15': 'Issuer does not support this transaction'.
+'-18': 'Card status exception or card number error'.
+
+-Non-billing Result Code:
+'-2': 'Name verification failed'.
+'-3': 'Incorrect bank card number format'.
+'-16': 'Verification Center Service busy'.
+'-17': 'Verification attempts exceeded. Please retry the next day.'
+
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._RequestId = params.get("RequestId")
+
+
+class BankCard4EVerificationRequest(AbstractModel):
+    r"""BankCard4EVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _BankCard: Bank card.
+        :type BankCard: str
+        :param _Phone: Mobile number.
+        :type Phone: str
+        :param _IdCard: ID number for account opening.
+-The document type must match the Type parameter, for example: input the ID card number for an identity card.
+        :type IdCard: str
+        :param _CertType: Document type.
+-Please confirm this document is the document type used when opening an account. Document information not used for account opening is not supported for verification.
+-Currently defaults to 0: ID card. Other document types are not currently supported.
+        :type CertType: int
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number, mobile number, bank card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._Name = None
+        self._BankCard = None
+        self._Phone = None
+        self._IdCard = None
+        self._CertType = None
+        self._Encryption = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def BankCard(self):
+        r"""Bank card.
+        :rtype: str
+        """
+        return self._BankCard
+
+    @BankCard.setter
+    def BankCard(self, BankCard):
+        self._BankCard = BankCard
+
+    @property
+    def Phone(self):
+        r"""Mobile number.
+        :rtype: str
+        """
+        return self._Phone
+
+    @Phone.setter
+    def Phone(self, Phone):
+        self._Phone = Phone
+
+    @property
+    def IdCard(self):
+        r"""ID number for account opening.
+-The document type must match the Type parameter, for example: input the ID card number for an identity card.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def CertType(self):
+        r"""Document type.
+-Please confirm this document is the document type used when opening an account. Document information not used for account opening is not supported for verification.
+-Currently defaults to 0: ID card. Other document types are not currently supported.
+        :rtype: int
+        """
+        return self._CertType
+
+    @CertType.setter
+    def CertType(self, CertType):
+        self._CertType = CertType
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number, mobile number, bank card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._BankCard = params.get("BankCard")
+        self._Phone = params.get("Phone")
+        self._IdCard = params.get("IdCard")
+        self._CertType = params.get("CertType")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BankCard4EVerificationResponse(AbstractModel):
+    r"""BankCard4EVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code.
+-Result code for charges
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-6': 'Cardholder information is incorrect'.
+'-7': 'Cardless payment not enabled'.
+'-8': 'Card confiscated'.
+'-9': 'Invalid card number'.
+'-10': 'No corresponding issuing bank for this card'.
+'-11': 'The card is uninitialized or a Sleep Card'.
+'-12': 'Cheat card, card confiscation'.
+'-13': 'Reported lost'.
+'-14': 'The card has expired.'
+'-15': 'Restricted card'.
+'-16': 'Exceeded the number of password errors'.
+'-17': 'Issuer does not support this transaction'.
+'-21': 'Card status exception or card number error'.
+
+-Result code with no charge
+'-2': 'Name verification failed'.
+'-3': 'Identity number error'.
+'-4': 'Incorrect bank card number format'.
+'-5': 'Invalid phone number'.
+'-18': 'Verification Center Service busy'.
+'-19': 'Exceeded maximum verification attempts. Please retry the next day.'
+'-20': 'The ID number is not currently supported for verification. Currently only support second-generation resident identity card.'
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code.
+-Result code for charges
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-6': 'Cardholder information is incorrect'.
+'-7': 'Cardless payment not enabled'.
+'-8': 'Card confiscated'.
+'-9': 'Invalid card number'.
+'-10': 'No corresponding issuing bank for this card'.
+'-11': 'The card is uninitialized or a Sleep Card'.
+'-12': 'Cheat card, card confiscation'.
+'-13': 'Reported lost'.
+'-14': 'The card has expired.'
+'-15': 'Restricted card'.
+'-16': 'Exceeded the number of password errors'.
+'-17': 'Issuer does not support this transaction'.
+'-21': 'Card status exception or card number error'.
+
+-Result code with no charge
+'-2': 'Name verification failed'.
+'-3': 'Identity number error'.
+'-4': 'Incorrect bank card number format'.
+'-5': 'Invalid phone number'.
+'-18': 'Verification Center Service busy'.
+'-19': 'Exceeded maximum verification attempts. Please retry the next day.'
+'-20': 'The ID number is not currently supported for verification. Currently only support second-generation resident identity card.'
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._RequestId = params.get("RequestId")
+
+
+class BankCardVerificationRequest(AbstractModel):
+    r"""BankCardVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IdCard: ID number for account opening.
+-The document type must match the Type parameter, for example: input the ID card number for an identity card.
+        :type IdCard: str
+        :param _Name: Name
+        :type Name: str
+        :param _BankCard: Bank card.
+        :type BankCard: str
+        :param _CertType: Document type.
+-Please confirm this document is the document type used when opening an account. Document information not used for account opening is not supported for verification.
+-Currently default: 0 ID card. Other document types are not currently supported.
+        :type CertType: int
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number, bank card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._IdCard = None
+        self._Name = None
+        self._BankCard = None
+        self._CertType = None
+        self._Encryption = None
+
+    @property
+    def IdCard(self):
+        r"""ID number for account opening.
+-The document type must match the Type parameter, for example: input the ID card number for an identity card.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def BankCard(self):
+        r"""Bank card.
+        :rtype: str
+        """
+        return self._BankCard
+
+    @BankCard.setter
+    def BankCard(self, BankCard):
+        self._BankCard = BankCard
+
+    @property
+    def CertType(self):
+        r"""Document type.
+-Please confirm this document is the document type used when opening an account. Document information not used for account opening is not supported for verification.
+-Currently default: 0 ID card. Other document types are not currently supported.
+        :rtype: int
+        """
+        return self._CertType
+
+    @CertType.setter
+    def CertType(self, CertType):
+        self._CertType = CertType
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number, bank card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._IdCard = params.get("IdCard")
+        self._Name = params.get("Name")
+        self._BankCard = params.get("BankCard")
+        self._CertType = params.get("CertType")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BankCardVerificationResponse(AbstractModel):
+    r"""BankCardVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code.
+-Result code for charges
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-5': 'Cardholder information is incorrect'.
+'-6': 'Cardless payment not enabled'.
+'-7': 'Card confiscated'.
+'-8': 'Invalid card number'.
+'-9': 'No corresponding issuing bank for this card'.
+'-10': 'The card is uninitialized or a Sleep Card'.
+'-11': 'Cheat card, card retention'.
+'-12': 'Reported lost'.
+'-13': 'The card has expired.'
+'-14': 'Restricted card'.
+'-15': 'Exceeded the number of password errors.'
+'-16': 'Issuer does not support this transaction'.
+'-20': 'Card status exception or card number error'.
+
+-Result code with no charge
+'-2': 'Name verification failed'.
+'-3': 'Identity number error'.
+'-4': 'Incorrect bank card number format'.
+'-17': 'Verification Center Service busy'.
+'-18': 'Exceeded verification attempts. Please retry the next day.'
+'-19': 'The ID number is not currently supported for verification. Currently only support second-generation resident identity card.'	
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code.
+-Result code for charges
+'0': 'Authentication passed'.
+'-1': 'Authentication failed'.
+'-5': 'Cardholder information is incorrect'.
+'-6': 'Cardless payment not enabled'.
+'-7': 'Card confiscated'.
+'-8': 'Invalid card number'.
+'-9': 'No corresponding issuing bank for this card'.
+'-10': 'The card is uninitialized or a Sleep Card'.
+'-11': 'Cheat card, card retention'.
+'-12': 'Reported lost'.
+'-13': 'The card has expired.'
+'-14': 'Restricted card'.
+'-15': 'Exceeded the number of password errors.'
+'-16': 'Issuer does not support this transaction'.
+'-20': 'Card status exception or card number error'.
+
+-Result code with no charge
+'-2': 'Name verification failed'.
+'-3': 'Identity number error'.
+'-4': 'Incorrect bank card number format'.
+'-17': 'Verification Center Service busy'.
+'-18': 'Exceeded verification attempts. Please retry the next day.'
+'-19': 'The ID number is not currently supported for verification. Currently only support second-generation resident identity card.'	
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._RequestId = params.get("RequestId")
+
+
+class CardInfo(AbstractModel):
+    r"""Document recognition result
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _HKIDCard: Hong Kong identity card
+        :type HKIDCard: :class:`tencentcloud.faceid.v20180301.models.HKIDCard`
+        :param _MLIDCard: Malaysian identity card
+        :type MLIDCard: :class:`tencentcloud.faceid.v20180301.models.MLIDCard`
+        :param _PhilippinesVoteID: Philippines voter card
+        :type PhilippinesVoteID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesVoteID`
+        :param _IndonesiaIDCard: Indonesian Identity Card
+        :type IndonesiaIDCard: :class:`tencentcloud.faceid.v20180301.models.IndonesiaIDCard`
+        :param _PhilippinesDrivingLicense: Philippines driving license
+        :type PhilippinesDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.PhilippinesDrivingLicense`
+        :param _PhilippinesTinID: TinID in the Philippines
+        :type PhilippinesTinID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesTinID`
+        :param _PhilippinesSSSID: Philippines SSSID
+        :type PhilippinesSSSID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesSSSID`
+        :param _PhilippinesUMID: Philippines UMID
+        :type PhilippinesUMID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesUMID`
+        :param _InternationalIDPassport: Hong Kong, Macao, and Taiwan region as well as overseas passport
+        :type InternationalIDPassport: :class:`tencentcloud.faceid.v20180301.models.InternationalIDPassport`
+        :param _GeneralCard: General card certificate information
+        :type GeneralCard: :class:`tencentcloud.faceid.v20180301.models.GeneralCard`
+        :param _IndonesiaDrivingLicense: Indonesian driving license
+        :type IndonesiaDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.IndonesiaDrivingLicense`
+        :param _ThailandIDCard: Thai Identity Card
+        :type ThailandIDCard: :class:`tencentcloud.faceid.v20180301.models.ThailandIDCard`
+        :param _SingaporeIDCard: Singapore ID card
+        :type SingaporeIDCard: :class:`tencentcloud.faceid.v20180301.models.SingaporeIDCard`
+        :param _MacaoIDCard: Macao (China) identity card
+        :type MacaoIDCard: :class:`tencentcloud.faceid.v20180301.models.MacaoIDCard`
+        :param _TaiWanIDCard: Taiwan (China) ID card
+        :type TaiWanIDCard: :class:`tencentcloud.faceid.v20180301.models.TaiWanIDCard`
+        :param _JapanIDCard: Japan identity card
+        :type JapanIDCard: :class:`tencentcloud.faceid.v20180301.models.JapanIDCard`
+        :param _BangladeshIDCard: Bangladesh ID card
+        :type BangladeshIDCard: :class:`tencentcloud.faceid.v20180301.models.BangladeshIDCard`
+        :param _NigeriaIDCard: Nigerian Identity Card
+        :type NigeriaIDCard: :class:`tencentcloud.faceid.v20180301.models.NigeriaIDCard`
+        :param _NigeriaDrivingLicense: Nigerian driver's license
+        :type NigeriaDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.NigeriaDrivingLicense`
+        :param _PakistanIDCard: Pakistan identity card
+        :type PakistanIDCard: :class:`tencentcloud.faceid.v20180301.models.PakistanIDCard`
+        :param _PakistanDrivingLicense: Pakistan driver's license
+        :type PakistanDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.PakistanDrivingLicense`
+        """
+        self._HKIDCard = None
+        self._MLIDCard = None
+        self._PhilippinesVoteID = None
+        self._IndonesiaIDCard = None
+        self._PhilippinesDrivingLicense = None
+        self._PhilippinesTinID = None
+        self._PhilippinesSSSID = None
+        self._PhilippinesUMID = None
+        self._InternationalIDPassport = None
+        self._GeneralCard = None
+        self._IndonesiaDrivingLicense = None
+        self._ThailandIDCard = None
+        self._SingaporeIDCard = None
+        self._MacaoIDCard = None
+        self._TaiWanIDCard = None
+        self._JapanIDCard = None
+        self._BangladeshIDCard = None
+        self._NigeriaIDCard = None
+        self._NigeriaDrivingLicense = None
+        self._PakistanIDCard = None
+        self._PakistanDrivingLicense = None
+
+    @property
+    def HKIDCard(self):
+        r"""Hong Kong identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.HKIDCard`
+        """
+        return self._HKIDCard
+
+    @HKIDCard.setter
+    def HKIDCard(self, HKIDCard):
+        self._HKIDCard = HKIDCard
+
+    @property
+    def MLIDCard(self):
+        r"""Malaysian identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.MLIDCard`
+        """
+        return self._MLIDCard
+
+    @MLIDCard.setter
+    def MLIDCard(self, MLIDCard):
+        self._MLIDCard = MLIDCard
+
+    @property
+    def PhilippinesVoteID(self):
+        r"""Philippines voter card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesVoteID`
+        """
+        return self._PhilippinesVoteID
+
+    @PhilippinesVoteID.setter
+    def PhilippinesVoteID(self, PhilippinesVoteID):
+        self._PhilippinesVoteID = PhilippinesVoteID
+
+    @property
+    def IndonesiaIDCard(self):
+        r"""Indonesian Identity Card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.IndonesiaIDCard`
+        """
+        return self._IndonesiaIDCard
+
+    @IndonesiaIDCard.setter
+    def IndonesiaIDCard(self, IndonesiaIDCard):
+        self._IndonesiaIDCard = IndonesiaIDCard
+
+    @property
+    def PhilippinesDrivingLicense(self):
+        r"""Philippines driving license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesDrivingLicense`
+        """
+        return self._PhilippinesDrivingLicense
+
+    @PhilippinesDrivingLicense.setter
+    def PhilippinesDrivingLicense(self, PhilippinesDrivingLicense):
+        self._PhilippinesDrivingLicense = PhilippinesDrivingLicense
+
+    @property
+    def PhilippinesTinID(self):
+        r"""TinID in the Philippines
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesTinID`
+        """
+        return self._PhilippinesTinID
+
+    @PhilippinesTinID.setter
+    def PhilippinesTinID(self, PhilippinesTinID):
+        self._PhilippinesTinID = PhilippinesTinID
+
+    @property
+    def PhilippinesSSSID(self):
+        r"""Philippines SSSID
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesSSSID`
+        """
+        return self._PhilippinesSSSID
+
+    @PhilippinesSSSID.setter
+    def PhilippinesSSSID(self, PhilippinesSSSID):
+        self._PhilippinesSSSID = PhilippinesSSSID
+
+    @property
+    def PhilippinesUMID(self):
+        r"""Philippines UMID
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesUMID`
+        """
+        return self._PhilippinesUMID
+
+    @PhilippinesUMID.setter
+    def PhilippinesUMID(self, PhilippinesUMID):
+        self._PhilippinesUMID = PhilippinesUMID
+
+    @property
+    def InternationalIDPassport(self):
+        r"""Hong Kong, Macao, and Taiwan region as well as overseas passport
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.InternationalIDPassport`
+        """
+        return self._InternationalIDPassport
+
+    @InternationalIDPassport.setter
+    def InternationalIDPassport(self, InternationalIDPassport):
+        self._InternationalIDPassport = InternationalIDPassport
+
+    @property
+    def GeneralCard(self):
+        r"""General card certificate information
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.GeneralCard`
+        """
+        return self._GeneralCard
+
+    @GeneralCard.setter
+    def GeneralCard(self, GeneralCard):
+        self._GeneralCard = GeneralCard
+
+    @property
+    def IndonesiaDrivingLicense(self):
+        r"""Indonesian driving license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.IndonesiaDrivingLicense`
+        """
+        return self._IndonesiaDrivingLicense
+
+    @IndonesiaDrivingLicense.setter
+    def IndonesiaDrivingLicense(self, IndonesiaDrivingLicense):
+        self._IndonesiaDrivingLicense = IndonesiaDrivingLicense
+
+    @property
+    def ThailandIDCard(self):
+        r"""Thai Identity Card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.ThailandIDCard`
+        """
+        return self._ThailandIDCard
+
+    @ThailandIDCard.setter
+    def ThailandIDCard(self, ThailandIDCard):
+        self._ThailandIDCard = ThailandIDCard
+
+    @property
+    def SingaporeIDCard(self):
+        r"""Singapore ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.SingaporeIDCard`
+        """
+        return self._SingaporeIDCard
+
+    @SingaporeIDCard.setter
+    def SingaporeIDCard(self, SingaporeIDCard):
+        self._SingaporeIDCard = SingaporeIDCard
+
+    @property
+    def MacaoIDCard(self):
+        r"""Macao (China) identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.MacaoIDCard`
+        """
+        return self._MacaoIDCard
+
+    @MacaoIDCard.setter
+    def MacaoIDCard(self, MacaoIDCard):
+        self._MacaoIDCard = MacaoIDCard
+
+    @property
+    def TaiWanIDCard(self):
+        r"""Taiwan (China) ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.TaiWanIDCard`
+        """
+        return self._TaiWanIDCard
+
+    @TaiWanIDCard.setter
+    def TaiWanIDCard(self, TaiWanIDCard):
+        self._TaiWanIDCard = TaiWanIDCard
+
+    @property
+    def JapanIDCard(self):
+        r"""Japan identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.JapanIDCard`
+        """
+        return self._JapanIDCard
+
+    @JapanIDCard.setter
+    def JapanIDCard(self, JapanIDCard):
+        self._JapanIDCard = JapanIDCard
+
+    @property
+    def BangladeshIDCard(self):
+        r"""Bangladesh ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.BangladeshIDCard`
+        """
+        return self._BangladeshIDCard
+
+    @BangladeshIDCard.setter
+    def BangladeshIDCard(self, BangladeshIDCard):
+        self._BangladeshIDCard = BangladeshIDCard
+
+    @property
+    def NigeriaIDCard(self):
+        r"""Nigerian Identity Card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NigeriaIDCard`
+        """
+        return self._NigeriaIDCard
+
+    @NigeriaIDCard.setter
+    def NigeriaIDCard(self, NigeriaIDCard):
+        self._NigeriaIDCard = NigeriaIDCard
+
+    @property
+    def NigeriaDrivingLicense(self):
+        r"""Nigerian driver's license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NigeriaDrivingLicense`
+        """
+        return self._NigeriaDrivingLicense
+
+    @NigeriaDrivingLicense.setter
+    def NigeriaDrivingLicense(self, NigeriaDrivingLicense):
+        self._NigeriaDrivingLicense = NigeriaDrivingLicense
+
+    @property
+    def PakistanIDCard(self):
+        r"""Pakistan identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PakistanIDCard`
+        """
+        return self._PakistanIDCard
+
+    @PakistanIDCard.setter
+    def PakistanIDCard(self, PakistanIDCard):
+        self._PakistanIDCard = PakistanIDCard
+
+    @property
+    def PakistanDrivingLicense(self):
+        r"""Pakistan driver's license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PakistanDrivingLicense`
+        """
+        return self._PakistanDrivingLicense
+
+    @PakistanDrivingLicense.setter
+    def PakistanDrivingLicense(self, PakistanDrivingLicense):
+        self._PakistanDrivingLicense = PakistanDrivingLicense
+
+
+    def _deserialize(self, params):
+        if params.get("HKIDCard") is not None:
+            self._HKIDCard = HKIDCard()
+            self._HKIDCard._deserialize(params.get("HKIDCard"))
+        if params.get("MLIDCard") is not None:
+            self._MLIDCard = MLIDCard()
+            self._MLIDCard._deserialize(params.get("MLIDCard"))
+        if params.get("PhilippinesVoteID") is not None:
+            self._PhilippinesVoteID = PhilippinesVoteID()
+            self._PhilippinesVoteID._deserialize(params.get("PhilippinesVoteID"))
+        if params.get("IndonesiaIDCard") is not None:
+            self._IndonesiaIDCard = IndonesiaIDCard()
+            self._IndonesiaIDCard._deserialize(params.get("IndonesiaIDCard"))
+        if params.get("PhilippinesDrivingLicense") is not None:
+            self._PhilippinesDrivingLicense = PhilippinesDrivingLicense()
+            self._PhilippinesDrivingLicense._deserialize(params.get("PhilippinesDrivingLicense"))
+        if params.get("PhilippinesTinID") is not None:
+            self._PhilippinesTinID = PhilippinesTinID()
+            self._PhilippinesTinID._deserialize(params.get("PhilippinesTinID"))
+        if params.get("PhilippinesSSSID") is not None:
+            self._PhilippinesSSSID = PhilippinesSSSID()
+            self._PhilippinesSSSID._deserialize(params.get("PhilippinesSSSID"))
+        if params.get("PhilippinesUMID") is not None:
+            self._PhilippinesUMID = PhilippinesUMID()
+            self._PhilippinesUMID._deserialize(params.get("PhilippinesUMID"))
+        if params.get("InternationalIDPassport") is not None:
+            self._InternationalIDPassport = InternationalIDPassport()
+            self._InternationalIDPassport._deserialize(params.get("InternationalIDPassport"))
+        if params.get("GeneralCard") is not None:
+            self._GeneralCard = GeneralCard()
+            self._GeneralCard._deserialize(params.get("GeneralCard"))
+        if params.get("IndonesiaDrivingLicense") is not None:
+            self._IndonesiaDrivingLicense = IndonesiaDrivingLicense()
+            self._IndonesiaDrivingLicense._deserialize(params.get("IndonesiaDrivingLicense"))
+        if params.get("ThailandIDCard") is not None:
+            self._ThailandIDCard = ThailandIDCard()
+            self._ThailandIDCard._deserialize(params.get("ThailandIDCard"))
+        if params.get("SingaporeIDCard") is not None:
+            self._SingaporeIDCard = SingaporeIDCard()
+            self._SingaporeIDCard._deserialize(params.get("SingaporeIDCard"))
+        if params.get("MacaoIDCard") is not None:
+            self._MacaoIDCard = MacaoIDCard()
+            self._MacaoIDCard._deserialize(params.get("MacaoIDCard"))
+        if params.get("TaiWanIDCard") is not None:
+            self._TaiWanIDCard = TaiWanIDCard()
+            self._TaiWanIDCard._deserialize(params.get("TaiWanIDCard"))
+        if params.get("JapanIDCard") is not None:
+            self._JapanIDCard = JapanIDCard()
+            self._JapanIDCard._deserialize(params.get("JapanIDCard"))
+        if params.get("BangladeshIDCard") is not None:
+            self._BangladeshIDCard = BangladeshIDCard()
+            self._BangladeshIDCard._deserialize(params.get("BangladeshIDCard"))
+        if params.get("NigeriaIDCard") is not None:
+            self._NigeriaIDCard = NigeriaIDCard()
+            self._NigeriaIDCard._deserialize(params.get("NigeriaIDCard"))
+        if params.get("NigeriaDrivingLicense") is not None:
+            self._NigeriaDrivingLicense = NigeriaDrivingLicense()
+            self._NigeriaDrivingLicense._deserialize(params.get("NigeriaDrivingLicense"))
+        if params.get("PakistanIDCard") is not None:
+            self._PakistanIDCard = PakistanIDCard()
+            self._PakistanIDCard._deserialize(params.get("PakistanIDCard"))
+        if params.get("PakistanDrivingLicense") is not None:
+            self._PakistanDrivingLicense = PakistanDrivingLicense()
+            self._PakistanDrivingLicense._deserialize(params.get("PakistanDrivingLicense"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CardVerifyResult(AbstractModel):
+    r"""The OCR result of a user's identity document during the eKYC verification process.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsPass: Whether the authentication or OCR process is successful.
+        :type IsPass: bool
+        :param _IsEdit: Whether the user modified the card recognition result
+        :type IsEdit: bool
+        :param _CardVideo: The download URL of the video used for identity document verification, which is valid for 10 minutes. This parameter is returned only if video-based identity document verification is enabled.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type CardVideo: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _CardImage: The download URL of the identity document image, which is valid for 10 minutes.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type CardImage: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _CardInfoOcrJson: The OCR result (in JSON) of the identity document image. If verification or OCR fails, this parameter is left empty. The URL is valid for 10 minutes.
+(1) Hong Kong (China) identity card
+When the value of `IdCardType` is `HK`:
+- CnName (string): Name in Chinese.
+- EnName (string): Name in English.
+- TelexCode (string): The code corresponding to the name in Chinese.
+- Sex (string): Gender. Valid values: `M` (male) and `F` (female).
+- Birthday (string): Date of birth.
+- Permanent (int): Whether it is a permanent residence identity card. Valid values: `0` (non-permanent), `1` (permanent), and `-1` (unknown).
+- IdNum (string): Identity card number.
+- Symbol (string): The ID symbol below the date of birth, such as "***AZ".
+- FirstIssueDate (string): Month and year of first registration.
+- CurrentIssueDate (string): The date of latest issuance.
+
+(2) Malaysian identity card
+When the value of `IdCardType` is `ML`:
+- Sex (string): Gender. Valid values: `LELAKI` (male) and `PEREMPUAN` (female).
+- Birthday (string): Date of birth.
+- ID (string): Identity card number.
+- Name (string): Name.
+- Address (string): Address.
+- Type (string): Identity document type.
+
+(3) Philippine identity document
+When the value of `IdCardType` is `PhilippinesVoteID`:
+- Birthday (string): Date of birth.
+- Address (string): Address.
+- LastName (string): Last name.
+- FirstName (string): First name.
+- VIN (string): Voter's identification number (VIN).
+- CivilStatus (string): Civil status.
+- Citizenship (string): Citizenship.
+- PrecinctNo (string): Precinct.
+
+When the value of `IdCardType` is `PhilippinesDrivingLicense`:
+- Sex (string): Gender.
+- Birthday (string): Date of birth.
+- Name (string): Name.
+- Address (string): Address.
+- LastName (string): Last name.
+- FirstName (string): First name.
+- MiddleName (string): Middle name.
+- Nationality (string): Nationality.
+- LicenseNo (string): License number.
+- ExpiresDate (string): Expiration date.
+- AgencyCode (string): Agency code.
+
+When the value of `IdCardType` is `PhilippinesTinID`:
+- LicenseNumber (string): Tax identification number (TIN).
+- FullName (string): Full name.
+- Address (string): Address.
+- Birthday (string): Date of birth.
+- IssueDate (string): Issue date.
+
+When the value of `IdCardType` is `PhilippinesSSSID`:
+- LicenseNumber (string): Common reference number (CRN).
+- FullName (string): Full name.
+- Birthday (string): Date of birth.
+
+When the value of `IdCardType` is `PhilippinesUMID`:
+- Surname (string): Surname.
+- MiddleName (string):Middle name.
+- GivenName (string): Given name.
+- Sex (string): Gender.
+- Birthday (string): Date of birth.
+- Address (string): Address.
+- CRN (string): Common reference number (CRN).
+
+(4) Indonesian identity card
+When the value of `IdCardType` is `IndonesiaIDCard`:
+- NIK (string): Single Identity Number.
+- Nama (string): Full name.
+- TempatTglLahir (string): Place and date of birth.
+- JenisKelamin (string): Gender.
+- GolDarah (string): Blood type.
+- Alamat (string): Address.
+- RTRW (string): Street.
+- KelDesa (string): Village.
+- Kecamatan (string): Region.
+- Agama (string): Religion.
+- StatusPerkawinan (string): Marital status.
+- Perkerjaan (string): Occupation.
+- KewargaNegaraan (string): Nationality.
+- BerlakuHingga (string): Expiry date.
+- IssuedDate (string): Issue date.
+
+(5) A passport issued in Hong Kong (China) /Macao (China) /Taiwan (China) or other countries/regions
+When the value of `IdCardType` is `MLIDPassport`:
+- FullName (string): Full name.
+- Surname (string): Surname.
+- GivenName (string): Given name.
+- Birthday (string): Date of birth.
+- Sex (string): Gender. Valid values: `F` (female) and `M` (male).
+- DateOfExpiration (string): Expiration date.
+- IssuingCountry (string): Issuing country.
+- NationalityCode (string): Country/region code.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type CardInfoOcrJson: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _RequestId: The request ID of a single process.
+        :type RequestId: str
+        :param _CardInfo: The recognition results of ID card
+        :type CardInfo: :class:`tencentcloud.faceid.v20180301.models.CardInfo`
+        :param _NormalCardInfo: License OCR result
+        :type NormalCardInfo: :class:`tencentcloud.faceid.v20180301.models.NormalCardInfo`
+        :param _WarnCardInfos: Card warning information
+-9101 Alarm for covered certificate,
+-9102 Alarm for photocopied certificate,
+-9103 Alarm for photographed certificate,
+-9107 Alarm for reflective certificate,
+-9108 Alarm for blurry image,
+-9109 This capability is not enabled.
+        :type WarnCardInfos: list of int
+        :param _EditDetails: Details of the OCR modifications for this EKYC card, when the user manually modifies the card recognition results (IsEdit=true), EditDetails will return the modified fields. When IsEdit=false, EditDetails is empty.
+        :type EditDetails: list of EditDetail
+        """
+        self._IsPass = None
+        self._IsEdit = None
+        self._CardVideo = None
+        self._CardImage = None
+        self._CardInfoOcrJson = None
+        self._RequestId = None
+        self._CardInfo = None
+        self._NormalCardInfo = None
+        self._WarnCardInfos = None
+        self._EditDetails = None
+
+    @property
+    def IsPass(self):
+        r"""Whether the authentication or OCR process is successful.
+        :rtype: bool
+        """
+        return self._IsPass
+
+    @IsPass.setter
+    def IsPass(self, IsPass):
+        self._IsPass = IsPass
+
+    @property
+    def IsEdit(self):
+        r"""Whether the user modified the card recognition result
+        :rtype: bool
+        """
+        return self._IsEdit
+
+    @IsEdit.setter
+    def IsEdit(self, IsEdit):
+        self._IsEdit = IsEdit
+
+    @property
+    def CardVideo(self):
+        r"""The download URL of the video used for identity document verification, which is valid for 10 minutes. This parameter is returned only if video-based identity document verification is enabled.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._CardVideo
+
+    @CardVideo.setter
+    def CardVideo(self, CardVideo):
+        self._CardVideo = CardVideo
+
+    @property
+    def CardImage(self):
+        r"""The download URL of the identity document image, which is valid for 10 minutes.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._CardImage
+
+    @CardImage.setter
+    def CardImage(self, CardImage):
+        self._CardImage = CardImage
+
+    @property
+    def CardInfoOcrJson(self):
+        r"""The OCR result (in JSON) of the identity document image. If verification or OCR fails, this parameter is left empty. The URL is valid for 10 minutes.
+(1) Hong Kong (China) identity card
+When the value of `IdCardType` is `HK`:
+- CnName (string): Name in Chinese.
+- EnName (string): Name in English.
+- TelexCode (string): The code corresponding to the name in Chinese.
+- Sex (string): Gender. Valid values: `M` (male) and `F` (female).
+- Birthday (string): Date of birth.
+- Permanent (int): Whether it is a permanent residence identity card. Valid values: `0` (non-permanent), `1` (permanent), and `-1` (unknown).
+- IdNum (string): Identity card number.
+- Symbol (string): The ID symbol below the date of birth, such as "***AZ".
+- FirstIssueDate (string): Month and year of first registration.
+- CurrentIssueDate (string): The date of latest issuance.
+
+(2) Malaysian identity card
+When the value of `IdCardType` is `ML`:
+- Sex (string): Gender. Valid values: `LELAKI` (male) and `PEREMPUAN` (female).
+- Birthday (string): Date of birth.
+- ID (string): Identity card number.
+- Name (string): Name.
+- Address (string): Address.
+- Type (string): Identity document type.
+
+(3) Philippine identity document
+When the value of `IdCardType` is `PhilippinesVoteID`:
+- Birthday (string): Date of birth.
+- Address (string): Address.
+- LastName (string): Last name.
+- FirstName (string): First name.
+- VIN (string): Voter's identification number (VIN).
+- CivilStatus (string): Civil status.
+- Citizenship (string): Citizenship.
+- PrecinctNo (string): Precinct.
+
+When the value of `IdCardType` is `PhilippinesDrivingLicense`:
+- Sex (string): Gender.
+- Birthday (string): Date of birth.
+- Name (string): Name.
+- Address (string): Address.
+- LastName (string): Last name.
+- FirstName (string): First name.
+- MiddleName (string): Middle name.
+- Nationality (string): Nationality.
+- LicenseNo (string): License number.
+- ExpiresDate (string): Expiration date.
+- AgencyCode (string): Agency code.
+
+When the value of `IdCardType` is `PhilippinesTinID`:
+- LicenseNumber (string): Tax identification number (TIN).
+- FullName (string): Full name.
+- Address (string): Address.
+- Birthday (string): Date of birth.
+- IssueDate (string): Issue date.
+
+When the value of `IdCardType` is `PhilippinesSSSID`:
+- LicenseNumber (string): Common reference number (CRN).
+- FullName (string): Full name.
+- Birthday (string): Date of birth.
+
+When the value of `IdCardType` is `PhilippinesUMID`:
+- Surname (string): Surname.
+- MiddleName (string):Middle name.
+- GivenName (string): Given name.
+- Sex (string): Gender.
+- Birthday (string): Date of birth.
+- Address (string): Address.
+- CRN (string): Common reference number (CRN).
+
+(4) Indonesian identity card
+When the value of `IdCardType` is `IndonesiaIDCard`:
+- NIK (string): Single Identity Number.
+- Nama (string): Full name.
+- TempatTglLahir (string): Place and date of birth.
+- JenisKelamin (string): Gender.
+- GolDarah (string): Blood type.
+- Alamat (string): Address.
+- RTRW (string): Street.
+- KelDesa (string): Village.
+- Kecamatan (string): Region.
+- Agama (string): Religion.
+- StatusPerkawinan (string): Marital status.
+- Perkerjaan (string): Occupation.
+- KewargaNegaraan (string): Nationality.
+- BerlakuHingga (string): Expiry date.
+- IssuedDate (string): Issue date.
+
+(5) A passport issued in Hong Kong (China) /Macao (China) /Taiwan (China) or other countries/regions
+When the value of `IdCardType` is `MLIDPassport`:
+- FullName (string): Full name.
+- Surname (string): Surname.
+- GivenName (string): Given name.
+- Birthday (string): Date of birth.
+- Sex (string): Gender. Valid values: `F` (female) and `M` (male).
+- DateOfExpiration (string): Expiration date.
+- IssuingCountry (string): Issuing country.
+- NationalityCode (string): Country/region code.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._CardInfoOcrJson
+
+    @CardInfoOcrJson.setter
+    def CardInfoOcrJson(self, CardInfoOcrJson):
+        self._CardInfoOcrJson = CardInfoOcrJson
+
+    @property
+    def RequestId(self):
+        r"""The request ID of a single process.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+    @property
+    def CardInfo(self):
+        warnings.warn("parameter `CardInfo` is deprecated", DeprecationWarning) 
+
+        r"""The recognition results of ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.CardInfo`
+        """
+        return self._CardInfo
+
+    @CardInfo.setter
+    def CardInfo(self, CardInfo):
+        warnings.warn("parameter `CardInfo` is deprecated", DeprecationWarning) 
+
+        self._CardInfo = CardInfo
+
+    @property
+    def NormalCardInfo(self):
+        r"""License OCR result
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalCardInfo`
+        """
+        return self._NormalCardInfo
+
+    @NormalCardInfo.setter
+    def NormalCardInfo(self, NormalCardInfo):
+        self._NormalCardInfo = NormalCardInfo
+
+    @property
+    def WarnCardInfos(self):
+        r"""Card warning information
+-9101 Alarm for covered certificate,
+-9102 Alarm for photocopied certificate,
+-9103 Alarm for photographed certificate,
+-9107 Alarm for reflective certificate,
+-9108 Alarm for blurry image,
+-9109 This capability is not enabled.
+        :rtype: list of int
+        """
+        return self._WarnCardInfos
+
+    @WarnCardInfos.setter
+    def WarnCardInfos(self, WarnCardInfos):
+        self._WarnCardInfos = WarnCardInfos
+
+    @property
+    def EditDetails(self):
+        r"""Details of the OCR modifications for this EKYC card, when the user manually modifies the card recognition results (IsEdit=true), EditDetails will return the modified fields. When IsEdit=false, EditDetails is empty.
+        :rtype: list of EditDetail
+        """
+        return self._EditDetails
+
+    @EditDetails.setter
+    def EditDetails(self, EditDetails):
+        self._EditDetails = EditDetails
+
+
+    def _deserialize(self, params):
+        self._IsPass = params.get("IsPass")
+        self._IsEdit = params.get("IsEdit")
+        if params.get("CardVideo") is not None:
+            self._CardVideo = FileInfo()
+            self._CardVideo._deserialize(params.get("CardVideo"))
+        if params.get("CardImage") is not None:
+            self._CardImage = FileInfo()
+            self._CardImage._deserialize(params.get("CardImage"))
+        if params.get("CardInfoOcrJson") is not None:
+            self._CardInfoOcrJson = FileInfo()
+            self._CardInfoOcrJson._deserialize(params.get("CardInfoOcrJson"))
+        self._RequestId = params.get("RequestId")
+        if params.get("CardInfo") is not None:
+            self._CardInfo = CardInfo()
+            self._CardInfo._deserialize(params.get("CardInfo"))
+        if params.get("NormalCardInfo") is not None:
+            self._NormalCardInfo = NormalCardInfo()
+            self._NormalCardInfo._deserialize(params.get("NormalCardInfo"))
+        self._WarnCardInfos = params.get("WarnCardInfos")
+        if params.get("EditDetails") is not None:
+            self._EditDetails = []
+            for item in params.get("EditDetails"):
+                obj = EditDetail()
+                obj._deserialize(item)
+                self._EditDetails.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckBankCardInformationRequest(AbstractModel):
+    r"""CheckBankCardInformation request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BankCard: Bank card number.
+        :type BankCard: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (bank card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._BankCard = None
+        self._Encryption = None
+
+    @property
+    def BankCard(self):
+        r"""Bank card number.
+        :rtype: str
+        """
+        return self._BankCard
+
+    @BankCard.setter
+    def BankCard(self, BankCard):
+        self._BankCard = BankCard
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (bank card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._BankCard = params.get("BankCard")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckBankCardInformationResponse(AbstractModel):
+    r"""CheckBankCardInformation response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+-Result code for charges
+Query succeeded
+-1: Not found
+-5: Invalid card number
+
+-Result code with no charge
+-Verification Center Service is busy.
+-3: Bank card not found.
+-4: Authentication attempts exceeded the daily limit. Retry the next day.
+-6: This bank card type is not currently supported
+
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _AccountBank: Account opening bank.
+        :type AccountBank: str
+        :param _AccountType: Card type.
+-Value range:
+1: Debit card.
+2: Credit card.
+3: Prepaid card.
+4: Credit card
+        :type AccountType: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._AccountBank = None
+        self._AccountType = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+-Result code for charges
+Query succeeded
+-1: Not found
+-5: Invalid card number
+
+-Result code with no charge
+-Verification Center Service is busy.
+-3: Bank card not found.
+-4: Authentication attempts exceeded the daily limit. Retry the next day.
+-6: This bank card type is not currently supported
+
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def AccountBank(self):
+        r"""Account opening bank.
+        :rtype: str
+        """
+        return self._AccountBank
+
+    @AccountBank.setter
+    def AccountBank(self, AccountBank):
+        self._AccountBank = AccountBank
+
+    @property
+    def AccountType(self):
+        r"""Card type.
+-Value range:
+1: Debit card.
+2: Credit card.
+3: Prepaid card.
+4: Credit card
+        :rtype: int
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._AccountBank = params.get("AccountBank")
+        self._AccountType = params.get("AccountType")
+        self._RequestId = params.get("RequestId")
+
+
+class CheckIdCardInformationRequest(AbstractModel):
+    r"""CheckIdCardInformation request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ImageBase64: <p>Base64 value of the ID card portrait side.</p><ul><li>Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.</li><li>Supported image size: the downloaded image should be no more than 7M after Base64 encoding.</li><li>Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for coding specification.</li><li>Either ImageBase64 or ImageUrl must be provided. If both are provided, proceed to use parameters according to the priority of ImageUrl > ImageBase64.</li></ul>
+        :type ImageBase64: str
+        :param _ImageUrl: <p>Url address of the ID card portrait side</p><ul><li>Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.</li><li>Supported image size: The downloaded image after Base64 encoding is no more than 3M. Image download time is no more than 3 seconds.</li><li>Images stored in Tencent Cloud's Url can guarantee higher download speed and stability. It is recommended to store images in Tencent Cloud.</li><li>Speed and stability of non-Tencent Cloud Storage URLs may be impacted to a certain extent.</li></ul>
+        :type ImageUrl: str
+        :param _Config: <p>Configuration.</p><ul><li><p>All the following optional fields are bool type, default false.<br>CopyWarn, alarm for photocopy.<br>BorderCheckWarn, border and frame block alarm.<br>ReshootWarn, alarm for rephotographing.<br>DetectPsWarn, PS detection alarm (suspected PS traces).<br>TempIdWarn, temporary ID card alarm.<br>Quality, image Quality alarm (evaluates blurriness).</p></li><li><p>SDK configuration method for reference:<br>Config = Json.stringify({"CopyWarn":true,"ReshootWarn":true}).</p></li><li><p>API 3.0 Explorer setting method for reference:<br>Config = {"CopyWarn":true,"ReshootWarn":true}.</p></li></ul>
+        :type Config: str
+        :param _IsEncrypt: <p>Whether required to encrypt sensitive information in the response.</p><ul><li>Default false.</li><li>Sensitive information includes Response.IdNum and Response.Name.</li></ul>
+        :type IsEncrypt: bool
+        :param _IsEncryptResponse: <p>Whether required to encrypt the response body.</p>
+        :type IsEncryptResponse: bool
+        :param _Encryption: <p>Whether required to encrypt sensitive information in the response, need to be specified encryption algorithm Algorithm, initial vector for CBC encryption, and encrypted symmetric key.</p>
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._ImageBase64 = None
+        self._ImageUrl = None
+        self._Config = None
+        self._IsEncrypt = None
+        self._IsEncryptResponse = None
+        self._Encryption = None
+
+    @property
+    def ImageBase64(self):
+        r"""<p>Base64 value of the ID card portrait side.</p><ul><li>Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.</li><li>Supported image size: the downloaded image should be no more than 7M after Base64 encoding.</li><li>Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for coding specification.</li><li>Either ImageBase64 or ImageUrl must be provided. If both are provided, proceed to use parameters according to the priority of ImageUrl > ImageBase64.</li></ul>
+        :rtype: str
+        """
+        return self._ImageBase64
+
+    @ImageBase64.setter
+    def ImageBase64(self, ImageBase64):
+        self._ImageBase64 = ImageBase64
+
+    @property
+    def ImageUrl(self):
+        r"""<p>Url address of the ID card portrait side</p><ul><li>Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.</li><li>Supported image size: The downloaded image after Base64 encoding is no more than 3M. Image download time is no more than 3 seconds.</li><li>Images stored in Tencent Cloud's Url can guarantee higher download speed and stability. It is recommended to store images in Tencent Cloud.</li><li>Speed and stability of non-Tencent Cloud Storage URLs may be impacted to a certain extent.</li></ul>
+        :rtype: str
+        """
+        return self._ImageUrl
+
+    @ImageUrl.setter
+    def ImageUrl(self, ImageUrl):
+        self._ImageUrl = ImageUrl
+
+    @property
+    def Config(self):
+        r"""<p>Configuration.</p><ul><li><p>All the following optional fields are bool type, default false.<br>CopyWarn, alarm for photocopy.<br>BorderCheckWarn, border and frame block alarm.<br>ReshootWarn, alarm for rephotographing.<br>DetectPsWarn, PS detection alarm (suspected PS traces).<br>TempIdWarn, temporary ID card alarm.<br>Quality, image Quality alarm (evaluates blurriness).</p></li><li><p>SDK configuration method for reference:<br>Config = Json.stringify({"CopyWarn":true,"ReshootWarn":true}).</p></li><li><p>API 3.0 Explorer setting method for reference:<br>Config = {"CopyWarn":true,"ReshootWarn":true}.</p></li></ul>
+        :rtype: str
+        """
+        return self._Config
+
+    @Config.setter
+    def Config(self, Config):
+        self._Config = Config
+
+    @property
+    def IsEncrypt(self):
+        r"""<p>Whether required to encrypt sensitive information in the response.</p><ul><li>Default false.</li><li>Sensitive information includes Response.IdNum and Response.Name.</li></ul>
+        :rtype: bool
+        """
+        return self._IsEncrypt
+
+    @IsEncrypt.setter
+    def IsEncrypt(self, IsEncrypt):
+        self._IsEncrypt = IsEncrypt
+
+    @property
+    def IsEncryptResponse(self):
+        r"""<p>Whether required to encrypt the response body.</p>
+        :rtype: bool
+        """
+        return self._IsEncryptResponse
+
+    @IsEncryptResponse.setter
+    def IsEncryptResponse(self, IsEncryptResponse):
+        self._IsEncryptResponse = IsEncryptResponse
+
+    @property
+    def Encryption(self):
+        r"""<p>Whether required to encrypt sensitive information in the response, need to be specified encryption algorithm Algorithm, initial vector for CBC encryption, and encrypted symmetric key.</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._ImageBase64 = params.get("ImageBase64")
+        self._ImageUrl = params.get("ImageUrl")
+        self._Config = params.get("Config")
+        self._IsEncrypt = params.get("IsEncrypt")
+        self._IsEncryptResponse = params.get("IsEncryptResponse")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckIdCardInformationResponse(AbstractModel):
+    r"""CheckIdCardInformation response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Sim: <p>Similarity. - Value ranges from 0.00 to 100.00. - Recommend threshold at least 70 to judge as same person, self-adjust based on specific scenario (pass rate for threshold 70 is 0.01%).</p>
+        :type Sim: float
+        :param _Result: <p>Business error code.</p><ul><li>Success case returns Success.</li><li>For error conditions, refer to the FailedOperation part in the error code list below.</li></ul>
+        :type Result: str
+        :param _Description: <p>Business result description.</p>
+        :type Description: str
+        :param _Name: <p>Name.</p>
+        :type Name: str
+        :param _Sex: <p>Gender.</p>
+        :type Sex: str
+        :param _Nation: <p>Ethnicity.</p>
+        :type Nation: str
+        :param _Birth: <p>Date of birth.</p>
+        :type Birth: str
+        :param _Address: <p>Address.</p>
+        :type Address: str
+        :param _IdNum: <p>Identity card number.</p>
+        :type IdNum: str
+        :param _Portrait: <p>The base64 encoding of the ID card portrait photo. If the image cropping fails, it will compare with the entire ID card and return null.</p>
+        :type Portrait: str
+        :param _Warnings: <p>Alarm information.</p><ul><li><p>When alarm information is configured in Config, portrait comparison will be disabled, Result returns an error (FailedOperation.OcrWarningOccurred) with this alarm information.</p></li><li><p>Code list of alarm codes and definition:<br>&#39;-9101&#39;: Incomplete ID card border alarm.<br>&#39;-9102&#39;: ID card copy alarm.<br>&#39;-9103&#39;: ID card photocopy alarm.<br>&#39;-9105&#39;: ID card frame occlusion alarm.<br>&#39;-9104&#39;: Temporary ID card alarm.<br>&#39;-9106&#39;: ID card PS alarm (suspected PS traces).<br>&#39;-8001&#39;: Warn about blurry images.</p></li><li><p>Multiple codes are separated by "|", such as "-9101|-9106|-9104".</p></li></ul>
+        :type Warnings: str
+        :param _Quality: <p>Image quality score.</p><ul><li>This parameter is significant only when warn about blurry images is configured in the request Config.</li><li>Value ranges from 0 to 100. The current default threshold is 50. A score lower than 50 triggers blurry image warnings.</li></ul>
+        :type Quality: float
+        :param _Encryption: <p>Sensitive data encryption info.</p>
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        :param _EncryptedBody: <p>Encrypted data.</p>
+        :type EncryptedBody: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Sim = None
+        self._Result = None
+        self._Description = None
+        self._Name = None
+        self._Sex = None
+        self._Nation = None
+        self._Birth = None
+        self._Address = None
+        self._IdNum = None
+        self._Portrait = None
+        self._Warnings = None
+        self._Quality = None
+        self._Encryption = None
+        self._EncryptedBody = None
+        self._RequestId = None
+
+    @property
+    def Sim(self):
+        r"""<p>Similarity. - Value ranges from 0.00 to 100.00. - Recommend threshold at least 70 to judge as same person, self-adjust based on specific scenario (pass rate for threshold 70 is 0.01%).</p>
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def Result(self):
+        r"""<p>Business error code.</p><ul><li>Success case returns Success.</li><li>For error conditions, refer to the FailedOperation part in the error code list below.</li></ul>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""<p>Business result description.</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Name(self):
+        r"""<p>Name.</p>
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Sex(self):
+        r"""<p>Gender.</p>
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Nation(self):
+        r"""<p>Ethnicity.</p>
+        :rtype: str
+        """
+        return self._Nation
+
+    @Nation.setter
+    def Nation(self, Nation):
+        self._Nation = Nation
+
+    @property
+    def Birth(self):
+        r"""<p>Date of birth.</p>
+        :rtype: str
+        """
+        return self._Birth
+
+    @Birth.setter
+    def Birth(self, Birth):
+        self._Birth = Birth
+
+    @property
+    def Address(self):
+        r"""<p>Address.</p>
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def IdNum(self):
+        r"""<p>Identity card number.</p>
+        :rtype: str
+        """
+        return self._IdNum
+
+    @IdNum.setter
+    def IdNum(self, IdNum):
+        self._IdNum = IdNum
+
+    @property
+    def Portrait(self):
+        r"""<p>The base64 encoding of the ID card portrait photo. If the image cropping fails, it will compare with the entire ID card and return null.</p>
+        :rtype: str
+        """
+        return self._Portrait
+
+    @Portrait.setter
+    def Portrait(self, Portrait):
+        self._Portrait = Portrait
+
+    @property
+    def Warnings(self):
+        r"""<p>Alarm information.</p><ul><li><p>When alarm information is configured in Config, portrait comparison will be disabled, Result returns an error (FailedOperation.OcrWarningOccurred) with this alarm information.</p></li><li><p>Code list of alarm codes and definition:<br>&#39;-9101&#39;: Incomplete ID card border alarm.<br>&#39;-9102&#39;: ID card copy alarm.<br>&#39;-9103&#39;: ID card photocopy alarm.<br>&#39;-9105&#39;: ID card frame occlusion alarm.<br>&#39;-9104&#39;: Temporary ID card alarm.<br>&#39;-9106&#39;: ID card PS alarm (suspected PS traces).<br>&#39;-8001&#39;: Warn about blurry images.</p></li><li><p>Multiple codes are separated by "|", such as "-9101|-9106|-9104".</p></li></ul>
+        :rtype: str
+        """
+        return self._Warnings
+
+    @Warnings.setter
+    def Warnings(self, Warnings):
+        self._Warnings = Warnings
+
+    @property
+    def Quality(self):
+        r"""<p>Image quality score.</p><ul><li>This parameter is significant only when warn about blurry images is configured in the request Config.</li><li>Value ranges from 0 to 100. The current default threshold is 50. A score lower than 50 triggers blurry image warnings.</li></ul>
+        :rtype: float
+        """
+        return self._Quality
+
+    @Quality.setter
+    def Quality(self, Quality):
+        self._Quality = Quality
+
+    @property
+    def Encryption(self):
+        r"""<p>Sensitive data encryption info.</p>
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+    @property
+    def EncryptedBody(self):
+        r"""<p>Encrypted data.</p>
+        :rtype: str
+        """
+        return self._EncryptedBody
+
+    @EncryptedBody.setter
+    def EncryptedBody(self, EncryptedBody):
+        self._EncryptedBody = EncryptedBody
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Sim = params.get("Sim")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Name = params.get("Name")
+        self._Sex = params.get("Sex")
+        self._Nation = params.get("Nation")
+        self._Birth = params.get("Birth")
+        self._Address = params.get("Address")
+        self._IdNum = params.get("IdNum")
+        self._Portrait = params.get("Portrait")
+        self._Warnings = params.get("Warnings")
+        self._Quality = params.get("Quality")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        self._EncryptedBody = params.get("EncryptedBody")
+        self._RequestId = params.get("RequestId")
+
+
+class CheckIdNameDateRequest(AbstractModel):
+    r"""CheckIdNameDate request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _IdCard: Identity card number.
+        :type IdCard: str
+        :param _ValidityBegin: ID card validity start time.
+-Format: YYYYMMDD, for example: 20210701.
+        :type ValidityBegin: str
+        :param _ValidityEnd: ID card expiration time.
+Format: YYYYMMDD, use "00000000" for long-term, for example: 20210701.
+        :type ValidityEnd: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._Name = None
+        self._IdCard = None
+        self._ValidityBegin = None
+        self._ValidityEnd = None
+        self._Encryption = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def IdCard(self):
+        r"""Identity card number.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def ValidityBegin(self):
+        r"""ID card validity start time.
+-Format: YYYYMMDD, for example: 20210701.
+        :rtype: str
+        """
+        return self._ValidityBegin
+
+    @ValidityBegin.setter
+    def ValidityBegin(self, ValidityBegin):
+        self._ValidityBegin = ValidityBegin
+
+    @property
+    def ValidityEnd(self):
+        r"""ID card expiration time.
+Format: YYYYMMDD, use "00000000" for long-term, for example: 20210701.
+        :rtype: str
+        """
+        return self._ValidityEnd
+
+    @ValidityEnd.setter
+    def ValidityEnd(self, ValidityEnd):
+        self._ValidityEnd = ValidityEnd
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._IdCard = params.get("IdCard")
+        self._ValidityBegin = params.get("ValidityBegin")
+        self._ValidityEnd = params.get("ValidityEnd")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckIdNameDateResponse(AbstractModel):
+    r"""CheckIdNameDate response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+
+-Result code for charges
+Same.
+-1: Inconsistent.
+
+-Result code with no charge
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length or format).
+-4: Invalid validity period (incorrect length, format, etc.).
+-5: Invalid identity information.
+-6: Document library service exception.
+-7: No ID card record found in the document library.
+-8: Authentication attempts exceeded the daily limit. Retry the next day.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+
+-Result code for charges
+Same.
+-1: Inconsistent.
+
+-Result code with no charge
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length or format).
+-4: Invalid validity period (incorrect length, format, etc.).
+-5: Invalid identity information.
+-6: Document library service exception.
+-7: No ID card record found in the document library.
+-8: Authentication attempts exceeded the daily limit. Retry the next day.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._RequestId = params.get("RequestId")
+
+
+class Company(AbstractModel):
+    r"""AML Company object
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CompanyName: <p>Enterprise name (required)</p>
+        :type CompanyName: str
+        :param _CompanyCertNumber: <p>Enterprise registration number / unified social credit code (Option)</p>
+        :type CompanyCertNumber: str
+        :param _CompanyCountry: <p>Enterprise registration country, ISO 3166-1 alpha-2 country code (Option)</p>
+        :type CompanyCountry: str
+        :param _CompanyAddress: <p>Company address (optional)</p>
+        :type CompanyAddress: str
+        """
+        self._CompanyName = None
+        self._CompanyCertNumber = None
+        self._CompanyCountry = None
+        self._CompanyAddress = None
+
+    @property
+    def CompanyName(self):
+        r"""<p>Enterprise name (required)</p>
+        :rtype: str
+        """
+        return self._CompanyName
+
+    @CompanyName.setter
+    def CompanyName(self, CompanyName):
+        self._CompanyName = CompanyName
+
+    @property
+    def CompanyCertNumber(self):
+        r"""<p>Enterprise registration number / unified social credit code (Option)</p>
+        :rtype: str
+        """
+        return self._CompanyCertNumber
+
+    @CompanyCertNumber.setter
+    def CompanyCertNumber(self, CompanyCertNumber):
+        self._CompanyCertNumber = CompanyCertNumber
+
+    @property
+    def CompanyCountry(self):
+        r"""<p>Enterprise registration country, ISO 3166-1 alpha-2 country code (Option)</p>
+        :rtype: str
+        """
+        return self._CompanyCountry
+
+    @CompanyCountry.setter
+    def CompanyCountry(self, CompanyCountry):
+        self._CompanyCountry = CompanyCountry
+
+    @property
+    def CompanyAddress(self):
+        r"""<p>Company address (optional)</p>
+        :rtype: str
+        """
+        return self._CompanyAddress
+
+    @CompanyAddress.setter
+    def CompanyAddress(self, CompanyAddress):
+        self._CompanyAddress = CompanyAddress
+
+
+    def _deserialize(self, params):
+        self._CompanyName = params.get("CompanyName")
+        self._CompanyCertNumber = params.get("CompanyCertNumber")
+        self._CompanyCountry = params.get("CompanyCountry")
+        self._CompanyAddress = params.get("CompanyAddress")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CompareFaceLivenessRequest(AbstractModel):
+    r"""CompareFaceLiveness request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ImageBase64: Base64 string of the image for face comparison.
+- The size of the Base64-encoded image data can be up to 3 MB. JPG and PNG formats are supported.
+- Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for the encoding specification.
+        :type ImageBase64: str
+        :param _VideoBase64: Base64 string of the video for liveness detection.
+- The size of the Base64-encoded video data can be up to 8 MB. MP4, AVI, and FLV formats are supported.
+-Use standard Base64 encoding (with = padding), following RFC4648.
+        :type VideoBase64: str
+        :param _LivenessType: Liveness detection type.
+-Values:
+ACTION is action mode.
+SILENT is silent mode.
+-Choose one of the two modes to pass in.
+        :type LivenessType: str
+        :param _ValidateData: Control the action sequence. Action types include: 1 (open mouth), 2 (blink), 3 (nod), 4 (shake head). Supports one or two actions.
+-Required when the LivenessType parameter is set to ACTION.
+-Single action example: "1".
+-Multiple actions parameter passing example: "4,2".
+-When the LivenessType parameter is set to SILENT, leave it blank.
+        :type ValidateData: str
+        """
+        self._ImageBase64 = None
+        self._VideoBase64 = None
+        self._LivenessType = None
+        self._ValidateData = None
+
+    @property
+    def ImageBase64(self):
+        r"""Base64 string of the image for face comparison.
+- The size of the Base64-encoded image data can be up to 3 MB. JPG and PNG formats are supported.
+- Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for the encoding specification.
+        :rtype: str
+        """
+        return self._ImageBase64
+
+    @ImageBase64.setter
+    def ImageBase64(self, ImageBase64):
+        self._ImageBase64 = ImageBase64
+
+    @property
+    def VideoBase64(self):
+        r"""Base64 string of the video for liveness detection.
+- The size of the Base64-encoded video data can be up to 8 MB. MP4, AVI, and FLV formats are supported.
+-Use standard Base64 encoding (with = padding), following RFC4648.
+        :rtype: str
+        """
+        return self._VideoBase64
+
+    @VideoBase64.setter
+    def VideoBase64(self, VideoBase64):
+        self._VideoBase64 = VideoBase64
+
+    @property
+    def LivenessType(self):
+        r"""Liveness detection type.
+-Values:
+ACTION is action mode.
+SILENT is silent mode.
+-Choose one of the two modes to pass in.
+        :rtype: str
+        """
+        return self._LivenessType
+
+    @LivenessType.setter
+    def LivenessType(self, LivenessType):
+        self._LivenessType = LivenessType
+
+    @property
+    def ValidateData(self):
+        r"""Control the action sequence. Action types include: 1 (open mouth), 2 (blink), 3 (nod), 4 (shake head). Supports one or two actions.
+-Required when the LivenessType parameter is set to ACTION.
+-Single action example: "1".
+-Multiple actions parameter passing example: "4,2".
+-When the LivenessType parameter is set to SILENT, leave it blank.
+        :rtype: str
+        """
+        return self._ValidateData
+
+    @ValidateData.setter
+    def ValidateData(self, ValidateData):
+        self._ValidateData = ValidateData
+
+
+    def _deserialize(self, params):
+        self._ImageBase64 = params.get("ImageBase64")
+        self._VideoBase64 = params.get("VideoBase64")
+        self._LivenessType = params.get("LivenessType")
+        self._ValidateData = params.get("ValidateData")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CompareFaceLivenessResponse(AbstractModel):
+    r"""CompareFaceLiveness response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Business Error Codes.
+-When the return value is "Success", it indicates that liveness detection and face comparison passed. Determined to be the same person.
+-When the return value is "FailedOperation.CompareLowSimilarity", it indicates that liveness detection passed, but face comparison similarity is below 70. Determined not to be the same person.
+-For other error cases, please refer to [Liveness Face Comparison (API only) Error Codes](https://www.tencentcloud.com/zh/document/product/1061/55390?lang=zh&pg=#97df7537-87fe-4266-87e9-02c816d41ee2)
+        :type Result: str
+        :param _Description: The service result description
+        :type Description: str
+        :param _Sim: This value indicates the similarity of face comparison. Value range: 0.00-100.00.
+- The false acceptance rate for a threshold of 70 is 0.1%, and for a threshold of 80, it is 0.01%.
+- This value is valid when the Result parameter is "Success" or "FailedOperation.CompareLowSimilarity".
+        :type Sim: float
+        :param _BestFrameBase64: The best screenshot photo from the video after verification, encoded in BASE64, in jpg format.
+The optimal screenshot of the video after verification is the value encoded by BASE64, jpg format. 
+Note: This field may return "null", indicating that no valid value can be obtained. 
+Example values: "/9j/4AAQSk... (total length:142036)s97n//2Q=="
+        :type BestFrameBase64: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._Sim = None
+        self._BestFrameBase64 = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Business Error Codes.
+-When the return value is "Success", it indicates that liveness detection and face comparison passed. Determined to be the same person.
+-When the return value is "FailedOperation.CompareLowSimilarity", it indicates that liveness detection passed, but face comparison similarity is below 70. Determined not to be the same person.
+-For other error cases, please refer to [Liveness Face Comparison (API only) Error Codes](https://www.tencentcloud.com/zh/document/product/1061/55390?lang=zh&pg=#97df7537-87fe-4266-87e9-02c816d41ee2)
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""The service result description
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Sim(self):
+        r"""This value indicates the similarity of face comparison. Value range: 0.00-100.00.
+- The false acceptance rate for a threshold of 70 is 0.1%, and for a threshold of 80, it is 0.01%.
+- This value is valid when the Result parameter is "Success" or "FailedOperation.CompareLowSimilarity".
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def BestFrameBase64(self):
+        r"""The best screenshot photo from the video after verification, encoded in BASE64, in jpg format.
+The optimal screenshot of the video after verification is the value encoded by BASE64, jpg format. 
+Note: This field may return "null", indicating that no valid value can be obtained. 
+Example values: "/9j/4AAQSk... (total length:142036)s97n//2Q=="
+        :rtype: str
+        """
+        return self._BestFrameBase64
+
+    @BestFrameBase64.setter
+    def BestFrameBase64(self, BestFrameBase64):
+        self._BestFrameBase64 = BestFrameBase64
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Sim = params.get("Sim")
+        self._BestFrameBase64 = params.get("BestFrameBase64")
+        self._RequestId = params.get("RequestId")
+
+
+class CompareResult(AbstractModel):
+    r"""The description of a single comparison result.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ErrorCode: The final verification result code.
+0: Succeeded.
+1001: Failed to call the liveness engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+        :type ErrorCode: str
+        :param _ErrorMsg: The description of the final verification result.
+        :type ErrorMsg: str
+        :param _LiveData: The liveness algorithm package generated during this SDK-based liveness detection.
+        :type LiveData: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _LiveVideo: The download URL of the video used for verification, which contains specific color reflection effects, is valid for 10 minutes.
+        :type LiveVideo: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _ActionVideo: Records the specific action performed by the user, used for AI Face Shield analysis.
+        :type ActionVideo: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _LiveErrorCode: The liveness detection result code.
+0: Success.
+1001: Failed to call the liveness detection engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+
+        :type LiveErrorCode: str
+        :param _LiveErrorMsg: The description of the liveness detection result.
+        :type LiveErrorMsg: str
+        :param _BestFrame: The download URL of the face screenshot during verification, which is valid for 10 minutes.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type BestFrame: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _ProfileImage: The download URL of the profile photo screenshot from the identity document, which is valid for 10 minutes.
+        :type ProfileImage: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _CompareErrorCode: The face comparison result code.
+0: Success.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type CompareErrorCode: str
+        :param _CompareErrorMsg: The description of the face comparison result.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type CompareErrorMsg: str
+        :param _Sim: The similarity score of face comparison.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Sim: float
+        :param _IsNeedCharge: This parameter is disused.
+        :type IsNeedCharge: bool
+        :param _CardInfoInputJson: The identity document photo info edited by the user. Currently, this parameter is not applied.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type CardInfoInputJson: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _RequestId: The request ID of this verification process.
+        :type RequestId: str
+        :param _LivenessInfoTag: Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :type LivenessInfoTag: list of str
+        """
+        self._ErrorCode = None
+        self._ErrorMsg = None
+        self._LiveData = None
+        self._LiveVideo = None
+        self._ActionVideo = None
+        self._LiveErrorCode = None
+        self._LiveErrorMsg = None
+        self._BestFrame = None
+        self._ProfileImage = None
+        self._CompareErrorCode = None
+        self._CompareErrorMsg = None
+        self._Sim = None
+        self._IsNeedCharge = None
+        self._CardInfoInputJson = None
+        self._RequestId = None
+        self._LivenessInfoTag = None
+
+    @property
+    def ErrorCode(self):
+        r"""The final verification result code.
+0: Succeeded.
+1001: Failed to call the liveness engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMsg(self):
+        r"""The description of the final verification result.
+        :rtype: str
+        """
+        return self._ErrorMsg
+
+    @ErrorMsg.setter
+    def ErrorMsg(self, ErrorMsg):
+        self._ErrorMsg = ErrorMsg
+
+    @property
+    def LiveData(self):
+        r"""The liveness algorithm package generated during this SDK-based liveness detection.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._LiveData
+
+    @LiveData.setter
+    def LiveData(self, LiveData):
+        self._LiveData = LiveData
+
+    @property
+    def LiveVideo(self):
+        r"""The download URL of the video used for verification, which contains specific color reflection effects, is valid for 10 minutes.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._LiveVideo
+
+    @LiveVideo.setter
+    def LiveVideo(self, LiveVideo):
+        self._LiveVideo = LiveVideo
+
+    @property
+    def ActionVideo(self):
+        r"""Records the specific action performed by the user, used for AI Face Shield analysis.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._ActionVideo
+
+    @ActionVideo.setter
+    def ActionVideo(self, ActionVideo):
+        self._ActionVideo = ActionVideo
+
+    @property
+    def LiveErrorCode(self):
+        r"""The liveness detection result code.
+0: Success.
+1001: Failed to call the liveness detection engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+
+        :rtype: str
+        """
+        return self._LiveErrorCode
+
+    @LiveErrorCode.setter
+    def LiveErrorCode(self, LiveErrorCode):
+        self._LiveErrorCode = LiveErrorCode
+
+    @property
+    def LiveErrorMsg(self):
+        r"""The description of the liveness detection result.
+        :rtype: str
+        """
+        return self._LiveErrorMsg
+
+    @LiveErrorMsg.setter
+    def LiveErrorMsg(self, LiveErrorMsg):
+        self._LiveErrorMsg = LiveErrorMsg
+
+    @property
+    def BestFrame(self):
+        r"""The download URL of the face screenshot during verification, which is valid for 10 minutes.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._BestFrame
+
+    @BestFrame.setter
+    def BestFrame(self, BestFrame):
+        self._BestFrame = BestFrame
+
+    @property
+    def ProfileImage(self):
+        r"""The download URL of the profile photo screenshot from the identity document, which is valid for 10 minutes.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._ProfileImage
+
+    @ProfileImage.setter
+    def ProfileImage(self, ProfileImage):
+        self._ProfileImage = ProfileImage
+
+    @property
+    def CompareErrorCode(self):
+        r"""The face comparison result code.
+0: Success.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: str
+        """
+        return self._CompareErrorCode
+
+    @CompareErrorCode.setter
+    def CompareErrorCode(self, CompareErrorCode):
+        self._CompareErrorCode = CompareErrorCode
+
+    @property
+    def CompareErrorMsg(self):
+        r"""The description of the face comparison result.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._CompareErrorMsg
+
+    @CompareErrorMsg.setter
+    def CompareErrorMsg(self, CompareErrorMsg):
+        self._CompareErrorMsg = CompareErrorMsg
+
+    @property
+    def Sim(self):
+        r"""The similarity score of face comparison.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def IsNeedCharge(self):
+        r"""This parameter is disused.
+        :rtype: bool
+        """
+        return self._IsNeedCharge
+
+    @IsNeedCharge.setter
+    def IsNeedCharge(self, IsNeedCharge):
+        self._IsNeedCharge = IsNeedCharge
+
+    @property
+    def CardInfoInputJson(self):
+        r"""The identity document photo info edited by the user. Currently, this parameter is not applied.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._CardInfoInputJson
+
+    @CardInfoInputJson.setter
+    def CardInfoInputJson(self, CardInfoInputJson):
+        self._CardInfoInputJson = CardInfoInputJson
+
+    @property
+    def RequestId(self):
+        r"""The request ID of this verification process.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+    @property
+    def LivenessInfoTag(self):
+        r"""Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :rtype: list of str
+        """
+        return self._LivenessInfoTag
+
+    @LivenessInfoTag.setter
+    def LivenessInfoTag(self, LivenessInfoTag):
+        self._LivenessInfoTag = LivenessInfoTag
+
+
+    def _deserialize(self, params):
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMsg = params.get("ErrorMsg")
+        if params.get("LiveData") is not None:
+            self._LiveData = FileInfo()
+            self._LiveData._deserialize(params.get("LiveData"))
+        if params.get("LiveVideo") is not None:
+            self._LiveVideo = FileInfo()
+            self._LiveVideo._deserialize(params.get("LiveVideo"))
+        if params.get("ActionVideo") is not None:
+            self._ActionVideo = FileInfo()
+            self._ActionVideo._deserialize(params.get("ActionVideo"))
+        self._LiveErrorCode = params.get("LiveErrorCode")
+        self._LiveErrorMsg = params.get("LiveErrorMsg")
+        if params.get("BestFrame") is not None:
+            self._BestFrame = FileInfo()
+            self._BestFrame._deserialize(params.get("BestFrame"))
+        if params.get("ProfileImage") is not None:
+            self._ProfileImage = FileInfo()
+            self._ProfileImage._deserialize(params.get("ProfileImage"))
+        self._CompareErrorCode = params.get("CompareErrorCode")
+        self._CompareErrorMsg = params.get("CompareErrorMsg")
+        self._Sim = params.get("Sim")
+        self._IsNeedCharge = params.get("IsNeedCharge")
+        if params.get("CardInfoInputJson") is not None:
+            self._CardInfoInputJson = FileInfo()
+            self._CardInfoInputJson._deserialize(params.get("CardInfoInputJson"))
+        self._RequestId = params.get("RequestId")
+        self._LivenessInfoTag = params.get("LivenessInfoTag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateEKYCWebhookRequest(AbstractModel):
+    r"""CreateEKYCWebhook request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookName: <p>Webhook name, used for console display</p>
+        :type WebhookName: str
+        :param _WebhookURL: <p>Callback URL, which must use the HTTPS protocol</p>
+        :type WebhookURL: str
+        :param _Scene: <p>Business scenario. Default if not passed: AML_SCREENING_RESULT_CHANGE. For parameter values, see the enumeration below.</p><p>Enumeration values:</p><ul><li>AML_SCREENING_RESULT_CHANGE: AML anti-money laundering screening result change notification (default value)    </li><li>NONDOC_VERIFICATION_RESULT: Non-document (NonDoc) verification result notification</li></ul>
+        :type Scene: str
+        :param _SignatureKey: <p>Callback signature key, up to 128 characters. Used for HMAC-SHA256 signature verification of subsequent callback messages. If not passed, signature is not enabled. We recommend using OpenSSL random bytes to generate the key. Recommended command: openssl rand -base64 32</p><blockquote><p>Our side uses your configured <code>SignatureKey</code> to calculate an HMAC-SHA256 signature over "timestamp (<code>X-Webhook-Timestamp</code>) + <code>.</code> + request body", and puts the hexadecimal result in the request header <code>X-Webhook-Signature</code>. The message itself is unencrypted and transmitted over HTTPS. Use the same key to recalculate and compare the signature by the same rule to confirm that the notification source is trustworthy and the content has not been tampered with.</p></blockquote>
+        :type SignatureKey: str
+        """
+        self._WebhookName = None
+        self._WebhookURL = None
+        self._Scene = None
+        self._SignatureKey = None
+
+    @property
+    def WebhookName(self):
+        r"""<p>Webhook name, used for console display</p>
+        :rtype: str
+        """
+        return self._WebhookName
+
+    @WebhookName.setter
+    def WebhookName(self, WebhookName):
+        self._WebhookName = WebhookName
+
+    @property
+    def WebhookURL(self):
+        r"""<p>Callback URL, which must use the HTTPS protocol</p>
+        :rtype: str
+        """
+        return self._WebhookURL
+
+    @WebhookURL.setter
+    def WebhookURL(self, WebhookURL):
+        self._WebhookURL = WebhookURL
+
+    @property
+    def Scene(self):
+        r"""<p>Business scenario. Default if not passed: AML_SCREENING_RESULT_CHANGE. For parameter values, see the enumeration below.</p><p>Enumeration values:</p><ul><li>AML_SCREENING_RESULT_CHANGE: AML anti-money laundering screening result change notification (default value)    </li><li>NONDOC_VERIFICATION_RESULT: Non-document (NonDoc) verification result notification</li></ul>
+        :rtype: str
+        """
+        return self._Scene
+
+    @Scene.setter
+    def Scene(self, Scene):
+        self._Scene = Scene
+
+    @property
+    def SignatureKey(self):
+        r"""<p>Callback signature key, up to 128 characters. Used for HMAC-SHA256 signature verification of subsequent callback messages. If not passed, signature is not enabled. We recommend using OpenSSL random bytes to generate the key. Recommended command: openssl rand -base64 32</p><blockquote><p>Our side uses your configured <code>SignatureKey</code> to calculate an HMAC-SHA256 signature over "timestamp (<code>X-Webhook-Timestamp</code>) + <code>.</code> + request body", and puts the hexadecimal result in the request header <code>X-Webhook-Signature</code>. The message itself is unencrypted and transmitted over HTTPS. Use the same key to recalculate and compare the signature by the same rule to confirm that the notification source is trustworthy and the content has not been tampered with.</p></blockquote>
+        :rtype: str
+        """
+        return self._SignatureKey
+
+    @SignatureKey.setter
+    def SignatureKey(self, SignatureKey):
+        self._SignatureKey = SignatureKey
+
+
+    def _deserialize(self, params):
+        self._WebhookName = params.get("WebhookName")
+        self._WebhookURL = params.get("WebhookURL")
+        self._Scene = params.get("Scene")
+        self._SignatureKey = params.get("SignatureKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateEKYCWebhookResponse(AbstractModel):
+    r"""CreateEKYCWebhook response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _WebhookId: <p>ID of the created Webhook configuration</p>
+        :type WebhookId: int
+        :param _HasSignatureKey: <p>Whether to add a callback signature key</p><p>Default value: false</p>
+        :type HasSignatureKey: bool
+        :param _SignatureKey: <p>Callback signature key</p>
+        :type SignatureKey: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._WebhookId = None
+        self._HasSignatureKey = None
+        self._SignatureKey = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def WebhookId(self):
+        r"""<p>ID of the created Webhook configuration</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+    @property
+    def HasSignatureKey(self):
+        r"""<p>Whether to add a callback signature key</p><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._HasSignatureKey
+
+    @HasSignatureKey.setter
+    def HasSignatureKey(self, HasSignatureKey):
+        self._HasSignatureKey = HasSignatureKey
+
+    @property
+    def SignatureKey(self):
+        r"""<p>Callback signature key</p>
+        :rtype: str
+        """
+        return self._SignatureKey
+
+    @SignatureKey.setter
+    def SignatureKey(self, SignatureKey):
+        self._SignatureKey = SignatureKey
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._WebhookId = params.get("WebhookId")
+        self._HasSignatureKey = params.get("HasSignatureKey")
+        self._SignatureKey = params.get("SignatureKey")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateUploadUrlRequest(AbstractModel):
+    r"""CreateUploadUrl request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetAction: Target API
+        :type TargetAction: str
+        """
+        self._TargetAction = None
+
+    @property
+    def TargetAction(self):
+        r"""Target API
+        :rtype: str
+        """
+        return self._TargetAction
+
+    @TargetAction.setter
+    def TargetAction(self, TargetAction):
+        self._TargetAction = TargetAction
+
+
+    def _deserialize(self, params):
+        self._TargetAction = params.get("TargetAction")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateUploadUrlResponse(AbstractModel):
+    r"""CreateUploadUrl response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UploadUrl: The URL for uploading contents with the `HTTP PUT` method.
+        :type UploadUrl: str
+        :param _ResourceUrl: The resource URL obtained after this upload is completed and to be passed in where it is required later.
+        :type ResourceUrl: str
+        :param _ExpiredTimestamp: The point in time when the upload/download link expires, which is a 10-bit Unix timestamp.
+        :type ExpiredTimestamp: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._UploadUrl = None
+        self._ResourceUrl = None
+        self._ExpiredTimestamp = None
+        self._RequestId = None
+
+    @property
+    def UploadUrl(self):
+        r"""The URL for uploading contents with the `HTTP PUT` method.
+        :rtype: str
+        """
+        return self._UploadUrl
+
+    @UploadUrl.setter
+    def UploadUrl(self, UploadUrl):
+        self._UploadUrl = UploadUrl
+
+    @property
+    def ResourceUrl(self):
+        r"""The resource URL obtained after this upload is completed and to be passed in where it is required later.
+        :rtype: str
+        """
+        return self._ResourceUrl
+
+    @ResourceUrl.setter
+    def ResourceUrl(self, ResourceUrl):
+        self._ResourceUrl = ResourceUrl
+
+    @property
+    def ExpiredTimestamp(self):
+        r"""The point in time when the upload/download link expires, which is a 10-bit Unix timestamp.
+        :rtype: int
+        """
+        return self._ExpiredTimestamp
+
+    @ExpiredTimestamp.setter
+    def ExpiredTimestamp(self, ExpiredTimestamp):
+        self._ExpiredTimestamp = ExpiredTimestamp
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._UploadUrl = params.get("UploadUrl")
+        self._ResourceUrl = params.get("ResourceUrl")
+        self._ExpiredTimestamp = params.get("ExpiredTimestamp")
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteEKYCWebhookRequest(AbstractModel):
+    r"""DeleteEKYCWebhook request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookId: <p>ID of the Webhook configuration to delete</p>
+        :type WebhookId: int
+        """
+        self._WebhookId = None
+
+    @property
+    def WebhookId(self):
+        r"""<p>ID of the Webhook configuration to delete</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+
+    def _deserialize(self, params):
+        self._WebhookId = params.get("WebhookId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteEKYCWebhookResponse(AbstractModel):
+    r"""DeleteEKYCWebhook response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookId: <p>ID of the Webhook configuration to delete</p>
+        :type WebhookId: int
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._WebhookId = None
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def WebhookId(self):
+        r"""<p>ID of the Webhook configuration to delete</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._WebhookId = params.get("WebhookId")
+        self._Result = params.get("Result")
+        self._RequestId = params.get("RequestId")
+
+
+class DetectAIFakeFacesRequest(AbstractModel):
+    r"""DetectAIFakeFaces request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FaceInput: <p>Import the face image or facial video to be detected (currently only single face detection is supported) in base64 encoding. If your scenario involves both video and image, we recommend using video for detection. For better detection results, please note the following input data limits and suggestions:</p><ul><li><p>base64 value of the image:<br>Recommend an overall image resolution of 480x640, with the face size no less than 100x100, captured by the mobile front camera.<br>The size of the base64-encoded image data is recommended not to exceed 3M, with a maximum of 10M. Only jpg and png formats are supported.<br>Please use the standard base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.</p></li><li><p>base64 value of the video:<br>The size after base64 encoding is recommended to be within 8M, with a maximum of 10M. Supported formats include mp4, avi,flv,and mov, captured by the mobile front camera.<br>Video duration is recommended to be 2-5s, with a maximum of 20s.<br>Video resolution is recommended at 480x640 (maximum support for 720p), with a frame rate between 25fps and 30fps.<br>Please use the standard base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.</p></li></ul><p>If you do not use Encryption for secure transmission, this field is a required parameter.</p>
+        :type FaceInput: str
+        :param _FaceInputType: <p>Passed in type.</p><ul><li>Value ranges from 1 to 2:<br>1: Passed in image type.<br>2: Passed in video type.<br>Other: Return error code InvalidParameter.</li></ul><p>If you do not use Encryption for encrypting transmission, this field is mandatory.</p>
+        :type FaceInputType: int
+        :param _Encryption: <p>Whether to encrypt the entire request information.</p><ul><li>Supported encryption algorithms: AES-256-CBC, SM4-GCM.</li><li>The user with encryption requirements can use this parameter. For details, please click the left-side link.</li></ul>
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        :param _EncryptedBody: <p>Encrypted ciphertext.</p><ul><li>The data format before encryption is as follows: {"FaceInput":"AAAAA","FaceInputType":1}.</li></ul>
+        :type EncryptedBody: str
+        """
+        self._FaceInput = None
+        self._FaceInputType = None
+        self._Encryption = None
+        self._EncryptedBody = None
+
+    @property
+    def FaceInput(self):
+        r"""<p>Import the face image or facial video to be detected (currently only single face detection is supported) in base64 encoding. If your scenario involves both video and image, we recommend using video for detection. For better detection results, please note the following input data limits and suggestions:</p><ul><li><p>base64 value of the image:<br>Recommend an overall image resolution of 480x640, with the face size no less than 100x100, captured by the mobile front camera.<br>The size of the base64-encoded image data is recommended not to exceed 3M, with a maximum of 10M. Only jpg and png formats are supported.<br>Please use the standard base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.</p></li><li><p>base64 value of the video:<br>The size after base64 encoding is recommended to be within 8M, with a maximum of 10M. Supported formats include mp4, avi,flv,and mov, captured by the mobile front camera.<br>Video duration is recommended to be 2-5s, with a maximum of 20s.<br>Video resolution is recommended at 480x640 (maximum support for 720p), with a frame rate between 25fps and 30fps.<br>Please use the standard base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.</p></li></ul><p>If you do not use Encryption for secure transmission, this field is a required parameter.</p>
+        :rtype: str
+        """
+        return self._FaceInput
+
+    @FaceInput.setter
+    def FaceInput(self, FaceInput):
+        self._FaceInput = FaceInput
+
+    @property
+    def FaceInputType(self):
+        r"""<p>Passed in type.</p><ul><li>Value ranges from 1 to 2:<br>1: Passed in image type.<br>2: Passed in video type.<br>Other: Return error code InvalidParameter.</li></ul><p>If you do not use Encryption for encrypting transmission, this field is mandatory.</p>
+        :rtype: int
+        """
+        return self._FaceInputType
+
+    @FaceInputType.setter
+    def FaceInputType(self, FaceInputType):
+        self._FaceInputType = FaceInputType
+
+    @property
+    def Encryption(self):
+        r"""<p>Whether to encrypt the entire request information.</p><ul><li>Supported encryption algorithms: AES-256-CBC, SM4-GCM.</li><li>The user with encryption requirements can use this parameter. For details, please click the left-side link.</li></ul>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+    @property
+    def EncryptedBody(self):
+        r"""<p>Encrypted ciphertext.</p><ul><li>The data format before encryption is as follows: {"FaceInput":"AAAAA","FaceInputType":1}.</li></ul>
+        :rtype: str
+        """
+        return self._EncryptedBody
+
+    @EncryptedBody.setter
+    def EncryptedBody(self, EncryptedBody):
+        self._EncryptedBody = EncryptedBody
+
+
+    def _deserialize(self, params):
+        self._FaceInput = params.get("FaceInput")
+        self._FaceInputType = params.get("FaceInputType")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        self._EncryptedBody = params.get("EncryptedBody")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DetectAIFakeFacesResponse(AbstractModel):
+    r"""DetectAIFakeFaces response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AttackRiskLevel: <p>Detection result for the input image/video to check the existence of face spoofing attack.</p><ul><li>Low: Low attack risk.</li><li>Mid: Moderately suspected attack.</li><li>High: Highly suspected attack.</li></ul><p>It is advisable to judge as interception when the return value is High, and pass for Mid and Low to better balance security and pass rate.</p>
+        :type AttackRiskLevel: str
+        :param _AttackRiskDetailList: <p>List of suspected attack traces detected. It is returned only when AttackRiskLevel is High or Mid.</p><ul><li>Description: Return an empty array if no attack traces are detected.</li><li>This output parameter is for result determination reference. The result of AttackRiskLevel is still recommended for actual use.</li></ul>
+        :type AttackRiskDetailList: list of AttackRiskDetail
+        :param _ExtraInfo: <p>Return additional information (including detailed information of cache hit templates).</p>
+        :type ExtraInfo: :class:`tencentcloud.faceid.v20180301.models.ExtraInfo`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._AttackRiskLevel = None
+        self._AttackRiskDetailList = None
+        self._ExtraInfo = None
+        self._RequestId = None
+
+    @property
+    def AttackRiskLevel(self):
+        r"""<p>Detection result for the input image/video to check the existence of face spoofing attack.</p><ul><li>Low: Low attack risk.</li><li>Mid: Moderately suspected attack.</li><li>High: Highly suspected attack.</li></ul><p>It is advisable to judge as interception when the return value is High, and pass for Mid and Low to better balance security and pass rate.</p>
+        :rtype: str
+        """
+        return self._AttackRiskLevel
+
+    @AttackRiskLevel.setter
+    def AttackRiskLevel(self, AttackRiskLevel):
+        self._AttackRiskLevel = AttackRiskLevel
+
+    @property
+    def AttackRiskDetailList(self):
+        r"""<p>List of suspected attack traces detected. It is returned only when AttackRiskLevel is High or Mid.</p><ul><li>Description: Return an empty array if no attack traces are detected.</li><li>This output parameter is for result determination reference. The result of AttackRiskLevel is still recommended for actual use.</li></ul>
+        :rtype: list of AttackRiskDetail
+        """
+        return self._AttackRiskDetailList
+
+    @AttackRiskDetailList.setter
+    def AttackRiskDetailList(self, AttackRiskDetailList):
+        self._AttackRiskDetailList = AttackRiskDetailList
+
+    @property
+    def ExtraInfo(self):
+        r"""<p>Return additional information (including detailed information of cache hit templates).</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.ExtraInfo`
+        """
+        return self._ExtraInfo
+
+    @ExtraInfo.setter
+    def ExtraInfo(self, ExtraInfo):
+        self._ExtraInfo = ExtraInfo
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._AttackRiskLevel = params.get("AttackRiskLevel")
+        if params.get("AttackRiskDetailList") is not None:
+            self._AttackRiskDetailList = []
+            for item in params.get("AttackRiskDetailList"):
+                obj = AttackRiskDetail()
+                obj._deserialize(item)
+                self._AttackRiskDetailList.append(obj)
+        if params.get("ExtraInfo") is not None:
+            self._ExtraInfo = ExtraInfo()
+            self._ExtraInfo._deserialize(params.get("ExtraInfo"))
+        self._RequestId = params.get("RequestId")
+
+
+class DetectReflectLivenessAndCompareRequest(AbstractModel):
+    r"""DetectReflectLivenessAndCompare request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LiveDataUrl: URL of the liveness detection data package generated by the SDK
+        :type LiveDataUrl: str
+        :param _LiveDataMd5: MD5 hash value (32-bit) of the liveness detection data package generated by the SDK, which is used to verify the LiveData consistency.
+        :type LiveDataMd5: str
+        :param _ImageUrl: URL of the target image for comparison
+        :type ImageUrl: str
+        :param _ImageMd5: MD5 hash value (32-bit) of the target image for comparison, which is used to verify the `Image` consistency.
+        :type ImageMd5: str
+        """
+        self._LiveDataUrl = None
+        self._LiveDataMd5 = None
+        self._ImageUrl = None
+        self._ImageMd5 = None
+
+    @property
+    def LiveDataUrl(self):
+        r"""URL of the liveness detection data package generated by the SDK
+        :rtype: str
+        """
+        return self._LiveDataUrl
+
+    @LiveDataUrl.setter
+    def LiveDataUrl(self, LiveDataUrl):
+        self._LiveDataUrl = LiveDataUrl
+
+    @property
+    def LiveDataMd5(self):
+        r"""MD5 hash value (32-bit) of the liveness detection data package generated by the SDK, which is used to verify the LiveData consistency.
+        :rtype: str
+        """
+        return self._LiveDataMd5
+
+    @LiveDataMd5.setter
+    def LiveDataMd5(self, LiveDataMd5):
+        self._LiveDataMd5 = LiveDataMd5
+
+    @property
+    def ImageUrl(self):
+        r"""URL of the target image for comparison
+        :rtype: str
+        """
+        return self._ImageUrl
+
+    @ImageUrl.setter
+    def ImageUrl(self, ImageUrl):
+        self._ImageUrl = ImageUrl
+
+    @property
+    def ImageMd5(self):
+        r"""MD5 hash value (32-bit) of the target image for comparison, which is used to verify the `Image` consistency.
+        :rtype: str
+        """
+        return self._ImageMd5
+
+    @ImageMd5.setter
+    def ImageMd5(self, ImageMd5):
+        self._ImageMd5 = ImageMd5
+
+
+    def _deserialize(self, params):
+        self._LiveDataUrl = params.get("LiveDataUrl")
+        self._LiveDataMd5 = params.get("LiveDataMd5")
+        self._ImageUrl = params.get("ImageUrl")
+        self._ImageMd5 = params.get("ImageMd5")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DetectReflectLivenessAndCompareResponse(AbstractModel):
+    r"""DetectReflectLivenessAndCompare response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BestFrameUrl: Temporary URL of the best screenshot (.jpg) of the video after successful verification. Both the screenshot and the URL are valid for two hours only, so you need to download the screenshot within this period.
+        :type BestFrameUrl: str
+        :param _BestFrameMd5: MD5 hash value (32-bit) of the best screenshot of the video after successful verification, which is used to verify the `BestFrame` consistency.
+        :type BestFrameMd5: str
+        :param _Result: Service error code. `Success` will be returned for success. For error information, see the `FailedOperation` section in the error code list below.
+        :type Result: str
+        :param _Description: Service result description
+        :type Description: str
+        :param _Sim: Similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two faces are of the same person. You can adjust the threshold according to your specific scenario (the FAR at the threshold of 70 is 0.1%, and FAR at the threshold of 80 is 0.01%).
+        :type Sim: float
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._BestFrameUrl = None
+        self._BestFrameMd5 = None
+        self._Result = None
+        self._Description = None
+        self._Sim = None
+        self._RequestId = None
+
+    @property
+    def BestFrameUrl(self):
+        r"""Temporary URL of the best screenshot (.jpg) of the video after successful verification. Both the screenshot and the URL are valid for two hours only, so you need to download the screenshot within this period.
+        :rtype: str
+        """
+        return self._BestFrameUrl
+
+    @BestFrameUrl.setter
+    def BestFrameUrl(self, BestFrameUrl):
+        self._BestFrameUrl = BestFrameUrl
+
+    @property
+    def BestFrameMd5(self):
+        r"""MD5 hash value (32-bit) of the best screenshot of the video after successful verification, which is used to verify the `BestFrame` consistency.
+        :rtype: str
+        """
+        return self._BestFrameMd5
+
+    @BestFrameMd5.setter
+    def BestFrameMd5(self, BestFrameMd5):
+        self._BestFrameMd5 = BestFrameMd5
+
+    @property
+    def Result(self):
+        r"""Service error code. `Success` will be returned for success. For error information, see the `FailedOperation` section in the error code list below.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Service result description
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Sim(self):
+        r"""Similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two faces are of the same person. You can adjust the threshold according to your specific scenario (the FAR at the threshold of 70 is 0.1%, and FAR at the threshold of 80 is 0.01%).
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._BestFrameUrl = params.get("BestFrameUrl")
+        self._BestFrameMd5 = params.get("BestFrameMd5")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Sim = params.get("Sim")
+        self._RequestId = params.get("RequestId")
+
+
+class EditDetail(AbstractModel):
+    r"""EKYC Document OCR Result Modification Details
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FieldName: Modified Field Name
+        :type FieldName: str
+        :param _OriginalFieldValue: Value of the field before modification, the original OCR result
+        :type OriginalFieldValue: str
+        :param _RevisedFieldValue: Value of the field after modification,the user's manually entered result
+        :type RevisedFieldValue: str
+        """
+        self._FieldName = None
+        self._OriginalFieldValue = None
+        self._RevisedFieldValue = None
+
+    @property
+    def FieldName(self):
+        r"""Modified Field Name
+        :rtype: str
+        """
+        return self._FieldName
+
+    @FieldName.setter
+    def FieldName(self, FieldName):
+        self._FieldName = FieldName
+
+    @property
+    def OriginalFieldValue(self):
+        r"""Value of the field before modification, the original OCR result
+        :rtype: str
+        """
+        return self._OriginalFieldValue
+
+    @OriginalFieldValue.setter
+    def OriginalFieldValue(self, OriginalFieldValue):
+        self._OriginalFieldValue = OriginalFieldValue
+
+    @property
+    def RevisedFieldValue(self):
+        r"""Value of the field after modification,the user's manually entered result
+        :rtype: str
+        """
+        return self._RevisedFieldValue
+
+    @RevisedFieldValue.setter
+    def RevisedFieldValue(self, RevisedFieldValue):
+        self._RevisedFieldValue = RevisedFieldValue
+
+
+    def _deserialize(self, params):
+        self._FieldName = params.get("FieldName")
+        self._OriginalFieldValue = params.get("OriginalFieldValue")
+        self._RevisedFieldValue = params.get("RevisedFieldValue")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Encryption(AbstractModel):
+    r"""Sensitive Data Encryption
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EncryptList: <p>When using the encryption service, fill in the field to be encrypted. This API can auto-fill one or more encrypted fields.</p>
+        :type EncryptList: list of str
+        :param _CiphertextBlob: <p>Encrypted symmetric key. For key generation and use, see the <a href="https://www.tencentcloud.com/document/product/1007/47180?from_cn_redirect=1">data encryption</a> document.</p>
+        :type CiphertextBlob: str
+        :param _Iv: <p>Users with encryption requirements import the initial vector for CBC encryption (custom string, length 16 characters).</p>
+        :type Iv: str
+        :param _Algorithm: <p>Encryption algorithm (supports 'AES-256-CBC', 'SM4-GCM'), defaults to 'AES-256-CBC' if not passed.</p>
+        :type Algorithm: str
+        :param _TagList: <p>Message digest generated by the SM4-GCM algorithm (used when verifying message integrity)</p>
+        :type TagList: list of str
+        """
+        self._EncryptList = None
+        self._CiphertextBlob = None
+        self._Iv = None
+        self._Algorithm = None
+        self._TagList = None
+
+    @property
+    def EncryptList(self):
+        r"""<p>When using the encryption service, fill in the field to be encrypted. This API can auto-fill one or more encrypted fields.</p>
+        :rtype: list of str
+        """
+        return self._EncryptList
+
+    @EncryptList.setter
+    def EncryptList(self, EncryptList):
+        self._EncryptList = EncryptList
+
+    @property
+    def CiphertextBlob(self):
+        r"""<p>Encrypted symmetric key. For key generation and use, see the <a href="https://www.tencentcloud.com/document/product/1007/47180?from_cn_redirect=1">data encryption</a> document.</p>
+        :rtype: str
+        """
+        return self._CiphertextBlob
+
+    @CiphertextBlob.setter
+    def CiphertextBlob(self, CiphertextBlob):
+        self._CiphertextBlob = CiphertextBlob
+
+    @property
+    def Iv(self):
+        r"""<p>Users with encryption requirements import the initial vector for CBC encryption (custom string, length 16 characters).</p>
+        :rtype: str
+        """
+        return self._Iv
+
+    @Iv.setter
+    def Iv(self, Iv):
+        self._Iv = Iv
+
+    @property
+    def Algorithm(self):
+        r"""<p>Encryption algorithm (supports 'AES-256-CBC', 'SM4-GCM'), defaults to 'AES-256-CBC' if not passed.</p>
+        :rtype: str
+        """
+        return self._Algorithm
+
+    @Algorithm.setter
+    def Algorithm(self, Algorithm):
+        self._Algorithm = Algorithm
+
+    @property
+    def TagList(self):
+        r"""<p>Message digest generated by the SM4-GCM algorithm (used when verifying message integrity)</p>
+        :rtype: list of str
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
+
+    def _deserialize(self, params):
+        self._EncryptList = params.get("EncryptList")
+        self._CiphertextBlob = params.get("CiphertextBlob")
+        self._Iv = params.get("Iv")
+        self._Algorithm = params.get("Algorithm")
+        self._TagList = params.get("TagList")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ExtraInfo(AbstractModel):
+    r"""Additional details
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RetrievalLivenessExtraInfo: Detailed information of the hit template, return only the template information with the highest similarity.
+        :type RetrievalLivenessExtraInfo: list of RetrievalLivenessExtraInfo
+        """
+        self._RetrievalLivenessExtraInfo = None
+
+    @property
+    def RetrievalLivenessExtraInfo(self):
+        r"""Detailed information of the hit template, return only the template information with the highest similarity.
+        :rtype: list of RetrievalLivenessExtraInfo
+        """
+        return self._RetrievalLivenessExtraInfo
+
+    @RetrievalLivenessExtraInfo.setter
+    def RetrievalLivenessExtraInfo(self, RetrievalLivenessExtraInfo):
+        self._RetrievalLivenessExtraInfo = RetrievalLivenessExtraInfo
+
+
+    def _deserialize(self, params):
+        if params.get("RetrievalLivenessExtraInfo") is not None:
+            self._RetrievalLivenessExtraInfo = []
+            for item in params.get("RetrievalLivenessExtraInfo"):
+                obj = RetrievalLivenessExtraInfo()
+                obj._deserialize(item)
+                self._RetrievalLivenessExtraInfo.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class FileInfo(AbstractModel):
+    r"""The description of a file, including a download URL and the MD5 checksum and size of the file.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Url: The URL for downloading the file
+        :type Url: str
+        :param _MD5: The 32-bit MD5 checksum of the file
+        :type MD5: str
+        :param _Size: The file size
+        :type Size: int
+        """
+        self._Url = None
+        self._MD5 = None
+        self._Size = None
+
+    @property
+    def Url(self):
+        r"""The URL for downloading the file
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def MD5(self):
+        r"""The 32-bit MD5 checksum of the file
+        :rtype: str
+        """
+        return self._MD5
+
+    @MD5.setter
+    def MD5(self, MD5):
+        self._MD5 = MD5
+
+    @property
+    def Size(self):
+        r"""The file size
+        :rtype: int
+        """
+        return self._Size
+
+    @Size.setter
+    def Size(self, Size):
+        self._Size = Size
+
+
+    def _deserialize(self, params):
+        self._Url = params.get("Url")
+        self._MD5 = params.get("MD5")
+        self._Size = params.get("Size")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GeneralCard(AbstractModel):
+    r"""General card certificate information
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: ID number
+        :type LicenseNumber: str
+        :param _PersonalNumber: Personal number. It is returned when the identity document type is a passport.
+        :type PersonalNumber: str
+        :param _PassportCodeFirst: MRZ line 1 of the passport
+        :type PassportCodeFirst: str
+        :param _PassportCodeSecond: MRZ line 2 of the passport
+        :type PassportCodeSecond: str
+        :param _ExpirationDate: Expiration date in YYYY-MM-DD format
+        :type ExpirationDate: str
+        :param _DueDate: Expiration date in YYYY-MM-DD format
+        :type DueDate: str
+        :param _IssuedDate: Issue date in YYYY-MM-DD format
+        :type IssuedDate: str
+        :param _IssuedAuthority: Issuing authority
+        :type IssuedAuthority: str
+        :param _IssuedCountry: Issuing country. Return following the ISO 3166 country coding specification.
+        :type IssuedCountry: str
+        :param _FullName: Name
+        :type FullName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LastName: Last name
+        :type LastName: str
+        :param _Sex: Gender on the document
+-M: male
+-F: female
+- X: Other gender identity
+        :type Sex: str
+        :param _Age: Age. 0 indicates no valid info is obtained.
+        :type Age: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _BirthPlace: Birth place
+        :type BirthPlace: str
+        :param _Nationality: Document nationality. Return following the ISO 3166 country coding specification.
+        :type Nationality: str
+        :param _RegistrationNumber: Registration number
+        :type RegistrationNumber: str
+        :param _Address: Document address information
+        :type Address: :class:`tencentcloud.faceid.v20180301.models.Address`
+        :param _FullNameLocal: Localized name
+        :type FullNameLocal: str
+        :param _FirstNameLocal: Localized name
+        :type FirstNameLocal: str
+        :param _LastNameLocal: Localized last name
+        :type LastNameLocal: str
+        """
+        self._LicenseNumber = None
+        self._PersonalNumber = None
+        self._PassportCodeFirst = None
+        self._PassportCodeSecond = None
+        self._ExpirationDate = None
+        self._DueDate = None
+        self._IssuedDate = None
+        self._IssuedAuthority = None
+        self._IssuedCountry = None
+        self._FullName = None
+        self._FirstName = None
+        self._LastName = None
+        self._Sex = None
+        self._Age = None
+        self._Birthday = None
+        self._BirthPlace = None
+        self._Nationality = None
+        self._RegistrationNumber = None
+        self._Address = None
+        self._FullNameLocal = None
+        self._FirstNameLocal = None
+        self._LastNameLocal = None
+
+    @property
+    def LicenseNumber(self):
+        r"""ID number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def PersonalNumber(self):
+        r"""Personal number. It is returned when the identity document type is a passport.
+        :rtype: str
+        """
+        return self._PersonalNumber
+
+    @PersonalNumber.setter
+    def PersonalNumber(self, PersonalNumber):
+        self._PersonalNumber = PersonalNumber
+
+    @property
+    def PassportCodeFirst(self):
+        r"""MRZ line 1 of the passport
+        :rtype: str
+        """
+        return self._PassportCodeFirst
+
+    @PassportCodeFirst.setter
+    def PassportCodeFirst(self, PassportCodeFirst):
+        self._PassportCodeFirst = PassportCodeFirst
+
+    @property
+    def PassportCodeSecond(self):
+        r"""MRZ line 2 of the passport
+        :rtype: str
+        """
+        return self._PassportCodeSecond
+
+    @PassportCodeSecond.setter
+    def PassportCodeSecond(self, PassportCodeSecond):
+        self._PassportCodeSecond = PassportCodeSecond
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration date in YYYY-MM-DD format
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def DueDate(self):
+        r"""Expiration date in YYYY-MM-DD format
+        :rtype: str
+        """
+        return self._DueDate
+
+    @DueDate.setter
+    def DueDate(self, DueDate):
+        self._DueDate = DueDate
+
+    @property
+    def IssuedDate(self):
+        r"""Issue date in YYYY-MM-DD format
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def IssuedAuthority(self):
+        r"""Issuing authority
+        :rtype: str
+        """
+        return self._IssuedAuthority
+
+    @IssuedAuthority.setter
+    def IssuedAuthority(self, IssuedAuthority):
+        self._IssuedAuthority = IssuedAuthority
+
+    @property
+    def IssuedCountry(self):
+        r"""Issuing country. Return following the ISO 3166 country coding specification.
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def Sex(self):
+        r"""Gender on the document
+-M: male
+-F: female
+- X: Other gender identity
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Age(self):
+        r"""Age. 0 indicates no valid info is obtained.
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def BirthPlace(self):
+        r"""Birth place
+        :rtype: str
+        """
+        return self._BirthPlace
+
+    @BirthPlace.setter
+    def BirthPlace(self, BirthPlace):
+        self._BirthPlace = BirthPlace
+
+    @property
+    def Nationality(self):
+        r"""Document nationality. Return following the ISO 3166 country coding specification.
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def RegistrationNumber(self):
+        r"""Registration number
+        :rtype: str
+        """
+        return self._RegistrationNumber
+
+    @RegistrationNumber.setter
+    def RegistrationNumber(self, RegistrationNumber):
+        self._RegistrationNumber = RegistrationNumber
+
+    @property
+    def Address(self):
+        r"""Document address information
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Address`
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def FullNameLocal(self):
+        r"""Localized name
+        :rtype: str
+        """
+        return self._FullNameLocal
+
+    @FullNameLocal.setter
+    def FullNameLocal(self, FullNameLocal):
+        self._FullNameLocal = FullNameLocal
+
+    @property
+    def FirstNameLocal(self):
+        r"""Localized name
+        :rtype: str
+        """
+        return self._FirstNameLocal
+
+    @FirstNameLocal.setter
+    def FirstNameLocal(self, FirstNameLocal):
+        self._FirstNameLocal = FirstNameLocal
+
+    @property
+    def LastNameLocal(self):
+        r"""Localized last name
+        :rtype: str
+        """
+        return self._LastNameLocal
+
+    @LastNameLocal.setter
+    def LastNameLocal(self, LastNameLocal):
+        self._LastNameLocal = LastNameLocal
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._PersonalNumber = params.get("PersonalNumber")
+        self._PassportCodeFirst = params.get("PassportCodeFirst")
+        self._PassportCodeSecond = params.get("PassportCodeSecond")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._DueDate = params.get("DueDate")
+        self._IssuedDate = params.get("IssuedDate")
+        self._IssuedAuthority = params.get("IssuedAuthority")
+        self._IssuedCountry = params.get("IssuedCountry")
+        self._FullName = params.get("FullName")
+        self._FirstName = params.get("FirstName")
+        self._LastName = params.get("LastName")
+        self._Sex = params.get("Sex")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._BirthPlace = params.get("BirthPlace")
+        self._Nationality = params.get("Nationality")
+        self._RegistrationNumber = params.get("RegistrationNumber")
+        if params.get("Address") is not None:
+            self._Address = Address()
+            self._Address._deserialize(params.get("Address"))
+        self._FullNameLocal = params.get("FullNameLocal")
+        self._FirstNameLocal = params.get("FirstNameLocal")
+        self._LastNameLocal = params.get("LastNameLocal")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GenerateReflectSequenceRequest(AbstractModel):
+    r"""GenerateReflectSequence request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DeviceDataUrl: The resource URL of the data package generated by the SDK.
+        :type DeviceDataUrl: str
+        :param _DeviceDataMd5: The MD5 hash value of the data package generated by the SDK.
+        :type DeviceDataMd5: str
+        :param _SecurityLevel: 1 - silent
+2 - blinking
+3 - light
+4 - blinking + light (default)
+        :type SecurityLevel: str
+        """
+        self._DeviceDataUrl = None
+        self._DeviceDataMd5 = None
+        self._SecurityLevel = None
+
+    @property
+    def DeviceDataUrl(self):
+        r"""The resource URL of the data package generated by the SDK.
+        :rtype: str
+        """
+        return self._DeviceDataUrl
+
+    @DeviceDataUrl.setter
+    def DeviceDataUrl(self, DeviceDataUrl):
+        self._DeviceDataUrl = DeviceDataUrl
+
+    @property
+    def DeviceDataMd5(self):
+        r"""The MD5 hash value of the data package generated by the SDK.
+        :rtype: str
+        """
+        return self._DeviceDataMd5
+
+    @DeviceDataMd5.setter
+    def DeviceDataMd5(self, DeviceDataMd5):
+        self._DeviceDataMd5 = DeviceDataMd5
+
+    @property
+    def SecurityLevel(self):
+        r"""1 - silent
+2 - blinking
+3 - light
+4 - blinking + light (default)
+        :rtype: str
+        """
+        return self._SecurityLevel
+
+    @SecurityLevel.setter
+    def SecurityLevel(self, SecurityLevel):
+        self._SecurityLevel = SecurityLevel
+
+
+    def _deserialize(self, params):
+        self._DeviceDataUrl = params.get("DeviceDataUrl")
+        self._DeviceDataMd5 = params.get("DeviceDataMd5")
+        self._SecurityLevel = params.get("SecurityLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GenerateReflectSequenceResponse(AbstractModel):
+    r"""GenerateReflectSequence response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ReflectSequenceUrl: The resource URL of the light sequence, which needs to be downloaded and passed through to the SDK to start the eKYC process.
+        :type ReflectSequenceUrl: str
+        :param _ReflectSequenceMd5: The MD5 hash value of the light sequence, which is used to check whether the light sequence is altered.
+        :type ReflectSequenceMd5: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ReflectSequenceUrl = None
+        self._ReflectSequenceMd5 = None
+        self._RequestId = None
+
+    @property
+    def ReflectSequenceUrl(self):
+        r"""The resource URL of the light sequence, which needs to be downloaded and passed through to the SDK to start the eKYC process.
+        :rtype: str
+        """
+        return self._ReflectSequenceUrl
+
+    @ReflectSequenceUrl.setter
+    def ReflectSequenceUrl(self, ReflectSequenceUrl):
+        self._ReflectSequenceUrl = ReflectSequenceUrl
+
+    @property
+    def ReflectSequenceMd5(self):
+        r"""The MD5 hash value of the light sequence, which is used to check whether the light sequence is altered.
+        :rtype: str
+        """
+        return self._ReflectSequenceMd5
+
+    @ReflectSequenceMd5.setter
+    def ReflectSequenceMd5(self, ReflectSequenceMd5):
+        self._ReflectSequenceMd5 = ReflectSequenceMd5
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ReflectSequenceUrl = params.get("ReflectSequenceUrl")
+        self._ReflectSequenceMd5 = params.get("ReflectSequenceMd5")
+        self._RequestId = params.get("RequestId")
+
+
+class GetAMLScreeningResultRequest(AbstractModel):
+    r"""GetAMLScreeningResult request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueCustomerID: <p>User's unique identifier in the customer system, up to 256 characters.</p>
+        :type UniqueCustomerID: str
+        """
+        self._UniqueCustomerID = None
+
+    @property
+    def UniqueCustomerID(self):
+        r"""<p>User's unique identifier in the customer system, up to 256 characters.</p>
+        :rtype: str
+        """
+        return self._UniqueCustomerID
+
+    @UniqueCustomerID.setter
+    def UniqueCustomerID(self, UniqueCustomerID):
+        self._UniqueCustomerID = UniqueCustomerID
+
+
+    def _deserialize(self, params):
+        self._UniqueCustomerID = params.get("UniqueCustomerID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetAMLScreeningResultResponse(AbstractModel):
+    r"""GetAMLScreeningResult response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ScreeningResult: <p>Filtering results: NO-HITS (not hit) / HAS-HITS (hit)</p>
+        :type ScreeningResult: str
+        :param _EnableOngoingScreening: <p>Whether continuous monitoring screening is enabled. false by default</p><p>Default value: false</p>
+        :type EnableOngoingScreening: bool
+        :param _Description: <p>Description of results returned</p>
+        :type Description: str
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _ScreeningId: <p>The unique identifier of the case generated by a hit screening</p>
+        :type ScreeningId: str
+        :param _ResultTime: <p>Filtering result time</p>
+        :type ResultTime: str
+        :param _AMLTypes: <p>Return on hit, the hit AML type list (deduplicated)</p>
+        :type AMLTypes: list of str
+        :param _HitDetail: <p>Return on hit, hit risk detail list</p>
+        :type HitDetail: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ScreeningResult = None
+        self._EnableOngoingScreening = None
+        self._Description = None
+        self._Result = None
+        self._ScreeningId = None
+        self._ResultTime = None
+        self._AMLTypes = None
+        self._HitDetail = None
+        self._RequestId = None
+
+    @property
+    def ScreeningResult(self):
+        r"""<p>Filtering results: NO-HITS (not hit) / HAS-HITS (hit)</p>
+        :rtype: str
+        """
+        return self._ScreeningResult
+
+    @ScreeningResult.setter
+    def ScreeningResult(self, ScreeningResult):
+        self._ScreeningResult = ScreeningResult
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether continuous monitoring screening is enabled. false by default</p><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+    @property
+    def Description(self):
+        r"""<p>Description of results returned</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def ScreeningId(self):
+        r"""<p>The unique identifier of the case generated by a hit screening</p>
+        :rtype: str
+        """
+        return self._ScreeningId
+
+    @ScreeningId.setter
+    def ScreeningId(self, ScreeningId):
+        self._ScreeningId = ScreeningId
+
+    @property
+    def ResultTime(self):
+        r"""<p>Filtering result time</p>
+        :rtype: str
+        """
+        return self._ResultTime
+
+    @ResultTime.setter
+    def ResultTime(self, ResultTime):
+        self._ResultTime = ResultTime
+
+    @property
+    def AMLTypes(self):
+        r"""<p>Return on hit, the hit AML type list (deduplicated)</p>
+        :rtype: list of str
+        """
+        return self._AMLTypes
+
+    @AMLTypes.setter
+    def AMLTypes(self, AMLTypes):
+        self._AMLTypes = AMLTypes
+
+    @property
+    def HitDetail(self):
+        r"""<p>Return on hit, hit risk detail list</p>
+        :rtype: str
+        """
+        return self._HitDetail
+
+    @HitDetail.setter
+    def HitDetail(self, HitDetail):
+        self._HitDetail = HitDetail
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ScreeningResult = params.get("ScreeningResult")
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        self._Description = params.get("Description")
+        self._Result = params.get("Result")
+        self._ScreeningId = params.get("ScreeningId")
+        self._ResultTime = params.get("ResultTime")
+        self._AMLTypes = params.get("AMLTypes")
+        self._HitDetail = params.get("HitDetail")
+        self._RequestId = params.get("RequestId")
+
+
+class GetFaceIdResultIntlRequest(AbstractModel):
+    r"""GetFaceIdResultIntl request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: The ID of the SDK-based selfie verification process, which is generated when the `GetFaceIdTokenIntl` API is called.	
+        :type SdkToken: str
+        """
+        self._SdkToken = None
+
+    @property
+    def SdkToken(self):
+        r"""The ID of the SDK-based selfie verification process, which is generated when the `GetFaceIdTokenIntl` API is called.	
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetFaceIdResultIntlResponse(AbstractModel):
+    r"""GetFaceIdResultIntl response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: The return code of the verification result.
+0: Success.
+1001: Failed to call the liveness engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+-999: The verification process wasn't finished.
+        :type Result: str
+        :param _Description: The description of the verification result.
+        :type Description: str
+        :param _BestFrame: The best frame screenshot (in Base64) obtained during the verification.
+        :type BestFrame: str
+        :param _Video: The video file (Base64) for verification.Used for verification, contains specific color reflection effects.
+        :type Video: str
+        :param _ActionVideo: Records the specific action performed by the user, used for AI Face Shield analysis.
+        :type ActionVideo: str
+        :param _Similarity: The similarity, with a value range of 0-100. A greater value indicates higher similarity. This parameter is returned only in the `compare` (selfie verification) mode.
+Note: The Similarity metric is exclusively valid for "compare" mode. In "liveness" mode, the returned Similarity value (0.0) is non-significant and should be ignored.
+        :type Similarity: float
+        :param _Extra: The pass-through parameter.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Extra: str
+        :param _DeviceInfoLevel: Describe the risk level of the device where the current request is located, with a total of 4 levels. The details are as follows:
+1 - Secure
+2 - Low Risk
+3 - Medium Risk
+4 - High Risk
+Empty - Risk level not obtained.
+Only returned for the Enhance and Plus version, with the default value being empty.
+        :type DeviceInfoLevel: str
+        :param _LivenessInfoTag: Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS or PRO. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :type LivenessInfoTag: list of str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._BestFrame = None
+        self._Video = None
+        self._ActionVideo = None
+        self._Similarity = None
+        self._Extra = None
+        self._DeviceInfoLevel = None
+        self._LivenessInfoTag = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""The return code of the verification result.
+0: Success.
+1001: Failed to call the liveness engine.
+1002: Suspected spoofed recording.
+1004: Face detection failed.
+1005: Liveness detection failed.
+1201: Lighting is too dark or overexposed.
+2004: The image passed in is too large or too small.
+2012: Multiple faces detected.
+2013: No face was detected, or the face detected was incomplete.
+2014: The image resolution is too low or the quality does not meet the requirements.
+2015: Face comparison failed.
+2016: The similarity did not reach the standard passing threshold.
+2017: Facial occlusion detected.
+-999: The verification process wasn't finished.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""The description of the verification result.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def BestFrame(self):
+        r"""The best frame screenshot (in Base64) obtained during the verification.
+        :rtype: str
+        """
+        return self._BestFrame
+
+    @BestFrame.setter
+    def BestFrame(self, BestFrame):
+        self._BestFrame = BestFrame
+
+    @property
+    def Video(self):
+        r"""The video file (Base64) for verification.Used for verification, contains specific color reflection effects.
+        :rtype: str
+        """
+        return self._Video
+
+    @Video.setter
+    def Video(self, Video):
+        self._Video = Video
+
+    @property
+    def ActionVideo(self):
+        r"""Records the specific action performed by the user, used for AI Face Shield analysis.
+        :rtype: str
+        """
+        return self._ActionVideo
+
+    @ActionVideo.setter
+    def ActionVideo(self, ActionVideo):
+        self._ActionVideo = ActionVideo
+
+    @property
+    def Similarity(self):
+        r"""The similarity, with a value range of 0-100. A greater value indicates higher similarity. This parameter is returned only in the `compare` (selfie verification) mode.
+Note: The Similarity metric is exclusively valid for "compare" mode. In "liveness" mode, the returned Similarity value (0.0) is non-significant and should be ignored.
+        :rtype: float
+        """
+        return self._Similarity
+
+    @Similarity.setter
+    def Similarity(self, Similarity):
+        self._Similarity = Similarity
+
+    @property
+    def Extra(self):
+        r"""The pass-through parameter.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def DeviceInfoLevel(self):
+        r"""Describe the risk level of the device where the current request is located, with a total of 4 levels. The details are as follows:
+1 - Secure
+2 - Low Risk
+3 - Medium Risk
+4 - High Risk
+Empty - Risk level not obtained.
+Only returned for the Enhance and Plus version, with the default value being empty.
+        :rtype: str
+        """
+        return self._DeviceInfoLevel
+
+    @DeviceInfoLevel.setter
+    def DeviceInfoLevel(self, DeviceInfoLevel):
+        self._DeviceInfoLevel = DeviceInfoLevel
+
+    @property
+    def LivenessInfoTag(self):
+        r"""Describes the detailed reason for the current liveness detection failure. Output only when SdkVersion is PLUS or PRO. Details are as follows:
+01 - User kept eyes closed throughout the process.
+02 - User failed to complete the specified action.
+03 - Suspected photo replay attack.
+04 - Suspected synthetic image.
+05 - Suspected synthetic video.
+06 - Suspected synthetic action.
+07 - Suspected fraud template.
+08 - Suspected watermark existence.
+09 - Light verification failed.
+10 - Face verification failed.
+11 - Poor face quality.
+12 - Unqualified collection quality.
+13 - Suspected adversarial sample attack.
+        :rtype: list of str
+        """
+        return self._LivenessInfoTag
+
+    @LivenessInfoTag.setter
+    def LivenessInfoTag(self, LivenessInfoTag):
+        self._LivenessInfoTag = LivenessInfoTag
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._BestFrame = params.get("BestFrame")
+        self._Video = params.get("Video")
+        self._ActionVideo = params.get("ActionVideo")
+        self._Similarity = params.get("Similarity")
+        self._Extra = params.get("Extra")
+        self._DeviceInfoLevel = params.get("DeviceInfoLevel")
+        self._LivenessInfoTag = params.get("LivenessInfoTag")
+        self._RequestId = params.get("RequestId")
+
+
+class GetFaceIdTokenIntlRequest(AbstractModel):
+    r"""GetFaceIdTokenIntl request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CheckMode: <p>Indicates the detection mode. Parameter values as follows:<br>"liveness": liveness detection only;<br>"compare": liveness detection + face comparison;<br>Default value: "liveness".</p>
+        :type CheckMode: str
+        :param _SecureLevel: <p>Indicates the security level of authentication. Security levels are divided into:<br>"1": silent liveness;<br>"2": action liveness detection;<br>"3": light liveness;<br>"4": action + light liveness;<br>Default value is "4".</p>
+**Note:** Security level increases from `1` to `4`, with `4` providing the highest security.
+        :type SecureLevel: str
+        :param _Image: <p>The base64 code of the image for comparison, used for the "liveness comparison" mode. This parameter is required when CheckMode is "compare".</p>
+        :type Image: str
+        :param _Extra: <p>This parameter is a business passthrough parameter and can be omitted unless otherwise needed.</p>
+        :type Extra: str
+        :param _ActionList: <p>This API is used to control the sequence of actions. The action types are as follows:<br>"blink"<br>"mouth"<br>"nod"<br>"shake"<br>Choose 1-2 actions from the four.<br>Single action example: "blink"<br>Multi-action example: "blink,mouth".<br>Default value is blink.<br>Input this parameter only when SecureLevel is 2 or 4 for different action types to take effect; otherwise, the API returns an error.</p>
+        :type ActionList: str
+        :param _SdkVersion: BASIC: Basic version (Default).
+ENHANCED: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
+        :type SdkVersion: str
+        :param _RetryLimit: <p>Liveness retry count</p><p>Value ranges from 1 to 5</p><p>Default value: 5</p>
+        :type RetryLimit: int
+        :param _EnableBotBgDetection: <p>Whether to enable Bank of Thailand-specific background detection.<br>This parameter requires whitelist activation; please contact us to request access before it can take effect.</p><p>Default value: false</p>
+
+        :type EnableBotBgDetection: bool
+        :param _MetaData: Encrypted metadata generated by the SDK
+        :type MetaData: str
+        """
+        self._CheckMode = None
+        self._SecureLevel = None
+        self._Image = None
+        self._Extra = None
+        self._ActionList = None
+        self._SdkVersion = None
+        self._RetryLimit = None
+        self._EnableBotBgDetection = None
+        self._MetaData = None
+
+    @property
+    def CheckMode(self):
+        r"""<p>Indicates the detection mode. Parameter values as follows:<br>"liveness": liveness detection only;<br>"compare": liveness detection + face comparison;<br>Default value: "liveness".</p>
+        :rtype: str
+        """
+        return self._CheckMode
+
+    @CheckMode.setter
+    def CheckMode(self, CheckMode):
+        self._CheckMode = CheckMode
+
+    @property
+    def SecureLevel(self):
+        r"""<p>Indicates the security level of authentication. Security levels are divided into:<br>"1": silent liveness;<br>"2": action liveness detection;<br>"3": light liveness;<br>"4": action + light liveness;<br>Default value is "4".</p>
+**Note:** Security level increases from `1` to `4`, with `4` providing the highest security.
+        :rtype: str
+        """
+        return self._SecureLevel
+
+    @SecureLevel.setter
+    def SecureLevel(self, SecureLevel):
+        self._SecureLevel = SecureLevel
+
+    @property
+    def Image(self):
+        r"""<p>The base64 code of the image for comparison, used for the "liveness comparison" mode. This parameter is required when CheckMode is "compare".</p>
+        :rtype: str
+        """
+        return self._Image
+
+    @Image.setter
+    def Image(self, Image):
+        self._Image = Image
+
+    @property
+    def Extra(self):
+        r"""<p>This parameter is a business passthrough parameter and can be omitted unless otherwise needed.</p>
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def ActionList(self):
+        r"""<p>This API is used to control the sequence of actions. The action types are as follows:<br>"blink"<br>"mouth"<br>"nod"<br>"shake"<br>Choose 1-2 actions from the four.<br>Single action example: "blink"<br>Multi-action example: "blink,mouth".<br>Default value is blink.<br>Input this parameter only when SecureLevel is 2 or 4 for different action types to take effect; otherwise, the API returns an error.</p>
+        :rtype: str
+        """
+        return self._ActionList
+
+    @ActionList.setter
+    def ActionList(self, ActionList):
+        self._ActionList = ActionList
+
+    @property
+    def SdkVersion(self):
+        r"""BASIC: Basic version (Default).
+ENHANCED: Enhance version, enable additional output of device risk level field.
+PRO: Pro version, enable additional output of attack type fields.
+PLUS: Plus version, enable additional output of device risk level and attack type fields.
+Please contact us to access enhance version & plus version.	
+        :rtype: str
+        """
+        return self._SdkVersion
+
+    @SdkVersion.setter
+    def SdkVersion(self, SdkVersion):
+        self._SdkVersion = SdkVersion
+
+    @property
+    def RetryLimit(self):
+        r"""<p>Liveness retry count</p><p>Value ranges from 1 to 5</p><p>Default value: 5</p>
+        :rtype: int
+        """
+        return self._RetryLimit
+
+    @RetryLimit.setter
+    def RetryLimit(self, RetryLimit):
+        self._RetryLimit = RetryLimit
+
+    @property
+    def EnableBotBgDetection(self):
+        r"""<p>Whether to enable Bank of Thailand-specific background detection.<br>This parameter requires whitelist activation; please contact us to request access before it can take effect.</p><p>Default value: false</p>
+
+        :rtype: bool
+        """
+        return self._EnableBotBgDetection
+
+    @EnableBotBgDetection.setter
+    def EnableBotBgDetection(self, EnableBotBgDetection):
+        self._EnableBotBgDetection = EnableBotBgDetection
+
+    @property
+    def MetaData(self):
+        r"""Encrypted metadata generated by the SDK
+        :rtype: str
+        """
+        return self._MetaData
+
+    @MetaData.setter
+    def MetaData(self, MetaData):
+        self._MetaData = MetaData
+
+
+    def _deserialize(self, params):
+        self._CheckMode = params.get("CheckMode")
+        self._SecureLevel = params.get("SecureLevel")
+        self._Image = params.get("Image")
+        self._Extra = params.get("Extra")
+        self._ActionList = params.get("ActionList")
+        self._SdkVersion = params.get("SdkVersion")
+        self._RetryLimit = params.get("RetryLimit")
+        self._EnableBotBgDetection = params.get("EnableBotBgDetection")
+        self._MetaData = params.get("MetaData")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetFaceIdTokenIntlResponse(AbstractModel):
+    r"""GetFaceIdTokenIntl response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: <p>SdkToken, used to connect the identity verification process. The verification result can be retrieved with this token. Each SdkToken has a validity of 10 minutes.</p>
+        :type SdkToken: str
+        :param _ServerParamInfo: Encrypted string of server-side parameters
+        :type ServerParamInfo: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._SdkToken = None
+        self._ServerParamInfo = None
+        self._RequestId = None
+
+    @property
+    def SdkToken(self):
+        r"""<p>SdkToken, used to connect the identity verification process. The verification result can be retrieved with this token. Each SdkToken has a validity of 10 minutes.</p>
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+    @property
+    def ServerParamInfo(self):
+        r"""Encrypted string of server-side parameters
+        :rtype: str
+        """
+        return self._ServerParamInfo
+
+    @ServerParamInfo.setter
+    def ServerParamInfo(self, ServerParamInfo):
+        self._ServerParamInfo = ServerParamInfo
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        self._ServerParamInfo = params.get("ServerParamInfo")
+        self._RequestId = params.get("RequestId")
+
+
+class GetLivenessResultRequest(AbstractModel):
+    r"""GetLivenessResult request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: The token used to identify an SDK-based verification process.
+        :type SdkToken: str
+        """
+        self._SdkToken = None
+
+    @property
+    def SdkToken(self):
+        r"""The token used to identify an SDK-based verification process.
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetLivenessResultResponse(AbstractModel):
+    r"""GetLivenessResult response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: The final verification result.
+        :type Result: str
+        :param _Description: The description of the final verification result.
+        :type Description: str
+        :param _BestFrame: The face screenshot.
+        :type BestFrame: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _Video: The video for the detection.
+        :type Video: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._BestFrame = None
+        self._Video = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""The final verification result.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""The description of the final verification result.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def BestFrame(self):
+        r"""The face screenshot.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._BestFrame
+
+    @BestFrame.setter
+    def BestFrame(self, BestFrame):
+        self._BestFrame = BestFrame
+
+    @property
+    def Video(self):
+        r"""The video for the detection.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._Video
+
+    @Video.setter
+    def Video(self, Video):
+        self._Video = Video
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        if params.get("BestFrame") is not None:
+            self._BestFrame = FileInfo()
+            self._BestFrame._deserialize(params.get("BestFrame"))
+        if params.get("Video") is not None:
+            self._Video = FileInfo()
+            self._Video._deserialize(params.get("Video"))
+        self._RequestId = params.get("RequestId")
+
+
+class GetNFCResultRequest(AbstractModel):
+    r"""GetNFCResult request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _NFCToken: Unique ID returned by the frontend NFC SDK
+        :type NFCToken: str
+        :param _IdNum: Identity card number / passport number / Hong Kong and Macao travel permit
+        :type IdNum: str
+        :param _Name: Name
+        :type Name: str
+        :param _Picture: Base64 value of the portrait photo
+        :type Picture: str
+        :param _BirthDate: Date of birth (format: YYYYMMDD)
+        :type BirthDate: str
+        :param _BeginTime: Validity start time of the document (format: YYYYMMDD)
+        :type BeginTime: str
+        :param _EndTime: Document validity end time (format: YYYYMMDD)
+        :type EndTime: str
+        :param _Address: Address
+        :type Address: str
+        :param _Nation: Ethnicity
+        :type Nation: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _EnName: English name
+        :type EnName: str
+        :param _SigningOrganization: Issuing authority
+        :type SigningOrganization: str
+        :param _Nationality: Nationality
+        :type Nationality: str
+        :param _CountryCode: Country code
+        :type CountryCode: str
+        :param _MachineReadCode: Machine-readable code of the passport
+        :type MachineReadCode: str
+        """
+        self._NFCToken = None
+        self._IdNum = None
+        self._Name = None
+        self._Picture = None
+        self._BirthDate = None
+        self._BeginTime = None
+        self._EndTime = None
+        self._Address = None
+        self._Nation = None
+        self._Sex = None
+        self._EnName = None
+        self._SigningOrganization = None
+        self._Nationality = None
+        self._CountryCode = None
+        self._MachineReadCode = None
+
+    @property
+    def NFCToken(self):
+        r"""Unique ID returned by the frontend NFC SDK
+        :rtype: str
+        """
+        return self._NFCToken
+
+    @NFCToken.setter
+    def NFCToken(self, NFCToken):
+        self._NFCToken = NFCToken
+
+    @property
+    def IdNum(self):
+        r"""Identity card number / passport number / Hong Kong and Macao travel permit
+        :rtype: str
+        """
+        return self._IdNum
+
+    @IdNum.setter
+    def IdNum(self, IdNum):
+        self._IdNum = IdNum
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Picture(self):
+        r"""Base64 value of the portrait photo
+        :rtype: str
+        """
+        return self._Picture
+
+    @Picture.setter
+    def Picture(self, Picture):
+        self._Picture = Picture
+
+    @property
+    def BirthDate(self):
+        r"""Date of birth (format: YYYYMMDD)
+        :rtype: str
+        """
+        return self._BirthDate
+
+    @BirthDate.setter
+    def BirthDate(self, BirthDate):
+        self._BirthDate = BirthDate
+
+    @property
+    def BeginTime(self):
+        r"""Validity start time of the document (format: YYYYMMDD)
+        :rtype: str
+        """
+        return self._BeginTime
+
+    @BeginTime.setter
+    def BeginTime(self, BeginTime):
+        self._BeginTime = BeginTime
+
+    @property
+    def EndTime(self):
+        r"""Document validity end time (format: YYYYMMDD)
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def Address(self):
+        r"""Address
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def Nation(self):
+        r"""Ethnicity
+        :rtype: str
+        """
+        return self._Nation
+
+    @Nation.setter
+    def Nation(self, Nation):
+        self._Nation = Nation
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def EnName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._EnName
+
+    @EnName.setter
+    def EnName(self, EnName):
+        self._EnName = EnName
+
+    @property
+    def SigningOrganization(self):
+        r"""Issuing authority
+        :rtype: str
+        """
+        return self._SigningOrganization
+
+    @SigningOrganization.setter
+    def SigningOrganization(self, SigningOrganization):
+        self._SigningOrganization = SigningOrganization
+
+    @property
+    def Nationality(self):
+        r"""Nationality
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def CountryCode(self):
+        r"""Country code
+        :rtype: str
+        """
+        return self._CountryCode
+
+    @CountryCode.setter
+    def CountryCode(self, CountryCode):
+        self._CountryCode = CountryCode
+
+    @property
+    def MachineReadCode(self):
+        r"""Machine-readable code of the passport
+        :rtype: str
+        """
+        return self._MachineReadCode
+
+    @MachineReadCode.setter
+    def MachineReadCode(self, MachineReadCode):
+        self._MachineReadCode = MachineReadCode
+
+
+    def _deserialize(self, params):
+        self._NFCToken = params.get("NFCToken")
+        self._IdNum = params.get("IdNum")
+        self._Name = params.get("Name")
+        self._Picture = params.get("Picture")
+        self._BirthDate = params.get("BirthDate")
+        self._BeginTime = params.get("BeginTime")
+        self._EndTime = params.get("EndTime")
+        self._Address = params.get("Address")
+        self._Nation = params.get("Nation")
+        self._Sex = params.get("Sex")
+        self._EnName = params.get("EnName")
+        self._SigningOrganization = params.get("SigningOrganization")
+        self._Nationality = params.get("Nationality")
+        self._CountryCode = params.get("CountryCode")
+        self._MachineReadCode = params.get("MachineReadCode")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetNFCResultResponse(AbstractModel):
+    r"""GetNFCResult response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ChargeCode: Billing result code. Each successful NFC read is billed once. Permissible range: 
+
+0: Read successful, billed. 
+-1: Read failed, not billed.
+        :type ChargeCode: str
+        :param _IdType: Document type. Value range: 
+
+01: ID card. 
+02: Passport. 
+03: Hong Kong and Macao travel permit. 
+99: Other document. 
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type IdType: str
+        :param _CheckMRTD: Document verification result. The items for NFC verification are as follows:
+{"result_issuer ":"Issuer certificate legitimacy verification result ","result_paper":"Document security object legitimacy verification result ","result_data" :"Data tampering prevention verification result ","result_chip" :"Document chip replication prevention verification result"} 
+Value range: 0: verification passed 1: verification failed 2: unverified 3: partially passed 
+When all four verification results are 0, the document is genuine.
+        :type CheckMRTD: str
+        :param _IdNumCompareResult: Comparison result of the passed-in identity card number, passport number, or Hong Kong, China and Macao, China travel permit with the identity card number recognized by NFC. 
+
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type IdNumCompareResult: str
+        :param _NameCompareResult: Comparison result of the passed-in name and the name recognized by NFC.
+0: Consistent
+-1: Not the same
+-2: NFC recognition failed, unable to compare
+        :type NameCompareResult: str
+        :param _PictureCompareSim: Similarity score between the passed-in face image and the portrait photo recognized by NFC.
+- Value range: [0.00, 100.00].
+- It is recommended to determine the same person when the similarity is equal to or greater than 70. Customers can also self-adjust the threshold based on specific scenarios (with a threshold of 70, the false pass rate is one in a thousand; with a threshold of 80, the false pass rate is one in ten thousand).
+        :type PictureCompareSim: float
+        :param _PictureCompareResult: Comparison result of the passed-in face image and the portrait photo recognized by NFC. 
+
+0: Same person (similarity equal to or greater than 70 points) 
+1: Not the same person (similarity less than 70 points) 
+2: Comparison failed (the input image quality is too low) 
+3: Comparison failed (the input image contains no human face, an incomplete face, or multiple faces) 
+4: Comparison failed (input image too large or too small) 
+5: Comparison failed (NFC cannot read the portrait photo) 
+6: Comparison failed (no input image data) 
+7: Comparison failed (other reason)
+        :type PictureCompareResult: str
+        :param _BirthDateCompareResult: Comparison result of the passed-in date of birth and the date of birth recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type BirthDateCompareResult: str
+        :param _BeginTimeCompareResult: Comparison result of the passed-in validity start time and the validity start time recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type BeginTimeCompareResult: str
+        :param _EndTimeCompareResult: Comparison result of the passed-in validity end time and the validity end time recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type EndTimeCompareResult: str
+        :param _AddressCompareResult: Comparison result of the passed-in address and the address recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type AddressCompareResult: str
+        :param _NationCompareResult: Comparison result of the passed-in ethnicity and the ethnicity recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type NationCompareResult: str
+        :param _SexCompareResult: Comparison result of the passed-in sex and the sex recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type SexCompareResult: str
+        :param _EnNameCompareResult: Comparison result of the passed-in English name and the English name recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type EnNameCompareResult: str
+        :param _SigningOrganizationCompareResult: Comparison result of the passed-in issuing authority and the issuing authority recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type SigningOrganizationCompareResult: str
+        :param _NationalityCompareResult: Comparison result of the passed-in nationality and the nationality recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type NationalityCompareResult: str
+        :param _CountryCodeCompareResult: Comparison result of the passed-in country code and the country code recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type CountryCodeCompareResult: str
+        :param _MachineReadCodeCompareResult: Comparison result of the passed-in machine-readable code and the machine-readable code recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :type MachineReadCodeCompareResult: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ChargeCode = None
+        self._IdType = None
+        self._CheckMRTD = None
+        self._IdNumCompareResult = None
+        self._NameCompareResult = None
+        self._PictureCompareSim = None
+        self._PictureCompareResult = None
+        self._BirthDateCompareResult = None
+        self._BeginTimeCompareResult = None
+        self._EndTimeCompareResult = None
+        self._AddressCompareResult = None
+        self._NationCompareResult = None
+        self._SexCompareResult = None
+        self._EnNameCompareResult = None
+        self._SigningOrganizationCompareResult = None
+        self._NationalityCompareResult = None
+        self._CountryCodeCompareResult = None
+        self._MachineReadCodeCompareResult = None
+        self._RequestId = None
+
+    @property
+    def ChargeCode(self):
+        r"""Billing result code. Each successful NFC read is billed once. Permissible range: 
+
+0: Read successful, billed. 
+-1: Read failed, not billed.
+        :rtype: str
+        """
+        return self._ChargeCode
+
+    @ChargeCode.setter
+    def ChargeCode(self, ChargeCode):
+        self._ChargeCode = ChargeCode
+
+    @property
+    def IdType(self):
+        r"""Document type. Value range: 
+
+01: ID card. 
+02: Passport. 
+03: Hong Kong and Macao travel permit. 
+99: Other document. 
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: str
+        """
+        return self._IdType
+
+    @IdType.setter
+    def IdType(self, IdType):
+        self._IdType = IdType
+
+    @property
+    def CheckMRTD(self):
+        r"""Document verification result. The items for NFC verification are as follows:
+{"result_issuer ":"Issuer certificate legitimacy verification result ","result_paper":"Document security object legitimacy verification result ","result_data" :"Data tampering prevention verification result ","result_chip" :"Document chip replication prevention verification result"} 
+Value range: 0: verification passed 1: verification failed 2: unverified 3: partially passed 
+When all four verification results are 0, the document is genuine.
+        :rtype: str
+        """
+        return self._CheckMRTD
+
+    @CheckMRTD.setter
+    def CheckMRTD(self, CheckMRTD):
+        self._CheckMRTD = CheckMRTD
+
+    @property
+    def IdNumCompareResult(self):
+        r"""Comparison result of the passed-in identity card number, passport number, or Hong Kong, China and Macao, China travel permit with the identity card number recognized by NFC. 
+
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._IdNumCompareResult
+
+    @IdNumCompareResult.setter
+    def IdNumCompareResult(self, IdNumCompareResult):
+        self._IdNumCompareResult = IdNumCompareResult
+
+    @property
+    def NameCompareResult(self):
+        r"""Comparison result of the passed-in name and the name recognized by NFC.
+0: Consistent
+-1: Not the same
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._NameCompareResult
+
+    @NameCompareResult.setter
+    def NameCompareResult(self, NameCompareResult):
+        self._NameCompareResult = NameCompareResult
+
+    @property
+    def PictureCompareSim(self):
+        r"""Similarity score between the passed-in face image and the portrait photo recognized by NFC.
+- Value range: [0.00, 100.00].
+- It is recommended to determine the same person when the similarity is equal to or greater than 70. Customers can also self-adjust the threshold based on specific scenarios (with a threshold of 70, the false pass rate is one in a thousand; with a threshold of 80, the false pass rate is one in ten thousand).
+        :rtype: float
+        """
+        return self._PictureCompareSim
+
+    @PictureCompareSim.setter
+    def PictureCompareSim(self, PictureCompareSim):
+        self._PictureCompareSim = PictureCompareSim
+
+    @property
+    def PictureCompareResult(self):
+        r"""Comparison result of the passed-in face image and the portrait photo recognized by NFC. 
+
+0: Same person (similarity equal to or greater than 70 points) 
+1: Not the same person (similarity less than 70 points) 
+2: Comparison failed (the input image quality is too low) 
+3: Comparison failed (the input image contains no human face, an incomplete face, or multiple faces) 
+4: Comparison failed (input image too large or too small) 
+5: Comparison failed (NFC cannot read the portrait photo) 
+6: Comparison failed (no input image data) 
+7: Comparison failed (other reason)
+        :rtype: str
+        """
+        return self._PictureCompareResult
+
+    @PictureCompareResult.setter
+    def PictureCompareResult(self, PictureCompareResult):
+        self._PictureCompareResult = PictureCompareResult
+
+    @property
+    def BirthDateCompareResult(self):
+        r"""Comparison result of the passed-in date of birth and the date of birth recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._BirthDateCompareResult
+
+    @BirthDateCompareResult.setter
+    def BirthDateCompareResult(self, BirthDateCompareResult):
+        self._BirthDateCompareResult = BirthDateCompareResult
+
+    @property
+    def BeginTimeCompareResult(self):
+        r"""Comparison result of the passed-in validity start time and the validity start time recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._BeginTimeCompareResult
+
+    @BeginTimeCompareResult.setter
+    def BeginTimeCompareResult(self, BeginTimeCompareResult):
+        self._BeginTimeCompareResult = BeginTimeCompareResult
+
+    @property
+    def EndTimeCompareResult(self):
+        r"""Comparison result of the passed-in validity end time and the validity end time recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._EndTimeCompareResult
+
+    @EndTimeCompareResult.setter
+    def EndTimeCompareResult(self, EndTimeCompareResult):
+        self._EndTimeCompareResult = EndTimeCompareResult
+
+    @property
+    def AddressCompareResult(self):
+        r"""Comparison result of the passed-in address and the address recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._AddressCompareResult
+
+    @AddressCompareResult.setter
+    def AddressCompareResult(self, AddressCompareResult):
+        self._AddressCompareResult = AddressCompareResult
+
+    @property
+    def NationCompareResult(self):
+        r"""Comparison result of the passed-in ethnicity and the ethnicity recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._NationCompareResult
+
+    @NationCompareResult.setter
+    def NationCompareResult(self, NationCompareResult):
+        self._NationCompareResult = NationCompareResult
+
+    @property
+    def SexCompareResult(self):
+        r"""Comparison result of the passed-in sex and the sex recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._SexCompareResult
+
+    @SexCompareResult.setter
+    def SexCompareResult(self, SexCompareResult):
+        self._SexCompareResult = SexCompareResult
+
+    @property
+    def EnNameCompareResult(self):
+        r"""Comparison result of the passed-in English name and the English name recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._EnNameCompareResult
+
+    @EnNameCompareResult.setter
+    def EnNameCompareResult(self, EnNameCompareResult):
+        self._EnNameCompareResult = EnNameCompareResult
+
+    @property
+    def SigningOrganizationCompareResult(self):
+        r"""Comparison result of the passed-in issuing authority and the issuing authority recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._SigningOrganizationCompareResult
+
+    @SigningOrganizationCompareResult.setter
+    def SigningOrganizationCompareResult(self, SigningOrganizationCompareResult):
+        self._SigningOrganizationCompareResult = SigningOrganizationCompareResult
+
+    @property
+    def NationalityCompareResult(self):
+        r"""Comparison result of the passed-in nationality and the nationality recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._NationalityCompareResult
+
+    @NationalityCompareResult.setter
+    def NationalityCompareResult(self, NationalityCompareResult):
+        self._NationalityCompareResult = NationalityCompareResult
+
+    @property
+    def CountryCodeCompareResult(self):
+        r"""Comparison result of the passed-in country code and the country code recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._CountryCodeCompareResult
+
+    @CountryCodeCompareResult.setter
+    def CountryCodeCompareResult(self, CountryCodeCompareResult):
+        self._CountryCodeCompareResult = CountryCodeCompareResult
+
+    @property
+    def MachineReadCodeCompareResult(self):
+        r"""Comparison result of the passed-in machine-readable code and the machine-readable code recognized by NFC. 
+0: Consistent 
+-1: Not the same 
+-2: NFC recognition failed, unable to compare
+        :rtype: str
+        """
+        return self._MachineReadCodeCompareResult
+
+    @MachineReadCodeCompareResult.setter
+    def MachineReadCodeCompareResult(self, MachineReadCodeCompareResult):
+        self._MachineReadCodeCompareResult = MachineReadCodeCompareResult
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ChargeCode = params.get("ChargeCode")
+        self._IdType = params.get("IdType")
+        self._CheckMRTD = params.get("CheckMRTD")
+        self._IdNumCompareResult = params.get("IdNumCompareResult")
+        self._NameCompareResult = params.get("NameCompareResult")
+        self._PictureCompareSim = params.get("PictureCompareSim")
+        self._PictureCompareResult = params.get("PictureCompareResult")
+        self._BirthDateCompareResult = params.get("BirthDateCompareResult")
+        self._BeginTimeCompareResult = params.get("BeginTimeCompareResult")
+        self._EndTimeCompareResult = params.get("EndTimeCompareResult")
+        self._AddressCompareResult = params.get("AddressCompareResult")
+        self._NationCompareResult = params.get("NationCompareResult")
+        self._SexCompareResult = params.get("SexCompareResult")
+        self._EnNameCompareResult = params.get("EnNameCompareResult")
+        self._SigningOrganizationCompareResult = params.get("SigningOrganizationCompareResult")
+        self._NationalityCompareResult = params.get("NationalityCompareResult")
+        self._CountryCodeCompareResult = params.get("CountryCodeCompareResult")
+        self._MachineReadCodeCompareResult = params.get("MachineReadCodeCompareResult")
+        self._RequestId = params.get("RequestId")
+
+
+class GetNFCTokenRequest(AbstractModel):
+    r"""GetNFCToken request structure.
+
+    """
+
+
+class GetNFCTokenResponse(AbstractModel):
+    r"""GetNFCToken response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Token: NFCToken (valid for 10 minutes)
+        :type Token: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Token = None
+        self._RequestId = None
+
+    @property
+    def Token(self):
+        r"""NFCToken (valid for 10 minutes)
+        :rtype: str
+        """
+        return self._Token
+
+    @Token.setter
+    def Token(self, Token):
+        self._Token = Token
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Token = params.get("Token")
+        self._RequestId = params.get("RequestId")
+
+
+class GetSdkVerificationResultRequest(AbstractModel):
+    r"""GetSdkVerificationResult request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkToken: The token used to identify an SDK-based verification process. 
+        :type SdkToken: str
+        """
+        self._SdkToken = None
+
+    @property
+    def SdkToken(self):
+        r"""The token used to identify an SDK-based verification process. 
+        :rtype: str
+        """
+        return self._SdkToken
+
+    @SdkToken.setter
+    def SdkToken(self, SdkToken):
+        self._SdkToken = SdkToken
+
+
+    def _deserialize(self, params):
+        self._SdkToken = params.get("SdkToken")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetSdkVerificationResultResponse(AbstractModel):
+    r"""GetSdkVerificationResult response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: The result code of the verification result.
+        :type Result: str
+        :param _Description: The verification result description.
+        :type Description: str
+        :param _ChargeCount: The charge count.
+        :type ChargeCount: int
+        :param _CardVerifyResults: The results of multiple OCR processes (in order). The result of the final process is used as the valid result.
+        :type CardVerifyResults: list of CardVerifyResult
+        :param _CompareResults: The results of multiple liveness detection processes (in order). The result of the final process is used as the valid result.
+        :type CompareResults: list of CompareResult
+        :param _Extra: Data passed through in the process of getting the token.
+        :type Extra: str
+        :param _DeviceInfoLevel: Describe the risk level of the device where the current request is located, with a total of 4 levels. The details are as follows:
+1 - Secure
+2 - Low Risk
+3 - Medium Risk
+4 - High Risk
+Empty - Risk level not obtained.
+Only returned for the Enhance and Plus version, with the default value being empty.
+        :type DeviceInfoLevel: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._ChargeCount = None
+        self._CardVerifyResults = None
+        self._CompareResults = None
+        self._Extra = None
+        self._DeviceInfoLevel = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""The result code of the verification result.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""The verification result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def ChargeCount(self):
+        r"""The charge count.
+        :rtype: int
+        """
+        return self._ChargeCount
+
+    @ChargeCount.setter
+    def ChargeCount(self, ChargeCount):
+        self._ChargeCount = ChargeCount
+
+    @property
+    def CardVerifyResults(self):
+        r"""The results of multiple OCR processes (in order). The result of the final process is used as the valid result.
+        :rtype: list of CardVerifyResult
+        """
+        return self._CardVerifyResults
+
+    @CardVerifyResults.setter
+    def CardVerifyResults(self, CardVerifyResults):
+        self._CardVerifyResults = CardVerifyResults
+
+    @property
+    def CompareResults(self):
+        r"""The results of multiple liveness detection processes (in order). The result of the final process is used as the valid result.
+        :rtype: list of CompareResult
+        """
+        return self._CompareResults
+
+    @CompareResults.setter
+    def CompareResults(self, CompareResults):
+        self._CompareResults = CompareResults
+
+    @property
+    def Extra(self):
+        r"""Data passed through in the process of getting the token.
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def DeviceInfoLevel(self):
+        r"""Describe the risk level of the device where the current request is located, with a total of 4 levels. The details are as follows:
+1 - Secure
+2 - Low Risk
+3 - Medium Risk
+4 - High Risk
+Empty - Risk level not obtained.
+Only returned for the Enhance and Plus version, with the default value being empty.
+        :rtype: str
+        """
+        return self._DeviceInfoLevel
+
+    @DeviceInfoLevel.setter
+    def DeviceInfoLevel(self, DeviceInfoLevel):
+        self._DeviceInfoLevel = DeviceInfoLevel
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._ChargeCount = params.get("ChargeCount")
+        if params.get("CardVerifyResults") is not None:
+            self._CardVerifyResults = []
+            for item in params.get("CardVerifyResults"):
+                obj = CardVerifyResult()
+                obj._deserialize(item)
+                self._CardVerifyResults.append(obj)
+        if params.get("CompareResults") is not None:
+            self._CompareResults = []
+            for item in params.get("CompareResults"):
+                obj = CompareResult()
+                obj._deserialize(item)
+                self._CompareResults.append(obj)
+        self._Extra = params.get("Extra")
+        self._DeviceInfoLevel = params.get("DeviceInfoLevel")
+        self._RequestId = params.get("RequestId")
+
+
+class GetWebVerificationResultIntlRequest(AbstractModel):
+    r"""GetWebVerificationResultIntl request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BizToken: <p>Web authentication token, generated by the ApplyWebVerificationBizTokenIntl API.</p>
+        :type BizToken: str
+        """
+        self._BizToken = None
+
+    @property
+    def BizToken(self):
+        r"""<p>Web authentication token, generated by the ApplyWebVerificationBizTokenIntl API.</p>
+        :rtype: str
+        """
+        return self._BizToken
+
+    @BizToken.setter
+    def BizToken(self, BizToken):
+        self._BizToken = BizToken
+
+
+    def _deserialize(self, params):
+        self._BizToken = params.get("BizToken")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetWebVerificationResultIntlResponse(AbstractModel):
+    r"""GetWebVerificationResultIntl response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ErrorCode: <p>Final result of this process. 0 indicates successful verification, determined to be the same person.<br>For other error codes, see: <a href="https://www.tencentcloud.com/document/product/1061/55390?lang=en&amp;pg=#8a960e1e-39c0-42cb-b181-b3164d77f81e">Liveness Detection and Face Comparison (Mobile HTML5) Error Codes</a></p>
+        :type ErrorCode: int
+        :param _ErrorMsg: <p>Final result description of this process.</p>
+        :type ErrorMsg: str
+        :param _VerificationDetailList: <p>List of detailed verification results for this process. Since it is retryable, this process may contain multiple verification information.</p>
+        :type VerificationDetailList: list of VerificationDetail
+        :param _VideoBase64: <p>base64-encoded string of the video content collected from the video stream. Since it is retryable, this field returns the data collected in the last verification. If no video is collected, it returns null.</p>
+        :type VideoBase64: str
+        :param _BestFrameBase64: <p>base64 encoded string of the best face photo collected from the video stream. Since it is retryable, this field returns the data collected in the last verification. If no best face photo is collected, null is returned.</p>
+        :type BestFrameBase64: str
+        :param _OCRResult: <p>License recognition result</p>
+        :type OCRResult: list of OCRResult
+        :param _Extra: <p>Service pass-through parameter.</p>
+        :type Extra: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ErrorCode = None
+        self._ErrorMsg = None
+        self._VerificationDetailList = None
+        self._VideoBase64 = None
+        self._BestFrameBase64 = None
+        self._OCRResult = None
+        self._Extra = None
+        self._RequestId = None
+
+    @property
+    def ErrorCode(self):
+        r"""<p>Final result of this process. 0 indicates successful verification, determined to be the same person.<br>For other error codes, see: <a href="https://www.tencentcloud.com/document/product/1061/55390?lang=en&amp;pg=#8a960e1e-39c0-42cb-b181-b3164d77f81e">Liveness Detection and Face Comparison (Mobile HTML5) Error Codes</a></p>
+        :rtype: int
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMsg(self):
+        r"""<p>Final result description of this process.</p>
+        :rtype: str
+        """
+        return self._ErrorMsg
+
+    @ErrorMsg.setter
+    def ErrorMsg(self, ErrorMsg):
+        self._ErrorMsg = ErrorMsg
+
+    @property
+    def VerificationDetailList(self):
+        r"""<p>List of detailed verification results for this process. Since it is retryable, this process may contain multiple verification information.</p>
+        :rtype: list of VerificationDetail
+        """
+        return self._VerificationDetailList
+
+    @VerificationDetailList.setter
+    def VerificationDetailList(self, VerificationDetailList):
+        self._VerificationDetailList = VerificationDetailList
+
+    @property
+    def VideoBase64(self):
+        r"""<p>base64-encoded string of the video content collected from the video stream. Since it is retryable, this field returns the data collected in the last verification. If no video is collected, it returns null.</p>
+        :rtype: str
+        """
+        return self._VideoBase64
+
+    @VideoBase64.setter
+    def VideoBase64(self, VideoBase64):
+        self._VideoBase64 = VideoBase64
+
+    @property
+    def BestFrameBase64(self):
+        r"""<p>base64 encoded string of the best face photo collected from the video stream. Since it is retryable, this field returns the data collected in the last verification. If no best face photo is collected, null is returned.</p>
+        :rtype: str
+        """
+        return self._BestFrameBase64
+
+    @BestFrameBase64.setter
+    def BestFrameBase64(self, BestFrameBase64):
+        self._BestFrameBase64 = BestFrameBase64
+
+    @property
+    def OCRResult(self):
+        r"""<p>License recognition result</p>
+        :rtype: list of OCRResult
+        """
+        return self._OCRResult
+
+    @OCRResult.setter
+    def OCRResult(self, OCRResult):
+        self._OCRResult = OCRResult
+
+    @property
+    def Extra(self):
+        r"""<p>Service pass-through parameter.</p>
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMsg = params.get("ErrorMsg")
+        if params.get("VerificationDetailList") is not None:
+            self._VerificationDetailList = []
+            for item in params.get("VerificationDetailList"):
+                obj = VerificationDetail()
+                obj._deserialize(item)
+                self._VerificationDetailList.append(obj)
+        self._VideoBase64 = params.get("VideoBase64")
+        self._BestFrameBase64 = params.get("BestFrameBase64")
+        if params.get("OCRResult") is not None:
+            self._OCRResult = []
+            for item in params.get("OCRResult"):
+                obj = OCRResult()
+                obj._deserialize(item)
+                self._OCRResult.append(obj)
+        self._Extra = params.get("Extra")
+        self._RequestId = params.get("RequestId")
+
+
+class HKIDCard(AbstractModel):
+    r"""Hong Kong identity card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CnName: Chinese name
+        :type CnName: str
+        :param _EnName: English name
+        :type EnName: str
+        :param _TelexCode: Chinese name telegraph code
+        :type TelexCode: str
+        :param _Sex: Gender: "M" (male) or "F" (female)
+        :type Sex: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _Permanent: Permanent resident ID card: 0: non-permanent; 1: permanent; -1: unknown
+        :type Permanent: str
+        :param _IdNum: Identity number
+        :type IdNum: str
+        :param _Symbol: Document symbol, the symbol below the date of birth, for example, "***AZ"
+        :type Symbol: str
+        :param _FirstIssueDate: Date of first issue
+        :type FirstIssueDate: str
+        :param _CurrentIssueDate: Most recent date of issue
+        :type CurrentIssueDate: str
+        """
+        self._CnName = None
+        self._EnName = None
+        self._TelexCode = None
+        self._Sex = None
+        self._Birthday = None
+        self._Permanent = None
+        self._IdNum = None
+        self._Symbol = None
+        self._FirstIssueDate = None
+        self._CurrentIssueDate = None
+
+    @property
+    def CnName(self):
+        r"""Chinese name
+        :rtype: str
+        """
+        return self._CnName
+
+    @CnName.setter
+    def CnName(self, CnName):
+        self._CnName = CnName
+
+    @property
+    def EnName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._EnName
+
+    @EnName.setter
+    def EnName(self, EnName):
+        self._EnName = EnName
+
+    @property
+    def TelexCode(self):
+        r"""Chinese name telegraph code
+        :rtype: str
+        """
+        return self._TelexCode
+
+    @TelexCode.setter
+    def TelexCode(self, TelexCode):
+        self._TelexCode = TelexCode
+
+    @property
+    def Sex(self):
+        r"""Gender: "M" (male) or "F" (female)
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Permanent(self):
+        r"""Permanent resident ID card: 0: non-permanent; 1: permanent; -1: unknown
+        :rtype: str
+        """
+        return self._Permanent
+
+    @Permanent.setter
+    def Permanent(self, Permanent):
+        self._Permanent = Permanent
+
+    @property
+    def IdNum(self):
+        r"""Identity number
+        :rtype: str
+        """
+        return self._IdNum
+
+    @IdNum.setter
+    def IdNum(self, IdNum):
+        self._IdNum = IdNum
+
+    @property
+    def Symbol(self):
+        r"""Document symbol, the symbol below the date of birth, for example, "***AZ"
+        :rtype: str
+        """
+        return self._Symbol
+
+    @Symbol.setter
+    def Symbol(self, Symbol):
+        self._Symbol = Symbol
+
+    @property
+    def FirstIssueDate(self):
+        r"""Date of first issue
+        :rtype: str
+        """
+        return self._FirstIssueDate
+
+    @FirstIssueDate.setter
+    def FirstIssueDate(self, FirstIssueDate):
+        self._FirstIssueDate = FirstIssueDate
+
+    @property
+    def CurrentIssueDate(self):
+        r"""Most recent date of issue
+        :rtype: str
+        """
+        return self._CurrentIssueDate
+
+    @CurrentIssueDate.setter
+    def CurrentIssueDate(self, CurrentIssueDate):
+        self._CurrentIssueDate = CurrentIssueDate
+
+
+    def _deserialize(self, params):
+        self._CnName = params.get("CnName")
+        self._EnName = params.get("EnName")
+        self._TelexCode = params.get("TelexCode")
+        self._Sex = params.get("Sex")
+        self._Birthday = params.get("Birthday")
+        self._Permanent = params.get("Permanent")
+        self._IdNum = params.get("IdNum")
+        self._Symbol = params.get("Symbol")
+        self._FirstIssueDate = params.get("FirstIssueDate")
+        self._CurrentIssueDate = params.get("CurrentIssueDate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class HMTPermit(AbstractModel):
+    r"""Hong Kong, Macau and Taiwan Travel Permit
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _EnglishName: English name
+        :type EnglishName: str
+        :param _Number: ID number
+        :type Number: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _ValidDate: Validity period.
+        :type ValidDate: str
+        :param _IssueAuthority: Issuing authority
+        :type IssueAuthority: str
+        :param _IssueAddress: Issuing place
+        :type IssueAddress: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        """
+        self._Name = None
+        self._EnglishName = None
+        self._Number = None
+        self._Sex = None
+        self._ValidDate = None
+        self._IssueAuthority = None
+        self._IssueAddress = None
+        self._Birthday = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def EnglishName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._EnglishName
+
+    @EnglishName.setter
+    def EnglishName(self, EnglishName):
+        self._EnglishName = EnglishName
+
+    @property
+    def Number(self):
+        r"""ID number
+        :rtype: str
+        """
+        return self._Number
+
+    @Number.setter
+    def Number(self, Number):
+        self._Number = Number
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def ValidDate(self):
+        r"""Validity period.
+        :rtype: str
+        """
+        return self._ValidDate
+
+    @ValidDate.setter
+    def ValidDate(self, ValidDate):
+        self._ValidDate = ValidDate
+
+    @property
+    def IssueAuthority(self):
+        r"""Issuing authority
+        :rtype: str
+        """
+        return self._IssueAuthority
+
+    @IssueAuthority.setter
+    def IssueAuthority(self, IssueAuthority):
+        self._IssueAuthority = IssueAuthority
+
+    @property
+    def IssueAddress(self):
+        r"""Issuing place
+        :rtype: str
+        """
+        return self._IssueAddress
+
+    @IssueAddress.setter
+    def IssueAddress(self, IssueAddress):
+        self._IssueAddress = IssueAddress
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._EnglishName = params.get("EnglishName")
+        self._Number = params.get("Number")
+        self._Sex = params.get("Sex")
+        self._ValidDate = params.get("ValidDate")
+        self._IssueAuthority = params.get("IssueAuthority")
+        self._IssueAddress = params.get("IssueAddress")
+        self._Birthday = params.get("Birthday")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IdCardOCRVerificationRequest(AbstractModel):
+    r"""IdCardOCRVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IdCard: Identity card number.
+-Name, identity card number, ImageBase64, or ImageUrl must provide one of the three.
+-If both are provided, proceed to use parameters according to the priority of name and identity card number > ImageBase64 > ImageUrl.
+        :type IdCard: str
+        :param _Name: Name
+        :type Name: str
+        :param _ImageBase64: Base64 value of the ID card portrait side.
+-Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.
+-Supported image size: The downloaded image after Base64 encoding is no more than 3M. Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.
+        :type ImageBase64: str
+        :param _ImageUrl: Url of the ID card portrait side.
+-Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.
+-Supported image size: The downloaded image is no more than 3M after Base64 encoding. Image download time is no more than 3 seconds.
+-Images stored on Tencent Cloud's Url guarantee higher download speed and stability. It is advisable to store images on Tencent Cloud.
+-The speed and stability of non-Tencent Cloud Storage URLs may be impacted.
+        :type ImageUrl: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._IdCard = None
+        self._Name = None
+        self._ImageBase64 = None
+        self._ImageUrl = None
+        self._Encryption = None
+
+    @property
+    def IdCard(self):
+        r"""Identity card number.
+-Name, identity card number, ImageBase64, or ImageUrl must provide one of the three.
+-If both are provided, proceed to use parameters according to the priority of name and identity card number > ImageBase64 > ImageUrl.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ImageBase64(self):
+        r"""Base64 value of the ID card portrait side.
+-Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.
+-Supported image size: The downloaded image after Base64 encoding is no more than 3M. Please use the standard Base64 encoding method (with = padding). Refer to RFC4648 for the coding specification.
+        :rtype: str
+        """
+        return self._ImageBase64
+
+    @ImageBase64.setter
+    def ImageBase64(self, ImageBase64):
+        self._ImageBase64 = ImageBase64
+
+    @property
+    def ImageUrl(self):
+        r"""Url of the ID card portrait side.
+-Supported image formats: PNG, JPG, JPEG. GIF format is not currently supported.
+-Supported image size: The downloaded image is no more than 3M after Base64 encoding. Image download time is no more than 3 seconds.
+-Images stored on Tencent Cloud's Url guarantee higher download speed and stability. It is advisable to store images on Tencent Cloud.
+-The speed and stability of non-Tencent Cloud Storage URLs may be impacted.
+        :rtype: str
+        """
+        return self._ImageUrl
+
+    @ImageUrl.setter
+    def ImageUrl(self, ImageUrl):
+        self._ImageUrl = ImageUrl
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._IdCard = params.get("IdCard")
+        self._Name = params.get("Name")
+        self._ImageBase64 = params.get("ImageBase64")
+        self._ImageUrl = params.get("ImageUrl")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IdCardOCRVerificationResponse(AbstractModel):
+    r"""IdCardOCRVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+-Result code for charges
+The name and identity card number match.
+-Name and ID card number mismatch.
+-Result code with no charge
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length or format).
+-4: Document library service exception.
+-5: No ID card record found in the document library.
+-6: The authoritative comparison system is being upgraded. Try again later.
+-7: Authentication attempts exceeded the daily limit.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _Name: Name to verify.
+        :type Name: str
+        :param _IdCard: Identity card number to verify.
+        :type IdCard: str
+        :param _Sex: Gender obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Sex: str
+        :param _Nation: Ethnicity obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Nation: str
+        :param _Birth: Birthday obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Birth: str
+        :param _Address: Address obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Address: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._Name = None
+        self._IdCard = None
+        self._Sex = None
+        self._Nation = None
+        self._Birth = None
+        self._Address = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+-Result code for charges
+The name and identity card number match.
+-Name and ID card number mismatch.
+-Result code with no charge
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length or format).
+-4: Document library service exception.
+-5: No ID card record found in the document library.
+-6: The authoritative comparison system is being upgraded. Try again later.
+-7: Authentication attempts exceeded the daily limit.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Name(self):
+        r"""Name to verify.
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def IdCard(self):
+        r"""Identity card number to verify.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Sex(self):
+        r"""Gender obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Nation(self):
+        r"""Ethnicity obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._Nation
+
+    @Nation.setter
+    def Nation(self, Nation):
+        self._Nation = Nation
+
+    @property
+    def Birth(self):
+        r"""Birthday obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._Birth
+
+    @Birth.setter
+    def Birth(self, Birth):
+        self._Birth = Birth
+
+    @property
+    def Address(self):
+        r"""Address obtained by OCR.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Name = params.get("Name")
+        self._IdCard = params.get("IdCard")
+        self._Sex = params.get("Sex")
+        self._Nation = params.get("Nation")
+        self._Birth = params.get("Birth")
+        self._Address = params.get("Address")
+        self._RequestId = params.get("RequestId")
+
+
+class IdCardVerificationRequest(AbstractModel):
+    r"""IdCardVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IdCard: Identity card number.
+        :type IdCard: str
+        :param _Name: Name
+        :type Name: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._IdCard = None
+        self._Name = None
+        self._Encryption = None
+
+    @property
+    def IdCard(self):
+        r"""Identity card number.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._IdCard = params.get("IdCard")
+        self._Name = params.get("Name")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IdCardVerificationResponse(AbstractModel):
+    r"""IdCardVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+-Result code for charges
+Name and identity card number match
+-Name and ID card number mismatch
+No charge result code:
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length, format, etc.)
+-4: Document library service exception
+-5: No ID card record found in the document library
+-6: The authoritative comparison system is being upgraded. Try again later.
+-7: Authentication attempts exceeded the daily limit.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+-Result code for charges
+Name and identity card number match
+-Name and ID card number mismatch
+No charge result code:
+-2: Invalid ID number (incorrect length or check digit).
+-3: Invalid name (incorrect length, format, etc.)
+-4: Document library service exception
+-5: No ID card record found in the document library
+-6: The authoritative comparison system is being upgraded. Try again later.
+-7: Authentication attempts exceeded the daily limit.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._RequestId = params.get("RequestId")
+
+
+class ImageRecognitionV2Request(AbstractModel):
+    r"""ImageRecognitionV2 request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IdCard: <p>Identity card number.</p>
+        :type IdCard: str
+        :param _Name: <p>Name.</p><ul><li>For Chinese, please use UTF-8 encode.</li></ul>
+        :type Name: str
+        :param _ImageBase64: <p>Image for face comparison, the Base64 value of the image.<br>The size of the Base64-encoded image data should be no more than 3M. Only jpg and png formats are supported.<br>Please use the standard Base64 encoding type (with = padding). Refer to RFC4648 for the coding specification.</p>
+        :type ImageBase64: str
+        :param _Optional: <p>This parameter is not required for this API.</p>
+        :type Optional: str
+        :param _Encryption: <p>Sensitive data encryption information.</p><ul><li>Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.</li></ul>
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        :param _Extra: <p>Customized description field.</p><ul><li>For description of invoke business info. This description field will return in the output.</li><li>Each customized description field supports [1,10] characters.</li></ul>
+        :type Extra: str
+        """
+        self._IdCard = None
+        self._Name = None
+        self._ImageBase64 = None
+        self._Optional = None
+        self._Encryption = None
+        self._Extra = None
+
+    @property
+    def IdCard(self):
+        r"""<p>Identity card number.</p>
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Name(self):
+        r"""<p>Name.</p><ul><li>For Chinese, please use UTF-8 encode.</li></ul>
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ImageBase64(self):
+        r"""<p>Image for face comparison, the Base64 value of the image.<br>The size of the Base64-encoded image data should be no more than 3M. Only jpg and png formats are supported.<br>Please use the standard Base64 encoding type (with = padding). Refer to RFC4648 for the coding specification.</p>
+        :rtype: str
+        """
+        return self._ImageBase64
+
+    @ImageBase64.setter
+    def ImageBase64(self, ImageBase64):
+        self._ImageBase64 = ImageBase64
+
+    @property
+    def Optional(self):
+        r"""<p>This parameter is not required for this API.</p>
+        :rtype: str
+        """
+        return self._Optional
+
+    @Optional.setter
+    def Optional(self, Optional):
+        self._Optional = Optional
+
+    @property
+    def Encryption(self):
+        r"""<p>Sensitive data encryption information.</p><ul><li>Users with encryption requirements for incoming information (name, identity card number) can use this parameter. For details, please click the left-side link.</li></ul>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+    @property
+    def Extra(self):
+        r"""<p>Customized description field.</p><ul><li>For description of invoke business info. This description field will return in the output.</li><li>Each customized description field supports [1,10] characters.</li></ul>
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+
+    def _deserialize(self, params):
+        self._IdCard = params.get("IdCard")
+        self._Name = params.get("Name")
+        self._ImageBase64 = params.get("ImageBase64")
+        self._Optional = params.get("Optional")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        self._Extra = params.get("Extra")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ImageRecognitionV2Response(AbstractModel):
+    r"""ImageRecognitionV2 response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Sim: <p>Similarity. - Value ranges from 0.00 to 100.00. - Recommend at least 70 to be determined as the same person. You can self-adjust the threshold based on specific scenarios (the pass rate for false matches at threshold 70 is 0.01%).</p>
+        :type Sim: float
+        :param _Result: <p>Business error code.</p><ul><li>Success case returns Success.</li><li>For error conditions, refer to the FailedOperation part in the error code list below.</li></ul>
+        :type Result: str
+        :param _Description: <p>Business result description.</p>
+        :type Description: str
+        :param _Extra: <p>Custom description field in the API call.</p>
+        :type Extra: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Sim = None
+        self._Result = None
+        self._Description = None
+        self._Extra = None
+        self._RequestId = None
+
+    @property
+    def Sim(self):
+        r"""<p>Similarity. - Value ranges from 0.00 to 100.00. - Recommend at least 70 to be determined as the same person. You can self-adjust the threshold based on specific scenarios (the pass rate for false matches at threshold 70 is 0.01%).</p>
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def Result(self):
+        r"""<p>Business error code.</p><ul><li>Success case returns Success.</li><li>For error conditions, refer to the FailedOperation part in the error code list below.</li></ul>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""<p>Business result description.</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Extra(self):
+        r"""<p>Custom description field in the API call.</p>
+        :rtype: str
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Sim = params.get("Sim")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Extra = params.get("Extra")
+        self._RequestId = params.get("RequestId")
+
+
+class IndonesiaDrivingLicense(AbstractModel):
+    r"""Indonesian driving license
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: First name
+        :type FirstName: str
+        :param _LicenseNumber: No.
+        :type LicenseNumber: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _Address: Address.
+        :type Address: str
+        :param _ExpirationDate: Expiration date
+        :type ExpirationDate: str
+        :param _IssuedDate: Issue date
+        :type IssuedDate: str
+        :param _IssuedCountry: Issuing country
+        :type IssuedCountry: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Birthday = None
+        self._Address = None
+        self._ExpirationDate = None
+        self._IssuedDate = None
+        self._IssuedCountry = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""First name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""No.
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration date
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def IssuedDate(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def IssuedCountry(self):
+        r"""Issuing country
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Birthday = params.get("Birthday")
+        self._Address = params.get("Address")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._IssuedDate = params.get("IssuedDate")
+        self._IssuedCountry = params.get("IssuedCountry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IndonesiaIDCard(AbstractModel):
+    r"""Indonesian Identity Card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _NIK: ID number
+        :type NIK: str
+        :param _Nama: Name
+        :type Nama: str
+        :param _TempatTglLahir: Birthplace/Date of birth
+        :type TempatTglLahir: str
+        :param _JenisKelamin: Sex
+        :type JenisKelamin: str
+        :param _GolDarah: Blood type
+        :type GolDarah: str
+        :param _Alamat: Address.
+        :type Alamat: str
+        :param _RTRW: Street
+        :type RTRW: str
+        :param _KelDesa: Village
+        :type KelDesa: str
+        :param _Kecamatan: Region.
+        :type Kecamatan: str
+        :param _Agama: Religious belief
+        :type Agama: str
+        :param _StatusPerkawinan: Marital status
+        :type StatusPerkawinan: str
+        :param _Perkerjaan: Occupation
+        :type Perkerjaan: str
+        :param _KewargaNegaraan: Nationality
+        :type KewargaNegaraan: str
+        :param _BerlakuHingga: Validity period of the ID card
+        :type BerlakuHingga: str
+        :param _IssuedDate: Issue date
+        :type IssuedDate: str
+        :param _Provinsi: Province
+        :type Provinsi: str
+        :param _Kota: city
+        :type Kota: str
+        """
+        self._NIK = None
+        self._Nama = None
+        self._TempatTglLahir = None
+        self._JenisKelamin = None
+        self._GolDarah = None
+        self._Alamat = None
+        self._RTRW = None
+        self._KelDesa = None
+        self._Kecamatan = None
+        self._Agama = None
+        self._StatusPerkawinan = None
+        self._Perkerjaan = None
+        self._KewargaNegaraan = None
+        self._BerlakuHingga = None
+        self._IssuedDate = None
+        self._Provinsi = None
+        self._Kota = None
+
+    @property
+    def NIK(self):
+        r"""ID number
+        :rtype: str
+        """
+        return self._NIK
+
+    @NIK.setter
+    def NIK(self, NIK):
+        self._NIK = NIK
+
+    @property
+    def Nama(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Nama
+
+    @Nama.setter
+    def Nama(self, Nama):
+        self._Nama = Nama
+
+    @property
+    def TempatTglLahir(self):
+        r"""Birthplace/Date of birth
+        :rtype: str
+        """
+        return self._TempatTglLahir
+
+    @TempatTglLahir.setter
+    def TempatTglLahir(self, TempatTglLahir):
+        self._TempatTglLahir = TempatTglLahir
+
+    @property
+    def JenisKelamin(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._JenisKelamin
+
+    @JenisKelamin.setter
+    def JenisKelamin(self, JenisKelamin):
+        self._JenisKelamin = JenisKelamin
+
+    @property
+    def GolDarah(self):
+        r"""Blood type
+        :rtype: str
+        """
+        return self._GolDarah
+
+    @GolDarah.setter
+    def GolDarah(self, GolDarah):
+        self._GolDarah = GolDarah
+
+    @property
+    def Alamat(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Alamat
+
+    @Alamat.setter
+    def Alamat(self, Alamat):
+        self._Alamat = Alamat
+
+    @property
+    def RTRW(self):
+        r"""Street
+        :rtype: str
+        """
+        return self._RTRW
+
+    @RTRW.setter
+    def RTRW(self, RTRW):
+        self._RTRW = RTRW
+
+    @property
+    def KelDesa(self):
+        r"""Village
+        :rtype: str
+        """
+        return self._KelDesa
+
+    @KelDesa.setter
+    def KelDesa(self, KelDesa):
+        self._KelDesa = KelDesa
+
+    @property
+    def Kecamatan(self):
+        r"""Region.
+        :rtype: str
+        """
+        return self._Kecamatan
+
+    @Kecamatan.setter
+    def Kecamatan(self, Kecamatan):
+        self._Kecamatan = Kecamatan
+
+    @property
+    def Agama(self):
+        r"""Religious belief
+        :rtype: str
+        """
+        return self._Agama
+
+    @Agama.setter
+    def Agama(self, Agama):
+        self._Agama = Agama
+
+    @property
+    def StatusPerkawinan(self):
+        r"""Marital status
+        :rtype: str
+        """
+        return self._StatusPerkawinan
+
+    @StatusPerkawinan.setter
+    def StatusPerkawinan(self, StatusPerkawinan):
+        self._StatusPerkawinan = StatusPerkawinan
+
+    @property
+    def Perkerjaan(self):
+        r"""Occupation
+        :rtype: str
+        """
+        return self._Perkerjaan
+
+    @Perkerjaan.setter
+    def Perkerjaan(self, Perkerjaan):
+        self._Perkerjaan = Perkerjaan
+
+    @property
+    def KewargaNegaraan(self):
+        r"""Nationality
+        :rtype: str
+        """
+        return self._KewargaNegaraan
+
+    @KewargaNegaraan.setter
+    def KewargaNegaraan(self, KewargaNegaraan):
+        self._KewargaNegaraan = KewargaNegaraan
+
+    @property
+    def BerlakuHingga(self):
+        r"""Validity period of the ID card
+        :rtype: str
+        """
+        return self._BerlakuHingga
+
+    @BerlakuHingga.setter
+    def BerlakuHingga(self, BerlakuHingga):
+        self._BerlakuHingga = BerlakuHingga
+
+    @property
+    def IssuedDate(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def Provinsi(self):
+        r"""Province
+        :rtype: str
+        """
+        return self._Provinsi
+
+    @Provinsi.setter
+    def Provinsi(self, Provinsi):
+        self._Provinsi = Provinsi
+
+    @property
+    def Kota(self):
+        r"""city
+        :rtype: str
+        """
+        return self._Kota
+
+    @Kota.setter
+    def Kota(self, Kota):
+        self._Kota = Kota
+
+
+    def _deserialize(self, params):
+        self._NIK = params.get("NIK")
+        self._Nama = params.get("Nama")
+        self._TempatTglLahir = params.get("TempatTglLahir")
+        self._JenisKelamin = params.get("JenisKelamin")
+        self._GolDarah = params.get("GolDarah")
+        self._Alamat = params.get("Alamat")
+        self._RTRW = params.get("RTRW")
+        self._KelDesa = params.get("KelDesa")
+        self._Kecamatan = params.get("Kecamatan")
+        self._Agama = params.get("Agama")
+        self._StatusPerkawinan = params.get("StatusPerkawinan")
+        self._Perkerjaan = params.get("Perkerjaan")
+        self._KewargaNegaraan = params.get("KewargaNegaraan")
+        self._BerlakuHingga = params.get("BerlakuHingga")
+        self._IssuedDate = params.get("IssuedDate")
+        self._Provinsi = params.get("Provinsi")
+        self._Kota = params.get("Kota")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class InternationalIDPassport(AbstractModel):
+    r"""Hong Kong, Macao, and Taiwan region as well as overseas passport
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: Passport ID
+        :type LicenseNumber: str
+        :param _FullName: Name
+        :type FullName: str
+        :param _Surname: Last name
+        :type Surname: str
+        :param _GivenName: Name
+        :type GivenName: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _Sex: Gender (F: female, M: male).
+        :type Sex: str
+        :param _DateOfExpiration: Validity period.
+        :type DateOfExpiration: str
+        :param _IssuingCountry: Issuing country
+        :type IssuingCountry: str
+        :param _NationalityCode: Country region code
+        :type NationalityCode: str
+        :param _PassportCodeFirst: MRZ Code sequence in the first row at the bottom
+        :type PassportCodeFirst: str
+        :param _PassportCodeSecond: MRZ Code sequence in the second line from the bottom
+        :type PassportCodeSecond: str
+        """
+        self._LicenseNumber = None
+        self._FullName = None
+        self._Surname = None
+        self._GivenName = None
+        self._Birthday = None
+        self._Sex = None
+        self._DateOfExpiration = None
+        self._IssuingCountry = None
+        self._NationalityCode = None
+        self._PassportCodeFirst = None
+        self._PassportCodeSecond = None
+
+    @property
+    def LicenseNumber(self):
+        r"""Passport ID
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def Surname(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._Surname
+
+    @Surname.setter
+    def Surname(self, Surname):
+        self._Surname = Surname
+
+    @property
+    def GivenName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._GivenName
+
+    @GivenName.setter
+    def GivenName(self, GivenName):
+        self._GivenName = GivenName
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Sex(self):
+        r"""Gender (F: female, M: male).
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def DateOfExpiration(self):
+        r"""Validity period.
+        :rtype: str
+        """
+        return self._DateOfExpiration
+
+    @DateOfExpiration.setter
+    def DateOfExpiration(self, DateOfExpiration):
+        self._DateOfExpiration = DateOfExpiration
+
+    @property
+    def IssuingCountry(self):
+        r"""Issuing country
+        :rtype: str
+        """
+        return self._IssuingCountry
+
+    @IssuingCountry.setter
+    def IssuingCountry(self, IssuingCountry):
+        self._IssuingCountry = IssuingCountry
+
+    @property
+    def NationalityCode(self):
+        r"""Country region code
+        :rtype: str
+        """
+        return self._NationalityCode
+
+    @NationalityCode.setter
+    def NationalityCode(self, NationalityCode):
+        self._NationalityCode = NationalityCode
+
+    @property
+    def PassportCodeFirst(self):
+        r"""MRZ Code sequence in the first row at the bottom
+        :rtype: str
+        """
+        return self._PassportCodeFirst
+
+    @PassportCodeFirst.setter
+    def PassportCodeFirst(self, PassportCodeFirst):
+        self._PassportCodeFirst = PassportCodeFirst
+
+    @property
+    def PassportCodeSecond(self):
+        r"""MRZ Code sequence in the second line from the bottom
+        :rtype: str
+        """
+        return self._PassportCodeSecond
+
+    @PassportCodeSecond.setter
+    def PassportCodeSecond(self, PassportCodeSecond):
+        self._PassportCodeSecond = PassportCodeSecond
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FullName = params.get("FullName")
+        self._Surname = params.get("Surname")
+        self._GivenName = params.get("GivenName")
+        self._Birthday = params.get("Birthday")
+        self._Sex = params.get("Sex")
+        self._DateOfExpiration = params.get("DateOfExpiration")
+        self._IssuingCountry = params.get("IssuingCountry")
+        self._NationalityCode = params.get("NationalityCode")
+        self._PassportCodeFirst = params.get("PassportCodeFirst")
+        self._PassportCodeSecond = params.get("PassportCodeSecond")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class JapanIDCard(AbstractModel):
+    r"""Japan identity card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FullName: Name.
+        :type FullName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _ExpirationDate: Expiration time.
+        :type ExpirationDate: str
+        :param _FormattedAddress: Address.
+        :type FormattedAddress: str
+        """
+        self._FullName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._ExpirationDate = None
+        self._FormattedAddress = None
+
+    @property
+    def FullName(self):
+        r"""Name.
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration time.
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def FormattedAddress(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+
+    def _deserialize(self, params):
+        self._FullName = params.get("FullName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._FormattedAddress = params.get("FormattedAddress")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ListEKYCWebhooksRequest(AbstractModel):
+    r"""ListEKYCWebhooks request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: <p>Paging offset. Default value: 0</p><p>Value range: [0, 100]</p>
+        :type Offset: int
+        :param _Limit: <p>Number of results per page. Default value: 20. Maximum value: 100 (automatically truncated to 100 if exceeded)</p><p>Value range: [20, 100]</p>
+        :type Limit: int
+        """
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def Offset(self):
+        r"""<p>Paging offset. Default value: 0</p><p>Value range: [0, 100]</p>
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""<p>Number of results per page. Default value: 20. Maximum value: 100 (automatically truncated to 100 if exceeded)</p><p>Value range: [20, 100]</p>
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ListEKYCWebhooksResponse(AbstractModel):
+    r"""ListEKYCWebhooks response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: Total number of Webhook configurations.
+        :type TotalCount: int
+        :param _WebhookList: <p>Webhook configuration list</p>
+        :type WebhookList: list of WebhookList
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._WebhookList = None
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""Total number of Webhook configurations.
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def WebhookList(self):
+        r"""<p>Webhook configuration list</p>
+        :rtype: list of WebhookList
+        """
+        return self._WebhookList
+
+    @WebhookList.setter
+    def WebhookList(self, WebhookList):
+        self._WebhookList = WebhookList
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("WebhookList") is not None:
+            self._WebhookList = []
+            for item in params.get("WebhookList"):
+                obj = WebhookList()
+                obj._deserialize(item)
+                self._WebhookList.append(obj)
+        self._Result = params.get("Result")
+        self._RequestId = params.get("RequestId")
+
+
+class LivenessCompareRequest(AbstractModel):
+    r"""LivenessCompare request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LivenessType: Liveness detection type. Valid values: LIP/ACTION/SILENT.
+LIP: numeric mode; ACTION: motion mode; SILENT: silent mode. You need to select a mode to input.
+        :type LivenessType: str
+        :param _ImageBase64: Base64 string of the image for face comparison.
+The size of the Base64-encoded image data can be up to 3 MB. JPG and PNG formats are supported.
+Please use the standard Base64 encoding scheme (with the "=" padding). For the encoding conventions, please see RFC 4648.
+
+Either the `ImageUrl` or `ImageBase64` of the image must be provided. If both are provided, only `ImageBase64` will be used.
+        :type ImageBase64: str
+        :param _ImageUrl: URL of the image for face comparison. The size of the downloaded image after Base64 encoding can be up to 3 MB. JPG and PNG formats are supported.
+
+Either the `ImageUrl` or `ImageBase64` of the image must be provided. If both are provided, only `ImageBase64` will be used.
+
+We recommend you store the image in Tencent Cloud, as a Tencent Cloud URL can guarantee higher download speed and stability. The download speed and stability of non-Tencent Cloud URLs may be low.
+        :type ImageUrl: str
+        :param _ValidateData: Lip mode: set this parameter to a custom 4-digit verification code.
+Action mode: set this parameter to a custom action sequence (e.g., `2,1` or `1,2`).
+Silent mode: do not pass in this parameter.
+        :type ValidateData: str
+        :param _Optional: Optional configuration (a JSON string)
+{
+"BestFrameNum": 2  // Return multiple best screenshots. Value range: [2 10]
+}
+        :type Optional: str
+        :param _VideoBase64: Base64 string of the video for liveness detection.
+The size of the Base64-encoded video data can be up to 8 MB. MP4, AVI, and FLV formats are supported.
+Please use the standard Base64 encoding scheme (with the "=" padding). For the encoding conventions, please see RFC 4648.
+
+Either the `VideoUrl` or `VideoBase64` of the video must be provided. If both are provided, only `VideoBase64` will be used.
+        :type VideoBase64: str
+        :param _VideoUrl: URL of the video for liveness detection. The size of the downloaded video after Base64 encoding can be up to 8 MB. It takes no more than 4 seconds to download. MP4, AVI, and FLV formats are supported.
+
+Either the `VideoUrl` or `VideoBase64` of the video must be provided. If both are provided, only `VideoBase64` will be used.
+
+We recommend you store the video in Tencent Cloud, as a Tencent Cloud URL can guarantee higher download speed and stability. The download speed and stability of non-Tencent Cloud URLs may be low.
+        :type VideoUrl: str
+        """
+        self._LivenessType = None
+        self._ImageBase64 = None
+        self._ImageUrl = None
+        self._ValidateData = None
+        self._Optional = None
+        self._VideoBase64 = None
+        self._VideoUrl = None
+
+    @property
+    def LivenessType(self):
+        r"""Liveness detection type. Valid values: LIP/ACTION/SILENT.
+LIP: numeric mode; ACTION: motion mode; SILENT: silent mode. You need to select a mode to input.
+        :rtype: str
+        """
+        return self._LivenessType
+
+    @LivenessType.setter
+    def LivenessType(self, LivenessType):
+        self._LivenessType = LivenessType
+
+    @property
+    def ImageBase64(self):
+        r"""Base64 string of the image for face comparison.
+The size of the Base64-encoded image data can be up to 3 MB. JPG and PNG formats are supported.
+Please use the standard Base64 encoding scheme (with the "=" padding). For the encoding conventions, please see RFC 4648.
+
+Either the `ImageUrl` or `ImageBase64` of the image must be provided. If both are provided, only `ImageBase64` will be used.
+        :rtype: str
+        """
+        return self._ImageBase64
+
+    @ImageBase64.setter
+    def ImageBase64(self, ImageBase64):
+        self._ImageBase64 = ImageBase64
+
+    @property
+    def ImageUrl(self):
+        r"""URL of the image for face comparison. The size of the downloaded image after Base64 encoding can be up to 3 MB. JPG and PNG formats are supported.
+
+Either the `ImageUrl` or `ImageBase64` of the image must be provided. If both are provided, only `ImageBase64` will be used.
+
+We recommend you store the image in Tencent Cloud, as a Tencent Cloud URL can guarantee higher download speed and stability. The download speed and stability of non-Tencent Cloud URLs may be low.
+        :rtype: str
+        """
+        return self._ImageUrl
+
+    @ImageUrl.setter
+    def ImageUrl(self, ImageUrl):
+        self._ImageUrl = ImageUrl
+
+    @property
+    def ValidateData(self):
+        r"""Lip mode: set this parameter to a custom 4-digit verification code.
+Action mode: set this parameter to a custom action sequence (e.g., `2,1` or `1,2`).
+Silent mode: do not pass in this parameter.
+        :rtype: str
+        """
+        return self._ValidateData
+
+    @ValidateData.setter
+    def ValidateData(self, ValidateData):
+        self._ValidateData = ValidateData
+
+    @property
+    def Optional(self):
+        r"""Optional configuration (a JSON string)
+{
+"BestFrameNum": 2  // Return multiple best screenshots. Value range: [2 10]
+}
+        :rtype: str
+        """
+        return self._Optional
+
+    @Optional.setter
+    def Optional(self, Optional):
+        self._Optional = Optional
+
+    @property
+    def VideoBase64(self):
+        r"""Base64 string of the video for liveness detection.
+The size of the Base64-encoded video data can be up to 8 MB. MP4, AVI, and FLV formats are supported.
+Please use the standard Base64 encoding scheme (with the "=" padding). For the encoding conventions, please see RFC 4648.
+
+Either the `VideoUrl` or `VideoBase64` of the video must be provided. If both are provided, only `VideoBase64` will be used.
+        :rtype: str
+        """
+        return self._VideoBase64
+
+    @VideoBase64.setter
+    def VideoBase64(self, VideoBase64):
+        self._VideoBase64 = VideoBase64
+
+    @property
+    def VideoUrl(self):
+        r"""URL of the video for liveness detection. The size of the downloaded video after Base64 encoding can be up to 8 MB. It takes no more than 4 seconds to download. MP4, AVI, and FLV formats are supported.
+
+Either the `VideoUrl` or `VideoBase64` of the video must be provided. If both are provided, only `VideoBase64` will be used.
+
+We recommend you store the video in Tencent Cloud, as a Tencent Cloud URL can guarantee higher download speed and stability. The download speed and stability of non-Tencent Cloud URLs may be low.
+        :rtype: str
+        """
+        return self._VideoUrl
+
+    @VideoUrl.setter
+    def VideoUrl(self, VideoUrl):
+        self._VideoUrl = VideoUrl
+
+
+    def _deserialize(self, params):
+        self._LivenessType = params.get("LivenessType")
+        self._ImageBase64 = params.get("ImageBase64")
+        self._ImageUrl = params.get("ImageUrl")
+        self._ValidateData = params.get("ValidateData")
+        self._Optional = params.get("Optional")
+        self._VideoBase64 = params.get("VideoBase64")
+        self._VideoUrl = params.get("VideoUrl")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class LivenessCompareResponse(AbstractModel):
+    r"""LivenessCompare response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BestFrameBase64: The best screenshot of the video after successful verification. The photo is Base64-encoded and in JPG format.
+        :type BestFrameBase64: str
+        :param _Sim: Similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two faces are of the same person. You can adjust the threshold according to your specific scenario (the FAR at the threshold of 70 is 0.1%, and FAR at the threshold of 80 is 0.01%).
+        :type Sim: float
+        :param _Result: Service error code. `Success` will be returned for success. For error information, please see the `FailedOperation` section in the error code list below.
+        :type Result: str
+        :param _Description: Service result description.
+        :type Description: str
+        :param _BestFrameList: Best screenshot list.
+Returned only when multiple best screenshots are configured to be returned.
+        :type BestFrameList: list of str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._BestFrameBase64 = None
+        self._Sim = None
+        self._Result = None
+        self._Description = None
+        self._BestFrameList = None
+        self._RequestId = None
+
+    @property
+    def BestFrameBase64(self):
+        r"""The best screenshot of the video after successful verification. The photo is Base64-encoded and in JPG format.
+        :rtype: str
+        """
+        return self._BestFrameBase64
+
+    @BestFrameBase64.setter
+    def BestFrameBase64(self, BestFrameBase64):
+        self._BestFrameBase64 = BestFrameBase64
+
+    @property
+    def Sim(self):
+        r"""Similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two faces are of the same person. You can adjust the threshold according to your specific scenario (the FAR at the threshold of 70 is 0.1%, and FAR at the threshold of 80 is 0.01%).
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def Result(self):
+        r"""Service error code. `Success` will be returned for success. For error information, please see the `FailedOperation` section in the error code list below.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Service result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def BestFrameList(self):
+        r"""Best screenshot list.
+Returned only when multiple best screenshots are configured to be returned.
+        :rtype: list of str
+        """
+        return self._BestFrameList
+
+    @BestFrameList.setter
+    def BestFrameList(self, BestFrameList):
+        self._BestFrameList = BestFrameList
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._BestFrameBase64 = params.get("BestFrameBase64")
+        self._Sim = params.get("Sim")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._BestFrameList = params.get("BestFrameList")
+        self._RequestId = params.get("RequestId")
+
+
+class MLIDCard(AbstractModel):
+    r"""Malaysian identity card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _ID: Identity card number
+        :type ID: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _Address: Address.
+        :type Address: str
+        :param _Type: Document type
+MyKad identity card
+MyPR permanent residence permit
+MyTentera Military ID card
+MyKAS Temporary ID card
+POLIS Police ID card
+IKAD labor ID card
+MyKid Juvenile ID card
+        :type Type: str
+        :param _Birthday: Date of birth (currently this field only supports IKAD labor ID card and MyKad ID card)
+        :type Birthday: str
+        """
+        self._Name = None
+        self._ID = None
+        self._Sex = None
+        self._Address = None
+        self._Type = None
+        self._Birthday = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ID(self):
+        r"""Identity card number
+        :rtype: str
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def Type(self):
+        r"""Document type
+MyKad identity card
+MyPR permanent residence permit
+MyTentera Military ID card
+MyKAS Temporary ID card
+POLIS Police ID card
+IKAD labor ID card
+MyKid Juvenile ID card
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Birthday(self):
+        r"""Date of birth (currently this field only supports IKAD labor ID card and MyKad ID card)
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._ID = params.get("ID")
+        self._Sex = params.get("Sex")
+        self._Address = params.get("Address")
+        self._Type = params.get("Type")
+        self._Birthday = params.get("Birthday")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MacaoIDCard(AbstractModel):
+    r"""Macao identity card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FirstName: First name
+        :type FirstName: str
+        :param _LastName: Last name
+        :type LastName: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _ExpirationDate: Expiration date
+        :type ExpirationDate: str
+        :param _LicenseNumber: Identity number
+        :type LicenseNumber: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _Age: Age
+        :type Age: str
+        :param _IssuedCountry: Issuing country
+        :type IssuedCountry: str
+        :param _Field1: mrz field 1
+        :type Field1: str
+        :param _Field2: mrz field 2
+        :type Field2: str
+        """
+        self._FirstName = None
+        self._LastName = None
+        self._Birthday = None
+        self._ExpirationDate = None
+        self._LicenseNumber = None
+        self._Sex = None
+        self._Age = None
+        self._IssuedCountry = None
+        self._Field1 = None
+        self._Field2 = None
+
+    @property
+    def FirstName(self):
+        r"""First name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration date
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def IssuedCountry(self):
+        r"""Issuing country
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+    @property
+    def Field1(self):
+        r"""mrz field 1
+        :rtype: str
+        """
+        return self._Field1
+
+    @Field1.setter
+    def Field1(self, Field1):
+        self._Field1 = Field1
+
+    @property
+    def Field2(self):
+        r"""mrz field 2
+        :rtype: str
+        """
+        return self._Field2
+
+    @Field2.setter
+    def Field2(self, Field2):
+        self._Field2 = Field2
+
+
+    def _deserialize(self, params):
+        self._FirstName = params.get("FirstName")
+        self._LastName = params.get("LastName")
+        self._Birthday = params.get("Birthday")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Sex = params.get("Sex")
+        self._Age = params.get("Age")
+        self._IssuedCountry = params.get("IssuedCountry")
+        self._Field1 = params.get("Field1")
+        self._Field2 = params.get("Field2")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MainlandIDCard(AbstractModel):
+    r"""Mainland ID card recognition result
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FullName: <p>Name</p>
+        :type FullName: str
+        :param _Sex: <p>Gender</p>
+        :type Sex: str
+        :param _Nation: <p>Ethnicity</p>
+        :type Nation: str
+        :param _Birthday: <p>Birthday</p>
+        :type Birthday: str
+        :param _Address: <p>Address</p>
+        :type Address: str
+        :param _LicenseNumber: <p>Identity card number</p>
+        :type LicenseNumber: str
+        :param _FormattedAddress: <p>Address</p>
+        :type FormattedAddress: str
+        :param _Authority: <p>Issuing authority</p>
+        :type Authority: str
+        :param _ValidDate: <p>Validity period</p>
+        :type ValidDate: str
+        """
+        self._FullName = None
+        self._Sex = None
+        self._Nation = None
+        self._Birthday = None
+        self._Address = None
+        self._LicenseNumber = None
+        self._FormattedAddress = None
+        self._Authority = None
+        self._ValidDate = None
+
+    @property
+    def FullName(self):
+        r"""<p>Name</p>
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def Sex(self):
+        r"""<p>Gender</p>
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Nation(self):
+        r"""<p>Ethnicity</p>
+        :rtype: str
+        """
+        return self._Nation
+
+    @Nation.setter
+    def Nation(self, Nation):
+        self._Nation = Nation
+
+    @property
+    def Birthday(self):
+        r"""<p>Birthday</p>
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Address(self):
+        warnings.warn("parameter `Address` is deprecated", DeprecationWarning) 
+
+        r"""<p>Address</p>
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        warnings.warn("parameter `Address` is deprecated", DeprecationWarning) 
+
+        self._Address = Address
+
+    @property
+    def LicenseNumber(self):
+        r"""<p>Identity card number</p>
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FormattedAddress(self):
+        r"""<p>Address</p>
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+    @property
+    def Authority(self):
+        r"""<p>Issuing authority</p>
+        :rtype: str
+        """
+        return self._Authority
+
+    @Authority.setter
+    def Authority(self, Authority):
+        self._Authority = Authority
+
+    @property
+    def ValidDate(self):
+        r"""<p>Validity period</p>
+        :rtype: str
+        """
+        return self._ValidDate
+
+    @ValidDate.setter
+    def ValidDate(self, ValidDate):
+        self._ValidDate = ValidDate
+
+
+    def _deserialize(self, params):
+        self._FullName = params.get("FullName")
+        self._Sex = params.get("Sex")
+        self._Nation = params.get("Nation")
+        self._Birthday = params.get("Birthday")
+        self._Address = params.get("Address")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FormattedAddress = params.get("FormattedAddress")
+        self._Authority = params.get("Authority")
+        self._ValidDate = params.get("ValidDate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MobileNetworkTimeVerificationRequest(AbstractModel):
+    r"""MobileNetworkTimeVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Mobile: Mobile number.
+        :type Mobile: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (mobile number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._Mobile = None
+        self._Encryption = None
+
+    @property
+    def Mobile(self):
+        r"""Mobile number.
+        :rtype: str
+        """
+        return self._Mobile
+
+    @Mobile.setter
+    def Mobile(self, Mobile):
+        self._Mobile = Mobile
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (mobile number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._Mobile = params.get("Mobile")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MobileNetworkTimeVerificationResponse(AbstractModel):
+    r"""MobileNetworkTimeVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+-Result code for charges
+Success.
+-2: Mobile number does not exist.
+-3: The mobile number exists, but unable to query the duration.
+
+-Result code with no charge
+-Invalid phone number format.
+-4: Verification Center Service is busy.
+-5: Authentication attempts exceeded the daily limit. Retry the next day.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _Range: Online duration interval.
+-The format is [a,b), which means the online duration is longer than a months and shorter than b months.
+-If b is +, it means no upper limit.
+        :type Range: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._Range = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+-Result code for charges
+Success.
+-2: Mobile number does not exist.
+-3: The mobile number exists, but unable to query the duration.
+
+-Result code with no charge
+-Invalid phone number format.
+-4: Verification Center Service is busy.
+-5: Authentication attempts exceeded the daily limit. Retry the next day.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Range(self):
+        r"""Online duration interval.
+-The format is [a,b), which means the online duration is longer than a months and shorter than b months.
+-If b is +, it means no upper limit.
+        :rtype: str
+        """
+        return self._Range
+
+    @Range.setter
+    def Range(self, Range):
+        self._Range = Range
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Range = params.get("Range")
+        self._RequestId = params.get("RequestId")
+
+
+class MobileStatusRequest(AbstractModel):
+    r"""MobileStatus request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Mobile: Mobile number.
+        :type Mobile: str
+        :param _Encryption: Sensitive data encryption info.
+-Users with encryption requirements for incoming information (mobile number) can use this parameter. For details, please click the left-side link.
+        :type Encryption: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        self._Mobile = None
+        self._Encryption = None
+
+    @property
+    def Mobile(self):
+        r"""Mobile number.
+        :rtype: str
+        """
+        return self._Mobile
+
+    @Mobile.setter
+    def Mobile(self, Mobile):
+        self._Mobile = Mobile
+
+    @property
+    def Encryption(self):
+        r"""Sensitive data encryption info.
+-Users with encryption requirements for incoming information (mobile number) can use this parameter. For details, please click the left-side link.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Encryption`
+        """
+        return self._Encryption
+
+    @Encryption.setter
+    def Encryption(self, Encryption):
+        self._Encryption = Encryption
+
+
+    def _deserialize(self, params):
+        self._Mobile = params.get("Mobile")
+        if params.get("Encryption") is not None:
+            self._Encryption = Encryption()
+            self._Encryption._deserialize(params.get("Encryption"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MobileStatusResponse(AbstractModel):
+    r"""MobileStatus response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code. Billing is as follows.
+-Result code for charges
+0: Success.
+
+-Result code with no charge
+-No results found.
+-2: Invalid phone number format.
+-3: Verification Center Service is busy.
+-4: Authentication attempts exceeded the daily limit. Retry the next day.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _StatusCode: Status code.
+-Value range:
+0: Normal.
+1: Out of service.
+2: Account cancellation.
+4: Offline.
+99: unknown status.
+        :type StatusCode: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._StatusCode = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code. Billing is as follows.
+-Result code for charges
+0: Success.
+
+-Result code with no charge
+-No results found.
+-2: Invalid phone number format.
+-3: Verification Center Service is busy.
+-4: Authentication attempts exceeded the daily limit. Retry the next day.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def StatusCode(self):
+        r"""Status code.
+-Value range:
+0: Normal.
+1: Out of service.
+2: Account cancellation.
+4: Offline.
+99: unknown status.
+        :rtype: int
+        """
+        return self._StatusCode
+
+    @StatusCode.setter
+    def StatusCode(self, StatusCode):
+        self._StatusCode = StatusCode
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._StatusCode = params.get("StatusCode")
+        self._RequestId = params.get("RequestId")
+
+
+class NigeriaDrivingLicense(AbstractModel):
+    r"""Nigerian driver's license
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssuedCountry: City of issuance
+        :type IssuedCountry: str
+        :param _ExpirationDate: Expiration date
+        :type ExpirationDate: str
+        :param _IssuedDate: Issue date
+        :type IssuedDate: str
+        :param _Sex: Sex
+        :type Sex: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._IssuedCountry = None
+        self._ExpirationDate = None
+        self._IssuedDate = None
+        self._Sex = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssuedCountry(self):
+        r"""City of issuance
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration date
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def IssuedDate(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._IssuedCountry = params.get("IssuedCountry")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._IssuedDate = params.get("IssuedDate")
+        self._Sex = params.get("Sex")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NigeriaIDCard(AbstractModel):
+    r"""Nigerian Identity Card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssuedCountry: City of issuance
+        :type IssuedCountry: str
+        :param _Sex: Sex
+        :type Sex: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._IssuedCountry = None
+        self._Sex = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssuedCountry(self):
+        r"""City of issuance
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._IssuedCountry = params.get("IssuedCountry")
+        self._Sex = params.get("Sex")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NormalCardInfo(AbstractModel):
+    r"""Document recognition result (mapped field result)
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _HKIDCard: Hong Kong identity card
+        :type HKIDCard: :class:`tencentcloud.faceid.v20180301.models.NormalHKIDCard`
+        :param _MLIDCard: Malaysian identity card
+        :type MLIDCard: :class:`tencentcloud.faceid.v20180301.models.NormalMLIDCard`
+        :param _PhilippinesVoteID: Philippines voter card
+        :type PhilippinesVoteID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesVoteID`
+        :param _IndonesiaIDCard: Indonesian Identity Card
+        :type IndonesiaIDCard: :class:`tencentcloud.faceid.v20180301.models.NormalIndonesiaIDCard`
+        :param _PhilippinesDrivingLicense: Philippines driving license
+        :type PhilippinesDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.PhilippinesDrivingLicense`
+        :param _PhilippinesTinID: Philippines TinID
+        :type PhilippinesTinID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesTinID`
+        :param _PhilippinesSSSID: Philippines SSSID
+        :type PhilippinesSSSID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesSSSID`
+        :param _PhilippinesUMID: Philippines UMID
+        :type PhilippinesUMID: :class:`tencentcloud.faceid.v20180301.models.PhilippinesUMID`
+        :param _InternationalIDPassport: Hong Kong, Macao, and Taiwan region as well as overseas passport
+        :type InternationalIDPassport: :class:`tencentcloud.faceid.v20180301.models.InternationalIDPassport`
+        :param _GeneralCard: General card certificate information
+        :type GeneralCard: :class:`tencentcloud.faceid.v20180301.models.GeneralCard`
+        :param _IndonesiaDrivingLicense: Indonesian driving license
+        :type IndonesiaDrivingLicense: :class:`tencentcloud.faceid.v20180301.models.IndonesiaDrivingLicense`
+        :param _ThailandIDCard: Thai Identity Card
+        :type ThailandIDCard: :class:`tencentcloud.faceid.v20180301.models.NormalThailandIDCard`
+        :param _SingaporeIDCard: Singapore ID card
+        :type SingaporeIDCard: :class:`tencentcloud.faceid.v20180301.models.SingaporeIDCard`
+        :param _MacaoIDCard: Macao identity card
+        :type MacaoIDCard: :class:`tencentcloud.faceid.v20180301.models.MacaoIDCard`
+        :param _MainlandIDCard: Mainland ID card
+        :type MainlandIDCard: :class:`tencentcloud.faceid.v20180301.models.MainlandIDCard`
+        :param _JapanIDCard: Japan identity card
+        :type JapanIDCard: :class:`tencentcloud.faceid.v20180301.models.JapanIDCard`
+        :param _TaiWanIDCard: Taiwan (China) identity card
+        :type TaiWanIDCard: :class:`tencentcloud.faceid.v20180301.models.TaiWanIDCard`
+        :param _HMTPermitCard: Hong Kong, Macau and Taiwan Travel Permit
+        :type HMTPermitCard: :class:`tencentcloud.faceid.v20180301.models.HMTPermit`
+        """
+        self._HKIDCard = None
+        self._MLIDCard = None
+        self._PhilippinesVoteID = None
+        self._IndonesiaIDCard = None
+        self._PhilippinesDrivingLicense = None
+        self._PhilippinesTinID = None
+        self._PhilippinesSSSID = None
+        self._PhilippinesUMID = None
+        self._InternationalIDPassport = None
+        self._GeneralCard = None
+        self._IndonesiaDrivingLicense = None
+        self._ThailandIDCard = None
+        self._SingaporeIDCard = None
+        self._MacaoIDCard = None
+        self._MainlandIDCard = None
+        self._JapanIDCard = None
+        self._TaiWanIDCard = None
+        self._HMTPermitCard = None
+
+    @property
+    def HKIDCard(self):
+        r"""Hong Kong identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalHKIDCard`
+        """
+        return self._HKIDCard
+
+    @HKIDCard.setter
+    def HKIDCard(self, HKIDCard):
+        self._HKIDCard = HKIDCard
+
+    @property
+    def MLIDCard(self):
+        r"""Malaysian identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalMLIDCard`
+        """
+        return self._MLIDCard
+
+    @MLIDCard.setter
+    def MLIDCard(self, MLIDCard):
+        self._MLIDCard = MLIDCard
+
+    @property
+    def PhilippinesVoteID(self):
+        r"""Philippines voter card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesVoteID`
+        """
+        return self._PhilippinesVoteID
+
+    @PhilippinesVoteID.setter
+    def PhilippinesVoteID(self, PhilippinesVoteID):
+        self._PhilippinesVoteID = PhilippinesVoteID
+
+    @property
+    def IndonesiaIDCard(self):
+        r"""Indonesian Identity Card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalIndonesiaIDCard`
+        """
+        return self._IndonesiaIDCard
+
+    @IndonesiaIDCard.setter
+    def IndonesiaIDCard(self, IndonesiaIDCard):
+        self._IndonesiaIDCard = IndonesiaIDCard
+
+    @property
+    def PhilippinesDrivingLicense(self):
+        r"""Philippines driving license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesDrivingLicense`
+        """
+        return self._PhilippinesDrivingLicense
+
+    @PhilippinesDrivingLicense.setter
+    def PhilippinesDrivingLicense(self, PhilippinesDrivingLicense):
+        self._PhilippinesDrivingLicense = PhilippinesDrivingLicense
+
+    @property
+    def PhilippinesTinID(self):
+        r"""Philippines TinID
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesTinID`
+        """
+        return self._PhilippinesTinID
+
+    @PhilippinesTinID.setter
+    def PhilippinesTinID(self, PhilippinesTinID):
+        self._PhilippinesTinID = PhilippinesTinID
+
+    @property
+    def PhilippinesSSSID(self):
+        r"""Philippines SSSID
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesSSSID`
+        """
+        return self._PhilippinesSSSID
+
+    @PhilippinesSSSID.setter
+    def PhilippinesSSSID(self, PhilippinesSSSID):
+        self._PhilippinesSSSID = PhilippinesSSSID
+
+    @property
+    def PhilippinesUMID(self):
+        r"""Philippines UMID
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.PhilippinesUMID`
+        """
+        return self._PhilippinesUMID
+
+    @PhilippinesUMID.setter
+    def PhilippinesUMID(self, PhilippinesUMID):
+        self._PhilippinesUMID = PhilippinesUMID
+
+    @property
+    def InternationalIDPassport(self):
+        r"""Hong Kong, Macao, and Taiwan region as well as overseas passport
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.InternationalIDPassport`
+        """
+        return self._InternationalIDPassport
+
+    @InternationalIDPassport.setter
+    def InternationalIDPassport(self, InternationalIDPassport):
+        self._InternationalIDPassport = InternationalIDPassport
+
+    @property
+    def GeneralCard(self):
+        r"""General card certificate information
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.GeneralCard`
+        """
+        return self._GeneralCard
+
+    @GeneralCard.setter
+    def GeneralCard(self, GeneralCard):
+        self._GeneralCard = GeneralCard
+
+    @property
+    def IndonesiaDrivingLicense(self):
+        r"""Indonesian driving license
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.IndonesiaDrivingLicense`
+        """
+        return self._IndonesiaDrivingLicense
+
+    @IndonesiaDrivingLicense.setter
+    def IndonesiaDrivingLicense(self, IndonesiaDrivingLicense):
+        self._IndonesiaDrivingLicense = IndonesiaDrivingLicense
+
+    @property
+    def ThailandIDCard(self):
+        r"""Thai Identity Card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalThailandIDCard`
+        """
+        return self._ThailandIDCard
+
+    @ThailandIDCard.setter
+    def ThailandIDCard(self, ThailandIDCard):
+        self._ThailandIDCard = ThailandIDCard
+
+    @property
+    def SingaporeIDCard(self):
+        r"""Singapore ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.SingaporeIDCard`
+        """
+        return self._SingaporeIDCard
+
+    @SingaporeIDCard.setter
+    def SingaporeIDCard(self, SingaporeIDCard):
+        self._SingaporeIDCard = SingaporeIDCard
+
+    @property
+    def MacaoIDCard(self):
+        r"""Macao identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.MacaoIDCard`
+        """
+        return self._MacaoIDCard
+
+    @MacaoIDCard.setter
+    def MacaoIDCard(self, MacaoIDCard):
+        self._MacaoIDCard = MacaoIDCard
+
+    @property
+    def MainlandIDCard(self):
+        r"""Mainland ID card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.MainlandIDCard`
+        """
+        return self._MainlandIDCard
+
+    @MainlandIDCard.setter
+    def MainlandIDCard(self, MainlandIDCard):
+        self._MainlandIDCard = MainlandIDCard
+
+    @property
+    def JapanIDCard(self):
+        r"""Japan identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.JapanIDCard`
+        """
+        return self._JapanIDCard
+
+    @JapanIDCard.setter
+    def JapanIDCard(self, JapanIDCard):
+        self._JapanIDCard = JapanIDCard
+
+    @property
+    def TaiWanIDCard(self):
+        r"""Taiwan (China) identity card
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.TaiWanIDCard`
+        """
+        return self._TaiWanIDCard
+
+    @TaiWanIDCard.setter
+    def TaiWanIDCard(self, TaiWanIDCard):
+        self._TaiWanIDCard = TaiWanIDCard
+
+    @property
+    def HMTPermitCard(self):
+        r"""Hong Kong, Macau and Taiwan Travel Permit
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.HMTPermit`
+        """
+        return self._HMTPermitCard
+
+    @HMTPermitCard.setter
+    def HMTPermitCard(self, HMTPermitCard):
+        self._HMTPermitCard = HMTPermitCard
+
+
+    def _deserialize(self, params):
+        if params.get("HKIDCard") is not None:
+            self._HKIDCard = NormalHKIDCard()
+            self._HKIDCard._deserialize(params.get("HKIDCard"))
+        if params.get("MLIDCard") is not None:
+            self._MLIDCard = NormalMLIDCard()
+            self._MLIDCard._deserialize(params.get("MLIDCard"))
+        if params.get("PhilippinesVoteID") is not None:
+            self._PhilippinesVoteID = PhilippinesVoteID()
+            self._PhilippinesVoteID._deserialize(params.get("PhilippinesVoteID"))
+        if params.get("IndonesiaIDCard") is not None:
+            self._IndonesiaIDCard = NormalIndonesiaIDCard()
+            self._IndonesiaIDCard._deserialize(params.get("IndonesiaIDCard"))
+        if params.get("PhilippinesDrivingLicense") is not None:
+            self._PhilippinesDrivingLicense = PhilippinesDrivingLicense()
+            self._PhilippinesDrivingLicense._deserialize(params.get("PhilippinesDrivingLicense"))
+        if params.get("PhilippinesTinID") is not None:
+            self._PhilippinesTinID = PhilippinesTinID()
+            self._PhilippinesTinID._deserialize(params.get("PhilippinesTinID"))
+        if params.get("PhilippinesSSSID") is not None:
+            self._PhilippinesSSSID = PhilippinesSSSID()
+            self._PhilippinesSSSID._deserialize(params.get("PhilippinesSSSID"))
+        if params.get("PhilippinesUMID") is not None:
+            self._PhilippinesUMID = PhilippinesUMID()
+            self._PhilippinesUMID._deserialize(params.get("PhilippinesUMID"))
+        if params.get("InternationalIDPassport") is not None:
+            self._InternationalIDPassport = InternationalIDPassport()
+            self._InternationalIDPassport._deserialize(params.get("InternationalIDPassport"))
+        if params.get("GeneralCard") is not None:
+            self._GeneralCard = GeneralCard()
+            self._GeneralCard._deserialize(params.get("GeneralCard"))
+        if params.get("IndonesiaDrivingLicense") is not None:
+            self._IndonesiaDrivingLicense = IndonesiaDrivingLicense()
+            self._IndonesiaDrivingLicense._deserialize(params.get("IndonesiaDrivingLicense"))
+        if params.get("ThailandIDCard") is not None:
+            self._ThailandIDCard = NormalThailandIDCard()
+            self._ThailandIDCard._deserialize(params.get("ThailandIDCard"))
+        if params.get("SingaporeIDCard") is not None:
+            self._SingaporeIDCard = SingaporeIDCard()
+            self._SingaporeIDCard._deserialize(params.get("SingaporeIDCard"))
+        if params.get("MacaoIDCard") is not None:
+            self._MacaoIDCard = MacaoIDCard()
+            self._MacaoIDCard._deserialize(params.get("MacaoIDCard"))
+        if params.get("MainlandIDCard") is not None:
+            self._MainlandIDCard = MainlandIDCard()
+            self._MainlandIDCard._deserialize(params.get("MainlandIDCard"))
+        if params.get("JapanIDCard") is not None:
+            self._JapanIDCard = JapanIDCard()
+            self._JapanIDCard._deserialize(params.get("JapanIDCard"))
+        if params.get("TaiWanIDCard") is not None:
+            self._TaiWanIDCard = TaiWanIDCard()
+            self._TaiWanIDCard._deserialize(params.get("TaiWanIDCard"))
+        if params.get("HMTPermitCard") is not None:
+            self._HMTPermitCard = HMTPermit()
+            self._HMTPermitCard._deserialize(params.get("HMTPermitCard"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NormalHKIDCard(AbstractModel):
+    r"""Hong Kong identity card (mapped field result)
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ChineseName: Chinese name
+        :type ChineseName: str
+        :param _FullName: English name
+        :type FullName: str
+        :param _RegistrationNumber: Chinese telegraph code corresponding to the Chinese name
+        :type RegistrationNumber: str
+        :param _Sex: Gender: "M" (male) or "F" (female).
+        :type Sex: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _Permanent: Permanent resident ID card: 0: non-permanent; 1: permanent; -1: unknown
+        :type Permanent: str
+        :param _LicenseNumber: Identity number
+        :type LicenseNumber: str
+        :param _Symbol: Document symbol, the symbol under the date of birth, for example, "***AZ"
+        :type Symbol: str
+        :param _IssuedDate: Date of first issue
+        :type IssuedDate: str
+        :param _CurrentIssueDate: Most recent date of issue
+        :type CurrentIssueDate: str
+        :param _HKIDVersion: Hong Kong identity card version. HKID-2003: 2003 edition identity card. HKID-2018: 2018 edition identity card.
+        :type HKIDVersion: str
+        """
+        self._ChineseName = None
+        self._FullName = None
+        self._RegistrationNumber = None
+        self._Sex = None
+        self._Birthday = None
+        self._Permanent = None
+        self._LicenseNumber = None
+        self._Symbol = None
+        self._IssuedDate = None
+        self._CurrentIssueDate = None
+        self._HKIDVersion = None
+
+    @property
+    def ChineseName(self):
+        r"""Chinese name
+        :rtype: str
+        """
+        return self._ChineseName
+
+    @ChineseName.setter
+    def ChineseName(self, ChineseName):
+        self._ChineseName = ChineseName
+
+    @property
+    def FullName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def RegistrationNumber(self):
+        r"""Chinese telegraph code corresponding to the Chinese name
+        :rtype: str
+        """
+        return self._RegistrationNumber
+
+    @RegistrationNumber.setter
+    def RegistrationNumber(self, RegistrationNumber):
+        self._RegistrationNumber = RegistrationNumber
+
+    @property
+    def Sex(self):
+        r"""Gender: "M" (male) or "F" (female).
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Permanent(self):
+        r"""Permanent resident ID card: 0: non-permanent; 1: permanent; -1: unknown
+        :rtype: str
+        """
+        return self._Permanent
+
+    @Permanent.setter
+    def Permanent(self, Permanent):
+        self._Permanent = Permanent
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Symbol(self):
+        r"""Document symbol, the symbol under the date of birth, for example, "***AZ"
+        :rtype: str
+        """
+        return self._Symbol
+
+    @Symbol.setter
+    def Symbol(self, Symbol):
+        self._Symbol = Symbol
+
+    @property
+    def IssuedDate(self):
+        r"""Date of first issue
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def CurrentIssueDate(self):
+        r"""Most recent date of issue
+        :rtype: str
+        """
+        return self._CurrentIssueDate
+
+    @CurrentIssueDate.setter
+    def CurrentIssueDate(self, CurrentIssueDate):
+        self._CurrentIssueDate = CurrentIssueDate
+
+    @property
+    def HKIDVersion(self):
+        r"""Hong Kong identity card version. HKID-2003: 2003 edition identity card. HKID-2018: 2018 edition identity card.
+        :rtype: str
+        """
+        return self._HKIDVersion
+
+    @HKIDVersion.setter
+    def HKIDVersion(self, HKIDVersion):
+        self._HKIDVersion = HKIDVersion
+
+
+    def _deserialize(self, params):
+        self._ChineseName = params.get("ChineseName")
+        self._FullName = params.get("FullName")
+        self._RegistrationNumber = params.get("RegistrationNumber")
+        self._Sex = params.get("Sex")
+        self._Birthday = params.get("Birthday")
+        self._Permanent = params.get("Permanent")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Symbol = params.get("Symbol")
+        self._IssuedDate = params.get("IssuedDate")
+        self._CurrentIssueDate = params.get("CurrentIssueDate")
+        self._HKIDVersion = params.get("HKIDVersion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NormalIndonesiaIDCard(AbstractModel):
+    r"""Indonesian Identity Card (mapped field result)
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: ID number
+        :type LicenseNumber: str
+        :param _FullName: Name
+        :type FullName: str
+        :param _Birthday: Birthplace/Date of birth
+        :type Birthday: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _BloodType: Blood type
+        :type BloodType: str
+        :param _FormattedAddress: Address.
+        :type FormattedAddress: str
+        :param _Street: Street
+        :type Street: str
+        :param _Village: Village
+        :type Village: str
+        :param _Area: Region.
+        :type Area: str
+        :param _Religion: Religious belief
+        :type Religion: str
+        :param _MaritalStatus: Marital status
+        :type MaritalStatus: str
+        :param _Occupation: Occupation
+        :type Occupation: str
+        :param _Nationality: Nationality
+        :type Nationality: str
+        :param _DueDate: Validity period of the ID card
+        :type DueDate: str
+        :param _IssuedDate: Issue date
+        :type IssuedDate: str
+        :param _Province: Province
+        :type Province: str
+        :param _City: city
+        :type City: str
+        """
+        self._LicenseNumber = None
+        self._FullName = None
+        self._Birthday = None
+        self._Sex = None
+        self._BloodType = None
+        self._FormattedAddress = None
+        self._Street = None
+        self._Village = None
+        self._Area = None
+        self._Religion = None
+        self._MaritalStatus = None
+        self._Occupation = None
+        self._Nationality = None
+        self._DueDate = None
+        self._IssuedDate = None
+        self._Province = None
+        self._City = None
+
+    @property
+    def LicenseNumber(self):
+        r"""ID number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def Birthday(self):
+        r"""Birthplace/Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def BloodType(self):
+        r"""Blood type
+        :rtype: str
+        """
+        return self._BloodType
+
+    @BloodType.setter
+    def BloodType(self, BloodType):
+        self._BloodType = BloodType
+
+    @property
+    def FormattedAddress(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+    @property
+    def Street(self):
+        r"""Street
+        :rtype: str
+        """
+        return self._Street
+
+    @Street.setter
+    def Street(self, Street):
+        self._Street = Street
+
+    @property
+    def Village(self):
+        r"""Village
+        :rtype: str
+        """
+        return self._Village
+
+    @Village.setter
+    def Village(self, Village):
+        self._Village = Village
+
+    @property
+    def Area(self):
+        r"""Region.
+        :rtype: str
+        """
+        return self._Area
+
+    @Area.setter
+    def Area(self, Area):
+        self._Area = Area
+
+    @property
+    def Religion(self):
+        r"""Religious belief
+        :rtype: str
+        """
+        return self._Religion
+
+    @Religion.setter
+    def Religion(self, Religion):
+        self._Religion = Religion
+
+    @property
+    def MaritalStatus(self):
+        r"""Marital status
+        :rtype: str
+        """
+        return self._MaritalStatus
+
+    @MaritalStatus.setter
+    def MaritalStatus(self, MaritalStatus):
+        self._MaritalStatus = MaritalStatus
+
+    @property
+    def Occupation(self):
+        r"""Occupation
+        :rtype: str
+        """
+        return self._Occupation
+
+    @Occupation.setter
+    def Occupation(self, Occupation):
+        self._Occupation = Occupation
+
+    @property
+    def Nationality(self):
+        r"""Nationality
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def DueDate(self):
+        r"""Validity period of the ID card
+        :rtype: str
+        """
+        return self._DueDate
+
+    @DueDate.setter
+    def DueDate(self, DueDate):
+        self._DueDate = DueDate
+
+    @property
+    def IssuedDate(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def Province(self):
+        r"""Province
+        :rtype: str
+        """
+        return self._Province
+
+    @Province.setter
+    def Province(self, Province):
+        self._Province = Province
+
+    @property
+    def City(self):
+        r"""city
+        :rtype: str
+        """
+        return self._City
+
+    @City.setter
+    def City(self, City):
+        self._City = City
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FullName = params.get("FullName")
+        self._Birthday = params.get("Birthday")
+        self._Sex = params.get("Sex")
+        self._BloodType = params.get("BloodType")
+        self._FormattedAddress = params.get("FormattedAddress")
+        self._Street = params.get("Street")
+        self._Village = params.get("Village")
+        self._Area = params.get("Area")
+        self._Religion = params.get("Religion")
+        self._MaritalStatus = params.get("MaritalStatus")
+        self._Occupation = params.get("Occupation")
+        self._Nationality = params.get("Nationality")
+        self._DueDate = params.get("DueDate")
+        self._IssuedDate = params.get("IssuedDate")
+        self._Province = params.get("Province")
+        self._City = params.get("City")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NormalMLIDCard(AbstractModel):
+    r"""Malaysian identity card (mapped field result)
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FullName: Name
+        :type FullName: str
+        :param _LicenseNumber: Identity card number
+        :type LicenseNumber: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _FormattedAddress: Address.
+        :type FormattedAddress: str
+        :param _Type: Document type
+MyKad identity card
+MyPR permanent residence permit
+MyTentera Military ID card
+MyKAS Temporary ID card
+POLIS Police ID card
+IKAD labor ID card
+MyKid Juvenile ID card
+        :type Type: str
+        :param _Birthday: Date of birth (currently this field only supports IKAD labor ID card and MyKad ID card)
+        :type Birthday: str
+        """
+        self._FullName = None
+        self._LicenseNumber = None
+        self._Sex = None
+        self._FormattedAddress = None
+        self._Type = None
+        self._Birthday = None
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def FormattedAddress(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+    @property
+    def Type(self):
+        r"""Document type
+MyKad identity card
+MyPR permanent residence permit
+MyTentera Military ID card
+MyKAS Temporary ID card
+POLIS Police ID card
+IKAD labor ID card
+MyKid Juvenile ID card
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Birthday(self):
+        r"""Date of birth (currently this field only supports IKAD labor ID card and MyKad ID card)
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+
+    def _deserialize(self, params):
+        self._FullName = params.get("FullName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Sex = params.get("Sex")
+        self._FormattedAddress = params.get("FormattedAddress")
+        self._Type = params.get("Type")
+        self._Birthday = params.get("Birthday")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NormalThailandIDCard(AbstractModel):
+    r"""Thai Identity Card (mapped field result)
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: Identity number
+        :type LicenseNumber: str
+        :param _FullName: Thai name
+        :type FullName: str
+        :param _LastName: English name
+        :type LastName: str
+        :param _FirstName: English name
+        :type FirstName: str
+        :param _Birthday: English birth date
+        :type Birthday: str
+        :param _FormattedAddress: Address.
+        :type FormattedAddress: str
+        :param _ExpirationDate: Expiration date
+        :type ExpirationDate: str
+        :param _IssuedDate: English birth date
+        :type IssuedDate: str
+        :param _RegistrationNumber: Serial number
+        :type RegistrationNumber: str
+        :param _Religion: Religious belief
+        :type Religion: str
+        :param _ThaiBirthday: Date of birth in Thai
+        :type ThaiBirthday: str
+        :param _ThaiExpirationDate: Expiration date in Thai
+        :type ThaiExpirationDate: str
+        :param _ThaiIssueDate: Date of issue in Thai
+        :type ThaiIssueDate: str
+        """
+        self._LicenseNumber = None
+        self._FullName = None
+        self._LastName = None
+        self._FirstName = None
+        self._Birthday = None
+        self._FormattedAddress = None
+        self._ExpirationDate = None
+        self._IssuedDate = None
+        self._RegistrationNumber = None
+        self._Religion = None
+        self._ThaiBirthday = None
+        self._ThaiExpirationDate = None
+        self._ThaiIssueDate = None
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FullName(self):
+        r"""Thai name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def LastName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def Birthday(self):
+        r"""English birth date
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def FormattedAddress(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._FormattedAddress
+
+    @FormattedAddress.setter
+    def FormattedAddress(self, FormattedAddress):
+        self._FormattedAddress = FormattedAddress
+
+    @property
+    def ExpirationDate(self):
+        r"""Expiration date
+        :rtype: str
+        """
+        return self._ExpirationDate
+
+    @ExpirationDate.setter
+    def ExpirationDate(self, ExpirationDate):
+        self._ExpirationDate = ExpirationDate
+
+    @property
+    def IssuedDate(self):
+        r"""English birth date
+        :rtype: str
+        """
+        return self._IssuedDate
+
+    @IssuedDate.setter
+    def IssuedDate(self, IssuedDate):
+        self._IssuedDate = IssuedDate
+
+    @property
+    def RegistrationNumber(self):
+        r"""Serial number
+        :rtype: str
+        """
+        return self._RegistrationNumber
+
+    @RegistrationNumber.setter
+    def RegistrationNumber(self, RegistrationNumber):
+        self._RegistrationNumber = RegistrationNumber
+
+    @property
+    def Religion(self):
+        r"""Religious belief
+        :rtype: str
+        """
+        return self._Religion
+
+    @Religion.setter
+    def Religion(self, Religion):
+        self._Religion = Religion
+
+    @property
+    def ThaiBirthday(self):
+        r"""Date of birth in Thai
+        :rtype: str
+        """
+        return self._ThaiBirthday
+
+    @ThaiBirthday.setter
+    def ThaiBirthday(self, ThaiBirthday):
+        self._ThaiBirthday = ThaiBirthday
+
+    @property
+    def ThaiExpirationDate(self):
+        r"""Expiration date in Thai
+        :rtype: str
+        """
+        return self._ThaiExpirationDate
+
+    @ThaiExpirationDate.setter
+    def ThaiExpirationDate(self, ThaiExpirationDate):
+        self._ThaiExpirationDate = ThaiExpirationDate
+
+    @property
+    def ThaiIssueDate(self):
+        r"""Date of issue in Thai
+        :rtype: str
+        """
+        return self._ThaiIssueDate
+
+    @ThaiIssueDate.setter
+    def ThaiIssueDate(self, ThaiIssueDate):
+        self._ThaiIssueDate = ThaiIssueDate
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FullName = params.get("FullName")
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._Birthday = params.get("Birthday")
+        self._FormattedAddress = params.get("FormattedAddress")
+        self._ExpirationDate = params.get("ExpirationDate")
+        self._IssuedDate = params.get("IssuedDate")
+        self._RegistrationNumber = params.get("RegistrationNumber")
+        self._Religion = params.get("Religion")
+        self._ThaiBirthday = params.get("ThaiBirthday")
+        self._ThaiExpirationDate = params.get("ThaiExpirationDate")
+        self._ThaiIssueDate = params.get("ThaiIssueDate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OCRResult(AbstractModel):
+    r"""Content of a single document in the document information
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsPass: <p>Whether the identity authentication or OCR process is successful.</p>
+        :type IsPass: bool
+        :param _CardImageBase64: <p>Base64 of the front image of the identity document</p>
+        :type CardImageBase64: str
+        :param _CardInfo: <p>ID document recognition result</p>
+        :type CardInfo: :class:`tencentcloud.faceid.v20180301.models.CardInfo`
+        :param _NormalCardInfo: <p>ID document recognition result (when CheckMode value is 4, the OriginalCardInfo field is returned; in other scenarios, the current field is returned)</p>
+        :type NormalCardInfo: :class:`tencentcloud.faceid.v20180301.models.NormalCardInfo`
+        :param _RequestId: <p>Request id</p>
+        :type RequestId: str
+        :param _CardCutImageBase64: <p>Base64 of the front cropped image of the identity document</p>
+        :type CardCutImageBase64: str
+        :param _CardBackCutImageBase64: <p>Base64 of the edge-cropped image of the back of an identity document</p>
+        :type CardBackCutImageBase64: str
+        :param _WarnCardInfos: <p>Alarm code</p><p>Enumeration value:</p><ul><li>-9101: alarm for incomplete document border</li><li>-9102: alarm for document photocopy</li><li>-9103: alarm for document rephotographing</li><li>-9104: document PS alarm</li><li>-9107: document reflective alarm</li><li>-9108: alarm for blurry document</li><li>-9109: alarm capability not enabled</li></ul>
+        :type WarnCardInfos: list of int
+        :param _OriginalCardInfo: <p>Original document recognition information (when CheckMode value is 4, the current field will be returned)</p>
+        :type OriginalCardInfo: str
+        :param _HeadImageBase64: <p>Portrait matting in the document</p>
+        :type HeadImageBase64: str
+        :param _CardBackImageBase64: <p>Base64 of the back image of the identity document</p>
+        :type CardBackImageBase64: str
+        :param _CardResultStatus: Card verification status:
+PROCESSING: Verification is in progress.
+COMPLETED: Verification completed with no alerts.
+ABNORMAL: Verification completed with alerts raised.
+        :type CardResultStatus: str
+        """
+        self._IsPass = None
+        self._CardImageBase64 = None
+        self._CardInfo = None
+        self._NormalCardInfo = None
+        self._RequestId = None
+        self._CardCutImageBase64 = None
+        self._CardBackCutImageBase64 = None
+        self._WarnCardInfos = None
+        self._OriginalCardInfo = None
+        self._HeadImageBase64 = None
+        self._CardBackImageBase64 = None
+        self._CardResultStatus = None
+
+    @property
+    def IsPass(self):
+        r"""<p>Whether the identity authentication or OCR process is successful.</p>
+        :rtype: bool
+        """
+        return self._IsPass
+
+    @IsPass.setter
+    def IsPass(self, IsPass):
+        self._IsPass = IsPass
+
+    @property
+    def CardImageBase64(self):
+        r"""<p>Base64 of the front image of the identity document</p>
+        :rtype: str
+        """
+        return self._CardImageBase64
+
+    @CardImageBase64.setter
+    def CardImageBase64(self, CardImageBase64):
+        self._CardImageBase64 = CardImageBase64
+
+    @property
+    def CardInfo(self):
+        warnings.warn("parameter `CardInfo` is deprecated", DeprecationWarning) 
+
+        r"""<p>ID document recognition result</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.CardInfo`
+        """
+        return self._CardInfo
+
+    @CardInfo.setter
+    def CardInfo(self, CardInfo):
+        warnings.warn("parameter `CardInfo` is deprecated", DeprecationWarning) 
+
+        self._CardInfo = CardInfo
+
+    @property
+    def NormalCardInfo(self):
+        r"""<p>ID document recognition result (when CheckMode value is 4, the OriginalCardInfo field is returned; in other scenarios, the current field is returned)</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.NormalCardInfo`
+        """
+        return self._NormalCardInfo
+
+    @NormalCardInfo.setter
+    def NormalCardInfo(self, NormalCardInfo):
+        self._NormalCardInfo = NormalCardInfo
+
+    @property
+    def RequestId(self):
+        r"""<p>Request id</p>
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+    @property
+    def CardCutImageBase64(self):
+        r"""<p>Base64 of the front cropped image of the identity document</p>
+        :rtype: str
+        """
+        return self._CardCutImageBase64
+
+    @CardCutImageBase64.setter
+    def CardCutImageBase64(self, CardCutImageBase64):
+        self._CardCutImageBase64 = CardCutImageBase64
+
+    @property
+    def CardBackCutImageBase64(self):
+        r"""<p>Base64 of the edge-cropped image of the back of an identity document</p>
+        :rtype: str
+        """
+        return self._CardBackCutImageBase64
+
+    @CardBackCutImageBase64.setter
+    def CardBackCutImageBase64(self, CardBackCutImageBase64):
+        self._CardBackCutImageBase64 = CardBackCutImageBase64
+
+    @property
+    def WarnCardInfos(self):
+        r"""<p>Alarm code</p><p>Enumeration value:</p><ul><li>-9101: alarm for incomplete document border</li><li>-9102: alarm for document photocopy</li><li>-9103: alarm for document rephotographing</li><li>-9104: document PS alarm</li><li>-9107: document reflective alarm</li><li>-9108: alarm for blurry document</li><li>-9109: alarm capability not enabled</li></ul>
+        :rtype: list of int
+        """
+        return self._WarnCardInfos
+
+    @WarnCardInfos.setter
+    def WarnCardInfos(self, WarnCardInfos):
+        self._WarnCardInfos = WarnCardInfos
+
+    @property
+    def OriginalCardInfo(self):
+        r"""<p>Original document recognition information (when CheckMode value is 4, the current field will be returned)</p>
+        :rtype: str
+        """
+        return self._OriginalCardInfo
+
+    @OriginalCardInfo.setter
+    def OriginalCardInfo(self, OriginalCardInfo):
+        self._OriginalCardInfo = OriginalCardInfo
+
+    @property
+    def HeadImageBase64(self):
+        r"""<p>Portrait matting in the document</p>
+        :rtype: str
+        """
+        return self._HeadImageBase64
+
+    @HeadImageBase64.setter
+    def HeadImageBase64(self, HeadImageBase64):
+        self._HeadImageBase64 = HeadImageBase64
+
+    @property
+    def CardBackImageBase64(self):
+        r"""<p>Base64 of the back image of the identity document</p>
+        :rtype: str
+        """
+        return self._CardBackImageBase64
+
+    @CardBackImageBase64.setter
+    def CardBackImageBase64(self, CardBackImageBase64):
+        self._CardBackImageBase64 = CardBackImageBase64
+
+    @property
+    def CardResultStatus(self):
+        r"""Card verification status:
+PROCESSING: Verification is in progress.
+COMPLETED: Verification completed with no alerts.
+ABNORMAL: Verification completed with alerts raised.
+        :rtype: str
+        """
+        return self._CardResultStatus
+
+    @CardResultStatus.setter
+    def CardResultStatus(self, CardResultStatus):
+        self._CardResultStatus = CardResultStatus
+
+
+    def _deserialize(self, params):
+        self._IsPass = params.get("IsPass")
+        self._CardImageBase64 = params.get("CardImageBase64")
+        if params.get("CardInfo") is not None:
+            self._CardInfo = CardInfo()
+            self._CardInfo._deserialize(params.get("CardInfo"))
+        if params.get("NormalCardInfo") is not None:
+            self._NormalCardInfo = NormalCardInfo()
+            self._NormalCardInfo._deserialize(params.get("NormalCardInfo"))
+        self._RequestId = params.get("RequestId")
+        self._CardCutImageBase64 = params.get("CardCutImageBase64")
+        self._CardBackCutImageBase64 = params.get("CardBackCutImageBase64")
+        self._WarnCardInfos = params.get("WarnCardInfos")
+        self._OriginalCardInfo = params.get("OriginalCardInfo")
+        self._HeadImageBase64 = params.get("HeadImageBase64")
+        self._CardBackImageBase64 = params.get("CardBackImageBase64")
+        self._CardResultStatus = params.get("CardResultStatus")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PakistanDrivingLicense(AbstractModel):
+    r"""Pakistan driver's license
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssuedCountry: City of issuance
+        :type IssuedCountry: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._IssuedCountry = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssuedCountry(self):
+        r"""City of issuance
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._IssuedCountry = params.get("IssuedCountry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PakistanIDCard(AbstractModel):
+    r"""Pakistan identity card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Age: Age
+        :type Age: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssuedCountry: Issuing city
+        :type IssuedCountry: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._Age = None
+        self._Birthday = None
+        self._IssuedCountry = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Age(self):
+        r"""Age
+        :rtype: str
+        """
+        return self._Age
+
+    @Age.setter
+    def Age(self, Age):
+        self._Age = Age
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssuedCountry(self):
+        r"""Issuing city
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Age = params.get("Age")
+        self._Birthday = params.get("Birthday")
+        self._IssuedCountry = params.get("IssuedCountry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Person(AbstractModel):
+    r"""AML Person object
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FullName: <p>Full name (either this or LastName is required). If FullName is filled, FirstName/MiddleName/LastName cannot be filled</p>
+        :type FullName: str
+        :param _LastName: <p>name (either this or FullName is required)</p>
+        :type LastName: str
+        :param _FirstName: <p>First name (optional)</p>
+        :type FirstName: str
+        :param _MiddleName: <p>Middle name (optional)</p>
+        :type MiddleName: str
+        :param _IdentityNumber: <p>ID number (Option)</p>
+        :type IdentityNumber: str
+        :param _DateOfBirth: <p>Date of birth, format: YYYY-MM-DD, YYYY-MM, YYYY (Year-Month-Day separated by -)</p><p>Parameter format: YYYY-MM-DD</p>
+        :type DateOfBirth: str
+        :param _Gender: <p>Gender: MALE / FEMALE / OTHER / NOT_KNOWN</p><p>Enumeration values:</p><ul><li>MALE: male</li><li>FEMALE: female</li><li>OTHER: OTHER</li><li>NOT_KNOWN: NOT_KNOWN</li></ul>
+        :type Gender: str
+        :param _Address: <p>Address</p>
+        :type Address: str
+        :param _Nationality: <p>Nationality, ISO 3166-1 alpha-2 country code (Option)</p>
+        :type Nationality: str
+        :param _Country: <p>Country of residence, ISO 3166-1 alpha-2 country code (optional)</p>
+        :type Country: str
+        """
+        self._FullName = None
+        self._LastName = None
+        self._FirstName = None
+        self._MiddleName = None
+        self._IdentityNumber = None
+        self._DateOfBirth = None
+        self._Gender = None
+        self._Address = None
+        self._Nationality = None
+        self._Country = None
+
+    @property
+    def FullName(self):
+        r"""<p>Full name (either this or LastName is required). If FullName is filled, FirstName/MiddleName/LastName cannot be filled</p>
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def LastName(self):
+        r"""<p>name (either this or FullName is required)</p>
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""<p>First name (optional)</p>
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def MiddleName(self):
+        r"""<p>Middle name (optional)</p>
+        :rtype: str
+        """
+        return self._MiddleName
+
+    @MiddleName.setter
+    def MiddleName(self, MiddleName):
+        self._MiddleName = MiddleName
+
+    @property
+    def IdentityNumber(self):
+        r"""<p>ID number (Option)</p>
+        :rtype: str
+        """
+        return self._IdentityNumber
+
+    @IdentityNumber.setter
+    def IdentityNumber(self, IdentityNumber):
+        self._IdentityNumber = IdentityNumber
+
+    @property
+    def DateOfBirth(self):
+        r"""<p>Date of birth, format: YYYY-MM-DD, YYYY-MM, YYYY (Year-Month-Day separated by -)</p><p>Parameter format: YYYY-MM-DD</p>
+        :rtype: str
+        """
+        return self._DateOfBirth
+
+    @DateOfBirth.setter
+    def DateOfBirth(self, DateOfBirth):
+        self._DateOfBirth = DateOfBirth
+
+    @property
+    def Gender(self):
+        r"""<p>Gender: MALE / FEMALE / OTHER / NOT_KNOWN</p><p>Enumeration values:</p><ul><li>MALE: male</li><li>FEMALE: female</li><li>OTHER: OTHER</li><li>NOT_KNOWN: NOT_KNOWN</li></ul>
+        :rtype: str
+        """
+        return self._Gender
+
+    @Gender.setter
+    def Gender(self, Gender):
+        self._Gender = Gender
+
+    @property
+    def Address(self):
+        r"""<p>Address</p>
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def Nationality(self):
+        r"""<p>Nationality, ISO 3166-1 alpha-2 country code (Option)</p>
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def Country(self):
+        r"""<p>Country of residence, ISO 3166-1 alpha-2 country code (optional)</p>
+        :rtype: str
+        """
+        return self._Country
+
+    @Country.setter
+    def Country(self, Country):
+        self._Country = Country
+
+
+    def _deserialize(self, params):
+        self._FullName = params.get("FullName")
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._MiddleName = params.get("MiddleName")
+        self._IdentityNumber = params.get("IdentityNumber")
+        self._DateOfBirth = params.get("DateOfBirth")
+        self._Gender = params.get("Gender")
+        self._Address = params.get("Address")
+        self._Nationality = params.get("Nationality")
+        self._Country = params.get("Country")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhilippinesDrivingLicense(AbstractModel):
+    r"""Philippines driving license
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: Name
+        :type Name: str
+        :param _LastName: Last name
+
+        :type LastName: str
+        :param _FirstName: First name
+        :type FirstName: str
+        :param _MiddleName: Middle name
+        :type MiddleName: str
+        :param _Nationality: Nationality
+        :type Nationality: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _Address: Address.
+        :type Address: str
+        :param _LicenseNo: ID number
+        :type LicenseNo: str
+        :param _ExpiresDate: Validity period.
+        :type ExpiresDate: str
+        :param _AgencyCode: Organization code
+        :type AgencyCode: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        """
+        self._Name = None
+        self._LastName = None
+        self._FirstName = None
+        self._MiddleName = None
+        self._Nationality = None
+        self._Sex = None
+        self._Address = None
+        self._LicenseNo = None
+        self._ExpiresDate = None
+        self._AgencyCode = None
+        self._Birthday = None
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def LastName(self):
+        r"""Last name
+
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""First name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def MiddleName(self):
+        r"""Middle name
+        :rtype: str
+        """
+        return self._MiddleName
+
+    @MiddleName.setter
+    def MiddleName(self, MiddleName):
+        self._MiddleName = MiddleName
+
+    @property
+    def Nationality(self):
+        r"""Nationality
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def LicenseNo(self):
+        r"""ID number
+        :rtype: str
+        """
+        return self._LicenseNo
+
+    @LicenseNo.setter
+    def LicenseNo(self, LicenseNo):
+        self._LicenseNo = LicenseNo
+
+    @property
+    def ExpiresDate(self):
+        r"""Validity period.
+        :rtype: str
+        """
+        return self._ExpiresDate
+
+    @ExpiresDate.setter
+    def ExpiresDate(self, ExpiresDate):
+        self._ExpiresDate = ExpiresDate
+
+    @property
+    def AgencyCode(self):
+        r"""Organization code
+        :rtype: str
+        """
+        return self._AgencyCode
+
+    @AgencyCode.setter
+    def AgencyCode(self, AgencyCode):
+        self._AgencyCode = AgencyCode
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._MiddleName = params.get("MiddleName")
+        self._Nationality = params.get("Nationality")
+        self._Sex = params.get("Sex")
+        self._Address = params.get("Address")
+        self._LicenseNo = params.get("LicenseNo")
+        self._ExpiresDate = params.get("ExpiresDate")
+        self._AgencyCode = params.get("AgencyCode")
+        self._Birthday = params.get("Birthday")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhilippinesSSSID(AbstractModel):
+    r"""Philippines SSSID
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: No.
+        :type LicenseNumber: str
+        :param _FullName: Name
+        :type FullName: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        """
+        self._LicenseNumber = None
+        self._FullName = None
+        self._Birthday = None
+
+    @property
+    def LicenseNumber(self):
+        r"""No.
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FullName = params.get("FullName")
+        self._Birthday = params.get("Birthday")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhilippinesTinID(AbstractModel):
+    r"""Philippines TinID
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LicenseNumber: Code
+        :type LicenseNumber: str
+        :param _FullName: Name
+        :type FullName: str
+        :param _Address: Address.
+        :type Address: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _IssueDate: Issue date
+        :type IssueDate: str
+        """
+        self._LicenseNumber = None
+        self._FullName = None
+        self._Address = None
+        self._Birthday = None
+        self._IssueDate = None
+
+    @property
+    def LicenseNumber(self):
+        r"""Code
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def FullName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def IssueDate(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._IssueDate
+
+    @IssueDate.setter
+    def IssueDate(self, IssueDate):
+        self._IssueDate = IssueDate
+
+
+    def _deserialize(self, params):
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._FullName = params.get("FullName")
+        self._Address = params.get("Address")
+        self._Birthday = params.get("Birthday")
+        self._IssueDate = params.get("IssueDate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhilippinesUMID(AbstractModel):
+    r"""Philippines UMID
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Surname: Last name
+        :type Surname: str
+        :param _MiddleName: Middle name
+        :type MiddleName: str
+        :param _GivenName: Name
+        :type GivenName: str
+        :param _Sex: Address.
+        :type Sex: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _Address: Address.
+        :type Address: str
+        :param _CRN: crn code
+        :type CRN: str
+        """
+        self._Surname = None
+        self._MiddleName = None
+        self._GivenName = None
+        self._Sex = None
+        self._Birthday = None
+        self._Address = None
+        self._CRN = None
+
+    @property
+    def Surname(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._Surname
+
+    @Surname.setter
+    def Surname(self, Surname):
+        self._Surname = Surname
+
+    @property
+    def MiddleName(self):
+        r"""Middle name
+        :rtype: str
+        """
+        return self._MiddleName
+
+    @MiddleName.setter
+    def MiddleName(self, MiddleName):
+        self._MiddleName = MiddleName
+
+    @property
+    def GivenName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._GivenName
+
+    @GivenName.setter
+    def GivenName(self, GivenName):
+        self._GivenName = GivenName
+
+    @property
+    def Sex(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def CRN(self):
+        r"""crn code
+        :rtype: str
+        """
+        return self._CRN
+
+    @CRN.setter
+    def CRN(self, CRN):
+        self._CRN = CRN
+
+
+    def _deserialize(self, params):
+        self._Surname = params.get("Surname")
+        self._MiddleName = params.get("MiddleName")
+        self._GivenName = params.get("GivenName")
+        self._Sex = params.get("Sex")
+        self._Birthday = params.get("Birthday")
+        self._Address = params.get("Address")
+        self._CRN = params.get("CRN")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhilippinesVoteID(AbstractModel):
+    r"""Philippines voter card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VIN: VIN of Philippines VoteID
+        :type VIN: str
+        :param _FirstName: Name
+        :type FirstName: str
+        :param _LastName: Last name
+        :type LastName: str
+        :param _Birthday: Date of birth
+        :type Birthday: str
+        :param _CivilStatus: Marital status
+        :type CivilStatus: str
+        :param _Citizenship: Nationality
+        :type Citizenship: str
+        :param _Address: Address.
+        :type Address: str
+        :param _PrecinctNo: Region.
+        :type PrecinctNo: str
+        """
+        self._VIN = None
+        self._FirstName = None
+        self._LastName = None
+        self._Birthday = None
+        self._CivilStatus = None
+        self._Citizenship = None
+        self._Address = None
+        self._PrecinctNo = None
+
+    @property
+    def VIN(self):
+        r"""VIN of Philippines VoteID
+        :rtype: str
+        """
+        return self._VIN
+
+    @VIN.setter
+    def VIN(self, VIN):
+        self._VIN = VIN
+
+    @property
+    def FirstName(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def Birthday(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def CivilStatus(self):
+        r"""Marital status
+        :rtype: str
+        """
+        return self._CivilStatus
+
+    @CivilStatus.setter
+    def CivilStatus(self, CivilStatus):
+        self._CivilStatus = CivilStatus
+
+    @property
+    def Citizenship(self):
+        r"""Nationality
+        :rtype: str
+        """
+        return self._Citizenship
+
+    @Citizenship.setter
+    def Citizenship(self, Citizenship):
+        self._Citizenship = Citizenship
+
+    @property
+    def Address(self):
+        r"""Address.
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def PrecinctNo(self):
+        r"""Region.
+        :rtype: str
+        """
+        return self._PrecinctNo
+
+    @PrecinctNo.setter
+    def PrecinctNo(self, PrecinctNo):
+        self._PrecinctNo = PrecinctNo
+
+
+    def _deserialize(self, params):
+        self._VIN = params.get("VIN")
+        self._FirstName = params.get("FirstName")
+        self._LastName = params.get("LastName")
+        self._Birthday = params.get("Birthday")
+        self._CivilStatus = params.get("CivilStatus")
+        self._Citizenship = params.get("Citizenship")
+        self._Address = params.get("Address")
+        self._PrecinctNo = params.get("PrecinctNo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhoneVerificationRequest(AbstractModel):
+    r"""PhoneVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IdCard: Identity card number.
+        :type IdCard: str
+        :param _Name: Name
+        :type Name: str
+        :param _Phone: Mobile number.
+        :type Phone: str
+        :param _CiphertextBlob: Users with encryption requirements can import the CiphertextBlob of kms. Read the <a href="https://www.tencentcloud.com/document/product/1007/47180?from_cn_redirect=1">data encryption</a> document about encrypting data.
+
+        :type CiphertextBlob: str
+        :param _EncryptList: When using the encryption service, fill in the field to be encrypted.
+-This API can fill in one or more of encrypted IdCard, Name, and Phone.
+        :type EncryptList: list of str
+        :param _Iv: Users with encryption requirements import the initial vector for CBC encryption.
+        :type Iv: str
+        """
+        self._IdCard = None
+        self._Name = None
+        self._Phone = None
+        self._CiphertextBlob = None
+        self._EncryptList = None
+        self._Iv = None
+
+    @property
+    def IdCard(self):
+        r"""Identity card number.
+        :rtype: str
+        """
+        return self._IdCard
+
+    @IdCard.setter
+    def IdCard(self, IdCard):
+        self._IdCard = IdCard
+
+    @property
+    def Name(self):
+        r"""Name
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Phone(self):
+        r"""Mobile number.
+        :rtype: str
+        """
+        return self._Phone
+
+    @Phone.setter
+    def Phone(self, Phone):
+        self._Phone = Phone
+
+    @property
+    def CiphertextBlob(self):
+        r"""Users with encryption requirements can import the CiphertextBlob of kms. Read the <a href="https://www.tencentcloud.com/document/product/1007/47180?from_cn_redirect=1">data encryption</a> document about encrypting data.
+
+        :rtype: str
+        """
+        return self._CiphertextBlob
+
+    @CiphertextBlob.setter
+    def CiphertextBlob(self, CiphertextBlob):
+        self._CiphertextBlob = CiphertextBlob
+
+    @property
+    def EncryptList(self):
+        r"""When using the encryption service, fill in the field to be encrypted.
+-This API can fill in one or more of encrypted IdCard, Name, and Phone.
+        :rtype: list of str
+        """
+        return self._EncryptList
+
+    @EncryptList.setter
+    def EncryptList(self, EncryptList):
+        self._EncryptList = EncryptList
+
+    @property
+    def Iv(self):
+        r"""Users with encryption requirements import the initial vector for CBC encryption.
+        :rtype: str
+        """
+        return self._Iv
+
+    @Iv.setter
+    def Iv(self, Iv):
+        self._Iv = Iv
+
+
+    def _deserialize(self, params):
+        self._IdCard = params.get("IdCard")
+        self._Name = params.get("Name")
+        self._Phone = params.get("Phone")
+        self._CiphertextBlob = params.get("CiphertextBlob")
+        self._EncryptList = params.get("EncryptList")
+        self._Iv = params.get("Iv")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PhoneVerificationResponse(AbstractModel):
+    r"""PhoneVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: Verification result code.
+Fee result code
+-0:Three-element information consistency.
+-4: Three-element information inconsistency.
+
+No charge result code
+-6: Invalid phone number.
+-7: Identity number error.
+-8: Name verification failed.
+-9: No records.
+-11: The Verification Center Service is busy.
+-12: Authentication attempts exceeded the daily limit. Retry the next day.
+-13: The number range is unsupported for verification.
+        :type Result: str
+        :param _Description: Business result description.
+        :type Description: str
+        :param _Isp: ISP name.
+-Valid values: ["", "mobile", "telecom", "cucc"]
+        :type Isp: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Result = None
+        self._Description = None
+        self._Isp = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""Verification result code.
+Fee result code
+-0:Three-element information consistency.
+-4: Three-element information inconsistency.
+
+No charge result code
+-6: Invalid phone number.
+-7: Identity number error.
+-8: Name verification failed.
+-9: No records.
+-11: The Verification Center Service is busy.
+-12: Authentication attempts exceeded the daily limit. Retry the next day.
+-13: The number range is unsupported for verification.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""Business result description.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Isp(self):
+        r"""ISP name.
+-Valid values: ["", "mobile", "telecom", "cucc"]
+        :rtype: str
+        """
+        return self._Isp
+
+    @Isp.setter
+    def Isp(self, Isp):
+        self._Isp = Isp
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._Isp = params.get("Isp")
+        self._RequestId = params.get("RequestId")
+
+
+class RetrievalLivenessExtraInfo(AbstractModel):
+    r"""Template retrieve detailed information
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _HitGroup: <p>Hit template type, among them Common-public library; Auto-Auto Clustering Library; Owner-custom template library</p>
+        :type HitGroup: str
+        :param _SimilarityScore: <p>Similarity between the request image and the attack template hit. The similarity value ranges from 0 to 2. The smaller the value, the higher the probability of hitting the attack template. The default threshold is 0.6. When the SimilarityScore is ≥0.6, the judgment is as normal. When the SimilarityScore is <0.6, the judgment is an attack.</p>
+        :type SimilarityScore: float
+        :param _HitTemplate: <p>Template id of the cache hit</p>
+        :type HitTemplate: str
+        """
+        self._HitGroup = None
+        self._SimilarityScore = None
+        self._HitTemplate = None
+
+    @property
+    def HitGroup(self):
+        r"""<p>Hit template type, among them Common-public library; Auto-Auto Clustering Library; Owner-custom template library</p>
+        :rtype: str
+        """
+        return self._HitGroup
+
+    @HitGroup.setter
+    def HitGroup(self, HitGroup):
+        self._HitGroup = HitGroup
+
+    @property
+    def SimilarityScore(self):
+        r"""<p>Similarity between the request image and the attack template hit. The similarity value ranges from 0 to 2. The smaller the value, the higher the probability of hitting the attack template. The default threshold is 0.6. When the SimilarityScore is ≥0.6, the judgment is as normal. When the SimilarityScore is <0.6, the judgment is an attack.</p>
+        :rtype: float
+        """
+        return self._SimilarityScore
+
+    @SimilarityScore.setter
+    def SimilarityScore(self, SimilarityScore):
+        self._SimilarityScore = SimilarityScore
+
+    @property
+    def HitTemplate(self):
+        r"""<p>Template id of the cache hit</p>
+        :rtype: str
+        """
+        return self._HitTemplate
+
+    @HitTemplate.setter
+    def HitTemplate(self, HitTemplate):
+        self._HitTemplate = HitTemplate
+
+
+    def _deserialize(self, params):
+        self._HitGroup = params.get("HitGroup")
+        self._SimilarityScore = params.get("SimilarityScore")
+        self._HitTemplate = params.get("HitTemplate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RunAMLNameScreeningRequest(AbstractModel):
+    r"""RunAMLNameScreening request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueCustomerID: <p>Unique identifier of the end user in the customer system, up to 256 characters.</p>
+        :type UniqueCustomerID: str
+        :param _EntityType: <p>Entity type. Enumeration values: PERSON / COMPANY</p><p>Enumeration values:</p><ul><li>PERSON: individual</li><li>COMPANY: company</li></ul>
+        :type EntityType: str
+        :param _Person: <p>Personal info, required when EntityType=PERSON</p><p>Input limitation: EntityType=PERSON</p>
+        :type Person: :class:`tencentcloud.faceid.v20180301.models.Person`
+        :param _Company: <p>Enterprise info. Required when EntityType=COMPANY</p><p>Input limitation: EntityType=COMPANY</p>
+        :type Company: :class:`tencentcloud.faceid.v20180301.models.Company`
+        :param _EnableOngoingScreening: <p>Whether continuous monitoring and screening is enabled. Default value: false</p><p>Default value: false</p>
+        :type EnableOngoingScreening: bool
+        """
+        self._UniqueCustomerID = None
+        self._EntityType = None
+        self._Person = None
+        self._Company = None
+        self._EnableOngoingScreening = None
+
+    @property
+    def UniqueCustomerID(self):
+        r"""<p>Unique identifier of the end user in the customer system, up to 256 characters.</p>
+        :rtype: str
+        """
+        return self._UniqueCustomerID
+
+    @UniqueCustomerID.setter
+    def UniqueCustomerID(self, UniqueCustomerID):
+        self._UniqueCustomerID = UniqueCustomerID
+
+    @property
+    def EntityType(self):
+        r"""<p>Entity type. Enumeration values: PERSON / COMPANY</p><p>Enumeration values:</p><ul><li>PERSON: individual</li><li>COMPANY: company</li></ul>
+        :rtype: str
+        """
+        return self._EntityType
+
+    @EntityType.setter
+    def EntityType(self, EntityType):
+        self._EntityType = EntityType
+
+    @property
+    def Person(self):
+        r"""<p>Personal info, required when EntityType=PERSON</p><p>Input limitation: EntityType=PERSON</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Person`
+        """
+        return self._Person
+
+    @Person.setter
+    def Person(self, Person):
+        self._Person = Person
+
+    @property
+    def Company(self):
+        r"""<p>Enterprise info. Required when EntityType=COMPANY</p><p>Input limitation: EntityType=COMPANY</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Company`
+        """
+        return self._Company
+
+    @Company.setter
+    def Company(self, Company):
+        self._Company = Company
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether continuous monitoring and screening is enabled. Default value: false</p><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+
+    def _deserialize(self, params):
+        self._UniqueCustomerID = params.get("UniqueCustomerID")
+        self._EntityType = params.get("EntityType")
+        if params.get("Person") is not None:
+            self._Person = Person()
+            self._Person._deserialize(params.get("Person"))
+        if params.get("Company") is not None:
+            self._Company = Company()
+            self._Company._deserialize(params.get("Company"))
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RunAMLNameScreeningResponse(AbstractModel):
+    r"""RunAMLNameScreening response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ScreeningResult: <p>Filtering results: NO-HITS (not hit) / HAS-HITS (hit)</p>
+        :type ScreeningResult: str
+        :param _AMLTypes: <p>Return on hit, the hit AML type list (deduplicated)</p>
+        :type AMLTypes: list of str
+        :param _HitDetail: <p>Return on cache hit, hit risk detail list</p>
+        :type HitDetail: str
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _Description: <p>Description of results returned</p>
+        :type Description: str
+        :param _ScreeningId: <p>The unique identifier of a case generated by one hit screening</p>
+        :type ScreeningId: str
+        :param _EnableOngoingScreening: <p>Whether continuous monitoring and screening is enabled. Default value: false</p><p>Default value: false</p>
+        :type EnableOngoingScreening: bool
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ScreeningResult = None
+        self._AMLTypes = None
+        self._HitDetail = None
+        self._Result = None
+        self._Description = None
+        self._ScreeningId = None
+        self._EnableOngoingScreening = None
+        self._RequestId = None
+
+    @property
+    def ScreeningResult(self):
+        r"""<p>Filtering results: NO-HITS (not hit) / HAS-HITS (hit)</p>
+        :rtype: str
+        """
+        return self._ScreeningResult
+
+    @ScreeningResult.setter
+    def ScreeningResult(self, ScreeningResult):
+        self._ScreeningResult = ScreeningResult
+
+    @property
+    def AMLTypes(self):
+        r"""<p>Return on hit, the hit AML type list (deduplicated)</p>
+        :rtype: list of str
+        """
+        return self._AMLTypes
+
+    @AMLTypes.setter
+    def AMLTypes(self, AMLTypes):
+        self._AMLTypes = AMLTypes
+
+    @property
+    def HitDetail(self):
+        r"""<p>Return on cache hit, hit risk detail list</p>
+        :rtype: str
+        """
+        return self._HitDetail
+
+    @HitDetail.setter
+    def HitDetail(self, HitDetail):
+        self._HitDetail = HitDetail
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""<p>Description of results returned</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def ScreeningId(self):
+        r"""<p>The unique identifier of a case generated by one hit screening</p>
+        :rtype: str
+        """
+        return self._ScreeningId
+
+    @ScreeningId.setter
+    def ScreeningId(self, ScreeningId):
+        self._ScreeningId = ScreeningId
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether continuous monitoring and screening is enabled. Default value: false</p><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ScreeningResult = params.get("ScreeningResult")
+        self._AMLTypes = params.get("AMLTypes")
+        self._HitDetail = params.get("HitDetail")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._ScreeningId = params.get("ScreeningId")
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        self._RequestId = params.get("RequestId")
+
+
+class SingaporeIDCard(AbstractModel):
+    r"""Singapore ID card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ChName: Chinese Name
+        :type ChName: str
+        :param _ChineseName: Chinese Name
+        :type ChineseName: str
+        :param _EnName: English name
+        :type EnName: str
+        :param _FullName: English name
+        :type FullName: str
+        :param _ID: Identity card number
+        :type ID: str
+        :param _LicenseNumber: Identity number
+        :type LicenseNumber: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _CountryOfBirth: Country of birth
+        :type CountryOfBirth: str
+        :param _Nationality: Country of birth
+        :type Nationality: str
+        :param _Birthday: Birthday
+        :type Birthday: str
+        :param _Address: Address (back field)
+        :type Address: str
+        :param _Race: Nationality (back field)
+        :type Race: str
+        :param _NRICCode: Nric number (back field)
+        :type NRICCode: str
+        :param _PostCode: Post number (back field)
+        :type PostCode: str
+        :param _DateOfExpiration: Expires on (back field)
+        :type DateOfExpiration: str
+        :param _DateOfIssue: Issue date (field on the back)
+        :type DateOfIssue: str
+        """
+        self._ChName = None
+        self._ChineseName = None
+        self._EnName = None
+        self._FullName = None
+        self._ID = None
+        self._LicenseNumber = None
+        self._Sex = None
+        self._CountryOfBirth = None
+        self._Nationality = None
+        self._Birthday = None
+        self._Address = None
+        self._Race = None
+        self._NRICCode = None
+        self._PostCode = None
+        self._DateOfExpiration = None
+        self._DateOfIssue = None
+
+    @property
+    def ChName(self):
+        warnings.warn("parameter `ChName` is deprecated", DeprecationWarning) 
+
+        r"""Chinese Name
+        :rtype: str
+        """
+        return self._ChName
+
+    @ChName.setter
+    def ChName(self, ChName):
+        warnings.warn("parameter `ChName` is deprecated", DeprecationWarning) 
+
+        self._ChName = ChName
+
+    @property
+    def ChineseName(self):
+        r"""Chinese Name
+        :rtype: str
+        """
+        return self._ChineseName
+
+    @ChineseName.setter
+    def ChineseName(self, ChineseName):
+        self._ChineseName = ChineseName
+
+    @property
+    def EnName(self):
+        warnings.warn("parameter `EnName` is deprecated", DeprecationWarning) 
+
+        r"""English name
+        :rtype: str
+        """
+        return self._EnName
+
+    @EnName.setter
+    def EnName(self, EnName):
+        warnings.warn("parameter `EnName` is deprecated", DeprecationWarning) 
+
+        self._EnName = EnName
+
+    @property
+    def FullName(self):
+        r"""English name
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def ID(self):
+        warnings.warn("parameter `ID` is deprecated", DeprecationWarning) 
+
+        r"""Identity card number
+        :rtype: str
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        warnings.warn("parameter `ID` is deprecated", DeprecationWarning) 
+
+        self._ID = ID
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity number
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def CountryOfBirth(self):
+        warnings.warn("parameter `CountryOfBirth` is deprecated", DeprecationWarning) 
+
+        r"""Country of birth
+        :rtype: str
+        """
+        return self._CountryOfBirth
+
+    @CountryOfBirth.setter
+    def CountryOfBirth(self, CountryOfBirth):
+        warnings.warn("parameter `CountryOfBirth` is deprecated", DeprecationWarning) 
+
+        self._CountryOfBirth = CountryOfBirth
+
+    @property
+    def Nationality(self):
+        r"""Country of birth
+        :rtype: str
+        """
+        return self._Nationality
+
+    @Nationality.setter
+    def Nationality(self, Nationality):
+        self._Nationality = Nationality
+
+    @property
+    def Birthday(self):
+        r"""Birthday
+        :rtype: str
+        """
+        return self._Birthday
+
+    @Birthday.setter
+    def Birthday(self, Birthday):
+        self._Birthday = Birthday
+
+    @property
+    def Address(self):
+        r"""Address (back field)
+        :rtype: str
+        """
+        return self._Address
+
+    @Address.setter
+    def Address(self, Address):
+        self._Address = Address
+
+    @property
+    def Race(self):
+        r"""Nationality (back field)
+        :rtype: str
+        """
+        return self._Race
+
+    @Race.setter
+    def Race(self, Race):
+        self._Race = Race
+
+    @property
+    def NRICCode(self):
+        r"""Nric number (back field)
+        :rtype: str
+        """
+        return self._NRICCode
+
+    @NRICCode.setter
+    def NRICCode(self, NRICCode):
+        self._NRICCode = NRICCode
+
+    @property
+    def PostCode(self):
+        r"""Post number (back field)
+        :rtype: str
+        """
+        return self._PostCode
+
+    @PostCode.setter
+    def PostCode(self, PostCode):
+        self._PostCode = PostCode
+
+    @property
+    def DateOfExpiration(self):
+        r"""Expires on (back field)
+        :rtype: str
+        """
+        return self._DateOfExpiration
+
+    @DateOfExpiration.setter
+    def DateOfExpiration(self, DateOfExpiration):
+        self._DateOfExpiration = DateOfExpiration
+
+    @property
+    def DateOfIssue(self):
+        r"""Issue date (field on the back)
+        :rtype: str
+        """
+        return self._DateOfIssue
+
+    @DateOfIssue.setter
+    def DateOfIssue(self, DateOfIssue):
+        self._DateOfIssue = DateOfIssue
+
+
+    def _deserialize(self, params):
+        self._ChName = params.get("ChName")
+        self._ChineseName = params.get("ChineseName")
+        self._EnName = params.get("EnName")
+        self._FullName = params.get("FullName")
+        self._ID = params.get("ID")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Sex = params.get("Sex")
+        self._CountryOfBirth = params.get("CountryOfBirth")
+        self._Nationality = params.get("Nationality")
+        self._Birthday = params.get("Birthday")
+        self._Address = params.get("Address")
+        self._Race = params.get("Race")
+        self._NRICCode = params.get("NRICCode")
+        self._PostCode = params.get("PostCode")
+        self._DateOfExpiration = params.get("DateOfExpiration")
+        self._DateOfIssue = params.get("DateOfIssue")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TaiWanIDCard(AbstractModel):
+    r"""Taiwan (China) ID card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FullName: Name.
+        :type FullName: str
+        :param _LicenseNumber: Identity card
+        :type LicenseNumber: str
+        :param _Sex: Sex
+        :type Sex: str
+        :param _IssuedCountry: City of issuance
+        :type IssuedCountry: str
+        :param _RegistrationNumber: Registration number
+        :type RegistrationNumber: str
+        """
+        self._FullName = None
+        self._LicenseNumber = None
+        self._Sex = None
+        self._IssuedCountry = None
+        self._RegistrationNumber = None
+
+    @property
+    def FullName(self):
+        r"""Name.
+        :rtype: str
+        """
+        return self._FullName
+
+    @FullName.setter
+    def FullName(self, FullName):
+        self._FullName = FullName
+
+    @property
+    def LicenseNumber(self):
+        r"""Identity card
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def Sex(self):
+        r"""Sex
+        :rtype: str
+        """
+        return self._Sex
+
+    @Sex.setter
+    def Sex(self, Sex):
+        self._Sex = Sex
+
+    @property
+    def IssuedCountry(self):
+        r"""City of issuance
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+    @property
+    def RegistrationNumber(self):
+        r"""Registration number
+        :rtype: str
+        """
+        return self._RegistrationNumber
+
+    @RegistrationNumber.setter
+    def RegistrationNumber(self, RegistrationNumber):
+        self._RegistrationNumber = RegistrationNumber
+
+
+    def _deserialize(self, params):
+        self._FullName = params.get("FullName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._Sex = params.get("Sex")
+        self._IssuedCountry = params.get("IssuedCountry")
+        self._RegistrationNumber = params.get("RegistrationNumber")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ThailandIDCard(AbstractModel):
+    r"""Thai Identity Card
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LastName: Last name
+        :type LastName: str
+        :param _FirstName: First name
+        :type FirstName: str
+        :param _LicenseNumber: No.
+        :type LicenseNumber: str
+        :param _DateOfBirth: Date of birth
+        :type DateOfBirth: str
+        :param _DateOfExpiry: Expiration date
+        :type DateOfExpiry: str
+        :param _DateOfIssue: Issue date
+        :type DateOfIssue: str
+        :param _IssuedCountry: Issuing country
+        :type IssuedCountry: str
+        """
+        self._LastName = None
+        self._FirstName = None
+        self._LicenseNumber = None
+        self._DateOfBirth = None
+        self._DateOfExpiry = None
+        self._DateOfIssue = None
+        self._IssuedCountry = None
+
+    @property
+    def LastName(self):
+        r"""Last name
+        :rtype: str
+        """
+        return self._LastName
+
+    @LastName.setter
+    def LastName(self, LastName):
+        self._LastName = LastName
+
+    @property
+    def FirstName(self):
+        r"""First name
+        :rtype: str
+        """
+        return self._FirstName
+
+    @FirstName.setter
+    def FirstName(self, FirstName):
+        self._FirstName = FirstName
+
+    @property
+    def LicenseNumber(self):
+        r"""No.
+        :rtype: str
+        """
+        return self._LicenseNumber
+
+    @LicenseNumber.setter
+    def LicenseNumber(self, LicenseNumber):
+        self._LicenseNumber = LicenseNumber
+
+    @property
+    def DateOfBirth(self):
+        r"""Date of birth
+        :rtype: str
+        """
+        return self._DateOfBirth
+
+    @DateOfBirth.setter
+    def DateOfBirth(self, DateOfBirth):
+        self._DateOfBirth = DateOfBirth
+
+    @property
+    def DateOfExpiry(self):
+        r"""Expiration date
+        :rtype: str
+        """
+        return self._DateOfExpiry
+
+    @DateOfExpiry.setter
+    def DateOfExpiry(self, DateOfExpiry):
+        self._DateOfExpiry = DateOfExpiry
+
+    @property
+    def DateOfIssue(self):
+        r"""Issue date
+        :rtype: str
+        """
+        return self._DateOfIssue
+
+    @DateOfIssue.setter
+    def DateOfIssue(self, DateOfIssue):
+        self._DateOfIssue = DateOfIssue
+
+    @property
+    def IssuedCountry(self):
+        r"""Issuing country
+        :rtype: str
+        """
+        return self._IssuedCountry
+
+    @IssuedCountry.setter
+    def IssuedCountry(self, IssuedCountry):
+        self._IssuedCountry = IssuedCountry
+
+
+    def _deserialize(self, params):
+        self._LastName = params.get("LastName")
+        self._FirstName = params.get("FirstName")
+        self._LicenseNumber = params.get("LicenseNumber")
+        self._DateOfBirth = params.get("DateOfBirth")
+        self._DateOfExpiry = params.get("DateOfExpiry")
+        self._DateOfIssue = params.get("DateOfIssue")
+        self._IssuedCountry = params.get("IssuedCountry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAMLCustomerProfileRequest(AbstractModel):
+    r"""UpdateAMLCustomerProfile request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueCustomerID: <p>User's unique identifier in the customer system, up to 256 characters.</p>
+        :type UniqueCustomerID: str
+        :param _EntityType: <p>Entity type. Enumeration values: PERSON / COMPANY</p><p>Enumeration values:</p><ul><li>PERSON: individual</li><li>COMPANY: company</li></ul>
+        :type EntityType: str
+        :param _Person: <p>Personal information, required when EntityType=PERSON</p><p>Input limit: EntityType=PERSON</p>
+        :type Person: :class:`tencentcloud.faceid.v20180301.models.Person`
+        :param _Company: <p>Enterprise info. Required when EntityType=COMPANY</p><p>Input limitation: EntityType=COMPANY</p>
+        :type Company: :class:`tencentcloud.faceid.v20180301.models.Company`
+        """
+        self._UniqueCustomerID = None
+        self._EntityType = None
+        self._Person = None
+        self._Company = None
+
+    @property
+    def UniqueCustomerID(self):
+        r"""<p>User's unique identifier in the customer system, up to 256 characters.</p>
+        :rtype: str
+        """
+        return self._UniqueCustomerID
+
+    @UniqueCustomerID.setter
+    def UniqueCustomerID(self, UniqueCustomerID):
+        self._UniqueCustomerID = UniqueCustomerID
+
+    @property
+    def EntityType(self):
+        r"""<p>Entity type. Enumeration values: PERSON / COMPANY</p><p>Enumeration values:</p><ul><li>PERSON: individual</li><li>COMPANY: company</li></ul>
+        :rtype: str
+        """
+        return self._EntityType
+
+    @EntityType.setter
+    def EntityType(self, EntityType):
+        self._EntityType = EntityType
+
+    @property
+    def Person(self):
+        r"""<p>Personal information, required when EntityType=PERSON</p><p>Input limit: EntityType=PERSON</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Person`
+        """
+        return self._Person
+
+    @Person.setter
+    def Person(self, Person):
+        self._Person = Person
+
+    @property
+    def Company(self):
+        r"""<p>Enterprise info. Required when EntityType=COMPANY</p><p>Input limitation: EntityType=COMPANY</p>
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.Company`
+        """
+        return self._Company
+
+    @Company.setter
+    def Company(self, Company):
+        self._Company = Company
+
+
+    def _deserialize(self, params):
+        self._UniqueCustomerID = params.get("UniqueCustomerID")
+        self._EntityType = params.get("EntityType")
+        if params.get("Person") is not None:
+            self._Person = Person()
+            self._Person._deserialize(params.get("Person"))
+        if params.get("Company") is not None:
+            self._Company = Company()
+            self._Company._deserialize(params.get("Company"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAMLCustomerProfileResponse(AbstractModel):
+    r"""UpdateAMLCustomerProfile response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RiskLevel: <p>Risk level.</p>
+        :type RiskLevel: str
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _Description: <p>Return result description</p>
+        :type Description: str
+        :param _EnableOngoingScreening: <p>Whether continuous monitoring and screening is enabled</p>
+        :type EnableOngoingScreening: bool
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RiskLevel = None
+        self._Result = None
+        self._Description = None
+        self._EnableOngoingScreening = None
+        self._RequestId = None
+
+    @property
+    def RiskLevel(self):
+        r"""<p>Risk level.</p>
+        :rtype: str
+        """
+        return self._RiskLevel
+
+    @RiskLevel.setter
+    def RiskLevel(self, RiskLevel):
+        self._RiskLevel = RiskLevel
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""<p>Return result description</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether continuous monitoring and screening is enabled</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RiskLevel = params.get("RiskLevel")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        self._RequestId = params.get("RequestId")
+
+
+class UpdateAMLOngoingScreeningStatusRequest(AbstractModel):
+    r"""UpdateAMLOngoingScreeningStatus request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueCustomerID: <p>Unique identifier of the end user in the customer system, up to 256 characters.</p>
+        :type UniqueCustomerID: str
+        :param _EnableOngoingScreening: <p>Whether to enable continuous monitoring and screening. Default value: false</p><p>Default value: false</p>
+        :type EnableOngoingScreening: bool
+        """
+        self._UniqueCustomerID = None
+        self._EnableOngoingScreening = None
+
+    @property
+    def UniqueCustomerID(self):
+        r"""<p>Unique identifier of the end user in the customer system, up to 256 characters.</p>
+        :rtype: str
+        """
+        return self._UniqueCustomerID
+
+    @UniqueCustomerID.setter
+    def UniqueCustomerID(self, UniqueCustomerID):
+        self._UniqueCustomerID = UniqueCustomerID
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether to enable continuous monitoring and screening. Default value: false</p><p>Default value: false</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+
+    def _deserialize(self, params):
+        self._UniqueCustomerID = params.get("UniqueCustomerID")
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAMLOngoingScreeningStatusResponse(AbstractModel):
+    r"""UpdateAMLOngoingScreeningStatus response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueCustomerID: <p>Unique identifier of the end user in the customer system</p>
+        :type UniqueCustomerID: str
+        :param _EnableOngoingScreening: <p>Whether continuous monitoring screening is enabled</p>
+        :type EnableOngoingScreening: bool
+        :param _Description: <p>Return result description</p>
+        :type Description: str
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._UniqueCustomerID = None
+        self._EnableOngoingScreening = None
+        self._Description = None
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def UniqueCustomerID(self):
+        r"""<p>Unique identifier of the end user in the customer system</p>
+        :rtype: str
+        """
+        return self._UniqueCustomerID
+
+    @UniqueCustomerID.setter
+    def UniqueCustomerID(self, UniqueCustomerID):
+        self._UniqueCustomerID = UniqueCustomerID
+
+    @property
+    def EnableOngoingScreening(self):
+        r"""<p>Whether continuous monitoring screening is enabled</p>
+        :rtype: bool
+        """
+        return self._EnableOngoingScreening
+
+    @EnableOngoingScreening.setter
+    def EnableOngoingScreening(self, EnableOngoingScreening):
+        self._EnableOngoingScreening = EnableOngoingScreening
+
+    @property
+    def Description(self):
+        r"""<p>Return result description</p>
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._UniqueCustomerID = params.get("UniqueCustomerID")
+        self._EnableOngoingScreening = params.get("EnableOngoingScreening")
+        self._Description = params.get("Description")
+        self._Result = params.get("Result")
+        self._RequestId = params.get("RequestId")
+
+
+class UpdateEKYCWebhookRequest(AbstractModel):
+    r"""UpdateEKYCWebhook request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookId: <p>ID of the Webhook configuration to be updated</p>
+        :type WebhookId: int
+        :param _WebhookName: <p>New Webhook name</p>
+        :type WebhookName: str
+        :param _WebhookURL: <p>New callback URL, must be HTTPS protocol</p>
+        :type WebhookURL: str
+        :param _SignatureKey: <p>Callback signature key, up to 128 characters. Used for HMAC-SHA256 signature verification of subsequent callback messages. If not provided, signature is not enabled. We recommend using OpenSSL random bytes to generate the key. Recommended command: openssl rand -base64 32    </p><blockquote><p>Our side uses your configured <code>SignatureKey</code> to calculate the HMAC-SHA256 signature over "timestamp (<code>X-Webhook-Timestamp</code>) + <code>.</code> + request body", and puts the hexadecimal result in the request header <code>X-Webhook-Signature</code>. The message itself is unencrypted and transmitted over HTTPS. Use the same key to recalculate and compare the signature following the same rule to confirm that the notification source is trustworthy and the content has not been tampered with.</p></blockquote>
+        :type SignatureKey: str
+        """
+        self._WebhookId = None
+        self._WebhookName = None
+        self._WebhookURL = None
+        self._SignatureKey = None
+
+    @property
+    def WebhookId(self):
+        r"""<p>ID of the Webhook configuration to be updated</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+    @property
+    def WebhookName(self):
+        r"""<p>New Webhook name</p>
+        :rtype: str
+        """
+        return self._WebhookName
+
+    @WebhookName.setter
+    def WebhookName(self, WebhookName):
+        self._WebhookName = WebhookName
+
+    @property
+    def WebhookURL(self):
+        r"""<p>New callback URL, must be HTTPS protocol</p>
+        :rtype: str
+        """
+        return self._WebhookURL
+
+    @WebhookURL.setter
+    def WebhookURL(self, WebhookURL):
+        self._WebhookURL = WebhookURL
+
+    @property
+    def SignatureKey(self):
+        r"""<p>Callback signature key, up to 128 characters. Used for HMAC-SHA256 signature verification of subsequent callback messages. If not provided, signature is not enabled. We recommend using OpenSSL random bytes to generate the key. Recommended command: openssl rand -base64 32    </p><blockquote><p>Our side uses your configured <code>SignatureKey</code> to calculate the HMAC-SHA256 signature over "timestamp (<code>X-Webhook-Timestamp</code>) + <code>.</code> + request body", and puts the hexadecimal result in the request header <code>X-Webhook-Signature</code>. The message itself is unencrypted and transmitted over HTTPS. Use the same key to recalculate and compare the signature following the same rule to confirm that the notification source is trustworthy and the content has not been tampered with.</p></blockquote>
+        :rtype: str
+        """
+        return self._SignatureKey
+
+    @SignatureKey.setter
+    def SignatureKey(self, SignatureKey):
+        self._SignatureKey = SignatureKey
+
+
+    def _deserialize(self, params):
+        self._WebhookId = params.get("WebhookId")
+        self._WebhookName = params.get("WebhookName")
+        self._WebhookURL = params.get("WebhookURL")
+        self._SignatureKey = params.get("SignatureKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateEKYCWebhookResponse(AbstractModel):
+    r"""UpdateEKYCWebhook response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookId: <p>ID of the Webhook configuration to be updated</p>
+        :type WebhookId: int
+        :param _ModTime: <p>Modification time after the update, in the format YYYY-MM-DD HH:mm:ss</p>
+        :type ModTime: str
+        :param _Result: <p>Returned results</p>
+        :type Result: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._WebhookId = None
+        self._ModTime = None
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def WebhookId(self):
+        r"""<p>ID of the Webhook configuration to be updated</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+    @property
+    def ModTime(self):
+        r"""<p>Modification time after the update, in the format YYYY-MM-DD HH:mm:ss</p>
+        :rtype: str
+        """
+        return self._ModTime
+
+    @ModTime.setter
+    def ModTime(self, ModTime):
+        self._ModTime = ModTime
+
+    @property
+    def Result(self):
+        r"""<p>Returned results</p>
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._WebhookId = params.get("WebhookId")
+        self._ModTime = params.get("ModTime")
+        self._Result = params.get("Result")
+        self._RequestId = params.get("RequestId")
+
+
+class VerificationDetail(AbstractModel):
+    r"""Detailed process information for verification
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ErrorCode: Final result of this verification. 0 indicates that the verification is passed and the person is determined to be the same person.
+        :type ErrorCode: int
+        :param _ErrorMsg: Final result description of this verification
+        :type ErrorMsg: str
+        :param _LivenessErrorCode: Liveness detection result of this verification. 0 indicates success.
+        :type LivenessErrorCode: int
+        :param _LivenessErrorMsg: Description of the liveness detection result for this verification
+        :type LivenessErrorMsg: str
+        :param _CompareErrorCode: Result of this verification comparison. 0 indicates that the best face photo collected from the video stream and the uploaded image for comparison are determined to be the same person.
+        :type CompareErrorCode: int
+        :param _CompareErrorMsg: Result description of this verification comparison
+        :type CompareErrorMsg: str
+        :param _ReqTimestamp: Verification timestamp (ms) this time
+        :type ReqTimestamp: int
+        :param _Similarity: Similarity between the best face photo collected from the video stream in this verification and the uploaded image for comparison. Value range: [0.00, 100.00]. By default, the two are determined to be the same person when the similarity is at least 70.
+        :type Similarity: float
+        :param _Seq: Unique identifier for this verification
+        :type Seq: str
+        :param _LivenessInfoTag: Description of the detailed reason why the current request was rejected in the liveness phase. This parameter is returned only for the PLUS version of the eKYC service.
+-Details as follows:
+01-User eyes closed throughout
+02 - User has not completed the specified action
+03-Suspected rephotography attack
+04-Suspected synthesis attack
+05-Suspected fraud template
+06-Suspected watermark
+07-Reflection validation failed
+08-Suspected midway change person
+09: Poor face quality
+10-distance check failed
+11-Suspected adversarial sample attack
+12-Mouth area suspected of attack traces
+13-Eye area suspected to have attack traces
+14-Eye or mouth covered
+Note: This field may return null, indicating that no valid values can be obtained.
+Example value: ["01"].
+        :type LivenessInfoTag: list of str
+        """
+        self._ErrorCode = None
+        self._ErrorMsg = None
+        self._LivenessErrorCode = None
+        self._LivenessErrorMsg = None
+        self._CompareErrorCode = None
+        self._CompareErrorMsg = None
+        self._ReqTimestamp = None
+        self._Similarity = None
+        self._Seq = None
+        self._LivenessInfoTag = None
+
+    @property
+    def ErrorCode(self):
+        r"""Final result of this verification. 0 indicates that the verification is passed and the person is determined to be the same person.
+        :rtype: int
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMsg(self):
+        r"""Final result description of this verification
+        :rtype: str
+        """
+        return self._ErrorMsg
+
+    @ErrorMsg.setter
+    def ErrorMsg(self, ErrorMsg):
+        self._ErrorMsg = ErrorMsg
+
+    @property
+    def LivenessErrorCode(self):
+        r"""Liveness detection result of this verification. 0 indicates success.
+        :rtype: int
+        """
+        return self._LivenessErrorCode
+
+    @LivenessErrorCode.setter
+    def LivenessErrorCode(self, LivenessErrorCode):
+        self._LivenessErrorCode = LivenessErrorCode
+
+    @property
+    def LivenessErrorMsg(self):
+        r"""Description of the liveness detection result for this verification
+        :rtype: str
+        """
+        return self._LivenessErrorMsg
+
+    @LivenessErrorMsg.setter
+    def LivenessErrorMsg(self, LivenessErrorMsg):
+        self._LivenessErrorMsg = LivenessErrorMsg
+
+    @property
+    def CompareErrorCode(self):
+        r"""Result of this verification comparison. 0 indicates that the best face photo collected from the video stream and the uploaded image for comparison are determined to be the same person.
+        :rtype: int
+        """
+        return self._CompareErrorCode
+
+    @CompareErrorCode.setter
+    def CompareErrorCode(self, CompareErrorCode):
+        self._CompareErrorCode = CompareErrorCode
+
+    @property
+    def CompareErrorMsg(self):
+        r"""Result description of this verification comparison
+        :rtype: str
+        """
+        return self._CompareErrorMsg
+
+    @CompareErrorMsg.setter
+    def CompareErrorMsg(self, CompareErrorMsg):
+        self._CompareErrorMsg = CompareErrorMsg
+
+    @property
+    def ReqTimestamp(self):
+        r"""Verification timestamp (ms) this time
+        :rtype: int
+        """
+        return self._ReqTimestamp
+
+    @ReqTimestamp.setter
+    def ReqTimestamp(self, ReqTimestamp):
+        self._ReqTimestamp = ReqTimestamp
+
+    @property
+    def Similarity(self):
+        r"""Similarity between the best face photo collected from the video stream in this verification and the uploaded image for comparison. Value range: [0.00, 100.00]. By default, the two are determined to be the same person when the similarity is at least 70.
+        :rtype: float
+        """
+        return self._Similarity
+
+    @Similarity.setter
+    def Similarity(self, Similarity):
+        self._Similarity = Similarity
+
+    @property
+    def Seq(self):
+        r"""Unique identifier for this verification
+        :rtype: str
+        """
+        return self._Seq
+
+    @Seq.setter
+    def Seq(self, Seq):
+        self._Seq = Seq
+
+    @property
+    def LivenessInfoTag(self):
+        r"""Description of the detailed reason why the current request was rejected in the liveness phase. This parameter is returned only for the PLUS version of the eKYC service.
+-Details as follows:
+01-User eyes closed throughout
+02 - User has not completed the specified action
+03-Suspected rephotography attack
+04-Suspected synthesis attack
+05-Suspected fraud template
+06-Suspected watermark
+07-Reflection validation failed
+08-Suspected midway change person
+09: Poor face quality
+10-distance check failed
+11-Suspected adversarial sample attack
+12-Mouth area suspected of attack traces
+13-Eye area suspected to have attack traces
+14-Eye or mouth covered
+Note: This field may return null, indicating that no valid values can be obtained.
+Example value: ["01"].
+        :rtype: list of str
+        """
+        return self._LivenessInfoTag
+
+    @LivenessInfoTag.setter
+    def LivenessInfoTag(self, LivenessInfoTag):
+        self._LivenessInfoTag = LivenessInfoTag
+
+
+    def _deserialize(self, params):
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMsg = params.get("ErrorMsg")
+        self._LivenessErrorCode = params.get("LivenessErrorCode")
+        self._LivenessErrorMsg = params.get("LivenessErrorMsg")
+        self._CompareErrorCode = params.get("CompareErrorCode")
+        self._CompareErrorMsg = params.get("CompareErrorMsg")
+        self._ReqTimestamp = params.get("ReqTimestamp")
+        self._Similarity = params.get("Similarity")
+        self._Seq = params.get("Seq")
+        self._LivenessInfoTag = params.get("LivenessInfoTag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VideoLivenessCompareRequest(AbstractModel):
+    r"""VideoLivenessCompare request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ImageUrl: The URL of the photo for face comparison. The downloaded image after Base64 encoding can be up to 3 MB and must be in JPG or PNG.
+
+The image must be stored in a COS bucket in the region where the FaceID service resides to ensure a higher download speed and better stability. You can generate an image URL by using `CreateUploadUrl` or purchase the COS service.
+        :type ImageUrl: str
+        :param _ImageMd5: The 32-bit MD5 checksum of the image for comparison
+        :type ImageMd5: str
+        :param _VideoUrl: The URL of the video for liveness detection. The downloaded video after Base64 encoding can be up to 8 MB and must be in MP4, AVI, or FLV. It takes no more than 4s to download the video.
+
+The video must be stored in a COS bucket in the region where the FaceID service resides to ensure a higher download speed and better stability. You can generate a video URL by using `CreateUploadUrl` or purchase the COS service.
+        :type VideoUrl: str
+        :param _VideoMd5: The 32-bit MD5 checksum of the video
+        :type VideoMd5: str
+        :param _LivenessType: The liveness detection type. Valid values: `LIP`, `ACTION`, and `SILENT`.
+`LIP`: Numeric mode; `ACTION`: Motion mode; `SILENT`: silent mode. Select one of them.
+        :type LivenessType: str
+        :param _ValidateData: LIP parameter: Pass in a custom 4-digit verification code.
+ACTION parameter: Pass in a custom action sequence (`2,1` or `1,2`).
+SILENT parameter: Null.
+        :type ValidateData: str
+        """
+        self._ImageUrl = None
+        self._ImageMd5 = None
+        self._VideoUrl = None
+        self._VideoMd5 = None
+        self._LivenessType = None
+        self._ValidateData = None
+
+    @property
+    def ImageUrl(self):
+        r"""The URL of the photo for face comparison. The downloaded image after Base64 encoding can be up to 3 MB and must be in JPG or PNG.
+
+The image must be stored in a COS bucket in the region where the FaceID service resides to ensure a higher download speed and better stability. You can generate an image URL by using `CreateUploadUrl` or purchase the COS service.
+        :rtype: str
+        """
+        return self._ImageUrl
+
+    @ImageUrl.setter
+    def ImageUrl(self, ImageUrl):
+        self._ImageUrl = ImageUrl
+
+    @property
+    def ImageMd5(self):
+        r"""The 32-bit MD5 checksum of the image for comparison
+        :rtype: str
+        """
+        return self._ImageMd5
+
+    @ImageMd5.setter
+    def ImageMd5(self, ImageMd5):
+        self._ImageMd5 = ImageMd5
+
+    @property
+    def VideoUrl(self):
+        r"""The URL of the video for liveness detection. The downloaded video after Base64 encoding can be up to 8 MB and must be in MP4, AVI, or FLV. It takes no more than 4s to download the video.
+
+The video must be stored in a COS bucket in the region where the FaceID service resides to ensure a higher download speed and better stability. You can generate a video URL by using `CreateUploadUrl` or purchase the COS service.
+        :rtype: str
+        """
+        return self._VideoUrl
+
+    @VideoUrl.setter
+    def VideoUrl(self, VideoUrl):
+        self._VideoUrl = VideoUrl
+
+    @property
+    def VideoMd5(self):
+        r"""The 32-bit MD5 checksum of the video
+        :rtype: str
+        """
+        return self._VideoMd5
+
+    @VideoMd5.setter
+    def VideoMd5(self, VideoMd5):
+        self._VideoMd5 = VideoMd5
+
+    @property
+    def LivenessType(self):
+        r"""The liveness detection type. Valid values: `LIP`, `ACTION`, and `SILENT`.
+`LIP`: Numeric mode; `ACTION`: Motion mode; `SILENT`: silent mode. Select one of them.
+        :rtype: str
+        """
+        return self._LivenessType
+
+    @LivenessType.setter
+    def LivenessType(self, LivenessType):
+        self._LivenessType = LivenessType
+
+    @property
+    def ValidateData(self):
+        r"""LIP parameter: Pass in a custom 4-digit verification code.
+ACTION parameter: Pass in a custom action sequence (`2,1` or `1,2`).
+SILENT parameter: Null.
+        :rtype: str
+        """
+        return self._ValidateData
+
+    @ValidateData.setter
+    def ValidateData(self, ValidateData):
+        self._ValidateData = ValidateData
+
+
+    def _deserialize(self, params):
+        self._ImageUrl = params.get("ImageUrl")
+        self._ImageMd5 = params.get("ImageMd5")
+        self._VideoUrl = params.get("VideoUrl")
+        self._VideoMd5 = params.get("VideoMd5")
+        self._LivenessType = params.get("LivenessType")
+        self._ValidateData = params.get("ValidateData")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VideoLivenessCompareResponse(AbstractModel):
+    r"""VideoLivenessCompare response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Sim: The similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two persons are of the same person. You can adjust the threshold according to your specific scenario (the FARs at the thresholds of 70 and 80 are 0.1% and 0.01%, respectively).
+        :type Sim: float
+        :param _Result: The service error code. `Success` will be returned for success. For error information, see the `FailedOperation` section in the error code list below.
+        :type Result: str
+        :param _Description: The service result description
+        :type Description: str
+        :param _BestFrame: The best video screenshot after successful verification
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type BestFrame: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._Sim = None
+        self._Result = None
+        self._Description = None
+        self._BestFrame = None
+        self._RequestId = None
+
+    @property
+    def Sim(self):
+        r"""The similarity. Value range: [0.00, 100.00]. As a recommendation, when the similarity is greater than or equal to 70, it can be determined that the two persons are of the same person. You can adjust the threshold according to your specific scenario (the FARs at the thresholds of 70 and 80 are 0.1% and 0.01%, respectively).
+        :rtype: float
+        """
+        return self._Sim
+
+    @Sim.setter
+    def Sim(self, Sim):
+        self._Sim = Sim
+
+    @property
+    def Result(self):
+        r"""The service error code. `Success` will be returned for success. For error information, see the `FailedOperation` section in the error code list below.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def Description(self):
+        r"""The service result description
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def BestFrame(self):
+        r"""The best video screenshot after successful verification
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.faceid.v20180301.models.FileInfo`
+        """
+        return self._BestFrame
+
+    @BestFrame.setter
+    def BestFrame(self, BestFrame):
+        self._BestFrame = BestFrame
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Sim = params.get("Sim")
+        self._Result = params.get("Result")
+        self._Description = params.get("Description")
+        if params.get("BestFrame") is not None:
+            self._BestFrame = FileInfo()
+            self._BestFrame._deserialize(params.get("BestFrame"))
+        self._RequestId = params.get("RequestId")
+
+
+class WebVerificationConfigIntl(AbstractModel):
+    r"""eKYC Web related configuration
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AutoSkipStartPage: <p>Whether to skip the start verification webpage when starting verification. If true, directly enter the verification process. Default false. If the degradation policy is triggered, this configuration will not take effect.</p>
+        :type AutoSkipStartPage: bool
+        :param _AutoSkip: <p>Whether to skip the result display page and automatically jump to RedirectURL when verification is successful. Default false.</p>
+        :type AutoSkip: bool
+        :param _CheckMode: <p>Detection mode. Parameter values are as follows:<br>1: OCR+liveness detection+face comparison;<br>2: liveness detection+face comparison;<br>3: liveness detection;<br>4: OCR;<br>Default value is 2.</p>
+        :type CheckMode: int
+        :param _IDCardType: <p>Identity document type used for authentication. Currently supported:<br>1.HKIDCard: Hong Kong (China) identity card<br>2.MLIDCard: Malaysian identity card<br>3.IndonesiaIDCard: Indonesian Identity Card<br>4.PhilippinesVoteID: Philippines voter card<br>5.PhilippinesDrivingLicense: Philippines driving license<br>6.PhilippinesTinID: Philippines TinID<br>7.PhilippinesSSSID: Philippines SSSID<br>8.PhilippinesUMID: Philippines UMID<br>9.InternationalIDPassport: Passport for Hong Kong (China), Macao (China), and Taiwan (China) as well as overseas passport<br>10.ThailandIDCard: Thai Identity Card<br>11.SingaporeIDCard: Singapore ID card<br>12.MainlandIDCard: Mainland ID card</p>13.VietnamIDCard: Vietnam ID card</p>
+        :type IDCardType: str
+        :param _DisableCheckOcrWarnings: <p>Want to close document alarm, false by default (enable alarm detection). When enabled, the identity verification process will intercept based on the document alarm status. If you need to use document anti-counterfeiting functionality, <a href="https://www.tencentcloud.com/zh/contact-us">contact us</a>.</p>
+        :type DisableCheckOcrWarnings: bool
+        :param _SecurityLevel: <p>Security level of authentication:<br>1: Silent liveness;<br>2: Action liveness;<br>3: Light liveness;<br>4: Action + light liveness;<br>Default value is 3.</p>
+        :type SecurityLevel: int
+        :param _SkipPrivacyPolicy: <p>Whether to skip the privacy agreement webpage, default false. When SkipPrivacyPolicy is false, the privacy agreement webpage will show and the privacy agreement must be checked. When SkipPrivacyPolicy is true, the privacy agreement webpage will be skipped to directly enter the Live Face Process without the need to check the privacy agreement webpage.</p>
+        :type SkipPrivacyPolicy: bool
+        :param _IdCardCutReturn: <p>Default false. When false, show the original document image. When true, show the split document image.</p>
+        :type IdCardCutReturn: bool
+        :param _ThemeColor: <p>Frontend theme color in base 16 RGB format. Defaults to "#2d72f1". Uses default values if the format is incorrect.</p>
+        :type ThemeColor: str
+        :param _Language: <p>Internationalized language, defaults to en (English). Currently supported:<br>th: Thai;<br>en: English;<br>zh-cn: Simplified Chinese;<br>zh-tc: Traditional Chinese;<br>id: Indonesia;</p>
+        :type Language: str
+        :param _AutoDowngrade: <p>Automatic downgrade mode. Parameter values as follows:<br>1: Downgrade to silent liveness mode.<br>2: Disable downgrade mode.<br>Default value: 1.</p>
+        :type AutoDowngrade: int
+        :param _ActionList: <p>Control the action sequence. Action types are as follows:<br>"blink"<br>"mouth"<br>"nod"<br>"shake"<br>Choose 1-2 actions from the four.<br>Single action example: "blink"<br>Multi-action example: "blink,mouth".<br>Default value: blink<br>Input this parameter only when SecurityLevel is 2, 4, or 5 for different action types to take effect; otherwise, an API error occurs.</p>
+        :type ActionList: str
+        :param _LivenessRetryLimit: <p>Maximum liveness verification attempts. Value ranges from 1 to 99. Default value is 99.</p>
+        :type LivenessRetryLimit: int
+        :param _LivenessTimeout: <p>Control the liveness detection timeout period in seconds. The value ranges from 0 to 600. Default: 45 seconds.</p>
+        :type LivenessTimeout: int
+        :param _SelectedWarningCodes: <p>Select OCR alarms that require attention. When an OCR alarm is generated, the identity verification process will be interrupted. The default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the alarm is disabled, this parameter will not be effective.</p><p>Alarm code list and definitions:<br>-9101 Incomplete border alarm<br>-9102 Photocopies alarm<br>-9103 Alarm for rephotographing<br>-9104 ps alarm<br>-9107 Reflective alarm<br>-9108 Blurry alarm<br>-9109 Alarm not enabled</p>
+        :type SelectedWarningCodes: str
+        :param _AllowExpiredDocument: <p>Whether to allow expired identity documents to enter the liveness detection process. This parameter is valid only when the document type is Hong Kong identity card (HKID).<br>true (default value): Allow expired Hong Kong identity card to enter the liveness detection process.<br>false: Reject expired Hong Kong identity card, not accessible to the liveness detection process.</p>
+        :type AllowExpiredDocument: bool
+        :param _Version: <p>Service version, including basic version (BASIC) and PLUS version (PLUS).</p><p>Enumeration value:</p><ul><li>BASIC: Basic version</li><li>PLUS: PLUS version</li></ul><p>Default value: BASIC.</p>
+        :type Version: str
+        :param _OcrWaitPolicy: When CheckMode = 1, this defines the waiting policy for OCR recognition results.
+Enumeration values:
+required: Wait for OCR result after document capture.
+skip: Wait for OCR result confirmation before entering liveness check.
+Default value: required.
+        :type OcrWaitPolicy: str
+        :param _WebhookUrl: When CheckMode = 1, verification status callback URL. If configured, the service will actively push notifications to this address upon process completion. Leave it blank to disable callbacks. As callbacks cannot guarantee 100% delivery, it is recommended to use a polling mechanism to retrieve the final status.
+        :type WebhookUrl: str
+        """
+        self._AutoSkipStartPage = None
+        self._AutoSkip = None
+        self._CheckMode = None
+        self._IDCardType = None
+        self._DisableCheckOcrWarnings = None
+        self._SecurityLevel = None
+        self._SkipPrivacyPolicy = None
+        self._IdCardCutReturn = None
+        self._ThemeColor = None
+        self._Language = None
+        self._AutoDowngrade = None
+        self._ActionList = None
+        self._LivenessRetryLimit = None
+        self._LivenessTimeout = None
+        self._SelectedWarningCodes = None
+        self._AllowExpiredDocument = None
+        self._Version = None
+        self._OcrWaitPolicy = None
+        self._WebhookUrl = None
+
+    @property
+    def AutoSkipStartPage(self):
+        r"""<p>Whether to skip the start verification webpage when starting verification. If true, directly enter the verification process. Default false. If the degradation policy is triggered, this configuration will not take effect.</p>
+        :rtype: bool
+        """
+        return self._AutoSkipStartPage
+
+    @AutoSkipStartPage.setter
+    def AutoSkipStartPage(self, AutoSkipStartPage):
+        self._AutoSkipStartPage = AutoSkipStartPage
+
+    @property
+    def AutoSkip(self):
+        r"""<p>Whether to skip the result display page and automatically jump to RedirectURL when verification is successful. Default false.</p>
+        :rtype: bool
+        """
+        return self._AutoSkip
+
+    @AutoSkip.setter
+    def AutoSkip(self, AutoSkip):
+        self._AutoSkip = AutoSkip
+
+    @property
+    def CheckMode(self):
+        r"""<p>Detection mode. Parameter values are as follows:<br>1: OCR+liveness detection+face comparison;<br>2: liveness detection+face comparison;<br>3: liveness detection;<br>4: OCR;<br>Default value is 2.</p>
+        :rtype: int
+        """
+        return self._CheckMode
+
+    @CheckMode.setter
+    def CheckMode(self, CheckMode):
+        self._CheckMode = CheckMode
+
+    @property
+    def IDCardType(self):
+        r"""<p>Identity document type used for authentication. Currently supported:<br>1.HKIDCard: Hong Kong (China) identity card<br>2.MLIDCard: Malaysian identity card<br>3.IndonesiaIDCard: Indonesian Identity Card<br>4.PhilippinesVoteID: Philippines voter card<br>5.PhilippinesDrivingLicense: Philippines driving license<br>6.PhilippinesTinID: Philippines TinID<br>7.PhilippinesSSSID: Philippines SSSID<br>8.PhilippinesUMID: Philippines UMID<br>9.InternationalIDPassport: Passport for Hong Kong (China), Macao (China), and Taiwan (China) as well as overseas passport<br>10.ThailandIDCard: Thai Identity Card<br>11.SingaporeIDCard: Singapore ID card<br>12.MainlandIDCard: Mainland ID card</p>13.VietnamIDCard: Vietnam ID card</p>
+        :rtype: str
+        """
+        return self._IDCardType
+
+    @IDCardType.setter
+    def IDCardType(self, IDCardType):
+        self._IDCardType = IDCardType
+
+    @property
+    def DisableCheckOcrWarnings(self):
+        r"""<p>Want to close document alarm, false by default (enable alarm detection). When enabled, the identity verification process will intercept based on the document alarm status. If you need to use document anti-counterfeiting functionality, <a href="https://www.tencentcloud.com/zh/contact-us">contact us</a>.</p>
+        :rtype: bool
+        """
+        return self._DisableCheckOcrWarnings
+
+    @DisableCheckOcrWarnings.setter
+    def DisableCheckOcrWarnings(self, DisableCheckOcrWarnings):
+        self._DisableCheckOcrWarnings = DisableCheckOcrWarnings
+
+    @property
+    def SecurityLevel(self):
+        r"""<p>Security level of authentication:<br>1: Silent liveness;<br>2: Action liveness;<br>3: Light liveness;<br>4: Action + light liveness;<br>Default value is 3.</p>
+        :rtype: int
+        """
+        return self._SecurityLevel
+
+    @SecurityLevel.setter
+    def SecurityLevel(self, SecurityLevel):
+        self._SecurityLevel = SecurityLevel
+
+    @property
+    def SkipPrivacyPolicy(self):
+        r"""<p>Whether to skip the privacy agreement webpage, default false. When SkipPrivacyPolicy is false, the privacy agreement webpage will show and the privacy agreement must be checked. When SkipPrivacyPolicy is true, the privacy agreement webpage will be skipped to directly enter the Live Face Process without the need to check the privacy agreement webpage.</p>
+        :rtype: bool
+        """
+        return self._SkipPrivacyPolicy
+
+    @SkipPrivacyPolicy.setter
+    def SkipPrivacyPolicy(self, SkipPrivacyPolicy):
+        self._SkipPrivacyPolicy = SkipPrivacyPolicy
+
+    @property
+    def IdCardCutReturn(self):
+        r"""<p>Default false. When false, show the original document image. When true, show the split document image.</p>
+        :rtype: bool
+        """
+        return self._IdCardCutReturn
+
+    @IdCardCutReturn.setter
+    def IdCardCutReturn(self, IdCardCutReturn):
+        self._IdCardCutReturn = IdCardCutReturn
+
+    @property
+    def ThemeColor(self):
+        r"""<p>Frontend theme color in base 16 RGB format. Defaults to "#2d72f1". Uses default values if the format is incorrect.</p>
+        :rtype: str
+        """
+        return self._ThemeColor
+
+    @ThemeColor.setter
+    def ThemeColor(self, ThemeColor):
+        self._ThemeColor = ThemeColor
+
+    @property
+    def Language(self):
+        r"""<p>Internationalized language, defaults to en (English). Currently supported:<br>th: Thai;<br>en: English;<br>zh-cn: Simplified Chinese;<br>zh-tc: Traditional Chinese;<br>id: Indonesia;</p>
+        :rtype: str
+        """
+        return self._Language
+
+    @Language.setter
+    def Language(self, Language):
+        self._Language = Language
+
+    @property
+    def AutoDowngrade(self):
+        r"""<p>Automatic downgrade mode. Parameter values as follows:<br>1: Downgrade to silent liveness mode.<br>2: Disable downgrade mode.<br>Default value: 1.</p>
+        :rtype: int
+        """
+        return self._AutoDowngrade
+
+    @AutoDowngrade.setter
+    def AutoDowngrade(self, AutoDowngrade):
+        self._AutoDowngrade = AutoDowngrade
+
+    @property
+    def ActionList(self):
+        r"""<p>Control the action sequence. Action types are as follows:<br>"blink"<br>"mouth"<br>"nod"<br>"shake"<br>Choose 1-2 actions from the four.<br>Single action example: "blink"<br>Multi-action example: "blink,mouth".<br>Default value: blink<br>Input this parameter only when SecurityLevel is 2, 4, or 5 for different action types to take effect; otherwise, an API error occurs.</p>
+        :rtype: str
+        """
+        return self._ActionList
+
+    @ActionList.setter
+    def ActionList(self, ActionList):
+        self._ActionList = ActionList
+
+    @property
+    def LivenessRetryLimit(self):
+        r"""<p>Maximum liveness verification attempts. Value ranges from 1 to 99. Default value is 99.</p>
+        :rtype: int
+        """
+        return self._LivenessRetryLimit
+
+    @LivenessRetryLimit.setter
+    def LivenessRetryLimit(self, LivenessRetryLimit):
+        self._LivenessRetryLimit = LivenessRetryLimit
+
+    @property
+    def LivenessTimeout(self):
+        r"""<p>Control the liveness detection timeout period in seconds. The value ranges from 0 to 600. Default: 45 seconds.</p>
+        :rtype: int
+        """
+        return self._LivenessTimeout
+
+    @LivenessTimeout.setter
+    def LivenessTimeout(self, LivenessTimeout):
+        self._LivenessTimeout = LivenessTimeout
+
+    @property
+    def SelectedWarningCodes(self):
+        r"""<p>Select OCR alarms that require attention. When an OCR alarm is generated, the identity verification process will be interrupted. The default value is empty, indicating all alarms are monitored. This feature requires the parameter DisableCheckOcrWarnings=false. If the alarm is disabled, this parameter will not be effective.</p><p>Alarm code list and definitions:<br>-9101 Incomplete border alarm<br>-9102 Photocopies alarm<br>-9103 Alarm for rephotographing<br>-9104 ps alarm<br>-9107 Reflective alarm<br>-9108 Blurry alarm<br>-9109 Alarm not enabled</p>
+        :rtype: str
+        """
+        return self._SelectedWarningCodes
+
+    @SelectedWarningCodes.setter
+    def SelectedWarningCodes(self, SelectedWarningCodes):
+        self._SelectedWarningCodes = SelectedWarningCodes
+
+    @property
+    def AllowExpiredDocument(self):
+        r"""<p>Whether to allow expired identity documents to enter the liveness detection process. This parameter is valid only when the document type is Hong Kong identity card (HKID).<br>true (default value): Allow expired Hong Kong identity card to enter the liveness detection process.<br>false: Reject expired Hong Kong identity card, not accessible to the liveness detection process.</p>
+        :rtype: bool
+        """
+        return self._AllowExpiredDocument
+
+    @AllowExpiredDocument.setter
+    def AllowExpiredDocument(self, AllowExpiredDocument):
+        self._AllowExpiredDocument = AllowExpiredDocument
+
+    @property
+    def Version(self):
+        r"""<p>Service version, including basic version (BASIC) and PLUS version (PLUS).</p><p>Enumeration value:</p><ul><li>BASIC: Basic version</li><li>PLUS: PLUS version</li></ul><p>Default value: BASIC.</p>
+        :rtype: str
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def OcrWaitPolicy(self):
+        r"""When CheckMode = 1, this defines the waiting policy for OCR recognition results.
+Enumeration values:
+required: Wait for OCR result after document capture.
+skip: Wait for OCR result confirmation before entering liveness check.
+Default value: required.
+        :rtype: str
+        """
+        return self._OcrWaitPolicy
+
+    @OcrWaitPolicy.setter
+    def OcrWaitPolicy(self, OcrWaitPolicy):
+        self._OcrWaitPolicy = OcrWaitPolicy
+
+    @property
+    def WebhookUrl(self):
+        r"""When CheckMode = 1, verification status callback URL. If configured, the service will actively push notifications to this address upon process completion. Leave it blank to disable callbacks. As callbacks cannot guarantee 100% delivery, it is recommended to use a polling mechanism to retrieve the final status.
+        :rtype: str
+        """
+        return self._WebhookUrl
+
+    @WebhookUrl.setter
+    def WebhookUrl(self, WebhookUrl):
+        self._WebhookUrl = WebhookUrl
+
+
+    def _deserialize(self, params):
+        self._AutoSkipStartPage = params.get("AutoSkipStartPage")
+        self._AutoSkip = params.get("AutoSkip")
+        self._CheckMode = params.get("CheckMode")
+        self._IDCardType = params.get("IDCardType")
+        self._DisableCheckOcrWarnings = params.get("DisableCheckOcrWarnings")
+        self._SecurityLevel = params.get("SecurityLevel")
+        self._SkipPrivacyPolicy = params.get("SkipPrivacyPolicy")
+        self._IdCardCutReturn = params.get("IdCardCutReturn")
+        self._ThemeColor = params.get("ThemeColor")
+        self._Language = params.get("Language")
+        self._AutoDowngrade = params.get("AutoDowngrade")
+        self._ActionList = params.get("ActionList")
+        self._LivenessRetryLimit = params.get("LivenessRetryLimit")
+        self._LivenessTimeout = params.get("LivenessTimeout")
+        self._SelectedWarningCodes = params.get("SelectedWarningCodes")
+        self._AllowExpiredDocument = params.get("AllowExpiredDocument")
+        self._Version = params.get("Version")
+        self._OcrWaitPolicy = params.get("OcrWaitPolicy")
+        self._WebhookUrl = params.get("WebhookUrl")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WebhookList(AbstractModel):
+    r"""Webhook configuration list
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _WebhookId: <p>Callback unique ID</p>
+        :type WebhookId: int
+        :param _WebhookName: <p>Callback address name</p>
+        :type WebhookName: str
+        :param _Scene: <p>Callback enumeration scenario.</p>
+        :type Scene: str
+        :param _WebhookURL: <p>Callback URL, must use HTTPS</p>
+        :type WebhookURL: str
+        :param _AddTime: <p>Addition Time</p><p>Parameter format: Format example: 2026-09-09 14:33:41</p>
+        :type AddTime: str
+        :param _ModTime: <p>Update time</p><p>Parameter format: Format example: 2026-09-09 14:33:41</p>
+        :type ModTime: str
+        :param _SignatureKey: <p>Callback signature key, up to 128 characters.</p>
+        :type SignatureKey: str
+        :param _HasSignatureKey: <p>Existence of callback signature key</p>
+        :type HasSignatureKey: bool
+        """
+        self._WebhookId = None
+        self._WebhookName = None
+        self._Scene = None
+        self._WebhookURL = None
+        self._AddTime = None
+        self._ModTime = None
+        self._SignatureKey = None
+        self._HasSignatureKey = None
+
+    @property
+    def WebhookId(self):
+        r"""<p>Callback unique ID</p>
+        :rtype: int
+        """
+        return self._WebhookId
+
+    @WebhookId.setter
+    def WebhookId(self, WebhookId):
+        self._WebhookId = WebhookId
+
+    @property
+    def WebhookName(self):
+        r"""<p>Callback address name</p>
+        :rtype: str
+        """
+        return self._WebhookName
+
+    @WebhookName.setter
+    def WebhookName(self, WebhookName):
+        self._WebhookName = WebhookName
+
+    @property
+    def Scene(self):
+        r"""<p>Callback enumeration scenario.</p>
+        :rtype: str
+        """
+        return self._Scene
+
+    @Scene.setter
+    def Scene(self, Scene):
+        self._Scene = Scene
+
+    @property
+    def WebhookURL(self):
+        r"""<p>Callback URL, must use HTTPS</p>
+        :rtype: str
+        """
+        return self._WebhookURL
+
+    @WebhookURL.setter
+    def WebhookURL(self, WebhookURL):
+        self._WebhookURL = WebhookURL
+
+    @property
+    def AddTime(self):
+        r"""<p>Addition Time</p><p>Parameter format: Format example: 2026-09-09 14:33:41</p>
+        :rtype: str
+        """
+        return self._AddTime
+
+    @AddTime.setter
+    def AddTime(self, AddTime):
+        self._AddTime = AddTime
+
+    @property
+    def ModTime(self):
+        r"""<p>Update time</p><p>Parameter format: Format example: 2026-09-09 14:33:41</p>
+        :rtype: str
+        """
+        return self._ModTime
+
+    @ModTime.setter
+    def ModTime(self, ModTime):
+        self._ModTime = ModTime
+
+    @property
+    def SignatureKey(self):
+        r"""<p>Callback signature key, up to 128 characters.</p>
+        :rtype: str
+        """
+        return self._SignatureKey
+
+    @SignatureKey.setter
+    def SignatureKey(self, SignatureKey):
+        self._SignatureKey = SignatureKey
+
+    @property
+    def HasSignatureKey(self):
+        r"""<p>Existence of callback signature key</p>
+        :rtype: bool
+        """
+        return self._HasSignatureKey
+
+    @HasSignatureKey.setter
+    def HasSignatureKey(self, HasSignatureKey):
+        self._HasSignatureKey = HasSignatureKey
+
+
+    def _deserialize(self, params):
+        self._WebhookId = params.get("WebhookId")
+        self._WebhookName = params.get("WebhookName")
+        self._Scene = params.get("Scene")
+        self._WebhookURL = params.get("WebhookURL")
+        self._AddTime = params.get("AddTime")
+        self._ModTime = params.get("ModTime")
+        self._SignatureKey = params.get("SignatureKey")
+        self._HasSignatureKey = params.get("HasSignatureKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        

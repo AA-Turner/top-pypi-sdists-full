@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stac_valid"
+version = "4.6.1"
+description = "A package to validate STAC files"
+authors = [
+    {name = "Jonathan Healy", email = "jon@healy-hyperspatial.dev"},
+    {name = "James Banting"}
+]
+maintainers = [
+    {name = "Jonathan Healy", email = "jon@healy-hyperspatial.dev"},
+    {name = "Healy Hyperspatial"}
+]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+keywords = ["STAC", "validation", "raster"]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.32.3",
+    "jsonschema>=4.23.0",
+    "fastjsonschema>=2.21.1",
+    "click>=8.1.8",
+    "referencing>=0.35.1",
+    "pyYAML>=6.0.1",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pytest",
+    "pytest-mypy",
+    "pre-commit",
+    "requests-mock",
+    "types-setuptools",
+    "stac-pydantic>=3.3.0",
+    "mypy",
+    "types-attrs",
+    "types-requests",
+    "types-jsonschema",
+    "types-tqdm"
+]
+pydantic = [
+    "stac-pydantic>=3.3.0"
+]
+server = [
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/stac-utils/stac-validator"
+Repository = "https://github.com/stac-utils/stac-validator"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+packages = ["stac_validator"]
+
+[project.scripts]
+stac-validator = "stac_validator.stac_validator:cli"
+stac-valid = "stac_validator.stac_validator:cli"
+
+[tool.setuptools.package-data]
+stac_validator = ["*.yaml"]

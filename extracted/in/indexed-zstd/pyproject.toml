@@ -1,0 +1,13 @@
+[build-system]
+requires = [
+  "setuptools >= 42",
+  "wheel",
+  "Cython",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "heavy: realistic data tests requiring t2sz (deselect with '-m not heavy')",
+    "reference: reference comparison tests requiring zstd CLI (deselect with '-m not reference')",
+]

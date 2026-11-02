@@ -1,0 +1,860 @@
+"""Public adopter surface for the v6.0 DecisioningPlatform framework.
+
+Two entry points:
+
+* :func:`create_adcp_server_from_platform` — build the
+  :class:`PlatformHandler` + supporting machinery (executor, registry)
+  from a :class:`DecisioningPlatform` instance and return them as a
+  3-tuple ``(handler, executor, registry)``. Adopters wanting to
+  compose with their own MCP/A2A wiring use this seam.
+
+* :func:`serve` — the one-call wrapper that builds the handler AND
+  starts the MCP server. Most adopters call this. Mirrors
+  :func:`adcp.server.serve` for parity with the existing handler
+  workflow.
+
+Stage-3 wiring per the dispatch design doc:
+
+* D5 — explicit ``ThreadPoolExecutor`` for sync platform methods,
+  with three configuration knobs (``executor=`` / ``thread_pool_size=``
+  / default ``min(32, cpu+4)``). Mutually exclusive validation;
+  framework owns lifecycle for default pools.
+* Emma #8 — production-mode gate on :class:`InMemoryTaskRegistry`.
+  Reads ``ADCP_ENV`` (case-insensitive ``{"prod", "production"}`` —
+  same convention as
+  :func:`adcp.validation.client_hooks._default_response_mode`). Refuses
+  to start in production with the in-memory registry unless
+  ``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1`` is set.
+"""
+
+from __future__ import annotations
+
+import os
+import warnings
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any, Literal
+
+from adcp._version import resolve_adcp_version
+from adcp.decisioning.dispatch import validate_platform
+from adcp.decisioning.handler import PlatformHandler
+from adcp.decisioning.task_registry import InMemoryTaskRegistry
+from adcp.decisioning.types import AdcpError
+
+if TYPE_CHECKING:
+    from adcp.decisioning.brand_authz_gate import BrandIdentityResolver
+    from adcp.decisioning.implementation_config import ProductConfigStore
+    from adcp.decisioning.media_buy_store import MediaBuyStore
+    from adcp.decisioning.platform import DecisioningPlatform
+    from adcp.decisioning.property_list import PropertyListFetcher
+    from adcp.decisioning.registry import BuyerAgentRegistry
+    from adcp.decisioning.resolve import ResourceResolver
+    from adcp.decisioning.state import StateReader
+    from adcp.decisioning.task_registry import TaskRegistry
+    from adcp.reporting.outbox.activity import ReportingActivityProjector
+    from adcp.reporting.outbox.status_support import ReportingStatusSupport
+    from adcp.reporting.outbox.support import ReportingActivitySupport
+    from adcp.signing.brand_authz import BrandAuthorizationResolver
+    from adcp.signing.replay import ReplayStore
+    from adcp.signing.signer_keys import SignerKeyResolver
+    from adcp.webhook_sender import WebhookSender
+    from adcp.webhook_supervisor import WebhookDeliverySupervisor
+
+
+def _is_production_env() -> bool:
+    """Detect production via ``ADCP_ENV`` env var.
+
+    Case-insensitive ``{"prod", "production"}`` — matches the existing
+    SDK convention at
+    :func:`adcp.validation.client_hooks._default_response_mode` (the
+    same env var the validation hook reads). Reused here so adopters
+    don't manage two prod-detection mechanisms.
+    """
+    val = os.environ.get("ADCP_ENV", "").strip().lower()
+    return val in {"prod", "production"}
+
+
+def _default_thread_pool_size() -> int:
+    """Default executor size — ``min(32, cpu+4)`` per Python stdlib's
+    own ThreadPoolExecutor default. Adequate for hello-world / local
+    dev; sellers running sync DB drivers under load bump via
+    ``thread_pool_size=`` (or supply a custom ``executor=``).
+    """
+    return min(32, (os.cpu_count() or 1) + 4)
+
+
+def create_adcp_server_from_platform(
+    platform: DecisioningPlatform,
+    *,
+    executor: ThreadPoolExecutor | None = None,
+    thread_pool_size: int | None = None,
+    timed_sync_get_products_limit: int | None = None,
+    registry: TaskRegistry | None = None,
+    state_reader: StateReader | None = None,
+    resource_resolver: ResourceResolver | None = None,
+    webhook_sender: WebhookSender | None = None,
+    webhook_supervisor: WebhookDeliverySupervisor | None = None,
+    auto_emit_completion_webhooks: bool = False,
+    auto_emit_task_webhooks: bool = True,
+    buyer_agent_registry: BuyerAgentRegistry | None = None,
+    brand_authz_resolver: BrandAuthorizationResolver | None = None,
+    brand_identity_resolver: BrandIdentityResolver | None = None,
+    config_store: ProductConfigStore | None = None,
+    property_list_fetcher: PropertyListFetcher | None = None,
+    property_list_filter_mode: Literal["sdk", "platform"] = "sdk",
+    media_buy_store: MediaBuyStore | None = None,
+    advertise_all: bool = False,
+    validate_at_init: bool = True,
+    adcp_version: str | None = None,
+    supported_versions: Sequence[str] | None = None,
+    account_activity: ReportingActivityProjector | None = None,
+    reporting_activity: ReportingActivitySupport | None = None,
+    reporting_status: ReportingStatusSupport | None = None,
+) -> tuple[PlatformHandler, ThreadPoolExecutor, TaskRegistry]:
+    """Build the :class:`PlatformHandler` + supporting wiring from a
+    :class:`DecisioningPlatform`.
+
+    Returns a 3-tuple ``(handler, executor, registry)``. The handler
+    wraps the platform; the executor is wired into dispatch for sync
+    platform methods; the registry handles
+    :class:`adcp.decisioning.TaskHandoff` lifecycle.
+
+    Adopters who need full control over the MCP server wiring use this
+    seam — compose the returned handler with their own
+    :func:`adcp.server.create_mcp_server` call. Most adopters use
+    :func:`serve` instead.
+
+    Validates the platform at server boot via
+    :func:`validate_platform` — fails fast on missing specialism
+    methods, missing ``accounts``, governance opt-in violations
+    (D15 round-4), and unknown specialisms (UserWarning per round-3
+    D14).
+
+    :param platform: The adopter's :class:`DecisioningPlatform`
+        subclass instance.
+    :param adcp_version: Protocol version pin used for discovery schemas and
+        unnegotiated dispatch. ``None`` uses the SDK's packaged protocol pin.
+    :param executor: Bring-your-own :class:`ThreadPoolExecutor` —
+        for operators with audit-instrumented thread pools or
+        wrappers around stdlib's executor. Mutually exclusive with
+        ``thread_pool_size``. Operator owns lifecycle (caller's
+        ``shutdown(wait=True)`` responsibility). Requires an explicit
+        ``timed_sync_get_products_limit`` because executor wrappers expose no
+        public capacity contract.
+    :param thread_pool_size: Size the default framework-allocated
+        executor. Mutually exclusive with ``executor``. Default is
+        :func:`_default_thread_pool_size`.
+    :param timed_sync_get_products_limit: Maximum synchronous
+        ``get_products`` calls with SDK-managed deadlines admitted to the
+        executor at once. Saturated calls wait within their own time budget
+        and return ``incomplete`` without being submitted if it expires.
+        For framework-allocated pools, defaults to half the configured worker
+        count (minimum one), reserving capacity for other tools. Required with
+        ``executor=``.
+    :param registry: Bring-your-own :class:`TaskRegistry` — typically
+        a v6.1 durable backing store. Default is
+        :class:`InMemoryTaskRegistry`, which the production-mode
+        gate refuses unless
+        ``ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1`` is set.
+    :param state_reader: Custom :class:`StateReader` impl
+        (D15 — workflow-state reads). Default is the v6.0 stub
+        (empty returns + one-time UserWarning per method).
+    :param resource_resolver: Custom :class:`ResourceResolver` impl
+        (D15 — async framework-mediated fetches). Default is the
+        v6.0 stub (raises ``NotImplementedError`` with a pointer to
+        v6.1).
+    :param webhook_sender: Low-level
+        :class:`adcp.webhook_sender.WebhookSender` for explicit/manual
+        delivery. It is not selected for framework-owned TaskHandoff push and
+        cannot by itself back an advertised AdCP 3.2 retry horizon.
+    :param webhook_supervisor: Bring-your-own
+        :class:`~adcp.webhook_supervisor.WebhookDeliverySupervisor` for
+        explicit/manual retry orchestration. The reference supervisors do not
+        provide the atomic terminal-state/outbox commit required for beta.5
+        TaskHandoff push publication. Use ``PgTaskWebhookOutbox`` through the
+        configured ``PgTaskRegistry`` for SDK-managed publication.
+    :param buyer_agent_registry: BYO
+        :class:`adcp.decisioning.BuyerAgentRegistry` — the v3 commercial
+        identity layer. When wired, the framework calls the registry
+        BEFORE :meth:`AccountStore.resolve` to gate every request on
+        the seller's commercial allowlist. Suspended / blocked /
+        unrecognized agents are rejected with structured errors:
+        suspended → ``AGENT_SUSPENDED``, blocked → ``AGENT_BLOCKED``
+        (both ``recovery="terminal"``, no ``details`` payload — the
+        code itself is the discriminator per AdCP 3.1); unrecognized
+        → ``PERMISSION_DENIED`` with no ``details.scope`` so the wire
+        shape does not enumerate which ``agent_url``s are onboarded
+        with this seller. The resolved
+        :class:`adcp.decisioning.BuyerAgent` is threaded onto
+        :attr:`RequestContext.buyer_agent` so platform methods can
+        read commercial context (billing capabilities, default terms,
+        adopter ext) without a second registry call. Default ``None``
+        — pre-trust beta adopters running existing key-based auth
+        without commercial gating omit this and the dispatch path
+        falls through to ``AccountStore.resolve`` unchanged.
+    :param auto_emit_completion_webhooks: Deprecated and ignored. AdCP 3.2
+        forbids a task webhook when the initial response is already terminal.
+        Passing ``True`` emits a deprecation warning.
+    :param auto_emit_task_webhooks: Framework ownership of terminal
+        webhooks for real ``TaskHandoff`` requests. The default ``True``
+        admits push-configured handoffs when ``PgTaskRegistry`` carries a
+        conformant ``PgTaskWebhookOutbox``. Set ``False`` only when an
+        external durable outbox owns delivery and capability advertisement.
+    :param property_list_filter_mode: ``"sdk"`` (default) fetches and filters
+        products after the platform returns. ``"platform"`` keeps capability
+        advertisement but skips the fetcher requirement and SDK post-filter;
+        the seller must filter and set ``property_list_applied`` itself.
+    :param media_buy_store: Opt-in :class:`adcp.decisioning.MediaBuyStore`
+        wrapper that gates ``targeting_overlay`` echo on the seller's
+        declared specialisms. Typically built via
+        :func:`adcp.decisioning.create_media_buy_store` with the seller's
+        ``capabilities`` so the persistence layer only fires for sellers
+        claiming ``property-lists`` or ``collection-lists``. When wired,
+        the framework calls ``persist_from_create`` on successful
+        ``create_media_buy`` (via the same on-complete hook the proposal
+        flow uses, so HITL completions also persist), calls
+        ``merge_from_update`` on successful ``update_media_buy``, and
+        calls ``backfill`` before returning from ``get_media_buys``.
+        Default ``None`` — sellers who don't claim the relevant
+        specialisms or who echo ``targeting_overlay`` themselves omit
+        this and pay no overhead.
+    :param advertise_all: Mirror of the same flag on :func:`serve` —
+        controls how :meth:`PlatformHandler.get_advertised_tools` and
+        the eventual ``tools/list`` response filter the handler's tool
+        universe. ``False`` (default, spec-aligned) drops tools whose
+        method is still the SDK's ``not_supported`` shim; ``True``
+        advertises every tool the platform's claimed specialisms cover
+        regardless of override status. Stored on the returned handler
+        so adopters can call ``handler.get_advertised_tools()`` to
+        inspect the effective set without standing up a server.
+    :param validate_at_init: When ``True`` (default), the framework
+        runs :func:`validate_capabilities_response_shape` during
+        construction — fail-fast boot validation for the projected
+        capabilities response. The sync validator drives the async
+        handler via :func:`asyncio.run`, so the call **fails** with
+        ``RuntimeError: asyncio.run() cannot be called from a running
+        event loop`` when the constructor is invoked from inside an
+        async context (test fixtures, Starlette ``lifespan``,
+        in-process A2A test clients). Pass ``False`` in those
+        contexts and run the async validator yourself::
+
+            handler, executor, registry = create_adcp_server_from_platform(
+                platform, validate_at_init=False,
+            )
+            await validate_capabilities_response_shape_async(handler)
+
+        The other boot validators (:func:`validate_platform`,
+        :func:`validate_webhook_signing_for_capabilities`,
+        :func:`validate_idempotency_wiring`) are synchronous-pure and
+        always run; this flag only gates the capabilities-response
+        check. See #700.
+    :param account_activity: Optional reporting activity projector applied after
+        legacy account visibility/filtering. Only requested activity is read.
+    :param reporting_activity: Optional concrete durable reporting worker/store
+        chain. Truthy activity capability claims require this validated mount;
+        account activity additionally requires ``account_activity``.
+
+    To wire a :class:`ProposalManager` (v1 two-platform composition),
+    pass it on a :class:`PlatformRouter` via
+    ``proposal_managers={tenant_id: ProposalManager}``. The router is
+    the per-tenant binding point — single-tenant adopters use a
+    one-entry router (``platforms={"default": ...}``,
+    ``proposal_managers={"default": ...}``). See
+    ``docs/proposals/product-architecture.md`` § "Tenant binding model".
+
+    :raises ValueError: when ``executor`` and ``thread_pool_size`` are
+        both supplied (D5 mutually-exclusive validation).
+    :raises AdcpError: from :func:`validate_platform` when the
+        platform fails server-boot validation, OR when the production
+        gate refuses :class:`InMemoryTaskRegistry`.
+    """
+    # D5: executor / thread_pool_size mutually exclusive.
+    # Validate before allocating a framework-owned executor so a bad public
+    # pin cannot leak a worker pool during construction.
+    resolved_adcp_version = resolve_adcp_version(adcp_version)
+    from adcp.server.version_policy import resolve_supported_versions
+
+    supported_versions = resolve_supported_versions(
+        supported_versions, adcp_version=resolved_adcp_version
+    )
+
+    if executor is not None and thread_pool_size is not None:
+        raise ValueError(
+            "Pass either executor= or thread_pool_size=, not both. "
+            "thread_pool_size sizes the default executor; executor= is "
+            "for operators wiring an audit-instrumented or otherwise "
+            "vetted threadpool."
+        )
+
+    # Allocate executor and resolve admission sizing while the public worker
+    # count is still available. Executor wrappers expose no stable capacity
+    # attribute, so BYO pools must provide the explicit admission limit.
+    if executor is None:
+        size = thread_pool_size if thread_pool_size is not None else _default_thread_pool_size()
+        executor = ThreadPoolExecutor(
+            max_workers=size,
+            thread_name_prefix="adcp-decisioning-",
+        )
+        resolved_timed_sync_limit = (
+            timed_sync_get_products_limit
+            if timed_sync_get_products_limit is not None
+            else max(1, size // 2)
+        )
+    else:
+        if timed_sync_get_products_limit is None:
+            raise ValueError(
+                "executor= requires timed_sync_get_products_limit= because executor "
+                "wrappers expose no public worker-count contract. Pass an explicit "
+                "positive admission limit or use thread_pool_size=."
+            )
+        resolved_timed_sync_limit = timed_sync_get_products_limit
+
+    # Allocate registry, with production-mode gate (Emma #8).
+    # Gate reads the registry's is_durable class-level marker rather
+    # than `isinstance(registry, InMemoryTaskRegistry)`. Two reasons:
+    #   1. Adopters subclassing InMemoryTaskRegistry for instrumentation
+    #      inherit `is_durable=False` and correctly trip the gate.
+    #   2. Adopters duck-typing a custom in-memory store would bypass
+    #      the isinstance check; the marker is opt-in for durability,
+    #      defaulting safe.
+    if registry is None:
+        registry = InMemoryTaskRegistry()
+    # Round-5 Emma P1: an adopter duck-typing TaskRegistry without the
+    # is_durable marker would treat the missing attribute as False and
+    # silently trip the production gate — operator sees "non-durable
+    # registry refused" with no clear cause. Distinguish "marker
+    # absent" from "marker present and False" so the diagnostic
+    # points at the real problem.
+    has_marker = hasattr(type(registry), "is_durable") or hasattr(registry, "is_durable")
+    is_durable = bool(getattr(registry, "is_durable", False))
+    if not has_marker:
+        raise AdcpError(
+            "INVALID_REQUEST",
+            message=(
+                f"TaskRegistry impl {type(registry).__name__!r} is missing "
+                "the ``is_durable: ClassVar[bool]`` marker. The framework's "
+                "production-mode gate requires every registry to declare "
+                "durability explicitly — set ``is_durable = True`` (durable "
+                "backing store like Postgres/Redis) or ``is_durable = False`` "
+                "(in-memory / lossy). Without the marker, the gate would "
+                "silent-deny the registry with a confusing 'non-durable' "
+                "error."
+            ),
+            recovery="terminal",
+            details={
+                "registry": type(registry).__name__,
+            },
+        )
+    if not is_durable and _is_production_env():
+        opt_in = os.environ.get("ADCP_DECISIONING_ALLOW_INMEMORY_TASKS", "").strip()
+        if opt_in != "1":
+            raise AdcpError(
+                "INVALID_REQUEST",
+                message=(
+                    f"Non-durable TaskRegistry ({type(registry).__name__}) "
+                    "refuses to start in production (ADCP_ENV is 'prod' "
+                    "or 'production'). HITL flows depend on the registry "
+                    "— silent in-memory fallback would lose tasks across "
+                    "process restarts. Either wire a durable "
+                    "TaskRegistry impl (set is_durable=True on the class; "
+                    "v6.1 ships PgTaskRegistry) OR set "
+                    "ADCP_DECISIONING_ALLOW_INMEMORY_TASKS=1 to "
+                    "explicitly opt into in-memory tasks (e.g., for "
+                    "single-process pilots)."
+                ),
+                recovery="terminal",
+                details={
+                    "registry": type(registry).__name__,
+                    "is_durable": is_durable,
+                    "ADCP_ENV": os.environ.get("ADCP_ENV", ""),
+                },
+            )
+
+    # Validate the platform AFTER executor + registry exist so any
+    # validation diagnostic includes the wiring context. Failure here
+    # propagates to the caller.
+    validate_platform(platform, supported_versions=supported_versions)
+
+    # Tier 3 brand-authorization gate (issue #350 stage 5). The pair is
+    # bundled here so the dispatch path sees an atomic configuration:
+    # both wired or neither. Passing one without the other is almost
+    # always a misconfiguration (a resolver without an extractor never
+    # has a brand to check; an extractor without a resolver never has
+    # anything to do) — fail closed at boot with a specific diagnostic
+    # rather than a silent never-fires gate at request time.
+    if (brand_authz_resolver is None) != (brand_identity_resolver is None):
+        raise ValueError(
+            "brand_authz_resolver and brand_identity_resolver must be wired "
+            "together. Pass both (to enable Tier 3 brand-authorization gating) "
+            "or neither (to skip the gate). A resolver without an extractor "
+            "has no brand identity to check; an extractor without a resolver "
+            "has nothing to do."
+        )
+    brand_authorization_gate: BrandAuthorizationGate | None
+    if brand_authz_resolver is not None and brand_identity_resolver is not None:
+        from adcp.decisioning.brand_authz_gate import BrandAuthorizationGate
+
+        brand_authorization_gate = BrandAuthorizationGate(
+            resolver=brand_authz_resolver,
+            extract_identity=brand_identity_resolver,
+        )
+    else:
+        brand_authorization_gate = None
+
+    handler = PlatformHandler(
+        platform,
+        executor=executor,
+        registry=registry,
+        state_reader=state_reader,
+        resource_resolver=resource_resolver,
+        webhook_sender=webhook_sender,
+        webhook_supervisor=webhook_supervisor,
+        auto_emit_completion_webhooks=auto_emit_completion_webhooks,
+        auto_emit_task_webhooks=auto_emit_task_webhooks,
+        buyer_agent_registry=buyer_agent_registry,
+        brand_authorization_gate=brand_authorization_gate,
+        config_store=config_store,
+        property_list_fetcher=property_list_fetcher,
+        property_list_filter_mode=property_list_filter_mode,
+        media_buy_store=media_buy_store,
+        advertise_all=advertise_all,
+        timed_sync_get_products_limit=resolved_timed_sync_limit,
+        adcp_version=resolved_adcp_version,
+        supported_versions=supported_versions,
+        account_activity=account_activity,
+        reporting_activity=reporting_activity,
+        reporting_status=reporting_status,
+    )
+
+    # Validate ownership; SDK filtering supplies an MCP fetcher by default.
+    from adcp.decisioning.property_list import (
+        property_list_capability_enabled,
+        validate_property_list_config,
+    )
+
+    validate_property_list_config(
+        capability_enabled=property_list_capability_enabled(platform),
+        fetcher=property_list_fetcher,
+        filter_mode=property_list_filter_mode,
+    )
+
+    # Preserve the legacy validation hook for source compatibility. The
+    # deprecated synthetic sync-completion option is ignored under AdCP 3.2;
+    # real TaskHandoff delivery is admitted at request time instead.
+    from adcp.decisioning.webhook_emit import (
+        validate_webhook_sender_for_platform,
+        validate_webhook_signing_for_capabilities,
+    )
+
+    validate_webhook_sender_for_platform(
+        advertised_tools=handler.advertised_tools_for_instance(),
+        sender=webhook_sender,
+        supervisor=webhook_supervisor,
+        auto_emit=auto_emit_completion_webhooks,
+    )
+
+    # A platform advertising webhook_signing.supported=True must wire a
+    # conformant durable delivery surface, unless delivery is explicitly
+    # declared to be managed outside the SDK.
+    validate_webhook_signing_for_capabilities(
+        capabilities=platform.capabilities,
+        sender=webhook_sender,
+        supervisor=webhook_supervisor,
+        auto_emit_task_webhooks=auto_emit_task_webhooks,
+        registry=registry,
+    )
+
+    # DX #422: boot-time fail-fast on a non-conformant capabilities
+    # projection. Same posture as validate_platform / F12 — the
+    # operator sees one structured AdcpError before the server starts
+    # taking traffic, instead of buyers discovering a malformed
+    # capabilities envelope on first contact.
+    #
+    # The sync validator drives the async handler via ``asyncio.run``,
+    # which raises ``RuntimeError`` when called from inside an already-
+    # running event loop. ``validate_at_init=False`` opts out so async
+    # callers (test fixtures, ``lifespan`` handlers, in-process A2A
+    # clients) can run the async sibling themselves — see #700.
+    if validate_at_init:
+        from adcp.decisioning.validate_capabilities import (
+            validate_capabilities_response_shape,
+        )
+
+        validate_capabilities_response_shape(handler)
+
+    # Boot-time fail-fast: idempotency advertised but no @wrap applied.
+    # Buyers reading IdempotencySupported(supported=True) on the
+    # capabilities envelope assume retries dedupe; without the
+    # decorator, every retry re-executes side effects.
+    from adcp.decisioning.validate_idempotency import (
+        validate_idempotency_wiring,
+    )
+
+    validate_idempotency_wiring(platform)
+
+    return handler, executor, registry
+
+
+def serve(
+    platform: DecisioningPlatform,
+    *,
+    name: str | None = None,
+    executor: ThreadPoolExecutor | None = None,
+    thread_pool_size: int | None = None,
+    timed_sync_get_products_limit: int | None = None,
+    registry: TaskRegistry | None = None,
+    state_reader: StateReader | None = None,
+    resource_resolver: ResourceResolver | None = None,
+    webhook_sender: WebhookSender | None = None,
+    webhook_supervisor: WebhookDeliverySupervisor | None = None,
+    auto_emit_completion_webhooks: bool = False,
+    auto_emit_task_webhooks: bool = True,
+    buyer_agent_registry: BuyerAgentRegistry | None = None,
+    brand_authz_resolver: BrandAuthorizationResolver | None = None,
+    brand_identity_resolver: BrandIdentityResolver | None = None,
+    config_store: ProductConfigStore | None = None,
+    property_list_fetcher: PropertyListFetcher | None = None,
+    property_list_filter_mode: Literal["sdk", "platform"] = "sdk",
+    media_buy_store: MediaBuyStore | None = None,
+    advertise_all: bool = False,
+    mock_ad_server: Any | None = None,
+    enable_debug_endpoints: bool = False,
+    pre_validation_hooks: dict[str, Any] | None = None,
+    validate_at_init: bool = True,
+    adcp_version: str | None = None,
+    supported_versions: Sequence[str] | None = None,
+    account_activity: ReportingActivityProjector | None = None,
+    reporting_activity: ReportingActivitySupport | None = None,
+    reporting_status: ReportingStatusSupport | None = None,
+    signer_keys: SignerKeyResolver | None = None,
+    signature_replay_store: ReplayStore | None = None,
+    signature_bearer_fallback: bool = False,
+    **serve_kwargs: Any,
+) -> None:
+    """One-call wrapper — build the handler and serve over MCP.
+
+    Most adopters use this. For full control, use
+    :func:`create_adcp_server_from_platform` and compose with
+    :func:`adcp.server.create_mcp_server` / ``serve()`` directly.
+
+    :param platform: The :class:`DecisioningPlatform` subclass
+        instance.
+    :param adcp_version: Protocol version pin used for discovery schemas and
+        unnegotiated dispatch. ``None`` uses the SDK's packaged protocol pin.
+    :param name: Server name advertised on AdCP capabilities. Defaults
+        to the platform class's ``__name__``.
+    :param executor: BYO :class:`ThreadPoolExecutor` per
+        :func:`create_adcp_server_from_platform` D5 contract. Requires
+        ``timed_sync_get_products_limit``.
+    :param thread_pool_size: Default-executor size override.
+    :param timed_sync_get_products_limit: Bounded admission limit for
+        deadline-managed synchronous ``get_products`` calls. See
+        :func:`create_adcp_server_from_platform`.
+    :param property_list_filter_mode: ``"sdk"`` (default) applies framework
+        filtering with a fetcher. ``"platform"`` skips SDK filtering and makes
+        the seller responsible for ``property_list_applied``.
+    :param registry: BYO :class:`TaskRegistry`. Default is
+        :class:`InMemoryTaskRegistry` (gated for production).
+    :param state_reader: Custom :class:`StateReader` impl (D15).
+    :param resource_resolver: Custom :class:`ResourceResolver` impl (D15).
+    :param webhook_sender: Low-level
+        :class:`adcp.webhook_sender.WebhookSender` for explicit/manual
+        delivery. It does not back framework-owned TaskHandoff publication.
+    :param webhook_supervisor: BYO
+        :class:`~adcp.webhook_supervisor.WebhookDeliverySupervisor` for
+        best-effort delivery (retry, circuit breaker, attempt audit). It does
+        not provide the atomic outbox required for framework-owned AdCP 3.2
+        TaskHandoff publication.
+    :param auto_emit_completion_webhooks: Deprecated and ignored. Passing
+        ``True`` emits a deprecation warning; inline terminal responses remain
+        silent on the task-webhook channel.
+    :param auto_emit_task_webhooks: Framework ownership of required
+        terminal webhooks for real ``TaskHandoff`` requests. Defaults to
+        ``True``. Push-configured handoffs require a registry-backed atomic
+        task outbox. Set ``False`` only when an external durable outbox owns
+        that delivery; this is independent of the legacy sync-completion flag.
+    :param mock_ad_server: Optional :class:`adcp.decisioning.MockAdServer`
+        whose ``get_traffic()`` is wired into ``GET /_debug/traffic``
+        when ``enable_debug_endpoints=True``. Default ``None`` —
+        adopters with no anti-façade recorder leave this off.
+    :param enable_debug_endpoints: When ``True``, mount
+        ``GET /_debug/traffic`` exposing the JSON dict returned by
+        ``mock_ad_server.get_traffic()``. Defaults to ``False``;
+        production deployments stay closed. Reference / dev sellers
+        flip on so storyboard runners can poll outbound call counts.
+        Forwarded to :func:`adcp.server.serve`.
+    :param advertise_all: Forwarded to :func:`adcp.server.serve`. When
+        ``True``, ``tools/list`` advertises every method on the
+        handler regardless of override status. Default ``False`` —
+        the override-detection filter trims unimplemented platform
+        methods. Adopters with explicit-not-supported intent (e.g.,
+        spec-compliance storyboards) pass ``True``.
+    :param serve_kwargs: Forwarded to :func:`adcp.server.serve`. Use
+        for ``host``, ``port``, ``transport``, ``test_controller``,
+        ``context_factory``, ``middleware``, ``validation``,
+        ``response_enhancer`` (a server-wide
+        :data:`~adcp.server.ResponseEnhancer` applied to every response
+        on both transports),
+        ``config`` (:class:`adcp.server.ServeConfig` bundle), etc.
+        Pass ``config=ServeConfig(transport="a2a", ...)`` to supply
+        all server options as a single typed object rather than
+        individual kwargs.
+        Pass ``validation=ValidationHookConfig(requests="strict",
+        responses="strict")`` to enable schema-driven request/response
+        validation against the bundled AdCP JSON schemas — sellers who
+        want their server to enforce wire conformance turn it on here.
+    :param pre_validation_hooks: Optional dict mapping AdCP tool name to
+        a ``(tool_name, raw_args) -> raw_args`` callable. The hook runs
+        on the raw wire dict **before** schema + Pydantic validation —
+        use it to apply spec-mandated defaults for pre-v3 buyers that
+        omit required fields. Example::
+
+            serve(
+                router,
+                pre_validation_hooks={
+                    "get_products": lambda n, a: {
+                        **a, "buying_mode": a.get("buying_mode", "brief")
+                    },
+                },
+            )
+
+        Hook exceptions surface as ``INVALID_REQUEST`` on the wire.
+        The hook receives a shallow copy of the wire args, so it may
+        mutate its argument freely or return a new dict — either style
+        is safe. Context echo always reflects the original wire input.
+    :param signer_keys: Turns on framework RFC 9421 request-signature
+        verification, enforcing the platform's declared
+        ``capabilities.request_signing`` block (``required_for``,
+        ``warn_for``, ``protocol_methods_*``, ``covers_content_digest``)
+        before dispatch. The :class:`~adcp.signing.SignerKeyResolver` maps
+        each ``keyid`` to its buyer agent URL, which becomes
+        ``ctx.caller_identity`` and the ``http_sig`` credential
+        ``buyer_agent_registry`` resolves. Requires
+        ``request_signing.supported``. See
+        :class:`adcp.server.RequestSignatureVerification`.
+    :param signature_replay_store: Nonce store for ``signer_keys``
+        verification. Defaults to a per-process
+        :class:`~adcp.signing.InMemoryReplayStore`, which is refused in
+        production unless ``ADCP_ALLOW_INMEMORY_REPLAY_STORE=1``; pass a
+        shared store (e.g. ``PgReplayStore``) for multi-replica deployments.
+    :param signature_bearer_fallback: Accept an unsigned request to a
+        ``required_for`` operation when bearer auth (``auth=``) authenticates
+        it. See ``RequestSignatureVerification.allow_bearer_fallback``.
+    :param validate_at_init: Forwarded to
+        :func:`create_adcp_server_from_platform`. Default ``True``
+        runs the capabilities-shape boot validator in sync; pass
+        ``False`` and run :func:`validate_capabilities_response_shape_async`
+        yourself when invoking ``serve()`` from inside a running event
+        loop (e.g. ``asyncio.run(your_main())`` that calls
+        ``adcp.decisioning.serve`` for a sidecar binary). See #700.
+    """
+    # Local import to avoid a circular at module-load time. Adopter
+    # serves never run during foundation imports anyway.
+    from adcp.server.serve import serve as _adcp_serve
+
+    config = serve_kwargs.get("config")
+    if config is not None:
+        supported_versions = config.supported_versions
+    handler, _executor, _registry = create_adcp_server_from_platform(
+        platform,
+        executor=executor,
+        thread_pool_size=thread_pool_size,
+        timed_sync_get_products_limit=timed_sync_get_products_limit,
+        registry=registry,
+        state_reader=state_reader,
+        resource_resolver=resource_resolver,
+        webhook_sender=webhook_sender,
+        webhook_supervisor=webhook_supervisor,
+        auto_emit_completion_webhooks=auto_emit_completion_webhooks,
+        auto_emit_task_webhooks=auto_emit_task_webhooks,
+        buyer_agent_registry=buyer_agent_registry,
+        brand_authz_resolver=brand_authz_resolver,
+        brand_identity_resolver=brand_identity_resolver,
+        config_store=config_store,
+        property_list_fetcher=property_list_fetcher,
+        property_list_filter_mode=property_list_filter_mode,
+        media_buy_store=media_buy_store,
+        advertise_all=advertise_all,
+        validate_at_init=validate_at_init,
+        adcp_version=adcp_version,
+        supported_versions=supported_versions,
+        account_activity=account_activity,
+        reporting_activity=reporting_activity,
+        reporting_status=reporting_status,
+    )
+
+    # Phase 1 sandbox-authority — wire the comply controller's account
+    # gate to the platform's AccountStore. When a test_controller is
+    # present and the adopter hasn't supplied their own resolver, build
+    # a closure over ``platform.accounts.resolve`` so the gate refuses
+    # for live-mode accounts. Adopters supplying their own resolver
+    # (``test_controller_account_resolver=``) take precedence.
+    if (
+        serve_kwargs.get("test_controller") is not None
+        and "test_controller_account_resolver" not in serve_kwargs
+    ):
+        serve_kwargs["test_controller_account_resolver"] = _build_test_controller_account_resolver(
+            platform
+        )
+
+    # Compliance-testing capability footgun — adopter declared
+    # ``capabilities.compliance_testing`` but didn't wire a
+    # ``test_controller=`` to ``serve()``. Buyers reading the projected
+    # capabilities response will see ``compliance_testing`` advertised
+    # and try to drive scenarios via ``comply_test_controller`` — which
+    # then 404s because no controller is registered. Soft-warn rather
+    # than fail-fast: adopters may legitimately declare the capability
+    # while the controller is being wired in a follow-up PR, and a hard
+    # boot error blocks that staged rollout.
+    if (
+        platform.capabilities.compliance_testing is not None
+        and serve_kwargs.get("test_controller") is None
+    ):
+        warnings.warn(
+            (
+                "DecisioningCapabilities.compliance_testing is declared but "
+                "no test_controller= was passed to serve(). Buyers reading "
+                "this seller's capabilities will see compliance_testing "
+                "advertised and try to drive scenarios via "
+                "comply_test_controller — which will fail because no "
+                "controller is registered. Either pass "
+                "``test_controller=TestControllerStore(...)`` to ``serve()`` "
+                "OR drop ``compliance_testing`` from "
+                "``DecisioningCapabilities``. Capability declaration is a "
+                "buyer-facing commitment; mismatched-vs-implemented "
+                "advertisements are the kind of footgun the spec asks "
+                "sellers to avoid."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
+    _configure_request_signature_verification(
+        platform,
+        signer_keys,
+        signature_replay_store,
+        serve_kwargs,
+        bearer_fallback=signature_bearer_fallback,
+    )
+
+    server_name = name or type(platform).__name__
+    debug_traffic_source = mock_ad_server.get_traffic if mock_ad_server is not None else None
+    if pre_validation_hooks is not None:
+        serve_kwargs["pre_validation_hooks"] = pre_validation_hooks
+
+    # The SDK owns the parent lifespan for the dual-transport server, so
+    # attach the platform's upstream pool drain there. Single-transport
+    # servers do not yet expose lifecycle hooks; those adopters retain the
+    # explicit ``platform.aclose_upstream_clients()`` seam.
+    config = serve_kwargs.get("config")
+    effective_transport = (
+        config.transport if config is not None else serve_kwargs.get("transport", "streamable-http")
+    )
+    if effective_transport == "both":
+        if config is not None:
+            serve_kwargs["config"] = replace(
+                config,
+                on_shutdown=(*tuple(config.on_shutdown or ()), platform.aclose_upstream_clients),
+            )
+        else:
+            serve_kwargs["on_shutdown"] = (
+                *tuple(serve_kwargs.get("on_shutdown") or ()),
+                platform.aclose_upstream_clients,
+            )
+    _adcp_serve(
+        handler,
+        name=server_name,
+        advertise_all=advertise_all,
+        enable_debug_endpoints=enable_debug_endpoints,
+        debug_traffic_source=debug_traffic_source,
+        **serve_kwargs,
+    )
+
+
+def _configure_request_signature_verification(
+    platform: DecisioningPlatform,
+    signer_keys: SignerKeyResolver | None,
+    replay_store: ReplayStore | None,
+    serve_kwargs: dict[str, Any],
+    *,
+    bearer_fallback: bool = False,
+) -> None:
+    """Build framework signature verification from declared capabilities.
+
+    With ``signer_keys``, derive a
+    :class:`~adcp.server.RequestSignatureVerification` from
+    ``capabilities.request_signing`` so enforcement matches what buyers are
+    told. Without it, warn when the platform declares required signatures
+    that nothing in ``serve()`` enforces — the seller must then verify in
+    its own ``asgi_middleware`` or buyers see handler-level auth errors
+    instead of ``request_signature_required``.
+    """
+    request_signing = platform.capabilities.request_signing
+    if signer_keys is None:
+        if replay_store is not None or bearer_fallback:
+            raise TypeError(
+                "signature_replay_store= and signature_bearer_fallback= require signer_keys="
+            )
+        if (
+            request_signing is not None
+            and request_signing.supported
+            and (request_signing.required_for or request_signing.protocol_methods_required_for)
+            and serve_kwargs.get("request_signature_verification") is None
+        ):
+            warnings.warn(
+                "DecisioningCapabilities.request_signing declares required_for / "
+                "protocol_methods_required_for, but serve() is not verifying "
+                "request signatures. Pass signer_keys= to have the framework "
+                "reject unsigned requests with request_signature_required and "
+                "populate the caller identity from the verified signer, or verify "
+                "in your own asgi_middleware with adcp.signing.verify_starlette_request.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return
+    if serve_kwargs.get("request_signature_verification") is not None:
+        raise TypeError("pass either signer_keys= or request_signature_verification=, not both")
+    if request_signing is None or not request_signing.supported:
+        raise ValueError(
+            "signer_keys= enables request-signature verification, but "
+            "DecisioningCapabilities.request_signing.supported is not true. "
+            "Declare the request_signing block buyers should sign against."
+        )
+    from adcp.server.signed_requests import RequestSignatureVerification
+
+    overrides: dict[str, Any] = {"allow_bearer_fallback": bearer_fallback}
+    if replay_store is not None:
+        overrides["replay_store"] = replay_store
+    serve_kwargs["request_signature_verification"] = RequestSignatureVerification.from_capability(
+        request_signing, signer_keys=signer_keys, **overrides
+    )
+
+
+def _build_test_controller_account_resolver(
+    platform: DecisioningPlatform,
+) -> Any:
+    """Build a closure over ``platform.accounts.resolve`` for the
+    comply controller's sandbox gate.
+
+    The resolver takes a wire account ref dict (from the request's
+    ``account`` or ``context.account``) plus the verified ``auth_info``
+    threaded by the comply dispatch out of ``ToolContext.metadata``.
+    ``FromAuthAccounts`` adopters (signed-request agents,
+    OAuth-bearer-bound vendors) need auth_info to find the principal's
+    account; without it the store would raise ``AUTH_INVALID``, which
+    the gate now treats as DENY rather than fall-through. See
+    :mod:`adcp.decisioning.account_mode`.
+    """
+    from adcp.decisioning.context import AuthInfo
+
+    def _resolve(ref: dict[str, Any] | None, *, auth_info: AuthInfo | None = None) -> Any:
+        return platform.accounts.resolve(ref, auth_info=auth_info)
+
+    return _resolve
+
+
+__all__ = [
+    "create_adcp_server_from_platform",
+    "serve",
+]

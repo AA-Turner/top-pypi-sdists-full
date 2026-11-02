@@ -20,31 +20,7 @@ class Client(OpenApiClient):
         config: open_api_util_models.Config,
     ):
         super().__init__(config)
-        self._endpoint_rule = 'regional'
-        self._endpoint_map = {
-            'cn-beijing': 'ram.aliyuncs.com',
-            'cn-qingdao': 'ram.aliyuncs.com',
-            'cn-shanghai': 'ram.aliyuncs.com',
-            'cn-hongkong': 'ram.aliyuncs.com',
-            'cn-zhangjiakou': 'ram.aliyuncs.com',
-            'cn-shenzhen': 'ram.aliyuncs.com',
-            'ap-northeast-1': 'ram.aliyuncs.com',
-            'cn-chengdu': 'ram.aliyuncs.com',
-            'ap-southeast-1': 'ram.aliyuncs.com',
-            'ap-southeast-3': 'ram.aliyuncs.com',
-            'cn-huhehaote': 'ram.aliyuncs.com',
-            'ap-southeast-5': 'ram.aliyuncs.com',
-            'cn-hangzhou': 'ram.aliyuncs.com',
-            'us-east-1': 'ram.aliyuncs.com',
-            'eu-west-1': 'ram.aliyuncs.com',
-            'us-west-1': 'ram.aliyuncs.com',
-            'eu-central-1': 'ram.aliyuncs.com',
-            'me-east-1': 'ram.aliyuncs.com',
-            'cn-shenzhen-finance-1': 'ram.aliyuncs.com',
-            'cn-shanghai-finance-1': 'ram.aliyuncs.com',
-            'cn-beijing-finance-1': 'ram.aliyuncs.com',
-            'cn-hangzhou-finance': 'ram.aliyuncs.com'
-        }
+        self._endpoint_rule = 'central'
         self.check_config(config)
         self._endpoint = self.get_endpoint('ram', self._region_id, self._endpoint_rule, self._network, self._suffix, self._endpoint_map, self._endpoint)
 
@@ -2278,6 +2254,80 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.detach_policy_from_user_with_options_async(request, runtime)
 
+    def generate_service_last_accessed_details_with_options(
+        self,
+        request: main_models.GenerateServiceLastAccessedDetailsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GenerateServiceLastAccessedDetailsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.arn):
+            query['Arn'] = request.arn
+        if not DaraCore.is_null(request.granularity):
+            query['Granularity'] = request.granularity
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GenerateServiceLastAccessedDetails',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GenerateServiceLastAccessedDetailsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def generate_service_last_accessed_details_with_options_async(
+        self,
+        request: main_models.GenerateServiceLastAccessedDetailsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GenerateServiceLastAccessedDetailsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.arn):
+            query['Arn'] = request.arn
+        if not DaraCore.is_null(request.granularity):
+            query['Granularity'] = request.granularity
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GenerateServiceLastAccessedDetails',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GenerateServiceLastAccessedDetailsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def generate_service_last_accessed_details(
+        self,
+        request: main_models.GenerateServiceLastAccessedDetailsRequest,
+    ) -> main_models.GenerateServiceLastAccessedDetailsResponse:
+        runtime = RuntimeOptions()
+        return self.generate_service_last_accessed_details_with_options(request, runtime)
+
+    async def generate_service_last_accessed_details_async(
+        self,
+        request: main_models.GenerateServiceLastAccessedDetailsRequest,
+    ) -> main_models.GenerateServiceLastAccessedDetailsResponse:
+        runtime = RuntimeOptions()
+        return await self.generate_service_last_accessed_details_with_options_async(request, runtime)
+
     def get_access_key_last_used_with_options(
         self,
         request: main_models.GetAccessKeyLastUsedRequest,
@@ -2863,6 +2913,84 @@ class Client(OpenApiClient):
     async def get_security_preference_async(self) -> main_models.GetSecurityPreferenceResponse:
         runtime = RuntimeOptions()
         return await self.get_security_preference_with_options_async(runtime)
+
+    def get_service_last_accessed_details_with_options(
+        self,
+        request: main_models.GetServiceLastAccessedDetailsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetServiceLastAccessedDetailsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.job_id):
+            query['JobId'] = request.job_id
+        if not DaraCore.is_null(request.marker):
+            query['Marker'] = request.marker
+        if not DaraCore.is_null(request.max_items):
+            query['MaxItems'] = request.max_items
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetServiceLastAccessedDetails',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetServiceLastAccessedDetailsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def get_service_last_accessed_details_with_options_async(
+        self,
+        request: main_models.GetServiceLastAccessedDetailsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetServiceLastAccessedDetailsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.job_id):
+            query['JobId'] = request.job_id
+        if not DaraCore.is_null(request.marker):
+            query['Marker'] = request.marker
+        if not DaraCore.is_null(request.max_items):
+            query['MaxItems'] = request.max_items
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetServiceLastAccessedDetails',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetServiceLastAccessedDetailsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def get_service_last_accessed_details(
+        self,
+        request: main_models.GetServiceLastAccessedDetailsRequest,
+    ) -> main_models.GetServiceLastAccessedDetailsResponse:
+        runtime = RuntimeOptions()
+        return self.get_service_last_accessed_details_with_options(request, runtime)
+
+    async def get_service_last_accessed_details_async(
+        self,
+        request: main_models.GetServiceLastAccessedDetailsRequest,
+    ) -> main_models.GetServiceLastAccessedDetailsResponse:
+        runtime = RuntimeOptions()
+        return await self.get_service_last_accessed_details_with_options_async(request, runtime)
 
     def get_service_linked_role_template_with_options(
         self,

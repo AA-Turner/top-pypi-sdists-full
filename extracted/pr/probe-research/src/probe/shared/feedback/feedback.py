@@ -185,7 +185,7 @@ def send_asked(client, text: str) -> dict:
     failure raises (its CLI child is short-lived; there is nothing to retry from)."""
     text = check_text(text)
     key = os.environ.get("PROBE_IDEMPOTENCY_KEY") or f"a-{uuid.uuid4().hex}"
-    return client.write("POST", ROUTE, body(key=key[:KEY_MAX_CHARS], text=text, source=Source.ASSISTANT,
+    return client.send("POST", ROUTE, body(key=key[:KEY_MAX_CHARS], text=text, source=Source.ASSISTANT,
                                             harness=None, client_version=__version__, session_id=None),
                         durable=False)
 

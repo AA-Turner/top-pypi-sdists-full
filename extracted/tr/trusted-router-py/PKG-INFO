@@ -1,0 +1,651 @@
+Metadata-Version: 2.5
+Name: trusted-router-py
+Version: 0.9.0
+Summary: Official Python SDK and CLI for TrustedRouter.
+Project-URL: Homepage, https://trustedrouter.com
+Project-URL: Documentation, https://github.com/Lore-Hex/trusted-router-py#readme
+Project-URL: Issues, https://github.com/Lore-Hex/trusted-router-py/issues
+Project-URL: Repository, https://github.com/Lore-Hex/trusted-router-py
+Project-URL: Trust, https://trust.trustedrouter.com
+Author: Lore Hex
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: attestation,llm,openai,sdk,trustedrouter
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.6
+Provides-Extra: attestation
+Requires-Dist: cryptography; extra == 'attestation'
+Requires-Dist: pyopenssl>=22.0; extra == 'attestation'
+Provides-Extra: receipts
+Requires-Dist: cryptography; extra == 'receipts'
+Description-Content-Type: text/markdown
+
+# TrustedRouter Python SDK
+
+[![PyPI version](https://img.shields.io/pypi/v/trusted-router-py?logo=pypi)](https://pypi.org/project/trusted-router-py/)
+[![Python versions](https://img.shields.io/pypi/pyversions/trusted-router-py?logo=python)](https://pypi.org/project/trusted-router-py/)
+[![CI](https://github.com/Lore-Hex/trusted-router-py/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/trusted-router-py/actions/workflows/ci.yml)
+[![Typed with Pydantic](https://img.shields.io/badge/types-pydantic-e92063)](https://pypi.org/project/trusted-router-py/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Verifiable trust](https://img.shields.io/badge/trust-attested-16a34a)](https://trust.trustedrouter.com)
+
+OpenAI-compatible Python client for [TrustedRouter](https://trustedrouter.com) —
+the hosted, attested LLM router that lets you point one OpenAI-shaped client
+at every provider (Anthropic, OpenAI, Google Vertex, Gemini, DeepSeek,
+Mistral, Cerebras) and *prove* the prompt path doesn't log.
+
+- Inference API: `https://api.trustedrouter.com/v1`
+- Control API: `https://trustedrouter.com/v1`
+- Trust release: `https://trust.trustedrouter.com`
+- Source: `https://github.com/Lore-Hex/trusted-router-py`
+- License: Apache-2.0
+
+```bash
+pip install trusted-router-py                  # base client
+pip install trusted-router-py[attestation]     # + GCP attestation verification
+```
+
+## Quick start
+
+```python
+from trustedrouter import TrustedRouter, AUTO_MODEL
+
+with TrustedRouter(api_key="sk-tr-v1-...") as client:
+    resp = client.chat_completions(
+        model=AUTO_MODEL,                     # "trustedrouter/auto" — multi-provider failover
+        messages=[{"role": "user", "content": "hello"}],
+    )
+    print(resp.choices[0].message.content)    # typed: ChatCompletion model
+```
+
+`chat_completions(...)` defaults to `AUTO_MODEL` when `model=` is omitted, so
+the simplest possible call is `client.chat_completions(messages=[...])`.
+
+## Routing, privacy, and orchestration
+
+The SDK exports stable aliases for normal routing (`AUTO_MODEL`, `FAST_MODEL`),
+privacy (`ZDR_MODEL`, `E2E_MODEL`, `CONFIDENTIAL_MODEL`, `EU_MODEL`, `US_MODEL`),
+and named orchestration models such as `SOCRATES_MODEL`, `PROMETHEUS_MODEL`,
+`ZEUS_MODEL`, and `ATHENA_MODEL`.
+
+Use `ProviderPreferences` when privacy or US provider jurisdiction must be a
+hard routing requirement even with an explicit model. Use `EU_MODEL` for the
+EU-focused routing pool:
+
+```python
+from trustedrouter import ProviderPreferences
+
+response = client.chat_completions(
+    model="z-ai/glm-5.2",
+    messages=[{"role": "user", "content": "Review this contract."}],
+    provider=ProviderPreferences.confidential(),
+)
+```
+
+TrustedRouter's five atomic orchestration primitives have typed builders with
+the same wire format in every official SDK: `fusion_tool` (Synth),
+`advisor_tool`, `selector_tool`, `map_reduce_tool`, and `subagent_tool`.
+Named models are the easiest defaults; builders are for custom compositions.
+
+## Cost allocation tags
+
+Attach up to 50 AWS-style string tags to an inference request. Tags stay out
+of prompts and provider payloads and appear on TrustedRouter generation and
+activity metadata.
+
+```python
+response = client.chat_completions(
+    model="trustedrouter/zdr",
+    messages=[{"role": "user", "content": "Summarize this contract."}],
+    tags={
+        "environment": "production",
+        "team": "legal",
+        "cost-center": "legal-01",
+    },
+    user="user_123",
+    session_id="matter_456",
+)
+```
+
+The same `tags`, `user`, `session_id`, and `trace` fields work with Responses,
+Messages, and Embeddings. Request tags override API key default tags with the
+same key.
+
+## Fusion
+
+Fan a request across a panel of models and let a judge model pick or synthesize
+one answer. `fusion(...)` (and `AsyncTrustedRouter.fusion(...)`) returns the same
+typed `ChatCompletion` as `chat_completions`. `FUSION_FREEDOM_PANEL`,
+`FUSION_FREEDOM_FALLBACK_JUDGES`, and `FUSION_FREEDOM_FALLBACK_FINALS`
+are the recommended most-permissive config.
+
+```python
+from trustedrouter import (
+    TrustedRouter,
+    FUSION_FREEDOM_FALLBACK_FINALS,
+    FUSION_FREEDOM_PANEL,
+    FUSION_FREEDOM_FALLBACK_JUDGES,
+)
+
+with TrustedRouter(api_key="sk-tr-v1-...") as client:
+    resp = client.fusion(
+        messages=[{"role": "user", "content": "explain how mRNA vaccines work"}],
+        analysis_models=FUSION_FREEDOM_PANEL,       # the panel
+        # omit selection_strategy to use synthesize_non_refusals
+        fallback_judges=FUSION_FREEDOM_FALLBACK_JUDGES,  # tried in order if a judge refuses/fails
+        fallback_final_models=FUSION_FREEDOM_FALLBACK_FINALS,  # tried in order for synthesis
+        max_completion_tokens=800,
+        timeout=600,
+    )
+    print(resp.choices[0].message.content)
+```
+
+Or build the spec with `fusion_tool(...)` and pass it to any chat call.
+`preset="quality"` or `"budget"` selects a built-in panel.
+
+**Every method returns a typed pydantic model** — IDE autocomplete + runtime
+validation. Need a dict? Call `.model_dump()`:
+
+```python
+resp.model_dump()["choices"][0]["message"]["content"]
+```
+
+## Streaming
+
+```python
+for token in client.chat_completions_stream(
+    model=AUTO_MODEL,
+    messages=[{"role": "user", "content": "Write a haiku"}],
+):
+    print(token, end="", flush=True)
+```
+
+`chat_completions_chunk_stream(...)` yields the raw OpenAI
+`chat.completion.chunk` dicts (with `finish_reason`, `model`, `id`) when you
+need more than just the text delta.
+
+## Async
+
+Every method on `TrustedRouter` is mirrored on `AsyncTrustedRouter` as a
+coroutine; streaming methods return `AsyncIterator`s. Use it from FastAPI,
+asyncio, or any event-loop-driven app:
+
+```python
+import asyncio
+from trustedrouter import AsyncTrustedRouter
+
+async def main():
+    async with AsyncTrustedRouter(api_key="sk-tr-v1-...") as client:
+        async for token in client.chat_completions_stream(
+            model="trustedrouter/auto",
+            messages=[{"role": "user", "content": "hi"}],
+        ):
+            print(token, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Bases and failover
+
+Inference defaults to `https://api.trustedrouter.com/v1`. The default SDK client
+probes the published US Central, US East, and Europe gateway health endpoints in
+parallel on its first inference call, pins the lowest-latency healthy region for
+the life of that client, and keeps the remaining regions plus the global apex as
+idempotent failover targets. Reuse one client to preserve region affinity,
+connection pooling, DNS caching, and improve prompt-cache locality.
+
+Set `regional_affinity=False` to keep using only the global endpoint. A custom
+`base_url=` is never probed or rewritten. An injected `httpx` client also leaves
+affinity off by default; opt in explicitly with `regional_affinity=True` when
+the injected transport can reach the public regional hosts.
+
+Pass `base_url=` for a custom inference endpoint, such as a self-hosted gateway.
+`base_url` controls only inference-plane calls: chat completions, messages,
+responses, response input-token counting, embeddings, and attestation. Catalog,
+account, billing, broadcast, and OAuth calls use `control_base_url` instead,
+defaulting to `https://trustedrouter.com/v1`:
+
+```python
+client = TrustedRouter(
+    api_key="sk-tr-v1-...",
+    base_url="https://inference.internal/v1",
+    control_base_url="https://control.internal/v1",
+)
+```
+
+Overriding `base_url` no longer changes `models()`, `providers()`, `regions()`,
+`credits()`, `activity()`, billing checkout, auth, OAuth, or broadcast calls.
+
+### Alias domains
+
+The regions above all live under one name on one DNS provider, and the domain
+sits above every cloud behind it. A zone that stops answering, a registrar
+lock, or a resolver handing out a stale record takes the API down no matter how
+many regions are healthy.
+
+`api.allyrouter.com` and `api.uptimerouter.com` are exact aliases of
+`api.trustedrouter.com`, on separate domains served by separate DNS providers,
+resolving to the same attested enclaves. They sit at the end of the candidate
+list, after the regional gateways, so a healthy deployment never touches them.
+Nothing to configure — it is on by default.
+
+Failover changes host only on connection failures and on `502`, `503`, or
+`504`. A `500` means a server received and processed the request. You are not
+charged twice for it — authorization is idempotent per `Idempotency-Key` and
+settlement happens once — but the work would run a second time, so the answer
+could differ and TrustedRouter pays the provider again. A 500 is retried on the
+same host.
+
+Aliases are used only for the default `base_url`. A custom one — a private
+deployment, a test server, a regional pin — is never rewritten. Pass
+`regional_failover=False` to keep every attempt on a single host.
+
+## Typed errors
+
+Every HTTP failure raises a typed subclass of `TrustedRouterError` so callers
+can discriminate without inspecting status codes:
+
+```python
+import logging
+import time
+
+log = logging.getLogger(__name__)
+
+from trustedrouter import (
+    TrustedRouter, AuthenticationError, RateLimitError,
+    BadRequestError, EndpointNotSupportedError, NotFoundError, InternalError,
+)
+
+try:
+    client.chat_completions(messages=[{"role": "user", "content": "hello"}])
+except RateLimitError as e:
+    time.sleep(e.retry_after or 5)        # honors Retry-After header
+except AuthenticationError:
+    refresh_key()
+except BadRequestError as e:
+    log.warning("bad request: %s", e)
+except EndpointNotSupportedError:
+    disable_optional_feature()
+except InternalError:
+    pass                                   # auto-retried; still failing
+```
+
+All subclasses inherit from `TrustedRouterError`, so existing
+`except TrustedRouterError` blocks keep working.
+
+Every error also exposes `layer`, `source`, `provider`, and `request_id` when
+the server supplies them. These fields distinguish routing failures from
+provider errors without requiring callers to parse the message string.
+
+## Automatic retries
+
+By default the client retries `429` and `5xx` responses up to **2 times**
+with exponential backoff + jitter (capped at 30s, honors `Retry-After`).
+Disable with `max_retries=0`:
+
+```python
+client = TrustedRouter(api_key="...", max_retries=0)   # raise immediately on transient
+```
+
+Typed inference and control-plane mutation helpers mint one idempotency key at
+the logical call boundary and reuse it unchanged for every retry. The generic
+`client.request(...)` escape hatch deliberately does not guess whether an
+arbitrary write is idempotent: pass `idempotency_key=` explicitly if an unsafe
+method such as `POST` should be replayed after an ambiguous transport failure
+or an ordinary retryable status. A failure known to happen before any bytes
+were sent remains safe to retry without a key.
+
+## Telemetry
+
+TrustedRouter reports content-free client reliability telemetry by default when
+both inference and control use TrustedRouter hosts, so failures in DNS, TLS,
+connection setup, and broken streams can be measured even when the server never
+sees the request. Exact minute counters describe outcomes and bounded latency
+histograms, while sampled diagnostics describe closed-enum attempt, retry,
+failover, timeout, SDK, runtime, OS, and architecture fields. Delivery runs on a
+separate daemon thread and HTTP client, retains counters for up to 24 hours and
+512 KiB through outages, sends one bounded batch at a time, and never delays or
+retries an inference request.
+
+Disable both telemetry delivery and the `x-tr-client` header with
+`TrustedRouter(..., telemetry=False)`, `TRUSTEDROUTER_TELEMETRY=0`, or
+`DO_NOT_TRACK=1`; custom inference or control hosts default to disabled. Set
+`TRUSTEDROUTER_TELEMETRY_DEBUG=1` to echo the exact outbound batch JSON to
+stderr, and use `telemetry_sample_rate=` to lower or raise random sampling of
+otherwise healthy first-attempt calls. See the complete disclosure at
+[trustedrouter.com/docs/telemetry](https://trustedrouter.com/docs/telemetry).
+
+Telemetry never sends prompts, completions, message text, workspace/key/user/
+session IDs, IP addresses, or hostnames of custom endpoints.
+
+## Per-call extras
+
+Every chat method (and `request()` for ad-hoc paths) accepts:
+
+| kwarg | use |
+|---|---|
+| `api_key=` | override the instance bearer for this call only (threadsafe — used by validate_bearer) |
+| `extra_headers=` | dict of headers to merge in (trace IDs, custom routing) |
+| `workspace_id=` | sets `X-TrustedRouter-Workspace` for workspace-scoped management calls |
+| `idempotency_key=` | supplies the replay key; typed mutations auto-mint one when omitted, while generic `request()` does not |
+| `timeout=` | override the client-level timeout for this call |
+
+```python
+client.billing_checkout(
+    amount=25,
+    payment_method="stablecoin",
+    idempotency_key=f"checkout-{user_id}-{order_id}",   # never double-charge
+)
+```
+
+## Sign in with TrustedRouter
+
+Let users "bring their own TrustedRouter account" instead of pasting a key:
+the OpenRouter-style OAuth **PKCE** flow mints a user-scoped key so LLM calls
+are billed to *that user's* credits. `create_oauth_authorization(...)` builds
+the authorize URL and returns the `code_verifier` + `state` to keep across the
+redirect; `exchange_oauth_key(...)` swaps the returned `code` for the delegated
+key + verified identity. Async variants (`exchange_oauth_key_async`,
+`fetch_userinfo_async`) mirror these. OAuth helpers default to the control API
+origin (`https://trustedrouter.com/v1`).
+
+```python
+from trustedrouter import create_oauth_authorization, exchange_oauth_key, fetch_userinfo
+
+# 1. sign-in: keep auth.code_verifier + auth.state in the user's session
+auth = create_oauth_authorization(
+    callback_url="https://myapp.com/auth/callback",
+    key_label="My App", limit="5", usage_limit_type="monthly",
+)
+redirect_to(auth.url)
+
+# 2. in /auth/callback (verify state == saved state first)
+token = exchange_oauth_key(code=request.args["code"], code_verifier=saved_verifier)
+store_for_user(token.key, token.identity)        # sk-tr-v1-… + {sub, email, …}
+
+# 3. anytime
+who = fetch_userinfo(api_key=token.key)          # {sub, email, …}
+```
+
+Full flow, endpoints, and security notes:
+[Sign in with TrustedRouter](https://github.com/Lore-Hex/quill-router/blob/main/docs/sign-in-with-trustedrouter.md).
+
+## Attestation verification (the differentiator)
+
+Every TrustedRouter response is generated inside a Google Confidential Space
+workload. The gateway's `/attestation` endpoint mints a Google-signed JWT
+that commits to the workload image digest, image reference, your nonce, the
+TLS leaf cert SHA-256, and the TLS exporter of the session that asked for it.
+Verifying it proves the token came from the exact build the trust page
+advertises. How much it proves about *your connection* depends on what you can
+check, and every result says which with `binding`:
+
+| `binding` | Verifier | What a pass adds to the token checks |
+|---|---|---|
+| `"tls-exporter"` | `verify_gateway_session()` from `trustedrouter.session` | The token was minted inside your own TLS session, and that pinned connection is returned for your requests. |
+| `"tls-cert"` | `verify_gateway_attestation()` with `tls_cert_der` | The token commits to the certificate your connection presented. |
+| `"none"` | `verify_gateway_attestation_document()` | Nothing about your connection. With your fresh nonce, a pinned build answered just now. |
+
+The token checks are the same in all three: Google's RS256 signature, issuer,
+audience, expiry, production Confidential Space claims (debug off, Secure
+Boot, confidential hardware), and the image digest/reference pins from the
+trust release.
+
+`httpx` does not expose the TLS connection, so with the regular client you
+verify the document:
+
+```python
+import secrets
+
+from trustedrouter import TrustedRouter
+from trustedrouter.attestation import (
+    policy_from_trust_release, verify_gateway_attestation_document,
+)
+
+policy = policy_from_trust_release()       # pulls the live trust release
+nonce_hex = secrets.token_hex(32)
+with TrustedRouter(api_key="sk-tr-v1-...") as client:
+    jwt = client.attestation(nonce_hex=nonce_hex)  # GET /attestation?nonce=...
+
+attestation = verify_gateway_attestation_document(jwt, policy=policy, nonce_hex=nonce_hex)
+print(attestation.binding)       # "none"
+print(attestation.image_digest)  # a digest the trust release pins
+```
+
+`verify_gateway_attestation_document()` requires a fresh nonce of 16 to 64
+random bytes (as hex) and requires it in the token's `eat_nonce`, so a stored
+token cannot be replayed at you. Its result has no `cert_sha256`: the token
+names no certificate as your connection's. `cert_sha256_candidates` lists the
+SHA-256-shaped values the token commits to besides your nonce; the gateway's
+leaf certificate hash is one of them. If you hold the DER certificate of your
+connection, pass it to `verify_gateway_attestation(jwt, policy=policy,
+nonce_hex=nonce_hex, tls_cert_der=...)` instead, which checks it and reports
+`binding="tls-cert"`.
+
+`verify_gateway_attestation()` keeps its behaviour: it requires a certificate
+binding, and because live tokens carry the certificate hash only as an
+`eat_nonce` entry, it raises without `tls_cert_der`, naming the document-only
+verifier in the error.
+
+Both raise `AttestationVerificationError` on any failure: bad signature,
+expired JWT, wrong issuer, audience mismatch, image_digest mismatch,
+image_reference mismatch, missing nonce echo, or TLS cert mismatch. Neither
+returns falsey for a failed verification.
+
+A document check shows that the gateway is serving a published build right
+now. It does not show that your other requests reach that gateway, and it says
+nothing about the model providers the gateway routes to. To prove a live TLS
+exporter and a same-socket follow-up challenge, use `verify_gateway_session()`
+or `trustedrouter attest --session`; a certificate from a separate connection
+does not establish that binding.
+
+This codepath needs `cryptography`; install with
+`pip install trusted-router-py[attestation]`.
+
+## Receipt verification
+
+Receipt verification pins the signed issuer and, by default, requires the exact
+request and response bytes so a valid signature cannot be mistaken for proof
+about different traffic:
+
+```python
+from trustedrouter import verify_receipt
+
+claims = verify_receipt(
+    receipt_jws,
+    expected_issuer="https://api.trustedrouter.com",
+    request_body=serialized_request,
+    response_body=response_bytes,
+    expected_nonce=request_nonce,
+)
+```
+
+For deliberate signature-only inspection, pass `require_bindings=False`. For
+compact receipts whose pinned attestation document is unavailable, separately
+pass `require_attestation=False`; both escape hatches must be explicit.
+
+## Bring your own httpx client
+
+Pass `client=` if you need a custom transport (cert pinning, retries you
+manage, observability hooks). The SDK won't close it on `aclose()`:
+
+```python
+import httpx
+from trustedrouter import AsyncTrustedRouter
+
+my_client = httpx.AsyncClient(
+    timeout=30.0,
+    event_hooks={"response": [my_cert_pin_hook]},
+)
+sdk = AsyncTrustedRouter(api_key="...", client=my_client)
+# ...use sdk...
+await sdk.aclose()        # no-op for caller-owned clients
+await my_client.aclose()  # caller still owns lifecycle
+```
+
+This is exactly how the [Quill device](https://github.com/Lore-Hex/quill)
+wraps the SDK so it can pin Quill Cloud's self-signed leaf cert via an
+httpx event hook, while delegating chat streaming to the SDK.
+
+## CLI
+
+The package includes the official `trustedrouter` CLI for developers, coding
+agents, CI jobs, and gateway diagnostics. Install it into an isolated tool
+environment, or use the console script from your existing SDK environment:
+
+```bash
+pipx install trusted-router-py
+# or: uv tool install trusted-router-py
+# or: pip install trusted-router-py
+```
+
+Authentication comes from `TRUSTEDROUTER_API_KEY`, with `TR_API_KEY` retained
+as a backwards-compatible fallback. Agents can also set
+`TRUSTEDROUTER_BASE_URL` (or legacy `TR_BASE_URL`),
+`TRUSTEDROUTER_CONTROL_BASE_URL`, and `TRUSTEDROUTER_WORKSPACE_ID` without
+putting configuration on the process command line:
+
+```bash
+export TRUSTEDROUTER_API_KEY=sk-tr-v1-...
+
+trustedrouter chat "hello"                 # one-shot completion
+echo "summarize this" | trustedrouter chat # prompt from stdin
+trustedrouter chat - < prompt.txt           # explicit stdin marker
+trustedrouter chat --stream "long answer"  # token-by-token
+trustedrouter regions                      # list deployed regions
+trustedrouter providers                    # list provider catalog
+trustedrouter models                       # list model catalog
+trustedrouter trust                        # show trust release
+trustedrouter attest                       # raw attestation JWT bytes
+trustedrouter attest --verify              # fresh nonce + verify the document
+trustedrouter attest --session             # prove live same-socket TLS binding
+trustedrouter --version
+```
+
+The raw `attest` command is available in the base install. Install
+`trusted-router-py[attestation]` to use `attest --verify` or
+`attest --session`. `--verify` sends a fresh nonce and checks the document's
+signature, workload identity, and nonce echo against the published trust
+release; like `verify_gateway_attestation_document()`, it reports
+`binding: "none"`. Only `--session` proves the live TLS exporter and performs a
+same-socket follow-up challenge. `--connect-ip` is accepted only
+with `--session` and must not be empty.
+
+### Agent and JSON contract
+
+Pass global `--json` before or after a subcommand. Non-streaming successes emit
+one compact JSON object on stdout:
+
+```json
+{"command":"chat","data":{"id":"chatcmpl-example","choices":[]},"ok":true}
+```
+
+Errors emit one compact object on stderr and never mix in usage text:
+
+```json
+{"error":{"message":"invalid","status_code":401,"type":"authentication_error"},"ok":false}
+```
+
+Typed SDK errors use their cross-runtime snake-case class names, such as
+`rate_limit_error` and `internal_error`; non-SDK failures use `runtime_error`.
+Attestation successes use `attest`, `attest.verify`, or `attest.session` as the
+`command` value so agents can distinguish the three result schemas.
+
+`chat --stream --json` emits JSON Lines: one `chat.delta` record per nonempty
+text delta, followed by one terminal `chat.done` record. Plain mode keeps the
+original human-readable output. JSON records are UTF-8, key-sorted, and contain
+no ANSI formatting, so agents can parse them without checking whether stdout is
+a terminal.
+
+```bash
+trustedrouter --json models | jq '.data.data[].id'
+printf 'hello' | trustedrouter chat --json
+trustedrouter chat --stream --json "count to three"
+```
+
+Stable process exit codes:
+
+| code | meaning |
+|---:|---|
+| `0` | command completed successfully |
+| `1` | API, network, trust, or other runtime failure |
+| `2` | invalid CLI usage or invalid/empty input |
+| `3` | missing/rejected/expired authentication, or permission denied |
+
+For stdin prompts, use `-` by itself or omit the positional prompt when stdin
+is piped. Combining `-` with positional prompt text is rejected as ambiguous,
+and stdin leading/trailing whitespace is preserved. Input must be valid UTF-8
+and is capped at 8 MiB before any network request is made. `--retries` must be
+at least 0 and `--max-tokens` must be at least 1; invalid values exit 2 before
+constructing a client. An explicit `--model` must contain a non-whitespace
+model id.
+
+## Other endpoints
+
+```python
+client.models()             # OpenAI-shape catalog
+client.providers()          # provider list
+client.regions()            # deployed regions
+client.credits(workspace_id="ws_...")  # current prepaid balance for a workspace
+client.activity(since="2026-01-01", limit=50)
+client.messages(            # Anthropic-shape, preserves system + content blocks
+    model="anthropic/claude-3-5-sonnet",
+    messages=[{"role": "user", "content": "hi"}],
+    max_tokens=512,
+)
+client.billing_checkout(amount=25, payment_method="stablecoin", idempotency_key="checkout-order-123")
+```
+
+These catalog, account, billing, and broadcast helpers are control-plane calls
+and use `control_base_url`, not the inference `base_url`.
+
+`client.embeddings(...)` is present for API compatibility, but the hosted
+TrustedRouter route currently raises `EndpointNotSupportedError` instead of
+returning fake vectors. Use `client.models()` / `/embeddings/models` to inspect
+the future embedding catalog.
+
+For routes the SDK doesn't wrap, drop down to `client.request(...)`:
+
+```python
+client.request("GET", "/some/new/route", headers={"x-trace": "abc"})
+```
+
+## Roadmap
+
+- **v0.3 (shipped):** typed pydantic response models — every method returns
+  a typed model. Migration: replace `resp["k"]` with `resp.k`, or call
+  `resp.model_dump()` to get the dict back. Models use `extra="allow"`
+  so the gateway can add fields without an SDK release.
+- **v0.4 (shipped):** default inference host is
+  `https://api.trustedrouter.com/v1`; catalog/account/billing/OAuth/broadcast
+  calls use the control plane at `https://trustedrouter.com/v1` with a new
+  `control_base_url=` override.
+- **v0.x:** Regional failover improvements for the GCP Confidential Space path.
+
+## Contributing
+
+```bash
+uv sync --group dev
+uv run ruff check .
+uv run python scripts/boundary_check.py
+uv run mypy
+uv run pytest                              # branch-inclusive coverage ≥87%
+uv run python scripts/mutation_check.py
+uv run python scripts/consumer_mutation_check.py
+```
+
+CI runs lint, static checks, tests, and mutation gates on every push to main
+and PR. The coverage gate is enforced at 87%. Add tests with new
+public surface.

@@ -1,0 +1,183 @@
+"""Direct links to a lemon's recorded tmux pane or cmux surface."""
+
+import argparse
+import os
+import re
+import sqlite3
+import subprocess
+import sys
+from collections import abc
+from urllib.parse import quote, unquote, urlsplit
+
+from . import cmux, handlers
+from .brief import lemon, store
+from .inbox import db
+from .log import get_logger
+from .tmux import jump_target, navigation
+
+_log = get_logger("go")
+
+
+def _target(value: str) -> str:
+    if "://" in value:
+        url = urlsplit(value)
+        if url.scheme != "lemonaid" or url.netloc != "go" or url.query or url.fragment:
+            raise ValueError("Expected lemonaid://go/<Lemon-ID-or-channel>")
+
+        value = unquote(url.path.removeprefix("/"))
+    if not value or re.search(r"[\s/\x00-\x1f\x7f]", value):
+        raise ValueError("Expected a Lemon-ID or channel")
+
+    return value
+
+
+def _notification(conn: sqlite3.Connection, target: str) -> db.Notification:
+    found = db.get_by_channel(conn, target, unread_only=False)
+    if found is None:
+        found = lemon.attachment(conn, target).notification
+    if found is None or found.status == "archived":
+        raise LookupError(f"No active lemon for {target!r}")
+
+    return found
+
+
+def _tmux(command: list[str], *args: str) -> str:
+    result = subprocess.run(
+        [*command, *args], capture_output=True, text=True, check=True, timeout=5
+    )
+    return result.stdout.strip()
+
+
+def _pane(command: list[str], found: db.Notification) -> str:
+    jump_target.require_identity(found.metadata)
+    return jump_target.resolve(found.metadata, _tmux(command, *jump_target.QUERY))
+
+
+def jump_problems(rows: abc.Iterable[db.Notification]) -> dict[str, str]:
+    panes: dict[str, str] = {}
+    failures: dict[str, str] = {}
+    problems: dict[str, str] = {}
+    for row in rows:
+        if row.switch_source != "tmux":
+            continue
+
+        try:
+            jump_target.require_identity(row.metadata)
+        except LookupError as error:
+            problems[row.channel] = str(error)
+            continue
+
+        socket = row.metadata.get("tmux_socket") or ""
+        if socket not in panes and socket not in failures:
+            try:
+                panes[socket] = _tmux(navigation.server_args(socket), *jump_target.QUERY)
+            except (OSError, subprocess.SubprocessError) as error:
+                failures[socket] = "Cannot check the recorded tmux server"
+                _log.warning("could not check grove jump targets: %s", error)
+        if socket in failures:
+            problems[row.channel] = failures[socket]
+            continue
+
+        try:
+            jump_target.resolve(row.metadata, panes[socket])
+        except LookupError as error:
+            problems[row.channel] = str(error)
+    return problems
+
+
+def _client(command: list[str], explicit: str, source_pane: str) -> str:
+    clients = _tmux(command, "list-clients", "-F", "#{client_name}|#{session_name}")
+    rows = [line.split("|", 1) for line in clients.splitlines() if "|" in line]
+    if explicit:
+        if explicit not in [row[0] for row in rows]:
+            raise LookupError(f"No attached tmux client {explicit!r}")
+
+        return explicit
+
+    if source_pane:
+        panes = _tmux(command, "list-panes", "-a", "-F", "#{pane_id}|#{session_name}")
+        sessions = {
+            parts[1]
+            for line in panes.splitlines()
+            if len(parts := line.split("|", 1)) == 2 and parts[0] == source_pane
+        }
+        rows = [row for row in rows if row[1] in sessions]
+    if len(rows) != 1:
+        choices = ", ".join(row[0] for row in rows) or "none"
+        raise LookupError(f"Expected one attached tmux client; found {choices}. Use --client NAME")
+
+    return rows[0][0]
+
+
+def jump_tmux(found: db.Notification, client: str) -> None:
+    """Switch tmux client *client* to the pane *found* runs in, as `lemonaid go --client` does.
+
+    Raises LookupError when the pane is gone or ambiguous, or the client isn't attached.
+    """
+    command = navigation.server_args(found.metadata.get("tmux_socket"))
+    _tmux(command, "switch-client", "-c", _client(command, client, ""), "-t", _pane(command, found))
+
+
+def _jump_cmux(found: db.Notification) -> None:
+    """Focus the surface the inbox would switch to, but never resume a lemon that has none."""
+    try:
+        surface = handlers.locate_cmux(found.metadata)
+    except cmux.navigation.CmuxUnavailable as error:
+        raise LookupError("cmux did not answer; no jump made") from error
+
+    if surface is None:
+        raise LookupError("The lemon has no cmux surface; resume it from the inbox")
+    if surface == cmux.navigation.AMBIGUOUS:
+        raise LookupError("Several cmux surfaces run this lemon; no jump made")
+    if surface == cmux.navigation.UNKNOWN:
+        raise LookupError("Could not tell which cmux surface runs this lemon; no jump made")
+    if not cmux.navigation.switch_to_surface(surface):
+        raise LookupError("cmux did not focus the lemon's surface")
+
+
+def _cmd_go(args: argparse.Namespace) -> None:
+    try:
+        target = _target(args.target)
+        if args.link:
+            url = f"lemonaid://go/{quote(target, safe='')}"
+            print(f"\x1b]8;;{url}\x1b\\{target}\x1b]8;;\x1b\\")
+            return
+
+        with db.connect() as conn:
+            found = _notification(conn, target)
+        if found.switch_source == "cmux":
+            if args.client:
+                raise ValueError("--client names a tmux client; this lemon runs in cmux")
+            _jump_cmux(found)
+            return
+        if found.switch_source != "tmux":
+            raise ValueError("lemonaid go supports tmux and cmux lemons only")
+
+        socket = found.metadata.get("tmux_socket")
+        command = navigation.server_args(socket)
+        own_socket = os.environ.get("TMUX", "").split(",", 1)[0]
+        source_pane = os.environ.get("TMUX_PANE", "") if not socket or socket == own_socket else ""
+        pane = _pane(command, found)
+        client = _client(command, args.client, source_pane)
+        _tmux(command, "switch-client", "-c", client, "-t", pane)
+    except (
+        LookupError,
+        ValueError,
+        OSError,
+        subprocess.SubprocessError,
+        store.ChangedUnderneath,
+    ) as error:
+        print(f"lemonaid go: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
+
+
+def setup_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("go", help="Jump to a lemon by Lemon-ID, channel, or link")
+    parser.add_argument("target", help="Lemon-ID, channel, or lemonaid://go/... URL")
+    parser.add_argument(
+        "--client", default="", help="Exact attached tmux client name (usually /dev/ttysNNN)"
+    )
+    parser.add_argument(
+        "--link", action="store_true", help="Print an OSC 8 link instead of jumping"
+    )
+    parser.set_defaults(func=_cmd_go)

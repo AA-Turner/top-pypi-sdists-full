@@ -1,4 +1,0 @@
----
-features:
-  - |
-    All functions which take a ``rand_seed`` argument now also accept a ``numpy.random.Generator`` instance as the ``rand_seed``.

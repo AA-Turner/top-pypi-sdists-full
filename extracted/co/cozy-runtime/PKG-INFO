@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cozy-runtime
-Version: 0.36.18
+Version: 0.37.2
 Summary: Cozy author surface and device executor
 License-File: kernels/LICENSE
 License-File: kernels/LICENSE-cutlass

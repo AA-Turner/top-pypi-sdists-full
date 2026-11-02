@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import capture_state
+from probe.cli.capture import state as capture_state
 from probe.cli.main import app
 
 SID = "01a06383-6f4e-751a-b94c-bcefef19938c"

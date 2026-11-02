@@ -1,0 +1,123 @@
+from datetime import date, datetime
+from typing import Optional
+from zoneinfo import ZoneInfo
+
+from tapo.debug_ext import DebugExt
+from tapo.on_off_ext import OnOffExt
+from tapo.requests import EnergyDataInterval, PowerDataInterval
+from tapo.responses import (
+    CurrentPowerResult,
+    DeviceUsageEnergyMonitoringResult,
+    EnergyDataResult,
+    EnergyMeterDataResult,
+    EnergyUsageResult,
+    PowerDataResult,
+    PowerStripPlugEnergyMonitoringResult,
+    TimezoneResult,
+)
+
+class PowerStripPlugEnergyMonitoringHandler(OnOffExt, DebugExt):
+    """Handler for the [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
+    [P316M](https://www.tp-link.com/us/search/?q=P316M) child plugs.
+    """
+
+    def __init__(self, handler: object):
+        """Private constructor.
+        It should not be called from outside the tapo library.
+        """
+
+    async def get_device_info(self) -> PowerStripPlugEnergyMonitoringResult:
+        """Returns *device info* as `PowerStripPlugEnergyMonitoringResult`.
+        It is not guaranteed to contain all the properties returned from the Tapo API.
+        If the deserialization fails, or if a property that you care about it's not present,
+        try `PowerStripPlugEnergyMonitoringHandler.get_device_info_json`.
+
+        Returns:
+            PowerStripPlugEnergyMonitoringResult: P304M and P316M power strip child plugs.
+        """
+
+    async def get_current_power(self) -> CurrentPowerResult:
+        """Returns *current power* as `CurrentPowerResult`.
+
+        Returns:
+            CurrentPowerResult: Contains the current power reading of the device.
+        """
+
+    async def get_device_usage(self) -> DeviceUsageEnergyMonitoringResult:
+        """Returns *device usage* as `DeviceUsageResult`.
+
+        Returns:
+            DeviceUsageEnergyMonitoringResult:
+            Contains the time usage, the power consumption, and the energy savings of the device.
+        """
+
+    async def get_energy_data(
+        self,
+        interval: EnergyDataInterval,
+        start_date: date,
+        end_date: Optional[date] = None,
+        timezone: Optional[ZoneInfo] = None,
+    ) -> EnergyDataResult:
+        """Returns *energy data* as `EnergyDataResult`.
+
+        The dates are read in the power strip's timezone, so the entries line up
+        with the Tapo app wherever this code runs. Entries that start after the
+        power strip's local time are left out.
+
+        Pass the `TimezoneResult.timezone` attribute from
+        `PowerStripPlugEnergyMonitoringHandler.get_timezone` to read it once for several
+        calls. Without it, each call reads it, which takes one extra request.
+
+        Returns:
+            EnergyDataResult: Energy data result for the requested `EnergyDataInterval`.
+
+        Raises:
+            Exception: If the power strip reports a timezone name that is not in the IANA database.
+        """
+
+    async def get_energy_meter_data(self) -> EnergyMeterDataResult:
+        """Returns *energy meter data* as `EnergyMeterDataResult`.
+
+        Returns:
+            EnergyMeterDataResult: Contains the voltage, current and power measured by the device,
+            and the energy it has used since it last restarted.
+        """
+
+    async def get_energy_usage(self) -> EnergyUsageResult:
+        """Returns *energy usage* as `EnergyUsageResult`.
+
+        Returns:
+            EnergyUsageResult:
+            Contains local time, current power and the energy usage and runtime for today and for the current month.
+        """
+
+    async def get_power_data(
+        self,
+        interval: PowerDataInterval,
+        start_date_time: datetime,
+        end_date_time: datetime,
+    ) -> PowerDataResult:
+        """Returns *power data* as `PowerDataResult`.
+
+        Args:
+            interval (PowerDataInterval): The interval between data points.
+            start_date_time (datetime): The start of the range. Must be timezone-aware.
+            end_date_time (datetime): The end of the range. Must be timezone-aware.
+
+        Returns:
+            PowerDataResult: Power data result for the requested `PowerDataInterval`.
+
+        Raises:
+            TypeError: If `start_date_time` or `end_date_time` is a naive datetime.
+        """
+
+    async def get_timezone(self) -> TimezoneResult:
+        """Returns the power strip's *timezone* as `TimezoneResult`.
+        The child plugs follow the power strip's clock, so this reads it from the power strip.
+
+        Returns:
+            TimezoneResult: The timezone configured on the power strip.
+
+        Raises:
+            Exception: If the power strip reports a timezone name that is not in the IANA database.
+        """

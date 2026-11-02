@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 import probe
-from probe.cli import updater
+from probe.cli.install import updater
 
 
 def _load_hook():
@@ -66,19 +66,23 @@ def test_probe_update_actually_runs(monkeypatch, tmp_path):
     """
     from typer.testing import CliRunner
 
-    from probe.cli import updater
+    from probe.cli.install import updater
     from probe.cli.main import app
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr(updater, "fetch_latest", lambda base: {})
+    monkeypatch.setattr(updater.updater, "fetch_latest", lambda base: {})
     monkeypatch.setattr(
-        updater,
+        updater.updater,
         "detect_install",
         lambda: updater.Install(method=updater.Method.EDITABLE),
     )
     monkeypatch.setattr(
-        updater,
-        "update_plugin",
+        updater.cli_install,
+        "detect_install",
+        lambda: updater.Install(method=updater.Method.EDITABLE),
+    )
+    monkeypatch.setattr(
+        "probe.shared.harness.harnesses.claude_code.plugins.update_plugin",
         lambda target: updater.PluginResult(
             attempted=True,
             confirmed=True,
@@ -148,13 +152,13 @@ def test_probe_update_names_the_agent_it_runs_in(tmp_path, monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.cli import upgrading
+    from probe.cli.install import upgrade as upgrading
     from probe.cli.main import app
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("PROBE_AGENT", "kimi_code")
     outcome = SimpleNamespace(lines=["Probe: updated"], ok=True, restart_needed=True, plugins_moved=False)
-    monkeypatch.setattr(upgrading, "perform_update", lambda **kwargs: outcome)
+    monkeypatch.setattr(upgrading.upgrade, "perform_update", lambda **kwargs: outcome)
     result = CliRunner().invoke(app, ["update", "--yes"])
     assert result.exit_code == 0, result.output + repr(result.exception)
     assert "Run /reload in Kimi Code (or restart it) to apply the plugin update." in result.output

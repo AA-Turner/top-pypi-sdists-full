@@ -1,0 +1,124 @@
+"""Tests for get_workflow_definition function."""
+
+from agentic_devtools.cli.workflows.manager import (
+    WorkflowDefinition,
+    get_workflow_definition,
+)
+from agentic_devtools.prompts.loader import get_template_path
+
+
+class TestGetWorkflowDefinition:
+    """Tests for get_workflow_definition function."""
+
+    def test_returns_work_on_jira_issue_definition(self):
+        """Returns a WorkflowDefinition for the work-on-jira-issue workflow."""
+        definition = get_workflow_definition("work-on-jira-issue")
+
+        assert definition is not None
+        assert isinstance(definition, WorkflowDefinition)
+        assert definition.name == "work-on-jira-issue"
+
+    def test_returns_pull_request_review_definition(self):
+        """Returns a WorkflowDefinition for the pull-request-review workflow."""
+        definition = get_workflow_definition("pull-request-review")
+
+        assert definition is not None
+        assert isinstance(definition, WorkflowDefinition)
+        assert definition.name == "pull-request-review"
+
+    def test_returns_none_for_unknown_workflow(self):
+        """Returns None when the workflow name is not registered."""
+        definition = get_workflow_definition("non-existent-workflow")
+
+        assert definition is None
+
+    def test_work_on_jira_issue_initial_step(self):
+        """Work-on-jira-issue workflow starts at the 'initiate' step."""
+        definition = get_workflow_definition("work-on-jira-issue")
+
+        assert definition is not None
+        assert definition.initial_step == "initiate"
+
+    def test_pull_request_review_initial_step(self):
+        """Pull-request-review workflow starts at the 'initiate' step."""
+        definition = get_workflow_definition("pull-request-review")
+
+        assert definition is not None
+        assert definition.initial_step == "initiate"
+
+    def test_work_on_jira_issue_has_transitions(self):
+        """Work-on-jira-issue workflow has at least one transition defined."""
+        definition = get_workflow_definition("work-on-jira-issue")
+
+        assert definition is not None
+        assert len(definition.transitions) > 0
+
+    def test_work_on_jira_issue_checklist_created_transition(self):
+        """Work-on-jira-issue has a CHECKLIST_CREATED transition from checklist-creation."""
+        from agentic_devtools.cli.workflows.manager import WorkflowEvent
+
+        definition = get_workflow_definition("work-on-jira-issue")
+
+        assert definition is not None
+        transition = definition.get_transition("checklist-creation", WorkflowEvent.CHECKLIST_CREATED)
+
+        assert transition is not None
+        assert transition.to_step == "implementation"
+
+    def test_work_on_jira_issue_commit_step_has_required_tasks(self):
+        """Work-on-jira-issue commit transition has required_tasks for deferred advancement."""
+        from agentic_devtools.cli.workflows.manager import WorkflowEvent
+
+        definition = get_workflow_definition("work-on-jira-issue")
+
+        assert definition is not None
+        transition = definition.get_transition("commit", WorkflowEvent.GIT_COMMIT_CREATED)
+
+        assert transition is not None
+        assert len(transition.required_tasks) > 0
+
+    def test_pull_request_review_has_file_review_transition(self):
+        """Pull-request-review advances pr-synthesis -> delegate via manual advance."""
+        from agentic_devtools.cli.workflows.manager import WorkflowEvent
+
+        definition = get_workflow_definition("pull-request-review")
+
+        assert definition is not None
+        transition = definition.get_transition("pr-synthesis", WorkflowEvent.MANUAL_ADVANCE)
+
+        assert transition is not None
+        assert transition.to_step == "delegate"
+
+    def test_returns_none_for_empty_workflow_name(self):
+        """Returns None when the workflow name is empty."""
+        definition = get_workflow_definition("")
+
+        assert definition is None
+
+    def test_returns_pr_merge_orchestrator_definition(self):
+        """Returns a WorkflowDefinition for the pr-merge-orchestrator workflow."""
+        definition = get_workflow_definition("pr-merge-orchestrator")
+
+        assert definition is not None
+        assert isinstance(definition, WorkflowDefinition)
+        assert definition.name == "pr-merge-orchestrator"
+
+    def test_pr_merge_orchestrator_initial_step(self):
+        """PR merge orchestrator workflow starts at the 'init' step."""
+        definition = get_workflow_definition("pr-merge-orchestrator")
+
+        assert definition is not None
+        assert definition.initial_step == "init"
+
+    def test_pr_merge_orchestrator_has_no_transitions_yet(self):
+        """PR merge orchestrator has no transitions until downstream steps are implemented."""
+        definition = get_workflow_definition("pr-merge-orchestrator")
+
+        assert definition is not None
+        assert len(definition.transitions) == 0
+
+    def test_pr_merge_orchestrator_init_template_exists(self):
+        """Default init prompt template exists on disk for the pr-merge-orchestrator workflow."""
+        template_path = get_template_path("pr-merge-orchestrator", "init", is_default=True)
+
+        assert template_path.exists(), f"Expected template at {template_path}"

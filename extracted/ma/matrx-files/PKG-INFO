@@ -1,0 +1,105 @@
+Metadata-Version: 2.5
+Name: matrx-files
+Version: 0.2.328
+Summary: All things files: cloud storage, media management, conversion, PDF, sharing — the platform's independent file service.
+Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Issues, https://github.com/AI-Matrix-Engine/aidream-current/issues
+Author-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: cdn,files,matrx,media,pdf,s3
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.13
+Requires-Dist: boto3-stubs[s3]>=1.42.59
+Requires-Dist: boto3>=1.42.59
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: matrx-connect>=0.1.257
+Requires-Dist: matrx-orm>=3.1.275
+Requires-Dist: matrx-utils>=2.0.109
+Requires-Dist: mozjpeg-lossless-optimization>=1.1.0
+Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: pillow>=12.3.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pypdfium2>=4.30.0
+Requires-Dist: python-docx>=1.1.2
+Requires-Dist: python-pptx>=1.0.2
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: requests>=2.32.5
+Requires-Dist: xlsxwriter>=3.2.0
+Provides-Extra: all
+Requires-Dist: imageio-ffmpeg>=0.5; extra == 'all'
+Requires-Dist: numpy<2.5,>=1.26; extra == 'all'
+Requires-Dist: onnxruntime>=1.16; extra == 'all'
+Requires-Dist: opencv-python-headless>=4.9; extra == 'all'
+Requires-Dist: pillow-avif-plugin>=1.4.6; extra == 'all'
+Requires-Dist: pillow-heif>=0.18.0; extra == 'all'
+Requires-Dist: pymupdf>=1.27.0; extra == 'all'
+Requires-Dist: pytesseract>=0.3.13; extra == 'all'
+Requires-Dist: rembg>=2.0.85; extra == 'all'
+Provides-Extra: media
+Requires-Dist: imageio-ffmpeg>=0.5; extra == 'media'
+Requires-Dist: numpy<2.5,>=1.26; extra == 'media'
+Requires-Dist: onnxruntime>=1.16; extra == 'media'
+Requires-Dist: opencv-python-headless>=4.9; extra == 'media'
+Requires-Dist: pillow-avif-plugin>=1.4.6; extra == 'media'
+Requires-Dist: pillow-heif>=0.18.0; extra == 'media'
+Requires-Dist: rembg>=2.0.85; extra == 'media'
+Provides-Extra: ocr
+Requires-Dist: pytesseract>=0.3.13; extra == 'ocr'
+Provides-Extra: pdf
+Requires-Dist: pymupdf>=1.27.0; extra == 'pdf'
+Provides-Extra: pdf-cloud-ocr
+Requires-Dist: azure-ai-documentintelligence; extra == 'pdf-cloud-ocr'
+Requires-Dist: boto3; extra == 'pdf-cloud-ocr'
+Requires-Dist: google-cloud-documentai; extra == 'pdf-cloud-ocr'
+Provides-Extra: pdf-forms
+Requires-Dist: pypdfform>=1.4; extra == 'pdf-forms'
+Provides-Extra: pdf-generate
+Requires-Dist: reportlab>=4.0; extra == 'pdf-generate'
+Provides-Extra: pdf-html
+Requires-Dist: weasyprint>=60; extra == 'pdf-html'
+Provides-Extra: pdf-ml-llm
+Requires-Dist: pymupdf4llm>=0.0.30; extra == 'pdf-ml-llm'
+Provides-Extra: pdf-ocr
+Requires-Dist: ocrmypdf>=16; extra == 'pdf-ocr'
+Provides-Extra: pdf-redact-ner
+Requires-Dist: presidio-analyzer>=2.2; extra == 'pdf-redact-ner'
+Requires-Dist: presidio-anonymizer>=2.2; extra == 'pdf-redact-ner'
+Requires-Dist: spacy>=3.7; extra == 'pdf-redact-ner'
+Provides-Extra: pdf-signatures
+Requires-Dist: pyhanko>=0.20; extra == 'pdf-signatures'
+Provides-Extra: pdf-tables
+Requires-Dist: tabula-py>=2.9; extra == 'pdf-tables'
+Provides-Extra: pdf-tables-extra
+Requires-Dist: camelot-py>=0.11; extra == 'pdf-tables-extra'
+Provides-Extra: standalone
+Requires-Dist: fastapi>=0.115; extra == 'standalone'
+Requires-Dist: imageio-ffmpeg>=0.5; extra == 'standalone'
+Requires-Dist: numpy<2.5,>=1.26; extra == 'standalone'
+Requires-Dist: onnxruntime>=1.16; extra == 'standalone'
+Requires-Dist: opencv-python-headless>=4.9; extra == 'standalone'
+Requires-Dist: pillow-avif-plugin>=1.4.6; extra == 'standalone'
+Requires-Dist: pillow-heif>=0.18.0; extra == 'standalone'
+Requires-Dist: pymupdf>=1.27.0; extra == 'standalone'
+Requires-Dist: pytesseract>=0.3.13; extra == 'standalone'
+Requires-Dist: python-multipart>=0.0.9; extra == 'standalone'
+Requires-Dist: rembg>=2.0.85; extra == 'standalone'
+Requires-Dist: uvicorn>=0.34; extra == 'standalone'
+Description-Content-Type: text/markdown
+
+# Matrx Files
+
+All things files: cloud storage, media management, conversion, PDF, sharing — the platform's independent file service.
+
+Contract: [INDEPENDENCE.md](INDEPENDENCE.md).
+
+Cross-repo system-of-record: `/Users/armanisadeghi/code/common-docs/systems/files/file-service/STATE.md`
+— read it before touching this feature in ANY repo.
+
+The person's files vs machine files (the one visibility + Recents rule, declared in
+`matrx_files/user_visible.py`; how a machine or device writer registers before it writes):
+`/Users/armanisadeghi/code/common-docs/systems/files/file-service/USER_FILES_VS_MACHINE_FILES.md`.

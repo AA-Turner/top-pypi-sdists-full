@@ -1,0 +1,4314 @@
+# ruff: noqa: E501
+"""MCP server integration helpers.
+
+Provides utilities for registering ADCP handlers with MCP servers.
+
+.. note::
+    Function signatures in this module use ``ADCPHandler[Any]`` rather
+    than a propagated ``TContext`` TypeVar. The rationale: these
+    functions (``get_tools_for_handler``, ``create_mcp_tools``, etc.)
+    treat the handler opaquely — they walk the MRO and dispatch by tool
+    name without ever touching the ``context`` argument's typed fields.
+    Binding a TypeVar here would force callers to narrow at the call
+    site for no runtime benefit, and cascade the TypeVar through every
+    plumbing function in :mod:`adcp.server.serve`. ``Any`` keeps the
+    plumbing honest: the static type says "this code works with any
+    ``ToolContext`` subclass," which is exactly true.
+"""
+
+from __future__ import annotations
+
+import copy
+import difflib
+import logging
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, Literal
+
+from adcp.server._hooks import (
+    PreValidationHookChain,
+    PreValidationHookError,
+    PreValidationHooks,
+    _apply_pre_validation_hooks,
+    _flatten_pre_validation_hooks,
+)
+from adcp.server.base import ADCPHandler, ToolContext
+from adcp.server.helpers import ResponseEnhancer, _apply_response_enhancer
+from adcp.server.test_controller import SCENARIOS as _CONTROLLER_SCENARIOS
+from adcp.types import (
+    MEDIA_BUY_LEGACY_STATUS_VALUES,
+    unwrap_enum_value,
+)
+from adcp.types.error_narrowing import narrow_union_errors
+from adcp.validation._response_envelope import uses_task_status_envelope
+from adcp.validation.client_hooks import UnknownFieldPolicy, ValidationHookConfig
+from adcp.validation.envelope import DEFAULT_UNNEGOTIATED_ADCP_VERSION
+from adcp.validation.schema_loader import (
+    get_mcp_schema,
+    get_validator,
+    list_validator_keys,
+)
+
+logger = logging.getLogger(__name__)
+
+SchemaMode = Literal["compact", "defs", "inline"]
+"""Shape used for Pydantic-derived MCP input discovery schemas.
+
+``compact`` keeps every top-level request field, required nested fields, and a
+small discovery floor while pruning optional nested detail. It retains only
+reachable local references. ``defs`` keeps the complete Pydantic schema with
+local references, and ``inline`` preserves the historical fully expanded
+shape for clients that do not resolve references.
+"""
+
+_SCHEMA_MODES: frozenset[str] = frozenset({"compact", "defs", "inline"})
+_SCHEMA_LITERAL_KEYS: frozenset[str] = frozenset({"const", "default", "examples"})
+#: Subschemas whose meaning inverts under compaction. Pruning only ever
+#: *loosens* a subschema (an optional nested field is dropped and re-admitted
+#: as ``true``), which is sound for a positive assertion but not for a negated
+#: or conditional one: a looser ``not`` rejects more, and a looser ``if``
+#: selects its ``then`` arm more often. Both are copied verbatim, and the
+#: definitions they reference are kept whole. The bundled wire schemas use
+#: both heavily (``if``/``then`` discriminators on ``status``, ``pricing_model``
+#: and the like); Pydantic rarely emits either.
+_SCHEMA_VERBATIM_KEYS: frozenset[str] = frozenset({"if", "not"})
+_SCALAR_SCHEMA_TYPES: frozenset[str] = frozenset({"boolean", "integer", "number", "string"})
+
+# These optional nested fields are part of the advertised mutation contract,
+# even though the surrounding request models do not require them. Their schema
+# bodies still come directly from Pydantic; this set only prevents the compact
+# transform from discarding those real input fields. In particular,
+# ``targeting_overlay`` is an input-only bridge whose exact advertised shape is
+# protected by tests/test_targeting_overlay_schema.py.
+_COMPACT_NESTED_DISCOVERY_FIELDS: frozenset[str] = frozenset({"targeting_overlay"})
+
+
+def _looks_like_sync_media_buy_success(method_name: str, result: dict[str, Any]) -> bool:
+    return (
+        method_name in {"create_media_buy", "update_media_buy"}
+        and "media_buy_id" in result
+        and "errors" not in result
+        and "task_id" not in result
+    )
+
+
+def _is_adcp_31_or_newer(version: str | None) -> bool:
+    if version is None:
+        return True
+    try:
+        major_text, rest = version.split(".", 1)
+        release_text = rest.split("-", 1)[0].split(".", 1)[0]
+        return int(major_text) > 3 or (int(major_text) == 3 and int(release_text) >= 1)
+    except (AttributeError, TypeError, ValueError):
+        return True
+
+
+def _normalize_sync_media_buy_response(
+    result: dict[str, Any],
+    *,
+    adcp_version: str | None,
+) -> None:
+    raw_status = unwrap_enum_value(result.get("status"))
+    media_buy_status = unwrap_enum_value(result.get("media_buy_status"))
+
+    if _is_adcp_31_or_newer(adcp_version):
+        if raw_status is not None:
+            result["status"] = raw_status
+        if media_buy_status is not None:
+            result["media_buy_status"] = media_buy_status
+        if media_buy_status is None and raw_status in MEDIA_BUY_LEGACY_STATUS_VALUES:
+            result["media_buy_status"] = raw_status
+            result["status"] = "completed"
+        elif media_buy_status is not None and raw_status in {None, media_buy_status}:
+            result["status"] = "completed"
+        return
+
+    # 3.0 buyers expect the media-buy lifecycle status at top-level
+    # ``status``. This branch is intentionally narrow to create/update
+    # success payloads so the normal task envelope can still be applied to
+    # every other 3.1+ response.
+    if media_buy_status is not None:
+        result["status"] = media_buy_status
+        result.pop("media_buy_status", None)
+    elif raw_status is not None:
+        result["status"] = raw_status
+
+
+def _normalize_response_envelope(
+    method_name: str,
+    result: dict[str, Any],
+    raw_params: dict[str, Any],
+    *,
+    adcp_version: str | None = None,
+) -> None:
+    """Populate beta 3 envelope defaults before serialization/validation.
+
+    Most AdCP 3.1+ tasks require ``status`` on every response, while a small
+    set of compact synchronous responses retain their native envelope.
+    Cacheable product/signal reads require ``cache_scope``. The SDK can safely
+    infer the public cache only when the request has no account. Account-scoped
+    wholesale reads must be explicit so a seller doesn't accidentally label
+    account-specific inventory as globally cacheable.
+    """
+    is_sync_media_buy_success = _looks_like_sync_media_buy_success(method_name, result)
+    if is_sync_media_buy_success:
+        _normalize_sync_media_buy_response(result, adcp_version=adcp_version)
+
+    if method_name == "list_products":
+        # The compact list response is a synchronous listed/unchanged union.
+        # Unlike the general task envelope, neither arm permits ``status``.
+        # A products-bearing response is unambiguously the listed arm, so keep
+        # accepting the ergonomic handler shape that predates the explicit
+        # outcome discriminator.
+        if "outcome" not in result and "products" in result:
+            result["outcome"] = "listed"
+        return
+    if (
+        uses_task_status_envelope(method_name)
+        and "status" not in result
+        and "task_id" not in result
+    ):
+        if not (is_sync_media_buy_success and not _is_adcp_31_or_newer(adcp_version)):
+            result["status"] = "completed"
+    if (
+        method_name in {"get_products", "get_signals"}
+        and "cache_scope" not in result
+        and raw_params.get("account") is None
+    ):
+        result["cache_scope"] = "public"
+
+
+def _widen_media_buy_output_schema_for_legacy_statuses(
+    tool_name: str,
+    schema: dict[str, Any],
+) -> bool:
+    """Advertise both 3.1 and negotiated 3.0 media-buy success shapes.
+
+    The Pydantic success arm normalizes legacy lifecycle ``status`` values
+    into ``media_buy_status`` at model-validation time, so its generated JSON
+    schema naturally advertises only ``status: "completed"``. MCP
+    ``outputSchema`` validates the actual negotiated wire dict, where a 3.0
+    buyer legitimately receives ``status: "pending_creatives"`` with no
+    ``media_buy_status``. Widen only the advertised schema; the runtime model
+    remains the canonical 3.1 ergonomic shape.
+
+    Returns whether any arm was widened, so the caller can collect the
+    definitions a repointed arm stranded.
+    """
+    if tool_name not in {"create_media_buy", "update_media_buy"}:
+        return False
+    widened_any = False
+    defs = schema.get("$defs")
+    defs = defs if isinstance(defs, dict) else {}
+    variants = schema.get("anyOf") or schema.get("oneOf") or []
+    for variant in variants:
+        if not isinstance(variant, dict):
+            continue
+        # Outside ``schema_mode="inline"`` a union arm is a local reference,
+        # and without resolving it the widening silently no-ops — advertising
+        # a schema that rejects a legitimate negotiated-3.0
+        # ``status: "pending_creatives"``.
+        ref = variant.get("$ref")
+        source_name = None
+        target = variant
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            source_name = ref[len("#/$defs/") :]
+            resolved = defs.get(source_name)
+            if not isinstance(resolved, dict):
+                continue
+            target = resolved
+
+        required = target.get("required")
+        properties = target.get("properties")
+        if not isinstance(required, list) or not isinstance(properties, dict):
+            continue
+        if "media_buy_id" not in required or "status" not in properties:
+            continue
+
+        status_schema = properties.get("status")
+        if not (isinstance(status_schema, dict) and status_schema.get("const") == "completed"):
+            continue
+
+        if source_name is not None:
+            # Only now, having established this arm is the one to widen, take
+            # a copy and repoint at it. A `$defs` entry may be referenced from
+            # more than one site, and loosening a status constraint somewhere
+            # else is not what this is for — but cloning every arm first would
+            # ship a definition per arm with only one of them referenced.
+            widened_name = f"{source_name}LegacyStatus"
+            target = copy.deepcopy(target)
+            defs[widened_name] = target
+            variant["$ref"] = f"#/$defs/{widened_name}"
+            required = target["required"]
+            properties = target["properties"]
+
+        widened_any = True
+        target["required"] = [field for field in required if field != "status"]
+        properties["status"] = {
+            "anyOf": [
+                {"const": "completed", "type": "string"},
+                {
+                    "enum": sorted(MEDIA_BUY_LEGACY_STATUS_VALUES),
+                    "title": "MediaBuyStatus",
+                    "type": "string",
+                },
+            ],
+            "description": (
+                "Task envelope status for AdCP 3.1+ sync responses, or the "
+                "media-buy lifecycle status for AdCP 3.0 compatibility."
+            ),
+        }
+
+    return widened_any
+
+
+# MCP ToolAnnotations — behavioral hints for agent planning.
+# RO = read-only (safe to call speculatively)
+# MUT = mutating (creates or changes state)
+# DEST = destructive (deletes state, not easily reversible)
+# IDEMP = idempotent (safe to retry / call multiple times)
+_RO: dict[str, bool] = {"readOnlyHint": True, "idempotentHint": True}
+_MUT: dict[str, bool] = {"readOnlyHint": False, "destructiveHint": False}
+_DEST: dict[str, bool] = {"readOnlyHint": False, "destructiveHint": True}
+_IDEMP: dict[str, bool] = {"readOnlyHint": False, "idempotentHint": True}
+
+# Tool definitions for all ADCP operations
+ADCP_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    # Core Catalog Operations
+    {
+        "name": "get_products",
+        "description": (
+            "Search available advertising products matching campaign requirements. "
+            "Returns products with pricing, formats, and delivery options. "
+            "Use buying_mode='brief' for natural language or 'refine' for proposal negotiation. "
+            "Products include product_ids needed for create_media_buy."
+        ),
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "context": {"type": "object"},
+                "filters": {"type": "object"},
+                "pagination": {"type": "object"},
+                "fields": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+    {
+        "name": "list_products",
+        "description": "List products using the AdCP 3.2 compact discovery lifecycle.",
+        "annotations": _RO,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "request_proposals",
+        "description": "Request seller proposals for selected products.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "refine_proposals",
+        "description": "Refine one or more seller proposals.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "decline_proposals",
+        "description": "Decline one or more seller proposals.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "list_creative_formats",
+        "description": "List available creative formats with asset requirements. Returns format_ids needed for sync_creatives.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "format_id": {"type": "string"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    # Creative Operations
+    {
+        "name": "sync_creatives",
+        "description": "Upload or update creative assets for a media buy. Idempotent: re-sending the same creative_id updates it. Returns approval status per creative.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "creatives": {"type": "array"},
+            },
+            "required": ["creatives"],
+        },
+    },
+    {
+        "name": "list_creatives",
+        "description": "List synced creatives with optional filtering by status, format, or media buy.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filters": {"type": "object"},
+                "pagination": {"type": "object"},
+                "fields": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+    {
+        "name": "build_creative",
+        "description": "Generate a creative from a brief and brand assets. Returns a creative manifest with rendered assets.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "format_id": {"type": "string"},
+                "assets": {"type": "array"},
+            },
+            "required": ["format_id", "assets"],
+        },
+    },
+    {
+        "name": "preview_creative",
+        "description": "Preview a creative rendering before going live. Returns preview URLs or HTML for visual verification.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "format_id": {"type": "string"},
+                "creative_manifest": {"type": "object"},
+                "output_format": {"type": "string"},
+            },
+        },
+    },
+    {
+        "name": "get_creative_delivery",
+        "description": "Get creative delivery tags (VAST, HTML, etc.) for serving. Use after creatives are approved.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "media_buy_ids": {"type": "array", "items": {"type": "string"}},
+                "creative_ids": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+    {
+        "name": "list_transformers",
+        "description": "List creative transformers available for converting or adapting creative assets.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "transformer_ids": {"type": "array", "items": {"type": "string"}},
+                "input_format_ids": {"type": "array"},
+                "output_format_ids": {"type": "array"},
+                "name_search": {"type": "string"},
+                "brief": {"type": "string"},
+                "expand_params": {"type": "array", "items": {"type": "string"}},
+                "expand_pagination": {"type": "array"},
+                "include_pricing": {"type": "boolean"},
+                "account": {"type": "object"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    # Media Buy Operations
+    {
+        "name": "buy_products",
+        "description": "Commit a direct purchase of selected products.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "accept_proposal",
+        "description": "Accept a seller proposal and create its media buy.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "control_media_buy",
+        "description": "Apply pause, resume, cancel, budget, or other lifecycle controls.",
+        "annotations": _MUT,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "create_media_buy",
+        "description": "Create a new media buy with packages. Each package references a product_id from get_products and a pricing_option_id. Returns media_buy_id for tracking.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "packages": {"type": "array"},
+                "proposal_id": {"type": "string"},
+            },
+        },
+    },
+    {
+        "name": "update_media_buy",
+        "description": "Update an existing media buy: pause, resume, cancel, or modify packages and budget. Requires revision for optimistic concurrency.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "media_buy_id": {"type": "string"},
+                "packages": {"type": "array"},
+            },
+            "required": ["media_buy_id"],
+        },
+    },
+    {
+        "name": "get_media_buy_delivery",
+        "description": "Get delivery metrics (impressions, clicks, spend) for active media buys. Returns totals and per-package breakdowns.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "media_buy_id": {"type": "string"},
+                "metrics": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["media_buy_id"],
+        },
+    },
+    {
+        "name": "get_media_buys",
+        "description": "List media buys with status, packages, and optional delivery snapshots. Filter by media_buy_ids.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "media_buy_ids": {"type": "array", "items": {"type": "string"}},
+                "status_filter": {"type": "array", "items": {"type": "string"}},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    # Signal Operations
+    {
+        "name": "get_signals",
+        "description": "Discover available audience signals for targeting. Use signal_spec for natural language search or signal_ids for exact lookup.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filters": {"type": "object"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "activate_signal",
+        "description": "Activate an audience signal to a destination (DSP platform or sales agent). Returns deployment status and activation keys.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "activation_key": {"type": "string"},
+            },
+            "required": ["signal_id"],
+        },
+    },
+    # Account Operations
+    {
+        "name": "list_account_changes",
+        "description": "Read the ordered durable change feed for an advertiser account.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "cursor": {"type": "string"},
+                "starting_position": {"type": "string", "enum": ["earliest", "latest"]},
+                "resource_types": {"type": "array", "items": {"type": "string"}},
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 100},
+            },
+            "required": ["account"],
+        },
+    },
+    {
+        "name": "list_accounts",
+        "description": "List advertiser accounts on this seller. Returns account_ids needed for other operations.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filters": {"type": "object"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "sync_accounts",
+        "description": "Create or update advertiser accounts. Idempotent: re-sending the same brand/operator pair updates the existing account.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "accounts": {"type": "array"},
+            },
+            "required": ["accounts"],
+        },
+    },
+    {
+        "name": "get_account_financials",
+        "description": "Get financial details for an account including balance, credit, and payment status.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "date_range": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "report_usage",
+        "description": "Report usage metrics for billing reconciliation.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "usage": {"type": "array"},
+            },
+            "required": ["usage"],
+        },
+    },
+    {
+        "name": "get_reporting_status",
+        "description": "Read authoritative reporting delivery health, obligations, and retained revisions for an account.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "view": {"type": "string"},
+                "media_buy_ids": {"type": "array"},
+                "delivery_config_ids": {"type": "array"},
+                "feed_purposes": {"type": "array"},
+                "period": {"type": "object"},
+                "health": {"type": "array"},
+                "finality": {"type": "array"},
+                "reporting_revision_id": {"type": "string"},
+                "pagination": {"type": "object"},
+            },
+            "required": ["account", "view"],
+        },
+    },
+    {
+        "name": "sync_reporting_receipts",
+        "description": "Idempotently submit durable reconciliation results for reporting materializations.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "idempotency_key": {"type": "string"},
+                "receipts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {"type": "object", "not": {"required": ["received_at"]}},
+                },
+                "adjustment_receipts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {"type": "object", "not": {"required": ["received_at"]}},
+                },
+            },
+            "required": ["account", "idempotency_key"],
+            "anyOf": [{"required": ["receipts"]}, {"required": ["adjustment_receipts"]}],
+        },
+    },
+    {
+        "name": "sync_reporting_status",
+        "description": (
+            "Tell a seller whether expected reporting was received, omitted, missing, "
+            "or unreadable."
+        ),
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "idempotency_key": {"type": "string"},
+                "statuses": {"type": "array"},
+            },
+            "required": ["account", "idempotency_key", "statuses"],
+        },
+    },
+    # Event Operations
+    {
+        "name": "log_event",
+        "description": "Log conversion events (purchases, leads, etc.) for attribution and optimization.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "events": {"type": "array"},
+            },
+            "required": ["events"],
+        },
+    },
+    {
+        "name": "sync_event_sources",
+        "description": "Register conversion tracking pixels or event endpoints. Idempotent.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "event_sources": {"type": "array"},
+            },
+            "required": ["event_sources"],
+        },
+    },
+    {
+        "name": "sync_audiences",
+        "description": "Upload audience segments for targeting. Idempotent: re-sending updates existing segments.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "audiences": {"type": "array"},
+            },
+            "required": ["audiences"],
+        },
+    },
+    {
+        "name": "sync_catalogs",
+        "description": "Upload product catalogs for dynamic ads. Supports multiple catalog types (product, store, hotel, etc.).",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "catalogs": {"type": "array"},
+            },
+            "required": ["catalogs"],
+        },
+    },
+    # Governance Sync
+    {
+        "name": "sync_governance",
+        "description": "Register governance agents for accounts. Idempotent.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "accounts": {"type": "array"},
+            },
+            "required": ["accounts"],
+        },
+    },
+    # Feedback Operations
+    {
+        "name": "provide_performance_feedback",
+        "description": "Send conversion or performance data back to the seller for optimization. Reference by media_buy_id or buyer_ref.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "media_buy_id": {"type": "string"},
+                "feedback": {"type": "object"},
+            },
+            "required": ["media_buy_id", "feedback"],
+        },
+    },
+    # V3 Protocol Discovery
+    {
+        "name": "get_adcp_capabilities",
+        "description": "Get this agent's supported protocols, features, and configuration. Call first to understand what this seller can do.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "sync_agent_notification_configs",
+        "description": "Replace the authenticated caller's agent-level notification subscribers. Idempotent.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "idempotency_key": {"type": "string"},
+                "notification_configs": {"type": "array"},
+                "dry_run": {"type": "boolean"},
+            },
+            "required": ["idempotency_key", "notification_configs"],
+        },
+    },
+    {
+        "name": "get_principal",
+        "description": "Read the authenticated principal's seller-resolved identity and current configuration.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "sync_principal",
+        "description": "Idempotently replace selected sections of the authenticated principal's configuration.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "idempotency_key": {"type": "string"},
+                "expected_configuration_version": {"type": "string"},
+                "expected_principal_kind": {"type": "string"},
+                "configuration": {"type": "object"},
+                "dry_run": {"type": "boolean"},
+            },
+            "required": ["idempotency_key", "configuration"],
+        },
+    },
+    {
+        "name": "get_task_status",
+        "description": "Get status, progress, and optional result details for an async task.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string"},
+                "include_history": {"type": "boolean"},
+                "include_result": {"type": "boolean"},
+                "context": {"type": "object"},
+                "ext": {"type": "object"},
+            },
+            "required": ["task_id"],
+        },
+    },
+    {
+        "name": "list_tasks",
+        "description": "List async tasks with optional filtering, sorting, pagination, and history expansion.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filters": {"type": "object"},
+                "sort": {"type": "object"},
+                "pagination": {"type": "object"},
+                "include_history": {"type": "boolean"},
+                "context": {"type": "object"},
+                "ext": {"type": "object"},
+            },
+        },
+    },
+    # V3 Content Standards
+    {
+        "name": "create_content_standards",
+        "description": "Create content standards configuration for brand safety and compliance.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "rules": {"type": "array"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "get_content_standards",
+        "description": "Get content standards configuration.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content_standards_id": {"type": "string"},
+            },
+            "required": ["content_standards_id"],
+        },
+    },
+    {
+        "name": "list_content_standards",
+        "description": "List content standards configurations.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "update_content_standards",
+        "description": "Update content standards configuration.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content_standards_id": {"type": "string"},
+                "rules": {"type": "array"},
+            },
+            "required": ["content_standards_id"],
+        },
+    },
+    {
+        "name": "calibrate_content",
+        "description": "Evaluate content against standards. Returns compliance assessment.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content_standards_id": {"type": "string"},
+                "content": {"type": "object"},
+            },
+            "required": ["content_standards_id", "content"],
+        },
+    },
+    {
+        "name": "validate_content_delivery",
+        "description": "Validate that delivery meets content standards.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content_standards_id": {"type": "string"},
+                "delivery": {"type": "object"},
+            },
+            "required": ["content_standards_id", "delivery"],
+        },
+    },
+    {
+        "name": "get_media_buy_artifacts",
+        "description": "Get compliance artifacts associated with a media buy.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "media_buy_id": {"type": "string"},
+            },
+            "required": ["media_buy_id"],
+        },
+    },
+    # V3 Governance
+    {
+        "name": "get_creative_features",
+        "description": "Get creative feature definitions for governance evaluation.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "creative_manifest": {"type": "object"},
+                "account": {"type": "object"},
+                "context": {"type": "object"},
+            },
+            "required": ["creative_manifest"],
+        },
+    },
+    {
+        "name": "sync_plans",
+        "description": "Sync campaign governance plans. Idempotent.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plans": {"type": "array"},
+            },
+            "required": ["plans"],
+        },
+    },
+    {
+        "name": "check_governance",
+        "description": "Check an action against campaign governance rules. Returns approved, denied, or conditions.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string"},
+                "media_buy_id": {"type": "string"},
+                "phase": {"type": "string"},
+                "caller": {"type": "string"},
+                "tool": {"type": "string"},
+                "payload": {"type": "object"},
+                "governance_context": {"type": "object"},
+            },
+            "required": ["plan_id", "caller"],
+        },
+    },
+    {
+        "name": "report_plan_outcome",
+        "description": "Report the outcome of a governed action for audit.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string"},
+                "outcome": {"type": "string"},
+                "check_id": {"type": "string"},
+                "seller_response": {"type": "object"},
+                "delivery": {"type": "object"},
+                "error": {"type": "object"},
+            },
+            "required": ["plan_id", "outcome"],
+        },
+    },
+    {
+        "name": "report_plan_adjustment",
+        "description": "Report or review a commercial adjustment to a governed plan outcome. Idempotent.",
+        "annotations": _IDEMP,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string"},
+                "plan_id": {"type": "string"},
+                "idempotency_key": {"type": "string"},
+            },
+            "required": ["action", "plan_id", "idempotency_key"],
+        },
+    },
+    {
+        "name": "get_plan_audit_logs",
+        "description": "Get audit logs for governance decisions.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_ids": {"type": "array", "items": {"type": "string"}},
+                "portfolio_plan_ids": {"type": "array", "items": {"type": "string"}},
+                "include_entries": {"type": "boolean"},
+            },
+        },
+    },
+    # V3 Sponsored Intelligence
+    {
+        "name": "si_get_offering",
+        "description": "Get sponsored intelligence offering details and capabilities.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "si_initiate_session",
+        "description": "Start a sponsored intelligence conversational session.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string"},
+                "budget": {"type": "number"},
+            },
+        },
+    },
+    {
+        "name": "si_send_message",
+        "description": "Send a message in an active SI session.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "message": {"type": "string"},
+            },
+            "required": ["session_id", "message"],
+        },
+    },
+    {
+        "name": "si_terminate_session",
+        "description": "End an SI session. Cannot be undone.",
+        "annotations": _DEST,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+            },
+            "required": ["session_id"],
+        },
+    },
+    # V3 Governance (Property Lists)
+    {
+        "name": "create_property_list",
+        "description": "Create a property list for inclusion/exclusion targeting.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "base_properties": {"type": "array"},
+                "filters": {"type": "object"},
+                "brand": {"type": "object"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "get_property_list",
+        "description": "Get a property list with optional resolution of dynamic filters.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+                "resolve": {"type": "boolean"},
+                "pagination": {"type": "object"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    {
+        "name": "list_property_lists",
+        "description": "List property lists with optional filtering by principal or status.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "update_property_list",
+        "description": "Update a property list name, description, or filters.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "filters": {"type": "object"},
+                "brand": {"type": "object"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    {
+        "name": "delete_property_list",
+        "description": "Permanently delete a property list.",
+        "annotations": _DEST,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    # V3 Governance (Collection Lists)
+    {
+        "name": "create_collection_list",
+        "description": "Create a collection list for governance filtering.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "base_collections": {"type": "array"},
+                "filters": {"type": "object"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "get_collection_list",
+        "description": "Get a collection list with optional resolution.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+                "resolve": {"type": "boolean"},
+                "pagination": {"type": "object"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    {
+        "name": "list_collection_lists",
+        "description": "List collection lists with optional filtering by principal or status.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "principal": {"type": "string"},
+                "pagination": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "update_collection_list",
+        "description": "Update a collection list name, description, or filters.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "filters": {"type": "object"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    {
+        "name": "delete_collection_list",
+        "description": "Permanently delete a collection list.",
+        "annotations": _DEST,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+            },
+            "required": ["list_id"],
+        },
+    },
+    # V3 TMP
+    {
+        "name": "context_match",
+        "description": (
+            "Evaluate publisher placement context against buyer packages"
+            " and return matching offers. Called at ad-request time."
+        ),
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "property_rid": {"type": "string"},
+                "placement_id": {"type": "string"},
+                "property_type": {"type": "string"},
+                "request_id": {"type": "string"},
+                "type": {"type": "string"},
+                "artifact_refs": {"type": "array"},
+                "context_signals": {"type": "object"},
+                "geo": {"type": "object"},
+                "package_ids": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["property_rid", "placement_id", "property_type", "request_id", "type"],
+        },
+    },
+    {
+        "name": "identity_match",
+        "description": (
+            "Evaluate user identity token against active packages"
+            " for eligibility. Requires consent in regulated regions."
+        ),
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "request_id": {"type": "string"},
+                "type": {"type": "string"},
+                "user_token": {"type": "string"},
+                "uid_type": {"type": "string"},
+                "package_ids": {"type": "array", "items": {"type": "string"}},
+                "consent": {"type": "object"},
+            },
+            "required": ["request_id", "type", "user_token", "uid_type", "package_ids"],
+        },
+    },
+    # V3 Brand Rights
+    {
+        "name": "get_brand_identity",
+        "description": "Get brand identity information (logos, colors, guidelines).",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "brand_id": {"type": "string"},
+                "fields": {"type": "array", "items": {"type": "string"}},
+                "use_case": {"type": "string"},
+            },
+            "required": ["brand_id"],
+        },
+    },
+    {
+        "name": "get_rights",
+        "description": "Discover available brand rights for licensing.",
+        "annotations": _RO,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "uses": {"type": "array", "items": {"type": "string"}},
+                "brand_id": {"type": "string"},
+                "right_type": {"type": "string"},
+                "countries": {"type": "array", "items": {"type": "string"}},
+                "include_excluded": {"type": "boolean"},
+                "pagination": {"type": "object"},
+            },
+            "required": ["query", "uses"],
+        },
+    },
+    {
+        "name": "acquire_rights",
+        "description": (
+            "Acquire rights for brand content usage."
+            " Binding contractual action with financial obligations."
+        ),
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "rights_id": {"type": "string"},
+                "pricing_option_id": {"type": "string"},
+                "buyer": {"type": "object"},
+                "campaign": {"type": "object"},
+                "revocation_webhook": {"type": "object"},
+                "idempotency_key": {"type": "string"},
+            },
+            "required": [
+                "rights_id",
+                "pricing_option_id",
+                "buyer",
+                "campaign",
+                "revocation_webhook",
+            ],
+        },
+    },
+    {
+        "name": "update_rights",
+        "description": (
+            "Update terms of an existing rights acquisition."
+            " Partial update — include only the fields to change"
+            " (end_date, impression_cap, paused, or a compatible"
+            " pricing_option_id swap). Rejects updates on expired or"
+            " revoked acquisitions."
+        ),
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "rights_id": {"type": "string"},
+                "end_date": {"type": "string"},
+                "impression_cap": {"type": "integer"},
+                "pricing_option_id": {"type": "string"},
+                "paused": {"type": "boolean"},
+                "push_notification_config": {"type": "object"},
+                "idempotency_key": {"type": "string"},
+            },
+            "required": ["rights_id", "idempotency_key"],
+        },
+    },
+    {
+        "name": "verify_brand_claim",
+        "description": "Verify a single brand claim.",
+        "annotations": _RO,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "verify_brand_claims",
+        "description": "Verify multiple brand claims.",
+        "annotations": _RO,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "validate_input",
+        "description": "Validate creative input against a format declaration.",
+        "annotations": _RO,
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    # V3 Compliance
+    {
+        "name": "comply_test_controller",
+        "description": "Compliance test controller. Sandbox only, not for production use.",
+        "annotations": _MUT,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {"type": "object"},
+                "scenario": {
+                    "type": "string",
+                    # Derived from test_controller.SCENARIOS so the static stub
+                    # matches the dispatcher; the Pydantic-generated path also
+                    # carries the new names because #292 ships them in the
+                    # comply-test-controller-request schema.
+                    "enum": ["list_scenarios"] + _CONTROLLER_SCENARIOS,
+                },
+                "params": {"type": "object"},
+                "context": {"type": "object"},
+            },
+            "required": ["scenario"],
+        },
+    },
+]
+
+
+# Protocol discovery tool included for all handler types
+_PROTOCOL_TOOLS: set[str] = {"get_adcp_capabilities"}
+
+
+# Tools the AdCP spec allows callers to invoke without an authenticated
+# principal. ``get_adcp_capabilities`` is the handshake tool — any client
+# has to call it before auth to discover which ops the agent supports and
+# what auth scheme to use. Everything else requires a principal.
+#
+# Sellers wiring their own auth middleware (the SDK explicitly punts auth
+# to the transport layer — see :func:`adcp.server.create_mcp_server`)
+# should import this and skip auth enforcement for any tool name in the
+# set. Downstream MAY extend it for discovery tools outside the AdCP spec
+# (e.g. a public ``list_public_formats`` surface). The base set is the
+# spec-mandated floor, not a cap.
+#
+# Example::
+#
+#     from adcp.server import DISCOVERY_TOOLS
+#
+#     async def dispatch(self, request, call_next):
+#         tool = _extract_tool_name(request)
+#         if tool not in DISCOVERY_TOOLS:
+#             self._require_valid_token(request)
+#         return await call_next(request)
+DISCOVERY_TOOLS: frozenset[str] = frozenset({"get_adcp_capabilities"})
+
+
+# JSON-RPC method names that MCP treats as handshake / capability-discovery
+# and therefore allows pre-auth by spec:
+#
+# - ``initialize`` — session handshake (protocol version, client info).
+# - ``notifications/initialized`` — client-to-server handshake-completion
+#   notification. Gating this behind auth breaks the handshake state
+#   machine.
+# - ``tools/list`` — inventory advertisement (tool names, input schemas,
+#   descriptions). One protocol layer below ``tools/call``, where
+#   ``DISCOVERY_TOOLS`` applies.
+#
+# The set is intentionally minimal. Operators narrow it (remove
+# ``tools/list`` when they consider the inventory sensitive); they should
+# not extend it. Other MCP surfaces (``resources/*``, ``prompts/*``,
+# ``logging/setLevel``, ``completion/complete``) are intentionally
+# auth-gated — the AdCP SDK does not expose resources or prompts today,
+# and adding them to the pre-auth set would unauthenticate data reads.
+#
+# Composed middleware gate (the recommended pre-auth posture)::
+#
+#     from adcp.server import DISCOVERY_METHODS, DISCOVERY_TOOLS
+#
+#     async def dispatch(self, request, call_next):
+#         method, tool = _peek_jsonrpc(request)
+#         is_discovery = method in DISCOVERY_METHODS or (
+#             method == "tools/call" and tool in DISCOVERY_TOOLS
+#         )
+#         if not is_discovery:
+#             self._require_valid_token(request)
+#         return await call_next(request)
+#
+# Tool names and input schemas are treated as non-sensitive by default —
+# they are public AdCP spec surface. Freeform description strings are
+# the one leakage vector; operators who embed deployment hints there
+# should either scrub or gate ``tools/list``.
+DISCOVERY_METHODS: frozenset[str] = frozenset(
+    {"initialize", "notifications/initialized", "tools/list"}
+)
+
+
+def validate_discovery_set(tools: Iterable[str]) -> None:
+    """Fail-closed validation for an auth-optional tool set.
+
+    Downstream that extends :data:`DISCOVERY_TOOLS` (``DISCOVERY_TOOLS |
+    {"my_public_tool"}``) risks accidentally including a mutation tool,
+    which would silently unauthenticate writes over HTTP. This helper
+    asserts every name in the set resolves to a known ADCP tool whose
+    annotations declare ``readOnlyHint: True`` — it refuses to pass
+    anything mutating, destructive, or unknown.
+
+    Call this at server startup on the effective set your middleware
+    uses::
+
+        from adcp.server import DISCOVERY_TOOLS, validate_discovery_set
+
+        MY_DISCOVERY = DISCOVERY_TOOLS | {"list_public_formats"}
+        validate_discovery_set(MY_DISCOVERY)  # raises early if misconfigured
+
+    :raises ValueError: if any name in ``tools`` is unknown or resolves
+        to a non-read-only tool.
+    """
+    by_name = {t["name"]: t for t in ADCP_TOOL_DEFINITIONS}
+    unknown: list[str] = []
+    mutating: list[str] = []
+    for name in tools:
+        tool = by_name.get(name)
+        if tool is None:
+            unknown.append(name)
+            continue
+        annotations = tool.get("annotations") or {}
+        if not annotations.get("readOnlyHint"):
+            mutating.append(name)
+    problems: list[str] = []
+    if unknown:
+        problems.append(f"unknown tool(s): {sorted(unknown)}")
+    if mutating:
+        problems.append(
+            f"non-read-only tool(s) {sorted(mutating)} — adding these to the "
+            "auth-optional set would silently unauthenticate mutations"
+        )
+    if problems:
+        raise ValueError("validate_discovery_set rejected the set: " + "; ".join(problems))
+
+
+# Tools specific to each specialized handler type
+_HANDLER_TOOLS: dict[str, set[str]] = {
+    "GovernanceHandler": {
+        "get_creative_features",
+        "sync_plans",
+        "check_governance",
+        "report_plan_outcome",
+        "report_plan_adjustment",
+        "get_plan_audit_logs",
+        "create_property_list",
+        "get_property_list",
+        "list_property_lists",
+        "update_property_list",
+        "delete_property_list",
+        "create_collection_list",
+        "get_collection_list",
+        "list_collection_lists",
+        "update_collection_list",
+        "delete_collection_list",
+    },
+    "ContentStandardsHandler": {
+        "create_content_standards",
+        "get_content_standards",
+        "list_content_standards",
+        "update_content_standards",
+        "calibrate_content",
+        "validate_content_delivery",
+        "get_media_buy_artifacts",
+    },
+    "SponsoredIntelligenceHandler": {
+        "si_get_offering",
+        "si_initiate_session",
+        "si_send_message",
+        "si_terminate_session",
+    },
+    "TmpHandler": {
+        "context_match",
+        "identity_match",
+    },
+    "BrandHandler": {
+        "get_brand_identity",
+        "get_rights",
+        "acquire_rights",
+        "update_rights",
+    },
+    "ComplianceHandler": {
+        "comply_test_controller",
+    },
+    "ADCPHandler": {tool["name"] for tool in ADCP_TOOL_DEFINITIONS},
+}
+
+# Validate that all handler tool names reference real tools
+_ALL_TOOL_NAMES = {t["name"] for t in ADCP_TOOL_DEFINITIONS}
+for _handler_name, _tools in _HANDLER_TOOLS.items():
+    _unknown = _tools - _ALL_TOOL_NAMES
+    assert not _unknown, f"{_handler_name} references unknown tools: {_unknown}"
+
+
+def register_handler_tools(handler_name: str, tools: Iterable[str]) -> None:
+    """Register a handler-class-name → tool-set mapping with the framework.
+
+    Public seam. ``get_tools_for_handler`` reads ``_HANDLER_TOOLS`` to
+    filter ``tools/list`` per handler subclass; without registration, an
+    ``ADCPHandler`` subclass that introduces a new specialism would fall
+    through to its parent's tool set (typically ``ADCPHandler``'s
+    full-spec surface), over-advertising. Codegen targets like
+    ``adcp.decisioning.handler.PlatformHandler`` register here at class
+    definition time via ``ADCPHandler.__init_subclass__``; hand-written
+    custom bases call this directly before ``serve()``.
+    Idempotent on equal input — calling twice with the same tool set
+    is a no-op so module re-imports / reload-friendly test harnesses
+    don't break.
+    Conflicts raise. Unknown tool names raise with a closest-match
+    suggestion (typo recovery for adopters working from spec memory).
+    :param handler_name: The class name of the handler subclass —
+        typically ``cls.__name__`` from inside ``__init_subclass__``.
+    :param tools: Iterable of AdCP tool names this handler answers
+        (members of ``ADCP_TOOL_DEFINITIONS``). Order doesn't matter.
+    :raises ValueError: when ``handler_name`` is already registered with
+        a different tool set, or when any tool name is not in the AdCP
+        spec surface.
+    """
+    incoming = frozenset(tools)
+    existing = _HANDLER_TOOLS.get(handler_name)
+    if existing is not None:
+        if frozenset(existing) == incoming:
+            return
+        raise ValueError(
+            f"register_handler_tools({handler_name!r}, ...) called twice "
+            f"with different tool sets. Existing: {sorted(existing)}; "
+            f"incoming: {sorted(incoming)}. The framework can only hold "
+            "one mapping per handler class — pick the canonical set."
+        )
+    unknown = incoming - _ALL_TOOL_NAMES
+    if unknown:
+        suggestions: list[str] = []
+        for bad in sorted(unknown):
+            close = difflib.get_close_matches(bad, _ALL_TOOL_NAMES, n=1)
+            if close:
+                suggestions.append(f"{bad!r} (did you mean {close[0]!r}?)")
+            else:
+                suggestions.append(repr(bad))
+        raise ValueError(
+            f"register_handler_tools({handler_name!r}, ...): unknown tool "
+            f"name(s) {', '.join(suggestions)}. Tool names must match the "
+            "AdCP spec — see ``adcp.server.mcp_tools.ADCP_TOOL_DEFINITIONS``."
+        )
+    _HANDLER_TOOLS[handler_name] = set(incoming)
+
+
+# ============================================================================
+# Pydantic schema generation — spec-accurate input schemas
+# ============================================================================
+
+
+def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
+    """Resolve every local ``$ref`` into the referenced ``$defs`` body.
+
+    Pydantic emits nested models as ``{"$ref": "#/$defs/Name"}`` with the
+    actual shape under ``$defs``. That's spec-valid JSON Schema, but the
+    MCP client ecosystem is mixed — several popular consumers (including
+    some of the cheaper agent runtimes we see in validation runs) don't
+    implement ``$ref`` resolution. Tool discovery that looks correct in
+    MCP Inspector shows up as ``{}`` to those clients, producing silent
+    "this tool takes no params" confusion.
+
+    The inliner walks the schema tree and replaces each ``$ref`` with the
+    referenced definition. Resolved definitions are memoized and reused inside
+    the generated registry, avoiding repeated reference resolution and large
+    duplicate object graphs. Definitions returned to handler callers are
+    copied without aliases by :func:`get_tools_for_handler`, so callers can
+    still safely mutate their tool definitions. Sibling keys on the ``$ref``
+    node (``description``, ``title``) are merged onto a shallow copy of the
+    resolved body. Note:
+    this is an annotation-level override that matches what Pydantic actually
+    emits at reference sites — it is NOT spec §8.2 merge semantics (which
+    would evaluate siblings as an implicit ``allOf``). If a future Pydantic
+    version starts emitting assertion-level siblings (``type``, ``enum``,
+    etc.) the merge would silently change validation; today it doesn't.
+
+    Only handles local refs (``#/$defs/X``). External refs are left in
+    place — Pydantic doesn't emit them for our request models, but if
+    one ever appears it surfaces to the caller rather than being
+    silently stripped.
+
+    Only definitions reachable from the schema body are traversed. Walking
+    the whole ``$defs`` table before discarding it made startup proportional
+    to the complete model graph rather than the advertised schema. Cycles
+    are protected by the active-definition set. Pydantic request models
+    don't generate cyclic refs today; the guard exists so a future schema
+    shape can't turn inlining into a ``RecursionError``. When the walk leaves
+    at least one ``$ref`` unresolved (cycle or dangling), an unmodified copy
+    of ``$defs`` is kept so a spec-compliant client can still resolve what we
+    couldn't.
+    """
+    defs = schema.get("$defs", {})
+    # Track whether we emitted any $ref in the output — tells the
+    # caller whether it's safe to drop $defs. Avoids a
+    # stringify-the-whole-tree scan post-walk, and sidesteps false
+    # positives from legitimate ``"$ref"`` values inside enum / const
+    # / description strings.
+    unresolved = [False]
+
+    resolved_defs: dict[str, Any] = {}
+    resolving_defs: set[str] = set()
+
+    def _resolve(node: Any) -> Any:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                if not ref.startswith("#/$defs/"):
+                    # External ref (http://…, relative path). Pydantic
+                    # doesn't emit these for our request models; leave
+                    # untouched rather than risk silent corruption.
+                    unresolved[0] = True
+                    return {k: _resolve(v) for k, v in node.items()}
+                def_name = _local_definition_name(ref, whole=True)
+                if def_name is None:
+                    # A pointer into the middle of a definition: the body is
+                    # not a whole definition, so leave the reference.
+                    unresolved[0] = True
+                    return {k: _resolve(v) for k, v in node.items()}
+                if def_name in resolving_defs:
+                    # Cycle — leave the $ref intact so a spec-compliant
+                    # client can still resolve via $defs.
+                    unresolved[0] = True
+                    return {k: _resolve(v) for k, v in node.items()}
+                if def_name in resolved_defs:
+                    resolved = resolved_defs[def_name]
+                else:
+                    body = defs.get(def_name)
+                    if body is None:
+                        # Dangling ref — nothing in $defs matches. Leave
+                        # the $ref for consumers to error on; preserving
+                        # the shape is safer than silently stripping.
+                        unresolved[0] = True
+                        return {k: _resolve(v) for k, v in node.items()}
+                    resolving_defs.add(def_name)
+                    try:
+                        resolved = _resolve(body)
+                    finally:
+                        resolving_defs.remove(def_name)
+                    resolved_defs[def_name] = resolved
+                # Annotation-level merge — sibling description/title
+                # on the $ref node wins over the resolved body's
+                # same-named keys.
+                if len(node) == 1:
+                    return resolved
+                merged = dict(resolved) if isinstance(resolved, dict) else resolved
+                if isinstance(merged, dict):
+                    for k, v in node.items():
+                        if k == "$ref":
+                            continue
+                        merged[k] = _resolve(v)
+                return merged
+            return {k: _resolve(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_resolve(item) for item in node]
+        return node
+
+    # Resolve the schema body, not the definition table itself. Definitions
+    # are expanded on demand when a body reference reaches them; traversing
+    # every definition here duplicates most of the work and retains large
+    # temporary trees that are immediately discarded.
+    schema_body = {key: value for key, value in schema.items() if key != "$defs"}
+    result = _resolve(schema_body)
+    if unresolved[0] and "$defs" in schema:
+        result["$defs"] = copy.deepcopy(defs)
+    assert isinstance(result, dict)
+    return result
+
+
+def _local_definition_name(ref: Any, *, whole: bool = False) -> str | None:
+    """The ``$defs`` entry a local reference resolves through, else ``None``.
+
+    A JSON Pointer escapes ``~`` as ``~0`` and ``/`` as ``~1`` (RFC 6901 §3),
+    and the bundled wire schemas name their definitions after source paths
+    (``external:core/product.json``), so the escape is live in every
+    ``$ref`` they emit; Pydantic's class-named definitions never need it. A
+    pointer that continues *into* a definition (``#/$defs/X/properties/y``)
+    reaches ``X`` and is reported as such — unless ``whole`` is set, for
+    callers that need the referenced body to *be* the definition.
+    """
+    if not isinstance(ref, str) or not ref.startswith("#/$defs/"):
+        return None
+    segment, _, rest = ref[len("#/$defs/") :].partition("/")
+    if whole and rest:
+        return None
+    return segment.replace("~1", "/").replace("~0", "~")
+
+
+def _copy_json_without_aliases(value: Any) -> Any:
+    """Copy JSON-like data while materializing shared branches separately."""
+    if isinstance(value, dict):
+        return {key: _copy_json_without_aliases(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_copy_json_without_aliases(item) for item in value]
+    return value
+
+
+def _local_ref_names(value: Any) -> set[str]:
+    """Collect definition names referenced by a JSON Schema fragment."""
+    names: set[str] = set()
+    if isinstance(value, dict):
+        name = _local_definition_name(value.get("$ref"))
+        if name is not None:
+            names.add(name)
+        for key, item in value.items():
+            if key != "$defs" and key not in _SCHEMA_LITERAL_KEYS:
+                names.update(_local_ref_names(item))
+    elif isinstance(value, list):
+        for item in value:
+            names.update(_local_ref_names(item))
+    return names
+
+
+def _protected_definition_names(schema: dict[str, Any]) -> frozenset[str]:
+    """Find transitive definitions kept whole by compaction.
+
+    Those reached from a protected discovery field
+    (:data:`_COMPACT_NESTED_DISCOVERY_FIELDS`), and those reached from a
+    subschema that is copied verbatim (:data:`_SCHEMA_VERBATIM_KEYS`): a
+    ``not`` or ``if`` that resolves a reference must find the definition it
+    was written against, not a loosened one.
+    """
+    direct: set[str] = set()
+
+    def _visit(value: Any) -> None:
+        if isinstance(value, dict):
+            properties = value.get("properties")
+            if isinstance(properties, dict):
+                for name in _COMPACT_NESTED_DISCOVERY_FIELDS:
+                    if name in properties:
+                        direct.update(_local_ref_names(properties[name]))
+            for key, item in value.items():
+                if key in _SCHEMA_VERBATIM_KEYS:
+                    direct.update(_local_ref_names(item))
+                elif key not in _SCHEMA_LITERAL_KEYS:
+                    _visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                _visit(item)
+
+    _visit(schema)
+    defs = schema.get("$defs")
+    if not isinstance(defs, dict):
+        return frozenset()
+
+    protected: set[str] = set()
+    pending = list(direct)
+    while pending:
+        name = pending.pop()
+        if name in protected or name not in defs:
+            continue
+        protected.add(name)
+        pending.extend(_local_ref_names(defs[name]) - protected)
+    return frozenset(protected)
+
+
+def _is_scalar_discovery_schema(
+    schema: Any,
+    defs: dict[str, Any],
+    *,
+    _seen: frozenset[str] = frozenset(),
+) -> bool:
+    """Return whether a field is a scalar (or nullable scalar) schema.
+
+    Pydantic spells a nullable scalar as ``anyOf: [{type: string}, {type:
+    null}]``; the bundled wire schemas spell it ``type: ["string", "null"]``.
+    Both count.
+    """
+    if not isinstance(schema, dict):
+        return False
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        non_null_types = [item for item in schema_type if item != "null"]
+        return bool(non_null_types) and all(item in _SCALAR_SCHEMA_TYPES for item in non_null_types)
+    if schema_type in _SCALAR_SCHEMA_TYPES:
+        return True
+    if "const" in schema and not isinstance(schema["const"], (dict, list)):
+        return True
+
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        name = _local_definition_name(ref, whole=True)
+        if name is None or name in _seen or name not in defs:
+            return False
+        return _is_scalar_discovery_schema(
+            defs[name],
+            defs,
+            _seen=_seen | {name},
+        )
+
+    for keyword in ("anyOf", "oneOf"):
+        branches = schema.get(keyword)
+        if not isinstance(branches, list):
+            continue
+        non_null = [
+            branch
+            for branch in branches
+            if not (isinstance(branch, dict) and branch.get("type") == "null")
+        ]
+        return bool(non_null) and all(
+            _is_scalar_discovery_schema(branch, defs, _seen=_seen) for branch in non_null
+        )
+    return False
+
+
+def _drop_unreachable_defs(schema: dict[str, Any]) -> dict[str, Any]:
+    """Remove definitions that the compact root can no longer reach."""
+    defs = schema.get("$defs")
+    if not isinstance(defs, dict):
+        return schema
+
+    result = {key: value for key, value in schema.items() if key != "$defs"}
+    reachable: set[str] = set()
+    pending = list(_local_ref_names(result))
+    while pending:
+        name = pending.pop()
+        if name in reachable or name not in defs:
+            continue
+        reachable.add(name)
+        pending.extend(_local_ref_names(defs[name]) - reachable)
+    if reachable:
+        result["$defs"] = {
+            name: definition for name, definition in defs.items() if name in reachable
+        }
+    return result
+
+
+def _prune_to_required_fields(
+    schema: dict[str, Any],
+    *,
+    _is_root: bool = True,
+    _defs: dict[str, Any] | None = None,
+    _protected_defs: frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Compact a Pydantic schema without losing its request surface.
+
+    Every root request property is retained, including optional fields. Inside
+    nested objects required properties, scalar optionals, and protected
+    mutation-discovery fields remain. Protected fields keep their complete
+    referenced Pydantic model graph. When optional properties are omitted from
+    an object that otherwise rejects unknown fields, each omitted name is
+    re-admitted with the permissive boolean schema ``true`` rather than the
+    object being opened with ``additionalProperties: true`` — the compact
+    shape stays a permissive description of what the runtime model accepts
+    *and* keeps rejecting what it rejects. Where a model sets
+    ``extra="allow"`` the object is open in every mode; the property
+    preserved here is fidelity to the model.
+
+    The transform operates only on Pydantic's JSON Schema output; it never
+    substitutes hand-written tool shapes.
+    """
+
+    if _defs is None:
+        raw_defs = schema.get("$defs")
+        _defs = raw_defs if isinstance(raw_defs, dict) else {}
+    if _protected_defs is None:
+        _protected_defs = _protected_definition_names(schema)
+
+    required_value = schema.get("required")
+    required = set(required_value) if isinstance(required_value, list) else set()
+    properties = schema.get("properties")
+    dropped_optional_properties = False
+
+    result: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key in _SCHEMA_LITERAL_KEYS or key in _SCHEMA_VERBATIM_KEYS:
+            result[key] = _copy_json_without_aliases(value)
+            continue
+        if key == "$defs" and isinstance(value, dict):
+            result[key] = {
+                name: (
+                    _copy_json_without_aliases(definition)
+                    if name in _protected_defs
+                    else _prune_to_required_fields(
+                        definition,
+                        _is_root=False,
+                        _defs=_defs,
+                        _protected_defs=_protected_defs,
+                    )
+                )
+                for name, definition in value.items()
+            }
+            continue
+        if key == "properties" and isinstance(properties, dict):
+            selected = properties
+            if not _is_root:
+                selected = {
+                    name: field_schema
+                    for name, field_schema in properties.items()
+                    if name in required
+                    or name in _COMPACT_NESTED_DISCOVERY_FIELDS
+                    or _is_scalar_discovery_schema(field_schema, _defs)
+                }
+                dropped_optional_properties = len(selected) != len(properties)
+            result[key] = {
+                name: (
+                    _copy_json_without_aliases(field_schema)
+                    if name in _COMPACT_NESTED_DISCOVERY_FIELDS
+                    else _prune_schema_node(
+                        field_schema,
+                        is_root=False,
+                        defs=_defs,
+                        protected_defs=_protected_defs,
+                    )
+                )
+                for name, field_schema in selected.items()
+            }
+            continue
+        result[key] = _prune_schema_node(
+            value,
+            is_root=False,
+            defs=_defs,
+            protected_defs=_protected_defs,
+        )
+
+    if dropped_optional_properties:
+        # Re-admit every dropped name with the permissive boolean schema
+        # ``true`` rather than deleting it. Two things follow, both of which
+        # the previous "open the object with additionalProperties: true"
+        # approach lost:
+        #
+        # * The object stays closed if it was closed. Opening it would make
+        #   the compact shape accept keys the runtime model rejects, i.e.
+        #   advertise something the server does not honour. Note the scope:
+        #   where a model sets ``extra="allow"`` the object is open in every
+        #   mode, so this is schema fidelity, not a filter a buyer can lean
+        #   on to catch a seller smuggling fields past it.
+        # * The field inventory survives. A reader still learns that
+        #   ``errors`` and ``ext`` exist on a task envelope; only their
+        #   subtrees are gone, which is the size that made compaction
+        #   necessary.
+        #
+        # The cost is the length of each dropped name, not its subtree.
+        pruned_properties = result.get("properties")
+        if isinstance(pruned_properties, dict) and isinstance(properties, dict):
+            for name in properties:
+                pruned_properties.setdefault(name, True)
+        elif result.get("additionalProperties") is False:
+            result["additionalProperties"] = True
+    return result
+
+
+def _prune_schema_node(
+    value: Any,
+    *,
+    is_root: bool,
+    defs: dict[str, Any],
+    protected_defs: frozenset[str],
+) -> Any:
+    """Recursive implementation for :func:`_prune_to_required_fields`."""
+    if isinstance(value, dict):
+        return _prune_to_required_fields(
+            value,
+            _is_root=is_root,
+            _defs=defs,
+            _protected_defs=protected_defs,
+        )
+    if isinstance(value, list):
+        return [
+            _prune_schema_node(
+                item,
+                is_root=False,
+                defs=defs,
+                protected_defs=protected_defs,
+            )
+            for item in value
+        ]
+    return value
+
+
+def _model_to_json_schema(
+    model_type: Any,
+    *,
+    allow_root_union: bool = False,
+    schema_mode: SchemaMode = "inline",
+) -> dict[str, Any] | None:
+    """Generate a JSON Schema for a Pydantic model or union.
+
+    * Plain ``BaseModel`` subclasses use ``model_json_schema()``.
+    * Union / Optional types use ``TypeAdapter`` so discriminated unions
+      and aliases (``CreateMediaBuyResponse = ...Response1 | ...Response2``)
+      generate as ``anyOf``.
+    * ``schema_mode="compact"`` keeps reachable local references, all root
+      fields, required nested fields, scalar optionals, and protected input
+      surfaces while pruning other optional nested detail.
+    * ``schema_mode="defs"`` keeps Pydantic's complete local ``$defs``.
+    * ``schema_mode="inline"`` expands ``$ref`` nodes (see
+      :func:`_inline_refs`) for clients that don't resolve references.
+
+    When ``allow_root_union`` is ``False`` (the default — used for input
+    schemas), only an unconditional object root is accepted. Root unions,
+    negation, and conditionals return ``None`` so the caller falls back to a
+    hand-crafted shape compatible with MCP discovery clients.
+    Input schemas need ``type: "object"`` at the root so MCP clients can
+    render the form. Output schemas can validly be a discriminated
+    union, so ``allow_root_union=True`` keeps the ``anyOf``.
+
+    Returns ``None`` on any failure — callers fall back to skipping.
+    """
+    try:
+        from pydantic import TypeAdapter
+
+        if isinstance(model_type, type) and hasattr(model_type, "model_json_schema"):
+            schema = model_type.model_json_schema()
+        else:
+            adapter = TypeAdapter(model_type)
+            schema = adapter.json_schema()
+    except Exception:
+        return None
+
+    if not isinstance(schema, dict):
+        return None
+
+    schema.pop("title", None)
+
+    if not allow_root_union:
+        unsupported_root_keywords = {
+            "$ref",
+            "allOf",
+            "anyOf",
+            "oneOf",
+            "not",
+            "if",
+            "then",
+            "else",
+            "dependentSchemas",
+        }
+        if schema.get("type") != "object" or unsupported_root_keywords.intersection(schema):
+            return None
+
+    if schema_mode not in _SCHEMA_MODES:
+        raise ValueError(
+            f"schema_mode must be one of {sorted(_SCHEMA_MODES)!r}, got {schema_mode!r}"
+        )
+
+    if schema_mode == "defs":
+        return schema
+    if schema_mode == "compact":
+        return _drop_unreachable_defs(_prune_to_required_fields(schema))
+    try:
+        return _inline_refs(schema)
+    except Exception:
+        return None
+
+
+def _generate_pydantic_schemas(
+    tool_names: Iterable[str] | None = None,
+    *,
+    schema_mode: SchemaMode = "compact",
+) -> dict[str, dict[str, Any]]:
+    """Generate JSON schemas from Pydantic request models.
+
+    Maps tool names to their corresponding request Pydantic types,
+    then generates JSON Schema via ``model_json_schema()``. This produces
+    spec-accurate schemas with proper field types, descriptions,
+    required fields, and nested ``$defs``.
+
+    ``schema_mode`` selects the compact referenced discovery shape, the full
+    Pydantic definition graph, or the historical fully inlined graph.
+
+    The result is applied to ``ADCP_TOOL_DEFINITIONS`` lazily on first
+    ``tools/list`` call by :func:`_ensure_pydantic_schemas_applied`. Any tool whose generation
+    fails (or whose request model has no mapping here) silently keeps
+    its hand-crafted stub; ``tests/test_mcp_schema_drift.py`` guards
+    against that regression by asserting every tool has an entry here.
+    """
+    try:
+        from adcp.types import (
+            AcceptProposalRequest,
+            AcquireRightsRequest,
+            ActivateSignalRequest,
+            BuyProductsRequest,
+            CalibrateContentRequest,
+            CheckGovernanceRequest,
+            ComplyTestControllerRequest,
+            ContextMatchRequest,
+            ControlMediaBuyRequest,
+            CreateCollectionListRequest,
+            CreateContentStandardsRequest,
+            CreateMediaBuyRequest,
+            CreatePropertyListRequest,
+            DeclineProposalsRequest,
+            DeleteCollectionListRequest,
+            DeletePropertyListRequest,
+            GetAccountFinancialsRequest,
+            GetAdcpCapabilitiesRequest,
+            GetBrandIdentityRequest,
+            GetCollectionListRequest,
+            GetContentStandardsRequest,
+            GetCreativeDeliveryRequest,
+            GetCreativeFeaturesRequest,
+            GetMediaBuyArtifactsRequest,
+            GetMediaBuyDeliveryRequest,
+            GetMediaBuysRequest,
+            GetPlanAuditLogsRequest,
+            GetPrincipalRequest,
+            GetProductsRequest,
+            GetPropertyListRequest,
+            GetReportingStatusRequest,
+            GetRightsRequest,
+            GetSignalsRequest,
+            GetTaskStatusRequest,
+            IdentityMatchRequest,
+            ListAccountChangesRequest,
+            ListAccountsRequest,
+            ListCollectionListsRequest,
+            ListContentStandardsRequest,
+            ListCreativesRequest,
+            ListProductsRequest,
+            ListPropertyListsRequest,
+            ListTasksRequest,
+            ListTransformersRequest,
+            LogEventRequest,
+            ProvidePerformanceFeedbackRequest,
+            RefineProposalsRequest,
+            ReportPlanAdjustmentRequest,
+            ReportPlanOutcomeRequest,
+            ReportUsageRequest,
+            RequestProposalsRequest,
+            SiGetOfferingRequest,
+            SiInitiateSessionRequest,
+            SiSendMessageRequest,
+            SiTerminateSessionRequest,
+            SyncAccountsRequest,
+            SyncAgentNotificationConfigsRequest,
+            SyncAudiencesRequest,
+            SyncCatalogsRequest,
+            SyncCreativesRequest,
+            SyncEventSourcesRequest,
+            SyncGovernanceRequest,
+            SyncPlansRequest,
+            SyncPrincipalRequest,
+            SyncReportingReceiptsRequest,
+            SyncReportingStatusRequest,
+            UpdateCollectionListRequest,
+            UpdateContentStandardsRequest,
+            UpdateMediaBuyRequest,
+            UpdatePropertyListRequest,
+            UpdateRightsRequest,
+            ValidateContentDeliveryRequest,
+        )
+        from adcp.types import _generated as gen
+        from adcp.types.legacy import (
+            LegacyBuildCreativeRequest as BuildCreativeRequest,
+        )
+        from adcp.types.legacy import (
+            LegacyListCreativeFormatsRequest as ListCreativeFormatsRequest,
+        )
+        from adcp.types.legacy import (
+            LegacyPreviewCreativeRequest as PreviewCreativeRequest,
+        )
+    except ImportError:
+        return {}
+
+    # Map tool names to their Pydantic request types
+    _tool_to_request: dict[str, Any] = {
+        # Catalog
+        "get_products": GetProductsRequest,
+        "list_products": ListProductsRequest,
+        "request_proposals": RequestProposalsRequest,
+        "refine_proposals": RefineProposalsRequest,
+        "decline_proposals": DeclineProposalsRequest,
+        "list_creative_formats": ListCreativeFormatsRequest,
+        # Creative
+        "sync_creatives": SyncCreativesRequest,
+        "list_creatives": ListCreativesRequest,
+        "build_creative": BuildCreativeRequest,
+        "preview_creative": PreviewCreativeRequest,
+        "validate_input": gen.ValidateInputRequest,
+        "get_creative_delivery": GetCreativeDeliveryRequest,
+        "list_transformers": ListTransformersRequest,
+        # Media Buy
+        "buy_products": BuyProductsRequest,
+        "accept_proposal": AcceptProposalRequest,
+        "control_media_buy": ControlMediaBuyRequest,
+        "create_media_buy": CreateMediaBuyRequest,
+        "update_media_buy": UpdateMediaBuyRequest,
+        "get_media_buy_delivery": GetMediaBuyDeliveryRequest,
+        "get_media_buys": GetMediaBuysRequest,
+        "get_reporting_status": GetReportingStatusRequest,
+        "sync_reporting_receipts": SyncReportingReceiptsRequest,
+        "sync_reporting_status": SyncReportingStatusRequest,
+        # Signals
+        "get_signals": GetSignalsRequest,
+        "activate_signal": ActivateSignalRequest,
+        # Account
+        "list_account_changes": ListAccountChangesRequest,
+        "list_accounts": ListAccountsRequest,
+        "sync_accounts": SyncAccountsRequest,
+        "get_account_financials": GetAccountFinancialsRequest,
+        "report_usage": ReportUsageRequest,
+        # Events & Catalogs
+        "log_event": LogEventRequest,
+        "sync_event_sources": SyncEventSourcesRequest,
+        "sync_audiences": SyncAudiencesRequest,
+        "sync_catalogs": SyncCatalogsRequest,
+        "sync_governance": SyncGovernanceRequest,
+        # Feedback
+        "provide_performance_feedback": ProvidePerformanceFeedbackRequest,
+        # Protocol Discovery
+        "get_adcp_capabilities": GetAdcpCapabilitiesRequest,
+        "sync_agent_notification_configs": SyncAgentNotificationConfigsRequest,
+        "get_principal": GetPrincipalRequest,
+        "sync_principal": SyncPrincipalRequest,
+        "get_task_status": GetTaskStatusRequest,
+        "list_tasks": ListTasksRequest,
+        # Compliance
+        "comply_test_controller": ComplyTestControllerRequest,
+        # Content Standards
+        "create_content_standards": CreateContentStandardsRequest,
+        "get_content_standards": GetContentStandardsRequest,
+        "list_content_standards": ListContentStandardsRequest,
+        "update_content_standards": UpdateContentStandardsRequest,
+        "calibrate_content": CalibrateContentRequest,
+        "validate_content_delivery": ValidateContentDeliveryRequest,
+        "get_media_buy_artifacts": GetMediaBuyArtifactsRequest,
+        # Governance
+        "get_creative_features": GetCreativeFeaturesRequest,
+        "sync_plans": SyncPlansRequest,
+        "check_governance": CheckGovernanceRequest,
+        "report_plan_outcome": ReportPlanOutcomeRequest,
+        "report_plan_adjustment": ReportPlanAdjustmentRequest,
+        "get_plan_audit_logs": GetPlanAuditLogsRequest,
+        # Property Lists
+        "create_property_list": CreatePropertyListRequest,
+        "get_property_list": GetPropertyListRequest,
+        "list_property_lists": ListPropertyListsRequest,
+        "update_property_list": UpdatePropertyListRequest,
+        "delete_property_list": DeletePropertyListRequest,
+        # Collection Lists
+        "create_collection_list": CreateCollectionListRequest,
+        "get_collection_list": GetCollectionListRequest,
+        "list_collection_lists": ListCollectionListsRequest,
+        "update_collection_list": UpdateCollectionListRequest,
+        "delete_collection_list": DeleteCollectionListRequest,
+        # Sponsored Intelligence
+        "si_get_offering": SiGetOfferingRequest,
+        "si_initiate_session": SiInitiateSessionRequest,
+        "si_send_message": SiSendMessageRequest,
+        "si_terminate_session": SiTerminateSessionRequest,
+        # Brand
+        "get_brand_identity": GetBrandIdentityRequest,
+        "verify_brand_claim": gen.VerifyBrandClaimRequest,
+        "verify_brand_claims": gen.VerifyBrandClaimsRequest,
+        "get_rights": GetRightsRequest,
+        "acquire_rights": AcquireRightsRequest,
+        "update_rights": UpdateRightsRequest,
+        # TMP
+        "context_match": ContextMatchRequest,
+        "identity_match": IdentityMatchRequest,
+    }
+
+    selected = set(tool_names) if tool_names is not None else None
+    schemas: dict[str, dict[str, Any]] = {}
+    for tool_name, request_type in _tool_to_request.items():
+        if selected is not None and tool_name not in selected:
+            continue
+        # Input schemas must be flat ``type: "object"`` — root-level
+        # ``anyOf`` / ``$ref`` schemas are skipped so the hand-crafted
+        # stub stays in place.
+        schema = _model_to_json_schema(
+            request_type,
+            allow_root_union=False,
+            schema_mode=schema_mode,
+        )
+        if schema is None:
+            logger.debug(
+                "Pydantic input-schema generation skipped for %s, using hand-crafted schema",
+                tool_name,
+            )
+            continue
+        schemas[tool_name] = schema
+
+    return schemas
+
+
+def _generate_pydantic_output_schemas(
+    tool_names: Iterable[str] | None = None,
+    *,
+    schema_mode: SchemaMode = "compact",
+) -> dict[str, dict[str, Any]]:
+    """Generate JSON schemas from Pydantic response models.
+
+    Mirror of :func:`_generate_pydantic_schemas` for the response side.
+    Each AdCP tool has a corresponding ``Response`` type — for plain
+    success responses this is a single ``BaseModel`` subclass; for tools
+    that distinguish success / error / pending / rejected on the wire
+    (``CreateMediaBuyResponse``, ``AcquireRightsResponse``, etc.) it's a
+    union alias.
+
+    Output schemas advertise the structured-content shape on
+    ``tools/list`` (matches the TS port) so MCP clients can validate
+    ``structuredContent`` without a separate spec lookup.
+
+    Unlike input schemas, root-level ``anyOf`` is allowed — discriminated
+    response unions are valid JSON Schema and clients that consume
+    ``outputSchema`` already handle them.
+
+    ``schema_mode`` matches the input side, and for the same reason. Inlining
+    every ``$ref`` expands a response model's shared subtrees once per
+    reference: ``ListCreativesResponse`` is 25 KB compact, 418 KB with local
+    ``$defs``, and 4.8 MB inlined. A handful of tools in that last shape is a
+    multi-megabyte ``tools/list`` that a buyer with a response-size budget
+    rejects outright. Compact stays a permissive description — dropping an
+    optional nested property reopens ``additionalProperties`` — so a real
+    response still validates against it.
+    """
+    try:
+        from adcp.types import (
+            AcceptProposalResponse,
+            AcquireRightsResponse,
+            ActivateSignalResponse,
+            BuyProductsResponse,
+            CalibrateContentResponse,
+            CheckGovernanceResponse,
+            ComplyTestControllerResponse,
+            ContextMatchResponse,
+            ControlMediaBuyResponse,
+            CreateCollectionListResponse,
+            CreateContentStandardsResponse,
+            CreateMediaBuyResponse,
+            CreatePropertyListResponse,
+            DeclineProposalsResponse,
+            DeleteCollectionListResponse,
+            DeletePropertyListResponse,
+            GetAccountFinancialsResponse,
+            GetAdcpCapabilitiesResponse,
+            GetBrandIdentityResponse,
+            GetCollectionListResponse,
+            GetContentStandardsResponse,
+            GetCreativeDeliveryResponse,
+            GetCreativeFeaturesResponse,
+            GetMediaBuyArtifactsResponse,
+            GetMediaBuyDeliveryResponse,
+            GetMediaBuysResponse,
+            GetPlanAuditLogsResponse,
+            GetPrincipalResponse,
+            GetProductsResponse,
+            GetPropertyListResponse,
+            GetReportingStatusResponse,
+            GetRightsResponse,
+            GetSignalsResponse,
+            GetTaskStatusResponse,
+            IdentityMatchResponse,
+            ListAccountChangesResponse,
+            ListAccountsResponse,
+            ListCollectionListsResponse,
+            ListContentStandardsResponse,
+            ListCreativesResponse,
+            ListProductsResponse,
+            ListPropertyListsResponse,
+            ListTasksResponse,
+            ListTransformersResponse,
+            LogEventResponse,
+            ProvidePerformanceFeedbackResponse,
+            RefineProposalsResponse,
+            ReportPlanAdjustmentResponse,
+            ReportPlanOutcomeResponse,
+            ReportUsageResponse,
+            RequestProposalsResponse,
+            SiGetOfferingResponse,
+            SiInitiateSessionResponse,
+            SiSendMessageResponse,
+            SiTerminateSessionResponse,
+            SyncAccountsResponse,
+            SyncAgentNotificationConfigsResponse,
+            SyncAudiencesResponse,
+            SyncCatalogsResponse,
+            SyncCreativesResponse,
+            SyncEventSourcesResponse,
+            SyncGovernanceResponse,
+            SyncPlansResponse,
+            SyncPrincipalResponse,
+            SyncReportingReceiptsResponse,
+            SyncReportingStatusResponse,
+            UpdateCollectionListResponse,
+            UpdateContentStandardsResponse,
+            UpdateMediaBuyResponse,
+            UpdatePropertyListResponse,
+            UpdateRightsResponse,
+            ValidateContentDeliveryResponse,
+            ValidateInputResponse,
+            VerifyBrandClaimResponse,
+            VerifyBrandClaimsResponseBulk,
+        )
+        from adcp.types.legacy import (
+            LegacyBuildCreativeResponse as BuildCreativeResponse,
+        )
+        from adcp.types.legacy import (
+            LegacyListCreativeFormatsResponse as ListCreativeFormatsResponse,
+        )
+        from adcp.types.legacy import (
+            LegacyPreviewCreativeResponse as PreviewCreativeResponse,
+        )
+    except ImportError:
+        return {}
+
+    _tool_to_response: dict[str, Any] = {
+        # Catalog
+        "get_products": GetProductsResponse,
+        "list_products": ListProductsResponse,
+        "request_proposals": RequestProposalsResponse,
+        "refine_proposals": RefineProposalsResponse,
+        "decline_proposals": DeclineProposalsResponse,
+        "list_creative_formats": ListCreativeFormatsResponse,
+        # Creative
+        "sync_creatives": SyncCreativesResponse,
+        "list_creatives": ListCreativesResponse,
+        "build_creative": BuildCreativeResponse,
+        "preview_creative": PreviewCreativeResponse,
+        "validate_input": ValidateInputResponse,
+        "get_creative_delivery": GetCreativeDeliveryResponse,
+        "list_transformers": ListTransformersResponse,
+        # Media Buy
+        "buy_products": BuyProductsResponse,
+        "accept_proposal": AcceptProposalResponse,
+        "control_media_buy": ControlMediaBuyResponse,
+        "create_media_buy": CreateMediaBuyResponse,
+        "update_media_buy": UpdateMediaBuyResponse,
+        "get_media_buy_delivery": GetMediaBuyDeliveryResponse,
+        "get_media_buys": GetMediaBuysResponse,
+        "get_reporting_status": GetReportingStatusResponse,
+        "sync_reporting_receipts": SyncReportingReceiptsResponse,
+        "sync_reporting_status": SyncReportingStatusResponse,
+        # Signals
+        "get_signals": GetSignalsResponse,
+        "activate_signal": ActivateSignalResponse,
+        # Account
+        "list_account_changes": ListAccountChangesResponse,
+        "list_accounts": ListAccountsResponse,
+        "sync_accounts": SyncAccountsResponse,
+        "get_account_financials": GetAccountFinancialsResponse,
+        "report_usage": ReportUsageResponse,
+        # Events & Catalogs
+        "log_event": LogEventResponse,
+        "sync_event_sources": SyncEventSourcesResponse,
+        "sync_audiences": SyncAudiencesResponse,
+        "sync_catalogs": SyncCatalogsResponse,
+        "sync_governance": SyncGovernanceResponse,
+        # Feedback
+        "provide_performance_feedback": ProvidePerformanceFeedbackResponse,
+        # Protocol Discovery
+        "get_adcp_capabilities": GetAdcpCapabilitiesResponse,
+        "sync_agent_notification_configs": SyncAgentNotificationConfigsResponse,
+        "get_principal": GetPrincipalResponse,
+        "sync_principal": SyncPrincipalResponse,
+        "get_task_status": GetTaskStatusResponse,
+        "list_tasks": ListTasksResponse,
+        # Compliance
+        "comply_test_controller": ComplyTestControllerResponse,
+        # Content Standards
+        "create_content_standards": CreateContentStandardsResponse,
+        "get_content_standards": GetContentStandardsResponse,
+        "list_content_standards": ListContentStandardsResponse,
+        "update_content_standards": UpdateContentStandardsResponse,
+        "calibrate_content": CalibrateContentResponse,
+        "validate_content_delivery": ValidateContentDeliveryResponse,
+        "get_media_buy_artifacts": GetMediaBuyArtifactsResponse,
+        # Governance
+        "get_creative_features": GetCreativeFeaturesResponse,
+        "sync_plans": SyncPlansResponse,
+        "check_governance": CheckGovernanceResponse,
+        "report_plan_outcome": ReportPlanOutcomeResponse,
+        "report_plan_adjustment": ReportPlanAdjustmentResponse,
+        "get_plan_audit_logs": GetPlanAuditLogsResponse,
+        # Property Lists
+        "create_property_list": CreatePropertyListResponse,
+        "get_property_list": GetPropertyListResponse,
+        "list_property_lists": ListPropertyListsResponse,
+        "update_property_list": UpdatePropertyListResponse,
+        "delete_property_list": DeletePropertyListResponse,
+        # Collection Lists
+        "create_collection_list": CreateCollectionListResponse,
+        "get_collection_list": GetCollectionListResponse,
+        "list_collection_lists": ListCollectionListsResponse,
+        "update_collection_list": UpdateCollectionListResponse,
+        "delete_collection_list": DeleteCollectionListResponse,
+        # Sponsored Intelligence
+        "si_get_offering": SiGetOfferingResponse,
+        "si_initiate_session": SiInitiateSessionResponse,
+        "si_send_message": SiSendMessageResponse,
+        "si_terminate_session": SiTerminateSessionResponse,
+        # Brand
+        "get_brand_identity": GetBrandIdentityResponse,
+        "verify_brand_claim": VerifyBrandClaimResponse,
+        "verify_brand_claims": VerifyBrandClaimsResponseBulk,
+        "get_rights": GetRightsResponse,
+        "acquire_rights": AcquireRightsResponse,
+        "update_rights": UpdateRightsResponse,
+        # TMP
+        "context_match": ContextMatchResponse,
+        "identity_match": IdentityMatchResponse,
+    }
+
+    selected = set(tool_names) if tool_names is not None else None
+    schemas: dict[str, dict[str, Any]] = {}
+    for tool_name, response_type in _tool_to_response.items():
+        if selected is not None and tool_name not in selected:
+            continue
+        schema = _model_to_json_schema(
+            response_type, allow_root_union=True, schema_mode=schema_mode
+        )
+        if schema is None:
+            logger.debug(
+                "Pydantic output-schema generation failed for %s",
+                tool_name,
+            )
+            continue
+        # MCP requires ``outputSchema`` root-level ``type: "object"`` —
+        # the schema describes ``CallToolResult.structuredContent`` which
+        # is always a JSON object. Discriminated-union responses
+        # (CreateMediaBuyResponse, AcquireRightsResponse, etc.) come
+        # back from Pydantic as ``{"anyOf": [...]}`` with no ``type``,
+        # which Zod-validated MCP clients reject. Every variant in the
+        # union is itself an object, so adding ``"type": "object"``
+        # at the root is semantically equivalent and MCP-spec-conformant.
+        schema.setdefault("type", "object")
+        if _widen_media_buy_output_schema_for_legacy_statuses(tool_name, schema):
+            # Widening repoints an arm at a new definition, which strands the
+            # one it was pointing at. Leaving it published is not just dead
+            # weight: the stranded twin still carries the narrow
+            # ``status: {"const": "completed"}``, so a client that resolves
+            # definitions by model name rather than by following ``$ref``
+            # would pick the shape this widening exists to replace.
+            schema = _drop_unreachable_defs(schema)
+        schemas[tool_name] = schema
+
+    return schemas
+
+
+# Schemas are populated lazily on the first tools/list call to avoid
+# heavy Pydantic type imports at module import time. Use .update() so
+# external references bound before init (e.g. in tests) stay valid.
+_PYDANTIC_SCHEMAS: dict[str, dict[str, Any]] = {}
+_PYDANTIC_OUTPUT_SCHEMAS: dict[str, dict[str, Any]] = {}
+_schema_tools_attempted: set[str] = set()
+_schemas_applied = False
+
+
+def _apply_pydantic_schemas() -> None:
+    """Apply Pydantic-generated input + output schemas to tool definitions.
+
+    * ``inputSchema``: replaced when a Pydantic-generated schema is
+      available (handles drift between hand-crafted stubs and the spec).
+    * ``outputSchema``: added so ``tools/list`` advertises the structured
+      response shape — matches the TS port and lets MCP clients validate
+      ``structuredContent`` without a separate spec lookup.
+    """
+    for tool_def in ADCP_TOOL_DEFINITIONS:
+        name = tool_def["name"]
+        if name in _PYDANTIC_SCHEMAS:
+            tool_def["inputSchema"] = _PYDANTIC_SCHEMAS[name]
+        if name in _PYDANTIC_OUTPUT_SCHEMAS:
+            tool_def["outputSchema"] = _PYDANTIC_OUTPUT_SCHEMAS[name]
+
+
+def _ensure_pydantic_schemas_applied(tool_names: Iterable[str] | None = None) -> None:
+    """Lazily populate Pydantic schemas and apply them to tool definitions.
+
+    Mutates :data:`ADCP_TOOL_DEFINITIONS` in-place, replacing each tool's
+    ``inputSchema`` with the Pydantic-generated schema and adding
+    ``outputSchema``. Safe to call multiple times — subsequent calls are
+    no-ops. Called automatically by :func:`create_mcp_tools` /
+    :func:`get_tools_for_handler`; callers outside those paths (e.g. tests
+    or doc generators) must invoke this before reading schema fields.
+    """
+    global _schemas_applied
+    if tool_names is None:
+        if _schemas_applied:
+            return
+        selected = {tool["name"] for tool in ADCP_TOOL_DEFINITIONS}
+    else:
+        selected = set(tool_names)
+
+    pending = selected - _schema_tools_attempted
+    if not pending:
+        return
+    _PYDANTIC_SCHEMAS.update(_generate_pydantic_schemas(pending))
+    _PYDANTIC_OUTPUT_SCHEMAS.update(_generate_pydantic_output_schemas(pending))
+    _schema_tools_attempted.update(pending)
+    _apply_pydantic_schemas()
+    if tool_names is None:
+        _schemas_applied = True
+
+
+def _is_sdk_base_class(cls_name: str) -> bool:
+    """True when ``cls_name`` is registered in ``_HANDLER_TOOLS``.
+
+    Used during MRO walks to identify the nearest SDK base whose
+    method baselines a subclass override. Reads ``_HANDLER_TOOLS``
+    live so that handler classes registered after import time —
+    via :func:`register_handler_tools` or
+    :meth:`ADCPHandler.__init_subclass__` reading
+    ``advertised_tools`` — participate in override detection without
+    requiring a frozen-set rebuild.
+    """
+    return cls_name in _HANDLER_TOOLS
+
+
+def _is_method_overridden(handler_cls: type, method_name: str) -> bool:
+    """True when ``handler_cls`` implements ``method_name`` rather than
+    falling through to the SDK's ``not_supported`` default.
+
+    Invariant: **the nearest SDK base in the MRO owns the baseline**.
+    Walking stops at the first SDK base that defines ``method_name``;
+    every other SDK base lower in the MRO is ignored. Specialized
+    handler bases (``GovernanceHandler``, ``ContentStandardsHandler``,
+    ``SponsoredIntelligenceHandler``, etc.) override the baseline from
+    ``ADCPHandler`` with validation wrappers that delegate to abstract
+    ``handle_<tool>`` methods. That baseline is what subclasses compose
+    against — comparing against ``ADCPHandler`` directly would mis-flag
+    the specialized wrappers as "overrides."
+
+    Two override patterns count as implemented:
+
+    1. **Direct**: ``handler_cls`` replaces the public method (typical
+       when subclassing ``ADCPHandler`` directly — the subclass writes
+       its own ``async def update_property_list(...)``).
+    2. **Delegation**: ``handler_cls`` inherits the public method from a
+       specialized SDK base unchanged, but provides a concrete
+       ``handle_<method>`` where the SDK base declared it abstract.
+       This is the documented pattern for ``GovernanceHandler``,
+       ``ContentStandardsHandler``, and ``SponsoredIntelligenceHandler``.
+       Without this branch, subclasses of those bases that follow the
+       documented pattern would advertise zero tools.
+
+    Returns ``False`` when the public method is inherited unchanged AND
+    no concrete ``handle_<method>`` is provided below the SDK base — the
+    tool will answer every call with ``not_supported`` and should not
+    appear in ``tools/list``.
+
+    Returns ``False`` for methods that don't exist on the handler at all
+    (pathological case — every ADCP tool method is defined on
+    ``ADCPHandler``).
+    """
+    method_name = {
+        "build_creative": "build_creative_legacy",
+        "list_creative_formats": "list_creative_formats_legacy",
+        "preview_creative": "preview_creative_legacy",
+    }.get(method_name, method_name)
+    handler_method = getattr(handler_cls, method_name, None)
+    if handler_method is None:
+        return False
+
+    # Find the nearest SDK base that defines the public method.
+    sdk_base: type | None = None
+    base_method: Any | None = None
+    for base in handler_cls.__mro__[1:]:
+        if not _is_sdk_base_class(base.__name__):
+            continue
+        found = base.__dict__.get(method_name)
+        if found is None:
+            continue
+        sdk_base = base
+        base_method = found
+        break
+
+    if sdk_base is None:
+        # Method not owned by any SDK base. Custom surface — conservative:
+        # treat as overridden so we don't silently drop it.
+        return True
+
+    # Pattern 1: direct override of the public method.
+    if handler_method is not base_method:
+        return True
+
+    # Pattern 2: delegation via handle_<tool>. Specialized SDK bases
+    # declare ``handle_<method>`` as an abstractmethod. If the subclass
+    # (anywhere between ``sdk_base`` and ``handler_cls``) provides a
+    # concrete implementation, the tool is implemented.
+    handle_name = f"handle_{method_name}"
+    sdk_handle = getattr(sdk_base, handle_name, None)
+    if sdk_handle is None or not getattr(sdk_handle, "__isabstractmethod__", False):
+        # SDK base doesn't use the handle_<tool> delegation pattern here;
+        # the public method really is the baseline, and the subclass did
+        # not override it.
+        return False
+
+    subclass_handle = getattr(handler_cls, handle_name, None)
+    if subclass_handle is None:
+        return False
+    # If still abstract on the final class, the class itself is abstract
+    # (ABC would refuse to instantiate it). Don't advertise.
+    return not getattr(subclass_handle, "__isabstractmethod__", False)
+
+
+def _resolve_handler_adcp_version(
+    instance: ADCPHandler[Any] | None,
+    explicit_version: str | None,
+) -> str | None:
+    """Resolve one trusted server pin for both discovery and dispatch."""
+    if explicit_version is not None:
+        return explicit_version
+    if instance is None:
+        return None
+    getter = getattr(instance, "get_adcp_version", None)
+    if callable(getter):
+        try:
+            candidate = getter()
+        except Exception:
+            candidate = None
+        if isinstance(candidate, str):
+            return candidate
+    candidate = getattr(instance, "_adcp_version", None)
+    return candidate if isinstance(candidate, str) else None
+
+
+#: Keywords whose value is a map of *names* to schemas rather than a schema.
+#: Simplification must not read those names as keywords: a product has a
+#: property literally called ``description``.
+_SCHEMA_MAP_KEYS: frozenset[str] = frozenset(
+    {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"}
+)
+#: Cross-field rules the compact wire shape drops below the root: a
+#: conditional (``if``/``then``/``else``) or a negation (``not``). Dropping a
+#: constraint only loosens a schema, and the server still validates every
+#: request against the exact bundled contract, so nothing is accepted that
+#: the exact schema would refuse. At the root they describe the tool's own
+#: required-field rules (``buying_mode`` on ``get_products``) and stay.
+_WIRE_NESTED_RULE_KEYS: frozenset[str] = frozenset({"if", "then", "else", "not"})
+
+
+def _simplify_wire_schema(
+    node: Any, *, root: bool = True, in_defs: bool = False, names: bool = False
+) -> Any:
+    """Reduce a bundled wire schema to what a compact ``tools/list`` carries.
+
+    Every change here either has no validation semantics or only *loosens*
+    the schema, so what it accepts is a superset of the exact contract, which
+    :func:`_prune_to_required_fields` then relies on. ``schema_mode="defs"``
+    still carries all of it.
+
+    * ``x-`` extension keys (``x-added-in``, ``x-entity``,
+      ``x-adcp-validation``, ...) below the root are dropped. At the root they
+      describe the tool itself (``x-mutates-state``, ``x-operation-family``)
+      and stay.
+    * ``$schema`` below the root is dropped; draft-07 does not read it there.
+    * ``description`` inside ``$defs`` is dropped. Root fields keep theirs:
+      those are what a reader of ``tools/list`` acts on.
+    * Below the root, :data:`_WIRE_NESTED_RULE_KEYS` are dropped.
+    * ``oneOf`` becomes ``anyOf``. The bundled schemas discriminate ``oneOf``
+      arms with scalar constants and ``required`` lists, both of which
+      compaction keeps, but an arm that a dropped rule or pruned optional
+      field used to narrow could come to overlap another, and ``oneOf`` would
+      then reject a valid instance. ``anyOf`` cannot; it is also what Pydantic
+      emits for the same unions on the unpinned path.
+
+    Values of literal keywords (``const``, ``default``, ``examples``,
+    ``enum``) are arbitrary JSON and are copied untouched.
+    """
+    if isinstance(node, dict):
+        result: dict[str, Any] = {}
+        for key, value in node.items():
+            if not names:
+                if not root and (key.startswith("x-") or key == "$schema"):
+                    continue
+                if not root and key in _WIRE_NESTED_RULE_KEYS:
+                    continue
+                if in_defs and key == "description":
+                    continue
+                if key in _SCHEMA_LITERAL_KEYS or key == "enum":
+                    result[key] = _copy_json_without_aliases(value)
+                    continue
+            simplified = _simplify_wire_schema(
+                value,
+                root=False,
+                in_defs=in_defs or (not names and key == "$defs"),
+                names=not names and key in _SCHEMA_MAP_KEYS,
+            )
+            if not names and key == "oneOf" and isinstance(simplified, list):
+                if "anyOf" in node:
+                    result.setdefault("allOf", []).append({"anyOf": simplified})
+                else:
+                    result["anyOf"] = simplified
+                continue
+            result[key] = simplified
+        return result
+    if isinstance(node, list):
+        return [
+            _simplify_wire_schema(item, root=False, in_defs=in_defs, names=False) for item in node
+        ]
+    return node
+
+
+def _compact_wire_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Compact a bundled wire schema for ``tools/list``.
+
+    :func:`_simplify_wire_schema`, then the transform the unpinned path
+    applies to Pydantic output (:func:`_prune_to_required_fields` and
+    :func:`_drop_unreachable_defs`), on the self-contained production-profile
+    schema a pinned server advertises. That schema is already deduplicated
+    within one tool through ``$defs``, but it carries the complete transitive
+    closure of the wire contract — ``get_products``'s response alone resolves
+    278 definitions and 14,865 JSON members — and MCP has no way to share
+    definitions *between* tools, so an eleven-tool seller listed 106,250
+    members where the client's default bound was 100,000 (#1692). Compaction
+    keeps every root field with its description and rules, every required
+    nested field, every scalar with its constraints, and every protected
+    subschema, and re-admits each dropped optional nested field as the
+    permissive ``true``; the result stays a description every real response
+    validates against, at about a fifth of the size.
+    """
+    return _drop_unreachable_defs(_prune_to_required_fields(_simplify_wire_schema(schema)))
+
+
+def _versioned_discovery_schema(
+    tool_name: str,
+    direction: Literal["request", "sync"],
+    version: str,
+    *,
+    compact: bool,
+) -> dict[str, Any] | None:
+    """The bundled wire schema a pinned server advertises, compact on request.
+
+    Both shapes are memoized with the loader state for ``version`` — see
+    :func:`adcp.validation.schema_loader.get_derived_mcp_schema` — so a
+    per-request caller (the pre-auth agent-card route) pays the transform
+    once, and a loader reset discards it with everything else.
+    """
+    if not compact:
+        return get_mcp_schema(tool_name, direction, version=version)
+    from adcp.validation.schema_loader import get_derived_mcp_schema
+
+    return get_derived_mcp_schema(
+        tool_name,
+        direction,
+        version=version,
+        derivation="compact",
+        derive=_compact_wire_schema,
+    )
+
+
+#: Non-compact schemas, memoized per (kind, mode, tool). The compact path
+#: reads the already-built ``ADCP_TOOL_DEFINITIONS``; without this the other
+#: two modes regenerate the whole Pydantic graph on *every* call, which lands
+#: on per-request callers including the pre-auth agent-card route. Bounded by
+#: the tool count times two kinds times two modes.
+_ALTERNATE_SCHEMAS: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+
+def _alternate_schemas(
+    kind: str,
+    tool_names: Sequence[str],
+    schema_mode: SchemaMode,
+) -> dict[str, dict[str, Any]]:
+    """Generate ``schema_mode`` schemas for ``tool_names``, reusing prior work.
+
+    Returns deep copies: a tool definition handed to a caller is an ordinary
+    mutable JSON value, and the cache must not be reachable through one.
+    """
+    missing = [name for name in tool_names if (kind, schema_mode, name) not in _ALTERNATE_SCHEMAS]
+    if missing:
+        generate = (
+            _generate_pydantic_schemas if kind == "input" else _generate_pydantic_output_schemas
+        )
+        for name, schema in generate(missing, schema_mode=schema_mode).items():
+            _ALTERNATE_SCHEMAS[(kind, schema_mode, name)] = schema
+    result: dict[str, dict[str, Any]] = {}
+    for name in tool_names:
+        cached = _ALTERNATE_SCHEMAS.get((kind, schema_mode, name))
+        if cached is not None:
+            result[name] = copy.deepcopy(cached)
+    return result
+
+
+def get_tools_for_handler(
+    handler: ADCPHandler[Any] | type[ADCPHandler[Any]],
+    *,
+    advertise_all: bool = False,
+    adcp_version: str | None = None,
+    schema_mode: SchemaMode = "compact",
+    _include_schemas: bool = True,
+) -> list[dict[str, Any]]:
+    """Return tool definitions the handler will actually answer.
+
+    Walks the MRO to find the matching handler base class, so subclasses
+    (e.g. ``MyGovernanceAgent(GovernanceHandler)``) get the correct tool
+    set. ADCPHandler gets all tools. Unknown handlers get only protocol
+    discovery (minimum privilege).
+
+    By default, tools whose handler method is still the SDK's
+    ``not_supported`` default (the subclass never overrode it) are
+    filtered out — there's no point advertising a tool that answers
+    every call with ``NOT_SUPPORTED``. This keeps ``tools/list`` small
+    and protects agent clients from chasing non-functional tool surface.
+
+    Always-advertised tools:
+    - :data:`_PROTOCOL_TOOLS` (``get_adcp_capabilities``) — per-spec
+      handshake requirement.
+    - :data:`DISCOVERY_TOOLS` — auth-optional discovery tools the spec
+      requires agents to expose.
+
+    Escape hatch: pass ``advertise_all=True`` to restore the pre-#220
+    behavior and advertise every tool in the handler-type's allowed
+    set regardless of override state. Useful for spec-compliance
+    storyboard tests and for agents that deliberately want to expose a
+    ``not_supported`` tool (e.g. to signal "we know about X but don't
+    implement it yet").
+
+    Args:
+        handler: The handler instance or class.
+        advertise_all: When True, skip the override-based filter and
+            advertise every tool allowed for the handler type.
+        adcp_version: Trusted server protocol pin used to select request and
+            response schemas. When omitted for an instance, the handler's
+            ``get_adcp_version()`` / ``_adcp_version`` pin is used when
+            available. Class-only introspection retains the current generated
+            model surface.
+        schema_mode: Pydantic-derived input discovery shape. ``"compact"``
+            (default) keeps every root request field, required nested fields,
+            scalar optionals, and protected mutation surfaces; ``"defs"``
+            keeps the complete schema with local references, and ``"inline"``
+            preserves the historical fully expanded schema. Both non-default
+            modes regenerate input *and* output schemas on every call with no
+            memoization — seconds per construction for a 13-tool handler —
+            where ``"compact"`` reads the memoized registry.
+            A version-pinned handler advertises the bundled wire schemas of
+            that release: compacted by the same rules under ``"compact"``,
+            and exact — complete local ``$defs`` — under ``"defs"`` and
+            ``"inline"``.
+
+    Returns:
+        Filtered list of tool definitions.
+    """
+    if schema_mode not in _SCHEMA_MODES:
+        raise ValueError(
+            f"schema_mode must be one of {sorted(_SCHEMA_MODES)!r}, got {schema_mode!r}"
+        )
+
+    cls = handler if isinstance(handler, type) else type(handler)
+    instance = handler if not isinstance(handler, type) else None
+
+    candidates: list[dict[str, Any]] = []
+    for base in cls.__mro__:
+        if base.__name__ in _HANDLER_TOOLS:
+            allowed = _HANDLER_TOOLS[base.__name__] | _PROTOCOL_TOOLS
+            candidates = [tool for tool in ADCP_TOOL_DEFINITIONS if tool["name"] in allowed]
+            break
+    else:
+        candidates = [tool for tool in ADCP_TOOL_DEFINITIONS if tool["name"] in _PROTOCOL_TOOLS]
+
+    # Per-instance specialism filter (Emma cross-cutting P1). When the
+    # handler instance exposes ``advertised_tools_for_instance``, intersect
+    # the candidate universe with the per-instance set BEFORE the
+    # override-detection filter. This trims tools whose Protocol family
+    # the platform didn't claim (sales-only adopter no longer advertises
+    # ``acquire_rights``, ``build_creative``, etc.). Falls back to the
+    # class-level universe when:
+    #
+    # * The handler is being inspected by class (no instance) — class-level
+    #   advertisement preserves backwards compat for static introspection.
+    # * The hook returns an empty set (adopter piloting a novel specialism
+    #   slug not in :data:`SPECIALISM_TO_ADVERTISED_TOOLS`); muting the
+    #   handler would be a worse foot-gun than over-advertising.
+    if instance is not None and hasattr(instance, "advertised_tools_for_instance"):
+        try:
+            per_instance_set = instance.advertised_tools_for_instance()
+        except Exception:
+            # Defensive: never let an instance hook crash tools/list.
+            per_instance_set = None
+        if per_instance_set:
+            always_on = _PROTOCOL_TOOLS | DISCOVERY_TOOLS
+            candidates = [
+                tool
+                for tool in candidates
+                if tool["name"] in always_on or tool["name"] in per_instance_set
+            ]
+
+    if advertise_all:
+        selected = candidates
+    else:
+        always_on = _PROTOCOL_TOOLS | DISCOVERY_TOOLS
+        selected = [
+            tool
+            for tool in candidates
+            if tool["name"] in always_on or _is_method_overridden(cls, tool["name"])
+        ]
+
+    resolved_version = _resolve_handler_adcp_version(instance, adcp_version)
+
+    if not _include_schemas:
+        return [{"name": tool["name"]} for tool in selected]
+
+    if resolved_version is None:
+        # Pydantic schema generation is expensive for the full AdCP surface,
+        # especially with the 3.2 model graph. Compile only the definitions
+        # this handler will advertise.
+        _ensure_pydantic_schemas_applied(tool["name"] for tool in selected)
+        # The in-memory registry shares memoized schema subtrees to keep server
+        # startup compact. Public definitions remain ordinary independently
+        # mutable JSON values, matching the pre-memoization behavior.
+        definitions = [_copy_json_without_aliases(tool) for tool in selected]
+        if schema_mode != "compact":
+            names = [definition["name"] for definition in definitions]
+            alternate_inputs = _alternate_schemas("input", names, schema_mode)
+            # Outputs follow the same mode. They used to be inlined
+            # unconditionally, which is what made a 13-tool seller advertise a
+            # 24 MB tools/list while its input schemas were 15 KB each.
+            alternate_outputs = _alternate_schemas("output", names, schema_mode)
+            for definition in definitions:
+                alternate = alternate_inputs.get(definition["name"])
+                if alternate is not None:
+                    definition["inputSchema"] = alternate
+                alternate_output = alternate_outputs.get(definition["name"])
+                if alternate_output is not None:
+                    definition["outputSchema"] = alternate_output
+        for definition in definitions:
+            if definition["name"] == "sync_reporting_receipts":
+                from adcp.reporting.receipts.wire import receipt_schema
+
+                # Also runs when model generation fell back to hand-written
+                # stubs. Do not mutate cached upstream/generated schema inputs.
+                definition["inputSchema"] = receipt_schema("request")
+                definition["outputSchema"] = receipt_schema("sync")
+            elif (
+                definition["name"] == "get_reporting_status"
+                and getattr(instance, "reporting_feed_store", None) is not None
+            ):
+                from adcp.reporting.feed.request import feed_schema
+
+                definition["inputSchema"] = feed_schema("request")
+                definition["outputSchema"] = feed_schema("sync")
+        return definitions
+
+    if not list_validator_keys(version=resolved_version):
+        raise ValueError(
+            f"no bundled AdCP schemas are available for adcp_version={resolved_version!r}"
+        )
+
+    # A pinned server advertises the bundled wire contract of its release —
+    # compacted for discovery in the default mode, exact in the others. This
+    # also removes tools absent from that release (for example, the compact
+    # 3.2 lifecycle on a 3.1 endpoint) instead of leaking the process-global
+    # current-model surface into tools/list.
+    compact = schema_mode == "compact"
+    versioned: list[dict[str, Any]] = []
+    for tool in selected:
+        name = tool["name"]
+        input_schema = _versioned_discovery_schema(
+            name, "request", resolved_version, compact=compact
+        )
+        if input_schema is None:
+            continue
+        # The current-model schemas can be large and are replaced below by
+        # the exact versioned wire schemas. Copy only retained metadata.
+        definition = copy.deepcopy(
+            {
+                key: value
+                for key, value in tool.items()
+                if key not in {"inputSchema", "outputSchema"}
+            }
+        )
+        if name == "sync_reporting_receipts":
+            from adcp.reporting.receipts.wire import receipt_schema
+
+            definition["inputSchema"] = receipt_schema("request", version=resolved_version)
+            definition["outputSchema"] = receipt_schema("sync", version=resolved_version)
+            versioned.append(definition)
+            continue
+        if (
+            name == "get_reporting_status"
+            and getattr(instance, "reporting_feed_store", None) is not None
+        ):
+            from adcp.reporting.feed.request import feed_schema
+
+            definition["inputSchema"] = feed_schema("request", version=resolved_version)
+            definition["outputSchema"] = feed_schema("sync", version=resolved_version)
+            versioned.append(definition)
+            continue
+        definition["inputSchema"] = input_schema
+        output_schema = _versioned_discovery_schema(name, "sync", resolved_version, compact=compact)
+        if output_schema is not None:
+            output_schema.setdefault("type", "object")
+            definition["outputSchema"] = output_schema
+        else:
+            definition.pop("outputSchema", None)
+        versioned.append(definition)
+    return versioned
+
+
+def _resolve_params_pydantic_model(method: Any) -> type[Any] | None:
+    """Resolve the Pydantic model the handler expects for ``params``.
+
+    Inspects the method's ``params`` annotation. Returns the Pydantic
+    class when the annotation is:
+
+    - A direct ``BaseModel`` subclass (``params: GetProductsRequest``).
+    - A Union / Optional whose first member is a ``BaseModel`` subclass
+      (``params: GetProductsRequest | dict[str, Any]``). This shape is
+      what the specialized SDK handler bases declare — typed-dispatch
+      treats the first Pydantic branch as the authoritative shape, so
+      existing ``params: Request | dict`` annotations keep working.
+
+    Returns ``None`` for ``dict``, missing annotation, or forward
+    references that fail to resolve — the dispatcher then falls back
+    to the legacy dict path.
+
+    The result is computed once at ``create_tool_caller`` setup time
+    (not per request) and captured in the closure returned to the
+    transport layer; warnings fire at server boot, not per call.
+    Forward-compat with PEP 749 (3.14 lazy annotations): ``get_type_hints``
+    is the supported migration target for runtime annotation
+    resolution, so this code keeps working as the language evolves.
+    """
+    import typing
+    from types import UnionType
+
+    from pydantic import BaseModel
+
+    try:
+        hints = typing.get_type_hints(method)
+    except Exception as exc:  # forward-ref failure, missing import, etc.
+        # WARNING (not debug): silent dict-path fallback hides shim
+        # crashes on ``params.<field>`` access when the typed annotation
+        # didn't resolve. Author's choice: declare ``params: dict`` for
+        # the dict path, or ensure the typed annotation's class is
+        # importable at the method's module scope (not under
+        # ``TYPE_CHECKING``).
+        #
+        # Surface the failing name explicitly so adopters don't have to
+        # parse the method repr — ``NameError`` exposes it on
+        # ``.name`` on 3.10+. Falls back to ``str(exc)`` for other
+        # exception classes (rare).
+        failing_name = getattr(exc, "name", None) or str(exc)
+        logger.warning(
+            "typed params annotation failed to resolve for %r "
+            "(unresolved name: %s); falling back to dict dispatch. "
+            "If this method declares ``params: <PydanticModel>``, "
+            "import that model at the method's module scope (not "
+            "under ``TYPE_CHECKING``); otherwise declare "
+            "``params: dict[str, Any]`` to silence this warning.",
+            method,
+            failing_name,
+        )
+        return None
+    annotation = hints.get("params")
+    if annotation is None:
+        return None
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or origin is UnionType:
+        for arg in typing.get_args(annotation):
+            if isinstance(arg, type) and issubclass(arg, BaseModel):
+                return arg
+    return None
+
+
+def _normalize_unknown_field_policy(
+    policy: UnknownFieldPolicy | str | None,
+) -> UnknownFieldPolicy:
+    if policy is None:
+        return UnknownFieldPolicy.IGNORE
+    if isinstance(policy, UnknownFieldPolicy):
+        return policy
+    return UnknownFieldPolicy(policy)
+
+
+def _allowed_top_level_fields(
+    method_name: str,
+    *,
+    version: str | None,
+    params_model: type[Any] | None,
+) -> set[str] | None:
+    from adcp.validation.envelope import VERSION_ENVELOPE_FIELDS
+
+    validator = get_validator(method_name, "request", version=version)
+    if validator is not None:
+        schema = getattr(validator, "schema", None)
+        if isinstance(schema, dict):
+            properties = schema.get("properties")
+            if isinstance(properties, dict):
+                return {str(name) for name in properties} | VERSION_ENVELOPE_FIELDS
+
+    if params_model is None:
+        return None
+
+    model_fields = getattr(params_model, "model_fields", None)
+    if not isinstance(model_fields, dict):
+        return None
+
+    allowed: set[str] = set()
+    for name, field in model_fields.items():
+        allowed.add(str(name))
+        alias = getattr(field, "alias", None)
+        if isinstance(alias, str):
+            allowed.add(alias)
+    return allowed | VERSION_ENVELOPE_FIELDS
+
+
+def _apply_unknown_field_policy(
+    method_name: str,
+    params: dict[str, Any],
+    *,
+    policy: UnknownFieldPolicy,
+    version: str | None,
+    params_model: type[Any] | None,
+) -> dict[str, Any]:
+    if policy == UnknownFieldPolicy.IGNORE:
+        return params
+
+    allowed = _allowed_top_level_fields(method_name, version=version, params_model=params_model)
+    if allowed is None:
+        return params
+
+    unknown = [key for key in params if key not in allowed]
+    if not unknown:
+        return params
+
+    if policy == UnknownFieldPolicy.STRIP:
+        return {key: value for key, value in params.items() if key in allowed}
+
+    first = unknown[0]
+    from adcp.exceptions import ADCPTaskError
+    from adcp.types import Error
+
+    raise ADCPTaskError(
+        operation=method_name,
+        errors=[
+            Error(
+                code="INVALID_REQUEST",
+                field=first,
+                message=f"Unexpected top-level field {first!r} for {method_name}",
+                details={"unknown_fields": unknown, "policy": policy.value},
+            )
+        ],
+    )
+
+
+def _creative_capabilities_for_handler(handler: Any) -> Any:
+    """Return deterministic server-owned creative capability evidence.
+
+    Capability discovery is negotiated per caller.  In particular, a 3.0
+    discovery response suppresses the 3.1-only ``canonical_creatives`` field.
+    Never retain that negotiated response on a shared handler: doing so makes
+    the dialect selected for one caller depend on which caller discovered the
+    server most recently.
+    """
+
+    explicit = getattr(handler, "adcp_capabilities", None)
+    if explicit is not None:
+        return explicit
+    declared = getattr(handler, "_declared_creative_capabilities", None)
+    if declared is not None:
+        return declared
+    platform = getattr(handler, "_platform", None)
+    declared = getattr(platform, "capabilities", None)
+    media_buy = getattr(declared, "media_buy", None)
+    if media_buy is not None:
+        return {"media_buy": media_buy}
+    return getattr(handler, "_framework_adcp_capabilities", None)
+
+
+def create_tool_caller(
+    handler: ADCPHandler[Any],
+    method_name: str,
+    *,
+    validation: ValidationHookConfig | None = None,
+    pre_validation_hook: PreValidationHookChain | None = None,
+    default_unnegotiated_adcp_version: str | None = DEFAULT_UNNEGOTIATED_ADCP_VERSION,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+) -> Callable[..., Any]:
+    """Create a tool caller function for an ADCP handler method.
+
+    Automatically injects context passthrough: if the request contains a
+    ``context`` field, it is echoed back in the response (ADCP requirement).
+    Handlers no longer need to call ``inject_context()`` manually.
+
+    **Typed params (closes #214).** When the handler method declares its
+    ``params`` parameter as a Pydantic model (e.g.
+    ``params: GetProductsRequest``), the dispatcher deserialises the raw
+    dict into the model before calling the handler — giving authors
+    IDE autocomplete, Pydantic validation at the boundary, and typed
+    attribute access instead of ``params.get(...)``. Handlers still
+    declaring ``params: dict[str, Any]`` keep working unchanged. A
+    Pydantic ``ValidationError`` surfaces as a structured
+    ``INVALID_REQUEST`` AdCP error so callers see a spec-typed recovery
+    classification rather than a raw stack trace.
+
+    **Schema-driven validation (issues #249, #1102).** Public server
+    factories supply strict validation by default, so the dispatcher
+    validates incoming requests and outgoing responses against the bundled
+    canonical AdCP JSON schemas. Request failures
+    raise ``ADCPTaskError(VALIDATION_ERROR)`` before the handler runs,
+    so malformed payloads never hit business logic. Response failures
+    either raise ``VALIDATION_ERROR`` (strict) or log a warning
+    (warn). Adopters can explicitly relax this with
+    ``ValidationHookConfig`` or disable it with ``validation=None``. The
+    low-level ``create_tool_caller`` seam itself retains a ``None`` default;
+    ``serve`` and the MCP/A2A server factories pass the strict default.
+
+    **Pre-validation hooks (issues #614, #859).** When
+    ``pre_validation_hook`` is supplied, each hook is called with
+    ``(tool_name, shallow_copy_of_args)`` and must return a ``dict`` that
+    replaces the wire args before schema validation and Pydantic
+    ``model_validate`` run. Pass either one hook or an ordered sequence of
+    hooks; sequences run left-to-right. The framework passes a shallow
+    copy of the incoming params dict to each hook, so a hook may mutate
+    its argument freely or return a brand-new dict — either style is safe.
+    The original wire params are captured before the copy is made, so
+    context echo always reflects what the buyer sent. Use this to apply
+    spec-mandated defaults for pre-v3 buyers that omit required fields
+    (e.g. ``buying_mode``, ``format_id`` shape coercion, ``asset_type``
+    inference). The hook runs on every call; keep it fast.
+    Deliberate ``AdcpError`` / ``ADCPTaskError`` rejections preserve their
+    structured fields. Other hook exceptions surface as ``INVALID_REQUEST``
+    naming the failing hook.
+
+    **Unknown-field policy (issue #858).** When
+    ``validation=ValidationHookConfig(unknown_fields=...)`` is supplied,
+    unsupported top-level tool arguments are handled after pre-validation
+    hooks and legacy adapters, but before request schema validation and
+    Pydantic coercion. ``"reject"`` raises ``INVALID_REQUEST``,
+    ``"strip"`` removes unsupported keys, and ``"ignore"`` preserves the
+    current permissive behavior.
+
+    .. note::
+        For the specific case of buyers omitting ``account``, see issue
+        #623 ("Typed dispatcher rejects valid request when ``account`` is
+        omitted") — that will be the canonical spec-level fix for that
+        field. Once #623 lands you can drop any ``account`` placeholder
+        hook entry.
+
+    Args:
+        handler: The ADCP handler instance
+        method_name: Name of the method to call
+        validation: Optional :class:`ValidationHookConfig` with
+            per-side modes (``strict`` / ``warn`` / ``off``). Omitting
+            it disables server-side schema validation entirely.
+        pre_validation_hook: Optional callable or ordered sequence of
+            callables ``(tool_name, args) -> args`` invoked on the raw wire
+            dict before schema + Pydantic validation. See the
+            **Pre-validation hooks** section above.
+        default_unnegotiated_adcp_version: Release-precision version to use
+            when the buyer supplies no version envelope. MCP uses ``"3.0"``
+            for legacy compatibility. A2A passes ``None`` so omitted version
+            means the current SDK wire shape.
+        response_enhancer: Optional server-wide :data:`ResponseEnhancer`
+            applied to every successful response after context echo and
+            before schema validation. See :data:`ResponseEnhancer` for the
+            two supported arities and the failure/idempotency semantics.
+
+    Returns:
+        Async callable ``call_tool(params, context=None)``. The ``context``
+        parameter is optional — transports that can extract caller identity
+        from their auth layer (A2A's ``ServerCallContext.user``, custom
+        FastMCP auth middleware, etc.) should pass a populated
+        :class:`ToolContext` so the server middleware layer (idempotency
+        per-principal scoping, audit logging) gets the real principal. When
+        no context is supplied, a bare :class:`ToolContext` is used.
+    """
+    from pydantic import ValidationError
+
+    from adcp._version import normalize_to_release_precision
+    from adcp.canonical_formats import (
+        CanonicalFormatLegacyResolutionError,
+        CreativeDialect,
+        CreativeDialectError,
+        LegacyCreativeProjectionError,
+        normalize_legacy_creative_request,
+        project_canonical_response_to_legacy,
+        resolve_creative_dialect,
+    )
+    from adcp.compat.legacy import LEGACY_ADAPTER_VERSIONS, get_legacy_adapter
+    from adcp.compat.legacy.errors import legacy_adapter_task_error
+    from adcp.compat.versions import (
+        CONVERSION_METADATA_KEY,
+        ADCPVersionConversionError,
+        ConversionResult,
+        convert_payload,
+        log_conversion_summary,
+    )
+    from adcp.exceptions import ADCPFeatureUnsupportedError, ADCPTaskError
+    from adcp.server.helpers import inject_context
+    from adcp.server.version_policy import project_supported_versions, resolve_supported_versions
+    from adcp.types import Error
+    from adcp.validation.envelope import (
+        SUPPORTED_WIRE_VERSIONS,
+        UnsupportedVersionError,
+        detect_wire_version,
+    )
+    from adcp.validation.schema_errors import build_adcp_validation_error_payload
+    from adcp.validation.schema_loader import Direction
+    from adcp.validation.schema_validator import (
+        format_issues,
+        validate_request,
+        validate_response,
+    )
+
+    adopter_method_name = {
+        "build_creative": "build_creative_legacy",
+        "list_creative_formats": "list_creative_formats_legacy",
+        "preview_creative": "preview_creative_legacy",
+    }.get(method_name, method_name)
+    method = getattr(handler, adopter_method_name)
+    params_model = _resolve_params_pydantic_model(method)
+    frozen_reporting_feed = (
+        method_name == "get_reporting_status"
+        and getattr(handler, "reporting_feed_store", None) is not None
+    )
+    pinned_reporting_status = frozen_reporting_feed or (
+        method_name == "get_reporting_status"
+        and getattr(handler, "reporting_status_handler", None) is not None
+    )
+
+    # Opt-in server-side schema modes. ``None`` keeps validation off
+    # entirely (zero overhead on the hot path) — the TS-port default for
+    # ``createAdcpServer`` is the same: validation is an explicit opt-in.
+    request_mode = validation.requests if validation is not None else None
+    response_mode = validation.responses if validation is not None else None
+    unknown_field_policy = _normalize_unknown_field_policy(
+        validation.unknown_fields if validation is not None else None
+    )
+    pre_validation_hooks = _flatten_pre_validation_hooks(pre_validation_hook)
+    selected_versions = resolve_supported_versions(
+        supported_versions,
+        handler=handler,
+    )
+    accepted_versions = selected_versions or SUPPORTED_WIRE_VERSIONS
+    from adcp._version import resolve_adcp_version_alias
+
+    served_contracts = {resolve_adcp_version_alias(version) for version in accepted_versions}
+
+    def unsupported_version_error(exc: UnsupportedVersionError) -> ADCPTaskError:
+        return ADCPTaskError(
+            operation=method_name,
+            errors=[
+                Error(
+                    code="VERSION_UNSUPPORTED",
+                    message=str(exc),
+                    details={
+                        "claimed_version": exc.wire_value,
+                        "supported_versions": list(exc.supported),
+                    },
+                )
+            ],
+        )
+
+    def convert_version_payload(
+        payload: dict[str, Any], *, direction: Direction, source_version: str, target_version: str
+    ) -> ConversionResult:
+        try:
+            # Seller side: dropping newer fields for an older buyer is the
+            # expected cost of serving it, and ToolContext.metadata records
+            # every loss. Log each loss at DEBUG and one INFO summary per
+            # conversion instead of a WARNING per field per item.
+            converted = convert_payload(
+                method_name,
+                payload,
+                direction=direction,
+                source_version=source_version,
+                target_version=target_version,
+                loss_log_level=logging.DEBUG,
+            )
+        except ADCPFeatureUnsupportedError as exc:
+            details = None
+            if isinstance(exc, ADCPVersionConversionError):
+                details = {
+                    "pointer": exc.pointer,
+                    "source_version": exc.source_version,
+                    "target_version": exc.target_version,
+                    "reason": exc.reason,
+                }
+            raise ADCPTaskError(
+                operation=method_name,
+                errors=[
+                    Error(
+                        code="VERSION_UNSUPPORTED",
+                        message=str(exc),
+                        field=exc.pointer if isinstance(exc, ADCPVersionConversionError) else None,
+                        details=details,
+                    )
+                ],
+            ) from exc
+        log_conversion_summary(
+            method_name,
+            converted.losses,
+            source_version=source_version,
+            target_version=target_version,
+        )
+        return converted
+
+    async def call_tool(params: dict[str, Any], context: ToolContext | None = None) -> Any:
+        ctx = context if context is not None else ToolContext()
+
+        raw_params = params  # Preserve original wire params for context echo.
+
+        if frozen_reporting_feed and params.get("view") == "periods":
+            from adcp.reporting.feed.errors import ReportingFeedError
+            from adcp.reporting.feed.request import FeedRequest
+
+            try:
+                FeedRequest.parse(params)
+            except ReportingFeedError as exc:
+                raise ADCPTaskError(
+                    operation=method_name, errors=[Error(code=exc.code, message=str(exc))]
+                ) from None
+
+        if method_name == "sync_reporting_receipts":
+            from adcp.reporting.receipts.errors import ReportingReceiptError
+            from adcp.reporting.receipts.wire import ReceiptBatch
+
+            # Financial batches require the raw shape even with generic
+            # validation disabled. Coercion must not erase supplied empty
+            # arrays, read-only fields, timestamps, or request extensions.
+            try:
+                receipt_batch = ReceiptBatch.parse(raw_params)
+                raw_params = receipt_batch.request
+            except ReportingReceiptError as exc:
+                raise ADCPTaskError(
+                    operation=method_name, errors=[Error(code=exc.code, message=str(exc))]
+                ) from None
+
+        if pre_validation_hooks:
+            try:
+                params = _apply_pre_validation_hooks(
+                    pre_validation_hooks,
+                    method_name,
+                    (
+                        copy.deepcopy(params)
+                        if method_name == "sync_reporting_receipts"
+                        else dict(params)
+                    ),
+                )
+                if method_name == "sync_reporting_receipts":
+                    # A rewrite would change the identity the buyer authorized.
+                    # Hooks may inspect this task; financial mutations fail closed.
+                    try:
+                        if ReceiptBatch.parse(params) != receipt_batch:
+                            raise ReportingReceiptError("INVALID_REQUEST")
+                    except ReportingReceiptError:
+                        raise ADCPTaskError(
+                            operation=method_name,
+                            errors=[
+                                Error(
+                                    code="INVALID_REQUEST",
+                                    message="receipt requests cannot be rewritten",
+                                )
+                            ],
+                        ) from None
+            except PreValidationHookError as exc:
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="INVALID_REQUEST",
+                            message=str(exc),
+                        )
+                    ],
+                ) from exc
+
+        # Wire-version detection: read ``adcp_version`` / ``adcp_major_version``
+        # off the post-hook params (legacy buyers may rely on a hook to
+        # populate the envelope, so this runs after pre_validation_hook).
+        # ``None`` initially means the buyer didn't claim a version.
+        # After legacy shape probes run, native unnegotiated traffic is
+        # pinned to 3.0 compatibility because those buyers predate the
+        # release-precision ``adcp_version`` field and the 3.1 status split.
+        # An explicit unsupported claim always fails before validation or
+        # handler dispatch. Only an omitted envelope may continue into the
+        # legacy shape probes below.
+        try:
+            wire_version = detect_wire_version(params, supported=accepted_versions)
+        except UnsupportedVersionError as exc:
+            raise unsupported_version_error(exc) from exc
+
+        # Shape-based legacy detection (issue: real v2.5 buyers can't
+        # send ``adcp_version`` — the field didn't exist in the v2.5
+        # schema). When the envelope is empty and a legacy adapter
+        # registers an ``is_legacy_shape`` probe, run it. A match
+        # promotes ``wire_version`` to the probe's version so the
+        # adapter path below fires normally. Bias is conservative:
+        # probes return ``True`` only on fields v3 doesn't emit
+        # (``brand_manifest``, ``creative_ids``, bare-string
+        # ``format_id``). False positives downgrade a real v3 buyer
+        # to legacy validation, which is the worst outcome.
+        if wire_version is None:
+            for candidate in LEGACY_ADAPTER_VERSIONS:
+                candidate_adapter = get_legacy_adapter(candidate, method_name)
+                if candidate_adapter is None:
+                    continue
+                probe = candidate_adapter.is_legacy_shape
+                if probe is None:
+                    continue
+                try:
+                    matched = probe(params) if isinstance(params, dict) else False
+                except Exception:  # noqa: BLE001 — defensive: probes are pure-ish
+                    matched = False
+                if matched:
+                    logger.info(
+                        "Detected %s wire shape for %s (no envelope version "
+                        "supplied); routing through legacy adapter.",
+                        candidate,
+                        method_name,
+                    )
+                    wire_version = candidate
+                    break
+
+        # A major-only envelope (``adcp_major_version: 3``) does not select
+        # the 3.0 release. Discovery must still advertise the current 3.x
+        # native surface; only release-precision ``adcp_version`` can suppress
+        # a release-scoped feature.
+        wire_release_was_negotiated = isinstance(params, dict) and isinstance(
+            params.get("adcp_version"), str
+        )
+        if (
+            method_name == "get_adcp_capabilities"
+            and not wire_release_was_negotiated
+            # Legacy-only mounts keep the structured unsupported-version
+            # path below; minor negotiation only knows native 3.x releases.
+            and any(version not in LEGACY_ADAPTER_VERSIONS for version in accepted_versions)
+        ):
+            from adcp._version import resolve_adcp_version
+            from adcp.compat.versions import negotiate_version
+
+            # Discovery must expose supported_versions before a buyer can
+            # negotiate. Projecting an unversioned probe through 3.0 would
+            # remove that field and strand modern buyers on the legacy floor.
+            wire_version = negotiate_version(
+                list(accepted_versions), maximum=resolve_adcp_version(None)
+            )
+        if wire_version is None:
+            wire_version = default_unnegotiated_adcp_version
+        if selected_versions is not None:
+            # A2A's unpinned default is the packaged contract. Legacy shape
+            # probes and omitted envelopes must obey the same selected set as
+            # explicit version claims, even when schema validation is off.
+            from adcp._version import resolve_adcp_version
+
+            effective_version = wire_version or resolve_adcp_version(None)
+            effective_version = resolve_adcp_version_alias(
+                normalize_to_release_precision(effective_version)
+            )
+            if effective_version not in served_contracts:
+                raise unsupported_version_error(
+                    UnsupportedVersionError(effective_version, accepted_versions)
+                )
+            if wire_version is not None:
+                wire_version = effective_version
+
+        claimed_release = params.get("adcp_version")
+        bridged_response_version: str | None = None
+        if isinstance(claimed_release, str) and claimed_release:
+            normalized_claim = normalize_to_release_precision(claimed_release)
+            if normalized_claim != wire_version:
+                bridged_response_version = normalized_claim
+
+        ctx.resolved_adcp_version = wire_version
+
+        if pinned_reporting_status:
+            from adcp._version import is_adcp_version_at_least, resolve_adcp_version
+
+            mounted_version = default_unnegotiated_adcp_version or resolve_adcp_version(None)
+            requested_version = wire_version or resolve_adcp_version(None)
+            if is_adcp_version_at_least(mounted_version, "3.2-rc.6") != is_adcp_version_at_least(
+                requested_version, "3.2-rc.6"
+            ):
+                # Frozen rc.3 complete periods may carry next_expected_at;
+                # rc.6 forbids it. Do not return preserved old bytes under an
+                # incompatible advertised schema, even with validation off.
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="VERSION_UNSUPPORTED",
+                            message=(
+                                "Pin the reporting mount and client to the same AdCP version; "
+                                "continue an existing walk on its original version, or start "
+                                "a new walk without a cursor or checkpoint after changing version."
+                            ),
+                            details={"mounted_version": mounted_version},
+                        )
+                    ],
+                )
+
+        # Legacy-version routing: if the buyer claims (or shape-detected)
+        # a version handled via the adapter path (e.g. ``"2.5"``),
+        # validate the params against the legacy schema first, *then*
+        # translate to the current shape. Pre-adapter validation
+        # surfaces structural errors with the legacy schema's field
+        # paths — far easier for the buyer to act on than a v3
+        # field-path error after a confusing translation. Post-adapter
+        # validation (further down) catches translator bugs against
+        # the SDK pin.
+        legacy_adapter: Any = None
+        if wire_version in LEGACY_ADAPTER_VERSIONS:
+            legacy_adapter = get_legacy_adapter(wire_version, method_name)
+            if legacy_adapter is None:
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="INVALID_REQUEST",
+                            message=(
+                                f"Tool {method_name!r} is not available on "
+                                f"AdCP {wire_version}; upgrade to a "
+                                f"supported version or call a tool exposed "
+                                f"on this legacy surface."
+                            ),
+                            details={"legacy_version": wire_version},
+                        )
+                    ],
+                )
+
+            # Pre-adapter validation against the legacy schema.
+            # Only runs when validation is enabled at all
+            # (``request_mode != off`` AND a config is supplied) — keeps
+            # the zero-overhead path for adopters who haven't opted in.
+            # ``strict`` rejects; ``warn`` logs and proceeds so the
+            # adapter still gets to translate (matching the existing
+            # post-adapter contract).
+            if request_mode is not None and request_mode != "off":
+                pre_outcome = validate_request(method_name, params, version=wire_version)
+                if not pre_outcome.valid:
+                    summary = format_issues(pre_outcome.issues)
+                    if request_mode == "strict":
+                        payload = build_adcp_validation_error_payload(
+                            method_name, "request", pre_outcome.issues
+                        )
+                        # Annotate with the wire version so adopter
+                        # telemetry knows which schema rejected.
+                        payload_details = dict(payload.get("details") or {})
+                        payload_details["claimed_version"] = wire_version
+                        payload["details"] = payload_details
+                        raise ADCPTaskError(
+                            operation=method_name,
+                            errors=[Error(**payload)],
+                        )
+                    logger.warning(
+                        "Schema validation warning (pre-adapter %s) for %s: %s",
+                        wire_version,
+                        method_name,
+                        summary,
+                    )
+
+            try:
+                params = legacy_adapter.adapt_request(params)
+            except Exception as exc:
+                raise legacy_adapter_task_error(
+                    operation=method_name,
+                    wire_version=wire_version,
+                    phase="request",
+                    exception=exc,
+                ) from exc
+            # Adapter output is validated against the SDK pin
+            # (catches translator bugs with v3 field paths). The
+            # ``post_adapter_validator_version`` name documents
+            # which side of the adapter this value plays.
+            post_adapter_validator_version: str | None = None
+        else:
+            post_adapter_validator_version = wire_version
+        response_validator_version = None if legacy_adapter is not None else wire_version
+
+        from adcp._version import resolve_adcp_version
+
+        application_version = resolve_adcp_version(None)
+        convert_minor_version = (
+            legacy_adapter is None
+            and wire_version is not None
+            and wire_version != application_version
+            and wire_version.startswith("3.")
+            and "-" not in wire_version
+            and method_name != "sync_reporting_receipts"
+            and not frozen_reporting_feed
+        )
+        if convert_minor_version and wire_version is not None:
+            # Validate the original wire contract before converting. Handler
+            # validation below then checks the upgraded application shape.
+            if request_mode is not None and request_mode != "off":
+                wire_outcome = validate_request(method_name, params, version=wire_version)
+                if not wire_outcome.valid:
+                    if request_mode == "strict":
+                        raise ADCPTaskError(
+                            operation=method_name,
+                            errors=[
+                                Error(
+                                    **build_adcp_validation_error_payload(
+                                        method_name, "request", wire_outcome.issues
+                                    )
+                                )
+                            ],
+                        )
+                    logger.warning(
+                        "Schema validation warning (wire request) for %s: %s",
+                        method_name,
+                        format_issues(wire_outcome.issues),
+                    )
+            params = convert_version_payload(
+                params,
+                direction="request",
+                source_version=wire_version,
+                target_version=application_version,
+            ).payload
+            post_adapter_validator_version = None
+            ctx.metadata[CONVERSION_METADATA_KEY] = {"wire_version": wire_version, "losses": []}
+
+        creative_boundary_tools = {
+            "create_media_buy",
+            "get_creative_delivery",
+            "get_media_buy_delivery",
+            "get_media_buys",
+            "get_products",
+            "list_creatives",
+            "sync_creatives",
+            "update_media_buy",
+        }
+        legacy_projection_sources: list[Any] = []
+        if method_name in creative_boundary_tools and isinstance(params, dict) and wire_version:
+            try:
+                dialect = (
+                    CreativeDialect.LEGACY
+                    if not str(wire_version).startswith("3.")
+                    else resolve_creative_dialect(
+                        wire_version,
+                        capabilities=_creative_capabilities_for_handler(handler),
+                        request=params,
+                    )
+                )
+                if dialect is CreativeDialect.LEGACY:
+                    params = normalize_legacy_creative_request(
+                        params,
+                        legacy_format_converter=getattr(handler, "legacy_format_converter", None),
+                        projection_sources=legacy_projection_sources,
+                    )
+                    # The normalized object is canonical handler input, not a
+                    # valid instance of the caller's legacy wire schema.
+                    post_adapter_validator_version = None
+            except (CreativeDialectError, LegacyCreativeProjectionError) as exc:
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="INVALID_REQUEST",
+                            message=str(exc),
+                            suggestion=(
+                                "Publish a canonical format declaration or configure the "
+                                "server's legacy_format_converter"
+                            ),
+                        )
+                    ],
+                ) from exc
+
+        if (
+            isinstance(params, dict)
+            and method_name != "sync_reporting_receipts"
+            and not frozen_reporting_feed
+        ):
+            params = _apply_unknown_field_policy(
+                method_name,
+                params,
+                policy=unknown_field_policy,
+                version=post_adapter_validator_version,
+                params_model=params_model,
+            )
+
+        if request_mode is not None and request_mode != "off":
+            outcome = validate_request(method_name, params, version=post_adapter_validator_version)
+            if not outcome.valid:
+                summary = format_issues(outcome.issues)
+                if request_mode == "strict":
+                    payload = build_adcp_validation_error_payload(
+                        method_name, "request", outcome.issues
+                    )
+                    raise ADCPTaskError(
+                        operation=method_name,
+                        errors=[Error(**payload)],
+                    )
+                logger.warning(
+                    "Schema validation warning (request) for %s: %s",
+                    method_name,
+                    summary,
+                )
+
+        call_params: Any = params
+        if method_name == "sync_reporting_receipts":
+            call_params = raw_params
+        elif frozen_reporting_feed:
+            call_params = params
+        elif params_model is not None and isinstance(params, dict):
+            try:
+                call_params = params_model.model_validate(params)
+            except ValidationError as exc:
+                # Surface as a structured AdCP error so MCP clients see
+                # INVALID_REQUEST with a field-level pointer instead of
+                # a raw Pydantic traceback. translate_error maps this
+                # to ToolError (MCP) / ServerError (A2A) per transport.
+                #
+                # Strip ``input``/``ctx``/``url`` from the Pydantic error
+                # details — they echo the raw offending value verbatim
+                # (``input`` in particular). In multi-hop agent chains the
+                # response flows through intermediaries, so echoing the
+                # user-supplied value is a PII/secret-leak vector: a
+                # mistyped API key or secret-shaped idempotency_key could
+                # land in the broker's logs. The field path in
+                # ``Error.field`` is all clients need to programmatically
+                # locate the bad value in their own request.
+                errors_list = exc.errors(
+                    include_input=False, include_context=False, include_url=False
+                )
+                # Narrow discriminated-union failures to the variant
+                # the user actually intended (Stability AI Emma P2:
+                # 60-line dump → focused error). For non-union
+                # failures the function is a no-op.
+                #
+                # Defensive: if the narrowing helper itself raises
+                # (heuristic edge case, future pydantic format
+                # change), keep the original error list rather than
+                # 500'ing the wire path. The narrowed-error UX is a
+                # nice-to-have; correctness is surfacing SOME error.
+                try:
+                    errors_list = list(narrow_union_errors(errors_list))
+                except Exception:
+                    logger.warning(
+                        "narrow_union_errors raised on %s — passing through "
+                        "unfiltered errors. This is a bug in the narrowing "
+                        "heuristic, NOT in the validation itself.",
+                        method_name,
+                        exc_info=True,
+                    )
+                first: dict[str, Any] = dict(errors_list[0]) if errors_list else {}
+                field_path = ".".join(str(loc) for loc in first.get("loc", ()))
+                message = first.get("msg", "validation failed")
+                suggestion = (
+                    f"Invalid value for field {field_path!r}: {message}"
+                    if field_path
+                    else f"Request validation failed: {message}"
+                )
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="INVALID_REQUEST",
+                            field=field_path or None,
+                            message=suggestion,
+                            details={"validation_errors": errors_list},
+                        )
+                    ],
+                ) from exc
+        result = await method(call_params, ctx)
+        if method_name == "get_adcp_capabilities":
+            if isinstance(result, dict):
+                from adcp.canonical_formats.dialect import canonical_creatives_capability
+                from adcp.server.responses import _apply_canonical_creatives_capability
+
+                # Capture only the adopter's raw, version-independent feature
+                # declaration. Do not retain the negotiated response: 3.0
+                # intentionally removes this field and must not poison another
+                # caller's 3.1 routing decision.
+                declared_canonical = canonical_creatives_capability(result)
+                if declared_canonical is None:
+                    supported_protocols = result.get("supported_protocols")
+                    if isinstance(supported_protocols, list) and "media_buy" in supported_protocols:
+                        # The canonical framework default is the declaration
+                        # even when a negotiated 3.0 response must suppress the
+                        # 3.1-only feature field on the wire.
+                        declared_canonical = True
+                if declared_canonical is not None:
+                    setattr(
+                        handler,
+                        "_declared_creative_capabilities",
+                        {
+                            "media_buy": {
+                                "features": {
+                                    "canonical_creatives": declared_canonical,
+                                }
+                            }
+                        },
+                    )
+                _apply_canonical_creatives_capability(
+                    result,
+                    # Discovery without a release envelope advertises the
+                    # server's current native surface. Only an explicit
+                    # negotiated 3.0 request suppresses the 3.1 feature.
+                    adcp_version=(wire_version if wire_release_was_negotiated else None),
+                )
+        if (
+            method_name in creative_boundary_tools
+            and wire_version
+            and (
+                not str(wire_version).startswith("3.")
+                or resolve_creative_dialect(
+                    wire_version,
+                    capabilities=_creative_capabilities_for_handler(handler),
+                    request=raw_params,
+                )
+                is CreativeDialect.LEGACY
+            )
+        ):
+            try:
+                result = project_canonical_response_to_legacy(
+                    result,
+                    resolver=getattr(handler, "canonical_format_legacy_resolver", None),
+                    sources=legacy_projection_sources,
+                )
+            except CanonicalFormatLegacyResolutionError as exc:
+                raise ADCPTaskError(
+                    operation=method_name,
+                    errors=[
+                        Error(
+                            code="INTERNAL_ERROR",
+                            message=str(exc),
+                            suggestion=(
+                                "Configure canonical_format_legacy_resolver or return a "
+                                "same-process projection retaining its original tuple"
+                            ),
+                        )
+                    ],
+                ) from exc
+        # Convert Pydantic models to JSON-safe dicts for MCP serialization
+        if hasattr(result, "model_dump"):
+            result = result.model_dump(mode="json", exclude_none=True)
+        if method_name == "get_adcp_capabilities" and isinstance(result, dict):
+            result = project_supported_versions(result, selected_versions)
+        # ADCP requires echoing context from request to response — read
+        # from the raw dict the transport sent, not from the validated
+        # model (which won't carry the wire ``context`` field).
+        if isinstance(result, dict):
+            if bridged_response_version is not None:
+                # Old rc.7 clients have no stable validator. Retain the wire
+                # alias for their response lookup while routing and validating
+                # internally against the compatible stable contract.
+                result["adcp_version"] = bridged_response_version
+            _normalize_response_envelope(
+                method_name,
+                result,
+                raw_params,
+                adcp_version=(
+                    application_version if convert_minor_version else response_validator_version
+                ),
+            )
+            inject_context(raw_params, result)
+            # Run the seller's response enhancer AFTER ``inject_context``
+            # (so it sees the credential-stripped echo envelope and can't
+            # re-introduce a credential) and BEFORE ``validate_response``
+            # (so any conformance-breaking mutation surfaces as a
+            # VALIDATION_ERROR rather than shipping malformed). This single
+            # site covers framework tools, custom tools
+            # (``get_task_status`` / ``list_tasks``), and
+            # ``get_adcp_capabilities`` on both MCP and A2A. The L3 error
+            # envelope is enhanced on the dedicated error paths
+            # (``build_mcp_error_result`` / ``_send_adcp_error``), so skip
+            # it here to avoid a double pass.
+            if "adcp_error" not in result and method_name != "sync_reporting_receipts":
+                _apply_response_enhancer(response_enhancer, method_name, result, ctx)
+            if method_name == "get_adcp_capabilities" and "adcp_error" not in result:
+                result = project_supported_versions(result, selected_versions)
+
+        if (
+            convert_minor_version
+            and wire_version is not None
+            and isinstance(result, dict)
+            and "adcp_error" not in result
+        ):
+            response_direction = result.get("status")
+            converted = convert_version_payload(
+                result,
+                direction=(
+                    response_direction
+                    if response_direction in {"submitted", "working", "input-required"}
+                    else "sync"
+                ),
+                source_version=application_version,
+                target_version=wire_version,
+            )
+            result = converted.payload
+            ctx.metadata[CONVERSION_METADATA_KEY]["losses"].extend(converted.metadata())
+            if bridged_response_version is not None:
+                result["adcp_version"] = bridged_response_version
+
+        if response_mode is not None and response_mode != "off" and isinstance(result, dict):
+            # Skip validation when the handler returned the AdCP L3
+            # error envelope (``{"adcp_error": {...}}``). That envelope
+            # has its own shape enforced by the ``Error`` builder; the
+            # per-tool response schema would false-positive on it and
+            # convert a real protocol error into a fake VALIDATION_ERROR.
+            if "adcp_error" not in result:
+                outcome = validate_response(method_name, result, version=response_validator_version)
+                if not outcome.valid:
+                    summary = format_issues(outcome.issues)
+                    logger.warning(
+                        "Schema validation warning (response) for %s: %s",
+                        method_name,
+                        summary,
+                    )
+                    if response_mode == "strict":
+                        payload = build_adcp_validation_error_payload(
+                            method_name, "response", outcome.issues
+                        )
+                        raise ADCPTaskError(
+                            operation=method_name,
+                            errors=[Error(**payload)],
+                        )
+
+        # Legacy adapter response rewrite: when the buyer is on a legacy
+        # wire shape and the adapter declares a ``normalize_response``
+        # callable, translate the current-shape response back so the
+        # buyer sees the dict shape they expected. Runs *after*
+        # validation (which validated the current shape) so a malformed
+        # legacy rewrite doesn't mask handler bugs.
+        if legacy_adapter is not None and legacy_adapter.normalize_response is not None:
+            if isinstance(result, dict) and "adcp_error" not in result:
+                try:
+                    result = legacy_adapter.normalize_response(result)
+                except Exception as exc:
+                    raise legacy_adapter_task_error(
+                        operation=method_name,
+                        wire_version=wire_version,
+                        phase="response",
+                        exception=exc,
+                    ) from exc
+        if (
+            legacy_adapter is not None
+            and isinstance(result, dict)
+            and result.get("status") == "completed"
+        ):
+            result.pop("status")
+        return result
+
+    if frozen_reporting_feed:
+        setattr(call_tool, "_adcp_frozen_reporting_feed", True)
+    return call_tool
+
+
+class MCPToolSet:
+    """Collection of MCP tools from an ADCP handler.
+
+    Provides tool definitions and handlers for registering with an MCP server.
+    """
+
+    def __init__(
+        self,
+        handler: ADCPHandler[Any],
+        *,
+        advertise_all: bool = False,
+        validation: ValidationHookConfig | None = None,
+        pre_validation_hooks: PreValidationHooks | None = None,
+        response_enhancer: ResponseEnhancer | None = None,
+        supported_versions: Sequence[str] | None = None,
+        adcp_version: str | None = None,
+        schema_mode: SchemaMode = "compact",
+    ):
+        """Create tool set from handler.
+
+        Args:
+            handler: ADCP handler instance.
+            advertise_all: When True, advertise every tool the handler
+                type supports — even those whose method is still the
+                SDK's ``not_supported`` default. See
+                :func:`get_tools_for_handler` for the default behavior
+                (override-filtered advertisement).
+            validation: Opt-in schema validation config applied to every
+                tool caller. See :func:`create_tool_caller`.
+            pre_validation_hooks: Optional dict mapping tool name to a
+                ``(tool_name, args) -> args`` callable or ordered sequence.
+                Applied before schema + Pydantic validation. See
+                :func:`create_tool_caller`.
+            response_enhancer: Optional server-wide :data:`ResponseEnhancer`
+                applied to every successful response. See
+                :func:`create_tool_caller`.
+            schema_mode: Pydantic-derived input discovery shape. See
+                :func:`get_tools_for_handler`.
+        """
+        self.handler = handler
+        resolved_adcp_version = _resolve_handler_adcp_version(handler, adcp_version)
+        from adcp.server.version_policy import resolve_supported_versions
+
+        supported_versions = resolve_supported_versions(
+            supported_versions, handler=handler, adcp_version=resolved_adcp_version
+        )
+        self._filtered_definitions = get_tools_for_handler(
+            handler,
+            advertise_all=advertise_all,
+            adcp_version=resolved_adcp_version,
+            schema_mode=schema_mode,
+        )
+        # Adopters who wire ``tool_definitions`` into their own
+        # ``@server.list_tools()`` never reach ``create_mcp_server``, so this
+        # is their only size signal.
+        from adcp.server.serve import warn_if_discovery_payload_is_oversized
+
+        warn_if_discovery_payload_is_oversized(
+            tool_defs=self._filtered_definitions,
+            advertise_all=advertise_all,
+        )
+        self._tools: dict[str, Callable[..., Any]] = {}
+
+        # Create tool callers only for filtered tools
+        for tool_def in self._filtered_definitions:
+            name = tool_def["name"]
+            hook = (pre_validation_hooks or {}).get(name)
+            self._tools[name] = create_tool_caller(
+                handler,
+                name,
+                validation=validation,
+                pre_validation_hook=hook,
+                response_enhancer=response_enhancer,
+                supported_versions=supported_versions,
+                default_unnegotiated_adcp_version=(
+                    resolved_adcp_version or DEFAULT_UNNEGOTIATED_ADCP_VERSION
+                ),
+            )
+
+    @property
+    def tool_definitions(self) -> list[dict[str, Any]]:
+        """Get MCP tool definitions filtered by handler type."""
+        return list(self._filtered_definitions)
+
+    async def call_tool(self, name: str, params: dict[str, Any]) -> Any:
+        """Call a tool by name.
+
+        Args:
+            name: Tool name
+            params: Tool parameters
+
+        Returns:
+            Tool result
+
+        Raises:
+            KeyError: If tool not found
+        """
+        if name not in self._tools:
+            raise KeyError(f"Unknown tool: {name}")
+        return await self._tools[name](params)
+
+    def get_tool_names(self) -> list[str]:
+        """Get list of available tool names."""
+        return list(self._tools.keys())
+
+
+def create_mcp_tools(
+    handler: ADCPHandler[Any],
+    *,
+    advertise_all: bool = False,
+    validation: ValidationHookConfig | None = None,
+    pre_validation_hooks: PreValidationHooks | None = None,
+    response_enhancer: ResponseEnhancer | None = None,
+    supported_versions: Sequence[str] | None = None,
+    adcp_version: str | None = None,
+    schema_mode: SchemaMode = "compact",
+) -> MCPToolSet:
+    """Create MCP tools from an ADCP handler.
+
+    This is the main entry point for MCP server integration.
+
+    Example with mcp library:
+        from mcp.server import Server
+        from adcp.server import ContentStandardsHandler, create_mcp_tools
+
+        class MyHandler(ContentStandardsHandler):
+            # ... implement methods
+
+        handler = MyHandler()
+        tools = create_mcp_tools(handler)
+
+        server = Server("my-content-agent")
+
+        @server.list_tools()
+        async def list_tools():
+            return tools.tool_definitions
+
+        @server.call_tool()
+        async def call_tool(name: str, arguments: dict):
+            return await tools.call_tool(name, arguments)
+
+    Args:
+        handler: ADCP handler instance.
+        advertise_all: When True, advertise every tool the handler type
+            supports — even those whose method is still the SDK's
+            ``not_supported`` default. See :func:`get_tools_for_handler`.
+        validation: Opt-in schema validation config. When supplied,
+            every tool caller validates requests and responses against
+            the bundled AdCP JSON schemas. See
+            :func:`create_tool_caller` for mode semantics.
+        pre_validation_hooks: Optional dict mapping tool name to a
+            ``(tool_name, args) -> args`` callable or ordered sequence.
+            Applied before schema + Pydantic validation. See
+            :func:`create_tool_caller`.
+        response_enhancer: Optional server-wide :data:`ResponseEnhancer`
+            applied to every successful response. See
+            :func:`create_tool_caller`.
+        adcp_version: Trusted server protocol pin for version-scoped
+            ``tools/list`` schemas. Decorator-built handlers carry this pin
+            automatically; class-based handlers can pass it here.
+        schema_mode: Pydantic-derived input discovery shape. ``"compact"``
+            is bounded and complete at the request root; use ``"defs"`` for
+            the full referenced schema or ``"inline"`` for legacy clients
+            that do not resolve local JSON Schema references.
+
+    Returns:
+        MCPToolSet with tool definitions and handlers.
+    """
+    return MCPToolSet(
+        handler,
+        advertise_all=advertise_all,
+        validation=validation,
+        pre_validation_hooks=pre_validation_hooks,
+        response_enhancer=response_enhancer,
+        supported_versions=supported_versions,
+        adcp_version=adcp_version,
+        schema_mode=schema_mode,
+    )

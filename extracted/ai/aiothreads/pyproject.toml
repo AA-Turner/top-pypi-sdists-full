@@ -1,0 +1,107 @@
+[project]
+name = "aiothreads"
+version = "1.1.4"
+description = "glue between async and thread worlds"
+readme = "README.md"
+requires-python = ">=3.10"
+packages = [{ include = "aiothreads" }]
+keywords = [
+    "asyncio",
+    "threads",
+    "threading",
+    "async",
+    "await",
+    "concurrent",
+    "generator",
+    "iterator",
+    "decorator",
+    "executor",
+    "backpressure",
+    "context-variables",
+]
+dependencies = []
+author = "Dmitry Orlov <orlovdl@icloud.com>"
+license = "Apache-2.0"
+classifiers = [
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mosquito/aiothreads"
+"Source" = "https://github.com/mosquito/aiothreads/"
+"Issues" = "https://github.com/mosquito/aiothreads/issues"
+"Documentation" = "https://github.com/mosquito/aiothreads"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [".*", "*.pyc", "__pycache__"]
+
+[dependency-groups]
+dev = [
+    "async-timeout>=5.0.1",
+    "coveralls>=4.0.1",
+    "markdown-pytest>=0.5.3",
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mypy-plugins>=3.2.0",
+    "ruff>=0.11",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov aiothreads --cov-report term-missing"
+asyncio_mode = "auto"
+
+[tool.uv]
+package = true
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+no_implicit_reexport = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+files = ["aiothreads", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+check_untyped_defs = true
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_untyped_defs = false

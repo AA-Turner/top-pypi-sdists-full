@@ -1,0 +1,160 @@
+"""Add lemonaid's hooks to Claude Code's settings, without disturbing yours.
+
+SessionStart is opt-in because it changes what the inbox contains: every session
+registers itself at birth, so the inbox stops being "sessions that spoke to you"
+and becomes "sessions that exist". That is the point - a session nobody has
+talked to yet is exactly what a restore needs to find - but it is a different
+inbox than the one you had, so it is a thing you turn on.
+
+Edits are additive and idempotent: an existing hook with the same command is
+left alone, and hooks lemonaid did not write are never touched.
+"""
+
+import json
+import shlex
+import typing as ty
+from pathlib import Path
+
+_SESSION_START_COMMAND = "lemonaid claude session-start"
+WAITER_CHECK_COMMAND = "lemonaid claude waiter-check"
+SESSION_END_COMMAND = "lemonaid claude session-end"
+_STATUS_NOTE_SCRIPT = "; ".join(
+    [
+        "d=$(cat)",
+        'v() { printf "%s" "$d" | tr ",{" "\\n\\n" | '
+        'sed -n "s/^ *\\"$1\\" *: *\\"\\([^\\"]*\\)\\".*/\\1/p" | sort -u; }',
+        "s=$(v session_id)",
+        "p=$(v prompt_id)",
+        'f="${LEMONAID_STATE_DIR:-$HOME/.local/state/lemonaid}/status-note/$s"',
+        '[ -n "$s" ] && [ -n "$p" ] && [ "$(cat "$f" 2>/dev/null)" = "$p" ] && exit 0',
+        'printf "%s" "$d" | exec lemonaid claude status-note',
+    ]
+)
+# Every tool call runs this, so a call later in a turn than the first exits in the
+# shell, without starting Python. `v` lists each distinct value of a key at any
+# depth (a key inside a string value has escaped quotes and is not matched), so a
+# tool_response object carrying its own prompt_id gives two values, matches no
+# seen file, and goes on to Python, which reads the top-level ones.
+STATUS_NOTE_COMMAND = f"sh -c {shlex.quote(_STATUS_NOTE_SCRIPT)}"
+
+
+def settings_path() -> Path:
+    return Path.home() / ".claude" / "settings.json"
+
+
+def load(path: Path) -> dict:
+    if not path.exists():
+        return {}
+
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{path} is not valid JSON ({e}); fix it before installing hooks") from e
+
+
+def has_command(entries: ty.Iterable[dict], command: str) -> bool:
+    return any(
+        hook.get("command") == command
+        for entry in entries
+        for hook in entry.get("hooks", [])
+        if isinstance(hook, dict)
+    )
+
+
+def _with_hook(
+    settings: dict,
+    event: str,
+    command: str,
+    matcher: str = "",
+    fields: ty.Mapping[str, object] = {},
+) -> tuple[dict, bool]:
+    """`settings` plus a hook for `command` carrying `fields`, and whether anything changed."""
+    hooks = settings.setdefault("hooks", {})
+    entries = hooks.setdefault(event, [])
+
+    existing = [
+        hook
+        for entry in entries
+        for hook in entry.get("hooks", [])
+        if isinstance(hook, dict) and hook.get("command") == command
+    ]
+    if existing:
+        stale = [hook for hook in existing if any(hook.get(k) != v for k, v in fields.items())]
+        for hook in stale:
+            hook.update(fields)
+        return settings, bool(stale)
+
+    entries.append(
+        {
+            **({"matcher": matcher} if matcher else {}),
+            "hooks": [{"type": "command", "command": command, **fields}],
+        }
+    )
+    return settings, True
+
+
+def _write(path: Path, settings: dict) -> None:
+    """Replace the settings file whole: a partial write is a file Claude Code will not start with.
+
+    The file is commonly a symlink into a dotfiles repo. Replacing the link itself would
+    leave a plain file in its place and the dotfile behind, so the write goes to the target.
+    """
+    target = path.resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(".json.lemonaid-tmp")
+    tmp.write_text(json.dumps(settings, indent=2) + "\n")
+    tmp.replace(target)
+
+
+def install(
+    event: str,
+    command: str,
+    path: Path | None = None,
+    dry_run: bool = False,
+    matcher: str = "",
+    fields: ty.Mapping[str, object] = {},
+) -> str:
+    """Add a hook running `command` on `event` (for tools `matcher` names), or set `fields` on it.
+
+    Returns the line to print.
+    """
+    path = path or settings_path()
+    settings = load(path)
+    present = has_command(settings.get("hooks", {}).get(event, []), command)
+    settings, changed = _with_hook(settings, event, command, matcher, fields)
+
+    if not changed:
+        return f"{event} hook already installed in {path}"
+
+    if dry_run:
+        return f"would {'update' if present else 'add'} {event} -> {command} in {path}"
+
+    _write(path, settings)
+    return f"{'updated' if present else 'installed'} {event} -> {command} in {path}"
+
+
+def uninstall(event: str, command: str, path: Path | None = None) -> str:
+    """Remove the `event` hook lemonaid installed for `command`, and nothing else."""
+    path = path or settings_path()
+    settings = load(path)
+    entries = settings.get("hooks", {}).get(event, [])
+
+    kept = [entry for entry in entries if not has_command([entry], command)]
+    if len(kept) == len(entries):
+        return f"no lemonaid {event} hook in {path}"
+
+    if kept:
+        settings["hooks"][event] = kept
+    else:
+        del settings["hooks"][event]
+
+    _write(path, settings)
+    return f"removed {event} hook from {path}"
+
+
+def install_session_start(path: Path | None = None, dry_run: bool = False) -> str:
+    return install("SessionStart", _SESSION_START_COMMAND, path, dry_run)
+
+
+def uninstall_session_start(path: Path | None = None) -> str:
+    return uninstall("SessionStart", _SESSION_START_COMMAND, path)

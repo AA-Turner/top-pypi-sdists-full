@@ -1,0 +1,2231 @@
+/*******************************************************************************
+Copyright (c) 2001-2010 by Text Analysis International, Inc.
+All rights reserved.
+********************************************************************************
+*
+* NAME:	PARSE.CPP
+* FILE:	lite\parse.cpp
+* CR:		10/08/98 AM.
+* SUBJ:	Class responsible for analysis of a single text.
+*
+*******************************************************************************/
+
+#include "StdAfx.h"
+
+#ifdef LINUX
+#include <iostream>	// 09/27/19 AM.
+#include <strstream>	// 09/27/19 AM.
+#include <vector>
+#ifdef _ODBC
+#include <sql.h>
+#include <sqlext.h>
+#include <sqlucode.h>
+#endif
+#endif
+
+#include "machine.h"										// 03/08/00 AM.
+
+#include "u_out.h"		// 01/19/06 AM.
+#include "lite/lite.h"				// 07/07/03 AM.
+#include "lite/global.h"
+#include "dlist.h"					// 07/07/03 AM.
+#include "inline.h"														// 11/12/00 AM.
+#include "io.h"
+#include "std.h"
+#include "lite/iarg.h"		// 05/14/03 AM.
+#include "str.h"				// 02/14/01 AM.
+#include "lite/mach.h"									// 10/11/99 AM.
+#include "chars.h"
+//#include "lite/dlist.h"
+#include "node.h"	// 07/07/03 AM.
+#include "tree.h"		// 02/26/01 AM.
+#include "htab.h"				// 02/26/01 AM.
+#include "ipair.h"
+#include "pn.h"				// 02/14/01 AM.
+#include "ln.h"				// 02/14/01 AM.
+#include "ana.h"
+#include "seqn.h"				// 02/26/01 AM.
+#include "Eana.h"				// 02/26/01 AM.
+#include "consh/libconsh.h"	// CG (deferred user-KB load).	// 07/11/26 DD.
+#include "consh/cg.h"
+//#include "iarg.h"				// 05/23/01 AM.
+#include "parse.h"
+#include "lite/zonerange.h"
+#include "lite/nlpdebug.h"
+#include "lite/nlp.h"		// FOR DEBUGGING!!!	// 10/10/99 AM.
+#include "var.h"											// 09/26/00 AM.
+#include "lite/nlppp.h"										// 05/17/00 AM.
+#include "lite/code.h"	// Code::execPostcode (#392).
+
+#include <filesystem>
+
+int Parse::count_ = 0;
+
+// Keep cout safe, in case it is rebound.
+// NEED XP FIX.	// 01/12/03 AM.
+//static ostream safecout = cout;											// 05/06/02 AM.
+
+/********************************************
+* FN:		Special Functions for Parse Class
+* CR:		10/08/98 AM.
+********************************************/
+
+Parse::Parse()
+{
+text = 0;
+input[0] =  '\0';
+output[0] =  '\0';
+appdir_[0] =  '\0';
+anasdir_[0] = '\0';
+kbdir_[0] =  '\0';
+outdir_[0] = '\0';
+tree = 0;
+lines = 0;
+ana = 0;
+nlp_ = 0;				// 06/25/03 AM.
+htab_ = 0;				// 06/25/03 AM.
+eana_ = 0;				// 10/13/99 AM.
+vars_ = 0;				// 12/07/98 AM.
+verbose = false;		// Default.  // 12/26/98 AM.
+intern_ = true;																// 05/26/01 AM.
+zoneNum_ = 0;
+zoneFirst_ = zoneLast_ = false;
+rulesFile_ = false;
+currpass_ = 0;			// 07/24/01 AM.
+rulepass_ = 0;			// 02/03/05 AM.
+inputpass_ = 0;		// 08/23/02 AM.
+
+// Per-pass timing table for the ranked summary.	// 08/04/26 AM.
+passmax_ = 0;
+for (long pi = 0; pi < PASSTIMES_MAX; ++pi)
+	{
+	passsecs_[pi]  = 0.0;
+	passruns_[pi]  = 0;
+	passnames_[pi] = 0;
+	}
+seq_ = 0;				// 07/24/01 AM.
+line_	= 0;				// 08/24/02 AM.
+inputline_ = 0;		// 08/24/02 AM.
+length = 0;
+
+// Make an empty list when creating the Parse object.				// 05/23/01 AM.
+// (That way, never have to check if it exists or not.			// 05/23/01 AM.
+ostrs_ = new Dlist<Iarg>();	// Make empty list.					// 05/23/01 AM.
+
+// The output file is not setup, by default.	// 01/07/99 AM.
+out_ = 0;
+sout_ = 0;					// 05/13/99 AM.
+fout_ = 0;					// 05/13/99 AM.
+
+cbuf_ = 0;					// 05/11/02 AM.
+cbufmax_ = 0;				// 05/11/02 AM.
+cbuftot_ = 0;				// 05/11/02 AM.
+cbufover_ = false;		// 05/11/02 AM.
+
+// Default will be standard output stream.
+cout_ = &std::_t_cout;				// 05/04/03 AM.
+
+#ifdef _ODBC
+henv_ = 0;					// 05/23/02 AM.
+hdbc_ = 0;					// 05/23/02 AM.
+hstmt_ = 0;					// 05/25/02 AM.
+cursor_ = 0;				// 05/26/02 AM.
+#endif
+
+blobs_ = new Dlist<Iarg>();	// Make empty list.						// 02/27/03 AM.
+datum_ = 0;					// 03/13/03 AM.
+
+#ifndef LINUX
+hdll_ = 0;					// 01/29/99 AM.
+#endif
+
+collect_ = 0;				// 05/17/00 AM.
+nlppp_	= 0;				// 05/17/00 AM.
+codeexit_ = false;
+algo_		= 0;				// 05/31/00 AM.
+
+fbatchstart_ = false;	// 10/19/00 AM.
+
+logfile_ = 0;	// VTLOG	// 05/06/13 AM.
+
+#ifndef STABLE_
+++count_;
+#endif
+}
+
+Parse::~Parse()
+{
+clean();			// 11/17/98 AM.
+
+#ifndef STABLE_
+--count_;
+#endif
+}
+
+/*******************************************/
+/*******************************************/
+
+
+/********************************************
+* FN:		Access Functions
+* CR:		10/08/98 AM.
+********************************************/
+
+Ana  *Parse::getAna()		{return ana;	 }
+NLP  *Parse::getNLP()		{return nlp_;	 }							// 06/25/03 AM.
+Htab *Parse::getHtab()		{return htab_;	 }							// 06/25/03 AM.
+Eana *Parse::getEana()		{return eana_;	 }							// 10/13/99 AM.
+_TCHAR *Parse::getInput()    {return input;  }
+_TCHAR *Parse::getOutput()   {return output; }
+_TCHAR *Parse::getAppdir()	{return appdir_;}
+_TCHAR *Parse::getAnasdir()	{return anasdir_;}
+_TCHAR *Parse::getKBdir()	{return kbdir_;}
+_TCHAR *Parse::getText()     {return text;   }
+long  Parse::getLength()	{return length; }
+long Parse::getUlength()	{return ulength;}	// [UNICODE]
+TREE *Parse::getTree() {return tree;   }
+LTREE *Parse::getLines(){return lines;  }
+Dlist<Ipair> *Parse::getVars()	{return vars_;}
+Dlist<Iarg>	 *Parse::getOstrs()	{return ostrs_;}					// 05/23/01 AM.
+std::_t_ostream		 *Parse::getOut()		{return out_;}
+std::_t_ostream		 *Parse::getCout()	{return cout_;}					// 05/04/03 AM.
+std::_t_ostream		 *Parse::getSout()	{return sout_;}					// 05/13/99 AM.
+std::_t_ofstream		 *Parse::getFout()	{return fout_;}					// 05/13/99 AM.
+#ifndef LINUX
+HINSTANCE	  Parse::getHdll()	{return hdll_;}					// 01/29/99 AM.
+#endif
+_TCHAR *Parse::getOutdir()	{return outdir_;}							// 03/10/99 AM.
+COLL *Parse::getCollect()	{return collect_;}						// 05/17/00 AM.
+Nlppp *Parse::getNlppp()	{return nlppp_;}							// 05/17/00 AM.
+bool Parse::getCodeexit()	{return codeexit_;}
+_TCHAR *Parse::getAlgo()		{return algo_;}							// 05/31/00 AM.
+bool	Parse::getFbatchstart() {return fbatchstart_;}				// 10/19/00 AM.
+bool	Parse::getIntern()	{return intern_;}							// 05/26/01 AM.
+long	Parse::getCurrpass()		{return currpass_;}		// REN.	// 08/22/02 AM.
+long	Parse::getRulepass()		{return rulepass_;}					// 02/03/05 AM.
+long	Parse::getInputpass()	{return inputpass_;}					// 08/23/02 AM.
+Delt<Seqn> *Parse::getSeq()		{return seq_;}						// 07/24/01 AM.
+
+#ifdef LINUX
+std::ostringstream		*Parse::getCbuf()	{return cbuf_;}					// 05/11/02 AM. // 09/27/19 AM.
+#else
+std::_t_ostrstream		*Parse::getCbuf()	{return cbuf_;}					// 05/11/02 AM.
+#endif
+long	Parse::getCbufmax()			{return cbufmax_;}				// 05/11/02 AM.
+long	Parse::getCbuftot()			{return cbuftot_;}				// 05/11/02 AM.
+bool	Parse::getCbufover()		{return cbufover_;}					// 05/11/02 AM.
+
+#ifdef _ODBC
+SQLHENV Parse::getHenv()	{return henv_;}							// 05/23/02 AM.
+SQLHDBC Parse::getHdbc()	{return hdbc_;}							// 05/23/02 AM.
+SQLHDBC Parse::getHstmt()	{return hstmt_;}							// 05/25/02 AM.
+SDWORD  Parse::getCursor()	{return cursor_;}							// 05/26/02 AM.
+SDWORD *Parse::getPcursor()	{return &cursor_;}					// 05/26/02 AM.
+#endif
+
+Dlist<Iarg>	*Parse::getBlobs()		{return blobs_;}				// 02/27/03 AM.
+_TCHAR	 *Parse::getDatum()	{return datum_;}							// 03/13/03 AM.
+
+long	Parse::getLine()			{return line_;	}						// 08/24/02 AM.
+long	Parse::getInputline()	{return inputline_;}					// 08/24/02 AM.
+
+bool Parse::Verbose()		{return verbose;}
+
+_TCHAR	 *Parse::getLogfile()	{return logfile_;}	// VTLOG	// 05/06/13 AM.
+
+
+/********************************************
+* FN:		Modify Functions
+* CR:		10/08/98 AM.
+********************************************/
+
+void Parse::setAna(Ana *x)			{ana		= x;}
+void Parse::setNLP(NLP *x)			{nlp_		= x;}						// 06/25/03 AM.
+void Parse::setHtab(Htab *x)		{htab_	= x;}						// 06/25/03 AM.
+void Parse::setEana(Eana *x)		{eana_	= x;}						// 10/13/99 AM.
+void Parse::setInput(_TCHAR  *x)   {_tcscpy(input,   x);}			// 11/19/98 AM.
+void Parse::setOutput(_TCHAR *x)
+{
+if (x && *x)																	// 11/20/02 AM.
+	_tcscpy(output,  x);
+else
+	output[0] = '\0';															// 11/20/02 AM.
+}
+void Parse::setAppdir(_TCHAR *x)	{_tcscpy(appdir_, x);}			// 12/03/98 AM.
+void Parse::setText(_TCHAR *x)     {text   = x;}
+void Parse::setLength(long x)    {length = x;}
+void Parse::setUlength(long x)	{ulength = x;}	// [UNICODE]
+void Parse::setTree(TREE *x) {tree   = x;}
+void Parse::setLines(LTREE *x){lines  = x;}
+void Parse::setVerbose(bool x)   {verbose= x;}
+void Parse::setVars(Dlist<Ipair> *x)	{vars_ = x;}				// 12/07/98 AM.
+void Parse::setOstrs(Dlist<Iarg> *x)	{ostrs_ = x;}				// 05/23/01 AM.
+void Parse::setOut(std::_t_ostream			*x)	{out_	 = x;}
+void Parse::setCout(std::_t_ostream		*x)	{cout_ = x;}				// 05/04/03 AM.
+void Parse::setSout(std::_t_ostream		*x)	{sout_ = x;}				// 05/13/99 AM.
+void Parse::setFout(std::_t_ofstream		*x)	{fout_ = x;}				// 05/13/99 AM.
+#ifndef LINUX
+void Parse::setHdll(HINSTANCE x)			{hdll_ = x;}				// 01/29/99 AM.
+#endif
+void Parse::setOutdir(_TCHAR *x)	{_tcscpy(outdir_, x);}			// 03/10/99 AM.
+void Parse::setCollect(COLL *x)	{collect_	= x;}					// 05/17/00 AM.
+void Parse::setNlppp(Nlppp *x)	{nlppp_		= x;}					// 05/17/00 AM.
+void Parse::setCodeexit(bool x)	{codeexit_ = x;}
+void Parse::setAlgo(_TCHAR *x)		{algo_		= x;}
+void Parse::setFbatchstart(bool x) {fbatchstart_ = x;}			// 10/19/00 AM.
+void Parse::setIntern(bool x)				{intern_ = x;}				// 05/26/01 AM.
+void Parse::setCurrpass(long x)		{currpass_		= x;}// REN	// 08/22/02 AM.
+void Parse::setRulepass(long x)		{rulepass_		=	x;}		// 02/03/05 AM.
+void Parse::setInputpass(long x)		{inputpass_	= x;}				// 08/23/02 AM.
+void Parse::setSeq(Delt<Seqn> *x)		{seq_		= x;}				// 07/24/01 AM.
+#ifdef LINUX
+void Parse::setCbuf(std::ostringstream* x) { cbuf_ = x; }				// 05/11/02 AM. // 09/27/19 AM.
+#else
+void Parse::setCbuf(std::_t_ostrstream* x) { cbuf_ = x; }				// 05/11/02 AM.
+#endif
+
+void Parse::setCbufmax(long x)			{cbufmax_ = x;}			// 05/11/02 AM.
+void Parse::setCbuftot(long x)			{cbuftot_ = x;}			// 05/11/02 AM.
+void Parse::setCbufover(bool x)			{cbufover_ = x;}			// 05/11/02 AM.
+
+#ifdef _ODBC
+void Parse::setHenv(SQLHENV x)			{henv_	= x;}				// 05/23/02 AM.
+void Parse::setHdbc(SQLHDBC x)			{hdbc_	= x;}				// 05/23/02 AM.
+void Parse::setHstmt(SQLHSTMT x)			{hstmt_	= x;}				// 05/25/02 AM.
+void Parse::setCursor(SDWORD x)			{cursor_	= x;}				// 05/26/02 AM.
+#endif
+
+void Parse::setBlobs(Dlist<Iarg> *x)	{blobs_	= x;}				// 02/27/03 AM.
+
+void Parse::setLine(long x)				{line_		= x;}			// 08/24/02 AM.
+void Parse::setInputline(long x)			{inputline_	= x;}			// 08/24/02 AM.
+
+void Parse::setDatum(_TCHAR *x)												// 03/13/03 AM.
+{
+datum_ = 0;
+if (x && *x)
+	internStr(x, /*DU*/ datum_);
+}
+
+void Parse::setKBdir(_TCHAR *appdir)	{
+	_TCHAR kbDir[MAXSTR];
+	_stprintf(kbDir, _T("%s%ckb%cuser%c"), appdir,DIR_CH,DIR_CH,DIR_CH);
+	_tcscpy(kbdir_, kbDir);
+}
+
+void Parse::setAnasdir(_TCHAR *appdir)	{
+	std::filesystem::path p;
+	p = appdir;
+	std::string anas = p.parent_path().string();
+	_tcscpy(anasdir_, anas.c_str());
+	int i = 0;
+}
+
+void Parse::setLogfile(_TCHAR *x)	{logfile_ = x;}	// VTLOG	// 05/06/13 AM.
+
+/********************************************
+* FN:		GETCOUNT
+* CR:		11/13/98 AM.
+* NOTE:	Class function.
+********************************************/
+#ifndef STABLE_
+int Parse::getCount() { return count_; }
+#endif
+
+/********************************************
+* FN:		PRETTYCOUNT
+* CR:		11/13/98 AM.
+* NOTE:	Class function.
+********************************************/
+#ifndef STABLE_
+void Parse::prettyCount(std::_t_ofstream *ofstr)
+{
+if (count_)
+	{
+	if (ofstr)
+		*ofstr << _T("Active Parse count=") << count_ << std::endl;
+	*gout << _T("Active Parse count=") << count_ << std::endl;
+	std::_t_strstream gerrStr;
+	gerrStr << _T("Active Parse count=") << count_ << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	}
+}
+#endif
+
+
+/********************************************
+* FN:		READFILE
+* CR:		10/13/98 AM.
+* SUBJ:	Read the input file into a buffer.
+* ALLOC:	Creates buffer that must be freed.
+********************************************/
+
+// An input over INPUT_MAX is refused on stderr as well as in err.log,
+// since the run otherwise looks clean.								// 10/25/26 DD.
+static bool inputTooLarge(const std::basic_string<_TCHAR> &msg)
+{
+std::_t_cerr << msg << std::endl;
+std::_t_strstream gerrStr;
+gerrStr << msg << std::ends;
+::errOut(&gerrStr,false,0,0);
+return false;
+}
+
+bool Parse::readFile()
+{
+// Get file length.
+long len;
+long ulen;	// [UNICODE]
+_TCHAR *buf;
+
+// A file over INPUT_MAX used to be "not found" from 2 to 4 GB and read
+// only in part beyond that.											// 10/25/26 DD.
+long long fsize = file_size(input);
+if (fsize > INPUT_MAX)
+	{
+	std::basic_ostringstream<_TCHAR> msg;
+	msg << _T("[File=") << input << _T(" is ") << fsize
+		<< _T(" bytes. The largest input is ") << INPUT_MAX
+		<< _T(" bytes; split it into smaller files.]");
+	return inputTooLarge(msg.str());
+	}
+
+// DOING DIRTY FILE CONVERSIONS!											// 07/18/00 AM.
+//read_file(input, /*UP*/ len, buf);									// 07/18/00 AM.
+//readConvert(input, buf, len, MAXSTR);								// 07/26/01 AM.
+readConvertU(input,buf,len,MAXLINE);	// BIG LINE.					// 07/26/01 AM.
+
+if (len <= 0 || !buf)	// Before u_strlen, which can't take a null.	// 10/25/26 DD.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[File=") << input << _T(" not found.]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	return false;
+	}
+
+ulen = u_strlen(buf);	// [UNICODE]
+setLength(len);
+setUlength(ulen);	// [UNICODE]
+setText(buf);
+
+if (Verbose())
+	{
+	*gout << _T("Length of input file is ") << len << std::endl;
+	*gout << _T("\nInput text is:\n") << buf << std::endl;
+	}
+
+return true;
+}
+
+
+/********************************************
+* FN:		COPYBUFFER
+* CR:		02/06/00 AM.
+* SUBJ:	Copy user-supplied input buffer to parse object.
+* ALLOC:	Creates buffer that must be freed.
+* NOTE:	Want optional length arg, in case input buffer is part of a
+*			larger buffer.
+********************************************/
+
+bool Parse::copyBuffer(
+	_TCHAR *inbuf,			// Input buffer to parse.
+	long len					// If len > 0, length of input buffer to parse.
+								// If len==0, Parse entire buffer.
+	)
+{
+_TCHAR *buf = 0;
+long ulen;	// [UNICODE]
+
+if (!inbuf || !*inbuf)
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Input buffer is empty.]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	return false;
+	}
+
+// Get file length.
+if (!len)						// If parsing entire input buffer,
+	{
+	size_t n = _tcsclen(inbuf);
+	if (n > (size_t) INPUT_MAX)	// Was cut silently by the cast to long.	// 10/25/26 DD.
+		{
+		std::basic_ostringstream<_TCHAR> msg;
+		msg << _T("[Input buffer is ") << (long long) n
+			<< _T(" characters. The largest input is ") << INPUT_MAX
+			<< _T("; split it into smaller pieces.]");
+		return inputTooLarge(msg.str());
+		}
+	len = (long) n;
+	}
+if (len <= 0)
+	return false;
+
+// Allocate a buffer to hold all the chars of input buffer.
+//buf = new char[len+1];
+buf = Chars::create(len+1);
+
+// Copy input buffer to parse buffer.
+_tcsnccpy(buf, inbuf, len);
+buf[len] = '\0';
+
+// Get Unicode byte length. [UNICODE]
+ulen = u_strlen(buf);	// [UNICODE]
+
+// Install buffer in parse object.
+setLength(len);
+setUlength(ulen);	// [UNICODE]
+setText(buf);
+
+if (Verbose())
+	{
+	*gout << _T("Length of input buffer is ") << len << std::endl;
+	*gout << _T("\nInput buffer text is:\n")  << buf << std::endl;
+	}
+
+return true;
+}
+
+
+/********************************************
+* FN:		EXECUTE
+* CR:		10/19/98 AM.
+* SUBJ:	Perform the analysis of the current text.
+********************************************/
+
+// Does this pass consume the user KB (tokenizer or grammar pass)?  The user KB
+// is read into memory just before the first such pass, so any pre-tokenizer
+// pass (eg a python pass that generates kbb/dict files) runs first.	// 07/11/26 DD.
+static bool kbConsumerAlgo(_TCHAR *salgo)
+{
+if (!salgo || !*salgo)
+	return false;
+return !strcmp_i(salgo, _T("dicttok"))
+	 || !strcmp_i(salgo, _T("dicttokz"))
+	 || !strcmp_i(salgo, _T("cmltok"))
+	 || !strcmp_i(salgo, _T("chartok"))
+	 || !strcmp_i(salgo, _T("tok"))
+	 || !strcmp_i(salgo, _T("nlp"))
+	 || !strcmp_i(salgo, _T("rec"))
+	 || !strcmp_i(salgo, _T("pat"));
+}
+
+// What runPass() and executeZones() tell their caller.
+static const int RUN_OK = 0;		// Go on to the next pass.
+static const int RUN_STOP = 1;	// Past the time limit: run no more passes, but finish up.
+static const int RUN_ABORT = 2;	// A pass failed: stop without finishing up.
+
+/********************************************
+* FN:		RUNPASS
+* SUBJ:	Run one pass, numbering it ++num.
+* NOTE:	Shared by execute() and executeZones(), so a zone pass has the same
+*			time limit and deferred kb/user load as any other.
+********************************************/
+
+int Parse::runPass(Delt<Seqn> *seq, long &num)
+{
+// zone and endzone lines are markers, not passes: like a folder line, they
+// take no pass number, so pass numbers (and ana###.tree names) match the
+// sequence view's.
+const _TCHAR *salgo = str(seq->getData()->getAlgoname());
+if (!strcmp_i(salgo, _T("zone")) || !strcmp_i(salgo, _T("endzone")))
+	return RUN_OK;
+
+// A run past its time limit runs no more passes. The pass that ran
+// out stopped at its next while turn; the rest are skipped whole.	// 10/25/26 DD.
+if (overBudget(true))
+	return RUN_STOP;
+
+++rulepass_;																	// 02/03/05 AM.
+
+// KB whose kb/user read was deferred (interpreted run): load it just before
+// the first pass that consumes it, so pre-tokenizer passes run first.	// 07/11/26 DD.
+CG *cg = ana ? ana->getCG() : 0;
+if (cg && !cg->getUserkbLoaded()
+	 && kbConsumerAlgo(seq->getData()->getAlgoname()))
+	{
+	cg->readKB(_T("user"));
+	cg->setUserkbLoaded(true);
+	}
+
+if (!stepExecute(seq, ++num))		// 05/15/99 AM.		// 08/22/02 AM.
+	return RUN_ABORT;
+return RUN_OK;
+}
+
+/********************************************
+* FN:		EXECUTEZONES
+* SUBJ:	Run the passes after a "zone _type" line once per _type node.
+* NOTE:	The passes before the zone line run over the whole document and
+*			build the zones. Each zone then runs the rest of the passes on its
+*			own: everything off the path from the root down to it is hidden,
+*			so its rules, @PATH _ROOT ... and @CODE work as they would on a
+*			document that is just that zone. The KB and G() carry from zone to
+*			zone. Then the zone's subtree is freed and the zone node stays as
+*			a stub, so memory goes by the largest zone, not the document.
+*			A zone pass may change anything in its zone but not the tree above
+*			it (eg, group _paragraph nodes into _section); that stops the run.
+*			An endzone line ends the zone passes: the passes after it run once,
+*			after the last zone, on the stubs with the whole KB, for work that
+*			belongs to the whole document (eg, dumping the KB).
+*			With -DEV, only the first ZONE_DUMPS zones write pass trees
+*			(see zonePrefix).
+********************************************/
+
+#define ZONE_DUMPS 3
+
+struct ZoneLink {		// One level of the path from the root to a zone.
+	Node<Pn> *parent;		// Its parent.
+	Node<Pn> *first;		// The parent's first child.
+	Node<Pn> *node;		// The node on the path.
+	Node<Pn> *left;		// Its siblings.
+	Node<Pn> *right;
+};
+
+// The ztype nodes under node, in document order. Zones do not nest.
+static void findZones(Node<Pn> *node, const _TCHAR *ztype, std::vector<Node<Pn> *> &zones)
+{
+for (; node; node = node->pRight)
+	{
+	_TCHAR *name = node->getData()->getName();
+	if (name && !_tcscmp(name, ztype))
+		zones.push_back(node);
+	else
+		findZones(node->pDown, ztype, zones);
+	}
+}
+
+// Leave only the path from root to zone in the tree; record how to undo it.
+static void hidePath(Node<Pn> *root, Node<Pn> *zone, std::vector<ZoneLink> &links)
+{
+links.clear();
+for (Node<Pn> *n = zone; n && n != root; )
+	{
+	Node<Pn> *first = n;
+	while (first->pLeft)
+		first = first->pLeft;
+	ZoneLink l = {first->pUp, first, n, n->pLeft, n->pRight};
+	links.push_back(l);
+	n = first->pUp;
+	}
+for (size_t i = 0; i < links.size(); ++i)
+	{
+	ZoneLink &l = links[i];
+	l.parent->pDown = l.node;
+	l.node->pUp = l.parent;
+	l.node->pLeft = l.node->pRight = 0;
+	}
+}
+
+// Whether the path is still as hidePath left it. Walks down from the root,
+// so it reads no node a pass may have freed.
+static bool pathIntact(Node<Pn> *root, std::vector<ZoneLink> &links)
+{
+Node<Pn> *p = root;
+for (size_t i = links.size(); i-- > 0; )
+	{
+	Node<Pn> *n = p->pDown;
+	if (n != links[i].node || n->pLeft || n->pRight)
+		return false;
+	p = n;
+	}
+return true;
+}
+
+static void restorePath(std::vector<ZoneLink> &links)
+{
+for (size_t i = 0; i < links.size(); ++i)
+	{
+	ZoneLink &l = links[i];
+	l.parent->pDown = l.first;
+	l.node->pUp = (l.node == l.first) ? l.parent : 0;
+	l.node->pLeft = l.left;
+	l.node->pRight = l.right;
+	}
+}
+
+int Parse::executeZones(Delt<Seqn> *first, _TCHAR *ztype)
+{
+long base = currpass_;		// The last pass before the zone line.
+long num = base;
+Delt<Seqn> *seq;
+
+// An endzone line ends the zone passes; the passes after it run once,
+// after the last zone, on the skeleton of stubs with the whole KB.
+Delt<Seqn> *endz = 0;
+for (seq = first; seq && !endz; seq = seq->Right())
+	if (seq->getData()->getActive()
+		 && !strcmp_i(str(seq->getData()->getAlgoname()), _T("endzone")))
+		endz = seq;
+
+int result = zoneLoop(ztype,
+	[&]() {
+		int r = RUN_OK;
+		num = base;
+		for (seq = first; seq && seq != endz && r == RUN_OK; seq = seq->Right())
+			r = runPass(seq, num);
+		return r;
+		},
+	[&]() {
+		int r = RUN_OK;
+		for (seq = endz ? endz->Right() : 0; seq && r == RUN_OK; seq = seq->Right())
+			r = runPass(seq, num);
+		return r;
+		},
+	[&]() {		// No zones: the zone passes run on the whole document.
+		int r = RUN_OK;
+		for (seq = first; seq && r == RUN_OK; seq = seq->Right())
+			r = runPass(seq, num);		// stepExecute skips the endzone line.
+		return r;
+		});
+currpass_ = num;
+return result;
+}
+
+/********************************************
+* FN:		RUNZONES
+* SUBJ:	Zone mode for a compiled analyzer.
+* NOTE:	The generated run_analyzer() puts the passes between the zone and
+*			endzone lines in zonefn, and the passes after endzone in endfn
+*			(0 without an endzone line); see Seqn::gen.
+********************************************/
+
+bool Parse::runZones(const _TCHAR *ztype, bool (*zonefn)(Parse *),
+	bool (*endfn)(Parse *))
+{
+auto run = [this](bool (*fn)(Parse *)) {
+	return (fn && !fn(this)) ? RUN_ABORT : RUN_OK;
+	};
+return zoneLoop(ztype,
+	[&]() { return run(zonefn); },
+	[&]() { return run(endfn); },
+	[&]() { int r = run(zonefn); return r == RUN_OK ? run(endfn) : r; }
+	) != RUN_ABORT;
+}
+
+/********************************************
+* FN:		ZONELOOP
+* SUBJ:	Run zone() once per ztype zone, then wrap() once.
+* NOTE:	Shared by executeZones() and runZones(). With no ztype zones,
+*			runs whole() on the whole document instead.
+********************************************/
+
+int Parse::zoneLoop(const _TCHAR *ztype, const std::function<int()> &zone,
+	const std::function<int()> &wrap, const std::function<int()> &whole)
+{
+Tree<Pn> *tree = (Tree<Pn> *) getTree();
+Node<Pn> *root = tree ? tree->getRoot() : 0;
+std::vector<Node<Pn> *> zones;
+if (root)
+	findZones(root->pDown, ztype, zones);
+
+if (zones.empty())
+	{
+	std::_t_cerr << _T("[zone: no ") << ztype
+					 << _T(" nodes, so the passes after the zone line ran on the whole document")
+					 << (zoneRange_.empty() ? _T("") : _T(" and -ZONES had no zones to pick"))
+					 << _T(".]") << std::endl;
+	return whole();
+	}
+
+int result = RUN_OK;
+std::vector<ZoneLink> links;
+long nzones = (long) zones.size();
+
+// -ZONES: the zones outside the range are skipped, so they get only the
+// passes before the zone line. $isfirstzone and $islastzone mark the first
+// and last zone that runs.
+long firstRun = -1, lastRun = -1;
+for (long z = 0; z < nzones; ++z)
+	if (zoneSelected(z + 1))
+		{
+		if (firstRun < 0)
+			firstRun = z;
+		lastRun = z;
+		}
+if (!zoneRange_.empty())
+	{
+	long nrun = 0;
+	for (long z = firstRun; firstRun >= 0 && z <= lastRun; ++z)
+		if (zoneSelected(z + 1))
+			++nrun;
+	std::_t_cerr << _T("[zone: -ZONES runs ");
+	if (nrun)
+		std::_t_cerr << nrun;
+	else
+		std::_t_cerr << _T("none");
+	std::_t_cerr << _T(" of the ") << nzones << _T(" ") << ztype
+					 << _T(" zones.]") << std::endl;
+	}
+
+for (long z = 0; z < nzones && result == RUN_OK; ++z)
+	{
+	if (!zoneSelected(z + 1))
+		continue;
+	zoneNum_ = z + 1;
+	zoneFirst_ = (z == firstRun);
+	zoneLast_ = (z == lastRun);
+	hidePath(root, zones[z], links);
+
+	result = zone();
+
+	if (!pathIntact(root, links))
+		{
+		std::_t_strstream gerrStr;
+		gerrStr << _T("[Error in zone mode: a pass changed the tree above ") << ztype
+				  << _T(" zone ") << zoneNum_ << _T(" of ") << nzones
+				  << _T(", so the run stopped there. A pass after the zone line may change only its zone.]")
+				  << std::ends;
+		std::_t_cerr << gerrStr.str() << std::endl;
+		errOut(&gerrStr,false);
+		zoneNum_ = 0;
+		zoneFirst_ = zoneLast_ = false;
+		return RUN_ABORT;		// The other zones cannot be put back.
+		}
+	restorePath(links);
+
+	if (result == RUN_OK && zones[z]->pDown)
+		tree->deleteSubs(zones[z]->pDown);	// Keep the zone node as a stub.
+	}
+
+zoneNum_ = 0;
+zoneFirst_ = zoneLast_ = false;
+
+// The wrap-up passes, once, on the whole document.
+if (result == RUN_OK)
+	result = wrap();
+return result;
+}
+
+/********************************************
+* FN:		ZONEPREFIX
+* SUBJ:	Name a pass's dump files in zone mode.
+* NOTE:	With -DEV, the first ZONE_DUMPS zones write z001-ana075.tree and
+*			so on; 2,500 zones of a 130-pass analyzer would otherwise write
+*			325,000 trees. Later zones write no pass trees or pass times.
+*			With -ZONES, every zone that runs writes them instead.
+*			Called before iniPass() by interpreted and compiled passes.
+********************************************/
+
+_TCHAR *Parse::zonePrefix(_TCHAR *prefix, bool &flogfiles, bool &ftimepass)
+{
+if (zoneNum_ > ZONE_DUMPS && zoneRange_.empty())
+	flogfiles = ftimepass = false;
+else if (zoneNum_ > 0)
+	{
+	_stprintf(zprefix_, _T("z%03ld-%s"), zoneNum_, prefix);
+	prefix = zprefix_;
+	}
+return prefix;
+}
+
+/********************************************
+* FN:		SETZONERANGE
+* SUBJ:	Run only the zones a -ZONES spec names (see zonerange.h).
+********************************************/
+
+void Parse::setZoneRange(const _TCHAR *spec)
+{
+if (!parseZoneRange(spec, zoneRange_))
+	zoneRange_.clear();		// None or bad: every zone.
+}
+
+bool Parse::zoneSelected(long num)
+{
+if (zoneRange_.empty())
+	return true;
+for (size_t i = 0; i < zoneRange_.size(); ++i)
+	if (num >= zoneRange_[i].first && num <= zoneRange_[i].second)
+		return true;
+return false;
+}
+
+void Parse::execute()
+{
+Delt<Seqn> *seq;
+clock_t s_time, e_time;
+
+s_time = clock();
+
+#ifndef LINUX
+if (!eana_->getFintern())													// 05/26/01 AM.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Date: ") << today1() << _T("]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	}
+
+	// WORKAROUND.	// 02/25/00 AM.
+#else
+if (!eana_->getFintern())													// 05/26/01 AM.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Date: ") << today() << _T("]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	}
+
+#endif
+
+currpass_ = 0;																	// 08/22/02 AM.
+rulepass_ = 0;																	// 02/03/05 AM.
+
+#ifdef GEODUCK_
+_TCHAR displayBuf[1001];
+Seqn *s;																			// 11/18/99 DD.
+#endif
+
+Ana *ana = getAna();	// 05/05/09 AM.
+if (!ana)	// 05/05/09 AM.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Error: No analyzer built.]") << std::ends;
+	::errOut(&gerrStr,false,0);
+	return;	// 05/05/09 AM.
+	}
+
+// Cosmetic rewrite as for loop.											// 11/10/99 AM.
+for (seq = ana->getSeq(); seq; seq = seq->Right())
+	{
+	Seqn *pass = seq->getData();
+	if (pass->getActive() && !strcmp_i(str(pass->getAlgoname()), _T("zone")))
+		{
+		// The zone line takes no pass number (see runPass).
+		if (executeZones(seq->Right(), pass->getRulesfilename()) == RUN_ABORT)
+			return;
+		break;
+		}
+
+	int run = runPass(seq, currpass_);
+	if (run == RUN_STOP)
+		break;
+	if (run == RUN_ABORT)
+		return;																	// 05/15/99 AM.
+
+#ifdef GEODUCK_
+	if (gui_.IsStatus(GUI_STATUS_ANALYZING)) {						// 11/18/99 DD.
+		s = seq->getData();													// 11/18/99 DD.
+		_stprintf(displayBuf,_T("%3d %-10s %s"),								// 11/18/99 DD.
+			currpass_,
+			s->getAlgoname(),
+			s->getRulesfilename()
+			);
+		gui_.SendMessage(_T("Processing pass:"),displayBuf);			// 11/18/99 DD.
+	}
+
+	// Allow other processes.												// 11/10/99 DD.
+	PeekHere();																	// 11/10/99 AM.
+	if (gui_.IsMessage(GUI_MESSAGE_ABORT))								// 11/10/99 AM.
+		break;																	// 11/10/99 AM.
+#endif
+	}
+
+e_time = clock();																// 10/06/99 AM.
+
+// PRINT OUT THE FINAL PARSE TREE.										// 10/11/99 AM.
+// NOTE: NOT INCLUDING IN TIMING.										// 10/11/99 AM.
+finExecute(currpass_,s_time,e_time);									// 06/13/00 AM.
+
+#ifdef GEODUCK_
+if (gui_.IsMessage(GUI_MESSAGE_ABORT))									// 11/10/99 DD.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Aborted by user]") << std::ends;
+	::errOut(&gerrStr,false,0);
+	}
+#endif
+}
+
+/********************************************
+* FN:		SETRUNLIMIT
+* CR:		10/25/26 DD.
+* SUBJ:	Give this text's analysis a time limit, from now.
+* NOTE:	0 or less is no limit, as before.
+********************************************/
+
+void Parse::setRunLimit(long long ms)
+{
+runLimitMs_ = ms > 0 ? ms : 0;
+runStopped_ = false;
+runTicks_ = 0;
+if (runLimitMs_)
+	runDeadline_ = std::chrono::steady_clock::now()
+					 + std::chrono::milliseconds(runLimitMs_);
+}
+
+
+/********************************************
+* FN:		OVERBUDGET
+* CR:		10/25/26 DD.
+* SUBJ:	Has this run passed its time limit?
+* RET:	True once it has, and from then on.
+* NOTE:	Asked on every turn of every while loop, so it reads the clock only
+*			every 256th call -- a loop turn is a few microseconds, and the
+*			limit is in seconds. `now` reads it regardless, for the check
+*			between passes, which come too seldom to count.
+*			The first time it is over, the run is marked stopped (here and on
+*			the NLP object, for NLP_ENGINE::lastRunStopped) and says so once,
+*			in err.log and on stderr.
+*
+*			WHY: NLP++ is a C++ extension. A grammar whose loop never ends
+*			cannot be interrupted from outside -- a Python caller has no
+*			thread to stop, only a process to kill -- and a loop that interns
+*			a string a turn grows until the process is killed for memory.
+*			One such loop took a document extractor down five times in half
+*			an hour on one document. With a limit it stops that run; the
+*			string table goes with the run, so the memory comes back.
+********************************************/
+
+bool Parse::overBudget(bool now)
+{
+if (runStopped_)
+	return true;
+if (!runLimitMs_)
+	return false;
+if (!now && (++runTicks_ & 0xFF))
+	return false;
+if (std::chrono::steady_clock::now() < runDeadline_)
+	return false;
+
+runStopped_ = true;
+if (nlp_)
+	nlp_->setRunStopped(true);
+
+_TCHAR *file = 0;
+Dlist<Seqn> *seqs = ana ? ana->getSeqlist() : 0;
+for (Delt<Seqn> *d = seqs ? seqs->getFirst() : 0; d; d = d->Right())
+	if (d->getData()->getPassnum() == currpass_)
+		{
+		file = d->getData()->getRulesfilename();
+		break;
+		}
+
+std::_t_strstream gerrStr;
+gerrStr << _T("[Run stopped: past its time limit of ") << runLimitMs_
+		  << _T(" ms in pass ") << currpass_;
+if (file)
+	gerrStr << _T(" (") << file << _T(")");
+gerrStr << _T("; the rest of the analysis was not run.]") << std::ends;
+std::_t_cerr << gerrStr.str() << std::endl;
+errOut(&gerrStr,false);
+return true;
+}
+
+
+/********************************************
+* FN:		FINEXECUTE
+* CR:		06/13/99 AM.
+* SUBJ:	Final printouts for parsing a text.
+* NOTE:	Modularity function.
+********************************************/
+
+void Parse::finExecute(
+	int num,						// Current pass number.
+	clock_t s_time,
+	clock_t e_time
+	)
+{
+//NLP *nlp = ana->getNLP();													// 08/26/02 AM.
+
+// PRINT OUT THE FINAL PARSE TREE.						// 10/11/99 AM.
+// NOTE: NOT INCLUDING IN TIMING.						// 10/11/99 AM.
+if (eana_->getFlogfinal())									// 10/13/99 AM.
+	finalTree();												// 10/11/99 AM.
+
+// RANKED SLOWEST-PASS SUMMARY.	// 08/04/26 AM.
+// The per-pass "[Pass N time: ...]" lines above are emitted in pass order
+// and land in dbg.log, so on a 137-pass analyzer you cannot see which pass
+// actually costs you anything without post-processing the log.  Rank them.
+if (eana_->getFtimepass() && passmax_ > 0)
+	{
+	double gtot = 0.0;
+	long pi;
+	for (pi = 1; pi <= passmax_; ++pi)
+		gtot += passsecs_[pi];
+
+	if (gtot > 0.0)
+		{
+		{
+		std::_t_strstream gerrStr;
+		gerrStr << _T("[Slowest passes (total ") << gtot << _T(" sec in ")
+				  << passmax_ << _T(" passes):]") << std::ends;
+		nlp_->logOut(&gerrStr,false);
+		}
+
+		// Report the top ten by simple selection; passmax_ is small and this
+		// runs once per input, so an in-place sort of the table is not worth
+		// the extra state.
+		bool taken[PASSTIMES_MAX];
+		for (pi = 0; pi < PASSTIMES_MAX; ++pi)
+			taken[pi] = false;
+
+		long shown;
+		for (shown = 0; shown < 10; ++shown)
+			{
+			long best = 0;
+			for (pi = 1; pi <= passmax_; ++pi)
+				{
+				if (taken[pi] || passsecs_[pi] <= 0.0)
+					continue;
+				if (!best || passsecs_[pi] > passsecs_[best])
+					best = pi;
+				}
+			if (!best)
+				break;				// Ran out of passes with measurable time.
+			taken[best] = true;
+
+			std::_t_strstream gerrStr;
+			gerrStr << _T("[  ") << passsecs_[best] << _T(" sec  ")
+					  << (long)((passsecs_[best] * 100.0 / gtot) + 0.5) << _T("%  pass ")
+					  << best;
+			if (passruns_[best] > 1)
+				gerrStr << _T(" x") << passruns_[best];
+			gerrStr << _T("  ")
+					  << (passnames_[best] ? passnames_[best] : _T("?"))
+					  << _T("]") << std::ends;
+			nlp_->logOut(&gerrStr,false);
+			}
+
+		// These numbers include whatever the pass wrote.  Under -DEV that is
+		// a full parse-tree dump per pass, which on a 9K input was measured
+		// at 137 files / 44MB and roughly 3.6x total runtime -- so -DEV
+		// timings say little about how fast the matching itself is.
+		if (eana_->getFlogfiles())
+			{
+			std::_t_strstream gerrStr;
+			gerrStr << _T("[  NOTE: -DEV dumps a parse tree per pass; these times include that I/O.]")
+					  << std::ends;
+			nlp_->logOut(&gerrStr,false);
+			}
+		}
+	}
+
+if (eana_->getFtimesum())									// 10/13/99 AM.
+	{
+	double tot;
+	double len = getLength();								// 10/06/99 AM.
+	double tot1000 = 0;
+//	double pass1000 = 0;							// PURIFY COMPLAINT!	// 04/09/01 AM.
+	double pass1000 = 0.0;										// FIX.	// 04/09/01 AM.
+	_TCHAR *infile = getInput();
+
+	if (!len || !num)
+		{
+		std::_t_strstream gerrStr;
+		gerrStr << _T("[No text or passes.]") << std::ends;
+		::errOut(&gerrStr,false,0,0);
+		// 10/11/99 AM.
+		return;
+		}
+	tot = (double)(e_time - s_time)/CLOCKS_PER_SEC;
+	tot1000 = tot * (double) 1000.0 / len;
+	pass1000 = tot1000 / (double) num;
+
+	if (infile)
+		{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Input file: ") << infile << _T("]") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+	else
+		infile = _T("");
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Total passes: ") << num  << _T("]") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+	{
+	std::_t_strstream gerrStr;
+	gerrStr	<< _T("[Total time: ") << tot << _T(" sec]") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+   {
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Time per 1000 chars (") << tot << _T("/") << len << _T("): ")
+	      << tot1000 << _T(" sec]") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Time per pass per 1000 chars: ") << pass1000 << _T("]") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+
+	// A line for putting into a timing study.	// 10/11/99 AM.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("infile  passes tottime length tot/1000 tot/pass/1000") << std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << infile	<< _T("\t")
+			<< num		<< _T("\t")
+			<< tot		<< _T("\t")
+			<< len		<< _T("\t")
+			<< tot1000	<< _T("\t")
+			<< pass1000	<< std::ends;
+	nlp_->logOut(&gerrStr,false);
+	}
+
+
+	}
+
+}
+
+/********************************************
+* FN:		STEPEXECUTE
+* CR:		05/14/99 AM.
+* SUBJ:	Execute one step (pass) in the text analyzer sequence.
+* RET:	True if successful, else false.
+* NOTE:	The caller must traverse the steps of the analyzer.  This fn
+*			merely executes the given step.
+********************************************/
+
+bool Parse::stepExecute(
+	Delt<Seqn> *seq,			// Current step in sequence.
+	int num						// Current pass number.
+	)
+{
+std::_t_ofstream *fout;				// File pass output.						// 12/01/98 AM.
+std::_t_ostream *sout;					// For restoring output stream.		// 12/01/98 AM.
+clock_t s_time;
+_TCHAR *pretname;
+Seqn *pass = seq->getData();
+this->seq_ = seq;
+Algo *algo = pass->getAlgo();
+_TCHAR *sfile = pass->getRulesfilename();
+_TCHAR *salgo = pass->getAlgoname();
+_TCHAR *prefix = _T("ana");		// Prefix for naming files.
+bool flogfiles = eana_->getFlogfiles();								// 10/13/99 AM.
+bool ftimepass = eana_->getFtimepass();								// 10/13/99 AM.
+
+prefix = zonePrefix(prefix, flogfiles, ftimepass);	// Zone mode.
+
+iniPass(num,prefix,flogfiles,ftimepass,pass->getActive(),sfile,salgo,				// 05/20/00 AM.
+			/*DU*/fout,sout,s_time,pretname);
+
+// Rule-level debugger. Named the same way the .tree header names a pass, so a
+// stop and a dump agree; pretname cannot be reused because it is only filled in
+// when logging or timing is on. No-op unless a client is attached and armed.
+if (pass->getActive())
+	{
+	_TCHAR *dbgname = sfile;
+	if (salgo && *salgo
+		 && strcmp_i(salgo, _T("nlp"))
+		 && strcmp_i(salgo, _T("rec")))
+		dbgname = salgo;
+	NlpDebug::passStart(this,num,dbgname);
+	}
+
+if (pass->getActive() && algo)	// Execute active pass.			// 01/08/99 AM.
+	{
+	if (!algo->Execute(this, pass)) // Algorithm, do your thing.// 01/26/02 AM.
+		{
+		NlpDebug::passEnd(this,num);										// Debugger.
+		return false;															// 01/26/02 AM.
+		}
+	Code::execPostcode(this, pass);	// @POSTCODE, after the rules (#392).
+	}
+else if (!strcmp_i(str(salgo),_T("folder"))							// 02/03/05 DD.
+		 || !strcmp_i(str(salgo),_T("zone"))		// Handled by execute().
+		 || !strcmp_i(str(salgo),_T("endzone")))
+	;																				// 02/03/05 DD.
+else if (!algo && pass->getActive())									// 01/15/99 AM.
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Error. Analyzer pass '")
+			<< str(salgo)														// 11/12/00 AM.
+			<< _T("' is uninterned.]") << std::ends;
+	return ::errOut(&gerrStr,false);
+	}
+
+if (pass->getActive())
+	{
+	NlpDebug::passEnd(this,num);											// Debugger.
+	finPass(num,flogfiles,fout,sout,pretname,ftimepass,s_time);		// 05/20/00 AM.
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		INIPASS
+* CR:		05/20/00 AM.
+* SUBJ:	Initial work for one pass of a parse.
+********************************************/
+
+// Not inline: compiled passes (Arun.cpp) call it too.
+ void Parse::iniPass(
+	int num,					// Current pass number.
+	_TCHAR *prefix,			// Prefix for naming dump files.
+	bool flogfiles,
+	bool ftimepass,
+	bool active,
+	_TCHAR *sfile,			// Name of rulesfile.
+	_TCHAR *salgo,			// Name of algorithm.
+	/*DU*/
+	std::_t_ofstream* &fout,		// File for outputting pass data.
+	std::_t_ostream* &sout,		// For restoring output stream.
+	clock_t &s_time,
+	_TCHAR* &pretname
+	)
+{
+_TCHAR	fname[MAXSTR*2];
+
+s_time = clock();																// 12/28/98 AM.
+
+currpass_ = num;													// FIX.	// 07/08/03 AM.
+rulepass_ = num;																// 02/03/05 AM.
+
+// FETCH PRETTY NAME FOR PASS.
+// Should do if timing passes or verbose.								// 10/12/99 AM.
+pretname = _T("");																	// 10/09/99 AM.
+// If we need a pretty name for pass, get one.						// 10/13/99 AM.
+if (flogfiles || ftimepass)												// 10/13/99 AM.
+	{
+	if (!sfile || !*sfile)
+			sfile = _T("NIL");
+	if (salgo && *salgo
+		 && strcmp_i(salgo, _T("nlp"))
+		 && strcmp_i(salgo, _T("rec")))									// 06/13/00 AM.
+		pretname = salgo;
+	else
+		pretname = sfile;
+	}
+
+if (flogfiles && active)																	// 10/13/99 AM.
+	{
+	bool save;																	// 10/13/99 AM.
+	save = eana_->getFverbose();											// 10/13/99 AM.
+	setVerbose(true);															// 10/13/99 AM.
+	eana_->setFverbose(true);												// 10/13/99 AM.
+
+#ifdef UNICODE
+wsprintf(fname, _T("%s%c%s%s%d%s"),
+		 getOutdir(),
+		 DIR_CH,
+		 prefix,
+		 ((num < 10) ? _T("00") : (num < 100) ? _T("0") : _T("")),
+		 num,
+		_T(".tree")
+		);
+#else
+#ifdef LINUX
+sprintf(fname, _T("%s%c%s%s%d%s"),
+#else
+sprintf_s(fname, _T("%s%c%s%s%d%s"),
+#endif
+		 getOutdir(),
+		 DIR_CH,
+		 prefix,
+		 ((num < 10) ? _T("00") : (num < 100) ? _T("0") : _T("")),
+		 num,
+		_T(".tree")
+		);
+#endif
+	fileOut(fname, /*DU*/ fout, sout);
+	prettyPassnum(num, pretname);
+
+	setVerbose(save);															// 10/13/99 AM.
+	eana_->setFverbose(save);												// 10/13/99 AM.
+	}
+}
+
+
+/********************************************
+* FN:		FINPASS
+* CR:		05/20/00 AM.
+* SUBJ:	Tasks to perform at end of a pass.
+* NOTE:	Modularity fn.
+********************************************/
+
+ void Parse::finPass(
+	int num,							// Pass number.
+	bool flogfiles,
+	std::_t_ofstream *fout,
+	std::_t_ostream *sout,
+	_TCHAR *pretname,
+	bool ftimepass,
+	clock_t &s_time)
+{
+// Make completed passes' output durable without flushing on every write.
+flushostrs();
+if (flogfiles)																	// 03/08/00 AM.
+	resetOut(fout, sout);
+if (ftimepass)																	// 10/13/99 AM.
+	{
+	clock_t e_time = clock();												// 12/28/98 AM.
+
+	// Accumulate for the ranked summary in finExecute.	// 08/04/26 AM.
+	// A rec pass runs many times per input, so this sums rather than
+	// overwrites.  pretname points into the Seqn, which outlives the parse.
+	if (num > 0 && num < PASSTIMES_MAX)
+		{
+		passsecs_[num] += (double)(e_time - s_time)/CLOCKS_PER_SEC;
+		++passruns_[num];
+		if (!passnames_[num])
+			passnames_[num] = pretname;
+		if (num > passmax_)
+			passmax_ = num;
+		}
+
+// DEBUGGING memleak // 06/19/05 AM.
+
+	std::_t_strstream gerrStr;
+	gerrStr	<< _T("[Pass ") << num
+			<< _T(" time: ")
+			<< (double)(e_time - s_time)/CLOCKS_PER_SEC
+			<< _T(" sec     ")
+			<< pretname
+			<< _T("]") << std::ends;
+#ifndef UNICODE
+#ifndef LINUX
+	gerrStr.freeze(false);	// 07/01/05 AM.
+	gerrStr.clear();	// 07/01/05 AM.
+#endif
+#endif
+
+/*
+	std::_t_strstream gerrStr;
+	gerrStr	<< _T("[Pass ") << num;
+	gerrStr << _T(" time: ");
+	gerrStr << (double)(e_time - s_time)/CLOCKS_PER_SEC;
+	gerrStr << _T(" sec     ");
+	gerrStr << pretname;
+	gerrStr << _T("]");
+	gerrStr << std::ends;
+*/
+
+//	ana->getNLP()->logOut(&gerrStr,false);
+	if (nlp_)																	// 06/26/03 AM.
+		nlp_->logOut(&gerrStr,false);
+	}
+
+}
+
+
+/********************************************
+* FN:		FINALTREE
+* CR:		10/11/99 AM.
+* SUBJ:	Pretty print final parse tree to a file.
+********************************************/
+
+void Parse::finalTree()
+{
+std::_t_ofstream *fout;				// File for outputting pass data.
+std::_t_ostream *sout;					// For restoring output stream.
+_TCHAR fname[MAXSTR*2];
+
+// G++ BUGS.	// 03/08/00 AM.
+//std::ostringstream *outStr = 0;													// 03/08/00 AM.
+//outStr = new std::ostringstream(fname, MAXSTR, std::ios::out);				// 03/08/00 AM.
+//*outStr << getOutdir() << "\\final.tree" << std::ends;					// 03/08/00 AM.
+
+#ifdef UNICODE
+wsprintf(fname, _T("%s%c%s"), getOutdir(), DIR_CH, _T("final.tree"));
+#else
+#ifdef LINUX
+sprintf(fname, _T("%s%c%s"), getOutdir(), DIR_CH, _T("final.tree"));
+#else
+sprintf_s(fname, _T("%s%c%s"), getOutdir(), DIR_CH, _T("final.tree"));
+#endif
+#endif
+fileOut(fname, /*DU*/ fout, sout);										// 03/08/00 AM.
+
+// TRYING SOMETHING NEW HERE... // 02/26/05 AM.
+// std::_t_strstream outStr;
+// outStr << getOutdir() << DIR_CH << _T("final.tree") << std::ends;
+// fileOut(&outStr, /*DU*/ fout, sout);
+
+//prettyPassnum(num, pretname);
+
+*gout << _T("\nFINAL OUTPUT TREE:\n") << std::endl;
+
+// Get the parse tree's root node.
+Tree<Pn> *tree = (Tree<Pn> *)getTree();		// 03/09/00 AM.
+if (!tree)
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Pat pass: No parse tree.]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	resetOut(/*DU*/ fout, sout);											// 02/21/02 AM.
+	return;
+	}
+
+Node<Pn> *root;
+root = tree->getRoot();
+if (!root)
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Pat pass: Tree has no root.]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+	resetOut(/*DU*/ fout, sout);											// 02/21/02 AM.
+	return;
+	}
+
+tree->Traverse(root, *gout);
+
+resetOut(/*DU*/ fout, sout);
+//delete outStr;						// 03/08/00 AM.
+//outStr = 0;						// 03/08/00 AM.
+}
+
+
+/********************************************
+* FN:		CLEAN
+* CR:		10/13/98 AM.
+* SUBJ:	Perform cleanups for current parse.
+********************************************/
+
+void Parse::clean()
+{
+if (text)
+	{
+	//delete [] text;
+	Chars::destroy(text);
+	text = 0;
+	}
+if (tree)
+	{
+	Tree<Pn>::DeleteTreeAndData((Tree<Pn> *)tree);
+	tree = 0;
+	}
+if (lines)
+	{
+	Tree<Ln>::DeleteTreeAndData((Tree<Ln> *)lines);
+	lines = 0;
+	}
+if (vars_)										// 12/07/98 AM.
+	{
+//	Var::clean_vars(vars_);	// CLEAN OUT OSTREAMS.					// 05/23/01 AM.
+	Dlist<Ipair>::DeleteDlistAndData(vars_);
+	vars_ = 0;
+	}
+
+// In case cout was rebound, reset it prior to deleting.			// 05/06/02 AM.
+// NEED XP FIX.	// 01/12/03 AM.
+//if (&cout != &safecout)														// 05/06/02 AM.
+//	cout = safecout;		// RESET COUT.									// 05/06/02 AM.
+
+deleteostrs();		// Delete Parse's ostream list.					// 05/24/01 AM.
+
+/// Now cbuf is deletable.													// 02/21/05 AM.
+// Commented out. When called from prog/main.cpp, not deletable. // 06/25/05 AM.
+//if (cbuf_)																		// 02/21/05 AM.
+//	delete cbuf_;																// 02/21/05 AM.
+#ifdef _ODBC
+if (hstmt_)																		// 05/25/02 AM.
+  freeDbstmt();																// 05/25/02 AM.
+
+dbclose();			// Close ODBC handlers.								// 05/23/02 AM.
+#endif
+
+deleteblobs();		// Delete allocated blobs.							// 02/27/03 AM.
+
+if (collect_)									// 05/17/00 AM.
+	delete [] collect_;
+if (nlppp_)
+	delete nlppp_;								// 05/17/00 AM.
+
+datum_ = 0;																		// 03/13/03 AM.
+
+logfile_ = 0;	// VTLOG	// 05/06/13 AM.
+
+}
+
+
+/********************************************
+* FN:		PRETTYSEQ
+* CR:		10/19/98 AM.
+* SUBJ:	Pretty print the analyzer sequence.
+********************************************/
+
+void Parse::prettySeq()
+{
+if (Verbose())
+	getAna()->prettySeq();
+}
+
+
+/********************************************
+* FN:		PRETTYPASSNUM
+* CR:		10/19/98 AM.
+* SUBJ:	Pretty print the pass number.
+********************************************/
+
+inline void Parse::prettyPassnum(
+	int num,
+//	Seqn *pass,		// 05/20/00 AM.
+	_TCHAR *str		// 10/09/99 AM.
+	)
+{
+if (Verbose())
+	{
+	*gout << _T("\n")
+		  << _T("***************\n")
+		  << _T("    PASS ")
+		  << num << _T(" (") << str << _T(")")
+		  << _T("\n")
+		  << _T("***************\n")
+		  ;
+	}
+}
+
+/********************************************
+* FN:		PRETTYPARSEDONE
+* CR:		10/19/98 AM.
+* SUBJ:	Pretty print end of analysis.
+********************************************/
+
+inline void Parse::prettyParsedone()
+{
+if (Verbose())
+	{
+	*gout << _T("\n")
+		  << _T("***************\n")
+		  << _T("     DONE\n")
+		  << _T("***************\n")
+		  ;
+	}
+}
+
+/********************************************
+* FN:		GETSYM
+* CR:		11/19/98 AM.
+* SUBJ:	Internalize given string in the hash table.
+********************************************/
+
+Sym *Parse::getSym(_TCHAR *str)
+{
+#ifdef OLD_030625_
+Htab *htab;
+Ana *ana;
+ana = getAna();
+assert(ana);
+htab = ana->getHtab();
+assert(htab);
+return htab->hsym(str);
+#endif
+
+return htab_->hsym(str);	// 06/25/03 AM.
+}
+
+// Variant. 03/05/99 AM.
+Sym *Parse::getSym(_TCHAR *str, long len)
+{
+#ifdef OLD_030625_
+Htab *htab;
+Ana *ana;
+ana = getAna();
+assert(ana);
+htab = ana->getHtab();
+assert(htab);
+return htab->hsym(str, len);
+#endif
+
+//return htab_->hsym(str);	// 06/25/03 AM.	// BUG.	// 02/01/08 AM.
+return htab_->hsym(str,len);						// FIX.	// 02/01/08 AM.
+}
+
+/********************************************
+* FN:		INTERNSTR
+* CR:		12/08/98 AM.
+* SUBJ:	Internalize given string in the hash table.
+* RET:	String in the string table.
+********************************************/
+
+_TCHAR *Parse::internStr(_TCHAR *str, /*DU*/ _TCHAR* &tstr)
+{
+tstr = 0;
+// An empty result is a legitimate value, not a failure.  The hash table
+// refuses to intern "" (Htab::hget reports "Given null string."), so
+// route it to the canonical empty string instead of erroring and
+// handing back 0.  Every caller already treats 0 and "" alike -- the one
+// site that inspects the result, in Arun.cpp, tests (!str || !*str).
+// 09/21/26 DD.
+if (empty(str))
+	return (tstr = emptyStr());
+Sym *sym = 0;
+if ((sym = getSym(str)))
+	return (tstr = sym->getStr());
+return 0;
+}
+
+// Variant. 03/05/99 AM.
+_TCHAR *Parse::internStr(_TCHAR *str, long len, /*DU*/ _TCHAR* &tstr)
+{
+tstr = 0;
+// An empty result is a legitimate value, not a failure.  The hash table
+// refuses to intern "" (Htab::hget reports "Given null string."), so
+// route it to the canonical empty string instead of erroring and
+// handing back 0.  Every caller already treats 0 and "" alike -- the one
+// site that inspects the result, in Arun.cpp, tests (!str || !*str).
+// 09/21/26 DD.
+if (empty(str) || len <= 0)
+	return (tstr = emptyStr());
+Sym *sym = 0;
+if ((sym = getSym(str, len)))
+	return (tstr = sym->getStr());
+return 0;
+}
+
+/********************************************
+* FN:		EMPTYSTR
+* CR:		09/21/26 DD.
+* SUBJ:	The canonical empty string.
+* RET:		A permanent, never-freed "".
+* NOTE:	The hash table refuses to intern the empty string (Htab::hget
+*			rejects it, and it guards against an empty Sym), so "" cannot live
+*			in the string table the way every other string does.  Empty string
+*			literals therefore share this one static buffer.  That is safe
+*			because strings taken from the string table are never freed by
+*			their holders either -- see the RSNAME/RSSTR case in
+*			RFASem::~RFASem ("Name should be in string table, not deletable
+*			here.") and Iarg, which stores the pointer without copying it.
+*			Returning "" rather than 0 matters: callers such as
+*			PostRFA::postRFAarg reject a null name outright.
+********************************************/
+
+_TCHAR *Parse::emptyStr()
+{
+static _TCHAR empty[1] = { 0 };			// Escape-free: one NUL terminator.
+return empty;
+}
+
+/********************************************
+* FN:		INPUT*
+* CR:		12/24/99 AM.
+* SUBJ:	Get interned pieces of input filename.
+* RET:	String in the string table.
+********************************************/
+
+_TCHAR *Parse::inputName()
+{
+_TCHAR *ptr;
+// Don't need to copy, for this one.
+file_name(input, /*UP*/ ptr);
+return ptr;
+}
+
+_TCHAR *Parse::inputPath()
+{
+_TCHAR *ptr, *str;
+_TCHAR buf[FNAME_SIZE];
+_tcscpy(buf, input);			// Copy input filename for modifying.
+file_path(buf, /*UP*/ ptr);
+internStr(ptr, /*UP*/ str);	// Install in string table.
+return str;
+}
+
+_TCHAR *Parse::inputParent()
+{
+_TCHAR *ptr, *str;
+_TCHAR buf[FNAME_SIZE];
+_tcscpy(buf, input);			// Copy input filename for modifying.
+file_parent(buf, /*UP*/ ptr);
+internStr(ptr, /*UP*/ str);	// Install in string table.
+return str;
+}
+
+_TCHAR *Parse::inputHead()
+{
+_TCHAR *ptr, *str;
+_TCHAR buf[FNAME_SIZE];
+_tcscpy(buf, input);			// Copy input filename for modifying.
+file_head(buf, /*UP*/ ptr);
+internStr(ptr, /*UP*/ str);	// Install in string table.
+return str;
+}
+
+_TCHAR *Parse::inputTail()
+{
+_TCHAR *ptr;
+// Don't need to copy, for this one.
+file_tail(input, /*UP*/ ptr);
+return ptr;
+}
+
+
+/********************************************
+* FN:		STROUT
+* CR:		02/17/01 AM.
+* SUBJ:	Output string to user-specified output stream.
+* RET:	True if ok, else false.
+* NOTE:	To give the user project (user.dll) access to
+*			the current parse output stream.
+********************************************/
+
+bool Parse::strOut(_TCHAR *str)
+{
+if (str && *str && out_)
+	{
+	*out_ << str;
+	return true;
+	}
+return false;
+}
+
+
+/********************************************
+* FN:		FLUSHOUT
+* CR:		02/17/01 AM.
+* SUBJ:	Flush the user-specified output stream.
+* RET:	True if ok, else false.
+* NOTE:	To give the user project (user.dll) access to
+*			the current parse output stream.
+********************************************/
+
+bool Parse::flushOut()
+{
+if (out_)
+	{
+	*out_ << std::endl;
+	return true;
+	}
+return false;
+}
+
+
+/********************************************
+* FN:		NEWOSTR
+* CR:		05/23/01 AM.
+* SUBJ:	Create a new NLP++ OSTREAM and add to global list.
+* RET:	New Delt<Iarg> in list.
+* NOTE:	New management of ostreams, within Parse object.
+*			Caller should make sure ostream isn't in list already.
+*			May want a wrapper for ostream that includes filename, eg,
+*			to avoid collisions. (Forget it for the moment.)
+********************************************/
+
+Delt<Iarg> *Parse::newostr(std::_t_ostream *ostr)
+{
+if (!ostrs_)
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[newostr: Error. Empty list.]") << std::ends;
+	::errOut(&gerrStr,false);
+	return 0;
+	}
+
+Iarg *arg = new Iarg(ostr);
+ostrs_->rpush(arg);
+return ostrs_->getLast();
+}
+
+
+/********************************************
+* FN:		DELETEOSTR
+* CR:		05/23/01 AM.
+* SUBJ:	Delete an NLP++ ostream from list.
+* RET:	true if ok.
+* WARN:	Caller should zero out the ostream value.
+********************************************/
+
+bool Parse::deleteostr(std::_t_ostream *ostr)
+{
+if (!ostrs_)
+	return false;
+if (!ostr)
+	return true;
+
+Delt<Iarg> *delt;
+Iarg *arg;
+for (delt = ostrs_->getFirst(); delt; delt = delt->Right())
+	{
+	arg = delt->getData();
+	if (ostr == arg->getOstream())
+		{
+		// Delete current delt.
+		ostrs_->exciseElt(delt);	// Excise from list.
+
+		// DELETE THE OSTREAM.												// 05/24/01 AM.
+		delete ostr;															// 05/24/01 AM.
+
+		// Note: the delete below does not delete the ostream.	// 05/24/01 AM.
+		Delt<Iarg>::DeleteDeltAndData(delt);
+		break;
+		}
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		FINDOSTR
+* CR:		05/23/01 AM.
+* SUBJ:	Find an NLP++ ostream in global list.
+* RET:	Delt if found.
+* NOTE:	Need a better way to find ostreams for same file.
+********************************************/
+
+Delt<Iarg> *Parse::findostr(std::_t_ostream *ostr)
+{
+if (!ostrs_)
+	return 0;
+if (!ostr)
+	return 0;
+
+Delt<Iarg> *delt;
+Iarg *arg;
+for (delt = ostrs_->getFirst(); delt; delt = delt->Right())
+	{
+	arg = delt->getData();
+	if (ostr == arg->getOstream())
+		return delt;				// Found it.
+	}
+return 0;
+}
+
+
+/********************************************
+* FN:		FLUSHOSTRS
+* SUBJ:	Flush every open NLP++ output file.
+* NOTE:	Called at the end of each pass (Parse::finPass), so a crash leaves
+*			the output of all completed passes on disk. This replaces the
+*			per-write ostr->flush() that NLP-ENGINE-499/505 added in Arun::out.
+*			That flushed once per `<<`: on an analyzer writing a few MB
+*			(parse-en-us emits ~6 MB across 19 files) it cost a WriteFile plus a
+*			file-position query per token, measured at ~40% of total runtime for
+*			a compiled run. Flushing per pass is O(passes), not O(writes).
+*			Set NLP_FLUSH_EVERY_WRITE=1 to restore the old behaviour when
+*			bisecting a crash *within* a single pass.
+********************************************/
+
+bool Parse::flushostrs()
+{
+if (!ostrs_)
+	return false;
+
+Delt<Iarg> *delt;
+Iarg *arg;
+std::_t_ostream *ostr;
+for (delt = ostrs_->getFirst(); delt; delt = delt->Right())
+	{
+	arg = delt->getData();
+	if (arg && (ostr = arg->getOstream()))
+		ostr->flush();
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		DELETEOSTRS
+* CR:		05/24/01 AM.
+* SUBJ:	Delete the NLP++ ostream list from Parse object.
+* RET:	true if ok.
+* OPT:	Doing this in a primitive way for efficiency.
+********************************************/
+
+bool Parse::deleteostrs()
+{
+if (!ostrs_)
+	return false;
+
+Delt<Iarg> *delt = ostrs_->getFirst();
+Iarg *arg;
+Delt<Iarg> *dnext;
+std::_t_ostream *ostr;
+while (delt)
+	{
+	dnext = delt->Right();	// Save the next guy.
+
+	// Delete the current guy.
+	arg = delt->getData();
+	ostr = arg->getOstream();
+	delete ostr;					// DELETE THE OSTREAM.
+	Delt<Iarg>::DeleteDeltAndData(delt);
+
+	delt = dnext;				// Get the next guy.
+	}
+
+// Clear out and delete the list.
+ostrs_->setFirst(0);
+ostrs_->setLast(0);
+delete ostrs_;
+ostrs_ = 0;
+return true;
+}
+
+#ifdef _ODBC
+/********************************************
+* FN:		DBCLOSE
+* CR:		05/23/02 AM.
+* SUBJ:	Delete the ODBC handles from Parse object.
+* NOTE:	Should move all this to an odbc class.
+* RET:	true if ok.
+********************************************/
+
+bool Parse::dbclose()
+{
+
+if (hdbc_)
+	{
+	// If exists, assume connection is open.
+
+	// Disconnect from the server.
+	SQLDisconnect(hdbc_);
+
+	// Close the connection handle.
+	SQLFreeHandle(SQL_HANDLE_DBC, hdbc_);
+	hdbc_ = 0;
+	}
+
+if (henv_)
+	{
+	// Close the environment handle.
+	SQLFreeHandle(SQL_HANDLE_ENV, henv_);
+	henv_ = 0;
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		ALLOCDBSTMT
+* CR:		05/25/02 AM.
+* SUBJ:	Allocate an active ODBC statement handle.
+* NOTE:	Should move all this to an db class.
+* RET:	true if ok.
+********************************************/
+
+bool Parse::allocDbstmt()
+{
+if (hstmt_)
+	{
+	// Warn user to free the old one in NLP++.
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[Warning: Need to free old db stmt with dbfreestmt.]") << std::ends;
+	::errOut(&gerrStr,false,0,0);
+
+	SQLFreeHandle(SQL_HANDLE_STMT, hstmt_);
+	hstmt_ = 0;
+	}
+
+SQLRETURN  retcode;
+// Allocate statement handle.
+retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc_, &hstmt_);
+if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
+	{
+	_stprintf(Errbuf,_T("[Error: Couldn't allocate handle for db stmt.]"));
+	return ::errOut(false); // UNFIXED
+	}
+return true;
+}
+
+
+/********************************************
+* FN:		FREEDBSTMT
+* CR:		05/25/02 AM.
+* SUBJ:	Delete the active ODBC statement handle.
+* NOTE:	Should move all this to an db class.
+* RET:	true if ok.
+********************************************/
+
+bool Parse::freeDbstmt()
+{
+if (hstmt_)
+	{
+	SQLFreeHandle(SQL_HANDLE_STMT, hstmt_);
+	hstmt_ = 0;
+	}
+return true;
+}
+#endif
+
+/********************************************
+* FN:		ERROUT
+* CR:		08/24/02 AM.
+* SUBJ:	Print out an error message and return true/false.
+* RET:	Return given boolean value.
+* NOTE:	Utility function for printing error message.
+*			Parser-specific printout of pass and line number.
+*			Still keeping a global variant in global.cpp.
+********************************************/
+
+bool Parse::errOut(
+	bool retval,
+	bool inputerr	// E,g., if error is in file being interned.
+	)
+{
+
+if (!inputerr
+ || !inputpass_)	// 09/21/13 AM.
+	return ::errOut(retval,currpass_,line_);
+else
+	return ::errOut(retval,inputpass_,inputline_);
+}
+
+
+// VARIANT.	For Unicode, and to remove global buffer.				// 02/25/05 AM.
+bool Parse::errOut(
+	std::_t_strstream *st,			// Error message to print.
+	bool retval,
+	bool inputerr	// E,g., if error is in file being interned.
+	)
+{
+if (logfile_)	// VTLOG	// 05/06/13 AM.
+	{
+	// Todo: get input file name, text near error.
+	std::_t_ofstream logf(TCHAR2CA(logfile_), std::ios::app);	// VTLOG	// 05/06/13 AM.
+	logf << _T("[") << currpass_ << _T(",") << line_ << _T("] ")
+		<< st->str() << std::endl;	// VTLOG	// 05/06/13 AM.
+	logf << _T("  TEXT: ") << getText() << std::endl;	// VTLOG	// 05/06/13 AM.
+	}
+
+if (!inputerr
+ || !inputpass_)	// 09/21/13 AM.
+	return ::errOut(st,retval,currpass_,line_);
+else
+	return ::errOut(st,retval,inputpass_,inputline_);
+}
+
+
+/********************************************
+* FN:		NLPPPERROR
+* SUBJ:	Echo an NLP++ runtime error to stderr.
+* NOTE:	The error trail goes to err.log only, so a region that stopped
+*			on an error (eg findconcept(0,...)) looked like a clean run: exit 0
+*			and nothing on the console. Once per input for each pass and line,
+*			so an error in a rule that fires on every match prints one line.
+********************************************/
+
+void Parse::nlpppError(const _TCHAR *region, const _TCHAR *effect)
+{
+if (!nlpppErrs_.insert(std::make_pair(currpass_, line_)).second)
+	return;
+
+// currpass_ is the pass the failing code is in, which for a function call
+// is the function's pass rather than the one running (seq_).
+_TCHAR *file = 0;
+Dlist<Seqn> *seqs = ana ? ana->getSeqlist() : 0;
+for (Delt<Seqn> *d = seqs ? seqs->getFirst() : 0; d; d = d->Right())
+	if (d->getData()->getPassnum() == currpass_)
+		{
+		file = d->getData()->getRulesfilename();
+		break;
+		}
+
+std::_t_cerr << _T("[Error in NLP++ ") << region << _T(": pass ") << currpass_;
+if (file && *file)
+	std::_t_cerr << _T(" (") << file << _T(")");
+std::_t_cerr << _T(" line ") << line_ << _T(", ") << effect;
+if (input && *input)
+	std::_t_cerr << _T(". Input: ") << input;
+std::_t_cerr << _T(". Details in err.log.]") << std::endl;
+}
+
+/********************************************
+* FN:		RECLIMITERROR
+* SUBJ:	Report a rec pass region stopped at the match limit.
+* NOTE:	A rule that keeps matching without changing what it matched
+*			(eg, its loop guard is never set) repeated a rec pass forever,
+*			with nothing on the console. Once per input for each pass and
+*			rule.
+********************************************/
+
+void Parse::recLimitError(long ruleline, long matches, long nodes)
+{
+if (!recLimitErrs_.insert(std::make_pair(currpass_, ruleline)).second)
+	return;
+
+_TCHAR *file = 0;
+Dlist<Seqn> *seqs = ana ? ana->getSeqlist() : 0;
+for (Delt<Seqn> *d = seqs ? seqs->getFirst() : 0; d; d = d->Right())
+	if (d->getData()->getPassnum() == currpass_)
+		{
+		file = d->getData()->getRulesfilename();
+		break;
+		}
+
+std::basic_ostringstream<_TCHAR> msg;
+msg << _T("[Error in rec pass ") << currpass_;
+if (file && *file)
+	msg << _T(" (") << file << _T(")");
+msg << _T(": rules matched ") << matches << _T(" times in a region of ")
+	<< nodes << _T(" nodes without settling, so the region was stopped there.")
+	<< _T(" Last rule to match: line ") << ruleline;
+if (input && *input)
+	msg << _T(". Input: ") << input;
+msg << _T(". NLP_REC_LIMIT sets the limit; 0 lifts it.]");
+std::_t_cerr << msg.str() << std::endl;
+
+std::_t_strstream gerrStr;
+gerrStr << msg.str() << std::ends;
+::errOut(&gerrStr,false,currpass_,ruleline);
+}
+
+/********************************************
+* FN:		NEWBLOB
+* CR:		02/27/03 AM.
+* SUBJ:	Create a new blob and add to global list.
+* RET:	New Delt<Iarg> in list.
+********************************************/
+
+Delt<Iarg> *Parse::newblob(long siz)
+{
+if (!blobs_)
+	{
+	std::_t_strstream gerrStr;
+	gerrStr << _T("[newblob: Error. Empty list.]") << std::ends;
+	::errOut(&gerrStr,false);
+	return 0;
+	}
+
+_TCHAR * buf = Chars::create(siz);
+#ifdef LINUX
+memset(buf,0,siz);	// 10/26/06 AM.
+#else
+ZeroMemory(buf,siz);	// Zero out.	// 03/12/03 AM.
+#endif
+Iarg *arg = new Iarg(buf);
+blobs_->rpush(arg);
+return blobs_->getLast();
+}
+
+
+/********************************************
+* FN:		DELETEBLOBS
+* CR:		02/27/03 AM.
+* SUBJ:	Delete the NLP++ blob list from Parse object.
+* RET:	true if ok.
+* OPT:	Doing this in a primitive way for efficiency.
+********************************************/
+
+bool Parse::deleteblobs()
+{
+if (!blobs_)
+	return false;
+
+Delt<Iarg> *delt = blobs_->getFirst();
+Iarg *arg;
+Delt<Iarg> *dnext;
+_TCHAR *buf;
+while (delt)
+	{
+	dnext = delt->Right();	// Save the next guy.
+
+	// Delete the current guy.
+	arg = delt->getData();
+	buf = arg->getStr();
+	Chars::destroy(buf);
+	Delt<Iarg>::DeleteDeltAndData(delt);
+
+	delt = dnext;				// Get the next guy.
+	}
+
+// Clear out and delete the list.
+blobs_->setFirst(0);
+blobs_->setLast(0);
+delete blobs_;
+blobs_ = 0;
+return true;
+}
+
+/*************************      END OF FILE      ******************************/

@@ -1,5 +1,5 @@
 """RetryLineageMixin, Client's methods: auto-retry lineage: link a relaunch to the run it retries
-when it is the same launch (twins: app/runs, app/lineage)."""
+when it is the same launch (twins: app/runs, app/projects/lineage)."""
 
 from __future__ import annotations
 import os
@@ -57,10 +57,6 @@ class RetryLineageMixin:
           this process's command, or the one `launch.launching()` names
           (`probe exec`'s child).
 
-        SCOPE is weak since floating runs (daemon v2): every unfiled run has
-        scope None, so the scope conjunct no longer separates two lines of work
-        opened without a project; config equality and the launch do.
-
         LIMITS, on the record. Precision was measured retrospectively on SETTLED
         statuses. A predecessor whose process died reads `running` only until
         its death is noticed -- seconds for a sole writer since #2049, the
@@ -102,9 +98,7 @@ class RetryLineageMixin:
             previous = candidates[0]
             scope_id = experiment_id if experiment_id is not None else project_id
             scope_key = "experiment_id" if experiment_id is not None else "project_id"
-            # A floating run (scope None) matches only a floating predecessor.
-            found = previous.get(scope_key)
-            if (None if found is None else str(found)) != (None if scope_id is None else str(scope_id)):
+            if str(previous.get(scope_key)) != str(scope_id):
                 return
             if str(previous.get("status") or "") not in self._RETRY_DEAD_STATUSES:
                 return

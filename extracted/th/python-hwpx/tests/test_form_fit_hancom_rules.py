@@ -72,10 +72,16 @@ ITALIC_ADVANCES = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit
 LATIN_FACE_ADVANCES = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_latin_face_advances.hwpx"
 LATIN_FACES = ("Times New Roman", "Arial", "Cambria", "Constantia", "Calibri", "Georgia", "Verdana", "Tahoma",
                "Segoe UI", "Consolas", "Courier New")
+RELATIVE_SIZE_ROWS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_relative_size_rows.hwpx"
+HANCOM_LATIN_FACES = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_hancom_latin_faces.hwpx"
 SPACE_SCALING = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_space_scaling.hwpx"
 FIXED_SPACE_SPACING = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_fixed_width_space_letter_spacing.hwpx"
 FIXED_SPACE_RATIO = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_fixed_width_space_ratio_spacing.hwpx"
 KANA_HANJA = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_kana_hanja_widths.hwpx"
+TYPED_NO_BREAK_SPACES = [
+    Path(__file__).parent / "fixtures" / "hancom_saved" / f"formfit_typed_no_break_{name}.hwpx"
+    for name in ("space_widths", "spaces_between_words")
+]
 AUTO_SPACING_LETTER_SPACING = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_auto_spacing_letter_spacing.hwpx"
 AUTO_SPACING_SIZES = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_auto_spacing_letter_spacing_sizes.hwpx"
 
@@ -105,10 +111,13 @@ SINMYEONG_GYEONGOTHIC_HANYANG_GRAPHIC_CELLS = (
 
 
 KOPUB_FACES_CELLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_kopub_faces_cells.hwpx"
+KOPUB_BORROWED_GRID = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_kopub_borrowed_glyphs_grid.hwpx"
+KOPUB_LACKING_GRID = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_kopub_lacking_glyphs_grid.hwpx"
 HFT_FACES_CELLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_hft_faces_cells.hwpx"
 HFT_STD_GLYPH_CELLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_hft_faces_std_glyph_cells.hwpx"
 DODUM_PUNCTUATION = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_dodum_punctuation_cells.hwpx"
 UNLISTED_FACES_CELLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_unlisted_faces_cells.hwpx"
+UNLISTED_FACE_SYMBOLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_unlisted_face_symbols_grid.hwpx"
 EMOJI_CELLS = Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_emoji_cells.hwpx"
 
 
@@ -392,6 +401,101 @@ def test_kopub_cells_break_where_hancom_breaks_them() -> None:
                      for weight in ("Light", "Medium", "Bold")}
 
 
+def test_kopub_accented_and_other_glyphs_take_the_advances_hancom_lays_them_out_at() -> None:
+    # The same for glyphs KoPub documents use that the table lacked: accented Latin letters (à, é, ā, ǎ, ạ, ế),
+    # ․, 〇, ｢, ｣, ･, ▪, ✔, Ⅺ, ➜ and 々, three then a tab in each of the twelve faces at 10 and 12 pt. Ⅺ, which
+    # measure._GLYPHS lists as lacking in these faces, takes the glyph table's advance.
+    document = HwpxDocument.open(KOPUB_LACKING_GRID)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        text = "".join(t.text or "" for t in paragraph.iter(f"{HP}t"))
+        size = int(document.oxml.char_property(runs[0].get("charPrIDRef")).attributes["height"]) / 100
+        x = sum(char_advance(ch, size, style) for ch in text[:3])
+        width = int(paragraph.find(f".//{HP}tab").get("width"))
+        assert round((x // 4000 + 1) * 4000 - x) == width, (style.glyph_face, text[0], size)
+    assert len(paragraphs) == 12 * 2 * 20
+
+
+@pytest.mark.parametrize("name,expected_face", [("myeongjo", "명조"), ("gothic", "고딕")])
+def test_hft_faces_lay_ascii_out_at_half_an_em(name: str, expected_face: str) -> None:
+    # Hancom laid out three of each printable ASCII glyph and of 26 Hangul syllables, then a tab, in its own 명조
+    # and 고딕 at 9 to 12 pt: the ASCII glyphs half an em as 바탕체's (113 layout units at 9 pt, where 한컴바탕,
+    # which these faces took before, has their own widths), the syllables an em.
+    fixture = Path(__file__).parent / "fixtures" / "hancom_saved" / f"formfit_hft_ascii_{name}_grid.hwpx"
+    document = HwpxDocument.open(fixture)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        assert style.glyph_face == expected_face and style.hangul_face == expected_face
+        text = "".join(t.text or "" for t in paragraph.iter(f"{HP}t"))
+        size = int(document.oxml.char_property(runs[0].get("charPrIDRef")).attributes["height"]) / 100
+        x = sum(char_advance(ch, size, style) for ch in text[:3])
+        width = int(paragraph.find(f".//{HP}tab").get("width"))
+        assert round((x // 4000 + 1) * 4000 - x) == width, (style.glyph_face, text[0], size)
+    assert len(paragraphs) == 120 * 4
+
+
+@pytest.mark.parametrize(
+    "name,expected_face", [("malgun", "맑은 고딕"), ("hamchorom_dotum", "함초롬돋움"), ("human_myeongjo", "휴먼명조")]
+)
+def test_private_use_symbols_take_the_advances_hancom_lays_them_out_at(name: str, expected_face: str) -> None:
+    # Hancom laid out three of each private-use glyph U+F090-F0FF (the Symbol and Wingdings bullets Word documents
+    # carry, U+F0A7 the commonest), then a tab, in 맑은 고딕, 함초롬돋움 and 휴먼명조 at 10 and 12 pt: each takes an
+    # advance of its own, most 0.89 em, set in the face's own units (휴먼명조 its own for some).
+    fixture = Path(__file__).parent / "fixtures" / "hancom_saved" / f"formfit_private_use_symbols_{name}.hwpx"
+    document = HwpxDocument.open(fixture)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        assert style.glyph_face == expected_face
+        text = "".join(t.text or "" for t in paragraph.iter(f"{HP}t"))
+        size = int(document.oxml.char_property(runs[0].get("charPrIDRef")).attributes["height"]) / 100
+        x = sum(char_advance(ch, size, style) for ch in text[:3])
+        width = int(paragraph.find(f".//{HP}tab").get("width"))
+        assert round((x // 4000 + 1) * 4000 - x) == width, (style.glyph_face, hex(ord(text[0])), size)
+    assert len(paragraphs) == 112 * 2
+
+
+def test_kopub_supplementary_glyphs_are_single_code_points_without_duplicate_entries() -> None:
+    from collections import Counter
+    from hwpx.form_fit._glyph_table import ADVANCES
+
+    faces = [face for face in ADVANCES if face.startswith("KoPub")]
+    assert len(faces) == 12
+    for face in faces:
+        style = TextStyle(glyph_face=face)
+        for code in (0xF003B, 0xF02EB, 0xF02EF, 0xF0850, 0xF0851):
+            assert char_advance(chr(code), 10, style) == 1000, (face, hex(code))
+        for code in (0xF0800, 0xF0854, 0xF0855):
+            assert char_advance(chr(code), 10, style) == 500, (face, hex(code))
+        counts = Counter("".join(ADVANCES[face].values()))
+        assert not {ch: n for ch, n in counts.items() if n > 1}, face
+
+
+def test_kopub_glyphs_the_fonts_lack_take_the_advances_hancom_lays_them_out_at() -> None:
+    # Hancom laid out three glyphs then a tab in each of the twelve KoPub faces, installed, at 10 and 12 pt and at
+    # 12 pt under 자간 −16: glyphs the fonts lack (∙ ∘ ⋅ ・ ‐), archaic jamo (ㆍ ㅥ), kana, Greek and Cyrillic, which
+    # it lays out at advances of its own, the same in every KoPub face, and a Hangul syllable and A, which the
+    # fonts have. Each tab reaches the next default stop past the glyphs. Hancom sums the Cyrillic letters before
+    # rounding them to its layout unit, so three of them may come out one unit (4 HWPUNIT) off.
+    document = HwpxDocument.open(KOPUB_BORROWED_GRID)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        text = "".join(t.text or "" for t in paragraph.iter(f"{HP}t"))
+        size = int(document.oxml.char_property(runs[0].get("charPrIDRef")).attributes["height"]) / 100
+        x = sum(char_advance(ch, size, style) for ch in text[:3])
+        width = int(paragraph.find(f".//{HP}tab").get("width"))
+        slack = 4 if text[0] in "Дж" else 0
+        assert abs(round((x // 4000 + 1) * 4000 - x) - width) <= slack, (style.glyph_face, text[0], size, style.spacing)
+    assert len(paragraphs) == 12 * 3 * 15
+
+
 def test_cells_in_faces_no_table_lists_break_as_hancom_batang() -> None:
     # The same in faces Hancom does not find (없는글꼴이름, Cre고딕, 가짜명조체), for A, a, 0, (, %, 가, ※ and W at
     # 10 and 30 pt: Hancom lays them out as 한컴바탕, ※ at 788 of 1024 units.
@@ -410,6 +514,42 @@ def test_cells_in_faces_no_table_lists_break_as_hancom_batang() -> None:
         faces.add(style.glyph_face)
         assert estimate_lines(text, width, points, style) == hancom, (style.glyph_face, f"U+{ord(text[0]):04X}", points)
     assert len(cells) == 96 and faces == {"없는글꼴이름", "Cre고딕", "가짜명조체"}
+
+
+def test_symbols_in_a_face_no_table_lists_take_hamchorom_batangs_advances() -> None:
+    # Hancom laid out three glyphs then a tab in a face it does not find (없는글꼴이름) at 10 and 12 pt under 자간 0,
+    # −8 and −16: dots, dashes, shapes, arrows and other symbols, which take 함초롬바탕's advances moved into
+    # 한컴바탕's 1024 units (∙ and ○ at 993 of 1024, not 512 and 1024), and the middle dot, ㆍ, 가, punctuation,
+    # a space, 0, A and (, which take 한컴바탕's. Each tab reaches the next default stop past the glyphs.
+    document = HwpxDocument.open(UNLISTED_FACE_SYMBOLS)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        text = "".join(t.text or "" for t in paragraph.iter(f"{HP}t"))
+        size = int(document.oxml.char_property(runs[0].get("charPrIDRef")).attributes["height"]) / 100
+        x = sum(char_advance(ch, size, style) for ch in text[:3])
+        width = int(paragraph.find(f".//{HP}tab").get("width"))
+        assert round((x // 4000 + 1) * 4000 - x) == width, (text[0], size, style.spacing)
+    assert len(paragraphs) == 6 * 49 and style.glyph_face == "없는글꼴이름"
+
+
+def test_greek_and_cyrillic_in_a_face_no_table_lists_take_hamchorom_batangs_advances() -> None:
+    # The same for the other glyphs past the Latin ones: Hancom laid out three of ˇ, Ω, α, Д or ж then a tab in
+    # 없는글꼴이름 at 10 and 12 pt, the tab reaching the next default stop; each glyph took a third of the rest.
+    style = TextStyle(hangul_face="없는글꼴이름", glyph_face="없는글꼴이름")
+    hancom = {"ˇ": (384, 464), "Ω": (720, 864), "α": (660, 792), "Д": (744, 892), "ж": (780, 936)}
+    for ch, (at_10, at_12) in hancom.items():
+        assert (char_advance(ch, 10, style), char_advance(ch, 12, style)) == (at_10, at_12), ch
+
+
+def test_geta_mark_keeps_a_full_em_in_an_unlisted_face() -> None:
+    # The exception recorded in the Hancom observation for the unlisted-face grid:
+    # U+3013 retains the full-em advance, rather than borrowing Hamchorom Batang's.
+    style = TextStyle(hangul_face="없는글꼴이름", glyph_face="없는글꼴이름")
+    assert char_advance("〓", 10, style) == 1000
+    assert char_advance("〓", 12, style) == 1200
+    assert estimate_lines("〓" * 10, 9800, 10, style) == 2
 
 
 def test_faces_in_hancoms_own_folder_take_the_design_advances_of_their_fonts() -> None:
@@ -590,6 +730,61 @@ def test_italic_glyphs_take_the_advances_hancom_lays_them_out_at() -> None:
         width = int(paragraph.find(f".//{HP}tab").get("width"))
         assert round((x // 4000 + 1) * 4000 - x) == width, (style.glyph_face, text[0], size, style.ratio, style.bold, style.italic)
     assert italic_seen == 612
+
+
+def test_relative_size_scales_the_glyphs_as_a_superscript_size_does() -> None:
+    # 상대 크기 (hh:relSz) 50 to 150 % under 장평 80 and 100 % and 자간 0 and -9 %: Hancom lays a Hangul syllable, a
+    # Latin letter and a space out as at that share of the character size, 자간 taken on the smaller size, and keeps
+    # the line as tall as the character size (a 10 pt line 1000 high at every share).
+    doc = HwpxDocument.open(RELATIVE_SIZE_ROWS)
+    section = doc.oxml.sections[0].element
+    paragraphs = section.findall(f"{HP}p")[1:]
+    style = text_style_from_refs(doc.oxml, paragraphs[0].get("paraPrIDRef"),
+                                 [paragraphs[0].find(f"{HP}run").get("charPrIDRef")])
+    assert style.script_size in (0.5, 0.67, 0.95, 1.1, 1.5)
+    hangul = TextStyle(hangul_face="함초롬바탕", glyph_face="함초롬바탕")
+    assert [char_advance(ch, 10, replace(hangul, script_size=0.95)) for ch in "가a "] == [920, 540, 472]
+    assert [char_advance(ch, 10, replace(hangul, script_size=1.5, spacing=-9)) for ch in "가a "] == [1324, 776, 680]
+    hancom = [len(p.findall(f"{HP}linesegarray/{HP}lineseg")) for p in paragraphs]
+    assert {int(seg.get("vertsize")) for seg in section.iter(f"{HP}lineseg")} == {1000}
+    for paragraph in paragraphs:
+        for cache in paragraph.findall(f"{HP}linesegarray"):
+            paragraph.remove(cache)
+    estimate = page_layout.estimate_pages(doc)
+    assert [len(lines) for lines in estimate.lines[1:]] == hancom
+    assert hancom.count(1) == hancom.count(2) == 55
+
+
+def test_hancom_and_hy_faces_lay_latin_out_at_their_own_advances() -> None:
+    # Hancom Office 2024 lays the Latin glyphs of these faces out at their own advances (in 1000 units per em for
+    # the Hancom faces, 1024 for the HY faces, 궁서, MD이솝체 and 태 헤드라인D) and their Hangul syllables an em wide:
+    # three of a glyph then a tab, at 10 and 13 pt, the tab reaching the next default stop.
+    document = HwpxDocument.open(HANCOM_LATIN_FACES)
+    paragraphs = document.oxml.sections[0].element.findall(f"{HP}p")[1:]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        ref = runs[0].get("charPrIDRef")
+        style = text_style_from_refs(document.oxml, paragraph.get("paraPrIDRef"), [ref])
+        size = int(document.oxml.char_property(ref).attributes["height"]) / 100
+        text = page_layout._run_text(runs)
+        x = sum(char_advance(ch, size, style) for ch in text[:text.index("\t")])
+        assert round((x // 4000 + 1) * 4000 - x) == int(paragraph.find(f".//{HP}tab").get("width")), (
+            style.glyph_face, size, text[0])
+    assert len(paragraphs) == 14 * 2 * 6
+
+
+def test_bold_widens_shinmyeongjo_by_a_twentieth_of_the_em_but_its_borrowed_glyphs() -> None:
+    # Hancom Office 2024 lays a bold glyph of #신명조 out a twentieth of the em wider, as in the 한양 faces ('"' at
+    # 10 pt 552, not 500; '가' 1052), but not the glyphs the face takes from another: the Greek letters, the
+    # superscript and subscript digits beyond Latin-1 and the low single quotation marks. The other Hancom and HY
+    # faces measured keep their regular advances in bold.
+    shinmyeongjo = TextStyle(hangul_face="#신명조", glyph_face="#신명조")
+    bold = replace(shinmyeongjo, bold=True)
+    assert [char_advance(ch, 10, shinmyeongjo) for ch in '"#aW가'] == [500, 992, 512, 1076, 1000]
+    assert [char_advance(ch, 10, bold) for ch in '"#aW가'] == [552, 1040, 560, 1124, 1052]
+    assert [char_advance(ch, 10, bold) for ch in "α⁵‚"] == [char_advance(ch, 10, shinmyeongjo) for ch in "α⁵‚"]
+    hy = TextStyle(hangul_face="HY태백B", glyph_face="HY태백B")
+    assert [char_advance(ch, 10, replace(hy, bold=True)) for ch in "aWĀ"] == [char_advance(ch, 10, hy) for ch in "aWĀ"]
 
 
 def test_latin_faces_take_the_advances_hancom_lays_them_out_at() -> None:
@@ -797,6 +992,86 @@ def test_a_fixed_width_space_takes_its_ratio_and_letter_spacing(fixture: Path) -
         text = page_layout._run_text(runs)
         x = sum(char_advance(ch, size, style) for ch in text[:text.index("	")])
         assert round((x // 4000 + 1) * 4000 - x) == int(paragraph.find(f".//{HP}tab").get("width")), text
+
+
+@pytest.mark.parametrize("fixture", TYPED_NO_BREAK_SPACES, ids=lambda path: path.stem)
+def test_a_typed_no_break_space_takes_the_fonts_own_width(fixture: Path) -> None:
+    # Hancom laid out no-break spaces typed in the text (U+00A0 in hp:t, not hp:nbSpace): "가", 200 of them and
+    # "가" in 함초롬바탕, 함초롬돋움, 한컴산뜻돋움, 맑은 고딕, 바탕, 굴림 and 돋움 at 10 to 12 pt, 장평 95 and 100, 자간 0 and
+    # -6 %, regular and bold, and Hangul words joined by spaces and them (최소 공백 30) in four of those faces. It
+    # takes the font's own glyph for it, as when the font's own space is used (264 in 한컴산뜻돋움 at 10 pt, where a
+    # no-break space is half an em), and keeps the words beside it on one line.
+    document = HwpxDocument.open(fixture)
+    for paragraph in document.oxml.sections[0].element.findall(f"{HP}p")[1:]:
+        runs = paragraph.findall(f"{HP}run")
+        ref = runs[0].get("charPrIDRef")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [ref])
+        size = int(document.oxml.char_property(ref).attributes["height"]) / 100
+        segs = paragraph.findall(f"{HP}linesegarray/{HP}lineseg")
+        starts = hancom_line_starts(page_layout._run_text(runs), [int(seg.get("horzsize")) for seg in segs], size,
+                                    style)
+        assert starts == [int(seg.get("textpos")) for seg in segs]
+
+
+def test_an_opening_quote_moves_down_with_the_character_after_it() -> None:
+    # Hancom laid out words with a closing mark then an opening one inside them ("가가]“가가가가", also )“, ]‘, ’“,
+    # )(, )[, ”(, ]「), each at six places across the line's end, in 함초롬바탕 and 굴림체 at 10 pt, breaking words
+    # and syllables alike. Where the syllable after an opening curly quote does not fit, the quote goes down with it,
+    # as an opening bracket does: "가]“가" breaks as "가]" | "“가", not two syllables earlier.
+    document = HwpxDocument.open(Path(__file__).parent / "fixtures" / "hancom_saved"
+                                 / "formfit_line_breaks_before_opening_quotes.hwpx")
+    paragraphs = [p for p in document.oxml.sections[0].element.findall(f"{HP}p") if page_layout._run_text(
+        p.findall(f"{HP}run"))]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        ref = runs[0].get("charPrIDRef")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [ref])
+        size = int(document.oxml.char_property(ref).attributes["height"]) / 100
+        segs = paragraph.findall(f"{HP}linesegarray/{HP}lineseg")
+        text = page_layout._run_text(runs)
+        starts = hancom_line_starts(text, [int(seg.get("horzsize")) for seg in segs], size, style)
+        assert starts == [int(seg.get("textpos")) for seg in segs], text
+    assert len(paragraphs) == 2 * 2 * 8 * 6
+
+
+def test_ascii_symbols_inside_a_word_break_as_brackets_do() -> None:
+    # Hancom laid out words with an ASCII symbol inside them ("가가$가가가가"), each at six places across the line's
+    # end, in 함초롬바탕 and 굴림체 at 10 pt, breaking words and syllables alike. "$", "<" and "\" never end a line
+    # and go down with the syllable after them, as an opening bracket does ("가가" | "$가가"); ">", "^" and "~"
+    # never start one, going down with the syllable before them as a closing bracket does ("가" | "가>가").
+    document = HwpxDocument.open(Path(__file__).parent / "fixtures" / "hancom_saved"
+                                 / "formfit_line_breaks_around_ascii_symbols.hwpx")
+    paragraphs = [p for p in document.oxml.sections[0].element.findall(f"{HP}p")
+                  if set("$<\\>^~") & set(page_layout._run_text(p.findall(f"{HP}run")))]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        ref = runs[0].get("charPrIDRef")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [ref])
+        size = int(document.oxml.char_property(ref).attributes["height"]) / 100
+        segs = paragraph.findall(f"{HP}linesegarray/{HP}lineseg")
+        text = page_layout._run_text(runs)
+        starts = hancom_line_starts(text, [int(seg.get("horzsize")) for seg in segs], size, style)
+        assert starts == [int(seg.get("textpos")) for seg in segs], text
+    assert len(paragraphs) == 2 * 2 * 6 * 6
+
+
+def test_a_latin1_bullet_takes_half_an_em_as_an_ascii_one_does() -> None:
+    # Hancom laid out 80 syllables after a bullet of a soft hyphen, a middle dot, ×, ÷, § or ° (with "-" and "•"
+    # beside them), its text 50% of the em away, in paragraphs whose right margins go from 0 to 1200: the first line
+    # holds what fits beside half an em and the gap for every character below U+0100, beside an em for "•".
+    assert label_room("\u00ad", {"textOffset": "50"}, 1300, TextStyle()) == 1300
+    assert label_room("\u2022", {"textOffset": "50"}, 1300, TextStyle()) == 1950
+    document = HwpxDocument.open(Path(__file__).parent / "fixtures" / "hancom_saved" / "formfit_latin1_bullet_labels.hwpx")
+    paragraphs = [p for p in document.oxml.sections[0].element.findall(f"{HP}p")
+                  if page_layout._run_text(p.findall(f"{HP}run"))]
+    for paragraph in paragraphs:
+        runs = paragraph.findall(f"{HP}run")
+        style = text_style_from_refs(document, paragraph.get("paraPrIDRef"), [runs[0].get("charPrIDRef")])
+        segs = paragraph.findall(f"{HP}linesegarray/{HP}lineseg")
+        starts = hancom_line_starts(page_layout._run_text(runs), [int(seg.get("horzsize")) - style.head for seg in segs],
+                                    10, style)
+        assert starts == [int(seg.get("textpos")) for seg in segs]
+    assert len(paragraphs) == 8 * 13
 
 
 def test_a_kana_the_face_lacks_is_as_wide_as_its_hangul_syllables() -> None:

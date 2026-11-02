@@ -1,0 +1,542 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from enum import StrEnum
+from typing import ClassVar, Literal, NewType, Protocol, runtime_checkable
+
+
+RepositoryId = NewType("RepositoryId", str)
+PolicyId = NewType("PolicyId", str)
+ComponentId = NewType("ComponentId", str)
+RuleId = NewType("RuleId", str)
+GitObjectId = NewType("GitObjectId", str)
+FixtureId = NewType("FixtureId", str)
+RuleCategoryId = NewType("RuleCategoryId", str)
+
+
+Severity = Literal["warning", "error"]
+ExampleLanguage = Literal["json", "text", "toml", "yaml"]
+EvidenceLevel = Literal["verified", "declared", "external", "unknown"]
+type JSONScalar = str | int | float | bool | None
+type JSONValue = JSONScalar | list[JSONValue] | dict[str, JSONValue]
+MAX_RULE_TITLE_LENGTH = 72
+MAX_RULE_EXAMPLE_TITLE_LENGTH = 56
+MAX_REPOSITORY_INPUT_BYTES = 1_048_576
+
+
+class Mode(StrEnum):
+    """Analysis enforcement modes."""
+
+    REPORT = "report"
+    RATCHET = "ratchet"
+    STRICT = "strict"
+
+
+class InventoryKind(StrEnum):
+    """Closed inert repository facts discovered from one Git tree."""
+
+    PACKAGE = "package"
+    WORKSPACE = "workspace"
+    GITHUB_WORKFLOW = "github-workflow"
+    CLOUD_BUILD = "cloud-build"
+    DOCKERFILE = "dockerfile"
+    TERRAFORM_MODULE = "terraform-module"
+
+
+class RatchetClassification(StrEnum):
+    """Stable relationship between one finding and a reviewed baseline."""
+
+    NEW = "new"
+    KNOWN = "known"
+    RESOLVED = "resolved"
+
+
+@dataclass(frozen=True, slots=True)
+class Component:
+    component_id: ComponentId
+    kind: str
+    path: str
+    owner: str
+    product: str | None = None
+    capability: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ExceptionRecord:
+    rule_id: RuleId
+    component_id: ComponentId
+    manifest_anchor: str
+    fingerprint: str
+    owner: str
+    reason: str
+    issue: str
+    created_on: str
+    expires_on: str
+
+
+@dataclass(frozen=True, slots=True)
+class MakefileException:
+    path: str
+    max_lines: int
+    owner: str
+    reason: str
+    issue: str
+    created_on: str
+    expires_on: str
+
+
+class JavaScriptArtifactKind(StrEnum):
+    """Declared reason a tracked JavaScript artifact remains executable JavaScript."""
+
+    TOOL_CONFIG = "tool-config"
+    GENERATED = "generated"
+    VENDOR = "vendor"
+    FIXTURE = "fixture"
+    RUNTIME = "runtime"
+
+
+@dataclass(frozen=True, slots=True)
+class JavaScriptArtifact:
+    path: str
+    kind: JavaScriptArtifactKind
+    reason: str
+    source: str | None = None
+
+
+class ImageArtifactKind(StrEnum):
+    """Durable use of a tracked image, independent of its directory or format."""
+
+    APPLICATION = "application"
+    DOCUMENTATION = "documentation"
+    FIXTURE = "fixture"
+
+
+@dataclass(frozen=True, slots=True)
+class ImageArtifact:
+    path: str
+    kind: ImageArtifactKind
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentationConfig:
+    entrypoints: tuple[str, ...]
+    maximum_added_pages: int = 0
+    addition_exemptions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PullRequestCommitHistoryTransition:
+    transition_id: str
+    source_ref: str
+    base_ref: str
+    head_prefix: str
+    sha_prefix_length: int = 12
+
+
+@dataclass(frozen=True, slots=True)
+class PullRequestCommitHistoryConfig:
+    advisory_base_ref: str
+    maximum_commits: int = 5
+    transitions: tuple[PullRequestCommitHistoryTransition, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PullRequestReviewPolicyConfig:
+    zero_review_below_counted_lines: int
+    two_reviews_above_counted_lines: int
+    migration_roots: tuple[str, ...]
+    required_checks: tuple[str, ...]
+    required_body_sections: tuple[str, ...]
+    transition_exemptions: tuple[str, ...] = ()
+    transition_actors: tuple[str, ...] = ()
+    trusted_bot_authors: tuple[str, ...] = ()
+    allowlisted_bot_reviewers: tuple[str, ...] = ()
+    accepted_check_conclusions: tuple[str, ...] = ("success",)
+    require_resolved_threads: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class PullRequestConfig:
+    commit_history: PullRequestCommitHistoryConfig
+    review_policy: PullRequestReviewPolicyConfig | None = None
+
+
+class CommitMessageEnforcement(StrEnum):
+    """Managed Conventional Header v1 rollout state."""
+
+    OBSERVE = "observe"
+    STRICT = "strict"
+
+
+@dataclass(frozen=True, slots=True)
+class CommitMessageConfig:
+    enforcement: CommitMessageEnforcement = CommitMessageEnforcement.STRICT
+
+
+@dataclass(frozen=True, slots=True)
+class Manifest:
+    repository_id: RepositoryId
+    components: tuple[Component, ...]
+    enabled_rules: tuple[str, ...] = ()
+    exceptions: tuple[ExceptionRecord, ...] = ()
+    documentation: DocumentationConfig | None = None
+    pull_request: PullRequestConfig | None = None
+    commit_message: CommitMessageConfig = field(default_factory=CommitMessageConfig)
+    makefile_exceptions: tuple[MakefileException, ...] = ()
+    javascript_artifacts: tuple[JavaScriptArtifact, ...] = ()
+    image_artifacts: tuple[ImageArtifact, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Remediation:
+    summary: str
+    steps: tuple[str, ...]
+    validation: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RuleTaxonomy:
+    category_id: RuleCategoryId
+    topic: str
+
+
+@dataclass(frozen=True, slots=True)
+class RuleExamplePair:
+    example_id: FixtureId
+    title: str
+    language: ExampleLanguage
+    before: str
+    after: str
+    expected_severity: Severity
+
+    def __post_init__(self) -> None:
+        if (
+            any(
+                not value
+                for value in (
+                    self.example_id,
+                    self.language,
+                    self.before,
+                    self.after,
+                    self.title,
+                )
+            )
+            or "\n" in self.title
+            or len(self.title) > MAX_RULE_EXAMPLE_TITLE_LENGTH
+        ):
+            message = (
+                "rule examples require an id, concise title, severity, language, before, and after"
+            )
+            raise ValueError(message)
+        if self.before == self.after:
+            message = f"rule example inputs must differ: {self.example_id}"
+            raise ValueError(message)
+
+
+@dataclass(frozen=True, slots=True)
+class SourceLocation:
+    path: str
+    line: int | None = None
+    column: int | None = None
+    end_line: int | None = None
+    end_column: int | None = None
+    pointer: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RelatedLocation:
+    location: SourceLocation
+    message: str
+    relationship: str = "related"
+
+
+@dataclass(frozen=True, slots=True)
+class ExceptionUse:
+    owner: str
+    issue: str
+    reason: str
+    created_on: str
+    expires_on: str
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionIssue:
+    code: str
+    phase: str
+    message: str
+    retryable: bool
+    remediation: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Diagnostic:
+    rule_id: RuleId
+    rule_version: int
+    severity: Severity
+    evidence_level: EvidenceLevel
+    component_id: ComponentId
+    subject_kind: str
+    observed: str
+    expected: str
+    message: str
+    path: str
+    manifest_anchor: str
+    remediation: Remediation
+    prerequisites: tuple[str, ...] = ()
+    disposition: Literal["active", "excepted"] = "active"
+    exception: ExceptionUse | None = None
+    fingerprint: str = ""
+    finding_key: str = ""
+    location: SourceLocation | None = None
+    related_locations: tuple[RelatedLocation, ...] = ()
+    observed_value: JSONValue | None = None
+    expected_value: JSONValue | None = None
+    baselineable: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class RuleDefinition:
+    rule_id: RuleId
+    version: int
+    default_severity: Severity
+    title: str
+    description: str
+    why: str
+    fix: str
+    taxonomy: RuleTaxonomy
+    examples: tuple[RuleExamplePair, ...]
+    references: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.version < 1:
+            message = f"rule version must be positive: {self.rule_id}"
+            raise ValueError(message)
+        if not self.title or "\n" in self.title or len(self.title) > MAX_RULE_TITLE_LENGTH:
+            message = f"rule title must be one concise line: {self.rule_id}"
+            raise ValueError(message)
+        prose = (self.description, self.why, self.fix)
+        normalized = tuple(" ".join(value.casefold().split()) for value in prose)
+        if any(not value for value in normalized) or len(set(normalized)) != len(normalized):
+            message = f"rule clarity fields must be nonempty and distinct: {self.rule_id}"
+            raise ValueError(message)
+        if not self.examples:
+            message = f"rule must provide an example pair: {self.rule_id}"
+            raise ValueError(message)
+        fixture_ids = tuple(example.example_id for example in self.examples)
+        if len(fixture_ids) != len(set(fixture_ids)):
+            message = f"rule example fixture ids must be unique: {self.rule_id}"
+            raise ValueError(message)
+
+    @property
+    def severity(self) -> Severity:
+        return self.default_severity
+
+    @property
+    def fixture_ids(self) -> tuple[FixtureId, ...]:
+        return tuple(example.example_id for example in self.examples)
+
+
+Rule = RuleDefinition
+
+
+@runtime_checkable
+class Policy(Protocol):
+    policy_id: ClassVar[PolicyId]
+    policy_version: ClassVar[int]
+
+    def rules(self) -> tuple[Rule, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Baseline:
+    repository_id: RepositoryId
+    policy_id: PolicyId
+    policy_version: int
+    scope_digest: str
+    fingerprints: tuple[str, ...]
+    include_warnings: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class TrackedFileEvidence:
+    path: str
+    object_id: str
+    substantive: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class PackageEvidence:
+    ecosystem: str
+    path: str
+    name: str | None
+    private: bool | None
+    workspace_root: bool
+    object_id: str = ""
+    content_digest: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceEvidence:
+    ecosystem: str
+    path: str
+    member_patterns: tuple[str, ...]
+    exclude_patterns: tuple[str, ...]
+    object_id: str = ""
+    content_digest: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryUnit:
+    kind: InventoryKind
+    path: str
+    object_id: str | None
+    content_digest: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class InputProvenance:
+    mode: Literal["git-tree", "git-index", "worktree"]
+    source_revision: str
+    tree_digest: str
+    manifest_path: str
+    manifest_object_id: GitObjectId | None
+    manifest_digest: str
+    baseline_path: str | None = None
+    baseline_object_id: GitObjectId | None = None
+    baseline_digest: str | None = None
+    comparison_base_revision: str | None = None
+    comparison_base_tree_digest: str | None = None
+    comparison_basis: Literal["explicit", "last-commit", "staged", "empty"] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MakefileMetric:
+    path: str
+    object_id: str
+    lines: int
+
+
+@dataclass(frozen=True, slots=True)
+class MakefileComparison:
+    base_revision: str
+    base_tree_digest: str
+    basis: Literal["explicit", "last-commit", "staged", "empty"]
+    base_files: tuple[MakefileMetric, ...]
+    head_files: tuple[MakefileMetric, ...]
+    as_of: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationComparison:
+    roots: tuple[str, ...]
+    base_files: tuple[TrackedFileEvidence, ...]
+    head_files: tuple[TrackedFileEvidence, ...]
+    explicit_roots: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RepositoryInspection:
+    completion: Literal["complete", "incomplete"]
+    source_revision: str
+    tree_digest: str
+    tracked_file_count: int
+    packages: tuple[PackageEvidence, ...]
+    workflow_paths: tuple[str, ...]
+    cloudbuild_paths: tuple[str, ...]
+    dockerfile_paths: tuple[str, ...]
+    terraform_modules: tuple[str, ...]
+    issues: tuple[str, ...]
+    tracked_files: tuple[TrackedFileEvidence, ...] = ()
+    workspaces: tuple[WorkspaceEvidence, ...] = ()
+    inventory_units: tuple[InventoryUnit, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PullRequestTemplate:
+    path: str
+    content: str
+
+
+@dataclass(frozen=True, slots=True)
+class RepositorySnapshot:
+    manifest: Manifest
+    baseline: Baseline | None
+    inspection: RepositoryInspection
+    provenance: InputProvenance
+    makefile_comparison: MakefileComparison | None = None
+    pull_request_templates: tuple[PullRequestTemplate, ...] = ()
+    migration_comparison: MigrationComparison | None = None
+
+
+@runtime_checkable
+class RepositoryPolicy(Protocol):
+    def evaluate_repository(self, snapshot: RepositorySnapshot) -> tuple[Diagnostic, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class RatchetEntry:
+    fingerprint: str
+    classification: RatchetClassification
+    diagnostic: Diagnostic | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RatchetComparison:
+    entries: tuple[RatchetEntry, ...]
+    include_warnings: bool = False
+
+    def fingerprints(self, classification: RatchetClassification) -> tuple[str, ...]:
+        return tuple(
+            item.fingerprint for item in self.entries if item.classification is classification
+        )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _AnalysisReportBase:
+    mode: Mode
+    repository_id: RepositoryId
+    policy_id: PolicyId
+    policy_version: int
+    scope_digest: str
+    summary: dict[str, int] = field(default_factory=dict)
+    input_provenance: InputProvenance | None = None
+    ratchet: RatchetComparison | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PassedReport(_AnalysisReportBase):
+    completion: Literal["complete"] = field(init=False, default="complete")
+    conclusion: Literal["passed"] = field(init=False, default="passed")
+    diagnostics: tuple[Diagnostic, ...] = field(init=False, default=())
+    execution_issues: tuple[ExecutionIssue, ...] = field(init=False, default=())
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FindingsReport(_AnalysisReportBase):
+    diagnostics: tuple[Diagnostic, ...]
+    completion: Literal["complete"] = field(init=False, default="complete")
+    conclusion: Literal["findings"] = field(init=False, default="findings")
+    execution_issues: tuple[ExecutionIssue, ...] = field(init=False, default=())
+
+    def __post_init__(self) -> None:
+        if not self.diagnostics:
+            message = "findings reports require at least one diagnostic"
+            raise ValueError(message)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class IncompleteReport(_AnalysisReportBase):
+    execution_issues: tuple[ExecutionIssue, ...]
+    completion: Literal["incomplete"] = field(init=False, default="incomplete")
+    conclusion: Literal["inconclusive"] = field(init=False, default="inconclusive")
+    diagnostics: tuple[Diagnostic, ...] = field(init=False, default=())
+
+    def __post_init__(self) -> None:
+        if not self.execution_issues:
+            message = "incomplete reports require at least one execution issue"
+            raise ValueError(message)
+
+
+type AnalysisReport = PassedReport | FindingsReport | IncompleteReport

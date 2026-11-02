@@ -1,0 +1,29 @@
+from typing import Optional, Protocol
+
+
+class ISessionLoopGuard(Protocol):
+    """
+    Port for controlling the execution loop of a session.
+    Allows for safety breaks in automated environments.
+    """
+
+    def should_continue(
+        self, turn_count: int, cumulative_cost: float, interactive: bool
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Returns (True, None) if the loop should continue to the next turn.
+        Returns (False, reason) when a guardrail limit is hit, where `reason`
+        is a human-readable message explaining which limit was exceeded and
+        how to adjust the configuration.
+        """
+        ...
+
+    def reset_baseline(self, turn_count: int, cumulative_cost: float) -> None:
+        """
+        Re-anchors the turn-count and cost baselines to the given values.
+
+        A human-approved message turn re-anchors the baselines so the next
+        segment gets a fresh budget. Implementations measure every later
+        ``should_continue`` call as a delta from the new baselines.
+        """
+        ...

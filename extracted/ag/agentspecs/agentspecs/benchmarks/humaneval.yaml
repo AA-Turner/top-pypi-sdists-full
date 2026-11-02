@@ -1,0 +1,24 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+id: humaneval
+version: 0.0.1
+name: HumanEval
+description: >-
+  Python function implementation from docstrings. Measures functional
+  correctness of code generation by testing against hand-written test
+  cases. Widely used as a baseline for code generation benchmarks.
+category: Coding
+task_count: 164
+metric: pass@k
+source: https://github.com/openai/human-eval
+difficulty: medium
+dataset_source: hosted
+supports_live_monitoring: false
+supports_experiment_comparison: true
+evaluator_shapes:
+  - pass_rate
+evaluators:
+  - precision-recall-evaluator:0.0.1
+languages:
+  - python

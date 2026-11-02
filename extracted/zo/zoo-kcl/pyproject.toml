@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1.6,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "zoo-kcl"
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "kcl-python-bindings/Cargo.toml"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+exclude = ["files*", "tests*", "venv*", "target*"]

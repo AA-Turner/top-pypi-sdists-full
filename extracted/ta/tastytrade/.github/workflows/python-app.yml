@@ -1,0 +1,59 @@
+name: Python application
+
+on:
+  push:
+    branches: [ master ]
+  pull_request_target:
+    branches: [ master ]
+
+jobs:
+  authorize:
+    if: github.event_name == 'pull_request_target'
+    environment:
+      ${{ github.event.pull_request.head.repo.full_name != github.repository && 'external' || 'internal' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+
+  build:
+    if: always() && (github.event_name != 'pull_request_target' || needs.authorize.result == 'success')
+    needs: authorize
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        python-version: ${{ matrix.python-version }}
+    - name: Setup uv venv
+      run: |
+        uv sync --locked --all-extras --dev
+    - name: Lint with ruff
+      run: |
+        uv run ruff check tastytrade/ tests/
+    - name: Type check with pyright
+      run: |
+        uv run pyright tastytrade/ tests/
+    - name: Type check with mypy
+      run: |
+        uv run mypy tastytrade/
+    - name: Test with pytest
+      run: |
+        uv run pytest --cov=tastytrade --cov-report=term-missing tests/ --cov-fail-under=95 -v
+      env:
+        TT_REFRESH_SANDBOX: ${{ secrets.TT_REFRESH_SANDBOX }}
+        TT_SECRET_SANDBOX: ${{ secrets.TT_SECRET_SANDBOX }}
+        TT_ACCOUNT: ${{ secrets.TT_ACCOUNT }}
+        TT_REFRESH: ${{ secrets.TT_REFRESH }}
+        TT_SECRET: ${{ secrets.TT_SECRET }}

@@ -1,0 +1,713 @@
+Metadata-Version: 2.5
+Name: edgescaleai-cube-mcp
+Version: 0.3.65
+Summary: MCP server for EdgescaleAI Cube operations
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: mcp<2,>=1.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: truststore>=0.9.0
+Requires-Dist: websockets>=12.0
+Provides-Extra: dev
+Requires-Dist: duckdb>=1.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=1.0.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: pyyaml>=6.0; extra == 'dev'
+Requires-Dist: rich>=13; extra == 'dev'
+Requires-Dist: typer<1,>=0.12; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# cube-mcp
+
+MCP server for EdgescaleAI Cube management and Apollo deployments.
+
+> **New owner / inheriting this repo?** Jump to [Operations & Ownership](#operations--ownership). The two runbooks you need are [docs/admin.md](docs/admin.md) (full RBAC + infra reference) and [docs/adding-new-user.md](docs/adding-new-user.md) (onboard a teammate end-to-end). Both are written so you can point Claude Code at them and have it execute the steps for you.
+
+## Architecture
+
+**cube-agent** runs locally as an MCP server (via `npx @edgescaleai/cube-mcp`). It handles authentication, Docker builds, Helm chart packaging, and app proxy tunnels. Server-side operations (Kubernetes, Teleport, Apollo, Groundcover observability) are proxied to **cube-cloud**, a FastAPI backend hosted on AWS ECS.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  LOCAL (developer machine)                                                   │
+│                                                                              │
+│  ┌─────────────┐    MCP JSON-RPC     ┌──────────────────────────────────┐   │
+│  │ Claude Code  │◄──────────────────►│  cube-agent (MCP server)         │   │
+│  └─────────────┘                     │                                  │   │
+│                                      │  Local tools:                    │   │
+│                                      │   • agent_login_browser          │   │
+│                                      │   • agent_logout                 │   │
+│                                      │   • agent_status                 │   │
+│                                      │   • build_and_publish_to_apollo  │   │
+│                                      │   • app_proxy / stop / status    │   │
+│                                      │                                  │   │
+│                                      │  Remote tools:                   │   │
+│                                      │   (proxied to cube-cloud ──────) │   │
+│                                      └────────┬──────────┬──────────────┘   │
+│                                               │          │                   │
+│   ~/.cube-agent/  ◄── API key storage         │          │ WebSocket         │
+│   localhost:PORT  ◄── app proxy listener      │          │ /tunnel           │
+│                                               │          │                   │
+└───────────────────────────────────────────────┼──────────┼───────────────────┘
+                                                │          │
+                               HTTPS + Bearer   │          │  TCP-over-WS
+                               POST /mcp/        │          │  relay
+                                                │          │
+┌───────────────────────────────────────────────┼──────────┼───────────────────┐
+│  CLOUD (AWS ECS)                              │          │                   │
+│                                               ▼          ▼                   │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  cube-cloud (FastAPI)                                                  │  │
+│  │                                                                        │  │
+│  │  ┌─────────────────────┐     ┌──────────────────────────────────────┐ │  │
+│  │  │  Auth Middleware     │     │  RBAC (Cognito + Profiles)          │ │  │
+│  │  │  • Validate API key  │────►│  • Cognito group → profile          │ │  │
+│  │  │    (DynamoDB lookup)│     │  • Profile → Apollo credentials     │ │  │
+│  │  │  • Attach profile   │     │    (AWS Secrets Manager)            │ │  │
+│  │  └─────────────────────┘     └──────────────────────────────────────┘ │  │
+│  │                                                                        │  │
+│  │  Cloud tools (RBAC-gated):                                            │  │
+│  │  Kubernetes        Apollo Environments      Apollo Products           │  │
+│  │  • cube_list       • list_environments      • list_products           │  │
+│  │  • cube_status     • install_entity         • compare_product_        │  │
+│  │  • kubectl_exec    • uninstall_entity         versions                │  │
+│  │  • app_list        • entity_health          • list_release_channels   │  │
+│  │  • list_services   • plan_details           • get_product_releases    │  │
+│  │                    • cancel_active_plan                               │  │
+│  │  Expose (Teleport) • update_entity_config   Groundcover (read-only)   │  │
+│  │  • expose          • enforce_entity_config  • groundcover_list_*      │  │
+│  │  • unexpose                                 • groundcover_query_*     │  │
+│  │  • list_exposed    Modules                  • groundcover_search_*    │  │
+│  │                    • list_modules           • groundcover_k8s_events  │  │
+│  │  Secrets           • install_module                                   │  │
+│  │  • create_secret   • uninstall_module       Registry                  │  │
+│  │  • update_secret   • update_module_         • acr_get_token           │  │
+│  │                      variables                                        │  │
+│  │                                             Feedback                  │  │
+│  │                                             • send_feedback         │  │
+│  └────────────────────────┬───────────────────────────┬──────────────────┘  │
+│                           │                           │                      │
+│  ┌────────────────────────┴────────────────┐          │                      │
+│  │  tbot sidecar (Teleport credentials)    │          │                      │
+│  │  • IAM join method (Fargate identity)   │          │                      │
+│  │  • identity/  → tsh commands            │          │                      │
+│  │  • kube/{cluster}/ → kubeconfigs        │          │                      │
+│  │  • app-{name}/ → app TLS certs          │          │                      │
+│  └──────────┬─────────────────────────────┘          │                      │
+│             │                                         │                      │
+└─────────────┼─────────────────────────────────────────┼──────────────────────┘
+              │                                         │
+              │ tsh/tctl (short-lived certs)            │ GraphQL (OAuth2)
+              ▼                                         ▼
+┌──────────────────────────┐            ┌──────────────────────────────────┐
+│  Teleport                │            │  Apollo                          │
+│  edgescaleai.teleport.sh │            │  edgescaleai.palantirapollo.com  │
+│                          │            │                                  │
+│  • Kube clusters         │            │  • Environments & Modules        │
+│  • App proxies           │            │  • Entities (Helm charts)        │
+│  • SSH access            │            │  • Products & Release Channels   │
+│  • Identity & TLS certs  │            │  • Change Requests               │
+└──────────────────────────┘            │  • ACR (Docker + Helm registry)  │
+                                        └──────────────────────────────────┘
+
+                        │ HTTPS (per-cube, read-only)
+                        ▼
+            ┌──────────────────────────────────┐
+            │  Groundcover                     │
+            │  api.groundcover.com             │
+            │  • Metrics / logs / traces       │
+            │  • K8s events & workload health  │
+            └──────────────────────────────────┘
+
+A separate browser front door (not shown above) serves `expose`d in-cube web
+apps to account-less external users: browser → `<app>-<env>` wildcard subdomain
+→ ALB → cube-cloud browser proxy → tbot mTLS dial into the cube. See
+[docs/browser-app-proxy-spec.md](docs/browser-app-proxy-spec.md).
+```
+
+### How it works
+
+1. **Local tools** run directly on the developer's machine inside `cube-agent`. These handle authentication (Cognito browser login, API key storage), Docker builds, Helm chart packaging, and app proxy tunnels.
+
+   The sign-in page also offers **self-service password reset** — "Forgot your password?" sends a code to the user's email (Cognito `ForgotPassword`), and redeeming it signs them straight in, so no operator conveys a temporary password by hand. The request step answers **identically** whether or not the address has an account: Cognito distinguishes "no such user", "no verified email" and "still on a temporary password", and all three are collapsed into one page so the flow cannot be used to enumerate accounts. It covers `CONFIRMED` users only — Cognito refuses `ForgotPassword` for a user who never completed first login or whose invite expired, so those are re-invited by an operator with `scripts/reset-password.py --resend-invite`, which has Cognito email the new password directly. See [docs/admin.md](docs/admin.md) §6.
+
+2. **Cloud tools** are proxied from `cube-agent` to `cube-cloud` (FastAPI on AWS ECS) via MCP Streamable HTTP. The MCP endpoint (`/mcp`) and the tunnel relay (`/tunnel`) are authenticated with a Bearer API key validated against DynamoDB. (The browser surfaces additionally accept the same key from a parent-domain session cookie — on app subdomains, and on the apex under the `/console` prefix only; `/mcp` and `/tunnel` stay Bearer-only as a CSRF gate.)
+
+3. **RBAC** maps Cognito user groups to profiles. Each profile resolves to Apollo OAuth2 credentials stored in AWS Secrets Manager, scoping what the user can access. The same secret carries the profile's **app companies** — the set of `company` labels whose exposed apps it can see, home first — which `scripts/provision-access.py` writes together with the Teleport role ([ADR-0002](docs/adr/0002-app-companies-are-a-stored-set.md)). A stack reads that set when its Terraform `app_companies_source` is `stored`, which both dev and prod are since 2026-09-28; `map`, the in-code baseline, is the rollback, and a stack rolled back to it would resolve each profile to one company only. That is why a profile whose HOME app company differs from its map entry still gets a CLI warning: the entry keeps the rollback safe for it. See the [multi-company spec](docs/multi-company-app-access-spec.md).
+
+4. **Teleport** access is provided by a `tbot` sidecar running alongside `cube-cloud` in the same ECS task. It uses IAM join to obtain short-lived certificates for Kubernetes clusters and app proxies — no `tsh` is needed on the developer's machine. The console's Teleport connectivity chip reads the same sidecar's `tsh kube ls` — one fleet-wide, cached call — and reports `unknown` rather than "disconnected" whenever it cannot ask.
+
+5. **Apollo** operations (environments, modules, entities, products, releases, change requests) go through a GraphQL API authenticated with per-profile OAuth2 client credentials.
+
+6. **Groundcover** provides read-only, per-cube observability (metrics, logs, traces, K8s events, workload health) via the `groundcover_*` tools. Access is scoped to the cubes your Apollo credentials can see, and every query is pinned server-side to a single cube — see [docs/groundcover-integration-spec.md](docs/groundcover-integration-spec.md).
+
+7. **Feedback** has **two destinations behind one tool**, `send_feedback`. A *bug report* — the wire value is still `support` — files a ticket in **Freshservice** (`freshservice_enabled`). It is presented as a bug report rather than a support request on purpose: the integration is complete, the on-call rotation and SLAs behind the word "support" are not, and the wording is held back until they are (console-spec §4.4e). A *feature* request raises a customer request on the Jira Service Management **Customer Feedback** board (`CF`), which is a product backlog (`jira_enabled`). Both flags default off per stack, and both credentials are service accounts holding a single write scope. The reporter is resolved from the caller's own API key rather than from a tool argument, on both paths.
+
+8. **Browser app proxy** gives account-less external users a browser-only path to in-cube web apps you've `expose`d — no Teleport account and no local agent. Requests hit an `<app>-<env>` wildcard subdomain, authenticate via a Cognito session cookie, and are dialed into the cube over the same tbot mTLS path. **This is the URL every surface publishes** — `expose`, `list_exposed`, `app_list` and the console all build it through one function (`browser_proxy/resolver.py::browser_app_url`), which validates the host against the same rule the proxy parses it back with, so a published URL is always one the proxy will route. See [docs/browser-app-proxy-spec.md](docs/browser-app-proxy-spec.md).
+
+9. **Console** is the browser UI at `https://<apex>/console` — sign in at the apex and you land on it. A React SPA (built from `console/web`, compiled by a node stage in the cube-cloud Dockerfile) over JSON endpoints that share the Apollo query + RBAC layer with the MCP tools. Cookie-authenticated, bookmarkable, and deliberately narrow: reads are GET-only and same-origin-enforced, and there is **no** generic tool-proxy endpoint. A cube's **Apps** tab is a table, one row per app, with apps needing attention first and filters for All apps, Needs attention, Exposed and Platform. Each row shows the app's health in plain words and its **exposed links** — the public browser-app-proxy URL (`https://<app>-<cube>.<apex>` — not Teleport's `…teleport.sh` address, which needs a Teleport account) — and opens in place (a linkable `?open=`) to show why it is unhealthy, its deployment status, and one card per Kubernetes Service port, where an exposed port offers **Unexpose** behind a confirmation that names the cube ([docs/console-spec.md](docs/console-spec.md) §4.26). The Service list comes from kubectl, so it loads beside the app list rather than inside it and is cached briefly per profile and cube; exposed links render from Apollo alone, and if the Service list cannot be read the page says so rather than marking any port "Not exposed". Each app also links a **Logs** view at its own bookmarkable URL (`/console/cubes/<cube>/apps/<app>/logs`), backed by Groundcover — one query per Kubernetes workload the app owns, merged newest-first, and **near-live**: it polls every 10s incrementally (only rows newer than the last window), pauses when the tab is hidden, and offers a Live/Paused toggle. Streaming was deliberately not used — Groundcover exposes only search endpoints, so a WebSocket would still poll underneath while adding a second auth path. A port that is not exposed is marked **Not exposed** with its own **Expose** — for that port, so a wrong port, which would surface later as a Teleport timeout, is never guessed — and the server refuses any target the console did not itself enumerate. The console's mutations are a fixed set — expose, unexpose, feedback, and the AI tab's deploy and remove — each its own route with enumerated args, gated on origin + a `X-Console-CSRF` synchronizer token, and each fails closed where the CSRF secret is unprovisioned. The console's navigation is a collapsible **left sidebar** — Home (the cube list), Applications and Field Guide ([docs/console-spec.md](docs/console-spec.md) §4.25). It carries a **Dark / Light** theme toggle (dark by default, remembered per browser; the guide has the same toggle and receives the choice as `?theme=light`, since it stores nothing — see [docs/console-spec.md](docs/console-spec.md) §4.11). It also links the **Cube Field Guide** at `/console/guide` — a 21-lesson onboarding course (Quick Start / Deep Dive / Appendix). It lives in the repo at `console/web/public/guide/` (`index.html` + `guide.css` + `guide.js`), which is its **source of truth: edit it there**. It was imported once from an authored single-file HTML by `scripts/vendor-field-guide.py` — a one-shot, in no build path, which also stripped the guide's progress-tracking state and its residual internal content. Those removals are now invariants, enforced on every build by `console/web/src/guide.test.ts` (which renders every lesson in jsdom and sweeps for state, network calls, and customer names). It is a separate static document with its own, deliberately separate, CSP profile; read [docs/console-spec.md](docs/console-spec.md) §4.11 before editing the guide or either CSP. Cube cards and the cube page show Apollo's **display name** where it has one, plus a rolled-up **agent status** chip (Connected / Stale / Never reported / Mixed) — `mixed` is a real state, so it is surfaced rather than resolved to whichever agent Apollo listed first. Each app's opened row shows **when it last changed** — the newest *successful* Apollo plan, so a failing retry loop doesn't read as a change. Where the plan page's ordering can't be confirmed it shows no date rather than a possibly-stale one (§4.15). The row itself is tagged "Last deploy failed" when the last attempt failed with no success on record. An app whose Apollo status is not HEALTHY can be **opened to show why**: the health checks behind the status, each with the app's own message, and any container that is not live or ready (`GET /console/api/cubes/<cube>/health?app=<entity>`, fetched on open). The MCP `entity_health` tool shows the same evidence from the same shared module (`tools/health_checks.py`). An ERROR with nothing failing in its report says so, pointing at the logs, rather than showing an empty panel, and an incomplete read is never shown as an all-clear. See [docs/console-spec.md](docs/console-spec.md) §4.21. The cube page carries an **Online / Offline / Unknown** badge beside the cube name, derived from how recently Groundcover holds a log for that cube — hovering gives "Last seen X ago" and names the source. **Offline renders grey, not red** — a cube may be air-gapped or on a network that forbids egress to Edgeport, which is intended operation rather than a fault, and the tooltip says so. `Unknown` is a real state and never renders as offline: a cube Groundcover has never heard of, or a failed query, says so rather than claiming the cube is down. See [docs/console-spec.md](docs/console-spec.md) §4.14. Beside it sits a **Teleport** chip (Connected / Disconnected / Not enrolled / Unknown) — the third reachability signal, and the one that answers *can the platform reach into this cube*, since `kubectl_exec`, the service list, `expose` and the app proxy all ride the Teleport agent. Each chip names the system it measures, so three of them reading "Offline / Stale / Connected" is information rather than a contradiction. It joins on the cube's `teleport-agent-module` **`resourceId`** — a UUID minted by the module install, matched against Teleport's `teleport.internal/resource-id` label. Not the cluster name, which is caller-writable and so made this read a cross-tenant liveness oracle; and not the environment name, which diverges on three cubes (`redhat-lab-cube` registers as `RHLab-Houston`, and `staging-int` as `Staging-int` — a case-only difference). A 2026-09-05 audit of all 172 environments confirmed every agent module carries a unique `resourceId`. Enrollment is decided by whether a Teleport **kube agent** is actually deployed, not by whether the agent module is linked — a cube can carry the module and only `teleport-app-service`, which is the `expose` pathway and grants no Kubernetes access. Such a cube reads **Not enrolled** rather than showing nothing — the group is labelled "Connectivity" and enumerates the systems consulted, so an absent chip would be indistinguishable from one still loading or failing. `disconnected` is grey for the same air-gap reason as the badge. See [docs/console-spec.md](docs/console-spec.md) §4.17. The cube page also carries a **Resources** tab (`?tab=resources`, so the view is bookmarkable) with four line graphs — CPU, Memory, Host disk and Volume fill — drawn from Groundcover range metrics and fetched only while that tab is open. No metric Groundcover exposes is cube-wide, so every figure is a server-side aggregation and is labelled as one: a series reads **"Average across 5 hosts"**, never "Cube CPU utilization", and the entity count is shown beside each panel because an average silently improves when a host stops reporting. **Volume fill leads with the fullest volume rather than the average** — one volume at 99% among thirty barely moves a mean, so an averaged panel would render calm while an app is minutes from crashlooping on a full PV. There is **no alarm colour and no polling**: the busiest host legitimately sits near 100% on a working cube, and refresh is a button, because the single Groundcover key's rate budget is shared across the whole fleet. "We could not read it" and "this cube does not report it" are distinct panel states and never collapse into each other. See [docs/console-spec.md](docs/console-spec.md) §4.18. Where `console_ai_enabled` is on (dev only so far), the cube page also has an **AI** tab (`?tab=ai`): a curated catalog of AI Reactor models, each shown as available, installing, starting or ready, with **Deploy**, **Replace** and **Remove**. Every installed gateway shows as a running AI Reactor naming the models behind it, however it was set up. Deploying onto a cube with no gateway installs the LiteLLM gateway first (config mode, master key generated into an Apollo secret and never shown); deploying onto an existing gateway adds one marked entry to its `localModels` and changes nothing else in its config. Gateways that keep their model list in Postgres (every live Reactor today), are module-managed, or still keep credentials in their override show the same way, but the console does not add models to them or remove the ones it did not deploy; there, Deploy and Replace are demo stubs that open the confirmation and then say the Reactor doesn't take changes from the console yet, sending nothing. The tab names the cube's GPU and what is using it (read from Kubernetes), never offers a model too large for it, and shows a change Apollo has not applied yet as **Submitted** rather than offering it again. Writes are limited to `console_ai_write_profiles`: the code default is `admin`, and dev sets `*`, so anyone who can see a cube can add and remove its models, within their own Apollo permissions. See [docs/ai-reactor-deploy-spec.md](docs/ai-reactor-deploy-spec.md). Where a stack has `ic2_enabled` on (off by default; dev only so far), the cube page also shows a **GPS location** row (the router's last reported position and nearest town, from Peplink InControl2 through inventory's router serial) and the landing page offers a **map** of the viewer's cubes; with it off the console asks for neither ([docs/console-spec.md](docs/console-spec.md) §4.28). Opening a cube also shows its **inventory** identity — Customer, Cube label, Environment, Cube serial, Status, Location and the Peplink **Router MAC** (copyable) — read from the `edgescale-inventory` service, which Apollo does not carry, plus a **Hardware** tab with a specification table (server, motherboard, CPU, memory, storage, GPU) built from the same record at no extra request. Component serials, host/BMC MAC addresses and firmware revisions are deliberately excluded from it — the router MAC is the one MAC shown — see [docs/console-spec.md](docs/console-spec.md) §4.13. It is its own endpoint fetched alongside the cube detail, and deliberately **not** joined onto the cube list: an inventory lookup is a ~3.3s server-side partition scan, so joining the list cost an admin ~45s on a previously-instant page — one lookup for the cube you open, instead of one per cube you can see. Gated separately by `inventory_enabled` (off by default) with two modes: `api` against the real service, or `simulated`, which serves clearly-badged fictional records so the feature works before the API credential exists. See [docs/console-spec.md](docs/console-spec.md) §4.13. The navigation's **Applications** link opens a page listing every app you can open, grouped by company, with each app's link and, where it is one of yours, its cube; it can include apps on cubes you don't otherwise have access to, it names only the companies you hold (an administrator sees every company), and it is read-only, so exposing and unexposing stay on the cube page ([docs/console-spec.md](docs/console-spec.md) §4.22). Gated per-env by `console_enabled` (off by default; **on in both dev and prod** since the console launch) — that flag takes down the routes, the guide, and the apex cookie allowlist together, and the Cognito invite email now links to `/auth/login`, which needs it on. See [docs/console-spec.md](docs/console-spec.md).
+
+## Install
+
+Requires [uv](https://docs.astral.sh/uv/) (or [pipx](https://pipx.pypa.io/)).
+
+```bash
+# Add to Claude Code
+claude mcp add cube -- npx @edgescaleai/cube-mcp
+```
+
+Or run directly:
+
+```bash
+npx @edgescaleai/cube-mcp    # via Node (calls uvx under the hood)
+uvx edgescaleai-cube-mcp     # via uv directly
+```
+
+## Getting Started
+
+```
+You: "Log me in"             → agent_login_browser (opens browser for Cognito login)
+You: "Show Cube status"      → cube_status
+You: "What pods are failing?" → kubectl_exec (runs kubectl server-side)
+```
+
+## Tools
+
+### Auth
+
+| Tool | Description |
+|------|-------------|
+| `agent_login_browser` | Log in via browser (Cognito) |
+| `agent_logout` | Remove stored API key |
+| `agent_status` | Check auth and connectivity |
+
+### Kubernetes
+
+| Tool | Description |
+|------|-------------|
+| `cube_list` | List available Cube clusters |
+| `cube_status` | Get node status for a cluster |
+| `kubectl_exec` | Run kubectl commands (server-side) |
+| `list_services` | List Kubernetes Services in a cube's cluster, with app_uri suggestions for `expose` |
+
+### Apps
+
+| Tool | Description |
+|------|-------------|
+| `app_list` | List exposed apps across the tenant, with each one's public URL |
+| `app_proxy` | Port-forward an already-exposed app to a local port — any exposed app, and the only way into a `tcp://` one |
+| `app_proxy_stop` | Stop running proxies |
+| `app_proxy_status` | Show proxy status |
+
+### App Exposure
+
+| Tool | Description |
+|------|-------------|
+| `expose` | Publish a Kubernetes Service at `https://<app>-<cube>.<apex>`, reachable with the same login as cube-mcp. `company` picks who can see it (an app company your profile holds; default your home one) and the response leads with `Visible to:`. Exposing an app that already exists under the same name and target adds a company to it: the one named, or your home company if you are not yet on the app (already on it, you must name the company to add). Takes `rewrite_headers` (Host/Origin rewrites the app service applies upstream — omit to keep any existing, `[]` to remove) and `labels` (extra Teleport labels beside `company`/`cube`, which the server sets). On a stack that reads stored sets (dev and prod, since 2026-09-28), a scoped profile may repoint or reconfigure an app through `expose` when it holds one of the app's companies (any one: whoever is on an app manages it), keeping the app's audience as it is unless a company is named; an app it cannot see is refused by name. On the baseline `map` stack it may do so only for an app whose one company is its own (the generic module tools are guarded separately) |
+| `unexpose` | Take a company (default your home one; `company` to name another) off an exposed app, or off every app with `all=true`. An app is deleted once no company is left on it |
+| `list_exposed` | List apps exposed on an environment and who each is visible to, with public URLs, rewrite headers and labels for the ones you can reach |
+
+Apps can be visible to **several app companies** (a partner and its customer, say), on a stack
+whose `app_companies_source` is `stored`, which both dev and prod are since 2026-09-28 (`map`, one company per profile, is the rollback). The console shows each exposed app's audience, lists apps you cannot open without a link, and gives a viewer holding several companies a "Visibility…" control ([console-spec §4.20](docs/console-spec.md)). See
+[docs/multi-company-app-access-spec.md](docs/multi-company-app-access-spec.md).
+
+**The URL to hand out is the browser-app-proxy one these tools return** —
+`https://<app>-<cube>.<apex>`. Every app is *registered* as a Teleport app under
+the hood, but Teleport's own `…teleport.sh` address requires a Teleport account,
+which we are retiring; it is stored in Apollo for Teleport's routing and is
+deliberately absent from every tool response and the console. A newly exposed URL
+usually starts answering a few minutes after the call, once the cube rolls out the app-service
+release.
+
+`app_proxy` is a **separate, unrestricted** capability: it port-forwards any
+exposed app to a local port for whatever wants one — `psql`, an MQTT client,
+scripting — and is the only way into a `tcp://` app. It and the public URL are
+independent; both work at once. The `expose` response simply doesn't advertise it
+as the next step, because the published URL is what you hand someone.
+
+`app_uri` must use `http://`, `https://` or `tcp://`. Use `tcp://` for anything
+that does not speak HTTP (MQTT, Postgres, an S3 API); such an app has no browser
+URL at all and is reached only through `app_proxy`. A wrong scheme used to be
+stored without complaint and surfaced much later as an unrelated-looking Teleport
+dial error, so it is now refused up front.
+
+`rewrite_headers` covers services that need the forwarded request to *look* like
+something else — most often an nginx ingress that routes by `Host`, where the
+value must match the in-cluster ingress rule and is **not** derivable from the
+app's own address. It replaces the whole list rather than merging, so read the
+current values with `list_exposed` first; omitting the argument leaves an
+existing rewrite untouched, and `[]` removes it. Removal matters as much as
+setting: a rewrite that pins `Host`/`Origin` to a `…teleport.sh` address makes an
+app unreachable through its browser URL. Some apps additionally embed their own
+public URL in their own configuration (MinIO's `CONSOLE_BROWSER_REDIRECT_URL`,
+for one) — no rewrite header can fix that; those need an `update_entity_config`
+change as well.
+
+### Build & Registry
+
+| Tool | Description |
+|------|-------------|
+| `build_and_publish_to_apollo` | Build image, package chart, push to ACR, and publish the manifest. Supports `build_args`, `dockerfile`, and `target` (multi-stage) for the image build; `platform` (defaults to `linux/amd64`, the cube architecture); and `build_mode` (`auto` uses local `docker buildx` if a daemon is present, else remote cube-cloud/kaniko — `local`/`remote` force one path). `show_build_log=true` surfaces the remote kaniko log tail on success. A failed image build aborts before publishing. The chart is packaged honoring its `.helmignore` (Helm's own rules, not `.gitignore`'s: a `!pattern` line ignores every file that does not match it rather than re-including one, and the tool warns when a chart has such a line), so a chart directory that doubles as the Docker context should list its build inputs there. `appVersion` (the image tag the chart deploys) is written only when an image is built or `app_version` is passed; with `skip_docker` and no `app_version` it is left unchanged, and a `dockerfile` that is named but not found leaves it unchanged even with `app_version`. |
+| `acr_get_token` | Get Apollo Container Registry token |
+
+> Remote (Docker-free) builds are driven server-side by three internal proxied tools — `build_image_prepare`, `build_image_start`, `build_image_status` — which `build_and_publish_to_apollo` orchestrates automatically. They are plumbing for the async submit→poll kaniko flow, not meant for direct invocation. See [docs/remote-build-spec.md](docs/remote-build-spec.md).
+>
+> The pure-Python chart packager does not fetch chart dependencies — vendor any subcharts (e.g. `helm dependency build`) into `charts/` before publishing, or Apollo rendering will fail on the missing dependency.
+
+### Apollo Environments
+
+| Tool | Description |
+|------|-------------|
+| `list_environments` | List/search Apollo environments |
+| `install_entity` | Install a Helm chart entity (refused over a module-managed entity of the same name unless `force=true`, break-glass only) |
+| `uninstall_entity` | Uninstall an entity |
+| `entity_health` | Get entity health and activity status, plus the health checks behind any unhealthy status (failing checks with the app's own message, containers not live or ready). Shows each entity's config overrides with secret-named values masked (a Teleport app service's config, which lists every company's apps, is withheld from a scoped profile), and the module that manages it, if any |
+| `plan_details` | Get plan tasks, events, and error logs |
+| `cancel_active_plan` | Cancel (interrupt) the currently active plan for an entity |
+| `update_entity_config` | Replace entity config overrides (written as block YAML). Refuses a module-managed entity unless `force=true`: use `update_module_variables` on its module instead, because a forced entity-level config overrides the module until removed (break-glass only) |
+| `enforce_entity_config` | Force re-apply entity configuration |
+
+### Apollo Modules
+
+| Tool | Description |
+|------|-------------|
+| `install_module` | Install a module on an environment (not the shared Teleport multi-app module for a scoped profile; use `expose`) |
+| `uninstall_module` | Uninstall a module (a scoped profile cannot touch the shared Teleport multi-app module; use `unexpose`) |
+| `list_modules` | List modules in an environment (through this tool, a scoped profile does not see the multi-app module's app list; use `list_exposed`. `entity_health` withholds it from a scoped profile too; see AGENTS.md) |
+| `update_module_variables` | Update module variables (not the shared Teleport multi-app module for a scoped profile; use `expose`) |
+
+### Apollo Secrets
+
+| Tool | Description |
+|------|-------------|
+| `create_secret` | Create a secret on an environment |
+| `update_secret` | Update a secret value |
+
+### Apollo Products & Release Channels
+
+| Tool | Description |
+|------|-------------|
+| `list_products` | List available products |
+| `compare_product_versions` | Compare versions of a product |
+| `list_release_channels` | List release channels |
+| `get_product_releases` | Get releases for a product |
+
+### Groundcover (observability)
+
+Read-only, per-cube observability. Access is scoped to the cubes your Apollo credentials can see, and every query is pinned server-side to a single cube — you cannot read another cube's data. See [docs/groundcover-integration-spec.md](docs/groundcover-integration-spec.md).
+
+| Tool | Description |
+|------|-------------|
+| `groundcover_list_clusters` | List the cubes you're authorized to read that are reporting to Groundcover (start here) |
+| `groundcover_list_workloads` | List workloads and their health (cpu, memory, rps, error rate, readiness, issues) for one cube |
+| `groundcover_query_metrics` | Query metrics for one cube (PromQL built server-side, cluster-pinned); instant or range |
+| `groundcover_list_metrics` | Discover metric names for one cube — families map when unfiltered, matching names when `filter` is given |
+| `groundcover_search_logs` | Search logs for one cube (Groundcover log-search syntax) |
+| `groundcover_search_traces` | Search distributed traces for one cube |
+| `groundcover_k8s_events` | Search Kubernetes events (crashes, OOMKills, scheduling) for one cube |
+
+### Feedback
+
+Raises a ticket on the EdgescaleAI **Customer Feedback** Jira board (project `CF`) so product feedback lands in the same queue the team already triages, without leaving the agent. Off unless the stack enables it (`jira_enabled`).
+
+| Tool | Description |
+|------|-------------|
+| `send_feedback` | File a bug report (Freshservice) or a feature request (Jira CF board) |
+
+The Edgeport Console (`/console`) offers feedback through a "Send feedback" button, reachable from any page once signed in. It has **two destinations**: **"Report a bug"** files a **Freshservice** ticket (`tools/freshservice.py`), while **feature requests** raise a customer request on the Jira CF board. Note the console deliberately promises **no reply or response time** on either path, and does not offer to answer questions — the Freshservice integration is complete, but the support operations behind it (on-call, SLAs) are not, so the wording is held back until they are. See [docs/console-spec.md](docs/console-spec.md) §4.4e *Deferred: support framing* for the restore checklist. The split is deliberate: a helpdesk and a product backlog want different triage. The Freshservice tenant is `edgescaleai.freshservice.com` — note that is *not* `edgeport.freshservice.com`, which does not exist. Both paths resolve the reporter server-side and neither collects an email address — see [docs/console-spec.md](docs/console-spec.md) §4.4e. It calls straight into the same module rather than a second integration, and never collects an email address: the reporter is resolved from the signed-in session the same way it is resolved from the caller's API key on the MCP path.
+
+Every ticket carries a label identifying which surface raised it, so agent-submitted, console-submitted, and portal/email traffic can be told apart:
+
+```
+project = CF AND labels = "submitted-via-mcp" ORDER BY created DESC
+project = CF AND labels = "submitted-via-console" ORDER BY created DESC
+```
+
+The submitter is identified **server-side** from the calling API key, so feedback cannot be attributed to someone else by argument, and a normal browser-login session never puts an email address in the tool arguments. A bot or CLI key has no address on file and must pass `contact_email`, which is masked in telemetry.
+
+Authentication is an Atlassian **service account** using an OAuth 2.0 client-credentials grant, holding exactly one scope — `write:servicedesk-request`. The credential can create requests and can read nothing at all; see [Operations & Ownership](#operations--ownership) for the secret and the ids it needs.
+
+Neither surface returns a link to the created ticket — just its key (e.g. `CF-123`) as a reference number. The submitter is never given a JSM agent seat, so a Jira browse link would not actually open for them.
+
+## Local Development
+
+```bash
+# Install dependencies
+uv sync --extra dev
+uv pip install -e packages/cube-common -e packages/cube-cloud -e packages/cube-agent
+
+# Run tests
+uv run pytest packages/ -v
+
+# Run cube-agent locally (for debugging)
+uv run cube-agent
+```
+
+To test with Claude Code, point the MCP server at your local code:
+
+```bash
+claude mcp add cube-local -- uv run --directory /path/to/cube-mcp cube-agent
+```
+
+Reload after changes with `/mcp` in Claude Code.
+
+`claude mcp add`'s `local` scope is keyed per project path, so if you work across multiple `git worktree` checkouts of this repo, each one needs its own `cube-local` entry (or they collide on the name). [`.claude/cube-local.mcp.json`](.claude/cube-local.mcp.json) avoids that by using `--directory .` instead of a hardcoded path, so the same file works unmodified from any checkout:
+
+```bash
+cd /path/to/cube-mcp  # or any worktree of it
+claude --strict-mcp-config --mcp-config .claude/cube-local.mcp.json
+```
+
+`--strict-mcp-config` loads only the servers in that file, dropping any other MCP servers configured for the session — pass additional `--mcp-config <file>` arguments if you need those alongside it.
+
+## Contributing
+
+cube-mcp uses a deploy-on-merge model: **`main` is the release branch and deploys to `prod`; `dev-main` is a shared testing branch that deploys to the `dev` environment.** New work is built on a branch cut from `main`, validated on the `dev` stack, and merged to `main` only once it works — feature PRs target `main`, not `dev-main`.
+
+### Branch and promotion flow
+
+| Branch | Cut from | Deploys to | Role |
+|--------|----------|------------|------|
+| `feature/<desc>` / `fix/<desc>` | `main` | `dev`, by pushing to `dev-main` | the unit of work; its PR targets `main` |
+| `dev-main` | long-lived | `dev` (`deploy-dev.yml`) | shared validation stack; a promotion path only when it holds a single feature |
+| `main` | long-lived | `prod` (`deploy.yml` + `publish.yml`) | release branch — every merge ships |
+
+**1. Branch from `main`.** Cut your branch off the latest `main` and name it `feature/<desc>` or `fix/<desc>`:
+
+```bash
+git fetch origin
+git switch -c feature/my-change origin/main
+```
+
+**2. Open a PR into `main`.** Make your changes, run `uv run pytest packages/ -v`, then open a PR **targeting `main`** (not `dev-main`). It should get a review and green CI before merging.
+
+**3. Validate on the `dev` stack first.** Before merging, push your branch's changes to `dev-main` to deploy them to the `dev` environment (`cube-mcp-dev-*`) via `deploy-dev.yml`, and exercise the change end-to-end against real infra. `dev-main` is a testing ground — catch deploy- and infra-level problems here, not in `prod`. The feature PR still targets `main`.
+
+**4. Merge to `main` once verified.** Only after the change works on `dev`, merge the `main`-targeted PR. Merging deploys to `prod` (`deploy.yml`) and, for publish-path changes, auto-publishes to PyPI + npm (`publish.yml`).
+
+**Promoting `dev-main` itself.** Opening a `dev-main` → `main` promotion PR is acceptable **only** when `dev-main` holds exactly one unmerged feature; with more than one it bundles unverified changes into a single prod merge, so land those through their own `main`-targeted PRs instead. Because `dev-main` is a shared, disposable testing branch, it can be reset to `main` when it drifts or accumulates stale test commits — coordinate with anyone else testing on `dev` before doing so.
+
+## Operations & Ownership
+
+This section exists so anyone inheriting cube-mcp can run it end-to-end without tribal knowledge. If something here is wrong or missing, fix it in this README — don't keep the truth in your head.
+
+### Runbooks (point Claude Code at these)
+
+| Doc | Use it when |
+|-----|-------------|
+| [docs/admin.md](docs/admin.md) | Day-to-day RBAC, profiles, API keys, Teleport, infra layout, troubleshooting. The single most important file in this repo. |
+| [docs/adding-new-user.md](docs/adding-new-user.md) | Onboarding a new user (Cognito create + group assignment + verification). |
+| [docs/rbac-architecture.md](docs/rbac-architecture.md) | Deeper architectural background on the RBAC model. |
+| [resources/teleport.md](resources/teleport.md) | **Operator-only** Teleport quickstart (`tsh login`, `tsh kube ls`). Not for end users — they need no Teleport account. |
+| [docs/groundcover-integration-spec.md](docs/groundcover-integration-spec.md) | How the read-only, per-cube Groundcover observability tools are wired and tenancy-scoped. |
+| [docs/browser-app-proxy-spec.md](docs/browser-app-proxy-spec.md) | Account-less browser access to `expose`d in-cube web apps (subdomains, cookie auth, WebSocket proxying). |
+| [docs/ai-reactor-deploy-spec.md](docs/ai-reactor-deploy-spec.md) | The console's AI tab: deploying AI Reactor models to a cube — the catalog, the checks, how the gateway override is merged, and what stays read-only. |
+| [docs/console-spec.md](docs/console-spec.md) | The browser UI at `/console` — where it lives, how cookie-auth is gated on the apex, the read/write CSRF contract, and the phase plan. Read §4.2 before touching `auth/middleware.py`, and §4.11 before touching the field guide or either CSP profile. |
+| [docs/remote-build-spec.md](docs/remote-build-spec.md) | Docker-free remote (kaniko) image builds — the server-side build path for `build_and_publish_to_apollo`. |
+| [docs/tool-call-logging-spec.md](docs/tool-call-logging-spec.md) | Tool-call analytics telemetry (S3 Parquet + Groundcover OTLP spans). |
+
+These docs are written in runbook style — open Claude Code in this repo and ask it to "follow `docs/adding-new-user.md` to add `alice@example.com` to the `lear-dev` group" and it will execute the AWS CLI calls itself.
+
+### Where AWS resources live
+
+Everything is in **AWS account `992382448282`**, region **`us-west-2`**. All resources are managed by Terraform in `infra/terraform/` — change them there, not in the console.
+
+| Resource | Name / ARN suffix | Terraform file |
+|----------|-------------------|----------------|
+| Cognito user pool | `cube-mcp-prod-*` (look up with `aws cognito-idp list-user-pools`) | `infra/terraform/cognito.tf` |
+| Cognito groups | validated: `admin`, `lear-sandbox`, `pltr-perception-dev`, `operations`, `strategists`; pending validation: `lear-dev`, `conagra-dev`, `pltr-dev`, `edgescaleai-dev` | base in `infra/terraform/cognito.tf`; script-provisioned profiles created live by `scripts/provision-access.py` |
+| API keys table (DynamoDB) | `cube-mcp-prod-api-keys` | `infra/terraform/dynamodb.tf` |
+| Profile credentials + app companies (Secrets Manager) | `cube-mcp/profiles/<profile>` (`client_id`, `client_secret`, `app_companies`) | `scripts/provision-access.py` — deliberately **not** Terraform |
+| tbot config (Secrets Manager) | `cube-mcp/tbot-config` | `infra/terraform/tbot.tf` |
+| Groundcover API key (Secrets Manager) | `cube-mcp/groundcover/api-key` (value: `{"api_key":"…","backend_id":"groundcover"}`; populated out-of-band, ECS task role granted read on `cube-mcp/groundcover/*`) | `infra/terraform/secrets.tf`, `iam.tf` |
+| Tool-call logs (S3) | `cube-mcp-prod-tool-call-logs` (per-env; `cube-mcp-dev-tool-call-logs` is `force_destroy`, prod is not) | `infra/terraform/telemetry.tf` |
+| Compaction Lambda + EventBridge | `cube-mcp-prod-tool-call-compaction` (nightly DuckDB rollup; zip built in CI from `infra/lambda/tool_call_compaction/build.sh`) | `infra/terraform/telemetry.tf` |
+| OTLP secret (Secrets Manager) | `cube-mcp/telemetry/otlp` (Groundcover OTLP endpoint/key; populated out-of-band, ECS task role granted read) | `infra/terraform/telemetry.tf` |
+| Jira feedback credential (Secrets Manager) | `cube-mcp/jira/oauth` (value: `{"client_id":"…","client_secret":"…"}`; an Atlassian **service account** OAuth 2.0 client-credentials pair scoped to `write:servicedesk-request` only. Created in `admin.atlassian.com`, populated out-of-band, ECS task role granted read on `cube-mcp/jira/*`. Shared across stacks — there is one CF board) | `infra/terraform/iam.tf`, `ecs.tf` |
+| ECS task role | `cube-mcp-prod-ecs-task` | `infra/terraform/iam.tf` |
+| ECS cluster | `cube-mcp-prod-cluster` (service: `cube-mcp-prod-service`) | `infra/terraform/ecs.tf` |
+| CloudWatch Logs | `/ecs/cube-mcp-prod` (cube-cloud + tbot containers) | `infra/terraform/ecs.tf` |
+| ALB + HTTPS listener | `cube.edgescaleai-cube.com` (apex cert also carries a `*.<domain>` SAN for browser app-proxy subdomains) | `infra/terraform/alb.tf` |
+| Route53 records | `edgescaleai-cube.com` zone (`Z0571857327BEMX2EHNZU`) — **non-authoritative** (public DNS is served by Cloudflare, see below) | `infra/terraform/route53.tf` |
+| ECR (cube-cloud + tbot images) | `cube-mcp/cube-cloud`, `cube-mcp/tbot` | `infra/terraform/ecr.tf`, `tbot.tf` |
+| SES sender | `Edgeport <noreply@edgescaleai-cube.com>` (identity `edgescaleai-cube.com`) — carries the Cognito invite template, whose only link is `https://<domain>/auth/login`, **and** the password-reset code template. A sandboxed SES identity would silently limit reset codes to verified recipients | `infra/terraform/cognito.tf` |
+| Console CSRF secret | `cube-mcp-prod/console/csrf-secret` — created **empty** by Terraform, value put out-of-band; without it the console serves reads but refuses expose/unexpose/feedback submission and AI deploy/remove | `infra/terraform/secrets.tf` |
+| Inventory API bearer | `cube-mcp/inventory/api-token` — `{"token": "..."}`, **not created by Terraform** (only read access is granted). Must be a **minted read-only token scoped to `view_cubes` alone** — a legacy service token authenticates as `admin`, which makes the API decrypt `ipmi_password`/`platform_kubeconfig` into every fleet response (the code discards them and logs the over-scope, but the right fix is the credential). Absent ⇒ the console shows blank inventory fields; nothing else is affected. Verify with `scripts/probe-inventory-api.py` before enabling | `infra/terraform/iam.tf` |
+| InControl2 API client (GPS) | `<name_prefix>/ic2/client` — `{"client_id": "...", "client_secret": "..."}`, created **empty** by Terraform only where `ic2_enabled` is on (dev today), value put out-of-band. One client **per stack**: InControl2 allows one live token per client, so a shared client would keep logging the other holder out. Until it holds a value the GPS row reads "unavailable"; nothing else is affected, and a failed read is not cached, so populating it needs no redeploy | `infra/terraform/secrets.tf` |
+
+Four telemetry flags gate the analytics stack — `telemetry_enabled` (S3 sink), `telemetry_compaction_enabled` (nightly Lambda), `otlp_enabled` (Groundcover spans), and `telemetry_console_enabled` (console usage events through the same sinks, under `source=console`; a sub-switch beneath `telemetry_enabled`). All default off and are set per-env in `infra/terraform/environments/*.tfvars`; all four are `true` in both dev and prod.
+
+**Outside AWS:**
+
+- **Teleport:** `edgescaleai.teleport.sh` — bot is `cube-mcp-bot`, joins via IAM. See [docs/admin.md §4](docs/admin.md#4-teleport-access--rbac).
+- **Apollo:** `edgescaleai.palantirapollo.com` — OAuth2 credentials per profile, stored in Secrets Manager.
+- **Groundcover:** `api.groundcover.com` — one workspace/tenant for the whole fleet (each cube is a `cluster`); we enforce per-cube tenancy ourselves. Key in Secrets Manager (`cube-mcp/groundcover/api-key`).
+- **Jira Service Management:** `edgescaleai.atlassian.net` (cloud id `e9f7f215-8e22-4d9e-b4d0-12e11739b67d`, service desk `100` = project `CF`). Service-account OAuth 2.0 client credentials in Secrets Manager (`cube-mcp/jira/oauth`), scope `write:servicedesk-request`. The credential cannot read Jira, so the request-type and field ids in `tools/feedback.py` are configuration — if the CF forms change, they go stale and submissions 400.
+- **Cloudflare (DNS):** the public domains (`cube.edgescaleai-cube.com` / `cube-dev.edgescaleai-cube.com`) are DNS-only CNAMEs → the ALB, **managed manually in Cloudflare, not Terraform** (the `aws_route53_record`s are no-ops). The browser app proxy additionally needs a **wildcard** `*.cube.edgescaleai-cube.com` DNS-only CNAME → the prod ALB; until it's added the feature ships **dormant** (subdomains won't resolve). See [docs/browser-app-proxy-spec.md](docs/browser-app-proxy-spec.md) Appendix B.
+- **PyPI / npm:** auto-published from `main` via CI (GitHub Actions). A release is the git tag `vX.Y.Z`; no version is committed. The npm shim under `npm/` is a thin wrapper that shells to `uvx edgescaleai-cube-mcp`.
+
+### CI/CD pipelines
+
+All deploys go through GitHub Actions in `.github/workflows/`. AWS auth uses OIDC — no long-lived AWS keys are stored in GitHub.
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `test.yml` | Every PR and push to `main`; also called by the deploy and publish workflows | Runs `pytest packages/ -v`. Python only — the console SPA is `console-test.yml`. |
+| `console-test.yml` | PR touching `console/web/**`, `packages/cube-cloud/Dockerfile`, or the workflow itself | `npm ci` → `tsc --noEmit` → `vitest run` → `vite build` in `console/web`, on the Node version read from the Dockerfile's `console-build` stage. The same checks the image build runs inside `npm run build`, run before the merge instead of only after it; `test_console_ci.py` fails if the steps stop matching the `build` script. Not a required check; read its header comment before making it one (its path filter would leave a required check pending forever). |
+| `deploy.yml` | Push to `main` touching `packages/cube-cloud/**`, `packages/cube-common/**`, `console/web/**`, `src/cube_agent/**`, `src/cube_common/**`, `infra/tbot/**`, `infra/terraform/**`, `infra/lambda/**`, or the workflow itself | Runs tests → builds the tool-call compaction Lambda zip (`infra/lambda/tool_call_compaction/build.sh`) so `terraform apply` sees its `source_code_hash` → `terraform apply` (on every run; a no-change apply is a fast no-op) → logs in to ECR Public so the Dockerfiles' `public.ecr.aws` base images are pulled authenticated (anonymous pulls share a per-IP quota and intermittently fail with `429 Data limit exceeded`; `test_deploy_public_ecr_auth.py` pins the step) → builds & pushes `cube-mcp/cube-cloud:latest` and `cube-mcp/tbot:latest` to ECR → seeds new profile secrets → seeds `infra/tbot/tbot-config-prod.yaml` (base-only) into Secrets Manager **only if absent** (never overwrites; per-profile identities are written directly by `scripts/provision-access.py`) → `aws ecs update-service --force-new-deployment` and waits for `services-stable`. Also posts `terraform plan` as a PR comment for terraform PRs. |
+| `deploy-dev.yml` | Push to `dev-main` touching the same paths as `deploy.yml`, plus `npm/**` and `pyproject.toml` | Same shape as `deploy.yml`, but targets `cube-mcp-dev-cluster` / `cube-mcp-dev-service` and uses TF state key `cube-cloud-dev/terraform.tfstate`. Images tagged `:dev`. Use this branch to test infra changes before merging to `main`. |
+| `publish.yml` | Push to `main` (paths: `src/`, `npm/`, `pyproject.toml`); manual run on `main` with a `bump` input (`patch`/`minor`/`major`) | Runs tests → picks the bump (the merged PR's `release:minor` / `release:major` label, else patch) → tags the commit with the next `vX.Y.Z` after the highest release tag in its history → builds (hatch-vcs reads the version from the tag) → pushes **only the tag** → publishes to PyPI (`twine upload --skip-existing`) and npm (version stamped in the runner, `npm publish --tag latest`). Never commits; a failed upload is finished by re-running the run (see [Versioning & releases](#versioning--releases)). |
+| `pr-review.yml` | PR **opened**, reopened, or marked ready for review (non-draft) | Security and regression review of the PR, conducted per [`docs/review-method.md`](docs/review-method.md). Posts one advisory comment; it is **not a merge gate**. Scoped to `contents: read` + `pull-requests: write`, so it cannot push, approve, or alter a check. Fires at most once per PR per event, never on push. Re-run it by toggling the PR back to draft and forward again. |
+| `sync-knowledge.yml` | Manual only (**dormant**) | Synced internal Claude Code knowledge into the `disco-projects` repo. **Parked, not deleted** — the `push` trigger was removed and both its secrets need recreating before it will work. See the header comment in the file. |
+
+**Runs never overlap.** `deploy.yml` and `deploy-dev.yml` each queue on one concurrency group per stack (`deploy-prod-stack`, `deploy-dev-stack`), whatever branch a run comes from. A second push waits for the first run to finish, and no run is cancelled, in flight or pending. A hung run therefore holds the queue. Tests, plans and image builds time out on their own; a hang in `terraform apply`, the ECS rollout or a release has to be cancelled from the Actions tab, because a timeout there would stop it mid-change. `deploy.yml`'s PR plan runs queue per PR instead. `publish.yml` serializes per ref and also queues every run, because each run takes its bump from its own PR's label. See the comment above each workflow's `concurrency:` block.
+
+**OIDC role** for all AWS-touching jobs: `arn:aws:iam::992382448282:role/github-actions`.
+
+### Required CI secrets
+
+Stored as GitHub repo secrets. To rotate any of these, generate a new value at the source and update via `gh secret set <NAME>` (or the repo Settings → Secrets UI).
+
+> **Rotate the publish tokens BEFORE merging anything that triggers `publish.yml`.** That
+> workflow pushes the release tag **before** it uploads, so an invalid token leaves a `vX.Y.Z`
+> tag on `main` with nothing (or only part) on PyPI or npm. Fix the token, then **re-run that
+> same workflow run**: the commit already carries its tag, so the re-run publishes what is
+> missing under the same version. Verify tokens first (see "Verifying a publish token" below).
+
+| Secret | Where used | Source / how to rotate |
+|--------|-----------|------------------------|
+| `PYPI_TOKEN` | `publish.yml` (release) **and `deploy-dev.yml`** (timestamped `.devN` builds on every push to `dev-main`) | [pypi.org/manage/account/token/](https://pypi.org/manage/account/token/) — scope the token to the **`edgescaleai-cube-mcp`** project, not account-wide. Paste the value including its `pypi-` prefix. Leave `TWINE_USERNAME` as the literal `__token__`. **Check ownership first:** minting a working token requires Owner/Maintainer on the project ([collaboration page](https://pypi.org/manage/project/edgescaleai-cube-mcp/collaboration/)) — if you cannot open that page, no token you create will publish, and a sole-owner departure needs a PyPI support transfer. |
+| `NPM_TOKEN` | `publish.yml` (release) **and `deploy-dev.yml`** (`dev`-tagged prereleases on every push to `dev-main`) | npm → Access Tokens → **Granular access token** with read+write on `@edgescaleai/cube-mcp` (a classic *Automation* token also works; it must bypass the 2FA prompt, which CI cannot answer). **Check ownership first:** `npm owner ls @edgescaleai/cube-mcp`. |
+| `PUBLISH_DEPLOY_KEY` | **Retired** | Was an SSH deploy key with write access, used to push the version-bump commit to `main`. `publish.yml` now pushes only the release tag, with the workflow's own `GITHUB_TOKEN` (`contents: write`). Nothing reads it; delete the secret and the matching repo Deploy Key. |
+| `CLAUDE_REVIEW_API_KEY` | `pr-review.yml` | console.anthropic.com. **Purpose-named on purpose**: it is deliberately NOT the `ANTHROPIC_API_KEY` below, so rotating or revoking a credential for the dormant knowledge sync can never silently arm or disarm the reviewer. Keep them separate if that workflow is ever revived. Absent — or rotated, over quota, or briefly unreachable — means the review step fails; it is `continue-on-error`, so the check stays green, a warning names the cause in the run log, and no comment is posted. Failing to *deliver* a completed review (oversized body, flaky API) likewise warns rather than reddening. The job goes red for exactly two things, both of which mean the output cannot be trusted: the review step **succeeding while producing no output** (a broken reviewer must not be mistakable for a clean one), and the pre-publish scan matching a **credential shape** in the review body. It is never a required check. |
+| `DISCO_PROJECTS_TOKEN` | `sync-knowledge.yml` (dormant) | Fine-grained PAT with read access to `EdgescaleAI/disco-projects`. Needs recreating before that workflow runs again. |
+| `ANTHROPIC_API_KEY` | `sync-knowledge.yml` (dormant) | console.anthropic.com. **Stale — assume it needs recreating.** Confirmed absent as a repo secret (checked 2026-08-19), and that workflow is now parked, so nothing depends on it. Do not point the PR reviewer at this name; it has its own. |
+
+#### Verifying a publish token
+
+`deploy-dev.yml` publishes to the **same** PyPI project and npm package as a release, just with
+a timestamped `.devN` / `-dev.N` version — so `dev-main` is the safe way to exercise both tokens
+without cutting a release. Note the workflow has a `paths:` filter, so an **empty commit will
+not trigger it**; dispatch it instead:
+
+```bash
+gh workflow run "Deploy Dev" --repo EdgescaleAI/cube-mcp --ref dev-main
+```
+
+`Publish dev packages (PyPI + npm)` going green means both tokens work. `403 Forbidden` from
+twine means the PyPI token is wrong-scoped or the account lacks ownership; `E401` / `ENEEDAUTH`
+from npm means the same on that side. Be aware the dispatch runs the *whole* workflow, so it
+also re-applies Terraform and redeploys dev. To check credentials alone, without publishing:
+
+```bash
+cd npm && NODE_AUTH_TOKEN='npm_…' npm publish --dry-run --access public   # authenticates, no version created
+TWINE_USERNAME=__token__ TWINE_PASSWORD='pypi-…' twine upload --repository testpypi dist/*
+```
+
+Confirm the artifact actually landed, and — on npm — **who published it**, which is how you
+prove CI is no longer using a departed maintainer's credential:
+
+```bash
+curl -s https://registry.npmjs.org/@edgescaleai%2Fcube-mcp \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); v=d['dist-tags']['dev']; \
+print(v, d['time'][v], (d['versions'][v].get('_npmUser') or {}).get('name'))"
+```
+
+#### Offboarding a maintainer
+
+Rotating `PYPI_TOKEN` / `NPM_TOKEN` changes only what **CI** uses. It does **not** revoke the
+departing person's own access — their personal tokens keep publish rights until they are removed
+from the package itself. Both steps are required:
+
+```bash
+npm owner rm <their-npm-user> @edgescaleai/cube-mcp
+```
+
+and remove them on the [PyPI collaboration page](https://pypi.org/manage/project/edgescaleai-cube-mcp/collaboration/).
+Also revoke their old tokens at the source while you still have access to their accounts.
+
+> **Worth doing instead of rotating again:** both registries support **OIDC trusted publishing**,
+> where GitHub Actions mints a short-lived credential per run. That removes `PYPI_TOKEN` and
+> `NPM_TOKEN` entirely — nothing to rotate, and nothing to inherit when someone leaves. It needs
+> a `permissions: id-token: write` block on the publishing jobs plus a publisher configured on
+> each registry.
+
+AWS credentials are **not** stored as secrets — `deploy.yml`/`deploy-dev.yml` assume `arn:aws:iam::992382448282:role/github-actions` via OIDC. To grant a new repo or change permissions, update that role's trust policy and policies in AWS IAM — the role is **not** Terraform-managed, and the grants this repo needed are recorded under [`infra/iam/`](infra/iam/README.md), whose README lists the name each is applied as and how a new one must be applied. Deploys on both stacks depend on one of them (the ECR Public login grant); see that README before changing the role's attached policies.
+
+### Terraform state
+
+Stored in S3, no DynamoDB lock table or `use_lockfile` currently configured (single-writer assumption — CI is the only applier). Overlapping CI runs used to break that assumption; the per-stack concurrency groups in `deploy.yml`/`deploy-dev.yml` are what now keep CI to one writer per stack.
+
+| Env | Bucket | Key |
+|-----|--------|-----|
+| Prod | `cube-mcp-terraform-state` (`us-west-2`) | `cube-cloud/terraform.tfstate` |
+| Dev | `cube-mcp-terraform-state` (`us-west-2`) | `cube-cloud-dev/terraform.tfstate` |
+
+**Local apply** (only if you really need to bypass CI):
+
+```bash
+cd infra/terraform
+terraform init                                                    # prod
+terraform init -backend-config="key=cube-cloud-dev/terraform.tfstate"  # dev
+terraform plan
+```
+
+The S3 bucket has versioning enabled, so a corrupt state file can be rolled back to a previous version via the AWS console.
+
+### Dev environment
+
+A parallel stack exists in the same AWS account for testing infra changes before merging to `main`.
+
+| | Prod | Dev |
+|---|-----|-----|
+| Branch | `main` | `dev-main` |
+| ECS cluster | `cube-mcp-prod-cluster` | `cube-mcp-dev-cluster` |
+| ECS service | `cube-mcp-prod-service` | `cube-mcp-dev-service` |
+| Image tag | `:latest` | `:dev` |
+| TF state key | `cube-cloud/terraform.tfstate` | `cube-cloud-dev/terraform.tfstate` |
+| TF var file | `infra/terraform/environments/prod.tfvars` | `infra/terraform/environments/dev.tfvars` |
+
+`dev-main` is a **testing environment first**: push your branch's changes there to deploy them to the dev stack and validate before they land on `main`. Feature PRs target `main` directly and are merged only after the change has been verified on the dev stack. Promoting `dev-main` → `main` as a single PR is acceptable **only** when `dev-main` holds exactly one unmerged feature; with more than one it would bundle unverified changes into a single prod merge, so promote those individually via their own `main`-targeted PRs. See [Contributing](#contributing) for the full branch-and-promotion flow.
+
+### Versioning & releases
+
+- **Scheme:** a release is the git tag `vX.Y.Z` on the commit it was built from. hatch-vcs reads the tag at build time, so neither `pyproject.toml` nor `npm/package.json` holds a version (the latter's `0.0.0` is a placeholder stamped at publish time) and a release never pushes a commit to `main`. Org rulesets refuse that push, which is what stalled releases at 0.3.60. The logic lives in `scripts/release_version.py`.
+- **Patch, minor, major:** every merge to `main` that touches `src/` / `npm/` / `pyproject.toml` releases a patch. For a minor or major release, **label the PR `release:minor` or `release:major` before merging it.** A PR outside those paths starts no release, so its label does nothing; run the workflow by hand instead: `gh workflow run publish.yml --repo EdgescaleAI/cube-mcp --ref main -f bump=minor`. That works even when `main`'s tip is already released, as a patch: the same commit gets a second tag (`v0.3.61` and `v0.4.0` on one commit) and is published again under the new version. Making a release never needs a commit.
+- **When a release fails:** re-run the failed run. If its tag was pushed, the re-run publishes under the same version (`resume`). If a later release already contains the commit, it does nothing (`skip`), unless the PR asked for a minor or major release that the later one did not make: then it fails and says to run the workflow by hand with that `bump`. A run whose next tag already exists on a commit outside `main` (an orphan, like `v0.3.61` from 2026-10-01) stops before tagging: check PyPI and npm for that version, and delete the tag only if nothing was published under it.
+- **Dev builds:** `deploy-dev.yml` publishes `<next patch>.dev<timestamp>` to PyPI and `<next patch>-dev.<timestamp>` to npm under the `dev` dist-tag, where the next patch follows the newest release tag on `main`. pip and uv skip `.dev` versions unless pinned or asked for (`--pre`), and npm installs them only by tag (`@dev`), so they never reach a prod install.
+- **PyPI ↔ npm sync:** the same version number is used for both packages. The `npm/` shim is a thin wrapper that shells to `uvx edgescaleai-cube-mcp`.
+- **What "main" means for users:** every merge that touches the publish paths ships to PyPI + npm within minutes. There is no staging release.
+
+### Rollback playbook
+
+| Surface | How to roll back |
+|---------|------------------|
+| **ECS deploy (cube-cloud or tbot)** | Images are tagged `:latest` only — there is no previous-image tag to roll forward to. Rollback path: `git revert` the offending commit on `main`; the next `deploy.yml` run will rebuild and redeploy. For an emergency, manually re-tag a known-good ECR image as `:latest` (`aws ecr batch-get-image` → `put-image`) and `aws ecs update-service --force-new-deployment`. **Improvement worth making:** tag images with the git SHA so rollback is one CLI call. |
+| **Terraform** | `git revert` the offending commit; `deploy.yml` re-runs `terraform apply` on next push. For state corruption, restore from S3 versioning on `cube-mcp-terraform-state`. |
+| **PyPI / npm** | Cannot un-publish (yanking PyPI is reversible only in narrow windows; npm allows unpublish within 72h). The standard path is to push a new patch version with the fix. Users on `npx @edgescaleai/cube-mcp` and `uvx edgescaleai-cube-mcp` pick up the new version on next invocation. |
+| **Cognito user / group change** | Cognito has no native rollback. Reverse the change manually: re-add the user, restore group membership. Audit trail is in CloudTrail (`cube-mcp-prod-trail` if enabled — verify). |
+| **Secrets Manager profile credentials** | Each secret has versioning. Roll back with `aws secretsmanager update-secret-version-stage --secret-id cube-mcp/profiles/<profile> --version-stage AWSCURRENT --move-to <prev_version_id>`. |
+
+### Monitoring & alerting
+
+> **Alerting: not yet configured.** No CloudWatch alarms, SNS topics, Sentry, or paging are set up. Nothing pages anyone when the service degrades — that is still the biggest gap.
+>
+> **Observability that *does* exist:** CloudWatch Logs (`/ecs/cube-mcp-prod`) + ECS task health for the service itself; **tool-call analytics telemetry** (live in prod) recording every cloud tool call — and, where `telemetry_console_enabled` is on, every counted console request as a `source=console` row of the same shape — to two sinks — S3 Parquet (durable analytics, queryable with the DuckDB query pack in [docs/tool-call-analytics-queries.md](docs/tool-call-analytics-queries.md)) and Groundcover OTLP spans (hot/correlation tier). See [docs/tool-call-logging-spec.md](docs/tool-call-logging-spec.md). Per-cube observability (of the fleet, not this service) is available via the `groundcover_*` tools.
+
+Day-to-day debugging:
+
+```bash
+# Live tail prod logs (cube-cloud + tbot)
+aws logs tail /ecs/cube-mcp-prod --follow --region us-west-2
+
+# Filter to just tbot
+aws logs tail /ecs/cube-mcp-prod --filter-pattern "tbot" --follow
+
+# Service health
+aws ecs describe-services \
+  --cluster cube-mcp-prod-cluster \
+  --services cube-mcp-prod-service \
+  --query 'services[0].{running:runningCount,desired:desiredCount,events:events[0:5]}'
+```
+
+**Recommended additions** for the next owner (none of these exist yet):
+- CloudWatch alarm on ECS service `RunningTaskCount < 1` → SNS → email/PagerDuty.
+- ALB 5xx alarm on the listener.
+- DynamoDB throttling alarm on `cube-mcp-prod-api-keys`.
+- Synthetic check that runs `agent_login_browser` end-to-end weekly.
+
+### Stakeholders & contacts
+
+> `TODO(owner)`: Vinayak (departing) is the only person with full context on these. Fill these in before he leaves so the next owner has someone to call.
+
+| Role | Person | Contact |
+|------|--------|---------|
+| Internal product owner | `TODO` | |
+| Eng escalation / on-call | `TODO` | |
+| AWS account admin | `TODO` | |
+| Teleport admin (can grant `tctl` access) | `TODO` | |
+| Apollo admin (can issue per-tenant OAuth2 creds) | `TODO` | |
+| Lear tenant POC | `TODO` | |
+| Conagra tenant POC | `TODO` | |
+| Palantir tenant POC | `TODO` | |
+| EdgescaleAI internal dev (`edgescaleai-dev` profile) | `TODO` | |
+| **User-facing support** — printed on every console page and all six `/auth/*` pages | `TODO(owner)`: who monitors this mailbox? | `help@edgescaleai.com` |
+
+### Cost & billing
+
+> `TODO(owner)`: Add rough monthly run-rate and the account that gets billed.
+
+- **AWS** (account `992382448282`): `TODO` — typical monthly spend, biggest line items, who pays the invoice.
+- **Teleport** (`edgescaleai.teleport.sh`): `TODO` — plan tier, seat count, billing contact.
+- **Apollo** (`edgescaleai.palantirapollo.com`): `TODO` — Palantir contract reference, who renews.
+- **Domain** (`edgescaleai-cube.com`): `TODO` — registrar, expiry date, who has the login.
+- **PyPI / npm**: free tiers, no recurring cost.
+
+If costs need to be cut quickly: the dev ECS service (`cube-mcp-dev-service`) can be scaled to zero with no user impact.
+
+### Access & disaster recovery
+
+| Surface | Status / what the next owner should verify |
+|---------|--------------------------------------------|
+| GitHub repo admins | `TODO(owner)`: list everyone with admin/maintain on `EdgescaleAI/cube-mcp` and confirm branch protection on `main` (require PR + passing tests). |
+| AWS root account access | `TODO(owner)`: confirm who holds the root credentials for account `992382448282` and that MFA is enforced. |
+| Domain registrar login | `TODO(owner)`: who has the registrar account for `edgescaleai-cube.com`. |
+| DynamoDB `cube-mcp-prod-api-keys` | Point-in-time recovery enabled (35-day window). |
+| Secrets Manager | Per-secret versioning enabled by default — see Rollback playbook. |
+| Terraform state | S3 bucket versioning enabled on `cube-mcp-terraform-state`. |
+| ECR images | Lifecycle rules are scoped to **untagged** images only (retain 10 cube-cloud / 5 tbot untagged) — tagged images (`:latest`/`:dev`) are retained indefinitely. This was tightened after a `tagStatus: any` rule reaped the running prod `:latest` image and caused an ALB 503 outage. See `infra/terraform/ecr.tf` / `tbot.tf`. |
+
+### Known tech debt / planned work
+
+> Update this list as you ship or de-scope items so the next owner sees current state, not folklore.
+
+- **Phase 2 RBAC:** per-profile Apollo RBAC is now implemented and validated — each scoped profile has its own Apollo SA + team + creds in Secrets Manager (validated end-to-end through MCP: `lear-sandbox`, `pltr-perception-dev`, `operations`). Remaining work: set up and validate `lear-dev` / `conagra-dev` / `pltr-dev` / `edgescaleai-dev` (real Teleport roles) through the MCP pipeline. Provisioning is done by `scripts/provision-access.py`.
+- **ECR `:latest`-only tagging** makes ECS rollback awkward (see Rollback playbook). Tag images with the git SHA in `deploy.yml`.
+- **No alerting.** See Monitoring section.
+- **Teleport role management is manual `tctl`.** The future plan is the Teleport Terraform provider — see [docs/admin.md → Future](docs/admin.md#future-teleport-terraform-provider).
+- **No DynamoDB lock on Terraform state.** Acceptable while CI is the only applier; add a lock table if local applies become routine.
+- **Cognito drift: `esaiadmin` group.** Surfaced in [#93](https://github.com/EdgescaleAI/cube-mcp/pull/93). The prod Cognito pool has an `esaiadmin` group that isn't defined in `infra/terraform/cognito.tf` — it was created in the console. Either `terraform import` it or delete it; don't leave it as drift.
+- **`TODO(owner)`:** anything else in flight at handoff time.
+
+### First-day checklist for a new owner
+
+1. **Read [docs/admin.md](docs/admin.md) end-to-end.** Then run `agent_login_browser` yourself so you've experienced the user flow.
+2. **Get console access** to AWS account `992382448282` (`us-west-2`) with permissions for Cognito, DynamoDB, Secrets Manager, ECS, IAM, and CloudWatch Logs.
+3. **Get Teleport admin** (`tctl`) on `edgescaleai.teleport.sh` — needed to manage the `cube-mcp-bot` and add roles. Ask the person listed in [Stakeholders & contacts](#stakeholders--contacts).
+4. **Get Apollo admin** on `edgescaleai.palantirapollo.com` — needed to issue per-profile OAuth2 credentials when adding new tenants.
+5. **Install [`cube-admin`](packages/cube-admin)** locally for API key management: `uv pip install -e packages/cube-admin`. This package is **internal-only and must never be published**.
+6. **Verify CI is healthy** and you can rotate every secret in [Required CI secrets](#required-ci-secrets). Push a no-op commit to `dev-main` to confirm `deploy-dev.yml` succeeds end-to-end against the dev stack.
+7. **Replace every `TODO(owner)` in this README** — Stakeholders, Cost, Access & DR, Tech debt. If you can't fill one in, write down who you asked and what they said. Don't leave them blank.
+
+### Common ops tasks
+
+- **Provision access (recommended):** `uv run scripts/provision-access.py profile create <name> --cubes <id1,id2>` then `uv run scripts/provision-access.py member add <email> <name>` — the access CLI (Apollo SA/team/roles + Teleport role/bot + tbot identity in Secrets Manager + Cognito group/members), zero-setup, dry-run by default with a per-facet plan; add `--apply` to execute. Scope changes: `profile add-cubes` / `remove-cubes` / `set-cubes`. App companies (which exposed apps a profile sees): `profile set-app-companies` / `add-app-companies` / `remove-app-companies` — no code change or deploy.
+- **Look up access:** `uv run scripts/provision-access.py member show <email>` (a user's profile and reach) and `uv run scripts/provision-access.py profile show <name>` / `profile list` (every facet of a profile, drift flagged).
+- **Add a user:** [docs/adding-new-user.md](docs/adding-new-user.md).
+- **Add a new tenant / role:** [docs/admin.md → Creating a new role / profile](docs/admin.md#creating-a-new-role--profile). Prefer `scripts/provision-access.py profile create`; the six-step manual flow (Cognito group, SM secret, Teleport role, bot role grant, tbot output, merge) is kept as break-glass.
+- **Revoke access:** [docs/admin.md → Revoking access](docs/admin.md#revoking-access).
+- **Manage API keys:** `cube-admin keys {create,list,revoke}` — see [docs/admin.md → Managing API keys with cube-admin](docs/admin.md#managing-api-keys-with-cube-admin).
+- **Debug a failing tool call:** check `aws logs tail /ecs/cube-mcp-prod --follow` for the cube-cloud and tbot containers.
+
+### Third-party data
+
+- **Town names** for the console's GPS location row come from [GeoNames](https://www.geonames.org/) (licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)), shipped as `packages/cube-cloud/src/cube_cloud/places/places.tsv.gz`. Rebuild it from a hand-downloaded dump with `scripts/build-place-names.py`; the file's header records the source, download date and population floor.
+- **Map borders** for the console's fleet map come from [Natural Earth](https://www.naturalearthdata.com/) (public domain), built into `console/web/public/map/outline.json` by `scripts/build-map-outline.py`, which records the source in the file.
+
+### Repo layout cheatsheet
+
+```
+packages/
+  cube-agent/    # Local MCP server (npx @edgescaleai/cube-mcp entrypoint)
+  cube-cloud/    # FastAPI service on ECS — auth, RBAC, Apollo, Teleport relay
+  cube-common/   # Shared types and helpers
+  cube-admin/    # Internal-only API key CLI — DO NOT PUBLISH
+infra/
+  terraform/     # All AWS resources
+  tbot/          # tbot Dockerfile, entrypoint, prod config
+docs/            # Runbooks (start here)
+resources/       # User-facing reference docs
+npm/             # npm shim that calls uvx edgescaleai-cube-mcp
+scripts/         # Release / publish helpers
+```

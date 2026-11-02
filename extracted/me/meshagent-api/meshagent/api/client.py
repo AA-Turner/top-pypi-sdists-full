@@ -1,0 +1,5826 @@
+import aiohttp
+import base64
+import json
+import re
+from urllib.parse import quote, urlsplit, urlunsplit
+from typing import Any, Dict, List, Optional, Literal, TypeVar
+from pydantic import (
+    BaseModel,
+    ValidationError,
+    JsonValue,
+    Field,
+    ConfigDict,
+    computed_field,
+    field_validator,
+    model_validator,
+)
+from meshagent.api.room_server_client import RoomDisabledError, RoomException
+from meshagent.api.participant_token import ApiScope, ParticipantToken
+from meshagent.api.files import FILE_RELATIONS, FileRole, FilesClient
+from meshagent.api.helpers import is_valid_room_name, meshagent_base_url
+from meshagent.api.http import (
+    MESHAGENT_CONSISTENCY_HEADER,
+    MeshagentConsistency,
+    new_client_session,
+    normalize_meshagent_consistency,
+)
+from datetime import datetime
+from decimal import Decimal
+from meshagent.api.specs.service import (
+    ContainerSpec,
+    RouteBackendSpec,
+    RouteMetadata,
+    RoutePathSpec,
+    RouteRoomBackendSpec,
+    RouteSpec,
+    ScheduledTaskSpec,
+    ServiceSpec,
+    ServiceTemplateSpec,
+)
+from meshagent.api.managed_agents import ManagedAgentSpec
+from meshagent.api.storage_connections import (
+    CreateStorageConnection,
+    UpdateStorageConnection,
+    StorageConnection,
+    StorageConnectionsResponse,
+)
+import os
+
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+# ------------------------------------------------------------------
+#  Secret models
+# ------------------------------------------------------------------
+
+
+class NotFoundError(RoomException):
+    """404 – resource does not exist."""
+
+
+class PermissionDeniedError(RoomException):
+    """403 – permission denied."""
+
+
+class ConflictError(RoomException):
+    """409 – conflicting or duplicate resource."""
+
+
+class ValidationErrorResponse(RoomException):
+    """400 – invalid request payload."""
+
+
+class ServerError(RoomException):
+    """5xx – server-side failure."""
+
+
+class OAuthClient(BaseModel):
+    client_id: str
+    client_secret: str | None = None
+    grant_types: list[str]
+    response_types: list[str]
+    redirect_uris: list[str]
+    scope: str
+    project_id: str
+    metadata: dict[str, str]
+    official: bool = False
+
+
+class OAuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: Optional[int] = None
+    refresh_token: Optional[str] = None
+    scope: Optional[str] = None
+    id_token: Optional[str] = None
+
+
+class RoomConnectionInfo(BaseModel):
+    jwt: str
+    room_name: str
+    project_id: str
+    room_url: str
+
+
+class AgentConnectionInfo(BaseModel):
+    jwt: str
+    agent_name: str
+    project_id: str
+    agent_url: str
+
+    @model_validator(mode="after")
+    def normalize_legacy_agent_url(self) -> "AgentConnectionInfo":
+        parsed = urlsplit(self.agent_url)
+        legacy_suffix = (
+            f"/accounts/projects/{quote(self.project_id, safe='')}/agents/"
+            f"{quote(self.agent_name, safe='')}/messages"
+        )
+        if parsed.path.endswith(legacy_suffix):
+            prefix = parsed.path[: -len(legacy_suffix)]
+            current_path = (
+                f"{prefix}/agents/{quote(self.project_id, safe='')}/"
+                f"{quote(self.agent_name, safe='')}/messages"
+            )
+            self.agent_url = urlunsplit(parsed._replace(path=current_path))
+        return self
+
+
+class MeshagentDomains(BaseModel):
+    studio: str | None = None
+    accounts: str | None = None
+    powerboards: str | None = None
+    api: str | None = None
+    mail: str | None = None
+    pages: str | None = None
+    registry: str | None = None
+    files: str | None = None
+
+
+class MeshagentDeploymentConfig(BaseModel):
+    domains: MeshagentDomains
+    reserved_route_domains: list[str] = Field(default_factory=list)
+    version: str | None = None
+
+
+class RoomSession(BaseModel):
+    id: str
+    room_id: Optional[str]
+    room_name: str
+    created_at: datetime
+    is_active: bool
+    participants: Optional[dict[str, int]] = None
+    kind: str = "room"
+    agent_id: Optional[str] = None
+    agent_name: Optional[str] = None
+
+
+class RoomStatus(BaseModel):
+    status: Literal["Allocated", "Unallocated"]
+    allocated_at: Optional[datetime] = None
+    running_for_seconds: Optional[int] = None
+
+
+class RoomLifecycleEvent(BaseModel):
+    id: str
+    room_name: str
+    session_id: Optional[str] = None
+    type: str
+    message: str
+    severity: Optional[str] = None
+    created_at: datetime
+
+
+class _ListRoomSessionsResponse(BaseModel):
+    sessions: list[RoomSession]
+
+
+class Room(BaseModel):
+    id: str
+    name: str
+    metadata: dict[str, JsonValue]
+    annotations: dict[str, str] = Field(default_factory=dict)
+    enabled: bool = True
+
+
+class StorageVolume(BaseModel):
+    id: str
+    room_id: str
+    name: str
+    subpath: str
+    description: str = ""
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+    storage_class: Literal["standard", "juice", "zerofs"] = "standard"
+    max_size_mb: int | None = None
+    phase: Literal["pending", "bound", "deleting", "failed"] = "pending"
+    provisioned: bool = False
+    reconcile_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class _StorageVolumesResponse(BaseModel):
+    volumes: list[StorageVolume] = Field(default_factory=list)
+
+
+class RoomsPage(BaseModel):
+    rooms: list[Room]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+AccessSubjectType = Literal[
+    "user", "group", "agent", "service_account", "userset", "everyone"
+]
+AccessResourceType = Literal[
+    "project",
+    "room",
+    "agent",
+    "group",
+    "repository",
+    "feed",
+    "secret",
+    "service_account",
+    "custom_domain",
+]
+ProjectRole = Literal[
+    "member",
+    "admin",
+    "developer",
+    "room_creator",
+    "room_inventory",
+    "room_manager",
+    "session_inventory",
+    "agent_creator",
+    "agent_inventory",
+    "agent_manager",
+    "repository_creator",
+    "repository_inventory",
+    "repository_manager",
+    "feed_creator",
+    "feed_inventory",
+    "feed_manager",
+    "oauth_client_creator",
+    "oauth_client_inventory",
+    "oauth_client_manager",
+    "api_key_creator",
+    "api_key_inventory",
+    "api_key_manager",
+    "service_creator",
+    "service_inventory",
+    "service_manager",
+    "service_account_creator",
+    "service_account_inventory",
+    "service_account_manager",
+    "participant_token_creator",
+    "mailbox_creator",
+    "mailbox_inventory",
+    "mailbox_manager",
+    "route_creator",
+    "route_inventory",
+    "route_manager",
+    "custom_domain_creator",
+    "custom_domain_inventory",
+    "custom_domain_manager",
+    "scheduled_task_creator",
+    "scheduled_task_inventory",
+    "scheduled_task_manager",
+    "feed_subscription_creator",
+    "feed_subscription_inventory",
+    "feed_subscription_manager",
+    "llm_logger_creator",
+    "llm_logger_inventory",
+    "llm_logger_manager",
+    "llm_proxy_user",
+    "llm_quota_manager",
+    "usage_reporter",
+    "billing_manager",
+    "group_manager",
+    "user_profile_editor",
+]
+ResourceRole = Literal["viewer", "operator", "developer", "admin"]
+CustomDomainRole = Literal["viewer", "user", "admin"]
+RoomRole = Literal["site_user", "guest", "viewer", "operator", "developer", "admin"]
+ProjectSettingsDocumentName = Literal[
+    "openai", "anthropic", "grok", "otel", "admission", "room", "room_roles", "router"
+]
+FeedRole = Literal["reader", "subscriber", "publisher", "manager"]
+SecretRole = Literal["use_proxy"]
+ServiceAccountRole = Literal[
+    "run_service_as",
+    "secret_accessor",
+    "secret_manager",
+    "secret_list",
+    "use_proxy_secrets",
+]
+AccessRole = (
+    ProjectRole
+    | ResourceRole
+    | RoomRole
+    | FeedRole
+    | SecretRole
+    | ServiceAccountRole
+    | CustomDomainRole
+    | FileRole
+    | Literal["list"]
+)
+
+
+class AccessSubject(BaseModel):
+    type: AccessSubjectType
+    id: Optional[str] = None
+    name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    object_type: Optional[Literal["project"]] = None
+    relation: Optional[Literal["member", "developer", "agent", "service_account"]] = (
+        None
+    )
+
+
+class LlmDelegation(BaseModel):
+    id: str
+    token: str
+    expires_at: datetime
+    project_id: str
+    delegator: AccessSubject
+    subject: AccessSubject
+    providers: Optional[list[Literal["openai", "anthropic", "grok"]]] = None
+    models: Optional[list[str]] = None
+    max_budget: Decimal
+
+
+class AccessResource(BaseModel):
+    type: AccessResourceType
+    id: str
+    name: Optional[str] = None
+    metadata: Optional[dict[str, JsonValue]] = None
+    annotations: Optional[dict[str, str]] = None
+
+
+class RoleGrant(BaseModel):
+    resource: AccessResource
+    subject: AccessSubject
+    direct_roles: list[AccessRole] = Field(default_factory=list)
+
+
+class RoleGrantsPage(BaseModel):
+    grants: list[RoleGrant]
+    continuation_token: Optional[str] = None
+
+
+class AccessBindingsPage(BaseModel):
+    access_grants: list[RoleGrant]
+
+
+class ResourcePolicyPage(BaseModel):
+    resource: AccessResource
+    access_grants: list[RoleGrant]
+    continuation_token: Optional[str] = None
+
+
+class ProjectMemberAccess(BaseModel):
+    user: "User"
+    direct_roles: list[str] = Field(default_factory=list)
+
+
+class ProjectAccessSummary(BaseModel):
+    project_id: str
+    subject: AccessSubject
+    project_roles: list[ProjectRole]
+    capabilities: dict[str, bool]
+
+
+class ResourceAccessSummary(BaseModel):
+    resource: AccessResource
+    subject: AccessSubject
+    effective_roles: list[str]
+    capabilities: dict[str, bool]
+
+
+class AccessTestResult(BaseModel):
+    allowed: bool
+
+
+class SecretProxyAccessGrant(BaseModel):
+    subject: AccessSubject
+    roles: list[SecretRole] = Field(default_factory=list)
+
+
+class SecretProxyAccessGrantsPage(BaseModel):
+    access_grants: list[SecretProxyAccessGrant]
+    continuation_token: Optional[str] = None
+
+
+class Group(BaseModel):
+    id: str
+    name: str
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+
+class GroupsPage(BaseModel):
+    groups: list[Group]
+    continuation_token: Optional[str] = None
+
+
+class ServiceAccount(BaseModel):
+    id: str
+    project_id: str
+    key: str
+    name: str
+    email: Optional[str] = None
+    display_name: Optional[str] = None
+    description: str = ""
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ServiceAccountsPage(BaseModel):
+    service_accounts: list[ServiceAccount]
+    continuation_token: Optional[str] = None
+
+
+class ApiKey(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    project_id: Optional[str] = None
+    service_account_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = None
+    value: Optional[str] = None
+
+
+class ApiKeysPage(BaseModel):
+    keys: list[ApiKey]
+
+
+class ApiKeysRevocationResult(BaseModel):
+    revoked: list[str] = Field(default_factory=list)
+
+
+class Whoami(BaseModel):
+    id: str
+    email: str
+    type: Literal["user", "service_account"]
+    service_account: Optional[ServiceAccount] = None
+    user: Optional["User"] = None
+
+
+class GroupMember(BaseModel):
+    subject: AccessSubject
+    direct_roles: list[str] = Field(default_factory=list)
+
+
+class GroupMembersPage(BaseModel):
+    members: list[GroupMember]
+    continuation_token: Optional[str] = None
+
+
+class _CreateGroupRequest(BaseModel):
+    name: str
+    metadata: dict[str, JsonValue] | None = None
+    annotations: dict[str, str] | None = None
+
+
+class _UpdateGroupRequest(BaseModel):
+    name: str
+    metadata: dict[str, JsonValue] | None = None
+    annotations: dict[str, str] | None = None
+
+
+class _SetGroupMemberRequest(BaseModel):
+    subject: AccessSubject
+    role: Literal["member", "manager"] = "member"
+
+
+def _strip_readonly_subject_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    subject = payload.get("subject")
+    if isinstance(subject, dict):
+        subject.pop("first_name", None)
+        subject.pop("last_name", None)
+    return payload
+
+
+def _role_from_api_scope(scope: Any) -> ResourceRole:
+    if not isinstance(scope, ApiScope):
+        scope = ApiScope.model_validate(scope)
+    if scope.admin is not None:
+        return "admin"
+    if scope.developer is not None or scope.tunnels is not None:
+        return "developer"
+    return "operator"
+
+
+def room_scope_for_role_compat(role: ResourceRole) -> ApiScope:
+    if role == "admin":
+        return ApiScope.full()
+    if role == "developer":
+        return ApiScope.agent_default(tunnels=True)
+    return ApiScope.user_default()
+
+
+class ProjectRoomGrant(RoleGrant):
+    @property
+    def room(self) -> Room:
+        return Room(
+            id=self.resource.id,
+            name=self.resource.name or self.resource.id,
+            metadata=self.resource.metadata or {},
+            annotations=self.resource.annotations or {},
+        )
+
+    @property
+    def user_id(self) -> str:
+        return self.subject.id
+
+    @property
+    def permissions(self) -> ApiScope:
+        if set(self.direct_roles).intersection(FILE_RELATIONS) and not set(
+            self.direct_roles
+        ).intersection(
+            {"guest", "viewer", "site_user", "operator", "developer", "admin"}
+        ):
+            return ApiScope()
+        if "admin" in self.direct_roles:
+            return room_scope_for_role_compat("admin")
+        if "developer" in self.direct_roles:
+            return room_scope_for_role_compat("developer")
+        if "operator" in self.direct_roles:
+            return room_scope_for_role_compat("operator")
+        return ApiScope.user_default()
+
+
+class ManagedAgent(BaseModel):
+    id: str
+    name: str
+    configuration: ManagedAgentSpec
+
+
+Agent = ManagedAgent
+
+
+class AgentsPage(BaseModel):
+    agents: list[ManagedAgent]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+class ProjectRepositoryGrant(RoleGrant):
+    pass
+
+
+class ProjectFeedGrant(RoleGrant):
+    pass
+
+
+class RoomGrantsPage(BaseModel):
+    room_grants: list[ProjectRoomGrant]
+    continuation_token: Optional[str] = None
+
+
+class RepositoryGrantsPage(BaseModel):
+    repository_grants: list[ProjectRepositoryGrant]
+    continuation_token: Optional[str] = None
+
+
+class FeedGrantsPage(BaseModel):
+    feed_grants: list[ProjectFeedGrant]
+    continuation_token: Optional[str] = None
+
+
+class ProjectRepositoriesPage(BaseModel):
+    repositories: list["ProjectRepository"]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+class ProjectMembersPage(BaseModel):
+    users: list[ProjectMemberAccess]
+    continuation_token: Optional[str] = None
+
+
+class MailboxesPage(BaseModel):
+    mailboxes: list["Mailbox"]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+MailboxDeliveryStatus = Literal["accepted", "deferred", "delivered", "failed"]
+
+
+class MailboxDelivery(BaseModel):
+    id: str
+    submission_id: str
+    recipient: str
+    message_id: str
+    status: MailboxDeliveryStatus
+    submitted_at: datetime
+    status_at: datetime
+    attempt_count: int = 0
+    smtp_code: int | None = None
+    enhanced_smtp_code: str | None = None
+    reason: str | None = None
+    description: str | None = None
+    mx_host: str | None = None
+    tls: bool | None = None
+    certificate_verified: bool | None = None
+
+
+class MailboxDeliveryEvent(BaseModel):
+    id: str
+    delivery_id: str
+    provider: str
+    provider_event_id: str
+    event_type: Literal["accepted", "temporary_failed", "delivered", "permanent_failed"]
+    status: MailboxDeliveryStatus
+    occurred_at: datetime
+    received_at: datetime
+    attempt_no: int | None = None
+    smtp_code: int | None = None
+    enhanced_smtp_code: str | None = None
+    reason: str | None = None
+    description: str | None = None
+    mx_host: str | None = None
+    tls: bool | None = None
+    certificate_verified: bool | None = None
+
+
+class MailboxDeliveriesPage(BaseModel):
+    deliveries: list[MailboxDelivery]
+    total: int = 0
+
+
+class MailboxDeliveryEventsPage(BaseModel):
+    events: list[MailboxDeliveryEvent]
+    total: int = 0
+
+
+class RoutesPage(BaseModel):
+    routes: list["Route"]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+CustomDomainPhase = Literal[
+    "pending_dns",
+    "provisioning_certificate",
+    "provisioning_map_entry",
+    "available",
+    "degraded",
+    "failed",
+    "deleting",
+]
+
+
+class CustomDomainDnsRecord(BaseModel):
+    name: str
+    type: str
+    data: str
+
+
+class CustomDomainCondition(BaseModel):
+    type: str
+    status: Literal["true", "false", "unknown"]
+    reason: str
+    message: str = ""
+    observed_at: datetime
+
+
+class CustomDomain(BaseModel):
+    domain: str
+    project_id: str
+    phase: CustomDomainPhase
+    available: bool
+    dns_authorization_record: CustomDomainDnsRecord | None = None
+    routing_records: list[CustomDomainDnsRecord] = Field(default_factory=list)
+    certificate_state: str | None = None
+    map_entry_state: str | None = None
+    conditions: list[CustomDomainCondition] = Field(default_factory=list)
+    created_at: datetime
+
+    @property
+    def wildcard(self) -> bool:
+        return self.domain.startswith("*.")
+
+
+class CustomDomainsPage(BaseModel):
+    custom_domains: list[CustomDomain]
+    continuation_token: str | None = None
+
+
+class FeedsPage(BaseModel):
+    feeds: list["Feed"]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+class OAuthClientsPage(BaseModel):
+    clients: list["OAuthClient"]
+    total: int = 0
+
+
+class ScheduledTasksPage(BaseModel):
+    tasks: list["ScheduledTask"]
+    total: int = 0
+    continuation_token: Optional[str] = None
+
+
+class ScheduledTaskRunsPage(BaseModel):
+    runs: list["ScheduledTaskRun"]
+    total: int = 0
+
+
+class User(BaseModel):
+    id: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: str
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+
+class UpdateUserProfileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    first_name: str | None = None
+    last_name: str | None = None
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+
+UserProfileView = Literal["project", "user", "merged"]
+UserProfileField = Literal["first_name", "last_name", "metadata", "annotations"]
+
+
+class UpdateProjectUserProfileRequest(UpdateUserProfileRequest):
+    inherit: list[UserProfileField] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_inherited_fields(self) -> "UpdateProjectUserProfileRequest":
+        if set(self.inherit) & self.model_fields_set:
+            raise ValueError(
+                "A field cannot be supplied and inherited in the same update"
+            )
+        return self
+
+
+class UserProfilesPage(BaseModel):
+    users: list[User]
+    continuation_token: str | None = None
+
+
+class UserRoomGrant(BaseModel):
+    room: Room
+    user: User
+    permissions: ApiScope
+
+
+class Secret(BaseModel):
+    id: str
+    project_id: str
+    owner_user_id: Optional[str] = None
+    owner_service_account_id: Optional[str] = None
+    created_by_user_id: Optional[str] = None
+    created_by_service_account_id: Optional[str] = None
+    type: str
+    name: str
+    http_only: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    annotations: dict[str, Any] = Field(default_factory=dict)
+    current_version_id: Optional[str] = None
+    value_base64: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SecretVersion(BaseModel):
+    id: str
+    secret_id: str
+    version: int
+    value_sha256: Optional[str] = None
+    created_by_user_id: Optional[str] = None
+    created_by_service_account_id: Optional[str] = None
+    created_at: datetime
+
+
+class SecretsPage(BaseModel):
+    secrets: list[Secret]
+    continuation_token: Optional[str] = None
+
+
+class _ListSecretVersionsResponse(BaseModel):
+    versions: list[SecretVersion]
+
+
+class _SecretVersionValueResponse(BaseModel):
+    secret_id: str
+    version_id: str
+    value_base64: str
+
+
+class _CreateMailboxRequest(BaseModel):
+    room: str
+    queue: str
+    address: str
+    public: bool
+    annotations: Optional[dict[str, str]] = None
+
+
+class _UpdateMailboxRequest(BaseModel):
+    room: str
+    queue: str
+    public: bool
+    annotations: Optional[dict[str, str]] = None
+
+
+class Mailbox(BaseModel):
+    """
+    Minimal shape returned by the server for a mailbox.
+    Extra fields (if any) from the server response will be ignored.
+    """
+
+    address: str
+    room: str
+    room_id: Optional[str] = None
+    queue: str
+    public: bool
+    annotations: dict[str, str]
+
+
+class _CreateRouteRequest(BaseModel):
+    spec: RouteSpec
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_request(cls, value: object) -> object:
+        if not isinstance(value, dict) or "spec" in value:
+            return value
+        return {"spec": RouteSpec.model_validate(value)}
+
+
+class _UpdateRouteRequest(BaseModel):
+    spec: RouteSpec
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_request(cls, value: object) -> object:
+        if not isinstance(value, dict) or "spec" in value:
+            return value
+        return {"spec": RouteSpec.model_validate(value)}
+
+
+class Route(BaseModel):
+    domain: str
+    spec: RouteSpec
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_route(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        if "spec" in value:
+            return value
+        spec = RouteSpec.model_validate(value)
+        return {"domain": spec.domain, "spec": spec}
+
+    @property
+    def room_name(self) -> str:
+        room_name = self.spec.room_name
+        return room_name or ""
+
+    @property
+    def port(self) -> str:
+        if len(self.spec.paths) == 0:
+            return ""
+        target_port = self.spec.paths[0].targetPort
+        return "" if target_port is None else str(target_port)
+
+    @property
+    def annotations(self) -> dict[str, str]:
+        return self.spec.annotations
+
+
+FeedVisibility = Literal["public", "project", "private"]
+FeedJsonSchema = dict[str, JsonValue] | bool
+FeedReconciliationStatus = Literal["ready", "provisioning", "deleting"]
+
+
+def _feed_reconciliation_status(
+    *,
+    deletion_requested_at: datetime | None,
+    desired_generation: int,
+    applied_generation: int,
+) -> FeedReconciliationStatus:
+    if deletion_requested_at is not None:
+        return "deleting"
+    if applied_generation == desired_generation:
+        return "ready"
+    return "provisioning"
+
+
+class _FeedRequestBase(BaseModel):
+    name: str
+    description: str = ""
+    visibility: FeedVisibility = "private"
+    paused: bool = False
+    annotations: dict[str, str] = Field(default_factory=dict)
+    message_schema: FeedJsonSchema | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not is_valid_room_name(normalized):
+            raise ValueError(
+                "name must be 1-63 lowercase letters, numbers, or hyphens, "
+                "and start and end with a letter or number"
+            )
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("message_schema")
+    @classmethod
+    def validate_message_schema(
+        cls, value: FeedJsonSchema | None
+    ) -> FeedJsonSchema | None:
+        if value is None or isinstance(value, bool):
+            return value
+        if not isinstance(value, dict):
+            raise ValueError("message_schema must be a JSON object or boolean")
+        return value
+
+
+class _CreateFeedRequest(_FeedRequestBase):
+    pass
+
+
+class _UpdateFeedRequest(_FeedRequestBase):
+    visibility: FeedVisibility | None = None
+
+
+class Feed(BaseModel):
+    id: str
+    project_id: str
+    created_at: datetime
+    name: str
+    description: str = ""
+    visibility: FeedVisibility = "private"
+    paused: bool = False
+    annotations: dict[str, str] = Field(default_factory=dict)
+    message_schema: FeedJsonSchema | None = None
+    desired_generation: int = 1
+    applied_generation: int = 1
+    deletion_requested_at: Optional[datetime] = None
+    reconcile_after: Optional[datetime] = None
+    reconcile_error: Optional[str] = None
+    reconcile_claimed_by: Optional[str] = None
+    reconcile_claimed_at: Optional[datetime] = None
+    reconcile_claim_expires_at: Optional[datetime] = None
+    reconcile_claim_generation: Optional[int] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> FeedReconciliationStatus:
+        return _feed_reconciliation_status(
+            deletion_requested_at=self.deletion_requested_at,
+            desired_generation=self.desired_generation,
+            applied_generation=self.applied_generation,
+        )
+
+
+class _FeedSubscriptionRequestBase(BaseModel):
+    room: str
+    path: str
+    filename_datetime_format: Optional[str] = None
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("room")
+    @classmethod
+    def validate_room(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized == "":
+            raise ValueError("room must not be empty")
+        return normalized
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized == "":
+            raise ValueError("path must not be empty")
+        return normalized
+
+
+class _CreateFeedSubscriptionRequest(_FeedSubscriptionRequestBase):
+    pass
+
+
+class _UpdateFeedSubscriptionRequest(BaseModel):
+    filename_datetime_format: Optional[str] = None
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+
+class FeedSubscription(BaseModel):
+    id: str
+    feed_id: str
+    project_id: str
+    room: str
+    room_id: Optional[str] = None
+    path: str
+    filename_datetime_format: Optional[str] = None
+    created_at: datetime
+    annotations: dict[str, str] = Field(default_factory=dict)
+    desired_generation: int = 1
+    applied_generation: int = 1
+    deletion_requested_at: Optional[datetime] = None
+    reconcile_after: Optional[datetime] = None
+    reconcile_error: Optional[str] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> FeedReconciliationStatus:
+        return _feed_reconciliation_status(
+            deletion_requested_at=self.deletion_requested_at,
+            desired_generation=self.desired_generation,
+            applied_generation=self.applied_generation,
+        )
+
+
+class _LLMLoggerRequestBase(BaseModel):
+    destination_feed_id: str
+    filter_expression: str
+    paused: bool = False
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("destination_feed_id")
+    @classmethod
+    def validate_destination_feed_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized == "":
+            raise ValueError("destination_feed_id must not be empty")
+        return normalized
+
+    @field_validator("filter_expression")
+    @classmethod
+    def validate_filter_expression(cls, value: str) -> str:
+        return value.strip()
+
+
+class _CreateLLMLoggerRequest(_LLMLoggerRequestBase):
+    pass
+
+
+class _UpdateLLMLoggerRequest(_LLMLoggerRequestBase):
+    pass
+
+
+class LLMLogger(BaseModel):
+    id: str
+    project_id: str
+    destination_feed_id: str
+    filter_expression: str
+    paused: bool = False
+    created_at: datetime
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+
+_OCI_REPOSITORY_COMPONENT_RE = re.compile(r"^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*$")
+
+
+def _normalize_repository_name(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "":
+        raise ValueError("repository name must not be empty")
+
+    parts = normalized.split("/")
+    if any(
+        part == "" or _OCI_REPOSITORY_COMPONENT_RE.fullmatch(part) is None
+        for part in parts
+    ):
+        raise ValueError("repository name must be a valid OCI repository path")
+
+    return normalized
+
+
+class _RepositoryRequestBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str = ""
+    annotations: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_repository_name(value)
+
+
+class CreateProjectRepositoryRequest(_RepositoryRequestBase):
+    pass
+
+
+class UpdateProjectRepositoryRequest(_RepositoryRequestBase):
+    pass
+
+
+class ProjectRepository(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    description: str = ""
+    annotations: dict[str, str] = Field(default_factory=dict)
+    created_at: datetime
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_repository_name(value)
+
+    @property
+    def storage_prefix(self) -> str:
+        return self.name
+
+
+class ProjectInfo(BaseModel):
+    id: str
+    owner_user_id: str | None = Field(default=None, alias="owner_user_id")
+    name: str
+    project_key: str | None = None
+    created_at: datetime | None = Field(default=None, alias="created_at")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    def __contains__(self, key: str) -> bool:
+        return key in type(self).model_fields
+
+    def __getitem__(self, key: str) -> Any:
+        if key not in type(self).model_fields:
+            raise KeyError(key)
+        return self.__dict__[key]
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
+
+
+class ProjectsPage(BaseModel):
+    projects: list[ProjectInfo]
+
+    def __contains__(self, key: str) -> bool:
+        return key in type(self).model_fields
+
+    def __getitem__(self, key: str) -> Any:
+        if key not in type(self).model_fields:
+            raise KeyError(key)
+        return self.__dict__[key]
+
+
+class CreateRepositoryTokenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    actions: list[Literal["pull", "push"]] = Field(default_factory=lambda: ["pull"])
+    expires_in_seconds: int | None = None
+
+    @field_validator("actions")
+    @classmethod
+    def validate_actions(cls, value: list[Literal["pull", "push"]]) -> list[str]:
+        normalized_actions: list[str] = []
+        seen: set[str] = set()
+        for action in value:
+            normalized_action = action.strip()
+            if normalized_action not in {"pull", "push"}:
+                raise ValueError(f"unsupported repository token action: {action}")
+            if normalized_action not in seen:
+                seen.add(normalized_action)
+                normalized_actions.append(normalized_action)
+        if len(normalized_actions) == 0:
+            raise ValueError("repository token actions must not be empty")
+        return normalized_actions
+
+    @field_validator("expires_in_seconds")
+    @classmethod
+    def validate_expires_in_seconds(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("expires_in_seconds must be greater than zero")
+        return value
+
+
+class RepositoryToken(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class Balance(BaseModel):
+    balance: float
+    auto_recharge_threshold: Optional[float] = Field(
+        default=None, alias="auto_recharge_threshold"
+    )
+    auto_recharge_amount: Optional[float] = Field(
+        default=None, alias="auto_recharge_amount"
+    )
+    last_recharge: Optional[datetime] = Field(default=None, alias="last_recharge")
+    monthly_budget: Optional[float] = Field(default=None, alias="monthly_budget")
+    auto_recharge_paused: bool = Field(default=False, alias="auto_recharge_paused")
+    auto_recharged_this_month: Optional[float] = Field(
+        default=None, alias="auto_recharged_this_month"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ProjectStatus(BaseModel):
+    enabled: bool
+
+
+class Transaction(BaseModel):
+    id: str
+    amount: float
+    reference: Optional[str] = None
+    reference_type: Optional[str] = Field(default=None, alias="referenceType")
+    description: str
+    created_at: datetime = Field(alias="created_at")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ScheduledTask(BaseModel):
+    id: str
+    project_id: str
+    room_id: str
+    room_name: str
+    spec: ScheduledTaskSpec
+    queue_name: Optional[str] = None
+    payload: dict = Field(default_factory=dict)
+    container: Optional[ContainerSpec] = None
+    schedule: str
+    active: bool
+    once: bool
+    annotations: dict[str, str]
+    storage_write_path: Optional[str] = None
+
+    last_run_id: Optional[int] = None
+    last_start_time: Optional[datetime] = None
+    last_end_time: Optional[datetime] = None
+    last_status: Optional[str] = None
+    last_return_message: Optional[str] = None
+
+
+class ScheduledTaskRun(BaseModel):
+    id: str
+    task_id: str
+    project_id: str
+    room_id: str
+    room_name: str
+    queued_message_id: Optional[str] = None
+    target: Literal["queue", "container"]
+    status: Literal["pending", "submitting", "retrying", "submitted", "failed"]
+    attempt_count: int = 0
+    error: Optional[str] = None
+    container_id: Optional[str] = None
+    scheduled_time: datetime
+    timeout_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    lease_expires_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class _CreateScheduledTaskRequest(BaseModel):
+    spec: ScheduledTaskSpec
+
+
+class _UpdateScheduledTaskRequest(BaseModel):
+    spec: ScheduledTaskSpec
+
+
+class _ListScheduledTasksResponse(BaseModel):
+    tasks: List[ScheduledTask]
+
+
+class _ListScheduledTaskRunsResponse(BaseModel):
+    runs: List[ScheduledTaskRun]
+
+
+class Meshagent:
+    """
+    A simple asynchronous client to interact with the accounts routes.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str = meshagent_base_url(),
+        token: str = os.getenv("MESHAGENT_API_KEY"),
+        session: aiohttp.ClientSession | None = None,
+        consistency: MeshagentConsistency = "fast",
+    ):
+        """
+        :param base_url: The root URL of your server, e.g. 'http://localhost:8080'.
+        :param token: A Bearer token for the Authorization header.
+        :param consistency: Prefer fast cached authorization queries or high consistency.
+        """
+        self.base_url = base_url.rstrip("/")
+        self.token = token  # The "Bearer" token
+        self.consistency = normalize_meshagent_consistency(consistency)
+        self._session_external = session is not None
+        self._session = session or new_client_session()
+        self.files = FilesClient(self)
+
+    async def close(self):
+        if not self._session_external and not self._session.closed:
+            await self._session.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+
+    def _get_headers(self) -> Dict[str, str]:
+        """
+        Returns the default headers including Bearer Authorization.
+        """
+        return {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            **self._get_consistency_headers(),
+        }
+
+    def _get_consistency_headers(self) -> Dict[str, str]:
+        return {MESHAGENT_CONSISTENCY_HEADER: self.consistency}
+
+    async def _raise_for_status(
+        self,
+        resp: aiohttp.ClientResponse,
+    ) -> None:
+        if resp.status < 400:
+            return
+
+        try:
+            body = await resp.text()
+        except Exception:
+            body = "<unable to read body>"
+
+        msg = f"Status={resp.status}, body={body}"
+
+        if resp.status == 404:
+            raise NotFoundError(msg)
+        if resp.status == 403:
+            raise PermissionDeniedError(msg)
+        if resp.status == 409:
+            raise ConflictError(msg)
+        if resp.status == 423:
+            try:
+                payload = json.loads(body)
+                error = payload.get("error") if isinstance(payload, dict) else None
+                message = error.get("message") if isinstance(error, dict) else None
+            except (TypeError, ValueError):
+                message = None
+            raise RoomDisabledError(
+                message
+                if isinstance(message, str)
+                else "This room is currently disabled."
+            )
+        if resp.status == 400:
+            raise ValidationErrorResponse(msg)
+        if resp.status >= 500:
+            raise ServerError(msg)
+
+        raise RoomException(msg)
+
+    async def _ensure_success(
+        self, resp: aiohttp.ClientResponse, *, action: str
+    ) -> None:
+        if resp.status < 400:
+            return
+        try:
+            body = await resp.text()
+        except Exception:
+            body = "<unable to read body>"
+        raise RoomException(
+            f"Failed to {action}. Status code: {resp.status}, body: {body}"
+        )
+
+    async def _read_model(
+        self,
+        resp: aiohttp.ClientResponse,
+        model_type: type[_ModelT],
+    ) -> _ModelT:
+        payload = await resp.json()
+        try:
+            return model_type.model_validate(payload)
+        except ValidationError as exc:
+            raise RoomException(
+                f"Invalid {model_type.__name__} payload: {exc}"
+            ) from exc
+
+    async def get_config(self) -> MeshagentDeploymentConfig:
+        url = f"{self.base_url}/config"
+
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, MeshagentDeploymentConfig)
+
+    async def upload(self, *, project_id: str, path: str, data: bytes) -> None:
+        """Upload a file to project storage.
+
+        Corresponds to: **POST /projects/:project_id/storage/upload**
+        Query params: `path`
+        Body: raw binary data (bytes)
+        Raises RoomException on HTTP >= 400.
+        """
+        url = f"{self.base_url}/projects/{project_id}/storage/upload"
+        params = {"path": path}
+
+        async with self._session.post(
+            url,
+            params=params,
+            headers={**self._get_headers(), "Content-Type": "application/octet-stream"},
+            data=data,
+        ) as resp:
+            if resp.status >= 400:
+                body = await resp.text()
+                raise RoomException(
+                    f"Failed to upload file. Status code: {resp.status}, body: {body}"
+                )
+
+    async def download(self, *, project_id: str, path: str) -> bytes:
+        """Download a file from project storage.
+
+        Corresponds to: **POST /projects/:project_id/storage/download** (HTTP GET in client)
+        Query params: `path`
+        Returns raw bytes of the file.
+        Raises NotFoundException for 404, RoomException for other HTTP errors.
+        """
+        url = f"{self.base_url}/projects/{project_id}/storage/download"
+        params = {"path": path}
+
+        async with self._session.get(
+            url, params=params, headers=self._get_headers()
+        ) as resp:
+            if resp.status == 404:
+                raise RoomException("file was not found")
+            if resp.status >= 400:
+                body = await resp.text()
+                raise RoomException(
+                    f"Failed to download file. Status code: {resp.status}, body: {body}"
+                )
+            return await resp.read()
+
+    async def create_project(self, name: str) -> ProjectInfo:
+        """
+        Corresponds to: POST /accounts/projects
+        Body: { "name": "<name>" }
+        Returns { "id", "owner_user_id", "name", "project_key" } on success.
+        """
+        url = f"{self.base_url}/accounts/projects"
+        request = CreateProjectRequest(name=name)
+
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=request.model_dump(mode="json"),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectInfo)
+
+    async def add_user_to_project(
+        self,
+        project_id: str,
+        user_id: str,
+        roles: list[ProjectRole],
+    ) -> Dict[str, Any]:
+        """
+        Corresponds to: POST /accounts/projects/:id/users
+        Body: { "project_id", "user_id" }
+        Returns a JSON dict with { "ok": True } on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/users"
+        body = {
+            "project_id": project_id,
+            "user_id": user_id,
+            "roles": roles,
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def remove_user_from_project(
+        self, project_id: str, user_id: str
+    ) -> Dict[str, Any]:
+        """
+        Corresponds to: DELETE /accounts/projects/:project_id/users/:user_id
+        Returns a JSON dict with { "ok": True } on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/users/{user_id}"
+
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def update_project_user(
+        self,
+        project_id: str,
+        user_id: str,
+        *,
+        roles: list[ProjectRole],
+    ) -> Dict[str, Any]:
+        """
+        Corresponds to: PUT /accounts/projects/:project_id/users/:user_id
+        Body: { "roles" }
+        Returns a JSON dict with { "ok": True } on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/users/{user_id}"
+        body = {"roles": roles}
+        async with self._session.put(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    @staticmethod
+    def _project_settings_document_path(name: ProjectSettingsDocumentName) -> str:
+        paths = {
+            "openai": "openai",
+            "anthropic": "anthropic",
+            "grok": "grok",
+            "otel": "otel",
+            "admission": "admission",
+            "room": "room",
+            "room_roles": "room-roles",
+            "router": "router",
+        }
+        try:
+            return paths[name]
+        except KeyError as error:
+            raise ValueError(
+                f"unsupported project settings document: {name}"
+            ) from error
+
+    async def get_project_settings_document(
+        self, project_id: str, name: ProjectSettingsDocumentName
+    ) -> dict[str, Any] | None:
+        path = self._project_settings_document_path(name)
+        url = f"{self.base_url}/accounts/projects/{project_id}/settings/{path}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                return None
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def set_project_settings_document(
+        self,
+        project_id: str,
+        name: ProjectSettingsDocumentName,
+        document: dict[str, Any],
+    ) -> Dict[str, Any]:
+        path = self._project_settings_document_path(name)
+        url = f"{self.base_url}/accounts/projects/{project_id}/settings/{path}"
+        async with self._session.put(
+            url, headers=self._get_headers(), json=document
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def delete_project_settings_document(
+        self, project_id: str, name: ProjectSettingsDocumentName
+    ) -> Dict[str, Any]:
+        path = self._project_settings_document_path(name)
+        url = f"{self.base_url}/accounts/projects/{project_id}/settings/{path}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def get_users_in_project_page(
+        self,
+        project_id: str,
+        *,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+        view: UserProfileView = "merged",
+    ) -> ProjectMembersPage:
+        """
+        Corresponds to: GET /accounts/projects/:id/users
+        Returns a JSON dict with { "users": [...] }.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/users"
+        params: Dict[str, str] = {"page_size": str(page_size), "view": view}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return ProjectMembersPage.model_validate(data)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid project users payload: {exc}") from exc
+
+    async def get_users_in_project(
+        self, project_id: str, *, view: UserProfileView = "merged"
+    ) -> Dict[str, Any]:
+        page = await self.get_users_in_project_page(project_id, view=view)
+        return page.model_dump(mode="json", exclude_unset=view == "project")
+
+    async def get_user_profile(
+        self,
+        user_id: str,
+        *,
+        project_id: str | None = None,
+        view: UserProfileView = "merged",
+    ) -> Dict[str, Any]:
+        """
+        Corresponds to: GET /accounts/profiles/:id
+        Returns the user profile JSON, e.g. { "id", "first_name", "last_name", "email" } or raises 404 if not found.
+        """
+        user_path = quote(user_id, safe="")
+        if project_id is None:
+            if view == "project":
+                raise ValueError("project_id is required for the project view")
+            url = f"{self.base_url}/accounts/profiles/{user_path}"
+            params = None
+        else:
+            project_path = quote(project_id, safe="")
+            url = f"{self.base_url}/accounts/projects/{project_path}/users/{user_path}/profile"
+            params = {"view": view}
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def update_user_profile(
+        self,
+        user_id: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        *,
+        metadata: dict[str, JsonValue] | None = None,
+        annotations: dict[str, str] | None = None,
+        project_id: str | None = None,
+        inherit: list[UserProfileField] | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Corresponds to: PUT /accounts/profiles/:id
+        Omitted fields are preserved; metadata and annotations replace their maps.
+        With project_id, edits project overrides and requires user_profile_editor,
+        including for your own profile. Without a project, edits your global profile.
+        Returns a JSON dict with { "ok": True } on success.
+        """
+        user_path = quote(user_id, safe="")
+        url = f"{self.base_url}/accounts/profiles/{user_path}"
+        body: dict[str, Any] = {}
+        if first_name is not None:
+            body["first_name"] = first_name
+        if last_name is not None:
+            body["last_name"] = last_name
+        if metadata is not None:
+            body["metadata"] = metadata
+        if annotations is not None:
+            body["annotations"] = annotations
+        if project_id is not None:
+            project_path = quote(project_id, safe="")
+            url = f"{self.base_url}/accounts/projects/{project_path}/users/{user_path}/profile"
+        if inherit is not None:
+            if project_id is None:
+                raise ValueError("project_id is required to inherit profile fields")
+            body["inherit"] = inherit
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def search_sysadmin_users(
+        self,
+        *,
+        filter: str | None = None,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+    ) -> UserProfilesPage:
+        params = {"page_size": str(page_size)}
+        if filter is not None:
+            params["filter"] = filter
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        async with self._session.get(
+            f"{self.base_url}/accounts/sysadmin/users",
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return UserProfilesPage.model_validate(await resp.json())
+
+    async def get_sysadmin_user_profile(self, user_id: str) -> User:
+        async with self._session.get(
+            f"{self.base_url}/accounts/sysadmin/users/{quote(user_id, safe='')}",
+            headers=self._get_headers(),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return User.model_validate(await resp.json())
+
+    async def update_sysadmin_user_profile(
+        self, user_id: str, *, update: UpdateUserProfileRequest
+    ) -> dict[str, Any]:
+        async with self._session.put(
+            f"{self.base_url}/accounts/sysadmin/users/{quote(user_id, safe='')}",
+            headers=self._get_headers(),
+            json=update.model_dump(mode="json", exclude_unset=True),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def list_projects(self) -> ProjectsPage:
+        """
+        Corresponds to: GET /accounts/projects
+        Returns { "projects": [...] }.
+        """
+        url = f"{self.base_url}/accounts/projects"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectsPage)
+
+    async def get_project(self, project_id: str) -> ProjectInfo:
+        """
+        Corresponds to: GET /accounts/projects
+        Returns a project.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectInfo)
+
+    async def get_project_by_key(self, project_key: str) -> ProjectInfo:
+        """
+        Corresponds to: GET /accounts/projects/by-key/{project_key}
+        Returns a JSON dict with { "id", "owner_user_id", "name", "project_key" }.
+        """
+        url = f"{self.base_url}/accounts/projects/by-key/{quote(project_key, safe='')}"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectInfo)
+
+    async def get_project_info(self, project_id: str) -> ProjectInfo:
+        url = f"{self.base_url}/accounts/projects/{project_id}"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectInfo)
+
+    async def whoami(self) -> Whoami:
+        """GET /accounts/whoami."""
+        url = f"{self.base_url}/accounts/whoami"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Whoami)
+
+    async def list_service_accounts(
+        self,
+        project_id: str,
+        *,
+        page_size: int | None = None,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+        view: str | None = None,
+    ) -> ServiceAccountsPage:
+        """GET /accounts/projects/{project_id}/service-accounts."""
+        url = f"{self.base_url}/accounts/projects/{project_id}/service-accounts"
+        params: dict[str, object] = {}
+        if page_size is not None:
+            params["page_size"] = page_size
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        if view is not None:
+            params["view"] = view
+
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params or None,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ServiceAccountsPage.model_validate(await resp.json())
+
+    async def create_service_account(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        key: str | None = None,
+        display_name: str | None = None,
+        description: str = "",
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, str] | None = None,
+    ) -> ServiceAccount:
+        """POST /accounts/projects/{project_id}/service-accounts."""
+        url = f"{self.base_url}/accounts/projects/{project_id}/service-accounts"
+        payload: dict[str, object] = {
+            "name": name,
+            "description": description,
+        }
+        if key is not None:
+            payload["key"] = key
+        if display_name is not None:
+            payload["display_name"] = display_name
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if annotations is not None:
+            payload["annotations"] = annotations
+
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ServiceAccount.model_validate(await resp.json())
+
+    async def get_service_account(
+        self,
+        project_id: str,
+        service_account_id: str,
+    ) -> ServiceAccount:
+        """GET /accounts/projects/{project_id}/service-accounts/{service_account_id}."""
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}"
+        )
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return ServiceAccount.model_validate(await resp.json())
+
+    async def get_service_account_by_name(
+        self,
+        project_id: str,
+        name: str,
+    ) -> ServiceAccount:
+        """GET a service account by its unique name."""
+        encoded_name = quote(name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"by-name/{encoded_name}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return ServiceAccount.model_validate(await resp.json())
+
+    async def update_service_account(
+        self,
+        project_id: str,
+        service_account_id: str,
+        *,
+        name: str,
+        display_name: str | None = None,
+        description: str = "",
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, str] | None = None,
+    ) -> None:
+        """PUT /accounts/projects/{project_id}/service-accounts/{service_account_id}."""
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}"
+        )
+        payload: dict[str, object] = {
+            "name": name,
+            "description": description,
+        }
+        if display_name is not None:
+            payload["display_name"] = display_name
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if annotations is not None:
+            payload["annotations"] = annotations
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_service_account(
+        self,
+        project_id: str,
+        service_account_id: str,
+    ) -> None:
+        """DELETE /accounts/projects/{project_id}/service-accounts/{service_account_id}."""
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}"
+        )
+
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def mint_participant_token(
+        self,
+        project_id: str,
+        *,
+        name: str | None = None,
+        email: str | None = None,
+        room_name: str | None = None,
+        role: str | None = None,
+        api: dict[str, Any] | None = None,
+        grants: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """POST /accounts/projects/{project_id}/participant-tokens."""
+        url = f"{self.base_url}/accounts/projects/{project_id}/participant-tokens"
+        payload: dict[str, object] = {}
+        if name is not None:
+            payload["name"] = name
+        if email is not None:
+            payload["email"] = email
+        if grants is not None:
+            payload["grants"] = grants
+        else:
+            if room_name is not None:
+                payload["room_name"] = room_name
+            if role is not None:
+                payload["role"] = role
+            if api is not None:
+                payload["api"] = api
+
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            token = data.get("token")
+            if not isinstance(token, str) or token.strip() == "":
+                raise RoomException("Invalid participant token mint response")
+            return token
+
+    async def create_api_key(
+        self,
+        project_id: str,
+        name: str,
+        description: str,
+        service_account_id: str,
+    ) -> ApiKey:
+        """
+        Corresponds to:
+        POST /accounts/projects/{project_id}/service-accounts/{service_account_id}/api-keys
+        Body: { "name": "<>", "description": "<>" }
+        Returns a JSON dict with { "id", "name", "description", "value" }.
+        """
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}/api-keys"
+        )
+        payload = {"name": name, "description": description}
+
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ApiKey.model_validate(await resp.json())
+
+    async def get_pricing(self) -> Dict[str, Any]:
+        """GET /pricing"""
+        url = f"{self.base_url}/pricing"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._ensure_success(resp, action="fetch pricing data")
+            return await resp.json()
+
+    async def get_project_status(self, project_id: str) -> ProjectStatus:
+        """GET /accounts/projects/{project_id}/status"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/status"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._ensure_success(resp, action="fetch project status")
+            data = await resp.json()
+            try:
+                return ProjectStatus.model_validate(data)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid project status payload: {exc}") from exc
+
+    async def get_balance(self, project_id: str) -> Balance:
+        """GET /accounts/projects/{project_id}/balance"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/balance"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._ensure_success(resp, action="fetch balance")
+            data = await resp.json()
+            try:
+                return Balance.model_validate(data)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid balance payload: {exc}") from exc
+
+    async def get_recent_transactions(self, project_id: str) -> List[Transaction]:
+        """GET /accounts/projects/{project_id}/transactions"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/transactions"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._ensure_success(resp, action="fetch transactions")
+            data = await resp.json()
+            transactions = data.get("transactions", [])
+            if not isinstance(transactions, list):
+                raise RoomException(
+                    "Invalid transactions payload: expected 'transactions' list"
+                )
+            try:
+                return [Transaction.model_validate(item) for item in transactions]
+            except ValidationError as exc:
+                raise RoomException(f"Invalid transaction payload: {exc}") from exc
+
+    async def set_auto_recharge(
+        self,
+        *,
+        project_id: str,
+        enabled: bool,
+        amount: float,
+        threshold: float,
+        monthly_budget: float | None = None,
+    ) -> None:
+        """POST /accounts/projects/{project_id}/recharge"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/recharge"
+        payload = {
+            "enabled": enabled,
+            "amount": amount,
+            "threshold": threshold,
+            "monthly_budget": monthly_budget,
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._ensure_success(resp, action="update auto recharge settings")
+
+    async def get_checkout_url(
+        self,
+        project_id: str,
+        *,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        """POST /accounts/projects/{project_id}/subscription"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/subscription"
+        payload = {"success_url": success_url, "cancel_url": cancel_url}
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._ensure_success(resp, action="create subscription checkout")
+            data = await resp.json()
+            checkout_url = data.get("checkout_url")
+            if not isinstance(checkout_url, str):
+                raise RoomException(
+                    "Invalid subscription payload: expected 'checkout_url' string"
+                )
+            return checkout_url
+
+    async def get_credits_checkout_url(
+        self,
+        project_id: str,
+        *,
+        success_url: str,
+        cancel_url: str,
+        quantity: float,
+    ) -> str:
+        """POST /accounts/projects/{project_id}/credits"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/credits"
+        payload = {
+            "quantity": quantity,
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._ensure_success(resp, action="create credits checkout")
+            data = await resp.json()
+            checkout_url = data.get("checkout_url")
+            if not isinstance(checkout_url, str):
+                raise RoomException(
+                    "Invalid credits payload: expected 'checkout_url' string"
+                )
+            return checkout_url
+
+    async def get_subscription(self, project_id: str) -> Dict[str, Any]:
+        """GET /accounts/projects/{project_id}/subscription"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/subscription"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._ensure_success(resp, action="fetch subscription")
+            return await resp.json()
+
+    async def get_usage(
+        self,
+        project_id: str,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        interval: Optional[str] = None,
+        report: Optional[str] = None,
+        users: Optional[list[str]] = None,
+        room: Optional[str] = None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        usage_type: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/usage
+        Allows filtering using optional start/end timestamps, interval, report name, users, room, provider, model, and usage_type.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/usage"
+        params: Dict[str, str] = {}
+        if start is not None:
+            params["start"] = start.isoformat()
+        if end is not None:
+            params["end"] = end.isoformat()
+        if interval is not None:
+            params["interval"] = interval
+        if report is not None:
+            params["report"] = report
+        if users:
+            params["users"] = ",".join(users)
+        if room is not None and room.strip() != "":
+            params["room"] = room.strip()
+        if provider is not None and provider.strip() != "":
+            params["provider"] = provider.strip()
+        if model is not None and model.strip() != "":
+            params["model"] = model.strip()
+        if usage_type is not None and usage_type.strip() != "":
+            params["usage_type"] = usage_type.strip()
+        if annotations:
+            params["annotations"] = json.dumps(annotations)
+
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params or None,
+        ) as resp:
+            await self._ensure_success(resp, action="retrieve usage")
+            data = await resp.json()
+            usage = data.get("usage", [])
+            if not isinstance(usage, list):
+                raise RoomException(
+                    "Invalid usage payload: expected 'usage' to be a list"
+                )
+            return [item for item in usage if isinstance(item, dict)]
+
+    async def get_current_user_llm_proxy_usage(
+        self,
+        project_id: str,
+        *,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        interval: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """GET /accounts/projects/{project_id}/llm-proxy/usage"""
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-proxy/usage"
+        params: Dict[str, str] = {}
+        if start is not None:
+            params["start"] = start.isoformat()
+        if end is not None:
+            params["end"] = end.isoformat()
+        if interval is not None:
+            params["interval"] = interval
+        if annotations:
+            params["annotations"] = json.dumps(annotations)
+
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params or None,
+        ) as resp:
+            await self._ensure_success(
+                resp,
+                action="retrieve current user LLM proxy usage",
+            )
+            data = await resp.json()
+            usage = data.get("usage", [])
+            if not isinstance(usage, list):
+                raise RoomException(
+                    "Invalid current user LLM proxy usage payload: expected "
+                    "'usage' to be a list"
+                )
+            return [item for item in usage if isinstance(item, dict)]
+
+    async def delete_api_key(
+        self, project_id: str, id: str, service_account_id: str
+    ) -> None:
+        """
+        Corresponds to:
+        DELETE /accounts/projects/{project_id}/service-accounts/{service_account_id}/api-keys/{token_id}
+        Returns 204 No Content on success (no JSON body).
+        """
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}/api-keys/{id}"
+        )
+
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            # The server returns status 204 with no content, so no need to parse JSON.
+
+    async def revoke_api_keys_by_msid(
+        self, project_id: str, service_account_id: str, msid: str
+    ) -> ApiKeysRevocationResult:
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}/api-keys:revoke"
+        )
+
+        async with self._session.post(
+            url, headers=self._get_headers(), json={"msid": msid}
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ApiKeysRevocationResult.model_validate(await resp.json())
+
+    async def list_api_keys(
+        self, project_id: str, service_account_id: str
+    ) -> ApiKeysPage:
+        """
+        Corresponds to:
+        GET /accounts/projects/{project_id}/service-accounts/{service_account_id}/api-keys
+        Returns an API key page.
+        """
+        encoded_service_account_id = quote(service_account_id, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{encoded_service_account_id}/api-keys"
+        )
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return ApiKeysPage.model_validate(await resp.json())
+
+    async def get_session(self, project_id: str, session_id: str) -> Dict[str, Any]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions/{session_id}
+        Returns a JSON dict: { "id", "room_name", "created_at }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def get_session_participant_counts(
+        self, project_id: str, session_id: str
+    ) -> dict[str, int]:
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/participants"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            participants = data.get("participants", {})
+            return {
+                str(role): int(count)
+                for role, count in participants.items()
+                if isinstance(count, int | float)
+            }
+
+    async def list_active_sessions(self, project_id: str) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/active"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_recent_sessions(
+        self,
+        project_id: str,
+        *,
+        limit: int = 25,
+        room_id: Optional[str] = None,
+    ) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions"
+        params: dict[str, str] = {"limit": str(limit)}
+        if room_id is not None:
+            params["room_id"] = room_id
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_recent_room_sessions(
+        self,
+        project_id: str,
+        room_name: str,
+        *,
+        limit: int = 25,
+    ) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/rooms/{room_name}/sessions
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/"
+            f"{quote(room_name, safe='')}/sessions"
+        )
+        params: dict[str, str] = {"limit": str(limit)}
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_active_agent_sessions(self, project_id: str) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/agents/sessions/active
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/sessions/active"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_recent_agent_sessions(
+        self,
+        project_id: str,
+        *,
+        limit: int = 25,
+        agent_id: Optional[str] = None,
+    ) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/agents/sessions
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/sessions"
+        params: dict[str, str] = {"limit": str(limit)}
+        if agent_id is not None:
+            params["agent_id"] = agent_id
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_recent_single_agent_sessions(
+        self,
+        project_id: str,
+        agent_name: str,
+        *,
+        limit: int = 25,
+    ) -> list[RoomSession]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/agents/{agent_name}/sessions
+        Returns a JSON dict: { "sessions": [...] }
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/agents/"
+            f"{quote(agent_name, safe='')}/sessions"
+        )
+        params: dict[str, str] = {"limit": str(limit)}
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            sessions = data.get("sessions", [])
+            return [RoomSession.model_validate(session) for session in sessions]
+
+    async def list_session_events(
+        self, project_id: str, session_id: str
+    ) -> list[Dict[str, Any]]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions/{session_id}/events
+        Returns a JSON dict: { "events": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/events"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            return data.get("events", [])
+
+    async def terminate(self, project_id: str, session_id: str) -> None:
+        """
+        Corresponds to: POST /accounts/projects/{project_id}/sessions/{session_id}/terminate
+        Returns 204 No Content on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/terminate"
+
+        async with self._session.post(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def kill_session(self, project_id: str, session_id: str) -> None:
+        """
+        Corresponds to: POST /accounts/projects/{project_id}/sessions/{session_id}/kill
+        Forcefully terminates the backing session instance.
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/kill"
+        )
+
+        async with self._session.post(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_session_spans(
+        self, project_id: str, session_id: str
+    ) -> list[Dict[str, Any]]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions/{session_id}/spans
+        Returns a JSON dict: { "spans": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/spans"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            return data.get("spans", [])
+
+    async def list_session_metrics(
+        self, project_id: str, session_id: str
+    ) -> list[Dict[str, Any]]:
+        """
+        Corresponds to: GET /accounts/projects/{project_id}/sessions/{session_id}/metrics
+        Returns a JSON dict: { "metrics": [...] }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/sessions/{session_id}/metrics"
+
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            return data.get("metrics", [])
+
+    async def create_mailbox(
+        self,
+        *,
+        project_id: str,
+        address: str,
+        room: str,
+        queue: str,
+        public: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        """
+        POST /accounts/projects/{project_id}/mailboxes
+        Body: { "address", "room", "queue" }
+        Returns {} on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/mailboxes"
+        payload = _CreateMailboxRequest(
+            address=address,
+            room=room,
+            queue=queue,
+            public=public,
+            annotations=annotations,
+        ).model_dump(mode="json")
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def update_mailbox(
+        self,
+        *,
+        project_id: str,
+        address: str,
+        room: str,
+        queue: str,
+        public: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/mailboxes/{address}
+        Body: { "room", "queue" }
+        Returns {} on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/mailboxes/{address}"
+        payload = _UpdateMailboxRequest(
+            room=room,
+            queue=queue,
+            public=public,
+            annotations=annotations,
+        ).model_dump(mode="json")
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def get_mailbox(self, *, project_id: str, address: str) -> Mailbox:
+        """
+        GET /accounts/projects/{project_id}/mailboxes/{address}
+        Returns a list[Mailbox].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/mailboxes/{address}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return Mailbox.model_validate((await resp.json())["mailbox"])
+
+    async def list_room_mailboxes(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> List[Mailbox]:
+        page = await self.list_room_mailboxes_page(
+            project_id=project_id,
+            room_name=room_name,
+            count=count,
+            offset=offset,
+            filter=filter,
+        )
+        return page.mailboxes
+
+    async def list_room_mailboxes_page(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> MailboxesPage:
+        """
+        GET /accounts/projects/{project_id}/mailboxes
+        Returns a list[Mailbox].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/mailboxes"
+        params: Dict[str, str] = {"count": str(count), "offset": str(offset)}
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                mailboxes = [Mailbox.model_validate(item) for item in data["mailboxes"]]
+                return MailboxesPage(
+                    mailboxes=mailboxes, total=int(data.get("total", len(mailboxes)))
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid mailboxes payload: {exc}") from exc
+
+    async def list_mailboxes(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> List[Mailbox]:
+        page = await self.list_mailboxes_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+        )
+        return page.mailboxes
+
+    async def list_mailboxes_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> MailboxesPage:
+        """
+        GET /accounts/projects/{project_id}/mailboxes
+        Returns a list[Mailbox].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/mailboxes"
+        params: Dict[str, str] = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                mailboxes = [Mailbox.model_validate(item) for item in data["mailboxes"]]
+                return MailboxesPage(
+                    mailboxes=mailboxes,
+                    total=int(data.get("total", len(mailboxes))),
+                    continuation_token=data.get("continuation_token"),
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid mailboxes payload: {exc}") from exc
+
+    async def delete_mailbox(self, *, project_id: str, address: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/mailboxes/{address}
+        Returns {} on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/mailboxes/{address}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_mailbox_deliveries(
+        self,
+        *,
+        project_id: str,
+        address: str,
+        count: int = 100,
+        offset: int = 0,
+        status: MailboxDeliveryStatus | None = None,
+        recipient: str | None = None,
+        message_id: str | None = None,
+    ) -> MailboxDeliveriesPage:
+        encoded_address = quote(address, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/mailboxes/"
+            f"{encoded_address}/deliveries"
+        )
+        params: dict[str, str] = {"count": str(count), "offset": str(offset)}
+        if status is not None:
+            params["status"] = status
+        if recipient is not None and recipient.strip() != "":
+            params["recipient"] = recipient
+        if message_id is not None and message_id.strip() != "":
+            params["message_id"] = message_id
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            return MailboxDeliveriesPage.model_validate(await resp.json())
+
+    async def get_mailbox_delivery(
+        self,
+        *,
+        project_id: str,
+        address: str,
+        delivery_id: str,
+    ) -> MailboxDelivery:
+        encoded_address = quote(address, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/mailboxes/"
+            f"{encoded_address}/deliveries/{quote(delivery_id, safe='')}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return MailboxDelivery.model_validate((await resp.json())["delivery"])
+
+    async def list_mailbox_delivery_events(
+        self,
+        *,
+        project_id: str,
+        address: str,
+        delivery_id: str,
+        count: int = 100,
+        offset: int = 0,
+    ) -> MailboxDeliveryEventsPage:
+        encoded_address = quote(address, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/mailboxes/"
+            f"{encoded_address}/deliveries/{quote(delivery_id, safe='')}/events"
+        )
+        params = {"count": str(count), "offset": str(offset)}
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            return MailboxDeliveryEventsPage.model_validate(await resp.json())
+
+    async def create_route(
+        self,
+        *,
+        project_id: str,
+        spec: RouteSpec | None = None,
+        domain: str | None = None,
+        room_name: str | None = None,
+        port: str | None = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        """
+        POST /accounts/projects/{project_id}/routes
+        Body: { "spec": RouteSpec }
+        Returns {} on success.
+        """
+        if spec is None:
+            if domain is None or room_name is None or port is None:
+                raise ValueError(
+                    "create_route requires spec or domain, room_name, and port"
+                )
+            spec = RouteSpec(
+                metadata=RouteMetadata(name=domain, annotations=annotations or {}),
+                domain=domain,
+                backend=RouteBackendSpec(room=RouteRoomBackendSpec(name=room_name)),
+                paths=[RoutePathSpec(path="/", targetPort=port)],
+            )
+        url = f"{self.base_url}/accounts/projects/{project_id}/routes"
+        payload = _CreateRouteRequest(spec=spec).model_dump(mode="json")
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_custom_domain(
+        self,
+        *,
+        project_id: str,
+        domain: str,
+    ) -> CustomDomain:
+        url = f"{self.base_url}/accounts/projects/{project_id}/custom-domains"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={"domain": domain},
+        ) as resp:
+            await self._raise_for_status(resp)
+            return CustomDomain.model_validate((await resp.json())["custom_domain"])
+
+    async def get_custom_domain(
+        self,
+        *,
+        project_id: str,
+        domain: str,
+    ) -> CustomDomain:
+        encoded_domain = quote(domain, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/custom-domains/"
+            f"{encoded_domain}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return CustomDomain.model_validate((await resp.json())["custom_domain"])
+
+    async def list_custom_domains(
+        self,
+        *,
+        project_id: str,
+        count: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+        view: Literal["my", "all"] = "my",
+    ) -> CustomDomainsPage:
+        url = f"{self.base_url}/accounts/projects/{project_id}/custom-domains"
+        params: dict[str, str] = {"page_size": str(count), "view": view}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return CustomDomainsPage.model_validate(await resp.json())
+
+    async def delete_custom_domain(
+        self,
+        *,
+        project_id: str,
+        domain: str,
+    ) -> None:
+        encoded_domain = quote(domain, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/custom-domains/"
+            f"{encoded_domain}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def update_route(
+        self,
+        *,
+        project_id: str,
+        domain: str,
+        spec: RouteSpec | None = None,
+        room_name: str | None = None,
+        port: str | None = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/routes/{domain}
+        Body: { "spec": RouteSpec }
+        Returns {} on success.
+        """
+        if spec is None:
+            if room_name is None or port is None:
+                raise ValueError("update_route requires spec or room_name and port")
+            spec = RouteSpec(
+                metadata=RouteMetadata(name=domain, annotations=annotations or {}),
+                domain=domain,
+                backend=RouteBackendSpec(room=RouteRoomBackendSpec(name=room_name)),
+                paths=[RoutePathSpec(path="/", targetPort=port)],
+            )
+        url = f"{self.base_url}/accounts/projects/{project_id}/routes/{domain}"
+        payload = _UpdateRouteRequest(spec=spec).model_dump(mode="json")
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def get_route(self, *, project_id: str, domain: str) -> Route:
+        """
+        GET /accounts/projects/{project_id}/routes/{domain}
+        Returns a Route.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/routes/{domain}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return Route.model_validate((await resp.json())["route"])
+
+    async def list_room_routes(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> List[Route]:
+        page = await self.list_room_routes_page(
+            project_id=project_id,
+            room_name=room_name,
+            count=count,
+            offset=offset,
+            filter=filter,
+        )
+        return page.routes
+
+    async def list_room_routes_page(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> RoutesPage:
+        """
+        GET /accounts/projects/{project_id}/rooms/{room_name}/routes
+        Returns a list[Route].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/routes"
+        params: Dict[str, str] = {"count": str(count), "offset": str(offset)}
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                routes = [Route.model_validate(item) for item in data["routes"]]
+                return RoutesPage(
+                    routes=routes, total=int(data.get("total", len(routes)))
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid routes payload: {exc}") from exc
+
+    async def list_routes(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> List[Route]:
+        page = await self.list_routes_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+        )
+        return page.routes
+
+    async def list_routes_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> RoutesPage:
+        """
+        GET /accounts/projects/{project_id}/routes
+        Returns a list[Route].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/routes"
+        params: Dict[str, str] = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                routes = [Route.model_validate(item) for item in data["routes"]]
+                return RoutesPage(
+                    routes=routes,
+                    total=int(data.get("total", len(routes))),
+                    continuation_token=data.get("continuation_token"),
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid routes payload: {exc}") from exc
+
+    async def delete_route(self, *, project_id: str, domain: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/routes/{domain}
+        Returns {} on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/routes/{domain}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_feed(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        description: str = "",
+        visibility: FeedVisibility = "private",
+        paused: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+        message_schema: FeedJsonSchema | None = None,
+    ) -> Feed:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds"
+        payload = _CreateFeedRequest(
+            name=name,
+            description=description,
+            visibility=visibility,
+            paused=paused,
+            annotations=annotations or {},
+            message_schema=message_schema,
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return Feed.model_validate((await resp.json())["feed"])
+
+    async def update_feed(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        name: str,
+        description: str = "",
+        paused: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+        message_schema: FeedJsonSchema | None = None,
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+        payload = _UpdateFeedRequest(
+            name=name,
+            description=description,
+            paused=paused,
+            annotations=annotations or {},
+            message_schema=message_schema,
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def get_feed(self, *, project_id: str, feed_id: str) -> Feed:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return Feed.model_validate((await resp.json())["feed"])
+
+    async def get_feed_by_name(self, *, project_id: str, name: str) -> Feed:
+        """GET a feed by its unique name."""
+        encoded_name = quote(name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/by-name/"
+            f"{encoded_name}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return Feed.model_validate((await resp.json())["feed"])
+
+    async def list_feeds(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+        view: str | None = None,
+    ) -> List[Feed]:
+        page = await self.list_feeds_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+            view=view,
+        )
+        return page.feeds
+
+    async def list_feeds_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+        view: str | None = None,
+    ) -> FeedsPage:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds"
+        params: Dict[str, str] = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        if view is not None and view.strip() != "":
+            params["view"] = view
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                feeds = [Feed.model_validate(item) for item in data["feeds"]]
+                return FeedsPage(
+                    feeds=feeds,
+                    total=int(data.get("total", len(feeds))),
+                    continuation_token=data.get("continuation_token"),
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid feeds payload: {exc}") from exc
+
+    async def list_room_feeds(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> List[Feed]:
+        page = await self.list_room_feeds_page(
+            project_id=project_id,
+            room_name=room_name,
+            count=count,
+            offset=offset,
+            filter=filter,
+        )
+        return page.feeds
+
+    async def list_room_feeds_page(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> FeedsPage:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/feeds"
+        params: Dict[str, str] = {"count": str(count), "offset": str(offset)}
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                feeds = [Feed.model_validate(item) for item in data["feeds"]]
+                return FeedsPage(feeds=feeds, total=int(data.get("total", len(feeds))))
+            except ValidationError as exc:
+                raise RoomException(f"Invalid feeds payload: {exc}") from exc
+
+    async def delete_feed(self, *, project_id: str, feed_id: str) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def publish_feed_message(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        message: Any,
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}/messages"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=message,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def publish_feed_batch(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        messages: list[Any],
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            "/messages/batch"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=messages,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_feed_subscription(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        room: str,
+        path: str,
+        filename_datetime_format: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> FeedSubscription:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            "/subscriptions"
+        )
+        payload = _CreateFeedSubscriptionRequest(
+            room=room,
+            path=path,
+            filename_datetime_format=filename_datetime_format,
+            annotations=annotations or {},
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return FeedSubscription.model_validate((await resp.json())["subscription"])
+
+    async def update_feed_subscription(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        subscription_id: str,
+        filename_datetime_format: Optional[str] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            f"/subscriptions/{subscription_id}"
+        )
+        payload = _UpdateFeedSubscriptionRequest(
+            filename_datetime_format=filename_datetime_format,
+            annotations=annotations or {},
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def get_feed_subscription(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        subscription_id: str,
+    ) -> FeedSubscription:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            f"/subscriptions/{subscription_id}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return FeedSubscription.model_validate((await resp.json())["subscription"])
+
+    async def list_feed_subscriptions(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+    ) -> List[FeedSubscription]:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            "/subscriptions"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return [
+                    FeedSubscription.model_validate(item)
+                    for item in data["subscriptions"]
+                ]
+            except ValidationError as exc:
+                raise RoomException(
+                    f"Invalid feed subscriptions payload: {exc}"
+                ) from exc
+
+    async def delete_feed_subscription(
+        self,
+        *,
+        project_id: str,
+        feed_id: str,
+        subscription_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/feeds/{feed_id}"
+            f"/subscriptions/{subscription_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_llm_logger(
+        self,
+        *,
+        project_id: str,
+        destination_feed_id: str,
+        filter_expression: str,
+        paused: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> LLMLogger:
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-loggers"
+        payload = _CreateLLMLoggerRequest(
+            destination_feed_id=destination_feed_id,
+            filter_expression=filter_expression,
+            paused=paused,
+            annotations=annotations or {},
+        ).model_dump(mode="json")
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return LLMLogger.model_validate((await resp.json())["logger"])
+
+    async def update_llm_logger(
+        self,
+        *,
+        project_id: str,
+        logger_id: str,
+        destination_feed_id: str,
+        filter_expression: str,
+        paused: bool = False,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-loggers/{logger_id}"
+        payload = _UpdateLLMLoggerRequest(
+            destination_feed_id=destination_feed_id,
+            filter_expression=filter_expression,
+            paused=paused,
+            annotations=annotations or {},
+        ).model_dump(mode="json")
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def get_llm_logger(
+        self,
+        *,
+        project_id: str,
+        logger_id: str,
+    ) -> LLMLogger:
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-loggers/{logger_id}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return LLMLogger.model_validate((await resp.json())["logger"])
+
+    async def list_llm_loggers(
+        self,
+        *,
+        project_id: str,
+    ) -> List[LLMLogger]:
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-loggers"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return [LLMLogger.model_validate(item) for item in data["loggers"]]
+            except ValidationError as exc:
+                raise RoomException(f"Invalid LLM loggers payload: {exc}") from exc
+
+    async def delete_llm_logger(
+        self,
+        *,
+        project_id: str,
+        logger_id: str,
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/llm-loggers/{logger_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def render_template(
+        self,
+        *,
+        template: str,
+        values: dict[str, str],
+    ) -> ServiceTemplateSpec:
+        """
+        POST /templates/render
+        Body: full service spec, e.g.
+          {
+            "template" : ""
+            "values": {...}
+          }
+        Returns: {}
+        """
+        url = f"{self.base_url}/templates/render"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={
+                "template": template,
+                "values": values,
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ServiceTemplateSpec)
+
+    async def discover_mcp_spec(
+        self,
+        *,
+        url: str,
+        format: Literal["service", "template"] = "service",
+    ) -> ServiceSpec | ServiceTemplateSpec:
+        """
+        POST /mcp/discover
+        Body:
+          {
+            "url": "https://.../mcp",
+            "format": "service" | "template"
+          }
+        Returns: ServiceSpec when format="service", ServiceTemplateSpec when
+        format="template".
+        """
+        if format not in ("service", "template"):
+            raise RoomException("format must be 'service' or 'template'")
+
+        url_path = f"{self.base_url}/mcp/discover"
+        async with self._session.post(
+            url_path,
+            headers=self._get_headers(),
+            json={"url": url, "format": format},
+        ) as resp:
+            await self._raise_for_status(resp)
+            payload = await resp.json()
+            if format == "service":
+                return ServiceSpec.model_validate(payload)
+            return ServiceTemplateSpec.model_validate(payload)
+
+    async def discover_mcp_service(self, *, url: str) -> ServiceSpec:
+        """
+        Discover an MCP server and return a generated Service spec.
+        """
+        result = await self.discover_mcp_spec(url=url, format="service")
+        if not isinstance(result, ServiceSpec):
+            raise RoomException("Unexpected response type from /mcp/discover")
+        return result
+
+    async def discover_mcp_service_template(self, *, url: str) -> ServiceTemplateSpec:
+        """
+        Discover an MCP server and return a generated ServiceTemplate spec.
+        """
+        result = await self.discover_mcp_spec(url=url, format="template")
+        if not isinstance(result, ServiceTemplateSpec):
+            raise RoomException("Unexpected response type from /mcp/discover")
+        return result
+
+    async def create_service(
+        self,
+        *,
+        project_id: str,
+        service: ServiceSpec,
+    ) -> ServiceSpec:
+        """
+        POST /accounts/projects/{project_id}/services
+        Body: full service spec, e.g.
+          {
+            "metadata": {"name": "..."},
+            "container": {"image": "...", "environment": [...]},
+            "ports": [...]
+          }
+        Returns: created service spec
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/services"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=service.model_dump(mode="json", exclude_none=True, exclude={"id"}),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ServiceSpec)
+
+    async def update_service(
+        self,
+        *,
+        project_id: str,
+        service_id: str,
+        service: ServiceSpec,
+    ) -> ServiceSpec:
+        """
+        PUT /accounts/projects/{project_id}/services/{service_id}
+        Body: same structure as create_service (fields you wish to change).
+        Returns: updated service spec.
+        """
+
+        if service.id is None:
+            raise RoomException("Service id must be set")
+
+        url = f"{self.base_url}/accounts/projects/{project_id}/services/{service_id}"
+        async with self._session.put(
+            url, headers=self._get_headers(), json=service.model_dump(mode="json")
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ServiceSpec)
+
+    async def create_service_from_template(
+        self, *, project_id: str, template: str, values: Dict[str, str]
+    ) -> ServiceSpec:
+        """
+        POST /accounts/projects/{project_id}/services
+        Body: full service spec, e.g.
+          {
+            "metadata": {"name": "..."},
+            "container": {"image": "...", "environment": [...]},
+            "ports": [...]
+          }
+        Returns: created service spec
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/services"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={
+                "template": template,
+                "values": values,
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ServiceSpec)
+
+    async def update_service_from_template(
+        self,
+        *,
+        project_id: str,
+        service_id: str,
+        template: str,
+        values: Dict[str, str],
+    ) -> ServiceSpec:
+        """
+        PUT /accounts/projects/{project_id}/services/{service_id}
+        Body: same structure as create_service (fields you wish to change).
+        Returns: updated service spec.
+        """
+
+        url = f"{self.base_url}/accounts/projects/{project_id}/services/{service_id}"
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json={
+                "template": template,
+                "values": values,
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ServiceSpec)
+
+    async def get_service(self, *, project_id: str, service_id: str) -> ServiceSpec:
+        """
+        GET /accounts/projects/{project_id}/services/{service_id}
+        Returns a `Service` instance.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/services/{service_id}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            # Handler returns a JSON string, so we read text then validate
+            raw = await resp.text()
+            try:
+                return ServiceSpec.model_validate_json(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid service payload: {exc}") from exc
+
+    async def get_service_by_name(
+        self, *, project_id: str, service_name: str
+    ) -> ServiceSpec:
+        """
+        GET /accounts/projects/{project_id}/services/by-name/{service_name}
+        Returns a `Service` instance.
+        """
+        service_name_path = quote(service_name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}"
+            f"/services/by-name/{service_name_path}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            raw = await resp.text()
+            try:
+                return ServiceSpec.model_validate_json(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid service payload: {exc}") from exc
+
+    async def list_services(self, *, project_id: str) -> List[ServiceSpec]:
+        """
+        GET /accounts/projects/{project_id}/services
+        Returns a list of `Service` instances.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/services"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return [ServiceSpec.model_validate(item) for item in data["services"]]
+            except ValidationError as exc:
+                raise RoomException(f"Invalid services payload: {exc}") from exc
+
+    async def delete_service(self, *, project_id: str, service_id: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/services/{service_id}
+        Returns nothing on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/services/{service_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_room_service(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        service: ServiceSpec,
+    ) -> str:
+        """
+        POST /accounts/projects/{project_id}/services
+        Body: full service spec, e.g.
+          {
+            "metadata": {"name": "..."},
+            "container": {"image": "...", "environment": [...]},
+            "ports": [...]
+          }
+        Returns: { "id": "<service_id>" }
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=service.model_dump(mode="json", exclude_none=True, exclude={"id"}),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return (await resp.json())["id"]
+
+    async def update_room_service(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        service_id: str,
+        service: ServiceSpec,
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/services/{service_id}
+        Body: same structure as create_service (fields you wish to change).
+        Returns: {} on success.
+        """
+
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services/{service_id}"
+        async with self._session.put(
+            url, headers=self._get_headers(), json=service.model_dump(mode="json")
+        ) as resp:
+            await self._raise_for_status(resp)
+            await resp.json()
+
+    async def create_room_service_from_template(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        template: str,
+        values: Dict[str, str],
+    ) -> ServiceSpec:
+        """
+        POST /accounts/projects/{project_id}/services
+        Body: full service spec, e.g.
+          {
+            "metadata": {"name": "..."},
+            "container": {"image": "...", "environment": [...]},
+            "ports": [...]
+          }
+        Returns: { "id": "<service_id>" }
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={
+                "template": template,
+                "values": values,
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ServiceSpec.model_validate(await resp.json())
+
+    async def update_room_service_from_template(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        service_id: str,
+        template: str,
+        values: Dict[str, str],
+    ) -> ServiceSpec:
+        """
+        PUT /accounts/projects/{project_id}/services/{service_id}
+        Body: same structure as create_service (fields you wish to change).
+        Returns: {} on success.
+        """
+
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services/{service_id}"
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json={
+                "template": template,
+                "values": values,
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+            return ServiceSpec.model_validate(await resp.json())
+
+    async def get_room_service(
+        self, *, project_id: str, room_name: str, service_id: str
+    ) -> ServiceSpec:
+        """
+        GET /accounts/projects/{project_id}/services/{service_id}
+        Returns a `Service` instance.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services/{service_id}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            # Handler returns a JSON string, so we read text then validate
+            raw = await resp.text()
+            try:
+                return ServiceSpec.model_validate_json(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid service payload: {exc}") from exc
+
+    async def get_room_service_by_name(
+        self, *, project_id: str, room_name: str, service_name: str
+    ) -> ServiceSpec:
+        """
+        GET /accounts/projects/{project_id}/rooms/{room_name}/services/by-name/{service_name}
+        Returns a `Service` instance.
+        """
+        room_name_path = quote(room_name, safe="")
+        service_name_path = quote(service_name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name_path}"
+            f"/services/by-name/{service_name_path}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            raw = await resp.text()
+            try:
+                return ServiceSpec.model_validate_json(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid service payload: {exc}") from exc
+
+    async def list_room_services(
+        self, *, project_id: str, room_name: str
+    ) -> List[ServiceSpec]:
+        """
+        GET /accounts/projects/{project_id}/services
+        Returns a list of `Service` instances.
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return [ServiceSpec.model_validate(item) for item in data["services"]]
+            except ValidationError as exc:
+                raise RoomException(f"Invalid services payload: {exc}") from exc
+
+    async def delete_room_service(
+        self, *, project_id: str, room_name: str, service_id: str
+    ) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/services/{service_id}
+        Returns nothing on success.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/services/{service_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_repository(
+        self,
+        *,
+        project_id: str,
+        repository: CreateProjectRepositoryRequest,
+    ) -> ProjectRepository:
+        url = f"{self.base_url}/accounts/projects/{project_id}/repositories"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=repository.model_dump(mode="json"),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectRepository)
+
+    async def update_repository(
+        self,
+        *,
+        project_id: str,
+        repository_id: str,
+        repository: UpdateProjectRepositoryRequest,
+    ) -> ProjectRepository:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/repositories/"
+            f"{repository_id}"
+        )
+        async with self._session.put(
+            url,
+            headers=self._get_headers(),
+            json=repository.model_dump(mode="json"),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectRepository)
+
+    async def get_repository(
+        self, *, project_id: str, repository_id: str
+    ) -> ProjectRepository:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/repositories/"
+            f"{repository_id}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectRepository)
+
+    async def get_repository_by_name(
+        self,
+        *,
+        project_id: str,
+        name: str,
+    ) -> ProjectRepository:
+        """GET a repository by its unique name."""
+        encoded_name = quote(name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/repositories/"
+            f"by-name/{encoded_name}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, ProjectRepository)
+
+    async def list_repositories(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        view: str | None = None,
+    ) -> List[ProjectRepository]:
+        page = await self.list_repositories_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            view=view,
+        )
+        return page.repositories
+
+    async def list_repositories_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        view: str | None = None,
+    ) -> ProjectRepositoriesPage:
+        url = f"{self.base_url}/accounts/projects/{project_id}/repositories"
+        params: Dict[str, str] = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if view is not None and view.strip() != "":
+            params["view"] = view
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                repositories = [
+                    ProjectRepository.model_validate(item)
+                    for item in data["repositories"]
+                ]
+                return ProjectRepositoriesPage(
+                    repositories=repositories,
+                    total=int(data.get("total", len(repositories))),
+                    continuation_token=data.get("continuation_token"),
+                )
+            except ValidationError as exc:
+                raise RoomException(f"Invalid repositories payload: {exc}") from exc
+
+    async def delete_repository(self, *, project_id: str, repository_id: str) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/repositories/"
+            f"{repository_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_repository_token(
+        self,
+        *,
+        project_id: str,
+        repository_id: str,
+        request: CreateRepositoryTokenRequest,
+    ) -> RepositoryToken:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/repositories/"
+            f"{repository_id}/token"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=request.model_dump(mode="json"),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, RepositoryToken)
+
+    def _secret_payload(
+        self,
+        *,
+        project_id: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if project_id is not None:
+            payload["project_id"] = project_id
+        if name is not None:
+            payload["name"] = name
+        if type is not None:
+            payload["type"] = type
+        if http_only is not None:
+            payload["http_only"] = http_only
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if annotations is not None:
+            payload["annotations"] = annotations
+        return payload
+
+    def _secret_search_payload(
+        self,
+        *,
+        filter: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+        provider: str | None = None,
+        service: str | None = None,
+        account: str | None = None,
+        username: str | None = None,
+        email: str | None = None,
+        url: str | None = None,
+        oauth_provider: str | None = None,
+        oauth_scopes: str | None = None,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"page_size": page_size}
+        if filter is not None:
+            payload["filter"] = filter
+        if name is not None:
+            payload["name"] = name
+        if type is not None:
+            payload["type"] = type
+        if http_only is not None:
+            payload["http_only"] = http_only
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if annotations is not None:
+            payload["annotations"] = annotations
+        for key, value in {
+            "provider": provider,
+            "service": service,
+            "account": account,
+            "username": username,
+            "email": email,
+            "url": url,
+            "oauth_provider": oauth_provider,
+            "oauth_scopes": oauth_scopes,
+        }.items():
+            if value is not None:
+                payload[key] = value
+        if continuation_token is not None:
+            payload["continuation_token"] = continuation_token
+        return payload
+
+    def _secret_version_payload(
+        self,
+        *,
+        value: bytes,
+        set_current: bool = True,
+    ) -> dict[str, Any]:
+        return {
+            "value_base64": base64.b64encode(value).decode(),
+            "set_current": set_current,
+        }
+
+    async def create_user_secret(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        type: str = "opaque",
+        http_only: bool = False,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> Secret:
+        url = f"{self.base_url}/accounts/users/me/secrets"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_payload(
+                project_id=project_id,
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def list_user_secrets(
+        self,
+        *,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> SecretsPage:
+        url = f"{self.base_url}/accounts/users/me/secrets"
+        params: dict[str, Any] = {"page_size": page_size}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretsPage)
+
+    async def search_user_secrets(
+        self,
+        *,
+        filter: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+        provider: str | None = None,
+        service: str | None = None,
+        account: str | None = None,
+        username: str | None = None,
+        email: str | None = None,
+        url: str | None = None,
+        oauth_provider: str | None = None,
+        oauth_scopes: str | None = None,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+    ) -> SecretsPage:
+        endpoint_url = f"{self.base_url}/accounts/users/me/secrets:search"
+        async with self._session.post(
+            endpoint_url,
+            headers=self._get_headers(),
+            json=self._secret_search_payload(
+                filter=filter,
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+                provider=provider,
+                service=service,
+                account=account,
+                username=username,
+                email=email,
+                url=url,
+                oauth_provider=oauth_provider,
+                oauth_scopes=oauth_scopes,
+                page_size=page_size,
+                continuation_token=continuation_token,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretsPage)
+
+    async def get_user_secret(
+        self, *, secret_id: str, include_value: bool = False
+    ) -> Secret:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}"
+        params = {"include_value": "true"} if include_value else None
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def update_user_secret(
+        self,
+        *,
+        secret_id: str,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> Secret:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}"
+        async with self._session.patch(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_payload(
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def delete_user_secret(self, *, secret_id: str) -> None:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_user_secret_versions(
+        self,
+        *,
+        secret_id: str,
+    ) -> list[SecretVersion]:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}/versions"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return (await self._read_model(resp, _ListSecretVersionsResponse)).versions
+
+    async def create_user_secret_version(
+        self,
+        *,
+        secret_id: str,
+        value: bytes,
+        set_current: bool = True,
+    ) -> SecretVersion:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}/versions"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_version_payload(
+                value=value,
+                set_current=set_current,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretVersion)
+
+    async def access_user_secret_version(
+        self,
+        *,
+        secret_id: str,
+        version_id: str,
+    ) -> bytes:
+        url = (
+            f"{self.base_url}/accounts/users/me/secrets/{secret_id}/versions/"
+            f"{version_id}:access"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            value = await self._read_model(resp, _SecretVersionValueResponse)
+            return base64.b64decode(value.value_base64)
+
+    async def delete_user_secret_version(
+        self,
+        *,
+        secret_id: str,
+        version_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/users/me/secrets/{secret_id}/versions/"
+            f"{version_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_user_secret_proxy_access(
+        self,
+        *,
+        secret_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+    ) -> SecretProxyAccessGrantsPage:
+        url = f"{self.base_url}/accounts/users/me/secrets/{secret_id}/access"
+        params: dict[str, Any] = {"page_size": page_size}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretProxyAccessGrantsPage)
+
+    async def grant_user_secret_proxy_access(
+        self,
+        *,
+        secret_id: str,
+        service_account_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/users/me/secrets/{secret_id}/access:grant-proxy"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={
+                "subject": {
+                    "type": "service_account",
+                    "id": service_account_id,
+                }
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def revoke_user_secret_proxy_access(
+        self,
+        *,
+        secret_id: str,
+        service_account_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/users/me/secrets/{secret_id}/access:revoke-proxy"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json={
+                "subject": {
+                    "type": "service_account",
+                    "id": service_account_id,
+                }
+            },
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def create_service_account_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        name: str,
+        type: str = "opaque",
+        http_only: bool = False,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> Secret:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_payload(
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def list_service_account_secrets(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> SecretsPage:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets"
+        )
+        params: dict[str, Any] = {"page_size": page_size}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretsPage)
+
+    async def search_service_account_secrets(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        filter: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+        provider: str | None = None,
+        service: str | None = None,
+        account: str | None = None,
+        username: str | None = None,
+        email: str | None = None,
+        url: str | None = None,
+        oauth_provider: str | None = None,
+        oauth_scopes: str | None = None,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+    ) -> SecretsPage:
+        endpoint_url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets:search"
+        )
+        async with self._session.post(
+            endpoint_url,
+            headers=self._get_headers(),
+            json=self._secret_search_payload(
+                filter=filter,
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+                provider=provider,
+                service=service,
+                account=account,
+                username=username,
+                email=email,
+                url=url,
+                oauth_provider=oauth_provider,
+                oauth_scopes=oauth_scopes,
+                page_size=page_size,
+                continuation_token=continuation_token,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretsPage)
+
+    async def get_service_account_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+        include_value: bool = False,
+    ) -> Secret:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}"
+        )
+        params = {"include_value": "true"} if include_value else None
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def update_service_account_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+        name: str | None = None,
+        type: str | None = None,
+        http_only: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> Secret:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}"
+        )
+        async with self._session.patch(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_payload(
+                name=name,
+                type=type,
+                http_only=http_only,
+                metadata=metadata,
+                annotations=annotations,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, Secret)
+
+    async def delete_service_account_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_service_account_secret_versions(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+    ) -> list[SecretVersion]:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}/versions"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return (await self._read_model(resp, _ListSecretVersionsResponse)).versions
+
+    async def create_service_account_secret_version(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+        value: bytes,
+        set_current: bool = True,
+    ) -> SecretVersion:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}/versions"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=self._secret_version_payload(
+                value=value,
+                set_current=set_current,
+            ),
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, SecretVersion)
+
+    async def access_service_account_secret_version(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+        version_id: str,
+    ) -> bytes:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}/versions/{version_id}:access"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            value = await self._read_model(resp, _SecretVersionValueResponse)
+            return base64.b64decode(value.value_base64)
+
+    async def delete_service_account_secret_version(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+        version_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/secrets/{secret_id}/versions/{version_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_service_account_pull_secrets(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+    ) -> list[Secret]:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/pull-secrets"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return (await self._read_model(resp, SecretsPage)).secrets
+
+    async def add_service_account_pull_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/pull-secrets/{secret_id}"
+        )
+        async with self._session.put(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def remove_service_account_pull_secret(
+        self,
+        *,
+        project_id: str,
+        service_account_id: str,
+        secret_id: str,
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/service-accounts/"
+            f"{service_account_id}/pull-secrets/{secret_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def validate_participant_token(
+        self,
+        *,
+        token: str,
+    ) -> ParticipantToken:
+        url = f"{self.base_url}/api/participant-token/validate"
+        async with self._session.post(
+            url,
+            headers={
+                "Content-Type": "application/json",
+                **self._get_consistency_headers(),
+            },
+            json={"token": token},
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                payload = await resp.json()
+                if not isinstance(payload, dict):
+                    raise RoomException("Invalid participant token payload")
+                return ParticipantToken.from_json(payload)
+            except (ValidationError, TypeError, RoomException) as exc:
+                raise RoomException(
+                    f"Invalid participant token payload: {exc}"
+                ) from exc
+
+    async def create_room(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        if_not_exists: bool = False,
+        metadata: Optional[dict[str, any]] = None,
+        annotations: Optional[dict[str, str]] = None,
+        permissions: Optional[dict[str, ApiScope]] = None,
+    ) -> Room:
+        """
+        POST /accounts/projects/{project_id}/rooms
+        Body: { "name": str, "if_not_exists?": bool }
+        Returns Room.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms"
+        permissions_payload = (
+            {
+                user_id: scope.model_dump(mode="json")
+                for user_id, scope in permissions.items()
+            }
+            if permissions is not None
+            else None
+        )
+        payload = {
+            "name": name,
+            "if_not_exists": bool(if_not_exists),
+            "metadata": metadata,
+            "annotations": annotations,
+            "permissions": permissions_payload,
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return Room.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid room payload: {exc}") from exc
+
+    async def get_room(self, *, project_id: str, name: str) -> Room:
+        """
+        GET /accounts/projects/{project_id}/rooms/{room_name}
+        Returns Room.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{name}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("room not found")
+            await self._raise_for_status(resp)
+            try:
+                return Room.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid room payload: {exc}") from exc
+
+    async def get_room_status(self, *, project_id: str, name: str) -> RoomStatus:
+        """Return the room's current control-plane allocation status.
+
+        ``Allocated`` means the room has an active allocated session and
+        includes its allocation time and running duration. ``Unallocated``
+        means there is no active session. This does not report historical
+        transitions or service/container health.
+
+        GET /accounts/projects/{project_id}/rooms/{room_name}/status
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{name}/status"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("room not found")
+            await self._raise_for_status(resp)
+            try:
+                return RoomStatus.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid room status payload: {exc}") from exc
+
+    async def list_room_events(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        limit: int = 100,
+    ) -> list[RoomLifecycleEvent]:
+        """List recent lifecycle transitions for a room across all sessions.
+
+        Results are historical OpenTelemetry records such as allocation,
+        startup, shutdown, and startup failure. Use ``get_room_status`` for
+        the room's current allocation state.
+
+        GET /accounts/projects/{project_id}/rooms/{room_name}/events
+        """
+        room_name = quote(name, safe="")
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_name}/events"
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params={"limit": str(limit)},
+        ) as resp:
+            if resp.status == 404:
+                raise RoomException("room not found")
+            await self._raise_for_status(resp)
+            try:
+                payload = await resp.json()
+                return [
+                    RoomLifecycleEvent.model_validate(event)
+                    for event in payload.get("events", [])
+                ]
+            except ValidationError as exc:
+                raise RoomException(f"Invalid room events payload: {exc}") from exc
+
+    async def update_room(
+        self,
+        *,
+        project_id: str,
+        room_id: str,
+        name: str,
+        metadata: Optional[dict[str, any]] = None,
+        annotations: Optional[dict[str, str]] = None,
+        enabled: bool | None = None,
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/rooms/{room_id}
+        Body: { "name": str }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_id}"
+        payload = {"name": name}
+
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if annotations is not None:
+            payload["annotations"] = annotations
+        if enabled is not None:
+            payload["enabled"] = enabled
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_room(self, *, project_id: str, room_id: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/rooms/{room_id}
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_room_storage_connections(
+        self, *, project_id: str, room: str
+    ) -> list[StorageConnection]:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/storage-connections"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return (
+                await self._read_model(resp, StorageConnectionsResponse)
+            ).connections
+
+    async def create_room_storage_connection(
+        self, *, project_id: str, room: str, connection: CreateStorageConnection
+    ) -> StorageConnection:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/storage-connections"
+        async with self._session.post(
+            url, headers=self._get_headers(), json=connection.model_dump(mode="json")
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, StorageConnection)
+
+    async def update_room_storage_connection(
+        self,
+        *,
+        project_id: str,
+        room: str,
+        connection_id: str,
+        connection: UpdateStorageConnection,
+    ) -> StorageConnection:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/storage-connections/{connection_id}"
+        async with self._session.put(
+            url, headers=self._get_headers(), json=connection.model_dump(mode="json")
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await self._read_model(resp, StorageConnection)
+
+    async def delete_room_storage_connection(
+        self, *, project_id: str, room: str, connection_id: str
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/storage-connections/{connection_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_room_volumes(
+        self,
+        *,
+        project_id: str,
+        room: str,
+    ) -> list[StorageVolume]:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/volumes"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            try:
+                payload = _StorageVolumesResponse.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid storage volume payload: {exc}") from exc
+            return payload.volumes
+
+    async def create_room_volume(
+        self,
+        *,
+        project_id: str,
+        room: str,
+        name: str,
+        description: str = "",
+        metadata: dict[str, JsonValue] | None = None,
+        storage_class: Literal["standard", "juice", "zerofs"] = "standard",
+        max_size_mb: int | None = None,
+        annotations: dict[str, str] | None = None,
+    ) -> StorageVolume:
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/volumes"
+        payload = {
+            "name": name,
+            "description": description,
+            "metadata": metadata,
+            "storage_class": storage_class,
+            "max_size_mb": max_size_mb,
+            "annotations": annotations,
+        }
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return StorageVolume.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid storage volume payload: {exc}") from exc
+
+    async def delete_room_volume(
+        self,
+        *,
+        project_id: str,
+        room: str,
+        volume_id: str,
+    ) -> StorageVolume:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/volumes/"
+            f"{volume_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return StorageVolume.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid storage volume payload: {exc}") from exc
+
+    async def expand_room_volume(
+        self,
+        *,
+        project_id: str,
+        room: str,
+        volume_id: str,
+        max_size_mb: int,
+    ) -> StorageVolume:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/volumes/"
+            f"{volume_id}"
+        )
+        async with self._session.patch(
+            url,
+            headers=self._get_headers(),
+            json={"max_size_mb": max_size_mb},
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return StorageVolume.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid storage volume payload: {exc}") from exc
+
+    async def create_group(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        metadata: Optional[dict[str, JsonValue]] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> Group:
+        url = f"{self.base_url}/accounts/projects/{project_id}/groups"
+        payload = _CreateGroupRequest(
+            name=name,
+            metadata=metadata,
+            annotations=annotations,
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return Group.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid group payload: {exc}") from exc
+
+    async def get_group(self, *, project_id: str, group_id: str) -> Group:
+        url = f"{self.base_url}/accounts/projects/{project_id}/groups/{group_id}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("group not found")
+            await self._raise_for_status(resp)
+            try:
+                return Group.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid group payload: {exc}") from exc
+
+    async def get_group_by_name(self, *, project_id: str, name: str) -> Group:
+        """GET a group by its unique name."""
+        encoded_name = quote(name, safe="")
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/groups/by-name/"
+            f"{encoded_name}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("group not found")
+            await self._raise_for_status(resp)
+            try:
+                return Group.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid group payload: {exc}") from exc
+
+    async def update_group(
+        self,
+        *,
+        project_id: str,
+        group_id: str,
+        name: str,
+        metadata: Optional[dict[str, JsonValue]] = None,
+        annotations: Optional[dict[str, str]] = None,
+    ) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/groups/{group_id}"
+        payload = _UpdateGroupRequest(
+            name=name,
+            metadata=metadata,
+            annotations=annotations,
+        ).model_dump(mode="json", exclude_none=True)
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_group(self, *, project_id: str, group_id: str) -> None:
+        url = f"{self.base_url}/accounts/projects/{project_id}/groups/{group_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_groups_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 50,
+        continuation_token: Optional[str] = None,
+        filter: Optional[str] = None,
+    ) -> GroupsPage:
+        url = f"{self.base_url}/accounts/projects/{project_id}/groups"
+        params: dict[str, str | int] = {"page_size": page_size}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return GroupsPage.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid groups payload: {exc}") from exc
+
+    async def list_groups(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 50,
+        continuation_token: Optional[str] = None,
+        filter: Optional[str] = None,
+    ) -> list[Group]:
+        page = await self.list_groups_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+        )
+        return page.groups
+
+    async def set_group_member(
+        self,
+        *,
+        project_id: str,
+        group_id: str,
+        subject: AccessSubject,
+        role: Literal["member", "manager"] = "member",
+    ) -> None:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/groups/{group_id}/members"
+        )
+        payload = _SetGroupMemberRequest(subject=subject, role=role).model_dump(
+            mode="json"
+        )
+        payload = _strip_readonly_subject_fields(payload)
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_group_member(
+        self,
+        *,
+        project_id: str,
+        group_id: str,
+        subject_type: Literal["user", "agent", "group"],
+        subject_id: str,
+    ) -> None:
+        from urllib.parse import quote
+
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}"
+            f"/groups/{quote(group_id, safe='')}/members/"
+            f"{quote(subject_type, safe='')}/{quote(subject_id, safe='')}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def list_group_members_page(
+        self,
+        *,
+        project_id: str,
+        group_id: str,
+        page_size: int = 50,
+        continuation_token: Optional[str] = None,
+    ) -> GroupMembersPage:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/groups/{group_id}/members"
+        )
+        params: dict[str, str | int] = {"page_size": page_size}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return GroupMembersPage.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid group members payload: {exc}") from exc
+
+    async def list_group_members(
+        self,
+        *,
+        project_id: str,
+        group_id: str,
+        page_size: int = 50,
+        continuation_token: Optional[str] = None,
+    ) -> list[GroupMember]:
+        page = await self.list_group_members_page(
+            project_id=project_id,
+            group_id=group_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+        )
+        return page.members
+
+    async def create_agent(
+        self,
+        *,
+        project_id: str,
+        configuration: ManagedAgentSpec,
+        if_not_exists: bool = False,
+    ) -> ManagedAgent:
+        """
+        POST /accounts/projects/{project_id}/agents
+        Body: { "configuration": ManagedAgentSpec, "if_not_exists?": bool }
+        Returns Agent.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents"
+        payload = {
+            "configuration": configuration.model_dump(mode="json"),
+            "if_not_exists": bool(if_not_exists),
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return ManagedAgent.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid agent payload: {exc}") from exc
+
+    async def get_agent(self, *, project_id: str, name: str) -> ManagedAgent:
+        """
+        GET /accounts/projects/{project_id}/agents/{agent_name}
+        Returns Agent.
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/{name}"
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("agent not found")
+            await self._raise_for_status(resp)
+            try:
+                return ManagedAgent.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid agent payload: {exc}") from exc
+
+    async def update_agent(
+        self,
+        *,
+        project_id: str,
+        agent_id: str,
+        configuration: ManagedAgentSpec,
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/agents/{agent_id}
+        Body: { "configuration": ManagedAgentSpec }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/{agent_id}"
+        payload: dict[str, Any] = {
+            "configuration": configuration.model_dump(mode="json")
+        }
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_agent(self, *, project_id: str, agent_id: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/agents/{agent_id}
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/{agent_id}"
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    async def connect_room(
+        self,
+        *,
+        project_id: str,
+        room: str,
+        email: str | None = None,
+    ) -> RoomConnectionInfo:
+        """
+        POST /accounts/projects/{project_id}/rooms/{room_name}/connect
+        Returns: { "jwt", "room_name", "project_id", "room_url" }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms/{room}/connect"
+        payload = {} if email is None else {"email": email}
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            return RoomConnectionInfo.model_validate(await resp.json())
+
+    async def connect_agent(
+        self,
+        *,
+        project_id: str,
+        agent: str,
+        email: str | None = None,
+    ) -> AgentConnectionInfo:
+        """
+        POST /accounts/projects/{project_id}/agents/{agent_name}/connect
+        Returns: { "jwt", "agent_name", "project_id", "agent_url" }
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents/{agent}/connect"
+        payload = {} if email is None else {"email": email}
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            return AgentConnectionInfo.model_validate(await resp.json())
+
+    async def connect_llm(
+        self,
+        *,
+        project_id: str,
+        subject: AccessSubject,
+        max_budget: Decimal | str,
+        providers: Optional[list[Literal["openai", "anthropic", "grok"]]] = None,
+        models: Optional[list[str]] = None,
+        expires_in_seconds: Optional[int] = None,
+    ) -> LlmDelegation:
+        """Issue LLM authorization delegated to a service-account principal."""
+        payload = {
+            "subject": subject.model_dump(mode="json", exclude_none=True),
+            "max_budget": str(max_budget),
+            "providers": providers,
+            "models": models,
+            "expires_in_seconds": expires_in_seconds,
+        }
+        headers = {
+            **self._get_headers(),
+            "Meshagent-Project-Id": project_id,
+        }
+        async with self._session.post(
+            f"{self.base_url}/llm/connect",
+            headers=headers,
+            json={key: value for key, value in payload.items() if value is not None},
+        ) as resp:
+            await self._raise_for_status(resp)
+            return LlmDelegation.model_validate(await resp.json())
+
+    async def list_rooms(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: Optional[str] = None,
+        view: str | None = None,
+    ) -> List[Room]:
+        """
+        GET /accounts/projects/{project_id}/rooms?page_size=&continuation_token=&filter=&view=
+        Returns [Rooms]
+        """
+        page = await self.list_rooms_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+            view=view,
+        )
+        return page.rooms
+
+    async def list_rooms_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: Optional[str] = None,
+        view: str | None = None,
+    ) -> RoomsPage:
+        """
+        GET /accounts/projects/{project_id}/rooms?page_size=&continuation_token=&filter=&view=
+        Returns paged rooms.
+        """
+        params = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        if view is not None:
+            params["view"] = view
+        url = f"{self.base_url}/accounts/projects/{project_id}/rooms"
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return RoomsPage.model_validate(data)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid rooms list payload: {exc}") from exc
+
+    async def list_agents(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: Optional[str] = None,
+        view: str | None = None,
+    ) -> List[ManagedAgent]:
+        """
+        GET /accounts/projects/{project_id}/agents?page_size=&continuation_token=&filter=&view=
+        Returns [Agents]
+        """
+        page = await self.list_agents_page(
+            project_id=project_id,
+            page_size=page_size,
+            continuation_token=continuation_token,
+            filter=filter,
+            view=view,
+        )
+        return page.agents
+
+    async def list_agents_page(
+        self,
+        *,
+        project_id: str,
+        page_size: int = 100,
+        continuation_token: str | None = None,
+        filter: Optional[str] = None,
+        view: str | None = None,
+    ) -> AgentsPage:
+        """
+        GET /accounts/projects/{project_id}/agents?page_size=&continuation_token=&filter=&view=
+        Returns paged agents.
+        """
+        params = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if filter is not None:
+            params["filter"] = filter
+        if view is not None:
+            params["view"] = view
+        url = f"{self.base_url}/accounts/projects/{project_id}/agents"
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            try:
+                return AgentsPage.model_validate(data)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid agents list payload: {exc}") from exc
+
+    async def test_access(
+        self,
+        *,
+        project_id: str,
+        subject: AccessSubject,
+        resource: AccessResource,
+        relation: str,
+    ) -> AccessTestResult:
+        """POST /accounts/projects/{project_id}/access:test."""
+        payload = {
+            "subject": subject.model_dump(mode="json", exclude_none=True),
+            "resource": resource.model_dump(mode="json", exclude_none=True),
+            "relation": relation,
+        }
+        url = f"{self.base_url}/accounts/projects/{project_id}/access:test"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return AccessTestResult.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid access test payload: {exc}") from exc
+
+    async def get_effective_access(
+        self,
+        *,
+        project_id: str,
+        subject: AccessSubject,
+        resource: AccessResource,
+        roles: list[str],
+        relations: list[str] | None = None,
+    ) -> ResourceAccessSummary:
+        """POST /accounts/projects/{project_id}/access:effective."""
+        payload: dict[str, Any] = {
+            "subject": subject.model_dump(mode="json", exclude_none=True),
+            "resource": resource.model_dump(mode="json", exclude_none=True),
+            "roles": roles,
+        }
+        if relations is not None:
+            payload["relations"] = relations
+        url = f"{self.base_url}/accounts/projects/{project_id}/access:effective"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return ResourceAccessSummary.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid effective access payload: {exc}") from exc
+
+    async def list_access_bindings(
+        self,
+        *,
+        project_id: str,
+        subject: AccessSubject,
+    ) -> list[RoleGrant]:
+        """POST /accounts/projects/{project_id}/access:bindings."""
+        page = await self.list_access_bindings_page(
+            project_id=project_id,
+            subject=subject,
+        )
+        return page.access_grants
+
+    async def list_access_bindings_page(
+        self,
+        *,
+        project_id: str,
+        subject: AccessSubject,
+    ) -> AccessBindingsPage:
+        """POST /accounts/projects/{project_id}/access:bindings."""
+        payload = {"subject": subject.model_dump(mode="json", exclude_none=True)}
+        url = f"{self.base_url}/accounts/projects/{project_id}/access:bindings"
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return AccessBindingsPage.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid access bindings payload: {exc}") from exc
+
+    async def get_resource_policy_page(
+        self,
+        *,
+        project_id: str,
+        resource_type: AccessResourceType,
+        resource_id: str,
+        page_size: int = 50,
+        continuation_token: str | None = None,
+    ) -> ResourcePolicyPage:
+        """GET /accounts/projects/{project_id}/iam/{resource_type}/{resource_id}/policy."""
+        params = {"page_size": str(page_size)}
+        if continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/iam/"
+            f"{quote(resource_type, safe='')}/{quote(resource_id, safe='')}/policy"
+        )
+        async with self._session.get(
+            url,
+            headers=self._get_headers(),
+            params=params,
+        ) as resp:
+            await self._raise_for_status(resp)
+            try:
+                return ResourcePolicyPage.model_validate(await resp.json())
+            except ValidationError as exc:
+                raise RoomException(f"Invalid resource policy payload: {exc}") from exc
+
+    async def get_resource_policy(
+        self,
+        *,
+        project_id: str,
+        resource_type: AccessResourceType,
+        resource_id: str,
+        page_size: int = 50,
+    ) -> list[RoleGrant]:
+        grants: list[RoleGrant] = []
+        continuation_token: str | None = None
+        while True:
+            page = await self.get_resource_policy_page(
+                project_id=project_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                page_size=page_size,
+                continuation_token=continuation_token,
+            )
+            grants.extend(page.access_grants)
+            if page.continuation_token is None:
+                return grants
+            continuation_token = page.continuation_token
+
+    async def grant_resource_policy(
+        self,
+        *,
+        project_id: str,
+        resource_type: AccessResourceType,
+        resource_id: str,
+        subject: AccessSubject,
+        roles: list[AccessRole],
+        invite_redirect_url: str | None = None,
+    ) -> None:
+        """POST /accounts/projects/{project_id}/iam/{resource_type}/{resource_id}/policy:grant."""
+        payload = {
+            "subject": subject.model_dump(mode="json", exclude_none=True),
+            "roles": roles,
+        }
+        if invite_redirect_url is not None:
+            payload["invite_redirect_url"] = invite_redirect_url
+        payload = _strip_readonly_subject_fields(payload)
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/iam/"
+            f"{quote(resource_type, safe='')}/{quote(resource_id, safe='')}/policy:grant"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def revoke_resource_policy(
+        self,
+        *,
+        project_id: str,
+        resource_type: AccessResourceType,
+        resource_id: str,
+        subject: AccessSubject,
+    ) -> None:
+        """POST /accounts/projects/{project_id}/iam/{resource_type}/{resource_id}/policy:revoke."""
+        payload = {
+            "subject": subject.model_dump(mode="json", exclude_none=True),
+        }
+        payload = _strip_readonly_subject_fields(payload)
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/iam/"
+            f"{quote(resource_type, safe='')}/{quote(resource_id, safe='')}/policy:revoke"
+        )
+        async with self._session.post(
+            url,
+            headers=self._get_headers(),
+            json=payload,
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def exchange_oauth_token(
+        self,
+        *,
+        form: Dict[str, str],
+    ) -> OAuthTokenResponse:
+        """
+        POST /oauth/token with application/x-www-form-urlencoded OAuth parameters.
+        """
+        url = f"{self.base_url}/oauth/token"
+        headers = {
+            "Accept": "application/json",
+            **self._get_consistency_headers(),
+        }
+        async with self._session.post(url, headers=headers, data=form) as resp:
+            if resp.status >= 400:
+                body = await resp.text()
+                raise RoomException(f"Token endpoint error {resp.status}: {body}")
+            raw = await resp.json()
+            try:
+                return OAuthTokenResponse.model_validate(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid oauth-token payload: {exc}") from exc
+
+    async def create_oauth_client(
+        self,
+        *,
+        project_id: str,
+        grant_types: List[str],
+        response_types: List[str],
+        redirect_uris: List[str],
+        scope: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        official: bool = False,
+    ) -> OAuthClient:
+        """
+        POST /accounts/projects/{project_id}/oauth/clients
+        Body: { grant_types, response_types, redirect_uris, scope, metadata? }
+        Returns the newly created client (including client_secret).
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/oauth/clients"
+        payload = {
+            "grant_types": grant_types,
+            "response_types": response_types,
+            "redirect_uris": redirect_uris,
+            "scope": scope,
+            "metadata": metadata or {},
+            "official": official,
+        }
+        async with self._session.post(
+            url, headers=self._get_headers(), json=payload
+        ) as resp:
+            await self._raise_for_status(resp)
+            raw = await resp.json()
+            payload = raw.get("client", raw) if isinstance(raw, dict) else raw
+            try:
+                return OAuthClient.model_validate(payload)
+            except ValidationError as exc:
+                raise RoomException(
+                    f"Invalid create-oauth-client payload: {exc}"
+                ) from exc
+
+    async def update_oauth_client(
+        self,
+        *,
+        project_id: str,
+        client_id: str,
+        grant_types: Optional[List[str]] = None,
+        response_types: Optional[List[str]] = None,
+        redirect_uris: Optional[List[str]] = None,
+        scope: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        official: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """
+        PUT /accounts/projects/{project_id}/oauth/clients/{client_id}
+        Body: any subset of { grant_types, response_types, redirect_uris, scope, metadata }
+        Returns { "ok": True } on success.
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/oauth/clients/{client_id}"
+        )
+        body: Dict[str, Any] = {}
+        if grant_types is not None:
+            body["grant_types"] = grant_types
+        if response_types is not None:
+            body["response_types"] = response_types
+        if redirect_uris is not None:
+            body["redirect_uris"] = redirect_uris
+        if scope is not None:
+            body["scope"] = scope
+        if metadata is not None:
+            body["metadata"] = metadata
+        if official is not None:
+            body["official"] = official
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+            return await resp.json()
+
+    async def list_oauth_clients(
+        self,
+        *,
+        project_id: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> List[OAuthClient]:
+        page = await self.list_oauth_clients_page(
+            project_id=project_id, count=count, offset=offset, filter=filter
+        )
+        return page.clients
+
+    async def list_oauth_clients_page(
+        self,
+        *,
+        project_id: str,
+        count: int = 100,
+        offset: int = 0,
+        filter: str | None = None,
+    ) -> OAuthClientsPage:
+        """
+        GET /accounts/projects/{project_id}/oauth/clients
+        Returns a list of OAuthClient (no secrets).
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/oauth/clients"
+        params: Dict[str, str] = {"count": str(count), "offset": str(offset)}
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            raw = await resp.json()
+            try:
+                clients = [
+                    OAuthClient.model_validate(item) for item in raw.get("clients", [])
+                ]
+                return OAuthClientsPage(
+                    clients=clients, total=int(raw.get("total", len(clients)))
+                )
+            except ValidationError as exc:
+                raise RoomException(
+                    f"Invalid oauth-clients list payload: {exc}"
+                ) from exc
+
+    async def get_oauth_client(
+        self, *, project_id: Optional[str], client_id: str
+    ) -> OAuthClient:
+        """
+        GET /accounts/projects/{project_id}/oauth/clients/{client_id}
+        Returns the OAuthClient (no secret).
+        """
+
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/oauth/clients/{client_id}"
+        )
+        async with self._session.get(url, headers=self._get_headers()) as resp:
+            if resp.status == 404:
+                raise RoomException("oauth client not found")
+            await self._raise_for_status(resp)
+            raw = await resp.json()
+            try:
+                return OAuthClient.model_validate(raw)
+            except ValidationError as exc:
+                raise RoomException(f"Invalid oauth-client payload: {exc}") from exc
+
+    async def delete_oauth_client(self, *, project_id: str, client_id: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/oauth/clients/{client_id}
+        Returns 204 No Content on success.
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/oauth/clients/{client_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+
+    # ---------------------------
+    # Scheduled Tasks
+    # ---------------------------
+
+    async def create_scheduled_task(
+        self,
+        *,
+        project_id: str,
+        room_name: str,
+        spec: ScheduledTaskSpec | dict[str, Any],
+    ) -> str:
+        """
+        POST /accounts/projects/{project_id}/rooms/{room_name}/scheduled-tasks
+
+        spec can be a ScheduledTaskSpec or dict.
+        Returns the created ScheduledTask when the server returns it.
+        """
+        scheduled_task_spec = (
+            ScheduledTaskSpec.model_validate(spec)
+            if not isinstance(spec, ScheduledTaskSpec)
+            else spec
+        )
+        from urllib.parse import quote
+
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/rooms/"
+            f"{quote(room_name, safe='')}/scheduled-tasks"
+        )
+
+        body = _CreateScheduledTaskRequest(
+            spec=scheduled_task_spec,
+        ).model_dump(mode="json", exclude_none=True)
+
+        async with self._session.post(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+            return data["task_id"]
+
+    async def update_scheduled_task(
+        self,
+        *,
+        project_id: str,
+        task_id: str,
+        spec: ScheduledTaskSpec | dict[str, Any],
+    ) -> None:
+        """
+        PUT /accounts/projects/{project_id}/scheduled-tasks/{task_id}
+
+        Replaces the scheduled task spec.
+        """
+        scheduled_task_spec = (
+            ScheduledTaskSpec.model_validate(spec)
+            if not isinstance(spec, ScheduledTaskSpec)
+            else spec
+        )
+
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/scheduled-tasks/{task_id}"
+        )
+
+        body = _UpdateScheduledTaskRequest(
+            spec=scheduled_task_spec,
+        ).model_dump(mode="json", exclude_none=True)
+
+        async with self._session.put(
+            url, headers=self._get_headers(), json=body
+        ) as resp:
+            await self._raise_for_status(resp)
+
+    async def delete_scheduled_task(self, *, project_id: str, task_id: str) -> None:
+        """
+        DELETE /accounts/projects/{project_id}/scheduled-tasks/{task_id}
+        Returns 204 No Content on success.
+        """
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/scheduled-tasks/{task_id}"
+        )
+        async with self._session.delete(url, headers=self._get_headers()) as resp:
+            await self._raise_for_status(resp)
+            return None
+
+    async def list_scheduled_tasks(
+        self,
+        *,
+        project_id: str,
+        room_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        active: Optional[bool] = None,
+        page_size: int = 100,
+        offset: int = 0,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> List[ScheduledTask]:
+        page = await self.list_scheduled_tasks_page(
+            project_id=project_id,
+            room_id=room_id,
+            task_id=task_id,
+            active=active,
+            page_size=page_size,
+            offset=offset,
+            continuation_token=continuation_token,
+            filter=filter,
+        )
+        return page.tasks
+
+    async def list_scheduled_tasks_page(
+        self,
+        *,
+        project_id: str,
+        room_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        active: Optional[bool] = None,
+        page_size: int = 100,
+        offset: int = 0,
+        continuation_token: str | None = None,
+        filter: str | None = None,
+    ) -> ScheduledTasksPage:
+        """
+        GET /accounts/projects/{project_id}/scheduled-tasks?room_id=&task_id=&active=&page_size=&continuation_token=
+        Returns a list[ScheduledTask].
+        """
+        url = f"{self.base_url}/accounts/projects/{project_id}/scheduled-tasks"
+        params: Dict[str, str] = {"page_size": str(page_size)}
+        if room_id is not None:
+            params["room_id"] = room_id
+            params["offset"] = str(offset)
+        elif continuation_token is not None:
+            params["continuation_token"] = continuation_token
+        if task_id is not None:
+            params["task_id"] = task_id
+        if active is not None:
+            params["active"] = "true" if active else "false"
+        if filter is not None and filter.strip() != "":
+            params["filter"] = filter
+
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+
+        tasks_raw = data.get("tasks", [])
+        if not isinstance(tasks_raw, list):
+            raise RoomException(
+                "Invalid scheduled-tasks payload: expected 'tasks' to be a list"
+            )
+
+        try:
+            tasks = [ScheduledTask.model_validate(item) for item in tasks_raw]
+            return ScheduledTasksPage(
+                tasks=tasks,
+                total=int(data.get("total", len(tasks))),
+                continuation_token=data.get("continuation_token"),
+            )
+        except ValidationError as exc:
+            raise RoomException(f"Invalid scheduled-tasks payload: {exc}") from exc
+
+    async def list_scheduled_task_runs(
+        self,
+        *,
+        project_id: str,
+        task_id: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[ScheduledTaskRun]:
+        page = await self.list_scheduled_task_runs_page(
+            project_id=project_id,
+            task_id=task_id,
+            limit=limit,
+            offset=offset,
+        )
+        return page.runs
+
+    async def list_scheduled_task_runs_page(
+        self,
+        *,
+        project_id: str,
+        task_id: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> ScheduledTaskRunsPage:
+        url = (
+            f"{self.base_url}/accounts/projects/{project_id}/scheduled-tasks/"
+            f"{task_id}/runs"
+        )
+        params: Dict[str, str] = {
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+        async with self._session.get(
+            url, headers=self._get_headers(), params=params
+        ) as resp:
+            await self._raise_for_status(resp)
+            data = await resp.json()
+
+        runs_raw = data.get("runs", [])
+        if not isinstance(runs_raw, list):
+            raise RoomException(
+                "Invalid scheduled-task-runs payload: expected 'runs' to be a list"
+            )
+
+        try:
+            runs = [ScheduledTaskRun.model_validate(item) for item in runs_raw]
+            return ScheduledTaskRunsPage(
+                runs=runs, total=int(data.get("total", len(runs)))
+            )
+        except ValidationError as exc:
+            raise RoomException(f"Invalid scheduled-task-runs payload: {exc}") from exc

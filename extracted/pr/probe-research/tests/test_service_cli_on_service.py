@@ -40,9 +40,16 @@ import pytest
 
 import probe
 from probe.shared.updates import version_policy
-from probe.cli import capture, doctor, service_calls
-from probe.service import client, manifest, paths, runholds, updater
-from probe.service.protocol import CheckOutcome, Method, Mode
+from probe.cli.capture import capture
+from probe.cli.wizard import doctor
+from probe.cli.lifecycle import service_calls
+from probe.foundation import service_api as client
+from probe.service.updater import manifest
+from probe.foundation.service_api import paths
+from probe.service.sessions import runholds
+from probe.service import updater
+from probe.foundation.service_api.vocabularies import CheckOutcome, Mode
+from probe.foundation.service_api.wire import Method
 from tests.service_fakes import FakeCore, enable_auto_update, events_until, fake_open, last_checked
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 from tests.test_service_recorders import _events, _params, _saw, _tap
@@ -257,7 +264,7 @@ def test_a_refused_capture_off_matches_recorders_as_the_service_does(monkeypatch
     still running) was missed, and capture off said "off". The recorder's own
     harness counts first; one with no harness known counts as possibly this
     agent's -- named, never claimed off."""
-    from probe.service import protocol
+    from probe.foundation import service_api as protocol
 
     status = {"recorders": [
         {"sid": "own", "alive": True, "harness": "claude_code"},  # registration gone
@@ -625,7 +632,7 @@ def test_a_hold_while_an_update_is_applied_is_refused(tmp_path, monkeypatch):
     the update child could no longer see is refused, never acknowledged (the
     run's lock and the update barrier are what it has then) (Codex P1)."""
     from probe.service import server
-    from probe.service.registry import Registry
+    from probe.service.sessions.sessions import Registry
 
     monkeypatch.setattr(updater, "_hosted_live", updater._hosted_live)  # noqa: SLF001 -- Service sets it
     service = server.Service(registry=Registry(tmp_path / "sessions.json"))

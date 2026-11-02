@@ -1,0 +1,16 @@
+[package]
+name = "zeit-core"
+description = "The algorithms of zeit (change detection and time series of Earth observation data), without Python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+# dense linear algebra of remotePARTS's GLS (gls.rs): Cholesky, tridiagonalization
+faer = { version = "0.24", default-features = false, features = ["std", "rayon", "linalg"] }
+rayon = "1"
+
+[dev-dependencies]
+# tests/remoteparts.rs reads the R references
+serde_json = "1"

@@ -12,9 +12,9 @@ import json
 import subprocess
 
 from probe.shared.harness.harnesses.codex import config as codex_config
-from probe.cli import updater, upgrading
-from probe.cli import setup as wizard
-from probe.cli.setup import RunSummary, SummaryAction
+from probe.cli.install import updater, upgrade as upgrading
+from probe.cli import wizard as wizard
+from probe.cli.wizard.screens.run_summary import RunSummary, SummaryAction
 
 from tests.test_parallel_install_update import _plugin_result, one_update  # noqa: F401 - fixture
 from tests.test_updater import _failed_with, _fake_codex
@@ -96,9 +96,9 @@ def test_one_agent_is_named_not_counted():
 
 
 def test_an_updates_outcome_carries_its_summary_and_what_failed(one_update, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
     monkeypatch.setattr(
-        updater, "update_codex_plugins",
+        "probe.shared.harness.harnesses.codex.plugins.update_codex_plugins",
         lambda: updater.PluginResult(
             True, False, False, "probe-research=1", "probe-research=1", "could not confirm the plugins"
         ),
@@ -136,6 +136,8 @@ def test_a_codex_list_that_times_out_is_answered_from_codexs_files(tmp_path, mon
         tmp_path, monkeypatch, {"probe-research-daemon": ["0.180.0"], "probe-research-tap": ["0.10.23"]}
     )
     monkeypatch.setattr(updater, "tracking_plugin_name", lambda source=None: "probe-research-daemon")
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.tracking_plugin_name", lambda source=None: "probe-research-daemon")
+    monkeypatch.setattr("probe.shared.harness.plugin_update.tracking_plugin_name", lambda source=None: "probe-research-daemon")
     _fake_codex(monkeypatch, {})
     monkeypatch.setattr(
         updater.plugin_cli, "list_plugins",
@@ -181,10 +183,14 @@ def test_a_deferred_update_is_no_agent_updated(one_update, monkeypatch):  # noqa
 
 
 def test_a_failed_pi_package_is_pis_own_failure_named_once(one_update, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
     said = "! not updated (npm refused); run `pi update git:github.com/prbe-ai/research-os-agent`"
     monkeypatch.setattr(
-        upgrading, "_update_pi_package",
+        "probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package",
+        lambda: upgrading._PiUpdate(["pi package:", f"  {said}"], ok=False, detail="npm refused", ran=True),
+    )
+    monkeypatch.setattr(
+        upgrading.package_step, "_update_pi_package",
         lambda: upgrading._PiUpdate(["pi package:", f"  {said}"], ok=False, detail="npm refused", ran=True),
     )
     outcomes = upgrading.perform_updates(["claude_code", "pi"], base_url="https://x")
@@ -203,10 +209,14 @@ def test_a_failed_pi_package_is_pis_own_failure_named_once(one_update, monkeypat
 
 
 def test_pis_reload_instruction_reaches_the_summary(one_update, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
     reload = "Run /reload in open pi sessions (or restart them) to apply the update."
     monkeypatch.setattr(
-        upgrading, "_update_pi_package",
+        "probe.shared.harness.harnesses.pi.package_upgrade._update_pi_package",
+        lambda: upgrading._PiUpdate(["pi package:"], ran=True, before="0.7.1", after="0.7.2", action=reload),
+    )
+    monkeypatch.setattr(
+        upgrading.package_step, "_update_pi_package",
         lambda: upgrading._PiUpdate(["pi package:"], ran=True, before="0.7.1", after="0.7.2", action=reload),
     )
     outcomes = upgrading.perform_updates(["claude_code", "pi"], base_url="https://x")
@@ -219,8 +229,8 @@ def test_pis_reload_instruction_reaches_the_summary(one_update, monkeypatch):  #
 
 
 def test_a_skills_refresh_that_failed_is_a_detail(one_update, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
-    monkeypatch.setattr(updater, "update_codex_plugins", lambda: _plugin_result("codex"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.claude_code.plugins.update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.plugins.update_codex_plugins", lambda: _plugin_result("codex"))
     monkeypatch.setattr(
         upgrading.root_skills, "refresh",
         lambda source: ["! could not refresh the skills in ~/.claude/skills: permission denied"],
@@ -237,9 +247,14 @@ def test_an_empty_cache_folder_is_no_install(tmp_path, monkeypatch):
 
 
 def test_a_failed_screen_keeps_its_errors_not_its_routine_report(monkeypatch):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     progress = tui.Progress("This run will:", ["sign in", "install"])
     progress.note(
         "Claude Code Session capture paired (device ?).",
@@ -304,7 +319,7 @@ def test_routine_lines_are_not_errors():
 
 
 def test_a_codex_capture_install_needs_its_hook_approved(monkeypatch):
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
 
     caps = Capabilities(agent_source="codex", codex_available=True)
     restart, must = wizard.install_next(caps, wizard.Selection(tracking=True, capture=True, auto_update=False, agent_rules=False))
@@ -316,7 +331,7 @@ def test_a_codex_capture_install_needs_its_hook_approved(monkeypatch):
 
 
 def test_turning_tracking_off_says_open_sessions_keep_it_until_they_restart():
-    from probe.cli.capabilities import Capabilities
+    from probe.cli.wizard.state.state import Capabilities
 
     caps = Capabilities(
         agent_source="claude_code", claude_available=True, tracking_plugin_installed=True, logged_in_as="r@x"

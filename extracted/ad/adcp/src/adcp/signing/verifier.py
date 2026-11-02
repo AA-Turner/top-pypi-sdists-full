@@ -1,0 +1,887 @@
+"""Verifier checklist for the AdCP request-signing profile.
+
+Implements the pipeline (pre-check 0 + checklist steps 1-14, including 9a)
+defined in `security.mdx`. Each step either passes or raises
+`SignatureVerificationError` with the exact code from the transport error
+taxonomy — conformance requires byte-for-byte match on the code string.
+"""
+
+from __future__ import annotations
+
+import threading
+import warnings
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from typing import Any, Literal
+
+from adcp.signing._header_precheck import strict_header_precheck, target_uri_precheck
+from adcp.signing._strict_json import StrictJsonError, body_is_empty, parse_strict_json
+from adcp.signing.canonical import (
+    REQUEST_TARGET_URI_MALFORMED,
+    TargetUriMalformedError,
+    _lookup,
+    build_signature_base,
+    parse_signature_input_header,
+)
+from adcp.signing.constants import (
+    ADCP_USE_REQUEST,
+    DEFAULT_SKEW_SECONDS,
+    DEFAULT_TAG,
+    MAX_WINDOW_SECONDS,
+    SIG_LABEL_DEFAULT,
+)
+from adcp.signing.crypto import (
+    ALG_ED25519,
+    ALG_ES256,
+    ALLOWED_ALGS,
+    alg_for_jwk,
+    extract_signature_bytes,
+    public_key_from_jwk,
+    verify_signature,
+)
+from adcp.signing.digest import content_digest_matches
+from adcp.signing.errors import (
+    REQUEST_BODY_MALFORMED,
+    REQUEST_SIGNATURE_ALG_NOT_ALLOWED,
+    REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE,
+    REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED,
+    REQUEST_SIGNATURE_DIGEST_MISMATCH,
+    REQUEST_SIGNATURE_HEADER_MALFORMED,
+    REQUEST_SIGNATURE_INVALID,
+    REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+    REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+    REQUEST_SIGNATURE_KEY_REVOKED,
+    REQUEST_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_PARAMS_INCOMPLETE,
+    REQUEST_SIGNATURE_RATE_ABUSE,
+    REQUEST_SIGNATURE_REPLAYED,
+    REQUEST_SIGNATURE_REQUIRED,
+    REQUEST_SIGNATURE_REVOCATION_STALE,
+    REQUEST_SIGNATURE_TAG_INVALID,
+    REQUEST_SIGNATURE_WINDOW_INVALID,
+    SignatureVerificationError,
+)
+from adcp.signing.jwks import JwksResolver
+from adcp.signing.key_origins import check_key_origin_consistency
+from adcp.signing.replay import (
+    InMemoryReplayStore,
+    ReplayClaimResult,
+    ReplayStore,
+    supports_atomic_claim,
+)
+from adcp.signing.revocation import RevocationChecker, RevocationList
+from adcp.signing.revocation_fetcher import (
+    RevocationListFetchError,
+    RevocationListFreshnessError,
+    RevocationListParseError,
+)
+
+CoversDigestPolicy = Literal["required", "forbidden", "either"]
+SigningProfileVersion = Literal["3.0", "3.1", "3.2"]
+
+REQUIRED_COMPONENTS = ("@method", "@target-uri", "@authority")
+REQUIRED_PARAMS = ("created", "expires", "nonce", "keyid", "alg", "tag")
+_INT_PARAMS = frozenset({"created", "expires"})
+_STR_PARAMS = frozenset({"nonce", "keyid", "alg", "tag"})
+
+# Defensive upper bound against log/dict-key poisoning. RFC 7517 has no hard kid
+# limit; 256 bytes is plenty for any real-world kid/nonce.
+_MAX_PARAM_LEN = 256
+
+_WARNED_LEGACY_REPLAY_STORE_TYPES: set[type[object]] = set()
+_WARNED_LEGACY_REPLAY_STORE_TYPES_LOCK = threading.Lock()
+
+
+@dataclass(frozen=True)
+class VerifiedSigner:
+    """Returned on successful verification. The key_id is the signer's identity.
+
+    ``parsed_body`` is the request body as parsed by the strict step-14 parser
+    (duplicate keys rejected at every depth, UTF-8 only, RFC 8259 JSON only).
+    Dispatch on it rather than re-parsing the raw bytes: a second, lenient
+    parse (``json.loads`` keeps the last duplicate key) is exactly the
+    parser-differential step 14 exists to close. ``None`` when the request had
+    no body (empty or JSON whitespace only). The value is a fresh object per
+    verification; it is excluded from equality, hashing, and ``repr`` so it
+    never reaches logs through the signer.
+
+    ``parsed_body`` is well-formed, but it is only *signed* when
+    ``body_authenticated`` is true: the signature covered ``content-digest``
+    and the digest matched the received bytes. Under the legacy
+    ``covers_content_digest="either"`` posture a signature may omit the
+    digest, and then an intermediary can swap the body without invalidating
+    the signature. Don't treat ``parsed_body`` as signer-attested unless
+    ``body_authenticated`` is true (or your capability is ``"required"``).
+    """
+
+    key_id: str
+    alg: str
+    label: str
+    verified_at: float
+    agent_url: str | None = None
+    parsed_body: Any = field(default=None, compare=False, repr=False)
+    body_authenticated: bool = field(default=False, compare=False)
+    operator_brand_json: dict[str, Any] | None = field(default=None, compare=False, repr=False)
+
+
+class RequestBodyMalformedError(SignatureVerificationError):
+    """Step-14 rejection: the signature verified but the body is not strict JSON.
+
+    ``code`` is ``request_body_malformed`` (``webhook_body_malformed`` on the
+    webhook profile). ``signer`` is the identity whose valid signature covered
+    the malformed body. The nonce was already consumed, so it is safe to
+    attribute the rejection to that signer for audit and rate limiting. It
+    carries no body.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        *,
+        signer: Any,
+        step: int | str | None = None,
+        message: str | None = None,
+        detail: Mapping[str, str] | None = None,
+    ) -> None:
+        super().__init__(code, step=step, message=message, detail=detail)
+        self.signer = signer
+
+
+@dataclass
+class VerifierCapability:
+    """The `request_signing` block a verifier advertises on get_adcp_capabilities.
+
+    Defaults to the AdCP wire-schema value ``covers_content_digest="either"``.
+    Receivers that require signed body digests must opt into ``"required"``.
+
+    The webhook-signing profile (``adcp.signing.webhook_verifier``) hard-
+    codes ``"required"`` regardless of this default — webhook bodies
+    always carry signed digests.
+    """
+
+    supported: bool = True
+    covers_content_digest: CoversDigestPolicy = "either"
+    required_for: frozenset[str] = field(default_factory=frozenset)
+    supported_for: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True, kw_only=True)
+class VerifyOptions:
+    """Options bag passed to ``verify_request_signature``.
+
+    ``replay_store`` defaults to a fresh :class:`InMemoryReplayStore` so one
+    options instance enforces nonce uniqueness across every verification that
+    reuses it. Constructing a new :class:`VerifyOptions` per request also
+    creates a new store and therefore resets replay history; long-lived
+    verifiers must reuse the options instance or provide an explicit store.
+    Wire a shared store (Redis, Postgres, etc.) for multi-replica deployments
+    where replay state must be coordinated across processes; pass
+    ``replay_store=None`` only when you genuinely need to bypass the check.
+
+    ``revocation_checker`` and ``revocation_list`` remain optional —
+    most agents don't track key revocations at runtime, and the verifier
+    correctly skips the check when both are absent. Wire one when you
+    publish a revocation list or expose an admin tool for emergency rotation.
+    """
+
+    now: float
+    capability: VerifierCapability
+    operation: str
+    jwks_resolver: JwksResolver
+    replay_store: ReplayStore | None = field(default_factory=InMemoryReplayStore)
+    revocation_checker: RevocationChecker | None = None
+    revocation_list: RevocationList | None = None
+    max_skew_seconds: int = DEFAULT_SKEW_SECONDS
+    max_window_seconds: int = MAX_WINDOW_SECONDS
+    label: str = SIG_LABEL_DEFAULT
+    expected_tag: str = DEFAULT_TAG
+    expected_adcp_use: str = ADCP_USE_REQUEST
+    #: Optional compatibility accept-set for profiles whose verifier must
+    #: recognize more than one JWK purpose. Empty preserves the historical
+    #: single-value ``expected_adcp_use`` behavior.
+    accepted_adcp_uses: frozenset[str] = frozenset()
+    allowed_algs: frozenset[str] = ALLOWED_ALGS
+    agent_url: str | None = None
+    operator_brand_json: dict[str, Any] | None = None
+    #: Trusted, negotiated AdCP signing profile. 3.0/3.1 accept the historical
+    #: Base64URL sf-binary spelling; 3.2 enforces RFC 8941 standard Base64.
+    signing_profile_version: SigningProfileVersion = "3.1"
+    #: ADCP #3690 step 7 — the signing peer's declared
+    #: ``identity.key_origins`` map from its
+    #: ``get_adcp_capabilities`` response, keyed by signing purpose
+    #: (``request_signing``, ``webhook_signing``, ...). When provided
+    #: AND the JWKS resolver reports ``jwks_source == "brand_json"``,
+    #: the verifier checks that the resolved ``jwks_uri`` host
+    #: matches the declared origin for ``signing_purpose``. For a
+    #: brand-sourced resolver, ``None`` is treated as a missing declaration
+    #: and fails closed; other resolver sources skip the check.
+    expected_key_origins: Mapping[str, str] | None = None
+    #: Purpose key used to look up ``expected_key_origins`` and to
+    #: render error messages. Default ``"request_signing"`` matches
+    #: the request-signing verifier's role; webhook callers pass
+    #: ``"webhook_signing"`` via their own wrapper.
+    signing_purpose: str = "request_signing"
+    #: Optional posture context (e.g. ``"required"``, ``"supported"``)
+    #: attached to ``_key_origin_missing`` rejections for adopter
+    #: diagnostics.
+    posture: str | None = None
+
+
+def verify_request_signature(
+    *,
+    method: str,
+    url: str,
+    headers: Mapping[str, str],
+    body: bytes,
+    options: VerifyOptions,
+    raw_headers: Sequence[tuple[bytes, bytes]] | None = None,
+) -> VerifiedSigner:
+    """Run the AdCP request-signing verifier checklist against a request.
+
+    Raises SignatureVerificationError with the spec error code on failure.
+
+    On success the returned signer carries ``parsed_body``: the strictly
+    parsed JSON body (step 14). A non-empty body that is not strict JSON --
+    duplicate object keys at any depth, invalid UTF-8, or not JSON -- is
+    rejected with ``request_body_malformed`` (a
+    :class:`RequestBodyMalformedError`) after the nonce has been consumed
+    (step 13), so a captured frame with a valid signature over a malformed
+    body cannot be replayed. ``body_authenticated`` says whether the
+    signature actually bound those bytes (``content-digest`` covered and
+    matched); see :class:`VerifiedSigner`.
+
+    ``body`` should be ``bytes``. ``bytearray`` / ``memoryview`` are copied
+    to ``bytes``; a ``str`` is encoded as UTF-8 (lone surrogates pass through
+    as ill-formed bytes and are rejected at step 14). ``None`` means no body.
+
+    `raw_headers` is the as-received header list, wire order preserved, e.g.
+    Starlette's `request.headers.raw`. Supply it when you can: `headers` is a
+    mapping, and every mapping has already resolved a repeated header name to a
+    single value, so a proxy-inserted second line is invisible to the step-1
+    checks without it. Omitting it does not weaken any other stage -- the
+    comma-joined form of each malformed shape is still rejected -- but the
+    repeated-line rule cannot fire. See `_header_precheck` for why WSGI cannot
+    supply a meaningful raw list at all.
+    """
+    body = _coerce_body(body)
+    sig_input_raw = _lookup(headers, "signature-input")
+    sig_raw = _lookup(headers, "signature")
+
+    _precheck_presence(
+        sig_input_raw=sig_input_raw,
+        sig_raw=sig_raw,
+        operation=options.operation,
+        required_for=options.capability.required_for,
+    )
+    assert sig_input_raw is not None and sig_raw is not None
+
+    # Step 1, and it must precede the parse below rather than wrap it: the
+    # parser resolves ambiguity (RFC 8941 lets a duplicate dictionary key be
+    # dropped rather than rejected), and once resolved the ambiguity is
+    # invisible. Runs after the presence pre-check so a request with no
+    # signature at all still reports `request_signature_required`.
+    precheck_reason = strict_header_precheck(headers=headers, raw_headers=raw_headers, url=url)
+    if precheck_reason is not None:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=1,
+            message=precheck_reason,
+        )
+
+    # A malformed or raw non-ASCII authority is `request_target_uri_malformed`, not a header
+    # defect. Judged up front for the same reason as step 1: before key lookup or replay-store
+    # writes, so a bad authority consumes no state. Labelled step 6, where the verifier
+    # otherwise derives the signature base; the code, not the step, is what conformance grades.
+    target_reason = target_uri_precheck(headers=headers, raw_headers=raw_headers, url=url)
+    if target_reason is not None:
+        raise SignatureVerificationError(
+            REQUEST_TARGET_URI_MALFORMED,
+            step=6,
+            message=target_reason,
+        )
+
+    try:
+        labels = parse_signature_input_header(sig_input_raw)
+    except (ValueError, KeyError) as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=1,
+            message=f"Signature-Input parse error: {exc}",
+        ) from exc
+    if options.label not in labels:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=1,
+            message=f"label {options.label!r} not present in Signature-Input",
+        )
+    parsed = labels[options.label]
+
+    try:
+        sig_bytes = extract_signature_bytes(
+            sig_raw,
+            options.label,
+            allow_legacy_base64url=options.signing_profile_version != "3.2",
+        )
+    except (ValueError, KeyError) as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=1,
+            message=f"Signature parse error: {exc}",
+        ) from exc
+
+    _check_params_present(parsed.params)
+    _check_tag(parsed.params, options.expected_tag)
+    _check_alg(parsed.params, options.allowed_algs)
+    try:
+        _check_window(
+            parsed.params,
+            now=options.now,
+            max_skew=options.max_skew_seconds,
+            max_window=options.max_window_seconds,
+        )
+    except (ValueError, KeyError) as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=5,
+            message=f"window param parse error: {exc}",
+        ) from exc
+    _check_components(
+        parsed.components,
+        headers=headers,
+        body=body,
+        policy=options.capability.covers_content_digest,
+    )
+
+    keyid = str(parsed.params["keyid"])
+    nonce = str(parsed.params["nonce"])
+    if len(keyid) > _MAX_PARAM_LEN:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=2,
+            message=f"keyid exceeds {_MAX_PARAM_LEN} bytes",
+        )
+    if len(nonce) > _MAX_PARAM_LEN:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=2,
+            message=f"nonce exceeds {_MAX_PARAM_LEN} bytes",
+        )
+
+    jwk = options.jwks_resolver(keyid)
+    if jwk is None:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_UNKNOWN,
+            step=7,
+            message=f"no JWK for keyid {keyid!r}",
+        )
+
+    alg = str(parsed.params["alg"])
+    _check_key_purpose(
+        jwk,
+        alg,
+        expected_adcp_use=options.expected_adcp_use,
+        accepted_adcp_uses=options.accepted_adcp_uses,
+    )
+
+    # Publisher pins narrow operator keys and do not bypass origin checks.
+    _maybe_check_key_origin(
+        resolver=options.jwks_resolver,
+        expected_key_origins=options.expected_key_origins,
+        signing_purpose=options.signing_purpose,
+        posture=options.posture,
+    )
+
+    if options.revocation_list is not None:
+        as_of = datetime.fromtimestamp(options.now, tz=timezone.utc)
+        if options.revocation_list.is_stale(as_of):
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_REVOCATION_STALE,
+                step=9,
+                message=(
+                    f"revocation list next_update {options.revocation_list.next_update} "
+                    f"is in the past"
+                ),
+            )
+    if options.revocation_checker is not None:
+        try:
+            revoked = options.revocation_checker(keyid)
+        except (RevocationListFetchError, RevocationListParseError, RevocationListFreshnessError):
+            # The checker owns caching and grace. Only its documented trust /
+            # availability failures become signature rejections here; unrelated
+            # adopter errors remain operational. Never expose transport details.
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_REVOCATION_STALE,
+                step=9,
+                message="revocation status could not be verified from a fresh, trusted list",
+            ) from None
+        if revoked:
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_KEY_REVOKED,
+                step=9,
+                message=f"key {keyid!r} is revoked",
+            )
+
+    # Cheap early rejection; ``claim`` repeats the capacity check atomically
+    # after crypto verification so concurrent claims cannot exceed the cap.
+    if options.replay_store is not None and options.replay_store.at_capacity(keyid):
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_RATE_ABUSE,
+            step="9a",
+            message=f"replay cache at capacity for keyid {keyid!r}",
+        )
+
+    try:
+        base = build_signature_base(method=method, url=url, headers=headers, parsed=parsed).encode(
+            "utf-8"
+        )
+    except TargetUriMalformedError as exc:
+        # MUST precede the (ValueError, KeyError) clause below: TargetUriMalformedError
+        # IS a ValueError, so reordering these two silently downgrades every
+        # malformed-authority rejection to request_signature_header_malformed
+        # with the suite still green. test_target_uri_malformed_boundary.py
+        # guards the ordering.
+        raise SignatureVerificationError(
+            exc.code,
+            step=6,
+            message=f"signature base construction failed: {exc}",
+        ) from exc
+    except (ValueError, KeyError) as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=6,
+            message=f"signature base construction failed: {exc}",
+        ) from exc
+    try:
+        public_key = public_key_from_jwk(jwk)
+    except (ValueError, KeyError) as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=8,
+            message=f"JWK decode failed: {exc}",
+        ) from exc
+    if not verify_signature(
+        alg=alg, public_key=public_key, signature_base=base, signature=sig_bytes
+    ):
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_INVALID,
+            step=10,
+            message="signature did not verify over the computed base",
+        )
+
+    body_authenticated = False
+    if "content-digest" in parsed.components:
+        digest_header = _lookup(headers, "content-digest")
+        if digest_header is None or not content_digest_matches(digest_header, body):
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_DIGEST_MISMATCH,
+                step=11,
+                message="Content-Digest does not match body",
+            )
+        body_authenticated = True
+
+    if options.replay_store is not None:
+        ttl = max(
+            float(parsed.params["expires"]) - options.now + options.max_skew_seconds,
+            0.0,
+        )
+        claim = _claim_replay_nonce(options.replay_store, keyid, nonce, ttl)
+        if claim == "replayed":
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_REPLAYED,
+                step=12,
+                message=f"nonce {nonce!r} already seen for keyid {keyid!r}",
+            )
+        if claim == "capacity":
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_RATE_ABUSE,
+                # security.mdx:1324 @ AdCP 3.1.8: the atomic insert is
+                # authoritative replay-cap enforcement at step 13.
+                step=13,
+                message=f"replay cache at capacity for keyid {keyid!r}",
+            )
+
+    # Step 14 MUST follow the step-13 nonce insert: the nonce is burned on the
+    # first sighting of a cryptographically valid frame regardless of body
+    # shape. Every AdCP request body is JSON, so any non-empty body is in
+    # scope. The rejection carries only a coarse reason -- never key names or
+    # body bytes (step 14b).
+    signer = VerifiedSigner(
+        key_id=keyid,
+        alg=alg,
+        label=options.label,
+        verified_at=options.now,
+        agent_url=options.agent_url,
+        operator_brand_json=options.operator_brand_json,
+        body_authenticated=body_authenticated,
+    )
+    if body_is_empty(body):
+        return signer
+    try:
+        parsed_body = parse_strict_json(body)
+    except StrictJsonError as exc:
+        raise RequestBodyMalformedError(
+            REQUEST_BODY_MALFORMED,
+            signer=signer,
+            step=14,
+            message=f"signed request body is not strict JSON ({exc.reason})",
+            detail={"reason": exc.reason},
+        ) from None
+    return replace(signer, parsed_body=parsed_body)
+
+
+def _coerce_body(body: object) -> bytes:
+    """Normalize the body before any check reads it, so a wrong-but-common
+    type is verified rather than crashing mid-pipeline."""
+    if isinstance(body, bytes):
+        return body
+    if body is None:
+        return b""
+    if isinstance(body, (bytearray, memoryview)):
+        return bytes(body)
+    if isinstance(body, str):
+        # surrogatepass: a str cannot be invalid UTF-8, but it can hold lone
+        # surrogates. Keep them as ill-formed bytes so the digest check and
+        # step 14 see them instead of an encode error escaping as a 500.
+        return body.encode("utf-8", "surrogatepass")
+    raise TypeError(f"body must be bytes, got {type(body).__name__}")
+
+
+def _claim_replay_nonce(
+    store: ReplayStore,
+    keyid: str,
+    nonce: str,
+    ttl_seconds: float,
+) -> ReplayClaimResult:
+    """Reserve a nonce, retaining compatibility with pre-atomic stores.
+
+    The legacy ``seen`` then ``remember`` sequence is necessarily racy. It is
+    retained only so upgrading the SDK does not turn a previously valid custom
+    backend into an ``AttributeError`` after signature verification.
+    """
+    if supports_atomic_claim(store):
+        result = store.claim(keyid, nonce, ttl_seconds)
+        if result not in {"claimed", "replayed", "capacity"}:
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_RATE_ABUSE,
+                step=13,
+                message="replay store returned an invalid claim result",
+            )
+        return result
+
+    store_type = type(store)
+    with _WARNED_LEGACY_REPLAY_STORE_TYPES_LOCK:
+        should_warn = store_type not in _WARNED_LEGACY_REPLAY_STORE_TYPES
+        _WARNED_LEGACY_REPLAY_STORE_TYPES.add(store_type)
+    if should_warn:
+        warnings.warn(
+            "ReplayStore does not implement atomic claim(); falling back to the "
+            "legacy seen()/remember() sequence, which cannot prevent concurrent "
+            "replays. Implement claim() before this compatibility path is removed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    if store.seen(keyid, nonce):
+        return "replayed"
+    if store.at_capacity(keyid):
+        return "capacity"
+    retained = store.remember(keyid, nonce, ttl_seconds)
+    if retained is False:
+        return "capacity"
+    # Legacy implementations cannot report a refused write. Verify that the
+    # nonce was retained so a silent cap drop fails closed rather than opening
+    # a replay window.
+    if not store.seen(keyid, nonce):
+        return "capacity"
+    return "claimed"
+
+
+def _precheck_presence(
+    *,
+    sig_input_raw: str | None,
+    sig_raw: str | None,
+    operation: str,
+    required_for: frozenset[str],
+) -> None:
+    if sig_input_raw is None and sig_raw is None:
+        if operation in required_for:
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_REQUIRED,
+                step=0,
+                message=f"operation {operation!r} requires a signature",
+            )
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_REQUIRED,
+            step=0,
+            message="no signature headers on request",
+        )
+    if (sig_input_raw is None) != (sig_raw is None):
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_HEADER_MALFORMED,
+            step=1,
+            message="Signature and Signature-Input must both be present",
+        )
+
+
+def _check_params_present(params: Mapping[str, Any]) -> None:
+    missing = [p for p in REQUIRED_PARAMS if p not in params]
+    if missing:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_PARAMS_INCOMPLETE,
+            step=2,
+            message=f"missing required signature params: {missing}",
+        )
+    for name in _INT_PARAMS:
+        if not isinstance(params[name], int) or isinstance(params[name], bool):
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_HEADER_MALFORMED,
+                step=2,
+                message=f"param {name!r} must be an integer, got {type(params[name]).__name__}",
+            )
+    for name in _STR_PARAMS:
+        if not isinstance(params[name], str):
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_HEADER_MALFORMED,
+                step=2,
+                message=f"param {name!r} must be a string, got {type(params[name]).__name__}",
+            )
+
+
+def _check_tag(params: Mapping[str, Any], expected_tag: str) -> None:
+    if str(params.get("tag")) != expected_tag:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_TAG_INVALID,
+            step=3,
+            message=f"tag {params.get('tag')!r} != expected {expected_tag!r}",
+        )
+
+
+def _check_alg(params: Mapping[str, Any], allowed_algs: frozenset[str]) -> None:
+    if str(params.get("alg")) not in allowed_algs:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_ALG_NOT_ALLOWED,
+            step=4,
+            message=f"alg {params.get('alg')!r} not in allowlist {sorted(allowed_algs)}",
+        )
+
+
+def _check_window(params: Mapping[str, Any], *, now: float, max_skew: int, max_window: int) -> None:
+    created = int(params["created"])
+    expires = int(params["expires"])
+    if expires <= created:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_WINDOW_INVALID,
+            step=5,
+            message=f"expires {expires} must be greater than created {created}",
+        )
+    if expires - created > max_window:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_WINDOW_INVALID,
+            step=5,
+            message=f"window {expires - created}s exceeds max {max_window}s",
+        )
+    if now < created - max_skew:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_WINDOW_INVALID,
+            step=5,
+            message=f"signature not yet valid (now={now}, created={created})",
+        )
+    if now > expires + max_skew:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_WINDOW_INVALID,
+            step=5,
+            message=f"signature expired (now={now}, expires={expires})",
+        )
+
+
+def _check_components(
+    components: tuple[str, ...],
+    *,
+    headers: Mapping[str, str],
+    body: bytes,
+    policy: CoversDigestPolicy,
+) -> None:
+    if len(components) != len(set(components)):
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED,
+            step=6,
+            message=f"duplicate covered components: {components}",
+        )
+    component_set = set(components)
+    for required in REQUIRED_COMPONENTS:
+        if required not in component_set:
+            raise SignatureVerificationError(
+                REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE,
+                step=6,
+                message=f"required covered component missing: {required}",
+            )
+    if _lookup(headers, "content-type") is not None and "content-type" not in component_set:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE,
+            step=6,
+            message="content-type header present but not covered",
+        )
+    digest_covered = "content-digest" in component_set
+    if policy == "required" and not digest_covered:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE,
+            step=6,
+            message="verifier requires content-digest coverage",
+        )
+    if policy == "forbidden" and digest_covered:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED,
+            step=6,
+            message="verifier forbids content-digest coverage",
+        )
+
+
+def _maybe_check_key_origin(
+    *,
+    resolver: JwksResolver,
+    expected_key_origins: Mapping[str, str] | None,
+    signing_purpose: str,
+    posture: str | None,
+) -> None:
+    """Run the ADCP #3690 step 7 ``identity.key_origins`` check when
+    the resolver sourced its keys from brand.json.
+
+    Resolver contract (duck-typed; conformance is also surfaced by
+    :class:`adcp.signing.BrandSourcedJwksResolver`):
+
+    * ``jwks_source``: ``"brand_json"`` and legacy ``"publisher_pin"``
+      engage the check; any other
+      value (or absence) skips it. Absence is treated as "skip" so
+      legacy :class:`JwksResolver` implementations that predate this
+      attribute keep working without behavior change.
+    * ``jwks_uri``: the resolved JWKS URI whose host is canonicalized
+      and compared against the declared origin. Required when the
+      resolver advertises ``jwks_source == "brand_json"``; a brand-json
+      resolver that doesn't expose ``jwks_uri`` is misconfigured —
+      we fail closed via the mismatch path (``actual_origin`` becomes
+      ``None``).
+
+    Missing declarations fail closed:
+
+    * ``expected_key_origins is None`` means no capabilities declaration was
+      supplied and retains the schema's shared-origin compatibility posture.
+      An explicit empty map means capabilities were observed without the
+      required purpose and fails closed.
+    * ``expected_key_origins`` set + resolver has no ``jwks_source``:
+      adopter upgraded the SDK but their custom resolver predates the
+      discriminant. ``DeprecationWarning`` — set
+      ``jwks_source = "brand_json"`` on the resolver class (or
+      conform to :class:`BrandSourcedJwksResolver`) to engage the
+      spec defense; without it the SDK silently downgrades to no-check.
+    """
+    source = getattr(resolver, "jwks_source", None)
+    if expected_key_origins is None:
+        return
+    if source not in {"brand_json", "publisher_pin"}:
+        if source is None:
+            warnings.warn(
+                "VerifyOptions supplied expected_key_origins but the JWKS "
+                "resolver has no jwks_source attribute. The "
+                "identity.key_origins consistency check is silently skipped "
+                "on this path (back-compat for pre-#776 resolvers). Set "
+                "jwks_source='brand_json' on the resolver class (or conform "
+                "to adcp.signing.BrandSourcedJwksResolver) to engage the "
+                "ADCP #3690 step 7 defense.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return
+    jwks_uri = getattr(resolver, "jwks_uri", None)
+    if not jwks_uri:
+        # A brand-json resolver that hasn't populated ``jwks_uri`` (cold
+        # cache + failed refresh, or a misconfigured custom resolver) is
+        # a resolver-side I/O failure, not a key-origin mismatch — the
+        # verifier has no resolved host to compare. Surface as
+        # ``REQUEST_SIGNATURE_JWKS_UNAVAILABLE`` so dashboards aggregate
+        # this cold-cache shape with other resolver-fetch failures
+        # rather than with adversarial origin-mismatch traffic.
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_JWKS_UNAVAILABLE,
+            step=7,
+            message=(
+                "brand-json resolver did not populate jwks_uri (cold cache "
+                "or misconfigured resolver); key_origins consistency check "
+                "cannot proceed without a resolved host to compare against "
+                f"identity.key_origins.{signing_purpose}"
+            ),
+            detail={"purpose": signing_purpose},
+        )
+    check_key_origin_consistency(
+        jwks_uri=jwks_uri,
+        key_origins=expected_key_origins or {},
+        purpose=signing_purpose,
+        posture=posture,
+    )
+    for purpose in expected_key_origins:
+        if purpose != signing_purpose:
+            check_key_origin_consistency(
+                jwks_uri=jwks_uri,
+                key_origins=expected_key_origins,
+                purpose=purpose,
+            )
+
+
+def _check_key_purpose(
+    jwk: Mapping[str, Any],
+    alg: str,
+    *,
+    expected_adcp_use: str,
+    accepted_adcp_uses: frozenset[str] = frozenset(),
+) -> None:
+    if jwk.get("use") != "sig":
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+            step=8,
+            message=f"JWK.use {jwk.get('use')!r} != 'sig'",
+        )
+    key_ops = jwk.get("key_ops")
+    if not isinstance(key_ops, (list, tuple)) or "verify" not in key_ops:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+            step=8,
+            message=f"JWK.key_ops {key_ops!r} missing 'verify'",
+        )
+    allowed_adcp_uses = accepted_adcp_uses or frozenset({expected_adcp_use})
+    if jwk.get("adcp_use") not in allowed_adcp_uses:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+            step=8,
+            message=(
+                f"JWK.adcp_use {jwk.get('adcp_use')!r} not in " f"{sorted(allowed_adcp_uses)!r}"
+            ),
+        )
+    try:
+        jwk_alg = alg_for_jwk(dict(jwk))
+    except ValueError as exc:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+            step=8,
+            message=f"JWK alg cannot be derived: {exc}",
+        ) from exc
+    if jwk_alg != alg:
+        raise SignatureVerificationError(
+            REQUEST_SIGNATURE_KEY_PURPOSE_INVALID,
+            step=8,
+            message=f"JWK alg {jwk_alg!r} does not match signature alg {alg!r}",
+        )
+
+
+__all__ = [
+    "ALG_ED25519",
+    "ALG_ES256",
+    "ALLOWED_ALGS",
+    "CoversDigestPolicy",
+    "JwksResolver",
+    "RequestBodyMalformedError",
+    "SigningProfileVersion",
+    "VerifiedSigner",
+    "VerifierCapability",
+    "VerifyOptions",
+    "strict_header_precheck",
+    "verify_request_signature",
+]

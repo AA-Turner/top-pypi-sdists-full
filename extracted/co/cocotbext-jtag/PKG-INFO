@@ -1,0 +1,177 @@
+Metadata-Version: 2.1
+Name: cocotbext_jtag
+Version: 0.4.0
+Summary: jtag modules for cocotb
+Home-page: https://github.com/daxzio/cocotbext-jtag
+Download-URL: https://github.com/daxzio/cocotbext-jtag/tarball/master
+Author: Dave Keeshan
+Author-email: dave.keeshan@daxzio.com
+License: MIT
+Project-URL: Bug Tracker, https://github.com/daxzio/cocotbext-jtag/issues
+Project-URL: Source Code, https://github.com/daxzio/cocotbext-jtag
+Keywords: jtag,cocotb
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: cocotb
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: test
+
+# JTAG interface modules for Cocotb
+
+[![Build Status](https://github.com/daxzio/cocotbext-jtag/actions/workflows/test_checkin.yml/badge.svg?branch=main)](https://github.com/daxzio/cocotbext-jtag/actions/)
+[![codecov](https://codecov.io/gh/daxzio/cocotbext-jtag/branch/main/graph/badge.svg)](https://codecov.io/gh/daxzio/cocotbext-jtag)
+[![PyPI version](https://badge.fury.io/py/cocotbext-jtag.svg)](https://pypi.org/project/cocotbext-jtag)
+[![Downloads](https://pepy.tech/badge/cocotbext-jtag)](https://pepy.tech/project/cocotbext-jtag)
+
+GitHub repository: https://github.com/daxzio/cocotbext-jtag
+
+## Introduction
+
+JTAG simulation models for [cocotb](https://github.com/cocotb/cocotb).
+
+## Installation
+
+Installation from pip (release version, stable):
+
+    $ pip install cocotbext-jtag
+
+Installation from git (latest development version, potentially unstable):
+
+    $ pip install https://github.com/daxzio/cocotbext-jtag/archive/main.zip
+
+Installation for active development:
+
+    $ git clone https://github.com/daxzio/cocotbext-jtag
+    $ pip install -e cocotbext-jtag
+
+## Documentation and usage examples
+
+See the `tests` directory for complete testbenches using these modules.
+
+### OpenOCD socket test (local)
+
+To run the test where OpenOCD connects to the cocotb JTAG socket (remote bitbang):
+
+1. **Prerequisites**: Icarus Verilog, OpenOCD, Python deps:
+   ```bash
+   pip install -r requirements.txt
+   pip install -e .
+   # Optional: sudo apt-get install openocd   # for full automated test
+   ```
+
+2. **Full test** (sim in background, then OpenOCD):
+   ```bash
+   ./run_openocd_socket_test.sh
+   ```
+
+3. **Sim only** (you run OpenOCD in another terminal):
+   ```bash
+   ./run_openocd_socket_test.sh --sim-only
+   # In another terminal:
+   cd tests/test_socket && openocd -f openocd_remote_bitbang.cfg -c "init; exit"
+   ```
+
+### JTAG Bus
+
+The `JTAGBus` is used to map to a JTAG interface on the `dut`.  These hold instances of bus objects for the individual channels, which are currently extensions of `cocotb_bus.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal default name matching.
+
+#### Required:
+* _tck_
+* _tms_
+* _tdi_
+* _tdo_
+
+#### Optional:
+* _trst_
+
+### JTAG Driver
+
+The `JTAGDriver` class implements a JTAG driver and is capable of generating read and write operations against JTAG devices, either singularly or in a chain.
+
+To use these modules, import the one you need and connect it to the DUT:
+
+    from cocotbext.jtag import JTAGDriver, JTAGBus, JTAGDevice
+
+    bus = JTAGBus(dut)
+    jtag_driver = JTAGDriver(bus)
+    jtag_driver.add_device(JTAGDevice())
+
+The first argument to the constructor accepts an `JTAGBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
+
+Once the module is instantiated, read and write operations can be initiated in a couple of different ways.
+
+
+#### Additional optional arguments for `JTAGDriver`
+
+* _period_: Clock frequency period of `tck`, default `100`
+* _units_: Clock units, default `ns`
+* _logging_enabled_: Logging enable, default `True`
+
+#### Methods
+
+
+* `add_device(device)`: Add device to jtag chain, must be of type `JTAGDevice`
+* `set_reset(num)`: Reset for _num_ if _trst_ is present in `JTAGBus`, raise warning if _trst_ is not present
+* `reset_finished()`: Async wait until reset is finished
+* `reset_fsm()`: Send 5 _tck_ pulses while _tms_ is held high in `JTAGBus`, this resets the finite state machine inside a JTAG TAP
+* `send_val(addr, val, device, write)`: Send _addr_ to _device_ (default: `0`). The _val_ is used to write if _write_ is True or verify against if _write_ is False
+* `write(addr, val, device=0)`: Write _val_ to _addr_ of _device_ (default: `0`).
+* `read(addr, val=None, device=0)`: Read from _addr_ of _device_ (default: `0`). If _val_ present verify against returned value.
+* `read_idcode(device=0, retry=0)`: Read the IDCODE register for _device_ and check it against the value configured on that device’s `JTAGDevice`. With `retry=0` (default), a single read is performed. With a positive `retry`, the driver may repeat an IDCODE shift and TAP reset until the captured value matches or the attempt limit is reached (see below).
+* `capture_ir()`: Return the Instruction Register value captured during the most recent IR shift operation
+* `capture_dr()`: Return the Data Register value captured during the most recent DR shift operation
+
+#### IDCODE retries (`read_idcode(..., retry=N)`)
+
+Use a positive `retry` when the first IDCODE read after reset or bring-up is unreliable. That often happens when the TAP or chain needs a few cycles to settle: power-on, asynchronous reset release, clock-domain crossing into the JTAG logic, or simulator startup ordering can produce a wrong or unknown value on the first DR capture even though the DUT is otherwise correct.
+
+With a positive `retry`, the driver repeatedly loads the IDCODE instruction, captures the DR, compares the result to the expected `idcode` on the active `JTAGDevice`, and runs a short TAP reset between attempts. If a match is found before the limit, it continues with a normal verified read; if not, it raises after `N` failed attempts. When the TAP is already stable, keep the default `retry=0` to avoid extra cycles.
+
+
+### JTAG Device
+
+`JTAGDriver` needs to be told what devices are in the JTAG chain it is communicating with inside the `dut`. A `JTAGDevice` needs to be defined for this purpose or a device that inherits from this base class.
+
+A `JTAGDevice` needs a _name_, _idcode_ and _ir_len_.  It also needs to have the IR Register map defined and the width of the register.  'BYPASS' is prepopulated in the base class at last address in the IRLEN address map.
+
+First inherit from the base class, and then add all the other IR registers using the _add_jtag_reg_ method.
+
+
+    from cocotbext.jtag import JTAGDevice
+
+    class J1JTAGDevice(JTAGDevice):
+        def __init__(self, name='jtaglet1', idcode=0x53817905, ir_len=5):
+            super().__init__(name, idcode, ir_len)
+            self.add_jtag_reg("IDCODE", 32, 0x1e)
+            self.add_jtag_reg('USERDATA', 32, 0x8)
+            self.add_jtag_reg('USEROP', 8, 0x9)
+            self.idle_delay = 6
+
+* `add_jtag_reg(name, width, address)`: Add an IR register to `JTAGDevice`. _name_ is a string, _width_ is the DR shift width of the register and the address, which should be within the range of the _ir_len_ of `JTAGDevice`
+
+
+This results in a `JTAGDevice` that has 4 IR register defined:
+
+
+    0x08: USERDATA[31:0]
+    0x09: USEROP[7:0]
+    0x1e: IDCODE[31:0]
+    0x1f: BYPASS[0:0]
+
+
+Multiple devices inside the JTAG chain:
+
+    from cocotbext.jtag import JTAGDriver
+    from cocotbext.jtag import JTAGBus
+
+    class testbench:
+        def __init__(self, dut):
+            bus = JTAGBus(dut)
+            self.jtag = JTAGDriver(bus)
+            self.jtag.add_device(J1JTAGDevice())
+            self.jtag.add_device(J2JTAGDevice())

@@ -1,0 +1,2335 @@
+"""Tests for self_improve_signals.py (shared strict + broad learning-signal patterns).
+
+All content is ASCII.
+"""
+
+import importlib.util
+import sys
+import json
+import os
+import threading
+import time
+from pathlib import Path
+
+import pytest
+
+import self_improve_signals as S
+
+
+def test_strict_user_hit():
+    assert S.strict_user_hit("no, that's wrong, the path is /etc")
+    assert S.strict_user_hit("from now on always run the tests")
+    assert S.strict_user_hit("good idea, let's do that")  # endorsement counts
+    assert S.strict_user_hit("rather than hardcoding it, load it from config")  # directive, like "instead of"
+    assert S.strict_user_hit("anstatt das zu hardcoden, lies es aus der config")  # German
+    assert not S.strict_user_hit("please add a function to sum a list")
+
+
+def test_strict_asst_hit():
+    assert S.strict_asst_hit("You're right, my mistake.")
+    assert S.strict_asst_hit("Now I understand the real topology.")
+    assert S.strict_asst_hit("Good call - the gate belongs first.")  # endorsement counts
+    assert not S.strict_asst_hit("Done, added the helper and a test.")
+
+
+def test_strict_asst_hit_past_tense_admission():
+    # regression: the gate used to miss PAST-tense "you were right" and noun-form / "misdiagnosed"
+    # self-admissions (only "you're right" and the verb "i misread" were caught).
+    assert S.strict_asst_hit("You were right; my earlier claim was a misread of the config.")
+    assert S.strict_asst_hit("you were correct")
+    assert S.strict_asst_hit("I misdiagnosed the DHCP scope - no change was needed.")
+    # benign lines that describe state (not an admission) must NOT fire
+    assert not S.strict_asst_hit("the new value is correct and the test passes")
+    assert not S.strict_asst_hit("the old config was fine")
+
+
+def test_strict_asst_hit_found_it_discovery():
+    # "found it" and discovery phrasings are realization signals
+    assert S.strict_asst_hit("Found it - the bug was in the parser.")
+    assert S.strict_asst_hit("I found the root cause: a stale cache.")
+    assert S.strict_asst_hit("found out why it hangs on reboot")
+    assert S.strict_asst_hit("the culprit is the iptables backend")
+    assert S.strict_asst_hit("Ursache gefunden: falscher Interpreter.")  # German
+    # negatives: a NOT-found phrasing must not trip the strict gate
+    assert not S.strict_asst_hit("I haven't found it yet.")
+    assert not S.strict_asst_hit("could not find it anywhere")
+
+
+def test_realization_noun_phrase_needs_a_predicate_not_a_report_label():
+    # A genuine mid-work realization asserts a predicate on the noun phrase -> fires.
+    assert S.strict_asst_hit("the real cause is the stale venv")
+    assert S.strict_asst_hit("the key insight was a race condition")
+    assert S.strict_asst_hit("the actual problem turned out to be the PATH")
+    # A fix REPORT label ("the real cause: ...") is retrospective - a report of an already-shipped
+    # fix, not a fresh uncaptured learning - so it must NOT trip the live Stop block. Reproduced
+    # false-positive: a shipped-fix report "The real cause: the SubagentStop capture ..." blocked stop.
+    assert not S.strict_asst_hit("The real cause: the SubagentStop capture scanned user messages.")
+    assert not S.strict_asst_hit("the real problem: an unbounded queue")
+    # the STRONG realization alternatives still fire regardless of the noun-phrase tightening
+    assert S.strict_asst_hit("now I understand the real topology")
+    assert S.strict_asst_hit("found it - the cause was a race")
+    assert S.strict_asst_hit("the culprit is the iptables backend")
+
+
+def test_broad_user_flags_near_miss_not_caught_by_strict():
+    text = "why did you change that? it's not working again"
+    assert S.broad_matches("user", text)          # broad flags it
+    assert not S.strict_user_hit(text)            # strict misses it -> a candidate
+
+
+def test_strict_asst_hit_guard_blocked_named():
+    # a guard/hook blocking the assistant is a self-admitted miss - including a NAMED guard, in either order
+    assert S.strict_asst_hit("The gate blocked me - origin is ahead.")
+    assert S.strict_asst_hit("My commit was rejected by the repo-gate hook.")
+    assert S.strict_asst_hit("the venv-guard hook flagged my command")
+    assert S.strict_asst_hit("blocked by a pre-commit hook")
+    assert not S.strict_asst_hit("the gateway blocked the request")     # 'gateway' is not 'gate'
+    assert not S.strict_asst_hit("I refactored the guard clause for clarity")  # no verb adjacent
+
+
+def test_strict_asst_hit_blocked_on_a_guard_is_not_a_guard_blocking_me():
+    # "blocked ON x" is waiting for x; only "blocked BY a guard" is the guard acting on me.
+    # Measured 2026-09-02: summarising a backlog whose SUBJECT is a guard fired the live gate.
+    assert not S.strict_asst_hit(
+        "The other nine are found-items nobody is blocked on: the containment guard "
+        "being a substring check rather than a sandbox"
+    )
+    assert not S.strict_asst_hit("rank 30 is blocked on the guard question")
+    # the passive that names the actor must still fire, in both word orders
+    assert S.strict_asst_hit("the push was stopped by the repo gate")
+    assert S.strict_asst_hit("the repo gate stopped my push")
+
+
+def test_strict_asst_hit_hindsight_miss():
+    # "I should have ..." and sibling hindsight admissions are STRICT live-gate signals
+    assert S.strict_asst_hit("I should have run the tests first.")
+    assert S.strict_asst_hit("I should've pinned the version.")
+    assert S.strict_asst_hit("I missed the edge case in the parser.")
+    assert S.strict_asst_hit("In hindsight, the guard order was wrong.")
+    assert S.strict_asst_hit("I didn't realize the venv was stale.")
+    assert not S.strict_asst_hit("You should have the latest version.")  # 'you should', not a self-admission
+
+
+def test_broad_assistant_flags_near_miss():
+    text = "let me reconsider the approach here"   # broad-only: not an explicit admission
+    assert S.broad_matches("assistant", text)
+    assert not S.strict_asst_hit(text)
+
+
+def test_broad_flags_midcourse_inspection_not_strict():
+    # a mid-course pause is a premature precursor: an audit candidate, NEVER a live-gate trigger
+    for text in ("let me stop and inspect the diff",
+                 "let me double-check the config",
+                 "let me inspect what actually happened"):
+        assert S.broad_matches("assistant", text), text   # surfaced for next-session review
+        assert not S.strict_asst_hit(text), text           # but NOT an immediate nudge
+
+
+def test_strict_asst_hit_forward_commitment():
+    # committing to a standing behaviour / rule going forward is a confirmed adoption -> live gate
+    assert S.strict_asst_hit("Going forward I'll fix every sibling at once.")
+    assert S.strict_asst_hit("From now on I'll apply the rule.")
+    assert S.strict_asst_hit("Next time I'll check the siblings.")
+    assert S.strict_asst_hit("I'll make sure to fix the sibling too.")
+    assert S.strict_asst_hit("I'll remember to update the changelog.")
+    assert not S.strict_asst_hit("going forward is the next step")  # no commitment ("I'll")
+
+
+def test_broad_flags_rule_citation_not_strict():
+    # the real forgotten-rule case: the assistant cites a rule it had overlooked. The citation is a
+    # judgement-call signal (sometimes a miss, sometimes routine) -> audit candidate, not a live nudge.
+    msg = ('Understood - media likely shares the same generator and bugs; I\'ll fix it there too '
+           '(per the "fix a shared bug in every sibling at once" rule). Let me confirm the fix first.')
+    assert S.broad_matches("assistant", msg)        # surfaced for next-session review
+    assert not S.strict_asst_hit(msg)               # not an immediate nudge
+    assert S.broad_matches("assistant", "following the pathfinder convention here")
+
+
+def test_broad_quiet_on_neutral_turns():
+    assert S.broad_matches("user", "thanks, ship it") == []
+    assert S.broad_matches("assistant", "Done, added the helper function.") == []
+
+
+# A request to re-check a claim just made challenges it: the 2026-09-11 text below found a real
+# exec-bit loss in files the assistant had called harmless churn, and neither set saw it.
+@pytest.mark.parametrize("text", [
+    "--> check, correct if neccessary, and push",          # the real text, misspelling included
+    "check, correct if necessary",
+    "check and correct",
+    "verify and fix if needed",
+    "double-check it and fix",
+    "fix it if required",
+    "bitte prüfen und korrigieren",
+    "korrigiere falls nötig",
+])
+def test_broad_user_flags_a_request_to_recheck_and_correct(text):
+    assert S.broad_matches("user", text), text
+    assert S.user_signal_offset(text) is not None
+
+
+@pytest.mark.parametrize("head, quoted, tail", [
+    ("my ", '"That was wrong"', " correction"),
+    ("run ", "`x self-match`", " now"),
+    ("a ", "\u201cfound it\u201d", " line"),
+    ("the ", "'my mistake'", " quote"),
+    ("before\n", "```py\nI was wrong\n```", "\nafter"),
+])
+def test_unquoted_blanks_quoted_spans_and_keeps_offsets(head, quoted, tail):
+    assert S.unquoted(head + quoted + tail) == head + " " * len(quoted) + tail
+
+
+def test_unquoted_leaves_apostrophes_alone():
+    text = "you're right, the users' files and it's fine"
+    assert S.unquoted(text) == text
+
+
+def test_unquoted_leaves_an_unclosed_quote_alone():
+    text = 'I was wrong about "the cache\nand the rest'
+    assert S.unquoted(text) == text
+
+
+@pytest.mark.parametrize("text", ["a  \n b", "  lead", "x\t\ty z", "", "one"])
+def test_collapsed_offset_lands_on_the_same_character(text):
+    collapsed = " ".join(text.split())
+    for i, ch in enumerate(text):
+        if not ch.isspace():
+            assert collapsed[S.collapsed_offset(text, i)] == ch
+
+
+def test_asst_said_offset_skips_a_quoted_admission_inside_a_fenced_block():
+    """A fenced block is only recognisable before whitespace is collapsed, so the quoted spans are
+    blanked on the raw text and the offset carried over to the collapsed form."""
+    text = "Log:\n```\nI was wrong\n```\n" + "padding " * 30 + "\nMy mistake: the venv."
+    collapsed = " ".join(text.split())
+    assert collapsed[S.asst_said_offset(text):].startswith("My mistake")
+
+
+def test_asst_said_offset_falls_back_to_a_quoted_match_when_nothing_else_matches():
+    text = 'The note says "my mistake" and nothing more.'
+    assert text[S.asst_said_offset(text):].startswith("my mistake")
+    assert S.asst_said_offset("nothing to see") is None
+
+
+@pytest.mark.parametrize("text", [
+    "check the logs please",
+    "the correct value is 3",
+    "check it and push",
+    "fix the typo in line 3",
+    "if necessary, add a test",
+])
+def test_broad_user_stays_quiet_on_check_or_fix_alone(text):
+    assert S.broad_matches("user", text) == [], text
+
+
+def test_broad_matches_returns_sorted_lowercase_unique():
+    m = S.broad_matches("assistant", "Wait, I missed it. I missed it again.")
+    assert m == sorted(set(m))
+    assert all(x == x.lower() for x in m)
+
+
+def test_audit_file_path_is_deterministic():
+    p1 = S.audit_file("/some/project")
+    p2 = S.audit_file("/some/project")
+    assert p1 == p2
+    assert p1.suffix == ".md"
+    assert "self-improve-audit" in str(p1)
+    assert S.audit_file("/other/project") != p1
+
+
+# --------------------------------------------------------------------------
+# meta-dream-tree cadence markers + mode
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    h = tmp_path / "home"
+    (h / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(h))
+    monkeypatch.setenv("USERPROFILE", str(h))
+    return h
+
+
+def _mem(home, proj="/p/x"):
+    d = S.memory_dir(proj)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "a.md").write_text("x", encoding="utf-8")
+    return d
+
+
+def test_dream_mode_default(home):
+    assert S.dream_mode("/p/x") == "propose"
+
+
+def test_dream_mode_off(home):
+    S.save_config({"dream_mode": "off"})
+    assert S.dream_mode("/p/x") == "off"
+
+
+def test_dream_mode_auto(home):
+    S.save_config({"dream_mode": "auto"})
+    assert S.dream_mode("/p/x") == "auto"
+
+
+def test_dream_due_no_memory(home):
+    assert S.dream_due("/p/x") is False
+
+
+def test_dream_due_memory_no_marker(home):
+    _mem(home)
+    assert S.dream_due("/p/x") is True
+
+
+def test_dream_due_recent_not_due(home):
+    _mem(home)
+    S.mark_dream_done("/p/x")  # last == now
+    assert S.dream_due("/p/x") is False
+
+
+def test_dream_due_old_and_changed(home):
+    _mem(home)
+    f = S.last_dream_file("/p/x")
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("1000.0", encoding="utf-8")  # ancient last-dream
+    assert S.dream_due("/p/x", now=10_000_000_000) is True
+
+
+def test_dream_due_off_mode_never(home):
+    _mem(home)
+    S.save_config({"dream_mode": "off"})
+    assert S.dream_due("/p/x") is False
+
+
+def test_mark_dream_done_writes_timestamp_and_signature(home):
+    assert S.mark_dream_done("/p/x", now=123.0) is True
+    ts, sig = S._read_dream_record("/p/x")
+    assert ts == 123.0 and isinstance(sig, str)   # new format: JSON {ts, sig}
+
+
+def test_dream_due_signature_based_not_mtime(home, tmp_path):
+    # a real fact makes it due; after mark_dream_done (records the signature) it is quiet; a mere
+    # scope-only pointer block does NOT re-trigger (no fact changed). Facts are the pointer LINES in the
+    # level's CLAUDE.local.md.
+    proj = str(tmp_path / "sigproj")
+    (tmp_path / "sigproj").mkdir(parents=True, exist_ok=True)
+    later = 1000.0 + 10 * 86400
+    S.mark_dream_done(proj, now=1000.0)                          # no facts -> quiet baseline
+    assert S.dream_due(proj, now=later) is False                 # still no facts
+    local = S.claude_local_md_path(proj)
+    local.write_text("<!-- BITRANOX-UUID-INDEX:BEGIN -->\n%s\nscope only\n%s\n\n# Memory index\n"
+                     "<!-- BITRANOX-UUID-INDEX:END -->\n"
+                     % (S.SCOPE_MARK_BEGIN, S.SCOPE_MARK_END), encoding="utf-8")
+    assert S.dream_due(proj, now=later) is False                 # scope-only -> no real fact
+    local.write_text("<!-- BITRANOX-UUID-INDEX:BEGIN -->\n%s\nscope\n%s\n\n# Memory index\n\n"
+                     "- [X](uuid:11111111-0000-5000-8000-000000000000) - a real fact <!-- bx:slug=x -->\n"
+                     "<!-- BITRANOX-UUID-INDEX:END -->\n"
+                     % (S.SCOPE_MARK_BEGIN, S.SCOPE_MARK_END), encoding="utf-8")
+    assert S.dream_due(proj, now=later) is True                  # a real fact appeared -> due
+
+
+# --------------------------------------------------------------------------
+# machine-local config (informed-consent knobs)
+# --------------------------------------------------------------------------
+
+
+def test_load_config_defaults(home):
+    cfg = S.load_config()
+    assert cfg == S.DEFAULT_CONFIG
+    assert cfg["dream_mode"] == "propose"
+
+
+def test_config_file_sets_dream_mode(home):
+    S.save_config({"dream_mode": "off"})
+    assert S.load_config()["dream_mode"] == "off"
+    assert S.dream_mode("/p/x") == "off"
+
+
+def test_save_config_roundtrip_and_ignores_unknown(home):
+    saved = S.save_config({"privacy": "walled", "promotion": "eager", "bogus": 1})
+    assert saved["privacy"] == "walled" and saved["promotion"] == "eager"
+    assert "bogus" not in saved
+    reloaded = S.load_config()
+    assert reloaded["privacy"] == "walled" and reloaded["promotion"] == "eager"
+    assert "bogus" not in reloaded
+
+
+def test_load_config_corrupt_file_returns_defaults(home):
+    S._config_path().write_text("{not json", encoding="utf-8")
+    assert S.load_config()["dream_mode"] == "propose"
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0,
+                    reason="a write-only file is readable to root, and chmod does not bind on Windows")
+def test_save_config_never_overwrites_a_config_it_could_not_read(home):
+    """load_config answers the DEFAULTS for an unreadable file, which is right for a reader; the
+    save built on it then replaced every knob the user had set with its default."""
+    p = S._config_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"dream_mode": "off", "promotion": "eager"}), encoding="utf-8")
+    p.chmod(0o200)                                          # writable, not readable
+    try:
+        with pytest.raises(OSError):
+            S.save_config({"privacy": "walled"}, strict=True)
+        S.save_config({"privacy": "walled"})               # best-effort: no raise, no write
+    finally:
+        p.chmod(0o644)
+    assert json.loads(p.read_text(encoding="utf-8")) == {"dream_mode": "off", "promotion": "eager"}
+
+
+UNPARSEABLE_CONFIGS = [
+    b'{"dream_mode":"off","note":"caf\xe9"}',                     # cp1252 byte, not UTF-8
+    b"\xff\xfe" + '{"dream_mode":"off"}'.encode("utf-16-le"),     # PowerShell UTF-16
+    b'{"dream_mode":"off",}',                                     # hand-edit, trailing comma
+    b'["dream_mode", "off"]',                                     # JSON, but not an object
+]
+
+
+@pytest.mark.parametrize("raw", UNPARSEABLE_CONFIGS)
+def test_save_config_never_writes_over_a_config_it_could_not_parse(home, raw):
+    """load_config answers the defaults for a config it can read but not parse, so a save built
+    on that answer wrote the defaults over every choice the file still held. Only the settings
+    CLI guarded against it; any other caller - a hook - would have clobbered the file."""
+    p = S._config_path()
+    p.write_bytes(raw)
+    assert S.save_config({"privacy": "walled"})["privacy"] == "walled"   # best-effort: no raise
+    with pytest.raises(OSError):
+        S.save_config({"privacy": "walled"}, strict=True)
+    assert p.read_bytes() == raw
+
+
+def test_save_config_still_writes_over_a_parseable_config(home):
+    """Control: a BOM-prefixed UTF-8 object is a readable config and is updated in place."""
+    p = S._config_path()
+    p.write_bytes(b'\xef\xbb\xbf{"dream_mode": "off"}')
+    S.save_config({"privacy": "walled"}, strict=True)
+    got = json.loads(p.read_text(encoding="utf-8"))
+    assert got["dream_mode"] == "off" and got["privacy"] == "walled"
+
+
+# --------------------------------------------------------------------------
+# altitude homes
+# --------------------------------------------------------------------------
+
+
+def test_topmost_claude_md_dir(tmp_path):
+    top = tmp_path / "top"
+    mid = top / "mid"
+    proj = mid / "proj"
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("x", encoding="utf-8")       # highest
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")      # nearer, but not the highest
+    assert S.topmost_claude_md_dir(str(proj)) == top            # HIGHEST wins over the nearer one (bootstrap: no store)
+    assert S.topmost_claude_md_dir(str(tmp_path / "none")) is None
+
+
+def test_topmost_claude_md_dir_store_colocation_beats_stray_higher_md(tmp_path):
+    # a STRAY higher CLAUDE.md (no store) must NOT hijack the anchor: the topmost dir with BOTH a
+    # CLAUDE.md AND a store wins (the probe-caught fragility).
+    stray = tmp_path / "stray"            # higher, CLAUDE.md ONLY -> the hijack risk
+    real = stray / "real"                 # the true anchor: CLAUDE.md + store
+    proj = real / "sub" / "proj"
+    proj.mkdir(parents=True)
+    (stray / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (real / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (real / S.MEMORY_DIRNAME).mkdir()
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (proj / S.MEMORY_DIRNAME).mkdir()
+    assert S.topmost_claude_md_dir(str(proj)) == real           # real (both) beats stray (md-only)
+
+
+def test_topmost_claude_md_dir_never_anchors_at_home_or_tmp(home, tmp_path):
+    # $HOME (and /tmp) are excluded as anchor candidates: a stray CLAUDE.md + store AT home must NOT be
+    # picked, even though home is the highest ancestor carrying both. The walk stops below it.
+    h = Path(os.environ["HOME"])                                 # monkeypatched by the `home` fixture
+    (h / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (h / S.MEMORY_DIRNAME).mkdir()
+    sub = h / "projects" / "foo"                                 # a real altitude below home
+    sub.mkdir(parents=True)
+    (sub / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (sub / S.MEMORY_DIRNAME).mkdir()
+    proj = sub / "deep"
+    proj.mkdir()
+    got = S.topmost_claude_md_dir(str(proj))
+    assert got == sub                                            # sub, NOT the excluded home
+    assert got != h
+
+
+def test_global_rules_dir_is_topmost_claude_md_ancestor(tmp_path):
+    top = tmp_path / "top"
+    proj = top / "a" / "b"
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("x", encoding="utf-8")
+    # global = the topmost-CLAUDE.md ancestor's LIVE central store; NEVER ~/.claude
+    assert S.global_rules_dir(str(proj)) == top / S.MEMORY_DIRNAME
+
+
+def test_global_rules_dir_falls_back_to_proj_when_no_claude_md(tmp_path):
+    proj = tmp_path / "loner"
+    proj.mkdir()
+    assert S.global_rules_dir(str(proj)) == proj / S.MEMORY_DIRNAME   # proj itself is the top
+
+
+def test_altitude_chain_up_to_topmost_no_home_duplicate(tmp_path):
+    proj = tmp_path / "repo"
+    sub = proj / "pkg"
+    sub.mkdir(parents=True)
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")      # ancestor WITH CLAUDE.md -> altitude
+    (sub / "CLAUDE.md").write_text("x", encoding="utf-8")
+    chain = S.altitude_chain(str(sub))
+    assert chain[0] == sub                              # narrowest: the project LEVEL dir
+    assert chain[-1] == proj                            # broadest == topmost level, not ~/.claude
+    assert S.global_rules_dir(str(sub)) == proj / S.MEMORY_DIRNAME
+    assert tmp_path not in chain                        # an ancestor WITHOUT CLAUDE.md is excluded
+    assert len(chain) == len({str(c) for c in chain})   # no duplicated top tier
+
+
+def test_altitude_chain_single_tier_when_no_claude_md(tmp_path):
+    proj = tmp_path / "loner"
+    proj.mkdir()
+    chain = S.altitude_chain(str(proj))
+    assert chain == [proj]                              # project is the top; nothing appended
+
+
+def test_altitude_chain_fills_gaps_up_to_highest(tmp_path):
+    top = tmp_path / "top"            # highest existing CLAUDE.md == global tier
+    mid = top / "mid"                 # GAP: no CLAUDE.md here
+    proj = mid / "proj"              # project, has CLAUDE.md
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")
+    chain = S.altitude_chain(str(proj))
+    assert proj in chain and top in chain
+    assert mid in chain                # the GAP level is INCLUDED (to be filled), not skipped
+    assert tmp_path not in chain       # above the highest existing CLAUDE.md -> excluded
+    assert (chain.index(proj) < chain.index(mid) < chain.index(top))
+    assert chain[-1] == top            # topmost is the broadest (global) LEVEL, not ~/.claude
+
+
+def test_altitude_chain_skips_dot_claude_config_and_worktree_dirs(tmp_path):
+    # A capture/heal whose cwd is inside a project's `.claude/worktrees/<wt>` must NOT turn
+    # `.claude`, `.claude/worktrees`, or the worktree dir into memory altitudes: `.claude/` is a
+    # Claude Code config dir and `worktrees/` under it is git-worktree scaffolding, never a level.
+    # (Root cause of the empty spurious altitudes heal scaffolded into semdex/.claude.)
+    top = tmp_path / "tree"
+    proj = top / "semdex"
+    wt = proj / ".claude" / "worktrees" / "wt-foo"
+    wt.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")
+    chain = S.altitude_chain(str(wt))
+    assert [c for c in chain if ".claude" in Path(c).parts] == []   # no .claude* level at all
+    assert proj in chain and top in chain                           # routes to the real project + anchor
+    assert chain[-1] == top
+
+
+# --------------------------------------------------------------------------
+# new-project seeding
+# --------------------------------------------------------------------------
+
+
+def test_project_unseeded_fresh_then_marked(home):
+    assert S.project_unseeded("/p/fresh") is True       # no memory, not nudged
+    assert S.mark_seeded("/p/fresh") is True
+    assert S.project_unseeded("/p/fresh") is False       # nudged once -> quiet
+
+
+def test_project_unseeded_false_when_memory_exists(home):
+    _mem(home, "/p/has")
+    assert S.project_unseeded("/p/has") is False
+
+
+# --------------------------------------------------------------------------
+# quality / dwell gate for global promotion
+# --------------------------------------------------------------------------
+
+
+def test_should_promote_user_stated_is_eager(home):
+    assert S.should_promote("user", 1) is True                # user rule promotes on first sight
+
+
+def test_should_promote_inferred_needs_corroboration(home):
+    assert S.should_promote("inferred", 1) is False           # one project: not yet
+    assert S.should_promote("inferred", 2) is True            # corroborated by 2 distinct projects
+    # the two sources stay distinct at the SAME dwell: only the inferred path is gated
+    assert S.should_promote("user", 1) is not S.should_promote("inferred", 1)
+
+
+def test_should_promote_eager_mode_overrides(home):
+    S.save_config({"promotion": "eager"})
+    assert S.should_promote("inferred", 1) is True            # config: promote eagerly
+
+
+def test_clear_promotion_candidate(home):
+    S.note_promotion_candidate("/p/x", "k")
+    S.clear_promotion_candidate("/p/x", "k")
+    assert S.note_promotion_candidate("/p/x", "k") == 1       # count was forgotten
+
+
+def test_note_promotion_candidate_counts_distinct_projects(home):
+    # The gate's contract is corroboration across DISTINCT PROJECTS. Repeat sightings inside ONE
+    # project are the same act of judgement re-derived - a deep crosstree fan-out re-reads the same
+    # unchanged fact bodies on every run - so they must add no evidence.
+    assert S.note_promotion_candidate("/p/a", "fleet-ssh") == 1
+    assert S.note_promotion_candidate("/p/a", "fleet-ssh") == 1   # same project: no new evidence
+    assert S.note_promotion_candidate("/p/b", "fleet-ssh") == 2   # a second project corroborates
+    assert S.note_promotion_candidate("/p/a", "other") == 1       # independent per key
+
+
+def test_many_sightings_from_one_project_stay_uncorroborated(home):
+    # 84 sightings in a single pass is the measured number that satisfied the old sighting counter.
+    for _ in range(84):
+        S.note_promotion_candidate("/p/a", "k")
+    assert S.promotion_dwell("/p/a", "k") == 1
+    assert S.should_promote("inferred", S.promotion_dwell("/p/a", "k")) is False
+
+
+def test_promotion_dwell_is_readable_from_any_project(home):
+    # A per-project store structurally cannot see another project's sighting, so the dwell is one
+    # shared property of the slug, answering the same from whichever project asks.
+    S.note_promotion_candidate("/p/a", "k")
+    S.note_promotion_candidate("/p/b", "k")
+    assert S.promotion_dwell("/p/a", "k") == 2
+    assert S.promotion_dwell("/p/b", "k") == 2
+    assert S.should_promote("inferred", S.promotion_dwell("/p/b", "k")) is True
+
+
+def test_clear_promotion_candidate_forgets_every_project(home):
+    S.note_promotion_candidate("/p/a", "k")
+    S.note_promotion_candidate("/p/b", "k")
+    S.clear_promotion_candidate("/p/a", "k")
+    # the WHOLE set goes: one leftover entry would let a single later sighting re-trip the gate
+    assert S.promotion_dwell("/p/b", "k") == 0
+    assert S.note_promotion_candidate("/p/b", "k") == 1
+
+
+def test_legacy_per_project_counter_file_reads_as_zero(home):
+    # State written before the fix is a per-project file of slug -> SIGHTING count, which is exactly
+    # the evidence this gate no longer accepts. It must fail CLOSED: never crash, and never grant a
+    # promotion by reinterpreting one project's repeat count as corroboration.
+    legacy = home / ".claude" / "self-improve-audit" / (S.proj_key("/p/a") + ".promote.json")
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(json.dumps({"k": 84}), encoding="utf-8")
+    assert S.promotion_dwell("/p/a", "k") == 0
+    assert S.note_promotion_candidate("/p/a", "k") == 1
+
+
+def test_unreadable_promotion_store_reads_as_zero(home):
+    f = S.promotion_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    for junk in ('{"k": 84}', '{"k": "a"}', "[]", "not json at all"):
+        f.write_text(junk, encoding="utf-8")
+        assert S.promotion_dwell("/p/a", "k") == 0     # unusable shape -> no corroboration
+
+
+# ---- contribution queue: the intent-to-ship must outlive the session ---------------------------
+
+def test_contribution_queue_roundtrips_and_is_per_project(home):
+    S.add_contribution("/p/x", {"what": "check-tree misses sideways refs",
+                                "target": "skill:meta-self-improve", "why": "real gap"})
+    S.add_contribution("/p/x", {"what": "rehome over-promotes", "target": "hook:reconcile"})
+    got = S.read_contributions("/p/x")
+    assert len(got) == 2 and got[0]["target"] == "skill:meta-self-improve"
+    assert got[0]["ts"] > 0                                   # stamped for age/ordering
+    assert S.read_contributions("/p/other") == []
+
+
+def test_contribution_queue_survives_reading_unlike_the_audit(home):
+    # A pending contribution is a TODO, not a review note: surfacing it must NOT consume it, or the
+    # intent dies exactly the way it does today.
+    S.add_contribution("/p/x", {"what": "a skill gap", "target": "skill:foo"})
+    assert len(S.read_contributions("/p/x")) == 1
+    assert len(S.read_contributions("/p/x")) == 1             # still there after a second read
+
+
+def test_contribution_queue_drains_only_explicitly(home):
+    S.add_contribution("/p/x", {"what": "a", "target": "skill:foo"})
+    S.add_contribution("/p/x", {"what": "b", "target": "skill:bar"})
+    S.drain_contributions("/p/x")                             # only after it actually ships
+    assert S.read_contributions("/p/x") == []
+
+
+def _queued_and_closed(proj, *whats):
+    """Queue `whats` and return (queue file, its bytes). A test closes them, then writes the
+    bytes back: the state a close leaves when its tombstones were written and the queue update
+    then failed - every entry still queued AND already closed - built from real calls only."""
+    for what in whats:
+        S.add_contribution(proj, {"what": what, "target": "skill:foo"})
+    f = S.contrib_file(proj)
+    raw = f.read_bytes()
+    return f, raw
+
+
+def test_a_drain_retried_after_a_partial_failure_tombstones_each_intent_once(home):
+    """The documented recovery for a drain that died after its tombstones: re-run it. That
+    appended a second tombstone per entry, and the duplicates ate the closed set's cap."""
+    proj = "/p/drainretry"
+    f, raw = _queued_and_closed(proj, "a", "b")
+    S.drain_contributions(proj)
+    f.write_bytes(raw)                                         # the unlink that "failed"
+    assert [r["what"] for r in S.drain_contributions(proj)] == ["a", "b"]
+    assert S.read_contributions(proj) == []
+    assert sorted(r["what"] for r in S.read_closed(proj)) == ["a", "b"]
+
+
+def test_a_single_close_retried_after_a_partial_failure_tombstones_once(home):
+    proj = "/p/shipretry"
+    f, raw = _queued_and_closed(proj, "a")
+    S.ship_contribution(proj, match="a")
+    f.write_bytes(raw)
+    S.ship_contribution(proj, match="a")
+    assert [r["what"] for r in S.read_closed(proj)] == ["a"]
+
+
+def test_duplicate_tombstones_do_not_push_older_intents_out_of_the_cap(home):
+    """Control on the cap: re-closing the same intents must not evict a DIFFERENT closed one."""
+    proj = "/p/capretry"
+    S.add_contribution(proj, {"what": "old", "target": "t"})
+    S.drop_contribution(proj, match="old", max_items=3)
+    f, raw = _queued_and_closed(proj, "a", "b")
+    S.drain_contributions(proj, max_items=3)
+    f.write_bytes(raw)
+    S.drain_contributions(proj, max_items=3)
+    assert sorted(r["what"] for r in S.read_closed(proj)) == ["a", "b", "old"]
+
+
+def test_contribution_queue_dedups_the_same_intent(home):
+    S.add_contribution("/p/x", {"what": "same thing", "target": "skill:foo"})
+    S.add_contribution("/p/x", {"what": "same thing", "target": "skill:foo"})
+    assert len(S.read_contributions("/p/x")) == 1             # re-noticing it is not a second TODO
+
+
+def test_contribution_queue_ignores_junk(home):
+    S.add_contribution("/p/x", {})                            # no 'what' -> not a contribution
+    S.add_contribution("/p/x", "not a dict")
+    assert S.read_contributions("/p/x") == []
+
+
+def test_add_contribution_takes_the_lock_so_a_concurrent_add_is_not_lost(home):
+    """Two sessions racing add_contribution's read-modify-write must not lose either record: a
+    concurrent add has to wait on the SAME lock, not race a plain read + overwrite."""
+    proj = "/p/lockrace"
+    S.add_contribution(proj, {"what": "first", "target": "a"})
+    f = S.contrib_file(proj)
+    done = threading.Event()
+
+    def add_second():
+        S.add_contribution(proj, {"what": "second", "target": "b"})
+        done.set()
+
+    with S.memory_lock(f):
+        t = threading.Thread(target=add_second)
+        t.start()
+        time.sleep(0.3)                        # an unguarded add would have raced in by now
+        assert not done.is_set()                # it must be BLOCKED while we hold the lock
+        assert {r["what"] for r in S.read_contributions(proj)} == {"first"}
+    t.join(timeout=5)
+    assert done.is_set()
+    assert {r["what"] for r in S.read_contributions(proj)} == {"first", "second"}
+
+
+def test_drain_contributions_takes_the_lock_too(home):
+    """A concurrent drain must not race an in-flight add's read-modify-write either."""
+    proj = "/p/drainrace"
+    S.add_contribution(proj, {"what": "x", "target": "a"})
+    f = S.contrib_file(proj)
+    done = threading.Event()
+
+    def drain():
+        S.drain_contributions(proj)
+        done.set()
+
+    with S.memory_lock(f):
+        t = threading.Thread(target=drain)
+        t.start()
+        time.sleep(0.3)
+        assert not done.is_set()
+        assert f.exists()
+    t.join(timeout=5)
+    assert done.is_set()
+    assert not f.exists()
+
+
+# ---- nap-owed marker: make the post-compaction nap non-optional -------------------------------
+
+def test_nap_owed_marker_lifecycle(home):
+    assert S.is_nap_owed("/p/x") is False
+    S.mark_nap_owed("/p/x")
+    assert S.is_nap_owed("/p/x") is True
+    assert S.is_nap_owed("/p/other") is False        # per-project
+    S.clear_nap_owed("/p/x")
+    assert S.is_nap_owed("/p/x") is False
+
+
+def test_nap_owed_records_the_compacting_session_and_its_transcript(home, tmp_path):
+    # The obligation is per-PROJECT but the material it protects is per-SESSION. Without the
+    # transcript path recorded, a nap run in a LATER session clears the flag while reviewing only
+    # its own transcript, so the compacted session's stretch is discharged unread.
+    tp = tmp_path / "compacted.jsonl"
+    tp.write_text("{}\n", encoding="utf-8")
+    S.mark_nap_owed("/p/x", session_id="sid-old", transcript_path=str(tp))
+    info = S.nap_owed_info("/p/x")
+    assert info.get("session_id") == "sid-old"
+    assert info.get("transcript_path") == str(tp)
+
+
+def test_nap_owed_info_tolerates_a_legacy_marker_without_a_transcript(home):
+    # Markers written before the transcript was recorded must not crash the gate or the dream.
+    S.mark_nap_owed("/p/x")
+    info = S.nap_owed_info("/p/x")
+    assert isinstance(info, dict)
+    assert info.get("transcript_path") in (None, "")
+
+
+def test_nap_owed_info_is_empty_when_nothing_is_owed(home):
+    assert S.nap_owed_info("/p/x") == {}
+
+
+def test_unsatisfiable_nap_owed_keeps_a_legacy_marker_it_cannot_judge(home):
+    # A marker without a transcript names nothing to check, so it is not declared unsatisfiable.
+    S.mark_nap_owed("/p/x")
+    assert S.unsatisfiable_nap_owed("/p/x", "sid-current") == ("", "")
+
+
+def test_unsatisfiable_nap_owed_never_judges_the_current_session_consumed(home, tmp_path):
+    # The live transcript keeps growing past the compaction point, so for a marker that does not
+    # record where the compaction was (one written before the offset was), a watermark at the
+    # CURRENT end says nothing about whether the pre-compaction stretch was read. Only an earlier
+    # session's transcript can be judged consumed then.
+    tp = tmp_path / "live.jsonl"
+    tp.write_text("{}\n", encoding="utf-8")
+    S.mark_nap_owed("/p/x", session_id="sid-current", transcript_path=str(tp))
+    legacy = json.loads(S.nap_owed_file("/p/x").read_text(encoding="utf-8"))
+    legacy.pop("offset")
+    S.nap_owed_file("/p/x").write_text(json.dumps(legacy), encoding="utf-8")
+    S.set_watermark("/p/x", str(tp), S.DREAM_REVIEWER, tp.stat().st_size)
+    assert S.unsatisfiable_nap_owed("/p/x", "sid-current") == ("", "")
+    assert S.unsatisfiable_nap_owed("/p/x", "sid-later") == (str(tp), S.NAP_OWED_TRANSCRIPT_CONSUMED)
+
+
+def test_unsatisfiable_nap_owed_reports_a_deleted_transcript(home, tmp_path):
+    gone = tmp_path / "deleted.jsonl"
+    S.mark_nap_owed("/p/x", session_id="sid-old", transcript_path=str(gone))
+    assert S.unsatisfiable_nap_owed("/p/x", "sid-current") == (str(gone), S.NAP_OWED_TRANSCRIPT_GONE)
+
+
+def test_declining_an_owed_nap_records_who_and_when(home, tmp_path):
+    tp = tmp_path / "compacted.jsonl"
+    tp.write_text("{}\n", encoding="utf-8")
+    S.mark_nap_owed("/p/x", session_id="sid-old", transcript_path=str(tp))
+    assert S.nap_owed_declined("/p/x") == {}
+    assert S.decline_nap_owed("/p/x", by="user", now=1234.5) is True
+    assert S.nap_owed_declined("/p/x") == {"by": "user", "ts": 1234.5}
+    info = S.nap_owed_info("/p/x")
+    assert info.get("transcript_path") == str(tp)     # the obligation it answers is kept
+    assert S.is_nap_owed("/p/x") is True               # declined is not discharged
+
+
+def test_declining_when_nothing_is_owed_records_nothing(home):
+    assert S.decline_nap_owed("/p/x", by="user") is False
+    assert S.is_nap_owed("/p/x") is False              # no marker invented to hold the decline
+
+
+def test_a_new_compaction_replaces_a_declined_obligation(home):
+    S.mark_nap_owed("/p/x", session_id="sid-old")
+    S.decline_nap_owed("/p/x", by="user")
+    S.mark_nap_owed("/p/x", session_id="sid-new")
+    assert S.nap_owed_declined("/p/x") == {}
+
+
+def test_a_decline_needs_a_who(home):
+    S.mark_nap_owed("/p/x")
+    with pytest.raises(ValueError):
+        S.decline_nap_owed("/p/x", by="  ")
+
+
+def _git_repo(path):
+    """A real repository with one commit, built with every inherited GIT_* variable stripped."""
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    path.mkdir(parents=True, exist_ok=True)
+    for args in (["init", "-q", "-b", "main"], ["config", "user.email", "t@example.invalid"],
+                 ["config", "user.name", "T"], ["commit", "-q", "--allow-empty", "-m", "init"]):
+        subprocess.run(["git", "-C", str(path), *args], check=True, env=env, capture_output=True)
+    return path
+
+
+def _git_worktree(repo, wt):
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", "-b", "topic", str(wt)],
+                   check=True, env=env, capture_output=True)
+    return wt
+
+
+# The obligation is keyed by the REPOSITORY, not the raw cwd: a session's cwd drifts with every
+# `cd` (a subdirectory, a linked worktree), so a raw-cwd key put the flag where PostCompact stood,
+# the Stop gate read another key, and `done --kind nap` cleared a third (measured 2026-10-31: a
+# session ran `done --kind nap` for three directories in a row before the gate let it stop).
+
+def test_an_owed_nap_marked_in_a_subdirectory_is_the_repositorys(home, tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "a" / "b").mkdir(parents=True)
+    (repo / "c").mkdir()
+    S.mark_nap_owed(str(repo / "a" / "b"), session_id="sid")
+    assert S.nap_owed_blocks(str(repo)) is True
+    assert S.nap_owed_blocks(str(repo / "c")) is True
+    S.clear_nap_owed(str(repo))
+    assert S.is_nap_owed(str(repo / "a" / "b")) is False
+
+
+def test_an_owed_nap_marked_in_a_linked_worktree_is_the_main_checkouts(home, tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    wt = _git_worktree(repo, tmp_path / "repo" / ".claude" / "worktrees" / "wt")
+    (wt / "sub").mkdir()
+    S.mark_nap_owed(str(wt / "sub"), session_id="sid")
+    assert S.nap_owed_blocks(str(repo)) is True
+    assert S.mark_dream_done(str(repo)) is True        # the nap's discharge, run from the main checkout
+    assert S.nap_owed_blocks(str(wt)) is False
+
+
+def test_plain_directories_keep_their_own_owed_nap(home, tmp_path):
+    a, b = tmp_path / "plain-a", tmp_path / "plain-b"
+    a.mkdir()
+    b.mkdir()
+    S.mark_nap_owed(str(a))
+    assert S.is_nap_owed(str(a)) is True
+    assert S.is_nap_owed(str(b)) is False
+
+
+def test_a_legacy_marker_under_the_raw_cwd_key_still_blocks_and_is_cleared(home, tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    sub = repo / "sub"
+    sub.mkdir()
+    legacy = S._audit_dir() / (S.proj_key(str(sub)) + ".nap-owed")
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(json.dumps({"ts": 1.0, "session_id": "old"}), encoding="utf-8")
+    assert S.nap_owed_blocks(str(sub)) is True
+    assert S.nap_owed_info(str(sub)).get("session_id") == "old"
+    S.clear_nap_owed(str(sub))
+    assert not legacy.exists()
+    assert S.is_nap_owed(str(sub)) is False
+
+
+def test_mark_dream_done_clears_a_owed_nap(home):
+    # running the nap is what discharges the obligation - the marker must not outlive it
+    _mem(home, "/p/x")
+    S.mark_nap_owed("/p/x")
+    S.mark_dream_done("/p/x")
+    assert S.is_nap_owed("/p/x") is False
+
+
+# ---- session meta + transcript watermark (the dream reads from DISK, incrementally) -----------
+
+def test_session_meta_roundtrip_lets_the_dream_find_the_transcript(home, tmp_path):
+    # The dream is a MODEL pass - it never receives transcript_path. A hook (which does) records it,
+    # keyed by project, so the dream can look it up from the cwd it knows.
+    tp = tmp_path / "sess.jsonl"
+    tp.write_text("{}\n", encoding="utf-8")
+    S.record_session_meta("/p/x", "sid-1", str(tp))
+    meta = S.read_session_meta("/p/x")
+    assert meta["session_id"] == "sid-1" and meta["transcript_path"] == str(tp)
+    assert S.read_session_meta("/other") == {}
+
+
+def test_watermark_returns_only_new_content_and_advances(home, tmp_path):
+    tp = tmp_path / "t.jsonl"
+    tp.write_text("line-a\nline-b\n", encoding="utf-8")
+    # first read: everything is new
+    text, off = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    assert "line-a" in text and "line-b" in text and off > 0
+    S.set_watermark("/p/x", str(tp), "llm", off)
+    # nothing new -> empty (this is what stops re-analyzing an already-reviewed session)
+    text2, off2 = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    assert text2 == "" and off2 == off
+    # append -> only the NEW part comes back
+    with tp.open("a", encoding="utf-8") as f:
+        f.write("line-c\n")
+    text3, off3 = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    assert "line-c" in text3 and "line-a" not in text3 and off3 > off
+
+
+def test_watermark_is_per_reviewer(home, tmp_path):
+    # the regex audit and the LLM review sit at DIFFERENT marks over the same transcript
+    tp = tmp_path / "t.jsonl"
+    tp.write_text("x\n", encoding="utf-8")
+    _t, off = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    S.set_watermark("/p/x", str(tp), "llm", off)
+    assert S.unreviewed_transcript_text("/p/x", "llm", str(tp))[0] == ""
+    assert S.unreviewed_transcript_text("/p/x", "audit", str(tp))[0] != ""   # other reviewer unaffected
+
+
+def test_watermark_resets_when_the_transcript_shrinks_or_rotates(home, tmp_path):
+    tp = tmp_path / "t.jsonl"
+    tp.write_text("aaaa\nbbbb\ncccc\n", encoding="utf-8")
+    _t, off = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    S.set_watermark("/p/x", str(tp), "llm", off)
+    tp.write_text("new\n", encoding="utf-8")            # rotated/replaced -> smaller than the mark
+    text, _o = S.unreviewed_transcript_text("/p/x", "llm", str(tp))
+    assert "new" in text                                 # must not silently skip a fresh transcript
+
+
+def _walk_parts(tp, cap):
+    """Every part of `tp` under `cap`, marking each one reviewed, as the dream does."""
+    parts = []
+    while True:
+        part = S.unreviewed_transcript_part("/p/x", "llm", str(tp), max_bytes=cap)
+        if not part.text:
+            return parts
+        parts.append(part)
+        S.set_watermark("/p/x", str(tp), "llm", part.end)
+
+
+@pytest.mark.parametrize("cap", [1, 2, 3, 5, 7, 11])
+def test_a_line_longer_than_the_cap_is_never_cut_inside_a_utf8_character(home, tmp_path, cap):
+    """A single line longer than the cap was cut at the byte bound, splitting a multi-byte
+    character, and decoded with "replace": each part then carried U+FFFD for a character that is
+    in the file. Every part must decode cleanly, and the parts together must be the file."""
+    tp = tmp_path / "t.jsonl"
+    line = ("\u00e9\u20ac\U0001f600a" * 6) + "\n"     # 2-, 3- and 4-byte characters, no newline inside
+    tp.write_bytes(line.encode("utf-8"))                # text mode would write "\r\n" on Windows
+    parts = _walk_parts(tp, cap)
+    assert all("\ufffd" not in p.text for p in parts)
+    assert "".join(p.text for p in parts) == line       # nothing lost, nothing repeated
+    assert all(p.end > p.start for p in parts)          # every call made progress
+
+
+def test_a_line_cut_at_a_character_boundary_control(home, tmp_path):
+    """Control: a cap that falls between characters already decodes cleanly."""
+    tp = tmp_path / "t.jsonl"
+    tp.write_text("\u00e9" * 50 + "\n", encoding="utf-8")
+    part = S.unreviewed_transcript_part("/p/x", "llm", str(tp), max_bytes=8)
+    assert part.text == "\u00e9" * 4 and part.end == 8
+
+
+# ---- subagent-learnings buffer (a subagent cannot write memory; main drains this) --------------
+
+def test_subagent_learning_buffer_roundtrips_and_drains(home):
+    S.buffer_subagent_learning("s1", {"agent_type": "general-purpose", "agent_id": "a1",
+                                      "matched": ["realization"], "snippet": "found the root cause"})
+    S.buffer_subagent_learning("s1", {"agent_type": "Explore", "agent_id": "a2",
+                                      "matched": ["user"], "snippet": "no, that is wrong"})
+    got = S.read_subagent_learnings("s1")
+    assert len(got) == 2 and got[0]["agent_id"] == "a1" and got[1]["snippet"] == "no, that is wrong"
+    assert S.read_subagent_learnings("nope") == []          # per-session isolation
+    S.drain_subagent_learnings("s1")                        # consumed once by the main capture
+    assert S.read_subagent_learnings("s1") == []
+
+
+def test_subagent_learning_buffer_is_capped_keeping_newest(home):
+    for i in range(40):
+        S.buffer_subagent_learning("s2", {"agent_id": "a%d" % i, "snippet": "x%d" % i}, max_items=10)
+    got = S.read_subagent_learnings("s2")
+    assert len(got) == 10 and got[-1]["agent_id"] == "a39"
+
+
+def test_subagent_learning_buffer_tolerates_garbage(home):
+    S.buffer_subagent_learning("", {"snippet": "no session -> ignored"})
+    assert S.read_subagent_learnings("") == []
+
+
+# ---- touched-paths scratch state (the capture-routing evidence) --------------------------------
+
+def test_record_touched_path_roundtrips_dedups_and_caps(home):
+    S.record_touched_path("sess1", "/a/b/x.py")
+    S.record_touched_path("sess1", "/a/b/x.py")          # dedup: same path twice -> one entry
+    S.record_touched_path("sess1", "/c/d/y.py")
+    assert S.read_touched_paths("sess1") == ["/a/b/x.py", "/c/d/y.py"]
+    assert S.read_touched_paths("other-session") == []    # per-session isolation
+    for i in range(30):
+        S.record_touched_path("sess2", "/p/f%d.py" % i, max_lines=10)
+    got = S.read_touched_paths("sess2")
+    assert len(got) <= 10 and got[-1] == "/p/f29.py"      # capped, newest kept
+
+
+def test_a_retouched_path_moves_to_the_newest_end_and_survives_the_cap(home):
+    # The cap keeps the NEWEST entries, so a path edited again must count as new: kept in its
+    # first-seen slot, a handover.md written early in a long session and rewritten just before a
+    # compaction was evicted first (measured on a real 400-line record), and compact-resume then
+    # reported "no checkpoint" for a file the session had just saved.
+    S.record_touched_path("sessLRU", "/r/a.py")
+    S.record_touched_path("sessLRU", "/r/b.py")
+    S.record_touched_path("sessLRU", "/r/a.py")
+    assert S.read_touched_paths("sessLRU") == ["/r/b.py", "/r/a.py"]
+    S.record_touched_path("sessCap", "/r/handover.md", max_lines=3)
+    for i in range(2):
+        S.record_touched_path("sessCap", "/r/f%d.py" % i, max_lines=3)
+    S.record_touched_path("sessCap", "/r/handover.md", max_lines=3)
+    S.record_touched_path("sessCap", "/r/f9.py", max_lines=3)
+    assert "/r/handover.md" in S.read_touched_paths("sessCap")
+
+
+def test_record_touched_path_refuses_a_path_carrying_a_line_break(home):
+    # The file is one path per line, so an embedded newline split one path into bogus fragments
+    # that never deduped - the same path sent 3 times grew the file by 6 lines.
+    for _ in range(3):
+        S.record_touched_path("sessNL", "/repo/weird\nname.py")
+        S.record_touched_path("sessNL", "/repo/weird\rname.py")
+    assert S.read_touched_paths("sessNL") == []
+    # Control: an ordinary path still records, and still dedups.
+    for _ in range(3):
+        S.record_touched_path("sessNL", "/repo/plain.py")
+    assert S.read_touched_paths("sessNL") == ["/repo/plain.py"]
+
+
+def test_clear_touched_paths(home):
+    S.record_touched_path("sess3", "/a/x.py")
+    S.clear_touched_paths("sess3")
+    assert S.read_touched_paths("sess3") == []
+
+
+# ---- subject_levels: which OTHER repos/levels did this turn touch? (capture routing) ----------
+
+def _two_trees(tmp_path):
+    """treeA (projA1, projA2) + treeB (projB1) - two independent anchors, each a CLAUDE.md+store."""
+    for tree in ("treeA", "treeB"):
+        top = tmp_path / tree
+        (top / ".claude-memory").mkdir(parents=True)
+        (top / "CLAUDE.md").write_text("top\n", encoding="utf-8")
+    for lvl in ("treeA/projA1", "treeA/projA2", "treeB/projB1"):
+        d = tmp_path / lvl
+        d.mkdir(parents=True)
+        (d / "CLAUDE.md").write_text("proj\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_subject_levels_flags_sibling_project_and_other_tree_but_not_cwd(home, tmp_path):
+    root = _two_trees(tmp_path)
+    cwd = str(root / "treeA" / "projA1")
+    touched = [
+        str(root / "treeA" / "projA1" / "own.py"),      # cwd's OWN level -> excluded
+        str(root / "treeA" / "projA2" / "sib.py"),      # SAME tree, different project -> flagged
+        str(root / "treeB" / "projB1" / "other.py"),    # DIFFERENT tree -> flagged, cross_tree
+    ]
+    got = S.subject_levels(touched, cwd)
+    levels = {g["level"] for g in got}
+    assert str(root / "treeA" / "projA2") in levels     # the common wrong-dir case (same tree)
+    assert str(root / "treeB" / "projB1") in levels
+    assert str(root / "treeA" / "projA1") not in levels  # never flag cwd's own level
+    by = {g["level"]: g for g in got}
+    assert by[str(root / "treeA" / "projA2")]["cross_tree"] is False
+    assert by[str(root / "treeB" / "projB1")]["cross_tree"] is True
+
+
+def test_subject_levels_empty_when_only_cwd_touched(home, tmp_path):
+    root = _two_trees(tmp_path)
+    cwd = str(root / "treeA" / "projA1")
+    assert S.subject_levels([str(root / "treeA" / "projA1" / "a.py")], cwd) == []
+    assert S.subject_levels([], cwd) == []
+
+
+def test_promotion_dwell_reads_without_incrementing(home):
+    # Read from a DIFFERENT project than the one that recorded: asking from /p/x could only stay 1
+    # whether or not the read records, so that arrangement cannot fail and asserts nothing.
+    assert S.promotion_dwell("/p/b", "k") == 0                # unseen -> 0
+    S.note_promotion_candidate("/p/a", "k")
+    assert S.promotion_dwell("/p/b", "k") == 1                # read-only: /p/b did not become a
+    assert S.promotion_dwell("/p/b", "k") == 1                # second corroborator by asking
+
+
+# --------------------------------------------------------------------------
+# scope-descriptor marked block + writer-race signature
+# --------------------------------------------------------------------------
+
+
+def test_read_scope_block_absent_and_present():
+    assert S.read_scope_block("# hand-written\nrules here\n") is None
+    text = "# c\n%s\nall my python work\n%s\n" % (S.SCOPE_MARK_BEGIN, S.SCOPE_MARK_END)
+    assert S.read_scope_block(text) == "all my python work"
+
+
+def test_upsert_scope_block_appends_preserving_handwritten():
+    orig = "# Project rules\n- be concise\n"
+    out = S.upsert_scope_block(orig, "this repo = the widget service")
+    assert orig in out                                   # hand-written content untouched
+    assert S.read_scope_block(out) == "this repo = the widget service"
+
+
+def test_upsert_scope_block_replaces_in_place():
+    text = S.upsert_scope_block("# c\n", "old scope")
+    text2 = S.upsert_scope_block(text, "new scope")
+    assert S.read_scope_block(text2) == "new scope"
+    assert text2.count(S.SCOPE_MARK_BEGIN) == 1          # not duplicated
+
+
+def test_upsert_scope_block_diff_free_when_unchanged():
+    text = S.upsert_scope_block("# c\n", "same")
+    assert S.upsert_scope_block(text, "same") == text    # no-change refresh writes nothing
+
+
+def test_store_changed(home):
+    d = _mem(home, "/p/sc")
+    base = S._newest_mtime(d)
+    assert S.store_changed(d, base) is False
+    import os
+    os.utime(d / "a.md", (base + 100, base + 100))
+    assert S.store_changed(d, base) is True
+
+
+# No usage/age/size forgetting exists (usage is unmeasurable) - removal is dedup + obsolete-prune +
+# manual only, done by the dream. So there are no bump_idle/should_archive helpers to test.
+def test_no_age_based_forgetting_helpers(home):
+    assert not hasattr(S, "should_archive")
+    assert not hasattr(S, "bump_idle")
+    assert "forgetting" not in S.DEFAULT_CONFIG and "forget_idle_dreams" not in S.DEFAULT_CONFIG
+
+
+def test_model_review_due_and_mark(home):
+    assert S.model_review_due() is True                      # no prior review -> due
+    t = S.mark_model_reviewed(now=1_000_000.0)
+    assert t == 1_000_000.0
+    assert S.model_review_due(now=1_000_000.0) is False      # just reviewed -> not due
+    assert S.model_review_due(now=1_000_000.0 + 29 * 86400) is False
+    assert S.model_review_due(now=1_000_000.0 + 31 * 86400) is True   # past the monthly interval
+
+
+def test_backup_reminder_due_and_mark(home):
+    assert S.backup_reminder_due() is True                    # no prior reminder -> due
+    assert S.mark_backup_reminded(now=1_000_000.0) == 1_000_000.0
+    assert S.backup_reminder_due(now=1_000_000.0) is False    # just reminded -> not due
+    assert S.backup_reminder_due(now=1_000_000.0 + 29 * 86400) is False
+    assert S.backup_reminder_due(now=1_000_000.0 + 31 * 86400) is True   # past the monthly interval
+
+
+# --- recall filler words ------------------------------------------------------------------------
+_PROJ = "/p/proj"
+
+
+def test_filler_baseline_global_plus_project_local(home):
+    base = S.load_filler_words()                                          # baseline only (proj=None)
+    assert "previous" in base and "again" in base and "normal" in base   # shipped baseline present
+    assert "frobnicate" not in base
+    S.add_filler_words(["Frobnicate", "frobnicate", "  "], _PROJ)        # per-project learned, normalized
+    assert "frobnicate" in S.load_filler_words(_PROJ)                     # baseline UNION project-local
+    assert "previous" in S.load_filler_words(_PROJ)                       # baseline still there
+    assert "frobnicate" not in S.load_filler_words()                      # NOT in the baseline-only view
+
+
+def test_learned_filler_is_per_project_not_global(home):
+    S.add_filler_words(["alpha"], "/p/a")
+    assert "alpha" in S.load_filler_words("/p/a")                         # learned in A
+    assert "alpha" not in S.load_filler_words("/p/b")                     # ... never leaks to B
+    assert "alpha" not in S.load_filler_words()                           # ... nor to baseline-only
+
+
+def test_add_filler_words_does_not_touch_shipped_baseline(home):
+    S.add_filler_words(["zzznew"], _PROJ)
+    assert "zzznew" not in S._read_word_json(S._filler_baseline_path())   # baseline file untouched
+    assert "zzznew" in S._read_word_json(S._filler_local_path(_PROJ))     # only the project file grows
+
+
+def test_topical_words_roundtrip_per_project(home):
+    assert S.load_topical_words(_PROJ) == frozenset()
+    S.add_topical_words(["RabbitMQ", "ept"], _PROJ)
+    assert "rabbitmq" in S.load_topical_words(_PROJ) and "ept" in S.load_topical_words(_PROJ)
+    assert S.load_topical_words("/p/other") == frozenset()                # whitelist is per-project
+
+
+def test_pending_keywords_queue_skips_known_and_drains(home):
+    S.add_filler_words(["again"], _PROJ)
+    S.add_topical_words(["rabbitmq"], _PROJ)
+    S.note_unknown_keywords(["again", "rabbitmq", "stimer", "ept"], _PROJ)   # 2 known -> only 2 queued
+    assert S.load_pending_keywords(_PROJ) == frozenset({"stimer", "ept"})
+    S.note_unknown_keywords(["stimer", "vmbus"], _PROJ)                      # dedup vs queue; add vmbus
+    assert S.load_pending_keywords(_PROJ) == frozenset({"stimer", "ept", "vmbus"})
+    S.clear_pending_keywords(_PROJ)
+    assert S.load_pending_keywords(_PROJ) == frozenset()
+    assert S.load_pending_keywords("/p/other") == frozenset()                # queue is per-project
+
+
+def test_note_unknown_keywords_drops_leaked_identifiers(home):
+    # Tool-use IDs (toolu_...) and long hex agent/session IDs leak into prompt text (e.g. inside a
+    # <task-notification>), so the recall tokenizer queues them as "keywords". They are junk that
+    # pollutes the dream's filler-classification pass - drop them at the queue chokepoint.
+    S.note_unknown_keywords(
+        ["proxmox", "toolu_016mdvqkbubak5mwrv2xphp3", "aa225afa7c11c6feb", "bindsnap"], _PROJ)
+    pending = S.load_pending_keywords(_PROJ)
+    assert "proxmox" in pending and "bindsnap" in pending          # real terms still queue
+    assert "toolu_016mdvqkbubak5mwrv2xphp3" not in pending         # tool-use ID dropped
+    assert "aa225afa7c11c6feb" not in pending                      # 17-char hex agent ID dropped
+    S.clear_pending_keywords(_PROJ)
+
+
+def test_note_unknown_keywords_drops_task_id_shape(home):
+    # Claude Code's background task_id ("b" plus 8 base36 chars, e.g. "beu19dgux") is a machine id,
+    # never a search term - drop it, while a real word starting with "b" still queues.
+    S.note_unknown_keywords(["beu19dgux", "b02j3wfk7", "bitranox", "bootstrap"], _PROJ)
+    pending = S.load_pending_keywords(_PROJ)
+    assert "bitranox" in pending and "bootstrap" in pending
+    assert "beu19dgux" not in pending and "b02j3wfk7" not in pending
+    S.clear_pending_keywords(_PROJ)
+
+
+def test_note_unknown_keywords_drops_dates_uuids_num_units_and_short_hex(home):
+    S.note_unknown_keywords(
+        ["2026-08-21", "5f611971-acf5-4f13-9ae6-843bf2976631", "100gb", "30s",
+         "eb7439a4", "proxmox"], _PROJ)
+    assert S.load_pending_keywords(_PROJ) == frozenset({"proxmox"})
+    S.clear_pending_keywords(_PROJ)
+
+
+def test_shape_junk_allowlist_protects_a_known_hex_lookalike_term(home):
+    # "ed25519" is seven characters all valid in [0-9a-f], so the structural hex-fragment check
+    # alone would misclassify a real, searched-for SSH key type as machine-id junk.
+    assert S._is_shape_junk("ed25519") is False
+    S.note_unknown_keywords(["ed25519"], _PROJ)
+    assert "ed25519" in S.load_pending_keywords(_PROJ)
+    S.clear_pending_keywords(_PROJ)
+
+
+def test_load_pending_keywords_self_heals_junk_written_before_the_filter_existed(home):
+    # A queue file can already hold junk queued before _is_shape_junk existed; reading it must
+    # filter that junk out without a one-off migration.
+    f = S._recall_pending_path(_PROJ)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("1440\n404\nproxmox\nb02j3wfk7\n", encoding="utf-8")
+    assert S.load_pending_keywords(_PROJ) == frozenset({"proxmox"})
+    S.clear_pending_keywords(_PROJ)
+
+
+# ---- the word-list writers: their caller is the dream, which clears the queue after them --------
+# No hook calls them. The dream's filler pass (meta-dream-tree references/dream-passes.md) runs
+# add_filler_words / add_topical_words and THEN clear_pending_keywords, so a write that failed in
+# silence dropped the classification and the queue it came from, while the dream reported success.
+
+@pytest.mark.parametrize("writer, path_of", [
+    (S.add_filler_words, S._filler_local_path),
+    (S.add_topical_words, S._topical_words_path),
+], ids=["filler", "topical"])
+def test_a_word_list_write_that_fails_raises_before_the_queue_is_cleared(home, writer, path_of):
+    p = path_of(_PROJ)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.mkdir()                                              # neither readable nor writable as a file
+    with pytest.raises(S.StateWriteError):
+        writer(["wibble"], _PROJ)
+
+
+def test_a_word_list_that_cannot_be_read_is_never_replaced(home):
+    """The read-modify-write read the list through a reader that answered [] on any error, so the
+    write that followed replaced every learned word with the new one."""
+    if not hasattr(os, "geteuid") or os.geteuid() == 0:
+        pytest.skip("a write-only file is readable to root, and chmod does not bind on Windows")
+    S.add_filler_words(["alpha", "beta"], _PROJ)
+    p = S._filler_local_path(_PROJ)
+    before = p.read_bytes()
+    p.chmod(0o200)
+    try:
+        with pytest.raises(S.StateWriteError):
+            S.add_filler_words(["gamma"], _PROJ)
+        with pytest.raises(S.StateWriteError):
+            S.remove_filler_words(["alpha"], _PROJ)
+    finally:
+        p.chmod(0o644)
+    assert p.read_bytes() == before
+
+
+def test_a_word_list_write_that_lands_raises_nothing_and_keeps_its_format(home):
+    """The control: a writable store records the words, in the layout the file always had."""
+    S.add_topical_words(["zeta", "eta"], _PROJ)
+    text = S._topical_words_path(_PROJ).read_text(encoding="utf-8")
+    assert json.loads(text) == {"topical": ["eta", "zeta"]}
+    assert text == json.dumps({"topical": ["eta", "zeta"]}, indent=2) + "\n"
+
+
+def _git_exclude(repo):
+    """The repo's own exclude file, where git itself says it is (a linked worktree shares its main
+    checkout's)."""
+    import subprocess
+    out = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-path", "info/exclude"],
+                         capture_output=True, check=True).stdout
+    path = Path(os.fsdecode(out).strip())
+    return path if path.is_absolute() else Path(repo) / path
+
+
+def _ignored(repo, path):
+    import subprocess
+    return subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", "--no-index", path]).returncode == 0
+
+
+def test_ensure_gitignored_reports_whether_the_patterns_are_ignored(home, tmp_path):
+    """A non-hook caller (the memory engine's ensure_level) relies on the private files being
+    ignored before anything stages them, so the outcome is returned rather than swallowed."""
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    other = tmp_path / "other"
+    subprocess.run(["git", "init", "-q", str(other)], check=True)
+    exclude = _git_exclude(other)
+    exclude.unlink()
+    exclude.mkdir()                                        # cannot be read or written as a file
+    assert S.ensure_gitignored(str(other), "CLAUDE.local.md") is False
+
+
+def test_ensure_gitignored_never_touches_the_tracked_gitignore(home, tmp_path):
+    """The private files are per-clone, so their ignore entries are too: written to the repo's own
+    exclude file, never to the TRACKED .gitignore, which a public repo would then publish (its own
+    name guard refused a test run over exactly these two lines)."""
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_bytes(b"dist/\n")
+    (repo / S.CURATED_DIRNAME).mkdir()
+    assert S.ensure_gitignored(str(repo), S.CURATED_DIRNAME + "/", "CLAUDE.local.md") is True
+    assert (repo / ".gitignore").read_bytes() == b"dist/\n"
+    assert _ignored(repo, "CLAUDE.local.md") and _ignored(repo, S.CURATED_DIRNAME)
+    exclude = _git_exclude(repo).read_text(encoding="utf-8").splitlines()
+    assert "CLAUDE.local.md" in exclude and S.CURATED_DIRNAME + "/" in exclude
+
+
+def test_ensure_gitignored_asks_git_whether_a_pattern_is_already_ignored(home, tmp_path):
+    """A pattern git already ignores - from the exclude file, a nested .gitignore, anywhere - is
+    left alone. Reading only the root .gitignore for a literal line re-added it on every capture
+    in a repo that kept it in .git/info/exclude."""
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_bytes(b"dist/\n")
+    exclude = _git_exclude(repo)
+    exclude.write_bytes(exclude.read_bytes() + b"CLAUDE.local.md\n")
+    before = exclude.read_bytes()
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    assert (repo / ".gitignore").read_bytes() == b"dist/\n"
+    assert exclude.read_bytes() == before
+
+
+def test_ensure_gitignored_in_a_linked_worktree_uses_the_shared_exclude(home, tmp_path):
+    """A linked worktree has no info/ of its own; git reads the main checkout's exclude file."""
+    import subprocess
+    main = tmp_path / "main"
+    subprocess.run(["git", "init", "-q", str(main)], check=True)
+    subprocess.run(["git", "-C", str(main), "-c", "user.name=t", "-c", "user.email=t@example.test",
+                    "commit", "-q", "--allow-empty", "-m", "base"], check=True)
+    linked = tmp_path / "linked"
+    subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", str(linked)], check=True)
+    assert S.ensure_gitignored(str(linked), "CLAUDE.local.md") is True
+    assert not (linked / ".gitignore").exists()
+    assert _ignored(linked, "CLAUDE.local.md") and _ignored(main, "CLAUDE.local.md")
+
+
+def test_ensure_gitignored_keeps_a_non_utf8_exclude_and_never_raises(home, tmp_path):
+    """One byte in another encoding raised UnicodeDecodeError out of a best-effort function (it
+    caught OSError only); the file is now read and written back byte for byte."""
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _git_exclude(repo).write_bytes(b"caf\xe9\n")
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    data = _git_exclude(repo).read_bytes()
+    assert data.startswith(b"caf\xe9\n") and b"\nCLAUDE.local.md\n" in data
+
+
+def test_ensure_gitignored_keeps_a_crlf_exclude_crlf(home, tmp_path):
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _git_exclude(repo).write_bytes(b"a\r\nb\r\n")
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    data = _git_exclude(repo).read_bytes()
+    assert data.startswith(b"a\r\nb\r\n") and data.endswith(b"\r\nCLAUDE.local.md\r\n")
+    assert b"\n" not in data.replace(b"\r\n", b"")
+
+
+def test_ensure_gitignored_writes_its_header_once_across_calls(home, tmp_path):
+    """Each call that had something to add wrote the section header again, so a level whose two
+    private files were ignored by separate calls carried the same header line twice."""
+    import subprocess
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    assert S.ensure_gitignored(str(repo), S.CURATED_DIRNAME + "/") is True
+    lines = _git_exclude(repo).read_text(encoding="utf-8").splitlines()
+    headers = [ln for ln in lines if ln.startswith("# bitranox curated memory")]
+    assert len(headers) == 1, lines
+    assert "CLAUDE.local.md" in lines and S.CURATED_DIRNAME + "/" in lines
+
+
+def test_ensure_gitignored_reads_a_non_ascii_repo_path_under_an_ascii_locale(home, tmp_path):
+    """git prints the repo path in UTF-8; decoded with an ASCII locale's codec it raised
+    UnicodeDecodeError, which is not an OSError, out of a function documented never to raise."""
+    import subprocess
+    repo = tmp_path / "M\u00fcller"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    probe = ("import sys; sys.path.insert(0, %r); import self_improve_signals as S; "
+             "print(S.ensure_gitignored(sys.argv[1], 'CLAUDE.local.md'))"
+             % str(Path(S.__file__).parent))
+    child = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "LC_ALL": "C",
+             "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+             "PYTHONIOENCODING": "utf-8"}
+    r = subprocess.run([sys.executable, "-c", probe, str(repo)], env=child, capture_output=True,
+                       encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "True", (r.stdout, r.stderr)
+    assert b"\nCLAUDE.local.md\n" in b"\n" + _git_exclude(repo).read_bytes()
+
+
+# ---- curated-store relocation and cross-platform lock (Phase 1) ----------------------------------
+
+def test_curated_paths():
+    assert S.CURATED_INDEX == "index.md"          # named index.md, never confused with native MEMORY.md
+    assert S.claude_memory_dir("/p/proj") == __import__("pathlib").Path("/p/proj/.claude-bx-selflearning")
+    assert S.curated_index("/p/proj").name == "index.md"
+    assert S.curated_index("/p/proj").parent.name == ".claude-bx-selflearning"
+    assert S.claude_md_path("/p/proj").name == "CLAUDE.md"
+    assert S.claude_local_md_path("/p/proj").name == "CLAUDE.local.md"   # default @import home (untracked)
+    assert S.curated_state_dir("/p/proj").name == "state"
+
+
+def test_ensure_gitignored(home, tmp_path):
+    import subprocess
+    proj = tmp_path / "repo"; proj.mkdir()
+    subprocess.run(["git", "init", "-q", str(proj)], check=False)
+    S.ensure_gitignored(str(proj), S.CURATED_DIRNAME + "/", "CLAUDE.local.md")
+    ex = _git_exclude(proj).read_text(encoding="utf-8")
+    assert ".claude-bx-selflearning/" in ex and "CLAUDE.local.md" in ex
+    assert not (proj / ".gitignore").exists()
+    assert subprocess.run(["git", "-C", str(proj), "check-ignore", "-q", "CLAUDE.local.md"]).returncode == 0
+    # track_private on -> leaves the repo tracked (no ignore write anywhere)
+    S.save_config({"track_private": True})
+    proj2 = tmp_path / "repo2"; proj2.mkdir()
+    subprocess.run(["git", "init", "-q", str(proj2)], check=False)
+    before = _git_exclude(proj2).read_bytes()
+    S.ensure_gitignored(str(proj2), "CLAUDE.local.md")
+    assert not (proj2 / ".gitignore").exists()
+    assert _git_exclude(proj2).read_bytes() == before
+    # non-git dir -> skip, no crash
+    plain = tmp_path / "plain"; plain.mkdir()
+    S.ensure_gitignored(str(plain), "CLAUDE.local.md")
+    assert not (plain / ".gitignore").exists()
+
+
+def test_default_config_new_knobs():
+    for k in ("track_private", "mcp_search", "discovery_roots"):
+        assert k in S.DEFAULT_CONFIG
+    assert S.DEFAULT_CONFIG["discovery_roots"] == []  # derived at runtime, never hardcoded paths
+
+
+def test_discovery_roots_defaults_to_home_when_unconfigured(home):
+    roots = [str(r) for r in S.discovery_roots()]
+    assert str(home) in roots       # no explicit config -> the derived default is $HOME
+
+
+def test_discovery_roots_honors_explicit_config_without_home(home):
+    extra = home / "elsewhere"
+    extra.mkdir()
+    S.save_config({"discovery_roots": [str(extra)]})
+    roots = [str(r) for r in S.discovery_roots()]
+    assert str(extra) in roots          # explicit root honored exactly
+    assert str(home) not in roots       # $HOME is NOT force-added on top of an explicit config
+
+
+def test_stores_generation_starts_zero_and_bumps(home):
+    assert S.stores_generation() == 0
+    S.bump_stores_generation()
+    assert S.stores_generation() == 1
+    S.bump_stores_generation()
+    assert S.stores_generation() == 2
+
+
+def test_stores_generation_survives_garbled_marker(home):
+    f = S._stores_gen_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("not-an-int", encoding="utf-8")
+    assert S.stores_generation() == 0   # garbled marker -> 0, never raises
+    S.bump_stores_generation()
+    assert S.stores_generation() == 1
+
+
+def test_memory_lock_acquire_release(tmp_path):
+    target = tmp_path / "index.md"
+    lock = tmp_path / "index.md.lock"
+    with S.memory_lock(target):
+        assert lock.exists()
+    assert not lock.exists()                          # released
+
+
+def test_memory_lock_contention_raises(tmp_path):
+    target = tmp_path / "m2"
+    with S.memory_lock(target):
+        with pytest.raises(TimeoutError):
+            with S.memory_lock(target, timeout=0.05):
+                pass
+
+
+def test_memory_lock_reclaims_stale(tmp_path):
+    target = tmp_path / "m3"
+    stale = tmp_path / "m3.lock"
+    stale.write_text("", encoding="utf-8")
+    import os as _os
+    old = time.time() - (S._LOCK_STALE_S + 10)
+    _os.utime(stale, (old, old))                      # make the lock look stale (crashed holder)
+    with S.memory_lock(target, timeout=0.05):         # reclaims it instead of timing out
+        assert stale.exists()
+    assert not stale.exists()
+
+
+def test_a_permission_error_is_transient_only_on_windows():
+    assert S.is_transient_sharing_error(PermissionError(13, "held"), windows=True)
+    assert not S.is_transient_sharing_error(PermissionError(13, "denied"), windows=False)
+    assert not S.is_transient_sharing_error(FileNotFoundError(2, "gone"), windows=True)
+
+
+def _clashing(times):
+    """An op that fails like a Windows sharing clash `times` times, then succeeds."""
+    calls = []
+
+    def op(value):
+        calls.append(value)
+        if len(calls) <= times:
+            raise PermissionError(13, "The process cannot access the file")
+        return value
+
+    return op, calls
+
+
+def test_retry_while_shared_waits_out_a_windows_clash():
+    op, calls = _clashing(2)
+    assert S.retry_while_shared(op, "ok", windows=True, poll=0) == "ok"
+    assert len(calls) == 3
+
+
+def test_retry_while_shared_surfaces_a_posix_permission_error_at_once():
+    op, calls = _clashing(1)
+    with pytest.raises(PermissionError):
+        S.retry_while_shared(op, "ok", windows=False, poll=0)
+    assert len(calls) == 1
+
+
+def test_retry_while_shared_gives_up_once_the_timeout_passes():
+    op, calls = _clashing(10 ** 9)
+    with pytest.raises(PermissionError):
+        S.retry_while_shared(op, "ok", windows=True, timeout=0.05, poll=0.005)
+    assert len(calls) > 1
+
+
+def _deny_first_create(monkeypatch, lock_name):
+    """The OS edge: the first O_EXCL create of `lock_name` is refused the way Windows refuses a
+    name whose delete is still pending."""
+    real_open, refused = os.open, []
+
+    def fake_open(path, flags, *args):
+        if str(path).endswith(lock_name) and not refused:
+            refused.append(path)
+            raise PermissionError(13, "Access is denied")
+        return real_open(path, flags, *args)
+
+    monkeypatch.setattr(os, "open", fake_open)
+    return refused
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the delete-pending refusal is Windows semantics")
+def test_memory_lock_waits_out_a_windows_access_denied_create(tmp_path, monkeypatch):
+    target = tmp_path / "m4"
+    refused = _deny_first_create(monkeypatch, "m4.lock")
+    with S.memory_lock(target, timeout=2.0, poll=0.01):
+        assert (tmp_path / "m4.lock").exists()
+    assert refused                                    # the clash really happened, and was waited out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="on POSIX a PermissionError is a real permission problem")
+def test_memory_lock_surfaces_a_posix_permission_error(tmp_path, monkeypatch):
+    refused = _deny_first_create(monkeypatch, "m5.lock")
+    with pytest.raises(PermissionError), S.memory_lock(tmp_path / "m5", timeout=2.0, poll=0.01):
+        pass
+    assert refused
+
+
+# --------------------------------------------------------------------------
+# unified anchor resolver (single source in sig; uuid_store delegates)
+# --------------------------------------------------------------------------
+
+
+def test_resolve_anchor_in_sig_matches_uuid_store(tmp_path):
+    import uuid_store as US
+    top = tmp_path / "top"
+    proj = top / "a" / "proj"
+    proj.mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (top / S.MEMORY_DIRNAME).mkdir()
+    assert S.resolve_anchor(str(proj)) == US.resolve_anchor(str(proj)) == top
+    assert S.topmost_claude_md_dir(str(proj)) == top    # the alias is the same resolver
+
+
+def test_two_trees_anchor_isolation(two_trees):
+    tt = two_trees
+    assert S.resolve_anchor(str(tt.proj_a)) == tt.top_a
+    assert S.resolve_anchor(str(tt.proj_b)) == tt.top_b
+    assert S.resolve_anchor(str(tt.proj_a)) != S.resolve_anchor(str(tt.proj_b))
+    chain_a = S.altitude_chain(str(tt.proj_a))
+    assert tt.top_b not in chain_a and tt.proj_b not in chain_a
+
+
+# ---- multi-tree discovery (find_claude_md_dirs + tree_groups) -----------------------------------
+
+def test_find_claude_md_dirs_prunes_vendor_hidden_backup_and_store_dirs(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home)); monkeypatch.setenv("USERPROFILE", str(home))
+    work = tmp_path / "work"
+    for rel in ("a", "a/nested", "b"):
+        d = work / rel
+        d.mkdir(parents=True)
+        (d / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    for rel in ("a/node_modules/dep", "a/.git/x", "b/old.bak", "b/.claude-memory/facts"):
+        d = work / rel
+        d.mkdir(parents=True)
+        (d / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    (home / ".claude" / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    got = S.find_claude_md_dirs([str(work), str(home)])
+    # as_posix, not str: the expected set is written with forward slashes, and str() yields
+    # backslashes on Windows, so the comparison would be about the separator, not the pruning.
+    assert {p.relative_to(work).as_posix() for p in got if work in p.parents or p == work} == {"a", "a/nested", "b"}
+    assert not any(".claude" in str(p) for p in got)
+
+
+def test_find_claude_md_dirs_does_not_follow_symlinks(tmp_path):
+    real = tmp_path / "real"; real.mkdir()
+    (real / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    scan = tmp_path / "scan"; scan.mkdir()
+    (scan / "link").symlink_to(real)
+    got = S.find_claude_md_dirs([str(scan)])
+    assert got == []                                   # a symlinked tree is never merged in
+
+
+def test_tree_groups_two_independent_trees(two_trees):
+    md = S.find_claude_md_dirs([str(two_trees.root)])
+    groups = S.tree_groups(md)
+    assert set(groups) == {two_trees.top_a, two_trees.top_b}
+    assert groups[two_trees.top_a][0] == two_trees.proj_a      # deepest first
+    assert groups[two_trees.top_a][-1] == two_trees.top_a
+
+
+# ---- P2: missed-signal coverage --------------------------------------------------------
+
+def test_broad_wait_does_not_fire_on_plain_waiting_narration():
+    """REGRESSION: `wait ` fired on ordinary narration ("waiting on agent 3"), which made 6 of
+    13 audit candidates in one real session pure noise. Only a self-CORRECTING wait is a signal."""
+    for noise in [
+        "I will wait for their SendMessage reports before compiling.",
+        "Two agents running. Let me dispatch the third, then wait for all three.",
+        "Still waiting on agent 3 (upstream propagation).",
+    ]:
+        assert S.broad_matches("assistant", noise) == [], noise
+
+
+def test_broad_wait_still_fires_on_self_correction():
+    """The signal-bearing wait is the one that INTERRUPTS a wrong course."""
+    for hit in [
+        "Wait, that's the main transcript, not the subagent's.",
+        "wait - I had this backwards, the anchor is the tree top.",
+        "Wait. That contradicts what the canonical example does.",
+    ]:
+        assert S.broad_matches("assistant", hit), hit
+
+
+def test_broad_user_flags_neutral_preference_convention():
+    """A user imperative setting a durable convention is a learning signal with no correction
+    wording at all - the strict set never sees it, so the audit must."""
+    for text in [
+        "use httpx2 here, not requests",
+        "put it in the application layer",
+        "always name the fixture after the port",
+        "we use uv for every repo",
+        "prefer a Python script over shell for this",
+    ]:
+        assert S.broad_matches("user", text), text
+
+
+def test_tool_matches_flags_a_real_tooling_gap():
+    """A tooling discovery expressed only in tool output - the class the prose-only scan missed."""
+    for text in [
+        "error: unrecognized arguments: --rehome-to",
+        "bash: pct: command not found",
+        "fatal: not a git repository (or any of the parent directories)",
+        "Permission denied (publickey).",
+        "uv: error: Requested extra not found: dev",
+    ]:
+        assert S.tool_matches(text), text
+
+
+def test_tool_matches_ignores_ordinary_tool_output():
+    for text in [
+        "1170 passed, 7 skipped in 14.18s",
+        "wrote /tmp/x/docs/skills.md",
+        "  M plugins/bitranox/skills/coding-rust/SKILL.md",
+        "",
+    ]:
+        assert not S.tool_matches(text), text
+
+
+def test_a_test_run_block_yields_no_tool_matches():
+    """When a session's work is signal-detection code, a RED pytest run puts TOOL_SIGNAL_PATTERN
+    phrases into tool text as literal DATA - not a live tooling gap. The audit tool branch has no
+    strict gate, so without this every such occurrence became a phantom miss."""
+    for text in [
+        "--- RED --- E FileNotFoundError: [Errno 2] No such file or directory: '/tmp/x'",
+        "test_self_improve_signals.py::test_tool_matches_flags_a_real_tooling_gap FAILED\n"
+        "bash: x: command not found",
+        "collected 42 items ... error: unrecognized arguments\n1 failed, 41 passed",
+        "===== test session starts =====\nfatal: not a git repository\nno tests ran in 0.00s",
+        "===== FAILURES =====\npermission denied",
+        "diff --git a/tests/test_signals.py b/tests/test_signals.py\n--- a/tests/test_signals.py\n"
+        "+++ b/tests/test_signals.py\n@@ -10,3 +10,4 @@\n+    assert tool_matches(\"bash: pct: command not found\")",
+        "cat > tests/test_signals.py <<'PY'\ndef test_flag():\n    assert tool_matches('bash: pct: command not found')\nPY",
+        'tests/test_x.py:12:    assert "command not found" in err',
+    ]:
+        assert S.tool_matches(text), text                          # control: the phrase IS there
+        assert S.tool_matches_outside_fixtures(text) == [], text
+
+
+def test_a_real_error_beside_or_about_test_data_still_counts():
+    """Test data is discounted narrowly: the next command's error after a pytest summary, a line after
+    a test-file listing, an error that merely names a test file, another tool's error count, and what
+    follows a test file's diff section or heredoc all still count."""
+    cases = {
+        "12 passed in 0.40s\nfatal: The current branch fix has no upstream branch.": "fatal:",
+        "tests/test_alpha.py\nbash: pct: command not found": "command not found",
+        "fatal: pathspec 'tests/test_signals.py' did not match any files": "fatal:",
+        "ls: cannot access 'tests/test_x.py': No such file or directory": "no such file or directory",
+        "Found 2 errors.\nerror: unexpected argument '--chek' found": "error:",
+        "diff --git a/tests/test_a.py b/tests/test_a.py\n+x\ndiff --git a/src/b.py b/src/b.py\n"
+        "+bash: pct: command not found": "command not found",
+        "cat > tests/test_a.py <<'PY'\nx = 1\nPY\nbash: pct: command not found": "command not found",
+    }
+    for text, expected in cases.items():
+        assert expected in S.tool_matches_outside_fixtures(text), text
+
+
+def test_a_shift_operator_is_not_a_heredoc_opener():
+    """A heredoc body runs to its delimiter, so a line misread as an opener swallows the rest.
+
+    Found by replaying the discount over the 250 most recent transcripts rather than by reading it:
+    `<<` matched unanchored also matches `cout << x`, and a source listing holding one such line
+    then reported nothing at all. An unquoted delimiter must abut the `<<`, and it must end the
+    line give or take a trailing redirection.
+    """
+    assert S.tool_matches_outside_fixtures("out << value\nbash: pct: command not found")
+    assert S.tool_matches_outside_fixtures("cout << x << endl\nfatal: not a git repository")
+    assert S.tool_matches_outside_fixtures("cat > t.py <<'PY'\nx = 1\nPY\nbash: pct: command not found")
+    for silent in ["cat > t.py <<'PY'\nassert 'command not found'\nPY",
+                   "cat > t.py <<PY\nassert 'command not found'\nPY",
+                   "cat <<'EOF' > f\nbash: pct: command not found\nEOF"]:
+        assert S.tool_matches_outside_fixtures(silent) == [], silent
+
+
+@pytest.mark.parametrize("herestring", ["wc -c <<<hello", "wc -c <<< hello", "tr a b <<<'x'"])
+def test_a_here_string_is_not_a_heredoc_opener(herestring):
+    """`<<<word` feeds one word on stdin and opens no body. Read as a heredoc named `word`, it
+    discounted every later line of the block, so the failure after it was never reported."""
+    block = herestring + "\nerror: no such file or directory"
+    assert "error:" in S.tool_matches_outside_fixtures(block)
+    assert S.tool_matches_outside_fixtures("cat <<'EOF'\nerror: body\nEOF") == []
+
+
+def test_a_numbered_listing_is_a_file_being_read_not_a_report():
+    """A `N<TAB>` line is a file's own content. No tool announces a failure in that shape, and the
+    corpus replay showed whole source files reported as tooling gaps for the text inside them."""
+    listing = "1\t#!/usr/bin/env python3\n2\t# bash: pct: command not found\n3\tx = 1"
+    assert S.tool_matches(listing)                                  # control: the phrase IS there
+    assert S.tool_matches_outside_fixtures(listing) == []
+    assert S.tool_matches_outside_fixtures(listing + "\nbash: pct: command not found")
+
+
+def test_another_tool_s_error_count_does_not_close_or_open_a_pytest_run():
+    """Only a TIMED summary ends a run. A bare count is how pyright and mypy report their own
+    findings, and reading it as a pytest boundary decided the lines around it either way."""
+    assert "error:" in S.tool_matches_outside_fixtures("Found 2 errors.\nerror: unexpected argument")
+    assert S.tool_matches_outside_fixtures("=== FAILURES ===\n832 errors\nx.py:1:1 - error: bad") == []
+    assert "fatal:" in S.tool_matches_outside_fixtures("12 passed in 0.40s\nfatal: no upstream")
+
+
+def test_a_pytest_tail_without_its_banner_is_still_a_run():
+    """A captured tail arrives with no `=== FAILURES ===` header, so the summary-list line and the
+    `E   ` detail line have to open the run themselves."""
+    for tail in ["ERROR tests/test_a.py - FileNotFoundError: [Errno 2] No such file or directory: '/x'",
+                 "E   FileNotFoundError: [Errno 2] No such file or directory: '/x'",
+                 "\x1b[31mERROR\x1b[0m tests/test_a.py - OSError: permission denied"]:
+        assert S.tool_matches(tail), tail                           # control: the phrase IS there
+        assert S.tool_matches_outside_fixtures(tail) == [], tail
+
+
+def test_tool_matches_outside_fixtures_passes_a_real_gap_through():
+    """A genuine tooling failure in ordinary (non-pytest, non-test-file) tool output is NOT noise."""
+    for text in [
+        "error: unrecognized arguments: --rehome-to",
+        "bash: pct: command not found",
+        "fatal: not a git repository (or any of the parent directories)",
+        "uv: error: Requested extra not found: dev",
+    ]:
+        assert S.tool_matches_outside_fixtures(text) == S.tool_matches(text) != [], text
+    assert S.tool_matches_outside_fixtures("1170 files reformatted") == []
+    assert S.tool_matches_outside_fixtures("") == []
+
+
+def _isolate_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+
+def test_resolve_transcript_prefers_recorded_meta(tmp_path, monkeypatch):
+    _isolate_home(tmp_path, monkeypatch)
+    proj = "/p/x"
+    tp = tmp_path / "meta.jsonl"
+    tp.write_text("x", encoding="utf-8")
+    S.record_session_meta(proj, "sid", str(tp))
+    assert S.resolve_transcript(proj) == str(tp)
+
+
+def test_resolve_transcript_globs_newest_jsonl_when_meta_absent(tmp_path, monkeypatch):
+    _isolate_home(tmp_path, monkeypatch)
+    proj = "/p/x"
+    d = S.memory_dir(proj).parent
+    d.mkdir(parents=True, exist_ok=True)
+    old = d / "old.jsonl"
+    old.write_text("o", encoding="utf-8")
+    new = d / "new.jsonl"
+    new.write_text("n", encoding="utf-8")
+    os.utime(old, (1000, 1000))
+    os.utime(new, (2000, 2000))          # newest by MTIME, never by name (session-id prefix is not time-ordered)
+    assert S.resolve_transcript(proj) == str(new)
+
+
+def test_resolve_transcript_empty_when_no_meta_and_no_jsonl(tmp_path, monkeypatch):
+    _isolate_home(tmp_path, monkeypatch)
+    assert S.resolve_transcript("/p/nope") == ""
+
+
+def test_skills_invoked_tallies_skill_tool_calls():
+    """The skill-gap correlation (flag-a-skill-when-a-real-bug-slips-past-it) needs REAL data
+    about which skills ran, not the model's fuzzy recall."""
+    import json as _json
+    lines = [
+        _json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Skill", "input": {"skill": "meta-skill-writer"}}]}}),
+        _json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Skill", "input": {"skill": "compuse-git"}}]}}),
+        _json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Skill", "input": {"skill": "meta-skill-writer"}}]}}),
+        _json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]}}),
+    ]
+    assert S.skills_invoked("\n".join(lines)) == {"meta-skill-writer": 2, "compuse-git": 1}
+
+
+def test_skills_invoked_empty_when_no_skill_calls():
+    assert S.skills_invoked('{"type":"assistant","message":{"content":[]}}') == {}
+
+
+def test_altitude_chain_handles_a_relative_path(tmp_path, monkeypatch):
+    """A relative path must yield the same chain as its absolute form.
+
+    `Path(".").anchor` is `""` and `Path("") == Path(".")`, so the "is this the filesystem root?"
+    guard used to fire for every relative input and return an EMPTY chain. Nothing errored: the
+    caller just saw a level with no ancestors, which reads exactly like a clean result. It made
+    `reconcile --check .` report success while resolving nothing.
+    """
+    top = tmp_path / "top"
+    (top / "proj").mkdir(parents=True)
+    (top / "CLAUDE.md").write_text("top\n", encoding="utf-8")
+    (top / "proj" / "CLAUDE.md").write_text("proj\n", encoding="utf-8")
+
+    absolute = S.altitude_chain(str(top / "proj"))
+    monkeypatch.chdir(top / "proj")
+    relative = S.altitude_chain(".")
+
+    assert absolute, "fixture built no chain at all, so the comparison would be vacuous"
+    assert [Path(p).resolve() for p in relative] == [Path(p).resolve() for p in absolute]
+
+
+# ---- proj_key must not depend on how the path was SPELLED -----------------------------------------
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="the pinned literal is the key for a POSIX absolute path; '/opt/project-x' is not an absolute path on Windows, so normalizing it legitimately yields a different key")
+def test_proj_key_is_stable_for_an_already_absolute_path():
+    """PIN: an absolute, normalized path keeps its historical key.
+
+    proj_key names ~15 per-project state files (dream marker, contribution queue, session,
+    watermark, promote, filler, recall caches). Changing the key for a path that was already
+    absolute would ORPHAN every one of them - the queue would read empty, the dream would think it
+    had never run. This literal is that guarantee: normalization may only affect paths that were
+    not already in this form.
+    """
+    assert S.proj_key("/opt/project-x") == "528c04d3cbe1a627"
+
+
+def test_proj_key_ignores_relative_spelling(tmp_path, monkeypatch):
+    """`.` and the absolute path are the SAME project and must share one key.
+
+    Measured before the fix: `contrib_queue.py list .` reported an empty queue while the absolute
+    path reported a pending item, and `dream_state.py done .` recorded against a different key -
+    so a dream could mark itself done against a phantom project.
+    """
+    target = tmp_path / "proj"
+    target.mkdir()
+    monkeypatch.chdir(target)
+    absolute = S.proj_key(str(target))
+    assert S.proj_key(".") == absolute
+    assert S.proj_key("") == absolute            # argparse default / empty string is the cwd too
+
+
+def test_proj_key_ignores_trailing_slash_and_dot_segments(tmp_path):
+    base = str(tmp_path / "proj")
+    (tmp_path / "proj").mkdir()
+    expected = S.proj_key(base)
+    for spelling in (base + "/", base + "/.", str(tmp_path) + "/./proj", base + "/../proj"):
+        assert S.proj_key(spelling) == expected, spelling
+
+
+def test_proj_key_does_not_follow_symlinks(tmp_path):
+    """Deliberate: abspath, not resolve.
+
+    Following symlinks would re-key any project reached through one, orphaning its existing state
+    on machines where a path component happens to be a link. The defect being fixed is spelling,
+    not aliasing, so the fix stays inside that scope.
+    """
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return                                    # unprivileged Windows cannot symlink
+    assert S.proj_key(str(link)) != S.proj_key(str(real))
+
+
+def test_proj_key_survives_a_none_or_odd_argument():
+    """State-file naming must never raise: a broken key would take every hook down with it."""
+    for odd in (None, 123):
+        assert isinstance(S.proj_key(odd), str) and len(S.proj_key(odd)) == 16
+
+
+# ---- injected skill bodies are not user prose ------------------------------------------------
+
+_SKILL_BODY = (
+    "Base directory for this skill: /home/u/.claude/plugins/cache/mkt/plug/9.9.9/skills/demo\n"
+    "\n# demo\n\nWhen the gate misses a signal, fix the WHOLE family, not just the one phrase.\n"
+    "Do not always run the subset; a wrong verdict here is worse than none.\n"
+)
+
+
+def test_an_injected_skill_body_is_recognised():
+    assert S.is_injected_skill_body(_SKILL_BODY)
+    assert S.is_injected_skill_body("   \n" + _SKILL_BODY)      # leading whitespace still counts
+
+
+def test_ordinary_user_prose_is_not_an_injected_skill_body():
+    assert not S.is_injected_skill_body("no, that's wrong - always run make test first")
+    assert not S.is_injected_skill_body("")
+    assert not S.is_injected_skill_body(None)
+
+
+def test_a_user_merely_QUOTING_the_marker_is_not_suppressed():
+    """The marker only counts at the START; else quoting it in a real correction hides the signal."""
+    quoted = "you're wrong about the path - it prints 'Base directory for this skill: /x' at the top"
+    assert not S.is_injected_skill_body(quoted)
+
+
+def test_the_skill_body_would_otherwise_match_the_broad_user_patterns():
+    """Guards the premise: without suppression this text IS a candidate, so the test can fail."""
+    assert S.broad_matches("user", _SKILL_BODY)
+
+
+# --- the classification must be reversible ---------------------------------------------------
+# A dream's filler pass is a judgement over ambiguous words, so it is sometimes wrong. Without a
+# remove verb a misclassified word is suppressed from recall forever, and add_topical_words does
+# NOT undo it: the union of both lists is only consulted to decide whether to re-QUEUE a word.
+
+
+def test_remove_filler_words_undoes_a_misclassification(home):
+    S.add_filler_words(["review", "capture"], _PROJ)
+    assert "review" in S.load_filler_words(_PROJ)
+    S.remove_filler_words(["Review"], _PROJ)                              # case-insensitive, like add
+    assert "review" not in S.load_filler_words(_PROJ)
+    assert "capture" in S.load_filler_words(_PROJ)                        # only the named word goes
+
+
+def test_remove_filler_words_reports_what_it_actually_removed(home):
+    S.add_filler_words(["review"], _PROJ)
+    assert S.remove_filler_words(["review", "nevermind"], _PROJ) == ["review"]
+    assert S.remove_filler_words(["review"], _PROJ) == []                 # already gone, says so
+
+
+def test_remove_filler_words_cannot_touch_the_shipped_baseline(home):
+    baseline_word = sorted(S._read_word_json(S._filler_baseline_path()))[0]
+    assert S.remove_filler_words([baseline_word], _PROJ) == []            # reports it did NOT remove it
+    assert baseline_word in S._read_word_json(S._filler_baseline_path())  # file untouched
+    assert baseline_word in S.load_filler_words(_PROJ)                    # still suppressed, honestly
+
+
+def test_remove_filler_words_is_per_project(home):
+    S.add_filler_words(["alpha"], "/p/a")
+    S.add_filler_words(["alpha"], "/p/b")
+    S.remove_filler_words(["alpha"], "/p/a")
+    assert "alpha" not in S.load_filler_words("/p/a")
+    assert "alpha" in S.load_filler_words("/p/b")                         # B's classification stands
+
+
+def test_add_topical_words_reclassifies_out_of_filler(home):
+    S.add_filler_words(["output"], _PROJ)
+    S.add_topical_words(["output"], _PROJ)                                # reclassify, not just record
+    assert "output" in S.load_topical_words(_PROJ)
+    assert "output" not in S.load_filler_words(_PROJ)                     # the bug: it used to stay
+
+
+def test_remove_topical_words_mirrors_the_filler_verb(home):
+    S.add_topical_words(["rabbitmq"], _PROJ)
+    assert S.remove_topical_words(["RabbitMQ"], _PROJ) == ["rabbitmq"]
+    assert S.load_topical_words(_PROJ) == frozenset()
+
+
+def test_a_reclassified_word_becomes_recallable_again(home):
+    # The end-to-end point: filler is what extract_keywords drops, so reclassifying must restore it.
+    S.add_filler_words(["output"], _PROJ)
+    S.note_unknown_keywords(["output"], _PROJ)
+    assert S.load_pending_keywords(_PROJ) == frozenset()                  # suppressed while filler
+    S.add_topical_words(["output"], _PROJ)
+    assert "output" not in S.load_filler_words(_PROJ)
+
+
+# --------------------------------------------------------------------------
+# The projects-dir encoder, transcribed from the Claude Code CLI binary (2.1.240):
+#     h1r(e) = e.replace(/[^a-zA-Z0-9]/g, "-")
+# memory_dir replaced only "/", which agrees for a plain path but points at a
+# directory Claude never wrote as soon as a component holds "." or "_".
+# --------------------------------------------------------------------------
+
+
+def test_memory_dir_encodes_every_non_alphanumeric():
+    got = S.memory_dir("/home/bob/my.proj_v2").parent.name
+    assert got == "-home-bob-my-proj-v2", got
+
+
+def test_memory_dir_matches_a_plain_path_as_before():
+    """The paths that already worked must keep resolving to the same directory."""
+    got = S.memory_dir("/media/srv-main-softdev/projects").parent.name
+    assert got == "-media-srv-main-softdev-projects", got
+
+
+def test_memory_dir_encodes_a_space():
+    assert S.memory_dir("/home/bob/a proj").parent.name == "-home-bob-a-proj"
+
+
+# --------------------------------------------------------------------------
+# A RELATIVE path: Path(".").anchor is "", and Path("") == Path("."), so the root guard fired on
+# the only rung and the ladder never climbed above the cwd - `--proj .` answered "no anchor".
+# --------------------------------------------------------------------------
+
+
+def _tree_with_project(tmp_path):
+    tree = tmp_path / "tree"
+    proj = tree / "proj"
+    (proj / "pkg").mkdir(parents=True)
+    (tree / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (tree / S.MEMORY_DIRNAME).mkdir()
+    (proj / "CLAUDE.md").write_text("x", encoding="utf-8")
+    (proj / "pkg" / "mod.py").write_text("x", encoding="utf-8")
+    return tree, proj
+
+
+def test_resolve_anchor_climbs_from_a_relative_path(tmp_path, monkeypatch):
+    tree, proj = _tree_with_project(tmp_path)
+    monkeypatch.chdir(proj)
+    for rel in (".", "pkg", "./pkg/../."):
+        got = S.resolve_anchor(rel)
+        assert got is not None and Path(got).resolve() == tree.resolve(), (rel, got)
+
+
+def test_resolve_anchor_of_a_relative_path_matches_its_absolute_twin(tmp_path, monkeypatch):
+    """Control: the absolute spelling of the same directory keeps today's answer."""
+    tree, proj = _tree_with_project(tmp_path)
+    assert S.resolve_anchor(str(proj)) == tree
+    monkeypatch.chdir(proj)
+    assert Path(S.resolve_anchor(".")).resolve() == Path(S.resolve_anchor(str(proj))).resolve()
+
+
+def test_nearest_level_finds_the_level_of_a_relative_path(tmp_path, monkeypatch):
+    tree, proj = _tree_with_project(tmp_path)
+    monkeypatch.chdir(proj)
+    for rel in (".", "pkg/mod.py"):
+        got = S.nearest_level(rel)
+        assert got is not None and Path(got).resolve() == proj.resolve(), (rel, got)
+    monkeypatch.chdir(tree)
+    assert Path(S.nearest_level("proj/pkg/mod.py")).resolve() == proj.resolve()
+
+
+def test_nearest_level_absolute_path_and_no_level(tmp_path):
+    """Controls: an absolute path keeps its answer, and a path under no CLAUDE.md is still None."""
+    tree, proj = _tree_with_project(tmp_path)
+    assert S.nearest_level(str(proj / "pkg" / "mod.py")) == str(proj)
+    assert S.nearest_level(str(tree)) == str(tree)
+    loose = tmp_path / "loose"
+    loose.mkdir()
+    assert S.nearest_level(str(loose)) is None
+
+
+# The capped transcript read (oldest part first, offset = end of what was returned) is pinned in
+# test_self_improve_signals_state_writes.py.
+
+
+# ---- snippet windowing: where in a long message the quoted evidence starts --------------------
+
+def test_inert_snippet_without_around_is_the_head_as_before():
+    text = "a" * 150 + " I was wrong " + "b" * 150
+    assert S.inert_snippet(text, 100) == text[:100]
+
+
+def test_inert_snippet_around_windows_on_the_offset():
+    text = "a" * 150 + " I was wrong " + "b" * 150
+    at = text.index("I was wrong")
+    snip = S.inert_snippet(text, 100, around=at)
+    assert len(snip) == 100 and snip.startswith("...") and "I was wrong" in snip
+
+
+def test_inert_snippet_around_near_the_end_keeps_the_last_character():
+    text = "a" * 300 + " I was wrong Z"
+    snip = S.inert_snippet(text, 100, around=text.index("I was wrong"))
+    assert len(snip) == 100 and snip.endswith("I was wrong Z")
+
+
+def test_inert_snippet_around_an_early_offset_or_a_short_text_is_unmarked():
+    text = "I was wrong " + "b" * 300
+    assert S.inert_snippet(text, 100, around=0) == text[:100]
+    assert S.inert_snippet("short I was wrong", 100, around=6) == "short I was wrong"
+
+
+def test_asst_signal_offset_names_the_earliest_signal_or_none():
+    text = "Plain narration first. Then I was wrong about it. The root cause is the lock file."
+    assert S.asst_signal_offset(text) == text.index("I was wrong")
+    assert S.asst_signal_offset("Listed the files as requested.") is None
+    # Agrees with the hit predicates: a message they call a hit always has an offset.
+    for hit in ("You're right, my mistake.", "the root cause is the stale venv"):
+        assert S.strict_asst_hit(hit) or S.broad_matches("assistant", hit)
+        assert S.asst_signal_offset(hit) is not None
+
+
+def test_user_signal_offset_names_the_earliest_signal_or_none():
+    text = "Some context about the build first. Why did you skip the tests again?"
+    assert S.user_signal_offset(text) == text.lower().index("why did you")
+    assert S.user_signal_offset("Please list the files.") is None
+    for hit in ("No, that's wrong, the path is /etc", "Good idea, let's do that.",
+                "why did you skip the tests again?"):
+        assert S.strict_user_hit(hit) or S.broad_matches("user", hit)
+        assert S.user_signal_offset(hit) is not None
+
+
+def test_tool_signal_offset_points_into_the_collapsed_block_at_the_live_signal():
+    block = ('tests/test_x.py:12:    assert "command not found" in err\n'
+             "  output   line\n\n" + "bash: pct: command not found")
+    collapsed = " ".join(block.split())
+    off = S.tool_signal_offset(block)
+    assert collapsed[off:].startswith("command not found") and off > collapsed.index("bash: pct")
+    assert S.tool_signal_offset("all good\nnothing to see") is None
+    # Agrees with the counting predicate: a fixture-only signal counts nothing and has no offset.
+    only_data = 'tests/test_x.py:12:    assert "command not found" in err'
+    assert S.tool_matches_outside_fixtures(only_data) == [] and S.tool_signal_offset(only_data) is None
+
+
+def test_why_not_queued_names_the_outcome_that_closed_it(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    proj = str(tmp_path / "proj")
+    assert S.add_contribution(proj, {"what": "fix x", "target": "hook"}, strict=True)
+    assert S.why_not_queued(proj, "fix x", "hook") == "already queued"
+    S.drain_contributions(proj, note="shipped", strict=True)
+    assert S.why_not_queued(proj, "fix x", "hook") == "shipped earlier"
+
+
+def _contrib_home(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    return str(tmp_path / "proj")
+
+
+def test_why_not_queued_names_a_rejected_intent(tmp_path, monkeypatch):
+    proj = _contrib_home(tmp_path, monkeypatch)
+    assert S.add_contribution(proj, {"what": "fix x", "target": "hook"}, strict=True)
+    S.drop_contribution(proj, match="fix x", reason="disproven")
+    assert S.why_not_queued(proj, "fix x", "hook") == "rejected earlier"
+    assert S.why_not_queued(proj, "fix x", "skill:other") == "already queued"   # control
+
+
+def test_why_not_queued_matches_an_intent_closed_without_a_target(tmp_path, monkeypatch):
+    # A record with no target is keyed as "", so asking with "" or None finds it either way.
+    proj = _contrib_home(tmp_path, monkeypatch)
+    assert S.add_contribution(proj, {"what": "fix y"}, strict=True)
+    S.drop_contribution(proj, match="fix y", reason="x")
+    assert S.why_not_queued(proj, "fix y", "") == "rejected earlier"
+    assert S.why_not_queued(proj, "fix y", None) == "rejected earlier"
+
+
+def test_why_not_queued_says_when_the_closed_set_cannot_be_read(tmp_path, monkeypatch):
+    # A directory where the closed file should be is unreadable on every platform.
+    proj = _contrib_home(tmp_path, monkeypatch)
+    S.rejected_file(proj).mkdir(parents=True)
+    why = S.why_not_queued(proj, "fix x", "hook")
+    assert why.startswith("already queued or closed - the closed set could not be read: ")
+
+
+def test_the_premise_check_refusal_is_not_a_tool_signal():
+    """missing-mechanism-nudge refuses the FIRST ask of every question on purpose; its text arrives
+    as a `hook error:` tool result and read as a learning, twice a session plus the audit's flag."""
+    spec = importlib.util.spec_from_file_location(
+        "_mm_nudge_for_signal_test", Path(__file__).resolve().parent.parent / "missing-mechanism-nudge.py")
+    nudge = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nudge)
+    block = "PreToolUse:AskUserQuestion hook error: " + nudge.QUESTION_REFUSAL
+    assert S.tool_matches_outside_fixtures(block) == []
+    assert S.tool_signal_offset(block) is None
+    # A real failure in the same block still counts.
+    assert S.tool_matches_outside_fixtures(block + "\nerror: unrecognized arguments: --x") != []
+
+
+# ---- a cd into another project must not re-open what this session already reviewed -------------
+# Session state used to be keyed by the shell cwd alone: one `cd child && ...` moved the harness
+# cwd, the review watermark for the SAME transcript read 0 there, and the whole session came back
+# as unreviewed. The mark belongs to the transcript.
+
+# The marks are BYTE offsets, so each fixture is written as bytes: a text-mode write on Windows
+# turns every \n into \r\n and moves the end of the file past the mark under test.
+
+def test_a_project_that_never_marked_a_transcript_inherits_the_furthest_mark(home, tmp_path):
+    tp = tmp_path / "t.jsonl"
+    tp.write_bytes(b"aaaa\nbbbb\n")
+    S.set_watermark("/p/umbrella", str(tp), S.DREAM_REVIEWER, 5)
+    S.set_watermark("/p/other", str(tp), S.DREAM_REVIEWER, 10)
+    assert S.get_watermark("/p/umbrella/child", str(tp), S.DREAM_REVIEWER) == 10
+    assert S.unreviewed_transcript_text("/p/umbrella/child", S.DREAM_REVIEWER, str(tp))[0] == ""
+
+
+def test_a_project_s_own_mark_wins_over_another_project_s(home, tmp_path):
+    # Its own mark is what it last wrote, and a write is checked by reading it back.
+    tp = tmp_path / "t.jsonl"
+    tp.write_bytes(b"aaaa\nbbbb\n")
+    S.set_watermark("/p/other", str(tp), S.DREAM_REVIEWER, 10)
+    S.set_watermark("/p/x", str(tp), S.DREAM_REVIEWER, 5)
+    assert S.get_watermark("/p/x", str(tp), S.DREAM_REVIEWER) == 5
+
+
+def test_the_furthest_mark_ignores_which_cwd_owns_it(home, tmp_path):
+    # get_watermark keeps a cwd's own mark for its read-back; the owed-nap question is only
+    # whether ANY review read the bytes, so a stale own mark must not hide a further one.
+    tp = tmp_path / "t.jsonl"
+    tp.write_bytes(b"aaaa\nbbbb\n")
+    S.set_watermark("/p/wt", str(tp), S.DREAM_REVIEWER, 3)
+    S.set_watermark("/p/main", str(tp), S.DREAM_REVIEWER, 10)
+    assert S.get_watermark("/p/wt", str(tp), S.DREAM_REVIEWER) == 3
+    assert S.furthest_watermark(str(tp), S.DREAM_REVIEWER) == 10
+    assert S.furthest_watermark(str(tmp_path / "unmarked.jsonl"), S.DREAM_REVIEWER) == 0
+
+
+def test_an_owed_nap_is_consumed_once_the_review_reaches_its_compaction_point(home, tmp_path):
+    # The marker records where the transcript ended at the compaction, so even the CURRENT
+    # session's obligation is discharged by a review past that point - from any cwd.
+    tp = tmp_path / "live.jsonl"
+    tp.write_bytes(b"before-compaction\n")
+    S.mark_nap_owed("/p/umbrella/child", session_id="sid-current", transcript_path=str(tp))
+    with tp.open("ab") as fh:
+        fh.write(b"after-compaction\n")
+    assert S.unsatisfiable_nap_owed("/p/umbrella/child", "sid-current") == ("", "")
+    S.set_watermark("/p/umbrella", str(tp), S.DREAM_REVIEWER, len("before-compaction\n"))
+    assert S.unsatisfiable_nap_owed("/p/umbrella/child", "sid-current") == (
+        str(tp), S.NAP_OWED_TRANSCRIPT_CONSUMED)

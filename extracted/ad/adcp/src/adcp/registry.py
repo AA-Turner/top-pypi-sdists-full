@@ -1,0 +1,3148 @@
+"""Client for the AdCP registry API (brand, property, member, and policy lookups)."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import math
+import re
+import zlib
+from collections.abc import AsyncIterator
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Literal, TypeVar, cast
+from urllib.parse import quote as url_quote
+from urllib.parse import urlsplit
+
+import httpx
+from pydantic import BaseModel, ValidationError
+
+from adcp.exceptions import RegistryError, RegistryErrorDetails, RegistryValidationIssue
+from adcp.identifiers import normalize_identifier, validate_publisher_domain
+
+_T = TypeVar("_T", bound=BaseModel)
+from adcp.types.core import (
+    Member,
+    Policy,
+    PolicyHistory,
+    PolicySummary,
+    ResolvedBrand,
+    ResolvedProperty,
+)
+from adcp.types.registry import (
+    BrandActivity,
+    BrandRegistryItem,
+    CommunityMirrorDeleteResponse,
+    CommunityMirrorGetResponse,
+    CommunityMirrorListResponse,
+    CommunityMirrorPublishResponse,
+    CreateAdagentsResponse,
+    DomainLookupResult,
+    FederatedAgentWithDetails,
+    FederatedPublisher,
+    FeedPage,
+    PropertyActivity,
+    PropertyRegistryItem,
+    ValidationResult,
+)
+
+DEFAULT_REGISTRY_URL = "https://agenticadvertising.org"
+MAX_BULK_DOMAINS = 100
+MAX_BULK_IDENTIFIERS = 10_000
+DEFAULT_MAX_IDENTIFIER_REQUEST_BYTES = 1024 * 1024
+MAX_BULK_POLICIES = 100
+MAX_REGISTRY_ERROR_DETAILS_BYTES = 64 * 1024
+MAX_PROJECTED_REGISTRY_ERROR_DETAILS_BYTES = 4 * 1024
+MAX_REGISTRY_ERROR_TOKEN_LENGTH = 128
+MAX_REGISTRY_ERROR_CODE_LENGTH = 64
+MAX_REGISTRY_ERROR_FIELD_LENGTH = 128
+MAX_REGISTRY_ERROR_LIST_ITEMS = 20
+MAX_REGISTRY_ERROR_PATH_SEGMENTS = 8
+DEFAULT_MAX_REGISTRY_RESPONSE_BYTES = 256 * 1024
+DEFAULT_MAX_BULK_REGISTRY_RESPONSE_BYTES = 2 * 1024 * 1024
+MAX_RETRY_AFTER_SECONDS = 2_147_483.647
+
+_COMMUNITY_MIRROR_PLATFORM_RE = re.compile(r"^[a-z0-9_-]{1,64}$")
+_REGISTRY_ERROR_TOKEN_RE = re.compile(r"^[A-Za-z0-9._:-]+$")
+_REGISTRY_ERROR_CODE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._:-]*$")
+_REGISTRY_ERROR_FIELD_RE = re.compile(r"^[A-Za-z0-9_.\[\]-]+$")
+_REGISTRY_SECRET_CODE_RE = re.compile(
+    r"^(?:(?:sk|pk|rk)[._:-]|api[_-]?key[._:-]|bearer[._:-]|basic[._:-]|eyj)",
+    re.IGNORECASE,
+)
+_LEGACY_REGISTRY_ERROR_CODES = frozenset({"cursor_expired", "unpublish_first", "url_immutable"})
+
+_LARGE_REGISTRY_RESPONSE_PATHS = frozenset(
+    {
+        "/api/brands/registry",
+        "/api/brands/resolve/bulk",
+        "/api/properties/registry",
+        "/api/properties/resolve/bulk",
+        "/api/registry/resolve",
+        "/api/registry/agents",
+        "/api/registry/publishers",
+        "/api/registry/feed",
+        "/api/registry/mirrors",
+        "/api/registry/agents/search",
+        "/api/registry/authorizations",
+        "/api/registry/authorizations/snapshot",
+        "/api/search",
+        "/api/policies/registry",
+        "/api/policies/resolve/bulk",
+        "/api/public/discover-agent",
+        "/api/public/agent-formats",
+        "/api/public/agent-products",
+        "/api/public/validate-publisher",
+        "/api/registry/agents/storyboard-status",
+    }
+)
+
+
+def _bounded_retry_seconds(value: Any, *, scale: float = 1.0) -> float | None:
+    """Normalize a non-negative numeric retry hint to bounded seconds."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        if isinstance(value, str):
+            if not value.isascii() or not value.isdigit():
+                return None
+            numeric: int | float = int(value)
+        else:
+            numeric = value
+        if isinstance(numeric, float) and not math.isfinite(numeric):
+            return None
+        if numeric < 0:
+            return None
+        if numeric > MAX_RETRY_AFTER_SECONDS / scale:
+            return MAX_RETRY_AFTER_SECONDS
+        seconds = float(numeric) * scale
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(seconds):
+        return None
+    return seconds
+
+
+def _retry_after_seconds(
+    response: httpx.Response, details: dict[str, Any] | None = None
+) -> float | None:
+    """Parse a header retry hint, then fall back to common JSON spellings."""
+    value = response.headers.get("retry-after")
+    if isinstance(value, str) and value.strip():
+        value = value.strip()
+        seconds = _bounded_retry_seconds(value)
+        if seconds is not None:
+            return seconds
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except (TypeError, ValueError, OverflowError):
+            pass
+        else:
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            seconds = (retry_at - datetime.now(timezone.utc)).total_seconds()
+            if math.isfinite(seconds):
+                return min(MAX_RETRY_AFTER_SECONDS, max(0.0, seconds))
+
+    if details is None:
+        return None
+    for key, scale in (("retryAfterMs", 0.001), ("retryAfter", 1.0), ("retry_after", 1.0)):
+        seconds = _bounded_retry_seconds(details.get(key), scale=scale)
+        if seconds is not None:
+            return seconds
+    return None
+
+
+def _registry_error_payload(response: httpx.Response) -> dict[str, Any] | None:
+    """Parse a bounded registry error object for immediate local processing."""
+    content = response.content
+    if isinstance(content, bytes) and len(content) > MAX_REGISTRY_ERROR_DETAILS_BYTES:
+        return None
+    try:
+        details = response.json()
+        if not isinstance(details, dict):
+            return None
+        encoded = json.dumps(details, ensure_ascii=False, default=str).encode("utf-8")
+    except (TypeError, ValueError):
+        return None
+    if len(encoded) > MAX_REGISTRY_ERROR_DETAILS_BYTES:
+        return None
+    return cast(dict[str, Any], details)
+
+
+def _safe_registry_error_string(
+    value: Any,
+    *,
+    max_length: int,
+    pattern: re.Pattern[str],
+) -> str | None:
+    """Return a bounded machine token, excluding remote free-form prose."""
+    if not isinstance(value, str) or not 1 <= len(value) <= max_length:
+        return None
+    if pattern.fullmatch(value) is None:
+        return None
+    return value
+
+
+def _safe_registry_error_code(value: Any) -> str | None:
+    """Return a bounded code unless it resembles common credential material."""
+    code = _safe_registry_error_string(
+        value,
+        max_length=MAX_REGISTRY_ERROR_CODE_LENGTH,
+        pattern=_REGISTRY_ERROR_CODE_RE,
+    )
+    if code is None or _REGISTRY_SECRET_CODE_RE.match(code) is not None:
+        return None
+    return code
+
+
+def _safe_registry_validation_issue(value: Any) -> RegistryValidationIssue | None:
+    """Project one validation issue without rejected values or server prose."""
+    if not isinstance(value, dict):
+        return None
+    issue: RegistryValidationIssue = {}
+    code = _safe_registry_error_code(value.get("code"))
+    if code is not None:
+        issue["code"] = code
+    field = _safe_registry_error_string(
+        value.get("field"),
+        max_length=MAX_REGISTRY_ERROR_FIELD_LENGTH,
+        pattern=_REGISTRY_ERROR_FIELD_RE,
+    )
+    if field is not None:
+        issue["field"] = field
+
+    raw_path = value.get("path")
+    if isinstance(raw_path, list) and len(raw_path) <= MAX_REGISTRY_ERROR_PATH_SEGMENTS:
+        path: list[str | int] = []
+        for segment in raw_path:
+            if isinstance(segment, bool):
+                path = []
+                break
+            if isinstance(segment, int):
+                if not 0 <= segment <= 1_000_000:
+                    path = []
+                    break
+                path.append(segment)
+                continue
+            safe_segment = _safe_registry_error_string(
+                segment,
+                max_length=64,
+                pattern=_REGISTRY_ERROR_FIELD_RE,
+            )
+            if safe_segment is None:
+                path = []
+                break
+            path.append(safe_segment)
+        if path:
+            issue["path"] = path
+    return issue or None
+
+
+def _safe_registry_retry_value(value: Any, *, scale: float) -> int | float | None:
+    """Normalize a recognized retry hint without retaining unbounded input."""
+    seconds = _bounded_retry_seconds(value, scale=scale)
+    if seconds is None:
+        return None
+    normalized = seconds / scale
+    return int(normalized) if normalized.is_integer() else normalized
+
+
+def _projected_registry_error_size(details: RegistryErrorDetails) -> int:
+    """Return the serialized size of a projected metadata envelope."""
+    return len(json.dumps(details, ensure_ascii=False).encode("utf-8"))
+
+
+def _registry_error_details(payload: dict[str, Any] | None) -> RegistryErrorDetails | None:
+    """Allowlist bounded machine metadata from an untrusted registry error."""
+    if payload is None:
+        return None
+
+    projected: RegistryErrorDetails = {}
+    code_value = payload.get("code")
+    if code_value is None and payload.get("error") in _LEGACY_REGISTRY_ERROR_CODES:
+        # Some stable registry recovery discriminators predate the dedicated
+        # code field and are returned in Error.error. Promote only documented
+        # values; generic free-form error prose remains excluded even when it
+        # happens to look like a machine token.
+        code_value = payload.get("error")
+    code = _safe_registry_error_code(code_value)
+    if code is not None:
+        projected["code"] = code
+    field = _safe_registry_error_string(
+        payload.get("field"),
+        max_length=MAX_REGISTRY_ERROR_FIELD_LENGTH,
+        pattern=_REGISTRY_ERROR_FIELD_RE,
+    )
+    if field is not None:
+        projected["field"] = field
+    for key in ("policy_id", "existing_org_id", "request_id"):
+        safe_value = _safe_registry_error_string(
+            payload.get(key),
+            max_length=MAX_REGISTRY_ERROR_TOKEN_LENGTH,
+            pattern=_REGISTRY_ERROR_TOKEN_RE,
+        )
+        if key == "policy_id" and safe_value is not None:
+            projected["policy_id"] = safe_value
+        elif key == "existing_org_id" and safe_value is not None:
+            projected["existing_org_id"] = safe_value
+        elif key == "request_id" and safe_value is not None:
+            projected["request_id"] = safe_value
+
+    if isinstance(payload.get("members_only"), bool):
+        projected["members_only"] = payload["members_only"]
+
+    retry_after_ms = _safe_registry_retry_value(payload.get("retryAfterMs"), scale=0.001)
+    if retry_after_ms is not None:
+        projected["retryAfterMs"] = retry_after_ms
+    retry_after = _safe_registry_retry_value(payload.get("retryAfter"), scale=1.0)
+    if retry_after is not None:
+        projected["retryAfter"] = retry_after
+    retry_after_snake = _safe_registry_retry_value(payload.get("retry_after"), scale=1.0)
+    if retry_after_snake is not None:
+        projected["retry_after"] = retry_after_snake
+
+    raw_valid_values = payload.get("valid_values")
+    if isinstance(raw_valid_values, list):
+        valid_values: list[str] = []
+        for value in raw_valid_values[:MAX_REGISTRY_ERROR_LIST_ITEMS]:
+            safe_value = _safe_registry_error_string(
+                value,
+                max_length=64,
+                pattern=_REGISTRY_ERROR_TOKEN_RE,
+            )
+            if safe_value is None:
+                continue
+            candidate = {**projected, "valid_values": [*valid_values, safe_value]}
+            if _projected_registry_error_size(cast(RegistryErrorDetails, candidate)) > (
+                MAX_PROJECTED_REGISTRY_ERROR_DETAILS_BYTES
+            ):
+                break
+            valid_values.append(safe_value)
+        if valid_values:
+            projected["valid_values"] = valid_values
+
+    raw_issues = payload.get("details")
+    if isinstance(raw_issues, list):
+        issues: list[RegistryValidationIssue] = []
+        for value in raw_issues[:MAX_REGISTRY_ERROR_LIST_ITEMS]:
+            issue = _safe_registry_validation_issue(value)
+            if issue is None:
+                continue
+            candidate = {**projected, "validation_issues": [*issues, issue]}
+            if _projected_registry_error_size(cast(RegistryErrorDetails, candidate)) > (
+                MAX_PROJECTED_REGISTRY_ERROR_DETAILS_BYTES
+            ):
+                break
+            issues.append(issue)
+        if issues:
+            projected["validation_issues"] = issues
+
+    if not projected:
+        return None
+    if _projected_registry_error_size(projected) > MAX_PROJECTED_REGISTRY_ERROR_DETAILS_BYTES:
+        return None
+    return projected
+
+
+def _registry_http_error(
+    response: httpx.Response,
+    *,
+    method: str,
+    operation: str,
+) -> RegistryError:
+    """Build a structured error without exposing an unbounded response body."""
+    payload = _registry_error_payload(response)
+    details = _registry_error_details(payload)
+    return RegistryError(
+        f"{operation} failed: HTTP {response.status_code}",
+        status_code=response.status_code,
+        method=method.upper(),
+        retry_after_seconds=_retry_after_seconds(response, payload),
+        details=details,
+    )
+
+
+def _registry_body_error(
+    response: httpx.Response,
+    *,
+    method: str,
+    operation: str,
+    reason: str,
+) -> RegistryError:
+    """Build a bounded-body error while retaining header recovery metadata."""
+    return RegistryError(
+        f"{operation} failed: {reason}",
+        status_code=response.status_code,
+        method=method.upper(),
+        retry_after_seconds=_retry_after_seconds(response),
+        details=None,
+    )
+
+
+def _normalize_community_mirror_platform(platform: str) -> str:
+    """Trim, lowercase, and validate a community mirror platform key."""
+    normalized = platform.strip().lower() if isinstance(platform, str) else ""
+    if not normalized:
+        raise RegistryError("platform is required")
+    if not _COMMUNITY_MIRROR_PLATFORM_RE.match(normalized):
+        raise RegistryError("platform must match ^[a-z0-9_-]{1,64}$")
+    return normalized
+
+
+def _validate_identifier_resolution_response(page: Any) -> dict[str, Any]:
+    """Validate a resolve page without including remote values in errors."""
+    error = "Resolve identifiers failed: invalid response"
+    if not isinstance(page, dict):
+        raise RegistryError(error)
+    rows, counts = page.get("resolved"), page.get("summary")
+    if (
+        not isinstance(rows, list)
+        or not isinstance(counts, dict)
+        or not isinstance(page.get("server_timestamp"), str)
+    ):
+        raise RegistryError(error)
+    required_counts = {"total", "resolved", "created", "excluded", "not_found"}
+    if not required_counts.issubset(counts) or any(
+        not isinstance(count, int) or isinstance(count, bool) or count < 0
+        for count in counts.values()
+    ):
+        raise RegistryError("Resolve identifiers failed: invalid summary")
+    required_fields = {"identifier", "property_rid", "classification", "status", "source"}
+    for row in rows:
+        if not isinstance(row, dict) or not required_fields.issubset(row):
+            raise RegistryError(error)
+        identifier = row["identifier"]
+        if (
+            not isinstance(identifier, dict)
+            or not isinstance(identifier.get("type"), str)
+            or not isinstance(identifier.get("value"), str)
+            or not isinstance(row["classification"], str)
+            or not isinstance(row["status"], str)
+            or row["status"] not in {"existing", "created", "excluded"}
+            or (row["property_rid"] is not None and not isinstance(row["property_rid"], str))
+            or (row["source"] is not None and not isinstance(row["source"], str))
+        ):
+            raise RegistryError(error)
+    return cast(dict[str, Any], page)
+
+
+def build_community_mirror_adagents(config: dict[str, Any]) -> dict[str, Any]:
+    """Build a catalog-only community mirror adagents.json publish body.
+
+    The publish endpoint is catalog-only: it has no ``authorized_agents`` field
+    and the service forces ``authorized_agents: []`` server-side. This helper
+    refuses caller-supplied authorization claims or generator-only flags and
+    strips the ``platform`` key, which is a publish-time routing key rather than
+    catalog content.
+
+    Args:
+        config: Catalog config with ``catalog_etag`` and a non-empty ``formats``
+            list. May include ``properties`` and ``superseded_by``.
+
+    Returns:
+        The catalog publish body (no ``authorized_agents`` key).
+
+    Raises:
+        RegistryError: If authorization claims, generator-only flags, or the
+            ``catalog_etag``/``formats`` requirements are violated.
+    """
+    if "authorized_agents" in config:
+        raise RegistryError(
+            "authorized_agents is not accepted for community mirror adagents catalogs"
+        )
+    if "include_schema" in config or "include_timestamp" in config:
+        raise RegistryError(
+            "include_schema and include_timestamp are not accepted for "
+            "community mirror adagents catalogs"
+        )
+    catalog_etag = config.get("catalog_etag")
+    if not isinstance(catalog_etag, str) or not catalog_etag.strip():
+        raise RegistryError("catalog_etag is required")
+    formats = config.get("formats")
+    if not isinstance(formats, list) or len(formats) == 0:
+        raise RegistryError("formats must contain at least one catalog format")
+
+    return {k: v for k, v in config.items() if k != "platform"}
+
+
+class RegistryClient:
+    """Client for the AdCP registry API.
+
+    Provides brand, property, and member lookups against the central AdCP registry.
+
+    Args:
+        base_url: Registry API base URL.
+        timeout: Request timeout in seconds.
+        client: Optional httpx.AsyncClient for connection pooling.
+            If provided, caller is responsible for client lifecycle.
+        user_agent: User-Agent header for requests.
+        max_response_bytes: Maximum decoded response size for normal endpoints.
+        max_bulk_response_bytes: Maximum decoded response size for bulk and feed
+            endpoints.
+    """
+
+    def __init__(
+        self,
+        base_url: str = DEFAULT_REGISTRY_URL,
+        timeout: float = 10.0,
+        client: httpx.AsyncClient | None = None,
+        user_agent: str = "adcp-client-python",
+        max_response_bytes: int = DEFAULT_MAX_REGISTRY_RESPONSE_BYTES,
+        max_bulk_response_bytes: int = DEFAULT_MAX_BULK_REGISTRY_RESPONSE_BYTES,
+    ):
+        if max_response_bytes <= 0:
+            raise ValueError("max_response_bytes must be greater than zero")
+        if max_bulk_response_bytes <= 0:
+            raise ValueError("max_bulk_response_bytes must be greater than zero")
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout
+        self._external_client = client
+        self._owned_client: httpx.AsyncClient | None = None
+        self._user_agent = user_agent
+        self._max_response_bytes = max_response_bytes
+        self._max_bulk_response_bytes = max_bulk_response_bytes
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create httpx client."""
+        if self._external_client is not None:
+            return self._external_client
+        if self._owned_client is None:
+            self._owned_client = httpx.AsyncClient(
+                timeout=self._timeout,
+                limits=httpx.Limits(
+                    max_keepalive_connections=10,
+                    max_connections=20,
+                ),
+                trust_env=False,
+            )
+        return self._owned_client
+
+    async def close(self) -> None:
+        """Close owned HTTP client. No-op if using external client."""
+        if self._owned_client is not None:
+            await self._owned_client.aclose()
+            self._owned_client = None
+
+    async def __aenter__(self) -> RegistryClient:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self.close()
+
+    def _response_limit(self, path: str) -> int:
+        """Return the explicit endpoint-specific decoded response body limit."""
+        normalized = urlsplit(path).path.rstrip("/")
+        if (
+            normalized in _LARGE_REGISTRY_RESPONSE_PATHS
+            or normalized.startswith("/api/registry/mirrors/")
+            or normalized.startswith("/api/properties/check")
+            or (
+                normalized.startswith("/api/registry/agents/")
+                and normalized.endswith("/storyboard-status")
+            )
+        ):
+            return self._max_bulk_response_bytes
+        return self._max_response_bytes
+
+    async def _send_bounded(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        operation: str,
+        include_none_params: bool = False,
+    ) -> httpx.Response:
+        """Send a request and stop reading once its decoded body exceeds policy."""
+        client: Any = await self._get_client()
+        url = path if path.startswith(("http://", "https://")) else f"{self._base_url}{path}"
+        limit = self._response_limit(path)
+
+        # RegistryClient's public contract accepts httpx.AsyncClient. Keep the
+        # older duck-typed test/client compatibility path, while real httpx
+        # clients always use streaming reads and enforce the limit pre-buffer.
+        if not isinstance(client, httpx.AsyncClient):
+            request_kwargs: dict[str, Any] = {
+                "headers": headers,
+                "timeout": self._timeout,
+            }
+            if params is not None or include_none_params:
+                request_kwargs["params"] = params
+            if method == "GET":
+                response = cast(
+                    httpx.Response,
+                    await client.get(url, **request_kwargs),
+                )
+            elif method == "POST":
+                request_kwargs["json"] = json_body
+                response = cast(
+                    httpx.Response,
+                    await client.post(url, **request_kwargs),
+                )
+            else:
+                request_kwargs["params"] = params
+                request_kwargs["json"] = json_body
+                response = cast(
+                    httpx.Response,
+                    await client.request(method, url, **request_kwargs),
+                )
+            # The supported injected-client type is httpx.AsyncClient. Retain
+            # duck-typed compatibility for older adopters/tests, but never let
+            # an already-buffered response silently bypass the configured cap.
+            content = getattr(response, "content", None)
+            if isinstance(content, bytes) and len(content) > limit:
+                raise _registry_body_error(
+                    response,
+                    method=method,
+                    operation=operation,
+                    reason=f"response body exceeds {limit} bytes",
+                )
+            return response
+
+        request_headers = dict(headers or {})
+        request_headers.setdefault("Accept-Encoding", "gzip, deflate")
+        request = client.build_request(
+            method,
+            url,
+            params=params,
+            json=json_body,
+            headers=request_headers,
+            timeout=self._timeout,
+        )
+        response = await client.send(request, stream=True)
+        try:
+            content_encoding = response.headers.get("content-encoding", "identity").strip().lower()
+            if content_encoding not in {"", "identity", "gzip", "deflate"}:
+                raise _registry_body_error(
+                    response,
+                    method=method,
+                    operation=operation,
+                    reason=f"unsupported content-encoding {content_encoding!r}",
+                )
+            content_length = response.headers.get("content-length")
+            if content_length is not None and content_encoding in {"", "identity"}:
+                try:
+                    declared_length = int(content_length)
+                except ValueError:
+                    declared_length = -1
+                if declared_length > limit:
+                    raise _registry_body_error(
+                        response,
+                        method=method,
+                        operation=operation,
+                        reason=f"response body exceeds {limit} bytes",
+                    )
+
+            chunks: list[bytes] = []
+            size = 0
+
+            async def raw_chunks() -> AsyncIterator[bytes]:
+                async for raw_chunk in response.aiter_raw():
+                    yield raw_chunk
+
+            def append_decoded(data: bytes) -> None:
+                nonlocal size
+                size += len(data)
+                if size > limit:
+                    raise _registry_body_error(
+                        response,
+                        method=method,
+                        operation=operation,
+                        reason=f"response body exceeds {limit} bytes",
+                    )
+                if data:
+                    chunks.append(data)
+
+            if response.is_stream_consumed:
+                # Response hooks and in-process transports may consume the
+                # stream before this guard. HTTPX content is already decoded.
+                append_decoded(response.content)
+            elif content_encoding in {"", "identity"}:
+                async for chunk in raw_chunks():
+                    append_decoded(chunk)
+            else:
+                decoder: Any = (
+                    zlib.decompressobj(16 + zlib.MAX_WBITS) if content_encoding == "gzip" else None
+                )
+                deflate_probe = bytearray()
+                try:
+                    async for raw_chunk in raw_chunks():
+                        if decoder is None:
+                            deflate_probe.extend(raw_chunk)
+                            if len(deflate_probe) < 2:
+                                continue
+                            cmf, flg = deflate_probe[0], deflate_probe[1]
+                            zlib_wrapped = (
+                                cmf & 0x0F == 8 and cmf >> 4 <= 7 and ((cmf << 8) | flg) % 31 == 0
+                            )
+                            decoder = zlib.decompressobj(
+                                zlib.MAX_WBITS if zlib_wrapped else -zlib.MAX_WBITS
+                            )
+                            pending = bytes(deflate_probe)
+                            deflate_probe.clear()
+                        else:
+                            pending = raw_chunk
+                        while pending:
+                            decoded = decoder.decompress(pending, limit - size + 1)
+                            append_decoded(decoded)
+                            pending = decoder.unconsumed_tail
+                    if decoder is None:
+                        raise zlib.error("truncated deflate header")
+                    append_decoded(decoder.flush(limit - size + 1))
+                    if not decoder.eof or decoder.unused_data:
+                        raise zlib.error("incomplete or trailing compressed data")
+                except zlib.error as exc:
+                    raise _registry_body_error(
+                        response,
+                        method=method,
+                        operation=operation,
+                        reason="invalid compressed response body",
+                    ) from exc
+
+            # Decoded bytes are bounded before joining. Rebuild a buffered
+            # response without stale encoding/length headers so callers can use
+            # .json(), .text, and .content after the source stream is closed.
+            buffered_headers = [
+                (name, value)
+                for name, value in response.headers.multi_items()
+                if name.lower() not in {"content-encoding", "content-length"}
+            ]
+            return httpx.Response(
+                response.status_code,
+                headers=buffered_headers,
+                content=b"".join(chunks),
+                request=request,
+                extensions=response.extensions,
+            )
+        finally:
+            await response.aclose()
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        auth_token: str | None = None,
+        operation: str = "Registry request",
+        allow_404: bool = False,
+        expected_status: int | set[int] = 200,
+    ) -> httpx.Response | None:
+        """Execute a registry API request with standard error handling.
+
+        Returns None if allow_404=True and the server returns 404.
+        Raises RegistryError for all other non-expected status codes.
+        """
+        headers: dict[str, str] = {"User-Agent": self._user_agent}
+        if auth_token is not None:
+            headers["Authorization"] = f"Bearer {auth_token}"
+
+        expected = {expected_status} if isinstance(expected_status, int) else expected_status
+
+        try:
+            response = await self._send_bounded(
+                method,
+                path,
+                params=params,
+                json_body=json_body,
+                headers=headers,
+                operation=operation,
+                include_none_params=True,
+            )
+
+            if allow_404 and response.status_code == 404:
+                return None
+            if response.status_code not in expected:
+                raise _registry_http_error(
+                    response,
+                    method=method,
+                    operation=operation,
+                )
+            return response
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"{operation} timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"{operation} failed: {e}") from e
+
+    async def _request_ok(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Like _request but guarantees a non-None response.
+
+        Use for endpoints that never return 404-as-None.
+        """
+        resp = await self._request(method, path, **kwargs)
+        if resp is None:
+            raise RegistryError(
+                f"{kwargs.get('operation', 'Request')} failed: unexpected empty response"
+            )
+        return resp
+
+    async def _request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        auth_token: str | None = None,
+        operation: str = "Registry request",
+        expected_status: int | set[int] = 200,
+    ) -> dict[str, Any]:
+        """Execute a registry request and return the JSON object body."""
+        resp = await self._request_ok(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            auth_token=auth_token,
+            operation=operation,
+            expected_status=expected_status,
+        )
+        return cast(dict[str, Any], resp.json())
+
+    async def _request_text(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        auth_token: str | None = None,
+        operation: str = "Registry request",
+        expected_status: int | set[int] = 200,
+    ) -> str:
+        """Execute a registry request and return the text body."""
+        resp = await self._request_ok(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            auth_token=auth_token,
+            operation=operation,
+            expected_status=expected_status,
+        )
+        return resp.text
+
+    @staticmethod
+    def _parse(model_cls: type[_T], data: Any, operation: str) -> _T:
+        """Validate data against a Pydantic model, wrapping errors."""
+        try:
+            return model_cls.model_validate(data)
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"{operation} failed: invalid response: {e}") from e
+
+    async def lookup_brand(self, domain: str, *, fresh: bool = False) -> ResolvedBrand | None:
+        """Resolve a domain to its brand identity.
+
+        Works for any domain — brand houses, sub-brands, and operators
+        (agencies, DSPs) are all brands in the registry.
+
+        Args:
+            domain: Domain to resolve (e.g., "nike.com", "wpp.com").
+            fresh: Request a live origin check instead of a cached registry
+                result. Defaults to False. Use for authorization decisions
+                that require current brand relationship evidence.
+
+        Returns:
+            ResolvedBrand if found, None if not in the registry.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+
+        Example:
+            brand = await registry.lookup_brand(request.brand.domain)
+        """
+        try:
+            params = {"domain": domain}
+            if fresh:
+                params["fresh"] = "true"
+            response = await self._request(
+                "GET",
+                "/api/brands/resolve",
+                params=params,
+                operation="Brand lookup",
+                allow_404=True,
+            )
+            if response is None:
+                return None
+            data = response.json()
+            if data is None:
+                return None
+            return ResolvedBrand.model_validate(data)
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Brand lookup timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Brand lookup failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Brand lookup failed: invalid response: {e}") from e
+
+    async def lookup_brands(self, domains: list[str]) -> dict[str, ResolvedBrand | None]:
+        """Bulk resolve domains to brand identities.
+
+        Automatically chunks requests exceeding 100 domains.
+
+        Args:
+            domains: List of domains to resolve.
+
+        Returns:
+            Dict mapping each domain to its ResolvedBrand, or None if not found.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        if not domains:
+            return {}
+
+        chunks = [
+            domains[i : i + MAX_BULK_DOMAINS] for i in range(0, len(domains), MAX_BULK_DOMAINS)
+        ]
+
+        chunk_results = await asyncio.gather(
+            *[self._lookup_brands_chunk(chunk) for chunk in chunks]
+        )
+
+        merged: dict[str, ResolvedBrand | None] = {}
+        for result in chunk_results:
+            merged.update(result)
+        return merged
+
+    async def _lookup_brands_chunk(self, domains: list[str]) -> dict[str, ResolvedBrand | None]:
+        """Resolve a single chunk of brand domains (max 100)."""
+        try:
+            response = await self._send_bounded(
+                "POST",
+                "/api/brands/resolve/bulk",
+                json_body={"domains": domains},
+                headers={"User-Agent": self._user_agent},
+                operation="Bulk brand lookup",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="POST",
+                    operation="Bulk brand lookup",
+                )
+            data = response.json()
+            results_raw = data.get("results", {})
+            results: dict[str, ResolvedBrand | None] = {d: None for d in domains}
+            for domain, brand_data in results_raw.items():
+                if brand_data is not None:
+                    results[domain] = ResolvedBrand.model_validate(brand_data)
+            return results
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Bulk brand lookup timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Bulk brand lookup failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Bulk brand lookup failed: invalid response: {e}") from e
+
+    async def lookup_property(self, domain: str) -> ResolvedProperty | None:
+        """Resolve a publisher domain to its property info.
+
+        Args:
+            domain: Publisher domain to resolve (e.g., "nytimes.com").
+
+        Returns:
+            ResolvedProperty if found, None if the domain is not in the registry.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        domain = validate_publisher_domain(domain)
+        try:
+            response = await self._send_bounded(
+                "GET",
+                "/api/properties/resolve",
+                params={"domain": domain},
+                headers={"User-Agent": self._user_agent},
+                operation="Property lookup",
+            )
+            if response.status_code == 404:
+                return None
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Property lookup",
+                )
+            data = response.json()
+            if data is None:
+                return None
+            return ResolvedProperty.model_validate(data)
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Property lookup timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Property lookup failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Property lookup failed: invalid response: {e}") from e
+
+    async def lookup_properties(self, domains: list[str]) -> dict[str, ResolvedProperty | None]:
+        """Bulk resolve publisher domains to property info.
+
+        Automatically chunks requests exceeding 100 domains.
+
+        Args:
+            domains: List of publisher domains to resolve.
+
+        Returns:
+            Dict mapping each domain to its ResolvedProperty, or None if not found.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        requested_domains = list(domains)
+        domains = [validate_publisher_domain(domain) for domain in requested_domains]
+        if not domains:
+            return {}
+
+        chunks = [
+            domains[i : i + MAX_BULK_DOMAINS] for i in range(0, len(domains), MAX_BULK_DOMAINS)
+        ]
+
+        chunk_results = await asyncio.gather(
+            *[self._lookup_properties_chunk(chunk) for chunk in chunks]
+        )
+
+        merged: dict[str, ResolvedProperty | None] = {}
+        for result in chunk_results:
+            merged.update(result)
+        return {
+            requested: merged.get(canonical)
+            for requested, canonical in zip(requested_domains, domains)
+        }
+
+    async def _lookup_properties_chunk(
+        self, domains: list[str]
+    ) -> dict[str, ResolvedProperty | None]:
+        """Resolve a single chunk of property domains (max 100)."""
+        try:
+            response = await self._send_bounded(
+                "POST",
+                "/api/properties/resolve/bulk",
+                json_body={"domains": domains},
+                headers={"User-Agent": self._user_agent},
+                operation="Bulk property lookup",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="POST",
+                    operation="Bulk property lookup",
+                )
+            data = response.json()
+            results_raw = data.get("results", {})
+            results: dict[str, ResolvedProperty | None] = {d: None for d in domains}
+            for domain, prop_data in results_raw.items():
+                if prop_data is not None:
+                    results[domain] = ResolvedProperty.model_validate(prop_data)
+            return results
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Bulk property lookup timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Bulk property lookup failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Bulk property lookup failed: invalid response: {e}") from e
+
+    async def resolve_identifiers(
+        self,
+        identifiers: list[Any],
+        *,
+        provenance: dict[str, str],
+        mode: Literal["resolve", "lookup"] = "resolve",
+        auth_token: str | None = None,
+        concurrency: int = 4,
+        max_request_bytes: int = DEFAULT_MAX_IDENTIFIER_REQUEST_BYTES,
+        max_retries: int = 3,
+    ) -> dict[str, Any]:
+        """Resolve typed identifiers, automatically splitting large requests.
+
+        POST /api/registry/resolve is the bulk *contribution* path in resolve
+        mode (requires auth). Lookup mode is read-only. Provenance is required
+        in both modes. Splits at 10,000 identifiers and the configured encoded
+        JSON byte limit, preserves input order, and retries 429/503 responses
+        using Retry-After. Exhausted retries retain structured RegistryError.
+        """
+        if mode not in {"resolve", "lookup"}:
+            raise ValueError("mode must be 'resolve' or 'lookup'")
+        if mode == "resolve" and not auth_token:
+            raise ValueError("auth_token is required in resolve mode")
+        if concurrency < 1 or max_request_bytes < 1 or max_retries < 0:
+            raise ValueError("concurrency/size must be positive and retries non-negative")
+        provenance_types = {
+            "agency_allowlist",
+            "publisher_declaration",
+            "impression_log",
+            "ssp_inventory",
+            "deal_history",
+            "data_partner",
+            "member_assertion",
+        }
+        if provenance.get("type") not in provenance_types:
+            raise ValueError("provenance.type must name a supported caller provenance")
+        normalized = [
+            normalize_identifier(
+                item["type"] if isinstance(item, dict) else item.type,
+                item["value"] if isinstance(item, dict) else item.value,
+            ).as_dict()
+            for item in identifiers
+        ]
+        if not normalized:
+            return {
+                "resolved": [],
+                "summary": {
+                    "total": 0,
+                    "resolved": 0,
+                    "created": 0,
+                    "excluded": 0,
+                    "not_found": 0,
+                },
+                "server_timestamp": None,
+            }
+        envelope: dict[str, Any] = {"identifiers": [], "mode": mode, "provenance": provenance}
+        # httpx's JSON encoder uses compact separators and ensure_ascii=False.
+        overhead = len(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode())
+        chunks: list[list[dict[str, str]]] = []
+        chunk: list[dict[str, str]] = []
+        size = overhead
+        for item in normalized:
+            item_size = len(json.dumps(item, ensure_ascii=False, separators=(",", ":")).encode())
+            if overhead + item_size > max_request_bytes:
+                raise ValueError("one identifier exceeds max_request_bytes")
+            if chunk and (
+                len(chunk) == MAX_BULK_IDENTIFIERS or size + item_size + 1 > max_request_bytes
+            ):
+                chunks.append(chunk)
+                chunk = []
+                size = overhead
+            size += item_size + bool(chunk)
+            chunk.append(item)
+        if chunk:
+            chunks.append(chunk)
+
+        async def resolve_chunk(batch: list[dict[str, str]]) -> dict[str, Any]:
+            for attempt in range(max_retries + 1):
+                try:
+                    page = await self._request_json(
+                        "POST",
+                        "/api/registry/resolve",
+                        json_body={**envelope, "identifiers": batch},
+                        auth_token=auth_token,
+                        operation="Resolve identifiers",
+                    )
+                    return _validate_identifier_resolution_response(page)
+                except ValueError:
+                    raise RegistryError(
+                        "Resolve identifiers failed: invalid JSON response"
+                    ) from None
+                except RegistryError as exc:
+                    if exc.status_code not in {429, 503} or attempt == max_retries:
+                        raise
+                    delay = exc.retry_after_seconds
+                    await asyncio.sleep(delay if delay is not None else min(2**attempt, 30))
+            raise AssertionError("unreachable")
+
+        # Bound both active requests and the number of scheduled tasks.
+        pages: list[dict[str, Any]] = []
+        for offset in range(0, len(chunks), concurrency):
+            pages.extend(
+                await asyncio.gather(
+                    *(resolve_chunk(batch) for batch in chunks[offset : offset + concurrency])
+                )
+            )
+        summary: dict[str, int] = {}
+        resolved: list[Any] = []
+        for page in pages:
+            resolved.extend(page["resolved"])
+            for name, count in page["summary"].items():
+                summary[name] = summary.get(name, 0) + count
+        return {
+            "resolved": resolved,
+            "summary": summary,
+            "server_timestamp": pages[-1].get("server_timestamp"),
+        }
+
+    async def list_members(self, limit: int = 100) -> list[Member]:
+        """List organizations registered in the AAO member directory.
+
+        Args:
+            limit: Maximum number of members to return.
+
+        Returns:
+            List of Member objects.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        if limit < 1:
+            raise ValueError(f"limit must be at least 1, got {limit}")
+
+        try:
+            response = await self._send_bounded(
+                "GET",
+                "/api/members",
+                params={"limit": limit},
+                headers={"User-Agent": self._user_agent},
+                operation="Member list",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Member list",
+                )
+            data = response.json()
+            return [Member.model_validate(m) for m in data.get("members", [])]
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Member list timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Member list failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Member list failed: invalid response: {e}") from e
+
+    async def get_member(self, slug: str) -> Member | None:
+        """Get a single AAO member by their slug.
+
+        Args:
+            slug: Member slug (e.g., "adgentek").
+
+        Returns:
+            Member if found, None if not in the registry.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+            ValueError: If slug contains path-traversal characters.
+        """
+        if not slug or not re.fullmatch(r"[a-zA-Z0-9_-]+", slug):
+            raise ValueError(f"Invalid member slug: {slug!r}")
+        try:
+            response = await self._send_bounded(
+                "GET",
+                f"/api/members/{slug}",
+                headers={"User-Agent": self._user_agent},
+                operation="Member lookup",
+            )
+            if response.status_code == 404:
+                return None
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Member lookup",
+                )
+            data = response.json()
+            if data is None:
+                return None
+            return Member.model_validate(data)
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Member lookup timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Member lookup failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Member lookup failed: invalid response: {e}") from e
+
+    # ========================================================================
+    # Policy Registry Operations
+    # ========================================================================
+
+    async def list_policies(
+        self,
+        search: str | None = None,
+        category: str | None = None,
+        enforcement: str | None = None,
+        jurisdiction: str | None = None,
+        vertical: str | None = None,
+        domain: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[PolicySummary]:
+        """List governance policies with optional filtering.
+
+        Args:
+            search: Full-text search on policy name and description.
+            category: Filter by category ("regulation" or "standard").
+            enforcement: Filter by enforcement level ("must", "should", "may").
+            jurisdiction: Filter by jurisdiction with region alias matching.
+            vertical: Filter by industry vertical.
+            domain: Filter by governance domain ("campaign", "creative", etc.).
+            limit: Results per page (default 20, max 1000).
+            offset: Pagination offset.
+
+        Returns:
+            List of PolicySummary objects.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        params: dict[str, str | int] = {"limit": limit, "offset": offset}
+        if search is not None:
+            params["search"] = search
+        if category is not None:
+            params["category"] = category
+        if enforcement is not None:
+            params["enforcement"] = enforcement
+        if jurisdiction is not None:
+            params["jurisdiction"] = jurisdiction
+        if vertical is not None:
+            params["vertical"] = vertical
+        if domain is not None:
+            params["domain"] = domain
+
+        try:
+            response = await self._send_bounded(
+                "GET",
+                "/api/policies/registry",
+                params=params,
+                headers={"User-Agent": self._user_agent},
+                operation="Policy list",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Policy list",
+                )
+            data = response.json()
+            return [PolicySummary.model_validate(p) for p in data.get("policies", [])]
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Policy list timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Policy list failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Policy list failed: invalid response: {e}") from e
+
+    async def resolve_policy(
+        self,
+        policy_id: str,
+        version: str | None = None,
+    ) -> Policy | None:
+        """Resolve a single policy by ID.
+
+        Args:
+            policy_id: Policy identifier (e.g., "gdpr_consent").
+            version: Optional version pin; returns None if current version differs.
+
+        Returns:
+            Policy if found, None if not in the registry.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        params: dict[str, str] = {"policy_id": policy_id}
+        if version is not None:
+            params["version"] = version
+
+        try:
+            response = await self._send_bounded(
+                "GET",
+                "/api/policies/resolve",
+                params=params,
+                headers={"User-Agent": self._user_agent},
+                operation="Policy resolve",
+            )
+            if response.status_code == 404:
+                return None
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Policy resolve",
+                )
+            data = response.json()
+            if data is None:
+                return None
+            return Policy.model_validate(data)
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Policy resolve timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Policy resolve failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Policy resolve failed: invalid response: {e}") from e
+
+    async def resolve_policies(
+        self,
+        policy_ids: list[str],
+    ) -> dict[str, Policy | None]:
+        """Bulk resolve policies by ID.
+
+        Automatically chunks requests exceeding 100 policy IDs.
+
+        Args:
+            policy_ids: List of policy identifiers to resolve.
+
+        Returns:
+            Dict mapping each policy_id to its Policy, or None if not found.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        if not policy_ids:
+            return {}
+
+        chunks = [
+            policy_ids[i : i + MAX_BULK_POLICIES]
+            for i in range(0, len(policy_ids), MAX_BULK_POLICIES)
+        ]
+
+        chunk_results = await asyncio.gather(
+            *[self._resolve_policies_chunk(chunk) for chunk in chunks]
+        )
+
+        merged: dict[str, Policy | None] = {}
+        for result in chunk_results:
+            merged.update(result)
+        return merged
+
+    async def _resolve_policies_chunk(self, policy_ids: list[str]) -> dict[str, Policy | None]:
+        """Resolve a single chunk of policy IDs (max 100)."""
+        try:
+            response = await self._send_bounded(
+                "POST",
+                "/api/policies/resolve/bulk",
+                json_body={"policy_ids": policy_ids},
+                headers={"User-Agent": self._user_agent},
+                operation="Bulk policy resolve",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="POST",
+                    operation="Bulk policy resolve",
+                )
+            data = response.json()
+            results_raw = data.get("results", {})
+            results: dict[str, Policy | None] = {pid: None for pid in policy_ids}
+            for pid, policy_data in results_raw.items():
+                if policy_data is not None:
+                    results[pid] = Policy.model_validate(policy_data)
+            return results
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Bulk policy resolve timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Bulk policy resolve failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Bulk policy resolve failed: invalid response: {e}") from e
+
+    async def policy_history(
+        self,
+        policy_id: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> PolicyHistory | None:
+        """Retrieve edit history for a policy.
+
+        Args:
+            policy_id: Policy identifier.
+            limit: Maximum revisions to return (default 20, max 100).
+            offset: Pagination offset.
+
+        Returns:
+            PolicyHistory if found, None if the policy doesn't exist.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors.
+        """
+        try:
+            response = await self._send_bounded(
+                "GET",
+                "/api/policies/history",
+                params={"policy_id": policy_id, "limit": limit, "offset": offset},
+                headers={"User-Agent": self._user_agent},
+                operation="Policy history",
+            )
+            if response.status_code == 404:
+                return None
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="GET",
+                    operation="Policy history",
+                )
+            data = response.json()
+            if data is None:
+                return None
+            return PolicyHistory.model_validate(data)
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Policy history timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Policy history failed: {e}") from e
+        except (ValidationError, ValueError) as e:
+            raise RegistryError(f"Policy history failed: invalid response: {e}") from e
+
+    async def save_policy(
+        self,
+        policy_id: str,
+        version: str,
+        name: str,
+        category: str,
+        enforcement: str,
+        policy: str,
+        *,
+        auth_token: str,
+        description: str | None = None,
+        jurisdictions: list[str] | None = None,
+        region_aliases: dict[str, list[str]] | None = None,
+        verticals: list[str] | None = None,
+        channels: list[str] | None = None,
+        effective_date: str | None = None,
+        sunset_date: str | None = None,
+        governance_domains: list[str] | None = None,
+        source_url: str | None = None,
+        source_name: str | None = None,
+        guidance: str | None = None,
+        exemplars: dict[str, Any] | None = None,
+        ext: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create or update a community-contributed policy.
+
+        Requires authentication. Cannot edit registry-sourced or pending policies.
+
+        Args:
+            policy_id: Policy identifier (lowercase alphanumeric with underscores).
+            version: Semantic version string.
+            name: Human-readable policy name.
+            category: "regulation" or "standard".
+            enforcement: "must", "should", or "may".
+            policy: Natural language policy text.
+            auth_token: API key for authentication.
+            description: Policy description.
+            jurisdictions: ISO jurisdiction codes.
+            region_aliases: Region alias mappings (e.g., {"EU": ["DE", "FR"]}).
+            verticals: Industry verticals.
+            channels: Media channels.
+            effective_date: ISO 8601 date when enforcement begins.
+            sunset_date: ISO 8601 date when enforcement ends.
+            governance_domains: Applicable domains ("campaign", "creative", etc.).
+            source_url: URL of the source regulation/standard.
+            source_name: Name of the source.
+            guidance: Implementation guidance text.
+            exemplars: Pass/fail calibration scenarios.
+            ext: Extension data.
+
+        Returns:
+            Dict with success, message, policy_id, and revision_number.
+
+        Raises:
+            RegistryError: On HTTP or parsing errors (400, 401, 409, 429).
+        """
+        body: dict[str, Any] = {
+            "policy_id": policy_id,
+            "version": version,
+            "name": name,
+            "category": category,
+            "enforcement": enforcement,
+            "policy": policy,
+        }
+        for key, value in [
+            ("description", description),
+            ("jurisdictions", jurisdictions),
+            ("region_aliases", region_aliases),
+            ("verticals", verticals),
+            ("channels", channels),
+            ("effective_date", effective_date),
+            ("sunset_date", sunset_date),
+            ("governance_domains", governance_domains),
+            ("source_url", source_url),
+            ("source_name", source_name),
+            ("guidance", guidance),
+            ("exemplars", exemplars),
+            ("ext", ext),
+        ]:
+            if value is not None:
+                body[key] = value
+
+        try:
+            response = await self._send_bounded(
+                "POST",
+                "/api/policies/save",
+                json_body=body,
+                headers={
+                    "User-Agent": self._user_agent,
+                    "Authorization": f"Bearer {auth_token}",
+                },
+                operation="Policy save",
+            )
+            if response.status_code != 200:
+                raise _registry_http_error(
+                    response,
+                    method="POST",
+                    operation="Policy save",
+                )
+            result: dict[str, Any] = response.json()
+            return result
+        except RegistryError:
+            raise
+        except httpx.TimeoutException as e:
+            raise RegistryError(f"Policy save timed out after {self._timeout}s") from e
+        except httpx.HTTPError as e:
+            raise RegistryError(f"Policy save failed: {e}") from e
+
+    # ========================================================================
+    # Brand Registry Operations
+    # ========================================================================
+
+    async def get_brand_json(self, domain: str, *, fresh: bool = False) -> dict[str, Any] | None:
+        """Fetch raw brand.json for a domain."""
+        params: dict[str, Any] = {"domain": domain}
+        if fresh:
+            params["fresh"] = "true"
+        resp = await self._request(
+            "GET",
+            "/api/brands/brand-json",
+            params=params,
+            allow_404=True,
+            operation="Brand JSON fetch",
+        )
+        if resp is None:
+            return None
+        return cast(dict[str, Any], resp.json())
+
+    async def save_brand(
+        self,
+        domain: str,
+        brand_name: str,
+        *,
+        auth_token: str,
+        brand_manifest: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save or update a brand in the registry (auth required)."""
+        body: dict[str, Any] = {"domain": domain, "brand_name": brand_name}
+        if brand_manifest is not None:
+            body["brand_manifest"] = brand_manifest
+        resp = await self._request_ok(
+            "POST",
+            "/api/brands/save",
+            json_body=body,
+            auth_token=auth_token,
+            operation="Brand save",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def list_brands(
+        self,
+        search: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[BrandRegistryItem]:
+        """List brands in the registry."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if search is not None:
+            params["search"] = search
+        resp = await self._request_ok(
+            "GET",
+            "/api/brands/registry",
+            params=params,
+            operation="Brand list",
+        )
+
+        data = resp.json()
+        return [self._parse(BrandRegistryItem, b, "Brand list") for b in data.get("brands", [])]
+
+    async def brand_history(
+        self,
+        domain: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> BrandActivity | None:
+        """Get edit history for a brand."""
+        resp = await self._request(
+            "GET",
+            "/api/brands/history",
+            params={"domain": domain, "limit": limit, "offset": offset},
+            allow_404=True,
+            operation="Brand history",
+        )
+        if resp is None:
+            return None
+        return self._parse(BrandActivity, resp.json(), "Brand history")
+
+    async def enrich_brand(self, domain: str) -> dict[str, Any]:
+        """Enrich brand data using Brandfetch."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/brands/enrich",
+            params={"domain": domain},
+            operation="Brand enrich",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    # ========================================================================
+    # Property Registry Operations
+    # ========================================================================
+
+    async def list_properties(
+        self,
+        search: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[PropertyRegistryItem]:
+        """List properties in the registry."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if search is not None:
+            params["search"] = search
+        resp = await self._request_ok(
+            "GET",
+            "/api/properties/registry",
+            params=params,
+            operation="Property list",
+        )
+
+        data = resp.json()
+        return [
+            self._parse(PropertyRegistryItem, p, "Property list")
+            for p in data.get("properties", [])
+        ]
+
+    async def validate_property(self, domain: str) -> ValidationResult:
+        """Validate a domain's adagents.json configuration."""
+        domain = validate_publisher_domain(domain)
+        resp = await self._request_ok(
+            "GET",
+            "/api/properties/validate",
+            params={"domain": domain},
+            operation="Property validate",
+        )
+
+        return self._parse(ValidationResult, resp.json(), "Property validate")
+
+    async def save_property(
+        self,
+        publisher_domain: str,
+        authorized_agents: list[dict[str, Any]],
+        *,
+        auth_token: str,
+        properties: list[dict[str, Any]] | None = None,
+        contact: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Save or update a hosted property (auth required)."""
+        publisher_domain = validate_publisher_domain(publisher_domain)
+        body: dict[str, Any] = {
+            "publisher_domain": publisher_domain,
+            "authorized_agents": authorized_agents,
+        }
+        if properties is not None:
+            body["properties"] = properties
+        if contact is not None:
+            body["contact"] = contact
+        resp = await self._request_ok(
+            "POST",
+            "/api/properties/save",
+            json_body=body,
+            auth_token=auth_token,
+            operation="Property save",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def property_history(
+        self,
+        domain: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> PropertyActivity | None:
+        """Get edit history for a property."""
+        resp = await self._request(
+            "GET",
+            "/api/properties/history",
+            params={"domain": domain, "limit": limit, "offset": offset},
+            allow_404=True,
+            operation="Property history",
+        )
+        if resp is None:
+            return None
+        return self._parse(PropertyActivity, resp.json(), "Property history")
+
+    async def check_property_list(self, domains: list[str]) -> dict[str, Any]:
+        """Check publisher domains against the registry."""
+        resp = await self._request_ok(
+            "POST",
+            "/api/properties/check",
+            json_body={"domains": domains},
+            operation="Property check",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def get_property_check_report(self, report_id: str) -> dict[str, Any] | None:
+        """Retrieve a property check report by ID."""
+        resp = await self._request(
+            "GET",
+            f"/api/properties/check/{url_quote(report_id, safe='')}",
+            allow_404=True,
+            operation="Property check report",
+        )
+        if resp is None:
+            return None
+        return cast(dict[str, Any], resp.json())
+
+    async def verify_hosted_property_origin(
+        self,
+        domain: str,
+        *,
+        auth_token: str | None = None,
+    ) -> dict[str, Any]:
+        """Verify a hosted property's origin adagents.json delegation."""
+        return await self._request_json(
+            "POST",
+            f"/api/properties/hosted/{url_quote(domain, safe='')}/verify-origin",
+            auth_token=auth_token,
+            operation="Hosted property origin verification",
+        )
+
+    # ========================================================================
+    # Agent Discovery
+    # ========================================================================
+
+    async def list_agents(
+        self,
+        *,
+        type: str | None = None,
+        health: bool = False,
+        capabilities: bool = False,
+        properties: bool = False,
+        compliance: bool = False,
+        metric_id: str | list[str] | None = None,
+        accreditation: str | list[str] | None = None,
+        q: str | None = None,
+        verification_mode: str | list[str] | None = None,
+        verified: bool = False,
+    ) -> list[FederatedAgentWithDetails]:
+        """List registered and discovered agents.
+
+        Measurement filters (``metric_id``, ``accreditation``, ``q``) imply
+        ``type=measurement`` on the registry when ``type`` is omitted.
+        """
+        params: dict[str, Any] = {}
+        if type is not None:
+            params["type"] = type
+        if health:
+            params["health"] = "true"
+        if capabilities:
+            params["capabilities"] = "true"
+        if properties:
+            params["properties"] = "true"
+        if compliance:
+            params["compliance"] = "true"
+        if metric_id is not None:
+            params["metric_id"] = metric_id
+        if accreditation is not None:
+            params["accreditation"] = accreditation
+        if q is not None:
+            params["q"] = q
+        if verification_mode is not None:
+            params["verification_mode"] = verification_mode
+        if verified:
+            params["verified"] = "true"
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/agents",
+            params=params,
+            operation="Agent list",
+        )
+
+        data = resp.json()
+        return [
+            self._parse(FederatedAgentWithDetails, a, "Agent list") for a in data.get("agents", [])
+        ]
+
+    async def list_publishers(self) -> list[FederatedPublisher]:
+        """List publishers in the registry."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/publishers",
+            operation="Publisher list",
+        )
+
+        data = resp.json()
+        return [
+            self._parse(FederatedPublisher, p, "Publisher list") for p in data.get("publishers", [])
+        ]
+
+    async def get_registry_stats(self) -> dict[str, Any]:
+        """Get aggregate registry statistics."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/stats",
+            operation="Registry stats",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def search_agents(
+        self,
+        *,
+        auth_token: str,
+        channels: str | None = None,
+        property_types: str | None = None,
+        markets: str | None = None,
+        categories: str | None = None,
+        tags: str | None = None,
+        delivery_types: str | None = None,
+        has_tmp: bool | None = None,
+        min_properties: int | None = None,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Search agents by inventory profile (auth required)."""
+        params: dict[str, Any] = {"limit": limit}
+        for key, val in [
+            ("channels", channels),
+            ("property_types", property_types),
+            ("markets", markets),
+            ("categories", categories),
+            ("tags", tags),
+            ("delivery_types", delivery_types),
+            ("cursor", cursor),
+        ]:
+            if val is not None:
+                params[key] = val
+        if has_tmp is not None:
+            params["has_tmp"] = str(has_tmp).lower()
+        if min_properties is not None:
+            params["min_properties"] = min_properties
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/agents/search",
+            params=params,
+            auth_token=auth_token,
+            operation="Agent search",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def request_crawl(self, domain: str, *, auth_token: str) -> dict[str, Any]:
+        """Request a domain re-crawl (auth required)."""
+        resp = await self._request_ok(
+            "POST",
+            "/api/registry/crawl-request",
+            json_body={"domain": domain},
+            auth_token=auth_token,
+            operation="Crawl request",
+            expected_status={200, 202},
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def request_manager_revalidation(
+        self,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Request manager revalidation for registry-managed data."""
+        return await self._request_json(
+            "POST",
+            "/api/registry/manager-revalidation-request",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Manager revalidation request",
+            expected_status={200, 202},
+        )
+
+    async def request_brand_crawl(
+        self,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Request a brand crawl through the registry."""
+        return await self._request_json(
+            "POST",
+            "/api/registry/brand-crawl-request",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Brand crawl request",
+            expected_status={200, 202},
+        )
+
+    # ========================================================================
+    # Lookups & Authorization
+    # ========================================================================
+
+    async def lookup_domain(self, domain: str) -> DomainLookupResult:
+        """Find all agents authorized for a publisher domain."""
+        domain = validate_publisher_domain(domain)
+        resp = await self._request_ok(
+            "GET",
+            f"/api/registry/lookup/domain/{url_quote(domain, safe='')}",
+            operation="Domain lookup",
+        )
+
+        return self._parse(DomainLookupResult, resp.json(), "Domain lookup")
+
+    async def lookup_property_identifier(self, type: str, value: str) -> dict[str, Any]:
+        """Find agents holding a specific property identifier."""
+        if type in {"domain", "subdomain"}:
+            value = validate_publisher_domain(value)
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/lookup/property",
+            params={"type": type, "value": value},
+            operation="Property identifier lookup",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def get_agent_domains(self, agent_url: str) -> dict[str, Any]:
+        """Get all publisher domains and identifiers for an agent."""
+        encoded = url_quote(agent_url, safe="")
+        resp = await self._request_ok(
+            "GET",
+            f"/api/registry/lookup/agent/{encoded}/domains",
+            operation="Agent domains lookup",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def get_publishers_for_agent(
+        self,
+        agent_url: str,
+        *,
+        since: str | None = None,
+        cursor: str | None = None,
+        status: str | None = None,
+        include: str | None = None,
+        limit: int | None = None,
+        legacy_api_prefix: bool = False,
+    ) -> dict[str, Any]:
+        """List publishers associated with an agent URL."""
+        encoded = url_quote(agent_url, safe="")
+        params = {
+            k: v
+            for k, v in {
+                "since": since,
+                "cursor": cursor,
+                "status": status,
+                "include": include,
+                "limit": limit,
+            }.items()
+            if v is not None
+        }
+        prefix = "/api/v1" if legacy_api_prefix else "/v1"
+        return await self._request_json(
+            "GET",
+            f"{prefix}/agents/{encoded}/publishers",
+            params=params,
+            operation="Publishers for agent",
+        )
+
+    async def lookup_operator(
+        self,
+        domain: str,
+        *,
+        scope: str | None = None,
+    ) -> dict[str, Any]:
+        """Resolve registry operator metadata for a domain."""
+        params: dict[str, Any] = {"domain": domain}
+        if scope is not None:
+            params["scope"] = scope
+        return await self._request_json(
+            "GET",
+            "/api/registry/operator",
+            params=params,
+            operation="Operator lookup",
+        )
+
+    async def lookup_publisher(self, domain: str) -> dict[str, Any]:
+        """Resolve registry publisher metadata for a domain."""
+        domain = validate_publisher_domain(domain)
+        return await self._request_json(
+            "GET",
+            "/api/registry/publisher",
+            params={"domain": domain},
+            operation="Publisher lookup",
+        )
+
+    async def lookup_publisher_agent_authorization(
+        self,
+        domain: str,
+        agent: str,
+    ) -> dict[str, Any]:
+        """Resolve whether a publisher authorizes an agent."""
+        domain = validate_publisher_domain(domain)
+        return await self._request_json(
+            "GET",
+            "/api/registry/publisher/authorization",
+            params={"domain": domain, "agent": agent},
+            operation="Publisher agent authorization lookup",
+        )
+
+    async def get_agent_authorizations(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str | None = None,
+        include: str | None = None,
+        evidence: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch authorization rows for one agent."""
+        params = {"agent_url": agent_url}
+        if include is not None:
+            params["include"] = include
+        if evidence is not None:
+            params["evidence"] = evidence
+        return await self._request_json(
+            "GET",
+            "/api/registry/authorizations",
+            params=params,
+            auth_token=auth_token,
+            operation="Agent authorizations",
+        )
+
+    async def get_agent_authorizations_snapshot(
+        self,
+        *,
+        auth_token: str | None = None,
+        include: str | None = None,
+        evidence: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch the full authorization snapshot metadata."""
+        params = {k: v for k, v in {"include": include, "evidence": evidence}.items() if v}
+        return await self._request_json(
+            "GET",
+            "/api/registry/authorizations/snapshot",
+            params=params,
+            auth_token=auth_token,
+            operation="Agent authorizations snapshot",
+        )
+
+    async def validate_product_authorization(
+        self,
+        agent_url: str,
+        publisher_properties: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Check whether an agent is authorized to sell products."""
+        resp = await self._request_ok(
+            "POST",
+            "/api/registry/validate/product-authorization",
+            json_body={
+                "agent_url": agent_url,
+                "publisher_properties": publisher_properties,
+            },
+            operation="Product authorization",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def expand_product_identifiers(
+        self,
+        agent_url: str,
+        publisher_properties: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Expand publisher_properties selectors into concrete identifiers."""
+        resp = await self._request_ok(
+            "POST",
+            "/api/registry/expand/product-identifiers",
+            json_body={
+                "agent_url": agent_url,
+                "publisher_properties": publisher_properties,
+            },
+            operation="Expand product identifiers",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def validate_property_authorization(
+        self,
+        agent_url: str,
+        identifier_type: str,
+        identifier_value: str,
+    ) -> dict[str, Any]:
+        """Quick check if a property identifier is authorized for an agent."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/validate/property-authorization",
+            params={
+                "agent_url": agent_url,
+                "identifier_type": identifier_type,
+                "identifier_value": identifier_value,
+            },
+            operation="Property authorization",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    # ========================================================================
+    # Validation Tools
+    # ========================================================================
+
+    async def validate_adagents(self, domain: str) -> dict[str, Any]:
+        """Validate a domain's adagents.json via the registry API."""
+        resp = await self._request_ok(
+            "POST",
+            "/api/adagents/validate",
+            json_body={"domain": domain},
+            operation="Adagents validate",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def create_adagents(
+        self,
+        authorized_agents: list[dict[str, Any]],
+        *,
+        include_schema: bool = False,
+        include_timestamp: bool = False,
+        properties: list[Any] | None = None,
+    ) -> CreateAdagentsResponse:
+        """Generate a valid adagents.json from authorized agents."""
+        body: dict[str, Any] = {"authorized_agents": authorized_agents}
+        if include_schema:
+            body["include_schema"] = True
+        if include_timestamp:
+            body["include_timestamp"] = True
+        if properties is not None:
+            body["properties"] = properties
+        resp = await self._request_ok(
+            "POST",
+            "/api/adagents/create",
+            json_body=body,
+            operation="Adagents create",
+        )
+
+        return self._parse(CreateAdagentsResponse, resp.json(), "Adagents create")
+
+    # ========================================================================
+    # Community Mirror Lifecycle
+    # ========================================================================
+
+    async def publish_community_mirror_adagents(
+        self,
+        platform: str,
+        config: dict[str, Any],
+        *,
+        auth_token: str,
+    ) -> CommunityMirrorPublishResponse:
+        """Publish or update a catalog-only community mirror adagents.json descriptor.
+
+        Persists the mirror under ``PUT /api/registry/mirrors/{platform}``. Use
+        ``create_adagents`` (the generator endpoint) when you only need to
+        validate or preview the document without saving it. The publish body is
+        catalog-only; the service forces ``authorized_agents: []``.
+
+        Args:
+            platform: Stable platform key. Trimmed/lowercased and validated
+                against ``^[a-z0-9_-]{1,64}$``.
+            config: Catalog config (see ``build_community_mirror_adagents``).
+                Any ``properties[].platform`` values must match ``platform``.
+            auth_token: Bearer token required for save operations.
+
+        Returns:
+            The publish response.
+
+        Raises:
+            RegistryError: On platform/catalog validation or HTTP errors.
+        """
+        normalized_platform = _normalize_community_mirror_platform(platform)
+        catalog = build_community_mirror_adagents(config)
+        self._assert_community_mirror_properties_match_platform(normalized_platform, catalog)
+        resp = await self._request_ok(
+            "PUT",
+            f"/api/registry/mirrors/{url_quote(normalized_platform, safe='')}",
+            json_body=catalog,
+            auth_token=auth_token,
+            operation="Community mirror publish",
+        )
+        return self._parse(CommunityMirrorPublishResponse, resp.json(), "Community mirror publish")
+
+    async def get_community_mirror_adagents(
+        self, platform: str
+    ) -> CommunityMirrorGetResponse | None:
+        """Retrieve a published catalog-only community mirror adagents.json descriptor.
+
+        Fetches ``GET /api/registry/mirrors/{platform}``. The response carries the
+        platform metadata (``platform``, ``catalog_etag``, ``superseded_by``,
+        ``created_at``, ``updated_at``) plus the stored catalog-only
+        ``adagents_json`` document. ``superseded_by`` is reported at both the
+        wrapper level and on ``adagents_json`` by the service, so no hydration is
+        needed. The catalog-only invariant (``authorized_agents`` empty) is
+        enforced by the response model.
+
+        Args:
+            platform: Platform key. Trimmed/lowercased and validated.
+
+        Returns:
+            The mirror response, or ``None`` if no mirror exists (HTTP 404).
+
+        Raises:
+            RegistryError: If the registry returns a mismatched platform or an
+                invalid (non-catalog) mirror body, or on other HTTP errors.
+        """
+        normalized_platform = _normalize_community_mirror_platform(platform)
+        resp = await self._request(
+            "GET",
+            f"/api/registry/mirrors/{url_quote(normalized_platform, safe='')}",
+            operation="Community mirror fetch",
+            allow_404=True,
+        )
+        if resp is None:
+            return None
+        mirror = self._parse(CommunityMirrorGetResponse, resp.json(), "Community mirror fetch")
+
+        if mirror.platform != normalized_platform:
+            raise RegistryError("Registry returned mismatched community mirror platform")
+        return mirror
+
+    async def list_community_mirror_adagents(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> CommunityMirrorListResponse:
+        """List published community mirror catalogs with their current etags.
+
+        Fetches ``GET /api/registry/mirrors``. The list projection includes
+        presence and freshness metadata but omits the full ``adagents_json``
+        body; fetch a platform-specific mirror for the full document.
+
+        Args:
+            limit: Optional page size. The service defaults to 100 and clamps
+                values to the 1-500 range.
+            offset: Optional zero-based result offset. The service defaults to 0
+                and clamps negative values to 0.
+
+        Returns:
+            The list response (``mirrors`` summaries plus ``total``).
+        """
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/mirrors",
+            params=params or None,
+            operation="Community mirror list",
+        )
+        return self._parse(CommunityMirrorListResponse, resp.json(), "Community mirror list")
+
+    async def upsert_community_mirror_adagents(
+        self,
+        config: dict[str, Any],
+        *,
+        platform: str | None = None,
+        auth_token: str,
+    ) -> CommunityMirrorPublishResponse:
+        """Publish or update a community mirror, inferring the platform key.
+
+        The platform key is resolved from the ``platform`` argument, then
+        ``config["platform"]``, then a single consistent ``properties[].platform``
+        value. Ambiguous property platforms raise an error.
+
+        Args:
+            config: Catalog config (see ``build_community_mirror_adagents``).
+            platform: Explicit platform key. Takes precedence over inference.
+            auth_token: Bearer token required for save operations.
+
+        Returns:
+            The publish response.
+
+        Raises:
+            RegistryError: If a platform key cannot be resolved, property
+                platforms are ambiguous, or on validation/HTTP errors.
+        """
+        resolved_platform = (
+            platform
+            if platform is not None
+            else self._community_mirror_platform_from_config(config)
+        )
+        return await self.publish_community_mirror_adagents(
+            resolved_platform, config, auth_token=auth_token
+        )
+
+    async def delete_community_mirror_adagents(
+        self,
+        platform: str,
+        *,
+        force: bool = False,
+        auth_token: str,
+    ) -> CommunityMirrorDeleteResponse:
+        """Delete a published community mirror and retire its derived rows.
+
+        Issues ``DELETE /api/registry/mirrors/{platform}``. Without ``force``,
+        the service refuses (HTTP 409) to delete a mirror that has not first
+        published a ``superseded_by`` migration URL; set ``force=True`` to delete
+        anyway.
+
+        Args:
+            platform: Platform key. Trimmed/lowercased and validated.
+            force: Delete a mirror that has no ``superseded_by`` migration URL.
+            auth_token: Bearer token required for delete operations.
+
+        Returns:
+            The delete response.
+
+        Raises:
+            RegistryError: If the mirror has not been superseded and ``force`` is
+                not set (HTTP 409), or on other platform/HTTP errors.
+        """
+        normalized_platform = _normalize_community_mirror_platform(platform)
+        params = {"force": "true"} if force else None
+        resp = await self._request_ok(
+            "DELETE",
+            f"/api/registry/mirrors/{url_quote(normalized_platform, safe='')}",
+            params=params,
+            auth_token=auth_token,
+            operation="Community mirror delete",
+        )
+        return self._parse(CommunityMirrorDeleteResponse, resp.json(), "Community mirror delete")
+
+    def _community_mirror_platform_from_config(self, config: dict[str, Any]) -> str:
+        """Infer the platform key from a community mirror config."""
+        config_platform = config.get("platform")
+        if isinstance(config_platform, str) and config_platform.strip():
+            return config_platform
+
+        properties = config.get("properties")
+        if isinstance(properties, list):
+            platforms: set[str] = set()
+            for prop in properties:
+                if not isinstance(prop, dict):
+                    continue
+                prop_platform = prop.get("platform")
+                if isinstance(prop_platform, str) and prop_platform.strip():
+                    platforms.add(_normalize_community_mirror_platform(prop_platform))
+            if len(platforms) == 1:
+                return next(iter(platforms))
+            if len(platforms) > 1:
+                raise RegistryError(
+                    "platform is ambiguous; pass "
+                    "upsert_community_mirror_adagents(config, platform=...)"
+                )
+
+        raise RegistryError("platform is required for community mirror publish")
+
+    def _assert_community_mirror_properties_match_platform(
+        self,
+        normalized_platform: str,
+        catalog: dict[str, Any],
+    ) -> None:
+        """Reject catalogs whose property platforms disagree with the key."""
+        properties = catalog.get("properties")
+        if not isinstance(properties, list):
+            return
+        for prop in properties:
+            if not isinstance(prop, dict):
+                continue
+            prop_platform = prop.get("platform")
+            if prop_platform is None:
+                continue
+            if (
+                not isinstance(prop_platform, str)
+                or _normalize_community_mirror_platform(prop_platform) != normalized_platform
+            ):
+                raise RegistryError(f"properties[].platform must match {normalized_platform}")
+
+    # ========================================================================
+    # Search
+    # ========================================================================
+
+    async def api_discovery(self) -> dict[str, Any]:
+        """Get API discovery info (links to entry points and docs)."""
+        resp = await self._request_ok(
+            "GET",
+            "/api",
+            operation="API discovery",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def search(self, q: str) -> dict[str, Any]:
+        """Search across brands, publishers, and properties."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/search",
+            params={"q": q},
+            operation="Search",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def lookup_manifest_ref(self, domain: str, *, type: str | None = None) -> dict[str, Any]:
+        """Find the best manifest reference for a domain."""
+        params: dict[str, Any] = {"domain": domain}
+        if type is not None:
+            params["type"] = type
+        resp = await self._request_ok(
+            "GET",
+            "/api/manifest-refs/lookup",
+            params=params,
+            operation="Manifest ref lookup",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    # ========================================================================
+    # Agent Probing
+    # ========================================================================
+
+    async def discover_agent(self, url: str) -> dict[str, Any]:
+        """Probe an agent URL to discover its capabilities."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/public/discover-agent",
+            params={"url": url},
+            operation="Agent discovery",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def get_agent_formats(self, url: str) -> dict[str, Any]:
+        """Fetch creative formats from an agent."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/public/agent-formats",
+            params={"url": url},
+            operation="Agent formats",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def get_agent_products(self, url: str) -> dict[str, Any]:
+        """Fetch products from a sales agent."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/public/agent-products",
+            params={"url": url},
+            operation="Agent products",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    async def validate_publisher(self, domain: str) -> dict[str, Any]:
+        """Validate a publisher domain's adagents.json and return stats."""
+        resp = await self._request_ok(
+            "GET",
+            "/api/public/validate-publisher",
+            params={"domain": domain},
+            operation="Publisher validation",
+        )
+
+        return cast(dict[str, Any], resp.json())
+
+    # ========================================================================
+    # Compliance, Verification, and Member Management
+    # ========================================================================
+
+    @staticmethod
+    def _encoded_agent_url(agent_url: str) -> str:
+        return url_quote(agent_url, safe="")
+
+    async def get_agent_compliance(self, agent_url: str) -> dict[str, Any]:
+        """Fetch the latest compliance summary for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/compliance",
+            operation="Agent compliance",
+        )
+
+    async def get_jwks(self) -> dict[str, Any]:
+        """Fetch the registry JWKS document."""
+        return await self._request_json(
+            "GET",
+            "/api/.well-known/jwks.json",
+            operation="Registry JWKS",
+        )
+
+    async def get_agent_verification(self, agent_url: str) -> dict[str, Any]:
+        """Fetch the active verification badges for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/verification",
+            operation="Agent verification",
+        )
+
+    async def get_agent_badge_svg(self, agent_url: str, role: str) -> str:
+        """Fetch an agent verification badge SVG."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_text(
+            "GET",
+            f"/api/registry/agents/{encoded}/badge/{url_quote(role, safe='')}.svg",
+            operation="Agent badge SVG",
+        )
+
+    async def get_agent_badge_embed(self, agent_url: str, role: str) -> dict[str, Any]:
+        """Fetch embeddable badge HTML/Markdown for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/badge/{url_quote(role, safe='')}/embed",
+            operation="Agent badge embed",
+        )
+
+    async def get_agent_badge_versioned_svg(
+        self,
+        agent_url: str,
+        role: str,
+        version: str,
+    ) -> str:
+        """Fetch a version-pinned agent verification badge SVG."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_text(
+            "GET",
+            "/api/registry/agents/"
+            f"{encoded}/badge/{url_quote(role, safe='')}/{url_quote(version, safe='')}.svg",
+            operation="Versioned agent badge SVG",
+        )
+
+    async def get_agent_badge_versioned_embed(
+        self,
+        agent_url: str,
+        role: str,
+        version: str,
+    ) -> dict[str, Any]:
+        """Fetch version-pinned embeddable badge HTML/Markdown for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            "/api/registry/agents/"
+            f"{encoded}/badge/{url_quote(role, safe='')}/{url_quote(version, safe='')}/embed",
+            operation="Versioned agent badge embed",
+        )
+
+    async def get_agent_storyboard_status(self, agent_url: str) -> dict[str, Any]:
+        """Fetch latest storyboard status for one agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/storyboard-status",
+            operation="Agent storyboard status",
+        )
+
+    async def bulk_agent_storyboard_status(
+        self,
+        *,
+        auth_token: str | None = None,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Fetch storyboard status for multiple agents."""
+        return await self._request_json(
+            "POST",
+            "/api/registry/agents/storyboard-status",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Bulk agent storyboard status",
+        )
+
+    async def get_agent_compliance_history(
+        self,
+        agent_url: str,
+        *,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Fetch compliance run history for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        params = {"limit": limit} if limit is not None else None
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/compliance/history",
+            params=params,
+            operation="Agent compliance history",
+        )
+
+    async def update_agent_lifecycle(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Update an agent lifecycle stage."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/lifecycle",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent lifecycle update",
+        )
+
+    async def update_agent_compliance_opt_out(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Update agent compliance opt-out state."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/compliance/opt-out",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent compliance opt-out update",
+        )
+
+    async def get_agent_monitoring_settings(self, agent_url: str) -> dict[str, Any]:
+        """Fetch monitoring settings for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/monitoring/settings",
+            operation="Agent monitoring settings",
+        )
+
+    async def update_agent_monitoring_pause(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Pause or resume monitoring for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/monitoring/pause",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent monitoring pause update",
+        )
+
+    async def update_agent_monitoring_interval(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Update monitoring interval for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/monitoring/interval",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent monitoring interval update",
+        )
+
+    async def requeue_agent_for_heartbeat(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+    ) -> dict[str, Any]:
+        """Requeue an agent for heartbeat monitoring."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            f"/api/registry/agents/{encoded}/monitoring/requeue",
+            auth_token=auth_token,
+            operation="Agent heartbeat requeue",
+        )
+
+    async def get_agent_compliance_step_diagnostics(
+        self,
+        agent_url: str,
+        *,
+        run_id: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Fetch compliance step diagnostics for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        params = {k: v for k, v in {"run_id": run_id, "limit": limit}.items() if v is not None}
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/compliance/diagnostics",
+            params=params,
+            operation="Agent compliance step diagnostics",
+        )
+
+    async def get_agent_monitoring_requests(
+        self,
+        agent_url: str,
+        *,
+        limit: int | None = None,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch monitoring requests for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        params = {k: v for k, v in {"limit": limit, "since": since}.items() if v is not None}
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/monitoring/requests",
+            params=params,
+            operation="Agent monitoring requests",
+        )
+
+    async def refresh_agent(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+    ) -> dict[str, Any]:
+        """Refresh an agent's registry health/capability/compliance snapshot."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            f"/api/registry/agents/{encoded}/refresh",
+            auth_token=auth_token,
+            operation="Agent refresh",
+            expected_status={200, 202},
+        )
+
+    async def get_agent_auth_status(self, agent_url: str) -> dict[str, Any]:
+        """Fetch saved authentication status for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/auth-status",
+            operation="Agent auth status",
+        )
+
+    async def connect_agent(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Connect registry-managed credentials for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/connect",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent connect",
+        )
+
+    async def save_agent_oauth_client_credentials(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Save OAuth client credentials for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "PUT",
+            f"/api/registry/agents/{encoded}/oauth-client-credentials",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Agent OAuth client credentials save",
+        )
+
+    async def test_agent_oauth_client_credentials(
+        self,
+        agent_url: str,
+        *,
+        auth_token: str,
+    ) -> dict[str, Any]:
+        """Test saved OAuth client credentials for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            f"/api/registry/agents/{encoded}/oauth-client-credentials/test",
+            auth_token=auth_token,
+            operation="Agent OAuth client credentials test",
+        )
+
+    async def get_applicable_storyboards(self, agent_url: str) -> dict[str, Any]:
+        """Resolve compliance storyboards applicable to an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "GET",
+            f"/api/registry/agents/{encoded}/applicable-storyboards",
+            operation="Applicable storyboards",
+        )
+
+    async def list_storyboards(
+        self,
+        *,
+        category: str | None = None,
+        compliance_target: str | None = None,
+    ) -> dict[str, Any]:
+        """List available registry compliance storyboards."""
+        params = {
+            k: v
+            for k, v in {"category": category, "compliance_target": compliance_target}.items()
+            if v is not None
+        }
+        return await self._request_json(
+            "GET",
+            "/api/storyboards",
+            params=params,
+            operation="Storyboard list",
+        )
+
+    async def get_storyboard(
+        self,
+        storyboard_id: str,
+        *,
+        compliance_target: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch one registry compliance storyboard."""
+        params = {"compliance_target": compliance_target} if compliance_target is not None else None
+        return await self._request_json(
+            "GET",
+            f"/api/storyboards/{url_quote(storyboard_id, safe='')}",
+            params=params,
+            operation="Storyboard get",
+        )
+
+    async def find_brand(self, q: str, *, limit: int | None = None) -> dict[str, Any]:
+        """Find brands by name or domain."""
+        params: dict[str, Any] = {"q": q}
+        if limit is not None:
+            params["limit"] = limit
+        return await self._request_json(
+            "GET",
+            "/api/brands/find",
+            params=params,
+            operation="Brand find",
+        )
+
+    async def setup_my_brand(self, *, auth_token: str, **body: Any) -> dict[str, Any]:
+        """Set up a brand record for the authenticated member."""
+        return await self._request_json(
+            "POST",
+            "/api/brands/setup-my-brand",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Brand setup",
+        )
+
+    async def bulk_property_check(
+        self,
+        *,
+        auth_token: str | None = None,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Start a bulk property check."""
+        return await self._request_json(
+            "POST",
+            "/api/properties/check/bulk",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Bulk property check",
+            expected_status={200, 202},
+        )
+
+    async def get_bulk_property_check_report(self, report_id: str) -> dict[str, Any]:
+        """Retrieve a bulk property check report by ID."""
+        return await self._request_json(
+            "GET",
+            f"/api/properties/check/bulk/{url_quote(report_id, safe='')}",
+            operation="Bulk property check report",
+        )
+
+    async def run_storyboard_step(
+        self,
+        agent_url: str,
+        storyboard_id: str,
+        step_id: str,
+        *,
+        auth_token: str,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Run one storyboard step against an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            "/api/registry/agents/"
+            f"{encoded}/storyboard/{url_quote(storyboard_id, safe='')}/step/"
+            f"{url_quote(step_id, safe='')}",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Storyboard step run",
+        )
+
+    async def get_storyboard_first_step(
+        self,
+        storyboard_id: str,
+        *,
+        compliance_target: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch the first runnable step for a storyboard."""
+        params = {"compliance_target": compliance_target} if compliance_target is not None else None
+        return await self._request_json(
+            "GET",
+            f"/api/storyboards/{url_quote(storyboard_id, safe='')}/first-step",
+            params=params,
+            operation="Storyboard first step",
+        )
+
+    async def run_storyboard(
+        self,
+        agent_url: str,
+        storyboard_id: str,
+        *,
+        auth_token: str,
+    ) -> dict[str, Any]:
+        """Run a storyboard against an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            f"/api/registry/agents/{encoded}/storyboard/{url_quote(storyboard_id, safe='')}/run",
+            auth_token=auth_token,
+            operation="Storyboard run",
+            expected_status={200, 202},
+        )
+
+    async def compare_storyboard(
+        self,
+        agent_url: str,
+        storyboard_id: str,
+        *,
+        auth_token: str,
+    ) -> dict[str, Any]:
+        """Compare storyboard runs for an agent."""
+        encoded = self._encoded_agent_url(agent_url)
+        return await self._request_json(
+            "POST",
+            "/api/registry/agents/"
+            f"{encoded}/storyboard/{url_quote(storyboard_id, safe='')}/compare",
+            auth_token=auth_token,
+            operation="Storyboard compare",
+        )
+
+    async def list_member_agents(
+        self,
+        *,
+        auth_token: str,
+        org: str | None = None,
+    ) -> dict[str, Any]:
+        """List the authenticated member's registered agents."""
+        params = {"org": org} if org is not None else None
+        return await self._request_json(
+            "GET",
+            "/api/me/agents",
+            params=params,
+            auth_token=auth_token,
+            operation="Member agent list",
+        )
+
+    async def register_member_agent(
+        self,
+        *,
+        auth_token: str,
+        org: str | None = None,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Register an agent for the authenticated member."""
+        params = {"org": org} if org is not None else None
+        return await self._request_json(
+            "POST",
+            "/api/me/agents",
+            params=params,
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Member agent register",
+            expected_status={200, 201},
+        )
+
+    async def update_member_agent(
+        self,
+        url: str,
+        *,
+        auth_token: str,
+        org: str | None = None,
+        **body: Any,
+    ) -> dict[str, Any]:
+        """Update one member-owned agent."""
+        params = {"org": org} if org is not None else None
+        return await self._request_json(
+            "PATCH",
+            f"/api/me/agents/{url_quote(url, safe='')}",
+            params=params,
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Member agent update",
+        )
+
+    async def remove_member_agent(
+        self,
+        url: str,
+        *,
+        auth_token: str,
+        org: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove one member-owned agent."""
+        params = {"org": org} if org is not None else None
+        return await self._request_json(
+            "DELETE",
+            f"/api/me/agents/{url_quote(url, safe='')}",
+            params=params,
+            auth_token=auth_token,
+            operation="Member agent remove",
+        )
+
+    async def create_organization(self, *, auth_token: str, **body: Any) -> dict[str, Any]:
+        """Create an organization for the authenticated member."""
+        return await self._request_json(
+            "POST",
+            "/api/organizations",
+            json_body=dict(body),
+            auth_token=auth_token,
+            operation="Organization create",
+            expected_status={200, 201},
+        )
+
+    # ========================================================================
+    # Change Feed
+    # ========================================================================
+
+    async def get_feed(
+        self,
+        *,
+        auth_token: str,
+        cursor: str | None = None,
+        types: str | None = None,
+        limit: int = 100,
+    ) -> FeedPage:
+        """Poll the registry change feed (auth required).
+
+        Returns a FeedPage with events, cursor, and has_more.
+        Pass cursor from previous response to resume.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if cursor is not None:
+            params["cursor"] = cursor
+        if types is not None:
+            params["types"] = types
+        resp = await self._request_ok(
+            "GET",
+            "/api/registry/feed",
+            params=params,
+            auth_token=auth_token,
+            operation="Feed poll",
+        )
+
+        return self._parse(FeedPage, resp.json(), "Feed poll")

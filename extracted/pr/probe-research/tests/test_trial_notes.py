@@ -8,7 +8,7 @@ import uuid
 import pytest
 
 from probe import cli
-from probe.cli.main import _NOTE_TARGETS
+from probe.cli.commands.notes.targets import _NOTE_TARGETS
 from probe.models import TrialListOut, TrialOut, TrialPatch
 from probe.sdk.client.client import Client
 from probe.sdk.errors import RosError

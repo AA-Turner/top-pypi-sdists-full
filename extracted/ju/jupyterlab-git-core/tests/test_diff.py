@@ -1,0 +1,392 @@
+import json
+import nbformat
+from pathlib import Path
+from subprocess import CalledProcessError
+from unittest.mock import call, patch
+
+import pytest
+
+
+from jupyterlab_git_core.git import Git, GitCommandError
+
+
+@pytest.mark.asyncio
+async def test_changed_files_invalid_input():
+    with pytest.raises(Exception):
+        await Git().changed_files(
+            path="test-path", base="64950a634cd11d1a01ddfedaeffed67b531cb11e"
+        )
+
+
+@pytest.mark.asyncio
+async def test_changed_files_single_commit():
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = (0, "file1.ipynb\x00file2.py\x00", "")
+
+        # When
+        actual_response = await Git().changed_files(
+            path="test-path",
+            single_commit="64950a634cd11d1a01ddfedaeffed67b531cb11e^!",
+        )
+
+        # Then
+        mock_execute.assert_called_once_with(
+            [
+                "git",
+                "diff",
+                "64950a634cd11d1a01ddfedaeffed67b531cb11e^!",
+                "--name-only",
+                "-z",
+            ],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 0, "files": ["file1.ipynb", "file2.py"]} == actual_response
+
+
+@pytest.mark.asyncio
+async def test_changed_files_working_tree():
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = (0, "file1.ipynb\x00file2.py", "")
+
+        # When
+        actual_response = await Git().changed_files(
+            path="test-path", base="WORKING", remote="HEAD"
+        )
+
+        # Then
+        mock_execute.assert_called_once_with(
+            ["git", "diff", "HEAD", "--name-only", "-z"],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 0, "files": ["file1.ipynb", "file2.py"]} == actual_response
+
+
+@pytest.mark.asyncio
+async def test_changed_files_index():
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = (0, "file1.ipynb\x00file2.py", "")
+
+        # When
+        actual_response = await Git().changed_files(
+            path="test-path", base="INDEX", remote="HEAD"
+        )
+
+        # Then
+        mock_execute.assert_called_once_with(
+            ["git", "diff", "--staged", "HEAD", "--name-only", "-z"],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 0, "files": ["file1.ipynb", "file2.py"]} == actual_response
+
+
+@pytest.mark.asyncio
+async def test_changed_files_two_commits():
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = (0, "file1.ipynb\x00file2.py", "")
+
+        # When
+        actual_response = await Git().changed_files(
+            path="test-path", base="HEAD", remote="origin/HEAD"
+        )
+
+        # Then
+        mock_execute.assert_called_once_with(
+            ["git", "diff", "HEAD", "origin/HEAD", "--name-only", "-z", "--"],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 0, "files": ["file1.ipynb", "file2.py"]} == actual_response
+
+
+@pytest.mark.asyncio
+async def test_changed_files_git_diff_error():
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.side_effect = CalledProcessError(128, b"cmd", b"error message")
+
+        # When
+        actual_response = await Git().changed_files(
+            path="test-path", base="HEAD", remote="origin/HEAD"
+        )
+
+        # Then
+        mock_execute.assert_called_once_with(
+            ["git", "diff", "HEAD", "origin/HEAD", "--name-only", "-z", "--"],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 128, "message": "error message"} == actual_response
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output, expected",
+    [
+        ("", []),
+        (
+            "2\t1\tdummy.txt\x00",
+            [{"insertions": "2", "deletions": "1", "filename": "dummy.txt"}],
+        ),
+        (
+            "-\t-\tdummy.png\x00",
+            [{"insertions": "-", "deletions": "-", "filename": "dummy.png"}],
+        ),
+        (
+            "1\t0\tfile with spaces.txt\x001\t0\tfile with\ttab.txt\x00",
+            [
+                {
+                    "insertions": "1",
+                    "deletions": "0",
+                    "filename": "file with spaces.txt",
+                },
+                {"insertions": "1", "deletions": "0", "filename": "file with\ttab.txt"},
+            ],
+        ),
+        (
+            "3\t1\t\x00old name.py\x00new name.py\x002\t0\tother.py\x00",
+            [
+                {
+                    "insertions": "3",
+                    "deletions": "1",
+                    "previous_filename": "old name.py",
+                    "filename": "new name.py",
+                },
+                {"insertions": "2", "deletions": "0", "filename": "other.py"},
+            ],
+        ),
+    ],
+)
+async def test_diff(output, expected):
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = (0, output, "")
+
+        # When
+        actual_response = await Git().diff("test-path", "previous", "current")
+
+        # Then
+        mock_execute.assert_called_once_with(
+            ["git", "diff", "--numstat", "-z", "previous", "current"],
+            cwd="test-path",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=False,
+        )
+        assert {"code": 0, "result": expected} == actual_response
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "args, cli_result, cmd, expected",
+    [
+        (
+            ("dummy.txt", "ar539ie5", "/bin"),
+            (0, "2\t1\tdummy.txt", ""),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "ar539ie5",
+                "--",
+                "dummy.txt",
+            ],
+            False,
+        ),
+        (
+            ("dummy.png", "ar539ie5", "/bin"),
+            (0, "-\t-\tdummy.png", ""),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "ar539ie5",
+                "--",
+                "dummy.png",
+            ],
+            True,
+        ),
+        (
+            ("dummy.txt", "INDEX", "/bin"),
+            (0, "2\t1\tdummy.txt", ""),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "--cached",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "--",
+                "dummy.txt",
+            ],
+            False,
+        ),
+        (
+            ("dummy.png", "INDEX", "/bin"),
+            (0, "-\t-\tdummy.png", ""),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "--cached",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "--",
+                "dummy.png",
+            ],
+            True,
+        ),
+        (
+            ("dummy.txt", "ar539ie5", "/bin"),
+            (128, "", "fatal: Git command failed"),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "ar539ie5",
+                "--",
+                "dummy.txt",
+            ],
+            Exception,
+        ),
+        (
+            ("dummy.txt", "ar539ie5", "/bin"),
+            (
+                128,
+                "",
+                "fatal: Path 'dummy.txt' does not exist (neither on disk nor in the index)",
+            ),
+            [
+                "git",
+                "diff",
+                "--numstat",
+                "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+                "ar539ie5",
+                "--",
+                "dummy.txt",
+            ],
+            False,
+        ),
+    ],
+)
+async def test_is_binary_file(args, cli_result, cmd, expected):
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.return_value = cli_result
+
+        if isinstance(expected, type) and issubclass(expected, Exception):
+            with pytest.raises(GitCommandError):
+                await Git()._is_binary(*args)
+        else:
+            # When
+            actual_response = await Git()._is_binary(*args)
+
+            # Then
+            mock_execute.assert_called_once_with(
+                cmd,
+                cwd="/bin",
+                env=None,
+                username=None,
+                password=None,
+                is_binary=False,
+            )
+
+            assert actual_response == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "filename, numstat, is_binary",
+    [
+        ("dummy.txt", "2\t1\tdummy.txt", False),
+        ("dummy.png", "-\t-\tdummy.png", True),
+    ],
+)
+async def test_get_content_at_reference_index(filename, numstat, is_binary):
+    with patch("jupyterlab_git_core.git.execute") as mock_execute:
+        # Given
+        mock_execute.side_effect = [(0, numstat, ""), (0, "content", "")]
+
+        # When
+        actual_response = await Git().get_content_at_reference(
+            filename, {"special": "INDEX"}, "/bin", None
+        )
+
+        # Then
+        assert mock_execute.call_args_list[-1] == call(
+            ["git", "show", f":{filename}"],
+            cwd="/bin",
+            env=None,
+            username=None,
+            password=None,
+            is_binary=is_binary,
+        )
+        assert actual_response == {"content": "content"}
+
+
+nbdime = pytest.importorskip("nbdime", reason="nbdime is not installed")
+
+
+@pytest.mark.asyncio
+async def test_Git_get_nbdiff_file():
+    HERE = Path(__file__).parent.resolve()
+
+    manager = Git()
+    prev_content = (HERE / "samples" / "ipynb_base.json").read_text()
+    curr_content = (HERE / "samples" / "ipynb_remote.json").read_text()
+
+    result = await manager.get_nbdiff(prev_content, curr_content)
+
+    expected_result = json.loads((HERE / "samples" / "ipynb_nbdiff.json").read_text())
+    assert result == expected_result
+
+
+@pytest.mark.asyncio
+async def test_Git_get_nbdiff_dict():
+    HERE = Path(__file__).parent.resolve()
+
+    manager = Git()
+    prev_content = json.loads((HERE / "samples" / "ipynb_base.json").read_text())
+    curr_content = json.loads((HERE / "samples" / "ipynb_remote.json").read_text())
+
+    result = await manager.get_nbdiff(prev_content, curr_content)
+
+    expected_result = json.loads((HERE / "samples" / "ipynb_nbdiff.json").read_text())
+    assert result == expected_result
+
+
+@pytest.mark.asyncio
+async def test_Git_get_nbdiff_no_content():
+    HERE = Path(__file__).parent.resolve()
+
+    manager = Git()
+
+    result = await manager.get_nbdiff("", "")
+
+    assert result == {
+        "base": nbformat.versions[nbformat.current_nbformat].new_notebook(),
+        "diff": [],
+    }

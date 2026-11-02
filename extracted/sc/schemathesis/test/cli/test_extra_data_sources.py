@@ -543,9 +543,14 @@ def test_no_false_positive_when_pool_body_missing_required_fields(cli, snapshot_
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_pool_skips_values_that_cannot_be_compared(cli, snapshot_cli, ctx):
-    # A custom deserializer may produce maps with non-string keys, which the pool cannot deduplicate.
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_traceback=True)
+@pytest.mark.parametrize(
+    "deserializer_body",
+    ['return {"id": {1: "packed"}}', 'raise ZeroDivisionError("Deserializer crashed")'],
+    ids=["uncomparable-values", "crashing"],
+)
+def test_pool_survives_unusual_deserializer_output(cli, snapshot_cli, ctx, deserializer_body):
+    # A custom deserializer may produce maps with non-string keys, which the pool cannot deduplicate, or crash.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -581,10 +586,10 @@ def test_pool_skips_values_that_cannot_be_compared(cli, snapshot_cli, ctx):
     def get_item(item_id):
         return jsonify({}), 200
 
-    hooks_module = ctx.write_pymodule("""
+    hooks_module = ctx.write_pymodule(f"""
 @schemathesis.deserializer("application/vnd.custom")
 def deserialize_custom(ctx, response):
-    return {"id": {1: "packed"}}
+    {deserializer_body}
 """)
 
     assert (

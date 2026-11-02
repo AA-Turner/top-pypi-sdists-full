@@ -1,0 +1,429 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "Card",
+    "AuthorizationControls",
+    "AuthorizationControlsMerchantAcceptorIdentifier",
+    "AuthorizationControlsMerchantAcceptorIdentifierAllowed",
+    "AuthorizationControlsMerchantAcceptorIdentifierBlocked",
+    "AuthorizationControlsMerchantCategoryCode",
+    "AuthorizationControlsMerchantCategoryCodeAllowed",
+    "AuthorizationControlsMerchantCategoryCodeBlocked",
+    "AuthorizationControlsMerchantCountry",
+    "AuthorizationControlsMerchantCountryAllowed",
+    "AuthorizationControlsMerchantCountryBlocked",
+    "AuthorizationControlsUsage",
+    "AuthorizationControlsUsageMultiUse",
+    "AuthorizationControlsUsageMultiUseSpendingLimit",
+    "AuthorizationControlsUsageMultiUseSpendingLimitMerchantCategoryCode",
+    "AuthorizationControlsUsageSingleUse",
+    "AuthorizationControlsUsageSingleUseSettlementAmount",
+    "BillingAddress",
+    "CardholderName",
+    "DigitalWallet",
+    "Renewal",
+    "ReplacementFor",
+]
+
+
+class AuthorizationControlsMerchantAcceptorIdentifierAllowed(BaseModel):
+    identifier: str
+    """The Merchant Acceptor ID."""
+
+
+class AuthorizationControlsMerchantAcceptorIdentifierBlocked(BaseModel):
+    identifier: str
+    """The Merchant Acceptor ID."""
+
+
+class AuthorizationControlsMerchantAcceptorIdentifier(BaseModel):
+    """
+    Restricts which Merchant Acceptor IDs are allowed or blocked for authorizations on this card.
+    """
+
+    allowed: Optional[List[AuthorizationControlsMerchantAcceptorIdentifierAllowed]] = None
+    """The Merchant Acceptor IDs that are allowed for authorizations on this card."""
+
+    blocked: Optional[List[AuthorizationControlsMerchantAcceptorIdentifierBlocked]] = None
+    """The Merchant Acceptor IDs that are blocked for authorizations on this card."""
+
+
+class AuthorizationControlsMerchantCategoryCodeAllowed(BaseModel):
+    code: str
+    """The Merchant Category Code (MCC)."""
+
+
+class AuthorizationControlsMerchantCategoryCodeBlocked(BaseModel):
+    code: str
+    """The Merchant Category Code (MCC)."""
+
+
+class AuthorizationControlsMerchantCategoryCode(BaseModel):
+    """
+    Restricts which Merchant Category Codes are allowed or blocked for authorizations on this card.
+    """
+
+    allowed: Optional[List[AuthorizationControlsMerchantCategoryCodeAllowed]] = None
+    """The Merchant Category Codes that are allowed for authorizations on this card."""
+
+    blocked: Optional[List[AuthorizationControlsMerchantCategoryCodeBlocked]] = None
+    """The Merchant Category Codes that are blocked for authorizations on this card."""
+
+
+class AuthorizationControlsMerchantCountryAllowed(BaseModel):
+    country: str
+    """The ISO 3166-1 alpha-2 country code."""
+
+
+class AuthorizationControlsMerchantCountryBlocked(BaseModel):
+    country: str
+    """The ISO 3166-1 alpha-2 country code."""
+
+
+class AuthorizationControlsMerchantCountry(BaseModel):
+    """
+    Restricts which merchant countries are allowed or blocked for authorizations on this card.
+    """
+
+    allowed: Optional[List[AuthorizationControlsMerchantCountryAllowed]] = None
+    """The merchant countries that are allowed for authorizations on this card."""
+
+    blocked: Optional[List[AuthorizationControlsMerchantCountryBlocked]] = None
+    """The merchant countries that are blocked for authorizations on this card."""
+
+
+class AuthorizationControlsUsageMultiUseSpendingLimitMerchantCategoryCode(BaseModel):
+    code: str
+    """The Merchant Category Code (MCC)."""
+
+
+class AuthorizationControlsUsageMultiUseSpendingLimit(BaseModel):
+    interval: Literal["all_time", "per_transaction", "per_day", "per_week", "per_month"]
+    """The interval at which the spending limit is enforced.
+
+    - `all_time` - The spending limit applies over the lifetime of the card.
+    - `per_transaction` - The spending limit applies per transaction.
+    - `per_day` - The spending limit applies per day. Resets nightly at midnight
+      UTC.
+    - `per_week` - The spending limit applies per week. Resets weekly on Mondays at
+      midnight UTC.
+    - `per_month` - The spending limit applies per month. Resets on the first of the
+      month, midnight UTC.
+    """
+
+    merchant_category_codes: Optional[List[AuthorizationControlsUsageMultiUseSpendingLimitMerchantCategoryCode]] = None
+    """The Merchant Category Codes (MCCs) this spending limit applies to.
+
+    If not set, the limit applies to all transactions.
+    """
+
+    settlement_amount: int
+    """The maximum settlement amount permitted in the given interval."""
+
+
+class AuthorizationControlsUsageMultiUse(BaseModel):
+    """Controls for multi-use cards.
+
+    Required if and only if `category` is `multi_use`.
+    """
+
+    spending_limits: Optional[List[AuthorizationControlsUsageMultiUseSpendingLimit]] = None
+    """Spending limits for this card.
+
+    The most restrictive limit applies if multiple limits match.
+    """
+
+
+class AuthorizationControlsUsageSingleUseSettlementAmount(BaseModel):
+    """The settlement amount constraint for this single-use card."""
+
+    comparison: Literal["equals", "less_than_or_equals"]
+    """The operator used to compare the settlement amount.
+
+    - `equals` - The settlement amount must be exactly the specified value.
+    - `less_than_or_equals` - The settlement amount must be less than or equal to
+      the specified value.
+    """
+
+    value: int
+    """The settlement amount value."""
+
+
+class AuthorizationControlsUsageSingleUse(BaseModel):
+    """Controls for single-use cards.
+
+    Required if and only if `category` is `single_use`.
+    """
+
+    settlement_amount: AuthorizationControlsUsageSingleUseSettlementAmount
+    """The settlement amount constraint for this single-use card."""
+
+
+class AuthorizationControlsUsage(BaseModel):
+    """Controls how many times this card can be used."""
+
+    category: Literal["single_use", "multi_use"]
+    """Whether the card is for a single use or multiple uses.
+
+    - `single_use` - The card can only be used for a single authorization.
+    - `multi_use` - The card can be used for multiple authorizations.
+    """
+
+    multi_use: Optional[AuthorizationControlsUsageMultiUse] = None
+    """Controls for multi-use cards.
+
+    Required if and only if `category` is `multi_use`.
+    """
+
+    single_use: Optional[AuthorizationControlsUsageSingleUse] = None
+    """Controls for single-use cards.
+
+    Required if and only if `category` is `single_use`.
+    """
+
+
+class AuthorizationControls(BaseModel):
+    """Controls that restrict how this card can be used."""
+
+    merchant_acceptor_identifier: Optional[AuthorizationControlsMerchantAcceptorIdentifier] = None
+    """
+    Restricts which Merchant Acceptor IDs are allowed or blocked for authorizations
+    on this card.
+    """
+
+    merchant_category_code: Optional[AuthorizationControlsMerchantCategoryCode] = None
+    """
+    Restricts which Merchant Category Codes are allowed or blocked for
+    authorizations on this card.
+    """
+
+    merchant_country: Optional[AuthorizationControlsMerchantCountry] = None
+    """
+    Restricts which merchant countries are allowed or blocked for authorizations on
+    this card.
+    """
+
+    usage: Optional[AuthorizationControlsUsage] = None
+    """Controls how many times this card can be used."""
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
+class BillingAddress(BaseModel):
+    """The Card's billing address."""
+
+    city: Optional[str] = None
+    """The city of the billing address."""
+
+    line1: Optional[str] = None
+    """The first line of the billing address."""
+
+    line2: Optional[str] = None
+    """The second line of the billing address."""
+
+    postal_code: Optional[str] = None
+    """The postal code of the billing address."""
+
+    state: Optional[str] = None
+    """The US state of the billing address."""
+
+
+class CardholderName(BaseModel):
+    """The name of the cardholder.
+
+    Used to respond to Account Name Inquiry requests from acquirers in Card Validations.
+    """
+
+    first: str
+    """The cardholder's first name."""
+
+    last: str
+    """The cardholder's last name."""
+
+    middle: Optional[str] = None
+    """The cardholder's middle name."""
+
+
+class DigitalWallet(BaseModel):
+    """
+    The contact information used in the two-factor steps for digital wallet card creation. At least one field must be present to complete the digital wallet steps.
+    """
+
+    digital_card_profile_id: Optional[str] = None
+    """The digital card profile assigned to this digital card.
+
+    Card profiles may also be assigned at the program level.
+    """
+
+    email: Optional[str] = None
+    """
+    An email address that can be used to verify the cardholder via one-time passcode
+    over email.
+    """
+
+    phone: Optional[str] = None
+    """
+    A phone number that can be used to verify the cardholder via one-time passcode
+    over SMS. Returned in [E.164](https://en.wikipedia.org/wiki/E.164) format, for
+    example `+14155550123`.
+    """
+
+
+class Renewal(BaseModel):
+    previous_expiration_month: int
+    """
+    The month the Card expired in before this renewal, in M format (e.g., August is
+    8).
+    """
+
+    previous_expiration_year: int
+    """The year the Card expired in before this renewal, in YYYY format (e.g., 2025)."""
+
+    renewed_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Card was renewed.
+    """
+
+
+class ReplacementFor(BaseModel):
+    """Details about the Card this Card replaces, if it was created as a replacement."""
+
+    card_id: str
+    """The identifier of the replaced Card."""
+
+    reason: Literal["expiring", "lost", "stolen", "fraud"]
+    """Why the Card was replaced.
+
+    Only `expiring` notifies merchants that have the replaced Card on file of the
+    new Card and moves Digital Wallet Tokens on the replaced Card that have not been
+    deactivated to the new Card.
+
+    - `expiring` - The replaced card is expiring. Merchants with the replaced card
+      on file will be notified of the new card, and its digital wallet tokens that
+      have not been deactivated will move to the new card.
+    - `lost` - The replaced card was lost. Merchants will not be notified of the new
+      card.
+    - `stolen` - The replaced card was stolen. Merchants will not be notified of the
+      new card.
+    - `fraud` - The replaced card was used fraudulently. Merchants will not be
+      notified of the new card.
+    """
+
+
+class Card(BaseModel):
+    """Cards may operate on credit, debit, or prepaid BINs.
+
+    They’ll immediately work for online purchases after you create them. All cards work on a good funds model, and maintain a maximum limit of 100% of the Account’s available balance at the time of transaction. Funds are deducted from the Account upon transaction settlement. For more information, see our guide on [managing cards](https://increase.com/documentation/managing-cards).
+    """
+
+    id: str
+    """The card identifier."""
+
+    account_id: str
+    """The identifier for the account this card belongs to."""
+
+    authorization_controls: Optional[AuthorizationControls] = None
+    """Controls that restrict how this card can be used."""
+
+    billing_address: BillingAddress
+    """The Card's billing address."""
+
+    bin: str
+    """The Bank Identification Number (BIN) of the Card."""
+
+    cardholder_name: Optional[CardholderName] = None
+    """The name of the cardholder.
+
+    Used to respond to Account Name Inquiry requests from acquirers in Card
+    Validations.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Card was created.
+    """
+
+    description: Optional[str] = None
+    """The card's description for display purposes."""
+
+    digital_wallet: Optional[DigitalWallet] = None
+    """
+    The contact information used in the two-factor steps for digital wallet card
+    creation. At least one field must be present to complete the digital wallet
+    steps.
+    """
+
+    entity_id: Optional[str] = None
+    """The identifier for the entity associated with this card."""
+
+    expiration_month: int
+    """The month the card expires in M format (e.g., August is 8)."""
+
+    expiration_year: int
+    """The year the card expires in YYYY format (e.g., 2025)."""
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    last4: str
+    """The last 4 digits of the Card's Primary Account Number."""
+
+    renewals: List[Renewal]
+    """Completed renewals of this Card, sorted by `renewed_at` in ascending order.
+
+    Each renewal records the expiration date the Card had before it was renewed.
+    """
+
+    replacement_for: Optional[ReplacementFor] = None
+    """Details about the Card this Card replaces, if it was created as a replacement."""
+
+    status: Literal["active", "disabled", "canceled"]
+    """This indicates if payments can be made with the card.
+
+    - `active` - The card is active.
+    - `disabled` - The card is temporarily disabled.
+    - `canceled` - The card is permanently canceled.
+    """
+
+    type: Literal["card"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `card`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

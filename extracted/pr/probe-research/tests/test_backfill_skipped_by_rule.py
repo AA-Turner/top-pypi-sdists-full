@@ -27,12 +27,14 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_record as record
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder.record import record as record
 from probe.cli import telemetry
-from probe.cli import backfill_coverage as cov
-from probe.cli.backfill_coverage import Coverage, SkipRule, Scope, WalkSkips, skipped_folders
-from probe.cli.backfill_ledger import fingerprint
+from probe.cli.imports.folder import coverage as cov
+from probe.cli.imports.folder.coverage.coverage import Coverage
+from probe.cli.imports.folder.coverage.observe import SkipRule, WalkSkips, skipped_folders
+from probe.cli.imports.folder.coverage.scope import Scope
+from probe.cli.imports.folder.upload.ledger import fingerprint
 
 from test_backfill_scoped_orchestration import make_harness
 
@@ -387,7 +389,7 @@ def test_a_recorded_worktree_rule_lapses_once_its_folder_is_walked_again(tmp_pat
 
 
 def test_the_hidden_rule_matches_the_walk_for_a_dvc_root():
-    from probe.cli.backfill_evidence import skipped_by_hidden_rule
+    from probe.cli.imports.folder.walk.walk import skipped_by_hidden_rule
 
     assert skipped_by_hidden_rule(("cache",), root_name=".dvc")
     assert not skipped_by_hidden_rule(("cache",), root_name="project")

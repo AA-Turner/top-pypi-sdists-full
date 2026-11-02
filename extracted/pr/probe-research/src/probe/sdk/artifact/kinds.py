@@ -16,7 +16,7 @@ rule that refuses a pointer to code.
 
 Dependency-free (``probe.foundation.compat.compat`` only, for Python 3.10's StrEnum) so the SDK,
 the CLI and a test can all import it. The server's `kind_filter_sql` is not
-copied: it builds SQL. `tests/unit/test_artifact_kinds.py` (server side) pins
+copied: it builds SQL. `tests/unit/shared/vocab/test_artifact_kinds.py` (server side) pins
 this copy's values and aliases to the server's, so change both or neither.
 """
 

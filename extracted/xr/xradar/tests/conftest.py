@@ -1,0 +1,385 @@
+#!/usr/bin/env python
+# Copyright (c) 2022-2026, openradar developers.
+# Distributed under the MIT License. See LICENSE for more info.
+import contextlib
+import os.path
+import shutil
+import uuid
+
+import pytest
+from filelock import FileLock
+from open_radar_data import DATASETS
+
+
+# silence FutureWarning
+def pytest_configure(config):
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:`open_.*_datatree` is deprecated:FutureWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:.*is incomplete and is padded to a full angle grid:UserWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:CfRadial2 sweep groups were renumbered:UserWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:All sweeps are incomplete:UserWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:Dropped \d+ incomplete sweep:UserWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:Rays might miss on beginning:UserWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        r"ignore:.*IRIS multi_prf_mode_flag=\d+ is not defined:UserWarning",
+    )
+
+
+@pytest.fixture(params=["file", "filelike"])
+def file_or_filelike(request):
+    return request.param
+
+
+@pytest.fixture
+def closing():
+    """Close every dataset or tree passed through it when the test ends.
+
+    Leaked files are otherwise closed by the garbage collector at an arbitrary
+    point, which can crash HDF5 while another file is being opened (#502).
+    Usage: ``dtree = closing(xd.open_datatree(...))``.
+    """
+    with contextlib.ExitStack() as stack:
+        yield stack.enter_context
+
+
+@pytest.fixture(scope="session")
+def cfradial1_sgp_file():
+    return DATASETS.fetch("sample_sgp_data.nc")
+
+
+@pytest.fixture(scope="session")
+def cfradial1_file(tmp_path_factory):
+    """Safely fetch the dataset across multiple xdist workers using a lock."""
+    shared_dir = tmp_path_factory.getbasetemp().parent
+    lockfile = shared_dir / "fetch_cfradial1.lock"
+
+    # synchronize the download/cache-check across workers
+    with FileLock(str(lockfile)):
+        return DATASETS.fetch("cfrad.20080604_002217_000_SPOL_v36_SUR.nc")
+
+
+@pytest.fixture(scope="session")
+def _cfradial2_source(cfradial1_file, tmp_path_factory):
+    """Round-trip a cfradial1 file through to_cfradial2 to get a real CfRadial2 file."""
+    import xradar as xd
+
+    # shared tmp directory for file and lockfile
+    tmp_dir = tmp_path_factory.mktemp("cfradial2")
+
+    # identical file paths for all workers
+    outfile = tmp_dir / "sample_cfradial2.nc"
+    lockfile = tmp_dir / "sample_cfradial2.nc.lock"
+
+    # synchronize worker execution
+    with FileLock(str(lockfile)):
+        if not outfile.is_file():
+            # first worker generates the file; close the source right away
+            # instead of leaving it open for the whole session (#502)
+            with xd.io.open_cfradial1_datatree(
+                cfradial1_file, first_dim="time"
+            ) as dtree:
+                xd.io.to_cfradial2(dtree.copy(), outfile, engine="netcdf4")
+
+    return str(outfile)
+
+
+@pytest.fixture
+def cfradial2_file(_cfradial2_source, tmp_path):
+    """A private copy of the CfRadial2 file for every test.
+
+    Tests share no path, so a handle that is still alive from an earlier test
+    (or waiting for garbage collection) can't meet the next open of the same
+    file, which crashes netCDF4/HDF5 with xarray 2026.9.0 (pydata/xarray#11692).
+    """
+    path = tmp_path / "sample_cfradial2.nc"
+    shutil.copyfile(_cfradial2_source, path)
+    return str(path)
+
+
+@pytest.fixture(scope="session")
+def cfradial1n_file(tmp_path_factory):
+    return DATASETS.fetch("DES_VOL_RAW_20240522_1600.nc")
+
+
+@pytest.fixture(scope="session")
+def odim_file():
+    return DATASETS.fetch("71_20181220_060628.pvol.h5")
+
+
+@pytest.fixture(scope="session")
+def odim_file2():
+    return DATASETS.fetch("T_PAGZ35_C_ENMI_20170421090837.hdf")
+
+
+@pytest.fixture(scope="session")
+def odim_file3():
+    return DATASETS.fetch("T_PAZA63_C_LFPW_20230420065041.h5")
+
+
+@pytest.fixture(scope="session")
+def odim_file4():
+    return DATASETS.fetch("202506090955_fianj_PVOL.h5")
+
+
+@pytest.fixture(scope="session")
+def odim_file5():
+    return DATASETS.fetch("SUR.202506091000.VOL.h5")
+
+
+@pytest.fixture(scope="session")
+def datamet_file():
+    return DATASETS.fetch("H-000-VOL-ILMONTE-201907100700.tar.gz")
+
+
+@pytest.fixture(scope="session")
+def furuno_scn_file():
+    return DATASETS.fetch("0080_20210730_160000_01_02.scn.gz")
+
+
+@pytest.fixture(scope="session")
+def furuno_scnx_file():
+    return DATASETS.fetch("2006_20220324_000000_000.scnx.gz")
+
+
+@pytest.fixture(scope="session")
+def gamic_file():
+    return DATASETS.fetch("DWD-Vol-2_99999_20180601054047_00.h5")
+
+
+@pytest.fixture(scope="session")
+def rainbow_file():
+    return DATASETS.fetch("2013051000000600dBZ.vol")
+
+
+@pytest.fixture(scope="session")
+def rainbow_file2():
+    return DATASETS.fetch("sample_rainbow_5_59.vol")
+
+
+@pytest.fixture(scope="session")
+def iris0_file():
+    return DATASETS.fetch("cor-main131125105503.RAW2049")
+
+
+@pytest.fixture(scope="session")
+def iris1_file():
+    return DATASETS.fetch("SUR210819000227.RAWKPJV")
+
+
+@pytest.fixture(scope="session")
+def iris_arouca_file():
+    return DATASETS.fetch("PRT231225000005.RAWD2A3")
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_file():
+    return DATASETS.fetch("KATX20130717_195021_V06")
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_ldm_stride_file():
+    """KILX volume with an over-120-message LDM (#376 regression fixture).
+
+    LDM 49 of this file contains 120 MSG_31 + 2 MSG_2 = 122 messages.
+    Pre-fix, xradar's mod-120 stride dropped the trailing 2 MSG_31s,
+    yielding sweep_10 = 358 (on-wire is 360).
+    """
+    return DATASETS.fetch("KILX20230629_154426_V06")
+
+
+@pytest.fixture(scope="session")
+def nexrad_chunks_klot(tmp_path_factory):
+    import tarfile
+
+    archive = DATASETS.fetch("nexrad_level2_chunks_KLOT.tar.gz")
+    extract_dir = tmp_path_factory.mktemp("nexrad_chunks")
+    with tarfile.open(archive) as tar:
+        tar.extractall(extract_dir, filter="data")
+    chunk_dir = extract_dir / "nexrad_chunks_KLOT"
+    return sorted(chunk_dir.iterdir())
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_msg1_file(tmp_path_factory):
+    fnamei = DATASETS.fetch("KLIX20050828_180149.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}_gz"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_gzfile(tmp_path_factory):
+    fnamei = DATASETS.fetch("KLBB20160601_150025_V06.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}_gz"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_bzfile():
+    return DATASETS.fetch("KLBB20160601_150025_V06")
+
+
+@pytest.fixture(scope="session")
+def nexradlevel2_files(request):
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture(scope="session")
+def uf_files(request):
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture(scope="session")
+def metek_ave_gz_file(tmp_path_factory):
+    fnamei = DATASETS.fetch("0308.ave.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def metek_pro_gz_file(tmp_path_factory):
+    fnamei = DATASETS.fetch("0308.pro.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def metek_raw_gz_file(tmp_path_factory):
+    fnamei = DATASETS.fetch("0308.raw.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def uf_file_1(tmp_path_factory):
+    fnamei = DATASETS.fetch("20110427_164233_rvp8-rel_v001_SUR.uf.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def uf_file_2(tmp_path_factory):
+    fnamei = DATASETS.fetch("CHL19950617_182848.uf.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def uf_file_3(tmp_path_factory):
+    fnamei = DATASETS.fetch("MC3E_NPOL_2011_0524_2356_hid.uf.gz")
+    fnameo = os.path.join(
+        tmp_path_factory.mktemp("data"), f"{os.path.basename(fnamei)[:-3]}"
+    )
+    import gzip
+    import shutil
+
+    with gzip.open(fnamei) as fin:
+        with open(fnameo, "wb") as fout:
+            shutil.copyfileobj(fin, fout)
+    return fnameo
+
+
+@pytest.fixture(scope="session")
+def hpl_file():
+    return DATASETS.fetch("User1_100_20240714_122137.hpl")
+
+
+@pytest.fixture(scope="session")
+def imd_file():
+    return DATASETS.fetch("IMD/JPR220822135253-IMD-B.nc")
+
+
+@pytest.fixture(scope="session")
+def imd_volume_files():
+    return [
+        DATASETS.fetch(f"IMD/JPR220822135253-IMD-B.nc{s}")
+        for s in ["", ".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8", ".9"]
+    ]
+
+
+@pytest.fixture
+def temp_file(tmp_path):
+    rnd = uuid.uuid4().hex[:8]
+    return tmp_path / f"testfile_{rnd}"
+
+
+@pytest.fixture
+def make_temp_file(tmp_path):
+    def _make_file():
+        rnd = uuid.uuid4().hex[:8]
+        return tmp_path / f"testfile_{rnd}"
+
+    return _make_file

@@ -1,3 +1,0 @@
-from typing import Any
-
-def min_weighted_vertex_cover(G, weight: Any | None = ...): ...

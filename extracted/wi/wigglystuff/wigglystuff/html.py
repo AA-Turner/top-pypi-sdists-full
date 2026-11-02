@@ -1,0 +1,323 @@
+import base64
+import io
+import threading
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import anywidget
+import traitlets
+
+
+def _in_notebook() -> bool:
+    """Return True when a notebook front-end (marimo or jupyter) is present.
+
+    Used to decide whether a widget should also render into the terminal.
+    Anything that is not a notebook counts as "script mode" (including a bare
+    ``python`` REPL, where a rich terminal bar is perfectly welcome).
+    """
+    try:
+        import marimo as mo
+
+        if mo.running_in_notebook():
+            return True
+    except Exception:
+        pass
+    try:
+        from IPython import get_ipython
+
+        ip = get_ipython()
+        if ip is not None and ip.__class__.__name__ == "ZMQInteractiveShell":
+            return True
+    except Exception:
+        pass
+    return False
+
+
+# rich allows only one live display per process, so we track the active one and
+# retire it before starting the next (lets sequential ProgressBars each render).
+_active_rich_progress = None
+# Guards the lazy rich setup and updates, since .value may be set from threads.
+_rich_lock = threading.RLock()
+
+
+class ImageRefreshWidget(anywidget.AnyWidget):
+    """A widget that displays an image and refreshes when the source changes.
+
+    This widget creates an image element that automatically updates whenever
+    the `src` attribute is modified, making it ideal for displaying dynamically
+    generated images in Jupyter notebooks.
+
+    Attributes:
+        src (str): The image source, typically a base64-encoded data URI.
+
+    Example:
+
+    ```python
+    import marimo as mo
+    from wigglystuff import ImageRefreshWidget
+    from wigglystuff.utils import refresh_matplotlib
+    import matplotlib.pylab as plt
+    import numpy as np
+
+    @refresh_matplotlib
+    def plot_data(data):
+        plt.plot(np.arange(len(data)), np.cumsum(data))
+
+    widget = mo.ui.anywidget(ImageRefreshWidget(src=plot_data([1, 2, 3, 4])))
+
+    # Update the widget with new data
+    widget.src = plot_data([1, 2, 3, 4, 5, 6])
+    ```
+    """
+
+    _esm = """
+    function render({ model, el }) {
+      let src = () => model.get("src");
+      let image = document.createElement("img");
+      image.src = src();
+      model.on("change:src", () => {
+        image.src = src();
+      });
+      el.appendChild(image);
+    }
+    export default { render };
+    """
+    src = traitlets.Unicode().tag(sync=True)
+
+
+
+class HTMLRefreshWidget(anywidget.AnyWidget):
+    """A widget that displays HTML content and refreshes when it changes.
+
+    This widget creates a div element that automatically updates whenever
+    the `html` attribute is modified, making it ideal for displaying dynamically
+    generated HTML content like SVG charts in Jupyter notebooks.
+
+    Attributes:
+        html (str): The HTML content to display.
+
+    Example:
+
+    ```python
+    import time
+    import marimo as mo
+    from wigglystuff import HTMLRefreshWidget
+
+    widget = mo.ui.anywidget(HTMLRefreshWidget(html="<p>Hello!</p>"))
+
+    # Update the widget with dynamic content
+    for i in range(10):
+        widget.html = f"<p>Count: {i}</p>"
+        time.sleep(0.5)
+    ```
+    """
+
+    _esm = """
+    function render({ model, el }) {
+      let elem = () => model.get("html");
+      let div = document.createElement("div");
+      div.innerHTML = elem();
+      model.on("change:html", () => {
+        div.innerHTML = elem();
+      });
+      el.appendChild(div);
+    }
+    export default { render };
+    """
+    html = traitlets.Unicode().tag(sync=True)
+
+
+
+class ProgressBar(anywidget.AnyWidget):
+    """A customizable progress bar widget for notebooks.
+
+    This widget displays a visual progress bar that updates in real-time as
+    the `value` attribute changes.
+
+    One of the main benefits of this utility is that you have a progress bar
+    that doesn't depend on ipywidgets while you still have something that
+    works across notebook projects.
+
+    When used in **script mode** (outside a marimo/jupyter notebook) and the
+    optional ``rich`` library is installed, the same progress is mirrored into a
+    fancy animated bar in the terminal. This needs no changes to your loop code:
+    just keep setting ``.value``. Install rich with ``pip install rich``. If
+    ``rich`` is not installed, or you are in a notebook, this does nothing extra.
+
+    Attributes:
+        value (int): The current progress value. Defaults to 0.
+        max_value (int): The maximum value representing 100% completion. Defaults to 100.
+        color (str): The fill color of the progress bar. Defaults to '#22c55e'.
+        show_text (bool): Whether to show the progress text below the bar. Defaults to True.
+        width (str): The CSS width of the progress bar. Defaults to '100%'.
+        height (int): The height of the bar in pixels. Defaults to 24.
+
+    Example:
+
+    ```python
+    import time
+    import marimo as mo
+    from wigglystuff import ProgressBar
+
+    progress = mo.ui.anywidget(ProgressBar(value=0, max_value=100))
+
+    for i in range(101):
+        progress.value = i
+        time.sleep(0.1)
+    ```
+    """
+
+    _esm = """
+    function render({ model, el }) {
+        const wrapper = document.createElement('div');
+        wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+        const bar = document.createElement('div');
+        bar.style.borderRadius = '4px';
+        bar.style.overflow = 'hidden';
+
+        const fill = document.createElement('div');
+        fill.style.height = '100%';
+        fill.style.transition = 'width 0.4s ease';
+
+        const text = document.createElement('div');
+        text.style.fontSize = '12px';
+        text.style.fontWeight = '500';
+        text.style.marginTop = '4px';
+        text.style.textAlign = 'center';
+
+        bar.appendChild(fill);
+        wrapper.appendChild(bar);
+        wrapper.appendChild(text);
+
+        function isDark() {
+            return el.closest('.dark, .dark-theme, [data-theme="dark"]') !== null;
+        }
+
+        const updateDisplay = () => {
+            const value = model.get("value");
+            const max = model.get("max_value");
+            const percentage = max > 0 ? (value / max) * 100 : 0;
+            const dark = isDark();
+
+            wrapper.style.width = model.get("width");
+            bar.style.height = model.get("height") + 'px';
+            bar.style.backgroundColor = dark ? '#374151' : '#e5e7eb';
+            text.style.color = dark ? '#9ca3af' : '#888';
+            fill.style.backgroundColor = model.get("color");
+            fill.style.width = percentage + '%';
+
+            const showText = model.get("show_text");
+            text.style.display = showText ? 'block' : 'none';
+            text.textContent = `${value} / ${max}`;
+        };
+
+        updateDisplay();
+
+        const observer = new MutationObserver(updateDisplay);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+        if (document.body !== document.documentElement) {
+            observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+        }
+
+        model.on('change:value', updateDisplay);
+        model.on('change:max_value', updateDisplay);
+        model.on('change:color', updateDisplay);
+        model.on('change:show_text', updateDisplay);
+        model.on('change:width', updateDisplay);
+        model.on('change:height', updateDisplay);
+
+        el.appendChild(wrapper);
+    }
+
+    export default { render };
+    """
+
+    value = traitlets.Int(0).tag(sync=True)
+    max_value = traitlets.Int(100).tag(sync=True)
+    color = traitlets.Unicode('#22c55e').tag(sync=True)
+    show_text = traitlets.Bool(True).tag(sync=True)
+    width = traitlets.Unicode('100%').tag(sync=True)
+    height = traitlets.Int(24).tag(sync=True)
+
+    def __init__(self, value: int = 0, max_value: int = 100, color: str = '#22c55e', show_text: bool = True, width: str = '100%', height: int = 24):
+        super().__init__()
+        self.value = value
+        self.max_value = max_value
+        self.color = color
+        self.show_text = show_text
+        self.width = width
+        self.height = height
+
+        # In script mode, mirror progress into a rich terminal bar (if rich is
+        # installed). The display is created lazily on the first value change.
+        self._rich_progress = None
+        self._rich_task = None
+        self._rich_enabled = False
+        if not _in_notebook():
+            try:
+                import rich  # noqa: F401 -- availability probe only
+
+                self._rich_enabled = True
+                self.observe(self._on_value_change, names=["value", "max_value"])
+            except Exception:
+                self._rich_enabled = False
+
+    def _ensure_rich(self) -> None:
+        if self._rich_progress is not None:
+            return
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TimeRemainingColumn,
+        )
+
+        global _active_rich_progress
+        # Only one rich live display can be active at a time; retire the previous.
+        if _active_rich_progress is not None:
+            try:
+                _active_rich_progress.stop()
+            except Exception:
+                pass
+            _active_rich_progress = None
+
+        columns = [SpinnerColumn(style=self.color), BarColumn(complete_style=self.color)]
+        if self.show_text:
+            columns += [TaskProgressColumn(), MofNCompleteColumn(), TimeRemainingColumn()]
+        try:
+            self._rich_progress = Progress(*columns, transient=False)
+            self._rich_progress.start()
+        except Exception:
+            self._rich_progress = None
+            self._rich_enabled = False
+            return
+        _active_rich_progress = self._rich_progress
+        self._rich_task = self._rich_progress.add_task("", total=self.max_value)
+        import atexit
+
+        atexit.register(self._stop_rich)
+
+    def _on_value_change(self, change) -> None:
+        if not self._rich_enabled:
+            return
+        with _rich_lock:
+            self._ensure_rich()
+            if self._rich_progress is None:
+                return
+            self._rich_progress.update(
+                self._rich_task, completed=self.value, total=self.max_value
+            )
+
+    def _stop_rich(self) -> None:
+        global _active_rich_progress
+        with _rich_lock:
+            if self._rich_progress is not None:
+                try:
+                    self._rich_progress.stop()
+                finally:
+                    if _active_rich_progress is self._rich_progress:
+                        _active_rich_progress = None
+                    self._rich_progress = None

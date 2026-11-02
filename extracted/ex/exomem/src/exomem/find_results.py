@@ -1,0 +1,266 @@
+"""Text matching, excerpting, and transcript localization for find results."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from .find_types import ParsedPage, RankingPage
+from .semantic_units import SemanticUnit
+
+EXCERPT_RADIUS = 100  # chars on each side of the match
+EXCERPT_MAX_LEN = 220
+
+
+def prose_units(
+    vault_root: Path, page: ParsedPage, units: tuple[SemanticUnit, ...]
+) -> tuple[SemanticUnit, ...]:
+    """Keep canonical identities, omitting units whose fields overlap a carrier.
+
+    The carriers are the ones this caller is never shown
+    (`egress.carrier_spans_for_caller`): for a projected reader a carrier that
+    a hand edit moved into a unit's code withholds that unit, and for the owner
+    a carrier example in a unit's code stays a literal unit.
+    """
+    from .governance import egress
+
+    spans = egress.carrier_spans_for_caller(vault_root, page.body, owner_path=page.rel_path)
+    if not spans:
+        return units
+    return tuple(
+        unit
+        for unit in units
+        if page.body[unit.span.start_offset:unit.span.end_offset] == unit.span.text
+        and not any(
+            start < unit.span.end_offset and unit.span.start_offset < end
+            for start, end in spans
+        )
+    )
+
+
+def transcript_ts_for_hit(
+    page: ParsedPage, chunk: str | None, query_norm: str
+) -> float | None:
+    """Localize a text match inside a TIMED transcript -> seconds, or None.
+
+    Vector lane: the matched chunk is a semantic segment whose first timed line
+    carries the segment start. BM25/keyword (no chunk, or a chunk without
+    markers): anchor on the first query token's position in the body and take
+    the nearest PRECEDING timestamp marker. Only timed audio/video sidecars
+    ever return a value; flat pages cost one media_type check.
+    """
+    if page.media_type not in ("audio", "video"):
+        return None
+    from . import semantic_segments as ss
+
+    if chunk:
+        for line in chunk.splitlines():
+            m = ss.TIMED_LINE_RE.match(line)
+            if m and m.group(2) is not None:
+                return ss.ts_from_match(m)
+    tokens = query_norm.split() if query_norm else []
+    if not tokens:
+        return None
+    body = page.body or ""
+    if "[" not in body:
+        return None
+    pos = body.lower().find(tokens[0])
+    if pos == -1:
+        return None
+    offset = 0
+    best: float | None = None
+    for line in body.splitlines(keepends=True):
+        if offset > pos:
+            break
+        m = ss.TIMED_LINE_RE.match(line)
+        if m and m.group(2) is not None:
+            best = ss.ts_from_match(m)
+        offset += len(line)
+    return best
+
+
+def stem_tokens_present(page: ParsedPage | RankingPage, query_norm: str) -> bool:
+    """All-tokens-present check using Snowball stems on both sides.
+
+    Recovers morphological matches that the literal substring gate misses.
+    Used only as a fallback in hybrid mode; keyword mode keeps the strict
+    substring gate. An ASCII token is stemmed whole, as it always was. A
+    non-ASCII token is present when each of its words is (in any indexed form,
+    so "zolvarn" finds "Zölvarn") and each unspaced run in it has a strict
+    majority of its bigrams present.
+    """
+    if not query_norm:
+        return True
+    from . import bm25 as bm25_module
+
+    text_stems = page.stem_set
+    for tok in query_norm.split():
+        if not tok:
+            continue
+        units = [] if tok.isascii() else bm25_module.token_units(tok, query=True)
+        if not units:
+            if bm25_module.stem_word(tok) not in text_stems:
+                return False
+            continue
+        if not all(bm25_module.unit_present(unit, text_stems) for unit in units):
+            return False
+    return True
+
+
+def _query_stems_for_anchor(query_norm: str) -> set[str]:
+    from . import bm25 as bm25_module
+
+    stems: set[str] = set()
+    for token in query_norm.split():
+        if token.isascii():
+            stems.add(bm25_module.stem_word(token))
+        else:
+            stems.update(bm25_module.tokenize(token, query=True))
+    return stems
+
+
+def stem_anchored_excerpt(page: ParsedPage, query_norm: str) -> str:
+    """Snippet anchored on the first body word whose stem matches the query."""
+    from . import bm25 as bm25_module
+
+    body = page.body_stripped
+    if not body:
+        return ""
+    anchor_idx = -1
+    anchor_len = 0
+    if body.isascii() and query_norm.isascii():
+        query_stems = {bm25_module.stem_word(t) for t in query_norm.split() if t}
+        if not query_stems:
+            return collapse(body[:EXCERPT_MAX_LEN])
+        for m in re.finditer(r"[A-Za-z0-9]+", body):
+            word = m.group(0)
+            if bm25_module.stem_word(word.lower()) in query_stems:
+                anchor_idx = m.start()
+                anchor_len = len(word)
+                break
+    else:
+        # Any script: the first body word or unspaced run carrying a query stem
+        # in any indexed form (an accent-folded variant, a bigram of a run).
+        query_stems = _query_stems_for_anchor(query_norm)
+        if not query_stems:
+            return collapse(body[:EXCERPT_MAX_LEN])
+        span = bm25_module.first_stem_span(body, query_stems)
+        if span is not None:
+            anchor_idx, anchor_len = span
+    if anchor_idx == -1:
+        return collapse(body[:EXCERPT_MAX_LEN])
+    start = max(0, anchor_idx - EXCERPT_RADIUS)
+    end = min(len(body), anchor_idx + anchor_len + EXCERPT_RADIUS)
+    snippet = body[start:end]
+    if start > 0:
+        snippet = "…" + snippet.lstrip()
+    if end < len(body):
+        snippet = snippet.rstrip() + "…"
+    return collapse(snippet)
+
+
+def semantic_excerpt(
+    page: ParsedPage,
+    query_norm: str,
+    best_chunk: str | None,
+    keyword_excerpt: str | None,
+) -> str:
+    """Prefer the matching chunk text, then fall back to the keyword excerpt."""
+    if page.search_body != page.body:
+        # A stored chunk may start inside a carrier, without its opening marker.
+        return make_excerpt(page, query_norm) or stem_anchored_excerpt(page, query_norm)
+    if best_chunk:
+        body = best_chunk
+        title_prefix = (page.title or "").strip()
+        if title_prefix and body.startswith(title_prefix + "\n\n"):
+            body = body[len(title_prefix) + 2:]
+        snippet = body.strip()[:EXCERPT_MAX_LEN].strip()
+        if len(body) > EXCERPT_MAX_LEN:
+            snippet = snippet.rstrip() + "…"
+        return collapse(snippet)
+    return keyword_excerpt or ""
+
+
+def literal_tokens_present(page: ParsedPage | RankingPage, query_norm: str) -> bool:
+    """The exact substring predicate shared by excerpts and catalogue graph seeds."""
+    return all(tok in page.title_norm or tok in page.body_norm for tok in query_norm.split())
+
+
+def wikilink_targets(body: str) -> tuple[str, ...]:
+    """Parser-derived targets, in source order, before request-time resolution."""
+    from .vault import find_body_wikilinks
+
+    return tuple(match.group(0)[2:-2].split("|", 1)[0].strip() for match in find_body_wikilinks(body))
+
+
+@dataclass(frozen=True, slots=True)
+class WikilinkReference:
+    """One body wikilink: the page or file it names, plus how it was written."""
+
+    target: str  # the name or path, without a heading fragment
+    fragment: str | None  # text after `#`, e.g. a heading
+    alias: str | None  # display text after `|`
+    embed: bool  # written `![[...]]`
+
+
+def wikilink_references(body: str) -> tuple[WikilinkReference, ...]:
+    """The same wikilinks as `wikilink_targets`, with alias, embed flag and fragment.
+
+    One grammar serves both: `find_body_wikilinks` owns the pattern and the code
+    masking, so this reads the embed marker from the original text at the match
+    offset and splits the matched text, with no second pattern.
+    """
+    from .vault import find_body_wikilinks
+
+    references: list[WikilinkReference] = []
+    for match in find_body_wikilinks(body):
+        name, _bar, alias = match.group(0)[2:-2].partition("|")
+        target, _hash, fragment = name.partition("#")
+        references.append(
+            WikilinkReference(
+                target=target.strip(),
+                fragment=fragment.strip() or None,
+                alias=alias.strip() or None,
+                embed=match.start() > 0 and body[match.start() - 1] == "!",
+            )
+        )
+    return tuple(references)
+
+
+def make_excerpt(page: ParsedPage, query_norm: str) -> str | None:
+    """Return a short snippet anchored to the query, or None when no token matches."""
+    body = page.body_stripped
+    if not query_norm:
+        snippet = body[:EXCERPT_MAX_LEN]
+        return collapse(snippet)
+    body_norm = page.body_norm
+    tokens = query_norm.split()
+    if not tokens:
+        snippet = body[:EXCERPT_MAX_LEN]
+        return collapse(snippet)
+    if not literal_tokens_present(page, query_norm):
+        return None
+    anchor_idx = -1
+    anchor_len = 0
+    for tok in tokens:
+        idx = body_norm.find(tok)
+        if idx != -1:
+            anchor_idx = idx
+            anchor_len = len(tok)
+            break
+    if anchor_idx == -1:
+        snippet = body[:EXCERPT_MAX_LEN]
+        return collapse(snippet)
+    start = max(0, anchor_idx - EXCERPT_RADIUS)
+    end = min(len(body), anchor_idx + anchor_len + EXCERPT_RADIUS)
+    snippet = body[start:end]
+    if start > 0:
+        snippet = "…" + snippet.lstrip()
+    if end < len(body):
+        snippet = snippet.rstrip() + "…"
+    return collapse(snippet)
+
+
+def collapse(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()

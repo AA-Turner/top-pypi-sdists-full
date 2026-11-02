@@ -1,0 +1,698 @@
+//! Data on available annotations.
+
+use std::fmt;
+use std::str::FromStr;
+
+use kittycad_modeling_cmds::KclVersion;
+use kittycad_modeling_cmds::coord::KITTYCAD;
+use kittycad_modeling_cmds::coord::OPENGL;
+use kittycad_modeling_cmds::coord::System;
+use kittycad_modeling_cmds::coord::VULKAN;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::KclError;
+use crate::SourceRange;
+use crate::errors::KclErrorDetails;
+use crate::errors::Severity;
+use crate::parsing::ast::types::Annotation;
+use crate::parsing::ast::types::Expr;
+use crate::parsing::ast::types::LiteralValue;
+use crate::parsing::ast::types::Node;
+use crate::parsing::ast::types::ObjectProperty;
+
+/// Annotations which should cause re-execution if they change.
+pub(super) const SIGNIFICANT_ATTRS: [&str; 4] = [SETTINGS, NO_PRELUDE, WARNINGS, DIAGNOSTICS];
+
+pub(crate) const SETTINGS: &str = "settings";
+pub(crate) const SETTINGS_UNIT_LENGTH: &str = "defaultLengthUnit";
+pub(crate) const SETTINGS_UNIT_ANGLE: &str = "defaultAngleUnit";
+pub(crate) const SETTINGS_VERSION: &str = "kclVersion";
+pub(crate) const SETTINGS_EXPERIMENTAL_FEATURES: &str = "experimentalFeatures";
+
+pub(super) const NO_PRELUDE: &str = "no_std";
+pub(crate) const ADDED_IN: &str = "added_in";
+pub(crate) const DEPRECATED: &str = "deprecated";
+pub(crate) const DEPRECATED_SINCE: &str = "deprecated_since";
+pub(crate) const REMOVED_IN: &str = "removed_in";
+pub(crate) const DOC_CATEGORY: &str = "doc_category";
+pub(crate) const EXPERIMENTAL: &str = "experimental";
+pub(crate) const INCLUDE_IN_FEATURE_TREE: &str = "feature_tree";
+
+pub(super) const IMPORT_FORMAT: &str = "format";
+pub(super) const IMPORT_COORDS: &str = "coords";
+pub(super) const IMPORT_COORDS_VALUES: [(&str, &System); 3] =
+    [("zoo", KITTYCAD), ("opengl", OPENGL), ("vulkan", VULKAN)];
+pub(super) const IMPORT_LENGTH_UNIT: &str = "lengthUnit";
+pub(crate) const IMPORT_TARGET_REPRESENTATION: &str = "targetRepresentation";
+
+pub(crate) const IMPL: &str = "impl";
+pub(crate) const IMPL_RUST: &str = "std_rust";
+pub(crate) const IMPL_CONSTRAINT: &str = "std_rust_constraint";
+pub(crate) const IMPL_CONSTRAINABLE: &str = "std_constrainable";
+pub(crate) const IMPL_RUST_CONSTRAINABLE: &str = "std_rust_constrainable";
+pub(crate) const IMPL_KCL: &str = "kcl";
+pub(crate) const IMPL_PRIMITIVE: &str = "primitive";
+pub(super) const IMPL_VALUES: [&str; 6] = [
+    IMPL_RUST,
+    IMPL_KCL,
+    IMPL_PRIMITIVE,
+    IMPL_CONSTRAINT,
+    IMPL_CONSTRAINABLE,
+    IMPL_RUST_CONSTRAINABLE,
+];
+
+/// Customizes how diagnostics are reported, in KCL 2 or earlier.
+pub(crate) const WARNINGS: &str = "warnings";
+/// Customizes how diagnostics are reported, in KCL 3.0 and later.
+/// KCL 3.0 renamed `@warnings` to `@diagnostics`.
+pub(crate) const DIAGNOSTICS: &str = "diagnostics";
+pub(crate) const WARN_ALLOW: &str = "allow";
+pub(crate) const WARN_DENY: &str = "deny";
+pub(crate) const WARN_WARN: &str = "warn";
+pub(super) const WARN_LEVELS: [&str; 3] = [WARN_ALLOW, WARN_DENY, WARN_WARN];
+pub(crate) const WARN_UNKNOWN_UNITS: &str = "unknownUnits";
+pub(crate) const WARN_ANGLE_UNITS: &str = "angleUnits";
+pub(crate) const WARN_UNKNOWN_ATTR: &str = "unknownAttribute";
+pub(crate) const WARN_MOD_RETURN_VALUE: &str = "moduleReturnValue";
+pub(crate) const WARN_DEPRECATED: &str = "deprecated";
+pub(crate) const WARN_IGNORED_Z_AXIS: &str = "ignoredZAxis";
+pub(crate) const WARN_SOLVER: &str = "solver";
+pub(crate) const WARN_SHOULD_BE_PERCENTAGE: &str = "shouldBePercentage";
+pub(crate) const WARN_INVALID_MATH: &str = "invalidMath";
+pub(crate) const WARN_CSG_NO_INTERSECTION: &str = "csgNoIntersection";
+pub(crate) const WARN_UNNECESSARY_CLOSE: &str = "unnecessaryClose";
+pub(crate) const WARN_UNUSED_TAGS: &str = "unusedTags";
+pub(crate) const WARN_NOT_YET_SUPPORTED: &str = "notYetSupported";
+pub(crate) const WARN_OVER_CONSTRAINED_SKETCH: &str = "overConstrainedSketch";
+pub(crate) const WARN_REGION_LIVENESS: &str = "regionLiveness";
+pub(crate) const WARN_PARENTLESS_MERGE: &str = "parentlessMerge";
+pub(super) const WARN_VALUES: [&str; 15] = [
+    WARN_UNKNOWN_UNITS,
+    WARN_ANGLE_UNITS,
+    WARN_UNKNOWN_ATTR,
+    WARN_MOD_RETURN_VALUE,
+    WARN_DEPRECATED,
+    WARN_IGNORED_Z_AXIS,
+    WARN_SOLVER,
+    WARN_SHOULD_BE_PERCENTAGE,
+    WARN_INVALID_MATH,
+    WARN_UNNECESSARY_CLOSE,
+    WARN_NOT_YET_SUPPORTED,
+    WARN_CSG_NO_INTERSECTION,
+    WARN_OVER_CONSTRAINED_SKETCH,
+    WARN_REGION_LIVENESS,
+    WARN_PARENTLESS_MERGE,
+];
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Deserialize, Serialize, ts_rs::TS)]
+#[ts(export)]
+#[serde(tag = "type")]
+pub enum WarningLevel {
+    Allow,
+    Warn,
+    Deny,
+}
+
+impl WarningLevel {
+    pub(crate) fn severity(self) -> Option<Severity> {
+        match self {
+            WarningLevel::Allow => None,
+            WarningLevel::Warn => Some(Severity::Warning),
+            WarningLevel::Deny => Some(Severity::Error),
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            WarningLevel::Allow => WARN_ALLOW,
+            WarningLevel::Warn => WARN_WARN,
+            WarningLevel::Deny => WARN_DENY,
+        }
+    }
+}
+
+impl FromStr for WarningLevel {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            WARN_ALLOW => Ok(Self::Allow),
+            WARN_WARN => Ok(Self::Warn),
+            WARN_DENY => Ok(Self::Deny),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
+pub enum Impl {
+    #[default]
+    Kcl,
+    KclConstrainable,
+    Rust,
+    RustConstrainable,
+    RustConstraint,
+    Primitive,
+}
+
+impl FromStr for Impl {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            IMPL_RUST => Ok(Self::Rust),
+            IMPL_CONSTRAINT => Ok(Self::RustConstraint),
+            IMPL_CONSTRAINABLE => Ok(Self::KclConstrainable),
+            IMPL_RUST_CONSTRAINABLE => Ok(Self::RustConstrainable),
+            IMPL_KCL => Ok(Self::Kcl),
+            IMPL_PRIMITIVE => Ok(Self::Primitive),
+            _ => Err(()),
+        }
+    }
+}
+
+pub(crate) fn settings_completion_text() -> String {
+    format!("@{SETTINGS}({SETTINGS_UNIT_LENGTH} = mm, {SETTINGS_VERSION} = 2.0)")
+}
+
+pub(super) fn is_significant(attr: &&Node<Annotation>) -> bool {
+    match attr.name() {
+        Some(name) => SIGNIFICANT_ATTRS.contains(&name),
+        None => true,
+    }
+}
+
+/// The name of the attribute that customizes how diagnostics are reported
+/// under the given KCL version: `warnings` before KCL 3.0 and `diagnostics`
+/// in KCL 3.0 and later.
+pub(super) fn diagnostics_attr_name(version: KclVersion) -> &'static str {
+    if version >= KclVersion::V3Preview {
+        DIAGNOSTICS
+    } else {
+        WARNINGS
+    }
+}
+
+pub(super) fn expect_properties<'a>(
+    for_key: &'static str,
+    annotation: &'a Node<Annotation>,
+) -> Result<&'a [Node<ObjectProperty>], KclError> {
+    assert_eq!(annotation.name().unwrap(), for_key);
+    Ok(&**annotation.properties.as_ref().ok_or_else(|| {
+        KclError::new_semantic(KclErrorDetails::new(
+            format!("Empty `{for_key}` annotation"),
+            vec![annotation.as_source_range()],
+        ))
+    })?)
+}
+
+pub(super) fn expect_ident(expr: &Expr) -> Result<&str, KclError> {
+    if let Expr::Name(name) = expr
+        && let Some(name) = name.local_ident()
+    {
+        return Ok(*name);
+    }
+
+    Err(KclError::new_semantic(KclErrorDetails::new(
+        "Unexpected settings value, expected a simple name, e.g., `mm`".to_owned(),
+        vec![expr.into()],
+    )))
+}
+
+/// Parses the value of an `allow` or `deny` property of the attribute named
+/// `attr_name`, which is used in error messages.
+pub(super) fn many_of(
+    expr: &Expr,
+    of: &[&'static str],
+    attr_name: &str,
+    source_range: SourceRange,
+) -> Result<Vec<&'static str>, KclError> {
+    let unexpected_msg = format!(
+        "Unexpected {attr_name} value, expected a name or array of names, e.g., `unknownUnits` or `[unknownUnits, deprecated]`"
+    );
+
+    let values = match expr {
+        Expr::Name(name) => {
+            if let Some(name) = name.local_ident() {
+                vec![*name]
+            } else {
+                return Err(KclError::new_semantic(KclErrorDetails::new(
+                    unexpected_msg,
+                    vec![expr.into()],
+                )));
+            }
+        }
+        Expr::ArrayExpression(e) => {
+            let mut result = Vec::new();
+            for e in &e.elements {
+                if let Expr::Name(name) = e
+                    && let Some(name) = name.local_ident()
+                {
+                    result.push(*name);
+                    continue;
+                }
+                return Err(KclError::new_semantic(KclErrorDetails::new(
+                    unexpected_msg,
+                    vec![e.into()],
+                )));
+            }
+            result
+        }
+        _ => {
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                unexpected_msg,
+                vec![expr.into()],
+            )));
+        }
+    };
+
+    // Each value names one diagnostic, so use the singular form of the
+    // attribute name: `warning` or `diagnostic`.
+    let noun = attr_name.strip_suffix('s').unwrap_or(attr_name);
+    values
+        .into_iter()
+        .map(|v| {
+            of.iter()
+                .find(|vv| **vv == v)
+                .ok_or_else(|| {
+                    KclError::new_semantic(KclErrorDetails::new(
+                        format!("Unexpected {noun} value: `{v}`; accepted values: {}", of.join(", "),),
+                        vec![source_range],
+                    ))
+                })
+                .copied()
+        })
+        .collect::<Result<Vec<&str>, KclError>>()
+}
+
+/// Returns a KCL version.
+/// Usually a number, but may have a trailing string suffix like 'preview' with a '-' divider,
+/// e.g. 3.0-preview.
+pub(super) fn expect_kcl_version(expr: &Expr) -> Result<String, KclError> {
+    if let Expr::Literal(lit) = expr {
+        return match &lit.value {
+            LiteralValue::Number { .. } => Ok(lit.raw.clone()),
+            LiteralValue::String(value) => Ok(value.clone()),
+            LiteralValue::Bool(_) => Err(KclError::new_semantic(KclErrorDetails::new(
+                "Unexpected KCL version value, expected a number or string, e.g., `2.0` or `\"3.0-preview\"`"
+                    .to_owned(),
+                vec![expr.into()],
+            ))),
+        };
+    }
+
+    Err(KclError::new_semantic(KclErrorDetails::new(
+        "Unexpected KCL version value, expected a number or string, e.g., `2.0` or `\"3.0-preview\"`".to_owned(),
+        vec![expr.into()],
+    )))
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FnAttrs {
+    pub impl_: Impl,
+    /// KCL version in which this item was added, e.g. "3.0". Programs on an
+    /// earlier version skip the declaration entirely.
+    pub added_in: Option<VersionConstraint>,
+    pub deprecated: bool,
+    /// Constraint marking a KCL version at or after which this item is
+    /// deprecated, e.g. "2.0".
+    pub deprecated_since: Option<VersionConstraint>,
+    pub experimental: bool,
+    pub include_in_feature_tree: bool,
+}
+
+impl Default for FnAttrs {
+    fn default() -> Self {
+        Self {
+            impl_: Impl::default(),
+            added_in: None,
+            deprecated: false,
+            deprecated_since: None,
+            experimental: false,
+            include_in_feature_tree: true,
+        }
+    }
+}
+
+/// A constraint on a KCL version, e.g. the threshold that `@(added_in = "3.0")`,
+/// `@(deprecated_since = "2.0")`, or `@(removed_in = "3.0")` describes.
+/// Stored as the parsed component list so comparisons are numeric, not lexical.
+///
+/// Distinct from the concrete `kclVersion` set in `@settings(...)`: this type
+/// represents a version *boundary*, and we expect to grow more constraint kinds
+/// (e.g., "deprecated up until version X") in the future. Comparisons against a
+/// concrete version are expressed via the free `version_*` functions below
+/// rather than `Ord` so the direction of comparison stays explicit at every
+/// call site.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct VersionConstraint(Vec<u32>);
+
+impl VersionConstraint {
+    /// Construct a major.minor version boundary from numeric components.
+    pub(crate) fn new(major: u32, minor: u32) -> Self {
+        Self(vec![major, minor])
+    }
+
+    /// Parse a dotted version string like "1.0" or "2.1.3". Returns `None` for empty
+    /// input or any component that doesn't parse as a non-negative integer.
+    pub fn parse(s: &str) -> Option<Self> {
+        let parts: Vec<u32> = s
+            .split('.')
+            .map(|p| p.parse::<u32>().ok())
+            .collect::<Option<Vec<_>>>()?;
+        if parts.is_empty() { None } else { Some(Self(parts)) }
+    }
+
+    /// Whether this version boundary comes strictly before `other`, comparing
+    /// components numerically, like [`version_ge`] does for concrete versions.
+    pub(crate) fn is_before(&self, other: &Self) -> bool {
+        self.0 < other.0
+    }
+}
+
+impl fmt::Display for VersionConstraint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut first = true;
+        for n in &self.0 {
+            if !first {
+                f.write_str(".")?;
+            }
+            write!(f, "{n}")?;
+            first = false;
+        }
+        Ok(())
+    }
+}
+
+/// Returns true when the concrete `version` (e.g., from `@settings(kclVersion = ...)`)
+/// is greater than or equal to the `constraint`. Returns false if `version` cannot be
+/// parsed as a dotted integer version with an optional pre-release suffix.
+pub(crate) fn version_ge(version: &str, constraint: &VersionConstraint) -> bool {
+    let release = version.split_once('-').map_or(version, |(release, _)| release);
+    let Some(parsed) = VersionConstraint::parse(release) else {
+        return false;
+    };
+    parsed.0 >= constraint.0
+}
+
+/// Parse a version attribute value such as `"3.0"`, naming `key` in errors.
+fn version_property(p: &ObjectProperty, key: &str, source_range: SourceRange) -> Result<VersionConstraint, KclError> {
+    let Some(s) = p.value.literal_str() else {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            format!("Expected a version string for {key}, e.g., \"2.0\""),
+            vec![source_range],
+        )));
+    };
+    VersionConstraint::parse(s).ok_or_else(|| {
+        KclError::new_semantic(KclErrorDetails::new(
+            format!("Invalid version string for {key}: `{s}`; expected a dotted integer version, e.g., \"2.0\""),
+            vec![source_range],
+        ))
+    })
+}
+
+/// The `added_in` version in `annotations`, if any. Reads only that attribute,
+/// so a declaration can be skipped before `get_fn_attrs` validates the rest.
+pub(super) fn added_in_version(
+    annotations: &[Node<Annotation>],
+    source_range: SourceRange,
+) -> Result<Option<VersionConstraint>, KclError> {
+    for attr in annotations {
+        if attr.name.is_some() {
+            continue;
+        }
+        let Some(properties) = &attr.properties else {
+            continue;
+        };
+        for p in properties {
+            if &*p.key.name == ADDED_IN {
+                return Ok(Some(version_property(p, ADDED_IN, source_range)?));
+            }
+        }
+    }
+    Ok(None)
+}
+
+pub(super) fn get_fn_attrs(
+    annotations: &[Node<Annotation>],
+    source_range: SourceRange,
+) -> Result<Option<FnAttrs>, KclError> {
+    let mut found_attrs = false;
+    let mut fn_attrs = FnAttrs::default();
+    for attr in annotations {
+        if attr.name.is_some() || attr.properties.is_none() {
+            continue;
+        }
+        for p in attr.properties.as_ref().unwrap() {
+            if &*p.key.name == IMPL
+                && let Some(s) = p.value.ident_name()
+            {
+                found_attrs = true;
+                fn_attrs.impl_ = Impl::from_str(s).map_err(|_| {
+                    KclError::new_semantic(KclErrorDetails::new(
+                        format!(
+                            "Invalid value for {} attribute, expected one of: {}",
+                            IMPL,
+                            IMPL_VALUES.join(", ")
+                        ),
+                        vec![source_range],
+                    ))
+                })?;
+                continue;
+            }
+
+            if &*p.key.name == DEPRECATED
+                && let Some(b) = p.value.literal_bool()
+            {
+                found_attrs = true;
+                fn_attrs.deprecated = b;
+                continue;
+            }
+
+            if &*p.key.name == ADDED_IN {
+                found_attrs = true;
+                fn_attrs.added_in = Some(version_property(p, ADDED_IN, source_range)?);
+                continue;
+            }
+
+            if &*p.key.name == DEPRECATED_SINCE {
+                found_attrs = true;
+                fn_attrs.deprecated_since = Some(version_property(p, DEPRECATED_SINCE, source_range)?);
+                continue;
+            }
+
+            // doc_category is handled by the docs generator, not execution.
+            if &*p.key.name == DOC_CATEGORY {
+                continue;
+            }
+
+            if &*p.key.name == EXPERIMENTAL
+                && let Some(b) = p.value.literal_bool()
+            {
+                found_attrs = true;
+                fn_attrs.experimental = b;
+                continue;
+            }
+
+            if &*p.key.name == INCLUDE_IN_FEATURE_TREE
+                && let Some(b) = p.value.literal_bool()
+            {
+                found_attrs = true;
+                fn_attrs.include_in_feature_tree = b;
+                continue;
+            }
+
+            return Err(KclError::new_semantic(KclErrorDetails::new(
+                format!(
+                    "Invalid attribute, expected one of: {IMPL}, {ADDED_IN}, {DEPRECATED}, {DEPRECATED_SINCE}, {DOC_CATEGORY}, {EXPERIMENTAL}, {INCLUDE_IN_FEATURE_TREE}, found `{}`",
+                    &*p.key.name,
+                ),
+                vec![source_range],
+            )));
+        }
+    }
+
+    // May arrive already deprecated, but not deprecated before it existed.
+    if let (Some(added), Some(since)) = (&fn_attrs.added_in, &fn_attrs.deprecated_since)
+        && since.is_before(added)
+    {
+        return Err(KclError::new_semantic(KclErrorDetails::new(
+            format!("`{DEPRECATED_SINCE}` (KCL {since}) must not be earlier than `{ADDED_IN}` (KCL {added})"),
+            vec![source_range],
+        )));
+    }
+
+    Ok(if found_attrs { Some(fn_attrs) } else { None })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vc(s: &str) -> VersionConstraint {
+        VersionConstraint::parse(s).unwrap()
+    }
+
+    #[test]
+    fn version_constraint_parse_handles_typical_inputs() {
+        assert_eq!(VersionConstraint::parse("1.0"), Some(VersionConstraint(vec![1, 0])));
+        assert_eq!(VersionConstraint::parse("2"), Some(VersionConstraint(vec![2])));
+        assert_eq!(
+            VersionConstraint::parse("2.1.3"),
+            Some(VersionConstraint(vec![2, 1, 3]))
+        );
+        assert_eq!(VersionConstraint::parse(""), None);
+        assert_eq!(VersionConstraint::parse("1.x"), None);
+        assert_eq!(VersionConstraint::parse("1.-1"), None);
+    }
+
+    #[test]
+    fn version_constraint_is_before_compares_numerically() {
+        assert!(vc("2.0").is_before(&vc("3.0")));
+        assert!(vc("2.9").is_before(&vc("2.10")));
+        assert!(vc("9.0").is_before(&vc("10.0")));
+        assert!(vc("3.0").is_before(&vc("3.0.1")));
+        assert!(!vc("3.0").is_before(&vc("3.0")));
+        assert!(!vc("3.0").is_before(&vc("2.0")));
+        assert!(!vc("2.10").is_before(&vc("2.9")));
+    }
+
+    #[test]
+    fn version_constraint_display_round_trips() {
+        assert_eq!(vc("1.0").to_string(), "1.0");
+        assert_eq!(vc("2.1.3").to_string(), "2.1.3");
+        assert_eq!(vc("2").to_string(), "2");
+    }
+
+    #[test]
+    fn version_ge_compares_components_numerically() {
+        assert!(version_ge("1.0", &vc("1.0")));
+        assert!(version_ge("2.0", &vc("1.0")));
+        assert!(version_ge("2.0", &vc("2.0")));
+        assert!(version_ge("3.0", &vc("3.0")));
+        assert!(version_ge("10.0", &vc("2.0")));
+        assert!(version_ge("2.1", &vc("2.0")));
+        assert!(!version_ge("1.0", &vc("2.0")));
+        assert!(!version_ge("2.0", &vc("2.1")));
+        assert!(!version_ge("1.99", &vc("2.0")));
+        // An unparsable concrete version never satisfies the constraint.
+        assert!(!version_ge("bogus", &vc("1.0")));
+    }
+
+    #[test]
+    fn version_ge_supports_prerelease_versions() {
+        assert!(version_ge("3.0-preview", &vc("2.0")));
+        assert!(version_ge("3.0-preview", &vc("3.0")));
+        assert!(!version_ge("3.0-preview", &vc("4.0")));
+    }
+
+    /// The outer attributes of the first declaration in `source`.
+    fn outer_attrs(source: &str) -> Vec<Node<Annotation>> {
+        let program = crate::parsing::top_level_parse(source).unwrap();
+        match &program.body[0] {
+            crate::parsing::ast::types::BodyItem::VariableDeclaration(decl) => decl.outer_attrs.clone(),
+            crate::parsing::ast::types::BodyItem::TypeDeclaration(decl) => decl.outer_attrs.clone(),
+            other => panic!("expected a declaration, got {other:?}"),
+        }
+    }
+
+    fn fn_attrs_of(source: &str) -> Result<Option<FnAttrs>, KclError> {
+        get_fn_attrs(&outer_attrs(source), SourceRange::default())
+    }
+
+    #[test]
+    fn get_fn_attrs_parses_added_in_on_functions_and_types() {
+        let attrs = fn_attrs_of("@(added_in = \"3.0\")\nfn f() { return 1 }")
+            .unwrap()
+            .unwrap();
+        assert_eq!(attrs.added_in, Some(vc("3.0")));
+
+        let attrs = fn_attrs_of("@(added_in = \"2.1\", experimental = true)\ntype T = [number; 2]")
+            .unwrap()
+            .unwrap();
+        assert_eq!(attrs.added_in, Some(vc("2.1")));
+        assert!(attrs.experimental);
+
+        // Absent by default.
+        assert_eq!(
+            fn_attrs_of("@(experimental = true)\nfn f() { return 1 }")
+                .unwrap()
+                .unwrap()
+                .added_in,
+            None
+        );
+    }
+
+    #[test]
+    fn get_fn_attrs_rejects_malformed_added_in() {
+        assert_eq!(
+            fn_attrs_of("@(added_in = 3)\nfn f() { return 1 }")
+                .unwrap_err()
+                .message(),
+            "Expected a version string for added_in, e.g., \"2.0\""
+        );
+        assert_eq!(
+            fn_attrs_of("@(added_in = \"3.0-preview\")\nfn f() { return 1 }")
+                .unwrap_err()
+                .message(),
+            "Invalid version string for added_in: `3.0-preview`; expected a dotted integer version, e.g., \"2.0\""
+        );
+    }
+
+    #[test]
+    fn deprecated_since_may_equal_but_not_precede_added_in() {
+        let attrs = fn_attrs_of("@(added_in = \"3.0\", deprecated_since = \"3.0\")\nfn f() { return 1 }")
+            .unwrap()
+            .unwrap();
+        assert_eq!(attrs.added_in, Some(vc("3.0")));
+        assert_eq!(attrs.deprecated_since, Some(vc("3.0")));
+
+        assert_eq!(
+            fn_attrs_of("@(deprecated_since = \"2.0\", added_in = \"3.0\")\nfn f() { return 1 }")
+                .unwrap_err()
+                .message(),
+            "`deprecated_since` (KCL 2.0) must not be earlier than `added_in` (KCL 3.0)"
+        );
+    }
+
+    #[test]
+    fn added_in_version_reads_only_that_attribute() {
+        // Other attributes, even invalid ones, are left for get_fn_attrs.
+        let attrs = outer_attrs("@(added_in = \"2.0\", bogus = true)\nx = 1");
+        assert_eq!(
+            added_in_version(&attrs, SourceRange::default()).unwrap(),
+            Some(vc("2.0"))
+        );
+        assert_eq!(
+            get_fn_attrs(&attrs, SourceRange::default()).unwrap_err().message(),
+            "Invalid attribute, expected one of: impl, added_in, deprecated, deprecated_since, doc_category, experimental, feature_tree, found `bogus`"
+        );
+
+        assert_eq!(
+            added_in_version(&outer_attrs("@(experimental = true)\nx = 1"), SourceRange::default()).unwrap(),
+            None
+        );
+        assert_eq!(
+            added_in_version(&outer_attrs("x = 1"), SourceRange::default()).unwrap(),
+            None
+        );
+
+        // Named annotations such as @settings are not item attributes.
+        assert_eq!(
+            added_in_version(
+                &outer_attrs("@settings(kclVersion = 2.0)\nx = 1"),
+                SourceRange::default()
+            )
+            .unwrap(),
+            None
+        );
+
+        assert_eq!(
+            added_in_version(&outer_attrs("@(added_in = \"x\")\nx = 1"), SourceRange::default())
+                .unwrap_err()
+                .message(),
+            "Invalid version string for added_in: `x`; expected a dotted integer version, e.g., \"2.0\""
+        );
+    }
+}

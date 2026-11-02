@@ -1,0 +1,80 @@
+name: Sparse styled Python overlay evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - python/wolfxl/_streaming.py
+      - tests/test_streaming_blank_cells.py
+      - benchmarks/sparse_styled_profile.py
+      - .github/workflows/sparse-styled-profile.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sparse-styled-profile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paired-profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "8"
+      BASELINE_REF: ${{ github.event.pull_request.base.sha || 'main' }}
+      CANDIDATE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.12.3"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - name: Install hash-checked benchmark dependencies
+        run: |
+          uv export --locked --no-dev --extra test --group ci-build --no-emit-project --format requirements.txt --output-file "$RUNNER_TEMP/profile-requirements.txt"
+          python -m pip install --require-hashes -r "$RUNNER_TEMP/profile-requirements.txt"
+      - name: Build the standard candidate wheel
+        run: |
+          maturin build --release --locked --out dist
+          python .github/scripts/hashed_artifact_requirements.py --output "$RUNNER_TEMP/wheel-requirements.txt" "dist/*.whl"
+          python -m pip install --require-hashes --no-deps --no-index -r "$RUNNER_TEMP/wheel-requirements.txt"
+      - name: Test streaming compatibility
+        run: >-
+          python -m pytest tests/test_streaming_blank_cells.py
+          tests/test_streaming_reads.py tests/test_streaming_style_cache.py
+          tests/test_streaming_merge_index.py tests/parity/test_streaming_parity.py -q
+      - name: Compare against the base Python streaming module
+        run: |
+          mkdir -p sparse-profile
+          git rev-parse HEAD > sparse-profile/candidate-ref.txt
+          git rev-parse "$BASELINE_REF" > sparse-profile/baseline-ref.txt
+          git diff --name-only "$BASELINE_REF" HEAD > sparse-profile/changed-files.txt
+          if ! git diff --quiet "$BASELINE_REF" HEAD -- src crates Cargo.toml Cargo.lock build.rs; then
+            echo "### Python overlay benchmark skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Native sources or build inputs differ from the base. This benchmark requires an unchanged native extension." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git show "$BASELINE_REF:python/wolfxl/_streaming.py" > sparse-profile/baseline-streaming.py
+          python benchmarks/sparse_styled_profile.py \
+            --baseline-streaming sparse-profile/baseline-streaming.py \
+            --baseline-ref "$BASELINE_REF" --candidate-ref "$CANDIDATE_REF" \
+            --native-origin "standard release wheel built from $CANDIDATE_REF; native sources unchanged from base" \
+            --output sparse-profile/results.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: sparse-styled-python-overlay-evidence
+          path: sparse-profile/
+

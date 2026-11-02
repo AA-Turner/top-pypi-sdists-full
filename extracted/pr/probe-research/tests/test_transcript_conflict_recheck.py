@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_transcripts as bt
+from probe.cli.imports import transcripts as bt
 from probe.tap_core.session_journal import DeliveryPending, Journal
 from test_backfill_transcripts_upload import FakeWire, _transcript
 
@@ -165,7 +165,8 @@ def test_import_lane_counts_reconciled_race_without_counting_shared_pending_as_f
         return post(encoded)
 
     monkeypatch.setattr(wire, "post", racing_post)
-    monkeypatch.setattr(bt, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.transcripts, "Wire", lambda *args, **kwargs: wire)
+    monkeypatch.setattr(bt.upload, "Wire", lambda *args, **kwargs: wire)
     completions = []
     outcome = bt.import_transcripts(
         bt.Census(candidates=[transcript]), poster=bt.Poster(wire.base_url, wire.token),

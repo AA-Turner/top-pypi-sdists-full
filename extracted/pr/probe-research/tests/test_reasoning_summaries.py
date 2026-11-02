@@ -20,8 +20,8 @@ import pytest
 from probe.foundation.compat.compat import tomllib
 from probe.shared.harness.harnesses.codex import config as codex_config
 from probe.shared.harness import reasoning_summaries as rs
-from probe.cli import setup as wizard
-from probe.cli.capabilities import Capabilities
+from probe.cli import wizard as wizard
+from probe.cli.wizard.state.state import Capabilities
 from probe.sdk import session_marker
 
 CC, CODEX = rs.CLAUDE_CODE, rs.CODEX
@@ -481,7 +481,7 @@ def test_moving_codex_to_the_daemon_and_back(isolate, calls):
 
 
 def _stub_uninstall(monkeypatch):
-    from probe.cli import import_jobs
+    from probe.cli.imports import jobs as import_jobs
 
     class Off:
         plugin_removed = verified = True
@@ -490,11 +490,21 @@ def _stub_uninstall(monkeypatch):
         def summary(self):
             return "Capture off."
 
-    monkeypatch.setattr(import_jobs, "clear_all", lambda: None)
+    monkeypatch.setattr(import_jobs.jobs, "clear_all", lambda: None)
     monkeypatch.setattr(wizard, "turn_off", lambda mode: Off())
-    monkeypatch.setattr(wizard, "uninstall_plugin", lambda name, source=None: wizard.claude_cli.Result(ok=True))
-    monkeypatch.setattr(wizard, "apply_agent_rules", lambda on: [])
+    monkeypatch.setattr(wizard.account.sign_out, "turn_off", lambda mode: Off())
+    monkeypatch.setattr(wizard.apply.apply, "turn_off", lambda mode: Off())
+    monkeypatch.setattr(wizard.apply.removal, "turn_off", lambda mode: Off())
+    monkeypatch.setattr(wizard.apply.plugins, "uninstall_plugin", lambda name, source=None: wizard.claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.apply, "uninstall_plugin", lambda name, source=None: wizard.claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.recorder, "uninstall_plugin", lambda name, source=None: wizard.claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.removal, "uninstall_plugin", lambda name, source=None: wizard.claude_cli.Result(ok=True))
+    monkeypatch.setattr(wizard.apply.agent_files, "apply_agent_rules", lambda on: [])
+    monkeypatch.setattr(wizard.apply.removal, "apply_agent_rules", lambda on: [])
     monkeypatch.setattr(wizard, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.account.sign_in, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.apply.apply, "clear_killswitch", lambda: None)
+    monkeypatch.setattr(wizard.apply.removal, "clear_killswitch", lambda: None)
 
 
 def test_uninstall_undoes_what_probe_turned_on(isolate, monkeypatch):
@@ -544,12 +554,13 @@ def test_the_pages_choice_lands_after_the_switch(isolate, monkeypatch, calls):
     """Switching to the daemon turns reasoning summaries on where nobody chose;
     the daemon's page then asks, and an untick there is a choice, so it lands
     last."""
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     cli_main = importlib.import_module("probe.cli.main")
-    monkeypatch.setattr(wizard, "daemon_availability", lambda base_url=None: (True, None))
-    monkeypatch.setattr(wizard, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(wizard.apply.recorder, "daemon_availability", lambda base_url=None: (True, None))
+    monkeypatch.setattr(wizard.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_" + "1" * 32)  # a switch needs a signed-in machine
     seen = {}
 
@@ -557,7 +568,7 @@ def test_the_pages_choice_lands_after_the_switch(isolate, monkeypatch, calls):
         seen.update(kw)
         return {wizard.Setting.REASONING_SUMMARIES: False}
 
-    monkeypatch.setattr(wizard, "run_settings_menu", page)
+    monkeypatch.setattr(wizard.settings.menu, "run_settings_menu", page)
     caps = {"claude_code": Capabilities(agent_source="claude_code", tracking_plugin_installed=True,
                                         capture_plugin_installed=True)}
     lines = cli_main._run_recorder_action(

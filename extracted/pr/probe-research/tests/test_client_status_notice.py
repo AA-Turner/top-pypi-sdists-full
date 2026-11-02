@@ -151,12 +151,13 @@ def test_probe_init_raises_client_too_old(app, tmp_path) -> None:
     fake = app.handler
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.method == "POST" and request.url.path == "/v1/runs":
+        if request.method == "POST" and request.url.path.endswith("/runs"):
             return httpx.Response(410, json=_TOO_OLD)
         return fake(request)
 
+    make_client(app, tmp_spool=tmp_path / "setup").create_project("p", kind="general")
     app.handler = handler
     client = make_client(app, tmp_spool=tmp_path / "spool")
     with pytest.raises(errors.ClientTooOldError) as raised:
-        probe.init(client=client, description="x")
+        probe.init(client=client, project="p", description="x")
     assert raised.value.min_version == "0.177.0"

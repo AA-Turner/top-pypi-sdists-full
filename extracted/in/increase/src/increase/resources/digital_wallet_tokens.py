@@ -1,0 +1,440 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Literal
+
+import httpx
+
+from ..types import digital_wallet_token_list_params, digital_wallet_token_transition_params
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..pagination import SyncPage, AsyncPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.digital_wallet_token import DigitalWalletToken
+
+__all__ = ["DigitalWalletTokensResource", "AsyncDigitalWalletTokensResource"]
+
+
+class DigitalWalletTokensResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> DigitalWalletTokensResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return DigitalWalletTokensResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> DigitalWalletTokensResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return DigitalWalletTokensResourceWithStreamingResponse(self)
+
+    def retrieve(
+        self,
+        digital_wallet_token_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DigitalWalletToken:
+        """
+        Retrieve a Digital Wallet Token
+
+        Args:
+          digital_wallet_token_id: The identifier of the Digital Wallet Token.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not digital_wallet_token_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_wallet_token_id` but received {digital_wallet_token_id!r}"
+            )
+        return self._get(
+            path_template(
+                "/digital_wallet_tokens/{digital_wallet_token_id}", digital_wallet_token_id=digital_wallet_token_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DigitalWalletToken,
+        )
+
+    def list(
+        self,
+        *,
+        card_id: str | Omit = omit,
+        created_at: digital_wallet_token_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[DigitalWalletToken]:
+        """
+        List Digital Wallet Tokens
+
+        Args:
+          card_id: Filter Digital Wallet Tokens to ones belonging to the specified Card.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/digital_wallet_tokens",
+            page=SyncPage[DigitalWalletToken],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "card_id": card_id,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    digital_wallet_token_list_params.DigitalWalletTokenListParams,
+                ),
+            ),
+            model=DigitalWalletToken,
+        )
+
+    def transition(
+        self,
+        digital_wallet_token_id: str,
+        *,
+        status: Literal["active", "suspended", "deactivated"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalWalletToken:
+        """Submit a Digital Wallet Token status transition to the card network.
+
+        The Digital
+        Wallet Token will move to `pending_transitioning` until the card network
+        confirms the transition, and a `digital_wallet_token.updated` webhook will be
+        sent once the transition has been confirmed.
+
+        Args:
+          digital_wallet_token_id: The identifier of the Digital Wallet Token.
+
+          status: The status to transition the Digital Wallet Token to.
+
+              - `active` - Reactivate a suspended Digital Wallet Token.
+              - `suspended` - Temporarily pause an active Digital Wallet Token.
+              - `deactivated` - Permanently cancel an active, inactive, or suspended Digital
+                Wallet Token.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_wallet_token_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_wallet_token_id` but received {digital_wallet_token_id!r}"
+            )
+        return self._post(
+            path_template(
+                "/digital_wallet_tokens/{digital_wallet_token_id}/transition",
+                digital_wallet_token_id=digital_wallet_token_id,
+            ),
+            body=maybe_transform(
+                {"status": status}, digital_wallet_token_transition_params.DigitalWalletTokenTransitionParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalWalletToken,
+        )
+
+
+class AsyncDigitalWalletTokensResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncDigitalWalletTokensResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Increase/increase-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncDigitalWalletTokensResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncDigitalWalletTokensResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Increase/increase-python#with_streaming_response
+        """
+        return AsyncDigitalWalletTokensResourceWithStreamingResponse(self)
+
+    async def retrieve(
+        self,
+        digital_wallet_token_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DigitalWalletToken:
+        """
+        Retrieve a Digital Wallet Token
+
+        Args:
+          digital_wallet_token_id: The identifier of the Digital Wallet Token.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not digital_wallet_token_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_wallet_token_id` but received {digital_wallet_token_id!r}"
+            )
+        return await self._get(
+            path_template(
+                "/digital_wallet_tokens/{digital_wallet_token_id}", digital_wallet_token_id=digital_wallet_token_id
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DigitalWalletToken,
+        )
+
+    def list(
+        self,
+        *,
+        card_id: str | Omit = omit,
+        created_at: digital_wallet_token_list_params.CreatedAt | Omit = omit,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[DigitalWalletToken, AsyncPage[DigitalWalletToken]]:
+        """
+        List Digital Wallet Tokens
+
+        Args:
+          card_id: Filter Digital Wallet Tokens to ones belonging to the specified Card.
+
+          cursor: Return the page of entries after this one.
+
+          limit: Limit the size of the list that is returned. The default (and maximum) is 100
+              objects.
+
+              Defaults to `100`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/digital_wallet_tokens",
+            page=AsyncPage[DigitalWalletToken],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "card_id": card_id,
+                        "created_at": created_at,
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    digital_wallet_token_list_params.DigitalWalletTokenListParams,
+                ),
+            ),
+            model=DigitalWalletToken,
+        )
+
+    async def transition(
+        self,
+        digital_wallet_token_id: str,
+        *,
+        status: Literal["active", "suspended", "deactivated"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DigitalWalletToken:
+        """Submit a Digital Wallet Token status transition to the card network.
+
+        The Digital
+        Wallet Token will move to `pending_transitioning` until the card network
+        confirms the transition, and a `digital_wallet_token.updated` webhook will be
+        sent once the transition has been confirmed.
+
+        Args:
+          digital_wallet_token_id: The identifier of the Digital Wallet Token.
+
+          status: The status to transition the Digital Wallet Token to.
+
+              - `active` - Reactivate a suspended Digital Wallet Token.
+              - `suspended` - Temporarily pause an active Digital Wallet Token.
+              - `deactivated` - Permanently cancel an active, inactive, or suspended Digital
+                Wallet Token.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not digital_wallet_token_id:
+            raise ValueError(
+                f"Expected a non-empty value for `digital_wallet_token_id` but received {digital_wallet_token_id!r}"
+            )
+        return await self._post(
+            path_template(
+                "/digital_wallet_tokens/{digital_wallet_token_id}/transition",
+                digital_wallet_token_id=digital_wallet_token_id,
+            ),
+            body=await async_maybe_transform(
+                {"status": status}, digital_wallet_token_transition_params.DigitalWalletTokenTransitionParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=DigitalWalletToken,
+        )
+
+
+class DigitalWalletTokensResourceWithRawResponse:
+    def __init__(self, digital_wallet_tokens: DigitalWalletTokensResource) -> None:
+        self._digital_wallet_tokens = digital_wallet_tokens
+
+        self.retrieve = to_raw_response_wrapper(
+            digital_wallet_tokens.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            digital_wallet_tokens.list,
+        )
+        self.transition = to_raw_response_wrapper(
+            digital_wallet_tokens.transition,
+        )
+
+
+class AsyncDigitalWalletTokensResourceWithRawResponse:
+    def __init__(self, digital_wallet_tokens: AsyncDigitalWalletTokensResource) -> None:
+        self._digital_wallet_tokens = digital_wallet_tokens
+
+        self.retrieve = async_to_raw_response_wrapper(
+            digital_wallet_tokens.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            digital_wallet_tokens.list,
+        )
+        self.transition = async_to_raw_response_wrapper(
+            digital_wallet_tokens.transition,
+        )
+
+
+class DigitalWalletTokensResourceWithStreamingResponse:
+    def __init__(self, digital_wallet_tokens: DigitalWalletTokensResource) -> None:
+        self._digital_wallet_tokens = digital_wallet_tokens
+
+        self.retrieve = to_streamed_response_wrapper(
+            digital_wallet_tokens.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            digital_wallet_tokens.list,
+        )
+        self.transition = to_streamed_response_wrapper(
+            digital_wallet_tokens.transition,
+        )
+
+
+class AsyncDigitalWalletTokensResourceWithStreamingResponse:
+    def __init__(self, digital_wallet_tokens: AsyncDigitalWalletTokensResource) -> None:
+        self._digital_wallet_tokens = digital_wallet_tokens
+
+        self.retrieve = async_to_streamed_response_wrapper(
+            digital_wallet_tokens.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            digital_wallet_tokens.list,
+        )
+        self.transition = async_to_streamed_response_wrapper(
+            digital_wallet_tokens.transition,
+        )

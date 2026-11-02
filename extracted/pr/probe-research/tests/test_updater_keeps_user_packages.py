@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import updater
+from probe.cli.install import updater
 
 pytestmark = pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv on PATH")
 
@@ -222,9 +222,15 @@ def test_the_update_leaves_an_unrestatable_receipt_alone(monkeypatch):
     """Through `upgrade_cli`: a receipt it cannot restate -> no restating
     install, and the result SAYS `[all]` is not recorded (#2043 review)."""
     calls: list[list[str]] = []
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: None)
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
-    monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_versions, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_install, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
     result = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "1.0.0", "1.1.0")
     assert calls == [["uv", "tool", "upgrade", "probe-research"]]
     assert "NOT recorded" in result.message
@@ -239,10 +245,14 @@ def test_a_failed_restatement_is_not_reported_as_an_upgrade(monkeypatch):
         calls.append(cmd)
         return subprocess.CompletedProcess(cmd, 2 if cmd[:3] == ["uv", "tool", "install"] else 0)
 
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
     monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
-    monkeypatch.setattr(updater, "_run", run)
+    monkeypatch.setattr(updater.cli_versions, "_run", run)
+    monkeypatch.setattr(updater.cli_install, "_run", run)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", run)
     result = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "1.0.0", "1.1.0")
     assert calls == [["uv", "tool", "install", "probe-research[all]"]]
     assert not result.ok and not result.changed and "not upgraded" in result.message
@@ -258,8 +268,12 @@ def test_pipx_keeps_the_extras_its_spec_recorded(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
     monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     calls: list[list[str]] = []
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
-    monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_versions, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_install, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
     updater.upgrade_cli(updater.Install(updater.Method.PIPX), "1.0.0", "1.1.0")
     assert calls == [["pipx", "install", "--force", "probe-research[all,mcp-http]"]]
 
@@ -279,8 +293,12 @@ def test_pipx_injected_packages_go_back_in(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
     monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     calls: list[list[str]] = []
-    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
-    monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_versions, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_install, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater.cli_versions, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_install, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
     updater.upgrade_cli(updater.Install(updater.Method.PIPX), "1.0.0", "1.1.0")
     assert calls == [
         ["pipx", "install", "--force", "probe-research[all]"],
@@ -294,7 +312,7 @@ def test_an_update_from_npx_keeps_the_permanent_installs_packages(uv_tools):
     with `uv tool install --force probe-research[all]@latest`, which replaced
     its receipt: `--with six` gone, the Python changed. It restates the
     permanent install's receipt, found through `uv tool dir`."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     run, tool = uv_tools
     run(["uv", "tool", "install", "probe-research[mcp-http]", "--with", "sixfake"])
@@ -311,11 +329,13 @@ def test_a_reinstall_over_an_unrestatable_receipt_says_what_it_dropped(uv_tools,
     """#2043 verify nit. `npx probe-research update` over a receipt it cannot
     restate reinstalls with `[all]` (it must: that is its job) and drops the
     entries it could not carry -- now saying so, as `probe update` does."""
-    from probe.cli import bootstrap
+    from probe.cli.install import bootstrap
 
     run, tool = uv_tools
     run(["uv", "tool", "install", "probe-research[mcp-http]", "--with", "sixfake"])
-    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.uv_receipt, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_install, "kept_from_uv_receipt", lambda prefix=None: None)
+    monkeypatch.setattr(updater.cli_installs.uv_tool, "kept_from_uv_receipt", lambda prefix=None: None)
     result = bootstrap.install_persistent(f"{bootstrap.INSTALL_SPEC}@latest")
     assert result.installed, result.message
     assert "NOT carried over" in result.message

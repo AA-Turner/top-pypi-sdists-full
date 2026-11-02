@@ -1,0 +1,198 @@
+"""Pure-ASGI access log: one structured record per HTTP request.
+
+Modeled on `edge_ingress.py`'s pure-ASGI middleware style so it can be
+installed in the same `middleware=` list FastMCP passes to uvicorn/Starlette,
+without depending on FastMCP's own request lifecycle. It resolves one request
+id per request — from the inbound `x-exomem-request-id` header when it is
+UUIDv4-shaped, else a freshly minted one — injects it as a request header
+(so downstream MCP tool code resolves the SAME id via
+`command_surface.mcp_request_id()`) and as a response header (so a client or
+operator can correlate their own logs), and logs one record after the
+response completes.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import time
+import uuid
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from . import local_ingress
+from .cloud_cell import cloud_mode_enabled
+from .command_surface import canonical_request_id
+from .log_events import log_event
+from .privacy_log import content_private_logging_enabled, log_http_method, log_session_ref
+
+ASGIMessage = dict[str, Any]
+Receive = Callable[[], Awaitable[ASGIMessage]]
+Send = Callable[[ASGIMessage], Awaitable[None]]
+
+logger = logging.getLogger("exomem.access")
+
+_REQUEST_ID_HEADER = b"x-exomem-request-id"
+_SESSION_ID_HEADER = b"mcp-session-id"
+_CF_RAY_HEADER = b"cf-ray"
+_HOST_HEADER = b"host"
+_WORKER_ENTRY_TIME = "exomem.worker_entry_time"
+#: Cloudflare's own ray shape. Under content-private logging a `cf-ray` of any
+#: other shape is caller-chosen text, so it is dropped rather than logged. A
+#: cloud cell has no Cloudflare in front of it at all, so it never logs one.
+_CF_RAY_SHAPE = re.compile(r"[0-9a-f]{16}(-[A-Z]{3})?")
+_HOST_SHAPE = re.compile(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?")
+
+
+def _request_host(value: str | None) -> str | None:
+    """The hostname a request named, lowercased and without its port, or None
+    when the header is absent or is not shaped like a hostname."""
+    if not value:
+        return None
+    host = value.strip().lower()
+    if host.count(":") == 1:
+        host, _, port = host.partition(":")
+        if not port.isdigit():
+            return None
+    return host if _HOST_SHAPE.fullmatch(host) else None
+
+
+def access_log_disabled(env: dict[str, str] | None = None) -> bool:
+    values = os.environ if env is None else env
+    return str(values.get("EXOMEM_DISABLE_ACCESS_LOG", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _header_value(headers: list[tuple[bytes, bytes]], name: bytes) -> str | None:
+    for key, value in headers:
+        if key.lower() == name:
+            return value.decode("latin-1")
+    return None
+
+
+class WorkerRequestTimingMiddleware:
+    """Stamp HTTP middleware entry before authentication and body handling."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: ASGIMessage, receive: Receive, send: Send) -> None:
+        if scope.get("type") == "http" and not access_log_disabled():
+            scope = {**scope, _WORKER_ENTRY_TIME: time.perf_counter()}
+        await self.app(scope, receive, send)
+
+
+class AccessLogMiddleware:
+    """One structured `event=http_request` record per HTTP request."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: ASGIMessage, receive: Receive, send: Send) -> None:
+        if scope.get("type") != "http" or access_log_disabled():
+            await self.app(scope, receive, send)
+            return
+
+        headers = list(scope.get("headers") or [])
+        request_id = canonical_request_id(_header_value(headers, _REQUEST_ID_HEADER))
+        if request_id is None:
+            request_id = str(uuid.uuid4())
+            headers = [*headers, (_REQUEST_ID_HEADER, request_id.encode("latin-1"))]
+            scope = {**scope, "headers": headers}
+
+        method = str(scope.get("method") or "")
+        path = str(scope.get("path") or "")
+        session_id = _header_value(headers, _SESSION_ID_HEADER)
+        cf_ray = _header_value(headers, _CF_RAY_HEADER)
+        try:
+            host = _request_host(_header_value(headers, _HOST_HEADER))
+        except Exception:  # noqa: BLE001 - classifying a log field must never break a request
+            host = None
+        client = scope.get("client")
+        client_ip = client[0] if client else None
+
+        response_status: dict[str, int] = {}
+        final_body_sent_at: float | None = None
+
+        async def send_with_correlation(message: ASGIMessage) -> None:
+            nonlocal final_body_sent_at
+            if message.get("type") == "http.response.start":
+                response_status["status"] = int(message.get("status", 0))
+                response_headers = [
+                    *(message.get("headers") or []),
+                    (_REQUEST_ID_HEADER, request_id.encode("latin-1")),
+                ]
+                message = {**message, "headers": response_headers}
+            await send(message)
+            if message.get("type") == "http.response.body" and not message.get("more_body", False):
+                final_body_sent_at = time.perf_counter()
+
+        worker_entry_time = scope.get(_WORKER_ENTRY_TIME)
+        t0 = time.perf_counter()
+        try:
+            await self.app(scope, receive, send_with_correlation)
+        finally:
+            duration_ms = round((time.perf_counter() - t0) * 1000, 2)
+            fields: dict[str, Any] = {
+                "method": log_http_method(method),
+                "status": response_status.get("status"),
+                "duration_ms": duration_ms,
+                "request_id": request_id,
+                "worker_pre_access_ms": (
+                    round((t0 - worker_entry_time) * 1000, 2)
+                    if worker_entry_time is not None
+                    else None
+                ),
+                "worker_to_final_body_ms": (
+                    round((final_body_sent_at - worker_entry_time) * 1000, 2)
+                    if worker_entry_time is not None and final_body_sent_at is not None
+                    else None
+                ),
+            }
+            session_ref = log_session_ref(session_id)
+            if session_ref:
+                fields["session_id"] = session_ref
+            # Only a local-ingress request gains these; the public record's
+            # shape is unchanged. The client id is the operator's issuance
+            # label, never the token.
+            grant = local_ingress.current_grant()
+            if grant is not None:
+                fields["ingress"] = "local"
+                fields["client_id"] = grant.client_id
+            if cf_ray and not cloud_mode_enabled() and (
+                not content_private_logging_enabled() or _CF_RAY_SHAPE.fullmatch(cf_ray)
+            ):
+                fields["cf_ray"] = cf_ray
+            # The raw path is client-controlled text (any URL a client requests
+            # is logged, including 404 probes), so it is content-classified:
+            # kept locally, dropped by the hosted privacy boundary. Bounded so
+            # an oversized URL cannot bloat the log line.
+            content: dict[str, Any] = {"path": path[:512]}
+            if client_ip:
+                content["client_ip"] = client_ip
+            # Which public address a request arrived on is what shows an old
+            # hostname has gone quiet before it is retired; the header is client
+            # text, so it is content-classified with the path.
+            if host:
+                content["host"] = host
+            log_event(
+                logger,
+                logging.INFO,
+                "http_request",
+                fields=fields,
+                content=content,
+            )
+            try:
+                from . import metrics
+
+                metrics.inc_counter(
+                    "exomem_http_requests_total",
+                    {"status": str(response_status.get("status") or 0)},
+                )
+            except Exception:  # noqa: BLE001 - observability must never break a request
+                pass

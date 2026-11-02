@@ -1,0 +1,48 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, "fix/**", "feat/**", "ci/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+          locked: true
+          environments: docs
+
+      - name: Pandoc for org export
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Sphinx HTML
+        run: pixi r -e docs docbld
+
+      - name: CPC fair-campaign freeze
+        run: scripts/check-cpc-freeze.sh
+
+      - name: Assemble Pages tree
+        run: scripts/assemble-site.sh
+
+      - name: Install lychee
+        uses: taiki-e/install-action@v2
+        with:
+          tool: lychee@0.24.2
+
+      - name: Link check (lychee)
+        run: lychee --config lychee.toml '_site/**/*.html'

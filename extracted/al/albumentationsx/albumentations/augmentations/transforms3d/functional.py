@@ -1,0 +1,1243 @@
+"""Module containing functional implementations of 3D transformations.
+
+This module provides a collection of utility functions for manipulating and transforming
+3D volumetric data (such as medical imaging data). The functions here implement the core
+algorithms for operations like padding, cropping, rotation, and other spatial manipulations
+specifically designed for 3D data.
+"""
+
+import math
+import random
+from collections.abc import Mapping
+from copy import deepcopy
+from typing import Any, Literal, cast
+
+import cv2
+import numpy as np
+import torch
+from albucore import clip, pad3d, remap3d, warp_affine3d
+
+from albumentations.augmentations.geometric import functional as fgeometric
+from albumentations.augmentations.utils import handle_empty_array
+from albumentations.core.type_definitions import NUM_VOLUME_DIMENSIONS, ImageType, VolumeType
+from albumentations.core.utils import get_volume_shape
+
+AxisValues3D = Mapping[Literal["x", "y", "z"], float] | Mapping[str, float]
+
+
+def create_affine_transformation_matrix_3d(
+    translate: AxisValues3D,
+    scale: AxisValues3D,
+    rotate: AxisValues3D,
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Build a forward 4x4 affine matrix around a volume centre from sampled 3D parameters in Albucore's explicit
+    `(x, y, z)` voxel-coordinate convention.
+
+    The matrix follows Albucore's `(x, y, z)` coordinate order while `volume_shape` is `(depth, height, width)`.
+    Positive rotations use the same screen-coordinate convention as `Affine`: the transform applies scale, then x-,
+    y-, and z-axis rotations, then translation.
+    """
+    depth, height, width = volume_shape
+    center_x = (width - 1.0) / 2.0
+    center_y = (height - 1.0) / 2.0
+    center_z = (depth - 1.0) / 2.0
+
+    rotation_x_radians = math.radians(rotate["x"])
+    rotation_y_radians = math.radians(rotate["y"])
+    rotation_z_radians = math.radians(rotate["z"])
+    cosine_x, sine_x = math.cos(rotation_x_radians), math.sin(rotation_x_radians)
+    cosine_y, sine_y = math.cos(rotation_y_radians), math.sin(rotation_y_radians)
+    cosine_z, sine_z = math.cos(rotation_z_radians), math.sin(rotation_z_radians)
+
+    scale_matrix = np.diag((scale["x"], scale["y"], scale["z"], 1.0))
+    rotation_x = np.array(
+        ((1.0, 0.0, 0.0, 0.0), (0.0, cosine_x, sine_x, 0.0), (0.0, -sine_x, cosine_x, 0.0), (0.0, 0.0, 0.0, 1.0)),
+    )
+    rotation_y = np.array(
+        ((cosine_y, 0.0, sine_y, 0.0), (0.0, 1.0, 0.0, 0.0), (-sine_y, 0.0, cosine_y, 0.0), (0.0, 0.0, 0.0, 1.0)),
+    )
+    rotation_z = np.array(
+        ((cosine_z, sine_z, 0.0, 0.0), (-sine_z, cosine_z, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0)),
+    )
+    center_to_origin = np.array(
+        ((1.0, 0.0, 0.0, -center_x), (0.0, 1.0, 0.0, -center_y), (0.0, 0.0, 1.0, -center_z), (0.0, 0.0, 0.0, 1.0)),
+    )
+    center_from_origin = np.array(
+        ((1.0, 0.0, 0.0, center_x), (0.0, 1.0, 0.0, center_y), (0.0, 0.0, 1.0, center_z), (0.0, 0.0, 0.0, 1.0)),
+    )
+    translation_matrix = np.array(
+        (
+            (1.0, 0.0, 0.0, translate["x"]),
+            (0.0, 1.0, 0.0, translate["y"]),
+            (0.0, 0.0, 1.0, translate["z"]),
+            (0.0, 0.0, 0.0, 1.0),
+        ),
+    )
+
+    return np.asarray(
+        center_from_origin
+        @ translation_matrix
+        @ rotation_z
+        @ rotation_y
+        @ rotation_x
+        @ scale_matrix
+        @ center_to_origin,
+        dtype=np.float32,
+    )
+
+
+def _prepare_numpy_resampled_volume(
+    volume: VolumeType,
+    is_mask: bool,
+) -> tuple[VolumeType, np.dtype[Any], bool, bool]:
+    """Prepare a NumPy volume for an Albucore resampling router, adding a mask channel and promoting integer masks so
+    source dtype is restored after resampling.
+    """
+    is_channel_less = volume.ndim == NUM_VOLUME_DIMENSIONS - 1
+    working_volume = volume[..., np.newaxis] if is_channel_less else volume
+    original_dtype = working_volume.dtype
+    needs_mask_promotion = is_mask and original_dtype not in {np.dtype(np.uint8), np.dtype(np.float32)}
+    if needs_mask_promotion:
+        working_volume = working_volume.astype(np.float32)
+    return working_volume, original_dtype, is_channel_less, needs_mask_promotion
+
+
+def _prepare_tensor_resampled_volume(
+    volume: torch.Tensor,
+    is_mask: bool,
+) -> tuple[torch.Tensor, torch.dtype, bool, bool]:
+    """Prepare a CPU Tensor volume for an Albucore resampling router, adding a mask channel and promoting integer masks
+    so source dtype is restored after resampling.
+    """
+    is_channel_less = volume.ndim == NUM_VOLUME_DIMENSIONS - 1
+    working_volume = volume.unsqueeze(0) if is_channel_less else volume
+    original_dtype = working_volume.dtype
+    needs_mask_promotion = is_mask and original_dtype not in {torch.uint8, torch.float32}
+    if needs_mask_promotion:
+        working_volume = working_volume.to(torch.float32)
+    return working_volume, original_dtype, is_channel_less, needs_mask_promotion
+
+
+def affine_3d(
+    volume: VolumeType | torch.Tensor,
+    matrix: np.ndarray,
+    output_shape: tuple[int, int, int],
+    interpolation: int,
+    border_mode: int,
+    fill: float | tuple[float, ...] | None,
+    *,
+    is_mask: bool = False,
+) -> VolumeType | torch.Tensor:
+    """Resample one volume with Albucore's true 3D affine router while preserving public channel and mask layouts,
+    dtypes, borders, and interpolation policies.
+
+    Albucore owns CPU Torch sampling and its matrix, interpolation, and border semantics. This adapter adds or removes
+    the implicit channel required by channel-less masks and temporarily promotes non-native integer masks when needed.
+    """
+    if isinstance(volume, np.ndarray):
+        (
+            working_volume,
+            original_numpy_dtype,
+            is_channel_less_numpy,
+            needs_mask_promotion,
+        ) = _prepare_numpy_resampled_volume(
+            volume,
+            is_mask,
+        )
+        original_tensor_dtype = None
+        is_channel_less_tensor = False
+    elif isinstance(volume, torch.Tensor):
+        (
+            working_volume,
+            original_tensor_dtype,
+            is_channel_less_tensor,
+            needs_mask_promotion,
+        ) = _prepare_tensor_resampled_volume(
+            volume,
+            is_mask,
+        )
+        original_numpy_dtype = None
+        is_channel_less_numpy = False
+    else:
+        msg = f"affine_3d expects a NumPy array or CPU torch.Tensor, got {type(volume).__name__}"
+        raise TypeError(msg)
+
+    result = warp_affine3d(
+        working_volume,
+        matrix,
+        output_shape,
+        interpolation=interpolation,
+        border_mode=border_mode,
+        border_value=fill,
+    )
+    if needs_mask_promotion:
+        if isinstance(result, np.ndarray):
+            if original_numpy_dtype is None:
+                msg = "NumPy affine result requires a NumPy source dtype"
+                raise RuntimeError(msg)
+            result = np.rint(result).astype(original_numpy_dtype, copy=False)
+        else:
+            if original_tensor_dtype is None:
+                msg = "Tensor affine result requires a Tensor source dtype"
+                raise RuntimeError(msg)
+            result = torch.round(result).to(original_tensor_dtype)
+
+    if is_channel_less_numpy:
+        return result[..., 0]
+    if is_channel_less_tensor:
+        return result[0]
+    return result
+
+
+def affine_3d_batch(
+    volumes: np.ndarray | torch.Tensor,
+    matrix: np.ndarray,
+    output_shape: tuple[int, int, int],
+    interpolation: int,
+    border_mode: int,
+    fill: float | tuple[float, ...] | None,
+    *,
+    is_mask: bool = False,
+) -> np.ndarray | torch.Tensor:
+    """Resample a collection with one shared affine matrix."""
+    if isinstance(volumes, torch.Tensor):
+        is_channel_less = volumes.ndim == 4
+        working_tensor = volumes.unsqueeze(1) if is_channel_less else volumes
+        original_tensor_dtype = volumes.dtype
+        needs_mask_promotion = is_mask and original_tensor_dtype not in {torch.uint8, torch.float32}
+        if needs_mask_promotion:
+            working_tensor = working_tensor.to(torch.float32)
+        tensor_result = warp_affine3d(
+            working_tensor,
+            matrix,
+            output_shape,
+            interpolation=interpolation,
+            border_mode=border_mode,
+            border_value=fill,
+        )
+        if needs_mask_promotion:
+            tensor_result = torch.round(tensor_result).to(original_tensor_dtype)
+        return tensor_result[:, 0] if is_channel_less else tensor_result
+
+    is_channel_less = volumes.ndim == 4
+    working_numpy = volumes[..., np.newaxis] if is_channel_less else volumes
+    original_numpy_dtype = volumes.dtype
+    needs_mask_promotion = is_mask and original_numpy_dtype not in {np.dtype(np.uint8), np.dtype(np.float32)}
+    if needs_mask_promotion:
+        working_numpy = working_numpy.astype(np.float32)
+    numpy_result = warp_affine3d(
+        working_numpy,
+        matrix,
+        output_shape,
+        interpolation=interpolation,
+        border_mode=border_mode,
+        border_value=fill,
+    )
+    if needs_mask_promotion:
+        numpy_result = np.rint(numpy_result).astype(original_numpy_dtype, copy=False)
+    return numpy_result[..., 0] if is_channel_less else numpy_result
+
+
+def _normalized_axis(length: int) -> np.ndarray:
+    axis = np.arange(length, dtype=np.float32)
+    axis *= np.float32(2.0 / length)
+    axis += np.float32(1.0 / length - 1.0)
+    return axis
+
+
+def _add_elastic_plane(
+    sampling_grid: np.ndarray,
+    control_coefficients: np.ndarray,
+    dense_shape: tuple[int, int],
+    broadcast_axis: int,
+    coordinate_axes: tuple[int, int],
+    component_scales: tuple[np.float32, np.float32],
+) -> None:
+    dense_plane = fgeometric.expand_control_grid(control_coefficients, dense_shape)
+    for component_index in range(2):
+        dense_plane[component_index] *= component_scales[component_index]
+        sampling_grid[..., coordinate_axes[component_index]] += np.expand_dims(
+            dense_plane[component_index],
+            axis=broadcast_axis,
+        )
+
+
+def _as_elastic_control_coefficients(control_coefficients: Mapping[str, Any]) -> dict[str, np.ndarray]:
+    return {plane: np.asarray(coefficients, dtype=np.float32) for plane, coefficients in control_coefficients.items()}
+
+
+def create_elastic_grid_3d(
+    control_coefficients: Mapping[str, Any],
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Build one normalized 3D pull grid from compact C2 control planes for volumetric deformation without dense
+    displacement or meshgrid allocations.
+
+    Args:
+        control_coefficients (Mapping[str, Any]): Active XY, XZ, and YZ cubic coefficient planes.
+        volume_shape (tuple[int, int, int]): Output `(depth, height, width)` shape.
+
+    Returns:
+        np.ndarray: Float32 normalized `(depth, height, width, 3)` pull coordinates in `(x, y, z)` order.
+
+    """
+    control_coefficients = _as_elastic_control_coefficients(control_coefficients)
+    depth, height, width = volume_shape
+    sampling_grid = np.empty((depth, height, width, 3), dtype=np.float32)
+    sampling_grid[..., 0] = _normalized_axis(width)
+    sampling_grid[..., 1] = _normalized_axis(height)[np.newaxis, :, np.newaxis]
+    sampling_grid[..., 2] = _normalized_axis(depth)[:, np.newaxis, np.newaxis]
+
+    if not control_coefficients:
+        return sampling_grid
+
+    plane_count = np.float32(3)
+    depth_scale = np.float32(2.0 / (depth * plane_count))
+    height_scale = np.float32(2.0 / (height * plane_count))
+    width_scale = np.float32(2.0 / (width * plane_count))
+    _add_elastic_plane(
+        sampling_grid,
+        control_coefficients["xy"],
+        sampling_grid.shape[1:3],
+        0,
+        (0, 1),
+        (width_scale, height_scale),
+    )
+    _add_elastic_plane(
+        sampling_grid,
+        control_coefficients["xz"],
+        (sampling_grid.shape[0], sampling_grid.shape[2]),
+        1,
+        (0, 2),
+        (width_scale, depth_scale),
+    )
+    _add_elastic_plane(
+        sampling_grid,
+        control_coefficients["yz"],
+        sampling_grid.shape[:2],
+        2,
+        (1, 2),
+        (height_scale, depth_scale),
+    )
+    return sampling_grid
+
+
+class ElasticTransform3DSampler(dict[str, Any]):
+    """Carry serializable elastic coefficients and one invocation-local sampling grid."""
+
+    __slots__ = ("_remaining_grid_uses", "sampling_grid")
+
+    def __init__(
+        self,
+        control_coefficients: Mapping[str, Any],
+        volume_shape: tuple[int, int, int],
+        raster_target_count: int,
+    ) -> None:
+        super().__init__(control_coefficients=control_coefficients, volume_shape=volume_shape)
+        self.sampling_grid = (
+            None if not control_coefficients else create_elastic_grid_3d(control_coefficients, volume_shape)
+        )
+        self._remaining_grid_uses = raster_target_count
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> dict[str, Any]:
+        return deepcopy(dict(self), memo)
+
+    def release_sampling_grid(self) -> None:
+        self._remaining_grid_uses -= 1
+        if self._remaining_grid_uses == 0:
+            self.sampling_grid = None
+
+
+def elastic_transform_3d(
+    volume: VolumeType | torch.Tensor,
+    sampler: Mapping[str, Any],
+    interpolation: int,
+    border_mode: int,
+    fill: float | tuple[float, ...] | None,
+    *,
+    is_mask: bool = False,
+) -> VolumeType | torch.Tensor:
+    """Build and apply a compact elastic pull field to one volume or mask."""
+    source_shape = get_volume_shape(volume)
+    recorded_shape = tuple(sampler["volume_shape"])
+    if source_shape != recorded_shape:
+        raise ValueError(
+            f"ElasticTransform3D replay requires the same spatial shape {recorded_shape}, got {source_shape}",
+        )
+    control_coefficients = sampler["control_coefficients"]
+    if not control_coefficients:
+        return volume
+    sampling_grid = getattr(sampler, "sampling_grid", None)
+    uses_cached_grid = sampling_grid is not None
+    if not uses_cached_grid:
+        sampling_grid = create_elastic_grid_3d(control_coefficients, recorded_shape)
+    try:
+        return remap_3d(volume, sampling_grid, interpolation, border_mode, fill, is_mask=is_mask)
+    finally:
+        if uses_cached_grid and isinstance(sampler, ElasticTransform3DSampler):
+            sampler.release_sampling_grid()
+
+
+def _clip_interpolated_float_volume(
+    result: VolumeType | torch.Tensor,
+    original_numpy_dtype: np.dtype[Any] | None,
+    original_tensor_dtype: torch.dtype | None,
+    interpolation: int,
+    is_mask: bool,
+) -> VolumeType | torch.Tensor:
+    if is_mask or interpolation == cv2.INTER_NEAREST:
+        return result
+    if isinstance(result, np.ndarray) and original_numpy_dtype == np.dtype(np.float32):
+        return clip(result, np.dtype(np.float32), inplace=True)
+    if isinstance(result, torch.Tensor) and original_tensor_dtype == torch.float32:
+        return result.clamp_(0.0, 1.0)
+    return result
+
+
+def remap_3d(
+    volume: VolumeType | torch.Tensor,
+    sampling_grid: np.ndarray,
+    interpolation: int,
+    border_mode: int,
+    fill: float | tuple[float, ...] | None,
+    *,
+    is_mask: bool = False,
+) -> VolumeType | torch.Tensor:
+    """Apply one prebuilt normalized 3D pull grid through Albucore while retaining channel-less mask semantics and
+    supported NumPy or CPU Tensor containers.
+
+    Args:
+        volume (VolumeType | torch.Tensor): Public NumPy volume or CPU Tensor volume or mask.
+        sampling_grid (np.ndarray): Normalized float32 `(D, H, W, 3)` pull grid.
+        interpolation (int): Nearest or trilinear interpolation flag.
+        border_mode (int): Constant or replicate border flag.
+        fill (float | tuple[float, ...] | None): Constant scalar or per-channel border value.
+        is_mask (bool): Whether to restore an integer channel-less mask after sampling.
+
+    Returns:
+        VolumeType | torch.Tensor: Sampled volume or mask with the caller's public representation.
+
+    """
+    if isinstance(volume, np.ndarray):
+        working_volume, original_numpy_dtype, is_channel_less_numpy, needs_mask_promotion = (
+            _prepare_numpy_resampled_volume(volume, is_mask)
+        )
+        original_tensor_dtype = None
+        is_channel_less_tensor = False
+    elif isinstance(volume, torch.Tensor):
+        working_volume, original_tensor_dtype, is_channel_less_tensor, needs_mask_promotion = (
+            _prepare_tensor_resampled_volume(volume, is_mask)
+        )
+        original_numpy_dtype = None
+        is_channel_less_numpy = False
+    else:
+        msg = f"remap_3d expects a NumPy array or CPU torch.Tensor, got {type(volume).__name__}"
+        raise TypeError(msg)
+
+    result = remap3d(
+        working_volume,
+        sampling_grid,
+        interpolation=interpolation,
+        border_mode=border_mode,
+        border_value=fill,
+    )
+    result = _clip_interpolated_float_volume(
+        result,
+        original_numpy_dtype,
+        original_tensor_dtype,
+        interpolation,
+        is_mask,
+    )
+    if needs_mask_promotion:
+        if isinstance(result, np.ndarray):
+            if original_numpy_dtype is None:
+                raise RuntimeError("NumPy remap result requires a NumPy source dtype")
+            result = np.rint(result).astype(original_numpy_dtype, copy=False)
+        else:
+            if original_tensor_dtype is None:
+                raise RuntimeError("Tensor remap result requires a Tensor source dtype")
+            result = torch.round(result).to(original_tensor_dtype)
+
+    if is_channel_less_numpy:
+        return result[..., 0]
+    if is_channel_less_tensor:
+        return result[0]
+    return result
+
+
+def _elastic_plane_displacement(
+    points: np.ndarray,
+    control_coefficients: Mapping[str, np.ndarray],
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    displacement = np.zeros((len(points), 3), dtype=np.float64)
+    if not control_coefficients:
+        return displacement
+
+    for plane, point_axes, control_shape, displacement_axes in (
+        ("xy", slice(0, 2), volume_shape[1:], slice(0, 2)),
+        ("xz", (0, 2), (volume_shape[0], volume_shape[2]), (0, 2)),
+        ("yz", slice(1, 3), volume_shape[:2], slice(1, 3)),
+    ):
+        displacement[:, displacement_axes] += fgeometric.evaluate_control_grid(
+            points[:, point_axes],
+            control_coefficients[plane],
+            control_shape,
+        )
+    return displacement / np.float32(3)
+
+
+@handle_empty_array("keypoints")
+def remap_elastic_keypoints_3d(
+    keypoints: np.ndarray,
+    control_coefficients: Mapping[str, Any],
+    volume_shape: tuple[int, int, int],
+    tolerance: float = 1e-3,
+) -> np.ndarray:
+    """Invert a bounded 3D elastic pull field for XYZ keypoints with a fixed-point solver and strict forward
+    residual, keeping every trailing attribute intact.
+
+    Args:
+        keypoints (np.ndarray): XYZ keypoints with optional trailing attributes.
+        control_coefficients (Mapping[str, Any]): Active compact cubic control planes.
+        volume_shape (tuple[int, int, int]): `(depth, height, width)` source shape.
+        tolerance (float): Maximum accepted forward residual in voxel units.
+
+    Returns:
+        np.ndarray: Keypoints in output coordinates; unconverged or out-of-domain rows have `-1` spatial coordinates.
+
+    """
+    control_coefficients = _as_elastic_control_coefficients(control_coefficients)
+    source_points = np.asarray(keypoints[:, :3], dtype=np.float64)
+    transformed_points = source_points.copy()
+    active_points = np.isfinite(source_points).all(axis=1)
+    for _ in range(96):
+        with np.errstate(invalid="ignore", over="ignore"):
+            updated_points = source_points - _elastic_plane_displacement(
+                transformed_points,
+                control_coefficients,
+                volume_shape,
+            )
+        active_points &= np.isfinite(updated_points).all(axis=1)
+        if (
+            active_points.any()
+            and np.max(
+                np.abs(updated_points[active_points] - transformed_points[active_points]),
+                initial=0.0,
+            )
+            <= tolerance * 0.1
+        ):
+            transformed_points = updated_points
+            break
+        transformed_points = updated_points
+        transformed_points[~active_points] = np.nan
+        if not active_points.any():
+            break
+
+    residual = np.full(len(source_points), np.inf, dtype=np.float64)
+    if active_points.any():
+        valid_points = transformed_points[active_points]
+        residual[active_points] = np.max(
+            np.abs(
+                valid_points
+                + _elastic_plane_displacement(valid_points, control_coefficients, volume_shape)
+                - source_points[active_points],
+            ),
+            axis=1,
+        )
+    depth, height, width = volume_shape
+    valid = np.isfinite(residual) & (residual <= tolerance)
+    valid &= (
+        (transformed_points[:, 0] >= -tolerance)
+        & (transformed_points[:, 0] <= width + tolerance)
+        & (transformed_points[:, 1] >= -tolerance)
+        & (transformed_points[:, 1] <= height + tolerance)
+        & (transformed_points[:, 2] >= -tolerance)
+        & (transformed_points[:, 2] <= depth + tolerance)
+    )
+    result = keypoints.copy()
+    result[:, :3] = np.where(valid[:, np.newaxis], transformed_points, -1.0).astype(result.dtype, copy=False)
+    return result
+
+
+@handle_empty_array("keypoints")
+def keypoints_affine_3d(keypoints: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    """Map XYZ keypoints with the forward voxel-space affine matrix used for volume and mask, preserving
+    additional attribute and the input coordinate-array dtype.
+
+    The first three columns use Albucore's `(x, y, z)` order; homogeneous coordinates apply the same sampled matrix as
+    the volume and mask routes, leaving angle, scale, labels, and any extra columns untouched.
+    """
+    transformed_keypoints = keypoints.copy()
+    homogeneous_coordinates = np.concatenate(
+        (transformed_keypoints[:, :3], np.ones((len(transformed_keypoints), 1), dtype=keypoints.dtype)),
+        axis=1,
+    )
+    transformed_keypoints[:, :3] = (homogeneous_coordinates @ matrix.T)[:, :3]
+    return transformed_keypoints
+
+
+@handle_empty_array("keypoints")
+def keypoints_scale_3d(
+    keypoints: np.ndarray,
+    source_shape: tuple[int, int, int],
+    target_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Scale XYZ keypoints across voxel grids while leaving every user-provided\
+    attribute after their three spatial coordinates unchanged.
+
+    Coordinates use Albumentations' pixel-index convention. Each axis scales
+    around voxel centers using the output-to-input size ratio. All remaining
+    columns preserve their input values.
+    """
+    depth_scale, height_scale, width_scale = np.asarray(target_shape, dtype=np.float32) / np.asarray(
+        source_shape, dtype=np.float32
+    )
+    result = keypoints.astype(np.result_type(keypoints.dtype, np.float32), copy=True)
+    result[:, 0] = (result[:, 0] + 0.5) * width_scale - 0.5
+    result[:, 1] = (result[:, 1] + 0.5) * height_scale - 0.5
+    result[:, 2] = (result[:, 2] + 0.5) * depth_scale - 0.5
+    return result
+
+
+@handle_empty_array("keypoints")
+def keypoints_flip_3d(
+    keypoints: np.ndarray,
+    flip_axes: tuple[Literal[0, 1, 2], ...],
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Reflect XYZ keypoints across selected depth, height, and width voxel-index axes while preserving all extra
+    columns and dtype.
+    """
+    flipped_keypoints = keypoints.copy()
+    for axis in flip_axes:
+        coordinate_index = len(volume_shape) - axis - 1
+        flipped_keypoints[:, coordinate_index] = volume_shape[axis] - 1 - flipped_keypoints[:, coordinate_index]
+    return flipped_keypoints
+
+
+def adjust_padding_by_position3d(
+    paddings: list[tuple[int, int]],  # [(front, back), (top, bottom), (left, right)]
+    position: Literal["center", "random"],
+    py_random: random.Random,
+) -> tuple[int, int, int, int, int, int]:
+    """Adjust 3D padding by position. paddings [(d),(h),(w)]; position center or random. Returns
+    (d_front, d_back, h_top, h_bottom, w_left, w_right).
+
+    Args:
+        paddings (list[tuple[int, int]]): List of tuples containing padding pairs
+            for each dimension [(d_pad), (h_pad), (w_pad)]
+        position (Literal['center', 'random']): Position of the image after padding.
+        py_random (random.Random): Random number generator
+
+    Returns:
+        tuple[int, int, int, int, int, int]: Final padding values (d_front, d_back, h_top, h_bottom, w_left, w_right)
+
+    """
+    if position == "center":
+        return (
+            paddings[0][0],  # d_front
+            paddings[0][1],  # d_back
+            paddings[1][0],  # h_top
+            paddings[1][1],  # h_bottom
+            paddings[2][0],  # w_left
+            paddings[2][1],  # w_right
+        )
+
+    d_pad = sum(paddings[0])
+    h_pad = sum(paddings[1])
+    w_pad = sum(paddings[2])
+    d_front = py_random.randint(0, d_pad)
+    h_top = py_random.randint(0, h_pad)
+    w_left = py_random.randint(0, w_pad)
+
+    return (
+        d_front,
+        d_pad - d_front,
+        h_top,
+        h_pad - h_top,
+        w_left,
+        w_pad - w_left,
+    )
+
+
+def pad_3d_with_params(
+    volume: VolumeType | torch.Tensor,
+    padding: tuple[int, int, int, int, int, int],
+    value: tuple[float, ...] | float,
+) -> VolumeType | torch.Tensor:
+    """Pad a NumPy DHWC volume or CPU Tensor CDHW volume, preserving its container and rank.
+
+    Args:
+        volume (VolumeType | torch.Tensor): Input volume or mask.
+        padding (tuple[int, int, int, int, int, int]): Front, back, top, bottom, left, and right padding.
+        value (tuple[float, ...] | float): Scalar fill or before/after fill values shared by spatial axes.
+
+    Returns:
+        VolumeType | torch.Tensor: Padded volume with the input dtype and channel count.
+
+    """
+    if not any(padding):
+        return volume
+    # NumPy masks may use dtypes outside Albucore's uint8/float32/int16 contract.
+    if isinstance(volume, np.ndarray) and volume.dtype not in (np.uint8, np.float32, np.int16):
+        pad_width = [*zip(padding[::2], padding[1::2], strict=True), (0, 0)]
+        return cast("VolumeType", np.pad(volume, pad_width, constant_values=value))
+    return pad3d(volume, padding, value)
+
+
+def crop3d(
+    volume: ImageType,
+    crop_coords: tuple[int, int, int, int, int, int],
+) -> ImageType:
+    """Crop 3D volume using coordinates. crop_coords: (z_min, z_max, y_min, y_max, x_min, x_max).
+    Volume (D,H,W) or (D,H,W,C). Used by CenterCrop3D and RandomCrop3D.
+
+    Args:
+        volume (ImageType): Input volume with shape (z, y, x) or (z, y, x, channels)
+        crop_coords (tuple[int, int, int, int, int, int]):
+            (z_min, z_max, y_min, y_max, x_min, x_max) coordinates for cropping
+
+    Returns:
+        ImageType: Cropped volume with same number of dimensions as input
+
+    """
+    z_min, z_max, y_min, y_max, x_min, x_max = crop_coords
+
+    return volume[z_min:z_max, y_min:y_max, x_min:x_max]
+
+
+def cutout3d(volume: ImageType, holes: np.ndarray, fill: tuple[float, ...] | float) -> ImageType:
+    """Cut out holes in 3D volume and fill. holes (n, 6) [z1,y1,x1,z2,y2,x2]; fill scalar or per-channel.
+    Used by CoarseDropout3D. Returns volume.
+
+    Args:
+        volume (ImageType): Input volume with shape (depth, height, width) or (depth, height, width, channels)
+        holes (np.ndarray): Array of holes with shape (num_holes, 6).
+            Each hole is represented as [z1, y1, x1, z2, y2, x2]
+        fill (tuple[float, ...] | float): Value to fill the holes
+
+    Returns:
+        ImageType: Volume with holes filled with the given value
+
+    """
+    volume = volume.copy()
+    for z1, y1, x1, z2, y2, x2 in holes:
+        volume[z1:z2, y1:y2, x1:x2] = fill
+    return volume
+
+
+def rotate90_3d(
+    volume: VolumeType,
+    rot90_count: Literal[0, 1, 2, 3],
+    axis_pair: tuple[int, int],
+) -> VolumeType:
+    """Rotate a 3D or channel-last 4D volume by 90-degree increments along a selected spatial axis pair, preserving
+    dtype and channel order.
+    """
+    if rot90_count == 0:
+        return volume
+
+    rotated: np.ndarray = np.rot90(volume, k=rot90_count, axes=axis_pair)
+    return cast("VolumeType", rotated)
+
+
+def keypoints_rotate90_3d(
+    keypoints: np.ndarray,
+    rot90_count: Literal[0, 1, 2, 3],
+    axis_pair: tuple[int, int],
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Rotate XYZ keypoints to match `rotate90_3d` on a volume, keeping their additional attributes and mapping the
+    chosen axis pair exactly.
+    """
+    if rot90_count == 0 or len(keypoints) == 0:
+        return keypoints
+
+    result = keypoints.copy()
+    first_axis, second_axis = axis_pair
+    first_coordinate = 2 - first_axis
+    second_coordinate = 2 - second_axis
+    first_coordinate_values = result[:, first_coordinate].copy()
+    second_coordinate_values = result[:, second_coordinate].copy()
+    first_axis_length = volume_shape[first_axis]
+    second_axis_length = volume_shape[second_axis]
+
+    if rot90_count == 1:
+        result[:, first_coordinate] = second_axis_length - 1 - second_coordinate_values
+        result[:, second_coordinate] = first_coordinate_values
+    elif rot90_count == 2:
+        result[:, first_coordinate] = first_axis_length - 1 - first_coordinate_values
+        result[:, second_coordinate] = second_axis_length - 1 - second_coordinate_values
+    else:
+        result[:, first_coordinate] = second_coordinate_values
+        result[:, second_coordinate] = first_axis_length - 1 - first_coordinate_values
+
+    return result
+
+
+def transform_cube(cube: np.ndarray, index: int) -> np.ndarray:
+    """Reorient a cube with one of 48 exact cubic symmetries, using only axis permutations and
+    reflections to move voxels without interpolation.
+
+    Args:
+        cube (np.ndarray): Input array with shape (D, H, W) or (D, H, W, C)
+        index (int): Integer from 0 to 47 specifying which transformation to apply
+
+    Returns:
+        np.ndarray: Transformed cube with same shape as input
+
+    """
+    if not (0 <= index < 48):
+        raise ValueError("Index must be between 0 and 47")
+
+    transformations = {
+        # First 4: rotate around axis 0 (indices 0-3)
+        0: lambda x: x,
+        1: lambda x: np.rot90(x, k=1, axes=(1, 2)),
+        2: lambda x: np.rot90(x, k=2, axes=(1, 2)),
+        3: lambda x: np.rot90(x, k=3, axes=(1, 2)),
+        # Next 4: flip 180° about axis 1, then rotate around axis 0 (indices 4-7)
+        4: lambda x: x[::-1, :, ::-1],  # was: np.flip(x, axis=(0, 2))
+        5: lambda x: np.rot90(np.rot90(x, k=2, axes=(0, 2)), k=1, axes=(1, 2)),
+        6: lambda x: x[::-1, ::-1, :],  # was: np.flip(x, axis=(0, 1))
+        7: lambda x: np.rot90(np.rot90(x, k=2, axes=(0, 2)), k=3, axes=(1, 2)),
+        # Next 8: split between 90° and 270° about axis 1, then rotate around axis 2 (indices 8-15)
+        8: lambda x: np.rot90(x, k=1, axes=(0, 2)),
+        9: lambda x: np.rot90(np.rot90(x, k=1, axes=(0, 2)), k=1, axes=(0, 1)),
+        10: lambda x: np.rot90(np.rot90(x, k=1, axes=(0, 2)), k=2, axes=(0, 1)),
+        11: lambda x: x.transpose(1, 2, 0, *range(3, x.ndim)),
+        12: lambda x: np.rot90(x, k=-1, axes=(0, 2)),
+        13: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 2)), k=1, axes=(0, 1)),
+        14: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 2)), k=2, axes=(0, 1)),
+        15: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 2)), k=3, axes=(0, 1)),
+        # Final 8: split between rotations about axis 2, then rotate around axis 1 (indices 16-23)
+        16: lambda x: np.rot90(x, k=1, axes=(0, 1)),
+        17: lambda x: np.rot90(np.rot90(x, k=1, axes=(0, 1)), k=1, axes=(0, 2)),
+        18: lambda x: np.rot90(np.rot90(x, k=1, axes=(0, 1)), k=2, axes=(0, 2)),
+        19: lambda x: x.transpose(2, 0, 1, *range(3, x.ndim)),
+        20: lambda x: np.rot90(x, k=-1, axes=(0, 1)),
+        21: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 1)), k=1, axes=(0, 2)),
+        22: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 1)), k=2, axes=(0, 2)),
+        23: lambda x: np.rot90(np.rot90(x, k=-1, axes=(0, 1)), k=3, axes=(0, 2)),
+        # Reflected versions (24-47) - same as above but with initial reflection
+        24: lambda x: x[:, :, ::-1],  # was: np.flip(x, axis=2)
+        25: lambda x: x.transpose(0, 2, 1, *range(3, x.ndim)),
+        26: lambda x: x[:, ::-1, :],  # was: np.flip(x, axis=1)
+        27: lambda x: np.rot90(x[:, :, ::-1], k=3, axes=(1, 2)),
+        28: lambda x: x[::-1, :, :],  # was: np.flip(x, axis=0)
+        29: lambda x: np.rot90(x[::-1, :, :], k=1, axes=(1, 2)),
+        30: lambda x: x[::-1, ::-1, ::-1],  # was: np.flip(x, axis=(0, 1, 2))
+        31: lambda x: np.rot90(x[::-1, :, :], k=-1, axes=(1, 2)),
+        32: lambda x: x.transpose(2, 1, 0, *range(3, x.ndim)),
+        33: lambda x: x.transpose(1, 2, 0, *range(3, x.ndim))[::-1, :, :],
+        34: lambda x: x.transpose(2, 1, 0, *range(3, x.ndim))[::-1, ::-1, :],
+        35: lambda x: x.transpose(1, 2, 0, *range(3, x.ndim))[:, ::-1, :],
+        36: lambda x: np.rot90(x[:, :, ::-1], k=-1, axes=(0, 2)),
+        37: lambda x: x.transpose(1, 2, 0, *range(3, x.ndim))[::-1, ::-1, ::-1],
+        38: lambda x: x.transpose(2, 1, 0, *range(3, x.ndim))[:, ::-1, ::-1],
+        39: lambda x: x.transpose(1, 2, 0, *range(3, x.ndim))[:, :, ::-1],
+        40: lambda x: np.rot90(x[:, :, ::-1], k=1, axes=(0, 1)),
+        41: lambda x: x.transpose(2, 0, 1, *range(3, x.ndim))[:, :, ::-1],
+        42: lambda x: x.transpose(1, 0, 2, *range(3, x.ndim)),
+        43: lambda x: x.transpose(2, 0, 1, *range(3, x.ndim))[::-1, :, :],
+        44: lambda x: np.rot90(x[:, :, ::-1], k=-1, axes=(0, 1)),
+        45: lambda x: x.transpose(2, 0, 1, *range(3, x.ndim))[:, ::-1, :],
+        46: lambda x: x.transpose(1, 0, 2, *range(3, x.ndim))[::-1, ::-1, :],
+        47: lambda x: x.transpose(2, 0, 1, *range(3, x.ndim))[::-1, ::-1, ::-1],
+    }
+
+    return transformations[index](cube.copy())
+
+
+@handle_empty_array("keypoints")
+def filter_keypoints_in_holes3d(keypoints: np.ndarray, holes: np.ndarray) -> np.ndarray:
+    """Filter keypoints inside any 3D hole. keypoints (N,3+); holes (K,6). Returns keypoints not in holes.
+    For CoarseDropout3D.
+
+    Args:
+        keypoints (np.ndarray): Array of keypoints with shape (num_keypoints, 3+).
+                               The first three columns are x, y, z coordinates.
+        holes (np.ndarray): Array of holes with shape (num_holes, 6).
+                           Each hole is represented as [z1, y1, x1, z2, y2, x2].
+
+    Returns:
+        np.ndarray: Array of keypoints that are not inside any hole.
+
+    """
+    if holes.size == 0:
+        return keypoints
+
+    # Broadcast keypoints and holes for vectorized comparison
+    # Convert keypoints from XYZ to ZYX for comparison with holes
+    kp_z = keypoints[:, 2][:, np.newaxis]  # Shape: (num_keypoints, 1)
+    kp_y = keypoints[:, 1][:, np.newaxis]  # Shape: (num_keypoints, 1)
+    kp_x = keypoints[:, 0][:, np.newaxis]  # Shape: (num_keypoints, 1)
+
+    # Extract hole coordinates (in ZYX order)
+    hole_z1 = holes[:, 0]  # Shape: (num_holes,)
+    hole_y1 = holes[:, 1]
+    hole_x1 = holes[:, 2]
+    hole_z2 = holes[:, 3]
+    hole_y2 = holes[:, 4]
+    hole_x2 = holes[:, 5]
+
+    inside_hole = (
+        (kp_z >= hole_z1)
+        & (kp_z < hole_z2)
+        & (kp_y >= hole_y1)
+        & (kp_y < hole_y2)
+        & (kp_x >= hole_x1)
+        & (kp_x < hole_x2)
+    )
+
+    # A keypoint is valid if it's not inside any hole
+    valid_keypoints = ~np.any(inside_hole, axis=1)
+
+    result = keypoints[valid_keypoints]
+    if len(result) == 0:
+        return np.array([], dtype=keypoints.dtype).reshape(0, keypoints.shape[1])
+    return result
+
+
+def keypoints_rot90(
+    keypoints: np.ndarray,
+    k: int,
+    axes: tuple[int, int],
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Rotate keypoints 90° k times around axes. k in [0,3]; volume_shape for bounds. Used by
+    transform_cube_keypoints. Counterclockwise.
+
+    Args:
+        keypoints (np.ndarray): Array of keypoints with shape (num_keypoints, 3+).
+                               The first three columns are x, y, z coordinates.
+        k (int): Number of times to rotate by 90 degrees.
+        axes (tuple[int, int]): Axes to rotate around.
+        volume_shape (tuple[int, int, int]): Shape of the volume (depth, height, width).
+
+    Returns:
+        np.ndarray: Rotated keypoints with same shape as input.
+
+    """
+    if k == 0 or len(keypoints) == 0:
+        return keypoints
+
+    # Normalize factor to range [0, 3]
+    k = ((k % 4) + 4) % 4
+
+    result = keypoints.copy()
+
+    dims = [volume_shape[ax] for ax in axes]
+
+    coords1 = result[:, axes[0]].copy()
+    coords2 = result[:, axes[1]].copy()
+
+    if k == 1:  # 90 degrees CCW
+        result[:, axes[0]] = (dims[1] - 1) - coords2
+        result[:, axes[1]] = coords1
+    elif k == 2:  # 180 degrees
+        result[:, axes[0]] = (dims[0] - 1) - coords1
+        result[:, axes[1]] = (dims[1] - 1) - coords2
+    elif k == 3:  # 270 degrees CCW
+        result[:, axes[0]] = coords2
+        result[:, axes[1]] = (dims[0] - 1) - coords1
+
+    return result
+
+
+@handle_empty_array("keypoints")
+def transform_cube_keypoints(
+    keypoints: np.ndarray,
+    index: int,
+    volume_shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Transform keypoints by cube index (0-47). volume_shape for bounds. Matches transform_cube geometry.
+    For CubicSymmetry keypoints.
+
+    Args:
+        keypoints (np.ndarray): Array of keypoints with shape (num_keypoints, 3+).
+                               The first three columns are x, y, z coordinates.
+        index (int): Integer from 0 to 47 specifying which transformation to apply.
+        volume_shape (tuple[int, int, int]): Shape of the volume (depth, height, width).
+
+    Returns:
+        np.ndarray: Transformed keypoints with same shape as input.
+
+    """
+    if not (0 <= index < 48):
+        raise ValueError("Index must be between 0 and 47")
+
+    working_points = keypoints.copy()
+
+    # Convert only XYZ coordinates to HWD, keeping other columns unchanged
+    xyz = working_points[:, :3]  # Get first 3 columns (XYZ)
+    xyz = xyz[:, [2, 1, 0]]  # XYZ -> HWD
+    working_points[:, :3] = xyz  # Put back transformed coordinates
+
+    current_shape = volume_shape
+
+    # Handle reflection first (indices 24-47)
+    if index >= 24:
+        working_points[:, 2] = current_shape[2] - 1 - working_points[:, 2]  # Reflect W axis
+
+    rotation_index = index % 24
+
+    # Apply the same rotation logic as transform_cube
+    if rotation_index < 4:
+        # First 4: rotate around axis 0
+        result = keypoints_rot90(working_points, k=rotation_index, axes=(1, 2), volume_shape=current_shape)
+    elif rotation_index < 8:
+        # Next 4: flip 180° about axis 1, then rotate around axis 0
+        temp = keypoints_rot90(working_points, k=2, axes=(0, 2), volume_shape=current_shape)
+        result = keypoints_rot90(temp, k=rotation_index - 4, axes=(1, 2), volume_shape=volume_shape)
+    elif rotation_index < 16:
+        if rotation_index < 12:
+            temp = keypoints_rot90(working_points, k=1, axes=(0, 2), volume_shape=current_shape)
+            temp_shape = (current_shape[2], current_shape[1], current_shape[0])
+            result = keypoints_rot90(temp, k=rotation_index - 8, axes=(0, 1), volume_shape=temp_shape)
+        else:
+            temp = keypoints_rot90(working_points, k=3, axes=(0, 2), volume_shape=current_shape)
+            temp_shape = (current_shape[2], current_shape[1], current_shape[0])
+            result = keypoints_rot90(temp, k=rotation_index - 12, axes=(0, 1), volume_shape=temp_shape)
+    elif rotation_index < 20:
+        temp = keypoints_rot90(working_points, k=1, axes=(0, 1), volume_shape=current_shape)
+        temp_shape = (current_shape[1], current_shape[0], current_shape[2])
+        result = keypoints_rot90(temp, k=rotation_index - 16, axes=(0, 2), volume_shape=temp_shape)
+    else:
+        temp = keypoints_rot90(working_points, k=3, axes=(0, 1), volume_shape=current_shape)
+        temp_shape = (current_shape[1], current_shape[0], current_shape[2])
+        result = keypoints_rot90(temp, k=rotation_index - 20, axes=(0, 2), volume_shape=temp_shape)
+
+    # Convert back from HWD to XYZ coordinates for first 3 columns only
+    xyz = result[:, :3]
+    xyz = xyz[:, [2, 1, 0]]  # HWD -> XYZ
+    result[:, :3] = xyz
+
+    return result
+
+
+def split_uniform_grid_3d(
+    volume_shape: tuple[int, int, int],
+    grid: tuple[int, int, int],
+    random_generator: np.random.Generator,
+) -> np.ndarray:
+    """Split 3D volume shape into uniform grid. grid (depth, rows, cols); random_generator. Returns
+    tiles (n, 6). For tile swap.
+
+    Args:
+        volume_shape (tuple[int, int, int]): The shape of the volume as (depth, height, width).
+        grid (tuple[int, int, int]): The grid size as (depth_slices, rows, columns).
+        random_generator (np.random.Generator): The random generator to use for shuffling the splits.
+
+    Returns:
+        np.ndarray: An array containing the tiles' coordinates in the format
+                    (z_start, y_start, x_start, z_end, y_end, x_end).
+
+    """
+    from albumentations.augmentations.geometric.functional import generate_shuffled_splits
+
+    n_depth, n_rows, n_cols = grid
+
+    depth_splits = generate_shuffled_splits(
+        volume_shape[0],
+        grid[0],
+        random_generator=random_generator,
+    )
+    height_splits = generate_shuffled_splits(
+        volume_shape[1],
+        grid[1],
+        random_generator=random_generator,
+    )
+    width_splits = generate_shuffled_splits(
+        volume_shape[2],
+        grid[2],
+        random_generator=random_generator,
+    )
+
+    tiles = [
+        (
+            depth_splits[d],
+            height_splits[i],
+            width_splits[j],
+            depth_splits[d + 1],
+            height_splits[i + 1],
+            width_splits[j + 1],
+        )
+        for d in range(n_depth)
+        for i in range(n_rows)
+        for j in range(n_cols)
+    ]
+
+    return np.array(tiles, dtype=np.int16)
+
+
+def create_shape_groups_3d(tiles: np.ndarray) -> dict[tuple[int, int, int], list[int]]:
+    """Group 3D tiles by shape (depth, height, width); return dict shape -> list of indices. For
+    shuffle_tiles_within_shape_groups_3d and swap_tiles_on_volume.
+    """
+    from collections import defaultdict
+
+    shape_groups = defaultdict(list)
+    for index, (z1, y1, x1, z2, y2, x2) in enumerate(tiles):
+        shape = (z2 - z1, y2 - y1, x2 - x1)
+        shape_groups[shape].append(index)
+    return shape_groups
+
+
+def shuffle_tiles_within_shape_groups_3d(
+    shape_groups: dict[tuple[int, int, int], list[int]],
+    random_generator: np.random.Generator,
+) -> list[int]:
+    """Shuffles indices within each group of similar shapes and creates a list where each
+    index points to the index of the tile it should be mapped to.
+
+    Args:
+        shape_groups (dict[tuple[int, int, int], list[int]]): Dictionary mapping shapes to list of
+            tile indices with that shape.
+        random_generator (np.random.Generator): Random number generator for shuffling
+
+    Returns:
+        list[int]: List where index i contains the new position for tile i.
+
+    """
+    num_tiles = sum(len(indices) for indices in shape_groups.values())
+    mapping = list(range(num_tiles))
+
+    for indices in shape_groups.values():
+        shuffled = indices.copy()
+        random_generator.shuffle(shuffled)
+        for old_idx, new_idx in zip(indices, shuffled, strict=True):
+            mapping[old_idx] = new_idx
+
+    return mapping
+
+
+def swap_tiles_on_volume(
+    volume: ImageType,
+    tiles: np.ndarray,
+    mapping: list[int],
+) -> ImageType:
+    """Swap tiles on 3D volume by mapping. tiles (n, 6); mapping[i] = source for position i. Variable
+    tile sizes; loop-based. For CubicSymmetry-style shuffle.
+
+    Args:
+        volume (ImageType): Input volume with shape (D, H, W) or (D, H, W, C).
+        tiles (np.ndarray): Array of tiles with each tile as [z_start, y_start, x_start, z_end, y_end, x_end].
+        mapping (list[int]): List of new tile indices. Must have the same length as tiles.
+
+    Returns:
+        ImageType: Output volume with tiles swapped according to the random shuffle.
+
+    Note:
+        This implementation uses a loop rather than vectorized operations because tiles may have
+        variable sizes in the general case (e.g., when the volume dimensions aren't evenly divisible
+        by the grid size). Advanced indexing with variable-sized slices isn't possible in NumPy,
+        making this loop-based approach the most efficient solution.
+
+    """
+    # If no tiles are provided, return a copy of the original volume
+    if tiles.size == 0:
+        return volume.copy()
+
+    new_volume = np.empty_like(volume)
+
+    # Note: Loop is necessary as tiles may have different sizes (edge tiles can be smaller)
+    # Vectorized fancy indexing doesn't support variable-sized slices
+    for dest_idx, src_idx in enumerate(mapping):
+        # mapping[dest_idx] = src_idx means:
+        # "position dest_idx in output gets content from position src_idx in input"
+
+        z1_dest, y1_dest, x1_dest, z2_dest, y2_dest, x2_dest = tiles[dest_idx]
+        z1_src, y1_src, x1_src, z2_src, y2_src, x2_src = tiles[src_idx]
+
+        # Copy tile from source position in input to destination position in output
+        new_volume[z1_dest:z2_dest, y1_dest:y2_dest, x1_dest:x2_dest] = volume[
+            z1_src:z2_src,
+            y1_src:y2_src,
+            x1_src:x2_src,
+        ]
+
+    return new_volume
+
+
+@handle_empty_array("keypoints")
+def swap_tiles_on_keypoints_3d(
+    keypoints: np.ndarray,
+    tiles: np.ndarray,
+    mapping: list[int],
+) -> np.ndarray:
+    """Swap 3D keypoint positions by tile mapping. keypoints (N,3+); tiles (M,6); mapping (M,). Each
+    keypoint moves with its tile. For CubicSymmetry.
+
+    Args:
+        keypoints (np.ndarray): A 2D numpy array of shape (N, 3+) where N is the number of keypoints.
+                                Each row represents a keypoint's (x, y, z) coordinates plus other data.
+        tiles (np.ndarray): A 2D numpy array of shape (M, 6) where M is the number of tiles.
+                            Each row represents a tile's (z_start, y_start, x_start, z_end, y_end, x_end).
+        mapping (list[int]): A list where each element i contains the index of the tile that tile i should be swapped
+            with.
+
+    Returns:
+        np.ndarray: A 2D numpy array of the same shape as the input keypoints, containing the new positions
+                    of the keypoints after the tile swap.
+
+    """
+    if not keypoints.size:
+        return keypoints
+
+    # Initialize tile indices for each keypoint (-1 means not in any tile)
+    tile_indices = np.full(len(keypoints), -1, dtype=np.int32)
+
+    # Sequential tile processing - O(k) per tile instead of O(k*t) matrix
+    # This avoids memory explosion with large numbers of keypoints and tiles
+    for i, (z_start, y_start, x_start, z_end, y_end, x_end) in enumerate(tiles):
+        mask = (
+            (keypoints[:, 2] >= z_start)
+            & (keypoints[:, 2] < z_end)
+            & (keypoints[:, 1] >= y_start)
+            & (keypoints[:, 1] < y_end)
+            & (keypoints[:, 0] >= x_start)
+            & (keypoints[:, 0] < x_end)
+        )
+        tile_indices[mask] = i
+
+    not_in_any_tile = tile_indices < 0
+    if np.any(not_in_any_tile):
+        from warnings import warn
+
+        warn(
+            "Some keypoints are not in any tile. They will be returned unchanged. This is unexpected and should be "
+            "investigated.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    # Vectorized coordinate transformation
+    new_keypoints = keypoints.copy()
+    valid_mask = tile_indices >= 0
+
+    if np.any(valid_mask):
+        # Create inverse mapping: inverse[j] = i means tile j's content goes to position i
+        inverse_mapping = np.zeros(len(mapping), dtype=np.int32)
+        for dest_idx, src_idx in enumerate(mapping):
+            inverse_mapping[src_idx] = dest_idx
+
+        valid_tile_indices = tile_indices[valid_mask]
+        # For each keypoint in tile i, it moves to wherever tile i's content goes
+        new_tile_indices = inverse_mapping[valid_tile_indices]
+
+        # Calculate the offsets (tiles are in z,y,x order)
+        old_starts_z = tiles[valid_tile_indices, 0]
+        old_starts_y = tiles[valid_tile_indices, 1]
+        old_starts_x = tiles[valid_tile_indices, 2]
+        new_starts_z = tiles[new_tile_indices, 0]
+        new_starts_y = tiles[new_tile_indices, 1]
+        new_starts_x = tiles[new_tile_indices, 2]
+
+        new_keypoints[valid_mask, 0] += new_starts_x - old_starts_x
+        new_keypoints[valid_mask, 1] += new_starts_y - old_starts_y
+        new_keypoints[valid_mask, 2] += new_starts_z - old_starts_z
+
+    return new_keypoints

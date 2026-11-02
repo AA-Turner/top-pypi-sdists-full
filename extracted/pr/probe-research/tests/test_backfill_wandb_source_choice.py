@@ -4,8 +4,12 @@ from contextlib import nullcontext
 
 import pytest
 
-from probe.cli import backfill as bf, backfill_run as runner
-from probe.cli import backfill_wandb as wb, import_jobs as jobs, import_jobs_ui, tui
+from probe.cli.imports import folder as bf
+from probe.cli import backfill_run as runner
+from probe.cli.imports.folder.sources import wandb as wb
+from probe.cli.imports import jobs as jobs
+from probe.cli.imports.jobs import ui as import_jobs_ui
+from probe.cli.wizard import terminal as tui
 from tests import test_backfill_wandb as history
 from tests import test_backfill_auto_import as auto_tests
 
@@ -23,7 +27,7 @@ def answer(monkeypatch, responses):
         value = next(responses)
         return choices[value][1] if isinstance(value, int) else value
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     return seen
 
 
@@ -145,7 +149,7 @@ def test_reviewed_folder_requires_wandb_success_or_explicit_continue_before_queu
         assert jobs.list_jobs() == []
         return tui.SKIP if title == "W&B import could not start" else "import"
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     result = runner.execute(
         client_factory=lambda: nullcontext(h.client), folder=h.folder, agent=bf.Agent.CLAUDE,
@@ -170,7 +174,7 @@ def test_upfront_skip_suppresses_later_generic_offer(automatic, monkeypatch):
         return []
 
     monkeypatch.setattr(wb, "run", history_lane)
-    monkeypatch.setattr(tui, "review", lambda title, lines, choices: "import")
+    monkeypatch.setattr(tui.forms, "review", lambda title, lines, choices: "import")
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     h.run(interactive=True, yes=False, background=True, offer_wandb=False)
     assert seen[0]["offer"] is False and seen[0]["wandb_source"] is None
@@ -180,7 +184,7 @@ def test_upfront_skip_suppresses_later_generic_offer(automatic, monkeypatch):
 def test_wandb_error_back_or_interrupt_never_queues_files(automatic, monkeypatch, decision):
     h = automatic
     monkeypatch.setattr(wb, "run", lambda *a, **k: wb.HistoryResult(["Connection unavailable"]))
-    monkeypatch.setattr(tui, "review", lambda title, lines, choices:
+    monkeypatch.setattr(tui.forms, "review", lambda title, lines, choices:
                         decision if title == "W&B import could not start" else "import")
     kwargs = dict(interactive=True, yes=False, background=True, back_to_selection=True,
                   wandb_source=selection(h.client), offer_wandb=False)
@@ -202,7 +206,7 @@ def test_wandb_retry_reuses_folder_plan_and_only_queues_after_source_resolves(au
         return wb.HistoryResult(["History status"], source_resolved=len(attempts) == 2)
 
     monkeypatch.setattr(wb, "run", history_lane)
-    monkeypatch.setattr(tui, "review", lambda title, lines, choices:
+    monkeypatch.setattr(tui.forms, "review", lambda title, lines, choices:
                         "retry" if title == "W&B import could not start" else "import")
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)
     result = h.run(interactive=True, yes=False, background=True, back_to_selection=True,
@@ -215,7 +219,7 @@ def test_wandb_retry_reuses_folder_plan_and_only_queues_after_source_resolves(au
 @pytest.mark.parametrize("interactive,yes", [(False, False), (True, True)])
 def test_selected_source_cannot_bypass_foreground_review(automatic, monkeypatch, interactive, yes):
     h = automatic
-    monkeypatch.setattr(runner, "_index", lambda *a: pytest.fail("Review mode must be checked first"))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.traversal._index", lambda *a: pytest.fail("Review mode must be checked first"))
     lines = h.run(interactive=interactive, yes=yes, background=True, wandb_source=selection(h.client))
     assert any("foreground review" in line for line in lines)
     assert jobs.list_jobs() == [] and h.classified == h.created == h.manifested == h.remote.calls == []

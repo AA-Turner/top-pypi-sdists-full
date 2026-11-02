@@ -1,0 +1,58 @@
+from pathlib import Path
+from typing import Optional
+
+from teddy_executor.core.utils.paths import prefer_markdown
+
+
+def _search_prompt_in_dir(directory: Path, prompt_name: str) -> Optional[str]:
+    """Searches a directory for a prompt file and returns its content.
+
+    When several files share the stem, the Markdown file wins so a pre-authored
+    ``.md`` prompt overrides a stale ``.xml`` regardless of directory listing
+    order.
+    """
+    if not directory.is_dir():
+        return None
+    prompt_name_cased = prompt_name.casefold()
+    matches = [
+        f
+        for f in directory.iterdir()
+        if f.is_file() and f.stem.casefold() == prompt_name_cased
+    ]
+    preferred = prefer_markdown(matches)
+    if preferred is None:
+        return None
+    return preferred.read_text(encoding="utf-8")
+
+
+def find_prompt_content(prompt_name: str) -> Optional[str]:
+    """
+    Finds prompt content by searching in `.teddy/prompts/` (user-editable)
+    by traversing upwards from the current working directory.
+    Returns the content as a string, or None if not found.
+    Bundled resources are no longer used as a fallback — only `.teddy/prompts/`.
+    """
+    current_path = Path.cwd().resolve()
+    for path in [current_path] + list(current_path.parents):
+        local_prompt_dir = path / ".teddy" / "prompts"
+        if content := _search_prompt_in_dir(local_prompt_dir, prompt_name):
+            return content
+
+    return None
+
+
+def list_prompt_names() -> list[str]:
+    """
+    Lists available prompt names by scanning `.teddy/prompts/` directories
+    upward from the current working directory.
+    Returns a sorted list of prompt names (stems, without any file extension),
+    or an empty list if no prompts directory is found.
+    """
+    current_path = Path.cwd().resolve()
+    for path in [current_path] + list(current_path.parents):
+        prompts_dir = path / ".teddy" / "prompts"
+        if prompts_dir.is_dir():
+            # List all files in the prompts directory and extract stems
+            prompt_files = sorted(prompts_dir.glob("*"))
+            return [f.stem for f in prompt_files if f.is_file()]
+    return []

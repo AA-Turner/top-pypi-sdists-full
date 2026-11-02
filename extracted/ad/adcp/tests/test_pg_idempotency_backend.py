@@ -1,0 +1,365 @@
+"""Unit tests for :class:`adcp.server.idempotency.PgBackend` — mocked pool.
+
+psycopg3 is an optional dependency (``adcp[pg]``); these tests mock the
+pool and connection entirely so they pass without a real Postgres
+instance. Conformance tests against a real database live at
+``tests/conformance/decisioning/test_pg_idempotency_backend.py``.
+
+Behaviour under test:
+
+* Construction validation — invalid identifier rejected; missing pg deps
+  raise ImportError.
+* ``create_schema`` issues exactly one ``execute()`` per DDL statement
+  (psycopg does not split on semicolons).
+* ``get`` reads the row, parses JSONB, normalizes timestamp to epoch
+  seconds, returns ``None`` on miss (filtered server-side by
+  ``expires_at > clock_timestamp()``).
+* ``put`` upserts with ``ON CONFLICT DO UPDATE``; serializes response
+  via json.dumps; converts epoch to tz-aware datetime.
+* ``hold`` uses a distinct advisory-lock pool so handler SQL cannot deadlock
+  against the ordinary cache/business pool.
+* ``delete_expired`` returns the rowcount.
+"""
+
+from __future__ import annotations
+
+import time
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from adcp.server.idempotency import IdempotencyBackend
+from adcp.server.idempotency.backends import (
+    DEFAULT_IDEMPOTENCY_TABLE,
+    CachedResponse,
+    PgBackend,
+)
+
+
+@pytest.fixture(autouse=True)
+def _patch_pg_available():
+    """psycopg3 is an optional dep; patch the availability gate so the
+    mock-pool tests run on CI nodes that don't install ``adcp[pg]``."""
+    with patch("adcp.server.idempotency.backends._PG_AVAILABLE", True):
+        yield
+
+
+def _cursor(fetchone_value: Any = None, rowcount: int = 0) -> AsyncMock:
+    cur = AsyncMock()
+    cur.fetchone = AsyncMock(return_value=fetchone_value)
+    cur.rowcount = rowcount
+    return cur
+
+
+def _make_conn(*cursors: AsyncMock) -> AsyncMock:
+    """Async context-manager mock yielding sequential cursors per execute()."""
+    conn = AsyncMock()
+    conn.__aenter__ = AsyncMock(return_value=conn)
+    conn.__aexit__ = AsyncMock(return_value=False)
+    conn.execute = AsyncMock(side_effect=list(cursors))
+    return conn
+
+
+def _make_pool(conn: AsyncMock) -> MagicMock:
+    pool = MagicMock()
+
+    @asynccontextmanager
+    async def _connection():
+        yield conn
+
+    pool.connection = _connection
+    return pool
+
+
+def _pg_backend(pool: Any, **kwargs: Any) -> PgBackend:
+    """Build with a distinct lock pool for tests that do not exercise hold()."""
+    return PgBackend(pool=pool, lock_pool=MagicMock(), **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Construction
+# ---------------------------------------------------------------------------
+
+
+class TestConstruction:
+    def test_default_table_name(self) -> None:
+        pool = MagicMock()
+        backend = _pg_backend(pool)
+        assert backend._table == DEFAULT_IDEMPOTENCY_TABLE
+
+    def test_custom_table_name_accepted(self) -> None:
+        pool = MagicMock()
+        backend = _pg_backend(pool, table_name="my_idem_cache")
+        assert backend._table == "my_idem_cache"
+
+    def test_invalid_identifier_rejected(self) -> None:
+        pool = MagicMock()
+        with pytest.raises(ValueError, match="Table name must match"):
+            _pg_backend(pool, table_name="bad-name")
+
+    def test_uppercase_identifier_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Table name must match"):
+            _pg_backend(MagicMock(), table_name="MyTable")
+
+    def test_satisfies_idempotency_backend_protocol(self) -> None:
+        backend = _pg_backend(MagicMock())
+        assert isinstance(backend, IdempotencyBackend)
+
+    def test_rejects_shared_lock_pool(self) -> None:
+        pool = MagicMock()
+        with pytest.raises(ValueError, match="lock_pool must be distinct"):
+            PgBackend(pool=pool, lock_pool=pool)
+
+
+# ---------------------------------------------------------------------------
+# create_schema
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_schema_executes_create_table_and_index() -> None:
+    """Two DDL statements: CREATE TABLE + CREATE INDEX. Each must be a
+    separate ``execute()`` call (psycopg does not split on ``;``)."""
+    conn = _make_conn(_cursor(), _cursor())
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool, table_name="adcp_idempotency")
+
+    await backend.create_schema()
+
+    assert conn.execute.call_count == 2
+    table_stmt = conn.execute.call_args_list[0].args[0]
+    index_stmt = conn.execute.call_args_list[1].args[0]
+    assert "CREATE TABLE IF NOT EXISTS adcp_idempotency" in table_stmt
+    assert 'COLLATE "C"' in table_stmt
+    assert "PRIMARY KEY (scope_key, key)" in table_stmt
+    assert "CREATE INDEX IF NOT EXISTS adcp_idempotency_expires_idx" in index_stmt
+
+
+@pytest.mark.asyncio
+async def test_create_schema_uses_custom_table_name() -> None:
+    conn = _make_conn(_cursor(), _cursor())
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool, table_name="alt_idem")
+
+    await backend.create_schema()
+    assert "CREATE TABLE IF NOT EXISTS alt_idem" in conn.execute.call_args_list[0].args[0]
+    assert (
+        "CREATE INDEX IF NOT EXISTS alt_idem_expires_idx" in conn.execute.call_args_list[1].args[0]
+    )
+
+
+# ---------------------------------------------------------------------------
+# get
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_returns_none_on_miss() -> None:
+    conn = _make_conn(_cursor(fetchone_value=None))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    assert await backend.get("scope-x", "key-y") is None
+    sql = conn.execute.call_args.args[0]
+    assert "expires_at > clock_timestamp()" in sql
+
+
+@pytest.mark.asyncio
+async def test_get_parses_dict_response() -> None:
+    """psycopg returns dict for JSONB columns by default — pass through."""
+    expires = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    conn = _make_conn(_cursor(fetchone_value=("hash-1", {"k": "v"}, expires)))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    cached = await backend.get("scope-a", "key-1")
+    assert cached is not None
+    assert cached.payload_hash == "hash-1"
+    assert cached.response == {"k": "v"}
+    assert cached.expires_at_epoch == expires.timestamp()
+
+
+@pytest.mark.asyncio
+async def test_get_parses_json_string_response() -> None:
+    """If the driver/casts return JSON as a string, parse it."""
+    expires = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    conn = _make_conn(_cursor(fetchone_value=("hash-1", '{"k":"v"}', expires)))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    cached = await backend.get("scope-a", "key-1")
+    assert cached is not None
+    assert cached.response == {"k": "v"}
+
+
+@pytest.mark.asyncio
+async def test_get_raises_on_naive_timestamp() -> None:
+    """Naive datetime indicates schema drift (TIMESTAMP vs TIMESTAMPTZ).
+    Fail-fast over silent UTC coercion — silent coercion would produce
+    wrong replay windows when the server's local time is not UTC."""
+    naive = datetime(2030, 1, 1)
+    conn = _make_conn(_cursor(fetchone_value=("hash", {}, naive)))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    with pytest.raises(ValueError, match="naive datetime"):
+        await backend.get("scope", "key")
+
+
+# ---------------------------------------------------------------------------
+# put
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_put_upserts_with_on_conflict() -> None:
+    conn = _make_conn(_cursor())
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    entry = CachedResponse(
+        payload_hash="hash-1",
+        response={"k": "v"},
+        expires_at_epoch=time.time() + 3600,
+    )
+    await backend.put("scope-a", "key-1", entry)
+
+    sql, params = conn.execute.call_args.args
+    assert "INSERT INTO adcp_idempotency" in sql
+    assert "ON CONFLICT (scope_key, key) DO UPDATE" in sql
+    # First-writer-wins: the UPDATE only applies to actually-expired
+    # rows. Concurrent put against a fresh slot is a no-op.
+    assert "WHERE adcp_idempotency.expires_at <= clock_timestamp()" in sql
+    assert "::jsonb" in sql
+    scope_key, key, payload_hash, response_json, expires_at = params
+    assert scope_key == "scope-a"
+    assert key == "key-1"
+    assert payload_hash == "hash-1"
+    assert response_json == '{"k": "v"}'
+    assert isinstance(expires_at, datetime)
+    assert expires_at.tzinfo is not None  # tz-aware
+
+
+@pytest.mark.asyncio
+async def test_put_if_absent_reports_atomic_insert_result() -> None:
+    conn = _make_conn(_cursor(fetchone_value=(1,)))
+    backend = _pg_backend(_make_pool(conn))
+    entry = CachedResponse("hash", {}, time.time() + 3600)
+
+    assert await backend.put_if_absent("scope", "key", entry) is True
+    sql = conn.execute.call_args.args[0]
+    assert "ON CONFLICT (scope_key, key) DO UPDATE" in sql
+    assert "RETURNING 1" in sql
+
+
+@pytest.mark.asyncio
+async def test_hold_reuses_locked_connection_for_get_and_put() -> None:
+    expires = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    conn = _make_conn(
+        _cursor(),  # advisory lock
+        _cursor(fetchone_value=None),  # get
+        _cursor(),  # put
+    )
+
+    @asynccontextmanager
+    async def transaction():
+        yield
+
+    conn.transaction = transaction
+    lock_pool = _make_pool(conn)
+    backend = PgBackend(pool=MagicMock(), lock_pool=lock_pool)
+
+    async with backend.hold("scope", "key"):
+        assert await backend.get("scope", "key") is None
+        await backend.put("scope", "key", CachedResponse("hash", {}, expires.timestamp()))
+
+    assert conn.execute.call_count == 3
+    assert "pg_advisory_xact_lock" in conn.execute.call_args_list[0].args[0]
+
+
+@pytest.mark.asyncio
+async def test_replace_updates_live_row_only_while_hold_is_active() -> None:
+    conn = _make_conn(
+        _cursor(),  # advisory lock
+        _cursor(),  # live-row update
+    )
+
+    @asynccontextmanager
+    async def transaction():
+        yield
+
+    conn.transaction = transaction
+    backend = PgBackend(pool=MagicMock(), lock_pool=_make_pool(conn))
+    entry = CachedResponse("new-hash", {"state": "handled"}, time.time() + 3600)
+
+    with pytest.raises(RuntimeError, match="requires hold"):
+        await backend.replace("scope", "key", entry)
+
+    async with backend.hold("scope", "key"):
+        await backend.replace("scope", "key", entry)
+
+    sql, params = conn.execute.call_args_list[1].args
+    assert sql.startswith("UPDATE adcp_idempotency SET")
+    assert "WHERE scope_key = %s AND key = %s" in sql
+    assert params[0] == "new-hash"
+    assert params[3:] == ("scope", "key")
+
+
+@pytest.mark.asyncio
+async def test_current_time_uses_database_clock() -> None:
+    conn = _make_conn(_cursor(fetchone_value=(1234567890.25,)))
+    backend = _pg_backend(_make_pool(conn))
+
+    assert await backend.current_time() == 1234567890.25
+    assert "clock_timestamp" in conn.execute.call_args.args[0]
+
+
+# ---------------------------------------------------------------------------
+# delete_expired
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delete_expired_uses_supplied_cutoff() -> None:
+    conn = _make_conn(_cursor(rowcount=7))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    cutoff_epoch = 1_000_000_000.0
+    deleted = await backend.delete_expired(cutoff_epoch)
+    assert deleted == 7
+
+    sql, params = conn.execute.call_args.args
+    assert "DELETE FROM adcp_idempotency" in sql
+    assert "expires_at <= %s" in sql
+    (cutoff_dt,) = params
+    assert isinstance(cutoff_dt, datetime)
+    assert cutoff_dt.timestamp() == cutoff_epoch
+
+
+@pytest.mark.asyncio
+async def test_delete_expired_defaults_to_database_clock() -> None:
+    conn = _make_conn(_cursor(rowcount=0))
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    deleted = await backend.delete_expired()
+
+    assert deleted == 0
+    sql = conn.execute.call_args.args[0]
+    assert "expires_at <= clock_timestamp()" in sql
+    assert len(conn.execute.call_args.args) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_expired_returns_zero_on_no_rowcount() -> None:
+    """``rowcount`` may be ``-1`` or ``None`` on some psycopg paths;
+    backend coerces to 0."""
+    conn = _make_conn(_cursor(rowcount=None))  # type: ignore[arg-type]
+    pool = _make_pool(conn)
+    backend = _pg_backend(pool)
+
+    assert await backend.delete_expired() == 0

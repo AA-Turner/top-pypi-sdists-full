@@ -1,0 +1,35 @@
+name: Auto-merge release PR
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: "contains(github.event.pull_request.labels.*.name, 'autorelease: pending')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Merge the release PR
+        run: |
+          set -euo pipefail
+          if out=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+            echo "$out"; exit 0
+          fi
+          echo "$out" >&2
+          case "$out" in
+            *"is in unstable status"* | *"is in clean status"*)
+              state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)
+              case "$state" in
+                UNSTABLE | CLEAN) gh pr merge --squash "$PR_URL" ;;
+                *) echo "Not merging directly: merge state is $state" >&2; exit 1 ;;
+              esac ;;
+            *) exit 1 ;;
+          esac
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

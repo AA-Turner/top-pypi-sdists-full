@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+"""SessionEnd and PreCompact hook: audit the session for learning signals the gate MISSED.
+
+Neither event can nudge the model - SessionEnd because the session is ending, PreCompact because
+the detail a nudge would point at is about to be summarised away - so this hook does the
+deterministic half of a two-stage loop:
+
+  1. (here) Scan the FULL transcript. Apply the STRICT gate patterns and a BROADER recall set (see
+     self_improve_signals). A turn the broad set flags but the strict set did NOT is a CANDIDATE
+     MISS - a likely gap in the gate. Write the candidates to a per-project audit file.
+  2. (session-start.py) On the next SessionStart, surface that audit file as context so the
+     MODEL reviews the candidates: confirm the real misses, capture learnings (self-improve),
+     and extend the gate patterns in self_improve_signals.py (the self-improve meta-loop).
+
+After PreCompact that next SessionStart belongs to the compacted SAME session, not a new one, so
+the report names which of the two moments it describes.
+
+This never blocks anything and writes only a review note. Pure standard library; every
+failure path exits 0 so a broken hook never disrupts session shutdown or a compaction.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import transcript_turns
+from self_improve_signals import (asst_said_offset, audit_file, broad_matches, inert_snippet,
+                                  is_injected_skill_body, quoted_snippet, skills_invoked,
+                                  snippet_was_escaped, strict_asst_hit, strict_user_hit,
+                                  tool_matches_outside_fixtures, tool_signal_offset, unquoted,
+                                  user_signal_offset)
+
+# Bound how much transcript we read (sessions can be many MB); the tail covers a long
+# session while keeping memory bounded.
+_MAX_BYTES = 10 * 1024 * 1024
+_MAX_CANDIDATES = 12       # cap surfaced candidates so the next-session note stays scannable
+# The tag for a user record the person did not type: another session's message, a task
+# notification, a command echo. It stays a candidate, since machine text can still carry a
+# hint, but listed as [user] the next session reads it as the person's own words.
+HARNESS = "harness"
+_SNIPPET = 160
+
+# What the report calls the stretch it audited, keyed by the event that wrote it. SessionStart
+# surfaces the file after a new session, a resume, /clear AND a compaction, and after a compaction
+# it is the same session, where "the previous session" would be false.
+_MOMENTS = {
+    "PreCompact": ("Before this session's context was compacted, it contained",
+                   "Skills invoked in this session so far: "),
+}
+_DEFAULT_MOMENT = ("The previous session contained", "Skills invoked last session: ")
+
+
+def _text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(b["text"] for b in content if isinstance(b, dict) and isinstance(b.get("text"), str))
+    return ""
+
+
+# Fields of a tool_use whose VALUE can carry the discovery (the command that was run, the path
+# that was edited). The rest of the input is payload, not signal.
+_TOOL_INPUT_FIELDS = ("command", "description", "file_path", "skill")
+
+
+def _tool_blocks(content):
+    """Text of each tool_use input field and each tool_result output - what _text() cannot see.
+
+    A tooling learning often exists ONLY here: the model runs a flag that does not exist and the
+    tool_result says so, with no prose anywhere. Scanning just `text` blocks structurally misses
+    that whole class. The blocks stay separate because one message carries several (parallel tool
+    calls), and test data in one of them says nothing about the others.
+    """
+    if not isinstance(content, list):
+        return []
+    out = []
+    for b in content:
+        if not isinstance(b, dict):
+            continue
+        kind = b.get("type")
+        if kind == "tool_use":
+            inp = b.get("input")
+            if isinstance(inp, dict):
+                out.extend(str(inp[f]) for f in _TOOL_INPUT_FIELDS if isinstance(inp.get(f), str))
+        elif kind == "tool_result":
+            c = b.get("content")
+            if isinstance(c, str):
+                out.append(c)
+            elif isinstance(c, list):
+                out.append("\n".join(x["text"] for x in c
+                                     if isinstance(x, dict) and isinstance(x.get("text"), str)))
+    return [block for block in out if block.strip()]
+
+
+def _iter_messages(transcript_path):
+    """Yield (role, text) per message for the prose roles, then ("tool", [block, ...]) if it has
+    any.
+
+    "tool" carries the message's tool_use/tool_result blocks and is matched against the TOOL signal
+    set, not the prose sets - a command line is not a sentence and the prose patterns do not apply.
+    """
+    try:
+        size = os.path.getsize(transcript_path)
+        with open(transcript_path, "rb") as fh:
+            if size > _MAX_BYTES:
+                fh.seek(size - _MAX_BYTES)
+                fh.readline()  # drop the partial line after the seek
+            data = fh.read()
+    except OSError:
+        return
+    for raw in data.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        kind = obj.get("type")
+        if kind in ("user", "assistant"):
+            content = obj.get("message", {}).get("content")
+            yield kind, _text(content)
+            blocks = _tool_blocks(content)
+            if blocks:
+                yield "tool", blocks
+
+
+def _tool_signal(blocks):
+    """(matched, the first block that matched) over one message's tool blocks; ([], "") if none.
+
+    There is no strict counterpart: the gate never looks at tool blocks, so every tool signal is by
+    definition a miss - EXCEPT test data, which tool_matches_outside_fixtures discounts one block at
+    a time and by REGION within it: a pytest run up to its timed summary, a test file's diff hunk,
+    a heredoc body, a numbered file listing.
+    """
+    matched, shown = set(), ""
+    for block in blocks:
+        hits = tool_matches_outside_fixtures(block)
+        if hits:
+            matched.update(hits)
+            shown = shown or block
+    return sorted(matched), shown
+
+
+def _signal_offset(role, text):
+    """Where in the whitespace-collapsed `text` the signal that made it a candidate sits, for
+    `inert_snippet(..., around=)`; None quotes the head.
+
+    Without it the snippet was the message's first _SNIPPET characters, so a learning stated after
+    a long preamble - or a tool error at the end of long output - was cut away and the report
+    quoted only what came before it."""
+    if role == "tool":
+        return tool_signal_offset(text)
+    if role != "user":
+        return asst_said_offset(str(text or ""))
+    return user_signal_offset(" ".join(str(text or "").split()))
+
+
+def _strict_hit(role, text):
+    """Whether the Stop gate's strict patterns fire on this message, read the way the gate reads
+    it: the user's words whole, the assistant's with QUOTED spans blanked (`unquoted`). A quoted
+    admission did not fire the gate, so counting it as caught hid the turn from this audit."""
+    return strict_user_hit(text) if role == "user" else strict_asst_hit(unquoted(text))
+
+
+def find_candidates(transcript_path):
+    """Return candidate-miss dicts: a broad/tool match the strict gate did NOT catch."""
+    candidates = []
+    for role, payload in _iter_messages(transcript_path):
+        if role == "tool":
+            matched, text = _tool_signal(payload)
+        else:
+            text = payload
+            # Invoking a skill injects its whole SKILL.md as a type="user" message, so the prose
+            # scan would read shipped documentation as the user's own words and report the skill
+            # to itself as a missed signal, every session. Same shape as the tool branch's test-data
+            # discount: the text is DATA, not something anyone said.
+            if not text.strip() or is_injected_skill_body(text):
+                continue
+            if _strict_hit(role, text):
+                continue
+            matched = broad_matches(role, text)
+        if matched:
+            offset = _signal_offset(role, text)
+            snippet = inert_snippet(text, _SNIPPET, around=offset)
+            # Detection above stays on the record's own role; only the tag changes, so the
+            # candidate set is the same with or without it.
+            shown = HARNESS if role == "user" and not transcript_turns.looks_typed(text) else role
+            candidates.append({"role": shown, "matched": matched, "snippet": snippet,
+                               "escaped": snippet_was_escaped(text)})
+    return candidates
+
+
+def _skill_tally(transcript_path):
+    """{skill: count} for the transcript tail; {} on any read problem (never fatal)."""
+    try:
+        size = os.path.getsize(transcript_path)
+        with open(transcript_path, "rb") as fh:
+            if size > _MAX_BYTES:
+                fh.seek(size - _MAX_BYTES)
+                fh.readline()
+            data = fh.read()
+    except OSError:
+        return {}
+    return skills_invoked(data.decode("utf-8", "replace"))
+
+
+def render_report(candidates, skills=None, event="SessionEnd"):
+    opening, roster = _MOMENTS.get(event, _DEFAULT_MOMENT)
+    recent = candidates[-_MAX_CANDIDATES:]
+    freq = {}
+    for c in candidates:
+        for kw in c["matched"]:
+            freq[kw] = freq.get(kw, 0) + 1
+    top = sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    lines = [
+        "<SELF-IMPROVE-AUDIT>",
+        "%s %d message(s) that look like learning signals the self-improve gate did NOT catch "
+        "(a broad-recall match with no strict match). Review them now: confirm the genuine misses, "
+        "capture any learning with the self-improve skill, and for a real gap EXTEND the gate's "
+        "family patterns in plugins/bitranox/hooks/self_improve_signals.py (do this in the "
+        "bitranox-skills repo, or propagate it via self-improve's upstream loop). Ignore false "
+        "positives." % (opening, len(candidates)),
+        "",
+        "Recurring near-miss keywords: " + ", ".join("%s (x%d)" % (k, n) for k, n in top),
+        "",
+        "Candidates (most recent first):",
+    ]
+    if any(c["role"] == HARNESS for c in recent):
+        lines.insert(-1, "[harness] marks a user-role message the person did not type (another "
+                         "session's message, a task notification, a command echo): machine text, "
+                         "never the person's words.")
+        lines.insert(-1, "")
+    for c in reversed(recent):
+        lines.append("- [%s] matched %s :: %s"
+                     % (c["role"], "/".join(c["matched"]), quoted_snippet(c)))
+    if skills:
+        lines += [
+            "",
+            roster + ", ".join("%s (x%d)" % (k, n) for k, n in sorted(skills.items())),
+            "If one of the candidates above is a bug that shipped DESPITE one of these skills, that "
+            "is the skill's coverage gap - flag it for review and fix the skill (pattern/test), per "
+            "flag-a-skill-when-a-real-bug-slips-past-it.",
+        ]
+    lines.append("</SELF-IMPROVE-AUDIT>")
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    try:
+        event = json.load(sys.stdin)
+    except (ValueError, OSError):
+        return 0
+    transcript = event.get("transcript_path") or ""
+    if not transcript or not Path(transcript).is_file():
+        return 0
+    proj = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    out = audit_file(proj)
+
+    candidates = find_candidates(transcript)
+    skills = _skill_tally(transcript)
+    if not candidates:
+        try:  # nothing to review: clear any stale report so it is not resurfaced
+            out.unlink()
+        except OSError:
+            pass
+        return 0
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_report(candidates, skills, event.get("hook_event_name") or "SessionEnd"),
+                       encoding="utf-8")
+    except OSError:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception:  # noqa: BLE001 - a broken hook must never disrupt session shutdown
+        sys.exit(0)

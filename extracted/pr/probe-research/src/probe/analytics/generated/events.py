@@ -30,13 +30,13 @@ class Event(StrEnum):
     BACKFILL_PLAN_READY = "backfill.plan_ready"
     BACKFILL_APPROVED = "backfill.approved"
     #: Also carries the import's coding-agent props per lane
-    #: (`probe.cli.import_agent_settings.Meter.properties`), as does `import_job.finished`: listed
+    #: (`probe.cli.imports.agent_settings.Meter.properties`), as does `import_job.finished`: listed
     #: in agent DESIGN.md (events.py).
     BACKFILL_SUMMARY = "backfill.summary"
 
     # --- Guided install, removal and sign-out ---
     #: `backfill.summary` and `import_job.finished` also carry the import's coding-agent props per
-    #: lane (`probe.cli.import_agent_settings.Meter.properties`): listed in DESIGN.md (events.py).
+    #: lane (`probe.cli.imports.agent_settings.Meter.properties`): listed in DESIGN.md (events.py).
     #: The guided install settled: every selected coding agent done. Once per install, unlike
     #: `configure_completed` (once per configure CALL).
     WIZARD_INSTALL_SETTLED = "wizard.install_settled"
@@ -89,6 +89,10 @@ class Event(StrEnum):
     #: cleanup by `journal.relocate_discards`): else a vanished backlog reads as sent (Bucket,
     #: 2026-10-23).
     OUTBOX_DISCARDED = "outbox.discarded"
+    #: A one-time restore put back writes set aside behind one revoked key
+    #: (`journal.restore_set_aside`, Bucket 2026-10-22/23): how many, what stayed aside and why,
+    #: what the login check refused or put off. The delivery shows in `outbox.rescued`.
+    OUTBOX_RESTORED = "outbox.restored"
     #: The CLI's every-command check lifted a stale pause (end passed, or an older CLI's endless
     #: one; `outbox_worker.lift_stale_pause`). The Probe service lifts too; only `outbox.drained`
     #: reports it.
@@ -96,11 +100,12 @@ class Event(StrEnum):
 
     # --- Staff requests, training processes and reports ---
     #: Staff's one-time capture repair ran here (control/073,
-    #: `probe.cli.main._capture_repair_notice`): `applied` (credentials written, locks lifted) or
-    #: `write_failed`. Agent slugs and counts only.
+    #: `probe.cli.lifecycle.notices.capture_repair._capture_repair_notice`): `applied` (credentials
+    #: written, locks lifted) or `write_failed`. Agent slugs and counts only.
     CAPTURE_REPAIR_APPLIED = "capture.repair_applied"
-    #: Staff's one-time settings change ran here (control/074, `probe.cli.remote_settings`):
-    #: setting, value, default moved, sessions switched, report taken. Never a session id.
+    #: Staff's one-time settings change ran here (control/074,
+    #: `probe.cli.lifecycle.remote_settings`): setting, value, default moved, sessions switched,
+    #: report taken. Never a session id.
     SETTINGS_REMOTE_APPLIED = "settings.remote_applied"
     #: A TRAINING process's delivery counts (plan 1.12), every 15 min and at each run's close:
     #: deltas, counts only (never a key, body, name or path), so we see loss before a customer does.
@@ -113,9 +118,9 @@ class Event(StrEnum):
     DAEMON_ERROR = "daemon.error"
 
     # --- Probe service ---
-    # The Probe service's own events: `probe.service.statepost` sends them through
+    # The Probe service's own events: `probe.service.watch.statepost` sends them through
     # `emit_service_event`, the only door they have (`SERVICE_EVENTS`).
-    #: The Probe service's own events (`probe.service.statepost` sends them through
+    #: The Probe service's own events (`probe.service.watch.statepost` sends them through
     #: `emit_service_event`, the only door they have).
     SERVICE_STARTED = "service.started"
     SERVICE_STATE = "service.state"

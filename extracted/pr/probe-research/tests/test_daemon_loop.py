@@ -45,7 +45,7 @@ SID = "11111111-2222-3333-4444-555555555555"
 
 
 def SUPERVISOR_VALUE(pid, start, sid):
-    """`probe.service.workers.supervisor_value`'s shape, for another process."""
+    """`probe.service.sessions.workers.supervisor_value`'s shape, for another process."""
     return json.dumps({"pid": pid, "start": start, "sid": sid})
 RUN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
@@ -586,7 +586,7 @@ def test_a_barrier_raised_while_a_worker_loads_is_seen_once_it_holds_its_lock(tm
     for daemon locks again (plan X1). A worker that passed its barrier check
     just before, then spent longer loading its AI libraries, takes its lock
     after that second look: it must look again once it holds the lock."""
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
 
     monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
     _set_state("full")
@@ -640,7 +640,7 @@ def _zombie_supervisor():
     import subprocess
     import sys
 
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.5)"])
     start = procid.start_time(child.pid)
@@ -728,7 +728,7 @@ def test_a_worker_started_outside_its_session_folder_moves_into_it(tmp_path, mon
 
     monkeypatch.setattr(worker_mod.worker, "Worker", NoWorker)
     monkeypatch.setattr(worker_mod.startup, "Worker", NoWorker)
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     # This test process stands in for the service that started it (both, as it sends them).
     monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV,
@@ -1724,20 +1724,20 @@ def test_provisioning_fetches_only_the_half_that_is_missing(monkeypatch):
     switch to the daemon failed on "missing packages"."""
     import importlib
 
-    from probe.cli import companion, daemon_cli
-    from probe.cli import setup as wizard
+    from probe.cli.commands.daemon import companion, daemon as daemon_cli
+    from probe.cli import wizard as wizard
 
     main = importlib.import_module("probe.cli.main")
     approvals, installs = [], []
     key = {"held": False}
 
-    def approve(base, open_browser=True):
+    def approve(base, open_browser=True, sign_in=False):
         approvals.append(base)
         key["held"] = True
         return ["key approved"]
 
     monkeypatch.setattr(main, "_authorize_companion", approve)
-    monkeypatch.setattr(wizard, "companion_token_held", lambda: key["held"])
+    monkeypatch.setattr(wizard.apply.recorder, "companion_token_held", lambda: key["held"])
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
     monkeypatch.setattr(daemon_cli, "daemon_install", lambda: installs.append(1))
     said = []
@@ -1752,7 +1752,7 @@ def test_provisioning_fetches_only_the_half_that_is_missing(monkeypatch):
     assert (approvals, installs) == (["https://x"], [1, 1]), "both held: nothing"
 
     key["held"] = False
-    monkeypatch.setattr(main, "_authorize_companion", lambda base, open_browser=True: ["declined"])
+    monkeypatch.setattr(main, "_authorize_companion", lambda base, open_browser=True, sign_in=False: ["declined"])
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
     assert companion.provision_daemon("https://x") == ["declined"]
     assert installs == [1, 1], "no key: no install either"
@@ -1830,7 +1830,8 @@ def test_the_session_tools_answer_through_the_agent_not_a_thread_error(tmp_path)
 
 
 def test_doctor_reads_the_daemons_device_counter(tmp_path):
-    from probe.cli import companion, doctor
+    from probe.cli.commands.daemon import companion
+    from probe.cli.wizard import doctor
 
     store_mod.add_device_tokens(1234)
     assert companion.tokens_today() == 1234
@@ -1838,7 +1839,7 @@ def test_doctor_reads_the_daemons_device_counter(tmp_path):
 
 
 def test_companion_log_reads_a_v2_sessions_logbook(tmp_path, monkeypatch, capsys):
-    from probe.cli import companion
+    from probe.cli.commands.daemon import companion
 
     w = _worker(tmp_path, replay=Replay())
     w.store.log_write(bite=None, op_id="1", argv=["probe", "run", "tag", RUN, "svm"], head="run tag", status="ran")

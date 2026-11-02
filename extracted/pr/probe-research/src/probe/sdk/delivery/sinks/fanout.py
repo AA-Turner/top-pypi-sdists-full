@@ -22,35 +22,17 @@ class FanOutSink:
         return True
 
     def land(
-        self, method: str, path: str, body: dict | None, *, strict: bool, sync: bool, blocking: bool,
-        raise_permanent: bool, admitted: bool,
+        self, method: str, path: str, body: dict | None, *, policy: Any, blocking: bool, admitted: bool,
     ) -> Any:
         """Queued, never sent now, so None (`enqueue_best_effort` says whether it was refused)."""
         self.enqueue_best_effort(method, path, body)
         return None
 
     def enqueue_best_effort(self, method: str, path: str, body: dict | None) -> bool:
-        """Queue a best-effort write to a run (the hardware rail's door under async writes;
-        plan 0.3, D2). Not public API.
-
-        A write around the journal lands on the run row while the drainer delivers the
-        run's metrics, and the server's metric insert takes that row NOWAIT, so the collision
-        answers 503: with hardware on, ``finish()`` raised on 4 of 6 short runs (0 of 6 with
-        ``PROBE_HW=0``). Queued, it drains FIFO with the run's other ops, one at a time.
-
-        ``blocking=False``: never holds the run's close, so a dead-lettered hardware op
-        cannot decide how the run ends.
-
-        Returns False when the journal REFUSED the op for room (``OutboxFull``: op ceiling or
-        free-disk floor). Dropped on purpose: spool space belongs to training metrics and a
-        refusal retried from a buffer is only refused again. Not the user's data: prints
-        nothing, records no capture gap, not counted on ``dropped_writes``
-        (``best_effort=True``).
-
-        RAISES when the journal is broken (read-only state dir, ENOSPC mid-write, ``flock``
-        ENOSYS): the caller keeps its own bounded buffer for this, and retrying next tick can
-        succeed where retrying a refusal cannot.
-        """
+        """Queue a best-effort hardware write to a run (plan 0.3), FIFO with the run's own ops and
+        ``blocking=False``, never around the journal (that collided with the metric insert: 503). False
+        when the journal refused it for room, dropped quietly; raises when the journal is broken, so the
+        caller's own buffer retries."""
         client = self._client
         from ..journal.headroom import OutboxFull
 

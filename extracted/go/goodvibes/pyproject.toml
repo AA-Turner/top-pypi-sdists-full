@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goodvibes"
+version = "4.4.0"
+description = "A python program to compute corrections to thermochemical data from frequency calculations"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    { name = "Paton Research Group", email = "patonlab@colostate.edu" },
+]
+keywords = ["compchem", "thermochemistry", "gaussian", "vibrational-entropies", "temperature"]
+dependencies = [
+    "numpy<3",
+    # pymsym powers the optional --symm symmetry detection but has no Windows
+    # wheels (issue #102), so it is required only off-Windows. On Windows it can
+    # be installed manually; GoodVibes degrades gracefully when it is absent.
+    "pymsym; platform_system != 'Windows'",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+ase = ["ase>=3.22"]
+plot = ["matplotlib>=3.5"]
+full = ["ase>=3.22", "pyyaml", "pandas", "pyarrow", "matplotlib>=3.5"]
+test = ["pytest", "pytest-cov", "ase>=3.22", "pyyaml", "pandas", "pyarrow", "matplotlib>=3.5"]
+
+[project.urls]
+Homepage = "https://github.com/patonlab/goodvibes"
+
+[project.scripts]
+goodvibes = "goodvibes.GoodVibes:main"
+
+[tool.setuptools]
+packages = ["goodvibes"]
+
+[tool.setuptools.package-data]
+goodvibes = ["scaling_factors.json", "solvents.json", "examples/**/*", "share/*"]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+# Minimal, high-signal ruleset enforced in CI: Pyflakes (real bugs —
+# undefined names, unused imports/variables) plus syntax errors.
+# Style rules (E, W, I, UP) can be ratcheted up later.
+select = ["F", "E9"]

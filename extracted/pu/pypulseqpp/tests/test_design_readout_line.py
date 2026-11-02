@@ -1,0 +1,565 @@
+"""Cartesian line timing, spoiling pathways and per-shot encoding."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+import pypulseqpp as pp
+from pypulseqpp import make_rf_spoiling_schedule
+from pypulseqpp import sequences as design
+
+FOV = (0.22, 0.22, 0.12)
+MATRIX = (128, 128, 64)
+
+
+@pytest.fixture
+def system():
+    return pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+
+
+@pytest.fixture
+def slab(system):
+    return design.SpatialSelectiveExcitation(system, 8.0, FOV[2], is_slab=True)
+
+
+def readout3d(system, slab, **kwargs):
+    kwargs = {"fov": FOV, "matrix": MATRIX, **kwargs}
+    return design.LineReadout3D(system, slab.rf, slab.gz, **kwargs)
+
+
+def _first_line(module):
+    """K-space of the first acquisition window, and the times it was sampled at."""
+    k_traj_adc, _, t_excitation, _, t_adc = module.calculate_kspace()
+    count = int(module.adc.num_samples)
+    return k_traj_adc[:, :count], np.asarray(t_adc)[:count], float(t_excitation[0])
+
+
+def _acquisition_block(module):
+    """The 1-based index of the block the ADC is played in."""
+    return next(
+        index
+        for index, block in enumerate(module.blocks, start=1)
+        if any(getattr(event, "type", None) == "adc" for event in block)
+    )
+
+
+# ----------------------------------------------------------------------
+# Layout
+# ----------------------------------------------------------------------
+
+
+def test_a_repetition_is_pulse_prewinder_readout_rewinder(system, slab):
+    readout = readout3d(system, slab)
+    assert len(readout.blocks) == 4
+    assert readout.blocks[0] == (readout.rf, readout.gz)
+    assert readout.blocks[2] == (readout.gx, readout.adc)
+
+
+def test_the_readout_is_valid_pulseq(system, slab):
+    assert readout3d(system, slab).check_timing()[0]
+
+
+def test_a_2d_readout_encodes_one_phase_axis(system):
+    excitation = design.SpatialSelectiveExcitation(system, 15.0, 5e-3)
+    readout = design.LineReadout2D(
+        system, excitation.rf, excitation.gz, fov=0.22, matrix=128
+    )
+    assert readout.gy_pre.channel == "y"
+    assert not hasattr(readout.events, "gz_phase")
+    assert readout.check_timing()[0]
+
+
+def test_a_hard_pulse_needs_no_selection_gradient(system, slab):
+    excitation = design.NonSelectiveExcitation(system, 8.0)
+    bare = design.LineReadout3D(system, excitation.rf, fov=FOV, matrix=MATRIX)
+    assert bare.blocks[0] == (bare.rf,)
+    assert len(bare.blocks) == len(readout3d(system, slab).blocks)
+    assert bare.check_timing()[0]
+
+
+# ----------------------------------------------------------------------
+# Where the echo lands
+# ----------------------------------------------------------------------
+
+
+def test_the_line_is_centred_on_k_zero(system, slab):
+    readout = readout3d(system, slab)
+    kx, _, _ = _first_line(readout)
+    half_width = MATRIX[0] / (2 * FOV[0])
+    half_step = 0.5 * readout.delta_kx
+    # Samples sit at cell centres, so the extremes fall half a step inside.
+    assert kx[0].min() == pytest.approx(-half_width + half_step)
+    assert kx[0].max() == pytest.approx(half_width - half_step)
+
+
+def test_the_echo_falls_at_the_echo_time_it_reports(system, slab):
+    readout = readout3d(system, slab, te=5e-3)
+    kx, t_adc, t_excitation = _first_line(readout)
+    nearest = int(np.argmin(np.abs(kx[0])))
+    # The k = 0 crossing lies between two sample centres, half a dwell from
+    # whichever is nearer.
+    assert t_adc[nearest] - t_excitation == pytest.approx(
+        readout.echo_time, abs=0.5 * readout.adc.dwell + 1e-9
+    )
+    assert readout.echo_time == pytest.approx(5e-3)
+
+
+def test_the_ramp_of_the_readout_lobe_is_prephased_too(system, slab):
+    """Half a ramp of k accrues before the first sample.
+
+    Left uncompensated it offsets the whole line -- which a reconstruction
+    sees as a first-order phase, not as an error, so nothing downstream would
+    report it.
+    """
+    readout = readout3d(system, slab)
+    kx, _, _ = _first_line(readout)
+    centre = 0.5 * (kx[0].min() + kx[0].max())
+    assert centre == pytest.approx(0.0, abs=1e-9 * MATRIX[0] / FOV[0])
+
+
+def test_partial_echo_truncates_the_leading_side_and_shortens_te(system, slab):
+    full = readout3d(system, slab)
+    partial = readout3d(system, slab, partial_echo=0.7)
+
+    assert partial.echo_time < full.echo_time
+    kx, _, _ = _first_line(partial)
+    assert kx[0].max() == pytest.approx(_first_line(full)[0][0].max())
+    assert kx[0].min() > _first_line(full)[0][0].min()
+
+
+# ----------------------------------------------------------------------
+# Encoding
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("axis", [1, 2])
+def test_the_phase_encode_step_is_set_by_resolution_alone(system, slab, axis):
+    readout = readout3d(system, slab)
+    encode = readout.gy_pre if axis == 1 else readout.gz_pre
+    resolution = FOV[axis] / MATRIX[axis]
+    assert encode.area == pytest.approx(1.0 / (2.0 * resolution))
+
+
+@pytest.mark.parametrize("scale", [-1.0, -0.25, 0.0, 0.75])
+def test_scaling_the_encode_moves_the_line_in_k(system, slab, scale):
+    """What a scan loop does per shot, and the only thing it has to do."""
+    readout = readout3d(system, slab)
+    seq = pp.Sequence(system)
+    seq.add_block(readout.rf, readout.gz)
+    seq.add_block(
+        readout.gx_pre,
+        pp.scale_grad(readout.gy_pre, scale),
+        pp.scale_grad(readout.gz_pre, 0.0),
+    )
+    seq.add_block(readout.gx, readout.adc)
+
+    k_traj_adc = seq.calculate_kspace()[0]
+    assert np.allclose(k_traj_adc[1], scale * readout.gy_pre.area, atol=1e-6)
+    assert np.allclose(k_traj_adc[2], 0.0, atol=1e-6)
+
+
+def test_the_encodes_are_unwound_by_their_rewinders(system, slab):
+    readout = readout3d(system, slab)
+    assert readout.gy_rew.area == pytest.approx(-readout.gy_pre.area)
+    assert readout.gz_rew.area == pytest.approx(-readout.gz_pre.area)
+
+
+def test_a_balanced_readout_ends_where_it_started(system, slab):
+    """Every axis returns to k = 0 by the end of the TR."""
+    readout = readout3d(system, slab)
+    seq = pp.Sequence(system)
+    for block in readout.blocks:
+        seq.add_block(*block)
+    k_traj = seq.calculate_kspace()[1]
+    assert np.allclose(k_traj[:, -1], 0.0, atol=1e-6 * MATRIX[0] / FOV[0])
+
+
+# ----------------------------------------------------------------------
+# Spoiling
+# ----------------------------------------------------------------------
+
+
+def test_post_spoiling_leaves_the_residual_it_was_asked_for(system, slab):
+    cycles, voxel = 4.0, 1e-3
+    readout = readout3d(system, slab, spoiling_cycles=cycles, voxel_size_m=voxel)
+    seq = pp.Sequence(system)
+    for block in readout.blocks:
+        seq.add_block(*block)
+    k_traj = seq.calculate_kspace()[1]
+    assert k_traj[0, -1] == pytest.approx(cycles / voxel, rel=1e-3)
+
+
+def test_post_spoiling_keeps_the_acquisition_centred(system, slab):
+    """The dephasing follows the readout, so the line itself does not move."""
+    balanced = readout3d(system, slab)
+    spoiled = readout3d(system, slab, spoiling_cycles=4.0)
+    assert np.allclose(
+        _first_line(spoiled)[0][0], _first_line(balanced)[0][0], atol=1e-9
+    )
+
+
+def test_pre_spoiling_offsets_the_fid_pathway(system, slab):
+    """A dephasing lobe before the readout must offset this TR's own k-space.
+
+    What such a sequence reads is the echo refocused from the previous
+    excitation, not this one's FID -- so a trajectory traced from rest never
+    crossing k = 0 is the pathway distinction, not a design fault.
+    """
+    cycles, voxel = 4.0, 1e-3
+    readout = readout3d(
+        system,
+        slab,
+        spoiling_cycles=cycles,
+        voxel_size_m=voxel,
+        spoiling_position="pre",
+    )
+    kx, _, _ = _first_line(readout)
+    assert kx[0].max() < 0
+    assert kx[0].min() == pytest.approx(
+        _first_line(readout3d(system, slab))[0][0].min() - cycles / voxel, rel=1e-3
+    )
+
+
+def test_the_spoiler_rides_the_readout_lobe_rather_than_waiting_for_it(system, slab):
+    """Bridging is what keeps a short-TR steady-state sequence short."""
+    spoiled = readout3d(system, slab, spoiling_cycles=4.0)
+    assert spoiled.gx_spoil.type == "grad"
+    assert spoiled.gx_spoil.first == pytest.approx(spoiled.gx.amplitude, rel=1e-6)
+    assert spoiled.gx_spoil.last == pytest.approx(0.0, abs=1e-6)
+
+
+@pytest.mark.parametrize("adc_dead_time", [0.0, 10e-6, 30e-6])
+def test_a_bridged_lobe_holds_its_plateau_to_the_end_of_the_block(adc_dead_time):
+    """The spoiler leaves from the plateau, so the plateau must still be there.
+
+    The acquisition block runs past the last sample by the receiver's dead
+    time, and on to the block raster. A lobe that stopped at the last sample
+    would leave the gradient undefined over that gap at a nonzero amplitude,
+    which is what the gradient the next block bridges onto starts from.
+    """
+    system = pp.Opts(
+        max_grad=40,
+        grad_unit="mT/m",
+        max_slew=150,
+        slew_unit="T/m/s",
+        adc_dead_time=adc_dead_time,
+    )
+    slab = design.SpatialSelectiveExcitation(system, 8.0, FOV[2], is_slab=True)
+    readout = readout3d(system, slab, spoiling_cycles=4.0)
+
+    block = readout.seq.get_block(_acquisition_block(readout))
+    assert pp.calc_duration(readout.gx) == pytest.approx(block.block_duration)
+    assert readout.check_timing()[0]
+
+
+@pytest.mark.parametrize("adc_dead_time", [0.0, 10e-6, 30e-6])
+def test_the_spoiler_takes_back_the_k_the_plateau_hold_wound(adc_dead_time):
+    """Holding the plateau winds k, and what the TR leaves behind is the spoiling.
+
+    The dead time is the receiver's, so it may not move the trajectory: the
+    residual on the read axis is the spoiling that was asked for, whatever the
+    acquisition block is padded out to.
+    """
+    cycles, voxel = 4.0, 1e-3
+    system = pp.Opts(
+        max_grad=40,
+        grad_unit="mT/m",
+        max_slew=150,
+        slew_unit="T/m/s",
+        adc_dead_time=adc_dead_time,
+    )
+    slab = design.SpatialSelectiveExcitation(system, 8.0, FOV[2], is_slab=True)
+    readout = readout3d(system, slab, spoiling_cycles=cycles, voxel_size_m=voxel)
+
+    residual = readout.calculate_kspace()[1][0][-1]
+    assert residual == pytest.approx(cycles / voxel, rel=1e-6)
+
+
+def test_a_system_without_a_dead_time_holds_nothing(system, slab):
+    """The hold is the dead time's, so a system declaring none pays for none.
+
+    Without one the lobe ends where the samples do.
+    """
+    assert system.adc_dead_time == 0.0
+    readout = readout3d(system, slab, spoiling_cycles=4.0)
+    assert pp.calc_duration(readout.gx) == pytest.approx(pp.calc_duration(readout.adc))
+
+
+def test_the_default_voxel_is_the_readout_resolution(system, slab):
+    explicit = readout3d(
+        system, slab, spoiling_cycles=2.0, voxel_size_m=FOV[0] / MATRIX[0]
+    )
+    implied = readout3d(system, slab, spoiling_cycles=2.0)
+    assert implied.duration == pytest.approx(explicit.duration)
+
+
+# ----------------------------------------------------------------------
+# Echo trains
+# ----------------------------------------------------------------------
+
+
+def test_a_monopolar_train_reads_every_echo_the_same_way(system, slab):
+    readout = readout3d(system, slab, n_echoes=3)
+    assert readout.gx_flyback.area == pytest.approx(-readout.gx.area)
+    lobes = [
+        block[0]
+        for block in readout.blocks
+        if any(getattr(e, "type", "") == "adc" for e in block)
+    ]
+    assert len(lobes) == 3
+    assert all(lobe is readout.gx for lobe in lobes)
+
+
+def test_a_bipolar_train_alternates_and_costs_no_rewinder(system, slab):
+    monopolar = readout3d(system, slab, n_echoes=3)
+    bipolar = readout3d(system, slab, n_echoes=3, flyback=False)
+
+    assert bipolar.gx_rev.amplitude == pytest.approx(-bipolar.gx.amplitude)
+    assert len(bipolar.blocks) < len(monopolar.blocks)
+    assert bipolar.duration < monopolar.duration
+
+
+def test_every_echo_of_a_monopolar_train_traces_the_same_line(system, slab):
+    readout = readout3d(system, slab, n_echoes=2)
+    k_traj_adc = readout.calculate_kspace()[0]
+    count = int(readout.adc.num_samples)
+    assert np.allclose(
+        k_traj_adc[0, :count], k_traj_adc[0, count : 2 * count], atol=1e-6
+    )
+
+
+@pytest.mark.parametrize("flyback", [True, False], ids=["monopolar", "bipolar"])
+@pytest.mark.parametrize("echo_spacing", [None, 6e-3], ids=["shortest", "spaced"])
+def test_every_echo_crosses_k_zero_one_spacing_after_the_last(
+    system, slab, flyback, echo_spacing
+):
+    readout = readout3d(
+        system, slab, n_echoes=3, flyback=flyback, echo_spacing=echo_spacing
+    )
+    k_traj_adc, _, t_excitation, _, t_adc = readout.calculate_kspace()
+    count = int(readout.adc.num_samples)
+    kx = k_traj_adc[0].reshape(3, count)
+    t_adc = np.asarray(t_adc).reshape(3, count) - t_excitation[0]
+
+    for echo in range(3):
+        nearest = int(np.argmin(np.abs(kx[echo])))
+        assert t_adc[echo, nearest] == pytest.approx(
+            readout.echo_time + echo * readout.echo_spacing,
+            abs=0.5 * readout.adc.dwell + 1e-9,
+        )
+    if echo_spacing is not None:
+        assert readout.echo_spacing == pytest.approx(echo_spacing)
+
+
+@pytest.mark.parametrize("flyback", [True, False], ids=["monopolar", "bipolar"])
+def test_the_spacing_wait_follows_the_rewinder_or_the_lobe(system, slab, flyback):
+    readout = readout3d(system, slab, n_echoes=3, flyback=flyback, echo_spacing=6e-3)
+    train = readout.blocks[2:-1]
+    period = [readout.gx_flyback, readout.wait_esp] if flyback else [readout.wait_esp]
+
+    assert [block[0] for block in train[1 : 1 + len(period)]] == period
+    assert len(train) == 3 + 2 * len(period)
+    assert train[-1][0] is readout.gx
+
+
+def test_the_shortest_train_has_no_spacing_wait(system, slab):
+    readout = readout3d(system, slab, n_echoes=3)
+
+    assert not hasattr(readout, "wait_esp")
+
+
+def test_a_single_echo_has_no_spacing(system, slab):
+    assert readout3d(system, slab, echo_spacing=6e-3).echo_spacing == 0.0
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"partial_echo": 0.8}, {"matrix": (65, 128, 64)}],
+    ids=["partial echo", "odd samples"],
+)
+def test_a_bipolar_train_needs_as_many_samples_before_the_echo_as_after(
+    system, slab, kwargs
+):
+    with pytest.raises(ValueError, match="bipolar"):
+        readout3d(system, slab, n_echoes=2, flyback=False, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"wave_amplitude": 0.0}, {"wave_cycles": 0}], ids=["amplitude", "cycles"]
+)
+def test_a_wave_of_zero_builds_no_wave_gradients_even_in_2d(system, kwargs):
+    excitation = design.SpatialSelectiveExcitation(system, 15.0, 5e-3)
+    readout = design.LineReadout2D(
+        system, excitation.rf, excitation.gz, fov=0.22, matrix=64, wave="both", **kwargs
+    )
+
+    assert not hasattr(readout, "gy_wave")
+    assert readout.wave_amplitude == 0.0
+    assert readout.blocks[2] == (readout.gx, readout.adc)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"wave": "corkscrew", "wave_amplitude": 0.0},
+        {"wave": "both", "wave_amplitude": -1e-3},
+        {"wave": "both", "wave_cycles": -1},
+    ],
+    ids=["mode", "amplitude", "cycles"],
+)
+def test_an_invalid_wave_is_refused_even_when_it_would_play_nothing(
+    system, slab, kwargs
+):
+    with pytest.raises(ValueError, match="wave"):
+        readout3d(system, slab, **kwargs)
+
+
+# ----------------------------------------------------------------------
+# Timing budget
+# ----------------------------------------------------------------------
+
+
+def test_a_longer_te_or_tr_is_padded_with_a_wait(system, slab):
+    short = readout3d(system, slab)
+    stretched = readout3d(system, slab, te=6e-3, tr=15e-3)
+    assert stretched.echo_time == pytest.approx(6e-3)
+    assert stretched.duration == pytest.approx(15e-3)
+    assert len(stretched.blocks) == len(short.blocks) + 2
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "name"),
+    [
+        ({"te": 1e-4}, "TE"),
+        ({"tr": 1e-4}, "TR"),
+        ({"n_echoes": 2, "echo_spacing": 1e-4}, "echo spacing"),
+    ],
+)
+def test_an_impossible_time_is_refused_by_name(system, slab, kwargs, name):
+    with pytest.raises(ValueError, match=f"requested {name}"):
+        readout3d(system, slab, **kwargs)
+
+
+def test_the_achieved_bandwidth_is_reported_not_the_requested_one(system, slab):
+    readout = readout3d(system, slab, readout_bandwidth_hz=250e3)
+    assert readout.bandwidth_hz == pytest.approx(1.0 / readout.adc.dwell)
+    dwell_steps = readout.adc.dwell / system.adc_raster_time
+    assert dwell_steps == pytest.approx(round(dwell_steps))
+    flat_steps = readout.readout_duration / system.grad_raster_time
+    assert flat_steps == pytest.approx(round(flat_steps))
+
+
+def test_oversampling_densifies_without_changing_resolution(system, slab):
+    plain = readout3d(system, slab)
+    dense = readout3d(system, slab, oversampling=2.0)
+    assert dense.adc.num_samples == 2 * plain.adc.num_samples
+    assert _first_line(dense)[0][0].max() == pytest.approx(
+        _first_line(plain)[0][0].max(), rel=1e-2
+    )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"n_echoes": 0}, "n_echoes must be >= 1"),
+        ({"spoiling_position": "middle"}, "spoiling_position must be one of"),
+        ({"spoiling_cycles": -1.0}, "spoiling_cycles must be >= 0"),
+        ({"partial_echo": 0.4}, r"partial_echo must be in \(0.5, 1\]"),
+        ({"oversampling": 0.5}, "oversampling must be >= 1"),
+    ],
+)
+def test_an_impossible_readout_is_refused(system, slab, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        readout3d(system, slab, **kwargs)
+
+
+def test_a_mismatched_fov_says_how_many_it_wanted(system, slab):
+    with pytest.raises(ValueError, match="fov must be a scalar or 3 values"):
+        design.LineReadout3D(system, slab.rf, slab.gz, fov=(0.22, 0.22), matrix=MATRIX)
+
+
+# ----------------------------------------------------------------------
+# End to end
+# ----------------------------------------------------------------------
+
+
+def test_a_whole_3d_scan_is_a_plain_pypulseq_loop(system, slab, tmp_path):
+    readout = design.LineReadout3D(
+        system,
+        slab.rf,
+        slab.gz,
+        fov=FOV,
+        matrix=MATRIX,
+        te=4e-3,
+        tr=10e-3,
+        spoiling_cycles=4.0,
+        labels=("LIN", "PAR"),
+    )
+    lines, partitions = 8, 4
+    phases = make_rf_spoiling_schedule(lines * partitions)
+    lin_label, par_label = readout.adc_labels
+
+    seq = pp.Sequence(system)
+    for shot, (line, partition) in enumerate(
+        (line, partition) for line in range(lines) for partition in range(partitions)
+    ):
+        readout.rf.phase_offset = readout.adc.phase_offset = phases[shot]
+        lin_label.value, par_label.value = line, partition
+        ky = (line - lines / 2) / (lines / 2)
+        kz = (partition - partitions / 2) / (partitions / 2)
+
+        seq.add_block(readout.rf, readout.gz)
+        seq.add_block(readout.wait_te)
+        seq.add_block(
+            readout.gx_pre,
+            pp.scale_grad(readout.gy_pre, ky),
+            pp.scale_grad(readout.gz_pre, kz),
+        )
+        seq.add_block(readout.gx, readout.adc, *readout.adc_labels)
+        seq.add_block(
+            readout.gx_spoil,
+            pp.scale_grad(readout.gy_rew, ky),
+            pp.scale_grad(readout.gz_rew, kz),
+        )
+        seq.add_block(readout.wait_tr)
+
+    assert seq.check_timing()[0]
+    path = tmp_path / "gre3d.seq"
+    seq.write(str(path))
+
+    written = pp.Sequence()
+    written.read(str(path))
+    assert len(written.block_events) == len(seq.block_events)
+    assert written.duration()[0] == pytest.approx(lines * partitions * 10e-3, rel=1e-6)
+
+
+def test_a_whole_table_is_one_repeating_unit(system, slab):
+    """What the module's scaling convention buys the scan.
+
+    The encodes are designed at their largest step and scaled per line, so
+    every line plays the same blocks with different numbers in their rows and
+    the scan reads as one repeating unit however many lines it has -- a
+    calibration line at zero encode included, because zero is an amplitude
+    and not a missing event.
+    """
+    module = readout3d(system, slab)
+    lines = (-1.0, -0.5, 0.0, 0.5, 1.0)
+
+    seq = pp.Sequence(system)
+    for ky in lines:
+        seq.add_block(module.rf, module.gz)
+        seq.add_block(
+            module.gx_pre,
+            pp.scale_grad(module.gy_pre, ky),
+            pp.scale_grad(module.gz_pre, ky),
+        )
+        seq.add_block(module.gx, module.adc)
+        seq.add_block(
+            module.gx_spoil,
+            pp.scale_grad(module.gy_rew, ky),
+            pp.scale_grad(module.gz_rew, ky),
+        )
+
+    assert seq.repetition() == (4, 1)
+    assert len(seq) == 4 * len(lines)

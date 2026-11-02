@@ -1,0 +1,295 @@
+"""Redis client factory functions with connection pooling and thread affinity.
+
+This module centralizes ALL Redis connection concerns:
+- Connection pool management (global singleton with configurable size)
+- Thread-local sync client caching
+- Client factory functions (sync/async)
+
+Architecture:
+- Connection pooling: Global singleton pools shared across all threads
+- Thread affinity: Each thread caches its own Redis client instance
+- Zero-copy optimization: Thread-local storage avoids locks on critical path
+"""
+
+import asyncio
+import logging
+import threading
+from typing import Optional
+from urllib.parse import urlparse
+
+import redis
+import redis.asyncio as redis_async
+from pydantic import SecretStr
+
+from cachekit.backends.redis.config import RedisBackendConfig
+from cachekit.config.validation import hide_secret, reveal_secret
+
+_logger = logging.getLogger(__name__)
+
+# Global pool instances (shared across threads)
+_pool_instance = None
+_async_pool_instance = None
+_pool_lock = threading.Lock()
+
+# Async pool lock (created on first use to avoid event loop issues)
+_async_pool_lock: Optional[asyncio.Lock] = None
+
+
+def _get_async_pool_lock() -> asyncio.Lock:
+    """Get or create the async pool lock.
+
+    Creates the asyncio.Lock on first use to avoid event loop issues
+    when module is imported outside of async context.
+
+    Returns:
+        asyncio.Lock for protecting async pool initialization
+    """
+    global _async_pool_lock
+    if _async_pool_lock is None:
+        _async_pool_lock = asyncio.Lock()
+    return _async_pool_lock
+
+
+# Thread-local client cache for performance optimization
+_thread_local = threading.local()
+
+
+def _resolve_max_connections(override: Optional[int], cfg: RedisBackendConfig) -> int:
+    """Resolve the pool size, enforcing the same > 0 invariant as the config field."""
+    if override is None:
+        return cfg.connection_pool_size
+    if override <= 0:
+        raise ValueError(f"max_connections must be > 0, got {override}")
+    return override
+
+
+def _tcp_only_kwargs(redis_url: SecretStr, cfg: RedisBackendConfig) -> dict[str, bool]:
+    """Pool kwargs that only TCP connections accept.
+
+    redis-py's from_url builds a UnixDomainSocketConnection for exactly the unix
+    scheme, and that class raises TypeError on socket_keepalive, with either
+    value, every time the pool makes a connection. The URL arrives wrapped: urlparse can raise on it.
+    """
+    if urlparse(redis_url.get_secret_value()).scheme == "unix":
+        return {}
+    return {"socket_keepalive": cfg.socket_keepalive}
+
+
+def create_connection_pool(
+    redis_url: str | SecretStr,
+    config: Optional[RedisBackendConfig] = None,
+    max_connections: Optional[int] = None,
+) -> redis.BlockingConnectionPool:
+    """Create a sync connection pool bound to an explicit URL.
+
+    Single source of truth for pool kwargs: every sync pool in cachekit is
+    built here so binary-safety (decode_responses=False), finite socket
+    timeouts (fail fast on an unreachable Redis instead of blocking on the
+    OS TCP timeout) and the configured TCP keepalive apply uniformly.
+
+    The pool blocks: when every connection is checked out, an operation waits
+    up to the effective socket_timeout for one to be released, then fails
+    with a redis ConnectionError. Executor threads share this pool, so a
+    burst wider than it is ordinary load; a non-blocking pool would turn it
+    into errors and cache misses. A caller on an event loop must not run a
+    command from this pool on the loop thread: the wait would stall the loop.
+
+    Args:
+        redis_url: Redis connection URL the pool is bound to. Its query
+            options (e.g. ?socket_timeout=1) override the config-derived
+            kwargs below: redis-py's from_url lets querystring arguments win.
+        config: Pool tuning knobs; defaults to env-derived config. Its
+            redis_url field is ignored — the explicit URL argument wins.
+        max_connections: Override for config.connection_pool_size
+
+    Returns:
+        redis.BlockingConnectionPool bound to redis_url (no connection is made
+        here; the pool connects lazily on first use)
+    """
+    redis_url = hide_secret(redis_url)  # may carry a password: unwrapped only inline (CWE-532)
+    cfg = config or RedisBackendConfig.from_env()
+    pool = redis.BlockingConnectionPool.from_url(
+        reveal_secret(redis_url),
+        decode_responses=False,  # cached payloads are raw bytes (LZ4/Arrow/AES) — never UTF-8 decode
+        max_connections=_resolve_max_connections(max_connections, cfg),
+        socket_timeout=cfg.socket_timeout,
+        socket_connect_timeout=cfg.socket_connect_timeout,
+        **_tcp_only_kwargs(redis_url, cfg),
+    )
+    # Wait for a free connection no longer than one socket operation may take. Read the
+    # effective value back from the pool: a ?socket_timeout= query option overrides cfg.
+    pool.timeout = pool.connection_kwargs["socket_timeout"]
+    return pool
+
+
+def create_async_connection_pool(
+    redis_url: str | SecretStr,
+    config: Optional[RedisBackendConfig] = None,
+    max_connections: Optional[int] = None,
+) -> redis_async.ConnectionPool:
+    """Create an async connection pool bound to an explicit URL.
+
+    Async twin of create_connection_pool() — same kwargs, same rationale.
+    """
+    redis_url = hide_secret(redis_url)
+    cfg = config or RedisBackendConfig.from_env()
+    return redis_async.ConnectionPool.from_url(
+        reveal_secret(redis_url),
+        decode_responses=False,  # cached payloads are raw bytes (LZ4/Arrow/AES) — never UTF-8 decode
+        max_connections=_resolve_max_connections(max_connections, cfg),
+        socket_timeout=cfg.socket_timeout,
+        socket_connect_timeout=cfg.socket_connect_timeout,
+        **_tcp_only_kwargs(redis_url, cfg),
+    )
+
+
+def get_redis_client() -> redis.Redis:
+    """Get a synchronous Redis client using connection pooling.
+
+    Creates a global connection pool on first call, then reuses it.
+    Pool configuration comes from RedisBackendConfig (env: CACHEKIT_REDIS_URL).
+
+    Returns:
+        redis.Redis: Synchronous Redis client with connection pooling
+
+    Examples:
+        Get a client and perform operations (requires Redis):
+
+        >>> client = get_redis_client()  # doctest: +SKIP
+        >>> client.ping()  # doctest: +SKIP
+        True
+    """
+    global _pool_instance
+
+    if _pool_instance is None:
+        with _pool_lock:
+            if _pool_instance is None:
+                # Get Redis-specific configuration
+                redis_config = RedisBackendConfig.from_env()
+                _pool_instance = create_connection_pool(redis_config.redis_url, redis_config)
+
+    return redis.Redis(connection_pool=_pool_instance)
+
+
+async def get_async_redis_client() -> redis_async.Redis:
+    """Get an asynchronous Redis client with connection pooling.
+
+    Creates a global async connection pool on first call, then reuses it.
+    Pool configuration comes from RedisBackendConfig (env: CACHEKIT_REDIS_URL).
+
+    Uses double-checked locking pattern with asyncio.Lock to prevent
+    race conditions where multiple coroutines could create separate pools.
+
+    Returns:
+        redis_async.Redis: Asynchronous Redis client
+
+    Examples:
+        Async client usage (requires Redis and async context):
+
+        >>> import asyncio
+        >>> async def example():  # doctest: +SKIP
+        ...     client = await get_async_redis_client()
+        ...     return await client.ping()
+        >>> asyncio.run(example())  # doctest: +SKIP
+        True
+    """
+    global _async_pool_instance
+
+    # Double-checked locking pattern to prevent race conditions
+    if _async_pool_instance is None:
+        async with _get_async_pool_lock():
+            # Check again inside lock to prevent race
+            if _async_pool_instance is None:
+                # Get Redis-specific configuration
+                redis_config = RedisBackendConfig.from_env()
+                _async_pool_instance = create_async_connection_pool(redis_config.redis_url, redis_config)
+
+    return redis_async.Redis(connection_pool=_async_pool_instance)
+
+
+def get_cached_redis_client() -> redis.Redis:
+    """Get a thread-local cached synchronous Redis client.
+
+    This provides the performance benefits of thread affinity by caching
+    Redis client instances per-thread. Avoids repeated client creation
+    in hot code paths.
+
+    THREAD SAFETY: Each thread gets its own cached client instance via
+    threading.local() storage, ensuring thread safety without locks.
+
+    PERFORMANCE: Critical for decorator-based caching where the same
+    thread makes multiple cache calls per request.
+
+    Returns:
+        redis.Redis: Thread-local cached Redis client with connection pooling
+
+    Examples:
+        Multiple calls return the same cached instance (per-thread):
+
+        >>> client1 = get_cached_redis_client()  # doctest: +SKIP
+        >>> client2 = get_cached_redis_client()  # doctest: +SKIP
+        >>> client1 is client2  # doctest: +SKIP
+        True
+    """
+    if not hasattr(_thread_local, "sync_client") or _thread_local.sync_client is None:
+        _thread_local.sync_client = get_redis_client()
+    return _thread_local.sync_client
+
+
+async def get_cached_async_redis_client() -> redis_async.Redis:
+    """Get an asynchronous Redis client (no caching needed).
+
+    Async clients handle their own connection management efficiently,
+    so thread-local caching provides no benefit and may interfere with
+    asyncio's event loop model.
+
+    Returns:
+        redis_async.Redis: Asynchronous Redis client with connection pooling
+    """
+    return await get_async_redis_client()
+
+
+def reset_global_pool():
+    """Reset the global pool instances and thread-local cache.
+
+    Useful for testing to ensure clean state between tests.
+    Disconnects existing pools and clears thread-local client cache.
+
+    Examples:
+        Reset pools between tests:
+
+        >>> reset_global_pool()  # Safe to call even if no pools exist
+    """
+    global _pool_instance, _async_pool_instance, _async_pool_lock, _thread_local
+    with _pool_lock:
+        if _pool_instance:
+            _pool_instance.disconnect()
+        if _async_pool_instance:
+            # Async pool disconnect() is a coroutine - schedule cleanup if event loop exists
+            try:
+                loop = asyncio.get_running_loop()
+                # Event loop running - schedule cleanup as task
+                loop.create_task(_async_pool_instance.disconnect())
+            except RuntimeError:
+                # No event loop running (sync context) - can't await
+                # Connection will be cleaned up when pool is garbage collected
+                _logger.debug("Async pool reset without event loop - relying on GC for cleanup")
+        _pool_instance = None
+        _async_pool_instance = None
+        # Reset async lock so it gets recreated fresh
+        _async_pool_lock = None
+
+    # Reset thread-local cache
+    if hasattr(_thread_local, "sync_client"):
+        _thread_local.sync_client = None
+
+
+__all__ = [
+    "create_async_connection_pool",
+    "create_connection_pool",
+    "get_async_redis_client",
+    "get_cached_async_redis_client",
+    "get_cached_redis_client",
+    "get_redis_client",
+    "reset_global_pool",
+]

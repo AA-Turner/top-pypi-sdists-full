@@ -2,7 +2,7 @@
 
 Written because `name_customized` was TRUE on all 620 runs in the fleet -- every
 run ever created -- which made the flag carry no information and left
-`app/generation/kinds/title.py` inert since 0080: it bails on
+`app/generation/kinds/title/title.py` inert since 0080: it bails on
 `name_customized` at read (`:162`) and re-asserts `name_customized = false` in
 its UPDATE (`:236`), so a fleet with no false rows is a fleet where the title
 kind has never once fired.

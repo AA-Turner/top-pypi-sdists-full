@@ -1,49 +1,38 @@
 Metadata-Version: 2.4
 Name: pymc
-Version: 6.3.2
+Version: 6.4.0
 Summary: Probabilistic Programming in Python: Bayesian Modeling and Probabilistic Machine Learning with PyTensor
-Home-page: http://github.com/pymc-devs/pymc
-Maintainer: PyMC Developers
-Maintainer-email: pymc.devs@gmail.com
-License: Apache License, Version 2.0
+Author-email: PyMC Developers <pymc.devs@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: repository, http://github.com/pymc-devs/pymc
+Keywords: statistics,modelling,inference,probabilistic-programming,bayesian-inference,science
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.12
+Requires-Python: <3.15,>=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: arviz<2.0,>=1.1.0
+Requires-Dist: better-optimize<0.6,>=0.5.1
 Requires-Dist: cachetools<7,>=4.2.1
 Requires-Dist: cloudpickle
 Requires-Dist: numpy>=1.25.0
 Requires-Dist: pandas>=0.24.0
-Requires-Dist: pytensor<3.4,>=3.2.2
+Requires-Dist: pytensor<3.4,>=3.3.6
 Requires-Dist: rich>=13.7.1
 Requires-Dist: scipy>=1.4.1
 Requires-Dist: threadpoolctl<4.0.0,>=3.1.0
 Requires-Dist: typing-extensions>=3.7.4
 Provides-Extra: nutpie
 Requires-Dist: nutpie<1,>=0.16.10; extra == "nutpie"
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 .. image:: https://cdn.rawgit.com/pymc-devs/pymc/main/docs/logos/svg/PyMC_banner.svg
     :height: 100px

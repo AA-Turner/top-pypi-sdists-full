@@ -1,0 +1,697 @@
+"""Corpus parsing, walking, freshness, and filters for find()."""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import os
+import re
+import stat
+import sys
+import threading
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+from . import freshness, privacy_log
+from .find_types import ParsedPage
+from .vault import _FM_PATTERN as FRONTMATTER_PATTERN
+from .vault import relative_posix
+
+log = logging.getLogger(__name__)
+
+# Operational state is not knowledge: `_Governance` (policy/receipts) and
+# `_Adoption` (durable run objects + run manifests) both name items whose own
+# disclosure decisions may be restrictive, so neither may enter the content
+# corpus or be reachable by recall.
+EXCLUDED_DIR_NAMES = frozenset(
+    {
+        ".graph-coordination",
+        ".trash",
+        "_Adoption",
+        "_Schema",
+        "_Governance",
+        "_attachments",
+        "_archive",
+        "_trash",
+    }
+)
+EXCLUDED_DIR_PREFIXES = (".exomem-batch-",)
+NAVIGATION_BASENAMES = frozenset({"index.md", "log.md"})
+H1_PATTERN = re.compile(r"^# (.+)$", re.MULTILINE)
+_DEFAULT_PAGE_CACHE_SIZE = 4096
+
+
+def _page_cache_size() -> int:
+    raw = os.environ.get("EXOMEM_PAGE_CACHE_SIZE")
+    if raw is None or not raw.strip():
+        return _DEFAULT_PAGE_CACHE_SIZE
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        log.warning("EXOMEM_PAGE_CACHE_SIZE=%r is not an int; using default", raw)
+        return _DEFAULT_PAGE_CACHE_SIZE
+
+
+def _page_cache_bytes() -> int | None:
+    from . import mode
+
+    default = 32 * 1024 * 1024 if mode.service_profile_enabled() else None
+    raw = os.environ.get("EXOMEM_PAGE_CACHE_BYTES")
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        log.warning("EXOMEM_PAGE_CACHE_BYTES is not an int; using default")
+        return default
+
+
+def _page_retained_bytes(page: ParsedPage) -> int:
+    # Charge existing lazy text copies before admission. Alias-aware traversal
+    # also terminates on recursive YAML and does not duplicate shared metadata.
+    page.__dict__["_byte_bounded_cache"] = True
+    page.__dict__.pop("stem_set", None)
+    _ = page.body_stripped
+    _ = page.body_norm
+    _ = page.title_norm
+    total = sys.getsizeof(page)
+    pending = [vars(page)]
+    seen: set[int] = set()
+    while pending:
+        value = pending.pop()
+        if id(value) in seen:
+            continue
+        seen.add(id(value))
+        total += sys.getsizeof(value)
+        if isinstance(value, dict):
+            pending.extend(value.keys())
+            pending.extend(value.values())
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            pending.extend(value)
+    return total
+
+
+@dataclass
+class FrontmatterCache:
+    """Per-process cache invalidated by file identity or content changes."""
+
+    entries: OrderedDict[Path, ParsedPage] = field(default_factory=OrderedDict)
+    _signatures: dict[Path, tuple[int, int, int, int, int, bytes]] = field(
+        default_factory=dict, repr=False
+    )
+    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
+    _weights: dict[Path, int] = field(default_factory=dict, repr=False)
+    _retained_bytes: int = field(default=0, repr=False)
+    #: Served-from-cache count: the use signal the idle reaper watches.
+    hits: int = 0
+
+    def clear(self) -> None:
+        """Discard every row, and record it as a whole-cache re-derivation.
+
+        The counter is what "rebuild counters unchanged" is asserted against,
+        so a discard that a receipt did not ask for has to move it.
+        """
+        freshness.note_custody_rebuild(_CUSTODY_SEAM)
+        self.release()
+
+    def release(self) -> None:
+        """Discard every row on the caller's explicit request, uncounted.
+
+        A memory release is a policy decision, not drift: the reaper asked for
+        this cache back and the next reader pays a re-parse it can predict.
+        Counting it as a custody rebuild would put a reaper's noise into the
+        one number that says whether a governed write discarded work.
+        """
+        with self._lock:
+            self.entries.clear()
+            self._signatures.clear()
+            self._weights.clear()
+            self._retained_bytes = 0
+
+    def _discard(self, path: Path) -> bool:
+        with self._lock:
+            removed = self.entries.pop(path, None) is not None
+            self._signatures.pop(path, None)
+            self._retained_bytes -= self._weights.pop(path, 0)
+            return removed
+
+    def _evict_to_limits(self, byte_limit: int | None) -> None:
+        with self._lock:
+            while len(self.entries) > _page_cache_size() or (
+                byte_limit is not None and self._retained_bytes > byte_limit
+            ):
+                self._discard(next(iter(self.entries)))
+
+    def invalidate_paths(self, vault_root: Path, rel_paths: Iterable[str]) -> int:
+        """Drop the entries a receipt names, and only those. Returns the count.
+
+        Exact custody rather than a stat comparison. The signature check in
+        `get` is the safety net, and its own docstring names the case it cannot
+        see -- a same-size rewrite that preserves the whole stat tuple. A
+        governed write knows exactly which pages it changed, so the row goes on
+        the receipt's word rather than on a filesystem inference.
+        """
+        root = Path(vault_root)
+        evicted = 0
+        for rel in rel_paths:
+            for candidate in _cache_key_candidates(root, rel):
+                if self._discard(candidate):
+                    evicted += 1
+        return evicted
+
+    def invalidate_scope(self, vault_root: Path, scope: str) -> int:
+        """Drop every entry under one scope, for a change no receipt covers."""
+        root = _scope_root(Path(vault_root), scope)
+        try:
+            anchor = root.resolve()
+        except OSError:
+            anchor = root
+        dropped = 0
+        with self._lock:
+            paths = tuple(self.entries)
+        for path in paths:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                resolved = path
+            if resolved == anchor or anchor in resolved.parents:
+                self._discard(path)
+                dropped += 1
+        return dropped
+
+    def stale_paths(
+        self,
+        vault_root: Path,
+        rel_paths: Iterable[str],
+        digests: Mapping[str, str | None] | None = None,
+    ) -> tuple[str, ...]:
+        """Which of these paths this cache holds a row that no longer describes.
+
+        A path this cache holds no row for is not a mismatch: an absent row is
+        re-parsed on the next read, which is exact by construction. Only a
+        RESIDENT row can be wrong.
+
+        `digests` is the batch's one read of each page (see
+        `freshness.custody_digests`); it is hashed here only when a caller does
+        not supply it.
+        """
+        root = Path(vault_root)
+        stale: list[str] = []
+        for rel in rel_paths:
+            for candidate in _cache_key_candidates(root, rel):
+                cached = self.entries.get(candidate)
+                if cached is None:
+                    continue
+                if digests is not None and rel in digests:
+                    digest = digests[rel]
+                else:
+                    content = _read_page_bytes(candidate, root)
+                    digest = None if content is None else hashlib.sha256(content).hexdigest()
+                if digest is None or cached.snapshot_hash != digest:
+                    stale.append(rel)
+                    break
+        return tuple(stale)
+
+    def get(self, path: Path, vault_root: Path) -> ParsedPage | None:
+        snapshot = _read_page_snapshot(path, vault_root)
+        if snapshot is None:
+            self._discard(path)
+            return None
+        content = snapshot.data
+        # Stat metadata is not content identity: on native Windows ctime is
+        # creation time, so a same-size rewrite can preserve this whole tuple.
+        # Hash the bytes already needed on a miss and reuse those exact bytes
+        # for parsing, keeping the fingerprint and ParsedPage consistent.
+        signature = (
+            int(snapshot.mtime * 1_000_000_000),
+            0,
+            len(content),
+            snapshot.identity.device,
+            snapshot.identity.inode,
+            hashlib.blake2b(content, digest_size=16).digest(),
+        )
+        with self._lock:
+            if len(self._signatures) != len(self.entries):
+                self._signatures = {
+                    cached_path: self._signatures[cached_path]
+                    for cached_path in self.entries
+                    if cached_path in self._signatures
+                }
+            byte_limit = _page_cache_bytes()
+            if byte_limit is not None and len(self._weights) != len(self.entries):
+                self._weights = {key: _page_retained_bytes(page) for key, page in self.entries.items()}
+                self._retained_bytes = sum(self._weights.values())
+            cached = self.entries.get(path)
+            if cached and self._signatures.get(path) == signature:
+                if byte_limit is not None:
+                    weight = _page_retained_bytes(cached)
+                    self._retained_bytes += weight - self._weights.get(path, 0)
+                    self._weights[path] = weight
+                self.entries.move_to_end(path)
+                self.hits += 1
+                self._evict_to_limits(byte_limit)
+                return cached
+        parsed = parse_page(path, snapshot.mtime, vault_root, content=content)
+        weight = _page_retained_bytes(parsed) if parsed is not None and byte_limit is not None else 0
+        with self._lock:
+            self._discard(path)
+            if parsed is not None and (byte_limit is None or weight <= byte_limit):
+                self.entries[path] = parsed
+                self._signatures[path] = signature
+                if byte_limit is not None:
+                    self._weights[path] = weight
+                    self._retained_bytes += weight
+                self.entries.move_to_end(path)
+                self._evict_to_limits(byte_limit)
+        return parsed
+
+
+CACHE = FrontmatterCache()
+
+_CUSTODY_SEAM = "frontmatter_cache"
+
+
+def _scope_root(vault_root: Path, scope: str) -> Path:
+    from .kbdir import kb_dirname
+
+    return vault_root / kb_dirname() if scope == "kb" else vault_root
+
+
+def _cache_key_candidates(vault_root: Path, rel: str) -> tuple[Path, ...]:
+    """Every spelling this cache could be keyed under for one relative path.
+
+    Callers reach `get` with `vault_root / rel`, and a vault under a symlink
+    resolves to a second absolute spelling for the same file. Both are dropped,
+    because leaving either behind leaves a row a later read can still serve.
+    """
+    direct = vault_root.joinpath(*rel.split("/"))
+    candidates = [direct]
+    try:
+        resolved = direct.resolve()
+    except OSError:
+        resolved = direct
+    if resolved != direct:
+        candidates.append(resolved)
+    return tuple(candidates)
+
+
+def _custody_apply(
+    vault_root: Path,
+    changed: tuple[str, ...],
+    deleted: tuple[str, ...],
+    _digests: Mapping[str, str | None],
+) -> None:
+    CACHE.invalidate_paths(vault_root, (*changed, *deleted))
+
+
+def register_path_custody() -> None:
+    """Register the frontmatter cache's per-path invalidation seam."""
+    freshness.register_custody_seam(
+        freshness.CustodySeam(
+            name=_CUSTODY_SEAM,
+            apply=_custody_apply,
+            verify=CACHE.stale_paths,
+            invalidate_scope=lambda root, scope: CACHE.invalidate_scope(root, scope),
+        )
+    )
+
+
+def walk_freshness_key(paths) -> tuple[int, int, str]:
+    """(file count, max mtime_ns, digest of sorted path+metadata records).
+
+    Digest-strength on purpose: count/max-mtime alone miss a delete paired
+    with a create, a rename (mtime preserved), and a replacement carrying an
+    older mtime. Every consumer that caches corpus-derived state (the hot
+    find cache, BM25, the wikilink resolver, the inbound-link index) compares
+    the whole triple, so those histories now invalidate correctly.
+    """
+    entries: list[tuple[str, freshness.FileSignature]] = []
+    for p in paths:
+        try:
+            entries.append((str(p), freshness.stat_signature(p)))
+        except OSError:
+            continue
+    return freshness.triple_from_entries(entries)
+
+
+def _walk_md_entry(
+    anchor: Path,
+    child: Path,
+    reserved_paths,
+    on_error: Callable[[OSError], None] | None = None,
+) -> str | None:
+    """How `walk_md` treats one directory entry: "dir" to descend, "md" to yield.
+
+    None skips it. The walk's whole per-entry rule lives here so `walk_md_admits`
+    answers for one path by the same rule, not by a copy that can drift. Callers
+    import `reserved_paths` once per walk and pass it in, as the walk always did.
+    """
+    return _classify_walk_entry(anchor, child, reserved_paths, on_error)[0]
+
+
+def _classify_walk_entry(
+    anchor: Path,
+    child: Path,
+    reserved_paths,
+    on_error: Callable[[OSError], None] | None = None,
+) -> tuple[str | None, os.stat_result | None]:
+    """`_walk_md_entry`'s answer, with the `lstat` that decided it when there was one."""
+    try:
+        relative = relative_posix(child.absolute(), anchor.absolute())
+    except ValueError:
+        return None, None
+    if reserved_paths.classify_logical(relative).blocked:
+        return None, None
+    try:
+        info = child.lstat()
+    except OSError as error:
+        if on_error is not None:
+            on_error(error)
+        return None, None
+    if stat.S_ISLNK(info.st_mode) or bool(
+        getattr(os.path, "isjunction", lambda _path: False)(child)
+    ):
+        return None, info
+    if stat.S_ISDIR(info.st_mode):
+        if child.name in EXCLUDED_DIR_NAMES or child.name.startswith(EXCLUDED_DIR_PREFIXES):
+            return None, info
+        return "dir", info
+    if (
+        stat.S_ISREG(info.st_mode)
+        and info.st_nlink == 1
+        and child.suffix.lower() == ".md"
+        and ".sync-conflict-" not in child.name
+    ):
+        return "md", info
+    return None, info
+
+
+def walk_md(root: Path, *, on_error: Callable[[OSError], None] | None = None):
+    """Yield every .md path under root, skipping excluded subtrees.
+
+    Skips Obsidian `*.sync-conflict-*.md` files — transient conflict
+    duplicates that would otherwise pollute the index and search results.
+    `on_error` receives every directory or entry the walk could not read, so a
+    caller can tell an incomplete walk from a whole one; without it the walk
+    stays best-effort.
+    """
+    for path, _info in walk_md_with_stat(root, on_error=on_error):
+        yield path
+
+
+def walk_md_with_stat(root: Path, *, on_error: Callable[[OSError], None] | None = None):
+    """`walk_md`, yielding `(path, lstat)`: the stat that admitted each page.
+
+    A caller that keys on file identity takes it from here instead of statting
+    every page a second time.
+    """
+    from . import foreground_priority, reserved_paths
+
+    anchor = Path(root)
+
+    def walk(current: Path):
+        foreground_priority.check_cancelled()
+        try:
+            children = tuple(current.iterdir())
+        except OSError as error:
+            if on_error is not None:
+                on_error(error)
+            return
+        for child in children:
+            foreground_priority.check_cancelled()
+            kind, info = _classify_walk_entry(anchor, child, reserved_paths, on_error)
+            if kind == "dir":
+                yield from walk(child)
+            elif kind == "md":
+                yield child, info
+
+    yield from walk(anchor)
+
+
+def walk_md_admits(
+    root: Path, path: Path, listings: dict[Path, frozenset[str] | None]
+) -> bool:
+    """Whether `walk_md(root)` yields exactly `path`, by visiting only its ancestry."""
+    from . import reserved_paths
+
+    return walk_entry_admits(
+        root, path, listings,
+        lambda anchor, child: _walk_md_entry(anchor, child, reserved_paths),
+    )
+
+
+def walk_entry_admits(
+    root: Path,
+    path: Path,
+    listings: dict[Path, frozenset[str] | None],
+    entry_kind: Callable[[Path, Path], str | None],
+) -> bool:
+    """Apply a scanner's entry rule to exactly one listed path's ancestry.
+
+    The walk yields a page when every directory above it lists (a directory it
+    cannot list contributes nothing), every step is an entry its parent lists
+    under exactly that name (the walk yields listed names, so on a
+    case-insensitive filesystem a differently-cased spelling that would still
+    stat is not one of them), each ancestor passes `entry_kind` as a
+    directory and the page itself as Markdown. Admission is decided before a
+    directory is listed, so a reserved tree is never enumerated -- the same
+    order the walk keeps. `listings` memoizes directory listings (None for a
+    directory the walk would not enter) across calls on one pass.
+    """
+    anchor = Path(root)
+    try:
+        parts = Path(path).relative_to(anchor).parts
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    if anchor not in listings:
+        listings[anchor] = _listed_names(anchor)
+    current = anchor
+    names = listings[anchor]
+    for depth, part in enumerate(parts):
+        if names is None or part not in names:
+            return False
+        current = current / part
+        if depth == len(parts) - 1:
+            return entry_kind(anchor, current) == "md"
+        if current not in listings:
+            listings[current] = (
+                _listed_names(current)
+                if entry_kind(anchor, current) == "dir"
+                else None
+            )
+        names = listings[current]
+    return False
+
+
+def _listed_names(directory: Path) -> frozenset[str] | None:
+    try:
+        return frozenset(os.listdir(directory))
+    except OSError:
+        return None
+
+
+def _read_page_snapshot(path: Path, vault_root: Path):
+    from . import reserved_paths
+
+    try:
+        relative = path.absolute().relative_to(vault_root.absolute()).as_posix()
+        # The corpus reads pages a walk of the disk found, so it opens the
+        # spelling the walk found: the freshness identity and the graph name a
+        # macOS-origin NFD page that way, and its NFKC form names no file on a
+        # byte-exact file system.
+        return reserved_paths.read_generic_bytes(vault_root, relative, physical=True)
+    except (OSError, ValueError, reserved_paths.ReservedPathLeafError) as error:
+        if privacy_log.content_private_logging_enabled():
+            log.warning("hosted content parse failed code=HOSTED_CONTENT_READ_FAILED")
+        else:
+            log.warning("could not read %s: %s", path, error)
+        return None
+
+
+def _read_page_bytes(path: Path, vault_root: Path) -> bytes | None:
+    snapshot = _read_page_snapshot(path, vault_root)
+    return snapshot.data if snapshot is not None else None
+
+
+def read_page_bytes(path: Path, vault_root: Path) -> bytes | None:
+    """The bytes the parser reads for one page, or None when it cannot be read."""
+    return _read_page_bytes(path, vault_root)
+
+
+def page_relative_path(path: Path, vault_root: Path) -> str:
+    """The canonical path identity used by the page parser."""
+    try:
+        return path.resolve().relative_to(vault_root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def parse_page(
+    path: Path,
+    mtime: float,
+    vault_root: Path,
+    *,
+    content: bytes | None = None,
+    resolved_relative: str | None = None,
+) -> ParsedPage | None:
+    from .foreground_activity import checkpoint
+
+    checkpoint(vault_root)
+    return _parse_page_after_checkpoint(
+        path, mtime, vault_root, content=content, resolved_relative=resolved_relative
+    )
+
+
+def _parse_page_after_checkpoint(
+    path: Path,
+    mtime: float,
+    vault_root: Path,
+    *,
+    content: bytes | None = None,
+    resolved_relative: str | None = None,
+) -> ParsedPage | None:
+    """Parse one representation after the caller's foreground checkpoint."""
+    if content is None:
+        content = _read_page_bytes(path, vault_root)
+        if content is None:
+            return None
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError as e:
+        if privacy_log.content_private_logging_enabled():
+            log.warning("hosted content parse failed code=HOSTED_CONTENT_READ_FAILED")
+        else:
+            log.warning("could not read %s: %s", path, e)
+        return None
+
+    # Markdown has a logical LF grammar even when editors persist CRLF on
+    # Windows. Normalize for parsing while callers that need exact bytes keep
+    # using the original `content`/PathGuard.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    fm_match = FRONTMATTER_PATTERN.match(text)
+    frontmatter_valid = True
+    if fm_match:
+        try:
+            # Hot path: every page-cache miss parses here (warm-up walks the
+            # whole vault through it). libyaml loader via the vault seam.
+            from .vault import yaml_safe_load
+
+            frontmatter = yaml_safe_load(fm_match.group(1)) or {}
+            if not isinstance(frontmatter, dict):
+                frontmatter = {}
+                frontmatter_valid = False
+        except yaml.YAMLError as e:
+            if privacy_log.content_private_logging_enabled():
+                log.warning("hosted content parse failed code=HOSTED_CONTENT_PARSE_FAILED")
+            else:
+                log.warning("YAML parse error in %s: %s", path, e)
+            frontmatter = {}
+            frontmatter_valid = False
+        body = fm_match.group(2)
+        # The FRONTMATTER_PATTERN consumes the closing `\n---\n` but not the
+        # blank line that conventionally follows. Strip a single leading `\n`
+        # so callers (notably `get`) can feed `body` back into `edit` without
+        # accumulating blanks across round-trips.
+        if body.startswith("\n"):
+            body = body[1:]
+    else:
+        frontmatter = {}
+        body = text
+        if text.removeprefix("\ufeff").startswith("---\n"):
+            # An opening fence without the complete frontmatter grammar is
+            # ambiguous metadata, not proof that the page has no metadata.
+            frontmatter_valid = False
+
+    if resolved_relative is not None:
+        rel_path = resolved_relative
+    else:
+        rel_path = page_relative_path(path, vault_root)
+
+    from . import provenance
+    from .vault import resolve_display_title
+
+    display_frontmatter = frontmatter
+    authored_title = frontmatter.get("title")
+    if authored_title is not None:
+        # Titles are search fields every audience reads, like `search_body`.
+        display_title = provenance.withheld_prose(str(authored_title), owner_path=rel_path)
+        if display_title != str(authored_title):
+            display_frontmatter = {**frontmatter, "title": display_title}
+    title = resolve_display_title(
+        display_frontmatter, provenance.withheld_prose(body, owner_path=rel_path), path
+    )
+
+    return ParsedPage(
+        path=path,
+        rel_path=rel_path,
+        frontmatter=frontmatter,
+        body=body,
+        title=title,
+        mtime=mtime,
+        snapshot_hash=hashlib.sha256(content).hexdigest(),
+        frontmatter_valid=frontmatter_valid,
+        vault_root=vault_root,
+    )
+
+
+def passes_filters(
+    page: ParsedPage,
+    *,
+    vault_root: Path | None = None,
+    types: list[str] | None,
+    projects: list[str] | None,
+    tags: list[str] | None,
+    speakers: list[str] | None = None,
+    file_types: list[str] | None = None,
+    exclude_file_types: list[str] | None = None,
+) -> bool:
+    # `excluded` tier (_access.yaml): never surfaced. Checked first — an excluded
+    # page is invisible regardless of how well it matches. (vault_root omitted in
+    # unit tests -> skip; real find paths always pass it.)
+    if vault_root is not None:
+        from . import access
+
+        if not access.is_indexable(vault_root, page.rel_path):
+            return False
+    if types and page.page_type not in types:
+        return False
+    if projects:
+        page_projects = all_projects(page.frontmatter)
+        if not any(p in page_projects for p in projects):
+            return False
+    if tags:
+        page_tags = set(page.tags)
+        if not any(t.lower() in page_tags for t in tags):
+            return False
+    if speakers:
+        page_speakers = {s.lower() for s in page.speakers}
+        if not any(s.lower() in page_speakers for s in speakers):
+            return False
+    # File-type scoping (opt-in; default None/None lets every kind through — a
+    # search must never hide an artifact type by default).
+    if file_types or exclude_file_types:
+        kind = page.file_kind
+        if file_types and kind not in {ft.lower() for ft in file_types}:
+            return False
+        if exclude_file_types and kind in {ft.lower() for ft in exclude_file_types}:
+            return False
+    return True
+
+
+def all_projects(fm: dict) -> set[str]:
+    out: set[str] = set()
+    if p := fm.get("project"):
+        out.add(str(p))
+    if ps := fm.get("projects"):
+        if isinstance(ps, list):
+            out.update(str(x) for x in ps)
+        else:
+            out.add(str(ps))
+    return out

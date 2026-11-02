@@ -1,0 +1,434 @@
+[project]
+name = "assertpy"
+version = "2.35.0"
+description = "Fluent, fully typed assertion library for Python: your type checker sees only the assertions that fit the value, and every failure carries a structured diff. Soft assertions, polling, inline snapshots, OpenAPI contracts."
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.10"
+authors = [
+    { name = "Justin Shacklette", email = "justin@saturnboy.com" },
+]
+maintainers = [
+    { name = "Solganis", email = "solganis.dev@gmail.com" },
+]
+keywords = ["test", "testing", "assert", "assertion", "assertthat", "assert_that", "pytest", "unittest", "assertpy", "fluent", "matchers", "type-safe"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Testing",
+]
+
+dependencies = [
+    "typing_extensions>=4.0; python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/assertpy/assertpy"
+Repository = "https://github.com/assertpy/assertpy"
+Issues = "https://github.com/assertpy/assertpy/issues"
+
+[project.entry-points."pytest11"]
+assertpy = "assertpy.pytest_plugin"
+
+[project.optional-dependencies]
+allure = ["allure-pytest>=2.13"]
+# 1.2.6 has no `ParseMatcher.TYPE_REGISTRY`, so our parser never reaches behave's own registry
+behave = ["behave>=1.3.0"]
+data = ["assertpy[numpy,pandas,polars]"]
+# asttokens below 2.0.4 misreads a keyword argument and cannot mark the tokens of the file it rewrites
+inline = ["executing>=2.2", "asttokens>=2.0.4"]
+json = ["idna>=3.7", "jsonpath-ng>=1.8", "jsonschema>=4.18", "referencing>=0.28.4"]
+numpy = ["numpy>=1.26"]
+pandas = ["pandas>=2.0"]
+polars = ["polars>=1.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# What the source distribution carries, listed rather than filtered.  Hatchling's default is "everything
+# in the directory that git does not ignore", and it reads `.gitignore` only - so anything kept out of
+# the repository through `.git/info/exclude` or simply left lying in the working tree ends up shipped.
+# A build from a CI checkout is clean because the tree is; a build from a developer's directory is not.
+# The list is what a consumer needs to build the package and run its suite: the package, the tests, the
+# docs those tests execute, and the benchmark module one of them reads.
+[tool.hatch.build.targets.sdist]
+include = [
+    "assertpy",
+    "tests",
+    # the suite reads it: `tests/test_check_protocols.py` regenerates the verdict twins and compares.
+    # Without it the shipped sdist carries a test that fails during collection
+    "scripts",
+    "docs",
+    "benchmarks",
+    "mkdocs.yml",
+    "mkdocs_hooks.py",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.165.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    # not for running the suite in parallel, but so the xdist controller sweep can be tested against
+    # real worker processes instead of a fake node
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.16.8",
+    "ty>=0.0.85",
+    "typing_extensions>=4.0",
+]
+docs = [
+    "mkdocs-material>=9.7.6",
+    "mkdocstrings[python]>=1.0.4",
+    "mkdocs-redirects>=1.2.3",
+]
+# Real third-party libraries the duck-typed integration paths are verified against in CI (the suite
+# otherwise skips these tests); pandas/polars/numpy come from the [data] extra instead.
+integrations = [
+    # 25.0 was never released, so the bound named a version nobody can install
+    "attrs>=25.1.0",
+    "django>=5.0",
+    "flask>=3.0",
+    "httpx>=0.28",
+    "httpx2>=2.11",
+    "pydantic>=2.0",
+    # 2.32.0 and 2.32.1 are yanked over a CVE-2024-35195 mitigation conflict, so 2.32.2 is the floor
+    "requests>=2.32.2",
+    # below 0.46 its test client reaches `asyncio.iscoroutinefunction`, deprecated in 3.14, and our
+    # `-W error` turns that into a failure
+    "starlette>=0.46",
+]
+typecheck = [
+    "django-stubs>=5.0",
+    "mypy>=2.3.0",
+    # pandas ships no `py.typed`, so its public typing contract lives here.  Without it a checker
+    # either reads pandas' source or gives up, and the frame/array classification changes per checker
+    "pandas-stubs>=2.2",
+    "pyrefly>=1.3.1",
+    "pyright>=1.1.414",
+]
+# A validator written by other hands, which `conforms_to_openapi` is held to (the test skips where it is
+# absent).  Its own group: it needs jsonschema 4.19.1, above the floor the `json` extra declares, so in a
+# lowest-direct cell it would lift the very bound that cell is there to hold.  The three beside it are the
+# packages jsonschema asks for `hostname`, `duration` and `uri`, which the checks of this library are compared
+# with and deliberately not installed for.
+oracle = [
+    "fqdn>=1.6.0",
+    "isoduration>=20.11.0",
+    "openapi-schema-validator>=0.9.0",
+    "rfc3986-validator>=0.1.1",
+]
+# Mutation testing. Its own group because mutmut forks and calls os.wait: it does not run on
+# Windows at all, so it must not sit in the dev group every contributor installs.
+mutation = [
+    "mutmut>=3.7",
+]
+docs-examples = [
+    "pytest-examples>=0.0.18",
+]
+# Performance regression gate. Own group: pytest-codspeed is only needed by the CodSpeed CI job and a
+# manual `pytest benchmarks/ --codspeed`, not by the suite every contributor runs.
+benchmark = [
+    "pytest-codspeed>=5",
+]
+
+[tool.mutmut]
+source_paths = ["assertpy/"]
+# mutmut's trampoline renames every function of the mutated module to `xǁClassǁnameǁ__mutmut_orig`
+# and adds a frame to the stack. A test that asserts on the *shape of execution* rather than on the
+# result therefore fails against the unmutated baseline as well, and mutmut reads a red baseline as
+# "failed to collect stats" and leaves every mutant of that module `not checked` - which reads in
+# the report as a clean run rather than as a broken one.
+#
+# Everything listed here is in that class: a line number or a `file:line` location, the shape of a
+# traceback, a function name quoted inside a Python error message, an enumeration of a module's
+# public methods (the mangled names show up in it), a hypothesis `differing_executors` health check,
+# or a global extension registry. Any new test about a stack frame, a function name or a line
+# number belongs here too.
+#
+# The five named tests at the end of the `-k` expression are a fifth kind: they re-derive a claim by
+# parsing the package's own source, and mutmut copies `tests/` into the mutants tree, so what they
+# parse is the trampoline's rewrite rather than what anybody ships. Named one by one rather than by
+# file, since their neighbours in both files run fine and are worth keeping.
+#
+# Two guards are excluded for a different reason, being about source text rather than about library
+# behaviour: the doc-example guard reads `docs/*.md` at runtime, which `also_copy` would have to carry
+# into the mutants tree, and the typing-claims guard scans the package's own `.py` files - which under
+# mutation are the trampoline's rewrite of them, not the source anybody ships.
+#
+# The subprocess classes are excluded for a third: they run pytest as a child, which starts from
+# the `mutants/` tree. It exits non-zero, the assertions read an empty stdout, and the baseline goes
+# red. A subprocess carries the unmutated package in any case, so nothing is lost by leaving them out.
+pytest_add_cli_args = [
+    "-k",
+    """\
+    not TestPytestPluginDiffRendering \
+    and not TestSnapshotKeyReuseUnderXdist \
+    and not TestAForgottenAwaitUnderErrorFilters \
+    and not TestTheProfileFromAConfigFile \
+    and not TestTheDiffTravelsWithTheFailure \
+    and not TestTheHandoffInARealRun \
+    and not TestARealUpdateRun \
+    and not TestASoftBlocksSectionsReachEveryReader \
+    and not test_the_warning_points_at_the_line_that_reused_the_key \
+    and not test_no_vararg_assertion_passes_with_nothing_to_assert \
+    and not snapshot_roundtrip_all_types \
+    and not test_new_line_in_existing_file_warns \
+    and not test_a_default_key_names_its_line \
+    and not test_update_preserves_sibling_subsnaps \
+    and not test_ci_fails_on_missing_lineno_subsnap \
+    and not test_new_line_in_existing_file_creates \
+    and not test_line_keyed_snapshots_are_told_apart \
+    and not test_line_keyed_contracts_are_told_apart \
+    and not test_starts_with_bad_prefix_failure \
+    and not test_ends_with_bad_prefix_failure \
+    and not test_the_warning_points_at_the_caller \
+    and not test_each_failure_is_located_where_it_was_written \
+    and not test_the_created_warning_points_at_the_calling_test \
+    and not test_the_updated_warning_points_at_the_calling_test \
+    and not test_the_created_contract_warning_points_at_the_calling_test \
+    and not test_the_updated_contract_warning_points_at_the_calling_test \
+    and not test_a_missing_line_key_in_an_existing_file_names_that_file \
+    and not test_a_missing_contract_line_key_names_its_file \
+    and not test_a_default_key_contract_file_is_named_after_the_calling_module \
+    and not test_a_record_knows_where_it_was_collected \
+    and not test_the_record_is_located_where_the_assertion_was_written \
+    and not test_code_logging_through_the_chains_logger_reaches_the_callback_as_a_record \
+    and not test_strict_implies_plain_for_any_pair \
+    and not test_the_shortcut_answers_what_the_walk_answers \
+    and not test_naming_duplicates_answers_what_counting_answered \
+    and not TestTheCountsTheDocsQuote \
+    and not test_every_type_refusal_has_the_same_shape \
+    and not TestRecordedPosition\
+    """,
+    # both enumerate the package's own public surface, which the trampoline's renamed functions join
+    "--ignore=tests/test_api_compatibility.py",
+    "--ignore=tests/test_api_vocabulary.py",
+    # reads the package's own source for `reject_unknown_kwargs(...)` calls and indexes their
+    # arguments, which the trampoline's rewrite does not preserve: it raises at import, before a
+    # single test runs.  Same reason as `test_typing_claims.py` below
+    "--ignore=tests/test_typing_conformance.py",
+    # Deselected one by one rather than by file, because their neighbours run fine: the generator
+    # gates hold tests that judge real mutants beside the ones reading the generator, and so do both
+    # contract files. Node ids rather than more `and not` in the `-k`
+    # above, since that matches by substring and a future test of the same name would drop out of
+    # the run without anybody noticing.
+    #
+    # The first eight import their generator from `scripts/`, which is not in the mutants tree.
+    # The rest re-derive a claim by parsing the package's own source, and mutmut copies `tests/`
+    # in, so what they parse is the trampoline's rewrite rather than what anybody ships.
+    "--deselect=tests/test_check_protocols.py::test_the_generated_twins_match_the_protocols_they_mirror",
+    "--deselect=tests/test_poll_protocols.py::test_the_generated_twins_match_the_views_they_mirror",
+    "--deselect=tests/test_poll_protocols.py::test_the_generated_verdict_twin_matches_the_views_it_mirrors",
+    "--deselect=tests/test_poll_protocols.py::test_only_the_exception_an_expectation_names_is_left_uncompared",
+    "--deselect=tests/test_capable_protocol.py::test_the_facade_matches_what_the_generator_produces",
+    "--deselect=tests/test_capable_protocol.py::TestWhatEachRestrictedAssertionAsksFor",
+    "--deselect=tests/test_capable_protocol.py::TestWhatIsAskedOfATypeInstead",
+    "--deselect=tests/test_negated_protocols.py::test_the_file_is_what_the_generator_writes",
+    "--deselect=tests/test_expected_contract.py::test_the_walk_found_the_failure_sites",
+    "--deselect=tests/test_expected_contract.py::test_every_assertion_that_names_no_expected_is_written_down",
+    "--deselect=tests/test_operation_contract.py::TestTheRegisterDescribesTheSurface::test_the_derivation_itself_ran",
+    "--deselect=tests/test_operation_contract.py::TestTheRegisterDescribesTheSurface::test_every_operation_without_a_verdict_is_registered",
+    "--deselect=tests/test_operation_contract.py::TestTheRegisterDescribesTheSurface::test_every_operation_that_pivots_has_been_decided_about",
+    # the builder's public members, which the trampoline's renamed functions join
+    "--deselect=tests/test_capable_protocol.py::TestNothingTheBuilderOffersIsMissing::test_every_public_member_of_the_builder_is_declared",
+    "--deselect=tests/test_refusals.py::test_the_sweep_covers_every_public_assertion",
+    # mutmut runs pytest again in one process, which hypothesis refuses of a `@given` method as `differing_executors`.
+    # The profile from `tests/conftest.py` lifts that one check, and the three below name health checks of their own.
+    "--hypothesis-profile=one_process_twice",
+    "--deselect=tests/test_diff_laws.py::TestAPairingAsksWhetherTwoGraphsDiffer::test_an_asking_answers_by_index_what_it_answered_choosing_a_pairing",
+    "--deselect=tests/test_diff_laws.py::TestASequenceUnderAKeyOptionFailsOnce::test_the_entries_name_the_elements_that_differ_on_their_own",
+    "--deselect=tests/test_pytest_plugin.py::TestAFailedEqualityKeepsWhatItCompared::test_whatever_is_left_out_the_pair_kept_is_the_pair_the_diff_is_of",
+    # a failure's `requirement` is found on the stack by function name, which the trampoline renames
+    "--deselect=tests/test_openapi_contract.py::TestTheRequirementNamesTheCallersSpec",
+    "--deselect=tests/test_public_surface.py::TestWhatAFailureLetsYouRead::test_a_plain_failure_names_what_was_asked",
+    "--deselect=tests/test_pytest_plugin.py::TestAllureFullMode::test_a_failure_that_names_no_value_still_attaches_what_was_asked",
+    "--deselect=tests/test_pytest_plugin.py::TestAllureFullMode::test_a_failure_with_no_diff_at_all_still_attaches_its_expected",
+    "--deselect=tests/test_pytest_plugin.py::TestAllureFullMode::test_a_failure_that_named_only_an_expected_still_attaches_it",
+    "--deselect=tests/test_snapshots.py::TestSharedKeyHint::test_a_mismatch_still_says_what_was_asked",
+    "--deselect=tests/test_chain_machine.py::TestChains::runTest",
+    "--deselect=tests/test_prerequisites.py::TestNegationKeepsThePrerequisite::test_check_answers_the_positive_failure_asked_through_not",
+    "--deselect=tests/test_expected_exception.py::TestNegationKeepsTheGroupRequirement::test_check_answers_the_positive_failure_asked_through_not",
+    "--deselect=tests/test_warn_on_failure.py::test_a_failure_reaches_the_callback_as_its_record",
+    "--deselect=tests/test_warn_on_failure.py::test_each_link_of_a_chain_is_handed_over_once",
+    "--deselect=tests/test_warn_on_failure.py::test_an_expected_exception_chain_keeps_the_callback",
+    # the line that asked is read off the stack, where the trampoline's own frames now stand
+    "--deselect=tests/test_prerequisites.py::TestNegationKeepsThePrerequisite::test_a_soft_block_collects_it_once_either_way",
+    "--deselect=tests/test_expected_exception.py::TestNegationKeepsTheGroupRequirement::test_a_soft_block_collects_it_either_way_where_the_positive_lands",
+    "--deselect=tests/test_refusal_frames.py::TestARefusalShowsNoFrameOfTheLibrary::test_only_the_line_that_wrote_it_is_shown",
+    "--deselect=tests/test_refusal_frames.py::TestARefusalShowsNoFrameOfTheLibrary::test_a_failed_assertion_shows_the_same",
+    # a depth counted in frames, of which the trampoline puts its own between every two of the library's
+    "--deselect=tests/test_deep_nesting.py::TestTheDepthOfAPair::test_a_field_filter_reaches_a_value_nested_under_a_field",
+    "--deselect=tests/test_dict_compare.py::TestAValueThatHoldsItselfUnderIgnoreAndInclude::test_where_the_plain_way_runs_out_of_frames_the_one_that_remembers_is_tried",
+    # a `StopIteration` of the value's own is let out with no frame between, and a wrapped generator is one
+    "--deselect=tests/test_deep_nesting.py::TestTheValuesOwnStopIterationGetsOut::test_from_a_field_read_by_the_diff",
+    "--deselect=tests/test_deep_nesting.py::TestTheValuesOwnStopIterationGetsOut::test_from_an_equality_asked_by_the_mapping_verdict",
+    "--deselect=tests/test_deep_nesting.py::TestTheValuesOwnStopIterationGetsOut::test_from_a_comparator_asked_about_an_aligned_pair",
+    # enumerate the package's assertions or parse its source, and meet the trampoline's renamed functions
+    "--deselect=tests/test_membership_family.py::TestEverySiblingSaysWhy::test_every_assertion_named_as_one_of_the_family_is_decided_about",
+    "--deselect=tests/test_moment_relations.py::TestEveryAssertionOfTwoMoments::test_every_assertion_of_the_date_mixin_is_entered",
+    "--deselect=tests/test_numeric_questions.py::test_no_special_number_question_is_asked_outside_the_helpers",
+    "--deselect=tests/test_one_shot_chains.py::TestNoAssertionReadsBesideTheBuilder::test_every_assertion_that_reads_answers_alike_when_asked_twice",
+    "--deselect=tests/test_one_shot_chains.py::test_no_assertion_walks_the_value_itself_but_the_ones_named",
+    # ask which modules importing the package loads, and every mutated module imports mutmut
+    "--deselect=tests/test_import_cost.py::test_importing_the_library_loads_none_of_them",
+    "--deselect=tests/test_openapi_formats.py::TestEachIsCheckedAlikeEverywhere::test_importing_the_library_compiles_none_of_them_and_loads_no_module_for_them",
+    "--deselect=tests/test_openapi_formats.py::TestEachIsCheckedAlikeEverywhere::test_ipaddress_is_loaded_for_an_address_in_brackets_and_for_nothing_else",
+    # a child pytest starts from the mutants tree
+    "--deselect=tests/test_skip_guard.py::test_a_skip_that_says_why_is_left_alone",
+    "--ignore=tests/test_requirement.py",
+    # read what the mutants tree does not carry: ARCHITECTURE.md, the CI workflow, the unmutated source
+    "--deselect=tests/test_public_surface.py::TestEveryExportHasAReferenceEntry",
+    "--ignore=tests/test_architecture_doc.py",
+    "--ignore=tests/test_complexity.py",
+    "--ignore=tests/test_declared_floors.py",
+    "--ignore=tests/test_docs_examples.py",
+    # loads its generator from `scripts/` at import, so no test in it can be deselected alone
+    "--ignore=tests/test_poll_parity.py",
+    "--ignore=tests/test_exception_context.py",
+    "--ignore=tests/test_extensions.py",
+    "--ignore=tests/test_grouped_soft.py",
+    "--ignore=tests/test_property_attrs.py",
+    "--ignore=tests/test_property_based.py",
+    "--ignore=tests/test_protocol_parity.py",
+    "--ignore=tests/test_recursive_compare_attrs.py",
+    "--ignore=tests/test_recursive_compare_pydantic.py",
+    "--ignore=tests/test_traceback.py",
+    "--ignore=tests/test_typing_claims.py",
+    "--ignore=tests/test_warn.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# --strict-markers: unknown @pytest.mark.* is an error, not a silent typo.
+addopts = ["-p", "no:assertpy", "--strict-markers"]
+xfail_strict = true  # an xfail that unexpectedly passes (xpass) fails the run
+# Warnings are errors: a deprecation or runtime warning fails the run instead of
+# scrolling past. The suite already passes clean under this; add targeted
+# `"ignore::<Category>"` entries here only if a third-party warning forces it.
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["assertpy"]
+
+[tool.coverage.report]
+# the negation twins are protocol declarations only: nothing imports the module at run time, so its
+# two import lines are the whole of it and never execute
+omit = [
+    "tests/*",
+    "assertpy/__init__.py",
+    "assertpy/_engine/_negated_typing.py",
+]
+
+[tool.ruff]
+# 120 feeds both `ruff format` and the E501 lint. Unlike black-style configs we do
+# NOT disable E501 (see the empty `ignore` below): line length is a hard rule, not
+# just a formatter hint, so the formatter and the linter agree at 120.
+line-length = 120
+target-version = "py310"  # lowest Python we support; UP rewrites target this floor
+# Ruff 0.16 prints rule names instead of codes under preview. Keep the codes: they are what a
+# `# noqa` needs, and looking one up from a name is a detour on every suppression.
+output-prefer-rule-codes = true
+
+[tool.ruff.format]
+# Ruff 0.16 reformats python blocks inside Markdown. Docs code is hand-wrapped to 90 characters so
+# it fits the theme's 0.8em code font without a horizontal scrollbar, and reflowing it at the 120
+# above pushes eight pages past that. Snippets stay gated by tests/test_docs_examples.py.
+exclude = ["*.md"]
+
+[tool.ruff.lint]
+# Enable preview rules, but ONLY the ones named explicitly in `select`
+# (explicit-preview-rules), so we can opt into a single preview rule (E301) without
+# pulling in every unstable rule ruff ships behind the preview flag.
+preview = true
+explicit-preview-rules = true
+
+# Curated set, not "ALL": each prefix is here on purpose. Plugin name + why we keep it.
+select = [
+    "E",     # pycodestyle errors
+    "E301",  # pycodestyle, preview-gated: require a blank line between methods (not in stable "E")
+    "F",     # Pyflakes - unused imports/names, undefined names
+    "W",     # pycodestyle warnings
+    "N",     # pep8-naming - naming conventions
+    "I",     # isort - import ordering
+    "UP",    # pyupgrade - modernize syntax to our py310+ floor
+    "B",     # flake8-bugbear - likely bugs and footguns
+    "A",     # flake8-builtins - don't shadow builtins
+    "ASYNC", # flake8-async - async footguns (blocking calls, missing await) in async assertions/polling
+    "C4",    # flake8-comprehensions - drop redundant list()/dict()/set() wrappers
+    "FA",    # flake8-future-annotations - `X | Y` in a runtime-evaluated annotation needs the
+             # `from __future__ import annotations` our 3.10 floor depends on
+    "FURB",  # refurb - idiom simplifications in the same family as SIM/PIE/C4
+    "PIE",   # flake8-pie - small idiom simplifications
+    "RSE",   # flake8-raise - no empty parens on a bare `raise SomeError()`
+    "PGH",   # pygrep-hooks - forbid blanket `noqa`/`type: ignore` (must name a rule code)
+    "PLE",   # Pylint errors - real-error subset (not style)
+    "PLW1514",  # Pylint, preview-gated: `open()` in text mode names its encoding. Without one a snapshot
+                # file holding raw UTF-8 was read as cp1252 on Windows below 3.15 and compared unequal
+    "SIM",   # flake8-simplify - collapse redundant constructs
+    "T10",   # flake8-debugger - no committed breakpoint()/pdb calls
+    "RUF",   # Ruff-specific rules
+    "ERA",   # eradicate - no commented-out code
+    "PERF",  # Perflint - performance anti-patterns
+    "TC",    # flake8-type-checking - keep typing-only imports under TYPE_CHECKING
+    "C901",  # mccabe - a ratchet rather than a bar, see the threshold below
+]
+
+# Intentionally empty: nothing is globally ignored. In particular E501 stays ON
+# (see line-length note above). Per-file relaxations go in per-file-ignores, not here.
+ignore = []
+
+[tool.ruff.lint.mccabe]
+# A ratchet, not a bar. Thirty-one functions sit above the default of 10 and the worst is 32, so a
+# threshold of 10 would fail today and a rewrite of `_build_equality_diff` for the sake of a number
+# would risk code that tests and mutation testing hold. This stops a new worst only, which is the
+# cheap half: `tests/test_complexity.py` records every one of the thirty-one and catches an individual
+# function growing, which neither a ceiling nor a count can see.
+max-complexity = 32
+
+[tool.ruff.lint.per-file-ignores]
+# The generated twins mirror the signatures they were generated from, `snapshot(id=...)` among them.  A suppression written into the generator would be a style decision made where nobody
+# reads it, so it lives here instead
+"assertpy/_engine/_check_typing.py" = ["A002"]
+"assertpy/_engine/_poll_typing.py" = ["A002"]
+"assertpy/_engine/_builder_check_typing.py" = ["A002"]
+"assertpy/_engine/_capable_typing.py" = ["A002"]
+"assertpy/_engine/_negated_typing.py" = ["A002"]
+
+# Tests trade a few style rules for directness and literal fixtures:
+"tests/*" = [
+    "E741",    # ambiguous one-letter names (l/I/O) are fine in throwaway test locals
+    "SIM102",  # keep nested `if`s when they read closer to the scenario under test
+    "SIM300",  # allow Yoda-style literal-first comparisons in hand-written test data
+    "A002",    # fixtures/helpers may take args named like builtins (id, type, filter, ...)
+    "ERA001",  # example snippets deliberately left as comments in tests
+]
+
+[tool.ty.analysis]
+# Suppressions must be ty-native `# ty: ignore[rule]`. Make ty disregard mypy's
+# generic `# type: ignore` so a stray mypy-style comment can't silently mask a ty error.
+respect-type-ignore-comments = false
+# Off by default in ty: the return of an unannotated function, a dependency's included, is read instead of left Unknown.
+return-type-inference = "always"
+
+[tool.ty.rules]
+# Off by default in ty. A `# ty: ignore` that names no rule silences every diagnostic on its line, the
+# ones nobody has seen yet among them.
+blanket-ignore-comment = "error"

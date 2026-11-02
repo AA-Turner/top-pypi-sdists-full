@@ -1,0 +1,24 @@
+name: xvec
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # required
+  - shapely >=2
+  - xarray
+  - rioxarray
+  - joblib
+  - rasterio
+  - exactextract
+  - tqdm
+  - pyproj
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - pytest-reportlog
+  - geopandas-base
+  - geodatasets
+  - pyogrio
+  - xproj
+  - matplotlib

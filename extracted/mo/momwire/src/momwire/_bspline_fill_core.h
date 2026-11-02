@@ -156,14 +156,26 @@ void subtract_sommerfeld_remainder(std::vector<cdouble> &Z, const Geometry &g, c
 
 // TEST HOOK: `_remainder_graded.pair_moments(..., I, J, ...)` on `grid`
 // (n, d1, d1) and the base-order `_remainder_pair_moments` of each (I[n],
-// J[n]) alone.
+// J[n]) alone. `with_fixed` false leaves `fixed` empty: the
+// Sinusoidal-Galerkin fill reads only `graded` (its base-order moments come
+// from `remainder_field_proj_owned`), and the per-pair base-order calls were
+// ~90 % of its above-ground fill (perf-1028 finding 4).
 void debug_pair_moments(const Geometry &g, double gz, double k, const somm_core::Grid &grid, int d1,
                         const std::vector<int64_t> &I, const std::vector<int64_t> &J, int64_t base,
-                        std::vector<cdouble> &graded, std::vector<cdouble> &fixed);
+                        std::vector<cdouble> &graded, std::vector<cdouble> &fixed, bool with_fixed = true);
 
 void debug_chunk_pair(const Geometry &g, double gz, double k, const somm_core::Grid &grid, int d1, int64_t i,
                       int64_t j, std::vector<int64_t> &o_pair, std::vector<double> &s_o, std::vector<double> &w_o,
                       std::vector<cdouble> &v);
+
+// `_quadrature.remainder_qp_pairs(nodes, sl, sr, gz, base, cap, c,
+// edge_tol)` over the `n` segments `sl` -> `sr` ((n, 3) row-major, the nodes
+// at `_gl01(base)`), symmetrised, dilated to touching neighbours and
+// reduced to each pair's largest order: (I, J, Q) sorted by I then J. The
+// Sinusoidal-Galerkin route's grazing pairs too (momwire#1718 S5b).
+void raised_pairs_on(const std::vector<double> &sl, const std::vector<double> &sr, int64_t n, double gz, int64_t base,
+                     double c, double edge_tol, const nec5::NumpyLinalg &np, std::vector<int64_t> &I,
+                     std::vector<int64_t> &J, std::vector<int64_t> &Q);
 
 // `_remainder_qp_pairs(seg_l, seg_r, gz)` on the graded route: (I, J, Q)
 // of the segment pairs raised above `base`, sorted by I then J.

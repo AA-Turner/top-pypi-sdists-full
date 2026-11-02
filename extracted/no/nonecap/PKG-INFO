@@ -1,0 +1,338 @@
+Metadata-Version: 2.5
+Name: nonecap
+Version: 0.11.2
+Summary: Official Python client for NoneCap, the hCaptcha solver API.
+Project-URL: Homepage, https://nonecap.com/
+Project-URL: Documentation, https://nonecap.com/api-reference
+Project-URL: Repository, https://github.com/nonecap/nonecap-py
+Project-URL: Issues, https://github.com/nonecap/nonecap-py/issues
+Author: Lunium
+License-Expression: MIT
+License-File: LICENSE
+Keywords: api-client,captcha,captcha-solver,hcaptcha,hcaptcha-solver,nonecap,sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: httpx>=0.24
+Provides-Extra: dev
+Requires-Dist: mypy>=1.13; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24; extra == 'dev'
+Requires-Dist: pytest>=8; extra == 'dev'
+Requires-Dist: ruff>=0.8; extra == 'dev'
+Description-Content-Type: text/markdown
+
+<h1 align="center">nonecap</h1>
+
+<p align="center">
+  <a href="https://github.com/nonecap/nonecap-py/actions/workflows/ci.yml"><img src="https://github.com/nonecap/nonecap-py/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/nonecap/"><img src="https://img.shields.io/pypi/v/nonecap.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/nonecap/"><img src="https://img.shields.io/pypi/pyversions/nonecap.svg" alt="Python versions"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">Official Python client for the NoneCap <a href="https://nonecap.com/">hCaptcha solver</a> API.</p>
+
+Submit a captcha, get back a token. The client handles the polling, the timeouts, and the error cases so you don't write the request loop yourself. Sync and async, fully typed.
+
+## Install
+
+```sh
+pip install nonecap
+```
+
+Python 3.9+. The only dependency is [httpx](https://www.python-httpx.org/).
+
+## Quick start
+
+Grab an API key from [dashboard.nonecap.com](https://dashboard.nonecap.com/signup?utm_source=pypi&utm_medium=sdk-readme), then:
+
+```python
+from nonecap import NoneCap
+
+nc = NoneCap(api_key="nc_live_...")
+
+solve = nc.solve(
+    type="hcaptcha",
+    sitekey="10000000-ffff-ffff-ffff-000000000001",
+    url="https://example.com/login",
+)
+
+print(solve.token)  # the hCaptcha token, ready to submit
+print(solve.resp_key)  # hcaptcha.getRespKey() equivalent, for sites that verify the pair
+print(solve.user_agent)  # submit the token with this User-Agent: some sites check the browser version
+print(solve.warnings)  # e.g. proxy_session_refused: tokens you reported through this proxy session or its exit IP were refused; a different exit IP is more likely to pass (or, when your proxy changed its exit IP during the solve, use a sticky session per solve)
+```
+
+`solve()` submits the captcha and waits until it's done, using the API's long-poll so you aren't hammering it with requests. It returns the solved solve, or raises if the solve fails or your timeout runs out.
+
+## Async
+
+Same surface, `await`ed. Use it as an async context manager so the connection pool gets cleaned up:
+
+```python
+import asyncio
+from nonecap import AsyncNoneCap
+
+async def main() -> None:
+    async with AsyncNoneCap(api_key="nc_live_...") as nc:
+        solve = await nc.solve(type="hcaptcha", sitekey="...", url="https://example.com")
+        print(solve.token)
+
+asyncio.run(main())
+```
+
+## Cancelling a solve
+
+`solve()` is the simple path when you just want a token. When you need to hold a reference you can cancel — for clean shutdown, freeing a worker slot, or stopping early — use `solves.start()`. It submits the solve and hands back a `SolveHandle` right away, with the `id` already populated, instead of blocking on the result:
+
+```python
+handle = nc.solves.start(type="hcaptcha", sitekey=sitekey, url=url)
+print(handle.id)  # available immediately
+
+# Wait for it, just like solve():
+solve = handle.result(timeout=120)
+print(solve.token)
+```
+
+Holding the handle lets you stop a solve you no longer need — say, on shutdown or when a parallel attempt already won — instead of waiting on its result:
+
+```python
+handle = nc.solves.start(type="hcaptcha", sitekey=sitekey, url=url)
+
+# ... elsewhere / later, to stop it:
+handle.cancel()
+```
+
+`handle.result()` long-polls until the solve finishes and returns it, raising `SolveFailedError` / `SolveTimeoutError` like `solve()` does. The *terminal* outcome is memoized, so once the solve has settled, calling `result()` again replays it for free; a `SolveTimeoutError` is not memoized, so you can call `result()` again with a larger timeout to keep waiting. `handle.cancel()` stops a pending or in-flight solve and returns its final state — if the solve already finished, that's not an error, you just get the completed solve back.
+
+The async client mirrors this — `await` the start, the result, and the cancel:
+
+```python
+async with AsyncNoneCap(api_key="nc_live_...") as nc:
+    handle = await nc.solves.start(type="hcaptcha", sitekey=sitekey, url=url)
+    print(handle.id)
+
+    # Either wait for the outcome ...
+    solve = await handle.result(timeout=120)
+    print(solve.token)
+
+    # ... or, on another handle, cancel it instead of awaiting:
+    other = await nc.solves.start(type="hcaptcha", sitekey=sitekey, url=url)
+    await other.cancel()
+```
+
+Cancelled solves are never charged, and a solve you simply abandon expires uncharged at the server deadline — nothing is billed unless a solve actually succeeds. So `cancel()` is for cleanup and early-stop, not cost protection.
+
+### Cleaning up after a `solve()` timeout
+
+`solve()` blocks until the solve settles, so it gives you no handle to cancel a solve while it's still running — for that, use `solves.start()` above. The one thing the `solve()` path offers is cleanup *after* a timeout: when `solve()` raises `SolveTimeoutError`, the error usually carries the in-flight `solve_id` (and last-known `solve`), so you can cancel the solve the wait gave up on. Guard on `solve_id` being present — if the very first submission times out at the transport level, no id has been assigned yet, so `solve_id` is `None`.
+
+```python
+from nonecap import SolveTimeoutError
+
+try:
+    nc.solve(type="hcaptcha", sitekey=sitekey, url=url)
+except SolveTimeoutError as err:
+    if err.solve_id is not None:
+        nc.solves.cancel(err.solve_id)
+    else:
+        raise
+```
+
+## Handling failures
+
+Every error this library raises extends `NoneCapError`, so you can catch the whole family or pick out the one you care about.
+
+```python
+from nonecap import (
+    NoneCap,
+    SolveFailedError,
+    InsufficientCreditsError,
+    RateLimitError,
+)
+
+try:
+    solve = nc.solve(type="hcaptcha", sitekey=sitekey, url=url)
+except SolveFailedError as err:
+    # The message says what happened, what to do, and that nothing was charged.
+    print(err.solve.error.message if err.solve.error else err)
+    if err.retryable:
+        schedule_retry()
+except InsufficientCreditsError:
+    print("Out of credits. Top up at dashboard.nonecap.com")
+except RateLimitError as err:
+    time.sleep(err.retry_after or 1)
+```
+
+The subclasses are `AuthenticationError` (401), `PermissionDeniedError` (403), `InsufficientCreditsError` (402, with `KeyCreditLimitError` when one API key hit its own cap), `ValidationError` (422/400, with a `param` naming the bad field; `PayloadTooLargeError` for 413 and `UnsupportedMediaTypeError` for 415), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429, with `ConcurrencyLimitError`, `SitekeyRateLimitedError`, `ProxyUnavailableError` (your own proxy is refusing connections) and `RateCappedError` (your account reached its submit rate cap on this sitekey, or your own-proxy sessions for it are at their limit) telling them apart; `retry_after` is the seconds the API asked you to wait), `RecognitionFailedError` (422, `recognize()` found no answer; nothing was charged), `APIError` (5xx, with `ServiceUnavailableError` for a maintenance pause), `APIConnectionError` and `APITimeoutError` (the request never landed), and `SolveTimeoutError` (your `solve()` budget ran out). Every error from a response carries `request_id`, the id to quote to support.
+
+`SolveFailedError` carries the full `solve`. `solve.error.code` is a `SolveErrorCode`, `solve.error.reason` a typed sub-reason or `None` (`proxy_rejected`, `sitekey_rate_limited`, …), and `solve.error.retryable` says whether resubmitting the same request unchanged can succeed; `err.retryable`, `err.reason` and `err.solve_code` are shortcuts to those fields. Failed solves are never charged.
+
+## Enterprise captchas
+
+For `hcaptcha_enterprise`, `rqdata` is optional: many enterprise sites never issue one. When the page does pass an `rqdata` blob to its widget, send it, fresh for each challenge:
+
+```python
+solve = nc.solve(
+    type="hcaptcha_enterprise",
+    sitekey=sitekey,
+    url=url,
+    rqdata="...",  # only when the site provides one
+)
+```
+
+## Proxies
+
+Pass a proxy as a dict or a URL string. The solve runs through it, and the bytes are metered back on the solve.
+
+```python
+nc.solve(
+    type="hcaptcha",
+    sitekey=sitekey,
+    url=url,
+    proxy={"scheme": "http", "host": "1.2.3.4", "port": 8080, "username": "u", "password": "p"},
+    # or: proxy="http://u:p@1.2.3.4:8080"
+    # scheme can be http, https, socks5, socks5h, or socks4 (default http)
+    # e.g. proxy="socks5://u:p@1.2.3.4:1080"
+)
+```
+
+## Reporting token acceptance
+
+A token that hCaptcha blessed can still be refused by the site you send it to. Tell us what happened and we tune minting against your real acceptance rate — it's free, and it's the fastest way to get a regression on your sitekey noticed.
+
+Keep the `solve_id` next to the token you submit downstream, then report the verdict:
+
+```python
+solve = nc.solve(type="hcaptcha", sitekey=sitekey, url=url)
+ok = submit_to_the_site_you_are_automating(solve.token)
+
+nc.feedback.report(
+    solve.id,
+    outcome="accepted" if ok else "rejected",
+    reason=None if ok else "session invalidated",  # optional, the code your target returned
+    context=None if ok else "3rd retry, rotating residential pool",  # optional, anything you think would help us diagnose it
+)
+```
+
+At volume, buffer the verdicts and flush them in one call. Reports over 500 are split across requests for you:
+
+```python
+batch = nc.feedback.report_many([
+    {"solve_id": "solve_01J...", "outcome": "accepted"},
+    {"solve_id": "solve_01J...", "outcome": "rejected", "reason": "...", "context": "..."},
+])
+
+# Items resolve independently, so the call succeeds even when some are
+# rejected — check `failed` rather than relying on a raised error.
+if batch.failed:
+    print([r for r in batch.results if r.status == "error"])
+```
+
+`outcome` is one of `accepted`, `rejected`, `unknown` (submitted, verdict unclear), `unused` (never submitted), or `error` (downstream broke for a non-token reason). Only `accepted` and `rejected` count toward the acceptance rate.
+
+Reporting the same solve again corrects the earlier verdict, so retries and late fixes are safe. You can report any of your own solved solves within ~30 days of the solve; corrections to something you already reported are never cut off by that window. On `AsyncNoneCap` both methods are coroutines.
+
+## Recognizing images
+
+When you run your own browser or extension and only need the answer to a challenge, send its images and instruction to `recognize()`. The answer comes back in the same response: no token, no polling.
+
+```python
+rec = nc.recognize(
+    type="hcaptcha",
+    task="Please click each image containing a bus",
+    image_data=tiles,  # base64 strings, data: URIs or raw bytes; or image_urls=[...] for hCaptcha image URLs
+)
+print(rec.data)  # [True, False, False, True, ...], one per tile
+```
+
+`type="hcaptcha"` takes 1 to 27 tiles and answers one boolean per tile. `type="hcaptcha_area_select"` takes exactly one image and answers the first point to click as `rec.data` (`{"x", "y", "w": 0, "h": 0}`, in percent of the image), with every point in `rec.points` for wordings that need several clicks. Pass `image_examples` when the challenge shows example images, and `host` (the site's bare domain) when you know it.
+
+You can also send the challenge's tasklist as hCaptcha served it, which covers drag-and-drop too:
+
+```python
+rec = nc.recognize(data={
+    "request_type": "image_drag_drop",
+    "requester_question": {"en": "Drag the piece to complete the image"},
+    "tasklist": [{
+        "task_key": "...",
+        "datapoint_uri": image_b64,
+        "entities": [{"entity_id": "...", "entity_uri": piece_b64, "coords": [10, 20], "size": [40, 30]}],
+    }],
+})
+```
+
+Here `rec.data` holds pages of 9 booleans for `image_label_binary`, one box per task (or `None`) plus `rec.points` per task for `image_label_area_select`, and per task a list of `{"entity_id", "x", "y", "w", "h"}` drop boxes for `image_drag_drop`. The field names are NopeCHA's recognition shapes, so a NopeCHA recognition integration ports over as is.
+
+When no answer is found, or the challenge type is not supported, `recognize()` raises `RecognitionFailedError` and nothing is charged. A call that returns an answer is charged, whether or not the answer works on the challenge.
+
+You can tell us how the challenge ended. It is optional, it helps us track recognition accuracy, and it does not refund the call:
+
+```python
+nc.report_recognition_outcome(rec.id, "solved")  # or "failed"
+```
+
+The first report for an id sticks. On `AsyncNoneCap` both methods are coroutines.
+
+## Lower-level API
+
+`solve()` is the convenient path. When you want control over submission and polling, the resource methods map one to one to the REST API:
+
+```python
+# Submit without waiting: returns immediately with a pending solve
+pending = nc.solves.create(type="hcaptcha", sitekey=sitekey, url=url)
+
+# Submit and hold the connection up to 30s for it to finish
+maybe_done = nc.solves.create(type="hcaptcha", sitekey=sitekey, url=url, wait=30)
+
+# Poll one solve, long-polling up to 30s
+solve = nc.solves.retrieve(pending.id, wait=30)
+
+# Cancel a pending or in-flight solve
+nc.solves.cancel(pending.id)
+
+# List a page of solves
+page = nc.solves.list(limit=50, status="solved")
+
+# Or iterate every solve, newest first
+for s in nc.solves.list_all():
+    print(s.id, s.status)
+
+# Your account and credit balance
+me = nc.me()
+print(me.credits_balance)
+# With a plan: what is left of today's solves, and when they reset (00:00 UTC).
+if me.plan:
+    print(me.plan.remaining_today, me.plan.resets_at)
+```
+
+On `AsyncNoneCap` the same methods are coroutines, and `list_all()` is an async iterator (`async for s in nc.solves.list_all()`).
+
+## Configuration
+
+```python
+NoneCap(
+    api_key="nc_live_...",              # required
+    base_url="https://api.nonecap.com", # override if you need to
+    timeout=100.0,                      # per HTTP request, seconds
+    http_client=my_httpx_client,        # inject your own httpx.Client
+)
+```
+
+`solve()` takes its own `timeout` (seconds, default 180) for the overall wait.
+
+## Typing
+
+The package ships a `py.typed` marker and full inline annotations. Solves come back as frozen dataclasses with the exact field names the API uses (`solve.token`, `solve.credits_charged`, `solve.queue_ms`), so what you read in the [API reference](https://nonecap.com/api-reference) is what you get in code.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

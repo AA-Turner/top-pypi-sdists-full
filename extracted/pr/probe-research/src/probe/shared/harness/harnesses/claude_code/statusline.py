@@ -41,7 +41,7 @@ INSTALL_DIRNAME = "probe-research-statusline"
 #: render reads a local file (~20 ms). Written only where Probe's segment is
 #: alone (it re-runs the whole slot: a chained status line would run every few
 #: seconds unasked); a slot's own value is kept. The service gives an install
-#: from before this one (`probe.service.followup`, which holds its own copy of
+#: from before this one (`probe.service.updater.followup`, which holds its own copy of
 #: this number: tests/test_service_followup.py).
 REFRESH_INTERVAL_S = 10
 

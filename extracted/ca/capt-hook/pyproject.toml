@@ -1,0 +1,145 @@
+[project]
+name = "capt-hook"
+# Inert sentinel — the real version is stamped from the release tag (uv version --frozen).
+version = "12.108.44"
+description = "Stop repeating yourself to Claude."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Yasyf Mohamedali", email = "yasyfm@gmail.com" }]
+keywords = [
+    "claude",
+    "claude-code",
+    "hooks",
+    "llm",
+    "agents",
+    "guardrails",
+    "cli",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "cc-transcript[judge]==14.45.35",
+    "pydantic>=2.0",
+    "jsonschema>=4.26",
+    "pydantic-settings>=2.0",
+    "ast-grep-py>=0.44,<0.45",
+    "funcy>=2.0",
+    "spacy>=3.7",
+    "click>=8",
+    "rich>=13",
+    "orjsonl>=1.0",
+    "wn>=1.1.0",
+    "lazy-object-proxy>=1.12.0",
+    "filelock>=3.24.0",
+    "pathspec>=0.12",
+    "loguru>=0.7.3",
+    "spawnllm[sdk]>=0.17.3,<0.18",
+    "mcp>=2.0,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pyright>=1.1",
+    "pyyaml>=6",
+    "ruff>=0.8",
+    "hatchling>=1.27",
+    "capt-hook",
+    "pytest-xdist>=3.8,<4",
+]
+
+[project.scripts]
+capt-hook = "captain_hook.cli:main"
+capt-search-guard = "captain_hook.search_guard:main"
+hook = "capt_hook_client.client:main"
+hookd = "capt_hook_client.client:ops_main"
+
+[project.urls]
+Homepage = "https://github.com/yasyf/captain-hook"
+Documentation = "https://yasyf.github.io/captain-hook/"
+Repository = "https://github.com/yasyf/captain-hook"
+Issues = "https://github.com/yasyf/captain-hook/issues"
+Changelog = "https://github.com/yasyf/captain-hook/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling>=1.27", "ast-grep-py>=0.44,<0.45"]
+build-backend = "hatchling.build"
+
+# cc-transcript's native extension ships macOS/Linux abi3 wheels only, so scope the
+# universal lock to the platforms it supports; keeps `uv lock` from resolving an
+# uninstallable win32 split and drops pywinpty/win32-setctime from the lock.
+[tool.uv]
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+
+[tool.uv.sources]
+great-docs = { git = "https://github.com/yasyf/great-docs", rev = "36961d6dcf5bc485627ea11b80a6f6de9cca47e0" }
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["captain_hook", "capt_hook_client"]
+artifacts = [
+    "captain_hook/langs.py",
+    "captain_hook/guard_literal.py",
+    "captain_hook/guard_literal.sh",
+    "capt_hook_client/guard_literal.py",
+    "captain_hook/resource_defaults.py",
+]
+exclude = ["captain_hook/bin", "captain_hook/linux"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["captain_hook", "capt_hook_client", "hatch_build.py", "internal/wireproto/guard.json", "internal/wireproto/resource.json"]
+exclude = ["captain_hook/bin", "captain_hook/linux"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = ["-ra", "--strict-markers", "--tb=short", "-q"]
+markers = ["go_toolchain: tests that require the Go toolchain"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+include = ["captain_hook", "capt_hook_client"]
+venvPath = "."
+venv = ".venv"
+
+# ty runs warnings-only via the prek commit hook (astral-sh/ty-pre-commit) and never
+# blocks a commit; pyright (strict) stays the primary editor checker.
+[tool.ty.rules]
+all = "warn"
+unused-type-ignore-comment = "ignore"
+unresolved-import = "ignore"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+src = [".", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+
+[dependency-groups]
+docs = [
+    # griffelib is the modern griffe (2.x) distribution; it provides the
+    # `griffe` module layout that great-docs imports, kept aligned with the
+    # griffe~=2.1 pin great-docs 0.15 now declares directly.
+    "griffelib>=2.0",
+    "great-docs>=0.15,<0.16",
+]

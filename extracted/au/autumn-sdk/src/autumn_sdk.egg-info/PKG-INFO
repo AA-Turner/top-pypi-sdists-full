@@ -1,0 +1,663 @@
+Metadata-Version: 2.4
+Name: autumn-sdk
+Version: 1.2.0
+Summary: Python SDK for the Autumn billing API
+Author: Autumn
+License: Apache-2.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: httpcore>=1.0.9
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic>=2.11.2
+
+# autumn-sdk
+
+The official Python SDK for the [Autumn](https://useautumn.com) billing API.
+
+[![PyPI version](https://img.shields.io/pypi/v/autumn-sdk.svg)](https://pypi.org/project/autumn-sdk/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+<!-- Start Summary [summary] -->
+## Summary
+
+
+<!-- End Summary [summary] -->
+
+<!-- Start Table of Contents [toc] -->
+## Table of Contents
+<!-- $toc-max-depth=2 -->
+* [autumn-sdk](#autumn-sdk)
+  * [SDK Installation](#sdk-installation)
+  * [IDE Support](#ide-support)
+  * [SDK Example Usage](#sdk-example-usage)
+  * [Authentication](#authentication)
+  * [Available Resources and Operations](#available-resources-and-operations)
+  * [Retries](#retries)
+  * [Error Handling](#error-handling)
+  * [Server Selection](#server-selection)
+  * [Custom HTTP Client](#custom-http-client)
+  * [Resource Management](#resource-management)
+  * [Debugging](#debugging)
+* [Development](#development)
+  * [Contributions](#contributions)
+
+<!-- End Table of Contents [toc] -->
+
+<!-- Start SDK Installation [installation] -->
+## SDK Installation
+
+> [!TIP]
+> To finish publishing your SDK to PyPI you must [run your first generation action](https://www.speakeasy.com/docs/github-setup#step-by-step-guide).
+
+
+> [!NOTE]
+> **Python version upgrade policy**
+>
+> Once a Python version reaches its [official end of life date](https://devguide.python.org/versions/), a 3-month grace period is provided for users to upgrade. Following this grace period, the minimum python version supported in the SDK will be updated.
+
+The SDK can be installed with *uv*, *pip*, or *poetry* package managers.
+
+### uv
+
+*uv* is a fast Python package installer and resolver, designed as a drop-in replacement for pip and pip-tools. It's recommended for its speed and modern Python tooling capabilities.
+
+```bash
+uv add git+<UNSET>.git
+```
+
+### PIP
+
+*PIP* is the default package installer for Python, enabling easy installation and management of packages from PyPI via the command line.
+
+```bash
+pip install git+<UNSET>.git
+```
+
+### Poetry
+
+*Poetry* is a modern tool that simplifies dependency management and package publishing by using a single `pyproject.toml` file to handle project metadata and dependencies.
+
+```bash
+poetry add git+<UNSET>.git
+```
+
+### Shell and script usage with `uv`
+
+You can use this SDK in a Python shell with [uv](https://docs.astral.sh/uv/) and the `uvx` command that comes with it like so:
+
+```shell
+uvx --from autumn-sdk python
+```
+
+It's also possible to write a standalone Python script without needing to set up a whole project like so:
+
+```python
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "autumn-sdk",
+# ]
+# ///
+
+from autumn_sdk import Autumn
+
+sdk = Autumn(
+  # SDK arguments
+)
+
+# Rest of script here...
+```
+
+Once that is saved to a file, you can run it with `uv run script.py` where
+`script.py` can be replaced with the actual file name.
+<!-- End SDK Installation [installation] -->
+
+<!-- Start IDE Support [idesupport] -->
+## IDE Support
+
+### PyCharm
+
+Generally, the SDK will work well with most IDEs out of the box. However, when using PyCharm, you can enjoy much better integration with Pydantic by installing an additional plugin.
+
+- [PyCharm Pydantic Plugin](https://docs.pydantic.dev/latest/integrations/pycharm/)
+<!-- End IDE Support [idesupport] -->
+
+<!-- Start SDK Example Usage [usage] -->
+## SDK Example Usage
+
+### Example
+
+```python
+# Synchronous Example
+from autumn_sdk import Autumn
+
+
+with Autumn(
+    x_api_version="2.5.0",
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+) as autumn:
+
+    res = autumn.check(customer_id="cus_123", feature_id="messages")
+
+    # Handle response
+    print(res)
+```
+
+</br>
+
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
+
+```python
+# Asynchronous Example
+import asyncio
+from autumn_sdk import Autumn
+
+async def main():
+
+    async with Autumn(
+        x_api_version="2.5.0",
+        secret_key="<YOUR_BEARER_TOKEN_HERE>",
+    ) as autumn:
+
+        res = await autumn.check_async(customer_id="cus_123", feature_id="messages")
+
+        # Handle response
+        print(res)
+
+asyncio.run(main())
+```
+<!-- End SDK Example Usage [usage] -->
+
+<!-- Start Authentication [security] -->
+## Authentication
+
+### Per-Client Security Schemes
+
+This SDK supports the following security scheme globally:
+
+| Name         | Type | Scheme      |
+| ------------ | ---- | ----------- |
+| `secret_key` | http | HTTP Bearer |
+
+To authenticate with the API the `secret_key` parameter must be set when initializing the SDK client instance. For example:
+```python
+from autumn_sdk import Autumn
+
+
+with Autumn(
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+    x_api_version="2.5.0",
+) as autumn:
+
+    res = autumn.check(customer_id="cus_123", feature_id="messages")
+
+    # Handle response
+    print(res)
+
+```
+<!-- End Authentication [security] -->
+
+<!-- Start Available Resources and Operations [operations] -->
+## Available Resources and Operations
+
+<details open>
+<summary>Available methods</summary>
+
+### [Autumn SDK](docs/sdks/autumn/README.md)
+
+* [check](docs/sdks/autumn/README.md#check) - Checks whether a customer currently has enough balance to use a feature.
+
+Use this to gate access before a feature action. Enable sendEvent when you want to check and consume balance atomically in one request.
+* [track](docs/sdks/autumn/README.md#track) - Records usage for a customer feature. Queued by default; pass async: false to apply it before responding with updated balances.
+
+Use this after an action happens to decrement usage, or send a negative value to credit balance back.
+* [track_tokens](docs/sdks/autumn/README.md#track_tokens) - Records AI token usage for a customer and returns the updated AI credit balance.
+
+Use this after an LLM request when you have input and output token counts. Autumn converts token usage to a dollar amount using the configured model pricing and markup, then tracks that value against the customer's AI credit system.
+* [batch_track](docs/sdks/autumn/README.md#batch_track) - Enqueue up to 1000 usage events for asynchronous processing. Items are validated synchronously up front; validated items are then enqueued via SQS for background deduction by workers. The response returns 200 (or 202) immediately and does not include balance information. On partial enqueue failure (some items fail to enqueue, others succeed), the endpoint still returns 200 (or 202) and logs the failures server-side; clients should NOT retry, because retrying re-enqueues the already-succeeded items. A 503 is returned only when zero items were successfully enqueued (queue entirely unavailable) — that case is safe to retry.
+
+### [Balances](docs/sdks/balances/README.md)
+
+* [create](docs/sdks/balances/README.md#create) - Create a balance for a customer feature.
+* [list](docs/sdks/balances/README.md#list) - Lists individual balances (one row per grant) across customers, live or expired: plan balances, standalone balances, top-ups, and pooled balances. Pages may hold fewer than `limit` rows while `has_more` is true.
+* [update](docs/sdks/balances/README.md#update) - Update a customer balance.
+* [delete](docs/sdks/balances/README.md#delete) - Delete a balance for a customer feature. Can only delete a balance that is not attached to a price (eg. you cannot delete messages that have an overage price).
+* [finalize](docs/sdks/balances/README.md#finalize) - Finalize a previously locked balance. Use 'confirm' to commit the deduction, or 'release' to return the held balance.
+
+### [Billing](docs/sdks/billing/README.md)
+
+* [attach](docs/sdks/billing/README.md#attach) - Attaches a plan to a customer. Handles new subscriptions, upgrades and downgrades.
+
+Use this endpoint to subscribe a customer to a plan, upgrade/downgrade between plans, or add an add-on product.
+* [create_schedule](docs/sdks/billing/README.md#create_schedule) - Creates a multi-phase subscription schedule for a customer. The first phase starts immediately and subsequent phases automatically transition at their scheduled start times.
+
+Use this endpoint to schedule future plan changes (e.g. switch from a trial plan to a paid plan on a specific date) or to define a sequence of plans that should activate over time.
+* [multi_attach](docs/sdks/billing/README.md#multi_attach) - Attaches multiple plans to a customer in a single request. Creates a single Stripe subscription with all plans consolidated.
+
+Use this endpoint when you need to subscribe a customer to multiple plans at once, such as a base plan plus add-ons, or to create a bundle of products.
+* [preview_attach](docs/sdks/billing/README.md#preview_attach) - Previews the billing changes that would occur when attaching a plan, without actually making any changes.
+
+Use this endpoint to show customers what they will be charged before confirming a subscription change.
+* [preview_multi_attach](docs/sdks/billing/README.md#preview_multi_attach) - Previews the billing changes that would occur when attaching multiple plans, without actually making any changes.
+
+Use this endpoint to show customers what they will be charged before confirming a multi-plan subscription.
+* [update](docs/sdks/billing/README.md#update) - Updates an existing subscription. Use to modify feature quantities, cancel, or change plan configuration.
+
+Use this endpoint to update prepaid quantities, cancel a subscription (immediately or at end of cycle), or modify subscription settings.
+* [preview_update](docs/sdks/billing/README.md#preview_update) - Previews the billing changes that would occur when updating a subscription, without actually making any changes.
+
+Use this endpoint to show customers prorated charges or refunds before confirming subscription modifications.
+* [multi_update](docs/sdks/billing/README.md#multi_update) - Updates multiple plans on a customer in a single request. Currently supports cancel actions (immediately, end of cycle, or uncancel) across one or more subscriptions.
+
+Use this endpoint to cancel or uncancel several plans atomically in one call — for example canceling a main plan together with its add-ons, or plans across multiple entities.
+* [preview_multi_update](docs/sdks/billing/README.md#preview_multi_update) - Previews the billing changes of a multi-plan update without making any changes. Returns one core preview per affected subscription.
+
+Use this endpoint to show customers the credits and next-cycle changes of canceling multiple plans before confirming.
+* [open_customer_portal](docs/sdks/billing/README.md#open_customer_portal) - Create a billing portal session for a customer to manage their subscription.
+* [setup_payment](docs/sdks/billing/README.md#setup_payment) - Create a payment setup session for a customer to add or update their payment method.
+* [verify](docs/sdks/billing/README.md#verify) - Checks a customer's Stripe subscriptions against Autumn's record of their plans and reports any drift. Read-only: it never changes Autumn or Stripe.
+
+Use this endpoint to audit that a customer's Stripe subscriptions, items, quantities, prices, schedules and cancellation state match what Autumn expects, for example after a migration or a manual change in Stripe.
+* [import_](docs/sdks/billing/README.md#import_) - Import
+
+### [Customers](docs/sdks/customers/README.md)
+
+* [get_or_create](docs/sdks/customers/README.md#get_or_create) - Creates a customer if they do not exist, or returns the existing customer by your external customer ID.
+
+Use this as the primary entrypoint before billing operations so the customer record is always present and up to date.
+* [get](docs/sdks/customers/README.md#get) - Fetches a customer by ID, optionally expanding related data such as invoices or entities.
+
+Use this when you know the customer exists or assert they exist without creating them.
+* [list](docs/sdks/customers/README.md#list) - Lists customers with cursor pagination and optional filters. Pass `start_cursor: ""` (or omit) for the first page; use `next_cursor` from a prior response for subsequent pages.
+* [update](docs/sdks/customers/README.md#update) - Updates an existing customer by ID.
+* [delete](docs/sdks/customers/README.md#delete) - Deletes a customer by ID.
+* [advance_test_clock](docs/sdks/customers/README.md#advance_test_clock) - Advance a customer's Stripe test clock to a future time in milliseconds. Only Stripe test-mode customers with a test clock are supported. Advancement is asynchronous; Stripe enforces clock status and advancement limits.
+* [list_subscriptions](docs/sdks/customers/README.md#list_subscriptions) - Lists recurring plans (including add-ons) across customers, live or expired. Filter by customer, entity, plan, or status. Pages may hold fewer than `limit` rows while `has_more` is true.
+* [list_purchases](docs/sdks/customers/README.md#list_purchases) - Lists one-off plan purchases across customers, live or expired. Filter by customer, entity, plan, or status. Pages may hold fewer than `limit` rows while `has_more` is true.
+
+### [Entities](docs/sdks/entities/README.md)
+
+* [create](docs/sdks/entities/README.md#create) - Creates an entity for a customer and feature, then returns the entity with balances and subscriptions.
+
+Use entities when usage and access must be scoped to sub-resources (for example seats, projects, or workspaces) instead of only the customer.
+* [get](docs/sdks/entities/README.md#get) - Fetches an entity by its ID.
+
+Use this to read one entity's current state. Pass customerId when you want to scope the lookup to a specific customer.
+* [list](docs/sdks/entities/README.md#list) - Lists entities across the organization with pagination and optional filters.
+
+Use this to page through entities globally, including filtering by plans inherited from parent customers or attached directly to entities.
+* [update](docs/sdks/entities/README.md#update) - Updates an existing entity and returns the refreshed entity object.
+
+Use this to change entity billing controls or other mutable entity fields after the entity has already been created.
+* [delete](docs/sdks/entities/README.md#delete) - Deletes an entity by entity ID.
+
+Use this when the underlying resource is removed and you no longer want entity-scoped balances or subscriptions tracked for it.
+
+### [Events](docs/sdks/events/README.md)
+
+* [list](docs/sdks/events/README.md#list) - List usage events for your organization. Filter by customer, feature, or time range.
+* [aggregate](docs/sdks/events/README.md#aggregate) - Aggregate usage events by time period. Returns usage totals grouped by feature and optionally by a custom property.
+
+### [Features](docs/sdks/features/README.md)
+
+* [create](docs/sdks/features/README.md#create) - Creates a new feature.
+
+Use this to programmatically create features for metering usage, managing access, or building credit systems.
+* [get](docs/sdks/features/README.md#get) - Retrieves a single feature by its ID.
+
+Use this when you need to fetch the details of a specific feature.
+* [list](docs/sdks/features/README.md#list) - Lists all features in the current environment.
+
+Use this to retrieve all features configured for your organization to display in dashboards or for feature management.
+* [update](docs/sdks/features/README.md#update) - Updates an existing feature.
+
+Use this to modify feature properties like name, display settings, or to archive a feature.
+* [delete](docs/sdks/features/README.md#delete) - Deletes a feature by its ID.
+
+Use this to permanently remove a feature. Note: features that are used in products cannot be deleted - archive them instead.
+
+### [Invoices](docs/sdks/invoices/README.md)
+
+* [create](docs/sdks/invoices/README.md#create) - Creates a standalone send-invoice Stripe invoice from catalog pricing and custom charges. Quantities are billable units, exclusive of any included usage; Autumn applies billing units and tiers. Nothing about the customer's plans, balances or subscriptions changes. Pass preview: true to get the calculated lines and totals without creating an invoice.
+* [finalize](docs/sdks/invoices/README.md#finalize) - Finalizes a draft Stripe invoice, such as one left in draft by invoice mode with finalize set to false. Stripe then collects it: a send-invoice invoice is emailed and an automatically-charged one is charged. Any plan still waiting on the invoice to be paid expires at its due date. Already open or paid invoices are returned unchanged.
+* [insert](docs/sdks/invoices/README.md#insert) - Inserts or updates up to 500 historical invoices without reading or mutating the billing processor.
+* [list](docs/sdks/invoices/README.md#list) - Lists invoices with cursor pagination and optional filters (customer, entity, status, processor). Pass `start_cursor: ""` (or omit) for the first page; use `next_cursor` from a prior response for subsequent pages.
+* [list_templates](docs/sdks/invoices/README.md#list_templates) - Lists the organization's invoice templates, newest first, with offset pagination. Use a template's `id` as `invoice_template_id` when creating or reissuing an invoice.
+* [pay](docs/sdks/invoices/README.md#pay) - Marks an open Stripe invoice as paid out of band. No charge is attempted; use this when payment was collected elsewhere (e.g. a marketplace). Already-paid invoices are returned unchanged.
+* [issue_credit_note](docs/sdks/invoices/README.md#issue_credit_note) - Issues a Stripe credit note against an open or paid invoice, for a flat amount or for specific invoice lines. On an open invoice the credit reduces what is still owed. On a paid invoice the credited money goes to the chosen destination: the customer's balance (default), a refund, or a record of money returned outside Stripe. Line amounts are pre-discount and pre-tax, like the invoice's own item amounts. Pass preview to see the credit note without issuing it.
+* [reissue](docs/sdks/invoices/README.md#reissue) - Voids an open send-invoice Stripe invoice and issues a replacement with the same line items. An invoice template can supply the replacement's footer (e.g. bank details) and memo. The replacement keeps the original due date unless net_terms_days is passed, which is required once the original is past due. Pass update_customer_email to change the customer's billing email first so the replacement is sent there. The replacement stays linked to the same subscription and fulfils the same pending plan when paid.
+* [update](docs/sdks/invoices/README.md#update) - Changes which payment methods a draft or open Stripe invoice accepts. The customer sees the change on the hosted invoice page straight away.
+* [void](docs/sdks/invoices/README.md#void) - Voids an open or uncollectible Stripe invoice. Any plan still waiting on the invoice to be paid expires. Voiding an unpaid subscription invoice lets Stripe re-derive the subscription status from its remaining invoices, which can move a past-due subscription back to active. Already-void invoices are returned unchanged.
+
+### [Keys](docs/sdks/keys/README.md)
+
+* [mint](docs/sdks/keys/README.md#mint) - Mints a per-customer token (a scoped `am_jwt_` credential) so a downstream / self-hosted app can call Autumn directly without your secret key. Returns a short-lived access token plus a rotating refresh token, both bound to the given customer. Authenticated with your secret key.
+* [refresh](docs/sdks/keys/README.md#refresh) - Exchanges a refresh token (sent as the Bearer credential) for a freshly rotated access + refresh pair. Self-service for the token holder — no secret key required. The previous refresh token is honored for one rotation as a grace window; replaying an older one revokes the customer's tokens.
+* [revoke](docs/sdks/keys/README.md#revoke) - Revokes every outstanding token (access and refresh) for a customer. Authenticated with your secret key. New tokens can be issued afterwards with `keys.mint`.
+
+### [Licenses](docs/sdks/licenses/README.md)
+
+* [attach](docs/sdks/licenses/README.md#attach) - Assigns licenses to one or more entities.
+* [release](docs/sdks/licenses/README.md#release) - Releases licenses assigned to one or more entities.
+
+### [Logs](docs/sdks/logs/README.md)
+
+* [search](docs/sdks/logs/README.md#search) - Search API requests and incoming Stripe webhooks for your organization and environment.
+
+### [Plans](docs/sdks/plans/README.md)
+
+* [create](docs/sdks/plans/README.md#create) - Create a plan
+* [get](docs/sdks/plans/README.md#get) - Get a plan
+* [list](docs/sdks/plans/README.md#list) - List all plans
+* [update](docs/sdks/plans/README.md#update) - Update a plan
+* [delete](docs/sdks/plans/README.md#delete) - Delete a plan
+
+### [Platform](docs/sdks/platform/README.md)
+
+* [get_stripe_connection](docs/sdks/platform/README.md#get_stripe_connection) - Read a managed organization's Stripe OAuth connection, account ID, and authorization time in the selected environment.
+* [disconnect_stripe](docs/sdks/platform/README.md#disconnect_stripe) - Revoke Autumn's Stripe OAuth access for a managed organization in the selected environment. Does not delete the Stripe account or cancel subscriptions.
+* [link_revenue_cat](docs/sdks/platform/README.md#link_revenue_cat) - Generate a RevenueCat OAuth URL for linking a project to an organization.
+* [sync_revenue_cat](docs/sdks/platform/README.md#sync_revenue_cat) - Push an organization's plans into RevenueCat as products (creating or renaming them across the project's apps) and set test-store prices from each plan's price. Requires the org to have linked RevenueCat via OAuth.
+* [get_revenue_cat_keys](docs/sdks/platform/README.md#get_revenue_cat_keys) - Retrieve a managed organization's RevenueCat public (SDK) API keys, grouped by app — for the test store, App Store, and Google Play Store. Use these to configure the RevenueCat SDK in the org's mobile app.
+
+### [Referrals](docs/sdks/referrals/README.md)
+
+* [create_code](docs/sdks/referrals/README.md#create_code) - Create or fetch a referral code for a customer in a referral program.
+* [redeem_code](docs/sdks/referrals/README.md#redeem_code) - Redeem a referral code for a customer.
+* [create_program](docs/sdks/referrals/README.md#create_program) - Create a referral program linked to an existing reward.
+* [list_programs](docs/sdks/referrals/README.md#list_programs) - List the referral programs configured for the org.
+* [get_program](docs/sdks/referrals/README.md#get_program) - Fetch a referral program by ID.
+* [update_program](docs/sdks/referrals/README.md#update_program) - Update a referral program. Omitted fields keep their current value.
+* [delete_program](docs/sdks/referrals/README.md#delete_program) - Delete a referral program.
+
+### [Rewards](docs/sdks/rewardssdk/README.md)
+
+* [create](docs/sdks/rewardssdk/README.md#create) - Create a coupon or feature grant.
+* [list](docs/sdks/rewardssdk/README.md#list) - List the coupons and feature grants configured for the org.
+* [get](docs/sdks/rewardssdk/README.md#get) - Fetch a coupon or feature grant by ID.
+* [update](docs/sdks/rewardssdk/README.md#update) - Update a coupon or feature grant. Omitted fields keep their current value.
+* [delete](docs/sdks/rewardssdk/README.md#delete) - Delete a coupon or feature grant.
+* [redeem_code](docs/sdks/rewardssdk/README.md#redeem_code) - Redeem a reward promo code for a customer.
+
+### [Sandboxes](docs/sdks/sandboxes/README.md)
+
+* [create](docs/sdks/sandboxes/README.md#create) - Creates a sandbox: an isolated copy of your organization with its own catalog, customers and secret key. Returns the sandbox's secret key once, in this response — store it, it cannot be read back. Authenticated with your organization's secret key (a sandbox's own key cannot create sandboxes).
+* [list](docs/sdks/sandboxes/README.md#list) - Lists every sandbox belonging to your organization, newest first. Secret keys are never returned here — only `sandboxes.create` shows one.
+* [delete](docs/sdks/sandboxes/README.md#delete) - Permanently deletes a sandbox and everything inside it: its catalog, customers and secret key. Cannot be undone.
+* [reset](docs/sdks/sandboxes/README.md#reset) - Wipes every customer, plan, feature and migration draft in the sandbox the calling key belongs to, leaving the sandbox itself, its secret keys and its settings in place. There is no id to pass: a sandbox's own key resets that sandbox, and an organization's test-mode key resets its default sandbox environment. Refused for live keys — only sandboxes can be reset. Cannot be undone.
+
+### [Webhooks](docs/sdks/webhooks/README.md)
+
+* [create](docs/sdks/webhooks/README.md#create) - Creates a webhook: a URL Autumn sends the listed events to, in the environment of the calling key. You choose the `id`, and it can't be changed later. Returns the signing secret once, in this response — store it, it cannot be read back.
+* [get](docs/sdks/webhooks/README.md#get) - Gets one webhook by ID. The signing secret is never returned here — only `webhooks.create` and `webhooks.sync` show one, when they create the webhook.
+* [list](docs/sdks/webhooks/README.md#list) - Lists every webhook in the environment of the calling key, including ones made in the dashboard (these show their `ep_…` ID).
+* [update](docs/sdks/webhooks/README.md#update) - Updates a webhook's URL, events, description or disabled state. Only the fields you pass change. The ID can't be changed — to rename, create a new webhook.
+* [delete](docs/sdks/webhooks/README.md#delete) - Permanently deletes a webhook. Autumn stops sending it events immediately. Cannot be undone.
+* [preview_sync](docs/sdks/webhooks/README.md#preview_sync) - Shows what `webhooks.sync` would do with the same body, without changing anything: which webhooks it would create, update or delete, and which existing ones it would leave alone because the body doesn't list them.
+* [sync](docs/sdks/webhooks/README.md#sync) - Makes the listed webhooks exist as described: creates missing ones and updates ones that differ. Webhooks not listed are left alone, unless `skip_deletions` is false: then every webhook not listed is deleted, including ones made in the dashboard. Returns the signing secret of each webhook it created, once. Each webhook is applied on its own: failures are listed in `errors` while the rest still apply, and the request fails only when none could be applied.
+
+</details>
+<!-- End Available Resources and Operations [operations] -->
+
+<!-- Start Retries [retries] -->
+## Retries
+
+Some of the endpoints in this SDK support retries. If you use the SDK without any configuration, it will fall back to the default retry strategy provided by the API. However, the default retry strategy can be overridden on a per-operation basis, or across the entire SDK.
+
+To change the default retry strategy for a single API call, simply provide a `RetryConfig` object to the call:
+```python
+from autumn_sdk import Autumn
+from autumn_sdk.utils import BackoffStrategy, RetryConfig
+
+
+with Autumn(
+    x_api_version="2.5.0",
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+) as autumn:
+
+    res = autumn.check(customer_id="cus_123", feature_id="messages",
+        RetryConfig("backoff", BackoffStrategy(1, 50, 1.1, 100), False))
+
+    # Handle response
+    print(res)
+
+```
+
+If you'd like to override the default retry strategy for all operations that support retries, you can use the `retry_config` optional parameter when initializing the SDK:
+```python
+from autumn_sdk import Autumn
+from autumn_sdk.utils import BackoffStrategy, RetryConfig
+
+
+with Autumn(
+    retry_config=RetryConfig("backoff", BackoffStrategy(1, 50, 1.1, 100), False),
+    x_api_version="2.5.0",
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+) as autumn:
+
+    res = autumn.check(customer_id="cus_123", feature_id="messages")
+
+    # Handle response
+    print(res)
+
+```
+<!-- End Retries [retries] -->
+
+<!-- Start Error Handling [errors] -->
+## Error Handling
+
+[`AutumnError`](./src/autumn_sdk/errors/autumnerror.py) is the base class for all HTTP error responses. It has the following properties:
+
+| Property           | Type             | Description                                            |
+| ------------------ | ---------------- | ------------------------------------------------------ |
+| `err.message`      | `str`            | Error message                                          |
+| `err.status_code`  | `int`            | HTTP response status code eg `404`                     |
+| `err.headers`      | `httpx.Headers`  | HTTP response headers                                  |
+| `err.body`         | `str`            | HTTP body. Can be empty string if no body is returned. |
+| `err.raw_response` | `httpx.Response` | Raw HTTP response                                      |
+
+### Example
+```python
+from autumn_sdk import Autumn, errors
+
+
+with Autumn(
+    x_api_version="2.5.0",
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+) as autumn:
+    res = None
+    try:
+
+        res = autumn.check(customer_id="cus_123", feature_id="messages")
+
+        # Handle response
+        print(res)
+
+
+    except errors.AutumnError as e:
+        # The base class for HTTP error responses
+        print(e.message)
+        print(e.status_code)
+        print(e.body)
+        print(e.headers)
+        print(e.raw_response)
+
+```
+
+### Error Classes
+**Primary error:**
+* [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py): The base class for HTTP error responses.
+
+<details><summary>Less common errors (5)</summary>
+
+<br />
+
+**Network errors:**
+* [`httpx.RequestError`](https://www.python-httpx.org/exceptions/#httpx.RequestError): Base class for request errors.
+    * [`httpx.ConnectError`](https://www.python-httpx.org/exceptions/#httpx.ConnectError): HTTP client was unable to make a request to a server.
+    * [`httpx.TimeoutException`](https://www.python-httpx.org/exceptions/#httpx.TimeoutException): HTTP request timed out.
+
+
+**Inherit from [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py)**:
+* [`ResponseValidationError`](./src/autumn_sdk/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
+
+</details>
+<!-- End Error Handling [errors] -->
+
+<!-- Start Server Selection [server] -->
+## Server Selection
+
+### Override Server URL Per-Client
+
+The default server can be overridden globally by passing a URL to the `server_url: str` optional parameter when initializing the SDK client instance. For example:
+```python
+from autumn_sdk import Autumn
+
+
+with Autumn(
+    server_url="https://api.useautumn.com",
+    x_api_version="2.5.0",
+    secret_key="<YOUR_BEARER_TOKEN_HERE>",
+) as autumn:
+
+    res = autumn.check(customer_id="cus_123", feature_id="messages")
+
+    # Handle response
+    print(res)
+
+```
+<!-- End Server Selection [server] -->
+
+<!-- Start Custom HTTP Client [http-client] -->
+## Custom HTTP Client
+
+The Python SDK makes API calls using the [httpx](https://www.python-httpx.org/) HTTP library.  In order to provide a convenient way to configure timeouts, cookies, proxies, custom headers, and other low-level configuration, you can initialize the SDK client with your own HTTP client instance.
+Depending on whether you are using the sync or async version of the SDK, you can pass an instance of `HttpClient` or `AsyncHttpClient` respectively, which are Protocol's ensuring that the client has the necessary methods to make API calls.
+This allows you to wrap the client with your own custom logic, such as adding custom headers, logging, or error handling, or you can just pass an instance of `httpx.Client` or `httpx.AsyncClient` directly.
+
+For example, you could specify a header for every request that this sdk makes as follows:
+```python
+from autumn_sdk import Autumn
+import httpx
+
+http_client = httpx.Client(headers={"x-custom-header": "someValue"})
+s = Autumn(client=http_client)
+```
+
+or you could wrap the client with your own custom logic:
+```python
+from autumn_sdk import Autumn
+from autumn_sdk.httpclient import AsyncHttpClient
+import httpx
+
+class CustomClient(AsyncHttpClient):
+    client: AsyncHttpClient
+
+    def __init__(self, client: AsyncHttpClient):
+        self.client = client
+
+    async def send(
+        self,
+        request: httpx.Request,
+        *,
+        stream: bool = False,
+        auth: Union[
+            httpx._types.AuthTypes, httpx._client.UseClientDefault, None
+        ] = httpx.USE_CLIENT_DEFAULT,
+        follow_redirects: Union[
+            bool, httpx._client.UseClientDefault
+        ] = httpx.USE_CLIENT_DEFAULT,
+    ) -> httpx.Response:
+        request.headers["Client-Level-Header"] = "added by client"
+
+        return await self.client.send(
+            request, stream=stream, auth=auth, follow_redirects=follow_redirects
+        )
+
+    def build_request(
+        self,
+        method: str,
+        url: httpx._types.URLTypes,
+        *,
+        content: Optional[httpx._types.RequestContent] = None,
+        data: Optional[httpx._types.RequestData] = None,
+        files: Optional[httpx._types.RequestFiles] = None,
+        json: Optional[Any] = None,
+        params: Optional[httpx._types.QueryParamTypes] = None,
+        headers: Optional[httpx._types.HeaderTypes] = None,
+        cookies: Optional[httpx._types.CookieTypes] = None,
+        timeout: Union[
+            httpx._types.TimeoutTypes, httpx._client.UseClientDefault
+        ] = httpx.USE_CLIENT_DEFAULT,
+        extensions: Optional[httpx._types.RequestExtensions] = None,
+    ) -> httpx.Request:
+        return self.client.build_request(
+            method,
+            url,
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            extensions=extensions,
+        )
+
+s = Autumn(async_client=CustomClient(httpx.AsyncClient()))
+```
+<!-- End Custom HTTP Client [http-client] -->
+
+<!-- Start Resource Management [resource-management] -->
+## Resource Management
+
+The `Autumn` class implements the context manager protocol and registers a finalizer function to close the underlying sync and async HTTPX clients it uses under the hood. This will close HTTP connections, release memory and free up other resources held by the SDK. In short-lived Python programs and notebooks that make a few SDK method calls, resource management may not be a concern. However, in longer-lived programs, it is beneficial to create a single SDK instance via a [context manager][context-manager] and reuse it across the application.
+
+[context-manager]: https://docs.python.org/3/reference/datamodel.html#context-managers
+
+```python
+from autumn_sdk import Autumn
+def main():
+
+    with Autumn(
+        x_api_version="2.5.0",
+        secret_key="<YOUR_BEARER_TOKEN_HERE>",
+    ) as autumn:
+        # Rest of application here...
+
+
+# Or when using async:
+async def amain():
+
+    async with Autumn(
+        x_api_version="2.5.0",
+        secret_key="<YOUR_BEARER_TOKEN_HERE>",
+    ) as autumn:
+        # Rest of application here...
+```
+<!-- End Resource Management [resource-management] -->
+
+<!-- Start Debugging [debug] -->
+## Debugging
+
+You can setup your SDK to emit debug logs for SDK requests and responses.
+
+You can pass your own logger class directly into your SDK.
+```python
+from autumn_sdk import Autumn
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+s = Autumn(debug_logger=logging.getLogger("autumn_sdk"))
+```
+<!-- End Debugging [debug] -->
+
+<!-- Placeholder for Future Speakeasy SDK Sections -->
+
+# Development
+
+## Contributions
+
+We welcome contributions! Feel free to open a PR or an issue on the [Autumn GitHub repository](https://github.com/useautumn/autumn).

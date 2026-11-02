@@ -1,0 +1,326 @@
+"""Error taxonomy for the AdCP request-signing profile.
+
+Codes match the transport error taxonomy defined in `security.mdx`. The code
+string is the normative surface — middleware adapters emit a `401` response
+with `WWW-Authenticate: Signature error="<code>"` (no realm).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import Any
+
+from adcp.signing.canonical import REQUEST_TARGET_URI_MALFORMED
+
+# The same class ``adcp.types.Recovery`` resolves to, reached through the
+# per-schema public module: the flat surface materializes the whole generated
+# graph on first attribute access, and ``import adcp.signing`` has no business
+# paying for the types an adopter has not asked for.
+from adcp.types.domains.core.error import Recovery
+
+
+class SignatureVerificationError(Exception):
+    """Raised when a request signature fails any step of the verifier checklist.
+
+    ``detail`` carries the spec-mandated structured fields for codes that
+    require them — e.g. ``request_signature_key_origin_mismatch`` carries
+    ``{purpose, expected_origin, actual_origin}`` per ADCP #3690
+    security.mdx step 7, and ``request_signature_brand_json_url_missing``
+    carries ``{agent_url}`` per the same section's rejection-code table.
+    Middleware adapters surface these as structured fields on the 401
+    response or in a DLQ payload; ``str(exc)`` continues to render the
+    free-form message for unstructured logs.
+
+    ``transient`` says whether the same input could succeed on a later
+    attempt -- a JWKS, capabilities or brand.json fetch that failed on DNS,
+    TCP, TLS, a timeout or a non-2xx. It defaults from ``code`` (the codes
+    whose ``enumMetadata.recovery`` is ``transient``). The webhook profile
+    puts one code, ``webhook_signature_key_unknown``, on the wire for every
+    key-discovery failure, so on that profile this attribute is the only
+    in-process signal that a retry could succeed.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        *,
+        step: int | str | None = None,
+        message: str | None = None,
+        detail: Mapping[str, str] | None = None,
+        transient: bool | None = None,
+    ) -> None:
+        super().__init__(message or code)
+        self.code = code
+        self.step = step
+        self.detail = dict(detail) if detail is not None else None
+        self.transient = code in _TRANSIENT_CODES if transient is None else transient
+
+
+def signature_challenge(code: str) -> str:
+    """``WWW-Authenticate`` value for a 401 the signing profile rejects.
+
+    security.mdx § Transport error taxonomy: "AdCP does NOT define a realm
+    value for request-signing challenges. Verifiers MUST emit
+    ``WWW-Authenticate: Signature error="<code>"`` with no ``realm``
+    parameter and no other parameters."
+
+    Every 401 the SDK emits for a signature failure formats the value here —
+    the request leg (:func:`adcp.signing.middleware.unauthorized_response_headers`),
+    the webhook leg (:mod:`adcp.webhook_receiver`), and the bearer middleware's
+    signature-fallback challenge (:mod:`adcp.server.auth`) — so the three
+    cannot drift from the byte string peers and conformance harnesses match.
+    """
+    return f'Signature error="{code}"'
+
+
+REQUEST_SIGNATURE_REQUIRED = "request_signature_required"
+REQUEST_SIGNATURE_HEADER_MALFORMED = "request_signature_header_malformed"
+REQUEST_SIGNATURE_PARAMS_INCOMPLETE = "request_signature_params_incomplete"
+REQUEST_SIGNATURE_TAG_INVALID = "request_signature_tag_invalid"
+REQUEST_SIGNATURE_ALG_NOT_ALLOWED = "request_signature_alg_not_allowed"
+REQUEST_SIGNATURE_WINDOW_INVALID = "request_signature_window_invalid"
+REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE = "request_signature_components_incomplete"
+REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED = "request_signature_components_unexpected"
+REQUEST_SIGNATURE_KEY_UNKNOWN = "request_signature_key_unknown"
+REQUEST_SIGNATURE_KEY_PURPOSE_INVALID = "request_signature_key_purpose_invalid"
+REQUEST_SIGNATURE_INVALID = "request_signature_invalid"
+REQUEST_SIGNATURE_DIGEST_MISMATCH = "request_signature_digest_mismatch"
+REQUEST_SIGNATURE_REPLAYED = "request_signature_replayed"
+REQUEST_SIGNATURE_KEY_REVOKED = "request_signature_key_revoked"
+REQUEST_SIGNATURE_REVOCATION_STALE = "request_signature_revocation_stale"
+REQUEST_SIGNATURE_JWKS_UNAVAILABLE = "request_signature_jwks_unavailable"
+REQUEST_SIGNATURE_JWKS_UNTRUSTED = "request_signature_jwks_untrusted"
+REQUEST_SIGNATURE_RATE_ABUSE = "request_signature_rate_abuse"
+# Checklist step 14. Named without the ``request_signature_`` infix because the
+# spec names it that way: the signature IS valid; the signed body is not strict,
+# unambiguous JSON (duplicate object keys, invalid UTF-8, or not JSON at all).
+REQUEST_BODY_MALFORMED = "request_body_malformed"
+
+# brand.json discovery chain (ADCP #3690). Verifiers bootstrap an agent's
+# signing keys via ``identity.brand_json_url`` on the agent's
+# ``get_adcp_capabilities`` response → brand.json → ``agents[]`` →
+# ``jwks_uri``. Each step has a dedicated rejection code so callers can
+# disambiguate retryable transport failures (``*_unreachable``) from
+# misconfiguration (``*_missing`` / ``*_malformed`` / ``*_mismatch``).
+REQUEST_SIGNATURE_BRAND_JSON_URL_MISSING = "request_signature_brand_json_url_missing"
+REQUEST_SIGNATURE_CAPABILITIES_UNREACHABLE = "request_signature_capabilities_unreachable"
+REQUEST_SIGNATURE_BRAND_JSON_UNREACHABLE = "request_signature_brand_json_unreachable"
+REQUEST_SIGNATURE_BRAND_JSON_MALFORMED = "request_signature_brand_json_malformed"
+REQUEST_SIGNATURE_BRAND_ORIGIN_MISMATCH = "request_signature_brand_origin_mismatch"
+REQUEST_SIGNATURE_AGENT_NOT_IN_BRAND_JSON = "request_signature_agent_not_in_brand_json"
+REQUEST_SIGNATURE_BRAND_JSON_AMBIGUOUS = "request_signature_brand_json_ambiguous"
+
+# identity.key_origins consistency check (ADCP #3690). For every purpose
+# declared under capabilities ``identity.key_origins``, the resolved
+# ``jwks_uri`` host MUST equal the declared origin (after IDNA-A-label
+# canonicalization). Mismatch → ``_key_origin_mismatch``. Missing
+# declaration when signing posture is asserted → ``_key_origin_missing``.
+REQUEST_SIGNATURE_KEY_ORIGIN_MISMATCH = "request_signature_key_origin_mismatch"
+REQUEST_SIGNATURE_KEY_ORIGIN_MISSING = "request_signature_key_origin_missing"
+
+_SIGNING_ERROR_CODE_ENUM = "enums/request-signing-error-code.json"
+
+
+def _build_signing_recovery() -> dict[str, Recovery]:
+    """Read the recovery classification for every request-signing code.
+
+    ``enums/request-signing-error-code.json`` carries it in an ``enumMetadata``
+    block whose own ``$comment`` is addressed at SDKs: "SDKs MUST consume this
+    block instead of parsing enumDescriptions or inferring from code names."
+    The block ships in the same wheel as this module, so it is read rather than
+    transcribed — a hand-written copy is a second source of truth, and the one
+    thing it cannot do is disagree loudly.
+
+    A code the enum declares and the metadata leaves unclassified raises here.
+    Defaulting it would publish an invented classification under the name of a
+    normative one, which is the failure this function exists to prevent.
+    """
+    from adcp.validation.schema_loader import get_named_schema_document
+
+    document = get_named_schema_document(_SIGNING_ERROR_CODE_ENUM)
+    if document is None:
+        raise RuntimeError(
+            f"installed adcp package is inconsistent: {_SIGNING_ERROR_CODE_ENUM} is absent "
+            "from the bundled schemas, so the normative recovery classification for "
+            "request-signing errors cannot be read"
+        )
+    codes = document.get("enum")
+    metadata = document.get("enumMetadata")
+    if not isinstance(codes, list) or not isinstance(metadata, Mapping):
+        raise RuntimeError(
+            f"installed adcp package is inconsistent: {_SIGNING_ERROR_CODE_ENUM} carries no "
+            "enum/enumMetadata pair to read the recovery classification from"
+        )
+
+    table: dict[str, Recovery] = {}
+    for code in codes:
+        entry: Any = metadata.get(code)
+        value = entry.get("recovery") if isinstance(entry, Mapping) else None
+        try:
+            table[str(code)] = Recovery(value)
+        except ValueError:
+            raise RuntimeError(
+                f"installed adcp package is inconsistent: {_SIGNING_ERROR_CODE_ENUM} declares "
+                f"{code!r} with no valid enumMetadata.recovery (found {value!r})"
+            ) from None
+    return table
+
+
+#: Normative recovery classification for every code the request-signing error
+#: taxonomy defines, derived from the pinned
+#: ``enums/request-signing-error-code.json``. ``correctable`` means the signer
+#: can change the request or credential before retrying, ``transient`` means
+#: bounded automatic retry with backoff, and ``terminal`` means stop autonomous
+#: retries and surface to an operator.
+#:
+#: The webhook profile has no counterpart to read: it declares no enum document
+#: and no ``enumMetadata`` block, which is why a ``webhook_signature_*`` code is
+#: absent here. Classify one through the request-family cause it was retagged
+#: from, or read :attr:`SignatureVerificationError.transient`, which survives
+#: the retag.
+SIGNING_RECOVERY: Mapping[str, Recovery] = MappingProxyType(_build_signing_recovery())
+
+
+def recovery_for(code: str) -> Recovery:
+    """Return the normative recovery classification for one request-signing code.
+
+    Raises :class:`KeyError` for anything the request-signing taxonomy does not
+    define — including a ``webhook_signature_*`` code, which the webhook profile
+    never classified. A default would answer for a code no spec block speaks for.
+    """
+    return SIGNING_RECOVERY[code]
+
+
+#: Request-family codes the schema classifies ``transient``: the fetch did not
+#: complete, so the same input can succeed later. A view over
+#: :data:`SIGNING_RECOVERY`, never a second table — the two cannot disagree
+#: because there is only one of them.
+_TRANSIENT_CODES = frozenset(
+    code for code, recovery in SIGNING_RECOVERY.items() if recovery is Recovery.transient
+)
+
+# Webhook-signing error taxonomy — adcp#2423 / webhooks.mdx + security.mdx.
+# Distinct strings from the request-signing family so receivers can route the
+# 401 response through webhook-specific observability.
+WEBHOOK_SIGNATURE_HEADER_MALFORMED = "webhook_signature_header_malformed"
+WEBHOOK_SIGNATURE_PARAMS_INCOMPLETE = "webhook_signature_params_incomplete"
+WEBHOOK_SIGNATURE_TAG_INVALID = "webhook_signature_tag_invalid"
+WEBHOOK_SIGNATURE_ALG_NOT_ALLOWED = "webhook_signature_alg_not_allowed"
+WEBHOOK_SIGNATURE_WINDOW_INVALID = "webhook_signature_window_invalid"
+WEBHOOK_SIGNATURE_COMPONENTS_INCOMPLETE = "webhook_signature_components_incomplete"
+WEBHOOK_SIGNATURE_KEY_UNKNOWN = "webhook_signature_key_unknown"
+WEBHOOK_SIGNATURE_KEY_PURPOSE_INVALID = "webhook_signature_key_purpose_invalid"
+WEBHOOK_SIGNATURE_INVALID = "webhook_signature_invalid"
+WEBHOOK_SIGNATURE_DIGEST_MISMATCH = "webhook_signature_digest_mismatch"
+WEBHOOK_SIGNATURE_REPLAYED = "webhook_signature_replayed"
+WEBHOOK_SIGNATURE_KEY_REVOKED = "webhook_signature_key_revoked"
+WEBHOOK_SIGNATURE_REVOCATION_STALE = "webhook_signature_revocation_stale"
+WEBHOOK_SIGNATURE_RATE_ABUSE = "webhook_signature_rate_abuse"
+
+# The webhook profile declares no per-hop code for the key-discovery chain.
+# security.mdx § "Webhook callbacks" → JWKS discovery walks four steps
+# (brand.json fetch → ``agents[]`` match → ``jwks_uri`` fetch → ``keyid``
+# resolve) and names exactly one rejection code for the whole chain,
+# ``webhook_signature_key_unknown``; webhook checklist step 7 repeats it and
+# adds "Reject if ``keyid`` cannot be resolved to a specific ``agents[]``
+# entry in the signer's brand.json". The webhook error taxonomy table carries
+# no brand.json, capabilities or key-origin row. That is the deliberate
+# asymmetry with the request profile, whose own discovery-chain
+# rejection-code table assigns a distinct code and a structured ``detail``
+# shape to every hop: a webhook sender learns that its key did not resolve
+# and nothing about the receiver's walk to reach that conclusion.
+#
+# Every ``request_signature_*`` discovery code therefore translates to
+# ``WEBHOOK_SIGNATURE_KEY_UNKNOWN`` in ``REQUEST_TO_WEBHOOK_CODE`` below.
+
+# Structural code for a malformed authority on the webhook profile. Named
+# without the ``webhook_signature_`` prefix the rest of this family carries
+# because the spec names it that way: security.mdx's webhook checklist lists
+# ``webhook_target_uri_malformed`` in the error taxonomy and requires it at
+# step 10 for a malformed or mismatched authority.
+WEBHOOK_TARGET_URI_MALFORMED = "webhook_target_uri_malformed"
+# Webhook twin of ``request_body_malformed`` (webhook checklist step 14).
+WEBHOOK_BODY_MALFORMED = "webhook_body_malformed"
+
+#: Every code the webhook profile defines: security.mdx (AdCP 3.2.1)
+#: § "Webhook error taxonomy". A webhook verifier emits nothing else. In
+#: particular the profile has no ``required``, ``components_unexpected`` or
+#: ``jwks_*`` code: an unsigned delivery and a duplicated covered component are
+#: malformed signature headers, and every JWKS discovery failure is
+#: ``webhook_signature_key_unknown`` (checklist step 7). ``webhook_mode_mismatch``
+#: is the registration-mode check, decided outside the signature verifier.
+WEBHOOK_ERROR_CODES = frozenset(
+    {
+        WEBHOOK_SIGNATURE_HEADER_MALFORMED,
+        WEBHOOK_SIGNATURE_PARAMS_INCOMPLETE,
+        WEBHOOK_SIGNATURE_TAG_INVALID,
+        WEBHOOK_SIGNATURE_ALG_NOT_ALLOWED,
+        WEBHOOK_SIGNATURE_WINDOW_INVALID,
+        WEBHOOK_SIGNATURE_COMPONENTS_INCOMPLETE,
+        WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+        WEBHOOK_SIGNATURE_KEY_PURPOSE_INVALID,
+        WEBHOOK_SIGNATURE_KEY_REVOKED,
+        WEBHOOK_SIGNATURE_REVOCATION_STALE,
+        WEBHOOK_SIGNATURE_INVALID,
+        WEBHOOK_SIGNATURE_DIGEST_MISMATCH,
+        WEBHOOK_BODY_MALFORMED,
+        WEBHOOK_TARGET_URI_MALFORMED,
+        WEBHOOK_SIGNATURE_REPLAYED,
+        WEBHOOK_SIGNATURE_RATE_ABUSE,
+        "webhook_mode_mismatch",
+    }
+)
+
+# Code-family translation used by the webhook verifier wrapper. The verifier
+# pipeline raises request_signature_* codes; the wrapper retags them into
+# webhook_signature_* before exposing to callers. Keeps the 300-line verifier
+# unchanged and guarantees webhook routes never leak request-family codes.
+#
+# This table is the only place the webhook profile's code for a request-family
+# failure is decided. A row that mirrors the request code into the webhook
+# family keeps its suffix; a row that maps to a coarser webhook code because
+# the profile declares nothing finer changes it, and the wrapper logs the
+# precise request-family cause whenever that happens. Readers grade the webhook
+# profile's emitted taxonomy off the values in this table — so a row that no
+# input can reach is a row that lies.
+REQUEST_TO_WEBHOOK_CODE = {
+    # No signature at all is the degenerate case of the profile's "header
+    # malformed or one without the other" row; it defines no ``required`` code.
+    REQUEST_SIGNATURE_REQUIRED: WEBHOOK_SIGNATURE_HEADER_MALFORMED,
+    REQUEST_SIGNATURE_HEADER_MALFORMED: WEBHOOK_SIGNATURE_HEADER_MALFORMED,
+    REQUEST_TARGET_URI_MALFORMED: WEBHOOK_TARGET_URI_MALFORMED,
+    REQUEST_SIGNATURE_PARAMS_INCOMPLETE: WEBHOOK_SIGNATURE_PARAMS_INCOMPLETE,
+    REQUEST_SIGNATURE_TAG_INVALID: WEBHOOK_SIGNATURE_TAG_INVALID,
+    REQUEST_SIGNATURE_ALG_NOT_ALLOWED: WEBHOOK_SIGNATURE_ALG_NOT_ALLOWED,
+    REQUEST_SIGNATURE_WINDOW_INVALID: WEBHOOK_SIGNATURE_WINDOW_INVALID,
+    REQUEST_SIGNATURE_COMPONENTS_INCOMPLETE: WEBHOOK_SIGNATURE_COMPONENTS_INCOMPLETE,
+    # Reached on this profile only by a duplicated covered component (content-digest
+    # coverage is required, never forbidden): a malformed Signature-Input.
+    REQUEST_SIGNATURE_COMPONENTS_UNEXPECTED: WEBHOOK_SIGNATURE_HEADER_MALFORMED,
+    REQUEST_SIGNATURE_KEY_UNKNOWN: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_KEY_PURPOSE_INVALID: WEBHOOK_SIGNATURE_KEY_PURPOSE_INVALID,
+    REQUEST_SIGNATURE_INVALID: WEBHOOK_SIGNATURE_INVALID,
+    REQUEST_SIGNATURE_DIGEST_MISMATCH: WEBHOOK_SIGNATURE_DIGEST_MISMATCH,
+    REQUEST_SIGNATURE_REPLAYED: WEBHOOK_SIGNATURE_REPLAYED,
+    REQUEST_SIGNATURE_KEY_REVOKED: WEBHOOK_SIGNATURE_KEY_REVOKED,
+    REQUEST_SIGNATURE_REVOCATION_STALE: WEBHOOK_SIGNATURE_REVOCATION_STALE,
+    REQUEST_SIGNATURE_RATE_ABUSE: WEBHOOK_SIGNATURE_RATE_ABUSE,
+    REQUEST_BODY_MALFORMED: WEBHOOK_BODY_MALFORMED,
+    # Key-discovery chain. The webhook profile stops at
+    # ``webhook_signature_key_unknown`` for every hop — see the comment above
+    # the WEBHOOK_* constants.
+    REQUEST_SIGNATURE_BRAND_JSON_URL_MISSING: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_CAPABILITIES_UNREACHABLE: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_BRAND_JSON_UNREACHABLE: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_BRAND_JSON_MALFORMED: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_BRAND_ORIGIN_MISMATCH: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_AGENT_NOT_IN_BRAND_JSON: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_BRAND_JSON_AMBIGUOUS: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_KEY_ORIGIN_MISMATCH: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_KEY_ORIGIN_MISSING: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    # The JWKS fetch is the chain's last hop. ``transient`` on the retagged
+    # error keeps the unavailable/untrusted distinction in-process.
+    REQUEST_SIGNATURE_JWKS_UNAVAILABLE: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+    REQUEST_SIGNATURE_JWKS_UNTRUSTED: WEBHOOK_SIGNATURE_KEY_UNKNOWN,
+}

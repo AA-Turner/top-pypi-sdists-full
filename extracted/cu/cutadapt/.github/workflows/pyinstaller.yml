@@ -1,0 +1,34 @@
+name: PyInstaller
+
+on:
+  schedule:
+  - cron: "0 15 6 * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+      - name: Install
+        run: |
+          python -m venv venv
+          venv/Scripts/pip install pyinstaller
+          venv/Scripts/pip install .
+      - name: Make exe
+        run: |
+          echo "from cutadapt.__main__ import main_cli" > script.py
+          echo "sys.exit(main_cli())" >> script.py
+          venv/Scripts/pyinstaller -F --hidden-import=cutadapt._match_tables -n cutadapt script.py
+      - name: Run it
+        run: dist/cutadapt.exe --version
+      - name: Test multicore
+        run: ( echo ">read" && echo "ACGT" ) | dist/cutadapt.exe -j 2 --quiet -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cutadapt-exe
+          path: dist/cutadapt.exe

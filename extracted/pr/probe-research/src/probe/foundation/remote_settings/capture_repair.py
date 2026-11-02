@@ -1,6 +1,6 @@
 """Staff asked to repair this machine's session capture (research-os control/073): the `capture-repair-requested` mark.
 
-Acted on by `probe.cli.main._capture_repair_notice`. Stdlib only; never raises. Why (Anthrogen, 2026-10-26): DESIGN.md.
+Acted on by `probe.cli.lifecycle.notices.capture_repair._capture_repair_notice`. Stdlib only; never raises. Why (Anthrogen, 2026-10-26): DESIGN.md.
 """
 
 from __future__ import annotations

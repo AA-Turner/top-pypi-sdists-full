@@ -410,6 +410,14 @@ HANCOM_PAGES = {
     "pages_table_then_nothing_starting_on_the_next_page": 2,
     "pages_table_then_a_space_starting_on_the_next_page": 2,
     "pages_table_not_split_then_a_space_starting_on_the_next_page": 2,  # set not to split: the same
+    # Sixteen times on a page of their own, after 33 to 40 lines: such a table (4 rows, 12900 tall, moved row by row
+    # or split by cells) then a space. Moved row by row and not starting there, it starts at the next page's top and
+    # the paragraph's line stays where it fits; where the line does not fit either, it goes on with the table, below it
+    "pages_table_then_a_space_past_the_page_foot": 33,
+    # One-cell tables 2000 tall holding one, three or six lines, set as a character or placed top and bottom, set not
+    # to change size (hp:sz@protect) or not: one so set keeps its rows as declared, its text cut off below, and goes
+    # on over a page end whole; one not so set grows to hold its text
+    "pages_tables_set_not_to_change_size": 2,
     # A cell of a flowing table, a picture 20000 x 10000 placed top and bottom from a paragraph of it:
     "pages_table_cell_picture_first": 1,  # alone in the first: the line on its top, the row as tall as it
     "pages_table_cell_picture_second": 1,  # alone in the second, after a line: from that paragraph's top
@@ -512,6 +520,9 @@ HANCOM_PAGES = {
     "pages_picture_as_character_after_a_line_break": 1,  # the same before a picture 3000 tall
     "pages_table_caption_above": 1,  # a caption of one line above a flowing table: the line and a gap of 850
     "pages_table_caption_below": 1,  # the same below it
+    # Eight times, 0 to 3 empty paragraphs down a page: a table of 40 rows split between cell lines, with a caption of
+    # one line below it 141 or 850 away: every page it goes on from keeps the caption's room at its foot
+    "pages_table_split_between_cell_lines_keeping_its_caption_room": 16,
     "pages_table_caption_above_over_pages": 2,  # above a table going over the page end: on its first page
     "pages_table_as_character_caption_two_lines": 1,  # two lines above a table set as a character
     # A caption whose paragraph is spaced 900 before: its line starts 900 down, the room taken with it.
@@ -922,6 +933,9 @@ HANCOM_PAGES = {
     "pages_rectangle_on_paper_over_the_right_column": 2,  # over the second only
     "pages_rectangle_on_paper_partly_over_two_columns": 2,  # 30000 wide, centred: partly over each, the
                                                              # lines of both go below it
+    # Six times on a page of its own: a paragraph holding two tables placed on the paper, each across the text's
+    # width, top and bottom or square: Hancom keeps the lines out of each one's band, as it would for one alone
+    "pages_several_paper_objects": 12,
     "pages_rectangle_on_paper_400_narrower_than_two_columns": 2,  # 400 narrower than the text, centred
     "pages_table_on_paper_400_narrower_than_two_columns": 2,  # a table so
     "pages_rectangle_on_paper_over_the_left_column_from_the_right": 2,  # anchored in the second column
@@ -998,6 +1012,183 @@ HANCOM_PAGES = {
     # of a table set as a character, its rows 1500 tall: moving with the text, it pushes no line aside but the
     # row grows to hold it below the cell's top margin; one that stays put leaves the row as it is
     "pages_floating_pictures_in_cells": 4,
+    # A rectangle in front of the text, 1000 to 3000 tall, at the top of the first paragraph of a table's cell,
+    # whose spacing before is 500: the row grows to hold it from the cell's top, above that spacing, not from the
+    # paragraph's first line
+    "pages_cell_front_object_spacing_before": 2,
+    # Thirteen times, after 0 to 12 lines: a table flowing with the text (CELL) whose one cell holds 40 paragraphs
+    # with 600 of spacing before and a small table set as a character in the fourth: going on over the page end,
+    # the part on the next page starts below its first paragraph's spacing before, as in a cell without a table
+    "pages_nested_cell_split_spacing_before": 27,
+    # Tables set as characters, 6 × 4, whose cells merged over rows leave the third row to merged cells alone, solved
+    # 0 to 200 tall (a table's written height hp:sz of 7938, 7985 and 9000 left as it is): Hancom makes such a row
+    # 100 tall at least, the rows below making up for it
+    "pages_merged_rows_at_least_100_tall": 2,
+    # 6 × 5 tables like those of a document whose fifth row only cells merged over rows cover, solved 1 to 150
+    # tall, set to adjust their cells or not (hp:tbl@noAdjust): only the ones set to adjust make it 100 tall
+    "pages_merged_rows_at_least_100_tall_unless_not_adjusted": 2,
+    # Paragraph shapes whose line spacing hp:case gives in characters (unit CHAR): fixed, at least and between lines
+    # of 240 to 500, each over a paragraph of three lines and an empty one. Hancom reads the value as a margin in
+    # that unit is read, two-hundredths of 바탕글's character size: 320 is a line 1600 tall at 10 pt
+    "pages_line_spacing_in_char_units": 2,
+    # Twelve times on a page of its own: one or two footnotes of one or two lines (separator 0.4 mm) in the second
+    # paragraph, then a 1 × 1 table flowing with the text (CELL) going over the page's end from 25 to 27 lines down:
+    # its rows end above the notes, whose room there leaves out the separator's width
+    "pages_flowing_table_split_above_page_footnotes": 25,
+    # Fourteen times on a page of its own: 2 or 12 paragraphs, then an empty one holding two tables placed top and
+    # bottom from it, 3000 and 8000 tall, either or both placed up by 1000 to 20000: Hancom stacks them as if they
+    # were not moved, the empty paragraph's line below both, the paragraphs before where they were
+    "pages_stacked_objects_placed_up": 15,
+    # Sixteen times on a page of its own: a table whose cell paragraph holds 10 pt and 14 pt text, a table 2000 or
+    # 5000 tall placed top and bottom from the paragraph among it (before its first character, or after the 15th,
+    # 40th or 70th): the lines up to the one its control falls on stay above it and the rest go below, each as tall as
+    # its characters
+    "pages_cell_top_bottom_table_among_mixed_sizes": 17,
+    # Twelve times on a page of its own: a table whose cell paragraph, 0 or 2000 in from the left and indented 0,
+    # 2000 or -2000, starts with a 12000 wide table wrapped square at its left or right: the lines beside it keep
+    # the paragraph's margin and indent within the room the object leaves, as the lines below it do in the cell
+    "pages_cell_square_wrap_beside_margins": 13,
+    # Sixteen times: 2 or 25 paragraphs, then one with a table 5000 or 40000 tall placed top and bottom 3000 or
+    # 10000 down from it, none or one paragraph more and one starting a page: the table stays where it stands, going
+    # on over the page end when it does, and the paragraph starts the page after the one the table ends on
+    "pages_page_break_before_table_band": 37,
+    # Fourteen times on a page of its own: a 2 × 2 table flowing with the text or set as a character, a footnote of
+    # one to three lines in its first or last cell (none in two), then 60 paragraphs: the note takes room at the
+    # page's foot as one anchored in the table's paragraph would, and the page ends that much higher
+    "pages_footnotes_in_table_cells": 28,
+    # Seven times on a page of its own: a table whose cell holds four paragraphs of a picture set as a character,
+    # 10 pt and 11 pt text (one line or two), each ended by a run without characters at 9, 11, 12 or 15 pt (or by
+    # none): as in the body, the run ending a paragraph makes its last line as tall as itself when it is larger
+    "pages_cell_objects_ending_in_an_empty_larger_run": 7,
+    # The same with the cell's first paragraph spaced 0 before and the others 600: the part on the next page starts
+    # below the spacing before of the paragraph it starts with, though the cell's first paragraph has none
+    "pages_nested_cell_split_with_its_first_paragraph_unspaced": 27,
+    # Left and right margins of 8503 (42522 left of the page's width): tables set as characters 42518 to 42523
+    # wide, alone or followed by a page number. The one column is 42520 wide, its width rounded down to a multiple
+    # of 4 as each of several columns is, and the page number goes below a table wider than that
+    "pages_one_column_width_rounded_down_to_four": 2,
+    # Empty paragraphs whose shape takes the line height from the font (fontLineHeight), in 맑은 고딕, 함초롬바탕,
+    # 바탕, 굴림 and HY헤드라인M at 11 and 20 pt, alone, after a line of 바탕 text and with a connected border: an
+    # empty line keeps the character size (맑은 고딕 11 pt 1100, not the 1464 a line of its characters takes)
+    "pages_empty_paragraphs_font_line_height": 2,
+    # A table set as a character 3000 tall and 42238, 42300 or 42600 wide (the line is 42520) followed by a page
+    # number in a run of 14 or 20 pt and text of 10 or 13 pt, the page number before the table or after it, on its
+    # own page or after 33 lines: past a table wider than the line, the page number goes on the line after it, which
+    # is as tall as the page number's run, and the table's line is spaced without it
+    "pages_controls_after_a_wide_table": 51,
+    # A table or a rectangle set as a character, 3000 tall and 42238 or 42600 wide (the line is 42520), alone or
+    # after text, then a page number in a run of 14 pt with or without text of 10 pt after it: the page number is a
+    # character of no width as tall as its run, on the object's line when the object fits (the line spaced from the
+    # page number's size), on the next line past an object wider than the line, whatever the object
+    "pages_controls_beside_objects_wider_than_the_line": 2,
+    # A table 20000 x 3000 placed top and bottom alone in an empty paragraph, 0 or 500 down from its top, set to
+    # split by cell, by table or not at all, allowed to overlap or not: allowed, it sends the paragraph's empty line
+    # below it (one not fitting on the page goes on to the next page's top, the line staying); not allowed, the
+    # line stays beside it and the next paragraph comes below the table
+    "pages_overlapping_tables_alone_in_empty_paragraphs": 2,
+    # A table 30000 x 1000 or a rectangle as large placed top and bottom 2000 or 5000 down from a paragraph of one or
+    # four lines with 0 or 1000 of spacing before, its control before or after the text, then six short paragraphs:
+    # on the first line, the object stands that far below the paragraph's top, above its spacing; on a later line,
+    # below that line's top; the lines reaching it go below it
+    "pages_objects_offset_down_from_a_paragraph_with_spacing_before": 8,
+    # A table placed top and bottom at its paragraph's top or a rectangle in front of the text, in a run of 16 pt
+    # after, in the middle of or after the spaces of 10 pt text one or three lines long: the line its place falls on
+    # is as tall as a 16 pt character and spaced from it, and the table stands at that line's top
+    "pages_object_runs_after_the_text": 2,
+    # Thirty-eight times, on a page of its own after 38 lines: a table split by cell 500 to 2300 down from its
+    # paragraph, two rows, the second's middle cell eight lines of 10 pt and the last cell a line of 20 pt, the
+    # first column merged over both rows or not: where the 20 pt line does not fit above the page end, the row goes
+    # on to the next page whole, its other cells too
+    "pages_merged_rows_split_with_a_larger_cell": 76,
+    # A table set as a character whose cell holds two lines and a table set as a character with no caption or one of
+    # one or two lines below or above it: the cell's line is as tall as the table and its caption with their gap
+    "pages_captioned_tables_in_cells": 1,
+    # Forty-eight times, on a page of its own after 33 to 40 lines: a table 7696 tall placed top and bottom 0, 1166 or
+    # 3000 down from a paragraph of text, split by cell or moved row by row, then an empty paragraph and two of text:
+    # a table moved row by row with no room for its first row on the page goes on to the next page's top whole, the
+    # paragraph's line and those after staying where they fit, the rest going below the table there; a page break
+    # after a table that went on to the next page's top starts the page after that
+    "pages_tables_offset_down_past_the_page_foot": 97,
+    # Eight times, on a page of its own after 39 or 40 lines: a paragraph of text holding a table split cell by cell
+    # (three rows of two lines) placed top and bottom 1000 to 3000 down, then an empty paragraph and two of text:
+    # when not one line of its first row fits under the anchor, the table starts at the next page's top, as one
+    # moved row by row, the empty paragraph staying under the anchor's line where it fits
+    "pages_cell_split_tables_with_no_line_under_the_anchor": 16,
+    # Thirteen times at a page's top: a table split cell by cell holding 30 to 42 lines, then a table on its own of
+    # four rows, its last holding a table of six rows on its own in turn, then three lines: a page end among the
+    # innermost table's rows splits there, each piece of it kept a table's cut for each table it is in and the bottom
+    # margin of the row holding it above the foot
+    "pages_nested_table_rows_holding_tables_split": 26,
+    # The same, the last row holding six tables of two rows set as characters, one per paragraph: it splits between
+    # them as between lines, a table being one
+    "pages_nested_table_rows_holding_tables_as_characters_split": 26,
+    # Twenty-one times at a page's top: a table split cell by cell, its inner margins 510, holding 34 lines, then
+    # "표 뒤 글" with a table 1488 below its top (12 rows of three cells, their bottom margins 100 to 1300, header rows
+    # repeated, outer margins 141): the part of the inner table going on to the next page starts below its top
+    # margin again, as a table flowing in the body does
+    "pages_nested_tables_going_on_below_their_top_margin": 42,
+    # Thirty-eight times: the inner table on its own, or 1488 below "표 뒤 글", its rows declared 466 taller than their
+    # text: a row whose text fits stays on the page, the room it declares to spare under the text cut at the page
+    # end, as a flowing table's row's
+    "pages_nested_table_rows_with_room_to_spare_at_the_page_foot": 76,
+    # Eight times, 0 to 21 empty paragraphs down a page: a flowing table split cell by cell, its two rows joined by
+    # a merged cell, the other cell of the first row holding 60 paragraphs, every fifth at 12 pt and the rest at
+    # 10 pt: the part of that cell going on to the next page is as tall as its own lines, each at its size
+    "pages_merged_rows_with_cells_of_mixed_line_sizes_split": 18,
+    # Sixteen times, 30 to 51 empty paragraphs down a page: a flowing table split between cell lines, each of its six
+    # rows a cell of two lines of text and one of an empty line and a table set as a character, both declared as
+    # tall as the table fills its cell, or 300 taller: the row splits by the cell its text fills most, the part going
+    # on as tall as its lines left or as what it declares below the page end, whichever is taller
+    "pages_table_rows_split_by_the_cell_their_text_fills_most": 32,
+    # The same with the 60 paragraphs all at 10 pt, each spaced 200 before: the part of that cell going on to the
+    # next page starts below its first paragraph's spacing before, as at the cell's top
+    "pages_merged_rows_with_cells_spaced_before_split": 20,
+    # Twenty-seven times, the page end 1118 to 1518 below a block of five rows joined by a merged cell holding one
+    # line, its paragraph spaced 0 or 200 before (top or centred), in a table split between cell lines: the line
+    # fits above the page end only with its spacing before; when it does not, the merged cell goes on whole
+    "pages_merged_rows_split_by_a_cell_spaced_before": 54,
+    # Every face whose ascent and descent do not make up its em, at every 50 HWPUNIT from 500 to 4000, in paragraphs
+    # taking their line height from the font: each line as tall as Hancom lays it out, a few units off the ascent and
+    # descent rounded up at many sizes
+    "pages_font_line_heights_by_size": 102,
+    # A rectangle placed top and bottom 0 or 1213 down from an empty paragraph after 31 lines, its foot one unit above
+    # the body's foot or right at it: it stays on the page, its paragraph's line too (a line of text ending right at
+    # the foot goes on to the next page, see pages_line_ends_at_page_foot), the next paragraph on the next page
+    "pages_object_ending_at_the_page_foot": 9,
+    # A page number in a run of 20 pt, a header of 10 pt and a page number again before a table set as a character in a
+    # run of 12 pt, 48553 wide (the line is 48188), the paragraph's line spacing 160 %: one line, as tall as the
+    # table and spaced from the page numbers' size
+    "pages_controls_before_a_table_wider_than_the_line": 1,
+    # A rectangle 3000 tall placed top and bottom 0 or 500 down alone in an empty paragraph with 0 or 1000 of spacing
+    # before, mid-page or at the top of a page after a page break: it stands that far below the paragraph's top,
+    # above its spacing, and the next paragraph comes below its foot
+    "pages_empty_paragraph_objects_below_spacing_before": 5,
+    # Five times: 39 lines, then two empty paragraphs each holding a table split cell by cell (50 rows under two
+    # header rows it repeats, its first column merged over them and 60 lines long), 1000 or 1500 and 0 or 394 down,
+    # the first placed top and bottom or square, neither's header rows fitting under its anchor; then four lines or a
+    # page break: the first table starts at the next page's top, the second at the top of the page after the first's
+    # foot, and the lines after go on below the first table's foot
+    "pages_tables_starting_past_their_anchors_on_one_page": 27,
+    # Eleven times at a page's top: a table split cell by cell, one row of two cells, the second holding 30 to 40
+    # lines, then a table placed top and bottom on its own (12 rows of one line, 1282 tall each), then three lines:
+    # the page end falls among the inner table's rows, which stay on the page only ending a table's cut (101)
+    # above the foot the lines of text go down to, the rest going on at the next page's top
+    "pages_nested_table_rows_a_cut_above_the_page_foot": 22,
+    # The same twelve times (28 to 39 lines), the inner table's bottom margin 1417: its rows stay on the page only
+    # ending that margin and a table's cut above the foot
+    "pages_nested_table_rows_with_a_bottom_margin_above_the_page_foot": 24,
+    # The same eleven times, the inner table's first column merged over rows 0-1, 2-3, 4-6 and 7-9 (two or three
+    # lines each, taller than the rows they span): a page end among rows so joined splits them cell by cell, as in a
+    # table flowing in the body, each cell keeping the lines that end a table's cut above the foot
+    "pages_nested_tables_with_merged_rows_split_cell_by_cell": 22,
+    # The merged inner table twelve times (29 to 40 lines), its bottom margin 1417 and "표 뒤 글" after it in its
+    # paragraph: the table splits as one on its own, the text going below it on the next page; when nothing of it
+    # stays, the text stays where the table would have started and the table goes on alone
+    "pages_nested_tables_before_text_with_merged_rows_split": 24,
+    # A table 20000 x 3000 or a rectangle 3000 x 3000 placed top and bottom at the top of a paragraph with 300 of
+    # spacing before, in a run of 10, 14 or 20 pt, then a space of 8 pt and text of 10 pt: the object stands at the
+    # paragraph's top, above its spacing, the text right below it, and the line is as tall as the object's run
+    "pages_objects_on_a_text_paragraphs_top": 1,
     # A chart wrapped square in a run's hp:switch (Hancom saves every chart in one), 20000 or 8000 wide, with a
     # picture 8000 or 20000 wide in its hp:default: the lines beside it are as narrow as the chart leaves them
     "pages_chart_case_wider_than_its_default": 1,
@@ -1141,6 +1332,25 @@ def test_without_line_caches_formfit_breaks_the_lines_the_same(name: str) -> Non
     data = (FIXTURES / f"{name}.hwpx").read_bytes()
 
     _assert_like_hancom(estimate_pages(_without_caches(data)), data, HANCOM_PAGES[name])
+
+
+def test_a_text_box_grown_for_other_text_is_laid_out_anew() -> None:
+    # The rectangle holding three lines of text, its current size written 9966 instead of the 4766 Hancom grew it
+    # to, as a document saved with other fonts or text has it: Hancom lays the box's text out anew and draws the
+    # rectangle as tall as that text and its margins, whatever the current size says.
+    data = (FIXTURES / "pages_text_box_grown_by_three_lines.hwpx").read_bytes()
+    stale = _without_caches(data)
+    with zipfile.ZipFile(io.BytesIO(stale)) as source:
+        parts = {info: source.read(info.filename) for info in source.infolist()}
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for info, payload in parts.items():
+            if info.filename == "Contents/section0.xml":
+                payload = payload.replace(b'<hp:curSz width="0" height="4766"/>', b'<hp:curSz width="0" height="9966"/>')
+                assert b'height="9966"' in payload
+            target.writestr(info, payload)
+
+    _assert_like_hancom(estimate_pages(out.getvalue()), data, 1)
 
 
 def test_cells_keeping_their_caches_hold_their_wrapped_pictures_where_hancom_put_them() -> None:
@@ -1437,6 +1647,28 @@ def test_page_margins_leaving_no_body_are_unsupported() -> None:
     estimate = estimate_pages(out.getvalue())
     assert estimate.pages is None
     assert any("no room for the body" in reason for reason in estimate.unsupported)
+
+
+@pytest.mark.parametrize("text_width", [1, 2, 3])
+def test_one_column_rounding_to_zero_is_unsupported_without_cache_mutation(text_width: int) -> None:
+    from hwpx.layout.line_cache import write_line_caches
+
+    document = HwpxDocument.new()
+    document.add_paragraph("너비 없는 줄")
+    page = next(document.oxml.sections[0].element.iter(HP + "pagePr"))
+    page.set("width", str(text_width))
+    margin = page.find(HP + "margin")
+    for side in ("left", "right", "gutter"):
+        margin.set(side, "0")
+    before = document.to_bytes()
+
+    estimate = estimate_pages(document)
+    report = write_line_caches(document)
+
+    assert estimate.pages is None and estimate.lines == ()
+    assert estimate.unsupported == ("section 0: column width leaving no room for the body",)
+    assert report.unsupported == estimate.unsupported and report.written == 0
+    assert document.to_bytes() == before
 
 
 def test_an_offset_written_with_a_minus_sign_is_read_as_zero() -> None:
@@ -2620,3 +2852,74 @@ def test_a_paragraph_its_shape_squeezes_takes_one_line() -> None:
     data = (FIXTURES / "line_cache_squeezed.hwpx").read_bytes()
 
     _assert_like_hancom(estimate_pages(_without_caches(data)), data, 3)
+
+
+def test_a_split_merged_cell_drops_its_first_paragraph_lead_after_consuming_a_line() -> None:
+    # One fixed-pitch paragraph over seven pages: only its first part is spaced 200 before.
+    cell = page_layout._Row(30200, 30, 1000, 1000, 0, False, first=1200)
+    rows = [page_layout._Row(15100, 0, 1000, 1000, 0, False, joined=True),
+            page_layout._Row(15100, 0, 1000, 1000, 0, False, merged=True)]
+    table = page_layout._FlowTable(rows, "CELL", False, (0, 0), cells=((0, 2, cell),), cut=0)
+
+    assert page_layout._flow_table(table, 0, 0, 5000) == (6, 1000)
+
+
+def test_a_split_merged_cell_keeps_its_first_lead_when_no_line_was_consumed() -> None:
+    cell = page_layout._Row(1200, 1, 1000, 1000, 0, False, first=1200)
+    rows = [page_layout._Row(600, 0, 1000, 1000, 0, False, joined=True),
+            page_layout._Row(600, 0, 1000, 1000, 0, False, merged=True)]
+    table = page_layout._FlowTable(rows, "CELL", False, (0, 0), cells=((0, 2, cell),), cut=0)
+
+    _, _, continued = page_layout._block_rest(table, 0, 1, 4000, 5000)
+
+    assert len(continued) == 1
+    assert continued[0][2].lines == 1
+    assert continued[0][2].first == 1200
+    assert page_layout._flow_table(table, 0, 4000, 5000) == (1, 1200)
+
+
+@pytest.mark.parametrize("characters_before", [1, 35])
+def test_a_note_in_a_table_among_text_is_left_for_hancom(characters_before: int) -> None:
+    # Reuse Hancom's table-note fixture at a page boundary. The object can wrap after its preceding text, so
+    # text-only line starts cannot locate its note. Refuse this combination until anchoring follows the object.
+    document = HwpxDocument.open(_without_caches((FIXTURES / "pages_footnotes_in_table_cells.hwpx").read_bytes()))
+    root = document.oxml
+    paragraph = next(paragraph for paragraph in root.sections[0].element.findall(f"{HP}p")
+                     if any(table.find(f"{HP}pos").get("treatAsChar") == "1"
+                            and table.find(f".//{HP}footNote") is not None for table in paragraph.iter(f"{HP}tbl")))
+    run = etree.Element(f"{HP}run", charPrIDRef="0")
+    etree.SubElement(run, f"{HP}t").text = "가" * characters_before
+    paragraph.insert(0, run)
+    page = page_layout._Page(1600, 42520, 1)
+
+    with pytest.raises(page_layout._Unsupported, match="footnotes in a paragraph with objects among its text"):
+        page_layout._paragraph(page_layout._Measure(root), page, paragraph)
+
+
+def test_a_flowing_table_reaching_its_footnotes_is_left_for_hancom() -> None:
+    # Move Hancom's 2564-high flowing table near the page foot: its 2351-high note area starts at 10213,
+    # while the table would end at 12364. Counting the notes only after placing the table must not leave a
+    # supposedly supported layout where the table and its footnotes overlap.
+    from dataclasses import replace
+
+    document = HwpxDocument.open(_without_caches((FIXTURES / "pages_footnotes_in_table_cells.hwpx").read_bytes()))
+    root = document.oxml
+    element = next(paragraph for paragraph in root.sections[0].element.findall(f"{HP}p")
+                   if any(table.find(f"{HP}pos").get("treatAsChar") == "0"
+                          and table.find(f".//{HP}footNote") is not None for table in paragraph.iter(f"{HP}tbl")))
+    para = page_layout._paragraph(page_layout._Measure(root), page_layout._Page(12564, 42520, 1), element)
+    assert para.table is not None and para.notes
+    shape = page_layout._note_shape(root.sections[0].element)
+    paginator = page_layout._Paginator(12564, 1, shape)
+
+    with pytest.raises(page_layout._Unsupported, match="flowing table overlapping its footnotes"):
+        paginator._flow(para, para.table, 9800)
+
+    # The same table without notes still fits. The unchanged fixture at the page top also remains supported.
+    unnoted = replace(para, notes={})
+    without_notes = page_layout._Paginator(12564, 1, shape)
+    without_notes._flow(unnoted, unnoted.table, 9800)
+    assert without_notes.frame == 0 and without_notes.floor == 12364
+    at_top = page_layout._Paginator(12564, 1, shape)
+    at_top._flow(para, para.table, 0)
+    assert at_top.frame == 0 and at_top.floor < 12564 - shape.area(*at_top.page_notes)

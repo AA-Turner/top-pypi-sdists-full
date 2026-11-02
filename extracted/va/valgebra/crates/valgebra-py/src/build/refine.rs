@@ -1,0 +1,1273 @@
+//! How `Annotated` metadata is read: the marker protocol, and whether the
+//! constraint it carries fits the base it refines.
+//!
+//! A constraint is read off a marker of the `annotated_types` vocabulary, found
+//! by the `__module__` of a class in the marker's method resolution order, and
+//! off no other library's marker that happens to carry the same names; the
+//! vocabulary is never imported. The section "How `Annotated` metadata is read"
+//! in `docs/dev/03-frontend.md` is this module.
+
+use pyo3::exceptions::PyValueError;
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{
+    PyBool, PyBytes, PyComplex, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString,
+    PyTuple, PyType,
+};
+use valgebra_core::{
+    Carries, Constraint, Kind, OperandIx, OrderGroup, Schema, StepGroup, carries_division,
+    carries_length, carries_pattern,
+};
+
+use super::{Pool, build_schema, not_implemented};
+use crate::validator::Validator;
+
+/// `numbers.Number`, the register a remainder's comparison and an order bound's
+/// both follow, resolved once per process.
+static NUMBER: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// Whether `operand` is exactly an `int`, a `float` or a `bool`, whose type
+/// says what every register asked here would answer of it.
+///
+/// `numbers` registers `int` and `float`, `bool` derives from `int`, and an ABC
+/// keeps what it registers, so a value of exactly one of those types is a real
+/// number and no `Decimal`. Asking an ABC costs a call to
+/// `ABCMeta.__instancecheck__`, a Python function, which is about a sixth of
+/// compiling `Annotated[int, Ge(0)]`. The types are exact because the ABC also
+/// reads a value's `__class__`, which a subclass may answer with code of its
+/// own.
+fn is_a_builtin_number(operand: &Bound<'_, PyAny>) -> bool {
+    operand.is_exact_instance_of::<PyInt>()
+        || operand.is_exact_instance_of::<PyFloat>()
+        || operand.is_exact_instance_of::<PyBool>()
+}
+
+/// Whether `operand` is in [`NUMBER`]'s register, asked of the register only
+/// where the operand's type does not already say ([`is_a_builtin_number`]).
+fn is_a_number(operand: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if is_a_builtin_number(operand) {
+        return Ok(true);
+    }
+    let number = NUMBER.import(operand.py(), "numbers", "Number")?;
+    operand.is_instance(number)
+}
+use crate::errors::{is_fatal, summarize, unless_fatal};
+use crate::oracle::kind_of;
+
+/// `numbers.Complex` and `numbers.Real`, the two registers that tell a complex
+/// number from a real one, resolved once per process.
+static COMPLEX: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+static REAL: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// `decimal.Decimal`, the one number a float takes no remainder against,
+/// resolved once per process.
+static DECIMAL: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// Whether `operand` is a complex number and not a real one, which Python
+/// neither orders nor takes a remainder against: `1 >= 0j` and `4 % 2j` both
+/// raise, whatever the imaginary part is.
+///
+/// Asked only of an operand [`is_a_builtin_number`] does not place, which its
+/// callers test inline: called for every bound, it costs sixteen instructions
+/// a `Ge(0)`.
+fn is_complex(operand: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if operand.is_exact_instance_of::<PyComplex>() {
+        return Ok(true);
+    }
+    let py = operand.py();
+    if !operand.is_instance(COMPLEX.import(py, "numbers", "Complex")?)? {
+        return Ok(false);
+    }
+    Ok(!operand.is_instance(REAL.import(py, "numbers", "Real")?)?)
+}
+
+/// What a refusal of `operand` adds where a real number of another type equals
+/// it: `typing` caches `Annotated` by equality, so a marker written with that
+/// real number elsewhere arrives as this one wherever this one is built first.
+///
+/// `MultipleOf(2 + 0j)` equals `MultipleOf(2)`, and
+/// `MultipleOf(Decimal("0.5"))` equals `MultipleOf(0.5)`, each hashing alike.
+/// The refusal is right for the marker as written, and is read by a caller who
+/// wrote the real one; the sentence says how that marker came to be the one
+/// refused.
+fn equal_to_a_real(
+    operand: &Bound<'_, PyAny>,
+    real: PyResult<Bound<'_, PyAny>>,
+) -> PyResult<String> {
+    let py = operand.py();
+    let Some(real) = unless_fatal(real.map(Some), py, None)? else {
+        return Ok(String::new());
+    };
+    Ok(if unless_fatal(operand.eq(&real), py, false)? {
+        format!(
+            ". `typing` caches `Annotated` by equality and this marker equals one \
+             written with {}, so where that one is written, this one arrives if it \
+             is built first in the process",
+            summarize(&real)?
+        )
+    } else {
+        String::new()
+    })
+}
+
+/// Refuse an order bound that orders nothing: `nan`, and a complex number.
+///
+/// Every comparison with `nan` is false, so `Annotated[float, Ge(nan)]` admits
+/// **no value at all** -- and it is the empty set written as a bound, which no
+/// caller means and neither decider proves empty. Dropping the bound would
+/// admit every float instead; refusing says which mistake was made. A complex
+/// bound is the same set by another road: Python raises on `1 >= 0j`, and the
+/// walk reads a raise as a refusal.
+///
+/// Only those two are refused, not every empty bound: `Gt(inf)` is also empty,
+/// but it is empty because the order says so, which is an answer. `nan` and a
+/// complex number are the absence of an order.
+pub(super) fn refuse_unordered_bound(attr: &str, bound: &Bound<'_, PyAny>) -> PyResult<()> {
+    let py = bound.py();
+    let unordered = unless_fatal(bound.extract::<f64>().map(f64::is_nan), py, false)?;
+    if unordered {
+        return Err(PyValueError::new_err(format!(
+            "{attr} cannot be nan: every comparison with nan is false, so the \
+             bound admits no value at all. Write the bound you mean, or `nothing` \
+             for the empty set"
+        )));
+    }
+    if !is_a_builtin_number(bound) && unless_fatal(is_complex(bound), py, false)? {
+        return Err(complex_bound(attr, bound)?);
+    }
+    Ok(())
+}
+
+/// The refusal of a complex bound, out of line so that the path every real
+/// bound takes keeps its size.
+#[cold]
+#[inline(never)]
+fn complex_bound(attr: &str, bound: &Bound<'_, PyAny>) -> PyResult<PyErr> {
+    let note = equal_to_a_real(bound, bound.getattr(intern!(bound.py(), "real")))?;
+    Ok(PyValueError::new_err(format!(
+        "{attr} cannot be the complex number {}: Python orders no value against a \
+         complex one, so the bound admits no value at all. Write the bound as a \
+         real number{note}",
+        summarize(bound)?
+    )))
+}
+
+/// Build the schema an `Annotated` base and its metadata markers denote.
+///
+/// A marker of the `annotated_types` vocabulary contributes what it carries:
+/// `ge`/`gt`/`le`/`lt` a comparison bound, `min_length`/`max_length` length
+/// bounds, `multiple_of` a step, and `func` a predicate; a bare callable is a
+/// predicate too, and valgebra's `Regex` or a compiled `re.Pattern` a pattern.
+/// Another library's marker carrying the same names is ignored. A compiled
+/// validator contributes its set, and the
+/// schema is the meet of the refined base and every such set: metadata only
+/// narrows. Unrecognized metadata is ignored, per the typing spec. With no
+/// recognized constraint and no validator the base schema is returned as-is.
+pub(super) fn build_refine(
+    base: &Bound<'_, PyAny>,
+    metadata: &Bound<'_, PyTuple>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let base_schema = build_schema(base, lits, defs)?;
+    let mut constraints = Vec::new();
+    let mut sets = Vec::new();
+    for marker in metadata.iter() {
+        parse_constraint(&marker, &mut constraints, &mut sets, lits)?;
+    }
+    for constraint in &constraints {
+        check_constraint_fits(&base_schema, constraint, lits)?;
+    }
+    let refined = Schema::refine(base_schema, constraints);
+    if sets.is_empty() {
+        return Ok(refined);
+    }
+    let mut members = Vec::with_capacity(sets.len() + 1);
+    members.push(refined);
+    for set in &sets {
+        members.push(build_schema(set, lits, defs)?);
+    }
+    Ok(Schema::meet(members))
+}
+
+/// The group Python orders `operand` within, or `None` for a value of no group.
+///
+/// The register is read through [`is_a_number`], the question
+/// [`refuse_unnumbered_step`] asks, rather than by importing `numbers` and
+/// decoding `Number` again. Spelled as an import this would run the module
+/// lookup and two attribute names per order bound, and a fifty-field record of
+/// `Annotated[int, Ge(0)]` carries fifty of them.
+fn order_group(operand: &Bound<'_, PyAny>) -> PyResult<Option<OrderGroup>> {
+    let py = operand.py();
+    Ok(if unless_fatal(is_a_number(operand), py, false)? {
+        Some(OrderGroup::Number)
+    } else if operand.is_instance_of::<PyString>() {
+        Some(OrderGroup::Text)
+    } else if operand.is_instance_of::<PyBytes>() {
+        Some(OrderGroup::Bytes)
+    } else if operand.is_instance_of::<PyList>() {
+        Some(OrderGroup::List)
+    } else if operand.is_instance_of::<PyTuple>() {
+        Some(OrderGroup::Tuple)
+    } else if operand.is_instance_of::<PySet>() || operand.is_instance_of::<PyFrozenSet>() {
+        Some(OrderGroup::Set)
+    } else {
+        None
+    })
+}
+
+/// Whether the base's values are ordered against `operand`: the core's rule,
+/// asked with the operand's group.
+pub(super) fn carries_order(base: &Schema, operand: &Bound<'_, PyAny>) -> PyResult<Carries> {
+    Ok(valgebra_core::carries_order(base, order_group(operand)?))
+}
+
+/// The base with each literal read as the kind its constant belongs to.
+///
+/// A constraint is refused where the base's values cannot be asked it, and the
+/// check reads the base's *node*. A literal's node says only "a literal": the
+/// kind is the constant's, and the constant lives in the pool. Read off the
+/// node, `Annotated[int, MinLen(1)]` is refused while `Annotated[Literal[1],
+/// MinLen(1)]` -- the same schema one value narrower -- would compile, to a
+/// schema admitting no value and reporting itself inhabited: a set that exists
+/// according to the library and holds nothing according to the walk.
+///
+/// Rewritten rather than special-cased at each check, because the checks fold
+/// over unions and refinements: a union of integer literals has to answer the
+/// way a union of integers does, and it does so by being one here.
+///
+/// A constant of no kind the partition names -- an enum member, an instance --
+/// is left as it is, and the checks read it as unknown, which refuses nothing.
+fn kinded(base: &Schema, lits: &Pool) -> Schema {
+    match base {
+        Schema::Literal(index) => Python::attach(|py| {
+            let Some(value) = lits.items().get(index.get()) else {
+                return base.clone();
+            };
+            match kind_of(value.bind(py)) {
+                Some(Kind::Bool) => Schema::Bool,
+                Some(Kind::Int) => Schema::Int,
+                Some(Kind::Float) => Schema::Float,
+                Some(Kind::Str) => Schema::Str,
+                Some(Kind::Bytes) => Schema::Bytes,
+                // Every other answer, `NoneType` included. The frontend reads
+                // `Literal[None]` as the `None` node rather than as a literal,
+                // so no constant here is one; a constant of a kind the
+                // partition does not name -- an enum member, an instance -- is
+                // left as it is, and the checks read it as unknown, which
+                // refuses nothing.
+                _ => base.clone(),
+            }
+        }),
+        // A union, and only a union. `carries_through` answers `Maybe` for an
+        // intersection, a complement and a reference without reading what is
+        // inside, so rewriting there is work no check can see -- and a
+        // refinement never arrives as a base, because the frontend folds nested
+        // markers onto the base they narrow rather than nesting the nodes. A
+        // shape that did arrive falls through here and is read as unknown,
+        // which refuses nothing.
+        Schema::Union(members) => Schema::Union(members.iter().map(|m| kinded(m, lits)).collect()),
+        _ => base.clone(),
+    }
+}
+
+/// Refuse a constraint no value of the base can answer.
+///
+/// A refinement whose predicate is not well sorted over its base is not a
+/// well-formed type [JV20, Fig. 3.3], and this is that rule read in three
+/// values: a constraint is refused where no value of the base can answer it,
+/// and kept where some can. A constraint that cannot be asked of a value is not
+/// a narrowing: reading a length off an `int` raises, and the walk reads a
+/// raise as a non-member, so `Annotated[int, MinLen(1)]` compiles to a schema
+/// that admits nothing at all and says nothing about why. That is a schema
+/// nobody writes on purpose, so it is refused where it is written rather than
+/// at the first value that meets it.
+pub(super) fn check_constraint_fits(
+    base: &Schema,
+    constraint: &Constraint,
+    lits: &Pool,
+) -> PyResult<()> {
+    // The base with its literals read as their kinds, which is what the checks
+    // below are about: a constraint is put to the *values* of the base.
+    let base = &kinded(base, lits);
+    let operand = |index: OperandIx| lits.items().get(index.get());
+    let (answer, what) = match constraint {
+        Constraint::MinLen(_) | Constraint::MaxLen(_) => (carries_length(base), "length"),
+        Constraint::Regex(_) => (carries_pattern(base), "text for a pattern to match"),
+        Constraint::MultipleOf(index) => match operand(*index) {
+            Some(step) => step_fits(base, step)?,
+            None => (Carries::Maybe, ""),
+        },
+        Constraint::Ge(index)
+        | Constraint::Gt(index)
+        | Constraint::Le(index)
+        | Constraint::Lt(index) => match operand(*index) {
+            Some(bound) => (
+                Python::attach(|py| carries_order(base, bound.bind(py)))?,
+                "order against that bound",
+            ),
+            None => (Carries::Maybe, ""),
+        },
+        Constraint::Predicate(_) => (Carries::Maybe, ""),
+    };
+    if answer == Carries::No {
+        return Err(not_implemented(format!(
+            "{} values have no {what}, so this constraint admits none of them; \
+             constrain a base the constraint can be asked of",
+            base.expected()
+        )));
+    }
+    Ok(())
+}
+
+/// Whether the base's values take a remainder against `step`, for
+/// [`check_constraint_fits`] to read; refused here, with a message of its own,
+/// where the step is a `Decimal` the base's values would divide were it any
+/// other number.
+///
+/// Out of line: inlined into [`build_refine`] with the rest of
+/// [`check_constraint_fits`], the step's reading costs every refined field
+/// about thirty instructions, a field holding only a bound included.
+#[inline(never)]
+fn step_fits(base: &Schema, step: &Py<PyAny>) -> PyResult<(Carries, &'static str)> {
+    Python::attach(|py| step_fits_within(base, step.bind(py)))
+}
+
+/// [`step_fits`], with the interpreter in hand.
+fn step_fits_within(base: &Schema, step: &Bound<'_, PyAny>) -> PyResult<(Carries, &'static str)> {
+    let group = step_group(step)?;
+    let answer = carries_division(base, group);
+    if group == StepGroup::Decimal
+        && answer == Carries::No
+        && carries_division(base, StepGroup::Number) != Carries::No
+    {
+        let py = step.py();
+        let real = step
+            .extract::<f64>()
+            .map(|real| PyFloat::new(py, real).into_any());
+        let note = equal_to_a_real(step, real)?;
+        return Err(not_implemented(format!(
+            "{} values take no remainder against the `Decimal` step {}: Python \
+             refuses to mix a float and a `Decimal`, so this constraint admits none \
+             of them. Write the step as a float or a `Fraction`{note}",
+            base.expected(),
+            summarize(step)?
+        )));
+    }
+    Ok((answer, "number for a divisor"))
+}
+
+/// The compilation flags a `re.Pattern` carries, folded into the pattern itself.
+///
+/// A compiled pattern keeps its flags beside its source, and the source alone is
+/// a different expression: `re.compile("abc", re.I)` matches `"ABC"` and `"abc"`
+/// does not. Dropping them silently narrows the set the marker was written for,
+/// so each flag is either written into the pattern -- the engine here reads the
+/// same inline spellings -- or refused by name.
+///
+/// `re.UNICODE` is the default for a `str` pattern in both engines and says
+/// nothing extra, so it is not named here at all. `re.ASCII` and `re.LOCALE` change what a
+/// character class means in ways this engine spells differently, and `re.DEBUG`
+/// asks the other engine to talk about itself, so all three are refused rather
+/// than approximated.
+pub(super) fn with_inline_flags(
+    marker: &Bound<'_, PyAny>,
+    probes: &Probes<'_>,
+    pattern: String,
+) -> PyResult<String> {
+    // `re`'s own bit values, which are part of its published interface.
+    const IGNORECASE: u32 = 2;
+    const LOCALE: u32 = 4;
+    const MULTILINE: u32 = 8;
+    const DOTALL: u32 = 16;
+    const DEBUG: u32 = 128;
+    const VERBOSE: u32 = 64;
+    const ASCII: u32 = 256;
+
+    let Some(flags) = probes.get(marker, Probe::Flags)? else {
+        return Ok(pattern);
+    };
+    let Ok(flags) = flags.extract::<u32>() else {
+        return Ok(pattern);
+    };
+    for (bit, name, why) in [
+        (
+            ASCII,
+            "re.ASCII",
+            "write the ASCII spellings ([0-9], [A-Za-z0-9_]) instead",
+        ),
+        (
+            LOCALE,
+            "re.LOCALE",
+            "a pattern here does not depend on a locale",
+        ),
+        (
+            DEBUG,
+            "re.DEBUG",
+            "it asks the other engine to report on itself",
+        ),
+    ] {
+        if flags & bit != 0 {
+            return Err(not_implemented(format!(
+                "{name} cannot be carried into this pattern: {why}"
+            )));
+        }
+    }
+    let mut inline = String::new();
+    for (bit, letter) in [
+        (IGNORECASE, 'i'),
+        (MULTILINE, 'm'),
+        (DOTALL, 's'),
+        (VERBOSE, 'x'),
+    ] {
+        if flags & bit != 0 {
+            inline.push(letter);
+        }
+    }
+    if inline.is_empty() {
+        Ok(pattern)
+    } else {
+        Ok(format!("(?{inline}){pattern}"))
+    }
+}
+
+/// Whether `ty`'s attribute `attr` is the text `want`.
+///
+/// Read through the string rather than into one: `extract::<String>` copies the
+/// text out so the comparison can be made against a Rust literal, which is an
+/// allocation and a free per class for an answer that is a byte compare. The
+/// names are interned, so the `getattr` builds no `str`.
+fn names(ty: &Bound<'_, PyType>, attr: &Bound<'_, PyString>, want: &str) -> PyResult<bool> {
+    Ok(unless_fatal(ty.getattr(attr).map(Some), ty.py(), None)?
+        .and_then(|value| value.cast_into::<PyString>().ok())
+        .is_some_and(|text| text.to_str().is_ok_and(|text| text == want)))
+}
+
+/// Whether `ty` derives from a class of `annotated_types`, the one constraint
+/// vocabulary this frontend reads.
+///
+/// Constraint attributes are read off a marker of that vocabulary and no other.
+/// The typing spec says to ignore metadata a consumer does not recognize, and
+/// the vocabulary's own README tells a third party how to join it -- a
+/// `GroupedMetadata` that yields its markers -- where an attribute *name* is no
+/// protocol at all: msgspec's `Meta`, pydantic's `Field` and a class of one's own
+/// may each carry a `ge` or a `pattern` and mean something else by it. pydantic
+/// and msgspec search with a pattern where this library matches it whole, and a
+/// marker read in part -- `Meta(pattern=..., max_length=3)` without its length
+/// -- admits what its own library refuses. A marker from elsewhere is ignored,
+/// which is what every library reading `Annotated` does with another's.
+///
+/// Asked along the method resolution order, so a subclass of `Ge` is read as a
+/// `Ge`, and a `GroupedMetadata` subclass from another library is unpacked.
+fn derives_from_vocabulary(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = ty.py();
+    for class in ty.mro().iter() {
+        let Ok(class) = class.cast_into::<PyType>() else {
+            continue;
+        };
+        if names(&class, intern!(py, "__module__"), "annotated_types")? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Whether `ty` is itself a class of `annotated_types` other than the two that
+/// narrow nothing: one written to narrow a schema, which this frontend reads or
+/// refuses.
+///
+/// Asked of the class, not along its bases. A marker another library derives
+/// from the vocabulary -- pydantic's own `BaseMetadata` subclass, which its
+/// `StringConstraints` yields with a pattern in it -- is read for what it
+/// carries in the vocabulary's names and otherwise ignored, as the
+/// vocabulary's README asks of metadata a consumer does not recognize.
+fn is_constraint_vocabulary(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = ty.py();
+    // The name is asked only where the module says the class is from the
+    // vocabulary: every class written for someone else answers `false` here,
+    // and asking what such a class is *called* decides nothing.
+    Ok(names(ty, intern!(py, "__module__"), "annotated_types")? && !narrows_nothing(ty)?)
+}
+
+/// Whether `ty` is named as one of the two markers of the vocabulary that
+/// exclude no value: `DocInfo`, which documents an annotation, and `Unit`, which
+/// names what a number is measured in and leaves the reading to the consumer.
+///
+/// Each is ignored as metadata written for someone else is. Refusing one as a
+/// constraint this frontend does not check would refuse it for admitting the
+/// values it excludes, and it excludes none.
+fn narrows_nothing(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = ty.py();
+    Ok(names(ty, intern!(py, "__name__"), "DocInfo")?
+        || names(ty, intern!(py, "__name__"), "Unit")?)
+}
+
+/// Whether `ty` is a string-pattern marker: valgebra's `Regex`, or a compiled
+/// `re.Pattern`. A `pattern` is read off these two and nothing else.
+///
+/// Both are found in `sys.modules` rather than imported: an instance of either
+/// exists only once its module is loaded, and a lookup runs no module's code.
+fn is_pattern_marker(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = ty.py();
+    let modules = super::loaded_modules(py)?;
+    for (module, name) in [
+        (intern!(py, "valgebra._markers"), intern!(py, "Regex")),
+        (intern!(py, "re"), intern!(py, "Pattern")),
+    ] {
+        if let Some(module) = modules.get_item(module)?
+            && let Some(class) = module.getattr_opt(name)?
+            && let Ok(class) = class.cast_into::<PyType>()
+            && ty.is_subclass(&class)?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// A class written where a marker goes, which is never read as one.
+///
+/// A marker *class* exposes descriptors where an instance exposes values:
+/// `at.Ge(0)` carries `ge = 0`, while `at.Ge` carries the slot descriptor that
+/// reads it, and taking that for a bound builds a comparison no value is ordered
+/// against. Calling one is the same trap a step later -- `Kilograms(1.5)`
+/// constructs a unit marker rather than answering whether 1.5 belongs.
+///
+/// A class whose instances would be read or refused as a constraint is a marker
+/// written without its parentheses, and ignoring it would widen the schema to
+/// its base in silence, so it is refused with the spelling that was meant. Any
+/// other class is metadata this frontend does not recognize, which the typing
+/// spec says to ignore.
+fn read_a_class(class: &Bound<'_, PyType>) -> PyResult<()> {
+    if !is_a_marker_class(class)? {
+        return Ok(());
+    }
+    let name = class.name()?;
+    Err(not_implemented(format!(
+        "{name} is a marker class, not a marker: an instance carries the \
+         constraint, so write {name}(...)"
+    )))
+}
+
+/// Whether a class written where a marker goes is the class of a marker: one
+/// whose instances are read or refused -- a class of the constraint vocabulary
+/// other than the two that narrow nothing, or a pattern marker. A class from
+/// anywhere else is the class of metadata this frontend ignores, and is ignored
+/// itself.
+fn is_a_marker_class(class: &Bound<'_, PyType>) -> PyResult<bool> {
+    Ok(is_constraint_vocabulary(class)? || is_pattern_marker(class)?)
+}
+
+/// Whether a marker is a typing form: an object whose class `typing` or
+/// `typing_extensions` defines -- an alias such as `Annotated[float, ...]`, a
+/// special form, a `NewType` -- or a `types.GenericAlias` such as `list[int]`,
+/// which is known by identity, since `PyPy` defines it in a module of its own.
+/// A `types.UnionType` such as `int | str` is not callable, and never reaches
+/// the question.
+///
+/// And the decorator PEP 702 puts in `warnings`, whose class that module defines
+/// from 3.13 -- `_py_warnings` from 3.14, where the pure-Python implementation
+/// lives -- and which `typing_extensions` re-exports there, so
+/// `typing_extensions.deprecated("...")` has `typing_extensions`' class below
+/// 3.13 and the standard library's at it. `deprecated` is the one callable class
+/// either module defines.
+///
+/// Every one of them is callable, and none is a predicate: calling `list[int]`
+/// with a value builds a list, calling an `Annotated` alias calls the type it
+/// annotates, and calling a `deprecated` decorates a class or a function and
+/// raises for anything else. Read as predicates they would judge a value by what
+/// the call does: `Annotated[float, at.IsFinite[float]]` would admit infinity
+/// and refuse zero, and `Annotated[int, deprecated("...")]` would refuse every
+/// value from 3.13.
+///
+/// A decorator *function* is not one of them and cannot be told from a
+/// predicate: `dataclasses.dataclass`, `abc.abstractmethod` and `typing.final`
+/// are each a `builtins.function`, as a predicate is, and are called.
+fn is_typing_form(marker: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let ty = marker.get_type();
+    let py = ty.py();
+    let forms = super::forms(py)?;
+    if ty.is(forms.generic_alias.bind(py)) {
+        return Ok(true);
+    }
+    let module = unless_fatal(ty.getattr(intern!(py, "__module__")).map(Some), py, None)?;
+    Ok(module
+        .and_then(|module| module.cast_into::<PyString>().ok())
+        .is_some_and(|module| {
+            module.to_str().is_ok_and(|module| {
+                matches!(
+                    module,
+                    "typing" | "typing_extensions" | "warnings" | "_py_warnings"
+                )
+            })
+        }))
+}
+
+/// Settle a typing form written where a marker goes.
+///
+/// An `Annotated` alias carries its markers for the type it annotates, and in
+/// metadata it annotates nothing: `Annotated[float, at.IsFinite]` is the alias
+/// written where its type was meant. Where the alias carries a marker this
+/// frontend would read, ignoring it would widen the schema to its base in
+/// silence, which is why a marker class written bare is refused, and it is
+/// refused the same way. A PEP 695 alias of one, `type Pos = Annotated[int,
+/// Gt(0)]`, is the same alias under a name, and is read through to it (see
+/// [`aliased_form`]). Any other typing form is metadata this frontend does
+/// not recognize, and is ignored as a class is.
+fn read_a_typing_form(marker: &Bound<'_, PyAny>) -> PyResult<()> {
+    let py = marker.py();
+    let Some(form) = aliased_form(marker)? else {
+        return Ok(());
+    };
+    let Some(metadata) = form.getattr_opt(intern!(py, "__metadata__"))? else {
+        return Ok(());
+    };
+    for item in metadata.try_iter()? {
+        if is_read_where_written(&item?)? {
+            return Err(not_implemented(format!(
+                "{} is an Annotated alias, which carries its constraints for the \
+                 type it annotates, and in metadata it annotates nothing; write \
+                 the alias as the type, subscripted where it is generic, or put \
+                 its markers in this metadata",
+                summarize(marker)?
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The form `marker` stands for: itself, or where it is a PEP 695 alias the
+/// form its value names, followed through every alias on the way. `None`
+/// where the aliases name each other in a cycle, and so stand for no form.
+///
+/// A `type` alias has no `__metadata__` of its own, so read as metadata of
+/// its own an alias of an `Annotated` alias would be ignored where the alias
+/// it names is refused, and `Annotated[int, Pos]` would admit `-1`. A generic alias
+/// applied to arguments is read through the alias it applies, whose value
+/// carries the same markers whatever the arguments are. An `Annotated` form is
+/// answered before its `__origin__` is asked, because that is the type it
+/// annotates, which may be an alias itself. Reading an alias's value evaluates
+/// it, and an error that raises is the caller's, as it is where the alias is
+/// read as a type.
+fn aliased_form<'py>(marker: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let py = marker.py();
+    let mut form = marker.clone();
+    let mut seen: Vec<Bound<'py, PyAny>> = Vec::new();
+    loop {
+        if form.getattr_opt(intern!(py, "__metadata__"))?.is_some() {
+            return Ok(Some(form));
+        }
+        let alias = if super::is_type_alias(&form)? {
+            form
+        } else if let Some(origin) = form.getattr_opt(intern!(py, "__origin__"))?
+            && super::is_type_alias(&origin)?
+        {
+            origin
+        } else {
+            return Ok(Some(form));
+        };
+        if seen.iter().any(|met| met.is(&alias)) {
+            return Ok(None);
+        }
+        form = alias.getattr(intern!(py, "__value__"))?;
+        seen.push(alias);
+    }
+}
+
+/// Whether an item of an `Annotated` alias's metadata is one this frontend
+/// would read, were it written in the metadata where the alias stands: a
+/// validator, a marker of the vocabulary or of a class derived from it other
+/// than the two that narrow nothing, a pattern marker, a marker class (which is
+/// refused), or a predicate.
+fn is_read_where_written(item: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if item.is_exact_instance_of::<Validator>() {
+        return Ok(true);
+    }
+    if let Ok(class) = item.cast::<PyType>() {
+        return is_a_marker_class(class);
+    }
+    let ty = item.get_type();
+    Ok((derives_from_vocabulary(&ty)? && !narrows_nothing(&ty)?)
+        || is_pattern_marker(&ty)?
+        || (item.is_callable() && !is_typing_form(item)?))
+}
+
+/// An optional attribute a refinement marker is read through.
+///
+/// A marker carries one or two of these and not the rest: `Ge(0)` has a
+/// `ge` and nothing else, and a compiled pattern has a `pattern` and `flags`.
+/// Absence is the common answer, and a `getattr` for an absent name answers it
+/// by raising: `PyObject_GetOptionalAttr`, the first non-raising spelling the
+/// interpreter offers, does not exist before 3.13. Asked per marker, a
+/// fifty-field record of `Annotated[int, Ge(0)]` would build, throw and drop an
+/// exception for every name a field's marker lacks, to learn nine times over
+/// that a marker is what it says it is.
+///
+/// Which names a marker can carry is a property of its *type*, so the question
+/// is asked there, once, and the answer kept: see [`Probes`].
+#[derive(Clone, Copy)]
+pub(super) enum Probe {
+    Pattern,
+    Flags,
+    Ge,
+    Gt,
+    Le,
+    Lt,
+    MinLength,
+    MaxLength,
+    MultipleOf,
+    Func,
+    /// The flag a marker standing for the constraints it yields carries.
+    Grouped,
+}
+
+impl Probe {
+    /// Every probe, which is what a type is read for when it is first seen.
+    const ALL: [Self; 11] = [
+        Self::Pattern,
+        Self::Flags,
+        Self::Ge,
+        Self::Gt,
+        Self::Le,
+        Self::Lt,
+        Self::MinLength,
+        Self::MaxLength,
+        Self::MultipleOf,
+        Self::Func,
+        Self::Grouped,
+    ];
+
+    /// The attribute's name, as a handle the interpreter already holds: text
+    /// would be decoded into a fresh `PyString` and hashed before the lookup
+    /// could begin, once per name per marker.
+    fn name(self, py: Python<'_>) -> &Bound<'_, PyString> {
+        match self {
+            Self::Pattern => intern!(py, "pattern"),
+            Self::Flags => intern!(py, "flags"),
+            Self::Ge => intern!(py, "ge"),
+            Self::Gt => intern!(py, "gt"),
+            Self::Le => intern!(py, "le"),
+            Self::Lt => intern!(py, "lt"),
+            Self::MinLength => intern!(py, "min_length"),
+            Self::MaxLength => intern!(py, "max_length"),
+            Self::MultipleOf => intern!(py, "multiple_of"),
+            Self::Func => intern!(py, "func"),
+            Self::Grouped => intern!(py, "__is_annotated_types_grouped_metadata__"),
+        }
+    }
+
+    /// This probe's bit in a type's mask.
+    const fn bit(self) -> u16 {
+        1 << (self as u16)
+    }
+}
+
+// A probe's bit is never one of the bits `Probes` keeps about the type, so a
+// mask holds the two apart: a twelfth probe would read as the vocabulary's flag.
+// Eleven probe bits and five flags are sixteen powers of two, and sixteen powers
+// of two sum to `u16::MAX` only when no two are the same. The bits are summed
+// rather than joined so that every other operator fails the build: a join holds
+// as well with a flag left out of it.
+const _: () = {
+    let mut probes: &[Probe] = &Probe::ALL;
+    let mut bits = 0;
+    while let [probe, rest @ ..] = probes {
+        bits += probe.bit();
+        probes = rest;
+    }
+    assert!(
+        bits + Probes::VOCABULARY
+            + Probes::CONSTRAINT_CLASS
+            + Probes::PATTERN
+            + Probes::HAS_HOOK
+            + Probes::HAS_OWN_DICT
+            == u16::MAX
+    );
+};
+
+/// The mask each marker type reads under, one bit per [`Probe`] plus the
+/// answers [`Probes`] names about the type. Keyed by the type, which is what the
+/// answer is a property of.
+///
+/// A shared, *mutable* Python object, which the other caches on this crate's
+/// path are not, so the free-threading argument is worth writing down: a
+/// `dict`'s reads and writes are atomic under a free-threaded interpreter's
+/// per-object lock, and two threads that miss on one type both compute the same
+/// mask and write it, since the mask is a property of the type and not of
+/// either thread. The `PyOnceLock` around it makes the dict itself arrive once.
+static CARRIED: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
+
+/// How many marker types the mask cache keeps.
+///
+/// A cache entry holds a type, so it keeps one alive. The markers a program
+/// uses are a handful of module-level classes and the map stops growing after
+/// them; a program that *builds* a marker class per call would grow it without
+/// a bound, and `typing` memoizes `Annotated[...]` in a cache of its own that
+/// holds the last hundred and twenty-eight, so this map would be the one that
+/// grows. Past the bound a type is read each time rather than remembered --
+/// slower than the cache, and no worse than having none.
+///
+/// The far side is exercised by `tests/test_adversarial_bounds.py`, which
+/// builds marker types well past this and reads the same answers from them.
+const MAX_MARKER_TYPES: usize = 256;
+
+/// How a marker's optional attributes are read, decided once per marker.
+///
+/// Two questions settle it. Which names the *type* carries is asked of the type
+/// and kept, because it cannot differ between two markers of one class: every
+/// `annotated_types` marker is a `slots` dataclass, so `Ge.ge` is the
+/// descriptor that reads the slot and `Ge.gt` does not exist. And a marker that
+/// is an ordinary object keeps its values in a dictionary of its own, which is
+/// read directly -- a dictionary answers for a name it does not hold without
+/// raising, which is the whole point.
+///
+/// A type with a `__getattr__` hook, or a `__getattribute__` other than the
+/// generic lookup, answers for names neither holds, so it is asked for
+/// everything through `getattr`, the reading the mask stands in for. That path
+/// is correct and gives up only the saving.
+///
+/// The mask is the type's as it is first read, and is kept for the process: a
+/// class given a probe name or a hook after a marker of it is read keeps the
+/// mask its first reading gave. Noticing would take the type's version tag,
+/// which is `CPython`'s alone, or a type watcher, which starts at 3.12.
+pub(super) struct Probes<'py> {
+    mask: u16,
+    own: Option<Bound<'py, PyDict>>,
+}
+
+impl<'py> Probes<'py> {
+    /// The type answers for names no dictionary of its own holds -- a
+    /// `__getattr__` hook, or a `__getattribute__` of its own -- so every name
+    /// is asked of the marker.
+    const HAS_HOOK: u16 = 1 << 14;
+
+    /// Instances of the type keep their values in a dictionary of their own,
+    /// which is where a marker that is not a `slots` class puts them.
+    const HAS_OWN_DICT: u16 = 1 << 15;
+
+    /// The type derives from the constraint vocabulary, whose markers are the
+    /// only ones a constraint attribute is read off.
+    const VOCABULARY: u16 = 1 << 11;
+
+    /// The type is itself a constraint class of the vocabulary, which is
+    /// refused where it carries nothing this frontend reads.
+    const CONSTRAINT_CLASS: u16 = 1 << 12;
+
+    /// The type is a string-pattern marker.
+    const PATTERN: u16 = 1 << 13;
+
+    /// Whether the marker is of the constraint vocabulary.
+    fn of_vocabulary(&self) -> bool {
+        self.mask & Self::VOCABULARY != 0
+    }
+
+    /// Read how this marker answers, from its type and its own dictionary.
+    pub(super) fn of(marker: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let py = marker.py();
+        let ty = marker.get_type();
+        let cache = CARRIED
+            .get_or_try_init(py, || Ok::<_, PyErr>(PyDict::new(py).unbind()))?
+            .bind(py);
+        let mask = if let Some(held) = cache.get_item(&ty)? {
+            held.extract()?
+        } else {
+            let read = Self::read_type(&ty, marker)?;
+            if cache.len() < MAX_MARKER_TYPES {
+                cache.set_item(&ty, read)?;
+            }
+            read
+        };
+        let own = if mask & Self::HAS_OWN_DICT == 0 {
+            None
+        } else {
+            marker
+                .getattr_opt(intern!(py, "__dict__"))?
+                .and_then(|dict| dict.cast_into::<PyDict>().ok())
+        };
+        Ok(Self { mask, own })
+    }
+
+    /// Which names the type carries, and how its instances keep the rest.
+    fn read_type(ty: &Bound<'py, PyType>, marker: &Bound<'py, PyAny>) -> PyResult<u16> {
+        let py = ty.py();
+        let mut mask = 0;
+        for probe in Probe::ALL {
+            if ty.getattr_opt(probe.name(py))?.is_some() {
+                mask |= probe.bit();
+            }
+        }
+        // A `__getattr__` answers for names no namespace holds, and so does a
+        // `__getattribute__` other than the generic lookup. A builtin base that
+        // names the generic lookup in a namespace of its own -- `int` on 3.10 to
+        // 3.13 -- reads as one too, which gives up the saving and no answer.
+        let lookup = intern!(py, "__getattribute__");
+        if ty.getattr_opt(intern!(py, "__getattr__"))?.is_some()
+            || !ty
+                .getattr(lookup)?
+                .is(&py.get_type::<PyAny>().getattr(lookup)?)
+        {
+            mask |= Self::HAS_HOOK;
+        }
+        if marker
+            .getattr_opt(intern!(py, "__dict__"))?
+            .is_some_and(|dict| dict.is_instance_of::<PyDict>())
+        {
+            mask |= Self::HAS_OWN_DICT;
+        }
+        if derives_from_vocabulary(ty)? {
+            mask |= Self::VOCABULARY;
+        }
+        if is_constraint_vocabulary(ty)? {
+            mask |= Self::CONSTRAINT_CLASS;
+        }
+        if is_pattern_marker(ty)? {
+            mask |= Self::PATTERN;
+        }
+        Ok(mask)
+    }
+
+    /// Read one of the marker's attributes, asking only where an answer can be.
+    fn get(&self, marker: &Bound<'py, PyAny>, probe: Probe) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let name = probe.name(marker.py());
+        if self.mask & (probe.bit() | Self::HAS_HOOK) != 0 {
+            return marker.getattr_opt(name);
+        }
+        match &self.own {
+            Some(own) => own.get_item(name),
+            None => Ok(None),
+        }
+    }
+}
+
+/// How deep a marker may group other markers before the frontend refuses.
+///
+/// A grouped marker answers with the constraints it stands for, and one of
+/// those may be grouped in turn. The vocabulary's own nest one deep at most; a
+/// marker that answers with itself nests forever, and following it is a stack
+/// this library does not have. The bound is a refusal rather than a truncation
+/// for the reason every other refusal here is: a marker read in part leaves a
+/// schema admitting what the rest of it excludes.
+const MAX_GROUPING_DEPTH: u32 = 8;
+
+/// Refuse a `MultipleOf` operand that is not a number.
+///
+/// The node denotes `value % n == 0`, and that comparison is against the integer
+/// zero. A `timedelta` remainder is a `timedelta`, which equals no integer -- so
+/// a step written as a duration names a schema no value belongs to, and
+/// compiling it gives a validator that refuses every value without saying why.
+/// That is the same case `MultipleOf(0)` is refused for, one type over.
+///
+/// `numbers.Number` is the question, because it is the register the remainder's
+/// comparison follows: `Decimal` and `Fraction` are in it and divide as a caller
+/// expects, and a type that is not is one whose remainder has no zero to equal.
+fn refuse_unnumbered_step(operand: &Bound<'_, PyAny>) -> PyResult<()> {
+    if is_a_number(operand)? {
+        return Ok(());
+    }
+    Err(PyValueError::new_err(format!(
+        "MultipleOf({}) is not a valid constraint: a multiple is `value % n == 0`, \
+         and the remainder of a value that is not a number equals no zero, so no \
+         value would belong. Write the step as a number",
+        summarize(operand)?
+    )))
+}
+
+/// Refuse a complex `MultipleOf` operand, which divides no value.
+///
+/// Python takes no remainder against a complex number -- `4 % 2j` raises, and
+/// so does `4 % (2 + 0j)` -- so the step names the empty set, as a step that is
+/// not a number does.
+fn refuse_complex_step(operand: &Bound<'_, PyAny>) -> PyResult<()> {
+    let py = operand.py();
+    if is_a_builtin_number(operand) || !unless_fatal(is_complex(operand), py, false)? {
+        return Ok(());
+    }
+    let note = equal_to_a_real(operand, operand.getattr(intern!(py, "real")))?;
+    Err(PyValueError::new_err(format!(
+        "MultipleOf({}) is not a valid constraint: Python takes no remainder against \
+         a complex number, so no value would belong. Write the step as a real \
+         number{note}",
+        summarize(operand)?
+    )))
+}
+
+/// The group a step divides within, which [`carries_division`] reads beside
+/// the base: a `Decimal`, which a float takes no remainder against, or any
+/// other number.
+fn step_group(operand: &Bound<'_, PyAny>) -> PyResult<StepGroup> {
+    if is_a_builtin_number(operand) {
+        return Ok(StepGroup::Number);
+    }
+    let decimal = DECIMAL.import(operand.py(), "decimal", "Decimal")?;
+    Ok(if operand.is_instance(decimal)? {
+        StepGroup::Decimal
+    } else {
+        StepGroup::Number
+    })
+}
+
+pub(super) fn parse_constraint<'py>(
+    marker: &Bound<'py, PyAny>,
+    out: &mut Vec<Constraint>,
+    sets: &mut Vec<Bound<'py, PyAny>>,
+    lits: &mut Pool,
+) -> PyResult<()> {
+    parse_constraint_within(marker, out, sets, lits, 0)
+}
+
+/// Whether this marker stands for the constraints it yields.
+///
+/// `annotated_types` marks one with an attribute, and reading the attribute is
+/// how the rest of this module reads a marker too: an embedded interpreter
+/// starts on the base prefix and sees no virtual environment, so importing the
+/// package to ask `isinstance` would make the answer depend on how the process
+/// was launched. The flag is a probe, read wherever the marker keeps it: on its
+/// type, in its own dictionary, or through a `__getattr__` hook.
+fn groups_other_markers<'py>(marker: &Bound<'py, PyAny>, probes: &Probes<'py>) -> PyResult<bool> {
+    let py = marker.py();
+    match unless_fatal(probes.get(marker, Probe::Grouped), py, None)? {
+        Some(flag) => unless_fatal(flag.is_truthy(), py, false),
+        None => Ok(false),
+    }
+}
+
+/// Read a marker that stands for the constraints it yields.
+///
+/// The comment the caller carries, in the one place that acts on it: a grouped
+/// marker is several constraints, each read the way a marker written on its own
+/// is, so a group of groups terminates at [`MAX_GROUPING_DEPTH`] rather than at
+/// the stack.
+fn parse_grouped<'py>(
+    marker: &Bound<'py, PyAny>,
+    out: &mut Vec<Constraint>,
+    sets: &mut Vec<Bound<'py, PyAny>>,
+    lits: &mut Pool,
+    depth: u32,
+) -> PyResult<()> {
+    if depth >= MAX_GROUPING_DEPTH {
+        return Err(PyValueError::new_err(format!(
+            "{} groups markers nested too deeply: a marker stands for the \
+             constraints it yields, and following this one does not bottom out",
+            summarize(marker)?
+        )));
+    }
+    for inner in marker.try_iter()? {
+        parse_constraint_within(&inner?, out, sets, lits, depth + 1)?;
+    }
+    Ok(())
+}
+
+/// The length a length bound names, or the refusal of one that names none.
+///
+/// `__index__` answers the extraction, and a fatal signal it raises is the
+/// interpreter unwinding rather than a bound that is no length.
+fn length_bound(probe: Probe, bound: &Bound<'_, PyAny>) -> PyResult<usize> {
+    let py = bound.py();
+    match bound.extract::<usize>() {
+        Ok(n) => Ok(n),
+        Err(err) if is_fatal(&err, py) => Err(err),
+        Err(_) => Err(PyValueError::new_err(format!(
+            "{} must be a length a value can have, and {} is not",
+            probe.name(py),
+            summarize(bound)?
+        ))),
+    }
+}
+
+fn parse_constraint_within<'py>(
+    marker: &Bound<'py, PyAny>,
+    out: &mut Vec<Constraint>,
+    sets: &mut Vec<Bound<'py, PyAny>>,
+    lits: &mut Pool,
+    depth: u32,
+) -> PyResult<()> {
+    // A compiled validator is this library's own statement of a set, written to
+    // narrow the base. Read as metadata nothing recognizes it would be ignored,
+    // and the schema would admit every value of the base in silence; it is kept
+    // for the caller to meet with the base, grouped or not. The class takes no
+    // subclass, so the exact type is the whole test.
+    if marker.is_exact_instance_of::<Validator>() {
+        sets.push(marker.clone());
+        return Ok(());
+    }
+    // A class is settled before any attribute of it is read as a value.
+    if let Ok(class) = marker.cast::<PyType>() {
+        return read_a_class(class);
+    }
+    let before = out.len();
+    // How this marker answers, read once per marker and mostly once per type.
+    // Every question below goes through it, so a name nothing carries is
+    // answered from a dictionary rather than by the interpreter raising.
+    let probes = Probes::of(marker)?;
+
+    // A marker standing for several constraints answers with them, which is
+    // the protocol `annotated_types` documents and how a third party joins its
+    // vocabulary. It is unpacked before anything is read off it: pydantic's
+    // `StringConstraints` is one, and yields `MinLen`, `MaxLen` and an object of
+    // its own carrying a pattern pydantic searches with, where its attributes
+    // would hand that pattern to this frontend's whole-string reading. The flag
+    // is a probe, so a marker that carries none answers without a lookup.
+    if groups_other_markers(marker, &probes)? {
+        return parse_grouped(marker, out, sets, lits, depth);
+    }
+
+    // A string-pattern marker: valgebra's `Regex(...)` or a compiled
+    // `re.Pattern`, both carrying the source pattern as `.pattern`. The pattern
+    // is validated (anchored) here so an invalid expression fails at compile
+    // time, not at first validation; the compiled regex is cached per validator.
+    if probes.mask & Probes::PATTERN != 0
+        && let Some(attr) = probes.get(marker, Probe::Pattern)?
+    {
+        let Ok(pattern) = attr.extract::<String>() else {
+            // A pattern this frontend cannot read as text. `re` compiles one
+            // against `bytes` values, and a pattern constraint here matches the
+            // text of a `str`; anything else carrying a `pattern` attribute is
+            // a marker whose pattern is not a pattern at all. Reading the marker
+            // and dropping it would leave a schema that admits every value of
+            // its base, which is the opposite of what a pattern is written for,
+            // so the refusal names what was found rather than a kind it guessed.
+            let what = if attr.is_instance_of::<PyBytes>() {
+                "a bytes pattern".to_owned()
+            } else {
+                format!("the pattern {}", summarize(&attr)?)
+            };
+            return Err(not_implemented(format!(
+                "{what} cannot constrain a schema: a pattern is matched against \
+                 text, so write the pattern as a str",
+            )));
+        };
+        let pattern = with_inline_flags(marker, &probes, pattern)?;
+        // Refused before the compile, because this engine compiles these and
+        // reads them as a different set than `re` does. The parse error the
+        // compile gives is for the loud direction; this is the quiet one.
+        super::dialect::reject_reserved_class_syntax(&pattern)?;
+        crate::check::compile_pattern(&pattern).map_err(|err| {
+            PyValueError::new_err(format!("invalid regular expression {pattern:?}: {err}"))
+        })?;
+        out.push(Constraint::Regex(pattern));
+        return Ok(());
+    }
+    if probes.of_vocabulary() {
+        read_vocabulary(marker, &probes, out, lits)?;
+    }
+    // Predicate escape hatch: a callable marker, or `annotated_types.Predicate`,
+    // which carries its callable on `.func` and is not callable itself.
+    //
+    // Callability is how `annotated_types` tells its two marker shapes apart:
+    // `Not` defines `__call__` so a consumer calls it, and calling is what
+    // applies the negation, while `Predicate` deliberately does not. Reading
+    // `.func` from whichever marker has one drops `Not`'s negation and strips a
+    // `functools.partial` of its bound arguments -- both carry a `.func` too.
+    // A `.func` is read off the vocabulary alone: pydantic's `AfterValidator`
+    // carries one that transforms a value, and read as a predicate it judged
+    // the value by the truth of what it returned.
+    if marker.is_callable() {
+        if is_typing_form(marker)? {
+            return read_a_typing_form(marker);
+        }
+        out.push(Constraint::Predicate(lits.intern_predicate(marker)));
+    } else if probes.of_vocabulary()
+        && let Some(func) = probes.get(marker, Probe::Func)?
+        && func.is_callable()
+    {
+        out.push(Constraint::Predicate(lits.intern_predicate(&func)));
+    } else if !probes.of_vocabulary() && super::is_type_alias(marker)? {
+        // `typing`'s alias is not callable, where `typing_extensions`' is and
+        // an applied one is, so it reaches the typing-form reading here.
+        return read_a_typing_form(marker);
+    } else if out.len() == before && probes.mask & Probes::CONSTRAINT_CLASS != 0 {
+        // The typing spec says to ignore metadata a consumer does not
+        // recognize, and that is right for metadata written for someone else.
+        // A marker from the constraint vocabulary is not that: it was written to
+        // narrow this schema, and ignoring it leaves a validator that admits
+        // everything the marker excludes.
+        return Err(not_implemented(format!(
+            "{} is a constraint this frontend does not check; a schema carrying \
+             it would admit the values it excludes, so it is refused rather than \
+             ignored",
+            summarize(marker)?
+        )));
+    }
+    Ok(())
+}
+
+/// Read the constraints a marker of the vocabulary carries as attributes: the
+/// order bounds, the length bounds and the step.
+fn read_vocabulary<'py>(
+    marker: &Bound<'py, PyAny>,
+    probes: &Probes<'py>,
+    out: &mut Vec<Constraint>,
+    lits: &mut Pool,
+) -> PyResult<()> {
+    // Comparison bounds. One marker may carry several (e.g. an interval).
+    //
+    // A marker carries one of these four and not the other three, so the three
+    // absences are the common answer -- and the name each is asked by is a
+    // *handle* rather than Rust text, because text is decoded into a fresh
+    // `PyString` and hashed before the lookup can begin, once per name per
+    // marker.
+    let py = marker.py();
+    for (probe, make) in [
+        (Probe::Ge, Constraint::Ge as fn(OperandIx) -> Constraint),
+        (Probe::Gt, Constraint::Gt),
+        (Probe::Le, Constraint::Le),
+        (Probe::Lt, Constraint::Lt),
+    ] {
+        if let Some(bound) = probes.get(marker, probe)?
+            && !bound.is_none()
+        {
+            refuse_unordered_bound(&probe.name(py).to_string_lossy(), &bound)?;
+            out.push(make(lits.intern_operand(&bound)));
+        }
+    }
+    // Length bounds. A bound no length can be compared against -- negative, or
+    // past what a container can hold -- is refused rather than dropped: dropping
+    // it leaves a schema that admits every value of its base, and the marker was
+    // written to admit fewer.
+    for (probe, make) in [
+        (
+            Probe::MinLength,
+            Constraint::MinLen as fn(usize) -> Constraint,
+        ),
+        (Probe::MaxLength, Constraint::MaxLen),
+    ] {
+        if let Some(bound) = probes.get(marker, probe)?
+            && !bound.is_none()
+        {
+            // A `bool` is read as the length it equals: `MinLen(True)` is
+            // `MinLen(1)`. It is not refused: `MinLen(0)` and `MinLen(False)`
+            // are equal and hash alike, so `typing` returns one `Annotated`
+            // object for both and whichever spelling a process built first is
+            // the one every later spelling gets. A refusal would fail correct
+            // `MinLen(0)` code because of a `MinLen(False)` somewhere else,
+            // which is worse than reading the value the marker holds.
+            out.push(make(length_bound(probe, &bound)?));
+        }
+    }
+    // Numeric multiple-of bound. A zero divisor is rejected here: no value is a
+    // multiple of zero, and checking one would divide by zero at validation time,
+    // so the schema is unsatisfiable and the error belongs at construction.
+    if let Some(multiple) = probes.get(marker, Probe::MultipleOf)?
+        && !multiple.is_none()
+    {
+        let py = multiple.py();
+        if unless_fatal(multiple.extract::<f64>().map(f64::is_nan), py, false)? {
+            return Err(PyValueError::new_err(
+                "MultipleOf(nan) is not a valid constraint: no value is a multiple \
+                 of nan, because every comparison with nan is false. Write the \
+                 step you mean",
+            ));
+        }
+        if unless_fatal(multiple.eq(0), py, false)? {
+            return Err(PyValueError::new_err(
+                "MultipleOf(0) is not a valid constraint: no value is a multiple of \
+                 zero. Use a nonzero divisor.",
+            ));
+        }
+        refuse_unnumbered_step(&multiple)?;
+        refuse_complex_step(&multiple)?;
+        out.push(Constraint::MultipleOf(lits.intern_operand(&multiple)));
+    }
+    Ok(())
+}

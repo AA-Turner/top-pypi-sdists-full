@@ -206,7 +206,7 @@ def process_search_parameters(
         body["retrieveVectors"] = retrieve_vectors
 
     if exhaustive_facet_count is not None:
-        body["exhaustivefacetCount"] = exhaustive_facet_count
+        body["exhaustiveFacetCount"] = exhaustive_facet_count
 
     if media is not None:
         body["media"] = media
@@ -252,7 +252,7 @@ def embedder_json_to_embedders_model(  # pragma: no cover
             embedders[k] = OllamaEmbedder(**v)
         elif v.get("source") == "rest":
             embedders[k] = RestEmbedder(**v)
-        elif v.get("source") == "composit":
+        elif v.get("source") == "composite":
             embedders[k] = CompositeEmbedder(**v)
         else:
             embedders[k] = UserProvidedEmbedder(**v)
@@ -297,7 +297,7 @@ def embedder_json_to_settings_model(  # pragma: no cover
             embedders[k] = OllamaEmbedder(**v)
         elif v.get("source") == "rest":
             embedders[k] = RestEmbedder(**v)
-        elif v.get("source") == "composit":
+        elif v.get("source") == "composite":
             embedders[k] = CompositeEmbedder(**v)
         else:
             embedders[k] = UserProvidedEmbedder(**v)

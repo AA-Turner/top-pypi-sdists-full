@@ -163,7 +163,7 @@ def announce(event: str, *, env: Mapping[str, str] | None = None, **fields: Any)
 
     Never raises and never blocks the run for more than TIMEOUT_S: no session,
     no socket, an unsafe fallback folder, a full queue or any other error is a
-    silent False, and the run carries on floating.
+    silent False, and the run carries on where it was opened.
     """
     started = time.monotonic()
     try:

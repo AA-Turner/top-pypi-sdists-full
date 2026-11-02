@@ -1,0 +1,2193 @@
+//! Process-owned filesystem operations shared by native execution and guest ABI adapters.
+//!
+//! Paths resolve only in the virtual filesystem. Open files live in the process descriptor
+//! table, so a guest cannot keep a second, unaccounted set of file handles or cursors.
+
+use crate::descriptors::{
+    DescriptorError, DescriptorReady, DescriptorState, Fd, FileLockMode, FileState, IoPoll,
+    MAX_FDS_PER_PROCESS,
+};
+use crate::display::{DisplayError, KeyEvent};
+use crate::interp::Interp;
+use crate::net::{HttpPoll, HttpRequest, NetworkRequest, RequestError, RouteError};
+use crate::vfs::{resolve_against, NodeKind, VfsError};
+
+/// Virtual clock selected by a guest ABI or native process.
+#[derive(Clone, Copy)]
+pub(crate) enum ClockId {
+    Realtime,
+    Monotonic,
+}
+
+/// Arguments and process-local overrides for one virtual argv child.
+#[derive(Clone, Default)]
+pub(crate) struct SpawnSpec {
+    pub argv: Vec<String>,
+    /// `None` inherits fd 0; `Some` replaces it, including with an empty stream.
+    pub stdin: Option<Vec<u8>>,
+    pub cwd: Option<String>,
+    pub environment: Option<std::collections::BTreeMap<String, String>>,
+    /// Leave caller and child both runnable so the caller can choose its own wait, such as a
+    /// child wait bounded by a deadline. By default the caller blocks on the child, which
+    /// runs immediately.
+    pub detach: bool,
+    /// Make the child lead a new process group in the caller's session, so one group signal
+    /// reaches it and its descendants.
+    pub new_process_group: bool,
+}
+
+/// Ordered child descriptor and cwd operations applied before exec.
+#[derive(Clone, Debug)]
+pub(crate) enum SpawnFdAction {
+    Close(Fd),
+    Dup2 {
+        source: Fd,
+        destination: Fd,
+    },
+    CloseFrom(Fd),
+    Open {
+        fd: Fd,
+        path: String,
+        options: OpenFile,
+        mode: u32,
+        close_on_exec: bool,
+        nonblocking: bool,
+    },
+    Chdir(String),
+}
+
+/// POSIX process launch data copied from a guest before any kernel mutation.
+pub(crate) struct ProcessSpawn {
+    pub executable: String,
+    pub search_path: bool,
+    pub argv: Vec<String>,
+    pub environment: std::collections::BTreeMap<String, String>,
+    pub actions: Vec<SpawnFdAction>,
+    pub signal_defaults: Vec<crate::process::Signal>,
+}
+
+/// Recipient of a signal sent through [`System::kill`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SignalTarget {
+    Process(crate::process::ProcessId),
+    /// Every live member of a process group.
+    Group(crate::process::ProcessId),
+}
+
+/// PID-scoped virtual kernel operations available during one execution quantum.
+///
+/// Native programs call this interface directly. A guest ABI adapter must translate its imports
+/// to the same operations; neither path receives host capabilities or the owning `Environment`.
+/// The borrowed handle cannot outlive the quantum, so blocked programs retain only owned state.
+pub(crate) trait System {
+    /// Observe host cancellation separately from permanent resource exhaustion.
+    fn interrupted(&self) -> bool;
+    fn pid(&self) -> crate::process::ProcessId;
+    fn parent_pid(&self) -> crate::process::ProcessId;
+    fn environment(&self) -> std::collections::BTreeMap<String, String>;
+    fn hostname(&self) -> &str;
+    fn set_hostname(&mut self, name: &str) -> Result<(), SyscallError>;
+    fn uid(&self) -> u32;
+    fn cwd(&self) -> &str;
+    fn chdir(&mut self, path: &str) -> Result<(), SyscallError>;
+    fn umask(&self) -> u16;
+    fn set_umask(&mut self, mask: u16) -> Result<(), SyscallError>;
+    fn limits(&self) -> crate::resources::Limits;
+    fn cpu_used(&self) -> u64;
+    fn disk_used(&self) -> u64;
+    fn memory_used(&self) -> u64;
+    /// Record one completed native invocation against the shared resource meter.
+    fn record_command_usage(&mut self, name: &str, cpu_before: u64, disk_before: u64);
+    fn metadata(&mut self, base: &str, path: &str, follow: bool) -> Result<FileInfo, SyscallError>;
+    fn metadata_fd(&mut self, fd: Fd) -> Result<FileInfo, SyscallError>;
+    fn list_dir(&mut self, base: &str, path: &str) -> Result<Vec<String>, SyscallError>;
+    fn walk(&mut self, base: &str, path: &str) -> Result<Vec<String>, SyscallError>;
+    fn read_file_limited(
+        &mut self,
+        base: &str,
+        path: &str,
+        maximum: usize,
+    ) -> Result<Vec<u8>, SyscallError>;
+    fn write_file(
+        &mut self,
+        base: &str,
+        path: &str,
+        bytes: &[u8],
+        mode: u32,
+    ) -> Result<(), SyscallError>;
+    fn put_file_with_parents(
+        &mut self,
+        base: &str,
+        path: &str,
+        bytes: Vec<u8>,
+        mode: u32,
+    ) -> Result<(), SyscallError>;
+    /// Commit a bounded set of virtual filesystem changes together, or keep the old tree.
+    fn apply_file_batch(
+        &mut self,
+        base: &str,
+        changes: Vec<FileChange>,
+    ) -> Result<(), SyscallError>;
+    fn read(&mut self, fd: Fd, maximum: usize) -> Result<IoPoll<Vec<u8>>, SyscallError>;
+    /// Read a regular file at an explicit offset, preserving the cursor shared by aliases.
+    fn read_at(&self, fd: Fd, offset: u64, maximum: usize) -> Result<Vec<u8>, SyscallError>;
+    fn write(&mut self, fd: Fd, bytes: &[u8]) -> Result<IoPoll<usize>, SyscallError>;
+    fn open_file(&mut self, base: &str, path: &str, options: OpenFile) -> Result<Fd, SyscallError>;
+    /// Open a virtual file onto a chosen process descriptor, replacing its prior target.
+    fn open_file_at(
+        &mut self,
+        fd: Fd,
+        base: &str,
+        path: &str,
+        options: OpenFile,
+    ) -> Result<(), SyscallError>;
+    /// Duplicate a process descriptor, sharing its open description and cursor.
+    fn duplicate(&mut self, source: Fd, destination: Fd) -> Result<(), SyscallError>;
+    /// Inspect the access and type of any virtual descriptor, including streams and devices.
+    fn descriptor_state(&self, fd: Fd) -> Result<DescriptorState, SyscallError>;
+    /// Try an inode-scoped advisory lock; false reports contention for the caller's wait policy.
+    fn file_lock(&mut self, fd: Fd, mode: Option<FileLockMode>) -> Result<bool, SyscallError>;
+    /// Stable inode captured when the virtual file or directory was opened.
+    fn file_lock_inode(&self, fd: Fd) -> Result<u64, SyscallError>;
+    /// Observe virtual descriptor readiness without performing I/O.
+    fn descriptor_readiness(
+        &self,
+        fd: Fd,
+        writing: bool,
+    ) -> Result<IoPoll<DescriptorReady>, SyscallError>;
+    fn directory_path(&self, fd: Fd) -> Result<String, SyscallError>;
+    /// Create both virtual pipe ends atomically, outside the reserved WASI preopen range.
+    fn pipe(&mut self, close_on_exec: bool, nonblocking: bool) -> Result<(Fd, Fd), SyscallError>;
+    fn spawn_process(
+        &mut self,
+        spec: ProcessSpawn,
+    ) -> Result<crate::process::ProcessId, SyscallError>;
+    /// Resize a writable regular-file description, retaining its shared cursor.
+    fn resize_file(&mut self, fd: Fd, size: usize) -> Result<(), SyscallError>;
+    fn file_state(&self, fd: Fd) -> Result<FileState, SyscallError>;
+    fn close(&mut self, fd: Fd) -> Result<(), SyscallError>;
+    fn seek(&mut self, fd: Fd, delta: i64, whence: u32) -> Result<u64, SyscallError>;
+    fn chmod(&mut self, base: &str, path: &str, mode: u32) -> Result<(), SyscallError>;
+    fn unlink(&mut self, base: &str, path: &str) -> Result<(), SyscallError>;
+    fn mkdir(&mut self, base: &str, path: &str) -> Result<(), SyscallError>;
+    fn mkdir_all(&mut self, base: &str, path: &str) -> Result<(), SyscallError>;
+    fn rmdir(&mut self, base: &str, path: &str) -> Result<(), SyscallError>;
+    fn rename(&mut self, base: &str, from: &str, to: &str) -> Result<(), SyscallError>;
+    /// Clone a VFS entry, including opaque native program identity, atomically under disk quota.
+    fn copy_file(&mut self, base: &str, from: &str, to: &str) -> Result<(), SyscallError>;
+    /// Clone a VFS subtree atomically so quota failure does not leave a partial tree.
+    fn copy_recursive(
+        &mut self,
+        base: &str,
+        from: &str,
+        to: &str,
+        preserve: bool,
+    ) -> Result<(), SyscallError>;
+    fn symlink(&mut self, base: &str, target: &str, link: &str) -> Result<(), SyscallError>;
+    fn chown(
+        &mut self,
+        base: &str,
+        path: &str,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    ) -> Result<(), SyscallError>;
+    fn touch(&mut self, base: &str, path: &str, mtime_ms: u64) -> Result<(), SyscallError>;
+    fn read_link(&mut self, base: &str, path: &str) -> Result<String, SyscallError>;
+    /// Copy a bounded byte prefix of a virtual symlink target for guest-memory APIs.
+    fn read_link_prefix(
+        &mut self,
+        base: &str,
+        path: &str,
+        maximum: usize,
+    ) -> Result<Vec<u8>, SyscallError>;
+    fn canonicalize(
+        &mut self,
+        base: &str,
+        path: &str,
+        strict: bool,
+    ) -> Result<String, SyscallError>;
+    fn wall_time_ms(&self) -> u64;
+    /// Signed realtime for userland calendar tools; WASI clocks retain their unsigned ABI.
+    fn wall_time_signed_ns(&self) -> Result<i128, SyscallError>;
+    fn clock_time_ns(&self, clock: ClockId) -> Result<u64, SyscallError>;
+    /// Schedule a one-shot wake for this process after `duration_ns` of virtual monotonic time
+    /// and return the absolute deadline. The caller then blocks on `WaitReason::Timer`.
+    /// Terminating the process cancels the wake.
+    fn schedule_wake(&mut self, duration_ns: u64) -> Result<u64, SyscallError>;
+    fn random_fill(&mut self, bytes: &mut [u8]) -> Result<(), SyscallError>;
+    fn allocate_temp_id(&mut self) -> Option<u64>;
+    /// Submit virtual HTTP, returning a typed pending reason for a host-backed route.
+    fn http_request(&mut self, request: HttpRequest) -> Result<HttpPoll, RequestError>;
+    fn http_route_static(
+        &mut self,
+        pattern: &str,
+        status: u16,
+        body: Vec<u8>,
+    ) -> Result<(), RouteError>;
+    fn http_route_file(&mut self, pattern: &str, path: &str) -> Result<(), RouteError>;
+    fn network_listen(&mut self, host_port: &str);
+    fn network_request_count(&self) -> usize;
+    fn network_request_at(&self, index: usize) -> Option<NetworkRequest>;
+    /// Stable, read-only view of retained logical processes and their descriptor labels.
+    fn process_snapshot(&mut self) -> Vec<crate::process::ProcessRecord>;
+    /// Active virtual listener addresses in deterministic order.
+    fn listener_snapshot(&self) -> Vec<String>;
+    /// Spawn a child using inherited virtual descriptors. Unless `spec.detach` is set, the
+    /// caller blocks on the child, which runs next.
+    fn spawn_argv(&mut self, spec: SpawnSpec) -> Result<crate::process::ProcessId, SyscallError>;
+    /// Replace this process's image with `argv` after PATH lookup, like `execvp`. The PID,
+    /// descriptors, cwd, and ignored signals are retained; `environment` replaces the exported
+    /// environment when given. On success the caller must return `ShellPoll::Replaced`.
+    fn exec_argv(
+        &mut self,
+        argv: Vec<String>,
+        environment: Option<std::collections::BTreeMap<String, String>>,
+    ) -> Result<(), SyscallError>;
+    /// Queue `signal` for delivery at the recipients' next scheduler boundary.
+    fn kill(
+        &mut self,
+        target: SignalTarget,
+        signal: crate::process::Signal,
+    ) -> Result<(), SyscallError>;
+    /// Ignore `signal` in this process. The disposition survives exec, as POSIX requires.
+    fn ignore_signal(&mut self, signal: crate::process::Signal) -> Result<(), SyscallError>;
+    /// Set a kernel default or ignored disposition. Guest callbacks are outside this ABI.
+    fn signal_disposition(
+        &mut self,
+        signal: crate::process::Signal,
+        ignore: bool,
+    ) -> Result<(), SyscallError>;
+    /// Retain the completion reason needed by POSIX wait without reaping the child.
+    fn child_completion(
+        &self,
+        pid: crate::process::ProcessId,
+    ) -> Result<Option<crate::process::ChildCompletion>, SyscallError>;
+    /// Observe only a direct child; an exited status remains available until reap.
+    fn child_status(&self, pid: crate::process::ProcessId) -> Result<Option<i32>, SyscallError>;
+    fn reap_child(&mut self, pid: crate::process::ProcessId) -> Result<i32, SyscallError>;
+    fn display_open(&mut self, width: u32, height: u32, format: u32) -> Result<u32, DisplayError>;
+    fn display_present(
+        &mut self,
+        handle: u32,
+        pixels: &[u8],
+        stride: u32,
+    ) -> Result<(), DisplayError>;
+    fn input_poll_key(&mut self, handle: u32) -> Result<Option<KeyEvent>, DisplayError>;
+    fn display_close(&mut self, handle: u32) -> Result<(), DisplayError>;
+    /// Stop native work at a metered boundary on cancellation or CPU exhaustion.
+    /// Cancellation leaves the resource meter usable; cleanup charges it directly.
+    fn charge_cpu(&mut self, units: u64) -> bool;
+    fn reserve_memory(&mut self, bytes: u64) -> bool;
+    fn release_memory(&mut self, bytes: u64);
+    fn output_remaining(&self) -> u64;
+    fn charge_output(&mut self, bytes: u64) -> bool;
+    fn stop_status(&self) -> i32;
+    /// Record a rejected feature so callers can distinguish an unsupported surface.
+    fn note_unsupported(&mut self, feature: &str);
+}
+
+/// Active-PID adapter; native program bodies receive this handle, not `Interp`.
+/// The current WASI adapter still holds `Interp` while translating its imports.
+pub(crate) struct ActiveSystem<'a> {
+    interp: &'a mut Interp,
+}
+
+impl<'a> ActiveSystem<'a> {
+    pub(crate) fn new(interp: &'a mut Interp) -> Self {
+        Self { interp }
+    }
+}
+
+impl System for ActiveSystem<'_> {
+    fn interrupted(&self) -> bool {
+        self.interp.interrupted()
+    }
+
+    fn pid(&self) -> crate::process::ProcessId {
+        self.interp.process.pid
+    }
+
+    fn parent_pid(&self) -> crate::process::ProcessId {
+        self.interp.process.ppid
+    }
+
+    fn environment(&self) -> std::collections::BTreeMap<String, String> {
+        self.interp.child_env().into_iter().collect()
+    }
+
+    fn hostname(&self) -> &str {
+        &self.interp.hostname
+    }
+
+    fn set_hostname(&mut self, name: &str) -> Result<(), SyscallError> {
+        if name.is_empty() || name.len() > 255 || name.contains('\0') {
+            return Err(SyscallError::InvalidArgument);
+        }
+        self.interp.hostname = name.to_string();
+        Ok(())
+    }
+
+    fn uid(&self) -> u32 {
+        self.interp.uid
+    }
+
+    fn cwd(&self) -> &str {
+        &self.interp.process.cwd
+    }
+
+    fn chdir(&mut self, path: &str) -> Result<(), SyscallError> {
+        if path.is_empty() || path.contains('\0') {
+            return Err(SyscallError::InvalidArgument);
+        }
+        let absolute = resolve_against(&self.interp.process.cwd, path);
+        let node = self.interp.fs_metadata("/", &absolute, true)?;
+        if !matches!(node.kind, NodeKind::Dir) {
+            return Err(SyscallError::File(VfsError::NotADir(absolute)));
+        }
+        let resolved = self.interp.fs_realpath("/", &absolute, true)?;
+        self.interp.process.cwd = resolved;
+        Ok(())
+    }
+
+    fn umask(&self) -> u16 {
+        self.interp.process.umask
+    }
+
+    fn set_umask(&mut self, mask: u16) -> Result<(), SyscallError> {
+        if mask > 0o777 {
+            return Err(SyscallError::InvalidArgument);
+        }
+        self.interp.process.umask = mask;
+        Ok(())
+    }
+
+    fn limits(&self) -> crate::resources::Limits {
+        self.interp.resources.limits()
+    }
+
+    fn cpu_used(&self) -> u64 {
+        self.interp.resources.cpu_used()
+    }
+
+    fn disk_used(&self) -> u64 {
+        self.interp.vfs.disk_used()
+    }
+
+    fn memory_used(&self) -> u64 {
+        self.interp.resources.memory_mark()
+    }
+
+    fn record_command_usage(&mut self, name: &str, cpu_before: u64, disk_before: u64) {
+        self.interp.resources.record_command(
+            name,
+            cpu_before,
+            disk_before,
+            self.interp.vfs.disk_used(),
+        );
+    }
+
+    fn metadata(&mut self, base: &str, path: &str, follow: bool) -> Result<FileInfo, SyscallError> {
+        // Pseudo paths (/proc, /dev) are generated on the fly rather than allocated on the
+        // simulated disk, so they never carry ext4-style block accounting even though the
+        // generic `Node` -> `FileInfo` conversion below would otherwise charge a directory or
+        // file a nonzero size and block count.
+        if let Some(node) = crate::pseudo_fs::metadata(self.interp, base, path, follow) {
+            return Ok(FileInfo::pseudo_from(node?));
+        }
+        Ok(FileInfo::from(
+            self.interp.vfs.metadata_ref(base, path, follow)?,
+        ))
+    }
+
+    fn metadata_fd(&mut self, fd: Fd) -> Result<FileInfo, SyscallError> {
+        if let Ok(path) = self.directory_path(fd) {
+            return self.metadata("/", &path, true);
+        }
+        let file = file_state(self.interp, fd)?;
+        let node = match file.orphan {
+            Some(id) => self.interp.vfs.orphan_metadata(id)?,
+            None => {
+                if let Some(node) = crate::pseudo_fs::metadata(self.interp, "/", &file.path, true) {
+                    return Ok(FileInfo::pseudo_from(node?));
+                }
+                self.interp.vfs.metadata_ref("/", &file.path, true)?
+            }
+        };
+        Ok(FileInfo::from(node))
+    }
+
+    fn list_dir(&mut self, base: &str, path: &str) -> Result<Vec<String>, SyscallError> {
+        Ok(self.interp.fs_list_dir(base, path)?)
+    }
+
+    fn walk(&mut self, base: &str, path: &str) -> Result<Vec<String>, SyscallError> {
+        Ok(self.interp.fs_walk(base, path)?)
+    }
+
+    fn read_file_limited(
+        &mut self,
+        base: &str,
+        path: &str,
+        maximum: usize,
+    ) -> Result<Vec<u8>, SyscallError> {
+        Ok(self.interp.fs_read_limited(base, path, maximum)?)
+    }
+
+    fn write_file(
+        &mut self,
+        base: &str,
+        path: &str,
+        bytes: &[u8],
+        mode: u32,
+    ) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.write(base, path, bytes, mode)?;
+        Ok(())
+    }
+
+    fn put_file_with_parents(
+        &mut self,
+        base: &str,
+        path: &str,
+        bytes: Vec<u8>,
+        mode: u32,
+    ) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        let absolute = resolve_against(base, path);
+        self.interp.vfs.put_file(&absolute, bytes, mode)?;
+        Ok(())
+    }
+
+    fn apply_file_batch(
+        &mut self,
+        base: &str,
+        changes: Vec<FileChange>,
+    ) -> Result<(), SyscallError> {
+        const MAX_CHANGES: usize = 10_000;
+        if changes.len() > MAX_CHANGES {
+            return Err(SyscallError::InvalidArgument);
+        }
+        let work = changes.iter().fold(0_u64, |total, change| {
+            total.saturating_add(match change {
+                FileChange::MkdirAll(path) => path.len() as u64,
+                FileChange::RemoveFile(path) => path.len() as u64,
+                FileChange::PutFile { path, bytes, .. } => {
+                    (path.len() as u64).saturating_add(bytes.len() as u64)
+                }
+                FileChange::PutSymlink { link, target } => {
+                    (link.len() as u64).saturating_add(target.len() as u64)
+                }
+            })
+        });
+        let snapshot = self.interp.vfs.disk_used().saturating_mul(2);
+        if !self.interp.resources.reserve_memory(snapshot) {
+            return Err(SyscallError::ResourceExhausted);
+        }
+        if !self
+            .interp
+            .resources
+            .charge_cpu(snapshot.saturating_add(work))
+        {
+            self.interp.resources.release_memory(snapshot);
+            return Err(SyscallError::ResourceExhausted);
+        }
+        let mut staged = self.interp.vfs.clone();
+        staged.set_mutation_time(self.interp.clock.unix_ms());
+        let result = changes.into_iter().try_for_each(|change| match change {
+            FileChange::MkdirAll(path) => staged.mkdir_all(base, &path),
+            FileChange::RemoveFile(path) => staged.remove_file(base, &path),
+            FileChange::PutFile { path, bytes, mode } => {
+                let absolute = resolve_against(base, &path);
+                staged.put_file(&absolute, bytes, mode)
+            }
+            FileChange::PutSymlink { link, target } => {
+                let absolute = resolve_against(base, &link);
+                if let Some(parent) = crate::vfs::parent_of(&absolute) {
+                    staged.mkdir_all(base, &parent)?;
+                }
+                // A symlink cannot be created on top of an existing node, so clear it first;
+                // a missing node is not an error here.
+                let _ = staged.remove_file(base, &absolute);
+                staged.symlink(base, &target, &absolute)
+            }
+        });
+        if result.is_ok() {
+            self.interp.vfs = staged;
+        }
+        self.interp.resources.release_memory(snapshot);
+        result.map_err(Into::into)
+    }
+
+    fn read(&mut self, fd: Fd, maximum: usize) -> Result<IoPoll<Vec<u8>>, SyscallError> {
+        self.interp.read_fd_checked(fd, maximum)
+    }
+
+    fn read_at(&self, fd: Fd, offset: u64, maximum: usize) -> Result<Vec<u8>, SyscallError> {
+        self.interp.read_fd_at_checked(fd, offset, maximum)
+    }
+
+    fn write(&mut self, fd: Fd, bytes: &[u8]) -> Result<IoPoll<usize>, SyscallError> {
+        self.interp.write_fd_checked(fd, bytes)
+    }
+
+    fn open_file(&mut self, base: &str, path: &str, options: OpenFile) -> Result<Fd, SyscallError> {
+        open_file(self.interp, base, path, options)
+    }
+
+    fn open_file_at(
+        &mut self,
+        fd: Fd,
+        base: &str,
+        path: &str,
+        options: OpenFile,
+    ) -> Result<(), SyscallError> {
+        open_file_at(self.interp, fd, base, path, options)
+    }
+
+    fn duplicate(&mut self, source: Fd, destination: Fd) -> Result<(), SyscallError> {
+        let previous = self
+            .interp
+            .process
+            .fds
+            .get(destination)
+            .ok()
+            .and_then(|id| self.interp.descriptors.pipe_endpoint(id).ok().flatten());
+        self.interp
+            .process
+            .fds
+            .duplicate(source, destination, &mut self.interp.descriptors)?;
+        self.interp.wake_pipe_endpoint(previous);
+        self.interp
+            .refresh_descriptor_snapshot(self.interp.process.pid);
+        Ok(())
+    }
+
+    fn descriptor_state(&self, fd: Fd) -> Result<DescriptorState, SyscallError> {
+        Ok(self
+            .interp
+            .descriptors
+            .state(self.interp.process.fds.get(fd)?)?)
+    }
+
+    fn file_lock(&mut self, fd: Fd, mode: Option<FileLockMode>) -> Result<bool, SyscallError> {
+        if !self
+            .interp
+            .resources
+            .charge_cpu(crate::descriptors::MAX_OPEN_DESCRIPTIONS as u64)
+        {
+            return Err(SyscallError::ResourceExhausted);
+        }
+        let inode = self.file_lock_inode(fd)?;
+        let description = self.interp.process.fds.get(fd)?;
+        let acquired = self
+            .interp
+            .descriptors
+            .file_lock(description, inode, mode)?;
+        self.interp.wake_file_lock_waiters();
+        Ok(acquired)
+    }
+
+    fn file_lock_inode(&self, fd: Fd) -> Result<u64, SyscallError> {
+        Ok(self
+            .interp
+            .descriptors
+            .inode(self.interp.process.fds.get(fd)?)?)
+    }
+
+    fn descriptor_readiness(
+        &self,
+        fd: Fd,
+        writing: bool,
+    ) -> Result<IoPoll<DescriptorReady>, SyscallError> {
+        let id = self.interp.process.fds.get(fd)?;
+        if let Some(file) = self.interp.descriptors.file_state(id)? {
+            if (writing && !file.writable) || (!writing && !file.readable) {
+                return Err(DescriptorError::WrongAccess.into());
+            }
+            let bytes = if writing {
+                u64::MAX
+            } else {
+                let length = match file.orphan {
+                    Some(id) => self.interp.vfs.orphan_len(id)?,
+                    None => self.interp.vfs.file_len("/", &file.path)?,
+                };
+                (length as u64).saturating_sub(file.cursor)
+            };
+            return Ok(IoPoll::Ready(DescriptorReady {
+                bytes,
+                hangup: false,
+            }));
+        }
+        Ok(self.interp.descriptors.readiness(id, writing)?)
+    }
+
+    fn directory_path(&self, fd: Fd) -> Result<String, SyscallError> {
+        Ok(self
+            .interp
+            .descriptors
+            .directory_path(self.interp.process.fds.get(fd)?)?
+            .to_owned())
+    }
+
+    fn pipe(&mut self, close_on_exec: bool, nonblocking: bool) -> Result<(Fd, Fd), SyscallError> {
+        let available: Vec<_> = (5..MAX_FDS_PER_PROCESS as i32 + 5)
+            .filter(|fd| self.interp.process.fds.get(*fd).is_err())
+            .take(2)
+            .collect();
+        if available.len() != 2 || self.interp.process.fds.iter().count() > MAX_FDS_PER_PROCESS - 2
+        {
+            return Err(DescriptorError::DescriptorLimit.into());
+        }
+        let reservation = crate::descriptors::DEFAULT_PIPE_CAPACITY as u64 + 256;
+        if !self.interp.resources.charge_cpu(1)
+            || !self.interp.resources.reserve_memory(reservation)
+        {
+            return Err(SyscallError::ResourceExhausted);
+        }
+        let (reader, writer) = match self
+            .interp
+            .descriptors
+            .open_pipe(crate::descriptors::DEFAULT_PIPE_CAPACITY)
+        {
+            Ok(endpoints) => endpoints,
+            Err(error) => {
+                self.interp.resources.release_memory(reservation);
+                return Err(error.into());
+            }
+        };
+        let pipe = self
+            .interp
+            .descriptors
+            .pipe_endpoint(reader)?
+            .expect("fresh pipe endpoint")
+            .0;
+        self.interp.pipe_reservations.insert(pipe, reservation);
+        for (fd, description) in [(available[0], reader), (available[1], writer)] {
+            self.interp
+                .process
+                .fds
+                .install(fd, description, &mut self.interp.descriptors)
+                .expect("validated descriptor capacity and fresh description");
+            self.interp
+                .process
+                .fds
+                .set_close_on_exec(fd, close_on_exec)
+                .expect("installed descriptor");
+            self.interp
+                .descriptors
+                .set_nonblocking(description, nonblocking)
+                .expect("fresh description");
+        }
+        self.interp
+            .refresh_descriptor_snapshot(self.interp.process.pid);
+        Ok((available[0], available[1]))
+    }
+
+    fn spawn_process(
+        &mut self,
+        spec: ProcessSpawn,
+    ) -> Result<crate::process::ProcessId, SyscallError> {
+        self.interp.spawn_posix_child(spec)
+    }
+
+    fn resize_file(&mut self, fd: Fd, size: usize) -> Result<(), SyscallError> {
+        let file = file_state(self.interp, fd)?;
+        if !file.writable {
+            return Err(SyscallError::Permission);
+        }
+        let (old_size, copied) = match file.orphan {
+            Some(id) => (
+                self.interp.vfs.orphan_len(id)?,
+                self.interp
+                    .vfs
+                    .orphan_cow_bytes(id, crate::vfs::FileMutation::Resize(size))?,
+            ),
+            None => (
+                self.interp.vfs.file_len("/", &file.path)?,
+                self.interp.vfs.file_cow_bytes(
+                    "/",
+                    &file.path,
+                    crate::vfs::FileMutation::Resize(size),
+                )?,
+            ),
+        };
+        let allocation = copied.saturating_add(size.saturating_sub(old_size) as u64);
+        if !self
+            .interp
+            .resources
+            .charge_cpu(allocation.saturating_add(1))
+            || !self.interp.resources.reserve_memory(allocation)
+        {
+            return Err(SyscallError::ResourceExhausted);
+        }
+        self.interp.sync_vfs_time();
+        let result = match file.orphan {
+            Some(id) => self.interp.vfs.resize_orphan(id, size),
+            None => self.interp.vfs.resize_file("/", &file.path, size),
+        };
+        self.interp.resources.release_memory(allocation);
+        result.map_err(Into::into)
+    }
+
+    fn file_state(&self, fd: Fd) -> Result<FileState, SyscallError> {
+        file_state(self.interp, fd)
+    }
+
+    fn close(&mut self, fd: Fd) -> Result<(), SyscallError> {
+        close(self.interp, fd)
+    }
+
+    fn seek(&mut self, fd: Fd, delta: i64, whence: u32) -> Result<u64, SyscallError> {
+        seek(self.interp, fd, delta, whence)
+    }
+
+    fn chmod(&mut self, base: &str, path: &str, mode: u32) -> Result<(), SyscallError> {
+        chmod(self.interp, base, path, mode)
+    }
+
+    fn unlink(&mut self, base: &str, path: &str) -> Result<(), SyscallError> {
+        unlink(self.interp, base, path)
+    }
+
+    fn mkdir(&mut self, base: &str, path: &str) -> Result<(), SyscallError> {
+        mkdir(self.interp, base, path)
+    }
+
+    fn mkdir_all(&mut self, base: &str, path: &str) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.mkdir_all(base, path)?;
+        Ok(())
+    }
+
+    fn rmdir(&mut self, base: &str, path: &str) -> Result<(), SyscallError> {
+        rmdir(self.interp, base, path)
+    }
+
+    fn rename(&mut self, base: &str, from: &str, to: &str) -> Result<(), SyscallError> {
+        rename(self.interp, base, from, to)
+    }
+
+    fn copy_file(&mut self, base: &str, from: &str, to: &str) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.copy_file(base, from, to)?;
+        Ok(())
+    }
+
+    fn copy_recursive(
+        &mut self,
+        base: &str,
+        from: &str,
+        to: &str,
+        preserve: bool,
+    ) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.copy_recursive(base, from, to, preserve)?;
+        Ok(())
+    }
+
+    fn symlink(&mut self, base: &str, target: &str, link: &str) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.symlink(base, target, link)?;
+        Ok(())
+    }
+
+    fn chown(
+        &mut self,
+        base: &str,
+        path: &str,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    ) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.chown(base, path, uid, gid)?;
+        Ok(())
+    }
+
+    fn touch(&mut self, base: &str, path: &str, mtime_ms: u64) -> Result<(), SyscallError> {
+        self.interp.sync_vfs_time();
+        self.interp.vfs.touch(base, path, mtime_ms)?;
+        Ok(())
+    }
+
+    fn read_link(&mut self, base: &str, path: &str) -> Result<String, SyscallError> {
+        Ok(self.interp.fs_read_link(base, path)?)
+    }
+
+    fn read_link_prefix(
+        &mut self,
+        base: &str,
+        path: &str,
+        maximum: usize,
+    ) -> Result<Vec<u8>, SyscallError> {
+        if let Some(target) = crate::pseudo_fs::read_link(self.interp, base, path) {
+            let target = target?;
+            return Ok(target.as_bytes()[..target.len().min(maximum)].to_vec());
+        }
+        Ok(self.interp.vfs.read_link_prefix(base, path, maximum)?)
+    }
+
+    fn canonicalize(
+        &mut self,
+        base: &str,
+        path: &str,
+        strict: bool,
+    ) -> Result<String, SyscallError> {
+        let absolute = resolve_against(base, path);
+        if strict {
+            Ok(self.interp.fs_realpath("/", &absolute, true)?)
+        } else {
+            Ok(self.interp.vfs.realpath(&absolute, true)?)
+        }
+    }
+
+    fn wall_time_ms(&self) -> u64 {
+        self.interp.clock.unix_ms()
+    }
+
+    fn wall_time_signed_ns(&self) -> Result<i128, SyscallError> {
+        self.interp
+            .clock
+            .wall_time_ns()
+            .map_err(|_| SyscallError::InvalidArgument)
+    }
+
+    fn schedule_wake(&mut self, duration_ns: u64) -> Result<u64, SyscallError> {
+        let pid = u64::from(self.interp.process.pid);
+        self.interp
+            .clock
+            .schedule_wake_after(pid, duration_ns)
+            .map(|event| event.deadline_ns())
+            .map_err(|_| SyscallError::InvalidArgument)
+    }
+
+    fn clock_time_ns(&self, clock: ClockId) -> Result<u64, SyscallError> {
+        match clock {
+            ClockId::Realtime => self
+                .interp
+                .clock
+                .wall_time_ns()
+                .ok()
+                .and_then(|value| u64::try_from(value).ok())
+                .ok_or(SyscallError::InvalidArgument),
+            ClockId::Monotonic => Ok(self.interp.clock.monotonic_ns()),
+        }
+    }
+
+    fn random_fill(&mut self, bytes: &mut [u8]) -> Result<(), SyscallError> {
+        let cost = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+        if !self.interp.resources.charge_cpu(cost) {
+            return Err(SyscallError::ResourceExhausted);
+        }
+        self.interp.process.fill_virtual_random(bytes);
+        Ok(())
+    }
+
+    fn allocate_temp_id(&mut self) -> Option<u64> {
+        self.interp.next_temp_id()
+    }
+
+    fn http_request(&mut self, request: HttpRequest) -> Result<HttpPoll, RequestError> {
+        self.interp
+            .net
+            .request_for_process(self.interp.process.pid, request, &self.interp.vfs)
+    }
+
+    fn http_route_static(
+        &mut self,
+        pattern: &str,
+        status: u16,
+        body: Vec<u8>,
+    ) -> Result<(), RouteError> {
+        self.interp.net.route_static(pattern, status, body)
+    }
+
+    fn http_route_file(&mut self, pattern: &str, path: &str) -> Result<(), RouteError> {
+        self.interp.net.route_vfs(pattern, path)
+    }
+
+    fn network_listen(&mut self, host_port: &str) {
+        self.interp.net.listen(host_port);
+    }
+
+    fn network_request_count(&self) -> usize {
+        self.interp.net.log.len()
+    }
+
+    fn network_request_at(&self, index: usize) -> Option<NetworkRequest> {
+        self.interp.net.log.get(index).cloned()
+    }
+
+    fn process_snapshot(&mut self) -> Vec<crate::process::ProcessRecord> {
+        let pid = self.interp.process.pid;
+        let cwd = self.interp.process.cwd.clone();
+        let environment = self.interp.child_env().into_iter().collect();
+        self.interp.processes.update_current(pid, &cwd, environment);
+        self.interp.processes.iter().cloned().collect()
+    }
+
+    fn listener_snapshot(&self) -> Vec<String> {
+        self.interp
+            .net
+            .listening
+            .iter()
+            .filter_map(|(address, active)| active.then_some(address.clone()))
+            .collect()
+    }
+
+    fn spawn_argv(&mut self, spec: SpawnSpec) -> Result<crate::process::ProcessId, SyscallError> {
+        self.interp
+            .spawn_argv_child(spec)
+            .map_err(SyscallError::Process)
+    }
+
+    fn exec_argv(
+        &mut self,
+        argv: Vec<String>,
+        environment: Option<std::collections::BTreeMap<String, String>>,
+    ) -> Result<(), SyscallError> {
+        if argv.is_empty() {
+            return Err(SyscallError::InvalidArgument);
+        }
+        let pid = self.interp.process.pid;
+        if environment.is_some() {
+            self.interp
+                .configure_process(pid, None, environment)
+                .map_err(SyscallError::Process)?;
+        }
+        self.interp
+            .exec_argv_image(pid, argv)
+            .map_err(SyscallError::Process)
+    }
+
+    fn kill(
+        &mut self,
+        target: SignalTarget,
+        signal: crate::process::Signal,
+    ) -> Result<(), SyscallError> {
+        match target {
+            SignalTarget::Process(pid) => self.interp.send_signal(pid, signal),
+            SignalTarget::Group(group) => self.interp.send_signal_group(group, signal),
+        }
+        .map_err(|_| SyscallError::NoSuchProcess)
+    }
+
+    fn ignore_signal(&mut self, signal: crate::process::Signal) -> Result<(), SyscallError> {
+        if matches!(
+            signal,
+            crate::process::Signal::Kill | crate::process::Signal::Stop
+        ) {
+            return Err(SyscallError::InvalidArgument);
+        }
+        self.interp
+            .process
+            .signal_dispositions
+            .insert(signal, crate::interp::ShellSignalDisposition::Ignore);
+        Ok(())
+    }
+
+    fn child_status(&self, pid: crate::process::ProcessId) -> Result<Option<i32>, SyscallError> {
+        let child = self
+            .interp
+            .processes
+            .get(pid)
+            .ok_or(SyscallError::InvalidArgument)?;
+        if child.ppid != self.interp.process.pid {
+            return Err(SyscallError::Permission);
+        }
+        Ok(match child.status {
+            crate::process::ProcessStatus::Exited(status) => Some(status),
+            _ => None,
+        })
+    }
+
+    fn signal_disposition(
+        &mut self,
+        signal: crate::process::Signal,
+        ignore: bool,
+    ) -> Result<(), SyscallError> {
+        if ignore {
+            return self.ignore_signal(signal);
+        }
+        if matches!(
+            signal,
+            crate::process::Signal::Kill | crate::process::Signal::Stop
+        ) {
+            return Err(SyscallError::InvalidArgument);
+        }
+        self.interp.process.signal_dispositions.remove(&signal);
+        Ok(())
+    }
+
+    fn child_completion(
+        &self,
+        pid: crate::process::ProcessId,
+    ) -> Result<Option<crate::process::ChildCompletion>, SyscallError> {
+        self.child_status(pid)?;
+        Ok(self.interp.processes.completion(pid))
+    }
+
+    fn reap_child(&mut self, pid: crate::process::ProcessId) -> Result<i32, SyscallError> {
+        let status = self
+            .child_status(pid)?
+            .ok_or(SyscallError::InvalidArgument)?;
+        self.interp.processes.reap(pid);
+        let _ = self.interp.scheduler.reap(pid);
+        Ok(status)
+    }
+
+    fn display_open(&mut self, width: u32, height: u32, format: u32) -> Result<u32, DisplayError> {
+        display_open(self.interp, width, height, format)
+    }
+
+    fn display_present(
+        &mut self,
+        handle: u32,
+        pixels: &[u8],
+        stride: u32,
+    ) -> Result<(), DisplayError> {
+        display_present(self.interp, handle, pixels, stride)
+    }
+
+    fn input_poll_key(&mut self, handle: u32) -> Result<Option<KeyEvent>, DisplayError> {
+        input_poll_key(self.interp, handle)
+    }
+
+    fn display_close(&mut self, handle: u32) -> Result<(), DisplayError> {
+        display_close(self.interp, handle)
+    }
+
+    fn charge_cpu(&mut self, units: u64) -> bool {
+        !self.interrupted() && self.interp.resources.charge_cpu(units)
+    }
+
+    fn reserve_memory(&mut self, bytes: u64) -> bool {
+        self.interp.resources.reserve_memory(bytes)
+    }
+
+    fn release_memory(&mut self, bytes: u64) {
+        self.interp.resources.release_memory(bytes);
+    }
+
+    fn output_remaining(&self) -> u64 {
+        self.interp.resources.output_remaining()
+    }
+
+    fn charge_output(&mut self, bytes: u64) -> bool {
+        self.interp.resources.charge_output(bytes)
+    }
+
+    fn stop_status(&self) -> i32 {
+        self.interp.resources.stop_reason().map_or_else(
+            || if self.interrupted() { 130 } else { 137 },
+            |reason| reason.exit_status(),
+        )
+    }
+
+    fn note_unsupported(&mut self, feature: &str) {
+        self.interp.note_unsupported(feature);
+    }
+}
+
+/// Open the single virtual display for the active process.
+fn display_open(
+    interp: &mut Interp,
+    width: u32,
+    height: u32,
+    format: u32,
+) -> Result<u32, DisplayError> {
+    interp.display.open(
+        &mut interp.resources,
+        interp.process.pid,
+        width,
+        height,
+        format,
+    )
+}
+
+/// Copy a complete RGBA frame from a process into the virtual display.
+fn display_present(
+    interp: &mut Interp,
+    handle: u32,
+    pixels: &[u8],
+    stride: u32,
+) -> Result<(), DisplayError> {
+    interp.display.present(
+        &mut interp.resources,
+        interp.process.pid,
+        handle,
+        pixels,
+        stride,
+    )
+}
+
+/// Receive one injected key event, or report that no event is ready.
+fn input_poll_key(interp: &mut Interp, handle: u32) -> Result<Option<KeyEvent>, DisplayError> {
+    interp
+        .display
+        .poll_key(&mut interp.resources, interp.process.pid, handle)
+}
+
+/// Relinquish the display while retaining its last frame for inspection.
+fn display_close(interp: &mut Interp, handle: u32) -> Result<(), DisplayError> {
+    interp.display.close(interp.process.pid, handle)
+}
+
+/// Access and creation requested by one virtual process.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OpenFile {
+    pub readable: bool,
+    pub writable: bool,
+    pub create: bool,
+    pub exclusive: bool,
+    pub truncate: bool,
+    pub append: bool,
+}
+
+/// Ordered VFS changes applied against one clone before becoming visible to any process.
+#[derive(Clone, Debug)]
+pub(crate) enum FileChange {
+    MkdirAll(String),
+    RemoveFile(String),
+    PutFile {
+        path: String,
+        bytes: Vec<u8>,
+        mode: u32,
+    },
+    /// Replace whatever is at `link` (if anything) with a symlink to `target`.
+    PutSymlink {
+        link: String,
+        target: String,
+    },
+}
+
+/// Data visible from `stat` without exposing file bytes or native program identity.
+///
+/// `size` and `blocks` model allocation the way ext4 does with its default 4 KiB block size, so
+/// that `ls`, `du`, and `stat` can share one accounting source instead of each guessing at a
+/// number. `blocks` is reported in 512-byte units, matching POSIX `st_blocks` and `stat`'s `%b`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct FileInfo {
+    pub device: u64,
+    pub inode: u64,
+    pub kind: FileKind,
+    pub mode: u32,
+    pub size: u64,
+    pub blocks: u64,
+    pub link_target: Option<String>,
+    pub mtime_ms: u64,
+    pub uid: u32,
+    pub gid: u32,
+    pub native_executable: bool,
+}
+
+/// Kinds observable through the virtual filesystem interface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FileKind {
+    File,
+    Directory,
+    Symlink,
+}
+
+/// Bytes in one ext4 block under the default (and only, here) 4 KiB block size.
+const BLOCK_BYTES: u64 = 4096;
+/// A directory's reported size in bytes: ext4 allocates one block for a small directory.
+const DIRECTORY_SIZE_BYTES: u64 = BLOCK_BYTES;
+
+/// Round a byte length up to whole 4 KiB blocks and report the count in 512-byte units, as
+/// `stat`'s `st_blocks` does. A zero-byte file therefore costs zero blocks, and any nonzero
+/// length costs a full 4 KiB (8 512-byte units), matching ext4 with default settings.
+fn allocated_blocks(size_bytes: u64) -> u64 {
+    const UNITS_PER_BLOCK: u64 = BLOCK_BYTES / 512;
+    size_bytes
+        .div_ceil(BLOCK_BYTES)
+        .saturating_mul(UNITS_PER_BLOCK)
+}
+
+impl From<&crate::vfs::Node> for FileInfo {
+    fn from(node: &crate::vfs::Node) -> Self {
+        let (kind, size, blocks, link_target, native_executable) = match &node.kind {
+            NodeKind::File(data) => {
+                let size = data.len() as u64;
+                (FileKind::File, size, allocated_blocks(size), None, false)
+            }
+            // ext4 reports one 4 KiB block (8 512-byte units) for a small directory; larger
+            // directories that would need more blocks are out of scope for this simulator.
+            NodeKind::Dir => (FileKind::Directory, DIRECTORY_SIZE_BYTES, 8, None, false),
+            NodeKind::Symlink(target) => {
+                let size = target.len() as u64;
+                // A symlink's target is stored inline rather than in an allocated data block.
+                (FileKind::Symlink, size, 0, Some(target.clone()), false)
+            }
+            // Native executables are not backed by simulated disk bytes; keep the historical
+            // zero size (the process image lives outside the VFS quota) and charge no blocks.
+            NodeKind::NativeExecutable(_) => (FileKind::File, 0, 0, None, true),
+        };
+        Self {
+            device: u64::from(node.inode != 0),
+            inode: node.inode,
+            kind,
+            mode: node.mode,
+            size,
+            blocks,
+            link_target,
+            mtime_ms: node.mtime,
+            uid: node.uid,
+            gid: node.gid,
+            native_executable,
+        }
+    }
+}
+
+impl FileInfo {
+    /// Convert a pseudo-filesystem node (`/proc`, `/dev`) to `FileInfo`, forcing the block
+    /// accounting the generic conversion would otherwise infer for a `Dir`/`File` node back to
+    /// what a real pseudo filesystem reports: no allocated blocks, and a zero-size directory.
+    /// Generated file content (e.g. `/proc/meminfo`) keeps its real content length.
+    fn pseudo_from(node: crate::vfs::Node) -> Self {
+        let mut info = Self::from(&node);
+        info.device = 2;
+        info.blocks = 0;
+        if info.kind == FileKind::Directory {
+            info.size = 0;
+        }
+        info
+    }
+}
+
+/// Typed failure at the simulated process/kernel boundary.
+#[derive(Debug)]
+pub(crate) enum SyscallError {
+    File(VfsError),
+    Descriptor(DescriptorError),
+    InvalidArgument,
+    IsDirectory,
+    Permission,
+    ResourceExhausted,
+    NoSuchProcess,
+    ExecutableFormat,
+    Process(String),
+}
+
+impl std::fmt::Display for SyscallError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::File(error) => error.fmt(formatter),
+            Self::Descriptor(error) => write!(formatter, "{error:?}"),
+            Self::InvalidArgument => write!(formatter, "invalid argument"),
+            Self::IsDirectory => write!(formatter, "is a directory"),
+            Self::Permission => write!(formatter, "permission denied"),
+            Self::ResourceExhausted => write!(formatter, "resource exhausted"),
+            Self::NoSuchProcess => write!(formatter, "no such process"),
+            Self::ExecutableFormat => write!(formatter, "unsupported executable format"),
+            Self::Process(error) => write!(formatter, "{error}"),
+        }
+    }
+}
+
+impl From<VfsError> for SyscallError {
+    fn from(error: VfsError) -> Self {
+        Self::File(error)
+    }
+}
+
+impl From<DescriptorError> for SyscallError {
+    fn from(error: DescriptorError) -> Self {
+        Self::Descriptor(error)
+    }
+}
+
+/// Open a regular virtual file in the active process, assigning the lowest free guest fd.
+fn open_file(
+    interp: &mut Interp,
+    cwd: &str,
+    path: &str,
+    options: OpenFile,
+) -> Result<Fd, SyscallError> {
+    if path.is_empty() || path.contains('\0') || (!options.readable && !options.writable) {
+        return Err(SyscallError::InvalidArgument);
+    }
+    if interp.process.fds.iter().count() >= MAX_FDS_PER_PROCESS {
+        return Err(SyscallError::Descriptor(DescriptorError::DescriptorLimit));
+    }
+    // WASI adapters reserve 3 for the working directory and 4 for the VFS root.
+    let fd = (5..MAX_FDS_PER_PROCESS as Fd + 5)
+        .find(|&candidate| interp.process.fds.get(candidate).is_err())
+        .ok_or(SyscallError::Descriptor(DescriptorError::DescriptorLimit))?;
+    open_file_at(interp, fd, cwd, path, options)?;
+    Ok(fd)
+}
+
+fn open_file_at(
+    interp: &mut Interp,
+    fd: Fd,
+    cwd: &str,
+    path: &str,
+    options: OpenFile,
+) -> Result<(), SyscallError> {
+    if fd < 0 || path.is_empty() || path.contains('\0') || (!options.readable && !options.writable)
+    {
+        return Err(SyscallError::InvalidArgument);
+    }
+    if interp.process.fds.get(fd).is_err()
+        && interp.process.fds.iter().count() >= MAX_FDS_PER_PROCESS
+    {
+        return Err(SyscallError::Descriptor(DescriptorError::DescriptorLimit));
+    }
+    let absolute = resolve_against(cwd, path);
+    // Creation/truncation must follow a final symlink; VFS writes intentionally replace
+    // their named node. Exclusivity, however, tests the link itself even when dangling.
+    if options.create && options.exclusive && interp.vfs.lexists("/", &absolute) {
+        return Err(SyscallError::File(VfsError::Exists(absolute)));
+    }
+    let absolute = interp.vfs.realpath(&absolute, true)?;
+    if absolute == "/dev/null" || crate::pseudo_fs::device_kind("/", &absolute).is_some() {
+        if options.create && options.exclusive {
+            return Err(SyscallError::File(VfsError::Exists(absolute)));
+        }
+        let description = match crate::pseudo_fs::device_kind("/", &absolute) {
+            Some(kind) => {
+                interp
+                    .descriptors
+                    .open_device(kind, options.readable, options.writable)?
+            }
+            None => interp
+                .descriptors
+                .open_null_with_access(options.readable, options.writable)?,
+        };
+        interp.install_new_description(fd, description)?;
+        return Ok(());
+    }
+    if let Some(contents) = crate::pseudo_fs::read(interp, "/", &absolute) {
+        if !options.readable || options.writable || options.create || options.truncate {
+            return Err(SyscallError::Permission);
+        }
+        let description = interp.descriptors.open_input(contents?)?;
+        interp.install_new_description(fd, description)?;
+        return Ok(());
+    }
+    let created_by_open = match interp.vfs.metadata("/", &absolute, true) {
+        Ok(node) => {
+            if matches!(node.kind, NodeKind::Dir) {
+                if options.writable || options.create || options.truncate || options.append {
+                    return Err(SyscallError::IsDirectory);
+                }
+                let path = interp.vfs.realpath(&absolute, true)?;
+                if path.len() > 4096 {
+                    return Err(SyscallError::InvalidArgument);
+                }
+                if interp
+                    .process
+                    .fds
+                    .iter()
+                    .filter(|(_, id)| {
+                        interp.descriptors.state(*id).is_ok_and(|state| {
+                            state.kind == crate::descriptors::DescriptorKind::Directory
+                        })
+                    })
+                    .count()
+                    >= 64
+                {
+                    return Err(DescriptorError::DescriptorLimit.into());
+                }
+                let description = interp.descriptors.open_directory(path)?;
+                interp.descriptors.bind_inode(description, node.inode)?;
+                interp.install_new_description(fd, description)?;
+                return Ok(());
+            }
+            if options.create && options.exclusive {
+                return Err(SyscallError::File(VfsError::Exists(absolute)));
+            }
+            if options.truncate {
+                if !options.writable {
+                    return Err(SyscallError::Permission);
+                }
+                interp.sync_vfs_time();
+                interp.vfs.write("/", &absolute, &[], 0o666)?;
+            }
+            false
+        }
+        Err(VfsError::NotFound(_)) if options.create && options.writable => {
+            interp.sync_vfs_time();
+            interp.vfs.write(
+                "/",
+                &absolute,
+                &[],
+                0o666 & !u32::from(interp.process.umask),
+            )?;
+            true
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let backing_path = interp.vfs.realpath(&absolute, true)?;
+    let cursor = if options.append {
+        interp.vfs.file_len("/", &backing_path)? as u64
+    } else {
+        0
+    };
+    let description = interp.descriptors.open_file(
+        backing_path,
+        cursor,
+        options.readable,
+        options.writable,
+        options.append,
+        created_by_open,
+    )?;
+    let inode = interp.vfs.metadata_ref("/", &absolute, true)?.inode;
+    interp.descriptors.bind_inode(description, inode)?;
+    interp.install_new_description(fd, description)?;
+    Ok(())
+}
+
+/// Change virtual permission bits for a path owned by the active process.
+fn chmod(interp: &mut Interp, cwd: &str, path: &str, mode: u32) -> Result<(), SyscallError> {
+    if path.is_empty() || path.contains('\0') || mode & !0o7777 != 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+    interp.sync_vfs_time();
+    interp.vfs.chmod(cwd, path, mode)?;
+    Ok(())
+}
+
+/// Return regular-file state for an active process descriptor.
+fn file_state(interp: &Interp, fd: Fd) -> Result<FileState, SyscallError> {
+    let description = interp.process.fds.get(fd)?;
+    interp
+        .descriptors
+        .file_state(description)?
+        .ok_or(SyscallError::Descriptor(DescriptorError::WrongAccess))
+}
+
+/// Close a process-owned descriptor and update process metadata.
+fn close(interp: &mut Interp, fd: Fd) -> Result<(), SyscallError> {
+    let endpoint = interp
+        .descriptors
+        .pipe_endpoint(interp.process.fds.get(fd)?)?;
+    interp.process.fds.close(fd, &mut interp.descriptors)?;
+    interp.wake_pipe_endpoint(endpoint);
+    interp
+        .vfs
+        .retain_orphans(&interp.descriptors.live_orphans());
+    interp.refresh_descriptor_snapshot(interp.process.pid);
+    Ok(())
+}
+
+/// Remove one regular file through the virtual filesystem, without exposing host paths.
+fn unlink(interp: &mut Interp, cwd: &str, path: &str) -> Result<(), SyscallError> {
+    interp.sync_vfs_time();
+    let absolute = resolve_against(cwd, path);
+    let entry = interp.vfs.realpath(&absolute, false)?;
+    if interp.descriptors.has_open_file(&entry)
+        && matches!(
+            interp.vfs.metadata("/", &entry, false)?.kind,
+            NodeKind::File(_)
+        )
+    {
+        let orphan = interp.vfs.unlink_open_file("/", &entry)?;
+        interp.descriptors.detach_file(&entry, orphan);
+        Ok(())
+    } else {
+        interp.vfs.remove_file(cwd, path).map_err(Into::into)
+    }
+}
+
+/// Create one directory; unlike `mkdir_all`, this retains POSIX's existing-parent requirement.
+fn mkdir(interp: &mut Interp, cwd: &str, path: &str) -> Result<(), SyscallError> {
+    interp.sync_vfs_time();
+    interp.vfs.mkdir(cwd, path)?;
+    interp
+        .vfs
+        .chmod(cwd, path, 0o777 & !u32::from(interp.process.umask))
+        .map_err(Into::into)
+}
+
+/// Remove only an empty virtual directory.
+fn rmdir(interp: &mut Interp, cwd: &str, path: &str) -> Result<(), SyscallError> {
+    interp.sync_vfs_time();
+    interp.vfs.rmdir(cwd, path).map_err(Into::into)
+}
+
+/// Move a virtual path within the same modeled filesystem.
+fn rename(interp: &mut Interp, cwd: &str, from: &str, to: &str) -> Result<(), SyscallError> {
+    interp.sync_vfs_time();
+    interp.vfs.rename(cwd, from, to).map_err(Into::into)
+}
+
+/// Seek a shared file cursor. Synthetic devices ignore offsets and report zero.
+fn seek(interp: &mut Interp, fd: Fd, delta: i64, whence: u32) -> Result<u64, SyscallError> {
+    let description = interp.process.fds.get(fd)?;
+    if whence > 2 {
+        return Err(SyscallError::InvalidArgument);
+    }
+    if interp.descriptors.state(description)?.kind == crate::descriptors::DescriptorKind::Device {
+        return Ok(0);
+    }
+    let file = file_state(interp, fd)?;
+    let base = match whence {
+        0 => 0_i128,
+        1 => i128::from(file.cursor),
+        2 => match file.orphan {
+            Some(id) => interp.vfs.orphan_len(id)? as i128,
+            None => interp.vfs.file_len("/", &file.path)? as i128,
+        },
+        _ => return Err(SyscallError::InvalidArgument),
+    };
+    let position =
+        u64::try_from(base + i128::from(delta)).map_err(|_| SyscallError::InvalidArgument)?;
+    interp.descriptors.seek_file(description, position)?;
+    Ok(position)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frozen_file_mutation_prepays_copy_before_changing_shared_content() {
+        use crate::resources::{Limits, StopReason};
+        for (name, orphan, resize, memory, cpu, reason) in [
+            (
+                "named append",
+                false,
+                false,
+                1024,
+                u64::MAX,
+                StopReason::MemoryExhausted,
+            ),
+            (
+                "orphan shrink",
+                true,
+                true,
+                u64::MAX,
+                1024,
+                StopReason::CpuExhausted,
+            ),
+        ] {
+            let mut interp = Interp::with_limits(Limits {
+                memory,
+                cpu,
+                ..Limits::default()
+            });
+            interp
+                .vfs
+                .put_file("/work/shared", vec![b'x'; 4096], 0o644)
+                .unwrap();
+            let base = interp.vfs.freeze();
+            interp.vfs = crate::vfs::Vfs::from_base(base.clone(), u64::MAX).unwrap();
+            let sibling = crate::vfs::Vfs::from_base(base, u64::MAX).unwrap();
+            let mut system = ActiveSystem::new(&mut interp);
+            let fd = system
+                .open_file(
+                    "/",
+                    "/work/shared",
+                    OpenFile {
+                        readable: true,
+                        writable: true,
+                        create: false,
+                        exclusive: false,
+                        truncate: false,
+                        append: true,
+                    },
+                )
+                .unwrap();
+            if orphan {
+                system.unlink("/", "/work/shared").unwrap();
+            }
+            let result = if resize {
+                system.resize_file(fd, 2048)
+            } else {
+                system.write(fd, b"y").map(|_| ())
+            };
+            assert!(
+                matches!(result, Err(SyscallError::ResourceExhausted)),
+                "{name}"
+            );
+            assert_eq!(system.metadata_fd(fd).unwrap().size, 4096);
+            assert_eq!(interp.resources.stop_reason(), Some(reason));
+            assert_eq!(sibling.read("/", "/work/shared").unwrap(), vec![b'x'; 4096]);
+        }
+    }
+
+    #[test]
+    fn frozen_file_truncation_charges_only_the_retained_prefix() {
+        let mut interp = Interp::with_limits(crate::resources::Limits {
+            memory: 1024,
+            cpu: 200,
+            ..crate::resources::Limits::default()
+        });
+        interp
+            .vfs
+            .put_file("/work/shared", vec![b'x'; 4096], 0o644)
+            .unwrap();
+        let base = interp.vfs.freeze();
+        interp.vfs = crate::vfs::Vfs::from_base(base.clone(), u64::MAX).unwrap();
+        let sibling = crate::vfs::Vfs::from_base(base, u64::MAX).unwrap();
+        let mut system = ActiveSystem::new(&mut interp);
+        let fd = system
+            .open_file(
+                "/",
+                "/work/shared",
+                OpenFile {
+                    readable: true,
+                    writable: true,
+                    create: false,
+                    exclusive: false,
+                    truncate: false,
+                    append: false,
+                },
+            )
+            .unwrap();
+        system.resize_file(fd, 4096).unwrap();
+        system.resize_file(fd, 100).unwrap();
+        assert_eq!(system.metadata_fd(fd).unwrap().size, 100);
+        system.resize_file(fd, 0).unwrap();
+        assert_eq!(system.metadata_fd(fd).unwrap().size, 0);
+        assert_eq!(sibling.read("/", "/work/shared").unwrap(), vec![b'x'; 4096]);
+    }
+
+    #[test]
+    fn file_lock_prepays_the_bounded_arena_scan() {
+        let mut interp = Interp::with_limits(crate::resources::Limits {
+            cpu: crate::descriptors::MAX_OPEN_DESCRIPTIONS as u64 - 1,
+            ..crate::resources::Limits::default()
+        });
+        assert!(matches!(
+            ActiveSystem::new(&mut interp).file_lock(255, Some(FileLockMode::Exclusive)),
+            Err(SyscallError::ResourceExhausted)
+        ));
+        assert_eq!(
+            interp.resources.stop_reason(),
+            Some(crate::resources::StopReason::CpuExhausted)
+        );
+    }
+
+    #[test]
+    fn file_lock_follows_orphan_inode_and_preserves_last_alias() {
+        let mut interp = Interp::new();
+        let mut system = ActiveSystem::new(&mut interp);
+        let options = OpenFile {
+            readable: true,
+            writable: true,
+            create: true,
+            exclusive: false,
+            truncate: false,
+            append: false,
+        };
+        let first = system.open_file("/", "/work/lock", options).unwrap();
+        let second = system.open_file("/", "/work/lock", options).unwrap();
+        assert!(system
+            .file_lock(first, Some(FileLockMode::Exclusive))
+            .unwrap());
+        system.duplicate(first, 200).unwrap();
+        system.close(first).unwrap();
+        assert!(!system
+            .file_lock(second, Some(FileLockMode::Exclusive))
+            .unwrap());
+        let old_inode = system.metadata_fd(second).unwrap().inode;
+        system.unlink("/", "/work/lock").unwrap();
+        let replacement = system.open_file("/", "/work/lock", options).unwrap();
+        assert_ne!(system.metadata_fd(replacement).unwrap().inode, old_inode);
+        assert_eq!(system.metadata_fd(second).unwrap().inode, old_inode);
+        assert!(system
+            .file_lock(replacement, Some(FileLockMode::Exclusive))
+            .unwrap());
+        system.close(200).unwrap();
+        assert!(system
+            .file_lock(second, Some(FileLockMode::Exclusive))
+            .unwrap());
+    }
+
+    #[test]
+    fn file_lock_keeps_open_inode_across_rename_and_path_replacement() {
+        let mut interp = Interp::new();
+        let mut system = ActiveSystem::new(&mut interp);
+        let options = OpenFile {
+            readable: true,
+            writable: true,
+            create: true,
+            exclusive: false,
+            truncate: false,
+            append: false,
+        };
+        let owner = system.open_file("/", "/work/original", options).unwrap();
+        let old_inode = system.file_lock_inode(owner).unwrap();
+        system
+            .rename("/", "/work/original", "/work/renamed")
+            .unwrap();
+        assert!(system
+            .file_lock(owner, Some(FileLockMode::Exclusive))
+            .unwrap());
+        let same_file = system.open_file("/", "/work/renamed", options).unwrap();
+        assert!(!system
+            .file_lock(same_file, Some(FileLockMode::Exclusive))
+            .unwrap());
+        let replacement = system.open_file("/", "/work/original", options).unwrap();
+        assert_ne!(system.file_lock_inode(replacement).unwrap(), old_inode);
+        assert!(system
+            .file_lock(replacement, Some(FileLockMode::Exclusive))
+            .unwrap());
+        assert!(system.file_lock(owner, None).unwrap());
+        assert!(system
+            .file_lock(same_file, Some(FileLockMode::Exclusive))
+            .unwrap());
+    }
+
+    #[test]
+    fn pseudo_inode_identity_is_distinct_and_matches_self_aliases() {
+        let mut interp = Interp::new();
+        let pid = interp.pid;
+        let mut system = ActiveSystem::new(&mut interp);
+        let null = system.metadata("/", "/dev/null", true).unwrap();
+        let zero = system.metadata("/", "/dev/zero", true).unwrap();
+        assert_eq!(null.device, 2);
+        assert_ne!(null.inode, zero.inode);
+        let self_info = system.metadata("/", "/proc/self/status", true).unwrap();
+        let pid_info = system
+            .metadata("/", &format!("/proc/{pid}/status"), true)
+            .unwrap();
+        assert_eq!(
+            (self_info.device, self_info.inode),
+            (pid_info.device, pid_info.inode)
+        );
+    }
+
+    #[test]
+    fn file_batch_rolls_back_every_change_on_failure() {
+        let mut interp = Interp::new();
+        let mut system = ActiveSystem::new(&mut interp);
+        let result = system.apply_file_batch(
+            "/",
+            vec![
+                FileChange::PutFile {
+                    path: "/work/first".into(),
+                    bytes: b"first".to_vec(),
+                    mode: 0o644,
+                },
+                FileChange::PutFile {
+                    path: "/proc/blocked".into(),
+                    bytes: b"blocked".to_vec(),
+                    mode: 0o644,
+                },
+            ],
+        );
+        assert!(result.is_err());
+        assert!(system.metadata("/", "/work/first", false).is_err());
+    }
+
+    #[test]
+    fn active_system_changes_only_the_current_process_directory_and_mask() {
+        let mut interp = Interp::new();
+        let mut system = ActiveSystem::new(&mut interp);
+        assert_eq!(system.cwd(), "/");
+        assert!(system.chdir("/work").is_ok());
+        assert_eq!(system.cwd(), "/work");
+        assert!(system.chdir("/proc").is_ok());
+        assert_eq!(system.cwd(), "/proc");
+        assert!(matches!(
+            system.chdir("/missing"),
+            Err(SyscallError::File(VfsError::NotFound(_)))
+        ));
+        assert_eq!(system.cwd(), "/proc");
+        assert!(matches!(
+            system.set_umask(0o1000),
+            Err(SyscallError::InvalidArgument)
+        ));
+        assert_eq!(system.umask(), 0o022);
+        system.set_umask(0o077).unwrap();
+        assert_eq!(system.umask(), 0o077);
+    }
+
+    #[test]
+    fn active_system_reads_virtual_descriptors_without_host_access() {
+        let mut interp = Interp::new();
+        interp
+            .vfs
+            .write("/", "/work/data", b"sample", 0o644)
+            .unwrap();
+        let fd = open_file(
+            &mut interp,
+            "/work",
+            "data",
+            OpenFile {
+                readable: true,
+                writable: false,
+                create: false,
+                exclusive: false,
+                truncate: false,
+                append: false,
+            },
+        )
+        .unwrap();
+        let mut system = ActiveSystem::new(&mut interp);
+        assert_eq!(system.read(fd, 3).unwrap(), IoPoll::Ready(b"sam".to_vec()));
+        assert_eq!(system.read(fd, 3).unwrap(), IoPoll::Ready(b"ple".to_vec()));
+        assert_eq!(system.read(fd, 3).unwrap(), IoPoll::Ready(Vec::new()));
+    }
+
+    #[test]
+    fn chosen_descriptors_share_cursors_and_file_creation_obeys_umask() {
+        let mut interp = Interp::new();
+        interp.vfs.write("/work", "source", b"abc", 0o644).unwrap();
+        let mut system = ActiveSystem::new(&mut interp);
+        system
+            .open_file_at(
+                8,
+                "/work",
+                "source",
+                OpenFile {
+                    readable: true,
+                    writable: false,
+                    create: false,
+                    exclusive: false,
+                    truncate: false,
+                    append: false,
+                },
+            )
+            .unwrap();
+        system.duplicate(8, 9).unwrap();
+        assert_eq!(system.read(9, 1).unwrap(), IoPoll::Ready(b"a".to_vec()));
+        assert_eq!(system.read(8, 1).unwrap(), IoPoll::Ready(b"b".to_vec()));
+        system.set_umask(0o077).unwrap();
+        system
+            .open_file_at(
+                9,
+                "/work",
+                "private",
+                OpenFile {
+                    readable: false,
+                    writable: true,
+                    create: true,
+                    exclusive: false,
+                    truncate: true,
+                    append: false,
+                },
+            )
+            .unwrap();
+        assert_eq!(system.write(9, b"x").unwrap(), IoPoll::Ready(1));
+        assert_eq!(system.read(8, 1).unwrap(), IoPoll::Ready(b"c".to_vec()));
+        assert_eq!(
+            system.metadata("/work", "private", true).unwrap().mode & 0o777,
+            0o600
+        );
+        assert!(matches!(
+            system.duplicate(42, 9),
+            Err(SyscallError::Descriptor(DescriptorError::InvalidFd))
+        ));
+        assert!(matches!(
+            system.open_file_at(
+                -1,
+                "/work",
+                "invalid",
+                OpenFile {
+                    readable: true,
+                    writable: false,
+                    create: false,
+                    exclusive: false,
+                    truncate: false,
+                    append: false,
+                },
+            ),
+            Err(SyscallError::InvalidArgument)
+        ));
+    }
+
+    #[test]
+    fn metadata_and_directory_listing_use_the_active_virtual_process() {
+        let mut interp = Interp::new();
+        interp.vfs.mkdir("/", "/work/tree").unwrap();
+        interp
+            .vfs
+            .write("/", "/work/tree/data", b"sample", 0o640)
+            .unwrap();
+        interp.vfs.symlink("/", "data", "/work/tree/link").unwrap();
+        let mut system = ActiveSystem::new(&mut interp);
+        system.chdir("/work/tree").unwrap();
+        let cwd = system.cwd().to_string();
+        assert_eq!(system.list_dir(&cwd, ".").unwrap(), ["data", "link"]);
+        assert_eq!(system.walk(&cwd, ".").unwrap().len(), 3);
+        let file = system.metadata(&cwd, "data", true).unwrap();
+        assert_eq!(file.kind, FileKind::File);
+        assert_eq!(file.mode, 0o640);
+        assert_eq!(file.size, 6);
+        let link = system.metadata(&cwd, "link", false).unwrap();
+        assert_eq!(link.kind, FileKind::Symlink);
+        assert_eq!(link.link_target.as_deref(), Some("data"));
+        assert_eq!(system.metadata(&cwd, "link", true).unwrap(), file);
+        assert!(matches!(
+            system.metadata(&cwd, "missing", false),
+            Err(SyscallError::File(VfsError::NotFound(_)))
+        ));
+    }
+    use crate::descriptors::IoPoll;
+
+    #[test]
+    fn opened_file_uses_process_descriptor_cursor_and_close() {
+        let mut interp = Interp::new();
+        interp
+            .vfs
+            .write("/", "/work/data", b"abcdef", 0o644)
+            .unwrap();
+        let fd = open_file(
+            &mut interp,
+            "/work",
+            "data",
+            OpenFile {
+                readable: true,
+                writable: false,
+                create: false,
+                exclusive: false,
+                truncate: false,
+                append: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            interp.read_fd(fd, 2).unwrap(),
+            IoPoll::Ready(b"ab".to_vec())
+        );
+        assert_eq!(file_state(&interp, fd).unwrap().cursor, 2);
+        assert_eq!(seek(&mut interp, fd, -2, 2).unwrap(), 4);
+        assert_eq!(
+            interp.read_fd(fd, 4).unwrap(),
+            IoPoll::Ready(b"ef".to_vec())
+        );
+        close(&mut interp, fd).unwrap();
+        assert!(matches!(
+            file_state(&interp, fd),
+            Err(SyscallError::Descriptor(DescriptorError::InvalidFd))
+        ));
+    }
+
+    #[test]
+    fn unlink_keeps_open_file_live_until_last_close() {
+        let mut interp = Interp::new();
+        interp.vfs.write("/", "/work/temp", b"abc", 0o600).unwrap();
+        let fd = open_file(
+            &mut interp,
+            "/work",
+            "temp",
+            OpenFile {
+                readable: true,
+                writable: true,
+                create: false,
+                exclusive: false,
+                truncate: false,
+                append: false,
+            },
+        )
+        .unwrap();
+        let original = ActiveSystem::new(&mut interp).metadata_fd(fd).unwrap();
+        assert_ne!(original.inode, 0);
+        unlink(&mut interp, "/work", "temp").unwrap();
+        assert_eq!(
+            ActiveSystem::new(&mut interp)
+                .metadata_fd(fd)
+                .unwrap()
+                .inode,
+            original.inode
+        );
+        assert!(!interp.vfs.lexists("/", "/work/temp"));
+        assert_eq!(
+            ActiveSystem::new(&mut interp).metadata_fd(fd).unwrap().size,
+            3
+        );
+        assert_eq!(
+            interp.read_fd(fd, 3).unwrap(),
+            IoPoll::Ready(b"abc".to_vec())
+        );
+        seek(&mut interp, fd, 0, 0).unwrap();
+        assert_eq!(interp.write_fd(fd, b"xy").unwrap(), IoPoll::Ready(2));
+        seek(&mut interp, fd, 0, 0).unwrap();
+        assert_eq!(
+            interp.read_fd(fd, 3).unwrap(),
+            IoPoll::Ready(b"xyc".to_vec())
+        );
+        let before_close = interp.vfs.disk_used();
+        close(&mut interp, fd).unwrap();
+        assert!(interp.vfs.disk_used() < before_close);
+        assert!(!interp.vfs.lexists("/", "/work/temp"));
+    }
+
+    #[test]
+    fn unlinking_open_symlink_keeps_target_and_descriptor() {
+        let mut interp = Interp::new();
+        interp.vfs.write("/", "/work/target", b"ok", 0o600).unwrap();
+        interp.vfs.symlink("/", "target", "/work/link").unwrap();
+        let fd = open_file(
+            &mut interp,
+            "/work",
+            "link",
+            OpenFile {
+                readable: true,
+                writable: false,
+                create: false,
+                exclusive: false,
+                truncate: false,
+                append: false,
+            },
+        )
+        .unwrap();
+        unlink(&mut interp, "/work", "link").unwrap();
+        assert!(!interp.vfs.lexists("/", "/work/link"));
+        assert!(interp.vfs.lexists("/", "/work/target"));
+        assert_eq!(
+            interp.read_fd(fd, 2).unwrap(),
+            IoPoll::Ready(b"ok".to_vec())
+        );
+    }
+}
+#[test]
+fn kernel_pipe_capacity_and_aliases_release_once() {
+    let mut interp = Interp::new();
+    let initial = interp.resources.memory_mark();
+    let (reader, writer) = ActiveSystem::new(&mut interp).pipe(true, true).unwrap();
+    assert!(interp.resources.memory_mark() > initial);
+    assert!(interp.process.fds.close_on_exec(reader).unwrap());
+    ActiveSystem::new(&mut interp)
+        .duplicate(reader, 20)
+        .unwrap();
+    assert!(
+        ActiveSystem::new(&mut interp)
+            .descriptor_state(20)
+            .unwrap()
+            .nonblocking
+    );
+    for fd in [reader, writer] {
+        ActiveSystem::new(&mut interp).close(fd).unwrap();
+    }
+    assert!(interp.resources.memory_mark() > initial);
+    ActiveSystem::new(&mut interp).close(20).unwrap();
+    assert_eq!(interp.resources.memory_mark(), initial);
+}
+
+#[test]
+fn pipe_allocation_exhaustion_keeps_fd_table_and_budget_unchanged() {
+    let mut interp = Interp::with_limits(crate::resources::Limits {
+        memory: 1024,
+        ..crate::resources::Limits::default()
+    });
+    let initial = interp.resources.memory_mark();
+    let descriptors = interp.process.fds.iter().count();
+    assert!(matches!(
+        ActiveSystem::new(&mut interp).pipe(false, false),
+        Err(SyscallError::ResourceExhausted)
+    ));
+    assert_eq!(interp.process.fds.iter().count(), descriptors);
+    assert_eq!(interp.resources.memory_mark(), initial);
+    assert!(interp.pipe_reservations.is_empty());
+}
+
+#[test]
+fn failed_posix_child_setup_restores_files_fds_and_accounting() {
+    let mut interp = Interp::new();
+    let initial = interp.resources.memory_mark();
+    let pid = interp.process.pid;
+    let count = interp.processes.iter().count();
+    let result = ActiveSystem::new(&mut interp).spawn_process(ProcessSpawn {
+        executable: "/usr/bin/true".into(),
+        search_path: false,
+        argv: vec!["custom-argv0".into()],
+        environment: Default::default(),
+        signal_defaults: Vec::new(),
+        actions: vec![
+            SpawnFdAction::Open {
+                fd: 7,
+                path: "/work/staged".into(),
+                mode: 0o640,
+                close_on_exec: false,
+                nonblocking: false,
+                options: OpenFile {
+                    readable: false,
+                    writable: true,
+                    create: true,
+                    exclusive: false,
+                    truncate: false,
+                    append: false,
+                },
+            },
+            SpawnFdAction::Close(31),
+        ],
+    });
+    assert!(matches!(
+        result,
+        Err(SyscallError::Descriptor(DescriptorError::InvalidFd))
+    ));
+    assert!(interp.vfs.metadata("/", "/work/staged", true).is_err());
+    assert_eq!(interp.process.pid, pid);
+    assert_eq!(interp.processes.iter().count(), count);
+    assert_eq!(interp.resources.memory_mark(), initial);
+    assert!(interp.process.fds.get(7).is_err());
+}
+
+#[test]
+fn posix_spawn_rejects_junk_and_shebang_cycles_without_retaining_children() {
+    let mut interp = Interp::new();
+    for (path, content) in [
+        ("/work/junk", "not an executable"),
+        ("/work/a", "#!/work/b\n"),
+        ("/work/b", "#!/work/a\n"),
+    ] {
+        interp
+            .vfs
+            .write("/", path, content.as_bytes(), 0o755)
+            .unwrap();
+    }
+    let initial = interp.resources.memory_mark();
+    let count = interp.processes.iter().count();
+    for executable in ["/work/junk", "/work/a"] {
+        let result = ActiveSystem::new(&mut interp).spawn_process(ProcessSpawn {
+            executable: executable.into(),
+            search_path: false,
+            argv: vec![executable.into()],
+            environment: Default::default(),
+            signal_defaults: Vec::new(),
+            actions: Vec::new(),
+        });
+        assert!(matches!(result, Err(SyscallError::ExecutableFormat)));
+        assert_eq!(interp.processes.iter().count(), count);
+        assert_eq!(interp.resources.memory_mark(), initial);
+    }
+}
+
+#[test]
+fn posix_spawn_orders_actions_and_keeps_exact_environment() {
+    let mut interp = Interp::new();
+    let owner = interp.process.pid;
+    let baseline = interp.resources.memory_mark();
+    let (reader, writer) = ActiveSystem::new(&mut interp).pipe(true, false).unwrap();
+    ActiveSystem::new(&mut interp)
+        .ignore_signal(crate::process::Signal::Pipe)
+        .unwrap();
+    let environment = std::collections::BTreeMap::from([("LABEL".into(), "child".into())]);
+    let child = ActiveSystem::new(&mut interp)
+        .spawn_process(ProcessSpawn {
+            executable: "true".into(),
+            search_path: true,
+            argv: vec!["custom-argv0".into()],
+            environment: environment.clone(),
+            signal_defaults: vec![crate::process::Signal::Pipe],
+            actions: vec![
+                SpawnFdAction::Dup2 {
+                    source: reader,
+                    destination: 0,
+                },
+                SpawnFdAction::CloseFrom(3),
+            ],
+        })
+        .unwrap();
+    assert_eq!(
+        interp.processes.get(child).unwrap().environment,
+        environment
+    );
+    assert_eq!(interp.processes.get(child).unwrap().ppid, owner);
+    assert_eq!(
+        interp.process_description(child, 0).unwrap(),
+        interp.process.fds.get(reader).unwrap()
+    );
+    assert!(interp.process_description(child, reader).is_err());
+    assert!(interp.process_description(child, writer).is_err());
+    interp.cancel_unstarted_child(child);
+    for fd in [reader, writer] {
+        ActiveSystem::new(&mut interp).close(fd).unwrap();
+    }
+    assert_eq!(interp.resources.memory_mark(), baseline);
+}

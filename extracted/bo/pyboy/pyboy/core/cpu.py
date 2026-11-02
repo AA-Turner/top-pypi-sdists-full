@@ -1,0 +1,349 @@
+#
+# License: See LICENSE.md file
+# GitHub: https://github.com/Baekalfen/PyBoy
+#
+import pyboy
+import cython
+
+from . import opcodes
+from pyboy.utils import INTR_VBLANK, INTR_LCDC, INTR_TIMER, INTR_SERIAL, INTR_HIGHTOLOW
+
+FLAGC, FLAGH, FLAGN, FLAGZ = range(4, 8)
+
+
+logger = pyboy.logging.get_logger(__name__)
+
+
+def interrupt_priority(raised_and_enabled):
+    # Interrupt dispatch follows a fixed priority (mooneye/ei_sequence)
+    if raised_and_enabled & INTR_VBLANK:
+        return INTR_VBLANK, 0x0040
+    elif raised_and_enabled & INTR_LCDC:
+        return INTR_LCDC, 0x0048
+    elif raised_and_enabled & INTR_TIMER:
+        return INTR_TIMER, 0x0050
+    elif raised_and_enabled & INTR_SERIAL:
+        return INTR_SERIAL, 0x0058
+    else:
+        return INTR_HIGHTOLOW, 0x0060
+
+
+class CPU:
+    def __init__(self, mb):
+        self.A = 0
+        self.F = 0
+        self.B = 0
+        self.C = 0
+        self.D = 0
+        self.E = 0
+        self.HL = 0
+        self.SP = 0
+        self.PC = 0
+
+        self.interrupts_flag_register = 0
+        self.interrupts_enabled_register = 0
+        self.interrupt_master_enable = False
+        self.interrupt_enable_delay = 0
+        self.interrupt_queued = False
+        self.halted_during_ei = False
+        self.memory_access_offset = 0
+
+        self.mb = mb
+
+        self.halted = False
+        self.halted_during_ei = False
+        self.stopped = False
+        self.cycles = 0
+        self.speed_switch_halt = 0
+
+    def save_state(self, f):
+        for n in [self.A, self.F, self.B, self.C, self.D, self.E]:
+            f.write(n & 0xFF)
+
+        for n in [self.HL, self.SP, self.PC]:
+            f.write_16bit(n)
+
+        f.write(self.interrupt_master_enable)
+        f.write(self.interrupt_enable_delay)
+        f.write(self.halted)
+        f.write(self.stopped)
+        f.write(self.interrupts_enabled_register)
+        f.write(self.interrupt_queued)
+        f.write(self.interrupts_flag_register)
+        f.write_64bit(self.cycles)
+        f.write_64bit(self.speed_switch_halt)
+
+    def load_state(self, f, state_version):
+        self.A, self.F, self.B, self.C, self.D, self.E = [f.read() for _ in range(6)]
+        self.HL = f.read_16bit()
+        self.SP = f.read_16bit()
+        self.PC = f.read_16bit()
+
+        self.interrupt_master_enable = f.read()
+        if state_version >= 19:
+            self.interrupt_enable_delay = f.read()
+        else:
+            self.interrupt_enable_delay = 0
+        self.halted = f.read()
+        self.stopped = f.read()
+        if state_version >= 5:
+            # Interrupt register moved from RAM to CPU
+            self.interrupts_enabled_register = f.read()
+        if state_version >= 8:
+            self.interrupt_queued = f.read()
+            self.interrupts_flag_register = f.read()
+        if state_version >= 12:
+            self.cycles = f.read_64bit()
+        if state_version >= 30:
+            self.speed_switch_halt = f.read_64bit()
+        else:
+            self.speed_switch_halt = 0
+        logger.debug("State loaded: %s", self.dump_state([""]))
+
+    def dump_state(self, sym_labels):
+        opcode_data = [
+            self.mb.getitem(self.mb.cpu.PC + n) for n in range(3)
+        ]  # Max 3 length, then we don't need to backtrack
+
+        opcode = opcode_data[0]
+        opcode_length = opcodes.OPCODE_LENGTHS[opcode]
+        opcode_str = f"Opcode: [{opcodes.CPU_COMMANDS[opcode]}]"
+        if opcode == 0xCB:
+            opcode_str += f" {opcodes.CPU_COMMANDS[opcode_data[1]+0x100]}"
+        else:
+            opcode_str += " " + " ".join(f"{d:02X}" for d in opcode_data[1:opcode_length])
+
+        return (
+            "\n"
+            f"A: {self.mb.cpu.A:02X}, F: {self.mb.cpu.F:02X}, B: {self.mb.cpu.B:02X}, "
+            f"C: {self.mb.cpu.C:02X}, D: {self.mb.cpu.D:02X}, E: {self.mb.cpu.E:02X}, "
+            f"HL: {self.mb.cpu.HL:04X}, SP: {self.mb.cpu.SP:04X}, PC: {self.mb.cpu.PC:04X} ({', '.join(sym_labels)})\n"
+            f"{opcode_str} "
+            f"Interrupts - IME: {self.mb.cpu.interrupt_master_enable}, "
+            f"IE: {self.mb.cpu.interrupts_enabled_register:08b}, "
+            f"IF: {self.mb.cpu.interrupts_flag_register:08b}\n"
+            f"LCD Intr.: {self.mb.lcd._cycles_to_interrupt}, LY:{self.mb.lcd.LY}, LYC:{self.mb.lcd.LYC}\n"
+            f"Timer IRQ in: {self.mb.timer._cycles_to_irq}\n"
+            f"Sound: PCM12:{self.mb.sound.pcm12():02X}, PCM34:{self.mb.sound.pcm34():02X}\n"
+            f"Sound CH1: \n"
+            f"sound_period: {self.mb.sound.sweepchannel.sound_period}\n"
+            f"length_enable: {self.mb.sound.sweepchannel.length_enable}\n"
+            f"enable: {self.mb.sound.sweepchannel.enable}\n"
+            f"lengthtimer: {self.mb.sound.sweepchannel.lengthtimer}\n"
+            f"envelopetimer: {self.mb.sound.sweepchannel.envelopetimer}\n"
+            f"periodtimer: {self.mb.sound.sweepchannel.periodtimer}\n"
+            f"period: {self.mb.sound.sweepchannel.period}\n"
+            f"waveframe: {self.mb.sound.sweepchannel.waveframe}\n"
+            f"volume: {self.mb.sound.sweepchannel.volume}\n"
+            f"halted:{self.halted}, "
+            f"interrupt_queued:{self.interrupt_queued}, "
+            f"stopped:{self.stopped}\n"
+            f"cycles:{self.cycles}\n"
+        )
+
+    def set_interruptflag(self, flag):
+        self.interrupts_flag_register |= flag
+
+    def tick(self, cycles_target):
+        _cycles0 = self.cycles
+        _target = _cycles0 + cycles_target
+
+        if self.stopped:
+            # STOP keeps the CPU stopped until a joypad button press. On CGB
+            # the rest of the system keeps running; on DMG Motherboard.tick
+            # freezes the whole system clock instead of calling this.
+            self.bail = False
+            self.cycles += cycles_target
+            return 0
+
+        if self.speed_switch_halt:
+            # A CGB speed switch halts the CPU for a fixed number of cycles
+            # while the timer, PPU, APU and DMA keep running. An interrupt
+            # ends the pause early. The STOP that started the pause may have
+            # consumed cycles of the current window already, so only the
+            # window's remainder is available to the pause.
+            if self.check_interrupts():
+                self.speed_switch_halt = 0
+                self.halted = False
+            else:
+                advance = min(_target - self.cycles, self.speed_switch_halt)
+                self.cycles += advance
+                self.speed_switch_halt -= advance
+                if self.speed_switch_halt:
+                    return 0
+                # The pause ended mid-window; execute the rest of it below
+
+        if cython.unlikely(self.check_interrupts()):
+            self.halted = False
+
+        if self.halted and self.interrupt_queued:
+            # GBCPUman.pdf page 20
+            # WARNING: The instruction immediately following the HALT instruction is "skipped" when interrupts are
+            # disabled (DI) on the GB,GBP, and SGB.
+            self.halted = False
+            self.PC += 1
+            self.PC &= 0xFFFF
+        elif self.halted:
+            self.cycles += cycles_target
+        self.interrupt_queued = False
+
+        self.bail = False
+        # The OAM DMA bus conflict is sampled per fetch, so pick the fetch
+        # path once per window instead of checking on every instruction. A
+        # DMA write bails out of the fast path mid-window (mb.transfer_DMA).
+        if self.mb.oam_dma_active:
+            # NOTE: This is a very rare edge-case
+            while self.cycles < _target:
+                self.fetch_and_execute_dma()
+                if cython.unlikely(self.bail):  # Possible cycles-target changes
+                    break
+        else:
+            while self.cycles < _target:
+                self.fetch_and_execute()
+                if cython.unlikely(self.bail):  # Possible cycles-target changes
+                    break
+
+    def check_interrupts(self):
+        if cython.unlikely(self.interrupt_queued or self.interrupt_enable_delay):
+            # Interrupt already queued. This happens only when using a debugger.
+            return False
+
+        raised_and_enabled = (self.interrupts_flag_register & 0b11111) & (self.interrupts_enabled_register & 0b11111)
+        if cython.unlikely(raised_and_enabled):
+            # Clear interrupt flag
+            if self.halted and not self.halted_during_ei:
+                self.PC += 1  # Escape HALT on return
+                self.PC &= 0xFFFF
+            self.halted_during_ei = False
+
+            if self.interrupt_master_enable:
+                flag, addr = interrupt_priority(raised_and_enabled)
+                self.handle_interrupt(flag, addr)
+            self.interrupt_queued = True
+            return True
+        else:
+            self.interrupt_queued = False
+        return False
+
+    def handle_interrupt(self, flag, addr):
+        # The dispatch sequence is five M-cycles in total. The PC is pushed
+        # in the third and fourth M-cycles (mooneye intr_timing).
+        self.cycles += 8
+        # The first stack write happens before the interrupt controller commits
+        # the dispatch. IE can be the destination of that write.
+        self.mb.setitem((self.SP - 1) & 0xFFFF, self.PC >> 8)  # High
+
+        raised_and_enabled = (self.interrupts_flag_register & 0b11111) & (self.interrupts_enabled_register & 0b11111)
+        if raised_and_enabled:
+            flag, addr = interrupt_priority(raised_and_enabled)
+        else:
+            # An IE write during the upper push cancels dispatch. The CPU
+            # resumes through address zero, where the test hardware vectors.
+            self.PC = 0
+            self.interrupt_master_enable = False
+            return False
+
+        self.interrupts_flag_register ^= flag  # Remove flag
+        self.cycles += 4
+        self.mb.setitem((self.SP - 2) & 0xFFFF, self.PC & 0xFF)  # Low
+        self.SP -= 2
+        self.SP &= 0xFFFF
+
+        self.PC = addr
+
+        # The fifth M-cycle fetches the first opcode of the handler.
+        # https://gbdev.io/pandocs/Interrupts.html#interrupt-handling
+        # "The entire process lasts 5 M-cycles."
+        self.cycles += 8
+
+        self.interrupt_master_enable = False
+        return True
+
+    def fetch_and_execute_dma(self):
+        # CGB OAM DMA bus conflict: while the transfer is active, a CPU
+        # fetch on the transfer source's bus reads the byte being
+        # transferred (mb.oam_dma_bus_conflict) and the CPU executes the
+        # transferred data as its instruction stream (BullyGB
+        # dmabusconflict). Fetches outside the conflict window or bus take
+        # the normal fetch path. Only cpu.tick calls this while an OAM DMA
+        # is active; fetch_and_execute is the unencumbered path otherwise.
+        conflict = self.mb.oam_dma_bus_conflict(self.PC, 0)
+        if conflict < 0:
+            return self.fetch_and_execute()
+
+        pc1 = conflict
+        pc2 = 0
+        pc3 = 0
+        if pc1 == 0xCB or opcodes.OPCODE_LENGTHS[pc1] >= 2:
+            self.memory_access_offset = 4
+            conflict = self.mb.oam_dma_bus_conflict((self.PC + 1) & 0xFFFF, 4)
+            if conflict >= 0:
+                pc2 = conflict
+            else:
+                pc2 = self.mb.getitem((self.PC + 1) & 0xFFFF)
+        if opcodes.OPCODE_LENGTHS[pc1] == 3:
+            self.memory_access_offset = 8
+            conflict = self.mb.oam_dma_bus_conflict((self.PC + 2) & 0xFFFF, 8)
+            if conflict >= 0:
+                pc3 = conflict
+            else:
+                pc3 = self.mb.getitem((self.PC + 2) & 0xFFFF)
+        self.memory_access_offset = 0
+
+        return self.execute_fetched(pc1, pc2, pc3)
+
+    def fetch_and_execute(self):
+        # HACK: Shortcut the mb.getitem() calls
+        pc2 = 0
+        pc3 = 0
+        if (not self.mb.bootrom_enabled) and self.PC + 2 < 0x4000:
+            pc1 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected_low, self.PC]
+            pc2 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected_low, self.PC + 1]
+            pc3 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected_low, self.PC + 2]
+        elif (0x4000 <= self.PC) and (self.PC + 2 < 0x8000):  # 16kB switchable ROM bank
+            pc1 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected, self.PC - 0x4000]
+            pc2 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected, self.PC + 1 - 0x4000]
+            pc3 = self.mb.cartridge.rombanks[self.mb.cartridge.rombank_selected, self.PC + 2 - 0x4000]
+        elif 0xFF80 <= self.PC and self.PC + 2 < 0xFFFF and not self.mb.oam_dma_active:
+            pc1 = self.mb.ram.internal_ram1[self.PC - 0xFF80]
+            pc2 = self.mb.ram.internal_ram1[self.PC + 1 - 0xFF80]
+            pc3 = self.mb.ram.internal_ram1[self.PC + 2 - 0xFF80]
+        else:
+            self.memory_access_offset = 0
+            pc1 = self.mb.getitem(self.PC)
+            if pc1 == 0xCB or opcodes.OPCODE_LENGTHS[pc1] >= 2:
+                self.memory_access_offset = 4
+                pc2 = self.mb.getitem((self.PC + 1) & 0xFFFF)
+            if opcodes.OPCODE_LENGTHS[pc1] == 3:
+                self.memory_access_offset = 8
+                pc3 = self.mb.getitem((self.PC + 2) & 0xFFFF)
+            self.memory_access_offset = 0
+
+        return self.execute_fetched(pc1, pc2, pc3)
+
+    def execute_fetched(self, pc1, pc2, pc3):
+        v = 0
+        opcode = pc1
+        if opcode == 0xCB:  # Extension code
+            opcode = pc2
+            opcode += 0x100  # Internally shifting look-up table
+        else:
+            # CB opcodes do not have immediates
+            oplen = opcodes.OPCODE_LENGTHS[opcode]
+            if oplen == 2:
+                # 8-bit immediate
+                v = pc2
+            elif oplen == 3:
+                # 16-bit immediate
+                # Flips order of values due to big-endian
+                a = pc3
+                b = pc2
+                v = (a << 8) + b
+
+        result = opcodes.execute_opcode(self, opcode, v)
+        if self.interrupt_enable_delay:
+            self.interrupt_enable_delay -= 1
+            if self.interrupt_enable_delay == 0:
+                self.interrupt_master_enable = True
+                self.bail = (self.interrupts_flag_register & 0b11111) & (self.interrupts_enabled_register & 0b11111)
+        return result

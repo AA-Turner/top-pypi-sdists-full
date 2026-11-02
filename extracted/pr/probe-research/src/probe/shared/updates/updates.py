@@ -10,7 +10,7 @@ from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
 from probe import __version__
-from probe.cli import capabilities
+from probe.cli.wizard import state as capabilities
 
 #: Plugin ids as Claude Code records them in `installed_plugins.json`. The key
 #: there is `<plugin>@<marketplace>`; the marketplace half varies by how the user
@@ -152,7 +152,7 @@ def local_versions() -> dict[str, str | None]:
         # `probe update`'s own reader, not a second parse of the same file: two
         # readers picked different entries on a multi-scope ledger, which put the
         # exact contradiction below straight back.
-        from probe.cli import updater
+        from probe.cli.install import updater
 
         ledger_tap = updater.installed_tap_version()
         if tap is None:

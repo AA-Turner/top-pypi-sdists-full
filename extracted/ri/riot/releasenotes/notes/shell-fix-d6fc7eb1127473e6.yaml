@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fix the handling of package extras in shells where `[` and `]` are used
-    special characters (eg. ``zsh``).

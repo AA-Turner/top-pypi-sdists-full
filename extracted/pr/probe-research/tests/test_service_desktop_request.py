@@ -2,7 +2,7 @@
 
     desktop.request   `probe desktop request --json`'s request in, its v1
                       envelope out, answered by a `probe.core.run desktop`
-                      child: the same code (`probe.cli.desktop.respond`), so
+                      child: the same code (`probe.cli.imports.desktop.respond`), so
                       the app switches by changing transport only
     session.list      each session's delivery receipts (D29) from the
                       recorder's journal, and the same per agent
@@ -26,8 +26,12 @@ import time
 
 import pytest
 
-from probe.service import children, client, management, paths, receipts
-from probe.service.protocol import ErrorCode, Method, Mode, RefusedReason, RpcError
+from probe.service.actions import children, management
+from probe.foundation import service_api as client
+from probe.foundation.service_api import paths
+from probe.service.sessions import receipts
+from probe.foundation.service_api.wire import ErrorCode, Method, RpcError
+from probe.foundation.service_api.vocabularies import Mode, RefusedReason
 from probe.tap_core.session_journal import Journal
 from tests.service_fakes import FakeCore
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture
@@ -217,7 +221,7 @@ def _mark_daemon(service_home, monkeypatch, sid: str) -> None:
 
 def _expected_refusal(service_home, monkeypatch, env: dict) -> str:
     """The CLI's own refusal for `probe desktop request` in that environment."""
-    from probe.cli import write_gate
+    from probe.cli.lifecycle import write_gate
 
     monkeypatch.setenv("XDG_STATE_HOME", str(service_home.home / ".local" / "state"))
     message = write_gate.refusal(["desktop", "request", "--json"], directed=False, env=env)
@@ -328,8 +332,8 @@ def test_session_list_reads_the_journal_the_services_own_recorder_published(tmp_
     import threading
     from types import SimpleNamespace
 
-    from probe.service import receipts as receipts_mod
-    from probe.service.recorders import Recording
+    from probe.service.sessions import receipts as receipts_mod
+    from probe.service.sessions.recorders.recording import Recording
     from tests.test_service_receipts import _recorded
 
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -380,8 +384,8 @@ def test_every_cli_op_is_a_read_or_a_change_and_an_unknown_one_is_a_change():
     """`protocol.DesktopOp` is `probe desktop request`'s op list; an op added to
     the CLI and not here fails here, and meanwhile counts as a change (never
     killed mid-write)."""
-    from probe.cli import desktop
-    from probe.service.protocol import DESKTOP_READS, DesktopOp
+    from probe.cli.imports import desktop
+    from probe.foundation.service_api.vocabularies import DESKTOP_READS, DesktopOp
 
     ops = {v for k, v in vars(DesktopOp).items() if k.isupper()}
     assert ops == set(desktop.FIELDS)
@@ -539,7 +543,7 @@ def test_a_turn_that_comes_too_late_or_during_an_update_runs_nothing(monkeypatch
 
 def _in_process_service(tmp_path, monkeypatch):
     from probe.service import server, updater
-    from probe.service.registry import Registry
+    from probe.service.sessions.sessions import Registry
 
     monkeypatch.setattr(updater, "_hosted_live", updater._hosted_live)  # noqa: SLF001 -- Service sets it
     return server, server.Service(registry=Registry(tmp_path / "sessions.json"))
@@ -655,7 +659,7 @@ def _running(pid: int) -> bool:
     reason="an inline session's journal is told from /proc/locks (Linux); elsewhere unknown by design",
 )
 def test_session_list_and_probe_status_carry_each_sessions_receipts(service_home):
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     door = DoorWire(offers=True)
     sid, path = _session(service_home.home, [_user("x", f"turn {i}", i) for i in range(6)])

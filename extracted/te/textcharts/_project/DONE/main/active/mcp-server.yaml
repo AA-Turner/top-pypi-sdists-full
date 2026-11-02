@@ -1,0 +1,146 @@
+id: mcp-server
+title: "Implement MCP server exposing textcharts as tools"
+worktree: main
+priority: High
+status: Completed
+completed_date: "2026-03-07"
+description: |
+  Create an MCP (Model Context Protocol) server that exposes textcharts chart
+  types as MCP tools. The server wraps the shared command layer, so tool names,
+  parameter schemas, and behavior are identical to the CLI subcommands.
+
+  Each chart type becomes an MCP tool:
+    textcharts_bar, textcharts_histogram, textcharts_heatmap, etc.
+
+  Plus meta-tools:
+    textcharts_list — list available chart types with descriptions
+    textcharts_describe — describe a chart type's parameters and input schema
+
+  The MCP server uses the official mcp Python SDK (the only new dependency,
+  and only for the MCP extras group — not the core library).
+
+  Installation:
+    pip install textcharts[mcp]
+
+  MCP config (claude_desktop_config.json / .claude.json):
+    { "mcpServers": { "textcharts": { "command": "uvx", "args": ["textcharts-mcp"] } } }
+
+  Or: { "mcpServers": { "textcharts": { "command": "textcharts-mcp" } } }
+
+category: Core Functionality
+
+deps:
+  needs:
+    - shared-command-layer
+
+work:
+  - id: w1
+    summary: "Create MCP server with tool registration, input schemas, optional dependency, and console script"
+    status: pending
+    notes: |
+      Create src/textcharts/mcp_server.py.
+      Use FastMCP from the `mcp` SDK. For each command in the registry, register
+      an MCP tool with schemas defined at registration time:
+        - name: f"textcharts_{command_name}" (e.g., textcharts_bar)
+        - description: from commands.describe_command()
+        - input_schema: from commands.get_input_schema() + common options
+          (title, width, height, use_color, use_unicode, theme)
+      The data parameter is chart-type-specific. Ensure schema descriptions are
+      clear enough for LLMs to use the tools correctly without examples.
+      Tool handler calls commands.execute_command() and returns the rendered string.
+      Add textcharts_list and textcharts_describe meta-tools.
+
+      Guard the mcp import with try/except so the module can be imported (for
+      testing) even when mcp is not installed. main() should handle ImportError
+      gracefully: "Install textcharts[mcp] to use the MCP server."
+
+      In pyproject.toml:
+        [project.optional-dependencies]
+        mcp = ["mcp>=1.0"]
+      Add entry point:
+        [project.scripts]
+        textcharts-mcp = "textcharts.mcp_server:main"
+
+  - id: w2
+    summary: "MCP server tests: tool listing, tool execution for all chart types, error handling"
+    needs: [w1]
+    status: pending
+    notes: |
+      tests/test_mcp_server.py — test tool registration, schema generation,
+      tool execution for all 15 chart types, meta-tools (list, describe),
+      error responses for invalid input, and graceful ImportError when mcp
+      SDK is not installed. Use mcp SDK test utilities if available, otherwise
+      test the handler functions directly.
+
+deferred:
+  - summary: "MCP resources for chart galleries/examples"
+    reason: "Tools are the primary interface; resources can be added later"
+  - summary: "MCP prompts for guided chart creation workflows"
+    reason: "Nice-to-have; the tools are self-documenting via schemas"
+  - summary: "SSE transport for remote MCP hosting"
+    reason: "stdio transport covers the primary use case (local AI assistants)"
+
+metadata:
+  owners:
+    - joe
+  tags:
+    - mcp
+  estimated_effort: "1-2 days"
+  created_date: "2026-03-07"
+
+impact:
+  business_value: |
+    Makes textcharts directly usable by AI assistants (Claude, etc.) via MCP.
+    Positions textcharts as the go-to terminal visualization library for AI
+    tool use.
+  user_impact: |
+    AI assistants can generate terminal charts on demand. Users get rich
+    visualizations in their AI conversations without manual coding.
+
+files_affected:
+  added:
+    - "src/textcharts/mcp_server.py"
+    - "tests/test_mcp_server.py"
+  modified:
+    - "pyproject.toml"
+
+must_preserve:
+  - "Core library remains zero-dependency — mcp is an optional extra only"
+  - "pyproject.toml existing [project] and [dependency-groups] sections unchanged"
+  - "Existing library import paths unaffected — mcp_server.py is additive"
+
+approach: |
+  Single file src/textcharts/mcp_server.py. Use FastMCP from the mcp SDK for
+  minimal boilerplate. Register tools in a loop over commands.list_commands().
+  Each tool handler is a thin wrapper: parse input dict -> execute_command() ->
+  return text content. Guard the mcp import with try/except so the module can
+  be imported (for testing) even when mcp is not installed.
+
+  Tool naming convention: textcharts_{command_name} to namespace tools clearly.
+  All tool descriptions are auto-generated from the command registry.
+
+anti_patterns:
+  - "DO NOT make mcp a required dependency — because the core library is zero-dependency — use optional-dependencies group"
+  - "DO NOT hardcode tool schemas — because the command registry is the single source — generate schemas from it"
+  - "DO NOT implement chart logic in mcp_server.py — because it must match the CLI exactly — delegate to execute_command()"
+
+verification:
+  - description: "MCP server starts without errors"
+    command: "uv run --extra mcp python -c 'from textcharts.mcp_server import main; print(\"OK\")'"
+    expected_output: "OK"
+  - description: "MCP server tests pass"
+    command: "uv run --extra mcp -- python -m pytest tests/test_mcp_server.py -v"
+    expected_output: "all tests pass"
+  - description: "Graceful error when mcp not installed"
+    command: "uv run python -c 'from textcharts.mcp_server import main; main()' 2>&1"
+    expected_output: "error message mentioning textcharts[mcp]"
+
+scope_limit:
+  only_modify:
+    - "src/textcharts/mcp_server.py"
+    - "tests/test_mcp_server.py"
+    - "pyproject.toml"
+  do_not_modify:
+    - "src/textcharts/__init__.py"
+    - "src/textcharts/commands/"
+    - "src/textcharts/cli.py"

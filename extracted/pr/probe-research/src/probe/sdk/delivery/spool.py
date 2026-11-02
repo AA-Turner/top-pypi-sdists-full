@@ -1,9 +1,5 @@
-"""The SDK local spool for fail-open writes: a data write must never block or crash
-the training loop (ingestion doc). On failure with fail-open we append the raw request
-to an on-disk JSONL queue; `flush` replays it in order (at `run end` or `probe flush`).
-Deliberately dumb: append-only, replay-in-order, stop-on-first-failure. A safety net,
-not a high-throughput buffer.
-"""
+"""The legacy fail-open spool: a JSONL queue replayed in order (stop at the first failure). The
+journal replaced it; `Journal.import_spool` folds an old spool into the outbox."""
 
 from __future__ import annotations
 

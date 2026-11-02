@@ -22,9 +22,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import capture, doctor, setup
-from probe.cli.actions import ACCOUNT_ACTIONS, ACTION_COPY, Action
-from probe.cli.capabilities import Capabilities, TokenSource
+from probe.cli.capture import capture
+from probe.cli.wizard import doctor
+from probe.cli import wizard as setup
+from probe.cli.wizard.actions.onboarding import ACCOUNT_ACTIONS, ACTION_COPY, Action
+from probe.cli.wizard.state.state import Capabilities, TokenSource
 from probe.sdk.settings.settings import load_context, load_file, save_context, use_context
 
 
@@ -141,7 +143,7 @@ def _menu_rows(monkeypatch, build):
     """Build a screen without a terminal and return its rows as (title, value)."""
     import questionary
 
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     seen: list = []
 
@@ -150,7 +152,8 @@ def _menu_rows(monkeypatch, build):
         return SimpleNamespace()
 
     monkeypatch.setattr(questionary, "select", fake_select)
-    monkeypatch.setattr(tui, "ask", lambda question, **kwargs: None)
+    monkeypatch.setattr(tui.forms, "ask", lambda question, **kwargs: None)
+    monkeypatch.setattr(tui.layout, "ask", lambda question, **kwargs: None)
     build()
     # Separator subclasses Choice, so "is it a Choice" is not the question.
     return [
@@ -193,7 +196,7 @@ def test_the_account_screen_only_offers_rows_that_mean_something(monkeypatch):
 
 
 def test_the_switch_screen_lists_only_the_other_accounts(monkeypatch):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     saved = [
         setup.SavedAccount("default", "https://api.test", True, True),
@@ -295,9 +298,40 @@ def test_sign_out_stops_capture_so_it_cannot_keep_uploading_to_the_old_account(a
     device's sessions there -- signed out everywhere except where it counts."""
     save_context({"base_url": "https://api.test", "token": "probe_pat_OLD"})
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
     stopped: list[str] = []
     monkeypatch.setattr(
         setup,
+        "turn_off",
+        lambda mode: (
+            stopped.append(os.environ["PROBE_AGENT"])
+            or SimpleNamespace(summary=lambda: "Session capture is off.", warnings=[])
+        ),
+    )
+    monkeypatch.setattr(
+        setup.account.sign_out,
+        "turn_off",
+        lambda mode: (
+            stopped.append(os.environ["PROBE_AGENT"])
+            or SimpleNamespace(summary=lambda: "Session capture is off.", warnings=[])
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        lambda mode: (
+            stopped.append(os.environ["PROBE_AGENT"])
+            or SimpleNamespace(summary=lambda: "Session capture is off.", warnings=[])
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
         "turn_off",
         lambda mode: (
             stopped.append(os.environ["PROBE_AGENT"])
@@ -369,7 +403,9 @@ def _authorize_stub(monkeypatch, *, token="probe_pat_NEW", messages=(), granted=
         )
         return minted, list(messages)
 
-    monkeypatch.setattr(setup, "authorize", fake)
+    monkeypatch.setattr(setup.apply.authorize, "authorize", fake)
+    monkeypatch.setattr(setup.account.sign_in, "authorize", fake)
+    monkeypatch.setattr(setup.apply.capture_credentials, "authorize", fake)
     return calls
 
 
@@ -380,6 +416,13 @@ def test_sign_in_works_on_a_machine_that_is_already_signed_in(api, monkeypatch):
     save_context({"base_url": "https://api.test", "token": "probe_pat_OLD"})
     calls = _authorize_stub(monkeypatch)
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     result = setup.sign_in(base_url="https://api.test", sources=("claude_code",))
 
@@ -394,6 +437,13 @@ def test_sign_in_revokes_the_credential_it_replaced(api, monkeypatch):
     save_context({"base_url": "https://api.test", "token": "probe_pat_OLD"})
     _authorize_stub(monkeypatch, token="probe_pat_NEW")
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     result = setup.sign_in(base_url="https://api.test", sources=("claude_code",))
 
@@ -404,6 +454,13 @@ def test_sign_in_revokes_the_credential_it_replaced(api, monkeypatch):
 def test_sign_in_on_a_fresh_machine_revokes_nothing(api, monkeypatch):
     _authorize_stub(monkeypatch)
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     setup.sign_in(base_url="https://api.test", sources=("claude_code",))
 
@@ -422,9 +479,51 @@ def test_sign_in_re_pairs_capture_this_device_stores(api, monkeypatch):
         "capture_token_sources",
         lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
     )
+    monkeypatch.setattr(
+        setup.account.account,
+        "capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        setup.account.sign_in,
+        "capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        setup.account.sign_out,
+        "capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        setup.apply.authorize,
+        "capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials,
+        "capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        "probe.shared.harness.harnesses.pi.package_install.capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
+    monkeypatch.setattr(
+        "probe.shared.harness.harnesses.pi.readiness.capture_token_sources",
+        lambda source: (TokenSource.PAIRED_FILE,) if source == "claude_code" else (),
+    )
     cleared: list[str] = []
     monkeypatch.setattr(
         setup, "clear_killswitch", lambda: cleared.append(os.environ["PROBE_AGENT"])
+    )
+    monkeypatch.setattr(
+        setup.account.sign_in, "clear_killswitch", lambda: cleared.append(os.environ["PROBE_AGENT"])
+    )
+    monkeypatch.setattr(
+        setup.apply.apply, "clear_killswitch", lambda: cleared.append(os.environ["PROBE_AGENT"])
+    )
+    monkeypatch.setattr(
+        setup.apply.removal, "clear_killswitch", lambda: cleared.append(os.environ["PROBE_AGENT"])
     )
 
     result = setup.sign_in(base_url="https://api.test", sources=("claude_code", "codex"))
@@ -446,6 +545,13 @@ def test_sign_in_does_not_re_pair_capture_that_lives_in_the_environment(api, mon
     uploading to the old account while the run reported it re-paired."""
     calls = _authorize_stub(monkeypatch)
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: (TokenSource.ENVIRONMENT,))
 
     setup.sign_in(base_url="https://api.test", sources=("claude_code",))
 
@@ -457,6 +563,13 @@ def test_a_refused_approval_reports_failure_and_touches_nothing(api, monkeypatch
     save_context({"base_url": "https://api.test", "token": "probe_pat_OLD"})
     _authorize_stub(monkeypatch, granted={}, messages=["browser approval failed: denied"])
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     result = setup.sign_in(base_url="https://api.test", sources=("claude_code",))
 
@@ -475,7 +588,8 @@ def prepared_device(api, monkeypatch, tmp_path):
     monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(tmp_path / "pi-tap"))
     monkeypatch.delenv("PRBE_CODEX_TAP_TOKEN", raising=False)
     monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
-    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr("probe.shared.harness.harnesses.codex.mcp_auth.sync_codex_mcp_token", lambda: [])
+    monkeypatch.setattr(setup.apply.authorize, "sync_codex_mcp_token", lambda: [])
     calls = []
 
     def mint(base_url, **kwargs):
@@ -637,6 +751,13 @@ def test_switching_is_local_and_mints_nothing(api, monkeypatch):
     save_context({"base_url": "https://staging.test", "token": "probe_pat_STAGING"}, name="staging")
     use_context("prod")
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     lines = setup.switch_account("staging", ("claude_code",))
 
@@ -650,6 +771,13 @@ def test_switching_to_an_account_with_no_credential_says_so(api, monkeypatch):
     save_context({"base_url": "https://api.test", "token": "t"})
     save_context({"base_url": "https://staging.test"}, name="staging")
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: ())
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: ())
 
     lines = setup.switch_account("staging", ("claude_code",))
 
@@ -663,6 +791,13 @@ def test_switching_warns_that_a_paired_capture_token_does_not_follow(api, monkey
     and it keeps uploading there."""
     save_context({"base_url": "https://staging.test", "token": "t"}, name="staging")
     monkeypatch.setattr(setup, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.account, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_in, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.account.sign_out, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.authorize, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr(setup.apply.capture_credentials, "capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: (TokenSource.PAIRED_FILE,))
 
     lines = setup.switch_account("staging", ("claude_code",))
 
@@ -677,7 +812,7 @@ def _run(action, monkeypatch, *, caps=None, yes=False, sources=("claude_code",),
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(setup, "interactive", lambda: interactive)
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: interactive)
     return cli_main._run_wizard_action(
         action,
         caps=caps or _caps(),
@@ -697,8 +832,9 @@ def test_the_headless_account_screen_reports_and_changes_nothing(monkeypatch):
     """A screen nobody can answer must not answer for them: minting or clearing
     a credential unasked is the one thing this action may never do."""
     save_context({"base_url": "https://api.test", "token": "probe_pat_KEEP"})
-    monkeypatch.setattr(setup, "sign_in", lambda *a, **k: pytest.fail("must not sign in"))
-    monkeypatch.setattr(setup, "sign_out", lambda *a, **k: pytest.fail("must not sign out"))
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", lambda *a, **k: pytest.fail("must not sign in"))
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", lambda *a, **k: pytest.fail("must not sign in"))
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda *a, **k: pytest.fail("must not sign out"))
 
     lines = _run(Action.ACCOUNT, monkeypatch, caps=_caps(logged_in_as="old@prbe.ai"))
 
@@ -711,10 +847,10 @@ def test_the_screen_runs_the_row_that_was_picked(monkeypatch, capsys):
     """The wiring nothing else covers: a questionary answer has to reach the
     function that acts on it."""
     monkeypatch.setattr(
-        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_OUT
+        setup.account.account, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_OUT
     )
-    monkeypatch.setattr(setup, "sign_out", lambda sources: ["signed out"])
-    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: True)  # the page's yes
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: ["signed out"])
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_sign_out", lambda account=None: True)  # the page's yes
 
     import typer
 
@@ -726,12 +862,12 @@ def test_the_screen_runs_the_row_that_was_picked(monkeypatch, capsys):
 
 def test_picking_switch_opens_the_account_list(monkeypatch):
     monkeypatch.setattr(
-        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SWITCH
+        setup.account.account, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SWITCH
     )
-    monkeypatch.setattr(setup, "run_switch_menu", lambda saved: "staging")
+    monkeypatch.setattr(setup.account.account, "run_switch_menu", lambda saved: "staging")
     picked: list = []
     monkeypatch.setattr(
-        setup, "switch_account", lambda name, sources: picked.append((name, sources)) or ["ok"]
+        setup.account.account, "switch_account", lambda name, sources: picked.append((name, sources)) or ["ok"]
     )
 
     assert _run(Action.ACCOUNT, monkeypatch, interactive=True) == ["ok"]
@@ -741,9 +877,9 @@ def test_picking_switch_opens_the_account_list(monkeypatch):
 def test_backing_out_of_the_screen_changes_nothing(monkeypatch):
     save_context({"base_url": "https://api.test", "token": "probe_pat_KEEP"})
     monkeypatch.setattr(
-        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.BACK
+        setup.account.account, "run_account_menu", lambda caps, saved=None: setup.AccountAction.BACK
     )
-    monkeypatch.setattr(setup, "sign_out", lambda sources: pytest.fail("BACK is not an action"))
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: pytest.fail("BACK is not an action"))
 
     # None, not []: "nothing happened" is what lets the wizard loop skip the
     # result page, the press-enter pause, and the per-agent state re-read.
@@ -753,7 +889,7 @@ def test_backing_out_of_the_screen_changes_nothing(monkeypatch):
 
 def test_action_logout_signs_out_of_every_selected_agent(monkeypatch, capsys):
     seen: list[tuple] = []
-    monkeypatch.setattr(setup, "sign_out", lambda sources: seen.append(sources) or ["done"])
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: seen.append(sources) or ["done"])
 
     import typer
 
@@ -774,7 +910,8 @@ def test_action_login_signs_in_once_for_the_device(monkeypatch):
         seen.append({"base_url": base_url, "sources": sources})
         return setup.SignInResult(ok=True, lines=["Signed in as new@prbe.ai"])
 
-    monkeypatch.setattr(setup, "sign_in", fake_sign_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", fake_sign_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", fake_sign_in)
 
     lines = _run(Action.SIGN_IN, monkeypatch, sources=("claude_code", "codex"))
 
@@ -786,12 +923,19 @@ def test_action_login_signs_in_once_for_the_device(monkeypatch):
 def test_action_login_redraws_approval_pages_but_keeps_piped_output_append_only(
     monkeypatch, capsys, interactive,
 ):
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     heading = "Approve this device in the browser to sign in."
     pages = []
-    monkeypatch.setattr(tui, "interactive", lambda: interactive)
-    monkeypatch.setattr(tui, "page", lambda lines: pages.append(list(lines)))
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: interactive)
+    monkeypatch.setattr(tui.layout, "page", lambda lines: pages.append(list(lines)))
+    monkeypatch.setattr(tui.forms, "page", lambda lines: pages.append(list(lines)))
+    monkeypatch.setattr(tui.progress, "page", lambda lines: pages.append(list(lines)))
 
     def sign_in(*, on_prompt, **kwargs):
         if interactive:
@@ -802,7 +946,8 @@ def test_action_login_redraws_approval_pages_but_keeps_piped_output_append_only(
             ))
         return setup.SignInResult(ok=True, lines=["Signed in."])
 
-    monkeypatch.setattr(setup, "sign_in", sign_in)
+    monkeypatch.setattr(setup.account.sign_in, "sign_in", sign_in)
+    monkeypatch.setattr(setup.apply.capture_credentials, "sign_in", sign_in)
     assert _run(Action.SIGN_IN, monkeypatch, interactive=interactive) == ["Signed in."]
     output = capsys.readouterr().out
     if interactive:
@@ -829,7 +974,12 @@ def test_a_scripted_login_that_failed_exits_non_zero(monkeypatch):
     import typer
 
     monkeypatch.setattr(
-        setup,
+        setup.account.sign_in,
+        "sign_in",
+        lambda **_kwargs: setup.SignInResult(ok=False, lines=["! Sign-in did not complete"]),
+    )
+    monkeypatch.setattr(
+        setup.apply.capture_credentials,
         "sign_in",
         lambda **_kwargs: setup.SignInResult(ok=False, lines=["! Sign-in did not complete"]),
     )
@@ -839,7 +989,7 @@ def test_a_scripted_login_that_failed_exits_non_zero(monkeypatch):
     assert exit_info.value.exit_code == 1
 
     monkeypatch.setattr(
-        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_IN
+        setup.account.account, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_IN
     )
     assert _run(Action.ACCOUNT, monkeypatch, interactive=True) == ["! Sign-in did not complete"]
 
@@ -850,17 +1000,17 @@ def test_the_wizard_does_not_ask_which_agent_before_an_account_action(monkeypatc
     from typer.testing import CliRunner
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import bootstrap
-    from probe.cli import doctor as doctor_impl
+    from probe.cli.install import bootstrap
+    from probe.cli.wizard import doctor as doctor_impl
 
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
-    monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(logged_in_as="old@prbe.ai"))
+    monkeypatch.setattr(doctor_impl.doctor, "collect", lambda: _caps(logged_in_as="old@prbe.ai"))
     monkeypatch.setattr(
-        setup, "run_agent_menu", lambda defaults, action=None: pytest.fail("no agent question here")
+        setup.screens.agent_picker, "run_agent_menu", lambda defaults, action=None: pytest.fail("no agent question here")
     )
     seen: list[tuple] = []
-    monkeypatch.setattr(setup, "sign_out", lambda sources: seen.append(sources) or ["signed out"])
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: seen.append(sources) or ["signed out"])
 
     result = CliRunner().invoke(cli_main.app, ["wizard", "--action", "logout"])
 
@@ -966,7 +1116,52 @@ def test_removing_probe_no_longer_claims_the_account_survives(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        setup, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+        setup.account.sign_out,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
+        "turn_off",
+        # The real dataclass, not a SimpleNamespace: `remove_everything` reads
+        # `plugin_removed`/`verified` off it to decide whether the killswitch
+        # marker is still guarding anything, and a stub shaped like the caller's
+        # wishes rather than the callee's signature is how the `ok, detail =
+        # uninstall_plugin(...)` TypeError survived a passing suite.
+        lambda mode: capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.plugins, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.apply, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.removal, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
     )
 
     messages = setup.remove_everything(_caps())
@@ -986,7 +1181,7 @@ def test_removing_one_agent_clears_its_killswitch_and_keeps_the_devices_auto_upd
     """
     from probe.cli import autoupdate
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli.capabilities import tap_plugin_dir
+    from probe.cli.wizard.state.capture_credentials import tap_plugin_dir
 
     autoupdate.record_attempt(
         autoupdate.Attempt(at=1, ok=True, detail="upgraded", from_version="1", to_version="2")
@@ -1002,7 +1197,40 @@ def test_removing_one_agent_clears_its_killswitch_and_keeps_the_devices_auto_upd
         ),
     )
     monkeypatch.setattr(
-        setup, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+        setup.account.sign_out,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True, daemon_stopped=True, plugin_removed=True
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.plugins, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.apply, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.removal, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
     )
 
     setup.remove_everything(_caps())
@@ -1023,7 +1251,8 @@ def test_the_killswitch_survives_a_removal_that_did_not_verify(monkeypatch, isol
     would hand it back the session it was stopped from starting.
     """
     from probe.shared.harness.harnesses.claude_code import binary as claude_cli
-    from probe.cli.capabilities import TokenSource, tap_plugin_dir
+    from probe.cli.wizard.state.state import TokenSource
+    from probe.cli.wizard.state.capture_credentials import tap_plugin_dir
 
     monkeypatch.setattr(
         setup,
@@ -1037,7 +1266,49 @@ def test_the_killswitch_survives_a_removal_that_did_not_verify(monkeypatch, isol
         ),
     )
     monkeypatch.setattr(
-        setup, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+        setup.account.sign_out,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True,
+            daemon_stopped=True,
+            plugin_removed=False,
+            remaining=[TokenSource.ENVIRONMENT],
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.apply,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True,
+            daemon_stopped=True,
+            plugin_removed=False,
+            remaining=[TokenSource.ENVIRONMENT],
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.removal,
+        "turn_off",
+        lambda mode: capture._set_killswitch()
+        and capture.TurnOffResult(
+            killswitch_set=True,
+            daemon_stopped=True,
+            plugin_removed=False,
+            remaining=[TokenSource.ENVIRONMENT],
+        ),
+    )
+    monkeypatch.setattr(
+        setup.apply.plugins, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.apply, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.recorder, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
+    )
+    monkeypatch.setattr(
+        setup.apply.removal, "uninstall_plugin", lambda name: claude_cli.Result(ok=True, detail="removed")
     )
 
     setup.remove_everything(_caps())
@@ -1056,13 +1327,14 @@ def _sign_out(monkeypatch, answer):
     import typer
 
     cli_main = importlib.import_module("probe.cli.main")
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
     signed_out: list = []
-    monkeypatch.setattr(setup, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "clear", lambda: None)
-    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: answer)
-    monkeypatch.setattr(setup, "sign_out", lambda sources: signed_out.append(sources) or ["Signed out."])
+    monkeypatch.setattr(setup.wizard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "clear", lambda: None)
+    monkeypatch.setattr(tui.layout, "clear", lambda: None)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_sign_out", lambda account=None: answer)
+    monkeypatch.setattr(setup.account.sign_out, "sign_out", lambda sources: signed_out.append(sources) or ["Signed out."])
     try:
         result = cli_main._run_account_action(
             Action.SIGN_OUT, caps=_caps(logged_in_as="a@b.c"), base_now="https://api.test", yes=False,
@@ -1085,8 +1357,8 @@ def test_sign_out_signs_out_on_yes(monkeypatch):
 
 
 def test_the_sign_out_row_is_red_and_the_page_names_the_account():
-    from probe.cli import tui
-    from probe.cli.actions import DANGER_ACTIONS
+    from probe.cli.wizard import terminal as tui
+    from probe.cli.wizard.actions.onboarding import DANGER_ACTIONS
 
     assert DANGER_ACTIONS == {Action.SIGN_OUT}
     rows = {getattr(c, "value", None): c for c in setup.action_choices()}
@@ -1109,13 +1381,13 @@ def test_a_sign_out_that_could_not_clear_the_credentials_does_not_say_signed_out
     """The page's headline is what is true: with the credentials still saved,
     "Signed out" would send someone off believing this device is clean."""
     monkeypatch.setattr(
-        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_OUT
+        setup.account.account, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_OUT
     )
     monkeypatch.setattr(
-        setup, "sign_out",
+        setup.account.sign_out, "sign_out",
         lambda sources: [f"! {setup.CREDENTIALS_NOT_CLEARED} (read-only file). Delete them by hand."],
     )
-    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: True)
+    monkeypatch.setattr(setup.screens.confirm_gates, "confirm_sign_out", lambda account=None: True)
 
     import typer
 

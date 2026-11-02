@@ -1,0 +1,237 @@
+# Project:   HyperI CI
+# File:      src/hyperi_ci/config/native-deps/rust.yaml
+# Purpose:   Native system dependency definitions for Rust projects
+#
+# Schema per entry:
+#   name:           Human-readable label shown in CI output
+#   patterns:       Strings to search for in manifest_files (plain substring match)
+#   manifest_files: Files to search relative to project root (later entries are fallbacks)
+#   dpkg_check:     dpkg package name -- skips apt install if already present
+#   dpkg_min_version: Optional minimum version -- upgrades if installed version is too old
+#   apt_packages:   Packages to install on Linux (apt-get)
+#   apt_repos:      Optional APT repositories to add before installing (for newer versions)
+#                   Each entry may carry key_fingerprint: the primary-key
+#                   fingerprint the downloaded key must match, else refuse
+#
+# All apt_packages are arch-agnostic names -- apt resolves them to the correct
+# architecture (amd64, arm64) automatically when the package exists for that arch.
+
+# --- Build tools (always installed for Rust) ---
+# cc: rustc links build scripts and proc macros with the system `cc`, so no
+# crate builds without one. The org's publish runner image carries none.
+- name: C toolchain
+  patterns:
+    - "[package]"
+    - "[workspace]"
+  manifest_files:
+    - Cargo.toml
+  dpkg_check: build-essential
+  apt_packages:
+    - build-essential
+
+# mold: fast linker (5-10x faster linking). Selected either by a repo's own
+# .cargo/config.toml, or by hyperi-ci itself when a large aarch64 PGO
+# instrument link overflows the R_AARCH64_CALL26 branch and needs thunks.
+#
+# A virtual workspace root has only `[workspace]` and no `[package]`, so
+# matching `[package]` alone skipped the install for a repo that does set
+# -fuse-ld=mold in .cargo/config.toml and would fail to link on a runner
+# image that does not already carry mold.
+- name: mold linker
+  patterns:
+    - "[package]"
+    - "[workspace]"
+  manifest_files:
+    - Cargo.toml
+  dpkg_check: mold
+  apt_packages:
+    - mold
+
+# clang at the designated LLVM major, the only clang hyperi-ci installs: the
+# distro's unversioned `clang` (18 on noble) would add a second LLVM. pgo.py
+# shims `clang`/`clang++` to it the way it does `ld.lld`. Same apt.llvm.org
+# source and placeholder as the llvm-bolt entry below.
+#
+# Only a repo whose cargo config links through clang gets it. Every other
+# Rust job would pay an apt.llvm.org fetch it never uses, and libclang1-NN,
+# which comes with it, can change the libclang bindgen picks.
+- name: llvm-clang
+  patterns:
+    - 'linker = "clang'
+    - 'linker="clang'
+    - "linker=clang"
+  manifest_files:
+    - .cargo/config.toml
+    - .cargo/config
+  dpkg_check: clang-${HYPERCI_LLVM_VERSION}
+  apt_repos:
+    - key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+      keyring: /usr/share/keyrings/llvm.gpg
+      # Published at https://apt.llvm.org/ -- a mismatch refuses the install.
+      key_fingerprint: 6084F3CF814B57C1CF12EFD515CF4D18AF4F7421
+      url: https://apt.llvm.org/${OS_CODENAME}/
+      codename: llvm-toolchain-${OS_CODENAME}-${HYPERCI_LLVM_VERSION}
+  apt_packages:
+    - clang-${HYPERCI_LLVM_VERSION}
+
+# --- LLVM BOLT (post-link optimisation) ---
+# Tier 2 release-track optimisation. Always installed for Rust projects
+# so Tier 2 Just Works when a project opts in via .hyperi-ci.yaml.
+# Ubuntu ships llvm-bolt in `bolt-NN` (post-link optimizer), NOT in
+# the `llvm` metapackage -- that was the silent BOLT-skip cause during
+# the dfe-receiver v1.15.7 canary.
+#
+# We pull from apt.llvm.org (LLVM's official upstream repo) so we
+# always get the latest BOLT regardless of what the base Ubuntu
+# release ships. The LLVM major is the `${HYPERCI_LLVM_VERSION}`
+# placeholder: the env var, then `build.rust.llvm_version` in
+# .hyperi-ci.yaml, then versions.yaml `llvm`. The distro
+# subpath is `${OS_CODENAME}` (from $OS_CODENAME or lsb_release -cs) so
+# the same entry works on noble, trixie and resolute.
+#
+# Idempotency: hyperi-ci's _add_apt_repo scans ALL files in
+# /etc/apt/sources.list{,.d} before writing, so if the runner image
+# has apt.llvm.org pre-configured (e.g. under /etc/apt/sources.list.d/
+# llvm.list with a different keyring path), we skip our own write.
+# This keeps us working on both vanilla GH runners and pre-provisioned
+# self-hosted runners.
+#
+# Installs version-suffixed binaries only (/usr/bin/llvm-bolt-NN, ld.lld-NN),
+# which pgo.py shims into ~/.local/bin ahead of any unversioned copy on PATH.
+# Linux only (apt); non-Linux runners skip this whole file.
+#
+# A virtual workspace root has only `[workspace]` (the binary lives in a
+# member crate), so matching `[package]` alone left the hosted arm64 leg
+# without bolt/lld and the BOLT step silently skipped.
+- name: llvm-bolt
+  patterns:
+    - "[package]"
+    - "[workspace]"
+  manifest_files:
+    - Cargo.toml
+  dpkg_check: bolt-${HYPERCI_LLVM_VERSION}
+  apt_repos:
+    - key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+      keyring: /usr/share/keyrings/llvm.gpg
+      # Published at https://apt.llvm.org/ -- a mismatch refuses the install.
+      key_fingerprint: 6084F3CF814B57C1CF12EFD515CF4D18AF4F7421
+      url: https://apt.llvm.org/${OS_CODENAME}/
+      codename: llvm-toolchain-${OS_CODENAME}-${HYPERCI_LLVM_VERSION}
+  apt_packages:
+    - bolt-${HYPERCI_LLVM_VERSION}
+    - lld-${HYPERCI_LLVM_VERSION}  # BOLT requires --emit-relocs (-Wl,-q) support; mold/BFD crash/reject
+    - binutils
+
+# --- Kafka (librdkafka) ---
+# rdkafka-sys requires >= 2.12.1 which is newer than Ubuntu's default.
+# Confluent APT repo provides the latest version. Its rdkafka.pc lists
+# zlib, libzstd and libcurl in Requires.private and its package does not
+# depend on their -dev packages, so pkgconf fails the probe without them.
+- name: rdkafka / C libraries
+  patterns:
+    - rdkafka
+    - rdkafka-sys
+  manifest_files:
+    - Cargo.lock
+    - Cargo.toml
+  dpkg_check: librdkafka-dev
+  dpkg_min_version: "2.12.1"
+  apt_repos:
+    - key_url: https://packages.confluent.io/clients/deb/archive.key
+      keyring: /usr/share/keyrings/confluent-clients.gpg
+      url: https://packages.confluent.io/clients/deb
+      codename: auto
+  apt_packages:
+    - librdkafka-dev
+    - libssl-dev
+    - libsasl2-dev
+    - zlib1g-dev
+    - libzstd-dev
+    - libcurl4-openssl-dev
+    - pkg-config
+
+# --- Protobuf / gRPC ---
+- name: protobuf / gRPC
+  patterns:
+    - prost-build
+    - tonic-prost-build
+    - tonic-build
+  manifest_files:
+    - Cargo.lock
+    - Cargo.toml
+  dpkg_check: libprotobuf-dev
+  apt_packages:
+    - protobuf-compiler
+    - libprotobuf-dev
+
+# --- OpenSSL (libssl) ---
+# openssl-sys links dynamically by default via pkg-config.
+- name: openssl
+  patterns:
+    - openssl-sys
+    - openssl
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: libssl-dev
+  apt_packages:
+    - libssl-dev
+    - pkg-config
+
+# --- zlib (libz-sys) ---
+# Used by many crates for compression. System lib avoids vendored C build.
+- name: zlib
+  patterns:
+    - libz-sys
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: zlib1g-dev
+  apt_packages:
+    - zlib1g-dev
+
+# --- zstd (zstd-sys) ---
+# Facebook's compression library. System lib avoids vendored C build.
+- name: zstd
+  patterns:
+    - zstd-sys
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: libzstd-dev
+  apt_packages:
+    - libzstd-dev
+    - pkg-config
+
+# --- SQLite (libsqlite3-sys) ---
+# Used by rusqlite and sqlx with SQLite backend.
+- name: sqlite3
+  patterns:
+    - libsqlite3-sys
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: libsqlite3-dev
+  apt_packages:
+    - libsqlite3-dev
+    - pkg-config
+
+# --- Oniguruma regex (onig_sys) ---
+# Used by syntect and other syntax highlighting crates.
+- name: oniguruma
+  patterns:
+    - onig_sys
+    - onig
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: libonig-dev
+  apt_packages:
+    - libonig-dev
+    - pkg-config
+
+# --- unixODBC (odbc-sys) ---
+# odbc-sys links libodbc, used by odbc-api and arrow-odbc.
+- name: unixodbc
+  patterns:
+    - odbc-sys
+  manifest_files:
+    - Cargo.lock
+  dpkg_check: unixodbc-dev
+  apt_packages:
+    - unixodbc-dev

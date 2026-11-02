@@ -23,10 +23,10 @@ from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
 
+import click
 import pytest
 
 from click_extra import (
-    UNSET,
     argument,
     command,
     context,
@@ -38,9 +38,10 @@ from click_extra import (
 from click_extra.commands import LazyGroup
 from click_extra.multicall import (
     MulticallGroup,
-    _deepcopy_params,
+    PersonalitiesCommand,
     normalize_personality,
 )
+from click_extra.param_tools import make_resilient_context
 from click_extra.version import VersionOption
 
 
@@ -352,6 +353,56 @@ def test_personalities_command_can_be_disabled(runner):
     assert "personalities" not in result.stdout
 
 
+def test_personalities_command_can_be_overridden(runner):
+    """A `personalities` subcommand of the author's replaces the injected one."""
+    kitchen = make_kitchen()
+
+    @kitchen.command(name="personalities")
+    def recipes():
+        """List the recipes."""
+        echo("pie, tart")
+
+    assert not isinstance(kitchen.commands["personalities"], PersonalitiesCommand)
+    result = runner.invoke(kitchen, ["personalities"], color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "group callback ran\npie, tart\n"
+
+    result = runner.invoke(kitchen, ["--help"], color=False)
+    assert result.stdout.count("personalities") == 1
+    assert "List the recipes." in result.stdout
+
+
+def test_injected_subcommands_listed_last_in_declaration_order():
+    """`help` and `personalities` trail the author's own subcommands."""
+    kitchen = make_kitchen(sort_subcommands=False)
+    ctx = make_resilient_context(kitchen, kitchen.name)
+    assert kitchen.list_commands(ctx) == [
+        "bake",
+        "defrost",
+        "chill",
+        "help",
+        "personalities",
+    ]
+
+
+def test_plain_click_subcommand_is_a_personality(runner):
+    """A subcommand built by Click alone dispatches like any other."""
+    kitchen = make_kitchen()
+
+    @click.command()
+    @click.option("--minutes", default="3")
+    def boil(minutes):
+        """Boil water."""
+        echo(f"Boiling for {minutes} minutes.")
+
+    kitchen.add_command(boil)
+    assert kitchen.match_personality("boil") == ("boil",)
+
+    result = runner.invoke(kitchen, ["--minutes", "5"], prog_name="boil", color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "Boiling for 5 minutes.\n"
+
+
 def test_normalize_personality():
     """Personality values normalize to non-empty token tuples."""
     assert normalize_personality("chill") == ("chill",)
@@ -365,17 +416,17 @@ def test_normalize_personality():
         normalize_personality(42)
 
 
-def test_deepcopy_params_keeps_every_sentinel_identical():
+def test_deepcopy_keeps_every_sentinel_identical():
     """A copied parameter carries its enum members over, it does not rebuild them.
 
     An enum member is a singleton, so a copy handing back an equal-but-distinct
-    one is already wrong. Python 3.10 does exactly that, rebuilding the member
-    from a deep copy of its value, which the `object()` behind a
-    [PEP 661](https://peps.python.org/pep-0661/) sentinel never survives. Walking
-    the whole default option set catches the next parameter to grow one.
+    one is already wrong, and the `object()` behind a
+    [PEP 661](https://peps.python.org/pep-0661/) sentinel never survives a
+    rebuild. Walking the whole default option set catches the next parameter to
+    grow one.
     """
     kitchen = make_kitchen()
-    clones = _deepcopy_params(kitchen.params)
+    clones = copy.deepcopy(kitchen.params)
     assert len(clones) == len(kitchen.params)
 
     # Pair by position, not by name: `--config` and `--no-config` share the
@@ -407,37 +458,6 @@ def test_version_option_deepcopy_drops_cache():
     assert clone.message == version_option.message
 
 
-def test_deepcopy_survives_the_python_310_enum_gap(monkeypatch):
-    """Both copy entry points hold on an interpreter with no `Enum` copy hooks.
-
-    Python 3.11 gave `Enum` a `__deepcopy__` handing the member back, which
-    hides the whole problem: on 3.10 `copy.deepcopy` rebuilds a member from a
-    deep copy of its *value* instead, and the bare `object()` behind Click's
-    `UNSET` never survives that. Stripping the two hooks pins the guard on
-    every interpreter rather than only on the floor, where CI alone would
-    catch it.
-    """
-    monkeypatch.delattr(Enum, "__deepcopy__", raising=False)
-    monkeypatch.delattr(Enum, "__copy__", raising=False)
-
-    kitchen = make_kitchen()
-    version_option = next(p for p in kitchen.params if isinstance(p, VersionOption))
-    # Click stores a parameter's unset default as a `Sentinel` member from 8.5
-    # on; the older releases still inside the supported range leave `__dict__`
-    # free of one. Seed a member there when Click did not, so the copy below has
-    # an enum to survive whatever Click is installed: without one in `__dict__`
-    # this test guards nothing.
-    if not any(isinstance(value, Enum) for value in vars(version_option).values()):
-        version_option.__dict__["_unset_default_probe"] = UNSET
-    assert any(isinstance(value, Enum) for value in vars(version_option).values())
-
-    # A bare copy reaches `VersionOption.__deepcopy__` with an empty memo, so it
-    # has to seed one for itself.
-    assert copy.deepcopy(version_option) is not version_option
-    # The multicall path seeds the memo before the copy starts.
-    assert len(_deepcopy_params(kitchen.params)) == len(kitchen.params)
-
-
 def test_lazy_subcommand_is_a_personality(runner, tmp_path, monkeypatch):
     """A lazy multicall group answers to a subcommand it has not imported yet.
 
@@ -458,7 +478,7 @@ def test_lazy_subcommand_is_a_personality(runner, tmp_path, monkeypatch):
                 echo("baking")
             '''
         ),
-        encoding="utf-8",
+        encoding="UTF-8",
     )
     monkeypatch.syspath_prepend(str(tmp_path))
 

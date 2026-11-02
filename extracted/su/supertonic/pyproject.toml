@@ -1,0 +1,122 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supertonic"
+version = "1.3.1"
+description = "High-quality Text-to-Speech synthesis with ONNX Runtime"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    {name = "Yu, Yechan", email = "ato@supertone.ai"},
+    {name = "Lee, Juheon", email = "juheon@supertone.ai"},
+    {name = "Kim, Hyeongju", email = "hyeongju@supertone.ai"},
+]
+maintainers = [
+    {name = "Supertone Inc.", email = "contact@supertone.ai"},
+]
+keywords = [
+    "tts",
+    "text-to-speech",
+    "speech-synthesis",
+    "onnx",
+    "deep-learning",
+    "audio",
+    "voice-synthesis",
+    "neural-tts",
+    "on-device",
+    "tts-server",
+    "http-server",
+    "fastapi",
+    "openai-compatible",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # onnxruntime's Python-version coverage shifted in 1.20.0: 1.20.0 is the
+    # first release with a Python 3.13 wheel, but it also *dropped* the
+    # Python 3.9 wheel. We therefore floor by Python version:
+    #   - 3.9-3.12 : 1.19.0+ (3.9 wheel still available; numpy 2.x C-ABI safe)
+    #   - 3.13+   : 1.20.0+ (3.13 wheel; 3.9 already excluded by this marker)
+    # `pip` combines both constraints and picks the highest version that
+    # satisfies the active Python.
+    "onnxruntime>=1.19.0; python_version < '3.13'",
+    "onnxruntime>=1.20.0; python_version >= '3.13'",
+    "numpy>=1.21.0",
+    "soundfile>=0.10.0",
+    "huggingface-hub>=0.10.0",
+]
+
+[project.optional-dependencies]
+playback = [
+    "sounddevice>=0.4.0",
+]
+serve = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.5",
+    "python-multipart>=0.0.9",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.1.0",
+    # Pin floors at the minor series we actually format/lint against. Lower
+    # bounds bump because black/ruff change formatting rules between minor
+    # releases — when CI installs a different floor than the lint job's
+    # contributor environment, "would reformat" diffs flap on every PR.
+    "black>=25.0",
+    "ruff>=0.5",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "httpx>=0.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/supertone-inc/supertonic"
+Repository = "https://github.com/supertone-inc/supertonic-py"
+Documentation = "https://supertone-inc.github.io/supertonic-py"
+Issues = "https://github.com/supertone-inc/supertonic-py/issues"
+Demo = "https://huggingface.co/spaces/Supertone/supertonic-3"
+"Model Hub" = "https://huggingface.co/Supertone/supertonic-3"
+
+[project.scripts]
+supertonic = "supertonic.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["supertonic*"]
+exclude = ["tests*", "examples*"]
+
+[tool.setuptools.package-data]
+supertonic = ["py.typed", "voice_styles/*.json"]
+
+[tool.setuptools.dynamic]
+version = {attr = "supertonic.__version__"}
+
+[tool.black]
+line-length = 100
+# Match the CI lint job's Python (3.11). Adding py312 here makes black emit
+# 3.12-only formatting that the 3.11 lint job cannot AST-parse, producing a
+# noisy warning on every run.
+target-version = ["py39", "py310", "py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import actions as actions_mod
-from probe.cli.actions import ACTION_COPY, Action, grouped_actions
+from probe.cli.wizard.actions import onboarding as actions_mod
+from probe.cli.wizard.actions.onboarding import ACTION_COPY, Action, grouped_actions
 
 
 def _cli_main():
@@ -28,10 +28,14 @@ def test_research_imports_share_one_menu_row_with_existing_imports_separate() ->
 
 
 def test_menu_and_install_open_the_same_import_selector(monkeypatch) -> None:
-    from probe.cli import setup, tui
+    from probe.cli import wizard as setup
+    from probe.cli.wizard import terminal as tui
 
     pages = []
-    monkeypatch.setattr(tui, "ask", lambda question, **kwargs: pages.append(
+    monkeypatch.setattr(tui.forms, "ask", lambda question, **kwargs: pages.append(
+        (question._probe_content, kwargs, tui.checkbox_control(question).selected_options),
+    ) or [])
+    monkeypatch.setattr(tui.layout, "ask", lambda question, **kwargs: pages.append(
         (question._probe_content, kwargs, tui.checkbox_control(question).selected_options),
     ) or [])
     setup.run_backfill_offer(("claude_code",))
@@ -54,12 +58,12 @@ def test_both_imports_skip_the_agent_picker() -> None:
 
 
 def _stub_lane(monkeypatch, seen: dict, lines=("imported 3 sessions",)):
-    from probe.cli import backfill_transcripts as transcripts_mod
+    from probe.cli.imports import transcripts as transcripts_mod
 
     cli_main = _cli_main()
     monkeypatch.setattr(cli_main, "_backfill_client", lambda: object())
     monkeypatch.setattr(
-        transcripts_mod, "run_lane", lambda **kw: seen.update(kw) or list(lines)
+        transcripts_mod.lane, "run_lane", lambda **kw: seen.update(kw) or list(lines)
     )
     return cli_main
 
@@ -88,7 +92,7 @@ def test_the_menu_asks_no_agent_resolver_at_all(monkeypatch) -> None:
     pi-only machine outright, `resolve_digest_agent` runs `--help` against
     every agent binary on PATH and can open a picker -- and this lane needs
     neither now that it writes no summaries."""
-    from probe.cli import backfill as backfill_impl
+    from probe.cli.imports import folder as backfill_impl
 
     seen: dict = {}
     cli_main = _stub_lane(monkeypatch, seen)
@@ -115,8 +119,8 @@ def _run_transcripts_only(monkeypatch, seen: dict, **kwargs):
     Everything before the branch is bootstrap and telemetry; both reach the
     network and neither is what this is about.
     """
-    from probe.cli import bootstrap
-    from probe.cli import setup as wizard_mod
+    from probe.cli.install import bootstrap
+    from probe.cli import wizard as wizard_mod
     from probe.cli import telemetry as telemetry_mod
 
     cli_main = _stub_lane(monkeypatch, seen)
@@ -128,7 +132,7 @@ def _run_transcripts_only(monkeypatch, seen: dict, **kwargs):
             lambda cls, **kw: telemetry_mod.null_context()
         )
     )
-    monkeypatch.setattr(wizard_mod, "interactive", lambda: False)
+    monkeypatch.setattr(wizard_mod.wizard, "interactive", lambda: False)
     call = dict(
         folder=None, agent=None, project=None, transcripts=None,
         transcripts_only=True, transcripts_budget_mb=None,
@@ -141,7 +145,7 @@ def test_transcripts_only_uploads_without_resolving_an_agent(monkeypatch) -> Non
     """The sibling door to the menu row. It used to resolve a digest agent
     here, which is how a pi-only machine ended up refusing the whole lane
     rather than uploading its pi sessions; there is nothing left to resolve."""
-    from probe.cli import backfill as backfill_impl
+    from probe.cli.imports import folder as backfill_impl
 
     seen: dict = {}
     for name in ("resolve_agent", "resolve_digest_agent"):
@@ -181,14 +185,14 @@ def test_the_agent_flag_no_longer_offers_pi_for_summaries() -> None:
 @pytest.mark.parametrize("interactive", [True, False])
 def test_the_menu_action_dispatches_to_the_lane(monkeypatch, interactive) -> None:
     """The row is wired to the helper, not to the folder importer next to it."""
-    from probe.cli import setup as wizard_mod
+    from probe.cli import wizard as wizard_mod
 
     cli_main = _cli_main()
 
     # `wizard` inside `_run_wizard_action` is a LOCAL `from probe.cli import
     # setup as wizard` -- the module-level name is the typer command that
     # shadows it -- so the module is what has to be patched.
-    monkeypatch.setattr(wizard_mod, "interactive", lambda: interactive)
+    monkeypatch.setattr(wizard_mod.wizard, "interactive", lambda: interactive)
     seen: dict = {}
     monkeypatch.setattr(
         cli_main, "_import_past_sessions", lambda **kw: seen.update(kw) or ["ok"]

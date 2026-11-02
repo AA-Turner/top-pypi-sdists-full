@@ -1,0 +1,106 @@
+extend = '../ruff.toml'
+
+target-version = "py310"
+line-length = 80 # for docs
+
+include = [
+  "./**/*.{py,pyi}",
+]
+
+format.docstring-code-format = true
+lint.select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  #  "FBT",
+  "I",
+  "ICN",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "RUF022", # unsorted-dunder-all
+  "S",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+lint.ignore = [
+  #  shadowing builtins
+  "A002",
+  "A003",
+  "S101",
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Ignore complexity
+  "C901",
+  "E501", # line length
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  # type annotations union
+  #  "UP007",
+  # todo figure out if this is needed
+  #  "UP006",
+  # magic value cmp super annoying
+  "PLR2004",
+  "PLW0120",
+  # Ignore checks for possible passwords
+  "S105",
+  "S106",
+  "S107",
+  "TID252",
+]
+# Require explicit selection of preview rules.
+lint.explicit-preview-rules = true
+lint.exclude = [
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
+]
+# Tests can use magic values, assertions, and relative imports
+lint.per-file-ignores."./http_fetch.py" = [
+  "N802",
+  "S602",
+]
+lint.unfixable = [
+  # Don't touch unused imports
+  "F401",
+]
+lint.flake8-tidy-imports.ban-relative-imports = "all"
+lint.isort.known-first-party = ["ry"]
+# =============================================================================
+# Type checking
+# =============================================================================
+lint.preview = true
+lint.pydocstyle.convention = "google"

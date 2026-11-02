@@ -25,14 +25,14 @@ import pytest
 from backfill_plan_agent import tool
 from backfill_test_client import ScopedClient
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as bp
-from probe.cli import backfill_plan_tool as t
-from probe.cli import backfill_projects as projects
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as bp
+from probe.cli.imports.folder.classify import plan_tool as t
+from probe.cli.imports.folder.structure import projects as projects
 from probe.cli import backfill_run as br
 from probe.cli import telemetry as tm
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 from probe.sdk import errors
 
 BENCH = "import-model-benchmark"
@@ -52,9 +52,12 @@ def state_dir(tmp_path, monkeypatch):
     d = tmp_path / "state"
     d.mkdir()
     monkeypatch.setenv("PROBE_BACKFILL_STATE_DIR", str(d))
-    monkeypatch.setattr(bf, "which_agent", lambda agent: f"/bin/{agent.value}")
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     return d
 
 
@@ -120,13 +123,15 @@ def _plan_json(state_dir: Path) -> dict:
 
 def _pages(monkeypatch):
     pages: list[list[str]] = []
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
 
     def review(title, lines, choices):
         pages.append(list(lines))
         return "import" if title == "Review the import plan" else choices[0][1]
 
-    monkeypatch.setattr(tui, "review", review)
+    monkeypatch.setattr(tui.forms, "review", review)
     return pages
 
 
@@ -140,8 +145,10 @@ def test_an_unrelated_folder_gets_a_new_project_under_yes(folder, state_dir, mon
     """The 2026-10-26 misfile: a README about "model benchmark", an existing
     `import-model-benchmark`, a classifier that reuses it, and `--yes`."""
     agent = _agent(*REUSE_BENCH)
-    monkeypatch.setattr(bf, "launch_agent", agent)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", agent)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
     client, events = _Client(), _Events()
 
     lines = br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE,
@@ -160,7 +167,7 @@ def test_an_unrelated_folder_gets_a_new_project_under_yes(folder, state_dir, mon
 
 def test_the_reviewer_sees_existing_with_what_it_holds_and_can_approve_it(
         folder, state_dir, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", _agent(*REUSE_BENCH))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _agent(*REUSE_BENCH))
     pages = _pages(monkeypatch)
     client, events = _Client(), _Events()
 
@@ -184,8 +191,10 @@ def test_the_reviewer_sees_existing_with_what_it_holds_and_can_approve_it(
 
 def test_a_re_import_of_the_same_folder_reuses_its_project(folder, state_dir, monkeypatch):
     first = _agent(("project", "bench-smoke-lab", "--name", "Lab"), ("assign", "bench-smoke-lab", "--rest"))
-    monkeypatch.setattr(bf, "launch_agent", first)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", first)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
     client = _Client()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE,
                interactive=False, yes=True)
@@ -194,7 +203,7 @@ def test_a_re_import_of_the_same_folder_reuses_its_project(folder, state_dir, mo
     (folder / "more.py").write_text("print('more benchmark')\n")
     # No declaration: the folder's own project takes files directly.
     second = _agent(("assign", "bench-smoke-lab", "--rest"))
-    monkeypatch.setattr(bf, "launch_agent", second)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", second)
     events = _Events()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE,
                interactive=False, yes=True, telemetry=events)
@@ -216,8 +225,10 @@ def test_a_folder_whose_repository_is_a_projects_code_source_reuses_it(
     monkeypatch.setattr(projects, "_folder_repo",
                         lambda folder_: SimpleNamespace(repo="org/bench", path_prefix=""))
     agent = _agent(("assign", BENCH, "--rest"))
-    monkeypatch.setattr(bf, "launch_agent", agent)
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", agent)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
     events = _Events()
 
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE,
@@ -505,7 +516,7 @@ def test_chunked_naming_never_lists_other_projects_and_renames_a_collision(tmp_p
             answer = {}
         return True, json.dumps({"type": "result", "result": "done\n" + json.dumps(answer)})
 
-    monkeypatch.setattr(bf, "launch_agent", launch)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", launch)
     own = [bp.ProjectSpec("lab", name="Lab", origin=bp.Origin.RULE.value, project_id="id-lab",
                           reason=projects.IMPORTED_BEFORE)]
     plan, _ = br.classify_chunked(folder, _chunk_evidence(), agent=bf.Agent.CLAUDE,
@@ -604,7 +615,7 @@ def test_an_existing_project_deleted_after_review_is_named():
 
 def test_a_deleted_existing_project_sets_the_approval_aside_for_review(tmp_path):
     """Without this every re-run failed on the same saved approval for good."""
-    from probe.cli import backfill_import as imp
+    from probe.cli.imports.folder import flow as imp
 
     meta = {"approved_request": {"hashes": {}, "left_out": {}, "import_changed": False,
                                  "assigned": {"a.py": BENCH},
@@ -641,7 +652,7 @@ def test_a_naming_answer_with_no_usable_slug_falls_back_even_with_own_projects(t
             answer = {}
         return True, json.dumps({"type": "result", "result": "done\n" + json.dumps(answer)})
 
-    monkeypatch.setattr(bf, "launch_agent", launch)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", launch)
     own = [bp.ProjectSpec("lab", origin=bp.Origin.RULE.value, project_id="id-lab")]
     plan, _ = br.classify_chunked(folder, _chunk_evidence(), agent=bf.Agent.CLAUDE, existing=[],
                                   work_dir=folder / ".w", own=own)

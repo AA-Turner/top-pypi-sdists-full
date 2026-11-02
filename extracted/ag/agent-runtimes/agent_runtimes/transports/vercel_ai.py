@@ -1,0 +1,1653 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+Vercel AI SDK protocol adapter.
+
+Implements the Vercel AI SDK protocol for agent-runtimes using Pydantic AI's
+built-in Vercel AI support from pydantic_ai.ui.vercel_ai.
+
+Protocol Reference: https://ai.pydantic.dev/ui/vercel-ai/
+
+The Vercel AI SDK protocol provides:
+- Streaming chat responses
+- Tool call support
+- Token usage tracking
+- Standard message format compatible with Vercel AI SDK
+"""
+
+import inspect
+import json
+import logging
+import os
+import traceback
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
+
+import httpx
+from pydantic_ai import UsageLimits
+from starlette.requests import Request
+from starlette.responses import Response, StreamingResponse
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
+
+from pydantic_ai import DeferredToolRequests
+from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.toolsets import ExternalToolset, FilteredToolset
+
+from ..adapters.base import BaseAgent
+from ..context.identities import IdentityContextManager, set_request_user_jwt
+from ..events import create_event
+from ..otel.prompt_turn_metrics import (
+    extract_identity_hints,
+    extract_jwt_token,
+    extract_user_id_from_jwt,
+    record_prompt_turn_completion,
+)
+from ..streams.loop import get_agent_enabled_mcp_tool_names, get_known_mcp_tool_names
+from .base import BaseTransport
+from .vercel_displays import DisplayVercelAIAdapter as VercelAIAdapter
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_effective_inference_provider(
+    agent_id: str | None = None,
+) -> tuple[str, str]:
+    """Best-effort resolve of effective inference provider and its source."""
+    # The runtime's override first: a Datalayer runtime routes every agent
+    # through ai-inference, whatever its spec says.
+    from ..routes.configure import configured_inference_provider_override
+
+    configured = configured_inference_provider_override()
+    if configured is not None:
+        return configured, "runtime-override"
+    # Then the per-agent creation spec when available.
+    if agent_id:
+        try:
+            from ..routes.agents import _agentspecs
+
+            spec = _agentspecs.get(agent_id) or {}
+            provider = str(spec.get("inference_provider") or "").strip().lower()
+            if provider in {"local", "datalayer"}:
+                return provider, "agent-spec"
+        except Exception:
+            pass
+
+    try:
+        from ..routes.configure import (
+            get_effective_inference_provider,
+            get_inference_provider_override,
+        )
+
+        override = str(get_inference_provider_override() or "").strip().lower()
+        if override in {"local", "datalayer"}:
+            return override, "runtime-override"
+
+        provider = str(get_effective_inference_provider() or "local").strip().lower()
+        if provider in {"local", "datalayer"}:
+            return provider, "default"
+    except Exception:
+        override = (
+            str(os.environ.get("AGENT_RUNTIMES_INFERENCE_PROVIDER_OVERRIDE") or "")
+            .strip()
+            .lower()
+        )
+        if override in {"local", "datalayer"}:
+            return override, "env-override"
+
+    return "local", "fallback-local"
+
+
+def _is_live_eval_emission_enabled() -> bool:
+    mode = str(os.environ.get("DATALAYER_EVALS_MODE") or "").strip().lower()
+    emit_flag = (
+        str(os.environ.get("DATALAYER_EVALS_EMIT_LIVE_EVENTS") or "").strip().lower()
+    )
+    if emit_flag in {"0", "false", "no", "off"}:
+        return False
+    if emit_flag in {"1", "true", "yes", "on"}:
+        return True
+    return mode == "interactive"
+
+
+def _extract_eval_identifiers(prompt: str) -> tuple[str | None, str | None]:
+    experiment_id, evalset_id, _ = _extract_eval_binding(prompt)
+    return experiment_id, evalset_id
+
+
+def _extract_eval_binding(prompt: str) -> tuple[str | None, str | None, str | None]:
+    """The experiment, evalset and case a prompt names on its own lines
+    (`experiment_id=`, `evalset_id=`, `case_id=`): what binds the live event
+    to the experiment the platform evaluates it for (B2-13).
+    """
+    experiment_id: str | None = None
+    evalset_id: str | None = None
+    case_id: str | None = None
+    for raw_line in str(prompt or "").splitlines():
+        line = raw_line.strip()
+        if line.startswith("experiment_id="):
+            value = line.partition("=")[2].strip()
+            experiment_id = value or None
+        elif line.startswith("evalset_id="):
+            value = line.partition("=")[2].strip()
+            evalset_id = value or None
+        elif line.startswith("case_id="):
+            value = line.partition("=")[2].strip()
+            case_id = value or None
+    return experiment_id, evalset_id, case_id
+
+
+def _extract_first_json_object(text: str) -> dict[str, Any] | None:
+    if not text:
+        return None
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        parsed = json.loads(text[start : end + 1])
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _emit_interactive_live_eval_event(
+    *,
+    request: Request,
+    agent_id: str,
+    prompt: str,
+    output_text: str,
+    status: str,
+) -> None:
+    if not _is_live_eval_emission_enabled():
+        return
+
+    experiment_id, evalset_id, case_id = _extract_eval_binding(prompt)
+    if not experiment_id:
+        return
+
+    auth_header = request.headers.get("Authorization", "")
+    token = ""
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+    elif auth_header.startswith("token "):
+        token = auth_header.removeprefix("token ").strip()
+    if not token:
+        token = str(os.environ.get("DATALAYER_USER_TOKEN") or "").strip()
+    if not token:
+        logger.debug("[Vercel AI] Skip live eval event: no user token available")
+        return
+
+    parsed_output = _extract_first_json_object(output_text) or {}
+    pass_rate = _safe_float(parsed_output.get("pass_rate"))
+    if pass_rate is None and str(status).lower() == "completed":
+        pass_rate = 1.0
+
+    base_url = (
+        os.environ.get("DATALAYER_AI_AGENTS_URL")
+        or os.environ.get("AI_AGENTS_URL")
+        or "https://r1.datalayer.run"
+    ).rstrip("/")
+    url = f"{base_url}/api/ai-agents/v1/evals/live/events"
+    params: dict[str, Any] = {}
+    billing_entity_uid = str(
+        os.environ.get("DATALAYER_BILLING_ENTITY_UID") or ""
+    ).strip()
+    if billing_entity_uid:
+        params["account_uid"] = billing_entity_uid
+
+    attributes: dict[str, Any] = {
+        "runtime_agent_id": agent_id,
+        "run_mode": "interactive",
+        "execution_target": "cloud",
+        "evaluator_input": prompt,
+        "evaluator_output": parsed_output if parsed_output else output_text,
+        "submitted_prompt": prompt,
+        "received_output": parsed_output if parsed_output else output_text,
+        "gen_ai.evaluation.name": "interactive-pass-rate",
+        "gen_ai.evaluation.input": prompt,
+        "gen_ai.evaluation.output": parsed_output if parsed_output else output_text,
+        "gen_ai.evaluation.status": status,
+    }
+    if evalset_id:
+        attributes["evalset_id"] = evalset_id
+    if pass_rate is not None:
+        attributes["gen_ai.evaluation.score"] = pass_rate
+
+    payload: dict[str, Any] = {
+        "target_id": experiment_id,
+        "target_type": "experiment",
+        # The binding the platform grades the event for, with the
+        # experiment's own evaluators (B2-13); the emitter's own measure
+        # stays beside it as `interactive-pass-rate`.
+        "experiment_id": experiment_id,
+        "evalset_id": evalset_id,
+        "case_id": case_id,
+        "evaluator_name": "interactive-pass-rate",
+        "metric_name": "pass_rate",
+        "value_num": pass_rate,
+        "label": "pass" if (pass_rate is None or pass_rate >= 0.5) else "fail",
+        "passed": (pass_rate is None or pass_rate >= 0.5),
+        "attributes": attributes,
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            params=params,
+            json=payload,
+        )
+        response.raise_for_status()
+
+
+async def _wrap_streaming_body(body_iterator: AsyncIterator[str]) -> AsyncIterator[str]:
+    """
+    Wrap a streaming body to catch and log exceptions during iteration.
+    """
+    try:
+        async for chunk in body_iterator:
+            yield chunk
+    except Exception as e:
+        logger.error(f"[Vercel AI] STREAMING ERROR: {e}")
+        logger.error(
+            f"[Vercel AI] STREAMING ERROR traceback:\n{traceback.format_exc()}"
+        )
+        # Re-raise so the error propagates
+        raise
+
+
+async def _wrap_streaming_body_with_usage(
+    body_iterator: AsyncIterator[str],
+    usage_holder: dict[str, Any],
+) -> AsyncIterator[str]:
+    """Inject pydantic-ai token usage into the Vercel AI ``message-metadata`` event.
+
+    pydantic-ai intentionally serializes only ``timestamp`` into
+    ``messageMetadata.pydantic_ai``. This wrapper augments that object with the
+    token usage captured by the run's ``on_complete`` callback so downstream
+    consumers (e.g. eval reports) can read token counts directly from the SSE
+    stream. ``usage_holder`` is populated by ``on_complete`` before the
+    ``message-metadata`` chunk is emitted, so it is available when the matching
+    chunk streams past.
+    """
+    import json as json_mod
+
+    async for chunk in body_iterator:
+        if not usage_holder or "message-metadata" not in chunk:
+            yield chunk
+            continue
+        try:
+            rewritten_lines: list[str] = []
+            changed = False
+            for line in chunk.split("\n"):
+                if not (line.startswith("data: ") and "message-metadata" in line):
+                    rewritten_lines.append(line)
+                    continue
+                data_str = line[6:]
+                try:
+                    event = json_mod.loads(data_str)
+                except Exception:
+                    rewritten_lines.append(line)
+                    continue
+                if (
+                    not isinstance(event, dict)
+                    or event.get("type") != "message-metadata"
+                ):
+                    rewritten_lines.append(line)
+                    continue
+                meta = event.get("messageMetadata")
+                if not isinstance(meta, dict):
+                    meta = {}
+                pyd = meta.get("pydantic_ai")
+                if not isinstance(pyd, dict):
+                    pyd = {}
+                pyd["usage"] = dict(usage_holder)
+                meta["pydantic_ai"] = pyd
+                event["messageMetadata"] = meta
+                rewritten_lines.append("data: " + json_mod.dumps(event))
+                changed = True
+            yield "\n".join(rewritten_lines) if changed else chunk
+        except Exception:
+            # Never break the stream on a metadata-augmentation failure.
+            yield chunk
+
+
+async def _presignal_deferred_approvals(
+    body: dict[str, Any],
+    agent_id: str,
+) -> None:
+    """Mark pending local approval records 'approved' before a DeferredToolResults
+    continuation runs.
+
+    In **server mode** the human-approval decision travels via the ai-agents
+    WebSocket and updates ai-agents' store, but never calls
+    ``signal_approval_event()`` on the local asyncio.Event that
+    ``ToolsGuardrailCapability.before_tool_execute`` waits on.  Without this
+    pre-signal, ``before_tool_execute`` would call ``request_and_wait()`` again
+    on the continuation turn and block forever.
+
+    This function inspects the continuation body for ``approval-responded``
+    ``dynamic-tool`` parts and pre-approves the matching local records so the
+    capability hook's skip-check succeeds immediately.
+    """
+    from datetime import datetime, timezone
+
+    from ..routes.tool_approvals import (
+        _APPROVALS,
+        _APPROVALS_LOCK,
+        _update_approval,
+        signal_approval_event,
+    )
+
+    messages: list[Any] = body.get("messages") or []
+    approved_tool_call_ids: set[str] = set()
+    approved_approval_ids: set[str] = set()
+    rejected_approval_ids: set[str] = set()
+    for msg in messages:
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        parts: list[Any] = msg.get("parts") or []
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            if (
+                part.get("type") == "dynamic-tool"
+                and part.get("state") == "approval-responded"
+            ):
+                approval_info = part.get("approval") or {}
+                approval_id = approval_info.get("id")
+                is_approved = approval_info.get("approved") is True
+                if isinstance(approval_id, str) and approval_id:
+                    if is_approved:
+                        approved_approval_ids.add(approval_id)
+                    else:
+                        rejected_approval_ids.add(approval_id)
+                if is_approved:
+                    tool_call_id = part.get("toolCallId")
+                    if isinstance(tool_call_id, str) and tool_call_id:
+                        approved_tool_call_ids.add(tool_call_id)
+
+    if (
+        not approved_tool_call_ids
+        and not approved_approval_ids
+        and (not rejected_approval_ids)
+    ):
+        return
+
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    to_decide: list[tuple[str, str]] = []
+    to_signal: list[tuple[str, str]] = []
+    async with _APPROVALS_LOCK:
+        for record_id, record in list(_APPROVALS.items()):
+            approved_by_id = record_id in approved_approval_ids
+            rejected_by_id = record_id in rejected_approval_ids
+            approved_by_tool_call_id = (
+                bool(record.tool_call_id)
+                and record.tool_call_id in approved_tool_call_ids
+            )
+            if not (approved_by_id or rejected_by_id or approved_by_tool_call_id):
+                continue
+
+            decision = "rejected" if rejected_by_id else "approved"
+
+            if record.status == "pending":
+                # Resolve still-pending records through the canonical decision
+                # path (outside the lock) so monitoring WS clients clear the
+                # banner AND the ai-agents/SaaS record transitions out of
+                # "review pending".
+                to_decide.append((record_id, decision))
+                continue
+
+            # Already decided: refresh updated_at so the time-window dedupe
+            # check in before_tool_execute succeeds even when the record was
+            # already approved (e.g. by an earlier WS decision that raced
+            # ahead), and signal any waiter bound to this approval_id so the
+            # continuation can resume.
+            if decision == "approved":
+                _APPROVALS[record_id] = record.model_copy(
+                    update={"status": "approved", "updated_at": now}
+                )
+                to_signal.append((record_id, record.tool_call_id or ""))
+
+    for record_id, decision in to_decide:
+        try:
+            # _update_approval signals the local waiter, publishes the
+            # tool_approval_approved/rejected event to monitoring WS clients,
+            # and relays the decision to the ai-agents backend so every
+            # surface (local banner + SaaS Tool Approvals view) reflects the
+            # outcome. Without this, an inline (AI SDK) approval left the SaaS
+            # record stuck in "review pending" and the banner reappeared on
+            # the next run.
+            await _update_approval(record_id, status=decision, note=None)
+        except Exception:
+            logger.debug(
+                "[Vercel AI] _update_approval failed for pre-signaled record %s",
+                record_id,
+                exc_info=True,
+            )
+        else:
+            logger.info(
+                "[Vercel AI] Resolved pending local record %s (%s) via "
+                "decision path for DeferredToolResults continuation in "
+                "agent %s",
+                record_id,
+                decision,
+                agent_id,
+            )
+
+    for record_id, tool_call_id in to_signal:
+        signal_approval_event(record_id, approved=True, note=None)
+        logger.info(
+            "[Vercel AI] Pre-signaled local record %s (tool_call_id=%s) "
+            "for DeferredToolResults continuation in agent %s",
+            record_id,
+            tool_call_id,
+            agent_id,
+        )
+
+
+async def _wrap_streaming_body_with_approvals(
+    body_iterator: AsyncIterator[str],
+    approval_tool_ids: list[str],
+    agent_id: str,
+    user_jwt_token: str | None = None,
+    runtime_name: str | None = None,
+) -> AsyncIterator[str]:
+    """Wrap a streaming body to create local approval records for deferred tools.
+
+    When DeferredToolRequests is active, pydantic-ai never executes the tool,
+    so ToolsGuardrailCapability.before_tool_execute never fires.  This wrapper
+    intercepts ``tool-input-available`` SSE events and creates matching
+    approval records in the local in-memory store so the frontend can poll
+    them and enable the Approve / Deny buttons.
+    """
+    import json as json_mod
+
+    from ..guardrails.tool_approvals import (
+        _agent_scope_key,
+        has_tool_grant_for_scope,
+    )
+    from ..routes.tool_approvals import (
+        _APPROVALS,
+        _APPROVALS_LOCK,
+        ToolApprovalCreateRequest,
+        _approval_envelope_matches,
+        _create_approval,
+        mirror_approval_to_local,
+        register_approval_credentials,
+        register_remote_approval_mapping,
+    )
+
+    # Build name variants for matching (underscore / hyphen normalisation).
+    # Include both versioned IDs (e.g. "runtime-sensitive-echo:0.0.1") and
+    # base names without version suffix (e.g. "runtime_sensitive_echo") so
+    # pydantic-ai's tool-input-available events (which carry the registered
+    # function name without a version suffix) are not skipped.
+    approval_names: set[str] = set()
+    for tid in approval_tool_ids:
+        base_name = tid.split(":", 1)[0]
+        for name in (tid, base_name):
+            approval_names.add(name)
+            approval_names.add(name.replace("-", "_"))
+            approval_names.add(name.replace("_", "-"))
+    created_tool_call_ids: set[str] = set()
+    remote_created_tool_call_ids: set[str] = set()
+    remote_approval_ids_by_tool_call_id: dict[str, str] = {}
+
+    async def create_remote_approval_if_possible(
+        *,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        tool_call_id: str,
+    ) -> str | None:
+        if not user_jwt_token or not tool_call_id:
+            return None
+        if tool_call_id in remote_created_tool_call_ids:
+            return remote_approval_ids_by_tool_call_id.get(tool_call_id)
+        try:
+            from datalayer_core.utils.urls import DatalayerURLs
+
+            urls = DatalayerURLs.from_environment()
+            ai_agents_url = urls.ai_agents_url.rstrip("/")
+            async with httpx.AsyncClient(
+                base_url=ai_agents_url,
+                headers={"Authorization": f"Bearer {user_jwt_token}"},
+                timeout=10.0,
+            ) as client:
+                resp = await client.post(
+                    "/api/ai-agents/v1/tool-approvals",
+                    json={
+                        "agent_id": agent_id,
+                        "runtime_name": runtime_name or "",
+                        "tool_name": tool_name,
+                        "tool_args": tool_args,
+                        "tool_call_id": tool_call_id,
+                    },
+                )
+                resp.raise_for_status()
+                payload = resp.json() if resp.content else None
+
+            remote_approval_id: str | None = None
+            if isinstance(payload, dict):
+                candidate = (
+                    payload.get("id")
+                    or payload.get("uid")
+                    or (payload.get("data") or {}).get("id")
+                    or (payload.get("data") or {}).get("uid")
+                )
+                if isinstance(candidate, str) and candidate:
+                    remote_approval_id = candidate
+
+            remote_created_tool_call_ids.add(tool_call_id)
+            if remote_approval_id:
+                remote_approval_ids_by_tool_call_id[tool_call_id] = remote_approval_id
+            logger.info(
+                "[Vercel AI] Created remote ai-agents approval for tool_call_id=%s tool='%s' remote_id=%s",
+                tool_call_id,
+                tool_name,
+                remote_approval_id,
+            )
+            return remote_approval_id
+        except Exception as remote_err:
+            logger.debug(
+                "[Vercel AI] Could not create remote ai-agents approval for tool_call_id=%s: %s",
+                tool_call_id,
+                remote_err,
+            )
+            return None
+
+    try:
+        from datetime import datetime, timezone
+
+        async for chunk in body_iterator:
+            # Approval-request SSE lines to strip from this chunk when the tool
+            # was already approved earlier in the chat (prevents a phantom
+            # approval banner + SaaS request on repeat asks; the tool still
+            # auto-executes via handle_deferred_tool_calls).
+            suppressed_lines: set[str] = set()
+            # Fast path: skip parsing when not relevant
+            if "tool-input-available" in chunk or "tool-approval-request" in chunk:
+                try:
+                    for line in chunk.strip().split("\n"):
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
+                        if data_str == "[DONE]":
+                            continue
+                        event = json_mod.loads(data_str)
+                        event_type = event.get("type")
+                        if event_type not in (
+                            "tool-input-available",
+                            "tool-approval-request",
+                        ):
+                            continue
+                        tool_call_id = (
+                            event.get("toolCallId")
+                            or event.get("tool_call_id")
+                            or event.get("id")
+                            or ""
+                        )
+                        if tool_call_id and tool_call_id in created_tool_call_ids:
+                            continue
+                        tool_name = (
+                            event.get("toolName") or event.get("tool_name") or ""
+                        )
+                        # For legacy tool-input-available events, keep approval tool filtering.
+                        if event_type == "tool-input-available":
+                            variants = {
+                                tool_name,
+                                tool_name.replace("-", "_"),
+                                tool_name.replace("_", "-"),
+                            }
+                            if not variants & approval_names:
+                                continue
+                        tool_args = (
+                            event.get("input")
+                            or event.get("toolArgs")
+                            or event.get("tool_args")
+                            or {}
+                        )
+                        normalized_tool_args = (
+                            tool_args if isinstance(tool_args, dict) else {}
+                        )
+
+                        # Chat-scoped reuse: once this exact tool+args was
+                        # approved earlier in the chat, later identical calls
+                        # auto-execute via handle_deferred_tool_calls. Do NOT
+                        # create a new local record, forward a remote (ai-agents)
+                        # approval, or leak the approval-request event — else the
+                        # SaaS Tool Approvals view and the local banner show a
+                        # phantom request. The in-memory grant map can be missed
+                        # when the prior record is already "consumed", so also
+                        # honour a matching resolved record in _APPROVALS.
+                        already_approved_in_chat = has_tool_grant_for_scope(
+                            _agent_scope_key(agent_id),
+                            tool_name,
+                            normalized_tool_args,
+                        )
+                        if not already_approved_in_chat:
+                            async with _APPROVALS_LOCK:
+                                for candidate in _APPROVALS.values():
+                                    if candidate.status not in (
+                                        "approved",
+                                        "executing",
+                                        "consumed",
+                                    ):
+                                        continue
+                                    if _approval_envelope_matches(
+                                        candidate,
+                                        agent_id=agent_id,
+                                        tool_name=tool_name,
+                                        tool_args=normalized_tool_args,
+                                    ):
+                                        already_approved_in_chat = True
+                                        break
+                        if already_approved_in_chat:
+                            if tool_call_id:
+                                created_tool_call_ids.add(tool_call_id)
+                            # Drop the approval-request event so the client
+                            # renders no banner; keep tool-input-available so the
+                            # tool card still shows.
+                            if event_type == "tool-approval-request":
+                                suppressed_lines.add(line.strip())
+                            logger.info(
+                                "[Vercel AI] Suppressing approval banner/record "
+                                "for '%s' (tool_call_id=%s): already approved in "
+                                "this chat",
+                                tool_name,
+                                tool_call_id,
+                            )
+                            continue
+
+                        # Root-cause guard: when a tool has already been
+                        # approved recently for the same agent/tool/args
+                        # envelope, do NOT create another pending approval
+                        # record from stream events. Without this, remembered
+                        # approvals can still emit tool-input-available-like
+                        # events and leave orphan pending records in websocket
+                        # history (banner shows pending while execution runs
+                        # directly with no inline approval UI).
+                        recent_window_seconds = 120.0
+                        now = datetime.now(timezone.utc)
+                        recently_approved = None
+                        async with _APPROVALS_LOCK:
+                            for candidate in _APPROVALS.values():
+                                if candidate.status != "approved":
+                                    continue
+                                if not _approval_envelope_matches(
+                                    candidate,
+                                    agent_id=agent_id,
+                                    tool_name=tool_name,
+                                    tool_args=normalized_tool_args,
+                                ):
+                                    continue
+                                age: float | None = None
+                                try:
+                                    ts = datetime.fromisoformat(
+                                        candidate.updated_at.replace("Z", "+00:00")
+                                    )
+                                    age = (now - ts).total_seconds()
+                                except Exception:
+                                    age = None
+                                if (
+                                    age is not None
+                                    and 0 <= age <= recent_window_seconds
+                                ):
+                                    recently_approved = candidate
+                                    break
+                        if recently_approved is not None:
+                            if tool_call_id:
+                                created_tool_call_ids.add(tool_call_id)
+                            logger.info(
+                                "[Vercel AI] Skipping deferred pending approval "
+                                "for '%s' (tool_call_id=%s): already approved "
+                                "recently (approval_id=%s)",
+                                tool_name,
+                                tool_call_id,
+                                recently_approved.id,
+                            )
+                            continue
+
+                        # Continuation requests can replay approval tool events
+                        # for the same tool call id. Reuse existing local state
+                        # instead of creating a duplicate remote pending record.
+                        existing_record = None
+                        if tool_call_id:
+                            async with _APPROVALS_LOCK:
+                                for candidate in _APPROVALS.values():
+                                    if (
+                                        candidate.agent_id == agent_id
+                                        and candidate.tool_call_id == tool_call_id
+                                        and candidate.status != "deleted"
+                                    ):
+                                        existing_record = candidate
+                                        break
+
+                        if existing_record is not None:
+                            created_tool_call_ids.add(tool_call_id)
+                            logger.info(
+                                "[Vercel AI] Reusing existing local approval %s "
+                                "for deferred tool '%s' (tool_call_id=%s, status=%s)",
+                                existing_record.id,
+                                tool_name,
+                                tool_call_id,
+                                existing_record.status,
+                            )
+                            continue
+
+                        # Best-effort remote sync so server-mode panels backed by
+                        # ai-agents can display pending approvals.
+                        remote_approval_id: str | None = None
+                        if tool_call_id:
+                            remote_approval_id = (
+                                await create_remote_approval_if_possible(
+                                    tool_name=tool_name,
+                                    tool_args=normalized_tool_args,
+                                    tool_call_id=tool_call_id,
+                                )
+                            )
+
+                        # If the stream already provides an approval ID, mirror it
+                        # so local state uses the same identifier as the protocol.
+                        approval_id = (
+                            event.get("approvalId") or event.get("approval_id") or ""
+                        )
+                        if (
+                            not isinstance(approval_id, str) or not approval_id
+                        ) and remote_approval_id:
+                            approval_id = remote_approval_id
+                        used_mirror = isinstance(approval_id, str) and bool(approval_id)
+                        if used_mirror:
+                            record = await mirror_approval_to_local(
+                                {
+                                    "id": approval_id,
+                                    "agent_id": agent_id,
+                                    "tool_name": tool_name,
+                                    "tool_args": normalized_tool_args,
+                                    "tool_call_id": tool_call_id or None,
+                                    "status": "pending",
+                                }
+                            )
+                        else:
+                            req = ToolApprovalCreateRequest(
+                                agent_id=agent_id,
+                                tool_name=tool_name,
+                                tool_args=normalized_tool_args,
+                                tool_call_id=tool_call_id or None,
+                            )
+                            record = await _create_approval(req)
+
+                        # Keep JWT + mapping registrations aligned across all
+                        # approval creation paths so runtime decisions can
+                        # always be relayed and mirrored with ai-agents.
+                        if user_jwt_token:
+                            register_approval_credentials(record.id, user_jwt_token)
+                        # Resolve the remote (ai-agents) counterpart id. In the
+                        # mirror path the local record id IS the remote id, so a
+                        # self-mapping must still be registered; otherwise
+                        # _update_approval finds no mapping and falls back to
+                        # _lazy_forward_and_relay, which creates a DUPLICATE
+                        # remote approval and leaves the original stuck in
+                        # "review pending".
+                        effective_remote_id = (
+                            record.id if used_mirror else remote_approval_id
+                        )
+                        if effective_remote_id and user_jwt_token:
+                            register_remote_approval_mapping(
+                                record.id,
+                                effective_remote_id,
+                                user_jwt_token,
+                            )
+                        if tool_call_id:
+                            created_tool_call_ids.add(tool_call_id)
+                        logger.info(
+                            "[Vercel AI] Created local approval record %s "
+                            "for deferred tool '%s'",
+                            record.id,
+                            tool_name,
+                        )
+                except Exception as parse_err:
+                    logger.debug(
+                        "[Vercel AI] Error parsing SSE for approval: %s",
+                        parse_err,
+                    )
+            if suppressed_lines:
+                kept = [
+                    ln for ln in chunk.split("\n") if ln.strip() not in suppressed_lines
+                ]
+                rebuilt = "\n".join(kept)
+                if rebuilt.strip():
+                    yield rebuilt
+            else:
+                yield chunk
+    except Exception as e:
+        logger.error(f"[Vercel AI] STREAMING ERROR: {e}")
+        logger.error(
+            f"[Vercel AI] STREAMING ERROR traceback:\n{traceback.format_exc()}"
+        )
+        raise
+
+
+class VercelAITransport(BaseTransport):
+    """
+    Vercel AI SDK protocol adapter.
+
+    Wraps Pydantic AI's built-in Vercel AI support to expose agents through
+    the Vercel AI SDK protocol.
+
+    This adapter provides a FastAPI/Starlette compatible handler for the
+    /api/chat endpoint that implements the Vercel AI SDK streaming protocol.
+
+    Example:
+        from pydantic_ai import Agent
+        from agent_runtimes.agents import PydanticAIAgent
+        from agent_runtimes.transports import VercelAITransport
+        from fastapi import FastAPI, Request
+
+        # Create Pydantic AI agent
+        pydantic_agent = Agent("openai:gpt-4o")
+
+        # Wrap with agent adapter
+        agent = PydanticAIAgent(pydantic_agent)
+
+        # Create Vercel AI adapter
+        vercel_adapter = VercelAITransport(agent)
+
+        # Add to FastAPI app
+        app = FastAPI()
+
+        @app.post("/api/chat")
+        async def chat(request: Request):
+            return await vercel_adapter.handle_vercel_request(request)
+    """
+
+    def __init__(
+        self,
+        agent: BaseAgent,
+        usage_limits: UsageLimits | None = None,
+        toolsets: list[Any] | None = None,
+        builtin_tools: list[str] | None = None,
+        agent_id: str | None = None,
+        has_spec_frontend_tools: bool = False,
+        has_approval_tools: bool = False,
+        approval_tool_ids: list[str] | None = None,
+        is_triggered: bool = False,
+    ):
+        """Initialize the Vercel AI adapter.
+
+        Args:
+            agent: The agent to adapt.
+            usage_limits: Usage limits for the agent (tokens, tool calls).
+            toolsets: Additional toolsets (e.g., MCP servers).
+            builtin_tools: List of built-in tool names to expose.
+            agent_id: Agent ID for usage tracking.
+            has_spec_frontend_tools: Whether the agent spec declares frontend tools.
+            has_approval_tools: Whether the agent has runtime tools requiring approval.
+            approval_tool_ids: List of tool IDs that require human approval.
+            is_triggered: Whether the agent has a trigger config (output events are only emitted for triggered agents).
+        """
+        super().__init__(agent)
+        self._usage_limits = usage_limits or UsageLimits(
+            tool_calls_limit=20,
+            output_tokens_limit=5000,
+            total_tokens_limit=100000,
+        )
+        self._toolsets = toolsets or []
+        self._builtin_tools = builtin_tools or []
+        self._has_spec_frontend_tools = has_spec_frontend_tools
+        self._approval_tool_ids = approval_tool_ids or []
+        self._has_approval_tools = has_approval_tools or bool(self._approval_tool_ids)
+        self._is_triggered = is_triggered
+        # Get agent_id from adapter if available
+        if agent_id:
+            self._agent_id = agent_id
+        elif hasattr(agent, "agent_id"):
+            self._agent_id = agent.agent_id
+        elif hasattr(agent, "_agent_id"):
+            self._agent_id = agent._agent_id
+        else:
+            self._agent_id = getattr(agent, "name", "unknown").lower().replace(" ", "-")
+
+    @property
+    def protocol_name(self) -> str:
+        """
+        Get the protocol name.
+        """
+        return "vercel-ai"
+
+    def _get_pydantic_agent(self) -> "Agent":
+        """
+        Get the underlying Pydantic AI agent.
+
+        Returns:
+            The pydantic_ai.Agent instance.
+
+        Raises:
+            ValueError: If the agent is not a PydanticAIAgent.
+        """
+        if hasattr(self.agent, "_agent"):
+            # PydanticAIAgent wraps a pydantic_ai.Agent
+            return self.agent._agent
+        else:
+            raise ValueError(
+                "VercelAITransport requires a PydanticAIAgent that wraps a pydantic_ai.Agent"
+            )
+
+    def _get_runtime_toolsets(self) -> list[Any]:
+        """
+        Get runtime toolsets from the adapter.
+
+        Returns:
+            List of toolsets from the PydanticAIAdapter, combined with any static toolsets.
+        """
+        toolsets = list(self._toolsets)  # Start with static toolsets
+        if hasattr(self.agent, "_get_runtime_toolsets"):
+            toolsets.extend(self.agent._get_runtime_toolsets())
+        return toolsets
+
+    async def handle_vercel_request(
+        self,
+        request: Request,
+        model: str | None = None,
+    ) -> Response:
+        """
+        Handle a Vercel AI SDK request.
+
+        This method processes a Starlette/FastAPI request and returns a streaming
+        response compatible with the Vercel AI SDK.
+
+        Args:
+            request: The Starlette/FastAPI request object.
+            model: Optional model override. If None, extracts from request body
+                   or uses the agent's default model.
+
+        Returns:
+            Starlette Response with streaming content.
+        """
+        import json
+        import logging
+        from typing import TYPE_CHECKING
+
+        if TYPE_CHECKING:
+            from pydantic_ai.agent import AgentRunResult
+
+        logger = logging.getLogger(__name__)
+        pydantic_agent = self._get_pydantic_agent()
+
+        # Extract model, builtinTools, identities, and frontend tools from request body if not provided
+        builtin_tools_from_request: list[str] | None = None
+        skills_from_request: list[str] | None = None
+        identities_from_request: list[dict[str, Any]] | None = None
+        frontend_tools_from_request: list[dict[str, Any]] | None = None
+        sdk_version: str | None = None
+        body: dict[str, Any] | None = None
+
+        try:
+            # Read the body once and cache it
+            body_bytes = await request.body()
+            body = json.loads(body_bytes)
+
+            # Extract model
+            if model is None:
+                model = body.get("model")
+                if model:
+                    logger.info(f"Vercel AI: Using model from request body: {model}")
+                else:
+                    logger.debug(
+                        f"Vercel AI: No model in request body, keys: {list(body.keys())}"
+                    )
+
+            # Extract builtinTools from request
+            builtin_tools_from_request = body.get("builtinTools")
+            if builtin_tools_from_request is not None:
+                logger.info(
+                    f"Vercel AI: Using builtinTools from request: {builtin_tools_from_request}"
+                )
+
+            # Extract skills from request
+            skills_from_request = body.get("skills")
+            if skills_from_request is not None:
+                logger.info(
+                    f"Vercel AI: Using skills from request: {skills_from_request}"
+                )
+
+            # Extract identities from request (OAuth tokens from frontend)
+            identities_from_request = body.get("identities")
+            if identities_from_request:
+                providers = [i.get("provider") for i in identities_from_request]
+                logger.info(
+                    f"Vercel AI: Received identities from request for providers: {providers}"
+                )
+
+            # Extract SDK version when present (newer AI SDK clients).
+            sdk_version = body.get("sdkVersion") or body.get("sdk_version")
+
+            # A message the person said: its transcript is the message, its
+            # UI message's metadata says how it was heard (VO-27).
+            from ..voice import hear, spoken_of_vercel_body
+
+            hear(spoken_of_vercel_body(body))
+
+            # Extract frontend tools from request body
+            frontend_tools_from_request = body.get("tools")
+            if frontend_tools_from_request:
+                logger.info(
+                    f"Vercel AI: Received {len(frontend_tools_from_request)} frontend tools from request"
+                )
+
+            # Create a new request with the cached body for pydantic-ai to consume
+            # We need to wrap the request with cached body
+            from starlette.requests import Request as StarletteRequest
+
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.request", "body": body_bytes}
+
+            request = StarletteRequest(request.scope, receive)
+        except (json.JSONDecodeError, Exception) as e:
+            logger.debug(f"Could not extract model/builtinTools from request body: {e}")
+
+        effective_inference_provider, inference_provider_source = (
+            _resolve_effective_inference_provider(self._agent_id)
+        )
+        # A deployment's agent acts as its application's principal: its token
+        # is asked for again, with this request's, when it runs out, and
+        # without one nothing runs (I-03).
+        from ..apps.principal import (
+            PrincipalTokenMissing,
+            deployment_of,
+            ensure_principal_token,
+        )
+        from ..models.models import app_instance_of as _app_instance_of
+
+        serving_deployment = deployment_of(_app_instance_of(self._agent_id))
+        if serving_deployment:
+            asking = request.headers.get("authorization", "")
+            try:
+                await ensure_principal_token(
+                    serving_deployment,
+                    asking[7:].strip()
+                    if asking.lower().startswith("bearer ")
+                    else None,
+                )
+            except PrincipalTokenMissing as missing:
+                from starlette.responses import JSONResponse
+
+                return JSONResponse({"detail": str(missing)}, status_code=403)
+        if isinstance(model, str) and model:
+            # A model the agent does not offer, or ai-inference does not
+            # serve, is refused before anything runs.
+            from ..models.offered import model_refusal
+
+            refusal = model_refusal(self._agent_id, model, effective_inference_provider)
+            if refusal:
+                from starlette.responses import JSONResponse
+
+                return JSONResponse({"detail": refusal}, status_code=400)
+        if effective_inference_provider == "datalayer" and isinstance(model, str):
+            # Request body model strings must be wrapped so calls are proxied
+            # through datalayer-ai-inference instead of direct/local routing.
+            try:
+                from ..models.models import (
+                    app_instance_of,
+                    resolve_model_for_inference_provider,
+                )
+
+                model = resolve_model_for_inference_provider(
+                    model,
+                    "datalayer",
+                    # Attributed to the application the agent serves, as
+                    # its own model is (R-09).
+                    app_instance=app_instance_of(self._agent_id),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Vercel AI: Failed to route request model through datalayer provider for agent '%s': %s",
+                    self._agent_id,
+                    exc,
+                )
+
+        if effective_inference_provider == "local":
+            logger.info(
+                "Vercel AI: Inference provider is local (source=%s, direct model backend, no datalayer-ai-inference endpoint). model=%s",
+                inference_provider_source,
+                model or "<agent-default>",
+            )
+        else:
+            try:
+                from ..models.models import _normalize_ai_inference_base_url
+
+                inference_base_url = _normalize_ai_inference_base_url(
+                    os.getenv("DATALAYER_AI_INFERENCE_URL")
+                )
+            except Exception:
+                inference_base_url = (
+                    os.getenv("DATALAYER_AI_INFERENCE_URL") or "<unset>"
+                )
+            logger.info(
+                "Vercel AI: Inference provider is datalayer (source=%s, model proxied via datalayer-ai-inference at %s). model=%s",
+                inference_provider_source,
+                inference_base_url,
+                model or "<agent-default>",
+            )
+
+        # Determine which builtin_tools to use:
+        # 1. If request specifies builtinTools, use those (allows per-request tool selection)
+        # 2. Otherwise fall back to self._builtin_tools (initialized at adapter creation)
+        builtin_tools_input = (
+            builtin_tools_from_request
+            if builtin_tools_from_request is not None
+            else self._builtin_tools
+        )
+
+        # Apply per-turn enablement to backend guardrail state.
+        try:
+            from agent_runtimes.streams.loop import (
+                set_agent_enabled_mcp_tool_names,
+                set_agent_turn_enabled_skills,
+            )
+
+            if isinstance(builtin_tools_from_request, list):
+                set_agent_enabled_mcp_tool_names(
+                    self._agent_id, builtin_tools_from_request
+                )
+            if isinstance(skills_from_request, list):
+                set_agent_turn_enabled_skills(self._agent_id, skills_from_request)
+        except Exception as exc:
+            logger.debug(
+                "Vercel AI: Could not apply per-turn tool/skill state: %s", exc
+            )
+
+        # Convert string tool IDs to pydantic-ai v2 native tool capabilities.
+        # The frontend still uses `builtinTools` naming for compatibility.
+        request_native_capabilities = []
+        if builtin_tools_input:
+            try:
+                from pydantic_ai.capabilities import NativeTool
+                from pydantic_ai.native_tools import (
+                    NATIVE_TOOL_TYPES,
+                    AbstractNativeTool,
+                )
+
+                tool_instances: list[AbstractNativeTool] = []
+                for tool_id in builtin_tools_input:
+                    if isinstance(tool_id, str):
+                        tool_cls = NATIVE_TOOL_TYPES.get(tool_id)
+                        if tool_cls is not None:
+                            tool_instances.append(tool_cls())
+                            logger.debug(
+                                f"Vercel AI: Converted builtin tool '{tool_id}' to native {tool_cls.__name__}"
+                            )
+                        else:
+                            logger.warning(
+                                f"Vercel AI: Unknown native tool '{tool_id}', skipping"
+                            )
+                    elif isinstance(tool_id, AbstractNativeTool):
+                        # Already an instance
+                        tool_instances.append(tool_id)
+                    else:
+                        logger.warning(
+                            f"Vercel AI: Invalid native tool type: {type(tool_id)}, skipping"
+                        )
+                request_native_capabilities = [
+                    NativeTool(tool_instance) for tool_instance in tool_instances
+                ]
+                logger.info(
+                    "Vercel AI: Converted %d builtin tool names to %d native capabilities",
+                    len(builtin_tools_input),
+                    len(request_native_capabilities),
+                )
+            except ImportError as e:
+                logger.error(f"Vercel AI: Could not import native_tools: {e}")
+
+        # Extract identity/JWT hints for OTEL metric attribution
+        metric_user_id: str | None = None
+        metric_user_provider: str | None = None
+        metric_user_jwt_token = extract_jwt_token(
+            request.headers.get("authorization"),
+            request.headers.get("x-external-token"),
+        )
+        if identities_from_request:
+            hint_user_id, hint_provider, hint_token = extract_identity_hints(
+                identities_from_request
+            )
+            metric_user_provider = hint_provider or metric_user_provider
+            metric_user_id = hint_user_id or metric_user_id
+            metric_user_jwt_token = hint_token or metric_user_jwt_token
+        if not metric_user_id:
+            metric_user_id = extract_user_id_from_jwt(metric_user_jwt_token)
+        if metric_user_id and not metric_user_provider:
+            metric_user_provider = "jwt"
+
+        # The last user message, for the OTEL span. Read by a helper that also
+        # knows the newer `parts` form of a message the loop here used to
+        # miss. (The prompt history is not recorded here: the agent's own
+        # `PromptHistoryCapability` sees the run, whichever protocol started it.)
+        from ..context.prompt_history import last_user_prompt
+
+        request_prompt = last_user_prompt(body)
+
+        # Create on_complete callback to track usage
+        agent_id = self._agent_id
+        import time
+
+        request_start = time.perf_counter()
+
+        # Holder populated by ``on_complete`` with the run's token usage so the
+        # streaming body wrapper can inject it into the Vercel AI
+        # ``message-metadata`` event (pydantic-ai only serializes ``timestamp``).
+        captured_usage: dict[str, Any] = {}
+
+        async def on_complete(result: "AgentRunResult") -> None:
+            """
+            Callback invoked after agent run completes.
+            Usage tracking is handled by LLMContextUsageCapability.
+            """
+            usage_candidate = getattr(result, "usage", None)
+            usage = usage_candidate() if callable(usage_candidate) else usage_candidate
+            if usage is None:
+                return
+            input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+            output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+            tool_call_count = int(getattr(usage, "tool_calls", 0) or 0)
+
+            # Capture token usage so the SSE body wrapper can surface it in the
+            # ``messageMetadata.pydantic_ai.usage`` payload for downstream
+            # consumers (e.g. eval reports).
+            cache_read_tokens = int(getattr(usage, "cache_read_tokens", 0) or 0)
+            cache_write_tokens = int(getattr(usage, "cache_write_tokens", 0) or 0)
+            requests_count = int(getattr(usage, "requests", 0) or 0)
+            total_tokens = int(getattr(usage, "total_tokens", 0) or 0) or (
+                input_tokens + output_tokens
+            )
+            captured_usage.clear()
+            captured_usage.update(
+                {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
+                    "cache_read_tokens": cache_read_tokens,
+                    "cache_write_tokens": cache_write_tokens,
+                    "requests": requests_count,
+                    "tool_calls": tool_call_count,
+                }
+            )
+
+            duration_ms = (time.perf_counter() - request_start) * 1000
+
+            logger.info(
+                "[Vercel AI] on_complete: agent_id=%s input_tokens=%s output_tokens=%s tool_calls=%s",
+                agent_id,
+                input_tokens,
+                output_tokens,
+                tool_call_count,
+            )
+
+            # Emit agent-output event for final textual completions so
+            # trigger panels can show Generated Output consistently.
+            # Only emit for triggered agents (agents with a trigger config).
+            if self._is_triggered:
+                try:
+                    output_text = ""
+                    if hasattr(result, "output") and isinstance(result.output, str):
+                        output_text = result.output.strip()
+
+                    if output_text:
+                        auth_header = request.headers.get("Authorization", "")
+                        token_value = ""
+                        if auth_header.startswith("Bearer "):
+                            token_value = auth_header.removeprefix("Bearer ").strip()
+                        elif auth_header.startswith("token "):
+                            token_value = auth_header.removeprefix("token ").strip()
+
+                        if token_value:
+                            events_base_url = (
+                                os.environ.get("DATALAYER_AI_AGENTS_URL")
+                                or os.environ.get("AI_AGENTS_URL")
+                                or os.environ.get("DATALAYER_AI_AGENTS_URL")
+                                or "https://r1.datalayer.run"
+                            )
+                            create_event(
+                                token=token_value,
+                                agent_id=agent_id,
+                                title="Agent Output",
+                                kind="agent-output",
+                                status="completed",
+                                payload={
+                                    "agent_id": agent_id,
+                                    "duration_ms": int(duration_ms),
+                                    "outputs": output_text,
+                                    "exit_status": "completed",
+                                },
+                                metadata={
+                                    "origin": "agent-runtime",
+                                    "source": "vercel-ai-on-complete",
+                                },
+                                base_url=events_base_url,
+                            )
+                except Exception as event_exc:
+                    logger.debug(
+                        "[Vercel AI] Failed to emit agent-output event for agent '%s': %s",
+                        agent_id,
+                        event_exc,
+                    )
+
+            # Emit OTEL prompt-turn metrics for every successful completed turn.
+            response_text = ""
+            if hasattr(result, "output") and isinstance(result.output, str):
+                response_text = result.output
+
+            try:
+                await _emit_interactive_live_eval_event(
+                    request=request,
+                    agent_id=agent_id,
+                    prompt=request_prompt,
+                    output_text=response_text,
+                    status="completed",
+                )
+            except Exception as eval_event_exc:
+                logger.debug(
+                    "[Vercel AI] Failed to emit interactive live eval event for agent '%s': %s",
+                    agent_id,
+                    eval_event_exc,
+                )
+            record_prompt_turn_completion(
+                prompt=request_prompt,
+                response=response_text,
+                duration_ms=duration_ms,
+                protocol="vercel-ai",
+                stop_reason="end_turn",
+                success=True,
+                model=model if isinstance(model, str) else None,
+                tool_call_count=tool_call_count,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=(input_tokens + output_tokens),
+                user_id=metric_user_id,
+                user_provider=metric_user_provider,
+                identities_count=(
+                    len(identities_from_request)
+                    if isinstance(identities_from_request, list)
+                    else None
+                ),
+                user_jwt_token=metric_user_jwt_token,
+                agent_id=agent_id,
+            )
+            return
+
+        # Set the identity context for this request so that skill executors
+        # can access OAuth tokens during tool execution
+        set_request_user_jwt(metric_user_jwt_token)
+        try:
+            async with IdentityContextManager(identities_from_request):
+                # Get runtime toolsets from the adapter (includes MCP servers)
+                runtime_toolsets = self._get_runtime_toolsets()
+                # The Datalayer MCP gateway is reached as the application,
+                # never with the process's key: a deployment as its principal
+                # (I-03), its servers in each user's name with the token of
+                # the person talking to it (I-04), a Preview with its run's
+                # token, narrowed to its granted Spaces (R-25).
+                from ..apps.principal import gateway_toolsets_of_the_run
+
+                runtime_toolsets = await gateway_toolsets_of_the_run(
+                    self._agent_id,
+                    runtime_toolsets,
+                    extract_jwt_token(request.headers.get("authorization"), None),
+                )
+
+                # Filter MCP toolsets to only expose tools the user has enabled.
+                # We check if each tool's name is in the known MCP tool inventory;
+                # if it is, it must also be in the per-agent enabled set.  Tools
+                # that are not MCP tools (e.g. skill tools, frontend tools) are
+                # always passed through.
+                known_mcp_tool_names = get_known_mcp_tool_names()
+                if known_mcp_tool_names:
+                    enabled_mcp_tool_names = get_agent_enabled_mcp_tool_names(agent_id)
+
+                    def _make_mcp_filter(
+                        enabled: set[str], known: set[str]
+                    ) -> Callable[[Any, ToolDefinition], bool]:
+                        def _filter(_ctx: Any, tool_def: ToolDefinition) -> bool:
+                            return (
+                                tool_def.name not in known or tool_def.name in enabled
+                            )
+
+                        return _filter
+
+                    mcp_filter = _make_mcp_filter(
+                        enabled_mcp_tool_names, known_mcp_tool_names
+                    )
+                    runtime_toolsets = [
+                        FilteredToolset(wrapped=ts, filter_func=mcp_filter)
+                        for ts in runtime_toolsets
+                    ]
+                    logger.debug(
+                        "[Vercel AI] Filtering MCP tools: %d enabled out of %d known",
+                        len(enabled_mcp_tool_names),
+                        len(known_mcp_tool_names),
+                    )
+
+                # Add frontend tools as an ExternalToolset if provided in the request
+                has_frontend_tools = False
+                if frontend_tools_from_request:
+                    frontend_tool_defs = []
+                    for tool in frontend_tools_from_request:
+                        tool_name = tool.get("name", "")
+                        tool_desc = tool.get("description", "")
+                        tool_params = tool.get("parameters", {})
+                        # Normalize parameters: accept both JSON Schema and array formats
+                        if isinstance(tool_params, list):
+                            # Convert CopilotKit-style array to JSON Schema
+                            properties = {}
+                            required = []
+                            for p in tool_params:
+                                p_name = p.get("name", "")
+                                p_type = p.get("type", "string")
+                                properties[p_name] = {
+                                    "type": p_type,
+                                    "description": p.get("description", ""),
+                                }
+                                if p.get("required"):
+                                    required.append(p_name)
+                            tool_params = {
+                                "type": "object",
+                                "properties": properties,
+                                "required": required,
+                            }
+                        if tool_name:
+                            frontend_tool_defs.append(
+                                ToolDefinition(
+                                    name=tool_name,
+                                    description=tool_desc,
+                                    parameters_json_schema=tool_params,
+                                )
+                            )
+                    if frontend_tool_defs:
+                        frontend_toolset: ExternalToolset = ExternalToolset(
+                            frontend_tool_defs, id="frontend-tools"
+                        )
+                        runtime_toolsets.append(frontend_toolset)
+                        has_frontend_tools = True
+                        logger.info(
+                            f"[Vercel AI] Added frontend ExternalToolset with {len(frontend_tool_defs)} tools: "
+                            f"{[t.name for t in frontend_tool_defs]}"
+                        )
+
+                # Log toolsets being used with detailed inspection
+                if runtime_toolsets:
+                    toolset_info = []
+                    for i, ts in enumerate(runtime_toolsets):
+                        try:
+                            ts_class = type(ts).__name__
+                            ts_id = ts.id if hasattr(ts, "id") else "no-id-attr"
+                            ts_label = (
+                                ts.label if hasattr(ts, "label") else "no-label-attr"
+                            )
+                            toolset_info.append(f"{ts_class}(id={ts_id})")
+                            logger.debug(
+                                f"[Vercel AI] Toolset {i}: class={ts_class}, id={ts_id}, label={ts_label}"
+                            )
+
+                            # Check if any attribute might be callable when it shouldn't be
+                            for attr_name in ["id", "label", "name"]:
+                                if hasattr(ts, attr_name):
+                                    attr_val = getattr(ts, attr_name)
+                                    if callable(attr_val):
+                                        logger.warning(
+                                            f"[Vercel AI] SUSPICIOUS: {ts_class}.{attr_name} is callable! type={type(attr_val)}"
+                                        )
+                        except Exception as inspect_err:
+                            logger.error(
+                                f"[Vercel AI] Error inspecting toolset {i}: {inspect_err}",
+                                exc_info=True,
+                            )
+                            toolset_info.append(f"ERROR({inspect_err})")
+                    logger.info(
+                        f"[Vercel AI] Passing {len(runtime_toolsets)} toolsets to agent run: {toolset_info}"
+                    )
+                else:
+                    logger.info(
+                        "[Vercel AI] Passing 0 toolsets to agent run (empty list)"
+                    )
+
+                # Use Pydantic AI's built-in Vercel AI adapter with on_complete callback
+                logger.debug(
+                    f"[Vercel AI] Calling VercelAIAdapter.dispatch_request with model={model}"
+                )
+                dispatch_kwargs: dict[str, Any] = {
+                    "request": request,
+                    "agent": pydantic_agent,
+                    "model": model,
+                    "toolsets": runtime_toolsets,
+                    "on_complete": on_complete,
+                }
+                if request_native_capabilities:
+                    dispatch_kwargs["capabilities"] = request_native_capabilities
+
+                dispatch_params = inspect.signature(
+                    VercelAIAdapter.dispatch_request
+                ).parameters
+                if "usage_limits" in dispatch_params:
+                    dispatch_kwargs["usage_limits"] = self._usage_limits
+
+                # Enable DeferredToolRequests for either:
+                # 1) frontend tools (client-side tool execution), or
+                # 2) approval-capable agents (approval-responded continuations).
+                #
+                # Without DeferredToolRequests on continuation turns, an
+                # approval-responded part can be treated as a fresh tool call,
+                # causing the same approval to be requested again.
+                if has_frontend_tools or self._has_approval_tools:
+                    dispatch_kwargs["output_type"] = [str, DeferredToolRequests]
+                    logger.info(
+                        "[Vercel AI] Enabled DeferredToolRequests output_type "
+                        "(frontend_tools=%s, approval_tools=%s)",
+                        has_frontend_tools,
+                        self._has_approval_tools,
+                    )
+
+                # Pass sdk_version only if supported by installed pydantic-ai.
+                if sdk_version and "sdk_version" in dispatch_params:
+                    dispatch_kwargs["sdk_version"] = sdk_version
+
+                # Before the continuation run, pre-approve any pending local
+                # approval records for tools approved via ai-agents WebSocket.
+                # In server mode the approval decision updates ai-agents' store
+                # but never signals the local asyncio.Event that
+                # ToolsGuardrailCapability.before_tool_execute waits on.
+                if self._has_approval_tools and body:
+                    await _presignal_deferred_approvals(body, agent_id)
+
+                response = await VercelAIAdapter.dispatch_request(
+                    **dispatch_kwargs,
+                )
+                logger.debug(
+                    f"[Vercel AI] dispatch_request returned response type: {type(response)}"
+                )
+
+                # Wrap the streaming response body to catch errors during streaming
+                # AND to create local approval records for any tool-approval-request
+                # events pydantic-ai emits (so WS approve/reject can resolve them).
+                if isinstance(response, StreamingResponse):
+                    original_body = response.body_iterator
+                    response.body_iterator = _wrap_streaming_body_with_approvals(
+                        original_body,
+                        approval_tool_ids=self._approval_tool_ids,
+                        agent_id=agent_id,
+                        user_jwt_token=metric_user_jwt_token,
+                        runtime_name=None,
+                    )
+                    # Inject pydantic-ai token usage into the message-metadata
+                    # event so eval reports can read token counts from the stream.
+                    response.body_iterator = _wrap_streaming_body_with_usage(
+                        response.body_iterator,
+                        captured_usage,
+                    )
+                    logger.debug(
+                        "[Vercel AI] Wrapped StreamingResponse body_iterator with approvals"
+                    )
+
+        except Exception as e:
+            logger.error(
+                f"[Vercel AI] Error during dispatch_request: {e}", exc_info=True
+            )
+            raise
+
+        return response
+
+    async def handle_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        """
+        Handle a direct request (not recommended for Vercel AI).
+
+        Note: Vercel AI is primarily a streaming protocol over HTTP. For proper
+        integration, use handle_vercel_request() with a Starlette Request object.
+
+        Args:
+            request: Request data.
+
+        Returns:
+            Response data.
+        """
+        raise NotImplementedError(
+            "Vercel AI adapter uses Starlette/FastAPI HTTP interface. "
+            "Use handle_vercel_request() with a Request object."
+        )
+
+    async def handle_stream(
+        self, request: dict[str, Any]
+    ) -> AsyncIterator[dict[str, Any]]:
+        """
+        Handle a streaming request (not recommended for Vercel AI).
+
+        Note: Vercel AI uses HTTP streaming via Starlette Response. Use
+        handle_vercel_request() instead.
+
+        Args:
+            request: Request data.
+
+        Yields
+        ------
+        dict[str, Any]
+            Stream events (not implemented - raises NotImplementedError).
+        """
+        raise NotImplementedError(
+            "Vercel AI adapter uses Starlette/FastAPI HTTP interface. "
+            "Use handle_vercel_request() with a Request object."
+        )
+        # Make mypy happy - this line is never reached
+        yield

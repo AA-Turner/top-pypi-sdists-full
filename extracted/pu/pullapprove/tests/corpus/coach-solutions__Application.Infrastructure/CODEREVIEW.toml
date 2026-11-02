@@ -1,0 +1,19 @@
+# PullApprove v5: https://5.pullapprove.com/docs/
+
+extends = ["CODEREVIEW-TEAMS.toml"]
+
+[[scopes]]
+name = "dev-ops"
+reviewers = ["$dev-ops"]
+request = 1
+require = 1
+labels = ["dev-ops"]
+ownership = "append"
+paths = ["**/*"]
+
+[[scopes]]
+name = "dev-ops-interested"
+reviewers = ["$dev-ops-interested"]
+request = 1
+require = 0
+paths = ["**/*"]

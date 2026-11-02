@@ -1,0 +1,2083 @@
+"""The `preserve` MCP tool: capture binary or text artifact to Evidence/.
+
+Per SKILL.md rule 2, Evidence is append-only — never edited after creation.
+The artifact's value is "this is what we received." No analysis at this
+layer; analytical takes go in compiled notes that link to the evidence file.
+
+Path: `Evidence/<scope>/<category>/<filename>`. Folders auto-created.
+
+Two input modes:
+- `content_base64`: file bytes for binary artifacts (PDF, images, .docx).
+  5MB decoded size limit (base64 inflates ~33% — keeps the MCP request
+  comfortably under claude.ai's transport limits).
+- `content`: UTF-8 text for markdown/plain-text artifacts.
+
+If `description` and/or `text` is supplied, a sidecar `<filename>.md` is
+written alongside the artifact: `description` is a short human caption,
+`text` is the full extracted/OCR'd text of the artifact. The sidecar is a
+real `.md` and gets embedded on write, so a binary that is otherwise opaque
+to search becomes findable by its content (the OCR companion). The bytes
+themselves never get an LLM — extraction happens in the caller (the sandbox).
+"""
+
+from __future__ import annotations
+
+import base64
+import datetime as dt
+import hashlib
+import io
+import json
+import logging
+import mimetypes
+import os
+import re
+import stat
+import tempfile
+import unicodedata
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import IO, BinaryIO
+
+from . import indexes, memory_refs, privacy_log, semantic_contract, temporal
+from .asr_facts import LANGUAGE_MODE_MULTILINGUAL, AsrFacts
+from .kbdir import kb_prefix
+from .ocr_facts import OcrFacts
+from .source_inspection import Inspection, inspect_source
+from .vault import (
+    MISSING_CONTENT_HASH,
+    ContentHashMismatchError,
+    DeferredGraphCompletion,
+    FrontmatterError,
+    PlannedWrite,
+    PreparedBinaryContent,
+    _is_reparse,
+    batch_atomic_write,
+    content_hash,
+    document_newline,
+    folder_split_warnings,
+    kb_root,
+    parse_frontmatter,
+    prepend_log_entry,
+    read_guarded_text,
+    respell_new_path,
+    with_newline,
+    yaml_scalar,
+)
+
+log = logging.getLogger(__name__)
+
+
+def _extract_module():
+    from . import extract
+
+    return extract
+
+# Cap extracted text written into a sidecar. `find` rebuilds BM25 over the whole
+# corpus per query, so one oversized document (e.g. a 7 MB HTML export rendered to
+# markdown) re-tokenizes on every search and degrades ALL lookups. 512 KB sits well
+# above any real document yet kills pathological machine-dumps. The original binary
+# is always preserved — pull the full content via /download. Env-overridable.
+_MAX_EXTRACT_BYTES = int(os.environ.get("EXOMEM_MAX_EXTRACT_BYTES", 512 * 1024))
+
+
+def _cap_extracted_text(text: str) -> str:
+    """Truncate extracted text to `_MAX_EXTRACT_BYTES` (UTF-8), keeping the start.
+
+    No-op for normal documents. A truncated doc stays findable by its start + title;
+    only content past the cap isn't text-indexed (the binary still holds it all).
+    """
+    raw = text.encode("utf-8")
+    if len(raw) <= _MAX_EXTRACT_BYTES:
+        return text
+    kept = raw[:_MAX_EXTRACT_BYTES].decode("utf-8", errors="ignore").rstrip()
+    log.warning(
+        "extracted text %d bytes exceeds cap %d — truncated; full content stays in the binary",
+        len(raw), _MAX_EXTRACT_BYTES,
+    )
+    return (
+        f"{kept}\n\n[... truncated: kept first {_MAX_EXTRACT_BYTES // 1024} KB of "
+        f"{len(raw) // 1024} KB; full content is in the original binary — pull it via /download ...]"
+    )
+
+MAX_DECODED_BYTES = 5 * 1024 * 1024  # 5 MB — base64-via-model path (tokens cost real money)
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB — HTTP /upload path (raw bytes, no token cost).
+# Aligns with the Cloudflare free-plan ~100 MB edge cap, so the public path and this app cap
+# agree. A deployment that wants larger uploads over a non-Cloudflare route (LAN/Tailscale
+# direct to the origin) raises EXOMEM_UPLOAD_MAX_BYTES in its .env.
+
+_ADOPTION_RECEIPT_FIELD = "artifact_adoption"
+_ADOPTION_RECEIPT_VERSION = 1
+_ADOPTION_SEED_FIELDS = frozenset(
+    {"key_digest", "trigger", "selected_file_id", "lane", "destination"}
+)
+_ADOPTION_RECEIPT_FIELDS = (
+    "version",
+    "committed",
+    "key_digest",
+    "trigger",
+    "selected_file_id",
+    "lane",
+    "destination",
+    "stored_path",
+    "page_path",
+    "hash_algorithm",
+    "hash",
+    "size",
+    "content_type",
+    "media_id",
+)
+
+
+def _complete_adoption_receipt(
+    seed: Mapping[str, object],
+    *,
+    stored_path: str,
+    page_path: str,
+    digest: str,
+    size: int,
+    content_type: str | None,
+) -> dict[str, object]:
+    """Bind validated adoption semantics to one committed byte identity.
+
+    The caller supplies only semantic identity. Paths and bytes are filled by
+    the canonical writer so a caller cannot manufacture a custody receipt.
+    """
+    if set(seed) != _ADOPTION_SEED_FIELDS:
+        raise ValueError("adoption receipt seed has an invalid shape")
+    for field in ("key_digest", "trigger", "selected_file_id", "lane", "destination"):
+        if not isinstance(seed[field], str) or not str(seed[field]).strip():
+            raise ValueError(f"adoption receipt seed has an invalid {field}")
+    if re.fullmatch(r"[0-9a-f]{64}", str(seed["key_digest"])) is None:
+        raise ValueError("adoption receipt seed has an invalid key digest")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None or size < 0:
+        raise ValueError("adoption receipt requires an exact artifact identity")
+    receipt: dict[str, object] = {
+        "version": _ADOPTION_RECEIPT_VERSION,
+        "committed": True,
+        "key_digest": seed["key_digest"],
+        "trigger": seed["trigger"],
+        "selected_file_id": seed["selected_file_id"],
+        "lane": seed["lane"],
+        "destination": seed["destination"],
+        "stored_path": stored_path,
+        "page_path": page_path,
+        "hash_algorithm": "sha256",
+        "hash": digest,
+        "size": size,
+        "content_type": content_type,
+        "media_id": f"sha256:{digest}",
+    }
+    return receipt
+
+
+def _render_adoption_receipt_lines(receipt: Mapping[str, object]) -> list[str]:
+    """Render the portable receipt as one stable frontmatter block."""
+    if set(receipt) != set(_ADOPTION_RECEIPT_FIELDS):
+        raise ValueError("adoption receipt has an invalid shape")
+    lines = [f"{_ADOPTION_RECEIPT_FIELD}:"]
+    for field in _ADOPTION_RECEIPT_FIELDS:
+        value = receipt[field]
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        elif value is None:
+            rendered = "null"
+        else:
+            rendered = (
+                str(value)
+                if isinstance(value, int)
+                else json.dumps(str(value), ensure_ascii=True)
+            )
+        lines.append(f"  {field}: {rendered}")
+    return lines
+
+
+@dataclass
+class PreserveResult:
+    path: str                 # vault-relative path of the artifact
+    sidecar_path: str | None  # vault-relative path of the .md sidecar (if any)
+    warnings: list[str]
+    ref: str | None = None
+    size: int | None = None
+    hash: str | None = None
+    hash_algorithm: str | None = None
+    media_id: str | None = None
+    content_type: str | None = None
+    adoption: dict[str, object] | None = None
+
+    def as_dict(self) -> dict:
+        out = {
+            "path": self.path,
+            "stored_path": self.path,
+            "sidecar_path": self.sidecar_path,
+            "ref": self.ref,
+            # The terminal state of this artifact. `stored` is the only one this
+            # write path can produce -- it has just written the bytes -- but the
+            # field is present so a caller reads one vocabulary across the plain
+            # and the batch preservation commands rather than inferring it.
+            "state": "stored",
+            # `outcome` mirrors `state` for one release, on both branches: a
+            # client branching on it must not have to know which one answered.
+            "outcome": "stored",
+            "warnings": self.warnings,
+            "size": self.size,
+            "hash": self.hash,
+            "hash_algorithm": self.hash_algorithm,
+            "media_id": self.media_id,
+            "content_type": self.content_type,
+        }
+        if self.adoption is not None:
+            out["adoption"] = self.adoption
+        return out
+
+
+@dataclass(frozen=True)
+class DuplicateArtifact:
+    """An artifact already committed under one destination with these bytes."""
+
+    hash: str          # the sha256 both copies share
+    path: str          # vault-relative path of the existing artifact
+    sidecar_path: str  # vault-relative path of its page
+    ref: str           # the page's stable ref, always resolvable
+
+    def receipt(self, *, size: int | None, content_type: str | None) -> dict:
+        """The `already_stored` outcome naming this artifact, with the stored outcome's fields."""
+        return {
+            "path": self.path,
+            "stored_path": self.path,
+            "sidecar_path": self.sidecar_path,
+            "ref": self.ref,
+            "state": "already_stored",
+            "outcome": "stored",
+            "duplicate_of": {"path": self.path, "ref": self.ref},
+            "warnings": [],
+            "size": size,
+            "hash": self.hash,
+            "hash_algorithm": "sha256",
+            "media_id": f"sha256:{self.hash}",
+            "content_type": content_type,
+        }
+
+
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
+
+def _duplicate_from_sidecar(
+    vault_root: Path, folder: Path, sidecar: Path, *, raw_protection: bool = False,
+    wanted_hashes: frozenset[str] | None = None,
+) -> DuplicateArtifact | None:
+    """One sidecar's artifact identity, or None when it cannot stand for one."""
+    try:
+        source = sidecar.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    try:
+        frontmatter, _body, marker = parse_frontmatter(source, strict=True)
+    except FrontmatterError:
+        return None
+    if marker is None:
+        return None
+    companion = frontmatter.get("governance_companion")
+    if not isinstance(companion, Mapping):
+        return None
+    digest = companion.get("artifact_sha256")
+    artifact_path = companion.get("artifact_path")
+    if (
+        not isinstance(digest, str)
+        or not _SHA256_HEX.fullmatch(digest)
+        or not isinstance(artifact_path, str)
+        or not artifact_path
+    ):
+        return None
+    if wanted_hashes is not None and digest not in wanted_hashes:
+        return None
+    # The page is vault data and its `artifact_path` reaches the client as
+    # `duplicate_of.path`. A page that points outside the destination it lives
+    # in describes some other artifact, so it cannot stand for a duplicate here.
+    resolved = os.path.realpath(vault_root / artifact_path)
+    if os.path.dirname(resolved) != os.path.realpath(folder) or not Path(resolved).is_file():
+        return None
+    # No resolvable ref, no duplicate. The contract says an `already_stored`
+    # outcome names the existing path *and ref*, and a row that cannot is
+    # better answered by storing the bytes than by reporting half an identity.
+    ref = memory_refs.ref_from_markdown(source)
+    if not isinstance(ref, str) or not ref:
+        return None
+    if raw_protection:
+        from . import reserved_paths
+        from .governance.raw_protection import binding
+
+        relative = sidecar.relative_to(vault_root).as_posix()
+        found = binding(vault_root, relative)
+        if found is None:
+            return None
+        block, paired_companion, _ = found
+        if (paired_companion != relative or block["original_ref"] != ref
+                or block["artifact_path"] != artifact_path or block["artifact_sha256"] != digest):
+            return None
+        try:
+            original = reserved_paths.read_generic_bytes(vault_root, artifact_path).data
+        except (OSError, reserved_paths.ReservedPathLeafError):
+            return None
+        if hashlib.sha256(original).hexdigest() != digest:
+            return None
+    return DuplicateArtifact(
+        hash=digest,
+        path=artifact_path,
+        sidecar_path=sidecar.relative_to(vault_root).as_posix(),
+        ref=ref,
+    )
+
+
+def destination_duplicate_index(
+    vault_root: Path, *, scope: str, category: str, raw_protection: bool = False,
+    wanted_hashes: frozenset[str] | None = None,
+) -> dict[str, DuplicateArtifact]:
+    """sha256 -> the artifact already under this destination with those bytes.
+
+    Bounded to `Evidence/<scope>/<category>/` deliberately. The same bytes filed
+    in two evidence families are two facts, and a global content address would
+    make the second one disappear without saying so; the failure actually
+    observed is the retry into the *same* family after a lost acknowledgement.
+
+    Built once per call and handed to every file in a batch. Reading the whole
+    directory once per *file* would make an eight-file batch eight full passes
+    over a category that can hold hundreds of sidecars -- and the design's claim
+    that this is cheaper than the staging download only holds for one pass.
+    Only wanted hashes, when supplied, reach protected-original byte verification.
+    """
+    index: dict[str, DuplicateArtifact] = {}
+    folder = evidence_folder(vault_root, scope, category)
+    admit_destination(vault_root, folder, directory=True)
+    try:
+        sidecars = sorted(folder.glob("*.md"))
+    except OSError:
+        return index
+    for sidecar in sidecars:
+        from .governance.raw_protection import marked
+
+        if marked(sidecar.name) != raw_protection:
+            continue
+        duplicate = _duplicate_from_sidecar(
+            vault_root, folder, sidecar, raw_protection=raw_protection, wanted_hashes=wanted_hashes,
+        )
+        if duplicate is not None:
+            index.setdefault(duplicate.hash, duplicate)
+    return index
+
+
+def find_duplicate_artifact(
+    vault_root: Path, *, scope: str, category: str, sha256: str, raw_protection: bool = False
+) -> DuplicateArtifact | None:
+    """The single-file lane's lookup: one destination index, one probe."""
+    if not _SHA256_HEX.fullmatch(sha256 or ""):
+        return None
+    return destination_duplicate_index(
+        vault_root, scope=scope, category=category, raw_protection=raw_protection,
+        wanted_hashes=frozenset({sha256}),
+    ).get(sha256)
+
+
+@dataclass
+class PreserveError(Exception):
+    code: str
+    missing: list[str]
+    reason: str
+
+    def as_dict(self) -> dict:
+        return {"code": self.code, "missing": self.missing, "reason": self.reason}
+
+
+def validate_raw_capture(
+    filename: str | None = None, *, destination: str = "", raw_protection: bool = False,
+) -> bool:
+    """Resolve protection before a canonical write or a duplicate receipt."""
+    from .governance import raw_protection as raw_guard
+
+    protected = raw_protection or raw_guard.marked(str(Path(destination) / _sanitize_filename(filename)))
+    return protected
+
+
+_EMPTY_FILENAME = "filename is empty or only invalid characters"
+
+
+def _artifact_name(
+    vault_root: Path, scope: str, category: str, filename: str | None, *, raw_protection: bool
+) -> tuple[str, bool]:
+    """The name `filename` is stored under in `Evidence/<scope>/<category>/`, and whether it is protected.
+
+    Empty when nothing is left of the name after sanitizing.
+    """
+    from .governance import raw_protection as raw_guard
+
+    safe = _sanitize_filename(filename)
+    protected = validate_raw_capture(
+        safe, destination=str(evidence_folder(vault_root, scope, category).relative_to(vault_root)),
+        raw_protection=raw_protection,
+    )
+    if protected and safe and not raw_guard.marked(safe):
+        safe = raw_guard.PREFIX + safe
+    return safe, protected
+
+
+def _sidecar_path(artifact: Path, *, protected: bool) -> Path:
+    """The page beside an artifact: `<name>.md`, or `<stem>-notes.md` for an unprotected `.md`."""
+    if artifact.name.lower().endswith(".md") and not protected:
+        return artifact.with_name(f"{artifact.name[:-3]}-notes.md")
+    return artifact.with_name(f"{artifact.name}.md")
+
+
+def _sidecar_paths(artifact: Path, *, protected: bool, source: bool = False) -> tuple[Path, ...]:
+    canonical = _sidecar_path(artifact, protected=protected)
+    if source and not protected:
+        # Legacy Source Markdown captures used the fixed `<original>.md` companion format.
+        legacy = _sidecar_path(artifact, protected=True)
+        if legacy != canonical:
+            return canonical, legacy
+    return (canonical,)
+
+
+def stored_artifact(
+    vault_root: Path, *, scope: str, category: str, filename: str, sha256: str, raw_protection: bool = False
+) -> DuplicateArtifact | None:
+    """The artifact `preserve` stored for `filename` here, when its bytes have this SHA-256.
+
+    How a write that a stop interrupted after its commit finds its own result. It
+    reads the artifact and its page directly, so it answers for every page kind,
+    a dataset card included, which the destination index cannot read.
+    """
+    artifact, protected = evidence_artifact(
+        vault_root, scope=scope, category=category, filename=filename, raw_protection=raw_protection
+    )
+    sidecar = _sidecar_path(artifact, protected=protected)
+    digest = hashlib.sha256()
+    try:
+        with artifact.open("rb") as source:
+            while chunk := source.read(_STREAM_CHUNK):
+                digest.update(chunk)
+        ref = memory_refs.ref_from_markdown(sidecar.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return None
+    if digest.hexdigest() != sha256 or not isinstance(ref, str) or not ref:
+        return None
+    return DuplicateArtifact(
+        hash=sha256,
+        path=artifact.relative_to(vault_root).as_posix(),
+        sidecar_path=sidecar.relative_to(vault_root).as_posix(),
+        ref=ref,
+    )
+
+
+#: The one refusal every upload door gives for a destination it may not use.
+_UNAVAILABLE = "target is unavailable"
+_MEMBERS_IN_CAPTURE = "archive members are unavailable in a capture namespace"
+
+
+def admit_destination(
+    vault_root: Path, target: Path, *, directory: bool = False, members: bool = False
+) -> None:
+    """Decide an Evidence destination for the caller before any existence check or write.
+
+    Every upload door calls this first: `preserve`, the duplicate index, archive
+    members and upload-session creation. `target` is the artifact, or with
+    `directory` its folder. A refusal is `WRITE_REFUSED` and says nothing of what
+    the destination holds.
+
+    `members` is an archive kept as its members. Its blobs are written outside
+    the vault's write path, so a capture namespace could not classify them and
+    refuses the manifest after they are written; such an upload refuses here.
+    """
+    from .governance import connector_boundary
+
+    root = Path(vault_root)
+    relative = target.relative_to(root)
+    try:
+        connector_boundary.require_create(root, relative.as_posix(), directory=directory)
+    except ValueError:
+        _raise("WRITE_REFUSED", [], _UNAVAILABLE)
+    if members and connector_boundary.capture_namespace(root, relative.as_posix()):
+        _raise("WRITE_REFUSED", [], _MEMBERS_IN_CAPTURE)
+    # The vault's path guard refuses a linked ancestor; archive blobs and the
+    # duplicate index read and write beside it, so they refuse one here too.
+    parent = root
+    for part in relative.parts if directory else relative.parts[:-1]:
+        parent /= part
+        try:
+            info = parent.lstat()
+        except FileNotFoundError:
+            break
+        except OSError:
+            _raise("WRITE_REFUSED", [], _UNAVAILABLE)
+        if not stat.S_ISDIR(info.st_mode) or _is_reparse(info):
+            _raise("WRITE_REFUSED", [], _UNAVAILABLE)
+
+
+def evidence_folder(vault_root: Path, scope: str, category: str) -> Path:
+    """The Evidence family folder for already-valid destination segments.
+
+    Each folder on the way takes an existing sibling's spelling when it matches
+    by `vault_name_key`, so scope `food` lands in an existing `Food`.
+    """
+    root = kb_root(vault_root)
+    relative = respell_new_path(
+        vault_root, (root / "Evidence" / scope / category).relative_to(vault_root).as_posix()
+    )
+    evidence, scope_spelled, category_spelled = relative.split("/")[-3:]
+    return root / evidence / scope_spelled / category_spelled
+
+
+def evidence_artifact(
+    vault_root: Path, *, scope: str, category: str, filename: str, raw_protection: bool = False
+) -> tuple[Path, bool]:
+    """Where `preserve` stores `filename`, and whether it is protected: a check before the bytes exist.
+
+    The destination segments must already be valid. A name with nothing left after
+    sanitizing is refused `INVALID_PRESERVE`, as `preserve` refuses it.
+    """
+    name, protected = _artifact_name(vault_root, scope, category, filename, raw_protection=raw_protection)
+    if not name:
+        _raise("INVALID_PRESERVE", ["filename"], _EMPTY_FILENAME)
+    return evidence_folder(vault_root, scope, category) / name, protected
+
+
+def preserve(
+    vault_root: Path,
+    *,
+    scope: str,
+    category: str,
+    filename: str,
+    content_base64: str | None = None,
+    content: str | None = None,
+    content_stream: BinaryIO | None = None,
+    content_type: str | None = None,
+    description: str | None = None,
+    text: str | None = None,
+    today: dt.date | None = None,
+    max_decoded_bytes: int = MAX_DECODED_BYTES,
+    max_stream_bytes: int = MAX_UPLOAD_BYTES,
+    adoption_seed: Mapping[str, object] | None = None,
+    text_origin: str = "upload",
+    raw_protection: bool = False,
+) -> PreserveResult:
+    """Capture an artifact to Evidence/<scope>/<category>/<filename>.
+
+    `text_origin` says who supplied `text`: `upload` for an uploader's own
+    extraction, `client` for a transcription an AI client derived from the
+    original, which the page then records against the original's exact bytes.
+    """
+    if text_origin not in ("upload", "client"):
+        raise ValueError("text_origin must be 'upload' or 'client'")
+    missing: list[str] = []
+    reasons: list[str] = []
+
+    # Destination segments are validated, never normalised: what the caller
+    # supplied is what the path uses, or the call is refused naming the field.
+    scope_refusal = destination_segment_refusal(scope, field="scope")
+    scope_safe = "" if scope_refusal else scope
+    if scope_refusal:
+        missing.append("scope")
+        reasons.append(scope_refusal)
+    category_refusal = destination_segment_refusal(category, field="category")
+    category_safe = "" if category_refusal else category
+    if category_refusal:
+        missing.append("category")
+        reasons.append(category_refusal)
+    from .governance import raw_protection as raw_guard
+
+    filename_safe, raw_protection = _artifact_name(
+        vault_root, scope_safe, category_safe, filename, raw_protection=raw_protection
+    )
+    if not filename_safe:
+        missing.append("filename")
+        reasons.append(_EMPTY_FILENAME)
+
+    if sum(x is not None for x in (content_base64, content, content_stream)) != 1:
+        return _raise(
+            "INVALID_PRESERVE",
+            ["content"],
+            "Exactly one of `content_base64`, `content`, or `content_stream` "
+            "must be supplied.",
+        )
+
+    if missing:
+        return _raise("INVALID_PRESERVE", missing, "; ".join(reasons))
+
+    now = today or temporal.now()
+    date_iso = temporal.render_date(now)
+    stamp_iso = temporal.stamp(now)
+    kb = kb_root(vault_root)
+    folder = evidence_folder(vault_root, scope_safe, category_safe)
+    artifact_path = folder / filename_safe
+    admit_destination(vault_root, artifact_path)
+
+    if artifact_path.exists():
+        return _raise(
+            "ARTIFACT_EXISTS",
+            ["filename"],
+            (
+                f"{artifact_path.relative_to(vault_root).as_posix()!r} already "
+                "exists. Evidence is append-only; pick a new filename or rename."
+            ),
+        )
+
+    if content_base64 is not None:
+        try:
+            decoded = base64.b64decode(content_base64, validate=True)
+        except (ValueError, base64.binascii.Error) as e:
+            return _raise(
+                "INVALID_PRESERVE",
+                ["content_base64"],
+                f"could not decode base64: {e}",
+            )
+        if len(decoded) > max_decoded_bytes:
+            return _raise(
+                "TOO_LARGE",
+                ["content_base64"],
+                (
+                    f"decoded size {len(decoded):,} bytes exceeds the "
+                    f"{max_decoded_bytes:,}-byte limit. Don't push large binaries "
+                    "through the model as base64 — it's billed as output tokens. "
+                    "Use the POST /upload endpoint (out-of-band, no token cost) or "
+                    "land it desk-side via Obsidian Sync instead."
+                ),
+            )
+        artifact_bytes = decoded
+        artifact_text = None
+    elif content_stream is not None:
+        # Large binary: copied into a bounded private spool below, so no canonical
+        # path becomes visible before governance preflight and held publication.
+        artifact_bytes = None
+        artifact_text = None
+    else:
+        # content is UTF-8 text; write as-is.
+        artifact_bytes = None
+        artifact_text = content
+
+    warnings: list[str] = folder_split_warnings(
+        vault_root, evidence_folder(vault_root, scope_safe, category_safe)
+    )
+    written_artifact = False
+    sidecar_rel: str | None = None
+    sidecar_ref: str | None = None
+    artifact_size: int | None = None
+    artifact_hash: str | None = None
+    adoption_receipt: dict[str, object] | None = None
+    content_type_effective = (
+        content_type.strip()
+        if content_type and content_type.strip()
+        else mimetypes.guess_type(filename_safe)[0]
+    )
+
+    artifact_stage = tempfile.SpooledTemporaryFile(
+        max_size=min(max(max_decoded_bytes, 1), 8 * 1024 * 1024),
+        mode="w+b",
+    )
+    try:
+        if content_stream is not None:
+            # Stream into a process-private spool first. It spills to disk above
+            # 8 MiB, so large uploads stay bounded in RAM while no canonical path
+            # becomes visible before governance preflight succeeds.
+            artifact_size, artifact_hash = _copy_stream(
+                content_stream, artifact_stage, limit=max_stream_bytes
+            )
+        elif artifact_bytes is not None:
+            artifact_stage.write(artifact_bytes)
+            artifact_size = len(artifact_bytes)
+            artifact_hash = hashlib.sha256(artifact_bytes).hexdigest()
+        else:
+            artifact_text_bytes = (artifact_text or "").encode("utf-8")
+            artifact_stage.write(artifact_text_bytes)
+            artifact_size = len(artifact_text_bytes)
+            artifact_hash = hashlib.sha256(artifact_text_bytes).hexdigest()
+        artifact_stage.seek(0)
+
+        rel_artifact = artifact_path.relative_to(vault_root).as_posix()
+        staged_content: str | PreparedBinaryContent
+        if artifact_text is not None and filename_safe.lower().endswith(".md"):
+            staged_content = artifact_text
+        else:
+            staged_content = PreparedBinaryContent(
+                artifact_stage,
+                artifact_size,
+                artifact_hash,
+            )
+        writes: list[PlannedWrite] = [
+            PlannedWrite(
+                path=artifact_path,
+                content=staged_content,
+                create_only=True,
+                expected_hash=MISSING_CONTENT_HASH,
+            )
+        ]
+
+        # Optional sidecar. Written when there's a short `description` caption
+        # and/or full extracted `text` (the OCR companion that makes a binary
+        # searchable). For binary artifacts the convention is `<filename>.md`
+        # next to the artifact. For .md artifacts that would produce
+        # `<stem>.md.md` (cosmetic but ugly), so use `<stem>-notes.md` instead —
+        # the sidecar belongs alongside, not as a double-ext twin of the artifact.
+        desc_clean = description.strip() if description and description.strip() else None
+        text_clean = text.strip() if text and text.strip() else None
+        inspection = inspect_source(
+            artifact_stage, filename=filename_safe, size=artifact_size
+        )
+        if inspection is not None and inspection.dataset_format:
+            if text_clean:
+                warnings.append("dataset extracted text omitted; use exact queries for row values")
+            text_clean = None
+        elif text_clean:
+            # An explicit uploader extraction keeps its existing behavior.
+            inspection = None
+        # A media binary (audio/video/image/pdf) with no provided text gets a STUB
+        # sidecar — pointer + media_type + `extracted_by: pending` — so it's a
+        # first-class find() result immediately and the extraction worker fills the
+        # text later. The actionable stub is independent of worker availability:
+        # a disabled/unavailable worker can be remediated and retried later.
+        extract = _extract_module()
+        media_type = extract.media_type_for(filename_safe)
+        want_stub = media_type is not None and artifact_text is None and not text_clean
+        # Unconditional, because an artifact with no page is not addressable at
+        # all: no `exomem_id`, no `ingested_into`, and no corpus presence, since
+        # only `.md` is indexed. A preserved transcript used to land exactly
+        # that way, which is why citing it reported the source as missing.
+        sidecar_path = _sidecar_path(folder / filename_safe, protected=raw_protection)
+        if sidecar_path.exists():
+            return _raise(
+                "COMPANION_EXISTS",
+                ["filename"],
+                (
+                    f"{sidecar_path.relative_to(vault_root).as_posix()!r} already "
+                    "exists. Evidence capture cannot adopt or overwrite a companion."
+                ),
+            )
+        else:
+            if text_clean:
+                # The uploader/sandbox supplied the text, or an AI client
+                # transcribed the original it was handed.
+                extracted_by = "client-transcription" if text_origin == "client" else "upload"
+            elif want_stub:
+                extracted_by = "pending"  # the worker will fill it
+            else:
+                extracted_by = None
+            # Artifact provenance is carried everywhere except a pending
+            # media stub. Reconciliation owns those: it re-renders them with
+            # the same fields computed from the binary itself, and writing
+            # them here first would change when its convergence check
+            # decides a stub is already current.
+            describes_artifact = not want_stub
+            sidecar_rel = sidecar_path.relative_to(vault_root).as_posix()
+            adoption_receipt = (
+                _complete_adoption_receipt(
+                    adoption_seed,
+                    stored_path=rel_artifact,
+                    page_path=sidecar_rel,
+                    digest=artifact_hash,
+                    size=artifact_size,
+                    content_type=content_type_effective,
+                )
+                if adoption_seed is not None
+                else None
+            )
+            sidecar_md = _render_sidecar(
+                artifact_name=filename_safe,
+                scope=scope_safe,
+                category=category_safe,
+                date_iso=stamp_iso,
+                description=desc_clean,
+                text=text_clean,
+                media_type=media_type,
+                evidence_file=rel_artifact if media_type else None,
+                extracted_by=extracted_by,
+                binary_sha256=artifact_hash if describes_artifact else None,
+                binary_size=artifact_size if describes_artifact else None,
+                governance_artifact_path=rel_artifact,
+                governance_artifact_sha256=artifact_hash,
+                governance_artifact_size=artifact_size,
+                tree="Evidence",
+                adoption_receipt=adoption_receipt,
+                inspection=inspection,
+                transcription_of=(
+                    {
+                        "sha256": artifact_hash,
+                        "size": artifact_size,
+                        "content_type": content_type_effective,
+                    }
+                    if text_clean and text_origin == "client"
+                    else None
+                ),
+            )
+            if raw_protection:
+                sidecar_md = raw_guard.protect(
+                    sidecar_md, artifact_path=rel_artifact, digest=artifact_hash
+                )
+            sidecar_ref = memory_refs.ref_from_markdown(sidecar_md)
+            writes.insert(
+                0 if raw_protection else len(writes),
+                PlannedWrite(
+                    path=sidecar_path,
+                    content=sidecar_md,
+                    create_only=True,
+                    expected_hash=MISSING_CONTENT_HASH,
+                )
+            )
+
+        # Index + log updates.
+        rel_artifact_for_summary = rel_artifact.replace(kb_prefix(), "")
+        activity_summary = (
+            f"`{rel_artifact_for_summary}` (evidence, {scope_safe}/{category_safe}, "
+            f"mobile via exomem)"
+        )
+        log_body = (
+            f"Mobile preserve via exomem. scope={scope_safe}, "
+            f"category={category_safe}, filename={filename_safe}."
+        )
+        if description and description.strip():
+            desc_one_line = description.strip().replace("\n", " ")
+            if len(desc_one_line) > 280:
+                desc_one_line = desc_one_line[:277] + "…"
+            log_body += f" Description: {desc_one_line}"
+
+        top_index = kb / "index.md"
+        if top_index.exists() and not raw_protection:
+            current_top, _guard = read_guarded_text(vault_root, top_index)
+            new_top, _trim_note = indexes._prepend_recent_activity(
+                with_newline(current_top, "\n"),
+                date_iso=date_iso,
+                summary=activity_summary,
+            )
+            new_top = with_newline(new_top, document_newline(current_top))
+            # Evidence writes don't change Notes/Entities counts, but keeping
+            # the sub-index refresh in the path makes drift impossible to
+            # accumulate from any write op (cheap walk; no-op if already-fresh).
+            sub_writes, new_top_with_counts = indexes.compute_subindex_writes(
+                vault_root, top_index_text=new_top
+            )
+            if new_top_with_counts is not None:
+                new_top = new_top_with_counts
+            # Cap-50 trim is recorded in log.md; no per-write warning needed.
+            writes.append(
+                PlannedWrite(
+                    path=top_index,
+                    content=new_top,
+                    expected_hash=content_hash(current_top),
+                )
+            )
+            writes.extend(sub_writes)
+        elif not raw_protection:
+            warnings.append(f"{kb_prefix()}index.md missing; skipped Recent activity bump")
+
+        log_file = kb / "log.md"
+        if log_file.exists() and not raw_protection:
+            current_log, _guard = read_guarded_text(vault_root, log_file)
+            new_log = _prepend_log_entry(
+                current_log,
+                date_iso=stamp_iso,
+                rel_path=rel_artifact,
+                body=log_body,
+            )
+            writes.append(
+                PlannedWrite(
+                    path=log_file,
+                    content=new_log,
+                    expected_hash=content_hash(current_log),
+                )
+            )
+        elif not raw_protection:
+            warnings.append(f"{kb_prefix()}log.md missing; skipped log entry")
+
+        from .governance import catalog_publication, graph_producer
+
+        def graph_replacement_provider():
+            return graph_producer.replacements_for_planned_markdown(
+                vault_root,
+                before_corpus=semantic_contract.build_corpus_context(vault_root),
+                writes=tuple(writes),
+            )
+
+        try:
+            prepared_catalog = catalog_publication.prepare_planned_markdown_batch(
+                vault_root,
+                writes=tuple(writes),
+                graph_replacement_provider=graph_replacement_provider,
+            )
+        except catalog_publication.CatalogPublicationError as error:
+            raise catalog_publication.CatalogCommitError(
+                "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+                str(error),
+            ) from error
+
+        # The held batch owns the artifact, companion, index, and log as one
+        # caught-failure rollback set. The binary stage is copied without ever
+        # materializing a large upload fully in memory.
+        batch_atomic_write(writes, vault_root=vault_root)
+        written_artifact = True
+        try:
+            catalog_publication.publish_markdown_batch(prepared_catalog)
+        except catalog_publication.CatalogPublicationError as error:
+            raise catalog_publication.CatalogCommitError(
+                "GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+                str(error),
+            ) from error
+
+    except Exception as e:
+        if privacy_log.content_private_logging_enabled():
+            log.error(
+                "hosted preserve failed code=HOSTED_PRESERVE_FAILED artifact_written=%s",
+                written_artifact,
+            )
+        else:
+            log.exception("preserve() failed mid-write; artifact_written=%s", written_artifact)
+        warnings.append(f"partial write — reconcile on desktop: {e}")
+        raise
+    finally:
+        artifact_stage.close()
+
+    from .media_store import enqueue_offload
+
+    enqueue_offload(vault_root, artifact_path)
+    return PreserveResult(
+        path=artifact_path.relative_to(vault_root).as_posix(),
+        sidecar_path=sidecar_rel,
+        warnings=warnings,
+        ref=sidecar_ref,
+        size=artifact_size,
+        hash=artifact_hash,
+        hash_algorithm="sha256" if artifact_hash else None,
+        media_id=f"sha256:{artifact_hash}" if artifact_hash else None,
+        content_type=content_type_effective,
+        adoption=adoption_receipt,
+    )
+
+
+def preserve_stream(
+    vault_root: Path,
+    *,
+    scope: str,
+    category: str,
+    filename: str,
+    stream: BinaryIO,
+    content_type: str | None = None,
+    description: str | None = None,
+    text: str | None = None,
+    today: dt.date | None = None,
+    max_bytes: int = MAX_UPLOAD_BYTES,
+    adoption_seed: Mapping[str, object] | None = None,
+    text_origin: str = "upload",
+    raw_protection: bool = False,
+) -> PreserveResult:
+    """Capture a binary STREAM to Evidence/ — the entrypoint for HTTP /upload.
+
+    The bytes arrive out-of-band (multipart over HTTP) and are copied to disk in
+    chunks, so a multi-hundred-MB upload never materializes fully in RAM — peak
+    memory is one chunk. Funnels through `preserve()` so there is exactly ONE write
+    path with identical sanitization, append-only overwrite refusal, sidecar, and
+    index/log behavior. The byte cap is enforced during the copy.
+
+    `text` is the artifact's extracted/OCR'd text — it becomes the embedded sidecar
+    body so the binary is findable by its content (the OCR companion).
+    """
+    return preserve(
+        vault_root,
+        scope=scope,
+        category=category,
+        filename=filename,
+        content_stream=stream,
+        content_type=content_type,
+        description=description,
+        text=text,
+        today=today,
+        max_stream_bytes=max_bytes,
+        adoption_seed=adoption_seed,
+        text_origin=text_origin,
+        raw_protection=raw_protection,
+    )
+
+
+def preserve_bytes(
+    vault_root: Path,
+    *,
+    scope: str,
+    category: str,
+    filename: str,
+    data: bytes,
+    content_type: str | None = None,
+    description: str | None = None,
+    text: str | None = None,
+    today: dt.date | None = None,
+    max_bytes: int = MAX_UPLOAD_BYTES,
+    adoption_seed: Mapping[str, object] | None = None,
+    raw_protection: bool = False,
+) -> PreserveResult:
+    """Capture an in-memory `bytes` artifact to Evidence/ (back-compat wrapper).
+
+    Routes through the streaming path (no base64 round-trip) by wrapping the bytes
+    in a BytesIO. Prefer `preserve_stream` when the source is already a file-like
+    (e.g. an HTTP upload's spooled temp file) so nothing is buffered whole.
+    """
+    return preserve_stream(
+        vault_root,
+        scope=scope,
+        category=category,
+        filename=filename,
+        stream=io.BytesIO(data),
+        content_type=content_type,
+        description=description,
+        text=text,
+        today=today,
+        max_bytes=max_bytes,
+        adoption_seed=adoption_seed,
+        raw_protection=raw_protection,
+    )
+
+
+# ---------------- helpers ----------------
+
+
+_STREAM_CHUNK = 1024 * 1024  # 1 MiB copy buffer
+
+
+def _copy_stream(
+    stream: BinaryIO,
+    destination: IO[bytes],
+    *,
+    limit: int,
+) -> tuple[int, str]:
+    """Copy a binary stream into a private destination under an exact cap."""
+
+    try:
+        stream.seek(0)
+    except (OSError, AttributeError, ValueError):
+        pass  # non-seekable stream: copy from the current position
+    written = 0
+    digest = hashlib.sha256()
+    while True:
+        buf = stream.read(_STREAM_CHUNK)
+        if not buf:
+            break
+        written += len(buf)
+        if written > limit:
+            _raise("TOO_LARGE", ["file"], f"upload exceeds the {limit:,}-byte limit")
+        digest.update(buf)
+        destination.write(buf)
+    return written, digest.hexdigest()
+
+
+_INVALID_PATH_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _sanitize_segment(s: str | None) -> str:
+    """Strip path separators and reserved chars from a path segment.
+
+    Used for scope/category — must not allow `..` traversal or absolute paths.
+    """
+    if not s:
+        return ""
+    cleaned = _INVALID_PATH_CHARS.sub("", s.strip())
+    # Reject anything that's just dots (could be `.` or `..`)
+    if cleaned and cleaned.replace(".", "") == "":
+        return ""
+    return cleaned
+
+
+#: What a destination segment is allowed to be, said once so every refusal
+#: quotes the same sentence back to the caller.
+DESTINATION_ACCEPTED_FORM = "one path segment; nest with category, not with '/'"
+#: The filesystem component limit every target platform shares. Beyond it the
+#: write dies inside the commit with a bare `OSError`, after every handle in
+#: the batch has already been staged -- which is the opposite of refusing
+#: before a byte moves.
+DESTINATION_SEGMENT_MAX_CHARS = 255
+#: Reserved on Windows with or without an extension, and a directory by one of
+#: these names cannot be created there at all.
+_WINDOWS_RESERVED_SEGMENTS = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{index}" for index in range(1, 10)}
+    | {f"lpt{index}" for index in range(1, 10)}
+)
+
+
+def destination_segment_refusal(value: object, *, field: str) -> str | None:
+    """Why `value` is not one clean destination segment, or None if it is.
+
+    Validation, never normalisation. `_sanitize_segment` deletes the offending
+    character and writes somewhere else: a scope `work/orders` would land in
+    `Evidence/workorders/`, splitting one logical case across two trees. A
+    refusal costs the caller one corrected call and names the field; a silent
+    fork costs a reader the case.
+    """
+    if not isinstance(value, str) or not value:
+        return f"{field} is required as {DESTINATION_ACCEPTED_FORM}"
+    if value != value.strip():
+        return f"{field} has leading or trailing whitespace; use {DESTINATION_ACCEPTED_FORM}"
+    # Bytes, not characters: the filesystem limit is a byte limit, and a byte
+    # length can only exceed a character length under UTF-8, never fall short.
+    if len(value.encode("utf-8")) > DESTINATION_SEGMENT_MAX_CHARS:
+        return (
+            f"{field} is longer than {DESTINATION_SEGMENT_MAX_CHARS} characters; "
+            f"use {DESTINATION_ACCEPTED_FORM}"
+        )
+    match = _INVALID_PATH_CHARS.search(value)
+    offending = match.group(0) if match is not None else None
+    if offending is None:
+        # Control, format, surrogate, private-use and unassigned code points.
+        # `U+200B` and the bidi overrides are invisible in a path and make two
+        # different destinations look like one to a reader.
+        offending = next(
+            (char for char in value if unicodedata.category(char).startswith("C")), None
+        )
+    if offending is not None:
+        rendered = offending if offending.isprintable() else "a control character"
+        return f"{field} cannot contain {rendered}; use {DESTINATION_ACCEPTED_FORM}"
+    if value.replace(".", "") == "":
+        return f"{field} cannot be '.' or '..'; use {DESTINATION_ACCEPTED_FORM}"
+    if value.endswith("."):
+        return f"{field} cannot end with '.'; use {DESTINATION_ACCEPTED_FORM}"
+    if value.split(".", 1)[0].lower() in _WINDOWS_RESERVED_SEGMENTS:
+        return f"{field} is a reserved device name; use {DESTINATION_ACCEPTED_FORM}"
+    if value != _sanitize_segment(value):
+        return f"{field} is not {DESTINATION_ACCEPTED_FORM}"
+    return None
+
+
+def _sanitize_filename(s: str | None) -> str:
+    """Same as _sanitize_segment but allows the trailing extension dot."""
+    if not s:
+        return ""
+    cleaned = _INVALID_PATH_CHARS.sub("", s.strip())
+    if cleaned and cleaned.replace(".", "") == "":
+        return ""
+    return cleaned
+
+
+#: The append-only trees an artifact can live in, each mapped to the singular
+#: label its page uses in a title and a lead tag. A map rather than string
+#: surgery, so "Sources" -> "Source" is stated once and cannot be re-derived
+#: differently by the next caller.
+_ARTIFACT_TREE_LABELS = {"Evidence": "Evidence", "Sources": "Source"}
+_ARTIFACT_TREES = tuple(_ARTIFACT_TREE_LABELS)
+
+
+def artifact_location(relative_path: str) -> tuple[str, str, str]:
+    """Return `(tree, scope, category)` for a vault-relative artifact path.
+
+    Scope and category are simply the folders below the top-level tree, so they
+    are read positionally from wherever that tree is rather than from one
+    tree's name. Two callers used to search for a literal `evidence` segment and
+    default when there was none, which meant an artifact under `Sources/`
+    produced `evidence`/`uncategorized` — a locator line and a tag set naming a
+    folder that does not exist.
+
+    The fallback for a path in neither tree is unchanged, because there is no
+    better answer and a caller that reaches it has already lost the labels.
+    """
+    parts = Path(relative_path).parts
+    index = next(
+        (i for i, part in enumerate(parts) if part.casefold() in
+         {tree.casefold() for tree in _ARTIFACT_TREES}),
+        None,
+    )
+    if index is None:
+        return "Evidence", "evidence", "uncategorized"
+    tree = next(
+        name for name in _ARTIFACT_TREES if name.casefold() == parts[index].casefold()
+    )
+    folders = parts[index + 1 : -1]
+    scope = folders[0] if folders else tree.lower()
+    category = folders[1] if len(folders) > 1 else "uncategorized"
+    return tree, scope, category
+
+
+def _render_sidecar(
+    *,
+    artifact_name: str,
+    scope: str,
+    category: str,
+    date_iso: str,
+    description: str | None = None,
+    text: str | None = None,
+    media_type: str | None = None,
+    evidence_file: str | None = None,
+    extracted_by: str | None = None,
+    parent_media: str | None = None,
+    frame_ts: float | None = None,
+    binary_sha256: str | None = None,
+    binary_size: int | None = None,
+    governance_artifact_path: str | None = None,
+    governance_artifact_sha256: str | None = None,
+    governance_artifact_size: int | None = None,
+    governance_parent_path: str | None = None,
+    governance_parent_sha256: str | None = None,
+    governance_frame_timestamp_ms: int | None = None,
+    tree: str = "Evidence",
+    adoption_receipt: Mapping[str, object] | None = None,
+    inspection: Inspection | None = None,
+    transcription_of: Mapping[str, object] | None = None,
+) -> str:
+    """Sidecar .md describing a preserved binary artifact.
+
+    Uses `type: source` (with `source_type: other`) since the page-type
+    taxonomy doesn't have a dedicated `evidence` type. Tags surface the
+    evidence + scope context.
+
+    `description` is a short human caption; `text` is the full extracted/OCR'd
+    content of the artifact. Either or both may be present (the caller only
+    writes a sidecar when at least one is). The `## Extracted text` body is what
+    makes an otherwise-opaque binary findable once the sidecar is embedded.
+
+    For a media binary the frontmatter also carries `media_type`
+    (audio/video/image/pdf), `evidence_file` (a vault-relative pointer to the
+    original), and `extracted_by` (`pending` until the extraction worker fills
+    the text, then the engine string; `upload` when the uploader supplied it).
+    These make the binary a first-class `find()` result that points at the file.
+
+    `parent_media` + `frame_ts` mark a derived artifact — a scene frame extracted
+    from a video at `frame_ts` seconds. `find` groups such children under the
+    parent's hit, and CLIP-enqueue points skip them (the parent's per-scene
+    vectors own visual search).
+    """
+    lines = ["---"]
+    dataset_format = inspection.dataset_format if inspection is not None else None
+    if dataset_format and governance_artifact_path is None:
+        raise ValueError("dataset card requires an exact artifact binding")
+    lines.append("type: source")
+    lines.append(f"exomem_id: {memory_refs.new_id()}")
+    label = _ARTIFACT_TREE_LABELS.get(tree, "Evidence")
+    display_title = f"{label}: {artifact_name}"
+    lines.append(f"title: {yaml_scalar(display_title)}")
+    lines.append("source_type: dataset-export" if dataset_format else "source_type: other")
+    lines.append(f"captured: {date_iso}")
+    if inspection is not None:
+        lines.append(f"inspection_status: {inspection.status}")
+    if dataset_format:
+        lines.append(f"data_file: {yaml_scalar(governance_artifact_path)}")
+        lines.append(f"format: {dataset_format}")
+        if inspection.rows is not None:
+            lines.append(f"rows: {inspection.rows}")
+    if media_type:
+        lines.append(f"media_type: {media_type}")
+    if evidence_file:
+        lines.append(f"evidence_file: {evidence_file}")
+    if extracted_by:
+        lines.append(f"extracted_by: {extracted_by}")
+    # Upload supplies byte identity, not a reviewed semantic classification.
+    # Dataset backfill can add the descriptor after an owner review. Retaining
+    # unresolved semantics prevents new raw releases under semantic policies.
+    if governance_artifact_path is not None and not dataset_format:
+        if governance_artifact_sha256 is None or governance_artifact_size is None:
+            raise ValueError("governance companion requires an exact artifact identity")
+        scene_binding = any(
+            value is not None
+            for value in (
+                governance_parent_path,
+                governance_parent_sha256,
+                governance_frame_timestamp_ms,
+            )
+        )
+        if scene_binding and (
+            governance_parent_path is None
+            or governance_parent_sha256 is None
+            or type(governance_frame_timestamp_ms) is not int
+            or not 0 <= governance_frame_timestamp_ms <= 4_294_967_295
+            or parent_media != governance_parent_path
+            or media_type != "image"
+        ):
+            raise ValueError("scene-frame companion requires an exact parent binding")
+        artifact_class = (
+            "scene_frame" if scene_binding else ("media" if media_type else "binary")
+        )
+        lines.extend(
+            (
+                "governance_companion:",
+                "  version: 1",
+                "  state: classified",
+                f"  artifact_class: {artifact_class}",
+                f"  artifact_path: {yaml_scalar(governance_artifact_path)}",
+                f"  artifact_sha256: {governance_artifact_sha256}",
+                f"  artifact_size: {governance_artifact_size}",
+            )
+        )
+        if scene_binding:
+            lines.extend(
+                (
+                    f"  parent_path: {yaml_scalar(governance_parent_path)}",
+                    f"  parent_sha256: {governance_parent_sha256}",
+                    f"  frame_timestamp_ms: {governance_frame_timestamp_ms}",
+                )
+            )
+        elif media_type:
+            lines.append(f"  media_type: {media_type}")
+            lines.append(f"  original_filename: {yaml_scalar(artifact_name)}")
+        lines.extend(
+            (
+                "  semantics:",
+                "    projects: []",
+                "    tags: []",
+                "    types: []",
+                "    classes: []",
+            )
+        )
+    # Same field names the media pipeline already writes and checks, so a page
+    # written here and one re-rendered by reconciliation describe an artifact
+    # in one vocabulary rather than two.
+    if binary_sha256:
+        lines.append(f"original_filename: {yaml_scalar(artifact_name)}")
+        lines.append(f"binary_sha256: {binary_sha256}")
+        if binary_size is not None:
+            lines.append(f"binary_size: {binary_size}")
+    if adoption_receipt is not None:
+        lines.extend(_render_adoption_receipt_lines(adoption_receipt))
+    if transcription_of is not None:
+        # A client transcription is derived from exactly these bytes; the
+        # binding outlives any later re-extraction of the page.
+        lines.append("transcription:")
+        lines.append("  origin: client")
+        lines.append(f"  sha256: {transcription_of['sha256']}")
+        lines.append(f"  size: {transcription_of['size']}")
+        lines.append(f"  content_type: {yaml_scalar(transcription_of['content_type'] or '')}")
+    if parent_media:
+        lines.append(f"parent_media: {parent_media}")
+    if frame_ts is not None:
+        lines.append(f"frame_ts: {frame_ts}")
+    tags = [
+        label.lower(),
+        scope.lower().replace(" ", "-"),
+        category.lower().replace(" ", "-"),
+    ]
+    if parent_media:
+        tags.append("scene-frame")
+    # Tags remain strings even when YAML would otherwise parse a date or boolean.
+    lines.append("tags: [" + ", ".join(yaml_scalar(tag) for tag in tags) + "]")
+    lines.append("ingested_into: []")
+    lines.append("---")
+    lines.append("")
+    lines.append(f"# {display_title}")
+    lines.append("")
+    lines.append(f"Preserved under `{tree}/{scope}/{category}/`.")
+    lines.append("")
+    if description:
+        lines.append("## Description")
+        lines.append("")
+        lines.append(description)
+        lines.append("")
+    if inspection is not None:
+        lines.extend([
+            "## Dataset" if dataset_format else "## Text preview",
+            "", inspection.body, "",
+        ])
+    # Emit the section when there's extracted text, or as an empty anchor for a
+    # media stub the worker will fill. A pure-description (non-media) sidecar omits it.
+    if text or media_type:
+        lines.append("## Extracted text")
+        lines.append("")
+        if text:
+            lines.append(_cap_extracted_text(text))
+            lines.append("")
+    # A page with no caption, no extracted text, and no media stub would
+    # otherwise have an empty body, which `schema.validate_source` treats as an
+    # invalid source. Describing the artifact is also the only thing this page
+    # can honestly say about bytes it does not inline.
+    if not description and not text and binary_sha256:
+        lines.append(SIDECAR_ARTIFACT_SENTINEL)
+        lines.append("## Artifact")
+        lines.append("")
+        lines.append(f"- Original filename: `{artifact_name}`")
+        lines.append(f"- SHA-256: `{binary_sha256}`")
+        if binary_size is not None:
+            lines.append(f"- Bytes: {binary_size}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def ensure_media_sidecar(
+    vault_root: Path, binary_path: Path, *, today: dt.date | None = None
+) -> tuple[Path, bool]:
+    """Ensure an Evidence media binary has a sidecar — the back-fill of pre-feature files.
+
+    Images/PDFs/audio dropped into Evidence/ before server-side extraction existed have no
+    `.md` sidecar, so `find()` can't surface them (a CLIP/text match maps to `<file>.md`,
+    which doesn't exist). This writes a minimal stub (`media_type` + `evidence_file` pointer,
+    `extracted_by: none`) and embeds it. Idempotent: returns (existing_sidecar, False) if one
+    already exists, else (new_sidecar, True). Used by `exomem backfill-media`.
+    """
+    extract = _extract_module()
+    media_type = extract.media_type_for(binary_path)
+    if media_type is None:
+        raise ValueError(f"not an extractable media file: {binary_path.name!r}")
+    name = binary_path.name
+    if name.lower().endswith(".md"):
+        sidecar = binary_path.with_name(name[:-3] + "-notes.md")
+    else:
+        sidecar = binary_path.with_name(name + ".md")
+    from .governance import connector_boundary
+
+    connector_boundary.require_create(vault_root, sidecar.relative_to(vault_root).as_posix(), replace_existing=True)
+    if sidecar.exists():
+        return sidecar, False
+    rel = binary_path.resolve().relative_to(vault_root.resolve()).as_posix()
+    tree, scope, category = artifact_location(rel)
+    md = _render_sidecar(
+        artifact_name=name,
+        scope=scope,
+        category=category,
+        date_iso=temporal.stamp(today or temporal.now()),
+        media_type=media_type,
+        evidence_file=rel,
+        extracted_by="none",  # not pending → the auto OCR scan ignores it; backfill OCRs it
+        tree=tree,
+    )
+    commit_media_sidecar_writes(
+        vault_root,
+        (
+            PlannedWrite(
+                path=sidecar,
+                content=md,
+                expected_hash=MISSING_CONTENT_HASH,
+            ),
+        ),
+    )
+    return sidecar, True
+
+
+def ensure_artifact_page(
+    vault_root: Path, binary_path: Path, *, today: dt.date | None = None
+) -> tuple[Path, bool]:
+    """Ensure any stored artifact has the page that makes it addressable.
+
+    The general form of `ensure_media_sidecar`, and the back-fill for artifacts
+    that predate the page being unconditional. Whether a page was written used
+    to depend on whether the extension was extractable, so a `.csv`, `.eml`, or
+    `.json` preserved earlier has bytes and nothing else — no `exomem_id`, no
+    `ingested_into`, and no corpus presence, because only `.md` is indexed.
+
+    Media still goes through `ensure_media_sidecar`: those pages are
+    reconciliation's to own, and describing one here would put the capture path
+    back inside a contract it does not hold. Everything else gets its identity
+    written directly, since nothing else will ever write it.
+
+    Idempotent: returns `(existing_page, False)` when one is already there.
+    """
+    extract = _extract_module()
+    if extract.media_type_for(binary_path) is not None:
+        return ensure_media_sidecar(vault_root, binary_path, today=today)
+
+    name = binary_path.name
+    if name.lower().endswith(".md"):
+        page = binary_path.with_name(f"{name[:-3]}-notes.md")
+    else:
+        page = binary_path.with_name(f"{name}.md")
+    from .governance import connector_boundary
+
+    connector_boundary.require_create(vault_root, page.relative_to(vault_root).as_posix(), replace_existing=True)
+    if page.exists():
+        return page, False
+
+    rel = binary_path.resolve().relative_to(vault_root.resolve()).as_posix()
+    tree, scope, category = artifact_location(rel)
+    digest = hashlib.sha256()
+    size = 0
+    with binary_path.open("rb") as stream:
+        while chunk := stream.read(_STREAM_CHUNK):
+            digest.update(chunk)
+            size += len(chunk)
+    markdown = _render_sidecar(
+        artifact_name=name,
+        scope=scope,
+        category=category,
+        date_iso=temporal.stamp(today or temporal.now()),
+        evidence_file=rel,
+        binary_sha256=digest.hexdigest(),
+        binary_size=size,
+        tree=tree,
+    )
+    commit_media_sidecar_writes(
+        vault_root,
+        (
+            PlannedWrite(
+                path=page,
+                content=markdown,
+                expected_hash=MISSING_CONTENT_HASH,
+            ),
+        ),
+    )
+    return page, True
+
+
+_EXTRACTED_HEADING = "## Extracted text"
+#: The section after the extracted text that holds the OCR words under the confidence floor. It
+#: stays in the sidecar, and no search field reads it (`without_low_confidence_ocr`).
+LOW_CONFIDENCE_OCR_HEADING = "## Low-confidence OCR"
+#: The machine-written line before that heading, and the cut for the section: a heading proves no
+#: ownership, because the OCR text may hold one, as the notes and artifact sentinels below show.
+SIDECAR_LOW_CONFIDENCE_SENTINEL = "<!-- exomem:sidecar-low-confidence-ocr -->"
+OCR_CONFIDENCE_FIELD = "ocr_confidence"
+SIDECAR_ARTIFACT_SENTINEL = "<!-- exomem:sidecar-artifact -->"
+SIDECAR_PRESERVED_NOTES_SENTINEL = "<!-- exomem:sidecar-preserved-notes -->"
+_LEGACY_ARTIFACT_BLOCK_RE = re.compile(
+    r"(?m)^## Artifact\n\n- Original filename: `[^`\n]+`\n"
+    r"- SHA-256: `[0-9a-f]{64}`(?:\n- Bytes: \d+)?\n?\Z"
+)
+
+
+#: What ends the extracted text. The sentinels and the legacy artifact block are machine-owned;
+#: a legacy `## Preserved notes` title carries no proof of who owns what follows it.
+_END_NOTES_SENTINEL = "notes-sentinel"
+_END_ARTIFACT_SENTINEL = "artifact-sentinel"
+_END_LEGACY_ARTIFACT = "legacy-artifact"
+_END_LEGACY_NOTES = "legacy-notes"
+_END_OF_FILE = "end-of-file"
+
+
+def _extraction_end(content: str, start: int) -> tuple[int, str]:
+    """Where the extracted text that starts at `start` ends, and what ends it.
+
+    The offset is that of the newline before the boundary, or the end of the content.
+    """
+    boundaries = (
+        content.rfind(f"\n{SIDECAR_PRESERVED_NOTES_SENTINEL}\n", start),
+        content.rfind(f"\n{SIDECAR_ARTIFACT_SENTINEL}\n", start),
+    )
+    after = max(boundaries)
+    if after != -1:
+        return after, _END_NOTES_SENTINEL if after == boundaries[0] else _END_ARTIFACT_SENTINEL
+    legacy_artifact = _LEGACY_ARTIFACT_BLOCK_RE.search(content, start)
+    if legacy_artifact is not None:
+        return legacy_artifact.start() - 1, _END_LEGACY_ARTIFACT
+    notes = content.find("\n## Preserved notes\n", start)
+    if notes != -1:
+        return notes, _END_LEGACY_NOTES
+    return len(content), _END_OF_FILE
+
+
+def low_confidence_block(words: str) -> str:
+    """The section that holds `words`, from its sentinel to its last line."""
+    return f"{SIDECAR_LOW_CONFIDENCE_SENTINEL}\n{LOW_CONFIDENCE_OCR_HEADING}\n\n{words}\n"
+
+
+def _low_confidence_start(content: str, start: int, end: int) -> int | None:
+    """Where the low-confidence section begins inside the extraction that spans `[start, end)`."""
+    found = content.rfind(f"\n{SIDECAR_LOW_CONFIDENCE_SENTINEL}\n", start, end + 1)
+    return None if found == -1 else found + 1
+
+
+def extracted_text(content: str) -> str:
+    """The text under `## Extracted text`, up to the sidecar's machine-owned boundary.
+
+    The low-confidence OCR section is not part of it: it is the words the extraction withheld.
+    """
+    content = with_newline(content, "\n")
+    heading = content.find(_EXTRACTED_HEADING)
+    if heading == -1:
+        return ""
+    start = heading + len(_EXTRACTED_HEADING)
+    end = _extraction_end(content, start)[0]
+    section = _low_confidence_start(content, start, end)
+    return content[start : end if section is None else section].strip()
+
+
+def low_confidence_text(content: str) -> str:
+    """The words under `## Low-confidence OCR`, or an empty string when the sidecar has none."""
+    content = with_newline(content, "\n")
+    heading = content.find(_EXTRACTED_HEADING)
+    if heading == -1:
+        return ""
+    start = heading + len(_EXTRACTED_HEADING)
+    end = _extraction_end(content, start)[0]
+    section = _low_confidence_start(content, start, end)
+    if section is None:
+        return ""
+    opening = f"{SIDECAR_LOW_CONFIDENCE_SENTINEL}\n{LOW_CONFIDENCE_OCR_HEADING}"
+    return content[section:end].removeprefix(opening).strip()
+
+
+def without_low_confidence_ocr(content: str) -> str:
+    """`content` without its `## Low-confidence OCR` section; unchanged when it has none.
+
+    This is the one cut every search field reads through (`find_types.ParsedPage.search_body`).
+    The section runs to the machine-owned boundary after the extraction, so the artifact block
+    and the preserved notes behind it stay.
+    """
+    if SIDECAR_LOW_CONFIDENCE_SENTINEL not in content:
+        return content
+    text = with_newline(content, "\n")
+    heading = text.find(_EXTRACTED_HEADING)
+    if heading == -1:
+        return content
+    start = heading + len(_EXTRACTED_HEADING)
+    end = _extraction_end(text, start)[0]
+    section = _low_confidence_start(text, start, end)
+    if section is None:
+        return content
+    return text[:section] + text[end:].lstrip("\n")
+
+
+def _has_ambiguous_legacy_preserved_notes(content: str) -> bool:
+    """Whether a nonempty legacy notes block lacks an ownership boundary."""
+    heading = content.find(_EXTRACTED_HEADING)
+    if heading == -1:
+        return False
+    start = heading + len(_EXTRACTED_HEADING)
+    after, kind = _extraction_end(content, start)
+    return kind == _END_LEGACY_NOTES and bool(content[start:after].strip())
+
+
+def _is_repeated_extraction_residual(boundary: str, text: str) -> bool:
+    """Whether a trusted notes section is only repeated fresh extraction output."""
+    marker = f"{SIDECAR_PRESERVED_NOTES_SENTINEL}\n"
+    if boundary.startswith(marker):
+        boundary = boundary.removeprefix(marker)
+    prefix = "## Preserved notes\n\n"
+    if not boundary.startswith(prefix):
+        return False
+    extraction = text.strip()
+    if not extraction:
+        return False
+    residual = boundary.removeprefix(prefix).strip()
+    copy = re.escape(extraction)
+    return re.fullmatch(rf"{copy}(?:\s+{copy}){{2,}}", residual) is not None
+
+
+def update_sidecar_extraction(
+    vault_root: Path, sidecar_path: Path, *, text: str, engine: str,
+    speakers: list[dict] | None = None,
+    speaker_verification: str | None = None,
+    attempts: int | None = None,
+    ocr: OcrFacts | None = None,
+    defer_index_fanout: bool = False,
+    defer_graph_completion: bool = False,
+) -> list[Path] | DeferredGraphCompletion:
+    """Fill a pending media sidecar with extracted text + engine, and re-embed.
+
+    Called by the extraction worker once ASR/OCR/PDF text is ready: sets
+    `extracted_by: <engine>` in the frontmatter and replaces the `## Extracted text`
+    body, then writes via `batch_atomic_write(vault_root=)` so the sidecar is
+    re-embedded and immediately findable by its content. `engine` may be a
+    `failed: …` marker so a permanent failure stops the restart re-enqueue loop.
+
+    `speakers` (optional, from opt-in ASR diarization) carries the structured turn
+    list; when present its distinct speaker labels are recorded as a `speakers:`
+    frontmatter list so the transcript's `[Speaker A]: …` turns are also queryable
+    structurally. Omitted (None/empty) leaves the frontmatter unchanged — every
+    existing call site is unaffected.
+    """
+    before, guard = read_guarded_text(vault_root, sidecar_path)
+    content = render_sidecar_extraction(
+        before,
+        text=text,
+        engine=engine,
+        speakers=speakers,
+        speaker_verification=speaker_verification,
+        attempts=attempts,
+        ocr=ocr,
+    )
+    return commit_media_sidecar_writes(
+        vault_root,
+        (
+            PlannedWrite(
+                path=sidecar_path,
+                content=content,
+                expected_hash=content_hash(before),
+                guard=guard,
+            ),
+        ),
+        post_commit_fanout=not defer_index_fanout,
+        defer_graph_completion=defer_graph_completion,
+    )
+
+
+#: Frontmatter that describes one extraction rather than the recording. A reprocess moves these
+#: with the old text. They are the sidecar schema's own field names, a closed set.
+_SPEAKER_FIELDS = ("speakers", "speaker_verification")
+_ASR_FIELD_PREFIX = "asr_"
+_EXTRACTION_FIELDS = frozenset({
+    "extracted_by", "processing_state", "processing_attempts", "processing_error",
+    "processing_retryable", "processing_next_action", OCR_CONFIDENCE_FIELD, *_SPEAKER_FIELDS,
+})
+
+
+def is_extraction_field(key: str) -> bool:
+    """Whether a sidecar frontmatter key describes the extraction held under `## Extracted text`."""
+    return key in _EXTRACTION_FIELDS or key.startswith(_ASR_FIELD_PREFIX)
+
+
+def render_sidecar_extraction(
+    before: str,
+    *,
+    text: str,
+    engine: str,
+    speakers: list[dict] | None = None,
+    speaker_verification: str | None = None,
+    attempts: int | None = None,
+    asr: AsrFacts | None = None,
+    ocr: OcrFacts | None = None,
+    prior_extractions: tuple[str, ...] = (),
+    reset_speakers: bool = False,
+) -> str:
+    """Render an extraction sidecar without touching canonical or derived state.
+
+    `asr` records what the speech engine decided; facts of an earlier extraction never
+    survive into the new one. `ocr` records the confidence of an image's OCR and holds the
+    words it withheld under `## Low-confidence OCR`; an extraction without it records neither.
+    `prior_extractions` lists, in order, the vault-relative
+    paths (no extension) of the pages that hold the extractions this one replaced.
+    `reset_speakers` drops the speaker fields of the replaced transcript, whose labels
+    do not describe the new one.
+    """
+    newline = document_newline(before)
+    before = with_newline(before, "\n")
+    if _has_ambiguous_legacy_preserved_notes(before):
+        raise PreserveError(
+            code="AMBIGUOUS_SIDECAR_BOUNDARY",
+            missing=[],
+            reason="unmarked nonempty preserved notes have no machine-owned boundary",
+        )
+    content = before
+    if reset_speakers:
+        content = _remove_frontmatter_fields(content, lambda key: key in _SPEAKER_FIELDS)
+    content = _set_frontmatter_field(content, "extracted_by", engine)
+    content = _set_frontmatter_field(content, "processing_state", "completed")
+    content = _set_frontmatter_field(content, "processing_error", "null")
+    content = _set_frontmatter_field(content, "processing_retryable", "false")
+    content = _set_frontmatter_field(content, "processing_next_action", "null")
+    if attempts is not None:
+        content = _set_frontmatter_field(content, "processing_attempts", str(attempts))
+    current_verification = re.search(r"(?m)^speaker_verification:\s*(\S+)\s*$", content)
+    if speaker_verification and not (
+        current_verification and current_verification.group(1) == "human-verified"
+    ):
+        content = _set_frontmatter_field(
+            content, "speaker_verification", yaml_scalar(speaker_verification)
+        )
+    if speakers:
+        labels: list[str] = []
+        for turn in speakers:
+            label = str(turn.get("speaker", "")).strip()
+            if label and label not in labels:
+                labels.append(label)
+        if labels:
+            content = _set_frontmatter_field(content, "speakers", f"[{', '.join(labels)}]")
+    content = _set_asr_facts(content, asr)
+    content = _set_ocr_confidence(content, ocr)
+    if prior_extractions:
+        links = ", ".join(json.dumps(f"[[{link}]]", ensure_ascii=False) for link in prior_extractions)
+        content = _set_frontmatter_field(content, "prior_extractions", f"[{links}]")
+    content = _set_extracted_text(
+        content,
+        _cap_extracted_text(text),
+        _cap_extracted_text(ocr.low_confidence_text) if ocr is not None else "",
+    )
+    return with_newline(content, newline)
+
+
+#: The pin a caller left asks for the same language on every later run, so it outlives a new extraction.
+_ASR_PIN_FIELD = "asr_language_requested"
+_ASR_MODE_FIELD = "asr_language_mode"
+
+
+def asr_language_pin(content: str) -> tuple[str | None, bool]:
+    """The speech language a caller pinned on this sidecar, and whether the pin is the multilingual mode.
+
+    The multilingual mode pins through the recorded `asr_language_mode`: only a caller's
+    request can make it `multilingual`, because no configuration sets that mode.
+    """
+    fields = parse_frontmatter(content)[0]
+    pinned = fields.get(_ASR_PIN_FIELD)
+    if isinstance(pinned, str) and pinned:
+        return pinned, False
+    return None, fields.get(_ASR_MODE_FIELD) == LANGUAGE_MODE_MULTILINGUAL
+
+
+def _set_ocr_confidence(content: str, ocr: OcrFacts | None) -> str:
+    """Record the mean word confidence of this extraction's OCR, or drop the one an earlier extraction left."""
+    if ocr is None or ocr.confidence is None:
+        return _remove_frontmatter_fields(content, lambda key: key == OCR_CONFIDENCE_FIELD)
+    return _set_frontmatter_field(content, OCR_CONFIDENCE_FIELD, repr(round(float(ocr.confidence), 1)))
+
+
+def _set_asr_facts(content: str, asr: AsrFacts | None) -> str:
+    """Replace the `asr_*` fields with the new extraction's facts, and with them the caller's pin.
+
+    Facts that name no request clear the old pin, so a later multilingual request replaces a
+    language pin. An extraction that reports nothing leaves the pin as it was, the language and
+    the multilingual mode alike.
+    """
+    pinned_multilingual = asr is None and asr_language_pin(content) == (None, True)
+    content = _remove_frontmatter_fields(
+        content,
+        lambda key: key.startswith(_ASR_FIELD_PREFIX) and (asr is not None or key != _ASR_PIN_FIELD),
+    )
+    if asr is None:
+        if pinned_multilingual:
+            content = _set_frontmatter_field(content, _ASR_MODE_FIELD, yaml_scalar(LANGUAGE_MODE_MULTILINGUAL))
+        return content
+
+    def number(value: float | None, places: int) -> str:
+        return "null" if value is None else repr(round(float(value), places))
+
+    def text(value: str | None) -> str:
+        return "null" if value is None else yaml_scalar(value)
+
+    fields = [
+        ("asr_language", text(asr.language)),
+        ("asr_language_probability", number(asr.language_probability, 4)),
+        ("asr_language_source", text(asr.language_source)),
+        (_ASR_MODE_FIELD, text(asr.language_mode)),
+        ("asr_decoding", text(asr.decoding)),
+        ("asr_speech_seconds", number(asr.speech_seconds, 2)),
+        ("asr_duration_seconds", number(asr.duration_seconds, 2)),
+        ("asr_policy", text(asr.policy)),
+    ]
+    if asr.language_requested is not None:
+        fields.append((_ASR_PIN_FIELD, yaml_scalar(asr.language_requested)))
+    for field, value in fields:
+        content = _set_frontmatter_field(content, field, value)
+    return content
+
+
+def _remove_frontmatter_fields(content: str, selected: Callable[[str], bool]) -> str:
+    """Drop the single-line frontmatter fields whose key `selected` accepts."""
+    if not content.startswith("---"):
+        return content
+    original = content
+    newline = document_newline(content)
+    content = with_newline(content, "\n")
+    end = content.find("\n---", 3)
+    if end == -1:
+        return original
+    kept: list[str] = []
+    dropping = False
+    for line in content[:end].split("\n"):
+        continuation = line[:1] in (" ", "\t") or line.startswith("- ")
+        if continuation:
+            if not dropping:
+                kept.append(line)  # a nested value belongs to the field above it
+            continue
+        dropping = selected(line.partition(":")[0])
+        if not dropping:
+            kept.append(line)
+    updated = "\n".join(kept) + content[end:]
+    return original if updated == content else with_newline(updated, newline)
+
+
+def commit_media_sidecar_writes(
+    vault_root: Path,
+    writes: tuple[PlannedWrite, ...],
+    *,
+    post_commit_fanout: bool = True,
+    defer_graph_completion: bool = False,
+    publication_intents_out: list[object] | None = None,
+    batch_writer: Callable[..., list[Path] | DeferredGraphCompletion] | None = None,
+) -> list[Path] | DeferredGraphCompletion:
+    """Publish machine-owned Markdown through the active catalog tuple."""
+
+    from .governance import catalog_publication, graph_producer
+
+    intent_count = len(publication_intents_out) if publication_intents_out is not None else 0
+
+    def graph_replacement_provider():
+        return graph_producer.replacements_for_planned_markdown(
+            vault_root,
+            before_corpus=semantic_contract.build_corpus_context(vault_root),
+            writes=writes,
+        )
+
+    try:
+        prepared = catalog_publication.prepare_planned_markdown_batch(
+            vault_root,
+            writes=writes,
+            graph_replacement_provider=graph_replacement_provider,
+        )
+    except catalog_publication.CatalogPublicationError as error:
+        raise catalog_publication.CatalogCommitError(
+            "GOVERNANCE_CATALOG_PUBLICATION_BLOCKED",
+            str(error),
+        ) from error
+    writer = batch_atomic_write if batch_writer is None else batch_writer
+    writer_kwargs: dict[str, object] = {
+        "vault_root": vault_root,
+        "post_commit_fanout": post_commit_fanout,
+        "defer_graph_completion": defer_graph_completion,
+    }
+    if publication_intents_out is not None:
+        writer_kwargs["publication_intents_out"] = publication_intents_out
+    written = writer(list(writes), **writer_kwargs)
+    try:
+        catalog_publication.publish_markdown_batch(prepared)
+    except catalog_publication.CatalogPublicationError as error:
+        if publication_intents_out is not None and len(publication_intents_out) > intent_count:
+            from . import file_watcher
+
+            file_watcher.abort_publication_intents(
+                publication_intents_out[intent_count:],
+                force_paths=[write.path for write in writes],
+            )
+        raise catalog_publication.CatalogCommitError(
+            "GOVERNANCE_CATALOG_PUBLICATION_UNCERTAIN",
+            str(error),
+        ) from error
+    return written
+
+
+def update_sidecar_processing_failure(
+    vault_root: Path,
+    sidecar_path: Path,
+    *,
+    state: str,
+    attempts: int,
+    error: str,
+    retryable: bool,
+    next_action: str,
+    defer_index_fanout: bool = False,
+    defer_graph_completion: bool = False,
+) -> list[Path] | DeferredGraphCompletion:
+    """Persist actionable worker state without replacing a pending transcript."""
+    before, guard = read_guarded_text(vault_root, sidecar_path)
+    content = render_sidecar_processing_failure(
+        before,
+        state=state,
+        attempts=attempts,
+        error=error,
+        retryable=retryable,
+        next_action=next_action,
+    )
+    return commit_media_sidecar_writes(
+        vault_root,
+        (
+            PlannedWrite(
+                path=sidecar_path,
+                content=content,
+                expected_hash=content_hash(before),
+                guard=guard,
+            ),
+        ),
+        post_commit_fanout=not defer_index_fanout,
+        defer_graph_completion=defer_graph_completion,
+    )
+
+
+def render_sidecar_processing_failure(
+    content: str,
+    *,
+    state: str,
+    attempts: int,
+    error: str,
+    retryable: bool,
+    next_action: str,
+) -> str:
+    """Render actionable worker state without performing canonical or derived I/O."""
+    fields = (
+        ("processing_state", state),
+        ("processing_attempts", str(attempts)),
+        ("processing_error", yaml_scalar(error)),
+        ("processing_retryable", "true" if retryable else "false"),
+        ("processing_next_action", yaml_scalar(next_action)),
+    )
+    if state == "failed":
+        error_type = error.split(":", 1)[0].strip() or "Error"
+        content = _set_frontmatter_field(content, "extracted_by", f"failed:{error_type}")
+    for field, value in fields:
+        content = _set_frontmatter_field(content, field, value)
+    return content
+
+
+def render_sidecar_processing_pending(content: str, *, attempts: int, next_action: str) -> str:
+    """Render the pending presentation: no error, and the media waits for processing."""
+    fields = (
+        ("extracted_by", "pending"),
+        ("processing_state", "pending"),
+        ("processing_attempts", str(attempts)),
+        ("processing_error", "null"),
+        ("processing_retryable", "true"),
+        ("processing_next_action", yaml_scalar(next_action)),
+    )
+    for field, value in fields:
+        content = _set_frontmatter_field(content, field, value)
+    return content
+
+
+def update_sidecar_processing_pending(
+    vault_root: Path,
+    sidecar_path: Path,
+    *,
+    attempts: int,
+    expected_hash: str | None = None,
+    next_action: str = "wait for media reconciliation",
+) -> bool:
+    """Keep changed-in-flight media automatic and actionable until reconciliation."""
+    before, guard = read_guarded_text(vault_root, sidecar_path)
+    content = render_sidecar_processing_pending(before, attempts=attempts, next_action=next_action)
+    try:
+        commit_media_sidecar_writes(
+            vault_root,
+            (
+                PlannedWrite(
+                    path=sidecar_path,
+                    content=content,
+                    expected_hash=expected_hash or content_hash(before),
+                    guard=guard,
+                ),
+            ),
+        )
+    except ContentHashMismatchError:
+        return False
+    return True
+
+
+def _set_frontmatter_field(content: str, field: str, value: str) -> str:
+    """Set `field: value` in the leading `---` frontmatter (replace or insert)."""
+    if not content.startswith("---"):
+        return content
+    original = content
+    newline = document_newline(content)
+    content = with_newline(content, "\n")
+    end = content.find("\n---", 3)
+    if end == -1:
+        return original
+    head, body = content[:end], content[end:]
+    pattern = re.compile(rf"(?m)^{re.escape(field)}:.*$")
+    if pattern.search(head):
+        head = pattern.sub(f"{field}: {value}", head, count=1)
+    else:
+        head = head.rstrip("\n") + f"\n{field}: {value}"
+    updated = head + body
+    return original if updated == content else with_newline(updated, newline)
+
+
+def _set_extracted_text(content: str, text: str, low_confidence: str = "") -> str:
+    """Replace extracted text through a sidecar-owned boundary, or EOF.
+
+    `low_confidence` is the OCR words withheld from `text`; they follow it as their own section.
+    """
+    block = f"{_EXTRACTED_HEADING}\n\n{text}\n"
+    if low_confidence:
+        block += "\n" + low_confidence_block(low_confidence)
+    idx = content.find(_EXTRACTED_HEADING)
+    if idx == -1:
+        return content.rstrip("\n") + "\n\n" + block
+    start = idx + len(_EXTRACTED_HEADING)
+    after, kind = _extraction_end(content, start)
+    if kind == _END_OF_FILE:
+        return content[:idx] + block
+    if kind == _END_LEGACY_NOTES and content[start:after].strip():
+        # A nonempty, unmarked notes title has no ownership proof.
+        return content
+    boundary = content[after + 1 :]
+    if kind in (_END_NOTES_SENTINEL, _END_LEGACY_NOTES) and _is_repeated_extraction_residual(
+        boundary, text
+    ):
+        return content[:idx] + block
+    if kind == _END_LEGACY_NOTES:
+        boundary = f"{SIDECAR_PRESERVED_NOTES_SENTINEL}\n{boundary}"
+    return content[:idx] + block + "\n" + boundary
+
+
+def _prepend_log_entry(
+    text: str, *, date_iso: str, rel_path: str, body: str
+) -> str:
+    """Insert `## [<date>] preserve | <kb-relative-path>` after the `---` separator."""
+    return prepend_log_entry(
+        text, date_iso=date_iso, op="preserve", rel_path_no_ext=rel_path, body=body
+    )
+
+
+def _raise(code: str, missing: list[str], reason: str):
+    raise PreserveError(code=code, missing=missing, reason=reason)

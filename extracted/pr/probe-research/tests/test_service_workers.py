@@ -26,8 +26,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import workers
-from probe.service.protocol import Method, WorkerState
+from probe.service.sessions import workers
+from probe.foundation.service_api.wire import Method
+from probe.foundation.service_api.vocabularies import WorkerState
 from tests.service_fakes import FakeCore, FakeWorker
 from tests.service_harness import kill_agent, ps_passes, service_home, spawn_agent, wait_for  # noqa: F401
 
@@ -404,7 +405,7 @@ def test_a_hung_interpreter_stat_never_holds_up_another_session_s_stop(tmp_path,
     venv's, on a mount that can hang) ran on the one supervising thread, and
     another session's release got no SIGTERM until the stat came back. The real
     lookup runs here, against a stat that blocks."""
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv(workers.POLL_ENV, "0.02")
@@ -511,7 +512,7 @@ def test_one_launch_per_session_across_releases_and_new_recordings(tmp_path, mon
     launch reservation (a fresh supervisor launches at once)."""
     import threading
 
-    from probe.service import client
+    from probe.foundation import service_api as client
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv(workers.POLL_ENV, "0.02")
@@ -667,8 +668,8 @@ def test_the_exit_codes_and_rules_are_the_worker_s_and_the_tap_supervisor_s(tap_
         tap_sup.RESPAWNS_PER_MINUTE, tap_sup.RESPAWN_LATER_SECONDS, tap_sup.LIBS_RETRY_SECONDS,
         tap_sup.CRASH_BACKOFF_SECONDS, tap_sup.CRASH_BACKOFF_CAP_SECONDS)
     assert workers.safe_sid("a/b c") == Path(worker.store_path("a/b c").name).stem
-    assert workers.POLL_ENV in __import__("probe.service.client", fromlist=["x"]).ENV_ALLOWLIST
-    assert workers.BACKOFF_ENV in __import__("probe.service.client", fromlist=["x"]).ENV_ALLOWLIST
+    assert workers.POLL_ENV in __import__("probe.foundation.service_api", fromlist=["x"]).ENV_ALLOWLIST
+    assert workers.BACKOFF_ENV in __import__("probe.foundation.service_api", fromlist=["x"]).ENV_ALLOWLIST
 
 
 @pytest.fixture
@@ -987,7 +988,7 @@ def test_a_worker_knows_its_supervisor_by_identity(monkeypatch):
     import subprocess
 
     from probe.daemon import worker as worker_mod
-    from probe.service import procid
+    from probe.foundation.service_api import procid
 
     me = (os.getpid(), procid.start_time(os.getpid()))
     monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV, workers.supervisor_value(SID))

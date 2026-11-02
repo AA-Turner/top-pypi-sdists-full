@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: helion
-Version: 1.5.1
+Version: 1.5.2
 Summary: A Python-embedded DSL that makes it easy to write ML kernels
 Project-URL: Homepage, https://github.com/pytorch/helion
 Project-URL: Issues, https://github.com/pytorch/helion/issues

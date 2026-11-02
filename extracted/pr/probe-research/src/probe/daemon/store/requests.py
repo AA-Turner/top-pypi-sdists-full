@@ -15,12 +15,12 @@ class RequestsMixin:
     def add_write_request(self, request_id: str, text: str, asked_at: float, wait: bool, event_seq: int | None,
                           *, state: str = "waiting", reason: str | None = None) -> bool:
         """Store a request the mailbox handed over. False: already stored."""
-        cur = self.db.execute(
+        current = self.db.execute(
             "INSERT OR IGNORE INTO write_requests (id, text, asked_at, wait, taken_at, state, ended_at, reason, "
             "event_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (request_id, text, asked_at, int(wait), self.clock(), state,
              self.clock() if state != "waiting" else None, reason, event_seq))
-        return cur.rowcount > 0
+        return current.rowcount > 0
 
     def has_write_request(self, request_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM write_requests WHERE id = ?", (request_id,)).fetchone() is not None

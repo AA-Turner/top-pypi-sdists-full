@@ -24,10 +24,10 @@ import pytest
 from backfill_plan_agent import filing
 from backfill_test_client import ScopedClient
 
-from probe.cli import backfill as bf
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_plan as plan_mod
-from probe.cli import backfill_prompts as bp
+from probe.cli.imports import folder as bf
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.classify import plan as plan_mod
+from probe.cli.imports.folder.agents import prompts as bp
 from probe.cli import backfill_run as br
 
 
@@ -41,7 +41,10 @@ def folder(tmp_path):
 
 @pytest.fixture(autouse=True)
 def agents_installed(monkeypatch):
-    monkeypatch.setattr(bf, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.agents, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.flags, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.agents.launch_once, "which_agent", lambda agent: f"/bin/{agent.value}")
+    monkeypatch.setattr(bf.flow.choices, "which_agent", lambda agent: f"/bin/{agent.value}")
 
 
 def _evidence(rows: int, sample_len: int = 600) -> ev.Evidence:
@@ -135,7 +138,7 @@ def test_a_folder_that_fits_still_goes_to_one_agent(folder, monkeypatch):
              "assignments": [{"path": ".", "project": "alpha"}], "summary": "s"}
         )
 
-    monkeypatch.setattr(bf, "launch_agent", filing(fake))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(fake))
     br.classify(folder, _evidence(3), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
     assert len(calls) == 1
     assert "Decide which project each file" in calls[0]
@@ -143,7 +146,7 @@ def test_a_folder_that_fits_still_goes_to_one_agent(folder, monkeypatch):
 
 def test_a_folder_too_big_for_one_prompt_is_chunked(folder, monkeypatch):
     agent = _Agent()
-    monkeypatch.setattr(bf, "launch_agent", filing(agent))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(agent))
     big = _evidence(600)
     assert ev.estimate_tokens(ev.to_jsonl(big)) > ev.SINGLE_SHOT_TOKEN_BUDGET
 
@@ -161,7 +164,7 @@ def test_every_row_survives_the_round_trip(folder, monkeypatch):
     """A classification silently missing files is the one outcome worth failing
     over -- `resolve` would report them as unassigned and the plan untrusted."""
     agent = _Agent()
-    monkeypatch.setattr(bf, "launch_agent", filing(agent))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(agent))
     big = _evidence(600)
     rows = [json.loads(ln)["path"] for ln in ev.to_jsonl(big).splitlines()]
 
@@ -178,7 +181,7 @@ def test_no_survey_slice_is_told_about_another_slice(folder, monkeypatch):
     """Local only. A slice that could see its siblings would be back to needing
     the whole folder in context, which is the thing that does not fit."""
     agent = _Agent()
-    monkeypatch.setattr(bf, "launch_agent", filing(agent))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(agent))
     br.classify(folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
 
     surveys = [p for p in agent.prompts if "what lines of work one slice" in p]
@@ -192,7 +195,7 @@ def test_the_assign_pass_is_given_the_projects_and_cannot_invent_one(folder, mon
     """This is what makes assignment independent: the global decision is
     already made, so a slice needs nothing from its siblings."""
     agent = _Agent(projects=("alpha", "beta"))
-    monkeypatch.setattr(bf, "launch_agent", filing(agent))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(agent))
     br.classify(folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
 
     assigns = [p for p in agent.prompts if "already decided" in p]
@@ -218,7 +221,7 @@ def test_an_invented_project_is_refused_at_the_call_and_its_files_wait(folder, m
                 ]})
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Inventing()))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Inventing()))
     big = _evidence(600)
     plan, _, _ = br.classify(
         folder, big, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
@@ -239,7 +242,7 @@ def test_a_pass_that_fails_everywhere_returns_no_plan(folder, monkeypatch, stage
     (One failed ASSIGN slice costs only its own files; see
     `test_backfill_classification_cache`. A failed NAME pass falls back to one
     project; see below.)"""
-    monkeypatch.setattr(bf, "launch_agent", filing(_Agent(fail_on=stage)))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Agent(fail_on=stage)))
     plan, tail, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -266,7 +269,7 @@ def test_a_naming_pass_that_fails_files_everything_into_one_folder_project(
     assert fallback["slug"] == "drive"
     fake = (_Agent(projects=(fallback["slug"],), fail_on="name") if naming == "died"
             else _NamesNothing(projects=(fallback["slug"],)))
-    monkeypatch.setattr(bf, "launch_agent", filing(fake))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(fake))
     evidence = _evidence(600)
     plan, _tail, _ = br.classify(
         folder, evidence, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
@@ -354,7 +357,7 @@ def test_a_rollup_row_answered_by_dir_is_not_dropped(folder, monkeypatch):
                 )
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_ByDir()))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_ByDir()))
     big = _evidence(600)
     plan, _, _ = br.classify(
         folder, big, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
@@ -375,7 +378,7 @@ def test_a_plan_that_places_nothing_is_a_failure_not_an_empty_success(folder, mo
                 return True, _envelope({"assignments": [], "unsure": ["x"]})
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Empty()))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Empty()))
     plan, tail, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -395,7 +398,7 @@ def test_a_low_confidence_selection_reaches_the_reviewer_as_written(folder, monk
                 ]})
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Unsure()))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Unsure()))
     plan, _, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -450,7 +453,7 @@ def test_the_truncation_caveat_reaches_the_chunked_prompts(folder, monkeypatch):
     sample cap, so `sample_budget_hit` is true in essentially every chunked run
     -- and the agent was never told."""
     agent = _Agent()
-    monkeypatch.setattr(bf, "launch_agent", filing(agent))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(agent))
     big = _evidence(600)
     big.sample_budget_hit = True
     br.classify(folder, big, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
@@ -474,7 +477,7 @@ def test_a_failed_pass_reports_what_the_agent_actually_said(folder, monkeypatch)
     def dying(folder_, prompt, **kw):
         return False, "`claude` is not on PATH — install Claude Code"
 
-    monkeypatch.setattr(bf, "launch_agent", filing(dying))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(dying))
     _, tail, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -494,7 +497,7 @@ def test_a_transient_pass_failure_is_retried(folder, monkeypatch):
                     return False, "connection reset"
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Flaky()))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Flaky()))
     plan, _, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -531,29 +534,44 @@ def test_a_correction_on_a_chunked_folder_is_one_session_not_every_slice(folder,
     """A correction used to re-run every slice of a chunked folder -- another
     hour on a 144k-file drive. It is now one session, started from the plan the
     reviewer read, whichever route classified it."""
-    monkeypatch.setattr(bf, "launch_agent", filing(_Agent()))
-    monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
-    monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Agent()))
+    monkeypatch.setattr("probe.cli.imports.folder.upload.units.run_units", lambda *a, **k: [])
+    monkeypatch.setattr("probe.cli.imports.folder.upload.upload.enqueue_manifests", lambda *a, **k: (0, []))
     # `enrich`, not `gather`: `_execute` runs the two phases separately now so
     # the early exits can skip sampling, and it never calls `gather` at all.
     monkeypatch.setattr(br.evidence_mod, "enrich", lambda f, records: _evidence(600))
 
     revises: list = []
-    monkeypatch.setattr(br, "revise", lambda *a, **k: revises.append(k["plan"]) or (None, "", None))
+    monkeypatch.setattr("probe.cli.imports.folder.classify.classify.revise", lambda *a, **k: revises.append(k["plan"]) or (None, "", None))
     chunked: list = []
     real = br.classify_chunked
     monkeypatch.setattr(
-        br, "classify_chunked", lambda *a, **k: chunked.append(k.get("feedback")) or real(*a, **k)
+        "probe.cli.imports.folder.classify.chunked.classify_chunked", lambda *a, **k: chunked.append(k.get("feedback")) or real(*a, **k)
+    )
+    monkeypatch.setattr(
+        "probe.cli.imports.folder.classify.classify.classify_chunked", lambda *a, **k: chunked.append(k.get("feedback")) or real(*a, **k)
     )
 
     answers = iter(["revise", "import"])
     # `tui` is imported inside `execute`, so the module itself is patched.
-    from probe.cli import tui
+    from probe.cli.wizard import terminal as tui
 
-    monkeypatch.setattr(tui, "page", lambda lines, prompt=None: "")
-    monkeypatch.setattr(tui, "review", lambda *a, **kw: next(answers))
-    monkeypatch.setattr(tui, "text", lambda *a, **kw: "merge the two projects")
-    monkeypatch.setattr(tui, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.progress, "page", lambda lines, prompt=None: "")
+    monkeypatch.setattr(tui.forms, "review", lambda *a, **kw: next(answers))
+    monkeypatch.setattr(tui.forms, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.choices, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.clipboard, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.layout, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.status_board, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.terminal, "text", lambda *a, **kw: "merge the two projects")
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
 
     br.execute(client_factory=ScopedClient, folder=folder, agent=bf.Agent.CLAUDE)
     assert len(chunked) == 1, "only the first classification ran the slices"
@@ -583,7 +601,7 @@ def test_tags_survive_the_chunked_route(folder, monkeypatch):
                 )
             return super().__call__(folder_, prompt, **kw)
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Tagged(projects=("alpha",))))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Tagged(projects=("alpha",))))
     plan, _, _ = br.classify(
         folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w"
     )
@@ -605,8 +623,8 @@ def _tree(folder):
 
 
 def _one_row_per_slice(monkeypatch):
-    monkeypatch.setattr(ev, "needs_chunking", lambda _: True)
-    monkeypatch.setattr(ev, "chunk_lines", lambda jsonl: [[line] for line in jsonl.splitlines()])
+    monkeypatch.setattr("probe.cli.imports.folder.walk.rows.needs_chunking", lambda _: True)
+    monkeypatch.setattr("probe.cli.imports.folder.walk.rows.chunk_lines", lambda jsonl: [[line] for line in jsonl.splitlines()])
 
 
 class _Named(_Agent):
@@ -634,11 +652,11 @@ def test_a_failed_slices_file_is_never_claimed_by_its_directorys_rollup(folder, 
         return True, _envelope({"assignments": [{"path": r.get("path") or r.get("dir"),
                                                   "project": "alpha"} for r in rows]})
 
-    monkeypatch.setattr(bf, "launch_agent", filing(_Named(filer)))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", filing(_Named(filer)))
     plan, _, _ = br.classify(folder, _tree(folder), agent=bf.Agent.CLAUDE, existing=[],
                              work_dir=folder / ".w")
     assert plan.excluded == ["alpha/train.py"]
-    assigned, _ = __import__("probe.cli.backfill_plan", fromlist=["resolve"]).resolve(_tree(folder), plan)
+    assigned, _ = __import__("probe.cli.imports.folder.classify.plan", fromlist=["resolve"]).resolve(_tree(folder), plan)
     assert "alpha/train.py" not in assigned
     assert {p for p in assigned if p.startswith("alpha/")} == {f"alpha/step_{i}.pt" for i in range(3)}
 
@@ -658,7 +676,7 @@ def test_an_agent_that_edits_its_reference_copy_widens_nothing(folder, monkeypat
         tool(kw, "assign", "evil", "--rest")  # the tool, reading the edited copy, accepts it
         return True, _envelope({"summary": "done"})
 
-    monkeypatch.setattr(bf, "launch_agent", _Named(filer))
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _Named(filer))
     plan, _, _ = br.classify(folder, _tree(folder), agent=bf.Agent.CLAUDE, existing=[],
                              work_dir=folder / ".w")
     assert plan is None or all(a.project != "evil" for a in plan.assignments)
@@ -675,9 +693,9 @@ def test_one_unsampled_file_inside_a_rollup_can_be_filed_on_its_own(folder, monk
         tool(kw, "assign", "beta", "--file", "alpha/step_1.pt")
         return True, _envelope({"summary": "done"})
 
-    monkeypatch.setattr(bf, "launch_agent", _Named(filer))
-    monkeypatch.setattr(ev, "chunk_lines", lambda jsonl: [jsonl.splitlines()])
-    monkeypatch.setattr(ev, "needs_chunking", lambda _: True)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", _Named(filer))
+    monkeypatch.setattr("probe.cli.imports.folder.walk.rows.chunk_lines", lambda jsonl: [jsonl.splitlines()])
+    monkeypatch.setattr("probe.cli.imports.folder.walk.rows.needs_chunking", lambda _: True)
     plan, _, _ = br.classify(folder, _tree(folder), agent=bf.Agent.CLAUDE, existing=[],
                              work_dir=folder / ".w")
     where = {a.path: a.project for a in plan.assignments}
@@ -690,7 +708,7 @@ def test_a_correction_keeps_what_the_reviewer_saw_inherited(folder, monkeypatch)
     another project once its directory's scripts moved."""
     from backfill_plan_agent import tool
 
-    from probe.cli import backfill_plan as plans
+    from probe.cli.imports.folder.classify import plan as plans
 
     e = _tree(folder)
     plan = plans.Plan([plans.ProjectSpec("alpha"), plans.ProjectSpec("beta")], [
@@ -705,7 +723,7 @@ def test_a_correction_keeps_what_the_reviewer_saw_inherited(folder, monkeypatch)
         tool(kw, "assign", "beta", "--file", "alpha/train.py")
         return True, _envelope({"summary": "moved the script"})
 
-    monkeypatch.setattr(bf, "launch_agent", correct)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", correct)
     revised, _, _ = br.revise(folder, e, "move alpha/train.py to beta", agent=bf.Agent.CODEX,
                               session_id=None, work_dir=folder / ".w", plan=plan)
     after, _ = plans.resolve(e, revised)
@@ -716,7 +734,7 @@ def test_a_correction_keeps_what_the_reviewer_saw_inherited(folder, monkeypatch)
 def test_a_correction_can_rename_a_project(folder, monkeypatch):
     from backfill_plan_agent import tool
 
-    from probe.cli import backfill_plan as plans
+    from probe.cli.imports.folder.classify import plan as plans
 
     e = _tree(folder)
     plan = plans.Plan([plans.ProjectSpec("alpha", name="Old name")], [plans.Assignment("alpha/train.py", "alpha")])
@@ -725,7 +743,7 @@ def test_a_correction_can_rename_a_project(folder, monkeypatch):
         tool(kw, "project", "alpha", "--name", "Corrected name")
         return True, _envelope({"summary": "renamed"})
 
-    monkeypatch.setattr(bf, "launch_agent", rename)
+    monkeypatch.setattr(bf.agents.launch, "launch_agent", rename)
     revised, _, _ = br.revise(folder, e, "rename alpha", agent=bf.Agent.CODEX,
                               session_id=None, work_dir=folder / ".w", plan=plan)
     assert [p.name for p in revised.projects if p.slug == "alpha"] == ["Corrected name"]

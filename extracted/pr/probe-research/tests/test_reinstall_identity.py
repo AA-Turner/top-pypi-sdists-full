@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import identity_check
-from probe.cli import setup as wizard
+from probe.cli.install import identity_check
+from probe.cli import wizard as wizard
 from probe.sdk.settings.settings import load_context, save_context
 
 URL = "https://api.example"
@@ -33,7 +33,9 @@ def server(monkeypatch):
         return (found, None) if isinstance(found, str) else ("ok", found)
 
     monkeypatch.setattr(identity_check, "whoami", whoami)
-    monkeypatch.setattr(wizard, "_revoke", lambda token, *, base_url, what: released.append(token) or [])
+    monkeypatch.setattr(wizard.account.sign_in, "_revoke", lambda token, *, base_url, what: released.append(token) or [])
+    monkeypatch.setattr(wizard.account.sign_out, "_revoke", lambda token, *, base_url, what: released.append(token) or [])
+    monkeypatch.setattr(wizard.apply.recorder, "_revoke", lambda token, *, base_url, what: released.append(token) or [])
     for name in (*identity_check.TOKEN_VARIABLES, *identity_check.capture_variables(), "PROBE_BASE_URL"):
         monkeypatch.delenv(name, raising=False)
     return accounts, released
@@ -125,7 +127,9 @@ def test_sign_in_drains_the_old_credentials_queue_before_the_exchange(monkeypatc
         order.append("exchange")
         return {}, []
 
-    monkeypatch.setattr(wizard, "authorize", authorize)
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", authorize)
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", authorize)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", authorize)
     result = wizard.sign_in(base_url=URL)
     assert order == ["drain", "exchange"]
     assert "sent 3" in result.lines
@@ -133,12 +137,15 @@ def test_sign_in_drains_the_old_credentials_queue_before_the_exchange(monkeypatc
 
 def test_sign_in_clears_keeper_off(monkeypatch):
     """R-T2: `keeper-off` is cleared at any install, sign-in or configure start."""
-    from probe.service import keeper, paths
+    from probe.service import keeper
+    from probe.foundation.service_api import paths
 
     off = paths.root_dir() / keeper.OFF_NAME
     off.parent.mkdir(parents=True, exist_ok=True)
     off.touch()
-    monkeypatch.setattr(wizard, "authorize", lambda grants, **_kw: ({}, []))
+    monkeypatch.setattr(wizard.apply.authorize, "authorize", lambda grants, **_kw: ({}, []))
+    monkeypatch.setattr(wizard.account.sign_in, "authorize", lambda grants, **_kw: ({}, []))
+    monkeypatch.setattr(wizard.apply.capture_credentials, "authorize", lambda grants, **_kw: ({}, []))
     wizard.sign_in(base_url=URL)
     assert not off.exists()
 
@@ -157,10 +164,14 @@ def test_the_drain_sends_what_is_queued_and_says_what_is_left(monkeypatch):
     class Report:
         delivered, remaining = 1, 1
 
+    monkeypatch.setattr(journal.failures.discards, "Journal", Fake)
     monkeypatch.setattr(journal.journal, "Journal", Fake)
+    monkeypatch.setattr(journal.receipts.receipts, "Journal", Fake)
+    monkeypatch.setattr(journal.status_file, "Journal", Fake)
     monkeypatch.setattr(journal.run_ops, "Journal", Fake)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials.Journal", Fake)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.Journal", Fake)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.lanes.Journal", Fake)
     monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda j, **kw: Report())
     lines = identity_check.drain_before_switch(seconds=1)
     assert lines[0].startswith("sent 1 queued write") and "1 queued write(s) could not be sent" in lines[1]

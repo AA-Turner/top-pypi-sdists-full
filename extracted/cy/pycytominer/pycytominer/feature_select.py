@@ -1,0 +1,261 @@
+"""
+Select features to use in downstream analysis based on specified selection method
+"""
+
+from typing import Any, Literal, Optional, Union
+
+import pandas as pd
+
+from pycytominer.cyto_utils import (
+    Blocklist,
+    drop_outlier_features,
+    get_blocklist_features,
+    infer_cp_features,
+    load_profiles,
+)
+from pycytominer.cyto_utils.util import write_to_file_if_user_specifies_output_details
+from pycytominer.operations import (
+    correlation_threshold,
+    frequency_threshold,
+    get_na_columns,
+    noise_removal,
+    variance_threshold,
+)
+
+
+@write_to_file_if_user_specifies_output_details
+def feature_select(
+    profiles: Union[str, pd.DataFrame],
+    features: Union[str, list[str]] = "infer",
+    image_features: bool = False,
+    samples: str = "all",
+    operation: Union[str, list[str]] = "variance_threshold",
+    output_file: Optional[str] = None,
+    output_type: Optional[
+        Literal["csv", "parquet", "anndata_h5ad", "anndata_zarr"]
+    ] = "csv",
+    na_cutoff: float = 0.05,
+    corr_threshold: float = 0.9,
+    corr_method: str = "pearson",
+    freq_cut: float = 0.05,
+    unique_cut: float = 0.01,
+    compression_options: Optional[Union[str, dict[str, Any]]] = None,
+    float_format: Optional[str] = None,
+    blocklist: Optional[Union[str, list[str], Blocklist]] = None,
+    blocklist_name: Optional[Union[str, list[str]]] = None,
+    blocklist_file: Optional[str] = None,
+    outlier_cutoff: float = 500.0,
+    noise_removal_perturb_groups: Optional[Union[str, list[str]]] = None,
+    noise_removal_stdev_cutoff: Optional[float] = None,
+    min_variance: float = 1e-6,
+) -> pd.DataFrame:
+    """Performs feature selection based on the given operation.
+
+    Parameters
+    ----------
+    profiles : pd.DataFrame or file
+        DataFrame or file of profiles.
+    features : list, default "infer"
+        A list of strings corresponding to feature measurement column names in the
+        `profiles` DataFrame. All features listed must be found in `profiles`.
+        Defaults to "infer". If "infer", then assume CellProfiler features are those
+        prefixed with "Cells", "Nuclei", or "Cytoplasm".
+    image_features: bool, default False
+        Whether to include inferred ``Image_*`` feature columns. When True,
+        pycytominer preserves numeric image-level measurements while excluding
+        non-numeric ``Image_*`` columns, which helps avoid treating image
+        payload columns as profile features in mixed tables such as
+        OME-Arrow-backed inputs.
+    samples : str, default "all"
+        Samples to provide operation on.
+    operation: list of str or str, default "variance_threshold
+        Operations to perform on the input profiles.
+    output_file : str, optional
+        If provided, will write feature selected profiles to file. If not specified, will
+        return the feature selected profiles as output. We recommend that this output file be
+        suffixed with "_normalized_variable_selected.csv".
+    output_type : str, optional
+        If provided, will write feature selected profiles as a specified file type (either CSV or parquet).
+        If not specified and output_file is provided, then the file will be outputed as CSV as default.
+    na_cutoff : float, default 0.05
+        Proportion of missing values in a column to tolerate before removing.
+    corr_threshold : float, default 0.9
+        Value between (0, 1) to exclude features above if any two features are correlated above this threshold.
+    corr_method : str, default "pearson"
+        Correlation type to compute. Allowed methods are "spearman", "kendall" and "pearson".
+    freq_cut : float, default 0.05
+        Ratio (2nd most common feature val / most common). Must range between 0 and 1.
+        Remove features lower than freq_cut. A low freq_cut will remove features
+        that have large difference between the most common feature and second most
+        common feature. (e.g. this will remove a feature: [1, 1, 1, 1, 0.01, 0.01, ...])
+    unique_cut: float, default 0.01
+        Ratio (num unique features / num samples). Must range between 0 and 1.
+        Remove features less than unique cut. A low unique_cut will remove features
+        that have very few different measurements compared to the number of samples.
+    compression_options : str or dict, optional
+        Contains compression options as input to
+        pd.DataFrame.to_csv(compression=compression_options). pandas version >= 1.2.
+    float_format : str, optional
+        Decimal precision to use in writing output file as input to
+        pd.DataFrame.to_csv(float_format=float_format). For example, use "%.3g" for 3
+        decimal precision.
+    blocklist : str, list of str, or Blocklist, optional
+        Features to exclude when ``operation`` includes ``"blocklist"``.
+        Accepts a feature name string, a list of feature name strings, or a
+        :class:`~pycytominer.cyto_utils.blocklist.Blocklist` object.  When
+        ``None`` and ``blocklist_name`` is also ``None``, the packaged default
+        blocklist is applied automatically.  For advanced usage — custom YAML
+        registries, combining named lists with explicit features — construct a
+        :class:`~pycytominer.cyto_utils.blocklist.Blocklist` directly and pass
+        it here.
+    blocklist_name : str or list of str, optional
+        Name(s) of packaged blocklists to use when ``blocklist`` is None. Each
+        name is a top-level YAML key in the packaged blocklist registry (for
+        example, ``default`` in ``default_blocklists.yaml``). If None and ``blocklist``
+        is also None, the packaged default blocklist is loaded. Use
+        ``"default"`` to load that registry entry explicitly. Multiple names
+        are loaded in the order provided.
+    blocklist_file : str, optional
+        .. deprecated:: 2.0
+            Use ``blocklist`` (a list of feature names or a
+            :class:`~pycytominer.cyto_utils.blocklist.Blocklist` object) instead.
+            Previously accepted a path to a CSV file with a single ``blocklist``
+            column.  This parameter will be removed in a future release.
+    outlier_cutoff : float, default 500
+        The threshold at which the maximum or minimum value of a feature across a full
+        experiment is excluded. Note that this procedure is typically applied after
+        normalization.
+    noise_removal_perturb_groups: str or list of str, optional
+        Perturbation groups corresponding to rows in profiles or the the name of the
+        metadata column containing this information.
+    noise_removal_stdev_cutoff: float,optional
+        Maximum mean feature standard deviation to be kept for noise removal, grouped
+        by the identity of the perturbation from perturb_list. The data must already be
+        normalized so that this cutoff can apply to all columns.
+    min_variance: float
+        Removes features with variance less than this value. A low value will remove
+        features that have very low variance (e.g. this will remove a feature:
+        [1.0000, 1.0001, 1.0000, 1.0001, 1.0000]). Default is 1e-6.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame of selected features. if output_file=None, then return the
+        DataFrame. if you specify output_file, profiles will be written on disk
+        based on provided output_file path
+
+    Notes
+    -----
+    Parameters: `output_file`, `output_type`, `compression_options`, and `float_format`
+    are passed as kwargs to the `write_to_file_if_user_specifies_output_details` decorator,
+    which handles writing the output DataFrame to file if the user specifies output
+    details. If `output_file` is not specified, the function will return the feature
+    selected DataFrame instead of writing to file.
+
+    See Also
+    --------
+    pycytominer.cyto_utils.blocklist.Blocklist : Full reference for blocklist
+        construction, custom YAML registries, and combining named lists with
+        explicit feature exclusions.
+
+    """
+
+    all_ops = [
+        "variance_threshold",
+        "frequency_threshold",
+        "correlation_threshold",
+        "drop_na_columns",
+        "blocklist",
+        "drop_outliers",
+        "noise_removal",
+    ]
+
+    # Make sure the user provides a supported operation
+    if isinstance(operation, list):
+        if not all(x in all_ops for x in operation):
+            raise ValueError(
+                f"Some operation(s) {operation} not supported. Choose {all_ops}"
+            )
+    elif isinstance(operation, str):
+        if operation not in all_ops:
+            raise ValueError(f"{operation} not supported. Choose {all_ops}")
+        operation = operation.split()
+    else:
+        return ValueError("Operation must be a list or string")
+
+    # Load Data
+    profiles = load_profiles(profiles)
+
+    if features == "infer":
+        features = infer_cp_features(profiles, image_features=image_features)
+
+    excluded_features = []
+    for op in operation:
+        if op == "variance_threshold":
+            exclude = variance_threshold(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                min_variance=min_variance,
+            )
+        if op == "frequency_threshold":
+            exclude = frequency_threshold(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                freq_cut=freq_cut,
+                unique_cut=unique_cut,
+            )
+        elif op == "drop_na_columns":
+            exclude = get_na_columns(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                cutoff=na_cutoff,
+            )
+        elif op == "correlation_threshold":
+            exclude = correlation_threshold(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                threshold=corr_threshold,
+                method=corr_method,
+            )
+        elif op == "blocklist":
+            exclude = get_blocklist_features(
+                population_df=profiles,
+                blocklist=blocklist,
+                blocklist_name=blocklist_name,
+                blocklist_file=blocklist_file,
+            )
+        elif op == "drop_outliers":
+            exclude = drop_outlier_features(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                outlier_cutoff=outlier_cutoff,
+            )
+        elif op == "noise_removal":
+            if (
+                noise_removal_perturb_groups is None
+                or noise_removal_stdev_cutoff is None
+            ):
+                raise ValueError(
+                    "If using noise_removal, must provide both noise_removal_perturb_groups and noise_removal_stdev_cutoff"
+                )
+
+            exclude = noise_removal(
+                population_df=profiles,
+                features=features,
+                samples=samples,
+                noise_removal_perturb_groups=noise_removal_perturb_groups,
+                noise_removal_stdev_cutoff=noise_removal_stdev_cutoff,
+            )
+        excluded_features += exclude
+        features = [feat for feat in features if feat not in excluded_features]
+
+    excluded_features = list(set(excluded_features))
+
+    selected_df = profiles.drop(excluded_features, axis="columns")
+
+    return selected_df

@@ -1,0 +1,34 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Bedrock Claude Sonnet 4.5
+
+id: "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+version: 0.0.1
+name: Bedrock Claude Sonnet 4.5
+description: Claude Sonnet 4.5 via AWS Bedrock - balanced performance
+provider: bedrock
+provider_url: "https://aws.amazon.com/bedrock/anthropic/"
+# Not the default any more: Sonnet 4.6 is, and it is the one this deployment
+# is entitled to. Two specs claiming the default left the generated
+# DEFAULT_MODEL pointing at this one — a model marked unavailable — so every
+# chat opened on a model it could not call.
+default: false
+available: false
+tokens_limit: 64000
+
+# AWS's on-demand price for the US cross-region (geo) inference profile this
+# `us.` id names, US East (N. Virginia) — "Geo and In-region Cross-region
+# Inference" on https://aws.amazon.com/bedrock/pricing/ (AWS price list
+# published 2026-10-07, read 2026-10-08). Cache writes and reads are priced
+# apart there (5m write $4.125, 1h write $6.60, read $0.33); the catalogue has
+# no field for them.
+# The same as pydantic/genai-prices (main bd966a9, read 2026-10-08).
+pricing:
+  input_usd_per_million: 3.3
+  output_usd_per_million: 16.5
+
+required_env_vars:
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_DEFAULT_REGION

@@ -1,0 +1,486 @@
+"""Nested configuration classes for logical grouping of related settings.
+
+This module provides frozen dataclass configuration groups that organize
+cache decorator settings by their functional area (L1 cache, circuit breaker,
+timeout, backpressure, monitoring, encryption).
+"""
+
+from __future__ import annotations
+
+import math
+import numbers
+import operator
+import threading
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, SupportsIndex
+
+from .validation import ConfigurationError, hide_any_secret, refuse_bytes_key
+
+if TYPE_CHECKING:
+    from cachekit.decorators.tenant_context import TenantContextExtractor
+
+
+def _is_count(value: object) -> bool:
+    """Whether value is an int or a NumPy integer >= 1. A bool is refused: it is an int, but never a count.
+
+    Both numbers.Integral and SupportsIndex: every NumPy array has __index__ (a 0-d integer array converts) but none
+    is Integral, and np.timedelta64 is Integral but has no __index__.
+    """
+    if isinstance(value, bool) or not isinstance(value, SupportsIndex) or not isinstance(value, numbers.Integral):
+        return False
+    return operator.index(value) >= 1
+
+
+def _is_cooldown(value: object) -> bool:
+    """Whether value is a finite number of seconds > 0: an int, a float, a Fraction or a NumPy integer or float.
+
+    That is numbers.Real, less a bool and any Real that does not compare with a float (np.timedelta64, which NumPy
+    registers as Real). A Decimal is not Real, as it does not mix with float arithmetic.
+    """
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return False
+    # Not math.isfinite, which raises OverflowError for an int past float range. Real declares only < and <=,
+    # so NaN is refused by the inf bound (every comparison with NaN is False) and the rest by "not <= 0".
+    # The breaker compares the timeout with float seconds, so a value that cannot be compared is refused here.
+    try:
+        return value < math.inf and not value <= 0
+    except TypeError:
+        return False
+
+
+def _is_permit_wait(value: object) -> bool:
+    """Whether value is an int, a float or a NumPy integer (not a bool) from 0 to threading.TIMEOUT_MAX.
+
+    threading.Semaphore.acquire takes only those: None or a str fail the range check with a bare TypeError,
+    and a Decimal, a Fraction or a np.float32 passes it but raises TypeError inside the wait.
+    """
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, SupportsIndex) and isinstance(value, numbers.Integral):  # an int, or a NumPy integer, not an array
+        value = operator.index(value)
+    return isinstance(value, (int, float)) and 0 <= value <= threading.TIMEOUT_MAX
+
+
+@dataclass(frozen=True)
+class L1CacheConfig:
+    """L1 (in-memory) cache configuration.
+
+    L1 cache serves repeat calls from process memory, eliminating network
+    round-trips for frequently accessed data.
+
+    Attributes:
+        enabled: Enable L1 in-memory cache (default: True)
+        max_size_mb: Per-namespace L1 budget in MB. None (default) inherits the global
+            CACHEKIT_L1_MAX_SIZE_MB setting (issue #163); an int overrides it per decorator.
+            With a backend, a single value larger than an eighth of the budget is not kept in L1:
+            it is served from L2, or recomputed if L2 did not store it.
+            In L1-only mode (backend=None) this is a best-effort byte bound on raw object sizes.
+        swr_enabled: Enable stale-while-revalidate background refresh (default: True).
+            Requires a ttl; in L1-only mode async functions refresh via an asyncio
+            task and sync functions via a daemon thread.
+        swr_threshold_ratio: Fraction of TTL after which a hit triggers a background
+            refresh, in (0.0, 1.0] (default: 0.5)
+        swr_retry_interval: Seconds to wait after a failed background refresh before
+            refreshing that key again, >= 0 (default: 10.0). Until then the cached
+            value keeps being served, up to its ttl. 0 retries on the next stale read.
+
+    Examples:
+        Create with defaults:
+
+        >>> config = L1CacheConfig()
+        >>> config.enabled
+        True
+        >>> config.max_size_mb is None  # inherits CACHEKIT_L1_MAX_SIZE_MB
+        True
+
+        Custom configuration validates successfully:
+
+        >>> custom = L1CacheConfig(enabled=True, max_size_mb=200)
+        >>> custom.validate()  # No error = valid
+
+        Invalid max_size_mb raises ConfigurationError:
+
+        >>> L1CacheConfig(max_size_mb=0).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: L1 max_size_mb must be >= 1, got 0
+    """
+
+    enabled: bool = True
+    max_size_mb: int | None = None
+    swr_enabled: bool = True
+    swr_threshold_ratio: float = 0.5
+    # 10 s caps a failing upstream at one background call per key per 10 s, instead
+    # of one per read, and still picks up recovery well inside typical TTLs.
+    swr_retry_interval: float = 10.0
+
+    def validate(self) -> None:
+        """Validate L1 cache configuration.
+
+        Raises:
+            ConfigurationError: If max_size_mb < 1, swr_threshold_ratio is
+                outside (0.0, 1.0], or swr_retry_interval is negative or NaN
+        """
+        if self.max_size_mb is not None and self.max_size_mb < 1:
+            raise ConfigurationError(f"L1 max_size_mb must be >= 1, got {self.max_size_mb}")
+        if not (0.0 < self.swr_threshold_ratio <= 1.0):
+            raise ConfigurationError(f"L1 swr_threshold_ratio must be in (0.0, 1.0], got {self.swr_threshold_ratio}")
+        if not self.swr_retry_interval >= 0:  # also rejects NaN
+            raise ConfigurationError(f"L1 swr_retry_interval must be >= 0, got {self.swr_retry_interval}")
+
+
+@dataclass(frozen=True)
+class CircuitBreakerConfig:
+    """Circuit breaker configuration for graceful degradation.
+
+    Circuit breaker prevents cascading failures by failing fast when backend is unhealthy.
+    Transitions between CLOSED (normal), OPEN (failing fast), and HALF_OPEN (testing recovery).
+
+    Attributes:
+        enabled: Enable circuit breaker protection (default: True)
+        failure_threshold: Failures within a 60 s rolling window that open the circuit;
+            an int or NumPy integer >= 1, not a bool or a float (default: 5)
+        success_threshold: Consecutive successes in HALF_OPEN to close circuit; an int
+            or NumPy integer >= 1, not a bool or a float (default: 3)
+        recovery_timeout: Cooldown in seconds before an OPEN circuit admits a recovery
+            probe; an int, a float, a Fraction or a NumPy integer or float, finite
+            and > 0 (default: 30.0).
+            It also caps a cycle's probe slots at half_open_requests per cooldown,
+            so 0 would remove that cap.
+        half_open_requests: Probe slots per HALF_OPEN cycle (an int or NumPy integer
+            >= 1), not a concurrency limit. Every admitted probe holds one until the cycle ends,
+            cancelled ones included, except a probe whose function raises: it gives
+            its slot back, so more calls than this can reach the backend in one cycle.
+            Must be >= success_threshold, or a cycle could never close (default: 3)
+
+    The four knobs are forwarded to the live breaker (``recovery_timeout`` becomes its
+    ``timeout_seconds``), and ``fn.get_health_status()["circuit_breaker"]["config"]``
+    reports them. Their defaults equal ``cachekit.reliability.CircuitBreakerConfig()``'s,
+    and a test pins that.
+
+    This is the class ``@cache(circuit_breaker=...)`` takes. ``cachekit.CircuitBreakerConfig``
+    is a different class that configures a standalone ``CircuitBreaker``.
+
+    Examples:
+        Create with defaults:
+
+        >>> config = CircuitBreakerConfig()
+        >>> config.failure_threshold
+        5
+        >>> config.recovery_timeout
+        30.0
+
+        Custom thresholds:
+
+        >>> strict = CircuitBreakerConfig(failure_threshold=3, success_threshold=5, half_open_requests=5)
+        >>> strict.validate()  # No error = valid
+        >>> strict.failure_threshold
+        3
+
+        A probe budget below success_threshold could never close, so it is rejected:
+
+        >>> CircuitBreakerConfig(success_threshold=5).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: half_open_requests (3) must be >= success_threshold (5)
+
+        Invalid threshold raises ConfigurationError:
+
+        >>> CircuitBreakerConfig(failure_threshold=0).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: failure_threshold must be an int or NumPy integer >= 1, not a bool, got 0
+    """
+
+    enabled: bool = True
+    failure_threshold: int = 5
+    success_threshold: int = 3
+    recovery_timeout: float = 30.0
+    half_open_requests: int = 3
+
+    def validate(self) -> None:
+        """Validate circuit breaker configuration.
+
+        Raises:
+            ConfigurationError: If thresholds are invalid
+        """
+        for name in ("failure_threshold", "success_threshold", "half_open_requests"):
+            value = getattr(self, name)
+            if not _is_count(value):
+                raise ConfigurationError(f"{name} must be an int or NumPy integer >= 1, not a bool, got {value!r}")
+        # Every success holds one of a cycle's half_open_requests slots; fewer than
+        # success_threshold can never close it, and each cycle restart discards the
+        # successes collected so far.
+        if self.half_open_requests < self.success_threshold:
+            raise ConfigurationError(
+                f"half_open_requests ({self.half_open_requests}) must be >= success_threshold "
+                f"({self.success_threshold}): a half-open cycle could never close"
+            )
+        # The cooldown also bounds a cycle's probe slots to half_open_requests per
+        # cooldown; at 0 a spent cycle restarts on every clock tick, without bound.
+        if not _is_cooldown(self.recovery_timeout):
+            raise ConfigurationError(
+                f"recovery_timeout must be an int, a float, a Fraction or a NumPy integer or float, not a bool, finite and > 0, got {self.recovery_timeout!r}"
+            )
+
+
+@dataclass(frozen=True)
+class BackpressureConfig:
+    """Backpressure configuration for overload protection.
+
+    Backpressure limits concurrent requests to prevent resource exhaustion.
+    When limit is reached, new requests are queued or rejected based on queue capacity.
+
+    Attributes:
+        enabled: Enable backpressure protection (default: True)
+        max_concurrent_requests: Maximum concurrent cache requests (default: 100, an int or NumPy integer >= 1)
+        queue_size: Queue size for waiting requests (default: 1000, an int or NumPy integer >= 1)
+        timeout: Seconds to wait in queue before giving up (default: 0.1, from 0 to threading.TIMEOUT_MAX)
+
+    Examples:
+        Create with defaults:
+
+        >>> config = BackpressureConfig()
+        >>> config.max_concurrent_requests
+        100
+        >>> config.queue_size
+        1000
+
+        Custom limits:
+
+        >>> custom = BackpressureConfig(max_concurrent_requests=50, queue_size=500)
+        >>> custom.validate()  # No error = valid
+
+        Invalid concurrent requests:
+
+        >>> BackpressureConfig(max_concurrent_requests=0).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: max_concurrent_requests must be an int or NumPy integer >= 1, not a bool, got 0
+    """
+
+    enabled: bool = True
+    max_concurrent_requests: int = 100
+    queue_size: int = 1000
+    timeout: float = 0.1
+
+    def validate(self) -> None:
+        """Validate backpressure configuration.
+
+        Raises:
+            ConfigurationError: If capacity limits are invalid
+        """
+        # threading.Semaphore blocks only while its counter is exactly 0. From NaN, inf or a fraction it never
+        # reaches 0, which would silently remove the concurrency limit.
+        if not _is_count(self.max_concurrent_requests):
+            raise ConfigurationError(
+                f"max_concurrent_requests must be an int or NumPy integer >= 1, not a bool, got {self.max_concurrent_requests!r}"
+            )
+        # Every backend operation joins the queue before it waits for a permit, even one that gets a
+        # permit at once, so at 0 every operation is rejected. NaN or inf would silently remove the cap.
+        if not _is_count(self.queue_size):
+            raise ConfigurationError(f"queue_size must be an int or NumPy integer >= 1, not a bool, got {self.queue_size!r}")
+        # The permit wait hands timeout to threading.Semaphore.acquire. While every permit is held, NaN never
+        # returns, and inf or a value past the platform limit raises OverflowError instead of waiting.
+        # threading.TIMEOUT_MAX is the documented maximum.
+        if not _is_permit_wait(self.timeout):
+            raise ConfigurationError(
+                f"timeout must be a number from 0 to {threading.TIMEOUT_MAX} (threading.TIMEOUT_MAX), got {self.timeout!r}"
+            )
+
+
+@dataclass(frozen=True)
+class MonitoringConfig:
+    """Observability and monitoring configuration.
+
+    Controls collection of statistics, structured logging, and metrics export.
+
+    Attributes:
+        collect_stats: Collect cache hit/miss statistics (default: True)
+        enable_structured_logging: Log cache operations at INFO, with their fields on each record (default: True)
+        enable_prometheus_metrics: Export Prometheus metrics (default: True)
+
+    Examples:
+        Create with defaults (all monitoring enabled):
+
+        >>> config = MonitoringConfig()
+        >>> config.collect_stats
+        True
+        >>> config.enable_prometheus_metrics
+        True
+
+        Disable Prometheus for local development:
+
+        >>> dev_config = MonitoringConfig(enable_prometheus_metrics=False)
+        >>> dev_config.validate()  # No error = valid
+        >>> dev_config.enable_prometheus_metrics
+        False
+    """
+
+    collect_stats: bool = True
+    enable_structured_logging: bool = True
+    enable_prometheus_metrics: bool = True
+
+    def validate(self) -> None:
+        """Validate monitoring configuration.
+
+        Raises:
+            ConfigurationError: If configuration is invalid (currently no constraints)
+        """
+        # No validation constraints currently - all boolean flags
+        pass
+
+
+@dataclass(frozen=True)
+class EncryptionConfig:
+    """Encryption configuration for PII/sensitive data.
+
+    Enables client-side AES-256-GCM encryption of cached values.
+    Both L1 and L2 store encrypted bytes (encrypt-at-rest everywhere).
+
+    NOTE: Per backend abstraction spec, encryption stores encrypted bytes in BOTH L1 and L2.
+    L1 can be enabled with encryption (stores encrypted bytes, not plaintext).
+
+    Tenant mode is required: set single_tenant_mode=True for single-tenant or provide
+    a tenant_extractor (an object with .extract(args, kwargs)) for per-tenant key derivation,
+    which is not a tenancy boundary (docs/features/zero-knowledge-encryption.md). @cache.secure() sets
+    single_tenant_mode automatically; if using EncryptionConfig directly (e.g. with
+    @cache.io), you must set it explicitly.
+
+    Tri-state ``enabled`` (issue #128): a plain bool cannot tell "user left it unset"
+    from "user explicitly disabled". ``enabled`` is therefore None/True/False:
+        - None (default): unset — no encryption intent stated. Plaintext when no master key is
+          present; ConfigurationError at construction when one is, from master_key here or
+          CACHEKIT_MASTER_KEY (see the activation table in docs/features/zero-knowledge-encryption.md).
+        - True: force client-side encryption ON (requires master_key + tenant mode).
+        - False: explicit hard opt-out — never encrypt, even when a master key is present.
+
+    ``CACHEKIT_MASTER_KEY`` is a key *source* (the fallback for ``enabled=True`` and
+    ``@cache.secure``), not an activation *switch* — protocol ``intent-presets.md``
+    § Encryption Activation.
+
+    Attributes:
+        enabled: Tri-state encryption flag (default: None = unset).
+                 True = force-on, False = explicit opt-out.
+        master_key: Hex-encoded master key for key derivation (required if enabled=True). A bytes key
+                 raises TypeError: pass ``key.hex()``.
+        tenant_extractor: Optional extractor with .extract(args, kwargs) for per-tenant key derivation (default: None)
+        single_tenant_mode: Explicitly enable single-tenant mode (default: False)
+        deployment_uuid: Optional explicit tenant_id override for single-tenant mode (default: None →
+                 CACHEKIT_DEPLOYMENT_UUID, else the protocol literal "default")
+        fail_closed: Tri-state tamper-failure policy (default: None = defer to the
+                 CACHEKIT_ENCRYPTION_FAIL_CLOSED env setting, which defaults to False).
+                 True = raise DecryptionAuthenticationError to the caller on AES-GCM
+                 authentication failure or key-fingerprint mismatch instead of silently
+                 recomputing (fail closed). False = explicit per-decorator opt-out of a
+                 fleet-wide fail-closed setting (fail open: warn, record the
+                 cachekit_decrypt_failures_total metric, recompute).
+
+    Examples:
+        Unset by default (no intent stated, no encryption forced):
+
+        >>> config = EncryptionConfig()
+        >>> config.enabled is None
+        True
+        >>> config.validate()  # No error when unset
+
+        Explicit opt-out (never encrypts, even with CACHEKIT_MASTER_KEY set):
+
+        >>> off = EncryptionConfig(enabled=False)
+        >>> off.enabled
+        False
+        >>> off.validate()  # No error when explicitly disabled
+
+        Single-tenant encryption:
+
+        >>> master_key = secret_key  # 32 bytes hex-encoded
+        >>> single = EncryptionConfig(enabled=True, master_key=master_key, single_tenant_mode=True)
+        >>> single.validate()  # No error = valid
+
+        Missing master_key raises ConfigurationError:
+
+        >>> EncryptionConfig(enabled=True).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: encryption.enabled=True requires encryption.master_key...
+
+        Must specify tenant mode (single or multi):
+
+        >>> EncryptionConfig(enabled=True, master_key=secret_key).validate()  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        cachekit.config.validation.ConfigurationError: Encryption requires explicit tenant mode...
+
+        The key is hex, never bytes:
+
+        >>> EncryptionConfig(enabled=True, master_key=secret_key_bytes, single_tenant_mode=True)
+        Traceback (most recent call last):
+            ...
+        TypeError: master_key takes a hex string, not bytes: pass key.hex(). Only EncryptionWrapper takes raw key bytes.
+    """
+
+    enabled: bool | None = None
+    master_key: str | None = field(default=None, repr=False)
+    tenant_extractor: TenantContextExtractor | None = None
+    single_tenant_mode: bool = False
+    deployment_uuid: str | None = None
+    fail_closed: bool | None = None
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> EncryptionConfig:
+        # A bytes key is refused here, not in __post_init__: that would raise beneath the generated __init__, whose
+        # frame holds the key raw in a local (CWE-532). This frame holds it only wrapped. master_key is the second
+        # field, so the second positional argument when not passed by keyword.
+        if len(args) > 1:
+            args = (args[0], hide_any_secret(args[1]), *args[2:])
+        if "master_key" in kwargs:
+            kwargs["master_key"] = hide_any_secret(kwargs["master_key"])
+        refuse_bytes_key(args[1] if len(args) > 1 else kwargs.get("master_key"))
+        return super().__new__(cls)
+
+    def validate(self) -> None:
+        """Validate encryption configuration.
+
+        Only the explicit force-on state (enabled=True) requires a master key. The
+        unset (None) and explicit opt-out (False) states are both falsy and skip
+        validation — neither requires a key; False never encrypts.
+
+        The master key may be supplied inline or via the CACHEKIT_MASTER_KEY env var
+        (resolved here so force-on works without inlining the key, matching the
+        handler's own resolution).
+
+        Raises:
+            ConfigurationError: If encryption enabled but no master_key (inline or env)
+        """
+        if self.enabled and not self._resolve_master_key():
+            raise ConfigurationError(
+                "encryption.enabled=True requires encryption.master_key. "
+                "Set CACHEKIT_MASTER_KEY environment variable or pass master_key parameter."
+            )
+
+        # Validate tenant mode configuration
+        if self.enabled:
+            if not self.tenant_extractor and not self.single_tenant_mode:
+                raise ConfigurationError(
+                    "Encryption requires explicit tenant mode. "
+                    "Provide tenant_extractor for multi-tenant OR "
+                    "set single_tenant_mode=True for single-tenant."
+                )
+            if self.tenant_extractor and self.single_tenant_mode:
+                raise ConfigurationError(
+                    "Cannot use both tenant_extractor and single_tenant_mode. "
+                    "Choose multi-tenant (tenant_extractor) OR single-tenant (single_tenant_mode=True)."
+                )
+
+    def _resolve_master_key(self) -> str | None:
+        """Resolve the master key from the inline value, falling back to env settings.
+
+        Inline master_key takes precedence; otherwise read CACHEKIT_MASTER_KEY via the
+        settings singleton. Mirrors validate_encryption_config so the config-level and
+        handler-level views of "is a key available?" stay consistent.
+        """
+        if self.master_key:
+            return self.master_key
+        from cachekit.config.singleton import get_settings
+
+        settings = get_settings()
+        return settings.master_key.get_secret_value() if settings.master_key else None

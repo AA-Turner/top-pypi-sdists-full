@@ -1,0 +1,477 @@
+Metadata-Version: 2.4
+Name: xradar
+Version: 0.13.0
+Summary: Xradar includes all the tools to get your weather radar into the xarray data model.
+Author-email: Maxwell Grover <mgrover@anl.gov>, Kai Mühlbauer <kai.muehlbauer@uni-bonn.de>, Zachary Sherman <zsherman@anl.gov>
+License-Expression: MIT
+Project-URL: homepage, https://docs.openradarscience.org/projects/xradar
+Project-URL: documentation, https://docs.openradarscience.org/projects/xradar/
+Project-URL: repository, https://github.com/openradar/xradar
+Project-URL: changelog, https://github.com/openradar/xradar/blob/main/docs/history.md
+Keywords: xradar
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cmweather
+Requires-Dist: dask
+Requires-Dist: h5netcdf>=1.0.0
+Requires-Dist: h5py>=3.0.0
+Requires-Dist: lat_lon_parser
+Requires-Dist: netCDF4
+Requires-Dist: numpy
+Requires-Dist: pyproj
+Requires-Dist: scipy
+Requires-Dist: xarray>=2026.4.0
+Requires-Dist: xmltodict
+Provides-Extra: dev
+Requires-Dist: cffconvert; extra == "dev"
+Requires-Dist: pip; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: fsspec; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: nbconvert; extra == "dev"
+Requires-Dist: notebook; extra == "dev"
+Requires-Dist: open_radar_data>=0.9.0; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: cartopy; extra == "dev"
+Requires-Dist: s3fs; extra == "dev"
+Requires-Dist: zarr>=3; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: diff-cover; extra == "dev"
+Requires-Dist: myst-nb; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: sphinx-favicon; extra == "dev"
+Requires-Dist: pydata-sphinx-theme; extra == "dev"
+Requires-Dist: linkify-it-py; extra == "dev"
+Dynamic: license-file
+
+# xradar
+
+[![PyPI Version](https://img.shields.io/pypi/v/xradar.svg)](https://pypi.python.org/pypi/xradar)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/xradar.svg)](https://anaconda.org/conda-forge/xradar)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo7091736.svg)](https://doi.org/10.5281/zenodo.7091736)
+[![CI](https://github.com/openradar/xradar/actions/workflows/ci.yml/badge.svg)](https://github.com/openradar/xradar/actions/workflows/ci.yml)
+[![Build distribution](https://github.com/openradar/xradar/actions/workflows/upload_pypi.yml/badge.svg)](https://github.com/openradar/xradar/actions/workflows/upload_pypi.yml)
+[![RTD Version](https://readthedocs.org/projects/xradar/badge/?version=latest)](https://xradar.readthedocs.io/en/latest/?version=latest)
+
+Xradar includes all the tools to get your weather radar into the xarray data model.
+
+* Code: [MIT license](LICENSE)
+* Documentation: [CC-BY-SA-4.0](LICENSE-CC-BY-SA-4.0) [https://docs.openradarscience.org/projects/xradar](https://xradar.readthedocs.io)
+
+## How to cite Xradar
+
+This project provides a Zenodo badge with a DOI for easy citation — click the badge above to get the official citation and permanent archive.
+
+GitHub also offers a “Cite this repository” button near the top right of [this page](https://github.com/openradar/xradar), where you can quickly copy the citation in various formats like APA and BibTeX.
+
+In the [rendered documentation](https://docs.openradarscience.org/projects/xradar/en/stable/#how-to-cite-xradar), you will find the full citation below.
+
+> [!TIP]
+> **Cite Xradar as:**
+>
+> *{{ apa_citation }}*
+
+## About
+
+At a developer meeting held in the course of the ERAD2022 conference in Locarno, Switzerland, future plans and cross-package collaboration of the [openradarscience](https://openradar.discourse.group/) community were intensively discussed.
+
+The consensus was that a close collaboration that benefits the entire community can only be maximized through joint projects. So the idea of a common software project whose only task is to read and write radar data was born. The data import should include as many available data formats as possible, but the data export should be limited to the recognized standards, such as [ODIM_H5](https://www.eumetnet.eu/activities/observations-programme/current-activities/opera/) and [CfRadial](https://github.com/NCAR/CfRadial).
+
+As memory representation an xarray based data model was chosen, which is internally adapted to the forthcoming standard CfRadial2.1/FM301. FM301 is enforced by the [Joint Expert Team on Operational Weather Radar (JET-OWR)](https://community.wmo.int/governance/commission-membership/commission-observation-infrastructure-and-information-systems-infcom/commission-infrastructure-officers/infcom-management-group/standing-committee-measurements-instrumentation-and-traceability-sc-mint/joint-expert-team). Information on FM301 is available at WMO as [WMO CF Extensions](https://community.wmo.int/activity-areas/wis/wmo-cf-extensions) and is described in the [WMO Manual on Codes](https://library.wmo.int/idurl/4/35625).
+
+Any software package that uses xarray in any way will then be able to directly use the described data model and thus quickly and easily import and export radar data. Another advantage is the easy connection to already existing [open source radar processing software](https://openradarscience.org/pages/projects/#).
+
+## Status
+
+Xradar is considered stable for the implemented readers and writers which have been ported from wradlib. It will remain in beta status until the standard is finalized and the API as well as data model will move into stable/production status.
+
+> [!IMPORTANT]
+> Currently only polar (radial) and not cartesian or any other gridded radar data can be imported!
+> To grid xradar data, use downstream packages like Py-ART or wradlib, see the [Gridding example](https://docs.openradarscience.org/projects/xradar/en/latest/notebooks/Gridding.html).
+
+## Features
+
+### Import/Export Capabilities
+* [CfRadial1 and CfRadial2](https://github.com/NCAR/CfRadial) — CF/Radial convention for radar data
+* [ODIM_H5](https://www.eumetnet.eu/activities/observations-programme/current-activities/opera/) — EUMETNET OPERA Data Information Model (HDF5)
+
+### Import-Only Capabilities
+* DataMet — DataMet weather radar
+* [Furuno](https://www.furuno.com/en/products/weather-radar/) — Furuno weather radar
+* [Gamic](https://gamic.com/) — GAMIC HDF5
+* [HPL](https://hfreval.com/) — Halo Photonics Lidar
+* [IMD](https://mausam.imd.gov.in/) — India Meteorological Department
+* [Iris](https://www.vaisala.com/en/products/weather-environmental-sensors/thunderstorm-and-weather-radars) — Vaisala IRIS/Sigmet
+* [MRR](https://metek.de/product/mrr-pro/) — Micro Rain Radar (METEK)
+* [NexradLevel2](https://www.ncei.noaa.gov/products/radar/next-generation-weather-radar) — NEXRAD WSR-88D Level 2
+* [Rainbow](https://www.leonardo.com/en/products/meteor-family) — LEONARDO (formerly Selex/Gematronik) Rainbow
+* [UF](https://journals.ametsoc.org/view/journals/bams/61/11/1520-0477-61_11_1401.xml) — Universal Format
+
+### Data Transformation and Alignment
+* Georeferencing (AEQD projection)
+* Angle Reindexing
+* Format Transformation support to CfRadial1 and CfRadial2
+
+> [!NOTE]
+> All formats load into CfRadial2, so converting to CfRadial1 is seamless.
+
+## Contributors
+
+Thanks to our many contributors!
+
+[![Contributors](https://contrib.rocks/image?repo=openradar/xradar)](https://github.com/openradar/xradar/graphs/contributors)
+
+# History
+
+## 0.13.0 (2026-10-21)
+
+This release brings a unified open_datatree interface (``xd.open_datatree(file, engine=...)`` / ``xr.open_datatree``) for all 13 backends, including the new IMD reader, and engine discovery so that formats unknown to xarray (NEXRAD Level II, IRIS, Rainbow, UF, ...) open without engine. IRIS moment decoding now follows the IRIS Programming Guide (2024), and numerous fixes improve sweep selection, file handling (close() releases files for every backend) and CfRadial and ODIM import and export, including repeatable CfRadial1/2 roundtrips. The CfRadial1 export writes CfRadial 1.4 metadata (``version``, ``Conventions`` with the sub-conventions, the names of the calibration tables), keeps rays which share a timestamp, writes strings as char arrays (which Py-ART can read) and boolean attributes as ``"true"``/``"false"``, and raises a clear error for volumes whose sweeps have different range geometry; ``to_odim`` builds ``what/source`` from the identifiers of the data it read. New documentation and notebooks cover gridding, georeferencing, format mappings and engine discovery, and the project now has an AI Usage Policy.
+
+[@aladinor](https://github.com/aladinor) and [@syedhamidali](https://github.com/syedhamidali) are the main contributors to this release, with contributions from [@kmuehlbauer](https://github.com/kmuehlbauer), [@zssherman](https://github.com/zssherman), [@mats-knmi](https://github.com/mats-knmi), [@chfer](https://github.com/chfer) and [@Jah-yee](https://github.com/Jah-yee).
+
+Please note: xradar now requires Python >= 3.12 and zarr >= 3. The open_*_datatree functions and reindex_angle are deprecated (use ``open_datatree(..., engine=...)`` and ``reindex_coord``). ODIM TH/TV are now read as DBTH/DBTV, and IRIS no-data bins are NaN instead of values such as -32 dBZ.
+
+* DOC: Add AI Usage Policy (``docs/ai_policy.md``) adapted from xarray's policy, with xradar-specific guidance for CI, packaging, and dependency changes, copyright and licensing, and disclosure of AI usage ({pull}`363`) by [@aladinor](https://github.com/aladinor)
+* FIX: ``Dataset.close()`` and ``DataTree.close()`` release the file for every backend, also after ``georeference()``/``add_crs()`` and when opening fails (most backends left files open until garbage collection, which can crash HDF5); CfRadial1 caches its data once ({issue}`471`, {issue}`502`, {pull}`472`) by [@aladinor](https://github.com/aladinor)
+* MNT: CI unit tests use released xarray again, and test jobs time out after 30 minutes ({issue}`495`, {pull}`510`) by [@aladinor](https://github.com/aladinor)
+* FIX: DataMet, Furuno, IRIS (also ``open_iris_datatree``) and Metek accept ``pathlib.Path`` (as HPL and Rainbow do), UF reads datatrees from file-like objects (sweep discovery consumed the object without rewinding), and the CfRadial1 backend applies ``fix_second_angle`` to sweep groups in ``open_dataset`` and ``open_datatree`` (it was accepted but ignored) ({pull}`509`) by [@aladinor](https://github.com/aladinor)
+* CI: Updated immutable hashes to newer versions and added missing trailing version comments ({pull}`511`) by [@zssherman](https://github.com/zssherman)
+* FIX: the deprecated ``open_*_datatree`` functions and ``xd.open_datatree`` go through ``xr.open_datatree`` again, so ``chunks``, ``cache`` and ``backend_kwargs`` work as before {pull}`335`, legacy ``optional=False`` no longer raises, and iris, rainbow, furuno and datamet sweeps keep their ``range`` index; ``optional_groups=True`` no longer copies ``latitude``/``longitude``/``altitude`` into ``/radar_parameters`` and ``/georeferencing_correction``; the ``reindex_angle`` FutureWarning is emitted once and points at the caller; ``open_uf_datatree`` has its signature and docstring back; the CfRadial1 and CfRadial2 backend option for the netCDF reader is ``netcdf_engine`` (``engine`` still works in ``open_cfradial1_datatree`` and ``open_cfradial2_datatree``), since ``engine`` collided with xarray's own argument; as in ``xr.open_datatree``, a keyword given both directly and in ``backend_kwargs`` takes the ``backend_kwargs`` value, and passing both ``site_coords`` and ``site_as_coords`` raises ``TypeError``; NEXRAD and UF sweeps get a ``range`` index like the other engines, and both honour ``first_dim`` given in ``backend_kwargs``; the CfRadial2 backend stays lazy and ``close()`` releases the file ({issue}`481`, {pull}`484`) by [@aladinor](https://github.com/aladinor) and [@kmuehlbauer](https://github.com/kmuehlbauer)
+* DOC: ``multiple-sweeps-into-volume-scan`` notebook builds a three-volume tree (``radar_files[:12]``) instead of six, saving about a minute of Read the Docs build time, which was running close to the 15-minute limit ({issue}`500`, {pull}`507`) by [@aladinor](https://github.com/aladinor)
+* MNT: Test on Python 3.12, 3.13 and 3.14 with numpy 2 and require Python >= 3.12 ({issue}`487`, {pull}`488`; CI matrix from {pull}`484` by [@kmuehlbauer](https://github.com/kmuehlbauer)) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS SNR-family types (``DB_SNR``, ``DB_LOG``, ``DB_CSP``, ``DB_AH``, ``DB_AV``, ``DB_AZDR``, 1 and 2 byte) decode as ``(N - 64) / 2`` dB (1 byte, from the IRIS Programming Guide 4.4.37 and checked against reflectivity on the Arouca C-band file in open-radar-data 0.9.0) and ``(N - 32768) / 100`` dB (2 byte) instead of ``(N - 63) / 2`` for both, which gave 2-byte SNR up to about 19900 dB; raw 0 is no data; ``DB_SNR8`` is named ``SNRH`` like ``DB_SNR16``, and when two types of a sweep map to one name (e.g. ``DB_SNR8`` + ``DB_SNR16``, or ``DB_DBZ`` + ``DB_DBZ2``) the second keeps its Sigmet name instead of replacing the first; ``SNRH``/``SNRV`` have units ``dB``; tests need open-radar-data >= 0.9.0 ({issue}`475`, {pull}`485`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS ``DB_PHIH``/``DB_PHIV`` decode like ``DB_PHIDP`` (``180 * (N - 1) / 254`` degrees, raw 0 no data, IRIS Programming Guide 4.4.24) instead of 180 times the raw word ({issue}`474`, {pull}`483`) by [@aladinor](https://github.com/aladinor)
+* ENH: Add xarray-native ``open_datatree`` with ``engine=`` parameter for all 13 backends (odim, cfradial1, cfradial2, nexradlevel2, gamic, iris, furuno, rainbow, datamet, hpl, metek, uf, imd), enabling ``xd.open_datatree(file, engine="odim")`` and ``xr.open_datatree(file, engine="odim")``. Legacy ``open_*_datatree()`` functions emit ``FutureWarning`` and delegate to the new entry points; ``xd.io.open_imd_datatree([files])`` remains the documented exception for multi-file IMD volumes. Also adds public ``xd.io.list_engines()`` for engine discovery, NumPy-style docstrings on every ``BackendEntrypoint.open_groups_as_dict`` / ``open_datatree`` method, and a demo notebook covering all 13 engines. ``reindex_coord`` (and the deprecated ``reindex_angle``) is accepted by every engine that reindexes (all but ``metek`` and ``cfradial2``), now also applied by ``cfradial1``, and the IMD engine takes ``site_coords`` like the other engines (``open_imd_datatree`` accepts both spellings). ``sweep`` is resolved by one shared helper on all engines: non-negative integers (numpy included), ``sweep_N`` names and ``/sweep_N`` paths, alone or mixed in a list; ``bool``, negative, float and other values raise, ``cfradial1`` raises for sweeps missing from the file, and the single-sweep engines (``furuno``, ``metek``, ``imd``) raise for anything but ``sweep_0`` instead of silently returning it. Previously numpy integers, tuples, sets and ranges silently selected all sweeps on several engines and ``/sweep_N`` paths failed; an explicitly selected incomplete NEXRAD sweep is padded as before. The deprecation ``FutureWarning`` points at the caller's line ({issue}`329`, {pull}`335`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS ``DB_SHEAR`` is read as unsigned (IRIS Programming Guide 4.4.50), so raw 128 is zero shear instead of -51.2 ({issue}`476`, {pull}`489`) by [@aladinor](https://github.com/aladinor)
+* FIX: HPL ``reindex_coord`` angle reindexing failed with ``first dimension is time`` because it ran before the angle became the first dimension ({pull}`335`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS ``DB_VELC`` decodes raw 128 as zero velocity (IRIS Programming Guide 4.4.42) instead of +0.3 m/s, using the ``DB_VEL`` scale; raw 254 is +74.4 m/s, not the +75.0 of the guide's table ({issue}`477`, {pull}`491`) by [@aladinor](https://github.com/aladinor)
+* ENH: ``to_odim`` builds ``what/source`` from the identifiers the ODIM reader stores in the global attributes (``wmo__id``, ``node``, ``site_name``, ``wmo__originating_centre``, ``wmo__wsi``) when ``source`` is not given, so ODIM files read with xradar can be written back without retyping the source; an explicit ``source`` still takes precedence ({issue}`98`, {pull}`441`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: IRIS 2-byte SQI-format types (``DB_SQI2``, ``DB_RHOHV2``, ``DB_RHOH2``, ``DB_RHOV2``, ``DB_PMI16``, ``DB_CCOR16``) decode as ``(N - 1) / 65533`` (IRIS Programming Guide 4.4.40), so raw 65534 is 1.0 ({issue}`478`, {pull}`513`) by [@aladinor](https://github.com/aladinor)
+* FIX: Rainbow reader takes the range start from ``start_range`` (the tag used in Rainbow 5 files; ``startrange`` was looked up before, so a non-zero start range was ignored), falling back to ``startrange``; range bin centers are computed from the number of bins; Rainbow files can be opened from ``pathlib.Path`` ({issue}`272`, {pull}`445`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: IRIS ``DB_HVEL2`` has a dtype (signed 2 byte, 0.01 m/s, as ``DB_VVEL2``, IRIS Programming Guide 4.4.46; the guide has no ``DB_HVEL2`` section), so files carrying it no longer fail to decode ({issue}`479`, {pull}`514`) by [@aladinor](https://github.com/aladinor)
+* FIX: NEXRAD Level II reader rewinds file-like objects so every sweep of a datatree can be read (previously all but the first failed), and raises a clear ``ValueError`` for gzip-compressed input (asking to decompress it first) and for input that is not a Level II archive, instead of ``TypeError: NoneType + int`` ({issue}`382`, {pull}`410`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: IRIS ``multi_prf_mode_flag`` values outside 0-3 warn and use the single-PRF Nyquist velocity instead of scaling velocity by up to 65536 ({issue}`480`, {pull}`517`) by [@aladinor](https://github.com/aladinor)
+* FIX: ``open_nexradlevel2_datatree(..., incomplete_sweep="pad")`` pads incomplete sweeps on the nominal azimuth grid from the MSG_31 ``azimuth_resolution`` (0.5° / 1.0°, i.e. 720 / 360 rays) instead of the spacing inferred from the jittery measured azimuths (e.g. 0.49° → 735 rays) ({issue}`396`, {pull}`447`) by [@syedhamidali](https://github.com/syedhamidali)
+* DOC: Add ``Gridding`` notebook showing how to grid xradar volumes into 3D Cartesian grids with Py-ART (``grid_from_radars``) and wradlib (``vpr.CAPPI`` and sweep-wise ``.wrl.ipol.interpolate`` with vertical interpolation), compare the products (CAPPIs, column maximum, cross-section), with links to further examples (Py-ART, wradlib, Project Pythia, ERAD short courses), and point to it from the README ({issue}`135`, {pull}`432`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: New ``reindex_coord`` backend kwarg replacing ``reindex_angle``: a nested dict ``reindex_coord=dict(angle=dict(...), range=dict(...))`` reindexes angle (duplicates removed, ``util.reindex_angle``, ``util.ipol_time``) and/or range (new ``util.reindex_range``, analogous to ``reindex_angle``) for all backends and datatree openers (HPL newly supported). ``reindex_angle`` still works but emits a ``FutureWarning``; non-dict values now raise a clear error. The ``Multi-Volume-Concatenation`` notebook uses it to align the slightly differing ranges of its volumes ({issue}`407`, {pull}`411`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: IRIS ``site_coords`` folded southern-hemisphere latitudes (BIN4 > 180°) with the longitude, so ``latitude`` came out as ``longitude - 360``; fold the latitude itself ({issue}`391`, {pull}`409`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ODIM reader no longer fails on quality groups carrying a compound-dtype ``legend`` table (ODIM_H5 2.4, e.g. the FMI open archive since 2026-06); the table is attached to the group's classification variable as CF ``flag_values`` / ``flag_meanings`` (ODIM 2.3/2.4 Section 6.2 ``key``/``value`` and FMI ``code``/``class`` layouts) instead of being merged as ray data, and a ``what/legend`` string attribute is kept as ``legend`` ({issue}`395`, {pull}`408`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ``open_odim_datatree``, ``open_rainbow_datatree``, ``open_hpl_datatree`` and ``open_metek_datatree`` mapped a list of integer sweeps with an offset of one (``sweep=[0]`` opened the second sweep, or failed for single-sweep files); integer lists now select the same sweeps as single integers and ``sweep_N`` names, as in all other backends ({issue}`412`, {pull}`414`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: Fix spacing_is_constant being incorrectly set to false for float32 ranges due to floating-point precision when comparing gate spacing. ({pull}`402` ) by [@mats-knmi](https://github.com/mats-knmi)
+* DOC: Fix the ``Multi-Volume-Concatenation`` notebook for xarray 2026.9 — determine the rotation direction from the time-ordered azimuth differences instead of ``diff("time")`` on a sweep whose dimension is ``azimuth`` (older xarray silently ignored the missing dimension, newer raises) ({pull}`406` ) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial1 reader handles a variable number of gates per ray within a sweep — each ray is unpacked by its own ``ray_n_gates`` and shorter rays are padded with NaN, instead of assuming the first ray's gate count for the whole sweep. Also restore RHI detection (``elevation`` as first dimension), which broke in {pull}`320`, and decode ``sweep_mode`` after computing so dask-backed inputs keep the full string ({issue}`322`) ({pull}`405`) by [@syedhamidali](https://github.com/syedhamidali)
+* MNT: Refactor the CfRadial1 writer for code quality ahead of v1.0 — descriptive helper names (``_main_info_mapper`` → ``_extract_root_dataset``, ``_variable_mapper`` → ``_combine_sweeps``, ``_calib_mapper`` → ``_map_radar_calibration``, ``_sweep_info_mapper`` → ``_collect_sweep_metadata``), clearer locals, fix the ``calibs`` bool/variable name collision, robust ``history`` attribute and missing-``elevation`` handling, and a shared ``_build_cfradial1_dataset`` reused by ``xradar.transform.to_cfradial1`` to remove duplication ({issue}`379`, {pull}`387`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: When importing ODIM files, extract the global attributes "wmo__id", "node", "wmo__originating_centre" and "wmo__wsi" from the ODIM /what/source attribute ({pull}`385`) by [@chfer](https://github.com/chfer)
+* FIX: Require ``zarr>=3`` so ``DataTree.to_zarr()`` works with current xarray (which forwards a ``zarr_format`` argument that ``zarr<3``'s ``open_group()`` rejects), and fill masked moments (e.g. IRIS ``VRADH``) in the ``multiple-sweeps-into-volume-scan`` notebook before writing, since zarr v3 codecs cannot serialize numpy ``MaskedArray`` ({issue}`398`, {pull}`399`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ``open_nexradlevel2_datatree`` decodes volumes with interior sweep-index gaps end-to-end — translate sweep label → compact position in ``NexradLevel2Store.open_store_coordinates`` so the per-sweep entrypoint stops positionally indexing the compacted ``msg_31_header`` (follow-up to {pull}`362`) ({issue}`366`, {pull}`374`) by [@aladinor](https://github.com/aladinor)
+* DOC: ``nexrad_read_chunks`` notebook now falls back to the open-radar-data fixture when the live S3 listing yields no complete sweep. The guard only caught ``ValueError``, but a listing holding just the start (S) chunk parses fine and returns a ``DataTree`` with no sweep groups, so the fallback was skipped and the notebook failed on ``dtree["sweep_0"]`` ({pull}`377`) by [@aladinor](https://github.com/aladinor)
+* FIX: NEXRAD Level 2 reader drops MSG_31 records when an LDM Compressed Record carries MSG_2 (RDA Status) alongside the 120 radials — ``NEXRADRecordFile.init_record`` hard-coded a 120-message stride; per ICD ``2620010J`` §7.3.4 the LDM holds "120 radial messages (type 31) plus 0 or more RDA Status messages (type 2)". Replace the synthetic mod-120 stride with a byte-walk that detects end-of-LDM by buffer length, with a recnum-position cache for ``get_data``'s per-moment replay ({issue}`376`, {pull}`377`) by [@aladinor](https://github.com/aladinor)
+* FIX: ensure `to_cfradial2` correctly selects the default storage engine when none is provided, ({pull}`378`) by [@chfer](https://github.com/chfer)
+* MNT: Add ``cfradial1_sgp_file`` session fixture and refactor 8 tests in ``test_util.py``/``test_accessors.py`` to share it instead of inlining ``DATASETS.fetch("sample_sgp_data.nc")``. Fixture returns the filename so each test opens its own DataTree, avoiding cross-test mutation ({issue}`346`, {pull}`347`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS reader rotates the first-loaded moment in each sweep by 1 ray — ``IrisRawFile._get_ray_record_offsets_and_data`` initialised ``j = -1`` so the first matching ray of the first-loaded moment was written to ``raw_data[-1]``; affects files without ``DB_XHDR`` (data-type bit 0) where ``DB_DBT`` becomes the rotated moment ({issue}`357`, {pull}`375`) by [@aladinor](https://github.com/aladinor)
+* DOC: Add projection comparison and cartopy map examples to ``Georeference_TargetCRS`` notebook ({pull}`370`) by [@syedhamidali](https://github.com/syedhamidali)
+* DOC: Add full-form descriptions for all supported radar formats in README.md ({pull}`371`) by [@syedhamidali](https://github.com/syedhamidali)
+* ADD: India Meteorological Department (IMD) radar NetCDF reader (``IMDBackendEntrypoint``, ``open_imd_datatree``). IMD stores one sweep per file; ``open_imd_datatree`` accepts a single file or a list of files to assemble a multi-sweep volume ({issue}`368`, {pull}`367`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: Preserve CfRadial metadata groups during CfRadial1/CfRadial2 transforms, allow ``to_cfradial2`` to reopen root-only ``engine="cfradial1"`` datasets, and normalize sweep metadata after ``map_over_sweeps`` operations so filtered volumes can be exported to CfRadial1 again ({issue}`254`, {issue}`322`, {pull}`350`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: Expose ``target_crs`` on ``.xradar.georeference()`` accessor for DataArray, Dataset and DataTree, enabling reprojection via e.g. ``radar.xradar.georeference(target_crs=4326)`` ({issue}`243`, {pull}`360`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: set ``id-token: write`` in CI testpypi publisher for trusted publishing ({issue}`364`) by [@aladinor](https://github.com/aladinor), ({pull}`372` ) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MNT: use xarray from PyPI, update pin to xarray=2026.9.0 (last xarray version with Python 3.11) ({pull}`404` ) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: CfRadial1 export of files with a variable number of gates no longer writes the ragged-layout index variables ``ray_n_gates``/``ray_start_index`` (and sets ``n_gates_vary`` to ``false``); the data are written padded to ``(time, range)``, and the leftover variables made the file unreadable for xradar and field-less for Py-ART ({issue}`416`, {pull}`421`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: Correct the global attribute assignment in ``to_cfradial2`` (``Conventions``, ``version`` and ``history`` are now set on the exported root), and preserve the input DataTree by working on a copy, which is shallow by default; use ``deepcopy=True`` for a deep copy ({pull}`384`) by [@chfer](https://github.com/chfer)
+* DOC: Fix the roundtrip example in ``CfRadial1_Model_Transformation.md`` by setting ``first_dim="time"`` and ``optional=False`` when creating ``dtree3``, so the CfRadial1-to-CfRadial2 roundtrip assertion is meaningful and passes ({pull}`384`) by [@chfer](https://github.com/chfer)
+* FIX: IRIS/Sigmet 8-bit types without decoding function (``DB_HCLASS``, ``DB_ORAIN``, ``DB_ALBEDO8``) are unpacked to one ``uint8`` value per range bin; they were returned as packed ``int16`` words holding two bins each. ``DB_HCLASS``/``DB_HCLASS2`` get CF ``flag_masks``/``flag_values``/``flag_meanings`` for the HydroClass bit segments, from the classifiers stored in ``task_end_info`` (IRIS Programming Guide 4.4.14) ({issue}`390`, {pull}`444`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: Metek reader no longer attaches a ``units`` attribute to the already decoded ``time``, which made writing to netCDF fail (as for HPL in {issue}`296`) ({issue}`453`, {pull}`454`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: Add ``xradar.util.is_sweep`` and ``.xradar.is_sweep()`` for Dataset and DataTree to check whether a Dataset (or DataTree node) holds a radar sweep, based on its structure (``range`` and ray dimension, angles, moment variables) instead of the group name, with the ray dimension from the new ``xradar.util.get_ray_dim`` (adapted from ``wradlib.util.dim0``); ``strict=True`` also requires the mandatory sweep metadata (FM301 Table 301-7a) ({issue}`217`, {pull}`440`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial1 export writes string variables (``time_coverage_start``, ``instrument_type``, ``prt_mode``, ...) as char arrays instead of NC_STRING, which Py-ART could not read, and no longer writes ``"None"`` placeholder global attributes or a ``"None: ..."`` history ({issue}`417`, {pull}`422`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial1 export writes boolean attributes (e.g. NEXRAD ``mpda_vcp``, ``avset_enabled``) as ``"true"``/``"false"`` instead of failing, as netCDF attributes can't be bool ({issue}`418`, {pull}`423`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: Halo Photonics ``.hpl`` reader: keep the last ray of each sweep (sweeps of one ray were empty and made opening fail, {issue}`303`), number sweeps from 0, take the header length from the ``****`` separator, raise a ``ValueError`` instead of printing on a line-count mismatch, and accept ``pathlib.Path`` and binary file-like objects ({issue}`430`, {pull}`442`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: IRIS reader returns NaN instead of ``0.0`` for no-data velocity bins (``DB_VEL``, ``DB_VELC`` raw ``0``, IRIS Programming Guide 4.4.44); the decoder masked them, but the mask was lost in the backend array ({issue}`462`, {pull}`463`) by [@syedhamidali](https://github.com/syedhamidali)
+* MNT: IRIS decoders cite the IRIS Programming Guide M212927EN-B (2024); one Nyquist helper for both decode paths, with the dual-PRF factor applied in ``decode_vel`` only ({issue}`466`, {pull}`470`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS reader returns NaN for no-data bins (raw ``0``, IRIS Programming Guide 4.4) of reflectivity, ZDR, PHIDP, WIDTH, RHOHV/SQI, LDR and their variants, instead of real values such as -32 dBZ; ``IrisRawFile`` returns masked arrays for them with NaN under the mask, also for ``DB_VEL``/``DB_VELC`` ({issue}`465`, {pull}`467`) by [@aladinor](https://github.com/aladinor)
+* FIX: IRIS reader fixes UINT1 dtype ``"unit8"``→``"uint8"`` ({issue}`462`, {pull}`493`) by [@Jah-yee](https://github.com/Jah-yee)
+* FIX: CfRadial1 export no longer drops rays that share a timestamp; sweeps are concatenated in order along ``time`` instead of being aligned on time values, which silently merged such rays (e.g. 7200 → 1080 rays); sweeps with fewer gates are padded with NaN (also in packed moments), moments packed differently per sweep (ODIM) keep their values, attributes that differ between sweeps (UF time units) no longer fail the export, ``sweep_group_name`` (in every HPL sweep) is not written as it made the file unreadable, and per-ray variables keep their ``time`` dimension ({issue}`415`, {pull}`420`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial2 data can be exported repeatedly, read -> write -> read leaves the datasets unchanged: data read back from a CfRadial2 file no longer fails on export (``coordinates`` and time ``units`` in attributes and in the encoding), decoded time ``units`` of the UF reader and the boolean global attributes of NEXRAD are written, ``time_coverage_start/end`` strings no longer get a time ``units`` attribute (the written file could not be read again), and the export writes the names of the sweep groups to ``sweep_group_name`` where a reader filled in the sweep numbers ({pull}`504`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial1 export of a tree read with ``optional_groups=True`` from a CfRadial1 file raised ``MergeError: unable to determine if these variables should be coordinates`` (latitude, longitude and altitude inherited into the optional groups); data can be read with the optional groups and exported again any number of times ({pull}`505`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial2 reader finds sweeps via the root ``sweep_group_name`` (CfRadial 2.1; the ``sweep_*`` groups are used if it holds no group names, as written by readers that fill it with the sweep numbers), so files with group names other than ``sweep_<n>`` (e.g. Vaisala WindCube ``Sweep_<id>-<n>``) open; ``sweep_mode`` is also read from a variable (e.g. Radx), the root ``sweep_fixed_angle`` is used as fixed angle, and a file without sweep groups raises a ``ValueError`` instead of returning an empty tree ({issue}`426`, {pull}`427`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: CfRadial1 export writes CfRadial 1.4 metadata per the specification: ``version = "1.4"``, ``Conventions = "Cf/Radial"`` followed by the sub-conventions actually written (``instrument_parameters``, ``radar_parameters``, ``radar_calibration``, ``geometry_correction``), and ``meta_group`` attributes on their variables; previously ``Cf/Radial`` / ``1.2`` was written although the content already used 1.3+ naming ({issue}`388`, {pull}`425`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ODIM ``TH``/``TV`` (logged total power in dBZ, ODIM_H5 2.4 Table 16) are now read as ``DBTH``/``DBTV`` as in FM301 (Table 301-9), where ``TH``/``TV`` denote the linear quantities; they were labelled as linear and unitless before. ``to_odim`` writes ``DBTH``/``DBTV`` as ``TH``/``TV``. **Note:** code accessing ``ds.TH`` of ODIM data needs to use ``ds.DBTH`` ({issue}`109`, {pull}`443`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: reading the CfRadial1 calibration group no longer fails with ``StopIteration`` on non-standard variable names or when names contain each other (``_h``/``_v``); calibration names are matched exactly, and names the reader keeps as they are are written back unchanged by ``to_cfradial1`` instead of getting an ``r_calib_`` prefix. The export writes the names of the CfRadial 1.4 tables (e.g. ``radar_receiver_bandwidth``, ``r_calib_base_1km_hc``), the reader accepts these and the aliases of other software ({issue}`419`, {pull}`424`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: CfRadial1 export of sweeps with different range geometry (e.g. GAMIC 100 m / 150 m gates) raises a clear error (``MergeError``, a ``ValueError``) that points to ``reindex_range`` and says that it takes the nearest gate (CfRadial 1.4 section 2.5), NEXRAD split cuts (same elevation, different moments) are covered by a test ({issue}`418`, {pull}`455`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: Implement ``guess_can_open`` for all backends (format signatures and the input types each backend reads) and add ``xradar.io.discover_engine`` / ``xradar.io.list_xradar_engines``; formats unknown to xarray (NEXRAD Level II, IRIS, Rainbow, UF, ...) can now be opened with ``xr.open_dataset`` without ``engine`` ({issue}`225`, {issue}`380`, {pull}`446`) by [@syedhamidali](https://github.com/syedhamidali)
+* DOC: ``Name_Mapping`` notebook with tables of how the readers and exporters map the names of moments and metadata (built from the mappings of the code), linked from the importers page ({issue}`46`, {pull}`523`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: ``xd.open_datatree`` finds the engine with ``xd.io.discover_engine`` when ``engine`` is not given, which also works for netCDF/HDF5 based formats (ODIM_H5, GAMIC, CfRadial, IMD) that ``xr.open_datatree`` without ``engine`` hands to xarray's netCDF backends, and stacks a list of files with one sweep each into a volume (``xradar.util.create_volume``); CfRadial2 backend implements ``guess_can_open``; the ``Open-Datatree-Engine`` and ``Open-Any-Format`` notebooks show both ({issue}`225`, {issue}`380`, {pull}`446`) by [@syedhamidali](https://github.com/syedhamidali)
+* DOC: links to the standards (WMO FM301, CfRadial, ODIM_H5) in the ``Name_Mapping`` notebook ({pull}`523`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: the ``radar_calibration`` group of volumes whose sweeps carry different calibration attributes no longer raises ``KeyError``: each value is taken from the first selected sweep which has it. Values the sweeps disagree about (e.g. the noise level of each cut) are left out of the group, so that no value which holds for only a part of the volume is written, and a warning lists them (select the wanted sweep with ``sweep=``). Shared helpers to fill ``radar_parameters`` and ``radar_calibration`` from sweep attributes ({issue}`232`, {pull}`532`) by [@syedhamidali](https://github.com/syedhamidali)
+
+## 0.12.0 (2026-04-21)
+
+* MNT: Unpin xarray, require ``xarray >= 2026.4.0`` in ``requirements.txt``, ``environment.yml``, ``ci/unittests.yml``, and ``ci/notebooktests.yml`` by [@aladinor](https://github.com/aladinor)
+* MNT: Clarify contributor, team-member, and maintainer roles in the contributing guide, including the pathway to greater project involvement ({issue}`341`) by [@kmuehlbauer](https://github.com/kmuehlbauer), ({pull}`354`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ``open_nexradlevel2_datatree`` keeps sweeps with interior sweep-index gaps — derive sweep names from actual indices in ``nex.data`` instead of ``range(len(...))`` so upstream-dropped interior cuts (e.g. ``[0..9, 11]``) no longer raise ``KeyError`` ({issue}`361`, {pull}`362`) by [@aladinor](https://github.com/aladinor)
+* ADD: ``open_cfradial2_datatree`` reader with grouped CfRadial2 compatibility normalization for common FM301/CfRadial2 naming differences ({issue}`93`, {issue}`287`), ({pull}`349`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: Move station coordinates (``latitude``, ``longitude``, ``altitude``) to root node as coordinates for DataTree coordinate inheritance ({issue}`331`, {pull}`333`) by [@aladinor](https://github.com/aladinor)
+* ENH: Add ``optional_groups`` parameter (default ``False``) to all ``open_*_datatree()`` functions to control inclusion of ``/radar_parameters``, ``/georeferencing_correction``, and ``/radar_calibration`` subgroups ({issue}`331`, {pull}`333`) by [@aladinor](https://github.com/aladinor)
+* ENH: Skip redundant station coordinate reads for subsequent sweeps in DataTree by passing ``site_as_coords=False`` and extracting shared ``_apply_site_as_coords`` helper ({issue}`334`, {pull}`337`) by [@aladinor](https://github.com/aladinor)
+* ADD: Support list/tuple of chunk files (bytes, file-like, or paths) as input to ``open_nexradlevel2_datatree`` for streaming NEXRAD Level 2 data from S3 chunk buckets ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: ``incomplete_sweep`` parameter (``"drop"``/``"pad"``) to ``open_nexradlevel2_datatree`` for handling incomplete sweeps in partial volume data ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: Notebook example for streaming NEXRAD Level 2 chunks from S3 (``nexrad_read_chunks.ipynb``) ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: Comprehensive test suite for chunk list-input and incomplete sweep handling ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ENH: Expose NEXRAD ICD scan metadata (AVSET/SAILS/MRLE/MPDA/BASE TILT flags, VCP sequencing, per-sweep waveform data) as FM301-compliant user-defined attributes ({issue}`338`, {pull}`339`) by [@aladinor](https://github.com/aladinor)
+* FIX: Set indexes and wrap variables in CopyOnWriteArray for ODIM and GAMIC backends, fixes pickle error for `BufferedReader` ({issue}`189`) by [@Ockenfuss](https://github.com/Ockenfuss), ({pull}`345`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Allow passing ``inherit`` parameter to ``apply_to_sweeps`` / ``map_over_sweeps`` to control coordinate inheritance from root node ({issue}`343`, {pull}`344`) by [@aladinor](https://github.com/aladinor)
+* FIX: Use ``open-radar-data`` fixture as fallback for ``nexrad_read_chunks.ipynb`` notebook, replacing dependency on ephemeral S3 chunk data ({issue}`351`, {pull}`352`) by [@aladinor](https://github.com/aladinor)
+* MNT: Pin ``open-radar-data>=0.6.0`` for NEXRAD chunk test data ({pull}`352`) by [@aladinor](https://github.com/aladinor)
+* MNT: Transform ipynb notebooks to myst markdown notebooks ({issue}`342`, {pull}`348`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* DOC: Link WMO Manual on Codes in README.md ({issue}`308`, {pull}`353` ) [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.11.1 (2026-02-03)
+
+* MNT: Pre-commit update + lint ({pull}`325`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Use ``dtype`` with fallback in odim export ({pull}`324`) by [@katelbach](https://github.com/katelbach)
+* FIX: Prevent azimuth-folding for RHI for gamic reader ({pull}`326`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.11.0 (2026-01-12)
+
+* ENH: get radar coordinates with given reference system ({issue}`243`) ({pull}`300`) by [@egouden](https://github.com/egouden)
+* ENH: Disable fill value in rainbow reader ({issue}`103`) ({pull}`290`) by [@egouden](https://github.com/egouden)
+* ADD: read nyquist_velocity in ODIM and GAMIC HDF5 files ({pull}`291`) by
+  [@katelbach](https://github.com/katelbach)
+* MNT: update and harden CI, add zizmor to precommit, add dependabot ({pull}`294`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Return float32 for float types (keep other dtypes) and remove erroneous "units" from time attrs for hpl reader. ({issue}`296`) ({pull}`297`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MNT: Fix Windows errors in file handling ({pull}`295`) by [@egouden](https://github.com/egouden)
+* MNT: do not overwrite Dataset for Dataset.update ({pull}`302`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Properly handle zero and NaN values during IRIS/Sigmet KDP decode. ({pull}`301`) by [@billvieux](https://github.com/billvieux)
+* FIX: NEXRAD Level2 backend compatibility with older files and VCP-0 ({issue}`311`, {pull}`312`) by [@aladinor](https://github.com/aladinor)
+* FIX: Add explicit `compat="no_conflicts",` to `xr.merge()` in `_get_subgroup` to silence xarray FutureWarning ({issue}`313`, {pull}`314`) by [@aladinor](https://github.com/aladinor).
+* MNT: create individual notebook tests with pytest_generate_tests and use tmp_path-fixture ({pull}`316`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Ensure backend closers are available ({pull}`318`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MNT: Enhance contributing experience ({pull}`315`) by [@egouden](https://github.com/egouden)
+* ENH: Add ``combine_sweeps`` function to stack sweeps into a single radar volume with optional time and angle filtering ({pull}`307`) by [@egouden](https://github.com/egouden)
+* FIX: Use time-dimension to stack/unstack CfRadial1 data for variable number of gates, properly handle duplicates ({issue}`317`), ({pull}`320`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.10.0 (2025-07-11)
+
+* FIX: Use fixture for making temp file to avoid permission issue on Windows
+* ENH: Supporting for streaming NEXRAD Level 2 data via file-like objects and byte streams. ({issue}`265`) ({pull}`280`) by [@aladinor](https://github.com/aladinor)
+* ADD: function to select dataset variables in sweep ({issue}`104`) ({pull}`254`) by [@egouden](https://github.com/egouden)
+* ADD: function to get dataset variables in sweep
+* ADD: function to get metadata variables in sweep
+* FIX: typo in accessors module: Dataarray -> Dataset
+* FIX: Update missing deps for virtualenv environments via "requirements_dev.txt". ({issue}`253`) ({pull}`274`) by [@Steve-Roderick](https://github.com/Steve-Roderick).
+* FIX: Prevent literal timedelta decoding for new xarray versions, fix tests, update pinnings ({pull}`278`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* MNT: Package and Documentation cleanup ({issue}`273`), {pull}`284`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: Support Universal Format (UF) ({issue}`275`) ({pull}`276`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: NDPointIndex Notebook example ({pull}`276`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.9.0 (2025-02-07)
+
+* ENH: Adding test to `open_datatree` function for all backends. Adding "scan_name" to nexradlevel2 datatree attributes ({pull}`238`) by [@aladinor](https://github.com/aladinor)
+* FIX: Improving performance of `open_nexradlevel2_datatree` function and adding tests for `sweep` parameter. ({issue}`239`) ({pull}`240`) by [@aladinor](https://github.com/aladinor)
+* FIX: Keeping attributes at each variable when using `open_nexradlevel2_datatree`. ({issue}`241`) ({pull}`242`) by [@aladinor](https://github.com/aladinor)
+* FIX: Correctly read transition rays in RHI scans ({issue}`247`) ({pull}`250`) by [@rcjackson](https://github.com/rcjackson)
+* FIX: Correctly open NEXRAD files when split cut mode is enable ({issue} `245`) ({pull}`246`) by [@aladinor](https://github.com/aladinor)
+* ADD: Example Notebook for assigning geocoords. ({issue}`243`) and ({pull}`251`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: DataTree reader now works with sweeps containing different variables ({pull}`252`) by [@egouden](https://github.com/egouden).
+* FIX: Correct retrieval of intermediate records in nexrad level2 reader ({issue}`259`) ({pull}`261`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: Test for magic number BZhX1AY&SY (where X is any number between 0..9) when retrieving BZ2 record indices in nexrad level2 reader ({issue}`264`) ({pull}`266`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ENH: Add message type 1 decoding to nexrad level 2 reader ({issue}`256`) ({pull}`267`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ENH: Introduce file locks for nexrad level2 and iris backend ({issue}`207`) ({pull}`268`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+
+## 0.8.0 (2024-11-04)
+
+This is the first version which uses datatree directly from xarray. Thus, xarray is pinned to version >= 2024.10.0.
+
+* FIX: Convert volumes to_cfradial1 containing sweeps with different range and azimuth shapes, raise for different range bin sizes ({issue}`233`) by [@syedhamidali](https://github.com/syedhamidali), ({pull}`234`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: Correctly handle 8bit/16bit, big-endian/little-endian in nexrad reader (PHI and ZDR) ({issue}`230`) by [@syedhamidali](https://github.com/syedhamidali), ({pull}`231`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ENH: Refactoring all xradar backends to use `from_dict` datatree constructor. Test for `_get_required_root`, `_get_subgroup`, and `_get_radar_calibration` were also added ({pull}`221`) by [@aladinor](https://github.com/aladinor)
+* ENH: Added pytests to the missing functions in the `test_xradar` and `test_iris` in order to increase codecov in ({pull}`228`) by [@syedhamidali](https://github.com/syedhamidali).
+* ENH: Updated Readme ({pull}`226`) by [@syedhamidali](https://github.com/syedhamidali).
+* ADD: Added new module `transform` for transforming CF1 data to CF2 and vice versa ({pull}`224`) by [@syedhamidali](https://github.com/syedhamidali).
+* Use DataTree from xarray and add xarray nightly run ({pull}`213`, {pull}`214`, {pull}`215`, {pull}`218`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: Added new accessor `map_over_sweeps` for volume operations on DataTrees and a matching decorator ({pull}`203`) by [@syedhamidali](https://github.com/syedhamidali).
+
+## 0.7.0 (2024-10-26)
+
+This is the last version which uses datatree from xarray-contrib/datatree. Thus, xarray is pinned to version 2024.9.0.
+
+* ADD: Added `apply_to_sweeps` function for applying custom operations to all sweeps in a `DataTree` radar volume Implemented by [@syedhamidali](https://github.com/syedhamidali), ({pull}`202`).
+* ADD: Metek Micro Rain Radar 2 reader by [@rcjackson](https://github.com/rcjackson), ({pull}`200`) by [@rcjackson](https://github.com/rcjackson).
+
+## 0.6.5 (2024-09-20)
+
+* FIX: Azimuth dimension now labelled correctly for Halo Photonics data ({pull}`206`) by [@rcjackson](https://github.com/rcjackson).
+* FIX: do not apply scale/offset in datamet reader, leave it to xarray instead ({pull}`209`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.6.4 (2024-08-30)
+
+* FIX: Notebooks are now conforming to ruff's style checks by [@rcjackson](https://github.com/rcjackson), ({pull}`199`) by [@rcjackson](https://github.com/rcjackson).
+* FIX: use dict.get() to retrieve attribute key and return "None" if not available, ({pull}`200`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.6.3 (2024-08-13)
+
+* FIX: use rstart in meter for ODIM_H5/V2_4 ({issue}`196`) by [@kmuehlbauer](https://github.com/kmuehlbauer), ({pull}`197`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.6.2 (2024-08-12)
+
+* FIX: Passing 'engine' kwarg in "open_cfradial1_datatree" method to enable fsspec.open when using url ({issue}`194`) by [@aladinor](https://github.com/aladinor), ({pull}`195`) by [@aladinor](https://github.com/aladinor)
+
+## 0.6.1 (2024-08-07)
+
+* MNT: minimize CI ({pull}`192`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: properly read CfRadial1 n_points files ({issue}`188`) by [@aladinor](https://github.com/aladinor), ({pull}`190`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.6.0 (2024-08-05)
+
+* ADD: DataMet reader ({pull}`175`) by [@wolfidan](https://github.com/wolfidan).
+* FIX: Nexrad level2 time offset of 1 day, skip reading missing elevations, introduce new radial_status of 5
+ ({issue}`180`) by [@ghiggi](https://github.com/ghiggi), ({pull}`180`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: Reader for Halo Photonics Doppler lidar data by [@rcjackson](https://github.com/rcjackson)
+
+## 0.5.1 (2024-07-05)
+
+* ADD: Add Alfonso to citation doc ({pull}`169`) by [@mgrover1](https://github.com/mgrover1).
+* ENH: Adding global variables and attributes to iris datatree ({pull}`166`) by [@aladinor](https://github.com/aladinor).
+* FIX: Set fillvalue before applying scale/offset when exporting to odim ({issue}`122`) by [@pavlikp](https://github.com/pavlikp), ({pull}`173`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: Fix use of ruff, CI and numpy2 ({pull}`177`) by [@mgrover1](https://github.com/mgrover1) and [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.5.0 (2024-03-28)
+
+* MNT: Update GitHub actions, address DeprecationWarnings ({pull}`153`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* MNT: restructure odim.py/gamic.py, add test_odim.py/test_gamic.py ({pull}`154`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* MNT: use CODECOV token ({pull}`155`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* MNT: fix path for notebook coverage ({pull}`157`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: NEXRAD Level2 structured reader ({pull}`158`) by [@kmuehlbauer](https://github.com/kmuehlbauer) and [@mgrover1](https://github.com/mgrover1).
+* FIX: Add the proper elevation angle to fixed angle ({pull}`162`) by [@mgrover1](https://github.com/mgrover1).
+* ENH: Add a utility for finding sweep number keys ({pull}`167`) by [@mgrover1](https://github.com/mgrover1).
+
+## 0.4.3 (2024-02-24)
+
+* MNT:  address black style changes, update pre-commit-config.yaml ({pull}`152`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: use len(unique) to estimate unique entry for odim range ({pull}`151`) by [@martinpaule](https://github.com/martinpaule).
+
+## 0.4.2 (2023-11-02)
+
+* FIX: Fix handling of sweep_mode attributes ({pull}`143`) by [@mgrover1](https://github.com/mgrover1)
+* FIX: explicitely check for "False" in get_crs() {pull}`142`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.4.1 (2023-10-26)
+
+* FIX: Add history to cfradial1 output, and fix minor error in CfRadial1_Export.ipynb notebook({pull}`132`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: fix readthedocs build for python 3.12 ({pull}`140`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* FIX: align coordinates in backends, pin python >3.9,<=3.12 in environment.yml ({pull}`139`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: prevent integer overflow when calculating azimuth in FURUNO scn files ({issue}`137`) by [@giacant](https://github.com/giacant) , ({pull}`138`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.4.0 (2023-09-27)
+
+* ENH: Add cfradial1 exporter ({issue}`124`) by [@syedhamidali](https://github.com/syedhamidali), ({pull}`126`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: use datastore._group instead of variable["sweep_number"] ({issue}`121`) by [@aladinor](https://github.com/aladinor) , ({pull}`123`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* MIN: use "crs_wkt" instead of deprecated "spatial_ref" when adding CRS ({pull}`127`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: always read nodata and undetect attributes from ODIM file ({pull}`125`) by [@egouden](https://github.com/egouden)
+* MIN: use `cmweather` colormaps in xradar ({pull}`128`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
+## 0.3.0 (2023-07-11)
+
+* ENH: Add new examples using radar data on AWS s3 bucket ({pull}`102`) by [@aladinor](https://github.com/aladinor)
+* FIX: Correct DB_DBTE8/DB_DBZE8 and DB_DBTE16/DB_DBZE16 decoding for iris-backend ({pull}`110`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Cast boolean string to int in rainbow dictionary ({pull}`113`) by [@egouden](https://github.com/egouden)
+* MNT: switch to mamba-org/setup-micromamba, split CI tests ({issue}`115`), ({pull}`116`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: time interpolation ({pull}`117`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: robust ``angle_res`` retrieval in ``extract_angle_parameters`` ({issue}`112`), ({pull}`118`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: robust radar identifier in ``to_odim()`` ({pull}`120`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.2.0 (2023-03-24)
+
+* ENH: switch to add optional how attributes in ODIM format writer ({pull}`97`) by [@egouden](https://github.com/egouden)
+* FIX: add keyword argument for mandatory source attribute in ODIM format writer ({pull}`96`) by [@egouden](https://github.com/egouden)
+* FIX: check for dim0 if not given, only swap_dims if needed ({issue}`92`), ({pull}`94`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX+ENH: need array copy before overwriting and make compression available in to_odim ({pull}`95`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.1.0 (2023-02-23)
+
+* Add an example on reading multiple sweeps into a single object ({pull}`69`) by [@mgrover1](https://github.com/mgrover1)
+* ENH: add spatial_ref with pyproj when georeferencing, add/adapt methods/tests ({issue}`38`), ({pull}`87`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Docs/docstring updates, PULL_REQUEST_TEMPLATE.md ({pull}`89`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Finalize release 0.1.0, add testpypi upload on push to main ({pull}`91`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.13 (2023-02-09)
+
+* FIX: only skip setting cf-attributes if both gain and offset are unused ({pull}`85`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.12 (2023-02-09)
+
+* ENH: add IRIS ``DB_VELC`` decoding and tests ({issue}`78`), ({pull}`83`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: furuno backend inconsistencies ({issue}`77`), ({pull}`82`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: ODIM_H5 backend inconsistencies ({issue}`80`), ({pull}`81`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.11 (2023-02-06)
+
+* fix ``_Undetect``/``_FillValue`` in odim writer ({pull}`71`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* port more backend tests from wradlib ({pull}`73`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.10 (2023-02-01)
+
+* add WRN110 scn format to Furuno reader ({pull}`65`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Adapt to new build process, pyproject.toml only, use `ruff` for linting ({pull}`67`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.9 (2022-12-11)
+
+* add ODIM_H5 exporter ({pull}`39`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* fetch radar data from open-radar-data ({pull}`44`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* align readers with CfRadial2, add CfRadial2 exporter ({pull}`45`), ({pull}`49`), ({pull}`53`), ({pull}`56`), ({pull}`57`) and ({pull}`58`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* add georeference accessor, update examples ({pull}`60`), ({pull}`61`) by [@mgrover1](https://github.com/mgrover1)
+* refactored and partly reimplemented angle reindexing ({issue}`55`), ({pull}`62`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.8 (2022-09-28)
+
+* add GAMIC HDF5 importer ({pull}`29`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* add Furuno SCN/SCNX importer ({pull}`30`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* add Rainbow5 importer ({pull}`32`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* add Iris/Sigmet importer ({pull}`33`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* add georeferencing (AEQD) ({pull}`28`) by [@mgrover1](https://github.com/mgrover1)
+
+## 0.0.7 (2022-09-21)
+
+* Add zenodo badges to README.md ({pull}`22`) by [@mgrover1](https://github.com/mgrover1)
+* Fix version on RTD ({pull}`23`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Add minimal documentation for Datamodel ({pull}`24`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.6 (2022-09-19)
+
+* Improve installation and contribution guide, update README.md with more badges, add version and date of release to docs, update install process ({pull}`19`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Add minimal documentation for CfRadial1 and ODIM_H5 importers ({pull}`20`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* Add accessors.py submodule, add accessors showcase  ({pull}`21`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.5 (2022-09-14)
+
+* Data Model, CfRadial1 Backend ({pull}`13`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* ODIM_H5 Backend ({pull}`14`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.4 (2022-09-01)
+
+Setting up CI workflow and build, [@mgrover1](https://github.com/mgrover1) and [@kmuehlbauer](https://github.com/kmuehlbauer)
+
+## 0.0.1 (2022-09-01)
+
+* First release on PyPI.

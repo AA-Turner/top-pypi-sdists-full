@@ -1,0 +1,104 @@
+import os, json
+from importlib.resources import files
+import fcntl, pty, re, select, subprocess, termios, time
+
+def visible(data):
+    "The text a terminal shows for `data`: its bytes without escape sequences"
+    return re.sub(rb'\x1b\[[0-?]*[ -/]*[@-~]', b'', data)
+
+def test_terminal_symbol_entry_and_exit(tmp_path):
+    history = tmp_path/'.config/basedpl/history'
+    history.parent.mkdir(parents=True)
+    history.write_text('#V2\n8+9\n')
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (24, 100))
+    # The pty is bpl's controlling terminal, as a shell's is, so Ctrl-C during an evaluation sends SIGINT.
+    child = subprocess.Popen(['bpl'], stdin=slave, stdout=slave, stderr=slave,
+                             env={**os.environ, 'TERM': 'xterm-256color', 'HOME': str(tmp_path/'unused-home'), 'XDG_CONFIG_HOME': str(history.parent.parent)},
+                             start_new_session=True, preexec_fn=lambda: fcntl.ioctl(0, termios.TIOCSCTTY, 0))
+    os.close(slave)
+    pending = b''
+
+    def read_until(expected):
+        nonlocal pending
+        data, deadline = pending, time.monotonic() + 5
+        while expected not in data:
+            assert time.monotonic() < deadline, data.decode(errors='replace')
+            if not select.select([master], [], [], max(0, deadline-time.monotonic()))[0]: continue
+            chunk = os.read(master, 65536)
+            assert chunk, data
+            data += chunk
+            if b'\x1b[6n' in chunk: os.write(master, b'\x1b[1;1R')  # terminal cursor-position query
+        end = data.index(expected) + len(expected)
+        result, pending = data[:end], data[end:]
+        return result
+
+    def enter(code, expected):
+        os.write(master, code.encode())
+        data = read_until(expected.encode())
+        read_until(b'\x1b[?2004h')  # next readline is in raw mode and ready for input
+        return data
+
+    try:
+        read_until(b'\x1b[?2004h')
+        enter('\x1b[A\r', '\r\n17\r\n')
+        enter('2 2⍴⍳4\r', '│2 3│\r\n└~──┘\r\n')
+        enter('•prefs ["box":$f]\r', '\r\n')
+        os.write(master, b'"\x1b\\')
+        read_until('⍭:7g'.encode())
+        enter('7"\r', '\r\n"⍋"\r\n')
+        enter('"\x1b\\g"\r', '\r\n"⍒"\r\n')
+        enter('"£\x1b£"\r', '\r\n"£#"\r\n')
+        enter('"\x1b\\\x1b\\ \x1b6\x1b66"\r', '\r\n"⍭ ⁶6"\r\n')
+        enter('"\x1boo \x1b5\x1bx\x1b5\x1b1"\r', '\r\n"○ ₓ₁"\r\n')
+        layout = json.loads(files('basedpl').joinpath('browser/layout.json').read_text())
+        typed = {k: v for k, v in layout['option'].items() if isinstance(v, str)}
+        enter('"' + ''.join('\x1b'+k for k in typed) + '"\r', '\r\n"' + ''.join(typed.values()) + '"\r\n')
+        enter('r\x1bh2\x1b.× +/1\x1bl2\r', '\r\n')  # r←2↣× +/1↦2
+        enter('\x1bq \x1bhr\r', '\r\n6\r\n')  # explicit output: Alt-q, then Space, types ⎕
+        enter('3\x1b62\r', '\r\n9\r\n')  # Alt-6, then 2, types ²
+        enter('"a^b"\r', '\r\n"a^b"\r\n')  # in a string, ^ types itself
+        enter('\x1b-i1 0 1\r', '\r\n[0 2]ₓ\r\n')  # Alt-Minus, then i, types ⍸
+        # Dead keys: Backspace cancels, a plain key types both, Alt-q starts its own, - then 1 types ⁻¹, and Space types ⁶
+        enter('"\x1bo\x7fx\x1box\x1bo\x1bqt\x1boc\x1bob\x1bon\x1b6-1\x1b6 "\r', '\r\n"x○x○⌻⍝⍎⍕⁻¹⁶"\r\n')
+        enter('+/1\x1bl3\r', '\r\n6\r\n')
+        enter('한`assign `iot\t4\r', '\r\n')  # space, Tab, Unicode byte offsets
+        enter('+/한\r', '\r\n6\r\n')
+        enter('2`times3+4\r', '\r\n14\r\n')  # delimiter is retained
+        enter('sum`assign +`reduce\r', '\r\n')  # Enter accepts and submits
+        enter('sum 한\r', '\r\n6\r\n')
+        enter('`iotx\x7fa3\r', '\r\n0 1 2\r\n')  # backspace while entering a name
+        data = enter('`do\t \r', 'VALUE ERROR')  # ambiguous Tab must not choose a glyph
+        assert b'`do ' in visible(data)
+        enter('`iota\x1b[D\r', 'VALUE ERROR')  # moving the cursor ends name entry
+        enter('x`larr-5\r', '\r\n')  # completion replaces only the name
+        enter('x\r', '\r\n¯5\r\n')
+        enter('2+2\r', '\r\n4\r\n')
+        data = enter('⍝ \\ `iota \r', '\r\n')
+        assert b'\\ `iota ' in visible(data)  # comments and literal backslash are untouched
+        enter('6+7\r', '\r\n13\r\n')
+        enter('\x1b[200~`iota\x1b[201~\r', 'VALUE ERROR')  # pasted names do not auto-expand
+        enter('(2+\r', '\r\n')
+        enter('\x03', '\r\n')  # Ctrl-C discards the whole unfinished expression
+        enter('h←[3\r', '\r\n')
+        enter('4]\r', '\r\n')
+        enter('h\r', '\r\n3 4\r\n')
+        enter('2+3\r', '\r\n5\r\n')
+        os.write(master, '⎕←"go" ⋄ •delay ∞\r'.encode())
+        read_until(b'"go"\r\n')  # the evaluation is running
+        enter('\x03', 'INTERRUPT')  # Ctrl-C interrupts the running evaluation, and the session continues
+        os.write(master, '⌽⎕\r'.encode())
+        read_until(b'\x1b[?2004l')  # readline has returned the terminal to line mode
+        enter('ab\r', '"ba"\r\n')  # ⎕ reads a line typed at the terminal
+        os.write(master, b'\x04')
+        tail = read_until(b'\r\n')
+        assert child.wait(timeout=5) == 0
+        assert visible(tail).endswith(b'\r\n')  # EOF must not leave the shell prompt indented
+        saved = history.read_text().splitlines()
+        assert saved.count('8+9') == 1
+        assert r'h←[3\n4]' in saved
+        assert '(2+' not in saved
+    finally:
+        if child.poll() is None: child.kill()
+        child.wait(timeout=5)
+        os.close(master)

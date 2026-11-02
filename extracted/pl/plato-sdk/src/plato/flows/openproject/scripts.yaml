@@ -1,0 +1,94 @@
+flows:
+- name: login
+  description: Standard login flow for OpenProject
+  steps:
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 10000
+    type: wait
+  - description: Wait for username field in main login form
+    selector: '#login-form input[id="username"]'
+    timeout: 20000
+    type: wait_for_selector
+  - description: Fill username field
+    selector: '#login-form input[id="username"]'
+    type: fill
+    value: admin
+  - description: Wait for form to react
+    duration: 1000
+    type: wait
+  - description: Wait for password field in main login form
+    selector: '#login-form input[id="password"]'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: '#login-form input[id="password"]'
+    type: fill
+    value: admin
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button in main form
+    selector: '#login-form input[type="submit"][value="Sign in"]'
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Wait for login to process
+    duration: 5000
+    type: wait
+  - description: Verify successful login by checking for main application interface
+    selector: '.main-menu, #main-menu, .toolbar, nav, [class*="toolbar"], [class*="navigation"],
+      .avatar, .user-avatar, #projects-menu'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username field in main login form
+    selector: '#login-form input[id="username"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username field with valid username
+    selector: '#login-form input[id="username"]'
+    type: fill
+    value: admin
+  - description: Wait for form to react
+    duration: 1000
+    type: wait
+  - description: Wait for password field in main login form
+    selector: '#login-form input[id="password"]'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: '#login-form input[id="password"]'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button in main form
+    selector: '#login-form input[type="submit"][value="Sign in"]'
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Verify error message is displayed
+    selector: '.errorExplanation, .flash.error, #errorExplanation, .flash, [role="alert"],
+      [class*="error"], .notification, .form--field-errors'
+    type: verify
+    verify_type: element_exists

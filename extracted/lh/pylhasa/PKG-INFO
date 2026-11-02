@@ -1,0 +1,159 @@
+Metadata-Version: 2.2
+Name: pylhasa
+Version: 0.1.1
+Summary: Cross-platform Python wrapper for liblhasa (LHA/LZH archives)
+Author: pylhasa contributors
+License: MIT License
+         
+         Copyright (c) 2026 bwhitn
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+         
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Project-URL: Homepage, https://github.com/bwhitn/pylhasa
+Project-URL: Repository, https://github.com/bwhitn/pylhasa
+Project-URL: Issues, https://github.com/bwhitn/pylhasa/issues
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# pylhasa
+
+`pylhasa` is a cross-platform Python wrapper for the LHA/LZH archive format. It vendors the liblhasa C sources and builds a CPython extension, producing wheels for Linux, macOS, and Windows.
+
+## Install
+
+From PyPI:
+
+```bash
+pip install pylhasa
+```
+
+Wheels are built for Python 3.9+.
+
+## Usage
+
+```python
+import pylhasa
+
+archive = pylhasa.open("example.lha")
+for entry in archive:
+    print(entry.raw_path, entry.size)
+
+# Read bytes directly (loads full file into memory)
+payload = archive.read("hello.txt")
+
+# Stream contents (incremental reads, avoids large memory usage)
+entry = next(iter(archive))
+with entry.open() as stream:
+    chunk = stream.read(1024)
+
+# Extract safely (default)
+archive.extractall("out")
+archive.close()
+```
+
+## API overview
+
+Top-level functions:
+
+- `pylhasa.open(path)`: open an archive from a filesystem path.
+- `pylhasa.open_bytes(data)` / `pylhasa.from_bytes(data)`: open from in-memory bytes.
+- `pylhasa.open_fileobj(fileobj, buffering=131072)`: open from a stream by spooling to a temp file.
+
+Archive behavior:
+
+- `Archive` is iterable; each item is an `Entry`.
+- `Archive.read(name_or_entry)` returns the full bytes of a file entry.
+- `Entry.read()` returns the full bytes for that entry (same as `Archive.read(entry)`).
+- `Archive.extract(name_or_entry, dest_dir, safe=True, allow_symlinks=False, verify_crc=True)` extracts a single entry.
+- `Archive.extractall(dest_dir, safe=True, allow_symlinks=False, verify_crc=True)` extracts all entries.
+
+Entry behavior:
+
+- `Entry.open()` returns a binary file-like object for streaming decompressed data.
+- `Entry.read()` loads the full entry into memory in one call.
+- `Entry.read()` reads the full decompressed bytes into memory.
+- `Entry.raw_path` preserves the original path from the archive; `Entry.safe_path` is the sanitized path used for safe extraction.
+
+## Examples
+
+See `examples/` for runnable scripts:
+
+- `examples/list_entries.py`
+- `examples/extract_all.py`
+- `examples/stream_read.py`
+- `examples/all_functions.py`
+
+### In-memory / streaming
+
+```python
+import pylhasa
+
+# In-memory bytes
+data = open("example.lha", "rb").read()
+archive = pylhasa.open_bytes(data)
+# or: archive = pylhasa.from_bytes(data)
+
+# Streaming file-like object
+with open("example.lha", "rb") as fp:
+    archive = pylhasa.open_fileobj(fp, buffering=131072)
+```
+
+## Safety notes
+
+- Safe extraction is **on by default**. Unsafe paths raise `UnsafePathError`.
+- `Entry.raw_path` preserves the original stored path (best-effort decoding).
+- `Entry.safe_path` contains the sanitized path used for extraction when safe mode is enabled.
+- Path traversal, absolute paths, Windows drive paths, and UNC paths are rejected when `safe=True`.
+- Extraction verifies CRC by default; pass `verify_crc=False` to skip.
+
+## Exceptions
+
+- `PylhasaError`: base exception
+- `BadArchiveError`: malformed or unsupported archive
+- `UnsafePathError`: unsafe entry path for extraction
+
+## Header metadata
+
+Each `Entry` exposes the full parsed LHA header fields (for example `header_level`, `os_type`, `extra_flags`, Unix permissions, Windows timestamps, and `raw_header_bytes`). These are available for forensic and advanced use.
+
+Time helper:
+
+- `Entry.datetime_utc()` returns a best‑effort UTC `datetime` (prefers Windows FILETIME when present, otherwise Unix timestamp).
+
+## Compression support
+
+The vendored liblhasa core supports common LHA/LZH compression methods including `-lh1-` through `-lh7-`, `-lhd-`, and LArc `-lz*` variants.
+
+**Warning (experimental):** `-lh2-` and `-lh3-` support is best‑effort and under‑documented. Treat results with caution and validate against trusted tools when possible.
+
+Directory entries (`-lhd-`) and symlinks do not carry file data; `Archive.read()` returns `b\"\"` for those entries.
+
+## Third-party licenses
+
+This project vendors liblhasa. Its license is included at `native/vendor/lhasa/COPYING.md` and applies to the vendored sources.

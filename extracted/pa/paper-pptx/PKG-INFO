@@ -1,0 +1,121 @@
+Metadata-Version: 2.4
+Name: paper-pptx
+Version: 0.2.1
+Summary: Create, read, and update PowerPoint 2007+ (.pptx) files.
+Author: Paper Instruments, Inc.
+Author-email: Steve Canny <stcanny@gmail.com>
+Maintainer: Paper Instruments, Inc.
+License: MIT
+Project-URL: Changelog, https://github.com/paper-instruments/paper-pptx/releases
+Project-URL: Documentation, https://github.com/paper-instruments/paper-pptx
+Project-URL: Homepage, https://github.com/paper-instruments/paper-pptx
+Project-URL: Issues, https://github.com/paper-instruments/paper-pptx/issues
+Project-URL: Repository, https://github.com/paper-instruments/paper-pptx
+Keywords: powerpoint,ppt,pptx,openxml,office
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Office/Business :: Office Suites
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: Pillow>=10.3.0
+Requires-Dist: XlsxWriter>=0.5.7
+Requires-Dist: lxml>=3.1.0
+Requires-Dist: typing_extensions>=4.9.0
+Dynamic: license-file
+
+<div align="center">
+  <a href="https://github.com/paper-instruments/paper-pptx">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/paper-instruments/paper-pptx/main/.github/assets/logo-dark.svg">
+      <img alt="paper-pptx logo" src="https://raw.githubusercontent.com/paper-instruments/paper-pptx/main/.github/assets/logo-light.svg" height="128">
+    </picture>
+  </a>
+  <h1>paper-pptx</h1>
+
+[![PyPI](https://img.shields.io/pypi/v/paper-pptx.svg)](https://pypi.org/project/paper-pptx/)
+[![Python versions](https://img.shields.io/pypi/pyversions/paper-pptx.svg)](https://pypi.org/project/paper-pptx/)
+[![Test](https://github.com/paper-instruments/paper-pptx/actions/workflows/test.yml/badge.svg)](https://github.com/paper-instruments/paper-pptx/actions/workflows/test.yml)
+
+</div>
+
+**An import-compatible, agent-safe fork of python-pptx for creating and editing PowerPoint presentations without silent corruption.**
+
+`paper-pptx` is an import-compatible hard fork of [python-pptx](https://github.com/scanny/python-pptx) for creating and editing PowerPoint (`.pptx`) presentations. It keeps the `pptx` import name and upstream object model, and adds structure-aware operations and machine-readable results for automated workflows.
+
+## Installation
+
+Use an [activated virtual environment](https://docs.python.org/3/library/venv.html).
+
+```bash
+python -m pip uninstall -y python-pptx paper-pptx
+python -m pip install paper-pptx
+python -m paper_pptx_doctor
+```
+
+Both distributions provide the `pptx` import package. Do not install `python-pptx` and `paper-pptx` in the same environment.
+
+To return to `python-pptx`, run the uninstall line above again, then `python -m pip install python-pptx`.
+
+## Quick start
+
+Create a presentation and update its text without flattening untouched run formatting:
+
+```python
+from pptx import Presentation
+from pptx.edit import replace_text
+
+prs = Presentation()
+slide = prs.slides.add_slide(prs.slide_layouts[0])
+slide.shapes.title.text = "FY25 plan"
+prs.save("deck.pptx")
+
+prs = Presentation("deck.pptx")
+result = replace_text(prs, "FY25", "FY26")
+prs.save("deck-v2.pptx")
+print(result.replacements)  # 1
+```
+
+`replace_text` returns a machine-readable result and refuses unsupported edits before changing the presentation.
+
+## Documentation
+
+Read the [paper-pptx documentation](https://docs.paperinstruments.com/).
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/paper-instruments/paper-pptx/blob/main/CONTRIBUTING.md).
+
+## Acknowledgments
+
+paper-pptx builds on python-pptx by Steve Canny and contributors. This fork preserves their API, license, and attribution.
+
+## Citation
+
+If you reference paper-pptx in research or writing:
+
+```bibtex
+@software{paper_pptx,
+  title   = {paper-pptx: an agent-first structure editor for PowerPoint files},
+  author  = {{Paper Instruments, Inc.}},
+  year    = {2026},
+  url     = {https://github.com/paper-instruments/paper-pptx}
+}
+```
+
+Cite it as a fork of *python-pptx* by Steve Canny and contributors.
+
+## License
+
+MIT, inherited from python-pptx. Original work © 2013 Steve Canny and the python-pptx contributors; fork additions © 2026 Paper Instruments, Inc. See [LICENSE](https://github.com/paper-instruments/paper-pptx/blob/main/LICENSE).

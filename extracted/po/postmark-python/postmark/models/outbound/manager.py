@@ -1,0 +1,543 @@
+from __future__ import annotations
+
+import logging
+import warnings
+from collections.abc import AsyncGenerator
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+from pydantic import ValidationError
+
+from postmark.exceptions import InvalidEmailException
+from postmark.models.page import CursorPage, Page
+from postmark.utils.pagination import paginate
+from postmark.utils.types import HTTPClient
+
+if TYPE_CHECKING:
+    from postmark.models.templates.schemas import TemplateEmail
+
+from .schemas import (
+    BulkEmail,
+    BulkSendResponse,
+    BulkSendStatus,
+    ClickEvent,
+    Email,
+    Message,
+    MessageDetails,
+    OpenEvent,
+    OutboundMessageDump,
+    SendResponse,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_email(message: Email | dict[str, Any]) -> Email:
+    """
+    Coerce a dict to an Email model using snake_case field names,
+    or raise InvalidEmailException
+    """
+    if isinstance(message, Email):
+        return message
+    try:
+        return Email.model_validate(message)
+    except ValidationError as e:
+        raise InvalidEmailException(e.errors()) from e
+
+
+def _parse_template_email(msg: TemplateEmail | dict[str, Any]) -> TemplateEmail:
+    from postmark.models.templates.schemas import TemplateEmail
+
+    if isinstance(msg, TemplateEmail):
+        return msg
+    try:
+        return TemplateEmail.model_validate(msg)
+    except ValidationError as e:
+        raise InvalidEmailException(e.errors()) from e
+
+
+def _parse_bulk_email(message: BulkEmail | dict[str, Any]) -> BulkEmail:
+    """
+    Coerce a dict to a BulkEmail model, raising InvalidEmailException
+    on validation failure. Passes through a BulkEmail instance unchanged.
+    """
+    if isinstance(message, BulkEmail):
+        return message
+    try:
+        return BulkEmail.model_validate(message)
+    except ValidationError as e:
+        raise InvalidEmailException(e.errors()) from e
+
+
+def _warn_date_filters_unsupported(method: str) -> None:
+    """Postmark's opens/clicks endpoints have no date filter; the arguments are no-ops."""
+    warnings.warn(
+        f"{method}(): from_date/to_date have no effect. Postmark's opens and clicks "
+        "endpoints do not support date filtering, so the arguments are ignored "
+        "and not sent. Filter the returned events by received_at instead.",
+        FutureWarning,
+        stacklevel=3,
+    )
+
+
+class OutboundManager:
+    def __init__(self, client: HTTPClient):
+        self.client = client
+
+    # -------------------------------------------------------------------------
+    # Single send
+    # -------------------------------------------------------------------------
+
+    async def send(self, message: Email | dict[str, Any]) -> SendResponse:
+        """Send a single email."""
+        email_payload = _parse_email(message)
+
+        logger.debug("Sending email", extra={"recipient": email_payload.to})
+        response = await self.client.post(
+            "/email",
+            json=email_payload.model_dump(by_alias=True, exclude_none=True),
+        )
+        return SendResponse(**response.json())
+
+    # -------------------------------------------------------------------------
+    # Batch send — different messages, one request (max 500)
+    # -------------------------------------------------------------------------
+
+    async def send_batch(
+        self, messages: list[Email | dict[str, Any]]
+    ) -> list[SendResponse]:
+        """
+        Send up to 500 different emails in a single request.
+        Use this when each recipient needs a **completely different** message.
+        For sending the **same message** to many recipients, use send_bulk().
+
+        The API returns HTTP 200 even when individual messages fail. Check
+        each ``SendResponse.success`` (or ``error_code``) in the returned list
+        to detect per-message delivery errors.
+        """
+        if len(messages) > 500:
+            raise ValueError("Batch size cannot exceed 500 messages")
+
+        payload = []
+        for i, msg in enumerate(messages):
+            try:
+                email_obj = _parse_email(msg)
+            except InvalidEmailException as e:
+                raise InvalidEmailException(
+                    [
+                        {
+                            "loc": (f"messages[{i}]", *err["loc"]),
+                            **{k: v for k, v in err.items() if k != "loc"},
+                        }
+                        for err in e.errors
+                    ]
+                ) from e
+            payload.append(email_obj.model_dump(by_alias=True, exclude_none=True))
+
+        response = await self.client.post("/email/batch", json=payload)
+        return [SendResponse(**item) for item in response.json()]
+
+    # -------------------------------------------------------------------------
+    # Bulk send — same message, many recipients, one request
+    # -------------------------------------------------------------------------
+
+    async def send_bulk(self, message: BulkEmail | dict[str, Any]) -> BulkSendResponse:
+        """
+        Send the **same message** to multiple recipients in a single request.
+        """
+        bulk_payload = _parse_bulk_email(message)
+
+        if not bulk_payload.messages:
+            raise ValueError(
+                "Bulk email must include at least one recipient in messages"
+            )
+
+        logger.debug(
+            "Sending bulk email", extra={"recipient_count": len(bulk_payload.messages)}
+        )
+        response = await self.client.post(
+            "/email/bulk",
+            json=bulk_payload.model_dump(by_alias=True, exclude_none=True),
+        )
+        return BulkSendResponse(**response.json())
+
+    async def get_bulk_status(self, bulk_id: str) -> BulkSendStatus:
+        """
+        Poll the status of a bulk send request.
+        """
+        response = await self.client.get(f"/email/bulk/{bulk_id}")
+        return BulkSendStatus(**response.json())
+
+    async def list_bulk_requests(
+        self, count: int = 100, pagination_key: str | None = None
+    ) -> CursorPage[BulkSendStatus]:
+        """
+        List the bulk requests submitted on this server, newest first.
+
+        Pagination uses an opaque cursor instead of offsets: pass the previous
+        page's ``next_key`` as ``pagination_key`` to get the following page.
+        ``next_key`` is ``None`` on the last page.
+
+        Args:
+            count: Requests per page, 1 to 500.
+            pagination_key: Cursor from the previous page. Do not build or modify it.
+        """
+        if not 1 <= count <= 500:
+            raise ValueError("Count must be between 1 and 500")
+
+        params: dict[str, Any] = {"count": count}
+        if pagination_key is not None:
+            params["paginationKey"] = pagination_key
+
+        response = await self.client.get("/email/bulk", params=params)
+        data = response.json()
+        return CursorPage(
+            items=[BulkSendStatus(**item) for item in data.get("Requests", [])],
+            next_key=data.get("PaginationKey"),
+        )
+
+    async def stream_bulk_requests(
+        self, batch_size: int = 100, max_requests: int = 1000
+    ) -> AsyncGenerator[BulkSendStatus, None]:
+        """Stream bulk requests, following the pagination cursor automatically."""
+        yielded = 0
+        key: str | None = None
+        while yielded < max_requests:
+            page = await self.list_bulk_requests(
+                count=min(batch_size, 500, max_requests - yielded),
+                pagination_key=key,
+            )
+            for item in page.items:
+                yield item
+                yielded += 1
+            key = page.next_key
+            if key is None or not page.items:
+                break
+
+    # -------------------------------------------------------------------------
+    # Template sends
+    # -------------------------------------------------------------------------
+
+    async def send_with_template(
+        self, message: TemplateEmail | dict[str, Any]
+    ) -> SendResponse:
+        """Send an email using a template."""
+        email = _parse_template_email(message)
+        logger.debug("Sending template email", extra={"recipient": email.to})
+        response = await self.client.post(
+            "/email/withTemplate",
+            json=email.model_dump(by_alias=True, exclude_none=True),
+        )
+        return SendResponse(**response.json())
+
+    async def send_batch_with_template(
+        self, messages: list[TemplateEmail | dict[str, Any]]
+    ) -> list[SendResponse]:
+        """Send up to 500 template emails in a single batch request."""
+        if len(messages) > 500:
+            raise ValueError("Batch size cannot exceed 500 messages")
+
+        payload = []
+        for i, msg in enumerate(messages):
+            try:
+                email = _parse_template_email(msg)
+            except InvalidEmailException as e:
+                raise InvalidEmailException(
+                    [
+                        {
+                            "loc": (f"messages[{i}]", *err["loc"]),
+                            **{k: v for k, v in err.items() if k != "loc"},
+                        }
+                        for err in e.errors
+                    ]
+                ) from e
+            payload.append(email.model_dump(by_alias=True, exclude_none=True))
+
+        response = await self.client.post(
+            "/email/batchWithTemplates", json={"Messages": payload}
+        )
+        return [SendResponse(**item) for item in response.json()]
+
+    # -------------------------------------------------------------------------
+    # List / stream / get
+    # -------------------------------------------------------------------------
+
+    async def list(
+        self,
+        count: int = 100,
+        offset: int = 0,
+        recipient: str | None = None,
+        from_email: str | None = None,
+        tag: str | None = None,
+        status: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        subject: str | None = None,
+        message_stream: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Page[Message]:
+        """List sent messages."""
+        if count > 500:
+            raise ValueError("Count cannot exceed 500 messages per request")
+        if count + offset > 10000:
+            raise ValueError("Count + Offset cannot exceed 10,000 messages")
+
+        params: dict[str, Any] = {"count": count, "offset": offset}
+
+        if recipient is not None:
+            params["recipient"] = recipient
+        if from_email is not None:
+            params["fromemail"] = from_email
+        if tag is not None:
+            params["tag"] = tag
+        if status is not None:
+            params["status"] = status
+        if from_date is not None:
+            params["fromdate"] = from_date.strftime("%Y-%m-%dT%H:%M:%S")
+        if to_date is not None:
+            params["todate"] = to_date.strftime("%Y-%m-%dT%H:%M:%S")
+        if subject is not None:
+            params["subject"] = subject
+        if message_stream is not None:
+            params["messagestream"] = message_stream
+        if metadata is not None:
+            if len(metadata) > 1:
+                raise ValueError("Can only filter by one metadata field at a time")
+            for key, value in metadata.items():
+                params[f"metadata_{key}"] = value
+
+        response = await self.client.get("/messages/outbound", params=params)
+
+        data = response.json()
+
+        return Page(
+            items=[Message(**msg) for msg in data.get("Messages", [])],
+            total=data.get("TotalCount", 0),
+        )
+
+    async def stream(
+        self,
+        batch_size: int = 500,
+        max_messages: int = 1000,
+        recipient: str | None = None,
+        from_email: str | None = None,
+        tag: str | None = None,
+        status: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        subject: str | None = None,
+        message_stream: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> AsyncGenerator[Message, None]:
+        """Stream messages with automatic pagination."""
+        async for msg in paginate(
+            self.list,
+            max_messages,
+            batch_size,
+            recipient=recipient,
+            from_email=from_email,
+            tag=tag,
+            status=status,
+            from_date=from_date,
+            to_date=to_date,
+            subject=subject,
+            message_stream=message_stream,
+            metadata=metadata,
+        ):
+            yield msg
+
+    async def get(self, message_id: str) -> MessageDetails:
+        """Get detailed information for a specific message."""
+        response = await self.client.get(f"/messages/outbound/{message_id}/details")
+        return MessageDetails(**response.json())
+
+    async def get_dump(self, message_id: str) -> OutboundMessageDump:
+        """Get the raw SMTP source for a specific message."""
+        response = await self.client.get(f"/messages/outbound/{message_id}/dump")
+        return OutboundMessageDump(**response.json())
+
+    # -------------------------------------------------------------------------
+    # Opens
+    # -------------------------------------------------------------------------
+
+    async def list_opens(
+        self,
+        count: int = 100,
+        offset: int = 0,
+        recipient: str | None = None,
+        tag: str | None = None,
+        client_name: str | None = None,
+        client_company: str | None = None,
+        client_family: str | None = None,
+        os_name: str | None = None,
+        os_family: str | None = None,
+        os_company: str | None = None,
+        platform: str | None = None,
+        country: str | None = None,
+        region: str | None = None,
+        city: str | None = None,
+        message_stream: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> Page[OpenEvent]:
+        """
+        List open tracking events across all messages.
+
+        ``from_date`` / ``to_date`` have no effect: Postmark does not support date
+        filtering on this endpoint. Passing them emits a ``FutureWarning`` and they
+        are not sent.
+        """
+        if count > 500:
+            raise ValueError("Count cannot exceed 500 per request")
+        if count + offset > 10000:
+            raise ValueError("Count + Offset cannot exceed 10,000")
+
+        params: dict[str, Any] = {"count": count, "offset": offset}
+
+        if recipient is not None:
+            params["recipient"] = recipient
+        if tag is not None:
+            params["tag"] = tag
+        if client_name is not None:
+            params["client_name"] = client_name
+        if client_company is not None:
+            params["client_company"] = client_company
+        if client_family is not None:
+            params["client_family"] = client_family
+        if os_name is not None:
+            params["os_name"] = os_name
+        if os_family is not None:
+            params["os_family"] = os_family
+        if os_company is not None:
+            params["os_company"] = os_company
+        if platform is not None:
+            params["platform"] = platform
+        if country is not None:
+            params["country"] = country
+        if region is not None:
+            params["region"] = region
+        if city is not None:
+            params["city"] = city
+        if message_stream is not None:
+            params["messagestream"] = message_stream
+        if from_date is not None or to_date is not None:
+            _warn_date_filters_unsupported("list_opens")
+
+        response = await self.client.get("/messages/outbound/opens", params=params)
+        data = response.json()
+        return Page(
+            items=[OpenEvent(**o) for o in data.get("Opens", [])],
+            total=data.get("TotalCount", 0),
+        )
+
+    async def list_message_opens(
+        self, message_id: str, count: int = 100, offset: int = 0
+    ) -> Page[OpenEvent]:
+        """List open tracking events for a specific message."""
+        if count > 500:
+            raise ValueError("Count cannot exceed 500 per request")
+        if count + offset > 10000:
+            raise ValueError("Count + Offset cannot exceed 10,000")
+
+        params: dict[str, Any] = {"count": count, "offset": offset}
+        response = await self.client.get(
+            f"/messages/outbound/opens/{message_id}", params=params
+        )
+        data = response.json()
+        return Page(
+            items=[OpenEvent(**o) for o in data.get("Opens", [])],
+            total=data.get("TotalCount", 0),
+        )
+
+    # -------------------------------------------------------------------------
+    # Clicks
+    # -------------------------------------------------------------------------
+
+    async def list_clicks(
+        self,
+        count: int = 100,
+        offset: int = 0,
+        recipient: str | None = None,
+        tag: str | None = None,
+        client_name: str | None = None,
+        client_company: str | None = None,
+        client_family: str | None = None,
+        os_name: str | None = None,
+        os_family: str | None = None,
+        os_company: str | None = None,
+        platform: str | None = None,
+        country: str | None = None,
+        region: str | None = None,
+        city: str | None = None,
+        message_stream: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> Page[ClickEvent]:
+        """
+        List click tracking events across all messages.
+
+        ``from_date`` / ``to_date`` have no effect: Postmark does not support date
+        filtering on this endpoint. Passing them emits a ``FutureWarning`` and they
+        are not sent.
+        """
+        if count > 500:
+            raise ValueError("Count cannot exceed 500 per request")
+        if count + offset > 10000:
+            raise ValueError("Count + Offset cannot exceed 10,000")
+
+        params: dict[str, Any] = {"count": count, "offset": offset}
+
+        if recipient is not None:
+            params["recipient"] = recipient
+        if tag is not None:
+            params["tag"] = tag
+        if client_name is not None:
+            params["client_name"] = client_name
+        if client_company is not None:
+            params["client_company"] = client_company
+        if client_family is not None:
+            params["client_family"] = client_family
+        if os_name is not None:
+            params["os_name"] = os_name
+        if os_family is not None:
+            params["os_family"] = os_family
+        if os_company is not None:
+            params["os_company"] = os_company
+        if platform is not None:
+            params["platform"] = platform
+        if country is not None:
+            params["country"] = country
+        if region is not None:
+            params["region"] = region
+        if city is not None:
+            params["city"] = city
+        if message_stream is not None:
+            params["messagestream"] = message_stream
+        if from_date is not None or to_date is not None:
+            _warn_date_filters_unsupported("list_clicks")
+
+        response = await self.client.get("/messages/outbound/clicks", params=params)
+        data = response.json()
+        return Page(
+            items=[ClickEvent(**c) for c in data.get("Clicks", [])],
+            total=data.get("TotalCount", 0),
+        )
+
+    async def list_message_clicks(
+        self, message_id: str, count: int = 100, offset: int = 0
+    ) -> Page[ClickEvent]:
+        """List click tracking events for a specific message."""
+        if count > 500:
+            raise ValueError("Count cannot exceed 500 per request")
+        if count + offset > 10000:
+            raise ValueError("Count + Offset cannot exceed 10,000")
+
+        params: dict[str, Any] = {"count": count, "offset": offset}
+        response = await self.client.get(
+            f"/messages/outbound/clicks/{message_id}", params=params
+        )
+        data = response.json()
+        return Page(
+            items=[ClickEvent(**c) for c in data.get("Clicks", [])],
+            total=data.get("TotalCount", 0),
+        )

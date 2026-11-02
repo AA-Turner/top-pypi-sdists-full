@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# PyPI distribution name. The runtime import path stays
+# `net_sdk` (the package directory under `src/` is unchanged) so
+# user code keeps `import net_sdk` working.
+name = "net-mesh-sdk"
+version = "0.46.0"
+description = "Ergonomic Python SDK for the Net mesh network"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-APACHE", "LICENSE-MIT"]
+requires-python = ">=3.10"
+# Compatible-release, not an open lower bound. `net-mesh-sdk` is a thin
+# wrapper over the native `net-mesh` module, and
+# `web/src/content/docs/reference/versioning.md` says the two must
+# match, that mixing versions is unsupported, and that pre-1.0 minors
+# may break APIs. A bare `>=` lower bound let pip resolve or retain an
+# older wrapper against a newer core anyway, and the failure only surfaced
+# later, at the first call into a changed or removed native method.
+#
+# The upper bound is the *next* minor, not this one: patch releases within
+# the minor are additive by the versioning policy, so they stay resolvable,
+# while `0.37` is excluded because a pre-1.0 minor may break the wrapper.
+# A release bump must move *both* bounds; rewriting only the release version
+# here collapses the range to the empty set and makes the package
+# uninstallable. `tests/test_packaging_metadata.py` asserts this range is
+# non-empty and admits the sibling `bindings/python` version.
+dependencies = ["net-mesh>=0.46.0,<0.47.0"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+]
+keywords = ["net", "mesh", "event-bus", "streaming", "ai", "llm", "inference"]
+
+[project.optional-dependencies]
+pydantic = ["pydantic>=2.0"]
+# `packaging` backs tests/test_packaging_metadata.py, which parses the
+# dependency specifiers in this file. It is not a runtime dependency.
+test = ["pytest>=9.0.0", "packaging>=24.0"]
+
+[project.urls]
+Homepage = "https://github.com/ai-2070/net"
+Repository = "https://github.com/ai-2070/net"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ship the PEP 561 marker so type checkers read the SDK's annotations.
+[tool.setuptools.package-data]
+net_sdk = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

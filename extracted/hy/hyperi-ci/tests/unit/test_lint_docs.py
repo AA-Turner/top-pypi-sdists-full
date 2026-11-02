@@ -1,0 +1,582 @@
+# Project:   HyperI CI
+# File:      tests/unit/test_lint_docs.py
+# Purpose:   Cover doc discovery, the lychee/markdownlint parsers, the nudge
+#            and the orchestrator
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+"""Tests for the documentation checking dimension.
+
+Covers :mod:`hyperi_ci.quality.targets` doc discovery, the two external-tool
+output parsers, the docs-untouched nudge and the orchestrator. The parsers are
+fed REAL captured output from lychee 0.24.2 and markdownlint-cli2 0.23.3 rather
+than a mock, so a change in either tool's shape shows up here.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+from hyperi_ci.config import CIConfig
+from hyperi_ci.quality import (
+    doc_links,
+    doc_paths,
+    docs_touched,
+    lint_docs,
+    markdownlint,
+    mermaid_parse,
+)
+from hyperi_ci.quality import findings as fdg
+from hyperi_ci.quality.targets import discover_markdown_files
+
+
+def _config(**quality: object) -> CIConfig:
+    return CIConfig(_raw={"quality": quality})
+
+
+@pytest.fixture(autouse=True)
+def _fresh_lychee_attempt() -> None:
+    """The install attempt is cached per process, so each test starts unasked."""
+    doc_links._install_lychee.cache_clear()
+
+
+class TestDiscovery:
+    """What counts as a doc, and what is deliberately left alone."""
+
+    def test_markdown_anywhere_in_the_tree_is_found(self, tmp_path: Path) -> None:
+        (tmp_path / "README.md").write_text("# a\n", encoding="utf-8")
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "guide.markdown").write_text("# b\n", encoding="utf-8")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "notes.md").write_text("# c\n", encoding="utf-8")
+        found = discover_markdown_files(tmp_path)
+        assert [p.name for p in found] == ["README.md", "guide.markdown", "notes.md"]
+
+    def test_generated_and_upstream_files_are_skipped(self, tmp_path: Path) -> None:
+        for name in (
+            "CHANGELOG.md",
+            "LICENSE.md",
+            "NOTICE.md",
+            "COMMERCIAL.md",
+            "AI-TRAINING-POLICY.md",
+            "README.md",
+        ):
+            (tmp_path / name).write_text("# x\n", encoding="utf-8")
+        assert [p.name for p in discover_markdown_files(tmp_path)] == ["README.md"]
+
+    def test_fixture_markdown_is_test_data_not_docs(self, tmp_path: Path) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "fixtures").mkdir()
+        (tmp_path / "tests" / "fixtures" / "broken.md").write_text(
+            "[x](gone.md)\n", encoding="utf-8"
+        )
+        (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
+        assert [p.name for p in discover_markdown_files(tmp_path)] == ["README.md"]
+
+    def test_worktrees_and_node_modules_never_descend(self, tmp_path: Path) -> None:
+        for noisy in (".worktrees", "node_modules", ".git"):
+            (tmp_path / noisy).mkdir()
+            (tmp_path / noisy / "doc.md").write_text("# x\n", encoding="utf-8")
+        assert discover_markdown_files(tmp_path) == []
+
+    def test_a_configured_exclusion_is_pruned(self, tmp_path: Path) -> None:
+        (tmp_path / "vendored").mkdir()
+        (tmp_path / "vendored" / "a.md").write_text("# x\n", encoding="utf-8")
+        assert discover_markdown_files(tmp_path, exclude_dirs=["vendored/"]) == []
+
+
+class TestLycheeParsing:
+    """Captured lychee 0.24.2 --format json output."""
+
+    REAL_OUTPUT = json.dumps(
+        {
+            "total": 5,
+            "errors": 2,
+            "error_map": {
+                "docs/a.md": [
+                    {
+                        "url": "file:///repo/docs/nope.md",
+                        "status": {
+                            "text": "File not found. Check if file exists and path is correct"
+                        },
+                        "span": {"line": 3, "column": 29},
+                    },
+                    {
+                        "url": "file:///repo/docs/b.md#no-such-heading",
+                        "status": {"text": "Cannot find fragment"},
+                        "span": {"line": 5, "column": 31},
+                    },
+                ]
+            },
+            "excluded_map": {
+                "docs/a.md": [
+                    {
+                        "url": "https://example.com/",
+                        "status": {"text": "Excluded"},
+                        "span": {"line": 7, "column": 4},
+                    }
+                ]
+            },
+        }
+    )
+
+    def test_both_error_kinds_are_parsed_with_their_line(self) -> None:
+        found = doc_links.parse(self.REAL_OUTPUT)
+        assert len(found) == 2
+        assert [f.line for f in found] == [3, 5]
+        assert all(f.level == "error" for f in found)
+        assert all(f.rule == "docs/broken-link" for f in found)
+
+    def test_an_offline_excluded_link_is_not_a_finding(self) -> None:
+        messages = " ".join(f.message for f in doc_links.parse(self.REAL_OUTPUT))
+        assert "example.com" not in messages
+
+    def test_a_clean_run_parses_to_nothing(self) -> None:
+        assert doc_links.parse(json.dumps({"total": 0, "error_map": {}})) == []
+
+    def test_unparseable_output_yields_nothing_rather_than_raising(self) -> None:
+        assert doc_links.parse("not json at all") == []
+        assert doc_links.parse("") == []
+
+
+class TestLycheeInvocation:
+    """How lychee is called, and what a real binary makes of it."""
+
+    def test_the_root_dir_is_passed_as_the_absolute_repo_root(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """lychee only resolves `/README.md` style links against an absolute root."""
+        argv_file = tmp_path / "argv.txt"
+        fake = tmp_path / "lychee"
+        fake.write_text(
+            f"#!/bin/sh\nprintf '%s\\n' \"$@\" > '{argv_file}'\necho '{{}}'\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        monkeypatch.setattr(doc_links, "ci_binary", lambda _n: str(fake))
+        repo = tmp_path / "repo"
+        (repo / "docs").mkdir(parents=True)
+        doc = repo / "docs" / "a.md"
+        doc.write_text("# a\n", encoding="utf-8")
+        monkeypatch.chdir(repo / "docs")
+
+        doc_links.run([doc], _config(doc_links="blocking"), root=Path(".."))
+
+        argv = argv_file.read_text(encoding="utf-8").splitlines()
+        assert "--root-dir" in argv
+        root_dir = argv[argv.index("--root-dir") + 1]
+        assert Path(root_dir).is_absolute()
+        assert Path(root_dir) == repo.resolve()
+
+    @pytest.mark.skipif(shutil.which("lychee") is None, reason="lychee not on PATH")
+    def test_a_root_relative_link_resolves_against_the_repo(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        # Off CI a lychee tool error also returns 0, so run as CI where it fails.
+        monkeypatch.setattr(fdg, "is_ci", lambda: True)
+        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+        (tmp_path / "README.md").write_text("# Repo\n", encoding="utf-8")
+        (tmp_path / "docs").mkdir()
+        doc = tmp_path / "docs" / "a.md"
+        doc.write_text("See [the readme](/README.md).\n", encoding="utf-8")
+        rc = doc_links.run([doc], _config(doc_links="blocking"), root=tmp_path)
+
+        assert rc == 0
+
+    @pytest.mark.skipif(shutil.which("lychee") is None, reason="lychee not on PATH")
+    def test_a_root_relative_link_to_a_missing_file_is_still_broken(
+        self, tmp_path: Path
+    ) -> None:
+        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+        (tmp_path / "docs").mkdir()
+        doc = tmp_path / "docs" / "a.md"
+        doc.write_text("See [gone](/NOPE.md).\n", encoding="utf-8")
+        rc = doc_links.run([doc], _config(doc_links="blocking"), root=tmp_path)
+
+        assert rc == 1
+
+
+class TestMarkdownlintParsing:
+    """Captured markdownlint-cli2 0.23.3 text output."""
+
+    REAL_OUTPUT = "\n".join(
+        [
+            "markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)",
+            "Finding: docs/bad.md",
+            "Linting: 1 file",
+            "Summary: 4 issues in 1 file",
+            'docs/bad.md:3 error MD022/blanks-around-headings Headings should be surrounded by blank lines [Context: "## Two"]',
+            "docs/bad.md:5:1 error MD030/list-marker-space Spaces after list markers [Expected: 1; Actual: 3]",
+            "docs/bad.md:6:21 error MD009/no-trailing-spaces Trailing spaces [Expected: 0 or 2; Actual: 3]",
+        ]
+    )
+
+    def test_findings_are_parsed_and_banner_lines_are_not(self) -> None:
+        found = markdownlint.parse(self.REAL_OUTPUT)
+        assert len(found) == 3
+        assert [f.line for f in found] == [3, 5, 6]
+
+    def test_the_rule_id_keeps_its_alias_and_gains_a_docs_url(self) -> None:
+        found = markdownlint.parse(self.REAL_OUTPUT)
+        assert found[0].rule == "MD022/blanks-around-headings"
+        assert found[0].url.endswith("/MD022.md")
+
+    def test_a_clean_run_parses_to_nothing(self) -> None:
+        assert markdownlint.parse("Summary: 0 issues\n") == []
+
+    def test_a_repo_config_wins_over_the_shipped_default(self, tmp_path: Path) -> None:
+        assert markdownlint.repo_config(tmp_path) is None
+        (tmp_path / ".markdownlint.yaml").write_text("MD013: false\n", encoding="utf-8")
+        assert markdownlint.repo_config(tmp_path) == tmp_path / ".markdownlint.yaml"
+
+    def test_the_shipped_default_exists_and_disables_the_width_rule(self) -> None:
+        # The house style has no markdown width limit, so a line-length rule
+        # would report every correctly written paragraph.
+        text = markdownlint.DEFAULT_CONFIG.read_text(encoding="utf-8")
+        assert "MD013: false" in text
+
+    def test_the_shipped_default_disables_table_pipe_spacing(self) -> None:
+        # MD060 was 711 of 851 findings on this repo's own docs, and a table
+        # renders the same whatever its pipe spacing.
+        rules = yaml.safe_load(markdownlint.DEFAULT_CONFIG.read_text(encoding="utf-8"))
+        assert rules["MD060"] is False
+
+    def test_the_wheel_carries_the_default_config(self) -> None:
+        """A wheel without it makes every consumer inherit MD013 - assert it ships."""
+        root = Path(__file__).resolve().parents[2]
+        pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+        assert 'packages = ["src/hyperi_ci"]' in pyproject
+        assert markdownlint.DEFAULT_CONFIG.is_relative_to(root / "src" / "hyperi_ci")
+
+
+class TestDocsTouched:
+    """The nudge classifies, and never gates."""
+
+    def test_source_changed_and_docs_did_not(self) -> None:
+        source, docs = docs_touched.classify(["src/app.py", "src/lib.rs"])
+        assert len(source) == 2
+        assert docs == []
+
+    def test_a_doc_change_clears_it(self) -> None:
+        source, docs = docs_touched.classify(["src/app.py", "README.md"])
+        assert source and docs
+
+    def test_a_test_change_is_neither(self) -> None:
+        source, docs = docs_touched.classify(
+            ["tests/test_app.py", "src/app_test.go", "a.spec.ts"]
+        )
+        assert source == []
+        assert docs == []
+
+    def test_a_lockfile_is_neither(self) -> None:
+        source, docs = docs_touched.classify(["uv.lock", "Cargo.toml"])
+        assert source == []
+        assert docs == []
+
+    def test_it_never_returns_non_zero(self, tmp_path: Path) -> None:
+        # No git repo at tmp_path, so there is no comparison; and even with
+        # one, this check has no failing branch.
+        assert docs_touched.run(_config(docs_touched="blocking"), root=tmp_path) == 0
+
+    def test_disabled_runs_nothing(self, tmp_path: Path) -> None:
+        assert docs_touched.run(_config(docs_touched="disabled"), root=tmp_path) == 0
+
+    def test_the_pr_base_ref_is_preferred(self, monkeypatch) -> None:
+        monkeypatch.setenv("GITHUB_BASE_REF", "develop")
+        assert docs_touched.base_ref() == "origin/develop"
+        monkeypatch.delenv("GITHUB_BASE_REF")
+        assert docs_touched.base_ref() == "origin/HEAD"
+
+
+class TestOrchestrator:
+    """Whole-dimension behaviour."""
+
+    def test_a_repo_with_no_markdown_skips_cleanly(self, tmp_path: Path) -> None:
+        (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+        assert lint_docs.run(tmp_path, _config()) == 0
+
+    def test_excludes_apply_when_run_from_another_cwd(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # issue #669: the repo's own exclude_paths must prune its tree even
+        # when the cwd is somewhere else.
+        target = tmp_path / "repo"
+        (target / "docs" / "archive").mkdir(parents=True)
+        (target / "README.md").write_text("# repo\n", encoding="utf-8")
+        (target / "docs" / "archive" / "old.md").write_text("# old\n", "utf-8")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        seen: list[Path] = []
+
+        def capture(files: list[Path], *_args: object, **_kwargs: object) -> int:
+            seen.extend(files)
+            return 0
+
+        for check in (doc_paths, doc_links, mermaid_parse, markdownlint):
+            monkeypatch.setattr(check, "run", capture)
+        monkeypatch.setattr(docs_touched, "run", lambda *_a, **_k: 0)
+        config = CIConfig(_raw={"quality": {"exclude_paths": ["docs/archive"]}})
+        assert lint_docs.run(target, config) == 0
+        assert set(seen) == {target / "README.md"}
+
+    def test_defaults_never_fail_a_repo_with_broken_docs(self, tmp_path: Path) -> None:
+        # The ratchet's whole point: adopting the dimension reports, it does
+        # not turn an existing tree red.
+        (tmp_path / "README.md").write_text(
+            "[gone](docs/nope.md)\n\n```mermaid\ngraph TD\n  A[x --> B{{{\n",
+            encoding="utf-8",
+        )
+        assert lint_docs.run(tmp_path, CIConfig()) == 0
+
+    def test_a_promoted_check_gates(self, tmp_path: Path) -> None:
+        # Both link checks are promoted, because the orchestrator hands the
+        # link rule to lychee wherever lychee is installed.
+        (tmp_path / "README.md").write_text("[gone](docs/nope.md)\n", encoding="utf-8")
+        config = _config(doc_paths="blocking", doc_links="blocking")
+        assert lint_docs.run(tmp_path, config) == 1
+
+    def test_promoting_doc_paths_alone_still_gates_with_lychee_installed(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """`doc_paths: blocking` beside the default `doc_links: warn`.
+
+        On 2.10.10 this config failed a broken link. Handing the link to a
+        lychee that only warns left nothing able to fail it.
+        """
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        lychee = bin_dir / "lychee"
+        report = json.dumps(
+            {"error_map": {"README.md": [{"url": "docs/nope.md", "span": {}}]}}
+        )
+        lychee.write_text(f"#!/bin/sh\necho '{report}'\nexit 2\n", encoding="utf-8")
+        lychee.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ.get('PATH', '')}")
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "README.md").write_text("[gone](docs/nope.md)\n", encoding="utf-8")
+        assert doc_links.planned_mode(_config(doc_paths="blocking")) == "warn"
+        assert lint_docs.run(repo, _config(doc_paths="blocking")) == 1
+
+    def test_every_check_defaults_to_warn(self) -> None:
+        # Guards the ratchet at the config layer: a default flipped to blocking
+        # would fail consumer CI on adoption.
+        from hyperi_ci.config import load_config
+
+        defaults = load_config()
+        for tool in (
+            "doc_paths",
+            "doc_links",
+            "mermaid_parse",
+            "markdownlint",
+            "docs_touched",
+        ):
+            assert defaults.get(f"quality.{tool}") == "warn", tool
+
+
+class TestLycheeInstall:
+    """lychee had no install path anywhere, so the check never ran (issue #230)."""
+
+    def test_the_pinned_lychee_is_asked_for(self, monkeypatch) -> None:
+        seen: list[str] = []
+        monkeypatch.setattr(
+            doc_links, "ci_binary", lambda name: seen.append(name) or "/x/lychee"
+        )
+        assert doc_links._install_lychee() == "/x/lychee"
+        assert seen == ["lychee"]
+
+    def test_a_failed_install_is_attempted_once_per_run(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """planned_mode and run both need the binary, and one download is enough."""
+        attempts: list[str] = []
+
+        def failing_install(name: str) -> None:
+            attempts.append(name)
+
+        monkeypatch.setattr(doc_links, "ci_binary", failing_install)
+        doc = tmp_path / "README.md"
+        doc.write_text("# x\n", encoding="utf-8")
+        config = _config(doc_links="warn")
+        assert doc_links.planned_mode(config) is None
+        assert doc_links.run([doc], config, root=tmp_path) == 0
+        assert len(attempts) == 1, attempts
+
+    def test_a_disabled_check_installs_nothing(self, monkeypatch) -> None:
+        called: list[int] = []
+        monkeypatch.setattr(doc_links, "_install_lychee", lambda: called.append(1))
+        config = CIConfig(_raw={"quality": {"doc_links": "disabled"}})
+        assert doc_links.planned_mode(config) is None
+        assert called == []
+
+    def test_planned_mode_resolves_the_binary_so_doc_paths_is_not_doubled(
+        self, monkeypatch
+    ) -> None:
+        """planned_mode is asked BEFORE run, so it must install to answer honestly.
+
+        Answering "no" and then installing makes doc_paths report every broken
+        link a second time.
+        """
+        monkeypatch.setattr(doc_links, "_install_lychee", lambda: "/x/lychee")
+        config = CIConfig(_raw={"quality": {"doc_links": "warn"}})
+        assert doc_links.planned_mode(config) == "warn"
+
+
+class TestAnnotationLevelFollowsMode:
+    """Only a blocking check may raise an error annotation.
+
+    A warn-tier check that surfaced `error` put red annotations on a green job
+    and spent the step's 10-error budget before the language handler ran.
+    """
+
+    def test_blocking_keeps_errors(self) -> None:
+        found = [fdg.Finding("t", "a.md", 1, "error", "r", "m")]
+        assert fdg.at_mode(found, "blocking") == found
+
+    def test_warn_downgrades_errors_and_leaves_the_rest(self) -> None:
+        found = [
+            fdg.Finding("t", "a.md", 1, "error", "r", "m"),
+            fdg.Finding("t", "a.md", 2, "notice", "r", "m"),
+        ]
+        assert [f.level for f in fdg.at_mode(found, "warn")] == ["warning", "notice"]
+        assert found[0].level == "error"
+
+    @staticmethod
+    def _surfaced(monkeypatch) -> list[str]:
+        levels: list[str] = []
+
+        def capture(tool, findings, *, sarif_path=None):
+            levels.extend(f.level for f in findings)
+            return 0
+
+        monkeypatch.setattr(fdg, "surface", capture)
+        return levels
+
+    @staticmethod
+    def _fake_tool(tmp_path: Path, name: str, output: str, rc: int) -> str:
+        exe = tmp_path / "bin" / name
+        exe.parent.mkdir(exist_ok=True)
+        exe.write_text(f"#!/bin/sh\ncat <<'EOF'\n{output}\nEOF\nexit {rc}\n", "utf-8")
+        exe.chmod(0o755)
+        return str(exe)
+
+    @pytest.mark.parametrize(
+        ("mode", "level", "rc"), [("warn", "warning", 0), ("blocking", "error", 1)]
+    )
+    def test_markdownlint(self, tmp_path: Path, monkeypatch, mode, level, rc) -> None:
+        line = "README.md:1 error MD022/blanks-around-headings Headings [Context: x]"
+        exe = self._fake_tool(tmp_path, "markdownlint-cli2", line, 1)
+        monkeypatch.setattr(markdownlint.shutil, "which", lambda _n: exe)
+        levels = self._surfaced(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("# x\n", encoding="utf-8")
+        config = _config(markdownlint=mode)
+        assert markdownlint.run([doc], config, root=tmp_path) == rc
+        assert levels == [level]
+
+    @pytest.mark.parametrize(
+        ("mode", "level", "rc"), [("warn", "warning", 0), ("blocking", "error", 1)]
+    )
+    def test_doc_links(self, tmp_path: Path, monkeypatch, mode, level, rc) -> None:
+        report = json.dumps({"error_map": {"README.md": [{"url": "gone.md"}]}})
+        exe = self._fake_tool(tmp_path, "lychee", report, 2)
+        monkeypatch.setattr(doc_links, "ci_binary", lambda _n: exe)
+        levels = self._surfaced(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("[x](gone.md)\n", encoding="utf-8")
+        assert doc_links.run([doc], _config(doc_links=mode), root=tmp_path) == rc
+        assert levels == [level]
+
+    @pytest.mark.parametrize(
+        ("mode", "level", "rc"), [("warn", "warning", 0), ("blocking", "error", 1)]
+    )
+    def test_mermaid_parse(self, tmp_path: Path, monkeypatch, mode, level, rc) -> None:
+        # An unclosed fence is a structural finding, so no Node is needed.
+        monkeypatch.setattr(mermaid_parse, "_run_parser", lambda _b, _r: ({}, None))
+        levels = self._surfaced(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("```mermaid\ngraph TD\n  A --> B\n", encoding="utf-8")
+        config = _config(mermaid_parse=mode)
+        assert mermaid_parse.run([doc], config, root=tmp_path) == rc
+        assert levels == [level]
+
+    @pytest.mark.parametrize(
+        ("mode", "level", "rc"), [("warn", "warning", 0), ("blocking", "error", 1)]
+    )
+    def test_doc_paths(self, tmp_path: Path, monkeypatch, mode, level, rc) -> None:
+        levels = self._surfaced(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("[x](docs/gone.md)\n", encoding="utf-8")
+        config = _config(doc_paths=mode)
+        assert doc_paths.run([doc], config, root=tmp_path, lychee_mode=None) == rc
+        assert levels == [level]
+
+
+class TestAFindingsExitWithNothingParsedIsNotAPass:
+    """Each tool's findings-found exit, with no finding parsed, checked nothing.
+
+    lychee 0.24.2 exits 2 for broken links AND for an argument it rejects;
+    markdownlint-cli2 0.23.3 exits 1 for violations. Read as clean, a flag
+    lychee dropped or an output shape cli2 changed would pass every run green.
+    """
+
+    @staticmethod
+    def _tool(tmp_path: Path, name: str, rc: int) -> str:
+        exe = tmp_path / "bin" / name
+        exe.parent.mkdir(exist_ok=True)
+        exe.write_text(
+            f"#!/bin/sh\necho \"error: unexpected argument '--x' found\" >&2\nexit {rc}\n",
+            encoding="utf-8",
+        )
+        exe.chmod(0o755)
+        return str(exe)
+
+    @staticmethod
+    def _logged(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        lines: list[str] = []
+        for module in (fdg, doc_links, markdownlint):
+            for level in ("error", "warn", "success"):
+                if hasattr(module, level):
+                    monkeypatch.setattr(module, level, lines.append)
+        return lines
+
+    @pytest.mark.parametrize(
+        ("mode", "ci", "rc"),
+        [("blocking", True, 1), ("blocking", False, 0), ("warn", True, 0)],
+    )
+    def test_lychee_exit_2(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode, ci, rc
+    ) -> None:
+        exe = self._tool(tmp_path, "lychee", 2)
+        monkeypatch.setattr(doc_links, "ci_binary", lambda _n: exe)
+        monkeypatch.setattr(fdg, "is_ci", lambda: ci)
+        lines = self._logged(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("# x\n", encoding="utf-8")
+        assert doc_links.run([doc], _config(doc_links=mode), root=tmp_path) == rc
+        assert any("exited 2 with no parseable output" in line for line in lines)
+        assert not any("resolves" in line for line in lines)
+
+    @pytest.mark.parametrize(
+        ("mode", "ci", "rc"),
+        [("blocking", True, 1), ("blocking", False, 0), ("warn", True, 0)],
+    )
+    def test_markdownlint_exit_1(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode, ci, rc
+    ) -> None:
+        exe = self._tool(tmp_path, "markdownlint-cli2", 1)
+        monkeypatch.setattr(markdownlint.shutil, "which", lambda _n: exe)
+        monkeypatch.setattr(fdg, "is_ci", lambda: ci)
+        lines = self._logged(monkeypatch)
+        doc = tmp_path / "README.md"
+        doc.write_text("# x\n", encoding="utf-8")
+        assert markdownlint.run([doc], _config(markdownlint=mode), root=tmp_path) == rc
+        assert any("exited 1 with no parseable output" in line for line in lines)
+        assert not any("file(s) clean" in line for line in lines)

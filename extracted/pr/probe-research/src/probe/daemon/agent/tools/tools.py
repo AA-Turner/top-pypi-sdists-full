@@ -176,11 +176,11 @@ def _hold(deps: Deps, *, policy: str, facts: dict, held: dict) -> appr.Request:
     """Ask the researcher (`Board.hold`). A question that did not come back yes
     (waiting, or a no given before) is counted in `Deps.asked`: the write behind
     it did not fail, it is theirs to decide."""
-    req = deps.board.hold(policy=policy, session_id=deps.session_id, facts=facts, held=held, bypass=deps.bypass,
+    request = deps.board.hold(policy=policy, session_id=deps.session_id, facts=facts, held=held, bypass=deps.bypass,
                           mode_known=deps.mode_known)
-    if req.state != appr.APPROVED:
+    if request.state != appr.APPROVED:
         deps.asked += 1
-    return req
+    return request
 
 
 def task_deps(deps: Deps) -> Deps:

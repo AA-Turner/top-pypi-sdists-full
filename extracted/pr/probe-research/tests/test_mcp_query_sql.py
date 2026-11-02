@@ -3,7 +3,7 @@
 What a fake backend CAN prove here, and nothing more: the request the MCP sends,
 the one-page delivery contract, and how refusals reach the agent. Tenant and
 project visibility are the database's job and are proven against a real Postgres
-in research-os `tests/integration/test_sql_route.py`.
+in research-os `tests/integration/agents/sql/test_sql_route.py`.
 """
 
 from __future__ import annotations

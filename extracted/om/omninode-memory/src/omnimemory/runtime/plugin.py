@@ -98,6 +98,7 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ProtocolDomainPlugin,
 )
 
+from omnimemory.models.config import ModelMemoryRuntimeTimeoutSettings
 from omnimemory.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_subscribe_topics_from_contracts,
@@ -134,22 +135,8 @@ env token and therefore matched none of the granted MSK IAM group patterns.
 """
 
 
-async def _probe_tcp_reachable(host: str, port: int, timeout: float = 5.0) -> bool:
-    """Return True if a TCP connection to host:port succeeds within timeout.
-
-    Uses stdlib asyncio only — no Memgraph SDK, no bolt protocol handshake.
-    A successful TCP connect is sufficient to confirm the service is up and
-    accepting connections on the expected port.
-
-    Args:
-        host: Hostname or IP address to probe.
-        port: TCP port number to connect to.
-        timeout: Maximum seconds to wait for connection (default: 5.0).
-
-    Returns:
-        True if connection succeeded and was cleanly closed; False on any
-        OSError (connection refused, host unreachable) or asyncio.TimeoutError.
-    """
+async def _probe_tcp_reachable(host: str, port: int, timeout: float) -> bool:
+    """Return True if a TCP connect to host:port succeeds within ``timeout`` seconds."""
     try:
         _, writer = await asyncio.wait_for(
             asyncio.open_connection(host, port),
@@ -309,7 +296,11 @@ class PluginMemory:
         host = os.environ["OMNIMEMORY_MEMGRAPH_HOST"]
         port = int(os.getenv("OMNIMEMORY_MEMGRAPH_PORT", "7687"))
 
-        reachable = await _probe_tcp_reachable(host, port)
+        reachable = await _probe_tcp_reachable(
+            host,
+            port,
+            ModelMemoryRuntimeTimeoutSettings.from_node_contract().memgraph_probe_timeout_seconds,
+        )
         if not reachable:
             return ModelHandshakeResult.failed(
                 plugin_id=self.plugin_id,
@@ -482,8 +473,8 @@ class PluginMemory:
         import asyncpg
         from pydantic import ValidationError
 
-        from omnimemory.nodes.node_memory_lifecycle_orchestrator.handlers.handler_memory_expire import (
-            HandlerMemoryExpire,
+        from omnimemory.nodes.node_memory_lifecycle_orchestrator.container.registry_memory_lifecycle import (
+            bind_memory_expire,
         )
         from omnimemory.settings import PostgresSettings
 
@@ -514,7 +505,7 @@ class PluginMemory:
         if pool is None:
             return None
 
-        handler = HandlerMemoryExpire(config.container)
+        handler = bind_memory_expire(config.container)
         await handler.initialize(db_pool=pool)
         self._expire_db_pool = pool
         return handler
@@ -564,6 +555,8 @@ class PluginMemory:
         correlation_id = config.correlation_id
 
         try:
+            runtime_timeouts = ModelMemoryRuntimeTimeoutSettings.from_node_contract()
+
             # Create stub protocol implementations for dispatch engine
             # The dispatch handlers bridge to the actual handler logic
             intent_consumer = _StubIntentEventConsumer()
@@ -609,7 +602,11 @@ class PluginMemory:
 
                 # Probe TCP before attempting full bolt handshake to provide
                 # a clearer error message if Memgraph is unreachable.
-                reachable = await _probe_tcp_reachable(memgraph_host, memgraph_port)
+                reachable = await _probe_tcp_reachable(
+                    memgraph_host,
+                    memgraph_port,
+                    runtime_timeouts.memgraph_probe_timeout_seconds,
+                )
                 if reachable:
                     await graph_memory_adapter.initialize(
                         connection_uri=connection_uri, auth=None
@@ -658,8 +655,8 @@ class PluginMemory:
             navigation_history_handler = None
             nav_pg_dsn = os.environ.get("OMNIMEMORY_PG_DSN", "")
             if nav_pg_dsn:
-                from omnimemory.nodes.node_navigation_history_reducer.handlers.handler_navigation_history_reducer import (
-                    HandlerNavigationHistoryReducer,
+                from omnimemory.nodes.node_navigation_history_reducer.container.registry_navigation_history import (
+                    bind_configured_navigation_history_reducer,
                 )
 
                 # No embedding endpoint is shipped (OMN-20936): the deployment
@@ -677,15 +674,11 @@ class PluginMemory:
                         correlation_id,
                     )
 
-                navigation_history_handler = HandlerNavigationHistoryReducer(
-                    writer=None,
+                navigation_history_handler = bind_configured_navigation_history_reducer(
                     pg_dsn=nav_pg_dsn,
                     qdrant_host=os.environ["QDRANT_HOST"],
                     qdrant_port=int(os.environ.get("QDRANT_PORT", "6333")),
                     embedding_url=nav_embedding_url,
-                    embedding_model=os.environ.get(
-                        "OMNIMEMORY_EMBEDDING_MODEL", "default"
-                    ),
                 )
                 logger.info(
                     "Navigation history handler constructed (correlation_id=%s)",
@@ -696,13 +689,11 @@ class PluginMemory:
             # Uses container for dependency injection.
             semantic_compute_handler = None
             if config.container is not None:
-                from omnimemory.nodes.node_semantic_analyzer_compute.handlers.handler_semantic_compute import (
-                    HandlerSemanticCompute,
+                from omnimemory.nodes.node_semantic_analyzer_compute.container.registry_semantic_compute import (
+                    bind_semantic_compute,
                 )
 
-                semantic_compute_handler = HandlerSemanticCompute(
-                    container=config.container,
-                )
+                semantic_compute_handler = bind_semantic_compute(config.container)
                 logger.info(
                     "Semantic compute handler constructed (correlation_id=%s)",
                     correlation_id,
@@ -737,6 +728,7 @@ class PluginMemory:
             introspection_result = await publish_memory_introspection(
                 event_bus=config.event_bus,
                 correlation_id=correlation_id,
+                heartbeat_interval_seconds=runtime_timeouts.heartbeat_interval_seconds,
             )
             self._introspection_nodes = introspection_result.registered_nodes
             self._introspection_proxies = introspection_result.proxies

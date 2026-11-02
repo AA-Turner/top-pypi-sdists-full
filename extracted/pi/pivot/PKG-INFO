@@ -1,0 +1,162 @@
+Metadata-Version: 2.4
+Name: pivot
+Version: 0.9.3
+Summary: High-performance Python pipeline tool with automatic code change detection
+Author: Sami Jawhar
+Author-email: Sami Jawhar <sami@metr.org>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 3 - Alpha
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiohttp>=3.10
+Requires-Dist: anyio>=4.11
+Requires-Dist: click>=8.0
+Requires-Dist: cloudpickle>=3.0
+Requires-Dist: deepmerge>=2.0
+Requires-Dist: dulwich>=0.22.0
+Requires-Dist: filelock>=3.12.0
+Requires-Dist: flatten-dict>=0.4.0
+Requires-Dist: grandalf>=0.8
+Requires-Dist: lmdb>=1.4.0
+Requires-Dist: loky>=3.5.6,<3.8
+Requires-Dist: networkx>=3.0
+Requires-Dist: pandas>=2.0
+Requires-Dist: psutil>=7.0
+Requires-Dist: pydantic>=2.13
+Requires-Dist: pygtrie>=2.5.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rich>=13.0
+Requires-Dist: ruamel-yaml>=0.18.0
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: tqdm>=4.66
+Requires-Dist: watchfiles>=1.0
+Requires-Dist: wcwidth>=0.2.0
+Requires-Dist: xxhash>=3.0
+Requires-Dist: basedpyright>=1.0 ; extra == 'dev'
+Requires-Dist: botocore-stubs>=1.35.0 ; extra == 'dev'
+Requires-Dist: hypothesis>=6.140 ; extra == 'dev'
+Requires-Dist: joblib>=1.4.0 ; extra == 'dev'
+Requires-Dist: joblib-stubs>=1.5.0 ; extra == 'dev'
+Requires-Dist: matplotlib-stubs>=0.3 ; extra == 'dev'
+Requires-Dist: mutmut>=2.5.1,<3 ; extra == 'dev'
+Requires-Dist: mypy>=1.19.1 ; extra == 'dev'
+Requires-Dist: pandas-stubs>=2.0 ; extra == 'dev'
+Requires-Dist: pivot[dvc] ; extra == 'dev'
+Requires-Dist: pivot[gcs] ; extra == 'dev'
+Requires-Dist: pivot[matplotlib] ; extra == 'dev'
+Requires-Dist: pivot[s3] ; extra == 'dev'
+Requires-Dist: pytest-aioboto3>=0.1.0 ; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24.0 ; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0 ; extra == 'dev'
+Requires-Dist: pytest-mock>=3.15.1 ; extra == 'dev'
+Requires-Dist: pytest-rerunfailures>=16.1 ; extra == 'dev'
+Requires-Dist: pytest-watcher>=0.6.2 ; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0 ; extra == 'dev'
+Requires-Dist: pytest>=7.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.8.0 ; extra == 'dev'
+Requires-Dist: setuptools>=64 ; extra == 'dev'
+Requires-Dist: types-aioboto3[all]>=13.0.0 ; extra == 'dev'
+Requires-Dist: types-psutil>=7.0 ; extra == 'dev'
+Requires-Dist: mkdocs>=1.6.0 ; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.5.0 ; extra == 'docs'
+Requires-Dist: mkdocstrings[python]>=0.26.0 ; extra == 'docs'
+Requires-Dist: mkdocs-gen-files>=0.5.0 ; extra == 'docs'
+Requires-Dist: mkdocs-literate-nav>=0.6.0 ; extra == 'docs'
+Requires-Dist: mkdocs-section-index>=0.3.9 ; extra == 'docs'
+Requires-Dist: griffe>=1.3.0 ; extra == 'docs'
+Requires-Dist: dvc>=3.0 ; extra == 'dvc'
+Requires-Dist: gcloud-aio-storage>=9.6.5 ; extra == 'gcs'
+Requires-Dist: matplotlib>=3.5 ; extra == 'matplotlib'
+Requires-Dist: aioboto3>=13.0.0 ; extra == 's3'
+Requires-Dist: pivot-tui ; extra == 'tui'
+Requires-Python: >=3.13, <3.14
+Project-URL: Documentation, https://sjawhar.github.io/pivot/
+Project-URL: Homepage, https://github.com/sjawhar/pivot
+Project-URL: Issues, https://github.com/sjawhar/pivot/issues
+Project-URL: Repository, https://github.com/sjawhar/pivot
+Provides-Extra: dev
+Provides-Extra: docs
+Provides-Extra: dvc
+Provides-Extra: gcs
+Provides-Extra: matplotlib
+Provides-Extra: s3
+Provides-Extra: tui
+Description-Content-Type: text/markdown
+
+# Pivot: High-Performance Python Pipeline Tool
+
+**Change your code. Pivot knows what to run.**
+
+Pivot is a Python pipeline tool with automatic code change detection. Stages are plain
+Python functions; you wire them together by calling them inside a `Pipeline` block, and
+Pivot works out what needs to re-run.
+
+- **Automatic code change detection** using Python introspection
+- **No paths in pipeline code**: Pivot chooses where every output is stored
+- **Per-stage lock files** for fast parallel writes
+- **Warm worker pools** with preloaded imports
+- **Content-addressable caching** with S3 or Google Cloud Storage remotes
+
+**Python:** 3.13+ | **Platform:** Unix (Linux/macOS)
+
+## Quick Start
+
+```bash
+pip install pivot
+mkdir my_project && cd my_project
+git init && pivot init
+```
+
+Put a raw input under `data/raw/`:
+
+```bash
+mkdir -p data/raw
+printf 'name,value\nalice,100\nbob,200\ncarol,\n' > data/raw/records.csv
+```
+
+Define stages and the pipeline in `pipeline.py`:
+
+```python
+# pipeline.py
+import pandas as pd
+
+from pivot import Pipeline, StageParams, stage
+
+
+class CleanParams(StageParams):
+    min_value: int = 0
+
+
+@stage
+def clean(records: pd.DataFrame, params: CleanParams) -> pd.DataFrame:
+    kept = records.dropna()
+    return kept[kept["value"] >= params.min_value]
+
+
+@stage
+def summarize(rows: pd.DataFrame) -> dict:
+    return {"count": len(rows), "total": int(rows["value"].sum())}
+
+
+with Pipeline("demo") as pipeline:
+    records = pipeline.input("records.csv")
+    cleaned = clean(records, params=CleanParams(min_value=50))
+    summarize(cleaned)
+```
+
+Then run it; Pivot resolves the DAG from the handles passed between stages:
+
+```bash
+pivot repro           # runs clean, then summarize
+pivot repro           # nothing changed: both stages are cached
+pivot repro --watch   # re-run automatically on file changes
+```
+
+Pivot writes outputs to `data/demo/clean.jsonl` and `data/demo/summarize.yaml`.
+
+## Learn More
+
+- [Documentation](https://sjawhar.github.io/pivot/)
+- [Source code](https://github.com/sjawhar/pivot)
+- Interactive TUI: `pip install pivot[tui]`, then `pivot repro --tui`

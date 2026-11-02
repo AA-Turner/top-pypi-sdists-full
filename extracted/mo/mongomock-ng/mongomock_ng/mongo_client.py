@@ -1,0 +1,222 @@
+import itertools
+
+import mongomock_ng
+from mongomock_ng import codec_options as mongomock_codec_options
+from mongomock_ng import ConfigurationError
+from mongomock_ng import InvalidOperation
+from mongomock_ng import read_preferences
+from mongomock_ng.database import Database
+from mongomock_ng.session import ClientSession
+from mongomock_ng.session import SessionOptions
+from mongomock_ng.store import ServerStore
+
+
+try:
+    from pymongo import ReadPreference
+    from pymongo.uri_parser import parse_uri
+    from pymongo.uri_parser import split_hosts
+
+    _READ_PREFERENCE_PRIMARY = ReadPreference.PRIMARY
+except ImportError:
+    from .helpers import parse_uri
+    from .helpers import split_hosts
+
+    _READ_PREFERENCE_PRIMARY = read_preferences.PRIMARY
+
+
+def _convert_version_to_list(version_str):
+    pieces = [int(part) for part in version_str.split('.')]
+    return pieces + [0] * (4 - len(pieces))
+
+
+class MongoClient:
+    HOST = 'localhost'
+    PORT = 27017
+    _CONNECTION_ID = itertools.count()
+
+    def __init__(
+        self,
+        host=None,
+        port=None,
+        document_class=dict,
+        tz_aware=False,
+        connect=True,
+        _store=None,
+        read_preference=None,
+        type_registry=None,
+        **kwargs,
+    ):
+        if host:
+            self.host = host[0] if isinstance(host, (list, tuple)) else host
+        else:
+            self.host = self.HOST
+        self.port = port or self.PORT
+
+        self._tz_aware = tz_aware
+        self._codec_options = mongomock_codec_options.CodecOptions(
+            tz_aware=tz_aware,
+            type_registry=type_registry,
+            # https://www.mongodb.com/docs/manual/reference/connection-string-options/#mongodb-urioption-urioption.uuidRepresentation
+            uuid_representation=kwargs.get('uuidRepresentation'),
+        )
+        self._database_accesses = {}
+        self._store = _store or ServerStore()
+        self._id = next(self._CONNECTION_ID)
+        self._document_class = document_class
+        self._closed = False
+        if read_preference is not None:
+            read_preferences.ensure_read_preference_type('read_preference', read_preference)
+        self._read_preference = read_preference or _READ_PREFERENCE_PRIMARY
+
+        dbase = None
+
+        if '://' in self.host:
+            res = parse_uri(self.host, default_port=self.port, warn=True)
+            self.host, self.port = res['nodelist'][0]
+            dbase = res['database']
+        else:
+            self.host, self.port = split_hosts(self.host, default_port=self.port)[0]
+
+        self.__default_database_name = dbase
+
+        self._server_version = mongomock_ng.SERVER_VERSION
+
+    def __getitem__(self, db_name):
+        return self.get_database(db_name)
+
+    def __getattr__(self, attr):
+        return self[attr]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __repr__(self):
+        return f"mongomock.MongoClient('{self.host}', {self.port})"
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.address == other.address
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.address)
+
+    def close(self) -> None:
+        self._database_accesses.clear()
+        self._store._databases.clear()
+        self._closed = True
+
+    def _check_closed(self) -> None:
+        if self._closed:
+            raise InvalidOperation('Cannot use MongoClient after close')
+
+    @property
+    def is_mongos(self):
+        return True
+
+    @property
+    def is_primary(self):
+        return True
+
+    @property
+    def address(self):
+        return self.host, self.port
+
+    @property
+    def read_preference(self):
+        return self._read_preference
+
+    @property
+    def codec_options(self):
+        return self._codec_options
+
+    def server_info(self):
+        self._check_closed()
+        return {
+            'version': self._server_version,
+            'sysInfo': 'Mock',
+            'versionArray': _convert_version_to_list(self._server_version),
+            'bits': 64,
+            'debug': False,
+            'maxBsonObjectSize': 16777216,
+            'ok': 1,
+        }
+
+    def list_database_names(self):
+        self._check_closed()
+        return self._store.list_created_database_names()
+
+    def drop_database(self, name_or_db):
+        self._check_closed()
+
+        def drop_collections_for_db(_db):
+            db_store = self._store[_db.name]
+            for col_name in db_store.list_created_collection_names():
+                _db.drop_collection(col_name)
+
+        if isinstance(name_or_db, Database):
+            db = next((db for db in self._database_accesses.values() if db is name_or_db), None)
+            if db is not None:
+                drop_collections_for_db(db)
+
+        elif name_or_db in self._store:
+            db = self.get_database(name_or_db)
+            drop_collections_for_db(db)
+
+    def get_database(
+        self,
+        name=None,
+        codec_options=None,
+        read_preference=None,
+        write_concern=None,
+        read_concern=None,
+    ):
+        self._check_closed()
+        if name is None:
+            db = self.get_default_database(
+                codec_options=codec_options,
+                read_preference=read_preference,
+                write_concern=write_concern,
+                read_concern=read_concern,
+            )
+        else:
+            db = self._database_accesses.get(name)
+        if db is None:
+            db_store = self._store[name]
+            db = self._database_accesses[name] = Database(
+                self,
+                name,
+                read_preference=read_preference or self.read_preference,
+                codec_options=codec_options or self._codec_options,
+                _store=db_store,
+                read_concern=read_concern,
+            )
+        return db
+
+    def get_default_database(self, default=None, **kwargs):
+        name = self.__default_database_name
+        name = name if name is not None else default
+        if name is None:
+            raise ConfigurationError('No default database name defined or provided.')
+
+        return self.get_database(name=name, **kwargs)
+
+    def alive(self):
+        """The original MongoConnection.alive method checks the status of the server.
+
+        In our case as we mock the actual server, we should always return True.
+        """
+        self._check_closed()
+        return True
+
+    def start_session(self, causal_consistency=True, default_transaction_options=None):
+        """Start a logical session."""
+        self._check_closed()
+        options = SessionOptions(
+            causal_consistency=causal_consistency,
+            default_transaction_options=default_transaction_options,
+        )
+        return ClientSession(self, options)

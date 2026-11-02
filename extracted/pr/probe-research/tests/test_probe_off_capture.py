@@ -24,7 +24,7 @@ from typing import Callable
 
 import pytest
 
-from probe.service.protocol import Method
+from probe.foundation.service_api.wire import Method
 from tests.capture_stub import IngestStub
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
@@ -39,6 +39,16 @@ TAP_VERSION = next(
     if line.startswith("__version__")
 )
 STAMP = "2026-10-24T12:00:00.000Z"
+
+
+#: A call's socket deadline. The client's own 2 s is for a hook that must not
+#: hang; here a loaded box can make the service slower (and `session.finish`
+#: is asked to wait up to 15 s itself), which says nothing about what is tested.
+CALL_TIMEOUT_S = 60.0
+
+
+def _call(running, method: str, params: dict | None = None) -> object:
+    return running.call(method, params, timeout=CALL_TIMEOUT_S)
 
 
 # -- each harness's transcript ------------------------------------------------------
@@ -222,21 +232,21 @@ def test_lines_written_while_off_are_never_sent_and_capture_resumes_from_the_fli
     _switch(home, sid, "full")
     _write(harness, transcript, sid, "on-before-1", "on-before-2")
     service_home.start()
-    answer = service_home.call(Method.SESSION_RECORD, harness.params(home, sid, owner, stub))
+    answer = _call(service_home, Method.SESSION_RECORD, harness.params(home, sid, owner, stub))
     assert answer["recording"] is True and "off" not in answer
     assert _sent(stub, sid, "on-before-2"), service_home.log()
 
     _switch(home, sid, "off")
-    looked = service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    looked = _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(harness, transcript, sid, "SECRET-while-off-1", "SECRET-while-off-2")
     time.sleep(4)  # four of the tap's 1 s passes
     assert "SECRET" not in stub.sent_text(sid)
     assert looked == {"recording": True, "off": True}
-    row = next(r for r in service_home.call(Method.STATUS)["recorders"] if r["sid"] == sid)
+    row = next(r for r in _call(service_home, Method.STATUS)["recorders"] if r["sid"] == sid)
     assert row["off"] is True
 
     _switch(home, sid, "full")
-    assert service_home.call(Method.SESSION_RECORDING, {"sid": sid}) == {"recording": True}
+    assert _call(service_home, Method.SESSION_RECORDING, {"sid": sid}) == {"recording": True}
     _write(harness, transcript, sid, "on-after-1", "on-after-2")
     assert _sent(stub, sid, "on-after-2"), service_home.log()
     assert _covers(stub, sid, transcript), (stub.stream(sid), transcript.stat().st_size)
@@ -245,7 +255,7 @@ def test_lines_written_while_off_are_never_sent_and_capture_resumes_from_the_fli
     assert all(text in sent for text in ("on-before-1", "on-before-2", "on-after-1", "on-after-2"))
 
     # Its end: finalized, and still nothing of what was written while off.
-    finished = service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})
+    finished = _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})
     assert finished["finished"] is True
     assert (stub.stream(sid) or {}).get("finalized") is True
     assert "SECRET" not in stub.sent_text(sid)
@@ -261,7 +271,7 @@ def test_off_from_the_machine_default_sends_nothing_until_switched_on(service_ho
     transcript = CLAUDE.start(home, sid)
     _write(CLAUDE, transcript, sid, "SECRET-from-the-start-1", "SECRET-from-the-start-2")
     status = service_home.start()
-    answer = service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    answer = _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     _write(CLAUDE, transcript, sid, "SECRET-from-the-start-3")
     time.sleep(4)
     assert stub.asked_about(sid) == []
@@ -270,7 +280,7 @@ def test_off_from_the_machine_default_sends_nothing_until_switched_on(service_ho
     assert answer["recording"] is True and answer["off"] is True and answer["pid"] == status["pid"]
 
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-after-1")
     assert _sent(stub, sid, "on-after-1"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -284,14 +294,14 @@ def test_a_session_that_ends_while_off_is_finalized_without_its_off_lines(servic
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1", "SECRET-2")
     time.sleep(2)
 
-    finished = service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})
+    finished = _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})
     assert finished["finished"] is True
     stream = stub.stream(sid) or {}
     assert stream.get("finalized") is True
@@ -306,8 +316,8 @@ def test_an_off_session_that_never_sent_anything_ends_sending_nothing(service_ho
     _switch(home, sid, "off")
     _write(CLAUDE, transcript, sid, "SECRET-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
-    finished = service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    finished = _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})
     assert finished["finished"] is True
     assert stub.asked_about(sid) == []
 
@@ -319,22 +329,22 @@ def test_the_off_stretch_survives_a_service_restart(service_home, stub, agent, s
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
-    service_home.call(Method.STOP)
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(first["pid"], 10)
     # No service may run for it while it is off: its own agent stands in the marker.
     assert _hosted_marker(home, CLAUDE, sid) == str(owner["pid"])
     _write(CLAUDE, transcript, sid, "SECRET-2")
 
     service_home.start()
-    assert wait_for(lambda: any(r["sid"] == sid and r["off"] for r in service_home.call(Method.STATUS)["recorders"]), 10)
+    assert wait_for(lambda: any(r["sid"] == sid and r["off"] for r in _call(service_home, Method.STATUS)["recorders"]), 10)
     _write(CLAUDE, transcript, sid, "SECRET-3")
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-2")
     assert _sent(stub, sid, "on-2"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -353,9 +363,9 @@ def test_an_off_session_never_keeps_the_service_alive(service_home, stub, agent,
     _switch(home, sid, "off")
     _write(CLAUDE, transcript, sid, "SECRET-1")
     status = service_home.start()
-    answer = service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    answer = _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert answer["recording"] is True and answer["off"] is True
-    listed = {s["sid"]: s for s in service_home.call(Method.SESSION_LIST, {"receipts": False})["sessions"]}
+    listed = {s["sid"]: s for s in _call(service_home, Method.SESSION_LIST, {"receipts": False})["sessions"]}
     assert listed[sid]["mode"] == "off" and listed[sid]["agent_live"] is True
     assert service_home.wait_exit(status["pid"], 15), service_home.log()
     assert agent[0].poll() is None  # its agent still runs
@@ -388,10 +398,10 @@ def test_another_sessions_recorder_never_sends_an_off_sessions_lines(service_hom
     service_home.start()
     b = CLAUDE.params(home, sid, owner, stub)
     b["transcript"] = str(b_path)
-    service_home.call(Method.SESSION_RECORD, b)
+    _call(service_home, Method.SESSION_RECORD, b)
     assert _sent(stub, sid, "b-on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, b_path, sid, "SECRET-b-1")
     # A: on throughout, recorded here: its passes drain B and sweep for gaps.
     a_sid = _new_sid()
@@ -400,7 +410,7 @@ def test_another_sessions_recorder_never_sends_an_off_sessions_lines(service_hom
     _write(CLAUDE, a_path, a_sid, "a-on-1")
     a = CLAUDE.params(home, a_sid, owner, stub)
     a["transcript"] = str(a_path)
-    service_home.call(Method.SESSION_RECORD, a)
+    _call(service_home, Method.SESSION_RECORD, a)
     assert _sent(stub, a_sid, "a-on-1")
     for i in range(12):  # past RECONCILE_EVERY_TICKS of A's 1 s passes
         _write(CLAUDE, a_path, a_sid, f"a-on-{i + 2}")
@@ -444,7 +454,7 @@ def test_an_old_tap_record_of_an_off_session_starts_no_tap_watch(service_home, s
     assert _hosted_marker(home, CLAUDE, sid) == str(status["pid"])
     time.sleep(3)
     assert stub.asked_about(sid) == []
-    service_home.call(Method.STOP)
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(status["pid"], 10)
     assert _hosted_marker(home, CLAUDE, sid) == str(owner["pid"])
 
@@ -473,7 +483,7 @@ def test_the_service_holds_an_off_sessions_claim_so_a_watcher_hands_it_over(serv
     try:
         code = watcher.wait(timeout=60)
         assert code == 12, service_home.log()
-        assert any(r["sid"] == sid and r["off"] for r in service_home.call(Method.STATUS)["recorders"])
+        assert any(r["sid"] == sid and r["off"] for r in _call(service_home, Method.STATUS)["recorders"])
         _write(CLAUDE, transcript, sid, "SECRET-after-hand-over")
         time.sleep(3)
         assert "SECRET" not in stub.sent_text(sid)
@@ -492,7 +502,7 @@ def test_switching_on_after_the_service_went_idle_captures_from_the_flip(service
     CLI's `capture_switched`) starts it again and has it look at once, so the
     session is captured from the move, never the stretch before it; `off`
     never starts it."""
-    from probe.cli import service_calls
+    from probe.cli.lifecycle import service_calls
 
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "1")
     _proc, owner = agent
@@ -501,7 +511,7 @@ def test_switching_on_after_the_service_went_idle_captures_from_the_flip(service
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
     assert service_calls.capture_switched(sid, off=True) is True
@@ -530,7 +540,7 @@ def test_read_only_is_unchanged_its_transcript_still_uploads(service_home, stub,
     _switch(home, sid, "read-only")
     _write(CLAUDE, transcript, sid, "read-only-1")
     service_home.start()
-    answer = service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    answer = _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert answer["recording"] is True and "off" not in answer
     assert _sent(stub, sid, "read-only-1"), service_home.log()
 
@@ -556,18 +566,18 @@ def test_protocol_3_skips_the_off_stretch_as_nothing_too(service_home, stub3, ag
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-before")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-before"), service_home.log()
     assert stub.stream(sid)["protocol_version"] == 3
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-after")
     assert _sent(stub, sid, "on-after"), service_home.log()
     assert _covers(stub, sid, transcript)
-    assert service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
+    assert _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
     assert stub.stream(sid)["finalized"] is True
     assert "SECRET" not in stub.sent_text(sid)
 
@@ -587,13 +597,13 @@ def test_a_session_that_never_sent_anything_keeps_its_gaps_for_a_later_capture(s
     _switch(home, sid, "off")
     _write(CLAUDE, transcript, sid, "SECRET-1", "SECRET-2")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
-    assert service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    assert _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
     assert stub.asked_about(sid) == []
     assert json.loads(_gap_file(home, sid).read_text())["gaps"] == [[0, None]]
 
     (_state_dir(home) / "sessions" / f"{sid}.state").unlink()  # pruned: it reads as the default, on
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     _write(CLAUDE, transcript, sid, "on-after-the-resume")
     assert _sent(stub, sid, "on-after-the-resume"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -607,7 +617,7 @@ def _record_other(service_home, stub, home: Path, owner: dict, *texts: str) -> t
     a_path = CLAUDE.start(home, a_sid)
     _switch(home, a_sid, "full")
     _write(CLAUDE, a_path, a_sid, *texts)
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, a_sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, a_sid, owner, stub))
     return a_sid, a_path
 
 
@@ -621,12 +631,12 @@ def test_gaps_outlive_a_lost_recorders_json_and_a_pruned_state(service_home, stu
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "b-on")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "b-on")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
-    service_home.call(Method.STOP)
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(first["pid"], 10)
     (service_home.service_dir / "recorders.json").unlink()
     (_state_dir(home) / "sessions" / f"{sid}.state").unlink()
@@ -655,10 +665,10 @@ def test_a_session_that_ends_while_off_with_the_server_down_is_finished_later(se
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     stub.refusing = True
     kill_agent(proc)  # its agent ends: the session ends while off
@@ -692,27 +702,27 @@ def test_switching_off_again_while_a_settle_runs_sends_nothing_written_meanwhile
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     # Its loop has left and its recorder holds it (`last` says so).
     assert wait_for(lambda: any(r["sid"] == sid and r["last"] == "off"
-                                for r in service_home.call(Method.STATUS)["recorders"]), 10)
+                                for r in _call(service_home, Method.STATUS)["recorders"]), 10)
     stub.delay_s = 3.0
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     time.sleep(1.0)  # its settle's batch is in flight now
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-2-written-while-off-again")
     time.sleep(6)
     stub.delay_s = 0.0
     time.sleep(3)
     assert "SECRET" not in stub.sent_text(sid)
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-2")
     assert _sent(stub, sid, "on-2"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -734,7 +744,7 @@ def test_the_keeper_never_restarts_the_service_for_a_session_that_is_off(service
     _switch(home, sid, "off")
     _write(CLAUDE, transcript, sid, "SECRET-1")
     status = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert service_home.wait_exit(status["pid"], 15), service_home.log()
     assert keeper.needed() is False
     _switch(home, sid, "full")
@@ -750,7 +760,7 @@ def _saved_sids(service_home) -> list[str]:
 
 
 def _rows(service_home, sid: str) -> list[dict]:
-    return [r for r in (service_home.call(Method.STATUS) or {}).get("recorders") or [] if r["sid"] == sid]
+    return [r for r in (_call(service_home, Method.STATUS) or {}).get("recorders") or [] if r["sid"] == sid]
 
 
 def test_a_resume_after_ending_off_with_the_server_down_is_recorded_by_the_new_recorder_alone(
@@ -766,18 +776,18 @@ def test_a_resume_after_ending_off_with_the_server_down_is_recorded_by_the_new_r
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     stub.refusing = True
-    service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 0})
+    _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 0})
     assert wait_for(lambda: any(r["last"] == "ended off: not finished yet" for r in _rows(service_home, sid)), 30), \
         service_home.log()
 
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))  # the resume
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))  # the resume
     _write(CLAUDE, transcript, sid, "on-after-resume-1")
     time.sleep(3)  # the ended recorder's retries (from 0.5 s) come round meanwhile
     assert json.loads(_gap_file(home, sid).read_text())["gaps"][0][1] < transcript.stat().st_size
@@ -793,7 +803,7 @@ def test_a_resume_after_ending_off_with_the_server_down_is_recorded_by_the_new_r
     assert stub.stream(sid)["finalized"] is False
     assert len(_rows(service_home, sid)) == 1
     assert "SECRET" not in stub.sent_text(sid)
-    assert service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
+    assert _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 15})["finished"] is True
     assert stub.stream(sid)["finalized"] is True
     assert "SECRET" not in stub.sent_text(sid)
 
@@ -809,10 +819,10 @@ def test_a_session_ending_off_that_the_server_refuses_for_good_is_dropped_with_i
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     stub.refusal_code, stub.refusing = 403, True
     kill_agent(proc)
@@ -833,10 +843,10 @@ def test_a_session_refused_for_good_while_the_service_stops_is_dropped_all_the_s
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     assert wait_for(lambda: any(r["last"] == "off" for r in _rows(service_home, sid)), 10)
 
@@ -849,7 +859,7 @@ def test_a_session_refused_for_good_while_the_service_stops_is_dropped_all_the_s
     stub.delay_s, stub.refusal_code, stub.refusing = 3.0, 403, True
     kill_agent(proc)
     assert wait_for(lambda: posts() > before, 15), service_home.log()  # its last settle's batch is in flight
-    service_home.call(Method.STOP)
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(first["pid"], 15), service_home.log()
     assert "refused it" in service_home.log()
     assert sid not in _saved_sids(service_home)
@@ -869,13 +879,13 @@ def test_a_session_finished_while_off_with_the_server_down_stays_saved_when_the_
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     stub.refusing = True
-    service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 0})
+    _call(service_home, Method.SESSION_FINISH, {"sid": sid, "wait": 0})
     assert service_home.wait_exit(first["pid"], 40), service_home.log()
     assert _saved_sids(service_home) == [sid]
     assert "SECRET" not in stub.sent_text(sid)
@@ -891,8 +901,8 @@ def test_a_held_off_session_resumed_by_a_new_service_names_that_service_in_its_m
     _switch(home, sid, "off")
     _write(CLAUDE, transcript, sid, "SECRET-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
-    service_home.call(Method.STOP)
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(first["pid"], 10)
     assert _hosted_marker(home, CLAUDE, sid) == str(owner["pid"])
     second = service_home.start()
@@ -911,15 +921,15 @@ def test_switching_off_during_a_settle_with_nothing_telling_the_service_sends_no
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     assert wait_for(lambda: any(r["last"] == "off" for r in _rows(service_home, sid)), 10)
     stub.delay_s = 4.0
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     time.sleep(1.0)  # its settle's batch is in flight now
     _switch(home, sid, "off")  # nothing tells the service
     time.sleep(1.0)  # its monitor looks every 0.2 s
@@ -929,7 +939,7 @@ def test_switching_off_during_a_settle_with_nothing_telling_the_service_sends_no
     time.sleep(3)
     assert "SECRET" not in stub.sent_text(sid)
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-2")
     assert _sent(stub, sid, "on-2"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -992,10 +1002,10 @@ def test_another_sessions_tap_watch_sends_none_of_an_off_sessions_stretch(servic
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "b-on")
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "b-on")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     a_sid = _new_sid()
     a_path = CLAUDE.start(home, a_sid)
@@ -1128,7 +1138,7 @@ def test_a_stretch_a_watch_recorded_is_never_sent_by_the_service_that_records_th
     _write(CLAUDE, transcript, sid, "SECRET-2")
     _switch(home, sid, "full")  # nothing records it at this moment
     service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     _write(CLAUDE, transcript, sid, "on-after-1")
     assert _sent(stub, sid, "on-after-1"), service_home.log()
     assert _covers(stub, sid, transcript)
@@ -1143,13 +1153,13 @@ def test_a_stretch_the_service_recorded_is_never_sent_by_a_watch_that_records_th
     _switch(home, sid, "full")
     _write(CLAUDE, transcript, sid, "on-1")
     first = service_home.start()
-    service_home.call(Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
+    _call(service_home, Method.SESSION_RECORD, CLAUDE.params(home, sid, owner, stub))
     assert _sent(stub, sid, "on-1")
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-1")
     assert wait_for(lambda: (_gaps(home, sid) or [[0, 0]])[-1][1] is None, 10), service_home.log()
-    service_home.call(Method.STOP)
+    _call(service_home, Method.STOP)
     assert service_home.wait_exit(first["pid"], 10)
     _write(CLAUDE, transcript, sid, "SECRET-2")
     _switch(home, sid, "full")  # nothing records it at this moment: what it writes until one looks is skipped
@@ -1179,8 +1189,8 @@ def test_a_watch_of_a_session_off_before_it_claimed_it_hands_it_to_the_service(s
     watcher = _watch(home, stub, sid, transcript, PROBE_TAP_HOSTED="1", PROBE_TAP_HANDBACK_S="2")
     try:
         assert watcher.wait(timeout=60) == 12, (_watch_log(home, sid), service_home.log())
-        assert any(r["sid"] == sid and r["off"] for r in service_home.call(Method.STATUS)["recorders"])
-        assert _hosted_marker(home, CLAUDE, sid) == str(service_home.call(Method.STATUS)["pid"])
+        assert any(r["sid"] == sid and r["off"] for r in _call(service_home, Method.STATUS)["recorders"])
+        assert _hosted_marker(home, CLAUDE, sid) == str(_call(service_home, Method.STATUS)["pid"])
         _write(CLAUDE, transcript, sid, "SECRET-2")
         time.sleep(2)
         assert stub.asked_about(sid) == []
@@ -1324,17 +1334,17 @@ def test_a_tap_from_before_its_own_gate_is_still_gated_by_this_services_wraps(ol
     service_home.start()
     params = CLAUDE.params(home, sid, owner, stub)
     params.update(tap_root=str(root), tap_version="0.10.18")
-    service_home.call(Method.SESSION_RECORD, params)
+    _call(service_home, Method.SESSION_RECORD, params)
     assert _sent(stub, sid, "on-before-1"), service_home.log()
     assert "recorder: tap 0.10.18 loaded" in service_home.log()
 
     _switch(home, sid, "off")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "SECRET-while-off-1")
     time.sleep(3)
     assert "SECRET" not in stub.sent_text(sid)
     _switch(home, sid, "full")
-    service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+    _call(service_home, Method.SESSION_RECORDING, {"sid": sid})
     _write(CLAUDE, transcript, sid, "on-after-1")
     assert _sent(stub, sid, "on-after-1"), service_home.log()
     assert _covers(stub, sid, transcript)

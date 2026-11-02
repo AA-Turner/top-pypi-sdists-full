@@ -95,8 +95,8 @@ def test_list_names_what_is_installed_and_enabled(kimi):
 def test_the_daemon_profile_swaps_the_plugins_like_on_claude_code(kimi):
     """`apply_recorder`'s second-plugin swap is install + uninstall, the same
     calls as Claude Code's; for Kimi they edit the plugin list."""
-    from probe.cli import setup
-    from probe.cli.capabilities import installed_plugins
+    from probe.cli import wizard as setup
+    from probe.cli.wizard.state.plugins import installed_plugins
 
     assert setup.install_plugin("probe-research", source="kimi_code").ok
     assert setup.install_plugin("probe-research-daemon", source="kimi_code").ok
@@ -256,7 +256,7 @@ def test_the_import_lane_finds_kimi_main_sessions_only(tmp_path, monkeypatch):
     folder, never a helper agent's wire) and reads the session's folder."""
     import shutil
 
-    from probe.cli import backfill_transcripts as bt
+    from probe.cli.imports import transcripts as bt
 
     shutil.copytree(Path(__file__).parent / "fixtures" / "kimi_code" / "sessions", tmp_path / "kimi" / "sessions")
     monkeypatch.setenv("KIMI_CODE_HOME", str(tmp_path / "kimi"))
@@ -312,7 +312,7 @@ def test_a_rotated_token_reaches_the_installed_copy(kimi, monkeypatch, tmp_path)
     assert plugin_cli.install("kimi_code", "probe-research").ok
     _hold_token(tmp_path, monkeypatch, "probe_pat_NEW")
     assert kimi_config.mcp_bearer_drifted() is True
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     lines = wizard.sync_mcp_token()
     assert any("restart Kimi Code" in line for line in lines)
@@ -416,7 +416,7 @@ def test_a_workspace_limit_change_reaches_the_installed_copy(kimi, monkeypatch, 
 
     _hold_limit(tmp_path, monkeypatch, "probe_pat_READ", {"id": ws, "limit": True, "team_items": "hide"})
     assert kimi_config.mcp_bearer_drifted() is True
-    from probe.cli import setup as wizard
+    from probe.cli import wizard as wizard
 
     assert any("restart Kimi Code" in line for line in wizard.sync_mcp_token())
     assert _manifest(kimi)["mcpServers"]["probe-research"]["headers"] == {

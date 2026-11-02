@@ -1,0 +1,1406 @@
+#
+# License: See LICENSE.md file
+# GitHub: https://github.com/Baekalfen/PyBoy
+#
+
+from array import array
+
+import cython
+import pyboy
+from pyboy.utils import (
+    STATE_VERSION,
+    PyBoyException,
+    PyBoyOutOfBoundsException,
+    PyBoyInvalidOperationException,
+    INTR_TIMER,
+    INTR_SERIAL,
+    INTR_HIGHTOLOW,
+    OPCODE_BRK,
+    MAX_CYCLES,
+)
+
+from . import bootrom, cartridge, cpu, interaction, lcd, ram, sgb, sgb_border, serial, sound, timer
+
+logger = pyboy.logging.get_logger(__name__)
+
+
+class Motherboard:
+    def __init__(
+        self,
+        gamerom_file,
+        ram_file,
+        rtc_file,
+        bootrom_file,
+        color_palette,
+        cgb_color_palette,
+        sound_volume,
+        sound_emulated,
+        sound_sample_rate,
+        cgb,
+        randomize=False,
+        serial_shared_memory=None,
+        serial_interrupt_based=False,
+        fast_mode=False,
+    ):
+        if bootrom_file is not None:
+            logger.debug("Boot-ROM file provided")
+
+        self.cartridge = cartridge.load_cartridge(gamerom_file, ram_file, rtc_file)
+        logger.debug(f"Cartridge started:\n{self.cartridge}")
+
+        # If the user requested cgb hardware emulation as True or False, it takes
+        # precedence. Otherwise we auto-detect from the cartridge.
+        if cgb is None:  # Probe
+            self.cgb = self.cartridge.cgb
+            self.bootrom = bootrom.BootROM(bootrom_file, self.cgb)
+            if bootrom_file is not None:
+                self.cgb = self.bootrom.cgb
+            logger.debug(f"Auto-detected emulation mode: {'CGB' if self.cgb else 'DMG'}")
+        else:
+            self.cgb = cgb
+            self.bootrom = bootrom.BootROM(bootrom_file, self.cgb)
+            if self.bootrom.cgb != self.cgb:
+                raise PyBoyInvalidOperationException("Invalid bootrom for emulation-mode")
+
+        # self.cgb  Controls hw initialization
+        # self.cgb_mode  Controls access to the CGB registers. The real CGB
+        # boot ROM runs the hardware in CGB mode regardless of the cartridge
+        # flag, and locks the system into CGB or DMG compatibility mode with
+        # its KEY0 write just before handing over ($04 for a DMG-only game
+        # disables the CGB registers). Without a real boot ROM the handover
+        # is stubbed, so the access mode falls back to the cartridge flag.
+        self.cgb_mode = self.cgb and (self.cartridge.cgb or bootrom_file is not None)
+
+        # The serial hardware keeps the post-boot configuration; a DMG-only
+        # game locked into compatibility mode cannot use the CGB serial
+        # features even while booted by the CGB boot ROM
+        serial_cgb_mode = self.cgb and self.cartridge.cgb
+        self.fast_mode = fast_mode
+
+        self.timer = timer.Timer()
+        self.interaction = interaction.Interaction()
+        self.ram = ram.RAM(self.cgb, randomize=randomize)
+        self.cpu = cpu.CPU(self)
+        if serial_shared_memory is not None:
+            self.serial = serial.SerialSharedMemory(serial_cgb_mode, serial_shared_memory, serial_interrupt_based)
+        else:
+            self.serial = serial.Serial(serial_cgb_mode, emulate=not fast_mode)
+
+        # Initialize SGB support
+        self.sgb = sgb.SGB(self)
+        self.sgb_active_transfer = False
+        self.sgb_multiplayer = False
+
+        # Check SGB support using direct ROM bank access
+        try:
+            sgb_flag = self.cartridge.rombanks[0, 0x146]
+            old_licensee = self.cartridge.rombanks[0, 0x14B]
+            self.sgb_capable = (sgb_flag == 0x03) and (old_licensee == 0x33)
+            if self.sgb_capable:
+                logger.debug(
+                    "SGB-compatible cartridge detected (SGB flag: 0x%02X, Licensee: 0x%02X)" % (sgb_flag, old_licensee)
+                )
+            else:
+                logger.debug("Non-SGB cartridge (SGB flag: 0x%02X, Licensee: 0x%02X)" % (sgb_flag, old_licensee))
+        except Exception as e:
+            logger.warning("Error checking SGB support in motherboard: %s" % e)
+            self.sgb_capable = False
+
+        # Initialize SGB border renderer
+        self.sgb_border = sgb_border.SGBBorderRenderer(self.sgb)
+
+        if fast_mode:
+            self.lcd = lcd.FastLCD(self.cgb, self.cgb_mode, color_palette, cgb_color_palette, randomize=randomize)
+        else:
+            self.lcd = lcd.LCD(self.cgb, self.cgb_mode, color_palette, cgb_color_palette, randomize=randomize)
+
+        self.sound = sound.Sound(sound_volume, sound_emulated and not fast_mode, sound_sample_rate, self.cgb)
+
+        self.key1 = 0
+        self.key0 = 0
+        self.wram_select = 0
+        # $FF72-$FF74 power on as zero; $FF75 only has writable bits 4-6,
+        # the rest read high
+        self.cgb_undocumented = array("B", [0, 0, 0, 0b1000_1111])
+        self.double_speed = False
+
+        if self.cgb:
+            self.hdma = HDMA()
+        else:
+            self.hdma = None
+
+        self.bootrom_enabled = True
+        self.serialbuffer = [0] * 1024
+        self.serialbuffer_count = 0
+        self.oam_dma_active = False
+        self.oam_dma_reading = False
+        self.oam_dma_source = 0
+        self.oam_dma_index = 0
+        self.oam_dma_start_cycle = 0
+        self.oam_dma_block_cycle = 0
+        # Initialized here so memory accesses before the first tick work
+        # when running uncompiled
+        self.in_tick = False
+
+        self.breakpoints = {}  # {(0, 0x150): (0x100) (0, 0x0040): 0x200, (0, 0x0048): 0x300, (0, 0x0050): 0x44}
+        self.breakpoint_singlestep = False
+        self.breakpoint_singlestep_latch = False
+        self.breakpoint_waiting = -1
+
+    def switch_speed(self):
+        if self.key1 & 0b1:
+            self.double_speed = not self.double_speed
+            self.lcd.tick(self.cpu.cycles)
+            self.lcd.speed_shift = 1 if self.double_speed else 0
+            self.sound.tick(self.cpu.cycles)
+            self.sound.speed_shift = 1 if self.double_speed else 0
+            logger.debug("CGB double speed is now: %d", self.double_speed)
+            self.key1 ^= 0b10000001
+
+    def breakpoint_add(self, bank, addr):
+        # Replace instruction at address with OPCODE_BRK and save original opcode
+        # for later reinsertion and when breakpoint is deleted.
+        if addr < 0x100 and bank == -1:
+            opcode = self.bootrom.bootrom[addr]
+            self.bootrom.bootrom[addr] = OPCODE_BRK
+        elif addr < 0x4000:
+            if self.cartridge.external_rom_count < bank:
+                raise PyBoyOutOfBoundsException(
+                    f"ROM bank out of bounds. Asked for {bank}, max is {self.cartridge.external_rom_count}"
+                )
+            opcode = self.cartridge.rombanks[bank, addr]
+            self.cartridge.rombanks[bank, addr] = OPCODE_BRK
+        elif 0x4000 <= addr < 0x8000:
+            if self.cartridge.external_rom_count < bank:
+                raise PyBoyOutOfBoundsException(
+                    f"ROM bank out of bounds. Asked for {bank}, max is {self.cartridge.external_rom_count}"
+                )
+            opcode = self.cartridge.rombanks[bank, addr - 0x4000]
+            self.cartridge.rombanks[bank, addr - 0x4000] = OPCODE_BRK
+        elif 0x8000 <= addr < 0xA000:
+            if bank == 0:
+                opcode = self.lcd.VRAM0[addr - 0x8000]
+                self.lcd.VRAM0[addr - 0x8000] = OPCODE_BRK
+                if self.lcd.gpu_memory_tracking_enabled and opcode != OPCODE_BRK:
+                    self.lcd.gpu_vram0_generation += 1
+            else:
+                opcode = self.lcd.VRAM1[addr - 0x8000]
+                self.lcd.VRAM1[addr - 0x8000] = OPCODE_BRK
+                if self.lcd.gpu_memory_tracking_enabled and opcode != OPCODE_BRK:
+                    self.lcd.gpu_vram1_generation += 1
+            if self.fast_mode and addr < 0x9800:
+                self.lcd.renderer.invalidate_tile((addr - 0x8000) // 16, bank)
+        elif 0xA000 <= addr < 0xC000:
+            if self.cartridge.external_ram_count < bank:
+                raise PyBoyOutOfBoundsException(
+                    f"RAM bank out of bounds. Asked for {bank}, max is {self.cartridge.external_ram_count}"
+                )
+            opcode = self.cartridge.rambanks[bank, addr - 0xA000]
+            self.cartridge.rambanks[bank, addr - 0xA000] = OPCODE_BRK
+        elif 0xC000 <= addr <= 0xE000:
+            opcode = self.ram.internal_ram0[addr - 0xC000]
+            self.ram.internal_ram0[addr - 0xC000] = OPCODE_BRK
+        else:
+            raise PyBoyOutOfBoundsException(
+                "Unsupported breakpoint address. If this a mistake, reach out to the developers"
+            )
+
+        self.breakpoints[(bank, addr)] = opcode
+
+    def breakpoint_find(self, bank, addr):
+        opcode = self.breakpoints.get((bank, addr))
+        if opcode is not None:
+            return (bank, addr, opcode)
+        return tuple()
+
+    def breakpoint_remove(self, bank, addr):
+        logger.debug(f"Breakpoint remove: ({bank}, {addr})")
+        opcode = self.breakpoints.pop((bank, addr), None)
+        if opcode is not None:
+            logger.debug(f"Breakpoint remove: {bank:02x}:{addr:04x} {opcode:02x}")
+
+            # Restore opcode
+            if addr < 0x100 and bank == -1:
+                self.bootrom.bootrom[addr] = opcode
+            elif addr < 0x4000:
+                self.cartridge.rombanks[bank, addr] = opcode
+            elif 0x4000 <= addr < 0x8000:
+                self.cartridge.rombanks[bank, addr - 0x4000] = opcode
+            elif 0x8000 <= addr < 0xA000:
+                if bank == 0:
+                    changed = self.lcd.VRAM0[addr - 0x8000] != opcode
+                    self.lcd.VRAM0[addr - 0x8000] = opcode
+                    if self.lcd.gpu_memory_tracking_enabled and changed:
+                        self.lcd.gpu_vram0_generation += 1
+                else:
+                    changed = self.lcd.VRAM1[addr - 0x8000] != opcode
+                    self.lcd.VRAM1[addr - 0x8000] = opcode
+                    if self.lcd.gpu_memory_tracking_enabled and changed:
+                        self.lcd.gpu_vram1_generation += 1
+                if self.fast_mode and addr < 0x9800:
+                    self.lcd.renderer.invalidate_tile((addr - 0x8000) // 16, bank)
+            elif 0xA000 <= addr < 0xC000:
+                self.cartridge.rambanks[bank, addr - 0xA000] = opcode
+            elif 0xC000 <= addr <= 0xE000:
+                self.ram.internal_ram0[addr - 0xC000] = opcode
+            else:
+                raise PyBoyException("Unsupported breakpoint address. If this a mistake, reach out to the developers")
+        else:
+            raise PyBoyException("Breakpoint not found. If this a mistake, reach out to the developers")
+
+    def breakpoint_reached(self):
+        pc = self.cpu.PC
+        bank = None
+        if pc < 0x100 and self.bootrom_enabled:
+            bank = -1
+        elif pc < 0x4000:
+            bank = 0
+        elif 0x4000 <= pc < 0x8000:
+            bank = self.cartridge.rombank_selected
+        elif 0xA000 <= pc < 0xC000:
+            bank = self.cartridge.rambank_selected
+        elif 0xC000 <= pc <= 0xFFFF:
+            bank = 0
+        opcode = self.breakpoints.get((bank, pc))
+        if opcode is not None:
+            # Breakpoint hit
+            addr = pc
+            logger.debug("Breakpoint reached: %02x:%04x %02x", bank, addr, opcode)
+            self.breakpoint_waiting = (bank & 0xFF) << 24 | (addr & 0xFFFF) << 8 | (opcode & 0xFF)
+            logger.debug("Breakpoint waiting: %08x", self.breakpoint_waiting)
+            return (bank, addr, opcode)
+        if not self.breakpoint_singlestep:
+            logger.debug("Invalid breakpoint reached: %04x", self.cpu.PC)
+        return (-1, -1, -1)
+
+    def breakpoint_reinject(self):
+        if self.breakpoint_waiting < 0:
+            return  # skip
+        bank = (self.breakpoint_waiting >> 24) & 0xFF
+        # TODO: Improve signedness
+        if bank == 0xFF:
+            bank = -1
+        addr = (self.breakpoint_waiting >> 8) & 0xFFFF
+        logger.debug("Breakpoint reinjecting: %02x:%02x", bank, addr)
+        self.breakpoint_add(bank, addr)
+        self.breakpoint_waiting = -1
+
+    def getserial(self):
+        b = "".join([chr(x) for x in self.serialbuffer[: self.serialbuffer_count]])
+        self.serialbuffer_count = 0
+        return b
+
+    def buttonevent(self, key):
+        if self.interaction.key_event(key):
+            if self.cpu.stopped:
+                # A joypad button press wakes the CPU from STOP
+                self.cpu.stopped = False
+                self.lcd.renderer.stop_vram_blocked = False
+            self.cpu.set_interruptflag(INTR_HIGHTOLOW)
+
+    def stop(self, save, ram_file, rtc_file):
+        self.serial.stop()
+        self.sgb.stop()
+        self.sgb_border.stop() if hasattr(self.sgb_border, "stop") else None
+        if save:
+            self.cartridge.stop(ram_file, rtc_file)
+
+    def save_state(self, f):
+        logger.debug("Saving state...")
+        f.write(STATE_VERSION)
+        f.write(self.bootrom_enabled)
+        f.write(self.key0)
+        f.write(self.key1)
+        f.write(self.double_speed)
+        f.write(self.cgb)
+        if self.cgb:
+            self.hdma.save_state(f)
+        self.cpu.save_state(f)
+        f.write(self.oam_dma_active)
+        f.write(self.oam_dma_reading)
+        f.write(self.oam_dma_source)
+        f.write(self.oam_dma_index)
+        f.write_64bit(self.oam_dma_start_cycle)
+        self.lcd.save_state(f)
+        self.sound.save_state(f)
+        self.lcd.renderer.save_state(f)
+        self.ram.save_state(f)
+        f.write(self.wram_select)
+        self.timer.save_state(f)
+        self.cartridge.save_state(f)
+        self.interaction.save_state(f)
+        self.serial.save_state(f)
+        self.sgb.save_state(f)
+        f.flush()
+        logger.debug("State saved.")
+
+    def load_state(self, f):
+        logger.debug("Loading state...")
+        state_version = f.read()
+        if state_version >= 2:
+            logger.debug("State version: %d", state_version)
+            # From version 2 and above, this is the version number
+            self.bootrom_enabled = f.read()
+        else:
+            logger.debug("State version: 0-1")
+            # HACK: The byte wasn't a state version, but the bootrom flag
+            self.bootrom_enabled = state_version
+
+        if state_version < STATE_VERSION:
+            logger.warning("Loading state from an older version of PyBoy. This might cause compatibility issues.")
+        elif state_version > STATE_VERSION:
+            raise PyBoyException("Cannot load state from a newer version of PyBoy")
+
+        if state_version >= 8:
+            if state_version >= 16:
+                self.key0 = f.read()
+            self.key1 = f.read()
+            self.double_speed = f.read()
+            _cgb = f.read()
+            if self.cgb and not _cgb:
+                raise PyBoyException("Loading state which *is not* CGB-mode, but PyBoy *is* in CGB mode!")
+            if not self.cgb and _cgb:
+                raise PyBoyException("Loading state which *is* CGB-mode, but PyBoy *is not* in CGB mode!")
+
+            if self.cgb:
+                self.hdma.load_state(f, state_version)
+        self.cpu.load_state(f, state_version)
+        if state_version >= 19:
+            self.oam_dma_active = f.read()
+            self.oam_dma_reading = f.read()
+            self.oam_dma_source = f.read()
+            self.oam_dma_index = f.read()
+            self.oam_dma_start_cycle = f.read_64bit()
+        else:
+            self.oam_dma_active = False
+            self.oam_dma_reading = False
+            self.oam_dma_source = 0
+            self.oam_dma_index = 0
+            self.oam_dma_start_cycle = 0
+        # The block cycle only differs from the start cycle in the few cycles
+        # between restarting a running transfer and the new transfer start,
+        # which cannot straddle a state save.
+        self.oam_dma_block_cycle = self.oam_dma_start_cycle
+        self.lcd.oam_dma_start_cycle = self.oam_dma_start_cycle
+        self.lcd.load_state(f, state_version)
+        if state_version >= 8:
+            self.sound.load_state(f, state_version)
+        self.lcd.renderer.load_state(f, state_version)
+        self.lcd.renderer.clear_cache()
+        self.ram.load_state(f, state_version)
+
+        if state_version <= 15:
+            # NON_IO_INTERNAL_RAM1 0x34
+            # self.ram.non_io_internal_ram1[i - 0xFF4C]
+
+            for n in range(0x20):
+                f.read()  # Discard unused registers
+            # FF6C
+            self.lcd.object_priority_mode = f.read()
+            for n in range(0x03):
+                f.read()  # Discard unused registers
+            # FF70
+            self.wram_select = f.read()
+            for n in range(0x0F):
+                f.read()  # Discard unused registers
+        else:
+            # See LCD for object_priority_mode from version 16
+            self.wram_select = f.read()  # FF70
+
+        if state_version < 5:
+            # Interrupt register moved from RAM to CPU
+            self.cpu.interrupts_enabled_register = f.read()
+        if state_version >= 5:
+            self.timer.load_state(f, state_version)
+        self.cartridge.load_state(f, state_version)
+        self.interaction.load_state(f, state_version)
+        if state_version >= 15:
+            self.serial.load_state(f, state_version)
+        self.sgb.load_state(f, state_version)
+        f.flush()
+        logger.debug("State loaded.")
+
+    ###################################################################
+    # Coordinator
+    #
+
+    def tick(self):
+        # While the CPU bus is running, memory accesses observe the PPU locks
+        # (VRAM/OAM blocked during modes 2 and 3). Accesses from the external
+        # API (PyBoy.memory, sprites, game wrappers) happen between ticks and
+        # read the raw state instead.
+        self.in_tick = True
+        while not self.lcd.frame_done:
+            if self.cpu.stopped and not self.cgb:
+                # STOP froze the system clock; nothing can progress until
+                # a joypad button press wakes the CPU. On CGB the clock keeps
+                # running and only the CPU is stopped.
+                break
+            if self.cgb_mode and self.hdma.transfer_active and self.lcd._STAT._mode & 0b11 != 0:
+                # The PPU left HBlank, so a new block may be copied in the next one
+                self.hdma.block_done = False
+            if cython.unlikely(
+                self.cgb_mode
+                and (not self.cpu.halted)
+                and self.hdma.transfer_active
+                and not self.hdma.block_done
+                and self.lcd._LCDC.lcd_enable
+                and self.lcd._STAT._mode & 0b11 == 0
+            ):
+                self.cpu.cycles = self.cpu.cycles + self.hdma.tick(self)
+            else:
+                # Fast-forward to next interrupt:
+                # As we are halted, we are guaranteed, that our state
+                # cannot be altered by other factors than time.
+                # For HiToLo interrupt it is indistinguishable whether
+                # it gets triggered mid-frame or by next frame
+                # Serial is not implemented, so this isn't a concern
+
+                mode0_cycles = MAX_CYCLES
+                if self.cgb_mode and self.hdma.transfer_active:
+                    if self.hdma.block_done and self.lcd._STAT._mode & 0b11 == 0:
+                        # A block was already copied in this HBlank. Run the CPU
+                        # normally until the mode ends (capped by
+                        # lcd._cycles_to_interrupt).
+                        pass
+                    else:
+                        mode0_cycles = self.lcd.cycles_to_mode0()
+
+                cycles_target = max(
+                    4,
+                    min(
+                        self.timer._cycles_to_irq,
+                        # https://gbdev.io/pandocs/STAT.html
+                        # STAT (_cycles_to_interrupt) vs. VBLANK interrupt (_cycles_to_interrupt) vs. end frame (_cycles_to_frame)
+                        self.lcd._cycles_to_interrupt,  # TODO: Be more agreesive. Only if actual interrupt enabled.
+                        self.lcd._cycles_to_frame,
+                        self.sound._cycles_to_interrupt,
+                        self.serial._cycles_to_interrupt,
+                        mode0_cycles,
+                    ),
+                )
+                if cython.unlikely(self.breakpoint_singlestep):
+                    cycles_target = 4
+                self.cpu.tick(cycles_target)
+
+            if cython.unlikely(self.oam_dma_active and not self.oam_dma_reading):
+                self.sync_oam_dma(0)
+
+            # TODO: Support General Purpose DMA
+            # https://gbdev.io/pandocs/CGB_Registers.html#bit-7--0---general-purpose-dma
+
+            self.sound.tick(self.cpu.cycles)
+
+            if cython.unlikely(self.serial.tick(self.cpu.cycles)):
+                self.cpu.set_interruptflag(INTR_SERIAL)
+
+            if cython.unlikely(self.timer.tick(self.cpu.cycles)):
+                self.cpu.set_interruptflag(INTR_TIMER)
+
+            if cython.unlikely(lcd_interrupt := self.lcd.tick(self.cpu.cycles)):
+                self.cpu.set_interruptflag(lcd_interrupt)
+
+            if self.cpu.stopped and not self.cgb:
+                # STOP froze the system clock mid-frame. The peripherals
+                # above have synced up to the STOP instant; the unpowered
+                # LCD shows its undriven state (shade 0) until then.
+                self.lcd.renderer.blank_screen_color(self.lcd.BGP.palette_mem_rgb[0])
+                break
+
+            if cython.unlikely(self.breakpoint_singlestep):
+                break
+
+        if self.cpu.stopped and not self.cgb:
+            # Nothing changes while the clock is frozen; end the frame for
+            # the outer tick loop
+            self.lcd.frame_done = True
+        self.in_tick = False
+        return self.breakpoint_singlestep
+
+    ###################################################################
+    # MemoryManager
+    #
+    def sync_oam_dma(self, memory_access_offset):
+        if not self.oam_dma_active or self.oam_dma_reading:
+            return
+
+        elapsed = self.cpu.cycles + memory_access_offset - self.oam_dma_start_cycle
+        if elapsed < 4:
+            return
+
+        target = min(0xA0, elapsed // 4)
+        while self.oam_dma_index < target:
+            self.oam_dma_reading = True
+            source = self.oam_dma_source
+            if not self.cgb and source >= 0xFE:
+                source -= 0x20
+            value = self.getitem((source << 8) | self.oam_dma_index)
+            self.oam_dma_reading = False
+            changed = self.lcd.OAM[self.oam_dma_index] != value
+            self.lcd.OAM[self.oam_dma_index] = value
+            if self.lcd.gpu_memory_tracking_enabled and changed:
+                self.lcd.gpu_oam_generation += 1
+            self.oam_dma_index += 1
+
+        if self.oam_dma_index == 0xA0:
+            self.oam_dma_active = False
+
+    def oam_dma_bus_conflict(self, i, offset):
+        # The CGB OAM DMA bus conflict: while the transfer is active, a CPU
+        # fetch on the same bus as the transfer source reads the byte
+        # currently being transferred instead of the addressed byte
+        # (BullyGB dmabusconflict). Instruction fetches thereby execute the
+        # transferred data as the instruction stream. The transfer advances
+        # one byte per M-cycle regardless of what the CPU does on its own
+        # M-cycles, so instructions with bus-using M-cycles (pushes, writes)
+        # skip stream bytes exactly like on hardware.
+        # Returns the read byte, or -1 if the access does not conflict.
+        # Only instruction fetches are routed here; regular data reads
+        # through getitem are unaffected. The DMG variant of the conflict,
+        # where every read returns $FF, is not emulated.
+        if not self.cgb:
+            return -1
+        source = self.oam_dma_source
+        if source < 0x80:
+            if i >= 0x8000:
+                return -1
+        elif source < 0xA0:
+            if i < 0x8000 or i >= 0xA000:
+                return -1
+        elif source < 0xC0:
+            if i < 0xA000 or i >= 0xC000:
+                return -1
+        elif source < 0xFE:
+            if i < 0xC000 or i >= 0xFE00:
+                return -1
+        elif i < 0xFE00 or i >= 0xFEA0:
+            return -1
+        elapsed = self.cpu.cycles + offset - self.oam_dma_start_cycle
+        if elapsed < 0 or elapsed >= 0x280:  # 160 bytes at 4 cycles each
+            return -1
+        return self.getitem((source << 8) | (elapsed >> 2))
+
+    def getitem(self, i):
+        if i >= 0xFF00:
+            return self.getitem_io_ports(i)
+
+        if 0x0000 <= i < 0x4000:  # 16kB ROM bank #0
+            if self.bootrom_enabled and (i <= 0xFF or (self.bootrom.cgb and 0x200 <= i < 0x900)):
+                return self.bootrom.bootrom[i]
+            else:
+                return self.cartridge.rombanks[self.cartridge.rombank_selected_low, i]
+        elif 0x4000 <= i < 0x8000:  # 16kB switchable ROM bank
+            return self.cartridge.rombanks[self.cartridge.rombank_selected, i - 0x4000]
+        elif 0x8000 <= i < 0xA000:  # 8kB Video RAM
+            if self.in_tick:
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.lcd._LCDC.lcd_enable and (
+                    self.lcd._STAT._mode == 3
+                    or (
+                        self.lcd._STAT._mode == 2
+                        and self.lcd.clock <= self.lcd.clock_target
+                        and self.lcd.clock_target - self.lcd.clock <= 4
+                    )
+                ):
+                    return 0xFF
+            if not self.cgb or self.lcd.vbk.active_bank == 0:
+                return self.lcd.VRAM0[i - 0x8000]
+            else:
+                return self.lcd.VRAM1[i - 0x8000]
+        elif 0xA000 <= i < 0xC000:  # 8kB switchable RAM bank
+            if not self.cartridge.rambank_enabled:
+                return 0xFF
+            if self.cartridge.rtc_enabled and 0x08 <= self.cartridge.rambank_selected <= 0x0C:
+                self.cartridge.rtc_tick(self.cpu.cycles)
+                return self.cartridge.rtc.getregister(self.cartridge.rambank_selected)
+            if self.cartridge.rambank_selected >= self.cartridge.external_ram_count:
+                return 0xFF
+            return (
+                self.cartridge.rambanks[
+                    self.cartridge.rambank_selected,
+                    (i - 0xA000) & self.cartridge.ram_address_mask,
+                ]
+                | self.cartridge.ram_value_mask
+            )
+        elif 0xC000 <= i < 0xFE00:  # Internal RAM and its echo
+            if i >= 0xE000:
+                i -= 0x2000
+            bank_offset = 0
+            if self.cgb and i >= 0xD000:
+                # Find which bank to read from at wram_select
+                bank = self.wram_select
+                if bank == 0x0:
+                    bank = 0x01
+                bank_offset = (bank - 1) * 0x1000
+            return self.ram.internal_ram0[i - 0xC000 + bank_offset]
+        elif 0xFE00 <= i < 0xFEA0:  # Sprite Attribute Memory (OAM)
+            if self.in_tick and not self.oam_dma_reading:
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.lcd._LCDC.lcd_enable and (self.lcd._STAT._mode in (2, 3) or self.lcd._is_startup_mode2_delay()):
+                    # OAM locks when LY advances, before startup mode 2 begins.
+                    return 0xFF
+            if self.oam_dma_active and not self.oam_dma_reading:
+                self.sync_oam_dma(self.cpu.memory_access_offset)
+            dma_started = self.cpu.cycles + self.cpu.memory_access_offset >= self.oam_dma_block_cycle
+            if self.oam_dma_active and dma_started and not self.oam_dma_reading:
+                return 0xFF
+            return self.lcd.OAM[i - 0xFE00]
+        elif 0xFEA0 <= i < 0xFF00:  # Empty but unusable for I/O
+            if self.cgb:
+                # The area has no usable storage on CGB. It reads $FF while
+                # OAM is blocked, and otherwise a pattern derived from the
+                # address itself, never the written data.
+                if self.in_tick and not self.oam_dma_reading:
+                    if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                        self.cpu.set_interruptflag(lcd_interrupt)
+                    if self.lcd._LCDC.lcd_enable and (
+                        self.lcd._STAT._mode in (2, 3) or self.lcd._is_startup_mode2_delay()
+                    ):
+                        return 0xFF
+                return (i & 0xF0) | ((i >> 4) & 0x0F)
+            return self.ram.non_io_internal_ram0[i - 0xFEA0]
+        else:
+            return self.getitem_io_ports(i)
+
+    def getitem_io_ports(self, i):
+        if self.oam_dma_active and not self.oam_dma_reading:
+            self.sync_oam_dma(self.cpu.memory_access_offset)
+        if 0xFF00 <= i < 0xFF4C:  # I/O ports
+            if 0xFF01 <= i <= 0xFF02:
+                if self.serial.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_SERIAL)
+                if i == 0xFF01:
+                    return self.serial.SB
+                elif i == 0xFF02:
+                    return self.serial.SC
+            elif i == 0xFF03:
+                # Undocumented register
+                return 0xFF
+            elif 0xFF04 <= i <= 0xFF07:
+                if self.timer.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_TIMER)
+                    self.cpu.bail = True
+
+                if i == 0xFF04:
+                    return self.timer.DIV
+                elif i == 0xFF05:
+                    return self.timer.read_tima()
+                elif i == 0xFF06:
+                    return self.timer.TMA
+                elif i == 0xFF07:
+                    # TODO: Move logic to Timer class. Read-only bit mask
+                    return self.timer.TAC | 0b1111_1000
+            elif 0xFF08 <= i <= 0xFF0E:
+                # Undocumented register
+                return 0xFF
+            elif i == 0xFF0F:
+                # The timer, LCD and serial units raise interrupt flags
+                # continuously. An IF read must observe every event up to the
+                # access cycle, including events landing inside the reading
+                # instruction, so the units are synced to the access cycle
+                # before the flags are returned.
+                if self.timer.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_TIMER)
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.serial.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_SERIAL)
+                return self.cpu.interrupts_flag_register | 0b1110_0000
+            elif 0xFF10 <= i < 0xFF40:
+                self.sound.tick(self.cpu.cycles)
+                return self.sound.get(i - 0xFF10)
+            elif 0xFF40 <= i <= 0xFF4B:
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+
+                if i == 0xFF40:
+                    return self.lcd._LCDC.value
+                elif i == 0xFF41:
+                    value = self.lcd._STAT.value
+                    if self.lcd.stat_mode_lag_until > self.lcd.clock:
+                        # In double speed, the mode bits lag the internal
+                        # mode change by 4 dots
+                        # [daid/speed_switch_timing_stat, tests/test_daid.py]
+                        value = (value & ~0b11) | self.lcd.stat_mode_lag_bits
+                    if self.lcd.stat_mode_override:
+                        self.lcd.stat_mode_override = False
+                        value &= 0b1111_1100
+                    return value
+                elif i == 0xFF42:
+                    return self.lcd.SCY
+                elif i == 0xFF43:
+                    return self.lcd.SCX
+                elif i == 0xFF44:
+                    return self.lcd.LY
+                elif i == 0xFF45:
+                    return self.lcd.LYC
+                elif i == 0xFF46:
+                    return self.oam_dma_source
+                elif i == 0xFF47:
+                    return self.lcd.BGP.get()
+                elif i == 0xFF48:
+                    return self.lcd.OBP0.get()
+                elif i == 0xFF49:
+                    return self.lcd.OBP1.get()
+                elif i == 0xFF4A:
+                    return self.lcd.WY
+                elif i == 0xFF4B:
+                    return self.lcd.WX
+            elif i == 0xFF00:
+                # P1/JOYP: value is computed during write (including SGB multiplayer ID).
+                # Just return the stored io_ports value.
+                return self.ram.io_ports[0]
+            else:
+                return self.ram.io_ports[i - 0xFF00]
+        elif 0xFF4C <= i < 0xFF80:  # Empty but unusable for I/O
+            # CGB registers
+            if self.cgb_mode and i == 0xFF4C:
+                return self.key0 | 0b11111011
+            elif self.cgb_mode and i == 0xFF4D:
+                return self.key1
+            elif self.cgb and i == 0xFF4F:
+                return self.lcd.vbk.get()
+            elif self.cgb and i == 0xFF68:
+                return self.lcd.bcps.get() | 0x40
+            elif self.cgb_mode and i == 0xFF69:
+                return self.lcd.bcpd.get()
+            elif self.cgb and i == 0xFF6A:
+                return self.lcd.ocps.get() | 0x40
+            elif self.cgb_mode and i == 0xFF6B:
+                return self.lcd.ocpd.get()
+            elif self.cgb_mode and i == 0xFF55:
+                # HDMA1, HDMA2, HDMA3, HDMA4 are read-only and fallsthrough
+                return self.hdma.hdma5 & 0xFF
+            elif self.cgb and i == 0xFF56:
+                # IR Port
+                return 0xFF
+            elif self.cgb and i == 0xFF76:
+                self.sound.tick(self.cpu.cycles)
+                return self.sound.pcm12()
+            elif self.cgb and i == 0xFF77:
+                self.sound.tick(self.cpu.cycles)
+                return self.sound.pcm34()
+            elif self.cgb_mode and i == 0xFF6C:
+                # Object Priority Mode
+                return self.lcd.object_priority_mode | 0b1111_1110
+            elif self.cgb_mode and i == 0xFF70:
+                # WRAM Bank select
+                return self.wram_select | 0b1111_1000
+            elif self.cgb and 0xFF72 <= i <= 0xFF73:
+                return self.cgb_undocumented[i - 0xFF72]
+            elif self.cgb_mode and i == 0xFF74:
+                return self.cgb_undocumented[2]
+            elif self.cgb and i == 0xFF75:
+                return self.cgb_undocumented[3]
+            else:
+                return 0xFF
+        elif 0xFF80 <= i < 0xFFFF:  # Internal RAM
+            return self.ram.internal_ram1[i - 0xFF80]
+        elif i == 0xFFFF:  # Interrupt Enable Register
+            return self.cpu.interrupts_enabled_register
+
+    def setitem(self, i, value):
+        if 0x0000 <= i < 0x4000:  # 16kB ROM bank #0
+            # Doesn't change the data. This is for MBC commands
+            self.cartridge.setitem(i, value)
+            self.cpu.bail = True
+        elif 0x4000 <= i < 0x8000:  # 16kB switchable ROM bank
+            # Doesn't change the data. This is for MBC commands
+            if self.cartridge.rtc_enabled and i >= 0x6000:
+                self.cartridge.rtc_tick(self.cpu.cycles)
+            self.cartridge.setitem(i, value)
+            self.cpu.bail = True
+        elif 0x8000 <= i < 0xA000:  # 8kB Video RAM
+            # Fast mode accepts sub-instruction LCD timing drift on VRAM writes.
+            if self.in_tick and not self.fast_mode:
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.lcd._LCDC.lcd_enable and self.lcd._STAT._mode == 3:
+                    return
+            if not self.cgb or self.lcd.vbk.active_bank == 0:
+                index = i - 0x8000
+                changed = self.lcd.VRAM0[index] != value
+                self.lcd.VRAM0[index] = value
+                if self.lcd.gpu_memory_tracking_enabled and changed:
+                    self.lcd.gpu_vram0_generation += 1
+                if i < 0x9800:  # Is within tile data -- not tile maps
+                    # Mask out the byte of the tile
+                    self.lcd.renderer.invalidate_tile(((i & 0xFFF0) - 0x8000) // 16, 0)
+            else:
+                index = i - 0x8000
+                changed = self.lcd.VRAM1[index] != value
+                self.lcd.VRAM1[index] = value
+                if self.lcd.gpu_memory_tracking_enabled and changed:
+                    self.lcd.gpu_vram1_generation += 1
+                if i < 0x9800:  # Is within tile data -- not tile maps
+                    # Mask out the byte of the tile
+                    self.lcd.renderer.invalidate_tile(((i & 0xFFF0) - 0x8000) // 16, 1)
+        elif 0xA000 <= i < 0xC000:  # 8kB switchable RAM bank
+            if self.cartridge.rtc_enabled and 0x08 <= self.cartridge.rambank_selected <= 0x0C:
+                self.cartridge.rtc_tick(self.cpu.cycles)
+            self.cartridge.setitem(i, value)
+        elif 0xC000 <= i < 0xFE00:  # Internal RAM and its echo
+            if i >= 0xE000:
+                i -= 0x2000
+            bank_offset = 0
+            if self.cgb and i >= 0xD000:
+                # Find which bank to read from at wram_select
+                bank = self.wram_select
+                if bank == 0x0:
+                    bank = 0x01
+                bank_offset = (bank - 1) * 0x1000
+            self.ram.internal_ram0[i - 0xC000 + bank_offset] = value
+        elif 0xFE00 <= i < 0xFEA0:  # Sprite Attribute Memory (OAM)
+            if self.in_tick and not self.oam_dma_reading:
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.lcd._LCDC.lcd_enable and (
+                    self.lcd._STAT._mode == 3
+                    or (
+                        self.lcd._STAT._mode == 2
+                        and not (
+                            # OAM briefly opens during the final four startup cycles of mode 2.
+                            self.lcd.first_frame
+                            and self.lcd.clock <= self.lcd.clock_target
+                            and self.lcd.clock_target - self.lcd.clock <= 4
+                        )
+                    )
+                ):
+                    return
+            if self.oam_dma_active and not self.oam_dma_reading:
+                self.sync_oam_dma(self.cpu.memory_access_offset)
+            if not self.oam_dma_active:
+                index = i - 0xFE00
+                changed = self.lcd.OAM[index] != value
+                self.lcd.OAM[index] = value
+                if self.lcd.gpu_memory_tracking_enabled and changed:
+                    self.lcd.gpu_oam_generation += 1
+        elif 0xFEA0 <= i < 0xFF00:  # Empty but unusable for I/O
+            if not self.cgb:
+                self.ram.non_io_internal_ram0[i - 0xFEA0] = value
+        else:
+            self.setitem_io_ports(i, value)
+
+    def setitem_io_ports(self, i, value):
+        if self.oam_dma_active and not self.oam_dma_reading:
+            self.sync_oam_dma(self.cpu.memory_access_offset)
+        if 0xFF00 <= i < 0xFF4C:  # I/O ports
+            if i == 0xFF00:
+                # P1/JOYP register - joypad selection and SGB command packets
+                p14 = (value >> 4) & 1
+                p15 = (value >> 5) & 1
+
+                if self.sgb.enabled:
+                    # SGB active: all P1 writes need processing for packet bits
+                    # and multiplayer player ID cycling
+                    # Detect P15 rising edge (0->1) for multiplayer player cycling.
+                    old_p15 = (self.ram.io_ports[0] >> 5) & 1
+                    if not old_p15 and p15:
+                        if self.sgb.multiplayer and (self.sgb.player_count & 1) == 0:
+                            self.sgb.active_player = (self.sgb.active_player + 1) % self.sgb.player_count
+
+                    # Process SGB command packet bits (handles start/data/stop/finish)
+                    self.sgb.process_p1_write(value)
+                    self.sgb_active_transfer = self.sgb.collecting
+                    self.sgb_multiplayer = self.sgb.multiplayer
+
+                    # Normal joypad read through interaction.pull
+                    processed_value = self.interaction.pull(value)
+
+                    # Multiplayer: when both P14 and P15 are high (deselected),
+                    # override bits 0-1 with the current player ID
+                    if self.sgb.multiplayer and p14 and p15:
+                        processed_value = (processed_value & 0xFC) | (self.sgb.active_player & 0x03)
+
+                    self.ram.io_ports[0] = processed_value
+                else:
+                    # Non-SGB: normal joypad handling
+                    self.ram.io_ports[0] = self.interaction.pull(value)
+            elif 0xFF01 <= i <= 0xFF02:
+                if self.serial.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_SERIAL)
+                if i == 0xFF01:
+                    # Keep debug and test-ROM output available without serial timing.
+                    self.serialbuffer[self.serialbuffer_count] = value
+                    self.serialbuffer_count += 1
+                    self.serialbuffer_count &= 0x3FF
+                    self.serial.set_SB(value)
+                else:
+                    self.serial.set_SC(value)
+            elif 0xFF04 <= i <= 0xFF07:
+                if self.timer.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_TIMER)
+
+                if i == 0xFF04:
+                    # Pan docs:
+                    # “DIV-APU” ... is increased every time DIV’s bit 4 (5 in double-speed mode) goes from 1 to 0 ...
+                    # the counter can be made to increase faster by writing to DIV while its relevant bit is set (which
+                    # clears DIV, and triggers the falling edge).
+                    apu_div_edge = self.timer.DIV & (0b1_0000 << self.sound.speed_shift)
+                    self.sound.tick(self.cpu.cycles)  # Process outstanding cycles
+                    if self.sound.emulate:
+                        if apu_div_edge:
+                            self.sound.apu_poweron_after_div_write = True
+                            self.sound.last_div_write_cycles = self.sound.cycles
+                    self.sound.reset_apu_div(apu_div_edge)
+
+                    self.timer.reset()
+                elif i == 0xFF05:
+                    self.timer.write_tima(value)
+                elif i == 0xFF06:
+                    self.timer.write_tma(value)
+                elif i == 0xFF07:
+                    self.timer.write_tac(value)
+                self.cpu.bail = True
+            elif i == 0xFF0F:
+                # Sync the interrupt sources to the access cycle before the
+                # write replaces the flags, so events raised before the write
+                # are cleared by it, exactly as on hardware.
+                if self.timer.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_TIMER)
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles + self.cpu.memory_access_offset):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                if self.serial.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(INTR_SERIAL)
+                self.cpu.interrupts_flag_register = value & 0b0001_1111
+            elif 0xFF10 <= i < 0xFF40:
+                self.sound.tick(self.cpu.cycles)
+                if self.sound.emulate:
+                    if i == 0xFF26 and value & 0x80 and not self.sound.poweron:
+                        # Starting the APU while DIV's clock bit is high skips its next edge.
+                        if self.sound.cgb:
+                            self.sound.apu_poweron_after_div_write = (
+                                self.sound.cycles - self.sound.last_div_write_cycles < 8192
+                            )
+                        if (
+                            self.sound.cgb
+                            and self.sound.cycles - self.sound.last_power_off_cycles < 8192
+                            or self.sound.apu_poweron_after_div_write
+                        ) and self.timer.DIV & (0b1_0000 << self.sound.speed_shift):
+                            self.sound.div_apu_counter = 2
+                        else:
+                            self.sound.div_apu_counter = 0
+                self.sound.set(i - 0xFF10, value)
+                if self.sound.emulate:
+                    if i == 0xFF14:
+                        self.sound.apu_poweron_after_div_write = False
+                    if i == 0xFF26 and value & 0x80:
+                        if self.sound.div_apu_counter:
+                            self.sound.div_apu = 1
+                            div_period = 0x2000 << self.sound.speed_shift
+                            cycles_to_div_edge = div_period - (self.timer.DIV_counter & (div_period - 1))
+                            self.sound.cycles_target_512Hz = self.sound.cycles + (
+                                cycles_to_div_edge >> self.sound.speed_shift
+                            )
+            elif 0xFF40 <= i <= 0xFF4B:
+                # An LCDC win-enable write lands on its own cycle: the LCD
+                # sync inside the write stops one dot short, so the write's
+                # cycle observes the new value. On DMG the same happens for
+                # tile data select writes (SameBoy's DMG LCDC access
+                # conflict), so the dot such a write lands on observes the
+                # new tile data select as well
+                if self.lcd._is_cgb_hardware() and i == 0xFF47:
+                    # A CGB-hardware BGP write lands on its own write cycle:
+                    # the pixel popped on the write's cycle already shades
+                    # with the new palette, while the pixel popped on the
+                    # cycle before keeps the old one
+                    # (daid/ppu_scanline_bgp, mealybug/m3_bgp_change)
+                    self.lcd.renderer._sync_minus = 1
+                else:
+                    self.lcd.renderer._sync_minus = i == 0xFF40 and (
+                        ((value ^ self.lcd._LCDC.value) & 0x20) != 0
+                        or (not self.lcd._is_cgb_hardware() and ((value ^ self.lcd._LCDC.value) & 0b1_0000) != 0)
+                    )
+                if lcd_interrupt := self.lcd.tick(self.cpu.cycles):
+                    self.cpu.set_interruptflag(lcd_interrupt)
+                self.lcd.renderer._sync_minus = 0
+
+                if i == 0xFF40:
+                    if lcd_interrupt := self.lcd.write_lcdc(value):
+                        self.cpu.set_interruptflag(lcd_interrupt)
+                elif i == 0xFF41:
+                    if lcd_interrupt := self.lcd._STAT.set(value):
+                        self.cpu.set_interruptflag(lcd_interrupt)
+                elif i == 0xFF42:
+                    self.lcd.SCY = value
+                    # A SCY write landing exactly on the fetcher's tile data
+                    # address dot is observed by that address computation on
+                    # the DMG: the write is committed mid-dot, before the
+                    # fetcher's address phase. On CGB the pixel pipeline runs
+                    # ahead of the CPU and SCY writes have a two-dot access
+                    # delay, so the write misses the address phase there
+                    if (
+                        not self.lcd._is_cgb_hardware()
+                        and (self.lcd._STAT._mode == 3 or self.lcd._STAT._mode == 0)
+                        and self.lcd.renderer.dot_ly == self.lcd.LY
+                    ):
+                        self.lcd.renderer.dot_relatch_scy()
+                elif i == 0xFF43:
+                    self.lcd.SCX = value
+                elif i == 0xFF44:
+                    # LCDC Read-only
+                    return
+                elif i == 0xFF45:
+                    self.lcd.LYC = value
+                    if self.lcd._LCDC.lcd_enable:
+                        if lcdc_interrupt := self.lcd._STAT.update_LYC(self.lcd.LYC, self.lcd.LY):
+                            self.cpu.set_interruptflag(lcdc_interrupt)
+                    else:
+                        self.lcd.lyc_changed_while_disabled = True
+                elif i == 0xFF46:
+                    self.transfer_DMA(value)
+                elif i == 0xFF47:
+                    self.lcd.write_bgp(value)
+                elif i == 0xFF48:
+                    self.lcd.write_obp(0, value)
+                elif i == 0xFF49:
+                    self.lcd.write_obp(1, value)
+                elif i == 0xFF4A:
+                    self.lcd.write_wy(value)
+                elif i == 0xFF4B:
+                    self.lcd.write_wx(value)
+            else:
+                self.ram.io_ports[i - 0xFF00] = value
+            self.cpu.bail = True
+        elif 0xFF4C <= i < 0xFF80:  # Empty but unusable for I/O
+            if self.bootrom_enabled and i == 0xFF50 and (value == 0x1 or value == 0x11):
+                logger.debug("Bootrom disabled!")
+                self.bootrom_enabled = False
+                self.cpu.bail = True
+            # CGB registers
+            elif i == 0xFF4C:
+                # Lock FF4C https://gbdev.io/pandocs/CGB_Registers.html#ff4c--key0-cgb-mode-only-cpu-mode-select
+                if self.cgb and self.bootrom_enabled:
+                    if value == 0xC0:
+                        logger.debug("key0: Game identified as CGB-only")
+                    elif value == 0x80:
+                        logger.debug("key0: Game identified as CGB-compatible")
+                    elif value == 0x04:
+                        logger.debug("key0: Game identified as DMG-only")
+                    else:
+                        logger.error("key0: Unknown write: %x", value)
+                    self.key0 = value & 0b100
+                    # KEY0 locks the register access mode along with the
+                    # renderer: DMG compatibility mode disables the CGB
+                    # registers for the rest of the run
+                    self.cgb_mode = self.cgb and not self.key0
+
+                    if self.key0 and self.lcd.renderer.cgb:
+                        logger.debug("Migrating from CGB renderer to DMG renderer")
+                        self.lcd.switch_cgb(self.key0)  # TODO: save/load state
+
+            elif self.cgb and i == 0xFF4D:
+                self.key1 = value
+                self.cpu.bail = True
+            elif self.cgb and i == 0xFF4F:
+                self.lcd.vbk.set(value)
+            elif self.cgb_mode and i == 0xFF51:
+                self.hdma.hdma1 = value
+                self.hdma.curr_src = (value << 8) | (self.hdma.curr_src & 0x00FF)
+            elif self.cgb_mode and i == 0xFF52:
+                self.hdma.hdma2 = value  # & 0xF0
+                self.hdma.curr_src = (self.hdma.curr_src & 0xFF00) | (value & 0xF0)
+            elif self.cgb_mode and i == 0xFF53:
+                self.hdma.hdma3 = value  # & 0x1F
+                self.hdma.curr_dst = ((value & 0x1F) << 8) | (self.hdma.curr_dst & 0x00FF) | 0x8000
+            elif self.cgb_mode and i == 0xFF54:
+                self.hdma.hdma4 = value  # & 0xF0
+                self.hdma.curr_dst = (self.hdma.curr_dst & 0xFF00) | (value & 0xF0)
+            elif self.cgb_mode and i == 0xFF55:
+                self.hdma.set_hdma5(value, self)
+                self.cpu.bail = True
+            elif self.cgb and i == 0xFF56:
+                pass  # IR Port
+            elif self.cgb and i == 0xFF68:
+                self.lcd.bcps.set(value)
+            elif self.cgb and i == 0xFF69:
+                self.lcd.bcpd.set(value)
+            elif self.cgb and i == 0xFF6A:
+                self.lcd.ocps.set(value)
+            elif self.cgb_mode and i == 0xFF6B:
+                self.lcd.ocpd.set(value)
+            elif self.cgb_mode and i == 0xFF6C:
+                # Object Priority Mode
+                self.lcd.object_priority_mode = value & 0b0000_0001
+            elif self.cgb_mode and i == 0xFF70:
+                # WRAM Bank select
+                self.wram_select = value & 0b111
+            elif self.cgb and 0xFF72 <= i <= 0xFF73:
+                self.cgb_undocumented[i - 0xFF72] = value
+            elif self.cgb_mode and i == 0xFF74:
+                self.cgb_undocumented[2] = value
+            elif self.cgb and i == 0xFF75:
+                self.cgb_undocumented[3] = value | 0b1000_1111
+            else:
+                pass  # All other registers are read-only
+        elif 0xFF80 <= i < 0xFFFF:  # Internal RAM
+            self.ram.internal_ram1[i - 0xFF80] = value
+        elif i == 0xFFFF:  # Interrupt Enable Register
+            self.cpu.interrupts_enabled_register = value
+            self.cpu.bail = True
+
+    def copy_hdma_rom_block(self, src, dst):
+        if not self.fast_mode or dst < 0x8000 or dst > 0x9FF0:
+            return False
+
+        if src <= 0x3FF0:
+            if self.bootrom_enabled and src < 0x1000:
+                return False
+            rom_bank = self.cartridge.rombank_selected_low
+            source_offset = src
+        elif 0x4000 <= src <= 0x7FF0:
+            rom_bank = self.cartridge.rombank_selected
+            source_offset = src - 0x4000
+        else:
+            return False
+
+        changed = False
+        if not self.cgb or self.lcd.vbk.active_bank == 0:
+            if self.lcd.gpu_memory_tracking_enabled:
+                for i in range(0x10):
+                    if self.lcd.VRAM0[dst - 0x8000 + i] != self.cartridge.rombanks[rom_bank, source_offset + i]:
+                        changed = True
+                        break
+            if cython.compiled:
+                _copy_memory(
+                    cython.address(self.lcd.VRAM0[dst - 0x8000]),
+                    cython.address(self.cartridge.rombanks[rom_bank, source_offset]),
+                    0x10,
+                )
+            else:
+                for i in range(0x10):
+                    self.lcd.VRAM0[dst - 0x8000 + i] = self.cartridge.rombanks[rom_bank, source_offset + i]
+            vram_bank = 0
+        else:
+            if self.lcd.gpu_memory_tracking_enabled:
+                for i in range(0x10):
+                    if self.lcd.VRAM1[dst - 0x8000 + i] != self.cartridge.rombanks[rom_bank, source_offset + i]:
+                        changed = True
+                        break
+            if cython.compiled:
+                _copy_memory(
+                    cython.address(self.lcd.VRAM1[dst - 0x8000]),
+                    cython.address(self.cartridge.rombanks[rom_bank, source_offset]),
+                    0x10,
+                )
+            else:
+                for i in range(0x10):
+                    self.lcd.VRAM1[dst - 0x8000 + i] = self.cartridge.rombanks[rom_bank, source_offset + i]
+            vram_bank = 1
+
+        if dst < 0x9800:
+            self.lcd.renderer.invalidate_tile((dst - 0x8000) // 16, vram_bank)
+        if self.lcd.gpu_memory_tracking_enabled and changed:
+            if vram_bank == 0:
+                self.lcd.gpu_vram0_generation += 1
+            else:
+                self.lcd.gpu_vram1_generation += 1
+        return True
+
+    def transfer_DMA(self, src):
+        # The OAM DMA is started by a write to FF46. The transfer begins
+        # two M-cycles after the write is observed on the bus. Restarting
+        # the transfer while one is already running starts a new transfer,
+        # but does not lift the OAM lock of the previous one (mooneye
+        # oam_dma_start).
+        if not self.oam_dma_active:
+            self.oam_dma_block_cycle = self.cpu.cycles + 8
+        self.oam_dma_start_cycle = self.cpu.cycles + 8
+        self.oam_dma_active = True
+        self.oam_dma_reading = False
+        self.oam_dma_source = src
+        self.oam_dma_index = 0
+        self.lcd.oam_dma_start_cycle = self.oam_dma_start_cycle
+        # Re-evaluate the CPU window so the fetch loop picks up the bus
+        # conflict path while the transfer is active
+        self.cpu.bail = True
+        if self.fast_mode:
+            source = src
+            if not self.cgb and source >= 0xFE:
+                source -= 0x20
+            offset = source << 8
+
+            copied = False
+            changed = False
+            if not self.bootrom_enabled and offset < 0x4000 and offset + 0xA0 <= 0x4000:
+                if self.lcd.gpu_memory_tracking_enabled:
+                    for n in range(0xA0):
+                        if self.lcd.OAM[n] != self.cartridge.rombanks[self.cartridge.rombank_selected_low, offset + n]:
+                            changed = True
+                            break
+                if cython.compiled:
+                    _copy_memory(
+                        cython.address(self.lcd.OAM[0]),
+                        cython.address(self.cartridge.rombanks[self.cartridge.rombank_selected_low, offset]),
+                        0xA0,
+                    )
+                else:
+                    for n in range(0xA0):
+                        self.lcd.OAM[n] = self.cartridge.rombanks[self.cartridge.rombank_selected_low, offset + n]
+                copied = True
+            elif not self.bootrom_enabled and 0x4000 <= offset and offset + 0xA0 <= 0x8000:
+                if self.lcd.gpu_memory_tracking_enabled:
+                    for n in range(0xA0):
+                        if (
+                            self.lcd.OAM[n]
+                            != self.cartridge.rombanks[self.cartridge.rombank_selected, offset - 0x4000 + n]
+                        ):
+                            changed = True
+                            break
+                if cython.compiled:
+                    _copy_memory(
+                        cython.address(self.lcd.OAM[0]),
+                        cython.address(self.cartridge.rombanks[self.cartridge.rombank_selected, offset - 0x4000]),
+                        0xA0,
+                    )
+                else:
+                    for n in range(0xA0):
+                        self.lcd.OAM[n] = self.cartridge.rombanks[self.cartridge.rombank_selected, offset - 0x4000 + n]
+                copied = True
+
+            if not copied:
+                self.oam_dma_reading = True
+                for n in range(0xA0):
+                    value = self.getitem(offset + n)
+                    if self.lcd.gpu_memory_tracking_enabled and self.lcd.OAM[n] != value:
+                        changed = True
+                    self.lcd.OAM[n] = value
+                self.oam_dma_reading = False
+
+            if self.lcd.gpu_memory_tracking_enabled and changed:
+                self.lcd.gpu_oam_generation += 1
+            self.oam_dma_active = False
+            self.oam_dma_index = 0xA0
+
+
+class HDMA:
+    def __init__(self):
+        self.hdma1 = 0
+        self.hdma2 = 0
+        self.hdma3 = 0
+        self.hdma4 = 0
+        self.hdma5 = 0xFF
+
+        self.transfer_active = False
+        self.curr_src = 0
+        self.curr_dst = 0
+        self.block_done = False
+
+    def save_state(self, f):
+        f.write(self.hdma1)
+        f.write(self.hdma2)
+        f.write(self.hdma3)
+        f.write(self.hdma4)
+        f.write(self.hdma5)
+        f.write(self.transfer_active)
+        f.write_16bit(self.curr_src)
+        f.write_16bit(self.curr_dst)
+        f.write(self.block_done)
+
+    def load_state(self, f, state_version):
+        self.hdma1 = f.read()
+        self.hdma2 = f.read()
+        self.hdma3 = f.read()
+        self.hdma4 = f.read()
+        self.hdma5 = f.read()
+        if STATE_VERSION <= 8:
+            # NOTE: Deprecated read to self._hdma5
+            f.read()
+        self.transfer_active = f.read()
+        self.curr_src = f.read_16bit()
+        self.curr_dst = f.read_16bit()
+        if state_version >= 29:
+            self.block_done = f.read()
+
+    def set_hdma5(self, value, mb):
+        if self.transfer_active:
+            bit7 = value & 0x80
+            if bit7 == 0:
+                # terminate active transfer
+                self.transfer_active = False
+                self.hdma5 = 0x80
+            else:
+                self.hdma5 = value & 0x7F
+        else:
+            self.hdma5 = value & 0xFF
+            bytes_to_transfer = ((value & 0x7F) * 16) + 16
+            # A new transfer may copy a block in the HBlank it is started in
+            self.block_done = False
+
+            transfer_type = value >> 7
+            if transfer_type == 0:
+                # General purpose DMA transfer
+                src = self.curr_src
+                dst = self.curr_dst
+                if mb.fast_mode:
+                    for block in range(bytes_to_transfer // 0x10):
+                        block_src = (src + block * 0x10) & 0xFFFF
+                        block_dst = (dst + block * 0x10) & 0xFFFF
+                        if mb.copy_hdma_rom_block(block_src, block_dst):
+                            continue
+                        for i in range(0x10):
+                            mb.setitem(
+                                (block_dst + i) & 0xFFFF,
+                                mb.getitem((block_src + i) & 0xFFFF),
+                            )
+                else:
+                    for i in range(bytes_to_transfer):
+                        mb.setitem((dst + i) & 0xFFFF, mb.getitem((src + i) & 0xFFFF))
+
+                self.curr_src = (src + bytes_to_transfer) & 0xFFFF
+                self.curr_dst = (dst + bytes_to_transfer) & 0xFFFF
+
+                # Signals transfer complete (Readable via FF55)
+                self.hdma5 = 0xFF
+
+                # TODO: Progress cpu cycles!
+                # https://gist.github.com/drhelius/3394856
+                # cpu is halted during dma transfer
+            else:
+                # Hblank DMA transfer
+                # set 7th bit to 0
+                self.hdma5 = self.hdma5 & 0x7F
+                self.transfer_active = True
+                if mb.fast_mode:
+                    while self.transfer_active:
+                        self.tick(mb)
+                elif not mb.lcd._LCDC.lcd_enable:
+                    self.tick(mb)
+
+    def tick(self, mb):
+        # HBLANK HDMA routine
+        src = self.curr_src & 0xFFF0
+        dst = (self.curr_dst & 0x1FF0) | 0x8000
+
+        if not mb.fast_mode or not mb.copy_hdma_rom_block(src, dst):
+            for i in range(0x10):
+                mb.setitem(dst + i, mb.getitem(src + i))
+
+        self.curr_dst += 0x10
+        self.curr_src += 0x10
+
+        if self.curr_dst == 0xA000:
+            self.curr_dst = 0x8000
+
+        if self.curr_src == 0x8000:
+            self.curr_src = 0xA000
+
+        self.hdma1 = (self.curr_src & 0xFF00) >> 8
+        self.hdma2 = self.curr_src & 0x00FF
+
+        self.hdma3 = (self.curr_dst & 0xFF00) >> 8
+        self.hdma4 = self.curr_dst & 0x00FF
+
+        if self.hdma5 == 0:
+            self.transfer_active = False
+            self.hdma5 = 0xFF
+        else:
+            self.hdma5 -= 1
+
+        # The CPU is halted while the block is copied. The copy takes the same
+        # time regardless of the CPU speed, so it costs twice as many CPU
+        # cycles in double speed mode.
+        self.block_done = True
+        return 68 if mb.lcd.speed_shift else 36

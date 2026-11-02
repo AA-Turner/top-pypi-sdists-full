@@ -1,0 +1,782 @@
+"""The lossless leg's relationship to the delivered encode.
+
+The leg exists to BE what libx264 received (see `an/bench/imageio.py`'s module
+docstring), and every encode-side metric is measured against it. Two things
+reach its command and they are reached differently on purpose:
+
+- ``DETERMINISTIC_X264_ARGS`` is bound at IMPORT, so no lever can move the
+  reference. ``-crf`` is an encoder setting; a reference that moves with the
+  lever measures nothing.
+- ``-pix_fmt`` is passed in per call, from the format the **delivered file
+  actually is**. It is not an encoder setting — it names what libx264 receives,
+  which is this leg's whole purpose.
+
+That asymmetry is the correction an#72 turned on. Before it the leg hardcoded
+``-pix_fmt yuv420p``, so against a 4:4:4 delivery the two legs differed in *two*
+dimensions and the leg's own docstring ("identical to the delivered encode
+except for the rate control") was false. Measured on the corpus, that mismatch
+changed the SIGN of family E on three of ten scenes.
+
+The format is **probed off the file** rather than re-derived, because two seams
+set it — ``RenderContext.pix_fmt``, which the mux resolves first, and the
+``DEFAULT_PIX_FMT`` global, which is only its fallback. This fix's first version
+consulted the global, so it missed ``an render --pix-fmt`` while all five guards
+of the day passed. The tests below named `..._built_from_what_the_delivered_file_
+actually_is`, `..._passes_the_delivered_file_...` and `..._reads_the_file_and_not_
+the_module_global` are the ones that would have caught it — named rather than
+counted, because "the last three" stopped being true the first time a test was
+appended.
+
+Some of these need ffmpeg and carry the marker; the rest are argv and AST
+assertions that run in the default CI leg, deliberately — gating a test that
+needs no binary behind a binary is how an#22's thirty-four tests stopped being
+collected. **The count is deliberately not written here.** Two successive
+versions of this sentence gave a number, and both were wrong within the hour
+because a test was appended after them; `pytest --collect-only -m ffmpeg` on
+this file is the answer and cannot go stale.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from an.adapters.cutout import render
+from an.adapters.cutout.render import DEFAULT_FRAME_PNG_PATTERN
+from an.base import BT709_SCALE_FILTER
+from an.bench import imageio
+
+#: The input path, joined the way the OS joins it. The only derived element of
+#: the pin below, and derived on purpose: `lossless_encode_command` builds it
+#: with `Path.__truediv__`, so a POSIX literal here asserts the separator rather
+#: than the flags — which is not what an#72 is about, and is how an#21's
+#: path-separator bug reached `main`. The pattern is imported rather than
+#: restated for `an/bench/imageio.py`'s own stated reason: a rename must not be
+#: able to desynchronise the two.
+FRAMES_ARG: str = str(Path("FRAMES") / DEFAULT_FRAME_PNG_PATTERN)
+
+#: What `main` emits, verbatim. A literal rather than a construction: the point
+#: is that the default leg does not drift, and a pin that derives itself from the
+#: code it guards cannot see the code change.
+#:
+#: **an#148 added `-vf`, and it is the one change to this literal that is not a
+#: re-baseline of the committed rows.** Those rows were captured on ffmpeg 8/9,
+#: where `-colorspace bt709` already set the auto-inserted conversion, so the
+#: filter names what that build was doing anyway and the leg's *output* is
+#: byte-identical there — measured on the delivered encode, same mp4 `sha256`
+#: with and without it. The argv is not byte-identical, and this pin is about the
+#: argv, which is why the change has to be visible here rather than absorbed.
+DEFAULT_LEG_ARGV: tuple[str, ...] = (
+    "ffmpeg",
+    "-y",
+    "-loglevel",
+    "error",
+    "-framerate",
+    "24",
+    "-i",
+    FRAMES_ARG,
+    # LITERAL, not `an.base.BT709_SCALE_FILTER`, for this pin's whole stated
+    # reason: an import would follow a change to the constant silently, which is
+    # the one thing a pin must not do. `test_the_pinned_filter_is_the_products`
+    # below is what keeps the two from drifting apart unnoticed.
+    "-vf",
+    "scale=out_range=tv:out_color_matrix=bt709",
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    "-qp",
+    "0",
+    "-threads",
+    "1",
+    "-preset",
+    "medium",
+    "-colorspace",
+    "bt709",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-color_range",
+    "tv",
+    "-x264-params",
+    "colorprim=bt709:transfer=bt709:colormatrix=bt709",
+    "-movflags",
+    "+faststart",
+    "OUT.mp4",
+)
+
+
+def _argv(pix_fmt: str | None = None) -> tuple[str, ...]:
+    cmd = imageio.lossless_encode_command(
+        Path("FRAMES"), 24, Path("OUT.mp4"), pix_fmt=pix_fmt
+    )
+    return tuple(cmd)
+
+
+@pytest.fixture
+def delivered_pix_fmt(monkeypatch):
+    """Rebind the module global the way the bench's lever would."""
+
+    def rebind(fmt: str):
+        monkeypatch.setattr(render, "DEFAULT_PIX_FMT", fmt)
+
+    return rebind
+
+
+def test_the_default_leg_is_unchanged_so_no_committed_ledger_row_is_invalidated():
+    """MUTATION: change the resolved default, or reorder any flag.
+
+    Every row in `misc/bench/ledger/` was captured against this exact command.
+    an#72 is a correction to what happens under a 4:4:4 render and must not be
+    a re-baseline of the 4:2:0 default — so this is a literal pin, not a
+    derivation.
+    """
+    assert _argv() == DEFAULT_LEG_ARGV
+
+
+def test_the_pinned_filter_is_the_products():
+    """MUTATION: change `an.base.BT709_SCALE_FILTER` and leave the pin alone.
+
+    The pin above spells the filter literally so a change to the constant cannot
+    slip through it — but a literal that nobody compares to the real thing is
+    just a second, stale source of truth. This is the comparison, and it is a
+    separate test on purpose: a *deliberate* change to the conversion should fail
+    here, once, with a name that says what to do, rather than inside an argv diff
+    of twenty-five elements.
+
+    A change to that constant is a change to every delivered pixel on every
+    build. If this fails, re-measure (an#148's method is in the constant's own
+    docstring), re-bless what needs it, and update the literal in the same pass.
+    """
+    i = DEFAULT_LEG_ARGV.index("-vf")
+    assert DEFAULT_LEG_ARGV[i + 1] == BT709_SCALE_FILTER, (
+        f"the pinned filter {DEFAULT_LEG_ARGV[i + 1]!r} is not the product's "
+        f"{BT709_SCALE_FILTER!r} — the lossless leg and the delivered encode "
+        f"must perform the SAME conversion, or every encode-side metric carries "
+        f"the difference between them as encoder damage"
+    )
+
+
+def test_the_leg_is_encoded_in_the_delivered_pixel_format(delivered_pix_fmt):
+    """MUTATION: restore the hardcoded ``"yuv420p"`` in `lossless_encode_command`.
+
+    The leg's purpose is to be the plane libx264 received. Pinning its format
+    while the delivered encode's is rebindable does not keep the reference
+    lossless — it makes the reference a different colour pipeline.
+    """
+    delivered_pix_fmt("yuv444p")
+    argv = _argv()
+    i = argv.index("-pix_fmt")
+    assert argv[i + 1] == "yuv444p", (
+        "the lossless leg did not follow the delivered pixel format; every "
+        "encode-side metric is now measured across a 4:2:0/4:4:4 conversion "
+        "boundary that the reference exists to cancel"
+    )
+    # ...and nothing else moved with it.
+    rest = argv[:i] + argv[i + 2 :]
+    j = DEFAULT_LEG_ARGV.index("-pix_fmt")
+    assert rest == DEFAULT_LEG_ARGV[:j] + DEFAULT_LEG_ARGV[j + 2 :]
+
+
+def test_the_leg_is_pinned_in_its_encoder_settings_while_tracking_its_input_format(
+    monkeypatch, delivered_pix_fmt
+):
+    """The asymmetry itself — the load-bearing claim, in one test.
+
+    MUTATION: import ``DETERMINISTIC_X264_ARGS`` inside the function instead of
+    at module scope (i.e. make the rate control call-time too). The leg would
+    then follow ``high_crf`` and stop being lossless, which is the failure the
+    import-time binding has always prevented.
+
+    ``-crf`` must NOT track: it is an encoder setting, and a reference that
+    moves with the lever measures nothing. ``-pix_fmt`` MUST track: it is not
+    an encoder setting, it names what the encoder receives.
+    """
+    monkeypatch.setattr(
+        render, "DETERMINISTIC_X264_ARGS", ("-threads", "1", "-crf", "51")
+    )
+    delivered_pix_fmt("yuv444p")
+    argv = _argv()
+
+    assert "-crf" not in argv and "51" not in argv, (
+        "the lossless leg followed a rebound DETERMINISTIC_X264_ARGS; the "
+        "reference must stay lossless under every lever"
+    )
+    assert argv[argv.index("-qp") + 1] == "0"
+    assert "-preset" in argv, (
+        "the leg lost the pinned encoder settings it had at import — it is "
+        "reading the rebound tuple, not the pinned one"
+    )
+    assert argv[argv.index("-pix_fmt") + 1] == "yuv444p"
+
+
+def test_an_unsupported_format_is_refused_here_too(delivered_pix_fmt):
+    """MUTATION: resolve with ``pix_fmt or DEFAULT_PIX_FMT`` instead of
+    ``_check_pix_fmt``.
+
+    Resolution goes through the product's own validator rather than a second
+    copy of the fallback, so the leg cannot be encoded in a format the
+    delivered encode would have refused.
+    """
+    from an.adapters.cutout.render import CutoutRenderError
+
+    with pytest.raises(CutoutRenderError, match="not one of"):
+        _argv("rgb24")
+
+
+@pytest.mark.ffmpeg
+def test_a_tracking_leg_is_closer_to_the_encoders_input_than_a_pinned_one(tmp_path):
+    """The argv tests say the flag moved; this says the flag mattered.
+
+    MUTATION: hardcode ``"yuv420p"`` in `lossless_encode_command`, or assert on
+    the tracking leg alone.
+
+    Asserted as a COMPARISON within one build, never as ``== 0``. Whether this
+    build's explicit RGB->YUV conversion reproduces libx264's exactly is a
+    property of the ffmpeg build — it does on 8.1 and does not on the Linux
+    runner's older one — and a hard equality on that is precisely the mistake
+    `an/bench/imageio.py`'s docstring records. The claim here is relative and
+    holds on any build: under a 4:4:4 delivery, a leg that tracks the format
+    sits closer to the source conversion in CHROMA than a leg pinned to 4:2:0.
+    """
+    from an.bench.png import write_png
+
+    h, w, n = 48, 64, 6
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    for i in range(n):
+        a = np.full((h, w, 3), 255, np.uint8)
+        # Saturated fills against black outlines — flat 2D art's own shape, and
+        # the only content 4:2:0 visibly destroys. A grey ramp would make this
+        # test pass for the wrong reason.
+        a[8:40, 8 + i : 40 + i] = (255, 0, 0)
+        a[8:40, 6 + i : 8 + i] = (0, 0, 0)
+        a[16:24, 44:60] = (0, 200, 60)
+        write_png(frames / f"frame_{i:06d}.png", a)
+
+    src = imageio.source_yuv(frames, height=h, width=w, frames=n)
+
+    def chroma_residual(pix_fmt: str) -> float:
+        out = tmp_path / f"leg_{pix_fmt}.mp4"
+        imageio.run_raw(
+            imageio.lossless_encode_command(frames, 24, out, pix_fmt=pix_fmt)
+        )
+        leg = imageio.decoded_yuv(out, height=h, width=w)
+        m = min(len(src), len(leg))
+        assert m, "one of the legs decoded to zero frames"
+        return float(
+            np.abs(leg[:m, 1:].astype(np.int16) - src[:m, 1:].astype(np.int16)).mean()
+        )
+
+    tracking = chroma_residual("yuv444p")
+    pinned = chroma_residual("yuv420p")
+    assert tracking < pinned, (
+        f"a 4:4:4 leg ({tracking}) is no closer to the encoder's input in "
+        f"chroma than a 4:2:0 leg ({pinned}); if these are equal the decode is "
+        "not reading chroma at all and every chroma number in the panel is "
+        "measuring nothing"
+    )
+
+
+# ------------------------------------------------------------------ the seam
+# The first version of this fix resolved the leg's format from the module
+# global, which only the BENCH LEVER rebinds. The product selects 4:4:4 through
+# `RenderContext.pix_fmt` (`an render --pix-fmt`), which `render.render` passes
+# to `_check_pix_fmt` directly and which never touches the global. So the leg
+# stayed 4:2:0 for the exact scenario four docstrings said it fixed, and all
+# five guards above passed. These two are the ones that would have caught it.
+
+
+def test_the_reference_is_built_from_what_the_delivered_file_actually_is(
+    monkeypatch, tmp_path
+):
+    """MUTATION: in `run.lossless_reference`, drop the `delivered=` probe and
+    resolve from the module global instead (i.e. restore the first fix).
+
+    The point is not that a format is passed — it is that the format comes from
+    the FILE. A leg that re-derives is correct only for the seams it happens to
+    know about, and there are two.
+    """
+    from an.bench import run as brun
+
+    seen: list[list[str]] = []
+    probed: list[Path] = []
+    monkeypatch.setattr(imageio, "run_raw", lambda cmd: seen.append(list(cmd)))
+
+    def fake_probe(mp4):
+        # Records its ARGUMENT. An argument-ignoring lambda here would prove the
+        # value is threaded and never that the right FILE is consulted — under
+        # which `delivered_pix_fmt(out)`, i.e. probing the leg it is about to
+        # write, passes.
+        probed.append(Path(mp4))
+        return "yuv444p"
+
+    monkeypatch.setattr(imageio, "delivered_pix_fmt", fake_probe)
+    # The global says 4:2:0 — as it does on the `an render --pix-fmt` path,
+    # where the context carries the choice and the global never learns of it.
+    monkeypatch.setattr(render, "DEFAULT_PIX_FMT", "yuv420p")
+
+    brun.lossless_reference(
+        tmp_path, 24, tmp_path / "qp0.mp4", delivered=tmp_path / "d.mp4"
+    )
+
+    assert probed == [tmp_path / "d.mp4"], (
+        f"the probe was pointed at {probed} rather than the delivered file; a "
+        "leg that probes its own output measures nothing"
+    )
+    assert seen, "the reference encode never ran"
+    argv = seen[0]
+    assert argv[argv.index("-pix_fmt") + 1] == "yuv444p", (
+        "the lossless leg was built from the module global rather than from the "
+        "delivered file, so `an render --pix-fmt yuv444p` still gets a 4:2:0 "
+        "reference for a 4:4:4 delivery"
+    )
+
+
+def test_the_bench_passes_the_delivered_file_to_the_reference(monkeypatch, tmp_path):
+    """MUTATION: drop `delivered=capture.mp4` at the call site in `an/bench/run.py`.
+
+    The probe is only worth having if the one production caller uses it, and
+    that call site is reachable by no cheap end-to-end test — building a real
+    capture needs a browser. So the call is asserted structurally.
+
+    **Parsed, not grepped.** The first version matched the call's source TEXT,
+    which a comment defeats — leave the expected line commented above a call
+    that omits the argument and the file still reports all-passed, while the leg
+    silently reverts to 4:2:0 against a 4:4:4 delivery — and which a `black`
+    rewrap breaks. Since `delivered` now has no default, omitting it is a
+    `TypeError` anyway, so this is the second line of defence rather than the
+    only one, which is the arrangement it should always have had.
+    """
+    import ast
+    import inspect
+
+    from an.bench import run as brun
+
+    tree = ast.parse(inspect.getsource(brun._scene_metrics))
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "lossless_reference"
+    ]
+    assert calls, "`_scene_metrics` no longer builds a lossless reference at all"
+    for call in calls:
+        kwargs = {k.arg: k.value for k in call.keywords}
+        assert "delivered" in kwargs, (
+            "the bench builds its reference without telling it which file it is "
+            "the reference for"
+        )
+        assert ast.unparse(kwargs["delivered"]) == "capture.mp4", (
+            "the reference is pointed at something other than the delivered file"
+        )
+
+
+@pytest.mark.ffmpeg
+def test_the_probe_reads_the_file_and_not_the_module_global(
+    tmp_path, delivered_pix_fmt
+):
+    """MUTATION: make `delivered_pix_fmt` return `render.DEFAULT_PIX_FMT`.
+
+    Everything above rests on the probe telling the truth, and a probe that
+    quietly answers from the global is the very defect this seam exists to
+    close — it would pass every other test in this file. So the global is set
+    to the WRONG answer for each case: an implementation that reads it gets
+    both backwards.
+    """
+    from an.bench.png import write_png
+
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    for i in range(2):
+        a = np.full((16, 16, 3), 255, np.uint8)
+        a[4:12, 4:12] = (255, 0, 0)
+        write_png(frames / f"frame_{i:06d}.png", a)
+
+    for fmt, lie in (("yuv444p", "yuv420p"), ("yuv420p", "yuv444p")):
+        out = tmp_path / f"{fmt}.mp4"
+        imageio.run_raw(imageio.lossless_encode_command(frames, 24, out, pix_fmt=fmt))
+        delivered_pix_fmt(lie)
+        assert imageio.delivered_pix_fmt(out) == fmt, (
+            f"the probe reported {imageio.delivered_pix_fmt(out)!r} for a {fmt} "
+            f"file while the module global said {lie!r} — it is answering from "
+            "the global, so the leg matches a guess rather than the delivery"
+        )
+
+
+def test_a_probe_that_cannot_read_the_file_raises_rather_than_guessing(
+    monkeypatch, tmp_path, delivered_pix_fmt
+):
+    """MUTATION: give `delivered_pix_fmt` an `except`/empty fallback returning
+    `DEFAULT_PIX_FMT`, or wrap the probe call in `lossless_reference` in a
+    `try` that sets `pix_fmt = None`.
+
+    Both are the *plausible* robustness edit, and both restore the exact defect
+    the probe exists to remove — a leg whose format is a guess — while every
+    other test here passes, because they only ever exercise files that probe
+    successfully. "Unknown" is not "the default": a run that cannot tell what it
+    delivered has no honest reference to measure against, and stopping is the
+    only answer that does not silently file wrong numbers.
+    """
+    from an.bench import run as brun
+    from an.bench.imageio import BenchDecodeError
+
+    delivered_pix_fmt("yuv420p")  # a fallback would return this, and be wrong
+
+    missing = tmp_path / "never-written.mp4"
+    with pytest.raises(BenchDecodeError):
+        imageio.delivered_pix_fmt(missing)
+
+    empty = tmp_path / "empty.mp4"
+    empty.write_bytes(b"")
+    with pytest.raises(BenchDecodeError):
+        imageio.delivered_pix_fmt(empty)
+
+    # ...and the caller does not swallow it either. The trap goes on the ENCODE
+    # builder, not on `run_raw`: the probe shells out through `run_raw` too, so
+    # trapping there fires on the probe itself and proves nothing about the
+    # caller. (It did, on the first version of this test.)
+    def _no_encode(*args, **kwargs):
+        pytest.fail("the encode was built despite an unreadable delivery")
+
+    monkeypatch.setattr(imageio, "lossless_encode_command", _no_encode)
+    with pytest.raises(BenchDecodeError):
+        brun.lossless_reference(tmp_path, 24, tmp_path / "qp0.mp4", delivered=missing)
+
+
+@pytest.mark.ffmpeg
+def test_a_delivery_with_no_video_stream_raises_rather_than_falling_back(
+    tmp_path, delivered_pix_fmt
+):
+    """MUTATION: replace `delivered_pix_fmt`'s `if not fmt: raise` with a
+    fallback to `DEFAULT_PIX_FMT`.
+
+    Split out from the test above and marked, because it is the ONE input that
+    reaches that branch. For a missing or corrupt file ffprobe exits nonzero and
+    `run_raw` raises first, so the branch is unreachable — a fallback planted
+    there survived the whole suite until this existed. A valid container with no
+    VIDEO stream makes ffprobe exit 0 and print nothing, which is exactly the
+    "succeeded and told me nothing" case a fallback would paper over.
+    """
+    import subprocess
+
+    from an.bench.imageio import BenchDecodeError
+
+    delivered_pix_fmt("yuv420p")  # what a fallback would wrongly return
+
+    audio_only = tmp_path / "audio.m4a"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=8000:cl=mono",
+            "-t",
+            "0.2",
+            "-c:a",
+            "aac",
+            str(audio_only),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    with pytest.raises(BenchDecodeError, match="no pixel format"):
+        imageio.delivered_pix_fmt(audio_only)
+
+
+@pytest.mark.ffmpeg
+def test_a_delivery_in_an_unmeasured_format_is_refused_by_the_bench_not_the_renderer(
+    tmp_path,
+):
+    """MUTATION: drop the `SUPPORTED_PIX_FMTS` check from `delivered_pix_fmt`.
+
+    Without it the refusal still happens, one layer down and as the wrong type:
+    `lossless_encode_command` raises `CutoutRenderError` — a *render* error from
+    a bench path — and nothing in `_scene_metrics` catches it, so it aborts the
+    run instead of being recorded. Unreachable through `an`'s own encoder,
+    which pins one of two formats; reachable the moment the probe reads a file
+    `an` did not write.
+    """
+    import subprocess
+
+    from an.bench.imageio import BenchDecodeError
+
+    odd = tmp_path / "gray.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=32x32:rate=24:duration=0.2",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "gray",
+            str(odd),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    with pytest.raises(BenchDecodeError, match="not one of"):
+        imageio.delivered_pix_fmt(odd)
+
+
+# --------------------------------------------------------------- an#143: the
+# reference used to be written to a FIXED name (`_bench_qp0.mp4`) inside
+# `frames_dir.parent` — a literal the caller did not control the uniqueness of.
+# Two runs that share that parent (concurrent processes, or a leftover from a
+# killed one) raced to write and unlink the same file; the loser's decode hit
+# ffmpeg exit 254, "no such file or directory". Fixed by writing the reference
+# under `run._lossless_scratch_dir`, a fresh `tempfile.mkdtemp` per call.
+
+
+def test_scene_metrics_no_longer_names_the_fixed_reference_file():
+    """MUTATION: revert `_scene_metrics` to `frames_dir.parent / "_bench_qp0.mp4"`.
+
+    Structural, not behavioural, because reproducing the race itself needs two
+    real bench renders (a browser each) racing on the same parent directory —
+    not affordable here. This pins the two things that make the race
+    impossible instead: the literal name is gone, and the reference is built
+    from the per-call scratch directory.
+    """
+    import inspect
+
+    from an.bench import run as brun
+
+    source = inspect.getsource(brun._scene_metrics)
+    assert "_bench_qp0.mp4" not in source, (
+        "the fixed reference filename is back — two runs sharing a parent "
+        "directory will race to write and unlink it again"
+    )
+    assert "_lossless_scratch_dir" in source, (
+        "the reference is no longer built under a per-call scratch directory"
+    )
+
+
+def test_lossless_scratch_dir_is_unique_per_call_even_under_a_shared_root(tmp_path):
+    """Two calls sharing a `root` must not share a leaf directory.
+
+    `root` is the override a caller uses to force two scratch directories to
+    sit side by side (the shared-parent scenario the issue names); it must not
+    become a second way to reintroduce a shared, fixed leaf.
+    """
+    from an.bench.run import _lossless_scratch_dir
+
+    with _lossless_scratch_dir(root=tmp_path) as a, _lossless_scratch_dir(
+        root=tmp_path
+    ) as b:
+        assert a != b
+        assert a.parent == tmp_path == b.parent
+        (a / "lossless_reference.mp4").write_bytes(b"a")
+        (b / "lossless_reference.mp4").write_bytes(b"b")
+        assert (a / "lossless_reference.mp4").read_bytes() == b"a"
+        assert (b / "lossless_reference.mp4").read_bytes() == b"b"
+    assert not a.exists() and not b.exists(), (
+        "the scratch directory must be cleaned up on exit, not left as a "
+        "landmine for the next run"
+    )
+
+
+def test_two_concurrent_lossless_leg_encodes_do_not_collide_offline(
+    tmp_path, monkeypatch
+):
+    """The uniqueness property, without spending a real encode on it.
+
+    `.github/workflows/browser-tests.yml`'s "Rendering tests" step runs only
+    `-m browser`, so an `ffmpeg`-only test (this file's own convention, kept
+    below with real ffmpeg for a developer machine) never reaches it — and
+    `ffmpeg` is not on the default CI image either (an#22), so a real-encode
+    version of this test could only ever be "verified on a developer machine".
+    The property this fix rests on is `_lossless_scratch_dir` uniqueness, not
+    anything x264 does, so `imageio.run_raw` is replaced with a stand-in that
+    writes a payload naming which thread wrote it — cheap enough to run on
+    every PR, and a real collision (two threads racing on ONE fixed path, the
+    bug this closes) would still corrupt one thread's payload with the
+    other's, which is exactly what `results["a"] != results["b"]` catches.
+    """
+    import threading
+
+    from an.bench import imageio
+    from an.bench.run import _lossless_scratch_dir, lossless_reference
+
+    def fake_run_raw(cmd: list[str]) -> bytes:
+        out = Path(cmd[-1])
+        out.write_bytes(f"payload from {out.parent.name}".encode())
+        return b""
+
+    monkeypatch.setattr(imageio, "run_raw", fake_run_raw)
+
+    shared_root = tmp_path / "shared"
+    shared_root.mkdir()
+    barrier = threading.Barrier(2)
+    errors: list[BaseException] = []
+    results: dict[str, bytes] = {}
+
+    def worker(tag: str) -> None:
+        try:
+            barrier.wait(timeout=10)
+            with _lossless_scratch_dir(root=shared_root) as scratch:
+                out = scratch / "lossless_reference.mp4"
+                lossless_reference(tmp_path / f"frames-{tag}", 24, out, delivered=None)
+                results[tag] = out.read_bytes()
+        except BaseException as e:  # noqa: BLE001 - reported from the main thread
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker, args=(tag,)) for tag in ("a", "b")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"concurrent lossless-leg encodes collided: {errors}"
+    assert results.keys() == {"a", "b"}
+    assert results["a"] != results["b"], (
+        "both threads' encodes landed on the same file — the scratch "
+        "directories are not actually unique"
+    )
+
+
+@pytest.mark.ffmpeg
+def test_two_concurrent_lossless_leg_encodes_do_not_collide(tmp_path):
+    """Two lossless-leg encodes racing on a shared parent both succeed.
+
+    Not a reproduction of the reported failure — each thread gets its own
+    `tempfile.mkdtemp` leaf under `shared_root`, so there is no shared name
+    left to race on, which is the whole point of the fix. What this proves is
+    that the fixed encode really does hold up under concurrent pressure on a
+    shared parent directory (the scenario the issue names: two bench runs, or
+    two pytest-xdist workers), with a `Barrier` forcing both threads to reach
+    the encode at the same instant. The regression claim itself — that the
+    fixed filename is gone — is `test_scene_metrics_no_longer_names_the_fixed_
+    reference_file` above.
+    """
+    import threading
+
+    from an.bench.png import write_png
+    from an.bench.run import _lossless_scratch_dir, lossless_reference
+
+    shared_root = tmp_path / "shared"
+    shared_root.mkdir()
+    barrier = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def worker(tag: str, colour: tuple[int, int, int]) -> None:
+        try:
+            frames = tmp_path / f"frames-{tag}"
+            frames.mkdir()
+            for i in range(3):
+                a = np.full((16, 16, 3), 255, np.uint8)
+                a[4:12, 4:12] = colour
+                write_png(frames / f"frame_{i:06d}.png", a)
+            barrier.wait(timeout=10)
+            with _lossless_scratch_dir(root=shared_root) as scratch:
+                out = scratch / "lossless_reference.mp4"
+                lossless_reference(frames, 24, out, delivered=None)
+                assert out.exists(), f"{tag}: the encode did not land at its own path"
+                yuv = imageio.decoded_yuv(out, height=16, width=16)
+                assert len(yuv) == 3, f"{tag}: decode came back short"
+        except BaseException as e:  # noqa: BLE001 - reported from the main thread
+            errors.append(e)
+
+    threads = [
+        threading.Thread(target=worker, args=("a", (255, 0, 0))),
+        threading.Thread(target=worker, args=("b", (0, 0, 255))),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"concurrent lossless-leg encodes collided: {errors}"
+
+
+# ------------------------------------------------- the two legs, on the pixels
+# an#153. The argv pins above compare STRINGS. They cannot see a build where the
+# same argv yields different pixels, which is the class of bug an#148 was: on
+# ffmpeg 6.1 the colour tags do not reach the auto-inserted RGB->YUV conversion,
+# so a leg without its own `-vf` is BT.601 while the delivered file is BT.709.
+
+#: Flat, saturated fields, chosen because BT.601 and BT.709 disagree most on
+#: them (red: ~19 luma codes, ~15 in Cr). On a flat field the crf23 vs qp0
+#: residual is the quantiser's alone, so the two legs can be compared without
+#: bit-equality.
+_PLANE_EQUALITY_FIELDS: tuple[tuple[int, int, int], ...] = (
+    (255, 0, 0),
+    (0, 200, 60),
+    (235, 180, 150),
+    (30, 60, 220),
+)
+
+#: How far, in mean absolute code values per plane, the crf23 delivery may sit
+#: from the qp0 reference on a flat field. Measured well under 1 here; the gap
+#: this test exists to catch is the 15-28 codes between the two matrices.
+_PLANE_EQUALITY_TOLERANCE: float = 3.0
+
+
+@pytest.mark.ffmpeg
+def test_the_lossless_leg_and_the_delivered_mux_decode_to_the_same_planes(tmp_path):
+    """MUTATION: give one command a different matrix (a different ``-colorspace``
+    tag on ffmpeg 8/9, where it is the tag that picks the conversion), or drop
+    ``-vf`` from either command on a build where the tags do not reach the
+    conversion (ffmpeg 6.1).
+
+    Encodes ONE frame set both ways — the delivered `_ffmpeg_mux` and the
+    bench's `lossless_encode_command` — decodes both, and compares the decoded
+    Y, Cb and Cr planes. Not bit-equality (crf23 against qp0): the assertion is
+    that both are on the same matrix, so the residual stays far below the gap
+    between BT.601 and BT.709.
+
+    Measured on ffmpeg 9.0: dropping ``-vf`` from either command, or replacing
+    it with a BT.601 filter, changes no decoded pixel (the ``-colorspace bt709``
+    tag overrides the filter's matrix there), so those mutations are the argv
+    pins' to catch on that build. Tagging one command ``smpte170m`` instead
+    moves red's luma by 18 codes and fails this test. The ``-vf`` mutation is
+    expected to fail it on ffmpeg 6.1 (an#153); that build was not available
+    here.
+    """
+    from an.adapters.cutout.render import _ffmpeg_mux
+    from an.bench.png import write_png
+
+    h, w = 32, 32
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    for i, rgb in enumerate(_PLANE_EQUALITY_FIELDS):
+        write_png(
+            frames / (DEFAULT_FRAME_PNG_PATTERN % i),
+            np.full((h, w, 3), rgb, np.uint8),
+        )
+
+    delivered = tmp_path / "delivered.mp4"
+    _ffmpeg_mux(frames, 24, delivered)
+    leg = tmp_path / "leg.mp4"
+    imageio.run_raw(imageio.lossless_encode_command(frames, 24, leg))
+
+    d = imageio.decoded_yuv(delivered, height=h, width=w).astype(np.int16)
+    r = imageio.decoded_yuv(leg, height=h, width=w).astype(np.int16)
+    assert d.shape == r.shape == (len(_PLANE_EQUALITY_FIELDS), 3, h, w), (
+        f"the legs decoded to different shapes, {d.shape} and {r.shape}; "
+        "a frame-count disagreement makes every comparison below meaningless"
+    )
+    for i, rgb in enumerate(_PLANE_EQUALITY_FIELDS):
+        for plane, name in enumerate("YUV"):
+            gap = float(np.abs(d[i, plane] - r[i, plane]).mean())
+            assert gap <= _PLANE_EQUALITY_TOLERANCE, (
+                f"field {rgb}: the delivered file's {name} plane is {gap:.2f} "
+                f"codes from the lossless leg's (tolerance "
+                f"{_PLANE_EQUALITY_TOLERANCE}). The two legs are not on the same "
+                "RGB->YUV matrix, so every encode-side metric is reporting the "
+                "difference between two colour conversions as encoder damage "
+                "(an#148, an#153)."
+            )

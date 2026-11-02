@@ -1,0 +1,1587 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import warnings
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator, Mapping, Sequence
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Self, cast, overload
+from uuid import UUID, uuid4
+
+import temporalio.workflow
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SerializeAsAny,
+    SerializerFunctionWrapHandler,
+    SkipValidation,
+    TypeAdapter,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+from typing_extensions import deprecated
+
+from mistralai.observability.otel import OperationDataTransformer
+from mistralai.vibe.harness.app_server import session as harness_session
+from mistralai.vibe.harness.app_server.session import McpHttpSourceConfiguration
+from mistralai.vibe.harness.app_server.session.models.common import HistoryEntryId
+from mistralai.vibe.harness.runtime.completion import CompletionConfig, CompletionProvider
+from mistralai.vibe_agents.agents_client.api_models import is_reserved_agent_name, reserved_agent_name_message
+from mistralai.vibe_agents.sdk.assembly import assemble
+from mistralai.vibe_agents.sdk.assembly import session_inputs as session_input_assembly
+from mistralai.vibe_agents.sdk.assembly import subagents as subagent_assembly
+from mistralai.vibe_agents.sdk.client import approval_requests, approvals, handles
+from mistralai.vibe_agents.sdk.client.content import UserContentLike
+from mistralai.vibe_agents.sdk.client.events import EventHandler
+from mistralai.vibe_agents.sdk.client.records import Blocked, Busy, Running, TurnState
+from mistralai.vibe_agents.sdk.client.turn_reads import typed
+from mistralai.vibe_agents.sdk.client.turn_waits import WaitBudget
+from mistralai.vibe_agents.sdk.transport import client_tools as client_tools_registry
+from mistralai.vibe_agents.sdk.transport import local
+from mistralai.vibe_agents.sdk.transport import remote as remote_transport
+from mistralai.vibe_agents.sdk.transport.session_journal import JsonFileSessionJournal
+from mistralai.vibe_agents.session_workflow import SessionAgentCustomization, SubagentPolicy
+from mistralai.vibe_agents.session_workflow.skills import RequestedSkillInput
+from mistralai.vibe_agents.sessions_client import IdempotencyKey, SessionProtocol
+
+from . import contracts
+from . import tool as tool_authoring
+from . import types as authoring_types
+from .errors import SdkError, UnsupportedAgentFeatureError, public_errors
+from .experimental import warn_experimental
+from .permissions import PermissionPolicy as AuthoringPermissionPolicy
+from .permissions import always_denies
+from .redaction import Redaction, resolve_redaction
+from .secrets import SecretOrigin
+from .skills import AllRegistrySkills, SandboxWorkspaceSkills
+from .subagent import Subagent
+from .tool import ClientToolAnswer
+from .tool_errors import DEFAULT_TOOL_ERRORS, ToolErrors
+
+if TYPE_CHECKING:
+    from mistralai.vibe.sdk.agent import config as vibe_agent_config
+    from mistralai.vibe_agents.sdk import testing
+    from mistralai.vibe_agents.sdk.client.api_client import Client
+    from mistralai.workflows.plugins.nuage_v2.core.environment import environment as environment_base
+    from mistralai.workflows.plugins.nuage_v2.integrations.github import github_models
+    from mistralai.workflows.plugins.nuage_v2.integrations.skill_state_manager import (
+        skill_state_manager_models,
+    )
+    from mistralai.workflows.plugins.nuage_v2.models import workflow as workflow_models
+    from mistralai.workflows.plugins.nuage_v2.sdk._internal import harness as sdk_harness
+    from mistralai.workflows.plugins.nuage_v2.sdk._internal import session as sdk_session
+
+type WorkflowType = Literal["chat", "session"]
+
+
+class LegacySessionAgent(Protocol):
+    """Agent operations required by the retained Nuage Session runtime."""
+
+    def model_copy(self, *, update: Mapping[str, object] | None = None, deep: bool = False) -> Self: ...
+
+    def _open_session(
+        self,
+        *,
+        harness: sdk_harness.Harness | None = None,
+        state: dict[str, object] | None = None,
+        sandbox_union: environment_base.Sandbox | None = None,
+        github: github_models.GitHubParams | None = None,
+        control_plane: bool = False,
+        platform_requested_skills: Sequence[RequestedSkillInput] = (),
+        requested_skill_source: skill_state_manager_models.RequestedSkillInputSource | None = None,
+        control_plane_identity: workflow_models.WorkflowIdentity | None = None,
+        inherited_skill_states: sdk_session.InheritedSkillStates | None = None,
+    ) -> sdk_session.Session: ...
+
+
+class _LegacyResumedState(Protocol):
+    harness: object
+    history: object
+    platform_requested_skills: Sequence[RequestedSkillInput]
+
+
+# Default model for a remote deployment handle, whose real config lives on the control plane.
+_DEFAULT_MODEL = "mistral-large-4"
+
+# Sentinel Agent.name when unset: serve/deploy reject it and require an explicit workflow name.
+DEFAULT_AGENT_NAME = "default_agent"
+
+_HISTORY_ENTRIES: TypeAdapter[list[harness_session.HistoryImportEntry]] = TypeAdapter(
+    list[harness_session.HistoryImportEntry]
+)
+
+_reserved_agent_name_allowed: ContextVar[bool] = ContextVar("reserved_agent_name_allowed", default=False)
+
+
+@contextmanager
+def allow_reserved_agent_name() -> Iterator[None]:
+    """Let the platform's own agents take a reserved name.
+
+    Not part of the public SDK. The control plane still refuses to register a reserved name, so
+    this only lifts the early check for code that the platform serves itself.
+    """
+    token = _reserved_agent_name_allowed.set(True)
+    try:
+        yield
+    finally:
+        _reserved_agent_name_allowed.reset(token)
+
+
+class _ProviderUnset:
+    # `provider` defaults to LLMProvider.MISTRAL, so comparing against that default cannot tell an
+    # omitted provider from an explicit provider="mistral" — and the completion/provider mutual
+    # exclusion below has to reject the explicit one. Hence a sentinel default rather than a value.
+    __slots__ = ()
+
+
+_PROVIDER_UNSET = _ProviderUnset()
+type _ProviderArgument = authoring_types.LLMProvider | str | _ProviderUnset
+
+
+def _resolve_provider_argument(
+    provider: _ProviderArgument, *, completion: CompletionConfig | None
+) -> authoring_types.LLMProvider | str:
+    """Reject provider= passed alongside completion=, then fill in the default."""
+
+    if isinstance(provider, _ProviderUnset):
+        return authoring_types.LLMProvider.MISTRAL
+    if completion is not None:
+        raise SdkError("Pass either provider or completion, not both")
+    return provider
+
+
+class _AgentBundle(BaseModel):
+    # The runtime-only slots an Agent carries but never serializes into a subagent snapshot: the
+    # constructor harness (caller-owned, used verbatim so live state like a Permission prompter
+    # survives) and a lazy control-plane deployment handle. Merged into ONE model so clone/copy carry
+    # them as a unit and no loose parallel attributes drift.
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    harness: contracts.Harness | None = None
+    remote_deployment: remote_transport.RemoteAgentDeployment | None = None
+    local_runtime: local._AgentsSdkLocalRuntime | None = None
+    completion_provider: CompletionProvider | None = None
+    redaction: SkipValidation[tuple[OperationDataTransformer, ...] | None] = None
+
+
+class AgentAuthoring(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    model: str
+    instructions: str | None = None
+    provider: authoring_types.LLMProvider = authoring_types.LLMProvider.MISTRAL
+    completion: SerializeAsAny[CompletionConfig] | None = None
+    name: str = DEFAULT_AGENT_NAME
+    max_iterations: Annotated[int | None, Field(gt=0)] = None
+    first_output_timeout_seconds: float | None = None
+    builtins: authoring_types.Builtins = Field(default_factory=authoring_types.Builtins)
+    permission_mode: authoring_types.PermissionMode = "auto"
+    permission_policy: AuthoringPermissionPolicy | None = None
+    # None leaves the threshold to the model's profile; compaction is always on.
+    auto_compact_threshold: Annotated[int | None, Field(gt=0)] = None
+    description: str | None = None
+    reasoning_effort: authoring_types.ReasoningEffort | None = None
+    temperature: float | None = None
+    # The final answer of every Turn must match this model. A Subagent never inherits it.
+    response_format: type[BaseModel] | None = None
+    # An agents.Subagent carries live functions, so it stays authored here and is compiled into a
+    # SubagentConfig by _to_agent_config.
+    subagents: list[Subagent] = Field(default_factory=list)
+    subagent_policy: SubagentPolicy | None = None
+    # What the model sees when a tool, a client tool's answer or on_client_tool raises anything but
+    # agents.ToolError: a generic message ("hide"), "<type>: <message>" ("show"), or the turn fails
+    # ("raise"). It covers the agent's whole tree and the client tools of its Sessions.
+    tool_errors: ToolErrors = DEFAULT_TOOL_ERRORS
+
+    _bundle: _AgentBundle = PrivateAttr(default_factory=_AgentBundle)
+
+    @model_validator(mode="after")
+    def _validate_completion_model(self) -> Self:
+        if self.completion is not None and self.completion.model != self.model:
+            raise ValueError(f"completion.model {self.completion.model!r} must match Agent.model {self.model!r}")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_permission_configuration(self) -> Self:
+        if self.permission_policy is not None and self.permission_mode != "auto":
+            raise ValueError("A custom permission policy cannot be combined with permission_mode='ask' or 'deny'")
+        return self
+
+    @field_validator("permission_policy", mode="before")
+    @classmethod
+    def _reject_unknown_permission_policy_fields(cls, value: object) -> object:
+        if value is None or isinstance(value, AuthoringPermissionPolicy):
+            return value
+
+        if isinstance(value, harness_session.PermissionPolicy):
+            raise ValueError("Session permission policies cannot be used for authoring; use agents.PermissionPolicy")
+
+        return AuthoringPermissionPolicy.model_validate(value)
+
+    @model_serializer(mode="wrap")
+    def _serialize_without_a_redundant_provider(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        # A completion= config replaces provider entirely, so the field holds nothing but its own
+        # default. Emitting it would make every snapshot look like the caller passed provider AND
+        # completion, which __init__ rejects, so the agent could never be restored.
+        payload = handler(self)
+        if self.completion is not None:
+            payload.pop("provider", None)
+        return payload
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        instructions: str | None = None,
+        provider: _ProviderArgument = _PROVIDER_UNSET,
+        completion: CompletionConfig | None = None,
+        name: str = DEFAULT_AGENT_NAME,
+        max_iterations: int | None = None,
+        first_output_timeout_seconds: float | None = None,
+        builtins: authoring_types.Builtins | None = None,
+        permission_mode: authoring_types.PermissionMode = "auto",
+        permission_policy: AuthoringPermissionPolicy | None = None,
+        auto_compact_threshold: int | None = None,
+        description: str | None = None,
+        reasoning_effort: authoring_types.ReasoningEffort | None = None,
+        temperature: float | None = None,
+        response_format: type[BaseModel] | None = None,
+        subagents: Sequence[Subagent] = (),
+        subagent_policy: SubagentPolicy | None = None,
+        tool_errors: ToolErrors = DEFAULT_TOOL_ERRORS,
+        tools: object = None,
+    ) -> None:
+        # Tools are capabilities, which Agent holds apart from this configuration; accepting the kwarg
+        # rejects it with a clear error instead of an opaque "unexpected keyword".
+        if tools is not None:
+            raise SdkError("AgentAuthoring takes no tools; pass them to Agent(tools=[...]).")
+        if is_reserved_agent_name(name) and not _reserved_agent_name_allowed.get():
+            raise SdkError(f"{reserved_agent_name_message(name)}. Choose another name.")
+        if max_iterations is not None and max_iterations <= 0:
+            raise SdkError("Agent max_iterations must be greater than 0; omit it for no limit")
+        if auto_compact_threshold is not None and auto_compact_threshold <= 0:
+            raise SdkError("Agent auto_compact_threshold must be greater than 0; omit it to use the model's default")
+        authoring_types.check_temperature(temperature, owner=f"Agent {name!r}")
+        # completion carries a full custom Completion Provider config; it replaces
+        # provider entirely, so the two are mutually exclusive.
+        super().__init__(
+            model=model,
+            instructions=instructions,
+            provider=_resolve_provider_argument(provider, completion=completion),
+            completion=completion,
+            name=name,
+            max_iterations=max_iterations,
+            first_output_timeout_seconds=first_output_timeout_seconds,
+            builtins=authoring_types.Builtins() if builtins is None else builtins,
+            permission_mode=permission_mode,
+            permission_policy=permission_policy,
+            auto_compact_threshold=auto_compact_threshold,
+            description=description,
+            reasoning_effort=reasoning_effort,
+            temperature=temperature,
+            response_format=response_format,
+            subagents=list(subagents),
+            subagent_policy=subagent_policy,
+            tool_errors=tool_errors,
+        )
+        if (
+            self.subagents
+            and self.permission_policy is not None
+            and always_denies(self.permission_policy, "agents.spawn")
+        ):
+            warnings.warn(
+                "This agent declares subagents, but its permission policy denies 'agents.spawn', so the "
+                "model cannot start them. Put a PermissionRule that allows or asks for 'agents.spawn' before "
+                "the first rule that matches it, or change that rule; if no rule matches, change the policy "
+                "default from 'deny'.",
+                stacklevel=2,
+            )
+
+    def _to_agent_config(self, *, response_format: type[BaseModel] | None = None) -> harness_session.AgentConfig:
+        """Compile this Agent into the portable Harness Agent Configuration.
+
+        ``response_format`` overrides the Agent's own ``response_format`` for this configuration only.
+        """
+
+        config = assemble.build_agent_config(
+            model=self.model,
+            provider=str(self.provider),
+            completion=self.completion,
+            name=self.name,
+            instructions=self.instructions,
+            max_iterations=self.max_iterations,
+            first_output_timeout_seconds=self.first_output_timeout_seconds,
+            permission_policy=self.permission_policy,
+            builtins=authoring_types.builtins_to_config(self.builtins),
+            auto_compact_threshold=self.auto_compact_threshold,
+            response_format=response_format if response_format is not None else self.response_format,
+            reasoning_effort=self.reasoning_effort,
+            temperature=self.temperature,
+        )
+        if not self.subagents and self.subagent_policy is None:
+            return config
+        return config.model_copy(
+            update=subagent_assembly.compile_subagents(config, self.subagents, policy=self.subagent_policy),
+            deep=True,
+        )
+
+    def _to_nuage_agent_config(self) -> vibe_agent_config.AgentConfig:
+        """Translate retained authoring into the legacy Nuage configuration."""
+
+        from mistralai.vibe.sdk.agent import config as vibe_agent_config  # noqa: PLC0415
+        from mistralai.vibe.sdk.providers.completion.config import MistralCompletionConfig  # noqa: PLC0415
+
+        return vibe_agent_config.AgentConfig(
+            completion=MistralCompletionConfig(model=self.model, reasoning_effort=self.reasoning_effort),
+            name=self.name,
+            system_prompt=self.instructions,
+            max_iterations=self.max_iterations,
+        )
+
+    def model_copy(self, *, update: Mapping[str, object] | None = None, deep: bool = False) -> Self:
+        # Carry the runtime-only bundle (a PrivateAttr, which pydantic's copy does not touch).
+        copied = super().model_copy(update=dict(update) if update is not None else None, deep=deep)
+        copied._bundle = self._bundle.model_copy(deep=deep)
+        return cast(Self, copied)
+
+
+class Agent(AgentAuthoring):
+    def __init__(
+        self,
+        *,
+        model: str,
+        instructions: str | None = None,
+        provider: _ProviderArgument = _PROVIDER_UNSET,
+        completion: CompletionConfig | None = None,
+        name: str = DEFAULT_AGENT_NAME,
+        max_iterations: int | None = None,
+        first_output_timeout_seconds: float | None = None,
+        builtins: authoring_types.Builtins | None = None,
+        permission_mode: contracts.PermissionMode = "auto",
+        permission_policy: AuthoringPermissionPolicy | None = None,
+        auto_compact_threshold: int | None = None,
+        description: str | None = None,
+        reasoning_effort: authoring_types.ReasoningEffort | None = None,
+        temperature: float | None = None,
+        response_format: type[BaseModel] | None = None,
+        subagents: Sequence[Subagent] = (),
+        subagent_policy: SubagentPolicy | None = None,
+        tool_errors: ToolErrors = DEFAULT_TOOL_ERRORS,
+        tools: contracts.HarnessTools | None = None,
+        sandbox: contracts.Sandbox | None = None,
+        connectors: Sequence[contracts.HarnessConnector] | None = None,
+        mcps: dict[str, McpHttpSourceConfiguration] | None = None,
+        skills: Sequence[contracts.HarnessSkill | SandboxWorkspaceSkills | AllRegistrySkills] | None = None,
+        hooks: Sequence[contracts.Hook] | None = None,
+        guardrails: Sequence[contracts.Hook] | None = None,
+        secrets: Mapping[str, SecretOrigin] | None = None,
+        redaction: Redaction | None = None,
+    ) -> None:
+        super().__init__(
+            model=model,
+            instructions=instructions,
+            provider=provider,
+            completion=completion,
+            name=name,
+            max_iterations=max_iterations,
+            first_output_timeout_seconds=first_output_timeout_seconds,
+            builtins=builtins,
+            permission_mode=permission_mode,
+            permission_policy=permission_policy,
+            auto_compact_threshold=auto_compact_threshold,
+            description=description,
+            reasoning_effort=reasoning_effort,
+            temperature=temperature,
+            response_format=response_format,
+            subagents=subagents,
+            subagent_policy=subagent_policy,
+            tool_errors=tool_errors,
+        )
+        if any(value is not None for value in (tools, sandbox, connectors, mcps, skills, hooks, guardrails, secrets)):
+            self._bundle.harness = contracts.Harness(
+                tools=tools,
+                sandbox=sandbox,
+                connectors=connectors,
+                mcps=mcps,
+                skills=skills,
+                hooks=hooks,
+                guardrails=guardrails,
+                secrets=secrets,
+            )
+        if redaction is not None:
+            self._bundle.redaction = resolve_redaction(redaction)
+
+    @overload
+    async def run[T: BaseModel](
+        self,
+        content: UserContentLike,
+        *,
+        response_format: type[T],
+        on_approval: approvals.ApprovalHandler | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        on_event: EventHandler | None = None,
+        idempotency_key: None = None,
+        timeout: float | None = None,
+    ) -> TurnState[T | None]: ...
+
+    # A retry with a key can find the key's session running another turn: Busy.
+    @overload
+    async def run[T: BaseModel](
+        self,
+        content: UserContentLike,
+        *,
+        response_format: type[T],
+        on_approval: approvals.ApprovalHandler | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        on_event: EventHandler | None = None,
+        idempotency_key: str,
+        timeout: float | None = None,
+    ) -> TurnState[T | None] | Busy: ...
+
+    # Without the argument, the Agent's own response_format may apply, so the output type is unknown.
+    @overload
+    async def run(
+        self,
+        content: UserContentLike,
+        *,
+        response_format: None = None,
+        on_approval: approvals.ApprovalHandler | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        on_event: EventHandler | None = None,
+        idempotency_key: None = None,
+        timeout: float | None = None,
+    ) -> TurnState[Any]: ...
+
+    @overload
+    async def run(
+        self,
+        content: UserContentLike,
+        *,
+        response_format: None = None,
+        on_approval: approvals.ApprovalHandler | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        on_event: EventHandler | None = None,
+        idempotency_key: str,
+        timeout: float | None = None,
+    ) -> TurnState[Any] | Busy: ...
+
+    @public_errors
+    async def run(
+        self,
+        content: UserContentLike,
+        *,
+        response_format: type[BaseModel] | None = None,
+        on_approval: approvals.ApprovalHandler | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        on_event: EventHandler | None = None,
+        idempotency_key: str | None = None,
+        timeout: float | None = None,
+    ) -> TurnState[Any] | Busy:
+        """Start a session, run one turn in it, and return the turn's record.
+
+        One request starts the session with the turn as its first, then the run waits on that turn.
+        The record is one of ``Completed``, ``Blocked``, ``Interrupted``, ``Failed`` or ``Running``,
+        each a value: a failed turn returns ``Failed`` and does not raise. Every record has
+        ``session_id`` and ``turn_id``, so you can reach the session and the turn later with
+        ``agent.session(state.session_id)``.
+
+        ``response_format`` overrides the Agent's own ``response_format`` for this run only. A
+        ``Completed`` record's ``output`` is validated against it, or is ``InvalidOutput`` when it
+        does not validate. On a deployment-backed Agent it only parses the reply: the deployed Agent
+        fixes the completion config, so the model gets the deployed Agent's format.
+
+        ``on_approval``, a plain or async function, answers the approvals of the run's session and
+        its subagents with ``AllowApproval`` or ``DenyApproval`` (see ``Session``). Without it, or
+        when it returns ``None``, the run returns ``Blocked`` while the turn waits for the answer.
+        Answer each of its callbacks on the session and turn that opened it, a subagent's for a
+        subagent's approval: ``agent.session(cb.session_id).turn(cb.turn_id).answer(cb.id, ...)``. A
+        handler that raises makes the run raise its error; the turn goes on.
+
+        ``client_tools`` answers the Agent's client tools when the model calls them, from this
+        process, while the run waits on its turn. Before the run returns, it waits for the answers
+        already running and sends them; it does not start new ones. When
+        an answer cannot be sent, the run raises ``ClientToolAnswerError`` at once, which names the
+        call and has the send error as its ``__cause__``; the turn goes on, and its host fails the
+        call at its callback timeout. An answer the host already settled is not an error.
+        ``on_client_tool`` answers every client tool call that
+        ``client_tools`` does not answer: when both cover a tool, its answer in ``client_tools`` wins.
+
+        ``on_event`` gets each event of the turn as it comes (see ``Turn.result``).
+
+        ``timeout`` is the time the SDK waits for the host, in seconds. Time spent in your own
+        client-tool code does not count. Once it has passed, the run returns the turn's record,
+        ``Running`` or ``Blocked``, and the turn goes on. For example, with ``timeout=5``, a turn that
+        works 3 seconds on the host, calls a client tool whose answer takes 20 seconds, then works 4
+        more seconds returns ``Running`` 2 seconds into those 4. The time an ``on_approval`` handler
+        takes counts. ``timeout`` bounds the wait on the turn, not the session's start. An answer
+        that never returns keeps the run waiting: bound it in its own code, for example with
+        ``asyncio.timeout``. Leaving the run in any other way, for example by a cancelled task,
+        also leaves the turn running; once the turn has started, the error says which turn it is
+        and how to stop it.
+
+        ``idempotency_key`` (1 to 256 characters) makes the run safe to retry: a second run with
+        the same key reaches the same session and the same turn, and returns that turn's record,
+        even once the turn has ended. A run with an earlier run's key and another message, or other
+        Agent settings, raises ``SessionIdempotencyConflictError``. Generate the key once per
+        request, for example as a UUID, and reuse it only on that request's retries. On a server
+        older than MAIS 2026.11, a run with a key can also return ``Busy``: the key's session is
+        running another turn, so the run started none.
+
+        A local run's session runs in this event loop's runtime. Without ``idempotency_key``, it
+        is closed once its turn and its subagents are done, and stays readable. Without
+        ``on_approval`` either, on an Agent without subagents, it ends with its turn: a finished
+        turn's record is returned once its sandbox is freed. With one, it stays
+        open, like a session from ``start_session(idempotency_key=...)``, until the event loop
+        stops. Subagents still working when the turn ends keep running. Inside an
+        ``async with agents.local_runtime()`` block, no local run's session is closed for being
+        idle: ``agent.session(state.session_id)`` drives it again until the block exits or
+        ``session.cancel()``.
+        """
+
+        # An empty message raises ``SdkError`` before a Session opens, as on a session handle.
+        initial_turn = harness_session.InitialTurn(message=handles.checked_message(content))
+        key = handles.checked_idempotency_key(idempotency_key)
+        output_format = response_format if response_format is not None else self.response_format
+        # Bad client tool answers fail before a session starts.
+        client_tool_registry = client_tools_registry.build_client_tool_registry(
+            client_tools, on_client_tool, tool_errors=self.tool_errors
+        )
+        # The start carries the message as the session's initial turn: one request starts both.
+        if self._bundle.remote_deployment is None and key is None:
+            run_runtime: local._AgentsSdkLocalRuntime | None = None
+            if (
+                on_approval is None
+                and self._bundle.local_runtime is None
+                and self._to_agent_config().effective_subagent_policy() is None
+            ):
+                # Its record is all the caller gets, so its session ends with its turn.
+                run_runtime = local._process_runtime()
+            # The attached client keeps the session, and answers its client tools, while the handle
+            # waits on its turn; once both are gone and the tree is idle, the local runtime closes it.
+            async with await self._create_session(
+                response_format=response_format,
+                by_id=True,
+                initial_turn=initial_turn,
+                client_tools=client_tools,
+                on_client_tool=on_client_tool,
+            ) as client:
+                if run_runtime is not None:
+                    run_runtime.close_after_turns(client.session_id)
+                session = self.session(client.session_id, on_approval=on_approval)
+                turns = client.state.turns.items if client.state.turns is not None else []
+                turn_id = turns[0].id if turns else None
+                async with client_tools_registry.raising_answer_failures(client):
+                    with _host_wait_budget(client, timeout) as budget:
+                        # With tool_errors="raise", a client tool's exception raises here; its call stays open.
+                        state = await _raising_from_client_tools(
+                            client,
+                            _run_initial_turn(
+                                session,
+                                turn_id,
+                                content,
+                                output_format,
+                                None,
+                                budget,
+                                on_event,
+                                client_tool_registry,
+                            ),
+                        )
+                    state = await _raising_from_client_tools(
+                        client,
+                        _with_running_answers_sent(
+                            client,
+                            self.session(session.id),
+                            state,
+                            output_format,
+                            on_event,
+                            client_tool_registry,
+                        ),
+                    )
+            if run_runtime is not None and not isinstance(state, Running | Blocked):
+                # Ended before the record is returned, sandbox included.
+                await run_runtime.end_finished_tree(client.session_id)
+            return state
+        session, turn_id = await self._start_session(
+            idempotency_key=key, on_approval=on_approval, response_format=response_format, initial_turn=initial_turn
+        )
+        async with (
+            self._answering_client_tools(session.id, client_tool_registry) as answering,
+            client_tools_registry.raising_answer_failures(answering),
+        ):
+            if turn_id is None and key is not None:
+                # A repeated key: the session's first turn is the one its first start began.
+                turn_id = await _first_turn_id(session)
+            with _host_wait_budget(answering, timeout) as budget:
+                # With tool_errors="raise", a client tool's exception raises here; its call stays open.
+                state = await _raising_from_client_tools(
+                    answering,
+                    _run_initial_turn(
+                        session, turn_id, content, output_format, key, budget, on_event, client_tool_registry
+                    ),
+                )
+            return await _raising_from_client_tools(
+                answering,
+                _with_running_answers_sent(
+                    answering, self.session(session.id), state, output_format, on_event, client_tool_registry
+                ),
+            )
+
+    @deprecated(
+        "Agent.local_runtime() is deprecated; agent.run(), agent.start_session() and agent.session(id) use "
+        "the event loop's local runtime. program_timeout_seconds= and event_log_directory= have no new "
+        "place yet: keep local_runtime() to set them.",
+        category=DeprecationWarning,
+    )
+    @asynccontextmanager
+    async def local_runtime(
+        self,
+        *,
+        program_timeout_seconds: float | None = None,
+        event_log_directory: Path | str | None = None,
+        journal_factory: Callable[[str], JsonFileSessionJournal] | None = None,
+    ) -> AsyncIterator[Agent]:
+        """Bind an Agent to application-owned local Sessions until context exit.
+
+        Deprecated: ``agent.run``, ``agent.start_session`` and ``agent.session(id)`` use the event
+        loop's local runtime. This method still works as before, but warns. It is still the only
+        place to set ``program_timeout_seconds`` and ``event_log_directory``.
+
+        Closing an attached client only detaches it. Context exit shuts down
+        all workers, then their shared root workspace. Each Session Tree takes its
+        subagent policy from the root agent's ``subagent_policy``.
+
+        ``program_timeout_seconds`` sets the time budget of each program, the code the model runs
+        with ``run_typescript``, in every Session of this runtime. It defaults to 60 seconds. The
+        budget applies to the whole program, not to each tool call: a running tool call is never
+        cut short, but once the budget is used up the program stops before its next step and the
+        model gets a ``ProgramBudgetExceeded`` error. Time spent waiting for approvals and hooks
+        does not count. It must be greater than 0 and at most 4 hours (14400 seconds).
+
+        ``event_log_directory`` keeps an audit log of each Session, its subagents included: every
+        committed event is appended as one JSON line to ``<event_log_directory>/<session id>/events.jsonl``,
+        and the file stays after the process stops. Without it, no file is written.
+        ``journal_factory`` is experimental: a minor release may change it, and passing it warns
+        ``ExperimentalWarning`` once per process. It returns the journal of each Session from its id.
+        Without it, Sessions are kept in memory, so they end with the process. With
+        ``experimental.JsonFileSessionJournal.in_directory(path)``, each root Session is saved on
+        disk, and ``get_session(session_id)`` or ``session(session_id)`` in a later process reopens
+        it with the same Agent. Only one process at a time can write a saved Session: the process
+        that holds it open keeps a file lock until context exit, and another process gets
+        ``SessionInUseError``. The lock needs POSIX; subagent Sessions are not reopened.
+        """
+        if journal_factory is not None:
+            # The body runs in the block's __aenter__, which the caller's async with line awaits.
+            warn_experimental("journal_factory=", stacklevel=3)
+        runtime = local._AgentsSdkLocalRuntime(
+            completion_provider=self._bundle.completion_provider,
+            program_policy=local._program_policy(program_timeout_seconds),
+            event_log_directory=event_log_directory,
+            journal_factory=journal_factory,
+        )
+        async with self._bind_local_runtime(runtime) as bound:
+            yield bound
+
+    @asynccontextmanager
+    async def _bind_local_runtime(self, runtime: local._AgentsSdkLocalRuntime) -> AsyncIterator[Agent]:
+        if self._bundle.remote_deployment is not None or self._bundle.local_runtime is not None:
+            await runtime.close()
+            raise SdkError("local_runtime requires an unbound local Agent")
+        bound = self.model_copy()
+        bound._bundle.local_runtime = runtime
+        try:
+            yield bound
+        finally:
+            await runtime.close()
+
+    def override(self, *, model: testing.ScriptedModel) -> Self:
+        """Return a copy of this Agent that sends its model calls to ``model``. This Agent is unchanged."""
+        if self._bundle.remote_deployment is not None:
+            raise SdkError("Agent.override works only on a local Agent, not on a deployment handle")
+        if self._bundle.local_runtime is not None:
+            raise SdkError("Call Agent.override before local_runtime(), then call local_runtime() on the copy")
+        overridden = self.model_copy()
+        overridden._bundle.completion_provider = model
+        return overridden
+
+    def _require_real_model(self) -> None:
+        if self._bundle.completion_provider is not None:
+            raise UnsupportedAgentFeatureError(
+                "testing.ScriptedModel",
+                "it answers model calls only in the test process. agents serve, agents deploy and "
+                "to_workflow() need a real model. Use override() in tests only.",
+            )
+
+    @deprecated(
+        "Agent.get_session() is deprecated; use agent.session(session_id), which returns an agents.Session "
+        "handle, then session_protocol.attach(session) from mistralai.agents.experimental for the raw client.",
+        category=DeprecationWarning,
+    )
+    @public_errors
+    async def get_session(
+        self,
+        session_id: str,
+        *,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+    ) -> harness_session.SessionClient:
+        """Attach by Session ID to a local Session that is still known in this process.
+
+        Deprecated: use ``agent.session(session_id)``. This method still works as before and
+        returns the raw Session client, but warns, and so does the client's ``run_turn``.
+
+        That is a Session of an Agent with subagents, one of its children, or a Session started
+        in the bound `async with agent.local_runtime()`. A Session that an earlier process saved
+        through that runtime's ``journal_factory`` is reopened from its journal. It keeps the
+        configuration it was created with, including the ``create_session`` options such as
+        ``permission_mode``; this Agent must have the same tools, hooks, MCP servers, connectors
+        and sandbox. Bind a handle to a deployment-backed Session with
+        `Agent.load_from(agent_name=...).session(session_id)`.
+
+        ``client_tools`` and ``on_client_tool`` answer the Session's client tools, as in ``create_session``.
+        """
+        if self._bundle.remote_deployment is not None:
+            raise SdkError(
+                "Agent.get_session attaches only to local Sessions; "
+                "bind a handle to a deployment-backed Session with "
+                "Agent.load_from(agent_name=...).session(session_id)"
+            )
+        runtime = self._bundle.local_runtime
+        if runtime is None:
+            if self._to_agent_config().effective_subagent_policy() is None:
+                raise SdkError(
+                    "Agent.get_session attaches only to the Sessions of an Agent with subagents; "
+                    "a local Session of an Agent without subagents ends when its client closes"
+                )
+            runtime = local._process_runtime()
+        return _deprecated_run_turn(
+            await runtime.get_session(
+                session_id,
+                client_tools=client_tools_registry.build_client_tool_registry(
+                    client_tools, on_client_tool, tool_errors=self.tool_errors
+                ),
+                reassemble=lambda: self._reassemble_local_root(runtime, session_id),
+            )
+        )
+
+    @public_errors
+    async def start_session(
+        self,
+        *,
+        history: Sequence[harness_session.HistoryImportEntry] | None = None,
+        session_inputs: Mapping[str, contracts.SessionInput] | None = None,
+        agent: SessionAgentCustomization | Mapping[str, object] | None = None,
+        idempotency_key: IdempotencyKey | None = None,
+        on_approval: approvals.ApprovalHandler | None = None,
+    ) -> handles.Session:
+        """Start a session and return its handle.
+
+        A local session runs in this process until its event loop shuts down, and its handle binds
+        again only inside that event loop. A deployment-backed session runs on the control plane,
+        and its handle binds again from any process.
+
+        ``history`` seeds the conversation with existing entries. Only a local session takes it: a
+        deployment-backed start cannot import history yet.
+
+        ``session_inputs`` supplies the session inputs keyed by each value's ``input_id``. They are
+        fixed for the session's lifetime and delivered only to the tools, hooks and sandbox hooks
+        that declare them with ``agents.Depends()``.
+
+        ``agent`` customizes this Agent for this session only: ``additional_instructions`` append
+        to its instructions, and ``model`` and ``reasoning_effort`` override its completion
+        defaults. A deployment keeps its saved Agent unchanged. Permissions are not customized per
+        session: set ``permission_mode=`` or ``permission_policy=`` on the Agent.
+
+        ``idempotency_key`` (1 to 256 characters) makes the start safe to retry: a second call with
+        the same key and the same options returns the same session, even once it is running a turn or
+        has ended. The same key with other ``session_inputs`` or ``agent``, or from an Agent with other
+        settings such as ``permission_mode``, raises ``SessionIdempotencyConflictError``; another
+        ``history`` is not checked, and returns the first session. Generate it once per request,
+        for example as a UUID, and reuse it only on that request's retries.
+
+        ``on_approval`` answers approvals while a call waits on the handle (see ``Session``). It
+        stays in this process: it is not part of the start, so the same ``idempotency_key`` takes
+        another handler.
+
+        The handle keeps this Agent's ``response_format``: ``session.run()``, ``turn.get()`` and
+        ``turn.result()`` parse a ``Completed`` output with it when given none.
+        """
+        session, _turn_id = await self._start_session(
+            history=history,
+            session_inputs=session_inputs,
+            agent=agent,
+            idempotency_key=idempotency_key,
+            on_approval=on_approval,
+        )
+        return session
+
+    async def _start_session(
+        self,
+        *,
+        history: Sequence[harness_session.HistoryImportEntry] | None = None,
+        session_inputs: Mapping[str, contracts.SessionInput] | None = None,
+        agent: SessionAgentCustomization | Mapping[str, object] | None = None,
+        idempotency_key: str | None = None,
+        on_approval: approvals.ApprovalHandler | None = None,
+        response_format: type[BaseModel] | None = None,
+        initial_turn: harness_session.InitialTurn | None = None,
+    ) -> tuple[handles.Session, str | None]:
+        # start_session, plus what ``run`` needs: a local session's response_format override, and
+        # ``initial_turn`` started in the same request. Returns the session and the ID of its initial
+        # turn when the start names it. A deployed Agent fixes its completion config, so a deployed
+        # start ignores the override: ``run`` parses the reply.
+        key = handles.checked_idempotency_key(idempotency_key)
+        customization = SessionAgentCustomization.model_validate(agent) if agent is not None else None
+        deployment = self._bundle.remote_deployment
+        if deployment is not None:
+            if history:
+                raise remote_transport.RemoteSessionProcedureUnsupportedError(
+                    method="Agent.start_session(history=...)",
+                    backend="vibe_agents",
+                    reason="the current Vibe Agents start contract cannot import canonical history",
+                )
+            session_id, turn_id = await remote_transport._start_remote_run(
+                deployment,
+                idempotency_key=key,
+                session_protocol=SessionProtocol.SESSION_V1,
+                agent=customization,
+                session_inputs=session_input_assembly.serialize_session_inputs(session_inputs) or None,
+                initial_turn=initial_turn,
+            )
+            session = handles.remote_session(
+                deployment,
+                session_id,
+                on_approval=self._with_tools(on_approval),
+                response_format=self.response_format,
+                tools=approval_requests.tools_by_id(self._tool_objects()),
+            )
+            return session, turn_id
+        runtime = self._bundle.local_runtime or local._process_runtime()
+        agent_config = self._to_agent_config(response_format=response_format)
+        history_entries = _HISTORY_ENTRIES.validate_python(list(history or ()))
+
+        async def start() -> tuple[str, str | None]:
+            session_id = str(uuid4())
+            assembly = self._local_root_assembly(
+                runtime,
+                session_id,
+                agent_config,
+                permission_mode=self.permission_mode,
+                customization=customization,
+            )
+            turn_id = await runtime.start_kept_session(
+                assembly,
+                session_id=session_id,
+                history=history_entries,
+                session_inputs=session_inputs,
+                completion_provider=self._bundle.completion_provider,
+                initial_turn=initial_turn,
+            )
+            return session_id, turn_id
+
+        if key is None:
+            session_id, turn_id = await start()
+        else:
+            fingerprint = self._start_fingerprint(agent_config, session_inputs, customization, initial_turn)
+            # A repeated key returns the first start's session and initial turn: the fingerprint
+            # holds the initial turn, so it is this call's too.
+            session_id, turn_id = await runtime.start_once(key, start, fingerprint=fingerprint)
+        return self.session(session_id, on_approval=on_approval), turn_id
+
+    def _start_fingerprint(
+        self,
+        agent_config: harness_session.AgentConfig,
+        session_inputs: Mapping[str, contracts.SessionInput] | None,
+        customization: SessionAgentCustomization | None,
+        initial_turn: harness_session.InitialTurn | None = None,
+    ) -> str:
+        """A digest of what a local start asks for: two starts under one key must ask for the same.
+
+        The history is not in it: the client is trusted with it, as the Agent Controller does. The
+        initial turn is, as the Agent Controller's: a run retried with another prompt is a conflict.
+        """
+        customized = customization.model_dump(mode="json", exclude_none=True) if customization is not None else {}
+        fields: dict[str, object] = {
+            "agent": agent_config.model_dump(mode="json"),
+            "permission_mode": self.permission_mode,
+            "tools": sorted(tool.name for tool in self._bundle.harness.tools) if self._bundle.harness else [],
+            "session_inputs": session_input_assembly.serialize_session_inputs(session_inputs),
+            "customization": customized,
+        }
+        if initial_turn is not None:
+            # Only a start with an initial turn has it, so a start_session key keeps its digest.
+            fields["initial_turn"] = initial_turn.model_dump(mode="json", exclude_none=True)
+        request = json.dumps(fields, sort_keys=True, separators=(",", ":"))
+        # The runtime keeps the fingerprint as long as the key: a fixed-size digest, not the request.
+        return hashlib.sha256(request.encode()).hexdigest()
+
+    @asynccontextmanager
+    async def _answering_client_tools(
+        self, session_id: str, client_tools: client_tools_registry.ClientToolRegistry
+    ) -> AsyncIterator[harness_session.SessionClient | None]:
+        """Answer the client tools of a started session from this process until context exit.
+
+        Yields the client that answers them, or ``None`` without client tools.
+        """
+
+        if not client_tools:
+            yield None
+            return
+        deployment = self._bundle.remote_deployment
+        if deployment is not None:
+            client = await remote_transport._get_remote_session(deployment, session_id, client_tools=client_tools)
+        else:
+            runtime = self._bundle.local_runtime or local._process_runtime()
+            client = await runtime.get_session(session_id, client_tools=client_tools)
+        async with client:
+            yield client
+
+    def session(self, session_id: str, *, on_approval: approvals.ApprovalHandler | None = None) -> handles.Session:
+        """Return the handle of a session of this Agent's host by its ID. Sends no request.
+
+        An ID the host does not know binds too: the first request through the handle fails. The
+        handle keeps this Agent's ``response_format``, as ``start_session()``'s does.
+        ``on_approval`` answers approvals while a call waits on the handle (see ``Session``).
+
+        In an ``async with agents.local_runtime(journal_factory=...)`` block, a local session that
+        an earlier process saved there reopens on the handle's first request, and keeps running in
+        this process until the block exits. It must be a session of this Agent: one with other
+        tools, hooks, MCP servers, connectors or sandbox raises ``SessionConfigMismatchError``,
+        and one that another process holds open raises ``SessionInUseError``.
+        """
+        return self._session(session_id, on_approval=on_approval)
+
+    def _session(
+        self,
+        session_id: str,
+        *,
+        on_approval: approvals.ApprovalHandler | None,
+        client_tools: client_tools_registry.ClientToolRegistry = client_tools_registry.NO_CLIENT_TOOLS,
+    ) -> handles.Session:
+        """``session(session_id)``, whose waits do not return on the calls ``client_tools`` answers:
+        a client attached in this process answers them."""
+        handler = self._with_tools(on_approval)
+        tools = approval_requests.tools_by_id(self._tool_objects())
+        if self._bundle.remote_deployment is not None:
+            return handles.remote_session(
+                self._bundle.remote_deployment,
+                session_id,
+                on_approval=handler,
+                response_format=self.response_format,
+                tools=tools,
+                client_tools=client_tools,
+            )
+        return handles.local_session(
+            self._bundle.local_runtime,
+            session_id,
+            on_approval=handler,
+            response_format=self.response_format,
+            tools=tools,
+            client_tools=client_tools,
+            reassemble=self._reassemble_local_root,
+            completion_provider=self._bundle.completion_provider,
+        )
+
+    def _with_tools(self, handler: approvals.ApprovalHandler | None) -> approvals.ApprovalHandler | None:
+        """``handler``, whose requests carry the tool objects of this Agent and of its subagents,
+        at any depth."""
+        return approvals.with_tools(handler, self._tool_objects())
+
+    def _tool_objects(self) -> list[approval_requests._Tool]:
+        """The tool objects of this Agent and of its subagents, at any depth."""
+        tools = [*(self._bundle.harness.tools if self._bundle.harness is not None else ())]
+        pending = list(self.subagents)
+        while pending:
+            subagent = pending.pop()
+            tools.extend(subagent.tools or ())
+            pending.extend(subagent.subagents or ())
+        return [tool_authoring.author_tool(tool) for tool in tools]
+
+    def _reassemble_local_root(self, runtime: local._AgentsSdkLocalRuntime, session_id: str) -> assemble.AgentAssembly:
+        # A saved Session keeps the configuration it was saved with; this builds the resources
+        # that this process supplies again, which must match the saved ones.
+        return self._local_root_assembly(
+            runtime, session_id, self._to_agent_config(), permission_mode=self.permission_mode
+        )
+
+    def _local_root_assembly(
+        self,
+        runtime: local._AgentsSdkLocalRuntime,
+        session_id: str,
+        agent_config: harness_session.AgentConfig,
+        *,
+        permission_mode: authoring_types.PermissionMode,
+        customization: SessionAgentCustomization | None = None,
+    ) -> assemble.AgentAssembly:
+        # Children are rebuilt from the durable definition, so their worker callables must be
+        # resolvable through the runtime's resolver under this Session's provider ID.
+        return assemble.assemble_agent(
+            agent_config,
+            self._resolve_harness(None),
+            permission_mode=permission_mode,
+            subagents=self.subagents,
+            session_id=session_id,
+            capability_provider_id=session_id,
+            capability_resolver=runtime.capability_resolver,
+            customization=customization,
+            tool_errors=self.tool_errors,
+        )
+
+    def to_workflow(
+        self,
+        name: str | None = None,
+        *,
+        type: WorkflowType = "session",
+    ) -> type:
+        # Promote this agent to one durable Vibe Agents Session Workflow. Public type="chat" remains
+        # unsupported in this migration. Retained Nuage workers call their private assembly path
+        # directly. The builders are imported lazily to avoid an agent<->app import cycle.
+        # The Workflow calls the Agents API with the worker's own credential, so its Sessions can run
+        # the subagents their start input allows.
+        from mistralai.vibe_agents.sdk.app.worker.control_plane import (  # noqa: PLC0415
+            WorkflowSessionControlPlaneBinding,
+        )
+        from mistralai.vibe_agents.sdk.assembly.workflow import build_workflow  # noqa: PLC0415
+
+        return build_workflow(
+            self,
+            name=name,
+            harness=None,
+            type=type,
+            session_control_plane=WorkflowSessionControlPlaneBinding.from_worker_credential(),
+        )
+
+    async def run_worker(
+        self,
+        *,
+        workflow_name: str | None = None,
+        deployment_name: str | None = None,
+    ) -> None:
+        """Run this agent as a durable worker until cancelled, without registering it.
+
+        Something else must route sessions to the worker: `agents deploy`, `agents serve`, or the
+        platform that runs it. The worker polls the task queue named by `deployment_name`, else by
+        DEPLOYMENT_NAME, else the queue the control plane registered for the agent's name.
+
+        The workflow takes the agent name unless `workflow_name` is given, for a platform that
+        dispatches sessions to another workflow name.
+        """
+        from mistralai.vibe_agents.sdk.app.worker import runner  # noqa: PLC0415
+
+        await runner.run_worker(self, workflow_name=workflow_name, deployment_name=deployment_name)
+
+    def _resolve_harness(self, harness: contracts.Harness | None) -> contracts.Harness:
+        # Resolution order: a per-call session harness= wins, then the agent's constructor harness,
+        # else the default.
+        if harness is not None:
+            return harness
+        if self._bundle.harness is not None:
+            return self._bundle.harness
+        return _default_harness()
+
+    def _resolve_nuage_harness(self, harness: object | None) -> object:
+        from mistralai.workflows.plugins.nuage_v2.sdk._internal import harness as sdk_harness  # noqa: PLC0415
+
+        if harness is None and self._bundle.harness is not None:
+            harness = self._bundle.harness
+        if harness is None:
+            return sdk_harness.Harness()
+        if isinstance(harness, sdk_harness.Harness):
+            return harness
+        raise SdkError("the retained Nuage session accepts only its legacy Harness authoring")
+
+    def _open_session(
+        self,
+        *,
+        harness: sdk_harness.Harness | None = None,
+        state: dict[str, object] | None = None,
+        sandbox_union: environment_base.Sandbox | None = None,
+        github: github_models.GitHubParams | None = None,
+        control_plane: bool = False,
+        platform_requested_skills: Sequence[RequestedSkillInput] = (),
+        requested_skill_source: skill_state_manager_models.RequestedSkillInputSource | None = None,
+        control_plane_identity: workflow_models.WorkflowIdentity | None = None,
+        inherited_skill_states: sdk_session.InheritedSkillStates | None = None,
+    ) -> sdk_session.Session:
+        # Retained Nuage-only factory: build its legacy Session or resume it from a continue-as-new
+        # snapshot. Public start_session()/run() use the Harness Session Protocol instead.
+        from mistralai.workflows.plugins.nuage_v2.sdk._internal import session as sdk_session  # noqa: PLC0415
+
+        _require_unsandboxed_workflow()
+        if self.builtins != authoring_types.Builtins():
+            raise SdkError("the retained Nuage session cannot turn off builtins")
+        if self.response_format is not None:
+            raise SdkError("the retained Nuage session does not support response_format")
+        if state is not None:
+            resumed = _resume_from_state(state)
+            resolved, history = resumed.harness, resumed.history
+            platform_requested_skills = [*resumed.platform_requested_skills, *platform_requested_skills]
+        else:
+            resolved = self._resolve_nuage_harness(harness)
+            history = None
+        session = sdk_session.Session._create_for_agent(
+            self,
+            harness=resolved,
+            github=github,
+            control_plane=control_plane,
+            platform_requested_skills=platform_requested_skills,
+            requested_skill_source=requested_skill_source,
+            control_plane_identity=control_plane_identity,
+            inherited_skill_states=inherited_skill_states,
+            history=history,
+            # This session takes 0 for "not set".
+            auto_compact_threshold=self.auto_compact_threshold or 0,
+            sandbox_union=sandbox_union,
+        )
+        remote = self._bundle.remote_deployment
+        session._deployment_id = (
+            str(remote.agent_deployment_id or remote.agent_deployment_name) if remote is not None else None
+        )
+        return session
+
+    @classmethod
+    def load_from(
+        cls,
+        *,
+        agent_name: str | None = None,
+        agent_id: str | None = None,
+        server_url: str | None = None,
+        api_key: str | None = None,
+        client: Client | None = None,
+    ) -> Agent:
+        """Build a lazy handle to an agent of the control plane, by its name or its ID.
+
+        Pass exactly one of ``agent_name`` or ``agent_id``. The control plane finds the worker that
+        serves the agent. To continue a session, bind a handle to it with ``.session(session_id)``.
+
+
+        The agent and its sessions send their requests through ``client``. ``server_url`` and
+        ``api_key`` are those of ``agents.Client``, which they build without a shared connection
+        pool: each session then opens its own, which closes with the session and serves the event
+        loop that opened it. Pass either ``client`` or them, not both.
+        """
+        if (agent_name is None) == (agent_id is None):
+            raise SdkError("Pass exactly one of agent_name or agent_id")
+        try:
+            parsed_agent_id = UUID(agent_id) if agent_id is not None else None
+        except ValueError as error:
+            raise SdkError("agent_id must be a UUID") from error
+        control_plane = _control_plane_client(client, server_url=server_url, api_key=api_key)
+        # A handle only addresses an agent the control plane already serves, so it may name a builtin.
+        with allow_reserved_agent_name():
+            agent = cls(model=_DEFAULT_MODEL, name=agent_name or DEFAULT_AGENT_NAME)
+        agent._bundle.remote_deployment = control_plane._agent_deployment(
+            agent_deployment_id=parsed_agent_id, agent_deployment_name=agent_name
+        )
+        return agent
+
+    @deprecated(
+        "Agent.create_session() is deprecated; use Agent.start_session(), which takes the same history=, "
+        "session_inputs= and agent= options and returns an agents.Session handle.",
+        category=DeprecationWarning,
+    )
+    @public_errors
+    async def create_session(
+        self,
+        *,
+        permission_mode: authoring_types.PermissionMode | None = None,
+        history: list[harness_session.HistoryImportEntry] | None = None,
+        response_format: type[BaseModel] | None = None,
+        agent: SessionAgentCustomization | dict[str, str] | None = None,
+        session_inputs: Mapping[str, contracts.SessionInput] | None = None,
+        idempotency_key: IdempotencyKey | None = None,
+        initial_turn: harness_session.InitialTurn | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+    ) -> harness_session.SessionClient:
+        """Create an attached local or deployment-backed Harness Session.
+
+        Deprecated: use ``Agent.start_session``. This method still works as before and returns the
+        raw Session client, but warns, and so does the client's ``run_turn``. ``permission_mode``
+        overrides the Agent's permission mode for a local Session and is deprecated too: set
+        ``permission_mode=`` or ``permission_policy=`` on the Agent.
+
+        A deployment-backed Session speaks the Session v1 stream, which serves history entries,
+        turns, session status and callbacks. ``notice`` and ``error`` are not served on it.
+
+        ``agent`` customizes the saved Agent for this Session only, leaving the deployment unchanged:
+        ``additional_instructions`` append to the base instructions, and ``model`` and
+        ``reasoning_effort`` override the saved completion defaults. A custom completion provider rejects
+        the ``model`` and ``reasoning_effort`` overrides; configure that provider directly instead.
+
+        ``session_inputs`` supplies the Session inputs keyed by each value's ``input_id``;
+        they are fixed for the Session's lifetime and delivered only to the tools, hooks and
+        sandbox hooks that declare them with ``agents.Depends()``.
+
+        ``idempotency_key`` (1 to 256 characters) makes a deployment-backed start safe to retry:
+        a retry by the same caller with the same key returns the original Session, and a different
+        request with the same key raises ``SessionIdempotencyConflictError``. Use a UUID (or a similar
+        random value) generated once per request and reused on each retry.
+        A retry that reaches a Session already in a turn waits for that turn to end; one that
+        reaches an ended Session fails. An in-process Session lives only in this process, so the
+        key has no effect there.
+
+        ``initial_turn`` starts the Session with that message as its first Turn, which the client
+        state holds once this returns. A deployment-backed Session needs Session v1. A control plane
+        or an Agent that predates ``initial_turn`` starts the Session idle, with no Turn.
+
+        ``client_tools`` answers the Agent's client tools for every Turn run with ``run_turn``: each
+        function bound with ``@<tool>.answer`` answers its own tool. ``on_client_tool`` answers every
+        other client tool call, its subagents' included: it takes an ``agents.ClientToolCall`` and
+        returns the result the model reads, synchronously or not. If it raises, the model gets a
+        failed tool call. When both are given, a tool's own answer in ``client_tools`` wins: the
+        handler never sees that tool's calls.
+        """
+        if permission_mode is not None:
+            warnings.warn(
+                "Agent.create_session(permission_mode=...) is deprecated: a Session cannot override the "
+                "Agent's permissions. Set permission_mode= or permission_policy= on the Agent instead.",
+                DeprecationWarning,
+                # The caller's line: past this method and its ``public_errors`` wrapper.
+                stacklevel=3,
+            )
+        client = await self._create_session(
+            permission_mode=permission_mode,
+            history=history,
+            response_format=response_format,
+            agent=agent,
+            session_inputs=session_inputs,
+            idempotency_key=idempotency_key,
+            initial_turn=initial_turn,
+            client_tools=client_tools,
+            on_client_tool=on_client_tool,
+        )
+        return _deprecated_run_turn(client)
+
+    async def _create_session(
+        self,
+        *,
+        permission_mode: authoring_types.PermissionMode | None = None,
+        history: list[harness_session.HistoryImportEntry] | None = None,
+        response_format: type[BaseModel] | None = None,
+        agent: SessionAgentCustomization | dict[str, str] | None = None,
+        session_inputs: Mapping[str, contracts.SessionInput] | None = None,
+        idempotency_key: IdempotencyKey | None = None,
+        initial_turn: harness_session.InitialTurn | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+        by_id: bool = False,
+    ) -> harness_session.SessionClient:
+        # create_session without its deprecation warnings, for the SDK's own callers. With by_id, a
+        # local session runs in a runtime, so that a handle reaches it by its id.
+        if self.permission_policy is not None and permission_mode not in (None, "auto"):
+            raise SdkError("permission_mode cannot override an Agent custom permission policy")
+        client_tool_registry = client_tools_registry.build_client_tool_registry(
+            client_tools, on_client_tool, tool_errors=self.tool_errors
+        )
+        selected_permission_mode = permission_mode if permission_mode is not None else self.permission_mode
+        if selected_permission_mode not in ("auto", "ask", "deny"):
+            raise SdkError(f"invalid permission_mode {selected_permission_mode!r}; expected 'auto', 'ask', or 'deny'")
+        # Checked in both run modes, so a key that a deployment would refuse also fails in-process.
+        handles.checked_idempotency_key(idempotency_key)
+        customization = SessionAgentCustomization.model_validate(agent) if agent is not None else None
+        if self._bundle.remote_deployment is not None:
+            if permission_mode is not None:
+                raise remote_transport.RemoteSessionProcedureUnsupportedError(
+                    method="Agent.create_session(permission_mode=...)",
+                    backend="vibe_agents",
+                    reason=(
+                        "a deployment-backed Session uses the permission mode pinned in its "
+                        "deployed Agent configuration"
+                    ),
+                )
+            if response_format is not None:
+                raise remote_transport.RemoteSessionProcedureUnsupportedError(
+                    method="Agent.create_session(response_format=...)",
+                    backend="vibe_agents",
+                    reason="a deployment-backed Session uses the completion config pinned in its deployed Agent",
+                )
+            serialized_inputs = session_input_assembly.serialize_session_inputs(session_inputs) or None
+            if customization is None:
+                return await remote_transport._create_remote_session(
+                    self._bundle.remote_deployment,
+                    history=history,
+                    idempotency_key=idempotency_key,
+                    session_protocol=SessionProtocol.SESSION_V1,
+                    session_inputs=serialized_inputs,
+                    initial_turn=initial_turn,
+                    client_tools=client_tool_registry,
+                )
+            return await remote_transport._create_remote_session(
+                self._bundle.remote_deployment,
+                history=history,
+                idempotency_key=idempotency_key,
+                session_protocol=SessionProtocol.SESSION_V1,
+                agent=customization,
+                session_inputs=serialized_inputs,
+                initial_turn=initial_turn,
+                client_tools=client_tool_registry,
+            )
+        session_id = str(uuid4())
+        agent_config = self._to_agent_config(response_format=response_format)
+        local_runtime = self._bundle.local_runtime
+        if local_runtime is None and (by_id or agent_config.effective_subagent_policy() is not None):
+            # Children are Sessions of their own, so only a local runtime can host them. Without a
+            # bound one, the tree runs in the event loop's runtime and outlives this client.
+            local_runtime = local._process_runtime()
+        if local_runtime is not None:
+            bound_assembly = self._local_root_assembly(
+                local_runtime,
+                session_id,
+                agent_config,
+                permission_mode=selected_permission_mode,
+                customization=customization,
+            )
+            return await local_runtime.create_session(
+                bound_assembly,
+                history=history,
+                session_id=session_id,
+                session_inputs=session_inputs,
+                completion_provider=self._bundle.completion_provider,
+                initial_turn=initial_turn,
+                client_tools=client_tool_registry,
+            )
+        assembly = assemble.assemble_agent(
+            agent_config,
+            self._resolve_harness(None),
+            permission_mode=selected_permission_mode,
+            subagents=self.subagents,
+            session_id=session_id,
+            customization=customization,
+            tool_errors=self.tool_errors,
+        )
+        return await local._create_local_session(
+            assembly,
+            history=history,
+            session_id=session_id,
+            session_inputs=session_inputs,
+            completion_provider=self._bundle.completion_provider,
+            initial_turn=initial_turn,
+            client_tools=client_tool_registry,
+        )
+
+    @classmethod
+    @deprecated(
+        "Agent.load_session() is deprecated; use Agent.load_from(agent_name=...).session(session_id), which "
+        "returns an agents.Session handle, then session_protocol.attach(session) from "
+        "mistralai.agents.experimental for the raw client.",
+        category=DeprecationWarning,
+    )
+    @public_errors
+    async def load_session(
+        cls,
+        session_id: str,
+        *,
+        server_url: str | None = None,
+        api_key: str | None = None,
+        client: Client | None = None,
+        client_tools: Sequence[ClientToolAnswer[..., Any]] = (),
+        on_client_tool: client_tools_registry.ClientToolHandler | None = None,
+    ) -> harness_session.SessionClient:
+        """Reattach to a durable session by its ID alone, without the agent's code or name.
+
+        Deprecated: use ``Agent.load_from(agent_name=...).session(session_id)``. This method still
+        works as before and returns the raw Session client, but warns, and so does the client's
+        ``run_turn``.
+
+        ``client_tools`` and ``on_client_tool`` answer the Session's client tools, as in ``create_session``.
+
+        ``client``, ``server_url`` and ``api_key`` are those of ``Agent.load_from``.
+        """
+        control_plane = _control_plane_client(client, server_url=server_url, api_key=api_key)
+        return _deprecated_run_turn(
+            await remote_transport._get_remote_session(
+                control_plane._agent_deployment(),
+                session_id,
+                # No agent here: its client tools take the default tool_errors.
+                client_tools=client_tools_registry.build_client_tool_registry(client_tools, on_client_tool),
+            )
+        )
+
+    def _redaction(self) -> tuple[OperationDataTransformer, ...] | None:
+        """The policies a worker applies to this Agent's telemetry, or ``None`` for the worker's default."""
+
+        return self._bundle.redaction
+
+
+class _DeprecatedRunTurnClient(client_tools_registry.ClientToolSessionClient):
+    """The raw Session client of the deprecated Agent methods: its ``run_turn`` warns.
+
+    ``agent.run`` and ``agents chat`` keep the plain client, so they do not warn.
+    """
+
+    @deprecated(
+        "SessionClient.run_turn() is deprecated; use agents.Session: session.run() runs a turn and "
+        "turn.iter_events() gives its events.",
+        category=DeprecationWarning,
+    )
+    def run_turn(
+        self,
+        message: list[harness_session.ContentBlock],
+        *,
+        message_entry_id: HistoryEntryId | None = None,
+        idempotency_key: str | None = None,
+        context_messages: list[harness_session.ContextMessage] | None = None,
+    ) -> AsyncGenerator[harness_session.ClientEvent]:
+        return super().run_turn(
+            message,
+            message_entry_id=message_entry_id,
+            idempotency_key=idempotency_key,
+            context_messages=context_messages,
+        )
+
+
+def _deprecated_run_turn(client: harness_session.SessionClient) -> harness_session.SessionClient:
+    # The client is built deep in the transports, which also serve the SDK's own callers; its class
+    # is swapped here instead. It adds no state, so the swap keeps the client as it is.
+    if type(client) is client_tools_registry.ClientToolSessionClient:
+        client.__class__ = _DeprecatedRunTurnClient
+    return client
+
+
+def _control_plane_client(client: Client | None, *, server_url: str | None, api_key: str | None) -> Client:
+    """The ``agents.Client`` of ``load_from`` and ``load_session``: ``client``, else one without a pool
+    built from ``server_url`` and ``api_key``."""
+    from mistralai.vibe_agents.sdk.client.api_client import Client  # noqa: PLC0415
+
+    if client is None:
+        return Client._per_call(api_key=api_key, server_url=server_url)
+    if not isinstance(client, Client):
+        raise SdkError(f"client must be an agents.Client or None, got {type(client).__name__}")
+    if server_url is not None or api_key is not None:
+        raise SdkError("Pass client= or server_url= and api_key=, not both: the client has its own")
+    return client
+
+
+def _require_unsandboxed_workflow(error_type: type[Exception] = SdkError) -> None:
+    # Fail fast instead of hanging. An agent does legit non-deterministic work (env reads, asyncio tasks)
+    # in the workflow thread; under Temporal's determinism sandbox that work wedges silently before the
+    # agent loop, so a worker workflow that forgot enforce_determinism=False just times out with no
+    # signal. Local runs and activities return False here, so this only fires on a misconfigured worker.
+    if temporalio.workflow.unsafe.in_sandbox():
+        raise error_type(
+            "The Agents SDK is running inside Temporal's determinism sandbox, which blocks the agent "
+            "runtime and will hang. Define the workflow with enforce_determinism=False, e.g. "
+            "@workflows.workflow.define(name=..., enforce_determinism=False). See the worker docs."
+        )
+
+
+def _default_harness() -> contracts.Harness:
+    return contracts.Harness()
+
+
+def _resume_from_state(state: dict[str, object]) -> _LegacyResumedState:
+    from mistralai.workflows.plugins.nuage_v2.sdk._internal import session as sdk_session  # noqa: PLC0415
+
+    return cast(_LegacyResumedState, sdk_session.Session.from_state_parts(state))
+
+
+async def _first_turn_id(session: handles.Session) -> str | None:
+    async with session._connect() as raw:
+        page = (
+            await raw.request(
+                "app_server/session/turns/list",
+                harness_session.SessionTurnsListParams(
+                    session_id=session.id, page=harness_session.PageRequest(direction="forward", limit=1)
+                ),
+                harness_session.SessionTurnsListResponse,
+            )
+        ).page
+    return page.items[0].id if page.items else None
+
+
+@contextmanager
+def _host_wait_budget(client: harness_session.SessionClient | None, timeout: float | None) -> Iterator[WaitBudget]:
+    """``timeout`` as the time a run waits for the host: the time ``client`` answers client tools does not count."""
+    budget = WaitBudget(timeout)
+    stop = (
+        client.watch_answering(budget.pause)
+        if isinstance(client, client_tools_registry.ClientToolSessionClient)
+        else None
+    )
+    try:
+        yield budget
+    finally:
+        if stop is not None:
+            stop()
+
+
+async def _raising_from_client_tools[T](client: harness_session.SessionClient | None, waiting: Awaitable[T]) -> T:
+    """Await ``waiting``, unless a client tool answer raises first with tool_errors="raise"."""
+
+    if client is None:
+        return await waiting
+    return await client_tools_registry.raise_from_client_tools(client, waiting)
+
+
+async def _with_running_answers_sent(
+    client: harness_session.SessionClient | None,
+    reader: handles.Session,
+    state: TurnState[Any] | Busy,
+    response_format: type[BaseModel] | None,
+    on_event: EventHandler | None,
+    client_tools: client_tools_registry.ClientToolRegistry,
+) -> TurnState[Any] | Busy:
+    """Return the turn's record once the client tool answers running now are sent.
+
+    Leaving the run stops answering: an answer still running would be lost, and its call would wait
+    for the host's callback timeout. Once answers were sent, the record is read again: the one from
+    the deadline can still show their calls as open. ``reader`` has no approval handler: the run's
+    handler already had its chance at the approvals that record lists.
+    """
+    try:
+        # Also when the turn ended: a subagent's answer can still run.
+        sent = await client_tools_registry.finish_answers(client)
+        if not sent or not isinstance(state, Running | Blocked):
+            return state
+        turn = reader.turn(state.turn_id)
+        if on_event is None:
+            return await turn._get(response_format)
+    except (asyncio.CancelledError, KeyboardInterrupt) as error:
+        # As a cancel of the wait on the turn: ``turn._result`` below adds its own.
+        if isinstance(state, Running | Blocked):
+            error.add_note(handles.left_wait_note(state.session_id, state.turn_id))
+        raise
+    # From the record's position, so ``on_event`` gets the events the answers caused, none twice.
+    latest = await turn._result(after=state, timeout=0, on_event=on_event, start=None, client_tools=client_tools)
+    return latest if response_format is None else typed(latest, response_format)
+
+
+async def _run_initial_turn(
+    session: handles.Session,
+    turn_id: str | None,
+    content: UserContentLike,
+    response_format: type[BaseModel] | None,
+    idempotency_key: str | None,
+    timeout: WaitBudget,
+    on_event: EventHandler | None,
+    client_tools: client_tools_registry.ClientToolRegistry,
+) -> TurnState[Any] | Busy:
+    """Wait for the session's initial turn, or start the turn when the session started without one.
+
+    A call of ``client_tools``, which the caller answers meanwhile, is not a reason to return ``Blocked``.
+    """
+    if turn_id is not None:
+        state = await session.turn(turn_id)._result(
+            after=None, timeout=timeout, on_event=on_event, start=None, client_tools=client_tools
+        )
+        return state if response_format is None else typed(state, response_format)
+    # FIXME: delete once MAIS 2026.11 is released and the control plane's minimum Agents SDK version
+    # runs initial_turn. A control plane or an Agent that predates it starts the session idle.
+    return await session._run(
+        content,
+        response_format=response_format,
+        idempotency_key=idempotency_key,
+        timeout=timeout,
+        on_event=on_event,
+        client_tools=client_tools,
+    )

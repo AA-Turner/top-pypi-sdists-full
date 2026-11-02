@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from ..models import SpanBatch, SpanCreate
 from ..sdk.run.context import context as unit_context
+from probe.sdk.routes import WriteOp, path_for
 
 if TYPE_CHECKING:
     from ..sdk.run.run import Run
@@ -968,7 +969,7 @@ def expand_trajectory(
         batch = SpanBatch(spans=spans[start : start + _SPAN_POST_CHUNK])
         run._client.write(
             "POST",
-            f"/v1/runs/{run.id}/spans",
+            path_for(WriteOp.SPANS, run.id),
             batch.model_dump(mode="json"),
             strict=strict,
         )

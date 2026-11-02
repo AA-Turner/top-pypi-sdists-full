@@ -1,0 +1,1344 @@
+"""Base class for CARLA scenarios."""
+
+from __future__ import annotations
+
+import logging
+from abc import ABC, abstractmethod
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Union,
+)
+
+if TYPE_CHECKING:
+    from .entity.ego import EgoVehicle
+
+import typesafe_carla.carla as carla
+
+from .actions import BaseAction, RoutingAction
+from .actions.environment import follow_tire_friction
+from .conditions.base import BaseCondition, find_actor_by_role_name
+from .constants import DEFAULT_TM_PORT, EGO_ROLE_NAME
+from .coverage.items import CoverItem, CrossItem, SamplingEvent
+from .coordinate import (
+    CarlaWorldPose,
+    GroundProjectionConfig,
+    Lanelet2Pose,
+    OpenDrivePose,
+    snap_to_carla_road,
+    to_opendrive,
+)
+from .entity._spawn import SpawnLocation, SpawnTransform
+from .entity.pedestrian_entity import PedestrianEntity
+from .entity.registry import register_entity as _register_entity
+from .entity.registry import register_pedestrian_entity as _register_pedestrian_entity
+from .entity.registry import register_vehicle_entity as _register_vehicle_entity
+from .entity.vehicle_entity import VehicleEntity, VehicleEntityConfig
+from .failure import FailureCategory
+from .measures import BUILT_IN_MEASURES, Measure, check_measure_key
+from .traffic.base import TrafficBackend, WalkedEntity
+from .traffic.driven import BackendDriven
+
+logger = logging.getLogger(__name__)
+
+
+class EgoConfig(VehicleEntityConfig):
+    """Configuration for the ego vehicle.
+
+    Inherits all fields from :class:`VehicleEntityConfig` (``vehicle_type``,
+    ``initial_speed_kmh``, etc.).  The ``role_name`` is automatically set to
+    :data:`~autoware_carla_scenario.constants.EGO_ROLE_NAME`.
+
+    Both ends of the ego's run live here: *spawn_location* is where it starts
+    and *goal_pose* is where it is being sent.  Every scenario needs a goal --
+    an ego that plans its own route will not move without one, and one that is
+    driven for it still had a destination the run was aiming at -- but the
+    config is not always where it comes from: a scenario may derive it in
+    ``setup()`` from what it knows.  ``None`` therefore means "not named yet",
+    and :meth:`BaseScenario.register_route_to_goal` is where an ego that still
+    has none is refused.
+    """
+
+    #: Lanelet2 pose the ego is routed to, or ``None`` until something names it.
+    goal_pose: Optional[Lanelet2Pose]
+
+    #: Lanelet2 poses the route must pass through, in order.  Empty leaves the
+    #: way to the goal to whatever plans the route, which is right when any way
+    #: there will do and wrong when the run *is* a particular drive.
+    waypoint_poses: List[Lanelet2Pose]
+
+    def __init__(
+        self,
+        spawn_location: SpawnLocation,
+        vehicle_type: str = "vehicle.mini.cooper",
+        initial_speed_kmh: float = 0.0,
+        spawn_retry_max_count: int = 0,
+        spawn_retry_t_step: float = 0.1,
+        spawn_retry_z_step: float = 0.5,
+        *,
+        goal_pose: Optional[Lanelet2Pose] = None,
+        waypoint_poses: Optional[Sequence[Lanelet2Pose]] = None,
+    ) -> None:
+        super().__init__(
+            role_name=str(EGO_ROLE_NAME),
+            spawn_location=spawn_location,
+            vehicle_type=vehicle_type,
+            initial_speed_kmh=initial_speed_kmh,
+            spawn_retry_max_count=spawn_retry_max_count,
+            spawn_retry_t_step=spawn_retry_t_step,
+            spawn_retry_z_step=spawn_retry_z_step,
+        )
+        self.goal_pose = goal_pose
+        # Not `list(waypoint_poses or ())`, which has no one type in Codon.
+        poses: List[Lanelet2Pose] = []
+        if waypoint_poses:
+            poses = list(waypoint_poses)
+        self.waypoint_poses = poses
+
+
+class _Registrations:
+    """A copy of what a scenario had registered when its first run started.
+
+    That is what its ``__init__`` registered, which every run starts from
+    (:meth:`BaseScenario._reset_registrations`).  The scenario copies each
+    list on the way in and on the way out, so a run that appends to the
+    scenario's lists leaves this one as it was.  Filled field by field rather
+    than through a constructor: Codon cannot express a parameter of a list of
+    callables (docs/typecheck.md), only an attribute declared as one.
+    """
+
+    entities: List[VehicleEntity]
+    init_callbacks: List[Callable[[carla.World], None]]
+    init_actions: List[BaseAction]
+    pre_tick_callbacks: List[Callable[[carla.World], None]]
+    post_tick_callbacks: List[Callable[[carla.World], None]]
+    follows_tire_friction: bool
+    pre_tick_actions: List[BaseAction]
+    post_tick_actions: List[BaseAction]
+    pass_conditions: List[BaseCondition]
+    fail_conditions: List[BaseCondition]
+    fail_categories: List[Optional[FailureCategory]]
+    cover_items: List[CoverItem]
+    cross_items: List[CrossItem]
+    measures: dict[str, Measure]
+
+    def __init__(self) -> None:
+        # Empty, to be filled; an explicit __init__, or Codon makes one that
+        # takes every field.
+        self.entities = []
+        self.init_callbacks = []
+        self.init_actions = []
+        self.pre_tick_callbacks = []
+        self.post_tick_callbacks = []
+        self.follows_tire_friction = False
+        self.pre_tick_actions = []
+        self.post_tick_actions = []
+        self.pass_conditions = []
+        self.fail_conditions = []
+        self.fail_categories = []
+        self.cover_items = []
+        self.cross_items = []
+        self.measures = {}
+
+
+class BaseScenario(ABC):
+    """Abstract base class for CARLA test scenarios.
+
+    Subclasses must implement :meth:`setup` and :meth:`is_done`.
+    The ego vehicle is mandatory and must be provided via *ego_config*.
+    """
+
+    #: Default random seed for deterministic simulation.
+    #: Override per-instance via ``random_seed`` keyword argument.
+    DEFAULT_RANDOM_SEED: int = 0
+
+    #: Number of warm-up ticks after spawn to stabilise physics and
+    #: TrafficManager before the main tick loop begins.
+    STABILIZE_TICKS: int = 5
+
+    # Declared for the static check (docs/typecheck.md): Codon types an
+    # attribute from its declaration; to Python each is a bare annotation.
+    ego_config: EgoConfig
+    ego_type: type[EgoVehicle]
+    ego_entity: Optional[EgoVehicle]
+    _spawn_pose: Optional[Lanelet2Pose]
+    _ground_projection: GroundProjectionConfig
+    random_seed: int
+    _client: Optional[carla.Client]
+    _tm_port: int
+    _traffic_backend: Optional[TrafficBackend]
+    _entities: List[VehicleEntity]
+    _init_callbacks: List[Callable[[carla.World], None]]
+    _init_actions: List[BaseAction]
+    _pre_tick_callbacks: List[Callable[[carla.World], None]]
+    _post_tick_callbacks: List[Callable[[carla.World], None]]
+    _follows_tire_friction: bool
+    _pre_tick_actions: List[BaseAction]
+    _post_tick_actions: List[BaseAction]
+    _pass_conditions: List[BaseCondition]
+    _fail_conditions: List[BaseCondition]
+    #: The category each fail condition was registered with, by index.
+    _fail_categories: List[Optional[FailureCategory]]
+    _cover_items: List[CoverItem]
+    _cross_items: List[CrossItem]
+    _measures: dict[str, Measure]
+    _initial_registrations: Optional[_Registrations]
+
+    def __init__(
+        self,
+        ego_config: EgoConfig,
+        *,
+        spawn_pose: Lanelet2Pose | None = None,
+        ground_projection: GroundProjectionConfig | None = None,
+        # DEFAULT_RANDOM_SEED's value: Codon cannot name a class attribute in
+        # a default, which Python evaluates once, when the class is created.
+        random_seed: int = 0,
+        ego_type: type[EgoVehicle] | None = None,
+        ego_entity: EgoVehicle | None = None,
+    ) -> None:
+        """Initialize the scenario with an ego vehicle configuration.
+
+        Args:
+            ego_config: Configuration for the ego vehicle: where it spawns and
+                where it is going.  A scenario that derives the goal itself may
+                be given a config without one and assign :attr:`goal_pose` in
+                :meth:`setup`; one that ends setup with no goal at all is
+                refused (see :meth:`register_route_to_goal`).
+            spawn_pose: Optional Lanelet2 pose for the ego spawn point.
+                When provided, :meth:`_setup_ego_spawn` can convert it to a
+                CARLA-snapped spawn location.
+            ground_projection: Ground-projection settings used when snapping
+                poses to the CARLA road surface.  Defaults to
+                :class:`GroundProjectionConfig` with default values.
+            random_seed: The run's seed (:mod:`~autoware_carla_scenario.seed`):
+                the traffic backend's (CARLA's TrafficManager random device,
+                SUMO's ``--seed``), CARLA's pedestrian navigation, and that of
+                every action and condition :meth:`setup` builds with no seed
+                of its own.  A fixed seed makes the run's random draws the
+                same every run.  Defaults to :attr:`DEFAULT_RANDOM_SEED`
+                (``0``); ``scenario`` sets it from the config's ``seed``.
+            ego_type: :class:`EgoVehicle` subclass to instantiate for the ego
+                actor.  Pass
+                :class:`~autoware_carla_scenario.entity.externally_driven.ExternallyDrivenEgo`
+                to disable TrafficManager autopilot on the ego vehicle.  ``None`` (default) uses
+                :class:`EgoVehicle`.
+            ego_entity: Pre-built ego entity to use instead of instantiating
+                *ego_type*.  Required for entities that need constructor
+                arguments, such as
+                :class:`~autoware_carla_scenario.entity.carla_driver_entity.CarlaDriverEntity`
+                and its driver configuration.  Takes precedence over *ego_type*.
+        """
+        from .entity.ego import EgoVehicle as _EgoVehicle  # noqa: PLC0415
+
+        self.ego_config = ego_config
+        if not TYPE_CHECKING:
+            # Codon cannot hold a class as a value (docs/typecheck.md): the
+            # check compiles the rest of the constructor, with no `ego_type`.
+            self.ego_type = ego_type or _EgoVehicle
+        self.ego_entity = ego_entity
+        self._spawn_pose = spawn_pose
+        self._ground_projection = ground_projection or GroundProjectionConfig()
+        self.random_seed = random_seed
+        self._client = None
+        self._tm_port = DEFAULT_TM_PORT
+        self._traffic_backend = None
+        self._entities = []
+        self._init_callbacks = []
+        self._init_actions = []
+        self._pre_tick_callbacks = []
+        self._post_tick_callbacks = []
+        self._follows_tire_friction = False
+        self._pre_tick_actions = []
+        self._post_tick_actions = []
+        self._pass_conditions = []
+        self._fail_conditions = []
+        self._fail_categories = []
+        self._cover_items = []
+        self._cross_items = []
+        self._measures = dict(BUILT_IN_MEASURES)
+        # Taken when the first run starts, after a subclass's __init__ has
+        # registered what it registers there (_reset_registrations).
+        self._initial_registrations = None
+
+    # ------------------------------------------------------------------
+    # Ego construction
+    # ------------------------------------------------------------------
+
+    @property
+    def goal_pose(self) -> Optional[Lanelet2Pose]:
+        """Where the ego is being sent, as held by :attr:`ego_config`.
+
+        The goal belongs to the ego, not to the scenario, so this reads and
+        writes :attr:`EgoConfig.goal_pose`.  Assigning ``scenario.goal_pose``
+        stays the way a scenario names its destination after construction --
+        that is how the CLI runner passes ``ego.goal_lanelet_id`` in, and how a
+        scenario that derives the goal in :meth:`setup` sets it.
+        """
+        return self.ego_config.goal_pose
+
+    @goal_pose.setter
+    def goal_pose(self, pose: Optional[Lanelet2Pose]) -> None:
+        self.ego_config.goal_pose = pose
+
+    @property
+    def waypoint_poses(self) -> List[Lanelet2Pose]:
+        """Lanelet2 poses the ego's route must pass through, in order.
+
+        Stored on the ego config, like the goal, so a scenario may name them in
+        ``setup()`` from what it knows -- see :meth:`derive_waypoints_from_route`.
+        """
+        return self.ego_config.waypoint_poses
+
+    @waypoint_poses.setter
+    def waypoint_poses(self, poses: Sequence[Lanelet2Pose]) -> None:
+        self.ego_config.waypoint_poses = list(poses)
+
+    def create_ego(self) -> "EgoVehicle":
+        """Return the ego entity :class:`ScenarioRunner` should spawn.
+
+        Returns :attr:`ego_entity` when one was supplied, otherwise a fresh instance of
+        :attr:`ego_type`.  Assigning ``scenario.ego_entity`` after construction is the
+        supported way to swap in a configured entity without changing the scenario
+        builder signature.
+        """
+        if self.ego_entity is not None:
+            return self.ego_entity
+        return self.ego_type()
+
+    # ------------------------------------------------------------------
+    # Client injection
+    # ------------------------------------------------------------------
+
+    def set_client(
+        self, client: "carla.Client", tm_port: int = DEFAULT_TM_PORT
+    ) -> None:
+        """Inject the CARLA client used by this scenario.
+
+        Called by :class:`ScenarioRunner` before :meth:`setup`.
+
+        Args:
+            client: The CARLA client instance.
+            tm_port: CARLA TrafficManager port.
+        """
+        self._client = client
+        self._tm_port = tm_port
+
+    def set_traffic_backend(self, backend: TrafficBackend) -> None:
+        """Inject what drives this run's traffic.
+
+        Called by :class:`ScenarioRunner` before :meth:`setup`, because
+        :meth:`setup` is where a scenario spawns its NPCs and pedestrians, and
+        :meth:`register_entity` and :meth:`register_pedestrian` pass the
+        backend on to each of them.
+
+        Args:
+            backend: The run's traffic backend.
+        """
+        self._traffic_backend = backend
+        for action in self.registered_actions():
+            self._hand_backend_to(action)
+
+    @property
+    def traffic_backend(self) -> Optional[TrafficBackend]:
+        """Return the injected traffic backend, or ``None`` outside a run."""
+        return self._traffic_backend
+
+    @property
+    def client(self) -> "carla.Client":
+        """Return the injected CARLA client.
+
+        Raises:
+            RuntimeError: If :meth:`set_client` has not been called yet.
+        """
+        if self._client is None:
+            raise RuntimeError(
+                "CARLA client not set. "
+                "Call set_client() before accessing the client property."
+            )
+        return self._client
+
+    @property
+    def tm_port(self) -> int:
+        """Return the CARLA TrafficManager port."""
+        return self._tm_port
+
+    @property
+    def world(self) -> "carla.World":
+        """Return the current CARLA world from the injected client.
+
+        Raises:
+            RuntimeError: If :meth:`set_client` has not been called yet.
+        """
+        return self.client.get_world()
+
+    # ------------------------------------------------------------------
+    # Abstract interface – must be implemented by subclasses
+    # ------------------------------------------------------------------
+
+    def _setup_ego_spawn(self) -> OpenDrivePose:
+        """Place the Lanelet2 spawn pose in CARLA and update ego_config.
+
+        Snaps :attr:`_spawn_pose` onto the road surface as the Lanelet2 pose it
+        is -- x and y from the centreline of the lanelet it names, height from
+        the world below -- updates :attr:`ego_config` with the resulting spawn
+        location, and registers spectator-follow and position-logging
+        callbacks.  The equivalent :class:`OpenDrivePose` is derived alongside
+        for its lane metadata, and returned.
+
+        The snapped pose is also the one an ego that plans its own route
+        localizes at, so this hands it to :meth:`register_route_to_goal` on the
+        way out, which registers the hand-over as an init action.
+
+        Returns:
+            The intermediate :class:`OpenDrivePose` (useful for deriving
+            target lane IDs, route conditions, etc.).
+
+        Raises:
+            ValueError: If :attr:`_spawn_pose` is ``None``, or if the ego
+                entity needs a goal and :attr:`goal_pose` is ``None``.
+        """
+        if self._spawn_pose is None:
+            msg = f"spawn_pose is required for {type(self).__name__}"
+            raise ValueError(msg)
+        ll2_pose: Lanelet2Pose = self._spawn_pose
+        world = self.world
+        # Placed as the Lanelet2 pose it was written as, on the centreline of
+        # the lanelet the author named.
+        snapped = snap_to_carla_road(
+            ll2_pose, world, ground_projection=self._ground_projection
+        )
+        # The OpenDRIVE pose is still derived, because callers need its lane
+        # metadata -- the lane-change target lane, the road id a route condition
+        # watches.  It is read off where the ego actually is, not converted
+        # from the Lanelet2 pose: on a map where the two disagree that
+        # conversion can name the lane on the other side of the reference line,
+        # while EntityLanePositionCondition reads the lane off the actor's CARLA
+        # position -- a target derived from the converted lane could never match.
+        od_pose = to_opendrive(snapped)
+
+        logger.info(
+            "Lanelet %d -> OpenDRIVE road='%s' lane=%d s=%.1f -> "
+            "CARLA (%.1f, %.1f, %.3f) yaw=%.1f",
+            ll2_pose.lanelet_id,
+            od_pose.road_id,
+            od_pose.lane_id,
+            od_pose.s,
+            snapped.x,
+            snapped.y,
+            snapped.z,
+            snapped.yaw,
+        )
+
+        self.ego_config.spawn_location = SpawnTransform(snapped.to_carla_transform())
+        self.ego_config.od_pose = od_pose
+        self.ego_config.ground_projection = self._ground_projection
+
+        ego_actor = lambda: find_actor_by_role_name(world, EGO_ROLE_NAME)  # noqa: E731
+        self.follow_with_spectator(ego_actor)
+        self.log_actor_position(ego_actor, label="ego")
+
+        self.register_route_to_goal(snapped)
+
+        return od_pose
+
+    @property
+    def ego_requires_goal(self) -> bool:
+        """Whether this scenario's ego cannot start without a goal.
+
+        The entity's own rule
+        (:attr:`~autoware_carla_scenario.entity.ego.EgoVehicle.requires_goal`),
+        read off the instance the scenario was given -- which can say so of
+        itself, as a driver-policy ego given a bridge does -- or, when it will be
+        built from :attr:`ego_type`, off that class.
+        """
+        entity = self.ego_entity
+        # Two returns rather than one conditional expression over the class,
+        # for the static check (docs/typecheck.md): Codon cannot hold a class
+        # as a value.  Read off the instance, ``requires_goal`` is the class's
+        # unless the entity set its own (a driver-policy ego given a bridge).
+        if entity is not None:
+            return entity.requires_goal
+        return self.ego_type.requires_goal
+
+    def require_goal(self) -> Optional[Lanelet2Pose]:
+        """Return :attr:`goal_pose`, refusing an ego that cannot start without one.
+
+        The one statement of the rule, for the two places that ask:
+        :meth:`register_route_to_goal`, which cannot route without an answer,
+        and :class:`ScenarioRunner` once :meth:`setup` returns -- so a scenario
+        that snaps its own spawn rather than calling :meth:`_setup_ego_spawn` is
+        held to it too.
+
+        An ego that is driven for it needs no goal, and ``None`` is the honest
+        answer for a scenario that names none: the run is a drive with no
+        destination stated, which is what a TrafficManager or driver-policy ego
+        does anyway.
+
+        Raises:
+            ValueError: If :attr:`goal_pose` is ``None`` and the ego is one that
+                plans its own route.
+        """
+        if self.goal_pose is None and self.ego_requires_goal:
+            msg = (
+                f"{type(self).__name__} has no goal, and its ego plans its own "
+                "route: it will not move without one. Set 'ego.goal_lanelet_id' "
+                "(and optionally 'ego.goal_s') in the scenario config, pass an "
+                "EgoConfig carrying a goal_pose, or assign self.goal_pose in "
+                "setup() -- deriving it from what the scenario knows is a "
+                "supported way to have one, see derive_goal_from_route()."
+            )
+            raise ValueError(msg)
+        return self.goal_pose
+
+    def derive_goal_from_route(self, route_lanelet_ids: Sequence[int]) -> None:
+        """Send the ego to the end of the route the scenario asserts.
+
+        A scenario that declares the lanelets its ego must visit has already
+        said where the run is meant to end, and should not have to say it twice
+        in the config as well: the last of them becomes the goal.  A goal that
+        reached the scenario another way -- ``ego.goal_lanelet_id``, or an
+        :class:`EgoConfig` built with one -- wins, and an empty route leaves the
+        goal unset, which only an ego that plans its own route is refused for.
+
+        Call it from :meth:`setup` before :meth:`_setup_ego_spawn`, which is
+        where the goal is handed to an ego that plans its own route.
+        """
+        if self.goal_pose is not None or not route_lanelet_ids:
+            return
+        self.goal_pose = Lanelet2Pose(lanelet_id=route_lanelet_ids[-1], s=0.0)
+
+    def derive_waypoints_from_route(self, route_lanelet_ids: Sequence[int]) -> None:
+        """Make the route the scenario asserts the route Autoware is asked for.
+
+        A goal alone is planned for by the shortest way there, which is a
+        different drive from the one a scenario that lists its lanelets meant.
+        The listed lanelets become the waypoints, so the route follows them
+        instead of merely being checked against them afterwards.
+
+        The route's last lanelet is dropped only when it is where the run ends.
+        That is the usual case -- :meth:`derive_goal_from_route` makes it the
+        goal, and a route with no goal yet implies the same -- and listing the
+        goal as a waypoint too would be redundant.  But that method deliberately
+        keeps a goal the config named somewhere else, and then the route's last
+        lanelet is an ordinary stretch of the way there: dropping it would let
+        Autoware reach the configured goal without ever driving it, which is the
+        shortcut this exists to prevent.
+
+        Waypoints already named elsewhere win, and an empty route leaves them
+        empty -- a run with no particular way there is a legitimate run.
+
+        Call it from :meth:`setup` before :meth:`_setup_ego_spawn`, which is
+        where the mission is handed to an ego that plans its own route.  Call it
+        after :meth:`derive_goal_from_route`, so the goal it compares against is
+        the one the run will use.
+        """
+        if self.waypoint_poses or not route_lanelet_ids:
+            return
+        goal = self.goal_pose
+        ends_at_the_goal = goal is None or goal.lanelet_id == route_lanelet_ids[-1]
+        via = route_lanelet_ids[:-1] if ends_at_the_goal else route_lanelet_ids
+        self.waypoint_poses = [
+            Lanelet2Pose(lanelet_id=lanelet_id, s=0.0) for lanelet_id in via
+        ]
+
+    def register_route_to_goal(
+        self, initial_pose: Optional[CarlaWorldPose] = None
+    ) -> None:
+        """Register the :class:`RoutingAction` that routes an ego to :attr:`goal_pose`.
+
+        For an
+        :class:`~autoware_carla_scenario.entity.autoware_entity.AutowareEgoEntity`
+        the goal is what makes the ego move at all -- Autoware localizes at an
+        initial pose, plans a route to it, and only then engages -- and such an
+        ego without one is refused.  For an ego that is driven for it, by the
+        TrafficManager or a driver policy, a goal is what the run was aiming at
+        when the scenario says so and nothing when it does not: the action is a
+        no-op either way, so it is registered only when there is one.
+
+        Neither pose can be passed to the entity's constructor, because the
+        runner builds the ego *before* :meth:`setup` and both are snapped onto
+        the live CARLA road surface -- so the scenario registers the hand-over
+        as an init action here, and :meth:`run_init` performs it before the
+        runner waits on the ego.
+
+        Args:
+            initial_pose: The snapped CARLA world pose the ego is expected to
+                start at.  ``None`` leaves it to the entity, which reads the
+                attached actor.
+
+        Raises:
+            ValueError: If the ego plans its own route and :attr:`goal_pose` is
+                ``None`` -- see :meth:`require_goal`.  Asked here rather than at
+                the start of the run because setup is the last moment a scenario
+                can name a destination the config did not.
+        """
+        goal = self.require_goal()
+        if goal is None:
+            # An ego that is driven for it, and a scenario that named no
+            # destination: there is no mission to hand over.
+            return
+
+        action = RoutingAction(
+            EGO_ROLE_NAME,
+            goal,
+            initial_pose=initial_pose,
+            ground_projection=self._ground_projection,
+            waypoints=self.waypoint_poses,
+            label="route_ego_to_goal",
+        )
+        if TYPE_CHECKING:
+            # register_init() takes a Union and dispatches on isinstance, and
+            # Codon compiles both branches (docs/typecheck.md): the check does
+            # for this action what register_init() does for one.
+            self._init_actions.append(action)
+            self._hand_backend_to(action)
+        else:
+            self.register_init(action)
+
+    @abstractmethod
+    def setup(self) -> None:
+        """Set up the scenario actors and environment.
+
+        The CARLA world is available via :attr:`world` (which calls
+        ``self.client.get_world()``).  :meth:`set_client` is guaranteed
+        to have been called before this method.
+        """
+        ...
+
+    @abstractmethod
+    def is_done(self) -> bool:
+        """Return True when the scenario should stop ticking.
+
+        This is separate from pass/fail conditions and can be used to
+        signal completion for scenarios that have a natural end point.
+        """
+        ...
+
+    # ------------------------------------------------------------------
+    # Callback registration helpers
+    # ------------------------------------------------------------------
+
+    def _register_tick(
+        self,
+        cb: Union[BaseAction, Callable[["carla.World"], None]],
+        actions: List[BaseAction],
+        callbacks: List[Callable[["carla.World"], None]],
+    ) -> None:
+        """Dispatch *cb* into the appropriate list.
+
+        :class:`BaseAction` instances go into *actions* so the tick loop can
+        pass *elapsed*.  Plain callables go into *callbacks*.
+        """
+        if isinstance(cb, BaseAction):
+            actions.append(cb)
+            self._hand_backend_to(cb)
+            self._follow_tire_friction_of(cb)
+        else:
+            callbacks.append(cb)
+
+    def _follow_tire_friction_of(self, action: BaseAction) -> None:
+        """Give the vehicles spawned later the grip *action* sets, if it sets one.
+
+        An :class:`~autoware_carla_scenario.EnvironmentAction` on a wet road
+        scales the wheels of the vehicles there when it fires; background
+        traffic spawns afterwards, so the first such action registered also
+        registers :func:`~autoware_carla_scenario.actions.environment.follow_tire_friction`
+        after every tick.
+        """
+        if not self._follows_tire_friction and action.sets_tire_friction:
+            self._follows_tire_friction = True
+            self._post_tick_callbacks.append(follow_tire_friction)
+
+    def _hand_backend_to(self, action: BaseAction) -> None:
+        """Give *action* the run's traffic backend, if it acts through one.
+
+        Background traffic (:class:`~autoware_carla_scenario.TrafficSourceAction`
+        and friends) is created by the backend, so an action that makes some
+        needs it the way a vehicle entity does.  Whichever of registration and
+        :meth:`set_traffic_backend` comes second hands it over.
+        """
+        # hasattr() rather than getattr() with a default, for the static check
+        # (docs/typecheck.md), which decides it when it compiles.
+        if not hasattr(action, "set_traffic_backend"):
+            return
+        inject = action.set_traffic_backend
+        if callable(inject) and self._traffic_backend is not None:
+            inject(self._traffic_backend)
+
+    def register_init(
+        self, cb: Union[BaseAction, Callable[["carla.World"], None]]
+    ) -> None:
+        """Register a callback or action to run **once, before the tick loop**.
+
+        The scenario's initialization phase: the ego actor exists and physics
+        have settled, but the clock has not started and no condition has been
+        evaluated yet.  This is where a run is set up rather than driven --
+        putting the world in the state the scenario starts from, and handing an
+        ego that plans for itself the mission it needs before the runner waits
+        on it.
+
+        This is the counterpart to :meth:`register_pre_tick` /
+        :meth:`register_post_tick` for the phase before the loop, and it takes
+        the same two shapes: a :class:`BaseAction` (whose condition is
+        evaluated once, at ``elapsed=0``) or a plain callable receiving the
+        world.  An action registered here is never re-evaluated -- the
+        initialization phase happens once.
+
+        Args:
+            cb: A :class:`BaseAction` or a plain callable receiving the world.
+                An action that needs the tick loop
+                (:attr:`~autoware_carla_scenario.actions.BaseAction.needs_tick_loop`)
+                runs there instead, from the first tick.
+        """
+        if isinstance(cb, BaseAction):
+            if cb.needs_tick_loop:
+                self._register_tick(
+                    cb, self._pre_tick_actions, self._pre_tick_callbacks
+                )
+                return
+        self._register_tick(cb, self._init_actions, self._init_callbacks)
+
+    def run_init(self, world: "carla.World") -> None:
+        """Run everything registered with :meth:`register_init`.
+
+        Called by :class:`ScenarioRunner` after the ego is spawned and the
+        warm-up ticks are done, and before the ego is asked to start.  Plain
+        callbacks run first, then actions, each in registration order.  The
+        runner ticks the world once more before it starts the ego, so the ego
+        reads a world that shows what the init phase set: a client sees an
+        actor's state (a light frozen, an actor moved) only from the next tick.
+
+        Each action is settled as soon as it has fired, before the next one
+        does, so the control domains it took are given back at once: two init
+        actions commanding the same domain of one entity (the ego's goal and an
+        init Set Goal card, two speeds handed to one NPC) both run, and the one
+        registered last is the one that stands.
+        """
+        for cb in self._init_callbacks:
+            cb(world)
+        for action in self._init_actions:
+            action.tick(world, 0.0)
+            # The phase has no ticks for an action's lifecycle to step through:
+            # one that fired is settled now -- complete, or for one that runs
+            # on, under way -- so what waits on it (the route of an entity a
+            # spawn card brought in) starts with the run rather than never.
+            # Settled here rather than after the loop, because settling is what
+            # releases its control: held until every action had fired, it made
+            # the next action on the same domain raise ControlConflictError.
+            action._settle_start(world, 0.0)
+
+    def register_pre_tick(
+        self, cb: Union[BaseAction, Callable[["carla.World"], None]]
+    ) -> None:
+        """Register a callback or action to run *before* each world tick.
+
+        Args:
+            cb: A :class:`BaseAction` or a plain callable receiving the world.
+        """
+        self._register_tick(cb, self._pre_tick_actions, self._pre_tick_callbacks)
+
+    def register_post_tick(
+        self, cb: Union[BaseAction, Callable[["carla.World"], None]]
+    ) -> None:
+        """Register a callback or action to run *after* each world tick.
+
+        Args:
+            cb: A :class:`BaseAction` or a plain callable receiving the world.
+        """
+        self._register_tick(cb, self._post_tick_actions, self._post_tick_callbacks)
+
+    def register_entity(self, entity: VehicleEntity) -> None:
+        """Register a spawned NPC vehicle entity.
+
+        Registered entities will have their initial speed applied after the
+        warm-up phase completes via :meth:`set_initial_speed`.
+
+        Args:
+            entity: A :class:`VehicleEntity` that has been spawned in
+                :meth:`setup`.
+        """
+        self._entities.append(entity)
+        # Also by role, so an action that names this entity can find it.  The
+        # list above is walked to apply initial speeds; the registry answers
+        # "who is 'npc1'?", which is what a scenario document asks.  Handed on
+        # as the vehicle it is (a typed local: the static check upcasts there);
+        # anything else (a duck-typed double) goes through register_entity,
+        # which keeps an object of neither kind as both, as it always has.
+        # Codon resolves isinstance() by the static type, so it compiles only
+        # the typed branch.
+        if isinstance(entity, VehicleEntity):
+            driven: BackendDriven = entity
+            _register_vehicle_entity(entity.role_name, driven)
+        else:
+            _register_entity(entity.role_name, entity)
+        # And whatever drives it.  One of the two, never both: the backend is
+        # what a run selected, and the client is what a scenario driven outside
+        # a run -- no runner, so no backend -- has always meant instead.
+        if self._traffic_backend is not None:
+            entity.set_traffic_backend(self._traffic_backend)
+            self._traffic_backend.adopt(entity)
+        elif self._client is not None:
+            entity.set_client(self._client, self._tm_port)
+
+    def register_pedestrian(self, entity: "PedestrianEntity") -> None:
+        """Register a spawned pedestrian so actions can name it.
+
+        A separate call from :meth:`register_entity` rather than a wider type
+        on it, because the two share only the lookup and the backend.
+        Registering a vehicle also puts it on the list whose initial speed is
+        applied after warm-up; a walker starts at rest, so that would be wrong
+        for it.  Like a vehicle, it is handed the run's traffic backend, which
+        walks it when it walks the scenario's pedestrians
+        (:meth:`~autoware_carla_scenario.traffic.base.TrafficBackend.adopt_pedestrian`,
+        :meth:`~autoware_carla_scenario.traffic.base.TrafficBackend.walk_straight`).
+
+        Args:
+            entity: A :class:`PedestrianEntity` spawned in :meth:`setup`.
+        """
+        # Typed for the static check; anything else as register_entity
+        # always kept it (see register_entity above).
+        if isinstance(entity, PedestrianEntity):
+            _register_pedestrian_entity(entity.role_name, entity)
+            backend = self._traffic_backend
+            if backend is not None:
+                entity.set_traffic_backend(backend)
+                walked: WalkedEntity = entity
+                backend.adopt_pedestrian(walked)
+        else:
+            _register_entity(entity.role_name, entity)
+
+    def registered_actions(self) -> List[BaseAction]:
+        """Every action the scenario registered: init, pre-tick and post-tick."""
+        # Concatenated rather than unpacked into a tuple, which Codon cannot.
+        return self._init_actions + self._pre_tick_actions + self._post_tick_actions
+
+    def close_conditions(self) -> None:
+        """Close every condition of the run: the pass and fail conditions and
+        the actions' triggers (:meth:`BaseCondition.close`).
+
+        The runner calls it at the run's end, while the world is still the
+        run's, so that a sensor a condition started listening is stopped and
+        destroyed through its own handle before the world is cleared.  A
+        condition whose close raises is logged, and the others are still
+        closed.
+        """
+        conditions: List[BaseCondition] = self._pass_conditions + self._fail_conditions
+        for condition in conditions:
+            try:
+                condition.close()
+            except Exception:  # noqa: BLE001 - the rest must still be closed
+                logger.warning(
+                    "Closing condition %s failed", condition.label, exc_info=True
+                )
+        for action in self.registered_actions():
+            try:
+                action.close()
+            except Exception:  # noqa: BLE001 - the rest must still be closed
+                logger.warning(
+                    "Closing the conditions of action %s failed",
+                    action.label,
+                    exc_info=True,
+                )
+
+    def register_pass_condition(self, condition: BaseCondition) -> None:
+        """Register a condition that marks the scenario as *passed*.
+
+        Args:
+            condition: Condition to add to the pass-condition list.
+        """
+        self._pass_conditions.append(condition)
+
+    def register_fail_condition(
+        self,
+        condition: BaseCondition,
+        *,
+        category: Optional[FailureCategory] = None,
+    ) -> None:
+        """Register a condition that marks the scenario as *failed*.
+
+        Args:
+            condition: Condition to add to the fail-condition list.
+            category: What a run it fails is a failure of
+                (:mod:`autoware_carla_scenario.failure`); ``None`` to let the
+                condition say (:meth:`BaseCondition.failure_category`).  Give
+                one for a combination of conditions (AND, OR, NOT), which
+                says nothing.
+        """
+        self._fail_conditions.append(condition)
+        self._fail_categories.append(category)
+
+    def fail_category(self, index: int) -> FailureCategory:
+        """The category of a run that fail condition *index* ends: the one it
+        was registered with, else what it says, else
+        :attr:`~FailureCategory.OTHER`."""
+        # The categories run beside the conditions register_fail_condition()
+        # adds; one added past it has none of its own.
+        categories = self._fail_categories
+        category = categories[index] if index < len(categories) else None
+        if category is None:
+            category = self._fail_conditions[index].failure_category()
+        return FailureCategory.OTHER if category is None else category
+
+    # ------------------------------------------------------------------
+    # Coverage
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Measures
+    # ------------------------------------------------------------------
+
+    def register_measure(
+        self,
+        key: str,
+        read: Callable[["carla.World"], Optional[float]],
+        *,
+        unit: str = "",
+        text: str = "",
+    ) -> None:
+        """Measure *key* with *read*: add a measure, or replace a built-in one.
+
+        Every scenario has the built-in measures
+        (:data:`~autoware_carla_scenario.measures.BUILT_IN_MEASURES`), which read
+        the world generically.  A scenario that knows better -- which actor is
+        its cut-in vehicle -- replaces one under the same key, so an ODD that
+        maps its taxonomy onto the key reads the better value without knowing
+        the scenario.  A key of its own names something only it sets up.
+
+        Args:
+            key: The measure's key, e.g.
+                :data:`~autoware_carla_scenario.measures.VEHICLE_AHEAD_GAP_M`.
+            read: Reads it from the world; ``None`` when there is nothing to
+                read.
+            unit: The unit it is read in -- a built-in key's own unit when
+                replacing one.
+            text: A description.
+        """
+        check_measure_key(key, "register_measure")
+        from .odd.unit_names import normalize_unit  # noqa: PLC0415
+
+        built_in = BUILT_IN_MEASURES[key] if key in BUILT_IN_MEASURES else None
+        if (
+            built_in is not None
+            and unit
+            and normalize_unit(unit) != normalize_unit(built_in.unit)
+        ):
+            raise ValueError(
+                f"register_measure({key}): the built-in measure is in "
+                f"{built_in.unit!r}, not {unit!r}"
+            )
+        version = 1
+        if built_in is not None:
+            unit = built_in.unit
+            # A replacement measures the same thing, better: the same version.
+            version = built_in.version
+        self._measures[key] = Measure(key, read, unit, text, version)
+
+    def _reset_registrations(self) -> None:
+        """Back to what the scenario had registered before its first run.
+
+        Called by :class:`ScenarioRunner` before every :meth:`setup`.  A
+        retry (``ScenarioQueue`` runs the scenario object whose attempt raised
+        again) and a re-run (``run_all()`` on the same scenarios) call
+        :meth:`setup` on the same object once more, and that attempt must see
+        only what it registers itself: not the earlier attempt's conditions
+        -- a sticky one that latched there would pass this one on its first
+        tick -- nor its actions, callbacks, entities, coverage and measures,
+        which would otherwise be there twice.
+
+        The first call remembers what the scenario holds, which is what its
+        ``__init__`` registered, and every later call restores that.  Every
+        per-run registry is reset here, so a new one is added here too.
+        Constructor arguments and the ego config are not registrations and
+        are kept.  An action or condition registered in ``__init__`` is the
+        same object on every run, so each one restored is reset
+        (:meth:`BaseCondition.reset`, :meth:`BaseAction.reset`, which reset
+        the conditions they hold): it starts the run as it was built, not
+        with what an earlier run left in it -- a latch, a timer, a collision
+        seen, a ``once`` action that fired.
+        """
+        self._restore_registrations()
+        for condition in self._pass_conditions + self._fail_conditions:
+            condition.reset()
+        # Concatenated rather than unpacked into a tuple, which Codon cannot.
+        for action in (
+            self._init_actions + self._pre_tick_actions + self._post_tick_actions
+        ):
+            action.reset()
+
+    def _restore_registrations(self) -> None:
+        """:meth:`_reset_registrations`'s registries: remembered on the first
+        call, restored on every later one."""
+        initial = self._initial_registrations
+        if initial is None:
+            taken = _Registrations()
+            taken.entities = list(self._entities)
+            taken.init_callbacks = list(self._init_callbacks)
+            taken.init_actions = list(self._init_actions)
+            taken.pre_tick_callbacks = list(self._pre_tick_callbacks)
+            taken.post_tick_callbacks = list(self._post_tick_callbacks)
+            taken.follows_tire_friction = self._follows_tire_friction
+            taken.pre_tick_actions = list(self._pre_tick_actions)
+            taken.post_tick_actions = list(self._post_tick_actions)
+            taken.pass_conditions = list(self._pass_conditions)
+            taken.fail_conditions = list(self._fail_conditions)
+            taken.fail_categories = list(self._fail_categories)
+            taken.cover_items = list(self._cover_items)
+            taken.cross_items = list(self._cross_items)
+            taken.measures = dict(self._measures)
+            self._initial_registrations = taken
+            return
+        self._entities = list(initial.entities)
+        self._init_callbacks = list(initial.init_callbacks)
+        self._init_actions = list(initial.init_actions)
+        self._pre_tick_callbacks = list(initial.pre_tick_callbacks)
+        self._post_tick_callbacks = list(initial.post_tick_callbacks)
+        self._follows_tire_friction = initial.follows_tire_friction
+        self._pre_tick_actions = list(initial.pre_tick_actions)
+        self._post_tick_actions = list(initial.post_tick_actions)
+        self._pass_conditions = list(initial.pass_conditions)
+        self._fail_conditions = list(initial.fail_conditions)
+        self._fail_categories = list(initial.fail_categories)
+        self._cover_items = list(initial.cover_items)
+        self._cross_items = list(initial.cross_items)
+        self._measures = dict(initial.measures)
+
+    def measure(self, key: str, world: "carla.World") -> Optional[float]:
+        """This scenario's measure *key* in *world*.
+
+        ``None`` when there is nothing to read, when the scenario does not
+        measure *key*, or when the measure raised.
+        """
+        found = self._measures[key] if key in self._measures else None
+        if found is None:
+            return None
+        try:
+            return found.read(world)
+        except Exception:
+            logger.debug("measure %s raised", key, exc_info=True)
+            return None
+
+    @property
+    def importance_sampling_weight(self) -> float:
+        """The run's importance-sampling weight: the product of its actions'
+        (:attr:`BaseAction.importance_sampling_weight`), ``1`` when none
+        samples what happens.  A batch of runs weighted by it estimates the
+        naturalistic rate of what it counts."""
+        weight = 1.0
+        for action in (
+            self._init_actions + self._pre_tick_actions + self._post_tick_actions
+        ):
+            weight *= action.importance_sampling_weight
+        return weight
+
+    @property
+    def outcome_weight(self) -> Optional[float]:
+        """The weight the run's coverage file records with its outcome, for
+        the merged report's naturalistic failure rate:
+        :attr:`importance_sampling_weight` when one of the run's actions
+        samples what happens importance-sampled
+        (:attr:`BaseAction.importance_sampled`), else ``None`` -- a run that
+        samples nothing is no weighted run, though its weight is 1."""
+        weight = 1.0
+        sampled = False
+        for action in (
+            self._init_actions + self._pre_tick_actions + self._post_tick_actions
+        ):
+            weight *= action.importance_sampling_weight
+            sampled = sampled or action.importance_sampled
+        if not sampled:
+            return None
+        return weight
+
+    @property
+    def measures(self) -> dict[str, Measure]:
+        """The scenario's measures, built-in and its own, by key."""
+        return dict(self._measures)
+
+    def register_cover(
+        self,
+        name: str,
+        expression: Callable[["carla.World"], Any],
+        *,
+        unit: str = "",
+        range: Optional[tuple[float, float]] = None,
+        every: Optional[float] = None,
+        buckets: Optional[Sequence[float]] = None,
+        values: Optional[Iterable[Any]] = None,
+        ignore: Optional[Callable[[Any], bool]] = None,
+        event: Union[SamplingEvent, BaseCondition] = SamplingEvent.END,
+        text: str = "",
+        target: float = 1,
+        cover_by: str = "hits",
+        min_stay: Optional[float] = None,
+    ) -> None:
+        """Declare a cover item: a value sampled during the run, in buckets.
+
+        The counterpart of ``cover()`` in OpenSCENARIO DSL.  On each *event*
+        the runner calls *expression* with the world and counts a hit in the
+        bucket the value falls in; ``scenario-coverage`` merges the hits of
+        many runs and lists the buckets none of them hit.  An expression that
+        returns ``None`` (or raises) has taken no sample.
+
+        Give exactly one of:
+
+        * *range* and *every* -- equal buckets, ``range=(10, 130), every=10``
+          making twelve;
+        * *buckets* -- explicit edges, ``N`` of them making ``N - 1`` buckets;
+        * *values* -- one bucket per value: an enum class, ``[False, True]``,
+          a list of strings.
+
+        Each numeric bucket holds its lower edge, and the last its upper edge
+        too.  A value outside every bucket is counted apart, as out of range.
+
+        Args:
+            name: The item's name, unique within the scenario.
+            expression: Reads the value from the world.
+            unit: The unit *expression* returns, for the report.  Nothing is
+                converted.
+            range: ``(low, high)`` of the buckets made with *every*.
+            every: The width of each bucket over *range*.
+            buckets: Explicit bucket edges, ascending.
+            values: The values, one bucket each.
+            ignore: Called with each sampled value; a sample it returns true
+                for is left out.
+            event: When to sample: a :class:`SamplingEvent` (``END`` by
+                default, as in the DSL; ``START``; ``TICK`` for every tick), or
+                a :class:`BaseCondition`, to sample each time it becomes
+                satisfied.  A condition is checked once per tick for this, so
+                pass one that is not also a pass or fail condition.
+            text: A description for the report.
+            target: What a bucket needs to count as covered, in *cover_by*.
+            cover_by: What *target* counts: ``"hits"`` (samples, the
+                default), or for a ``TICK`` item ``"seconds"`` spent in the
+                bucket, ``"meters"`` the ego drove in it, or ``"entries"``
+                into it.
+            min_stay: For a ``TICK`` item: stays in a bucket shorter than
+                this many seconds do not count towards *target*.
+        """
+        self._require_unused_coverage_name(name)
+        self._cover_items.append(
+            CoverItem(
+                name=name,
+                expression=expression,
+                unit=unit,
+                range=range,
+                every=every,
+                buckets=buckets,
+                values=values,
+                ignore=ignore,
+                event=event,
+                text=text,
+                target=target,
+                cover_by=cover_by,
+                min_stay=min_stay,
+            )
+        )
+
+    def register_cross(
+        self,
+        name: str,
+        items: Sequence[str],
+        *,
+        text: str = "",
+        target: float = 1,
+        cover_by: str = "hits",
+        min_stay: Optional[float] = None,
+    ) -> None:
+        """Declare cross coverage of cover items already registered.
+
+        Every combination of the items' buckets is a cell, hit when all the
+        items hit those buckets on the same sample -- ``cover(name, items:
+        [...])`` in OpenSCENARIO DSL.  The items must share their *event*.
+
+        Args:
+            name: The cross's name, unique within the scenario.
+            items: Names of cover items registered with :meth:`register_cover`.
+            text: A description for the report.
+            target: What a cell needs to count as covered, in *cover_by*.
+            cover_by: As for :meth:`register_cover`.
+            min_stay: As for :meth:`register_cover`.
+        """
+        self._require_unused_coverage_name(name)
+        by_name = {i.name: i for i in self._cover_items}
+        missing = [n for n in items if n not in by_name]
+        if missing:
+            raise ValueError(
+                f"register_cross({name!r}): no cover item named {missing}; "
+                "register the items with register_cover() first"
+            )
+        self._cross_items.append(
+            CrossItem(
+                name=name,
+                items=[by_name[n] for n in items],
+                text=text,
+                target=target,
+                cover_by=cover_by,
+                min_stay=min_stay,
+            )
+        )
+
+    def _require_unused_coverage_name(self, name: str) -> None:
+        if name.startswith("odd."):
+            raise ValueError(
+                f"coverage: {name!r}: names starting with 'odd.' are the ODD's"
+            )
+        taken = {i.name for i in self._cover_items}
+        taken |= {c.name for c in self._cross_items}
+        if name in taken:
+            raise ValueError(f"coverage: {name!r} is already registered")
+
+    # ------------------------------------------------------------------
+    # Convenience helpers for common post-tick patterns
+    # ------------------------------------------------------------------
+
+    def follow_with_spectator(
+        self,
+        actor_getter: Callable[[], Optional["carla.Actor"]],
+        *,
+        offset_back: float = 8.0,
+        offset_up: float = 5.0,
+        pitch: float = -15.0,
+    ) -> None:
+        """Register a post-tick callback that makes the spectator follow an actor.
+
+        The spectator is placed *offset_back* metres behind the actor's
+        forward vector and *offset_up* metres above it.
+
+        Args:
+            actor_getter: Callable returning the actor to follow, or ``None``
+                if the actor is not (yet) available.
+            offset_back: Distance behind the actor (metres).
+            offset_up: Height above the actor (metres).
+            pitch: Camera pitch angle (degrees, negative = look down).
+        """
+
+        def _follow(world: "carla.World") -> None:
+            actor = actor_getter()
+            if actor is None:
+                return
+            try:
+                tf = actor.get_transform()
+            except RuntimeError:
+                return
+            fwd = tf.get_forward_vector()
+            loc = carla.Location(
+                x=tf.location.x - offset_back * fwd.x,
+                y=tf.location.y - offset_back * fwd.y,
+                z=tf.location.z + offset_up,
+            )
+            rot = carla.Rotation(yaw=tf.rotation.yaw, pitch=pitch)
+            world.get_spectator().set_transform(carla.Transform(loc, rot))
+
+        self.register_post_tick(_follow)
+
+    def log_actor_position(
+        self,
+        actor_getter: Callable[[], Optional["carla.Actor"]],
+        *,
+        label: str = "actor",
+        interval_ticks: int = 20,
+    ) -> None:
+        """Register periodic position / speed logging for an actor.
+
+        Logs the actor's CARLA world position and speed every
+        *interval_ticks* simulation ticks (default ≈ 1 s at 20 Hz).
+
+        Args:
+            actor_getter: Callable returning the actor, or ``None``.
+            label: Label prefix for the log line.
+            interval_ticks: Logging interval in ticks.
+        """
+        state = {"tick": 0}
+
+        def _log(world: "carla.World") -> None:
+            state["tick"] += 1
+            if state["tick"] % interval_ticks != 0:
+                return
+            actor = actor_getter()
+            if actor is None:
+                return
+            try:
+                loc = actor.get_location()
+                vel = actor.get_velocity()
+            except RuntimeError:
+                logger.warning("[%s] actor no longer valid", label)
+                return
+            speed = (vel.x**2 + vel.y**2 + vel.z**2) ** 0.5
+            logger.info(
+                "[%s] speed=%.1f m/s | pos=(%.1f, %.1f, %.1f)",
+                label,
+                speed,
+                loc.x,
+                loc.y,
+                loc.z,
+            )
+
+        self.register_post_tick(_log)
+
+    # ------------------------------------------------------------------
+    # Initial speed (called by ScenarioRunner after warm-up)
+    # ------------------------------------------------------------------
+
+    def initial_speeds_mps(
+        self, ego_actor: Optional["carla.Actor"]
+    ) -> Dict[int, float]:
+        """The speed each vehicle starts the scenario at, by actor id, in m/s.
+
+        What :meth:`set_initial_speed` will apply: the registered entities and
+        the ego.  A vehicle not named starts still.
+        """
+        from .entity.vehicle_entity import entry_speeds  # noqa: PLC0415
+
+        speeds = {
+            entity.actor.id: entity.initial_speed_kmh / 3.6
+            for entity in self._entities
+            if entity.actor is not None and entity.initial_speed_kmh > 0.0
+        }
+        # The vehicles a spawn card brought in before the clock started.
+        speeds.update(entry_speeds())
+        if ego_actor is not None and self.ego_config.initial_speed_kmh > 0.0:
+            speeds[ego_actor.id] = self.ego_config.initial_speed_kmh / 3.6
+        return speeds
+
+    def set_initial_speed(self, ego_actor: "carla.Actor") -> None:
+        """Apply initial speed to all registered entities and the ego vehicle.
+
+        This method is called by :class:`ScenarioRunner` **after** the warm-up
+        ticks complete so that vehicles remain stationary during stabilisation.
+
+        Args:
+            ego_actor: The ego vehicle CARLA actor.
+        """
+
+        def _apply(actor: "carla.Actor", speed_kmh: float) -> None:
+            if speed_kmh <= 0.0:
+                return
+            speed_ms = speed_kmh / 3.6
+            fwd = actor.get_transform().get_forward_vector()
+            actor.set_target_velocity(
+                carla.Vector3D(x=fwd.x * speed_ms, y=fwd.y * speed_ms, z=0.0)
+            )
+
+        for entity in self._entities:
+            if entity.actor is not None:
+                _apply(entity.actor, entity.initial_speed_kmh)
+
+        if ego_actor is not None:
+            _apply(ego_actor, self.ego_config.initial_speed_kmh)
+            # The vehicles a spawn card brought in before the clock started,
+            # held still since: at the speed they entered at.
+            from .entity.vehicle_entity import entry_speeds  # noqa: PLC0415
+
+            held = entry_speeds()
+            if len(held) > 0:
+                world = ego_actor.get_world()
+                for actor_id, speed in held.items():
+                    actor = world.get_actor(actor_id)
+                    if actor is not None:
+                        _apply(actor, speed * 3.6)

@@ -15,9 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities, capture
+from probe.cli.wizard import state as capabilities
+from probe.cli.capture import capture
 from probe.shared.harness.harnesses import pi as pi_config
-from probe.cli import setup as wizard
+from probe.cli import wizard as wizard
 from probe.shared.harness.harnesses.claude_code.binary import Result
 
 MIRROR = pi_config.MIRROR_GIT_SOURCE
@@ -116,7 +117,9 @@ def test_capture_alone_installs_with_tracking_off(isolate):
 
 
 def test_installed_plugins_reports_tracking_from_the_entry(isolate, monkeypatch):
-    monkeypatch.setattr(capabilities, "tracking_plugin_name", lambda source=None: capabilities.TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(capabilities.agent_identity, "tracking_plugin_name", lambda source=None: capabilities.TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(capabilities.plugins, "tracking_plugin_name", lambda source=None: capabilities.TRACKING_PLUGIN_NAME)
+    monkeypatch.setattr(capabilities.state, "tracking_plugin_name", lambda source=None: capabilities.TRACKING_PLUGIN_NAME)
     _write_entry(isolate, MIRROR)
     assert {capabilities.TAP_PLUGIN_NAME, capabilities.TRACKING_PLUGIN_NAME} <= set(
         capabilities.installed_plugins(source="pi").names
@@ -130,8 +133,11 @@ def test_installed_plugins_reports_tracking_from_the_entry(isolate, monkeypatch)
 def test_unticking_tracking_keeps_the_entry_while_capture_runs(isolate, monkeypatch, capture_on):
     monkeypatch.setenv("PROBE_AGENT", "pi")
     _write_entry(isolate, MIRROR)
-    monkeypatch.setattr(wizard, "_settings_capture_on", lambda source: capture_on)
-    monkeypatch.setattr(wizard, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install._settings_capture_on", lambda source: capture_on)
+    monkeypatch.setattr(wizard.apply.apply, "_settings_capture_on", lambda source: capture_on)
+    monkeypatch.setattr(wizard.apply.plugins, "_settings_capture_on", lambda source: capture_on)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness._settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr(wizard.apply.apply, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
 
     messages = wizard.apply_tracking(False)
 
@@ -152,9 +158,14 @@ def test_ticking_tracking_turns_an_off_entry_back_on(isolate, monkeypatch):
 def test_turning_tracking_off_waits_for_an_extension_that_honours_it(isolate, monkeypatch):
     monkeypatch.setenv("PROBE_AGENT", "pi")
     _write_entry(isolate, MIRROR)
-    monkeypatch.setattr(wizard, "_settings_capture_on", lambda source: True)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install._settings_capture_on", lambda source: True)
+    monkeypatch.setattr(wizard.apply.apply, "_settings_capture_on", lambda source: True)
+    monkeypatch.setattr(wizard.apply.plugins, "_settings_capture_on", lambda source: True)
     monkeypatch.setattr(
-        wizard, "_settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0")
+        "probe.shared.harness.harnesses.pi.readiness._settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0")
+    )
+    monkeypatch.setattr(
+        wizard.apply.apply, "_settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0")
     )
     messages = wizard.apply_tracking(False)
     assert _entry(isolate) == MIRROR
@@ -195,8 +206,11 @@ def test_removing_both_halves_in_one_run_never_waits_on_the_version_floor(isolat
     one leaving with capture needs no extension that honours the flag."""
     monkeypatch.setenv("PROBE_AGENT", "pi")
     _write_entry(isolate, MIRROR)
-    monkeypatch.setattr(wizard, "_settings_capture_on", lambda source: True)  # the device, before this run
-    monkeypatch.setattr(wizard, "_settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0"))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install._settings_capture_on", lambda source: True)  # the device, before this run
+    monkeypatch.setattr(wizard.apply.apply, "_settings_capture_on", lambda source: True)  # the device, before this run
+    monkeypatch.setattr(wizard.apply.plugins, "_settings_capture_on", lambda source: True)  # the device, before this run
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness._settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0"))
+    monkeypatch.setattr(wizard.apply.apply, "_settings_tracking_ready", lambda: Result(ok=False, detail="pi's Probe package is 0.3.0"))
     messages = wizard.apply_tracking(False, keep_capture=False)
     assert json.loads(_settings(isolate).read_text())["packages"] == ["npm:other-thing"], messages
 
@@ -204,7 +218,8 @@ def test_removing_both_halves_in_one_run_never_waits_on_the_version_floor(isolat
 def test_tracking_off_says_capture_keeps_running(isolate, monkeypatch):
     monkeypatch.setenv("PROBE_AGENT", "pi")
     _write_entry(isolate, MIRROR)
-    monkeypatch.setattr(wizard, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness._settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr(wizard.apply.apply, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
     messages = wizard.apply_tracking(False, keep_capture=True)
     assert any("session capture keeps running" in line for line in messages), messages
     assert not any("Removed the tracking plugin" in line for line in messages)
@@ -220,7 +235,8 @@ def test_a_project_entry_that_wins_is_named(isolate, monkeypatch, want):
     project.parent.mkdir(parents=True)
     project.write_text(json.dumps({"packages": [
         {"source": MIRROR, "skills": [], "probeTracking": False} if want else MIRROR]}))
-    monkeypatch.setattr(wizard, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness._settings_tracking_ready", lambda: Result(ok=True, detail=""))
+    monkeypatch.setattr(wizard.apply.apply, "_settings_tracking_ready", lambda: Result(ok=True, detail=""))
     messages = wizard.apply_tracking(want, keep_capture=True)
     assert any(str(project) in line for line in messages), messages
     project.write_text(json.dumps({"packages": []}))
@@ -253,11 +269,21 @@ def test_the_version_floor_updates_pi_first(monkeypatch, before, after, ok, upda
 )
 def test_capture_on_needs_a_credential_and_no_killswitch(isolate, monkeypatch, sources, disabled, expected):
     monkeypatch.setattr(wizard, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr(wizard.account.account, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr(wizard.account.sign_in, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr(wizard.account.sign_out, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr(wizard.apply.authorize, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "capture_token_sources", lambda source: sources)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", lambda source: sources)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", lambda source: sources)
     tap = isolate / "pi-tap"
     tap.mkdir(exist_ok=True)
     if disabled:
         (tap / ".disabled").write_text("")
     monkeypatch.setattr(wizard, "tap_plugin_dir", lambda source: tap)
+    monkeypatch.setattr(wizard.apply.authorize, "tap_plugin_dir", lambda source: tap)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "tap_plugin_dir", lambda source: tap)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.tap_plugin_dir", lambda source: tap)
     assert wizard._settings_capture_on("pi") is expected
 
 
@@ -266,4 +292,11 @@ def test_an_unreadable_capture_state_keeps_the_package(monkeypatch):
         raise OSError("unreadable")
 
     monkeypatch.setattr(wizard, "capture_token_sources", boom)
+    monkeypatch.setattr(wizard.account.account, "capture_token_sources", boom)
+    monkeypatch.setattr(wizard.account.sign_in, "capture_token_sources", boom)
+    monkeypatch.setattr(wizard.account.sign_out, "capture_token_sources", boom)
+    monkeypatch.setattr(wizard.apply.authorize, "capture_token_sources", boom)
+    monkeypatch.setattr(wizard.apply.capture_credentials, "capture_token_sources", boom)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.package_install.capture_token_sources", boom)
+    monkeypatch.setattr("probe.shared.harness.harnesses.pi.readiness.capture_token_sources", boom)
     assert wizard._settings_capture_on("pi") is True

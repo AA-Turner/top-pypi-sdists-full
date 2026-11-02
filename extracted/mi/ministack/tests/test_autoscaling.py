@@ -1,0 +1,1680 @@
+import datetime
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+import boto3
+import pytest
+from botocore.config import Config
+from botocore.exceptions import ClientError
+
+
+def _uid(prefix="test"):
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
+def _client(region):
+    return boto3.client(
+        "autoscaling",
+        endpoint_url=os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566"),
+        region_name=region,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        config=Config(retries={"mode": "standard"}),
+    )
+
+
+# ---------------------------------------------------------------------------
+# AutoScalingGroup: Create, Describe, Update, Delete
+# ---------------------------------------------------------------------------
+
+
+def test_create_and_describe_asg(autoscaling):
+    name = _uid("asg")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=1,
+        MaxSize=5,
+        DesiredCapacity=2,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[name])
+        groups = resp["AutoScalingGroups"]
+        assert len(groups) == 1
+        g = groups[0]
+        assert g["AutoScalingGroupName"] == name
+        assert g["MinSize"] == 1
+        assert g["MaxSize"] == 5
+        assert g["DesiredCapacity"] == 2
+        assert g["AutoScalingGroupARN"].startswith("arn:aws:autoscaling:")
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_create_asg_duplicate_fails(autoscaling):
+    name = _uid("asg-dup")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        with pytest.raises(ClientError) as exc:
+            autoscaling.create_auto_scaling_group(
+                AutoScalingGroupName=name,
+                MinSize=0,
+                MaxSize=1,
+                AvailabilityZones=["us-east-1a"],
+                LaunchConfigurationName="dummy-lc",
+            )
+        assert "AlreadyExists" in str(exc.value)
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_autoscaling_groups_and_tags_are_region_scoped():
+    east = _client("us-east-1")
+    west = _client("us-west-2")
+    name = _uid("asg-region")
+
+    east.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=1,
+        MaxSize=3,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+        Tags=[{"Key": "region", "Value": "east", "PropagateAtLaunch": True}],
+    )
+    west.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=2,
+        MaxSize=4,
+        AvailabilityZones=["us-west-2a"],
+        LaunchConfigurationName="dummy-lc",
+        Tags=[{"Key": "region", "Value": "west", "PropagateAtLaunch": True}],
+    )
+    try:
+        east_group = east.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+        west_group = west.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+
+        assert east_group["MinSize"] == 1
+        assert west_group["MinSize"] == 2
+        assert ":us-east-1:" in east_group["AutoScalingGroupARN"]
+        assert ":us-west-2:" in west_group["AutoScalingGroupARN"]
+        assert east_group["Tags"][0]["Value"] == "east"
+        assert west_group["Tags"][0]["Value"] == "west"
+    finally:
+        east.delete_auto_scaling_group(AutoScalingGroupName=name)
+        west.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_restore_legacy_child_state_uses_parent_asg_region():
+    from ministack.core.responses import (
+        AccountScopedDict,
+        get_account_id,
+        get_region,
+        set_request_account_id,
+        set_request_region,
+    )
+    from ministack.services import autoscaling as service
+
+    account_id = "111111111111"
+    boot_region = "us-east-1"
+    resource_region = "us-west-2"
+    asg_name = "legacy-asg"
+    child_key = f"{asg_name}/legacy-child"
+    original_account = get_account_id()
+    original_region = get_region()
+
+    asgs = AccountScopedDict()
+    policies = AccountScopedDict()
+    hooks = AccountScopedDict()
+    scheduled_actions = AccountScopedDict()
+    tags = AccountScopedDict()
+
+    set_request_account_id(account_id)
+    set_request_region(boot_region)
+    asgs[asg_name] = {
+        "AutoScalingGroupName": asg_name,
+        "AutoScalingGroupARN": (
+            f"arn:aws:autoscaling:{resource_region}:{account_id}:"
+            f"autoScalingGroup:legacy:autoScalingGroupName/{asg_name}"
+        ),
+    }
+    policies[child_key] = {"AutoScalingGroupName": asg_name}
+    hooks[child_key] = {"AutoScalingGroupName": asg_name}
+    scheduled_actions[child_key] = {"AutoScalingGroupName": asg_name}
+    tags[asg_name] = [{"Key": "legacy", "Value": "true"}]
+
+    service.reset()
+    try:
+        service.load_persisted_state(
+            {
+                "asgs": asgs,
+                "policies": policies,
+                "hooks": hooks,
+                "scheduled_actions": scheduled_actions,
+                "tags": tags,
+            }
+        )
+        assert service._asgs.get_scoped(
+            account_id, resource_region, asg_name
+        )["AutoScalingGroupName"] == asg_name
+        for store in (
+            service._policies,
+            service._hooks,
+            service._scheduled_actions,
+        ):
+            assert (
+                store.get_scoped(account_id, resource_region, child_key) is not None
+            )
+            assert store.get_scoped(account_id, boot_region, child_key) is None
+        assert service._tags.get_scoped(account_id, resource_region, asg_name) == [
+            {"Key": "legacy", "Value": "true"}
+        ]
+        assert service._tags.get_scoped(account_id, boot_region, asg_name) is None
+    finally:
+        service.reset()
+        set_request_account_id(original_account)
+        set_request_region(original_region)
+
+
+def test_reset_clears_autoscaling_state_across_regions():
+    from ministack.core.responses import get_region, set_request_region
+    from ministack.services import autoscaling as service
+
+    original_region = get_region()
+    stores = (
+        service._asgs,
+        service._launch_configs,
+        service._policies,
+        service._hooks,
+        service._scheduled_actions,
+        service._tags,
+    )
+    service.reset()
+    try:
+        for region in ("us-east-1", "us-west-2"):
+            set_request_region(region)
+            for store in stores:
+                store[f"resource-{region}"] = {"region": region}
+
+        service.reset()
+        assert all(not store.has_any() for store in stores)
+    finally:
+        service.reset()
+        set_request_region(original_region)
+
+
+def test_describe_asgs_empty(autoscaling):
+    bogus = _uid("no-exist")
+    resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[bogus])
+    assert resp["AutoScalingGroups"] == []
+
+
+def test_describe_asgs_all(autoscaling):
+    names = [_uid("asg-all") for _ in range(3)]
+    for n in names:
+        autoscaling.create_auto_scaling_group(
+            AutoScalingGroupName=n,
+            MinSize=0,
+            MaxSize=1,
+            AvailabilityZones=["us-east-1a"],
+            LaunchConfigurationName="dummy-lc",
+        )
+    try:
+        resp = autoscaling.describe_auto_scaling_groups()
+        returned_names = [g["AutoScalingGroupName"] for g in resp["AutoScalingGroups"]]
+        for n in names:
+            assert n in returned_names
+    finally:
+        for n in names:
+            autoscaling.delete_auto_scaling_group(AutoScalingGroupName=n)
+
+
+def test_update_asg(autoscaling):
+    name = _uid("asg-upd")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=1,
+        DesiredCapacity=0,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.update_auto_scaling_group(
+            AutoScalingGroupName=name,
+            MinSize=2,
+            MaxSize=10,
+            DesiredCapacity=5,
+        )
+        resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[name])
+        g = resp["AutoScalingGroups"][0]
+        assert g["MinSize"] == 2
+        assert g["MaxSize"] == 10
+        assert g["DesiredCapacity"] == 5
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_update_nonexistent_asg_fails(autoscaling):
+    with pytest.raises(ClientError) as exc:
+        autoscaling.update_auto_scaling_group(
+            AutoScalingGroupName="nonexistent-asg",
+            MinSize=1,
+        )
+    assert "ValidationError" in str(exc.value) or "not found" in str(exc.value).lower()
+
+
+def test_delete_asg(autoscaling):
+    name = _uid("asg-del")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+    resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[name])
+    assert resp["AutoScalingGroups"] == []
+
+
+def test_delete_asg_idempotent(autoscaling):
+    """Deleting a non-existent ASG should not error."""
+    autoscaling.delete_auto_scaling_group(AutoScalingGroupName=_uid("ghost"))
+
+
+# ---------------------------------------------------------------------------
+# DescribeAutoScalingInstances
+# ---------------------------------------------------------------------------
+
+
+def test_describe_auto_scaling_instances_empty(autoscaling):
+    resp = autoscaling.describe_auto_scaling_instances()
+    assert resp["AutoScalingInstances"] == []
+
+
+# ---------------------------------------------------------------------------
+# DescribeScalingActivities
+# ---------------------------------------------------------------------------
+
+
+def test_describe_scaling_activities_empty(autoscaling):
+    resp = autoscaling.describe_scaling_activities()
+    assert resp["Activities"] == []
+
+
+def test_describe_scaling_activities_for_asg(autoscaling):
+    name = _uid("asg-act")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=1,
+        DesiredCapacity=0,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.describe_scaling_activities(AutoScalingGroupName=name)
+        assert resp["Activities"] == []
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+# ---------------------------------------------------------------------------
+# LaunchConfiguration: Create, Describe, Delete
+# ---------------------------------------------------------------------------
+
+
+def test_create_and_describe_launch_configuration(autoscaling):
+    name = _uid("lc")
+    autoscaling.create_launch_configuration(
+        LaunchConfigurationName=name,
+        ImageId="ami-12345678",
+        InstanceType="t3.micro",
+    )
+    try:
+        resp = autoscaling.describe_launch_configurations(
+            LaunchConfigurationNames=[name]
+        )
+        configs = resp["LaunchConfigurations"]
+        assert len(configs) == 1
+        lc = configs[0]
+        assert lc["LaunchConfigurationName"] == name
+        assert lc["ImageId"] == "ami-12345678"
+        assert lc["InstanceType"] == "t3.micro"
+        assert lc["LaunchConfigurationARN"].startswith("arn:aws:autoscaling:")
+    finally:
+        autoscaling.delete_launch_configuration(LaunchConfigurationName=name)
+
+
+def test_create_launch_configuration_duplicate_fails(autoscaling):
+    name = _uid("lc-dup")
+    autoscaling.create_launch_configuration(
+        LaunchConfigurationName=name,
+        ImageId="ami-00000000",
+        InstanceType="t2.micro",
+    )
+    try:
+        with pytest.raises(ClientError) as exc:
+            autoscaling.create_launch_configuration(
+                LaunchConfigurationName=name,
+                ImageId="ami-00000000",
+                InstanceType="t2.micro",
+            )
+        assert "AlreadyExists" in str(exc.value)
+    finally:
+        autoscaling.delete_launch_configuration(LaunchConfigurationName=name)
+
+
+def test_describe_launch_configurations_empty(autoscaling):
+    resp = autoscaling.describe_launch_configurations(
+        LaunchConfigurationNames=[_uid("no-lc")]
+    )
+    assert resp["LaunchConfigurations"] == []
+
+
+def test_delete_launch_configuration(autoscaling):
+    name = _uid("lc-del")
+    autoscaling.create_launch_configuration(
+        LaunchConfigurationName=name,
+        ImageId="ami-00000000",
+        InstanceType="t2.micro",
+    )
+    autoscaling.delete_launch_configuration(LaunchConfigurationName=name)
+    resp = autoscaling.describe_launch_configurations(
+        LaunchConfigurationNames=[name]
+    )
+    assert resp["LaunchConfigurations"] == []
+
+
+def test_delete_launch_configuration_idempotent(autoscaling):
+    autoscaling.delete_launch_configuration(LaunchConfigurationName=_uid("ghost-lc"))
+
+
+# ---------------------------------------------------------------------------
+# Scaling Policies: Put, Describe, Delete
+# ---------------------------------------------------------------------------
+
+
+def test_put_and_describe_scaling_policy(autoscaling):
+    asg = _uid("asg-pol")
+    pol = _uid("pol")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=10,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg,
+            PolicyName=pol,
+            PolicyType="SimpleScaling",
+            AdjustmentType="ChangeInCapacity",
+            ScalingAdjustment=2,
+            Cooldown=60,
+        )
+        assert "PolicyARN" in resp
+        assert resp["PolicyARN"].startswith("arn:aws:autoscaling:")
+
+        desc = autoscaling.describe_policies(AutoScalingGroupName=asg)
+        policies = desc["ScalingPolicies"]
+        assert len(policies) >= 1
+        found = [p for p in policies if p["PolicyName"] == pol]
+        assert len(found) == 1
+        assert found[0]["AdjustmentType"] == "ChangeInCapacity"
+        assert found[0]["ScalingAdjustment"] == 2
+    finally:
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName=pol)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_put_scaling_policy_target_tracking_and_step_read_back(autoscaling):
+    """Target-tracking and step policies read back with only their type's members."""
+    asg = _uid("asg-ttpol")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    tracking = {
+        "CustomizedMetricSpecification": {
+            "MetricName": "CPUUtilization", "Namespace": "AWS/EC2",
+            "Dimensions": [{"Name": "AutoScalingGroupName", "Value": asg}],
+            "Statistic": "Average", "Unit": "Percent",
+        },
+        "TargetValue": 50.5,
+        "DisableScaleIn": True,
+    }
+    steps = [
+        {"MetricIntervalLowerBound": 0.0, "MetricIntervalUpperBound": 10.0, "ScalingAdjustment": 10},
+        {"MetricIntervalLowerBound": 10.0, "ScalingAdjustment": 20},
+    ]
+    try:
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg, PolicyName="tt", PolicyType="TargetTrackingScaling",
+            TargetTrackingConfiguration=tracking, EstimatedInstanceWarmup=120,
+        )
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg, PolicyName="step", PolicyType="StepScaling",
+            AdjustmentType="PercentChangeInCapacity", MinAdjustmentMagnitude=1,
+            MetricAggregationType="Average", StepAdjustments=steps,
+        )
+        policies = {p["PolicyName"]: p for p in autoscaling.describe_policies(
+            AutoScalingGroupName=asg)["ScalingPolicies"]}
+        tt, step = policies["tt"], policies["step"]
+        assert tt["TargetTrackingConfiguration"] == tracking
+        assert tt["EstimatedInstanceWarmup"] == 120
+        assert tt["Enabled"] is True and tt["StepAdjustments"] == []
+        assert not {"AdjustmentType", "ScalingAdjustment", "Cooldown"} & set(tt)
+        assert step["StepAdjustments"] == steps
+        assert step["AdjustmentType"] == "PercentChangeInCapacity"
+        assert step["MinAdjustmentMagnitude"] == 1
+        assert step["MetricAggregationType"] == "Average"
+        assert not {"ScalingAdjustment", "Cooldown"} & set(step)
+    finally:
+        for name in ("tt", "step"):
+            autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName=name)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_put_scaling_policy_predictive_read_back(autoscaling):
+    """PredictiveScalingConfiguration reads back with MaxCapacityBreachBehavior defaulted."""
+    asg = _uid("asg-pred")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    config = {"Mode": "ForecastOnly", "MetricSpecifications": [{
+        "TargetValue": 40.0,
+        "PredefinedMetricPairSpecification": {"PredefinedMetricType": "ASGCPUUtilization"}}]}
+    try:
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg, PolicyName="pred", PolicyType="PredictiveScaling",
+            PredictiveScalingConfiguration=config)
+        policy = autoscaling.describe_policies(AutoScalingGroupName=asg)["ScalingPolicies"][0]
+        assert policy["PredictiveScalingConfiguration"] == {
+            **config, "MaxCapacityBreachBehavior": "HonorMaxCapacity"}
+        assert not {"AdjustmentType", "ScalingAdjustment", "Cooldown"} & set(policy)
+    finally:
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName="pred")
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+_CPU_TRACKING = {"PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageCPUUtilization"},
+                 "TargetValue": 50.0}
+
+
+def _tracking_group(autoscaling):
+    asg = _uid("asg-ttalarm")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    return asg
+
+
+def _put_tracking(autoscaling, asg, name, tracking):
+    return autoscaling.put_scaling_policy(
+        AutoScalingGroupName=asg, PolicyName=name, PolicyType="TargetTrackingScaling",
+        TargetTrackingConfiguration=tracking)
+
+
+def test_target_tracking_policy_creates_alarms(autoscaling, cw):
+    """A target tracking policy creates an AlarmHigh and an AlarmLow alarm and lists them."""
+    asg = _tracking_group(autoscaling)
+    try:
+        put = _put_tracking(autoscaling, asg, "cpu", _CPU_TRACKING)
+        arn = put["PolicyARN"]
+        names = [a["AlarmName"] for a in put["Alarms"]]
+        assert [n.rsplit("-", 5)[0] for n in names] == [
+            f"TargetTracking-{asg}-AlarmHigh", f"TargetTracking-{asg}-AlarmLow"]
+        assert autoscaling.describe_policies(
+            AutoScalingGroupName=asg)["ScalingPolicies"][0]["Alarms"] == put["Alarms"]
+        alarms = {a["AlarmName"]: a for a in cw.describe_alarms(AlarmNames=names)["MetricAlarms"]}
+        dims = [{"Name": "AutoScalingGroupName", "Value": asg}]
+        assert [(a["AlarmArn"], a["Namespace"], a["MetricName"], a["Statistic"], a["Dimensions"],
+                 a["Period"], a["EvaluationPeriods"], a["Threshold"], a["ComparisonOperator"],
+                 a["AlarmActions"]) for a in (alarms[n] for n in names)] == [
+            (put["Alarms"][0]["AlarmARN"], "AWS/EC2", "CPUUtilization", "Average", dims,
+             60, 3, 50.0, "GreaterThanThreshold", [arn]),
+            (put["Alarms"][1]["AlarmARN"], "AWS/EC2", "CPUUtilization", "Average", dims,
+             60, 15, 45.0, "LessThanThreshold", [arn]),
+        ]
+        for alarm in alarms.values():
+            assert alarm["AlarmDescription"] == (
+                f"DO NOT EDIT OR DELETE. For TargetTrackingScaling policy {arn}.")
+            assert not {"Unit", "DatapointsToAlarm", "TreatMissingData"} & set(alarm)
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+@pytest.mark.parametrize("tracking,metric,thresholds", [
+    ({"PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageNetworkIn"},
+      "TargetValue": 1000000.0},
+     ("AWS/EC2", "NetworkIn", "Average", "Bytes"), [1000000.0, 900000.0]),
+    ({"PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageNetworkOut"},
+      "TargetValue": 1000000.0},
+     ("AWS/EC2", "NetworkOut", "Average", "Bytes"), [1000000.0, 900000.0]),
+    ({"CustomizedMetricSpecification": {"MetricName": "Depth", "Namespace": "Test/App",
+                                        "Dimensions": [{"Name": "Q", "Value": "q1"}],
+                                        "Statistic": "Sum", "Unit": "Count"},
+      "TargetValue": 0.1},
+     ("Test/App", "Depth", "Sum", "Count"), [0.1, 0.09]),
+    ({**_CPU_TRACKING, "DisableScaleIn": True},
+     ("AWS/EC2", "CPUUtilization", "Average", None), [50.0]),
+], ids=["network-in", "network-out", "customized", "disable-scale-in"])
+def test_target_tracking_alarm_metric_and_thresholds(autoscaling, cw, tracking, metric, thresholds):
+    """The alarms follow the tracked metric and target; DisableScaleIn leaves only AlarmHigh."""
+    asg = _tracking_group(autoscaling)
+    try:
+        names = [a["AlarmName"] for a in _put_tracking(autoscaling, asg, "p", tracking)["Alarms"]]
+        alarms = {a["AlarmName"]: a for a in cw.describe_alarms(AlarmNames=names)["MetricAlarms"]}
+        assert [(a["Namespace"], a["MetricName"], a["Statistic"], a.get("Unit"))
+                for a in (alarms[n] for n in names)] == [metric] * len(thresholds)
+        assert [alarms[n]["Threshold"] for n in names] == thresholds
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_target_tracking_alarms_follow_policy_lifecycle(autoscaling, cw):
+    """Updating a policy replaces its alarms; deleting the policy or the group deletes them."""
+    asg = _tracking_group(autoscaling)
+
+    def existing(put):
+        names = [a["AlarmName"] for a in put["Alarms"]]
+        return [a["AlarmName"] for a in cw.describe_alarms(AlarmNames=names)["MetricAlarms"]]
+
+    try:
+        first = _put_tracking(autoscaling, asg, "cpu", _CPU_TRACKING)
+        second = _put_tracking(autoscaling, asg, "cpu", {**_CPU_TRACKING, "TargetValue": 60.0})
+        assert existing(first) == []
+        assert len(existing(second)) == 2
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName="cpu")
+        assert existing(second) == []
+        kept = [_put_tracking(autoscaling, asg, name, _CPU_TRACKING) for name in ("a", "b")]
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+    assert [existing(put) for put in kept] == [[], []]
+    assert cw.describe_alarms(AlarmNamePrefix=f"TargetTracking-{asg}-")["MetricAlarms"] == []
+
+
+def test_group_delete_keeps_the_alarms_of_a_group_with_a_longer_name(autoscaling, cw):
+    """Deleting a group leaves the policies and alarms of a group whose name starts with it."""
+    asg = _tracking_group(autoscaling)
+    other = f"{asg}/blue"
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=other, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        _put_tracking(autoscaling, asg, "cpu", _CPU_TRACKING)
+        kept = _put_tracking(autoscaling, other, "cpu", _CPU_TRACKING)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+        names = [a["AlarmName"] for a in kept["Alarms"]]
+        assert len(cw.describe_alarms(AlarmNames=names)["MetricAlarms"]) == 2
+        assert [p["PolicyName"] for p in autoscaling.describe_policies(
+            AutoScalingGroupName=other)["ScalingPolicies"]] == ["cpu"]
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=other)
+    assert cw.describe_alarms(AlarmNamePrefix=f"TargetTracking-{other}-")["MetricAlarms"] == []
+
+
+@pytest.mark.parametrize("members", [
+    {"PolicyType": "TargetTrackingScaling",
+     "TargetTrackingConfiguration.PredefinedMetricSpecification.PredefinedMetricType":
+         "ASGAverageCPUUtilization",
+     "TargetTrackingConfiguration.TargetValue": "fifty"},
+    {"PolicyType": "StepScaling", "AdjustmentType": "ChangeInCapacity",
+     "StepAdjustments.member.1.MetricIntervalLowerBound": "zero",
+     "StepAdjustments.member.1.ScalingAdjustment": "1"},
+    {"PolicyType": "SimpleScaling", "ScalingAdjustment": "one"},
+], ids=["target-value", "step-bound", "scaling-adjustment"])
+def test_put_scaling_policy_non_numeric_member_is_a_validation_error(autoscaling, members):
+    """A non-numeric number member is a ValidationError, not a 500."""
+    asg = _uid("asg-badnum")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    body = urllib.parse.urlencode({
+        "Action": "PutScalingPolicy", "Version": "2011-01-01",
+        "AutoScalingGroupName": asg, "PolicyName": "bad", **members,
+    }).encode()
+    req = urllib.request.Request(
+        os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566") + "/",
+        data=body, method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded",
+                 "Authorization": ("AWS4-HMAC-SHA256 Credential=test/20260921/"
+                                   "us-east-1/autoscaling/aws4_request, "
+                                   "SignedHeaders=, Signature=x")},
+    )
+    try:
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            urllib.request.urlopen(req, timeout=10)
+        assert exc.value.code == 400
+        assert b"<Code>ValidationError</Code>" in exc.value.read()
+        assert autoscaling.describe_policies(AutoScalingGroupName=asg)["ScalingPolicies"] == []
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_describe_policies_empty(autoscaling):
+    resp = autoscaling.describe_policies(AutoScalingGroupName=_uid("no-asg"))
+    assert resp["ScalingPolicies"] == []
+
+
+def test_delete_policy(autoscaling):
+    asg = _uid("asg-dpol")
+    pol = _uid("dpol")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg,
+            PolicyName=pol,
+            AdjustmentType="ChangeInCapacity",
+            ScalingAdjustment=1,
+        )
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName=pol)
+        desc = autoscaling.describe_policies(AutoScalingGroupName=asg)
+        names = [p["PolicyName"] for p in desc["ScalingPolicies"]]
+        assert pol not in names
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_policy_idempotent(autoscaling):
+    autoscaling.delete_policy(
+        AutoScalingGroupName="ghost-asg",
+        PolicyName="ghost-pol",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle Hooks: Put, Describe, Delete, Complete, Heartbeat
+# ---------------------------------------------------------------------------
+
+
+def test_put_and_describe_lifecycle_hook(autoscaling):
+    asg = _uid("asg-hook")
+    hook = _uid("hook")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_lifecycle_hook(
+            AutoScalingGroupName=asg,
+            LifecycleHookName=hook,
+            LifecycleTransition="autoscaling:EC2_INSTANCE_LAUNCHING",
+            HeartbeatTimeout=300,
+            DefaultResult="CONTINUE",
+        )
+        resp = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)
+        hooks = resp["LifecycleHooks"]
+        assert len(hooks) >= 1
+        found = [h for h in hooks if h["LifecycleHookName"] == hook]
+        assert len(found) == 1
+        assert found[0]["LifecycleTransition"] == "autoscaling:EC2_INSTANCE_LAUNCHING"
+        assert found[0]["DefaultResult"] == "CONTINUE"
+        assert found[0]["HeartbeatTimeout"] == 300
+    finally:
+        autoscaling.delete_lifecycle_hook(
+            AutoScalingGroupName=asg, LifecycleHookName=hook
+        )
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_put_lifecycle_hook_notification_metadata_reads_back(autoscaling):
+    asg = _uid("asg-hmeta")
+    hook = _uid("hmeta")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_lifecycle_hook(
+            AutoScalingGroupName=asg,
+            LifecycleHookName=hook,
+            LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
+            NotificationMetadata='{"drain": "<all> & wait"}',
+        )
+        [found] = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)["LifecycleHooks"]
+        assert found["NotificationMetadata"] == '{"drain": "<all> & wait"}'
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_describe_lifecycle_hooks_empty(autoscaling):
+    asg = _uid("asg-nohook")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)
+        assert resp["LifecycleHooks"] == []
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_lifecycle_hook(autoscaling):
+    asg = _uid("asg-dhook")
+    hook = _uid("dhook")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_lifecycle_hook(
+            AutoScalingGroupName=asg,
+            LifecycleHookName=hook,
+            LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
+        )
+        autoscaling.delete_lifecycle_hook(
+            AutoScalingGroupName=asg, LifecycleHookName=hook
+        )
+        resp = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)
+        names = [h["LifecycleHookName"] for h in resp["LifecycleHooks"]]
+        assert hook not in names
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_lifecycle_hook_idempotent(autoscaling):
+    autoscaling.delete_lifecycle_hook(
+        AutoScalingGroupName="ghost-asg",
+        LifecycleHookName="ghost-hook",
+    )
+
+
+def test_complete_lifecycle_action(autoscaling):
+    asg = _uid("asg-cla")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.complete_lifecycle_action(
+            AutoScalingGroupName=asg,
+            LifecycleHookName="any-hook",
+            LifecycleActionResult="CONTINUE",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_record_lifecycle_action_heartbeat(autoscaling):
+    asg = _uid("asg-hb")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.record_lifecycle_action_heartbeat(
+            AutoScalingGroupName=asg,
+            LifecycleHookName="any-hook",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_asg_cleans_up_hooks(autoscaling):
+    """Deleting an ASG should also remove its lifecycle hooks."""
+    asg = _uid("asg-hclean")
+    hook = _uid("hclean")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    autoscaling.put_lifecycle_hook(
+        AutoScalingGroupName=asg,
+        LifecycleHookName=hook,
+        LifecycleTransition="autoscaling:EC2_INSTANCE_LAUNCHING",
+    )
+    autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+    # Re-create the ASG to query hooks — should be empty
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        resp = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)
+        names = [h["LifecycleHookName"] for h in resp["LifecycleHooks"]]
+        assert hook not in names
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# Scheduled Actions: Put, Describe, Delete
+# ---------------------------------------------------------------------------
+
+
+def test_put_and_describe_scheduled_action(autoscaling):
+    asg = _uid("asg-sched")
+    action = _uid("sched")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=10,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_scheduled_update_group_action(
+            AutoScalingGroupName=asg,
+            ScheduledActionName=action,
+            Recurrence="0 8 * * *",
+            MinSize=2,
+            MaxSize=8,
+            DesiredCapacity=4,
+        )
+        resp = autoscaling.describe_scheduled_actions(AutoScalingGroupName=asg)
+        actions = resp["ScheduledUpdateGroupActions"]
+        assert len(actions) >= 1
+        found = [a for a in actions if a["ScheduledActionName"] == action]
+        assert len(found) == 1
+        assert found[0]["ScheduledActionARN"].startswith("arn:aws:autoscaling:")
+    finally:
+        autoscaling.delete_scheduled_action(
+            AutoScalingGroupName=asg, ScheduledActionName=action
+        )
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_scheduled_action_times_read_back(autoscaling):
+    """StartTime (also as Time), EndTime and TimeZone read back."""
+    asg = _uid("asg-stimes")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=2,
+        AvailabilityZones=["us-east-1a"], LaunchConfigurationName="dummy-lc",
+    )
+    start = datetime.datetime(2027, 1, 4, 9, tzinfo=datetime.timezone.utc)
+    end = datetime.datetime(2027, 6, 1, tzinfo=datetime.timezone.utc)
+    try:
+        autoscaling.put_scheduled_update_group_action(
+            AutoScalingGroupName=asg, ScheduledActionName="times",
+            Recurrence="0 9 * * *", StartTime=start, EndTime=end,
+            TimeZone="Europe/Berlin", MinSize=0, MaxSize=1)
+        action = autoscaling.describe_scheduled_actions(
+            AutoScalingGroupName=asg)["ScheduledUpdateGroupActions"][0]
+        assert (action["StartTime"], action["Time"], action["EndTime"], action["TimeZone"]) == (
+            start, start, end, "Europe/Berlin")
+    finally:
+        autoscaling.delete_scheduled_action(AutoScalingGroupName=asg, ScheduledActionName="times")
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_describe_scheduled_actions_empty(autoscaling):
+    resp = autoscaling.describe_scheduled_actions(
+        AutoScalingGroupName=_uid("no-sched")
+    )
+    assert resp["ScheduledUpdateGroupActions"] == []
+
+
+def test_delete_scheduled_action(autoscaling):
+    asg = _uid("asg-dsched")
+    action = _uid("dsched")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_scheduled_update_group_action(
+            AutoScalingGroupName=asg,
+            ScheduledActionName=action,
+            MinSize=1,
+            MaxSize=5,
+        )
+        autoscaling.delete_scheduled_action(
+            AutoScalingGroupName=asg, ScheduledActionName=action
+        )
+        resp = autoscaling.describe_scheduled_actions(AutoScalingGroupName=asg)
+        names = [a["ScheduledActionName"] for a in resp["ScheduledUpdateGroupActions"]]
+        assert action not in names
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_scheduled_action_idempotent(autoscaling):
+    autoscaling.delete_scheduled_action(
+        AutoScalingGroupName="ghost-asg",
+        ScheduledActionName="ghost-action",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tags: CreateOrUpdate, Describe, Delete
+# ---------------------------------------------------------------------------
+
+
+def test_create_or_update_tags_and_describe(autoscaling):
+    asg = _uid("asg-tag")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.create_or_update_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Environment",
+                    "Value": "test",
+                    "PropagateAtLaunch": True,
+                },
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Team",
+                    "Value": "platform",
+                    "PropagateAtLaunch": False,
+                },
+            ]
+        )
+        resp = autoscaling.describe_tags()
+        all_tags = resp["Tags"]
+        my_tags = [t for t in all_tags if t["ResourceId"] == asg]
+        assert len(my_tags) == 2
+        keys = {t["Key"] for t in my_tags}
+        assert keys == {"Environment", "Team"}
+    finally:
+        autoscaling.delete_tags(
+            Tags=[
+                {"ResourceId": asg, "ResourceType": "auto-scaling-group", "Key": "Environment"},
+                {"ResourceId": asg, "ResourceType": "auto-scaling-group", "Key": "Team"},
+            ]
+        )
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_update_existing_tag(autoscaling):
+    asg = _uid("asg-tagup")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.create_or_update_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Version",
+                    "Value": "v1",
+                    "PropagateAtLaunch": False,
+                },
+            ]
+        )
+        # Update same key with new value
+        autoscaling.create_or_update_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Version",
+                    "Value": "v2",
+                    "PropagateAtLaunch": True,
+                },
+            ]
+        )
+        resp = autoscaling.describe_tags()
+        my_tags = [t for t in resp["Tags"] if t["ResourceId"] == asg and t["Key"] == "Version"]
+        assert len(my_tags) == 1
+        assert my_tags[0]["Value"] == "v2"
+    finally:
+        autoscaling.delete_tags(
+            Tags=[{"ResourceId": asg, "ResourceType": "auto-scaling-group", "Key": "Version"}]
+        )
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_delete_tags(autoscaling):
+    asg = _uid("asg-dtag")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.create_or_update_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Ephemeral",
+                    "Value": "yes",
+                    "PropagateAtLaunch": False,
+                },
+            ]
+        )
+        autoscaling.delete_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Ephemeral",
+                },
+            ]
+        )
+        resp = autoscaling.describe_tags()
+        my_tags = [t for t in resp["Tags"] if t["ResourceId"] == asg and t["Key"] == "Ephemeral"]
+        assert my_tags == []
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_tags_reflect_in_asg_describe(autoscaling):
+    """Tags added via CreateOrUpdateTags should appear in DescribeAutoScalingGroups."""
+    asg = _uid("asg-tagsync")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.create_or_update_tags(
+            Tags=[
+                {
+                    "ResourceId": asg,
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "Sync",
+                    "Value": "check",
+                    "PropagateAtLaunch": False,
+                },
+            ]
+        )
+        resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])
+        asg_tags = resp["AutoScalingGroups"][0]["Tags"]
+        keys = [t["Key"] for t in asg_tags]
+        assert "Sync" in keys
+    finally:
+        autoscaling.delete_tags(
+            Tags=[{"ResourceId": asg, "ResourceType": "auto-scaling-group", "Key": "Sync"}]
+        )
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_create_asg_with_inline_tags(autoscaling):
+    """Tags passed at ASG creation time should be visible."""
+    asg = _uid("asg-itag")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+        Tags=[
+            {
+                "ResourceId": asg,
+                "ResourceType": "auto-scaling-group",
+                "Key": "Inline",
+                "Value": "yes",
+                "PropagateAtLaunch": True,
+            }
+        ],
+    )
+    try:
+        resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])
+        tags = resp["AutoScalingGroups"][0]["Tags"]
+        assert any(t["Key"] == "Inline" and t["Value"] == "yes" for t in tags)
+
+        # Also visible in DescribeTags
+        tresp = autoscaling.describe_tags()
+        my = [t for t in tresp["Tags"] if t["ResourceId"] == asg and t["Key"] == "Inline"]
+        assert len(my) == 1
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# Multiple policies on same ASG
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_policies_on_same_asg(autoscaling):
+    asg = _uid("asg-mpol")
+    p1 = _uid("scale-up")
+    p2 = _uid("scale-down")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=10,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg,
+            PolicyName=p1,
+            AdjustmentType="ChangeInCapacity",
+            ScalingAdjustment=2,
+        )
+        autoscaling.put_scaling_policy(
+            AutoScalingGroupName=asg,
+            PolicyName=p2,
+            AdjustmentType="ChangeInCapacity",
+            ScalingAdjustment=-1,
+        )
+        desc = autoscaling.describe_policies(AutoScalingGroupName=asg)
+        names = [p["PolicyName"] for p in desc["ScalingPolicies"]]
+        assert p1 in names
+        assert p2 in names
+    finally:
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName=p1)
+        autoscaling.delete_policy(AutoScalingGroupName=asg, PolicyName=p2)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# Multiple hooks on same ASG
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_hooks_on_same_asg(autoscaling):
+    asg = _uid("asg-mhook")
+    h1 = _uid("launch-hook")
+    h2 = _uid("term-hook")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_lifecycle_hook(
+            AutoScalingGroupName=asg,
+            LifecycleHookName=h1,
+            LifecycleTransition="autoscaling:EC2_INSTANCE_LAUNCHING",
+        )
+        autoscaling.put_lifecycle_hook(
+            AutoScalingGroupName=asg,
+            LifecycleHookName=h2,
+            LifecycleTransition="autoscaling:EC2_INSTANCE_TERMINATING",
+        )
+        resp = autoscaling.describe_lifecycle_hooks(AutoScalingGroupName=asg)
+        names = [h["LifecycleHookName"] for h in resp["LifecycleHooks"]]
+        assert h1 in names
+        assert h2 in names
+    finally:
+        autoscaling.delete_lifecycle_hook(AutoScalingGroupName=asg, LifecycleHookName=h1)
+        autoscaling.delete_lifecycle_hook(AutoScalingGroupName=asg, LifecycleHookName=h2)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# Multiple scheduled actions on same ASG
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_scheduled_actions(autoscaling):
+    asg = _uid("asg-msched")
+    a1 = _uid("morning")
+    a2 = _uid("evening")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=10,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.put_scheduled_update_group_action(
+            AutoScalingGroupName=asg,
+            ScheduledActionName=a1,
+            Recurrence="0 8 * * *",
+            MinSize=5,
+            MaxSize=10,
+        )
+        autoscaling.put_scheduled_update_group_action(
+            AutoScalingGroupName=asg,
+            ScheduledActionName=a2,
+            Recurrence="0 20 * * *",
+            MinSize=1,
+            MaxSize=3,
+        )
+        resp = autoscaling.describe_scheduled_actions(AutoScalingGroupName=asg)
+        names = [a["ScheduledActionName"] for a in resp["ScheduledUpdateGroupActions"]]
+        assert a1 in names
+        assert a2 in names
+    finally:
+        autoscaling.delete_scheduled_action(AutoScalingGroupName=asg, ScheduledActionName=a1)
+        autoscaling.delete_scheduled_action(AutoScalingGroupName=asg, ScheduledActionName=a2)
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# ASG with launch template reference
+# ---------------------------------------------------------------------------
+
+
+def _ensure_my_template(ec2):
+    try:
+        ec2.create_launch_template(LaunchTemplateName="my-template",
+                                   LaunchTemplateData={"InstanceType": "t3.micro", "ImageId": "ami-12345678"})
+    except ClientError as exc:
+        if "AlreadyExists" not in exc.response["Error"]["Code"]:
+            raise
+
+
+def test_create_asg_with_launch_template(autoscaling, ec2):
+    _ensure_my_template(ec2)
+    asg = _uid("asg-lt")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchTemplate={
+            "LaunchTemplateName": "my-template",
+            "Version": "$Latest",
+        },
+    )
+    try:
+        resp = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])
+        g = resp["AutoScalingGroups"][0]
+        lt = g.get("LaunchTemplate", {})
+        assert lt.get("LaunchTemplateName") == "my-template"
+        assert lt.get("Version") == "$Latest"
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_asg_launch_template_by_name_reports_its_id(autoscaling, ec2):
+    """A group given the template's name (or id) reports both, and UpdateAutoScalingGroup can switch it."""
+    first = ec2.create_launch_template(LaunchTemplateName=_uid("lt-a"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    second = ec2.create_launch_template(LaunchTemplateName=_uid("lt-b"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    asg = _uid("asg-lt-name")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg, MinSize=0, MaxSize=1, AvailabilityZones=["us-east-1a"],
+        LaunchTemplate={"LaunchTemplateName": first["LaunchTemplateName"], "Version": "$Default"})
+    try:
+        def group_lt():
+            return autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])["AutoScalingGroups"][0][
+                "LaunchTemplate"]
+
+        assert group_lt() == {"LaunchTemplateId": first["LaunchTemplateId"],
+                              "LaunchTemplateName": first["LaunchTemplateName"], "Version": "$Default"}
+        autoscaling.update_auto_scaling_group(
+            AutoScalingGroupName=asg, LaunchTemplate={"LaunchTemplateId": second["LaunchTemplateId"], "Version": "1"})
+        assert group_lt() == {"LaunchTemplateId": second["LaunchTemplateId"],
+                              "LaunchTemplateName": second["LaunchTemplateName"], "Version": "1"}
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+        for lt in (first, second):
+            ec2.delete_launch_template(LaunchTemplateId=lt["LaunchTemplateId"])
+
+
+def test_asg_launch_template_errors_and_version_follow_aws(autoscaling, ec2):
+    """Captured on AWS (us-east-1, 2026-10-28): a missing template or version is a ValidationError, and a group
+    given no Version reports none."""
+    lt = ec2.create_launch_template(LaunchTemplateName=_uid("lt-err"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    asg = _uid("asg-lt-err")
+    try:
+        cases = [
+            ({"LaunchTemplateName": "no-such-template", "Version": "$Default"},
+             "The specified launch template, with template name no-such-template, does not exist."),
+            ({"LaunchTemplateId": "lt-0123456789abcdef0", "Version": "$Default"},
+             "Malformed launch template Id: lt-0123456789abcdef0"),
+            ({"LaunchTemplateId": lt["LaunchTemplateId"], "Version": "99"},
+             f"Could not find the specified version 99 for the launch template with ID {lt['LaunchTemplateId']}."),
+        ]
+        for spec, message in cases:
+            with pytest.raises(ClientError) as exc:
+                autoscaling.create_auto_scaling_group(AutoScalingGroupName=asg, MinSize=0, MaxSize=0,
+                                                      AvailabilityZones=["us-east-1a"], LaunchTemplate=spec)
+            assert exc.value.response["Error"]["Code"] == "ValidationError"
+            assert exc.value.response["Error"]["Message"] == message
+        autoscaling.create_auto_scaling_group(AutoScalingGroupName=asg, MinSize=0, MaxSize=0,
+                                              AvailabilityZones=["us-east-1a"],
+                                              LaunchTemplate={"LaunchTemplateName": lt["LaunchTemplateName"]})
+        group = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])["AutoScalingGroups"][0]
+        assert group["LaunchTemplate"] == {"LaunchTemplateId": lt["LaunchTemplateId"],
+                                           "LaunchTemplateName": lt["LaunchTemplateName"]}
+        with pytest.raises(ClientError) as exc:
+            autoscaling.update_auto_scaling_group(AutoScalingGroupName=asg,
+                                                  LaunchTemplate={"LaunchTemplateName": "no-such-template"})
+        assert exc.value.response["Error"]["Message"] == (
+            "The specified launch template, with template name no-such-template, does not exist.")
+    finally:
+        try:
+            autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+        except ClientError:
+            pass
+        ec2.delete_launch_template(LaunchTemplateId=lt["LaunchTemplateId"])
+
+
+def test_asg_mixed_instances_policy_follows_aws(autoscaling, ec2):
+    """#2452, captured on AWS (us-east-1, 2026-10-29): a MixedInstancesPolicy is kept with its launch
+    template resolved, AWS's InstancesDistribution defaults and Overrides [] when none; the group has no
+    LaunchTemplate; both or no launch source is refused."""
+    lt = ec2.create_launch_template(LaunchTemplateName=_uid("lt-mix"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    base = dict(MinSize=0, MaxSize=0, DesiredCapacity=0, AvailabilityZones=["us-east-1a"])
+    defaults = {"OnDemandAllocationStrategy": "prioritized", "OnDemandBaseCapacity": 0,
+                "OnDemandPercentageAboveBaseCapacity": 100, "SpotAllocationStrategy": "lowest-price",
+                "SpotInstancePools": 2}
+    groups = []
+    try:
+        for suffix, policy, expected in (
+                ("min", {"LaunchTemplate": {
+                    "LaunchTemplateSpecification": {"LaunchTemplateName": lt["LaunchTemplateName"], "Version": "$Default"},
+                    "Overrides": [{"InstanceType": "t3.micro"}, {"InstanceType": "t3a.micro"}]}},
+                 {"LaunchTemplate": {"LaunchTemplateSpecification": {
+                     "LaunchTemplateId": lt["LaunchTemplateId"], "LaunchTemplateName": lt["LaunchTemplateName"],
+                     "Version": "$Default"}, "Overrides": [{"InstanceType": "t3.micro"}, {"InstanceType": "t3a.micro"}]},
+                  "InstancesDistribution": defaults}),
+                ("id", {"LaunchTemplate": {"LaunchTemplateSpecification": {"LaunchTemplateId": lt["LaunchTemplateId"]}},
+                        "InstancesDistribution": {"OnDemandPercentageAboveBaseCapacity": 50}},
+                 {"LaunchTemplate": {"LaunchTemplateSpecification": {
+                     "LaunchTemplateId": lt["LaunchTemplateId"], "LaunchTemplateName": lt["LaunchTemplateName"]},
+                     "Overrides": []},
+                  "InstancesDistribution": {**defaults, "OnDemandPercentageAboveBaseCapacity": 50}})):
+            name = _uid(f"asg-mix-{suffix}")
+            autoscaling.create_auto_scaling_group(AutoScalingGroupName=name, MixedInstancesPolicy=policy, **base)
+            groups.append(name)
+            group = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[name])["AutoScalingGroups"][0]
+            assert group["MixedInstancesPolicy"] == expected
+            assert "LaunchTemplate" not in group
+
+        message = ("Valid requests must contain either LaunchTemplate, LaunchConfigurationName, InstanceId or "
+                   "MixedInstancesPolicy parameter.")
+        for kwargs in ({"LaunchTemplate": {"LaunchTemplateId": lt["LaunchTemplateId"]},
+                        "MixedInstancesPolicy": {"LaunchTemplate": {"LaunchTemplateSpecification": {
+                            "LaunchTemplateId": lt["LaunchTemplateId"]}}}}, {}):
+            with pytest.raises(ClientError) as exc:
+                autoscaling.create_auto_scaling_group(AutoScalingGroupName=_uid("asg-mix-bad"), **base, **kwargs)
+            assert (exc.value.response["Error"]["Code"], exc.value.response["Error"]["Message"]) == (
+                "ValidationError", message)
+    finally:
+        for name in groups:
+            autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+        ec2.delete_launch_template(LaunchTemplateId=lt["LaunchTemplateId"])
+
+
+# ---------------------------------------------------------------------------
+# Instance Refresh
+# ---------------------------------------------------------------------------
+
+
+def test_start_and_describe_instance_refresh(autoscaling, ec2):
+    _ensure_my_template(ec2)
+    asg = _uid("asg-refresh")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchTemplate={"LaunchTemplateName": "my-template", "Version": "$Latest"},
+    )
+    try:
+        start = autoscaling.start_instance_refresh(
+            AutoScalingGroupName=asg,
+            Preferences={"MinHealthyPercentage": 90, "InstanceWarmup": 0},
+        )
+        refresh_id = start["InstanceRefreshId"]
+        assert refresh_id
+
+        resp = autoscaling.describe_instance_refreshes(AutoScalingGroupName=asg)
+        refreshes = resp["InstanceRefreshes"]
+        assert len(refreshes) == 1
+        r = refreshes[0]
+        assert r["InstanceRefreshId"] == refresh_id
+        assert r["AutoScalingGroupName"] == asg
+        assert r["Status"] == "Successful"
+        assert r["PercentageComplete"] == 100
+
+        # Filter by id round-trips.
+        filtered = autoscaling.describe_instance_refreshes(
+            AutoScalingGroupName=asg, InstanceRefreshIds=[refresh_id]
+        )
+        assert filtered["InstanceRefreshes"][0]["InstanceRefreshId"] == refresh_id
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+def test_start_instance_refresh_unknown_asg_fails(autoscaling):
+    with pytest.raises(ClientError) as exc:
+        autoscaling.start_instance_refresh(AutoScalingGroupName=_uid("missing"))
+    assert "ValidationError" in str(exc.value)
+
+
+def test_cancel_instance_refresh_when_none_active(autoscaling, ec2):
+    _ensure_my_template(ec2)
+    asg = _uid("asg-cancel")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=asg,
+        MinSize=0,
+        MaxSize=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchTemplate={"LaunchTemplateName": "my-template", "Version": "$Latest"},
+    )
+    try:
+        # Refresh completes immediately, so there is nothing active to cancel.
+        autoscaling.start_instance_refresh(AutoScalingGroupName=asg)
+        with pytest.raises(ClientError) as exc:
+            autoscaling.cancel_instance_refresh(AutoScalingGroupName=asg)
+        assert "ActiveInstanceRefreshNotFound" in str(exc.value)
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+
+
+# ---------------------------------------------------------------------------
+# Mock in-service instances (capacity waiters)
+# ---------------------------------------------------------------------------
+
+
+def test_asg_reports_desired_capacity_instances(autoscaling):
+    name = _uid("asg-cap")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=1,
+        MaxSize=5,
+        DesiredCapacity=3,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        g = autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+        instances = g["Instances"]
+        assert len(instances) == 3
+        for inst in instances:
+            assert inst["InstanceId"].startswith("i-")
+            assert inst["LifecycleState"] == "InService"
+            assert inst["HealthStatus"] == "Healthy"
+            assert inst["AvailabilityZone"] == "us-east-1a"
+
+        described = autoscaling.describe_auto_scaling_instances()["AutoScalingInstances"]
+        for_group = [i for i in described if i["AutoScalingGroupName"] == name]
+        assert len(for_group) == 3
+        assert {i["InstanceId"] for i in for_group} == {i["InstanceId"] for i in instances}
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_set_desired_capacity_reconciles_instances(autoscaling):
+    name = _uid("asg-set")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=5,
+        DesiredCapacity=1,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        autoscaling.set_desired_capacity(AutoScalingGroupName=name, DesiredCapacity=4)
+        g = autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+        assert len(g["Instances"]) == 4
+        assert all(i["LifecycleState"] == "InService" for i in g["Instances"])
+
+        autoscaling.set_desired_capacity(AutoScalingGroupName=name, DesiredCapacity=2)
+        g = autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+        assert len(g["Instances"]) == 2
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_update_asg_reconciles_instances(autoscaling):
+    name = _uid("asg-upd-cap")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=5,
+        DesiredCapacity=0,
+        AvailabilityZones=["us-east-1a"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        assert autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]["Instances"] == []
+        autoscaling.update_auto_scaling_group(AutoScalingGroupName=name, DesiredCapacity=2)
+        g = autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]
+        assert len(g["Instances"]) == 2
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_asg_instances_round_robin_azs(autoscaling):
+    name = _uid("asg-az")
+    autoscaling.create_auto_scaling_group(
+        AutoScalingGroupName=name,
+        MinSize=0,
+        MaxSize=5,
+        DesiredCapacity=4,
+        AvailabilityZones=["us-east-1a", "us-east-1b"],
+        LaunchConfigurationName="dummy-lc",
+    )
+    try:
+        instances = autoscaling.describe_auto_scaling_groups(
+            AutoScalingGroupNames=[name]
+        )["AutoScalingGroups"][0]["Instances"]
+        azs = [i["AvailabilityZone"] for i in instances]
+        assert azs == ["us-east-1a", "us-east-1b", "us-east-1a", "us-east-1b"]
+    finally:
+        autoscaling.delete_auto_scaling_group(AutoScalingGroupName=name)
+
+
+def test_asg_launch_template_request_validation_follows_aws(autoscaling, ec2):
+    """#2482, captured on AWS: both or neither of id and name, a non-numeric version, a short lt- id and
+    another region's id answer AWS's ValidationError messages; malformed ids keep theirs."""
+    lt = ec2.create_launch_template(LaunchTemplateName=_uid("lt-2482"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    import boto3
+    from conftest import ENDPOINT
+
+    west = boto3.client("ec2", endpoint_url=ENDPOINT, region_name="us-west-2",
+                        aws_access_key_id="test", aws_secret_access_key="test")
+    west_lt = west.create_launch_template(LaunchTemplateName=_uid("lt-2482-west"), LaunchTemplateData={
+        "InstanceType": "t3.micro", "ImageId": "ami-12345678"})["LaunchTemplate"]
+    asg = _uid("asg-2482")
+    either = "Valid requests must contain either launchTemplateId or LaunchTemplateName"
+    cases = [
+        ({"LaunchTemplateId": lt["LaunchTemplateId"], "LaunchTemplateName": lt["LaunchTemplateName"]}, either),
+        ({"Version": "1"}, either),
+        ({"LaunchTemplateId": lt["LaunchTemplateId"], "Version": "abc"},
+         "Invalid launch template version: either '$Default', '$Latest', or a numeric version are allowed."),
+        ({"LaunchTemplateId": "lt-0123"}, "The specified launch template, with template ID lt-0123, does not exist."),
+        ({"LaunchTemplateId": west_lt["LaunchTemplateId"]},
+         f"The specified launch template, with template ID {west_lt['LaunchTemplateId']}, does not exist."),
+        ({"LaunchTemplateId": lt["LaunchTemplateName"]}, f"Malformed launch template Id: {lt['LaunchTemplateName']}"),
+        ({"LaunchTemplateId": "bogus"}, "Malformed launch template Id: bogus"),
+        ({"LaunchTemplateId": "lt-0123456789abcdef0"}, "Malformed launch template Id: lt-0123456789abcdef0"),
+        # Captured 2026-10-29: 17 or more digits, or not lowercase hex, is malformed whatever the length.
+        ({"LaunchTemplateId": "lt-0fedcba98765432100"}, "Malformed launch template Id: lt-0fedcba98765432100"),
+        ({"LaunchTemplateId": "lt-0123456789abcdef0123"}, "Malformed launch template Id: lt-0123456789abcdef0123"),
+        ({"LaunchTemplateId": "LT-0123456789ABCDEF0"}, "Malformed launch template Id: LT-0123456789ABCDEF0"),
+    ]
+    try:
+        for spec, message in cases:
+            with pytest.raises(ClientError) as exc:
+                autoscaling.create_auto_scaling_group(AutoScalingGroupName=asg, MinSize=0, MaxSize=0,
+                                                      AvailabilityZones=["us-east-1a"], LaunchTemplate=spec)
+            assert (exc.value.response["Error"]["Code"], exc.value.response["Error"]["Message"]) == (
+                "ValidationError", message), spec
+        autoscaling.create_auto_scaling_group(AutoScalingGroupName=asg, MinSize=0, MaxSize=0,
+                                              AvailabilityZones=["us-east-1a"],
+                                              LaunchTemplate={"LaunchTemplateId": lt["LaunchTemplateId"]})
+        with pytest.raises(ClientError) as exc:
+            autoscaling.update_auto_scaling_group(AutoScalingGroupName=asg, LaunchTemplate={"Version": "1"})
+        assert exc.value.response["Error"]["Message"] == either
+    finally:
+        try:
+            autoscaling.delete_auto_scaling_group(AutoScalingGroupName=asg)
+        except ClientError:
+            pass
+        ec2.delete_launch_template(LaunchTemplateId=lt["LaunchTemplateId"])
+        west.delete_launch_template(LaunchTemplateId=west_lt["LaunchTemplateId"])

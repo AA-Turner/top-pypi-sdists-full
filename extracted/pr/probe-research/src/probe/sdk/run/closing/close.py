@@ -12,6 +12,7 @@ from ...session_marker import WIZARD_HINT
 from ...artifact.storage_handlers import multipart as _multipart
 from ...capture import outputs as _outputs
 from ..launch import preempt as _preempt
+from ...delivery.journal.flusher import flush_journal
 
 
 class CloseMixin:
@@ -30,6 +31,13 @@ class CloseMixin:
             finalize_ceiling = deadline
 
         with deadline_scope(deadline):
+            # The open's code snapshot: its execution-record thread is waited for (at
+            # most to that POST's own deadline, and half of what is left here), then
+            # whatever it has not queued is queued now, ahead of the drain. A later
+            # answer queues nothing (plan O3).
+            self._settle_open_snapshot(
+                time.monotonic() + 0.5 * max(0.0, finalize_ceiling - time.monotonic())
+            )
             # Plan (f): rows held by `log(commit=False)` go out first, so the
             # drain below delivers them before the close. Never raises. Inside
             # the deadline: under sync writes this is a request, and outside it
@@ -109,108 +117,31 @@ class CloseMixin:
     ):
         from ...delivery.transport.deadlines import deadline_scope
 
-        # The drain may run to the deadline minus a slice kept for the close
-        # itself (the status write, or the deferred-close beacon). Computed
-        # FIRST: capture and upload promotion below are local-only work like
-        # `_close_finalize`'s, so they are bounded to this same reserve-aware
-        # ceiling, never the raw deadline -- else they can spend the drain's
-        # own reserve before the drain ever runs (`_close_reserve`).
+        # Computed FIRST: capture and upload promotion share the drain's reserve-aware ceiling
+        # (DESIGN.md "The close's budget").
         drain_deadline = deadline - _close_reserve(timeout)
-        # D17's capture queues the run's log and sweeps its folder BEFORE the
-        # drain, so the drain tries to deliver them before the terminal status;
-        # they are non-blocking, so an outage leaves them queued and the run
-        # still closes.
+        # D17: the run's log and folder queue before the drain, never blocking it.
         self._finalize_capture(
             budget=min(_outputs.close_budget(), max(0.0, drain_deadline - time.monotonic()))
         )
         should_warn = status == "completed" and os.environ.get("PROBE_AUTO_SNAPSHOT", "1") != "0"
-        # Uploads still waiting for their credential scan become ops FIRST, on
-        # this thread if nobody else is at it -- the terminal status must queue
-        # BEHIND this run's uploads, never ahead of them. Local CPU, but inside
-        # the deadline like the rest.
+        # Scan-held uploads become ops FIRST: the terminal status queues behind them.
         stuck = self._promote_uploads_before_close(
             strict=strict, timeout=max(0.0, drain_deadline - time.monotonic())
         )
+        # The ops `log()` left to the flusher go to disk now (plan T6), before the drain and
+        # within its deadline (review of #3785, C2).
+        flush_journal(deadline=drain_deadline, warn=True)
         with deadline_scope(drain_deadline):
             pending, dead, delivered, auth_blocked = self._drain_until(
                 drain_deadline, strict=strict
             )
-        uploading = self._multipart_still_uploading()
-        if uploading:
-            # Plan (g). Never waited on while a detached worker on durable
-            # storage will carry them after this process exits: said, and the
-            # worker kicked. When nothing would -- a client that sends its own
-            # writes (a token passed in code, drain_interval), an outbox on a
-            # disposable disk -- sent now, within the close's budget, and what
-            # does not make it is recorded as a reference row before this
-            # returns: the run never ends with no record of the file.
-            why = _multipart.settle_reason(self._client)
-            if why is None:
-                _diagnostics.warn(
-                    f"probe: run {self.id} closing with {len(uploading)} artifact(s) still "
-                    "uploading in the background; the outbox worker finishes them and each "
-                    "is live once the server has verified it. See `probe outbox status`.",
-                    stacklevel=4,
-                )
-                try:
-                    self._client._after_enqueue()
-                except Exception:  # noqa: BLE001 -- a kick never fails a close
-                    pass
-            else:
-                try:
-                    with deadline_scope(drain_deadline):
-                        recorded = _multipart.settle_for_close(
-                            self._client, uploading, drain_deadline, why=why
-                        )
-                except Exception:  # noqa: BLE001 -- the close goes on
-                    recorded = 0
-                if recorded:
-                    _diagnostics.warn(
-                        f"probe: run {self.id}: {recorded} artifact(s) did not finish uploading "
-                        f"before the run closed ({why}); each is recorded as a reference to "
-                        "its local file.",
-                        stacklevel=4,
-                    )
+        self._settle_uploads_still_running(drain_deadline)
         undelivered = len(pending) + len(stuck)
-        if dead and strict:
-            # Deliberately BEFORE the raise is not where the lock is released:
-            # a run that refuses to close is still open, and still has to keep
-            # the box claimed against an upgrade.
-            raise errors.RosError(
-                f"run {self.id} not closed: {len(dead)} outbox op(s) are "
-                "dead-lettered — waiting cannot heal a permanent rejection; see "
-                "`probe outbox status`, then `probe outbox retry`"
-            )
-        if undelivered and strict:
-            raise errors.RosError(
-                f"run {self.id} not closed: {undelivered} outbox op(s) are "
-                + (
-                    f"undelivered: the server refused the credential ({WIZARD_HINT})"
-                    if auth_blocked
-                    else f"undelivered after {timeout:g}s"
-                )
-                + " — see `probe outbox status`, fix or `probe outbox retry`, then finish again"
-            )
-        # What the record must say about data that will never arrive (plan
-        # 0.1/0.2): dead letters (the server refused them) and dropped writes
-        # (they never reached the outbox at all).
-        # The warnings that say so are printed AFTER the close, and say "marked"
-        # only when the close carrying the marker was actually recorded.
-        accounting: dict[str, Any] = {}
-        if dead:
-            accounting["dead_lettered"] = len(dead)
-        dropped = max(
-            0, int(getattr(self._client, "dropped_writes", 0) or 0) - self._dropped_baseline
-        )
-        if dropped:
-            accounting["dropped_writes"] = dropped
-        direct = max(
-            0,
-            int(getattr(self._client, "direct_sends", 0) or 0)
-            - int(getattr(self, "_direct_baseline", 0) or 0),
-        )
-        if direct:
-            accounting["direct_sends"] = direct
+        if strict:
+            # Raised with the run lock still held: a run that refuses to close is still open.
+            self._raise_if_writes_outstanding(dead, undelivered, auth_blocked, timeout)
+        accounting = self._count_close_accounting(dead)
         if verdict_sent:
             return self._close_after_verdict(
                 accounting, undelivered, delivered, auth_blocked, timeout, dead=dead
@@ -222,38 +153,18 @@ class CloseMixin:
                     status, summary, undelivered, delivered, accounting, lost_with
                 )
             if undelivered:
-                # Writes are still pending past the deadline: the terminal
-                # status is itself DEFERRED behind them (queued, not written
-                # now), so there is no "completed" claim yet for the capture
-                # warning to check against -- it applies on whatever later
-                # drain actually finishes this run.
-                why = (
-                    "the server refused this machine's credential (401/403) -- "
-                    f"{WIZARD_HINT}; the queued writes deliver once it is fixed"
-                    if auth_blocked
-                    else f"not delivered within {timeout:g}s; the background worker "
-                    "will deliver them"
-                )
-                _diagnostics.warn(
-                    f"probe: run {self.id} closing with {undelivered} write(s) still "
-                    f"queued on disk: {why}, then mark the run {status} "
-                    "(probe_finish.deferred). See `probe outbox status`.",
-                    stacklevel=4,
-                )
+                # The terminal status is DEFERRED behind the queued writes (DESIGN.md).
+                self._warn_close_deferred(status, undelivered, auth_blocked, timeout)
                 report = self._queue_deferred_finish(
                     status, summary, undelivered, accounting=accounting
                 )
                 report["delivered"] = delivered
                 report.update(accounting)
                 self._warn_unrecoverable(accounting, recorded=self._close_recorded(report))
-                # The writer is exiting by definition of a deferred finish; the
-                # run's claim on the box goes with it.
-                self._release_run_lock()
+                self._release_run_lock()  # a deferred finish means the writer is exiting
                 return report
-            # AFTER the drain, BEFORE the terminal write: the drain is what
-            # makes the just-journaled env_ref PATCH + code-snapshot artifact
-            # server-visible, so the check observes the real state rather than
-            # a stale one that reads as incomplete.
+            # AFTER the drain (it makes the env_ref PATCH and code snapshot server-visible),
+            # BEFORE the terminal write.
             if should_warn:
                 self._warn_if_capture_incomplete()
             close_summary = summary
@@ -277,16 +188,103 @@ class CloseMixin:
                 self._warn_unrecoverable(accounting, recorded=self._close_recorded(settled))
                 return settled
         self._warn_unrecoverable(accounting, recorded=True)
-        # ONLY on success, and deliberately not in a `finally`.
-        #
-        # If set_status raised, the run is not closed: the caller may catch the
-        # error and keep training, and releasing here would hand auto-update a
-        # green light over a live process. Holding costs nothing -- an flock is
-        # bound to this process and the kernel frees it at exit regardless, so
-        # the failure mode of keeping it is "protected slightly too long", while
-        # the failure mode of dropping it is an upgrade landing mid-run.
+        # ONLY on success, never in a `finally`: a failed close keeps the box claimed (DESIGN.md).
         self._release_run_lock()
         return result
+
+    def _settle_uploads_still_running(self, drain_deadline: float) -> None:
+        """Plan (g): multipart uploads still running at the close are handed to the worker,
+        or settled now and recorded as references (DESIGN.md "Uploads still running")."""
+        from ...delivery.transport.deadlines import deadline_scope
+
+        uploading = self._multipart_still_uploading()
+        if not uploading:
+            return
+        why = _multipart.settle_reason(self._client)
+        if why is None:
+            _diagnostics.warn(
+                f"probe: run {self.id} closing with {len(uploading)} artifact(s) still "
+                "uploading in the background; the outbox worker finishes them and each "
+                "is live once the server has verified it. See `probe outbox status`.",
+                stacklevel=5,
+            )
+            try:
+                self._client._after_enqueue()
+            except Exception:  # noqa: BLE001 -- a kick never fails a close
+                pass
+            return
+        try:
+            with deadline_scope(drain_deadline):
+                recorded = _multipart.settle_for_close(
+                    self._client, uploading, drain_deadline, why=why
+                )
+        except Exception:  # noqa: BLE001 -- the close goes on
+            recorded = 0
+        if recorded:
+            _diagnostics.warn(
+                f"probe: run {self.id}: {recorded} artifact(s) did not finish uploading "
+                f"before the run closed ({why}); each is recorded as a reference to "
+                "its local file.",
+                stacklevel=5,
+            )
+
+    def _raise_if_writes_outstanding(
+        self, dead: list, undelivered: int, auth_blocked: bool, timeout: float
+    ) -> None:
+        """A strict close refuses while any write is dead-lettered or undelivered."""
+        if dead:
+            raise errors.RosError(
+                f"run {self.id} not closed: {len(dead)} outbox op(s) are "
+                "dead-lettered — waiting cannot heal a permanent rejection; see "
+                "`probe outbox status`, then `probe outbox retry`"
+            )
+        if undelivered:
+            raise errors.RosError(
+                f"run {self.id} not closed: {undelivered} outbox op(s) are "
+                + (
+                    f"undelivered: the server refused the credential ({WIZARD_HINT})"
+                    if auth_blocked
+                    else f"undelivered after {timeout:g}s"
+                )
+                + " — see `probe outbox status`, fix or `probe outbox retry`, then finish again"
+            )
+
+    def _count_close_accounting(self, dead: list) -> dict[str, Any]:
+        """What the record must say about data that will never arrive (plan 0.1/0.2): dead
+        letters, dropped writes, and the writes sent directly. The first two are warned AFTER the close."""
+        accounting: dict[str, Any] = {}
+        if dead:
+            accounting["dead_lettered"] = len(dead)
+        dropped = max(
+            0, int(getattr(self._client, "dropped_writes", 0) or 0) - self._dropped_baseline
+        )
+        if dropped:
+            accounting["dropped_writes"] = dropped
+        direct = max(
+            0,
+            int(getattr(self._client, "direct_sends", 0) or 0)
+            - int(getattr(self, "_direct_baseline", 0) or 0),
+        )
+        if direct:
+            accounting["direct_sends"] = direct
+        return accounting
+
+    def _warn_close_deferred(
+        self, status: str, undelivered: int, auth_blocked: bool, timeout: float
+    ) -> None:
+        why = (
+            "the server refused this machine's credential (401/403) -- "
+            f"{WIZARD_HINT}; the queued writes deliver once it is fixed"
+            if auth_blocked
+            else f"not delivered within {timeout:g}s; the background worker "
+            "will deliver them"
+        )
+        _diagnostics.warn(
+            f"probe: run {self.id} closing with {undelivered} write(s) still "
+            f"queued on disk: {why}, then mark the run {status} "
+            "(probe_finish.deferred). See `probe outbox status`.",
+            stacklevel=5,
+        )
 
     def _preempted_outbox_goes_with_machine(self) -> str | None:
         """Why this close must not queue behind its undelivered writes: a

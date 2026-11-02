@@ -1,0 +1,235 @@
+# Project:   HyperI CI
+# File:      .github/actions/setup-nextest/action.yml
+# Purpose:   Install the pinned cargo-nextest for the Rust test job
+#
+# License:   BUSL-1.1 - HYPERI PTY LIMITED
+# Copyright: (c) 2026 HYPERI PTY LIMITED
+#
+# The Rust test stage picks its runner from what is on PATH, and cargo nextest and
+# cargo test are NOT interchangeable: nextest isolates each test in its own
+# process, cargo test shares one across threads. No runner image bakes a pinned
+# nextest, so without this step the suite's semantics follow whatever is on PATH.
+#
+# NO `command -v` SHORT-CIRCUIT, DELIBERATELY, for the setup-rust-tools reason:
+# hosted runners restore ~/.cargo/bin from the cargo cache and an older ARC image
+# bakes an UNPINNED nextest, so a skip-if-present guard makes the pin inert.
+# GITHUB_PATH PREPENDS, so the pinned copy wins.
+#
+# Asset shape (differs from the other Rust tools, hence no shared loop):
+#   tag     `cargo-nextest-X.Y.Z`  - monorepo prefix, no leading `v`
+#   asset   `cargo-nextest-X.Y.Z-<target>.tar.gz`  - version MIDDLE
+#   layout  the binary sits at the tarball ROOT, no --strip-components
+#   macOS   one `universal-apple-darwin` build covers both arches
+#
+# Version AND per-platform sha256 digests are pinned in
+# src/hyperi_ci/config/versions.yaml (`tools.cargo-nextest`) and mirrored here
+# by scripts/update-versions.py --apply. Do not hand-edit the marked lines.
+#
+# The digest is the pin that matters: a release asset can be deleted and
+# re-uploaded under the same tag, so a tag alone is not integrity (issue #66).
+# A mismatch fails the step rather than installing. Upstream publishes a
+# `.sha256` per asset, so these were cross-checked at pin time.
+#
+# Referenced from reusable workflows as
+#   hyperi-io/hyperi-ci/.github/actions/setup-nextest@main
+
+name: Setup cargo-nextest
+description: Install the pinned cargo-nextest (Linux and macOS runners)
+
+inputs:
+  version:
+    description: cargo-nextest release to pin (upstream tags carry no `v`)
+    required: false
+    # hyperi-ci:pin tools.cargo-nextest
+    default: 0.9.146
+  sha256-amd64:
+    description: sha256 of the x86_64-unknown-linux-musl tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-nextest.sha256.amd64
+    default: b64617e8640624e8f9ba99819e37d7971154e97836d7ae4774fed4715501a6aa
+  sha256-arm64:
+    description: sha256 of the aarch64-unknown-linux-musl tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-nextest.sha256.arm64
+    default: 62ae8b4ad034704f67417f8ed8b897566d82359ab44952729b925fb37eeb7622
+  llvm-cov-version:
+    description: cargo-llvm-cov release tag to pin (upstream tags carry a `v`)
+    required: false
+    # hyperi-ci:pin tools.cargo-llvm-cov
+    default: v0.9.1
+  llvm-cov-sha256-amd64:
+    description: sha256 of the x86_64-unknown-linux-musl cargo-llvm-cov tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-llvm-cov.sha256.amd64
+    default: 3fca950394a3c49457657c158b1619cec8dfd2647ae5b48746734c0ab969a522
+  llvm-cov-sha256-arm64:
+    description: sha256 of the aarch64-unknown-linux-musl cargo-llvm-cov tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-llvm-cov.sha256.arm64
+    default: 49c0085628392a8d727c4464d91ec417c613c5015f5197cd16d5c05aa3fb5ad1
+  sha256-macos:
+    description: sha256 of the universal-apple-darwin tarball
+    required: false
+    # hyperi-ci:pin tools.cargo-nextest.sha256.macos
+    default: 39785160b3c2f6ed9a765049cf4fa79f3b39aa02eb7598a5a0e2a1a0b9ffb9a8
+
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-nextest
+      # No `|| true`: the test stage resolves its runner from PATH, so a silent
+      # absence here degrades the suite to cargo test semantics.
+      shell: bash
+      # Inputs travel as env, so a workflow input is never read as shell.
+      env:
+        PIN_VERSION: ${{ inputs.version }}
+        SHA_AMD64: ${{ inputs.sha256-amd64 }}
+        SHA_ARM64: ${{ inputs.sha256-arm64 }}
+        SHA_MACOS: ${{ inputs.sha256-macos }}
+      run: |
+        set -euo pipefail
+        case "$(uname -s)/$(uname -m)" in
+          Linux/x86_64)
+            TARGET=x86_64-unknown-linux-musl
+            WANT_SHA="$SHA_AMD64"
+            ;;
+          Linux/aarch64 | Linux/arm64)
+            TARGET=aarch64-unknown-linux-musl
+            WANT_SHA="$SHA_ARM64"
+            ;;
+          Darwin/*)
+            TARGET=universal-apple-darwin
+            WANT_SHA="$SHA_MACOS"
+            ;;
+          *)
+            echo "::error::unsupported platform $(uname -s)/$(uname -m) for cargo-nextest"
+            exit 1
+            ;;
+        esac
+
+        mkdir -p "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+        # macOS ships `shasum` rather than `sha256sum`; both take the same
+        # `-c` form over a "<digest>  <file>" line.
+        check_sha() {  # $1=expected  $2=file
+          if command -v sha256sum >/dev/null 2>&1; then
+            echo "$1  $2" | sha256sum -c - >/dev/null
+          else
+            echo "$1  $2" | shasum -a 256 -c - >/dev/null
+          fi
+        }
+        show_sha() {  # $1=file
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$1" | cut -d' ' -f1
+          else
+            shasum -a 256 "$1" | cut -d' ' -f1
+          fi
+        }
+
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+
+        VERSION="$PIN_VERSION"
+        URL="https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${VERSION}/cargo-nextest-${VERSION}-${TARGET}.tar.gz"
+
+        # Verification needs the whole file, so the download cannot pipe
+        # straight into tar.
+        curl -fsSL --connect-timeout 10 --max-time 300 --retry 7 --retry-all-errors --retry-max-time 600 -o "$TMP/nextest.tar.gz" "$URL"
+        check_sha "$WANT_SHA" "$TMP/nextest.tar.gz" || {
+          echo "::error::$URL failed its sha256 check - refusing to install"
+          echo "  expected $WANT_SHA"
+          echo "  got      $(show_sha "$TMP/nextest.tar.gz")"
+          exit 1
+        }
+
+        # Flat tarball: the binary is at the root.
+        tar xz -C "$HOME/.local/bin" -f "$TMP/nextest.tar.gz" cargo-nextest
+
+    - name: Install cargo-llvm-cov
+      # Coverage belongs in THIS job, not the quality job: `test.coverage` is
+      # read by the test stage, and setup-rust-tools never runs here, which is
+      # why coverage had never run on any repo (issue #140).
+      #
+      # Linux only. Coverage is not collected on the macOS leg, and a macOS
+      # runner that skips this still gets a working nextest above.
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        PIN_VERSION: ${{ inputs.llvm-cov-version }}
+        SHA_AMD64: ${{ inputs.llvm-cov-sha256-amd64 }}
+        SHA_ARM64: ${{ inputs.llvm-cov-sha256-arm64 }}
+      run: |
+        set -euo pipefail
+        case "$(uname -m)" in
+          x86_64)
+            TARGET=x86_64-unknown-linux-musl
+            WANT_SHA="$SHA_AMD64"
+            ;;
+          aarch64 | arm64)
+            TARGET=aarch64-unknown-linux-musl
+            WANT_SHA="$SHA_ARM64"
+            ;;
+          *)
+            echo "::error::unsupported arch $(uname -m) for cargo-llvm-cov"
+            exit 1
+            ;;
+        esac
+
+        mkdir -p "$HOME/.local/bin"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+        TMP="$(mktemp -d)"
+        trap 'rm -rf "$TMP"' EXIT
+
+        VERSION="$PIN_VERSION"
+        URL="https://github.com/taiki-e/cargo-llvm-cov/releases/download/${VERSION}/cargo-llvm-cov-${TARGET}.tar.gz"
+
+        curl -fsSL --connect-timeout 10 --max-time 300 --retry 7 --retry-all-errors --retry-max-time 600 -o "$TMP/llvm-cov.tar.gz" "$URL"
+        echo "$WANT_SHA  $TMP/llvm-cov.tar.gz" | sha256sum -c - >/dev/null || {
+          echo "::error::$URL failed its sha256 check - refusing to install"
+          echo "  expected $WANT_SHA"
+          echo "  got      $(sha256sum "$TMP/llvm-cov.tar.gz" | cut -d' ' -f1)"
+          exit 1
+        }
+
+        # Flat tarball: the binary is at the root, same as nextest above.
+        tar xz -C "$HOME/.local/bin" -f "$TMP/llvm-cov.tar.gz" cargo-llvm-cov
+
+    - name: Verify cargo-llvm-cov matches the pin
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        WANT: ${{ inputs.llvm-cov-version }}
+      run: |
+        set -uo pipefail
+        # A cargo SUBCOMMAND needs its own name before a flag, exactly as
+        # cargo-nextest does below. A bare `--version` here exits 1 with
+        # "expected subcommand 'llvm-cov'", which failed the step on an
+        # install that had actually succeeded.
+        GOT="$(cargo-llvm-cov llvm-cov --version 2>&1 | head -n1)"
+        if printf '%s' "$GOT" | grep -qF -- "${WANT#v}"; then
+          echo "ok   cargo-llvm-cov: ${WANT#v}"
+        else
+          echo "::error::cargo-llvm-cov: expected version ${WANT#v}, got: $GOT"
+          exit 1
+        fi
+
+    - name: Verify cargo-nextest matches the pin
+      # ASSERT, don't just print - see the note in setup-go-tools. Separate step
+      # so the install step's GITHUB_PATH prepend is live, which is what makes
+      # the pinned copy shadow a baked or cache-restored one.
+      shell: bash
+      env:
+        WANT: ${{ inputs.version }}
+      run: |
+        set -uo pipefail
+        # cargo-nextest is a cargo subcommand: it needs the `nextest` argument
+        # to report its own version.
+        GOT="$(cargo-nextest nextest --version 2>&1 | head -n1)"
+        if printf '%s' "$GOT" | grep -qF -- "$WANT"; then
+          echo "ok   cargo-nextest: $WANT"
+        else
+          echo "::error::cargo-nextest: expected version $WANT, got: $GOT"
+          exit 1
+        fi

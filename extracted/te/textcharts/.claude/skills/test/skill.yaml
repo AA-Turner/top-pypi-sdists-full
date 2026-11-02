@@ -1,0 +1,17 @@
+depends:
+  - SHARED/change-framework
+  - SHARED/investigation-framework
+config_inputs:
+  - key: test.runner
+    type: string
+    description: Test runner command
+  - key: test.coverage
+    type: string
+    description: Coverage command
+tags:
+  - development
+  - testing
+category: development
+targets:
+  claude: true
+  codex: true

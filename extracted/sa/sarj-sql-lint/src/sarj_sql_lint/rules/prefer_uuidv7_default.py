@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+from pathlib import PurePosixPath
+import re
+from typing import TYPE_CHECKING, final, override
+
+from sarj_sql_lint.rule_base import (
+    POSTGRES_IDENTIFIER_CONTINUATION,
+    AutofixPolicy,
+    Diagnostic,
+    ExampleFile,
+    ExampleOutcome,
+    Rule,
+    RuleCategory,
+    RuleDocumentation,
+    RuleExample,
+    is_dump_file,
+    is_generated_migration,
+    mask_sql_literals_and_comments,
+    redirect_to_model,
+    source_location,
+    sql_code_matches,
+)
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+PATTERN = re.compile(
+    rf'(?<!{POSTGRES_IDENTIFIER_CONTINUATION})(?:(?ai:gen_random_uuid)\b|(?-i:"gen_random_uuid"))[ \t\r\n\f\v]*\(',
+    re.IGNORECASE,
+)
+
+_MESSAGE = (
+    "`gen_random_uuid()` generates a random UUIDv4 — use `uuidv7()` (Postgres 18). "
+    "Random keys scatter inserts across every B-tree leaf page; UUIDv7 is "
+    "time-ordered, so inserts append to the index's right edge."
+)
+
+
+@final
+class PreferUuidv7Default(Rule):
+    id = "prefer-uuidv7-default"
+    code = "SARJ109"
+    documentation = RuleDocumentation(
+        summary="`gen_random_uuid()` emits a random UUIDv4 — use `uuidv7()` so keys are time-ordered.",
+        rationale="Random UUID keys scatter inserts across a B-tree, while time-ordered UUIDv7 values preserve index locality.",
+        remediation="Use the PostgreSQL uuidv7() function for generated UUID defaults and values.",
+        category=RuleCategory.PERFORMANCE,
+        autofix=AutofixPolicy.NONE,
+        limitations=("uuidv7() requires PostgreSQL 18 or an equivalent extension-provided function.",),
+        examples=(
+            RuleExample(
+                example_id="random-uuid-default",
+                title="Random UUID default",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.sql(
+                        "migrations/001_calls.sql",
+                        "CREATE TABLE call (id UUID PRIMARY KEY DEFAULT gen_random_uuid());\n",  # sarj-noqa: SARJ053 -- documented rejected example
+                    ),
+                ),
+                focus_path=PurePosixPath("migrations/001_calls.sql"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="time-ordered-uuid-default",
+                title="Time-ordered UUID default",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.sql(
+                        "migrations/001_calls.sql", "CREATE TABLE call (id UUID PRIMARY KEY DEFAULT uuidv7());\n"
+                    ),
+                ),
+                focus_path=PurePosixPath("migrations/001_calls.sql"),
+                expected_count=0,
+                public=True,
+            ),
+        ),
+    )
+    description = documentation.summary
+
+    @override
+    def check(self, path: Path, source: str) -> list[Diagnostic]:
+        if is_dump_file(source, path):
+            return []
+        model_owned = is_generated_migration(path, source)
+        diags: list[Diagnostic] = []
+        for match in sql_code_matches(PATTERN, mask_sql_literals_and_comments(source, mask_dollar_literals=True)):
+            location = source_location(source, match.start())
+            diags.append(
+                Diagnostic(
+                    path=path,
+                    line=location.line,
+                    col=location.column,
+                    code=self.code,
+                    message=_MESSAGE,
+                )
+            )
+        return redirect_to_model(diags, model_owned=model_owned)

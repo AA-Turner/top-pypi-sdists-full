@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities, integration_repair
+from probe.cli.wizard import state as capabilities
+from probe.cli.install.integrations import integrations as integration_repair
 from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 from probe.shared.harness import plugins as plugin_cli
 
@@ -98,7 +99,7 @@ def test_a_disabled_plugin_is_turned_back_on_and_one_whose_files_are_gone_reinst
     _claude_ledger(claude, {f"probe-research@{M}": _entry(claude, "probe-research"),
                             f"probe-research-tap@{M}": _entry(claude, "probe-research-tap", files=False)},
                    enabled={f"probe-research@{M}": False})
-    from probe.cli import integration_reinstall
+    from probe.cli.install.integrations import reinstall as integration_reinstall
 
     reinstalled = []
 
@@ -134,7 +135,7 @@ def test_codex_says_the_hooks_line_whenever_probes_hook_entries_changed(homes, m
     _claude, codex, _removed = homes
     _codex(codex, {f"probe-research@{M}": True, f"probe-research-tap@{M}": True},
            {"probe-research": "{}", "probe-research-tap": '{"v": 1}'})
-    from probe.cli import integration_reinstall
+    from probe.cli.install.integrations import reinstall as integration_reinstall
 
     def hook_repair(source):  # the stock reinstall writes a new copy of the hooks
         (codex / "plugins" / "cache" / M / "probe-research-tap" / "1.0.0" / "hooks" / "hooks.json").write_text(
@@ -189,7 +190,7 @@ def test_a_kimi_record_whose_files_are_gone_is_put_back(homes, monkeypatch):
 def test_configure_does_not_call_an_unusable_plugin_installed(homes, monkeypatch):
     """The wizard's verdict (`doctor.collect`): installed means usable, so the
     plan reinstalls instead of "Nothing to change"."""
-    from probe.cli import doctor
+    from probe.cli.wizard import doctor
 
     claude, _codex, _removed = homes
     _claude_ledger(claude, {f"probe-research@{M}": _entry(claude, "probe-research", files=False)})

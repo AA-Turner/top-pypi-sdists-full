@@ -1,0 +1,81 @@
+name: Setup Environment and Cache
+description: |
+  A reusable composite action to setup the environment for a job.
+  This action will:
+  - Setup Python
+  - Cache the pre-commit installation
+  - Cache the virtual environment
+  - Setup uv
+  - Install dependencies
+inputs:
+  python-version:
+    description: The version of Python to use (passed to actions/setup-python)
+    required: true
+  cache-pre-commit:
+    description: Whether to cache the pre-commit installation
+    required: true
+  cache-venv:
+    description: Whether to cache the virtual environment
+    required: true
+  setup-uv:
+    description: Whether to setup uv
+    required: true
+  install-deps:
+    description: Whether to install dependencies
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Generate Cache Key PY (Linux)
+      # The cache key PY is a hash of the Python version and the
+      # output of `pip freeze` (the installed packages).
+      # This ensures that the cache is invalidated when the Python
+      # version or the default packages change. Both of the remaining
+      # cache keys depend on PY.
+      shell: bash
+      run: |
+        echo "PY=$( (python -VV; pip freeze) | shasum -a 256 | cut -d' ' -f1)" >> $GITHUB_ENV
+        echo "UV_CACHE_DIR=${{ runner.temp }}/.cache/uv" >> $GITHUB_ENV
+    - name: Cache pre-commit installation
+      # The cache key for the pre-commit installation is a hash of the
+      # operating system, PY (see above), and the pre-commit config.
+      # This allows for caching the pre-commit hook installation across
+      # jobs and workflows.
+      if: ${{ inputs.cache-pre-commit == 'true' }}
+      uses: actions/cache@v6.1.0
+      with:
+        path: |
+          .cache
+          pre-commit
+        key: cache|${{ runner.os }}|${{ runner.arch }}|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
+    - name: Cache venv
+      # The cache key for the virtual environment is a hash of the
+      # operating system, PY (see above), the pyproject.toml and
+      # the uv.lock file. This allows for caching the virtual
+      # environment with all the dependencies.
+      if: ${{ inputs.cache-venv == 'true' }}
+      uses: actions/cache@v6.1.0
+      with:
+        path: |
+          .cache
+          ${{ runner.temp }}/.cache/uv
+          .venv
+        key:
+          cache|${{ runner.os }}|${{ runner.arch }}|${{ env.PY }}|${{ hashFiles('pyproject.toml') }}|${{
+          hashFiles('uv.lock') }}
+    - name: Setup uv
+      if: ${{ inputs.setup-uv == 'true' }}
+      uses: astral-sh/setup-uv@v9.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install dependencies with uv
+      shell: bash
+      if: ${{ inputs.install-deps == 'true' }}
+      env:
+        UV_PYTHON: ${{ inputs.python-version }}
+      run: |
+        uv sync --frozen --all-extras --group dev --group docs

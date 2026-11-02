@@ -1,0 +1,46 @@
+[build-system]
+requires = [
+    "hatchling>=1.12.1"
+]
+backend-path = ["."]
+build-backend = "packager.pep517"
+
+[project]
+name = "tl2cgen"
+version = "1.0.0"
+authors = [
+    {name = "Hyunsu Cho", email = "chohyu01@cs.washington.edu"}
+]
+description = "TL2cgen: Compiler for decision tree models"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10"
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "packaging",
+    "treelite>=4.1.2"
+]
+
+[project.urls]
+documentation = "https://tl2cgen.readthedocs.io/en/latest/"
+repository = "https://github.com/dmlc/tl2cgen"
+
+[project.optional-dependencies]
+scikit-learn = ["scikit-learn"]
+testing = ["scikit-learn", "pytest", "hypothesis", "pandas"]
+
+[tool.mypy]
+plugins = "numpy.typing.mypy_plugin"
+
+[tool.hatch.build.targets.wheel.hooks.custom]

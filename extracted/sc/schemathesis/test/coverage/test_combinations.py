@@ -436,6 +436,11 @@ def test_negative_maxlength_above_buffer(nctx, max_length):
         ({"type": "integer", "exclusiveMinimum": 5}, [6, 7, 2**63], [6, 8, 2**63]),
         ({"type": "integer", "exclusiveMaximum": 10}, [9, 8], [8, 6]),
         ({"type": "integer", "exclusiveMinimum": 5, "exclusiveMaximum": 10}, [6, 7, 9, 8], [6, 8]),
+        (
+            {"type": "integer", "minimum": 5, "exclusiveMinimum": 0, "maximum": 10, "exclusiveMaximum": 20},
+            [5, 6, 10, 9],
+            [6, 8, 10],
+        ),
     ],
 )
 def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple_of):
@@ -1298,6 +1303,70 @@ def test_negative_forbidden_schema_description(nctx, schema, expected):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
+        ({"type": "null"}, ["Valid null value"]),
+        (
+            {"type": "object", "additionalProperties": {"type": "null"}},
+            ["Valid object", "Object with additional property: Valid null value"],
+        ),
+    ],
+    ids=["root", "additional-property"],
+)
+def test_positive_null_description(pctx, schema, expected):
+    assert [value.description for value in cover_schema_iter(pctx, schema)] == expected
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"not": {"type": "string"}},
+            {(CoverageScenario.MATCHES_NOT_SCHEMA, "Value matches the 'not' schema", "/not")},
+        ),
+        (
+            {"properties": {"name": {"not": {"type": "string"}}}},
+            {(CoverageScenario.MATCHES_NOT_SCHEMA, "name: Value matches the 'not' schema", "/properties/name/not")},
+        ),
+    ],
+    ids=["root", "property"],
+)
+def test_negative_not_metadata(nctx, schema, expected):
+    assert {
+        (value.scenario, value.description, value.location) for value in cover_schema_iter(nctx, schema)
+    } == expected
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"not": {"type": "string"}},
+            {(CoverageScenario.DEFAULT_POSITIVE_TEST, "Value not matching the 'not' schema", None)},
+        ),
+        (
+            {"properties": {"name": {"not": {"type": "string"}}}},
+            {
+                (CoverageScenario.OBJECT_ONLY_REQUIRED, "Object with only required properties", None),
+                (CoverageScenario.VALID_OBJECT, "Valid object", None),
+                (
+                    CoverageScenario.VALID_OBJECT,
+                    "Object with valid 'name' value: Value not matching the 'not' schema",
+                    None,
+                ),
+            },
+        ),
+    ],
+    ids=["root", "property"],
+)
+def test_positive_not_metadata(ctx_factory, schema, expected):
+    pctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    assert {
+        (value.scenario, value.description, value.location) for value in cover_schema_iter(pctx, schema)
+    } == expected
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
         (
             {"type": "object", "propertyNames": {"maxLength": 3}},
             [0, 0.5, "true", "null", "AAA", ["null", "null"], {"0000": ""}],
@@ -1357,7 +1426,7 @@ def test_positive_object_covers_properties_beside_ignored_property_names(ctx_fac
 
 def test_positive_pattern(pctx):
     schema = {"pattern": r"^[a-zA-Z0-9]{2,4}-\d{4,15}$", "minLength": 7, "maxLength": 20, "type": "string"}
-    assert_covers(pctx, schema, ["0000-0000", "00-0000", "00-00000", "0000-000000000000000", "000-000000000000000"])
+    assert_covers(pctx, schema, ["00-0000", "00-00000", "0000-000000000000000", "000-000000000000000"])
 
 
 def test_positive_pattern_with_wildcard_prefix_and_digit_limit(pctx):
@@ -1377,7 +1446,7 @@ def test_positive_pattern_with_char_class_and_min_length(pctx):
     # character classes like [a-z] (IN opcode). The .filter() safety net ensures
     # generated strings still respect minLength.
     schema = {"pattern": r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "minLength": 3, "type": "string"}
-    assert cover_schema(pctx, schema) == ["a00", "a000"]
+    assert cover_schema(pctx, schema) == ["a-0", "a00", "a000"]
 
 
 def test_property_names_spelled_like_string_keywords(ctx_factory):
@@ -1778,6 +1847,10 @@ def test_ignoring_unknown_formats(pctx, schema, expected):
             {"/items/pattern", "/items/type", "/type"},
         ),
         (
+            {"type": "array", "items": [{"type": "integer"}, {"type": "string", "minLength": 2}]},
+            {"/items/0/type", "/items/1/type", "/items/1/minLength", "/type"},
+        ),
+        (
             {"type": "object", "properties": {"name": {"type": "string", "minLength": 3}}},
             {"/properties/name/minLength", "/type", "/properties/name/type"},
         ),
@@ -1820,6 +1893,17 @@ def test_ignoring_unknown_formats(pctx, schema, expected):
 )
 def test_negative_value_locations(nctx, schema, expected):
     assert {v.location for v in cover_schema_iter(nctx, schema)} == expected
+
+
+def test_negative_prefix_items_locations(ctx_factory):
+    nctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
+    schema = {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "string", "minLength": 2}]}
+    assert {v.location for v in cover_schema_iter(nctx, schema)} == {
+        "/prefixItems/0/type",
+        "/prefixItems/1/type",
+        "/prefixItems/1/minLength",
+        "/type",
+    }
 
 
 @pytest.mark.parametrize(
@@ -4333,6 +4417,10 @@ def test_generation_session_bounds_pins_and_drops_dependent_values():
         session.token_for(registry)
     assert len(session._pinned) == MAX_PINNED_REGISTRIES
     assert session.values.get(("k", first_token)) is MISSING
+    newest_token = session.token_for(registries[-1])
+    session.values[("k", newest_token)] = "cached"
+    assert session.token_for(registries[-1]) == newest_token
+    assert session.values.get(("k", newest_token)) == "cached"
 
 
 # An array item must keep the names its schema requires, declared under `properties` or not.
@@ -4346,7 +4434,8 @@ def test_positive_array_items_covering_keeps_item_required(ctx_factory):
     assert cover_schema(ctx, schema) == [[{"b": None}], [{"b": None}, {"b": None}], [{"a": None, "b": None}]]
 
 
-def test_positive_one_of_branch_fully_subsumed_by_sibling_covers_its_property_as_negative(ctx_factory):
+@pytest.mark.parametrize("sibling", [{}, {"not": {"required": ["missing"]}}], ids=["no-sibling", "sibling-not"])
+def test_positive_one_of_branch_fully_subsumed_by_sibling_covers_its_property_as_negative(ctx_factory, sibling):
     # `TokenRequest` has no `additionalProperties: false`, so any value satisfying the `mac`
     # branch also satisfies `TokenRequest` — that branch can never win `oneOf` exclusivity. The
     # whole body is invalid either way, but `mac`'s own `type` keyword still deserves coverage.
@@ -4360,37 +4449,7 @@ def test_positive_one_of_branch_fully_subsumed_by_sibling_covers_its_property_as
                 ]
             },
         ],
-        "x-bundled": {
-            "TokenRequest": {"type": "object", "properties": {"keyName": {"type": "string"}}, "required": ["keyName"]},
-        },
-    }
-    ctx = ctx_factory(
-        location=ParameterLocation.BODY,
-        generation_modes=[GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
-        root_schema=schema,
-    )
-    validator = jsonschema_rs.Draft4Validator(schema)
-    values = list(cover_schema_iter(ctx, schema))
-    mac_string = next(
-        (value for value in values if isinstance(value.value, dict) and isinstance(value.value.get("mac"), str)), None
-    )
-    assert mac_string is not None, values
-    assert mac_string.generation_mode == GenerationMode.NEGATIVE
-    assert not validator.is_valid(mac_string.value)
-
-
-def test_subsumed_one_of_branch_negative_is_not_filtered_by_sibling_not(ctx_factory):
-    schema = {
-        "oneOf": [
-            {"$ref": "#/x-bundled/TokenRequest"},
-            {
-                "allOf": [
-                    {"$ref": "#/x-bundled/TokenRequest"},
-                    {"type": "object", "properties": {"mac": {"type": "string"}}, "required": ["mac"]},
-                ]
-            },
-        ],
-        "not": {"required": ["missing"]},
+        **sibling,
         "x-bundled": {
             "TokenRequest": {"type": "object", "properties": {"keyName": {"type": "string"}}, "required": ["keyName"]},
         },

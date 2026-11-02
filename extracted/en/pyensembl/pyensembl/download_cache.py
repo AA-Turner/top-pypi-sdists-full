@@ -1,0 +1,448 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from os import environ
+from dataclasses import replace
+from os.path import join, split, abspath, isdir, lexists, normpath
+from pathlib import Path
+from shutil import rmtree
+from urllib.parse import urlsplit
+import hashlib
+import gzip
+import logging
+
+import datacache
+
+
+logger = logging.getLogger(__name__)
+
+CACHE_BASE_SUBDIR = "pyensembl"
+CACHE_DIR_ENV_KEY = "PYENSEMBL_CACHE_DIR"
+# Seconds without any data before a download attempt fails and datacache
+# retries (resuming DNA downloads). Not a limit on total download time.
+DOWNLOAD_TIMEOUT = 300
+
+
+def inspect_data_file(path, empty_files_ok=False):
+    """Read-only datacache inspection with PyEnsembl's nonempty-file policy.
+
+    Availability is not a guarantee of valid biological contents. Provenance
+    receipts describe acquisition; they are not trusted integrity checks.
+    """
+    result = datacache.inspect_file(path)
+    if result.status == "available" and result.size == 0 and not empty_files_ok:
+        return replace(result, status="corrupt", error=datacache.FileValidationError(
+            result.path, "empty data file"
+        ))
+    return result
+
+
+def _require_available(inspection):
+    if inspection.status != "available":
+        raise inspection.error
+    return inspection.path
+
+
+def _same_file_bytes(first, second, decompress=False):
+    """Compare copied local input with its cached counterpart."""
+    def digest(path, opener=open):
+        value = hashlib.sha256()
+        with opener(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                value.update(chunk)
+        return value.digest()
+
+    opener = gzip.open if decompress and first.lower().endswith(".gz") else open
+    return digest(first, opener) == digest(second)
+
+
+def cache_subdirectory(
+    reference_name=None, annotation_name=None, annotation_version=None
+):
+    """
+    Which cache subdirectory to use for a given annotation database
+    over a particular reference. All arguments can be omitted to just get
+    the base subdirectory for all pyensembl cached datasets.
+    """
+    if reference_name is None:
+        reference_name = ""
+    if annotation_name is None:
+        annotation_name = ""
+    if annotation_version is None:
+        annotation_version = ""
+    reference_dir = join(CACHE_BASE_SUBDIR, reference_name)
+    annotation_dir = "%s%s" % (annotation_name, annotation_version)
+    return join(reference_dir, annotation_dir)
+
+
+def cache_root():
+    """The directory holding all of PyEnsembl's data; nothing is created.
+
+    $PYENSEMBL_CACHE_DIR/pyensembl when that variable is set, otherwise the
+    platform cache directory from datacache, e.g. ~/.cache/pyensembl,
+    ~/Library/Caches/pyensembl, or %LOCALAPPDATA%\\pyensembl\\pyensembl\\Cache.
+    Every genome's directory is <root>/<reference>/<annotation><version>.
+    """
+    environment_root = environ.get(CACHE_DIR_ENV_KEY)
+    if environment_root:
+        return join(environment_root, CACHE_BASE_SUBDIR)
+    return datacache.get_cache_root(CACHE_BASE_SUBDIR)
+
+
+def _default_cache_directory(reference_name, annotation_name, annotation_version):
+    subdirectory = cache_subdirectory(reference_name, annotation_name, annotation_version)
+    directory = join(cache_root(), subdirectory[len(CACHE_BASE_SUBDIR) + 1:])
+    if not environ.get(CACHE_DIR_ENV_KEY):
+        # Before 2.17, each genome asked appdirs for its own directory. That
+        # matches the layout above on Linux and macOS, but on Windows gave
+        # unrelated paths; keep using a genome already installed there.
+        legacy = datacache.get_data_dir(subdir=subdirectory)
+        if normpath(legacy) != normpath(directory) and isdir(legacy) and not isdir(directory):
+            return legacy
+    return directory
+
+
+class MissingRemoteFile(Exception):
+    def __init__(self, url):
+        self.url = url
+
+
+class MissingLocalFile(Exception):
+    def __init__(self, path):
+        self.path = path
+
+    def __str__(self):
+        return "MissingFile(%s)" % self.path
+
+
+class MissingGenomeDataFile(ValueError):
+    """
+    A genome's source GTF or FASTA is not in the local cache.
+
+    Subclasses ValueError so that code which already catches ValueError keeps
+    working, while letting the command line tell a missing download apart from
+    an internal failure such as a malformed GTF or a corrupt database.
+    """
+
+
+class DownloadCache(object):
+    """
+    Downloads remote files to cache, optionally copies local files into cache,
+    raises custom message if data is missing.
+    """
+
+    def __init__(
+        self,
+        reference_name,
+        annotation_name,
+        annotation_version=None,
+        decompress_on_download=False,
+        copy_local_files_to_cache=False,
+        install_string_function=None,
+        cache_directory_path=None,
+    ):
+        """
+        Parameters
+        ----------
+        reference_name : str
+            Name of reference genome
+
+        annotation_name : str
+            Name of annotation database
+
+        annotation_version : str or int, optional
+            Version or release of annotation database
+
+        decompress_on_download : bool, optional
+            If downloading a .fa.gz file, should we automatically expand it
+            into a decompressed FASTA file?
+
+        copy_local_files_to_cache : bool, optional
+            If file is on the local file system, should we still copy it
+            into the cache?
+
+        install_string_function : fn, optional
+            Function which returns an error message with
+            install instructions. If not provided then the error tells the
+            user what data is missing without install instructions.
+
+        cache_directory_path : str, optional
+            Where to place downloaded and temporary files, by default
+            inferred from reference name, annotation name, annotation version,
+            and the global cache directory determined by datacache.
+        """
+
+        self.reference_name = reference_name
+        self.annotation_name = annotation_name
+        self.annotation_version = annotation_version
+
+        if cache_directory_path:
+            self._cache_directory_path = cache_directory_path
+        else:
+            self.cache_subdirectory = cache_subdirectory(
+                reference_name=reference_name,
+                annotation_name=annotation_name,
+                annotation_version=annotation_version,
+            )
+            self._cache_directory_path = _default_cache_directory(
+                reference_name, annotation_name, annotation_version
+            )
+
+        self.decompress_on_download = decompress_on_download
+        self.copy_local_files_to_cache = copy_local_files_to_cache
+        self.install_string_function = install_string_function
+
+    @property
+    def cache_directory_path(self):
+        return self._cache_directory_path
+
+    def _fields(self):
+        """
+        Fields used for hashing, string representation, equality comparison
+        """
+        return (
+            (
+                "reference_name",
+                self.reference_name,
+            ),
+            ("annotation_name", self.annotation_name),
+            ("annotation_version", self.annotation_version),
+            ("cache_directory_path", self.cache_directory_path),
+            ("decompress_on_download", self.decompress_on_download),
+            ("copy_local_files_to_cache", self.copy_local_files_to_cache),
+        )
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self._fields() == other._fields()
+
+    def __hash__(self):
+        return hash(self._fields())
+
+    def __str__(self):
+        fields_str = ", ".join("%s=%s" % (k, v) for (k, v) in self._fields())
+        return "DownloadCache(%s)" % fields_str
+
+    def __repr__(self):
+        return str(self)
+
+    def is_url_format(self, path_or_url):
+        """
+        Is the given string a URL?
+
+        Parameters
+        ----------
+        path_or_url : str
+
+        Returns
+        -------
+        bool
+        """
+        if path_or_url is None or path_or_url == "":
+            raise ValueError("Expected non-empty string for path_or_url")
+        return "://" in path_or_url
+
+    def _remove_compression_suffix_if_present(self, filename):
+        """
+        If the given filename ends in one of the compression suffixes that
+        datacache knows how to deal with, remove the suffix (since we expect
+        the result of downloading to be a decompressed file)
+        """
+        for ext in [".gz", ".gzip", ".zip"]:
+            if filename.endswith(ext):
+                return filename[: -len(ext)]
+        return filename
+
+    def cached_path(self, path_or_url):
+        """Reuse existing cache paths in place; never migrate or create files.
+
+        New entries use full URL or original local path plus mode identity.
+        Existing basename-only
+        entries retain their historical lookup contract and derived indexes,
+        including mirror installs and entries without recorded provenance.
+        """
+        path = self._cache_path(path_or_url)
+        if not lexists(path):
+            legacy = self._cache_path(path_or_url, legacy=True)
+            if lexists(legacy):
+                return legacy
+        return path
+
+    def _cache_path(self, path_or_url, legacy=False):
+        """Compute a destination in either layout without filesystem access."""
+        if path_or_url is None or path_or_url == "":
+            raise ValueError("Expected non-empty string for path_or_url")
+        remote = self.is_url_format(path_or_url)
+        source = urlsplit(path_or_url).path if remote and not legacy else path_or_url
+        remote_filename = split(source)[1]
+        if remote:
+            # passing `decompress=False` since there is logic below
+            # for stripping decompression extensions for both local
+            # and remote files
+            local_filename = datacache.build_local_filename(
+                download_url=path_or_url,
+                filename=remote_filename if legacy else (remote_filename or "download"),
+                decompress=False,
+            )
+        else:
+            local_filename = remote_filename
+
+        # if we expect the download function to decompress this file then
+        # we should use its name without the compression extension
+        if self.decompress_on_download:
+            local_filename = self._remove_compression_suffix_if_present(local_filename)
+
+        if len(local_filename) == 0:
+            raise ValueError("Can't determine local filename for %s" % (path_or_url,))
+
+        if not legacy and (remote or self.copy_local_files_to_cache):
+            mode = "decompressed" if self.decompress_on_download else "raw"
+            identity = path_or_url if remote else "local\0" + abspath(path_or_url)
+            key = hashlib.sha256((mode + "\0" + identity).encode("utf-8")).hexdigest()
+            # Leave room for the key and datacache's sidecar/lock suffixes on
+            # filesystems with a 255-byte component limit; preserve extensions.
+            name = local_filename.encode("utf-8")[-160:].decode("utf-8", errors="ignore")
+            local_filename = key + "-" + name
+
+        return join(self.cache_directory_path, local_filename)
+
+    def local_path(self, path_or_url):
+        """Expected source location, without acquisition or directory creation."""
+        if self.is_url_format(path_or_url) or self.copy_local_files_to_cache:
+            return self.cached_path(path_or_url)
+        return abspath(path_or_url)
+
+    def inspect(self, path_or_url, empty_files_ok=False):
+        """Inspect a configured source without acquiring it."""
+        return inspect_data_file(self.local_path(path_or_url), empty_files_ok)
+
+    def _fetch(self, url, destination, overwrite, show_progress=False, validator=None):
+        logger.info("Fetching %s", destination)
+        return datacache.fetch_file(
+            url,
+            destination=destination,
+            force=overwrite,
+            raw=not self.decompress_on_download,
+            decompress=self.decompress_on_download,
+            timeout=DOWNLOAD_TIMEOUT,
+            show_progress=show_progress,
+            record_provenance=True,
+            **({"validator": validator} if validator is not None else {}),
+        )
+
+    def _download_if_necessary(self, url, download_if_missing, overwrite, show_progress=False, validator=None):
+        """
+        Return local cached path to a remote file, download it if necessary.
+        """
+        cached_path = self.cached_path(url)
+        inspection = self.inspect(url)
+        if download_if_missing and (overwrite or inspection.status == "missing"):
+            # Even an explicit refresh leaves legacy sources and indexes intact.
+            # Subsequent lookups prefer this URL-specific destination.
+            cached_path = self._cache_path(url)
+            return self._fetch(url, cached_path, overwrite, show_progress,
+                               **({"validator": validator} if validator is not None else {}))
+        if inspection.status == "missing":
+            raise MissingRemoteFile(url)
+        return _require_available(inspection)
+
+    def _copy_if_necessary(self, local_path, overwrite, show_progress=False):
+        """
+        Return cached path to local file, copying it to the cache if necessary.
+        """
+        local_path = abspath(local_path)
+        if self.copy_local_files_to_cache:
+            cached_path = self.cached_path(local_path)
+            cached = inspect_data_file(cached_path)
+            if not overwrite and cached.status != "missing":
+                _require_available(cached)
+                source = inspect_data_file(local_path)
+                if source.status == "missing":
+                    return cached.path
+                _require_available(source)
+                if _same_file_bytes(local_path, cached_path, self.decompress_on_download):
+                    return cached.path
+                overwrite = True
+        source = inspect_data_file(local_path)
+        if source.status == "missing":
+            raise MissingLocalFile(local_path)
+        _require_available(source)
+        if not self.copy_local_files_to_cache or local_path == abspath(cached_path):
+            return local_path
+        # A refresh must not overwrite another legacy basename's saved bytes.
+        cached_path = self._cache_path(local_path)
+        return self._fetch(Path(local_path).as_uri(), cached_path, overwrite, show_progress)
+
+    def download_or_copy_if_necessary(
+        self, path_or_url, download_if_missing=False, overwrite=False, show_progress=False,
+        validator=None,
+    ):
+        """
+        Download a remote file or copy
+        Get the local path to a possibly remote file.
+
+        Download if file is missing from the cache directory and
+        `download_if_missing` is True. Download even if local file exists if
+        both `download_if_missing` and `overwrite` are True.
+
+        If the file is on the local file system then return its path, unless
+        self.copy_local_to_cache is True, and then copy it to the cache first.
+
+        Parameters
+        ----------
+        path_or_url : str
+
+        download_if_missing : bool, optional
+            Download files if missing from local cache
+
+        overwrite : bool, optional
+            Overwrite existing copy if it exists
+        """
+        if path_or_url is None or path_or_url == "":
+            raise ValueError("Expected non-empty string for path_or_url")
+        if self.is_url_format(path_or_url):
+            return self._download_if_necessary(
+                path_or_url, download_if_missing, overwrite, show_progress=show_progress,
+                **({"validator": validator} if validator is not None else {}),
+            )
+        else:
+            return self._copy_if_necessary(path_or_url, overwrite, show_progress)
+
+    def _raise_missing_file_error(self, missing_urls_dict):
+        missing_urls = list(missing_urls_dict.values())
+        n_missing = len(missing_urls)
+        error_message = "Missing genome data file%s from %s." % (
+            ("s", missing_urls) if n_missing > 1 else ("", missing_urls[0])
+        )
+        if self.install_string_function:
+            install_string = self.install_string_function()
+            error_message += " Run %s" % install_string
+        raise MissingGenomeDataFile(error_message)
+
+    def local_path_or_install_error(
+        self, field_name, path_or_url, download_if_missing=False, overwrite=False,
+        show_progress=False, validator=None,
+    ):
+        try:
+            return self.download_or_copy_if_necessary(
+                path_or_url,
+                download_if_missing=download_if_missing,
+                overwrite=overwrite,
+                show_progress=show_progress,
+                **({"validator": validator} if validator is not None else {}),
+            )
+        except MissingRemoteFile:
+            self._raise_missing_file_error({field_name: path_or_url})
+
+    def delete_cache_directory(self):
+        if isdir(self.cache_directory_path):
+            rmtree(self.cache_directory_path)

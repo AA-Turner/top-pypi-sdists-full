@@ -1,0 +1,922 @@
+//! What a parametrized form says: dispatch step 9, the typing spec's
+//! introspection, and the two native literals that spell what it cannot.
+//!
+//! The origin is read before the arguments and compared by identity against the
+//! forms resolved once at import, so a form this frontend does not know is a
+//! refusal rather than a guess. A list literal and a dict literal answer the
+//! same question from the other side -- `[A, B]` is the fixed-length list
+//! `typing` has no spelling for -- so they are read here. The section "What a
+//! parametrized form says" in `docs/dev/03-frontend.md` is this module.
+
+use pyo3::exceptions::PyValueError;
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::types::iter::BoundTupleIterator;
+use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple, PyType};
+use rustc_hash::FxHashSet;
+use valgebra_core::{Field, MapClause, Schema, SeqShape};
+
+use super::classes::{build_object, build_typed_dict, declares_fields, field_name, is_truthy_attr};
+use super::{
+    Pool, build_applied_alias, build_constant, build_schema, checked_key, forms, is_extension,
+    is_forward_reference, is_type_alias, not_implemented,
+};
+use crate::errors::summarize;
+use crate::validator::Validator;
+
+/// What to write instead of a container given several element types. Each is
+/// the remedy for its own kind rather than one sentence for all of them: a
+/// list has a fixed-length spelling and a set does not.
+const LIST_INSTEAD: &str = "write the element type on its own, or a list of \
+                            fixed length as the list literal [A, B]";
+const SET_INSTEAD: &str = "write the element type on its own -- a set schema is \
+                           homogeneous, so several element types are their \
+                           union, set[A | B]";
+const QUALIFIER_INSTEAD: &str = "write the one type it qualifies";
+const UNPACK_INSTEAD: &str = "write the one tuple type it unpacks";
+
+/// Build the IR for a parametrized typing generic given its origin and args.
+///
+/// `alias` is the annotation as the caller wrote it, carried for the refusals
+/// alone: an arity mistake is about the spelling, and `list[int, str]` is a
+/// sentence a reader can find in their own source where "a list" is not.
+pub(super) fn build_parametrized(
+    alias: &Bound<'_, PyAny>,
+    origin: &Bound<'_, PyAny>,
+    args: &Bound<'_, PyTuple>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let py = origin.py();
+    if origin.is(py.get_type::<PyList>()) {
+        return Ok(Schema::list(SeqShape::homogeneous(build_type_argument(
+            &single_arg(args, alias, LIST_INSTEAD)?,
+            lits,
+            defs,
+        )?)));
+    }
+    if origin.is(py.get_type::<PySet>()) {
+        return Ok(Schema::set(build_type_argument(
+            &single_arg(args, alias, SET_INSTEAD)?,
+            lits,
+            defs,
+        )?));
+    }
+    if origin.is(py.get_type::<PyFrozenSet>()) {
+        return Ok(Schema::frozen_set(build_type_argument(
+            &single_arg(args, alias, SET_INSTEAD)?,
+            lits,
+            defs,
+        )?));
+    }
+    if origin.is(py.get_type::<PyDict>()) {
+        if args.len() != 2 {
+            return Err(not_implemented(
+                "dict[...] needs a key type and a value type",
+            ));
+        }
+        // Named rather than positional: `dict[K, V]` compiled with the two
+        // transposed is `dict[V, K]`, which typechecks and validates real values.
+        let key_argument = args.get_item(0)?;
+        let key = build_type_argument(&key_argument, lits, defs)?;
+        checked_key(&key, &key_argument)?;
+        return Ok(Schema::mapping(MapClause {
+            key,
+            value: build_type_argument(&args.get_item(1)?, lits, defs)?,
+        }));
+    }
+    if origin.is(py.get_type::<PyTuple>()) {
+        // A tuple's own arguments are read by `build_tuple`, which splices an
+        // unpacked one, so one reaching here stands anywhere else.
+        if is_truthy_attr(alias, intern!(py, "__unpacked__"))? {
+            return Err(unpacked_outside_a_tuple(alias)?);
+        }
+        return build_tuple(args, lits, defs);
+    }
+    if is_union_origin(origin)? {
+        let mut members = Vec::with_capacity(args.len());
+        for arg in args.iter() {
+            members.push(build_type_argument(&arg, lits, defs)?);
+        }
+        return Ok(Schema::union(members));
+    }
+    if is_literal_origin(origin)? {
+        // Literal args are constant values; each becomes a literal, unioned when
+        // there is more than one.
+        let mut members = Vec::with_capacity(args.len());
+        lits.reserve(args.len());
+        for arg in args.iter() {
+            refuse_unhashable_literal(&arg)?;
+            refuse_literal_form(&arg)?;
+            members.push(build_constant(&arg, lits, defs)?);
+        }
+        return Ok(Schema::union(members));
+    }
+    if origin.is(forms(py)?.callable.bind(py)) {
+        // Callable[...] checks only callability at runtime; the argument and
+        // return types cannot be inspected, so the parameters are ignored and
+        // the schema is the opaque `isinstance(x, Callable)` test.
+        return Ok(Schema::Instance(lits.intern_class(origin)));
+    }
+    if origin.is(py.get_type::<Validator>()) {
+        return Err(not_implemented(format!(
+            "{} is the annotation a static checker reads for a validator, not a \
+             schema: pass the schema itself, or a compiled Validator",
+            summarize(alias)?
+        )));
+    }
+    // A field qualifier survives hint resolution because field metadata is kept
+    // (include_extras), so the frontend unwraps it and compiles the type it
+    // qualifies. Asked after the forms above, which is where a union or a
+    // literal stops, because a `typing_extensions` spelling costs a lookup.
+    if is_field_qualifier(origin)? {
+        return build_type_argument(&single_arg(args, alias, QUALIFIER_INSTEAD)?, lits, defs);
+    }
+    // A generic PEP 695 alias applied to its arguments, `Pair[int]`: the body
+    // with the arguments substituted. The last origin that builds, since no
+    // other origin here is an alias and an alias costs an instance check per
+    // spelling; only the refusal of an unpacked origin is asked after it.
+    if is_type_alias(origin)? {
+        return build_applied_alias(origin, args, alias, lits, defs);
+    }
+    if is_unpack_origin(origin)? {
+        return Err(unpacked_outside_a_tuple(alias)?);
+    }
+    // A generic `TypedDict`, dataclass or named tuple applied to its arguments
+    // is the class with them in its fields' place: `Box[int]` is a `Box` whose
+    // field of type `T` holds an `int`. A class whose instances are read by
+    // `isinstance` alone has no field the argument reaches, and is refused
+    // below with every other origin.
+    if let Ok(class) = origin.cast::<PyType>() {
+        if class.hasattr(intern!(py, "__required_keys__"))? {
+            return build_typed_dict(class, Some(args), lits, defs);
+        }
+        if declares_fields(class)? {
+            return build_object(class, Some(args), lits, defs);
+        }
+    }
+    Err(not_implemented(format!(
+        "unsupported typing form with origin {}; the subscripted forms read are \
+         list, set, frozenset, dict, tuple, Union, Optional, Literal, Annotated, \
+         Callable, a generic type alias, a generic TypedDict, dataclass or named \
+         tuple, and the TypedDict qualifiers Required, NotRequired and ReadOnly",
+        summarize(origin)?
+    )))
+}
+
+/// Refuse a `Literal` argument the typing spec does not allow, where reading it
+/// on would mean something else entirely.
+///
+/// The spec's `Literal` takes `None`, an enum member, or an `int`, `bool`, `str`
+/// or `bytes` value. A **list, dict or set** is none of those, and Python does
+/// not reject the subscription -- so `Literal[[1]]` arrives here as a list, and
+/// the constant fallthrough would read it as this library's own native list
+/// *schema*: `Literal[[1]]` would become `list[Literal[1]]`, and `Literal[{}]`
+/// the empty record. Those are sets a caller who wrote `Literal` did not ask
+/// for, and no message would say so.
+///
+/// A float is deliberately not refused here. It is not a spelling the spec
+/// allows either, but it is a *constant*, and this library pools it as one --
+/// which is what `docs/05-refinements.md` says and what a caller writing
+/// `Literal[1.5]` means. The line is between a value with no interpretation but
+/// itself and one this library already reads as a schema.
+pub(super) fn refuse_unhashable_literal(arg: &Bound<'_, PyAny>) -> PyResult<()> {
+    // A *type* is the other thing `Literal` is handed that Python does not
+    // reject and this library already reads as a schema. `Literal[int]` names no
+    // constant -- the spec's arguments are values -- and reading it on built the
+    // `int` schema, so a schema meant to admit one value admitted every integer.
+    if arg.is_instance_of::<PyType>() {
+        return Err(not_implemented(format!(
+            "{} is a type rather than a constant, and is not a Literal \
+             argument: the typing spec allows None, an enum member, or an int, \
+             bool, str or bytes value. Write the type on its own to admit its \
+             values, or a constant to admit one",
+            summarize(arg)?
+        )));
+    }
+    let (kind, instead) = if arg.is_instance_of::<PyList>() {
+        (
+            "a list",
+            "list[T] for a list of values, or a tuple of them in the Literal",
+        )
+    } else if arg.is_instance_of::<PyDict>() {
+        (
+            "a dict",
+            "dict[K, V], or a record written as a dict literal",
+        )
+    } else if arg.is_instance_of::<PySet>() {
+        ("a set", "set[T]")
+    } else {
+        return Ok(());
+    };
+    Err(not_implemented(format!(
+        "{kind} is not a Literal argument: the typing spec allows None, an enum \
+         member, or an int, bool, str or bytes value, and this one would be read \
+         as a schema of its own rather than as a constant. Write {instead}"
+    )))
+}
+
+/// Refuse a typing form handed to `Literal`, which the constant reading would
+/// build as the schema it names.
+///
+/// Python rejects none of these subscriptions, and each reached the schema
+/// reading: `Literal[list[int]]` built `list[int]`, `Literal[NewType("U",
+/// int)]` built `int`, `Literal[Validator(int)]` the validator's set, and on
+/// 3.10, where `Any` is not yet a class, `Literal[Any]` built `Any`. A builtin
+/// scalar is answered first, so a wide `Literal` asks none of the rest.
+pub(super) fn refuse_literal_form(arg: &Bound<'_, PyAny>) -> PyResult<()> {
+    let py = arg.py();
+    if super::is_builtin_scalar(arg) {
+        return Ok(());
+    }
+    let forms = forms(py)?;
+    let bottom = [&forms.never, &forms.noreturn]
+        .into_iter()
+        .flatten()
+        .any(|form| arg.is(form.bind(py)));
+    let form = arg.is(forms.any.bind(py))
+        || bottom
+        || is_extension_top_or_bottom(arg)?
+        || arg.is_exact_instance_of::<Validator>()
+        || arg.getattr_opt(intern!(py, "__supertype__"))?.is_some()
+        || forms
+            .type_alias_type
+            .as_ref()
+            .map_or(Ok(false), |alias| arg.is_instance(alias.bind(py)))?
+        || !forms.get_origin.bind(py).call1((arg,))?.is_none();
+    if !form {
+        return Ok(());
+    }
+    Err(not_implemented(format!(
+        "{} is a typing form rather than a constant, and is not a Literal \
+         argument: the typing spec allows None, an enum member, or an int, \
+         bool, str or bytes value. Write the form on its own to admit its \
+         values, or a constant to admit one",
+        summarize(arg)?
+    )))
+}
+
+/// Whether `arg` is `typing_extensions`' own `Any` or `Never`, an object of its
+/// own below the release that adds each to `typing` and `typing`'s from it on.
+fn is_extension_top_or_bottom(arg: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(is_extension(arg, |held| &held.any)? || is_extension(arg, |held| &held.never)?)
+}
+
+/// True if `origin` is `typing.Union` (from Union/Optional) or
+/// `types.UnionType` (from `X | Y`).
+pub(super) fn is_union_origin(origin: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = origin.py();
+    let forms = forms(py)?;
+    Ok(origin.is(forms.union.bind(py)) || origin.is(forms.union_type.bind(py)))
+}
+
+/// True if `origin` is `typing.Literal`.
+pub(super) fn is_literal_origin(origin: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = origin.py();
+    Ok(origin.is(forms(py)?.literal.bind(py)))
+}
+
+/// True if `origin` is one of the `TypedDict` field qualifiers, which
+/// `include_extras` keeps in the resolved hints.
+///
+/// `Required`/`NotRequired` say whether the key must be present, which
+/// [`qualified_required`](super::classes::qualified_required) reads from here,
+/// and `ReadOnly` says whether a consumer may write the key back — a statement
+/// about use, not about which values belong. None of the three narrows the
+/// field's *set*, so each is unwrapped to the type it qualifies.
+pub(super) fn is_field_qualifier(origin: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(field_qualifier(origin)?.is_some())
+}
+
+/// Which of the three `TypedDict` key qualifiers `origin` is, if any.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Qualifier {
+    Required,
+    NotRequired,
+    ReadOnly,
+}
+
+fn field_qualifier(origin: &Bound<'_, PyAny>) -> PyResult<Option<Qualifier>> {
+    let py = origin.py();
+    let forms = forms(py)?;
+    for (marker, qualifier) in [
+        (&forms.required, Qualifier::Required),
+        (&forms.not_required, Qualifier::NotRequired),
+        (&forms.read_only, Qualifier::ReadOnly),
+    ] {
+        if let Some(marker) = marker
+            && origin.is(marker.bind(py))
+        {
+            return Ok(Some(qualifier));
+        }
+    }
+    // The same three from `typing_extensions`, which is where a release older
+    // than the one that adds a qualifier to `typing` spells it. A qualifier is
+    // a form and never a class, and the origin of every other annotated field
+    // is one, so a class is answered without asking.
+    if origin.is_instance_of::<PyType>() {
+        return Ok(None);
+    }
+    Ok(if is_extension(origin, |held| &held.required)? {
+        Some(Qualifier::Required)
+    } else if is_extension(origin, |held| &held.not_required)? {
+        Some(Qualifier::NotRequired)
+    } else if is_extension(origin, |held| &held.read_only)? {
+        Some(Qualifier::ReadOnly)
+    } else {
+        None
+    })
+}
+
+/// Refuse `Required` or `NotRequired` on a field of a dict literal.
+///
+/// The literal's one optionality marker is the `?` on its key, and a qualifier
+/// is otherwise unwrapped to the type it qualifies -- which here is the one
+/// place it reads as nothing where it says the opposite: `{"a":
+/// NotRequired[int]}` is a record that *requires* `a`, which a reader coming
+/// from `TypedDict` does not expect. Reading the qualifier instead would make
+/// two markers for one fact, which can disagree, so the field is refused and
+/// the key's spelling named. `ReadOnly` says nothing about presence and is
+/// read through, as `Annotated` is, to the qualifier under it.
+///
+/// A class is no qualifier, and most fields are one, so they are answered by
+/// the caller before this asks anything.
+fn refuse_a_presence_qualifier(key: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    let py = value.py();
+    let forms = forms(py)?;
+    let mut value = value.clone();
+    // Each turn unwraps one `Annotated` or one `ReadOnly`, which a finite form
+    // nests finitely; the bound is what makes that a loop that ends whatever
+    // the form's `__origin__` claims. A class, a builtin alias such as
+    // `list[int]` and an `X | Y` are never a qualifier, and are told by their
+    // exact type rather than by the `get_origin` call each qualifier needs:
+    // with the call per field, a fifty-field literal of `list[int]` builds 15%
+    // slower.
+    for _ in 0..MAX_QUALIFIER_DEPTH {
+        if value.is_instance_of::<PyType>() {
+            return Ok(());
+        }
+        let ty = value.get_type();
+        if ty.is(forms.generic_alias.bind(py)) {
+            return Ok(());
+        }
+        if ty.is(forms.union_type.bind(py)) {
+            return Ok(());
+        }
+        if ty.is(forms.annotated_alias.bind(py)) {
+            value = value.getattr(intern!(py, "__origin__"))?;
+            continue;
+        }
+        let origin = forms.get_origin.bind(py).call1((&value,))?;
+        match field_qualifier(&origin)? {
+            Some(Qualifier::ReadOnly) => {
+                let args = forms.get_args.bind(py).call1((&value,))?;
+                value = single_arg(args.cast::<PyTuple>()?, &value, QUALIFIER_INSTEAD)?;
+            }
+            Some(_) => {
+                let name = key.strip_suffix('?').unwrap_or(key);
+                let optional = format!("{name}?");
+                return Err(not_implemented(format!(
+                    "{} on the field {name:?} of a dict literal is a TypedDict \
+                     qualifier, and the literal says whether a key is required by \
+                     its spelling alone: write the key {optional:?} for an \
+                     optional field and {name:?} for a required one, with the \
+                     type alone",
+                    summarize(&value)?,
+                )));
+            }
+            None => return Ok(()),
+        }
+    }
+    Ok(())
+}
+
+/// How many `Annotated` and `ReadOnly` wrappers [`refuse_a_presence_qualifier`]
+/// reads through: more than any spelling nests, since `Annotated` flattens
+/// itself and a qualifier qualifies once.
+const MAX_QUALIFIER_DEPTH: usize = 8;
+
+/// Compile a *type argument* of a typing form.
+///
+/// A string here is a forward reference, which the typing spec asks a consumer to
+/// resolve against the namespace the annotation was written in. valgebra has no
+/// such namespace in hand, and the constant fallthrough would read `list["int"]`
+/// as a list of the string `"int"` — a schema that refuses what the annotation
+/// admits and admits what it refuses. So the position is refused, and the caller
+/// is pointed at the resolution the spec provides.
+///
+/// `Literal["a"]`'s arguments are not this position: they are values, which is
+/// why the literal arm compiles them straight through. Nor is the native list or
+/// dict literal, where a bare value is a literal by design.
+pub(super) fn build_type_argument(
+    arg: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    if arg.is_instance_of::<PyString>() || is_forward_reference(arg)? {
+        return Err(not_implemented(format!(
+            "{} is a forward reference, and a schema is built from the types \
+             themselves: resolve the annotation first with typing.get_type_hints(\
+             ..., include_extras=True), or write the type rather than its name",
+            summarize(arg)?
+        )));
+    }
+    build_schema(arg, lits, defs)
+}
+
+/// What an unpacked tuple argument contributes to the tuple that carries it.
+pub(super) enum Unpacked<'py> {
+    /// `*tuple[A, B]`: its arguments splice in where it stands, and are read
+    /// as the carrier's own; with the `type` alias it was read through, where
+    /// it was written as one.
+    Fixed(Bound<'py, PyTuple>, Option<Bound<'py, PyAny>>),
+    /// `*tuple[B, ...]`: the tuple repeats `B` from here on.
+    Tail(Bound<'py, PyAny>),
+}
+
+/// Read `arg` as an unpacked tuple, or `None` when it is an ordinary element.
+///
+/// Two spellings say the same thing: `*tuple[B, ...]` is the tuple alias itself
+/// carrying a flag, and `Unpack[tuple[B, ...]]` wraps it. Both have to be read,
+/// because a reader who writes one and a reader who writes the other mean one
+/// annotation, and reading only the second leaves the first looking like a
+/// nested tuple — a schema that admits a different set than the annotation says.
+///
+/// Only a tuple can be unpacked into a tuple. `*Ts` over a `TypeVarTuple` binds
+/// no element types at runtime, so it is refused here rather than read as an
+/// empty splice. A `type` alias stands for the form its value names, so
+/// `*Tail` under `type Tail = tuple[int, ...]` is that tuple's unpack: it is read
+/// through every alias on the way, applied ones with their arguments in place,
+/// and aliases that name each other in a cycle stand for no form.
+pub(super) fn unpacked_tuple<'py>(arg: &Bound<'py, PyAny>) -> PyResult<Option<Unpacked<'py>>> {
+    let py = arg.py();
+    let forms = forms(py)?;
+    let origin_of = |of: &Bound<'py, PyAny>| forms.get_origin.bind(py).call1((of,));
+    let inner = if is_truthy_attr(arg, intern!(py, "__unpacked__"))? {
+        arg.clone()
+    } else {
+        if !is_unpack_origin(&origin_of(arg)?)? {
+            return Ok(None);
+        }
+        let wrapped = forms.get_args.bind(py).call1((arg,))?;
+        single_arg(wrapped.cast::<PyTuple>()?, arg, UNPACK_INSTEAD)?
+    };
+    let mut inner = inner;
+    let mut through: Vec<Bound<'py, PyAny>> = Vec::new();
+    while let Some((alias, value)) = super::alias_value(&inner)? {
+        if through.iter().any(|met| met.is(&alias)) {
+            return Err(not_implemented(format!(
+                "{} names itself through the aliases it stands for, and so \
+                 stands for no type: write the tuple it means",
+                summarize(&alias)?
+            )));
+        }
+        through.push(alias);
+        inner = value;
+    }
+    if !origin_of(&inner)?.is(py.get_type::<PyTuple>()) {
+        return Err(not_implemented(match through.first() {
+            Some(alias) => format!(
+                "only a tuple can be unpacked into a tuple schema, and {} stands \
+                 for {}",
+                summarize(alias)?,
+                summarize(&inner)?
+            ),
+            None => format!(
+                "only a tuple can be unpacked into a tuple schema; {} binds no \
+                 element types at runtime",
+                summarize(&inner)?
+            ),
+        }));
+    }
+    let alias = through.into_iter().next();
+    let args = forms.get_args.bind(py).call1((&inner,))?;
+    let args = args.cast_into::<PyTuple>()?;
+    if args.len() == 2 && is_ellipsis(&args.get_item(1)?) {
+        return Ok(Some(Unpacked::Tail(args.get_item(0)?)));
+    }
+    // `*tuple[()]` splices nothing, in the spelling 3.10 gives it too, where
+    // its one argument is the empty tuple and would splice in as an element.
+    if spells_the_empty_tuple(&args)? {
+        return Ok(Some(Unpacked::Fixed(PyTuple::empty(py), alias)));
+    }
+    Ok(Some(Unpacked::Fixed(args, alias)))
+}
+
+/// Whether `origin` is `typing.Unpack`, or `typing_extensions.Unpack` where it
+/// is its own object: 3.10 has only the second. An argument with no origin is
+/// an ordinary element, and asks neither.
+fn is_unpack_origin(origin: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = origin.py();
+    Ok(!origin.is_none()
+        && !origin.is_instance_of::<PyType>()
+        && (forms(py)?
+            .unpack
+            .as_ref()
+            .is_some_and(|unpack| origin.is(unpack.bind(py)))
+            || is_extension(origin, |held| &held.unpack)?))
+}
+
+/// The refusal for an unpacked argument anywhere but a tuple's arguments.
+///
+/// `*tuple[int]` is the tuple alias carrying a flag, so read as a type it is
+/// `tuple[int]`, and `list[*tuple[int]]` would be a list of one-element
+/// tuples: a form one static checker refuses and another reads as
+/// `list[int]`. Refusing it is the one answer both allow. `Unpack[...]` is the same unpacking
+/// spelled out, and is refused in the same words.
+fn unpacked_outside_a_tuple(spelling: &Bound<'_, PyAny>) -> PyResult<PyErr> {
+    Ok(not_implemented(format!(
+        "{} unpacks into the arguments of the tuple[...] that carries it, and \
+         names no set anywhere else: write the type it unpacks in its place, or \
+         unpack a tuple into a tuple",
+        summarize(spelling)?
+    )))
+}
+
+/// Whether these type arguments spell `tuple[()]`.
+///
+/// No arguments on 3.11 and later; one argument that is the empty tuple on
+/// 3.10. `get_args` reports the two differently and `tuple[()]` means the same
+/// type on both, so the difference is read here instead of by every caller.
+fn spells_the_empty_tuple(args: &Bound<'_, PyTuple>) -> PyResult<bool> {
+    if args.is_empty() {
+        return Ok(true);
+    }
+    if args.len() != 1 {
+        return Ok(false);
+    }
+    let only = args.get_item(0)?;
+    match only.cast::<PyTuple>() {
+        Ok(tuple) => Ok(tuple.is_empty()),
+        Err(_) => Ok(false),
+    }
+}
+
+/// One tuple's arguments as [`build_tuple`] reads them: the carrier's, or a
+/// splice's.
+struct Reading<'py> {
+    /// The arguments still to read, taken from an iterator so the worklist
+    /// ends by construction rather than by a position it advances.
+    args: BoundTupleIterator<'py>,
+    /// Whether an argument of this tuple has been read, which a `...` needs
+    /// before it.
+    begun: bool,
+    /// Whether the argument just read was an element written in this tuple,
+    /// which is what a `...` after it repeats.
+    element_before: bool,
+    /// The `type` alias this tuple was spliced in through, where it was one.
+    alias: Option<Bound<'py, PyAny>>,
+}
+
+/// `tuple[...]`, in every shape typing spells it.
+///
+/// A trailing `...` repeats the element before it after a fixed prefix, and an
+/// unpacked variadic tuple — `tuple[A, *tuple[B, ...]]` — is that same shape said
+/// another way, so both compile to the prefix-and-tail form. An unpacked *fixed*
+/// tuple splices its arguments in where it stands, and they are read as the
+/// carrier's own: `tuple[int, *tuple[str, *tuple[bool, ...]]]` is
+/// `tuple[int, str, *tuple[bool, ...]]`, as both static checkers reveal it.
+/// Pushed in as elements instead, the inner star would read as a nested tuple
+/// and the inner `...` as the literal `Ellipsis`.
+///
+/// What a sequence carries is a fixed prefix and then a repeating tail, with
+/// nothing after it. An element following the tail is therefore refused: the set
+/// it names is one this algebra cannot spell, and reading it as anything else
+/// would admit a different one. A `...` repeats the one element written before
+/// it in its own tuple, so one after a splice -- `tuple[*tuple[int, str], ...]`
+/// -- is refused too: the elements spliced in are not one element, and reading
+/// the last of them as the repeated one admits a set the spelling does not
+/// say.
+pub(super) fn build_tuple(
+    args: &Bound<'_, PyTuple>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    // `tuple[()]` is the empty tuple, and the runtimes spell it two ways: 3.11
+    // and later give no type arguments, 3.10 gives one argument that *is* the
+    // empty tuple. Both name one type, so the older spelling is read here rather
+    // than reaching the loop below, which would take it for a tuple literal and
+    // refuse it.
+    if spells_the_empty_tuple(args)? {
+        return Ok(Schema::tuple(SeqShape::fixed(Vec::new())));
+    }
+    let mut prefix: Vec<Bound<'_, PyAny>> = Vec::with_capacity(args.len());
+    let mut tail: Option<Bound<'_, PyAny>> = None;
+    // The tuples whose arguments are being read, the innermost splice last. A
+    // worklist rather than a recursion, so a splice nested as deep as a caller
+    // writes it costs no stack.
+    let mut open = vec![Reading {
+        args: args.iter(),
+        begun: false,
+        element_before: false,
+        alias: None,
+    }];
+    while let Some(reading) = open.last_mut() {
+        let Some(arg) = reading.args.next() else {
+            open.pop();
+            continue;
+        };
+        let begun = std::mem::replace(&mut reading.begun, true);
+        let element_before = std::mem::replace(&mut reading.element_before, false);
+        if tail.is_some() {
+            return Err(not_implemented(
+                "a tuple schema carries a fixed prefix and then a repeating \
+                 tail, so nothing may follow the tail: write the repeating part \
+                 last",
+            ));
+        }
+        match unpacked_tuple(&arg)? {
+            Some(Unpacked::Fixed(items, alias)) => {
+                // An alias spliced inside its own splice holds itself, so the
+                // tuple it names would have no finite length, and the worklist
+                // would grow without end.
+                if let Some(alias) = &alias
+                    && open
+                        .iter()
+                        .any(|reading| reading.alias.as_ref().is_some_and(|held| held.is(alias)))
+                {
+                    return Err(not_implemented(format!(
+                        "{} unpacks itself, and a tuple that holds itself has no \
+                         finite length: write the repeating part as a tail, \
+                         *tuple[T, ...]",
+                        summarize(alias)?
+                    )));
+                }
+                open.push(Reading {
+                    args: items.iter(),
+                    begun: false,
+                    element_before: false,
+                    alias,
+                });
+            }
+            Some(Unpacked::Tail(item)) => tail = Some(item),
+            None if is_ellipsis(&arg) => {
+                let repeated = if element_before { prefix.pop() } else { None };
+                let Some(repeated) = repeated else {
+                    return Err(not_implemented(if begun {
+                        "`...` repeats the one element written before it, and \
+                         the elements an unpacked tuple splices in are not one \
+                         element: write the element to repeat before the `...`"
+                    } else {
+                        "`...` repeats the element before it, so a tuple schema \
+                         cannot begin with one"
+                    }));
+                };
+                tail = Some(repeated);
+            }
+            None => {
+                prefix.push(arg);
+                reading.element_before = true;
+            }
+        }
+    }
+    let mut elements = Vec::with_capacity(prefix.len());
+    for element in &prefix {
+        elements.push(build_type_argument(element, lits, defs)?);
+    }
+    let regex = match tail {
+        None => SeqShape::fixed(elements),
+        Some(tail) => {
+            let tail = build_type_argument(&tail, lits, defs)?;
+            if elements.is_empty() {
+                SeqShape::homogeneous(tail)
+            } else {
+                SeqShape::prefix_tail(elements, tail)
+            }
+        }
+    };
+    Ok(Schema::tuple(regex))
+}
+
+/// The one type argument `form` takes, or a refusal that names the form.
+///
+/// `form` is the spelling the caller wrote and `instead` is what to write in
+/// its place, because neither is derivable here: the arity is the same mistake
+/// at every caller and the remedy is not. A list of several types is a
+/// fixed-length list, which this library spells as a list literal; a set of
+/// several is a set of their union, because a set schema is homogeneous.
+///
+/// Both halves are the message. Named only as an arity, the refusal says a
+/// count is wrong without saying whose or what the caller should have written,
+/// which is a sentence a reader takes back to the page.
+pub(super) fn single_arg<'py>(
+    args: &Bound<'py, PyTuple>,
+    form: &Bound<'_, PyAny>,
+    instead: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    if args.len() == 1 {
+        return args.get_item(0);
+    }
+    Err(not_implemented(format!(
+        "{} takes exactly one type argument, and this one is written with {}: \
+         {instead}",
+        summarize(form)?,
+        args.len()
+    )))
+}
+
+pub(super) fn build_sequence(
+    list: &Bound<'_, PyList>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    let len = list.len();
+    // [T]: a homogeneous list of T (the single-element idiom).
+    if len == 1 && !is_ellipsis(&list.get_item(0)?) {
+        let element = build_schema(&list.get_item(0)?, lits, defs)?;
+        return Ok(Schema::list(SeqShape::homogeneous(element)));
+    }
+    // [p0, ..., tail, ...]: a trailing `...` repeats the element before it, after
+    // a fixed prefix of the earlier elements. [T, ...] is the prefix-free case,
+    // and [T, T, ...] is the non-empty list.
+    if len >= 2 && is_ellipsis(&list.get_item(len - 1)?) {
+        let mut element = |index| {
+            let item = list.get_item(index)?;
+            if is_ellipsis(&item) {
+                return Err(not_implemented(
+                    "`...` may appear only as the last element of a list schema",
+                ));
+            }
+            build_schema(&item, lits, defs)
+        };
+        // Built in order, prefix then tail, so the pool and the definitions
+        // fill as the annotation reads.
+        let prefix = (0..len - 2)
+            .map(&mut element)
+            .collect::<PyResult<Vec<_>>>()?;
+        let tail = element(len - 2)?;
+        let regex = if prefix.is_empty() {
+            SeqShape::homogeneous(tail)
+        } else {
+            SeqShape::prefix_tail(prefix, tail)
+        };
+        return Ok(Schema::list(regex));
+    }
+    // [A, B]: a fixed-length list matched positionally (and `[]` the empty list).
+    // typing cannot spell a fixed-length list (`list[A, B]` is illegal), so the
+    // list literal carries this shape; `tuple[A, B]` is the tuple counterpart.
+    let mut elements = Vec::with_capacity(len);
+    for index in 0..len {
+        let item = list.get_item(index)?;
+        if is_ellipsis(&item) {
+            return Err(not_implemented(
+                "`...` may appear only as the last element of a list schema",
+            ));
+        }
+        elements.push(build_schema(&item, lits, defs)?);
+    }
+    Ok(Schema::list(SeqShape::fixed(elements)))
+}
+
+pub(super) fn build_dict(
+    dict: &Bound<'_, PyDict>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
+    // A string key is a named field (with the `"key?"` optional convention); any
+    // other key is a schema keying a default clause for the rest. All string keys
+    // give a record; a single schema key with no fields gives `dict[K, V]`;
+    // several schema keys a heterogeneous mapping; a mix a record with a typed
+    // catch-all; the empty dict the empty closed record.
+    // Grown rather than sized from the dict, and measured that way round: a
+    // fifty-key record reserved up front asks the allocator for the whole
+    // field array in one request, which leaves the fast bins and reads **+9%**
+    // on the shape that builds one -- against the five reallocations that
+    // growing from empty costs, each of which is served from a bin that is
+    // already warm.
+    let mut fields = Vec::new();
+    let mut defaults = Vec::new();
+    // Whether any key was written with the optional suffix. Two keys of one
+    // dict are distinct strings, so two *fields* can share a name only where a
+    // `?` was stripped from one of them -- which is what makes the scan below
+    // conditional rather than a cost every record pays for a shape most of them
+    // cannot have.
+    let mut optional_seen = false;
+    for (key, value) in dict.iter() {
+        if let Ok(name) = key.cast::<PyString>() {
+            let raw = field_name(name)?;
+            // The suffix is where the flag is raised, because stripping one is
+            // the only thing that makes two dict keys one field name.
+            if !value.is_instance_of::<PyType>() {
+                refuse_a_presence_qualifier(raw, &value)?;
+            }
+            let (name, required) = match raw.strip_suffix('?') {
+                Some(stripped) => {
+                    optional_seen = true;
+                    (stripped.into(), false)
+                }
+                None => (raw.into(), true),
+            };
+            fields.push(Field {
+                name,
+                schema: build_schema(&value, lits, defs)?,
+                required,
+            });
+        } else {
+            let key_schema = build_schema(&key, lits, defs)?;
+            checked_key(&key_schema, &key)?;
+            defaults.push(MapClause {
+                key: key_schema,
+                value: build_schema(&value, lits, defs)?,
+            });
+        }
+    }
+    if optional_seen {
+        refuse_a_field_named_twice(&fields)?;
+    }
+    refuse_a_key_schema_written_twice(&defaults)?;
+    Ok(Schema::keyed_map(fields, defaults))
+}
+
+/// Refuse a mapping two of whose keys build one key schema.
+///
+/// `{Validator(int): str, int: bytes}` is two dict keys and one key schema, and
+/// a key is read by some clause, so the two say one clause over the union of
+/// their values -- a spelling with two places for one fact, whose render would
+/// repeat a key a dict display keeps once and read back as the last. Refused
+/// rather than merged, as two keys that are one field name are, and asked once
+/// over the finished clauses, by pairs: a mapping is written with a few.
+fn refuse_a_key_schema_written_twice(defaults: &[MapClause]) -> PyResult<()> {
+    for (at, clause) in defaults.iter().enumerate() {
+        if defaults
+            .iter()
+            .take(at)
+            .any(|earlier| earlier.key == clause.key)
+        {
+            return Err(PyValueError::new_err(
+                "two keys of this mapping build one key schema, and a key is read \
+                 by any clause that admits it: write the key once, with the union \
+                 of the values each of the two allowed",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Refuse a record that names one field twice.
+///
+/// `{"a": int, "a?": str}` is two dict keys and one field name, so the record it
+/// names asks the key to be required and optional at once and to hold two
+/// disjoint types. Built, it would be a record admitting nothing, with no
+/// message saying why, and two spellings of it that compare unequal.
+///
+/// Asked once over the finished fields rather than of each name as it arrives:
+/// a record is written with as many keys as a caller likes, and asking each new
+/// name against every earlier one makes building one quadratic in its width.
+fn refuse_a_field_named_twice(fields: &[Field]) -> PyResult<()> {
+    let mut seen: FxHashSet<&str> =
+        FxHashSet::with_capacity_and_hasher(fields.len(), rustc_hash::FxBuildHasher);
+    for field in fields {
+        if !seen.insert(&field.name) {
+            return Err(PyValueError::new_err(format!(
+                "the key {:?} is declared twice in this record: a name and the \
+                 same name with a trailing `?` are one field, so write it once \
+                 with the type and the optionality it has",
+                field.name
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn is_ellipsis(obj: &Bound<'_, PyAny>) -> bool {
+    let py = obj.py();
+    forms(py).is_ok_and(|forms| obj.is(forms.ellipsis.bind(py)))
+}
+
+#[cfg(all(test, feature = "interpreter-tests"))]
+mod empty_tuple_tests {
+    use super::spells_the_empty_tuple;
+    use pyo3::prelude::*;
+    use pyo3::types::{PyInt, PyTuple};
+
+    /// `tuple[()]` is the empty tuple type in both spellings `get_args` has.
+    ///
+    /// The interpreters disagree about the arguments: 3.11 and later report
+    /// none, 3.10 reports one argument that is the empty tuple. The second
+    /// shape cannot be produced by an annotation on the interpreter this
+    /// corpus runs, so it is built by hand -- a reading held only on the floor
+    /// interpreter is a reading no sweep here observes, and the 3.10 lane is a
+    /// long way to find out that the type became `tuple[anything, ...]`.
+    #[test]
+    fn the_empty_tuple_is_read_in_both_spellings_get_args_has() {
+        Python::attach(|py| {
+            let none: Vec<Bound<'_, PyAny>> = Vec::new();
+            let empty = PyTuple::new(py, none).expect("builds");
+            assert!(spells_the_empty_tuple(&empty).expect("reads"));
+
+            // The 3.10 shape: one argument, and it is the empty tuple.
+            let wrapped = PyTuple::new(py, [empty.clone()]).expect("builds");
+            assert!(spells_the_empty_tuple(&wrapped).expect("reads"));
+
+            // One argument that is a type is `tuple[int]`, which is a tuple of
+            // one element rather than of none.
+            let one = PyTuple::new(py, [PyInt::new(py, 1i64)]).expect("builds");
+            assert!(!spells_the_empty_tuple(&one).expect("reads"));
+
+            // Two arguments are two elements, whatever they are.
+            let two = PyTuple::new(py, [empty.clone(), empty]).expect("builds");
+            assert!(!spells_the_empty_tuple(&two).expect("reads"));
+        });
+    }
+}

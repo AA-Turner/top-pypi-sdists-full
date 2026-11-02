@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.356.0"
+version = "0.362.1"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,7 +53,7 @@ dependencies = [
     "pydantic>=2.9",
     # Checkbox menu for the setup wizard. Upper-bounded like typer: it is a thin
     # layer over prompt_toolkit, whose internals a major bump can reshape.
-    # IMPORTED LAZILY inside the command body -- see cli/setup.py:run_menu.
+    # IMPORTED LAZILY inside the command body -- see cli/wizard/wizard.py:run_menu.
     "questionary>=2.0,<3",
     # Hardware-rail floor (opt-in via run(hw=True)/PROBE_HW=1;
     # docs/2026-08-05-hw-metrics-design.md).
@@ -72,7 +72,7 @@ dependencies = [
     # dependencies of its own; IMPORTED LAZILY, only when a pattern exists.
     "pathspec>=1.0",
     # Codex's config.toml edited in place, comments and order kept, by the
-    # integration repair (cli/integration_reinstall.py). Pure python, no
+    # integration repair (cli/install/integrations/reinstall.py). Pure python, no
     # dependencies of its own. It was imported from 2026-10-19 while declared
     # nowhere, so `--reinstall` crashed on every real install; the guard is
     # tests/test_cli_imports_are_declared.py. CLI-side: in `cli` below too.
@@ -123,7 +123,7 @@ mcp-http = ["uvicorn>=0.30"]
 # (mcp 2.x-pinned stacks such as vllm 0.30 refuse our `mcp<2` today).
 # tests/test_py310_compat.py keeps these specs identical to core's.
 # cryptography: Ed25519 for the Probe service's install of a closed desktop app
-# (service/appinstall.py), the minisign signature the app's own updater checks.
+# (service/updater/app/app.py), the minisign signature the app's own updater checks.
 # The service runs only from the CLI's env (service/client.py `runtime_python`:
 # runtime.json's python, else the uv tool env, both installed with [all]), so it
 # is here and NOT in core: a training env's `pip install probe-research` never

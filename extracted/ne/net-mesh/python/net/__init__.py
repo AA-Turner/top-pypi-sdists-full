@@ -1,0 +1,1048 @@
+"""
+Net - High-performance event bus for AI runtime workloads.
+
+Example usage:
+
+    from net import Net
+
+    # Create event bus
+    bus = Net(num_shards=4)
+
+    # Ingest events (fast path with raw JSON string)
+    result = bus.ingest_raw('{"token": "hello", "index": 0}')
+    print(f"Ingested to shard {result.shard_id}")
+
+    # Or ingest a dict (convenience method)
+    bus.ingest({"token": "world", "index": 1})
+
+    # Batch ingestion for maximum throughput
+    events = [f'{{"token": "tok_{i}"}}' for i in range(1000)]
+    count = bus.ingest_raw_batch(events)
+    print(f"Ingested {count} events")
+
+    # Poll events
+    response = bus.poll(limit=100)
+    for event in response:
+        print(event.raw)
+
+    # Get stats
+    stats = bus.stats()
+    print(f"Total ingested: {stats.events_ingested}")
+
+    # Shutdown
+    bus.shutdown()
+
+    # Or use as context manager
+    with Net() as bus:
+        bus.ingest_raw('{"data": "value"}')
+"""
+
+from ._net import (
+    IngestResult,
+    Net,
+    PollResponse,
+    Stats,
+    StoredEvent,
+)
+
+__all__ = [
+    "Net",
+    "IngestResult",
+    "StoredEvent",
+    "PollResponse",
+    "Stats",
+]
+
+# Redis Streams consumer-side dedup helper. Present iff the native
+# module was built with the `redis` feature.
+try:
+    from ._net import RedisStreamDedup
+except ImportError:
+    # `redis` feature not compiled in; symbol stays undefined.
+    pass
+else:
+    __all__.append("RedisStreamDedup")
+
+
+# CortEX + NetDB surface. Present iff the native module was built with
+# the `cortex` feature (maturin's default picks it up).
+try:
+    from ._net import (
+        AsyncMemoriesAdapter,
+        AsyncMemoryWatchIter,
+        AsyncRedexFile,
+        AsyncRedexTailIter,
+        AsyncTasksAdapter,
+        AsyncTaskWatchIter,
+        CortexError,
+        JoinResult,
+        MemoriesAdapter,
+        Memory,
+        MemoryWatchIter,
+        NetDb,
+        NetDbError,
+        Redex,
+        RedexError,
+        RedexEvent,
+        RedexFile,
+        RedexTailIter,
+        ShardGroup,
+        Task,
+        TasksAdapter,
+        TaskWatchIter,
+        TriggerAction,
+        TriggerEngine,
+        WorkflowAdapter,
+        WorkflowStatusCounts,
+        WorkflowTaskState,
+    )
+except ImportError:
+    # `cortex` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncMemoriesAdapter",
+            "AsyncMemoryWatchIter",
+            "AsyncRedexFile",
+            "AsyncRedexTailIter",
+            "AsyncTasksAdapter",
+            "AsyncTaskWatchIter",
+            "CortexError",
+            "MemoriesAdapter",
+            "Memory",
+            "MemoryWatchIter",
+            "NetDb",
+            "NetDbError",
+            "Redex",
+            "RedexError",
+            "RedexEvent",
+            "RedexFile",
+            "RedexTailIter",
+            "JoinResult",
+            "ShardGroup",
+            "Task",
+            "TasksAdapter",
+            "TaskWatchIter",
+            "TriggerAction",
+            "TriggerEngine",
+            "WorkflowAdapter",
+            "WorkflowStatusCounts",
+            "WorkflowTaskState",
+        ]
+    )
+
+# nRPC surface (Phase B3). Separate try block from the broader
+# cortex import above so a wheel built with cortex but BEFORE the
+# B3 surface landed (e.g. an upgrade-in-progress install) still
+# exposes the legacy cortex symbols. New users get both groups
+# once the wheel is rebuilt with `maturin develop`.
+try:
+    from ._net import (
+        AsyncClientStreamCall,
+        AsyncDuplexCall,
+        AsyncDuplexSink,
+        AsyncDuplexStream,
+        AsyncMeshRpc,
+        AsyncRpcStream,
+        Cancellable,
+        MeshRpc,
+        RpcAppError,
+        RpcCancelledError,
+        RpcCapabilityDeniedError,
+        RpcCodecError,
+        RpcError,
+        RpcNoRouteError,
+        RpcServerError,
+        RpcStream,
+        RpcTimeoutError,
+        RpcTransportError,
+        ServeHandle,
+    )
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncClientStreamCall",
+            "AsyncDuplexCall",
+            "AsyncDuplexSink",
+            "AsyncDuplexStream",
+            "AsyncMeshRpc",
+            "AsyncRpcStream",
+            "Cancellable",
+            "MeshRpc",
+            "RpcAppError",
+            "RpcCancelledError",
+            "RpcCapabilityDeniedError",
+            "RpcCodecError",
+            "RpcError",
+            "RpcNoRouteError",
+            "RpcServerError",
+            "RpcStream",
+            "RpcTimeoutError",
+            "RpcTransportError",
+            "ServeHandle",
+        ]
+    )
+
+# Encrypted mesh transport + per-peer streams. Present iff the native
+# module was built with the `net` feature.
+try:
+    from ._net import (
+        AsyncNetMesh,
+        AsyncNetStream,
+        BackpressureError,
+        ChannelAuthError,
+        ChannelError,
+        NetKeypair,
+        NetMesh,
+        NetStream,
+        NetStreamStats,
+        NotConnectedError,
+        SessionSupersededError,
+        StreamData,
+        StreamInbox,
+        generate_net_keypair,
+    )
+except ImportError:
+    # `net` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncNetMesh",
+            "AsyncNetStream",
+            "BackpressureError",
+            "ChannelAuthError",
+            "ChannelError",
+            "NetKeypair",
+            "NetMesh",
+            "NetStream",
+            "NetStreamStats",
+            "NotConnectedError",
+            "SessionSupersededError",
+            "StreamData",
+            "StreamInbox",
+            "generate_net_keypair",
+        ]
+    )
+
+# Identity + tokens surface. Present iff the native module was built
+# with the `net` feature.
+try:
+    from ._net import (
+        Identity,
+        IdentityError,
+        TokenError,
+        channel_hash,
+        delegate_token,
+        stream_id_from_label,
+        normalize_gpu_vendor,
+        parse_token,
+        token_is_expired,
+        verify_signature,
+        verify_token,
+    )
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "Identity",
+            "IdentityError",
+            "TokenError",
+            "channel_hash",
+            "delegate_token",
+            "stream_id_from_label",
+            "normalize_gpu_vendor",
+            "parse_token",
+            "token_is_expired",
+            "verify_signature",
+            "verify_token",
+        ]
+    )
+
+# Compute runtime surface. Present iff the native module was built
+# with the `compute` feature. Stage 5 of SDK_COMPUTE_SURFACE_PLAN.md.
+try:
+    from ._net import (
+        AsyncDaemonRuntime,
+        AsyncMigrationHandle,
+        CausalEvent,
+        DaemonError,
+        DaemonHandle,
+        DaemonRuntime,
+        MigrationError,
+        MigrationHandle,
+    )
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncDaemonRuntime",
+            "AsyncMigrationHandle",
+            "CausalEvent",
+            "DaemonError",
+            "DaemonHandle",
+            "DaemonRuntime",
+            "MigrationError",
+            "MigrationHandle",
+            "migration_error_kind",
+        ]
+    )
+
+    def migration_error_kind(exc: "MigrationError") -> str | None:
+        """Extract the migration-failure kind from a caught
+        ``MigrationError``.
+
+        The Rust side encodes migration failures as messages of the form
+        ``"daemon: migration: <kind>[: <detail>]"``. This helper parses
+        the kind out so callers can dispatch programmatically::
+
+            try:
+                migration.wait()
+            except MigrationError as e:
+                kind = migration_error_kind(e)
+                if kind == "not-ready":
+                    # ...retriable...
+                elif kind == "factory-not-found":
+                    # ...terminal, target mis-configured...
+
+        Returns ``None`` if the message doesn't start with the expected
+        prefix (shouldn't happen for exceptions raised by this module).
+        """
+        msg = str(exc)
+        prefix = "daemon: migration:"
+        if not msg.startswith(prefix):
+            return None
+        body = msg[len(prefix) :].strip()
+        colon = body.find(":")
+        return body if colon == -1 else body[:colon].strip()
+
+
+# Groups surface. Present iff the native module was built with
+# the `groups` feature. Stage 3 of SDK_GROUPS_SURFACE_PLAN.md.
+try:
+    from ._net import ForkGroup, GroupError, ReplicaGroup, StandbyGroup
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "ForkGroup",
+            "GroupError",
+            "ReplicaGroup",
+            "StandbyGroup",
+            "group_error_kind",
+        ]
+    )
+
+    def group_error_kind(exc: "GroupError") -> str | None:
+        """Extract the group-failure kind from a caught
+        ``GroupError``.
+
+        The Rust side encodes group failures as messages of the form
+        ``"daemon: group: <kind>[: <detail>]"``. This helper parses
+        the kind out so callers can dispatch programmatically::
+
+            try:
+                ReplicaGroup.spawn(rt, "counter", ...)
+            except GroupError as e:
+                kind = group_error_kind(e)
+                if kind == "not-ready":
+                    # ...runtime not started...
+                elif kind == "factory-not-found":
+                    # ...kind was never registered...
+                elif kind == "no-healthy-member":
+                    # ...all members down...
+
+        Returns ``None`` if the message doesn't start with the expected
+        prefix (shouldn't happen for exceptions raised by this module).
+        """
+        msg = str(exc)
+        prefix = "daemon: group:"
+        if not msg.startswith(prefix):
+            return None
+        body = msg[len(prefix) :].strip()
+        colon = body.find(":")
+        return body if colon == -1 else body[:colon].strip()
+
+
+# Dataforts blob surface. Present iff the native module was built
+# with the `dataforts` Cargo feature. Includes the v0.15 external-
+# hook adapter helpers (`register_filesystem_blob_adapter`,
+# `blob_publish`, `blob_resolve`) and the v0.2 substrate-owned
+# `MeshBlobAdapter` Python class.
+try:
+    from ._net import (
+        AsyncMeshBlobAdapter,
+        BlobError,
+        BlobRef,
+        MeshBlobAdapter,
+        async_blob_publish,
+        async_blob_resolve,
+        blob_adapter_ids,
+        blob_adapter_registered,
+        blob_publish,
+        blob_resolve,
+        register_blob_adapter,
+        register_filesystem_blob_adapter,
+        unregister_blob_adapter,
+    )
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncMeshBlobAdapter",
+            "BlobError",
+            "BlobRef",
+            "MeshBlobAdapter",
+            "async_blob_publish",
+            "async_blob_resolve",
+            "blob_adapter_ids",
+            "blob_adapter_registered",
+            "blob_publish",
+            "blob_resolve",
+            "register_blob_adapter",
+            "register_filesystem_blob_adapter",
+            "unregister_blob_adapter",
+        ]
+    )
+
+
+# Transport surface (blob + directory transfer over the fairscheduler
+# stream transport). Present iff built with the `dataforts` feature.
+try:
+    from ._net import (
+        TransferControl,
+        TransferError,
+        TransferHeader,
+        fetch_blob,
+        fetch_blob_discovered,
+        fetch_dir,
+        is_transfer_stream_id,
+        next_transfer_stream_id,
+        serve_blob_transfer,
+        store_dir,
+        transfer_stream_id,
+    )
+except ImportError:
+    pass
+else:
+    __all__.extend(
+        [
+            "TransferControl",
+            "TransferError",
+            "TransferHeader",
+            "fetch_blob",
+            "fetch_blob_discovered",
+            "fetch_dir",
+            "is_transfer_stream_id",
+            "next_transfer_stream_id",
+            "serve_blob_transfer",
+            "store_dir",
+            "transfer_stream_id",
+        ]
+    )
+
+
+# MeshOS daemon-author SDK. Present iff the native module was built
+# with the `meshos` Cargo feature. Slice 1 surface — register /
+# control receive / publish_log / graceful_shutdown / metadata.
+try:
+    from ._net import (
+        AsyncMeshOsDaemonHandle,
+        AsyncMeshOsDaemonSdk,
+        MeshOsDaemonHandle,
+        MeshOsDaemonSdk,
+        MeshOsSdkError,
+    )
+except ImportError:
+    # `meshos` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncMeshOsDaemonHandle",
+            "AsyncMeshOsDaemonSdk",
+            "MeshOsDaemonHandle",
+            "MeshOsDaemonSdk",
+            "MeshOsSdkError",
+            "meshos_sdk_error_kind",
+        ]
+    )
+
+    def meshos_sdk_error_kind(exc: "MeshOsSdkError") -> str | None:
+        """Extract the kind discriminator from a caught
+        ``MeshOsSdkError``.
+
+        The Rust side wraps every SDK error in the
+        ``<<meshos-sdk-kind:KIND>>MSG`` envelope and attaches a
+        ``.kind`` attribute on the exception instance. Prefer
+        ``exc.kind`` over parsing; this helper is a fallback for
+        callers that hold the exception's stringified form (e.g.
+        bubbled through logs).
+
+        Returns ``None`` when the message doesn't carry the
+        envelope (shouldn't happen for exceptions raised by this
+        module).
+        """
+        kind = getattr(exc, "kind", None)
+        if isinstance(kind, str):
+            return kind
+        msg = str(exc)
+        marker = "<<meshos-sdk-kind:"
+        start = msg.find(marker)
+        if start == -1:
+            return None
+        start += len(marker)
+        end = msg.find(">>", start)
+        if end == -1:
+            return None
+        return msg[start:end]
+
+
+# Deck SDK surface — operator-side bindings. Present iff the
+# native module was built with the `deck` Cargo feature. Slice 1
+# ships client + admin + snapshot/status streams; audit / logs /
+# failures land in slice 2, ICE in slice 3.
+try:
+    from ._net import (
+        AdminCommands as _DeckAdminCommands,
+    )
+    from ._net import (
+        DeckClient,
+        DeckSdkError,
+        OperatorIdentity,
+    )
+    from ._net import (
+        SnapshotStream as _DeckSnapshotStream,
+    )
+    from ._net import (
+        StatusSummaryStream as _DeckStatusSummaryStream,
+    )
+except ImportError:
+    # `deck` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    # Re-export under a deck-scoped name so the symbol doesn't
+    # collide with the existing `AdminCommands` namespace used by
+    # the deck binary's own re-exports.
+    DeckAdminCommands = _DeckAdminCommands
+    DeckSnapshotStream = _DeckSnapshotStream
+    DeckStatusSummaryStream = _DeckStatusSummaryStream
+    __all__.extend(
+        [
+            "DeckClient",
+            "DeckAdminCommands",
+            "DeckSnapshotStream",
+            "DeckStatusSummaryStream",
+            "DeckSdkError",
+            "OperatorIdentity",
+            "deck_sdk_error_kind",
+        ]
+    )
+
+    # Async deck streams — PEP 525 siblings of the sync iterators.
+    # Try-import so wheels built before T3-G2 landed still load.
+    try:
+        from ._net import (
+            AsyncSnapshotStream as _DeckAsyncSnapshotStream,
+        )
+        from ._net import (
+            AsyncStatusSummaryStream as _DeckAsyncStatusSummaryStream,
+        )
+
+        DeckAsyncSnapshotStream = _DeckAsyncSnapshotStream
+        DeckAsyncStatusSummaryStream = _DeckAsyncStatusSummaryStream
+        __all__.extend(
+            [
+                "DeckAsyncSnapshotStream",
+                "DeckAsyncStatusSummaryStream",
+            ]
+        )
+    except ImportError:  # pragma: no cover
+        pass
+
+    # Async deck client + admin commands (T3-G1 + T3-G3). Try-import
+    # so wheels built before the slice landed still load.
+    try:
+        from ._net import (
+            AsyncAdminCommands as _DeckAsyncAdminCommands,
+        )
+        from ._net import (
+            AsyncDeckClient as _DeckAsyncClient,
+        )
+
+        AsyncDeckClient = _DeckAsyncClient
+        DeckAsyncAdminCommands = _DeckAsyncAdminCommands
+        __all__.extend(
+            [
+                "AsyncDeckClient",
+                "DeckAsyncAdminCommands",
+            ]
+        )
+    except ImportError:  # pragma: no cover
+        pass
+
+    # Async ice break-glass typestate (T3-G3). Separate try-import
+    # so wheels built before this slice landed still load the rest
+    # of the deck surface.
+    try:
+        from ._net import (
+            AsyncIceCommands as _DeckAsyncIceCommands,
+        )
+        from ._net import (
+            AsyncIceProposal as _DeckAsyncIceProposal,
+        )
+        from ._net import (
+            AsyncSimulatedIceProposal as _DeckAsyncSimulatedIceProposal,
+        )
+
+        DeckAsyncIceCommands = _DeckAsyncIceCommands
+        DeckAsyncIceProposal = _DeckAsyncIceProposal
+        DeckAsyncSimulatedIceProposal = _DeckAsyncSimulatedIceProposal
+        __all__.extend(
+            [
+                "DeckAsyncIceCommands",
+                "DeckAsyncIceProposal",
+                "DeckAsyncSimulatedIceProposal",
+            ]
+        )
+    except ImportError:  # pragma: no cover
+        pass
+
+    # Slice 3 — ICE break-glass surface. Try-import so wheels
+    # built before slice 3 still load.
+    try:
+        from ._net import (
+            IceCommands as _DeckIceCommands,
+        )
+        from ._net import (
+            IceProposal as _DeckIceProposal,
+        )
+        from ._net import (
+            SimulatedIceProposal as _DeckSimulatedIceProposal,
+        )
+
+        DeckIceCommands = _DeckIceCommands
+        DeckIceProposal = _DeckIceProposal
+        DeckSimulatedIceProposal = _DeckSimulatedIceProposal
+        __all__.extend(
+            [
+                "DeckIceCommands",
+                "DeckIceProposal",
+                "DeckSimulatedIceProposal",
+            ]
+        )
+    except ImportError:  # pragma: no cover
+        pass
+
+    # Operator-policy verifier surface — `OperatorRegistry` +
+    # `AdminVerifier`. Try-import so wheels built before this
+    # surface landed still load.
+    try:
+        from ._net import (
+            AdminVerifier as _DeckAdminVerifier,
+        )
+        from ._net import (
+            OperatorRegistry as _DeckOperatorRegistry,
+        )
+
+        DeckOperatorRegistry = _DeckOperatorRegistry
+        DeckAdminVerifier = _DeckAdminVerifier
+        __all__.extend(
+            [
+                "DeckOperatorRegistry",
+                "DeckAdminVerifier",
+            ]
+        )
+    except ImportError:  # pragma: no cover
+        pass
+
+    def deck_sdk_error_kind(exc: "DeckSdkError") -> str | None:
+        """Extract the kind discriminator from a caught
+        ``DeckSdkError``.
+
+        The Rust side wraps every SDK error in the
+        ``<<deck-sdk-kind:KIND>>MSG`` envelope and attaches a
+        ``.kind`` attribute on the exception instance. Prefer
+        ``exc.kind`` over parsing; this helper is a fallback for
+        callers that hold the stringified form.
+
+        Returns ``None`` when the message doesn't carry the
+        envelope.
+        """
+        kind = getattr(exc, "kind", None)
+        if isinstance(kind, str):
+            return kind
+        msg = str(exc)
+        marker = "<<deck-sdk-kind:"
+        start = msg.find(marker)
+        if start == -1:
+            return None
+        start += len(marker)
+        end = msg.find(">>", start)
+        if end == -1:
+            return None
+        return msg[start:end]
+
+
+# MeshDB surface. Present iff the native module was built with
+# the `meshdb` Cargo feature. Slice 1 shipped the atomic factory
+# AST + sync runner + Phase F cache options; slice 2 added the
+# composite-operator factories (window, aggregates, joins) and
+# the result-payload decoders; slice 3 adds the `Predicate`
+# builder and the `MeshQuery.filter()` factory.
+try:
+    from ._net import (
+        AggregateResult,
+        AsyncMeshQueryRunner,
+        CachePolicy,
+        ExecuteOptions,
+        GroupKey,
+        InMemoryChainReader,
+        JoinedRow,
+        LineageEntry,
+        MeshDbError,
+        MeshQuery,
+        MeshQueryRunner,
+        Predicate,
+        QueryBuilder,
+        ResultRow,
+        WindowBoundary,
+    )
+except ImportError:
+    # `meshdb` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AggregateResult",
+            "AsyncMeshQueryRunner",
+            "CachePolicy",
+            "ExecuteOptions",
+            "GroupKey",
+            "InMemoryChainReader",
+            "JoinedRow",
+            "LineageEntry",
+            "MeshDbError",
+            "MeshQuery",
+            "MeshQueryRunner",
+            "Predicate",
+            "QueryBuilder",
+            "ResultRow",
+            "WindowBoundary",
+        ]
+    )
+
+
+# Aggregator-registry RPC client surface (`SDK_AGGREGATOR_SUBNET_PLAN.md`
+# Stage 3). Present iff the native module was built with the
+# `aggregator` feature (default in the maturin-shipped wheel).
+try:
+    from ._net import (
+        AsyncFoldQueryClient,
+        AsyncRegistryClient,
+        DuplicateGroupName,
+        FoldQueryClient,
+        FoldQueryClientError,
+        FoldQueryServerTooOld,
+        RegistryClient,
+        RegistryClientError,
+        SpawnNotSupported,
+        SpawnRejected,
+        UnknownFoldKind,
+        UnknownTemplate,
+    )
+except ImportError:
+    # `aggregator` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncFoldQueryClient",
+            "AsyncRegistryClient",
+            "DuplicateGroupName",
+            "FoldQueryClient",
+            "FoldQueryClientError",
+            "FoldQueryServerTooOld",
+            "RegistryClient",
+            "RegistryClientError",
+            "SpawnNotSupported",
+            "SpawnRejected",
+            "UnknownFoldKind",
+            "UnknownTemplate",
+        ]
+    )
+
+
+# Local consent surface (`MCP_BRIDGE_SDK_PLAN.md` P1): capability
+# identity, the allowlist/pin consent gate, and the machine-shared,
+# lock-protocol pin store — the same file the `net mcp pin` CLI and a
+# running `net mcp serve` shim honor. Present iff the native module was
+# built with the `consent` feature (default in the maturin-shipped
+# wheel). The store + lock live entirely in Rust: mutations here can
+# never race an out-of-band CLI approval.
+try:
+    from ._net import (
+        AsyncPinStore,
+        AsyncPinWatcher,
+        CapabilityId,
+        ConsentPolicy,
+        PinChange,
+        PinsError,
+        PinStore,
+        credential_requires_consent,
+        default_pin_store_path,
+    )
+except ImportError:
+    # `consent` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncPinStore",
+            "AsyncPinWatcher",
+            "CapabilityId",
+            "ConsentPolicy",
+            "PinChange",
+            "PinsError",
+            "PinStore",
+            "credential_requires_consent",
+            "default_pin_store_path",
+        ]
+    )
+
+
+# MCP bridge pure helpers (`MCP_BRIDGE_SDK_PLAN.md` P1): classify a
+# server's credential exposure before publishing, and lower an MCP
+# `tools/list` entry to the Net ToolDescriptor + bridge metadata. Present
+# iff the native module was built with the `mcp` feature.
+try:
+    from ._net import classify_mcp_server, lower_mcp_tool
+except ImportError:
+    # `mcp` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(["classify_mcp_server", "lower_mcp_tool"])
+
+# The native consent-gated capability gateway (search / describe / invoke over
+# an embedded NetMesh node), sync + awaitable duals. Present iff the module was
+# built with BOTH the `net` and `mcp` features (the default wheel is).
+try:
+    from ._net import AsyncCapabilityGateway, CapabilityGateway
+except ImportError:
+    # `net`+`mcp` not both compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(["AsyncCapabilityGateway", "CapabilityGateway"])
+
+# The outbound HTTP-402 client (pay an external x402 HTTP API through the
+# caller's own spend policy), sync + awaitable duals. Present iff the module
+# was built with the `payments-http` feature, which is in the default feature
+# set — so the published wheels carry it. Still guarded: a trimmed build
+# (`--no-default-features`) can leave it out.
+try:
+    from ._net import AsyncPaymentHttpClient, PaymentHttpClient
+except ImportError:
+    # `payments-http` not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(["AsyncPaymentHttpClient", "PaymentHttpClient"])
+
+# The provider (supply) side: author net.pricing.terms@1 to price a capability.
+# Present iff the module was built with the `payments` feature (default wheel).
+try:
+    from ._net import build_pricing_terms
+except ImportError:
+    # `payments` not compiled in; symbol stays undefined.
+    pass
+else:
+    __all__.append("build_pricing_terms")
+
+# The paid-capability provider (price + charge over a shared PaymentEngine).
+# Present iff built with BOTH `payments` and `publish` (the default wheel has
+# both).
+try:
+    from ._net import PaymentProvider
+except ImportError:
+    # `payments` + `publish` not both compiled in; symbol stays undefined.
+    pass
+else:
+    __all__.append("PaymentProvider")
+
+# Delegated agent identity (`HERMES_INTEGRATION_PLAN.md` Phase 3): a
+# DelegationChain (`root -> machine -> gateway -> subagent`) for
+# capability-invocation attribution, a shared RevocationRegistry, and
+# stable child-`Identity` derivation. Present iff the module was built with
+# the `delegation` feature (default in the maturin-shipped wheel). H8-clean:
+# takes/returns opaque `Identity` handles and public entity-ids; private
+# seeds never cross into Python.
+try:
+    from ._net import (
+        GATEWAY_DELEGATION_CHANNEL,
+        DelegationChain,
+        RevocationRegistry,
+        default_revocation_store_path,
+        derive_child_identity,
+    )
+except ImportError:
+    # `delegation` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "GATEWAY_DELEGATION_CHANNEL",
+            "DelegationChain",
+            "RevocationRegistry",
+            "default_revocation_store_path",
+            "derive_child_identity",
+        ]
+    )
+
+# Device enrollment (`HERMES_INTEGRATION_PLAN_V2.md` Phase 1): the
+# invite -> join -> approve handshake (InviteToken / JoinRequest /
+# JoinOutcome) and the operator device-lifecycle facade
+# (OperatorEnrollment: invite / approve / revoke / devices). Present iff the
+# module was built with the `delegation` feature. H8-clean: takes opaque
+# `Identity` handles; private seeds never cross into Python.
+try:
+    from ._net import (
+        DeviceEnrollment,
+        DeviceRecord,
+        InviteToken,
+        JoinOutcome,
+        JoinRequest,
+        OperatorEnrollment,
+        fingerprint,
+    )
+except ImportError:
+    # `delegation` feature not compiled in; symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "DeviceEnrollment",
+            "DeviceRecord",
+            "InviteToken",
+            "JoinOutcome",
+            "JoinRequest",
+            "OperatorEnrollment",
+            "fingerprint",
+        ]
+    )
+
+# Local tool publication (Hermes V2 Phase 2, the `publish` feature): the
+# return-value type of `NetMesh.publish_tools`. Exported for isinstance /
+# typing; the publish itself is driven from the `NetMesh` handle.
+try:
+    from ._net import LocalPublicationHandle
+except ImportError:
+    # `publish` feature not compiled in; the symbol stays undefined.
+    pass
+else:
+    __all__.append("LocalPublicationHandle")
+
+# Agent-to-agent task handoff (Hermes V2 Phase 3, the `a2a` feature): the
+# return-value type of `NetMesh.serve_a2a` /
+# `PaymentProvider.serve_a2a_configured`, plus the paid-submission refusal.
+# The submit/status/cancel/describe/prepare client surface lives on the
+# `NetMesh` and `CapabilityGateway` handles.
+try:
+    from ._net import A2aServeHandle, PaymentRefused
+except ImportError:
+    # `a2a` feature not compiled in; the symbols stay undefined.
+    pass
+else:
+    __all__.extend(["A2aServeHandle", "PaymentRefused"])
+
+# Paid A2A serving (`A2A_PAID_ADMISSION_PLAN.md` WS-E): the refusal that keeps
+# two providers off one admission journal. Needs `a2a` AND `payments`.
+try:
+    from ._net import JournalOwnedElsewhere
+except ImportError:
+    # `a2a` + `payments` not both compiled in; the symbol stays undefined.
+    pass
+else:
+    __all__.append("JournalOwnedElsewhere")
+
+# Organization capability auth (OSDK-L Workstream P, the `org` feature):
+# `OrgCredentials`, `OrgClient`, `serve_org`, and the `OrgError` family from
+# the native module, plus the pure-Python typed/vocabulary layer in `net.org`.
+try:
+    from ._net import (
+        AsyncOrgClient,
+        OrgAdmissionDeniedError,
+        OrgClient,
+        OrgCredentials,
+        OrgCredentialsError,
+        OrgDiscoveryError,
+        OrgError,
+        OrgServeHandle,
+        OrgUnclassifiedError,
+        foreign_revocation_unverified_admissions,
+        install_org_authority,
+        install_provider_grant_audience,
+        require_fresh_org_revocations,
+        serve_org,
+        serve_org_client_stream,
+        serve_org_duplex,
+        serve_org_streaming,
+    )
+except ImportError:
+    # `org` feature not compiled in; the symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "AsyncOrgClient",
+            "OrgAdmissionDeniedError",
+            "OrgClient",
+            "OrgCredentials",
+            "OrgCredentialsError",
+            "OrgDiscoveryError",
+            "OrgError",
+            "OrgServeHandle",
+            "OrgUnclassifiedError",
+            "foreign_revocation_unverified_admissions",
+            "install_org_authority",
+            "install_provider_grant_audience",
+            "require_fresh_org_revocations",
+            "serve_org",
+            "serve_org_client_stream",
+            "serve_org_duplex",
+            "serve_org_streaming",
+        ]
+    )
+
+# Subnet authority (SSDK S4b, the `org` feature): the native provider verb,
+# admin functions, and `SubnetProvisionError`, plus the pure-Python typed /
+# vocabulary layer in `net.subnet`.
+try:
+    from ._net import (
+        SubnetProvisionError,
+        apply_subnet_control_fact,
+        declare_subnet_boundaries,
+        install_subnet_gateway_credentials,
+        serve_subnet_exported,
+    )
+except ImportError:
+    # `org` feature not compiled in; the symbols stay undefined.
+    pass
+else:
+    __all__.extend(
+        [
+            "SubnetProvisionError",
+            "apply_subnet_control_fact",
+            "declare_subnet_boundaries",
+            "install_subnet_gateway_credentials",
+            "serve_subnet_exported",
+        ]
+    )
+
+
+__version__ = "0.46.0"

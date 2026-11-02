@@ -1,0 +1,40 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datalayer_music_example"
+version = "0.1.0"
+license = { text = "BSD-3-Clause" }
+description = "The Reactor music store: every plugin and its interface, in one install"
+requires-python = ">=3.10"
+# The plugins stay separate distributions — a plugin being its own installable
+# is the lesson — and this is the host that composes them. Installing this one
+# therefore brings all four.
+dependencies = [
+  "datalayer-reactor",
+  "music-catalog-plugin",
+  "music-checkout-plugin",
+  "music-playlist-plugin",
+  "music-mood-plugin",
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+[project.scripts]
+datalayer-music-example = "datalayer_music_example:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["datalayer_music_example"]
+
+# The built interface travels in the wheel, under the same `share/` convention
+# an extension's frontend uses. `shared-data` rather than setuptools'
+# `data-files` because a built interface is a directory tree, and `data-files`
+# copies files — the wheel does not build otherwise.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/apps/music" = "share/datalayer/reactor/apps/music"

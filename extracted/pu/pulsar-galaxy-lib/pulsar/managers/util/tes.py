@@ -1,0 +1,50 @@
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    TYPE_CHECKING,
+)
+
+IMPORT_MESSAGE = None
+try:
+    from pydantictes.api import TesClient
+    from pydantictes.models import (
+        TesExecutor,
+        TesResources,
+        TesState,
+        TesTask,
+    )
+except ImportError as exc:
+    if not TYPE_CHECKING:
+        TesClient = None
+        TesExecutor = None
+        TesResources = None
+        TesState = None
+        TesTask = None
+    IMPORT_MESSAGE = (
+        "The Python pydantic-tes package is required to use "
+        "this feature, please install it or correct the "
+        "following error:\nImportError %s" % str(exc)
+    )
+
+
+def ensure_tes_client() -> None:
+    if TesClient is None:
+        assert IMPORT_MESSAGE
+        raise Exception(IMPORT_MESSAGE)
+
+
+def tes_galaxy_instance_id(destination_params: Dict[str, Any]) -> Optional[str]:
+    return destination_params.get("galaxy_instance_id") or destination_params.get(
+        "tes_galaxy_instance_id"
+    )
+
+
+__all__ = (
+    "TesClient",
+    "TesExecutor",
+    "TesResources",
+    "TesState",
+    "TesTask",
+    "ensure_tes_client",
+)

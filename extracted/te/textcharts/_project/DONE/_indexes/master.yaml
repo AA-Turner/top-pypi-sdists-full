@@ -1,0 +1,471 @@
+generated_at: '2026-03-27T17:16:11.485474'
+total_items: 25
+items:
+- id: shared-command-layer
+  file: DONE/main/active/shared-command-layer.yaml
+  title: Design and implement shared command layer for CLI and MCP
+  worktree: main
+  category: Core Functionality
+  priority: Critical
+  status: Completed
+  tags:
+  - cli
+  - mcp
+  - architecture
+  owners:
+  - joe
+  estimated_effort: 2-3 days
+  completed_date: '2026-03-07'
+  work_total: 5
+  work_done: 0
+  work_ready: 1
+  deferred_count: 2
+- id: behavioral-tests-for-minimal-coverage-charts
+  file: DONE/main/active/behavioral-tests-for-minimal-coverage-charts.yaml
+  title: Add behavioral tests for 6 chart types with only golden-output coverage
+  worktree: main
+  category: Testing and Quality Assurance
+  priority: High
+  status: Completed
+  tags:
+  - testing
+  - coverage
+  estimated_effort: 2-3 days
+  completed_date: '2026-03-07'
+  work_total: 6
+  work_done: 6
+  work_ready: 0
+- id: test-factory-functions
+  file: DONE/main/active/test-factory-functions.yaml
+  title: Add direct tests for all public factory functions
+  worktree: main
+  category: Testing and Quality Assurance
+  priority: High
+  status: Completed
+  tags:
+  - testing
+  - coverage
+  - public-api
+  estimated_effort: 1 day
+  completed_date: '2026-03-07'
+  work_total: 2
+  work_done: 2
+  work_ready: 0
+- id: add-subject-parameter-to-chart-titles
+  file: DONE/main/active/add-subject-parameter-to-chart-titles.yaml
+  title: Add subject parameter to compose domain context into chart titles
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - backward-compatible
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-09'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+  needs:
+  - neutralize-default-labels-and-titles
+- id: de-benchbox-example-datasets-and-position-chart-specific-apis
+  file: DONE/main/planning/de-benchbox-example-datasets-and-position-chart-specific-apis.yaml
+  title: De-BenchBox example datasets and position chart-specific APIs clearly
+  worktree: main
+  category: Documentation
+  priority: High
+  status: Completed
+  tags:
+  - docs
+  - examples
+  - gallery
+  - positioning
+  owners:
+  - joe
+  estimated_effort: Medium
+  completed_date: '2026-03-06'
+  work_total: 6
+  work_done: 6
+  work_ready: 0
+- id: fix-gallery-chart-clarity-and-labeling
+  file: DONE/main/planning/fix-gallery-chart-clarity-and-labeling.yaml
+  title: Fix gallery chart clarity, labeling, and legend issues
+  worktree: main
+  category: Documentation
+  priority: High
+  status: Completed
+  tags:
+  - docs
+  - gallery
+  - screenshots
+  - renderers
+  - usability
+  owners:
+  - joe
+  estimated_effort: Medium
+  completed_date: '2026-03-06'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+- id: fix-terminal-capability-defaults-and-color-contract
+  file: DONE/main/planning/fix-terminal-capability-defaults-and-color-contract.yaml
+  title: Fix terminal capability defaults and color contract
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - release
+  - terminal
+  - ansi
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-06'
+  work_total: 3
+  work_done: 3
+  work_ready: 0
+- id: generalize-benchbox-field-names
+  file: DONE/dev-012/active/generalize-benchbox-field-names.yaml
+  title: Generalize BenchBox-specific field names across all chart types
+  worktree: dev-012
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - breaking-change
+  - api-cleanup
+  - mcp
+  - cli
+  estimated_effort: 2-3 days
+  completed_date: '2026-03-10'
+  work_total: 12
+  work_done: 12
+  work_ready: 0
+- id: cli-interface
+  file: DONE/main/active/cli-interface.yaml
+  title: Implement CLI entry point wrapping the shared command layer
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - cli
+  owners:
+  - joe
+  estimated_effort: 1-2 days
+  completed_date: '2026-03-07'
+  work_total: 3
+  work_done: 0
+  work_ready: 1
+  deferred_count: 4
+  needs:
+  - shared-command-layer
+- id: mcp-server
+  file: DONE/main/active/mcp-server.yaml
+  title: Implement MCP server exposing textcharts as tools
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - mcp
+  owners:
+  - joe
+  estimated_effort: 1-2 days
+  completed_date: '2026-03-07'
+  work_total: 2
+  work_done: 0
+  work_ready: 1
+  deferred_count: 3
+  needs:
+  - shared-command-layer
+- id: textual-widget-core
+  file: DONE/dev-013/active/textual-widget-core.yaml
+  title: Implement core Textual widget via ANSI wrapper (Phase 1)
+  worktree: dev-013
+  category: Integration
+  priority: High
+  status: Completed
+  tags:
+  - textual
+  - integration
+  - widget
+  estimated_effort: 3-5 days
+  completed_date: '2026-03-12'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+  deferred_count: 2
+- id: make-heatmap-and-matrix-apis-explicit-and-safe
+  file: DONE/main/planning/make-heatmap-and-matrix-apis-explicit-and-safe.yaml
+  title: Make heatmap and matrix APIs explicit and safe
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - release
+  - heatmap
+  - api-contract
+  owners:
+  - joe
+  estimated_effort: Medium
+  completed_date: '2026-03-06'
+  work_total: 4
+  work_done: 4
+  work_ready: 0
+- id: neutralize-default-labels-and-titles
+  file: DONE/main/active/neutralize-default-labels-and-titles.yaml
+  title: Neutralize domain-specific default labels, titles, and comments
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - backward-compatible
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-09'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+- id: remove-benchbox-compat-and-ascii-prefixes
+  file: DONE/main/active/remove-benchbox-compat-and-ascii-prefixes.yaml
+  title: Remove all BenchBox backward compatibility stubs and ASCII* class prefixes
+  worktree: main
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - cleanup
+  owners:
+  - joe
+  estimated_effort: Large
+  completed_date: '2026-03-10'
+  work_total: 7
+  work_done: 7
+  work_ready: 0
+  deferred_count: 1
+  needs:
+  - rename-benchmark-specific-identifiers
+  - configurable-outlier-cap
+- id: restore-standalone-renderer-regression-coverage
+  file: DONE/main/planning/restore-standalone-renderer-regression-coverage.yaml
+  title: Restore standalone renderer regression coverage
+  worktree: main
+  category: Testing and Quality Assurance
+  priority: High
+  status: Completed
+  tags:
+  - release
+  - tests
+  - golden
+  owners:
+  - joe
+  estimated_effort: Large
+  completed_date: '2026-03-06'
+  work_total: 4
+  work_done: 4
+  work_ready: 0
+  needs:
+  - fix-terminal-capability-defaults-and-color-contract
+  - make-heatmap-and-matrix-apis-explicit-and-safe
+- id: wrap-xaxis-labels
+  file: DONE/dev-012/planning/wrap-xaxis-labels.yaml
+  title: Wrap long horizontal axis labels onto 2 lines instead of truncating
+  worktree: dev-012
+  category: Core Functionality
+  priority: High
+  status: Completed
+  tags:
+  - ux
+  - label-rendering
+  - shared-utility
+  estimated_effort: 1-2 days
+  completed_date: '2026-03-12'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+- id: configurable-outlier-cap
+  file: DONE/main/active/configurable-outlier-cap.yaml
+  title: Add configurable outlier_cap to ASCIIChartOptions
+  worktree: main
+  category: Core Functionality
+  priority: Low
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - rendering
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-09'
+  work_total: 3
+  work_done: 3
+  work_ready: 0
+  deferred_count: 1
+  needs:
+  - neutralize-default-labels-and-titles
+- id: test-color-and-unicode-rendering-paths
+  file: DONE/main/active/test-color-and-unicode-rendering-paths.yaml
+  title: Add tests for color output and Unicode/ASCII fallback rendering paths
+  worktree: main
+  category: Testing and Quality Assurance
+  priority: Medium
+  status: Completed
+  tags:
+  - testing
+  - coverage
+  - rendering
+  estimated_effort: 1 day
+  completed_date: '2026-03-07'
+  work_total: 3
+  work_done: 3
+  work_ready: 0
+- id: rename-benchmark-specific-identifiers
+  file: DONE/main/active/rename-benchmark-specific-identifiers.yaml
+  title: Rename benchmark-specific factory functions to generic names
+  worktree: main
+  category: Core Functionality
+  priority: Medium
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - deprecation
+  owners:
+  - joe
+  estimated_effort: Medium
+  completed_date: '2026-03-09'
+  work_total: 5
+  work_done: 5
+  work_ready: 0
+  needs:
+  - neutralize-default-labels-and-titles
+- id: configurable-improvement-direction
+  file: DONE/main/active/configurable-improvement-direction.yaml
+  title: Add lower_is_better parameter for improvement direction
+  worktree: main
+  category: Core Functionality
+  priority: Medium-High
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - color
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-09'
+  work_total: 4
+  work_done: 4
+  work_ready: 0
+  needs:
+  - neutralize-default-labels-and-titles
+- id: test-line-chart-trend-and-rendering-paths
+  file: DONE/main/active/test-line-chart-trend-and-rendering-paths.yaml
+  title: Add tests for LineChart trend line computation and rendering branches
+  worktree: main
+  category: Testing and Quality Assurance
+  priority: Medium-High
+  status: Completed
+  tags:
+  - testing
+  - coverage
+  estimated_effort: 1 day
+  completed_date: '2026-03-07'
+  work_total: 3
+  work_done: 3
+  work_ready: 0
+- id: textual-typed-widgets
+  file: DONE/dev-013/active/textual-typed-widgets.yaml
+  title: Create typed per-chart Textual widgets with reactive data attributes (Phase 2)
+  worktree: dev-013
+  category: Integration
+  priority: Medium-High
+  status: Completed
+  tags:
+  - textual
+  - integration
+  - widget
+  - reactive
+  estimated_effort: 3-5 days
+  completed_date: '2026-03-12'
+  work_total: 7
+  work_done: 7
+  work_ready: 0
+  deferred_count: 4
+  needs:
+  - textual-widget-core
+- id: cli-mcp-docs
+  file: DONE/main/active/cli-mcp-docs.yaml
+  title: Documentation for CLI and MCP interfaces
+  worktree: main
+  category: Documentation
+  priority: Medium-High
+  status: Completed
+  tags:
+  - docs
+  - cli
+  - mcp
+  owners:
+  - joe
+  estimated_effort: 1 day
+  completed_date: '2026-03-07'
+  work_total: 3
+  work_done: 3
+  work_ready: 0
+  deferred_count: 2
+  needs:
+  - cli-interface
+  - mcp-server
+- id: finalize-public-api-docs-and-release-tooling
+  file: DONE/main/planning/finalize-public-api-docs-and-release-tooling.yaml
+  title: Finalize public API, docs, and release tooling
+  worktree: main
+  category: Documentation
+  priority: Medium-High
+  status: Completed
+  tags:
+  - release
+  - docs
+  - packaging
+  owners:
+  - joe
+  estimated_effort: Medium
+  completed_date: '2026-03-06'
+  work_total: 4
+  work_done: 4
+  work_ready: 0
+  needs:
+  - restore-standalone-renderer-regression-coverage
+- id: caller-controlled-value-formatting
+  file: DONE/main/active/caller-controlled-value-formatting.yaml
+  title: Make time formatting caller-controlled via value_formatter callback
+  worktree: main
+  category: Core Functionality
+  priority: Medium-High
+  status: Completed
+  tags:
+  - api
+  - de-benchbox
+  - formatting
+  owners:
+  - joe
+  estimated_effort: Small
+  completed_date: '2026-03-08'
+  work_total: 2
+  work_done: 2
+  work_ready: 0
+  needs:
+  - neutralize-default-labels-and-titles

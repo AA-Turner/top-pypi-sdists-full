@@ -1,0 +1,122 @@
+[project]
+name = "adapta"
+version = "5.3.8"
+description = "Logging, data connectors, monitoring, secret handling and general lifehacks to make data people lives easier."
+requires-python = ">=3.11, <3.16"
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "requests>=2.26,<3",
+    "backoff>=2.2,<3",
+    "cryptography>=36",
+    "pandas[performance]>=2.0.0,<3.0",
+    "pyarrow>=7.0",
+    "dataclasses-json>=0.6,<0.7",
+    "limits>=5.8,<6",
+    "polars>=2",
+    "pandera>=0.20.3, <1.0",
+    "fsspec>=2025,<2026",
+    "cassandra-sigv4>=4.0.2",
+]
+
+[[project.authors]]
+name = "ECCO Data & AI"
+email = "esdsupport@ecco.com"
+
+[[project.maintainers]]
+name = "George Zubrienko"
+email = "gzu@ecco.com"
+
+[[project.maintainers]]
+name = "ECCO Data & AI"
+email = "esdsupport@ecco.com"
+
+[project.optional-dependencies]
+azure = [
+    "azure-identity>=1.7,<2",
+    "azure-storage-blob>=12.17.0,<=13",
+    "azure-mgmt-storage~=19.1.0",
+    "azure-keyvault-secrets>=4.3,<5",
+    "adlfs>=2025,<2026",
+]
+azure-servicebus = ["azure-servicebus>=7.6,<7.7"]
+datadog = [
+    "datadog~=0.49.1",
+    "datadog-api-client~=2.18.0",
+]
+databases = [
+    "SQLAlchemy>=2.0,<2.1",
+    "pyodbc>=4.0,<4.1",
+]
+ml = ["mlflow-skinny~=2.17.0"]
+caching = ["redis[hiredis]~=4.4.0"]
+hashicorp = ["hvac~=0.11.2"]
+trino = ["trino[sqlalchemy]>=0.337,<0.338"]
+snowflake = ["snowflake-connector-python>=3.4.0,<4"]
+storage-delta = ["deltalake>=0.18.1,<0.19"]
+storage-iceberg = ["pyiceberg>=0.11.1,<0.13"]
+storage-cassandra = ["cassandra-driver~=3.30.0"]
+aws = [
+    "boto3>=1.28.0,<2",
+    "botocore>=1.31,<2",
+]
+aws-fileio = ["s3fs>=2025.10.0,<2026"]
+excel = [
+    "xlsxwriter>=3.0,<4",
+    "fastexcel>=0.14.0,<0.15",
+    "openpyxl>=3.0,<4",
+]
+
+[project.urls]
+Repository = "https://github.com/SneaksAndData/adapta"
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-mock>=3",
+    "pytest-xdist>=3",
+    "pytest-asyncio>=1",
+    "pytest-cov>=7",
+    "cryptography>=36.0,<36.1",
+    "pyupgrade>=3,<4",
+    "pyarrow-stubs>=20.0.0.20251215,<21",
+    "ruff>=0.16.5",
+]
+
+[tool.uv]
+default-groups = "all"
+
+[tool.ruff]
+src = ["src"]
+exclude = [
+    ".venv",
+    "examples",
+]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["tests/data/.*"]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = """
+    --cov-config=.coveragerc
+    --doctest-modules
+    --junitxml=junit/test-results.xml
+    --cov=.
+    --cov-report=term-missing:skip-covered
+"""
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"

@@ -21,7 +21,7 @@
                     it go), points runtime.json at itself, then lets the update
                     go on with PROBE_UPDATE_SKIP_CLI (the CLI half is done:
                     `cli_result`). The lifeboat's env.json is the service's to
-                    write, at every start (`probe.service.lifeboat`): the
+                    write, at every start (`probe.service.updater.lifeboat`): the
                     service restarts onto this release after the update.
 
 Old releases never see PROBE_UPDATE_ADOPT: only the hand-off sets it, and it
@@ -47,7 +47,7 @@ DEFERRED_EXIT = 75
 FAILED_EXIT = 1
 #: `active.json`: when the first switch started waiting for a quiet machine.
 FIRST_SWITCH_WAIT_KEY = "first_switch_waiting_since"
-#: `probe.cli.upgrading.SKIP_CLI_ENV` (and the service's): the CLI half of
+#: `probe.cli.install.upgrade.turn.SKIP_CLI_ENV` (and the service's): the CLI half of
 #: this update is done or not to be done. Named here too so the service's
 #: child reads it before importing the CLI.
 SKIP_CLI_ENV = update_step.SKIP_CLI_ENV
@@ -110,7 +110,7 @@ def runs_managed_cli() -> bool:
         return False
     try:
         from probe.shared.updates import installs
-        from probe.cli import updater
+        from probe.cli.install import updater
 
         if os.environ.get(updater.IN_PLACE_ENV) == "1":
             return False
@@ -128,7 +128,7 @@ def install_inputs() -> dict:
     """What stage 1 installs beside the running version: the extras, `--with`
     packages and Python this install's uv receipt records (the same restating
     `updater.upgrade_side_by_side` does), and uv."""
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     kept = updater.kept_from_uv_receipt() or updater.KeptInstall()
     if kept.dropped:
@@ -215,14 +215,14 @@ def selftest() -> str | None:
     import importlib
 
     try:
-        for name in ("probe.core.run", "probe.cli.updater", "probe.cli.upgrading", "probe.shared.updates.update_report",
+        for name in ("probe.core.run", "probe.cli.install.updater", "probe.cli.install.upgrade", "probe.shared.updates.update_report",
                      "probe.cli.main"):
             importlib.import_module(name)
     except Exception as exc:  # noqa: BLE001 -- an import that fails is a release that cannot update
         # (Not BaseException: a Ctrl-C meanwhile must never reject a good release.)
         return f"{type(exc).__name__}: {exc}"[:300]
     from probe.shared.updates import version_policy
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     try:
         manifest = updater.fetch_latest(version_policy.base_url())
@@ -260,16 +260,16 @@ def _skip(reason: str) -> None:
 def first_switch_waits(tools: Path, *, at: float | None = None) -> str | None:
     """The first switch moves the folder every running `probe` reads its files
     through (`installs.needs_migration`), so it is made only on a quiet
-    machine (the service's quiet check, `probe.service.updater.look`: a
+    machine (the service's quiet check, `probe.service.updater.quiet.quiet.look`: a
     waiting wizard menu's marker counts, as this switch moves its files), or
     once every reason it waited for has lasted the service's DEFER_LIMIT_S (24
     h), as the service updates past them -- a setup by its own record's age.
     None: go on. A child of the service (its barrier's token) was let through
     by the service's own check."""
     from probe.shared.updates import installs
-    from probe.service import barrier
+    from probe.service.updater.quiet import barrier
     from probe.service import updater as service_updater
-    from probe.service.protocol import DeferReason
+    from probe.foundation.service_api.vocabularies import DeferReason
 
     if os.environ.get(barrier.TOKEN_ENV):
         return None
@@ -362,7 +362,7 @@ def _adopt(target: Path, dropped_raw: str, came_from: str | None) -> Ending | No
     global _adopted_from, _note
     from probe import __version__
     from probe.shared.updates import installs
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     root = target.parent.parent
     if not _runs_from(target):
@@ -399,7 +399,7 @@ def _adopt(target: Path, dropped_raw: str, came_from: str | None) -> Ending | No
     with contextlib.suppress(Exception):
         installs.set_fields(tools, **{FIRST_SWITCH_WAIT_KEY: None})
     with contextlib.suppress(Exception):
-        from probe.service import client
+        from probe.foundation import service_api as client
 
         client.write_runtime(str(installs.env_python(target)), __version__)
     with contextlib.suppress(Exception):
@@ -427,7 +427,7 @@ def cli_result(current: str):
     (`before` is the version the hand-off came from). None when it did not adopt."""
     if _adopted_from is None:
         return None
-    from probe.cli import updater
+    from probe.cli.install import updater
 
     before = _adopted_from
     if updater.is_newer(current, before):

@@ -11,9 +11,9 @@ class UpdateRoleResponseBody(DaraModel):
         request_id: str = None,
         role: main_models.UpdateRoleResponseBodyRole = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The information of the RAM role.
+        # The information about the RAM role.
         self.role = role
 
     def validate(self):
@@ -57,13 +57,13 @@ class UpdateRoleResponseBodyRole(DaraModel):
         role_name: str = None,
         update_date: str = None,
     ):
-        # Specifies whether the RAM role is allowed to log on to the console.
+        # Specifies whether to allow the RAM role to log on to the console.
         self.allow_console_login = allow_console_login
         # The resource descriptor of the RAM role.
         self.arn = arn
         # The trust policy of the RAM role.
         self.assume_role_policy_document = assume_role_policy_document
-        # The time when the RAM role was created.
+        # The time when the RAM role was created. The time is displayed in UTC in the `YYYY-MM-DDThh:mm:ssZ` format.
         self.create_date = create_date
         # The description of the RAM role.
         self.description = description
@@ -73,7 +73,7 @@ class UpdateRoleResponseBodyRole(DaraModel):
         self.role_id = role_id
         # The name of the RAM role.
         self.role_name = role_name
-        # The time when the RAM role was updated.
+        # The time when the RAM role was updated. The time is displayed in UTC in the `YYYY-MM-DDThh:mm:ssZ` format.
         self.update_date = update_date
 
     def validate(self):

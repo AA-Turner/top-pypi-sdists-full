@@ -25,16 +25,17 @@ from textwrap import dedent
 
 import click
 import pytest
-from boltons.strutils import strip_ansi
 
 from click_extra import (
     LogLevel,
     Spinner,
     VerbosityOption,
+    color as color_module,
     command,
     echo,
     group,
     quiet_option,
+    strip_ansi,
     timer_option,
     verbose_option,
     verbosity_option,
@@ -170,7 +171,6 @@ def test_integrated_verbosity_options(
         def logging_cli3():
             pass
 
-        # Parenthesized: the group is Cloup-based, which rejects the naked form.
         @logging_cli3.command()
         def worker():
             echo("It works!")
@@ -311,6 +311,36 @@ def test_custom_quiet_option_name(invoke, args):
     # A single -q lowers the level one step, from WARNING to ERROR, so the warning
     # is suppressed while the error is still shown.
     assert result.stderr == "error: my error message.\n"
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("args", "trace"),
+    (
+        (
+            ("--verbosity", "DEBUG", "-v"),
+            "debug: Increased log verbosity by 1 level: from WARNING to DEBUG.\n",
+        ),
+        (
+            ("-vv",),
+            "debug: Increased log verbosity by 2 levels: from WARNING to DEBUG.\n",
+        ),
+        (
+            ("--verbosity", "DEBUG", "-v", "-q"),
+            "debug: Decreased log verbosity by 1 level: from WARNING to DEBUG.\n",
+        ),
+    ),
+)
+def test_counter_trace_agrees_with_its_count(invoke, args, trace):
+    """The `-v`/`-q` trace says one level in the singular, and more in the plural."""
+
+    @command
+    def forecast():
+        echo("Sunny.")
+
+    result = invoke(forecast, args, color=False)
+    assert result.stdout == "Sunny.\n"
+    assert trace in result.stderr
     assert result.exit_code == 0
 
 
@@ -779,7 +809,6 @@ def extra_group(body):
     def farm():
         pass
 
-    # Parenthesized: the group is Cloup-based, which rejects the naked form.
     @farm.command()
     def orchard():
         body()
@@ -948,7 +977,7 @@ def test_file_handler_of_the_root_logger_keeps_writing(
     which is the mode of the one behind pytest's ``--log-file``.
     """
     log_file = tmp_path / "harvest.log"
-    file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+    file_handler = logging.FileHandler(log_file, mode="w", encoding="UTF-8")
     restored_root_logger.addHandler(file_handler)
     orchard_logger = logging.getLogger("orchard")
     try:
@@ -964,7 +993,7 @@ def test_file_handler_of_the_root_logger_keeps_writing(
     finally:
         file_handler.close()
 
-    assert log_file.read_text(encoding="utf-8").splitlines() == [
+    assert log_file.read_text(encoding="UTF-8").splitlines() == [
         "before the command",
         "during the run",
         "after the run",
@@ -1070,6 +1099,53 @@ def test_run_keeps_its_handler_when_a_failed_run_is_collected(invoke, app_handle
     assert holders[0] - holders[1] == 1
     assert result.stderr == "warning: figs are ripe\n"
     assert root.handlers == handlers
+
+
+def test_failed_run_collected_while_a_record_is_handled(invoke, restored_root_logger):
+    """The context of a failed run may be collected while the `root` logger hands
+    a record to its handlers: the handlers after the one of that run still get it.
+    """
+    contexts = []
+
+    def keep_context(ctx, param, value):
+        contexts.append(ctx)
+
+    @click.command
+    @verbosity_option
+    @click.option(
+        "--keep",
+        is_flag=True,
+        is_eager=True,
+        expose_value=False,
+        callback=keep_context,
+    )
+    @click.option("--baskets", type=int, expose_value=False)
+    def orchard():
+        pass
+
+    # The failed run keeps its handler on the root logger, as long as its
+    # context lives.
+    failed = invoke(orchard, "--baskets", "many", color=False)
+    assert failed.exit_code == 2
+    del failed
+    held = len(_INVOCATION_HOLDERS)
+
+    class CollectingHandler(logging.Handler):
+        """Lets the context of the failed run go, and collects it."""
+
+        def emit(self, record):
+            contexts.clear()
+            gc.collect()
+
+    late = RecordingHandler()
+    restored_root_logger.addHandler(CollectingHandler())
+    restored_root_logger.addHandler(late)
+
+    logging.getLogger("orchard").warning("figs are ripe")
+
+    # The failed run let go of its handler in the middle of the record.
+    assert len(_INVOCATION_HOLDERS) == held - 1
+    assert late.messages == ["figs are ripe"]
 
 
 @pytest.mark.parametrize(
@@ -1342,7 +1418,6 @@ def test_levels_are_given_back_when_a_subcommand_fails_while_parsing(
     def farm():
         pass
 
-    # Parenthesized: the group is Cloup-based, which rejects the naked form.
     @farm.command()
     @verbosity_option
     @click.option("--baskets", type=int)
@@ -1526,7 +1601,7 @@ def test_importing_a_cli_leaves_the_root_logger_alone():
         (sys.executable, "-c", script),
         capture_output=True,
         text=True,
-        encoding="utf-8",
+        encoding="UTF-8",
         check=False,
     )
     assert process.returncode == 0, process.stderr
@@ -1562,7 +1637,7 @@ def test_root_logger_prints_in_a_new_interpreter_beside_a_named_logger():
         (sys.executable, "-c", script),
         capture_output=True,
         text=True,
-        encoding="utf-8",
+        encoding="UTF-8",
         check=False,
     )
     assert process.returncode == 0, process.stderr
@@ -1576,8 +1651,6 @@ def test_stream_handler_honors_no_color_from_background_threads(capsys, monkeypa
     """A record emitted with no reachable Click context (as from run_cli's stream
     reader threads) still honors --no-color, through the process-wide mirror
     published by the color options."""
-    from click_extra import color as color_module
-
     handler = StreamHandler()
     handler.setFormatter(Formatter("{levelname}: {message}", style="{"))
     record = logging.LogRecord(

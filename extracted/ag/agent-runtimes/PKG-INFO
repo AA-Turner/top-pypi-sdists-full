@@ -1,0 +1,221 @@
+Metadata-Version: 2.1
+Name: agent_runtimes
+Version: 1.5.102
+Summary: Agent Runtimes
+Project-URL: Homepage, https://github.com/datalayer/agent-runtimes
+Project-URL: Documentation, https://agent-runtimes.datalayer.tech
+Project-URL: Repository, https://github.com/datalayer/agent-runtimes
+Project-URL: Issues, https://github.com/datalayer/agent-runtimes/issues
+Project-URL: Changelog, https://github.com/datalayer/agent-runtimes/blob/main/CHANGELOG.md
+License: BSD-3-Clause
+License-File: LICENSE
+Classifier: Framework :: Jupyter
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Requires-Dist: agent-codemode>=1.1.0
+Requires-Dist: agent-skills>=1.1.0
+Requires-Dist: agent-teams<2,>=1.0.0
+Requires-Dist: agentspecs>=0.0.141
+Requires-Dist: code-sandboxes>=1.11.0
+Requires-Dist: croniter
+Requires-Dist: datalayer-agent-shield<0.3,>=0.2.13
+Requires-Dist: datalayer-core>=1.2.12
+Requires-Dist: datalayer-reactor>=1.3.0
+Requires-Dist: fastapi
+Requires-Dist: fastmcp-slim[client]<5,>=4.0.0b3
+Requires-Dist: filelock>=3.20.3
+Requires-Dist: http-sfv<0.10,>=0.9.9
+Requires-Dist: httpx
+Requires-Dist: jsonschema>=4.18
+Requires-Dist: jupyter-server<3,>=2.10
+Requires-Dist: mcp<3,>=2
+Requires-Dist: nbformat
+Requires-Dist: opentelemetry-api<2.0.0,>=1.45.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.45.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.45.0
+Requires-Dist: opentelemetry-instrumentation-httpx<1.0,>=0.66b0
+Requires-Dist: opentelemetry-instrumentation<1.0,>=0.66b0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.45.0
+Requires-Dist: opentelemetry-semantic-conventions<1.0,>=0.66b0
+Requires-Dist: personal-agent-protocol[ui]<0.30,>=0.29.0
+Requires-Dist: psycopg[binary]>=3.2.8
+Requires-Dist: pydantic-ai-slim[mcp]<2.60,>=2.35.0
+Requires-Dist: pydantic-graph<3,>=2.35.0
+Requires-Dist: pydantic-settings>=2.14.2
+Requires-Dist: pydantic[email]>=2.13.3
+Requires-Dist: pyjwt[crypto]>=2.10
+Requires-Dist: tiktoken>=0.5.0
+Requires-Dist: typer>=0.16.0
+Requires-Dist: ucp-sdk<0.6,>=0.5.0
+Requires-Dist: urllib3>=2.6.3
+Requires-Dist: websockets>=13
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk[all]<0.4.0,>=0.3.0; extra == 'a2a'
+Requires-Dist: fasta2a<2.2,>=2.1.1; extra == 'a2a'
+Provides-Extra: a2ui
+Requires-Dist: a2ui-agent-sdk>=0.7.0; extra == 'a2ui'
+Provides-Extra: acp
+Requires-Dist: agent-client-protocol>=0.7.1; extra == 'acp'
+Provides-Extra: agent-sudo
+Requires-Dist: agent-sudo>=0.4.0rc14; extra == 'agent-sudo'
+Provides-Extra: all
+Requires-Dist: agent-runtimes[a2a,acp,anthropic,aws,cli,durable,google,memory,openai,ui]; extra == 'all'
+Provides-Extra: anthropic
+Requires-Dist: anthropic<2.0.0,>=1.0.0; extra == 'anthropic'
+Requires-Dist: pydantic-ai-slim[anthropic]<2.60,>=2.35.0; extra == 'anthropic'
+Provides-Extra: aws
+Requires-Dist: boto3<2,>=1.42.96; extra == 'aws'
+Requires-Dist: pydantic-ai-slim[bedrock]<2.60,>=2.35.0; extra == 'aws'
+Provides-Extra: chat
+Requires-Dist: jupyter-nbmodel-client; extra == 'chat'
+Requires-Dist: keyring>=24.0.0; extra == 'chat'
+Requires-Dist: pillow; extra == 'chat'
+Requires-Dist: prompt-toolkit>=3.0.0; extra == 'chat'
+Requires-Dist: requests; extra == 'chat'
+Requires-Dist: rich>=13.0.0; extra == 'chat'
+Requires-Dist: textual; extra == 'chat'
+Provides-Extra: cli
+Requires-Dist: ag-ui-protocol<1,>=0.1.19; extra == 'cli'
+Requires-Dist: agent-client-protocol>=0.7.1; extra == 'cli'
+Requires-Dist: build; extra == 'cli'
+Requires-Dist: hatchling; extra == 'cli'
+Requires-Dist: jupyter-nbmodel-client; extra == 'cli'
+Requires-Dist: keyring>=24.0.0; extra == 'cli'
+Requires-Dist: pillow; extra == 'cli'
+Requires-Dist: prompt-toolkit>=3.0.0; extra == 'cli'
+Requires-Dist: requests; extra == 'cli'
+Requires-Dist: rich>=13.0.0; extra == 'cli'
+Requires-Dist: textual; extra == 'cli'
+Provides-Extra: docs
+Requires-Dist: npdoc-to-md>=2.0.1; extra == 'docs'
+Requires-Dist: pydoc-markdown>=4.0; extra == 'docs'
+Provides-Extra: durable
+Requires-Dist: dbos; extra == 'durable'
+Requires-Dist: pydantic-ai-slim[dbos]<2.60,>=2.35.0; extra == 'durable'
+Provides-Extra: examples
+Requires-Dist: fastapi>=0.116.1; extra == 'examples'
+Requires-Dist: pydantic>=2.11.7; extra == 'examples'
+Requires-Dist: scikit-learn>=1.7.1; extra == 'examples'
+Requires-Dist: streamlit>=1.47.1; extra == 'examples'
+Requires-Dist: torch; extra == 'examples'
+Requires-Dist: uvicorn; extra == 'examples'
+Provides-Extra: google
+Requires-Dist: google-api-core>=2.30.3; extra == 'google'
+Requires-Dist: google-auth>=2.52.0; extra == 'google'
+Requires-Dist: pydantic-ai-slim[google]<2.60,>=2.35.0; extra == 'google'
+Provides-Extra: langchain
+Requires-Dist: langchain-core<2,>=1.0.0; extra == 'langchain'
+Provides-Extra: langgraph
+Requires-Dist: langchain-core<2,>=1.0.0; extra == 'langgraph'
+Requires-Dist: langgraph<2,>=1.0.0; extra == 'langgraph'
+Provides-Extra: llamaindex
+Requires-Dist: llama-index-core<0.15,>=0.14.0; extra == 'llamaindex'
+Provides-Extra: logfire
+Requires-Dist: logfire-api>=5.1.1; extra == 'logfire'
+Requires-Dist: logfire>=5.1.1; extra == 'logfire'
+Provides-Extra: memory
+Requires-Dist: mem0ai>=2.0.1; extra == 'memory'
+Provides-Extra: openai
+Requires-Dist: openai<4.0.0,>=2.29.0; extra == 'openai'
+Requires-Dist: pydantic-ai-slim[openai]<2.60,>=2.35.0; extra == 'openai'
+Provides-Extra: test
+Requires-Dist: agent-runtimes[a2a,aws,cli,openai]; extra == 'test'
+Requires-Dist: coverage>=7.9.2; extra == 'test'
+Requires-Dist: hatchling; extra == 'test'
+Requires-Dist: jiwer>=4.0.0; extra == 'test'
+Requires-Dist: matplotlib; extra == 'test'
+Requires-Dist: mypy>=1.16.1; extra == 'test'
+Requires-Dist: pandas; extra == 'test'
+Requires-Dist: pytest-asyncio>=1.1.0; extra == 'test'
+Requires-Dist: pytest-cov>=6.2.1; extra == 'test'
+Requires-Dist: pytest-jupyter>=0.10.1; extra == 'test'
+Requires-Dist: pytest-tornasync; extra == 'test'
+Requires-Dist: pytest>=8.4.1; extra == 'test'
+Requires-Dist: python-dotenv>=1.1.1; extra == 'test'
+Requires-Dist: types-requests>=2.32.4; extra == 'test'
+Requires-Dist: typing-extensions>=4.15.0; extra == 'test'
+Provides-Extra: ui
+Requires-Dist: ag-ui-protocol<1,>=0.1.19; extra == 'ui'
+Requires-Dist: agent-client-protocol>=0.7.1; extra == 'ui'
+Requires-Dist: mcp-ui-server<1.1.0,>=1.0.0; extra == 'ui'
+Provides-Extra: voice
+Requires-Dist: faster-whisper<2,>=1.2.1; extra == 'voice'
+Requires-Dist: kokoro-onnx<0.7,>=0.6.1; extra == 'voice'
+Requires-Dist: sounddevice>=0.5.0; extra == 'voice'
+Description-Content-Type: text/markdown
+
+<!--
+  ~ Copyright (c) 2025-2026 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
+[![Datalayer](https://images.datalayer.io/legacy/datalayer-25.svg)](https://datalayer.ai)
+
+[![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+
+# 🤖 🚀 Agent Runtimes
+
+[![Github Actions Status](https://github.com/datalayer/agent-runtimes/actions/workflows/build.yaml/badge.svg)](https://github.com/datalayer/agent-runtimes/actions/workflows/build.yaml)
+[![PyPI - Version](https://img.shields.io/pypi/v/agent-runtimes)](https://pypi.org/project/agent-runtimes)
+
+**Agent Runtimes** runs AI agents and serves them over the protocols the agent world speaks. It is a Python server that hosts agents built from [agentspecs](https://agentspecs.datalayer.tech) (Pydantic AI by default), with their MCP tools, skills, code sandbox and guardrails. It is also a set of React components (chat, floating assistant, the Loop workspace) that talk to them. It drives coding agents such as Claude Code as harnesses, behind the Shield. It runs on your machine with your own model keys, or on [Datalayer](https://datalayer.ai) runtimes.
+
+![An agent answering in the chat, its code execution shown](https://images.datalayer.io/products/agent-runtimes/agent-runtimes-chat.gif)
+
+## Install
+
+```bash
+pip install agent-runtimes        # Python 3.11 or later: the server and the `loop` CLI
+npm install @datalayer/agent-runtimes   # the React components
+```
+
+## Run
+
+With a model key in the environment (for example `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or AWS Bedrock credentials):
+
+```bash
+loop --local -a example-simple
+```
+
+`loop` starts a local server with the `example-simple` agent and opens a chat in the terminal. `agent-runtimes serve --port 8765` starts the server on its own, for the web components.
+
+![The loop CLI: a question, a code execution, the answer](https://images.datalayer.io/products/agent-runtimes/agent-runtimes-loop-cli.gif)
+
+## Features
+
+- **The meta-harness.** Coding agents run as harnesses, driven over the Agent Client Protocol (ACP): **Claude Code, Codex, OpenCode and pi** today. The runtime launches the harness, lends it tools through the MCP gateway and writes the skills into its workspace. It serves the harness over every protocol it serves its own agents on. The **Shield** surrounds it: the pod's egress boundary, the policies and the session's rules, the audit record and the trace. See [Harnesses](https://agent-runtimes.datalayer.tech/harnesses/) and [the Shield](https://agent-runtimes.datalayer.tech/shield/).
+- **Protocol integrations.**
+  - *Transports to a UI or another agent*: AG-UI, the Vercel AI SDK, ACP and A2A (served, and called as a client), with A2UI and MCP-UI for generative UI.
+  - *Tools*: MCP, local servers over stdio and remote servers over Streamable HTTP.
+  - *Identity, consent and commerce*, each a Reactor plugin: Web Bot Auth (with a draft TAP profile), PAP (Personal Agent Protocol), PACT, UCP and the Agentic Commerce Protocol.
+
+  See [Protocols](https://agent-runtimes.datalayer.tech/protocols/).
+- **Applications.** An Appspec (or a Python `app.py`) becomes a chat, a widget, a worker or a decision. You run it with `loop apps run`, deploy it at its own address and embed it in any page with the `<datalayer-app>` element. See [Apps](https://agent-runtimes.datalayer.tech/apps/).
+- **Tools and code.** MCP servers, skills, a code sandbox and Codemode, which calls tools from code. See [Programmatic Tools](https://agent-runtimes.datalayer.tech/programmatic-tools/).
+- **Controls.** Guardrails, tool approvals, budgets, hooks, monitoring and OpenTelemetry. See [Identity](https://agent-runtimes.datalayer.tech/identity/) and [Hooks](https://agent-runtimes.datalayer.tech/hooks/).
+- **Sessions, subagents and teams.** Sessions you can resume, clone, export and import. Subagents, and teams of agents over A2A. See [Sessions](https://agent-runtimes.datalayer.tech/sessions/) and [Subagents](https://agent-runtimes.datalayer.tech/subagents/).
+- **Chat UI.** React chat components, a floating assistant with its avatar, voice, presence, and the Loop workspace in the browser. See [Chat](https://agent-runtimes.datalayer.tech/chat/).
+- **Agent Nodes.** Your own machine registers as a node and is reached from Datalayer. See [Agent Nodes](https://agent-runtimes.datalayer.tech/agent-nodes/).
+
+## Examples
+
+```bash
+npm install && pip install -e .
+make examples      # the local server on :8765 and the examples gallery on :3000
+```
+
+## Documentation
+
+Everything else is on the documentation site: **[agent-runtimes.datalayer.tech](https://agent-runtimes.datalayer.tech)**. It covers the [CLI](https://agent-runtimes.datalayer.tech/cli/), [endpoints](https://agent-runtimes.datalayer.tech/endpoints/), [agentspecs](https://agent-runtimes.datalayer.tech/agentspecs/), [integrations](https://agent-runtimes.datalayer.tech/integrations/), [sessions](https://agent-runtimes.datalayer.tech/sessions/), [plugins](https://agent-runtimes.datalayer.tech/plugins/) and the API references.
+
+## License
+
+[BSD 3-Clause](LICENSE).

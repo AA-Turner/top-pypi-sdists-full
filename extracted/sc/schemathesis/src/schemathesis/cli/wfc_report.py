@@ -12,6 +12,8 @@ from schemathesis.cli.commands.run.handlers.base import EventHandler
 from schemathesis.cli.events import LoadingFinished
 from schemathesis.core.failures import (
     AcceptedNegativeData,
+    AuthScenario,
+    IgnoredAuth,
     MalformedJson,
     ResponseTimeExceeded,
     ServerError,
@@ -22,9 +24,7 @@ from schemathesis.engine.events import EngineFinished, EngineStarted, ScenarioFi
 from schemathesis.engine.summary import running_time
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
-    AuthScenario,
     EnsureResourceAvailability,
-    IgnoredAuth,
     JsonSchemaError,
     MalformedMediaType,
     MissingContentType,
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.statistic import Statistic
     from schemathesis.generation.case import Case
 
-SCHEMA_VERSION = "0.8.0"
+SCHEMA_VERSION = "0.10.0"
 HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 VALIDATION_FAILURES = (
     JsonSchemaError,
@@ -98,7 +98,8 @@ def fault_category(failure: Failure) -> tuple[int, str] | None:
     description = f"{type(failure).__name__}: {failure.title}"
     if isinstance(failure, ServerError):
         code = {500: 100, 501: 205}.get(failure.status_code, 121)
-        return code, f"{description} (status {failure.status_code})"
+        status = f"{failure.status_code} {failure.status_name}" if failure.status_name else str(failure.status_code)
+        return code, f"{description} (status {status})"
     if isinstance(failure, VALIDATION_FAILURES):
         return 200, description
     if isinstance(failure, AllowHeaderMismatch):
@@ -252,7 +253,7 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
             self._record(event.recorder)
 
     def _record(self, recorder: ScenarioRecorder) -> None:
-        self.total_tests += len(recorder.cases)
+        self.total_tests += sum(not node.is_probe for node in recorder.cases.values())
         for case_id, interaction in recorder.interactions.items():
             self.evaluated_calls += 1
             endpoint = _case_operation_id(recorder.cases[case_id].value)

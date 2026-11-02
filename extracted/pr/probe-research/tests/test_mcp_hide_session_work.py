@@ -227,14 +227,12 @@ def test_browse_marks_a_server_that_ignored_the_filter(app, client) -> None:
 
 
 class _Source(ResearchOSSource):
-    """The real adapter over the fake backend, with the two 0291 reads the fake
-    does not serve stubbed: the created set and the server-side unfiled filter."""
+    """The real adapter over the fake backend, with the 0291 read the fake does
+    not serve stubbed: the created set."""
 
-    def __init__(self, client, *, created=None, unfiled=None):
+    def __init__(self, client, *, created=None):
         super().__init__(client)
         self.created = created
-        self.unfiled = unfiled or []
-        self.unfiled_calls: list[dict] = []
         self.created_calls = 0
 
     def session_created(self, session_id):
@@ -243,56 +241,12 @@ class _Source(ResearchOSSource):
             raise errors.NotFoundError("no such route")
         return self.created
 
-    def unfiled_runs(self, *, limit=10, exclude_origin_session=None):
-        self.unfiled_calls.append({"limit": limit, "exclude_origin_session": exclude_origin_session})
-        return list(self.unfiled)
 
-
-def _run_row(rid: str) -> dict:
-    return {"id": rid, "name": rid[:8], "status": "running", "created_at": "2026-09-28T00:00:00Z"}
-
-
-def test_the_unfiled_list_is_filtered_server_side(app, client) -> None:
-    """P3: the filter runs inside the backend page, so the session's own floating
-    runs cannot empty the ten the reader is shown."""
-    app.browse_response = {**_browse(), "origin_exclusion_applied": True}
-    theirs = str(uuid.uuid4())
-    source = _Source(client, created={"project_ids": [], "run_ids": []}, unfiled=[_run_row(theirs)])
-    with _request(hide=True):
-        data = ResearchReadService(source).browse_research()["data"]
-    assert source.unfiled_calls == [{"limit": 10, "exclude_origin_session": SESSION}]
-    assert [n["uuid"] for n in data["unfiled"]] == [f"run:{theirs}"]
-
-
-def test_the_unfiled_list_is_checked_against_the_created_set(app, client) -> None:
-    app.browse_response = {**_browse(), "origin_exclusion_applied": True}
-    mine, theirs = str(uuid.uuid4()), str(uuid.uuid4())
-    source = _Source(
-        client,
-        created={"project_ids": [], "run_ids": [mine.upper()]},
-        unfiled=[_run_row(mine), _run_row(theirs)],
-    )
-    with _request(hide=True):
-        data = ResearchReadService(source).browse_research()["data"]
-    assert [n["uuid"] for n in data["unfiled"]] == [f"run:{theirs}"]
-
-
-def test_an_unverifiable_unfiled_list_is_withheld_and_marked(app, client) -> None:
-    """A backend that cannot give the created set predates the filter too."""
-    app.browse_response = {**_browse(), "origin_exclusion_applied": True}
-    source = _Source(client, created=None, unfiled=[_run_row(str(uuid.uuid4()))])
-    with _request(hide=True):
-        envelope = ResearchReadService(source).browse_research()
-    assert "unfiled" not in envelope["data"]
-    assert MissingMarker.UNFILED_RUNS in envelope["completeness"]["missing"]
-
-
-def test_without_the_opt_in_the_unfiled_read_is_unchanged(app, client) -> None:
+def test_without_the_opt_in_browse_never_reads_the_created_set(app, client) -> None:
     app.browse_response = _browse()
-    source = _Source(client, created=None, unfiled=[_run_row(str(uuid.uuid4()))])
+    source = _Source(client, created=None)
     with _request(hide=False):
         ResearchReadService(source).browse_research()
-    assert source.unfiled_calls == [{"limit": 10, "exclude_origin_session": None}]
     assert source.created_calls == 0
 
 
@@ -398,7 +352,7 @@ def test_the_sdk_omits_the_field_unless_asked(app, client) -> None:
     assert _browse_params(app)["exclude_origin_session"] == SESSION
 
     # The run list and the created set (0291).
-    client.list_runs(unfiled=True, exclude_origin_session=SESSION)
+    client.list_runs(exclude_origin_session=SESSION)
     runs = [r for r in app.requests if r.url.path == "/v1/runs"][-1]
     assert runs.url.params["exclude_origin_session"] == SESSION
     with pytest.raises(errors.RosError):

@@ -1,0 +1,155 @@
+description: Dividend income tax scale. Dividends are taxed using this scale as if they were on top of non-dividend income.
+brackets:
+  - rate:
+      metadata:
+        label: Dividends basic rate
+        unit: /1
+        reference:
+          - title: Finance Act 2022 s. 4
+            href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+      values:
+        2015-04-01: 0.075
+        2022-04-01:
+          value: 0.0875
+          metadata:
+            reference:
+              - title: Autumn Budget and Spending Review 2022
+                href: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1043689/Budget_AB2021_Web_Accessible.pdf
+        2026-04-06:
+          value: 0.1075
+          metadata:
+            reference:
+              - title: OBR Economic and Fiscal Outlook November 2025
+                href: https://obr.uk/efo/economic-and-fiscal-outlook-november-2025/
+    threshold:
+      values:
+        2015-04-01: 0
+      metadata:
+        label: Dividends basic rate threshold
+        reference:
+          - title: Finance Act 2022 s. 4
+            href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+  - rate:
+      metadata:
+        label: Dividends higher rate
+        unit: /1
+        reference:
+          - title: Finance Act 2022 s. 4
+            href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+      values:
+        2015-04-01: 0.325
+        2022-04-01:
+          value: 0.3375
+          metadata:
+            reference:
+              - title: Autumn Budget and Spending Review 2022
+                href: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1043689/Budget_AB2021_Web_Accessible.pdf
+        2026-04-06:
+          value: 0.3575
+          metadata:
+            reference:
+              - title: OBR Economic and Fiscal Outlook November 2025
+                href: https://obr.uk/efo/economic-and-fiscal-outlook-november-2025/
+    threshold:
+      metadata:
+        label: Dividends higher rate threshold
+      values:
+        2015-04-01: 37_500
+        2016-04-06:
+          value: 32_000
+          metadata:
+            reference:
+              - title: Finance (No. 2) Act 2015 s. 6(a)
+                href: https://www.legislation.gov.uk/ukpga/2015/33/section/6/enacted
+        2017-04-06:
+          value: 33_500
+          metadata:
+            reference:
+              - title: Finance Act 2016 s. 2
+                href: https://www.legislation.gov.uk/ukpga/2016/24/section/2/enacted
+        2018-04-06:
+          value: 34_500
+          metadata:
+            reference:
+              - title: The Income Tax (Indexation) Order 2017 art 2
+                href: https://www.legislation.gov.uk/uksi/2017/1184/article/2/made
+        2019-04-06:
+          value: 37_500
+          metadata:
+            reference:
+              - title: Finance Act 2019 s. 5(1)
+                href: https://www.legislation.gov.uk/ukpga/2019/1/section/5/enacted
+        2021-04-06:
+          value: 37_700
+          metadata:
+            reference:
+              - title: The Income Tax (Indexation) Order 2021 art 2
+                href: https://www.legislation.gov.uk/uksi/2021/111/article/2/made
+        2026-04-06:
+          value: 37_700
+          metadata:
+            reference:
+              - title: Income Tax rates and allowances for current and previous tax years
+                href: https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past
+  - rate:
+      metadata:
+        label: Dividends additional rate
+        unit: /1
+        reference:
+          - title: Finance Act 2022 s. 4
+            href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+      values:
+        2015-04-01: 0.381
+        2022-04-01:
+          value: 0.3935
+          metadata:
+            reference:
+              - title: Autumn Budget and Spending Review 2022
+                href: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1043689/Budget_AB2021_Web_Accessible.pdf
+    threshold:
+      values:
+        2015-04-01: 150_000
+        2023-04-06:
+          value: 125_140
+          metadata:
+            reference:
+              - title: Finance Act 2023 s. 6(3)-(4)
+                href: https://www.legislation.gov.uk/ukpga/2023/1/section/6/enacted
+        2026-04-06:
+          value: 125_140
+          metadata:
+            reference:
+              - title: Income Tax rates and allowances for current and previous tax years
+                href: https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past
+      metadata:
+        period: year
+        label: Dividends additional rate threshold
+        reference:
+          - title: Finance Act 2022 s. 4
+            href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+  - rate:
+      description: An extra dividend tax bracket.
+      metadata:
+        label: Extra dividend tax bracket rate
+        unit: /1
+      values:
+        2015-04-01: 0.381
+        2022-06-05: 0.3935
+    threshold:
+      description: The lower threshold for the extra dividend bracket rate.
+      metadata:
+        label: Extra dividend tax bracket threshold
+        period: year
+        unit: currency-GBP
+      values:
+        2015-06-05: 10_000_000
+metadata:
+  threshold_period: year
+  type: marginal_rate
+  threshold_unit: currency-GBP
+  rate_unit: /1
+  reference:
+    - title: Finance Act 2022 s. 4
+      href: https://www.legislation.gov.uk/ukpga/2022/3/section/4/enacted
+    - title: Autumn Budget and Spending Review
+      href: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1029973/Budget_AB2021_Print.pdf#page=138

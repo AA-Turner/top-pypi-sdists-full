@@ -1,0 +1,8129 @@
+use std::sync::Arc;
+
+use super::records::keyed_map_meet_verdict;
+use super::*;
+use crate::descr::classes::{Class, Reach};
+use crate::descr::lower::{Operand, lower_widened};
+use crate::ir::{Attribute, CollKind, Field, MapClause, OperandIx, SeqKind, Spelling};
+use crate::ir::{DefIx, Openness};
+use crate::kind::Kind;
+use crate::oracle::tests::Pure;
+
+/// The structural inclusion procedure alone, with no descriptor beside it.
+///
+/// `is_subtype_of_under` asks the descriptor where the rules decline, which
+/// is what widens the public relations -- and what makes a defect in a rule
+/// invisible through them, since the answer comes out right for the other
+/// reason. A rule is pinned by asking it on its own.
+fn structural(sub: &Schema, sup: &Schema) -> bool {
+    let budget = Budget::new(DECISION_BUDGET);
+    sub.is_subtype_rec(sup, &mut Cx::new(&NoLeafRelations, &[], &budget))
+        .holds()
+}
+
+/// Every set is below the universe, however the universe is spelled.
+///
+/// A refinement with no constraint denotes exactly its base, and a procedure
+/// that did not say so would decide the two spellings differently: `Anything`
+/// reaches `Refine { base: Anything }` through the refinement rule, and the
+/// gradual `Any` would reach `Anything` through the region bound but not the
+/// refinement, because only a region set carries that bound. A union holding
+/// both shows it.
+#[test]
+fn every_set_is_below_the_universe_however_it_is_spelled() {
+    let bare = Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: Vec::new().into(),
+    };
+    // The complement of the universe is empty, which is the same fact read
+    // through the *other* fold: `region_set` decides the inclusion above,
+    // and `empty_and_region` decides this. Both carry the rule, so both are
+    // asked -- a fix in one of two folds is half a fix.
+    assert!(Schema::Complement(Arc::new(bare.clone())).is_empty());
+    assert!(!bare.is_empty(), "and the universe itself is not");
+
+    for universe in [
+        Schema::ANYTHING,
+        bare.clone(),
+        Schema::Union(vec![bare].into()),
+    ] {
+        for sub in [
+            Schema::ANY,
+            Schema::ANYTHING,
+            Schema::Int,
+            Schema::Union(vec![Schema::ANY, Schema::ANYTHING].into()),
+        ] {
+            assert!(
+                sub.is_subtype_of(&universe),
+                "{sub:?} is below the universe {universe:?}"
+            );
+        }
+    }
+}
+
+/// A reference no definition resolves is below a reference to the universe.
+///
+/// The unresolved reference names a set this query cannot read, so the rule
+/// that unfolds the subject has nothing to unfold -- and the rule that unfolds
+/// the supertype needs nothing read: every set is below the universe. The set
+/// reading decides the pair alone and misses it beside a literal, which the
+/// pool has to lower and `NoLeafRelations` cannot, so left to that reading the
+/// union would be undecided while the complement of its supertype is proven
+/// empty.
+#[test]
+fn an_unresolved_reference_is_below_a_reference_to_the_universe() {
+    let defs = [Schema::Int, Schema::ANYTHING];
+    let rules = |sub: &Schema, sup: &Schema| {
+        sub.is_subtype_rec(
+            sup,
+            &mut Cx::new(&NoLeafRelations, &defs, &Budget::new(DECISION_BUDGET)),
+        )
+    };
+    let unresolved = Schema::Ref(DefIx::new(2));
+    let universe = Schema::Ref(DefIx::new(1));
+    assert!(
+        Schema::Complement(Arc::new(universe.clone())).is_empty_under(&defs),
+        "the premise: the supertype is the universe"
+    );
+
+    // By the rules, since the set reading is not there to decide it beside a
+    // member it cannot lower.
+    assert_eq!(rules(&unresolved, &universe), Relation::Holds);
+    let drawn = Schema::Union(vec![Schema::Literal(ConstIx::new(1)), unresolved.clone()].into());
+    assert_eq!(
+        drawn.subtype_relation_under(&universe, &NoLeafRelations, &defs),
+        Relation::Holds
+    );
+
+    // A set nobody can read is below no set but the universe, and refuted by
+    // none: the supertype's rule reads the supertype, and an integer is not
+    // every set.
+    let int = Schema::Ref(DefIx::new(0));
+    assert_eq!(rules(&unresolved, &int), Relation::Unknown);
+    assert_eq!(
+        drawn.subtype_relation_under(&int, &NoLeafRelations, &defs),
+        Relation::Unknown
+    );
+}
+
+/// A refinement carrying no constraint is decided as the base it names, on
+/// whichever side of the pair it sits.
+///
+/// Read through [`by_the_rules`] the two arms are invisible: the reading every
+/// pair without a rule gets already carries a *refinement supertype* back to
+/// its base for a refutation, and a refinement subtype already reaches its
+/// base's proofs through `left_reduces_below`. What each arm adds is
+/// the other half of that answer, and only the full relation shows it -- so
+/// the relation is what is asserted, and each row is a pair whose answer is
+/// `Unknown` without the arm.
+///
+/// The constructors fold such a node away and the frontend builds one for no
+/// annotation, so the node arrives only from a term built by hand -- which the
+/// fuzz target does, and that is where the two spellings can decide
+/// differently.
+#[test]
+fn a_refinement_with_no_constraint_is_decided_as_its_base_on_either_side() {
+    let rules = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.is_subtype_rec(sup, &mut Cx::new(&NoLeafRelations, &[], &budget))
+    };
+    let bare = |base: Schema| Schema::Refine {
+        base: Arc::new(base),
+        constraints: Vec::new().into(),
+    };
+    let set_of = |element: Schema| Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(element),
+    };
+    let list_of = |prefix: Vec<Schema>| Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape {
+            prefix: prefix.into(),
+            tail: None,
+        },
+    };
+
+    // The supertype side. The wrapper holds a complement, and a complement is
+    // the shape whose arm *proves*: an integer is outside the empty list, so
+    // it is inside the complement of one. Carried back to the base for a
+    // refutation alone, that proof is dropped and the pair reads unknown.
+    let not_the_empty_list = Schema::Complement(Arc::new(list_of(Vec::new())));
+    assert_eq!(
+        rules(&Schema::Int, &not_the_empty_list),
+        Relation::Holds,
+        "the premise: the complement decides this pair"
+    );
+    assert_eq!(
+        rules(&Schema::Int, &bare(not_the_empty_list.clone())),
+        Relation::Holds,
+        "and the wrapper narrows nothing, so it decides the same"
+    );
+
+    // The subtype side, where it is the refutations that are dropped: a
+    // refinement inherits its base's proofs and nothing else, so a base the
+    // rules refute leaves the pair unknown behind the wrapper. Two shapes,
+    // because the refutation has to come from a rule rather than from the
+    // disjointness reading -- which sees through the wrapper on its own and
+    // would answer for either arm.
+    for (sub, sup) in [
+        (set_of(Schema::Int), set_of(Schema::Str)),
+        (
+            list_of(vec![Schema::Int, Schema::Int]),
+            list_of(vec![Schema::Int]),
+        ),
+    ] {
+        assert_eq!(
+            rules(&sub, &sup),
+            Relation::Fails,
+            "the premise: {sub:?} is refuted below {sup:?}"
+        );
+        assert_eq!(
+            rules(&bare(sub.clone()), &sup),
+            Relation::Fails,
+            "and the wrapper narrows nothing, so it is refuted too"
+        );
+    }
+}
+
+/// A refinement with no constraint earns the regions of its base.
+///
+/// The same reading, in the fold beside the rules, and the one the two arms
+/// above take the work from: a pair whose supertype is a bare refinement is
+/// decided by those arms before the regions are asked, so every consequence of
+/// this arm is answered elsewhere and a mutation dropping it changes no
+/// verdict. The reading is therefore asserted directly. What it buys is the
+/// scalar shortcut -- a pair decided off two region sets rather than walked --
+/// and an `Unknown` here is a cost rather than a wrong answer.
+#[test]
+fn a_refinement_with_no_constraint_earns_the_regions_of_its_base() {
+    let bare = |base: Schema| Schema::Refine {
+        base: Arc::new(base),
+        constraints: Vec::new().into(),
+    };
+    for base in [Schema::Int, Schema::Str, Schema::ANYTHING] {
+        assert_ne!(
+            base.region_set(),
+            Regions::Unknown,
+            "the premise: {base:?} has regions to lend"
+        );
+        assert_eq!(
+            bare(base.clone()).region_set(),
+            base.region_set(),
+            "the wrapper narrows nothing, so it reads the same regions"
+        );
+    }
+    // The other half of the same arm: one that *does* narrow reads as unknown,
+    // because a narrowed region set read back through a complement would
+    // report an inhabited schema empty.
+    assert_eq!(
+        Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+        }
+        .region_set(),
+        Regions::Unknown
+    );
+}
+
+// THEORY: a-class-is-what-can-be-read
+/// The attribute record, asked against every other shape on its own.
+///
+/// It is the node behind every dataclass, and the frontend never emits it
+/// alone: `build_object` writes `Instance(C) ∧ AttrRecord`, so every row that
+/// reached it reached it inside a meet. A node tested only inside a meet is a
+/// node whose own arms are held by whatever the *other* member decided, which
+/// is the shape of a rule that confirms itself.
+///
+/// The class and the record are split so each half is a set the rules already
+/// know. This asks the record half what it knows: a proof, a refutation
+/// standing on a value, or a decline -- one of the three per pair, and the
+/// decline named rather than left as a row nobody wrote.
+#[test]
+fn an_attribute_record_relates_to_every_other_node() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let attrs = |fields: Vec<(&str, Schema)>| {
+        Schema::attr_record(
+            fields
+                .into_iter()
+                .map(|(name, schema)| attribute(name, schema))
+                .collect(),
+        )
+    };
+    let empty = attrs(vec![]);
+    let x_int = attrs(vec![("x", Schema::Int)]);
+    let x_bool = attrs(vec![("x", Schema::Bool)]);
+    let x_int_y_str = attrs(vec![("x", Schema::Int), ("y", Schema::Str)]);
+
+    // Widening by the record's own order: more attributes is a smaller set, and
+    // an attribute narrowed is narrower. Both are proofs the arm must give.
+    assert_eq!(relation(&x_int_y_str, &x_int), Relation::Holds);
+    assert_eq!(relation(&x_int, &empty), Relation::Holds);
+    assert_eq!(relation(&x_bool, &x_int), Relation::Holds, "bool is an int");
+    // And the reverse of each widening is refuted rather than declined.
+    assert_eq!(relation(&x_int, &x_int_y_str), Relation::Fails);
+    assert_eq!(relation(&empty, &x_int), Relation::Fails);
+    assert_eq!(relation(&x_int, &x_bool), Relation::Fails);
+
+    // The lattice bounds, which every node owes.
+    assert_eq!(relation(&x_int, &Schema::ANYTHING), Relation::Holds);
+    assert_eq!(relation(&Schema::Nothing, &x_int), Relation::Holds);
+    assert_eq!(relation(&x_int, &Schema::Nothing), Relation::Fails);
+    // A record with an uninhabited attribute is the empty set, so it is below
+    // everything -- decided by emptiness rather than by the shape.
+    let impossible = attrs(vec![("x", Schema::Nothing)]);
+    assert_eq!(relation(&impossible, &Schema::Str), Relation::Holds);
+
+    // And against every other kind of node it **declines**, in both
+    // directions. That is the answer rather than a gap: the record carries no
+    // class, so it denotes every value holding these attributes whatever the
+    // value is -- and a subclass of any kind may hold them. Without an oracle
+    // that can enumerate a kind's values there is no witness either way, and a
+    // refutation would be reporting a value nobody has.
+    //
+    // Named here so the decline is a row rather than a pair nobody wrote. A
+    // rule that begins deciding one of these is a change this test sees.
+    let others = [
+        Schema::Int,
+        Schema::Str,
+        Schema::NoneType,
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+        Schema::set(Schema::Int),
+        Schema::record(Vec::new(), Openness::Closed),
+        Schema::mapping(MapClause {
+            key: Schema::Str,
+            value: Schema::Int,
+        }),
+        Schema::Complement(Arc::new(Schema::Int)),
+    ];
+    for other in &others {
+        assert_eq!(
+            relation(&x_int, other),
+            Relation::Unknown,
+            "an object against {other:?} has no witness either way"
+        );
+        assert_eq!(
+            relation(other, &x_int),
+            Relation::Unknown,
+            "nor {other:?} against an object"
+        );
+    }
+
+    // The one shape that does decide through a complement: a record below
+    // another is outside that other's complement, which is the contravariant
+    // arm reading the proof above rather than the oracle.
+    assert_eq!(
+        relation(&x_int_y_str, &Schema::Complement(Arc::new(empty.clone()))),
+        Relation::Fails,
+    );
+}
+
+/// A union covers the universe whatever sits beside the pair that covers it,
+/// and in whatever order the members are written.
+///
+/// The sibling of the row above: `~bool | bool` is the universe, and a region
+/// fold that stops at the first member the partition cannot read reads the
+/// same three members as the universe or as unknown according to where the
+/// opaque one falls, since nothing behind that member can reopen the answer. A
+/// set of bytes is such a member.
+///
+/// The subject matters: it carries a length bound over an `int` base, which is
+/// a refinement the descriptor refuses to lower, so the second decider cannot
+/// answer the pair either and the rules are the whole of the answer.
+#[test]
+fn a_union_covers_the_universe_behind_a_member_the_partition_cannot_read() {
+    let opaque = Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(Schema::Bytes),
+    };
+    let subject = Schema::Complement(Arc::new(Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape {
+            prefix: vec![Schema::Float].into(),
+            tail: Some(Arc::new(Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: vec![Constraint::MinLen(2)].into(),
+            })),
+        },
+    }));
+    let not_bool = Schema::Complement(Arc::new(Schema::Bool));
+
+    for members in [
+        vec![not_bool.clone(), Schema::Bool, opaque.clone()],
+        vec![opaque.clone(), not_bool.clone(), Schema::Bool],
+        vec![not_bool.clone(), opaque.clone(), Schema::Bool],
+    ] {
+        let universe = Schema::Union(members.clone().into());
+        // The premise, read through the other fold: this really is the
+        // universe. A row whose premise fails asserts nothing.
+        assert!(
+            Schema::Complement(Arc::new(universe.clone())).is_empty(),
+            "{members:?} does not cover the universe"
+        );
+        assert!(
+            subject.is_subtype_of(&universe),
+            "{subject:?} is below the universe {members:?}"
+        );
+    }
+
+    // The reading is the *supertype*'s alone, so a union that does not cover
+    // the universe is not swept along with it.
+    let partial = Schema::Union(vec![Schema::Bool, opaque.clone()].into());
+    assert!(!Schema::Complement(Arc::new(partial.clone())).is_empty());
+    assert!(!subject.is_subtype_of(&partial));
+
+    // The same universe under the other two combinators, which is decided
+    // without this reading and is why it has no arm for either.
+    //
+    // A **meet** covers the universe only when every member does, and the rule
+    // for a meet on the right asks each member on its own, so each reaches the
+    // union reading above by itself. A **complement** covers it only when the
+    // schema under it holds no value, which is the question the complement
+    // rule already asks. An arm for either would be one nothing can tell from
+    // its own deletion, and these two rows are what says why.
+    let cannot_hold = Schema::Intersection(vec![opaque.clone(), Schema::Bool, Schema::Str].into());
+    // And a union that covers the universe *inside* another union, which the
+    // outer one's own members do not cover between them: the member that
+    // settles it is one the partition cannot read as a whole, so the outer
+    // reading has to ask it the same question rather than pass it over.
+    let nested = Schema::Union(
+        vec![
+            opaque.clone(),
+            Schema::Union(members_of_the_universe(&opaque)),
+        ]
+        .into(),
+    );
+    for universe in [
+        nested,
+        Schema::Intersection(vec![Schema::Union(members_of_the_universe(&opaque))].into()),
+        Schema::Complement(Arc::new(cannot_hold)),
+    ] {
+        assert!(
+            Schema::Complement(Arc::new(universe.clone())).is_empty(),
+            "{universe:?} does not cover the universe"
+        );
+        assert!(
+            subject.is_subtype_of(&universe),
+            "{subject:?} is below the universe {universe:?}"
+        );
+    }
+}
+
+/// A union covers the universe where no member's region does the covering:
+/// `~None | ~set[Any]` holds every value, because none is both `None` and a
+/// set, but `~set[Any]` has no region, so the region walk sees every region
+/// save `None` and stops short.
+///
+/// The nightly laws lane drew it, with a literal subject the descriptor cannot
+/// lower without a pool -- so, as in the row above, the rules are the whole of
+/// the answer. They read it one De Morgan step in, where the union is the meet
+/// `None & set[Any]` of two kinds sharing no value.
+#[test]
+fn a_union_of_complements_covers_the_universe_where_their_inners_are_disjoint() {
+    let not_none = Schema::Complement(Arc::new(Schema::NoneType));
+    let not_a_set = Schema::Complement(Arc::new(Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(Schema::ANYTHING),
+    }));
+    let subject = Schema::Union(
+        vec![Schema::Complement(Arc::new(Schema::Literal(ConstIx::new(
+            0,
+        ))))]
+        .into(),
+    );
+    let not_a_list = Schema::Complement(Arc::new(Schema::Seq {
+        container: SeqKind::List,
+        shape: SeqShape::homogeneous(Schema::ANYTHING),
+    }));
+    // One member the walk reads and one it passes over, then two it passes
+    // over: the meet is asked wherever the walk skipped a member, however many
+    // it read.
+    for members in [
+        vec![not_none.clone(), not_a_set.clone()],
+        vec![not_a_set.clone(), not_a_list],
+    ] {
+        let universe = Schema::Union(members.clone().into());
+        assert!(
+            Schema::Complement(Arc::new(universe.clone())).is_empty(),
+            "{members:?} does not cover the universe"
+        );
+        assert_eq!(
+            subject.subtype_relation_under(&universe, &NoLeafRelations, &[]),
+            Relation::Holds,
+            "{subject:?} is below the universe {members:?}"
+        );
+    }
+
+    // Inners that share a value -- `{1}` is a set and a set of ints -- leave
+    // the union short of the universe, and the reading does not sweep it along.
+    let not_a_set_of_ints = Schema::Complement(Arc::new(Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(Schema::Int),
+    }));
+    let partial = Schema::Union(vec![not_a_set, not_a_set_of_ints].into());
+    assert!(!Schema::Complement(Arc::new(partial.clone())).is_empty());
+    assert!(!subject.is_subtype_of(&partial));
+}
+
+/// `~bool | bool | opaque`, the union the row above is written around.
+fn members_of_the_universe(opaque: &Schema) -> crate::Members {
+    vec![
+        Schema::Complement(Arc::new(Schema::Bool)),
+        Schema::Bool,
+        opaque.clone(),
+    ]
+    .into()
+}
+
+/// A union nested in the union is read as its members: `~c | (c)`, with `(c)`
+/// a union of one member, covers the universe as `~c | c` does.
+///
+/// The fuzzer's pair has an `int` constant and a subject whose unions nest one
+/// level past the depth the set reading descends. The set reading proves the
+/// supertype's complement empty, reading the supertype alone, and refuses the
+/// pair at the subject, so the rules are the whole of the answer. One De Morgan step in, the union taken whole is `c & ~(c)`,
+/// which the meet's fold reads as two spellings; read through the nested
+/// union it is `c & ~c`.
+#[test]
+fn a_union_nested_in_the_union_is_read_as_its_members() {
+    /// A pool holding the one constant, so the set reading can lower it. The
+    /// rules ask the pool nothing.
+    struct MinusTwo;
+    impl Constants for MinusTwo {
+        fn constant(&self, index: ConstIx) -> Option<Operand> {
+            (index.get() == 0).then_some(Operand::Integer(-2))
+        }
+    }
+    impl LeafRelations for MinusTwo {
+        fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+            None
+        }
+    }
+    let raw = |members: Vec<Schema>| Schema::Union(members.into());
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let constant = Schema::Literal(ConstIx::new(0));
+    let set_of_str = Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(Schema::Str),
+    };
+    // `~set[str] & (float | (int | (~c | c)))`, as the fuzzer drew it.
+    let subject = Schema::Intersection(
+        vec![
+            not(set_of_str),
+            raw(vec![
+                Schema::Float,
+                raw(vec![
+                    Schema::Int,
+                    raw(vec![not(constant.clone()), constant.clone()]),
+                ]),
+            ]),
+        ]
+        .into(),
+    );
+    assert!(
+        crate::descr::lower::lower(&subject, &MinusTwo).is_none(),
+        "the premise: the set reading builds no set for {subject:?}"
+    );
+    // The drawn supertype, the nesting moved to the complement's side, and a
+    // nested union of two members one level further in.
+    for universe in [
+        raw(vec![not(constant.clone()), raw(vec![constant.clone()])]),
+        raw(vec![raw(vec![not(constant.clone())]), constant.clone()]),
+        raw(vec![
+            not(constant.clone()),
+            raw(vec![raw(vec![Schema::Int, constant.clone()])]),
+        ]),
+    ] {
+        assert!(
+            not(universe.clone()).is_empty_with(&MinusTwo, &[]),
+            "the premise: {universe:?} is the universe"
+        );
+        let budget = Budget::new(DECISION_BUDGET);
+        assert_eq!(
+            subject.subtype_relation(&universe, &MinusTwo, &[], &budget),
+            Relation::Holds,
+            "{subject:?} below {universe:?} by the rules"
+        );
+        assert_eq!(
+            subject.subtype_relation_under(&universe, &MinusTwo, &[]),
+            Relation::Holds,
+            "{subject:?} below {universe:?}"
+        );
+    }
+}
+
+// THEORY: structural-rather-than-reduction, a-set-is-a-powerset
+/// The structural inclusion rules, held to their own work.
+///
+/// The descriptor is asked after these rules and decides much of what they
+/// do, so a defect in one is invisible through `is_subtype_of` -- the answer
+/// comes out right for the other reason. `is_subtype_of_under` is the
+/// structural procedure alone, which is where each rule has to be pinned.
+#[test]
+fn the_structural_inclusion_rules_decide_without_the_descriptor() {
+    // Built raw rather than through the smart constructors, which fold a
+    // meet of two kinds before it ever reaches the rule under test.
+    let meet = |members: [Schema; 2]| Schema::Intersection(members.into());
+    let joined = Schema::union([Schema::Int, Schema::Float]);
+
+    // `A ⊆ (Y ∩ Z)` needs both conjuncts.
+    assert!(structural(
+        &Schema::Int,
+        &meet([Schema::Int, joined.clone()])
+    ));
+    assert!(!structural(
+        &Schema::Int,
+        &meet([Schema::Int, Schema::Float])
+    ));
+    // `(A ∩ B) ⊆ C` when some conjunct already is, and when the meet lands
+    // in one branch of a union supertype -- the second half of that arm.
+    assert!(structural(&meet([Schema::Int, Schema::Str]), &Schema::Int));
+    assert!(structural(
+        &meet([Schema::Int, Schema::Bytes]),
+        &Schema::union([Schema::Int, Schema::Str])
+    ));
+    // An inhabited meet that no branch covers: an empty one would be a
+    // subtype of everything and would say nothing about the rule.
+    assert!(!structural(
+        &meet([Schema::Int, joined.clone()]),
+        &Schema::union([Schema::Float, Schema::Str])
+    ));
+
+    // Set and frozenset inclusion reduces to element inclusion, and the two
+    // kinds do not cross.
+    let ints = Schema::set(Schema::Int);
+    assert!(structural(&ints, &Schema::set(joined.clone())));
+    assert!(!structural(&ints, &Schema::frozen_set(joined.clone())));
+    assert!(structural(
+        &Schema::frozen_set(Schema::Int),
+        &Schema::frozen_set(joined.clone())
+    ));
+
+    // Each rule above is a *shortcut*: delete it and the general reduction
+    // `A ⊆ B` to `A ∩ ¬B = ∅` decides the same thing. What the shortcut is
+    // for is the case where that reduction declines -- and an atom carrying
+    // a callback is exactly one, since the complement law does not hold of
+    // it. So each rule is pinned over a schema the reduction cannot read.
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    assert!(structural(&opaque, &meet([opaque.clone(), opaque.clone()])));
+    assert!(structural(&meet([opaque.clone(), Schema::Str]), &opaque));
+    assert!(structural(
+        &meet([opaque.clone(), Schema::Str]),
+        &Schema::union([opaque.clone(), Schema::Float])
+    ));
+
+    // Complement is contravariant: the inclusion under it runs the other way.
+    let wider = Schema::Complement(Arc::new(Schema::Int));
+    let narrower = Schema::Complement(Arc::new(joined));
+    assert!(structural(&narrower, &wider));
+    assert!(!structural(&wider, &narrower));
+    // And over an atom the reduction cannot read, where nothing else does.
+    assert!(structural(
+        &Schema::Complement(Arc::new(opaque.clone())),
+        &Schema::Complement(Arc::new(meet([opaque.clone(), Schema::Str])))
+    ));
+}
+
+/// A fixed-arity sequence splits across the branches of a union, decided by
+/// the product rule rather than by the descriptor beside it.
+#[test]
+fn a_product_splits_across_a_union_without_the_descriptor() {
+    let pair = |a: Schema, b: Schema| Schema::tuple(SeqShape::fixed([a, b]));
+    let subject = pair(Schema::union([Schema::Int, Schema::Str]), Schema::Int);
+    let split = Schema::union([
+        pair(Schema::Int, Schema::Int),
+        pair(Schema::Str, Schema::Int),
+    ]);
+
+    assert!(structural(&subject, &split), "the branches cover it");
+    assert!(
+        !structural(
+            &subject,
+            &Schema::union([
+                pair(Schema::Int, Schema::Int),
+                pair(Schema::Bytes, Schema::Int),
+            ])
+        ),
+        "and branches that do not cover it decide no"
+    );
+    // A repeated tail is not a product, so there is nothing to split.
+    let variadic = Schema::tuple(SeqShape::homogeneous(Schema::union([
+        Schema::Int,
+        Schema::Str,
+    ])));
+    assert!(!structural(
+        &variadic,
+        &Schema::union([
+            Schema::tuple(SeqShape::homogeneous(Schema::Int)),
+            Schema::tuple(SeqShape::homogeneous(Schema::Str)),
+        ])
+    ));
+}
+
+/// The keyed-map rule declines where clauses of the supertype cover a clause
+/// of the subject only together, and the set representation decides it.
+///
+/// `dict[int | str, int]` is below `{int: int, str: int}`: an `int` key falls
+/// under the first clause and a `str` key under the second, and no one clause
+/// holds both. The rule reads one clause of `b` per clause of `a`, which is
+/// sound and complete on no shape; the doc says so rather than claiming the
+/// pure-mapping case whole.
+#[test]
+fn a_mapping_covered_by_clauses_together_is_the_sets_to_decide() {
+    let clause = |key: Schema, value: Schema| MapClause { key, value };
+    let joined = Schema::mapping(clause(
+        Schema::union([Schema::Int, Schema::Str]),
+        Schema::Int,
+    ));
+    let apart = Schema::keyed_map(
+        Vec::new(),
+        vec![
+            clause(Schema::Int, Schema::Int),
+            clause(Schema::Str, Schema::Int),
+        ],
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        joined.subtype_relation(&apart, &NoLeafRelations, &[], &budget),
+        Relation::Unknown,
+        "the rule reads one clause of the supertype per clause"
+    );
+    assert_eq!(
+        joined.subtype_relation_under(&apart, &NoLeafRelations, &[]),
+        Relation::Holds,
+        "and the sets read them together"
+    );
+}
+
+/// A conjunct that refutes on a value of its own refutes beside one the rules
+/// decline.
+///
+/// A record's required-ness is a conjunct beside each field's depth, not a
+/// step after it: the value leaving the key out carries no entry for the
+/// depth to judge. A sequence's tail is one beside its prefix: the value
+/// repeating a bad element once past the prefix needs the prefix to hold a
+/// value, not to align. Read as steps, a depth or a prefix the rules decline
+/// hid the refutation beside it.
+#[test]
+fn a_conjunct_refutes_beside_one_the_rules_decline() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let opaque = |slot: usize| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Predicate(PredIx::new(slot))].into(),
+    };
+    assert_eq!(
+        relation(&Schema::Int, &opaque(1)),
+        Relation::Unknown,
+        "the depth declines on its own"
+    );
+
+    let record = |schema: Schema, required: bool| closed(vec![field("a", schema, required)]);
+    assert_eq!(
+        relation(&record(opaque(0), false), &record(opaque(1), true)),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(&record(Schema::Int, false), &record(opaque(1), true)),
+        Relation::Fails
+    );
+
+    let repeating =
+        |first: Schema, tail: Schema| Schema::list(SeqShape::prefix_tail([first], tail));
+    assert_eq!(
+        relation(
+            &repeating(Schema::Int, Schema::Int),
+            &repeating(opaque(1), Schema::Str)
+        ),
+        Relation::Fails
+    );
+    // A prefix the rules cannot prove has a value names no value for the tail
+    // to stand on, so that one stays declined.
+    assert_eq!(
+        relation(
+            &repeating(opaque(0), Schema::Int),
+            &repeating(opaque(1), Schema::Str)
+        ),
+        Relation::Unknown
+    );
+}
+
+/// The structural region rules decide without the descriptor, and stay
+/// pinned where it would otherwise answer for them.
+///
+/// `is_empty` asks the descriptor after these rules, so a defect in them is
+/// invisible through it -- the answer comes out right for the other reason.
+/// `is_empty_under` is the structural procedure alone, which is where a rule
+/// has to be held to its own work.
+#[test]
+fn the_scalar_regions_decide_a_disjoint_meet_without_the_descriptor() {
+    for (left, right) in [
+        (Schema::NoneType, Schema::Str),
+        (Schema::Str, Schema::Float),
+        (Schema::NoneType, Schema::Bytes),
+    ] {
+        let meet = Schema::meet([left.clone(), right.clone()]);
+        assert!(
+            meet.is_empty_under(&[]),
+            "{left:?} and {right:?} share no region"
+        );
+    }
+}
+
+/// A sequence with an uninhabited prefix element admits nothing, decided by
+/// the structural rule rather than by the descriptor beside it.
+#[test]
+fn an_uninhabited_prefix_empties_a_sequence_without_the_descriptor() {
+    let empty_element = Schema::list(SeqShape::fixed([Schema::Nothing]));
+    assert!(empty_element.is_empty_under(&[]));
+
+    // The tail is not a prefix: a sequence may stop before it, so an
+    // uninhabited tail leaves the sequence that ends at the prefix.
+    let empty_tail = Schema::list(SeqShape::homogeneous(Schema::Nothing));
+    assert!(!empty_tail.is_empty_under(&[]));
+}
+
+use crate::ir::{ClassIx, ConstIx, PredIx};
+use proptest::prelude::*;
+
+/// A generator mixing the scalar-decidable atoms with opaque leaves (the
+/// gradual `Any`, a literal, a content-bearing set) under the Boolean
+/// combinators, so both the region-carrying and the `Regions::Unknown` paths and
+/// their propagation through every combinator are exercised.
+fn schema() -> impl Strategy<Value = Schema> {
+    let leaf = prop_oneof![
+        Just(Schema::ANYTHING),
+        Just(Schema::Nothing),
+        Just(Schema::NoneType),
+        Just(Schema::Bool),
+        Just(Schema::Int),
+        Just(Schema::Float),
+        Just(Schema::Str),
+        Just(Schema::Bytes),
+        Just(Schema::ANY),
+        Just(Schema::Literal(ConstIx::new(0))),
+        Just(Schema::set(Schema::Int)),
+    ];
+    leaf.prop_recursive(4, 24, 3, |inner| {
+        prop_oneof![
+            proptest::collection::vec(inner.clone(), 1..4).prop_map(|m| Schema::Union(m.into())),
+            proptest::collection::vec(inner.clone(), 1..4)
+                .prop_map(|m| Schema::Intersection(m.into())),
+            inner.prop_map(|s| Schema::Complement(Arc::new(s))),
+        ]
+    })
+}
+
+proptest! {
+    /// Asking whether a schema covers the universe is the same question as
+    /// asking whether its complement is empty. The lattice bound
+    /// `A subset-of U` is decided the second way in principle and the first way
+    /// in the code, because the first builds nothing; this holds the two
+    /// together so the cheaper one cannot drift from the rule it stands in for.
+    ///
+    /// The reading it is held to is [`covers_the_universe`], the complete one.
+    /// The *fast* region fold is a sound lower bound on it and no more: it
+    /// stops at the first member the partition cannot read, so `list | object`
+    /// covers the universe and folds to an unknown region. Pinning the
+    /// complement's emptiness to that fold instead would pin it to the stop,
+    /// and a subject denoting nothing would not be below everything. Both
+    /// directions are asserted, so the verdict can neither fall behind the
+    /// reading nor run ahead of it.
+    #[test]
+    fn covering_the_universe_is_the_complement_being_empty(s in schema()) {
+        let budget = Budget::new(DECISION_BUDGET);
+        let via_complement = Schema::Complement(Arc::new(s.clone()))
+            .is_empty_rec(&mut Cx::new(&NoLeafRelations, &[], &budget));
+        prop_assert_eq!(via_complement, s.covers_the_universe());
+        // And the fast fold is below the complete reading, never past it.
+        let budget = Budget::new(DECISION_BUDGET);
+        let (_, regions) =
+            s.empty_and_region(&mut Cx::new(&NoLeafRelations, &[], &budget));
+        if regions == Regions::Known(Region::ALL) {
+            prop_assert!(s.covers_the_universe());
+        }
+    }
+
+    /// The bottom-up region folded by `empty_and_region` is exactly the region
+    /// `region_set` recomputes from scratch, for every schema. This pins the two
+    /// region code paths together so a future change to one cannot silently
+    /// diverge from the other (the emptiness decision relies on their agreement).
+    #[test]
+    fn empty_and_region_folds_the_same_region_as_region_set(s in schema()) {
+        let folded = s
+            .empty_and_region(&mut Cx::new(&NoLeafRelations, &[], &Budget::new(DECISION_BUDGET)))
+            .1;
+        prop_assert_eq!(folded, s.region_set());
+    }
+}
+
+/// A union fold stops only once a member is known inhabited. The stopping rule
+/// reads the *inhabited* accumulator, not the empty one: a member that is
+/// empty and opaque leaves the verdict open, and breaking there would report a
+/// union empty on the strength of the members walked so far.
+///
+/// The witness needs a member that is empty with an unknown region -- a record
+/// with an uninhabited required field -- followed by an inhabited one, because
+/// a member that is empty with a *known* region cannot make the accumulator
+/// absorbing on its own.
+#[test]
+fn a_union_fold_stops_only_once_a_member_is_inhabited() {
+    let uninhabited = Schema::record(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Nothing,
+            required: true,
+        }],
+        crate::ir::Openness::Closed,
+    );
+    assert!(uninhabited.is_empty());
+    assert_eq!(uninhabited.region_set(), Regions::Unknown);
+
+    // The union is inhabited by its second member, which the fold reaches only
+    // by not stopping at the first.
+    let union = Schema::union([uninhabited.clone(), Schema::Int]);
+    assert!(!union.is_empty());
+    // Every member uninhabited is still empty, so the stop does not hide that.
+    assert!(Schema::union([uninhabited.clone(), uninhabited]).is_empty());
+}
+
+#[test]
+fn is_empty_decides_complement_and_disjoint_intersections() {
+    let list = |e| Schema::list(SeqShape::homogeneous(e));
+    let not = |s| Schema::Complement(Arc::new(s));
+
+    // A ∩ ¬A is empty for a structural A the scalar region bitset cannot see.
+    let a = list(Schema::Int);
+    assert!(Schema::Intersection(vec![a.clone(), not(a)].into()).is_empty());
+
+    // `Any` is the top, spelled, so it obeys the law the top obeys: the
+    // spelling is not a set and no rule reads it.
+    assert!(Schema::Intersection(vec![Schema::ANY, not(Schema::ANY)].into()).is_empty());
+    assert!(Schema::Intersection(vec![Schema::ANY, not(Schema::ANYTHING)].into()).is_empty());
+
+    // Disjoint structural kinds: a list is never a set.
+    assert!(
+        Schema::Intersection(vec![list(Schema::Int), Schema::set(Schema::Int)].into()).is_empty()
+    );
+
+    // A refined int is still an int, disjoint from str.
+    assert!(
+        Schema::Intersection(
+            vec![
+                Schema::Refine {
+                    base: Arc::new(Schema::Int),
+                    constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+                },
+                Schema::Str,
+            ]
+            .into()
+        )
+        .is_empty()
+    );
+
+    // Sanity: two same-kind lists share the empty list, so not empty.
+    assert!(!Schema::Intersection(vec![list(Schema::Int), list(Schema::Bool)].into()).is_empty());
+}
+
+/// The two rules that read only the left side -- a reference unfolds, a
+/// refinement drops to its base -- and the union rule beside them.
+///
+/// A union on the right is tried branch by branch, which commits to a
+/// branch. Both readings are sound and neither subsumes the other, so where
+/// both apply both are asked; these are the cases that separate them.
+#[test]
+fn a_reference_and_a_refinement_are_read_beside_the_union_rule() {
+    let defs = vec![Schema::union([Schema::Int, Schema::Str])];
+    let reference = Schema::Ref(DefIx::new(0));
+    let body = Schema::union([Schema::Int, Schema::Str]);
+    let refined = |base: Schema| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+
+    // Against a union: only the left-side rule decides these. The reference
+    // is in no branch of its own body, and the refinement is in neither
+    // branch of the union it refines.
+    assert!(reference.is_subtype_of_under(&body, &NoLeafRelations, &defs));
+    assert!(refined(body.clone()).is_subtype_of(&body));
+
+    // Against a non-union: the same two rules, reached through their own
+    // arms rather than through the union rule.
+    assert!(Schema::Ref(DefIx::new(0)).is_subtype_of_under(
+        &Schema::union([Schema::Int, Schema::Str, Schema::Bytes]),
+        &NoLeafRelations,
+        &defs
+    ));
+    assert!(refined(Schema::Int).is_subtype_of(&Schema::Int));
+    let int_def = vec![Schema::Int];
+    assert!(Schema::Ref(DefIx::new(0)).is_subtype_of_under(
+        &Schema::Int,
+        &NoLeafRelations,
+        &int_def
+    ));
+
+    // The union rule is not replaced by them. A branch equal to the subject
+    // settles it, and the base rule would answer no: `int` is not below the
+    // refinement, so a subject that IS the refinement is decided only by the
+    // branch it equals.
+    let narrowed = refined(Schema::Int);
+    assert!(narrowed.is_subtype_of(&Schema::union([narrowed.clone(), Schema::Str])));
+    // And a subject that neither rule reaches still lands in its branch.
+    assert!(Schema::Int.is_subtype_of(&Schema::union([Schema::Int, Schema::Str])));
+
+    // Sound in the other direction: unfolding a reference is not a license.
+    assert!(!Schema::Ref(DefIx::new(0)).is_subtype_of_under(
+        &Schema::union([Schema::Int, Schema::Bytes]),
+        &NoLeafRelations,
+        &defs
+    ));
+    // A reference no definition resolves decides nothing.
+    assert!(!Schema::Ref(DefIx::new(9)).is_subtype_of_under(&body, &NoLeafRelations, &defs));
+}
+
+/// A field, spelled once rather than at each of the many sites below.
+fn field(name: &str, schema: Schema, required: bool) -> Field {
+    Field {
+        name: name.into(),
+        schema,
+        required,
+    }
+}
+
+/// An attribute, spelled once for the same reason.
+fn attribute(name: &str, schema: Schema) -> Attribute {
+    Attribute {
+        name: name.into(),
+        schema,
+    }
+}
+
+/// A record: declared fields and no catch-all clause, so it is closed.
+fn closed(fields: Vec<Field>) -> Schema {
+    Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: Vec::new().into(),
+    }
+}
+
+/// A record with a catch-all clause, which is what makes it open.
+fn open(fields: Vec<Field>) -> Schema {
+    Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: Schema::ANYTHING,
+        }]
+        .into(),
+    }
+}
+
+fn meet_is_empty(members: &[Schema]) -> bool {
+    keyed_map_meet_verdict(
+        members,
+        &mut Cx::new(&NoLeafRelations, &[], &Budget::new(DECISION_BUDGET)),
+    )
+    .is_empty()
+}
+
+/// The two rules [Cas23, (11)] and [Cas23, (12)] give for a meet of record
+/// atoms, and the guard of [Cas23, fn. 11] that stops each from firing where it
+/// must not.
+///
+/// Driven against the rule rather than through `is_empty`, because the
+/// question is which of these shapes the rule answers for: reached through
+/// the decision procedure, an intersection has half a dozen other reasons to
+/// be reported empty, and a test that only watches the verdict cannot tell
+/// which one spoke.
+#[test]
+fn a_record_meet_is_empty_only_where_a_required_key_cannot_hold() {
+    // Rule one: a key required somewhere whose types meet to nothing.
+    assert!(meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("a", Schema::Str, true)]),
+    ]));
+    // The types must actually meet to nothing. `bool` is below `int`, so
+    // these two agree on every bool.
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("a", Schema::Bool, true)]),
+    ]));
+
+    // Rule two: a key required somewhere and absent from a closed map.
+    assert!(meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("b", Schema::Int, true)]),
+    ]));
+    // The map that lacks the key must be closed. A clause admits keys the
+    // field list does not name, so an open map is no obstacle.
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        open(vec![]),
+    ]));
+    // And a closed map that declares the key is no obstacle either, which is
+    // the same walk reading the field list the other way.
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("a", Schema::ANYTHING, true)]),
+    ]));
+
+    // Footnote 11: only a REQUIRED key can empty a meet. Two optional fields
+    // whose types share nothing still admit the empty dict, and so does a
+    // key absent from a closed map when nothing requires it.
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, false)]),
+        closed(vec![field("a", Schema::Str, false)]),
+    ]));
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, false)]),
+        closed(vec![field("b", Schema::Int, false)]),
+    ]));
+    // Required on ONE side is enough: the meet must satisfy both maps, so a
+    // key one of them demands is a key every value in the meet carries.
+    assert!(meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("a", Schema::Str, false)]),
+    ]));
+
+    // Beside a map with clauses the meet is read as one record, R◦, whose
+    // required label `a` holds the meet of every map's type for it -- here
+    // nothing -- so the meet is empty by the record's own reading
+    // [Cas23, (11)], which answers what the keyed-map node's own rule answers
+    // of the first map alone.
+    assert!(meet_is_empty(&[
+        closed(vec![field("a", Schema::Nothing, true)]),
+        open(vec![]),
+    ]));
+    assert!(
+        Schema::Intersection(
+            vec![
+                closed(vec![field("a", Schema::Nothing, true)]),
+                open(vec![]),
+            ]
+            .into()
+        )
+        .is_empty()
+    );
+
+    // Fewer than two maps is not a meet of maps. One map alone is decided by
+    // the node's own rule, and a meet with a non-map member says nothing
+    // about the keys.
+    assert!(!meet_is_empty(&[closed(vec![field(
+        "a",
+        Schema::Nothing,
+        true
+    )])]));
+    assert!(!meet_is_empty(&[
+        closed(vec![field("a", Schema::Int, true)]),
+        Schema::Str,
+    ]));
+    // Three maps: the pair that cannot hold together need not be the first
+    // two, so the scan runs over all of them rather than stopping at a count.
+    assert!(meet_is_empty(&[
+        open(vec![]),
+        closed(vec![field("a", Schema::Int, true)]),
+        closed(vec![field("a", Schema::Str, true)]),
+    ]));
+}
+
+// THEORY: regularity-bounds-the-goals
+/// A meet of two maps that refer back to it is decided within its unfoldings.
+///
+/// The key both maps require carries a type that names the fixpoint, so the
+/// meet of those types unfolds the fixpoint again, and that unfolding reaches
+/// the same meet. It is a required position of the node being decided, so the
+/// reference read there is the cycle the field of a single map reads it as. A
+/// fresh `visiting` list at the meet reached the rule once per unfolding, and
+/// the stack gave out before the budget did.
+#[test]
+fn a_recursive_meet_of_maps_is_decided_within_its_unfoldings() {
+    let this = Schema::Ref(DefIx::new(0));
+    let defs = vec![Schema::Intersection(
+        vec![
+            closed(vec![field(
+                "a",
+                Schema::union([this.clone(), Schema::Int]),
+                true,
+            )]),
+            closed(vec![field(
+                "a",
+                Schema::union([this.clone(), Schema::Str]),
+                true,
+            )]),
+        ]
+        .into(),
+    )];
+    let budget = Budget::new(DECISION_BUDGET);
+    // The meet holds no finite value: a value of the key is in both unions, so
+    // it is in the fixpoint again. Declining is sound, and a claim of a value
+    // is not.
+    let verdict = this.verdict_rec(&mut Cx::new(&NoLeafRelations, &defs, &budget));
+    assert_ne!(verdict, Verdict::Inhabited);
+    let spent = DECISION_BUDGET - budget.left();
+    assert!(spent < 100, "the meet spent {spent} steps");
+}
+
+/// The rules' verdict on `schema` under `defs`, and the steps it spent.
+fn rules_verdict(schema: &Schema, defs: &[Schema]) -> (Verdict, u32) {
+    let budget = Budget::new(DECISION_BUDGET);
+    let verdict = schema.verdict_rec(&mut Cx::new(&NoLeafRelations, defs, &budget));
+    (verdict, DECISION_BUDGET - budget.left())
+}
+
+// THEORY: two-fixpoints-one-procedure
+/// A meet with a reference is decided by unfolding the reference into it.
+///
+/// `chain = None | {"next": chain}`. Its meet with `{"next": int}` is empty: a
+/// link's `next` is `None` or a link, and neither is an `int`. Its meet with
+/// `{"next": {"next": None}}` holds that record. Each is the definition's
+/// branches met with the record, and a link met with the record asks the meet
+/// of the chain with the record's key, which is a meet with a reference again.
+/// The rules decide both, so neither waits for the descriptor, which cuts the
+/// reference to the top and reads each meet as the record alone.
+#[test]
+fn a_meet_with_a_reference_is_its_definition_met_with_the_rest() {
+    let chain = Schema::Ref(DefIx::new(0));
+    let defs = vec![Schema::union([
+        Schema::NoneType,
+        closed(vec![field("next", chain.clone(), true)]),
+    ])];
+    let meet = |other: Schema| Schema::Intersection(vec![chain.clone(), other].into());
+    let next = |schema: Schema| closed(vec![field("next", schema, true)]);
+    assert_eq!(
+        rules_verdict(&meet(next(Schema::Int)), &defs).0,
+        Verdict::Empty
+    );
+    assert_eq!(
+        rules_verdict(&meet(next(next(Schema::NoneType))), &defs).0,
+        Verdict::Inhabited
+    );
+    // A record that asks what the chain holds three links down, and one that
+    // asks a chain longer than any it holds of a kind it does not.
+    let deep = next(next(next(Schema::NoneType)));
+    assert_eq!(rules_verdict(&meet(deep), &defs).0, Verdict::Inhabited);
+    let deep_int = next(next(next(Schema::Int)));
+    assert_eq!(rules_verdict(&meet(deep_int), &defs).0, Verdict::Empty);
+    // An optional key the record adds is left out of the dict that witnesses it.
+    let wider = closed(vec![
+        field("next", Schema::NoneType, true),
+        field("v", Schema::Int, false),
+    ]);
+    assert_eq!(rules_verdict(&meet(wider), &defs).0, Verdict::Inhabited);
+}
+
+/// The reference a meet unfolds is not the reference resolved alone.
+///
+/// `t = None | {"a": t}` and `X = {"a": None | {"a": None}}`: `{"a": None}` is
+/// in both. Unfolding `t` into the meet asks `t ∧ (None | {"a": None})` of the
+/// key, and that `t` is read as a meet of its own. Read as the reference already
+/// being resolved -- the cycle a lone reference reads back as empty -- the key
+/// and the meet would read empty.
+#[test]
+fn a_meet_unfolds_a_reference_under_its_own_goal() {
+    let t = Schema::Ref(DefIx::new(0));
+    let defs = vec![Schema::union([
+        Schema::NoneType,
+        closed(vec![field("a", t.clone(), true)]),
+    ])];
+    let x = closed(vec![field(
+        "a",
+        Schema::union([
+            Schema::NoneType,
+            closed(vec![field("a", Schema::NoneType, true)]),
+        ]),
+        true,
+    )]);
+    let meet = Schema::Intersection(vec![t.clone(), x].into());
+    assert_eq!(rules_verdict(&meet, &defs).0, Verdict::Inhabited);
+    // Asked from inside the reference's own resolution, the answer is the same.
+    let defs = vec![
+        Schema::union([Schema::NoneType, closed(vec![field("a", t.clone(), true)])]),
+        meet,
+    ];
+    assert_eq!(
+        rules_verdict(&Schema::Ref(DefIx::new(1)), &defs).0,
+        Verdict::Inhabited
+    );
+}
+
+/// Below an unfolding a union is distributed whatever its width, as the
+/// definition's own branches are: the bound on a meet's normal form is for a
+/// meet no reference reaches.
+///
+/// `t = None | {"a": t}` met with `{"a": None | int | str | bytes | {"a":
+/// None}}` asks of its key `t ∧ (None | int | str | bytes | {"a": None})`, and
+/// the `None` branch of `t` meets that union, five clauses, in `None`.
+#[test]
+fn a_union_below_an_unfolding_is_distributed_past_the_bound() {
+    let t = Schema::Ref(DefIx::new(0));
+    let defs = vec![Schema::union([
+        Schema::NoneType,
+        closed(vec![field("a", t.clone(), true)]),
+    ])];
+    let wide = Schema::union([
+        Schema::NoneType,
+        Schema::Int,
+        Schema::Str,
+        Schema::Bytes,
+        closed(vec![field("a", Schema::NoneType, true)]),
+    ]);
+    let Schema::Union(branches) = &wide else {
+        unreachable!("a union of five branches")
+    };
+    assert!(branches.len() > super::emptiness::MAX_DISTRIBUTED_TERMS);
+    let meet = Schema::Intersection(vec![t, closed(vec![field("a", wide, true)])].into());
+    assert_eq!(rules_verdict(&meet, &defs).0, Verdict::Inhabited);
+}
+
+/// A meet the rules unfold reads a goal it holds open as empty, and that is what
+/// decides two chains with different ends.
+///
+/// `t = None | {"a": t}` and `u = int | {"a": u}`: a value of both ends in a
+/// value of both, and `None` and `int` share none, so they meet in nothing. The
+/// meet unfolds `t`, and the link branch met with `u` asks the meet of the two
+/// keys, `t ∧ u`, which is the goal being decided. Read as empty there, the
+/// least fixpoint over finite values, the meet is empty. Not read so, each
+/// round asks it again until the depth bound declines.
+#[test]
+fn two_chains_with_different_ends_meet_in_nothing() {
+    let (t, u) = (Schema::Ref(DefIx::new(0)), Schema::Ref(DefIx::new(1)));
+    let defs = vec![
+        Schema::union([Schema::NoneType, closed(vec![field("a", t.clone(), true)])]),
+        Schema::union([Schema::Int, closed(vec![field("a", u.clone(), true)])]),
+    ];
+    let meet = Schema::Intersection(vec![t, u].into());
+    assert_eq!(rules_verdict(&meet, &defs).0, Verdict::Empty);
+}
+
+/// A meet of closed maps is inhabited where the keys they require meet in a
+/// value, whatever its members read as alone.
+///
+/// The first map requires `a` of a union whose first branch is a bound the core
+/// cannot read, and whose second, a reference to `str`, holds a string. Read
+/// alone, the map stops at the first branch and is unknown. Its key met with the
+/// second map's `anything` distributes over the union and finds the string. The
+/// dict holding `a` with that string is in both maps: each declares `a`, and
+/// neither requires another key.
+#[test]
+fn a_meet_of_closed_maps_is_inhabited_where_its_keys_meet() {
+    let defs = vec![Schema::Str];
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+    let first = closed(vec![field(
+        "a",
+        Schema::Union(vec![opaque, Schema::Ref(DefIx::new(0))].into()),
+        true,
+    )]);
+    let second = closed(vec![field("a", Schema::ANYTHING, true)]);
+    assert_ne!(
+        rules_verdict(&first, &defs).0,
+        Verdict::Inhabited,
+        "the row stands on a member the rules leave unknown alone"
+    );
+    let meet = Schema::Intersection(vec![first, second].into());
+    assert_eq!(rules_verdict(&meet, &defs).0, Verdict::Inhabited);
+}
+
+/// A meet the keys of its closed maps would name a value for is not named one
+/// where a member is no closed map.
+///
+/// `{"a": int}` met with `dict[str, str]` holds nothing -- `a` would be an `int`
+/// and a `str` -- and the map's clause is what says so, which the rule cannot
+/// read off a name. Met with a class, the meet holds what the class's instances
+/// are, which the core cannot see. Either way the dict the keys name need not be
+/// in the meet, and the rule names none.
+#[test]
+fn an_open_map_or_a_class_beside_closed_maps_names_no_value() {
+    let record = closed(vec![field("a", Schema::Int, true)]);
+    let with_a_clause = Schema::Intersection(
+        vec![
+            record.clone(),
+            Schema::mapping(MapClause {
+                key: Schema::Str,
+                value: Schema::Str,
+            }),
+        ]
+        .into(),
+    );
+    assert_ne!(rules_verdict(&with_a_clause, &[]).0, Verdict::Inhabited);
+    let wider = closed(vec![
+        field("a", Schema::Int, true),
+        field("b", Schema::Str, false),
+    ]);
+    let with_a_class =
+        Schema::Intersection(vec![record, wider, Schema::Instance(ClassIx::new(0))].into());
+    assert_ne!(rules_verdict(&with_a_class, &[]).0, Verdict::Inhabited);
+}
+
+/// A chain spelled as a recursive record, its reference inside the key's
+/// union, decides as the chain spelled around the union does.
+///
+/// `Node = {"next": Node | None}`. The meet with `{"next": int}` asks `(Node |
+/// None) ∧ int` of the key, which names no reference among its members; the
+/// union holds one, and is distributed as the definition was.
+#[test]
+fn a_union_holding_a_reference_is_distributed_into_the_meet() {
+    let node = Schema::Ref(DefIx::new(0));
+    let defs = vec![closed(vec![field(
+        "next",
+        Schema::union([node.clone(), Schema::NoneType]),
+        true,
+    )])];
+    let meet = |other: Schema| Schema::Intersection(vec![node.clone(), other].into());
+    let next = |schema: Schema| closed(vec![field("next", schema, true)]);
+    assert_eq!(
+        rules_verdict(&meet(next(Schema::Int)), &defs).0,
+        Verdict::Empty
+    );
+    assert_eq!(
+        rules_verdict(&meet(next(next(Schema::NoneType))), &defs).0,
+        Verdict::Inhabited
+    );
+    // A union that holds no reference is distributed too, where the meet's
+    // normal form spans four clauses at most, and left to the rules past them:
+    // two unions of two are the bound's four, and a third is past it.
+    assert_eq!(super::emptiness::MAX_DISTRIBUTED_TERMS, 4);
+    let either =
+        |other: Schema| Schema::union([closed(vec![field("next", Schema::Int, true)]), other]);
+    let plain = Schema::Intersection(vec![either(Schema::NoneType), next(Schema::Int)].into());
+    assert_eq!(rules_verdict(&plain, &[]).0, Verdict::Inhabited);
+    let four = Schema::Intersection(
+        vec![
+            either(Schema::NoneType),
+            either(Schema::Bytes),
+            next(Schema::Int),
+        ]
+        .into(),
+    );
+    assert_eq!(rules_verdict(&four, &[]).0, Verdict::Inhabited);
+    let wide = Schema::Intersection(
+        vec![
+            either(Schema::NoneType),
+            either(Schema::Bytes),
+            either(Schema::Float),
+            next(Schema::Int),
+        ]
+        .into(),
+    );
+    assert_eq!(rules_verdict(&wide, &[]).0, Verdict::Unknown);
+    // And a union holding a reference is distributed whatever the normal form
+    // spans: past the bound, its `None` branch meets the other two in `None`.
+    let wide_with_a_reference = Schema::Intersection(
+        vec![
+            Schema::union([node.clone(), Schema::NoneType]),
+            Schema::union([Schema::NoneType, Schema::Bytes]),
+            Schema::union([Schema::NoneType, Schema::Float]),
+        ]
+        .into(),
+    );
+    assert_eq!(
+        rules_verdict(&wide_with_a_reference, &defs).0,
+        Verdict::Inhabited
+    );
+}
+
+/// A meet reached again while it is being decided reads as empty, and the
+/// decision ends.
+///
+/// `s = {"a": s}` and `u = {"a": u}` hold no finite value, and neither does
+/// their meet: unfolding `s` meets `{"a": s}` with `u`, unfolding `u` meets two
+/// records whose key asks `s ∧ u` again. The goal comes back, and a value of it
+/// would need a smaller value of itself.
+#[test]
+fn a_meet_met_again_while_it_is_open_reads_empty() {
+    let s = Schema::Ref(DefIx::new(0));
+    let u = Schema::Ref(DefIx::new(1));
+    let defs = vec![
+        closed(vec![field("a", s.clone(), true)]),
+        closed(vec![field("a", u.clone(), true)]),
+    ];
+    let meet = Schema::Intersection(vec![s, u].into());
+    let (verdict, spent) = rules_verdict(&meet, &defs);
+    assert_eq!(verdict, Verdict::Empty);
+    assert!(spent < 100, "the meet spent {spent} steps");
+}
+
+/// The structural rules alone, without the descriptor that widens them.
+///
+/// A test about a *rule's* scope has to ask the rule: through
+/// [`Schema::is_subtype_of`] a decline is invisible, because the descriptor
+/// answers behind it and a relation the rule was never meant to reach is
+/// decided anyway. Which is a better answer and a worse test.
+fn by_the_rules(sub: &Schema, sup: &Schema) -> bool {
+    let budget = Budget::new(DECISION_BUDGET);
+    sub.is_subtype_rec(sup, &mut Cx::new(&NoLeafRelations, &[], &budget))
+        .holds()
+}
+
+/// Emptiness by the structural rules alone, for the reason
+/// [`by_the_rules`] exists.
+fn empty_by_the_rules(schema: &Schema) -> bool {
+    empty_by_the_rules_under(schema, &NoLeafRelations)
+}
+
+/// [`empty_by_the_rules`] with an oracle, for the arms that need one to
+/// order two pooled bounds.
+fn empty_by_the_rules_under(schema: &Schema, oracle: &dyn LeafRelations) -> bool {
+    schema.is_empty_rec(&mut Cx::new(oracle, &[], &Budget::new(DECISION_BUDGET)))
+}
+
+/// A refinement carrying no constraint denotes exactly its base, and both
+/// halves of the procedure read it that way.
+///
+/// Without it the universe would have two spellings that decide differently:
+/// `anything` is below `Refine { base: anything }` through the refinement
+/// arm, and the gradual `Any` is below `anything`, but would not be below the
+/// refinement -- because only a region set says so.
+#[test]
+fn the_rules_read_a_refinement_with_no_constraint_as_its_base() {
+    let bare = |base| Schema::Refine {
+        base: Arc::new(base),
+        constraints: Vec::new().into(),
+    };
+    assert!(by_the_rules(&Schema::ANY, &bare(Schema::ANYTHING)));
+    assert!(by_the_rules(
+        &Schema::Union(vec![Schema::ANY, Schema::ANYTHING].into()),
+        &bare(Schema::ANYTHING),
+    ));
+    // And the same reading on the emptiness side, where it is the *regions*
+    // that the base lends: a bare refinement over the universe covers every
+    // region, so its complement covers none and the meet below is empty.
+    // Without that the complement has no region set and nothing decides it.
+    assert!(empty_by_the_rules(&Schema::Intersection(
+        vec![
+            Schema::ANYTHING,
+            Schema::Complement(Arc::new(bare(Schema::ANYTHING))),
+        ]
+        .into()
+    )));
+    assert!(empty_by_the_rules(&bare(Schema::Nothing)));
+    assert!(!empty_by_the_rules(&bare(Schema::Str)));
+}
+
+/// A meet of a schema and its own complement is empty, where the regions
+/// cannot say so.
+///
+/// The emptiness fold has several ways to reach `Empty` and they are read in
+/// order, so a member whose regions are opaque is what leaves the
+/// complementary-pair rule as the only one that can answer. A constrained
+/// refinement is such a member: its regions are unknown, because a narrowed
+/// region set read back through a complement would report an inhabited
+/// schema empty.
+#[test]
+fn the_complementary_pair_rule_answers_where_the_regions_cannot() {
+    let bounded = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+    assert_eq!(bounded.region_set(), Regions::Unknown, "no regions to read");
+    assert!(empty_by_the_rules(&Schema::Intersection(
+        vec![bounded.clone(), Schema::Complement(Arc::new(bounded)),].into()
+    )));
+}
+
+/// The two complement arms of the subtyping rules, asked of the rules.
+///
+/// Both relations are also decided by the descriptor, which holds a
+/// complement as a set again -- so through [`Schema::is_subtype_of`] either
+/// arm could be deleted and every test would still pass. What the arms are
+/// for is deciding them *without* building a descriptor, and that is what is
+/// asserted here.
+#[test]
+fn the_rules_relate_a_complement_on_either_side() {
+    // Contravariance: `¬A ≤ ¬B` is `B ≤ A`, read backwards. Over containers,
+    // because that is where the arm earns its place -- `list[bool] ≤
+    // list[int]` is decided by recursing on the element, while the meet
+    // `¬list[int] ∧ list[bool]` is not decided empty, so the arm below
+    // cannot answer this.
+    let not = |schema| Schema::Complement(Arc::new(schema));
+    let list = |element| Schema::list(SeqShape::homogeneous(element));
+    assert!(by_the_rules(
+        &not(list(Schema::Int)),
+        &not(list(Schema::Bool))
+    ));
+    assert!(!by_the_rules(
+        &not(list(Schema::Bool)),
+        &not(list(Schema::Int))
+    ));
+
+    // A complement on the right alone: the question is whether the two share
+    // a value, which is emptiness of the meet.
+    assert!(by_the_rules(
+        &Schema::list(SeqShape::homogeneous(Schema::Int)),
+        &not(Schema::Int),
+    ));
+    assert!(!by_the_rules(&Schema::Bool, &not(Schema::Bool)));
+}
+
+/// Two schemas sharing no value, asked of the rules.
+///
+/// The cheap half reads two kind discriminants; the general half builds the
+/// meet and asks whether it is empty. Both are needed, and neither is
+/// visible through a relation the descriptor also answers.
+#[test]
+fn the_rules_decide_that_two_schemas_share_no_value() {
+    // Different kinds, settled by the discriminants.
+    assert!(Schema::list(SeqShape::homogeneous(Schema::Int)).disjoint(&Schema::Int));
+    // One kind, settled by the meet: a complement on the right sends the
+    // subtyping question here.
+    assert!(by_the_rules(
+        &Schema::Str,
+        &Schema::Complement(Arc::new(Schema::Int)),
+    ));
+    assert!(!by_the_rules(
+        &Schema::Union(vec![Schema::Str, Schema::Int].into()),
+        &Schema::Complement(Arc::new(Schema::Int)),
+    ));
+}
+
+/// Each way the emptiness fold reaches a verdict, asked of the rules.
+///
+/// The descriptor decides most of these too, so through
+/// [`Schema::is_empty`] a deleted rule is invisible: the answer is still
+/// right, and the test that was meant to hold the rule up holds nothing.
+/// Asking the rules is what keeps each of them covered.
+#[test]
+fn the_rules_reach_each_way_a_meet_is_empty() {
+    // A member that is itself empty empties the meet.
+    assert!(empty_by_the_rules(&Schema::Intersection(
+        vec![Schema::Nothing, Schema::Str,].into()
+    )));
+    // Two kinds that share no region.
+    assert!(empty_by_the_rules(&Schema::Intersection(
+        vec![Schema::Str, Schema::Float,].into()
+    )));
+    // A schema beside its own complement.
+    assert!(empty_by_the_rules(&Schema::Intersection(
+        vec![Schema::Str, Schema::Complement(Arc::new(Schema::Str)),].into()
+    )));
+    // Two bounds that no value satisfies, which needs an oracle to order
+    // the two pooled operands.
+    let bounded = |constraint| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![constraint].into(),
+    };
+    assert!(empty_by_the_rules_under(
+        &Schema::Intersection(
+            vec![
+                bounded(Constraint::Ge(OperandIx::new(1))),
+                bounded(Constraint::Le(OperandIx::new(0))),
+            ]
+            .into()
+        ),
+        &ByIndex,
+    ));
+    // And a meet that is inhabited is not reported empty by any of them.
+    assert!(!empty_by_the_rules(&Schema::Intersection(
+        vec![
+            Schema::Str,
+            Schema::Union(vec![Schema::Str, Schema::Int].into()),
+        ]
+        .into()
+    )));
+}
+
+/// A sequence is empty exactly when a prefix element is, and the rule says
+/// so on its own.
+///
+/// A tail repeats zero times, so an empty *tail* empties nothing: the
+/// sequence that stops at the prefix is still a member. Both halves are
+/// asserted, because a rule that only ever answers one way is a rule a
+/// deletion cannot be seen through.
+#[test]
+fn the_rules_read_a_sequence_s_emptiness_off_its_prefix() {
+    assert!(empty_by_the_rules(&Schema::list(SeqShape::fixed([
+        Schema::Nothing
+    ]))));
+    assert!(!empty_by_the_rules(&Schema::list(SeqShape::homogeneous(
+        Schema::Nothing
+    ))));
+    assert!(!empty_by_the_rules(&Schema::list(SeqShape::fixed([
+        Schema::Str
+    ]))));
+}
+
+/// The descriptor proves an emptiness no rule reaches: a container meet is
+/// the meet of the element sets, and the rules never take one.
+#[test]
+fn the_descriptor_proves_an_emptiness_the_rules_decline() {
+    let bools = Schema::list(SeqShape::homogeneous(Schema::Bool));
+    let not_ints = Schema::Complement(Arc::new(Schema::list(SeqShape::homogeneous(Schema::Int))));
+    let meet = Schema::Intersection(vec![bools, not_ints].into());
+
+    assert!(
+        !empty_by_the_rules(&meet),
+        "no rule about shapes reaches it"
+    );
+    assert!(meet.is_empty(), "and the sets decide it");
+}
+
+// THEORY: a-sequence-splits-across-a-union
+/// A fixed-arity sequence is a product, and a product is decided against a
+/// union of products by the backtrack-free `Phi` -- so a value that lands in
+/// no single branch is still decided, which is the whole reason the rule
+/// exists.
+#[test]
+fn a_fixed_sequence_splits_across_the_branches_that_share_its_shape() {
+    let tuple = |elements: [Schema; 2]| Schema::tuple(SeqShape::fixed(elements));
+    let int_or_str = Schema::union([Schema::Int, Schema::Str]);
+
+    // The split: neither branch contains the subject, and together they do.
+    let subject = tuple([int_or_str.clone(), Schema::Int]);
+    let split = Schema::union([
+        tuple([Schema::Int, Schema::Int]),
+        tuple([Schema::Str, Schema::Int]),
+    ]);
+    assert!(subject.is_subtype_of(&split));
+    // Sound in the other direction: branches that do not cover it decide no.
+    assert!(!subject.is_subtype_of(&Schema::union([
+        tuple([Schema::Int, Schema::Int]),
+        tuple([Schema::Bytes, Schema::Int]),
+    ])));
+
+    // A branch of another container kind shares no value with the subject, so
+    // it drops out rather than being read as a component-wise cover.
+    let list_branches = Schema::union([
+        Schema::list(SeqShape::fixed([Schema::Int, Schema::Int])),
+        Schema::list(SeqShape::fixed([Schema::Str, Schema::Int])),
+    ]);
+    assert!(!subject.is_subtype_of(&list_branches));
+    // A branch of another arity drops out the same way.
+    assert!(!subject.is_subtype_of(&Schema::union([
+        Schema::tuple(SeqShape::fixed([Schema::Int])),
+        Schema::tuple(SeqShape::fixed([Schema::Str])),
+    ])));
+    // With no branch of the subject's shape at all there is nothing to split
+    // over, and the rule declines rather than deciding on an empty product.
+    assert!(!subject.is_subtype_of(&Schema::union([Schema::Int, Schema::Str])));
+
+    // The subject must be a product. A repeated tail admits every length, so
+    // there is no tuple of components to split.
+    let variadic = Schema::tuple(SeqShape::homogeneous(int_or_str.clone()));
+    assert!(!variadic.is_subtype_of(&Schema::union([
+        Schema::tuple(SeqShape::homogeneous(Schema::Int)),
+        Schema::tuple(SeqShape::homogeneous(Schema::Str)),
+    ])));
+    // Nor is a branch with a tail a product, so it drops out of the branches.
+    // The relation *holds* -- a two-tuple of ints is one int followed by
+    // ints -- so this asks the rule, which is what has a scope to pin.
+    let with_a_tail = Schema::union([
+        Schema::tuple(SeqShape::prefix_tail([Schema::Int], Schema::Int)),
+        tuple([Schema::Str, Schema::Int]),
+    ]);
+    assert!(!by_the_rules(&subject, &with_a_tail));
+    assert!(
+        subject.is_subtype_of(&with_a_tail),
+        "and the descriptor decides it, holding the branch as a language"
+    );
+
+    // The empty prefix is the nullary product, and it is covered by itself.
+    let nullary = Schema::tuple(SeqShape::fixed([]));
+    assert!(nullary.is_subtype_of(&Schema::union([nullary.clone(), Schema::Int])));
+}
+
+/// An oracle that kinds a pooled constant by its index and settles a pair of
+/// them, standing in for the bindings' reading of two Python objects.
+///
+/// Index 0 is an `int`, 1 a `str`, 2 a second `int`. Two constants are
+/// disjoint when their kinds differ or their indices do -- the same rule the
+/// bindings apply to a builtin scalar, whose equality is Python's own.
+///
+/// It reads classes on the same terms the bindings do: class 0 is laid out as
+/// a `list` and holds list values and nothing else, class 1 lays down no
+/// layout and is declined -- a subclass of it may derive from a builtin, so
+/// its instances are not confined to any kind.
+struct Kinded;
+impl Constants for Kinded {}
+
+impl LeafRelations for Kinded {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+    fn literal_kind(&self, constant: ConstIx) -> Option<Kind> {
+        match constant.get() {
+            0 | 2 => Some(Kind::Int),
+            1 => Some(Kind::Str),
+            _ => None,
+        }
+    }
+    fn class_admits_kind(&self, class: ClassIx, kind: Kind) -> Option<bool> {
+        match class.get() {
+            0 => Some(kind == Kind::List),
+            _ => None,
+        }
+    }
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(left != right)
+    }
+}
+
+/// A class the oracle reads as a set has a value, and a refutation about one
+/// is therefore believed.
+///
+/// The open world the set representation works in says so already: it lowers
+/// such a class to an atom holding an object, and every refutation this
+/// library makes about a class rests on that -- `A` below `B`, for two classes
+/// neither deriving from the other, is reported `not_subset` because the
+/// difference is read as holding a value. Declining to say it and deferring to
+/// the sets would cost three orders of magnitude for an answer the library has
+/// already committed to.
+///
+/// A class no value can instantiate is where the assumption is wrong, and it
+/// is as wrong in the sets: the reading changes only which decider says it.
+#[test]
+fn a_class_the_oracle_reads_as_a_set_has_a_value() {
+    /// An oracle that reads class zero and declines class one, which is what
+    /// the bindings do for a class whose metaclass answers `isinstance` with
+    /// code of its own.
+    struct Pure;
+    impl Constants for Pure {}
+    impl LeafRelations for Pure {
+        fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool> {
+            match (sub, sup) {
+                (Schema::Instance(a), Schema::Instance(b)) => Some(a == b),
+                _ => None,
+            }
+        }
+        fn atom_denotes_a_set(&self, atom: &Schema) -> Option<bool> {
+            match atom {
+                Schema::Instance(index) => Some(index.get() == 0),
+                _ => None,
+            }
+        }
+    }
+    let read = Schema::Instance(ClassIx::new(0));
+    let hooked = Schema::Instance(ClassIx::new(1));
+
+    assert_eq!(read.verdict_under(&Pure), Verdict::Inhabited);
+    assert_eq!(hooked.verdict_under(&Pure), Verdict::Unknown);
+    // Without an oracle the core reads no class at all.
+    assert_eq!(read.verdict(), Verdict::Unknown);
+
+    // What the reading buys: the oracle refutes the pair, and the refutation is
+    // believed rather than handed to the set representation.
+    let relation = |sub: &Schema, sup: &Schema, oracle: &dyn LeafRelations| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, oracle, &[], &budget)
+    };
+    assert_eq!(relation(&read, &hooked, &Pure), Relation::Fails);
+    assert_eq!(relation(&read, &read, &Pure), Relation::Holds);
+    // The class the oracle declines to read keeps the answer it had: its
+    // refutation stands on a value nothing has shown it to have.
+    assert_eq!(relation(&hooked, &read, &Pure), Relation::Unknown);
+}
+
+/// What a class contributes to disjointness, and what it may not.
+///
+/// A class is the atom the core cannot read, so the oracle answers for it: a
+/// class laid out as a builtin holds values of that kind and of no other, and
+/// a subclass inherits the layout rather than laying down a second. A class
+/// laying down none is a different matter -- a subclass of it may derive from
+/// a builtin as well -- and the oracle declines, which must leave the pair
+/// undecided rather than refuted.
+#[test]
+fn a_class_is_disjoint_by_the_layout_its_oracle_reads() {
+    let laid_out = Schema::Instance(ClassIx::new(0));
+    let no_layout = Schema::Instance(ClassIx::new(1));
+    let list_of_int = Schema::list(SeqShape::homogeneous(Schema::Int));
+
+    // Laid out as a list: every other kind is disjoint from it, and its own
+    // kind is not.
+    for other in [
+        Schema::Int,
+        Schema::Str,
+        Schema::set(Schema::Int),
+        Schema::tuple(SeqShape::fixed([Schema::Int])),
+        Schema::mapping(MapClause {
+            key: Schema::Str,
+            value: Schema::Int,
+        }),
+    ] {
+        assert!(
+            laid_out.disjoint_with(&other, &Kinded),
+            "{other:?} shares no value with a class laid out as a list"
+        );
+        assert!(other.disjoint_with(&laid_out, &Kinded), "{other:?}");
+    }
+    assert!(!laid_out.disjoint_with(&list_of_int, &Kinded));
+    assert!(!list_of_int.disjoint_with(&laid_out, &Kinded));
+
+    // Laying down no layout: the oracle declines and the pair stays undecided
+    // in both directions. A class whose instances a subclass may give a builtin
+    // layout confines nothing.
+    assert!(!no_layout.disjoint_with(&list_of_int, &Kinded));
+    assert!(!list_of_int.disjoint_with(&no_layout, &Kinded));
+    assert!(!no_layout.disjoint_with(&Schema::Int, &Kinded));
+
+    // And with no oracle at all, a class says nothing either way.
+    assert!(!laid_out.disjoint_with(&Schema::Int, &NoLeafRelations));
+
+    // The relation the reading decides: a container below a class of another
+    // layout is refuted, and the subject has values to refute with.
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &Kinded, &[], &budget)
+    };
+    assert_eq!(relation(&list_of_int, &laid_out), Relation::Unknown);
+    assert_eq!(
+        relation(&Schema::set(Schema::Int), &laid_out),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(&Schema::set(Schema::Int), &no_layout),
+        Relation::Unknown
+    );
+}
+
+/// What a literal contributes to disjointness, and where each answer comes
+/// from. Three rules meet at a literal and they are asked in this order: two
+/// literals go to the constants, a literal against anything else goes to the
+/// kind, and an unkinded constant declines.
+#[test]
+fn a_literal_is_disjoint_by_its_constants_then_by_its_kind() {
+    let lit = |i: usize| Schema::Literal(ConstIx::new(i));
+
+    // Two literals: the constants settle it, and the kind rule never runs --
+    // which matters because the kind rule exempts bool/int and would answer
+    // differently for two int constants.
+    assert!(lit(0).disjoint_with(&lit(1), &Kinded));
+    assert!(lit(0).disjoint_with(&lit(2), &Kinded));
+    assert!(!lit(0).disjoint_with(&lit(0), &Kinded));
+    // An oracle that declines leaves the pair conservative rather than
+    // falling through to a rule that would answer for it.
+    assert!(!lit(0).disjoint_with(&lit(1), &NoLeafRelations));
+
+    // A literal against a kind: the constant's kind places it in the
+    // partition. Without it the literal is opaque and nothing is decided.
+    assert!(lit(0).disjoint_with(&Schema::Str, &Kinded));
+    assert!(!lit(0).disjoint_with(&Schema::Int, &Kinded));
+    assert!(!lit(0).disjoint_with(&Schema::Str, &NoLeafRelations));
+    // Read the other way round too: the arms are ordered, and only one of
+    // them puts the literal on the left.
+    assert!(Schema::Str.disjoint_with(&lit(0), &Kinded));
+
+    // A union is disjoint from a schema when every member is, which is how a
+    // `Literal[...]` -- built as a union of its constants -- is reached at
+    // all. One overlapping member is enough to decline.
+    let table = Schema::union([lit(0), lit(2)]);
+    assert!(table.disjoint_with(&Schema::Str, &Kinded));
+    assert!(!table.disjoint_with(&Schema::Int, &Kinded));
+    assert!(Schema::Str.disjoint_with(&table, &Kinded));
+    assert!(!Schema::Int.disjoint_with(&table, &Kinded));
+    // An empty union denotes nothing, so it is disjoint from everything --
+    // by the bottom rule above these arms, not by "every member is".
+    assert!(Schema::union(Vec::new()).disjoint_with(&Schema::Int, &Kinded));
+}
+
+/// An oracle that answers the *set* question, recording what it was handed.
+///
+/// `literal_sets_disjoint` is the whole-question form of `literals_disjoint`:
+/// an implementor that holds its constants settles two unions in one pass,
+/// where the member walk asks it once per pair. Which sets it is handed is
+/// therefore part of the contract and not an implementation detail, so this
+/// records them for a test to read back.
+#[derive(Default)]
+struct Sets {
+    asked: core::cell::RefCell<Vec<(Vec<usize>, Vec<usize>)>>,
+}
+impl Constants for Sets {}
+
+impl LeafRelations for Sets {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(left != right)
+    }
+    fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
+        let indices = |set: &[ConstIx]| {
+            set.iter()
+                .map(|constant| constant.get())
+                .collect::<Vec<_>>()
+        };
+        self.asked
+            .borrow_mut()
+            .push((indices(left), indices(right)));
+        Some(left.iter().all(|constant| !right.contains(constant)))
+    }
+}
+
+/// Two sets of literals are one question, and both sets reach the oracle whole.
+///
+/// The member walk asks once per pair, which is quadratic across the binding
+/// boundary: two twenty-thousand-member unions would be four hundred million
+/// calls. So where both sides are nothing but literals the constants are
+/// gathered and handed over together. Both halves of that are asserted, because
+/// the verdict alone cannot tell the two readings apart -- they agree, which is
+/// the point -- and what the optimization *is* is which question gets asked.
+#[test]
+fn two_sets_of_literals_are_asked_as_sets() {
+    let lit = |i: usize| Schema::Literal(ConstIx::new(i));
+    let oracle = Sets::default();
+
+    // A bare literal is a one-constant set, and the verdict is the oracle's.
+    assert!(lit(0).disjoint_with(&lit(1), &oracle));
+    assert!(!lit(0).disjoint_with(&lit(0), &oracle));
+    assert_eq!(
+        oracle.asked.take(),
+        vec![(vec![0], vec![1]), (vec![0], vec![0])]
+    );
+
+    // A union of literals is its members' constants, on either side of the
+    // question. `Schema::union` orders its members, so these read in order.
+    let table = Schema::union([lit(0), lit(2)]);
+    assert!(table.disjoint_with(&Schema::union([lit(1), lit(3)]), &oracle));
+    assert!(!table.disjoint_with(&lit(2), &oracle));
+    assert_eq!(
+        oracle.asked.take(),
+        vec![(vec![0, 2], vec![1, 3]), (vec![0, 2], vec![2])]
+    );
+
+    // A union carrying a member that is not a literal has no set of constants
+    // standing for it, so the question is not asked and the walk stands.
+    assert!(!Schema::union([lit(0), Schema::Str]).disjoint_with(&lit(1), &oracle));
+    // Nor is it asked of a union with no members. That schema denotes nothing
+    // and is disjoint from everything, which the arm below these settles; an
+    // empty set of constants would be a different question, and one this oracle
+    // would answer `true` for whatever stood against it.
+    assert!(!Schema::Union(Vec::new().into()).disjoint_with(&lit(0), &oracle));
+    assert_eq!(oracle.asked.take(), Vec::new());
+}
+
+/// An oracle treating each pool index as its own value, so comparing indices
+/// orders the bound values they stand for.
+struct ByIndex;
+impl Constants for ByIndex {}
+
+impl LeafRelations for ByIndex {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+    fn compare(&self, a: OperandIx, b: OperandIx) -> Option<core::cmp::Ordering> {
+        Some(a.get().cmp(&b.get()))
+    }
+    /// The index stands for the value, so one divides another when its number
+    /// does -- and index zero divides nothing, which is the pair the real
+    /// oracle refuses at the build rather than answering.
+    fn divides(&self, step: OperandIx, multiple: OperandIx) -> Option<bool> {
+        let (step, multiple) = (step.get(), multiple.get());
+        (step != 0).then(|| multiple.is_multiple_of(step))
+    }
+    /// Every index is an `int`, which is the kind two steps have to share.
+    fn operand_kind(&self, _operand: OperandIx) -> Option<Kind> {
+        Some(Kind::Int)
+    }
+}
+
+/// Two steps that divide carry that to the values only where `%` reads the
+/// value and both steps as one kind of number.
+///
+/// Each row is a base and two steps, and the pairs that decline are the ones a
+/// value refutes: `2**53 + 1` is a multiple of `4.0` and not of `2`, `2.0**53`
+/// is a multiple of `2**53 + 1` and not of `3`, and `Decimal("2E+28")` is a
+/// multiple of `4` and raises against `2`.
+// THEORY: the-carriers-are-i64-and-f64
+#[test]
+fn steps_entail_only_where_the_remainder_reads_them_alike() {
+    const INT_2: usize = 0;
+    const INT_4: usize = 1;
+    const FLOAT_2: usize = 2;
+    const FLOAT_4: usize = 3;
+    const WIDE: usize = 4;
+    const WIDER: usize = 5;
+    const TRUE: usize = 6;
+    const DECIMAL_2: usize = 7;
+    const DECIMAL_4: usize = 8;
+    const PAST_THE_WORD: usize = 9;
+    // The steps by index: the kind, what the pool carries, and the number
+    // `divides` reads.
+    const STEPS: [(Option<Kind>, Option<Operand>, u128); 10] = [
+        (Some(Kind::Int), Some(Operand::Integer(2)), 2),
+        (Some(Kind::Int), Some(Operand::Integer(4)), 4),
+        (Some(Kind::Float), Some(Operand::Float(2.0)), 2),
+        (Some(Kind::Float), Some(Operand::Float(4.0)), 4),
+        (Some(Kind::Int), Some(Operand::Integer(1 << 60)), 1 << 60),
+        (Some(Kind::Int), Some(Operand::Integer(1 << 61)), 1 << 61),
+        (Some(Kind::Bool), Some(Operand::Boolean(true)), 1),
+        // A `Decimal`, which the pool declines to kind.
+        (None, None, 2),
+        (None, None, 4),
+        // An `int` past the machine word, which the pool kinds and cannot carry.
+        (Some(Kind::Int), None, 1 << 70),
+    ];
+    struct Steps;
+    impl Constants for Steps {
+        fn operand(&self, index: OperandIx) -> Option<Operand> {
+            STEPS.get(index.get())?.1.clone()
+        }
+    }
+    impl LeafRelations for Steps {
+        fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+            None
+        }
+        fn operand_kind(&self, index: OperandIx) -> Option<Kind> {
+            STEPS.get(index.get())?.0
+        }
+        fn divides(&self, step: OperandIx, multiple: OperandIx) -> Option<bool> {
+            let step = STEPS.get(step.get())?.2;
+            Some(STEPS.get(multiple.get())?.2.is_multiple_of(step))
+        }
+    }
+    let entailed = |base: &Schema, step: usize, multiple: usize| {
+        constraint_entailed(
+            &Constraint::MultipleOf(OperandIx::new(step)),
+            base,
+            &[Constraint::MultipleOf(OperandIx::new(multiple))],
+            &Steps,
+        )
+    };
+    let (int, float) = (Schema::Int, Schema::Float);
+
+    // Over the integers: two integers of any size, or two floats.
+    assert!(entailed(&int, INT_2, INT_4));
+    assert!(entailed(&int, FLOAT_2, FLOAT_4));
+    assert!(entailed(&int, WIDE, WIDER));
+    assert!(entailed(&int, WIDE, PAST_THE_WORD));
+    assert!(entailed(&Schema::Bool, TRUE, INT_2));
+    assert!(!entailed(&int, INT_2, FLOAT_4));
+    assert!(!entailed(&int, FLOAT_2, INT_4));
+
+    // Over the floats: any two steps a float holds exactly.
+    assert!(entailed(&float, INT_2, INT_4));
+    assert!(entailed(&float, FLOAT_2, FLOAT_4));
+    assert!(entailed(&float, INT_2, FLOAT_4));
+    assert!(entailed(&float, FLOAT_2, INT_4));
+    // `True` is the integer 1 and a float holds it exactly, which a `bool`
+    // read as an integer past `2**53` would not be.
+    assert!(entailed(&float, TRUE, FLOAT_2));
+    assert!(!entailed(&float, WIDE, WIDER));
+    assert!(!entailed(&float, FLOAT_2, PAST_THE_WORD));
+
+    // Over both, what each of the two allows.
+    let both = Schema::union([Schema::Int, Schema::Float]);
+    assert!(entailed(&both, INT_2, INT_4));
+    assert!(entailed(&both, FLOAT_2, FLOAT_4));
+    assert!(!entailed(&both, INT_2, FLOAT_4));
+    assert!(!entailed(&both, WIDE, WIDER));
+
+    // A step the pool declines to kind, and a base holding other values.
+    assert!(!entailed(&int, DECIMAL_2, DECIMAL_4));
+    let class = Schema::Instance(ClassIx::new(0));
+    assert!(!entailed(&class, INT_2, INT_4));
+    assert!(!entailed(
+        &Schema::union([Schema::Int, class]),
+        INT_2,
+        INT_4
+    ));
+    assert!(!entailed(&Schema::Str, INT_2, INT_4));
+}
+
+/// Every set is below the complement of an empty set.
+///
+/// The fuzz target's case: a subject nothing can read -- it holds an
+/// unresolved back edge -- against the complement of a three-element list
+/// refinement bounded to five elements or more, which is empty. The rules ask
+/// the universe bound of any pair they decline, and read the refinement as
+/// inhabited because its length rule compared `MinLen` with `MaxLen` alone and
+/// not with the three lengths the list's shape fixes. The set representation
+/// read it empty, and declined on the subject first.
+#[test]
+fn every_set_is_below_the_complement_of_an_empty_set() {
+    let refine = |base: Schema, constraints: Vec<Constraint>| Schema::Refine {
+        base: Arc::new(base),
+        constraints: constraints.into(),
+    };
+    let subject = refine(
+        refine(
+            refine(Schema::SelfRef(2).complement(), Vec::new()),
+            vec![Constraint::MinLen(5)],
+        ),
+        vec![Constraint::MinLen(2)],
+    );
+    let three = Schema::list(SeqShape::fixed([Schema::Bool, Schema::Bool, Schema::Bool]));
+    let empty = refine(three, vec![Constraint::MinLen(5)]);
+    assert!(empty.is_empty());
+    let universe = Schema::Complement(Arc::new(empty));
+    assert!(subject.is_subtype_of(&universe));
+}
+
+/// A sequence is never shorter than its fixed positions, and never longer where
+/// its tail admits nothing, so a length bound past either end empties it.
+#[test]
+fn a_length_bound_past_a_shapes_own_lengths_is_empty() {
+    let refine = |base: Schema, constraint: Constraint| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![constraint].into(),
+    };
+    let pair = || [Schema::Int, Schema::Str];
+    let exact = Schema::list(SeqShape::fixed(pair()));
+    let at_least = Schema::tuple(SeqShape::prefix_tail(pair(), Schema::Int));
+    let closed_tail = Schema::list(SeqShape::prefix_tail(pair(), Schema::Nothing));
+    for (schema, empty) in [
+        (refine(exact.clone(), Constraint::MinLen(3)), true),
+        (refine(exact.clone(), Constraint::MaxLen(1)), true),
+        (refine(closed_tail, Constraint::MinLen(3)), true),
+        (refine(at_least.clone(), Constraint::MaxLen(1)), true),
+        // The ends themselves, and a tail that reaches past the prefix.
+        (refine(exact.clone(), Constraint::MinLen(2)), false),
+        (refine(exact, Constraint::MaxLen(2)), false),
+        (refine(at_least, Constraint::MinLen(9)), false),
+    ] {
+        assert_eq!(schema.verdict() == Verdict::Empty, empty, "{schema:?}");
+    }
+}
+
+/// A constraint of another kind entails nothing, in every family.
+///
+/// Each arm of the entailment reads the subtype's set for a constraint of the
+/// *same* family, and the arm that says "anything else, no" is the one a sweep
+/// finds hardest to reach: every family's fallback is the same two words, and
+/// every test about entailment gives it a constraint it can use.
+///
+/// The families are asked with a length bound, which no bound and no divisor
+/// compares to, and with a pattern, which nothing compares to at all.
+#[test]
+fn a_constraint_of_another_family_entails_nothing() {
+    let o = &ByIndex;
+    let foreign = [
+        Constraint::MinLen(3),
+        Constraint::Regex("a+".into()),
+        Constraint::Predicate(PredIx::new(1)),
+    ];
+    for wide in [
+        Constraint::Ge(OperandIx::new(1)),
+        Constraint::Gt(OperandIx::new(1)),
+        Constraint::Le(OperandIx::new(9)),
+        Constraint::Lt(OperandIx::new(9)),
+        Constraint::MultipleOf(OperandIx::new(2)),
+    ] {
+        assert!(
+            !constraint_entailed(&wide, &Schema::Int, &foreign, o),
+            "{wide:?} read a constraint of another family as entailing it"
+        );
+    }
+    // And a divisor entails one it divides, which is the arm the fallback sits
+    // beside: a rule that answered `false` throughout would pass the rows above
+    // and this is what tells the two apart.
+    assert!(constraint_entailed(
+        &Constraint::MultipleOf(OperandIx::new(2)),
+        &Schema::Int,
+        &[Constraint::MultipleOf(OperandIx::new(4))],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::MultipleOf(OperandIx::new(4)),
+        &Schema::Int,
+        &[Constraint::MultipleOf(OperandIx::new(2))],
+        o
+    ));
+}
+
+#[test]
+fn constraint_entailment_covers_every_ordering_arm() {
+    let o = &ByIndex;
+    // Ge(w): a tighter-or-equal lower bound, from Ge or Gt, entails a looser one.
+    assert!(constraint_entailed(
+        &Constraint::Ge(OperandIx::new(3)),
+        &Schema::Int,
+        &[Constraint::Ge(OperandIx::new(5))],
+        o
+    ));
+    assert!(constraint_entailed(
+        &Constraint::Ge(OperandIx::new(3)),
+        &Schema::Int,
+        &[Constraint::Gt(OperandIx::new(5))],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::Ge(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Ge(OperandIx::new(3))],
+        o
+    ));
+    // Gt(w): Gt(n) with n >= w, or Ge(n) with n > w.
+    assert!(constraint_entailed(
+        &Constraint::Gt(OperandIx::new(3)),
+        &Schema::Int,
+        &[Constraint::Gt(OperandIx::new(3))],
+        o
+    ));
+    assert!(constraint_entailed(
+        &Constraint::Gt(OperandIx::new(3)),
+        &Schema::Int,
+        &[Constraint::Ge(OperandIx::new(5))],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::Gt(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Ge(OperandIx::new(5))],
+        o
+    ));
+    // Le(w): Le(n) or Lt(n) with n <= w.
+    assert!(constraint_entailed(
+        &Constraint::Le(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Le(OperandIx::new(3))],
+        o
+    ));
+    assert!(constraint_entailed(
+        &Constraint::Le(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Lt(OperandIx::new(3))],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::Le(OperandIx::new(3)),
+        &Schema::Int,
+        &[Constraint::Le(OperandIx::new(5))],
+        o
+    ));
+    // Lt(w): Lt(n) with n <= w, or Le(n) with n < w.
+    assert!(constraint_entailed(
+        &Constraint::Lt(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Lt(OperandIx::new(5))],
+        o
+    ));
+    assert!(constraint_entailed(
+        &Constraint::Lt(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Le(OperandIx::new(3))],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::Lt(OperandIx::new(5)),
+        &Schema::Int,
+        &[Constraint::Le(OperandIx::new(5))],
+        o
+    ));
+}
+
+/// The arms that are not an order between two pooled values: a length bound
+/// counts, and a step divides.
+#[test]
+fn constraint_entailment_covers_the_counting_arms() {
+    let o = &ByIndex;
+    // Length bounds compare by their raw counts, no oracle needed.
+    assert!(constraint_entailed(
+        &Constraint::MinLen(3),
+        &Schema::Int,
+        &[Constraint::MinLen(5)],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::MinLen(5),
+        &Schema::Int,
+        &[Constraint::MinLen(3)],
+        o
+    ));
+    assert!(constraint_entailed(
+        &Constraint::MaxLen(5),
+        &Schema::Int,
+        &[Constraint::MaxLen(3)],
+        o
+    ));
+    assert!(!constraint_entailed(
+        &Constraint::MaxLen(3),
+        &Schema::Int,
+        &[Constraint::MaxLen(5)],
+        o
+    ));
+    // A multiple-of or predicate bound has no order entailment.
+    assert!(!constraint_entailed(
+        &Constraint::MultipleOf(OperandIx::new(0)),
+        &Schema::Int,
+        &[Constraint::MultipleOf(OperandIx::new(0))],
+        o
+    ));
+}
+
+/// An oracle that orders pool indices as the values they stand for and reports
+/// integer adjacency by the same arithmetic the binding uses, so the
+/// discreteness rule can be driven without an interpreter.
+struct Adjacent;
+impl Constants for Adjacent {}
+
+impl LeafRelations for Adjacent {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+    fn compare(&self, a: OperandIx, b: OperandIx) -> Option<core::cmp::Ordering> {
+        Some(a.get().cmp(&b.get()))
+    }
+    fn no_int_between(
+        &self,
+        lo: OperandIx,
+        lo_strict: bool,
+        hi: OperandIx,
+        hi_strict: bool,
+    ) -> Option<bool> {
+        let least = lo.get() + usize::from(lo_strict);
+        let greatest = hi.get().checked_sub(usize::from(hi_strict))?;
+        Some(least > greatest)
+    }
+}
+
+/// One set spelled two ways gets one verdict. The bounds of a refinement and
+/// the bounds gathered across an intersection are the same conjunction, so a
+/// rule that fires for one fires for the other: an intersection is a subset of
+/// every member, and a member bounded to the integers bounds the meet.
+#[test]
+fn both_meets_ask_the_same_question_of_their_base() {
+    let refine = |constraints| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints,
+    };
+    let (gt0, lt1) = (
+        Constraint::Gt(OperandIx::new(0)),
+        Constraint::Lt(OperandIx::new(1)),
+    );
+    let on_one = refine(vec![gt0.clone(), lt1.clone()].into());
+    let across = Schema::meet([refine(vec![gt0].into()), refine(vec![lt1].into())]);
+    assert!(on_one.is_empty_with(&Adjacent, &[]));
+    assert_eq!(
+        on_one.is_empty_with(&Adjacent, &[]),
+        across.is_empty_with(&Adjacent, &[])
+    );
+}
+
+/// A dataclass schema is the meet of an `isinstance` atom and an attribute
+/// record, and each half is reachable through the meet: it is below its own
+/// class by the conjunct rule, and below a wider record by record inclusion.
+/// One node holding both halves could do neither -- the pair only ever
+/// related to another pair.
+#[test]
+fn each_half_of_an_attribute_schema_is_reachable_through_the_meet() {
+    let record = |schema| Schema::AttrRecord {
+        fields: vec![attribute("a", schema)].into(),
+    };
+    let object = Schema::meet([Schema::Instance(ClassIx::new(0)), record(Schema::Bool)]);
+    assert!(object.is_subtype_of(&Schema::Instance(ClassIx::new(0))));
+    // A different class is a nominal question, and the core's default oracle
+    // decides nothing, so it stays conservative.
+    assert!(!object.is_subtype_of(&Schema::Instance(ClassIx::new(1))));
+    // The record half relates on its own, in both directions: `bool` is below
+    // `int`, so the narrower attribute is the subtype.
+    assert!(object.is_subtype_of(&record(Schema::Int)));
+    assert!(!record(Schema::Int).is_subtype_of(&record(Schema::Bool)));
+}
+
+/// A set or frozenset holds the empty collection whatever its element admits,
+/// so it is proven inhabited rather than left unknown -- the answer a schema the
+/// rules cannot read gets, and the one that would leave a record requiring such
+/// a field unknown too.
+#[test]
+fn a_collection_is_inhabited_by_its_empty_value() {
+    let opaque = Schema::Instance(ClassIx::new(0));
+    for coll in [
+        Schema::set(Schema::Nothing),
+        Schema::frozen_set(opaque.clone()),
+    ] {
+        assert_eq!(coll.verdict(), Verdict::Inhabited, "{coll:?}");
+    }
+    let record = Schema::AttrRecord {
+        fields: vec![attribute("a", Schema::set(opaque))].into(),
+    };
+    assert_eq!(record.verdict(), Verdict::Inhabited);
+}
+
+/// An attribute record carries no class, so its fields decide inhabitation
+/// as well as emptiness: an object carrying one witness per attribute is a
+/// value of it. The class half is the opaque one, and it is a separate
+/// conjunct that only the meet is unknown about.
+#[test]
+fn an_attribute_record_is_inhabited_by_its_fields() {
+    let record = |schema| Schema::AttrRecord {
+        fields: vec![attribute("a", schema)].into(),
+    };
+    assert_eq!(record(Schema::Int).verdict(), Verdict::Inhabited);
+    assert_eq!(record(Schema::Nothing).verdict(), Verdict::Empty);
+    // Meeting it with a class is unknown in the other direction only: the
+    // class may have no instances, and that is what the core cannot read.
+    let object = Schema::meet([Schema::Instance(ClassIx::new(0)), record(Schema::Int)]);
+    assert_eq!(object.verdict(), Verdict::Unknown);
+    assert_eq!(
+        Schema::meet([Schema::Instance(ClassIx::new(0)), record(Schema::Nothing)]).verdict(),
+        Verdict::Empty
+    );
+}
+
+// THEORY: the-kind-partition-overlaps-at-bool
+/// The kinds are a partition but for one pair: `bool` subclasses `int`, so a
+/// meet of the two holds every boolean, and `bool` beside a negated `int` holds
+/// none. Built as raw meets, so no fold the constructor applies answers for the
+/// deciders: the rules read the pair through the kinds and the set
+/// representation through the region an integer admits, and each is asked.
+#[test]
+fn a_boolean_is_the_one_kind_another_kind_holds() {
+    let meet = |members: [Schema; 2]| Schema::Intersection(members.into());
+    let both = meet([Schema::Bool, Schema::Int]);
+    assert_eq!(both.verdict(), Verdict::Inhabited);
+    assert!(!both.denotes_no_value(&NoLeafRelations, &[]));
+    let apart = meet([Schema::Bool, Schema::Int.complement()]);
+    assert!(apart.is_empty());
+    assert!(apart.denotes_no_value(&NoLeafRelations, &[]));
+    // The other integers remain beside the booleans.
+    assert!(!meet([Schema::Int, Schema::Bool.complement()]).is_empty());
+    for other in [Schema::NoneType, Schema::Float, Schema::Str, Schema::Bytes] {
+        assert_eq!(meet([Schema::Bool, other]).verdict(), Verdict::Empty);
+    }
+}
+
+/// A boolean base is bounded to the integers, so it counts them too. Sound but
+/// not complete: the rule sees the integers in the interval, not the two
+/// values `bool` actually has, so an interval holding an integer that is
+/// neither 0 nor 1 stays conservatively non-empty.
+#[test]
+fn a_boolean_base_counts_integers() {
+    let refine = |base, constraints| Schema::Refine {
+        base: Arc::new(base),
+        constraints,
+    };
+    let open_unit = vec![
+        Constraint::Gt(OperandIx::new(0)),
+        Constraint::Lt(OperandIx::new(1)),
+    ];
+    assert!(refine(Schema::Bool, open_unit.into()).is_empty_with(&Adjacent, &[]));
+    // A float base is not bounded to the integers, and this rule leaves it
+    // inhabited.
+    let dense = vec![
+        Constraint::Gt(OperandIx::new(0)),
+        Constraint::Lt(OperandIx::new(1)),
+    ];
+    assert!(!refine(Schema::Float, dense.into()).is_empty_with(&Adjacent, &[]));
+}
+
+#[test]
+fn tighter_refinement_bounds_subtype_looser_ones_through_the_oracle() {
+    // The entailment feeds the refinement subtype rule: a tighter bound makes a
+    // refinement a subtype of a refinement with a looser one, even when the
+    // constraints are not identical (so the verbatim path does not apply).
+    let refine = |constraints| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints,
+    };
+    let tight = refine(vec![Constraint::Ge(OperandIx::new(5))].into());
+    let loose = refine(vec![Constraint::Ge(OperandIx::new(3))].into());
+    assert!(tight.is_subtype_of_under(&loose, &ByIndex, &[]));
+    assert!(!loose.is_subtype_of_under(&tight, &ByIndex, &[]));
+}
+
+#[test]
+fn scalar_type_tags_decide_disjointness() {
+    // Distinct concrete scalars are provably disjoint; bool is a subtype of
+    // int, so the two overlap. This pins each scalar's own type tag: dropping
+    // one would make its disjointness with every other scalar undecidable.
+    assert!(Schema::Bool.disjoint(&Schema::Str));
+    assert!(Schema::Int.disjoint(&Schema::Str));
+    assert!(Schema::Float.disjoint(&Schema::Int));
+    assert!(Schema::Bytes.disjoint(&Schema::Str));
+    assert!(!Schema::Bool.disjoint(&Schema::Int));
+    assert!(!Schema::Int.disjoint(&Schema::Int));
+}
+
+#[test]
+fn equal_bounds_keep_the_strict_end_when_narrowing() {
+    // Narrowing two equal lower bounds keeps the strict one: Ge(5) ∩ Gt(5) is
+    // Gt(5), so Ge(5) ∩ Gt(5) ∩ Le(5) is x > 5 ∧ x <= 5 — empty. If the strict
+    // ends were combined the other way (both-strict rather than either-strict)
+    // the lower bound would relax to Ge(5) and the range {5} would look
+    // inhabited, so this pins the strictness combination.
+    let refine = |constraints| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints,
+    };
+    let empty = Schema::Intersection(
+        vec![
+            refine(vec![Constraint::Ge(OperandIx::new(5))].into()),
+            refine(vec![Constraint::Gt(OperandIx::new(5))].into()),
+            refine(vec![Constraint::Le(OperandIx::new(5))].into()),
+        ]
+        .into(),
+    );
+    assert!(empty.is_empty_with(&ByIndex, &[]));
+    // Both bounds non-strict: the singleton {5} is inhabited.
+    let inhabited = Schema::Intersection(
+        vec![
+            refine(vec![Constraint::Ge(OperandIx::new(5))].into()),
+            refine(vec![Constraint::Le(OperandIx::new(5))].into()),
+        ]
+        .into(),
+    );
+    assert!(!inhabited.is_empty_with(&ByIndex, &[]));
+}
+
+#[test]
+fn a_union_of_disjoint_complements_is_the_top() {
+    // De Morgan: ¬A ∪ ¬B = ¬(A ∩ B), which is ⊤ when A and B are disjoint. int
+    // and str are disjoint, so their complements cover the universe.
+    let disjoint = Schema::Union(
+        vec![
+            Schema::Complement(Arc::new(Schema::Int)),
+            Schema::Complement(Arc::new(Schema::Str)),
+        ]
+        .into(),
+    );
+    assert!(disjoint.is_equivalent(&Schema::ANYTHING));
+    // bool is a subtype of int, so int and bool overlap and their complements
+    // do not cover the universe.
+    let overlapping = Schema::Union(
+        vec![
+            Schema::Complement(Arc::new(Schema::Int)),
+            Schema::Complement(Arc::new(Schema::Bool)),
+        ]
+        .into(),
+    );
+    assert!(!Schema::ANYTHING.is_subtype_of(&overlapping));
+}
+
+/// A union member that is proven empty but whose region is opaque does not
+/// end the fold: the stop is on "not proven empty", and an empty member with
+/// an unknown region is neither absorbing nor a verdict on the union.
+#[test]
+fn an_empty_member_with_an_opaque_region_does_not_decide_the_union() {
+    // A refinement over an empty base is empty with an unknown region.
+    let emptied = Schema::Refine {
+        base: Arc::new(Schema::Intersection(vec![Schema::Int, Schema::Str].into())),
+        constraints: vec![Constraint::MinLen(1)].into(),
+    };
+    assert!(emptied.is_empty());
+    let union = Schema::Union(vec![emptied, Schema::Str].into());
+    assert!(!union.is_empty());
+}
+
+/// A reference on the left is unfolded before the arms that read the right
+/// side's shape: against a refinement, whose arm reads the subject's own
+/// constraints, a reference is decided through its body rather than declined.
+#[test]
+fn a_reference_on_the_left_is_read_through_its_body_against_any_right_side() {
+    let narrowed = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+    let defs = vec![narrowed.clone()];
+    let reference = Schema::Ref(DefIx::new(0));
+    assert!(reference.is_subtype_of_under(&narrowed, &NoLeafRelations, &defs));
+    // And through nothing else: a bound the body does not carry is not entailed.
+    let other = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Gt(OperandIx::new(0))].into(),
+    };
+    assert!(!reference.is_subtype_of_under(&other, &NoLeafRelations, &defs));
+}
+
+/// An oracle that claims every relation against a union, standing for the one
+/// question the union rule may ask it: whether an *instance* is below the union.
+struct BelowAnyUnion;
+
+impl Constants for BelowAnyUnion {}
+
+impl LeafRelations for BelowAnyUnion {
+    fn leaf_subtype(&self, _sub: &Schema, sup: &Schema) -> Option<bool> {
+        matches!(sup, Schema::Union(_)).then_some(true)
+    }
+}
+
+/// The union rule asks the oracle about an `Instance` subject and about
+/// nothing else: a subject the rules already declined is not handed to an
+/// oracle that would say yes.
+#[test]
+fn the_union_rule_asks_the_oracle_only_about_an_instance() {
+    let union = Schema::union([Schema::Str, Schema::Bytes]);
+    // A subject the region partition cannot settle, so the union rule is the
+    // one that answers.
+    let narrowed = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::MinLen(1)].into(),
+    };
+    assert!(!narrowed.is_subtype_of_under(&union, &BelowAnyUnion, &[]));
+    assert!(Schema::Instance(ClassIx::new(0)).is_subtype_of_under(&union, &BelowAnyUnion, &[]));
+}
+
+/// A catch-all covers an *optional* field of the supertype, and only an
+/// optional one.
+///
+/// A clause guarantees what a key's value must be if the key is there; it
+/// guarantees nothing about the key being there at all. So a mapping is below a
+/// record that names an extra *optional* field over the same clause -- every
+/// value either lacks that key or carries a value the field admits -- and is
+/// not below the same record with the field required, since the mapping admits
+/// the value that omits it. Both directions, because a rule that answered the
+/// same for the two would be wrong on one of them.
+#[test]
+fn a_catch_all_covers_an_optional_field_and_not_a_required_one() {
+    let clause = || MapClause {
+        key: Schema::Str,
+        value: Schema::Int,
+    };
+    let mapping = Schema::mapping(clause());
+    let with_field = |required| {
+        Schema::keyed_map(
+            vec![Field {
+                name: "a".into(),
+                schema: Schema::Int,
+                required,
+            }],
+            vec![clause()],
+        )
+    };
+    assert!(structural(&mapping, &with_field(false)));
+    assert!(!structural(&mapping, &with_field(true)));
+    // And the value the second one is about: a mapping admits the empty dict,
+    // which a map requiring a key does not.
+    assert!(!Schema::meet([mapping, with_field(true).complement()]).is_empty());
+}
+
+// THEORY: a-cut-reference-proves
+/// A meet with a recursive schema is decided by unfolding it once: the body
+/// names the kinds it admits, and a kind it never admits is disjoint from it.
+///
+/// This is the row that sees the lowering *unfold*. The two laws beside the
+/// claim ask the cut of `Schema::unfolded` directly and the difference for a
+/// refutation it must not give, and both are satisfied by a lowering that
+/// declines every schema holding a reference -- which is what deleting the
+/// fast path's guard in `lower_unfolded` produces. A proof of emptiness over
+/// a reference is what only the unfolding can give, so this row is what
+/// fails when it stops.
+#[test]
+fn a_meet_with_a_recursive_schema_is_decided_by_one_unfolding() {
+    let defs = vec![Schema::union([
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ])];
+    let meet = Schema::Intersection(vec![Schema::Ref(DefIx::new(0)), Schema::Bytes].into());
+    assert!(meet.is_empty_under(&defs));
+    // And the unfolding is sound in the other direction: a kind the body does
+    // admit is not proven disjoint.
+    let meet = Schema::Intersection(vec![Schema::Ref(DefIx::new(0)), Schema::Int].into());
+    assert!(!meet.is_empty_under(&defs));
+}
+
+/// What the rules refute, prove, and decline, enumerated.
+///
+/// The three-valued answer is only worth its plumbing if the three values can
+/// be told apart, and the way a conservative procedure rots is by quietly
+/// turning a decline into a refutation -- which no `bool` test can see, because
+/// both come out `false` at the boundary. Each row below names a pair and the
+/// answer the rules must give it; a rule that starts claiming a proof it does
+/// not have moves a row from `Unknown` to `Fails` and fails here.
+#[test]
+fn a_subject_with_no_value_is_below_a_shape_it_cannot_match() {
+    // A rule refutes from a mismatch, and a mismatch is a witness only when the
+    // subject has a value to offer. A subject with none is below every set,
+    // including one whose shape it could never take.
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let empty_list = Schema::list(SeqShape::fixed([]));
+
+    // A list of at most zero elements *is* the empty list, and its base is
+    // nowhere near it. Reading the refinement through its base reaches the arity
+    // rule, which refutes what the constraint has already settled -- so the base
+    // is read for its proof alone and the rule declines instead.
+    let bounded = Schema::refine(
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+        vec![Constraint::MaxLen(0)],
+    );
+    assert_eq!(relation(&bounded, &empty_list), Relation::Unknown);
+    assert!(bounded.is_subtype_of(&empty_list));
+    assert!(bounded.is_equivalent(&empty_list));
+
+    // And the mismatch that decides the other way: a fixed sequence whose first
+    // position admits no value is empty, so it is below the shape it cannot
+    // match. The position is a length bound over a container of nothing, which
+    // the fold reads -- a list of at least one element of a set with none has
+    // none -- so the arity rule's refutation is read against a subject proven
+    // empty and establishes the opposite.
+    let unfillable = Schema::list(SeqShape::fixed([
+        Schema::refine(
+            Schema::list(SeqShape::homogeneous(Schema::Nothing)),
+            vec![Constraint::MinLen(1)],
+        ),
+        Schema::ANYTHING,
+    ]));
+    assert_eq!(relation(&unfillable, &empty_list), Relation::Holds);
+    assert!(unfillable.is_subtype_of(&empty_list));
+
+    // A repeated tail with no value is not a repeat. A list of that same
+    // refinement is inhabited -- the empty list is in it whatever the element
+    // admits -- so the subject offers a value; but the refutation "a tail
+    // repeats past a fixed length" stands on the *element* having one, and this
+    // element has none. The tail is dropped and the subject is its prefix,
+    // which is the empty list.
+    let unrepeating = Schema::list(SeqShape::homogeneous(Schema::refine(
+        Schema::list(SeqShape::homogeneous(Schema::Nothing)),
+        vec![Constraint::MinLen(1)],
+    )));
+    assert_eq!(relation(&unrepeating, &empty_list), Relation::Holds);
+    assert!(unrepeating.is_subtype_of(&empty_list));
+    assert!(unrepeating.is_equivalent(&empty_list));
+}
+
+/// A set holds each member once, so a length bound over one asks its element
+/// for that many values that differ.
+///
+/// Reading a set as a sequence -- "any length, by repeating one element" --
+/// claimed `set[None]` with `MinLen(2)` inhabited, and an inhabited subject is
+/// what lets a kind mismatch refute an inclusion: `Annotated[set[None],
+/// MinLen(2)] <= None` answered `not_subset`, which asserts a value that does
+/// not exist. The set of two `None`s is a set of one.
+#[test]
+fn a_length_bound_over_a_set_asks_its_element_for_that_many_values() {
+    let bounded = |base: Schema, min: usize| Schema::refine(base, vec![Constraint::MinLen(min)]);
+    // One value, so one member: a bound of one is met and a bound of two is not.
+    assert_eq!(
+        bounded(Schema::set(Schema::NoneType), 1).verdict(),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        bounded(Schema::set(Schema::NoneType), 2).verdict(),
+        Verdict::Empty
+    );
+    // Two values, and the bound moves through them.
+    assert_eq!(
+        bounded(Schema::frozen_set(Schema::Bool), 2).verdict(),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        bounded(Schema::frozen_set(Schema::Bool), 3).verdict(),
+        Verdict::Empty
+    );
+    // A kind with more values than any bound names supplies every bound.
+    assert_eq!(
+        bounded(Schema::set(Schema::Int), 9).verdict(),
+        Verdict::Inhabited
+    );
+    // A list repeats, so the same element and the same bound decide the other
+    // way: `[None, None]` is a list of two.
+    assert_eq!(
+        bounded(Schema::list(SeqShape::homogeneous(Schema::NoneType)), 2).verdict(),
+        Verdict::Inhabited
+    );
+    // A union may name one value twice, so its members' counts sum to an upper
+    // bound and the largest is a lower one. Neither reaches two here, and the
+    // reading declines rather than counting a value twice.
+    let two_spellings = Schema::Union(vec![Schema::NoneType, Schema::NoneType].into());
+    assert_eq!(
+        bounded(Schema::set(two_spellings), 2).verdict(),
+        Verdict::Unknown
+    );
+    // Each side of a union's bounds decides one answer. Three values at most --
+    // two booleans and `None` -- so a set of four is empty; two at least, from
+    // the widest member alone, so a set of two has members to fill it.
+    let bools_or_none = Schema::Union(vec![Schema::Bool, Schema::NoneType].into());
+    assert_eq!(
+        bounded(Schema::set(bools_or_none), 4).verdict(),
+        Verdict::Empty
+    );
+    let bools_or_nothing = Schema::Union(vec![Schema::Bool, Schema::Nothing].into());
+    assert_eq!(
+        bounded(Schema::set(bools_or_nothing), 2).verdict(),
+        Verdict::Inhabited
+    );
+    // A collection is a value of its own, and the empty one is a value whatever
+    // its element says: one member at least, and no upper bound this reads.
+    assert_eq!(
+        bounded(Schema::set(Schema::set(Schema::Int)), 1).verdict(),
+        Verdict::Inhabited
+    );
+    // An element with no value at all: the set of one is empty, while the set
+    // of none is the empty set and is not.
+    assert_eq!(
+        bounded(Schema::set(Schema::Nothing), 1).verdict(),
+        Verdict::Empty
+    );
+    assert_eq!(
+        bounded(Schema::set(Schema::Nothing), 0).verdict(),
+        Verdict::Inhabited
+    );
+    // An element this cannot count declines in both directions.
+    assert_eq!(
+        bounded(Schema::set(Schema::Instance(ClassIx::new(0))), 2).verdict(),
+        Verdict::Unknown
+    );
+    // And the inclusion the wrong answer reached: an empty subject is below
+    // every schema, vacuously.
+    assert!(bounded(Schema::set(Schema::NoneType), 2).is_subtype_of(&Schema::NoneType));
+}
+
+/// A length bound is read for the values its base has, not only for the values
+/// it cannot have.
+///
+/// Two length bounds over a list six hundred elements long are compared by the
+/// sets: a lower bound is refuted inside a longer one and an upper bound inside
+/// a shorter one, each by a list the length of the bound it falls short of.
+///
+/// The difference is a product of two chains, and the rows of a chain repeat:
+/// each state's rest and each pair of guards is the same as the last. Asked
+/// once, a relation reaches 1,340 elements before the allowance is spent; with
+/// the meets asked at every state it stops at 508, with the rests at 239, and
+/// with both at 169.
+#[test]
+fn two_length_bounds_six_hundred_elements_long_are_compared() {
+    let bounded = |constraint| {
+        Schema::refine(
+            Schema::list(SeqShape::homogeneous(Schema::Int)),
+            vec![constraint],
+        )
+    };
+    let relation =
+        |sub: Schema, sup: Schema| sub.subtype_relation_under(&sup, &NoLeafRelations, &[]);
+    assert_eq!(
+        relation(
+            bounded(Constraint::MinLen(599)),
+            bounded(Constraint::MinLen(600))
+        ),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(
+            bounded(Constraint::MaxLen(600)),
+            bounded(Constraint::MaxLen(599))
+        ),
+        Relation::Fails
+    );
+}
+
+/// A bound is satisfiable in the abstract and still empty over its base, which
+/// is why a refinement is unknown in general. The bases a length bound is
+/// *written* for are the exception: a string and a bytes take any length, and a
+/// sequence takes any length by repeating one element -- so the string decides
+/// itself and the sequence's element decides it. That is also what closes the
+/// fixpoint whose every unfolding needs one more element. A set is the case
+/// below, since it repeats nothing.
+#[test]
+fn a_length_bound_over_a_repeated_element_is_decided_by_the_element() {
+    let bounded = |base: Schema, min: usize| Schema::refine(base, vec![Constraint::MinLen(min)]);
+    let ints = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let nothings = Schema::list(SeqShape::homogeneous(Schema::Nothing));
+    // A string and a bytes take any length, so a bound their own lengths admit
+    // is met by a value: `Annotated[str, MinLen(1)]` is the non-empty string,
+    // and it has one.
+    assert_eq!(bounded(Schema::Str, 1).verdict(), Verdict::Inhabited);
+    assert_eq!(bounded(Schema::Bytes, 4).verdict(), Verdict::Inhabited);
+    assert_eq!(
+        Schema::refine(Schema::Str, vec![Constraint::MaxLen(0)]).verdict(),
+        Verdict::Inhabited,
+        "the empty string is a string of at most no characters"
+    );
+    // Bounds that cannot both hold empty it, which the bounds check reads
+    // before this one.
+    assert_eq!(
+        Schema::refine(
+            Schema::Str,
+            vec![Constraint::MinLen(3), Constraint::MaxLen(2)]
+        )
+        .verdict(),
+        Verdict::Empty
+    );
+    // A length bound over a base whose values have no length says nothing the
+    // form can read, and the reading declines rather than guessing.
+    assert_eq!(bounded(Schema::Int, 1).verdict(), Verdict::Unknown);
+
+    // An element with values: any length is built from it.
+    assert_eq!(bounded(ints.clone(), 2).verdict(), Verdict::Inhabited);
+    assert_eq!(
+        bounded(Schema::set(Schema::Int), 2).verdict(),
+        Verdict::Inhabited
+    );
+    // An element with none: only the empty container is left, and a bound above
+    // zero rules it out.
+    assert_eq!(bounded(nothings.clone(), 1).verdict(), Verdict::Empty);
+    // A bound of zero is met by the empty container whatever the element says.
+    assert_eq!(bounded(nothings.clone(), 0).verdict(), Verdict::Inhabited);
+    assert_eq!(
+        Schema::refine(nothings.clone(), vec![Constraint::MaxLen(3)]).verdict(),
+        Verdict::Inhabited
+    );
+    // A fixed position is not a repeated element: the bound says nothing about
+    // what fills it, and the reading declines rather than guessing. The second
+    // row is the one that matters -- a shape with a prefix *and* a tail, whose
+    // tail has values and whose one fixed position may have none, so reading
+    // the tail alone would claim a value the shape may not have.
+    assert_eq!(
+        bounded(Schema::tuple(SeqShape::fixed([Schema::Int])), 1).verdict(),
+        Verdict::Unknown
+    );
+    assert_eq!(
+        bounded(
+            Schema::list(SeqShape::prefix_tail(
+                [Schema::Instance(ClassIx::new(0))],
+                Schema::Int,
+            )),
+            1,
+        )
+        .verdict(),
+        Verdict::Unknown
+    );
+    // Nor is a constraint that is not a length: a predicate may refuse every
+    // value of the base.
+    assert_eq!(
+        Schema::refine(
+            ints.clone(),
+            vec![Constraint::MinLen(1), Constraint::MaxLen(9)]
+        )
+        .verdict(),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        Schema::refine(ints, vec![Constraint::Predicate(PredIx::new(0))]).verdict(),
+        Verdict::Unknown
+    );
+}
+
+/// What the shallow reading of a value may and may not say.
+///
+/// The reading answers from a schema's own form, so its boundary is where the
+/// form stops deciding: a container that admits an empty one has a value
+/// whatever its elements are, and one that must be filled does not. A reading
+/// that widened to the whole variant -- every sequence, every record -- would
+/// claim a value for a schema that has none, which is the claim a refutation
+/// stands on. The search over the value corpus in `laws.rs` makes the same
+/// claim over generated schemas; these are the rows that pin the edge.
+#[test]
+fn the_shallow_reading_answers_for_a_form_and_declines_the_rest() {
+    let nothing = Schema::Nothing;
+    let has_a_value = [
+        Schema::Int,
+        Schema::Str,
+        Schema::ANYTHING,
+        // Every container that admits an empty one: the value is the empty
+        // list, tuple, set or mapping, whatever the elements say.
+        Schema::list(SeqShape::homogeneous(nothing.clone())),
+        Schema::tuple(SeqShape::homogeneous(nothing.clone())),
+        Schema::set(nothing.clone()),
+        open(vec![field("f", nothing.clone(), false)]),
+        closed(vec![]),
+        // A union has a value where a member does. Written as the node: the
+        // constructor drops a member it can see is empty, and the member this
+        // row needs is one only a descent would see is empty.
+        Schema::Union(
+            vec![
+                Schema::list(SeqShape::fixed([nothing.clone()])),
+                Schema::Int,
+            ]
+            .into(),
+        ),
+    ];
+    for schema in has_a_value {
+        assert!(
+            schema.holds_a_value_shallowly(),
+            "{schema:?} has a value by its form"
+        );
+        assert_ne!(schema.verdict(), Verdict::Empty, "{schema:?}");
+    }
+    let declines = [
+        // A position that must be filled, and a key that must be there: the
+        // form does not say, and the descent does.
+        Schema::list(SeqShape::fixed([nothing.clone()])),
+        Schema::tuple(SeqShape::fixed([Schema::Int])),
+        closed(vec![field("f", nothing.clone(), true)]),
+        open(vec![field("f", nothing.clone(), true)]),
+        // A union of members that do not answer either -- written as the node,
+        // since the constructor collapses a union of the empty set to it.
+        Schema::Union(
+            vec![
+                Schema::list(SeqShape::fixed([nothing.clone()])),
+                closed(vec![field("f", nothing.clone(), true)]),
+            ]
+            .into(),
+        ),
+        // And the shapes with no form of their own to read.
+        nothing.clone(),
+        Schema::Complement(Arc::new(Schema::Int)),
+        Schema::refine(Schema::Int, vec![Constraint::MinLen(1)]),
+    ];
+    for schema in declines {
+        assert!(
+            !schema.holds_a_value_shallowly(),
+            "{schema:?} is not answered by its form"
+        );
+    }
+}
+
+/// A refutation about a part is about that part's values, and a part with none
+/// refutes nothing.
+///
+/// The subject of a comparison one level down is a part of the subject above
+/// it, and the composition that carries its refutation up is only as good as
+/// the values it stands on: a list of an element with no value is the empty
+/// list, which is below a list of anything, however the element compares. The
+/// reading that settles this is the subject's own emptiness, taken at the level
+/// the refutation is made rather than once at the top -- where the list is
+/// inhabited by the empty list and says nothing about its element.
+#[test]
+fn a_refutation_about_a_part_with_no_value_is_not_one() {
+    // A part that is empty, and that the rules cannot prove empty: two
+    // sequences of one position each whose positions share no value. No rule
+    // reads a meet of two shapes for the values it holds, so proving it empty
+    // takes the descriptor -- which is what makes this the case the guard is
+    // for.
+    let empty = Schema::meet([
+        Schema::tuple(SeqShape::fixed([Schema::Int])),
+        Schema::tuple(SeqShape::fixed([Schema::Str])),
+    ]);
+    let narrow = closed(vec![field("f", empty.clone(), true)]);
+    let wide = closed(vec![
+        field("f", empty.clone(), true),
+        field("g", Schema::Int, true),
+    ]);
+    let cases: Vec<(&str, Schema, Schema)> = vec![
+        // The part itself: the subject has no value, so the refutation its
+        // fields report is about nothing and the inclusion holds vacuously.
+        ("the part itself", narrow.clone(), wide.clone()),
+        // The same part below each container that carries an element's
+        // refutation up. Every one of these subjects has a value -- the empty
+        // list, the empty set, the mapping with no keys -- and none of those
+        // values is outside the supertype.
+        (
+            "in a list",
+            Schema::list(SeqShape::homogeneous(narrow.clone())),
+            Schema::list(SeqShape::homogeneous(wide.clone())),
+        ),
+        (
+            "in a tuple's repeated tail",
+            Schema::tuple(SeqShape::homogeneous(narrow.clone())),
+            Schema::tuple(SeqShape::homogeneous(wide.clone())),
+        ),
+        (
+            "in a set",
+            Schema::set(narrow.clone()),
+            Schema::set(wide.clone()),
+        ),
+        // A record whose field is optional: the record holds the mapping with
+        // no keys whatever the field's schema admits, so the field's
+        // refutation is about values the record need not have.
+        (
+            "under an optional field",
+            closed(vec![field("k", narrow.clone(), false)]),
+            closed(vec![field("k", wide.clone(), false)]),
+        ),
+    ];
+    for (label, sub, sup) in cases {
+        let budget = Budget::new(DECISION_BUDGET);
+        assert_ne!(
+            sub.subtype_relation(&sup, &NoLeafRelations, &[], &budget),
+            Relation::Fails,
+            "{label}: the rules refuted an inclusion that holds"
+        );
+        assert_eq!(
+            sub.descriptor_contained_in(&sup, &NoLeafRelations, &[]),
+            Relation::Holds,
+            "{label}: the sets decide it"
+        );
+        assert!(sub.is_subtype_of(&sup), "{label}");
+    }
+
+    // One level further down, where neither decider reaches the answer: the
+    // rules decline, as above, and the sets decline too -- lowering a record
+    // inside a list inside a list is past what the set representation builds.
+    // The pair is unproven, which the relation is allowed to be; what it may
+    // not be is refuted.
+    let deeper = |record: &Schema| {
+        Schema::list(SeqShape::homogeneous(closed(vec![field(
+            "k",
+            record.clone(),
+            true,
+        )])))
+    };
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        deeper(&narrow).subtype_relation(&deeper(&wide), &NoLeafRelations, &[], &budget),
+        Relation::Unknown,
+    );
+    assert_eq!(
+        deeper(&narrow).descriptor_contained_in(&deeper(&wide), &NoLeafRelations, &[]),
+        Relation::Unknown,
+    );
+}
+
+/// The complement of a set only the descriptor proves empty is the universe,
+/// and bounds a subject nothing can lower. A literal the null oracle cannot
+/// place is such a subject: it has no descriptor, and it meets a string
+/// refinement the rules cannot empty, so disjointness declines. The inner set's
+/// own emptiness is what settles the pair, asked where disjointness declines. A
+/// complement that is not the universe leaves the pair a decline, never a
+/// refutation.
+#[test]
+fn a_complement_only_the_descriptor_empties_bounds_a_subject_with_no_descriptor() {
+    let unplaced = Schema::Literal(ConstIx::new(0));
+    let complement =
+        |constraints| Schema::Complement(Arc::new(Schema::refine(Schema::Str, constraints)));
+    let universe = complement(vec![Constraint::Regex("x".into()), Constraint::MaxLen(0)]);
+    assert!(Schema::Complement(Arc::new(universe.clone())).is_empty_under(&[]));
+    assert_eq!(
+        unplaced.subtype_relation_under(&universe, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    let all_but_the_empty_string = complement(vec![Constraint::MaxLen(0)]);
+    assert_eq!(
+        unplaced.subtype_relation_under(&all_but_the_empty_string, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+}
+
+/// The same universe bounds a complement with no descriptor. The contravariant
+/// rule reads `¬A ⊆ ¬B` as `B ⊆ A`, where the emptiness of `B` is the subject's
+/// and the rules cannot reach it, and the descriptor route lowers `¬A` first,
+/// which a predicate in `A` refuses. The fuzzer's spelling wraps the universe
+/// in a refinement carrying no constraint, which is read as the complement it
+/// wraps. A complement that is not the universe leaves the pair a decline.
+#[test]
+fn a_complement_only_the_descriptor_empties_bounds_a_complement_with_no_descriptor() {
+    let complement =
+        |constraints| Schema::Complement(Arc::new(Schema::refine(Schema::Str, constraints)));
+    let called = complement(vec![
+        Constraint::MaxLen(0),
+        Constraint::Predicate(PredIx::new(1)),
+    ]);
+    let universe = complement(vec![Constraint::Regex("x".into()), Constraint::MaxLen(0)]);
+    let wrapped = Schema::Refine {
+        base: Arc::new(universe.clone()),
+        constraints: Vec::new().into(),
+    };
+    for supertype in [&universe, &wrapped] {
+        assert_eq!(
+            called.subtype_relation_under(supertype, &NoLeafRelations, &[]),
+            Relation::Holds,
+            "{supertype:?}"
+        );
+    }
+    let all_but_the_empty_string = complement(vec![Constraint::MaxLen(0)]);
+    assert_eq!(
+        called.subtype_relation_under(&all_but_the_empty_string, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+}
+
+/// A pattern over a base holding `bytes` relates as the strings it holds.
+///
+/// A pattern matches the text of a `str`, and the walk refuses every other
+/// value, so `Annotated[str | bytes, Regex("a*")]` holds exactly the strings
+/// `Annotated[str, Regex("a*")]` holds. Read over `bytes` too, the pattern
+/// would prove `Annotated[bytes, MaxLen(0)]` below it, with `b""` standing
+/// against the proof, and refute its inclusion in `str`, which every member
+/// satisfies. Each row below asks one of those answers of the relation the
+/// rules and the sets answer together.
+#[test]
+fn a_pattern_over_text_and_bytes_relates_as_its_strings_do() {
+    let pattern = |base| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![Constraint::Regex("a*".into())].into(),
+    };
+    let wide = pattern(Schema::union([Schema::Str, Schema::Bytes]));
+    let text = pattern(Schema::Str);
+    let empty_bytes = Schema::Refine {
+        base: Arc::new(Schema::Bytes),
+        constraints: vec![Constraint::MaxLen(0)].into(),
+    };
+    let relation =
+        |sub: &Schema, sup: &Schema| sub.subtype_relation_under(sup, &NoLeafRelations, &[]);
+
+    assert_eq!(relation(&empty_bytes, &wide), Relation::Fails);
+    assert_eq!(relation(&wide, &Schema::Str), Relation::Holds);
+    assert_eq!(relation(&wide, &text), Relation::Holds);
+    assert_eq!(relation(&text, &wide), Relation::Holds);
+    // The byte string outside the pattern is a value of the difference.
+    assert!(!Schema::meet([empty_bytes, wide.complement()]).is_empty());
+    // And over `bytes` alone the pattern holds nothing.
+    assert!(pattern(Schema::Bytes).is_empty());
+}
+
+/// A pattern admits no value but a string, so a refinement by one denotes the
+/// strings its constraints admit whatever its base holds beside strings: the
+/// rules read a refinement and the complement of one with the same pattern as
+/// meeting in nothing wherever the complemented base holds every string. The
+/// fuzzer drew the pair below -- the set reading proves the union universal,
+/// and the rules, comparing `Refine(str, C)` and `Refine(Anything, C)` by
+/// spelling, refused a subject the set reading cannot lower.
+#[test]
+fn a_pattern_over_two_bases_that_hold_every_string_is_one_set() {
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let refined = |base: Schema, constraints: Vec<Constraint>| Schema::Refine {
+        base: Arc::new(base),
+        constraints: constraints.into(),
+    };
+    let digits = || vec![Constraint::Regex("[0-9]*".to_owned())];
+    let rules_empty = |schema: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        schema.is_empty_rec(&mut Cx::new(&NoLeafRelations, &[], &budget))
+    };
+    let meet = |ours: Schema, theirs: Schema| Schema::Intersection(vec![ours, not(theirs)].into());
+    for (ours, theirs) in [
+        (Schema::Str, Schema::ANYTHING),
+        (Schema::ANYTHING, Schema::Str),
+        (Schema::Str, not(Schema::Int)),
+    ] {
+        let both = meet(refined(ours, digits()), refined(theirs, digits()));
+        assert!(rules_empty(&both), "{both:?} by the rules");
+    }
+    // A complemented base short of the strings leaves values of the first, and
+    // a predicate may answer the two occurrences apart: neither meet is empty.
+    let short = meet(
+        refined(Schema::Str, digits()),
+        refined(Schema::Int, digits()),
+    );
+    assert!(!rules_empty(&short), "{short:?}");
+    let called = || {
+        let mut constraints = digits();
+        constraints.push(Constraint::Predicate(PredIx::new(0)));
+        constraints
+    };
+    let called = meet(
+        refined(Schema::Str, called()),
+        refined(Schema::ANYTHING, called()),
+    );
+    assert!(!rules_empty(&called), "{called:?}");
+
+    let universe = Schema::Union(
+        vec![
+            Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: Vec::new().into(),
+            },
+            not(refined(Schema::Str, digits())),
+            refined(Schema::ANYTHING, digits()),
+        ]
+        .into(),
+    );
+    let subject = Schema::Union(
+        vec![
+            Schema::NoneType,
+            Schema::Literal(ConstIx::new(2)),
+            Schema::ANYTHING,
+        ]
+        .into(),
+    );
+    assert!(
+        not(universe.clone()).is_empty_with(&NoLeafRelations, &[]),
+        "the premise: {universe:?} is the universe"
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(&universe, &NoLeafRelations, &[], &budget),
+        Relation::Holds,
+        "{subject:?} below {universe:?} by the rules"
+    );
+}
+
+/// A record below the complement of a union of records is decided at every
+/// width.
+///
+/// The difference meets the subject with the complement's inner set.
+/// Complementing the lowered complement instead expands the double negation
+/// where a field spans two kinds, and the meet with the expansion spends past
+/// the allowance: that path declines a union of two records, where one and
+/// three decide.
+#[test]
+fn a_record_below_the_complement_of_a_record_union_is_decided_at_every_width() {
+    let kinds = [Schema::Str, Schema::Bytes, Schema::Float, Schema::NoneType];
+    let subject = closed(vec![field("t", Schema::Int, true)]);
+    let member = closed(vec![field("t", Schema::Str, true)]);
+    for width in 1..=kinds.len() {
+        let records = kinds[..width]
+            .iter()
+            .map(|kind| closed(vec![field("t", kind.clone(), true)]));
+        let outside = Schema::complement(Schema::union(records));
+        assert_eq!(
+            subject.descriptor_contained_in(&outside, &NoLeafRelations, &[]),
+            Relation::Holds,
+            "a record against the complement of {width} records"
+        );
+        assert!(subject.is_subtype_of(&outside), "width {width}");
+        assert!(!member.is_subtype_of(&outside), "a member, width {width}");
+    }
+}
+
+/// A key the supertype requires and the subject does not declare refutes the
+/// inclusion, whatever the subject's clauses say.
+///
+/// A clause governs the keys a value carries and never requires one, so a
+/// subject admits a value without such a key however open it is: take a value
+/// of the subject and drop the key, and every required field is still there
+/// and every key left is one a clause already covered. That value is one the
+/// supertype rejects. The reading around the rule is what keeps it honest: a
+/// subject with no value at all is below every schema, this one included.
+#[test]
+fn a_required_key_the_subject_does_not_declare_refutes_the_inclusion() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let field = |name: &str, required: bool| Field {
+        name: name.into(),
+        schema: Schema::Int,
+        required,
+    };
+    let complete = Schema::record(vec![field("f0", true), field("f1", true)], Openness::Closed);
+    let closed_without = Schema::record(vec![field("f1", true)], Openness::Closed);
+    let open_without = Schema::record(vec![field("f1", true)], Openness::Open);
+    assert_eq!(relation(&closed_without, &complete), Relation::Fails);
+    // The open subject refutes for the same reason: its clause admits a key it
+    // does not declare and requires none, so the value without that key is one
+    // it has and the supertype rejects.
+    assert_eq!(relation(&open_without, &complete), Relation::Fails);
+
+    // The reading that keeps the refutation honest: a subject whose own
+    // required field admits nothing has no value to stand against the
+    // inclusion, so the same missing key decides the other way.
+    let empty_subject = Schema::record(
+        vec![Field {
+            name: "f1".into(),
+            schema: Schema::Nothing,
+            required: true,
+        }],
+        Openness::Closed,
+    );
+    assert_eq!(relation(&empty_subject, &complete), Relation::Holds);
+}
+
+/// A subject's clause answers for an optional field of the supertype only where
+/// its key can spell that name.
+///
+/// The field is one the subject does not declare, so a value of the subject
+/// carries the key only through a clause -- and a clause keyed by another kind
+/// never produces a string name. Reading such a clause's value type anyway
+/// refutes on a value the subject does not have; declining to read a clause
+/// whose key *is* a string loses the refutation on a value it does. The three
+/// answers are the three readings of the key, so each is asked of the rules
+/// alone: the set representation is a second decider, and a pair it rescues
+/// says nothing about the rule under test.
+#[test]
+fn a_clause_answers_for_an_optional_field_only_where_its_key_admits_the_name() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &Kinded, &[], &budget)
+    };
+    // A record declaring `a?: str` beside a clause that covers the subject's,
+    // so every conjunct but the field's own reading proves.
+    let optional_beside = |key: Schema| {
+        Schema::keyed_map_within(
+            vec![Field {
+                name: "a".into(),
+                schema: Schema::Str,
+                required: false,
+            }],
+            vec![MapClause {
+                key,
+                value: Schema::Int,
+            }]
+            .into(),
+        )
+    };
+    let mapping = |key: Schema| {
+        Schema::mapping(MapClause {
+            key,
+            value: Schema::Int,
+        })
+    };
+
+    // A `str`-keyed clause spells the name, so its value type answers for the
+    // field: the subject admits `{"a": 1}`, which the supertype rejects.
+    assert_eq!(
+        relation(&mapping(Schema::Str), &optional_beside(Schema::Str)),
+        Relation::Fails
+    );
+    // An `int`-keyed clause never spells a string, so it says nothing about the
+    // field and the inclusion is proved.
+    assert_eq!(
+        relation(&mapping(Schema::Int), &optional_beside(Schema::Int)),
+        Relation::Holds
+    );
+    // A literal of the string kind names one string, which may be this one: a
+    // proof carries and a refutation does not, so the pair declines.
+    assert_eq!(
+        relation(
+            &mapping(Schema::Literal(ConstIx::new(1))),
+            &optional_beside(Schema::ANYTHING)
+        ),
+        Relation::Unknown
+    );
+}
+
+/// An arm that answers for a shape and then declines hands the pair on.
+///
+/// A decline is not an answer: a pair the arm could not settle has had no rule,
+/// and what a pair with no rule is worth is the reading at the end of the match
+/// -- two sets that share no value, then the oracle, then the supertype's own
+/// shape. An arm that ended the match instead would keep its pair from all
+/// three, and the set representation would be asked what a discriminant
+/// already decides.
+#[test]
+fn an_arm_that_declines_hands_the_pair_to_the_reading_below() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let bounded = Schema::refine(
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+        vec![Constraint::MinLen(2)],
+    );
+    let mapping = Schema::mapping(MapClause {
+        key: Schema::Str,
+        value: Schema::Int,
+    });
+
+    // A refinement as the subject: its base's supertypes are its own, and a
+    // base that proves nothing leaves the pair to the reading, which refutes on
+    // the kinds -- a bounded list is still a list, and a list is not a mapping.
+    assert_eq!(relation(&bounded, &mapping), Relation::Fails);
+    assert_eq!(
+        relation(&bounded, &Schema::union([Schema::Int, Schema::Str])),
+        Relation::Fails
+    );
+    // The proof the base does carry is untouched.
+    assert_eq!(
+        relation(&bounded, &Schema::list(SeqShape::homogeneous(Schema::Int))),
+        Relation::Holds
+    );
+
+    // A union as the supertype: no branch holds the subject, and the reading
+    // refutes because no branch shares a value with it either.
+    assert_eq!(
+        relation(&mapping, &Schema::union([Schema::Int, Schema::Str])),
+        Relation::Fails
+    );
+    // And a union one of whose branches does hold it is proven, not refuted.
+    assert_eq!(
+        relation(&Schema::Int, &Schema::union([Schema::Int, Schema::Str])),
+        Relation::Holds
+    );
+}
+
+/// A subject outside a base is outside every refinement of it.
+///
+/// A refinement is a subset of its base, so the value that refutes the base
+/// refutes the refinement -- it is the same value, and it was already found.
+/// The proof does not carry the other way: being inside the base says nothing
+/// about the constraints, which is what makes this reading refutation-only.
+#[test]
+fn a_refinement_as_the_supertype_carries_its_base_s_refutation() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let bounded_list = Schema::refine(
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+        vec![Constraint::MinLen(2)],
+    );
+    // Outside the base and *not* by a kind: a list of strings is a list, so the
+    // disjointness reading beside this one says nothing, and what refutes the
+    // pair is the base's own rule reading the elements. This is the row the
+    // reading exists for; the kinds cover the rest.
+    assert_eq!(
+        relation(
+            &Schema::list(SeqShape::homogeneous(Schema::Str)),
+            &bounded_list
+        ),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(
+            &Schema::list(SeqShape::fixed([Schema::Int, Schema::Str])),
+            &bounded_list
+        ),
+        Relation::Fails
+    );
+    // Outside the base by a kind, which the reading above the refinement
+    // settles before this one is asked.
+    assert_eq!(
+        relation(
+            &Schema::tuple(SeqShape::fixed([Schema::Int])),
+            &bounded_list
+        ),
+        Relation::Fails
+    );
+    assert_eq!(relation(&Schema::Int, &bounded_list), Relation::Fails);
+    // Inside the base, and the bound refutes on a value of its own: a list
+    // type carrying no bound holds the empty list, which a bound of two does
+    // not. Not proven, and not merely unproven.
+    assert_eq!(
+        relation(
+            &Schema::list(SeqShape::homogeneous(Schema::Int)),
+            &bounded_list
+        ),
+        Relation::Fails
+    );
+    // A shape that holds no empty list has no such value, so the same pair
+    // with a prefix is unproven rather than refuted.
+    assert_eq!(
+        relation(
+            &Schema::list(SeqShape::prefix_tail([Schema::Int], Schema::Int)),
+            &bounded_list
+        ),
+        Relation::Unknown
+    );
+    // A refinement of the same base is the refinements' own rule, which reads
+    // the constraints rather than this one.
+    assert_eq!(
+        relation(
+            &Schema::refine(
+                Schema::list(SeqShape::homogeneous(Schema::Int)),
+                vec![Constraint::MinLen(2), Constraint::MaxLen(4)],
+            ),
+            &bounded_list
+        ),
+        Relation::Holds
+    );
+}
+
+/// The oracle is asked before the supertype's shape, because it proves.
+///
+/// A refinement carries its base's refutation and nothing else, so a reading
+/// that answered before the oracle would turn every proof the oracle can make
+/// about a refinement into a decline -- and the oracle is the only reader of a
+/// constant, which is what decides a literal against a predicate where the
+/// constant is its literal's one value.
+#[test]
+fn the_oracle_answers_a_refinement_before_its_base_is_read() {
+    /// An oracle that proves one leaf pair: the constant at index 0 belongs to
+    /// every set, which stands in for the bindings running a predicate on it,
+    /// and is the only value of its literal, as a `str` constant is.
+    struct Proving;
+    impl Constants for Proving {}
+    impl LeafRelations for Proving {
+        fn leaf_subtype(&self, sub: &Schema, _: &Schema) -> Option<bool> {
+            matches!(sub, Schema::Literal(index) if index.get() == 0).then_some(true)
+        }
+
+        fn constant_is_alone(&self, _: ConstIx) -> bool {
+            true
+        }
+    }
+    let literal = Schema::Literal(ConstIx::new(0));
+    let refined = Schema::refine(Schema::Str, vec![Constraint::Predicate(PredIx::new(0))]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        literal.subtype_relation(&refined, &Proving, &[], &budget),
+        Relation::Holds,
+        "the oracle's proof is not taken away by the reading below it"
+    );
+    // Without that oracle the same pair is unproven: the base is a string and a
+    // literal the core cannot read is not outside it.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        literal.subtype_relation(&refined, &NoLeafRelations, &[], &budget),
+        Relation::Unknown
+    );
+}
+
+/// A pair whose kinds cannot overlap is refuted, with nothing else read.
+///
+/// The shapes below have no structural rule between them -- a list is not
+/// compared to a tuple position by position, a mapping not to either -- so the
+/// pair reaches the end of the match, where disjointness answers it: every
+/// value of the subject is outside the supertype. Without that reading the
+/// pair would go unproven and the set representation would be asked to lower
+/// both sides.
+#[test]
+fn a_pair_that_shares_no_value_is_refuted() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let list_of_int = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let tuple_of_two = Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Int]));
+    let mapping = Schema::mapping(MapClause {
+        key: Schema::Str,
+        value: Schema::Int,
+    });
+    for (sub, sup) in [
+        (&list_of_int, &tuple_of_two),
+        (&list_of_int, &mapping),
+        (&mapping, &list_of_int),
+        (&Schema::set(Schema::Int), &list_of_int),
+    ] {
+        assert_eq!(relation(sub, sup), Relation::Fails, "{sub:?} <= {sup:?}");
+    }
+    // The reading that keeps it honest: a subject of one kind with no value is
+    // below the other kind, not outside it.
+    let empty_list = Schema::list(SeqShape::fixed([Schema::Nothing]));
+    assert_eq!(relation(&empty_list, &mapping), Relation::Holds);
+    // And a pair the rule must not reach: two lists whose elements differ have
+    // a rule of their own, and it refutes on the elements rather than on the
+    // kinds -- which are the same.
+    assert_eq!(
+        relation(
+            &list_of_int,
+            &Schema::list(SeqShape::homogeneous(Schema::Str))
+        ),
+        Relation::Fails
+    );
+}
+
+#[test]
+fn the_rules_refute_prove_and_decline_these() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let attr = |name: &str, schema: Schema| Schema::AttrRecord {
+        fields: vec![attribute(name, schema)].into(),
+    };
+
+    // Proven: the region partition, the lattice bounds, reflexivity.
+    assert_eq!(relation(&Schema::Bool, &Schema::Int), Relation::Holds);
+    assert_eq!(relation(&Schema::Nothing, &Schema::Str), Relation::Holds);
+    assert_eq!(relation(&Schema::Str, &Schema::ANYTHING), Relation::Holds);
+
+    // Refuted: two scalars whose regions are disjoint, an arity that cannot
+    // match, and an attribute the subject does not carry.
+    assert_eq!(relation(&Schema::Str, &Schema::Int), Relation::Fails);
+    assert_eq!(
+        relation(
+            &Schema::tuple(SeqShape::fixed([Schema::Int])),
+            &Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Int])),
+        ),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(&attr("a", Schema::Int), &attr("b", Schema::Int)),
+        Relation::Fails
+    );
+
+    // A length that cannot match refutes whatever the elements are *provided
+    // the subject has a value*: the refutation is a value of the subject with
+    // the wrong number of positions, and a subject that admits none offers no
+    // such value. The pair below carries an opaque class no oracle here can
+    // decide inhabited, so the arity rule declines. The same pair with elements
+    // the core can read refutes on the shapes alone.
+    assert_eq!(
+        relation(
+            &Schema::tuple(SeqShape::fixed([
+                Schema::Instance(ClassIx::new(0)),
+                Schema::Int,
+            ])),
+            &Schema::tuple(SeqShape::fixed([Schema::Instance(ClassIx::new(1))])),
+        ),
+        Relation::Unknown
+    );
+    assert_eq!(
+        relation(
+            &Schema::tuple(SeqShape::fixed([Schema::Str, Schema::Int])),
+            &Schema::tuple(SeqShape::fixed([Schema::Str])),
+        ),
+        Relation::Fails
+    );
+    // The lengths decide before the elements are asked, and the pair below is
+    // what says so: a subject the core can read against a supertype whose one
+    // position it cannot relate to anything. Comparing position by position
+    // would meet the opaque class first and decline; the arities settle it
+    // without looking, and the subject has values, so it refutes.
+    assert_eq!(
+        relation(
+            &Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Int])),
+            &Schema::tuple(SeqShape::fixed([Schema::Instance(ClassIx::new(1))])),
+        ),
+        Relation::Fails
+    );
+
+    // Declined: a leaf pair only an oracle can relate, and a class beside a
+    // literal. `NoLeafRelations` answers neither, and the rules say so rather
+    // than reporting a refutation they have not earned.
+    assert_eq!(
+        relation(
+            &Schema::Instance(ClassIx::new(0)),
+            &Schema::Instance(ClassIx::new(1)),
+        ),
+        Relation::Unknown
+    );
+    assert_eq!(
+        relation(&Schema::Literal(ConstIx::new(0)), &Schema::Int),
+        Relation::Unknown
+    );
+    // A required key the supertype declares and the subject's catch-all cannot
+    // guarantee present: refuted, because a clause never requires a key. The
+    // mapping holds the value with no keys at all, and the record rejects it.
+    assert_eq!(
+        relation(
+            &Schema::mapping(MapClause {
+                key: Schema::Str,
+                value: Schema::Int,
+            }),
+            &Schema::record(
+                vec![Field {
+                    name: "a".into(),
+                    schema: Schema::Int,
+                    required: true,
+                }],
+                Openness::Closed,
+            ),
+        ),
+        Relation::Fails
+    );
+}
+
+/// A subject disjoint from a meet is below that meet's complement.
+///
+/// `A <= ~B` and `A & B = {}` are one question asked two ways, and the rules
+/// answer them alike only if the meet this rule builds is flat: the emptiness
+/// rule that decides most meets compares the members of *one* intersection
+/// pairwise, so with `B` held as a nested intersection a tuple and the dict
+/// inside it would never be compared. Built through the meet constructor, the
+/// members are flattened into one list and the pair meets.
+#[test]
+fn a_subject_disjoint_from_a_meet_is_below_its_complement() {
+    let record = Schema::record(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Int,
+            required: true,
+        }],
+        Openness::Closed,
+    );
+    let dicts = Schema::mapping(MapClause {
+        key: Schema::Str,
+        value: Schema::Int,
+    });
+    let inner = Schema::meet([dicts, record.complement()]);
+    let tuples = Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Str]));
+    // The meet is empty, so the inclusion holds; both readings must say so.
+    assert!(Schema::meet([tuples.clone(), inner.clone()]).is_empty());
+    assert!(tuples.is_subtype_of(&inner.complement()));
+}
+
+/// A pool where the index is the value, except that two indices hold one.
+///
+/// The duplicate is the whole point. An oracle whose every index holds a
+/// different value cannot tell a rule that reads a *set of indices* from one
+/// that reads a set of **values**, so the difference the literal oracle exists
+/// for is invisible to it -- and a rule refuting a membership by index alone
+/// would pass every property written over such a pool.
+struct Values;
+
+impl Values {
+    /// The value at an index: its own number, except that the last index of the
+    /// three below repeats the first.
+    fn at(index: ConstIx) -> Option<usize> {
+        match index.get() {
+            0..=2 => Some(index.get()),
+            3 => Some(0),
+            _ => None,
+        }
+    }
+}
+
+impl Constants for Values {}
+
+impl LeafRelations for Values {
+    fn leaf_subtype(&self, _sub: &Schema, _sup: &Schema) -> Option<bool> {
+        None
+    }
+
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(Values::at(left)? != Values::at(right)?)
+    }
+
+    fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
+        let read = |set: &[ConstIx]| {
+            set.iter()
+                .map(|index| Values::at(*index))
+                .collect::<Option<Vec<_>>>()
+        };
+        let (left, right) = (read(left)?, read(right)?);
+        Some(!left.iter().any(|value| right.contains(value)))
+    }
+}
+
+/// A table of literals against another, decided as the two sets they denote.
+///
+/// The relation asked here is the rules' alone: the descriptor decides these
+/// too, on a table small enough for it to hold, and asking through the public
+/// relation would report a right answer for the other reason.
+fn table_relation(subject: &[usize], supertype: &[usize], oracle: &dyn LeafRelations) -> Relation {
+    let table = |indices: &[usize]| {
+        Schema::union(
+            indices
+                .iter()
+                .map(|index| Schema::Literal(ConstIx::new(*index))),
+        )
+    };
+    let (subject, supertype) = (table(subject), table(supertype));
+    let budget = Budget::new(DECISION_BUDGET);
+    subject.subtype_relation(&supertype, oracle, &[], &budget)
+}
+
+/// Every constant found is a proof, and one found nowhere is a refutation.
+///
+/// The refutation is what a shape rule cannot give: a union of literals is a
+/// *finite set*, so a constant of the subject that is in no member of the
+/// supertype is a value in one and outside the other, which is the whole of
+/// what refuting an inclusion means.
+#[test]
+fn a_table_of_literals_is_decided_as_the_set_it_denotes() {
+    assert_eq!(
+        table_relation(&[0, 1], &[0, 1, 2], &Values),
+        Relation::Holds
+    );
+    assert_eq!(table_relation(&[0, 1], &[0, 1], &Values), Relation::Holds);
+    assert_eq!(table_relation(&[0, 2], &[0, 1], &Values), Relation::Fails);
+    assert_eq!(table_relation(&[2], &[0, 1], &Values), Relation::Fails);
+}
+
+/// A table met with complements of tables, the term a record's tag narrows to.
+fn table_minus(kept: &[usize], taken: &[&[usize]]) -> Schema {
+    let table = |indices: &[usize]| {
+        Schema::union(
+            indices
+                .iter()
+                .map(|index| Schema::Literal(ConstIx::new(*index))),
+        )
+    };
+    Schema::meet(
+        core::iter::once(table(kept))
+            .chain(taken.iter().map(|indices| table(indices).complement())),
+    )
+}
+
+/// A table minus constants is the set it leaves, decided as a set.
+///
+/// Every constant a taken table holds by index is out of it, and every other
+/// one the oracle reads as a value apart from the taken tables is in it: so
+/// the meet is below a table holding what is left, refuted by one that misses
+/// a constant left, and empty where every constant is taken.
+#[test]
+fn a_table_minus_constants_is_the_set_it_leaves() {
+    let relation = |subject: &Schema, supertype: &[usize]| {
+        let supertype = Schema::union(
+            supertype
+                .iter()
+                .map(|index| Schema::Literal(ConstIx::new(*index))),
+        );
+        let budget = Budget::new(DECISION_BUDGET);
+        subject.subtype_relation(&supertype, &Values, &[], &budget)
+    };
+    let left = table_minus(&[0, 1, 2], &[&[0]]);
+    assert_eq!(relation(&left, &[1, 2]), Relation::Holds);
+    assert_eq!(
+        relation(&left, &[1]),
+        Relation::Fails,
+        "2 is left, and not in `1`"
+    );
+    assert_eq!(
+        table_minus(&[0, 1, 2], &[&[0], &[1], &[2]]).verdict_under(&Values),
+        Verdict::Empty
+    );
+    assert_eq!(
+        table_minus(&[0, 1, 2], &[&[0], &[1]]).verdict_under(&Values),
+        Verdict::Inhabited
+    );
+    // Two tables kept are the constants both hold.
+    let both = Schema::meet([
+        Schema::union([
+            Schema::Literal(ConstIx::new(0)),
+            Schema::Literal(ConstIx::new(1)),
+        ]),
+        Schema::union([
+            Schema::Literal(ConstIx::new(1)),
+            Schema::Literal(ConstIx::new(2)),
+        ]),
+    ]);
+    assert_eq!(relation(&both, &[1]), Relation::Holds);
+}
+
+/// A constant taken under another index is not read as kept.
+///
+/// Index 3 is the value at index 0 (`Values`), so `{0, 1} minus {3}` is `{1}`
+/// -- and reading by index alone would keep `0` and refute the meet below
+/// `{1}` on it. The rule keeps a constant only where the oracle says it is
+/// apart from every taken table, so the pair declines rather than refutes,
+/// and the meet that takes its last constant that way is not read inhabited.
+#[test]
+fn a_constant_taken_under_another_index_is_not_read_as_kept() {
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_ne!(
+        table_minus(&[0, 1], &[&[3]]).subtype_relation(
+            &Schema::Literal(ConstIx::new(1)),
+            &Values,
+            &[],
+            &budget,
+        ),
+        Relation::Fails
+    );
+    assert_ne!(
+        table_minus(&[0], &[&[3]]).verdict_under(&Values),
+        Verdict::Inhabited
+    );
+}
+
+/// Deciding one table against another is a walk of two lists, not a product of
+/// their members.
+///
+/// The *answers* below are reachable without this rule: the union arms walk
+/// member against member and reach the same verdicts, and the set
+/// representation reaches them too. What the rule is for is the work -- the
+/// product is a decision step per pair, which is what made a ten-thousand
+/// member table take a tenth of a second -- so what pins it is a step count,
+/// which is the quantity the bound is about and the same number on every
+/// machine, where a wall clock is neither.
+///
+/// Stated as a property rather than as a ceiling: the work of deciding a table
+/// against a wider one does not grow with either width. A rule that walked the
+/// members would double when the table doubles.
+#[test]
+fn a_table_is_decided_without_the_work_growing_with_it() {
+    /// An oracle that reads a *set* of constants at once, which is the question
+    /// the rule asks when it refutes: the index is the value, so two sets are
+    /// disjoint when they share no index.
+    struct Sets;
+    impl Constants for Sets {}
+    impl LeafRelations for Sets {
+        fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+            None
+        }
+        fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+            Some(left != right)
+        }
+        fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
+            Some(!left.iter().any(|index| right.contains(index)))
+        }
+    }
+
+    let table = |n: usize, from: usize| {
+        Schema::union((0..n).map(|index| Schema::Literal(ConstIx::new(from + index))))
+    };
+    let proof = |n: usize| table(n, 0).subtype_steps(&table(2 * n, 0));
+    assert_eq!(
+        proof(32),
+        proof(64),
+        "the proof walks the members rather than looking them up"
+    );
+    assert_eq!(
+        proof(64),
+        proof(256),
+        "the proof walks the members rather than looking them up"
+    );
+
+    // A single constant is a table of one, and is read as one: the subject
+    // here is the bare literal the constructor leaves rather than a union of
+    // it, and looking it up in the wide table is the same walk of two lists.
+    let one = |n: usize| Schema::Literal(ConstIx::new(0)).subtype_steps(&table(n, 0));
+    assert_eq!(
+        one(32),
+        one(64),
+        "a constant is looked up in the table rather than compared to each member"
+    );
+    assert_eq!(one(64), one(256));
+    // One step, which is the query itself: the lookup answers before any rule
+    // is asked. A constant the rule does not read as a table of one is
+    // answered by the union rule instead, which costs a step more.
+    assert_eq!(one(256), 1, "the lookup is the whole of the query");
+
+    let refutation = |n: usize| table(n, 0).subtype_steps_under(&table(n, 1_000), &Sets);
+    assert_eq!(
+        refutation(32),
+        refutation(64),
+        "the refutation asks the oracle about the two sets, once"
+    );
+    assert_eq!(refutation(64), refutation(256));
+    // And the refutation is the answer, not a decline the descriptor would have
+    // to settle: every constant of the subject is outside the supertype.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        table(64, 0).subtype_relation(&table(64, 1_000), &Sets, &[], &budget),
+        Relation::Fails
+    );
+}
+
+/// A constant the subject holds and the supertype spells at another index is
+/// not missing, and the rule that reads the two lists by index does not say it
+/// is. Index three holds the value of index zero.
+#[test]
+fn a_constant_spelled_at_another_index_is_not_a_refutation() {
+    assert_ne!(table_relation(&[3], &[0, 1], &Values), Relation::Fails);
+    assert_ne!(table_relation(&[0, 3], &[0, 1], &Values), Relation::Fails);
+}
+
+/// Without an oracle the core cannot read a constant, so a member found nowhere
+/// is not a refutation: two indices may hold one value, and the rules say only
+/// what they can prove.
+#[test]
+fn a_table_without_an_oracle_proves_and_does_not_refute() {
+    assert_eq!(
+        table_relation(&[0, 1], &[0, 1, 2], &NoLeafRelations),
+        Relation::Holds
+    );
+    assert_ne!(
+        table_relation(&[2], &[0, 1], &NoLeafRelations),
+        Relation::Fails
+    );
+}
+
+/// A union a caller built by hand is not in the canonical order, and reading an
+/// unordered list as a set answers by where a member happens to sit. Such a
+/// union keeps the member walk it had, which decides the inclusion the slow way
+/// and gets it right.
+#[test]
+fn an_unordered_union_of_literals_is_not_read_as_a_set() {
+    let raw = |indices: &[usize]| {
+        Schema::Union(
+            indices
+                .iter()
+                .map(|index| Schema::Literal(ConstIx::new(*index)))
+                .collect::<Vec<_>>()
+                .into(),
+        )
+    };
+    // The list the constructor would order as [0, 1, 2], written backwards. The
+    // subject is in it, so the inclusion holds however the list is read -- and
+    // a binary search over it would look at the middle, find 1, and go the
+    // wrong way for 2.
+    let backwards = raw(&[2, 1, 0]);
+    assert_eq!(
+        finite_set(&backwards),
+        None,
+        "an unordered list is not a set"
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        Schema::Literal(ConstIx::new(2)).subtype_relation(&backwards, &Values, &[], &budget),
+        Relation::Holds
+    );
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+/// A literal denotes the values equal to its constant, which for a constant
+/// that does not equal itself is none of them. The oracle answers it as the
+/// question it has: a singleton disjoint from itself is the empty set.
+#[test]
+fn a_constant_that_does_not_equal_itself_denotes_no_value() {
+    /// A pool of one constant, which is not equal to itself.
+    struct NotAValue;
+    impl Constants for NotAValue {}
+    impl LeafRelations for NotAValue {
+        fn leaf_subtype(&self, _sub: &Schema, _sup: &Schema) -> Option<bool> {
+            None
+        }
+        fn literals_disjoint(&self, _left: ConstIx, _right: ConstIx) -> Option<bool> {
+            Some(true)
+        }
+    }
+    let verdict = |oracle: &dyn LeafRelations| {
+        Schema::Literal(ConstIx::new(0)).verdict_rec(&mut Cx::new(
+            oracle,
+            &[],
+            &Budget::new(DECISION_BUDGET),
+        ))
+    };
+    assert_eq!(verdict(&NotAValue), Verdict::Empty);
+    assert_eq!(verdict(&Values), Verdict::Inhabited);
+    let literal = Schema::Literal(ConstIx::new(0));
+    // The empty set is below every set, and a refutation over it is not one.
+    assert!(literal.is_subtype_of_under(&Schema::Str, &NotAValue, &[]));
+}
+
+/// A schema the rules prove **inhabited** is not lowered.
+///
+/// The descriptor is the second reading of one question, asked where the rules
+/// reach neither answer. A proof of inhabitation is an answer: a value of the
+/// schema is a value of it, and a sound second reading cannot say otherwise --
+/// so asking is work that cannot change a verdict, and a lowering determinizes
+/// automata and takes products to do it.
+///
+/// The instrument is the pool: a lowering reads every constant it meets, so a
+/// pool nobody asked is a lowering that did not happen.
+#[test]
+fn a_schema_proven_inhabited_is_not_lowered() {
+    /// A pool that counts what it is asked, and holds one constant that is a
+    /// value -- enough for the rules to prove the record inhabited.
+    struct Counted(Cell<usize>);
+
+    impl Constants for Counted {
+        fn constant(&self, _index: ConstIx) -> Option<Operand> {
+            self.0.set(self.0.get() + 1);
+            None
+        }
+
+        fn operand(&self, _index: OperandIx) -> Option<Operand> {
+            self.0.set(self.0.get() + 1);
+            None
+        }
+
+        fn class(&self, _index: ClassIx) -> Option<Class> {
+            self.0.set(self.0.get() + 1);
+            None
+        }
+    }
+
+    impl LeafRelations for Counted {
+        fn leaf_subtype(&self, _sub: &Schema, _sup: &Schema) -> Option<bool> {
+            None
+        }
+
+        fn literals_disjoint(&self, _left: ConstIx, _right: ConstIx) -> Option<bool> {
+            Some(false)
+        }
+    }
+
+    let record = Schema::record(
+        vec![Field {
+            name: "leaf".into(),
+            schema: Schema::Literal(ConstIx::new(0)),
+            required: true,
+        }],
+        Openness::Closed,
+    );
+    let pool = Counted(Cell::new(0));
+    assert!(
+        !record.is_empty_with(&pool, &[]),
+        "the record holds a value"
+    );
+    assert_eq!(
+        pool.0.get(),
+        0,
+        "the descriptor was asked to overturn a proof of inhabitation"
+    );
+
+    // And the schema the rules cannot read is still asked about, which is what
+    // makes the reading above a saving rather than a narrowing.
+    let opaque = Schema::Instance(ClassIx::new(0));
+    let pool = Counted(Cell::new(0));
+    assert!(!opaque.is_empty_with(&pool, &[]));
+    assert!(
+        pool.0.get() > 0,
+        "an unknown verdict left the descriptor unasked"
+    );
+}
+
+/// The field cache answers the goal it was asked and not one beside it.
+///
+/// A record whose fields repeat a schema asks one goal per field, and the rule
+/// remembers the last pair to answer it once. Both halves of that pair are the
+/// goal: a subject field equal to the last one says nothing about the relation
+/// when the supertype's field is a different schema, and a cache reading one
+/// side would report the second field decided by the first.
+#[test]
+fn the_field_cache_reads_both_halves_of_the_goal() {
+    let record = |fields: Vec<(&str, Schema)>| {
+        Schema::record(
+            fields
+                .into_iter()
+                .map(|(name, schema)| Field {
+                    name: name.into(),
+                    schema,
+                    required: true,
+                })
+                .collect(),
+            Openness::Closed,
+        )
+    };
+    // Two fields of one schema, against two fields of two: the first pair holds
+    // and the second does not, so the record does not.
+    let subject = record(vec![("a", Schema::Int), ("b", Schema::Int)]);
+    let mixed = record(vec![("a", Schema::Int), ("b", Schema::Str)]);
+    assert!(!structural(&subject, &mixed));
+    assert!(!subject.is_subtype_of(&mixed));
+    // And the shape the cache exists for still decides: one goal, twice.
+    let wider = record(vec![
+        ("a", Schema::union([Schema::Int, Schema::Str])),
+        ("b", Schema::union([Schema::Int, Schema::Str])),
+    ]);
+    assert!(structural(&subject, &wider));
+    // The other side of the same reading: the supertype's fields repeat and the
+    // subject's do not, so the second field is a goal of its own.
+    let mixed_subject = record(vec![("a", Schema::Int), ("b", Schema::NoneType)]);
+    assert!(!structural(&mixed_subject, &wider));
+}
+
+/// The position cache answers the goal it was asked, as the field cache does.
+///
+/// A tuple whose positions repeat a schema asks one goal per position, and the
+/// rule remembers the last pair to answer it once. A position whose element
+/// equals the last one says nothing where the other side's element differs, and
+/// a cache that read the question as answered would report the second position
+/// decided by the first.
+#[test]
+fn the_position_cache_reads_both_halves_of_the_goal() {
+    let tuple = |elements: Vec<Schema>| Schema::tuple(SeqShape::fixed(elements));
+    // Two positions of one schema, against two positions of two: the first
+    // aligns and the second does not, so the tuple does not.
+    let subject = tuple(vec![Schema::Int, Schema::Int]);
+    let mixed = tuple(vec![Schema::Int, Schema::Str]);
+    assert!(!structural(&subject, &mixed));
+    assert!(!subject.is_subtype_of(&mixed));
+    // The shape the cache exists for decides: one goal, twice.
+    let wider = tuple(vec![
+        Schema::union([Schema::Int, Schema::Str]),
+        Schema::union([Schema::Int, Schema::Str]),
+    ]);
+    assert!(structural(&subject, &wider));
+    // And the other side: the supertype's positions repeat and the subject's do
+    // not, so the second position is a goal of its own.
+    assert!(!structural(
+        &tuple(vec![Schema::Int, Schema::NoneType]),
+        &wider
+    ));
+    // A repeated tail is the same question past the prefix, so a prefix element
+    // equal to the last one does not answer for the tail either.
+    let by_tail = Schema::tuple(SeqShape::prefix_tail(vec![Schema::Int], Schema::Str));
+    assert!(!structural(
+        &tuple(vec![Schema::Int, Schema::Int]),
+        &by_tail
+    ));
+}
+
+/// Two records differing only in the order of their fields decide alike.
+///
+/// The conjunction over a record's fields is a fold, and reading the first
+/// answer that is not a proof would make the pair's answer depend on which
+/// field the canonical order happens to put first: a field the rules decline,
+/// sorted ahead of the refutation, would end the fold at *unknown* and send the
+/// pair to the set representation. The refutation is the same one either way
+/// -- a required key the subject does not declare -- so the two orders would
+/// differ in cost by two orders of magnitude and, at the boundary, in nothing
+/// else.
+///
+/// The subject here declares no required field, so it holds a value shallowly
+/// and the guard believes what the fold reports. With the fold reading the
+/// first non-proof again, the declining order answers `Unknown` and the row
+/// fails.
+#[test]
+fn a_record_decides_the_same_whichever_field_sorts_first() {
+    // A class the oracle cannot read, so a field carrying it declines.
+    let opaque = Schema::Instance(ClassIx::new(0));
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+
+    // `left` sorts first and declines; `zz` is the required key that refutes.
+    let declines_first = relation(
+        &closed(vec![field("left", opaque.clone(), false)]),
+        &closed(vec![
+            field("left", listed.clone(), false),
+            field("zz", Schema::Int, true),
+        ]),
+    );
+    // The same pair with the two names swapped, so the refutation sorts first.
+    let refutes_first = relation(
+        &closed(vec![field("zz", opaque, false)]),
+        &closed(vec![
+            field("aa", Schema::Int, true),
+            field("zz", listed, false),
+        ]),
+    );
+
+    assert_eq!(refutes_first, Relation::Fails);
+    assert_eq!(declines_first, Relation::Fails);
+}
+
+/// A subject whose regions are exact is refuted by a bound on the other side.
+///
+/// The scalar rule decides a pair only where both region sets are known, and a
+/// container's is not: `list[int]` is a proper part of the lists, so it earns
+/// no region. A container has a *kind*, though, and a kind bounds the regions
+/// its values occupy -- so a subject whose regions are exact and reach outside
+/// that bound holds a value the supertype rejects. `¬int` is every region but
+/// two, and a list is one of them.
+///
+/// The bound is the regions a kind *admits* rather than its own, which is what
+/// keeps `bool` inside a bounded `int`: `bool` subclasses `int`, so the pair
+/// has every value it needs and refuting it would be wrong.
+#[test]
+fn a_region_outside_a_kind_bound_refutes() {
+    let not_int = Schema::complement(Schema::Int);
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+
+    // Every region but two, against a kind that is one of them.
+    assert_eq!(relation(&not_int, &listed), Relation::Fails);
+    assert_eq!(relation(&not_int, &closed(vec![])), Relation::Fails);
+    // A scalar supertype is the rule the region pair already decided, and it
+    // answers the same: this adds a reading, it does not replace one.
+    assert_eq!(relation(&not_int, &Schema::Str), Relation::Fails);
+
+    // `bool` is an `int`, so a schema whose values are integers holds every
+    // boolean. The kind's own region would refuse this pair; the regions it
+    // admits do not. A refinement is the shape that reaches the reading: it
+    // carries its base's kind and earns no region of its own.
+    let bounded = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::MultipleOf(OperandIx::new(0))].into(),
+    };
+    assert_eq!(
+        bounded.region_set(),
+        Regions::Unknown,
+        "the rule is reached"
+    );
+    assert_ne!(relation(&Schema::Bool, &bounded), Relation::Fails);
+
+    // And a subject with no exact region set has nothing to spill: a list
+    // against a class the oracle cannot read still declines, where the
+    // disjointness reading beside this one also has no answer.
+    let opaque = Schema::Instance(ClassIx::new(0));
+    assert_eq!(relation(&listed, &opaque), Relation::Unknown);
+}
+
+/// A reference under a union carries its definition's refutation.
+///
+/// A reference denotes exactly its definition, so a definition holding a value
+/// the union rejects names a value of the reference outside it. The arm for a
+/// non-union supertype reads the reduction that way, and so does the union
+/// arm: reading it for its proof alone would drop the refutation and cost every
+/// recursive schema against a scalar union a trip to the set representation.
+///
+/// The refutation cannot come from the coinductive hypothesis: a goal on the
+/// trail answers `Holds`, never `Fails`.
+#[test]
+fn a_reference_under_a_union_carries_its_refutation() {
+    // A recursive record: `{value: int, next?: <self>}`.
+    let defs = vec![closed(vec![
+        field("value", Schema::Int, true),
+        field("next", Schema::Ref(DefIx::new(0)), false),
+    ])];
+    let node = Schema::Ref(DefIx::new(0));
+    let relation = |sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        node.subtype_relation(sup, &NoLeafRelations, &defs, &budget)
+    };
+
+    // A record is no scalar, so every branch of the union rejects it.
+    assert_eq!(
+        relation(&Schema::union([Schema::Int, Schema::Str])),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(&Schema::union([Schema::Int, Schema::NoneType])),
+        Relation::Fails
+    );
+    // And the proof is unchanged where the definition lands in a branch.
+    assert_eq!(
+        relation(&Schema::union([Schema::Int, defs[0].clone()])),
+        Relation::Holds
+    );
+}
+
+/// An oracle over a fixed pool of numbers, so the integer-bound reading can be
+/// driven without an interpreter.
+///
+/// Index 0 is `0`, index 1 is `10`, index 2 is `0.5`, index 3 is infinity. The
+/// third is the bound that lies strictly between two integers and the fourth is
+/// the one no arithmetic places on the line, which is where the binding's own
+/// answer raises and becomes a decline.
+struct Numbers;
+impl Constants for Numbers {}
+
+impl Numbers {
+    const POOL: [f64; 4] = [0.0, 10.0, 0.5, f64::INFINITY];
+
+    fn value(at: OperandIx) -> Option<f64> {
+        Numbers::POOL
+            .get(at.get())
+            .copied()
+            .filter(|n| n.is_finite())
+    }
+}
+
+impl LeafRelations for Numbers {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+
+    fn compare(&self, a: OperandIx, b: OperandIx) -> Option<core::cmp::Ordering> {
+        Numbers::value(a)?.partial_cmp(&Numbers::value(b)?)
+    }
+
+    fn no_int_between(
+        &self,
+        lo: OperandIx,
+        lo_strict: bool,
+        hi: OperandIx,
+        hi_strict: bool,
+    ) -> Option<bool> {
+        let (lo, hi) = (Numbers::value(lo)?, Numbers::value(hi)?);
+        let least = if lo_strict {
+            (lo + 1.0).floor()
+        } else {
+            lo.ceil()
+        };
+        let greatest = if hi_strict {
+            (hi - 1.0).ceil()
+        } else {
+            hi.floor()
+        };
+        Some(least > greatest)
+    }
+}
+
+/// A bound over the integers is met by an integer the oracle names.
+///
+/// The question is the one the oracle already answers for emptiness -- whether
+/// an integer lies between two bounds -- read for its other answer: a `false`
+/// there is a value of the refinement. One bound is the degenerate interval on
+/// the bound itself, because the integers are unbounded the other way.
+///
+/// The refusals are the point of the row. A bound the oracle cannot place on
+/// the integer line declines rather than guessing, and so does a constraint
+/// that is not an order bound at all.
+#[test]
+fn a_bound_over_the_integers_has_a_value_where_the_oracle_names_one() {
+    let bounded = |constraints: Vec<Constraint>| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: constraints.into(),
+    };
+    let at = OperandIx::new;
+    let verdict = |schema: &Schema| schema.verdict_under(&Numbers);
+
+    assert_eq!(verdict(&bounded(Vec::new())), Verdict::Inhabited);
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(0))])),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Gt(at(0))])),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Le(at(0))])),
+        Verdict::Inhabited
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(0)), Constraint::Le(at(1))])),
+        Verdict::Inhabited
+    );
+
+    // A bound strictly between two integers has values and this cannot name
+    // one, which is the miss the question is worth having.
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(2))])),
+        Verdict::Unknown
+    );
+    // A constraint that is not an order bound narrows by something unreadable.
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::MultipleOf(at(0))])),
+        Verdict::Unknown
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Lt(at(1))])),
+        Verdict::Inhabited
+    );
+
+    // Two bounds on one side: the *tighter* is the one that decides, and
+    // keeping the looser would name a value the tighter excludes. Index 2 is
+    // the bound off the integer line, so which one is kept is visible, and the
+    // two orders are both drawn because the fold reads them one at a time.
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(0)), Constraint::Ge(at(2))])),
+        Verdict::Unknown,
+        "the tighter lower bound is the one off the line"
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(2)), Constraint::Ge(at(0))])),
+        Verdict::Unknown
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Le(at(1)), Constraint::Le(at(2))])),
+        Verdict::Unknown,
+        "the tighter upper bound is the one off the line"
+    );
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Le(at(2)), Constraint::Le(at(1))])),
+        Verdict::Unknown
+    );
+
+    // Two bounds on one side the oracle *can* order leave a value named: the
+    // tighter of the two is an integer, so the refinement has one.
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(0)), Constraint::Ge(at(1))])),
+        Verdict::Inhabited,
+        "two comparable lower bounds still name the tighter one's value"
+    );
+    // And one pair the oracle cannot order takes the answer away, even though
+    // the bound that is kept is an integer: which of the two is tighter was
+    // never settled, so naming a value under either would be a guess.
+    assert_eq!(
+        verdict(&bounded(vec![Constraint::Ge(at(0)), Constraint::Ge(at(3))])),
+        Verdict::Unknown,
+        "a comparison the oracle declines takes the value away"
+    );
+
+    // Two bounds of equal value, one strict: the strict one holds, and the
+    // interval it leaves has no integer in it -- which the emptiness half of
+    // the same fold reads as empty rather than as a value.
+    assert_eq!(
+        verdict(&bounded(vec![
+            Constraint::Ge(at(0)),
+            Constraint::Gt(at(0)),
+            Constraint::Le(at(0)),
+        ])),
+        Verdict::Empty,
+        "a strict bound beside an equal loose one is the one that holds"
+    );
+}
+
+/// The core alone neither names an integer under an order bound nor proves
+/// there is none.
+///
+/// `no_int_between` is read both ways: `Some(true)` empties an integer
+/// refinement and `Some(false)` names a value of one. `NoLeafRelations` places
+/// no operand on the integer line, and an operand it cannot read may be
+/// anything: a default of `Some(false)` names a value under `Ge(inf)`, which
+/// holds none, and one of `Some(true)` empties `Ge(0)` with `Le(10)`, which
+/// holds eleven integers. So a bounded `int` stays unknown without an oracle,
+/// on one bound or on two.
+#[test]
+fn the_core_alone_decides_no_order_bound_over_the_integers() {
+    let bounded = |constraints: Vec<Constraint>| Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: constraints.into(),
+    };
+    let at = OperandIx::new;
+
+    for constraints in [
+        vec![Constraint::Ge(at(0))],
+        vec![Constraint::Gt(at(0))],
+        vec![Constraint::Le(at(0))],
+        vec![Constraint::Lt(at(0))],
+        vec![Constraint::Gt(at(0)), Constraint::Lt(at(1))],
+        vec![Constraint::Ge(at(0)), Constraint::Le(at(1))],
+    ] {
+        assert_eq!(
+            bounded(constraints.clone()).verdict_under(&NoLeafRelations),
+            Verdict::Unknown,
+            "{constraints:?} is decided without an oracle"
+        );
+    }
+}
+
+/// A field no clause of the supertype can admit refutes the map.
+///
+/// A field the subtype declares and the supertype does not is read by the
+/// supertype through a catch-all. Where every clause whose key plainly admits
+/// a string name rejects the field's values -- and where the supertype carries
+/// no clause whose key the rules cannot read, which might have admitted it --
+/// a value of the subtype carrying that key is one the supertype rejects.
+/// Fields are independent, so such a value exists wherever the field does.
+///
+/// A closed supertype is the same reading with no clause at all: every value
+/// carrying an undeclared key is rejected.
+#[test]
+fn a_field_no_clause_admits_refutes_the_map() {
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let with_extra = closed(vec![field("extra", Schema::Int, true)]);
+
+    // A closed supertype admits no key it does not declare.
+    assert_eq!(relation(&with_extra, &closed(Vec::new())), Relation::Fails);
+    // A catch-all that rejects the field's values is the same answer.
+    let str_to_list = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: listed.clone(),
+        }]
+        .into(),
+    };
+    assert_eq!(relation(&with_extra, &str_to_list), Relation::Fails);
+    // And one that accepts them proves it.
+    let str_to_int = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: Schema::Int,
+        }]
+        .into(),
+    };
+    assert_eq!(relation(&with_extra, &str_to_int), Relation::Holds);
+
+    // A field with no value carries no key, so an *optional* one refutes
+    // nothing: every value of the subtype leaves the key out.
+    let empty_optional = closed(vec![field("extra", Schema::Nothing, false)]);
+    assert_ne!(
+        relation(&empty_optional, &closed(Vec::new())),
+        Relation::Fails
+    );
+}
+
+/// A subject proved inside a schema is outside that schema's complement.
+///
+/// `A ⊆ ¬B` is disjointness, which the rules prove or fail to prove. The
+/// opposite proof refutes it: `A ⊆ B` holding means every value of `A` is in
+/// `B`, so a value of `A` is one outside `¬B` -- and `A` having a value is
+/// what the reading around the rule settles.
+#[test]
+fn a_subject_inside_a_schema_is_outside_its_complement() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    assert_eq!(
+        relation(&Schema::Bool, &Schema::complement(Schema::Int)),
+        Relation::Fails
+    );
+    // Disjoint stays proven, which is the rule this reading is added beside.
+    assert_eq!(
+        relation(&Schema::Str, &Schema::complement(Schema::Int)),
+        Relation::Holds
+    );
+    // An empty subject is below everything, the complement included.
+    assert_eq!(
+        relation(&Schema::Nothing, &Schema::complement(Schema::Int)),
+        Relation::Holds
+    );
+}
+
+/// An oracle over two classes, so the readings about a *direct* instance can
+/// be driven without an interpreter.
+///
+/// Class 0 lays down no builtin layout, which is what a dataclass is: its
+/// direct instances are plain objects, so they have none of the kinds the
+/// partition names and no builtin derives from it. Class 1 is laid out as a
+/// string. Neither derives from the other, and neither defines a name a record
+/// here asks about.
+struct Classes;
+impl Constants for Classes {}
+
+impl Classes {
+    const PLAIN: ClassIx = ClassIx::new(0);
+    const STRINGY: ClassIx = ClassIx::new(1);
+}
+
+impl LeafRelations for Classes {
+    fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool> {
+        match (sub, sup) {
+            (Schema::Instance(a), Schema::Instance(b)) => Some(a == b),
+            // A class is not below a union of scalars, which is true of the
+            // class and says nothing about a *meet* holding it: the value that
+            // stands against the class may be one the attributes exclude.
+            (Schema::Instance(_), Schema::Union(_)) => Some(false),
+            _ => None,
+        }
+    }
+
+    fn atom_denotes_a_set(&self, atom: &Schema) -> Option<bool> {
+        matches!(atom, Schema::Instance(_)).then_some(true)
+    }
+
+    fn direct_instance_of_kind(&self, class: ClassIx, kind: Kind) -> Option<bool> {
+        Some(class == Classes::STRINGY && kind == Kind::Str)
+    }
+
+    fn kind_derives_from(&self, _kind: Kind, _class: ClassIx) -> Option<bool> {
+        Some(false)
+    }
+
+    /// Both classes leave every attribute a record here asks about free: their
+    /// instances carry a dictionary, and neither defines such a name.
+    fn attribute_reach(&self, _class: ClassIx, _name: &str) -> Option<Reach> {
+        Some(Reach::Anything)
+    }
+}
+
+// THEORY: a-class-is-what-can-be-read
+/// A class met with its attributes has a value when its fields do, and that
+/// value is what every refutation about a dataclass stands on.
+///
+/// A dataclass lowers to exactly this meet, and neither half has a region, so
+/// without a reading of its own the meet is opaque and the guard drops every
+/// refutation the rules compute about it. The value is a *direct* instance of
+/// the class carrying whatever the fields admit, which is why one class is
+/// read and a second leaves the answer to the regions.
+#[test]
+fn a_class_met_with_its_attributes_has_a_value_when_its_fields_do() {
+    let attributes = |fields: Vec<Attribute>| Schema::AttrRecord {
+        fields: fields.into(),
+    };
+    let dataclass = |class: ClassIx, fields: Vec<Attribute>| {
+        Schema::meet([Schema::Instance(class), attributes(fields)])
+    };
+
+    let plain = dataclass(Classes::PLAIN, vec![attribute("x", Schema::Int)]);
+    assert_eq!(plain.verdict_under(&Classes), Verdict::Inhabited);
+
+    // An attribute with no value empties it, as it does for the record.
+    let barren = dataclass(Classes::PLAIN, vec![attribute("x", Schema::Nothing)]);
+    assert_eq!(barren.verdict_under(&Classes), Verdict::Empty);
+
+    // Two classes need one deriving from both, which is the open world the
+    // atom rule declines; the meet stays opaque.
+    let two = Schema::meet([
+        Schema::Instance(Classes::PLAIN),
+        Schema::Instance(Classes::STRINGY),
+        attributes(vec![attribute("x", Schema::Int)]),
+    ]);
+    assert_eq!(two.verdict_under(&Classes), Verdict::Unknown);
+}
+
+/// A class met with its attributes is outside what its class is outside.
+///
+/// The witness is a direct instance of the class, so `type(v) is C` settles
+/// `isinstance(v, D)` through the order and a value of one kind through the
+/// layout. Both readings refute; neither claims.
+#[test]
+fn a_class_met_with_its_attributes_is_outside_what_its_class_is() {
+    let dataclass = |class: ClassIx| {
+        Schema::meet([
+            Schema::Instance(class),
+            Schema::AttrRecord {
+                fields: vec![attribute("x", Schema::Int)].into(),
+            },
+        ])
+    };
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &Classes, &[], &budget)
+    };
+    let plain = dataclass(Classes::PLAIN);
+
+    // Against a class it does not derive from.
+    assert_eq!(
+        relation(&plain, &Schema::Instance(Classes::STRINGY)),
+        Relation::Fails
+    );
+    // Against a supertype every value of which has one kind.
+    assert_eq!(
+        relation(&plain, &Schema::list(SeqShape::homogeneous(Schema::Int))),
+        Relation::Fails
+    );
+    assert_eq!(relation(&plain, &Schema::Str), Relation::Fails);
+    // And its own class is the one it is below.
+    assert_eq!(
+        relation(&plain, &Schema::Instance(Classes::PLAIN)),
+        Relation::Holds
+    );
+    // A class laid out as the kind is not refuted against it.
+    assert_ne!(
+        relation(&dataclass(Classes::STRINGY), &Schema::Str),
+        Relation::Fails
+    );
+
+    // The dual: a kind whose builtin derives from no such class.
+    assert_eq!(
+        relation(&Schema::Str, &Schema::Instance(Classes::PLAIN)),
+        Relation::Fails
+    );
+
+    // A union is read branch by branch, because the witness is one value and
+    // it is the same value in every branch: a direct instance of a class
+    // laying down no layout has neither kind, so it is in neither branch and
+    // so outside the union.
+    assert_eq!(
+        relation(&plain, &Schema::union([Schema::Int, Schema::Str])),
+        Relation::Fails
+    );
+    // A branch with no kind of its own ends it: the witness may be in that
+    // branch for all this reads, so the union says nothing.
+    assert_ne!(
+        relation(
+            &plain,
+            &Schema::union([Schema::Int, Schema::Instance(Classes::STRINGY)])
+        ),
+        Relation::Fails
+    );
+
+    // What the class's own refutation does *not* carry. The oracle refutes the
+    // class against a union of scalars through `leaf_subtype`, and the meet is
+    // a smaller set: the value that reading stands on may be one the
+    // attributes exclude. That arm is asked only of a supertype that is a
+    // class, which is why the union above is decided by the kinds instead.
+    assert_ne!(
+        relation(
+            &dataclass(Classes::STRINGY),
+            &Schema::union([Schema::Int, Schema::Str])
+        ),
+        Relation::Fails
+    );
+}
+
+/// The two-class oracle, with every attribute of a direct instance answering
+/// one [`Reach`]: the class questions as [`Classes`] answers them, and the one
+/// question about what the direct instance carries set by the row.
+struct Carrying(Reach);
+impl Constants for Carrying {}
+
+impl LeafRelations for Carrying {
+    fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool> {
+        Classes.leaf_subtype(sub, sup)
+    }
+
+    fn atom_denotes_a_set(&self, atom: &Schema) -> Option<bool> {
+        Classes.atom_denotes_a_set(atom)
+    }
+
+    fn direct_instance_of_kind(&self, class: ClassIx, kind: Kind) -> Option<bool> {
+        Classes.direct_instance_of_kind(class, kind)
+    }
+
+    fn kind_derives_from(&self, kind: Kind, class: ClassIx) -> Option<bool> {
+        Classes.kind_derives_from(kind, class)
+    }
+
+    fn attribute_reach(&self, _class: ClassIx, _name: &str) -> Option<Reach> {
+        Some(self.0)
+    }
+}
+
+/// A class met with a record is read as holding a direct instance that
+/// carries the record, and only where the class leaves room for one.
+///
+/// The value every reading of the meet stands on is a direct instance with a
+/// witness in each attribute. Where the class rules it out -- no dictionary to
+/// hold the attribute, or code answering for it -- the meet is unknown, and the
+/// witness guard turns the kind refutation the rule makes into a decline. Where
+/// the class allows the witness, the reading is the one the plain class gets.
+#[test]
+fn a_class_that_leaves_no_room_for_a_field_is_not_read_as_carrying_it() {
+    let met = |schema: Schema| {
+        Schema::meet([
+            Schema::Instance(Classes::PLAIN),
+            Schema::AttrRecord {
+                fields: vec![attribute("x", schema)].into(),
+            },
+        ])
+    };
+    let relation = |sub: &Schema, oracle: &Carrying| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(&Schema::Str, oracle, &[], &budget)
+    };
+    let holds_an_int = met(Schema::Int);
+
+    // Never there: a direct instance cannot carry the attribute.
+    let never = Carrying(Reach::Missing);
+    assert_eq!(holds_an_int.verdict_under(&never), Verdict::Unknown);
+    assert_eq!(relation(&holds_an_int, &never), Relation::Unknown);
+
+    // Defined on the class: any value, and never missing.
+    let defined = Carrying(Reach::AnyValue);
+    assert_eq!(holds_an_int.verdict_under(&defined), Verdict::Inhabited);
+    assert_eq!(relation(&holds_an_int, &defined), Relation::Fails);
+
+    // Code's answer: nothing is assumed of the direct instance.
+    let unread = Carrying(Reach::Unread);
+    assert_eq!(holds_an_int.verdict_under(&unread), Verdict::Unknown);
+    assert_eq!(relation(&holds_an_int, &unread), Relation::Unknown);
+
+    // Free: the reading the plain class gets, refutation included.
+    let free = Carrying(Reach::Anything);
+    assert_eq!(holds_an_int.verdict_under(&free), Verdict::Inhabited);
+    assert_eq!(relation(&holds_an_int, &free), Relation::Fails);
+
+    // And an attribute nothing satisfies empties the meet whatever the class
+    // says.
+    let barren = met(Schema::Nothing);
+    assert_eq!(barren.verdict_under(&never), Verdict::Empty);
+}
+
+/// An oracle that declines the class questions leaves the meet undecided.
+///
+/// The two readings above rest on answers about a *direct* instance, and the
+/// defaults decline so a core with no oracle keeps every class conservative. A
+/// default that answered would refute every class the bindings cannot read,
+/// which is the direction that would be unsound.
+#[test]
+fn a_meet_whose_class_the_oracle_declines_is_not_refuted() {
+    let plain = Schema::meet([
+        Schema::Instance(ClassIx::new(0)),
+        Schema::AttrRecord {
+            fields: vec![attribute("x", Schema::Int)].into(),
+        },
+    ]);
+    // `Pure` answers that the class denotes a set -- so the meet has a value
+    // and the guard believes what the rules report -- and declines every
+    // question about which kinds that value has.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(plain.verdict_under(&Pure), Verdict::Inhabited);
+    assert_eq!(
+        plain.subtype_relation(&Schema::Str, &Pure, &[], &budget),
+        Relation::Unknown
+    );
+}
+
+/// A lookup after the cursor has given up still finds its own field.
+///
+/// Once a lookup has missed and the order has been read as "not sorted", every
+/// later lookup on either cursor takes a scan. That scan is a second way to
+/// answer the same question, and a permutation law does not always reach it:
+/// it needs a miss with lookups still to come after it, which is a query list
+/// out of order and long enough.
+///
+/// The supertype's names run `z`, `a`, `b`. The cursor finds `z`, walks off the
+/// end looking for `a` and misses, and the two lookups after that are the ones
+/// the scan answers.
+#[test]
+fn a_lookup_after_the_cursor_gives_up_finds_its_own_field() {
+    let unordered = |fields: Vec<Field>| Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: Vec::new().into(),
+    };
+    // The fields differ in type, so a scan that returned the wrong one would
+    // compare `a`'s integer against `b`'s string and refute the pair.
+    let subject = unordered(vec![
+        field("a", Schema::Int, true),
+        field("b", Schema::Str, true),
+        field("z", Schema::Int, true),
+    ]);
+    let supertype = unordered(vec![
+        field("z", Schema::Int, true),
+        field("a", Schema::Int, true),
+        field("b", Schema::Str, true),
+    ]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(&supertype, &NoLeafRelations, &[], &budget),
+        Relation::Holds
+    );
+}
+
+/// Every spelling of one record decides as every other, whatever the order.
+///
+/// The cursor over a field list moves forward only, and it reads whether the
+/// two lists are in name order *lazily* -- on the first lookup that finds
+/// nothing, because that is the only answer the order can change. A lookup
+/// that finds a field is right whatever the order: names are unique and the
+/// walk stops on an equal name, so it cannot stop on the wrong one.
+///
+/// That argument is worth more than a row of examples, so this draws every
+/// permutation of a small record's fields against every permutation of
+/// another's and asks that all of them answer alike. A list the constructor
+/// built is in order; `KeyedMap` is a public variant and one built by hand is
+/// not, which is the case the lazy reading has to survive.
+#[test]
+fn every_order_of_one_record_decides_as_every_other() {
+    fn permutations(fields: &[Field]) -> Vec<Vec<Field>> {
+        if fields.len() <= 1 {
+            return vec![fields.to_vec()];
+        }
+        let mut out = Vec::new();
+        for (at, field) in fields.iter().enumerate() {
+            let mut rest = fields.to_vec();
+            rest.remove(at);
+            for mut tail in permutations(&rest) {
+                tail.insert(0, field.clone());
+                out.push(tail);
+            }
+        }
+        out
+    }
+
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let left = vec![
+        field("a", Schema::Int, true),
+        field("b", listed.clone(), false),
+        field("c", Schema::Str, true),
+        field("d", Schema::Int, false),
+    ];
+    let right = vec![
+        field("a", Schema::Int, false),
+        field("b", Schema::Int, true),
+        field("d", listed, true),
+    ];
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let record = |fields: Vec<Field>, open: bool| Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: if open {
+            vec![MapClause {
+                key: Schema::Str,
+                value: Schema::Int,
+            }]
+        } else {
+            Vec::new()
+        }
+        .into(),
+    };
+
+    for open in [false, true] {
+        // The spelling the constructor would build, which is the answer the
+        // permutations below are held to.
+        let mut ordered_left = left.clone();
+        ordered_left.sort_by(|one, two| one.name.cmp(&two.name));
+        let mut ordered_right = right.clone();
+        ordered_right.sort_by(|one, two| one.name.cmp(&two.name));
+        let forward = relation(
+            &record(ordered_left.clone(), open),
+            &record(ordered_right.clone(), open),
+        );
+        let backward = relation(&record(ordered_right, open), &record(ordered_left, open));
+
+        for one in permutations(&left) {
+            for two in permutations(&right) {
+                let (a, b) = (record(one.clone(), open), record(two, open));
+                assert_eq!(relation(&a, &b), forward, "{a:?} <= {b:?}");
+                assert_eq!(relation(&b, &a), backward, "{b:?} <= {a:?}");
+            }
+        }
+    }
+}
+
+/// A field list a caller built out of order is read by a scan, not a cursor.
+///
+/// The cursor over one field list moves forward only, so it answers correctly
+/// exactly when both lists are in name order: the list it indexes, and the list
+/// whose names it is asked for. A query out of order would look past a field
+/// sitting behind the cursor and report the list does not carry it. `KeyedMap`
+/// is a public variant, so a list built by hand may be in any order at all.
+#[test]
+fn a_record_built_out_of_order_decides_as_one_in_order() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let unordered = |fields: Vec<Field>| Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: Vec::new().into(),
+    };
+
+    // The subject is in order; the supertype's names descend, so a cursor over
+    // the subject would be asked for `b` after `z` and answer that it has none.
+    let subject = unordered(vec![
+        field("a", Schema::Int, true),
+        field("b", Schema::Int, true),
+        field("z", Schema::Int, true),
+    ]);
+    let descending = unordered(vec![
+        field("z", Schema::Int, true),
+        field("b", Schema::Int, true),
+        field("a", Schema::Int, true),
+    ]);
+    assert_eq!(relation(&subject, &descending), Relation::Holds);
+    assert_eq!(relation(&descending, &subject), Relation::Holds);
+
+    // And the same pair where one field does not narrow: still refuted, in
+    // either order, because the answer is about the fields and not the walk.
+    let wider = unordered(vec![
+        field("z", Schema::Int, true),
+        field("b", Schema::list(SeqShape::homogeneous(Schema::Int)), true),
+        field("a", Schema::Int, true),
+    ]);
+    assert_ne!(relation(&subject, &wider), Relation::Holds);
+}
+
+/// A clause whose key the rules cannot read might admit the name.
+///
+/// A field the subtype declares and the supertype does not is refuted when
+/// every clause whose key holds every string rejects it, and every other
+/// clause holds none. A clause keyed by something between -- a literal, a
+/// union carrying one, a refinement -- may admit the name or may not, and the
+/// rules do not ask. Such a supertype gets a proof or nothing, never a
+/// refutation.
+#[test]
+fn a_clause_key_the_rules_cannot_read_leaves_the_field_unproven() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let mapping = |key: Schema, value: Schema| Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause { key, value }].into(),
+    };
+    let with_extra = closed(vec![field("extra", Schema::Int, true)]);
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+
+    // A readable key that rejects the field refutes.
+    assert_eq!(
+        relation(&with_extra, &mapping(Schema::Str, listed.clone())),
+        Relation::Fails
+    );
+    // The same clause under a key the rules do not read declines instead: the
+    // literal may or may not be the name, so the clause may govern no key of
+    // the subject at all.
+    assert_eq!(
+        relation(
+            &with_extra,
+            &mapping(
+                Schema::union([Schema::Literal(ConstIx::new(0)), Schema::Int]),
+                listed
+            )
+        ),
+        Relation::Unknown
+    );
+}
+
+/// A clause reads a field by whether its key holds every string or none.
+///
+/// The extra-field rule asks which of the supertype's clauses read the field's
+/// name. A key holding every string -- `str`, `anything`, a union with `str`
+/// in it, the complement of a kind that is not `str` -- reads it; a key
+/// holding no string -- another kind, the `complement(str)` that `open`
+/// writes on a mapping -- never does, and a literal reads its exact constant
+/// alone, so the witness's key is a `str` subclass's instance equal to the
+/// name. Only a key the rules cannot place leaves the field undecided. Asked of
+/// the rules alone.
+#[test]
+fn a_clause_reads_a_field_by_whether_its_key_holds_every_string_or_none() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let not_str = Schema::Complement(Arc::new(Schema::Str));
+    let clauses = |pairs: Vec<(Schema, Schema)>| Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: pairs
+            .into_iter()
+            .map(|(key, value)| MapClause { key, value })
+            .collect::<Vec<_>>()
+            .into(),
+    };
+    let with_str = closed(vec![field("a", Schema::Str, true)]);
+    let with_int = closed(vec![field("extra", Schema::Int, true)]);
+    let listed = Schema::list(SeqShape::homogeneous(Schema::Int));
+
+    // `{"a": str}` against `{str: int}.open()`: the complement reads no name,
+    // so `str: int` alone does, and `{"a": ""}` is outside.
+    assert_eq!(
+        relation(
+            &with_str,
+            &clauses(vec![
+                (Schema::Str, Schema::Int),
+                (not_str.clone(), Schema::ANYTHING)
+            ])
+        ),
+        Relation::Fails
+    );
+    // The same supertype with a clause that takes the field proves it.
+    assert_eq!(
+        relation(
+            &with_str,
+            &clauses(vec![
+                (Schema::Str, Schema::Str),
+                (not_str.clone(), Schema::ANYTHING)
+            ])
+        ),
+        Relation::Holds
+    );
+    // A union holding every string reads the name, so its value answers.
+    assert_eq!(
+        relation(
+            &with_int,
+            &clauses(vec![(Schema::union([Schema::Str, Schema::Int]), listed)])
+        ),
+        Relation::Fails
+    );
+    // Two clauses that read the name cover `int | str` between them, so
+    // refuting each in turn names no value: `{"f": int | str}` is below
+    // `{str: int, Any: str}`, and the rules decline rather than refute.
+    assert_eq!(
+        relation(
+            &closed(vec![field(
+                "f",
+                Schema::union([Schema::Int, Schema::Str]),
+                true
+            )]),
+            &clauses(vec![
+                (Schema::Str, Schema::Int),
+                (Schema::ANYTHING, Schema::Str)
+            ])
+        ),
+        Relation::Unknown
+    );
+    // A literal reads its exact constant alone, so beside one the witness
+    // takes a `str` subclass's `"a"` as its key, which the field reads and the
+    // literal does not: `str: int` reads it, and refutes.
+    assert_eq!(
+        relation(
+            &with_str,
+            &clauses(vec![
+                (Schema::Str, Schema::Int),
+                (Schema::Literal(ConstIx::new(0)), Schema::ANYTHING)
+            ])
+        ),
+        Relation::Fails
+    );
+    // A key the rules cannot place leaves the field to a proof or nothing.
+    assert_eq!(
+        relation(
+            &with_str,
+            &clauses(vec![
+                (Schema::Str, Schema::Int),
+                (Schema::Instance(ClassIx::new(0)), Schema::ANYTHING)
+            ])
+        ),
+        Relation::Unknown
+    );
+}
+
+/// A nested map is refuted by its values at any depth, as a list is by its
+/// elements.
+///
+/// The value a clause gives a key is asked against the one clause of the
+/// supertype that reads it, which is a goal the subsumption search has asked
+/// already. Asked twice it doubles at every level, so the budget ran out at
+/// twenty `dict[str, ...]` deep on a refutation one reading names; asked once
+/// the pair costs a step a level and refutes at forty.
+#[test]
+fn a_nested_map_is_refuted_by_its_values_at_any_depth() {
+    let nest = |leaf: Schema, depth: usize| {
+        (0..depth).fold(leaf, |inner, _| {
+            Schema::mapping(MapClause {
+                key: Schema::Str,
+                value: inner,
+            })
+        })
+    };
+    for depth in [1, 5, 20, 40] {
+        let budget = Budget::new(DECISION_BUDGET);
+        assert_eq!(
+            nest(Schema::Int, depth).subtype_relation(
+                &nest(Schema::Str, depth),
+                &NoLeafRelations,
+                &[],
+                &budget
+            ),
+            Relation::Fails,
+            "{depth} deep"
+        );
+    }
+}
+
+/// What a key schema holds of a kind, constructor by constructor.
+///
+/// Every value of the kind, or none of it: the two readings the clause rules
+/// choose a witness key by, and duals through a complement. Each row is one
+/// arm of one of the two, so a mutation of an arm is a row that fails. `false`
+/// is "not seen" in both, never the opposite claim, so the rows that read
+/// `false` on a set that does hold the kind -- `Literal[True, False]`, a
+/// refinement -- are the incompleteness the readings declare.
+#[test]
+fn the_kind_readings_of_a_key_schema() {
+    let every = |schema: &Schema, kind: Kind| schema.holds_every_value_of(kind, &Kinded);
+    let none = |schema: &Schema, kind: Kind| schema.holds_no_value_of(kind, &Kinded);
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let any_tuple = Schema::tuple(SeqShape::homogeneous(Schema::ANYTHING));
+    let int_tuple = Schema::tuple(SeqShape::homogeneous(Schema::Int));
+    let fixed_tuple = Schema::tuple(SeqShape::fixed([Schema::ANYTHING]));
+    let any_list = Schema::list(SeqShape::homogeneous(Schema::ANYTHING));
+    let any_frozenset = Schema::frozen_set(Schema::ANYTHING);
+    let int_frozenset = Schema::frozen_set(Schema::Int);
+    let any_set = Schema::set(Schema::ANYTHING);
+
+    // The top holds every value of every kind; the bottom none.
+    for kind in Kind::ALL {
+        assert!(every(&Schema::ANYTHING, kind) && !none(&Schema::ANYTHING, kind));
+        assert!(!every(&Schema::Nothing, kind) && none(&Schema::Nothing, kind));
+    }
+    // A scalar atom holds its own kind, and `int` holds the booleans too.
+    for (atom, kind) in [
+        (Schema::NoneType, Kind::NoneType),
+        (Schema::Bool, Kind::Bool),
+        (Schema::Int, Kind::Int),
+        (Schema::Float, Kind::Float),
+        (Schema::Str, Kind::Str),
+        (Schema::Bytes, Kind::Bytes),
+    ] {
+        for other in Kind::ALL {
+            let held = other == kind || (atom == Schema::Int && other == Kind::Bool);
+            assert_eq!(every(&atom, other), held, "{atom:?} every {other:?}");
+            assert_eq!(
+                none(&atom, other),
+                !kind.shares_values_with(other),
+                "{atom:?} none {other:?}"
+            );
+        }
+    }
+    // A container holds its kind whole only as the top shape of it.
+    assert!(every(&any_tuple, Kind::Tuple));
+    assert!(!every(&int_tuple, Kind::Tuple) && !every(&fixed_tuple, Kind::Tuple));
+    assert!(!every(&any_list, Kind::Tuple) && !every(&any_tuple, Kind::List));
+    assert!(every(&any_frozenset, Kind::FrozenSet));
+    assert!(!every(&int_frozenset, Kind::FrozenSet) && !every(&any_set, Kind::FrozenSet));
+    assert!(!every(&any_frozenset, Kind::Set));
+    assert!(none(&any_tuple, Kind::Str) && !none(&int_tuple, Kind::Tuple));
+    // The connectives, and the complement turning one reading into the other.
+    let int_or_str = Schema::union([Schema::Int, Schema::Str]);
+    assert!(every(&int_or_str, Kind::Str) && every(&int_or_str, Kind::Int));
+    assert!(!none(&int_or_str, Kind::Str) && none(&int_or_str, Kind::Bytes));
+    let meet = Schema::Intersection([Schema::Str, not(Schema::Int)].into());
+    assert!(every(&meet, Kind::Str) && !every(&meet, Kind::Int));
+    assert!(none(&meet, Kind::Int) && !none(&meet, Kind::Str));
+    assert!(every(&not(Schema::Str), Kind::Int) && !every(&not(Schema::Str), Kind::Str));
+    assert!(none(&not(Schema::Str), Kind::Str) && !none(&not(Schema::Str), Kind::Int));
+    // `bool` shares the integers, so `~bool` is not seen to hold them.
+    assert!(!every(&not(Schema::Bool), Kind::Int));
+    // A refinement is read through its base for exclusion, and never as whole.
+    let short = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::MaxLen(1)].into(),
+    };
+    assert!(!every(&short, Kind::Str) && none(&short, Kind::Int) && !none(&short, Kind::Str));
+    let refined_complement = Schema::Refine {
+        base: Arc::new(not(Schema::Str)),
+        constraints: vec![Constraint::MaxLen(1)].into(),
+    };
+    assert!(none(&refined_complement, Kind::Str));
+    // A literal is read by its kind through the oracle, and never as whole.
+    let literal_str = Schema::Literal(ConstIx::new(1));
+    assert!(!every(&literal_str, Kind::Str) && none(&literal_str, Kind::Int));
+    assert!(!none(&literal_str, Kind::Str));
+    assert!(!none(&Schema::Literal(ConstIx::new(9)), Kind::Int));
+    // A class is read by its layout, where the oracle has one.
+    let list_class = Schema::Instance(ClassIx::new(0));
+    let open_class = Schema::Instance(ClassIx::new(1));
+    assert!(none(&list_class, Kind::Str) && !every(&list_class, Kind::List));
+    assert!(!none(&list_class, Kind::List) && !none(&open_class, Kind::Str));
+}
+
+/// A clause that holds no string answers for no optional field of the
+/// supertype.
+///
+/// A subject's clause can put a key the subject does not declare into a
+/// value, and an optional field of the supertype reads that key only if the
+/// clause can spell its name. `complement(str)` cannot, so `{~str: int}`
+/// carries no `"a"` and is below `{"a"?: str, ~str: int}` whatever `"a"` maps
+/// to.
+#[test]
+fn a_clause_holding_no_string_answers_for_no_optional_field() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let not_str = Schema::Complement(Arc::new(Schema::Str));
+    let subject = Schema::mapping(MapClause {
+        key: not_str.clone(),
+        value: Schema::Int,
+    });
+    let supertype = Schema::keyed_map_within(
+        vec![field("a", Schema::Str, false)],
+        vec![MapClause {
+            key: not_str,
+            value: Schema::Int,
+        }]
+        .into(),
+    );
+    assert_eq!(relation(&subject, &supertype), Relation::Holds);
+}
+
+/// The rules' answer alone, under the oracle that kinds the pool's constants.
+fn clause_rule_answer(sub: &Schema, sup: &Schema) -> Relation {
+    let budget = Budget::new(DECISION_BUDGET);
+    sub.subtype_relation(sup, &Kinded, &[], &budget)
+}
+
+/// A map of clauses and no fields.
+fn clauses(pairs: Vec<(Schema, Schema)>) -> Schema {
+    Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: pairs
+            .into_iter()
+            .map(|(key, value)| MapClause { key, value })
+            .collect::<Vec<_>>()
+            .into(),
+    }
+}
+
+/// A subject's clause is refuted by a key it admits that the supertype reads
+/// one way only, a key kind at a time [Cas23, Lem. 4.7].
+///
+/// Each row names the dict it stands on. Asked of the rules alone.
+#[test]
+fn a_clause_is_refuted_by_a_key_the_supertype_reads_one_way() {
+    let relation = clause_rule_answer;
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let str_to_int = clauses(vec![(Schema::Str, Schema::Int)]);
+    let any_tuple = Schema::tuple(SeqShape::homogeneous(Schema::ANYTHING));
+    let any_frozenset = Schema::frozen_set(Schema::ANYTHING);
+    let int_or_str = Schema::union([Schema::Int, Schema::Str]);
+
+    // No clause reads the key: `{7: "x"}`, `{(): 1}`, `{frozenset(): 1}`.
+    for (subject, witness) in [
+        (
+            clauses(vec![
+                (Schema::Str, Schema::Int),
+                (not(Schema::Str), Schema::ANYTHING),
+            ]),
+            "{7: 'x'}",
+        ),
+        (
+            clauses(vec![(Schema::ANYTHING, Schema::ANYTHING)]),
+            "{None: None}",
+        ),
+        (clauses(vec![(any_tuple, Schema::Int)]), "{(): 1}"),
+        (
+            clauses(vec![(any_frozenset, Schema::Int)]),
+            "{frozenset(): 1}",
+        ),
+    ] {
+        assert_eq!(
+            relation(&subject, &str_to_int),
+            Relation::Fails,
+            "{witness}"
+        );
+    }
+    // One clause reads it, and forbids a value the subject allows.
+    assert_eq!(
+        relation(
+            &clauses(vec![(not(Schema::Str), Schema::Int)]),
+            &clauses(vec![(not(Schema::Str), Schema::Str)])
+        ),
+        Relation::Fails,
+        "{{7: 1}}"
+    );
+    assert_eq!(
+        relation(
+            &clauses(vec![(not(Schema::Int), int_or_str.clone())]),
+            &clauses(vec![(not(Schema::Int), Schema::Str)])
+        ),
+        Relation::Fails,
+        "{{'fresh': 1}}"
+    );
+    // A `str` key is a name no field of either map takes.
+    assert_eq!(
+        relation(
+            &Schema::keyed_map_within(
+                vec![field("next", Schema::NoneType, true)],
+                vec![MapClause {
+                    key: Schema::Str,
+                    value: Schema::ANYTHING,
+                }]
+                .into(),
+            ),
+            &closed(vec![field("next", Schema::NoneType, true)])
+        ),
+        Relation::Fails,
+        "{{'next': None, 'fresh': 1}}"
+    );
+}
+
+/// The pairs the clause rule must not refute.
+///
+/// Either the pair holds -- a key type with no hashable value admits only
+/// `{}` -- or a refutation would need a reading the rule does not make: a key
+/// read by two clauses, or by one that holds part of its kind, or a key read
+/// off a constant rather than a kind. Asked of the rules alone.
+#[test]
+fn a_clause_is_not_refuted_where_no_key_is_read_one_way() {
+    let relation = clause_rule_answer;
+    let str_to_int = clauses(vec![(Schema::Str, Schema::Int)]);
+    let int_or_str = Schema::union([Schema::Int, Schema::Str]);
+    // Pairs the rule must not refute. A tuple holding a list and a list are
+    // never keys, so those subjects admit `{}` alone and are below every map;
+    // a class is read by its instances, which may be unhashable, so it is
+    // never read as a kind.
+    for subject in [
+        clauses(vec![(
+            Schema::tuple(SeqShape::fixed([Schema::list(SeqShape::homogeneous(
+                Schema::Int,
+            ))])),
+            Schema::Int,
+        )]),
+        clauses(vec![(
+            Schema::list(SeqShape::homogeneous(Schema::ANYTHING)),
+            Schema::Int,
+        )]),
+        clauses(vec![(Schema::Instance(ClassIx::new(0)), Schema::Int)]),
+    ] {
+        assert_ne!(
+            relation(&subject, &str_to_int),
+            Relation::Fails,
+            "{subject:?}"
+        );
+    }
+    // A string literal names one string, which may be a field name of the
+    // supertype -- `{Literal["a"]: int}` is below `{"a"?: int}` -- so a key
+    // read off its value and not its kind declines, whichever string it is.
+    assert_eq!(
+        relation(
+            &clauses(vec![(Schema::Literal(ConstIx::new(1)), Schema::Int)]),
+            &Schema::keyed_map_within(vec![field("a", Schema::Int, false)], Vec::new().into())
+        ),
+        Relation::Unknown
+    );
+    // Two clauses read every key: each refutes on a value of its own.
+    assert_eq!(
+        relation(
+            &clauses(vec![(Schema::ANYTHING, int_or_str)]),
+            &clauses(vec![
+                (Schema::ANYTHING, Schema::Int),
+                (Schema::ANYTHING, Schema::Str)
+            ])
+        ),
+        Relation::Unknown
+    );
+    // `bool` holds part of the integers, so no integer kind is read one way.
+    assert_eq!(
+        relation(
+            &clauses(vec![(Schema::Int, Schema::Str)]),
+            &clauses(vec![(Schema::Bool, Schema::Str)])
+        ),
+        Relation::Unknown
+    );
+    // A value type with no value puts no entry in a dict.
+    assert_ne!(
+        relation(
+            &clauses(vec![(Schema::Str, Schema::Nothing)]),
+            &closed(Vec::new())
+        ),
+        Relation::Fails
+    );
+}
+
+/// A meet with an empty member is empty, whatever the meet is made of.
+///
+/// The class-and-attributes reading answers from its members' verdicts, and
+/// that is one shape; every other meet reads its regions, which say nothing
+/// for two opaque halves. An empty member has to empty the meet on its own,
+/// or a meet of a record with an unfillable field and anything at all would
+/// be reported to hold a value.
+#[test]
+fn a_meet_with_an_empty_member_is_empty() {
+    let barren = closed(vec![field("x", Schema::Nothing, true)]);
+    assert!(barren.verdict_under(&Pure) == Verdict::Empty, "the member");
+
+    let met = Schema::meet([Schema::Instance(ClassIx::new(0)), barren]);
+    assert_eq!(met.verdict_under(&Pure), Verdict::Empty);
+}
+
+/// An oracle over constants that each denote one value, distinct from the
+/// others -- the shape a pool of small integers has.
+struct Distinct;
+impl Constants for Distinct {}
+
+impl LeafRelations for Distinct {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+
+    fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
+        Some(!left.iter().any(|one| right.contains(one)))
+    }
+
+    // Every constant here denotes one value, so a constant shares one with
+    // itself and with no other. The refutation needs it: a literal has a value
+    // only where the bindings say the constant does.
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(left != right)
+    }
+}
+
+/// A single literal is a set of one constant.
+///
+/// The literal-table rule reads both sides as sets of constants, and a bare
+/// `Literal` is the one-element case -- which is what decides it against a
+/// table, in one comparison rather than through the general member walk.
+#[test]
+fn a_single_literal_is_a_table_of_one() {
+    let table = Schema::union([
+        Schema::Literal(ConstIx::new(0)),
+        Schema::Literal(ConstIx::new(1)),
+        Schema::Literal(ConstIx::new(2)),
+    ]);
+    let one = Schema::Literal(ConstIx::new(1));
+    let outside = Schema::Literal(ConstIx::new(9));
+
+    assert!(structural(&one, &table));
+    assert!(!structural(&outside, &table));
+
+    // And the rule *refutes* the constant the table does not carry, which is
+    // what reading a bare literal as a one-element table is for: the member
+    // walk beside it only ever proves.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        outside.subtype_relation(&table, &Distinct, &[], &budget),
+        Relation::Fails
+    );
+}
+
+/// Two fixed lengths that differ share no value.
+///
+/// A sequence with no repeated tail admits exactly one length, so two such
+/// shapes of different lengths are disjoint and the pair is refuted by the
+/// arity alone -- before any element is compared.
+#[test]
+fn two_fixed_lengths_that_differ_are_refuted() {
+    let fixed = |elements: Vec<Schema>| Schema::tuple(SeqShape::fixed(elements));
+    let pair = fixed(vec![Schema::Int, Schema::Int]);
+    let single = fixed(vec![Schema::Int]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        pair.subtype_relation(&single, &NoLeafRelations, &[], &budget),
+        Relation::Fails
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        single.subtype_relation(&pair, &NoLeafRelations, &[], &budget),
+        Relation::Fails
+    );
+}
+
+/// A refinement pair the constraint rule cannot prove is read on, not dropped.
+///
+/// [`refinement_subtype`] only ever proves: it reduces to `Relation::proven`,
+/// which is `Holds` or `Unknown` and never `Fails`. An arm returning it
+/// directly would make a refinement on *both* sides the one pair kept from the
+/// reading every other pair reaches -- a refinement against a non-refinement
+/// already gets it, and that reading has a branch written for a refinement
+/// supertype.
+///
+/// What it finds here is disjointness, which is the one refutation that
+/// survives narrowing on both sides: a subset of the lists shares no value
+/// with a subset of the strings, whatever either constraint says. The
+/// refutation still stands on a value of the subject, so a subject carrying a
+/// predicate -- which nothing can prove inhabited -- keeps its `Unknown`.
+#[test]
+fn a_refinement_pair_with_disjoint_bases_is_refuted_by_the_rules() {
+    let refined = |base: Schema, constraint: Constraint| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![constraint].into(),
+    };
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let ints = Schema::list(SeqShape::homogeneous(Schema::Int));
+    let long = refined(ints.clone(), Constraint::MinLen(2));
+    let text = refined(Schema::Str, Constraint::MinLen(1));
+
+    assert_eq!(relation(&long, &text), Relation::Fails);
+    assert_eq!(relation(&text, &long), Relation::Fails);
+
+    // A predicate is the constraint no reading can see through, so the
+    // subject is never proven to hold a value and the guard drops the
+    // refutation -- while the same pair the other way round keeps it.
+    let opaque = refined(ints.clone(), Constraint::Predicate(PredIx::new(0)));
+    assert_eq!(relation(&opaque, &text), Relation::Unknown);
+    assert_eq!(relation(&text, &opaque), Relation::Fails);
+
+    // The constraint rule still decides the pairs it can: it is asked first,
+    // and only a pair it leaves unproven reaches the reading above.
+    let longer = refined(ints, Constraint::MinLen(3));
+    assert_eq!(relation(&longer, &long), Relation::Holds);
+}
+
+/// Two sequences of one container meet in the sequences of their elements' meet.
+///
+/// `a* ∩ b* = (a ∩ b)*`, reading a homogeneous sequence as a regular
+/// expression type over its element [HVP05, §2.4]. Where the elements
+/// share no value that is `∅*`, which is not empty -- it holds the empty
+/// sequence, and so do both sides. So disjointness needs one more thing than
+/// disjoint elements: something that rules the empty sequence out.
+///
+/// A length bound is that thing, and a prefix is too, since the prefix is what
+/// every value of the shape begins with. A shape carrying a prefix is also the
+/// one this reading does not apply to element-wise, which is why the star is
+/// read off the tail of a prefix-free shape alone.
+#[test]
+fn sequences_whose_elements_are_disjoint_meet_only_in_the_empty_one() {
+    let list = |element| Schema::list(SeqShape::homogeneous(element));
+    let set = |element| Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(element),
+    };
+    let at_least = |base: Schema, least: usize| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![Constraint::MinLen(least)].into(),
+    };
+    let meet = |a: Schema, b: Schema| Schema::Intersection(vec![a, b].into());
+
+    // The empty list belongs to both, so the pair is not disjoint.
+    assert!(!empty_by_the_rules(&meet(
+        list(Schema::Int),
+        list(Schema::Str)
+    )));
+    assert!(!empty_by_the_rules(&meet(
+        set(Schema::Int),
+        set(Schema::Str)
+    )));
+
+    // A bound that rules it out leaves nothing, on either side of the meet.
+    assert!(empty_by_the_rules(&meet(
+        at_least(list(Schema::Int), 1),
+        list(Schema::Str)
+    )));
+    assert!(empty_by_the_rules(&meet(
+        list(Schema::Str),
+        at_least(list(Schema::Int), 1)
+    )));
+    assert!(empty_by_the_rules(&meet(
+        at_least(set(Schema::Int), 1),
+        set(Schema::Str)
+    )));
+
+    // A bound of zero rules nothing out, and elements that share a value are
+    // not separated however long the sequences are.
+    assert!(!empty_by_the_rules(&meet(
+        at_least(list(Schema::Int), 0),
+        list(Schema::Str)
+    )));
+    assert!(!empty_by_the_rules(&meet(
+        at_least(list(Schema::Int), 2),
+        list(Schema::Int)
+    )));
+
+    // Two containers of different kinds are already disjoint by their kinds;
+    // this reading is asked only where the kinds agree.
+    assert!(empty_by_the_rules(&meet(
+        at_least(list(Schema::Int), 1),
+        set(Schema::Int)
+    )));
+
+    // A shape with a prefix is not a star, and reading its tail as though it
+    // were would claim a disjointness the prefix denies: every value of this
+    // one begins with an integer, so `[5]` is in it and in `list[int]` both,
+    // however far its tail is from the other's element.
+    let prefixed = Schema::list(SeqShape::prefix_tail([Schema::Int], Schema::Str));
+    assert!(!empty_by_the_rules(&meet(
+        at_least(prefixed.clone(), 1),
+        list(Schema::Int)
+    )));
+    assert!(!empty_by_the_rules(&meet(
+        list(Schema::Int),
+        at_least(prefixed, 1)
+    )));
+}
+
+/// A meet is read against the kind of what a reference names.
+///
+/// A reference denotes its definition's set, so it has that set's kind -- and
+/// without following it a recursive record reaches the kind reading as a node
+/// with no kind at all, which is why a dataclass against the recursive record
+/// of the documentation walked two descriptors.
+///
+/// The unfolding is one step. What it reaches is read for its kind and not
+/// followed further, so the walk descends only into union branches -- the
+/// schema's own finite tree -- and ends without a trail to keep.
+#[test]
+fn a_meet_is_read_against_what_a_reference_names() {
+    let dataclass = Schema::meet([
+        Schema::Instance(Classes::PLAIN),
+        Schema::AttrRecord {
+            fields: vec![attribute("x", Schema::Int)].into(),
+        },
+    ]);
+    let record = Schema::KeyedMap {
+        fields: vec![field("value", Schema::Int, true)].into(),
+        defaults: Vec::new().into(),
+    };
+    // 0 names a record, and 1 names a union.
+    let defs = vec![record.clone(), Schema::union([record, Schema::Str])];
+    let relation = |sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        dataclass.subtype_relation(sup, &Classes, &defs, &budget)
+    };
+
+    // A direct instance of a class laying down no layout is a plain object,
+    // and the record's values are dicts.
+    assert_eq!(relation(&Schema::Ref(DefIx::new(0))), Relation::Fails);
+    // Through a union, and through a reference to one.
+    assert_eq!(
+        relation(&Schema::union([Schema::Ref(DefIx::new(0)), Schema::Str])),
+        Relation::Fails
+    );
+
+    // The kind reading unfolds one step: a reference naming a union is not
+    // followed into its branches by it, so it says nothing there and owes
+    // termination no argument about cycles. The pair is decided all the same,
+    // by the reference arm the meet falls to: the goal goes on the trail, the
+    // union is read branch by branch, and the direct instance refutes each.
+    assert_eq!(relation(&Schema::Ref(DefIx::new(1))), Relation::Fails);
+
+    // A reference to no definition is not an answer either.
+    assert_ne!(relation(&Schema::Ref(DefIx::new(9))), Relation::Fails);
+}
+
+/// Every kind's values are instances of the class, except booleans'.
+///
+/// The shape that separates the kind a complement may name from the one it may
+/// not: `bool` is the only kind whose values are all of another kind too.
+struct AllButBool;
+impl Constants for AllButBool {}
+
+impl LeafRelations for AllButBool {
+    fn leaf_subtype(&self, _sub: &Schema, _sup: &Schema) -> Option<bool> {
+        None
+    }
+
+    fn kind_derives_from(&self, kind: Kind, _class: ClassIx) -> Option<bool> {
+        Some(kind != Kind::Bool)
+    }
+}
+
+/// A complement holds a value of every kind its inner schema's is not.
+///
+/// The reading against a class asked one question, of the subject's own kind,
+/// and a complement has none -- so `~int` against a class walked two
+/// descriptors. It has better than a kind: it has every kind but one, and any
+/// of them the class's order refutes names the witness. A value built as that
+/// kind's builtin is outside the class, and outside the inner schema because
+/// its kind is not that one.
+///
+/// `bool` is the kind that may not be named that way. Every boolean is an
+/// integer, so `~int` holds no booleans and a boolean is no witness for it --
+/// the one pair in the partition that shares values, and the reason the search
+/// skips more than the excluded kind itself.
+#[test]
+fn a_complement_names_a_witness_from_the_kinds_its_inner_schema_is_not() {
+    let class = Schema::Instance(ClassIx::new(0));
+    // Beneath the witness guard, which is a question about the subject rather
+    // than about this rule: proving a complement inhabited needs an oracle
+    // that reads the classes, and the oracle here answers one question so that
+    // the row can say which kind the search may name. The guard has its own
+    // rows, and the query applies it to this answer as it does to every other.
+    let relation = |sub: &Schema, oracle: &dyn LeafRelations| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_by_rules(&class, &mut Cx::new(oracle, &[], &budget))
+    };
+    let not = |schema| Schema::Complement(Arc::new(schema));
+
+    // Booleans are the only kind this class does not hold, and `~int` holds no
+    // booleans, so it names no witness and the pair is undecided.
+    assert_eq!(relation(&not(Schema::Int), &AllButBool), Relation::Unknown);
+    // `~bool` is the same pair the other way: an integer that is not a boolean
+    // is a value of kind `Int`, and this class holds every one of those.
+    assert_eq!(relation(&not(Schema::Bool), &AllButBool), Relation::Unknown);
+
+    // Against any other kind the boolean is a witness, because a boolean is
+    // not a string and the class does not hold it.
+    assert_eq!(relation(&not(Schema::Str), &AllButBool), Relation::Fails);
+    assert_eq!(
+        relation(
+            &not(Schema::list(SeqShape::homogeneous(Schema::Int))),
+            &AllButBool
+        ),
+        Relation::Fails
+    );
+
+    // A complement of a schema with no kind names no kinds to search, and an
+    // oracle that declines the question answers nothing either.
+    assert_eq!(
+        relation(&not(Schema::Instance(ClassIx::new(1))), &AllButBool),
+        Relation::Unknown
+    );
+    assert_eq!(
+        relation(&not(Schema::Str), &NoLeafRelations),
+        Relation::Unknown
+    );
+}
+
+// THEORY: a-cut-reference-proves, the-decision-has-three-answers
+/// A difference over a cut reference proves an inclusion and refutes nothing.
+///
+/// The descriptor holds no cycle, so a recursive schema reaches it unfolded
+/// once with a lattice bound where the reference was -- the top on the subject's
+/// side, the bottom on the supertype's. That widens the difference the reading
+/// takes: `self⁺ ∧ ¬other⁻` contains `self ∧ ¬other` and is not contained by it.
+/// An empty widening still proves the inclusion, and an inhabited one names a
+/// value of the wider set rather than of the real one, so it decides nothing.
+///
+/// The pair below is that shape: every list of `a`-strings is a value of the
+/// fixpoint, and the cut leaves the supertype's own element empty, so the
+/// widened difference holds the very lists the inclusion is about.
+#[test]
+fn an_inhabited_difference_over_a_cut_reference_refutes_nothing() {
+    let words = |pattern: &str| Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex(pattern.into())].into(),
+    };
+    // μX. list[X] | a*
+    let defs = vec![Schema::union([
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+        words("a*"),
+    ])];
+    let fixpoint = Schema::Ref(DefIx::new(0));
+    let lists = Schema::list(SeqShape::homogeneous(words("a+")));
+
+    assert_ne!(
+        lists.subtype_relation_under(&fixpoint, &NoLeafRelations, &defs),
+        Relation::Fails,
+        "no list of a-strings lies outside the fixpoint"
+    );
+
+    // Definitions in scope are not by themselves a cut. Neither side below
+    // names one, so the difference is the real one and its inhabitant is a
+    // counterexample -- the same refutation the pair earns with no definitions
+    // at all. Widening what the cut covers to every pair asked alongside a
+    // recursive schema would forfeit that refutation.
+    let bounded = Schema::Refine {
+        base: Arc::new(Schema::list(SeqShape::homogeneous(Schema::Int))),
+        constraints: vec![Constraint::MinLen(2)].into(),
+    };
+    assert_eq!(
+        Schema::list(SeqShape::homogeneous(Schema::Int)).descriptor_contained_in(
+            &bounded,
+            &NoLeafRelations,
+            &defs
+        ),
+        Relation::Fails,
+        "the empty list is a list of ints and is shorter than two"
+    );
+}
+
+/// A set of one literal is counted by the oracle, not by the node.
+///
+/// A set holds each member once, so `MinLen(n)` over an element asks it for `n`
+/// values that differ -- and how many a `Literal` denotes is the oracle's
+/// answer. `Literal[c]` is the values of `c`'s type equal to `c`, which is one
+/// where that type's equality is the one the oracle reads, more than one where
+/// `__eq__` answers for its siblings, and none where the constant equals
+/// nothing. Counting every literal as one proved a set of two of them empty
+/// while a two-member set validated against it, and proved a set of one
+/// *inhabited* where the constant denotes no value at all.
+///
+/// The question asked is the one the oracle already answers for a pair, put to
+/// the constant against itself: `Some(false)` is "a value, and equality here is
+/// one I read", `Some(true)` is the empty singleton, and a decline leaves the
+/// count unread.
+#[test]
+fn a_set_of_literals_is_counted_by_what_the_oracle_reads() {
+    /// Constant zero is an ordinary value; constant one equals nothing, as
+    /// `nan` does; constant two is of a type whose equality this cannot read.
+    struct Counted;
+
+    impl Constants for Counted {}
+
+    impl LeafRelations for Counted {
+        fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+            None
+        }
+        fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+            match (left.get(), right.get()) {
+                (0, 0) => Some(false),
+                (1, 1) => Some(true),
+                _ => None,
+            }
+        }
+    }
+
+    let set_of = |constant: usize, least: usize| {
+        Schema::refine(
+            Schema::set(Schema::Literal(ConstIx::new(constant))),
+            vec![Constraint::MinLen(least)],
+        )
+    };
+
+    // One value, so one member: a bound of one is met and a bound of two is not.
+    assert_eq!(set_of(0, 1).verdict_under(&Counted), Verdict::Inhabited);
+    assert_eq!(set_of(0, 2).verdict_under(&Counted), Verdict::Empty);
+
+    // A constant equal to nothing denotes no value, so even one member is too
+    // many -- and reading it as one would report this inhabited, which is a
+    // refutation standing on a value that does not exist.
+    assert_eq!(set_of(1, 1).verdict_under(&Counted), Verdict::Empty);
+
+    // A constant the oracle cannot read leaves the count unread, in both
+    // directions: neither bound is decided.
+    assert_eq!(set_of(2, 1).verdict_under(&Counted), Verdict::Unknown);
+    assert_eq!(set_of(2, 2).verdict_under(&Counted), Verdict::Unknown);
+
+    // And a bound of zero is met by the empty set, whatever the element says.
+    let none_at_all = Schema::refine(
+        Schema::set(Schema::Literal(ConstIx::new(1))),
+        vec![Constraint::MaxLen(3)],
+    );
+    assert_eq!(none_at_all.verdict_under(&Counted), Verdict::Inhabited);
+}
+
+/// An exhausted budget declines; it never refutes.
+///
+/// The contract the three-valued answer exists for. A `Fails` claims a value of
+/// the subject lies outside the other schema, and a bail-out has found no such
+/// value -- it has run out of allowance. Reading the boolean cannot tell the two
+/// apart, so a test asking `is_subtype_of` sees the conservative answer without
+/// saying which of the two it is, and a budget that refuted would be unsound in
+/// exactly the direction nothing would look.
+///
+/// The allowance is a parameter, so it is driven rather than provoked: each pair
+/// is asked twice, once with the allowance a caller gets and once with one too
+/// small to reach any arm. The first answer is what the rules decide and the
+/// second is what running out gives, and the rows are chosen so the first is a
+/// **refutation** -- which is what makes the second a change of answer rather
+/// than a pair that declines either way.
+#[test]
+fn an_exhausted_budget_declines_and_does_not_refute() {
+    let pairs: Vec<(Schema, Schema)> = vec![
+        // Two disjoint kinds: refuted by the regions.
+        (Schema::Int, Schema::Str),
+        // A container against a scalar, refuted by the kinds.
+        (
+            Schema::list(SeqShape::homogeneous(Schema::Int)),
+            Schema::Int,
+        ),
+        // A union whose second member leaves the supertype.
+        (Schema::union(vec![Schema::Int, Schema::Str]), Schema::Int),
+        // A fixed sequence against one of another arity.
+        (
+            Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Int])),
+            Schema::tuple(SeqShape::fixed([Schema::Int])),
+        ),
+        // A record missing a key the supertype requires.
+        (
+            Schema::record(Vec::new(), Openness::Open),
+            Schema::record(
+                vec![Field {
+                    name: "a".into(),
+                    schema: Schema::Int,
+                    required: true,
+                }],
+                Openness::Closed,
+            ),
+        ),
+    ];
+    for (subject, supertype) in pairs {
+        let full = Budget::new(DECISION_BUDGET);
+        assert_eq!(
+            subject.subtype_relation(&supertype, &NoLeafRelations, &[], &full),
+            Relation::Fails,
+            "the row is chosen because the rules refute it: {subject:?}"
+        );
+        // And with nothing to spend, the same pair declines rather than
+        // reporting the refutation it has not reached.
+        let spent = Budget::new(0);
+        assert_eq!(
+            subject.subtype_relation(&supertype, &NoLeafRelations, &[], &spent),
+            Relation::Unknown,
+            "an exhausted budget refuted {subject:?} against {supertype:?}"
+        );
+    }
+}
+
+/// Two directions sharing one allowance leave the second declining, and the
+/// equivalence that reads both is conservative rather than a claim.
+#[test]
+fn a_shared_budget_declines_the_direction_it_cannot_reach() {
+    let left = Schema::union(vec![Schema::Int, Schema::Str]);
+    let right = Schema::Int;
+    // One budget for both directions, which is the shape `is_equivalent` spends.
+    let shared = Budget::new(0);
+    assert_eq!(
+        left.subtype_relation(&right, &NoLeafRelations, &[], &shared),
+        Relation::Unknown
+    );
+    assert_eq!(
+        right.subtype_relation(&left, &NoLeafRelations, &[], &shared),
+        Relation::Unknown,
+        "a direction with nothing left to spend declines"
+    );
+    // With an allowance the two answer, and they answer differently -- which is
+    // what says the declines above are the budget rather than the pair.
+    let full = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        right.subtype_relation(&left, &NoLeafRelations, &[], &full),
+        Relation::Holds
+    );
+}
+
+/// A self-reference is the marker a builder leaves behind, and every decider
+/// declines it.
+///
+/// `ir.rs` gives it the empty set and says in the same breath that "every
+/// decider reads it as a schema it cannot relate". Both halves are deliberate: a
+/// finished schema holds none, so deciding it buys nothing, and declining is
+/// sound whatever it denotes. The row exists because nothing else in the suite
+/// asks -- the node is unreachable through the frontend, so a rule that started
+/// answering for it would be a widening nobody chose.
+#[test]
+fn a_self_reference_is_declined_by_every_decider() {
+    let marker = Schema::SelfRef(7);
+    let others = [
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+    ];
+    for other in &others {
+        assert_eq!(
+            marker.subtype_relation_under(other, &NoLeafRelations, &[]),
+            Relation::Unknown,
+            "a marker related to {other:?}"
+        );
+        assert_eq!(
+            other.subtype_relation_under(&marker, &NoLeafRelations, &[]),
+            Relation::Unknown,
+            "{other:?} related to a marker"
+        );
+    }
+    // The two lattice bounds are the pairs decided without reading it at all:
+    // everything is below the top and the bottom is below everything, whatever
+    // the schema on the other side denotes.
+    assert_eq!(
+        marker.subtype_relation_under(&Schema::ANYTHING, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        Schema::Nothing.subtype_relation_under(&marker, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    // And the other halves of those two pairs are declines, since deciding one
+    // would mean reading the marker.
+    assert_eq!(
+        Schema::ANYTHING.subtype_relation_under(&marker, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+    assert_eq!(
+        marker.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+    // And emptiness declines it too, rather than claiming the set its doc gives.
+    assert_eq!(marker.verdict(), Verdict::Unknown);
+    assert!(!marker.is_empty(), "a decline folds to `not proven empty`");
+}
+
+/// An attribute record relates through the values that carry its attributes.
+///
+/// The node behind every dataclass, and the one with the fewest relation rows.
+/// It carries no kind of its own -- it constrains a value *within* whatever kind
+/// the value has -- so a pair naming it is decided by whether an object carrying
+/// those attributes must be of the other schema's kind. Each row below names the
+/// value that settles it, in the comment, and `tests/test_theory_matrix.py`
+/// carries the ones a walk can check. A builtin kind's own values carry no
+/// `__dict__`, so a record is never read as satisfied by one: which names the
+/// builtin defines is not something the core holds.
+#[test]
+fn an_attribute_record_relates_through_the_objects_that_carry_it() {
+    let attrs = Schema::attr_record(vec![attribute("x", Schema::Int)]);
+    // Refuted: an object carrying an `x` need not be an integer, a string or a
+    // list, and a value of each kind is the witness.
+    for other in [
+        Schema::Int,
+        Schema::Str,
+        Schema::list(SeqShape::homogeneous(Schema::Int)),
+    ] {
+        assert_eq!(
+            attrs.subtype_relation_under(&other, &NoLeafRelations, &[]),
+            Relation::Fails,
+            "an object with an `x` is not always {other:?}"
+        );
+    }
+    // The other direction declines. The witness would be an exact integer, the
+    // value the kind holds without a subclass being assumed, and whether it
+    // lacks an attribute is its builtin's namespace -- it has no `x` and it has
+    // a `real` -- which the core does not hold.
+    assert_eq!(
+        Schema::Int.subtype_relation_under(&attrs, &NoLeafRelations, &[]),
+        Relation::Unknown
+    );
+    // Proven: itself, the top above it, and the bottom below it.
+    assert_eq!(
+        attrs.subtype_relation_under(&attrs, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        attrs.subtype_relation_under(&Schema::ANYTHING, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        Schema::Nothing.subtype_relation_under(&attrs, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    // A wider attribute record asks for more, so the narrower one is not below
+    // it: an object with only an `x` is the witness.
+    let wider = Schema::attr_record(vec![
+        attribute("x", Schema::Int),
+        attribute("y", Schema::Int),
+    ]);
+    assert_eq!(
+        wider.subtype_relation_under(&attrs, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    assert_ne!(
+        attrs.subtype_relation_under(&wider, &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+}
+
+// THEORY: recursive-subtyping, the-trail-holds-terms, the-assumption-set-is-popped
+/// The trail a decision carries is left exactly as it was found.
+///
+/// The coinductive rule is that a goal already under way is *assumed*: the pair
+/// is pushed before the definition is entered and popped after. The pop is what
+/// makes the assumption scoped to the branch that made it, and nothing had
+/// asserted it happens. An unbalanced trail is not a crash and not a wrong
+/// answer on the branch that leaked -- it is a wrong answer on a *sibling*,
+/// which inherits an assumption it never made and proves a goal coinductively
+/// that has no proof. That is unsoundness reachable only through a second query.
+///
+/// Driven over pairs that make the rule work: a reference against a reference,
+/// a definition that names another, a union of them, and a pair the rules
+/// refute rather than prove, since a refutation returns by a different path.
+#[test]
+fn a_decision_leaves_the_trail_it_was_given() {
+    let defs = vec![
+        // 0: a list of itself, the fixpoint a `recursive` builds.
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+        // 1: the same set written through a second definition.
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(1)))),
+        // 2: a definition naming another, so the trail grows by two.
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ];
+    let reference = |index| Schema::Ref(DefIx::new(index));
+    let pairs: Vec<(Schema, Schema)> = vec![
+        (reference(0), reference(1)),
+        (reference(0), reference(2)),
+        (reference(2), reference(0)),
+        (
+            Schema::union(vec![Schema::Int, reference(0)]),
+            Schema::union(vec![Schema::Int, reference(1)]),
+        ),
+        // Refuted rather than proved: the return path is the other one.
+        (reference(0), Schema::Int),
+        (Schema::Int, reference(0)),
+    ];
+    for (sub, sup) in pairs {
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&NoLeafRelations, &defs, &budget);
+        let _ = sub.is_subtype_rec(&sup, &mut cx);
+        assert!(
+            cx.trail.is_empty(),
+            "{sub:?} <= {sup:?} left {} assumption(s) behind",
+            cx.trail.len()
+        );
+    }
+}
+
+// THEORY: recursive-subtyping, the-assumption-set-is-popped
+/// A trail that was not empty to begin with comes back as it was.
+///
+/// The same property, asked where a caller has already assumed something: the
+/// decision may add to the trail and must leave the caller's entries in place
+/// and in order. A rule that cleared the trail instead of popping its own
+/// entries passes the test above and fails this one.
+#[test]
+fn a_decision_leaves_an_assumption_it_did_not_make() {
+    let defs = vec![Schema::list(SeqShape::homogeneous(Schema::Ref(
+        DefIx::new(0),
+    )))];
+    let seeded: Vec<(Schema, Schema)> =
+        vec![(Schema::Str, Schema::Bytes), (Schema::Int, Schema::Float)];
+    let budget = Budget::new(DECISION_BUDGET);
+    let mut cx = Cx::new(&NoLeafRelations, &defs, &budget);
+    cx.trail = seeded.clone();
+    let _ = Schema::Ref(DefIx::new(0)).is_subtype_rec(&Schema::Ref(DefIx::new(0)), &mut cx);
+    assert_eq!(cx.trail, seeded, "the caller's assumptions did not survive");
+}
+
+proptest! {
+    // A bounded shrink, so a broken bound cannot turn a caught mutation into a
+    // run that outlasts a sweep: see `budget::law`.
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    // THEORY: the-assumption-set-is-popped
+    /// A query gives the context's two stacks back as it was given them, over
+    /// drawn schemas and drawn definitions.
+    ///
+    /// The rows above hold the trail on fixed pairs. The context carries
+    /// `visiting` beside it a whole query long, so a frame of either recursion
+    /// that left an entry behind would hand every later question in the query a
+    /// hypothesis it never made: a goal discharged with no proof, or a
+    /// reference read as a cycle it is not on. Both recursions are asked from a
+    /// context seeded with entries of its own, so a rule that cleared a stack
+    /// instead of popping its own entries fails as surely as one that leaked.
+    #[test]
+    fn a_query_gives_its_stacks_back_as_it_was_given_them(
+        a in crate::laws::recursive_schema(),
+        b in crate::laws::recursive_schema(),
+        defs in crate::laws::drawn_defs(),
+    ) {
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&NoLeafRelations, &defs, &budget);
+        let trail = vec![(Schema::Str, Schema::Bytes)];
+        // A definition no drawn table holds, so the seed is never read as a
+        // cycle and the verdict below is the one an empty list reaches.
+        let visiting = vec![DefIx::new(defs.len())];
+        cx.trail.clone_from(&trail);
+        let _ = a.is_subtype_rec(&b, &mut cx);
+        prop_assert_eq!(&cx.trail, &trail);
+        prop_assert!(cx.visiting.is_empty());
+        cx.visiting.clone_from(&visiting);
+        let _ = a.verdict_rec(&mut cx);
+        prop_assert_eq!(&cx.visiting, &visiting);
+        prop_assert_eq!(&cx.trail, &trail);
+    }
+
+    // THEORY: two-fixpoints-one-procedure
+    /// A reference being resolved is read as empty at positive positions only,
+    /// over drawn schemas and drawn definitions.
+    ///
+    /// Read there, it can only shrink what a question asks about: the meet
+    /// `S ∧ ¬T` a goal decides, or the schema an emptiness reads. So an answer
+    /// with a definition on `visiting` is a proof about a smaller set or a
+    /// refutation standing on one of its values, which is a value of the real
+    /// one, and a goal proved with nothing being resolved is never refuted with
+    /// a definition on the list, nor an emptiness proved found inhabited. A
+    /// hypothesis read at a negative position -- a reference in a supertype, or
+    /// under a complement, read as empty -- refutes what holds, and fails this.
+    #[test]
+    fn a_reference_being_resolved_refutes_nothing_that_holds(
+        a in crate::laws::recursive_schema(),
+        b in crate::laws::recursive_schema(),
+        defs in crate::laws::drawn_defs(),
+        which in 0usize..2,
+    ) {
+        let read = |hypothesis: bool| {
+            let budget = Budget::new(DECISION_BUDGET);
+            let mut cx = Cx::new(&NoLeafRelations, &defs, &budget);
+            if hypothesis {
+                cx.visiting.push(DefIx::new(which));
+            }
+            let relation = a.is_subtype_rec(&b, &mut cx);
+            let budget = Budget::new(DECISION_BUDGET);
+            let mut cx = Cx::new(&NoLeafRelations, &defs, &budget);
+            if hypothesis {
+                cx.visiting.push(DefIx::new(which));
+            }
+            (relation, a.verdict_rec(&mut cx))
+        };
+        let (relation, verdict) = read(false);
+        let (relation_under, verdict_under) = read(true);
+        prop_assert!(
+            relation != Relation::Holds || relation_under != Relation::Fails,
+            "{a:?} <= {b:?} is proved, and refuted with {which} on `visiting`, under {defs:?}"
+        );
+        prop_assert!(
+            verdict != Verdict::Empty || verdict_under != Verdict::Inhabited,
+            "{a:?} is proved empty, and inhabited with {which} on `visiting`, under {defs:?}"
+        );
+    }
+}
+
+// THEORY: two-fixpoints-one-procedure
+/// A union a meet holds twice, once bare and once inside another member, is
+/// distributed with every copy of it taken out of the branch.
+///
+/// A fractional number met with `None | NUMBER` and a recursive universe: the
+/// universe's reference opens the meet, and every union in it is then
+/// distributed. `int | float` is a member and also sits inside `NUMBER`, so the
+/// `float` branch of the copy inside `NUMBER`, met with the rest, is the meet
+/// already open when the bare copy is left in it -- reached again without a
+/// constructor between, and read as empty as a cycle under one is. A branch of
+/// a union is inside it, so the copies go, and the meet holds `0.5`.
+#[test]
+fn a_union_met_twice_is_distributed_once() {
+    let not_bool = Schema::Complement(Arc::new(Schema::Bool));
+    let number = Schema::Intersection(
+        vec![
+            Schema::union([Schema::Int, Schema::Float]),
+            not_bool.clone(),
+        ]
+        .into(),
+    );
+    let integral = Schema::Refine {
+        base: Arc::new(Schema::Float),
+        constraints: vec![Constraint::MultipleOf(OperandIx::new(0))].into(),
+    };
+    let integer =
+        Schema::Intersection(vec![Schema::union([Schema::Int, integral]), not_bool.clone()].into());
+    let universe = Schema::union([
+        Schema::Float,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ]);
+    let defs = vec![universe];
+    let meet = Schema::Intersection(
+        vec![
+            Schema::union([Schema::NoneType, number]),
+            Schema::union([Schema::Int, Schema::Float]),
+            not_bool,
+            Schema::Complement(Arc::new(integer)),
+            Schema::Ref(DefIx::new(0)),
+        ]
+        .into(),
+    );
+    assert!(!meet.is_empty_under(&defs), "{meet:?} holds 0.5");
+}
+
+// THEORY: two-fixpoints-one-procedure
+/// A record minus records met inside a definition asks its goals while the
+/// definition is being resolved, and answers as the set does.
+///
+/// The definition's one branch without a back edge is a closed record of an
+/// optional `a` met with the complement of the `str`-keyed mapping, which holds
+/// every dict the record holds, so the meet is empty and the definition has no
+/// base case. Deciding the meet subtracts the mapping from the record, asking
+/// whether each of the record's slots is below the mapping's with the
+/// definition on `visiting`. The deep law suite drew it.
+#[test]
+fn a_record_minus_records_inside_a_definition_asks_its_goals_there() {
+    let any = Schema::Anything(Spelling::Any);
+    let mapping = Schema::keyed_map(
+        Vec::new(),
+        vec![MapClause {
+            key: Schema::Str,
+            value: any.clone(),
+        }],
+    );
+    let record = Schema::record(
+        vec![Field {
+            name: "a".into(),
+            schema: any,
+            required: false,
+        }],
+        Openness::Closed,
+    );
+    let body = Schema::Union(
+        vec![
+            Schema::Intersection(vec![Schema::Complement(Arc::new(mapping)), record].into()),
+            Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Ref(DefIx::new(0))])),
+        ]
+        .into(),
+    );
+    let other = Schema::Union(
+        vec![
+            Schema::record(Vec::new(), Openness::Closed),
+            Schema::record(
+                vec![Field {
+                    name: "n".into(),
+                    schema: Schema::Ref(DefIx::new(1)),
+                    required: false,
+                }],
+                Openness::Closed,
+            ),
+        ]
+        .into(),
+    );
+    let defs = vec![body.clone(), other];
+    let reference = Schema::Ref(DefIx::new(0));
+    assert!(reference.is_empty_under(&defs));
+    assert!(body.is_empty_under(&defs));
+    for (sub, sup) in [(&reference, &body), (&body, &reference)] {
+        assert_eq!(
+            sub.subtype_relation_under(sup, &NoLeafRelations, &defs),
+            Relation::Holds,
+            "{sub:?} <= {sup:?}"
+        );
+    }
+}
+
+// THEORY: recursive-subtyping, the-trail-holds-terms
+/// The assumption rule fires on the pair it was given and on no other.
+///
+/// A goal on the trail is assumed to hold: that is the coinduction, and it is
+/// sound because a pair only reaches the trail by being entered through a
+/// reference, which the frontend refuses to build unguarded. The risk is not
+/// that the rule fires -- it is that it fires on the *wrong* pair, through an
+/// assumption read positionally, or by a test coarser than equality, or by one
+/// side alone. Any of those lets an unrelated goal discharge a real one, and
+/// the answer is then a proof of something with no proof.
+///
+/// Asked in two groups, because the trail is consulted at one place and the
+/// decision does not always reach it.
+///
+/// A pair the **regions settle** is settled before any assumption is read:
+/// `int <= str` is refuted by the kinds, and stays refuted with the goal itself
+/// on the trail. That is the stronger property of the two, and the one worth
+/// having -- a descriptor answer is not a thing a hypothesis can overturn.
+///
+/// A pair the rules **descend into** is where the trail is consulted, and there
+/// the pair is assumed. The four readings below say it is keyed by the pair:
+/// the converse, one side alone, and an unrelated pair each move nothing, while
+/// the pair itself discharges the goal. Without that last line the four would
+/// be evidence that the rule never fires rather than evidence of what it fires
+/// on.
+#[test]
+fn an_assumption_is_read_as_the_pair_it_is() {
+    let list = |element| Schema::list(SeqShape::homogeneous(element));
+    let decide = |sub: &Schema, sup: &Schema, seed: Vec<(Schema, Schema)>| {
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&NoLeafRelations, &[], &budget);
+        cx.trail = seed;
+        sub.is_subtype_rec(sup, &mut cx)
+    };
+
+    // Settled by the regions: no hypothesis reaches them.
+    for (sub, sup) in [
+        (Schema::Int, Schema::Int),
+        (Schema::Int, Schema::Str),
+        (
+            Schema::union(vec![Schema::Int, Schema::Str]),
+            Schema::ANYTHING,
+        ),
+    ] {
+        let bare = decide(&sub, &sup, Vec::new());
+        for seed in [
+            vec![(Schema::Bytes, Schema::Float)],
+            vec![(sup.clone(), sub.clone())],
+            vec![(sub.clone(), sup.clone())],
+        ] {
+            assert_eq!(
+                bare,
+                decide(&sub, &sup, seed),
+                "a hypothesis moved {sub:?} <= {sup:?}, which the regions settle"
+            );
+        }
+    }
+
+    // Descended into, which is where the trail is read.
+    let (sub, sup) = (list(Schema::Int), list(Schema::Str));
+    let bare = decide(&sub, &sup, Vec::new());
+    assert!(
+        !bare.holds(),
+        "the row is chosen because the rules refute it"
+    );
+    for (seed, what) in [
+        (vec![(Schema::Bytes, Schema::Float)], "an unrelated pair"),
+        (vec![(sup.clone(), sub.clone())], "the converse"),
+        (vec![(sub.clone(), Schema::Bytes)], "a shared subject"),
+        (vec![(Schema::Bytes, sup.clone())], "a shared supertype"),
+    ] {
+        assert_eq!(
+            bare,
+            decide(&sub, &sup, seed),
+            "{what} discharged {sub:?} <= {sup:?}"
+        );
+    }
+    assert!(
+        decide(&sub, &sup, vec![(sub.clone(), sup.clone())]).holds(),
+        "the pair itself did not discharge the goal, so the rule never fired"
+    );
+}
+
+// THEORY: the-decision-has-three-answers
+/// A union narrowed to one branch carries that branch's refutation.
+///
+/// `A ⊆ X ∪ Y` with `A ∩ Y = ∅` is `A ⊆ X`, and the branch left over answers
+/// for the whole union in both directions. The refutation is the direction that
+/// needs the narrowing: the rules refute against a single supertype and carry
+/// no arm that refutes against a union, so a subject handed the branch it has
+/// left is refuted where the same subject handed a union of that one branch
+/// comes back undecided.
+///
+/// The branch that remains is one the subject *meets*, because a branch it
+/// shares no value with is dropped by the same pass and the two arms answer
+/// for different reasons. `{"a": int}` and `{"a": bool}` share every dict whose
+/// `a` is a bool, so neither drops the other, and the wider one is still not
+/// below the narrower. Beside it, the row where every branch goes: a subject
+/// outside all of them is outside the union, and refutes on any value it holds.
+#[test]
+fn a_union_narrowed_to_one_branch_refutes_where_that_branch_does() {
+    let relation = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &[], &budget)
+    };
+    let record = |ty: Schema| closed(vec![field("a", ty, true)]);
+    let subject = record(Schema::Int);
+
+    assert_eq!(
+        relation(&subject, &record(Schema::Bool)),
+        Relation::Fails,
+        "the branch alone refutes, which is what the narrowing has to keep"
+    );
+    assert_eq!(
+        relation(
+            &subject,
+            &Schema::union([record(Schema::Bool), Schema::NoneType])
+        ),
+        Relation::Fails,
+        "and the `None` branch shares no value with a record, so it drops out"
+    );
+    assert_eq!(
+        relation(
+            &subject,
+            &Schema::union([record(Schema::Str), Schema::NoneType])
+        ),
+        Relation::Fails,
+        "and a branch that refutes on the field's kind rather than its width"
+    );
+    assert_eq!(
+        relation(
+            &Schema::Int,
+            &Schema::union([Schema::Str, Schema::NoneType])
+        ),
+        Relation::Fails,
+        "every branch dropped is a subject outside the union altogether"
+    );
+    assert_eq!(
+        relation(
+            &subject,
+            &Schema::union([record(Schema::Int), Schema::NoneType])
+        ),
+        Relation::Holds,
+        "a branch the subject meets is not dropped"
+    );
+}
+
+/// The width of the fragment the set reading decides is the allowance, and the
+/// difference is what spends it.
+///
+/// A record whose fields each take several types *is* the union of the records
+/// that fix them, and the set reading answers it by building `subject ∧
+/// ¬corners` and reading whether it holds a value. Both widths below lower well
+/// inside the node and nesting bounds; what separates them is what the
+/// difference costs, which grows with the number of corners because a meet
+/// against a complemented union removes one part at a time and each removal
+/// multiplies.
+///
+/// Nine corners decide, two fields over three types. Sixteen, over four,
+/// spend the whole allowance and decline -- `Unknown` rather than `Fails`: the
+/// relation holds, and a decline is "not proven within what a build may
+/// spend". The set reading is asked alone, because the record rule decides
+/// both (`a_record_below_a_union_of_records_is_the_rules_answer`), and which
+/// width it stops at moves with the members' keys and openness, so the figure
+/// is this pair's.
+#[test]
+fn a_difference_past_the_allowance_declines() {
+    let split = |types: &[Schema]| {
+        Schema::record(
+            ["a", "b"]
+                .into_iter()
+                .map(|name| field(name, Schema::union(types.to_vec()), true))
+                .collect(),
+            Openness::Closed,
+        )
+    };
+    let corners = |types: &[Schema]| {
+        Schema::union(
+            types
+                .iter()
+                .flat_map(|first| {
+                    types.iter().map(move |second| {
+                        Schema::record(
+                            vec![
+                                field("a", first.clone(), true),
+                                field("b", second.clone(), true),
+                            ],
+                            Openness::Closed,
+                        )
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+    };
+    let sets = |types: &[Schema]| {
+        split(types).descriptor_contained_in(&corners(types), &NoLeafRelations, &[])
+    };
+
+    assert_eq!(
+        sets(&[Schema::Int, Schema::Str, Schema::Bool]),
+        Relation::Holds,
+        "nine corners are inside what a build may spend"
+    );
+    assert_eq!(
+        sets(&[Schema::Int, Schema::Str, Schema::Bool, Schema::Bytes]),
+        Relation::Unknown,
+        "sixteen are past it, and what is past it declines rather than refutes"
+    );
+}
+
+/// A record whose fields each take one of two types, against the union of the
+/// records that fix every field: `{a: A|B, b: A|B}` below `{a:A,b:A} | ... `.
+fn record_and_its_corners(width: usize) -> (Schema, Schema) {
+    let either = || Schema::union([Schema::Int, Schema::Str]);
+    let subject = closed(
+        (0..width)
+            .map(|i| field(&format!("f{i}"), either(), true))
+            .collect(),
+    );
+    // Every assignment of the two types to the `width` fields, as a union.
+    let corners = (0..1usize << width).map(|mask| {
+        closed(
+            (0..width)
+                .map(|i| {
+                    let leaf = if mask >> i & 1 == 0 {
+                        Schema::Int
+                    } else {
+                        Schema::Str
+                    };
+                    field(&format!("f{i}"), leaf, true)
+                })
+                .collect(),
+        )
+    });
+    (subject, Schema::union(corners))
+}
+
+/// The same union with its first corner left out, which the subject's value of
+/// that corner stands outside.
+fn without_the_first(corners: &Schema) -> Schema {
+    match corners {
+        Schema::Union(members) => {
+            Schema::union(members.iter().skip(1).cloned().collect::<Vec<_>>())
+        }
+        other => other.clone(),
+    }
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A record below a union of records is decided by a rule, in both directions.
+///
+/// `keyed_map_splits_across_union` is the paper's `Φ` [Cas23, (22)]. No corner
+/// contains the
+/// subject, so the rule that tries each member alone declines, and the split
+/// narrows one label at a time. The rules are asked alone, with a budget of
+/// their own, so the answer is theirs and not the set reading's -- which
+/// declines from sixteen corners (`a_difference_past_the_allowance_declines`).
+#[test]
+fn a_record_below_a_union_of_records_is_the_rules_answer() {
+    for width in 2..=4 {
+        let (subject, corners) = record_and_its_corners(width);
+        let budget = Budget::new(DECISION_BUDGET);
+        assert_eq!(
+            subject.subtype_relation(&corners, &NoLeafRelations, &[], &budget),
+            Relation::Holds,
+            "the rules did not split the record across its {} corners",
+            1usize << width
+        );
+        let budget = Budget::new(DECISION_BUDGET);
+        assert_eq!(
+            subject.subtype_relation(&without_the_first(&corners), &NoLeafRelations, &[], &budget),
+            Relation::Fails,
+            "a corner left out did not refute at {width} fields"
+        );
+    }
+}
+
+// THEORY: a-record-splits-across-a-union
+/// The width the split reaches is the decision budget's, as the product rule's
+/// is.
+///
+/// Every corner the split cannot set aside is a level it narrows by, and each
+/// level asks a goal per field, so the work grows with the corners: six
+/// fields against their sixty-four decide, seven against their hundred and
+/// twenty-eight spend the budget, which is where six tuple components decide
+/// and seven decline (`docs/15-decidability.md`). A decline is sound, so the
+/// number is what this holds.
+#[test]
+fn a_record_split_stops_where_the_decision_budget_does() {
+    let (narrow, its_corners) = record_and_its_corners(6);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        narrow.subtype_relation(&its_corners, &NoLeafRelations, &[], &budget),
+        Relation::Holds
+    );
+    let (wide, its_corners) = record_and_its_corners(7);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        wide.subtype_relation(&its_corners, &NoLeafRelations, &[], &budget),
+        Relation::Unknown,
+        "seven fields decided, so the recorded width has moved"
+    );
+}
+
+/// A record whose tag takes three kinds, and records that each fix the tag.
+///
+/// The shape a union of tagged records is written in: `order` shared, the
+/// tag's kinds standing for the literals a caller writes, which the rules read
+/// through the oracle (`a_table_minus_constants_is_the_set_it_leaves`).
+fn tagged(tag: Schema, extra: Option<&str>) -> Schema {
+    let mut fields = vec![field("kind", tag, true), field("order", Schema::Int, true)];
+    if let Some(name) = extra {
+        fields.push(field(name, Schema::Int, true));
+    }
+    open(fields)
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A union of tagged records covers the record whose tag takes their tags only
+/// where no member asks for more, and a member that does refutes it.
+///
+/// The refutation is the case the set reading declines at three members: a
+/// member requiring a key the subject leaves free has a value of the subject
+/// outside it, `{"kind": 0, "order": 0}`, and the rule names it by narrowing
+/// the tag and the key in turn.
+#[test]
+fn a_record_splits_across_the_records_that_fix_its_tag() {
+    let subject = tagged(
+        Schema::union([Schema::Int, Schema::Str, Schema::Bytes]),
+        None,
+    );
+    let relation = |members: Vec<Schema>| {
+        let budget = Budget::new(DECISION_BUDGET);
+        subject.subtype_relation(&Schema::union(members), &NoLeafRelations, &[], &budget)
+    };
+    assert_eq!(
+        relation(vec![
+            tagged(Schema::Int, None),
+            tagged(Schema::Str, None),
+            tagged(Schema::Bytes, None),
+        ]),
+        Relation::Holds
+    );
+    assert_eq!(
+        relation(vec![
+            tagged(Schema::Int, Some("amount")),
+            tagged(Schema::Str, Some("reason")),
+            tagged(Schema::Bytes, None),
+        ]),
+        Relation::Fails
+    );
+    // A member of another kind shares no value with a dict, so the refutation
+    // stands beside it; a class may hold a dict, so beside one it does not.
+    assert_eq!(
+        relation(vec![
+            tagged(Schema::Int, Some("x0")),
+            tagged(Schema::Str, None),
+            tagged(Schema::Bytes, None),
+            Schema::Int,
+        ]),
+        Relation::Fails
+    );
+    assert_eq!(
+        relation(vec![
+            tagged(Schema::Int, Some("x0")),
+            tagged(Schema::Str, None),
+            tagged(Schema::Bytes, None),
+            Schema::Instance(ClassIx::new(0)),
+        ]),
+        Relation::Unknown
+    );
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A record split on whether a key is present.
+///
+/// `{a: int, c?: bool}` closed lands in `{c: int | str}` where `c` is there and
+/// in `{c?: Literal}` where it is not, and in neither alone: the split narrows
+/// `c` in `T⊥`, where absence is one of the values an optional key holds.
+#[test]
+fn a_record_splits_on_whether_a_key_is_present() {
+    let subject = closed(vec![
+        field("a", Schema::Int, true),
+        field("c", Schema::Bool, false),
+    ]);
+    let present = open(vec![field(
+        "c",
+        Schema::union([Schema::Int, Schema::Str]),
+        true,
+    )]);
+    let absent = open(vec![field("c", Schema::Bytes, false)]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(
+            &Schema::union([present.clone(), absent.clone()]),
+            &NoLeafRelations,
+            &[],
+            &budget,
+        ),
+        Relation::Holds
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(&present, &NoLeafRelations, &[], &budget),
+        Relation::Fails,
+        "`{{\"a\": 0}}` is outside the member requiring `c`"
+    );
+    // Two members that each require `c` cover no dict leaving it out, so the
+    // split refutes on `{"a": 0}`: absence is a value the narrowing keeps.
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(
+            &Schema::union([
+                open(vec![field("c", Schema::Int, true)]),
+                open(vec![field("c", Schema::Str, true)]),
+            ]),
+            &NoLeafRelations,
+            &[],
+            &budget,
+        ),
+        Relation::Fails
+    );
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A member is dropped where a label shares no value with it, an optional
+/// label included.
+///
+/// A record whose optional fields each take `int` or `str` is below the
+/// records fixing every field's type, each field optional there too. Narrowing
+/// by a member makes a field required -- the value outside the member is one
+/// carrying the key -- and a later member whose optional field holds the other
+/// type shares no value with it there: neither slot holds the other's type, and
+/// only the member's admits absence. Dropping that member is what keeps four
+/// fields inside the budget; read without it they spend it all.
+#[test]
+fn a_member_apart_at_an_optional_label_is_dropped() {
+    let width = 4;
+    let either = || Schema::union([Schema::Int, Schema::Str]);
+    let subject = closed(
+        (0..width)
+            .map(|i| field(&format!("f{i}"), either(), false))
+            .collect(),
+    );
+    let corners = Schema::union(
+        (0..1usize << width)
+            .map(|mask| {
+                closed(
+                    (0..width)
+                        .map(|i| {
+                            let leaf = if mask >> i & 1 == 0 {
+                                Schema::Int
+                            } else {
+                                Schema::Str
+                            };
+                            field(&format!("f{i}"), leaf, false)
+                        })
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        subject.subtype_relation(&corners, &NoLeafRelations, &[], &budget),
+        Relation::Holds
+    );
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A member set aside on a default that escapes it refutes only through an
+/// infinite part of the key partition.
+///
+/// The subject maps the key `None` to an `int` or a `str`. Two members split
+/// that between them -- one maps it to an `int`, the other to a `str` -- and
+/// every dict of the subject has one `None` key at most, so the union covers
+/// it. Each member's default is narrower than the subject's, so `Φ` sets both
+/// aside and reaches its base case: read exactly, that refutes, because the
+/// proof of [Cas23, Lem. 4.7] takes a key of the escaping part that no label
+/// names [Cas23, App. C.1], and `None` has one key to give. The same split
+/// over `int` keys is refuted, and is:
+/// `{1: 1, 2: "x"}` is in neither member.
+#[test]
+fn a_member_set_aside_on_a_finite_part_keeps_only_the_proof() {
+    let keyed = |key: Schema, value: Schema| Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause { key, value }].into(),
+    };
+    let either = || Schema::union([Schema::Int, Schema::Str]);
+    for (key, refuted) in [(Schema::NoneType, false), (Schema::Int, true)] {
+        let subject = keyed(key.clone(), either());
+        let members = Schema::union([
+            keyed(key.clone(), Schema::Int),
+            keyed(key.clone(), Schema::Str),
+        ]);
+        let budget = Budget::new(DECISION_BUDGET);
+        let rules = subject.subtype_relation(&members, &NoLeafRelations, &[], &budget);
+        if refuted {
+            assert_eq!(rules, Relation::Fails, "the split over {key:?} keys");
+        } else {
+            assert_ne!(rules, Relation::Fails, "the split over {key:?} keys");
+            assert_eq!(
+                subject.subtype_relation_under(&members, &NoLeafRelations, &[]),
+                Relation::Holds,
+                "the set reading decides the {key:?} split, and it holds"
+            );
+        }
+    }
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A member whose default the rules cannot relate to the subject's is set
+/// aside, keeping only the proof the rest give.
+///
+/// The subject's unnamed keys hold an instance of class 0, the first member's
+/// an instance of class 1, and an oracle that reads no class cannot say
+/// whether one is the other: the subject's `{"a": 1, "x": c}` is in the member
+/// exactly where `c` is. Split across that member's labels, the record would
+/// read as covered; set aside, the second member covers nothing of it, so the
+/// rules decline rather than prove.
+#[test]
+fn a_member_whose_default_the_rules_cannot_relate_is_set_aside() {
+    let with_rest = |value: Schema, rest: Schema| Schema::KeyedMap {
+        fields: vec![field("a", value, true)].into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: rest,
+        }]
+        .into(),
+    };
+    let subject = with_rest(Schema::Int, Schema::Instance(ClassIx::new(0)));
+    let members = Schema::union([
+        with_rest(Schema::Int, Schema::Instance(ClassIx::new(1))),
+        with_rest(Schema::Str, Schema::ANYTHING),
+    ]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_ne!(
+        subject.subtype_relation(&members, &NoLeafRelations, &[], &budget),
+        Relation::Holds
+    );
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A clause the rule cannot place in the key partition declines the split.
+///
+/// A literal key names one constant, which is a label rather than a part, and
+/// the rule's labels are field names; two clauses reading one part are a
+/// disjunction (`clauses-may-overlap`) the rule does not take apart. Either
+/// leaves the pair to the set reading.
+#[test]
+fn a_clause_the_partition_does_not_hold_declines_the_split() {
+    let (subject, corners) = record_and_its_corners(2);
+    let with = |clauses: Vec<MapClause>| match &subject {
+        Schema::KeyedMap { fields, .. } => Schema::KeyedMap {
+            fields: fields.clone(),
+            defaults: clauses.into(),
+        },
+        other => other.clone(),
+    };
+    for clauses in [
+        vec![MapClause {
+            key: Schema::Literal(ConstIx::new(0)),
+            value: Schema::Int,
+        }],
+        vec![
+            MapClause {
+                key: Schema::Str,
+                value: Schema::Int,
+            },
+            MapClause {
+                key: Schema::Str,
+                value: Schema::Bytes,
+            },
+        ],
+    ] {
+        let budget = Budget::new(DECISION_BUDGET);
+        let subject = with(clauses);
+        let Schema::Union(members) = &corners else {
+            panic!("the corners are a union");
+        };
+        assert_eq!(
+            super::records::keyed_map_splits_across_union(
+                &subject,
+                members,
+                &mut Cx::new(&NoLeafRelations, &[], &budget),
+            ),
+            Relation::Unknown,
+            "{subject:?} was split"
+        );
+    }
+}
+
+// THEORY: a-record-splits-across-a-union
+/// The split read as emptiness: a record minus the records that cover it is
+/// empty, and one a member is missing from holds the value it leaves out.
+///
+/// The two routes to `a <= b` -- the rules and the emptiness of `a ∧ ¬b` --
+/// answer alike here, so the chain the set reading declines at thirteen links
+/// is decided one complement at a time.
+#[test]
+fn a_record_minus_the_records_that_cover_it_is_empty() {
+    let subject = tagged(
+        Schema::union([Schema::Int, Schema::Str, Schema::Bytes]),
+        None,
+    );
+    let minus = |members: Vec<Schema>| {
+        Schema::meet(
+            core::iter::once(subject.clone()).chain(members.into_iter().map(Schema::complement)),
+        )
+        .verdict()
+    };
+    assert_eq!(
+        minus(vec![
+            tagged(Schema::Int, None),
+            tagged(Schema::Str, None),
+            tagged(Schema::Bytes, None),
+        ]),
+        Verdict::Empty
+    );
+    assert_eq!(
+        minus(vec![tagged(Schema::Int, None), tagged(Schema::Str, None)]),
+        Verdict::Inhabited
+    );
+    // Two maps met, minus a third: each holds a value the third does not, and
+    // their meet holds none, since `a` is an `int` in both and the third takes
+    // every `int`. The reading takes one map as its subject, so it declines a
+    // meet of two rather than read either alone.
+    let a = |schema: Schema| open(vec![field("a", schema, true)]);
+    let two_maps = Schema::meet([
+        a(Schema::union([Schema::Int, Schema::Bytes])),
+        a(Schema::union([Schema::Int, Schema::Str])),
+        a(Schema::Int).complement(),
+    ]);
+    assert_ne!(two_maps.verdict(), Verdict::Inhabited);
+}
+
+/// `int | str | bytes | float | None`, the five kinds the product rows spread over.
+fn kinds(width: usize) -> Vec<Schema> {
+    [
+        Schema::Int,
+        Schema::Str,
+        Schema::Bytes,
+        Schema::Float,
+        Schema::NoneType,
+    ]
+    .into_iter()
+    .take(width)
+    .collect()
+}
+
+fn pair(first: Schema, second: Schema) -> Schema {
+    Schema::Seq {
+        container: SeqKind::Tuple,
+        shape: SeqShape::fixed([first, second]),
+    }
+}
+
+/// `tuple[K, K]` and the union of its `width * width` corners, one corner held back.
+fn product_and_corners(width: usize, held_back: usize) -> (Schema, Vec<Schema>) {
+    let each = Schema::Union(kinds(width).into());
+    let corners = kinds(width)
+        .into_iter()
+        .flat_map(|a| kinds(width).into_iter().map(move |b| pair(a.clone(), b)))
+        .collect::<Vec<_>>();
+    let kept = corners.len() - held_back;
+    (
+        pair(each.clone(), each),
+        corners.into_iter().take(kept).collect(),
+    )
+}
+
+// THEORY: a-sequence-splits-across-a-union
+/// A product is below the union of its corners, and refuted when one is missing.
+///
+/// `tuple[K, K]` for five kinds against its twenty-five corners is an inclusion
+/// that holds; the product rule narrowed by every branch at every position and
+/// ran out of budget on it. A branch that shares no value with the narrowed
+/// product is dropped, which is exact, and the rule answers in three values, so
+/// the corner held back is a refutation rather than a decline.
+#[test]
+fn a_product_is_below_its_corners_and_refuted_by_a_missing_one() {
+    let (product, corners) = product_and_corners(5, 0);
+    assert_eq!(
+        product.subtype_relation_under(&Schema::Union(corners.into()), &NoLeafRelations, &[]),
+        Relation::Holds
+    );
+    let (product, corners) = product_and_corners(5, 1);
+    assert_eq!(
+        product.subtype_relation_under(&Schema::Union(corners.into()), &NoLeafRelations, &[]),
+        Relation::Fails
+    );
+    // No corner at all: the union of none is the empty set, and a product with
+    // a value is outside it. Read by the rules alone, since the set
+    // representation refutes it as well and would answer for a rule that
+    // declined.
+    let (product, _) = product_and_corners(5, 0);
+    assert_eq!(
+        product.subtype_relation(
+            &Schema::Union(Vec::new().into()),
+            &NoLeafRelations,
+            &[],
+            &Budget::new(DECISION_BUDGET),
+        ),
+        Relation::Fails
+    );
+}
+
+// THEORY: a-sequence-splits-across-a-union
+/// The rule's refutation is withheld where a member it sets aside may hold the value.
+///
+/// The corner held back is `(None, None)`, and `tuple[None, ...]` holds it. The
+/// rule reads fixed products of this kind and sets that member aside, so what
+/// it finds outside the branches is not outside the union: the inclusion holds,
+/// and a `Fails` here would be a refutation with no value under it.
+#[test]
+fn a_member_the_product_rule_sets_aside_withholds_its_refutation() {
+    let (product, mut corners) = product_and_corners(5, 1);
+    corners.push(Schema::Seq {
+        container: SeqKind::Tuple,
+        shape: SeqShape::homogeneous(Schema::NoneType),
+    });
+    assert_ne!(
+        product.subtype_relation_under(&Schema::Union(corners.into()), &NoLeafRelations, &[]),
+        Relation::Fails
+    );
+}
+
+/// The rules decide a product against its corners in steps polynomial in the width.
+///
+/// Read off the budget the structural rules spend, without the second decider:
+/// with the disjoint branches dropped the work follows the ways the corners
+/// can be ordered rather than arity to the power of their count.
+#[test]
+fn the_product_rule_decides_its_corners_in_a_bounded_number_of_steps() {
+    let mut spent = Vec::new();
+    for width in 2..=5 {
+        let (product, corners) = product_and_corners(width, 0);
+        let budget = Budget::new(DECISION_BUDGET);
+        let answer = product.subtype_relation(
+            &Schema::Union(corners.into()),
+            &NoLeafRelations,
+            &[],
+            &budget,
+        );
+        assert_eq!(answer, Relation::Holds, "width {width}");
+        spent.push(DECISION_BUDGET - budget.left());
+    }
+    assert!(
+        spent.last().is_some_and(|&five| five < 60_000),
+        "steps by width 2..=5: {spent:?}"
+    );
+}
+
+/// An oracle naming constants by value: indices 0 and 2 are the string `"a"`,
+/// 1 is `"b"`, and 3 is the integer 1, so two indices name one value.
+struct Words;
+
+impl Words {
+    fn at(index: ConstIx) -> Option<Operand> {
+        match index.get() {
+            0 | 2 => Some(Operand::Word(b"a".to_vec(), Kind::Str)),
+            1 => Some(Operand::Word(b"b".to_vec(), Kind::Str)),
+            3 => Some(Operand::Integer(1)),
+            _ => None,
+        }
+    }
+}
+
+impl Constants for Words {
+    fn constant(&self, index: ConstIx) -> Option<Operand> {
+        Words::at(index)
+    }
+}
+
+impl LeafRelations for Words {
+    fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+        None
+    }
+    fn literal_kind(&self, constant: ConstIx) -> Option<Kind> {
+        Some(match Words::at(constant)? {
+            Operand::Word(_, kind) => kind,
+            _ => Kind::Int,
+        })
+    }
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(Words::at(left)? != Words::at(right)?)
+    }
+    fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
+        let read = |set: &[ConstIx]| {
+            set.iter()
+                .map(|i| Words::at(*i))
+                .collect::<Option<Vec<_>>>()
+        };
+        let (left, right) = (read(left)?, read(right)?);
+        Some(!left.iter().any(|value| right.contains(value)))
+    }
+}
+
+/// A mapping keyed by the literal at `index`, its values `value`.
+fn keyed_by(index: usize, value: Schema) -> Schema {
+    Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Literal(ConstIx::new(index)),
+            value,
+        }]
+        .into(),
+    }
+}
+
+/// Under the rules alone, with an oracle that names constants.
+fn by_words(subject: &Schema, other: &Schema) -> Relation {
+    let budget = Budget::new(DECISION_BUDGET);
+    subject.subtype_relation(other, &Words, &[], &budget)
+}
+
+/// Two mappings keyed by one literal, apart under it, are refuted on that key
+/// at any depth.
+///
+/// The constant itself is the key: the subject's literal clause admits it, and
+/// the supertype's clause naming it reads it, whatever index it is pooled at.
+/// The set reading descends a bounded nesting; the rules read one level a goal.
+#[test]
+fn a_literal_keyed_mapping_is_refuted_under_the_constant_it_names() {
+    let nested = |index: usize, leaf: Schema| (0..20).fold(leaf, |inner, _| keyed_by(index, inner));
+    assert_eq!(
+        by_words(&nested(0, Schema::Int), &nested(0, Schema::Str)),
+        Relation::Fails
+    );
+    assert_eq!(
+        by_words(&nested(0, Schema::Int), &nested(2, Schema::Str)),
+        Relation::Fails,
+        "index 2 names the value index 0 does"
+    );
+    assert_eq!(
+        by_words(&nested(0, Schema::Int), &nested(2, Schema::Int)),
+        Relation::Holds
+    );
+    // A supertype clause the partition cannot place might read the key, so
+    // nothing is refuted beside it.
+    let beside_a_class = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![
+            MapClause {
+                key: Schema::Literal(ConstIx::new(0)),
+                value: Schema::Str,
+            },
+            MapClause {
+                key: Schema::Instance(ClassIx::new(0)),
+                value: Schema::Str,
+            },
+        ]
+        .into(),
+    };
+    assert_ne!(
+        by_words(&keyed_by(0, Schema::Int), &beside_a_class),
+        Relation::Fails
+    );
+}
+
+/// A leaf oracle answering, of every literal's constant and every schema,
+/// whether the constant is a member, holding every constant a value, and
+/// saying nothing of whether a constant is the only value of its literal,
+/// which the core reads as no.
+struct EveryConstant {
+    member: bool,
+}
+
+impl Constants for EveryConstant {}
+
+impl LeafRelations for EveryConstant {
+    fn leaf_subtype(&self, sub: &Schema, _: &Schema) -> Option<bool> {
+        matches!(sub, Schema::Literal(_)).then_some(self.member)
+    }
+
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        (left == right).then_some(false)
+    }
+}
+
+/// The same oracle, where every constant is the only value of its literal.
+struct EveryConstantAlone {
+    member: bool,
+}
+
+impl Constants for EveryConstantAlone {}
+
+impl LeafRelations for EveryConstantAlone {
+    fn leaf_subtype(&self, sub: &Schema, _: &Schema) -> Option<bool> {
+        matches!(sub, Schema::Literal(_)).then_some(self.member)
+    }
+
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        (left == right).then_some(false)
+    }
+
+    fn constant_is_alone(&self, _: ConstIx) -> bool {
+        true
+    }
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+/// A constant speaks for its literal where it is the only value, or where the
+/// supertype asks nothing that tells two equal values apart.
+///
+/// The oracle proves the literal below every schema by the constant's
+/// membership. Where the constant is the literal's one value that proof
+/// stands; where it is not, a predicate or an attribute record may refuse a
+/// value equal to the constant, so the proof through either is no answer,
+/// and a supertype with neither keeps it. A refutation stands whatever the
+/// constant's class: the constant is a value of its literal.
+#[test]
+fn a_constant_speaks_for_its_literal_where_nothing_tells_equal_values_apart() {
+    let literal = Schema::Literal(ConstIx::new(0));
+    let predicate = Schema::Refine {
+        base: Arc::new(Schema::Float),
+        constraints: vec![Constraint::Predicate(PredIx::new(1))].into(),
+    };
+    let attributes = Schema::attr_record(vec![Attribute {
+        name: "y".into(),
+        schema: Schema::Int,
+    }]);
+    let relation = |oracle: &dyn LeafRelations, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        literal.subtype_relation(sup, oracle, &[], &budget)
+    };
+    let alone = EveryConstantAlone { member: true };
+    let not_alone = EveryConstant { member: true };
+    for sup in [&predicate, &attributes, &Schema::Float] {
+        assert_eq!(relation(&alone, sup), Relation::Holds, "{sup:?}");
+    }
+    for sup in [&predicate, &attributes] {
+        assert_eq!(relation(&not_alone, sup), Relation::Unknown, "{sup:?}");
+    }
+    assert_eq!(
+        relation(&not_alone, &Schema::Float),
+        Relation::Holds,
+        "a supertype that tells no two equal values apart keeps the proof"
+    );
+    // A refutation stands on the leaf alone against an attribute record, which
+    // has no base to refute it through, so the guard must leave it be.
+    for refuting in [
+        &EveryConstant { member: false } as &dyn LeafRelations,
+        &EveryConstantAlone { member: false },
+    ] {
+        for sup in [&predicate, &attributes] {
+            assert_eq!(relation(refuting, sup), Relation::Fails, "{sup:?}");
+        }
+    }
+}
+
+/// A literal clause meets a record's field through the constant that is its
+/// name, in both directions.
+///
+/// `dict[Literal["a"], int]` holds the key `"a"` alone, which the field `a`
+/// reads: below `{"a?": int}`, refuted against `{"a?": str}` on `{"a": 1}`. The
+/// other way, `{"a": int}` is outside `dict[Literal["a"], int]` on a `str`
+/// subclass's `"a"`, which the field reads and the literal, pinning the type,
+/// does not.
+#[test]
+fn a_literal_clause_meets_a_field_through_its_name() {
+    let optional_a = |schema: Schema| closed(vec![field("a", schema, false)]);
+    assert_eq!(
+        by_words(&keyed_by(0, Schema::Int), &optional_a(Schema::Int)),
+        Relation::Holds
+    );
+    assert_eq!(
+        by_words(&keyed_by(0, Schema::Int), &optional_a(Schema::Str)),
+        Relation::Fails
+    );
+    // The literal `"b"` never spells the name `a`, and is a key the closed
+    // record has nowhere to put.
+    assert_eq!(
+        by_words(&keyed_by(1, Schema::Int), &optional_a(Schema::Int)),
+        Relation::Fails
+    );
+    // A clause of `b` taking `a`'s literal clause whole reads no key a field of
+    // `b` names: the field does, so the literal meets the field, which refuses
+    // its value, and not the clause.
+    let field_beside_a_clause = Schema::KeyedMap {
+        fields: vec![field("a", Schema::Str, false)].into(),
+        defaults: vec![MapClause {
+            key: Schema::ANYTHING,
+            value: Schema::Int,
+        }]
+        .into(),
+    };
+    assert_eq!(
+        by_words(&keyed_by(0, Schema::Int), &field_beside_a_clause),
+        Relation::Fails
+    );
+    let required_a = closed(vec![field("a", Schema::Int, true)]);
+    assert_eq!(
+        by_words(&required_a, &keyed_by(0, Schema::Int)),
+        Relation::Fails
+    );
+    assert_eq!(
+        by_words(&required_a, &open(Vec::new())),
+        Relation::Holds,
+        "a clause holding every string reads the subclass's key as it reads the name"
+    );
+}
+
+/// An oracle that walks a constant through a schema, in Kleene's strong logic,
+/// over the shapes the rows below build, and records every schema it walks.
+///
+/// Constants 0 and 1 are two strings, each the one value of its literal;
+/// constant 2 is a float zero, whose literal `==` joins to the other zero; and
+/// constant 3 is a `nan`, whose literal holds no value. The predicate at index
+/// 0 admits constant 1 alone, and the one at index 1 raises on every value: the
+/// walk stops there, and a stop is neither a member of the set nor of its
+/// complement. The definition at index 0 is `str | float | list[t]`.
+struct Walked {
+    walked: std::cell::RefCell<Vec<Schema>>,
+}
+
+impl Walked {
+    fn new() -> Self {
+        Self {
+            walked: std::cell::RefCell::default(),
+        }
+    }
+
+    fn universe() -> Schema {
+        Schema::union([
+            Schema::Str,
+            Schema::Float,
+            Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+        ])
+    }
+
+    /// The walk's three answers: admitted, refused, or stopped (`None`).
+    fn walk(constant: usize, schema: &Schema) -> Option<bool> {
+        match schema {
+            Schema::Anything(_) => Some(true),
+            Schema::Literal(index) => Some(index.get() == constant && constant != 3),
+            Schema::Str => Some(constant < 2),
+            Schema::Float => Some(constant >= 2),
+            Schema::Ref(_) => Self::walk(constant, &Self::universe()),
+            Schema::Refine { base, constraints } => {
+                let base = Self::walk(constant, base)?;
+                constraints
+                    .iter()
+                    .try_fold(base, |held, constraint| match constraint {
+                        Constraint::Predicate(slot) if slot.get() == 0 => {
+                            Some(held && constant == 1)
+                        }
+                        _ => None,
+                    })
+            }
+            Schema::Union(members) => members.iter().try_fold(false, |held, member| {
+                Some(held || Self::walk(constant, member)?)
+            }),
+            Schema::Intersection(members) => members.iter().try_fold(true, |held, member| {
+                Some(held && Self::walk(constant, member)?)
+            }),
+            Schema::Complement(inner) => Self::walk(constant, inner).map(|held| !held),
+            _ => Some(false),
+        }
+    }
+}
+
+impl Constants for Walked {}
+
+impl LeafRelations for Walked {
+    /// What the bindings' walk answers: admitted or not, a stop refused.
+    fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool> {
+        let Schema::Literal(constant) = sub else {
+            return None;
+        };
+        self.walked.borrow_mut().push(sup.clone());
+        Some(Self::walk(constant.get(), sup) == Some(true))
+    }
+    fn literals_disjoint(&self, left: ConstIx, right: ConstIx) -> Option<bool> {
+        Some(left != right || left.get() == 3)
+    }
+    fn constant_is_alone(&self, constant: ConstIx) -> bool {
+        constant.get() != 2
+    }
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+/// A meet holding a table is read one constant at a time, through the walk.
+///
+/// The meet is the union of each constant's literal met with the other members
+/// [FCB08, Lem. 6.2], and a literal meets a set exactly where a value of it is
+/// a member [FCB08, §4.2]. The rows hold each answer to the walk: a constant
+/// admitted everywhere inhabits the meet, a constant refused for certain is
+/// out, and a stop, a constant `==` joins to another value, and a constant
+/// whose literal is empty each answer as the set they stand for does.
+#[test]
+fn a_meet_holding_a_table_is_read_by_its_constants() {
+    let literal = |index| Schema::Literal(ConstIx::new(index));
+    let predicate = |slot| Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: vec![Constraint::Predicate(PredIx::new(slot))].into(),
+    };
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let meet = |members: Vec<Schema>| Schema::Intersection(members.into());
+    let table = Schema::Union(vec![literal(0), literal(1)].into());
+    let defs = [Walked::universe()];
+    let verdict = |schema: &Schema, oracle: &Walked| {
+        schema.verdict_rec(&mut Cx::new(oracle, &defs, &Budget::new(DECISION_BUDGET)))
+    };
+    let rows = [
+        // `Literal[a] & ~(Literal[a] & t)`, the meet a universe met into each
+        // member builds: the constant is in the inner meet, so out of its
+        // complement, read through the inner meet itself.
+        (
+            meet(vec![
+                literal(0),
+                not(meet(vec![literal(0), Schema::Ref(DefIx::new(0))])),
+            ]),
+            Verdict::Empty,
+        ),
+        // The predicate admits constant 1 and refuses constant 0.
+        (meet(vec![table.clone(), predicate(0)]), Verdict::Inhabited),
+        (meet(vec![literal(0), predicate(0)]), Verdict::Empty),
+        (
+            meet(vec![literal(0), not(predicate(0))]),
+            Verdict::Inhabited,
+        ),
+        // A stop is in neither the set nor its complement.
+        (meet(vec![literal(0), predicate(1)]), Verdict::Unknown),
+        (meet(vec![literal(0), not(predicate(1))]), Verdict::Unknown),
+        (meet(vec![table.clone(), predicate(1)]), Verdict::Unknown),
+        // The zero is refused, and its literal holds the other zero, which a
+        // predicate may answer apart.
+        (meet(vec![literal(2), predicate(0)]), Verdict::Unknown),
+        (meet(vec![literal(2), Schema::Float]), Verdict::Inhabited),
+        // The walk admits the `nan`, and its literal holds no value.
+        (
+            meet(vec![literal(3), predicate(0).complement()]),
+            Verdict::Empty,
+        ),
+    ];
+    for (schema, expected) in &rows {
+        assert_eq!(verdict(schema, &Walked::new()), *expected, "{schema:?}");
+    }
+
+    // A member `~Y` is refused through `Y`, never through a complement built
+    // over it, and a positive member through its complement.
+    let oracle = Walked::new();
+    let inner = meet(vec![literal(0), Schema::Ref(DefIx::new(0))]);
+    verdict(&rows[0].0, &oracle);
+    assert!(oracle.walked.borrow().contains(&inner));
+    assert!(!oracle.walked.borrow().contains(&not(not(inner))));
+    let oracle = Walked::new();
+    verdict(&meet(vec![literal(0), predicate(0)]), &oracle);
+    assert!(oracle.walked.borrow().contains(&not(predicate(0))));
+
+    // A meet of tables and complements of tables is the finite meet's, read
+    // by index: the reading declines it and walks nothing.
+    let oracle = Walked::new();
+    let finite = [table, not(literal(1))];
+    assert_eq!(
+        literals::a_meet_read_by_its_constants(&finite, &oracle, &defs),
+        Verdict::Unknown,
+    );
+    assert!(oracle.walked.borrow().is_empty());
+}
+
+// THEORY: a-cut-reference-proves
+/// A meet the set representation proves empty stays proved beside a conjunct
+/// it does not read, and a reading that left one out refutes nothing.
+///
+/// `a+ & b+` holds no string, so neither does it beside a predicate, which no
+/// lowering reads, or beside a member nested past the depth bound -- as a meet
+/// of three and as one refinement holding all three constraints, the two
+/// spellings `Annotated` gives one set. The reading that left the predicate
+/// out is a superset, so it proves emptiness and only emptiness: `str & P` is
+/// no refutation of `<= nothing`, since `P` may admit no string.
+#[test]
+fn a_meet_is_proved_empty_beside_a_conjunct_the_lowering_refuses() {
+    let words = |pattern: &str| Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex(pattern.into())].into(),
+    };
+    let predicate = Constraint::Predicate(PredIx::new(0));
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![predicate.clone()].into(),
+    };
+    let deep = (0..6).fold(Schema::Int, |inner, _| {
+        Schema::list(SeqShape::homogeneous(inner))
+    });
+    let meet = |members: Vec<Schema>| Schema::Intersection(members.into());
+    let rules = |schema: &Schema| schema.verdict_under(&NoLeafRelations);
+
+    let pair = meet(vec![words("^a+$"), words("^b+$")]);
+    assert!(pair.is_empty());
+    for beside in [
+        opaque.clone(),
+        Schema::union([Schema::Str, deep.clone()]),
+        deep.clone().complement(),
+    ] {
+        let three = meet(vec![words("^a+$"), words("^b+$"), beside]);
+        assert_eq!(rules(&three), Verdict::Unknown, "{three:?}");
+        assert!(three.is_empty(), "{three:?}");
+    }
+    let one = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![
+            Constraint::Regex("^a+$".into()),
+            Constraint::Regex("^b+$".into()),
+            predicate.clone(),
+        ]
+        .into(),
+    };
+    assert!(one.is_empty());
+
+    let relation =
+        |sub: &Schema, sup: &Schema| sub.subtype_relation_under(sup, &NoLeafRelations, &[]);
+    let thinned = meet(vec![Schema::Str, opaque]);
+    assert_eq!(relation(&thinned, &Schema::Nothing), Relation::Unknown);
+    assert!(!thinned.is_empty());
+    let a_and_p = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex("^a+$".into()), predicate].into(),
+    };
+    assert_eq!(relation(&a_and_p, &words("^a+$")), Relation::Holds);
+    assert_eq!(relation(&a_and_p, &words("^b+$")), Relation::Unknown);
+
+    // The reading keeps the members it read, and only where it left one out.
+    let pool = NoLeafRelations;
+    let mut kept = None;
+    let thinned = meet(vec![words("^a+$"), deep.clone()]);
+    assert!(lower_widened(&thinned, &[], &pool, &mut kept, |_| true).is_some());
+    assert_eq!(kept, Some(vec![words("^a+$")]));
+    let mut kept = None;
+    assert!(lower_widened(&pair, &[], &pool, &mut kept, |_| true).is_some());
+    assert_eq!(kept, None);
+}
+
+// THEORY: a-cut-reference-proves
+/// A reference on the supertype's side is unfolded for the set reading, as one
+/// on the subject's side is: a pattern refinement is below a fixpoint whose
+/// definition holds every string, which only the unfolded supertype says.
+#[test]
+fn a_reference_above_is_unfolded_for_the_sets() {
+    let defs = vec![Schema::union([
+        Schema::Str,
+        Schema::list(SeqShape::homogeneous(Schema::Ref(DefIx::new(0)))),
+    ])];
+    let words = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex("^a+$".into())].into(),
+    };
+    assert_eq!(
+        words.descriptor_contained_in(&Schema::Ref(DefIx::new(0)), &NoLeafRelations, &defs),
+        Relation::Holds,
+    );
+}
+
+// THEORY: a-record-splits-across-a-union
+/// Keyed maps met in a meet are one record, their pointwise meet, and the
+/// record rule splits it as it splits one map.
+///
+/// Two open records whose catch-all is a recursive universe meet in a record
+/// whose `tier` is a string: below a third record holding a string `tier`,
+/// asked as an inclusion, as the emptiness of the difference, and as the meet
+/// of one with the complement below the other's complement. The set
+/// representation cuts the universe and cannot prove any of the three. Two
+/// closed records meet in one the rule also refutes against a record whose
+/// `tier` is an integer. A member of another shape beside the maps is left
+/// out: the proof stands, and the refutation does not, since the member may
+/// admit nothing.
+#[test]
+fn keyed_maps_met_are_one_record() {
+    let universe = Schema::Ref(DefIx::new(0));
+    let defs = [Schema::union([
+        Schema::Str,
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(universe.clone())),
+    ])];
+    let open = |fields: Vec<(&str, Schema)>| {
+        Schema::keyed_map(
+            fields
+                .into_iter()
+                .map(|(name, schema)| Field {
+                    name: name.into(),
+                    schema,
+                    required: true,
+                })
+                .collect(),
+            vec![MapClause {
+                key: Schema::Str,
+                value: universe.clone(),
+            }],
+        )
+    };
+    let user = open(vec![
+        ("id", Schema::Str),
+        ("tier", Schema::union([Schema::Int, Schema::Str])),
+    ]);
+    let required = open(vec![("tier", Schema::union([Schema::Str, Schema::Bytes]))]);
+    let pro = open(vec![("tier", Schema::Str)]);
+    let counted = open(vec![("tier", Schema::Int)]);
+    let raw = |members: Vec<Schema>| Schema::Intersection(members.into());
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    let rules = |sub: &Schema, sup: &Schema| {
+        let budget = Budget::new(DECISION_BUDGET);
+        sub.subtype_relation(sup, &NoLeafRelations, &defs, &budget)
+    };
+    let both = raw(vec![user.clone(), required.clone()]);
+
+    assert_eq!(rules(&both, &pro), Relation::Holds);
+    assert_eq!(
+        raw(vec![
+            user.clone(),
+            required.clone(),
+            pro.clone().complement()
+        ])
+        .verdict_under_defs(&defs),
+        Verdict::Empty,
+    );
+    assert_eq!(
+        rules(
+            &raw(vec![user.clone(), pro.clone().complement()]),
+            &required.clone().complement()
+        ),
+        Relation::Holds,
+    );
+    // A refutation stands on a value of the meet, which the meet rule proves
+    // of open maps too, by the record they meet in: `{"id": "x", "tier": "y"}`
+    // is in both and outside `counted`.
+    assert_eq!(rules(&both, &counted), Relation::Fails);
+    let closed = |tier: Schema| {
+        Schema::record(
+            vec![
+                Field {
+                    name: "id".into(),
+                    schema: Schema::Str,
+                    required: true,
+                },
+                Field {
+                    name: "tier".into(),
+                    schema: tier,
+                    required: true,
+                },
+            ],
+            Openness::Closed,
+        )
+    };
+    let closed_both = raw(vec![
+        closed(Schema::union([Schema::Int, Schema::Str])),
+        closed(Schema::union([Schema::Str, Schema::Bytes])),
+    ]);
+    assert_eq!(rules(&closed_both, &closed(Schema::Str)), Relation::Holds);
+    assert_eq!(rules(&closed_both, &closed(Schema::Int)), Relation::Fails);
+
+    let beside = raw(vec![user, required, opaque.clone()]);
+    assert_eq!(rules(&beside, &pro), Relation::Holds);
+    let closed_beside = raw(vec![
+        closed(Schema::union([Schema::Int, Schema::Str])),
+        closed(Schema::union([Schema::Str, Schema::Bytes])),
+        opaque.clone(),
+    ]);
+    assert_ne!(rules(&closed_beside, &closed(Schema::Int)), Relation::Fails);
+}
+
+// THEORY: a-record-splits-across-a-union
+/// A map minus a map it is below is empty beside a member no rule reads.
+///
+/// `dict[str, ~int]` is below `dict[str, ~(int >= 0)]`, so the meet of one with
+/// the other's complement is empty, and so is that meet beside a predicate:
+/// the record rule leaves the predicate out, a meet being below the members it
+/// keeps.
+#[test]
+fn a_map_minus_a_map_above_it_is_empty_beside_a_predicate() {
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    let raw = |members: Vec<Schema>| Schema::Intersection(members.into());
+    let mapping = |value: Schema| {
+        Schema::keyed_map(
+            Vec::new(),
+            vec![MapClause {
+                key: Schema::Str,
+                value,
+            }],
+        )
+    };
+    let positive = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+    let apart = raw(vec![
+        mapping(positive.complement()).complement(),
+        mapping(Schema::Int.complement()),
+        opaque,
+    ]);
+    assert_eq!(apart.verdict_under_defs(&[]), Verdict::Empty);
+}
+
+// THEORY: a-record-splits-across-a-union
+/// The record rule answers a meet beside a member of another shape with a
+/// proof or nothing, and a meet of three records as one.
+///
+/// `{a: int}` minus `{a: str}` holds `{"a": 1}`, and beside a predicate the
+/// rule names no value: the split finds one in the records' meet, which the
+/// predicate may refuse. Beside a union of records the meet is proved
+/// inhabited, its union distributed into clauses of records, so a refutation
+/// of the records' meet alone would be believed: `{a: int | str} & {a: int |
+/// str | bytes}` is not below `{a: int}`, and its meet with `{a: int} | {a:
+/// None}` is. Three closed records whose `a` meets in `str` are below
+/// the record holding a string `a`, R◦ being the meet of every positive record
+/// [Cas23, §4.3] and not of two alone.
+#[test]
+fn a_meet_of_records_beside_another_member_proves_or_declines() {
+    let closed = |ty: Schema| {
+        Schema::record(
+            vec![Field {
+                name: "a".into(),
+                schema: ty,
+                required: true,
+            }],
+            Openness::Closed,
+        )
+    };
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::ANYTHING),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    let raw = |members: Vec<Schema>| Schema::Intersection(members.into());
+
+    let minus = raw(vec![closed(Schema::Int), closed(Schema::Str).complement()]);
+    assert_eq!(minus.verdict_under_defs(&[]), Verdict::Inhabited);
+    let beside = raw(vec![
+        closed(Schema::Int),
+        closed(Schema::Str).complement(),
+        opaque,
+    ]);
+    assert_eq!(beside.verdict_under_defs(&[]), Verdict::Unknown);
+    let narrowed = raw(vec![
+        closed(Schema::union([Schema::Int, Schema::Str])),
+        closed(Schema::union([Schema::Int, Schema::Str, Schema::Bytes])),
+        Schema::union([closed(Schema::Int), closed(Schema::NoneType)]),
+    ]);
+    assert_eq!(narrowed.verdict_under_defs(&[]), Verdict::Inhabited);
+    assert_eq!(
+        narrowed.subtype_relation_under(&closed(Schema::Int), &NoLeafRelations, &[]),
+        Relation::Holds,
+    );
+
+    let three = raw(vec![
+        closed(Schema::union([Schema::Int, Schema::Str])),
+        closed(Schema::union([Schema::Str, Schema::Bytes])),
+        closed(Schema::union([Schema::Str, Schema::NoneType])),
+    ]);
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        three.subtype_relation(&closed(Schema::Str), &NoLeafRelations, &[], &budget),
+        Relation::Holds,
+    );
+}
+
+// THEORY: kinds-decompose-emptiness
+/// A meet shares no value with what one of its members shares none with, and a
+/// union is read against it branch by branch first.
+///
+/// A pattern guarded to its kind, `str & (~str | P)`, is how a translation from
+/// JSON Schema applies a keyword to its own kind alone. `int` is disjoint from
+/// it by the meet's `str`, so `int` met with a union of two such guards is
+/// empty by the rules' first pass, where the set representation refuses the
+/// whole for its depth. `int & str` is disjoint from `str | int` only when the
+/// union is read first: each branch by the other member, and neither member
+/// from the whole union. Only a member with a kind of its own is read, which
+/// bounds the walk on a shared tower: `(int | bytes) & (int | str)` against
+/// `str | bytes` declines. And a complement member reads nothing: `int & ~str`
+/// shares every integer with `int`.
+#[test]
+fn a_meet_is_disjoint_from_what_one_of_its_members_is() {
+    let pattern = |words: &str| Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex(words.into())].into(),
+    };
+    let guarded = |words: &str| {
+        Schema::Intersection(
+            vec![
+                Schema::Str,
+                Schema::Union(
+                    vec![Schema::Complement(Arc::new(Schema::Str)), pattern(words)].into(),
+                ),
+            ]
+            .into(),
+        )
+    };
+    assert!(Schema::Int.disjoint(&guarded("^ga_[a-z0-9]{6}$")));
+    assert!(guarded("^ga_[a-z0-9]{6}$").disjoint(&Schema::Int));
+    let either =
+        Schema::Union(vec![guarded("^ga_[a-z0-9]{6}$"), guarded("^gb_[a-z0-9]{6}$")].into());
+    let meet = Schema::Intersection(vec![Schema::Int, either.clone()].into());
+    assert_eq!(meet.verdict_under(&NoLeafRelations), Verdict::Empty);
+    assert_ne!(either.verdict_under(&NoLeafRelations), Verdict::Empty);
+
+    let both = Schema::Intersection(vec![Schema::Int, Schema::Str].into());
+    let kinds = Schema::Union(vec![Schema::Str, Schema::Int].into());
+    assert!(both.disjoint(&kinds));
+    assert!(kinds.disjoint(&both));
+    let ints_or = |other: Schema| Schema::Union(vec![Schema::Int, other].into());
+    let unions_met =
+        Schema::Intersection(vec![ints_or(Schema::Bytes), ints_or(Schema::Str)].into());
+    let words = Schema::Union(vec![Schema::Str, Schema::Bytes].into());
+    assert!(!unions_met.disjoint(&words));
+
+    let not_str =
+        Schema::Intersection(vec![Schema::Int, Schema::Complement(Arc::new(Schema::Str))].into());
+    assert!(!not_str.disjoint(&Schema::Int));
+    assert!(!Schema::Int.disjoint(&not_str));
+}
+
+// THEORY: a-record-splits-across-a-union
+/// Keyed maps met in a meet, one of them with clauses, are one record for
+/// their values too: the meet is empty where a label it requires has no value,
+/// and inhabited where each has one [Cas23, (11)], R◦ being their pointwise
+/// meet [Cas23, (12)].
+///
+/// A label's value is read through the field of that name or through the
+/// clause its kind falls under, so `{"tag": str}` met with `dict[str, int]` is
+/// empty, a name a mapping over integers cannot hold is empty with it, and two
+/// open records over a recursive universe requiring two different fields meet
+/// in the dict holding both. A predicate in a label's type declines, and so
+/// does a clause keyed by constants, which the partition of key kinds does not
+/// read.
+#[test]
+fn a_meet_of_maps_is_inhabited_where_the_record_they_meet_in_is() {
+    let verdict = |members: Vec<Schema>, defs: &[Schema]| {
+        keyed_map_meet_verdict(
+            &members,
+            &mut Cx::new(&NoLeafRelations, defs, &Budget::new(DECISION_BUDGET)),
+        )
+    };
+    let mapping = |key: Schema, value: Schema| Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause { key, value }].into(),
+    };
+    let universe = Schema::Ref(DefIx::new(0));
+    let defs = [Schema::union([
+        Schema::Str,
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(universe.clone())),
+    ])];
+    let open_over = |fields: Vec<Field>| Schema::KeyedMap {
+        fields: fields.into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: universe.clone(),
+        }]
+        .into(),
+    };
+
+    let two_fields = vec![
+        open_over(vec![field("a", Schema::Int, true)]),
+        open_over(vec![field("b", Schema::Str, true)]),
+    ];
+    assert_eq!(verdict(two_fields, &defs), Verdict::Inhabited);
+    let tagged = closed(vec![field("tag", Schema::Str, true)]);
+    assert_eq!(
+        verdict(vec![tagged.clone(), mapping(Schema::Str, Schema::Int)], &[]),
+        Verdict::Empty
+    );
+    assert_eq!(
+        verdict(vec![tagged.clone(), mapping(Schema::Int, Schema::Str)], &[]),
+        Verdict::Empty
+    );
+    assert_eq!(
+        verdict(vec![tagged.clone(), mapping(Schema::Str, Schema::Str)], &[]),
+        Verdict::Inhabited
+    );
+
+    let opaque = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    assert_eq!(
+        verdict(
+            vec![open(vec![field("a", opaque, true)]), open(vec![])],
+            &[]
+        ),
+        Verdict::Unknown
+    );
+    let by_constant = mapping(Schema::Literal(ConstIx::new(0)), Schema::Int);
+    assert_eq!(verdict(vec![tagged, by_constant], &[]), Verdict::Unknown);
+}
+
+// THEORY: a-cut-reference-proves
+/// A thinned reading whose conjuncts the rules find a value of is not built
+/// for an emptiness question: an inhabited superset proves nothing empty.
+///
+/// The conjuncts kept are an open map and a guard over it, `{str: ⊤} & (~{str:
+/// ⊤} | {"tag": ⊤, str: ⊤})`, a meet no one of them holds a value of alone and
+/// the rules find one of once the guard is distributed: its complement branch
+/// meets the map in nothing, and its record branch meets it in one record. A
+/// map whose values nest past the depth bound is the member left out, and the
+/// meet holds `{"tag": []}`.
+#[test]
+fn a_thinned_reading_the_rules_find_a_value_of_is_not_built() {
+    let object = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: Schema::ANYTHING,
+        }]
+        .into(),
+    };
+    let tagged = open(vec![field("tag", Schema::ANYTHING, true)]);
+    let guard = Schema::Union(vec![object.clone().complement(), tagged].into());
+    let lists = (0..5).fold(Schema::Int, |inner, _| {
+        Schema::list(SeqShape::homogeneous(inner))
+    });
+    let deep = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: vec![MapClause {
+            key: Schema::Str,
+            value: lists,
+        }]
+        .into(),
+    };
+    let kept = [object.clone(), guard.clone()];
+    assert!(super::emptiness::the_rules_find_a_value(&kept));
+    let meet = Schema::Intersection(vec![object, guard, deep].into());
+    let mut read = None;
+    assert!(
+        lower_widened(&meet, &[], &NoLeafRelations, &mut read, |kept| {
+            !super::emptiness::the_rules_find_a_value(kept)
+        })
+        .is_none()
+    );
+    assert_eq!(read, None);
+    assert!(!meet.is_empty());
+}

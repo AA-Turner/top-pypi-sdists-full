@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: ogbench
+Version: 1.2.2
+Summary: OGBench: Benchmarking Offline Goal-Conditioned RL
+Author: Seohong Park, Kevin Frans, Benjamin Eysenbach, Sergey Levine
+Maintainer-email: Seohong Park <seohong@berkeley.edu>
+Requires-Python: >=3.8
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: mujoco >= 3.1.6, != 3.9.0
+Requires-Dist: dm_control >= 1.0.20
+Requires-Dist: gymnasium[mujoco]
+Requires-Dist: ogbench[train,dev] ; extra == "all"
+Requires-Dist: ruff ; extra == "dev"
+Requires-Dist: jax[cuda12] >= 0.4.26 ; extra == "train"
+Requires-Dist: flax >= 0.8.4 ; extra == "train"
+Requires-Dist: distrax >= 0.1.5 ; extra == "train"
+Requires-Dist: ml_collections ; extra == "train"
+Requires-Dist: matplotlib ; extra == "train"
+Requires-Dist: moviepy ; extra == "train"
+Requires-Dist: wandb ; extra == "train"
+Project-URL: Home, https://github.com/seohongpark/ogbench
+Provides-Extra: all
+Provides-Extra: dev
+Provides-Extra: train

@@ -1,0 +1,112 @@
+- name: Person with only employment income
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 10000
+        self_employment_income: 0
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 10000
+
+- name: Person with only self-employment income
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 0
+        self_employment_income: 15000
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 15000
+
+- name: Person with both employment and self-employment income
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 12000
+        self_employment_income: 8000
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 20000
+
+- name: Couple with mixed income sources
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 5000
+        self_employment_income: 15000
+      partner:
+        employment_income: 10000
+        self_employment_income: 0
+    benunits:
+      benunit:
+        members: [person, partner]
+  output:
+    pension_credit_earnings: 30000
+
+- name: No income
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 0
+        self_employment_income: 0
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 0
+
+# Issue #2255. Computation of Earnings Regulations 1996 reg. 13(12), applied to
+# Pension Credit by SPC Regulations 2002 reg. 17B(5)(b): "any loss incurred in
+# any one of his employments shall not be offset against his earnings in any
+# other of his employments"
+# (https://www.legislation.gov.uk/uksi/1996/2745/regulation/13).
+- name: A self-employment loss is not set against wages
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 10_000
+        self_employment_income: -8_000
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 10_000
+
+- name: A self-employment loss alone gives nil earnings
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 0
+        self_employment_income: -8_000
+    benunits:
+      benunit:
+        members: [person]
+  output:
+    pension_credit_earnings: 0
+
+- name: A partner's self-employment loss is not set against the claimant's wages
+  period: 2023
+  input:
+    people:
+      person:
+        employment_income: 10_000
+      partner:
+        self_employment_income: -8_000
+    benunits:
+      benunit:
+        members: [person, partner]
+  output:
+    pension_credit_earnings: 10_000

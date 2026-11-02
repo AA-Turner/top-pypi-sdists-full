@@ -168,7 +168,7 @@ class IntegrationsMixin:
         Strict writes never enter the generic outbox. Callers retaining an
         admission intent must receive either the actual receipt or an error.
         """
-        return self.write(
+        return self.send(
             "POST",
             f"/v1/projects/{project_id}/wandb-sources",
             {"connection_id": connection_id, "external_id": external_id},
@@ -178,7 +178,7 @@ class IntegrationsMixin:
     def patch_project_wandb_source(
         self, project_id: str, attachment_id: str, *, sync_enabled: bool, expected_revision: int
     ) -> dict:
-        return self.write(
+        return self.send(
             "PATCH",
             f"/v1/projects/{project_id}/wandb-sources/{attachment_id}",
             {"sync_enabled": sync_enabled, "expected_revision": expected_revision},
@@ -190,7 +190,7 @@ class IntegrationsMixin:
         imported, with any work attached to them. Runs created in Probe and
         the destination stay. Pausing (`patch_project_wandb_source(...,
         sync_enabled=False)`) keeps them."""
-        self.write(
+        self.send(
             "DELETE", f"/v1/projects/{project_id}/wandb-sources/{attachment_id}", strict=True
         )
 
@@ -227,7 +227,7 @@ class IntegrationsMixin:
         admission intent must receive either the actual receipt or an error.
         """
         return self._on_experiment(
-            lambda p, e: self.write(
+            lambda p, e: self.send(
                 "POST",
                 f"/v1/projects/{p}/experiments/{e}/wandb-sources",
                 {"connection_id": connection_id, "external_id": external_id},
@@ -247,7 +247,7 @@ class IntegrationsMixin:
         project_id: str | None = None,
     ) -> dict:
         return self._on_experiment(
-            lambda p, e: self.write(
+            lambda p, e: self.send(
                 "PATCH",
                 f"/v1/projects/{p}/experiments/{e}/wandb-sources/{attachment_id}",
                 {"sync_enabled": sync_enabled, "expected_revision": expected_revision},
@@ -263,7 +263,7 @@ class IntegrationsMixin:
         """`detach_project_wandb_source` for an experiment's source: the runs it
         imported are PERMANENTLY deleted; pausing keeps them."""
         self._on_experiment(
-            lambda p, e: self.write(
+            lambda p, e: self.send(
                 "DELETE",
                 f"/v1/projects/{p}/experiments/{e}/wandb-sources/{attachment_id}",
                 strict=True,
@@ -275,7 +275,7 @@ class IntegrationsMixin:
     def launch_project_wandb_backfill(
         self, project_id: str, attachment_id: str, *, idempotency_key: str
     ) -> dict:
-        return self.write(
+        return self.send(
             "POST",
             f"/v1/projects/{project_id}/wandb-sources/{attachment_id}/backfills",
             {"idempotency_key": idempotency_key},
@@ -298,7 +298,7 @@ class IntegrationsMixin:
     def cancel_project_wandb_backfill(
         self, project_id: str, attachment_id: str, job_id: str
     ) -> dict:
-        return self.write(
+        return self.send(
             "POST",
             f"/v1/projects/{project_id}/wandb-sources/{attachment_id}/backfills/{job_id}/cancel",
             {},
@@ -308,7 +308,7 @@ class IntegrationsMixin:
     def retry_project_wandb_backfill(
         self, project_id: str, attachment_id: str, job_id: str, *, idempotency_key: str
     ) -> dict:
-        return self.write(
+        return self.send(
             "POST",
             f"/v1/projects/{project_id}/wandb-sources/{attachment_id}/backfills/{job_id}/retry",
             {"idempotency_key": idempotency_key},

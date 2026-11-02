@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import doctor
-from probe.cli.capabilities import Capabilities, PluginState, TokenSource
+from probe.cli.wizard import doctor
+from probe.cli.wizard.state.state import Capabilities, TokenSource
+from probe.cli.wizard.state.plugins import PluginState
 
 
 @pytest.fixture

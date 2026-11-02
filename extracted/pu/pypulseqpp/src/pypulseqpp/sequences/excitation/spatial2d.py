@@ -1,0 +1,135 @@
+"""Two-dimensionally selective excitation."""
+
+from __future__ import annotations
+
+__all__ = ["SpatialSelective2DExcitation"]
+
+import numpy as np
+
+import pypulseqpp as pp
+
+from ._base import RfModule, rf_reference
+
+
+class SpatialSelective2DExcitation(RfModule):
+    """Small-tip spiral excitation selective in two dimensions.
+
+    The selected disc extends along the unencoded axis. Its periodic replicas
+    lie at the excitation FOV distance, which should cover the object. Each
+    arm is retraced with RF off, so the trajectory ends at the origin and
+    needs no rephaser.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    flip_angle_deg : float
+        Flip angle (degrees) at the centre of the disc.
+    fov : float
+        Square excitation field of view (m); the distance to the first
+        repeated disc.
+    matrix : int
+        Excitation grid size, square; sets the extent of the trajectory in
+        excitation k-space.
+    selective_size : float or sequence of float, default=None
+        Diameter of the excited disc (m). ``None`` is half the field of view.
+    target : numpy.ndarray, default=None
+        Complex profile on the ``(matrix, matrix)`` grid, instead of a disc.
+    n_interleaves : int, default=None
+        Spiral arms played. ``None`` samples excitation k-space at Nyquist;
+        fewer arms give a proportionally shorter pulse and a repeated disc
+        proportionally closer.
+    axes : sequence of str, default=('x', 'y')
+        The two gradient channels the trajectory runs on.
+    use : str, default='excitation'
+        Pulseq RF use tag.
+
+    Attributes
+    ----------
+    rf : RfEvent
+        The pulse.
+    gradients : tuple of GradEvent
+        One per axis, played in the pulse's own block.
+    rephasers : tuple of TrapEvent
+        Rephasing gradients; empty, because the spiral trajectory ends at the
+        origin.
+    self_refocused : bool
+        Whether the excitation k-space trajectory ends at the origin without
+        a rephaser.
+    duration_s : float
+        Pulse length (s), set by the trajectory.
+
+    Raises
+    ------
+    ValueError
+        If a size is out of range, ``target`` does not match ``matrix``, or the
+        requested profile has no response on the trajectory.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+    >>> pencil = design.SpatialSelective2DExcitation(
+    ...     system, 30.0, fov=0.256, matrix=32, selective_size=0.04
+    ... )
+    >>> len(pencil.blocks), [gradient.channel for gradient in pencil.gradients]
+    (1, ['x', 'y'])
+
+    >>> pencil.self_refocused, pencil.rephasers
+    (True, ())
+
+    The subpulse train under the spiral gradients, and the transverse
+    magnetisation over the selected plane:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp.plot import plot_rf
+       from pypulseqpp.sequences import SpatialSelective2DExcitation
+
+       system = pp.Opts(max_grad=40, grad_unit="mT/m", max_slew=150, slew_unit="T/m/s")
+       module = SpatialSelective2DExcitation(
+           system, 30.0, fov=0.256, matrix=16, selective_size=0.04
+       )
+       module.seq.paper_plot()
+       plot_rf(module, plane="xy", extent=80.0, span=80.0, samples=61, plot_now=False)
+       plt.show()
+    """
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        flip_angle_deg: float,
+        *,
+        fov: float,
+        matrix: int,
+        selective_size: object = None,
+        target: object = None,
+        n_interleaves: int | None = None,
+        axes: tuple[str, ...] = ("x", "y"),
+        use: str = "excitation",
+    ) -> None:
+        rf, gradients, rephasers = pp.make_2d_selective_pulse(
+            np.deg2rad(flip_angle_deg),
+            fov=fov,
+            matrix=matrix,
+            selective_size=selective_size,
+            target=target,
+            n_interleaves=n_interleaves,
+            axes=axes,
+            system=system,
+            use=use,
+        )
+
+        self.seq = pp.Sequence(system)
+        self.seq.add_block(rf, *gradients)
+        if rephasers:
+            self.seq.add_block(*rephasers)
+
+        self.register(gradients=gradients, rephasers=rephasers)
+        self.center = rf_reference(rf)
+        self.self_refocused = not rephasers
+        self.duration_s = pp.calc_duration(rf, *gradients)

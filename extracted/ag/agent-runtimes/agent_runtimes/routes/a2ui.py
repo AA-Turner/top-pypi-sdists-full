@@ -1,0 +1,221 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""A2UI protocol route for the pydantic-ai restaurant agent."""
+
+import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/a2ui", tags=["a2ui"])
+
+
+class A2UIQueryRequest(BaseModel):
+    """Request model for A2UI query endpoint."""
+
+    query: str | None = None
+    action: str | None = None
+    context: dict[str, Any] | None = None
+
+
+class A2UIResponse(BaseModel):
+    """Response model for A2UI endpoint."""
+
+    success: bool
+    text: str | None = None
+    error: str | None = None
+    a2ui_messages: list[dict[str, Any]] | None = None
+
+
+def _format_a2a_response(
+    a2ui_messages: list[dict[str, Any]] | None,
+    text: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Format A2UI messages as A2A-style response parts.
+
+    This wraps native A2UI v0.9 messages in the A2A DataPart format.
+    """
+    parts = []
+
+    # Add text part if present
+    if text:
+        parts.append({"kind": "text", "text": text})
+
+    # Add A2UI data parts
+    if a2ui_messages:
+        for msg in a2ui_messages:
+            parts.append(
+                {
+                    "kind": "data",
+                    "data": msg,  # type: ignore[dict-item]
+                }
+            )
+
+    return parts
+
+
+@router.post("/restaurant")
+async def restaurant_query(request: A2UIQueryRequest) -> list[dict[str, Any]]:
+    """
+    Handle restaurant search and booking queries via A2UI protocol.
+
+    Supports two types of requests:
+    1. Query requests (query parameter): Search for restaurants
+    2. Action requests (action + context): Handle button clicks, form submissions
+
+    Returns A2A-style response with A2UI messages as data parts.
+    """
+    try:
+        # Import here to avoid circular imports and ensure module is loaded
+        from agent_runtimes.examples.restaurant_finder import (
+            handle_a2ui_action,
+            run_restaurant_agent,
+        )
+
+        base_url = "http://localhost:8765"
+
+        if request.action and request.context:
+            # Handle action (button click, form submission)
+            logger.info(
+                f"A2UI action: {request.action} with context: {request.context}"
+            )
+            result = await handle_a2ui_action(
+                request.action,
+                request.context,
+                base_url=base_url,
+            )
+        elif request.query:
+            # Handle search query
+            logger.info(f"A2UI query: {request.query}")
+            result = await run_restaurant_agent(
+                request.query,
+                base_url=base_url,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Either 'query' or 'action' with 'context' must be provided",
+            )
+
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            logger.error(f"A2UI agent error: {error_msg}")
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        # Format response as A2A parts
+        return _format_a2a_response(
+            a2ui_messages=result.get("a2ui_messages"),
+            text=result.get("text"),
+        )
+
+    except ImportError as e:
+        logger.error(f"Failed to import restaurant_finder module: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Restaurant finder module not available: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"A2UI restaurant error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/restaurant/health")
+async def restaurant_health() -> dict[str, Any]:
+    """Health check for the A2UI restaurant endpoint."""
+    try:
+        # Import to check availability
+        from agent_runtimes.examples import restaurant_finder  # noqa: F401
+
+        return {
+            "status": "healthy",
+            "agent": "restaurant_finder",
+            "protocol": "a2ui",
+        }
+    except ImportError:
+        return {
+            "status": "unhealthy",
+            "error": "restaurant_finder module not available",
+        }
+
+
+@router.post("/support-assistant")
+async def support_assistant_query(request: A2UIQueryRequest) -> list[dict[str, Any]]:
+    """
+    Handle support assistant chat and user actions via A2UI protocol.
+
+    Query requests build a support workflow UI with form components.
+    Action requests process A2UI button events from that workflow.
+    """
+    try:
+        from agent_runtimes.examples.support_assistant import (
+            handle_support_action,
+            run_support_assistant,
+        )
+
+        base_url = "http://localhost:8765"
+
+        if request.action and request.context:
+            logger.info(
+                "A2UI support action: %s with context: %s",
+                request.action,
+                request.context,
+            )
+            result = await handle_support_action(
+                request.action,
+                request.context,
+                base_url=base_url,
+            )
+        elif request.query:
+            logger.info("A2UI support query: %s", request.query)
+            result = await run_support_assistant(
+                request.query,
+                base_url=base_url,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Either 'query' or 'action' with 'context' must be provided",
+            )
+
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            logger.error("A2UI support assistant error: %s", error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        return _format_a2a_response(
+            a2ui_messages=result.get("a2ui_messages"),
+            text=result.get("text"),
+        )
+
+    except ImportError as e:
+        logger.error("Failed to import support_assistant module: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Support assistant module not available: {e}",
+        )
+    except Exception as e:
+        logger.exception("A2UI support assistant error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/support-assistant/health")
+async def support_assistant_health() -> dict[str, Any]:
+    """Health check for the A2UI support assistant endpoint."""
+    try:
+        from agent_runtimes.examples import support_assistant  # noqa: F401
+
+        return {
+            "status": "healthy",
+            "agent": "support_assistant",
+            "protocol": "a2ui",
+        }
+    except ImportError:
+        return {
+            "status": "unhealthy",
+            "error": "support_assistant module not available",
+        }

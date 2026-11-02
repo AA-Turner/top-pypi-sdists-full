@@ -1,0 +1,1174 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+"""
+Pydantic AI agent adapter.
+
+Wraps a Pydantic AI Agent to implement the BaseAgent interface,
+enabling use with protocol adapters.
+"""
+
+import logging
+import uuid
+from typing import Any, AsyncIterator
+
+from pydantic_ai import Agent, DeferredToolRequests
+from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    SystemPromptPart,
+    TextPart,
+    UserPromptPart,
+)
+from pydantic_ai.tools import DeferredToolResults, ToolDenied
+
+from ..context.usage import get_usage_tracker
+from ..guardrails.model_budget import reached, usage_limits_for
+from ..guardrails.tool_approvals import (
+    ToolApprovalConfig,
+    ToolApprovalManager,
+    ToolApprovalRejectedError,
+)
+from ..mcp.google_workspace import GOOGLE_WORKSPACE_SERVER
+from ..mcp.lifecycle import get_mcp_lifecycle_manager
+from .base import (
+    AgentContext,
+    AgentResponse,
+    BaseAgent,
+    StreamEvent,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
+)
+
+logger = logging.getLogger(__name__)
+
+_MAX_DEFERRED_APPROVAL_CONTINUATIONS = 5
+_DEFERRED_CONTINUATION_PROMPT = "Continue with the approved tool results."
+
+#: The roles a conversation names the agent's own turns with: the transports'
+#: ``assistant``, and A2A's ``agent``.
+_AGENT_ROLES = frozenset({"assistant", "agent"})
+
+
+def model_messages(history: list[Any]) -> list[ModelMessage]:
+    """
+    A conversation's previous messages, as the messages pydantic-ai takes.
+
+    ``AgentContext.conversation_history`` is the transports' shape —
+    ``{"role", "content"}`` — and pydantic-ai's ``message_history`` takes its
+    own message objects, so each message becomes one: the person's a request,
+    the agent's a response, a system message a system prompt. A message that
+    already is pydantic-ai's is kept as it is. This is how an A2A task's
+    context, and the checkpoint a resumed run starts from (O2-05), reach the
+    model.
+
+    Parameters
+    ----------
+    history : list[Any]
+        The previous messages, oldest first; the prompt is not one of them.
+
+    Returns
+    -------
+    list[ModelMessage]
+        The same messages, in the same order.
+
+    Raises
+    ------
+    ValueError
+        When a message names a role this does not know, or carries no text:
+        guessing would put words in somebody else's mouth.
+    """
+    messages: list[ModelMessage] = []
+    for message in history:
+        if isinstance(message, (ModelRequest, ModelResponse)):
+            messages.append(message)
+            continue
+        role = message.get("role") if isinstance(message, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str):
+            raise ValueError(f"A conversation message carries no text: {message!r}")
+        if role == "user":
+            messages.append(ModelRequest(parts=[UserPromptPart(content=content)]))
+        elif role in _AGENT_ROLES:
+            messages.append(ModelResponse(parts=[TextPart(content=content)]))
+        elif role == "system":
+            messages.append(ModelRequest(parts=[SystemPromptPart(content=content)]))
+        else:
+            raise ValueError(
+                f"A conversation message names a role nobody speaks in: {role!r}"
+            )
+    return messages
+
+
+def _tool_call_of(event: Any) -> dict[str, Any]:
+    """A tool call as the stream tells it: its id, its name and its arguments."""
+    part = event.part
+    try:
+        arguments = part.args_as_dict()
+    except Exception:  # Arguments the model wrote badly: the call is still told.
+        arguments = {}
+    return {"id": part.tool_call_id, "name": part.tool_name, "arguments": arguments}
+
+
+def _tool_result_of(event: Any, retry_part: type) -> dict[str, Any]:
+    """A tool call's end as the stream tells it: what it returned, or why it is retried."""
+    part = event.part
+    retried = isinstance(part, retry_part)
+    return {
+        "id": part.tool_call_id,
+        "name": part.tool_name,
+        "result": None if retried else part.content,
+        "error": str(part.content) if retried else None,
+    }
+
+
+class PydanticAIAdapter(BaseAgent):
+    """
+    Adapter for Pydantic AI agents.
+
+    Wraps a pydantic_ai.Agent to provide a consistent interface
+    for protocol adapters.
+
+    Example:
+        from pydantic_ai import Agent
+
+        pydantic_agent = Agent("openai:gpt-4o", instructions="...")
+
+        agent = PydanticAIAgent(
+            agent=pydantic_agent,
+            name="my_agent",
+            description="A helpful assistant",
+        )
+
+        response = await agent.run("Hello!", context)
+    """
+
+    def __init__(
+        self,
+        agent: Agent,
+        name: str = "pydantic_ai_agent",
+        description: str = "A Pydantic AI powered agent",
+        version: str = "1.0.0",
+        agent_id: str | None = None,
+        selected_mcp_servers: list[Any] | None = None,
+        non_mcp_toolsets: list[Any] | None = None,
+        codemode_builder: Any = None,
+    ):
+        """
+        Initialize the Pydantic AI agent adapter.
+
+        Args:
+            agent: The Pydantic AI Agent instance.
+            name: Agent name.
+            description: Agent description.
+            version: Agent version.
+            agent_id: Unique identifier for usage tracking (defaults to name).
+            selected_mcp_servers: List of MCP server selections to use.
+            non_mcp_toolsets: List of non-MCP toolsets (e.g., codemode, skills) to always include.
+            codemode_builder: Optional callable to rebuild codemode toolset when MCP servers change.
+        """
+        self._agent = agent
+        self._name = name
+        self._description = description
+        self._version = version
+        self._agent_id = agent_id or name.lower().replace(" ", "-")
+        self._tools: list[ToolDefinition] = []
+        self._selected_mcp_servers = selected_mcp_servers or []
+        self._non_mcp_toolsets = non_mcp_toolsets or []
+        self._codemode_builder = codemode_builder
+        # Contents MCP toolsets, one per session uid, kept across runs so a
+        # session's record and tool schemas are read once.
+        self._contents_toolsets: dict[str, Any] = {}
+        self._codemode_toolset_index: int | None = None
+        self._sandbox_only_toolset_index: int | None = None
+        self._refresh_codemode_indexes()
+        self._extract_tools()
+
+        # Register with usage tracker
+        tracker = get_usage_tracker()
+        # Try to extract model from agent
+        model = getattr(agent, "model", None)
+        model_str = str(model) if model else None
+        tracker.register_agent(self._agent_id, model=model_str)
+
+    def _refresh_codemode_indexes(self) -> None:
+        """Refresh indexes of codemode and sandbox-only toolsets."""
+        self._codemode_toolset_index = None
+        self._sandbox_only_toolset_index = None
+        for i, toolset in enumerate(self._non_mcp_toolsets):
+            if not (
+                hasattr(toolset, "__class__")
+                and "CodemodeToolset" in toolset.__class__.__name__
+            ):
+                continue
+            discovery_enabled = bool(
+                getattr(toolset, "_agent_runtimes_discovery_enabled", True)
+            )
+            if discovery_enabled and self._codemode_toolset_index is None:
+                self._codemode_toolset_index = i
+            elif not discovery_enabled and self._sandbox_only_toolset_index is None:
+                self._sandbox_only_toolset_index = i
+
+    def _build_codemode_toolset(self, enable_discovery_tools: bool) -> Any:
+        """Build a codemode toolset from the configured builder."""
+        if not self._codemode_builder:
+            return None
+        try:
+            return self._codemode_builder(
+                self._selected_mcp_servers,
+                enable_discovery_tools,
+            )
+        except TypeError:
+            # Backward compatibility: older builders only accept servers.
+            if enable_discovery_tools:
+                return self._codemode_builder(self._selected_mcp_servers)
+            logger.warning(
+                "PydanticAIAdapter [%s]: codemode builder does not support sandbox-only rebuild",
+                self._name,
+            )
+            return None
+
+    def _extract_tools(self) -> None:
+        """
+        Extract tool definitions from the Pydantic AI agent.
+        """
+        # Pydantic AI agents have tools registered via decorators
+        # We need to extract them for the protocol adapters
+        if hasattr(self._agent, "_tools"):
+            for tool_name, tool_func in self._agent._tools.items():
+                # Try to extract schema from the function
+                schema = {}
+                if hasattr(tool_func, "__annotations__"):
+                    # Build a simple schema from annotations
+                    properties = {}
+                    for param_name, param_type in tool_func.__annotations__.items():
+                        if param_name == "return":
+                            continue
+                        type_map = {
+                            str: "string",
+                            int: "integer",
+                            float: "number",
+                            bool: "boolean",
+                            list: "array",
+                            dict: "object",
+                        }
+                        properties[param_name] = {
+                            "type": type_map.get(param_type, "string")
+                        }
+                    schema = {"type": "object", "properties": properties}
+
+                self._tools.append(
+                    ToolDefinition(
+                        name=tool_name,
+                        description=getattr(tool_func, "__doc__", "") or "",
+                        input_schema=schema,
+                    )
+                )
+
+    @property
+    def name(self) -> str:
+        """
+        Get the agent's name.
+        """
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """
+        Get the agent's description.
+        """
+        return self._description
+
+    @property
+    def version(self) -> str:
+        """
+        Get the agent's version.
+        """
+        return self._version
+
+    @property
+    def agent_id(self) -> str:
+        """
+        Get the agent's unique identifier for usage tracking.
+        """
+        return self._agent_id
+
+    @property
+    def selected_mcp_server_ids(self) -> list[str]:
+        """
+        Get the list of selected MCP server IDs.
+        """
+        return [getattr(s, "id", str(s)) for s in self._selected_mcp_servers]
+
+    @property
+    def codemode_enabled(self) -> bool:
+        """
+        Check if codemode is currently enabled.
+        """
+        return self._codemode_toolset_index is not None
+
+    def set_codemode_enabled(self, enabled: bool) -> bool:
+        """
+        Enable or disable codemode at runtime.
+
+        When enabling, builds a new CodemodeToolset using the codemode_builder.
+        When disabling, removes discovery tools but keeps sandbox execution
+        available via an execute_code-only CodemodeToolset.
+
+        Args:
+            enabled: Whether to enable (True) or disable (False) codemode.
+
+        Returns:
+            True if the operation succeeded, False otherwise.
+        """
+        self._refresh_codemode_indexes()
+        current_enabled = self._codemode_toolset_index is not None
+
+        if enabled == current_enabled:
+            logger.info(
+                f"PydanticAIAdapter [{self._name}]: Codemode already {'enabled' if enabled else 'disabled'}"
+            )
+            return True
+
+        if enabled:
+            # Enable codemode
+            if not self._codemode_builder:
+                logger.error(
+                    f"PydanticAIAdapter [{self._name}]: Cannot enable codemode - no codemode_builder provided"
+                )
+                return False
+
+            try:
+                logger.info(f"PydanticAIAdapter [{self._name}]: Enabling codemode")
+                if self._sandbox_only_toolset_index is not None:
+                    self._non_mcp_toolsets.pop(self._sandbox_only_toolset_index)
+                    self._refresh_codemode_indexes()
+
+                new_codemode = self._build_codemode_toolset(enable_discovery_tools=True)
+                if new_codemode:
+                    self._non_mcp_toolsets.append(new_codemode)
+                    self._refresh_codemode_indexes()
+                    logger.info(
+                        f"PydanticAIAdapter [{self._name}]: Codemode enabled at index {self._codemode_toolset_index}"
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        f"PydanticAIAdapter [{self._name}]: codemode_builder returned None"
+                    )
+                    return False
+            except Exception as e:
+                logger.error(
+                    f"PydanticAIAdapter [{self._name}]: Failed to enable codemode: {e}",
+                    exc_info=True,
+                )
+                return False
+        else:
+            # Disable codemode
+            if self._codemode_toolset_index is not None:
+                try:
+                    logger.info(f"PydanticAIAdapter [{self._name}]: Disabling codemode")
+                    self._non_mcp_toolsets.pop(self._codemode_toolset_index)
+                    self._refresh_codemode_indexes()
+
+                    sandbox_only = self._build_codemode_toolset(
+                        enable_discovery_tools=False
+                    )
+                    if sandbox_only is not None:
+                        self._non_mcp_toolsets.append(sandbox_only)
+                        self._refresh_codemode_indexes()
+
+                    logger.info(
+                        "PydanticAIAdapter [%s]: Codemode disabled; sandbox execute_code remains available",
+                        self._name,
+                    )
+                    return True
+                except Exception as e:
+                    logger.error(
+                        f"PydanticAIAdapter [{self._name}]: Failed to disable codemode: {e}",
+                        exc_info=True,
+                    )
+                    return False
+            return True
+
+    def update_mcp_servers(self, servers: list[Any]) -> None:
+        """
+        Update the list of selected MCP servers.
+
+        Also rebuilds Codemode toolset if a builder was provided, to ensure
+        tool bindings reflect the current MCP server selection.
+
+        Args:
+            servers: New list of MCP server selections to use.
+        """
+        old_servers = self._selected_mcp_servers
+        self._selected_mcp_servers = (
+            servers.copy()
+        )  # Make a copy to avoid reference issues
+        logger.info(
+            f"PydanticAIAdapter [{self._name}]: Updated MCP servers from {old_servers} to {self._selected_mcp_servers}"
+        )
+        self._refresh_codemode_indexes()
+
+        # Rebuild Codemode toolset if builder is available and we have a codemode toolset
+        if self._codemode_builder and self._codemode_toolset_index is not None:
+            try:
+                logger.info(
+                    f"PydanticAIAdapter [{self._name}]: Rebuilding CodemodeToolset with new MCP servers"
+                )
+                new_codemode = self._build_codemode_toolset(enable_discovery_tools=True)
+                if new_codemode:
+                    self._non_mcp_toolsets[self._codemode_toolset_index] = new_codemode
+                    self._refresh_codemode_indexes()
+                    logger.info(
+                        f"PydanticAIAdapter [{self._name}]: Successfully rebuilt CodemodeToolset"
+                    )
+                else:
+                    # If no servers, remove codemode toolset
+                    logger.info(
+                        f"PydanticAIAdapter [{self._name}]: No MCP servers, removing CodemodeToolset"
+                    )
+                    self._non_mcp_toolsets.pop(self._codemode_toolset_index)
+                    self._refresh_codemode_indexes()
+            except Exception as e:
+                logger.error(
+                    f"PydanticAIAdapter [{self._name}]: Failed to rebuild CodemodeToolset: {e}",
+                    exc_info=True,
+                )
+        elif self._codemode_builder and self._sandbox_only_toolset_index is not None:
+            try:
+                rebuilt_sandbox_only = self._build_codemode_toolset(
+                    enable_discovery_tools=False
+                )
+                if rebuilt_sandbox_only:
+                    self._non_mcp_toolsets[self._sandbox_only_toolset_index] = (
+                        rebuilt_sandbox_only
+                    )
+                    self._refresh_codemode_indexes()
+            except Exception as e:
+                logger.error(
+                    "PydanticAIAdapter [%s]: Failed to rebuild sandbox-only toolset: %s",
+                    self._name,
+                    e,
+                    exc_info=True,
+                )
+
+    @property
+    def pydantic_agent(self) -> Agent:
+        """
+        Get the underlying Pydantic AI agent.
+        """
+        return self._agent
+
+    async def _get_runtime_toolsets_async(self) -> list[Any]:
+        """
+        Async version of ``_get_runtime_toolsets`` that waits for any MCP
+        servers that are still starting up before building the toolset list.
+
+        This is called at the start of every ``run()`` and ``stream()`` so that
+        the first user prompt can always see the MCP tools even when servers
+        are launched as a background task after agent creation.
+        """
+        # For non-codemode agents, wait for any selected servers that are
+        # still in the "starting" state before building the toolset list.
+        codemode_enabled = self._codemode_toolset_index is not None
+        if self._selected_mcp_servers and not codemode_enabled:
+            lifecycle_manager = get_mcp_lifecycle_manager()
+            for selection in self._selected_mcp_servers:
+                server_id = getattr(selection, "id", None)
+                if not server_id or getattr(selection, "origin", None) == "contents":
+                    # A Contents session has no process here to wait for.
+                    continue
+                logger.info(
+                    f"PydanticAIAdapter [{self._name}]: ensuring MCP server '{server_id}' readiness"
+                )
+                ready = await lifecycle_manager.wait_until_ready(
+                    server_id, timeout=30.0
+                )
+                logger.info(
+                    f"PydanticAIAdapter [{self._name}]: '{server_id}' readiness check complete, ready={ready}"
+                )
+
+        return self._get_runtime_toolsets()
+
+    def _contents_toolset(self, selection: Any) -> Any:
+        """
+        The toolset of a Contents MCP session, built once per session uid.
+
+        The selection's ``id`` is the Contents source uid and its
+        ``session_uid`` the session the calls go through. The toolset offers
+        the session's ``allowed_tools`` and forwards every call to Contents
+        with the caller's token; it is registered so the MCP proxy can serve
+        a sandbox's calls on the same session with the same settings.
+        """
+        session_uid = getattr(selection, "session_uid", None)
+        if not session_uid:
+            logger.warning(
+                f"PydanticAIAdapter [{self._name}]: Contents MCP selection "
+                f"'{getattr(selection, 'id', None)}' has no session_uid, skipping"
+            )
+            return None
+        toolset = self._contents_toolsets.get(session_uid)
+        if toolset is None:
+            from agent_runtimes.mcp.contents_toolset import (
+                ContentsMcpToolset,
+                register_contents_toolset,
+            )
+
+            toolset = ContentsMcpToolset(
+                session_uid=str(session_uid),
+                source_uid=getattr(selection, "id", None) or None,
+            )
+            register_contents_toolset(toolset)
+            self._contents_toolsets[session_uid] = toolset
+            logger.info(
+                f"PydanticAIAdapter [{self._name}]: Added Contents MCP session '{session_uid}' toolset"
+            )
+        return toolset
+
+    async def _toolsets_of_the_run(self, user_token: str | None) -> list[Any]:
+        """The toolsets of one run, the Datalayer MCP gateway reached as whom the run is.
+
+        An application's run reaches it as its AG-UI runs do
+        (`gateway_toolsets_of_the_run`): a deployment as its principal, with
+        the companies it works with — over A2A too, where a company's turn
+        reaches its kept deployment (B-04: found on r1, its
+        agent answered without the company's tools it was given). Any other
+        run with an identity of its own reaches it with that identity, never
+        with the process's key (O1-17).
+        """
+        toolsets = await self._get_runtime_toolsets_async()
+        from ..models.models import app_instance_of
+
+        if str((app_instance_of(self._agent_id) or {}).get("app_uid") or "").strip():
+            from ..apps.principal import gateway_toolsets_of_the_run
+            from ..apps.sessions import agent_code_toolset
+
+            # And the tools of its code, when it is written in Python (R-14): a session adds them itself, a run over A2A only here.
+            own = agent_code_toolset(self._agent_id)
+            gateway = await gateway_toolsets_of_the_run(
+                self._agent_id, toolsets, user_token
+            )
+            return [*gateway, own] if own is not None else gateway
+        if user_token:
+            from ..mcp.datalayer_gateway import toolsets_for_the_run
+
+            return toolsets_for_the_run(toolsets, user_token)
+        return toolsets
+
+    def _get_runtime_toolsets(self) -> list[Any]:
+        """
+        Get the list of toolsets to use at run time (sync, no waiting).
+
+        This dynamically fetches MCP toolsets based on selected_mcp_servers,
+        ensuring only currently running servers are included.
+
+        Note: When codemode is enabled (CodemodeToolset present), MCP servers
+        are NOT added directly as toolsets. Instead, the CodemodeToolset has
+        its own registry containing the MCP servers, and tools are accessed
+        via discovery tools (search_tools, get_tool_details, call_tool).
+
+        Returns:
+            List of toolsets including MCP servers and non-MCP toolsets.
+        """
+        toolsets = []
+
+        # Log current state
+        logger.info(
+            f"PydanticAIAdapter [{self._name}]: _get_runtime_toolsets called, selected_mcp_servers={self._selected_mcp_servers}"
+        )
+
+        # Check if codemode is enabled (CodemodeToolset present in non_mcp_toolsets)
+        codemode_enabled = self._codemode_toolset_index is not None
+
+        # Dynamically fetch MCP toolsets for selected servers
+        # But ONLY if codemode is NOT enabled (codemode has its own MCP registry)
+        if self._selected_mcp_servers and not codemode_enabled:
+            logger.info(
+                f"PydanticAIAdapter [{self._name}]: Fetching toolsets for servers: {self._selected_mcp_servers}"
+            )
+            lifecycle_manager = get_mcp_lifecycle_manager()
+
+            for selection in self._selected_mcp_servers:
+                server_id = getattr(selection, "id", None)
+                origin = getattr(selection, "origin", None)
+                if origin == "contents":
+                    contents_toolset = self._contents_toolset(selection)
+                    if contents_toolset is not None:
+                        toolsets.append(contents_toolset)
+                    continue
+                if not server_id or origin not in {"config", "catalog"}:
+                    continue
+
+                # Don't restrict the lookup to a single storage dict: the
+                # MCPServer.is_config flag (which drives which dict the server
+                # is stored in) is determined by how the server was registered,
+                # not by the McpServerSelection.origin field.  A catalog server
+                # (is_config=False → _catalog_servers) can legitimately carry
+                # origin="config" when it was selected via a library spec, so
+                # passing is_config=True would miss it.  Passing None checks
+                # both dicts.
+                instance = lifecycle_manager.get_running_server(
+                    server_id, is_config=None
+                )
+                if (
+                    instance
+                    and instance.is_running
+                    and server_id == GOOGLE_WORKSPACE_SERVER
+                ):
+                    from ..context.identities import get_request_user_jwt
+                    from ..mcp.google_workspace import toolset_for_the_run
+
+                    # Gmail, for this run only, in the name of whom it acts
+                    # for: every request carries a token IAM minted for them
+                    # (W-02), never the process's or anybody else's.
+                    toolsets.append(
+                        toolset_for_the_run(
+                            self._agent_id,
+                            get_request_user_jwt(),
+                            instance.config.url,
+                        )
+                    )
+                    continue
+                if instance and instance.is_running:
+                    pydantic_server = instance.pydantic_server
+                    # Debug: log toolset details to help trace errors
+                    try:
+                        toolset_id = (
+                            pydantic_server.id
+                            if hasattr(pydantic_server, "id")
+                            else "no-id"
+                        )
+                        toolset_label = (
+                            pydantic_server.label
+                            if hasattr(pydantic_server, "label")
+                            else "no-label"
+                        )
+                        toolset_class = type(pydantic_server).__name__
+                        logger.info(
+                            f"PydanticAIAdapter [{self._name}]: Toolset details - class={toolset_class}, id={toolset_id}, label={toolset_label}"
+                        )
+
+                        # Verify id is a property not a method
+                        id_attr = getattr(type(pydantic_server), "id", None)
+                        logger.debug(
+                            f"PydanticAIAdapter [{self._name}]: id attr type: {type(id_attr)}, is property: {isinstance(id_attr, property)}"
+                        )
+                    except Exception as debug_err:
+                        logger.error(
+                            f"PydanticAIAdapter [{self._name}]: Error inspecting toolset: {debug_err}",
+                            exc_info=True,
+                        )
+
+                    toolsets.append(pydantic_server)
+                    logger.info(
+                        f"PydanticAIAdapter [{self._name}]: Added {origin} MCP server '{server_id}' toolset"
+                    )
+                else:
+                    logger.warning(
+                        f"PydanticAIAdapter [{self._name}]: {origin} MCP server '{server_id}' not running, skipping"
+                    )
+                    # Started again for the next turn (H-03).
+                    lifecycle_manager.retry_in_background(server_id)
+
+        elif codemode_enabled:
+            logger.info(
+                f"PydanticAIAdapter [{self._name}]: Codemode enabled - MCP servers accessed via CodemodeToolset registry, not as direct toolsets"
+            )
+        else:
+            logger.info(
+                f"PydanticAIAdapter [{self._name}]: No MCP servers selected (list is empty)"
+            )
+
+        # Always include non-MCP toolsets (codemode, skills, etc.)
+        for i, ts in enumerate(self._non_mcp_toolsets):
+            try:
+                ts_class = type(ts).__name__
+                ts_id = ts.id if hasattr(ts, "id") else "no-id"
+                logger.debug(
+                    f"PydanticAIAdapter [{self._name}]: Non-MCP toolset {i}: class={ts_class}, id={ts_id}"
+                )
+            except Exception as debug_err:
+                logger.error(
+                    f"PydanticAIAdapter [{self._name}]: Error inspecting non-MCP toolset {i}: {debug_err}",
+                    exc_info=True,
+                )
+        toolsets.extend(self._non_mcp_toolsets)
+
+        mcp_count = len(toolsets) - len(self._non_mcp_toolsets)
+        logger.info(
+            f"PydanticAIAdapter [{self._name}]: Total toolsets for run: {len(toolsets)} (MCP: {mcp_count}, non-MCP: {len(self._non_mcp_toolsets)})"
+        )
+        return toolsets
+
+    def get_tools(self) -> list[ToolDefinition]:
+        """
+        Get the list of tools available to this agent.
+        """
+        return self._tools.copy()
+
+    async def _build_deferred_approval_results(
+        self,
+        deferred_requests: DeferredToolRequests,
+        user_token_override: str | None,
+    ) -> DeferredToolResults:
+        """Resolve deferred approval requests into continuation results."""
+        if deferred_requests.calls:
+            raise RuntimeError(
+                "Deferred external tool execution is not supported in this mode"
+            )
+
+        approval_config = ToolApprovalConfig.from_env()
+        approval_config.agent_id = self._agent_id
+        if user_token_override:
+            approval_config.user_jwt_token = user_token_override
+        approval_manager = ToolApprovalManager(approval_config)
+
+        approval_results: dict[str, bool | ToolDenied] = {}
+        try:
+            for approval in deferred_requests.approvals:
+                tool_args = (
+                    approval.args
+                    if isinstance(approval.args, dict)
+                    else {"value": str(approval.args)}
+                )
+                try:
+                    await approval_manager.request_and_wait(
+                        approval.tool_name,
+                        tool_args,
+                        tool_call_id=approval.tool_call_id,
+                    )
+                    approval_results[approval.tool_call_id] = True
+                except ToolApprovalRejectedError as exc:
+                    approval_results[approval.tool_call_id] = ToolDenied(
+                        exc.note or "Tool call denied by reviewer"
+                    )
+        finally:
+            await approval_manager.close()
+
+        if hasattr(deferred_requests, "build_results"):
+            return deferred_requests.build_results(
+                approvals=approval_results,
+                metadata=deferred_requests.metadata,
+            )
+
+        return DeferredToolResults(
+            approvals=approval_results,
+            metadata=deferred_requests.metadata,
+        )
+
+    async def run(
+        self,
+        prompt: str,
+        context: AgentContext,
+    ) -> AgentResponse:
+        """
+        Run the agent with a prompt.
+
+        Args:
+            prompt: User prompt/message.
+            context: Execution context.
+
+        Returns:
+            Complete agent response.
+        """
+        # The conversation before the prompt, as pydantic-ai's own messages.
+        message_history = model_messages(context.conversation_history)
+
+        # Extract model from context metadata for per-request model override
+        model_override = context.metadata.get("model") if context.metadata else None
+        user_token_override = (
+            context.metadata.get("user_token") if context.metadata else None
+        )
+
+        import time
+
+        try:
+            # Dynamically get toolsets at run time to reflect current MCP server state
+            runtime_toolsets = await self._toolsets_of_the_run(user_token_override)
+            # Always pass toolsets to override any default toolsets on the agent.
+            # Even an empty list should be passed to ensure no tools are available.
+            run_kwargs_base: dict[str, Any] = {
+                "toolsets": runtime_toolsets,
+            }
+            # The model budget a delegation set on this run (O1-07).
+            usage_limits = usage_limits_for(
+                context.metadata.get("budget") if context.metadata else None
+            )
+            if usage_limits is not None:
+                run_kwargs_base["usage_limits"] = usage_limits
+            steer_run = context.metadata.get("steer_run") if context.metadata else None
+            if steer_run:
+                from ..context.delegation import SteerCapability
+
+                # What is steered into this run reaches its model within the
+                # turn, before its next model request (O2-05).
+                run_kwargs_base["capabilities"] = [SteerCapability(steer_run)]
+            if model_override:
+                run_kwargs_base["model"] = model_override
+                logger.info(
+                    f"PydanticAIAdapter: Using model override: {model_override}"
+                )
+
+            logger.debug(
+                f"PydanticAIAdapter: Using {len(runtime_toolsets)} runtime toolsets"
+            )
+
+            request_start = time.perf_counter()
+
+            current_prompt = prompt
+            current_message_history = message_history if message_history else None
+            deferred_tool_results: DeferredToolResults | None = None
+            result = None
+
+            for continuation_round in range(_MAX_DEFERRED_APPROVAL_CONTINUATIONS + 1):
+                run_kwargs = dict(run_kwargs_base)
+                run_kwargs["message_history"] = current_message_history
+                if deferred_tool_results is not None:
+                    run_kwargs["deferred_tool_results"] = deferred_tool_results
+
+                result = await self._agent.run(current_prompt, **run_kwargs)
+
+                # Continue deferred approval flows for non-stream callers (e.g. once trigger).
+                if isinstance(result.output, DeferredToolRequests):
+                    deferred_requests = result.output
+
+                    if not deferred_requests.approvals:
+                        break
+
+                    deferred_tool_results = await self._build_deferred_approval_results(
+                        deferred_requests,
+                        user_token_override,
+                    )
+                    current_message_history = result.all_messages()
+                    current_prompt = _DEFERRED_CONTINUATION_PROMPT
+                    logger.info(
+                        "PydanticAIAdapter: Processed %s deferred approval decision(s), continuing run",
+                        len(deferred_tool_results.approvals),
+                    )
+                    continue
+
+                break
+            else:
+                raise RuntimeError(
+                    "Exceeded maximum deferred approval continuations in non-stream run mode"
+                )
+
+            if result is None:
+                raise RuntimeError("Agent run produced no result")
+
+            duration_ms = (time.perf_counter() - request_start) * 1000
+
+            # Extract response content
+            content = str(result.output) if result.output else ""
+
+            # Extract tool calls if any
+            tool_calls: list[ToolCall] = []
+            tool_results: list[ToolResult] = []
+            tool_names: list[str] = []
+
+            # Pydantic AI handles tool calls internally, but we can
+            # extract them from the messages if needed
+            if hasattr(result, "_messages"):
+                logger.info(
+                    f"[PydanticAI] Result has _messages: {len(result._messages)} messages"
+                )
+                for msg in result._messages:
+                    if hasattr(msg, "tool_calls"):
+                        logger.info(
+                            f"[PydanticAI] Message has tool_calls: {msg.tool_calls}"
+                        )
+                        for tc in msg.tool_calls:
+                            tool_calls.append(
+                                ToolCall(
+                                    id=str(uuid.uuid4()),
+                                    name=tc.name,
+                                    arguments=tc.arguments,
+                                )
+                            )
+                            tool_names.append(tc.name)
+
+            logger.info(f"[PydanticAI] Extracted tool_names: {tool_names}")
+
+            # Extract usage information for the response envelope.
+            # Detailed tracking is handled by LLMContextUsageCapability.
+            usage = {}
+            if hasattr(result, "usage"):
+                run_usage_candidate = getattr(result, "usage", None)
+                run_usage = (
+                    run_usage_candidate()
+                    if callable(run_usage_candidate)
+                    else run_usage_candidate
+                )
+                if run_usage is not None:
+                    usage = {
+                        "prompt_tokens": getattr(run_usage, "input_tokens", 0),
+                        "completion_tokens": getattr(run_usage, "output_tokens", 0),
+                        "total_tokens": getattr(run_usage, "total_tokens", 0),
+                    }
+
+            return AgentResponse(
+                content=content,
+                tool_calls=tool_calls,
+                tool_results=tool_results,
+                usage=usage,
+            )
+
+        except Exception as e:
+            return AgentResponse(
+                content=f"Error: {str(e)}",
+                metadata={"error": str(e)},
+            )
+
+    async def stream(
+        self,
+        prompt: str,
+        context: AgentContext,
+    ) -> AsyncIterator[StreamEvent]:
+        """
+        Run the agent with streaming output.
+
+        Uses ``agent.run()`` with an ``event_stream_handler`` so that the
+        **full** agent graph executes (multiple model→tool→model rounds)
+        while text deltas are still yielded token-by-token.
+
+        ``run_stream()`` is intentionally *not* used here because it stops
+        the graph at the first output matching the output type, which
+        prevents multi-round tool usage.
+
+        Args:
+            prompt: User prompt/message.
+            context: Execution context.
+
+        Yields:
+            Stream events as they are produced.
+        """
+        import asyncio
+        import time
+
+        from pydantic_ai.messages import (
+            FunctionToolCallEvent,
+            FunctionToolResultEvent,
+            PartDeltaEvent,
+            PartStartEvent,
+            RetryPromptPart,
+            TextPartDelta,
+        )
+
+        # The conversation before the prompt, as pydantic-ai's own messages.
+        message_history = model_messages(context.conversation_history)
+
+        # Extract per-request overrides from context metadata
+        model_override = context.metadata.get("model") if context.metadata else None
+        user_token_override = (
+            context.metadata.get("user_token") if context.metadata else None
+        )
+        force_exhaustive_end_strategy = bool(
+            context.metadata.get("force_exhaustive_end_strategy")
+            if context.metadata
+            else False
+        )
+        previous_end_strategy: Any = None
+
+        try:
+            if force_exhaustive_end_strategy and hasattr(self._agent, "end_strategy"):
+                previous_end_strategy = getattr(self._agent, "end_strategy")
+                if previous_end_strategy != "exhaustive":
+                    setattr(self._agent, "end_strategy", "exhaustive")
+                    logger.info(
+                        "PydanticAIAdapter: Temporarily set end_strategy to exhaustive for stream"
+                    )
+
+            runtime_toolsets = await self._toolsets_of_the_run(user_token_override)
+            logger.debug(
+                f"PydanticAIAdapter: Using {len(runtime_toolsets)} runtime toolsets for stream"
+            )
+
+            current_prompt = prompt
+            current_message_history = message_history if message_history else None
+            deferred_tool_results: DeferredToolResults | None = None
+            final_output: Any | None = None
+            final_result: Any | None = None
+
+            for continuation_round in range(_MAX_DEFERRED_APPROVAL_CONTINUATIONS + 1):
+                # -- per-round queue & handler --------------------------------
+                text_queue: asyncio.Queue[StreamEvent | None] = asyncio.Queue()
+
+                async def _event_handler(_run_ctx: Any, events: Any) -> None:
+                    # Called for each model request of the run, so the text of
+                    # every round is the stream's; a part's first chunk arrives
+                    # as the part's start, and the rest as deltas. Each tool
+                    # call is told as it starts and as it ends, in the order
+                    # they happen among the text: a caller over A2A sees which
+                    # tool its peer is using, and for how long.
+                    async for ev in events:
+                        if isinstance(ev, PartStartEvent) and isinstance(
+                            ev.part, TextPart
+                        ):
+                            if ev.part.content:
+                                await text_queue.put(
+                                    StreamEvent(type="text", data=ev.part.content)
+                                )
+                        elif isinstance(ev, PartDeltaEvent) and isinstance(
+                            ev.delta, TextPartDelta
+                        ):
+                            await text_queue.put(
+                                StreamEvent(type="text", data=ev.delta.content_delta)
+                            )
+                        elif isinstance(ev, FunctionToolCallEvent):
+                            await text_queue.put(
+                                StreamEvent(type="tool_call", data=_tool_call_of(ev))
+                            )
+                        elif isinstance(ev, FunctionToolResultEvent):
+                            await text_queue.put(
+                                StreamEvent(
+                                    type="tool_result",
+                                    data=_tool_result_of(ev, RetryPromptPart),
+                                )
+                            )
+
+                run_kwargs: dict[str, Any] = {
+                    "message_history": current_message_history,
+                    "toolsets": runtime_toolsets,
+                    "event_stream_handler": _event_handler,
+                }
+                if model_override:
+                    run_kwargs["model"] = model_override
+                    logger.info(
+                        f"PydanticAIAdapter: Using model override for stream: {model_override}"
+                    )
+                if deferred_tool_results is not None:
+                    run_kwargs["deferred_tool_results"] = deferred_tool_results
+                # The model budget a delegation set on this run: pydantic-ai
+                # stops the run when a limit is reached (O1-07).
+                usage_limits = usage_limits_for(
+                    context.metadata.get("budget") if context.metadata else None
+                )
+                if usage_limits is not None:
+                    run_kwargs["usage_limits"] = usage_limits
+                steer_run = (
+                    context.metadata.get("steer_run") if context.metadata else None
+                )
+                if steer_run:
+                    from ..context.delegation import SteerCapability
+
+                    # What is steered into this run reaches its model within
+                    # the turn, before its next model request (O2-05).
+                    run_kwargs["capabilities"] = [SteerCapability(steer_run)]
+
+                # -- launch agent.run() concurrently --------------------------
+                request_start = time.perf_counter()
+
+                async def _safe_run() -> Any:
+                    """The run, which ends the text stream however it ends."""
+                    try:
+                        return await self._agent.run(current_prompt, **run_kwargs)
+                    finally:
+                        await text_queue.put(None)  # sentinel
+
+                run_task = asyncio.create_task(_safe_run())
+
+                # -- yield text deltas from queue -----------------------------
+                try:
+                    while True:
+                        streamed = await text_queue.get()
+                        if streamed is None:
+                            break
+                        yield streamed
+                except BaseException:
+                    run_task.cancel()
+                    raise
+
+                # -- collect run result ---------------------------------------
+                result = await run_task
+
+                # -- deferred approval continuation ---------------------------
+                if isinstance(result.output, DeferredToolRequests):
+                    deferred_requests = result.output
+
+                    if not deferred_requests.approvals:
+                        break
+
+                    deferred_tool_results = await self._build_deferred_approval_results(
+                        deferred_requests,
+                        user_token_override,
+                    )
+                    current_message_history = result.all_messages()
+                    current_prompt = _DEFERRED_CONTINUATION_PROMPT
+                    logger.info(
+                        "PydanticAIAdapter: Processed %s deferred approval decision(s), continuing stream",
+                        len(deferred_tool_results.approvals),
+                    )
+                    continue
+
+                final_output = result.output
+                final_result = result
+                break
+            else:
+                raise RuntimeError(
+                    "Exceeded maximum deferred approval continuations in stream mode"
+                )
+
+            if final_output is not None:
+                yield StreamEvent(type="output", data=final_output)
+
+            yield StreamEvent(type="done", data=None)
+
+        except UsageLimitExceeded as e:
+            # Stopped by the budget the delegation set: said as such, so the
+            # transport can tell its caller which limit it was (O1-07).
+            yield StreamEvent(type="error", data=reached(e))
+        except Exception as e:
+            yield StreamEvent(type="error", data=str(e))
+        finally:
+            if previous_end_strategy is not None:
+                setattr(self._agent, "end_strategy", previous_end_strategy)
+
+    async def run_with_codemode(
+        self,
+        prompt: str,
+        context: AgentContext,
+        codemode_executor: Any,
+    ) -> AgentResponse:
+        """
+        Run the agent with CodeMode for programmatic tool composition.
+
+        This variant allows the agent to use agent-codemode for executing
+        code that composes multiple tools efficiently.
+
+        Args:
+            prompt: User prompt/message.
+            context: Execution context.
+            codemode_executor: CodeModeExecutor instance.
+
+        Returns:
+            Complete agent response.
+        """
+        # Add CodeMode tools to the context
+        meta_tools_info = """
+You have access to CodeMode for programmatic tool composition.
+When you need to chain multiple tool calls or perform complex operations,
+you can use the execute_code tool to run Python code that calls tools directly.
+
+Available meta-tools:
+- search_tools(query): Search for available tools
+- list_tool_names(): List all tool names
+- get_tool_definition(name): Get a tool's schema
+- execute_code(code): Execute Python code that uses tools
+
+Example code for execute_code:
+```python
+from generated.mcp.bash import ls, cat
+
+files = await ls({"path": "/tmp"})
+for f in files:
+    content = await cat({"path": f})
+    print(content)
+```
+"""
+        enhanced_prompt = f"{prompt}\n\n{meta_tools_info}"
+
+        return await self.run(enhanced_prompt, context)

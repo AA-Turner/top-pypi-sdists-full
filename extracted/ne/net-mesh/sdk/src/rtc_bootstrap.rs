@@ -1,0 +1,3233 @@
+//! The **browser bootstrap listener** (plan §5 Layer 0, Stage 4
+//! bullet 3; Stage 4b).
+//!
+//! A browser cannot send a Net packet, cannot join the mesh, and
+//! cannot be handed a UDP socket. Its first contact is therefore
+//! ordinary HTTPS against an anchor:
+//!
+//! ```text
+//! POST /rtc/offer          credential + claimed node id + SDP offer  ->  SDP answer
+//! GET  /rtc/trickle?…      upgraded to a WebSocket; candidates both ways
+//! GET  /rtc/anchor         the announcement fields, so the browser can
+//!                          check the credential's pinned key against
+//!                          the live anchor
+//! ```
+//!
+//! # What this module does NOT do
+//!
+//! It does not decide admission, it does not promote anything, and
+//! it does not implement a second dialog engine. An HTTP-originated
+//! Offer **is an Offer**: it goes into the same
+//! [`MeshNode::accept_bootstrap_offer`] → `handle_signal` →
+//! `spawn_dialog_completion` path a `0x0D02` offer takes, and the
+//! session that results is Provisional under the §12 contract Stage
+//! 4a landed, exactly like every other browser-facing session. The
+//! only differences are the two effects a browser cannot receive
+//! over the mesh: the answer rides the HTTP response, and the
+//! anchor's candidate rides the trickle socket.
+//!
+//! # Trust
+//!
+//! - The **credential** ([`crate::bootstrap_credential`]) is checked
+//!   before a dialog is created: both lifetimes, and the trust
+//!   domain against the PSK this anchor actually holds. A credential
+//!   for another transport trust domain is refused here rather than
+//!   failing later inside a handshake.
+//! - The **claimed node id** in the offer body is a claim, and is
+//!   treated as one: it rides into the Noise prologue, so a browser
+//!   that claims an id it cannot handshake as fails the handshake.
+//! - The **anchor's Noise key** the browser pins comes from the
+//!   credential. `GET /rtc/anchor` publishes the live key so a
+//!   browser (or an operator) can *compare*; a browser that trusted
+//!   the response instead of the credential would have no MITM
+//!   protection at all, which is why the plan's MITM witness
+//!   substitutes the responder rather than mutating this field.
+//! - **TLS is browser-trusted or nothing**: operator-supplied PEM,
+//!   or ACME. There is no self-signed mode and no
+//!   certificate-ignore flag, because either would make the CI
+//!   witness prove something no deployment can rely on.
+//! - **Origin** is validated on the WebSocket, and CORS is an
+//!   explicit allow-list with no wildcard. Credentials never ride a
+//!   query string — the offer body carries them, over TLS.
+
+use std::collections::HashMap;
+use std::fmt;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+use axum::extract::{ConnectInfo, State};
+use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use net::adapter::net::MeshNode;
+use parking_lot::{Mutex, RwLock};
+use serde::{Deserialize, Serialize};
+use tower_http::cors::CorsLayer;
+
+use crate::bootstrap_credential::{BrowserBootstrapCredential, Psk};
+
+/// Default ceiling on `POST /rtc/offer` per source IP per minute: the
+/// **backstop** across every credential presented from one address.
+///
+/// The plan's §5 "bootstrap endpoint budget": a per-source-IP rate
+/// limit whose rejections are typed and fast. Every offer costs the
+/// anchor an ICE agent, so this is the cheapest place to say no.
+///
+/// It was 10, and was the only budget: one visitor's. That refused
+/// every visitor past the tenth behind one shared address (a carrier
+/// NAT, a campus, a LAN party) inside a minute, found by the
+/// sharded-match S0b run (`BROWSER_SHARDED_MATCH_PLAN.md`). The
+/// per-visitor budget is now
+/// [`DEFAULT_OFFERS_PER_CREDENTIAL_PER_MINUTE`], charged per
+/// (address, credential); this ceiling bounds what one address can
+/// spend across all of them.
+pub const DEFAULT_OFFERS_PER_IP_PER_MINUTE: u32 = 120;
+
+/// Default ceiling on `POST /rtc/offer` per (source IP, credential) per
+/// minute: one visitor's budget, the old per-IP ceiling.
+///
+/// Keyed by the pair, never by the credential alone: an operator may
+/// ship ONE minted credential to every visitor of a page, and charging
+/// that credential would make every visitor everywhere share ten offers
+/// a minute. By the pair, a shared credential behind one address gets
+/// exactly the old per-IP budget, and distinct credentials behind one
+/// address each get their own. Charged only after the credential's
+/// issuer signature verifies, so a forged one cannot spend it.
+pub const DEFAULT_OFFERS_PER_CREDENTIAL_PER_MINUTE: u32 = 10;
+
+/// Window the rate limit counts over.
+const RATE_WINDOW: Duration = Duration::from_secs(60);
+
+/// Most source buckets one rate limiter retains.
+///
+/// A bound on memory, and so also on how many distinct sources can be
+/// held to a limit at once. Generous on purpose: past it a NEW source
+/// is refused (never an existing restriction erased), which is only
+/// acceptable if honest traffic essentially never reaches it.
+const RATE_MAX_BUCKETS: usize = 65_536;
+
+/// Shortest gap between two sweeps of a FULL table. Buckets expire
+/// with time, not with requests, so sweeping on every refused request
+/// would turn a flood of new sources into O(buckets) work per request
+/// without reclaiming anything sooner than this.
+const RATE_FULL_SWEEP_INTERVAL: Duration = Duration::from_secs(1);
+
+/// Most per-visitor offer budgets — live (source bucket, credential
+/// nonce) entries — one source bucket may hold at once.
+///
+/// The per-visitor table shares the 65,536-entry bound with the per-IP
+/// one, but one source can create an entry per credential it presents,
+/// up to its whole per-IP backstop (120 a minute by default) instead of
+/// one. Uncapped, a few hundred IPv6 /64s and an open game's credential
+/// issuance filled the table, and a full table refused every new
+/// visitor anchor-wide. Capped, filling it takes 2,048 distinct source
+/// buckets, one source can never crowd the others out of their
+/// budgets, and a full table no longer refuses anyone. A visitor past the cap — or arriving at a full
+/// table — is admitted on the per-source backstop
+/// ([`DEFAULT_OFFERS_PER_IP_PER_MINUTE`]) alone, never refused for
+/// want of room.
+pub const VISITOR_BUDGETS_PER_SOURCE: usize = 32;
+
+/// Cap on the offer body. An SDP is a few kilobytes; the credential
+/// is bounded by its own format.
+const MAX_OFFER_BODY_BYTES: usize = 64 * 1024;
+
+/// How this listener obtains a **browser-trusted** certificate.
+///
+/// There is deliberately no self-signed variant: a browser refuses
+/// one, so shipping the option would only produce deployments that
+/// fail in the field and tests that pass by ignoring certificate
+/// errors.
+#[derive(Debug, Clone)]
+pub enum BootstrapTls {
+    /// Operator-supplied PEM chain + private key.
+    Operator {
+        /// PEM file holding the certificate chain, leaf first.
+        cert_pem: PathBuf,
+        /// PEM file holding the private key (PKCS#8, SEC1 or PKCS#1).
+        key_pem: PathBuf,
+    },
+    /// ACME with HTTP-01 served by this same listener.
+    ///
+    /// The listener answers `/.well-known/acme-challenge/{token}`
+    /// from [`AcmeState`], which the ordering client populates.
+    Acme(AcmeConfig),
+}
+
+/// ACME (HTTP-01) parameters.
+#[derive(Debug, Clone)]
+pub struct AcmeConfig {
+    /// Directory URL (Let's Encrypt production or staging, or a
+    /// local Pebble).
+    pub directory_url: String,
+    /// The DNS name to issue for — the name in the credential's
+    /// bootstrap URL.
+    pub domain: String,
+    /// Contact e-mail for the ACME account.
+    pub contact_email: String,
+    /// Where the issued certificate and key are cached, so a restart
+    /// does not re-order.
+    pub cache_dir: PathBuf,
+    /// **Additional trust roots for the ACME DIRECTORY connection
+    /// only.**
+    ///
+    /// Each entry is a PEM file of one or more CA certificates. When
+    /// this list is non-empty, the HTTPS connection this client
+    /// makes *to `directory_url`* is verified against exactly these
+    /// roots instead of the platform trust store. That is the real
+    /// shape of the need: an operator running a private ACME CA
+    /// (step-ca, Boulder/Pebble in a lab, an internal Smallstep
+    /// deployment) has a closed PKI, and folding the public web PKI
+    /// in beside it would only widen the set of issuers allowed to
+    /// impersonate the directory. Leave it empty for Let's Encrypt
+    /// or any other publicly-trusted directory.
+    ///
+    /// What this does **not** relax, at all:
+    ///
+    /// - It does not weaken verification of that connection. The
+    ///   directory's certificate must still chain to one of these
+    ///   roots, still match the hostname in `directory_url`, and
+    ///   still be inside its validity window. There is no
+    ///   "accept invalid certificate" mode here or anywhere else in
+    ///   this module.
+    /// - It says nothing about the certificate the directory
+    ///   **issues**. That one is presented to browsers, which trust
+    ///   their own root program and neither know nor care what is in
+    ///   this list.
+    /// - It is not installed process-globally and does not touch the
+    ///   bootstrap listener's own TLS, the mesh transport, or any
+    ///   other outbound connection this process makes.
+    pub directory_roots: Vec<PathBuf>,
+}
+
+impl AcmeConfig {
+    /// An ACME config for one domain. The HTTP-01 ingress address
+    /// and the renewal horizon live on [`BootstrapConfig`], because
+    /// they are the listener's, not the directory's.
+    pub fn new(
+        directory_url: impl Into<String>,
+        domain: impl Into<String>,
+        contact_email: impl Into<String>,
+        cache_dir: PathBuf,
+    ) -> Self {
+        Self {
+            directory_url: directory_url.into(),
+            domain: domain.into(),
+            contact_email: contact_email.into(),
+            cache_dir,
+            directory_roots: Vec::new(),
+        }
+    }
+
+    /// Verify the directory connection against these roots instead
+    /// of the platform store — see [`Self::directory_roots`].
+    pub fn with_directory_roots(mut self, roots: impl IntoIterator<Item = PathBuf>) -> Self {
+        self.directory_roots = roots.into_iter().collect();
+        self
+    }
+}
+
+/// Tokens the HTTP-01 challenge route serves.
+///
+/// Separate from the ordering client so the *listener* half is
+/// testable without an ACME server: a test can install a token and
+/// fetch it over the running listener, which is the part of ACME
+/// that lives in this crate.
+#[derive(Debug, Default, Clone)]
+pub struct AcmeState {
+    tokens: Arc<Mutex<HashMap<String, String>>>,
+    answered: Arc<AtomicU64>,
+}
+
+impl AcmeState {
+    /// A fresh, empty challenge store.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Install (or replace) the key authorization served for `token`.
+    pub fn set_challenge(&self, token: impl Into<String>, key_authorization: impl Into<String>) {
+        self.tokens
+            .lock()
+            .insert(token.into(), key_authorization.into());
+    }
+
+    /// Forget a challenge once the order is finalized.
+    pub fn clear_challenge(&self, token: &str) {
+        self.tokens.lock().remove(token);
+    }
+
+    /// How many HTTP-01 challenge fetches this store has **answered**
+    /// with a key authorization.
+    ///
+    /// The cold-start witness needs to distinguish "the directory
+    /// issued a certificate" from "the directory came back to this
+    /// process for the token it issued against". A directory
+    /// configured to short-circuit validation (pebble's
+    /// `PEBBLE_VA_ALWAYS_VALID=1`) issues happily without ever
+    /// dialling the ingress, so issuance alone is not evidence that
+    /// the HTTP-01 reverse path works. This counter is.
+    pub fn answered_challenges(&self) -> u64 {
+        self.answered.load(Ordering::Relaxed)
+    }
+
+    fn key_authorization(&self, token: &str) -> Option<String> {
+        let found = self.tokens.lock().get(token).cloned();
+        if found.is_some() {
+            self.answered.fetch_add(1, Ordering::Relaxed);
+        }
+        found
+    }
+}
+
+/// Configuration for [`serve_bootstrap`].
+#[derive(Debug, Clone)]
+pub struct BootstrapConfig {
+    /// Address to bind the HTTPS listener on.
+    pub bind_addr: SocketAddr,
+    /// Further addresses the HTTPS listener binds beside
+    /// [`Self::bind_addr`]: a dual-stack anchor listens on an IPv4 and
+    /// an IPv6 address.
+    ///
+    /// Every listener serves the **same** router, so the per-source
+    /// budgets are one budget whichever family a request arrived on.
+    /// A router per listener would give each family its own budget and
+    /// double every ceiling. With more than one listener, each IPv6
+    /// one is bound with `IPV6_V6ONLY` set, so it never claims the
+    /// IPv4 port beside it whatever the platform default.
+    pub additional_bind_addrs: Vec<SocketAddr>,
+    /// The transport trust domain's PSK — the one credentials for
+    /// this anchor were minted against. Used only to derive the
+    /// trust-domain id a presented credential is checked against.
+    pub psk: Psk,
+    /// The **issuer** whose signature this anchor accepts on a
+    /// credential (R3). Public half only: the anchor verifies, it
+    /// does not mint.
+    ///
+    /// This is what makes the two lifetimes enforceable. A recipient
+    /// holds the PSK, so anything keyed on the PSK is forgeable by
+    /// every recipient; only a key they do NOT hold can bind the
+    /// deadlines they would like to extend.
+    pub credential_issuer: crate::identity::EntityId,
+    /// How to get a browser-trusted certificate.
+    pub tls: BootstrapTls,
+    /// Exact origins allowed to call the HTTP endpoints. **No
+    /// wildcard**: `Access-Control-Allow-Origin: *` on an endpoint
+    /// that takes a credential is a mistake this API does not let an
+    /// operator make.
+    pub allowed_origins: Vec<String>,
+    /// Exact origins allowed to open the trickle WebSocket. Browsers
+    /// send `Origin` on WebSocket handshakes but do **not** apply
+    /// CORS to them, so this list is enforced by hand.
+    pub ws_allowed_origins: Vec<String>,
+    /// **Any origin** may call the endpoints and open the trickle
+    /// socket — a public anchor, for open games
+    /// ([`crate::game_anchor::OpenGames`]). The lists above still say
+    /// which origins may use the registered games.
+    ///
+    /// Why this is not the wildcard the lists refuse: nothing here
+    /// carries ambient authority. No cookie or HTTP authentication is
+    /// ever read, and CORS is answered by echoing the caller's own
+    /// origin with no `Access-Control-Allow-Credentials`, so a page
+    /// can only spend what it holds itself — a credential it fetched,
+    /// an attempt token it was handed. A foreign page gains nothing a
+    /// visitor of its own does not already have.
+    pub any_origin: bool,
+    /// Per-source-IP `POST /rtc/offer` ceiling per minute, across every
+    /// credential presented from that address.
+    pub offers_per_ip_per_minute: u32,
+    /// Per-(source IP, credential) `POST /rtc/offer` ceiling per minute:
+    /// one visitor's budget. See
+    /// [`DEFAULT_OFFERS_PER_CREDENTIAL_PER_MINUTE`].
+    pub offers_per_credential_per_minute: u32,
+    /// ACME challenge store; ignored unless [`BootstrapTls::Acme`].
+    pub acme: AcmeState,
+    /// Address for the **plaintext** HTTP-01 challenge ingress
+    /// (R4a), bound BEFORE any order is placed and kept for
+    /// renewals. Defaults to `0.0.0.0:80`, the port a directory
+    /// dials.
+    ///
+    /// The brief said "HTTP-01 on the same listener"; HTTP-01 is a
+    /// plaintext protocol and the bootstrap listener is TLS-only, so
+    /// on a cold cache there was no way to answer the challenge that
+    /// produces the certificate the TLS listener needs. Same
+    /// process, same challenge store, second socket — reconciled in
+    /// the report.
+    pub acme_challenge_addr: SocketAddr,
+    /// Further addresses the plaintext HTTP-01 challenge ingress binds.
+    ///
+    /// An ACME directory validates over IPv6 when the domain has an
+    /// `AAAA` record, so an anchor that publishes one needs an IPv6
+    /// challenge listener too, or issuance and renewal fail. The same
+    /// `IPV6_V6ONLY` rule as the HTTPS listeners applies.
+    pub additional_acme_challenge_addrs: Vec<SocketAddr>,
+    /// Renew this long before the certificate expires (R4c).
+    pub acme_renewal_horizon: Duration,
+    /// How long a connection may take to finish its TLS handshake
+    /// before it is dropped. A client that connects and never
+    /// completes one would otherwise hold its socket forever.
+    pub tls_handshake_timeout: Duration,
+    /// How long an HTTP connection — on the HTTPS listeners and on the
+    /// plaintext ACME challenge port alike — may take to deliver a
+    /// request's headers, measured from when it starts waiting for them — which
+    /// includes sitting idle between keep-alive requests. A connection
+    /// that sends nothing for this long is closed, so idle pools and
+    /// slow senders cannot pile up until the process runs out of file
+    /// descriptors.
+    ///
+    /// It also bounds each request once its headers are in — handler and
+    /// body read together; an overrun is answered `408`. The header
+    /// deadline alone stopped at the headers, so a client could announce
+    /// a body and dribble it forever.
+    pub http_idle_timeout: Duration,
+    /// Anonymous visitor credentials, served as `POST /credential`.
+    /// `None` (the default) serves no such route: credentials are then
+    /// minted out of band (`net-mesh anchor credential mint`).
+    pub credential_issuance: Option<CredentialIssuance>,
+}
+
+impl BootstrapConfig {
+    /// A config with the defaults an operator would otherwise repeat:
+    /// one origin, one certificate, the default rate ceiling.
+    pub fn new(
+        bind_addr: SocketAddr,
+        psk: Psk,
+        credential_issuer: crate::identity::EntityId,
+        tls: BootstrapTls,
+        origin: impl Into<String>,
+    ) -> Self {
+        let origin = origin.into();
+        Self {
+            bind_addr,
+            additional_bind_addrs: Vec::new(),
+            psk,
+            credential_issuer,
+            tls,
+            allowed_origins: vec![origin.clone()],
+            ws_allowed_origins: vec![origin],
+            any_origin: false,
+            offers_per_ip_per_minute: DEFAULT_OFFERS_PER_IP_PER_MINUTE,
+            offers_per_credential_per_minute: DEFAULT_OFFERS_PER_CREDENTIAL_PER_MINUTE,
+            acme: AcmeState::new(),
+            acme_challenge_addr: SocketAddr::from(([0, 0, 0, 0], 80)),
+            additional_acme_challenge_addrs: Vec::new(),
+            acme_renewal_horizon: crate::rtc_bootstrap_acme::DEFAULT_RENEWAL_HORIZON,
+            tls_handshake_timeout: DEFAULT_TLS_HANDSHAKE_TIMEOUT,
+            http_idle_timeout: DEFAULT_HTTP_IDLE_TIMEOUT,
+            credential_issuance: None,
+        }
+    }
+}
+
+/// Default [`BootstrapConfig::tls_handshake_timeout`].
+pub const DEFAULT_TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Default [`BootstrapConfig::http_idle_timeout`].
+pub const DEFAULT_HTTP_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Default per-source-IP `POST /credential` ceiling per minute.
+///
+/// It was 30, which refused the thirty-first visitor behind one shared
+/// address inside a minute (see [`DEFAULT_OFFERS_PER_IP_PER_MINUTE`]).
+/// Raised to the offer backstop. What caps issuance in total is the
+/// per-game ceiling ([`crate::game_anchor::DEFAULT_ISSUE_PER_MINUTE`]),
+/// which this does not touch.
+pub const DEFAULT_CREDENTIALS_PER_IP_PER_MINUTE: u32 = 120;
+/// Upper bound on a `POST /credential` body.
+const MAX_CREDENTIAL_REQUEST_BYTES: usize = 1024;
+
+/// What `POST /credential` needs: which games this anchor admits, the
+/// key credentials are signed with, and how long they live.
+///
+/// Every credential is **anonymous and per visitor**: a fresh
+/// single-use invite for the requested game (see
+/// [`crate::game_anchor`]). Issuance is limited per game by the
+/// registry and per source IP here.
+#[derive(Clone)]
+pub struct CredentialIssuance {
+    /// The games, their roots, limits and counters.
+    pub registry: Arc<crate::game_anchor::GameRegistry>,
+    /// The key credentials are signed with. Its public half must be
+    /// [`BootstrapConfig::credential_issuer`], or the listener would
+    /// hand out credentials it then refuses —
+    /// [`serve_bootstrap`] checks.
+    pub issuer: crate::identity::Identity,
+    /// This listener's externally reachable URL, written into every
+    /// credential.
+    pub bootstrap_url: String,
+    /// Lifetime of each credential's single-use invite.
+    pub invite_ttl: Duration,
+    /// Lifetime of each credential's standing half.
+    pub psk_ttl: Duration,
+    /// Per-source-IP ceiling, credentials per minute.
+    pub per_ip_per_minute: u32,
+}
+
+impl CredentialIssuance {
+    /// Issuance with the default lifetimes and per-IP ceiling.
+    pub fn new(
+        registry: Arc<crate::game_anchor::GameRegistry>,
+        issuer: crate::identity::Identity,
+        bootstrap_url: impl Into<String>,
+    ) -> Self {
+        Self {
+            registry,
+            issuer,
+            bootstrap_url: bootstrap_url.into(),
+            invite_ttl: crate::game_anchor::DEFAULT_INVITE_TTL,
+            psk_ttl: crate::game_anchor::DEFAULT_PSK_TTL,
+            per_ip_per_minute: DEFAULT_CREDENTIALS_PER_IP_PER_MINUTE,
+        }
+    }
+}
+
+impl fmt::Debug for CredentialIssuance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CredentialIssuance")
+            .field("registry", &self.registry)
+            .field("issuer", self.issuer.entity_id())
+            .field("bootstrap_url", &self.bootstrap_url)
+            .field("per_ip_per_minute", &self.per_ip_per_minute)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Why a bootstrap request was refused. Typed and fast, per §5.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BootstrapRefusal {
+    /// The credential did not parse.
+    MalformedCredential,
+    /// One of the credential's two lifetimes has passed.
+    ExpiredCredential,
+    /// The credential belongs to a different transport trust domain.
+    WrongTrustDomain,
+    /// This source IP is over its offer rate.
+    RateLimited,
+    /// The anchor is at its §12 provisional bound.
+    AtCapacity,
+    /// The offer itself was refused (bad SDP, dialog budget).
+    OfferRefused,
+    /// The `Origin` header is not on the allow-list.
+    ForbiddenOrigin,
+    /// The named dialog does not exist on this anchor.
+    UnknownDialog,
+    /// `POST /credential` named a game this anchor does not admit.
+    UnknownGame,
+    /// A request body was not the expected JSON.
+    MalformedRequest,
+}
+
+impl BootstrapRefusal {
+    /// The HTTP status this refusal is reported with.
+    pub fn status(self) -> StatusCode {
+        match self {
+            Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            Self::AtCapacity => StatusCode::SERVICE_UNAVAILABLE,
+            Self::ForbiddenOrigin => StatusCode::FORBIDDEN,
+            Self::UnknownDialog | Self::UnknownGame => StatusCode::NOT_FOUND,
+            _ => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    /// The WebSocket close code this refusal is reported with. 4403
+    /// / 4404 are in the private range RFC 6455 reserves for the
+    /// application, so a browser can tell them apart.
+    pub fn close_code(self) -> u16 {
+        match self {
+            Self::ForbiddenOrigin => 4403,
+            Self::UnknownDialog => 4404,
+            _ => 4400,
+        }
+    }
+}
+
+/// `POST /rtc/offer` request body.
+///
+/// Its [`Debug`] is hand-written: the `credential` field is the
+/// whole PSK-bearing credential string, and a derived `Debug` put it
+/// into any log line, panic message or `tracing` field that
+/// formatted a request (R5a).
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OfferRequest {
+    /// The `net-bootstrap:` credential string.
+    pub credential: String,
+    /// The browser's self-generated node id, as a decimal or `0x`
+    /// hex string (JSON numbers cannot hold a `u64` exactly).
+    pub node_id: String,
+    /// The SDP offer.
+    pub sdp: String,
+}
+
+impl fmt::Debug for OfferRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // The credential is a bearer secret. Its LENGTH is the most
+        // that helps a diagnosis; the trust domain and the issuer are
+        // available from the parsed credential, which redacts its own
+        // PSK.
+        f.debug_struct("OfferRequest")
+            .field(
+                "credential",
+                &format_args!("<{} redacted bytes>", self.credential.len()),
+            )
+            .field("node_id", &self.node_id)
+            .field("sdp_bytes", &self.sdp.len())
+            .finish()
+    }
+}
+
+/// `POST /rtc/offer` success body.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OfferResponse {
+    /// **The attempt token** (R1): 32 random bytes, hex, minted for
+    /// THIS accepted offer and bound to its `(node, dialog,
+    /// incarnation)`. The trickle socket will not upgrade without
+    /// it, so a second client that guesses the dialog id cannot
+    /// trickle into, or retire, someone else's live attempt.
+    ///
+    /// It is carried as the WebSocket **subprotocol**, never in a
+    /// URL: a query string lands in proxy and browser history, and
+    /// this is a bearer credential for an in-flight ICE attempt.
+    pub attempt_token: String,
+    /// The dialog id the anchor assigned; the browser passes it to
+    /// the trickle socket.
+    pub dialog: u64,
+    /// The SDP answer.
+    pub sdp: String,
+    /// The anchor's host candidate, so a browser that never opens
+    /// the trickle socket can still form a pair.
+    pub candidate: String,
+}
+
+/// The response carries a bearer credential too (R5).
+///
+/// `attempt_token` authorizes the trickle socket for a live ICE
+/// attempt: whoever holds it can trickle into that attempt or retire
+/// it. The derived `Debug` printed it in full, which is the same
+/// class of defect as the request printing its credential — a
+/// response logged on an error path hands out pending-attempt
+/// control. It is not the domain PSK, and no production logging call
+/// is known to print it; it is redacted anyway.
+impl std::fmt::Debug for OfferResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OfferResponse")
+            .field("attempt_token", &"<redacted>")
+            .field("dialog", &self.dialog)
+            .field("sdp_bytes", &self.sdp.len())
+            .field("candidate", &self.candidate)
+            .finish()
+    }
+}
+
+/// `GET /rtc/anchor` body — the announcement fields, over HTTP.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnchorInfo {
+    /// This anchor's node id (hex).
+    pub node_id: String,
+    /// Its Noise static public key (hex) — for **comparison** with
+    /// the credential's pinned key, never as a source of it.
+    pub noise_pubkey: String,
+    /// The public RTC socket, when the operator configured one.
+    /// The diagnostic STUN probe's only legitimate target.
+    pub rtc_addr: Option<String>,
+    /// The **separately announced** STUN endpoint, when the operator
+    /// configured one: a second UDP socket, distinct from
+    /// [`Self::rtc_addr`], which a leaf's default `iceServers` points
+    /// at. `None` means nothing was announced, and a leaf then
+    /// configures no ICE servers at all.
+    pub stun_addr: Option<String>,
+    /// Every announced STUN endpoint, primary first, **only on a
+    /// dual-stack anchor** that announces one per family; omitted
+    /// otherwise, so a single-stack reply is unchanged. A leaf's
+    /// default `iceServers` holds all of them: a browser that does not
+    /// enumerate interfaces gets its only usable local candidate from a
+    /// STUN server of its own family.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stun_addrs: Option<Vec<String>>,
+    /// Every published RTC endpoint, primary first, **only on a
+    /// dual-stack anchor** that publishes one per family.
+    ///
+    /// Omitted otherwise, so a single-socket anchor's reply is
+    /// unchanged field for field, and [`Self::rtc_addr`] stays its
+    /// complete answer. A consumer reads `rtc_addrs` when present,
+    /// else `[rtc_addr]`, else nothing. Like `rtc_addr`, only
+    /// operator-published endpoints appear here, never a bound one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rtc_addrs: Option<Vec<String>>,
+    /// The trust domain this anchor serves.
+    pub trust_domain: String,
+    /// §12 provisional capacity: bound and current occupancy.
+    pub max_provisional: usize,
+    /// How many provisional sessions are installed right now.
+    pub provisional: usize,
+}
+
+/// An error body. Machine-readable `refusal`, human `message`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorBody {
+    /// The typed refusal.
+    pub refusal: BootstrapRefusal,
+    /// What happened, for an operator reading a log.
+    pub message: String,
+}
+
+/// The trickle socket's query string.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TrickleQuery {
+    /// The dialog assigned by `POST /rtc/offer`.
+    pub dialog: u64,
+    /// The same claimed node id the offer carried.
+    pub node_id: String,
+}
+
+/// A running listener.
+pub struct BootstrapHandle {
+    local_addr: SocketAddr,
+    local_addrs: Vec<SocketAddr>,
+    shutdown: tokio::sync::oneshot::Sender<()>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl BootstrapHandle {
+    /// The address actually bound (useful when the config asked for
+    /// port 0).
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
+    /// Every address actually bound, [`Self::local_addr`] first: one
+    /// per configured listener.
+    pub fn local_addrs(&self) -> &[SocketAddr] {
+        &self.local_addrs
+    }
+
+    /// Stop serving and wait for the accept loop to finish.
+    pub async fn shutdown(self) {
+        let _ = self.shutdown.send(());
+        let _ = self.task.await;
+    }
+}
+
+/// One accepted offer's authorization to trickle (R1).
+///
+/// The token is the identity: `(node, dialog)` are caller-visible
+/// and guessable, `incarnation` distinguishes two attempts that
+/// reuse a dialog id, and the token itself is what a socket must
+/// present. Nothing here is derived from anything the caller chose.
+#[derive(Debug, Clone)]
+struct Attempt {
+    node_id: u64,
+    dialog: u64,
+    incarnation: u64,
+    /// The pre-authentication identity this attempt's ingress is
+    /// accounted against (R2): the token's own incarnation, NOT the
+    /// unverified `node_id` the caller claimed.
+    budget_id: u64,
+    /// Which trickle socket currently owns this attempt's lifecycle
+    /// (R1): bumped at every authorized upgrade. The token
+    /// re-upgrades — a reconnecting browser reuses it — so "whoever
+    /// retires the token first" is not "whoever abandoned the
+    /// attempt": a stale socket's delayed close must not end its
+    /// successor's live attempt. Only the CURRENT socket generation
+    /// may end the dialog.
+    socket: u64,
+    /// When the token was minted — for [`Attempts::prune`].
+    minted: std::time::Instant,
+    /// True from mint until the core has finished accepting the offer.
+    /// [`Attempts::prune`] never drops an accepting token: an acceptance
+    /// that ran past [`ATTEMPT_PRUNE_GRACE`] (a long ICE deadline) had its
+    /// token pruned by a concurrent offer before the core registered the
+    /// attempt (cubic review of PR #1228).
+    accepting: bool,
+}
+
+/// How long a minted attempt token survives without a live core attempt
+/// before [`Attempts::prune`] reclaims it. The window only has to cover the
+/// gap between minting and the core accepting the offer.
+const ATTEMPT_PRUNE_GRACE: Duration = Duration::from_secs(30);
+
+/// Largest trickle WebSocket message the anchor buffers: a candidate frame is
+/// a few hundred bytes. The library default (64 MiB) let one socket make the
+/// anchor buffer a huge message before parsing it.
+const MAX_TRICKLE_MESSAGE_BYTES: usize = 16 * 1024;
+
+/// How often an idle trickle socket rechecks that its attempt is still live
+/// and still its own.
+const TRICKLE_LIVENESS_TICK: Duration = Duration::from_secs(2);
+
+/// Largest request body any bootstrap route reads (offers are a few KB).
+const MAX_BOOTSTRAP_BODY_BYTES: usize = 64 * 1024;
+
+/// The live attempts, keyed by token.
+#[derive(Default)]
+struct Attempts {
+    by_token: Mutex<HashMap<String, Attempt>>,
+}
+
+/// Redacting `Debug` (MR#16's class): the map keys **are** the live
+/// attempt tokens (R1) — whoever holds one can trickle into that
+/// attempt or retire it — so the derived `Debug` over this
+/// token-keyed map handed out pending-attempt control from any log
+/// line, panic message or `tracing` field that formatted the state.
+/// It is not the domain PSK, and no production logging call is known
+/// to print it; it is redacted anyway (the same treatment
+/// [`OfferResponse`] gives `attempt_token`). The attempts' own
+/// fields — which dialog, whose node, which socket generation — stay
+/// visible for diagnosis.
+impl fmt::Debug for Attempts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let guard = self.by_token.lock();
+        f.debug_map()
+            .entries(guard.values().map(|attempt| ("<redacted>", attempt)))
+            .finish()
+    }
+}
+
+impl Attempts {
+    /// Mint a token for this attempt. The **budget id is derived
+    /// from the token's own random bytes** (R2): uniform, unrelated
+    /// to anything the caller sent, and therefore not another peer's
+    /// node id.
+    fn mint(&self, node_id: u64, dialog: u64, incarnation: u64) -> Option<(String, u64)> {
+        let mut raw = [0u8; 32];
+        if getrandom::fill(&mut raw).is_err() {
+            // A predictable attempt token is a credential anyone can
+            // guess. Refuse to mint rather than mint a weak one.
+            return None;
+        }
+        let budget_id = u64::from_le_bytes(raw[..8].try_into().ok()?);
+        let token: String = raw.iter().map(|b| format!("{b:02x}")).collect();
+        self.by_token.lock().insert(
+            token.clone(),
+            Attempt {
+                node_id,
+                dialog,
+                incarnation,
+                budget_id,
+                socket: 0,
+                minted: std::time::Instant::now(),
+                accepting: true,
+            },
+        );
+        Some((token, budget_id))
+    }
+
+    /// The core accepted the offer: the token is now prunable once its
+    /// attempt is no longer live.
+    fn accepted(&self, token: &str) {
+        if let Some(a) = self.by_token.lock().get_mut(token) {
+            a.accepting = false;
+        }
+    }
+
+    /// Drop tokens whose core attempt is gone (expired, rejected or
+    /// completed) once past [`ATTEMPT_PRUNE_GRACE`]. Tokens were removed only
+    /// on an offer failure or a trickle-socket close, so every accepted offer
+    /// from a browser that never opened the socket stayed in the map for the
+    /// life of the process (SDK audit 2026-10-11).
+    fn prune(&self, is_live: impl Fn(&Attempt) -> bool) {
+        let now = std::time::Instant::now();
+        self.by_token.lock().retain(|_, a| {
+            a.accepting || now.duration_since(a.minted) < ATTEMPT_PRUNE_GRACE || is_live(a)
+        });
+    }
+
+    /// Whether socket generation `socket` still owns `token`'s attempt.
+    fn owned_by(&self, token: &str, socket: u64) -> bool {
+        self.by_token
+            .lock()
+            .get(token)
+            .is_some_and(|a| a.socket == socket)
+    }
+
+    /// The attempt this token authorizes, if it names exactly this
+    /// `(node, dialog)`. A token for another tuple is as good as no
+    /// token.
+    ///
+    /// This upgrade SUPERSEDES any earlier socket's ownership (R1):
+    /// the returned `socket` is this upgrade's generation, and only
+    /// it may retire the attempt when its socket closes.
+    fn authorize(&self, token: &str, node_id: u64, dialog: u64) -> Option<Attempt> {
+        let mut guard = self.by_token.lock();
+        let attempt = guard.get_mut(token)?;
+        if attempt.node_id != node_id || attempt.dialog != dialog {
+            return None;
+        }
+        attempt.socket += 1;
+        Some(attempt.clone())
+    }
+
+    /// Retire a token; `true` when this call owned the removal.
+    fn retire(&self, token: &str) -> bool {
+        self.by_token.lock().remove(token).is_some()
+    }
+
+    /// Retire a token on behalf of socket generation `socket`;
+    /// `true` when this call owned the removal. Only the CURRENT
+    /// socket generation may end its attempt: a stale socket's
+    /// delayed close used to `retire` first and end its successor's
+    /// live attempt mid-ICE.
+    fn retire_socket(&self, token: &str, socket: u64) -> bool {
+        let mut guard = self.by_token.lock();
+        let owns = guard.get(token).is_some_and(|a| a.socket == socket);
+        owns && guard.remove(token).is_some()
+    }
+}
+
+#[derive(Clone)]
+struct AppState {
+    node: Arc<MeshNode>,
+    psk: Arc<Psk>,
+    issuer: Arc<crate::identity::EntityId>,
+    ws_allowed_origins: Arc<Vec<String>>,
+    /// The listed origins, which may use the registered games.
+    allowed_origins: Arc<Vec<String>>,
+    /// `BootstrapConfig::any_origin`.
+    any_origin: bool,
+    rate: Arc<RateLimiter>,
+    /// Offers per (source bucket, credential nonce): one visitor's budget.
+    credential_rate: Arc<RateLimiter<(IpAddr, [u8; 16])>>,
+    acme: AcmeState,
+    dialogs: Arc<AtomicU64>,
+    attempts: Arc<Attempts>,
+    issuance: Option<Arc<Issuance>>,
+}
+
+/// [`CredentialIssuance`] resolved against the running node.
+struct Issuance {
+    config: CredentialIssuance,
+    params: crate::game_anchor::AnchorCredentialParams,
+    rate: RateLimiter,
+}
+
+/// Fixed-window per-source counter. Deliberately not a token
+/// bucket: the requirement is a fast, typed refusal, and a window is
+/// the cheapest thing that cannot be walked past by pacing.
+///
+/// **Bounded** (`ANCHOR_DUAL_STACK_PLAN.md`, defect 2). It used to
+/// insert every source it ever saw and never remove one, so its memory
+/// grew with the number of distinct addresses, and IPv6 makes that
+/// number effectively unlimited. Now:
+///
+/// - a source is charged to a bucket by [`rate_key`]: an IPv6 client
+///   by its /64, since one subscriber can rotate through a whole /64;
+/// - expired buckets are reclaimed, once per window and, when the
+///   table is full, at most once per [`RATE_FULL_SWEEP_INTERVAL`];
+/// - at [`RATE_MAX_BUCKETS`] live buckets a **new** source is refused
+///   ([`RateVerdict::TableFull`]). An existing restriction is never
+///   evicted to make room: eviction is exactly how a flood would
+///   erase a limit. The per-visitor table also caps the entries one
+///   source may hold ([`VISITOR_BUDGETS_PER_SOURCE`]), and degrades a
+///   visitor it has no room for to the per-source backstop instead of
+///   refusing it ([`RateLimiter::admit_visitor`]).
+///
+/// What /64 does not buy: a client controlling many prefixes still
+/// gets a bucket per prefix. The per-game ceiling (`--game ID:N`)
+/// caps total issuance regardless.
+///
+/// Generic over its key: a source bucket ([`rate_key`]) for the per-IP
+/// ceilings, a (source bucket, credential nonce) pair for the
+/// per-visitor offer budget.
+#[derive(Debug)]
+struct RateLimiter<K = IpAddr> {
+    per_minute: u32,
+    max_buckets: usize,
+    /// Most live buckets one source bucket ([`RateKey::source`]) may
+    /// hold. `usize::MAX` (no cap) for a table keyed by source alone.
+    max_per_source: usize,
+    table: Mutex<RateTable<K>>,
+}
+
+#[derive(Debug)]
+struct RateTable<K> {
+    windows: HashMap<K, (Instant, u32)>,
+    /// Live buckets per source bucket, for keys that name one. Kept in
+    /// step with `windows` on every insert and sweep.
+    per_source: HashMap<IpAddr, usize>,
+    last_sweep: Option<Instant>,
+}
+
+impl<K> Default for RateTable<K> {
+    fn default() -> Self {
+        Self {
+            windows: HashMap::new(),
+            per_source: HashMap::new(),
+            last_sweep: None,
+        }
+    }
+}
+
+/// A rate limiter's key.
+trait RateKey: std::hash::Hash + Eq + Copy {
+    /// The source bucket a per-source cap counts this key against, if
+    /// the table has one.
+    fn source(&self) -> Option<IpAddr>;
+}
+
+impl RateKey for IpAddr {
+    /// Keyed by source alone: one bucket per source, nothing to cap.
+    fn source(&self) -> Option<IpAddr> {
+        None
+    }
+}
+
+impl RateKey for (IpAddr, [u8; 16]) {
+    fn source(&self) -> Option<IpAddr> {
+        Some(self.0)
+    }
+}
+
+/// What one request's rate check decided.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RateVerdict {
+    /// Within its source's budget, and charged to it.
+    Allowed,
+    /// Its source spent this window's budget.
+    Limited,
+    /// Its source is new and the table already holds its bound of
+    /// live buckets. Counted apart from [`Self::Limited`]: this one
+    /// says the anchor is under a many-source load, not that one
+    /// client is too eager.
+    TableFull,
+    /// Its key is new and its source bucket already holds its bound of
+    /// live buckets ([`VISITOR_BUDGETS_PER_SOURCE`]). Only a table
+    /// whose keys name a source can say this.
+    SourceFull,
+}
+
+/// The bucket a source address is charged to.
+///
+/// IPv4: the address itself. IPv6: its /64 prefix. A subscriber
+/// normally holds a whole /64 and can rotate through it, so a
+/// per-address key would give each request a fresh budget.
+///
+/// An **IPv4-mapped** IPv6 address (`::ffff:a.b.c.d`, which is how an
+/// IPv4 client appears on a dual-stack listener) is unmapped FIRST.
+/// Masked to /64 as it stands, it would charge every IPv4 client on
+/// the internet to one shared bucket.
+fn rate_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V4(v4) => IpAddr::V4(v4),
+        IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
+            Some(v4) => IpAddr::V4(v4),
+            None => IpAddr::V6(Ipv6Addr::from(u128::from(v6) & !u128::from(u64::MAX))),
+        },
+    }
+}
+
+impl<K: RateKey> RateLimiter<K> {
+    fn new(per_minute: u32) -> Self {
+        Self::with_max_buckets(per_minute, RATE_MAX_BUCKETS)
+    }
+
+    fn with_max_buckets(per_minute: u32, max_buckets: usize) -> Self {
+        Self {
+            per_minute,
+            max_buckets,
+            max_per_source: usize::MAX,
+            table: Mutex::new(RateTable::default()),
+        }
+    }
+
+    /// Cap the live buckets one source bucket may hold.
+    fn with_max_per_source(mut self, max_per_source: usize) -> Self {
+        self.max_per_source = max_per_source;
+        self
+    }
+
+    /// Check one request charged to `key` at `now`, charging it when
+    /// allowed.
+    fn check_key(&self, key: K, now: Instant) -> RateVerdict {
+        let mut table = self.table.lock();
+        let since_sweep = table.last_sweep.map(|t| now.saturating_duration_since(t));
+        let is_new = !table.windows.contains_key(&key);
+        let full = table.windows.len() >= self.max_buckets;
+        let sweep_due = match since_sweep {
+            None => true,
+            Some(gap) => gap >= RATE_WINDOW || (full && is_new && gap >= RATE_FULL_SWEEP_INTERVAL),
+        };
+        if sweep_due {
+            let RateTable {
+                windows,
+                per_source,
+                ..
+            } = &mut *table;
+            windows.retain(|key, (start, _)| {
+                let live = now.saturating_duration_since(*start) < RATE_WINDOW;
+                if !live {
+                    if let Some(source) = key.source() {
+                        if let Some(count) = per_source.get_mut(&source) {
+                            *count = count.saturating_sub(1);
+                            if *count == 0 {
+                                per_source.remove(&source);
+                            }
+                        }
+                    }
+                }
+                live
+            });
+            table.last_sweep = Some(now);
+        }
+        if is_new {
+            if table.windows.len() >= self.max_buckets {
+                return RateVerdict::TableFull;
+            }
+            if let Some(source) = key.source() {
+                let held = table.per_source.entry(source).or_insert(0);
+                if *held >= self.max_per_source {
+                    return RateVerdict::SourceFull;
+                }
+                *held += 1;
+            }
+        }
+        let entry = table.windows.entry(key).or_insert((now, 0));
+        if now.saturating_duration_since(entry.0) >= RATE_WINDOW {
+            *entry = (now, 0);
+        }
+        if entry.1 >= self.per_minute {
+            return RateVerdict::Limited;
+        }
+        entry.1 += 1;
+        RateVerdict::Allowed
+    }
+
+    /// [`Self::check_key`], counting every refusal on the anchor's RTC
+    /// stats under its own cause. `true` when the request may
+    /// proceed. `source` is only for the log line.
+    fn admit_key(&self, key: K, source: IpAddr, now: Instant, node: &MeshNode) -> bool {
+        match self.check_key(key, now) {
+            RateVerdict::Allowed => true,
+            RateVerdict::Limited => {
+                node.rtc_stats().note_bootstrap_rate_limited();
+                false
+            }
+            // `SourceFull` cannot come from a table keyed by source
+            // alone; refused like `TableFull` if it ever did.
+            RateVerdict::TableFull | RateVerdict::SourceFull => {
+                node.rtc_stats().note_bootstrap_rate_table_full();
+                tracing::warn!(
+                    source = %source,
+                    buckets = self.max_buckets,
+                    "bootstrap rate limiter is full of live sources; refusing a new one"
+                );
+                false
+            }
+        }
+    }
+
+    /// Retained buckets, for witnesses.
+    #[cfg(test)]
+    fn buckets(&self) -> usize {
+        self.table.lock().windows.len()
+    }
+}
+
+impl RateLimiter<IpAddr> {
+    /// Check one request from `ip` at `now`, charged to its source
+    /// bucket ([`rate_key`]).
+    #[cfg(test)]
+    fn check(&self, ip: IpAddr, now: Instant) -> RateVerdict {
+        self.check_key(rate_key(ip), now)
+    }
+
+    /// [`Self::check`], counting refusals. `true` when it may proceed.
+    fn admit(&self, ip: IpAddr, now: Instant, node: &MeshNode) -> bool {
+        self.admit_key(rate_key(ip), ip, now, node)
+    }
+}
+
+impl RateLimiter<(IpAddr, [u8; 16])> {
+    /// The per-visitor offer budget for `visitor` — (source bucket,
+    /// credential nonce) — at `now`. `true` when the offer may proceed.
+    ///
+    /// A visitor over its own budget is refused. A visitor that cannot
+    /// GET a budget — the table is full of live entries, or its source
+    /// already holds [`VISITOR_BUDGETS_PER_SOURCE`] of them — is
+    /// **admitted on the per-source backstop alone**, counted on
+    /// `bootstrap_visitor_budget_degraded` and logged.
+    ///
+    /// The trade-off, which is security-relevant: refusing there (what
+    /// this did before) let anyone who could fill the table — a few
+    /// hundred IPv6 /64s with an open game's credentials — refuse every
+    /// new visitor anchor-wide, a denial of service bought cheaply.
+    /// Admitting gives up only the per-VISITOR isolation for that
+    /// request: it is still bounded by the per-source ceiling, which
+    /// [`AppState::rate`] has already charged (and which refuses when
+    /// ITS table is full), by the issuer signature checked before this,
+    /// and by the provisional/RTC session bounds checked after. No
+    /// existing restriction is evicted: a visitor already over its
+    /// budget still holds its entry and is still refused.
+    fn admit_visitor(
+        &self,
+        visitor: (IpAddr, [u8; 16]),
+        source: IpAddr,
+        now: Instant,
+        stats: &net::adapter::net::rtc::RtcStats,
+    ) -> bool {
+        match self.check_key(visitor, now) {
+            RateVerdict::Allowed => true,
+            RateVerdict::Limited => {
+                stats.note_bootstrap_rate_limited();
+                false
+            }
+            verdict @ (RateVerdict::TableFull | RateVerdict::SourceFull) => {
+                stats.note_bootstrap_visitor_budget_degraded();
+                tracing::warn!(
+                    source = %source,
+                    cause = ?verdict,
+                    "no per-visitor offer budget available; admitting on the per-source backstop"
+                );
+                true
+            }
+        }
+    }
+}
+
+/// Build the router. Exposed so a test can drive the endpoints over
+/// plain TCP without standing up a certificate authority — the TLS
+/// layer is `serve_bootstrap`'s, and is witnessed separately.
+pub fn bootstrap_router(node: Arc<MeshNode>, config: &BootstrapConfig) -> Router {
+    let request_deadline = config.http_idle_timeout;
+    // `AllowOrigin::list`, not repeated `allow_origin(value)` calls:
+    // the latter REPLACES, and a single static value is echoed to
+    // every caller — which is a wildcard wearing one origin's name.
+    // A list matches the request's own `Origin` and answers nothing
+    // when it is not on it.
+    let origins: Vec<HeaderValue> = config
+        .allowed_origins
+        .iter()
+        .filter_map(|origin| HeaderValue::from_str(origin).ok())
+        .collect();
+    // A public anchor echoes the caller's origin (never `*`, and never
+    // with credentials allowed; see `BootstrapConfig::any_origin`).
+    let allow_origin = if config.any_origin {
+        tower_http::cors::AllowOrigin::mirror_request()
+    } else {
+        tower_http::cors::AllowOrigin::list(origins)
+    };
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_origin(allow_origin);
+    let noise_pubkey = *node.public_key();
+    let state = AppState {
+        node,
+        psk: Arc::new(config.psk.clone()),
+        issuer: Arc::new(config.credential_issuer.clone()),
+        ws_allowed_origins: Arc::new(config.ws_allowed_origins.clone()),
+        allowed_origins: Arc::new(config.allowed_origins.clone()),
+        any_origin: config.any_origin,
+        rate: Arc::new(RateLimiter::new(config.offers_per_ip_per_minute)),
+        credential_rate: Arc::new(
+            RateLimiter::new(config.offers_per_credential_per_minute)
+                .with_max_per_source(VISITOR_BUDGETS_PER_SOURCE),
+        ),
+        acme: config.acme.clone(),
+        dialogs: Arc::new(AtomicU64::new(1)),
+        attempts: Arc::new(Attempts::default()),
+        issuance: config.credential_issuance.clone().map(|issuance| {
+            Arc::new(Issuance {
+                params: crate::game_anchor::AnchorCredentialParams {
+                    noise_pubkey,
+                    psk: config.psk.clone(),
+                    bootstrap_url: issuance.bootstrap_url.clone(),
+                    invite_ttl: issuance.invite_ttl,
+                    psk_ttl: issuance.psk_ttl,
+                },
+                rate: RateLimiter::new(issuance.per_ip_per_minute),
+                config: issuance,
+            })
+        }),
+    };
+    // The trickle socket's `Origin` check is a LAYER, not a line in
+    // the handler: an axum extractor rejection (`426`, "not a
+    // WebSocket request") would otherwise answer a foreign origin
+    // before the check ran, and a refusal has to name the reason it
+    // actually is.
+    let ws_origins = Arc::clone(&state.ws_allowed_origins);
+    let ws_any_origin = state.any_origin;
+    let ws_attempts = Arc::clone(&state.attempts);
+    let ws_node_outer = Arc::clone(&state.node);
+    let trickle = get(get_trickle).layer(axum::middleware::from_fn(
+        move |request: axum::extract::Request, next: axum::middleware::Next| {
+            let allowed = Arc::clone(&ws_origins);
+            let attempts = Arc::clone(&ws_attempts);
+            let ws_node = Arc::clone(&ws_node_outer);
+            async move {
+                // **Every refusal below is logged** because a
+                // refused WebSocket *handshake* is invisible to the
+                // page: a browser reports it as a bare `1006` with
+                // no code and no reason, so the anchor's log is the
+                // only place the actual reason can be read.
+                // A public anchor admits any origin, but still only a
+                // handshake that carries one: no `Origin` is not a browser.
+                let origin_ok = if ws_any_origin {
+                    request.headers().contains_key(axum::http::header::ORIGIN)
+                } else {
+                    origin_allowed(request.headers(), &allowed)
+                };
+                if !origin_ok {
+                    tracing::debug!(
+                        origin = ?request.headers().get(axum::http::header::ORIGIN),
+                        "trickle upgrade refused: origin not on the allow-list"
+                    );
+                    return refuse(
+                        BootstrapRefusal::ForbiddenOrigin,
+                        "this origin may not open the trickle socket",
+                    );
+                }
+                // **R1: the attempt token, decided at the upgrade.**
+                // In the layer rather than the handler for the same
+                // reason the origin check is: an axum extractor
+                // rejection would otherwise answer first, and a
+                // socket that upgrades and is then closed has
+                // already held anchor state. `(node, dialog)` are
+                // guessable; the token is not.
+                let Some((node_id, dialog)) = trickle_ids(request.uri()) else {
+                    tracing::debug!(
+                        query = ?request.uri().query(),
+                        "trickle upgrade refused: no node_id/dialog in the query"
+                    );
+                    return refuse(
+                        BootstrapRefusal::MalformedCredential,
+                        "the trickle socket needs node_id and dialog",
+                    );
+                };
+                let Some(token) = presented_token(request.headers()) else {
+                    tracing::debug!(
+                        node = format!("{node_id:#x}"),
+                        dialog,
+                        "trickle upgrade refused: no attempt token subprotocol"
+                    );
+                    return refuse(
+                        BootstrapRefusal::ForbiddenOrigin,
+                        "the trickle socket requires the attempt token from \
+                         POST /rtc/offer, presented as the \
+                         `net-bootstrap-attempt.<token>` subprotocol",
+                    );
+                };
+                let Some(attempt) = attempts.authorize(&token, node_id, dialog) else {
+                    tracing::debug!(
+                        node = format!("{node_id:#x}"),
+                        dialog,
+                        "trickle upgrade refused: that token names no such attempt"
+                    );
+                    return refuse(
+                        BootstrapRefusal::UnknownDialog,
+                        "no such attempt for that token, node and dialog",
+                    );
+                };
+                // **The token is not the attempt** (R1). A token
+                // proves who minted it; the anchor's own row proves
+                // the attempt still exists. An offer whose core
+                // attempt has expired, been rejected or already
+                // completed kept authorizing a socket — the review
+                // observed the core reporting no dialog while the
+                // same token still upgraded. The key is the one the
+                // acceptance recorded, so this is the exact accepted
+                // attempt and not a same-tuple successor.
+                if !ws_node.bootstrap_attempt_is_live(node_id, dialog, attempt.budget_id) {
+                    tracing::debug!(
+                        node = format!("{node_id:#x}"),
+                        dialog,
+                        incarnation = attempt.incarnation,
+                        "trickle upgrade refused: the attempt is no longer live on this anchor"
+                    );
+                    attempts.retire(&token);
+                    return refuse(
+                        BootstrapRefusal::UnknownDialog,
+                        "that attempt is no longer live on this anchor",
+                    );
+                }
+                let mut request = request;
+                request
+                    .extensions_mut()
+                    .insert(Authorized { attempt, token });
+                next.run(request).await
+            }
+        },
+    ));
+    let serves_credentials = state.issuance.is_some();
+    let router = Router::new()
+        .route("/rtc/offer", post(post_offer))
+        .route("/rtc/anchor", get(get_anchor))
+        .route("/rtc/trickle", trickle)
+        .route(
+            "/.well-known/acme-challenge/{token}",
+            get(get_acme_challenge),
+        );
+    let router = if serves_credentials {
+        router.route("/credential", post(post_credential))
+    } else {
+        router
+    };
+    router
+        .layer(axum::extract::DefaultBodyLimit::max(
+            MAX_BOOTSTRAP_BODY_BYTES,
+        ))
+        .layer(axum::middleware::from_fn(
+            move |request: axum::extract::Request, next: axum::middleware::Next| {
+                bounded_request(request_deadline, request, next)
+            },
+        ))
+        .layer(cors)
+        .with_state(state)
+}
+
+/// Bound one request — handler and body read — by `deadline`
+/// ([`BootstrapConfig::http_idle_timeout`]); an overrun gets `408`. hyper's
+/// header timeout stopped at the headers, so a client could announce a body
+/// and dribble it forever, never reaching the size checks or the rate
+/// limiter (SDK audit 2026-10-11). A WebSocket upgrade returns its response
+/// at once, so a trickle socket's own lifetime is bounded elsewhere.
+async fn bounded_request(
+    deadline: Duration,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    match tokio::time::timeout(deadline, next.run(request)).await {
+        Ok(response) => response,
+        Err(_) => axum::http::StatusCode::REQUEST_TIMEOUT.into_response(),
+    }
+}
+
+/// `POST /credential` — `{"game": "<id>"}` in, a fresh anonymous
+/// visitor credential out:
+///
+/// ```json
+/// { "credentialB64": "net-bootstrap:…", "bootstrapUrl": "https://…", "game": "my-game" }
+/// ```
+///
+/// `credentialB64` and `bootstrapUrl` are exactly what `@net-mesh/browser`'s
+/// `connect()` takes. The credential's invite is single-use, so a page
+/// fetches one per `connect()`. Refusals: `unknown_game` (404),
+/// `rate_limited` (429, per source IP or per game), `malformed_request`.
+///
+/// **Which game.** A listed origin asking for a registered game gets
+/// that game. Otherwise, on an open registry, the page gets the OPEN
+/// game keyed on its own `Origin` and the id — so an unlisted page can
+/// never be handed a registered game by naming it.
+async fn post_credential(
+    State(state): State<AppState>,
+    ConnectInfo(remote): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    #[derive(Deserialize)]
+    struct CredentialRequest {
+        game: String,
+    }
+    let Some(issuance) = state.issuance.as_ref() else {
+        // Unreachable: the route exists only with issuance configured.
+        return refuse(
+            BootstrapRefusal::UnknownGame,
+            "this anchor issues no credentials",
+        );
+    };
+    if body.len() > MAX_CREDENTIAL_REQUEST_BYTES {
+        return refuse(
+            BootstrapRefusal::MalformedRequest,
+            "the request body is over the bound",
+        );
+    }
+    let Ok(request) = serde_json::from_str::<CredentialRequest>(&body) else {
+        return refuse(
+            BootstrapRefusal::MalformedRequest,
+            "expected {\"game\": \"<id>\"}",
+        );
+    };
+    if !issuance
+        .rate
+        .admit(remote.ip(), Instant::now(), &state.node)
+    {
+        return refuse(
+            BootstrapRefusal::RateLimited,
+            "too many credential requests from this address",
+        );
+    }
+    use crate::game_anchor::GameAnchorError;
+    let registry = &issuance.config.registry;
+    let origin = headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|v| v.to_str().ok());
+    let listed = origin_allowed(&headers, &state.allowed_origins);
+    let issued = if listed && registry.root_of(&request.game).is_some() {
+        registry.issue_credential(&request.game, &issuance.config.issuer, &issuance.params)
+    } else if registry.is_open() {
+        match origin {
+            Some(origin) => registry.issue_open_credential(
+                origin,
+                &request.game,
+                &issuance.config.issuer,
+                &issuance.params,
+            ),
+            None => {
+                return refuse(
+                    BootstrapRefusal::MalformedRequest,
+                    "an open game is keyed on the page's Origin, and this request sent none",
+                )
+            }
+        }
+    } else {
+        Err(GameAnchorError::UnknownGame(request.game.clone()))
+    };
+    match issued {
+        Ok(credential) => Json(serde_json::json!({
+            "credentialB64": credential.encode(),
+            "bootstrapUrl": issuance.params.bootstrap_url,
+            "game": request.game,
+        }))
+        .into_response(),
+        Err(e @ (GameAnchorError::RateLimited(_) | GameAnchorError::OpenGamesFull)) => {
+            refuse(BootstrapRefusal::RateLimited, e.to_string())
+        }
+        Err(e @ (GameAnchorError::InvalidGameId(_) | GameAnchorError::InvalidOrigin(_))) => {
+            refuse(BootstrapRefusal::MalformedRequest, e.to_string())
+        }
+        Err(e) => refuse(BootstrapRefusal::UnknownGame, e.to_string()),
+    }
+}
+
+/// Bind one TCP listener. `v6_only` sets `IPV6_V6ONLY` on an IPv6
+/// address; it is asked for whenever a listener has siblings, so an
+/// IPv6 listener never claims the IPv4 port beside it and the result
+/// does not depend on the platform default (dual-stack on Linux,
+/// IPv6-only on Windows). A lone listener binds as
+/// `TcpListener::bind` would.
+fn bind_tcp(addr: SocketAddr, v6_only: bool) -> std::io::Result<tokio::net::TcpListener> {
+    let domain = if addr.is_ipv4() {
+        socket2::Domain::IPV4
+    } else {
+        socket2::Domain::IPV6
+    };
+    let socket = socket2::Socket::new(domain, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
+    if addr.is_ipv6() && v6_only {
+        socket.set_only_v6(true)?;
+    }
+    // What `TcpListener::bind` does on Unix, so a lone listener is
+    // unchanged by going through here.
+    #[cfg(not(windows))]
+    socket.set_reuse_address(true)?;
+    socket.set_nonblocking(true)?;
+    socket.bind(&addr.into())?;
+    socket.listen(1024)?;
+    tokio::net::TcpListener::from_std(socket.into())
+}
+
+/// Bind every address in `addrs`, all or nothing, and return the
+/// listeners with the addresses they actually bound, in order.
+fn bind_tcp_all(
+    addrs: &[SocketAddr],
+) -> std::io::Result<(Vec<tokio::net::TcpListener>, Vec<SocketAddr>)> {
+    let v6_only = addrs.len() > 1;
+    let mut listeners = Vec::with_capacity(addrs.len());
+    let mut bound = Vec::with_capacity(addrs.len());
+    for addr in addrs {
+        let listener = bind_tcp(*addr, v6_only)?;
+        bound.push(listener.local_addr()?);
+        listeners.push(listener);
+    }
+    Ok((listeners, bound))
+}
+
+/// The next connection on any of `listeners`. `TcpListener::accept`
+/// is cancel-safe, so the accepts that lose the race drop nothing.
+async fn accept_any(
+    listeners: &[tokio::net::TcpListener],
+) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
+    if let [only] = listeners {
+        return only.accept().await;
+    }
+    futures::future::select_all(listeners.iter().map(|listener| Box::pin(listener.accept())))
+        .await
+        .0
+}
+
+/// Start the listener. Returns once the socket is bound, so a caller
+/// can publish the URL without racing the first request.
+pub async fn serve_bootstrap(
+    node: Arc<MeshNode>,
+    config: BootstrapConfig,
+) -> Result<BootstrapHandle, BootstrapError> {
+    if let Some(issuance) = &config.credential_issuance {
+        if issuance.issuer.entity_id() != &config.credential_issuer {
+            return Err(BootstrapError::Config(
+                "the credential issuance key is not the credential issuer this listener \
+                 verifies: every credential it issued would be refused at /rtc/offer"
+                    .into(),
+            ));
+        }
+    }
+    let (initial, challenge_tasks) = tls_acceptor(&config).await?;
+    // **R4c: the acceptor is swappable.** A static one meant the
+    // certificate a process started with was the certificate it died
+    // with; ACME certificates expire in weeks.
+    let tls: Arc<RwLock<Arc<tokio_rustls::TlsAcceptor>>> = Arc::new(RwLock::new(initial));
+    let renewal = spawn_renewal(&config, Arc::clone(&tls));
+    let router = bootstrap_router(node, &config);
+    // A TLS bind that fails AFTER the challenge ingress and the
+    // renewal owner exist must not detach them either (R4, round
+    // two): same reasoning as the ordering failure, same remedy.
+    let addrs: Vec<SocketAddr> = std::iter::once(config.bind_addr)
+        .chain(config.additional_bind_addrs.iter().copied())
+        .collect();
+    let (listeners, local_addrs) = match bind_tcp_all(&addrs) {
+        Ok(bound) => bound,
+        Err(e) => {
+            if let Some(renewal) = renewal {
+                abort_and_join(renewal).await;
+            }
+            for challenge in challenge_tasks {
+                abort_and_join(challenge).await;
+            }
+            return Err(BootstrapError::Bind(e.to_string()));
+        }
+    };
+    let local_addr = local_addrs[0];
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
+    let limits = ConnectionLimits {
+        tls_handshake: config.tls_handshake_timeout,
+        http_idle: config.http_idle_timeout,
+    };
+    let task = tokio::spawn(async move {
+        let service = router.into_make_service_with_connect_info::<SocketAddr>();
+        let mut backoff = AcceptBackoff::default();
+        loop {
+            let accepted = tokio::select! {
+                _ = &mut shutdown_rx => break,
+                accepted = accept_any(&listeners) => accepted,
+            };
+            let (stream, remote) = match accepted {
+                Ok(accepted) => {
+                    backoff.reset();
+                    accepted
+                }
+                Err(error) => {
+                    // **Never retry at once.** The usual error is
+                    // running out of file descriptors, and it does
+                    // not clear by asking again: an immediate retry
+                    // spins a core, and on a one-core host starves the
+                    // very tasks that would close connections and free
+                    // descriptors. That is how an anchor wedged at
+                    // 100% CPU serving nothing. Wait, doubling up to a
+                    // second, and let the runtime run.
+                    let pause = backoff.next();
+                    tracing::warn!(%error, ?pause, "bootstrap listener: accept failed; pausing");
+                    tokio::select! {
+                        _ = &mut shutdown_rx => break,
+                        () = tokio::time::sleep(pause) => {}
+                    }
+                    continue;
+                }
+            };
+            // Read the CURRENT acceptor per connection, so a
+            // renewal swap takes effect on the next handshake
+            // without dropping live ones (R4c).
+            let tls = Arc::clone(&*tls.read());
+            let service = service.clone();
+            tokio::spawn(async move {
+                serve_one(stream, remote, tls, service, limits).await;
+            });
+        }
+        // Settled, not merely signalled: `shutdown().await`
+        // returning must mean the challenge port is free.
+        if let Some(renewal) = renewal {
+            abort_and_join(renewal).await;
+        }
+        for challenge in challenge_tasks {
+            abort_and_join(challenge).await;
+        }
+    });
+    Ok(BootstrapHandle {
+        local_addr,
+        local_addrs,
+        shutdown: shutdown_tx,
+        task,
+    })
+}
+
+/// The shortest gap between two SUCCESSFUL renewals (R4, round
+/// two). Long enough that a short-lived certificate cannot spin the
+/// loop, far shorter than any real renewal horizon.
+const MIN_RENEWAL_INTERVAL: Duration = Duration::from_secs(300);
+
+/// The renewal owner (R4c): re-orders at
+/// `not_after - renewal_horizon` and swaps the acceptor in place.
+///
+/// `None` for operator-supplied PEM — that lifecycle is the
+/// operator's, and the documented path is to restart or reload with
+/// the new files.
+fn spawn_renewal(
+    config: &BootstrapConfig,
+    tls: Arc<RwLock<Arc<tokio_rustls::TlsAcceptor>>>,
+) -> Option<tokio::task::JoinHandle<()>> {
+    let BootstrapTls::Acme(acme) = config.tls.clone() else {
+        return None;
+    };
+    let challenges = config.acme.clone();
+    let horizon = config.acme_renewal_horizon;
+    Some(tokio::spawn(async move {
+        loop {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let renew_at = crate::rtc_bootstrap_acme::renew_at(&acme, horizon);
+            let sleep_for = match renew_at {
+                // Nothing cached, or already inside the horizon:
+                // re-order now rather than sleeping on a certificate
+                // that is about to stop working.
+                Some(at) if at > now => Duration::from_secs(at - now),
+                _ => Duration::ZERO,
+            };
+            if !sleep_for.is_zero() {
+                tokio::time::sleep(sleep_for).await;
+            }
+            match crate::rtc_bootstrap_acme::renew_certificate(&acme, &challenges).await {
+                Ok((chain, key)) => match server_config(chain, key) {
+                    Ok(acceptor) => {
+                        *tls.write() = acceptor;
+                        tracing::info!(domain = %acme.domain, "bootstrap certificate renewed");
+                        // **Successful orders are paced too** (R4,
+                        // round two). Only errors used to back off,
+                        // so a certificate issued with a lifetime at
+                        // or below the horizon — a short-lived test
+                        // CA, a directory that trims validity — put
+                        // this loop straight back into `renew_at <=
+                        // now` and ordered again immediately, for
+                        // ever. A floor between SUCCESSFUL orders
+                        // bounds that without weakening the horizon:
+                        // the next wake still respects `renew_at`
+                        // when it is further out.
+                        tokio::time::sleep(MIN_RENEWAL_INTERVAL).await;
+                    }
+                    Err(e) => tracing::error!(error = %e, "renewed certificate did not load"),
+                },
+                Err(e) => {
+                    tracing::error!(error = %e, domain = %acme.domain, "certificate renewal failed");
+                    // Back off rather than spin against a directory
+                    // that is refusing us.
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
+                }
+            }
+        }
+    }))
+}
+
+/// The per-connection deadlines [`serve_one`] enforces.
+#[derive(Debug, Clone, Copy)]
+struct ConnectionLimits {
+    tls_handshake: Duration,
+    http_idle: Duration,
+}
+
+/// The pause after a failed `accept`: 10 ms, doubling to a second,
+/// back to the start on the next success.
+#[derive(Debug, Default)]
+struct AcceptBackoff {
+    failures: u32,
+}
+
+impl AcceptBackoff {
+    const FIRST: Duration = Duration::from_millis(10);
+    const MAX: Duration = Duration::from_secs(1);
+
+    fn next(&mut self) -> Duration {
+        let pause = Self::FIRST
+            .saturating_mul(1u32 << self.failures.min(16))
+            .min(Self::MAX);
+        self.failures = self.failures.saturating_add(1);
+        pause
+    }
+
+    fn reset(&mut self) {
+        self.failures = 0;
+    }
+}
+
+async fn serve_one(
+    stream: tokio::net::TcpStream,
+    remote: SocketAddr,
+    tls: Arc<tokio_rustls::TlsAcceptor>,
+    service: axum::extract::connect_info::IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
+    limits: ConnectionLimits,
+) {
+    // A browser that refuses our certificate, or a client that never
+    // finishes the handshake, lands in the `else`. There is nothing to
+    // say back over a handshake that did not complete.
+    let Ok(Ok(stream)) = tokio::time::timeout(limits.tls_handshake, tls.accept(stream)).await
+    else {
+        return;
+    };
+    serve_http(stream, remote, service, limits).await;
+}
+
+/// Serve HTTP on one accepted connection (TLS or plaintext), with the
+/// idle deadline enforced.
+async fn serve_http<I>(
+    io: I,
+    remote: SocketAddr,
+    mut service: axum::extract::connect_info::IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
+    limits: ConnectionLimits,
+) where
+    I: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    use hyper_util::rt::TokioIo;
+    use tower::Service as _;
+
+    // `IntoMakeServiceWithConnectInfo`'s error is `Infallible`, so
+    // this cannot fail; unwrapping the `Ok` keeps that visible
+    // rather than hiding a branch that can never run.
+    let Ok(tower_service) = service.call(remote).await;
+    let hyper_service =
+        hyper::service::service_fn(move |request: axum::http::Request<hyper::body::Incoming>| {
+            tower_service.clone().call(request)
+        });
+    // HTTP/1.1 only, from hyper itself. The auto (h1/h2) builder first
+    // waits for the bytes that tell the versions apart, and that wait
+    // has no deadline: a connection that never sent anything was held
+    // forever, whatever the header deadline said. Nothing here
+    // negotiates h2 (no ALPN), so browsers speak HTTP/1.1 anyway.
+    //
+    // And a timer, without which hyper enforces no header deadline at
+    // all: a connection that stopped sending (an idle keep-alive pool,
+    // a slow sender) was held for as long as its peer liked.
+    let _ = hyper::server::conn::http1::Builder::new()
+        .timer(hyper_util::rt::TokioTimer::new())
+        .header_read_timeout(limits.http_idle)
+        .serve_connection(TokioIo::new(io), hyper_service)
+        .with_upgrades()
+        .await;
+}
+
+/// Everything that can go wrong starting a listener.
+#[derive(Debug, thiserror::Error)]
+pub enum BootstrapError {
+    /// The TCP socket could not be bound.
+    #[error("binding the bootstrap listener failed: {0}")]
+    Bind(String),
+    /// The certificate or key could not be read or parsed.
+    #[error("bootstrap TLS: {0}")]
+    Tls(String),
+    /// ACME could not obtain a certificate.
+    #[error("bootstrap ACME: {0}")]
+    Acme(String),
+    /// The configuration contradicts itself.
+    #[error("bootstrap config: {0}")]
+    Config(String),
+}
+
+/// Cancel a task and WAIT for it to be gone.
+///
+/// `abort()` requests cancellation, it does not perform it — and for
+/// a task that owns a listening socket the difference is whether the
+/// port is free when the caller returns (R4, round two).
+async fn abort_and_join(task: tokio::task::JoinHandle<()>) {
+    task.abort();
+    let _ = task.await;
+}
+
+/// The plaintext HTTP-01 challenge ingress (R4a).
+///
+/// Bound BEFORE any order is placed, serving exactly one route from
+/// the same [`AcmeState`] the ordering client writes into. The
+/// brief said "HTTP-01 on the same listener"; HTTP-01 is a
+/// plaintext protocol and the bootstrap listener is TLS-only, so on
+/// a cold cache there was no way to answer the challenge that
+/// produces the certificate the TLS listener needs. Same process,
+/// same challenge store, second socket.
+async fn serve_challenge_ingress(
+    addr: SocketAddr,
+    acme: AcmeState,
+    v6_only: bool,
+    limits: ConnectionLimits,
+) -> Result<(tokio::task::JoinHandle<()>, SocketAddr), BootstrapError> {
+    let router = Router::new()
+        .route("/.well-known/acme-challenge/{token}", get(challenge_route))
+        .with_state(acme);
+    let listener = bind_tcp(addr, v6_only)
+        .map_err(|e| BootstrapError::Bind(format!("acme http-01 ingress on {addr}: {e}")))?;
+    let bound = listener
+        .local_addr()
+        .map_err(|e| BootstrapError::Bind(e.to_string()))?;
+    // Not `axum::serve`: it sets no deadline, and a public port 80
+    // collects connections that open and never send a byte (hundreds
+    // an hour on the public anchor), each held until the process ran
+    // out of descriptors. The same accept loop as the TLS listener:
+    // back off on errors, close a connection that sends no request
+    // within the idle deadline.
+    let task = tokio::spawn(async move {
+        let service = router.into_make_service_with_connect_info::<SocketAddr>();
+        let mut backoff = AcceptBackoff::default();
+        loop {
+            match listener.accept().await {
+                Ok((stream, remote)) => {
+                    backoff.reset();
+                    let service = service.clone();
+                    tokio::spawn(serve_http(stream, remote, service, limits));
+                }
+                Err(error) => {
+                    let pause = backoff.next();
+                    tracing::warn!(%error, ?pause, "acme http-01 ingress: accept failed; pausing");
+                    tokio::time::sleep(pause).await;
+                }
+            }
+        }
+    });
+    Ok((task, bound))
+}
+
+async fn challenge_route(
+    State(acme): State<AcmeState>,
+    axum::extract::Path(token): axum::extract::Path<String>,
+) -> Response {
+    match acme.key_authorization(&token) {
+        Some(auth) => (StatusCode::OK, auth).into_response(),
+        None => (StatusCode::NOT_FOUND, "no such challenge").into_response(),
+    }
+}
+
+/// Build a TLS acceptor from a chain and key.
+///
+/// The payments crate's rule, for the reason its module doc gives:
+/// an explicit provider, NEVER `CryptoProvider::install_default`,
+/// which is process-global and would leak into every other rustls
+/// user in this process.
+fn server_config(
+    chain: Vec<rustls::pki_types::CertificateDer<'static>>,
+    key: rustls::pki_types::PrivateKeyDer<'static>,
+) -> Result<Arc<tokio_rustls::TlsAcceptor>, BootstrapError> {
+    let server_config = rustls::ServerConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(|e| BootstrapError::Tls(e.to_string()))?
+    .with_no_client_auth()
+    .with_single_cert(chain, key)
+    .map_err(|e| BootstrapError::Tls(e.to_string()))?;
+    Ok(Arc::new(tokio_rustls::TlsAcceptor::from(Arc::new(
+        server_config,
+    ))))
+}
+
+async fn tls_acceptor(
+    config: &BootstrapConfig,
+) -> Result<
+    (
+        Arc<tokio_rustls::TlsAcceptor>,
+        Vec<tokio::task::JoinHandle<()>>,
+    ),
+    BootstrapError,
+> {
+    let mut challenge_tasks = Vec::new();
+    let (chain, key) = match &config.tls {
+        BootstrapTls::Operator { cert_pem, key_pem } => read_pem_pair(cert_pem, key_pem)?,
+        BootstrapTls::Acme(acme) => {
+            // R4a: the challenge ingress exists before we order, on
+            // every configured address (an IPv6 one included, since a
+            // directory validates over IPv6 when the name has AAAA).
+            let addrs: Vec<SocketAddr> = std::iter::once(config.acme_challenge_addr)
+                .chain(config.additional_acme_challenge_addrs.iter().copied())
+                .collect();
+            let v6_only = addrs.len() > 1;
+            let mut tasks = Vec::with_capacity(addrs.len());
+            for addr in addrs {
+                let limits = ConnectionLimits {
+                    tls_handshake: config.tls_handshake_timeout,
+                    http_idle: config.http_idle_timeout,
+                };
+                match serve_challenge_ingress(addr, config.acme.clone(), v6_only, limits).await {
+                    Ok((task, bound)) => {
+                        tracing::info!(
+                            %bound,
+                            domain = %acme.domain,
+                            "acme http-01 ingress bound before ordering"
+                        );
+                        tasks.push(task);
+                    }
+                    Err(e) => {
+                        for task in tasks {
+                            abort_and_join(task).await;
+                        }
+                        return Err(e);
+                    }
+                }
+            }
+            match crate::rtc_bootstrap_acme::obtain_certificate(acme, &config.acme).await {
+                Ok(pair) => {
+                    challenge_tasks = tasks;
+                    pair
+                }
+                Err(e) => {
+                    // **A failed startup owns its port** (R4, round
+                    // two). Dropping the handle DETACHES the task:
+                    // the challenge socket stayed bound for the life
+                    // of the process, and the review could not
+                    // rebind it after a failed order. `abort`
+                    // requests cancellation; only the await makes
+                    // the listener gone by the time this returns.
+                    for task in tasks {
+                        abort_and_join(task).await;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+    };
+    match server_config(chain, key) {
+        Ok(acceptor) => Ok((acceptor, challenge_tasks)),
+        Err(e) => {
+            for task in challenge_tasks {
+                abort_and_join(task).await;
+            }
+            Err(e)
+        }
+    }
+}
+
+pub(crate) fn read_pem_pair(
+    cert_pem: &PathBuf,
+    key_pem: &PathBuf,
+) -> Result<
+    (
+        Vec<rustls::pki_types::CertificateDer<'static>>,
+        rustls::pki_types::PrivateKeyDer<'static>,
+    ),
+    BootstrapError,
+> {
+    let cert_bytes = std::fs::read(cert_pem)
+        .map_err(|e| BootstrapError::Tls(format!("reading {}: {e}", cert_pem.display())))?;
+    let key_bytes = std::fs::read(key_pem)
+        .map_err(|e| BootstrapError::Tls(format!("reading {}: {e}", key_pem.display())))?;
+    let chain = rustls_pemfile::certs(&mut cert_bytes.as_slice())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| BootstrapError::Tls(format!("parsing the certificate chain: {e}")))?;
+    if chain.is_empty() {
+        return Err(BootstrapError::Tls(format!(
+            "{} contains no certificate",
+            cert_pem.display()
+        )));
+    }
+    let key = rustls_pemfile::private_key(&mut key_bytes.as_slice())
+        .map_err(|e| BootstrapError::Tls(format!("parsing the private key: {e}")))?
+        .ok_or_else(|| BootstrapError::Tls(format!("{} contains no key", key_pem.display())))?;
+    Ok((chain, key))
+}
+
+fn refuse(refusal: BootstrapRefusal, message: impl Into<String>) -> Response {
+    (
+        refusal.status(),
+        Json(ErrorBody {
+            refusal,
+            message: message.into(),
+        }),
+    )
+        .into_response()
+}
+
+fn parse_node_id(raw: &str) -> Option<u64> {
+    let raw = raw.trim();
+    match raw.strip_prefix("0x").or_else(|| raw.strip_prefix("0X")) {
+        Some(hex) => u64::from_str_radix(hex, 16).ok(),
+        None => raw.parse().ok(),
+    }
+}
+
+/// Validate a presented credential against this anchor: it must
+/// parse, carry **this issuer's** signature over its own canonical
+/// bytes, belong to this anchor's transport trust domain, and have
+/// both lifetimes live — in that order.
+fn check_credential(
+    raw: &str,
+    psk: &Psk,
+    issuer: &crate::identity::EntityId,
+) -> Result<BrowserBootstrapCredential, Box<Response>> {
+    let credential = BrowserBootstrapCredential::decode(raw).map_err(|e| {
+        Box::new(refuse(
+            BootstrapRefusal::MalformedCredential,
+            format!("the credential did not parse: {e}"),
+        ))
+    })?;
+    // **Refusal REPORTING prefers the operator-actionable cause.**
+    // A credential whose own stated deadlines have already passed is
+    // reported as expired whether or not its signature verifies:
+    // both facts are things its holder already knows, and "mint a
+    // fresh invite" is the actionable one. Acceptance is a different
+    // question and is answered below — nothing is ever accepted
+    // without the issuer signature.
+    if let Err(e) = credential.validate() {
+        return Err(Box::new(refuse(
+            BootstrapRefusal::ExpiredCredential,
+            format!("the credential is not presentable: {e}"),
+        )));
+    }
+    // **The issuer signature (R3).** Everything else reads fields the
+    // credential asserts about itself; until this verifies, those
+    // fields are the caller's claims. The review edited the two
+    // deadlines on an expired credential and was admitted.
+    credential.verify_issuer(issuer).map_err(|e| {
+        Box::new(refuse(
+            BootstrapRefusal::MalformedCredential,
+            format!("the credential's issuer did not verify: {e}"),
+        ))
+    })?;
+    // Domain next: telling a caller from another trust domain that
+    // their nonce expired would send them to the wrong knob.
+    credential.check_trust_domain(psk).map_err(|e| {
+        Box::new(refuse(
+            BootstrapRefusal::WrongTrustDomain,
+            format!("this anchor does not serve that trust domain: {e}"),
+        ))
+    })?;
+    Ok(credential)
+}
+
+async fn post_offer(
+    State(state): State<AppState>,
+    ConnectInfo(remote): ConnectInfo<SocketAddr>,
+    body: String,
+) -> Response {
+    if body.len() > MAX_OFFER_BODY_BYTES {
+        return refuse(
+            BootstrapRefusal::MalformedCredential,
+            "the offer body is over the bound",
+        );
+    }
+    let Ok(request) = serde_json::from_str::<OfferRequest>(&body) else {
+        return refuse(
+            BootstrapRefusal::MalformedCredential,
+            "the offer body is not the expected JSON",
+        );
+    };
+    // Rate first: it is the cheapest check, and the one an attacker
+    // is trying to spend.
+    if !state.rate.admit(remote.ip(), Instant::now(), &state.node) {
+        return refuse(
+            BootstrapRefusal::RateLimited,
+            "too many bootstrap offers from this address",
+        );
+    }
+    let credential = match check_credential(&request.credential, &state.psk, &state.issuer) {
+        Ok(credential) => credential,
+        Err(response) => return *response,
+    };
+    // One visitor's budget, charged only now that the issuer signature
+    // verified: by (source bucket, invite nonce), so visitors sharing an
+    // address each have their own, and a credential shared by many
+    // visitors is still bounded per address.
+    // A visitor that cannot get a budget of its own (the table is full)
+    // is admitted on the per-address backstop just charged above, not
+    // refused: see `RateLimiter::admit_visitor`.
+    let visitor = (rate_key(remote.ip()), credential.invite.nonce);
+    if !state.credential_rate.admit_visitor(
+        visitor,
+        remote.ip(),
+        Instant::now(),
+        state.node.rtc_stats(),
+    ) {
+        return refuse(
+            BootstrapRefusal::RateLimited,
+            "too many bootstrap offers for this credential from this address",
+        );
+    }
+    let Some(node_id) = parse_node_id(&request.node_id) else {
+        return refuse(
+            BootstrapRefusal::MalformedCredential,
+            "node_id is not a u64",
+        );
+    };
+    // §12's global provisional bound, read rather than re-derived: an
+    // offer accepted past it produces a session admission would shed
+    // immediately, so refusing here is both cheaper and honest.
+    let max_provisional = state.node.rtc_max_provisional();
+    if max_provisional > 0 && state.node.provisional_count() >= max_provisional {
+        return refuse(
+            BootstrapRefusal::AtCapacity,
+            "this anchor is at its provisional-session bound",
+        );
+    }
+
+    // The same for the RTC session table: a full one refuses the offer
+    // in the driver, which reaches the page as `offer_refused` with no
+    // hint that capacity is the reason.
+    if let Some((live, max)) = state.node.rtc_session_load() {
+        if live >= max {
+            return refuse(
+                BootstrapRefusal::AtCapacity,
+                format!("this anchor holds {live} of its {max} RTC sessions"),
+            );
+        }
+    }
+
+    let dialog = state.dialogs.fetch_add(1, Ordering::Relaxed);
+    // The incarnation is this listener's own counter for the
+    // attempt, so two attempts that reuse a dialog id are still
+    // distinct identities (R1).
+    let incarnation = state.dialogs.fetch_add(1, Ordering::Relaxed);
+    // Mint FIRST: the token's random bytes are what the offer's
+    // signalling budget is charged to (R2), so it has to exist
+    // before the offer is accepted.
+    let node = Arc::clone(&state.node);
+    state
+        .attempts
+        .prune(|a| node.bootstrap_attempt_is_live(a.node_id, a.dialog, a.budget_id));
+    let Some((attempt_token, budget_id)) = state.attempts.mint(node_id, dialog, incarnation) else {
+        return refuse(
+            BootstrapRefusal::OfferRefused,
+            "the anchor could not mint an attempt token",
+        );
+    };
+    // Retires the token if this handler is dropped mid-acceptance (the
+    // request deadline in `bounded_request` drops it): an accepting token
+    // is exempt from pruning, so without this it would never go (cubic
+    // review of PR #1228).
+    let mut minted = RetireTokenOnDrop {
+        attempts: Arc::clone(&state.attempts),
+        token: Some(attempt_token.clone()),
+    };
+    let accepted = state
+        .node
+        .accept_bootstrap_offer_keyed(budget_id, node_id, dialog, request.sdp)
+        .await;
+    minted.token = None;
+    match accepted {
+        Ok(sdp) => {
+            state.attempts.accepted(&attempt_token);
+            let candidate = state.node.bootstrap_host_candidate().unwrap_or_default();
+            tracing::debug!(
+                dialog,
+                node = format!("{node_id:#x}"),
+                domain = %credential.trust_domain,
+                "bootstrap offer accepted"
+            );
+            Json(OfferResponse {
+                attempt_token,
+                dialog,
+                sdp,
+                candidate,
+            })
+            .into_response()
+        }
+        Err(e) => {
+            state.attempts.retire(&attempt_token);
+            let message = e.to_string();
+            // The check above can lose a race to another offer; the
+            // driver's own capacity refusal is the same answer, with the
+            // same count, and the driver's words kept beside it.
+            if message.contains(net::adapter::net::rtc::MAX_PEERS_REACHED) {
+                let message = match state.node.rtc_session_load() {
+                    Some((live, max)) => {
+                        format!("this anchor holds {live} of its {max} RTC sessions ({message})")
+                    }
+                    None => message,
+                };
+                refuse(BootstrapRefusal::AtCapacity, message)
+            } else {
+                refuse(BootstrapRefusal::OfferRefused, message)
+            }
+        }
+    }
+}
+
+/// Retires a minted attempt token when dropped while still armed.
+struct RetireTokenOnDrop {
+    attempts: Arc<Attempts>,
+    token: Option<String>,
+}
+
+impl Drop for RetireTokenOnDrop {
+    fn drop(&mut self) {
+        if let Some(token) = self.token.take() {
+            self.attempts.retire(&token);
+        }
+    }
+}
+
+/// `AnchorInfo::rtc_addrs`'s serialization rule, in one place: every
+/// published RTC endpoint when there is more than one, otherwise
+/// `None` so the key is omitted and the reply is unchanged.
+pub fn published_rtc_addrs(node: &MeshNode) -> Option<Vec<String>> {
+    let published = node.rtc_public_addrs();
+    (published.len() > 1).then(|| published.iter().map(|addr| addr.to_string()).collect())
+}
+
+/// `AnchorInfo::stun_addrs`'s rule: every announced STUN endpoint
+/// when there is more than one, otherwise `None` (key omitted).
+pub fn published_stun_addrs(node: &MeshNode) -> Option<Vec<String>> {
+    let announced = node.rtc_public_stun_addrs();
+    (announced.len() > 1).then(|| announced.iter().map(|addr| addr.to_string()).collect())
+}
+
+async fn get_anchor(State(state): State<AppState>) -> Response {
+    Json(AnchorInfo {
+        node_id: format!("{:#x}", state.node.node_id()),
+        noise_pubkey: hex_of(state.node.public_key()),
+        rtc_addr: state.node.rtc_public_addr().map(|a| a.to_string()),
+        // The resolved announced STUN endpoint, not the configured
+        // bind: one resolution rule, in the node, so this handler
+        // and the announcement emission point cannot disagree.
+        stun_addr: state.node.rtc_public_stun_addr().map(|a| a.to_string()),
+        rtc_addrs: published_rtc_addrs(&state.node),
+        stun_addrs: published_stun_addrs(&state.node),
+        trust_domain: state.psk.trust_domain().to_string(),
+        max_provisional: state.node.rtc_max_provisional(),
+        provisional: state.node.provisional_count(),
+    })
+    .into_response()
+}
+
+async fn get_acme_challenge(
+    State(state): State<AppState>,
+    axum::extract::Path(token): axum::extract::Path<String>,
+) -> Response {
+    match state.acme.key_authorization(&token) {
+        Some(key_authorization) => (StatusCode::OK, key_authorization).into_response(),
+        None => (StatusCode::NOT_FOUND, "no such challenge").into_response(),
+    }
+}
+
+/// Is `Origin` on the allow-list? A **missing** Origin is refused
+/// too: every browser sends one on a WebSocket handshake, so its
+/// absence is a non-browser client, which this endpoint does not
+/// serve.
+fn origin_allowed(headers: &HeaderMap, allowed: &[String]) -> bool {
+    headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|origin| allowed.iter().any(|a| a == origin))
+}
+
+/// The subprotocol that carries the attempt token (R1). A browser
+/// cannot set arbitrary headers on a WebSocket handshake, but it can
+/// name a subprotocol — and a subprotocol is a header, not a URL, so
+/// the token stays out of proxy logs and browser history.
+const ATTEMPT_SUBPROTOCOL_PREFIX: &str = "net-bootstrap-attempt.";
+
+/// The token a handshake presents, from
+/// `Sec-WebSocket-Protocol: net-bootstrap-attempt.<hex>`.
+fn presented_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(axum::http::header::SEC_WEBSOCKET_PROTOCOL)
+        .and_then(|v| v.to_str().ok())?
+        .split(',')
+        .map(str::trim)
+        .find_map(|p| p.strip_prefix(ATTEMPT_SUBPROTOCOL_PREFIX))
+        .map(str::to_string)
+}
+
+async fn get_trickle(
+    State(state): State<AppState>,
+    axum::Extension(authorized): axum::Extension<Authorized>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    // Origin AND the attempt token were both decided by this route's
+    // layer, before the upgrade. Reaching this function means the
+    // socket is authorized for exactly one attempt.
+    let Authorized { attempt, token } = authorized;
+    let protocol = format!("{ATTEMPT_SUBPROTOCOL_PREFIX}{token}");
+    ws.protocols([protocol])
+        .max_message_size(MAX_TRICKLE_MESSAGE_BYTES)
+        .max_frame_size(MAX_TRICKLE_MESSAGE_BYTES)
+        .on_upgrade(move |socket| trickle_socket(socket, state, attempt, token))
+}
+
+/// What the trickle layer proved before the upgrade.
+#[derive(Clone)]
+struct Authorized {
+    attempt: Attempt,
+    token: String,
+}
+
+/// `(node_id, dialog)` from the trickle URI, without an extractor —
+/// the layer runs before extraction.
+fn trickle_ids(uri: &axum::http::Uri) -> Option<(u64, u64)> {
+    let query = uri.query()?;
+    let mut node = None;
+    let mut dialog = None;
+    for pair in query.split('&') {
+        let (k, v) = pair.split_once('=')?;
+        match k {
+            "node_id" => node = parse_node_id(v),
+            "dialog" => dialog = v.parse().ok(),
+            _ => {}
+        }
+    }
+    Some((node?, dialog?))
+}
+
+async fn trickle_socket(mut socket: WebSocket, state: AppState, attempt: Attempt, token: String) {
+    use axum::extract::ws::CloseFrame;
+
+    let Attempt {
+        node_id,
+        dialog,
+        incarnation,
+        socket: socket_gen,
+        ..
+    } = attempt;
+    tracing::debug!(
+        node = format!("{node_id:#x}"),
+        dialog,
+        incarnation,
+        "trickle socket authorized by its attempt token"
+    );
+
+    // The anchor's own candidate goes first: the browser can start
+    // checks against it while it is still gathering its own. S0b
+    // measured trickle at 6.6x gather-complete at the floor, and
+    // this is the half the anchor controls. A dual-stack anchor has
+    // one per family, primary first.
+    for candidate in state.node.bootstrap_host_candidates() {
+        let frame = serde_json::json!({
+            "type": "candidate",
+            "dialog": dialog,
+            "candidate": candidate,
+            "mid": "0",
+        });
+        if socket
+            .send(Message::Text(frame.to_string().into()))
+            .await
+            .is_err()
+        {
+            // A leaf can finish its handback immediately after upgrade,
+            // before this first send. It owns the same retirement as EOF,
+            // fenced to this socket generation the same way (R1).
+            if state.attempts.retire_socket(&token, socket_gen) {
+                state.node.end_bootstrap_dialog(node_id, dialog).await;
+            }
+            return;
+        }
+    }
+
+    loop {
+        // Bounded (SDK audit 2026-10-11): the loop used to end only on a
+        // client close or a rejected candidate, so a silent socket — or one
+        // superseded by a re-upgrade on the same token — lived forever,
+        // holding the node. Every tick re-checks that this generation still
+        // owns a live core attempt.
+        let message = match tokio::time::timeout(TRICKLE_LIVENESS_TICK, socket.recv()).await {
+            Ok(Some(Ok(message))) => Some(message),
+            Ok(_) => break,
+            Err(_) => None,
+        };
+        if !state.attempts.owned_by(&token, socket_gen) {
+            // Superseded (or already retired): the successor owns the
+            // attempt's lifecycle; end only this socket.
+            return;
+        }
+        if !state
+            .node
+            .bootstrap_attempt_is_live(node_id, dialog, attempt.budget_id)
+        {
+            // The core attempt expired, failed or completed: nothing is
+            // left to trickle into. Drop the token; the dialog is not ours
+            // to end any more.
+            state.attempts.retire_socket(&token, socket_gen);
+            return;
+        }
+        let Some(message) = message else { continue };
+        let text = match message {
+            Message::Text(text) => text,
+            Message::Close(_) => break,
+            // Candidates are the JSON form of the `0x0D02` message;
+            // binary frames are not part of this protocol.
+            _ => continue,
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        if value["type"] != "candidate" {
+            continue;
+        }
+        let candidate = value["candidate"].as_str().unwrap_or_default().to_string();
+        let mid = value["mid"].as_str().unwrap_or("0").to_string();
+        // **R2: the same bounds the native ingress applies**, run by
+        // the same function, and charged to the attempt's own
+        // identity rather than the node id the caller claimed.
+        match state
+            .node
+            .apply_bootstrap_candidate_checked(attempt.budget_id, node_id, dialog, candidate, mid)
+            .await
+        {
+            Ok(()) => {}
+            Err(e) => {
+                // A candidate this anchor will not apply — over a
+                // bound, or for a dialog it does not hold: typed
+                // close, so the browser learns WHICH thing was wrong
+                // rather than seeing a silent hang.
+                let refusal = if e.to_string().contains("bound") || e.to_string().contains("budget")
+                {
+                    BootstrapRefusal::RateLimited
+                } else {
+                    BootstrapRefusal::UnknownDialog
+                };
+                let _ = socket
+                    .send(Message::Close(Some(CloseFrame {
+                        code: refusal.close_code(),
+                        reason: e.to_string().into(),
+                    })))
+                    .await;
+                if state.attempts.retire_socket(&token, socket_gen) {
+                    state.node.end_bootstrap_dialog(node_id, dialog).await;
+                }
+                return;
+            }
+        }
+    }
+    // The browser went away before the channel opened; do not leave
+    // the attempt holding a budget slot until its deadline.
+    //
+    // **Only the CURRENT socket generation may do this** (R1). The
+    // token re-upgrades — a reconnecting browser reopens the same
+    // attempt over a new socket — so "whoever holds the token" is
+    // not enough: a stale socket's delayed close must not end its
+    // successor's live attempt. `retire_socket` returns whether THIS
+    // call owned the removal, so a superseded socket — or a late
+    // close after the attempt was already retired — ends nothing.
+    if state.attempts.retire_socket(&token, socket_gen) {
+        state.node.end_bootstrap_dialog(node_id, dialog).await;
+    }
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod attempt_prune_tests {
+    use super::{Attempt, Attempts, ATTEMPT_PRUNE_GRACE};
+    use std::time::{Duration, Instant};
+
+    fn attempt(dialog: u64, age: Duration) -> Attempt {
+        Attempt {
+            node_id: 1,
+            dialog,
+            incarnation: dialog,
+            budget_id: dialog,
+            socket: 0,
+            minted: Instant::now() - age,
+            accepting: false,
+        }
+    }
+
+    /// SDK audit 2026-10-11: tokens for attempts the core no longer holds
+    /// are reclaimed once past the grace window; fresh ones and live ones
+    /// stay. Pre-fix nothing ever removed a token whose browser never
+    /// opened its trickle socket.
+    #[test]
+    fn dead_attempts_past_the_grace_window_are_pruned() {
+        let attempts = Attempts::default();
+        let old = ATTEMPT_PRUNE_GRACE + Duration::from_secs(1);
+        {
+            let mut map = attempts.by_token.lock();
+            map.insert("dead-old".into(), attempt(1, old));
+            map.insert("live-old".into(), attempt(2, old));
+            map.insert("dead-fresh".into(), attempt(3, Duration::ZERO));
+        }
+        attempts.prune(|a| a.dialog == 2);
+        let map = attempts.by_token.lock();
+        assert!(!map.contains_key("dead-old"));
+        assert!(map.contains_key("live-old"));
+        assert!(map.contains_key("dead-fresh"));
+    }
+
+    /// cubic review of PR #1228: an offer still being accepted is not live
+    /// in the core yet; past the grace window a concurrent offer's prune
+    /// dropped its token before the acceptance finished.
+    #[test]
+    fn an_accepting_token_is_never_pruned() {
+        let attempts = Attempts::default();
+        let old = ATTEMPT_PRUNE_GRACE + Duration::from_secs(1);
+        {
+            let mut map = attempts.by_token.lock();
+            let mut accepting = attempt(4, old);
+            accepting.accepting = true;
+            map.insert("accepting-old".into(), accepting);
+        }
+        attempts.prune(|_| false);
+        assert!(attempts.by_token.lock().contains_key("accepting-old"));
+        attempts.accepted("accepting-old");
+        attempts.prune(|_| false);
+        assert!(!attempts.by_token.lock().contains_key("accepting-old"));
+    }
+
+    /// The drop guard retires the token of an acceptance that never
+    /// finished (the request deadline dropped the handler).
+    #[test]
+    fn a_dropped_acceptance_retires_its_token() {
+        let attempts = std::sync::Arc::new(Attempts::default());
+        let (token, _) = attempts.mint(1, 7, 7).expect("mint");
+        {
+            let _guard = super::RetireTokenOnDrop {
+                attempts: std::sync::Arc::clone(&attempts),
+                token: Some(token.clone()),
+            };
+        }
+        assert!(!attempts.by_token.lock().contains_key(&token));
+    }
+}
+
+#[cfg(test)]
+mod accept_backoff_tests {
+    use super::AcceptBackoff;
+    use std::time::Duration;
+
+    /// A failed `accept` is never retried at once: the pause starts
+    /// at 10 ms, doubles to a one-second ceiling, and a success starts
+    /// it over. A zero first pause is the busy loop that wedged a
+    /// one-core anchor at 100% CPU.
+    #[test]
+    fn a_failed_accept_pauses_doubling_to_a_second_and_a_success_resets() {
+        let mut backoff = AcceptBackoff::default();
+        let pauses: Vec<u64> = (0..10).map(|_| backoff.next().as_millis() as u64).collect();
+        assert_eq!(pauses, [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000]);
+        for _ in 0..100 {
+            assert_eq!(
+                backoff.next(),
+                Duration::from_secs(1),
+                "never past the ceiling"
+            );
+        }
+        backoff.reset();
+        assert_eq!(backoff.next(), Duration::from_millis(10));
+    }
+
+    /// **The plaintext challenge port closes a silent connection.** It
+    /// used to be `axum::serve`, with no deadline: on the public anchor
+    /// connections that opened and never sent a byte reached ~1,800 an
+    /// hour, all held. A real challenge request is still answered.
+    ///
+    /// Inverse: serve the ingress with `axum::serve` again and the
+    /// silent connection outlives the read window.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_challenge_port_closes_a_connection_that_sends_nothing() {
+        use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+        let limits = super::ConnectionLimits {
+            tls_handshake: Duration::from_secs(1),
+            http_idle: Duration::from_secs(1),
+        };
+        let (task, addr) = super::serve_challenge_ingress(
+            "127.0.0.1:0".parse().unwrap(),
+            super::AcmeState::new(),
+            false,
+            limits,
+        )
+        .await
+        .expect("the ingress binds");
+
+        let mut silent = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut buf = [0u8; 64];
+        let closed = tokio::time::timeout(Duration::from_secs(6), silent.read(&mut buf)).await;
+        assert!(
+            matches!(closed, Ok(Ok(0)) | Ok(Err(_))),
+            "a connection that never sends a request is closed by the deadline"
+        );
+
+        let mut asking = tokio::net::TcpStream::connect(addr).await.unwrap();
+        asking
+            .write_all(b"GET /.well-known/acme-challenge/unknown HTTP/1.1\r\nhost: x\r\n\r\n")
+            .await
+            .unwrap();
+        let n = tokio::time::timeout(Duration::from_secs(5), asking.read(&mut buf))
+            .await
+            .expect("answered")
+            .unwrap();
+        assert!(
+            buf[..n].starts_with(b"HTTP/1.1 404"),
+            "a challenge request is still served: {:?}",
+            String::from_utf8_lossy(&buf[..n])
+        );
+        task.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ip(s: &str) -> IpAddr {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn the_rate_limiter_refuses_past_the_ceiling_and_recovers_next_window() {
+        let limiter = RateLimiter::new(3);
+        let source = ip("203.0.113.7");
+        let t0 = Instant::now();
+        for _ in 0..3 {
+            assert_eq!(limiter.check(source, t0), RateVerdict::Allowed);
+        }
+        assert_eq!(
+            limiter.check(source, t0),
+            RateVerdict::Limited,
+            "the fourth offer in a window is refused"
+        );
+        // Another address is unaffected — the bound is per source.
+        assert_eq!(limiter.check(ip("198.51.100.1"), t0), RateVerdict::Allowed);
+        // …and the window rolls.
+        assert_eq!(
+            limiter.check(source, t0 + RATE_WINDOW + Duration::from_millis(1)),
+            RateVerdict::Allowed
+        );
+    }
+
+    /// An IPv6 subscriber holds a whole /64 and can rotate through it:
+    /// every address in one /64 draws from ONE budget, a different /64
+    /// has its own, and IPv4 is charged per address as before.
+    #[test]
+    fn ipv6_sources_share_one_budget_per_64() {
+        let limiter = RateLimiter::new(2);
+        let t0 = Instant::now();
+        assert_eq!(
+            limiter.check(ip("2001:db8:1:2::1"), t0),
+            RateVerdict::Allowed
+        );
+        assert_eq!(
+            limiter.check(ip("2001:db8:1:2:ffff:ffff:ffff:ffff"), t0),
+            RateVerdict::Allowed
+        );
+        assert_eq!(
+            limiter.check(ip("2001:db8:1:2:dead:beef::9"), t0),
+            RateVerdict::Limited,
+            "a third address in the same /64 is the same source"
+        );
+        assert_eq!(
+            limiter.check(ip("2001:db8:1:3::1"), t0),
+            RateVerdict::Allowed,
+            "the neighbouring /64 is a different source"
+        );
+        assert_eq!(limiter.check(ip("192.0.2.1"), t0), RateVerdict::Allowed);
+        assert_eq!(limiter.check(ip("192.0.2.2"), t0), RateVerdict::Allowed);
+        assert_eq!(
+            limiter.buckets(),
+            4,
+            "one bucket per /64 and one per IPv4 address"
+        );
+    }
+
+    /// **An IPv4 client on a dual-stack listener arrives IPv4-mapped**
+    /// (`::ffff:a.b.c.d`). Masked to /64 as it stands, every IPv4
+    /// client on the internet would share one bucket; it is charged
+    /// as the IPv4 address it is instead, the same bucket a plain
+    /// IPv4 listener would have used.
+    #[test]
+    fn an_ipv4_mapped_source_is_charged_as_its_ipv4_address() {
+        let limiter = RateLimiter::new(1);
+        let t0 = Instant::now();
+        assert_eq!(
+            limiter.check(ip("::ffff:192.0.2.1"), t0),
+            RateVerdict::Allowed
+        );
+        assert_eq!(
+            limiter.check(ip("::ffff:192.0.2.2"), t0),
+            RateVerdict::Allowed,
+            "two mapped IPv4 clients are two sources, not one /64"
+        );
+        assert_eq!(
+            limiter.check(ip("192.0.2.1"), t0),
+            RateVerdict::Limited,
+            "the mapped and plain spellings of one IPv4 address are one source"
+        );
+    }
+
+    /// Expired buckets are reclaimed: the table does not keep every
+    /// source it ever saw.
+    #[test]
+    fn expired_buckets_are_reclaimed() {
+        let limiter = RateLimiter::new(5);
+        let t0 = Instant::now();
+        for i in 0..50u8 {
+            let _ = limiter.check(IpAddr::from([198, 51, 100, i]), t0);
+        }
+        assert_eq!(limiter.buckets(), 50);
+        let later = t0 + RATE_WINDOW + Duration::from_secs(1);
+        let _ = limiter.check(ip("203.0.113.1"), later);
+        assert_eq!(
+            limiter.buckets(),
+            1,
+            "every bucket from the previous window was reclaimed"
+        );
+    }
+
+    /// At the bound, with every bucket live, a NEW source is refused as
+    /// `TableFull`, and **every existing restriction still holds**: a
+    /// flood of new sources cannot evict a limited one to reset it.
+    /// Once buckets expire, new sources are admitted again.
+    #[test]
+    fn a_full_table_refuses_new_sources_and_keeps_every_restriction() {
+        let limiter = RateLimiter::with_max_buckets(1, 4);
+        let t0 = Instant::now();
+        let limited = ip("203.0.113.9");
+        assert_eq!(limiter.check(limited, t0), RateVerdict::Allowed);
+        assert_eq!(limiter.check(limited, t0), RateVerdict::Limited);
+        for i in 1..=3u8 {
+            assert_eq!(
+                limiter.check(IpAddr::from([198, 51, 100, i]), t0),
+                RateVerdict::Allowed
+            );
+        }
+        assert_eq!(limiter.buckets(), 4);
+        for i in 10..40u8 {
+            let t = t0 + Duration::from_secs(u64::from(i));
+            assert_eq!(
+                limiter.check(IpAddr::from([192, 0, 2, i]), t),
+                RateVerdict::TableFull,
+                "a new source past the bound is refused, not admitted by eviction"
+            );
+            assert_eq!(
+                limiter.check(limited, t),
+                RateVerdict::Limited,
+                "the flood did not erase the existing restriction"
+            );
+        }
+        let later = t0 + RATE_WINDOW + Duration::from_secs(1);
+        assert_eq!(
+            limiter.check(ip("192.0.2.200"), later),
+            RateVerdict::Allowed,
+            "once the live buckets expire, new sources are admitted again"
+        );
+    }
+
+    fn visitor(source: &str, nonce: u8) -> (IpAddr, [u8; 16]) {
+        (rate_key(ip(source)), [nonce; 16])
+    }
+
+    /// Review ANCHOR-1: one source bucket may hold at most its cap of
+    /// per-visitor entries, so it cannot crowd other sources out of the
+    /// shared table. Its existing restrictions still hold at the cap,
+    /// and the count follows the sweep, so the cap frees up once the
+    /// entries expire.
+    ///
+    /// Inverse: drop the per-source check from `check_key` — the
+    /// fourth visitor from one source is `Allowed`.
+    #[test]
+    fn the_visitor_table_caps_the_entries_one_source_may_hold() {
+        let limiter = RateLimiter::new(1).with_max_per_source(3);
+        let t0 = Instant::now();
+        for nonce in 0..3 {
+            assert_eq!(
+                limiter.check_key(visitor("2001:db8::1", nonce), t0),
+                RateVerdict::Allowed
+            );
+        }
+        assert_eq!(
+            limiter.check_key(visitor("2001:db8::2", 3), t0),
+            RateVerdict::SourceFull,
+            "the same /64, a fourth visitor"
+        );
+        assert_eq!(
+            limiter.check_key(visitor("2001:db8::1", 0), t0),
+            RateVerdict::Limited,
+            "an existing restriction holds at the cap"
+        );
+        assert_eq!(
+            limiter.check_key(visitor("2001:db8:1::1", 0), t0),
+            RateVerdict::Allowed,
+            "another source is not crowded out"
+        );
+        assert_eq!(limiter.buckets(), 4);
+        let later = t0 + RATE_WINDOW + Duration::from_secs(1);
+        for nonce in 10..13 {
+            assert_eq!(
+                limiter.check_key(visitor("2001:db8::1", nonce), later),
+                RateVerdict::Allowed,
+                "the expired entries no longer count against the source"
+            );
+        }
+        assert_eq!(limiter.table.lock().per_source.len(), 1);
+    }
+
+    /// Review ANCHOR-1: a visitor that cannot get a budget of its own —
+    /// the table is full, or its source holds its cap — is ADMITTED on
+    /// the per-source backstop (and counted), not refused. Before, a
+    /// full table refused every new visitor anchor-wide. A visitor over
+    /// its own budget is still refused.
+    ///
+    /// Inverse: return `false` for `TableFull`/`SourceFull` in
+    /// `admit_visitor` — the third visitor is refused.
+    #[test]
+    fn a_visitor_with_no_room_for_a_budget_is_admitted_on_the_backstop() {
+        let stats = net::adapter::net::rtc::RtcStats::default();
+        let limiter = RateLimiter::with_max_buckets(1, 2).with_max_per_source(32);
+        let t0 = Instant::now();
+        let source = ip("198.51.100.1");
+        assert!(limiter.admit_visitor(visitor("198.51.100.1", 1), source, t0, &stats));
+        assert!(limiter.admit_visitor(visitor("198.51.100.2", 2), source, t0, &stats));
+        // The table is full: a new visitor gets no entry, and is admitted.
+        assert!(limiter.admit_visitor(visitor("198.51.100.3", 3), source, t0, &stats));
+        assert!(limiter.admit_visitor(visitor("198.51.100.3", 3), source, t0, &stats));
+        assert_eq!(stats.bootstrap_visitor_budget_degraded(), 2);
+        assert_eq!(limiter.buckets(), 2, "no entry was evicted for it");
+        // An existing visitor over its budget is still refused.
+        assert!(!limiter.admit_visitor(visitor("198.51.100.1", 1), source, t0, &stats));
+        assert_eq!(stats.bootstrap_rate_limited(), 1);
+
+        // The per-source cap degrades the same way.
+        let capped = RateLimiter::new(1).with_max_per_source(1);
+        assert!(capped.admit_visitor(visitor("203.0.113.1", 1), source, t0, &stats));
+        assert!(capped.admit_visitor(visitor("203.0.113.1", 2), source, t0, &stats));
+        assert_eq!(stats.bootstrap_visitor_budget_degraded(), 3);
+    }
+
+    #[test]
+    fn a_node_id_may_be_decimal_or_hex_and_nothing_else() {
+        assert_eq!(parse_node_id("42"), Some(42));
+        assert_eq!(parse_node_id("0x2a"), Some(42));
+        assert_eq!(parse_node_id(" 0X2A "), Some(42));
+        assert_eq!(parse_node_id("nope"), None);
+        assert_eq!(parse_node_id(""), None);
+    }
+
+    #[test]
+    fn a_missing_origin_is_not_an_allowed_origin() {
+        let allowed = vec!["https://app.example".to_string()];
+        let mut headers = HeaderMap::new();
+        assert!(
+            !origin_allowed(&headers, &allowed),
+            "a handshake with no Origin is not a browser"
+        );
+        headers.insert(
+            axum::http::header::ORIGIN,
+            HeaderValue::from_static("https://evil.example"),
+        );
+        assert!(!origin_allowed(&headers, &allowed));
+        headers.insert(
+            axum::http::header::ORIGIN,
+            HeaderValue::from_static("https://app.example"),
+        );
+        assert!(origin_allowed(&headers, &allowed));
+    }
+
+    #[test]
+    fn every_refusal_has_a_distinguishable_status_and_close_code() {
+        assert_eq!(
+            BootstrapRefusal::RateLimited.status(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            BootstrapRefusal::AtCapacity.status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            BootstrapRefusal::ForbiddenOrigin.status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(BootstrapRefusal::UnknownDialog.close_code(), 4404);
+        assert_eq!(BootstrapRefusal::ForbiddenOrigin.close_code(), 4403);
+    }
+
+    #[test]
+    fn the_acme_challenge_store_serves_only_installed_tokens() {
+        let state = AcmeState::new();
+        assert_eq!(state.key_authorization("tok"), None);
+        state.set_challenge("tok", "tok.thumbprint");
+        assert_eq!(
+            state.key_authorization("tok"),
+            Some("tok.thumbprint".to_string())
+        );
+        state.clear_challenge("tok");
+        assert_eq!(state.key_authorization("tok"), None);
+    }
+
+    /// `Attempts`' keys are hex; the decimal-spelling checks below
+    /// need the raw bytes back.
+    fn hex_to_bytes(s: &str) -> Vec<u8> {
+        (0..s.len() / 2)
+            .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// Review #14's witness: a no-bearer-secret print over the SDK
+    /// types that carry one. `BrowserBootstrapCredential`'s
+    /// hand-written `Debug` redacts the PSK one field above `invite`,
+    /// so the invite's derived `Debug` used to print the
+    /// proof-of-invite nonce straight through the redaction (MR#16's
+    /// shape) — and `Attempts`' derived `Debug` printed its live
+    /// attempt tokens as map keys. Every secret is checked in BOTH
+    /// spellings a formatter can produce (the decimal `{:?}` of its
+    /// raw bytes and its lowercase hex) against `{:?}` of the
+    /// credential, its invite, its PSK, a response carrying an
+    /// attempt token, and the live attempt table. The positive
+    /// control — root, bootstrap_url and dialog still print — proves
+    /// the rendering reached the very fields the secrets sit beside,
+    /// so a silent over-redaction cannot pass as a fix.
+    #[test]
+    fn the_invite_nonce_psk_bearer_and_attempt_tokens_never_appear_in_debug() {
+        use crate::enrollment::InviteToken;
+        use crate::identity::Identity;
+        use std::time::Duration;
+
+        const NOW: u64 = 1_700_000_000;
+        let issuer = Identity::from_seed([0x2Au8; 32]);
+        let root = Identity::from_seed([0x2Bu8; 32]).entity_id().clone();
+        let invite = InviteToken::mint_at(
+            &root,
+            "rendezvous.example:8443",
+            Duration::from_secs(600),
+            NOW,
+        );
+        let credential = BrowserBootstrapCredential::mint_at(
+            &issuer,
+            invite,
+            [7u8; 32],
+            Psk::new([0xA5u8; 32]),
+            "https://anchor.example/rtc",
+            Duration::from_secs(30 * 86_400),
+            NOW,
+        );
+        let attempts = Attempts::default();
+        let (token, _budget) = attempts.mint(42, 4_242_424_242, 3).expect("mint");
+        let response = OfferResponse {
+            attempt_token: token.clone(),
+            dialog: 4_242_424_242,
+            sdp: "v=0".to_string(),
+            candidate: "candidate:1".to_string(),
+        };
+        let rendered = [
+            format!("{credential:?}"),
+            format!("{:?}", credential.invite),
+            format!("{:?}", credential.psk),
+            format!("{response:?}"),
+            format!("{attempts:?}"),
+        ];
+        let all = rendered.join("\n");
+
+        let nonce = credential.invite.nonce;
+        let psk = *credential.psk.expose_bytes();
+        let token_raw = hex_to_bytes(&token);
+        for (what, bytes, hex) in [
+            ("invite nonce", nonce.as_slice(), hex_of(&nonce)),
+            ("PSK", psk.as_slice(), hex_of(&psk)),
+            ("attempt token", token_raw.as_slice(), token.clone()),
+        ] {
+            assert!(!all.contains(&hex), "the {what} leaked into Debug as hex");
+            assert!(
+                !all.contains(&format!("{bytes:?}")),
+                "the {what} leaked into Debug in its decimal `{{:?}}` spelling"
+            );
+        }
+        // …and the whole encoded bearer credential, prefix and body.
+        let bearer = credential.encode();
+        assert!(
+            !all.contains(&bearer),
+            "the encoded bearer leaked into Debug"
+        );
+        let (_, body) = bearer.split_once(':').expect("prefixed bearer");
+        assert!(
+            !all.contains(body),
+            "the encoded bearer body leaked into Debug"
+        );
+
+        // Positive control: the same renderings still name the public
+        // fields the secrets sit beside. The dialog assertions also
+        // prove the attempt map's entry was rendered at all — without
+        // that, the token's absence above would prove nothing.
+        assert!(
+            rendered[0].contains(&hex_of(root.as_bytes())),
+            "root is no longer diagnosable through the credential"
+        );
+        assert!(
+            rendered[1].contains(&hex_of(root.as_bytes())),
+            "root is no longer diagnosable through the invite"
+        );
+        assert!(
+            rendered[0].contains("https://anchor.example/rtc"),
+            "bootstrap_url is no longer diagnosable"
+        );
+        assert!(
+            rendered[3].contains("4242424242"),
+            "dialog is no longer diagnosable through the response"
+        );
+        assert!(
+            rendered[4].contains("4242424242"),
+            "dialog is no longer diagnosable through the attempt table"
+        );
+    }
+}
+
+// ===================================================================
+// The anchor directory service (R6)
+// ===================================================================
+
+/// The nRPC service an anchor serves so operator tooling can read
+/// the anchors IT knows about.
+pub const ANCHOR_DIRECTORY_SERVICE: &str = "net.mesh.anchors";
+
+/// One row of [`ANCHOR_DIRECTORY_SERVICE`]'s reply.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnchorDirectoryRow {
+    /// The anchor's node id, hex.
+    pub node: String,
+    /// Its announced public RTC socket — the endpoint a browser
+    /// aims ICE at, and the target of the diagnostic STUN probe.
+    pub rtc_addr: Option<String>,
+    /// Its **separately announced STUN endpoint** (Stage 6), when
+    /// configured: a second UDP endpoint, distinct from
+    /// [`Self::rtc_addr`], that a connection pairing with this
+    /// anchor gathers against. Absent — and omitted from the JSON —
+    /// on an anchor that configured none, which is every anchor
+    /// that has not opted in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rtc_stun_addr: Option<String>,
+    /// Its announced bootstrap listener URL.
+    pub rtc_bootstrap: Option<String>,
+    /// Its announced Noise static public key, hex.
+    pub noise_pubkey: Option<String>,
+}
+
+/// Serve the anchor directory on `mesh`.
+///
+/// **Why a service rather than a query (R6).** The two address
+/// fields are `#[serde(skip)]` projections in the capability fold —
+/// every node fills them from the announcement it ingested itself,
+/// and they deliberately do not travel in fold envelopes. So a
+/// remote fold query cannot carry them, and a freshly attached
+/// client has not ingested anything yet: the CLI's own view is
+/// empty by construction, which is exactly the defect the review
+/// found. The node that HAS ingested them answers instead.
+///
+/// Read-only, and it exposes nothing an announcement did not already
+/// broadcast in the clear.
+pub fn serve_anchor_directory(mesh: &crate::Mesh) -> Result<crate::mesh_rpc::ServeHandle, String> {
+    let node = Arc::clone(mesh.node());
+    mesh.serve_rpc_raw_bytes(ANCHOR_DIRECTORY_SERVICE, move |_request| {
+        let node = Arc::clone(&node);
+        async move {
+            let rows: Vec<AnchorDirectoryRow> = node
+                .rtc_anchors()
+                .into_iter()
+                .map(|row| AnchorDirectoryRow {
+                    node: format!("{:#x}", row.node_id),
+                    rtc_addr: row.rtc_addr.map(|a| a.to_string()),
+                    rtc_stun_addr: row.rtc_stun_addr,
+                    rtc_bootstrap: row.rtc_bootstrap,
+                    noise_pubkey: row.noise_pubkey.as_ref().map(|k| hex_of(k)),
+                })
+                .collect();
+            serde_json::to_vec(&rows).map_err(|e| e.to_string())
+        }
+    })
+    .map_err(|e| e.to_string())
+}
+
+// ===================================================================
+// The anchor ICE-stats service (Stage 6 slice 5)
+// ===================================================================
+
+/// The nRPC service an anchor serves so operator tooling can read
+/// **its own** ICE attempt ledger — plan §10's
+/// `ice_direct / ice_attempted` field telemetry.
+pub const ANCHOR_ICE_STATS_SERVICE: &str = "net.mesh.anchor.ice";
+
+/// [`ANCHOR_ICE_STATS_SERVICE`]'s reply: the answering anchor's ICE
+/// attempt ledger.
+///
+/// **The denominator is attempts, not sessions.** [`Self::attempted`]
+/// counts direct-path attempts — one per signalling dialog the
+/// answering node drove, which on an anchor includes the bootstrap
+/// dialog of every browser that arrived. A caller that retries after
+/// a timeout spends two attempts; an ICE restart inside one dialog
+/// is one.
+///
+/// The ratio is **not** a session success rate: a relayed session is
+/// not a failed one. `direct + relayed + failed + pending ==
+/// attempted` holds here, and plan §10's fourth outcome
+/// `udp_blocked` is absent because a node signalling over UDP cannot
+/// have UDP blocked — that term belongs to the browser leaf, which
+/// can establish it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnchorIceStats {
+    /// The answering node's id, hex — the ledger is its own and
+    /// cannot be read across the mesh, so the reply names whose it
+    /// is.
+    pub node: String,
+    /// `false` when the answering node has no RTC driver, in which
+    /// case it keeps **no attempt ledger at all** and every counter
+    /// below is a placeholder zero rather than an observation.
+    ///
+    /// This flag is the difference between "nothing has gone direct
+    /// here" and "this node does not do direct paths", which a bare
+    /// row of zeros cannot express.
+    pub rtc_configured: bool,
+    /// **The denominator.** Direct-path attempts started: one per
+    /// signalling dialog.
+    pub attempted: u64,
+    /// Attempts that ended with an installed direct RTC endpoint.
+    pub direct: u64,
+    /// Attempts that reached their deadline with ICE never
+    /// connected. For a peer dialog: the pair stayed on the anchor —
+    /// a supported disposition, not a failure.
+    pub relayed: u64,
+    /// Attempts that ended without a direct path for a reason other
+    /// than their deadline.
+    pub failed: u64,
+    /// Attempts counted in the denominator that have not reached any
+    /// outcome yet. The four terms sum to [`Self::attempted`] only
+    /// when this is zero.
+    pub pending: u64,
+    /// `direct / attempted`, or `null` when nothing has been
+    /// attempted. **`null` is not zero**: a node that has never
+    /// attempted a direct path has no direct-path ratio, and `0.0`
+    /// would report total failure where nothing has happened.
+    pub direct_ratio: Option<f64>,
+    /// Bootstrap requests refused because their source spent its
+    /// per-minute budget (an IPv6 source is charged by its /64).
+    /// `None` from an anchor that predates the field, which is not
+    /// the same as zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bootstrap_rate_limited: Option<u64>,
+    /// Bootstrap requests refused because the rate limiter was full
+    /// of live sources and this one was new: many sources at once,
+    /// not one eager one. `None` from an anchor that predates it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bootstrap_rate_table_full: Option<u64>,
+    /// Bootstrap offers admitted on the per-source backstop alone,
+    /// because no per-visitor budget was available (the per-visitor
+    /// table was full, or the source held its bound of them). Admitted,
+    /// not refused. `None` from an anchor that predates it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bootstrap_visitor_budget_degraded: Option<u64>,
+}
+
+/// Serve the anchor's own ICE attempt ledger on `mesh`.
+///
+/// **Why a service and not a local read.** Same reason the anchor
+/// directory is one (R6): the CLI's in-process Deck client has no
+/// `MeshNode`, so reading this locally would report the ledger of a
+/// node the operator just created and which has attempted nothing.
+/// An attempt ledger is also not announced — it is not fold state —
+/// so the only node that can answer for it is the node that owns it.
+///
+/// Read-only. It publishes four counters about this node's own
+/// direct-path attempts and nothing about any peer.
+pub fn serve_anchor_ice_stats(mesh: &crate::Mesh) -> Result<crate::mesh_rpc::ServeHandle, String> {
+    let node = Arc::clone(mesh.node());
+    mesh.serve_rpc_raw_bytes(ANCHOR_ICE_STATS_SERVICE, move |_request| {
+        let node = Arc::clone(&node);
+        async move {
+            let ledger = node.rtc_ice_stats();
+            let reply = AnchorIceStats {
+                node: format!("{:#x}", node.node_id()),
+                rtc_configured: ledger.is_some(),
+                attempted: ledger.as_ref().map(|s| s.attempted).unwrap_or(0),
+                direct: ledger.as_ref().map(|s| s.direct).unwrap_or(0),
+                relayed: ledger.as_ref().map(|s| s.relayed).unwrap_or(0),
+                failed: ledger.as_ref().map(|s| s.failed).unwrap_or(0),
+                pending: ledger.as_ref().map(|s| s.pending()).unwrap_or(0),
+                direct_ratio: ledger.as_ref().and_then(|s| s.direct_ratio()),
+                bootstrap_rate_limited: Some(node.rtc_stats().bootstrap_rate_limited()),
+                bootstrap_rate_table_full: Some(node.rtc_stats().bootstrap_rate_table_full()),
+                bootstrap_visitor_budget_degraded: Some(
+                    node.rtc_stats().bootstrap_visitor_budget_degraded(),
+                ),
+            };
+            serde_json::to_vec(&reply).map_err(|e| e.to_string())
+        }
+    })
+    .map_err(|e| e.to_string())
+}

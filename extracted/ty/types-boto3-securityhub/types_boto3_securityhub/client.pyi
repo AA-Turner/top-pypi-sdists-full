@@ -1,0 +1,1890 @@
+"""
+Type annotations for securityhub service Client.
+
+[Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/)
+
+Copyright 2026 Vlad Emelianov
+
+Usage::
+
+    ```python
+    from boto3.session import Session
+    from types_boto3_securityhub.client import SecurityHubClient
+
+    session = Session()
+    client: SecurityHubClient = session.client("securityhub")
+    ```
+"""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Mapping
+from typing import Any, overload
+
+from botocore.client import BaseClient, ClientMeta
+from botocore.errorfactory import BaseClientExceptions
+from botocore.exceptions import ClientError as BotocoreClientError
+
+from .paginator import (
+    DescribeActionTargetsPaginator,
+    DescribeProductsPaginator,
+    DescribeProductsV2Paginator,
+    DescribeStandardsControlsPaginator,
+    DescribeStandardsPaginator,
+    GetEnabledStandardsPaginator,
+    GetFindingHistoryPaginator,
+    GetFindingsPaginator,
+    GetFindingsTrendsV2Paginator,
+    GetFindingsV2Paginator,
+    GetInsightsPaginator,
+    GetRecommendedPolicyV2Paginator,
+    GetRemediationsV2Paginator,
+    GetResourcesTrendsV2Paginator,
+    GetResourcesV2Paginator,
+    ListAggregatorsV2Paginator,
+    ListConfigurationPoliciesPaginator,
+    ListConfigurationPolicyAssociationsPaginator,
+    ListEnabledProductsForImportPaginator,
+    ListExportJobsV2Paginator,
+    ListExposuresByRemediationV2Paginator,
+    ListFindingAggregatorsPaginator,
+    ListFreeTrialStatusesV2Paginator,
+    ListInvitationsPaginator,
+    ListMembersPaginator,
+    ListOrganizationAdminAccountsPaginator,
+    ListSecurityControlDefinitionsPaginator,
+    ListStandardsControlAssociationsPaginator,
+)
+from .type_defs import (
+    AcceptAdministratorInvitationRequestTypeDef,
+    AcceptInvitationRequestTypeDef,
+    BatchDeleteAutomationRulesRequestTypeDef,
+    BatchDeleteAutomationRulesResponseTypeDef,
+    BatchDisableStandardsRequestTypeDef,
+    BatchDisableStandardsResponseTypeDef,
+    BatchEnableStandardsRequestTypeDef,
+    BatchEnableStandardsResponseTypeDef,
+    BatchGetAutomationRulesRequestTypeDef,
+    BatchGetAutomationRulesResponseTypeDef,
+    BatchGetConfigurationPolicyAssociationsRequestTypeDef,
+    BatchGetConfigurationPolicyAssociationsResponseTypeDef,
+    BatchGetSecurityControlsRequestTypeDef,
+    BatchGetSecurityControlsResponseTypeDef,
+    BatchGetStandardsControlAssociationsRequestTypeDef,
+    BatchGetStandardsControlAssociationsResponseTypeDef,
+    BatchImportFindingsRequestTypeDef,
+    BatchImportFindingsResponseTypeDef,
+    BatchUpdateAutomationRulesRequestTypeDef,
+    BatchUpdateAutomationRulesResponseTypeDef,
+    BatchUpdateFindingsRequestTypeDef,
+    BatchUpdateFindingsResponseTypeDef,
+    BatchUpdateFindingsV2RequestTypeDef,
+    BatchUpdateFindingsV2ResponseTypeDef,
+    BatchUpdateStandardsControlAssociationsRequestTypeDef,
+    BatchUpdateStandardsControlAssociationsResponseTypeDef,
+    CancelExportJobV2RequestTypeDef,
+    CancelExportJobV2ResponseTypeDef,
+    CreateActionTargetRequestTypeDef,
+    CreateActionTargetResponseTypeDef,
+    CreateAggregatorV2RequestTypeDef,
+    CreateAggregatorV2ResponseTypeDef,
+    CreateAutomationRuleRequestTypeDef,
+    CreateAutomationRuleResponseTypeDef,
+    CreateAutomationRuleV2RequestTypeDef,
+    CreateAutomationRuleV2ResponseTypeDef,
+    CreateConfigurationPolicyRequestTypeDef,
+    CreateConfigurationPolicyResponseTypeDef,
+    CreateConnectorRequestTypeDef,
+    CreateConnectorResponseTypeDef,
+    CreateConnectorV2RequestTypeDef,
+    CreateConnectorV2ResponseTypeDef,
+    CreateFindingAggregatorRequestTypeDef,
+    CreateFindingAggregatorResponseTypeDef,
+    CreateInsightRequestTypeDef,
+    CreateInsightResponseTypeDef,
+    CreateMembersRequestTypeDef,
+    CreateMembersResponseTypeDef,
+    CreateTicketV2RequestTypeDef,
+    CreateTicketV2ResponseTypeDef,
+    DeclineInvitationsRequestTypeDef,
+    DeclineInvitationsResponseTypeDef,
+    DeleteActionTargetRequestTypeDef,
+    DeleteActionTargetResponseTypeDef,
+    DeleteAggregatorV2RequestTypeDef,
+    DeleteAutomationRuleV2RequestTypeDef,
+    DeleteConfigurationPolicyRequestTypeDef,
+    DeleteConnectorRequestTypeDef,
+    DeleteConnectorResponseTypeDef,
+    DeleteConnectorV2RequestTypeDef,
+    DeleteConnectorV2ResponseTypeDef,
+    DeleteFindingAggregatorRequestTypeDef,
+    DeleteInsightRequestTypeDef,
+    DeleteInsightResponseTypeDef,
+    DeleteInvitationsRequestTypeDef,
+    DeleteInvitationsResponseTypeDef,
+    DeleteMembersRequestTypeDef,
+    DeleteMembersResponseTypeDef,
+    DescribeActionTargetsRequestTypeDef,
+    DescribeActionTargetsResponseTypeDef,
+    DescribeHubRequestTypeDef,
+    DescribeHubResponseTypeDef,
+    DescribeOrganizationConfigurationResponseTypeDef,
+    DescribeProductsRequestTypeDef,
+    DescribeProductsResponseTypeDef,
+    DescribeProductsV2RequestTypeDef,
+    DescribeProductsV2ResponseTypeDef,
+    DescribeSecurityHubV2ResponseTypeDef,
+    DescribeStandardsControlsRequestTypeDef,
+    DescribeStandardsControlsResponseTypeDef,
+    DescribeStandardsRequestTypeDef,
+    DescribeStandardsResponseTypeDef,
+    DisableImportFindingsForProductRequestTypeDef,
+    DisableOrganizationAdminAccountRequestTypeDef,
+    DisableSecurityHubFeatureV2RequestTypeDef,
+    DisassociateMembersRequestTypeDef,
+    EnableImportFindingsForProductRequestTypeDef,
+    EnableImportFindingsForProductResponseTypeDef,
+    EnableOrganizationAdminAccountRequestTypeDef,
+    EnableOrganizationAdminAccountResponseTypeDef,
+    EnableSecurityHubFeatureV2RequestTypeDef,
+    EnableSecurityHubRequestTypeDef,
+    EnableSecurityHubV2RequestTypeDef,
+    EnableSecurityHubV2ResponseTypeDef,
+    GenerateRecommendedPolicyV2RequestTypeDef,
+    GetAdministratorAccountResponseTypeDef,
+    GetAggregatorV2RequestTypeDef,
+    GetAggregatorV2ResponseTypeDef,
+    GetAutomationRuleV2RequestTypeDef,
+    GetAutomationRuleV2ResponseTypeDef,
+    GetConfigurationPolicyAssociationRequestTypeDef,
+    GetConfigurationPolicyAssociationResponseTypeDef,
+    GetConfigurationPolicyRequestTypeDef,
+    GetConfigurationPolicyResponseTypeDef,
+    GetConnectorRequestTypeDef,
+    GetConnectorResponseTypeDef,
+    GetConnectorV2RequestTypeDef,
+    GetConnectorV2ResponseTypeDef,
+    GetEnabledStandardsRequestTypeDef,
+    GetEnabledStandardsResponseTypeDef,
+    GetExportJobV2RequestTypeDef,
+    GetExportJobV2ResponseTypeDef,
+    GetFindingAggregatorRequestTypeDef,
+    GetFindingAggregatorResponseTypeDef,
+    GetFindingHistoryRequestTypeDef,
+    GetFindingHistoryResponseTypeDef,
+    GetFindingsRequestTypeDef,
+    GetFindingsResponseTypeDef,
+    GetFindingStatisticsV2RequestTypeDef,
+    GetFindingStatisticsV2ResponseTypeDef,
+    GetFindingsTrendsV2RequestTypeDef,
+    GetFindingsTrendsV2ResponseTypeDef,
+    GetFindingsV2RequestTypeDef,
+    GetFindingsV2ResponseTypeDef,
+    GetInsightResultsRequestTypeDef,
+    GetInsightResultsResponseTypeDef,
+    GetInsightsRequestTypeDef,
+    GetInsightsResponseTypeDef,
+    GetInvitationsCountResponseTypeDef,
+    GetMasterAccountResponseTypeDef,
+    GetMembersRequestTypeDef,
+    GetMembersResponseTypeDef,
+    GetRecommendedPolicyV2RequestTypeDef,
+    GetRecommendedPolicyV2ResponseTypeDef,
+    GetRemediationsV2RequestTypeDef,
+    GetRemediationsV2ResponseTypeDef,
+    GetResourcesStatisticsV2RequestTypeDef,
+    GetResourcesStatisticsV2ResponseTypeDef,
+    GetResourcesTrendsV2RequestTypeDef,
+    GetResourcesTrendsV2ResponseTypeDef,
+    GetResourcesV2RequestTypeDef,
+    GetResourcesV2ResponseTypeDef,
+    GetSecurityControlDefinitionRequestTypeDef,
+    GetSecurityControlDefinitionResponseTypeDef,
+    InviteMembersRequestTypeDef,
+    InviteMembersResponseTypeDef,
+    ListAggregatorsV2RequestTypeDef,
+    ListAggregatorsV2ResponseTypeDef,
+    ListAutomationRulesRequestTypeDef,
+    ListAutomationRulesResponseTypeDef,
+    ListAutomationRulesV2RequestTypeDef,
+    ListAutomationRulesV2ResponseTypeDef,
+    ListConfigurationPoliciesRequestTypeDef,
+    ListConfigurationPoliciesResponseTypeDef,
+    ListConfigurationPolicyAssociationsRequestTypeDef,
+    ListConfigurationPolicyAssociationsResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
+    ListConnectorsV2RequestTypeDef,
+    ListConnectorsV2ResponseTypeDef,
+    ListEnabledProductsForImportRequestTypeDef,
+    ListEnabledProductsForImportResponseTypeDef,
+    ListExportJobsV2RequestTypeDef,
+    ListExportJobsV2ResponseTypeDef,
+    ListExposuresByRemediationV2RequestTypeDef,
+    ListExposuresByRemediationV2ResponseTypeDef,
+    ListFindingAggregatorsRequestTypeDef,
+    ListFindingAggregatorsResponseTypeDef,
+    ListFreeTrialStatusesV2RequestTypeDef,
+    ListFreeTrialStatusesV2ResponseTypeDef,
+    ListInvitationsRequestTypeDef,
+    ListInvitationsResponseTypeDef,
+    ListMembersRequestTypeDef,
+    ListMembersResponseTypeDef,
+    ListOrganizationAdminAccountsRequestTypeDef,
+    ListOrganizationAdminAccountsResponseTypeDef,
+    ListSecurityControlDefinitionsRequestTypeDef,
+    ListSecurityControlDefinitionsResponseTypeDef,
+    ListStandardsControlAssociationsRequestTypeDef,
+    ListStandardsControlAssociationsResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
+    RegisterConnectorV2RequestTypeDef,
+    RegisterConnectorV2ResponseTypeDef,
+    StartConfigurationPolicyAssociationRequestTypeDef,
+    StartConfigurationPolicyAssociationResponseTypeDef,
+    StartConfigurationPolicyDisassociationRequestTypeDef,
+    StartExportJobV2RequestTypeDef,
+    StartExportJobV2ResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
+    UpdateActionTargetRequestTypeDef,
+    UpdateAggregatorV2RequestTypeDef,
+    UpdateAggregatorV2ResponseTypeDef,
+    UpdateAutomationRuleV2RequestTypeDef,
+    UpdateConfigurationPolicyRequestTypeDef,
+    UpdateConfigurationPolicyResponseTypeDef,
+    UpdateConnectorRequestTypeDef,
+    UpdateConnectorResponseTypeDef,
+    UpdateConnectorV2RequestTypeDef,
+    UpdateConnectorV2ResponseTypeDef,
+    UpdateFindingAggregatorRequestTypeDef,
+    UpdateFindingAggregatorResponseTypeDef,
+    UpdateFindingsRequestTypeDef,
+    UpdateInsightRequestTypeDef,
+    UpdateOrganizationConfigurationRequestTypeDef,
+    UpdateSecurityControlRequestTypeDef,
+    UpdateSecurityHubConfigurationRequestTypeDef,
+    UpdateStandardsControlRequestTypeDef,
+)
+
+if sys.version_info >= (3, 12):
+    from typing import Literal, Unpack
+else:
+    from typing_extensions import Literal, Unpack
+
+__all__ = ("SecurityHubClient",)
+
+class Exceptions(BaseClientExceptions):
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidAccessException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OrganizationNotFoundException: type[BotocoreClientError]
+    OrganizationalUnitNotFoundException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+
+class SecurityHubClient(BaseClient):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub.html#SecurityHub.Client)
+    [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/)
+    """
+
+    meta: ClientMeta
+
+    @property
+    def exceptions(self) -> Exceptions:
+        """
+        SecurityHubClient exceptions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub.html#SecurityHub.Client)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#exceptions)
+        """
+
+    def can_paginate(self, operation_name: str) -> bool:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/can_paginate.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#can_paginate)
+        """
+
+    def generate_presigned_url(
+        self,
+        ClientMethod: str,
+        Params: Mapping[str, Any] = ...,
+        ExpiresIn: int = 3600,
+        HttpMethod: str = ...,
+    ) -> str:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/generate_presigned_url.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#generate_presigned_url)
+        """
+
+    def accept_administrator_invitation(
+        self, **kwargs: Unpack[AcceptAdministratorInvitationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/accept_administrator_invitation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#accept_administrator_invitation)
+        """
+
+    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> dict[str, Any]:
+        """
+        This method is deprecated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/accept_invitation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#accept_invitation)
+        """
+
+    def batch_delete_automation_rules(
+        self, **kwargs: Unpack[BatchDeleteAutomationRulesRequestTypeDef]
+    ) -> BatchDeleteAutomationRulesResponseTypeDef:
+        """
+        Deletes one or more automation rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_delete_automation_rules.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_delete_automation_rules)
+        """
+
+    def batch_disable_standards(
+        self, **kwargs: Unpack[BatchDisableStandardsRequestTypeDef]
+    ) -> BatchDisableStandardsResponseTypeDef:
+        """
+        Disables the standards specified by the provided
+        <code>StandardsSubscriptionArns</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_disable_standards.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_disable_standards)
+        """
+
+    def batch_enable_standards(
+        self, **kwargs: Unpack[BatchEnableStandardsRequestTypeDef]
+    ) -> BatchEnableStandardsResponseTypeDef:
+        """
+        Enables the standards specified by the provided <code>StandardsArn</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_enable_standards.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_enable_standards)
+        """
+
+    def batch_get_automation_rules(
+        self, **kwargs: Unpack[BatchGetAutomationRulesRequestTypeDef]
+    ) -> BatchGetAutomationRulesResponseTypeDef:
+        """
+        Retrieves a list of details for automation rules based on rule Amazon Resource
+        Names (ARNs).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_get_automation_rules.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_get_automation_rules)
+        """
+
+    def batch_get_configuration_policy_associations(
+        self, **kwargs: Unpack[BatchGetConfigurationPolicyAssociationsRequestTypeDef]
+    ) -> BatchGetConfigurationPolicyAssociationsResponseTypeDef:
+        """
+        Returns associations between an Security Hub CSPM configuration and a batch of
+        target accounts, organizational units, or the root.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_get_configuration_policy_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_get_configuration_policy_associations)
+        """
+
+    def batch_get_security_controls(
+        self, **kwargs: Unpack[BatchGetSecurityControlsRequestTypeDef]
+    ) -> BatchGetSecurityControlsResponseTypeDef:
+        """
+        Provides details about a batch of security controls for the current Amazon Web
+        Services account and Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_get_security_controls.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_get_security_controls)
+        """
+
+    def batch_get_standards_control_associations(
+        self, **kwargs: Unpack[BatchGetStandardsControlAssociationsRequestTypeDef]
+    ) -> BatchGetStandardsControlAssociationsResponseTypeDef:
+        """
+        For a batch of security controls and standards, identifies whether each control
+        is currently enabled or disabled in a standard.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_get_standards_control_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_get_standards_control_associations)
+        """
+
+    def batch_import_findings(
+        self, **kwargs: Unpack[BatchImportFindingsRequestTypeDef]
+    ) -> BatchImportFindingsResponseTypeDef:
+        """
+        Imports security findings generated by a finding provider into Security Hub
+        CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_import_findings.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_import_findings)
+        """
+
+    def batch_update_automation_rules(
+        self, **kwargs: Unpack[BatchUpdateAutomationRulesRequestTypeDef]
+    ) -> BatchUpdateAutomationRulesResponseTypeDef:
+        """
+        Updates one or more automation rules based on rule Amazon Resource Names (ARNs)
+        and input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_automation_rules.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_update_automation_rules)
+        """
+
+    def batch_update_findings(
+        self, **kwargs: Unpack[BatchUpdateFindingsRequestTypeDef]
+    ) -> BatchUpdateFindingsResponseTypeDef:
+        """
+        Used by Security Hub CSPM customers to update information about their
+        investigation into one or more findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_findings.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_update_findings)
+        """
+
+    def batch_update_findings_v2(
+        self, **kwargs: Unpack[BatchUpdateFindingsV2RequestTypeDef]
+    ) -> BatchUpdateFindingsV2ResponseTypeDef:
+        """
+        Updates information about a customer's investigation into a finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_findings_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_update_findings_v2)
+        """
+
+    def batch_update_standards_control_associations(
+        self, **kwargs: Unpack[BatchUpdateStandardsControlAssociationsRequestTypeDef]
+    ) -> BatchUpdateStandardsControlAssociationsResponseTypeDef:
+        """
+        For a batch of security controls and standards, this operation updates the
+        enablement status of a control in a standard.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_standards_control_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#batch_update_standards_control_associations)
+        """
+
+    def cancel_export_job_v2(
+        self, **kwargs: Unpack[CancelExportJobV2RequestTypeDef]
+    ) -> CancelExportJobV2ResponseTypeDef:
+        """
+        Cancels a findings export job that is in progress.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/cancel_export_job_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#cancel_export_job_v2)
+        """
+
+    def create_action_target(
+        self, **kwargs: Unpack[CreateActionTargetRequestTypeDef]
+    ) -> CreateActionTargetResponseTypeDef:
+        """
+        Creates a custom action target in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_action_target.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_action_target)
+        """
+
+    def create_aggregator_v2(
+        self, **kwargs: Unpack[CreateAggregatorV2RequestTypeDef]
+    ) -> CreateAggregatorV2ResponseTypeDef:
+        """
+        Enables aggregation across Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_aggregator_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_aggregator_v2)
+        """
+
+    def create_automation_rule(
+        self, **kwargs: Unpack[CreateAutomationRuleRequestTypeDef]
+    ) -> CreateAutomationRuleResponseTypeDef:
+        """
+        Creates an automation rule based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_automation_rule.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_automation_rule)
+        """
+
+    def create_automation_rule_v2(
+        self, **kwargs: Unpack[CreateAutomationRuleV2RequestTypeDef]
+    ) -> CreateAutomationRuleV2ResponseTypeDef:
+        """
+        Creates a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_automation_rule_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_automation_rule_v2)
+        """
+
+    def create_configuration_policy(
+        self, **kwargs: Unpack[CreateConfigurationPolicyRequestTypeDef]
+    ) -> CreateConfigurationPolicyResponseTypeDef:
+        """
+        Creates a configuration policy with the defined configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_configuration_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_configuration_policy)
+        """
+
+    def create_connector(
+        self, **kwargs: Unpack[CreateConnectorRequestTypeDef]
+    ) -> CreateConnectorResponseTypeDef:
+        """
+        Creates a connector to a third-party cloud provider in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_connector)
+        """
+
+    def create_connector_v2(
+        self, **kwargs: Unpack[CreateConnectorV2RequestTypeDef]
+    ) -> CreateConnectorV2ResponseTypeDef:
+        """
+        Grants permission to create a connectorV2 based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_connector_v2)
+        """
+
+    def create_finding_aggregator(
+        self, **kwargs: Unpack[CreateFindingAggregatorRequestTypeDef]
+    ) -> CreateFindingAggregatorResponseTypeDef:
+        """
+        The <i>aggregation Region</i> is now called the <i>home Region</i>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_finding_aggregator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_finding_aggregator)
+        """
+
+    def create_insight(
+        self, **kwargs: Unpack[CreateInsightRequestTypeDef]
+    ) -> CreateInsightResponseTypeDef:
+        """
+        Creates a custom insight in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_insight.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_insight)
+        """
+
+    def create_members(
+        self, **kwargs: Unpack[CreateMembersRequestTypeDef]
+    ) -> CreateMembersResponseTypeDef:
+        """
+        Creates a member association in Security Hub CSPM between the specified
+        accounts and the account used to make the request, which is the administrator
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_members)
+        """
+
+    def create_ticket_v2(
+        self, **kwargs: Unpack[CreateTicketV2RequestTypeDef]
+    ) -> CreateTicketV2ResponseTypeDef:
+        """
+        Grants permission to create a ticket in the chosen ITSM based on finding
+        information for the provided finding metadata UID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_ticket_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_ticket_v2)
+        """
+
+    def decline_invitations(
+        self, **kwargs: Unpack[DeclineInvitationsRequestTypeDef]
+    ) -> DeclineInvitationsResponseTypeDef:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/decline_invitations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#decline_invitations)
+        """
+
+    def delete_action_target(
+        self, **kwargs: Unpack[DeleteActionTargetRequestTypeDef]
+    ) -> DeleteActionTargetResponseTypeDef:
+        """
+        Deletes a custom action target from Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_action_target.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_action_target)
+        """
+
+    def delete_aggregator_v2(
+        self, **kwargs: Unpack[DeleteAggregatorV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_aggregator_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_aggregator_v2)
+        """
+
+    def delete_automation_rule_v2(
+        self, **kwargs: Unpack[DeleteAutomationRuleV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_automation_rule_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_automation_rule_v2)
+        """
+
+    def delete_configuration_policy(
+        self, **kwargs: Unpack[DeleteConfigurationPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a configuration policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_configuration_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_configuration_policy)
+        """
+
+    def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> DeleteConnectorResponseTypeDef:
+        """
+        Deletes a CSPM connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_connector.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_connector)
+        """
+
+    def delete_connector_v2(
+        self, **kwargs: Unpack[DeleteConnectorV2RequestTypeDef]
+    ) -> DeleteConnectorV2ResponseTypeDef:
+        """
+        Grants permission to delete a connectorV2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_connector_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_connector_v2)
+        """
+
+    def delete_finding_aggregator(
+        self, **kwargs: Unpack[DeleteFindingAggregatorRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        The <i>aggregation Region</i> is now called the <i>home Region</i>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_finding_aggregator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_finding_aggregator)
+        """
+
+    def delete_insight(
+        self, **kwargs: Unpack[DeleteInsightRequestTypeDef]
+    ) -> DeleteInsightResponseTypeDef:
+        """
+        Deletes the insight specified by the <code>InsightArn</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_insight.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_insight)
+        """
+
+    def delete_invitations(
+        self, **kwargs: Unpack[DeleteInvitationsRequestTypeDef]
+    ) -> DeleteInvitationsResponseTypeDef:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_invitations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_invitations)
+        """
+
+    def delete_members(
+        self, **kwargs: Unpack[DeleteMembersRequestTypeDef]
+    ) -> DeleteMembersResponseTypeDef:
+        """
+        Deletes the specified member accounts from Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_members)
+        """
+
+    def describe_action_targets(
+        self, **kwargs: Unpack[DescribeActionTargetsRequestTypeDef]
+    ) -> DescribeActionTargetsResponseTypeDef:
+        """
+        Returns a list of the custom action targets in Security Hub CSPM in your
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_action_targets.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_action_targets)
+        """
+
+    def describe_hub(
+        self, **kwargs: Unpack[DescribeHubRequestTypeDef]
+    ) -> DescribeHubResponseTypeDef:
+        """
+        Returns details about the Hub resource in your account, including the
+        <code>HubArn</code> and the time when you enabled Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_hub.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_hub)
+        """
+
+    def describe_organization_configuration(
+        self,
+    ) -> DescribeOrganizationConfigurationResponseTypeDef:
+        """
+        Returns information about the way your organization is configured in Security
+        Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_organization_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_organization_configuration)
+        """
+
+    def describe_products(
+        self, **kwargs: Unpack[DescribeProductsRequestTypeDef]
+    ) -> DescribeProductsResponseTypeDef:
+        """
+        Returns information about product integrations in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_products.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_products)
+        """
+
+    def describe_products_v2(
+        self, **kwargs: Unpack[DescribeProductsV2RequestTypeDef]
+    ) -> DescribeProductsV2ResponseTypeDef:
+        """
+        Gets information about the product integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_products_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_products_v2)
+        """
+
+    def describe_security_hub_v2(self) -> DescribeSecurityHubV2ResponseTypeDef:
+        """
+        Returns details about the service resource in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_security_hub_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_security_hub_v2)
+        """
+
+    def describe_standards(
+        self, **kwargs: Unpack[DescribeStandardsRequestTypeDef]
+    ) -> DescribeStandardsResponseTypeDef:
+        """
+        Returns a list of the available standards in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_standards.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_standards)
+        """
+
+    def describe_standards_controls(
+        self, **kwargs: Unpack[DescribeStandardsControlsRequestTypeDef]
+    ) -> DescribeStandardsControlsResponseTypeDef:
+        """
+        Returns a list of security standards controls.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_standards_controls.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#describe_standards_controls)
+        """
+
+    def disable_import_findings_for_product(
+        self, **kwargs: Unpack[DisableImportFindingsForProductRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables the integration of the specified product with Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_import_findings_for_product.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_import_findings_for_product)
+        """
+
+    def disable_organization_admin_account(
+        self, **kwargs: Unpack[DisableOrganizationAdminAccountRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables a Security Hub CSPM administrator account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_organization_admin_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_organization_admin_account)
+        """
+
+    def disable_security_hub(self) -> dict[str, Any]:
+        """
+        Disables Security Hub CSPM in your account only in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub)
+        """
+
+    def disable_security_hub_feature_v2(
+        self, **kwargs: Unpack[DisableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub_feature_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub_feature_v2)
+        """
+
+    def disable_security_hub_v2(self) -> dict[str, Any]:
+        """
+        Disable the service for the current Amazon Web Services Region or specified
+        Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub_v2)
+        """
+
+    def disassociate_from_administrator_account(self) -> dict[str, Any]:
+        """
+        Disassociates the current Security Hub CSPM member account from the associated
+        administrator account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disassociate_from_administrator_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disassociate_from_administrator_account)
+        """
+
+    def disassociate_from_master_account(self) -> dict[str, Any]:
+        """
+        This method is deprecated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disassociate_from_master_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disassociate_from_master_account)
+        """
+
+    def disassociate_members(
+        self, **kwargs: Unpack[DisassociateMembersRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disassociates the specified member accounts from the associated administrator
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disassociate_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disassociate_members)
+        """
+
+    def enable_import_findings_for_product(
+        self, **kwargs: Unpack[EnableImportFindingsForProductRequestTypeDef]
+    ) -> EnableImportFindingsForProductResponseTypeDef:
+        """
+        Enables the integration of a partner product with Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_import_findings_for_product.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_import_findings_for_product)
+        """
+
+    def enable_organization_admin_account(
+        self, **kwargs: Unpack[EnableOrganizationAdminAccountRequestTypeDef]
+    ) -> EnableOrganizationAdminAccountResponseTypeDef:
+        """
+        Designates the Security Hub CSPM administrator account for an organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_organization_admin_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_organization_admin_account)
+        """
+
+    def enable_security_hub(
+        self, **kwargs: Unpack[EnableSecurityHubRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables Security Hub CSPM for your account in the current Region or the Region
+        you specify in the request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_security_hub)
+        """
+
+    def enable_security_hub_feature_v2(
+        self, **kwargs: Unpack[EnableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_feature_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_security_hub_feature_v2)
+        """
+
+    def enable_security_hub_v2(
+        self, **kwargs: Unpack[EnableSecurityHubV2RequestTypeDef]
+    ) -> EnableSecurityHubV2ResponseTypeDef:
+        """
+        Enables the service in account for the current Amazon Web Services Region or
+        specified Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_security_hub_v2)
+        """
+
+    def generate_recommended_policy_v2(
+        self, **kwargs: Unpack[GenerateRecommendedPolicyV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Begins the recommended policy generation to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/generate_recommended_policy_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#generate_recommended_policy_v2)
+        """
+
+    def get_administrator_account(self) -> GetAdministratorAccountResponseTypeDef:
+        """
+        Provides the details for the Security Hub CSPM administrator account for the
+        current member account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_administrator_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_administrator_account)
+        """
+
+    def get_aggregator_v2(
+        self, **kwargs: Unpack[GetAggregatorV2RequestTypeDef]
+    ) -> GetAggregatorV2ResponseTypeDef:
+        """
+        Returns the configuration of the specified Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_aggregator_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_aggregator_v2)
+        """
+
+    def get_automation_rule_v2(
+        self, **kwargs: Unpack[GetAutomationRuleV2RequestTypeDef]
+    ) -> GetAutomationRuleV2ResponseTypeDef:
+        """
+        Returns an automation rule for the V2 service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_automation_rule_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_automation_rule_v2)
+        """
+
+    def get_configuration_policy(
+        self, **kwargs: Unpack[GetConfigurationPolicyRequestTypeDef]
+    ) -> GetConfigurationPolicyResponseTypeDef:
+        """
+        Provides information about a configuration policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_configuration_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_configuration_policy)
+        """
+
+    def get_configuration_policy_association(
+        self, **kwargs: Unpack[GetConfigurationPolicyAssociationRequestTypeDef]
+    ) -> GetConfigurationPolicyAssociationResponseTypeDef:
+        """
+        Returns the association between a configuration and a target account,
+        organizational unit, or the root.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_configuration_policy_association.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_configuration_policy_association)
+        """
+
+    def get_connector(
+        self, **kwargs: Unpack[GetConnectorRequestTypeDef]
+    ) -> GetConnectorResponseTypeDef:
+        """
+        Retrieves details for a CSPM connector based on the connector ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_connector.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_connector)
+        """
+
+    def get_connector_v2(
+        self, **kwargs: Unpack[GetConnectorV2RequestTypeDef]
+    ) -> GetConnectorV2ResponseTypeDef:
+        """
+        Grants permission to retrieve details for a connectorV2 based on connector id.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_connector_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_connector_v2)
+        """
+
+    def get_enabled_standards(
+        self, **kwargs: Unpack[GetEnabledStandardsRequestTypeDef]
+    ) -> GetEnabledStandardsResponseTypeDef:
+        """
+        Returns a list of the standards that are currently enabled.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_enabled_standards.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_enabled_standards)
+        """
+
+    def get_export_job_v2(
+        self, **kwargs: Unpack[GetExportJobV2RequestTypeDef]
+    ) -> GetExportJobV2ResponseTypeDef:
+        """
+        Returns the details of a single findings export job, including its current
+        <code>Status</code>, the <code>Destination</code> it writes to, the
+        <code>OutputConfiguration</code> it was started with, and its
+        <code>StartedAt</code> and <code>EndedAt</code> timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_export_job_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_export_job_v2)
+        """
+
+    def get_finding_aggregator(
+        self, **kwargs: Unpack[GetFindingAggregatorRequestTypeDef]
+    ) -> GetFindingAggregatorResponseTypeDef:
+        """
+        The <i>aggregation Region</i> is now called the <i>home Region</i>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_aggregator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_finding_aggregator)
+        """
+
+    def get_finding_history(
+        self, **kwargs: Unpack[GetFindingHistoryRequestTypeDef]
+    ) -> GetFindingHistoryResponseTypeDef:
+        """
+        Returns the history of a Security Hub CSPM finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_history.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_finding_history)
+        """
+
+    def get_finding_statistics_v2(
+        self, **kwargs: Unpack[GetFindingStatisticsV2RequestTypeDef]
+    ) -> GetFindingStatisticsV2ResponseTypeDef:
+        """
+        Returns aggregated statistical data about findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_statistics_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_finding_statistics_v2)
+        """
+
+    def get_findings(
+        self, **kwargs: Unpack[GetFindingsRequestTypeDef]
+    ) -> GetFindingsResponseTypeDef:
+        """
+        Returns a list of findings that match the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_findings)
+        """
+
+    def get_findings_trends_v2(
+        self, **kwargs: Unpack[GetFindingsTrendsV2RequestTypeDef]
+    ) -> GetFindingsTrendsV2ResponseTypeDef:
+        """
+        Returns findings trend data based on the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings_trends_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_findings_trends_v2)
+        """
+
+    def get_findings_v2(
+        self, **kwargs: Unpack[GetFindingsV2RequestTypeDef]
+    ) -> GetFindingsV2ResponseTypeDef:
+        """
+        Returns a list of findings that match the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_findings_v2)
+        """
+
+    def get_insight_results(
+        self, **kwargs: Unpack[GetInsightResultsRequestTypeDef]
+    ) -> GetInsightResultsResponseTypeDef:
+        """
+        Lists the results of the Security Hub CSPM insight specified by the insight ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_insight_results.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_insight_results)
+        """
+
+    def get_insights(
+        self, **kwargs: Unpack[GetInsightsRequestTypeDef]
+    ) -> GetInsightsResponseTypeDef:
+        """
+        Lists and describes insights for the specified insight ARNs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_insights.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_insights)
+        """
+
+    def get_invitations_count(self) -> GetInvitationsCountResponseTypeDef:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_invitations_count.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_invitations_count)
+        """
+
+    def get_master_account(self) -> GetMasterAccountResponseTypeDef:
+        """
+        This method is deprecated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_master_account.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_master_account)
+        """
+
+    def get_members(self, **kwargs: Unpack[GetMembersRequestTypeDef]) -> GetMembersResponseTypeDef:
+        """
+        Returns the details for the Security Hub CSPM member accounts for the specified
+        account IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_members)
+        """
+
+    def get_recommended_policy_v2(
+        self, **kwargs: Unpack[GetRecommendedPolicyV2RequestTypeDef]
+    ) -> GetRecommendedPolicyV2ResponseTypeDef:
+        """
+        Retrieves the recommended policy to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_recommended_policy_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_recommended_policy_v2)
+        """
+
+    def get_remediations_v2(
+        self, **kwargs: Unpack[GetRemediationsV2RequestTypeDef]
+    ) -> GetRemediationsV2ResponseTypeDef:
+        """
+        Retrieves remediation targets for the account, or for all member accounts if
+        the caller is the delegated administrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_remediations_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_remediations_v2)
+        """
+
+    def get_resources_statistics_v2(
+        self, **kwargs: Unpack[GetResourcesStatisticsV2RequestTypeDef]
+    ) -> GetResourcesStatisticsV2ResponseTypeDef:
+        """
+        Retrieves statistical information about Amazon Web Services resources and their
+        associated security findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_statistics_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_resources_statistics_v2)
+        """
+
+    def get_resources_trends_v2(
+        self, **kwargs: Unpack[GetResourcesTrendsV2RequestTypeDef]
+    ) -> GetResourcesTrendsV2ResponseTypeDef:
+        """
+        Returns resource trend data based on the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_trends_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_resources_trends_v2)
+        """
+
+    def get_resources_v2(
+        self, **kwargs: Unpack[GetResourcesV2RequestTypeDef]
+    ) -> GetResourcesV2ResponseTypeDef:
+        """
+        Returns a list of resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_resources_v2)
+        """
+
+    def get_security_control_definition(
+        self, **kwargs: Unpack[GetSecurityControlDefinitionRequestTypeDef]
+    ) -> GetSecurityControlDefinitionResponseTypeDef:
+        """
+        Retrieves the definition of a security control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_security_control_definition.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_security_control_definition)
+        """
+
+    def invite_members(
+        self, **kwargs: Unpack[InviteMembersRequestTypeDef]
+    ) -> InviteMembersResponseTypeDef:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/invite_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#invite_members)
+        """
+
+    def list_aggregators_v2(
+        self, **kwargs: Unpack[ListAggregatorsV2RequestTypeDef]
+    ) -> ListAggregatorsV2ResponseTypeDef:
+        """
+        Retrieves a list of V2 aggregators.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_aggregators_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_aggregators_v2)
+        """
+
+    def list_automation_rules(
+        self, **kwargs: Unpack[ListAutomationRulesRequestTypeDef]
+    ) -> ListAutomationRulesResponseTypeDef:
+        """
+        A list of automation rules and their metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_automation_rules.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_automation_rules)
+        """
+
+    def list_automation_rules_v2(
+        self, **kwargs: Unpack[ListAutomationRulesV2RequestTypeDef]
+    ) -> ListAutomationRulesV2ResponseTypeDef:
+        """
+        Returns a list of automation rules and metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_automation_rules_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_automation_rules_v2)
+        """
+
+    def list_configuration_policies(
+        self, **kwargs: Unpack[ListConfigurationPoliciesRequestTypeDef]
+    ) -> ListConfigurationPoliciesResponseTypeDef:
+        """
+        Lists the configuration policies that the Security Hub CSPM delegated
+        administrator has created for your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_configuration_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_configuration_policies)
+        """
+
+    def list_configuration_policy_associations(
+        self, **kwargs: Unpack[ListConfigurationPolicyAssociationsRequestTypeDef]
+    ) -> ListConfigurationPolicyAssociationsResponseTypeDef:
+        """
+        Provides information about the associations for your configuration policies and
+        self-managed behavior.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_configuration_policy_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_configuration_policy_associations)
+        """
+
+    def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Lists the CSPM connectors and their metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_connectors.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_connectors)
+        """
+
+    def list_connectors_v2(
+        self, **kwargs: Unpack[ListConnectorsV2RequestTypeDef]
+    ) -> ListConnectorsV2ResponseTypeDef:
+        """
+        Grants permission to retrieve a list of connectorsV2 and their metadata for the
+        calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_connectors_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_connectors_v2)
+        """
+
+    def list_enabled_products_for_import(
+        self, **kwargs: Unpack[ListEnabledProductsForImportRequestTypeDef]
+    ) -> ListEnabledProductsForImportResponseTypeDef:
+        """
+        Lists all findings-generating solutions (products) that you are subscribed to
+        receive findings from in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_enabled_products_for_import.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_enabled_products_for_import)
+        """
+
+    def list_export_jobs_v2(
+        self, **kwargs: Unpack[ListExportJobsV2RequestTypeDef]
+    ) -> ListExportJobsV2ResponseTypeDef:
+        """
+        Returns the findings export jobs in your account as a paginated list of
+        <code>ExportSummary</code> objects.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_export_jobs_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_export_jobs_v2)
+        """
+
+    def list_exposures_by_remediation_v2(
+        self, **kwargs: Unpack[ListExposuresByRemediationV2RequestTypeDef]
+    ) -> ListExposuresByRemediationV2ResponseTypeDef:
+        """
+        Retrieves the exposure findings tied to a specific remediation target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_exposures_by_remediation_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_exposures_by_remediation_v2)
+        """
+
+    def list_finding_aggregators(
+        self, **kwargs: Unpack[ListFindingAggregatorsRequestTypeDef]
+    ) -> ListFindingAggregatorsResponseTypeDef:
+        """
+        If cross-Region aggregation is enabled, then
+        <code>ListFindingAggregators</code> returns the Amazon Resource Name (ARN) of
+        the finding aggregator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_finding_aggregators.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_finding_aggregators)
+        """
+
+    def list_free_trial_statuses_v2(
+        self, **kwargs: Unpack[ListFreeTrialStatusesV2RequestTypeDef]
+    ) -> ListFreeTrialStatusesV2ResponseTypeDef:
+        """
+        Lists the free trial status of Security Hub features.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_free_trial_statuses_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_free_trial_statuses_v2)
+        """
+
+    def list_invitations(
+        self, **kwargs: Unpack[ListInvitationsRequestTypeDef]
+    ) -> ListInvitationsResponseTypeDef:
+        """
+        We recommend using Organizations instead of Security Hub CSPM invitations to
+        manage your member accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_invitations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_invitations)
+        """
+
+    def list_members(
+        self, **kwargs: Unpack[ListMembersRequestTypeDef]
+    ) -> ListMembersResponseTypeDef:
+        """
+        Lists details about all member accounts for the current Security Hub CSPM
+        administrator account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_members.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_members)
+        """
+
+    def list_organization_admin_accounts(
+        self, **kwargs: Unpack[ListOrganizationAdminAccountsRequestTypeDef]
+    ) -> ListOrganizationAdminAccountsResponseTypeDef:
+        """
+        Lists the Security Hub CSPM administrator accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_organization_admin_accounts.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_organization_admin_accounts)
+        """
+
+    def list_security_control_definitions(
+        self, **kwargs: Unpack[ListSecurityControlDefinitionsRequestTypeDef]
+    ) -> ListSecurityControlDefinitionsResponseTypeDef:
+        """
+        Lists all of the security controls that apply to a specified standard.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_security_control_definitions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_security_control_definitions)
+        """
+
+    def list_standards_control_associations(
+        self, **kwargs: Unpack[ListStandardsControlAssociationsRequestTypeDef]
+    ) -> ListStandardsControlAssociationsResponseTypeDef:
+        """
+        Specifies whether a control is currently enabled or disabled in each enabled
+        standard in the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_standards_control_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_standards_control_associations)
+        """
+
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        Returns a list of tags associated with a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_tags_for_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_tags_for_resource)
+        """
+
+    def register_connector_v2(
+        self, **kwargs: Unpack[RegisterConnectorV2RequestTypeDef]
+    ) -> RegisterConnectorV2ResponseTypeDef:
+        """
+        Grants permission to complete the authorization based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/register_connector_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#register_connector_v2)
+        """
+
+    def start_configuration_policy_association(
+        self, **kwargs: Unpack[StartConfigurationPolicyAssociationRequestTypeDef]
+    ) -> StartConfigurationPolicyAssociationResponseTypeDef:
+        """
+        Associates a target account, organizational unit, or the root with a specified
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_configuration_policy_association.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#start_configuration_policy_association)
+        """
+
+    def start_configuration_policy_disassociation(
+        self, **kwargs: Unpack[StartConfigurationPolicyDisassociationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disassociates a target account, organizational unit, or the root from a
+        specified configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_configuration_policy_disassociation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#start_configuration_policy_disassociation)
+        """
+
+    def start_export_job_v2(
+        self, **kwargs: Unpack[StartExportJobV2RequestTypeDef]
+    ) -> StartExportJobV2ResponseTypeDef:
+        """
+        Starts an ad hoc export job that writes Security Hub findings to an Amazon
+        Simple Storage Service (Amazon S3) bucket that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_export_job_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#start_export_job_v2)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Adds one or more tags to a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/tag_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Removes one or more tags from a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/untag_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#untag_resource)
+        """
+
+    def update_action_target(
+        self, **kwargs: Unpack[UpdateActionTargetRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the name and description of a custom action target in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_action_target.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_action_target)
+        """
+
+    def update_aggregator_v2(
+        self, **kwargs: Unpack[UpdateAggregatorV2RequestTypeDef]
+    ) -> UpdateAggregatorV2ResponseTypeDef:
+        """
+        Udpates the configuration for the Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_aggregator_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_aggregator_v2)
+        """
+
+    def update_automation_rule_v2(
+        self, **kwargs: Unpack[UpdateAutomationRuleV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_automation_rule_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_automation_rule_v2)
+        """
+
+    def update_configuration_policy(
+        self, **kwargs: Unpack[UpdateConfigurationPolicyRequestTypeDef]
+    ) -> UpdateConfigurationPolicyResponseTypeDef:
+        """
+        Updates a configuration policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_configuration_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_configuration_policy)
+        """
+
+    def update_connector(
+        self, **kwargs: Unpack[UpdateConnectorRequestTypeDef]
+    ) -> UpdateConnectorResponseTypeDef:
+        """
+        Updates a CSPM connector's configuration, such as the scope or regions for the
+        connected cloud provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_connector.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_connector)
+        """
+
+    def update_connector_v2(
+        self, **kwargs: Unpack[UpdateConnectorV2RequestTypeDef]
+    ) -> UpdateConnectorV2ResponseTypeDef:
+        """
+        Grants permission to update a connectorV2 based on its id and input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_connector_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_connector_v2)
+        """
+
+    def update_finding_aggregator(
+        self, **kwargs: Unpack[UpdateFindingAggregatorRequestTypeDef]
+    ) -> UpdateFindingAggregatorResponseTypeDef:
+        """
+        The <i>aggregation Region</i> is now called the <i>home Region</i>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_finding_aggregator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_finding_aggregator)
+        """
+
+    def update_findings(self, **kwargs: Unpack[UpdateFindingsRequestTypeDef]) -> dict[str, Any]:
+        """
+        <code>UpdateFindings</code> is a deprecated operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_findings.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_findings)
+        """
+
+    def update_insight(self, **kwargs: Unpack[UpdateInsightRequestTypeDef]) -> dict[str, Any]:
+        """
+        Updates the Security Hub CSPM insight identified by the specified insight ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_insight.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_insight)
+        """
+
+    def update_organization_configuration(
+        self, **kwargs: Unpack[UpdateOrganizationConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the configuration of your organization in Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_organization_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_organization_configuration)
+        """
+
+    def update_security_control(
+        self, **kwargs: Unpack[UpdateSecurityControlRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the properties of a security control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_security_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_security_control)
+        """
+
+    def update_security_hub_configuration(
+        self, **kwargs: Unpack[UpdateSecurityHubConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates configuration options for Security Hub CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_security_hub_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_security_hub_configuration)
+        """
+
+    def update_standards_control(
+        self, **kwargs: Unpack[UpdateStandardsControlRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Used to control whether an individual security standard control is enabled or
+        disabled.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_standards_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_standards_control)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_action_targets"]
+    ) -> DescribeActionTargetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_products"]
+    ) -> DescribeProductsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_products_v2"]
+    ) -> DescribeProductsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_standards_controls"]
+    ) -> DescribeStandardsControlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_standards"]
+    ) -> DescribeStandardsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_enabled_standards"]
+    ) -> GetEnabledStandardsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_finding_history"]
+    ) -> GetFindingHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_findings"]
+    ) -> GetFindingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_findings_trends_v2"]
+    ) -> GetFindingsTrendsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_findings_v2"]
+    ) -> GetFindingsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_insights"]
+    ) -> GetInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_recommended_policy_v2"]
+    ) -> GetRecommendedPolicyV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_remediations_v2"]
+    ) -> GetRemediationsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_resources_trends_v2"]
+    ) -> GetResourcesTrendsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_resources_v2"]
+    ) -> GetResourcesV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_aggregators_v2"]
+    ) -> ListAggregatorsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_policies"]
+    ) -> ListConfigurationPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_policy_associations"]
+    ) -> ListConfigurationPolicyAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_enabled_products_for_import"]
+    ) -> ListEnabledProductsForImportPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_export_jobs_v2"]
+    ) -> ListExportJobsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_exposures_by_remediation_v2"]
+    ) -> ListExposuresByRemediationV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_finding_aggregators"]
+    ) -> ListFindingAggregatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_free_trial_statuses_v2"]
+    ) -> ListFreeTrialStatusesV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_invitations"]
+    ) -> ListInvitationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_members"]
+    ) -> ListMembersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_organization_admin_accounts"]
+    ) -> ListOrganizationAdminAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_control_definitions"]
+    ) -> ListSecurityControlDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_standards_control_associations"]
+    ) -> ListStandardsControlAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """

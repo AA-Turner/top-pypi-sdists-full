@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import setup, tui
-from probe.cli.actions import Action
+from probe.cli import wizard as setup
+from probe.cli.wizard import terminal as tui
+from probe.cli.wizard.actions.onboarding import Action
 from probe.sdk import session_marker
 
 
@@ -63,7 +64,7 @@ def test_a_press_while_another_setup_holds_the_device_saves_nothing():
     one write it makes itself takes the lock: a press while another setup (the
     desktop app) holds the device leaves the row on what is saved, and says why."""
     from probe._shared import oscompat
-    from probe.cli import wizard_lock
+    from probe.cli.wizard.session import lock as wizard_lock
 
     switch = setup._DefaultSwitch([_Row()])
     start = switch.saved
@@ -96,9 +97,18 @@ def _drive(monkeypatch, *, selected, cycle=None):
             seen["on_back"](_Control(selected, cycle))
         return tui.BACK
 
-    monkeypatch.setattr(setup, "_bind_menu_keys", bind)
-    monkeypatch.setattr(setup, "dress_band", lambda question, control: None)
-    monkeypatch.setattr(tui, "ask", ask)
+    monkeypatch.setattr(setup.screens.picker_keys, "_bind_menu_keys", bind)
+    monkeypatch.setattr(setup.screens.import_offer, "_bind_menu_keys", bind)
+    monkeypatch.setattr(setup.settings.defaults, "_bind_menu_keys", bind)
+    monkeypatch.setattr(setup.settings.menu, "_bind_menu_keys", bind)
+    monkeypatch.setattr(setup.screens.nav_band, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(setup.screens.agent_picker, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(setup.screens.confirm, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(setup.screens.import_offer, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(setup.settings.defaults, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(setup.settings.menu, "dress_band", lambda question, control: None)
+    monkeypatch.setattr(tui.forms, "ask", ask)
+    monkeypatch.setattr(tui.layout, "ask", ask)
 
 
 def test_leaving_the_settings_screen_keeps_a_switched_row(monkeypatch):

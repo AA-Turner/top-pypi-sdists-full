@@ -36,6 +36,7 @@ from trilogy.core.models.build import (
     BuildCaseWhen,
     BuildComparison,
     BuildConcept,
+    BuildConceptArgs,
     BuildDatasource,
     BuildFilterItem,
     BuildFunction,
@@ -279,11 +280,22 @@ class CTE:
         if self.base_name == parent.name:
             self.base_name_override = inline_datasource.safe_location
             self.base_alias_override = inline_datasource.safe_identifier
-        for k, v in self.source_map.items():
-            self.source_map[k] = [
-                inline_datasource.safe_identifier if x == parent.safe_identifier else x
-                for x in v
-            ]
+        # An entry the consumer only carried as metadata (never rendered off
+        # this parent) names a column the raw table lacks: drop it rather than
+        # point it at the table, where a later pass would trust it.
+        renders = set(inline_datasource.output_lcl.addresses)
+        for c in inline_datasource.output_concepts:
+            renders |= c.pseudonyms
+        for k, v in list(self.source_map.items()):
+            if parent.safe_identifier not in v:
+                continue
+            kept = [x for x in v if x != parent.safe_identifier]
+            if k in renders:
+                kept.append(inline_datasource.safe_identifier)
+            if kept:
+                self.source_map[k] = kept
+            else:
+                del self.source_map[k]
         for k, v in self.existence_source_map.items():
             self.existence_source_map[k] = [
                 inline_datasource.safe_identifier if x == parent.safe_identifier else x
@@ -634,14 +646,15 @@ class CTE:
         return address in nullable
 
     def filter_collapses_to_grain(self, c: BuildConcept) -> bool:
-        """A locally-computed filter virtual whose keys are covered by this
-        grouping CTE's grain but whose predicate reads columns outside it is a
-        property of the grain, not a grouping key: the per-row
-        ``CASE WHEN cond THEN content END`` fans a mixed key out into
-        ``{content, NULL}``, so keeping it in GROUP BY breaks the contract that
-        the stream is deduplicated to the grain. The renderer collapses it with
-        MAX instead (dialect/base.py). When the CTE's own condition implies the
-        predicate, the CASE is elided to bare content, which the grain
+        """A filter virtual whose keys are covered by this grouping CTE's grain
+        but whose predicate reads columns outside it is a property of the grain,
+        not a grouping key: the per-row ``CASE WHEN cond THEN content END`` fans
+        a mixed key out into ``{content, NULL}``, so keeping it in GROUP BY
+        breaks the contract that the stream is deduplicated to the grain. The
+        renderer collapses it with MAX instead (dialect/base.py). A parent that
+        computed it per row hands this CTE the same fan-out; MAX of a value the
+        grain determines is that value. When the CTE's own condition implies
+        the predicate, its own CASE is elided to bare content, which the grain
         determines, and it stays a group key."""
         from trilogy.core.processing.condition_utility import condition_implies
 
@@ -650,8 +663,6 @@ class CTE:
             and c.derivation == Derivation.FILTER
             and isinstance(c.lineage, BuildFilterItem)
         ):
-            return False
-        if self.source_map.get(c.address, []):
             return False
         grain_components = set(self.grain.components)
         keys = c.keys or set()
@@ -664,6 +675,12 @@ class CTE:
         where_args = {a.address for a in c.lineage.where.row_arguments}
         if where_args <= grain_components:
             return False
+        if self.source_map.get(c.address, []):
+            # this CTE's own WHERE runs before the GROUP BY and reads the row
+            return not (
+                isinstance(self.condition, BuildConceptArgs)
+                and c.address in {a.address for a in self.condition.row_arguments}
+            )
         where_cond = c.lineage.where.conditional
         return self.condition is None or not (
             self.condition == where_cond
@@ -760,7 +777,10 @@ class CTE:
         def has_local_aggregate(c: BuildConcept) -> bool:
             # does the rendered column value of `c` contain an aggregate computed
             # in this CTE? A concept sourced from a parent is a plain column here,
-            # so any aggregate in its lineage was already materialized upstream.
+            # so any aggregate in its lineage was already materialized upstream,
+            # unless it is a partial this CTE re-sums.
+            if c.address in rollup_addresses:
+                return True
             if len(self.source_map.get(c.address, [])) > 0:
                 return False
             if c.derivation == Derivation.AGGREGATE:
@@ -812,6 +832,8 @@ class CTE:
         def check_is_not_in_group(c: BuildConcept):
             if c.address in rollup_addresses:
                 return True
+            if self.filter_collapses_to_grain(c):
+                return True
             if len(self.source_map.get(c.address, [])) > 0:
                 return False
             if c.derivation == Derivation.ROWSET:
@@ -837,9 +859,6 @@ class CTE:
             if c.purpose == Purpose.CONSTANT and c.is_aggregate:
                 return True
 
-            if self.filter_collapses_to_grain(c):
-                return True
-
             if (
                 c.derivation
                 in (Derivation.BASIC, Derivation.FILTER, Derivation.GROUP_TO)
@@ -863,13 +882,34 @@ class CTE:
                 return bool(has_local_aggregate(c))
             return c.purpose == Purpose.METRIC
 
+        def read_values(c: BuildConcept) -> list[BuildConcept]:
+            # an aggregate value a parent computed, read bare inside an
+            # expression this CTE aggregates (`sum(n) / total` beside a joined
+            # grand total): constant per group, so a group key of its own
+            if self.source_map.get(c.address) and c.address not in rollup_addresses:
+                return [c] if c.is_aggregate else []
+            if c.derivation != Derivation.BASIC or c.lineage is None:
+                return []
+            return [
+                value
+                for x in c.lineage.rendered_concept_arguments
+                for value in read_values(x)
+            ]
+
         if not self.group_to_grain:
             return []
         # Two keys that render as one column or expression are one key
         # (distinct aliases over the same column).
         keys: list[BuildConcept] = []
         bindings: set[tuple[str, ...]] = set()
-        for c in unique(self.output_columns, "address"):
+        outputs = unique(self.output_columns, "address")
+        candidates = outputs + [
+            value
+            for c in outputs
+            if c.derivation == Derivation.BASIC and has_local_aggregate(c)
+            for value in read_values(c)
+        ]
+        for c in unique(candidates, "address"):
             if check_is_not_in_group(c) or (
                 c.address in self.hidden_concepts
                 and c.derivation == Derivation.MULTISELECT

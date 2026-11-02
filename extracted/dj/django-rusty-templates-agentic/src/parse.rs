@@ -1,0 +1,4490 @@
+use crate::gc::Gc;
+mod builtin_filter;
+mod stock;
+pub use stock::StockNode;
+
+use builtin_filter::{BuiltinFilter, FilterArgument};
+
+use dtl_lexer::DelimitedToken;
+use num_traits::Zero;
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::iter::Peekable;
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use either::Either;
+use miette::{Diagnostic, SourceSpan};
+use num_bigint::BigInt;
+use pyo3::exceptions::PyNotImplementedError;
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
+use thiserror::Error;
+
+use crate::filters::AddFilter;
+use crate::filters::AddSlashesFilter;
+use crate::filters::CapfirstFilter;
+use crate::filters::CenterFilter;
+use crate::filters::CutFilter;
+use crate::filters::DateFilter;
+use crate::filters::DefaultFilter;
+use crate::filters::DefaultIfNoneFilter;
+use crate::filters::DivisibleByFilter;
+use crate::filters::DjangoFilter;
+use crate::filters::EscapeFilter;
+use crate::filters::EscapejsFilter;
+use crate::filters::ExternalFilter;
+use crate::filters::FilterType;
+use crate::filters::FloatFormatFilter;
+use crate::filters::ForceEscapeFilter;
+use crate::filters::LastFilter;
+use crate::filters::LengthFilter;
+use crate::filters::LowerFilter;
+use crate::filters::SafeFilter;
+use crate::filters::SlugifyFilter;
+use crate::filters::TitleFilter;
+use crate::filters::TruncateCharsFilter;
+use crate::filters::UpperFilter;
+use crate::filters::WordcountFilter;
+use crate::filters::WordwrapFilter;
+use crate::filters::YesnoFilter;
+use dtl_lexer::common::{LexerError, get_all_at, text_content_at, translated_text_content_at};
+use dtl_lexer::core::{Lexer, TokenType};
+use dtl_lexer::tag::autoescape::{AutoescapeEnabled, AutoescapeError, lex_autoescape_argument};
+use dtl_lexer::tag::common::{TagElementLexer, TagElementToken, TagElementTokenType};
+use dtl_lexer::tag::forloop::{ForLexer, ForLexerError, ForLexerInError, ForTokenType};
+use dtl_lexer::tag::ifcondition::{
+    IfConditionAtom, IfConditionLexer, IfConditionOperator, IfConditionTokenType,
+};
+use dtl_lexer::tag::include::{
+    IncludeLexer, IncludeLexerError, IncludeTemplateToken, IncludeTemplateTokenType, IncludeToken,
+    IncludeWithToken,
+};
+use dtl_lexer::tag::kwarg::{
+    TagElementKwargLexer, TagElementKwargLexerError, TagElementKwargToken,
+};
+use dtl_lexer::tag::load::{LoadLexer, LoadToken};
+use dtl_lexer::tag::lorem::{LoremError, LoremLexer, LoremMethod, LoremTokenType};
+use dtl_lexer::tag::now::{NowError, NowLexer};
+use dtl_lexer::tag::templatetag::{TemplateTag, TemplateTagError, lex_templatetag};
+use dtl_lexer::tag::{TagLexerError, TagParts, lex_tag};
+use dtl_lexer::types::{At, TemplateString};
+use dtl_lexer::variable::{
+    Argument as ArgumentToken, FilterLexer, VariableLexerError, VariableToken,
+    lex_variable_or_filter_with_syntax,
+};
+use dtl_lexer::{START_TAG_LEN, TemplateContent};
+
+use crate::path::{RelativePathError, construct_relative_path};
+use crate::template::django_rusty_templates::Engine;
+use crate::types::Argument;
+use crate::types::ArgumentType;
+use crate::types::ForVariable;
+use crate::types::ForVariableName;
+
+use crate::types::Text;
+use crate::types::TranslatedText;
+use dtl_lexer::types::Variable;
+
+// Assign each compiled cycle node a unique ID so its current position can be
+// stored per render in Context without interfering with other cycle nodes.
+static NEXT_CYCLE_ID: AtomicUsize = AtomicUsize::new(0);
+
+trait Parse<R> {
+    fn parse(&self, parser: &Parser) -> Result<R, ParseError>;
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lorem {
+    pub count: TagElement,
+    pub method: LoremMethod,
+    pub common: bool,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Comment;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CsrfToken;
+
+impl Parse<Argument> for ArgumentToken {
+    fn parse(&self, parser: &Parser) -> Result<Argument, ParseError> {
+        Ok(match *self {
+            Self::Variable(at) => Argument {
+                at,
+                argument_type: parser.parse_variable_reference(at).into(),
+            },
+            Self::Text(at) => Argument {
+                at,
+                argument_type: ArgumentType::Text(Text::new(self.content_at())),
+            },
+            Self::TranslatedText(at) => Argument {
+                at,
+                argument_type: ArgumentType::TranslatedText(TranslatedText::new(self.content_at())),
+            },
+            Self::Numeric(at) => {
+                let content = parser.template.content(at);
+                let argument_type = match content.parse::<BigInt>() {
+                    Ok(n) => ArgumentType::Int(n),
+                    Err(_) => match content.parse::<f64>() {
+                        Ok(f) => ArgumentType::Float(f),
+                        Err(_) => return Err(ParseError::InvalidNumber { at: at.into() }),
+                    },
+                };
+                Argument { at, argument_type }
+            }
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InclusionTag {
+    pub id: CycleId,
+    pub call: SimpleTag,
+    pub filename: Gc<Py<PyAny>>,
+    pub engine: Gc<Engine>,
+}
+
+impl PartialEq for InclusionTag {
+    fn eq(&self, other: &Self) -> bool {
+        self.call == other.call
+            && Gc::ptr_eq(&self.filename, &other.filename)
+            && Gc::ptr_eq(&self.engine, &other.engine)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Regroup {
+    pub target: TagElement,
+    pub expression: Gc<Py<PyAny>>,
+    pub asvar: String,
+}
+
+impl PartialEq for Regroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.target == other.target
+            && self.asvar == other.asvar
+            && Gc::ptr_eq(&self.expression, &other.expression)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TagElement {
+    Int(BigInt),
+    Float(f64),
+    Text(Text),
+    TranslatedText(Text),
+    Variable(Variable),
+    ForVariable(ForVariable),
+    Filter(Box<Filter>),
+}
+
+fn unexpected_argument(filter: &'static str, right: Argument) -> ParseError {
+    ParseError::UnexpectedArgument {
+        filter,
+        at: right.at.into(),
+    }
+}
+
+/// Whether `filter` is Django's own implementation of `name`, so a native
+/// port may stand in for it, rather than a replacement registered in its place.
+fn is_django_filter(py: Python<'_>, filter: &Py<PyAny>, name: &str) -> bool {
+    py.import(intern!(py, "django.template.defaultfilters"))
+        .and_then(|module| module.getattr(name))
+        .is_ok_and(|django| django.is(filter))
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Filter {
+    pub at: At,
+    pub all_at: At,
+    pub left: TagElement,
+    pub filter: FilterType,
+}
+
+impl Filter {
+    #[expect(clippy::too_many_lines, reason = "one match arm per builtin filter")]
+    pub fn new(
+        parser: &Parser,
+        at: At,
+        all_at: At,
+        left: TagElement,
+        right: Option<Argument>,
+    ) -> Result<Self, ParseError> {
+        if let Some(filter) = parser.external_filters.get(parser.template.content(at)) {
+            return Ok(Self {
+                at,
+                all_at,
+                left,
+                filter: FilterType::External(ExternalFilter::new(filter.clone().unbind(), right)),
+            });
+        }
+        if let Some(builtin) = BuiltinFilter::from_name(parser.template.content(at)) {
+            let argument = match (builtin.argument(), right) {
+                (FilterArgument::Required, None) => {
+                    return Err(ParseError::MissingArgument { at: at.into() });
+                }
+                (FilterArgument::Forbidden, Some(right)) => {
+                    return Err(unexpected_argument(builtin.name(), right));
+                }
+                (FilterArgument::Optional | FilterArgument::Required, right) => right,
+                (FilterArgument::Forbidden, None) => None,
+            };
+            let django = DjangoFilter {
+                filter: parser.builtin_filter(builtin, at)?,
+                argument,
+            };
+            let filter = match builtin {
+                BuiltinFilter::Truncatechars
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::TruncateChars(TruncateCharsFilter { django })
+                }
+                BuiltinFilter::Floatformat
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::FloatFormat(FloatFormatFilter { django })
+                }
+                _ => FilterType::Django(django),
+            };
+            return Ok(Self {
+                at,
+                all_at,
+                left,
+                filter,
+            });
+        }
+        let filter = match parser.template.content(at) {
+            "add" => match right {
+                Some(right) => FilterType::Add(AddFilter::new(right)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "addslashes" => match right {
+                Some(right) => return Err(unexpected_argument("addslashes", right)),
+                None => FilterType::AddSlashes(AddSlashesFilter),
+            },
+            "capfirst" => match right {
+                Some(right) => return Err(unexpected_argument("capfirst", right)),
+                None => FilterType::Capfirst(CapfirstFilter),
+            },
+            "center" => match right {
+                Some(right) => FilterType::Center(CenterFilter::new(right)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "cut" => match right {
+                Some(right) => FilterType::Cut(CutFilter::new(right)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "default" => match right {
+                Some(right) => FilterType::Default(DefaultFilter::new(right, at)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "default_if_none" => match right {
+                Some(right) => FilterType::DefaultIfNone(DefaultIfNoneFilter::new(right)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "divisibleby" => match right {
+                Some(right) => {
+                    if let ArgumentType::Int(ref n) = right.argument_type
+                        && n.is_zero()
+                    {
+                        return Err(ParseError::DivisibleByZero {
+                            at: right.at.into(),
+                        });
+                    }
+                    FilterType::DivisibleBy(DivisibleByFilter::new(at, right))
+                }
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "date" => FilterType::Date(DateFilter::new(right, at)),
+            "escape" => match right {
+                Some(right) => return Err(unexpected_argument("escape", right)),
+                None => FilterType::Escape(EscapeFilter),
+            },
+            "escapejs" => match right {
+                Some(right) => return Err(unexpected_argument("escapejs", right)),
+                None => FilterType::Escapejs(EscapejsFilter),
+            },
+            "force_escape" => match right {
+                Some(right) => return Err(unexpected_argument("force_escape", right)),
+                None => FilterType::ForceEscape(ForceEscapeFilter),
+            },
+            "last" => match right {
+                Some(right) => return Err(unexpected_argument("last", right)),
+                None => FilterType::Last(LastFilter::new(at)),
+            },
+            "lower" => match right {
+                Some(right) => return Err(unexpected_argument("lower", right)),
+                None => FilterType::Lower(LowerFilter),
+            },
+            "length" => match right {
+                Some(right) => return Err(unexpected_argument("length", right)),
+                None => FilterType::Length(LengthFilter),
+            },
+            "safe" => match right {
+                Some(right) => return Err(unexpected_argument("safe", right)),
+                None => FilterType::Safe(SafeFilter),
+            },
+            "slugify" => match right {
+                Some(right) => return Err(unexpected_argument("slugify", right)),
+                None => FilterType::Slugify(SlugifyFilter),
+            },
+            "title" => match right {
+                Some(right) => return Err(unexpected_argument("title", right)),
+                None => FilterType::Title(TitleFilter),
+            },
+            "upper" => match right {
+                Some(right) => return Err(unexpected_argument("upper", right)),
+                None => FilterType::Upper(UpperFilter),
+            },
+            "wordcount" => match right {
+                Some(right) => return Err(unexpected_argument("wordcount", right)),
+                None => FilterType::Wordcount(WordcountFilter),
+            },
+            "wordwrap" => match right {
+                Some(right) => FilterType::Wordwrap(WordwrapFilter::new(right)),
+                None => return Err(ParseError::MissingArgument { at: at.into() }),
+            },
+            "yesno" => FilterType::Yesno(YesnoFilter::new(at, right)),
+            external => {
+                let external = match parser.external_filters.get(external) {
+                    Some(external) => external.clone().unbind(),
+                    None => {
+                        return Err(ParseError::InvalidFilter {
+                            at: at.into(),
+                            filter: external.to_string(),
+                        });
+                    }
+                };
+                FilterType::External(ExternalFilter::new(external, right))
+            }
+        };
+        Ok(Self {
+            at,
+            all_at,
+            left,
+            filter,
+        })
+    }
+}
+
+fn parse_numeric(content: &str, at: At) -> Result<TagElement, ParseError> {
+    match content.parse::<BigInt>() {
+        Ok(n) => Ok(TagElement::Int(n)),
+        Err(_) => match content.parse::<f64>() {
+            Ok(f) => Ok(TagElement::Float(f)),
+            Err(_) => Err(ParseError::InvalidNumber { at: at.into() }),
+        },
+    }
+}
+
+impl Parse<TagElement> for TagElementToken {
+    fn parse(&self, parser: &Parser) -> Result<TagElement, ParseError> {
+        let content_at = self.content_at();
+        let (start, _len) = content_at;
+        let content = parser.template.content(content_at);
+        match self.token_type {
+            TagElementTokenType::Numeric => parse_numeric(content, self.at),
+            TagElementTokenType::Text => Ok(TagElement::Text(Text::new(content_at))),
+            TagElementTokenType::TranslatedText => {
+                Ok(TagElement::TranslatedText(Text::new(content_at)))
+            }
+            TagElementTokenType::Variable => {
+                parser.parse_filter_expression(content, content_at, start)
+            }
+        }
+    }
+}
+
+impl Parse<TagElement> for TagElementKwargToken {
+    fn parse(&self, parser: &Parser) -> Result<TagElement, ParseError> {
+        let content_at = self.content_at();
+        let (start, _len) = content_at;
+        let content = parser.template.content(content_at);
+        match self.token_type {
+            TagElementTokenType::Numeric => parse_numeric(content, self.at),
+            TagElementTokenType::Text => Ok(TagElement::Text(Text::new(content_at))),
+            TagElementTokenType::TranslatedText => {
+                Ok(TagElement::TranslatedText(Text::new(content_at)))
+            }
+            TagElementTokenType::Variable => {
+                parser.parse_filter_expression(content, content_at, start)
+            }
+        }
+    }
+}
+
+/// Extracts "as variable" from the end of the tokens list (and truncates it).
+///
+/// This will return:
+/// - `Ok(Some(variable_name))` if found and valid
+/// - Ok(None) if "as" not found
+/// - `ParseError` if as is not at the end or missing a variable
+fn extract_as_variable(
+    tokens: &mut Vec<TagElementKwargToken>,
+    template: &TemplateString<'_>,
+) -> Result<Option<String>, ParseError> {
+    let len = tokens.len();
+    if len < 1 {
+        return Ok(None);
+    }
+    for (idx, token) in tokens.iter().rev().enumerate() {
+        if template.content(token.at) == "as" {
+            return match idx {
+                0 => {
+                    // Last token is "as". Check if the previous token is also "as",
+                    // making this a valid "as <variable>" binding where variable is "as".
+                    if len >= 2 && template.content(tokens[len - 2].at) == "as" {
+                        tokens.truncate(len - 2);
+                        Ok(Some("as".to_string()))
+                    } else {
+                        Err(ParseError::MissingVariableAfterAs {
+                            at: token.at.into(),
+                        })
+                    }
+                }
+                1 => {
+                    let variable = template.content(tokens[len - 1].at).to_string();
+                    tokens.truncate(len - 2);
+                    Ok(Some(variable))
+                }
+                _ => {
+                    let asvar = tokens[len - idx].at;
+                    let next = tokens[len - idx + 1].at;
+                    let last = tokens[len - 1].at;
+                    Err(ParseError::UnexpectedTokensAfterAsVariable {
+                        at: get_all_at(next, last).into(),
+                        var_name: template.content(asvar).to_string(),
+                    })
+                }
+            };
+        }
+    }
+    Ok(None)
+}
+
+fn parse_include_template_token(
+    token: IncludeTemplateToken,
+    parser: &Parser,
+) -> Result<IncludeTemplateName, ParseError> {
+    let content_at = token.content_at();
+    let (start, _len) = content_at;
+    let content = parser.template.content(content_at);
+    Ok(match token.token_type {
+        IncludeTemplateTokenType::Text => IncludeTemplateName::Text(Text::new(content_at)),
+        IncludeTemplateTokenType::Variable => IncludeTemplateName::Variable(
+            parser.parse_filter_expression(content, content_at, start)?,
+        ),
+    })
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Url {
+    pub at: At,
+    pub view_name: TagElement,
+    pub args: Vec<TagElement>,
+    pub kwargs: Vec<(String, TagElement)>,
+    pub asvar: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum IfCondition {
+    Variable(TagElement),
+    And(Box<(Self, Self)>),
+    Or(Box<(Self, Self)>),
+    Not(Box<Self>),
+    Equal(Box<(Self, Self)>),
+    NotEqual(Box<(Self, Self)>),
+    LessThan(Box<(Self, Self)>),
+    GreaterThan(Box<(Self, Self)>),
+    LessThanEqual(Box<(Self, Self)>),
+    GreaterThanEqual(Box<(Self, Self)>),
+    In(Box<(Self, Self)>),
+    NotIn(Box<(Self, Self)>),
+    Is(Box<(Self, Self)>),
+    IsNot(Box<(Self, Self)>),
+}
+
+fn parse_if_condition(
+    parser: &mut Parser,
+    parts: TagParts,
+    at: At,
+) -> Result<IfCondition, ParseError> {
+    let mut lexer = IfConditionLexer::new(parser.template, parts)
+        .with_modern_syntax(parser.engine.django_series >= (6, 0))
+        .peekable();
+    if lexer.peek().is_none() {
+        return Err(ParseError::MissingBooleanExpression { at: at.into() });
+    }
+    parse_if_binding_power(parser, &mut lexer, 0, at)
+}
+
+fn parse_if_binding_power(
+    parser: &mut Parser,
+    lexer: &mut Peekable<IfConditionLexer>,
+    min_binding_power: u8,
+    at: At,
+) -> Result<IfCondition, ParseError> {
+    let Some(token) = lexer.next().transpose()? else {
+        return Err(ParseError::UnexpectedEndExpression { at: at.into() });
+    };
+    let content = token.content(parser.template);
+    let token_at = token.content_at();
+    let mut lhs = match token.token_type {
+        IfConditionTokenType::Atom(IfConditionAtom::Numeric) => {
+            IfCondition::Variable(parse_numeric(content, token_at)?)
+        }
+        IfConditionTokenType::Atom(IfConditionAtom::Text) => {
+            IfCondition::Variable(TagElement::Text(Text::new(token_at)))
+        }
+        IfConditionTokenType::Atom(IfConditionAtom::TranslatedText) => {
+            IfCondition::Variable(TagElement::TranslatedText(Text::new(token_at)))
+        }
+        IfConditionTokenType::Atom(IfConditionAtom::Variable) => {
+            IfCondition::Variable(parser.parse_filter_expression(content, token_at, token.at.0)?)
+        }
+        IfConditionTokenType::Not => {
+            let if_condition = parse_if_binding_power(parser, lexer, NOT_BINDING_POWER, token_at)?;
+            IfCondition::Not(Box::new(if_condition))
+        }
+        _ => {
+            return Err(ParseError::InvalidIfPosition {
+                at: token.at.into(),
+                token: content.to_string(),
+            });
+        }
+    };
+
+    loop {
+        let token = match lexer.peek() {
+            None => break,
+            Some(Err(e)) => return Err(e.clone().into()),
+            Some(Ok(token)) => token,
+        };
+        let operator = match &token.token_type {
+            IfConditionTokenType::Atom(_) | IfConditionTokenType::Not => {
+                return Err(ParseError::UnusedExpression {
+                    at: token.at.into(),
+                    expression: parser.template.content(token.at).to_string(),
+                });
+            }
+            IfConditionTokenType::Operator(operator) => *operator,
+        };
+        let binding_power = operator.binding_power();
+        if binding_power <= min_binding_power {
+            break;
+        }
+
+        // We can get the next token properly now, since we have the right binding
+        // power and don't need to `break`.
+        let token = lexer
+            .next()
+            .expect("already `break`ed in match peek()")
+            .expect("already `return Err` in match peek()");
+        let rhs = parse_if_binding_power(parser, lexer, binding_power, token.at)?;
+
+        lhs = operator.build_condition(lhs, rhs);
+    }
+
+    Ok(lhs)
+}
+
+const NOT_BINDING_POWER: u8 = 8;
+
+trait IfConditionOperatorMethods {
+    fn binding_power(&self) -> u8;
+    fn build_condition(&self, lhs: IfCondition, rhs: IfCondition) -> IfCondition;
+}
+
+impl IfConditionOperatorMethods for IfConditionOperator {
+    fn binding_power(&self) -> u8 {
+        match self {
+            Self::Or => 6,
+            Self::And => 7,
+            Self::In | Self::NotIn => 9,
+            Self::Is
+            | Self::IsNot
+            | Self::Equal
+            | Self::NotEqual
+            | Self::GreaterThan
+            | Self::GreaterThanEqual
+            | Self::LessThan
+            | Self::LessThanEqual => 10,
+        }
+    }
+
+    fn build_condition(&self, lhs: IfCondition, rhs: IfCondition) -> IfCondition {
+        let inner = Box::new((lhs, rhs));
+        match self {
+            Self::And => IfCondition::And(inner),
+            Self::Or => IfCondition::Or(inner),
+            Self::In => IfCondition::In(inner),
+            Self::NotIn => IfCondition::NotIn(inner),
+            Self::Is => IfCondition::Is(inner),
+            Self::IsNot => IfCondition::IsNot(inner),
+            Self::Equal => IfCondition::Equal(inner),
+            Self::NotEqual => IfCondition::NotEqual(inner),
+            Self::GreaterThan => IfCondition::GreaterThan(inner),
+            Self::GreaterThanEqual => IfCondition::GreaterThanEqual(inner),
+            Self::LessThan => IfCondition::LessThan(inner),
+            Self::LessThanEqual => IfCondition::LessThanEqual(inner),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ForIterable {
+    pub iterable: TagElement,
+    pub at: At,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ForNames {
+    pub names: Vec<String>,
+    pub at: At,
+}
+
+fn parse_for_loop(
+    parser: &mut Parser,
+    parts: TagParts,
+    at: At,
+) -> Result<(ForIterable, ForNames, bool), ParseError> {
+    let mut lexer = ForLexer::new(parser.template, parts)
+        .with_modern_syntax(parser.engine.django_series >= (6, 0));
+    let mut variable_names = Vec::new();
+    while let Some(token) = lexer.lex_variable_name() {
+        variable_names.push(token?);
+    }
+    if variable_names.is_empty() {
+        return Err(ForParseError::MissingVariableNames { at: at.into() }.into());
+    }
+    let variables_start = variable_names[0].at.0;
+    let last = variable_names
+        .last()
+        .expect("Variables has at least one element");
+    let variables_at = (variables_start, last.at.0 - variables_start + last.at.1);
+
+    if let Err(error) = lexer.lex_in() {
+        if last.content(parser.template) != "in" {
+            return Err(error.into());
+        }
+        let len = variable_names.len();
+        match error {
+            ForLexerInError::MissingComma { .. } if len >= 2 => {
+                let previous = &variable_names[len - 2];
+                let at = previous.at.into();
+                return Err(ForParseError::MissingVariable { at }.into());
+            }
+            _ => {
+                let at = last.at.into();
+                return Err(ForParseError::MissingVariableBeforeIn { at }.into());
+            }
+        }
+    }
+
+    let expression_token = lexer.lex_expression()?;
+    let reversed = lexer.lex_reversed()?;
+    let variable_names = variable_names
+        .iter()
+        .map(|token| token.content(parser.template).to_string())
+        .collect();
+    let expression_content = expression_token.content(parser.template);
+    let expression = match expression_token.token_type {
+        ForTokenType::Numeric => parse_numeric(expression_content, expression_token.at)?,
+        ForTokenType::Text => TagElement::Text(Text::new(text_content_at(expression_token.at))),
+        ForTokenType::TranslatedText => {
+            TagElement::TranslatedText(Text::new(translated_text_content_at(expression_token.at)))
+        }
+        ForTokenType::Variable => parser.parse_filter_expression(
+            expression_content,
+            expression_token.at,
+            expression_token.at.0,
+        )?,
+    };
+    Ok((
+        ForIterable {
+            iterable: expression,
+            at: expression_token.at,
+        },
+        ForNames {
+            names: variable_names,
+            at: variables_at,
+        },
+        reversed,
+    ))
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct For {
+    pub iterable: ForIterable,
+    pub variables: ForNames,
+    pub reversed: bool,
+    pub body: Vec<TokenTree>,
+    pub empty: Option<Vec<TokenTree>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RelativePath {
+    pub at: At,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum IncludeTemplateName {
+    Text(Text),
+    Variable(TagElement),
+    Relative(RelativePath),
+}
+
+#[derive(Clone, Debug)]
+pub struct Include {
+    pub id: CycleId,
+    pub template_name: IncludeTemplateName,
+    pub origin: Option<String>,
+    pub engine: Gc<Engine>,
+    pub only: bool,
+    pub kwargs: Vec<(At, TagElement)>,
+}
+
+impl PartialEq for Include {
+    fn eq(&self, other: &Self) -> bool {
+        // We use `Gc::ptr_eq` here to avoid needing the `py` token for true
+        // equality comparison between two `Py` smart pointers.
+        //
+        // We only use `eq` in tests, so this concession is acceptable here.
+        self.only == other.only
+            && self.origin == other.origin
+            && self.template_name.eq(&other.template_name)
+            && self.kwargs == other.kwargs
+            && Gc::ptr_eq(&self.engine, &other.engine)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SimpleTag {
+    pub func: Gc<Py<PyAny>>,
+    pub at: At,
+    pub takes_context: bool,
+    pub args: Vec<TagElement>,
+    pub kwargs: Vec<(String, TagElement)>,
+    pub target_var: Option<String>,
+}
+
+impl PartialEq for SimpleTag {
+    fn eq(&self, other: &Self) -> bool {
+        // We use `Gc::ptr_eq` here to avoid needing the `py` token for true
+        // equality comparison between two `Py` smart pointers.
+        //
+        // We only use `eq` in tests, so this concession is acceptable here.
+        self.at == other.at
+            && self.takes_context == other.takes_context
+            && self.args == other.args
+            && self.kwargs == other.kwargs
+            && self.target_var == other.target_var
+            && Gc::ptr_eq(&self.func, &other.func)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SimpleBlockTag {
+    pub func: Gc<Py<PyAny>>,
+    pub nodes: Vec<TokenTree>,
+    pub at: At,
+    pub takes_context: bool,
+    pub args: Vec<TagElement>,
+    pub kwargs: Vec<(String, TagElement)>,
+    pub target_var: Option<String>,
+}
+
+impl PartialEq for SimpleBlockTag {
+    fn eq(&self, other: &Self) -> bool {
+        // We use `Gc::ptr_eq` here to avoid needing the `py` token for true
+        // equality comparison between two `Py` smart pointers.
+        //
+        // We only use `eq` in tests, so this concession is acceptable here.
+        self.at == other.at
+            && self.takes_context == other.takes_context
+            && self.args == other.args
+            && self.kwargs == other.kwargs
+            && self.target_var == other.target_var
+            && self.nodes == other.nodes
+            && Gc::ptr_eq(&self.func, &other.func)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartialDefinition {
+    pub name: String,
+    pub nodes: Gc<Vec<TokenTree>>,
+    pub span: At,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Now {
+    pub format: String,
+    pub expression: Option<TagElement>,
+    pub escape: bool,
+    pub asvar: Option<At>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FirstOf {
+    pub vars: Vec<TagElement>,
+    pub asvar: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CycleValue {
+    pub value: TagElement,
+    pub at: At,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SimpleCycle {
+    pub id: CycleId,
+    pub values: Vec<CycleValue>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamedCycle {
+    pub cycle: SimpleCycle,
+    pub asvar: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SilentNamedCycle {
+    pub cycle: NamedCycle,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Cycle {
+    Simple(SimpleCycle),
+    Named(NamedCycle),
+    SilentNamed(SilentNamedCycle),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CycleId(pub(crate) usize);
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Tag {
+    Stock {
+        node: Box<StockNode>,
+        at: At,
+    },
+    PartialDef {
+        definition: PartialDefinition,
+        inline: bool,
+    },
+    Partial {
+        name: String,
+        at: At,
+    },
+    PythonNode(PythonNode),
+    Block {
+        name: String,
+        nodes: Gc<Vec<TokenTree>>,
+    },
+    Extends {
+        at: At,
+        parent: TagElement,
+        parent_token: String,
+        relative: Option<String>,
+        nodes: Vec<TokenTree>,
+    },
+    Autoescape {
+        enabled: AutoescapeEnabled,
+        nodes: Vec<TokenTree>,
+    },
+    If {
+        condition: IfCondition,
+        truthy: Vec<TokenTree>,
+        falsey: Option<Vec<TokenTree>>,
+    },
+    IfChanged {
+        id: CycleId,
+        values: Vec<TagElement>,
+        truthy: Vec<TokenTree>,
+        falsey: Vec<TokenTree>,
+    },
+    Regroup(Regroup),
+    For(For),
+    Include(Include),
+    Load,
+    ResetCycle(CycleId),
+    With {
+        assignments: Vec<(String, TagElement)>,
+        nodes: Vec<TokenTree>,
+    },
+    FilterBlock {
+        filters: Vec<FilterType>,
+        nodes: Vec<TokenTree>,
+    },
+    Spaceless(Vec<TokenTree>),
+    Verbatim(Vec<TokenTree>),
+    Debug,
+    QueryString(SimpleTag),
+    InclusionTag(InclusionTag),
+    SimpleTag(SimpleTag),
+    SimpleBlockTag(SimpleBlockTag),
+    Url(Url),
+    CsrfToken(CsrfToken),
+    Lorem(Lorem),
+    Comment(Comment),
+    Now(Now),
+    FirstOf(FirstOf),
+    WidthRatio {
+        args: Vec<TagElement>,
+        asvar: Option<String>,
+    },
+    TemplateTag(TemplateTag),
+    Cycle(Cycle),
+}
+
+#[derive(Clone, Debug)]
+pub struct PythonNode(pub Gc<Py<PyAny>>);
+
+impl PartialEq for PythonNode {
+    fn eq(&self, other: &Self) -> bool {
+        Gc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+#[derive(PartialEq, Eq)]
+enum EndTagType {
+    Autoescape,
+    Elif,
+    Else,
+    EndIf,
+    Empty,
+    EndFor,
+    Verbatim,
+    Custom(String),
+}
+
+impl EndTagType {
+    fn as_cow(&self) -> Cow<'static, str> {
+        let end_tag = match self {
+            Self::Autoescape => "endautoescape",
+            Self::Elif => "elif",
+            Self::Else => "else",
+            Self::EndIf => "endif",
+            Self::Empty => "empty",
+            Self::EndFor => "endfor",
+            Self::Verbatim => "endverbatim",
+            Self::Custom(s) => return Cow::Owned(s.clone()),
+        };
+        Cow::Borrowed(end_tag)
+    }
+}
+
+#[derive(PartialEq, Eq)]
+struct EndTag {
+    at: At,
+    end: EndTagType,
+    parts: Option<TagParts>,
+}
+
+impl EndTag {
+    fn as_cow(&self) -> Cow<'static, str> {
+        self.end.as_cow()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TokenTree {
+    Text(Text),
+    LiteralText(Text),
+    TranslatedText(Text),
+    Int(BigInt),
+    Float(f64),
+    Tag(Tag),
+    Variable(Variable),
+    ForVariable(ForVariable),
+    Filter(Box<Filter>),
+}
+
+impl TokenTree {
+    /// Child lists used to discover inheritance blocks without a Python tree.
+    pub fn child_nodes(&self) -> Vec<&[Self]> {
+        match self {
+            Self::Tag(Tag::Stock { node, .. }) => node.child_nodes(),
+            Self::Tag(Tag::Block { nodes, .. }) => vec![nodes],
+            Self::Tag(Tag::PartialDef { definition, .. }) => vec![&definition.nodes],
+            Self::Tag(
+                Tag::Extends { nodes, .. }
+                | Tag::Autoescape { nodes, .. }
+                | Tag::With { nodes, .. }
+                | Tag::FilterBlock { nodes, .. }
+                | Tag::Spaceless(nodes)
+                | Tag::Verbatim(nodes),
+            ) => vec![nodes],
+            Self::Tag(Tag::If { truthy, falsey, .. }) => {
+                vec![truthy, falsey.as_deref().unwrap_or_default()]
+            }
+            Self::Tag(Tag::IfChanged { truthy, falsey, .. }) => vec![truthy, falsey],
+            Self::Tag(Tag::For(node)) => {
+                vec![&node.body, node.empty.as_deref().unwrap_or_default()]
+            }
+            Self::Tag(Tag::SimpleBlockTag(node)) => vec![&node.nodes],
+            _ => Vec::new(),
+        }
+    }
+}
+
+impl From<TagElement> for TokenTree {
+    fn from(tag_element: TagElement) -> Self {
+        match tag_element {
+            TagElement::Text(text) => Self::LiteralText(text),
+            TagElement::TranslatedText(text) => Self::TranslatedText(text),
+            TagElement::Variable(variable) => Self::Variable(variable),
+            TagElement::ForVariable(variable) => Self::ForVariable(variable),
+            TagElement::Filter(filter) => Self::Filter(filter),
+            TagElement::Int(n) => Self::Int(n),
+            TagElement::Float(f) => Self::Float(f),
+        }
+    }
+}
+
+impl From<Either<Variable, ForVariable>> for TagElement {
+    fn from(variable: Either<Variable, ForVariable>) -> Self {
+        match variable {
+            Either::Left(v) => Self::Variable(v),
+            Either::Right(v) => Self::ForVariable(v),
+        }
+    }
+}
+
+impl From<Either<Variable, ForVariable>> for ArgumentType {
+    fn from(variable: Either<Variable, ForVariable>) -> Self {
+        match variable {
+            Either::Left(v) => Self::Variable(v),
+            Either::Right(v) => Self::ForVariable(v),
+        }
+    }
+}
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Error, Debug, Diagnostic, PartialEq, Eq)]
+pub enum ForParseError {
+    #[error("Expected another variable when unpacking in for loop:")]
+    MissingVariable {
+        #[label("after this variable")]
+        at: SourceSpan,
+    },
+    #[error("Expected a variable name before the 'in' keyword:")]
+    MissingVariableBeforeIn {
+        #[label("before this keyword")]
+        at: SourceSpan,
+    },
+    #[error("Expected at least one variable name in for loop:")]
+    MissingVariableNames {
+        #[label("in this tag")]
+        at: SourceSpan,
+    },
+}
+
+#[derive(Error, Debug, Diagnostic, PartialEq, Eq)]
+pub enum ParseError {
+    #[error("Empty variable tag")]
+    EmptyVariable {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Expected an argument")]
+    MissingArgument {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Expected two or more arguments")]
+    MissingCycleArguments {
+        #[label("expected at least two arguments")]
+        at: SourceSpan,
+    },
+    #[error("Named cycle '{name}' does not exist")]
+    #[diagnostic(help("Define the named cycle earlier using the 'as' form."))]
+    UnknownNamedCycle {
+        name: String,
+        #[label("not defined")]
+        at: SourceSpan,
+    },
+    #[error("Only 'silent' flag is allowed after cycle's name, not '{flag}'.")]
+    InvalidCycleFlag {
+        flag: String,
+        #[label("invalid flag")]
+        at: SourceSpan,
+    },
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    AutoescapeError(#[from] AutoescapeError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    BlockError(#[from] TagLexerError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    LexerError(#[from] LexerError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ForLexerError(#[from] ForLexerError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ForLexerInError(#[from] ForLexerInError),
+    #[allow(clippy::enum_variant_names)]
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ForParseError(#[from] ForParseError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    IncludeLexerError(#[from] IncludeLexerError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    RelativePathError(#[from] RelativePathError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TagElementKwargLexerError(#[from] TagElementKwargLexerError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    VariableError(#[from] VariableLexerError),
+    #[error("The 'only' option was specified more than once.")]
+    #[diagnostic(help("Remove the second 'only'"))]
+    IncludeOnlyTwice {
+        #[label("first here")]
+        first_at: SourceSpan,
+        #[label("second here")]
+        second_at: SourceSpan,
+    },
+    #[error("Invalid filter: '{filter}'")]
+    InvalidFilter {
+        filter: String,
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Not expecting '{token}' in this position")]
+    InvalidIfPosition {
+        token: String,
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Invalid divisibility check: cannot divide by zero")]
+    DivisibleByZero {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Invalid numeric literal")]
+    InvalidNumber {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Missing boolean expression")]
+    MissingBooleanExpression {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Unclosed '{start}' tag. Looking for one of: {expected}")]
+    MissingEndTag {
+        start: Cow<'static, str>,
+        expected: Cow<'static, str>,
+        #[label("started here")]
+        at: SourceSpan,
+    },
+    #[error("'{tag}' is not a valid tag or filter in tag library '{library}'")]
+    MissingFilterTag {
+        tag: String,
+        library: String,
+        #[label("tag or filter")]
+        tag_at: SourceSpan,
+        #[label("library")]
+        library_at: SourceSpan,
+    },
+    #[error("Expected a keyword argument")]
+    MissingKeywordArgument {
+        #[label("after this")]
+        at: SourceSpan,
+    },
+    #[error("'{library}' is not a registered tag library.")]
+    MissingTagLibrary {
+        library: String,
+        #[label("here")]
+        at: SourceSpan,
+        #[help]
+        help: String,
+    },
+    #[error("Cannot mix positional and keyword arguments")]
+    MixedArgsKwargs {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("'url' view name must be a string or variable, not a number")]
+    NumericUrlName {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("'{name}' must have a first argument of 'content'")]
+    RequiresContent {
+        name: String,
+        #[label("used here")]
+        at: SourceSpan,
+    },
+    #[error(
+        "'{name}' is decorated with takes_context=True so it must have a first argument of 'context'"
+    )]
+    RequiresContext {
+        name: String,
+        #[label("used here")]
+        at: SourceSpan,
+    },
+    #[error(
+        "'{name}' is decorated with takes_context=True so it must have a first argument of 'context' and a second argument of 'content'"
+    )]
+    RequiresContextAndContent {
+        name: String,
+        #[label("used here")]
+        at: SourceSpan,
+    },
+    #[error("'{tag_name}' did not receive value(s) for the argument(s): {missing}")]
+    MissingArguments {
+        tag_name: String,
+        missing: String,
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("'{tag_name}' received multiple values for keyword argument '{kwarg_name}'")]
+    DuplicateKeywordArgument {
+        tag_name: String,
+        kwarg_name: String,
+        #[label("first")]
+        first_at: SourceSpan,
+        #[label("second")]
+        second_at: SourceSpan,
+    },
+    #[error("Unexpected positional argument after keyword argument")]
+    PositionalAfterKeyword {
+        #[label("this positional argument")]
+        at: SourceSpan,
+        #[label("after this keyword argument")]
+        after: SourceSpan,
+    },
+    #[error("Unexpected positional argument")]
+    TooManyPositionalArguments {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Unexpected keyword argument")]
+    UnexpectedKeywordArgument {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("{filter} filter does not take an argument")]
+    UnexpectedArgument {
+        filter: &'static str,
+        #[label("unexpected argument")]
+        at: SourceSpan,
+    },
+    #[error("Unexpected end of expression")]
+    UnexpectedEndExpression {
+        #[label("after this")]
+        at: SourceSpan,
+    },
+    #[error("Unexpected tag {unexpected}")]
+    UnexpectedEndTag {
+        unexpected: Cow<'static, str>,
+        #[label("unexpected tag")]
+        at: SourceSpan,
+    },
+    #[error("Unused expression '{expression}' in if tag")]
+    UnusedExpression {
+        expression: String,
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("'url' takes at least one argument, a URL pattern name")]
+    UrlTagNoArguments {
+        #[label("here")]
+        at: SourceSpan,
+    },
+    #[error("Unexpected tag {unexpected}, expected {expected}")]
+    WrongEndTag {
+        unexpected: Cow<'static, str>,
+        expected: String,
+        #[label("unexpected tag")]
+        at: SourceSpan,
+        #[label("start tag")]
+        start_at: SourceSpan,
+    },
+    #[error("Incorrect format for '{tag}' tag")]
+    InvalidTagFormat {
+        tag: &'static str,
+        #[label("here")]
+        at: SourceSpan,
+    },
+
+    #[error("Invalid variable name")]
+    InvalidVariableName {
+        #[label("here")]
+        at: SourceSpan,
+    },
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    LoremError(#[from] LoremError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    NowError(#[from] NowError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    TemplateTagError(#[from] TemplateTagError),
+
+    #[error("Expected a variable name after 'as'")]
+    #[diagnostic(help("Provide a name to store the date string, e.g. 'as my_var'"))]
+    MissingVariableAfterAs {
+        #[label("expected a variable name here")]
+        at: SourceSpan,
+    },
+
+    #[error("Unexpected tokens after 'as {var_name}'")]
+    #[diagnostic(help("Remove the extra tokens."))]
+    UnexpectedTokensAfterAsVariable {
+        var_name: String,
+        #[label("unexpected tokens here")]
+        at: SourceSpan,
+    },
+}
+
+/// Template syntax the native parser does not support. Python sees it as
+/// `NotImplementedError`.
+#[derive(Error, Debug)]
+pub enum Unimplemented {
+    /// A tag with no native parser.
+    #[error("not yet implemented: {0}")]
+    Tag(String),
+    /// A loaded tag whose compiler needs Django's full parser.
+    #[error("not yet implemented: Fully custom tag")]
+    FullyCustomTag,
+}
+
+/// What happens to a template the native parser cannot compile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fallback {
+    /// Django's parser compiles it, and Rust renders what it can.
+    Django,
+    /// No parser can compile it.
+    Unsupported,
+}
+
+impl Unimplemented {
+    pub fn fallback(&self) -> Fallback {
+        match self {
+            // Partials only parse natively from Django 6.0.
+            Self::Tag(name) if matches!(name.as_str(), "partialdef" | "partial") => {
+                Fallback::Django
+            }
+            Self::Tag(_) => Fallback::Unsupported,
+            Self::FullyCustomTag => Fallback::Django,
+        }
+    }
+}
+
+impl From<Unimplemented> for PyErr {
+    fn from(error: Unimplemented) -> Self {
+        PyNotImplementedError::new_err(error.to_string())
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum PyParseError {
+    #[error(transparent)]
+    PyErr(#[from] PyErr),
+    #[error(transparent)]
+    ParseError(#[from] ParseError),
+    #[error(transparent)]
+    Unimplemented(#[from] Unimplemented),
+}
+
+impl PyParseError {
+    pub fn try_into_parse_error(self) -> PyResult<ParseError> {
+        match self {
+            Self::ParseError(err) => Ok(err),
+            Self::PyErr(err) => Err(err),
+            Self::Unimplemented(err) => Err(err.into()),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn unwrap_parse_error(self) -> ParseError {
+        match self {
+            Self::ParseError(err) => err,
+            Self::PyErr(err) => panic!("{err:?}"),
+            Self::Unimplemented(err) => panic!("{err:?}"),
+        }
+    }
+}
+
+trait LoadLibrary {
+    fn load_library<'l, 'py>(
+        &self,
+        py: Python<'py>,
+        libraries: &'l HashMap<String, Py<PyAny>>,
+        template: TemplateString<'_>,
+    ) -> Result<&'l Bound<'py, PyAny>, ParseError>;
+}
+impl LoadLibrary for LoadToken {
+    fn load_library<'l, 'py>(
+        &self,
+        py: Python<'py>,
+        libraries: &'l HashMap<String, Py<PyAny>>,
+        template: TemplateString<'_>,
+    ) -> Result<&'l Bound<'py, PyAny>, ParseError> {
+        let library_name = template.content(self.at);
+        match libraries.get(library_name) {
+            Some(library) => Ok(library.bind(py)),
+            None => {
+                let mut libraries: Vec<_> = libraries.keys().map(String::as_str).collect();
+                libraries.sort_unstable();
+                let help = format!("Must be one of:\n{}", libraries.join("\n"));
+                Err(ParseError::MissingTagLibrary {
+                    at: self.at.into(),
+                    library: library_name.to_string(),
+                    help,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SimpleTagContext<'py> {
+    func: Bound<'py, PyAny>,
+    function_name: String,
+    takes_context: bool,
+    params: Vec<String>,
+    defaults_count: usize,
+    varargs: bool,
+    kwonly: Vec<String>,
+    kwonly_defaults: HashSet<String>,
+    varkw: bool,
+}
+
+#[derive(Clone)]
+enum TagContext<'py> {
+    Stock(stock::StockCompiler),
+    Unloaded(Bound<'py, PyAny>),
+    Simple(SimpleTagContext<'py>),
+    Inclusion {
+        context: SimpleTagContext<'py>,
+        filename: Bound<'py, PyAny>,
+    },
+    SimpleBlock {
+        end_tag_name: String,
+        context: SimpleTagContext<'py>,
+    },
+    EndSimpleBlock,
+    Opaque(Bound<'py, PyAny>),
+}
+
+type BuiltinFilterCache = [Option<Gc<Py<PyAny>>>; BuiltinFilter::COUNT];
+
+pub struct Parser<'t, 'py> {
+    py: Python<'py>,
+    template: TemplateString<'t>,
+    lexer: Lexer<'t>,
+    engine: Gc<Engine>,
+    origin: Option<&'t str>,
+    external_tags: HashMap<String, TagContext<'py>>,
+    external_filters: HashMap<String, Bound<'py, PyAny>>,
+    builtin_filters: RefCell<Option<Box<BuiltinFilterCache>>>,
+    forloop_depth: usize,
+    named_cycles: HashMap<String, Cycle>,
+    last_cycle: Option<CycleId>,
+    block_names: HashSet<String>,
+    partial_names: HashSet<String>,
+    has_extends: bool,
+    pub last_tag: Option<At>,
+    pub warning_origin: Option<String>,
+    pub emit_warnings: bool,
+    pub inspect_only: bool,
+    pub python_nodes: HashMap<usize, (usize, PythonNode)>,
+    skip_until: usize,
+    pub compiler_parser: Option<Py<PyAny>>,
+    compiler_loads: Vec<At>,
+    registered_compilers: Option<HashMap<String, Bound<'py, PyAny>>>,
+}
+
+impl<'t, 'py> Parser<'t, 'py> {
+    pub fn new(
+        py: Python<'py>,
+        template: TemplateString<'t>,
+        engine: Gc<Engine>,
+        origin: Option<&'t str>,
+    ) -> Self {
+        Self {
+            py,
+            template,
+            lexer: Lexer::new(template).with_modern_raw_blocks(engine.django_series >= (6, 2)),
+            engine,
+            origin,
+            external_tags: HashMap::new(),
+            external_filters: HashMap::new(),
+            builtin_filters: RefCell::new(None),
+            forloop_depth: 0,
+            named_cycles: HashMap::new(),
+            last_cycle: None,
+            block_names: HashSet::new(),
+            partial_names: HashSet::new(),
+            has_extends: false,
+            last_tag: None,
+            warning_origin: origin.map(str::to_string),
+            emit_warnings: true,
+            inspect_only: false,
+            python_nodes: HashMap::new(),
+            skip_until: 0,
+            compiler_parser: None,
+            compiler_loads: Vec::new(),
+            registered_compilers: None,
+        }
+    }
+
+    #[cfg(test)]
+    fn new_with_filters(
+        py: Python<'py>,
+        template: TemplateString<'t>,
+        external_filters: HashMap<String, Bound<'py, PyAny>>,
+    ) -> Self {
+        let engine: Gc<Engine> = Engine::empty().into();
+        Self {
+            py,
+            template,
+            lexer: Lexer::new(template).with_modern_raw_blocks(engine.django_series >= (6, 2)),
+            engine,
+            origin: None,
+            external_tags: HashMap::new(),
+            external_filters,
+            builtin_filters: RefCell::new(None),
+            forloop_depth: 0,
+            named_cycles: HashMap::new(),
+            last_cycle: None,
+            block_names: HashSet::new(),
+            partial_names: HashSet::new(),
+            has_extends: false,
+            last_tag: None,
+            warning_origin: None,
+            emit_warnings: true,
+            inspect_only: false,
+            python_nodes: HashMap::new(),
+            skip_until: 0,
+            compiler_parser: None,
+            compiler_loads: Vec::new(),
+            registered_compilers: None,
+        }
+    }
+
+    fn builtin_filter(&self, builtin: BuiltinFilter, at: At) -> Result<Gc<Py<PyAny>>, ParseError> {
+        static DEFAULT_FILTERS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+        let name = builtin.name();
+        if let Some(cache) = self.builtin_filters.borrow().as_ref()
+            && let Some(filter) = &cache[builtin.index()]
+        {
+            return Ok(filter.clone());
+        }
+        let lookup = (|| -> PyResult<_> {
+            let library = match self.engine.template_builtins.get(1) {
+                Some(library) => library.bind(self.py),
+                None => {
+                    DEFAULT_FILTERS.import(self.py, "django.template.defaultfilters", "register")?
+                }
+            };
+            library.getattr(intern!(self.py, "filters"))?.get_item(name)
+        })();
+        let filter = Gc::new(
+            lookup
+                .map_err(|_| ParseError::InvalidFilter {
+                    at: at.into(),
+                    filter: name.to_string(),
+                })?
+                .unbind(),
+        );
+        self.builtin_filters
+            .borrow_mut()
+            .get_or_insert_with(|| Box::new([const { None }; BuiltinFilter::COUNT]))
+            [builtin.index()] = Some(filter.clone());
+        Ok(filter)
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<TokenTree>, PyParseError> {
+        let libraries = self
+            .engine
+            .template_builtins
+            .iter()
+            .skip(3)
+            .map(|library| library.bind(self.py).clone())
+            .collect::<Vec<_>>();
+        for library in libraries {
+            self.external_filters.extend(self.get_filters(&library)?);
+            for (name, tag) in self.get_tags(&library)? {
+                self.register_tag(&name, tag)?;
+            }
+        }
+        self.parse_nodes()
+    }
+
+    fn check_extends_first(nodes: &[TokenTree], node: &TokenTree) -> Result<(), PyParseError> {
+        if matches!(node, TokenTree::Tag(Tag::Extends { .. }))
+            && nodes.iter().any(|node| !matches!(node, TokenTree::Text(_)))
+        {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "{% extends %} must be the first tag in the template.",
+                )
+                .into(),
+            );
+        }
+        Ok(())
+    }
+
+    fn parse_nodes(&mut self) -> Result<Vec<TokenTree>, PyParseError> {
+        let mut nodes = Vec::new();
+        while let Some(token) = self.lexer.next() {
+            if token.at.0 < self.skip_until {
+                continue;
+            }
+            if let Some((end, node)) = self.python_nodes.get(&token.at.0) {
+                self.skip_until = *end;
+                nodes.push(TokenTree::Tag(Tag::PythonNode(node.clone())));
+                continue;
+            }
+            let node = match token.token_type {
+                TokenType::Text => TokenTree::Text(Text::new(token.at)),
+                TokenType::Comment => continue,
+                TokenType::Variable => self.parse_variable_output(
+                    token.content(self.template),
+                    token.at,
+                    token.trimmed_at().0,
+                )?,
+                TokenType::Tag => match self.parse_tag(token.content(self.template), token.at)? {
+                    Either::Left(token_tree) => token_tree,
+                    Either::Right(end_tag) => {
+                        return Err(ParseError::UnexpectedEndTag {
+                            at: end_tag.at.into(),
+                            unexpected: end_tag.as_cow(),
+                        }
+                        .into());
+                    }
+                },
+            };
+            Self::check_extends_first(&nodes, &node)?;
+            nodes.push(node);
+        }
+        Ok(nodes)
+    }
+
+    fn parse_until(
+        &mut self,
+        until: Vec<EndTagType>,
+        start: Cow<'static, str>,
+        start_at: At,
+    ) -> Result<(Vec<TokenTree>, EndTag), PyParseError> {
+        let mut nodes = Vec::new();
+        while let Some(token) = self.lexer.next() {
+            if token.at.0 < self.skip_until {
+                continue;
+            }
+            if let Some((end, node)) = self.python_nodes.get(&token.at.0) {
+                self.skip_until = *end;
+                nodes.push(TokenTree::Tag(Tag::PythonNode(node.clone())));
+                continue;
+            }
+            let node = match token.token_type {
+                TokenType::Text => TokenTree::Text(Text::new(token.at)),
+                TokenType::Comment => continue,
+                TokenType::Variable => self.parse_variable_output(
+                    token.content(self.template),
+                    token.at,
+                    token.trimmed_at().0,
+                )?,
+                TokenType::Tag => match self.parse_tag(token.content(self.template), token.at)? {
+                    Either::Left(token_tree) => token_tree,
+                    Either::Right(end_tag) => {
+                        if until.contains(&end_tag.end) {
+                            return Ok((nodes, end_tag));
+                        }
+                        return Err(ParseError::WrongEndTag {
+                            expected: until
+                                .iter()
+                                .map(EndTagType::as_cow)
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                            unexpected: end_tag.as_cow(),
+                            at: end_tag.at.into(),
+                            start_at: start_at.into(),
+                        }
+                        .into());
+                    }
+                },
+            };
+            Self::check_extends_first(&nodes, &node)?;
+            nodes.push(node);
+        }
+        Err(ParseError::MissingEndTag {
+            start,
+            expected: until
+                .iter()
+                .map(EndTagType::as_cow)
+                .collect::<Vec<_>>()
+                .join(", ")
+                .into(),
+            at: start_at.into(),
+        }
+        .into())
+    }
+
+    fn parse_variable_output(
+        &self,
+        source: &str,
+        at: At,
+        start: usize,
+    ) -> Result<TokenTree, PyParseError> {
+        let expression = self.parse_filter_expression(source, at, start)?;
+        if self.emit_warnings && self.engine.django_series >= (6, 1) {
+            let mut root = &expression;
+            while let TagElement::Filter(filter) = root {
+                root = &filter.left;
+            }
+            if matches!(root, TagElement::Variable(_) | TagElement::ForVariable(_))
+                && source
+                    .split('|')
+                    .next()
+                    .is_some_and(|root| root.contains(".."))
+            {
+                self.py
+                    .import("django_rusty_templates.diagnostics")?
+                    .getattr("warn_double_dot")?
+                    .call1((self.template.0, at.0, self.warning_origin.as_deref()))?;
+            }
+        }
+        Ok(expression.into())
+    }
+
+    fn parse_variable_reference(&self, at: At) -> Either<Variable, ForVariable> {
+        let mut parts = self.template.content(at).split('.');
+        if self.forloop_depth == 0
+            || parts
+                .next()
+                .expect("a variable can always be split into at least one part")
+                .trim()
+                != "forloop"
+        {
+            return Either::Left(Variable::new(at));
+        }
+        let Some(part) = parts.next_back() else {
+            return Either::Right(ForVariable {
+                variant: ForVariableName::Object,
+                parent_count: 0,
+                at,
+            });
+        };
+        let variant = match part.trim() {
+            "length" => ForVariableName::Length,
+            "counter" => ForVariableName::Counter,
+            "counter0" => ForVariableName::Counter0,
+            "revcounter" => ForVariableName::RevCounter,
+            "revcounter0" => ForVariableName::RevCounter0,
+            "first" => ForVariableName::First,
+            "last" => ForVariableName::Last,
+            "parentloop" => ForVariableName::Object,
+            _ => return Either::Left(Variable::new(at)),
+        };
+        let parts: Vec<_> = parts.collect();
+        for part in &parts {
+            if part.trim() != "parentloop" {
+                return Either::Left(Variable::new(at));
+            }
+        }
+        let mut parent_count = parts.len();
+        if variant == ForVariableName::Object {
+            parent_count += 1;
+        }
+        if parent_count > self.forloop_depth {
+            return Either::Left(Variable::new(at));
+        }
+        Either::Right(ForVariable {
+            variant,
+            parent_count,
+            at,
+        })
+    }
+
+    fn parse_filter_expression(
+        &self,
+        variable: &str,
+        at: At,
+        start: usize,
+    ) -> Result<TagElement, ParseError> {
+        let trimmed = variable.trim_start();
+        let start = start + variable.len() - trimmed.len();
+        let (mut var, at, filter_lexer) = if trimmed.starts_with("_(") {
+            let mut chars = trimmed.chars();
+            chars.next();
+            chars.next();
+            let (at, byte, rest) = dtl_lexer::common::lex_translated(start, trimmed, &mut chars)?;
+            (
+                TagElement::TranslatedText(Text::new(translated_text_content_at(at))),
+                at,
+                FilterLexer::new(rest, byte)?
+                    .with_modern_syntax(self.engine.django_series >= (6, 0)),
+            )
+        } else if let Some(quote @ ('"' | '\'')) = trimmed.chars().next() {
+            let mut chars = trimmed.chars();
+            chars.next();
+            let (at, byte, rest) = dtl_lexer::common::lex_text(start, trimmed, &mut chars, quote)?;
+            (
+                TagElement::Text(Text::new(text_content_at(at))),
+                at,
+                FilterLexer::new(rest, byte)?
+                    .with_modern_syntax(self.engine.django_series >= (6, 0)),
+            )
+        } else {
+            let Some((token, at, filters)) = lex_variable_or_filter_with_syntax(
+                trimmed,
+                start,
+                self.engine.django_series >= (6, 0),
+            )?
+            else {
+                return Err(ParseError::EmptyVariable { at: at.into() });
+            };
+            let value = match token {
+                VariableToken::Variable => self.parse_variable_reference(at).into(),
+                VariableToken::Int(n) => TagElement::Int(n),
+                VariableToken::Float(f) => TagElement::Float(f),
+            };
+            (value, at, filters)
+        };
+        for filter_token in filter_lexer {
+            let filter_token = filter_token?;
+            let argument = match filter_token.argument {
+                None => None,
+                Some(ref a) => Some(a.parse(self)?),
+            };
+            let filter_at = (at.0, filter_token.at.0 - at.0 + filter_token.at.1);
+            let filter = Filter::new(self, filter_token.at, filter_at, var, argument)?;
+            var = TagElement::Filter(Box::new(filter));
+        }
+        Ok(var)
+    }
+
+    fn parse_lorem(&self, _at: At, parts: TagParts) -> Result<Lorem, PyParseError> {
+        let mut lexer = LoremLexer::new(self.template, parts);
+
+        let first = match lexer.next() {
+            None => {
+                return Ok(Lorem {
+                    count: TagElement::Int(1.into()),
+                    method: LoremMethod::Blocks,
+                    common: true,
+                });
+            }
+            Some(first) => first.map_err(ParseError::from)?,
+        };
+
+        let second = match lexer.next() {
+            None => match first.token_type {
+                LoremTokenType::Method(method) => {
+                    return Ok(Lorem {
+                        count: TagElement::Int(1.into()),
+                        method,
+                        common: true,
+                    });
+                }
+                LoremTokenType::Count(token) => {
+                    let count = token.parse(self)?;
+                    return Ok(Lorem {
+                        count,
+                        method: LoremMethod::Blocks,
+                        common: true,
+                    });
+                }
+                LoremTokenType::Random => {
+                    return Ok(Lorem {
+                        count: TagElement::Int(1.into()),
+                        method: LoremMethod::Blocks,
+                        common: false,
+                    });
+                }
+            },
+            Some(second) => second.map_err(ParseError::from)?,
+        };
+
+        let count =
+            self.parse_filter_expression(self.template.content(first.at), first.at, first.at.0)?;
+        let third = match lexer.next() {
+            None => match second.token_type {
+                LoremTokenType::Method(method) => {
+                    return Ok(Lorem {
+                        count,
+                        method,
+                        common: true,
+                    });
+                }
+                LoremTokenType::Random => {
+                    return Ok(Lorem {
+                        count,
+                        method: LoremMethod::Blocks,
+                        common: false,
+                    });
+                }
+                LoremTokenType::Count(_) => {
+                    unreachable!("Count in second position should already have errored")
+                }
+            },
+            Some(third) => third.map_err(ParseError::from)?,
+        };
+
+        if let Some(fourth) = lexer.next() {
+            fourth.map_err(ParseError::from)?;
+            unreachable!(
+                "A fourth argument should be a duplicate count, method or random, which is already an error"
+            )
+        }
+
+        match (second.token_type, third.token_type) {
+            (LoremTokenType::Method(method), LoremTokenType::Random) => Ok(Lorem {
+                count,
+                method,
+                common: false,
+            }),
+            _ => unreachable!("Should already have errored"),
+        }
+    }
+
+    fn parse_comment(&mut self, at: At, _parts: TagParts) -> Result<Comment, PyParseError> {
+        for token in self.lexer.by_ref() {
+            if token.token_type == TokenType::Tag {
+                let content = token.content(self.template).trim();
+                if content.split_whitespace().next() == Some("endcomment") {
+                    return Ok(Comment);
+                }
+            }
+        }
+
+        Err(ParseError::MissingEndTag {
+            start: "comment".into(),
+            expected: "endcomment".into(),
+            at: at.into(),
+        }
+        .into())
+    }
+
+    fn argument_spans(&self, parts: TagParts) -> Vec<At> {
+        let content = self.template.content(parts.at);
+        let mut tokens = Vec::new();
+        let mut start = None;
+        let mut quote = None;
+        let mut escaped = false;
+        for (offset, character) in content.char_indices() {
+            if let Some(end) = quote {
+                if escaped {
+                    escaped = false;
+                } else if character == '\\' {
+                    escaped = true;
+                } else if character == end {
+                    quote = None;
+                }
+            } else if matches!(character, '\'' | '"') {
+                start.get_or_insert(offset);
+                quote = Some(character);
+            } else if character.is_whitespace() {
+                if let Some(begin) = start.take() {
+                    tokens.push((parts.at.0 + begin, offset - begin));
+                }
+            } else {
+                start.get_or_insert(offset);
+            }
+        }
+        if let Some(begin) = start {
+            tokens.push((parts.at.0 + begin, content.len() - begin));
+        }
+        tokens
+    }
+
+    fn parse_now(&self, parts: TagParts) -> Result<Now, PyParseError> {
+        let version = self.py.import("django")?.getattr("VERSION")?;
+        let series = (
+            version.get_item(0)?.extract::<u8>()?,
+            version.get_item(1)?.extract::<u8>()?,
+        );
+        if series >= (6, 2) {
+            let mut tokens = self.argument_spans(parts);
+            let asvar = if tokens.len() == 3 && self.template.content(tokens[1]) == "as" {
+                let target = tokens.pop();
+                tokens.pop();
+                target
+            } else {
+                None
+            };
+            let [at] = tokens.as_slice() else {
+                return Err(
+                    crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                        "'now' statement takes one argument",
+                    )
+                    .into(),
+                );
+            };
+            let expression = self.parse_filter_expression(self.template.content(*at), *at, at.0)?;
+            let escape = !matches!(
+                expression,
+                TagElement::Text(_) | TagElement::TranslatedText(_)
+            );
+            return Ok(Now {
+                format: String::new(),
+                expression: Some(expression),
+                escape,
+                asvar,
+            });
+        }
+        let mut lexer = NowLexer::new(self.template, parts);
+
+        let format_at = lexer.lex_format().map_err(ParseError::from)?;
+        let asvar = lexer.lex_variable().map_err(ParseError::from)?;
+        lexer.extra_token().map_err(ParseError::from)?;
+        let raw = self.template.content(format_at);
+        // Django always trims the first and last character without further
+        // validation, so so do we. This will become unnecessary if Django
+        // starts supporting variables in the now tag.
+        // https://github.com/django/new-features/issues/115
+        let format = if raw.len() >= 2 {
+            &raw[1..raw.len() - 1]
+        } else {
+            ""
+        };
+
+        Ok(Now {
+            format: format.to_string(),
+            expression: None,
+            escape: false,
+            asvar,
+        })
+    }
+
+    fn parse_resetcycle(&self, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let arguments: Vec<_> = self.template.content(parts.at).split_whitespace().collect();
+        let error = |message: String| {
+            crate::template::django_rusty_templates::TemplateSyntaxError::new_err(message)
+        };
+        let id = match arguments.as_slice() {
+            [] => self
+                .last_cycle
+                .ok_or_else(|| error("No cycles in template.".to_string()))?,
+            [name] => match self.named_cycles.get(*name) {
+                Some(Cycle::Simple(cycle)) => cycle.id,
+                Some(Cycle::Named(cycle)) => cycle.cycle.id,
+                Some(Cycle::SilentNamed(cycle)) => cycle.cycle.cycle.id,
+                None => return Err(error(format!("Named cycle '{name}' does not exist.")).into()),
+            },
+            _ => {
+                return Err(
+                    error("'resetcycle' tag accepts at most one argument.".to_string()).into(),
+                );
+            }
+        };
+        Ok(TokenTree::Tag(Tag::ResetCycle(id)))
+    }
+
+    fn parse_regroup(&self, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let tokens = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ParseError::from)?;
+        let error = crate::template::django_rusty_templates::TemplateSyntaxError::new_err;
+        if tokens.len() != 5 {
+            return Err(error("'regroup' tag takes five arguments").into());
+        }
+        if self.template.content(tokens[1].at) != "by" {
+            return Err(error("second argument to 'regroup' tag must be 'by'").into());
+        }
+        if self.template.content(tokens[3].at) != "as" {
+            return Err(error("next-to-last argument to 'regroup' tag must be 'as'").into());
+        }
+        let target = tokens[0].parse(self)?;
+        let asvar = self.template.content(tokens[4].at).to_string();
+        let expression = format!("{asvar}.{}", self.template.content(tokens[2].at));
+        let builtins = pyo3::types::PyList::empty(self.py);
+        for module in [
+            "django.template.defaulttags",
+            "django.template.defaultfilters",
+            "django.template.loader_tags",
+        ] {
+            builtins.append(self.py.import(module)?.getattr("register")?)?;
+        }
+        let parser = self
+            .py
+            .import("django.template.base")?
+            .getattr("Parser")?
+            .call1((
+                pyo3::types::PyList::empty(self.py),
+                self.py.None(),
+                builtins,
+            ))?;
+        let filters = parser.getattr("filters")?;
+        for (name, filter) in &self.external_filters {
+            filters.set_item(name, filter)?;
+        }
+        let expression = Gc::new(
+            parser
+                .call_method1("compile_filter", (expression,))?
+                .unbind(),
+        );
+        Ok(TokenTree::Tag(Tag::Regroup(Regroup {
+            target,
+            expression,
+            asvar,
+        })))
+    }
+
+    fn parse_ifchanged(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let values = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .map(|token| token.map_err(ParseError::from)?.parse(self))
+            .collect::<Result<Vec<_>, _>>()?;
+        let end = EndTagType::Custom("endifchanged".to_string());
+        let (truthy, stop) = self.parse_until(
+            vec![
+                EndTagType::Else,
+                EndTagType::Custom("endifchanged".to_string()),
+            ],
+            "ifchanged".into(),
+            at,
+        )?;
+        let falsey = if stop.end == EndTagType::Else {
+            self.parse_until(vec![end], "else".into(), stop.at)?.0
+        } else {
+            Vec::new()
+        };
+        Ok(TokenTree::Tag(Tag::IfChanged {
+            id: CycleId(NEXT_CYCLE_ID.fetch_add(1, Ordering::Relaxed)),
+            values,
+            truthy,
+            falsey,
+        }))
+    }
+
+    fn parse_with(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let tokens = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ParseError::from)?;
+        let mut assignments = Vec::new();
+        if !tokens.is_empty() && tokens.iter().all(|token| token.kwarg.is_some()) {
+            for token in &tokens {
+                let key = token.kwarg.expect("keyword was checked above");
+                assignments.push((self.template.content(key).to_string(), token.parse(self)?));
+            }
+        } else {
+            let mut remaining = tokens.as_slice();
+            while let [value, as_token, name, rest @ ..] = remaining {
+                if self.template.content(as_token.at) != "as" || name.kwarg.is_some() {
+                    break;
+                }
+                assignments.push((
+                    self.template.content(name.at).to_string(),
+                    value.parse(self)?,
+                ));
+                remaining = rest;
+                if let [and, rest @ ..] = remaining
+                    && self.template.content(and.at) == "and"
+                {
+                    remaining = rest;
+                } else {
+                    break;
+                }
+            }
+            if !remaining.is_empty() {
+                assignments.clear();
+            }
+        }
+        if assignments.is_empty() {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "'with' expected at least one variable assignment",
+                )
+                .into(),
+            );
+        }
+        let (nodes, _) = self.parse_until(
+            vec![EndTagType::Custom("endwith".to_string())],
+            "with".into(),
+            at,
+        )?;
+        Ok(TokenTree::Tag(Tag::With { assignments, nodes }))
+    }
+
+    fn parse_filter_block(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        // The synthetic numeric input aligns every real filter span with the source.
+        let expression = format!("0|{}", self.template.content(parts.at));
+        let (_, _, lexer) = lex_variable_or_filter_with_syntax(
+            &expression,
+            parts.at.0 - 2,
+            self.engine.django_series >= (6, 0),
+        )
+        .map_err(ParseError::from)?
+        .expect("the synthetic input is nonempty");
+        let mut filters = Vec::new();
+        for token in lexer {
+            let token = token.map_err(ParseError::from)?;
+            let name = self.template.content(token.at);
+            if matches!(name, "safe" | "escape") {
+                return Err(
+                    crate::template::django_rusty_templates::TemplateSyntaxError::new_err(format!(
+                        r#""{name}" filter is not permitted. Use the "autoescape" tag instead."#
+                    ))
+                    .into(),
+                );
+            }
+            let right = token
+                .argument
+                .as_ref()
+                .map(|argument| argument.parse(self))
+                .transpose()?;
+            filters.push(
+                Filter::new(
+                    self,
+                    token.at,
+                    token.at,
+                    TagElement::Int(BigInt::ZERO),
+                    right,
+                )?
+                .filter,
+            );
+        }
+        let (nodes, _) = self.parse_until(
+            vec![EndTagType::Custom("endfilter".to_string())],
+            "filter".into(),
+            at,
+        )?;
+        Ok(TokenTree::Tag(Tag::FilterBlock { filters, nodes }))
+    }
+
+    fn parse_widthratio(&self, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let mut tokens = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ParseError::from)?;
+        let asvar =
+            if tokens.len() >= 2 && self.template.content(tokens[tokens.len() - 2].at) == "as" {
+                extract_as_variable(&mut tokens, &self.template)?
+            } else {
+                None
+            };
+        if tokens.len() != 3 || tokens.iter().any(|token| token.kwarg.is_some()) {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "widthratio takes three arguments",
+                )
+                .into(),
+            );
+        }
+        let args = tokens
+            .iter()
+            .map(|token| token.parse(self))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(TokenTree::Tag(Tag::WidthRatio { args, asvar }))
+    }
+
+    fn parse_firstof(&self, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let mut tokens = TagElementKwargLexer::new(self.template, parts.clone())
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ParseError::from)?;
+
+        let mut asvar = None;
+        if tokens.len() >= 2 {
+            let as_at = tokens[tokens.len() - 2].at;
+            if self.template.content(as_at) == "as" {
+                asvar = extract_as_variable(&mut tokens, &self.template)?;
+            }
+        }
+
+        if tokens.is_empty() && asvar.is_none() {
+            return Err(ParseError::MissingArgument {
+                at: parts.at.into(),
+            }
+            .into());
+        }
+
+        let mut vars = Vec::with_capacity(tokens.len());
+        for token in tokens {
+            vars.push(token.parse(self)?);
+        }
+
+        Ok(TokenTree::Tag(Tag::FirstOf(FirstOf { vars, asvar })))
+    }
+
+    fn parse_cycle(&mut self, parts: TagParts) -> Result<Cycle, ParseError> {
+        let at = parts.at;
+        let tokens = TagElementLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tokens = match tokens.as_slice() {
+            [] => return Err(ParseError::MissingCycleArguments { at: at.into() }),
+
+            [reference] if reference.token_type == TagElementTokenType::Variable => {
+                let name_text = self.template.content(reference.at);
+
+                return self.named_cycles.get(name_text).cloned().ok_or_else(|| {
+                    ParseError::UnknownNamedCycle {
+                        name: name_text.to_string(),
+                        at: reference.at.into(),
+                    }
+                });
+            }
+
+            [argument] => {
+                return Err(ParseError::MissingCycleArguments {
+                    at: argument.at.into(),
+                });
+            }
+
+            tokens => tokens,
+        };
+
+        let (tokens, name_at, silent) = match tokens {
+            [values @ .., as_token, name_token, flag_token]
+                if values.len() >= 2 && self.template.content(as_token.at) == "as" =>
+            {
+                let flag = self.template.content(flag_token.at);
+
+                if flag != "silent" {
+                    return Err(ParseError::InvalidCycleFlag {
+                        flag: flag.to_string(),
+                        at: flag_token.at.into(),
+                    });
+                }
+
+                (values, Some(name_token.at), true)
+            }
+
+            [values @ .., as_token, name_token]
+                if values.len() >= 2 && self.template.content(as_token.at) == "as" =>
+            {
+                (values, Some(name_token.at), false)
+            }
+
+            values => (values, None, false),
+        };
+
+        let values = tokens
+            .iter()
+            .map(|token| {
+                Ok(CycleValue {
+                    value: token.parse(self)?,
+                    at: token.at,
+                })
+            })
+            .collect::<Result<Vec<_>, ParseError>>()?;
+
+        let id = CycleId(NEXT_CYCLE_ID.fetch_add(1, Ordering::Relaxed));
+        self.last_cycle = Some(id);
+        let simple_cycle = SimpleCycle { id, values };
+
+        let Some(name_at) = name_at else {
+            return Ok(Cycle::Simple(simple_cycle));
+        };
+        let asvar = self.template.content(name_at).to_string();
+        let named_cycle = NamedCycle {
+            cycle: simple_cycle,
+            asvar: asvar.clone(),
+        };
+        let cycle = if silent {
+            Cycle::SilentNamed(SilentNamedCycle { cycle: named_cycle })
+        } else {
+            Cycle::Named(named_cycle)
+        };
+
+        self.named_cycles.insert(asvar, cycle.clone());
+
+        Ok(cycle)
+    }
+
+    #[expect(clippy::too_many_lines, reason = "one match arm per builtin tag")]
+    fn parse_tag(
+        &mut self,
+        tag: &'t str,
+        at: At,
+    ) -> Result<Either<TokenTree, EndTag>, PyParseError> {
+        self.last_tag = Some(at);
+        let tag = lex_tag(tag, at.0 + START_TAG_LEN).map_err(ParseError::from)?;
+
+        Ok(match tag.content(self.template) {
+            "block" => Either::Left(self.parse_block(at, tag.parts)?),
+            "extends" => Either::Left(self.parse_extends(at, tag.parts)?),
+            "endblock" => Either::Right(EndTag {
+                end: EndTagType::Custom("endblock".to_string()),
+                at,
+                parts: Some(tag.parts),
+            }),
+            "resetcycle" => Either::Left(self.parse_resetcycle(tag.parts)?),
+            "with" => Either::Left(self.parse_with(at, tag.parts)?),
+            "filter" => Either::Left(self.parse_filter_block(at, tag.parts)?),
+            "debug" => Either::Left(TokenTree::Tag(Tag::Debug)),
+            "spaceless" | "verbatim" => {
+                let name = tag.content(self.template);
+                let end = if name == "verbatim" {
+                    EndTagType::Verbatim
+                } else {
+                    EndTagType::Custom("endspaceless".to_string())
+                };
+                let (nodes, _) = self.parse_until(vec![end], name.to_string().into(), at)?;
+                Either::Left(TokenTree::Tag(if name == "verbatim" {
+                    Tag::Verbatim(nodes)
+                } else {
+                    Tag::Spaceless(nodes)
+                }))
+            }
+            name @ ("endwith" | "endfilter" | "endspaceless") => Either::Right(EndTag {
+                end: EndTagType::Custom(name.to_string()),
+                at,
+                parts: None,
+            }),
+            "csp_nonce_attr" if self.engine.django_series >= (6, 1) => {
+                let compile = self
+                    .py
+                    .import("django.template.defaulttags")?
+                    .getattr("register")?
+                    .getattr("tags")?
+                    .get_item("csp_nonce_attr")?;
+                self.load_tag(at, "csp_nonce_attr", &compile)?;
+                let Some(TagContext::Simple(context)) = self.external_tags.get("csp_nonce_attr")
+                else {
+                    unreachable!("csp_nonce_attr is a simple tag")
+                };
+                Either::Left(self.parse_simple_tag(context, at, tag.parts)?)
+            }
+            "querystring" => {
+                let compile = self
+                    .py
+                    .import("django.template.defaulttags")?
+                    .getattr("register")?
+                    .getattr("tags")?
+                    .get_item("querystring")?;
+                self.load_tag(at, "querystring", &compile)?;
+                let Some(TagContext::Simple(context)) = self.external_tags.get("querystring")
+                else {
+                    unreachable!("querystring is a simple tag")
+                };
+                let TokenTree::Tag(Tag::SimpleTag(simple)) =
+                    self.parse_simple_tag(context, at, tag.parts)?
+                else {
+                    unreachable!("querystring parser returns a simple tag")
+                };
+                Either::Left(TokenTree::Tag(Tag::QueryString(simple)))
+            }
+            "regroup" => Either::Left(self.parse_regroup(tag.parts)?),
+            "ifchanged" => Either::Left(self.parse_ifchanged(at, tag.parts)?),
+            "endifchanged" => Either::Right(EndTag {
+                end: EndTagType::Custom("endifchanged".to_string()),
+                at,
+                parts: None,
+            }),
+            "widthratio" => Either::Left(self.parse_widthratio(tag.parts)?),
+            "url" => Either::Left(self.parse_url(at, tag.parts)?),
+            "firstof" => Either::Left(self.parse_firstof(tag.parts)?),
+            "csrf_token" => Either::Left(TokenTree::Tag(Tag::CsrfToken(CsrfToken))),
+            "load" => Either::Left(self.parse_load(at, tag.parts)?),
+            "autoescape" => Either::Left(self.parse_autoescape(at, tag.parts)?),
+            "endautoescape" => Either::Right(EndTag {
+                end: EndTagType::Autoescape,
+                at,
+                parts: None,
+            }),
+            "endverbatim" => Either::Right(EndTag {
+                end: EndTagType::Verbatim,
+                at,
+                parts: None,
+            }),
+            "if" => Either::Left(self.parse_if(at, tag.parts, "if")?),
+            "elif" => Either::Right(EndTag {
+                end: EndTagType::Elif,
+                at,
+                parts: Some(tag.parts),
+            }),
+            "else" => {
+                if !self.template.content(tag.parts.at).trim().is_empty() {
+                    return Err(
+                        crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                            "Malformed template tag",
+                        )
+                        .into(),
+                    );
+                }
+                Either::Right(EndTag {
+                    end: EndTagType::Else,
+                    at,
+                    parts: None,
+                })
+            }
+            "endif" => Either::Right(EndTag {
+                end: EndTagType::EndIf,
+                at,
+                parts: None,
+            }),
+            "for" => Either::Left(self.parse_for(at, tag.parts)?),
+            "empty" => Either::Right(EndTag {
+                end: EndTagType::Empty,
+                at,
+                parts: None,
+            }),
+            "endfor" => Either::Right(EndTag {
+                end: EndTagType::EndFor,
+                at,
+                parts: None,
+            }),
+            "include" => Either::Left(self.parse_include(at, tag.parts)?),
+            "lorem" => Either::Left(TokenTree::Tag(Tag::Lorem(self.parse_lorem(at, tag.parts)?))),
+            "comment" => Either::Left(TokenTree::Tag(Tag::Comment(
+                self.parse_comment(at, tag.parts)?,
+            ))),
+            "partialdef" if self.engine.django_series >= (6, 0) => {
+                Either::Left(self.parse_partialdef(at, tag.parts)?)
+            }
+            "partial" if self.engine.django_series >= (6, 0) => {
+                let tokens = self.argument_spans(tag.parts);
+                let [name] = tokens.as_slice() else {
+                    return Err(
+                        crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                            "'partial' tag requires a single argument",
+                        )
+                        .into(),
+                    );
+                };
+                Either::Left(TokenTree::Tag(Tag::Partial {
+                    name: self.template.content(*name).to_string(),
+                    at,
+                }))
+            }
+            "endpartialdef" if self.engine.django_series >= (6, 0) => Either::Right(EndTag {
+                end: EndTagType::Custom("endpartialdef".to_string()),
+                at,
+                parts: Some(tag.parts),
+            }),
+            name
+            @ ("endcache" | "endlocalize" | "endlocaltime" | "endtimezone" | "endlanguage") => {
+                Either::Right(EndTag {
+                    end: EndTagType::Custom(name.to_string()),
+                    at,
+                    parts: None,
+                })
+            }
+            "now" => Either::Left(TokenTree::Tag(Tag::Now(self.parse_now(tag.parts)?))),
+            "templatetag" => Either::Left(TokenTree::Tag(Tag::TemplateTag(
+                lex_templatetag(self.template, tag.parts).map_err(ParseError::from)?,
+            ))),
+            "cycle" => Either::Left(TokenTree::Tag(Tag::Cycle(self.parse_cycle(tag.parts)?))),
+            tag_name => {
+                if let Some(TagContext::Unloaded(tag)) = self.external_tags.get(tag_name).cloned() {
+                    self.load_tag(at, tag_name, &tag)?;
+                }
+                match self.external_tags.get(tag_name) {
+                    Some(TagContext::Opaque(compiler)) => {
+                        let compiler = compiler.clone();
+                        Either::Left(self.parse_opaque(at, &compiler)?)
+                    }
+                    Some(TagContext::Stock(kind)) => {
+                        let kind = *kind;
+                        Either::Left(self.parse_stock(at, tag_name, kind, tag.parts)?)
+                    }
+                    Some(TagContext::Simple(context)) => {
+                        Either::Left(self.parse_simple_tag(context, at, tag.parts)?)
+                    }
+                    Some(TagContext::Inclusion { context, filename }) => {
+                        let TokenTree::Tag(Tag::SimpleTag(call)) =
+                            self.parse_simple_tag(context, at, tag.parts)?
+                        else {
+                            unreachable!("helper parser returns a simple tag")
+                        };
+                        if call.target_var.is_some() {
+                            return Err(crate::template::django_rusty_templates::TemplateSyntaxError::new_err(format!("'{tag_name}' received too many positional arguments")).into());
+                        }
+                        Either::Left(TokenTree::Tag(Tag::InclusionTag(InclusionTag {
+                            id: CycleId(NEXT_CYCLE_ID.fetch_add(1, Ordering::Relaxed)),
+                            call,
+                            filename: Gc::new(filename.clone().unbind()),
+                            engine: self.engine.clone(),
+                        })))
+                    }
+                    Some(TagContext::SimpleBlock {
+                        context,
+                        end_tag_name,
+                    }) => Either::Left(self.parse_simple_block_tag(
+                        context.clone(),
+                        tag_name.to_string(),
+                        end_tag_name.clone(),
+                        at,
+                        tag.parts,
+                    )?),
+                    Some(TagContext::EndSimpleBlock) => Either::Right(EndTag {
+                        end: EndTagType::Custom(tag_name.to_string()),
+                        at,
+                        parts: None,
+                    }),
+                    Some(TagContext::Unloaded(_)) => unreachable!("tag was loaded above"),
+                    None => return Err(Unimplemented::Tag(tag_name.to_string()).into()),
+                }
+            }
+        })
+    }
+
+    fn parse_partialdef(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        use crate::template::django_rusty_templates::TemplateSyntaxError;
+        let tokens = self.argument_spans(parts);
+        let (name, inline) = match tokens.as_slice() {
+            [] => return Err(TemplateSyntaxError::new_err("'partialdef' tag requires a name").into()),
+            [name] => (self.template.content(*name).to_string(), false),
+            [name, inline] if self.template.content(*inline) == "inline" => (self.template.content(*name).to_string(), true),
+            [_, _] => return Err(TemplateSyntaxError::new_err("The 'inline' argument does not have any parameters; either use 'inline' or remove it completely.").into()),
+            _ => return Err(TemplateSyntaxError::new_err("'partialdef' tag takes at most 2 arguments").into()),
+        };
+        let (nodes, end) = self.parse_until(
+            vec![EndTagType::Custom("endpartialdef".to_string())],
+            Cow::Borrowed("partialdef"),
+            at,
+        )?;
+        let close = self.template.content((end.at.0 + 2, end.at.1 - 4)).trim();
+        if close != "endpartialdef" && close != format!("endpartialdef {name}") {
+            return Err(TemplateSyntaxError::new_err("Invalid endpartialdef name").into());
+        }
+        if !self.partial_names.insert(name.clone()) {
+            return Err(TemplateSyntaxError::new_err(format!(
+                "Partial '{name}' is already defined in the '{}' template.",
+                self.warning_origin.as_deref().unwrap_or("<unknown source>")
+            ))
+            .into());
+        }
+        Ok(TokenTree::Tag(Tag::PartialDef {
+            definition: PartialDefinition {
+                name,
+                nodes: Gc::new(nodes),
+                span: (at.0, end.at.0 + end.at.1 - at.0),
+            },
+            inline,
+        }))
+    }
+
+    fn parse_block(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let names: Vec<_> = self.template.content(parts.at).split_whitespace().collect();
+        let [name] = names.as_slice() else {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "'block' tag takes only one argument",
+                )
+                .into(),
+            );
+        };
+        let name = (*name).to_string();
+        if !self.block_names.insert(name.clone()) {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(format!(
+                    "'block' tag with name '{name}' appears more than once"
+                ))
+                .into(),
+            );
+        }
+        let (nodes, end) = self.parse_until(
+            vec![EndTagType::Custom("endblock".to_string())],
+            "block".into(),
+            at,
+        )?;
+        if let Some(parts) = end.parts {
+            let end_source = self.template.content(end.at);
+            let end_source = end_source[START_TAG_LEN..end_source.len() - START_TAG_LEN].trim();
+            let end_name = self.template.content(parts.at).trim();
+            if end_source != "endblock" && end_source != format!("endblock {name}") {
+                return Err(
+                    crate::template::django_rusty_templates::TemplateSyntaxError::new_err(format!(
+                        "Invalid endblock name '{end_name}' for block '{name}'"
+                    ))
+                    .into(),
+                );
+            }
+        }
+        Ok(TokenTree::Tag(Tag::Block {
+            name,
+            nodes: Gc::new(nodes),
+        }))
+    }
+
+    fn parse_extends(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let expression = self.template.content(parts.at);
+        if expression.is_empty() {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "'extends' takes one argument",
+                )
+                .into(),
+            );
+        }
+        if self.has_extends {
+            return Err(
+                crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "'extends' cannot appear more than once in the same template",
+                )
+                .into(),
+            );
+        }
+        self.has_extends = true;
+        let parent = self.parse_filter_expression(expression, parts.at, parts.at.0)?;
+        let parent_token = expression.to_string();
+        let relative = if let TagElement::Text(text) = &parent {
+            let name = self.template.content(text.at);
+            if name.starts_with("./") || name.starts_with("../") {
+                Some(
+                    self.py
+                        .import("django.template.loader_tags")?
+                        .getattr("construct_relative_path")?
+                        .call1((self.origin, name))?
+                        .extract::<String>()?,
+                )
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let nodes = self.parse_nodes()?;
+        Ok(TokenTree::Tag(Tag::Extends {
+            at,
+            parent,
+            parent_token,
+            relative,
+            nodes,
+        }))
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn parse_custom_tag_parts(
+        &self,
+        parts: TagParts,
+        context: &SimpleTagContext,
+    ) -> Result<(Vec<TagElement>, Vec<(String, TagElement)>, Option<String>), ParseError> {
+        let mut args = Vec::new();
+        let mut kwargs = Vec::new();
+
+        let parts_at = parts.at;
+        let mut prev_at = parts.at;
+        let mut seen_kwargs: HashMap<&str, At> = HashMap::new();
+        let params_count = context.params.len();
+        let mut tokens = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0))
+            .collect::<Result<Vec<_>, _>>()?;
+        let asvar = extract_as_variable(&mut tokens, &self.template)?;
+        for (index, token) in tokens.iter().enumerate() {
+            match token.kwarg {
+                None => {
+                    if !seen_kwargs.is_empty() {
+                        return Err(ParseError::PositionalAfterKeyword {
+                            at: token.at.into(),
+                            after: prev_at.into(),
+                        });
+                    }
+                    if !context.varargs && index == params_count {
+                        return Err(ParseError::TooManyPositionalArguments {
+                            at: token.at.into(),
+                        });
+                    }
+                    let element = token.parse(self)?;
+                    args.push(element);
+                    prev_at = token.at;
+                }
+                Some(name_at) => {
+                    let kwarg_at = (name_at.0, name_at.1 + 1 + token.at.1);
+                    let name = self.template.content(name_at);
+                    if !context.varkw
+                        && !context.params.iter().any(|a| a == name)
+                        && !context.kwonly.iter().any(|kw| kw == name)
+                    {
+                        return Err(ParseError::UnexpectedKeywordArgument {
+                            at: kwarg_at.into(),
+                        });
+                    } else if let Some(&first_at) = seen_kwargs.get(name) {
+                        return Err(ParseError::DuplicateKeywordArgument {
+                            tag_name: context.function_name.clone(),
+                            kwarg_name: name.to_string(),
+                            first_at: first_at.into(),
+                            second_at: kwarg_at.into(),
+                        });
+                    }
+                    let element = token.parse(self)?;
+                    seen_kwargs.insert(name, kwarg_at);
+                    kwargs.push((name.to_string(), element));
+                    prev_at = kwarg_at;
+                }
+            }
+        }
+
+        let args_count = args.len();
+        let mut missing_params = Vec::new();
+        if params_count > args_count + context.defaults_count {
+            for param in &context.params[args_count..params_count - context.defaults_count] {
+                if !seen_kwargs.contains_key(param.as_str()) {
+                    missing_params.push(param.clone());
+                }
+            }
+        }
+        for kwarg in &context.kwonly {
+            if !seen_kwargs.contains_key(kwarg.as_str())
+                && !context.kwonly_defaults.contains(kwarg.as_str())
+            {
+                missing_params.push(kwarg.clone());
+            }
+        }
+        if !missing_params.is_empty() {
+            let missing = missing_params
+                .iter()
+                .map(|p| format!("'{p}'"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(ParseError::MissingArguments {
+                tag_name: context.function_name.clone(),
+                at: parts_at.into(),
+                missing,
+            });
+        }
+        Ok((args, kwargs, asvar))
+    }
+
+    fn parse_simple_tag(
+        &self,
+        context: &SimpleTagContext,
+        at: At,
+        parts: TagParts,
+    ) -> Result<TokenTree, PyParseError> {
+        let (args, kwargs, target_var) = self.parse_custom_tag_parts(parts, context)?;
+        let tag = SimpleTag {
+            func: context.func.clone().unbind().into(),
+            at,
+            takes_context: context.takes_context,
+            args,
+            kwargs,
+            target_var,
+        };
+        Ok(TokenTree::Tag(Tag::SimpleTag(tag)))
+    }
+
+    fn parse_simple_block_tag(
+        &mut self,
+        context: SimpleTagContext,
+        tag_name: String,
+        end_tag_name: String,
+        at: At,
+        parts: TagParts,
+    ) -> Result<TokenTree, PyParseError> {
+        let (args, kwargs, target_var) = self.parse_custom_tag_parts(parts, &context)?;
+        let (nodes, _) = self.parse_until(
+            vec![EndTagType::Custom(end_tag_name)],
+            Cow::Owned(tag_name),
+            at,
+        )?;
+        let tag = SimpleBlockTag {
+            func: context.func.clone().unbind().into(),
+            nodes,
+            at,
+            takes_context: context.takes_context,
+            args,
+            kwargs,
+            target_var,
+        };
+        Ok(TokenTree::Tag(Tag::SimpleBlockTag(tag)))
+    }
+
+    fn parse_load(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        if let Some(parser) = &self.compiler_parser {
+            parser
+                .bind(self.py)
+                .call_method1("load", (self.template.content(at),))?;
+        }
+        self.compiler_loads.push(at);
+        let tokens: Vec<_> = LoadLexer::new(self.template, parts).collect();
+        let mut rev = tokens.iter().rev();
+        if let (Some(last), Some(prev)) = (rev.next(), rev.next())
+            && tokens.len() > 2
+            && self.template.content(prev.at) == "from"
+        {
+            let library = last.load_library(self.py, &self.engine.libraries, self.template)?;
+            let filters = self.get_filters(library)?;
+            let tags = self.get_tags(library)?;
+            for token in rev {
+                let content = self.template.content(token.at);
+                if let Some(filter) = filters.get(content) {
+                    self.external_filters
+                        .insert(content.to_string(), filter.clone());
+                } else if let Some(tag) = tags.get(content) {
+                    self.register_tag(content, tag.clone())?;
+                } else {
+                    return Err(ParseError::MissingFilterTag {
+                        library: self.template.content(last.at).to_string(),
+                        library_at: last.at.into(),
+                        tag: content.to_string(),
+                        tag_at: token.at.into(),
+                    }
+                    .into());
+                }
+            }
+            return Ok(TokenTree::Tag(Tag::Load));
+        }
+        for token in tokens {
+            let library = token.load_library(self.py, &self.engine.libraries, self.template)?;
+            let filters = self.get_filters(library)?;
+            let tags = self.get_tags(library)?;
+            self.external_filters.extend(filters);
+            for (name, tag) in tags {
+                self.register_tag(&name, tag)?;
+            }
+        }
+        Ok(TokenTree::Tag(Tag::Load))
+    }
+
+    fn register_opaque(
+        &mut self,
+        name: &str,
+        compiler: &Bound<'py, PyAny>,
+    ) -> Result<(), PyParseError> {
+        // These tags share parse-time registries with arbitrary compilers. Keep
+        // that entire template on the compatibility path before invoking one.
+        let shared_state = Lexer::new(self.template).any(|token| {
+            token.token_type == TokenType::Tag
+                && token
+                    .content(self.template)
+                    .split_whitespace()
+                    .next()
+                    .is_some_and(|name| {
+                        matches!(
+                            name,
+                            "extends" | "block" | "cycle" | "resetcycle" | "partialdef" | "partial"
+                        )
+                    })
+        });
+        let mixed_compilers = self
+            .engine
+            .libraries
+            .values()
+            .chain(self.engine.template_builtins.iter().skip(3))
+            .any(|library| {
+                let Ok(tags) = self.get_tags(library.bind(self.py)) else {
+                    return true;
+                };
+                tags.iter().any(|(name, candidate)| {
+                    if stock::compiler(self.py, candidate).is_ok_and(|kind| kind.is_some()) {
+                        return false;
+                    }
+                    let generated = candidate
+                        .getattr("__closure__")
+                        .is_ok_and(|closure| !closure.is_none())
+                        && candidate.getattr("__code__").is_ok_and(|code| {
+                            code.getattr("co_name").is_ok_and(|name| {
+                                name.extract::<String>()
+                                    .is_ok_and(|name| name == "compile_func")
+                            }) && code.getattr("co_freevars").is_ok_and(|names| {
+                                names.extract::<Vec<String>>().is_ok_and(|names| {
+                                    [
+                                        "defaults",
+                                        "func",
+                                        "function_name",
+                                        "kwonly",
+                                        "kwonly_defaults",
+                                        "params",
+                                        "takes_context",
+                                        "varargs",
+                                        "varkw",
+                                    ]
+                                    .iter()
+                                    .all(|required| names.iter().any(|name| name == required))
+                                })
+                            })
+                        });
+                    let full_parser = candidate
+                        .getattr("rusty_requires_full_parser")
+                        .is_ok_and(|value| value.is_truthy().unwrap_or(true));
+                    !generated
+                        && (full_parser
+                            || !candidate
+                                .getattr("rusty_isolated_compiler")
+                                .is_ok_and(|value| value.is_truthy().unwrap_or(false)))
+                        && Lexer::new(self.template).any(|token| {
+                            token.token_type == TokenType::Tag
+                                && token.content(self.template).split_whitespace().next()
+                                    == Some(name.as_str())
+                        })
+                })
+            });
+        if self.inspect_only
+            || mixed_compilers
+            || !compiler
+                .getattr("rusty_isolated_compiler")
+                .is_ok_and(|value| value.is_truthy().unwrap_or(false))
+            || shared_state
+            || compiler
+                .getattr("rusty_requires_full_parser")
+                .is_ok_and(|value| value.is_truthy().unwrap_or(true))
+        {
+            if self.compiler_parser.is_some() {
+                let error = crate::template::django_rusty_templates::TemplateSyntaxError::new_err(
+                    "An isolated compiler registered a compiler requiring the full parser. Leave the registering compiler unannotated or opt its replacement in.",
+                );
+                error
+                    .value(self.py)
+                    .setattr("_rusty_compiler_error", true)?;
+                return Err(error.into());
+            }
+            return Err(Unimplemented::FullyCustomTag.into());
+        }
+        self.external_tags
+            .insert(name.to_string(), TagContext::Opaque(compiler.clone()));
+        Ok(())
+    }
+
+    fn parse_opaque(
+        &mut self,
+        at: At,
+        compiler: &Bound<'py, PyAny>,
+    ) -> Result<TokenTree, PyParseError> {
+        if self.compiler_parser.is_none() {
+            let parser = self
+                .py
+                .import("django_rusty_templates.compiler")?
+                .getattr("CompilerParser")?
+                .call1((
+                    self.template.0,
+                    crate::template::django_rusty_templates::PyEngine {
+                        engine: self.engine.clone(),
+                    },
+                    self.warning_origin.as_deref(),
+                    self.origin,
+                ))?;
+            for span in &self.compiler_loads {
+                parser.call_method1("load", (self.template.content(*span),))?;
+            }
+            // Ordinary native templates never need a second tag registry.
+            // Snapshot only once, before an opaque compiler can replace tags.
+            self.registered_compilers = Some(self.get_tags(&parser)?);
+            self.compiler_parser = Some(parser.unbind());
+        }
+        let parser = self
+            .compiler_parser
+            .as_ref()
+            .expect("compiler parser initialized")
+            .bind(self.py);
+        let (node, end): (Py<PyAny>, usize) = parser
+            .call_method1("compile", (at.0, compiler))?
+            .extract()?;
+        let filters = self.get_filters(parser)?;
+        let tags = self.get_tags(parser)?;
+        self.external_filters.extend(filters);
+        for (name, tag) in tags {
+            if self
+                .registered_compilers
+                .as_ref()
+                .and_then(|registered| registered.get(&name))
+                .is_none_or(|registered| !registered.is(&tag))
+            {
+                self.register_tag(&name, tag)?;
+            }
+        }
+        self.skip_until = end;
+        Ok(TokenTree::Tag(Tag::PythonNode(PythonNode(Gc::new(node)))))
+    }
+
+    fn register_tag(&mut self, name: &str, tag: Bound<'py, PyAny>) -> PyResult<()> {
+        if let Some(registered) = &mut self.registered_compilers {
+            registered.insert(name.to_string(), tag.clone());
+        }
+        // End markers are recognized even without a matching opening tag. Reading
+        // their names does not validate or compile the tag's callable.
+        if let Ok(code) = tag.getattr("__code__") {
+            let names: Vec<String> = code.getattr("co_freevars")?.extract()?;
+            if code.getattr("co_name")?.extract::<String>()? == "compile_func"
+                && names.iter().any(|name| name == "func")
+                && let Some(index) = names.iter().position(|name| name == "end_name")
+            {
+                let end_name: String = tag
+                    .getattr("__closure__")?
+                    .get_item(index)?
+                    .getattr("cell_contents")?
+                    .extract()?;
+                self.external_tags
+                    .insert(end_name, TagContext::EndSimpleBlock);
+            }
+        }
+        self.external_tags
+            .insert(name.to_string(), TagContext::Unloaded(tag));
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn load_tag(
+        &mut self,
+        at: At,
+        name: &str,
+        tag: &Bound<'py, PyAny>,
+    ) -> Result<(), PyParseError> {
+        if let Some(kind) = stock::compiler(self.py, tag)? {
+            self.external_tags
+                .insert(name.to_string(), TagContext::Stock(kind));
+            return Ok(());
+        }
+        let Ok(closure) = tag.getattr("__closure__") else {
+            return self.register_opaque(name, tag);
+        };
+        let tag = if closure.is_none() {
+            return self.register_opaque(name, tag);
+        } else {
+            let tag_code = tag.getattr("__code__")?;
+            let closure_names: Vec<String> = tag_code.getattr("co_freevars")?.extract()?;
+            // Only Django's generated helpers have the closure layout below.
+            // Arbitrary compilers, including closures and callable objects, use
+            // the compatible Python parser instead of indexing assumed cells.
+            if tag_code.getattr("co_name")?.extract::<String>()? != "compile_func"
+                || ![
+                    "defaults",
+                    "func",
+                    "function_name",
+                    "kwonly",
+                    "kwonly_defaults",
+                    "params",
+                    "takes_context",
+                    "varargs",
+                    "varkw",
+                ]
+                .iter()
+                .all(|required| closure_names.iter().any(|name| name == required))
+            {
+                return self.register_opaque(name, tag);
+            }
+            let closure_values = closure
+                .try_iter()?
+                .map(|v| v?.getattr("cell_contents"))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            // Django 6.1 validates and removes implicit arguments at registration.
+            let normalized_params = self.engine.django_series >= (6, 1);
+            if closure_names.contains(&"filename".to_string()) {
+                let cell = |name: &str| -> PyResult<&Bound<'py, PyAny>> {
+                    let index = closure_names
+                        .iter()
+                        .position(|key| key == name)
+                        .ok_or_else(|| {
+                            pyo3::exceptions::PyValueError::new_err(format!(
+                                "Missing inclusion tag closure cell: {name}"
+                            ))
+                        })?;
+                    Ok(&closure_values[index])
+                };
+                let takes_context = cell("takes_context")?.is_truthy()?;
+                let function_name: String = cell("function_name")?.extract()?;
+                let mut params: Vec<String> = cell("params")?.extract()?;
+                if takes_context && !normalized_params {
+                    if params.first().is_none_or(|name| name != "context") {
+                        return Err(ParseError::RequiresContext {
+                            name: function_name,
+                            at: at.into(),
+                        }
+                        .into());
+                    }
+                    params.remove(0);
+                }
+                TagContext::Inclusion {
+                    filename: cell("filename")?.clone(),
+                    context: SimpleTagContext {
+                        func: cell("func")?.clone(),
+                        function_name,
+                        takes_context,
+                        params,
+                        defaults_count: get_defaults_count(cell("defaults")?)?,
+                        varargs: !cell("varargs")?.is_none(),
+                        kwonly: cell("kwonly")?.extract()?,
+                        kwonly_defaults: get_kwonly_defaults(cell("kwonly_defaults")?)?,
+                        varkw: !cell("varkw")?.is_none(),
+                    },
+                }
+            } else if closure_names.contains(&"end_name".to_string()) {
+                let defaults_count = get_defaults_count(&closure_values[0])?;
+                let end_tag_name: String = closure_values[1].extract()?;
+                let func = closure_values[2].clone();
+                let function_name = closure_values[3].extract()?;
+                let kwonly = closure_values[4].extract()?;
+                let kwonly_defaults = get_kwonly_defaults(&closure_values[5])?;
+                let params: Vec<String> = closure_values[6].extract()?;
+                let takes_context = closure_values[7].is_truthy()?;
+                let varargs = !closure_values[8].is_none();
+                let varkw = !closure_values[9].is_none();
+
+                let params = if normalized_params {
+                    params
+                } else {
+                    match takes_context {
+                        false => {
+                            if let Some(param) = params.first()
+                                && param == "content"
+                            {
+                                params.iter().skip(1).cloned().collect()
+                            } else {
+                                return Err(ParseError::RequiresContent {
+                                    name: function_name,
+                                    at: at.into(),
+                                }
+                                .into());
+                            }
+                        }
+                        true => {
+                            if let Some([context, content]) = params.first_chunk::<2>()
+                                && context == "context"
+                                && content == "content"
+                            {
+                                params.iter().skip(2).cloned().collect()
+                            } else {
+                                return Err(ParseError::RequiresContextAndContent {
+                                    name: function_name,
+                                    at: at.into(),
+                                }
+                                .into());
+                            }
+                        }
+                    }
+                };
+                // TODO: `end_tag_name already present?
+                self.external_tags
+                    .insert(end_tag_name.clone(), TagContext::EndSimpleBlock);
+                TagContext::SimpleBlock {
+                    end_tag_name,
+                    context: SimpleTagContext {
+                        func,
+                        function_name,
+                        takes_context,
+                        params,
+                        defaults_count,
+                        varargs,
+                        kwonly,
+                        kwonly_defaults,
+                        varkw,
+                    },
+                }
+            } else {
+                let defaults_count = get_defaults_count(&closure_values[0])?;
+                let func = closure_values[1].clone();
+                let function_name = closure_values[2].extract()?;
+                let kwonly = closure_values[3].extract()?;
+                let kwonly_defaults = get_kwonly_defaults(&closure_values[4])?;
+                let params: Vec<String> = closure_values[5].extract()?;
+                let takes_context = closure_values[6].is_truthy()?;
+                let varargs = !closure_values[7].is_none();
+                let varkw = !closure_values[8].is_none();
+
+                let params = match takes_context && !normalized_params {
+                    false => params,
+                    true => {
+                        if let Some(param) = params.first()
+                            && param == "context"
+                        {
+                            params.iter().skip(1).cloned().collect()
+                        } else {
+                            return Err(ParseError::RequiresContext {
+                                name: function_name,
+                                at: at.into(),
+                            }
+                            .into());
+                        }
+                    }
+                };
+                TagContext::Simple(SimpleTagContext {
+                    func,
+                    function_name,
+                    takes_context,
+                    params,
+                    defaults_count,
+                    varargs,
+                    kwonly,
+                    kwonly_defaults,
+                    varkw,
+                })
+            }
+        };
+        self.external_tags.insert(name.to_string(), tag);
+        Ok(())
+    }
+
+    fn get_tags(
+        &self,
+        library: &Bound<'py, PyAny>,
+    ) -> PyResult<HashMap<String, Bound<'py, PyAny>>> {
+        library.getattr(intern!(self.py, "tags"))?.extract()
+    }
+
+    fn get_filters(
+        &self,
+        library: &Bound<'py, PyAny>,
+    ) -> PyResult<HashMap<String, Bound<'py, PyAny>>> {
+        library.getattr(intern!(self.py, "filters"))?.extract()
+    }
+
+    fn parse_url(&self, at: At, parts: TagParts) -> Result<TokenTree, ParseError> {
+        let mut lexer = TagElementKwargLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0));
+        let Some(view_token) = lexer.next() else {
+            return Err(ParseError::UrlTagNoArguments { at: at.into() });
+        };
+        let view_name = view_token?.parse(self)?;
+
+        let mut tokens = lexer.collect::<Result<Vec<_>, _>>()?;
+
+        // We swallow errors here to match django's behavior at parsing time because we cannot
+        // be sure if 'as' is supposed to be a variable or a regular 'as my_var' binding.
+        let asvar = extract_as_variable(&mut tokens, &self.template).unwrap_or_default();
+
+        let mut args = vec![];
+        let mut kwargs = vec![];
+        for token in tokens {
+            let element = token.parse(self)?;
+            match token.kwarg {
+                None => args.push(element),
+                Some(at) => {
+                    let kwarg = self.template.content(at).to_string();
+                    kwargs.push((kwarg, element));
+                }
+            }
+        }
+        if !args.is_empty() && !kwargs.is_empty() {
+            return Err(ParseError::MixedArgsKwargs { at: at.into() });
+        }
+        let url = Url {
+            at,
+            view_name,
+            args,
+            kwargs,
+            asvar,
+        };
+        Ok(TokenTree::Tag(Tag::Url(url)))
+    }
+
+    fn parse_include(&self, at: At, parts: TagParts) -> Result<TokenTree, ParseError> {
+        let mut lexer = IncludeLexer::new(self.template, parts)
+            .with_modern_syntax(self.engine.django_series >= (6, 0));
+        let Some(template_token) = lexer.lex_template()? else {
+            return Err(ParseError::MissingArgument { at: at.into() });
+        };
+        let template_name = match parse_include_template_token(template_token, self)? {
+            IncludeTemplateName::Text(Text { at }) => {
+                let template_path = self.template.content(at);
+                match construct_relative_path(template_path, self.origin, at)? {
+                    Some(path) => IncludeTemplateName::Relative(RelativePath {
+                        path: path.into_owned(),
+                        at,
+                    }),
+                    None => IncludeTemplateName::Text(Text { at }),
+                }
+            }
+            template_name => template_name,
+        };
+
+        let mut only = None;
+        let mut with = None;
+        let mut kwargs = Vec::new();
+        match lexer.lex_with_or_only()? {
+            IncludeWithToken::None => {}
+            IncludeWithToken::Only(at) => {
+                match lexer.lex_with_or_only()? {
+                    IncludeWithToken::None => {}
+                    IncludeWithToken::Only(second_at) => {
+                        return Err(ParseError::IncludeOnlyTwice {
+                            first_at: at.into(),
+                            second_at: second_at.into(),
+                        });
+                    }
+                    IncludeWithToken::With(at) => with = Some(at),
+                }
+                only = Some(at);
+            }
+            IncludeWithToken::With(at) => with = Some(at),
+        }
+        if let Some(with_at) = with {
+            for token in lexer {
+                match token? {
+                    IncludeToken::Only(at) => match only {
+                        None => only = Some(at),
+                        Some(first_at) => {
+                            return Err(ParseError::IncludeOnlyTwice {
+                                first_at: first_at.into(),
+                                second_at: at.into(),
+                            });
+                        }
+                    },
+                    IncludeToken::Kwarg { kwarg_at, token } => {
+                        let element = token.parse(self)?;
+                        kwargs.push((kwarg_at, element));
+                    }
+                }
+            }
+            if kwargs.is_empty() {
+                return Err(ParseError::MissingKeywordArgument { at: with_at.into() });
+            }
+        }
+        let include = Include {
+            id: CycleId(NEXT_CYCLE_ID.fetch_add(1, Ordering::Relaxed)),
+            template_name,
+            origin: self.origin.map(ToString::to_string),
+            engine: self.engine.clone(),
+            kwargs,
+            only: only.is_some(),
+        };
+        Ok(TokenTree::Tag(Tag::Include(include)))
+    }
+
+    fn parse_autoescape(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        let token = lex_autoescape_argument(self.template, parts).map_err(ParseError::from)?;
+        let (nodes, _) = self.parse_until(vec![EndTagType::Autoescape], "autoescape".into(), at)?;
+        Ok(TokenTree::Tag(Tag::Autoescape {
+            enabled: token.enabled,
+            nodes,
+        }))
+    }
+
+    fn parse_if(
+        &mut self,
+        at: At,
+        parts: TagParts,
+        start: &'static str,
+    ) -> Result<TokenTree, PyParseError> {
+        let condition = parse_if_condition(self, parts, at)?;
+        let (nodes, end_tag) = self.parse_until(
+            vec![EndTagType::Elif, EndTagType::Else, EndTagType::EndIf],
+            start.into(),
+            at,
+        )?;
+        let falsey = match end_tag {
+            EndTag {
+                at,
+                end: EndTagType::Elif,
+                parts: Some(parts),
+            } => Some(vec![self.parse_if(at, parts, "elif")?]),
+            EndTag {
+                at,
+                end: EndTagType::Else,
+                parts: None,
+            } => {
+                let (nodes, _) = self.parse_until(vec![EndTagType::EndIf], "else".into(), at)?;
+                Some(nodes)
+            }
+            EndTag {
+                at: _end_at,
+                end: EndTagType::EndIf,
+                parts: None,
+            } => None,
+            _ => unreachable!(),
+        };
+        Ok(TokenTree::Tag(Tag::If {
+            condition,
+            truthy: nodes,
+            falsey,
+        }))
+    }
+
+    fn parse_for(&mut self, at: At, parts: TagParts) -> Result<TokenTree, PyParseError> {
+        self.forloop_depth += 1;
+        let (iterable, variables, reversed) = parse_for_loop(self, parts, at)?;
+        let (nodes, end_tag) = self.parse_until(
+            vec![EndTagType::Empty, EndTagType::EndFor],
+            "for".into(),
+            at,
+        )?;
+        self.forloop_depth -= 1;
+        let empty = match end_tag {
+            EndTag {
+                at,
+                end: EndTagType::Empty,
+                parts: _parts,
+            } => {
+                let (nodes, _) = self.parse_until(vec![EndTagType::EndFor], "empty".into(), at)?;
+                Some(nodes)
+            }
+            EndTag {
+                at: _end_at,
+                end: EndTagType::EndFor,
+                parts: _parts,
+            } => None,
+            _ => unreachable!(),
+        };
+        Ok(TokenTree::Tag(Tag::For(For {
+            iterable,
+            variables,
+            reversed,
+            body: nodes,
+            empty,
+        })))
+    }
+}
+
+fn get_defaults_count(defaults: &Bound<'_, PyAny>) -> PyResult<usize> {
+    match defaults.is_none() {
+        true => Ok(0),
+        false => defaults.len(),
+    }
+}
+
+fn get_kwonly_defaults(kwonly_defaults: &Bound<'_, PyAny>) -> PyResult<HashSet<String>> {
+    match kwonly_defaults.is_none() {
+        true => Ok(HashSet::new()),
+        false => kwonly_defaults
+            .try_iter()?
+            .map(|item| item?.extract())
+            .collect::<PyResult<_>>(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::{PyDict, PyDictMethods};
+
+    use crate::{
+        filters::{DefaultFilter, ExternalFilter, LowerFilter},
+        template::django_rusty_templates::{Engine, Template},
+    };
+    use dtl_lexer::common::LexerError;
+
+    fn get_external_filter(node: &TokenTree) -> Gc<Py<PyAny>> {
+        match node {
+            TokenTree::Filter(filter) => match &filter.filter {
+                FilterType::External(filter) => filter.filter.clone(),
+                _ => panic!(),
+            },
+            _ => panic!(),
+        }
+    }
+
+    fn get_external_filter_tag_element(node: &TokenTree) -> Gc<Py<PyAny>> {
+        match node {
+            TokenTree::Filter(filter) => match &filter.left {
+                TagElement::Filter(filter) => match &filter.filter {
+                    FilterType::External(filter) => filter.filter.clone(),
+                    _ => panic!(),
+                },
+                _ => panic!(),
+            },
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_empty_template() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+            assert_eq!(nodes, vec![]);
+        });
+    }
+
+    #[test]
+    fn test_text() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "Some text";
+            let template_string = TemplateString(template);
+            let mut parser = Parser::new(py, template_string, Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+            let text = Text::new((0, template.len()));
+            assert_eq!(nodes, vec![TokenTree::Text(text)]);
+            assert_eq!(template_string.content(text.at), template);
+        });
+    }
+
+    #[test]
+    fn test_comment() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{# A comment #}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+            assert_eq!(nodes, vec![]);
+        });
+    }
+
+    #[test]
+    fn test_empty_variable() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ }}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(error, ParseError::EmptyVariable { at: (0, 5).into() });
+        });
+    }
+
+    #[test]
+    fn test_variable() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = TemplateString("{{ foo }}");
+            let mut parser = Parser::new(py, template, Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+            let variable = Variable { at: (3, 3) };
+            assert_eq!(nodes, vec![TokenTree::Variable(variable)]);
+            assert_eq!(
+                variable.parts(template).collect::<Vec<_>>(),
+                vec![("foo", (3, 3))]
+            );
+        });
+    }
+
+    #[test]
+    fn test_variable_attribute() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = TemplateString("{{ foo.bar.baz }}");
+            let mut parser = Parser::new(py, template, Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+            let variable = Variable { at: (3, 11) };
+            assert_eq!(nodes, vec![TokenTree::Variable(variable)]);
+            assert_eq!(
+                variable.parts(template).collect::<Vec<_>>(),
+                vec![("foo", (3, 3)), ("bar", (7, 3)), ("baz", (11, 3))]
+            );
+        });
+    }
+
+    #[test]
+    fn test_filter() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = TemplateString("{{ foo|bar }}");
+            let mut parser = Parser::new_with_filters(py, template, filters);
+            let nodes = parser.parse().unwrap();
+
+            assert_eq!(nodes.len(), 1);
+
+            let foo = Variable { at: (3, 3) };
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: TagElement::Variable(foo),
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: None,
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+            assert_eq!(
+                foo.parts(template).collect::<Vec<_>>(),
+                vec![("foo", (3, 3))]
+            );
+        });
+    }
+
+    #[test]
+    fn test_unknown_filter() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = TemplateString("{{ foo|bar }}");
+            let mut parser = Parser::new(py, template, Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::InvalidFilter {
+                    filter: "bar".to_string(),
+                    at: (7, 3).into()
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn test_filter_multiple() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ foo|bar|baz }}";
+            let filters = HashMap::from([
+                ("bar".to_string(), py.None().bind(py).clone()),
+                ("baz".to_string(), py.None().bind(py).clone()),
+            ]);
+            let mut parser = Parser::new_with_filters(py, template.into(), filters);
+            let nodes = parser.parse().unwrap();
+            assert_eq!(nodes.len(), 1);
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let external = get_external_filter_tag_element(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TagElement::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: None,
+                }),
+            }));
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let baz = TokenTree::Filter(Box::new(Filter {
+                at: (11, 3),
+                all_at: (3, 11),
+                left: bar,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: None,
+                }),
+            }));
+            assert_eq!(nodes, vec![baz]);
+        });
+    }
+
+    #[test]
+    fn test_filter_argument() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = TemplateString("{{ foo|bar:baz }}");
+            let mut parser = Parser::new_with_filters(py, template, filters);
+            let nodes = parser.parse().unwrap();
+            assert_eq!(nodes.len(), 1);
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let baz = Variable { at: (11, 3) };
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(Argument {
+                        at: (11, 3),
+                        argument_type: ArgumentType::Variable(baz),
+                    }),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+            assert_eq!(
+                baz.parts(template).collect::<Vec<_>>(),
+                vec![("baz", (11, 3))]
+            );
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_text() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = TemplateString("{{ foo|bar:'baz' }}");
+            let mut parser = Parser::new_with_filters(py, template, filters);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let baz = Text::new((12, 3));
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(Argument {
+                        at: (11, 5),
+                        argument_type: ArgumentType::Text(baz),
+                    }),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+            assert_eq!(template.content(baz.at), "baz");
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_translated_text() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = TemplateString("{{ foo|bar:_('baz') }}");
+            let mut parser = Parser::new_with_filters(py, template, filters);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let baz = TranslatedText::new((14, 3));
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(Argument {
+                        at: (11, 8),
+                        argument_type: ArgumentType::TranslatedText(baz),
+                    }),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+            assert_eq!(template.content(baz.at), "baz");
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_float() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = "{{ foo|bar:5.2e3 }}";
+            let mut parser = Parser::new_with_filters(py, template.into(), filters);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let num = Argument {
+                at: (11, 5),
+                argument_type: ArgumentType::Float(5.2e3),
+            };
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(num),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_int() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = "{{ foo|bar:99 }}";
+            let mut parser = Parser::new_with_filters(py, template.into(), filters);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let num = Argument {
+                at: (11, 2),
+                argument_type: ArgumentType::Int(99.into()),
+            };
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(num),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_bigint() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let filters = HashMap::from([("bar".to_string(), py.None().bind(py).clone())]);
+            let template = "{{ foo|bar:99999999999999999 }}";
+            let mut parser = Parser::new_with_filters(py, template.into(), filters);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let num = Argument {
+                at: (11, 17),
+                argument_type: ArgumentType::Int("99999999999999999".parse::<BigInt>().unwrap()),
+            };
+            let external = get_external_filter(&nodes[0]);
+            assert!(external.is_none(py));
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 3),
+                all_at: (3, 7),
+                left: foo,
+                filter: FilterType::External(ExternalFilter {
+                    filter: external,
+                    argument: Some(num),
+                }),
+            }));
+            assert_eq!(nodes, vec![bar]);
+        });
+    }
+
+    #[test]
+    fn test_filter_argument_invalid_number() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ foo|bar:9.9.9 }}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(error, ParseError::InvalidNumber { at: (11, 5).into() });
+        });
+    }
+
+    #[test]
+    fn test_filter_parse_addslashes() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let engine = Gc::new(Engine::empty());
+            let template_string = "{{ foo|addslashes }}".to_string();
+            let context = PyDict::new(py);
+            context.set_item("bar", "").unwrap();
+            let template = Template::new_from_string(py, template_string, engine.clone()).unwrap();
+            let result = template
+                .py_render(py, Some(context.into_any()), None)
+                .unwrap();
+
+            assert_eq!(result, "");
+
+            let context = PyDict::new(py);
+            context.set_item("foo", "").unwrap();
+            let template_string = "{{ foo|addslashes:invalid }}".to_string();
+            let error = Template::new_from_string(py, template_string, engine).unwrap_err();
+
+            let error_string = error
+                .value(py)
+                .getattr("rusty_diagnostic")
+                .unwrap()
+                .to_string();
+            assert!(error_string.contains("addslashes filter does not take an argument"));
+        });
+    }
+
+    #[test]
+    fn test_filter_default() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = TemplateString("{{ foo|default:baz }}");
+            let mut parser = Parser::new(py, template, Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let foo = TagElement::Variable(Variable { at: (3, 3) });
+            let baz = Variable { at: (15, 3) };
+            let bar = TokenTree::Filter(Box::new(Filter {
+                at: (7, 7),
+                all_at: (3, 11),
+                left: foo,
+                filter: FilterType::Default(DefaultFilter::new(
+                    Argument {
+                        at: (15, 3),
+                        argument_type: ArgumentType::Variable(baz),
+                    },
+                    (7, 7),
+                )),
+            }));
+            assert_eq!(nodes, vec![bar]);
+            assert_eq!(
+                baz.parts(template).collect::<Vec<_>>(),
+                vec![("baz", (15, 3))]
+            );
+        });
+    }
+
+    #[test]
+    fn test_filter_default_missing_argument() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ foo|default|baz }}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(error, ParseError::MissingArgument { at: (7, 7).into() });
+        });
+    }
+
+    #[test]
+    fn test_filter_lower_unexpected_argument() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ foo|lower:baz }}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::UnexpectedArgument {
+                    filter: "lower",
+                    at: (13, 3).into()
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn test_variable_lexer_error() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{{ _foo }}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::VariableError(
+                    LexerError::InvalidVariableName { at: (3, 4).into() }.into()
+                )
+            );
+        });
+    }
+
+    #[test]
+    fn test_parse_empty_tag() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{%  %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::BlockError(TagLexerError::EmptyTag { at: (0, 6).into() })
+            );
+        });
+    }
+
+    #[test]
+    fn test_block_error() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url'foo' %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::BlockError(TagLexerError::InvalidTagName { at: (3, 8).into() })
+            );
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url 'some-url-name' %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 25),
+                view_name: TagElement::Text(Text { at: (8, 13) }),
+                args: vec![],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_view_name_translated() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url _('some-url-name') %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 28),
+                view_name: TagElement::TranslatedText(Text { at: (10, 13) }),
+                args: vec![],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_view_name_variable() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 24),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_view_name_filter() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name|default:'home' %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let some_view_name = TagElement::Variable(Variable { at: (7, 14) });
+            let home = Text { at: (31, 4) };
+            let default = Box::new(Filter {
+                at: (22, 7),
+                all_at: (7, 22),
+                left: some_view_name,
+                filter: FilterType::Default(DefaultFilter::new(
+                    Argument {
+                        at: (30, 6),
+                        argument_type: ArgumentType::Text(home),
+                    },
+                    (22, 7),
+                )),
+            });
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 39),
+                view_name: TagElement::Filter(default),
+                args: vec![],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_no_arguments() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(error, ParseError::UrlTagNoArguments { at: (0, 9).into() });
+        });
+    }
+
+    #[test]
+    fn test_parse_url_view_name_integer() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url 64 %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 12),
+                view_name: TagElement::Int(64.into()),
+                args: vec![],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_arguments() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name 'foo' bar|default:'home' 64 5.7 _(\"spam\") %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 66),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![
+                    TagElement::Text(Text { at: (23, 3) }),
+                    TagElement::Filter(Box::new(Filter {
+                        at: (32, 7),
+                        all_at: (28, 11),
+                        left: TagElement::Variable(Variable { at: (28, 3) }),
+                        filter: FilterType::Default(DefaultFilter::new(
+                            Argument {
+                                at: (40, 6),
+                                argument_type: ArgumentType::Text(Text { at: (41, 4) }),
+                            },
+                            (32, 7),
+                        )),
+                    })),
+                    TagElement::Int(64.into()),
+                    TagElement::Float(5.7),
+                    TagElement::TranslatedText(Text { at: (57, 4) }),
+                ],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_kwargs() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name foo='foo' extra=-64 %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 44),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![],
+                kwargs: vec![
+                    ("foo".to_string(), TagElement::Text(Text { at: (27, 3) })),
+                    ("extra".to_string(), TagElement::Int((-64).into())),
+                ],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_arguments_as_variable() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name 'foo' as some_url %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 42),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![TagElement::Text(Text { at: (23, 3) })],
+                kwargs: vec![],
+                asvar: Some("some_url".to_string()),
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_kwargs_as_variable() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name foo='foo' as some_url %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 46),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![],
+                kwargs: vec![("foo".to_string(), TagElement::Text(Text { at: (27, 3) }))],
+                asvar: Some("some_url".to_string()),
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_arguments_last_variables() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name 'foo' arg arg2 %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let nodes = parser.parse().unwrap();
+
+            let url = TokenTree::Tag(Tag::Url(Url {
+                at: (0, 39),
+                view_name: TagElement::Variable(Variable { at: (7, 14) }),
+                args: vec![
+                    TagElement::Text(Text { at: (23, 3) }),
+                    TagElement::Variable(Variable { at: (28, 3) }),
+                    TagElement::Variable(Variable { at: (32, 4) }),
+                ],
+                kwargs: vec![],
+                asvar: None,
+            }));
+
+            assert_eq!(nodes, vec![url]);
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_mixed_args_kwargs() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url some_view_name 'foo' arg name=arg2 %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(
+                error,
+                ParseError::MixedArgsKwargs {
+                    at: (0, template.len()).into()
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn test_parse_url_tag_invalid_number() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let template = "{% url foo 9.9.9 %}";
+            let mut parser = Parser::new(py, template.into(), Engine::empty().into(), None);
+            let error = parser.parse().unwrap_err().unwrap_parse_error();
+            assert_eq!(error, ParseError::InvalidNumber { at: (11, 5).into() });
+        });
+    }
+
+    #[test]
+    fn test_filter_type_partial_eq() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            assert_eq!(
+                FilterType::Lower(LowerFilter),
+                FilterType::Lower(LowerFilter)
+            );
+            assert_ne!(
+                FilterType::External(ExternalFilter::new(py.None(), None)),
+                FilterType::External(ExternalFilter::new(py.None(), None))
+            );
+            assert_ne!(
+                FilterType::Lower(LowerFilter),
+                FilterType::Default(DefaultFilter::new(
+                    Argument {
+                        at: (0, 3),
+                        argument_type: ArgumentType::Float(1.0)
+                    },
+                    (0, 7)
+                ))
+            );
+        });
+    }
+
+    #[test]
+    fn test_simple_tag_partial_eq() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let func: Gc<Py<PyAny>> = PyDict::new(py).into_any().unbind().into();
+            let at = (0, 1);
+            let takes_context = true;
+            assert_eq!(
+                SimpleTag {
+                    func: func.clone(),
+                    at,
+                    takes_context,
+                    args: Vec::new(),
+                    kwargs: Vec::new(),
+                    target_var: Some("foo".to_string()),
+                },
+                SimpleTag {
+                    func,
+                    at,
+                    takes_context,
+                    args: Vec::new(),
+                    kwargs: Vec::new(),
+                    target_var: Some("foo".to_string()),
+                },
+            );
+        });
+    }
+
+    #[test]
+    fn test_simple_block_tag_partial_eq() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let func: Gc<Py<PyAny>> = PyDict::new(py).into_any().unbind().into();
+            let at = (0, 1);
+            let takes_context = true;
+            assert_eq!(
+                SimpleBlockTag {
+                    func: func.clone(),
+                    at,
+                    takes_context,
+                    args: Vec::new(),
+                    kwargs: Vec::new(),
+                    nodes: Vec::new(),
+                    target_var: Some("foo".to_string()),
+                },
+                SimpleBlockTag {
+                    func,
+                    at,
+                    takes_context,
+                    args: Vec::new(),
+                    kwargs: Vec::new(),
+                    nodes: Vec::new(),
+                    target_var: Some("foo".to_string()),
+                },
+            );
+        });
+    }
+
+    #[test]
+    fn test_include_tag_partial_eq() {
+        Python::initialize();
+
+        Python::attach(|_| {
+            let engine: Gc<Engine> = Engine::empty().into();
+            let template_name = IncludeTemplateName::Variable(TagElement::Float(1.1));
+            assert_eq!(
+                Include {
+                    id: CycleId(0),
+                    template_name: template_name.clone(),
+                    origin: None,
+                    only: false,
+                    kwargs: Vec::new(),
+                    engine: engine.clone(),
+                },
+                Include {
+                    id: CycleId(0),
+                    template_name,
+                    origin: None,
+                    only: false,
+                    kwargs: Vec::new(),
+                    engine,
+                },
+            );
+        });
+    }
+}

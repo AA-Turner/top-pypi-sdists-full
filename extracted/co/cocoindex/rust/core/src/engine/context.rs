@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use cocoindex_utils::fingerprint::Fingerprint;
 
-use crate::engine::admission::{Admission, AdmissionPool, Lender};
+use crate::engine::admission::{Admission, AdmissionPool, Lender, UpdateShare};
 use crate::engine::component::{Component, ComponentBgChildReadiness, StatsGroup};
 use crate::engine::deadline::DeadlineContext;
 use crate::engine::id_sequencer::IdSequencerManager;
@@ -753,7 +753,8 @@ pub struct ComponentProcessorContext<Prof: EngineProfile> {
 
 impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
     /// A context whose run borrows its in-flight token from `parent_context`'s
-    /// run, if any.
+    /// run and belongs to its update. Without a parent, the run is an
+    /// app-level update of its own.
     pub(crate) fn new(
         component: Component<Prof>,
         parent_context: Option<ComponentProcessorContext<Prof>>,
@@ -761,27 +762,52 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
         host_ctx: Arc<Prof::HostCtx>,
         processing_action: ComponentProcessingAction<Prof>,
     ) -> Self {
-        let lender = parent_context
-            .as_ref()
-            .map(|parent| parent.admission().lender().clone());
-        Self::new_borrowing_from(
+        let (lender, share) = match &parent_context {
+            Some(parent) => (
+                Some(parent.admission().lender().clone()),
+                parent.admission().share().clone(),
+            ),
+            None => (None, component.app_ctx().admission_pool().new_update()),
+        };
+        Self::from_parts(
             component,
             parent_context,
             lender,
+            share,
             processing_stats,
             host_ctx,
             processing_action,
         )
     }
 
-    /// A context whose run borrows its in-flight token from `lender`, which
-    /// need not belong to `parent_context`: a live component's runs have no
-    /// parent context but borrow from the run that mounted the live
-    /// component, for as long as that run lasts.
+    /// A context for a run of a live component: it has no parent context and
+    /// is an update of its own (`share`, from the live component's share).
+    /// It borrows its in-flight token from `lender`, the run that mounted the
+    /// live component, for as long as that run lasts.
     pub(crate) fn new_borrowing_from(
+        component: Component<Prof>,
+        lender: Option<Lender>,
+        share: UpdateShare,
+        processing_stats: ProcessingStats,
+        host_ctx: Arc<Prof::HostCtx>,
+        processing_action: ComponentProcessingAction<Prof>,
+    ) -> Self {
+        Self::from_parts(
+            component,
+            None,
+            lender,
+            share,
+            processing_stats,
+            host_ctx,
+            processing_action,
+        )
+    }
+
+    fn from_parts(
         component: Component<Prof>,
         parent_context: Option<ComponentProcessorContext<Prof>>,
         lender: Option<Lender>,
+        share: UpdateShare,
         processing_stats: ProcessingStats,
         host_ctx: Arc<Prof::HostCtx>,
         processing_action: ComponentProcessingAction<Prof>,
@@ -790,7 +816,7 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
             Some(parent) => parent.operation_generation(),
             None => component.app_ctx().next_operation_generation(),
         };
-        let admission = Admission::new(component.app_ctx().admission_pool().clone(), lender);
+        let admission = Admission::new(share, lender);
         Self {
             inner: Arc::new(ComponentProcessorContextInner {
                 component,
@@ -1167,6 +1193,16 @@ pub struct FnCallContextInner {
     /// offered to the parent: tunneled deps that resolved at this frame as
     /// their owner while its `propagate_children_fn_logic` is false.
     pub entry_only_fn_logic_deps: HashSet<Fingerprint>,
+    /// Logic fingerprints a memo hit re-offered from a callee's stored entry
+    /// ([`FnCallMemoGuard::join_cached_logic_deps`](super::function::FnCallMemoGuard::join_cached_logic_deps)).
+    /// A stored entry's set is flat — the callee's own and propagated logic,
+    /// tunneled sets and context-change deps, flattened when it was stored —
+    /// so the kinds cannot be told apart again. The set rides to the
+    /// enclosing component's entry through every frame regardless of mode,
+    /// as the tunneled and context-change parts would have on a miss; a
+    /// `"self"` frame therefore records more after a hit than after a miss
+    /// (its callee's own logic too) — more invalidation, never a stale entry.
+    pub reoffered_logic_deps: HashSet<Fingerprint>,
 }
 
 impl FnCallContextInner {
@@ -1177,6 +1213,7 @@ impl FnCallContextInner {
         self.fn_logic_deps
             .iter()
             .chain(self.entry_only_fn_logic_deps.iter())
+            .chain(self.reoffered_logic_deps.iter())
             .chain(self.tunneled_fn_logic_deps.values().flatten())
             .chain(self.context_change_deps.iter())
             .copied()
@@ -1276,10 +1313,14 @@ impl FnCallContext {
                 .dependency_memo_entries
                 .extend(child_inner.dependency_memo_entries);
             inner.has_child_components |= child_inner.has_child_components;
-            // Context change deps always propagate.
+            // Context change deps always propagate, and so does what a memo
+            // hit re-offered from a stored entry (see `reoffered_logic_deps`).
             inner
                 .context_change_deps
                 .extend(child_inner.context_change_deps);
+            inner
+                .reoffered_logic_deps
+                .extend(child_inner.reoffered_logic_deps);
             // Function logic deps conditionally propagate.
             if self.propagate_children_fn_logic {
                 inner.fn_logic_deps.extend(child_inner.fn_logic_deps);

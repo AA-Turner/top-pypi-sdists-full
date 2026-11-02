@@ -179,7 +179,6 @@ def _arm(fault, app, client, monkeypatch, hits=None):
     elif fault == "full_disk":
         # Under the free-space floor (plan 1.5 keeps this knob).
         monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 1 << 62)
-        monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 1 << 62)
         client.journal._appends_since_statvfs = journal_module._STATVFS_EVERY
         client.journal._last_free_ok = True
         journal = client.journal
@@ -216,12 +215,20 @@ def _arm(fault, app, client, monkeypatch, hits=None):
             erofs(dst)
             return real_snapshot(src, dst, *a, **k)
 
-        monkeypatch.setattr(journal_module.journal, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.append, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.failures.discards, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.failures.failures, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.failures.pause, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.producers, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.receipts.receipts, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.status_file, "write_text_atomic", write)
+        monkeypatch.setattr(journal_module.waiting_room, "write_text_atomic", write)
         monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", write)
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", write)
-        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", write)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.settle.write_text_atomic", write)
         monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", write)
-        monkeypatch.setattr(journal_module.journal, "snapshot_file", snapshot)
+        monkeypatch.setattr(journal_module.receipts.receipts, "snapshot_file", snapshot)
+        monkeypatch.setattr(journal_module.uploads, "snapshot_file", snapshot)
     else:  # pragma: no cover
         raise AssertionError(fault)
     return hits

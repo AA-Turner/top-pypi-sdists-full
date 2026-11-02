@@ -74,7 +74,6 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, TypeVar
 from uuid import UUID, uuid4
 
-from cachetools import LRUCache
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from omnimemory.adapters.adapter_handler_constants import (
@@ -96,6 +95,9 @@ from omnimemory.models.intelligence import (
     ModelSemanticEntity,
     ModelSemanticEntityList,
 )
+from omnimemory.nodes.node_semantic_analyzer_compute.adapters.adapter_embedding_cache import (
+    EmbeddingLruCache,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.container import ModelONEXContainer
@@ -111,9 +113,6 @@ __all__ = [
 
 # TypeVar for generic retry helper
 _T = TypeVar("_T")
-
-# Health check timeout - shorter than operation timeout since health checks should be quick
-_HEALTH_CHECK_TIMEOUT_SECONDS: float = 5.0
 
 # Minimum cache size for LRUCache (cachetools requires maxsize > 0)
 _MIN_CACHE_SIZE: int = 1
@@ -531,7 +530,7 @@ class HandlerSemanticCompute:
         self._embedding_provider: ProtocolEmbeddingProvider | None = None
         self._llm_provider: ProtocolLLMProvider | None = None
         self._policy: HandlerSemanticComputePolicy | None = None
-        self._embedding_cache: LRUCache[str, list[float]] | None = None
+        self._embedding_cache: EmbeddingLruCache | None = None
         self._initialized = False
         self._init_lock = asyncio.Lock()
 
@@ -560,6 +559,10 @@ class HandlerSemanticCompute:
             RuntimeError: If embedding_provider is not provided and not
                 registered in container (embedding provider is required).
         """
+        from omnimemory.nodes.node_semantic_analyzer_compute.container.registry_semantic_compute import (
+            bind_semantic_compute_policy,
+        )
+
         # Fast path: already initialized (avoid lock acquisition)
         if self._initialized:
             return
@@ -603,13 +606,13 @@ class HandlerSemanticCompute:
                 )
 
             # Set up policy and cache
-            self._policy = HandlerSemanticComputePolicy(self._config.policy_config)
+            self._policy = bind_semantic_compute_policy(self._config.policy_config)
 
             # Guard against max_cache_size=0: cachetools LRUCache requires maxsize > 0
             # If caching is disabled (max_cache_size=0), use minimum size but caching
             # will be bypassed by enable_caching=False or the cache will just evict quickly
             effective_cache_size = max(self._config.max_cache_size, _MIN_CACHE_SIZE)
-            self._embedding_cache = LRUCache(maxsize=effective_cache_size)
+            self._embedding_cache = EmbeddingLruCache(max_size=effective_cache_size)
 
             self._initialized = True
             logger.debug(
@@ -648,18 +651,24 @@ class HandlerSemanticCompute:
         cache_size: int | None = None
         cache_max_size: int | None = None
 
+        health_check_timeout = (
+            self._policy.config.health_check_timeout_seconds
+            if self._policy is not None
+            else None
+        )
+
         if self._initialized and self._embedding_provider is not None:
             try:
                 # Use explicit timeout to prevent health check from hanging
                 embedding_provider_healthy = await asyncio.wait_for(
                     self._embedding_provider.health_check(),
-                    timeout=_HEALTH_CHECK_TIMEOUT_SECONDS,
+                    timeout=health_check_timeout,
                 )
                 embedding_provider_name = self._embedding_provider.provider_name
             except TimeoutError:
                 embedding_provider_healthy = False
                 embedding_provider_error = (
-                    f"Health check timed out after {_HEALTH_CHECK_TIMEOUT_SECONDS}s"
+                    f"Health check timed out after {health_check_timeout}s"
                 )
             except Exception as e:
                 embedding_provider_healthy = False
@@ -670,21 +679,21 @@ class HandlerSemanticCompute:
                 # Use explicit timeout to prevent health check from hanging
                 llm_provider_healthy = await asyncio.wait_for(
                     self._llm_provider.health_check(),
-                    timeout=_HEALTH_CHECK_TIMEOUT_SECONDS,
+                    timeout=health_check_timeout,
                 )
                 llm_provider_name = self._llm_provider.provider_name
             except TimeoutError:
                 llm_provider_healthy = False
                 llm_provider_error = (
-                    f"Health check timed out after {_HEALTH_CHECK_TIMEOUT_SECONDS}s"
+                    f"Health check timed out after {health_check_timeout}s"
                 )
             except Exception as e:
                 llm_provider_healthy = False
                 llm_provider_error = str(e)
 
         if self._embedding_cache is not None:
-            cache_size = len(self._embedding_cache)
-            cache_max_size = int(self._embedding_cache.maxsize)
+            cache_size = self._embedding_cache.size
+            cache_max_size = self._embedding_cache.max_size
 
         return ModelSemanticComputeHealth(
             initialized=self._initialized,
@@ -752,7 +761,7 @@ class HandlerSemanticCompute:
             # Handler is no longer usable until initialize() is called
         """
         if self._embedding_cache is not None:
-            self._embedding_cache.clear()
+            self._embedding_cache.reset()
         self._initialized = False
         logger.debug("HandlerSemanticCompute shutdown complete")
 
@@ -943,8 +952,8 @@ class HandlerSemanticCompute:
 
         # Check cache
         cache_key = self._compute_cache_key(content, model)
-        if self._config.enable_caching and cache_key in self._embedding_cache:
-            return list(self._embedding_cache[cache_key])
+        if self._config.enable_caching and self._embedding_cache.contains(cache_key):
+            return self._embedding_cache.get(cache_key)
 
         # Generate embedding via provider with retry logic for transient failures
         timeout = self._config.policy_config.timeout_seconds
@@ -966,7 +975,7 @@ class HandlerSemanticCompute:
 
         # Cache if appropriate (LRUCache handles eviction automatically)
         if self._config.enable_caching and self._policy.should_cache_embedding(content):
-            self._embedding_cache[cache_key] = embedding
+            self._embedding_cache.put(cache_key, embedding)
 
         return embedding
 

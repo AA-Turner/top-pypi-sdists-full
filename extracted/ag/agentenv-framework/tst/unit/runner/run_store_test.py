@@ -1,0 +1,68 @@
+"""Run-index invariants: a terminal run is never overwritten,
+and set_running only advances a still-queued one."""
+
+import pytest
+
+from agent_env.config import configure, reset_config, set_document_store
+from agent_env.runner import store as run_store
+from agent_env.runner.runner import RunRecord, RunStatus
+from agent_env.store.document_store.sqlite_document_store import LocalSqliteDocumentStore
+
+
+@pytest.fixture
+def docs(tmp_path):
+    configure()
+    store = LocalSqliteDocumentStore(str(tmp_path / "documents.db"))
+    set_document_store(store)
+    run_store.ensure_indexes()
+    yield store
+    reset_config()
+
+
+def _record(run_id: str, status: RunStatus) -> RunRecord:
+    return RunRecord(run_id=run_id, runner="local", task_id="t", task_version=1,
+                     instance_id="i", status=status)
+
+
+def test_mark_terminal_does_not_overwrite_a_terminal_run(docs):
+    # A cancel that already terminated the run must win over a completion that races it.
+    run_store.insert_run(_record("r", RunStatus.CANCELED))
+    run_store.mark_terminal("r", RunStatus.COMPLETED)
+    assert run_store.get_run("r").status == RunStatus.CANCELED
+
+
+def test_mark_terminal_advances_a_running_run(docs):
+    run_store.insert_run(_record("r", RunStatus.RUNNING))
+    run_store.mark_terminal("r", RunStatus.COMPLETED)
+    got = run_store.get_run("r")
+    assert got.status == RunStatus.COMPLETED
+    assert got.finished_at_utc is not None
+
+
+def test_set_running_advances_only_a_queued_run(docs):
+    run_store.insert_run(_record("q", RunStatus.QUEUED))
+    run_store.set_running("q")
+    assert run_store.get_run("q").status == RunStatus.RUNNING
+
+    # a run canceled while it waited for a worker slot must not be revived by set_running
+    run_store.insert_run(_record("c", RunStatus.CANCELED))
+    run_store.set_running("c")
+    assert run_store.get_run("c").status == RunStatus.CANCELED
+
+
+def test_the_index_never_holds_a_per_run_key_but_keeps_a_reference(docs):
+    record = _record("r", RunStatus.QUEUED)
+    record.overrides = {"metadata": {"user_overrides": {
+        "litellm_api_key": "sk-raw", "judge_litellm_api_key": "secret:judge", "agent_sandbox": "local"}}}
+    run_store.insert_run(record)
+    assert run_store.get_run("r").overrides["metadata"]["user_overrides"] == {
+        "judge_litellm_api_key": "secret:judge", "agent_sandbox": "local"}
+    assert record.overrides["metadata"]["user_overrides"]["litellm_api_key"] == "sk-raw"
+
+
+def test_count_runs_counts_one_task_or_every_task(docs):
+    run_store.insert_run(_record("a", RunStatus.QUEUED))
+    run_store.insert_run(RunRecord(run_id="b", runner="other", task_id="u", task_version=1, instance_id="j"))
+    assert run_store.count_runs("t") == 1
+    assert run_store.count_runs("missing") == 0
+    assert run_store.count_runs() == 2

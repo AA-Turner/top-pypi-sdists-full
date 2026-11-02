@@ -1,0 +1,179 @@
+name: Tests Nightly
+run-name: Nightly / ${{ (github.event_name == 'schedule' || inputs.run_full_suite) && 'manual-full' || 'weekly-integration-core' }}
+on:
+  workflow_call:
+    inputs:
+      run_full_suite:
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 18 * * 3"
+  workflow_dispatch:
+    inputs:
+      run_full_suite:
+        description: "Run all original full nightly tests in disjoint resource lanes"
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+# Do not silently cancel an in-flight release verification on a new push.
+concurrency:
+  group: nightly-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+env:
+  PYTHONUNBUFFERED: "1"
+  POLARS_MAX_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  LOKY_MAX_CPU_COUNT: "1"
+  TRUTHOUND_ML_N_JOBS: "1"
+  NIGHTLY_MODE: ${{ (github.event_name == 'schedule' || inputs.run_full_suite) && 'manual-full' || 'weekly-integration-core' }}
+  TRUTHOUND_DATADOCS_REQUIRE_PDF_SMOKE: "1"
+  TRUTHOUND_DATADOCS_REQUIRE_PDF_RENDER: "1"
+jobs:
+  nightly-collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v4
+      - name: Install native PDF import prerequisites for collection
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y libpango-1.0-0 libpangoft2-1.0-0
+      - run: uv sync --frozen --extra dev --extra mcp --extra benchmarks --extra pdf --group nightly-local
+      - name: Collect and verify exact disjoint full partition
+        id: plan
+        run: uv run --frozen --extra dev --extra mcp --extra benchmarks --extra pdf --group nightly-local python verification/ci/nightly_plan.py collect --mode "$NIGHTLY_MODE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: truthound-nightly-plan
+          path: test-artifacts/nightly
+          if-no-files-found: error
+          retention-days: 7
+
+  nightly-lane:
+    name: nightly / ${{ matrix.lane }}
+    needs: nightly-collect
+    runs-on: ${{ matrix.runner }}
+    # Only the integration VM owns these disposable local services. Other
+    # lanes, especially scale, do not share their CPU/RAM or a mock substitute.
+    services:
+      redis:
+        image: ${{ matrix.lane == 'integration' && 'redis:7-alpine' || '' }}
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      elasticsearch:
+        image: ${{ matrix.lane == 'integration' && 'docker.elastic.co/elasticsearch/elasticsearch:8.11.0' || '' }}
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports: ["9200:9200"]
+        options: --health-cmd "curl -fsS http://localhost:9200/_cluster/health" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TRUTHOUND_TEST_REDIS_HOST: ${{ matrix.lane == 'integration' && '127.0.0.1' || '' }}
+      TRUTHOUND_TEST_REDIS_PORT: ${{ matrix.lane == 'integration' && '6379' || '0' }}
+      TRUTHOUND_TEST_ELASTICSEARCH_HOST: ${{ matrix.lane == 'integration' && '127.0.0.1' || '' }}
+      TRUTHOUND_TEST_ELASTICSEARCH_PORT: ${{ matrix.lane == 'integration' && '9200' || '0' }}
+      TRUTHOUND_SQLSERVER_REQUIRE_NATIVE: '1'
+    timeout-minutes: ${{ matrix.job_minutes }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.nightly-collect.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: astral-sh/setup-uv@v4
+      - name: Install local native PDF verification prerequisites
+        run: |
+          python verification/ci/native_prerequisites.py libpango-1.0-0 libpangoft2-1.0-0 poppler-utils
+      - run: uv sync --frozen --extra dev --extra mcp --extra benchmarks --extra pdf --group nightly-local
+      - name: Prepare native SQL providers for the integration manifest
+        if: matrix.lane == 'integration'
+        run: |
+          uv pip install --python .venv/bin/python \
+            -r verification/ci/requirements-sql-isolation.txt \
+            -r verification/ci/requirements-oracle-isolation.txt \
+            -r verification/ci/requirements-sqlserver-isolation.txt
+          pg_config --bindir >> "$GITHUB_PATH"
+          command -v mysqld
+          docker pull ghcr.io/gvenzl/oracle-free@sha256:6d61d267a3b978c24c5ac1790e62e927416a0aec446bd86e4b3a1527562757bd
+          docker pull mcr.microsoft.com/mssql/server@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+      - uses: actions/download-artifact@v4
+        with:
+          name: truthound-nightly-plan
+          path: test-artifacts/nightly
+      - name: Record and check actual runner resources
+        run: uv run --frozen --extra dev --extra mcp --extra benchmarks --extra pdf --group nightly-local python verification/ci/nightly_plan.py resources --lane "${{ matrix.lane }}"
+      - name: Execute exact manifest with soft stacks and hard test deadline
+        shell: bash
+        run: |
+          set -euo pipefail
+          flags=(--pytest-arg=--run-integration)
+          if [[ "$NIGHTLY_MODE" == "manual-full" ]]; then
+            flags+=(--pytest-arg=--run-expensive --pytest-arg=--run-soak)
+          fi
+          uv run --frozen --extra dev --extra mcp --extra benchmarks --extra pdf --group nightly-local python verification/ci/run_pytest_manifest.py \
+            --manifest "test-artifacts/nightly/${{ matrix.lane }}.txt" \
+            --nightly-plan test-artifacts/nightly/plan.json \
+            --lane "${{ matrix.lane }}" \
+            --execution-report "test-artifacts/nightly/execution-${{ matrix.lane }}.json" \
+            --junitxml "test-artifacts/nightly/junit-${{ matrix.lane }}.xml" \
+            --pytest-arg=--durations=25 --pytest-arg=--durations-min=0.1 \
+            --pytest-arg=--timeout=${{ matrix.test_seconds }} --pytest-arg=--timeout-method=thread \
+            --pytest-arg=-o --pytest-arg=faulthandler_timeout=${{ matrix.stack_seconds }} \
+            "${flags[@]}"
+      - name: Preserve partial manifests and diagnostics even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: truthound-nightly-lane-${{ matrix.lane }}
+          path: |
+            test-artifacts/nightly/execution-${{ matrix.lane }}.*
+            test-artifacts/nightly/junit-${{ matrix.lane }}.xml
+            test-artifacts/nightly/resources-${{ matrix.lane }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  nightly-gate:
+    if: ${{ always() }}
+    needs: [nightly-collect, nightly-lane]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: truthound-nightly-*
+          path: test-artifacts/nightly
+          merge-multiple: true
+      - name: Require every same-SHA job, manifest, phase and JUnit result
+        env:
+          NIGHTLY_NEEDS: ${{ toJSON(needs) }}
+        run: python verification/ci/nightly_plan.py verify --mode "$NIGHTLY_MODE"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: truthound-nightly-test-artifacts
+          path: test-artifacts/nightly
+          if-no-files-found: error
+          retention-days: 7

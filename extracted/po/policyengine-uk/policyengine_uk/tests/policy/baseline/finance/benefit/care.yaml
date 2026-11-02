@@ -1,0 +1,48 @@
+- name: Carer from CA
+  period: 2020
+  absolute_error_margin: 40
+  input:
+    carers_allowance: 1 * 52
+  output:
+    is_carer_for_benefits: true
+    num_carers: 1
+    carer_premium: 37.5 * 52
+
+- name: Carer from 35 hours a week without Carer's Allowance (regulation 30 UC Regs 2013)
+  period: 2025
+  absolute_error_margin: 0
+  input:
+    age: 40
+    care_hours: 35
+    carers_allowance_reported: 0
+    would_claim_carers_allowance: false
+    country: ENGLAND
+  output:
+    carers_allowance: 0
+    is_carer_for_benefits: true
+    num_carers: 1
+
+- name: Fewer than 35 hours and no award is not a carer
+  period: 2025
+  absolute_error_margin: 0
+  input:
+    age: 40
+    care_hours: 34
+    carers_allowance_reported: 0
+    country: ENGLAND
+  output:
+    is_carer_for_benefits: false
+    num_carers: 0
+
+- name: Carer from 35 hours a week who would claim receives Carer's Allowance and is a carer for benefits
+  period: 2025
+  absolute_error_margin: 0.01
+  input:
+    age: 40
+    care_hours: 35
+    carers_allowance_reported: 0
+    country: ENGLAND
+  output:
+    carers_allowance: 83.30 * 52  # 2025-26 rate (SI 2025/295)
+    is_carer_for_benefits: true
+    num_carers: 1

@@ -1,0 +1,618 @@
+"""Cartesian line readouts: one frequency-encoded line per repetition."""
+
+from __future__ import annotations
+
+__all__ = ["LineReadout2D", "LineReadout3D"]
+
+from typing import Any
+
+import numpy as np
+
+import pypulseqpp as pp
+
+from .._module import SequenceModule
+from ._common import (
+    AXES,
+    as_tuple,
+    left_align_rephaser,
+    present,
+    solve_delay,
+    solve_rephasing,
+    wave_channels,
+)
+
+#: Fraction of ``max_grad`` the readout lobe may reach, leaving the rest for
+#: the phase encodes riding alongside it.
+_READOUT_GRAD_MARGIN = 0.8
+
+_SPOILING_POSITIONS = ("pre", "post")
+
+
+class _LineReadout(SequenceModule):
+    """Cartesian line readout from the supplied RF event to the end of the TR.
+
+    An excitation gives a gradient echo; a refocusing pulse gives the readout
+    half of a spin echo. The phase encodes are templates at their largest step,
+    which the caller scales per shot.
+
+    Zero spoiling balances every axis. Positive spoiling after the acquisition
+    gives SSFP-FID, before it SSFP-Echo; in the latter case the FID trajectory
+    of ``calculate_kspace`` need not cross k = 0, and ``echo_time`` is still
+    the timing interval.
+
+    Parameters
+    ----------
+    system : pypulseqpp.Opts
+        System limits.
+    rf : RfEvent
+        Pulse that opens the repetition.
+    gz : GradEvent, default=None
+        Selection gradient played with ``rf``; ``None`` for a hard pulse.
+    gz_reph : GradEvent, default=None
+        Rephaser of ``gz``, left-aligned in the first block after the pulse
+        (the TE wait if there is one, else the prewinder block). ``None`` for
+        a slab excitation (``is_slab=True``), which carries it in ``gz``.
+    fov : float or sequence of float
+        Field of view per encoded axis, readout first (m).
+    matrix : int or sequence of int
+        Matrix size per encoded axis, readout first. The caller sets the number
+        and order of acquired lines.
+    te : float, default=None
+        Echo time (s), from the RF centre to the first echo. ``None`` is as
+        short as possible.
+    tr : float, default=None
+        Repetition time (s) of the whole module. ``None`` is as short as
+        possible.
+    partial_echo : float, default=1.0
+        Fraction of the full echo acquired, in (0.5, 1]. The samples before the
+        echo are omitted, which shortens TE.
+    oversampling : float, default=1.0
+        Readout oversampling: the sample spacing in k-space is
+        ``1 / (oversampling * fov)``.
+    readout_bandwidth_hz : float, default=250000.0
+        Requested ADC sampling rate (Hz); ``bandwidth_hz`` is the rate achieved
+        on the ADC and gradient rasters.
+    spoiling_cycles : float, default=0.0
+        Cycles of dephasing across ``voxel_size_m`` left at the end of the TR.
+        Zero balances the TR.
+    voxel_size_m : float, default=None
+        Length the spoiling is counted over (m); ``None`` is the readout
+        resolution ``fov[0] / matrix[0]``.
+    spoiling_position : {'post', 'pre'}, default='post'
+        Side of the acquisition on which the spoiler is played.
+    n_echoes : int, default=1
+        Echoes per repetition.
+    flyback : bool, default=True
+        With several echoes, rewind between them so that all are read in the
+        same direction (monopolar), or alternate the readout sign (bipolar).
+        A bipolar train reads even echoes backwards, so a gradient delay error
+        becomes a phase difference between echoes, and it needs as many
+        samples before the echo as after it: ``partial_echo < 1`` and an odd
+        sample count are rejected.
+    echo_spacing : float, default=None
+        Echo spacing (s); ``None`` is as short as possible. Ignored with one
+        echo.
+    wave : {'phase', 'partition', 'both'}, default=None
+        Wave-CAIPI encoding under the readout flat top: a sine on y, a cosine
+        on z, or both. 3D only, unless ``wave_cycles`` or ``wave_amplitude`` is
+        zero, which builds no wave gradients.
+    wave_cycles : int, default=8
+        Wave periods across the sampling window.
+    wave_amplitude : float, default=0.008
+        Upper bound of the wave gradient amplitude (T/m, not Hz/m); the slew
+        rate may lower it. The module's ``wave_amplitude`` attribute is the
+        amplitude built.
+    labels : sequence of str, default=None
+        Labels set to 0 on the acquisition block, to be changed per shot by the
+        caller.
+    trigger : TriggerEvent or DigitalOutputEvent, default=None
+        Event armed on the prewinder block.
+
+    Attributes
+    ----------
+    rf : RfEvent
+        The pulse the module was given.
+    gz : GradEvent
+        Its selection gradient, if one was given.
+    gz_reph : GradEvent
+        Its rephaser, if one was given.
+    gx_pre : GradEvent
+        Readout prephaser, right-aligned in the prewinder block; includes the
+        spoiler area under ``spoiling_position='pre'``.
+    gx : GradEvent
+        Readout lobe. With a single echo and a spoiler, the spoiler is joined
+        to the lobe, which then lacks the ramp on that side. A spoiler joined
+        at the end leaves from a plateau held to the end of the acquisition
+        block, past the last sample by the ADC dead time, and ``gx_spoil`` has
+        correspondingly less area.
+    gx_spoil : GradEvent
+        Last read-axis gradient of the TR, left-aligned with ``gy_rew``:
+        rewinds the part of the line after the echo and, under
+        ``spoiling_position='post'``, adds the spoiler.
+    gy_pre, gz_pre : TrapEvent
+        Phase encodes at their largest step, to be scaled per shot. ``gz_pre``
+        is 3D only.
+    gy_rew, gz_rew : TrapEvent
+        The negated encodes that unwind them.
+    gx_flyback : TrapEvent
+        Rewinder played after every echo but the last of a monopolar train.
+    gx_rev : GradEvent
+        Negated lobe that reads the even echoes of a bipolar train.
+    gy_wave, gz_wave : GradEvent
+        Wave gradients under the readout flat top, each self-balanced so that
+        scaling one to zero changes nothing else. Only the channels driven by
+        ``wave``.
+    adc : AdcEvent
+        The acquisition window, shared by every echo.
+    adc_labels : LabelSetEvent or list of LabelSetEvent
+        One per name in ``labels``; absent when ``labels`` is empty.
+    wait_te : DelayEvent
+        Present only when ``te`` exceeds the minimum and the wait can hold
+        ``gz_reph``; otherwise the prewinder block starts later.
+    wait_esp : DelayEvent
+        Present only when ``echo_spacing`` exceeds the minimum; played after
+        every echo but the last (after the readout lobe of a bipolar train,
+        after the rewinder of a monopolar one).
+    wait_tr : DelayEvent
+        Present only when ``tr`` exceeds the minimum.
+    echo_time : float
+        Time from the RF centre to the first echo (s), on the block raster.
+    echo_spacing : float
+        Time between successive echoes (s), on the block raster; zero with one
+        echo.
+    bandwidth_hz : float
+        Achieved ADC sampling rate ``1 / dwell`` (Hz).
+    n_samples : int
+        ADC samples per echo.
+    center_sample : int
+        Index of the sample at the echo; ``partial_echo`` moves it toward the
+        start.
+    delta_kx : float
+        K-space sample spacing along the readout (1/m).
+    readout_duration : float
+        Duration of the sampled flat top (s).
+    wave_amplitude : float
+        Peak wave gradient amplitude built (T/m), below the requested one where
+        the slew rate binds; zero without ``wave``.
+
+    Raises
+    ------
+    ValueError
+        If a count or a fraction is out of range, ``wave`` is not a wave mode
+        or would build wave gradients on a 2D readout, ``gz_reph`` shares a
+        channel with an encoded axis, or ``te``, ``tr`` or ``echo_spacing`` is
+        shorter than the module can achieve.
+    """
+
+    #: 2 or 3. The only thing that separates the two shipped line readouts.
+    _ndim = 2
+
+    def init_module(
+        self,
+        system: pp.Opts,
+        rf: Any,
+        gz: Any = None,
+        gz_reph: Any = None,
+        *,
+        fov: Any,
+        matrix: Any,
+        te: float | None = None,
+        tr: float | None = None,
+        partial_echo: float = 1.0,
+        oversampling: float = 1.0,
+        readout_bandwidth_hz: float = 250e3,
+        spoiling_cycles: float = 0.0,
+        voxel_size_m: float | None = None,
+        spoiling_position: str = "post",
+        n_echoes: int = 1,
+        flyback: bool = True,
+        echo_spacing: float | None = None,
+        wave: str | None = None,
+        wave_cycles: int = 8,
+        wave_amplitude: float = 8e-3,
+        labels: tuple[str, ...] | None = None,
+        trigger: Any = None,
+    ) -> None:
+        ndim = self._ndim
+        if wave is not None:
+            wave_channels(wave)
+        if wave_cycles < 0 or wave_amplitude < 0:
+            raise ValueError("wave_cycles and wave_amplitude must be >= 0")
+        # Zero cycles or zero amplitude is no wave at all, whatever the mode.
+        waving = wave is not None and wave_cycles > 0 and wave_amplitude > 0
+        if waving and ndim != 3:
+            raise ValueError(
+                "wave encoding spreads a voxel along the two encoded axes "
+                "transverse to the readout, and a 2D readout has only one of "
+                "them: the other is the slice"
+            )
+        n_echoes = int(n_echoes)
+        if n_echoes < 1:
+            raise ValueError("n_echoes must be >= 1")
+        if spoiling_position not in _SPOILING_POSITIONS:
+            raise ValueError(
+                f"spoiling_position must be one of {_SPOILING_POSITIONS}, got {spoiling_position!r}"
+            )
+        if spoiling_cycles < 0:
+            raise ValueError("spoiling_cycles must be >= 0")
+        if oversampling < 1.0:
+            raise ValueError("oversampling must be >= 1")
+        if not 0.5 < partial_echo <= 1.0:
+            raise ValueError("partial_echo must be in (0.5, 1]")
+        if readout_bandwidth_hz <= 0:
+            raise ValueError("readout_bandwidth_hz must be positive")
+        fov = as_tuple(fov, ndim, "fov")
+        n = as_tuple(matrix, ndim, "matrix", int)
+        if min(n) < 2 or min(fov) <= 0:
+            raise ValueError("every matrix size must be >= 2 and every fov positive")
+
+        # Sampling. Partial echo drops samples from before the echo, so the
+        # full count sets where k starts and the acquired count sets the ADC.
+        delta_kx = 1.0 / (oversampling * fov[0])
+        n_full = round(oversampling * n[0])
+        n_post = n_full // 2
+        n_samples = max(n_post + 1, round(partial_echo * n_full))
+        n_pre = n_samples - n_post
+        if n_echoes > 1 and not flyback and n_pre != n_post:
+            raise ValueError(
+                f"a bipolar train reads alternate echoes backwards, which moves "
+                f"the echo from sample {n_pre} to sample {n_post}; acquire a "
+                f"full echo with an even number of samples"
+            )
+        readout_area = n_samples * delta_kx
+        dwell, readout_duration = pp.calc_adc_timing(
+            n_samples,
+            1.0 / readout_bandwidth_hz,
+            grad_raster_time=system.grad_raster_time,
+            adc_raster_time=system.adc_raster_time,
+            min_readout_duration=readout_area
+            / (_READOUT_GRAD_MARGIN * system.max_grad),
+        )
+
+        if voxel_size_m is None:
+            voxel_size_m = fov[0] / n[0]
+        if voxel_size_m <= 0:
+            raise ValueError("voxel_size_m must be positive")
+        spoil_area = spoiling_cycles / voxel_size_m
+
+        # The readout lobe, and the two lobes that bracket it.
+        gx = pp.make_trapezoid(
+            channel="x",
+            flat_area=readout_area,
+            flat_time=readout_duration,
+            system=system,
+        )
+        amplitude, rise_time, fall_time = gx.amplitude, gx.rise_time, gx.fall_time
+        pre_area = -n_pre * delta_kx
+        post_area = -n_post * delta_kx
+
+        # A bridge replaces a ramp the readout lobe then does not play, which
+        # is only coherent when that lobe is the one the spoiler joins: an
+        # echo train reuses one lobe -- and one ADC delay -- per echo, so
+        # every ramp must stay and the spoiler keeps its own.
+        bridged = bool(spoil_area) and n_echoes == 1
+
+        if spoiling_position == "pre" and bridged:
+            # Bridged into the readout lobe: the prewinder climbs to the
+            # plateau itself, so its area *is* the k the flat top starts at and
+            # the lobe keeps a ramp only on the far side.
+            gx_pre = pp.make_extended_trapezoid_area(
+                area=pre_area - spoil_area,
+                channel="x",
+                grad_start=0.0,
+                grad_end=amplitude,
+                system=system,
+            )[0]
+            flat_top_start = 0.0
+        else:
+            # The lobe's own rise happens before the first sample and winds
+            # half a ramp of k while it does. Uncompensated, that offsets the
+            # whole line -- which a reconstruction sees as a first-order phase
+            # rather than as an error, so nothing downstream would report it.
+            area = pre_area - 0.5 * rise_time * amplitude
+            if spoiling_position == "pre" and spoil_area:
+                area -= spoil_area
+            gx_pre = pp.make_trapezoid(channel="x", area=area, system=system)
+            flat_top_start = rise_time
+
+        hold = 0.0
+        if spoiling_position == "post" and bridged:
+            # The lobe bridged onto the end leaves from the plateau, so the
+            # plateau has to reach the end of its block -- and the block runs
+            # past the last sample by the receiver's dead time, then on to the
+            # block raster. Holding it winds k of its own, which the spoiler
+            # takes back so the residual is the spoiling that was asked for.
+            sampled = flat_top_start + readout_duration
+            hold = (
+                pp.ceil_to_raster(
+                    sampled + system.adc_dead_time, system.block_duration_raster
+                )
+                - sampled
+            )
+            gx_spoil = pp.make_extended_trapezoid_area(
+                area=post_area + spoil_area - hold * amplitude,
+                channel="x",
+                grad_start=amplitude,
+                grad_end=0.0,
+                system=system,
+            )[0]
+        else:
+            area = post_area - 0.5 * fall_time * amplitude
+            if spoiling_position == "post" and spoil_area:
+                area += spoil_area
+            gx_spoil = pp.make_trapezoid(channel="x", area=area, system=system)
+
+        # A bridge already supplies the ramp on the side it joins.
+        if bridged:
+            gx = _reshape_readout(
+                system,
+                gx,
+                spoiling_position == "pre",
+                spoiling_position == "post",
+                hold=hold,
+            )
+
+        adc = pp.make_adc(
+            num_samples=n_samples, dwell=dwell, delay=flat_top_start, system=system
+        )
+
+        # The wave-encoding gradients play under the same flat top the samples
+        # are taken on, and both encoded axes are free there: the phase encodes
+        # are spent in the prewinder. Each event is self-balanced, so a scan
+        # that scales one to zero for a calibration line changes nothing else
+        # about the readout.
+        gy_wave = gz_wave = None
+        wave_peak = 0.0
+        if waving:
+            sine, cosine = wave_channels(wave)
+            gy_wave, gz_wave, wave_peak = pp.make_wave_gradients(
+                readout_duration,
+                wave_cycles,
+                wave_amplitude,
+                sine_channel=sine,
+                cosine_channel=cosine,
+                delay=flat_top_start,
+                return_amplitude=True,
+                system=system,
+            )
+
+        # Phase encoding, at its largest step: resolution alone fixes it, since
+        # field of view and matrix cancel.
+        gy_pre = pp.make_phase_encoding("y", fov[1] / n[1], system=system)
+        gy_rew = pp.scale_grad(gy_pre, -1.0)
+        if ndim == 3:
+            gz_pre = pp.make_phase_encoding("z", fov[2] / n[2], system=system)
+            gz_rew = pp.scale_grad(gz_pre, -1.0)
+
+        # Monopolar spends a rewinder between echoes so every one is read in
+        # the same direction; bipolar spends nothing and reads alternate echoes
+        # backwards.
+        if n_echoes > 1 and flyback:
+            gx_flyback = pp.make_trapezoid(channel="x", area=-_area(gx), system=system)
+        if n_echoes > 1 and not flyback:
+            gx_rev = pp.scale_grad(gx, -1.0)
+
+        # Echoes are spaced by whole blocks, so the spacing is counted on the
+        # block raster that `add_block` rounds each of them up to.
+        _waves = [*present(gy_wave), *present(gz_wave)]
+        raster = system.block_duration_raster
+        spacing = spacing_delay = 0.0
+        if n_echoes > 1:
+            spacing = pp.ceil_to_raster(pp.calc_duration(gx, adc, *_waves), raster)
+            if flyback:
+                spacing += pp.ceil_to_raster(pp.calc_duration(gx_flyback), raster)
+            spacing_delay = solve_delay(echo_spacing, spacing, "echo spacing", system)
+            if spacing_delay:
+                wait_esp = pp.make_delay(spacing_delay)
+                spacing += spacing_delay
+
+        # The prewinder block already carries one gradient per encoded axis, so
+        # a rephaser sharing one of those channels has nowhere to sit.
+        gz_reph = left_align_rephaser(gz_reph, AXES[:ndim], type(self).__name__)
+
+        _prewinder = [gx_pre, gy_pre, gz_pre] if ndim == 3 else [gx_pre, gy_pre]
+        if ndim == 3:
+            gx_spoil, gy_rew, gz_rew = pp.align(left=[gx_spoil, gy_rew, gz_rew])
+            _rewinder = [gx_spoil, gy_rew, gz_rew]
+        else:
+            gx_spoil, gy_rew = pp.align(left=[gx_spoil, gy_rew])
+            _rewinder = [gx_spoil, gy_rew]
+
+        adc_labels = [
+            pp.make_label(type="SET", label=name, value=0) for name in labels or ()
+        ]
+
+        self.seq = pp.Sequence(system)
+
+        if gz is not None:
+            self.seq.add_block(rf, gz)
+        else:
+            self.seq.add_block(rf)
+
+        # `add_block` rounds a block up onto the block raster, so a span taken
+        # from `calc_duration` alone is a raster short of where the block ends.
+        rf_center = float(rf.delay) + float(rf.center)
+        te_base = self.seq.duration()[0] - rf_center + flat_top_start + n_pre * dwell
+        wait_span, pre_span, echo_time = solve_rephasing(
+            te,
+            te_base,
+            pp.calc_duration(*_prewinder, *present(trigger)),
+            pp.calc_duration(gz_reph) if gz_reph is not None else 0.0,
+            system,
+        )
+
+        # Align only now that the span is settled, since the delay alignment
+        # writes is part of the event the caller receives. The delay sets the
+        # span everything is right-aligned against and is then dropped: the
+        # aligned gradients already end there, so they hold the block open.
+        _prewinder.append(pp.make_delay(pre_span))
+        if trigger is not None:
+            trigger, *_prewinder = pp.align(left=[trigger], right=_prewinder)
+        else:
+            _prewinder = pp.align(right=_prewinder)
+        _prewinder = _prewinder[:-1]
+        if ndim == 3:
+            gx_pre, gy_pre, gz_pre = _prewinder
+        else:
+            gx_pre, gy_pre = _prewinder
+
+        if wait_span:
+            wait_te = pp.make_delay(wait_span)
+            if gz_reph is not None:
+                self.seq.add_block(wait_te, gz_reph)
+            else:
+                self.seq.add_block(wait_te)
+
+        _pre_block = [
+            *_prewinder,
+            *present(None if wait_span else gz_reph),
+            *present(trigger),
+        ]
+        self.seq.add_block(*_pre_block)
+
+        for i_echo in range(n_echoes):
+            if i_echo and flyback:
+                self.seq.add_block(gx_flyback)
+            if i_echo and spacing_delay:
+                self.seq.add_block(wait_esp)
+            lobe = gx if (flyback or i_echo % 2 == 0) else gx_rev
+            self.seq.add_block(lobe, adc, *_waves, *adc_labels)
+
+        self.seq.add_block(*_rewinder)
+
+        tr_min = self.seq.duration()[0]
+        tr_delay = solve_delay(tr, tr_min, "TR", system)
+        if tr_delay:
+            wait_tr = pp.make_delay(tr_delay)
+            self.seq.add_block(wait_tr)
+
+        self.echo_time = echo_time
+        self.echo_spacing = spacing
+        self.center = echo_time + rf_center
+        self.bandwidth_hz = 1.0 / dwell
+        self.n_samples = n_samples
+        self.center_sample = n_pre
+        self.delta_kx = delta_kx
+        self.readout_duration = readout_duration
+        # The wave amplitude actually built, which is the requested one only
+        # where the slew rate left room for it.
+        self.wave_amplitude = wave_peak
+
+
+def _area(event) -> float:
+    if event.type == "trap":
+        return float(event.area)
+    return float(np.trapezoid(np.asarray(event.waveform), np.asarray(event.tt)))
+
+
+def _reshape_readout(
+    system, gx, bridged_start: bool, bridged_end: bool, hold: float = 0.0
+):
+    """Return the readout lobe without the ramp on each side a joined spoiler provides.
+
+    ``hold`` (s) extends the plateau past the last sample, so that a spoiler
+    joined at the end leaves from the plateau at the block boundary.
+    """
+    amplitude = gx.amplitude
+    spans = [
+        0.0 if bridged_start else gx.rise_time,
+        gx.flat_time + hold,
+        0.0 if bridged_end else gx.fall_time,
+    ]
+    amplitudes = [
+        amplitude if bridged_start else 0.0,
+        amplitude,
+        amplitude,
+        amplitude if bridged_end else 0.0,
+    ]
+    times = np.cumsum([0.0, *spans])
+    keep = [0, *(index + 1 for index, span in enumerate(spans) if span > 0)]
+    return pp.make_extended_trapezoid(
+        channel="x",
+        amplitudes=np.asarray(amplitudes, dtype=float)[keep],
+        times=times[keep],
+        system=system,
+    )
+
+
+class LineReadout2D(_LineReadout):
+    """One Cartesian line, frequency-encoded along x and phase-encoded along y.
+
+    ``fov`` and ``matrix`` take two values, readout first.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts()
+    >>> excitation = design.SpatialSelectiveExcitation(system, 15.0, 5e-3)
+    >>> readout = design.LineReadout2D(
+    ...     system, excitation.rf, excitation.gz, excitation.gz_reph,
+    ...     fov=0.22, matrix=128,
+    ... )
+    >>> int(readout.adc.num_samples)
+    128
+
+    >>> readout.blocks[1] == (readout.gx_pre, readout.gy_pre, readout.gz_reph)
+    True
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp import sequences
+
+       system = pp.Opts()
+       excitation = sequences.SpatialSelectiveExcitation(system, 15.0, 5e-3)
+       readout = sequences.LineReadout2D(
+           system, excitation.rf, excitation.gz, excitation.gz_reph,
+           fov=0.22, matrix=64,
+       )
+       readout.seq.paper_plot()
+       pp.plot.plot_kspace(readout.seq, plane="xy", show_trajectory=True)
+       plt.show()
+    """
+
+    _ndim = 2
+
+
+class LineReadout3D(_LineReadout):
+    """One Cartesian line of a 3D slab, phase-encoded along y and z.
+
+    ``fov`` and ``matrix`` take three values, readout first.
+
+    Examples
+    --------
+    >>> import pypulseqpp.sequences as design
+    >>> import pypulseqpp as pp
+    >>> system = pp.Opts()
+    >>> slab = design.SpatialSelectiveExcitation(system, 8.0, 0.12, is_slab=True)
+    >>> readout = design.LineReadout3D(
+    ...     system, slab.rf, slab.gz,
+    ...     fov=(0.22, 0.22, 0.12), matrix=(128, 128, 64),
+    ... )
+    >>> readout.gy_pre.channel, readout.gz_pre.channel
+    ('y', 'z')
+
+    One repetition of the slab acquisition, and the line it reads:
+
+    .. plot::
+       :include-source: false
+
+       import matplotlib.pyplot as plt
+       import pypulseqpp as pp
+       from pypulseqpp import sequences
+
+       system = pp.Opts()
+       slab = sequences.SpatialSelectiveExcitation(system, 8.0, 0.12, is_slab=True)
+       readout = sequences.LineReadout3D(
+           system, slab.rf, slab.gz,
+           fov=(0.22, 0.22, 0.12), matrix=(64, 64, 32),
+       )
+       readout.seq.paper_plot()
+       pp.plot.plot_kspace(readout.seq, plane="xy", show_trajectory=True)
+       plt.show()
+    """
+
+    _ndim = 3

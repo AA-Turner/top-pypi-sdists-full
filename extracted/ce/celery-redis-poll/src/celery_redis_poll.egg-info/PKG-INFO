@@ -1,0 +1,102 @@
+Metadata-Version: 2.2
+Name: celery-redis-poll
+Version: 0.1.12
+Summary: A Redis Backend for Celery with polling instead of pub/sub
+Home-page: https://github.com/lan17/celery-redis-poll
+Author: Lev Neiman
+Author-email: lev.neiman@gmail.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: celery>=5.3.0
+Requires-Dist: redis>=4.5.0
+Requires-Dist: celery-redis-cluster>=0.2.3
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0.0; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Celery Redis Poll Backend
+
+A specialized Redis backend for Celery that replaces the default pub/sub mechanism for task result retrieval with a polling-based approach.
+
+## Why Polling Instead of Pub/Sub?
+
+The default Celery Redis backend uses Redis pub/sub for real-time task result notifications. While pub/sub provides immediate updates, it can face challenges in certain scenarios:
+
+- Deadlocks in highly concurrent/multi-threaded workloads due to single-threaded nature of Redis and Celery clients.
+- Higher overhead with `SUBSCRIBE` channels.
+
+This backend provides a more robust alternative by using a polling mechanism instead.
+
+## Features
+
+- **Polling-Based Results**: Replaces pub/sub with a polling mechanism for task result retrieval
+- **Compatible with Existing Code**: Drop-in replacement for the standard Redis backend
+- **Configurable Polling**: Adjust polling intervals and timeouts to match your needs
+- **Resource Efficient**: Reduces Redis memory usage by eliminating pub/sub channels
+
+## Installation
+
+```bash
+pip install celery-redis-poll
+```
+
+After installation new backends are automatically registered with Celery:
+- `redis+poll`
+- `rediss+poll`
+- `redis+cluster_poll`
+- `rediss+cluster_poll`
+
+## Usage
+
+Configure your Celery application to use the polling backend:
+
+```python
+from celery import Celery
+
+app = Celery('your_app',
+             broker='redis://localhost:6379/0',
+             backend='redis+poll://localhost:6379/0')
+```
+
+For clustered Redis, use `redis+cluster_poll`.
+
+## Requirements
+
+- Python >= 3.7
+- Celery >= 5.0.0
+- Redis >= 4.5.0
+- celery-redis-cluster >= 0.1.6
+
+## Development
+
+For development, install extra dependencies:
+
+```bash
+pip install celery-redis-poll[dev]
+```
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.

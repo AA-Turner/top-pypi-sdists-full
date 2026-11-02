@@ -188,7 +188,7 @@ def test_run_url_is_none_when_the_origin_is_unknown(client, app) -> None:
 # unparseable -- so every one of these goes to stderr.
 def test_print_link_writes_to_stderr(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     monkeypatch.setenv(links.DASHBOARD_URL_ENV, DASHBOARD)
-    from probe.cli.main import _print_link
+    from probe.cli.commands.json_print import _print_link
 
     _print_link("run", "abc")
 
@@ -204,7 +204,7 @@ def test_print_link_is_silent_when_the_origin_is_unknown(
     a dashboard — so silence has to be tested against a base URL that implies
     none, not against an empty config."""
     monkeypatch.setenv("PROBE_BASE_URL", "http://research-os.research.svc.cluster.local:8080")
-    from probe.cli.main import _print_link
+    from probe.cli.commands.json_print import _print_link
 
     _print_link("run", "abc")
 
@@ -219,7 +219,7 @@ def test_json_stdout_stays_parseable_alongside_a_link(
     """`probe project create ... | jq` must keep working: the link goes to stderr,
     so stdout is still exactly one JSON document."""
     monkeypatch.setenv(links.DASHBOARD_URL_ENV, DASHBOARD)
-    from probe.cli.main import _print_json, _print_link
+    from probe.cli.commands.json_print import _print_json, _print_link
 
     _print_json({"id": "abc", "slug": "folding"})
     _print_link("project", "abc")

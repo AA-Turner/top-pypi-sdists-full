@@ -33,7 +33,6 @@ def _append(queue, correlation="one"):
 @pytest.fixture
 def queue(tmp_path, monkeypatch):
     monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
-    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     return jm.Journal.for_receipts(tmp_path / "outbox", context={"base_url": "http://test"})
 
 

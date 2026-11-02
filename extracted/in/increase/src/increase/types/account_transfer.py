@@ -1,0 +1,211 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import TYPE_CHECKING, Dict, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = [
+    "AccountTransfer",
+    "Approval",
+    "Cancellation",
+    "CreatedBy",
+    "CreatedByAPIKey",
+    "CreatedByOAuthApplication",
+    "CreatedByUser",
+]
+
+
+class Approval(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was approved, this will contain details of the approval.
+    """
+
+    approved_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was approved.
+    """
+
+    approved_by: Optional[str] = None
+    """
+    If the Transfer was approved by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class Cancellation(BaseModel):
+    """
+    If your account requires approvals for transfers and the transfer was not approved, this will contain details of the cancellation.
+    """
+
+    canceled_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the Transfer was canceled.
+    """
+
+    canceled_by: Optional[str] = None
+    """
+    If the Transfer was canceled by a user in the dashboard, the email address of
+    that user.
+    """
+
+
+class CreatedByAPIKey(BaseModel):
+    """If present, details about the API key that created the transfer."""
+
+    description: Optional[str] = None
+    """The description set for the API key when it was created."""
+
+
+class CreatedByOAuthApplication(BaseModel):
+    """If present, details about the OAuth Application that created the transfer."""
+
+    name: str
+    """The name of the OAuth Application."""
+
+
+class CreatedByUser(BaseModel):
+    """If present, details about the User that created the transfer."""
+
+    email: str
+    """The email address of the User."""
+
+
+class CreatedBy(BaseModel):
+    """What object created the transfer, either via the API or the dashboard."""
+
+    category: Literal["api_key", "oauth_application", "user"]
+    """The type of object that created this transfer.
+
+    - `api_key` - An API key. Details will be under the `api_key` object.
+    - `oauth_application` - An OAuth application you connected to Increase. Details
+      will be under the `oauth_application` object.
+    - `user` - A User in the Increase dashboard. Details will be under the `user`
+      object.
+    """
+
+    api_key: Optional[CreatedByAPIKey] = None
+    """If present, details about the API key that created the transfer."""
+
+    oauth_application: Optional[CreatedByOAuthApplication] = None
+    """If present, details about the OAuth Application that created the transfer."""
+
+    user: Optional[CreatedByUser] = None
+    """If present, details about the User that created the transfer."""
+
+
+class AccountTransfer(BaseModel):
+    """
+    Account transfers move funds between your own accounts at Increase (accounting systems often refer to these as Book Transfers). Account Transfers are free and synchronous. Upon creation they create two Transactions, one negative on the originating account and one positive on the destination account (unless the transfer requires approval, in which case the Transactions will be created when the transfer is approved).
+    """
+
+    id: str
+    """The Account Transfer's identifier."""
+
+    account_id: str
+    """The Account from which the transfer originated."""
+
+    amount: int
+    """The transfer amount in cents.
+
+    This will always be positive and indicates the amount of money leaving the
+    originating account.
+    """
+
+    approval: Optional[Approval] = None
+    """
+    If your account requires approvals for transfers and the transfer was approved,
+    this will contain details of the approval.
+    """
+
+    cancellation: Optional[Cancellation] = None
+    """
+    If your account requires approvals for transfers and the transfer was not
+    approved, this will contain details of the cancellation.
+    """
+
+    created_at: datetime
+    """
+    The [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) date and time at which
+    the transfer was created.
+    """
+
+    created_by: Optional[CreatedBy] = None
+    """What object created the transfer, either via the API or the dashboard."""
+
+    currency: Literal["USD"]
+    """
+    The [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) code for the transfer's
+    currency.
+
+    - `USD` - US Dollar (USD)
+    """
+
+    description: str
+    """
+    An internal-facing description for the transfer for display in the API and
+    dashboard. This will also show in the description of the created Transactions.
+    """
+
+    destination_account_id: str
+    """The destination Account's identifier."""
+
+    destination_transaction_id: Optional[str] = None
+    """
+    The identifier of the Transaction on the destination Account representing the
+    received funds.
+    """
+
+    idempotency_key: Optional[str] = None
+    """The idempotency key you chose for this object.
+
+    This value is unique across Increase and is used to ensure that a request is
+    only processed once. Learn more about
+    [idempotency](https://increase.com/documentation/idempotency-keys).
+    """
+
+    pending_transaction_id: Optional[str] = None
+    """The ID for the pending transaction representing the transfer.
+
+    A pending transaction is created when the transfer
+    [requires approval](https://increase.com/documentation/transfer-approvals#transfer-approvals)
+    by someone else in your organization.
+    """
+
+    status: Literal["pending_approval", "canceled", "complete"]
+    """The lifecycle status of the transfer.
+
+    - `pending_approval` - The transfer is pending approval from your team.
+    - `canceled` - The transfer was pending approval from your team and has been
+      canceled.
+    - `complete` - The transfer has been completed.
+    """
+
+    transaction_id: Optional[str] = None
+    """
+    The identifier of the Transaction on the originating account representing the
+    transferred funds.
+    """
+
+    type: Literal["account_transfer"]
+    """A constant representing the object's type.
+
+    For this resource it will always be `account_transfer`.
+    """
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]

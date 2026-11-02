@@ -1,0 +1,66 @@
+[build-system]
+requires = ["maturin>=1.13,<2.0", "fastws-cli>=0.0.32"]
+build-backend = "fastws.build_backend"
+
+[project]
+name = "basedpl"
+dynamic = ["version"]
+description = "BasedPL, the Based-array Programming Language, is an APL-derived array language, borrowing ideas from J and BQN, with an emphasis on simple, consistent notation."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastcore", "jupyter_core"
+]
+readme = "README.md"
+authors = [{name = "Jeremy Howard", email = "github@jhoward.fastmail.fm"}]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.optional-dependencies]
+dev = ["fastship>=0.0.11", "fastws-cli>=0.0.32", "maturin>=1.13,<2.0", "pytest", "pytest-timeout", "numpy", "pandas", "ipython>=9.17.1", "nbdev>=3.3.24", "conkernelclient>=0.0.23", "pillow", "rustymath>=0.1.49"]
+
+[project.scripts]
+basedpl-install = "basedpl.install:main"
+bpl-nb = "basedpl.notebook_runner:main"
+bpl-install-magic = "basedpl.notebooks:create_ipython_config"
+bpl-tests = "basedpl.bpltests:main"
+
+[project.urls]
+Homepage = "https://github.com/AnswerDotAI/basedpl"
+Repository = "https://github.com/AnswerDotAI/basedpl"
+Issues = "https://github.com/AnswerDotAI/basedpl/issues"
+Documentation = "https://answerdotai.github.io/basedpl"
+
+[tool.maturin]
+data = "wheel"
+manifest-path = "py/Cargo.toml"
+profile = "release"
+python-source = "python"
+module-name = "basedpl._core"
+
+[tool.maturin.target.aarch64-apple-darwin]
+macos-deployment-target = "15.0"
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "cli/Cargo.toml" }, { file = "py/Cargo.toml" }]
+
+[tool.fastws]
+native-binaries = true
+post-develop-module = "basedpl.editors"
+
+[tool.fastship]
+branch = "main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 60
+timeout_func_only = true
+
+[tool.nbdev]
+lib_path = "python/basedpl"
+custom_sidebar = true
+tst_flags = "dyalog"
+title = "BasedPL"
+put_version_in_init = false

@@ -1,0 +1,44 @@
+import re
+from pathlib import Path
+from basedpl import symbols
+from basedpl.editors import key
+
+GLYPHS = Path(__file__).resolve().parents[1]/'nbs/glyphs.qmd'
+SECTIONS = {'Functions': {'function'}, 'Monadic operators': {'monadic-operator'}, 'Dyadic operators': {'dyadic-operator'},
+            'Syntax and literals': {'argument', 'literal', 'comment', 'system', 'syntax'}}
+
+
+def check(path):
+    "A message for each place where the tables in `path` disagree with `basedpl.symbols` about a glyph, name, key or kind."
+    names, problems, listed, kinds = {s['name']: s for s in symbols}, [], set(), None
+    for line in path.read_text().splitlines():
+        if line.startswith('## '): kinds = SECTIONS.get(line[3:])
+        if not (kinds and line.startswith('| `')): continue
+        cells = [c.strip().replace('\\|', '|') for c in re.split(r'(?<!\\)\|', line)[1:-1]]
+        keys = cells[1].split(', ') if cells[1] else []
+        for i, (form, name, page) in enumerate(re.findall(r'`([^`]+)` \[([\w-]+)\]\(glyphs/([\w-]+)\.qmd\)', cells[0])):
+            if name != page or not (path.parent/'glyphs'/f'{page}.qmd').exists(): problems.append(f'`{form}` [{name}]: links to missing or different page {page}')
+            s = names.get(name)
+            if s is None:
+                if 'syntax' not in kinds: problems.append(f'`{form}` [{name}]: no symbol has this name')
+                continue
+            if s['kind'] in kinds: listed.add(name)
+            if s['glyph'] not in form: problems.append(f'`{form}` [{name}]: the glyph is {s["glyph"]}')
+            given = keys[i] if i < len(keys) else ''
+            if given != key(s['shortcut']): problems.append(f'`{form}` [{name}]: the key is {key(s["shortcut"]) or "none"}, not {given or "none"}')
+            if s['kind'] not in kinds: continue
+            if 'syntax' in kinds:
+                named = cells[2].split(', ') if cells[2] else []
+                if (named[i] if i < len(named) else '') != s['monad']: problems.append(f'`{form}` [{name}]: the name is {s["monad"] or "none"}, not {cells[2] or "none"}')
+            elif [c.replace('—', '') for c in cells[2:4]] != [s['monad'], s['dyad']]:
+                problems.append(f'`{form}` [{name}]: the monad and dyad are {s["monad"] or "—"} and {s["dyad"] or "—"}, not {" and ".join(cells[2:4])}')
+    for s in symbols:
+        if s['name'] not in listed: problems.append(f'{s["glyph"]} [{s["name"]}]: missing from the {s["kind"]} table')
+    return problems
+
+
+def test_glyph_reference_matches_symbols(): assert check(GLYPHS) == []
+
+
+def test_every_glyph_has_keys():
+    assert [s['glyph'] for s in symbols if len(s['glyph']) == 1 and not s['glyph'].isascii() and not s['shortcut']] == []

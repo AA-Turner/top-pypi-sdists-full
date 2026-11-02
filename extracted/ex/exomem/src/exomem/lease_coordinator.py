@@ -1,0 +1,955 @@
+"""Reference strongly-consistent writer-lease coordinator.
+
+Run with ``python -m exomem.lease_coordinator``. SQLite ``BEGIN IMMEDIATE``
+serializes grants on one coordinator node; deploy a linearizable managed backend
+behind the same HTTP contract when coordinator high availability is required.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import secrets
+import sqlite3
+import threading
+import time
+import weakref
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+from .writer_lease import (
+    COLLECTION_STORE_CAPABILITY,
+    CollectionStoreFenceState,
+    CollectionStoreHead,
+    _ClosingConnection,
+)
+
+
+def _connection(
+    path: Path, *, factory=_ClosingConnection, check_same_thread: bool = True
+) -> sqlite3.Connection:
+    conn = sqlite3.connect(
+        path, timeout=10, isolation_level=None, factory=factory, check_same_thread=check_same_thread
+    )
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except BaseException:
+        conn.close()
+        raise
+    return conn
+
+
+class SQLiteLeaseStore:
+    def __init__(self, path: Path, *, clock=time.time):
+        self.path = path
+        self.clock = clock
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # One connection for the store's life. A per-request connection's close is the last
+        # close, so SQLite checkpointed the WAL into the database file after every grant.
+        # Do not fork while this store is open: a child's own connection shares the parent's
+        # in-process SQLite lock state, so the parent's close can checkpoint the WAL away under it.
+        self._conn = _connection(path, factory=sqlite3.Connection, check_same_thread=False)
+        self._conn_lock = threading.Lock()
+        weakref.finalize(self, self._conn.close)
+        with self._connect() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS leases ("
+                "vault_id TEXT PRIMARY KEY, holder TEXT, expires_at REAL, "
+                "fencing_token INTEGER NOT NULL DEFAULT 0)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS lease_schema_fences ("
+                "vault_id TEXT PRIMARY KEY, governance_enrolled INTEGER NOT NULL "
+                "CHECK(governance_enrolled=1), schema_version INTEGER NOT NULL "
+                "CHECK(schema_version IN (3,4)), generation INTEGER NOT NULL "
+                "CHECK(generation>0))"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS lease_collection_store_fences ("
+                "vault_id TEXT PRIMARY KEY, store_id TEXT NOT NULL, "
+                "generation INTEGER NOT NULL CHECK(generation>0), head_json TEXT)"
+            )
+            # Append-only: a retired generation stays the basis of the next enrolment.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS lease_collection_store_fence_history ("
+                "vault_id TEXT NOT NULL, store_id TEXT NOT NULL, "
+                "generation INTEGER NOT NULL CHECK(generation>0), head_json TEXT, "
+                "retired_at REAL NOT NULL, PRIMARY KEY(vault_id, generation))"
+            )
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Requests take the connection one at a time; each still opens its own BEGIN IMMEDIATE.
+        with self._conn_lock:
+            try:
+                yield self._conn
+            except BaseException:
+                if self._conn.in_transaction:
+                    self._conn.rollback()
+                raise
+            if self._conn.in_transaction:
+                self._conn.commit()
+
+    @staticmethod
+    def _record(row, *, granted: bool = False, fence=None, store_fence=None) -> dict:  # noqa: ANN001
+        record = {
+            "holder": row[0] if row else None,
+            "expires_at": row[1] if row and row[0] else None,
+            "fencing_token": int(row[2]) if row else 0,
+            "granted": granted,
+        }
+        if fence is not None:
+            record.update(
+                required_schema_version=int(fence[0]),
+                schema_fence_generation=int(fence[1]),
+                governance_enrolled=True,
+            )
+        if store_fence is not None:
+            record.update(
+                required_collection_store_capability=COLLECTION_STORE_CAPABILITY,
+                collection_store_fence_generation=int(store_fence[1]),
+                collection_store_head=json.loads(store_fence[2]) if store_fence[2] else None,
+            )
+        return record
+
+    @staticmethod
+    def _schema_version(value: object) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value not in {3, 4}:
+            raise ValueError("schema_version must be 3 or 4")
+        return value
+
+    @staticmethod
+    def _generation(value: object, *, minimum: int = 0) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError("expected_generation is invalid")
+        return value
+
+    @staticmethod
+    def _fence_row(conn: sqlite3.Connection, vault_id: str):  # noqa: ANN205
+        return conn.execute(
+            "SELECT schema_version, generation FROM lease_schema_fences WHERE vault_id=?",
+            (vault_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _store_fence_row(conn: sqlite3.Connection, vault_id: str):  # noqa: ANN205
+        return conn.execute(
+            "SELECT store_id, generation, head_json FROM lease_collection_store_fences WHERE vault_id=?",
+            (vault_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _retired_store_fence_row(conn: sqlite3.Connection, vault_id: str):  # noqa: ANN205
+        return conn.execute(
+            "SELECT store_id, generation, head_json FROM lease_collection_store_fence_history "
+            "WHERE vault_id=? ORDER BY generation DESC LIMIT 1",
+            (vault_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _store_fence_state(row, retired=None) -> dict:  # noqa: ANN001
+        return CollectionStoreFenceState(
+            COLLECTION_STORE_CAPABILITY,
+            row is not None,
+            row[0] if row else None,
+            int(row[1]) if row else (int(retired[1]) if retired else 0),
+        ).as_dict()
+
+    @staticmethod
+    def _reported_head(value: object, store_fence) -> CollectionStoreHead | None:  # noqa: ANN001
+        if value is None:
+            return None
+        head = CollectionStoreHead.from_json(value)
+        if store_fence is None or head.store_id != store_fence[0]:
+            raise ValueError("collection store head does not match the enrolled store")
+        return head
+
+    @staticmethod
+    def _persist_head(
+        conn: sqlite3.Connection,
+        vault_id: str,
+        head: CollectionStoreHead,
+    ) -> None:
+        conn.execute(
+            "UPDATE lease_collection_store_fences SET head_json=? WHERE vault_id=?",
+            (json.dumps(head.as_dict(), separators=(",", ":")), vault_id),
+        )
+
+    @staticmethod
+    def _client_schema(value: object | None) -> int:
+        # Released pre-v4 coordinators sent no schema field. Once a vault is
+        # enrolled, that exact legacy wire shape means schema 3; it must never
+        # be interpreted as "whatever the coordinator currently requires".
+        if value is None:
+            return 3
+        return SQLiteLeaseStore._schema_version(value)
+
+    def acquire(
+        self,
+        vault_id: str,
+        replica_id: str,
+        ttl_seconds: float,
+        *,
+        schema_version: object | None = None,
+        collection_store_capability: object | None = None,
+    ) -> dict:
+        now = self.clock()
+        expires = now + ttl_seconds
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            fence = self._fence_row(conn, vault_id)
+            store_fence = self._store_fence_row(conn, vault_id)
+            row = conn.execute(
+                "SELECT holder, expires_at, fencing_token FROM leases WHERE vault_id = ?",
+                (vault_id,),
+            ).fetchone()
+            if (fence is not None and self._client_schema(schema_version) != int(fence[0])) or (
+                store_fence is not None
+                and collection_store_capability != COLLECTION_STORE_CAPABILITY
+            ):
+                conn.execute("COMMIT")
+                return self._record(row, fence=fence, store_fence=store_fence)
+            if row is None:
+                conn.execute(
+                    "INSERT INTO leases(vault_id, holder, expires_at, fencing_token) VALUES (?, ?, ?, 1)",
+                    (vault_id, replica_id, expires),
+                )
+                conn.execute("COMMIT")
+                return self._record(
+                    (replica_id, expires, 1), granted=True, fence=fence, store_fence=store_fence
+                )
+            holder, old_expiry, token = row
+            active = holder is not None and old_expiry is not None and old_expiry > now
+            if active and holder != replica_id:
+                conn.execute("COMMIT")
+                return self._record(row, fence=fence, store_fence=store_fence)
+            new_token = token if active and holder == replica_id else token + 1
+            conn.execute(
+                "UPDATE leases SET holder = ?, expires_at = ?, fencing_token = ? WHERE vault_id = ?",
+                (replica_id, expires, new_token, vault_id),
+            )
+            conn.execute("COMMIT")
+            return self._record(
+                (replica_id, expires, new_token), granted=True, fence=fence, store_fence=store_fence
+            )
+
+    def renew(
+        self,
+        vault_id: str,
+        replica_id: str,
+        fencing_token: int,
+        ttl_seconds: float,
+        *,
+        schema_version: object | None = None,
+        collection_store_capability: object | None = None,
+        collection_store_head: object | None = None,
+    ) -> dict:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            now = self.clock()
+            expires = now + ttl_seconds
+            fence = self._fence_row(conn, vault_id)
+            store_fence = self._store_fence_row(conn, vault_id)
+            head = self._reported_head(collection_store_head, store_fence)
+            row = conn.execute(
+                "SELECT holder, expires_at, fencing_token FROM leases WHERE vault_id = ?",
+                (vault_id,),
+            ).fetchone()
+            if (fence is not None and self._client_schema(schema_version) != int(fence[0])) or (
+                store_fence is not None
+                and collection_store_capability != COLLECTION_STORE_CAPABILITY
+            ):
+                conn.execute("COMMIT")
+                return self._record(row, fence=fence, store_fence=store_fence)
+            valid = bool(
+                row
+                and row[0] == replica_id
+                and row[1] is not None
+                and row[1] > now
+                and row[2] == fencing_token
+            )
+            if valid:
+                conn.execute(
+                    "UPDATE leases SET expires_at = ? WHERE vault_id = ?", (expires, vault_id)
+                )
+                row = (replica_id, expires, fencing_token)
+                if head is not None:
+                    self._persist_head(conn, vault_id, head)
+                    store_fence = self._store_fence_row(conn, vault_id)
+            conn.execute("COMMIT")
+            return self._record(row, granted=valid, fence=fence, store_fence=store_fence)
+
+    def release(
+        self,
+        vault_id: str,
+        replica_id: str,
+        fencing_token: int,
+        *,
+        collection_store_head: object | None = None,
+    ) -> dict:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            store_fence = self._store_fence_row(conn, vault_id)
+            head = self._reported_head(collection_store_head, store_fence)
+            row = conn.execute(
+                "SELECT holder, expires_at, fencing_token FROM leases WHERE vault_id = ?",
+                (vault_id,),
+            ).fetchone()
+            valid = bool(row and row[0] == replica_id and row[2] == fencing_token)
+            if head is not None:
+                valid = bool(valid and row[1] is not None and row[1] > self.clock())
+            if valid:
+                if head is not None:
+                    self._persist_head(conn, vault_id, head)
+                    store_fence = self._store_fence_row(conn, vault_id)
+                conn.execute(
+                    "UPDATE leases SET holder = NULL, expires_at = NULL WHERE vault_id = ?",
+                    (vault_id,),
+                )
+                row = (None, None, fencing_token)
+            conn.execute("COMMIT")
+            return self._record(row, granted=valid, store_fence=store_fence)
+
+    def status(self, vault_id: str) -> dict:
+        now = self.clock()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            fence = self._fence_row(conn, vault_id)
+            store_fence = self._store_fence_row(conn, vault_id)
+            row = conn.execute(
+                "SELECT holder, expires_at, fencing_token FROM leases WHERE vault_id = ?",
+                (vault_id,),
+            ).fetchone()
+            if row and row[0] is not None and (row[1] is None or row[1] <= now):
+                conn.execute(
+                    "UPDATE leases SET holder = NULL, expires_at = NULL WHERE vault_id = ?",
+                    (vault_id,),
+                )
+                row = (None, None, row[2])
+            conn.execute("COMMIT")
+            return self._record(row, fence=fence, store_fence=store_fence)
+
+    def collection_store_fence(self, vault_id: str) -> dict:
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            row = self._store_fence_row(conn, vault_id)
+            retired = None if row else self._retired_store_fence_row(conn, vault_id)
+            conn.execute("COMMIT")
+        return self._store_fence_state(row, retired)
+
+    def retired_collection_store_fence(self, vault_id: str) -> dict:
+        """The newest retired store fence and the head recorded when it was retired.
+
+        A separate read from the fence read, whose fields released clients check exactly.
+        """
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            retired = self._retired_store_fence_row(conn, vault_id)
+            conn.execute("COMMIT")
+        return {
+            "store_id": retired[0] if retired else None,
+            "generation": int(retired[1]) if retired else 0,
+            "collection_store_head": json.loads(retired[2]) if retired and retired[2] else None,
+        }
+
+    def transition_collection_store_fence(
+        self,
+        vault_id: str,
+        *,
+        expected_generation: object,
+        capability: object,
+        store_id: object,
+    ) -> tuple[dict, bool]:
+        expected = self._generation(expected_generation)
+        target = CollectionStoreFenceState(capability, True, store_id, 1)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            current = self._store_fence_row(conn, vault_id)
+            if current is not None:
+                if current[0] == target.store_id:
+                    accepted = expected in {current[1], current[1] - 1}
+                    conn.execute("COMMIT")
+                    return self._store_fence_state(current), accepted
+                if expected != current[1]:
+                    conn.execute("COMMIT")
+                    return self._store_fence_state(current), False
+                target = CollectionStoreFenceState(capability, True, store_id, current[1] + 1)
+                conn.execute(
+                    "UPDATE lease_collection_store_fences SET store_id=?, generation=?, "
+                    "head_json=NULL WHERE vault_id=?",
+                    (target.store_id, target.generation, vault_id),
+                )
+            else:
+                retired = self._retired_store_fence_row(conn, vault_id)
+                if expected != (int(retired[1]) if retired else 0):
+                    conn.execute("COMMIT")
+                    return self._store_fence_state(None, retired), False
+                target = CollectionStoreFenceState(capability, True, store_id, expected + 1)
+                conn.execute(
+                    "INSERT INTO lease_collection_store_fences(vault_id, store_id, generation) "
+                    "VALUES (?, ?, ?)",
+                    (vault_id, target.store_id, target.generation),
+                )
+            conn.execute(
+                "UPDATE leases SET holder=NULL, expires_at=NULL, "
+                "fencing_token=fencing_token+1 WHERE vault_id=?",
+                (vault_id,),
+            )
+            conn.execute("COMMIT")
+        return target.as_dict(), True
+
+    def retire_collection_store_fence(
+        self,
+        vault_id: str,
+        *,
+        expected_generation: object,
+        capability: object,
+        store_id: object,
+    ) -> tuple[dict, bool]:
+        expected = self._generation(expected_generation, minimum=1)
+        target = CollectionStoreFenceState(capability, True, store_id, expected)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            current = self._store_fence_row(conn, vault_id)
+            if current is None:
+                retired = self._retired_store_fence_row(conn, vault_id)
+                conn.execute("COMMIT")
+                # A lost acknowledgement replays the newest retire without a second revocation.
+                replay = retired is not None and (retired[0], int(retired[1])) == (
+                    target.store_id,
+                    expected,
+                )
+                return self._store_fence_state(None, retired), replay
+            if (current[0], int(current[1])) != (target.store_id, expected):
+                conn.execute("COMMIT")
+                return self._store_fence_state(current), False
+            conn.execute(
+                "INSERT INTO lease_collection_store_fence_history"
+                "(vault_id, store_id, generation, head_json, retired_at) VALUES (?, ?, ?, ?, ?)",
+                (vault_id, current[0], int(current[1]), current[2], self.clock()),
+            )
+            conn.execute("DELETE FROM lease_collection_store_fences WHERE vault_id=?", (vault_id,))
+            # As a store cut does, revoke the holder that opened against the retired fence.
+            conn.execute(
+                "UPDATE leases SET holder=NULL, expires_at=NULL, "
+                "fencing_token=fencing_token+1 WHERE vault_id=?",
+                (vault_id,),
+            )
+            conn.execute("COMMIT")
+        return self._store_fence_state(None, current), True
+
+    def schema_fence(self, vault_id: str) -> dict | None:
+        with self._connect() as conn:
+            row = self._fence_row(conn, vault_id)
+        if row is None:
+            return None
+        return {
+            "governance_enrolled": True,
+            "schema_version": int(row[0]),
+            "generation": int(row[1]),
+        }
+
+    def schema_admission(self, vault_id: str, *, schema_version: object) -> dict:
+        requested = self._schema_version(schema_version)
+        with self._connect() as conn:
+            row = self._fence_row(conn, vault_id)
+        if row is None:
+            return {
+                "admitted": False,
+                "governance_enrolled": False,
+                "required_schema_version": None,
+                "schema_fence_generation": None,
+            }
+        required, generation = int(row[0]), int(row[1])
+        return {
+            "admitted": requested == required,
+            "governance_enrolled": True,
+            "required_schema_version": required,
+            "schema_fence_generation": generation,
+        }
+
+    def transition_schema_fence(
+        self,
+        vault_id: str,
+        *,
+        expected_generation: object,
+        schema_version: object,
+    ) -> tuple[dict, bool]:
+        expected = self._generation(expected_generation)
+        target = self._schema_version(schema_version)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            current = self._fence_row(conn, vault_id)
+            if current is None:
+                if expected != 0:
+                    conn.execute("COMMIT")
+                    return {}, False
+                generation = 1
+                conn.execute(
+                    "INSERT INTO lease_schema_fences"
+                    "(vault_id, governance_enrolled, schema_version, generation) "
+                    "VALUES (?, 1, ?, ?)",
+                    (vault_id, target, generation),
+                )
+            else:
+                current_schema, current_generation = int(current[0]), int(current[1])
+                # A lost acknowledgement replays the already-published target
+                # instead of advancing the generation a second time.
+                if current_schema == target and expected in {
+                    current_generation,
+                    current_generation - 1,
+                }:
+                    conn.execute("COMMIT")
+                    return {
+                        "governance_enrolled": True,
+                        "schema_version": current_schema,
+                        "generation": current_generation,
+                    }, True
+                if expected != current_generation:
+                    conn.execute("COMMIT")
+                    return {
+                        "governance_enrolled": True,
+                        "schema_version": current_schema,
+                        "generation": current_generation,
+                    }, False
+                generation = current_generation + 1
+                conn.execute(
+                    "UPDATE lease_schema_fences SET schema_version=?, generation=? "
+                    "WHERE vault_id=?",
+                    (target, generation, vault_id),
+                )
+            # The schema cut and writer cut are one coordinator transaction.
+            # Any holder from the predecessor generation is fenced before the
+            # new schema can admit a replacement.
+            conn.execute(
+                "UPDATE leases SET holder=NULL, expires_at=NULL, "
+                "fencing_token=fencing_token+1 WHERE vault_id=?",
+                (vault_id,),
+            )
+            conn.execute("COMMIT")
+        return {
+            "governance_enrolled": True,
+            "schema_version": target,
+            "generation": generation,
+        }, True
+
+
+class SQLiteStateStore:
+    """Small strongly-consistent JSON store used for encrypted OAuth records."""
+
+    def __init__(self, path: Path, *, clock=time.time):
+        self.path = path
+        self.clock = clock
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS shared_state ("
+                "namespace TEXT NOT NULL, collection TEXT NOT NULL, key TEXT NOT NULL, "
+                "value TEXT NOT NULL, expires_at REAL, PRIMARY KEY(namespace, collection, key))"
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        return _connection(self.path)
+
+    @staticmethod
+    def _collection(value: object) -> str:
+        return str(value) if value is not None else ""
+
+    def get(self, namespace: str, collection: object, key: str) -> tuple[dict | None, float | None]:
+        now = self.clock()
+        coll = self._collection(collection)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT value, expires_at FROM shared_state WHERE namespace=? AND collection=? AND key=?",
+                (namespace, coll, key),
+            ).fetchone()
+            if row and row[1] is not None and row[1] <= now:
+                conn.execute(
+                    "DELETE FROM shared_state WHERE namespace=? AND collection=? AND key=?",
+                    (namespace, coll, key),
+                )
+                row = None
+            conn.execute("COMMIT")
+        if not row:
+            return None, None
+        remaining = None if row[1] is None else max(0.0, float(row[1]) - now)
+        return json.loads(row[0]), remaining
+
+    def put(
+        self, namespace: str, collection: object, key: str, value: dict, ttl: float | None
+    ) -> None:
+        expires = None if ttl is None else self.clock() + ttl
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "INSERT INTO shared_state(namespace, collection, key, value, expires_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(namespace, collection, key) DO UPDATE SET value=excluded.value, expires_at=excluded.expires_at",
+                (
+                    namespace,
+                    self._collection(collection),
+                    key,
+                    json.dumps(value, separators=(",", ":")),
+                    expires,
+                ),
+            )
+            conn.execute("COMMIT")
+
+    def put_if_absent(
+        self, namespace: str, collection: object, key: str, value: dict, ttl: float | None
+    ) -> bool:
+        """Atomically insert a state value unless a live value already exists."""
+        now = self.clock()
+        expires = None if ttl is None else now + ttl
+        coll = self._collection(collection)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "DELETE FROM shared_state "
+                "WHERE namespace=? AND collection=? AND key=? "
+                "AND expires_at IS NOT NULL AND expires_at <= ?",
+                (namespace, coll, key, now),
+            )
+            result = conn.execute(
+                "INSERT OR IGNORE INTO shared_state"
+                "(namespace, collection, key, value, expires_at) VALUES(?,?,?,?,?)",
+                (
+                    namespace,
+                    coll,
+                    key,
+                    json.dumps(value, separators=(",", ":")),
+                    expires,
+                ),
+            )
+            conn.execute("COMMIT")
+        return bool(result.rowcount)
+
+    def list_keys(self, namespace: str, collection: object) -> list[str]:
+        """List live opaque keys without returning encrypted values."""
+        now = self.clock()
+        coll = self._collection(collection)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "DELETE FROM shared_state "
+                "WHERE namespace=? AND collection=? "
+                "AND expires_at IS NOT NULL AND expires_at <= ?",
+                (namespace, coll, now),
+            )
+            rows = conn.execute(
+                "SELECT key FROM shared_state "
+                "WHERE namespace=? AND collection=? ORDER BY key",
+                (namespace, coll),
+            ).fetchall()
+            conn.execute("COMMIT")
+        return [str(row[0]) for row in rows]
+
+    def delete(self, namespace: str, collection: object, key: str) -> bool:
+        with self._connect() as conn:
+            result = conn.execute(
+                "DELETE FROM shared_state WHERE namespace=? AND collection=? AND key=?",
+                (namespace, self._collection(collection), key),
+            )
+        return bool(result.rowcount)
+
+
+def create_app(
+    *,
+    database: Path | None = None,
+    bearer_token: str | None = None,
+    operator_token: str | None = None,
+    clock=time.time,
+) -> Starlette:
+    database = database or Path(
+        os.environ.get("EXOMEM_LEASE_COORDINATOR_DB", "writer-leases.sqlite")
+    )
+    bearer_token = (
+        bearer_token
+        if bearer_token is not None
+        else (os.environ.get("EXOMEM_LEASE_COORDINATOR_TOKEN", "").strip() or None)
+    )
+    operator_token = (
+        operator_token
+        if operator_token is not None
+        else (os.environ.get("EXOMEM_LEASE_COORDINATOR_OPERATOR_TOKEN", "").strip() or None)
+    )
+    if (
+        bearer_token is not None
+        and operator_token is not None
+        and secrets.compare_digest(bearer_token, operator_token)
+    ):
+        raise ValueError("operator token must differ from the normal lease bearer")
+    store = SQLiteLeaseStore(database, clock=clock)
+    state_store = SQLiteStateStore(database, clock=clock)
+
+    def authorized(request: Request) -> bool:
+        if not bearer_token:
+            return True
+        header = request.headers.get("authorization", "")
+        # Bytes: `compare_digest` raises on a non-ASCII str.
+        return header.startswith("Bearer ") and secrets.compare_digest(
+            header[7:].strip().encode(), bearer_token.encode()
+        )
+
+    def operator_authorized(request: Request) -> bool:
+        if not operator_token:
+            return False
+        header = request.headers.get("authorization", "")
+        return header.startswith("Bearer ") and secrets.compare_digest(
+            header[7:].strip().encode(), operator_token.encode()
+        )
+
+    async def lease(request: Request) -> JSONResponse:
+        if not authorized(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        vault_id = request.path_params["vault_id"]
+        operation = request.path_params.get("operation")
+        if request.method == "GET":
+            return JSONResponse(store.status(vault_id))
+        try:
+            body = await request.json()
+            replica_id = str(body["replica_id"])
+            if operation == "acquire":
+                result = store.acquire(
+                    vault_id,
+                    replica_id,
+                    _ttl(body),
+                    schema_version=body.get("schema_version"),
+                    collection_store_capability=body.get("collection_store_capability"),
+                )
+            elif operation == "renew":
+                result = store.renew(
+                    vault_id,
+                    replica_id,
+                    int(body["fencing_token"]),
+                    _ttl(body),
+                    schema_version=body.get("schema_version"),
+                    collection_store_capability=body.get("collection_store_capability"),
+                    collection_store_head=body.get("collection_store_head"),
+                )
+            elif operation == "release":
+                result = store.release(
+                    vault_id,
+                    replica_id,
+                    int(body["fencing_token"]),
+                    collection_store_head=body.get("collection_store_head"),
+                )
+            else:
+                return JSONResponse({"error": "unknown operation"}, status_code=404)
+        except (KeyError, TypeError, ValueError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        return JSONResponse(result)
+
+    async def collection_store_fence(request: Request) -> JSONResponse:
+        # A serving writer reads the fence it opens its store against; only the
+        # operator may move it, so the running service never holds that credential.
+        reader = request.method == "GET" and authorized(request)
+        if not (reader or operator_authorized(request)):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        vault_id = request.path_params["vault_id"]
+        if request.method == "GET":
+            return JSONResponse(store.collection_store_fence(vault_id))
+        try:
+            body = await request.json()
+            result, accepted = store.transition_collection_store_fence(
+                vault_id,
+                expected_generation=body["expected_generation"],
+                capability=body["capability"],
+                store_id=body["store_id"],
+            )
+        except (KeyError, TypeError, ValueError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        if not accepted:
+            return JSONResponse(
+                {"error": "collection store fence conflict", "current": result}, status_code=409
+            )
+        return JSONResponse(result)
+
+    async def retired_collection_store_fence(request: Request) -> JSONResponse:
+        # Read as the fence read is: an export that goes forward after a retire checks this head.
+        if not (authorized(request) or operator_authorized(request)):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        return JSONResponse(store.retired_collection_store_fence(request.path_params["vault_id"]))
+
+    async def retire_collection_store_fence(request: Request) -> JSONResponse:
+        # A distinct route, so a coordinator without it answers 404 instead of a same-store replay.
+        if not operator_authorized(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            body = await request.json()
+            result, accepted = store.retire_collection_store_fence(
+                request.path_params["vault_id"],
+                expected_generation=body["expected_generation"],
+                capability=body["capability"],
+                store_id=body["store_id"],
+            )
+        except (KeyError, TypeError, ValueError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        if not accepted:
+            return JSONResponse(
+                {"error": "collection store fence conflict", "current": result}, status_code=409
+            )
+        return JSONResponse(result)
+
+    async def schema_fence(request: Request) -> JSONResponse:
+        if not operator_authorized(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        vault_id = request.path_params["vault_id"]
+        if request.method == "GET":
+            result = store.schema_fence(vault_id)
+            if result is None:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            return JSONResponse(result)
+        try:
+            body = await request.json()
+            result, accepted = store.transition_schema_fence(
+                vault_id,
+                expected_generation=body["expected_generation"],
+                schema_version=body["schema_version"],
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        if not accepted:
+            return JSONResponse(
+                {"error": "schema fence conflict", "current": result}, status_code=409
+            )
+        return JSONResponse(result)
+
+    async def schema_admission(request: Request) -> JSONResponse:
+        if not operator_authorized(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            body = await request.json()
+            replica_id = body["replica_id"]
+            if not isinstance(replica_id, str) or not 1 <= len(replica_id) <= 512:
+                raise ValueError
+            result = store.schema_admission(
+                request.path_params["vault_id"],
+                schema_version=body["schema_version"],
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        return JSONResponse(result)
+
+    async def state(request: Request) -> JSONResponse:
+        if not authorized(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        namespace = request.path_params["namespace"]
+        operation = request.path_params["operation"]
+        try:
+            body = await request.json()
+            collection = body.get("collection")
+            keys = body.get("keys")
+            if operation == "get":
+                result = state_store.get(namespace, collection, str(body["key"]))[0]
+            elif operation == "ttl":
+                result = list(state_store.get(namespace, collection, str(body["key"])))
+            elif operation == "put":
+                state_store.put(
+                    namespace, collection, str(body["key"]), dict(body["value"]), _state_ttl(body)
+                )
+                result = None
+            elif operation == "put-if-absent":
+                result = state_store.put_if_absent(
+                    namespace,
+                    collection,
+                    str(body["key"]),
+                    dict(body["value"]),
+                    _state_ttl(body),
+                )
+            elif operation == "list-keys":
+                result = state_store.list_keys(namespace, collection)
+            elif operation == "delete":
+                result = state_store.delete(namespace, collection, str(body["key"]))
+            elif operation == "get-many":
+                result = [state_store.get(namespace, collection, str(key))[0] for key in keys]
+            elif operation == "ttl-many":
+                result = [list(state_store.get(namespace, collection, str(key))) for key in keys]
+            elif operation == "put-many":
+                values = body["values"]
+                if len(keys) != len(values):
+                    raise ValueError
+                ttl = _state_ttl(body)
+                for key, value in zip(keys, values, strict=True):
+                    state_store.put(namespace, collection, str(key), dict(value), ttl)
+                result = None
+            elif operation == "delete-many":
+                result = sum(state_store.delete(namespace, collection, str(key)) for key in keys)
+            else:
+                return JSONResponse({"error": "unknown operation"}, status_code=404)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return JSONResponse({"error": "invalid request"}, status_code=400)
+        return JSONResponse({"result": result})
+
+    return Starlette(
+        routes=[
+            Route("/v1/vaults/{vault_id:str}/lease", lease, methods=["GET"]),
+            Route("/v1/vaults/{vault_id:str}/lease/{operation:str}", lease, methods=["POST"]),
+            Route(
+                "/v1/vaults/{vault_id:str}/collection-store-fence",
+                collection_store_fence,
+                methods=["GET", "PUT"],
+            ),
+            Route(
+                "/v1/vaults/{vault_id:str}/collection-store-fence/retire",
+                retire_collection_store_fence,
+                methods=["POST"],
+            ),
+            Route(
+                "/v1/vaults/{vault_id:str}/collection-store-fence/retired",
+                retired_collection_store_fence,
+                methods=["GET"],
+            ),
+            Route(
+                "/v1/vaults/{vault_id:str}/schema-fence",
+                schema_fence,
+                methods=["GET", "PUT"],
+            ),
+            Route(
+                "/v1/vaults/{vault_id:str}/schema-fence/admit",
+                schema_admission,
+                methods=["POST"],
+            ),
+            Route("/v1/state/{namespace:str}/{operation:str}", state, methods=["POST"]),
+        ]
+    )
+
+
+def _ttl(body: dict) -> float:
+    ttl = float(body["ttl_seconds"])
+    if ttl <= 0 or ttl > 3600:
+        raise ValueError("ttl_seconds must be between 0 and 3600")
+    return ttl
+
+
+def _state_ttl(body: dict) -> float | None:
+    raw = body.get("ttl")
+    if raw is None:
+        return None
+    ttl = float(raw)
+    if ttl <= 0:
+        raise ValueError("ttl must be positive")
+    return ttl
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the Exomem SQLite writer-lease coordinator")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8770)
+    parser.add_argument("--database", type=Path, default=None)
+    args = parser.parse_args(argv)
+    import uvicorn
+
+    uvicorn.run(create_app(database=args.database), host=args.host, port=args.port)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

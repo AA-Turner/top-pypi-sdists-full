@@ -1,0 +1,4 @@
+todo_dir: _project/TODO
+done_dir: _project/DONE
+schema: _project/TODO_SCHEMA.yaml
+template: _project/TODO_ENTRY_TEMPLATE.yaml

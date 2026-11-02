@@ -1,0 +1,1250 @@
+# /// script
+# requires-python = ">=3.14"
+# ///
+"""Read a bitranox memory fact, and recompose its hook plus body through the engine.
+
+Why: editing a stored fact is a five-step chore that keeps being hand-rolled - find which LEVEL
+owns the slug, read the pointer hook AND the body, draft a new hook, check it against the engine's
+cap, then assemble a `memory_engine.py add` or `amend-pinned` call with the text in FILES. It was
+re-solved three times in one session as throwaway scripts (compose the body, measure the hook,
+assemble the amend), which is one past the point where it should have been a tool.
+
+Four things make it a chore rather than a one-liner, and each is a way to get it wrong:
+
+1. **You cannot edit the files.** The store-edit-guard denies Write/Edit on a pointer block or a
+   central body: `memory_engine.py` is the single write path. So a recomposition is always an
+   engine invocation, never a text edit.
+2. **The hook has a HARD cap the engine refuses on**, and it refuses rather than truncating,
+   because a silent word-boundary cut leaves an always-loaded line that still reads as a complete
+   instruction. Measuring the draft before the call is the difference between one round trip and
+   three. The cap is read from the LIVE engine here, never hardcoded, so a plugin bump cannot
+   leave this lying about the limit.
+3. **The hook must go through a FILE.** `--hook "$(cat f)"` is a shell command substitution that
+   the guard denies, so every real-length hook needs a staged file. This writes them.
+4. **A pinned fact refuses an ordinary `add`.** The verb depends on the stored `bx:pin` flag, and
+   the flag is on the pointer line, which is the thing you were trying to read in the first place.
+   This picks the verb from what is stored instead of from memory.
+
+The engine keeps a hook-only update's body description in sync with the pointer, so amending just
+the hook is safe; `show` reports it when the two have drifted apart anyway, which is the state a
+hand-edit leaves behind.
+
+Not a locator: "which level holds this slug" and "what is where in the tree" are answered by
+`mem_levels.py` in the shipped `bitranox:compuse-toolbox` skill. This resolves the level only
+because it needs it to call the engine. The body is read from the store the ENGINE uses - the
+engine's own `resolve_anchor`, see tree_support - never merely the nearest store, which a
+leftover mid-chain store would otherwise answer for.
+
+The engine is this plugin's own (`hooks/memory_engine.py` beside this skill) unless --engine or
+$BITRANOX_MEMORY_ENGINE names another; only a copy of this file outside the plugin falls back to
+the newest installed engine.
+
+Run (from the plugin root):
+  `uv run skills/meta-dream-tree/factedit.py show --slug <slug> --from <dir>`
+  `uv run skills/meta-dream-tree/factedit.py check --hook-file draft.txt`
+  `uv run skills/meta-dream-tree/factedit.py apply --slug <slug> --from <dir> --hook-file new.txt --dry-run`
+  `uv run skills/meta-dream-tree/factedit.py apply --batch edits.jsonl --from <dir> --dry-run`
+`default_python` picks a real, non-ephemeral interpreter to launch the engine with even when THIS
+script itself is run under `uv run` (see below), and the plugin's run-python.sh launcher, which
+the dream passes use, works identically.
+
+Exit codes: 0 = yes (found / would be accepted / applied), 1 = no (no such fact / `check`: the
+engine would refuse this hook), 2 = could not run (no engine, an unreadable or non-UTF-8 tree or
+input file, a stage dir that cannot be written, an interpreter that cannot be launched, bad
+arguments, `apply` refusing the hook before the engine runs, a pinned fact given to `apply`
+without --allow-pinned, a body file carrying `show`'s header, or the engine exiting non-zero - a
+refusal of the whole write included). A slug the chain walk misses is exit 1, and the message
+names the level that owns it when the tree has one (`--level <it>` is the retry).
+
+`show --body` prints the stored body alone on stdout (its header goes to stderr), so
+`show --body > f`, an edit of `f`, then `apply --body-file f` stores exactly the edited text: the
+engine re-syncs the frame's `description:` to the hook it is given.
+
+`apply --batch <file>` edits several facts in one call, for a change that spans them (a re-point
+across N facts) and would otherwise be hand-rolled as a script writing the store directly. The
+file is JSONL, one object per line: `{"slug": ..., "body_file": ..., "hook_file": ..., "title":
+..., "type": ..., "level": ...}`, `slug` required and at least one thing to change; relative paths
+resolve against the batch file's dir, and an entry with no `level` uses --from/--level. EVERY
+entry is checked first (unknown or duplicate slug, unreadable file, bad key, over-cap hook, pinned
+without --allow-pinned, unknown type) and any problem refuses the whole batch with all of them
+listed, before anything is staged or written (exit 2). Then each entry runs through the same plan
+and write path as single `apply`, one engine call each under the engine's own lock. It is not a
+transaction: a failure part way stops the batch, exit 2, and the report names the slugs `applied`,
+the one `failed` with its reason, and those `not_applied`. --dry-run, --allow-pinned, --stage-dir
+and --python apply to every entry; --slug, --hook, --hook-file, --body-file, --title and --type
+are refused beside --batch.
+
+The `--json` envelope `{ok, command, data, skipped}` is printed on every exit, and `ok` means "ran
+without error": true on 0 and 1, false only on 2.
+Advisories are PRODUCT, so they ride in the envelope's `data`; operational warnings go to stderr
+and never into stdout.
+"""
+
+import argparse
+import importlib
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# tree_support is this script's sibling; a caller loading the script by path does not put this
+# dir on sys.path the way running it directly does.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tree_support import store_anchor, utf8_stdio
+
+LEVEL_FILE = "CLAUDE.local.md"
+STORE_DIRNAME = ".claude-memory"
+FACTS_SUBDIR = "facts"
+
+# The engine this plugin ships, beside this skill: skills/<skill> -> skills -> bitranox/hooks.
+# It is the one whose caps match the running plugin, whatever else the machine has installed.
+OWN_ENGINE = Path(__file__).resolve().parents[2] / "hooks" / "memory_engine.py"
+
+# Where a plugin-installed engine lives, the fallback for a copy of this file run outside the
+# plugin. The version segment is a glob on purpose: a hardcoded version goes stale on the next
+# plugin bump, and this tool must read the LIVE caps or it is lying about them.
+_CACHE_GLOB = ".claude/plugins/cache/bitranox-skills/bitranox/*/hooks/memory_engine.py"
+_MARKETPLACE = ".claude/plugins/marketplaces/bitranox-skills/plugins/bitranox/hooks/memory_engine.py"
+
+# Mirrors the engine's own frontmatter reader: the body's `description:` IS the hook.
+_DESC_RX = re.compile(r"(?m)^description:[ \t]*(.*)$")
+# `metadata:\n  type: <t>` - indented, so it cannot be confused with the top-level keys above it.
+_TYPE_RX = re.compile(r"(?m)^[ \t]+type:[ \t]*(\S+)[ \t]*\r?$")
+# The engine's frontmatter test (memory_engine._frontmatter): a CLOSED leading block that carries
+# a `name:` key. A body that merely opens with a horizontal rule has no frame at all.
+_FRAME_RX = re.compile(r"---[ \t]*\r?\n(.*?\r?\n)?---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+_NAME_RX = re.compile(r"(?m)^name:")
+
+
+class FactEditError(Exception):
+    """Base for every condition this tool reports as a typed message rather than a traceback."""
+
+
+class EngineNotFound(FactEditError):
+    """The memory engine could not be located, so the live caps and parser are unavailable.
+
+    This FAILS rather than falling back to remembered constants: a cap checker running on a stale
+    number reports a green that means nothing, which is worse than refusing to answer.
+    """
+
+
+class NoAnchor(FactEditError):
+    """No `.claude-memory/` store above the starting directory - there is no tree here."""
+
+
+class UnknownFact(FactEditError):
+    """No pointer for this slug at any level of the chain."""
+
+
+class BadInput(FactEditError):
+    """The arguments cannot describe a recomposition (nothing to change, or two sources for one)."""
+
+
+class Unreadable(FactEditError):
+    """A level or a body exists but could not be read, or is not UTF-8.
+
+    Distinct from UnknownFact on purpose: "I could not look" must not read as "it is not there",
+    and an unreadable body must not read as an empty one."""
+
+
+class EngineLaunchFailed(FactEditError):
+    """The interpreter given to run the engine could not be started at all."""
+
+
+class StageFailed(FactEditError):
+    """The stage dir (--stage-dir, or the temp dir) or a staged file could not be written."""
+
+
+class PinnedFact(FactEditError):
+    """`apply` was asked to write a PINNED fact without --allow-pinned.
+
+    A pinned fact's content is a human's to change. `amend-pinned` is the engine's one route to it,
+    and this tool picks that verb from the stored flag, so without an explicit opt-in an autonomous
+    caller (a nap's capture subagent) would change pinned content without anyone deciding to."""
+
+
+@dataclass(frozen=True)
+class EngineRules:
+    """The engine's live lint surface, injected so the judging below is testable without a store."""
+
+    soft_max: int
+    hard_max: int
+    escalate_at: int
+    over_soft: Callable[[str], bool]
+    over_hard: Callable[[str], bool]
+    missing_trigger: Callable[[str], bool]
+    advise: Callable[[str, str], list]
+    recurrence: Callable[[str], int | None]
+    parse_index: Callable[[str], tuple]
+    types: tuple[str, ...] = ()
+    engine_path: Path | None = None
+    # The engine's anchor resolver, bound like the parser so the body is read from the store THAT
+    # engine writes. None only for an engine too old to export it, which read_fact refuses.
+    resolve_anchor: Callable[[str], object] | None = None
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """What the engine would do with a drafted hook, and what it would say while doing it."""
+
+    length: int
+    accepted: bool
+    refusals: list[str] = field(default_factory=list)
+    advisories: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Fact:
+    """A stored fact as it currently reads: its pointer line, and the body behind it."""
+
+    slug: str
+    level: Path
+    anchor: Path
+    title: str
+    hook: str
+    pin: bool
+    body: str
+    body_path: Path
+
+    @property
+    def body_description(self) -> str:
+        """The hook as the BODY records it. Drifts from `hook` only after a hand-edit."""
+        return body_description(self.body)
+
+    @property
+    def type_(self) -> str:
+        """The kind the BODY records (`metadata: type:`), or '' when it has none.
+
+        The slug carries the kind only when it was minted with a type prefix, so for a prefix-less
+        slug this is the ONLY record of it - which is why `apply` must never let it be re-derived.
+        """
+        return body_type(self.body)
+
+    @property
+    def hook_in_sync(self) -> bool:
+        """Whether the pointer hook and the body's `description:` still say the same thing."""
+        return " ".join(self.hook.split()) == " ".join(self.body_description.split())
+
+
+# ---- pure helpers -------------------------------------------------------------------------------
+
+def body_description(text: str) -> str:
+    """The `description:` value from a framed body's frontmatter, or '' when it has none. PURE."""
+    m = _DESC_RX.search(text or "")
+    return m.group(1).strip() if m else ""
+
+
+def body_type(text: str) -> str:
+    """The `metadata: type:` value from a framed body's frontmatter, or '' when it has none. PURE.
+
+    Scoped to the LEADING frontmatter block, read the way the engine reads it (closed, with a
+    `name:` key), so an indented `type:` line in the prose - of a framed body, or of one that
+    merely opens with a horizontal rule - cannot answer for it.
+    """
+    frame = _FRAME_RX.match((text or "").lstrip())
+    inner = (frame.group(1) or "") if frame else ""
+    if not _NAME_RX.search(inner):
+        return ""
+    m = _TYPE_RX.search(inner)
+    return m.group(1) if m else ""
+
+
+def judge_hook(hook: str, body: str, rules: EngineRules) -> Verdict:
+    """What the engine would make of this hook. PURE given `rules`.
+
+    Refusals and advisories are kept apart on purpose: only a refusal changes the answer to "will
+    this be accepted", and collapsing the two would make a long-but-legal hook look rejected.
+    """
+    text = (hook or "").strip()
+    refusals: list[str] = []
+    advisories: list[str] = []
+    if rules.over_hard(text):
+        refusals.append(
+            f"hook is {len(text)} chars, over the {rules.hard_max}-char HARD cap - the engine "
+            "refuses rather than truncating; move the detail into the body")
+    elif rules.over_soft(text):
+        advisories.append(
+            f"hook is {len(text)} chars, over the {rules.soft_max}-char soft cap (advisory, legal "
+            f"up to {rules.hard_max}); keep it self-sufficient, do not trim load-bearing detail")
+    if rules.missing_trigger(text):
+        advisories.append(
+            "hook has no trigger phrase - lead with WHEN it applies ('When <situation>, "
+            "<directive>'), or it will not fire during reasoning")
+    advisories.extend(str(a) for a in rules.advise(text, body or ""))
+    seen = rules.recurrence(body or "")
+    if seen is not None and seen >= rules.escalate_at:
+        advisories.append(
+            f"the body records recurrence {seen} - prose has already failed that many times, so "
+            "rewording it is not the fix; propose a guard or a jig in the same turn")
+    return Verdict(length=len(text), accepted=not refusals,
+                   refusals=refusals, advisories=advisories)
+
+
+def chain_levels(start: Path) -> list[Path]:
+    """Every dir from `start` upward that carries a CLAUDE.local.md, narrowest first."""
+    found: list[Path] = []
+    cur = Path(start).resolve()
+    while True:
+        if (cur / LEVEL_FILE).is_file():
+            found.append(cur)
+        if cur.parent == cur:
+            return found
+        cur = cur.parent
+
+
+def anchor_dir(start: Path, resolve: Callable[[str], object] | None) -> Path:
+    """The anchor whose store the engine reads for `start`, via the engine's own `resolve`.
+
+    The nearest store is NOT the answer: a leftover store lower down the chain would then supply
+    the body, type and drift verdict of a fact the engine keeps somewhere else.
+    """
+    if resolve is None:
+        raise EngineNotFound("the engine exports no resolve_anchor, so the store it writes "
+                             "cannot be located; pass a current engine with --engine")
+    anchor = store_anchor(start, resolve)
+    if anchor is None:
+        raise NoAnchor(f"no {STORE_DIRNAME}/ store at the memory anchor of "
+                       f"{Path(start).resolve()} (the topmost dir holding a CLAUDE.md and a store)")
+    return anchor
+
+
+def body_file(anchor: Path, slug: str) -> Path:
+    """Where a fact's body lives: `<anchor>/.claude-memory/facts/<slug>.md`."""
+    return Path(anchor) / STORE_DIRNAME / FACTS_SUBDIR / f"{slug}.md"
+
+
+# Dirs that hold vendored or generated trees, never a memory level. Walking them is most of the
+# cost of a tree-wide search, and a CLAUDE.local.md inside one is a copy, not an owner.
+_SKIP_DIRS = frozenset({".git", ".hg", ".svn", "node_modules", "__pycache__", STORE_DIRNAME,
+                        ".tox", ".nox", ".mypy_cache", ".pytest_cache", ".ruff_cache"})
+SEARCH_BUDGET_S = 10.0
+
+
+def _skip_dir(name: str) -> bool:
+    return name in _SKIP_DIRS or name.startswith(".venv")
+
+
+def find_pointer_owners(anchor: Path, slug: str, parse_index: Callable[[str], tuple], *,
+                        budget_s: float = SEARCH_BUDGET_S,
+                        clock: Callable[[], float] = time.monotonic) -> tuple[list[Path], bool]:
+    """Every level under `anchor` whose pointer block carries `slug`, and whether the walk finished.
+
+    The chain walk only goes UP, so a fact owned by a sibling or a descendant level reads as
+    missing; this answers where it is instead. A level file that cannot be read is skipped: this is
+    a hint for a refusal already being raised, not a verdict of its own. `budget_s` bounds the walk
+    on a large tree; an unfinished walk returns False so the caller can say so.
+    """
+    deadline = clock() + budget_s
+    needle = f"mem:{slug})"
+    owners: list[Path] = []
+    for root, dirs, files in os.walk(anchor):
+        if clock() >= deadline:
+            return owners, False
+        dirs[:] = sorted(d for d in dirs if not _skip_dir(d))
+        if LEVEL_FILE not in files:
+            continue
+        try:
+            text = (Path(root) / LEVEL_FILE).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if needle in text and any(p.slug == slug for p in parse_index(text)[1]):
+            owners.append(Path(root).resolve())
+    return owners, True
+
+
+def unknown_fact_message(slug: str, start: Path, anchor: Path, owners: list[Path],
+                         complete: bool) -> str:
+    """Why `slug` was not found from `start`, and the exact retry when the tree has it. PURE."""
+    head = (f"no pointer for {slug!r} on the ancestor chain of {Path(start).resolve()} (show and "
+            "apply walk UP from --from, never into sibling or descendant levels)")
+    if len(owners) == 1:
+        return f"{head}; the tree points at it from {owners[0]}: retry with --level {owners[0]}"
+    if owners:
+        return (f"{head}; {len(owners)} levels point at it (a duplicate pointer): "
+                + ", ".join(str(o) for o in owners)
+                + f"; retry with --level <one of them>, e.g. --level {owners[0]}")
+    body = body_file(anchor, slug)
+    if not complete:
+        return (f"{head}; the tree search stopped after {SEARCH_BUDGET_S:g}s - find the owner "
+                f"with: find {anchor} -name {LEVEL_FILE} -exec grep -l 'mem:{slug})' {{}} +, "
+                "then retry with --level <that dir>")
+    if body.is_file():
+        return (f"{head}; a body exists at {body} but no level under {anchor} points at it "
+                "(a dangling body)")
+    return f"{head}; there is no body at {body} either, so no fact with this slug exists in this tree"
+
+
+# ---- engine discovery and loading ---------------------------------------------------------------
+
+def engine_candidates(home: Path | None = None) -> list[Path]:
+    """Every memory_engine.py this machine offers, NEWEST FIRST by mtime.
+
+    By mtime, never by the version string in the path: a plugin version sorts lexicographically
+    (5.9.0 after 5.267.3) and picking the wrong one would silence a cap change without a word.
+    """
+    root = Path(home) if home else Path.home()
+    found = [p for p in root.glob(_CACHE_GLOB) if p.is_file()]
+    market = root / _MARKETPLACE
+    if market.is_file():
+        found.append(market)
+    return sorted(found, key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def find_engine(explicit: str | None = None, home: Path | None = None,
+                own: Path | None = None) -> Path:
+    """The engine to read the rules from: --engine, then $BITRANOX_MEMORY_ENGINE, then this
+    plugin's OWN engine (`own`, default OWN_ENGINE), then the newest installed one.
+
+    The own engine comes before any search: it is the version this skill shipped with, while the
+    newest-by-mtime copy on the machine can be another version entirely (a marketplace clone, an
+    older cache dir touched last), and a search that finds nothing under a renamed marketplace
+    would refuse although the engine sits right beside this file.
+    """
+    for raw in (explicit, os.environ.get("BITRANOX_MEMORY_ENGINE")):
+        if raw:
+            path = Path(raw).expanduser()
+            if not path.is_file():
+                raise EngineNotFound(f"no memory_engine.py at {path}")
+            return path
+    own = OWN_ENGINE if own is None else Path(own)
+    if own.is_file():
+        return own
+    found = engine_candidates(home)
+    if not found:
+        raise EngineNotFound(
+            "no memory_engine.py found; pass --engine <path> or set BITRANOX_MEMORY_ENGINE")
+    return found[0]
+
+
+def load_rules(engine: Path) -> EngineRules:
+    """Import the engine's lint modules and bind the LIVE caps and predicates."""
+    hooks_dir = str(Path(engine).resolve().parent)
+    sys.path.insert(0, hooks_dir)
+    # Drop any previously-imported copy first. Both names are plain top-level modules, so a second
+    # call with a DIFFERENT engine dir would otherwise get the cached first one and report that
+    # engine's caps under this engine's path - the exact silent-wrong-answer this tool exists to
+    # stop. Nothing else in this process imports them, so evicting them is safe. The anchor
+    # resolver lives in self_improve_signals (uuid_store re-exports it), so that goes too.
+    for name in ("uuid_store", "capture_constraints", "self_improve_signals"):
+        sys.modules.pop(name, None)
+    importlib.invalidate_caches()
+    try:
+        us = importlib.import_module("uuid_store")
+        cc = importlib.import_module("capture_constraints")
+    except ImportError as exc:
+        raise EngineNotFound(f"engine at {engine} is not importable: {exc}") from exc
+    return EngineRules(
+        soft_max=us.HOOK_SOFT_MAX,
+        hard_max=us.HOOK_HARD_MAX,
+        escalate_at=us.RECURRENCE_ESCALATE_AT,
+        over_soft=us.hook_over_budget,
+        over_hard=us.hook_over_hard_cap,
+        missing_trigger=us.hook_missing_trigger,
+        advise=cc.advise,
+        recurrence=us.recurrence_count,
+        parse_index=us.parse_pointer_index,
+        types=tuple(us.TYPE_PREFIXES),
+        engine_path=Path(engine).resolve(),
+        resolve_anchor=getattr(us, "resolve_anchor", None),
+    )
+
+
+# ---- reading a stored fact ----------------------------------------------------------------------
+
+def read_fact(slug: str, start: Path, rules: EngineRules, level: Path | None = None, *,
+              search_budget_s: float = SEARCH_BUDGET_S) -> Fact:
+    """The stored fact for `slug`, found by walking up from `start`. Raises UnknownFact.
+
+    The pointer is parsed with the ENGINE's own parser rather than a local regex: a slug may carry
+    a dot, and a hand-rolled `[a-z0-9-]+` does not merely truncate such a slug, it fails to match
+    the line at all, so the fact reads as absent.
+
+    Borrowing the parser means borrowing its Pointer, whose fields are `__slots__` and move with
+    the plugin - reading one it has dropped raises on every fact in the store, and a fake pointer
+    in a test cannot see that. `test_read_fact_only_uses_attributes_the_live_pointer_actually_carries`
+    is what holds this to the installed engine.
+
+    A forced `level` also decides the anchor, since that is the level the engine will be called
+    with. A level or body that exists but cannot be read raises Unreadable (exit 2), never "no
+    such fact" or an empty body; a body that does not exist at all reads as empty, as it does in
+    the engine.
+    """
+    anchor = anchor_dir(level if level else start, rules.resolve_anchor)
+    levels = [Path(level).resolve()] if level else chain_levels(start)
+    for lvl in levels:
+        _scope, pointers = rules.parse_index(_read_text(lvl / LEVEL_FILE, missing_ok=False))
+        for ptr in pointers:
+            if ptr.slug != slug:
+                continue
+            path = body_file(anchor, slug)
+            return Fact(slug=slug, level=lvl, anchor=anchor, title=ptr.title,
+                        hook=ptr.hook or "", pin=bool(ptr.pin),
+                        body=_read_text(path, missing_ok=True), body_path=path)
+    owners, complete = ([], True)
+    if body_file(anchor, slug).is_file():
+        # Only a slug that HAS a body can be owned somewhere else; one without is simply absent,
+        # and a whole-tree walk to say so would cost seconds on a large tree for nothing.
+        owners, complete = find_pointer_owners(anchor, slug, rules.parse_index,
+                                               budget_s=search_budget_s)
+    raise UnknownFact(unknown_fact_message(slug, Path(level) if level else start, anchor,
+                                           owners, complete))
+
+
+def _read_text(path: Path, *, missing_ok: bool) -> str:
+    """A store file's text; utf-8-sig so a BOM from a Windows editor is not read as content.
+
+    Raises Unreadable on a permission error or bytes that are not UTF-8, and on a missing file
+    unless `missing_ok` (then it reads as '')."""
+    try:
+        return Path(path).read_text(encoding="utf-8-sig")
+    except FileNotFoundError as exc:
+        if missing_ok:
+            return ""
+        raise Unreadable(f"{path} does not exist") from exc
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Unreadable(f"cannot read {path}: {exc}") from exc
+
+
+# ---- recomposition ------------------------------------------------------------------------------
+
+def stage_text(stage: Path, name: str, text: str) -> Path:
+    """Write one staged input file and return its path.
+
+    Staging is not a convenience: the engine takes the hook via --hook-file precisely so a
+    real-length hook never has to travel as a shell argument, where `$(cat f)` would be a command
+    substitution the guard denies.
+    """
+    stage = Path(stage)
+    path = stage / name
+    try:
+        stage.mkdir(parents=True, exist_ok=True)
+        path.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+    except OSError as exc:
+        raise StageFailed(f"cannot write the staged file {path}: {exc}") from exc
+    return path
+
+
+def _in_a_venv(interpreter: Path) -> bool:
+    """True when this interpreter belongs to a virtualenv (<venv>/bin/python*, <venv>/pyvenv.cfg)."""
+    return (Path(interpreter).parent.parent / "pyvenv.cfg").is_file()
+
+
+_PROBE_TIMEOUT_S = 15
+
+
+def runs_supported_python(interpreter: Path) -> bool:
+    """True when `interpreter` actually STARTS and reports Python 3.14+ - the bar run-python.sh sets.
+
+    Existing on disk proves nothing on Windows: %LOCALAPPDATA%/Microsoft/WindowsApps holds
+    python.exe and python3.exe App Execution Aliases that pass is_file() and os.access(X_OK) and,
+    unless the Store Python is installed, exit 9009 printing "Python was not found".
+    """
+    try:
+        proc = subprocess.run(
+            [str(interpreter), "-c", "import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)"],
+            capture_output=True, check=False, timeout=_PROBE_TIMEOUT_S)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0
+
+
+def default_python(path_env: str | None = None, base_prefix: Path | None = None, *,
+                   runs: Callable[[Path], bool] = runs_supported_python) -> str:
+    """The interpreter to launch the engine with: the first NON-VENV python3 on PATH that RUNS 3.14+.
+
+    Neither of the obvious answers works. `sys.executable` under `uv run` is an EPHEMERAL build
+    venv under the uv cache, so a --dry-run command printed for a human to paste names a path that
+    is already gone; and a bare `shutil.which("python3")` finds that same venv, because uv puts it
+    first on PATH. So venv interpreters are skipped explicitly. The engine is pure stdlib, so any
+    real python3 at the plugin's 3.14 floor runs it.
+
+    Windows names its interpreter `python.exe` (there is no python3.exe in a python.org install)
+    and keeps it at the ROOT of the base prefix, not under bin/, so both are tried before falling
+    back to sys.executable. A bare `python` is not tried on POSIX, where it may be Python 2.
+
+    Every candidate is EXECUTED (`runs`) before it is chosen, because the Windows Store stubs are
+    files too: with WindowsApps ahead of the real install on PATH, or the real install not on PATH
+    at all (the python.org installer's default), the stub won and every live apply died with
+    engine exit 9009. `runs` is the injection seam for tests that fake a layout.
+    """
+    raw = os.environ.get("PATH", "") if path_env is None else path_env
+    for entry in raw.split(os.pathsep):
+        if not entry:
+            continue
+        for name in ("python3", "python3.exe", "python.exe"):
+            cand = Path(entry) / name
+            if (cand.is_file() and os.access(cand, os.X_OK) and not _in_a_venv(cand)
+                    and runs(cand)):
+                return str(cand)
+    base = Path(sys.base_prefix) if base_prefix is None else Path(base_prefix)
+    for cand in (base / "bin" / "python3", base / "python.exe"):
+        if cand.is_file() and runs(cand):
+            return str(cand)
+    return sys.executable
+
+
+def engine_argv(fact: Fact, engine: Path, *, hook_path: Path | None, body_path: Path | None,
+                title: str | None, type_: str | None = None,
+                python: str | None = None) -> list[str]:
+    """The exact engine invocation for this recomposition. PURE.
+
+    The VERB comes from the stored pin flag, never from the caller: an ordinary `add` against a
+    pinned fact raises before writing anything, and `amend-pinned` is the one deliberate way
+    through. Getting that wrong costs a refusal, not damage, but it costs it every time.
+
+    Every value travels as ONE `--flag=value` item. As two items, a value starting with '-' (a
+    title such as "-draft") is read by the engine's argparse as another option and the call dies
+    with "expected one argument" - including on every later edit of a fact stored with that title,
+    since an unpinned edit re-sends the stored title.
+    """
+    argv = [python or default_python(), str(engine),
+            "amend-pinned" if fact.pin else "add",
+            f"--proj={fact.level}", f"--slug={fact.slug}"]
+    if fact.pin:
+        if title:
+            argv.append(f"--title={title}")
+    else:
+        argv.append(f"--title={title or fact.title}")
+    if hook_path:
+        argv.append(f"--hook-file={hook_path}")
+    if body_path:
+        argv.append(f"--body-file={body_path}")
+    if type_:
+        # Only when the caller ASKED. A derived one would re-introduce the guess this closes: with
+        # no --type the engine keeps the kind the stored body records.
+        argv.append(f"--type={type_}")
+    return argv
+
+
+# ---- output -------------------------------------------------------------------------------------
+
+def _emit(as_json: bool, command: str, ok: bool, data, skipped: list[str], text: str) -> None:
+    """One envelope shape for every verb; the text rendering is the same content, unparsed."""
+    if as_json:
+        print(json.dumps({"ok": ok, "command": command, "data": data, "skipped": skipped},
+                         indent=2))
+    else:
+        print(text)
+
+
+def _fact_data(fact: Fact, verdict: Verdict, rules: EngineRules) -> dict:
+    return {
+        "slug": fact.slug,
+        "level": str(fact.level),
+        "anchor": str(fact.anchor),
+        "title": fact.title,
+        "type": fact.type_,
+        "pinned": fact.pin,
+        "engine_verb": "amend-pinned" if fact.pin else "add",
+        "hook": fact.hook,
+        "hook_chars": verdict.length,
+        "soft_max": rules.soft_max,
+        "hard_max": rules.hard_max,
+        "body_path": str(fact.body_path),
+        "body_chars": len(fact.body),
+        "body_description": fact.body_description,
+        "hook_in_sync": fact.hook_in_sync,
+        "accepted": verdict.accepted,
+        "refusals": verdict.refusals,
+        "advisories": verdict.advisories,
+    }
+
+
+# `show` text output opens with these; a body file that carries them was captured from show's
+# whole output, and storing it would write the metadata header into the fact's prose.
+BODY_MARKER = "---- body ----"
+_SHOW_HEADER_RX = re.compile(r"\Aslug {2,}\S")
+
+
+def clean_body(text: str) -> str:
+    """The body text `apply` hands the engine: blank edges trimmed, show's header refused. PURE.
+
+    Leading blank lines would sit between the engine's frame and the prose (the frame already ends
+    in one blank line), and trailing ones are noise a re-read keeps. Only WHOLE blank lines go: the
+    first content line keeps its indentation. Raises BadInput for text carrying `show`'s header.
+    """
+    if BODY_MARKER in text.splitlines() or _SHOW_HEADER_RX.match(text.lstrip("\r\n")):
+        raise BadInput(f"the body file carries factedit show's header (a '{BODY_MARKER}' line or a "
+                       "leading 'slug ...' line), which would be stored as the fact's prose; "
+                       "write the file from `show --body` stdout alone, or cut the header out")
+    trimmed = re.sub(r"\A(?:[ \t]*\r?\n)+", "", text)
+    trimmed = re.sub(r"(?:\r?\n[ \t]*)+\Z", "", trimmed)
+    return trimmed + "\n" if trimmed else ""
+
+
+def _render_fact(data: dict, body: str, show_body: bool) -> str:
+    lines = [
+        f"slug        {data['slug']}",
+        f"level       {data['level']}",
+        f"title       {data['title']}",
+        f"type        {data['type'] or '(none recorded)'}",
+        f"pinned      {data['pinned']}  (engine verb: {data['engine_verb']})",
+        (f"hook        {data['hook_chars']} chars "
+         f"(soft {data['soft_max']}, hard {data['hard_max']})"),
+        "",
+        data["hook"],
+        "",
+        f"body        {data['body_path']}  ({data['body_chars']} chars)",
+    ]
+    if not data["hook_in_sync"]:
+        lines += ["", "! the body's description: has DRIFTED from the pointer hook:",
+                  f"  body says: {data['body_description']}"]
+    for line in data["refusals"]:
+        lines.append(f"! refused: {line}")
+    for line in data["advisories"]:
+        lines.append(f"~ advisory: {line}")
+    if show_body:
+        lines += ["", BODY_MARKER]
+    return "\n".join(lines)
+
+
+# ---- verbs --------------------------------------------------------------------------------------
+
+def _resolve_text(inline: str | None, path: str | None, flag: str) -> str | None:
+    """One text input from either the inline flag or a file; never both, never guessed."""
+    if inline is not None and path:
+        raise BadInput(f"pass {flag} or {flag}-file, not both")
+    if path:
+        try:
+            # utf-8-sig: a BOM from a Windows editor would otherwise become the hook's first char.
+            return Path(path).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise BadInput(f"cannot read {path}: {exc}") from exc
+    return inline
+
+
+def cmd_show(args, rules: EngineRules) -> int:
+    fact = read_fact(args.slug, Path(args.start), rules,
+                     level=Path(args.level) if args.level else None)
+    verdict = judge_hook(fact.hook, fact.body, rules)
+    data = _fact_data(fact, verdict, rules)
+    if args.body:
+        data["body"] = fact.body
+    if args.body and not args.as_json:
+        # The body alone goes to stdout, so `show --body > f` captures exactly the text `apply
+        # --body-file f` takes back; the header is for the person reading, so it goes to stderr.
+        print(_render_fact(data, fact.body, True), file=sys.stderr)
+        sys.stdout.write(fact.body if fact.body.endswith("\n") or not fact.body
+                         else fact.body + "\n")
+        return 0
+    _emit(args.as_json, "show", True, data, [],
+          _render_fact(data, fact.body, args.body))
+    return 0
+
+
+def cmd_check(args, rules: EngineRules) -> int:
+    hook = _resolve_text(args.hook, args.hook_file, "--hook")
+    if hook is None:
+        raise BadInput("give a hook with --hook or --hook-file")
+    body = _resolve_text(None, args.body_file, "--body") or ""
+    skipped = [] if args.body_file else ["body advisories (no --body-file given)"]
+    verdict = judge_hook(hook, body, rules)
+    data = {"hook_chars": verdict.length, "soft_max": rules.soft_max,
+            "hard_max": rules.hard_max, "accepted": verdict.accepted,
+            "refusals": verdict.refusals, "advisories": verdict.advisories,
+            "engine": str(rules.engine_path) if rules.engine_path else None}
+    text = [f"{verdict.length} chars (soft {rules.soft_max}, hard {rules.hard_max}) - "
+            + ("the engine would ACCEPT this hook" if verdict.accepted
+               else "the engine would REFUSE this hook")]
+    text += [f"! refused: {line}" for line in verdict.refusals]
+    text += [f"~ advisory: {line}" for line in verdict.advisories]
+    _emit(args.as_json, "check", True, data, skipped, "\n".join(text))
+    return 0 if verdict.accepted else 1
+
+
+@dataclass(frozen=True)
+class ApplySpec:
+    """One recomposition request: which fact, and what to change. From the CLI or a batch line."""
+
+    slug: str
+    start: Path
+    level: Path | None = None
+    hook: str | None = None
+    hook_file: str | None = None
+    body_file: str | None = None
+    title: str | None = None
+    type_: str | None = None
+
+
+@dataclass(frozen=True)
+class ApplyPlan:
+    """A validated recomposition: the stored fact, the texts to send, and the engine's verdict."""
+
+    spec: ApplySpec
+    fact: Fact
+    hook: str
+    body: str | None
+    keep_stored_hook: bool
+    verdict: Verdict
+
+
+@dataclass(frozen=True)
+class ApplyOutcome:
+    """What running one plan produced: the exit code and the envelope parts to print."""
+
+    code: int
+    ok: bool
+    data: dict
+    skipped: list[str]
+    text: str
+
+
+def plan_apply(spec: ApplySpec, rules: EngineRules, *, allow_pinned: bool,
+               dry_run: bool) -> ApplyPlan:
+    """Read the fact and check the change, writing nothing. Raises FactEditError on a bad request.
+
+    An over-cap hook is NOT raised: it comes back as a refused verdict, because single `apply`
+    reports it as data (the refusals list) rather than as an error message.
+    """
+    fact = read_fact(spec.slug, spec.start, rules, level=spec.level)
+    hook = _resolve_text(spec.hook, spec.hook_file, "--hook")
+    body = _resolve_text(None, spec.body_file, "--body")
+    if body is not None:
+        body = clean_body(body)
+    if fact.pin and not allow_pinned and not dry_run:
+        raise PinnedFact(f"{fact.slug!r} is pinned: its content is a human's to change. Pass "
+                         "--allow-pinned to write it through amend-pinned, or --dry-run to stage "
+                         "the change and print the engine command without writing")
+    if hook is None and body is None and not spec.title and not spec.type_:
+        raise BadInput("nothing to change: give --hook/--hook-file, --body-file, --title or --type")
+    if spec.type_:
+        # Fail closed on an unknown vocabulary - a tool that cannot check is not a tool that
+        # passes. A PINNED fact is forwarded like any other: `amend-pinned` carries --type and is
+        # the only route to a pinned fact's kind, since `add` refuses a pinned entry outright.
+        if not rules.types:
+            raise BadInput("the engine did not report its known types; refusing to guess")
+        if spec.type_ not in rules.types:
+            raise BadInput(f"unknown type {spec.type_!r}; the engine knows "
+                           + ", ".join(rules.types))
+    # A pinned fact given no new hook goes through amend-pinned WITHOUT --hook-file, which keeps
+    # the stored hook untouched - so a stored hook over the cap (the movers can leave one) is no
+    # reason to refuse a body, title or type edit the engine itself would accept. An unpinned
+    # fact goes through `add`, which needs the hook re-sent and refuses it over the cap.
+    keep_stored_hook = fact.pin and hook is None
+    hook = fact.hook if hook is None else hook.strip()
+    verdict = judge_hook(hook, body if body is not None else fact.body, rules)
+    if keep_stored_hook and not verdict.accepted:
+        verdict = Verdict(length=verdict.length, accepted=True, refusals=[],
+                          advisories=verdict.advisories + [
+                              f"the STORED hook is over the cap ({line}); it is kept unchanged "
+                              "and not re-sent, so this edit is not blocked by it"
+                              for line in verdict.refusals])
+    return ApplyPlan(spec=spec, fact=fact, hook=hook, body=body,
+                     keep_stored_hook=keep_stored_hook, verdict=verdict)
+
+
+_NOT_INVOKED = "the engine was not invoked; nothing was staged or written"
+
+
+def execute_plan(plan: ApplyPlan, rules: EngineRules, *, stage_dir: str | None, dry_run: bool,
+                 python: str | None) -> ApplyOutcome:
+    """Stage the plan's files and run the engine once (or only stage, on a dry run).
+
+    The one write path for both single and batch `apply`. Raises StageFailed or EngineLaunchFailed
+    when it could not get as far as an engine verdict.
+    """
+    fact, verdict = plan.fact, plan.verdict
+    if not verdict.accepted:
+        data = {"slug": fact.slug, "level": str(fact.level), "accepted": False,
+                "hook_chars": verdict.length, "refusals": verdict.refusals,
+                "advisories": verdict.advisories}
+        return ApplyOutcome(2, False, data, ["the engine was not invoked"],
+                            "\n".join([f"! refused: {line}" for line in verdict.refusals]
+                                      + [_NOT_INVOKED]))
+
+    # A stage dir this call CREATED is this call's to remove once the engine has taken the files;
+    # one the caller named with --stage-dir is the caller's, and is never touched.
+    own_stage = not stage_dir
+    stage = Path(stage_dir) if stage_dir else _make_temp_stage()
+    skipped: list[str] = []
+    hook_path = None
+    if plan.keep_stored_hook:
+        skipped.append("hook unchanged (amend-pinned keeps the stored one; not re-sent)")
+    else:
+        hook_path = stage_text(stage, f"{fact.slug}.hook.txt", plan.hook)
+    body_path = None
+    if plan.body is None:
+        skipped.append("body unchanged (the engine keeps the stored one and syncs its description)")
+    else:
+        body_path = stage_text(stage, f"{fact.slug}.body.md", plan.body)
+    argv = engine_argv(fact, rules.engine_path, hook_path=hook_path, body_path=body_path,
+                       title=plan.spec.title, type_=plan.spec.type_, python=python)
+
+    data = {"slug": fact.slug, "level": str(fact.level), "pinned": fact.pin,
+            "engine_verb": "amend-pinned" if fact.pin else "add",
+            "stage_dir": str(stage), "hook_file": str(hook_path) if hook_path else None,
+            "body_file": str(body_path) if body_path else None,
+            "hook_chars": verdict.length, "accepted": True,
+            "advisories": verdict.advisories, "argv": argv,
+            "command": shlex.join(argv), "dry_run": bool(dry_run), "stage_kept": True}
+    if dry_run:
+        # The printed command names the staged files and is meant to be pasted, so they stay.
+        skipped.append("the engine was not invoked (--dry-run)")
+        return ApplyOutcome(0, True, data, skipped,
+                            "\n".join([f"~ advisory: {a}" for a in verdict.advisories]
+                                      + [f"staged  {p}" for p in (hook_path, body_path) if p]
+                                      + ["", shlex.join(argv)]))
+
+    try:
+        proc = _run_engine(argv)
+    except EngineLaunchFailed as exc:
+        raise EngineLaunchFailed(f"{exc}; staged files kept in {stage}") from exc
+    data["engine_stdout"] = (proc.stdout or "").strip()
+    data["engine_returncode"] = proc.returncode
+    if proc.stderr:
+        # Operational noise from the engine, never part of the parsed stream.
+        print(proc.stderr.rstrip("\n"), file=sys.stderr)
+    ok = proc.returncode == 0
+    data["accepted"] = ok
+    if ok and own_stage:
+        data["stage_kept"] = not _remove_stage(stage, skipped)
+    tail = [] if not data["stage_kept"] else [f"staged files kept in {stage}"]
+    return ApplyOutcome(_exit_for_engine(proc.returncode), ok, data, skipped,
+                        "\n".join([f"~ advisory: {a}" for a in verdict.advisories]
+                                  + [data["engine_stdout"] or "(engine printed nothing)"] + tail))
+
+
+# Options that describe ONE fact. With --batch each entry carries its own, so a command-line value
+# would be ambiguous (every entry? a default?) and is refused rather than guessed at.
+_SINGLE_ONLY = (("slug", "--slug"), ("hook", "--hook"), ("hook_file", "--hook-file"),
+                ("body_file", "--body-file"), ("title", "--title"), ("type_", "--type"))
+
+
+def cmd_apply(args, rules: EngineRules) -> int:
+    if args.batch:
+        given = [flag for attr, flag in _SINGLE_ONLY if getattr(args, attr) is not None]
+        if given:
+            raise BadInput(f"--batch takes every per-fact value from the batch file; drop "
+                           f"{', '.join(given)} (or run single apply with --slug instead)")
+        return cmd_apply_batch(args, rules)
+    if not args.slug:
+        raise BadInput("give --slug <slug> for one fact, or --batch <file.jsonl> for several")
+    spec = ApplySpec(slug=args.slug, start=Path(args.start),
+                     level=Path(args.level) if args.level else None, hook=args.hook,
+                     hook_file=args.hook_file, body_file=args.body_file, title=args.title,
+                     type_=args.type_)
+    plan = plan_apply(spec, rules, allow_pinned=args.allow_pinned, dry_run=args.dry_run)
+    out = execute_plan(plan, rules, stage_dir=args.stage_dir, dry_run=args.dry_run,
+                       python=args.python)
+    _emit(args.as_json, "apply", out.ok, out.data, out.skipped, out.text)
+    return out.code
+
+
+# ---- apply --batch ------------------------------------------------------------------------------
+
+# The keys a batch line may carry. `slug` is required; the rest mirror single apply's options.
+BATCH_KEYS = frozenset({"slug", "level", "hook_file", "body_file", "title", "type"})
+_BATCH_PATH_KEYS = ("level", "hook_file", "body_file")
+
+
+@dataclass(frozen=True)
+class BatchEntry:
+    """One parsed batch line: its 1-based line number and the request it describes."""
+
+    line: int
+    spec: ApplySpec
+
+
+def _batch_path(raw: str, base: Path) -> str:
+    """An entry's path, a relative one taken from the batch file's dir so the file is portable."""
+    p = Path(raw).expanduser()
+    return str(p if p.is_absolute() else base / p)
+
+
+def _entry_problems(obj) -> list[str]:
+    """What is structurally wrong with one decoded batch line. PURE."""
+    if not isinstance(obj, dict):
+        return [f"not a JSON object (got {type(obj).__name__})"]
+    problems = [f"unknown key {k!r} (allowed: {', '.join(sorted(BATCH_KEYS))})"
+                for k in obj if k not in BATCH_KEYS]
+    if "slug" not in obj:
+        problems.append("no 'slug'")
+    problems += [f"{k!r} must be a non-empty string" for k in sorted(BATCH_KEYS)
+                 if k in obj and (not isinstance(obj[k], str) or not obj[k].strip())]
+    return problems
+
+
+def parse_batch(text: str, *, base: Path, start: Path,
+                level: Path | None) -> tuple[list[BatchEntry], list[str]]:
+    """The entries of a JSONL batch, and every structural problem found, each prefixed by its line.
+
+    Blank lines are skipped. `start` and `level` are the command line's --from/--level, used for an
+    entry that names no level of its own. Duplicate slugs are a problem: two writes to one fact in
+    one batch means one of them is silently lost.
+    """
+    entries: list[BatchEntry] = []
+    problems: list[str] = []
+    seen: dict[str, int] = {}
+    for n, raw in enumerate(text.splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            obj = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            problems.append(f"line {n}: not valid JSON ({exc.msg})")
+            continue
+        bad = _entry_problems(obj)
+        if bad:
+            problems += [f"line {n}: {p}" for p in bad]
+            continue
+        slug = obj["slug"]
+        if slug in seen:
+            problems.append(f"line {n} ({slug}): duplicate slug, already on line {seen[slug]}")
+            continue
+        seen[slug] = n
+        paths = {k: _batch_path(obj[k], base) for k in _BATCH_PATH_KEYS if k in obj}
+        own_level = paths.get("level")
+        entries.append(BatchEntry(line=n, spec=ApplySpec(
+            slug=slug, start=start, level=Path(own_level) if own_level else level,
+            hook_file=paths.get("hook_file"), body_file=paths.get("body_file"),
+            title=obj.get("title"), type_=obj.get("type"))))
+    return entries, problems
+
+
+def _preflight(entry: BatchEntry, rules: EngineRules, *, allow_pinned: bool,
+               dry_run: bool) -> list[str]:
+    """Every problem with one entry, found without writing anything.
+
+    The named files and the slug are checked independently first, so an entry with both a missing
+    file and an unknown slug reports both rather than only whichever the plan would hit first.
+    """
+    spec, tag = entry.spec, f"line {entry.line} ({entry.spec.slug})"
+    problems: list[str] = []
+    for key, path in (("hook_file", spec.hook_file), ("body_file", spec.body_file)):
+        if path:
+            try:
+                _resolve_text(None, path, f"--{key}")
+            except FactEditError as exc:
+                problems.append(f"{tag}: {key}: {exc}")
+    try:
+        read_fact(spec.slug, spec.start, rules, level=spec.level)
+    except FactEditError as exc:
+        problems.append(f"{tag}: {type(exc).__name__}: {exc}")
+    if problems:
+        return problems
+    try:
+        plan = plan_apply(spec, rules, allow_pinned=allow_pinned, dry_run=dry_run)
+    except FactEditError as exc:
+        return [f"{tag}: {type(exc).__name__}: {exc}"]
+    return [f"{tag}: refused: {r}" for r in plan.verdict.refusals]
+
+
+def _read_batch_file(path: Path) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise BadInput(f"cannot read the batch file {path}: {exc}") from exc
+
+
+def cmd_apply_batch(args, rules: EngineRules) -> int:
+    """Validate every entry, then apply each through single apply's own plan and write path.
+
+    Not a transaction: each entry is its own engine call under the engine's lock, so a failure part
+    way through leaves the earlier entries written. The report names which were applied, which one
+    failed and why, and which were never attempted, and nothing after the failure is attempted.
+    """
+    path = Path(args.batch)
+    entries, problems = parse_batch(_read_batch_file(path), base=path.resolve().parent,
+                                    start=Path(args.start),
+                                    level=Path(args.level) if args.level else None)
+    if not entries and not problems:
+        raise BadInput(f"the batch file {path} holds no entries")
+    for entry in entries:
+        problems += _preflight(entry, rules, allow_pinned=args.allow_pinned, dry_run=args.dry_run)
+    report = {"batch": str(path), "dry_run": bool(args.dry_run), "entries": len(entries),
+              "applied": [], "staged": [], "failed": None,
+              "not_applied": [e.spec.slug for e in entries], "problems": problems, "results": []}
+    if problems:
+        problems.sort(key=_line_of)
+        _emit(args.as_json, "apply", False, report, ["the engine was not invoked"],
+              "\n".join(["batch refused; nothing was staged or written:"]
+                        + [f"  {p}" for p in problems]))
+        return 2
+    for entry in entries:
+        failure = _run_entry(entry, args, rules, report)
+        if failure:
+            report["failed"] = failure
+            break
+    ok = report["failed"] is None
+    _emit(args.as_json, "apply", ok, report, [], _render_batch(report))
+    return 0 if ok else 2
+
+
+def _line_of(problem: str) -> int:
+    m = re.match(r"line (\d+)", problem)
+    return int(m.group(1)) if m else 0
+
+
+def _run_entry(entry: BatchEntry, args, rules: EngineRules, report: dict) -> dict | None:
+    """Apply one entry exactly as single apply would; a failure dict, or None on success.
+
+    The plan is made again here rather than reused from the preflight: the store is read at the
+    moment of writing, as single apply reads it, so an earlier entry or another writer since the
+    preflight cannot be overwritten with stale text.
+    """
+    slug = entry.spec.slug
+    report["not_applied"].remove(slug)
+    try:
+        plan = plan_apply(entry.spec, rules, allow_pinned=args.allow_pinned,
+                          dry_run=args.dry_run)
+        out = execute_plan(plan, rules, stage_dir=args.stage_dir, dry_run=args.dry_run,
+                           python=args.python)
+    except FactEditError as exc:
+        return {"slug": slug, "line": entry.line, "reason": f"{type(exc).__name__}: {exc}"}
+    report["results"].append(dict(out.data, slug=slug, line=entry.line, skipped=out.skipped))
+    if out.code != 0:
+        reason = "; ".join(out.data.get("refusals") or []) or (
+            f"engine exited {out.data.get('engine_returncode')}: "
+            f"{out.data.get('engine_stdout') or '(engine printed nothing)'}")
+        return {"slug": slug, "line": entry.line, "reason": reason}
+    report["staged" if args.dry_run else "applied"].append(slug)
+    return None
+
+
+def _render_batch(report: dict) -> str:
+    lines = [f"staged       {s}" for s in report["staged"]]
+    if report["dry_run"]:
+        lines += [f"  {r['command']}" for r in report["results"]]
+    lines += [f"applied      {s}" for s in report["applied"]]
+    failed = report["failed"]
+    if failed:
+        lines.append(f"FAILED       {failed['slug']} (line {failed['line']}): {failed['reason']}")
+    lines += [f"not applied  {s}" for s in report["not_applied"]]
+    return "\n".join(lines)
+
+
+def _make_temp_stage() -> Path:
+    """A fresh factedit-* dir in the system temp dir; StageFailed (exit 2) when none can be made."""
+    try:
+        return Path(tempfile.mkdtemp(prefix="factedit-"))
+    except OSError as exc:
+        raise StageFailed(f"cannot create a stage dir in the temp dir: {exc}") from exc
+
+
+def _remove_stage(stage: Path, skipped: list[str]) -> bool:
+    """Remove a stage dir this call created, now that the engine has the files. True if gone.
+
+    Without this every live apply left a factedit-* dir in the temp dir (1,600+ on one machine).
+    A removal that fails does not undo a write the engine already made, so it is reported in
+    `skipped` rather than turned into an error.
+    """
+    try:
+        shutil.rmtree(stage)
+    except OSError as exc:
+        skipped.append(f"could not remove the stage dir {stage}: {exc}")
+        return False
+    return True
+
+
+def _run_engine(argv: list[str]) -> subprocess.CompletedProcess:
+    """Run the engine; an interpreter that cannot even start is EngineLaunchFailed (exit 2)."""
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", check=False)
+    except OSError as exc:
+        raise EngineLaunchFailed(f"cannot launch {argv[0]}: {exc}") from exc
+
+
+def _exit_for_engine(returncode: int) -> int:
+    """0 applied; 2 for anything else.
+
+    The engine exits 2 when it refuses the whole write (a collision, a pinned target, an over-cap
+    hook) as well as on a usage error or an input it could not read, and non-zero on a crash.
+    None of those is a "no" to a question `apply` asked: the write did not happen, so the call
+    could not run. The engine's own code and stdout ride in the envelope for the reason.
+    """
+    return 0 if returncode == 0 else 2
+
+
+# ---- CLI ----------------------------------------------------------------------------------------
+
+def _add_common(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--engine", default=None,
+                   help="path to memory_engine.py (default: this plugin's own engine)")
+    p.add_argument("--json", action="store_true", dest="as_json", help="emit a JSON envelope")
+
+
+def _add_target(p: argparse.ArgumentParser, *, slug_required: bool = True) -> None:
+    p.add_argument("--slug", required=slug_required, default=None, help="the fact's identity")
+    p.add_argument("--from", dest="start", default=".",
+                   help="a dir inside the tree; the chain is walked up from here (default cwd)")
+    p.add_argument("--level", default=None,
+                   help="force the level that owns the pointer, skipping the chain walk")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sh = sub.add_parser("show", help="read a fact: its hook, its body, and how the engine reads it")
+    _add_target(sh)
+    sh.add_argument("--body", action="store_true", help="also print the body")
+    _add_common(sh)
+
+    ck = sub.add_parser("check", help="would the engine accept this hook?")
+    ck.add_argument("--hook", default=None, help="the drafted hook, inline")
+    ck.add_argument("--hook-file", default=None, help="the drafted hook, from a file")
+    ck.add_argument("--body-file", default=None,
+                    help="the body it will ship with, so body advisories are checked too")
+    _add_common(ck)
+
+    ap_ = sub.add_parser("apply", help="recompose a fact (or a --batch of them) through the engine "
+                                       "(add or amend-pinned)")
+    # Not required at the parser: --batch replaces it, and cmd_apply refuses having neither.
+    _add_target(ap_, slug_required=False)
+    ap_.add_argument("--batch", default=None,
+                     help="a JSONL file, one fact per line: {\"slug\", \"body_file\", \"hook_file\", "
+                          "\"title\", \"type\", \"level\"} (slug required; relative paths from the "
+                          "file's dir). Every entry is validated before any is written; each is "
+                          "then applied as single apply would, stopping at the first failure")
+    ap_.add_argument("--hook", default=None, help="the new hook, inline (omit to keep the stored one)")
+    ap_.add_argument("--hook-file", default=None, help="the new hook, from a file")
+    ap_.add_argument("--body-file", default=None,
+                     help="the new body (omit to keep the stored one)")
+    ap_.add_argument("--title", default=None, help="a new title (omit to keep the stored one)")
+    ap_.add_argument("--type", dest="type_", default=None,
+                     help="re-classify the fact (feedback/project/reference/user), pinned ones "
+                          "included; omit to keep the stored kind, which the engine preserves")
+    ap_.add_argument("--stage-dir", default=None,
+                     help="where to write the staged hook/body files (default: a temp dir)")
+    ap_.add_argument("--dry-run", action="store_true",
+                     help="stage the files and print the engine command without running it")
+    ap_.add_argument("--allow-pinned", action="store_true",
+                     help="write a PINNED fact (through amend-pinned); without it apply refuses "
+                          "one, since pinned content is a human's to change")
+    ap_.add_argument("--python", default=None,
+                     help="interpreter to launch the engine with (default: python3 from PATH)")
+    _add_common(ap_)
+    return ap
+
+
+_VERBS = {"show": cmd_show, "check": cmd_check, "apply": cmd_apply}
+
+
+def main(argv=None) -> int:
+    utf8_stdio()
+    args = build_parser().parse_args(argv)
+    try:
+        rules = load_rules(find_engine(args.engine))
+        return _VERBS[args.cmd](args, rules)
+    except FactEditError as exc:
+        code = 1 if isinstance(exc, UnknownFact) else 2
+        payload = {"ok": code != 2, "command": args.cmd, "data": None,
+                   "skipped": [], "error": f"{type(exc).__name__}: {exc}"}
+        if args.as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+        return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

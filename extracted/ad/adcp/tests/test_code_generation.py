@@ -1,0 +1,3049 @@
+"""Tests for code generation from schemas.
+
+This test suite validates that the code generation pipeline works correctly:
+1. Schemas can be downloaded
+2. Types can be generated from schemas
+3. Generated code is valid Python
+4. Generated types can be imported
+"""
+
+from __future__ import annotations
+
+import ast
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "class_name,base,value,annotated",
+    [
+        ("Tracks", "StrEnum", "pass", True),
+        ("Tracks", "StrEnum", "another-value", False),
+        ("Other", "StrEnum", "pass", False),
+        ("Tracks", "object", "pass", False),
+    ],
+)
+def test_registry_verdict_annotation_preserves_syntax_and_unrelated_detection(
+    tmp_path, monkeypatch, class_name, base, value, annotated
+):
+    from scripts import post_generate_fixes
+
+    target = tmp_path / "core" / "registry_event.py"
+    target.parent.mkdir()
+    source = (
+        f"class {class_name}({base}):\n"
+        f"    pass_ = {value!r}\n"
+        "    fail = 'fail'\n"
+        "unrelated_password = 'non-secret-detector-control'\n"
+    )
+    target.write_text(source)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", tmp_path)
+    post_generate_fixes.annotate_registry_track_verdict()
+    updated = target.read_text()
+    assert ast.dump(ast.parse(updated)) == ast.dump(ast.parse(source))
+    assert updated.count("# nosec B105") == int(annotated)
+    assert updated.splitlines()[-1] == source.splitlines()[-1]
+    post_generate_fixes.annotate_registry_track_verdict()
+    assert target.read_text() == updated
+
+
+def test_flatten_schemas_uses_stable_path_order(tmp_path, monkeypatch, capsys):
+    """Aggregate model suffixes must not depend on filesystem insertion order."""
+    from scripts import generate_types
+
+    schemas = tmp_path / "schemas"
+    schemas.mkdir()
+    (schemas / "zeta.json").write_text('{"type": "object"}')
+    (schemas / "alpha.json").write_text('{"type": "object"}')
+    monkeypatch.setattr(generate_types, "SCHEMAS_DIR", schemas)
+    monkeypatch.setattr(generate_types, "GENERATED_SCHEMA_EXCLUDE_FILES", frozenset())
+    monkeypatch.setattr(generate_types, "GENERATED_SCHEMA_EXCLUDE_DIRS", frozenset())
+
+    generate_types.flatten_schemas(tmp_path / "prepared")
+
+    output = capsys.readouterr().out
+    assert output.index("  alpha.json") < output.index("  zeta.json")
+
+
+def test_restore_principal_result_aliases_uses_kind_discriminators(tmp_path, monkeypatch):
+    """Principal aliases remain stable when anonymous class suffixes change."""
+    from scripts import post_generate_fixes
+
+    protocol_dir = tmp_path / "protocol"
+    protocol_dir.mkdir()
+    (protocol_dir / "get_principal_response.py").write_text(
+        "from typing import Literal\n"
+        "class Result42:\n"
+        "    kind: Literal['current'] = 'current'\n"
+        "class Result3:\n"
+        "    kind: Literal['recognized'] = 'recognized'\n"
+        "class Result:\n"
+        "    kind: Literal['unconfigured'] = 'unconfigured'\n"
+        "class Result8:\n"
+        "    kind: Literal['failed'] = 'failed'\n"
+    )
+    (protocol_dir / "sync_principal_response.py").write_text(
+        "from typing import Literal\n"
+        "class Result4:\n"
+        "    kind: Literal['validated'] = 'validated'\n"
+        "class Result12:\n"
+        "    kind: Literal['applied'] = 'applied'\n"
+        "class Result99:\n"
+        "    kind: Literal['failed'] = 'failed'\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", tmp_path)
+
+    post_generate_fixes.restore_principal_result_aliases()
+
+    get_source = (protocol_dir / "get_principal_response.py").read_text()
+    sync_source = (protocol_dir / "sync_principal_response.py").read_text()
+    assert "PrincipalCurrentResult = Result42" in get_source
+    assert "PrincipalRecognizedResult = Result3" in get_source
+    assert "PrincipalAppliedResult = Result12" in sync_source
+    assert "PrincipalSyncFailedResult = Result99" in sync_source
+
+
+def test_disambiguate_comply_response_arm_renames_class_and_references(tmp_path, monkeypatch):
+    """Fresh codegen output cannot add a generic public Arm collision."""
+    from scripts import post_generate_fixes
+
+    compliance_dir = tmp_path / "compliance"
+    compliance_dir.mkdir()
+    target = compliance_dir / "comply_test_controller_response.py"
+    target.write_text(
+        "from enum import Enum\n"
+        "class Arm(Enum):\n"
+        "    submitted = 'submitted'\n"
+        "class Forced:\n"
+        "    arm: Arm\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", tmp_path)
+
+    post_generate_fixes.disambiguate_comply_response_arm()
+
+    source = target.read_text()
+    assert "class ComplyResponseArm(Enum):" in source
+    assert "arm: ComplyResponseArm" in source
+    assert "class Arm(" not in source
+
+
+def test_post_generation_restores_codegen_contract_compatibility(tmp_path, monkeypatch):
+    """Known 0.64 flattening and response-union regressions stay repaired."""
+    from scripts import post_generate_fixes
+
+    core_dir = tmp_path / "core"
+    core_dir.mkdir()
+    (core_dir / "product_signal_targeting_option.py").write_text(
+        "from typing import Annotated, Any\n"
+        "from . import vendor_pricing_option\n"
+        "from .signal_listing import SignalListing\n"
+        "class ProductSignalTargetingOption(SignalListing):\n"
+        "    signal_ref: Any\n"
+    )
+    (core_dir / "creative_representation.py").write_text(
+        "from typing import Annotated, Any\n"
+        "from pydantic import ConfigDict, Field\n"
+        "from .creative_manifest import CreativeManifest\n"
+        "class CreativeRepresentation(CreativeManifest):\n"
+        "    model_config = ConfigDict(\n"
+        "        extra='allow',\n"
+        "    )\n"
+        "    format_kind: Any\n"
+    )
+    (core_dir / "transformer.py").write_text(
+        "from pydantic import AnyUrl, ConfigDict, Field, RootModel\n"
+        "class Transformer(AdCPBaseModel):\n"
+        "    pass\n"
+    )
+    response_specs = (
+        ("compliance/comply_test_controller_response.py", "ComplyTestControllerResponse"),
+        (
+            "content_standards/create_content_standards_response.py",
+            "CreateContentStandardsResponse",
+        ),
+        (
+            "content_standards/list_content_standards_response.py",
+            "ListContentStandardsResponse",
+        ),
+        ("account/sync_governance_response.py", "SyncGovernanceResponse"),
+        (
+            "content_standards/update_content_standards_response.py",
+            "UpdateContentStandardsResponse",
+        ),
+    )
+    for relative_path, response_name in response_specs:
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            "from __future__ import annotations\n\n"
+            "class " + response_name + "1(AdcpVersionEnvelope, ProtocolEnvelope):\n    pass\n"
+            "class "
+            + response_name
+            + "2(AdcpVersionEnvelope, ProtocolEnvelope):\n    pass\n"
+            + response_name
+            + " = "
+            + response_name
+            + "1 | "
+            + response_name
+            + "2\n"
+        )
+
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", tmp_path)
+    post_generate_fixes.restore_flattened_contract_field_types()
+    post_generate_fixes.enforce_transformer_output_contract()
+    post_generate_fixes.restore_constructible_response_bases()
+    # The functions are deliberately safe when the post-fix pass runs twice.
+    post_generate_fixes.restore_flattened_contract_field_types()
+    post_generate_fixes.enforce_transformer_output_contract()
+    post_generate_fixes.restore_constructible_response_bases()
+
+    product_source = (core_dir / "product_signal_targeting_option.py").read_text()
+    assert "from . import signal_ref" in product_source
+    assert "signal_ref: Annotated[\n        signal_ref.SignalRef," in product_source
+    assert "Canonical signal reference." in product_source
+
+    representation_source = (core_dir / "creative_representation.py").read_text()
+    # ``str``, not the enum. The fix repairs a flattening artifact (the
+    # generator emits ``format_kind: Any``); it must not re-close the
+    # vocabulary, which is open at every reference by decision — see
+    # ``OPEN_VOCABULARY_SCHEMAS`` in ``scripts/generate_types.py``.
+    assert "from .canonical_format_kind import CanonicalFormatKind" not in representation_source
+    assert "format_kind: Annotated[\n        str," in representation_source
+    assert "Canonical 3.2 path." in representation_source
+    assert "'representation_selection'" in representation_source
+    assert "@model_validator(mode='before')" in representation_source
+
+    transformer_source = (core_dir / "transformer.py").read_text()
+    assert "@model_validator(mode='after')" in transformer_source
+    assert "output_capability_ids" in transformer_source
+    assert "output_format_ids" in transformer_source
+
+    for relative_path, response_name in response_specs:
+        response_source = (tmp_path / relative_path).read_text()
+        dispatch_import = "from adcp.types.response_dispatch import ResponseArmDispatchMixin"
+        assert dispatch_import in response_source
+        assert (
+            f"class {response_name}(ResponseArmDispatchMixin, "
+            "AdcpVersionEnvelope, ProtocolEnvelope):" in response_source
+        )
+        assert f"class {response_name}1({response_name}):" in response_source
+        arm_method = (
+            "def _response_arm_models(cls) -> tuple[type[" + response_name + "], ...]:\n"
+            "        return (\n"
+            "            " + response_name + "1,\n"
+            "            " + response_name + "2,\n"
+            "        )"
+        )
+        assert arm_method in response_source
+        assert f"{response_name} =" not in response_source
+
+
+def test_normalize_enum_descriptions_preserves_enum_order():
+    """Description maps become the positional list expected by codegen 0.64+."""
+    from scripts.generate_types import normalize_enum_descriptions
+
+    schema = {
+        "enum": ["binary", "categorical", "numeric"],
+        "x-enum-descriptions": {
+            "numeric": "Continuous value",
+            "binary": "Boolean value",
+            "categorical": "Discrete value",
+        },
+    }
+
+    assert normalize_enum_descriptions(schema)["x-enum-descriptions"] == [
+        "Boolean value",
+        "Discrete value",
+        "Continuous value",
+    ]
+
+
+def test_normalize_enum_descriptions_recurses_into_embedded_schemas():
+    from scripts.generate_types import normalize_enum_descriptions
+
+    schema = {
+        "$defs": {
+            "state": {
+                "enum": ["ready", "done"],
+                "x-enum-descriptions": {"done": "Finished", "ready": "Available"},
+            }
+        }
+    }
+
+    normalize_enum_descriptions(schema)
+
+    assert schema["$defs"]["state"]["x-enum-descriptions"] == ["Available", "Finished"]
+
+
+def test_post_generate_removes_only_unused_pydantic_field_imports():
+    from scripts.post_generate_fixes import _remove_unused_imports
+
+    def _remove_unused_pydantic_import(source: str, name: str) -> tuple[str, bool]:
+        return _remove_unused_imports(source, {"pydantic": (name,)})
+
+    unused = (
+        "from pydantic import ConfigDict, Field\n\n"
+        "class Example:\n"
+        "    model_config = ConfigDict(extra='forbid')\n"
+    )
+    updated, changed = _remove_unused_pydantic_import(unused, "Field")
+
+    assert changed
+    assert "from pydantic import ConfigDict\n" in updated
+    assert "Field" not in updated
+    assert _remove_unused_pydantic_import(updated, "Field") == (updated, False)
+
+    used = "from pydantic import Field\n\nvalue = Field(default=None)\n"
+    assert _remove_unused_pydantic_import(used, "Field") == (used, False)
+
+    standalone = (
+        "from __future__ import annotations\n\n"
+        "from adcp.types._str_enum import StrEnum\n\n"
+        "from pydantic import Field\n\n\n"
+        "class Example(StrEnum):\n"
+        "    value = 'value'\n"
+    )
+    cleaned, changed = _remove_unused_pydantic_import(standalone, "Field")
+    assert changed
+    assert cleaned == (
+        "from __future__ import annotations\n\n"
+        "from adcp.types._str_enum import StrEnum\n\n\n"
+        "class Example(StrEnum):\n"
+        "    value = 'value'\n"
+    )
+
+
+def test_flatten_validation_oneof_accepts_branch_annotations():
+    from scripts.generate_types import flatten_validation_oneof
+
+    schema = {
+        "title": "Request",
+        "type": "object",
+        "properties": {"first": {"type": "string"}, "second": {"type": "string"}},
+        "required": ["mode"],
+        "anyOf": [
+            {
+                "title": "First mode",
+                "description": "Requires a payload.",
+                "required": ["first"],
+            },
+            {
+                "title": "Second mode",
+                "deprecated": True,
+                "required": ["second"],
+            },
+        ],
+    }
+
+    flattened = flatten_validation_oneof(schema)
+
+    assert "anyOf" not in flattened
+    assert flattened["required"] == ["mode"]
+
+
+def test_flatten_known_root_object_union_merges_branch_only_fields():
+    from scripts.generate_types import flatten_root_object_validation_union
+
+    schema = {
+        "type": "object",
+        "allOf": [{"$ref": "envelope.json"}],
+        "properties": {"context": {"type": "object"}},
+        "oneOf": [
+            {
+                "properties": {"status": {"const": "completed"}, "result": {"type": "string"}},
+                "required": ["status", "result"],
+            },
+            {
+                "properties": {"status": {"const": "failed"}, "errors": {"type": "array"}},
+                "required": ["status", "errors"],
+            },
+        ],
+    }
+
+    flattened = flatten_root_object_validation_union(
+        schema, Path("account/list-account-changes-response.json")
+    )
+
+    assert "oneOf" not in flattened
+    assert flattened["properties"]["status"] == {"enum": ["completed", "failed"]}
+    assert set(flattened["properties"]) == {"context", "status", "result", "errors"}
+    assert flattened["required"] == ["status"]
+    assert flattened["allOf"] == [{"$ref": "envelope.json"}]
+
+
+def test_flatten_root_object_union_ignores_unlisted_schema():
+    from scripts.generate_types import flatten_root_object_validation_union
+
+    schema = {
+        "type": "object",
+        "properties": {"kind": {"type": "string"}},
+        "oneOf": [{"properties": {"kind": {"const": "a"}}}],
+    }
+
+    assert flatten_root_object_validation_union(schema, Path("core/real-union.json")) is schema
+    assert "oneOf" in schema
+
+
+def test_rewrite_refs_localizes_canonical_schema_urls_without_corrupting_prerelease():
+    """Canonical absolute refs become local module paths before normalization."""
+    from scripts.generate_types import rewrite_refs
+
+    schema = {
+        "$ref": (
+            "https://adcontextprotocol.org/schemas/3.2.0-beta.4/"
+            "core/platform-extension-ref.json#/$defs/custom-shape"
+        )
+    }
+
+    rewrite_refs(schema, Path("media-buy/list-products-response.json"))
+
+    assert schema["$ref"] == "../core/platform_extension_ref.json#/$defs/custom-shape"
+
+
+def test_rewrite_refs_preserves_domain_in_root_relative_source_refs():
+    """The first component after /schemas is a domain, not a version."""
+    from scripts.generate_types import rewrite_refs
+
+    enum_ref = {"$ref": "/schemas/enums/account-status.json"}
+    core_ref = {"$ref": "/schemas/core/brand-ref.json"}
+
+    rewrite_refs(enum_ref, Path("core/account.json"))
+    rewrite_refs(core_ref, Path("account/sync-accounts-request.json"))
+
+    assert enum_ref["$ref"] == "../enums/account_status.json"
+    assert core_ref["$ref"] == "../core/brand_ref.json"
+
+
+def test_post_generate_ref_resolution_preserves_root_relative_domain():
+    """Post-generation alias restoration resolves the same source ref shape."""
+    from scripts.post_generate_fixes import _resolve_schema_ref
+
+    assert _resolve_schema_ref(
+        Path("account/sync-accounts-response.json"),
+        "/schemas/core/brand-ref.json#/$defs/brand",
+    ) == Path("core/brand-ref.json")
+
+
+def test_rewrite_refs_preserves_external_urls_and_json_pointer_fragments():
+    """Hyphen normalization applies to local files, never external identifiers."""
+    from scripts.generate_types import rewrite_refs
+
+    external = {"$ref": "https://schemas.example.com/custom-shape.json#/$defs/foo-bar"}
+    local = {"$ref": "../core/custom-shape.json#/$defs/foo-bar"}
+
+    rewrite_refs(external, Path("media-buy/list-products-response.json"))
+    rewrite_refs(local, Path("media-buy/list-products-response.json"))
+
+    assert external["$ref"] == "https://schemas.example.com/custom-shape.json#/$defs/foo-bar"
+    assert local["$ref"] == "../core/custom_shape.json#/$defs/foo-bar"
+
+
+def test_rewrite_refs_uses_shortest_path_for_canonical_sibling_ref():
+    """Canonical sibling refs avoid root round-trips that codegen mis-rebases."""
+    from scripts.generate_types import rewrite_refs
+
+    schema = {
+        "$ref": ("https://adcontextprotocol.org/schemas/3.2.0-beta.4/core/assets/image-asset.json")
+    }
+
+    rewrite_refs(schema, Path("core/assets/video-asset.json"))
+
+    assert schema["$ref"] == "image_asset.json"
+
+
+def test_rewrite_refs_preserves_macro_declaration_canonical_enum_ref():
+    """Nested asset generation must not rebase MacroDeclaration's enum ref."""
+    from scripts.generate_types import rewrite_refs
+
+    schema = {
+        "$ref": ("https://adcontextprotocol.org/schemas/3.2.0-beta.10/enums/macro-dialect.json")
+    }
+
+    rewrite_refs(schema, Path("core/macro-declaration.json"))
+
+    assert schema["$ref"] == (
+        "https://adcontextprotocol.org/schemas/3.2.0-beta.10/enums/macro-dialect.json"
+    )
+
+
+def test_rewrite_refs_normalizes_sibling_macro_and_equivalent_local_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Transitive macro refs consistently target the staged schema tree."""
+    from scripts import generate_types
+
+    monkeypatch.setattr(generate_types, "TEMP_DIR", tmp_path)
+    sibling = {"$ref": "macro-declaration.json"}
+    local_equivalent = {"$ref": "../enums/macro-dialect.json"}
+
+    generate_types.rewrite_refs(sibling, Path("core/video-template.json"))
+    generate_types.rewrite_refs(local_equivalent, Path("core/macro-declaration.json"))
+
+    assert sibling["$ref"] == (tmp_path / "core" / "macro_declaration.json").as_posix()
+    assert local_equivalent["$ref"] == (tmp_path / "enums" / "macro_dialect.json").as_posix()
+
+
+@pytest.mark.parametrize("ref", ["../../outside.json", "/outside.json"])
+def test_rewrite_refs_rejects_schema_root_escape(ref: str):
+    """A malformed local reference cannot escape the staged schema root."""
+    from scripts.generate_types import rewrite_refs
+
+    with pytest.raises(ValueError, match="schema reference escapes its root"):
+        rewrite_refs({"$ref": ref}, Path("core/model.json"))
+
+
+def test_nested_format_discriminator_drops_only_codegen_ambiguous_outer_hint():
+    """Format asset consts remain while the codegen-only outer hint is removed."""
+    from scripts.generate_types import stabilize_nested_discriminators
+
+    items = {
+        "discriminator": {"propertyName": "item_type"},
+        "oneOf": [
+            {"properties": {"item_type": {"const": "individual"}}},
+            {"properties": {"item_type": {"const": "repeatable_group"}}},
+        ],
+    }
+    schema = {"properties": {"assets": {"items": items}}}
+
+    stabilize_nested_discriminators(schema, Path("core/format.json"))
+
+    assert "discriminator" not in items
+    assert items["oneOf"][0]["properties"]["item_type"]["const"] == "individual"
+
+
+def test_audience_evidence_attestation_subject_uses_narrowed_resource_arm():
+    """The allOf-constrained evidence subject must build a valid Pydantic schema."""
+    from adcp.types.domains.core.audience_evidence import AttestationRef
+
+    schema = AttestationRef.model_json_schema()
+
+    subject_ref = schema["properties"]["subject"]["$ref"]
+    subject_schema = schema["$defs"][subject_ref.rsplit("/", 1)[-1]]
+    assert subject_schema["properties"]["type"]["const"] == "resource"
+    assert set(subject_schema["required"]) >= {"content_digest", "namespace", "id"}
+
+
+def test_post_generate_legacy_purchase_losses_are_always_an_array(tmp_path, monkeypatch):
+    """The schema's negated empty array must not become an empty object arm."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "media_buy" / "legacy_purchase_continuation_input.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from adcp.types.base import AdCPBaseModel\n\n"
+        "class AcceptedLosses(AdCPBaseModel):\n"
+        "    pass\n\n"
+        "class CompatibilityPurchaseCoordinatorInput(AdCPBaseModel):\n"
+        "    accepted_losses: list[AcceptedLoss] | AcceptedLosses\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_legacy_purchase_accepted_losses()
+
+    fixed = target.read_text()
+    assert "class AcceptedLosses" not in fixed
+    assert "accepted_losses: list[AcceptedLoss]\n" in fixed
+
+
+def test_post_generate_legacy_purchase_losses_restore_array_constraints(tmp_path, monkeypatch):
+    """Runtime and emitted schemas retain constraints codegen drops."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "media_buy" / "legacy_purchase_continuation_input.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from pydantic import ConfigDict, Field, RootModel\n\n"
+        "class CompatibilityPurchaseCoordinatorInput:\n"
+        "    selected_product_ids: Annotated[\n"
+        "        list[SelectedProductId],\n"
+        "        Field(\n"
+        "            description='Non-empty subset of the product IDs bound into the "
+        "continuation.',\n"
+        "            min_length=1,\n"
+        "        ),\n"
+        "    ]\n"
+        "    accepted_losses: Annotated[\n"
+        "        list[AcceptedLoss] | AcceptedLosses,\n"
+        "        Field(\n"
+        "            description='Exact loss set returned with the continuation. Missing, "
+        "extra, or stale consent fails before mutation.',\n"
+        "            min_length=2,\n"
+        "        ),\n"
+        "    ]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_legacy_purchase_accepted_losses()
+    post_generate_fixes.fix_legacy_purchase_accepted_losses()
+    fixed = target.read_text()
+
+    assert "field_validator" in fixed
+    assert fixed.count("json_schema_extra=") == 2
+    assert "'uniqueItems': True" in fixed
+    assert "'feed_version_not_atomic'" in fixed
+    assert "def _accepted_losses_match_schema(" in fixed
+
+
+def test_post_generate_change_term_constraint_import_is_idempotent(tmp_path, monkeypatch):
+    """Repeated post-generation fixes never duplicate model_validator imports."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "media_buy" / "change_term_constraints.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from pydantic import AwareDatetime, ConfigDict, Field, RootModel\n\n"
+        "class MediaBuyChangeTermConstraints1(AdCPBaseModel):\n"
+        "    max_delta_amount: object | None = None\n\n"
+        "class MediaBuyChangeTermConstraints2(AdCPBaseModel):\n"
+        "    max_change: object | None = None\n\n"
+        "class MediaBuyChangeTermConstraints3(AdCPBaseModel):\n"
+        "    max_additions: int | None = None\n\n"
+        "class MediaBuyChangeTermConstraints4(AdCPBaseModel):\n"
+        "    minimum_notice: object | None = None\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.enforce_change_term_runtime_constraints()
+    first = target.read_text()
+    post_generate_fixes.enforce_change_term_runtime_constraints()
+
+    assert target.read_text() == first
+    assert first.count("model_validator") == 5
+
+
+def test_post_generate_preserves_request_signing_operation_strings(tmp_path, monkeypatch):
+    """Constrained operation names remain plain strings after validation."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    targets = (
+        generated_dir / "protocol" / "get_adcp_capabilities_response.py",
+        generated_dir / "bundled" / "protocol" / "get_adcp_capabilities_response.py",
+    )
+    source = (
+        "class RequiredConnection:\n"
+        "    required_for: list[RequiredForItem] | None = []\n\n"
+        "class RequestSigning(AdCPBaseModel):\n"
+        "    required_for: list[RequiredForItem29] | None = []\n"
+        "    warn_for: list[WarnForItem3] | None = []\n"
+        "    supported_for: list[SupportedForItem2] | None = None\n"
+        "    protocol_methods_required_for: list[ProtocolMethodsRequiredForItem] = []\n"
+        "\nclass Algorithm:\n"
+        "    pass\n"
+    )
+    for target in targets:
+        target.parent.mkdir(parents=True)
+        target.write_text(source)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.preserve_request_signing_operation_strings()
+    post_generate_fixes.preserve_request_signing_operation_strings()
+
+    for target in targets:
+        fixed = target.read_text()
+        assert fixed.count("Annotated[str, Field(pattern='^[a-z][a-z0-9_]*$')]") == 3
+        assert "class RequiredConnection:\n    required_for: list[RequiredForItem]" in fixed
+        assert "list[ProtocolMethodsRequiredForItem]" in fixed
+
+
+def test_allof_merge_selects_literal_base_independent_of_order(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "postal_area.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from typing import Literal\n\n"
+        "class Loose:\n"
+        "    country: str\n"
+        "    system: str\n\n"
+        "class Narrow:\n"
+        "    country: Literal['US']\n"
+        "    system: Literal['zip', 'zip_plus_four']\n\n"
+        "class PostalArea(Loose, Narrow):\n"
+        "    country: str\n"
+        "    system: str\n"
+        "    values: list[str]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_allof_merge_field_override_conflicts()
+
+    fixed = target.read_text()
+    assert "class PostalArea(Narrow):" in fixed
+    assert "    country: str" not in fixed.split("class PostalArea", 1)[1]
+    assert "    system: str" not in fixed.split("class PostalArea", 1)[1]
+    assert "    values: list[str]" in fixed
+
+
+def test_allof_merge_leaves_named_disjoint_bases_untouched(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "disjoint.py"
+    target.parent.mkdir(parents=True)
+    source = (
+        "class SignalBase:\n"
+        "    signal_id: str\n\n"
+        "class TargetingBase:\n"
+        "    targeting: dict\n\n"
+        "class SignalTargetingItem(SignalBase, TargetingBase):\n"
+        "    pass\n\n"
+        "class PricingBase:\n"
+        "    model: str\n\n"
+        "class PriceBase:\n"
+        "    amount: float\n\n"
+        "class VendorPricingOption(PricingBase, PriceBase):\n"
+        "    pass\n"
+    )
+    target.write_text(source)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_allof_merge_field_override_conflicts()
+
+    assert target.read_text() == source
+
+
+def test_allof_merge_preserves_non_type_literal_discriminator_branch(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "budget_allocation.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from typing import Literal\n\n"
+        "class Fixed:\n"
+        "    mode: Literal['fixed']\n\n"
+        "class Percentage:\n"
+        "    mode: Literal['percentage']\n\n"
+        "class FixedBranch(Fixed, Percentage):\n"
+        "    mode: Literal['fixed']\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_allof_merge_field_override_conflicts()
+
+    fixed = target.read_text()
+    assert "class FixedBranch(Fixed):" in fixed
+    assert "    mode: Literal['fixed']" not in fixed.split("class FixedBranch", 1)[1]
+    assert "class FixedBranch(Fixed):\n    pass\n" in fixed
+    compile(fixed, str(target), "exec")
+
+
+def test_allof_merge_fails_when_narrow_base_is_ambiguous(tmp_path, monkeypatch):
+    import pytest
+
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "ambiguous.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "class Left:\n"
+        "    value: str\n\n"
+        "class Right:\n"
+        "    value: int\n\n"
+        "class Merge(Left, Right):\n"
+        "    value: str\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    with pytest.raises(RuntimeError, match="Cannot safely order allOf merge bases"):
+        post_generate_fixes.fix_allof_merge_field_override_conflicts()
+
+
+def test_list_creatives_merged_model_restores_xor_and_legacy_aliases(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "creative" / "list_creatives_response.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from __future__ import annotations\n\n"
+        "from pydantic import AwareDatetime, ConfigDict, Field, RootModel, StringConstraints\n\n"
+        "class AdCPBaseModel:\n"
+        "    pass\n\n"
+        "class AdcpVersionEnvelope:\n"
+        "    pass\n\n"
+        "class ProtocolEnvelope:\n"
+        "    pass\n\n"
+        "class Creative(AdCPBaseModel):\n"
+        "    format_id = None\n"
+        "    format_kind = None\n\n"
+        "class ListCreativesResponse(AdcpVersionEnvelope, ProtocolEnvelope):\n"
+        "    pass\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_list_creatives_format_reference_xor()
+
+    fixed = target.read_text()
+    assert "def _validate_format_reference_xor(self) -> Creative:" in fixed
+    assert "Creatives = Creative\nCreatives1 = Creative" in fixed
+    # The record's schema states the rule as a ``oneOf`` whose arms forbid each
+    # other, so that is the keyword the refusal names. A bare ``ValueError``
+    # reaches the consumer as ``value_error`` and names no keyword at all.
+    assert "from pydantic_core import PydanticCustomError" in fixed
+    assert "raise PydanticCustomError(\n                'oneOf'," in fixed
+    assert "raise ValueError(" not in fixed
+    compile(fixed, str(target), "exec")
+
+
+def test_allof_merge_preserves_concrete_type_constraints_and_requiredness(tmp_path, monkeypatch):
+    import pytest
+    from pydantic import ValidationError
+
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "concrete.py"
+    generated_dir.mkdir(parents=True)
+    target.write_text(
+        "from typing import Annotated, Any\n"
+        "from pydantic import BaseModel, Field\n\n"
+        "class Placeholder(BaseModel):\n"
+        "    items: Annotated[Any, Field(min_length=1)]\n\n"
+        "class Concrete(BaseModel):\n"
+        "    items: Annotated[list[str] | None, Field(description='typed items')] = None\n\n"
+        "class Merge(Placeholder, Concrete):\n"
+        "    items: Any\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_allof_merge_field_override_conflicts()
+
+    fixed = target.read_text()
+    assert "class Merge(Concrete):" in fixed
+    assert "Annotated[list[str]," in fixed
+    assert "Field(description='typed items')" in fixed
+    assert "Field(min_length=1)" in fixed
+
+    namespace: dict[str, object] = {}
+    exec(compile(fixed, str(target), "exec", dont_inherit=True), namespace)
+    merge = namespace["Merge"]
+    with pytest.raises(ValidationError, match="Field required"):
+        merge.model_validate({})
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        merge.model_validate({"items": []})
+    with pytest.raises(ValidationError, match="valid list"):
+        merge.model_validate({"items": None})
+    assert merge.model_validate({"items": ["one"]}).items == ["one"]
+
+
+def test_generated_adagents_requires_authorization_or_non_empty_catalog():
+    import pytest
+    from pydantic import TypeAdapter, ValidationError
+
+    from adcp.types.domains.adagents import AdcpAgentsAuthorization
+
+    adapter = TypeAdapter(AdcpAgentsAuthorization)
+    with pytest.raises(ValidationError):
+        adapter.validate_python({"authorized_agents": []})
+
+    model = adapter.validate_python(
+        {"authorized_agents": [], "formats": [{"format_kind": "image"}]}
+    )
+    assert model.authorized_agents == []
+
+
+def test_post_generate_restores_product_fields_item_reference(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "media_buy" / "get_products_request.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("fields: list[product_fields.Items] | None = None\n")
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_product_fields_item_reference()
+    post_generate_fixes.fix_product_fields_item_reference()
+
+    fixed = target.read_text()
+    assert "product_fields.ProductResponseField" in fixed
+    assert "product_fields.Items" not in fixed
+
+
+def test_post_generate_restores_combined_get_products_field_enum(tmp_path, monkeypatch):
+    """The public projection enum remains the union after beta.9's schema split."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    media_buy_dir = generated_dir / "media_buy"
+    media_buy_dir.mkdir(parents=True)
+    target = media_buy_dir / "get_products_request.py"
+    target.write_text(
+        "class Fields(StrEnum):\n"
+        "    format_ids = 'format_ids'\n\n\n"
+        "class GetProductsRequest(AdcpVersionEnvelope):\n"
+        "    pass\n"
+    )
+    (media_buy_dir / "product_fields.py").write_text(
+        "class ProductResponseField(StrEnum):\n    product_id = 'product_id'\n    name = 'name'\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.restore_get_products_field_compatibility_enum()
+    post_generate_fixes.restore_get_products_field_compatibility_enum()
+
+    fixed = target.read_text()
+    assert fixed.count("class Field1(StrEnum):") == 1
+    assert "    product_id = 'product_id'" in fixed
+    assert "    name = 'name'" in fixed
+    assert "    format_ids = 'format_ids'" in fixed
+
+
+@pytest.mark.parametrize("catalog_field", ["properties", "placements", "collections", "signals"])
+def test_generated_adagents_rejects_null_required_catalog_arm(catalog_field):
+    from pydantic import TypeAdapter, ValidationError
+
+    from adcp.types.domains.adagents import AdcpAgentsAuthorization
+
+    with pytest.raises(ValidationError):
+        TypeAdapter(AdcpAgentsAuthorization).validate_python(
+            {"authorized_agents": [], catalog_field: None}
+        )
+
+
+def test_post_generate_injects_postal_pairing_validator_idempotently(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "postal_area.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from typing import Any\n"
+        "from pydantic import RootModel\n\n"
+        "class PostalArea(RootModel[dict[str, Any]]):\n"
+        "    root: dict[str, Any]\n\n"
+        "    def __getattr__(self, name: str) -> Any:\n"
+        "        return getattr(self.root, name)\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_postal_country_system_pairing()
+    post_generate_fixes.fix_postal_country_system_pairing()
+
+    fixed = target.read_text()
+    assert fixed.count("def _validate_country_system_pairing(") == 1
+    assert "from pydantic import RootModel, model_validator" in fixed
+    assert "'US': ('zip', 'zip_plus_four')" in fixed
+
+
+def test_post_generate_prefers_legacy_postal_union_arm_idempotently(tmp_path, monkeypatch):
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "core" / "postal_area.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "from typing import Annotated\n"
+        "from pydantic import RootModel\n\n"
+        "class PostalArea(RootModel[PostalArea1 | PostalArea2]):\n"
+        "    root: Annotated[PostalArea1 | PostalArea2, object()]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.fix_postal_union_arm_order()
+    post_generate_fixes.fix_postal_union_arm_order()
+
+    fixed = target.read_text()
+    assert "PostalArea1 | PostalArea2" not in fixed
+    assert fixed.count("PostalArea2 | PostalArea1") == 2
+
+
+def test_unwrap_rootmodel_unions_keeps_field_metadata_and_discriminator(tmp_path, monkeypatch):
+    """A union root becomes an annotated alias; the Field survives verbatim."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    generated_dir.mkdir()
+    target = generated_dir / "deployment.py"
+    target.write_text(
+        "from typing import Annotated, Literal\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n\n"
+        "class Deployment1(AdCPBaseModel):\n"
+        "    type: Literal['platform'] = 'platform'\n\n\n"
+        "class Deployment2(AdCPBaseModel):\n"
+        "    type: Literal['agent'] = 'agent'\n\n\n"
+        "class Deployment(RootModel[Deployment1 | Deployment2]):\n"
+        "    root: Annotated[\n"
+        "        Deployment1 | Deployment2,\n"
+        "        Field(\n"
+        "            description='A signal deployment',\n"
+        "            discriminator='type',\n"
+        "            title='Deployment',\n"
+        "        ),\n"
+        "    ]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    assert target.read_text().endswith(
+        "Deployment = Annotated[\n"
+        "    Deployment1 | Deployment2,\n"
+        "    Field(\n"
+        "        description='A signal deployment',\n"
+        "        discriminator='type',\n"
+        "        title='Deployment',\n"
+        "    ),\n"
+        "]\n"
+    )
+
+
+def test_unwrap_rootmodel_unions_keeps_value_roots_wrapped(tmp_path, monkeypatch):
+    """A value root carries its constraints on the wrapper, so it stays one."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    generated_dir.mkdir()
+    target = generated_dir / "values.py"
+    source = (
+        "from typing import Annotated, Literal\n\n"
+        "from pydantic import Field, RootModel\n\n\n"
+        "class PropertyId(RootModel[str]):\n"
+        "    root: Annotated[str, Field(min_length=1)]\n\n\n"
+        "class ProfileIds(RootModel[list[str]]):\n"
+        "    root: Annotated[list[str], Field(min_length=1)]\n\n\n"
+        "class CapScope(RootModel[Literal['package']]):\n"
+        "    root: Literal['package']\n"
+    )
+    target.write_text(source)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    assert target.read_text() == source
+
+
+def test_unwrap_rootmodel_unions_keeps_arms_of_a_discriminated_union(tmp_path, monkeypatch):
+    """A wrapper the parent's discriminator maps a tag to keeps its wrapper.
+
+    Both ``VastAsset`` shapes carry ``asset_type='vast'``, so inlining the union
+    would give the parent's ``asset_type`` two choices for one tag.
+    """
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    generated_dir.mkdir()
+    target = generated_dir / "asset_union.py"
+    target.write_text(
+        "from typing import Annotated, Literal\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n\n"
+        "class VastAsset1(AdCPBaseModel):\n"
+        "    asset_type: Literal['vast'] = 'vast'\n"
+        "    delivery_type: Literal['url'] = 'url'\n\n\n"
+        "class VastAsset2(AdCPBaseModel):\n"
+        "    asset_type: Literal['vast'] = 'vast'\n"
+        "    delivery_type: Literal['inline'] = 'inline'\n\n\n"
+        "class ImageAsset(AdCPBaseModel):\n"
+        "    asset_type: Literal['image'] = 'image'\n\n\n"
+        "class VastAsset(RootModel[VastAsset1 | VastAsset2]):\n"
+        "    root: Annotated[VastAsset1 | VastAsset2, Field(discriminator='delivery_type')]\n\n\n"
+        "class AssetVariant(RootModel[ImageAsset | VastAsset]):\n"
+        "    root: Annotated[ImageAsset | VastAsset, Field(discriminator='asset_type')]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    rewritten = target.read_text()
+    assert "class VastAsset(RootModel[VastAsset1 | VastAsset2]):" in rewritten
+    assert "AssetVariant = Annotated[" in rewritten
+
+
+def test_unwrap_rootmodel_unions_keeps_an_arm_of_another_modules_field_union(tmp_path, monkeypatch):
+    """A composing root another module's smart union names as an arm keeps its wrapper.
+
+    ``creative_localization.assets`` is ``LocalizedCreativeAsset | Assets``; inlining
+    the root would let Pydantic's smart mode score its arms against ``Assets``
+    directly and pick a different one for the same payload. A discriminated root
+    is exempt (a nested tagged union is selected by its tag), and so is a root a
+    union *root* composes — that flattening predates this pass.
+    """
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    (generated_dir / "core").mkdir(parents=True)
+    (generated_dir / "core" / "localized_creative_asset.py").write_text(
+        "from typing import Annotated\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n\n"
+        "class LocalizedCreativeAsset1(AdCPBaseModel):\n    url: str\n\n\n"
+        "class LocalizedCreativeAsset2(AdCPBaseModel):\n    text: str\n\n\n"
+        "class LocalizedCreativeAsset(RootModel[LocalizedCreativeAsset1 | LocalizedCreativeAsset2]):\n"
+        "    root: Annotated[LocalizedCreativeAsset1 | LocalizedCreativeAsset2, Field(title='x')]\n"
+    )
+    (generated_dir / "core" / "tagged.py").write_text(
+        "from typing import Annotated, Literal\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n\n"
+        "class Tagged1(AdCPBaseModel):\n    kind: Literal['a'] = 'a'\n\n\n"
+        "class Tagged2(AdCPBaseModel):\n    kind: Literal['b'] = 'b'\n\n\n"
+        "class Tagged(RootModel[Tagged1 | Tagged2]):\n"
+        "    root: Annotated[Tagged1 | Tagged2, Field(discriminator='kind')]\n"
+    )
+    (generated_dir / "core" / "creative_localization.py").write_text(
+        "from adcp.types.base import AdCPBaseModel\n\n"
+        "from . import localized_creative_asset, tagged\n\n\n"
+        "class Assets(AdCPBaseModel):\n    pass\n\n\n"
+        "class CreativeLocalization(AdCPBaseModel):\n"
+        "    assets: localized_creative_asset.LocalizedCreativeAsset | Assets | None = None\n"
+        "    choice: tagged.Tagged | Assets | None = None\n"
+    )
+    (generated_dir / "core" / "composed_root.py").write_text(
+        "from typing import Annotated\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n"
+        "from . import localized_creative_asset\n\n\n"
+        "class Other(AdCPBaseModel):\n    pass\n\n\n"
+        "class ComposedRoot(RootModel[Other | localized_creative_asset.LocalizedCreativeAsset]):\n"
+        "    root: Annotated[Other | localized_creative_asset.LocalizedCreativeAsset, Field(title='r')]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    kept = (generated_dir / "core" / "localized_creative_asset.py").read_text()
+    assert "class LocalizedCreativeAsset(RootModel[" in kept
+    assert "Tagged = Annotated[" in (generated_dir / "core" / "tagged.py").read_text()
+    # The union root that composes the kept root is itself unwrapped as before.
+    assert "ComposedRoot = Annotated[" in (generated_dir / "core" / "composed_root.py").read_text()
+
+
+def test_unwrap_rootmodel_unions_subclasses_a_single_model_root(tmp_path, monkeypatch):
+    """A root naming one model becomes a subclass carrying its description."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    generated_dir.mkdir()
+    target = generated_dir / "check_governance_request.py"
+    target.write_text(
+        "from typing import Annotated\n\n"
+        "from adcp.types.base import AdCPBaseModel\nfrom pydantic import Field, RootModel\n\n\n"
+        "class CheckGovernanceRequest3(AdCPBaseModel):\n"
+        "    plan_id: str\n\n\n"
+        "class CheckGovernanceRequest(RootModel[CheckGovernanceRequest3]):\n"
+        "    root: Annotated[\n"
+        "        CheckGovernanceRequest3,\n"
+        "        Field(description='Universal governance check.'),\n"
+        "    ]\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    assert target.read_text().endswith(
+        "class CheckGovernanceRequest(CheckGovernanceRequest3):\n"
+        "    'Universal governance check.'\n"
+    )
+
+
+def test_unwrap_rootmodel_unions_keeps_a_root_with_a_validator(tmp_path, monkeypatch):
+    """The wrapper is the only place a cross-arm validator can live."""
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    generated_dir.mkdir()
+    target = generated_dir / "postal_area.py"
+    source = (
+        "from typing import Annotated\n\n"
+        "from pydantic import Field, RootModel, model_validator\n\n\n"
+        "class PostalArea(RootModel[PostalArea1 | PostalArea2]):\n"
+        "    root: Annotated[PostalArea1 | PostalArea2, Field(title='Postal Area')]\n\n"
+        "    @model_validator(mode='after')\n"
+        "    def _check(self) -> 'PostalArea':\n"
+        "        return self\n"
+    )
+    target.write_text(source)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.unwrap_rootmodel_unions()
+
+    assert target.read_text() == source
+
+
+def test_discriminated_union_roots_report_one_tag_error():
+    """A union the schema discriminates reports the tag, not every arm.
+
+    ``core/deployment.json`` and ``media-buy/list-products-response.json`` both
+    declare ``discriminator``. An unwrap that drops it turns one
+    ``union_tag_invalid`` into one error per arm per mismatched field.
+    """
+    import pytest
+    from pydantic import TypeAdapter, ValidationError
+
+    from adcp.types import ListProductsResponse
+    from adcp.types.domains.core.deployment import Deployment
+
+    for union_type, payload in (
+        (Deployment, {"type": "nope", "is_live": True}),
+        (ListProductsResponse, {"outcome": "nope", "feed_version": "v1"}),
+    ):
+        with pytest.raises(ValidationError) as caught:
+            TypeAdapter(union_type).validate_python(payload)
+        errors = caught.value.errors()
+        assert [error["type"] for error in errors] == ["union_tag_invalid"], errors
+
+
+def test_account_reference_arms_are_reachable_through_the_alias():
+    """The union alias exposes its arms wherever a field references it."""
+    import types as builtin_types
+
+    from adcp.types import AccountReference, AccountReferenceById
+
+    assert isinstance(AccountReference, builtin_types.UnionType)
+    assert AccountReferenceById in AccountReference.__args__
+
+
+def test_product_change_map_uses_valid_constrained_string_key_type():
+    """Constrained mapping keys must be valid for Pydantic and static type checkers."""
+    from adcp.types.domains.core.product_change_map import ProductChangeMap
+
+    schema = ProductChangeMap.model_json_schema()
+
+    assert schema["propertyNames"]["minLength"] == 1
+
+
+def test_protocol_envelope_import_restored_for_response_arms():
+    """Response arms that inherit ProtocolEnvelope must keep the import."""
+    from scripts.post_generate_fixes import _sync_protocol_envelope_import
+
+    source = (
+        "from __future__ import annotations\n\n"
+        "from ..core.version_envelope import AdcpVersionEnvelope\n\n"
+        "class CreateMediaBuyResponse3(AdcpVersionEnvelope, ProtocolEnvelope):\n"
+        "    pass\n"
+    )
+
+    fixed = _sync_protocol_envelope_import(source)
+
+    protocol_import = "from ..core.protocol_envelope import ProtocolEnvelope\n"
+    version_import = "from ..core.version_envelope import AdcpVersionEnvelope\n"
+    assert protocol_import in fixed
+    assert fixed.index(protocol_import) < fixed.index(version_import)
+
+
+def test_aliases_do_not_use_eager_generated_fallbacks():
+    """Avoid getattr defaults that eagerly evaluate stale generated names."""
+    import re
+    from pathlib import Path
+
+    source = Path("src/adcp/types/aliases.py").read_text()
+    unsafe_getattrs = re.findall(
+        r'getattr\(_g,\s*"[^"]+",\s*_g\.[A-Za-z_][A-Za-z0-9_]*\s*\)',
+        source,
+        flags=re.DOTALL,
+    )
+
+    assert unsafe_getattrs == []
+
+
+def test_consolidated_exports_include_annotated_type_aliases(tmp_path):
+    """Annotated TypeAlias response unions are part of the public generated API."""
+    from scripts.consolidate_exports import extract_exports_from_module
+
+    module_path = tmp_path / "example_response.py"
+    module_path.write_text(
+        "from typing import TypeAlias\n\n"
+        "class ExampleResponse1:\n"
+        "    pass\n\n"
+        "ExampleResponse: TypeAlias = ExampleResponse1\n"
+    )
+
+    assert extract_exports_from_module(module_path) == {"ExampleResponse", "ExampleResponse1"}
+
+
+def test_consolidation_filters_aggregate_schema_helpers():
+    """Aggregate/reference modules do not shadow canonical public models."""
+    from scripts.consolidate_exports import DOMAINS_DIR, exports_for_public_consolidation
+
+    asset_union = DOMAINS_DIR / "core/assets/asset_union.py"
+    async_ref = (
+        DOMAINS_DIR
+        / "core/async_response_refs/media_buy/accept_proposal_async_response_submitted.py"
+    )
+
+    assert exports_for_public_consolidation(asset_union) == {"AssetVariant"}
+    assert exports_for_public_consolidation(async_ref) == set()
+
+
+def test_consolidated_export_timestamp_is_stable_when_content_is_unchanged():
+    from scripts.consolidate_exports import preserve_generation_date_if_unchanged
+
+    previous = "header\nGeneration date: 2026-08-24 04:36:02 UTC\nbody\n"
+    generated = "header\nGeneration date: 2026-08-28 20:03:34 UTC\nbody\n"
+
+    assert preserve_generation_date_if_unchanged(previous, generated) == previous
+    assert (
+        preserve_generation_date_if_unchanged(previous, generated + "changed\n")
+        == generated + "changed\n"
+    )
+
+
+def test_semantic_response_aliases_resolve_to_concrete_generated_arms():
+    """Semantic aliases must not fall back to the whole response union."""
+    from importlib import import_module
+
+    import adcp.types as adcp_types
+
+    expected_aliases = [
+        (
+            "ActivateSignalSuccessResponse",
+            "adcp.types.domains.signals.activate_signal_response",
+            "ActivateSignalResponse1",
+        ),
+        (
+            "AcquireRightsAcquiredResponse",
+            "adcp.types.domains.brand.acquire_rights_response",
+            "AcquireRightsResponse1",
+        ),
+        (
+            "GetBrandIdentitySuccessResponse",
+            "adcp.types.domains.brand.get_brand_identity_response",
+            "GetBrandIdentityResponse1",
+        ),
+        (
+            "GetContentStandardsSuccessResponse",
+            "adcp.types.domains.content_standards.get_content_standards_response",
+            "GetContentStandardsResponse1",
+        ),
+        (
+            "GetCreativeFeaturesSuccessResponse",
+            "adcp.types.domains.creative.get_creative_features_response",
+            "GetCreativeFeaturesResponse1",
+        ),
+        (
+            "GetMediaBuyArtifactsSuccessResponse",
+            "adcp.types.domains.content_standards.get_media_buy_artifacts_response",
+            "GetMediaBuyArtifactsResponse1",
+        ),
+        (
+            "CreateMediaBuySubmittedResponse",
+            "adcp.types.canonical_creative",
+            "CreateMediaBuyResponse3",
+        ),
+    ]
+
+    for alias_name, module_name, class_name in expected_aliases:
+        alias = getattr(adcp_types, alias_name)
+        expected = getattr(import_module(module_name), class_name)
+
+        assert isinstance(alias, type), f"{alias_name} resolved to non-class {alias!r}"
+        assert alias is expected, f"{alias_name} no longer points at {module_name}.{class_name}"
+
+
+def test_sync_creatives_response_arm_matches_schema_creative_fields():
+    """sync_creatives response arm must expose every schema Creative field."""
+    import json
+    from pathlib import Path
+
+    import pytest
+    from pydantic import ValidationError
+
+    from adcp._version import _read_packaged_version
+    from adcp.types.domains.creative.sync_creatives_response import Creative
+    from adcp.validation.version import resolve_bundle_key
+
+    bundle_key = resolve_bundle_key(_read_packaged_version())
+    schema_path = (
+        Path("schemas") / "cache" / bundle_key / "creative" / "sync-creatives-response.json"
+    )
+    schema = json.loads(schema_path.read_text())
+    creative_schema = schema["oneOf"][0]["properties"]["creatives"]["items"]
+
+    assert set(Creative.model_fields) >= set(creative_schema["properties"])
+
+    for payload in [
+        {"creative_id": "c1", "action": "updated", "status": "banana"},
+        {"creative_id": "c1", "action": "banana"},
+        {"creative_id": "c1", "action": "updated", "preview_url": "not a url"},
+        {"creative_id": "c1", "action": "updated", "expires_at": "not a datetime"},
+        {
+            "creative_id": "c1",
+            "action": "updated",
+            "assignment_errors": {"bad.key": "not a package id"},
+        },
+    ]:
+        with pytest.raises(ValidationError):
+            Creative.model_validate(payload)
+
+
+def test_sync_creatives_response_arm_accepts_submitted_response():
+    """sync_creatives schema includes a submitted async response branch."""
+    from pydantic import TypeAdapter
+
+    from adcp.types.domains.creative.sync_creatives_response import (
+        SyncCreativesResponse,
+        SyncCreativesResponse3,
+    )
+
+    response = TypeAdapter(SyncCreativesResponse).validate_python(
+        {
+            "status": "submitted",
+            "task_id": "task_123",
+            "message": "Batch ingestion queued",
+        }
+    )
+
+    assert isinstance(response, SyncCreativesResponse3)
+    assert response.status == "submitted"
+    assert response.task_id == "task_123"
+
+
+def test_schema_derived_response_arms_preserve_nested_validation():
+    """Schema-derived response arms should not widen structured fields to Any."""
+    from datetime import date
+
+    import pytest
+    from pydantic import ValidationError
+
+    from adcp.types.domains.account.get_account_financials_response import Invoice
+    from adcp.types.domains.brand.get_brand_identity_response import (
+        File,
+        Fonts,
+        GetBrandIdentityResponse1,
+    )
+    from adcp.types.domains.content_standards.validate_content_delivery_response import (
+        ValidateContentDeliveryResponse1,
+    )
+    from adcp.types.domains.creative.preview_creative_response import Input
+
+    with pytest.raises(ValidationError):
+        GetBrandIdentityResponse1.model_validate(
+            {"brand_id": "b1", "house": {}, "names": [{"en": "Brand"}]}
+        )
+
+    with pytest.raises(ValidationError):
+        GetBrandIdentityResponse1.model_validate(
+            {
+                "brand_id": "b1",
+                "house": {"domain": "example.com", "name": "Example"},
+                "names": [{"en": "Brand"}],
+                "tagline": 123,
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        Fonts.model_validate({"primary": 123})
+
+    with pytest.raises(ValidationError):
+        File.model_validate({"url": "not-a-url"})
+
+    with pytest.raises(ValidationError):
+        Input.model_validate({})
+
+    with pytest.raises(ValidationError):
+        ValidateContentDeliveryResponse1.model_validate(
+            {
+                "summary": {
+                    "total_records": "x",
+                    "passed_records": 0,
+                    "failed_records": 0,
+                },
+                "results": [],
+            }
+        )
+
+    invoice = Invoice.model_validate(
+        {"invoice_id": "inv_1", "amount": 1, "status": "draft", "due_date": date(2026, 1, 1)}
+    )
+    assert invoice.due_date == date(2026, 1, 1)
+
+    with pytest.raises(ValidationError):
+        Invoice.model_validate(
+            {"invoice_id": "inv_1", "amount": 1, "status": "draft", "due_date": "not-a-date"}
+        )
+
+
+# ``test_post_generate_preserves_open_delivery_format_kind`` stood here. It
+# graded ``preserve_open_delivery_format_kind``, a post-generation fix that
+# hand-patched ONE generated field to ``CanonicalFormatKind | str | None`` so a
+# delivery response could retain an unknown kind. The fix is deleted: every
+# reference to ``core/canonical-format-kind.json`` now generates ``str``
+# (``OPEN_VOCABULARY_SCHEMAS`` in ``scripts/generate_types.py``), so there is
+# nothing to patch and no per-site widening to keep in step.
+#
+# Its obligation — a delivery response retains a kind this SDK does not know —
+# is graded by
+# ``tests/test_open_format_kind_vocabulary.py``'s
+# ``test_every_kind_bearing_model_types_the_kind_as_a_string``
+# and
+# ``tests/test_forward_compat_format_kind.py``'s
+# ``test_unknown_format_kind_is_retained_on_a_response``,
+# both of which read the public model rather than a string in a generated file.
+
+
+def test_post_generate_sync_creatives_response_arms_match_schema_creative_fields(
+    tmp_path, monkeypatch
+):
+    """The post-generation response arms must stay aligned with the schema."""
+    import ast
+    import json
+    from pathlib import Path
+
+    from adcp._version import _read_packaged_version
+    from adcp.validation.version import resolve_bundle_key
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "creative" / "sync_creatives_response.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "# generated by datamodel-codegen:\n"
+        "#   filename:  creative/sync_creatives_response.json\n\n"
+        "from __future__ import annotations\n\n"
+        "from ..core.version_envelope import AdcpVersionEnvelope\n\n\n"
+        "class SyncCreativesResponse(AdcpVersionEnvelope):\n"
+        "    pass\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.restore_response_variant_aliases()
+
+    generated_source = target.read_text()
+    post_generate_fixes.restore_response_variant_aliases()
+    assert target.read_text() == generated_source
+
+    compile(generated_source, str(target), "exec")
+    module = ast.parse(generated_source)
+    creative_class = next(
+        node for node in module.body if isinstance(node, ast.ClassDef) and node.name == "Creative"
+    )
+    generated_fields = {
+        node.target.id
+        for node in creative_class.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+    }
+
+    bundle_key = resolve_bundle_key(_read_packaged_version())
+    schema_path = (
+        Path("schemas") / "cache" / bundle_key / "creative" / "sync-creatives-response.json"
+    )
+    schema = json.loads(schema_path.read_text())
+    creative_schema = schema["oneOf"][0]["properties"]["creatives"]["items"]
+
+    assert generated_fields >= set(creative_schema["properties"])
+
+    response_classes = {
+        node.name
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name.startswith("SyncCreativesResponse")
+    }
+    assert {"SyncCreativesResponse1", "SyncCreativesResponse2", "SyncCreativesResponse3"} <= (
+        response_classes
+    )
+
+
+def test_generated_types_can_import():
+    """Test that generated types module can be imported."""
+    from adcp.types import _generated as generated
+
+    # Should have a reasonable number of exported symbols
+    symbols = dir(generated)
+    assert len(symbols) > 100, f"Expected >100 symbols, got {len(symbols)}"
+
+    # Check for key types that should always exist
+    assert hasattr(generated, "Product")
+    assert hasattr(generated, "Format")
+    assert hasattr(generated, "MediaBuy")
+    assert hasattr(generated, "Property")
+
+
+def _unpatched_targeting_model(name: str):
+    """A model declaring the generated, PRE-widening ``targeting_overlay``.
+
+    ``_forward_compat`` widens ``targeting_overlay`` at runtime to admit beta.14
+    ``TargetingOverlay`` objects. The generated source declares only
+    ``TargetingOverlayInput | None``, so a model that carries that annotation
+    and nothing else is exactly the regression the public-surface guard exists
+    to catch.
+    """
+    from pydantic import Field, create_model
+
+    from adcp.types.canonical_creative import CanonicalBoundaryModel
+    from adcp.types.domains.core.targeting_input import TargetingOverlayInput
+
+    return create_model(
+        name,
+        __base__=CanonicalBoundaryModel,
+        targeting_overlay=(TargetingOverlayInput | None, Field(default=None)),
+    )
+
+
+def _public_targeting_mutation_fields():
+    """Discover exported and field-reachable models without a patch-target list.
+
+    Roots are the top-level/lazy/eager facades and every public type module
+    declaring __all__. Follow aliases, collection items, and model fields, not
+    inheritance: an unexported private base is not a supported composition
+    boundary. Internal generated modules are not public roots, but generated
+    classes reached from public fields ARE checked. No public model is exempt.
+    """
+    import ast
+    from importlib import import_module
+    from types import ModuleType
+    from typing import Annotated, get_args, get_origin
+
+    from pydantic import BaseModel
+
+    from adcp.types import TargetingOverlayInput
+
+    def annotation_models(annotation):
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            yield annotation
+        elif get_origin(annotation) is Annotated:
+            yield from annotation_models(get_args(annotation)[0])
+        else:
+            for arg in get_args(annotation):
+                yield from annotation_models(arg)
+
+    modules = {"adcp", "adcp.types", "adcp.types._eager"}
+    type_root = Path(__file__).parent.parent / "src/adcp/types"
+    for source in type_root.glob("*.py"):
+        if source.stem.startswith("_"):
+            continue
+        # Do not import optional implementation modules such as mypy_plugin;
+        # a declared public export list makes a module a discovery root.
+        tree = ast.parse(source.read_text())
+        if any(isinstance(node, ast.Name) and node.id == "__all__" for node in ast.walk(tree)):
+            modules.add(f"adcp.types.{source.stem}")
+    pending = [(name, import_module(name)) for name in sorted(modules)]
+    seen_modules = set()
+    seen_models = set()
+    found = {}
+    while pending:
+        path, value = pending.pop()
+        if isinstance(value, ModuleType):
+            if value.__name__ in seen_modules:
+                continue
+            seen_modules.add(value.__name__)
+            # The deprecated `generated` module alias exposes internals, not
+            # a supported facade. _eager is an explicit root for the facades.
+            if value.__name__ not in modules:
+                continue
+            exported = set(value.__all__)
+            # Backward-compatible lazy names can be importable without being
+            # in __all__. Resolve those too, rather than only cached globals.
+            if value.__name__ == "adcp":
+                exported.update(value._LAZY)
+            elif value.__name__ == "adcp.types":
+                exported.update(value._RESOLVABLE)
+            pending.extend(
+                (f"{path}.{name}", getattr(value, name))
+                for name in sorted(exported)
+                if not name.startswith("_")
+            )
+            continue
+        for model in annotation_models(value):
+            if model in seen_models:
+                continue
+            seen_models.add(model)
+            for name, field in model.model_fields.items():
+                pending.append((f"{path}.{name}", field.annotation))
+                if name == "targeting_overlay" and TargetingOverlayInput in annotation_models(
+                    field.annotation
+                ):
+                    found[model] = (path, field)
+    return found
+
+
+def test_targeting_overlay_input_is_generated_and_public():
+    """Keep the rc.3 mutation variant public after regeneration (#1181).
+
+    This is deliberately a named contract, not an *Input suffix rule:
+    contextual helpers such as ProductPurchaseInput and PreviewInput do not
+    imply interchangeable public resolved-state types.
+
+    The independent scan validates rebuilt field annotations, not cached live
+    model validators. The six-container/five-request-path regressions in
+    test_targeting_overlay_compat.py separately prove live validation, including
+    cached parent rebuilds. Both contracts are required.
+    """
+    from importlib import import_module
+
+    from pydantic import BaseModel, RootModel, TypeAdapter, ValidationError
+
+    from adcp.types import TargetingOverlay, _generated
+    from adcp.types.domains.core.targeting_input import TargetingOverlayInput
+    from scripts.consolidate_exports import exports_for_public_consolidation
+
+    source = Path(__file__).parent.parent / "src/adcp/types/domains/core/targeting_input.py"
+    assert "TargetingOverlayInput" in exports_for_public_consolidation(source)
+    assert _generated.TargetingOverlayInput is TargetingOverlayInput
+    assert issubclass(TargetingOverlayInput, BaseModel)
+    assert not issubclass(TargetingOverlayInput, RootModel)
+    for name in (
+        "adcp",
+        "adcp.types",
+        "adcp.types.media_buy",
+        "adcp.types.buyer",
+        "adcp.types._eager",
+    ):
+        module = import_module(name)
+        assert "TargetingOverlayInput" in module.__all__, name
+        assert getattr(module, "TargetingOverlayInput") is TargetingOverlayInput, name
+
+    # Discover composition boundaries independently of _forward_compat's
+    # explicit patch targets. A new exported canonical copy cannot silently
+    # keep the pre-patch annotation, even when only reached through an alias.
+    mutation_fields = _public_targeting_mutation_fields()
+    assert mutation_fields, "No public targeting mutation fields discovered"
+    legacy = TargetingOverlay()
+    for model, (path, field) in mutation_fields.items():
+        context = f"{model.__name__}.targeting_overlay (reachable from {path})"
+        adapter = TypeAdapter(field.rebuild_annotation())
+        try:
+            result = adapter.validate_python(legacy)
+        except ValidationError as exc:
+            raise AssertionError(f"{context} rejects beta.14 objects; missing bridge") from exc
+        assert result is legacy, context
+        assert type(adapter.validate_python({})) is TargetingOverlayInput, context
+
+
+@pytest.mark.parametrize(
+    "surface",
+    [
+        "adcp",
+        "adcp.types",
+        "adcp.types._eager",
+        "adcp.types.media_buy",
+        "adcp.types.buyer",
+        "adcp.types.creative",
+        "adcp.types.signals",
+        "adcp.types.protocol",
+        "adcp.types.seller",
+        "adcp.types.canonical_creative",
+        "adcp.types.aliases",
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["direct", "nested-alias"])
+def test_targeting_public_surface_guard_rejects_new_public_clone(monkeypatch, surface, nested):
+    """A seventh public clone must fail the guard even if it is only reachable."""
+    from importlib import import_module
+    from typing import Annotated
+
+    from pydantic import Field, create_model
+
+    # The regression is a public model that declares the generated, pre-patch
+    # annotation. It used to be reproduced by cloning the private canonical
+    # base, which held the pre-patch FieldInfo because ``_forward_compat``
+    # widened only the public clone; now that the canonical models are real
+    # subclasses there is no unpatched copy to clone, so the test declares the
+    # pre-patch annotation itself. Same subject, no dependence on a layer the
+    # SDK no longer has.
+    clone = _unpatched_targeting_model("UnpatchedTargetingPackage")
+    value = clone
+    if nested:
+        request = create_model("FutureRequest", packages=(list[clone], ...))
+        value = Annotated[request | None, Field(description="Future public alias")]
+    module = import_module(surface)
+    monkeypatch.setattr(module, "FutureTargetingRequest", value, raising=False)
+    monkeypatch.setattr(module, "__all__", [*module.__all__, "FutureTargetingRequest"])
+
+    with pytest.raises(AssertionError, match="UnpatchedTargetingPackage.targeting_overlay"):
+        test_targeting_overlay_input_is_generated_and_public()
+
+
+@pytest.mark.parametrize("surface", ["adcp", "adcp.types"])
+def test_targeting_public_surface_guard_resolves_uncached_lazy_exports(monkeypatch, surface):
+    """New resolver entries must be checked even without a cached attribute."""
+    import sys
+    from importlib import import_module
+    from types import ModuleType
+
+    from adcp.types import _eager
+
+    clone = _unpatched_targeting_model("UnpatchedTargetingPackage")
+    module = import_module(surface)
+    name = "FutureLazyTargetingRequest"
+    assert name not in vars(module)
+    if surface == "adcp":
+        provider = ModuleType("adcp._future_targeting_test")
+        setattr(provider, name, clone)
+        monkeypatch.setitem(sys.modules, provider.__name__, provider)
+        monkeypatch.setattr(module, "_LAZY", {**module._LAZY, name: provider.__name__})
+    else:
+        monkeypatch.setattr(_eager, name, clone, raising=False)
+        monkeypatch.setattr(module, "_RESOLVABLE", module._RESOLVABLE | {name})
+    try:
+        with pytest.raises(AssertionError, match="UnpatchedTargetingPackage.targeting_overlay"):
+            test_targeting_overlay_input_is_generated_and_public()
+    finally:
+        # __getattr__ caches a successful resolution outside monkeypatch.
+        vars(module).pop(name, None)
+
+
+def test_targeting_public_surface_guard_accepts_a_compatible_new_subclass(monkeypatch):
+    """Discover a seventh model by export, while leaving private models alone."""
+    from adcp.types import canonical_creative
+
+    # A real subclass of the patched public model inherits the widened
+    # FieldInfo, so it is compatible — this is now literally how every
+    # canonical model is built.
+    subclass = type("FuturePackage", (canonical_creative.PackageRequest,), {})
+    monkeypatch.setattr(canonical_creative, "FuturePackage", subclass, raising=False)
+    # An unexported private model is not a composition boundary, even when it
+    # declares the pre-patch annotation. (The former subject of this assertion
+    # was ``_PackageRequestBase``, a private clone that no longer exists; the
+    # property under test is export-reachability, not that one class.)
+    private = _unpatched_targeting_model("_PrivateUnreachablePackage")
+    monkeypatch.setattr(canonical_creative, "_PrivateUnreachablePackage", private, raising=False)
+    monkeypatch.setattr(
+        canonical_creative, "__all__", [*canonical_creative.__all__, "FuturePackage"]
+    )
+    discovered = _public_targeting_mutation_fields()
+    assert subclass in discovered
+    assert private not in discovered
+    test_targeting_overlay_input_is_generated_and_public()
+
+
+def test_targeting_input_generated_request_sites_match_pinned_schemas():
+    """Pin schema sites and pre-patch annotations, independent of runtime widening."""
+    import ast
+    import json
+
+    root = Path(__file__).parent.parent
+    from adcp.validation.version import resolve_bundle_key
+
+    pinned = (root / "src/adcp/ADCP_VERSION").read_text().strip()
+    schema_root = root / "schemas/cache" / resolve_bundle_key(pinned)
+    expected = {
+        "package-request": "PackageRequest",
+        "package-update": "PackageUpdate",
+        "package-control": "PackageControl",
+        "product-purchase-input": "ProductPurchaseInput",
+    }
+    expected_generated = dict(expected)
+    forecast_schema = schema_root / "media-buy/package-forecast-input.json"
+    if forecast_schema.exists():
+        # This optional 3.3 input reuses the booking field by JSON pointer;
+        # it introduces a generated composition site without adding another
+        # direct reference to targeting-input.json in the schema scan below.
+        forecast = json.loads(forecast_schema.read_text())
+        assert forecast["properties"]["targeting_overlay"]["$ref"].endswith(
+            "/media-buy/package-request.json#/properties/targeting_overlay"
+        )
+        expected_generated["package-forecast-input"] = "PackageForecastInput"
+
+    def references(node, path=()):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "$ref" and value.endswith("/core/targeting-input.json"):
+                    yield path
+                yield from references(value, (*path, key))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                yield from references(value, (*path, index))
+
+    schema_sites = set()
+    for source in schema_root.rglob("*.json"):
+        relative = source.relative_to(schema_root)
+        # Bundled and MCP schemas inline the same source graph for transport
+        # validation; index.json is a schema catalog. None adds Python request
+        # composition sites.
+        if {"bundled", "mcp"} & set(relative.parts) or relative == Path("index.json"):
+            continue
+        text = source.read_text()
+        if "targeting-input.json" in text:
+            schema_sites.update(
+                (relative.as_posix(), path) for path in references(json.loads(text))
+            )
+    assert schema_sites == {
+        (f"media-buy/{stem}.json", ("properties", "targeting_overlay")) for stem in expected
+    }
+
+    generated_root = root / "src/adcp/types/domains"
+    generated_sites = set()
+    for source in generated_root.rglob("*.py"):
+        text = source.read_text()
+        if "TargetingOverlayInput" not in text:
+            continue
+        for model in ast.walk(ast.parse(text)):
+            if not isinstance(model, ast.ClassDef):
+                continue
+            for field in model.body:
+                if not isinstance(field, ast.AnnAssign):
+                    continue
+                if "TargetingOverlayInput" not in ast.unparse(field.annotation):
+                    continue
+                generated_sites.add(
+                    (source.relative_to(generated_root).as_posix(), model.name, field.target.id)
+                )
+                # Assert the whole schema shape: a nested/list/wider union
+                # must not pass merely because it still contains Input.
+                assert isinstance(field.annotation, ast.Subscript)
+                assert ast.unparse(field.annotation.value) == "Annotated"
+                assert ast.unparse(field.annotation.slice.elts[0]) == (
+                    "targeting_input.TargetingOverlayInput | None"
+                )
+    assert generated_sites == {
+        (f"media_buy/{stem.replace('-', '_')}.py", name, "targeting_overlay")
+        for stem, name in expected_generated.items()
+    }
+
+
+def test_product_type_structure():
+    """Test that Product type has expected structure."""
+    from adcp import Product
+
+    # Product should be a Pydantic model
+    assert hasattr(Product, "model_validate")
+    assert hasattr(Product, "model_dump")
+
+    # Check for key fields
+    model_fields = Product.model_fields
+    assert "product_id" in model_fields
+    assert "name" in model_fields
+    assert "description" in model_fields
+    assert "publisher_properties" in model_fields
+
+
+def test_format_type_structure():
+    """The public Format is a canonical declaration, not a named format."""
+    from adcp import Format
+
+    # Format should be a Pydantic model
+    assert hasattr(Format, "model_validate")
+    assert hasattr(Format, "model_dump")
+
+    # Check for key fields
+    model_fields = Format.model_fields
+    assert "format_kind" in model_fields
+    assert "params" in model_fields
+    assert "format_option_id" in model_fields
+    assert "format_id" not in model_fields
+    assert "agent_url" not in model_fields
+
+
+def test_no_request_response_rootmodels():
+    """Guard: Request/Response types must NOT be RootModel classes.
+
+    Pydantic 2 forbids model_config overrides on RootModel subclasses,
+    which blocks consumers who subclass library types with extra='forbid'
+    or custom fields. All Request/Response union types should be unwrapped
+    to plain Union type aliases in post_generate_fixes.py.
+
+    unwrap_rootmodel_unions() in post_generate_fixes.py derives this: a root
+    that composes is emitted as what it composes. A type reaching this guard has
+    a root the wrapper still carries — a value, a validator, or a tag another
+    union discriminates on — and the schema is what to look at.
+
+    See: https://github.com/adcontextprotocol/adcp-client-python/issues/155
+    """
+    import types as builtin_types
+
+    from pydantic import RootModel
+
+    from adcp.types import _generated as gen
+
+    # Scan all exported Request/Response types
+    rootmodel_violations = []
+    for name in dir(gen):
+        # Collision disambiguators are private implementation names such as
+        # ``_ProductIdFromRequestProposalsResponse``. They are not public
+        # request/response models and may legitimately wrap a scalar.
+        if name.startswith("_") or not (name.endswith("Request") or name.endswith("Response")):
+            continue
+        obj = getattr(gen, name)
+        # Skip Union type aliases (these are the correctly unwrapped ones)
+        if isinstance(obj, builtin_types.UnionType):
+            continue
+        # Skip non-classes
+        if not isinstance(obj, type):
+            continue
+        # Flag RootModel subclasses wrapping unions (the problematic pattern)
+        if issubclass(obj, RootModel):
+            rootmodel_violations.append(name)
+
+    assert rootmodel_violations == [], (
+        f"These Request/Response types are RootModel classes, which blocks "
+        f"consumer subclassing: {rootmodel_violations}"
+    )
+
+
+# ============================================================================
+# Consumer subclassability contract
+# ============================================================================
+# Types that downstream consumers (e.g., sales agents) are known to subclass.
+# These MUST remain concrete BaseModel classes — never Union aliases, never
+# RootModels. If the upstream spec changes one of these into a oneOf union,
+# it must be flattened (via flatten_validation_oneof in generate_types.py)
+# or otherwise kept as a single subclassable class.
+#
+# Adding a type here is a stability promise to consumers.
+# See: https://github.com/adcontextprotocol/adcp-client-python/issues/155
+
+_SUBCLASSABLE_CONTRACT: list[str] = [
+    # Request types
+    "ActivateSignalRequest",
+    "CreateMediaBuyRequest",
+    "GetCreativeDeliveryRequest",
+    "GetMediaBuyDeliveryRequest",
+    "GetSignalsRequest",
+    "ListCreativeFormatsRequest",
+    "ListCreativesRequest",
+    "PackageRequest",
+    "ProvidePerformanceFeedbackRequest",
+    "SiSendMessageRequest",
+    "SyncCreativesRequest",
+    "UpdateMediaBuyRequest",
+    # Response types
+    "GetCreativeDeliveryResponse",
+    "GetMediaBuyDeliveryResponse",
+    "GetSignalsResponse",
+    "ListCreativeFormatsResponse",
+    "ListCreativesResponse",
+    # Core value types
+    "CreativePolicy",
+    "Format",
+    "FrequencyCap",
+    "MediaBuy",
+    "PackageUpdate",
+    "Product",
+    "Signal",
+    "SignalFilters",
+    "Targeting",
+]
+
+
+def test_consumer_subclassability_contract():
+    """Guard: consumer-facing types must be subclassable BaseModel classes.
+
+    Downstream consumers (sales agents, campaign managers, etc.) subclass
+    library types to add internal fields, override nested types, customize
+    serialization, and add validators. If a type in the contract list stops
+    being a concrete, subclassable BaseModel class, those consumers break.
+
+    This test catches three failure modes:
+    1. Type became a Union alias (types.UnionType) — can't subclass
+    2. Type became a RootModel — Pydantic forbids model_config overrides
+    3. Subclassing with extra fields or model_config actually fails
+
+    If this test fails after a schema update:
+    - For validation-only oneOf: add flattening in generate_types.py
+    - For genuine unions: ensure the type consumers need is a named variant
+    - Update _SUBCLASSABLE_CONTRACT if the type was intentionally removed
+    """
+    import types as builtin_types
+
+    from pydantic import BaseModel, ConfigDict, RootModel
+
+    from adcp.types import _generated as gen
+
+    failures = []
+    for type_name in _SUBCLASSABLE_CONTRACT:
+        obj = getattr(gen, type_name, None)
+
+        if obj is None:
+            failures.append(f"{type_name}: not found in _generated")
+            continue
+
+        if isinstance(obj, builtin_types.UnionType):
+            failures.append(
+                f"{type_name}: is a Union type alias, not a class — consumers cannot subclass it"
+            )
+            continue
+
+        if not isinstance(obj, type):
+            failures.append(f"{type_name}: not a class ({type(obj).__name__})")
+            continue
+
+        if issubclass(obj, RootModel):
+            failures.append(
+                f"{type_name}: is a RootModel — Pydantic forbids "
+                f"model_config overrides on RootModel subclasses"
+            )
+            continue
+
+        if not issubclass(obj, BaseModel):
+            failures.append(f"{type_name}: not a BaseModel subclass")
+            continue
+
+        # Verify subclassing actually works
+        try:
+            subclass = type(
+                f"Consumer{type_name}",
+                (obj,),
+                {
+                    "model_config": ConfigDict(extra="forbid"),
+                    "__annotations__": {"_internal_field": str},
+                },
+            )
+            # Verify the subclass is valid
+            assert issubclass(subclass, obj)
+        except Exception as exc:
+            failures.append(f"{type_name}: subclassing failed — {exc}")
+
+    assert failures == [], "Consumer subclassability contract violated:\n" + "\n".join(
+        f"  - {f}" for f in failures
+    )
+
+
+def test_schema_permits_null_reads_both_nullable_spellings():
+    """``required`` and nullability are independent axes in JSON Schema.
+
+    The custom response emitter must recognize both spellings the pinned
+    schemas use for "this value may be null": the ``type`` array form and a
+    ``oneOf``/``anyOf`` branch of ``{"type": "null"}``.
+    """
+    from scripts.post_generate_fixes import _schema_permits_null
+
+    assert _schema_permits_null({"type": ["string", "null"]})
+    assert _schema_permits_null({"type": ["null", "string"], "format": "date-time"})
+    assert _schema_permits_null({"oneOf": [{"type": "string"}, {"type": "null"}]})
+    assert _schema_permits_null({"anyOf": [{"$ref": "x.json"}, {"type": "null"}]})
+
+    assert not _schema_permits_null({"type": "string"})
+    assert not _schema_permits_null({"type": ["string", "integer"]})
+    assert not _schema_permits_null({"oneOf": [{"type": "string"}, {"type": "integer"}]})
+    assert not _schema_permits_null(True)
+    assert not _schema_permits_null(None)
+
+
+def test_union_with_none_does_not_duplicate_existing_none():
+    """Widening is idempotent at the top level and bracket-aware."""
+    from scripts.post_generate_fixes import _union_with_none
+
+    assert _union_with_none("AwareDatetime") == "AwareDatetime | None"
+    assert _union_with_none("str | None") == "str | None"
+    assert _union_with_none("None | str") == "None | str"
+    # ``None`` nested inside a subscript is not a top-level union member.
+    assert _union_with_none("dict[str, str | None]") == "dict[str, str | None] | None"
+    assert (
+        _union_with_none("Annotated[str, StringConstraints(pattern='None')]")
+        == "Annotated[str, StringConstraints(pattern='None')] | None"
+    )
+
+
+def test_post_generate_required_nullable_field_stays_required_and_nullable(tmp_path, monkeypatch):
+    """A ``required`` property typed ``["string", "null"]`` keeps both axes.
+
+    Regression for #1137: the emitter read ``required`` as "not Optional" and
+    dropped the schema's ``null`` branch, so ``CreateMediaBuySuccess`` could
+    not hold the null its own source schema permits. The field must gain
+    ``| None`` **without** gaining a default — it stays required on the wire.
+    """
+    import ast
+    import json
+    from pathlib import Path
+
+    from adcp._version import _read_packaged_version
+    from adcp.validation.version import resolve_bundle_key
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "media_buy" / "create_media_buy_response.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "# generated by datamodel-codegen:\n"
+        "#   filename:  media_buy/create_media_buy_response.json\n\n"
+        "from __future__ import annotations\n\n"
+        "from ..core.version_envelope import AdcpVersionEnvelope\n\n\n"
+        "class CreateMediaBuyResponse(AdcpVersionEnvelope):\n"
+        "    pass\n"
+    )
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+
+    post_generate_fixes.restore_response_variant_aliases()
+
+    generated_source = target.read_text()
+    compile(generated_source, str(target), "exec")
+
+    bundle_key = resolve_bundle_key(_read_packaged_version())
+    schema_path = (
+        Path("schemas") / "cache" / bundle_key / "media-buy" / "create-media-buy-response.json"
+    )
+    success_arm = json.loads(schema_path.read_text())["oneOf"][0]
+    # Guard the premise: the fix is only meaningful while the schema keeps
+    # declaring confirmed_at as required-and-nullable.
+    assert "confirmed_at" in success_arm["required"]
+    assert "null" in success_arm["properties"]["confirmed_at"]["type"]
+
+    module = ast.parse(generated_source)
+    success_class = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name == "CreateMediaBuyResponse1"
+    )
+    confirmed_at = next(
+        node
+        for node in success_class.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "confirmed_at"
+    )
+    assert ast.unparse(confirmed_at.annotation) == "AwareDatetime | None"
+    assert confirmed_at.value is None, "required-and-nullable fields must not gain a default"
+
+    # A required non-nullable sibling is untouched — the widening is driven by
+    # the schema's ``type`` array, not applied to every required field.
+    media_buy_id = next(
+        node
+        for node in success_class.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "media_buy_id"
+    )
+    assert ast.unparse(media_buy_id.annotation) == "str"
+    assert media_buy_id.value is None
+
+
+def test_generated_create_media_buy_success_matches_schema_nullability():
+    """The committed generated tree carries the #1137 fix, not just the emitter."""
+    import ast
+    from pathlib import Path
+
+    source = Path("src/adcp/types/domains/media_buy/create_media_buy_response.py").read_text()
+    module = ast.parse(source)
+    success_class = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name == "CreateMediaBuyResponse1"
+    )
+    confirmed_at = next(
+        node
+        for node in success_class.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "confirmed_at"
+    )
+    # ``WireDatetime`` is the generated spelling of ``AwareDatetime`` (#1610).
+    assert ast.unparse(confirmed_at.annotation) == "WireDatetime | None"
+    assert confirmed_at.value is None
+
+
+def _write_response_arm_fixture(
+    tmp_path,
+    monkeypatch,
+    *,
+    root_all_of: list[dict],
+    arms: list[dict],
+):
+    """Drive the response-arm emitter over a synthetic account response schema.
+
+    Only ``account/sync-accounts-response.json`` is materialized, so every other
+    entry in ``response_specs`` is skipped for missing schema/target.
+    """
+    import json
+
+    from scripts import post_generate_fixes
+
+    generated_dir = tmp_path / "domains"
+    target = generated_dir / "account" / "sync_accounts_response.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "# generated by datamodel-codegen:\n"
+        "#   filename:  account/sync_accounts_response.json\n\n"
+        "from __future__ import annotations\n\n"
+        "from ..core.version_envelope import AdcpVersionEnvelope\n\n\n"
+        "class SyncAccountsResponse(AdcpVersionEnvelope):\n"
+        "    pass\n"
+    )
+
+    schema_dir = tmp_path / "schemas"
+    schema_path = schema_dir / "account" / "sync-accounts-response.json"
+    schema_path.parent.mkdir(parents=True)
+    schema_path.write_text(
+        json.dumps(
+            {
+                "title": "Sync Accounts Response",
+                "type": "object",
+                "allOf": root_all_of,
+                "oneOf": arms,
+            }
+        )
+    )
+
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+    monkeypatch.setattr(post_generate_fixes, "SCHEMA_DIR", schema_dir)
+    post_generate_fixes.restore_response_variant_aliases()
+    source = target.read_text()
+
+    # Regenerating from the same schema must be a no-op.
+    post_generate_fixes.restore_response_variant_aliases()
+    assert target.read_text() == source
+    compile(source, str(target), "exec")
+    return source
+
+
+def _arm_bases(source: str, class_name: str) -> list[str]:
+    import ast
+
+    node = next(
+        item
+        for item in ast.parse(source).body
+        if isinstance(item, ast.ClassDef) and item.name == class_name
+    )
+    return [ast.unparse(base) for base in node.bases]
+
+
+_SUCCESS_ARM = {
+    "type": "object",
+    "properties": {"accounts": {"type": "array", "items": {"type": "string"}}},
+    "required": ["accounts"],
+}
+_ERROR_ARM = {
+    "type": "object",
+    "properties": {"errors": {"type": "array", "items": {"type": "string"}}},
+    "required": ["errors"],
+}
+_SUBMITTED_ARM = {
+    "type": "object",
+    "properties": {
+        "status": {"const": "submitted"},
+        "task_id": {"type": "string"},
+    },
+    "required": ["status", "task_id"],
+}
+
+
+@pytest.mark.parametrize(
+    "protocol_envelope_ref",
+    [
+        "../core/protocol-envelope.json",
+        "/schemas/core/protocol-envelope.json",
+        "https://adcontextprotocol.org/schemas/3.2.0-rc.1/core/protocol-envelope.json",
+    ],
+    ids=["relative", "root-relative", "canonical-url"],
+)
+def test_root_all_of_protocol_envelope_reaches_every_one_of_arm(
+    tmp_path, monkeypatch, protocol_envelope_ref
+):
+    """A root ``allOf`` applies to the whole document, so every arm inherits it.
+
+    Regression test for #1136: only the ``status: submitted`` arm used to pick
+    up ``ProtocolEnvelope``, leaving ``status``/``replayed``/``task_id`` untyped
+    on the success and error arms of the same response.
+    """
+    source = _write_response_arm_fixture(
+        tmp_path,
+        monkeypatch,
+        root_all_of=[
+            {"$ref": "../core/version-envelope.json"},
+            {"$ref": protocol_envelope_ref},
+        ],
+        arms=[_SUCCESS_ARM, _ERROR_ARM],
+    )
+
+    assert "from ..core.protocol_envelope import ProtocolEnvelope" in source
+    for class_name in ("SyncAccountsResponse1", "SyncAccountsResponse2"):
+        assert _arm_bases(source, class_name) == ["AdcpVersionEnvelope", "ProtocolEnvelope"]
+
+
+def test_nested_root_all_of_protocol_envelope_is_detected(tmp_path, monkeypatch):
+    """The root ``allOf`` walk descends into nested ``allOf`` groupings."""
+    source = _write_response_arm_fixture(
+        tmp_path,
+        monkeypatch,
+        root_all_of=[
+            {"allOf": [{"$ref": "../core/protocol-envelope.json"}]},
+        ],
+        arms=[_SUCCESS_ARM, _ERROR_ARM],
+    )
+
+    for class_name in ("SyncAccountsResponse1", "SyncAccountsResponse2"):
+        assert _arm_bases(source, class_name) == ["AdcpVersionEnvelope", "ProtocolEnvelope"]
+
+
+def test_arms_keep_version_envelope_only_without_root_protocol_envelope(tmp_path, monkeypatch):
+    """The base is attached from the root schema, not sprayed unconditionally.
+
+    A response whose root does not compose the protocol envelope keeps the
+    plain version envelope on its ordinary arms; the ``submitted`` arm still
+    gets ``ProtocolEnvelope`` from its own task-envelope shape.
+    """
+    source = _write_response_arm_fixture(
+        tmp_path,
+        monkeypatch,
+        root_all_of=[{"$ref": "../core/version-envelope.json"}],
+        arms=[_SUCCESS_ARM, _ERROR_ARM, _SUBMITTED_ARM],
+    )
+
+    assert _arm_bases(source, "SyncAccountsResponse1") == ["AdcpVersionEnvelope"]
+    assert _arm_bases(source, "SyncAccountsResponse2") == ["AdcpVersionEnvelope"]
+    assert _arm_bases(source, "SyncAccountsResponse3") == [
+        "AdcpVersionEnvelope",
+        "ProtocolEnvelope",
+    ]
+
+
+def test_unrelated_root_all_of_ref_does_not_attach_protocol_envelope(tmp_path, monkeypatch):
+    """Only ``core/protocol-envelope.json`` counts — not any ``core`` ref."""
+    source = _write_response_arm_fixture(
+        tmp_path,
+        monkeypatch,
+        root_all_of=[{"$ref": "../core/push-notification-config.json"}],
+        arms=[_SUCCESS_ARM],
+    )
+
+    assert _arm_bases(source, "SyncAccountsResponse1") == ["AdcpVersionEnvelope"]
+    assert "from ..core.protocol_envelope import ProtocolEnvelope" not in source
+
+
+def _pointer_fixture(tmp_path, monkeypatch) -> None:
+    """Write a two-file schema cache that points across files, like targeting-input."""
+    from scripts import generate_types
+
+    schemas = tmp_path / "schemas"
+    (schemas / "core").mkdir(parents=True)
+    (schemas / "core" / "source.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "additionalProperties": True,
+                "$defs": {"shared": {"type": "string"}},
+                "properties": {
+                    "codes": {
+                        "type": "array",
+                        "description": "from the source",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                    "sibling": {"$ref": "../enums/kind.json"},
+                    "own_def": {"$ref": "#/$defs/shared"},
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(generate_types, "SCHEMAS_DIR", schemas)
+
+
+def test_inline_structural_pointer_ref_selects_the_pointed_to_type(tmp_path, monkeypatch):
+    """A pointer into another file's ``properties`` resolves to that subschema."""
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    _pointer_fixture(tmp_path, monkeypatch)
+    schema = {
+        "properties": {
+            "codes": {
+                "anyOf": [
+                    {"$ref": "source.json#/properties/codes"},
+                    {"type": "null"},
+                ],
+                "description": "from the referencing site",
+            }
+        }
+    }
+
+    inline_structural_pointer_refs(schema, Path("core/input.json"))
+
+    assert schema["properties"]["codes"]["anyOf"][0] == {
+        "type": "array",
+        "description": "from the source",
+        "items": {"type": "string"},
+        "minItems": 1,
+    }
+    assert schema["properties"]["codes"]["description"] == "from the referencing site"
+
+
+def test_inline_structural_pointer_ref_leaves_a_class_shaped_selection_alone(tmp_path, monkeypatch):
+    """A pointer to an object or enum property stays a pointer.
+
+    The generator already resolves such a pointer to the one named class the
+    owning module emits (``targeting.AgeRestriction``, the shared
+    ``ProductResponseField`` enum). Inlining it copies the class into the
+    referencing module, and the two overlays stop sharing a type.
+    """
+    from scripts import generate_types
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    schemas = tmp_path / "schemas"
+    (schemas / "core").mkdir(parents=True)
+    (schemas / "core" / "source.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "properties": {
+                    "age_restriction": {
+                        "type": "object",
+                        "properties": {"minimum_age": {"type": "integer"}},
+                    },
+                    "kind": {"type": "string", "enum": ["a", "b"]},
+                    "fields": {"type": "array", "items": {"type": "string", "enum": ["x"]}},
+                    "codes": {"type": "array", "items": {"type": "string"}},
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(generate_types, "SCHEMAS_DIR", schemas)
+    schema = {
+        "properties": {
+            "age_restriction": {"$ref": "source.json#/properties/age_restriction"},
+            "kind": {"$ref": "source.json#/properties/kind"},
+            "fields": {"type": "array", "items": {"$ref": "source.json#/properties/fields/items"}},
+            "codes": {"$ref": "source.json#/properties/codes"},
+        }
+    }
+
+    inline_structural_pointer_refs(schema, Path("core/input.json"))
+
+    assert schema["properties"]["age_restriction"] == {
+        "$ref": "source.json#/properties/age_restriction"
+    }
+    assert schema["properties"]["kind"] == {"$ref": "source.json#/properties/kind"}
+    assert schema["properties"]["fields"]["items"] == {
+        "$ref": "source.json#/properties/fields/items"
+    }
+    assert schema["properties"]["codes"] == {"type": "array", "items": {"type": "string"}}
+
+
+def test_inline_structural_pointer_ref_rebases_refs_inside_the_selection(tmp_path, monkeypatch):
+    """A selection's own refs resolve against the file that owns it, not the caller."""
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    _pointer_fixture(tmp_path, monkeypatch)
+    schema = {"$ref": "../core/source.json#/properties/sibling"}
+
+    inline_structural_pointer_refs(schema, Path("media-buy/input.json"))
+
+    assert schema == {"$ref": "/schemas/enums/kind.json"}
+
+
+def test_inline_structural_pointer_ref_rebases_same_document_fragments(tmp_path, monkeypatch):
+    """A ``$defs`` fragment inside a selection names the document it came from."""
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    _pointer_fixture(tmp_path, monkeypatch)
+    schema = {"$ref": "source.json#/properties/own_def"}
+
+    inline_structural_pointer_refs(schema, Path("core/input.json"))
+
+    assert schema == {"$ref": "/schemas/core/source.json#/$defs/shared"}
+
+
+def test_inline_structural_pointer_ref_merges_a_one_arm_all_of(tmp_path, monkeypatch):
+    """``allOf`` of one pointer merges in, keeping the selection's own keywords."""
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    _pointer_fixture(tmp_path, monkeypatch)
+    schema = {
+        "allOf": [{"$ref": "source.json#/properties/codes"}],
+        "uniqueItems": True,
+    }
+
+    inline_structural_pointer_refs(schema, Path("core/input.json"))
+
+    assert schema == {
+        "type": "array",
+        "description": "from the source",
+        "items": {"type": "string"},
+        "minItems": 1,
+        "uniqueItems": True,
+    }
+
+
+def test_inline_structural_pointer_ref_leaves_definition_pointers_alone(tmp_path, monkeypatch):
+    """A ``$defs`` pointer names a reusable subschema and generates one class."""
+    from scripts.generate_types import inline_structural_pointer_refs
+
+    _pointer_fixture(tmp_path, monkeypatch)
+    schema = {
+        "a": {"$ref": "source.json#/$defs/shared"},
+        "b": {"$ref": "#/definitions/Local"},
+        "c": {"$ref": "source.json"},
+    }
+
+    inline_structural_pointer_refs(schema, Path("core/input.json"))
+
+    assert schema == {
+        "a": {"$ref": "source.json#/$defs/shared"},
+        "b": {"$ref": "#/definitions/Local"},
+        "c": {"$ref": "source.json"},
+    }
+
+
+def test_collapse_nullable_unions_rewrites_a_property_as_a_nullable_type():
+    """``anyOf: [S, null]`` on a property becomes ``S`` with a nullable type."""
+    from scripts.generate_types import collapse_nullable_unions
+
+    schema = {
+        "properties": {
+            "codes": {
+                "anyOf": [
+                    {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                    {"type": "null"},
+                ],
+                "description": "nullable list",
+            },
+            "name": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        }
+    }
+
+    collapse_nullable_unions(schema)
+
+    assert schema["properties"]["codes"] == {
+        "type": ["array", "null"],
+        "items": {"type": "string"},
+        "minItems": 1,
+        "description": "nullable list",
+    }
+    assert schema["properties"]["name"] == {"type": ["string", "null"], "minLength": 1}
+
+
+def test_collapse_nullable_unions_leaves_untyped_and_multi_arm_unions_alone():
+    """A ``$ref`` arm already yields ``T | None``; a three-arm union is not nullability."""
+    from scripts.generate_types import collapse_nullable_unions
+
+    ref_arm = {"anyOf": [{"$ref": "../core/thing.json"}, {"type": "null"}]}
+    three_arms = {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+    no_null = {"anyOf": [{"type": "string"}, {"type": "integer"}]}
+    schema = {"properties": {"a": ref_arm, "b": three_arms, "c": no_null}}
+    expected = copy.deepcopy(schema)
+
+    collapse_nullable_unions(schema)
+
+    assert schema == expected
+
+
+def test_collapse_nullable_unions_leaves_an_items_position_alone():
+    """A nullable type list under ``items`` makes codegen emit ``class X(Optional[Y])``."""
+    from scripts.generate_types import collapse_nullable_unions
+
+    schema = {
+        "properties": {
+            "duration_ms_range": {
+                "type": "array",
+                "items": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+            }
+        }
+    }
+    expected = copy.deepcopy(schema)
+
+    collapse_nullable_unions(schema)
+
+    assert schema == expected
+
+
+_REQUIRED_GROUP_SCHEMA = {
+    "title": "Budget Plan",
+    "type": "object",
+    "properties": {
+        "account": {"type": "string"},
+        "packages": {"type": "array"},
+        "total_budget": {"type": "object"},
+        "proposal_id": {"type": "string"},
+    },
+    "required": ["account"],
+    "anyOf": [
+        {
+            "title": "Explicit packages",
+            "required": ["packages"],
+            "not": {"required": ["proposal_id"]},
+        },
+        {"title": "Committed proposal", "required": ["proposal_id", "total_budget"]},
+    ],
+}
+
+_REQUIRED_GROUP_MODULE = (
+    "from __future__ import annotations\n\n"
+    "from pydantic import BaseModel\n\n\n"
+    "class BudgetPlan(BaseModel):\n"
+    "    account: str\n"
+    "    packages: list[str] | None = None\n"
+    "    total_budget: dict[str, int] | None = None\n"
+    "    proposal_id: str | None = None\n\n\n"
+    "LegacyBudgetPlan = BudgetPlan\n"
+)
+
+
+def _write_required_group_fixture(tmp_path, monkeypatch, schema, module_source):
+    from scripts import post_generate_fixes
+
+    schema_dir = tmp_path / "schemas"
+    generated_dir = tmp_path / "domains"
+    (schema_dir / "media-buy").mkdir(parents=True)
+    (schema_dir / "media-buy" / "budget-plan.json").write_text(json.dumps(schema))
+    (generated_dir / "media_buy").mkdir(parents=True)
+    target = generated_dir / "media_buy" / "budget_plan.py"
+    target.write_text(module_source)
+
+    monkeypatch.setattr(post_generate_fixes, "SCHEMA_DIR", schema_dir)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+    post_generate_fixes.enforce_root_required_groups()
+    return target
+
+
+def test_root_required_group_validator_enforces_every_declared_group(tmp_path, monkeypatch):
+    """A root ``anyOf`` over required groups becomes a runtime check.
+
+    The groups come from ``required`` alone: an arm's ``not`` and discriminating
+    ``properties`` narrow that arm further, so "at least one group is present"
+    is the part of the constraint the generator derives.
+    """
+    from pydantic import ValidationError
+
+    target = _write_required_group_fixture(
+        tmp_path, monkeypatch, _REQUIRED_GROUP_SCHEMA, _REQUIRED_GROUP_MODULE
+    )
+    fixed = target.read_text()
+
+    assert "def _require_schema_required_group(self) -> BudgetPlan:" in fixed
+    assert "(('packages',), ('proposal_id', 'total_budget'),)" in fixed
+    # The module tail survives: several generated modules close with
+    # compatibility aliases after the root class.
+    assert fixed.rstrip().endswith("LegacyBudgetPlan = BudgetPlan")
+
+    namespace: dict[str, object] = {}
+    exec(compile(fixed, str(target), "exec"), namespace)  # noqa: S102
+    model = namespace["BudgetPlan"]
+
+    assert model.model_validate({"account": "acct_1", "packages": ["pkg_1"]}).packages == ["pkg_1"]
+    assert (
+        model.model_validate(
+            {"account": "acct_1", "proposal_id": "prop_1", "total_budget": {"total": 1}}
+        ).proposal_id
+        == "prop_1"
+    )
+    # Every unconditionally required field, and no group.
+    with pytest.raises(ValidationError, match="at least one of these field groups"):
+        model.model_validate({"account": "acct_1"})
+    # A partial group is not a group.
+    with pytest.raises(ValidationError, match="at least one of these field groups"):
+        model.model_validate({"account": "acct_1", "proposal_id": "prop_1"})
+
+
+_ONE_OF_REQUIRED_GROUP_SCHEMA = {
+    "title": "Budget Plan",
+    "type": "object",
+    "properties": {
+        "packages": {"type": "array"},
+        "proposal_id": {"type": "string"},
+    },
+    "oneOf": [
+        {"required": ["packages"], "not": {"required": ["proposal_id"]}},
+        {"required": ["proposal_id"], "not": {"required": ["packages"]}},
+    ],
+}
+
+_ONE_OF_REQUIRED_GROUP_MODULE = (
+    "from __future__ import annotations\n\n"
+    "from pydantic import BaseModel\n\n\n"
+    "class BudgetPlan(BaseModel):\n"
+    "    packages: list[str] | None = None\n"
+    "    proposal_id: str | None = None\n"
+)
+
+
+@pytest.mark.parametrize(
+    "schema,module_source,keyword",
+    [
+        (_REQUIRED_GROUP_SCHEMA, _REQUIRED_GROUP_MODULE, "anyOf"),
+        (_ONE_OF_REQUIRED_GROUP_SCHEMA, _ONE_OF_REQUIRED_GROUP_MODULE, "oneOf"),
+    ],
+    ids=["anyOf", "oneOf"],
+)
+def test_root_required_group_refusal_names_the_root_combinator(
+    tmp_path, monkeypatch, schema, module_source, keyword
+):
+    """The refused payload reports the schema keyword, not ``value_error``.
+
+    ``core/error.json`` requires every ``issues[]`` entry to carry a ``keyword``
+    "drawn from the JSON Schema vocabulary". A bare ``ValueError`` reaches the
+    consumer as pydantic's ``value_error``, which names no keyword, so an
+    envelope builder has to drop the issue and the buyer is refused with no
+    structured reason. The keyword comes from the root combinator the groups
+    were read out of — the message text does not distinguish the two.
+    """
+    from pydantic import ValidationError
+
+    target = _write_required_group_fixture(tmp_path, monkeypatch, schema, module_source)
+    fixed = target.read_text()
+
+    assert "from pydantic_core import PydanticCustomError" in fixed
+    assert f"raise PydanticCustomError(\n            {keyword!r}," in fixed
+
+    namespace: dict[str, object] = {}
+    exec(compile(fixed, str(target), "exec"), namespace)  # noqa: S102
+    model = namespace["BudgetPlan"]
+
+    payload = {"account": "acct_1"} if "account" in schema["properties"] else {}
+    with pytest.raises(ValidationError) as refusal:
+        model.model_validate(payload)
+    errors = [error for error in refusal.value.errors() if error["type"] == keyword]
+    assert len(errors) == 1, refusal.value.errors()
+    assert "at least one of these field groups" in errors[0]["msg"]
+
+    # The conforming document still validates: only the error type changed.
+    accepted = {**payload, "packages": ["pkg_1"]}
+    assert model.model_validate(accepted).packages == ["pkg_1"]
+
+
+def test_every_root_required_group_refusal_names_its_own_schema_combinator():
+    """Over the committed tree, not a fixture: each keyword matches its schema.
+
+    The keyword is derived, so a derivation that matched nothing would pass
+    silently. The floors below are the anti-vacuity check — both keywords are
+    represented, and ``CreativeAsset``, the ``oneOf`` a consumer reported
+    reaching the wire as ``value_error``, is named outright.
+    """
+    from scripts import post_generate_fixes
+
+    found: dict[str, str] = {}
+    for schema_file in sorted(post_generate_fixes.SCHEMA_DIR.rglob("*.json")):
+        relative = schema_file.relative_to(post_generate_fixes.SCHEMA_DIR)
+        try:
+            schema = json.loads(schema_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(schema, dict):
+            continue
+        declared = post_generate_fixes._root_required_groups(schema)
+        if declared is None:
+            continue
+        module = post_generate_fixes.OUTPUT_DIR.joinpath(
+            *(part.replace("-", "_") for part in relative.with_suffix(".py").parts)
+        )
+        if not module.is_file():
+            continue
+        source = module.read_text()
+        class_name = post_generate_fixes._root_generated_class(source, schema)
+        if class_name is None or "def _require_schema_required_group" not in source:
+            continue
+        keyword = declared[0]
+        assert f"raise PydanticCustomError(\n            {keyword!r}," in source, relative
+        assert "raise ValueError(\n            '" + class_name not in source, relative
+        found[class_name] = keyword
+
+    assert len(found) >= 42, found
+    assert set(found.values()) == {"anyOf", "oneOf"}, found
+    assert found["CreativeAsset"] == "oneOf", found
+    assert found["CreateMediaBuyRequest"] == "anyOf", found
+
+
+def test_a_consumer_reads_the_schema_keyword_off_the_refusal():
+    """The obligation, through the public models rather than their source.
+
+    Each case is a document the schema rejects for a reason the schema states
+    with one keyword, and ``e.errors()[0]["type"]`` is where a consumer
+    assembling ``error.issues[]`` reads that keyword. The conforming document
+    beside each one is the other direction: only the error type changed.
+    """
+    from pydantic import ValidationError
+
+    from adcp.types import CreateMediaBuyRequest
+    from adcp.types.domains.core.creative_asset import CreativeAsset
+
+    media_buy = {
+        "account": {"account_id": "acct_test"},
+        "brand": {"domain": "example.com"},
+        "idempotency_key": "0123456789abcdef0123",
+        "start_time": "2026-10-07T00:00:00+00:00",
+        "end_time": "2026-11-05T00:00:00+00:00",
+    }
+    with pytest.raises(ValidationError) as refusal:
+        CreateMediaBuyRequest.model_validate(media_buy)
+    assert [error["type"] for error in refusal.value.errors()] == ["anyOf"]
+    assert CreateMediaBuyRequest.model_validate(
+        {**media_buy, "packages": [{"product_id": "p1", "pricing_option_id": "cpm_usd_fixed"}]}
+    ).packages
+
+    # The generated class, because the public ``adcp.types.CreativeAsset`` is
+    # the canonical refinement that marks ``format_kind`` required outright — so
+    # the ``oneOf`` cannot reach a consumer through that name. It reaches one
+    # through the domain path and through ``adcp.types.legacy``.
+    creative = {
+        "creative_id": "c1",
+        "name": "n",
+        "assets": {"hero": {"asset_type": "text", "content": "hello"}},
+    }
+    with pytest.raises(ValidationError) as refusal:
+        CreativeAsset.model_validate(creative)
+    assert [error["type"] for error in refusal.value.errors()] == ["oneOf"]
+    assert CreativeAsset.model_validate({**creative, "format_kind": "image"}).format_kind == "image"
+
+
+def test_schema_keyword_raise_refuses_a_keyword_outside_the_vocabulary():
+    """``issues[].keyword`` says "do not invent custom values here".
+
+    The membership check is what makes that rule hold at generation time: an
+    invented keyword reaches the wire looking exactly like a real one, and no
+    consumer can tell them apart.
+    """
+    from scripts import post_generate_fixes
+
+    assert "oneOf" in post_generate_fixes.SCHEMA_KEYWORDS
+    with pytest.raises(ValueError, match="not a JSON Schema keyword"):
+        post_generate_fixes.schema_keyword_raise("mutuallyExclusive", "nope")
+
+
+def test_root_required_group_leaves_per_arm_models_alone(tmp_path, monkeypatch):
+    """A root the generator splits into arm classes keeps no root-wide check.
+
+    One arm's required group says nothing about another arm, and the union alias
+    is not a class, so there is nothing to attach a validator to.
+    """
+    schema = {
+        "title": "Budget Plan",
+        "type": "object",
+        "oneOf": [
+            {"properties": {"packages": {"type": "array"}}, "required": ["packages"]},
+            {"properties": {"proposal_id": {"type": "string"}}, "required": ["proposal_id"]},
+        ],
+    }
+    module_source = (
+        "from __future__ import annotations\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class BudgetPlan1(BaseModel):\n"
+        "    packages: list[str]\n\n\n"
+        "class BudgetPlan2(BaseModel):\n"
+        "    proposal_id: str\n\n\n"
+        "BudgetPlan = BudgetPlan1 | BudgetPlan2\n"
+    )
+
+    target = _write_required_group_fixture(tmp_path, monkeypatch, schema, module_source)
+
+    assert target.read_text() == module_source
+
+
+def test_root_required_group_resolves_the_generator_acronym_casing(tmp_path, monkeypatch):
+    """The root class name matches the schema title up to case.
+
+    datamodel-code-generator title-cases an acronym, so the title
+    "SI Send Message Request" generates ``SiSendMessageRequest``. Resolving the
+    title-derived name exactly would skip the site.
+    """
+    schema = {
+        "title": "SI Send Message Request",
+        "type": "object",
+        "properties": {"message": {"type": "string"}, "action_response": {"type": "object"}},
+        "anyOf": [{"required": ["message"]}, {"required": ["action_response"]}],
+    }
+    module_source = (
+        "from __future__ import annotations\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class SiSendMessageRequest(BaseModel):\n"
+        "    message: str | None = None\n"
+        "    action_response: dict[str, str] | None = None\n"
+    )
+
+    schema_dir = tmp_path / "schemas"
+    generated_dir = tmp_path / "domains"
+    (schema_dir / "sponsored-intelligence").mkdir(parents=True)
+    (schema_dir / "sponsored-intelligence" / "si-send-message-request.json").write_text(
+        json.dumps(schema)
+    )
+    (generated_dir / "sponsored_intelligence").mkdir(parents=True)
+    target = generated_dir / "sponsored_intelligence" / "si_send_message_request.py"
+    target.write_text(module_source)
+
+    from scripts import post_generate_fixes
+
+    monkeypatch.setattr(post_generate_fixes, "SCHEMA_DIR", schema_dir)
+    monkeypatch.setattr(post_generate_fixes, "OUTPUT_DIR", generated_dir)
+    post_generate_fixes.enforce_root_required_groups()
+
+    assert "def _require_schema_required_group(self) -> SiSendMessageRequest:" in target.read_text()
+
+
+def test_root_required_group_skips_a_name_two_classes_share(tmp_path, monkeypatch):
+    """A name that resolves to two classes does not identify the root."""
+    schema = {
+        "title": "Budget Plan",
+        "type": "object",
+        "properties": {"packages": {"type": "array"}, "proposal_id": {"type": "string"}},
+        "anyOf": [{"required": ["packages"]}, {"required": ["proposal_id"]}],
+    }
+    module_source = (
+        "from __future__ import annotations\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class BudgetPlan(BaseModel):\n"
+        "    packages: list[str] | None = None\n"
+        "    proposal_id: str | None = None\n\n\n"
+        "class BUDGETPLAN(BaseModel):\n"
+        "    packages: list[str] | None = None\n"
+        "    proposal_id: str | None = None\n"
+    )
+
+    target = _write_required_group_fixture(tmp_path, monkeypatch, schema, module_source)
+
+    assert target.read_text() == module_source
+
+
+def test_root_required_group_asks_whether_the_caller_supplied_the_field(tmp_path, monkeypatch):
+    """A default is not a supplied value, and an explicit null is.
+
+    ``required`` asks whether the property is present. AdCP 3.2 mutation inputs
+    use an explicit null to clear a stored value, so a request whose only group
+    is ``daily_budget_cap: null`` is a request to remove the cap.
+    """
+    from pydantic import ValidationError
+
+    schema = {
+        "title": "Budget Control",
+        "type": "object",
+        "properties": {
+            "daily_budget_cap": {"type": ["number", "null"]},
+            "replayed": {"type": "boolean"},
+        },
+        "anyOf": [{"required": ["daily_budget_cap"]}, {"required": ["replayed"]}],
+    }
+    module_source = (
+        "from __future__ import annotations\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class BudgetControl(BaseModel):\n"
+        "    daily_budget_cap: float | None = None\n"
+        "    replayed: bool = True\n"
+    )
+
+    target = _write_required_group_fixture(tmp_path, monkeypatch, schema, module_source)
+    namespace: dict[str, object] = {}
+    exec(compile(target.read_text(), str(target), "exec"), namespace)  # noqa: S102
+    model = namespace["BudgetControl"]
+
+    cleared = model.model_validate({"daily_budget_cap": None})
+    assert cleared.daily_budget_cap is None
+    assert model.model_validate({"replayed": True}).replayed is True
+    # `replayed` carries a default the caller never sent, so its group is unsatisfied.
+    with pytest.raises(ValidationError, match="at least one of these field groups"):
+        model.model_validate({})
+
+
+def test_codegen_input_order_is_total(tmp_path, monkeypatch):
+    """Same-basename inputs resolve by full path, whatever order the filesystem yields.
+
+    datamodel-code-generator sorts a directory input by basename alone, so two
+    schemas with the same filename in different directories tie and resolve in
+    ``readdir`` order — APFS and ext4 disagree, and the anonymous variant
+    numbering shifts with them. ``scripts/run_datamodel_codegen.py`` patches
+    ``Path.rglob`` to yield a full-path order underneath that sort.
+    """
+    import pathlib
+    import random
+
+    from scripts import run_datamodel_codegen
+
+    for directory in ("creative", "media_buy", "signals", "bundled/creative"):
+        (tmp_path / directory).mkdir(parents=True)
+        (tmp_path / directory / "list-request.json").write_text("{}")
+        (tmp_path / directory / f"{directory.split('/')[-1]}-only.json").write_text("{}")
+
+    expected = sorted(pathlib.Path.rglob(tmp_path, "*"), key=lambda p: ("bundled" in p.parts, p))
+    orders: list[list[pathlib.Path]] = []
+    for seed in range(5):
+        shuffled = list(expected)
+        random.Random(seed).shuffle(shuffled)
+        monkeypatch.setattr(
+            run_datamodel_codegen, "_original_rglob", lambda self, pattern, _s=shuffled: iter(_s)
+        )
+        walked = list(run_datamodel_codegen._sorted_rglob(tmp_path, "*"))
+        assert walked == expected
+        # What the generator does with the walk: a stable sort on the basename.
+        orders.append(sorted((p for p in walked if p.is_file()), key=lambda p: p.name))
+    assert all(order == orders[0] for order in orders)
+    assert [p.name for p in orders[0]][:3] == [
+        "creative-only.json",
+        "creative-only.json",
+        "list-request.json",
+    ]
+    # The bundled mirror ties with the top-level copy and sorts after it, which
+    # is the order the committed numbering was generated in.
+    assert [str(p.relative_to(tmp_path)) for p in orders[0] if p.name == "list-request.json"] == [
+        "creative/list-request.json",
+        "media_buy/list-request.json",
+        "signals/list-request.json",
+        "bundled/creative/list-request.json",
+    ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pySigma
-Version: 2.0.1
+Version: 2.0.2
 Summary: Sigma rule processing and conversion tools
 License-Expression: LGPL-2.1-only
 License-File: LICENSE
@@ -15,8 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
-Requires-Dist: diskcache (>=5.6.3,<6.0.0)
-Requires-Dist: diskcache-stubs (>=5.6.3)
+Requires-Dist: diskcache-community (>=5.8.1,<6.0.0)
 Requires-Dist: google-re2 (>=1.0)
 Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
 Requires-Dist: jq (>=1.12,<2.0)

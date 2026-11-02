@@ -1,0 +1,523 @@
+"""
+A simple wrapper for bleak
+Handles reconnection
+"""
+
+import asyncio
+import functools
+import getpass
+import os
+import time
+
+import aiofiles
+import bluetooth_adapters
+from bleak import BleakClient, BleakScanner
+from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
+
+from .. import fhem, utils
+from . import ble_scanner, bt_recovery
+from .bt_pairing_state import PairingState
+
+# wait time after a failed pairing attempt
+PAIRING_RETRY = 300
+# a device that isn't advertising at all (empty battery, out of range) is
+# searched less and less often, each discovery scan disturbs the other
+# Bluetooth devices and the onboard WiFi of a Raspberry Pi
+PAIRING_RETRY_MAX = 3600
+# discovery scan duration per pairing attempt
+PAIRING_DISCOVERY_TIMEOUT = 30
+
+
+class BluetoothLE:
+    # run bluetoothctl only once
+    bluetoothctl_lock = None
+
+    # keep connected (get manuf uuid every x seconds)
+    # find by name
+    def __init__(
+        self,
+        logger,
+        device_hash,
+        address=None,
+        name=None,
+        pairing_required=False,
+        pin="0000",
+    ) -> None:
+        self._disconnect_called = False
+        self._device = None
+        self._rssi = None
+        self._client = None
+        self._dev_hash = device_hash
+
+        self.pairing_required = pairing_required
+        self.pin = pin
+        self.disconnect_listener = None
+        self.connected_listener = None
+        self.notification_listener = None
+
+        self.logger = logger
+        self.addr = address
+        self.name = name
+
+        self.conf_checked = False
+        self.paired = False
+
+        self.connection_task = None
+        self.connected = asyncio.Event()
+        self._no_adapter_logged = False
+
+        # initialize bluetoothctl_lock here to avoid thread without event loop error
+        if BluetoothLE.bluetoothctl_lock is None:
+            BluetoothLE.bluetoothctl_lock = asyncio.Lock()
+
+    async def pair(self):
+        if self.addr is None:
+            return False
+
+        await fhem.readingsSingleUpdateIfChanged(
+            self._dev_hash, "connection_paired", "pairing", 1
+        )
+
+        async with BluetoothLE.bluetoothctl_lock:
+            ret = await utils.run_blocking(functools.partial(self._pair, self.pin))
+
+        # get enum text from PairingState from ret
+        if ret == PairingState.SUCCESS:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection_paired", "paired", 1
+            )
+        elif ret == PairingState.FAILED:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection_paired", "failed", 1
+            )
+        elif ret == PairingState.WRONG_PIN:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection_paired", "wrong PIN", 1
+            )
+        elif ret == PairingState.TIMEOUT:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection_paired", "timeout", 1
+            )
+        elif ret == PairingState.NOT_FOUND:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection_paired", "not found", 1
+            )
+
+        return ret
+
+    def _pair(self, pin, retry=3):
+        # import here, dbus and PyGObject are only required for pairing
+        from .bt_manager import BluetoothManager
+
+        # Instantiate manager and agent
+        bt_mgr = BluetoothManager(self.logger)
+
+        # Check if device is already paired
+        if bt_mgr.is_device_paired(self.addr):
+            return PairingState.SUCCESS
+
+        bt_mgr.register_agent(pin)
+
+        while retry > 0:
+            try:
+                # 1. Clean up stale/cached keys if device path exists
+                device_path = bt_mgr.find_device_path(self.addr)
+                if device_path:
+                    bt_mgr.remove_device(device_path)
+
+                # 2. Discover device path
+                device_path = bt_mgr.discover_device_path(
+                    self.addr, timeout=PAIRING_DISCOVERY_TIMEOUT
+                )
+
+                if not device_path:
+                    # the device doesn't advertise, scanning again right away
+                    # won't help and keeps the adapter busy for all others
+                    bt_mgr.unregister_agent()
+                    return PairingState.NOT_FOUND
+
+                # 3. Attempt synchronous pairing
+                ret = bt_mgr.pair_device(device_path, timeout=60)
+                if ret == PairingState.SUCCESS or ret == PairingState.WRONG_PIN:
+                    bt_mgr.unregister_agent()
+                    return ret
+                else:
+                    retry -= 1
+                    time.sleep(5)
+
+            except Exception as e:
+                self.logger.error(f"Error during pairing attempt: {e}")
+                retry -= 1
+                time.sleep(5)
+
+        bt_mgr.unregister_agent()
+        return PairingState.FAILED
+
+    async def update_adapters(self):
+        self.adapters = await bluetooth_adapters.get_bluetooth_adapters()
+        adapters = bluetooth_adapters.get_adapters()
+        await adapters.refresh()
+        self.adapter_details = adapters.adapters
+
+    @staticmethod
+    def _bluez_args(adapter):
+        # bleak >= 3 takes the adapter via the bluez args instead of adapter=
+        return {"adapter": adapter} if adapter else {}
+
+    async def find_device(self, timeout=30, adapter=None):
+        """Returns False if the adapter didn't work (no advertisements at all)."""
+        self._device = None
+        self._rssi = None
+        adapter_working = False
+
+        # the shared scan of autodiscovery saw the device a moment ago
+        scanner = ble_scanner.BleScanner.running_instance()
+        recent = scanner.recent_device(self.addr) if scanner else None
+        if recent is not None and ble_scanner.seen_by(recent[0], adapter):
+            self._device, self._rssi = recent
+            return True
+
+        def match_address(device, adv):
+            nonlocal adapter_working
+            adapter_working = True
+            if device.address.upper() == self.addr.upper():
+                # rssi is only available via advertisement data
+                self._rssi = adv.rssi
+                return True
+            return False
+
+        async with BluetoothLE.bluetoothctl_lock:
+            try:
+                self._device = await BleakScanner.find_device_by_filter(
+                    match_address, timeout=timeout, bluez=self._bluez_args(adapter)
+                )
+                if self._device:
+                    self.logger.info(f"Device found via adapter {adapter}")
+            except asyncio.TimeoutError:
+                # nothing found
+                self._device = None
+            except BleakError:
+                self.logger.exception(f"Scan via adapter {adapter} failed")
+                self._device = None
+        return adapter_working
+
+    def register_disconnect_listener(self, disconnect_listener):
+        self.disconnect_listener = disconnect_listener
+
+    def register_connection_established_listener(self, connected_listener):
+        self.connected_listener = connected_listener
+
+    def register_notification_listener(self, notification_listener):
+        self.notification_listener = notification_listener
+
+    async def connect(self, timeout=30, max_retries=20):
+        """Connect to the device."""
+
+        # check which user is running this code
+        user = getpass.getuser()
+
+        # check if bluetooth.conf is present and contains the required policy lines
+        if not self.conf_checked:
+            btconf = "/etc/dbus-1/system.d/bluetooth.conf"
+            policy_lines = [
+                '<policy user="' + user + '">',
+                '<allow own="org.bluez"/>',
+                '<allow send_destination="org.bluez"/>',
+                '<allow send_interface="org.bluez.GattCharacteristic1"/>',
+                '<allow send_interface="org.bluez.GattDescriptor1"/>',
+                '<allow send_interface="org.freedesktop.DBus.ObjectManager"/>',
+                '<allow send_interface="org.freedesktop.DBus.Properties"/>',
+                "</policy>",
+            ]
+            if os.path.exists(btconf):
+                async with aiofiles.open(btconf, mode="r") as f:
+                    content = await f.read()
+                    if not all(line in content for line in policy_lines):
+                        self.logger.warn(
+                            "Not all required policy lines are present in bluetooth.conf"
+                        )
+                        self.logger.warn(
+                            "If you experience pairing / connection issues, please add the following lines to the file /etc/dbus-1/system.d/bluetooth.conf:"
+                        )
+                        for line in policy_lines:
+                            self.logger.warn(line)
+            self.conf_checked = True
+
+        if self._client and self._client.is_connected:
+            return
+
+        if self.connection_task is None or self.connection_task.done():
+            self.connection_task = asyncio.create_task(
+                self.connect_loop(timeout, max_retries)
+            )
+
+    async def connect_loop(self, timeout, max_retries):
+        not_found_count = 0
+        while True:
+            try:
+                if self.pairing_required and not self.paired:
+                    await fhem.readingsSingleUpdateIfChanged(
+                        self._dev_hash, "connection", "pairing", 1
+                    )
+                    ret = await self.pair()
+                    if ret == PairingState.SUCCESS:
+                        self.paired = True
+                    elif ret == PairingState.NOT_FOUND:
+                        waittime = min(
+                            PAIRING_RETRY * 2**not_found_count, PAIRING_RETRY_MAX
+                        )
+                        not_found_count += 1
+                        await fhem.readingsSingleUpdateIfChanged(
+                            self._dev_hash, "connection", "not found", 1
+                        )
+                        self.logger.error(
+                            f"Device {self.addr} not found for pairing (battery, "
+                            f"range?), retry in {waittime}s"
+                        )
+                        await asyncio.sleep(waittime)
+                        continue
+                    else:
+                        not_found_count = 0
+                        await fhem.readingsSingleUpdateIfChanged(
+                            self._dev_hash, "connection", "pairing failed", 1
+                        )
+                        self.logger.error(
+                            f"Pairing failed ({ret}), retry in {PAIRING_RETRY}s"
+                        )
+                        await asyncio.sleep(PAIRING_RETRY)
+                        continue
+
+                await self.connect_once(timeout, max_retries)
+                if self._client and self._client.is_connected:
+                    # loop is started again on disconnect
+                    return
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger.exception("Failed to connect")
+
+            # wait 10s before next retry
+            await asyncio.sleep(10)
+
+    async def connect_once(self, timeout, max_retries):
+        # get latest adapter list
+        await self.update_adapters()
+        if not self.adapters:
+            await fhem.readingsSingleUpdateIfChanged(
+                self._dev_hash, "connection", "no adapter", 1
+            )
+            if not self._no_adapter_logged:
+                self._no_adapter_logged = True
+                self.logger.error("No Bluetooth adapter found")
+            return
+        self._no_adapter_logged = False
+
+        await fhem.readingsSingleUpdateIfChanged(
+            self._dev_hash, "connection", "connecting", 1
+        )
+        self._disconnect_called = False
+
+        for i in range(0, max_retries):
+            for adapter in self.adapters:
+                adapter_working = await self.find_device(
+                    timeout=timeout, adapter=adapter
+                )
+                if not self._device:
+                    # device not found, only a problem of the adapter if it
+                    # didn't see any other device either
+                    if not adapter_working:
+                        if await self._adapter_failed(adapter):
+                            # adapters might have changed, start over
+                            return
+                    elif await self._stale_connection_failed(adapter):
+                        return
+                    await asyncio.sleep(20)
+                    continue
+
+                await fhem.readingsSingleUpdateIfChanged(
+                    self._dev_hash, "connection_adapter", adapter, 1
+                )
+                manufacturer = self.adapter_details[adapter]["manufacturer"]
+                if not manufacturer:
+                    manufacturer = "unknown"
+                await fhem.readingsSingleUpdateIfChanged(
+                    self._dev_hash,
+                    "connection_adapter_details",
+                    manufacturer
+                    + " ("
+                    + self.adapter_details[adapter]["address"]
+                    + ")",
+                    1,
+                )
+                await fhem.readingsSingleUpdateIfChanged(
+                    self._dev_hash, "rssi", self._rssi, 1
+                )
+
+                # a client left over from a failed attempt
+                await self._release_client(self._client)
+                self._client = BleakClient(
+                    self._device,
+                    disconnected_callback=self._disconnect_callback,
+                    timeout=timeout,
+                    bluez=self._bluez_args(adapter),
+                )
+                try:
+                    # some adapters can't scan and connect at the same time
+                    async with ble_scanner.paused():
+                        await self._client.connect()
+                except BleakError:
+                    self.logger.exception("Failed to connect")
+                except asyncio.TimeoutError:
+                    pass
+
+                if self._client and self._client.is_connected:
+                    bt_recovery.report_success(adapter)
+                    # set before the listener, it might write to the device
+                    self.connected.set()
+                    try:
+                        await self._subscribe_notifies()
+                    except BleakError:
+                        # set state to connected (no notifications)
+                        await fhem.readingsSingleUpdate(
+                            self._dev_hash,
+                            "connection",
+                            "connected (no notifications)",
+                            1,
+                        )
+                        self.logger.exception("Failed to subscribe to notifications")
+                    else:
+                        await fhem.readingsSingleUpdate(
+                            self._dev_hash, "connection", "connected", 1
+                        )
+                    if self.connected_listener:
+                        await self.connected_listener()
+                    return
+                else:
+                    if await self._adapter_failed(adapter):
+                        # adapters might have changed, start over
+                        return
+                    await asyncio.sleep(20)
+                    continue
+
+        # connection failed
+        await fhem.readingsSingleUpdateIfChanged(
+            self._dev_hash, "connection", "not found", 1
+        )
+        self.logger.debug(
+            f"Unable to connect to {self.addr} after {max_retries} attempts"
+        )
+
+    async def _adapter_failed(self, adapter):
+        """Returns True if the adapter was recovered."""
+        result = await bt_recovery.report_failure(
+            adapter, self.adapter_details[adapter]["address"]
+        )
+        if result:
+            scanner = ble_scanner.BleScanner.running_instance()
+            if scanner is not None:
+                scanner.adapter_recovered()
+            await fhem.readingsSingleUpdate(
+                self._dev_hash, "connection_recovery", f"{adapter} {result}", 1
+            )
+            return True
+        return False
+
+    async def _stale_connection_failed(self, adapter):
+        """
+        Drops a connection BlueZ still holds to the device, it doesn't
+        advertise while connected. Returns True if the adapter was recovered
+        because the stale connection couldn't be dropped.
+        """
+        result = await bt_recovery.drop_stale_connection(adapter, self.addr)
+        if result is None:
+            return False
+        await fhem.readingsSingleUpdate(
+            self._dev_hash, "connection_recovery", f"{adapter} {result}", 1
+        )
+        if result.endswith(": ok"):
+            return False
+        # bluetoothd doesn't release the device, recover the adapter
+        return await self._adapter_failed(adapter)
+
+    async def _subscribe_notifies(self):
+        if not self.notification_listener:
+            return
+
+        services = self._client.services
+        for service in services:
+            for characteristic in service.characteristics:
+                if "notify" in characteristic.properties:
+                    self.logger.debug(f"start_notify for {characteristic.uuid}")
+                    await self._client.start_notify(
+                        characteristic.uuid, self.notification_listener
+                    )
+
+    async def _wait_connected(self):
+        if not self.connected.is_set() and not self._disconnect_called:
+            # restart the connection loop in case it isn't running anymore
+            await self.connect()
+        await asyncio.wait_for(self.connected.wait(), 30)
+
+    async def write_gatt_char(self, uuid, data):
+        await self._wait_connected()
+        await self._client.write_gatt_char(uuid, data)
+
+    async def read_gatt_char(self, uuid):
+        await self._wait_connected()
+        return await self._client.read_gatt_char(uuid)
+
+    async def disconnect(self):
+        self._disconnect_called = True
+
+        if self.connection_task:
+            self.connection_task.cancel()
+
+        await self._release_client(self._client)
+
+    def _disconnect_callback(self, client: BleakClient):
+        self.connected.clear()
+        utils.create_background_task(self.async_disconnected(client))
+
+    async def async_disconnected(self, client: BleakClient):
+        await fhem.readingsSingleUpdate(self._dev_hash, "connection", "disconnected", 1)
+        if self.disconnect_listener:
+            await self.disconnect_listener(client)
+
+        await self._release_client(client)
+        # a reconnect might already have created a new client
+        if self._client is client:
+            self._client = None
+            self._device = None
+
+        if not self._disconnect_called:
+            self.logger.error("Device disconnected, reconnect now")
+            await self.connect()
+        else:
+            self.logger.info("Device disconnected")
+
+    async def _release_client(self, client: BleakClient):
+        """
+        Bleak opens a D-Bus connection per client and closes it only in
+        disconnect(), not when the device disconnects by itself. Without
+        this every reconnect leaks one D-Bus connection (#761).
+        """
+        if client is None:
+            return
+        try:
+            async with asyncio.timeout(15):
+                await client.disconnect()
+        except Exception:
+            self.logger.debug("Failed to release Bluetooth client", exc_info=True)
+
+    @property
+    def is_connected(self) -> bool:
+        return self._client is not None and self._client.is_connected
+
+    @property
+    def device(self) -> BLEDevice:
+        return self._device
+
+    @property
+    def client(self) -> BleakClient:
+        return self._client

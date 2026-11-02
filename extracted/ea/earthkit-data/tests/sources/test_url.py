@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+
+# (C) Copyright 2020 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+#
+
+import os
+import sys
+
+import pytest
+
+from earthkit.data import config, from_source
+from earthkit.data.core.temporary import temp_directory, temp_file
+from earthkit.data.utils.testing import (
+    earthkit_examples_file,
+    earthkit_remote_examples_file,
+    earthkit_remote_test_data_file,
+    network_off,
+)
+
+
+@pytest.mark.skipif(  # TODO: fix
+    sys.platform == "win32",
+    reason="file:// not working on Windows yet",
+)
+def test_url_file_source():
+    filename = os.path.abspath(earthkit_examples_file("test.nc"))
+    s = from_source("url", f"file://{filename}").to_fieldlist()
+    assert len(s) == 2
+
+
+def test_url_source_session():
+    import requests
+
+    class _RecordingSession(requests.Session):
+        """A real requests session recording the requests made through it."""
+
+        def __init__(self):
+            super().__init__()
+            self.calls = []
+
+        def get(self, url, *args, **kwargs):
+            self.calls.append(("get", url))
+            return super().get(url, *args, **kwargs)
+
+        def head(self, url, *args, **kwargs):
+            self.calls.append(("head", url))
+            return super().head(url, *args, **kwargs)
+
+    url = earthkit_remote_examples_file("test.grib")
+
+    with _RecordingSession() as session:
+        # use an empty temporary (non-cached) directory where the data will be downloaded to, so
+        # that we can check that the download is performed via the session
+        with temp_directory() as tmpdir:
+            with config.temporary({"cache-policy": "off", "temporary-cache-directory-root": tmpdir}):
+                ds = from_source("url", url, session=session).to_fieldlist()
+                assert len(ds) == 2
+                assert ds.get("parameter.variable") == ["2t", "msl"]
+
+        # the download must have been performed via the session we passed in
+        assert ("get", url) in session.calls
+
+
+@pytest.mark.cache
+def test_url_source_check_out_of_date():
+    def load():
+        from_source(
+            "url",
+            earthkit_remote_examples_file("test.grib"),
+        ).to_fieldlist()
+
+    with temp_directory() as tmpdir:
+        with config.temporary():
+            config.set("user-cache-directory", tmpdir)
+            load()
+
+            config.set("check-out-of-date-urls", False)
+            with network_off():
+                load()
+
+
+def test_url_source_1():
+    from_source(
+        "url",
+        earthkit_remote_examples_file("test.grib"),
+    )
+
+
+def test_url_source_2():
+    from_source(
+        "url",
+        earthkit_remote_test_data_file("temp.bufr"),
+    )
+
+
+def test_url_source_3():
+    from_source(
+        "url",
+        earthkit_remote_examples_file("test.nc"),
+    )
+
+
+def test_url_source_tar():
+    ds = from_source(
+        "url",
+        earthkit_remote_examples_file("test_gribs.tar"),
+    ).to_fieldlist()
+    assert len(ds) == 6
+
+
+def test_parts_url():
+    ds = from_source(
+        "url",
+        earthkit_remote_test_data_file("temp.bufr"),
+    ).to_featurelist()
+
+    ds = from_source(
+        "url",
+        earthkit_remote_test_data_file("temp.bufr"),
+        parts=((0, 4),),
+    ).to_featurelist()
+
+    assert os.path.getsize(ds.path) == 4
+
+    with open(ds.path, "rb") as f:
+        assert f.read() == b"BUFR"
+
+    ds = from_source(
+        "url",
+        earthkit_remote_test_data_file("temp.bufr"),
+        parts=((0, 10), (50, 10), (60, 10)),
+    ).to_featurelist()
+
+    print(ds.path)
+
+    assert os.path.getsize(ds.path) == 30
+
+    with open(ds.path, "rb") as f:
+        assert f.read()[:4] == b"BUFR"
+
+
+def test_parts_as_arg_url_1():
+    ds = from_source(
+        "url",
+        [
+            earthkit_remote_test_data_file("temp.bufr"),
+            [(0, 4)],
+        ],
+    ).to_featurelist()
+
+    assert os.path.getsize(ds.path) == 4
+
+    with open(ds.path, "rb") as f:
+        assert f.read() == b"BUFR"
+
+
+def test_parts_as_arg_url_2():
+    ds = from_source(
+        "url",
+        [
+            earthkit_remote_test_data_file("temp.bufr"),
+            None,
+        ],
+    ).to_featurelist()
+
+    assert os.path.getsize(ds.path) > 4
+
+    with open(ds.path, "rb") as f:
+        assert f.read(4) == b"BUFR"
+
+
+def test_multi_url_parts_as_arg_invalid_1():
+    with pytest.raises(ValueError):
+        from_source(
+            "url",
+            [
+                earthkit_remote_test_data_file("temp.bufr"),
+                [(0, 4)],
+            ],
+            parts=[(0, 5)],
+        ).to_featurelist()
+
+
+def test_multi_url_parts_invalid():
+    parts1 = [(240, 150)]
+    parts2 = [(0, 526)]
+    with pytest.raises(ValueError):
+        from_source(
+            "url",
+            [
+                [earthkit_remote_examples_file("test6.grib"), parts1],
+                [earthkit_remote_examples_file("test.grib"), parts2],
+            ],
+            parts=[(0, 240)],
+        )
+
+
+@pytest.mark.skipif(  # TODO: fix
+    sys.platform == "win32",
+    reason="file:// not working on Windows yet",
+)
+def test_url_part_file_source():
+    filename = os.path.abspath(earthkit_examples_file("test.grib"))
+    ds = from_source(
+        "url",
+        f"file://{filename}",
+        parts=[
+            (0, 4),
+            (312, 4),
+            (360, 4),
+            (672, 4),
+        ],
+    )
+
+    path = ds._source.path
+    assert os.path.getsize(path) == 16
+
+    with open(path, "rb") as f:
+        assert f.read() == b"GRIB7777GRIB7777"
+
+
+def test_url_netcdf_source_save():
+    ds = from_source(
+        "url",
+        earthkit_remote_examples_file("test.nc"),
+    )
+
+    with temp_file() as tmp:
+        ds.to_target("file", tmp)
+        assert os.path.exists(tmp)
+        ds_saved = from_source("file", tmp).to_fieldlist()
+        assert len(ds_saved) == 2
+
+
+def test_url_grib_netcdf_mixed():
+    ds = from_source(
+        "url",
+        [
+            earthkit_remote_examples_file("test.nc"),
+            earthkit_remote_examples_file("test.grib"),
+        ],
+    )
+    # this is the consequence of the default behaviour of the url source, which
+    # concatenates multiple URLs into a single target file. Use split=True to
+    # download each url into its own target file.
+    assert ds._TYPE_NAME == "NetCDF"
+    assert isinstance(ds.path, str)
+
+
+def test_url_split_grib_netcdf_mixed():
+    ds = from_source(
+        "url",
+        [
+            earthkit_remote_examples_file("test.nc"),
+            earthkit_remote_examples_file("test.grib"),
+        ],
+        split=True,
+    )
+
+    assert ds._TYPE_NAME == "Multi"
+    assert isinstance(ds.path, list)
+    assert len(ds.path) == 2
+
+    items = [x for x in ds]
+    assert len(items) == 2
+    assert items[0]._TYPE_NAME == "NetCDF"
+    assert items[1]._TYPE_NAME == "GRIB"
+
+
+def test_url_split_single_url():
+    # split has no effect when a single url is given
+    ds = from_source(
+        "url",
+        earthkit_remote_examples_file("test.grib"),
+        split=True,
+    )
+
+    assert ds._TYPE_NAME == "GRIB"
+    assert isinstance(ds.path, str)
+
+
+def test_url_split_stream_invalid():
+    # split and stream cannot be used together
+    with pytest.raises(ValueError):
+        from_source(
+            "url",
+            [
+                earthkit_remote_examples_file("test.nc"),
+                earthkit_remote_examples_file("test.grib"),
+            ],
+            split=True,
+            stream=True,
+        )
+
+
+if __name__ == "__main__":
+    import logging
+
+    from earthkit.data.utils.testing import main
+
+    logging.basicConfig(level=logging.DEBUG)
+    main(__file__)

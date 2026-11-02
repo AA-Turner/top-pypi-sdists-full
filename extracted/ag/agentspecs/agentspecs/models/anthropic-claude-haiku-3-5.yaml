@@ -1,0 +1,26 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
+# AI Model Specification: Anthropic Claude Haiku 3.5
+
+id: "anthropic:claude-3-5-haiku-20241022"
+version: 0.0.1
+name: Anthropic Claude Haiku 3.5
+description: Claude Haiku 3.5 by Anthropic - fast and efficient
+provider: anthropic
+provider_url: "https://www.anthropic.com/claude/haiku"
+default: false
+available: false
+tokens_limit: 8192
+
+# Anthropic's list price for the Claude API, from
+# https://platform.claude.com/docs/en/about-claude/pricing (read 2026-10-08).
+# Cache writes and reads are priced apart there (5m write $1, 1h write $1.60,
+# hits $0.08); the catalogue has no field for them.
+# The same as pydantic/genai-prices (main bd966a9, read 2026-10-08).
+pricing:
+  input_usd_per_million: 0.8
+  output_usd_per_million: 4.0
+
+required_env_vars:
+  - ANTHROPIC_API_KEY

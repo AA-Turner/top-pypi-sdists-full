@@ -1,0 +1,630 @@
+//! rustls session state and the record-level plumbing around it.
+//!
+//! `TlsIoState` pairs a rustls connection with the socket it speaks over, and
+//! everything here operates on that pair under one lock: the initial blocking
+//! handshake, moving records in and out of the connection, draining decrypted
+//! plaintext into the transport's read queue, and the close-notify shutdown.
+//! Keeping the lock discipline in a single module is what lets the reader and
+//! writer workers share one session without stepping on each other.
+
+use std::{
+    io::{self, BufRead as _, Write as _},
+    sync::{Arc, Mutex, Weak},
+    thread,
+    time::Duration,
+};
+
+use rustls::{ClientConnection, ServerConnection};
+
+use super::{
+    PendingReadEvent, ServerCore, StreamTransportCore,
+    io_targets::StreamKind,
+    poll::{wait_socket_ready, wait_socket_ready_once, wait_socket_ready_until},
+};
+use crate::fd_ops;
+
+pub(super) enum TlsConnectionKind {
+    Client(ClientConnection),
+    Server(ServerConnection),
+}
+
+impl TlsConnectionKind {
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn is_handshaking(&self) -> bool {
+        match self {
+            Self::Client(conn) => conn.is_handshaking(),
+            Self::Server(conn) => conn.is_handshaking(),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn wants_read(&self) -> bool {
+        match self {
+            Self::Client(conn) => conn.wants_read(),
+            Self::Server(conn) => conn.wants_read(),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn wants_write(&self) -> bool {
+        match self {
+            Self::Client(conn) => conn.wants_write(),
+            Self::Server(conn) => conn.wants_write(),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn read_tls(&mut self, stream: &mut StreamKind) -> io::Result<usize> {
+        match self {
+            Self::Client(conn) => conn.read_tls(stream),
+            Self::Server(conn) => conn.read_tls(stream),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn write_tls(&mut self, stream: &mut StreamKind) -> io::Result<usize> {
+        match self {
+            Self::Client(conn) => conn.write_tls(stream),
+            Self::Server(conn) => conn.write_tls(stream),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn process_new_packets(&mut self) -> Result<(), rustls::Error> {
+        match self {
+            Self::Client(conn) => conn.process_new_packets().map(|_| ()),
+            Self::Server(conn) => conn.process_new_packets().map(|_| ()),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn reader_drain(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        let mut reader = match self {
+            Self::Client(conn) => conn.reader(),
+            Self::Server(conn) => conn.reader(),
+        };
+        buf.clear();
+        let limit = buf.capacity();
+        debug_assert!(limit > 0);
+        while buf.len() < limit {
+            let chunk = match reader.fill_buf() {
+                Ok([]) => break,
+                Ok(chunk) => chunk,
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                // Deliver already copied plaintext before reporting a terminal
+                // error on the next drain, matching Read's partial-read rule.
+                Err(_) if !buf.is_empty() => break,
+                Err(err) => return Err(err),
+            };
+            let take = chunk.len().min(limit - buf.len());
+            buf.extend_from_slice(&chunk[..take]);
+            reader.consume(take);
+        }
+        Ok(buf.len())
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    fn writer_write(&mut self, data: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Client(conn) => conn.writer().write(data),
+            Self::Server(conn) => conn.writer().write(data),
+        }
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsConnectionKind"))]
+    pub(super) fn send_close_notify(&mut self) {
+        match self {
+            Self::Client(conn) => conn.send_close_notify(),
+            Self::Server(conn) => conn.send_close_notify(),
+        }
+    }
+}
+
+pub(super) struct TlsIoState {
+    pub(super) stream: StreamKind,
+    pub(super) connection: TlsConnectionKind,
+    pub(super) shutdown_timeout: Duration,
+}
+
+pub(super) type SharedTlsIoState = Arc<Mutex<TlsIoState>>;
+
+impl TlsIoState {
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    pub(super) fn write_plaintext_all(&mut self, mut data: &[u8]) -> io::Result<()> {
+        while !data.is_empty() {
+            let written = self.connection.writer_write(data)?;
+            if written == 0 && !self.connection.wants_write() {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to buffer TLS plaintext",
+                ));
+            }
+            data = &data[written..];
+            if !data.is_empty() {
+                // rustls accepts only as much plaintext as its record buffer
+                // can hold. Flush those records before submitting the rest.
+                flush_tls_io_locked(self)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    #[inline]
+    pub(super) fn fd(&self) -> fd_ops::RawFd {
+        self.stream.fd()
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    pub(super) fn pollable(&self) -> bool {
+        self.stream.pollable()
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    #[inline]
+    pub(super) fn shutdown_close(&self) -> io::Result<()> {
+        self.stream.shutdown_close()
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    #[inline]
+    pub(super) fn read_tls(&mut self) -> io::Result<usize> {
+        self.connection.read_tls(&mut self.stream)
+    }
+
+    #[cfg_attr(feature = "profile", hotpath::measure(impl_type = "TlsIoState"))]
+    #[inline]
+    pub(super) fn write_tls(&mut self) -> io::Result<usize> {
+        self.connection.write_tls(&mut self.stream)
+    }
+}
+
+pub(super) enum TlsReadOutcome {
+    Continue,
+    Eof,
+    ConnectionLost(String),
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn tls_server_closed(server: Option<&Weak<ServerCore>>) -> bool {
+    server.is_some_and(|server| server.upgrade().is_none_or(|server| server.is_closed()))
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn complete_tls_handshake(
+    tls_state: &SharedTlsIoState,
+    timeout: Duration,
+    server: Option<&Weak<ServerCore>>,
+) -> io::Result<()> {
+    let deadline = std::time::Instant::now()
+        .checked_add(timeout)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "TLS handshake timeout is too large",
+            )
+        })?;
+    loop {
+        if tls_server_closed(server) {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "TLS handshake cancelled",
+            ));
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "TLS handshake timed out",
+            ));
+        }
+
+        if tls_handshake_step(tls_state)? {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn tls_handshake_step(tls_state: &SharedTlsIoState) -> io::Result<bool> {
+    let mut state = tls_state.lock().expect("poisoned tls state");
+    if !state.connection.is_handshaking() {
+        if state.connection.wants_write() {
+            flush_tls_io_locked(&mut state)?;
+        }
+        return Ok(true);
+    }
+
+    if state.connection.wants_write() {
+        flush_tls_io_locked(&mut state)?;
+        return Ok(false);
+    }
+
+    if state.connection.wants_read() {
+        let fd = state.fd();
+        let pollable = state.pollable();
+        drop(state);
+        continue_tls_handshake_read(tls_state, fd, pollable)?;
+        return Ok(false);
+    }
+
+    thread::sleep(Duration::from_millis(10));
+    Ok(false)
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn continue_tls_handshake_read(
+    tls_state: &SharedTlsIoState,
+    fd: fd_ops::RawFd,
+    pollable: bool,
+) -> io::Result<()> {
+    if !wait_socket_ready_once(fd, pollable, true, false)? {
+        return Ok(());
+    }
+    let mut state = tls_state.lock().expect("poisoned tls state");
+    let n = state.read_tls()?;
+    if n == 0 && state.connection.is_handshaking() {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "TLS handshake ended before completion",
+        ));
+    }
+    state.connection.process_new_packets().map_err(tls_io_error)
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+fn drain_tls_plaintext(
+    core: &Arc<StreamTransportCore>,
+    tls_state: &SharedTlsIoState,
+    plaintext: &mut Vec<u8>,
+) -> Result<bool, String> {
+    let mut saw_data = false;
+    loop {
+        // Never wait for a pool slot while holding the shared TLS session:
+        // the writer needs this lock to make progress under read backpressure.
+        let result = tls_state
+            .lock()
+            .expect("poisoned tls state")
+            .connection
+            .reader_drain(plaintext);
+        match result {
+            Ok(0) => break,
+            Ok(_) => {
+                saw_data = true;
+                let data = std::mem::take(plaintext);
+                core.enqueue_pending_read_event(PendingReadEvent::Data(data));
+                let Some(next) =
+                    core.acquire_read_buffer_blocking(super::tuning::STREAM_READ_BUFFER_SIZE, None)
+                else {
+                    return Ok(saw_data);
+                };
+                *plaintext = next;
+            }
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+    Ok(saw_data)
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn drain_buffered_tls_plaintext(
+    core: &Arc<StreamTransportCore>,
+    tls_state: &SharedTlsIoState,
+    plaintext: &mut Vec<u8>,
+) -> TlsReadOutcome {
+    match drain_tls_plaintext(core, tls_state, plaintext) {
+        Ok(true) => TlsReadOutcome::Continue,
+        Ok(false) => TlsReadOutcome::Eof,
+        Err(err) => TlsReadOutcome::ConnectionLost(err),
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn read_tls_records(
+    core: &Arc<StreamTransportCore>,
+    tls_state: &SharedTlsIoState,
+    plaintext: &mut Vec<u8>,
+) -> TlsReadOutcome {
+    let mut state = tls_state.lock().expect("poisoned tls state");
+    match state.read_tls() {
+        Ok(0) => {
+            if let Err(err) = state.connection.process_new_packets().map_err(tls_io_error) {
+                return TlsReadOutcome::ConnectionLost(err.to_string());
+            }
+            drop(state);
+            match drain_tls_plaintext(core, tls_state, plaintext) {
+                Ok(true) => TlsReadOutcome::Continue,
+                Ok(false) => TlsReadOutcome::Eof,
+                Err(err) => TlsReadOutcome::ConnectionLost(err),
+            }
+        }
+        Ok(_) => {
+            if let Err(err) = state.connection.process_new_packets().map_err(tls_io_error) {
+                return TlsReadOutcome::ConnectionLost(err.to_string());
+            }
+            if let Err(err) = flush_tls_io_locked(&mut state) {
+                return TlsReadOutcome::ConnectionLost(err.to_string());
+            }
+            drop(state);
+            match drain_tls_plaintext(core, tls_state, plaintext) {
+                Ok(_) => TlsReadOutcome::Continue,
+                Err(err) => TlsReadOutcome::ConnectionLost(err),
+            }
+        }
+        Err(err)
+            if err.kind() == io::ErrorKind::WouldBlock
+                || err.kind() == io::ErrorKind::Interrupted =>
+        {
+            TlsReadOutcome::Continue
+        }
+        Err(err) => TlsReadOutcome::ConnectionLost(err.to_string()),
+    }
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn tls_socket_wait_target(tls_state: &SharedTlsIoState) -> (fd_ops::RawFd, bool) {
+    let state = tls_state.lock().expect("poisoned tls state");
+    (state.fd(), state.pollable())
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn close_tls_writer(tls_state: &SharedTlsIoState) -> io::Result<()> {
+    let mut state = tls_state.lock().expect("poisoned tls state");
+    let shutdown_timeout = state.shutdown_timeout;
+    state.connection.send_close_notify();
+    let result = flush_tls_close_io_locked(&mut state, shutdown_timeout);
+    let close_result = state.shutdown_close();
+    result.and(close_result)
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn abort_tls_writer(tls_state: &SharedTlsIoState) -> io::Result<()> {
+    let state = tls_state.lock().expect("poisoned tls state");
+    state.shutdown_close()
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn flush_tls_io_locked(state: &mut TlsIoState) -> io::Result<()> {
+    while state.connection.wants_write() {
+        match state.write_tls() {
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to flush TLS records",
+                ));
+            }
+            Ok(_) => {}
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                wait_socket_ready(state.fd(), state.pollable(), false, true)?;
+            }
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(())
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn flush_tls_close_io_locked(
+    state: &mut TlsIoState,
+    timeout: Duration,
+) -> io::Result<()> {
+    let deadline = std::time::Instant::now()
+        .checked_add(timeout)
+        .unwrap_or_else(std::time::Instant::now);
+    while state.connection.wants_write() {
+        match state.write_tls() {
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to flush TLS records",
+                ));
+            }
+            Ok(_) => {}
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                wait_socket_ready_until(state.fd(), state.pollable(), false, true, deadline)?;
+            }
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(())
+}
+
+#[cfg_attr(feature = "profile", hotpath::measure)]
+pub(super) fn tls_io_error(err: rustls::Error) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, err.to_string())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::{
+        fs,
+        io::{BufReader, Cursor, Read, Write},
+        os::{fd::AsRawFd, unix::net::UnixStream},
+        time::Duration,
+    };
+
+    use pyo3::Python;
+    use rustls::{ClientConfig, RootCertStore, pki_types::ServerName};
+
+    use super::*;
+    use crate::transport::stream::server_core::tests::{build_test_server, shutdown_test_server};
+
+    const CERTFILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tls/cert.pem");
+
+    fn client_connection() -> ClientConnection {
+        let cafile = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/tls/ca-cert.pem"
+        );
+        let cert_data = fs::read(cafile).expect("read CA certificate fixture");
+        let certs = rustls_pemfile::certs(&mut BufReader::new(Cursor::new(cert_data)))
+            .collect::<Result<Vec<_>, _>>()
+            .expect("parse certificate fixture");
+        let mut roots = RootCertStore::empty();
+        roots
+            .add(certs[0].clone())
+            .expect("trust certificate fixture");
+        let config = ClientConfig::builder_with_protocol_versions(rustls::DEFAULT_VERSIONS)
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        ClientConnection::new(
+            Arc::new(config),
+            ServerName::try_from("localhost".to_owned()).expect("valid server name"),
+        )
+        .expect("create client connection")
+    }
+
+    fn client_tls_state(stream: UnixStream) -> SharedTlsIoState {
+        Arc::new(Mutex::new(TlsIoState {
+            stream: StreamKind::Unix(stream),
+            connection: TlsConnectionKind::Client(client_connection()),
+            shutdown_timeout: Duration::from_millis(50),
+        }))
+    }
+
+    #[test]
+    fn plaintext_drain_preserves_capacity_boundaries_and_terminal_state() {
+        let mut certs = BufReader::new(Cursor::new(fs::read(CERTFILE).unwrap()));
+        let certs = rustls_pemfile::certs(&mut certs)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let keyfile = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tls/key.pem");
+        let mut key = BufReader::new(Cursor::new(fs::read(keyfile).unwrap()));
+        let key = rustls_pemfile::private_key(&mut key).unwrap().unwrap();
+        let config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .unwrap();
+        let mut server = ServerConnection::new(Arc::new(config)).unwrap();
+        let mut client = client_connection();
+        for _ in 0..10 {
+            let mut records = Vec::new();
+            client.write_tls(&mut records).unwrap();
+            server.read_tls(&mut Cursor::new(records)).unwrap();
+            server.process_new_packets().unwrap();
+            let mut records = Vec::new();
+            server.write_tls(&mut records).unwrap();
+            client.read_tls(&mut Cursor::new(records)).unwrap();
+            client.process_new_packets().unwrap();
+            if !client.is_handshaking() && !server.is_handshaking() {
+                break;
+            }
+        }
+        assert!(!client.is_handshaking());
+        server.writer().write_all(b"hello world").unwrap();
+        server.send_close_notify();
+        let mut records = Vec::new();
+        server.write_tls(&mut records).unwrap();
+        client.read_tls(&mut Cursor::new(records)).unwrap();
+        client.process_new_packets().unwrap();
+        let mut connection = TlsConnectionKind::Client(client);
+        let mut plaintext = Vec::with_capacity(4);
+        let capacity = plaintext.capacity();
+        let mut result = Vec::new();
+        loop {
+            let count = connection.reader_drain(&mut plaintext).unwrap();
+            assert!(count <= capacity);
+            assert_eq!(plaintext.capacity(), capacity);
+            if count == 0 {
+                break;
+            }
+            result.extend_from_slice(&plaintext);
+        }
+        assert_eq!(result, b"hello world");
+        assert!(plaintext.is_empty());
+
+        let mut connection = TlsConnectionKind::Client(client_connection());
+        plaintext.extend_from_slice(b"old");
+        assert_eq!(connection.reader_drain(&mut plaintext).unwrap(), 0);
+        assert!(plaintext.is_empty());
+    }
+
+    #[test]
+    fn handshake_timeout_and_closed_server_cancel_before_io() {
+        let (stream, _peer) = UnixStream::pair().expect("Unix socketpair");
+        let tls_state = client_tls_state(stream);
+        let err = complete_tls_handshake(&tls_state, Duration::ZERO, None)
+            .expect_err("zero timeout should fail before handshake I/O");
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+
+        let err = complete_tls_handshake(&tls_state, Duration::MAX, None)
+            .expect_err("unrepresentable deadline should fail before handshake I/O");
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let (server, loop_core) = build_test_server(py);
+            let weak = Arc::downgrade(&server);
+            server.close();
+            let err = complete_tls_handshake(&tls_state, Duration::from_secs(1), Some(&weak))
+                .expect_err("closed server should cancel handshake");
+            assert_eq!(err.kind(), io::ErrorKind::Interrupted);
+            shutdown_test_server(server, loop_core);
+        });
+    }
+
+    #[test]
+    fn server_closed_detection_handles_live_closed_and_dropped_servers() {
+        assert!(!tls_server_closed(None));
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            let (server, loop_core) = build_test_server(py);
+            let weak = Arc::downgrade(&server);
+            assert!(!tls_server_closed(Some(&weak)));
+            server.close();
+            assert!(tls_server_closed(Some(&weak)));
+            shutdown_test_server(server, Arc::clone(&loop_core));
+            assert!(tls_server_closed(Some(&weak)));
+            drop(loop_core);
+        });
+    }
+
+    #[test]
+    fn handshake_read_reports_eof_before_completion() {
+        let (stream, peer) = UnixStream::pair().expect("Unix socketpair");
+        let fd = i64::from(stream.as_raw_fd());
+        let tls_state = client_tls_state(stream);
+        drop(peer);
+
+        let err = continue_tls_handshake_read(&tls_state, fd, true)
+            .expect_err("closed peer should end handshake");
+        assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    #[test]
+    fn malformed_peer_records_become_invalid_data_errors() {
+        let (stream, mut peer) = UnixStream::pair().expect("Unix socketpair");
+        peer.set_read_timeout(Some(Duration::from_secs(1)))
+            .expect("peer read timeout");
+        let tls_state = client_tls_state(stream);
+
+        assert!(!tls_handshake_step(&tls_state).expect("flush client hello"));
+        let mut hello = [0_u8; 4096];
+        assert!(peer.read(&mut hello).expect("read client hello") > 0);
+        peer.write_all(&[0_u8; 16])
+            .expect("write malformed TLS record");
+
+        let err = tls_handshake_step(&tls_state).expect_err("malformed TLS should fail");
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn abort_closes_the_socket_and_error_conversion_keeps_tls_context() {
+        let (stream, mut peer) = UnixStream::pair().expect("Unix socketpair");
+        peer.set_read_timeout(Some(Duration::from_secs(1)))
+            .expect("peer read timeout");
+        let expected_fd = i64::from(stream.as_raw_fd());
+        let tls_state = client_tls_state(stream);
+        assert_eq!(tls_socket_wait_target(&tls_state), (expected_fd, true));
+
+        abort_tls_writer(&tls_state).expect("abort TLS writer");
+        let mut byte = [0_u8; 1];
+        assert_eq!(peer.read(&mut byte).expect("observe socket shutdown"), 0);
+
+        let err = tls_io_error(rustls::Error::General("bad peer record".to_owned()));
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("bad peer record"));
+    }
+}

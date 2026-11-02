@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import backfill_evidence as ev
-from probe.cli import backfill_index as idx
+from probe.cli.imports.folder import evidence as ev
+from probe.cli.imports.folder.walk import index as idx
 
 
 def _write(root: Path, rel: str, text: str) -> Path:
@@ -176,7 +176,7 @@ def _boom():
 def test_the_index_lives_beside_the_ledger(tmp_path):
     """One folder's bookkeeping in one place, so PROBE_BACKFILL_STATE_DIR
     moves all of it at once."""
-    from probe.cli import backfill_ledger as ledger_mod
+    from probe.cli.imports.folder.upload import ledger as ledger_mod
 
     folder = tmp_path / "f"
     folder.mkdir()
@@ -193,8 +193,8 @@ def test_the_shortfall_is_named_not_just_counted(tmp_path):
     """"N unaccounted for" tells a reader something went missing and gives
     them no way to find out what. Both sides are local: the index is what was
     walked, the manifests are what the import claimed."""
-    from probe.cli.backfill_run import UnitOutcome, write_unaccounted
-    from probe.cli.backfill_ledger import Unit
+    from probe.cli.imports.folder.upload.units import UnitOutcome, write_unaccounted
+    from probe.cli.imports.folder.upload.ledger import Unit
 
     folder, state = tmp_path / "f", tmp_path / "state"
     _write(folder, "kept.md", "x")
@@ -217,8 +217,8 @@ def test_the_shortfall_is_named_not_just_counted(tmp_path):
 
 def test_nothing_missing_writes_no_file(tmp_path):
     """An empty file reads as a failed write. No file is the clearer answer."""
-    from probe.cli.backfill_run import UnitOutcome, write_unaccounted
-    from probe.cli.backfill_ledger import Unit
+    from probe.cli.imports.folder.upload.units import UnitOutcome, write_unaccounted
+    from probe.cli.imports.folder.upload.ledger import Unit
 
     folder, state = tmp_path / "f", tmp_path / "state"
     _write(folder, "a.md", "x")
@@ -237,8 +237,8 @@ def test_nothing_missing_writes_no_file(tmp_path):
 def test_a_unit_that_died_leaves_its_files_in_the_list(tmp_path):
     """The failure this is actually for: a unit crashed, so its files were
     never manifested and would otherwise vanish into a subtraction."""
-    from probe.cli.backfill_run import UnitOutcome, write_unaccounted
-    from probe.cli.backfill_ledger import Unit
+    from probe.cli.imports.folder.upload.units import UnitOutcome, write_unaccounted
+    from probe.cli.imports.folder.upload.ledger import Unit
 
     folder, state = tmp_path / "f", tmp_path / "state"
     _write(folder, "a.md", "x")

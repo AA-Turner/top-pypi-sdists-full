@@ -9,7 +9,7 @@ from prompt_toolkit.data_structures import Size
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from probe.cli import tui
+from probe.cli.wizard import terminal as tui
 
 # Every test here drives a prompt_toolkit app session and asserts on the frames
 # it rendered. That is a finished-render measurement, so it belongs in the serial
@@ -25,9 +25,22 @@ def _run(
         def get_size(self):
             return Size(rows=height, columns=width)
 
-    monkeypatch.setattr(tui, "interactive", lambda: True)
-    monkeypatch.setattr(tui, "columns", lambda: width)
-    monkeypatch.setattr(tui, "rows", lambda: height)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: True)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: True)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: True)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: True)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: True)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: True)
+    monkeypatch.setattr(tui.terminal, "columns", lambda: width)
+    monkeypatch.setattr(tui.boxes, "columns", lambda: width)
+    monkeypatch.setattr(tui.layout, "columns", lambda: width)
+    monkeypatch.setattr(tui.progress, "columns", lambda: width)
+    monkeypatch.setattr(tui.status_board, "columns", lambda: width)
+    monkeypatch.setattr(tui.terminal, "rows", lambda: height)
+    monkeypatch.setattr(tui.choices, "rows", lambda: height)
+    monkeypatch.setattr(tui.layout, "rows", lambda: height)
+    monkeypatch.setattr(tui.progress, "rows", lambda: height)
+    monkeypatch.setattr(tui.status_board, "rows", lambda: height)
     frames = []
     ask = tui.ask
 
@@ -87,7 +100,8 @@ def _run(
             app.pre_run_callables.append(lambda: app.create_background_task(drive()))
             return ask(question, **kwargs)
 
-        monkeypatch.setattr(tui, "ask", run)
+        monkeypatch.setattr(tui.forms, "ask", run)
+        monkeypatch.setattr(tui.layout, "ask", run)
         if render is not None:
             answer = render()
         elif text:
@@ -122,7 +136,7 @@ def test_cancellation_is_distinct_from_approval(monkeypatch, key, expected):
     (["\x03"], None),
 ])
 def test_account_switch_requires_an_explicit_choice_in_the_shared_frame(monkeypatch, keys, expected):
-    from probe.cli import setup
+    from probe.cli import wizard as setup
 
     answer, frames = _run(
         monkeypatch, keys,
@@ -138,7 +152,12 @@ def test_account_switch_requires_an_explicit_choice_in_the_shared_frame(monkeypa
 
 
 def test_review_cannot_approve_from_a_pipe(monkeypatch, capsys):
-    monkeypatch.setattr(tui, "interactive", lambda: False)
+    monkeypatch.setattr(tui.terminal, "interactive", lambda: False)
+    monkeypatch.setattr(tui.clipboard, "interactive", lambda: False)
+    monkeypatch.setattr(tui.forms, "interactive", lambda: False)
+    monkeypatch.setattr(tui.layout, "interactive", lambda: False)
+    monkeypatch.setattr(tui.progress, "interactive", lambda: False)
+    monkeypatch.setattr(tui.status_board, "interactive", lambda: False)
     assert tui.review("Review", ["A proposal"], [("Import", True)]) is None
     assert tui.text("Change", [], "Correction?") is None
     assert "A proposal" in capsys.readouterr().out

@@ -41,7 +41,7 @@ class UninstallRunning(RuntimeError):
 def path() -> Path:
     """`~/.local/state/probe/uninstall/barrier.json` (`paths.state_dir()`'s rule)."""
     try:
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         state = paths.state_dir()
     except Exception:  # noqa: BLE001 -- the same rule, spelled out
@@ -81,7 +81,7 @@ def _other_machine(data: dict) -> bool:
     Where this machine's key cannot be read (the tap's copy, without
     `probe.service`), no machine rule applies: the pid check decides."""
     try:
-        from probe.service import paths
+        from probe.foundation.service_api import paths
 
         mine = paths.machine_key()
     except Exception:  # noqa: BLE001
@@ -112,13 +112,13 @@ def _owner_runs(data: dict) -> bool:
     if not isinstance(start, str) or not start:
         # No start time to tell a reused pid by: the pid alone.
         try:
-            from probe.service import procid
+            from probe.foundation.service_api import procid
 
             return procid.exists(pid)
         except Exception:  # noqa: BLE001
             return True
     try:
-        from probe.service import procid
+        from probe.foundation.service_api import procid
 
         alive = procid.alive(pid, start)
     except Exception:  # noqa: BLE001

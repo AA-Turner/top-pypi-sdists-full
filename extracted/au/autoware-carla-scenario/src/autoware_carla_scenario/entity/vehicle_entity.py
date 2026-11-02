@@ -1,0 +1,187 @@
+"""NPC vehicle entity for CARLA scenarios."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import typesafe_carla.carla as carla
+
+    from ..coordinate.poses import OpenDrivePose
+    from ..coordinate.snap import GroundProjectionConfig
+
+from ..traffic.driven import BackendDriven
+from ._spawn import SpawnLocation, spawn_vehicle_actor
+
+#: Module-level flag set by :class:`~autoware_carla_scenario.scenario_runner.ScenarioRunner`
+#: after warm-up ticks complete.  When ``True``, :meth:`VehicleEntity.spawn`
+#: raises :class:`RuntimeError` to prevent spawning NPCs too late.
+_warmup_done: bool = False
+
+
+def _set_warmup_done(done: bool) -> None:
+    """Set :data:`_warmup_done`, for the runner: Codon has no module objects
+    to assign it through (docs/typecheck.md)."""
+    global _warmup_done
+    _warmup_done = done
+
+
+def warmup_done() -> bool:
+    """Whether the clock has started (:data:`_warmup_done`)."""
+    return _warmup_done
+
+
+#: The speeds (m/s, by actor id) of the vehicles a spawn card brought in
+#: before the clock started -- in the init phase, which holds every vehicle
+#: still: the runner gives them these with the initial speeds.
+_entry_speeds: dict[int, float] = {}
+
+
+def hold_entry_speed(actor_id: int, speed: float) -> None:
+    """Have the vehicle *actor_id*, brought in before the clock started,
+    start the run at *speed* (m/s)."""
+    _entry_speeds[actor_id] = speed
+
+
+def entry_speeds() -> dict[int, float]:
+    """:data:`_entry_speeds`, a copy."""
+    return dict(_entry_speeds)
+
+
+def _clear_entry_speeds() -> None:
+    """Forget the entry speeds, for the runner at the start and end of a run."""
+    _entry_speeds.clear()
+
+
+@dataclass
+class VehicleEntityConfig:
+    """Configuration for spawning a vehicle entity (ego or NPC).
+
+    *spawn_location* determines where the vehicle is placed — either an
+    explicit :class:`SpawnTransform` or a :class:`SpawnPointIndex`.
+    """
+
+    #: CARLA's ``role_name`` string.  An :class:`EntityRole` is accepted and
+    #: stored as its string (:meth:`__post_init__`), so the config holds one
+    #: type whatever it was built with.
+    role_name: str
+    spawn_location: SpawnLocation
+    vehicle_type: str = "vehicle.mini.cooper"
+    initial_speed_kmh: float = 0.0
+    spawn_retry_max_count: int = 0
+    spawn_retry_t_step: float = 0.1
+    spawn_retry_z_step: float = 0.5
+    od_pose: Optional["OpenDrivePose"] = None
+    ground_projection: Optional["GroundProjectionConfig"] = None
+
+    def __post_init__(self) -> None:
+        # Stored as a string: CARLA's role_name is one, every reader converts
+        # it to one anyway, and the static check (docs/typecheck.md) needs an
+        # attribute of one type.
+        self.role_name = str(self.role_name)
+
+
+class VehicleEntity(BackendDriven):
+    """Manages the lifecycle of an NPC vehicle actor in CARLA.
+
+    This class handles spawning, destroying, and providing access to an NPC
+    vehicle actor.  It mirrors the :class:`EgoVehicle` API but is intended
+    for non-ego vehicles that participate in a scenario.
+    """
+
+    # Declared for the static check (docs/typecheck.md): Codon types an
+    # attribute from its declaration; to Python it is a bare annotation.
+    _config: VehicleEntityConfig
+    _vehicle: Optional["carla.Actor"]
+
+    def __init__(self, config: VehicleEntityConfig) -> None:
+        self._config = config
+        self._vehicle: Optional["carla.Actor"] = None
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def role_name(self) -> str:
+        """Return the role name that identifies this entity."""
+        return self._config.role_name
+
+    @property
+    def vehicle_type(self) -> str:
+        """Return the CARLA blueprint ID for this vehicle."""
+        return self._config.vehicle_type
+
+    @property
+    def initial_speed_kmh(self) -> float:
+        """Return the configured initial speed in km/h."""
+        return self._config.initial_speed_kmh
+
+    @property
+    def actor(self) -> Optional["carla.Actor"]:
+        """Return the underlying CARLA actor, or ``None`` if not spawned."""
+        return self._vehicle
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def spawn(self, world: "carla.World") -> "carla.Actor":
+        """Spawn the NPC vehicle in the CARLA world.
+
+        Must be called during :meth:`BaseScenario.setup`, **before** the
+        warm-up ticks run.  Spawning after warm-up raises :class:`RuntimeError`.
+
+        Args:
+            world: The CARLA world instance.
+
+        Returns:
+            The spawned vehicle actor.
+
+        Raises:
+            RuntimeError: If called after the warm-up phase has completed.
+            ValueError: If the vehicle blueprint is not available or the
+                spawn index is out of range.
+            RuntimeError: If the vehicle could not be spawned at the
+                requested location.
+        """
+        if _warmup_done:
+            raise RuntimeError(
+                "CARLA NPCs require ~5 ticks to stabilise after spawning. "
+                "Spawn operations must be performed in setup() before "
+                "the warm-up phase."
+            )
+
+        self._vehicle = spawn_vehicle_actor(
+            world,
+            self._config.vehicle_type,
+            self._config.role_name,
+            self._config.spawn_location,
+            od_pose=self._config.od_pose,
+            spawn_retry_max_count=self._config.spawn_retry_max_count,
+            spawn_retry_t_step=self._config.spawn_retry_t_step,
+            spawn_retry_z_step=self._config.spawn_retry_z_step,
+            ground_projection=self._config.ground_projection,
+        )
+        return self._vehicle
+
+    def _replace_actor(self, actor: Optional["carla.Actor"]) -> bool:
+        """Accept a traffic backend taking this NPC out of the world while it
+        simulates it mesoscopically, and the actor it spawns when it brings it
+        back (:class:`~autoware_carla_scenario.traffic.SimulationFidelity`).
+
+        An NPC is the scenario's only by role name, which the backend gives the
+        new actor too, so nothing the scenario holds goes stale -- except the
+        lane change in progress, which was the old actor's.
+        """
+        self.forget_lane_change()
+        self._vehicle = actor
+        return True
+
+    def destroy(self) -> None:
+        """Destroy the vehicle actor and release resources."""
+        self.forget_lane_change()
+        if self._vehicle is not None:
+            self._vehicle.destroy()
+            self._vehicle = None

@@ -1,0 +1,849 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+"""
+AI Model Catalog.
+
+Predefined AI model configurations.
+
+This file is AUTO-GENERATED from YAML specifications.
+DO NOT EDIT MANUALLY - run 'make specs' to regenerate.
+"""
+
+import os
+from enum import Enum
+from typing import Dict, List, Optional
+
+from agent_runtimes.types import AIModel, ModelPricing
+
+# ============================================================================
+# AIModels Enum
+# ============================================================================
+
+
+class AIModels(str, Enum):
+    """Enumeration of all available AI model IDs."""
+
+    ALIBABA_QWEN_MAX = "alibaba:qwen-max"
+    ALIBABA_QWEN3_32B = "alibaba:qwen3-32b"
+    ALIBABA_QWEN3_6_FLASH = "alibaba:qwen3.6-flash"
+    ALIBABA_QWEN3_6_PLUS = "alibaba:qwen3.6-plus"
+    ALIBABA_QWEN3_7_PLUS = "alibaba:qwen3.7-plus"
+    ANTHROPIC_CLAUDE_3_5_HAIKU_20241022 = "anthropic:claude-3-5-haiku-20241022"
+    ANTHROPIC_CLAUDE_OPUS_4_20250514 = "anthropic:claude-opus-4-20250514"
+    ANTHROPIC_CLAUDE_SONNET_4_5_20250514 = "anthropic:claude-sonnet-4-5-20250514"
+    ANTHROPIC_CLAUDE_SONNET_4_20250514 = "anthropic:claude-sonnet-4-20250514"
+    AZURE_OPENAI_GPT_4_1_MINI = "azure-openai:gpt-4.1-mini"
+    AZURE_OPENAI_GPT_4_1_NANO = "azure-openai:gpt-4.1-nano"
+    AZURE_OPENAI_GPT_4_1 = "azure-openai:gpt-4.1"
+    AZURE_OPENAI_GPT_4O_MINI = "azure-openai:gpt-4o-mini"
+    AZURE_OPENAI_GPT_4O = "azure-openai:gpt-4o"
+    BEDROCK_US_ANTHROPIC_CLAUDE_FABLE_5 = "bedrock:us.anthropic.claude-fable-5"
+    BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_6_V1 = "bedrock:us.anthropic.claude-opus-4-6-v1"
+    BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_8 = "bedrock:us.anthropic.claude-opus-4-8"
+    BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0 = (
+        "bedrock:us.anthropic.claude-opus-4-20250514-v1:0"
+    )
+    BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_5 = "bedrock:us.anthropic.claude-opus-5"
+    BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0 = (
+        "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_6 = "bedrock:us.anthropic.claude-sonnet-4-6"
+    BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0 = (
+        "bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0"
+    )
+    CLOUDFLARE_GTW_TYPESAFE_JEV = "cloudflare:gtw/typesafe/jev"
+    CLOUDFLARE_WRK_GOOGLE_GEMMA_4_26B_A4B_IT = (
+        "cloudflare:wrk/google/gemma-4-26b-a4b-it"
+    )
+    CLOUDFLARE_WRK_ZAI_ORG_GLM_5_2 = "cloudflare:wrk/zai-org/glm-5.2"
+    CLOUDFLARE_WRK_OPENAI_GPT_OSS_120B = "cloudflare:wrk/openai/gpt-oss-120b"
+    CLOUDFLARE_WRK_MOONSHOTAI_KIMI_K2_6 = "cloudflare:wrk/moonshotai/kimi-k2.6"
+    CLOUDFLARE_WRK_META_LLAMA_3_3_70B_INSTRUCT_FP8_FAST = (
+        "cloudflare:wrk/meta/llama-3.3-70b-instruct-fp8-fast"
+    )
+    CLOUDFLARE_WRK_QWEN_QWEN3_8_27B = "cloudflare:wrk/qwen/qwen3.8-27b"
+    CLOUDFLARE_WRK_TYPESAFE_JEV = "cloudflare:wrk/typesafe/jev"
+    OLLAMA_GEMMA3_4B = "ollama:gemma3:4b"
+    OLLAMA_LLAMA3_1_8B = "ollama:llama3.1:8b"
+    OLLAMA_QWEN2_5_CODER_7B = "ollama:qwen2.5-coder:7b"
+    OPENAI_GPT_4_1_MINI = "openai:gpt-4.1-mini"
+    OPENAI_GPT_4_1_NANO = "openai:gpt-4.1-nano"
+    OPENAI_GPT_4_1 = "openai:gpt-4.1"
+    OPENAI_GPT_4O_MINI = "openai:gpt-4o-mini"
+    OPENAI_GPT_4O = "openai:gpt-4o"
+    OPENAI_O3_MINI = "openai:o3-mini"
+    CLOUDFLARE_GOOGLE_GEMMA_4_26B_A4B_IT = (
+        "cloudflare:google/gemma-4-26b-a4b-it"  # before the id moved
+    )
+    CLOUDFLARE_ZAI_ORG_GLM_5_2 = "cloudflare:zai-org/glm-5.2"  # before the id moved
+    CLOUDFLARE_OPENAI_GPT_OSS_120B = (
+        "cloudflare:openai/gpt-oss-120b"  # before the id moved
+    )
+    CLOUDFLARE_MOONSHOTAI_KIMI_K2_6 = (
+        "cloudflare:moonshotai/kimi-k2.6"  # before the id moved
+    )
+    CLOUDFLARE_META_LLAMA_3_3_70B_INSTRUCT_FP8_FAST = (
+        "cloudflare:meta/llama-3.3-70b-instruct-fp8-fast"  # before the id moved
+    )
+    CLOUDFLARE_QWEN_QWEN3_8_27B = "cloudflare:qwen/qwen3.8-27b"  # before the id moved
+
+
+# ============================================================================
+# AI Model Definitions
+# ============================================================================
+
+ALIBABA_QWEN_MAX_0_0_1 = AIModel(
+    id="alibaba:qwen-max",
+    version="0.0.1",
+    name="Alibaba Qwen-Max",
+    description="Qwen-Max via Alibaba Cloud Model Studio - highest capability Qwen model",
+    provider="alibaba",
+    provider_url="https://www.alibabacloud.com/help/en/model-studio/models",
+    default=False,
+    available=True,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+ALIBABA_QWEN3_32B_0_0_1 = AIModel(
+    id="alibaba:qwen3-32b",
+    version="0.0.1",
+    name="Alibaba Qwen3-32B",
+    description="Qwen3-32B via Alibaba Cloud Model Studio - open-weight 32B model with tool calling",
+    provider="alibaba",
+    provider_url="https://www.alibabacloud.com/help/en/model-studio/models",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=16384,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+ALIBABA_QWEN3_6_FLASH_0_0_1 = AIModel(
+    id="alibaba:qwen3.6-flash",
+    version="0.0.1",
+    name="Alibaba Qwen3.6-Flash",
+    description="Qwen3.6-Flash via Alibaba Cloud Model Studio - fast and low cost",
+    provider="alibaba",
+    provider_url="https://www.alibabacloud.com/help/en/model-studio/models",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=16384,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+ALIBABA_QWEN3_6_PLUS_0_0_1 = AIModel(
+    id="alibaba:qwen3.6-plus",
+    version="0.0.1",
+    name="Alibaba Qwen3.6-Plus",
+    description="Qwen3.6-Plus via Alibaba Cloud Model Studio - balanced performance and cost",
+    provider="alibaba",
+    provider_url="https://www.alibabacloud.com/help/en/model-studio/models",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+ALIBABA_QWEN3_7_PLUS_0_0_1 = AIModel(
+    id="alibaba:qwen3.7-plus",
+    version="0.0.1",
+    name="Alibaba Qwen3.7-Plus",
+    description="Qwen3.7-Plus via Alibaba Cloud Model Studio - balanced flagship Qwen3 model",
+    provider="alibaba",
+    provider_url="https://www.alibabacloud.com/help/en/model-studio/models",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_0_0_1 = AIModel(
+    id="anthropic:claude-3-5-haiku-20241022",
+    version="0.0.1",
+    name="Anthropic Claude Haiku 3.5",
+    description="Claude Haiku 3.5 by Anthropic - fast and efficient",
+    provider="anthropic",
+    provider_url="https://www.anthropic.com/claude/haiku",
+    default=False,
+    available=False,
+    required_env_vars=["ANTHROPIC_API_KEY"],
+    tokens_limit=8192,
+    pricing=ModelPricing(input_usd_per_million=0.8, output_usd_per_million=4.0),
+)
+
+ANTHROPIC_CLAUDE_OPUS_4_20250514_0_0_1 = AIModel(
+    id="anthropic:claude-opus-4-20250514",
+    version="0.0.1",
+    name="Anthropic Claude Opus 4",
+    description="Claude Opus 4 by Anthropic - highest capability model",
+    provider="anthropic",
+    provider_url="https://www.anthropic.com/claude/opus",
+    default=False,
+    available=False,
+    required_env_vars=["ANTHROPIC_API_KEY"],
+    tokens_limit=32000,
+    pricing=ModelPricing(input_usd_per_million=15.0, output_usd_per_million=75.0),
+)
+
+ANTHROPIC_CLAUDE_SONNET_4_5_20250514_0_0_1 = AIModel(
+    id="anthropic:claude-sonnet-4-5-20250514",
+    version="0.0.1",
+    name="Anthropic Claude Sonnet 4.5",
+    description="Claude Sonnet 4.5 by Anthropic - balanced performance and speed",
+    provider="anthropic",
+    provider_url="https://www.anthropic.com/claude/sonnet",
+    default=False,
+    available=False,
+    required_env_vars=["ANTHROPIC_API_KEY"],
+    tokens_limit=64000,
+    pricing=ModelPricing(input_usd_per_million=3.0, output_usd_per_million=15.0),
+)
+
+ANTHROPIC_CLAUDE_SONNET_4_20250514_0_0_1 = AIModel(
+    id="anthropic:claude-sonnet-4-20250514",
+    version="0.0.1",
+    name="Anthropic Claude Sonnet 4",
+    description="Claude Sonnet 4 by Anthropic - strong reasoning and coding",
+    provider="anthropic",
+    provider_url="https://www.anthropic.com/claude/sonnet",
+    default=False,
+    available=False,
+    required_env_vars=["ANTHROPIC_API_KEY"],
+    tokens_limit=64000,
+    pricing=ModelPricing(input_usd_per_million=3.0, output_usd_per_million=15.0),
+)
+
+AZURE_OPENAI_GPT_4_1_MINI_0_0_1 = AIModel(
+    id="azure-openai:gpt-4.1-mini",
+    version="0.0.1",
+    name="Azure OpenAI GPT-4.1 Mini",
+    description="GPT-4.1 Mini via Azure OpenAI - compact version",
+    provider="azure-openai",
+    provider_url="https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure",
+    default=False,
+    available=False,
+    required_env_vars=["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=0.4, output_usd_per_million=1.6),
+)
+
+AZURE_OPENAI_GPT_4_1_NANO_0_0_1 = AIModel(
+    id="azure-openai:gpt-4.1-nano",
+    version="0.0.1",
+    name="Azure OpenAI GPT-4.1 Nano",
+    description="GPT-4.1 Nano via Azure OpenAI - smallest and fastest",
+    provider="azure-openai",
+    provider_url="https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure",
+    default=False,
+    available=False,
+    required_env_vars=["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=0.1, output_usd_per_million=0.4),
+)
+
+AZURE_OPENAI_GPT_4_1_0_0_1 = AIModel(
+    id="azure-openai:gpt-4.1",
+    version="0.0.1",
+    name="Azure OpenAI GPT-4.1",
+    description="GPT-4.1 via Azure OpenAI - strong general purpose",
+    provider="azure-openai",
+    provider_url="https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure",
+    default=False,
+    available=False,
+    required_env_vars=["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=2.0, output_usd_per_million=8.0),
+)
+
+AZURE_OPENAI_GPT_4O_MINI_0_0_1 = AIModel(
+    id="azure-openai:gpt-4o-mini",
+    version="0.0.1",
+    name="Azure OpenAI GPT-4o Mini",
+    description="GPT-4o Mini via Azure OpenAI - compact enterprise deployment",
+    provider="azure-openai",
+    provider_url="https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure",
+    default=False,
+    available=False,
+    required_env_vars=["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+    tokens_limit=16384,
+    pricing=ModelPricing(input_usd_per_million=0.15, output_usd_per_million=0.6),
+)
+
+AZURE_OPENAI_GPT_4O_0_0_1 = AIModel(
+    id="azure-openai:gpt-4o",
+    version="0.0.1",
+    name="Azure OpenAI GPT-4o",
+    description="GPT-4o via Azure OpenAI - enterprise deployment",
+    provider="azure-openai",
+    provider_url="https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure",
+    default=False,
+    available=False,
+    required_env_vars=["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+    tokens_limit=16384,
+    pricing=ModelPricing(input_usd_per_million=2.5, output_usd_per_million=10.0),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_FABLE_5_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-fable-5",
+    version="0.0.1",
+    name="Bedrock Claude Fable 5",
+    description="Claude Fable 5 via AWS Bedrock",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=64000,
+    pricing=ModelPricing(input_usd_per_million=11.0, output_usd_per_million=55.0),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_6_V1_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-opus-4-6-v1",
+    version="0.0.1",
+    name="Bedrock Claude Opus 4.6",
+    description="Claude Opus 4.6 via AWS Bedrock",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=32000,
+    pricing=ModelPricing(input_usd_per_million=5.5, output_usd_per_million=27.5),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_8_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-opus-4-8",
+    version="0.0.1",
+    name="Bedrock Claude Opus 4.8",
+    description="Claude Opus 4.8 via AWS Bedrock",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=32000,
+    pricing=ModelPricing(input_usd_per_million=5.5, output_usd_per_million=27.5),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-opus-4-20250514-v1:0",
+    version="0.0.1",
+    name="Bedrock Claude Opus 4",
+    description="Claude Opus 4 via AWS Bedrock - highest capability",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=32000,
+    pricing=ModelPricing(input_usd_per_million=15.0, output_usd_per_million=75.0),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_5_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-opus-5",
+    version="0.0.1",
+    name="Bedrock Claude Opus 5",
+    description="Claude Opus 5 via AWS Bedrock - the current frontier model",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=32000,
+    pricing=ModelPricing(input_usd_per_million=5.5, output_usd_per_million=27.5),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    version="0.0.1",
+    name="Bedrock Claude Sonnet 4.5",
+    description="Claude Sonnet 4.5 via AWS Bedrock - balanced performance",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=64000,
+    pricing=ModelPricing(input_usd_per_million=3.3, output_usd_per_million=16.5),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_6_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-sonnet-4-6",
+    version="0.0.1",
+    name="Bedrock Claude Sonnet 4.6",
+    description="Claude Sonnet 4.6 via AWS Bedrock - balanced performance",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=True,
+    available=True,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=64000,
+    capabilities=["chat", "tools", "decider"],
+    context_window=200000,
+    pricing=ModelPricing(input_usd_per_million=3.3, output_usd_per_million=16.5),
+)
+
+BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0_0_0_1 = AIModel(
+    id="bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0",
+    version="0.0.1",
+    name="Bedrock Claude Sonnet 4",
+    description="Claude Sonnet 4 via AWS Bedrock - strong reasoning",
+    provider="bedrock",
+    provider_url="https://aws.amazon.com/bedrock/anthropic/",
+    default=False,
+    available=False,
+    required_env_vars=[
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_DEFAULT_REGION",
+    ],
+    tokens_limit=64000,
+    pricing=ModelPricing(input_usd_per_million=3.0, output_usd_per_million=15.0),
+)
+
+CLOUDFLARE_GTW_TYPESAFE_JEV_0_0_1 = AIModel(
+    id="cloudflare:gtw/typesafe/jev",
+    version="0.0.1",
+    name="Jev (Cloudflare AI Gateway)",
+    description="Typesafe's typed-decision model through the account's AI Gateway - noul, choice and score questions answered as calibrated probabilities; 32k context; zero data retention; the gateway keeps the logs and bills from its credits",
+    provider="cloudflare",
+    provider_url="https://docs.typesafe.ai/models",
+    default=False,
+    available=True,
+    required_env_vars=[],
+    tokens_limit=None,
+    capabilities=["decisions"],
+    billing="credits",
+    route="ai-gateway",
+    context_window=32000,
+    zero_data_retention=True,
+    request_logging="gateway",
+    pricing=ModelPricing(input_usd_per_million=0.042, output_usd_per_million=0.0),
+)
+
+CLOUDFLARE_WRK_GOOGLE_GEMMA_4_26B_A4B_IT_0_0_1 = AIModel(
+    id="cloudflare:wrk/google/gemma-4-26b-a4b-it",
+    version="0.0.1",
+    name="Cloudflare Gemma 4 26B",
+    description="Google Gemma 4 26B (a4b, instruction-tuned) on Cloudflare Workers AI - 256k context, tool calling, standard billing",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=16384,
+    capabilities=["chat", "tools", "codemode"],
+    billing="standard",
+    route="workers-ai",
+    context_window=256000,
+    aliases=["cloudflare:google/gemma-4-26b-a4b-it"],
+    pricing=ModelPricing(input_usd_per_million=0.1, output_usd_per_million=0.3),
+)
+
+CLOUDFLARE_WRK_ZAI_ORG_GLM_5_2_0_0_1 = AIModel(
+    id="cloudflare:wrk/zai-org/glm-5.2",
+    version="0.0.1",
+    name="Cloudflare GLM-5.2",
+    description="Z.ai GLM-5.2 on Cloudflare Workers AI - 262k context, tool calling; a frontier model billed from AI Gateway credits",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/glm-5.2/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode"],
+    billing="credits",
+    route="workers-ai",
+    context_window=262144,
+    aliases=["cloudflare:zai-org/glm-5.2"],
+    pricing=ModelPricing(input_usd_per_million=1.4, output_usd_per_million=4.4),
+)
+
+CLOUDFLARE_WRK_OPENAI_GPT_OSS_120B_0_0_1 = AIModel(
+    id="cloudflare:wrk/openai/gpt-oss-120b",
+    version="0.0.1",
+    name="Cloudflare gpt-oss-120b",
+    description="OpenAI gpt-oss-120b on Cloudflare Workers AI - 128k context, tool calling, standard billing",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/gpt-oss-120b/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode", "decider"],
+    billing="standard",
+    route="workers-ai",
+    context_window=128000,
+    aliases=["cloudflare:openai/gpt-oss-120b"],
+    pricing=ModelPricing(input_usd_per_million=0.35, output_usd_per_million=0.75),
+)
+
+CLOUDFLARE_WRK_MOONSHOTAI_KIMI_K2_6_0_0_1 = AIModel(
+    id="cloudflare:wrk/moonshotai/kimi-k2.6",
+    version="0.0.1",
+    name="Cloudflare Kimi K2.6",
+    description="Moonshot Kimi K2.6 on Cloudflare Workers AI - 262k context, tool calling; a frontier model billed from AI Gateway credits",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=32768,
+    capabilities=["chat", "tools", "codemode"],
+    billing="credits",
+    route="workers-ai",
+    context_window=262144,
+    aliases=["cloudflare:moonshotai/kimi-k2.6"],
+    pricing=ModelPricing(input_usd_per_million=0.95, output_usd_per_million=4.0),
+)
+
+CLOUDFLARE_WRK_META_LLAMA_3_3_70B_INSTRUCT_FP8_FAST_0_0_1 = AIModel(
+    id="cloudflare:wrk/meta/llama-3.3-70b-instruct-fp8-fast",
+    version="0.0.1",
+    name="Cloudflare Llama 3.3 70B",
+    description="Meta Llama 3.3 70B Instruct (fp8, fast) on Cloudflare Workers AI - 24k context, tool calling, standard billing",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=8192,
+    capabilities=["chat", "tools", "codemode"],
+    billing="standard",
+    route="workers-ai",
+    context_window=24000,
+    aliases=["cloudflare:meta/llama-3.3-70b-instruct-fp8-fast"],
+    pricing=ModelPricing(input_usd_per_million=0.293, output_usd_per_million=2.253),
+)
+
+CLOUDFLARE_WRK_QWEN_QWEN3_8_27B_0_0_1 = AIModel(
+    id="cloudflare:wrk/qwen/qwen3.8-27b",
+    version="0.0.1",
+    name="Cloudflare Qwen3.8 27B",
+    description="Qwen3.8 27B on Cloudflare Workers AI - 262k context, tool calling, standard billing",
+    provider="cloudflare",
+    provider_url="https://developers.cloudflare.com/workers-ai/models/qwen3.8-27b/",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=16384,
+    capabilities=["chat", "tools", "codemode"],
+    billing="standard",
+    route="workers-ai",
+    context_window=262144,
+    aliases=["cloudflare:qwen/qwen3.8-27b"],
+    pricing=ModelPricing(input_usd_per_million=0.45, output_usd_per_million=3.2),
+)
+
+CLOUDFLARE_WRK_TYPESAFE_JEV_0_0_1 = AIModel(
+    id="cloudflare:wrk/typesafe/jev",
+    version="0.0.1",
+    name="Jev (Cloudflare Workers AI)",
+    description="Typesafe's typed-decision model at Workers AI's own endpoint - noul, choice and score questions answered as calibrated probabilities; 32k context; zero data retention; billed from the account's credits, no gateway in the way",
+    provider="cloudflare",
+    provider_url="https://docs.typesafe.ai/models",
+    default=False,
+    available=True,
+    required_env_vars=[],
+    tokens_limit=None,
+    capabilities=["decisions"],
+    billing="credits",
+    route="workers-ai",
+    context_window=32000,
+    zero_data_retention=True,
+    request_logging="none",
+    pricing=ModelPricing(input_usd_per_million=0.042, output_usd_per_million=0.0),
+)
+
+OLLAMA_GEMMA3_4B_0_0_1 = AIModel(
+    id="ollama:gemma3:4b",
+    version="0.0.1",
+    name="Gemma 3 4B (Ollama)",
+    description="Gemma 3 4B running locally through Ollama - small and fast, no tool calling",
+    provider="ollama",
+    provider_url="https://ollama.com/library/gemma3:4b",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=4096,
+    local=True,
+    capabilities=["chat"],
+)
+
+OLLAMA_LLAMA3_1_8B_0_0_1 = AIModel(
+    id="ollama:llama3.1:8b",
+    version="0.0.1",
+    name="Llama 3.1 8B (Ollama)",
+    description="Meta Llama 3.1 8B running locally through Ollama - tool calling, no data leaves the machine",
+    provider="ollama",
+    provider_url="https://ollama.com/library/llama3.1:8b",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=4096,
+    local=True,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+OLLAMA_QWEN2_5_CODER_7B_0_0_1 = AIModel(
+    id="ollama:qwen2.5-coder:7b",
+    version="0.0.1",
+    name="Qwen2.5 Coder 7B (Ollama)",
+    description="Qwen2.5 Coder 7B running locally through Ollama - code-focused with tool calling",
+    provider="ollama",
+    provider_url="https://ollama.com/library/qwen2.5-coder:7b",
+    default=False,
+    available=False,
+    required_env_vars=[],
+    tokens_limit=4096,
+    local=True,
+    capabilities=["chat", "tools", "codemode"],
+)
+
+OPENAI_GPT_4_1_MINI_0_0_1 = AIModel(
+    id="openai:gpt-4.1-mini",
+    version="0.0.1",
+    name="OpenAI GPT-4.1 Mini",
+    description="GPT-4.1 Mini by OpenAI - compact version of GPT-4.1",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/gpt-4.1-mini",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=0.4, output_usd_per_million=1.6),
+)
+
+OPENAI_GPT_4_1_NANO_0_0_1 = AIModel(
+    id="openai:gpt-4.1-nano",
+    version="0.0.1",
+    name="OpenAI GPT-4.1 Nano",
+    description="GPT-4.1 Nano by OpenAI - smallest and fastest",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/gpt-4.1-nano",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=0.1, output_usd_per_million=0.4),
+)
+
+OPENAI_GPT_4_1_0_0_1 = AIModel(
+    id="openai:gpt-4.1",
+    version="0.0.1",
+    name="OpenAI GPT-4.1",
+    description="GPT-4.1 by OpenAI - strong general purpose model",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/gpt-4.1",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=32768,
+    pricing=ModelPricing(input_usd_per_million=2.0, output_usd_per_million=8.0),
+)
+
+OPENAI_GPT_4O_MINI_0_0_1 = AIModel(
+    id="openai:gpt-4o-mini",
+    version="0.0.1",
+    name="OpenAI GPT-4o Mini",
+    description="GPT-4o Mini by OpenAI - compact and cost-effective",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/gpt-4o-mini",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=16384,
+    pricing=ModelPricing(input_usd_per_million=0.15, output_usd_per_million=0.6),
+)
+
+OPENAI_GPT_4O_0_0_1 = AIModel(
+    id="openai:gpt-4o",
+    version="0.0.1",
+    name="OpenAI GPT-4o",
+    description="GPT-4o by OpenAI - fast multimodal model",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/gpt-4o",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=16384,
+    pricing=ModelPricing(input_usd_per_million=2.5, output_usd_per_million=10.0),
+)
+
+OPENAI_O3_MINI_0_0_1 = AIModel(
+    id="openai:o3-mini",
+    version="0.0.1",
+    name="OpenAI o3 Mini",
+    description="o3 Mini by OpenAI - reasoning-focused compact model",
+    provider="openai",
+    provider_url="https://platform.openai.com/docs/models/o3-mini",
+    default=False,
+    available=False,
+    required_env_vars=["OPENAI_API_KEY"],
+    tokens_limit=100000,
+    pricing=ModelPricing(input_usd_per_million=1.1, output_usd_per_million=4.4),
+)
+
+# ============================================================================
+# AI Model Catalog
+# ============================================================================
+
+AI_MODEL_CATALOGUE: Dict[str, AIModel] = {
+    "alibaba:qwen-max": ALIBABA_QWEN_MAX_0_0_1,
+    "alibaba:qwen3-32b": ALIBABA_QWEN3_32B_0_0_1,
+    "alibaba:qwen3.6-flash": ALIBABA_QWEN3_6_FLASH_0_0_1,
+    "alibaba:qwen3.6-plus": ALIBABA_QWEN3_6_PLUS_0_0_1,
+    "alibaba:qwen3.7-plus": ALIBABA_QWEN3_7_PLUS_0_0_1,
+    "anthropic:claude-3-5-haiku-20241022": ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_0_0_1,
+    "anthropic:claude-opus-4-20250514": ANTHROPIC_CLAUDE_OPUS_4_20250514_0_0_1,
+    "anthropic:claude-sonnet-4-5-20250514": ANTHROPIC_CLAUDE_SONNET_4_5_20250514_0_0_1,
+    "anthropic:claude-sonnet-4-20250514": ANTHROPIC_CLAUDE_SONNET_4_20250514_0_0_1,
+    "azure-openai:gpt-4.1-mini": AZURE_OPENAI_GPT_4_1_MINI_0_0_1,
+    "azure-openai:gpt-4.1-nano": AZURE_OPENAI_GPT_4_1_NANO_0_0_1,
+    "azure-openai:gpt-4.1": AZURE_OPENAI_GPT_4_1_0_0_1,
+    "azure-openai:gpt-4o-mini": AZURE_OPENAI_GPT_4O_MINI_0_0_1,
+    "azure-openai:gpt-4o": AZURE_OPENAI_GPT_4O_0_0_1,
+    "bedrock:us.anthropic.claude-fable-5": BEDROCK_US_ANTHROPIC_CLAUDE_FABLE_5_0_0_1,
+    "bedrock:us.anthropic.claude-opus-4-6-v1": BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_6_V1_0_0_1,
+    "bedrock:us.anthropic.claude-opus-4-8": BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_8_0_0_1,
+    "bedrock:us.anthropic.claude-opus-4-20250514-v1:0": BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0_0_0_1,
+    "bedrock:us.anthropic.claude-opus-5": BEDROCK_US_ANTHROPIC_CLAUDE_OPUS_5_0_0_1,
+    "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0": BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0_0_0_1,
+    "bedrock:us.anthropic.claude-sonnet-4-6": BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_6_0_0_1,
+    "bedrock:us.anthropic.claude-sonnet-4-20250514-v1:0": BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0_0_0_1,
+    "cloudflare:gtw/typesafe/jev": CLOUDFLARE_GTW_TYPESAFE_JEV_0_0_1,
+    "cloudflare:wrk/google/gemma-4-26b-a4b-it": CLOUDFLARE_WRK_GOOGLE_GEMMA_4_26B_A4B_IT_0_0_1,
+    "cloudflare:wrk/zai-org/glm-5.2": CLOUDFLARE_WRK_ZAI_ORG_GLM_5_2_0_0_1,
+    "cloudflare:wrk/openai/gpt-oss-120b": CLOUDFLARE_WRK_OPENAI_GPT_OSS_120B_0_0_1,
+    "cloudflare:wrk/moonshotai/kimi-k2.6": CLOUDFLARE_WRK_MOONSHOTAI_KIMI_K2_6_0_0_1,
+    "cloudflare:wrk/meta/llama-3.3-70b-instruct-fp8-fast": CLOUDFLARE_WRK_META_LLAMA_3_3_70B_INSTRUCT_FP8_FAST_0_0_1,
+    "cloudflare:wrk/qwen/qwen3.8-27b": CLOUDFLARE_WRK_QWEN_QWEN3_8_27B_0_0_1,
+    "cloudflare:wrk/typesafe/jev": CLOUDFLARE_WRK_TYPESAFE_JEV_0_0_1,
+    "ollama:gemma3:4b": OLLAMA_GEMMA3_4B_0_0_1,
+    "ollama:llama3.1:8b": OLLAMA_LLAMA3_1_8B_0_0_1,
+    "ollama:qwen2.5-coder:7b": OLLAMA_QWEN2_5_CODER_7B_0_0_1,
+    "openai:gpt-4.1-mini": OPENAI_GPT_4_1_MINI_0_0_1,
+    "openai:gpt-4.1-nano": OPENAI_GPT_4_1_NANO_0_0_1,
+    "openai:gpt-4.1": OPENAI_GPT_4_1_0_0_1,
+    "openai:gpt-4o-mini": OPENAI_GPT_4O_MINI_0_0_1,
+    "openai:gpt-4o": OPENAI_GPT_4O_0_0_1,
+    "openai:o3-mini": OPENAI_O3_MINI_0_0_1,
+}
+
+# The ids a model answered to before its id moved, to the id it has now.
+# Kept apart from the catalogue, which lists each model once.
+AI_MODEL_ALIASES: Dict[str, str] = {
+    "cloudflare:google/gemma-4-26b-a4b-it": "cloudflare:wrk/google/gemma-4-26b-a4b-it",
+    "cloudflare:zai-org/glm-5.2": "cloudflare:wrk/zai-org/glm-5.2",
+    "cloudflare:openai/gpt-oss-120b": "cloudflare:wrk/openai/gpt-oss-120b",
+    "cloudflare:moonshotai/kimi-k2.6": "cloudflare:wrk/moonshotai/kimi-k2.6",
+    "cloudflare:meta/llama-3.3-70b-instruct-fp8-fast": "cloudflare:wrk/meta/llama-3.3-70b-instruct-fp8-fast",
+    "cloudflare:qwen/qwen3.8-27b": "cloudflare:wrk/qwen/qwen3.8-27b",
+}
+
+
+DEFAULT_MODEL: AIModels = AIModels.BEDROCK_US_ANTHROPIC_CLAUDE_SONNET_4_6
+
+
+def check_env_vars_available(env_vars: list[str]) -> bool:
+    """
+    Check if all required environment variables are set.
+
+    Args:
+        env_vars: List of environment variable names to check.
+
+    Returns:
+        True if all env vars are set (non-empty), False otherwise.
+    """
+    if not env_vars:
+        return True
+    return all(os.environ.get(var) for var in env_vars)
+
+
+def get_model(model_id: str) -> Optional[AIModel]:
+    """
+    Get an AI model by ID (accepts both bare and versioned refs).
+
+    Args:
+        model_id: The unique identifier of the AI model.
+
+    Returns:
+        The AIModel specification, or None if not found.
+    """
+    model = AI_MODEL_CATALOGUE.get(AI_MODEL_ALIASES.get(model_id, model_id))
+    if model is not None:
+        return model
+    base, _, ver = model_id.rpartition(":")
+    if base and "." in ver:
+        return AI_MODEL_CATALOGUE.get(base)
+    return None
+
+
+def get_default_model() -> Optional[AIModel]:
+    """
+    Get the default AI model.
+
+    Returns:
+        The default AIModel, or None if no default is set.
+    """
+    if DEFAULT_MODEL is None:
+        return None
+    return AI_MODEL_CATALOGUE.get(DEFAULT_MODEL.value)
+
+
+def list_models() -> list[AIModel]:
+    """
+    List all AI models with availability status.
+
+    For each model, checks if the required environment variables are set.
+
+    Returns:
+        List of all AIModel specifications.
+    """
+    return list(AI_MODEL_CATALOGUE.values())
+
+
+def is_chat_model(model: AIModel) -> bool:
+    """A model a chat can run on: not a typed-decision model (Jev), which
+    answers typed questions about a state and nothing else. A spec that
+    states no capability is read as a chat model.
+    """
+    return "decisions" not in model.capabilities
+
+
+def list_chat_models() -> list[AIModel]:
+    """The models a person choosing a chat model is offered from."""
+    return [model for model in AI_MODEL_CATALOGUE.values() if is_chat_model(model)]

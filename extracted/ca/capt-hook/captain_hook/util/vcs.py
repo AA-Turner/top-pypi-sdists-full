@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+import itertools
+import json
+import os
+import shutil
+import subprocess
+from collections.abc import Iterator
+from pathlib import Path
+
+from captain_hook.util import reqenv
+from captain_hook.util.caching import ttl_cache
+
+GRAPHITE_MARKER = ".graphite_repo_config"
+# ccx gates its own gt lane on this key parsed by Go's strconv.ParseBool, so these are
+# the exact spellings it accepts. `git config --type=bool` would also take yes/on/off,
+# which would silence a hook here while ccx still rode the gt lane.
+NOGT_TRUE = frozenset({"1", "t", "T", "TRUE", "true", "True"})
+
+
+def in_vcs_repo(directory: Path) -> bool:
+    return any(
+        (ancestor / marker).exists() for ancestor in (directory, *directory.parents) for marker in (".git", ".jj")
+    )
+
+
+def git_dir(directory: Path) -> Path | None:
+    for dot_git in (ancestor / ".git" for ancestor in (directory, *directory.parents)):
+        if dot_git.is_dir():
+            return dot_git
+        if dot_git.is_file():
+            pointer = Path(dot_git.read_text().removeprefix("gitdir:").strip())
+            return pointer if pointer.is_absolute() else (dot_git.parent / pointer).resolve()
+    return None
+
+
+def common_git_dir(git: Path) -> Path:
+    return (git / (git / "commondir").read_text().strip()).resolve() if (git / "commondir").is_file() else git
+
+
+def graphite_common_dir(directory: Path) -> Path | None:
+    if (git := git_dir(directory)) is None:
+        return None
+    common = common_git_dir(git)
+    return common if (common / GRAPHITE_MARKER).is_file() else None
+
+
+def is_graphite_repo(directory: Path) -> bool:
+    return graphite_common_dir(directory) is not None
+
+
+def common_config(common: Path, key: str) -> str:
+    try:
+        probe = subprocess.run(
+            ["git", "--git-dir", str(common), "config", "--get", key],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return probe.stdout.strip()
+
+
+@ttl_cache(300.0)
+def gt_disabled(common: Path) -> bool:
+    return common_config(common, "ccx.nogt") in NOGT_TRUE
+
+
+@ttl_cache(300.0)
+def native_stack(common: Path) -> bool:
+    return common_config(common, "ccx.stack") == "github"
+
+
+@ttl_cache(300.0)
+def gt_declined(common: Path) -> bool:
+    """Whether ccx routes this repository off the gt lane despite a live Graphite marker.
+
+    ``gt repo init`` writes the marker once and leaves it there, but submitting also needs
+    Graphite's server-side grant on the remote; without it ``gt submit`` and every ccx stack
+    verb decline, and the only route left is raw git. ``ccx vcs lane`` names the lane ccx
+    actually rides, so it answers what the marker cannot. No ccx on PATH means no answer,
+    and the marker stands.
+    """
+    if shutil.which("ccx") is None:
+        return False
+    try:
+        probe = subprocess.run(
+            ["ccx", "vcs", "lane", "--json"],
+            cwd=common.parent,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if probe.returncode != 0:
+        return False
+    try:
+        lane = json.loads(probe.stdout).get("lane")
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return lane is not None and lane != "gt"
+
+
+def rides_gt_lane(common: Path) -> bool:
+    return not gt_disabled(common) and not native_stack(common) and not gt_declined(common)
+
+
+def graphite_lane(directory: Path) -> bool:
+    common = graphite_common_dir(directory)
+    return common is not None and rides_gt_lane(common)
+
+
+def graphite_lane_of_git_dir(git: Path) -> bool:
+    common = common_git_dir(git)
+    return (common / GRAPHITE_MARKER).is_file() and rides_gt_lane(common)
+
+
+def is_repo_root(resolved: Path) -> bool:
+    return any((resolved / marker).exists() for marker in (".git", ".jj"))
+
+
+def scanned_names(anchor: Path) -> Iterator[str]:
+    for _root, directories, files in os.walk(anchor, followlinks=False):
+        reqenv.checkpoint()
+        yield from itertools.chain(directories, files)
+
+
+def contains_repo(resolved: Path) -> bool:
+    return any(
+        name in (".git", ".jj") or scanned >= 20_000 for scanned, name in enumerate(scanned_names(resolved), start=1)
+    )
